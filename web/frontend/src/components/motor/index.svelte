@@ -1,9 +1,9 @@
 <script lang="ts">
-import { motorApi, MotorClient, type ServiceError } from '@viamrobotics/sdk';
+import { useRobotClient } from '@/hooks/robot-client';
+import Collapse from '@/lib/components/collapse.svelte';
 import { displayError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
-import Collapse from '@/lib/components/collapse.svelte';
-import { useRobotClient } from '@/hooks/robot-client';
+import { ConnectError, MotorClient } from '@viamrobotics/sdk';
 
 export let name: string;
 export let status:
@@ -34,7 +34,7 @@ let revolutions = 0;
 let movementType = 'Go';
 let direction: -1 | 1 = 1;
 let type: MovementTypes = 'go';
-let properties: motorApi.GetPropertiesResponse.AsObject | undefined;
+let properties: { positionReporting?: boolean } | undefined;
 
 const setMovementType = (event: CustomEvent<{ value: string }>) => {
   movementType = event.detail.value;
@@ -139,7 +139,7 @@ const setPower = async () => {
   try {
     await motorClient.setPower(powerPct);
   } catch (error) {
-    displayError(error as ServiceError);
+    displayError(error as ConnectError);
   }
 };
 
@@ -147,7 +147,7 @@ const goFor = async () => {
   try {
     await motorClient.goFor(rpm * direction, revolutions);
   } catch (error) {
-    displayError(error as ServiceError);
+    displayError(error as ConnectError);
   }
 };
 
@@ -155,7 +155,7 @@ const goTo = async () => {
   try {
     await motorClient.goTo(rpm, position);
   } catch (error) {
-    displayError(error as ServiceError);
+    displayError(error as ConnectError);
   }
 };
 
@@ -177,7 +177,7 @@ const motorStop = async () => {
   try {
     await motorClient.stop();
   } catch (error) {
-    displayError(error as ServiceError);
+    displayError(error as ConnectError);
   }
 };
 
@@ -189,7 +189,7 @@ const handleToggle = async (event: CustomEvent<{ open: boolean }>) => {
   try {
     properties = await motorClient.getProperties();
   } catch (error) {
-    displayError(error as ServiceError);
+    displayError(error as ConnectError);
   }
 };
 </script>

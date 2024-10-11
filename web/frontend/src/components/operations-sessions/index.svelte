@@ -1,31 +1,30 @@
 <script lang="ts">
-import { robotApi } from '@viamrobotics/sdk';
+import { useRobotClient } from '@/hooks/robot-client';
+import Collapse from '@/lib/components/collapse.svelte';
 import { displayError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
-import Collapse from '@/lib/components/collapse.svelte';
-import { useRobotClient } from '@/hooks/robot-client';
+import { robotApi } from '@viamrobotics/sdk';
 
 const { robotClient, operations, sessions, sessionsSupported, rtt } =
   useRobotClient();
 
 const killOperation = (id: string) => {
-  const req = new robotApi.CancelOperationRequest();
-  req.setId(id);
+  const req = new robotApi.CancelOperationRequest({ id });
 
   rcLogConditionally(req);
-  $robotClient.robotService.cancelOperation(req, displayError);
+  $robotClient.robotService.cancelOperation(req).catch(displayError);
 };
 
-const peerConnectionType = (info?: robotApi.PeerConnectionInfo.AsObject) => {
+const peerConnectionType = (info?: robotApi.PeerConnectionInfo) => {
   if (!info) {
     return 'N/A';
   }
 
   switch (info.type) {
-    case robotApi.PeerConnectionType.PEER_CONNECTION_TYPE_GRPC: {
+    case robotApi.PeerConnectionType.GRPC: {
       return 'gRPC';
     }
-    case robotApi.PeerConnectionType.PEER_CONNECTION_TYPE_WEBRTC: {
+    case robotApi.PeerConnectionType.WEBRTC: {
       return 'WebRTC';
     }
     default: {
@@ -75,7 +74,7 @@ const peerConnectionType = (info?: robotApi.PeerConnectionInfo.AsObject) => {
                 <span class="font-bold">(this session)</span>
               {/if}
             </td>
-            <td class="border border-medium p-2">{op.sessionId || 'N/A'}</td>
+            <td class="border border-medium p-2">{op.sessionId ?? 'N/A'}</td>
             <td class="border border-medium p-2">{op.method}</td>
             <td class="border border-medium p-2">{elapsed} ms</td>
             <td class="border border-medium p-2 text-center">

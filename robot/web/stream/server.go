@@ -291,7 +291,7 @@ func (server *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStre
 	shortName := resource.SDPTrackNameToShortName(streamToRemove.Stream.Name())
 	_, isAudioResourceErr := audioinput.FromRobot(server.robot, shortName)
 	_, isCameraResourceErr := streamCamera.Camera(server.robot, streamToRemove.Stream)
-	//nolint:nilerr
+
 	if isAudioResourceErr != nil && isCameraResourceErr != nil {
 		return &streampb.RemoveStreamResponse{}, nil
 	}

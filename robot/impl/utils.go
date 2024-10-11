@@ -8,7 +8,9 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/testutils"
 )
 
 func setupLocalRobot(
@@ -31,4 +33,14 @@ func setupLocalRobot(
 		lRobot.reconfigureWorkers.Wait()
 	})
 	return r
+}
+
+func verifyReachableResourceNames(tb testing.TB, r robot.LocalRobot, expected []resource.Name) {
+	tb.Helper()
+
+	lRobot, ok := r.(*localRobot)
+	test.That(tb, ok, test.ShouldBeTrue)
+
+	reachable := lRobot.manager.reachableResourceNames()
+	testutils.VerifySameResourceNames(tb, reachable, expected)
 }

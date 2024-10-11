@@ -25,7 +25,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/services/motion/explore"
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
@@ -237,8 +236,6 @@ type builtIn struct {
 	movementSensor       movementsensor.MovementSensor
 	visionServicesByName map[resource.Name]vision.Service
 	motionService        motion.Service
-	// exploreMotionService will be removed once the motion explore model is integrated into motion builtin
-	exploreMotionService motion.Service
 	obstacles            []*spatialmath.GeoGeometry
 	boundingRegions      []*spatialmath.GeoGeometry
 
@@ -390,14 +387,6 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return errors.Wrap(errBoundingRegionsGeomParse, err.Error())
 	}
 
-	// Create explore motion service
-	// Note: this service will disappear after the explore motion model is integrated into builtIn
-	exploreMotionConf := resource.Config{ConvertedAttributes: &explore.Config{}}
-	svc.exploreMotionService, err = explore.NewExplore(ctx, deps, exploreMotionConf, svc.logger)
-	if err != nil {
-		return err
-	}
-
 	svc.mode = navigation.ModeManual
 	svc.base = baseComponent
 	svc.mapType = mapType
@@ -451,15 +440,10 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	}
 
 	switch svc.mode {
-	case navigation.ModeManual:
+	case navigation.ModeManual, navigation.ModeExplore:
 		// do nothing
 	case navigation.ModeWaypoint:
 		svc.startWaypointMode(cancelCtx, extra)
-	case navigation.ModeExplore:
-		if len(svc.motionCfg.ObstacleDetectors) == 0 {
-			return errors.New("explore mode requires at least one vision service")
-		}
-		svc.startExploreMode(cancelCtx)
 	}
 
 	return nil
@@ -555,9 +539,6 @@ func (svc *builtIn) Close(ctx context.Context) error {
 	defer svc.actionMu.Unlock()
 
 	svc.stopActiveMode()
-	if err := svc.exploreMotionService.Close(ctx); err != nil {
-		return err
-	}
 	return svc.store.Close(ctx)
 }
 

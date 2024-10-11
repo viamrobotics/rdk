@@ -5,7 +5,7 @@ implementation of an API), and Name (which represents a specific instantiation o
 
 Both API and Model have a "triplet" format that begins with a namespace. API has "namespace:type:subtype" with "type" in this
 case being either "service" or "component." Model has "namespace:modelfamily:modelname" with "modelfamily" being somewhat arbitrary
-and useful mostly for organization/grouping. Note that each "tier" contains the tier to the left it. Such that ModelFamily contains
+and useful mostly for organization/grouping. Note that each "tier" contains the tier to the left of it. Such that ModelFamily contains
 Namespace, and Model itself contains ModelFamily.
 
 An example resource (say, a motor) may use the motor API and thus have the API "rdk:component:motor" and have a model such as

@@ -1,8 +1,8 @@
 <script lang="ts">
-import { StreamClient, type ServiceError } from '@viamrobotics/sdk';
-import { displayError } from '@/lib/error';
-import Collapse from '@/lib/components/collapse.svelte';
 import { useConnect, useRobotClient } from '@/hooks/robot-client';
+import Collapse from '@/lib/components/collapse.svelte';
+import { displayError } from '@/lib/error';
+import { ConnectError, StreamClient } from '@viamrobotics/sdk';
 import { onMount } from 'svelte';
 
 export let name: string;
@@ -48,12 +48,12 @@ onMount(() => {
 });
 
 $: if (connected && expanded && !added) {
-  streamClient.add(name).catch((error) => displayError(error as ServiceError));
+  streamClient.add(name).catch((error) => displayError(error as ConnectError));
   added = true;
 } else if (added) {
   streamClient
     .remove(name)
-    .catch((error) => displayError(error as ServiceError));
+    .catch((error) => displayError(error as ConnectError));
   added = false;
 }
 </script>

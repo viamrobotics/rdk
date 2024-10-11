@@ -88,7 +88,7 @@ type resultPromise struct {
 }
 
 func (r *resultPromise) result() ([]node, error) {
-	if r.steps != nil && len(r.steps) > 0 {
+	if r.steps != nil && len(r.steps) > 0 { //nolint:gosimple
 		return r.steps, nil
 	}
 	// wait for a context cancel or a valid channel result

@@ -1,10 +1,10 @@
 <script lang="ts">
-import { notify } from '@viamrobotics/prime';
+import { useRobotClient } from '@/hooks/robot-client';
+import Collapse from '@/lib/components/collapse.svelte';
 import { displayError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
-import { BoardClient, type ServiceError } from '@viamrobotics/sdk';
-import Collapse from '@/lib/components/collapse.svelte';
-import { useRobotClient } from '@/hooks/robot-client';
+import { notify } from '@viamrobotics/prime';
+import { BoardClient, ConnectError } from '@viamrobotics/sdk';
 
 export let name: string;
 export let status:
@@ -36,7 +36,7 @@ const getGPIO = async () => {
     const isHigh = await boardClient.getGPIO(getPin);
     getPinMessage = `Pin: ${getPin} is ${isHigh ? 'high' : 'low'}`;
   } catch (error) {
-    notify.danger((error as ServiceError).message);
+    notify.danger((error as ConnectError).message);
   }
 };
 
@@ -44,7 +44,7 @@ const setGPIO = async () => {
   try {
     await boardClient.setGPIO(setPin, setLevel === 'high');
   } catch (error) {
-    displayError(error as ServiceError);
+    displayError(error as ConnectError);
   }
 };
 
@@ -53,7 +53,7 @@ const getPWM = async () => {
     const dutyCyclePct = await boardClient.getPWM(getPin);
     getPinMessage = `Pin ${getPin}'s duty cycle is ${dutyCyclePct * 100}%.`;
   } catch (error) {
-    displayError(error as ServiceError);
+    displayError(error as ConnectError);
   }
 };
 
@@ -61,7 +61,7 @@ const setPWM = async () => {
   try {
     await boardClient.setPWM(setPin, Number.parseFloat(pwm) / 100);
   } catch (error) {
-    displayError(error as ServiceError);
+    displayError(error as ConnectError);
   }
 };
 
@@ -70,7 +70,7 @@ const getPWMFrequency = async () => {
     const frequencyHz = await boardClient.getPWMFrequency(getPin);
     getPinMessage = `Pin ${getPin}'s frequency is ${frequencyHz}Hz.`;
   } catch (error) {
-    displayError(error as ServiceError);
+    displayError(error as ConnectError);
   }
 };
 
@@ -78,7 +78,7 @@ const setPWMFrequency = async () => {
   try {
     await boardClient.setPWMFrequency(setPin, Number.parseFloat(pwmFrequency));
   } catch (error) {
-    displayError(error as ServiceError);
+    displayError(error as ConnectError);
   }
 };
 
@@ -89,7 +89,7 @@ const writeAnalog = async () => {
       Number.parseInt(analogValue, 10)
     );
   } catch (error) {
-    displayError(error as ServiceError);
+    displayError(error as ConnectError);
   }
 };
 
@@ -98,7 +98,7 @@ const readAnalog = async () => {
     const { value } = await boardClient.readAnalogReader(analogPinName);
     readAnalogMessage = `${analogPinName}: value is ${value}`;
   } catch (error) {
-    notify.danger((error as ServiceError).message);
+    notify.danger((error as ConnectError).message);
   }
 };
 

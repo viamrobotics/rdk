@@ -1,9 +1,9 @@
-import { writable, derived } from 'svelte/store';
-import type { commonApi } from '@viamrobotics/sdk';
 import { sortByName } from '@/lib/resource';
 import { currentWritable } from '@threlte/core';
+import type { ResourceName } from '@viamrobotics/sdk';
+import { derived, writable } from 'svelte/store';
 
-type Resource = commonApi.ResourceName.AsObject;
+type Resource = ResourceName;
 
 export const resources = currentWritable<Resource[]>([]);
 export const statuses = writable<Record<string, unknown>>({});

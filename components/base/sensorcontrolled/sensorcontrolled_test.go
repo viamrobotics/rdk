@@ -3,7 +3,6 @@ package sensorcontrolled
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -345,6 +344,7 @@ func TestReconfig(t *testing.T) {
 	cfg = sBaseTestConfig([]string{"setvel2"}, 100, wrongTypeLinVel, wrongTypeAngVel)
 	err = b.Reconfigure(ctx, deps, cfg)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "type must be 'linear_velocity' or 'angular_velocity'")
+	test.That(t, b.Close(ctx), test.ShouldBeNil)
 }
 
 func TestSensorBaseWithVelocitiesSensor(t *testing.T) {
@@ -358,7 +358,6 @@ func TestSensorBaseWithVelocitiesSensor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	sb, ok := b.(*sensorBase)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sb.velocities.Name().ShortName(), test.ShouldResemble, "setvel1")
 
 	test.That(t, sb.SetVelocity(ctx, r3.Vector{X: 0, Y: 100, Z: 0}, r3.Vector{X: 0, Y: 100, Z: 0}, nil), test.ShouldBeNil)
@@ -366,7 +365,6 @@ func TestSensorBaseWithVelocitiesSensor(t *testing.T) {
 	loopFreq, err := sb.loop.Frequency(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, loopFreq, test.ShouldEqual, 100)
-	test.That(t, sb.Stop(ctx, nil), test.ShouldBeNil)
 	test.That(t, sb.Close(ctx), test.ShouldBeNil)
 }
 
@@ -430,6 +428,7 @@ func TestSensorBaseSpin(t *testing.T) {
 		err := sbNoOri.Spin(ctx, 10, 10, nil)
 		test.That(t, err, test.ShouldBeNil)
 	})
+	test.That(t, b.Close(ctx), test.ShouldBeNil)
 }
 
 func TestSensorBaseMoveStraight(t *testing.T) {
@@ -519,6 +518,7 @@ func TestSensorBaseMoveStraight(t *testing.T) {
 		}
 		orientationValue = defaultOrientationValue
 	})
+	test.That(t, b.Close(ctx), test.ShouldBeNil)
 }
 
 func TestSensorBaseDoCommand(t *testing.T) {
@@ -534,8 +534,7 @@ func TestSensorBaseDoCommand(t *testing.T) {
 	expectedPID := control.PIDConfig{P: 0.1, I: 2.0, D: 0.0}
 	sb.tunedVals = &[]control.PIDConfig{expectedPID, {}}
 	expectedeMap := make(map[string]interface{})
-	expectedeMap["get_tuned_pid"] = (fmt.Sprintf("{p: %v, i: %v, d: %v, type: %v} ",
-		expectedPID.P, expectedPID.I, expectedPID.D, expectedPID.Type))
+	expectedeMap["get_tuned_pid"] = (expectedPID.String())
 
 	req := make(map[string]interface{})
 	req["get_tuned_pid"] = true
@@ -548,4 +547,5 @@ func TestSensorBaseDoCommand(t *testing.T) {
 	resp, err = b.DoCommand(ctx, req)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldResemble, emptyMap)
+	test.That(t, b.Close(ctx), test.ShouldBeNil)
 }

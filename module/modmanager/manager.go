@@ -18,6 +18,7 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 	pb "go.viam.com/api/module/v1"
+	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
@@ -75,8 +76,11 @@ type module struct {
 	handles    modlib.HandlerMap
 	sharedConn rdkgrpc.SharedConn
 	client     pb.ModuleServiceClient
-	addr       string
-	resources  map[resource.Name]*addedResource
+	// robotClient supplements the ModuleServiceClient client to serve select robot level methods from the module server
+	// such as the DiscoverComponents API
+	robotClient robotpb.RobotServiceClient
+	addr        string
+	resources   map[resource.Name]*addedResource
 	// resourcesMu must be held if the `resources` field is accessed without
 	// write-locking the module manager.
 	resourcesMu sync.Mutex
@@ -199,6 +203,26 @@ func (mgr *Manager) Handles() map[string]modlib.HandlerMap {
 	return res
 }
 
+// An allowed list of specific viam namespace modules. We want to allow running some of our official
+// modules even in an untrusted environment.
+var allowedModules = map[string]bool{
+	"viam:raspberry-pi": true,
+}
+
+// Checks if the modules added in an untrusted environment are Viam modules
+// and returns `true` and a list of their configs if any exist in the passed-in slice.
+func checkIfAllowed(confs ...config.Module) (
+	allowed bool /*false*/, newConfs []config.Module,
+) {
+	for _, conf := range confs {
+		if ok := allowedModules[conf.ModuleID]; ok {
+			allowed = true
+			newConfs = append(newConfs, conf)
+		}
+	}
+	return allowed, newConfs
+}
+
 // Add adds and starts a new resource modules for each given module configuration.
 //
 // Each module configuration should have a unique name - if duplicate names are detected,
@@ -208,7 +232,15 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 	defer mgr.mu.Unlock()
 
 	if mgr.untrustedEnv {
-		return errModularResourcesDisabled
+		allowed, newConfs := checkIfAllowed(confs...)
+		if !allowed {
+			return errModularResourcesDisabled
+		}
+		// overwrite with just the modules we've allowed
+		confs = newConfs
+		mgr.logger.CWarnw(
+			ctx, "Running in an untrusted environment; will only add some modules", "modules",
+			confs)
 	}
 
 	var (
@@ -830,11 +862,11 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 		if orphanedResourceNames := mgr.attemptRestart(mgr.restartCtx, mod); orphanedResourceNames != nil {
 			if mgr.removeOrphanedResources != nil {
 				mgr.removeOrphanedResources(mgr.restartCtx, orphanedResourceNames)
-				rNames := make([]string, 0, len(orphanedResourceNames))
-				for _, rName := range orphanedResourceNames {
-					rNames = append(rNames, rName.String())
-				}
-				mgr.logger.Debugw("Removed resources after failed module restart", "module", mod.cfg.Name, "resources", rNames)
+				mgr.logger.Debugw(
+					"Removed resources after failed module restart",
+					"module", mod.cfg.Name,
+					"resources", resource.NamesToStrings(orphanedResourceNames),
+				)
 			}
 			return false
 		}
@@ -961,7 +993,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 func (m *module) dial() error {
 	// TODO(PRODUCT-343): session support probably means interceptors here
 	var err error
-	conn, err := grpc.Dial(
+	conn, err := grpc.Dial( //nolint:staticcheck
 		"unix://"+m.addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithChainUnaryInterceptor(
@@ -991,6 +1023,7 @@ func (m *module) dial() error {
 	// out.
 	m.sharedConn.ResetConn(rpc.GrpcOverHTTPClientConn{ClientConn: conn}, m.logger)
 	m.client = pb.NewModuleServiceClient(m.sharedConn.GrpcConn())
+	m.robotClient = robotpb.NewRobotServiceClient(m.sharedConn.GrpcConn())
 	return nil
 }
 
@@ -1163,6 +1196,10 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger log
 		case api.API.IsComponent():
 			for _, model := range models {
 				logger.Infow("Registering component API and model from module", "module", m.cfg.Name, "API", api.API, "model", model)
+				// We must copy because the Discover closure func relies on api and model, but they are iterators and mutate.
+				// Copying prevents mutation.
+				modelCopy := model
+				apiCopy := api
 				resource.RegisterComponent(api.API, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 					Constructor: func(
 						ctx context.Context,
@@ -1171,6 +1208,21 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger log
 						logger logging.Logger,
 					) (resource.Resource, error) {
 						return mgr.AddResource(ctx, conf, DepsToNames(deps))
+					},
+					Discover: func(ctx context.Context, logger logging.Logger) (interface{}, error) {
+						req := &robotpb.DiscoverComponentsRequest{
+							Queries: []*robotpb.DiscoveryQuery{
+								{Subtype: apiCopy.API.String(), Model: modelCopy.String()},
+							},
+						}
+
+						res, err := m.robotClient.DiscoverComponents(ctx, req)
+						if err != nil {
+							m.logger.Errorf("error in modular DiscoverComponents: %s", err)
+							return nil, err
+						}
+
+						return res, nil
 					},
 				})
 			}

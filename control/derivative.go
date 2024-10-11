@@ -87,6 +87,8 @@ func derive(x []float64, dt time.Duration, stencil *derivativeStencil) (float64,
 }
 
 func (d *derivative) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*Signal, bool) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	if d.stencil.Type == "backward" {
 		for idx, s := range x {
 			d.px[idx] = append(d.px[idx][1:], s.GetSignalValueAt(0))

@@ -1,6 +1,6 @@
-import type { commonApi } from '@viamrobotics/sdk';
+import type { ResourceName } from '@viamrobotics/sdk';
 
-type Resource = commonApi.ResourceName.AsObject;
+type Resource = ResourceName;
 
 export const sortByName = (item1: Resource, item2: Resource) => {
   if (item1.name > item2.name) {

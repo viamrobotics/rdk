@@ -23,6 +23,8 @@ var (
 	defaultMaxQueueSize        = 20000
 	writeBatchSize             = 100
 	errUninitializedConnection = errors.New("sharedConn is true and connection is not initialized")
+	logWriteTimeout            = 4 * time.Second
+	logWriteTimeoutBehindProxy = 12 * time.Second
 )
 
 // CloudConfig contains the necessary inputs to send logs to the app backend over grpc.
@@ -382,7 +384,13 @@ type remoteLogWriterGRPC struct {
 }
 
 func (w *remoteLogWriterGRPC) write(ctx context.Context, logs []*commonpb.LogEntry) error {
-	ctx, cancel := context.WithTimeout(ctx, time.Second*4)
+	timeout := logWriteTimeout
+	// When environment indicates we are behind a proxy, bump timeout. Network
+	// operations tend to take longer when behind a proxy.
+	if proxyAddr := os.Getenv(rpc.SocksProxyEnvVar); proxyAddr != "" {
+		timeout = logWriteTimeoutBehindProxy
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	client, err := w.getOrCreateClient(ctx)

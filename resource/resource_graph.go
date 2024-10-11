@@ -183,6 +183,22 @@ func (g *Graph) Names() []Name {
 	return names
 }
 
+// ReachableNames returns the all resource graph names, excluding remote resources that are unreached.
+func (g *Graph) ReachableNames() []Name {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	names := make([]Name, len(g.nodes))
+	i := 0
+	for k, node := range g.nodes {
+		if node.unreachable {
+			continue
+		}
+		names[i] = k
+		i++
+	}
+	return names
+}
+
 // FindNodesByShortNameAndAPI will look for resources matching both the API and the name.
 func (g *Graph) FindNodesByShortNameAndAPI(name Name) []Name {
 	g.mu.Lock()
@@ -579,11 +595,11 @@ func (g *Graph) ResolveDependencies(logger logging.Logger) error {
 				default:
 					allErrs = multierr.Combine(
 						allErrs,
-						errors.Errorf("conflicting names for resource %q: %v", nodeName, nodeNames))
+						errors.Errorf("conflicting names for resource %q: %v", nodeName, NamesToStrings(nodeNames)))
 					logger.Errorw(
 						"cannot resolve dependency for resource due to multiple matching names",
 						"name", nodeName,
-						"conflicts", nodeNames,
+						"conflicts", NamesToStrings(nodeNames),
 					)
 				}
 				return Name{}, false
@@ -624,10 +640,17 @@ func (g *Graph) isNodeDependingOn(node, child Name) bool {
 	return g.transitiveClosureMatrix[child][node] != 0
 }
 
-// SubGraphFrom returns a Sub-Graph containing all linked dependencies starting with node Name.
+// SubGraphFrom returns a Sub-Graph containing all linked dependencies starting with node [Name].
 func (g *Graph) SubGraphFrom(node Name) (*Graph, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
+
+	return g.subGraphFromWithMutex(node)
+}
+
+// subGraphFrom returns a Sub-Graph containing all linked dependencies starting with node [Name].
+// This method is NOT threadsafe: A client must hold [Graph.mu] while calling this method.
+func (g *Graph) subGraphFromWithMutex(node Name) (*Graph, error) {
 	if _, ok := g.nodes[node]; !ok {
 		return nil, errors.Errorf("cannot create sub-graph from non existing node %q ", node.Name)
 	}
@@ -639,6 +662,21 @@ func (g *Graph) SubGraphFrom(node Name) (*Graph, error) {
 		}
 	}
 	return subGraph, nil
+}
+
+// MarkReachability marks all nodes in the subgraph from the given [Name] node as either reachable [true] or unreachable [false].
+func (g *Graph) MarkReachability(node Name, reachable bool) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	subGraph, err := g.subGraphFromWithMutex(node)
+	if err != nil {
+		return err
+	}
+	for _, node := range subGraph.nodes {
+		node.markReachability(reachable)
+	}
+	return nil
 }
 
 // Status returns a slice of all graph node statuses.

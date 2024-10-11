@@ -1,14 +1,14 @@
-import type { ServiceError } from '@viamrobotics/sdk';
-import { GeoPose } from '@viamrobotics/prime-blocks';
-import { useNavClient } from './use-nav-client';
-import { writable, get } from 'svelte/store';
-import { setAsyncInterval } from '@/lib/schedule';
 import { useConnect } from '@/hooks/robot-client';
+import { setAsyncInterval } from '@/lib/schedule';
+import { GeoPose } from '@viamrobotics/prime-blocks';
+import { ConnectError } from '@viamrobotics/sdk';
+import { get, writable } from 'svelte/store';
+import { useNavClient } from './use-nav-client';
 
 export const useBasePose = (name: string) => {
   const navClient = useNavClient(name);
   const pose = writable<GeoPose | undefined>(undefined);
-  const error = writable<ServiceError | undefined>(undefined);
+  const error = writable<ConnectError | undefined>(undefined);
 
   const updateLocation = async () => {
     try {
@@ -34,7 +34,7 @@ export const useBasePose = (name: string) => {
       error.set(undefined);
       pose.set(position);
     } catch (error_) {
-      error.set(error_ as ServiceError);
+      error.set(error_ as ConnectError);
       pose.set(undefined);
     }
   };

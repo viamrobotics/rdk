@@ -23,7 +23,7 @@ const asciiViam = `
 
 // printf prints a message with no prefix.
 func printf(w io.Writer, format string, a ...interface{}) {
-	fmt.Fprintf(w, format+"\n", a...)
+	fmt.Fprintf(w, format+"\n", a...) //nolint:errcheck
 }
 
 // debugf prints a message prefixed with a bold grey "Debug: ".
@@ -34,7 +34,7 @@ func debugf(w io.Writer, debugMode bool, format string, a ...interface{}) {
 	if _, err := color.New(color.Bold, color.FgHiBlack).Fprint(w, "Debug: "); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Fprintf(w, format+"\n", a...)
+	fmt.Fprintf(w, format+"\n", a...) //nolint:errcheck
 }
 
 // infof prints a message prefixed with a bold cyan "Info: ".
@@ -45,7 +45,7 @@ func infof(w io.Writer, format string, a ...interface{}) {
 	if _, err := color.New(color.Bold, color.FgCyan).Fprint(w, "Info: "); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Fprintf(w, format+"\n", a...)
+	fmt.Fprintf(w, format+"\n", a...) //nolint:errcheck
 }
 
 // warningf prints a message prefixed with a bold yellow "Warning: ".
@@ -53,7 +53,7 @@ func warningf(w io.Writer, format string, a ...interface{}) {
 	if _, err := color.New(color.Bold, color.FgYellow).Fprint(w, "Warning: "); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Fprintf(w, format+"\n", a...)
+	fmt.Fprintf(w, format+"\n", a...) //nolint:errcheck
 }
 
 // Errorf prints a message prefixed with a bold red "Error: " prefix and exits with 1.
@@ -69,7 +69,7 @@ func Errorf(w io.Writer, format string, a ...interface{}) {
 		log.Fatal("Malformed error message:", toPrint)
 	}
 	upperR := unicode.ToUpper(r)
-	fmt.Fprintf(w, string(upperR)+toPrint[i:])
+	fmt.Fprintf(w, string(upperR)+toPrint[i:]) //nolint:errcheck,govet
 
 	os.Exit(1)
 }

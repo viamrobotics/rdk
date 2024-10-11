@@ -157,6 +157,11 @@ func (c WebcamConfig) Validate(path string) ([]string, error) {
 			"got illegal negative dimensions for width_px and height_px (%d, %d) fields set for webcam camera",
 			c.Height, c.Width)
 	}
+	if c.FrameRate < 0 {
+		return nil, fmt.Errorf(
+			"got illegal non-positive dimension for frame rate (%.2f) field set for webcam camera",
+			c.FrameRate)
+	}
 
 	return []string{}, nil
 }
@@ -519,7 +524,7 @@ func (c *monitoredWebcam) Monitor() {
 						defer c.mu.Unlock()
 
 						if err := c.reconnectCamera(&c.conf); err != nil {
-							c.logger.Errorw("failed to reconnect camera", "error", err)
+							c.logger.Debugw("failed to reconnect camera", "error", err)
 							return true
 						}
 						c.logger.Infow("camera reconnected")
@@ -639,6 +644,10 @@ func (c *monitoredWebcam) Properties(ctx context.Context) (camera.Properties, er
 			c.hasLoggedIntrinsicsInfo = true
 		}
 		props.IntrinsicParams = &cameraIntrinsics
+
+		if c.conf.FrameRate > 0 {
+			props.FrameRate = c.conf.FrameRate
+		}
 	}
 	return props, nil
 }

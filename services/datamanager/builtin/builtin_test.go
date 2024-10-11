@@ -1,11 +1,14 @@
 package builtin
 
 import (
+	"cmp"
 	"context"
 	"io/fs"
+	"maps"
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -55,6 +58,46 @@ type pathologicalAssociatedConfig struct{}
 func (p *pathologicalAssociatedConfig) Equals(resource.AssociatedConfig) bool                   { return false }
 func (p *pathologicalAssociatedConfig) UpdateResourceNames(func(n resource.Name) resource.Name) {}
 func (p *pathologicalAssociatedConfig) Link(conf *resource.Config)                              {}
+
+func TestCollectorRegistry(t *testing.T) {
+	collectors := data.DumpRegisteredCollectors()
+	test.That(t, len(collectors), test.ShouldEqual, 28)
+	mds := slices.SortedFunc(maps.Keys(collectors), func(a, b data.MethodMetadata) int {
+		return cmp.Compare(a.String(), b.String())
+	})
+	rdkComponent := resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "component"}
+	rdkService := resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "service"}
+	test.That(t, mds, test.ShouldResemble, []data.MethodMetadata{
+		{API: resource.API{Type: rdkComponent, SubtypeName: "arm"}, MethodName: "EndPosition"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "arm"}, MethodName: "JointPositions"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "board"}, MethodName: "Analogs"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "board"}, MethodName: "Gpios"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "camera"}, MethodName: "GetImages"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "camera"}, MethodName: "NextPointCloud"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "camera"}, MethodName: "ReadImage"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "encoder"}, MethodName: "TicksCount"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "gantry"}, MethodName: "Lengths"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "gantry"}, MethodName: "Position"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "motor"}, MethodName: "IsPowered"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "motor"}, MethodName: "Position"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "movement_sensor"}, MethodName: "AngularVelocity"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "movement_sensor"}, MethodName: "CompassHeading"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "movement_sensor"}, MethodName: "LinearAcceleration"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "movement_sensor"}, MethodName: "LinearVelocity"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "movement_sensor"}, MethodName: "Orientation"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "movement_sensor"}, MethodName: "Position"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "movement_sensor"}, MethodName: "Readings"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "power_sensor"}, MethodName: "Current"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "power_sensor"}, MethodName: "Power"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "power_sensor"}, MethodName: "Readings"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "power_sensor"}, MethodName: "Voltage"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "sensor"}, MethodName: "Readings"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "servo"}, MethodName: "Position"},
+		{API: resource.API{Type: rdkService, SubtypeName: "slam"}, MethodName: "PointCloudMap"},
+		{API: resource.API{Type: rdkService, SubtypeName: "slam"}, MethodName: "Position"},
+		{API: resource.API{Type: rdkService, SubtypeName: "vision"}, MethodName: "CaptureAllFromCamera"},
+	})
+}
 
 func TestNew(t *testing.T) {
 	logger := logging.NewTestLogger(t)
@@ -266,6 +309,9 @@ func TestFileDeletion(t *testing.T) {
 	// create sync clock so we can control when a single iteration of file deltion happens
 	c := config.ConvertedAttributes.(*Config)
 	c.CaptureDir = tempDir
+	// MaximumCaptureFileSizeBytes is set to 1 so that each reading becomes its own capture file
+	// and we can confidently read the capture file without it's contents being modified by the collector
+	c.MaximumCaptureFileSizeBytes = 1
 	bSvc, err := New(ctx, deps, config, datasync.NoOpCloudClientConstructor, connToConnectivityStateError, logger)
 	test.That(t, err, test.ShouldBeNil)
 	b := bSvc.(*builtIn)
@@ -839,7 +885,7 @@ func getAllFiles(dir string) ([]os.FileInfo, []string) {
 func waitForCaptureFilesToEqualNFiles(ctx context.Context, captureDir string, n int, logger logging.Logger) error {
 	var diagnostics sync.Once
 	start := time.Now()
-	nonEmptyFiles := 0
+	captureFiles := 0
 	files := []fs.FileInfo{}
 	i := 0
 	for {
@@ -848,20 +894,20 @@ func waitForCaptureFilesToEqualNFiles(ctx context.Context, captureDir string, n 
 			for _, f := range files {
 				fNames = append(fNames, f.Name())
 			}
-			logger.Errorf("target: %d, iterations: %d, nonEmptyFiles: %d, files: %v", n, i, nonEmptyFiles, fNames)
+			logger.Errorf("target: %d, iterations: %d, captureFiles: %d, files: %v", n, i, captureFiles, fNames)
 			return err
 		}
 		files = getAllFileInfos(captureDir)
-		nonEmptyFiles = 0
+		captureFiles = 0
 		for idx := range files {
-			if files[idx].Size() > int64(emptyFileBytesSize) {
+			if files[idx].Size() > int64(emptyFileBytesSize) && filepath.Ext(files[idx].Name()) == data.CompletedCaptureFileExt {
 				// Every datamanager file has at least 90 bytes of metadata. Wait for that to be
 				// observed before considering the file as "existing".
-				nonEmptyFiles++
+				captureFiles++
 			}
 		}
 
-		if nonEmptyFiles == n {
+		if captureFiles == n {
 			return nil
 		}
 

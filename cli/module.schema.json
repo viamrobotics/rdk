@@ -12,7 +12,8 @@
         "visibility": {
             "enum": [
                 "private",
-                "public"
+                "public",
+                "public_unlisted"
             ]
         },
         "url": {
@@ -103,6 +104,16 @@
                     "default": [
                         "linux/amd64",
                         "linux/arm64"
+                    ]
+                },
+                "darwin_deps": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "Homebrew dependencies for darwin builds. The first example has the default list; explicitly pass `[]` for empty.",
+                    "examples": [
+                        ["go", "pkg-config", "nlopt-static", "x264", "jpeg-turbo", "ffmpeg"]
                     ]
                 }
             }

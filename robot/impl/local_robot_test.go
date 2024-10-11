@@ -184,7 +184,6 @@ func TestConfigRemote(t *testing.T) {
 
 	expected := []resource.Name{
 		motion.Named(resource.DefaultServiceName),
-		sensors.Named(resource.DefaultServiceName),
 		arm.Named("squee:pieceArm"),
 		arm.Named("foo:pieceArm"),
 		arm.Named("bar:pieceArm"),
@@ -206,11 +205,8 @@ func TestConfigRemote(t *testing.T) {
 		gripper.Named("foo:pieceGripper"),
 		gripper.Named("bar:pieceGripper"),
 		motion.Named("squee:builtin"),
-		sensors.Named("squee:builtin"),
 		motion.Named("foo:builtin"),
-		sensors.Named("foo:builtin"),
 		motion.Named("bar:builtin"),
-		sensors.Named("bar:builtin"),
 	}
 
 	resources2 := r2.ResourceNames()
@@ -426,7 +422,6 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 
 			expected := []resource.Name{
 				motion.Named(resource.DefaultServiceName),
-				sensors.Named(resource.DefaultServiceName),
 				arm.Named("bar:pieceArm"),
 				arm.Named("foo:pieceArm"),
 				audioinput.Named("bar:mic1"),
@@ -440,9 +435,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				gripper.Named("bar:pieceGripper"),
 				gripper.Named("foo:pieceGripper"),
 				motion.Named("foo:builtin"),
-				sensors.Named("foo:builtin"),
 				motion.Named("bar:builtin"),
-				sensors.Named("bar:builtin"),
 			}
 
 			resources2 := r2.ResourceNames()
@@ -597,7 +590,6 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 
 	expected := []resource.Name{
 		motion.Named(resource.DefaultServiceName),
-		sensors.Named(resource.DefaultServiceName),
 		arm.Named("foo:pieceArm"),
 		audioinput.Named("foo:mic1"),
 		camera.Named("foo:cameraOver"),
@@ -605,7 +597,6 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		movementsensor.Named("foo:movement_sensor2"),
 		gripper.Named("foo:pieceGripper"),
 		motion.Named("foo:builtin"),
-		sensors.Named("foo:builtin"),
 	}
 
 	resources2 := r2.ResourceNames()
@@ -837,7 +828,7 @@ func TestMetadataUpdate(t *testing.T) {
 	resources := r.ResourceNames()
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, len(resources), test.ShouldEqual, 8)
+	test.That(t, len(resources), test.ShouldEqual, 7)
 	test.That(t, err, test.ShouldBeNil)
 
 	// 5 declared resources + default sensors
@@ -849,7 +840,6 @@ func TestMetadataUpdate(t *testing.T) {
 		movementsensor.Named("movement_sensor1"),
 		movementsensor.Named("movement_sensor2"),
 		motion.Named(resource.DefaultServiceName),
-		sensors.Named(resource.DefaultServiceName),
 	}
 
 	resources = r.ResourceNames()
@@ -859,32 +849,6 @@ func TestMetadataUpdate(t *testing.T) {
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	resources = r.ResourceNames()
 	test.That(t, resources, test.ShouldBeEmpty)
-}
-
-func TestSensorsService(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	r := setupLocalRobot(t, context.Background(), cfg, logger)
-
-	svc, err := sensors.FromRobot(r, resource.DefaultServiceName)
-	test.That(t, err, test.ShouldBeNil)
-
-	sensorNames := []resource.Name{movementsensor.Named("movement_sensor1"), movementsensor.Named("movement_sensor2")}
-	foundSensors, err := svc.Sensors(context.Background(), map[string]interface{}{})
-	test.That(t, err, test.ShouldBeNil)
-	rtestutils.VerifySameResourceNames(t, foundSensors, sensorNames)
-
-	readings, err := svc.Readings(context.Background(), []resource.Name{movementsensor.Named("movement_sensor1")}, map[string]interface{}{})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(readings), test.ShouldEqual, 1)
-	test.That(t, readings[0].Name, test.ShouldResemble, movementsensor.Named("movement_sensor1"))
-	test.That(t, len(readings[0].Readings), test.ShouldBeGreaterThan, 3)
-
-	readings, err = svc.Readings(context.Background(), sensorNames, map[string]interface{}{})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(readings), test.ShouldEqual, 2)
 }
 
 func TestStatusService(t *testing.T) {
@@ -1064,7 +1028,7 @@ func TestStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		// 5 because the 3 default services are always added to a local_robot. We only care
 		// about the first two (working1 and button1) however.
-		test.That(t, len(resp), test.ShouldEqual, 4)
+		test.That(t, len(resp), test.ShouldEqual, 3)
 
 		// although the response is length 5, the only thing we actually care about for testing
 		// is consistency with the expected values in the workingResourceMap. So we eliminate
@@ -1180,7 +1144,6 @@ func TestStatusRemote(t *testing.T) {
 		r.ResourceNames(),
 		[]resource.Name{
 			motion.Named(resource.DefaultServiceName),
-			sensors.Named(resource.DefaultServiceName),
 			arm.Named("foo:arm1"),
 			arm.Named("foo:arm2"),
 			arm.Named("bar:arm1"),
@@ -1288,7 +1251,6 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 		r.ResourceNames(),
 		[]resource.Name{
 			motion.Named(resource.DefaultServiceName),
-			sensors.Named(resource.DefaultServiceName),
 			arm.Named("remote:foo:arm1"), arm.Named("remote:foo:arm2"),
 			arm.Named("remote:pieceArm"),
 			arm.Named("remote:foo:pieceArm"),
@@ -1298,9 +1260,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 			movementsensor.Named("remote:movement_sensor2"),
 			gripper.Named("remote:pieceGripper"),
 			motion.Named("remote:builtin"),
-			sensors.Named("remote:builtin"),
 			motion.Named("remote:foo:builtin"),
-			sensors.Named("remote:foo:builtin"),
 		},
 	)
 	arm1, err := r.ResourceByName(arm.Named("remote:foo:arm1"))
@@ -1772,7 +1732,7 @@ func TestConfigMethod(t *testing.T) {
 	// Assert that Config method returns the two default services: motion and sensors.
 	actualCfg := r.Config()
 	defaultSvcs := removeDefaultServices(actualCfg)
-	test.That(t, len(defaultSvcs), test.ShouldEqual, 2)
+	test.That(t, len(defaultSvcs), test.ShouldEqual, 1)
 	for _, svc := range defaultSvcs {
 		test.That(t, svc.API.SubtypeName, test.ShouldBeIn,
 			motion.API.SubtypeName, sensors.API.SubtypeName)
@@ -1877,7 +1837,7 @@ func TestConfigMethod(t *testing.T) {
 	// Assert that default motion and sensor services are still present, but data
 	// manager default service has been replaced by the "fake1" data manager service.
 	defaultSvcs = removeDefaultServices(actualCfg)
-	test.That(t, len(defaultSvcs), test.ShouldEqual, 2)
+	test.That(t, len(defaultSvcs), test.ShouldEqual, 1)
 	for _, svc := range defaultSvcs {
 		test.That(t, svc.API.SubtypeName, test.ShouldBeIn, motion.API.SubtypeName,
 			sensors.API.SubtypeName)
@@ -3442,14 +3402,6 @@ func getExpectedDefaultStatuses(revision string) []resource.Status {
 		{
 			Name: resource.Name{
 				API:  resource.APINamespaceRDK.WithServiceType("motion"),
-				Name: "builtin",
-			},
-			State:    resource.NodeStateReady,
-			Revision: revision,
-		},
-		{
-			Name: resource.Name{
-				API:  resource.APINamespaceRDK.WithServiceType("sensors"),
 				Name: "builtin",
 			},
 			State:    resource.NodeStateReady,

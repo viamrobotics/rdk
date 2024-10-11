@@ -1,20 +1,20 @@
 <svelte:options immutable />
 
 <script lang="ts">
-import 'maplibre-gl/dist/maplibre-gl.css';
-import { type ServiceError, navigationApi } from '@viamrobotics/sdk';
-import { notify } from '@viamrobotics/prime';
-import { IconButton, Button, persisted } from '@viamrobotics/prime-core';
-import { NavigationMap, type LngLat } from '@viamrobotics/prime-blocks';
 import Collapse from '@/lib/components/collapse.svelte';
+import { notify } from '@viamrobotics/prime';
+import { NavigationMap, type LngLat } from '@viamrobotics/prime-blocks';
+import { Button, IconButton, persisted } from '@viamrobotics/prime-core';
+import { ConnectError, navigationApi } from '@viamrobotics/sdk';
+import type { Map } from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import LngLatInput from './components/input/lnglat.svelte';
 import Waypoints from './components/waypoints.svelte';
-import { useWaypoints } from './hooks/use-waypoints';
-import { useNavMode } from './hooks/use-nav-mode';
 import { useBasePose } from './hooks/use-base-pose';
-import type { Map } from 'maplibre-gl';
+import { useNavMode } from './hooks/use-nav-mode';
 import { useObstacles } from './hooks/use-obstacles';
 import { usePaths } from './hooks/use-paths';
+import { useWaypoints } from './hooks/use-waypoints';
 
 export let name: string;
 
@@ -41,13 +41,13 @@ const handleModeSelect = async (
     await setMode(
       (
         {
-          Manual: navigationApi.Mode.MODE_MANUAL,
-          Waypoint: navigationApi.Mode.MODE_WAYPOINT,
+          Manual: navigationApi.Mode.MANUAL,
+          Waypoint: navigationApi.Mode.WAYPOINT,
         } as const
       )[event.detail.value]
     );
   } catch (error) {
-    notify.danger((error as ServiceError).message);
+    notify.danger((error as ConnectError).message);
   }
 };
 
@@ -55,9 +55,9 @@ const stopNavigation = async (event: MouseEvent) => {
   event.stopPropagation();
 
   try {
-    await setMode(navigationApi.Mode.MODE_MANUAL);
+    await setMode(navigationApi.Mode.MANUAL);
   } catch (error) {
-    notify.danger((error as ServiceError).message);
+    notify.danger((error as ConnectError).message);
   }
 };
 
@@ -65,7 +65,7 @@ const handleAddWaypoint = async (event: CustomEvent<LngLat>) => {
   try {
     await addWaypoint(event.detail);
   } catch (error) {
-    notify.danger((error as ServiceError).message);
+    notify.danger((error as ConnectError).message);
   }
 };
 
@@ -73,7 +73,7 @@ const handleDeleteWaypoint = async (event: CustomEvent<string>) => {
   try {
     await deleteWaypoint(event.detail);
   } catch (error) {
-    notify.danger((error as ServiceError).message);
+    notify.danger((error as ConnectError).message);
   }
 };
 </script>
@@ -125,11 +125,11 @@ const handleDeleteWaypoint = async (event: CustomEvent<string>) => {
         label="Navigation mode"
         options="Manual, Waypoint"
         selected={{
-          [navigationApi.Mode.MODE_UNSPECIFIED]: '',
-          [navigationApi.Mode.MODE_MANUAL]: 'Manual',
-          [navigationApi.Mode.MODE_WAYPOINT]: 'Waypoint',
-          [navigationApi.Mode.MODE_EXPLORE]: 'Explore',
-        }[$mode ?? navigationApi.Mode.MODE_UNSPECIFIED]}
+          [navigationApi.Mode.UNSPECIFIED]: '',
+          [navigationApi.Mode.MANUAL]: 'Manual',
+          [navigationApi.Mode.WAYPOINT]: 'Waypoint',
+          [navigationApi.Mode.EXPLORE]: 'Explore',
+        }[$mode ?? navigationApi.Mode.UNSPECIFIED]}
         on:input={handleModeSelect}
       />
     </div>
