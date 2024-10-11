@@ -105,6 +105,14 @@ func FromProto(proto *pb.RobotConfig, logger logging.Logger) (*Config, error) {
 
 	logAnyFragmentOverwriteErrors(logger, proto.OverwriteFragmentStatus)
 
+	if proto.Maintenance != nil {
+		maintenanceConfig, err := MaintenanceConfigFromProto(proto.Maintenance)
+		if err != nil {
+			return nil, errors.Wrap(err, "error converting maintenance config from proto")
+		}
+		cfg.MaintenanceConfig = maintenanceConfig
+	}
+
 	return &cfg, nil
 }
 
