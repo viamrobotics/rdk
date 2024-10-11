@@ -524,7 +524,7 @@ func (c *monitoredWebcam) Monitor() {
 						defer c.mu.Unlock()
 
 						if err := c.reconnectCamera(&c.conf); err != nil {
-							c.logger.Errorw("failed to reconnect camera", "error", err)
+							c.logger.Debugw("failed to reconnect camera", "error", err)
 							return true
 						}
 						c.logger.Infow("camera reconnected")

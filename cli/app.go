@@ -61,6 +61,7 @@ const (
 	moduleBuildFlagPlatform  = "platform"
 	moduleBuildFlagWait      = "wait"
 	moduleBuildFlagToken     = "token"
+	moduleBuildFlagWorkdir   = "workdir"
 	moduleBuildFlagGroupLogs = "group-logs"
 	moduleBuildRestartOnly   = "restart-only"
 	moduleBuildFlagNoBuild   = "no-build"
@@ -1628,6 +1629,11 @@ Example:
 								&cli.StringFlag{
 									Name:  moduleBuildFlagToken,
 									Usage: "checkout token for private repos, not necessary for public repos",
+								},
+								&cli.StringFlag{
+									Name:  moduleBuildFlagWorkdir,
+									Usage: "use this to indicate that your meta.json is in a subdirectory of your repo." + " --module flag should be relative to this",
+									Value: ".",
 								},
 							},
 							Action: ModuleBuildStartAction,

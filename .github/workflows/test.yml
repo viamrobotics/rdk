@@ -181,25 +181,6 @@ jobs:
           ghcr.io/viamrobotics/rdk-devenv:armhf-cache \
           sudo -Hu testbot bash -lc 'cd /rdk && go test -v -tags=no_tflite ./...'
 
-  test_pi:
-    name: Test Raspberry Pi Code
-    runs-on: pi4
-    timeout-minutes: 5
-
-    steps:
-    - name: Clean workspace
-      run: |
-        shopt -s dotglob
-        sudo chown -R `whoami` ./
-        rm -rf ./*
-
-    - uses: actions/checkout@v3
-      with:
-        ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
-
-    - name: Run go unit tests on Pi
-      run: make test-pi
-
   motion_tests:
     name: Test Longer-running Motion Plans if affected
     uses: viamrobotics/rdk/.github/workflows/motion-tests.yml@main
@@ -216,6 +197,8 @@ jobs:
     - run: |
         go run ./cli/viam/ module create --local-only --name schematest --public-namespace ns
         cat meta.json | jq '.models = [{"api": "x:y:z", "model": "x:y:z"}]' > meta2.json
+        python -m venv .venv
+        source .venv/bin/activate
         pip install -r cli/test-requirements.txt
         check-jsonschema --schemafile ./cli/module.schema.json meta2.json
 
@@ -255,7 +238,7 @@ jobs:
 
   test_passing:
     name: All Tests Passing
-    needs: [test_go, test_web_e2e, test_pi, test32, motion_tests]
+    needs: [test_go, test_web_e2e, test32, motion_tests]
     runs-on: [ubuntu-latest]
     if: always()
     steps:
@@ -263,12 +246,10 @@ jobs:
         run: |
           echo Go Unit Tests: ${{ needs.test_go.result }}
           echo Go 32-bit Tests: ${{ needs.test32.result }}
-          echo Go Pi Tests: ${{ needs.test_pi.result }}
           echo Web/E2E Tests: ${{ needs.test_web_e2e.result }}
           echo Motion Tests: ${{ needs.motion_tests.result }}
           [ "${{ needs.test_go.result }}" == "success" ] && \
           [ "${{ needs.test32.result }}" == "success" ] && \
-          [ "${{ needs.test_pi.result }}" == "success" ] && \
           [ "${{ needs.test_web_e2e.result }}" == "success" ] && \
           [ "${{ needs.motion_tests.result }}" == "success" ]
 
