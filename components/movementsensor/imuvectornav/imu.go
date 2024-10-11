@@ -228,7 +228,7 @@ func newVectorNav(
 		}
 	})
 	<-waitCh
-	logger.Infof("we've made it past intializing everything")
+
 	return v, nil
 }
 
