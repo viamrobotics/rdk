@@ -1,10 +1,10 @@
 <script lang="ts">
-import { type ServiceError } from '@viamrobotics/sdk';
-import { displayError } from '@/lib/error';
+import { getCurrent, getPower, getVoltage } from '@/api/power-sensor';
+import { useConnect, useRobotClient } from '@/hooks/robot-client';
 import Collapse from '@/lib/components/collapse.svelte';
+import { displayError } from '@/lib/error';
 import { setAsyncInterval } from '@/lib/schedule';
-import { getVoltage, getCurrent, getPower } from '@/api/power-sensor';
-import { useRobotClient, useConnect } from '@/hooks/robot-client';
+import { ConnectError } from '@viamrobotics/sdk';
 
 export let name: string;
 
@@ -32,7 +32,7 @@ const refresh = async () => {
     currentValue = results[1];
     powerValue = results[2];
   } catch (error) {
-    displayError(error as ServiceError);
+    displayError(error as ConnectError);
   }
 };
 

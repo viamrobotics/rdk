@@ -197,6 +197,9 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 		// If this error occurs it's a resource graph error
 		return err
 	}
+	if err := os.MkdirAll(captureConfig.CaptureDir, 0o700); err != nil {
+		b.logger.Warnf("failed to create capture directory: %s", captureConfig.CaptureDir)
+	}
 
 	syncSensor, syncSensorEnabled := syncSensorFromDeps(c.SelectiveSyncerName, deps, b.logger)
 	syncConfig := c.syncConfig(syncSensor, syncSensorEnabled, b.logger)

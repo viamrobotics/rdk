@@ -15,6 +15,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"go.viam.com/rdk/logging"
+	protoRdkUtils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	spatial "go.viam.com/rdk/spatialmath"
@@ -95,6 +96,14 @@ func FromProto(proto *pb.RobotConfig, logger logging.Logger) (*Config, error) {
 	cfg.Revision = proto.Revision
 
 	logAnyFragmentOverwriteErrors(logger, proto.OverwriteFragmentStatus)
+
+	if proto.Maintenance != nil {
+		maintenanceConfig, err := MaintenanceConfigFromProto(proto.Maintenance)
+		if err != nil {
+			return nil, errors.Wrap(err, "error converting maintenance config from proto")
+		}
+		cfg.MaintenanceConfig = maintenanceConfig
+	}
 
 	return &cfg, nil
 }
@@ -633,6 +642,22 @@ func NetworkConfigToProto(network *NetworkConfig) (*pb.NetworkConfig, error) {
 	return &proto, nil
 }
 
+// MaintenanceConfigToProto converts MaintenanceConfig from the proto equivalent.
+func MaintenanceConfigToProto(maintenanceConfig *MaintenanceConfig) (*pb.MaintenanceConfig, error) {
+	// convert from string to resource name
+	name, err := resource.NewFromString(maintenanceConfig.SensorName)
+	if err != nil {
+		return nil, err
+	}
+
+	proto := pb.MaintenanceConfig{
+		SensorName:            protoRdkUtils.ResourceNameToProto(name),
+		MaintenanceAllowedKey: maintenanceConfig.MaintenanceAllowedKey,
+	}
+
+	return &proto, nil
+}
+
 // NetworkConfigFromProto creates NetworkConfig from the proto equivalent.
 func NetworkConfigFromProto(proto *pb.NetworkConfig) (*NetworkConfig, error) {
 	network := NetworkConfig{
@@ -646,6 +671,15 @@ func NetworkConfigFromProto(proto *pb.NetworkConfig) (*NetworkConfig, error) {
 	}
 
 	return &network, nil
+}
+
+// MaintenanceConfigFromProto creates a MaintenanceConfig from the proto equivalent.
+func MaintenanceConfigFromProto(proto *pb.MaintenanceConfig) (*MaintenanceConfig, error) {
+	MaintenanceConfig := MaintenanceConfig{
+		SensorName:            protoRdkUtils.ResourceNameFromProto(proto.SensorName).String(),
+		MaintenanceAllowedKey: proto.GetMaintenanceAllowedKey(),
+	}
+	return &MaintenanceConfig, nil
 }
 
 // AuthConfigToProto converts AuthConfig to the proto equivalent.

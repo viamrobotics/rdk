@@ -12,7 +12,8 @@
         "visibility": {
             "enum": [
                 "private",
-                "public"
+                "public",
+                "public_unlisted"
             ]
         },
         "url": {

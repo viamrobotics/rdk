@@ -1,21 +1,18 @@
 <script lang="ts">
-import { commonApi } from '@viamrobotics/sdk';
-import { notify } from '@viamrobotics/prime';
-import { resourceNameToString } from '@/lib/resource';
-import { doCommand } from '@/api/do-command';
-import Collapse from '@/lib/components/collapse.svelte';
 import { useRobotClient } from '@/hooks/robot-client';
-import { getClientByType } from './get-client-by-type';
+import Collapse from '@/lib/components/collapse.svelte';
+import { resourceNameToString } from '@/lib/resource';
+import { notify } from '@viamrobotics/prime';
 import { Button, Label, SearchableSelect } from '@viamrobotics/prime-core';
+import { ResourceName, Struct } from '@viamrobotics/sdk';
 import { isUnimplementedError } from './errors';
+import { getClientByType } from './get-client-by-type';
 
-export let resources: commonApi.ResourceName.AsObject[];
+export let resources: ResourceName[];
 
 const { robotClient } = useRobotClient();
 
-let selectedComponent = undefined as
-  | commonApi.ResourceName.AsObject
-  | undefined;
+let selectedComponent = undefined as ResourceName | undefined;
 let input = '{}';
 let output = '';
 let executing = false;
@@ -38,7 +35,7 @@ const handleDoCommand = async (
   executing = true;
 
   try {
-    const outputObject = await doCommand(client, name, command);
+    const outputObject = await client.doCommand(Struct.fromJsonString(command));
 
     if (outputObject) {
       output = JSON.stringify(outputObject, null, '\t');

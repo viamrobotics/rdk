@@ -1,21 +1,21 @@
 <script lang="ts">
-import { encoderApi, type ServiceError } from '@viamrobotics/sdk';
-import { displayError } from '@/lib/error';
-import { setAsyncInterval } from '@/lib/schedule';
 import {
-  getProperties,
   getPosition,
   getPositionDegrees,
+  getProperties,
   reset,
 } from '@/api/encoder';
+import { useConnect, useRobotClient } from '@/hooks/robot-client';
 import Collapse from '@/lib/components/collapse.svelte';
-import { useRobotClient, useConnect } from '@/hooks/robot-client';
+import { displayError } from '@/lib/error';
+import { setAsyncInterval } from '@/lib/schedule';
+import { ConnectError, encoderApi } from '@viamrobotics/sdk';
 
 export let name: string;
 
 const { robotClient } = useRobotClient();
 
-let properties: encoderApi.GetPropertiesResponse.AsObject | undefined;
+let properties: encoderApi.GetPropertiesResponse | undefined;
 let positionTicks: number | undefined;
 let positionDegrees: number | undefined;
 
@@ -38,7 +38,7 @@ const refresh = async () => {
     positionTicks = results[0];
     positionDegrees = results[1];
   } catch (error) {
-    displayError(error as ServiceError);
+    displayError(error as ConnectError);
   }
 };
 
@@ -46,7 +46,7 @@ const handleResetClick = async () => {
   try {
     await reset($robotClient, name);
   } catch (error) {
-    displayError(error as ServiceError);
+    displayError(error as ConnectError);
   }
 };
 
@@ -60,7 +60,7 @@ const startPolling = async () => {
     await refresh();
     cancelInterval = setAsyncInterval(refresh, 500);
   } catch (error) {
-    displayError(error as ServiceError);
+    displayError(error as ConnectError);
   }
 };
 

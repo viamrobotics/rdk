@@ -1,9 +1,9 @@
 import type { navigationApi } from '@viamrobotics/sdk';
 
 export type NavigationModes =
-  | typeof navigationApi.Mode.MODE_MANUAL
-  | typeof navigationApi.Mode.MODE_UNSPECIFIED
-  | typeof navigationApi.Mode.MODE_WAYPOINT;
+  | typeof navigationApi.Mode.MANUAL
+  | typeof navigationApi.Mode.UNSPECIFIED
+  | typeof navigationApi.Mode.WAYPOINT;
 
 export interface LngLat {
   lng: number;

@@ -1,17 +1,17 @@
 <script lang="ts">
-import { onMount } from 'svelte';
-import { BaseClient, type ServiceError } from '@viamrobotics/sdk';
-import { filterSubtype } from '../../lib/resource';
-import { displayError } from '../../lib/error';
-import KeyboardInput from '../keyboard-input/index.svelte';
-import type { Keys } from '../keyboard-input/types';
-import Camera from '../camera/camera.svelte';
-import { rcLogConditionally } from '../../lib/log';
-import { selectedMap } from '../../lib/camera-state';
-import { clickOutside } from '../../lib/click-outside';
+import { useRobotClient } from '@/hooks/robot-client';
 import Collapse from '@/lib/components/collapse.svelte';
 import { components } from '@/stores/resources';
-import { useRobotClient } from '@/hooks/robot-client';
+import { BaseClient, ConnectError } from '@viamrobotics/sdk';
+import { onMount } from 'svelte';
+import { selectedMap } from '../../lib/camera-state';
+import { clickOutside } from '../../lib/click-outside';
+import { displayError } from '../../lib/error';
+import { rcLogConditionally } from '../../lib/log';
+import { filterSubtype } from '../../lib/resource';
+import Camera from '../camera/camera.svelte';
+import KeyboardInput from '../keyboard-input/index.svelte';
+import type { Keys } from '../keyboard-input/types';
 
 export let name: string;
 
@@ -84,7 +84,7 @@ const stop = async () => {
   try {
     await baseClient.stop();
   } catch (error) {
-    displayError(error as ServiceError);
+    displayError(error as ConnectError);
   }
 };
 
@@ -118,7 +118,7 @@ const digestInput = async () => {
   try {
     await baseClient.setPower(linear, angular);
   } catch (error) {
-    displayError(error as ServiceError);
+    displayError(error as ConnectError);
   }
 
   if (pressed.size <= 0) {
@@ -155,7 +155,7 @@ const handleBaseStraight = async (event: {
     try {
       await baseClient.setVelocity(linear, angular);
     } catch (error) {
-      displayError(error as ServiceError);
+      displayError(error as ConnectError);
     }
   } else {
     try {
@@ -164,7 +164,7 @@ const handleBaseStraight = async (event: {
         event.speed * event.direction
       );
     } catch (error) {
-      displayError(error as ServiceError);
+      displayError(error as ConnectError);
     }
   }
 };
@@ -177,7 +177,7 @@ const baseRun = async () => {
         spinSpeed
       );
     } catch (error) {
-      displayError(error as ServiceError);
+      displayError(error as ConnectError);
     }
   } else {
     handleBaseStraight({
