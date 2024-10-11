@@ -80,6 +80,7 @@ type Config struct {
 
 // MaintenanceConfig specifies a reconfigure sensor
 // When the sensor is read that value will be used to determine if it is safe to reconfigure.
+// This Config is not validated during config processing but it will be validated during reconfiguration
 type MaintenanceConfig struct {
 	SensorName            string `json:"sensor_name"`
 	MaintenanceAllowedKey string `json:"maintenance_allowed_key"`
