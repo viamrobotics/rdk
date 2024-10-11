@@ -1193,27 +1193,26 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	// Multiple remotes share a senor name -> conflict error is returned and reconfigure happens
 	// To specify a specific remote sensor use the name format remoteName:sensorName to specify a remote sensor
 	if newConfig.MaintenanceConfig != nil {
-		name,err:=resource.NewFromString(newConfig.MaintenanceConfig.SensorName)
-		if err!=nil {
-			r.logger.Infof("Sensor Name %s is not in a supported format",newConfig.MaintenanceConfig.SensorName )
+		name, err := resource.NewFromString(newConfig.MaintenanceConfig.SensorName)
+		if err != nil {
+			r.logger.Infof("Sensor Name %s is not in a supported format", newConfig.MaintenanceConfig.SensorName)
 		} else {
 			sensorComponent, err := robot.ResourceFromRobot[sensor.Sensor](r, name)
 			if err != nil {
 				r.logger.Infof("%s, Starting reconfiguration", err.Error())
 			} else {
 				canReconfigure, err := r.checkMaintenanceSensorReadings(newConfig.MaintenanceConfig.MaintenanceAllowedKey, sensorComponent)
+				if !canReconfigure {
+					r.logger.Info("maintenanceAllowedKey found from readings on maintenance sensor. Reconfigure disabled")
+					return
+				}
 				if err != nil {
 					r.logger.Info(err.Error() + ". Starting reconfiguration")
 				} else {
-					if !canReconfigure {
-						r.logger.Info("maintenanceAllowedKey found from readings on maintenance sensor. Reconfigure disabled")
-						return
-					} else {
-						r.logger.Info("maintenanceAllowedKey found from readings on maintenance sensor. Starting reconfiguration")
-					}
+					r.logger.Info("maintenanceAllowedKey found from readings on maintenance sensor. Starting reconfiguration")
+				}
+			}
 		}
-		}
-	}
 	}
 
 	// Sync Packages before reconfiguring rest of robot and resolving references to any packages
@@ -1469,7 +1468,7 @@ func (r *localRobot) Version(ctx context.Context) (robot.VersionResponse, error)
 	return robot.Version()
 }
 
-// checkMaintenanceSensorReadings ensures that errors from reading a sensor are handled properly
+// checkMaintenanceSensorReadings ensures that errors from reading a sensor are handled properly.
 func (r *localRobot) checkMaintenanceSensorReadings(maintenanceAllowedKey string, sensor resource.Sensor) (bool, error) {
 	timeout := 5 * time.Second
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)

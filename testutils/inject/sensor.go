@@ -12,7 +12,7 @@ type Sensor struct {
 	sensor.Sensor
 	name         resource.Name
 	DoFunc       func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	CloseFunc                func(ctx context.Context) error
+	CloseFunc    func(ctx context.Context) error
 	ReadingsFunc func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error)
 }
 
