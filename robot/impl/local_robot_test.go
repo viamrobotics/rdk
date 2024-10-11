@@ -3914,7 +3914,7 @@ func TestCheckMaintenanceSensorReadings(t *testing.T) {
 	t.Run("Sensor reading errors out", func(t *testing.T) {
 		r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
 		localRobot := r.(*localRobot)
-		canReconfigure, err := localRobot.checkMaintenanceSensorReadings("", newErrorSensor())
+		canReconfigure, err := localRobot.checkMaintenanceSensorReadings(context.Background(), "", newErrorSensor())
 
 		test.That(t, canReconfigure, test.ShouldEqual, true)
 		test.That(t, err.Error(), test.ShouldEqual, "error reading maintenance sensor readings. Wallet not found")
@@ -3922,7 +3922,7 @@ func TestCheckMaintenanceSensorReadings(t *testing.T) {
 	t.Run("maintenanceAllowedKey does not exist", func(t *testing.T) {
 		r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
 		localRobot := r.(*localRobot)
-		canReconfigure, err := localRobot.checkMaintenanceSensorReadings("keyDoesNotExist", newValidSensor())
+		canReconfigure, err := localRobot.checkMaintenanceSensorReadings(context.Background(), "keyDoesNotExist", newValidSensor())
 
 		test.That(t, canReconfigure, test.ShouldEqual, true)
 		test.That(t, err.Error(), test.ShouldEqual, "error getting MaintenanceAllowedKey keyDoesNotExist from sensor reading")
@@ -3930,7 +3930,7 @@ func TestCheckMaintenanceSensorReadings(t *testing.T) {
 	t.Run("maintenanceAllowedKey is not a boolean", func(t *testing.T) {
 		r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
 		localRobot := r.(*localRobot)
-		canReconfigure, err := localRobot.checkMaintenanceSensorReadings("ThatIsNotAWallet", newValidSensor())
+		canReconfigure, err := localRobot.checkMaintenanceSensorReadings(context.Background(), "ThatIsNotAWallet", newValidSensor())
 
 		test.That(t, canReconfigure, test.ShouldEqual, true)
 		test.That(t, err.Error(), test.ShouldEqual, "maintenanceAllowedKey ThatIsNotAWallet is not a bool value")
@@ -3962,7 +3962,7 @@ func TestCheckMaintenanceSensorReadingsSuccess(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
 			localRobot := r.(*localRobot)
-			canReconfigure, err := localRobot.checkMaintenanceSensorReadings(tc.maintenanceAllowedKey, tc.sensor)
+			canReconfigure, err := localRobot.checkMaintenanceSensorReadings(context.Background(), tc.maintenanceAllowedKey, tc.sensor)
 
 			test.That(t, canReconfigure, test.ShouldEqual, tc.canReconfigure)
 			test.That(t, err, test.ShouldBeNil)
@@ -4016,6 +4016,7 @@ func TestMaintenanceConfig(t *testing.T) {
 		}})
 	defer func() {
 		resource.Deregister(sensor.API, model)
+		resource.Deregister(sensor.API, modelErrorSensor)
 	}()
 	remoteCfg := &config.Config{
 		Components: []resource.Config{

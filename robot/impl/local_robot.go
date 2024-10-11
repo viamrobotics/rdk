@@ -1195,19 +1195,19 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	if newConfig.MaintenanceConfig != nil {
 		name, err := resource.NewFromString(newConfig.MaintenanceConfig.SensorName)
 		if err != nil {
-			r.logger.Infof("Sensor Name %s is not in a supported format", newConfig.MaintenanceConfig.SensorName)
+			r.logger.Warnf("Sensor Name %s is not in a supported format", newConfig.MaintenanceConfig.SensorName)
 		} else {
 			sensorComponent, err := robot.ResourceFromRobot[sensor.Sensor](r, name)
 			if err != nil {
-				r.logger.Infof("%s, Starting reconfiguration", err.Error())
+				r.logger.Warnf("%s, Starting reconfiguration", err.Error())
 			} else {
-				canReconfigure, err := r.checkMaintenanceSensorReadings(newConfig.MaintenanceConfig.MaintenanceAllowedKey, sensorComponent)
+				canReconfigure, err := r.checkMaintenanceSensorReadings(ctx, newConfig.MaintenanceConfig.MaintenanceAllowedKey, sensorComponent)
 				if !canReconfigure {
 					r.logger.Info("maintenanceAllowedKey found from readings on maintenance sensor. Reconfigure disabled")
 					return
 				}
 				if err != nil {
-					r.logger.Info(err.Error() + ". Starting reconfiguration")
+					r.logger.Warn(err.Error() + ". Starting reconfiguration")
 				} else {
 					r.logger.Info("maintenanceAllowedKey found from readings on maintenance sensor. Starting reconfiguration")
 				}
@@ -1469,9 +1469,10 @@ func (r *localRobot) Version(ctx context.Context) (robot.VersionResponse, error)
 }
 
 // checkMaintenanceSensorReadings ensures that errors from reading a sensor are handled properly.
-func (r *localRobot) checkMaintenanceSensorReadings(maintenanceAllowedKey string, sensor resource.Sensor) (bool, error) {
+func (r *localRobot) checkMaintenanceSensorReadings(ctx context.Context,
+	maintenanceAllowedKey string, sensor resource.Sensor) (bool, error) {
 	timeout := 5 * time.Second
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	// Context timeouts on this call should be handled by grpc
