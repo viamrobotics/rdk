@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -1073,6 +1074,38 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 		m.handles, err = modlib.NewHandlerMapFromProto(ctx, resp.Handlermap, m.sharedConn.GrpcConn())
 		return err
 	}
+}
+
+// TODO: return exit code?
+func (m *module) FirstRun(
+	ctx context.Context,
+	logger logging.Logger,
+	viamHomeDir string,
+	packagesDir string,
+) error {
+	// We evaluate the Module's ExePath absolutely in the viam-server process so that
+	// setting the CWD does not cause issues with relative process names
+	firstRunPath, err := m.cfg.EvaluateFirstRunPath(packages.LocalPackagesDir(packagesDir))
+	if err != nil {
+		return err
+	}
+
+	// TODO: do we need this module directory stuff like we have in startProcess?
+	moduleEnvironment := m.getFullEnvironment(viamHomeDir)
+
+	cmd := exec.CommandContext(ctx, firstRunPath)
+	// TODO: set current env?
+	// cmd.Env = os.Environ()
+	for key, val := range moduleEnvironment {
+		cmd.Env = append(cmd.Env, key+"="+val)
+	}
+	cmdOut, err := cmd.CombinedOutput()
+	if err != nil {
+		return err
+	}
+	// TODO: do we need unset/default logger logic?
+	m.logger.Info(cmdOut)
+	return nil
 }
 
 func (m *module) startProcess(

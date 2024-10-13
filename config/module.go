@@ -46,11 +46,15 @@ type Module struct {
 
 	// LocalVersion is an in-process fake version used for local module change management.
 	LocalVersion string
+
+	// FirstRunPath is the path to be executed during the setup phase.
+	FirstRunPath string `json:first_run`
 }
 
 // JSONManifest contains meta.json fields that are used by both RDK and CLI.
 type JSONManifest struct {
-	Entrypoint string `json:"entrypoint"`
+	Entrypoint   string `json:"entrypoint"`
+	FirstRunPath string `json:"entrypoint"`
 }
 
 // ModuleType indicates where a module comes from.
@@ -163,8 +167,6 @@ func parseJSONFile[T any](path string) (*T, error) {
 // 2. if this is a local tarball and there's a meta.json next to the tarball, use that.
 // 3. otherwise use the exe path from config, or fail if this is a local tarball.
 // Note: the working directory must be the unpacked tarball directory or local exec directory.
-//
-// TODO: add a version of this for first_run
 func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 	if !filepath.IsAbs(m.ExePath) {
 		return "", fmt.Errorf("expected ExePath to be absolute path, got %s", m.ExePath)
@@ -214,4 +216,60 @@ func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 		return filepath.Abs(entrypoint)
 	}
 	return m.ExePath, nil
+}
+
+// EvaluateFirstRunPath returns absolute FirstRunPath from one of three sources (in order of precedence):
+// 1. if there is a meta.json in the exe dir, use that, except in local non-tarball case.
+// 2. if this is a local tarball and there's a meta.json next to the tarball, use that.
+// 3. otherwise use the exe path from config, or fail if this is a local tarball.
+// Note: the working directory must be the unpacked tarball directory or local exec directory.
+func (m Module) EvaluateFirstRunPath(packagesDir string) (string, error) {
+	if !filepath.IsAbs(m.FirstRunPath) {
+		return "", fmt.Errorf("expected FirstRunPath to be absolute path, got %s", m.FirstRunPath)
+	}
+	firstRunDir, err := m.exeDir(packagesDir)
+	if err != nil {
+		return "", err
+	}
+	// note: we don't look at internal meta.json in local non-tarball case because user has explicitly requested a binary.
+	localNonTarball := m.Type == ModuleTypeLocal && !m.NeedsSyntheticPackage()
+	if !localNonTarball {
+		// this is case 1, meta.json in exe folder.
+		metaPath, err := utils.SafeJoinDir(firstRunDir, "meta.json")
+		if err != nil {
+			return "", err
+		}
+		_, err = os.Stat(metaPath)
+		if err == nil {
+			// this is case 1, meta.json in exe dir
+			meta, err := parseJSONFile[JSONManifest](metaPath)
+			if err != nil {
+				return "", err
+			}
+			firstRun, err := utils.SafeJoinDir(firstRunDir, meta.FirstRunPath)
+			if err != nil {
+				return "", err
+			}
+			return filepath.Abs(firstRun)
+		}
+	}
+	if m.NeedsSyntheticPackage() {
+		// this is case 2, side-by-side
+		// TODO(RSDK-7848): remove this case once java sdk supports internal meta.json.
+		metaPath, err := utils.SafeJoinDir(filepath.Dir(m.ExePath), "meta.json")
+		if err != nil {
+			return "", err
+		}
+		meta, err := parseJSONFile[JSONManifest](metaPath)
+		if err != nil {
+			// note: this error deprecates the side-by-side case because the side-by-side case is deprecated.
+			return "", errors.Wrapf(err, "couldn't find meta.json inside tarball %s (or next to it)", m.ExePath)
+		}
+		firstRun, err := utils.SafeJoinDir(firstRunDir, meta.FirstRunPath)
+		if err != nil {
+			return "", err
+		}
+		return filepath.Abs(firstRun)
+	}
+	return m.FirstRunPath, nil
 }
