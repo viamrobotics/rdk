@@ -3991,8 +3991,10 @@ func newValidSensor() sensor.Sensor {
 	s := &inject.Sensor{}
 	s.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 		// We want to ensure that we get the same readings after convering to proto and back to go
-		readings := map[string]any{"ThatsMyWallet": false, "ThatsNotMyWallet": true,
-			"ThatIsNotAWallet": 5, "TrueIsNotTrue": "true", "OneIsNotTrue": 1}
+		readings := map[string]any{
+			"ThatsMyWallet": false, "ThatsNotMyWallet": true,
+			"ThatIsNotAWallet": 5, "TrueIsNotTrue": "true", "OneIsNotTrue": 1,
+		}
 		readingsProto, _ := protoutils.ReadingGoToProto(readings)
 		retReadings, _ := protoutils.ReadingProtoToGo(readingsProto)
 		return retReadings, nil

@@ -95,6 +95,8 @@ func FromProto(proto *pb.RobotConfig, logger logging.Logger) (*Config, error) {
 
 	cfg.Revision = proto.Revision
 
+	logAnyFragmentOverwriteErrors(logger, proto.OverwriteFragmentStatus)
+
 	if proto.Maintenance != nil {
 		maintenanceConfig, err := MaintenanceConfigFromProto(proto.Maintenance)
 		if err != nil {
@@ -102,8 +104,6 @@ func FromProto(proto *pb.RobotConfig, logger logging.Logger) (*Config, error) {
 		}
 		cfg.MaintenanceConfig = maintenanceConfig
 	}
-
-	logAnyFragmentOverwriteErrors(logger, proto.OverwriteFragmentStatus)
 
 	return &cfg, nil
 }

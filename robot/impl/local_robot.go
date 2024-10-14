@@ -1175,8 +1175,6 @@ func (r *localRobot) applyLocalModuleVersions(cfg *config.Config) {
 }
 
 func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, forceSync bool) {
-	var allErrs error
-
 	// Maintenance config can be configured to block reconfigure based off of a sensor reading
 	// These sensors can be configured on the main robot, or a remote
 	// In situations where there are conflicting sensor names the following behavior happens
@@ -1221,6 +1219,8 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		LastUpdated: time.Now(),
 	}
 	r.configRevisionMu.Unlock()
+
+	var allErrs error
 
 	// Sync Packages before reconfiguring rest of robot and resolving references to any packages
 	// in the config.
