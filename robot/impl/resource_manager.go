@@ -1274,6 +1274,7 @@ func (manager *resourceManager) markRemoved(
 
 	var resourcesToMark []resource.Name
 	for _, conf := range conf.Modules {
+		// TODO: call FirstRun for new modules before removing.
 		orphanedResourceNames, err := manager.moduleManager.Remove(conf.Name)
 		if err != nil {
 			manager.logger.CErrorw(ctx, "error removing module", "module", conf.Name, "error", err)
