@@ -32,7 +32,7 @@ type Config struct {
 	SPI      string `json:"spi_bus"`
 	BaudRate *int   `json:"spi_baud_rate,omitempty"`
 	Pfreq    *int   `json:"polling_freq_hz,omitempty"`
-	CSPin    string `json:"chip_select_pin"`
+	CSPin    string `json:"chip_select_pin"` // This value will be either 1 or 0 on raspberry pis
 }
 
 // Validate ensures all parts of the config are valid.
@@ -198,38 +198,36 @@ func newVectorNav(
 	if err = v.compensateAccelBias(ctx, pollFreq); err != nil {
 		return nil, err
 	}
-	// compensate for constant DV bias in mesurament
+	// compensate for constant DV bias in measurement
 	if err = v.compensateDVBias(ctx, pollFreq); err != nil {
 		return nil, err
 	}
 
-	if pollFreq > 0 {
-		logger.CDebugf(ctx, "vecnav: will poll at %d Hz", pollFreq)
-		waitCh := make(chan struct{})
-		pollPerSecond := 1.0 / float64(pollFreq)
-		v.workers = goutils.NewBackgroundStoppableWorkers(func(cancelCtx context.Context) {
-			timer := time.NewTicker(time.Duration(pollPerSecond * float64(time.Second)))
-			defer timer.Stop()
-			close(waitCh)
-			for {
-				select {
-				case <-cancelCtx.Done():
+	logger.CDebugf(ctx, "vecnav: will poll at %d Hz", pollFreq)
+	waitCh := make(chan struct{})
+	pollPerSecond := 1.0 / float64(pollFreq)
+	v.workers = goutils.NewBackgroundStoppableWorkers(func(cancelCtx context.Context) {
+		timer := time.NewTicker(time.Duration(pollPerSecond * float64(time.Second)))
+		defer timer.Stop()
+		close(waitCh)
+		for {
+			select {
+			case <-cancelCtx.Done():
+				return
+			default:
+			}
+			select {
+			case <-cancelCtx.Done():
+				return
+			case <-timer.C:
+				err := v.getReadings(ctx)
+				if err != nil {
 					return
-				default:
-				}
-				select {
-				case <-cancelCtx.Done():
-					return
-				case <-timer.C:
-					err := v.getReadings(ctx)
-					if err != nil {
-						return
-					}
 				}
 			}
-		})
-		<-waitCh
-	}
+		}
+	})
+	<-waitCh
 
 	return v, nil
 }
