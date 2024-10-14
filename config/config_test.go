@@ -726,6 +726,7 @@ func TestCopyOnlyPublicFields(t *testing.T) {
 		test.That(t, cfgCopy.Network.TLSConfig, test.ShouldBeNil)
 	})
 }
+
 func TestCreateTLSWithCert(t *testing.T) {
 	t.Run("create TLS cert", func(t *testing.T) {
 		cfg := &config.Config{

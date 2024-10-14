@@ -964,7 +964,8 @@ func CreateTLSWithCert(cfg *Config) (*tls.Config, error) {
 		GetClientCertificate: func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
 			// always return same cert
 			return &cert, nil
-		}}, nil
+		},
+	}, nil
 }
 
 // ProcessConfig processes robot configs.
