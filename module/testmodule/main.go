@@ -49,8 +49,12 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: newHelper,
 			Discover: func(ctx context.Context, logger logging.Logger, extra map[string]interface{}) (interface{}, error) {
+				extraVal, ok := extra["extra"]
+				if !ok {
+					extraVal = "default"
+				}
 				return map[string]string{
-					"foo": "bar",
+					"extra": extraVal.(string),
 				}, nil
 			},
 		})
