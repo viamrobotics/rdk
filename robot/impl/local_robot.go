@@ -1187,7 +1187,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	if newConfig.MaintenanceConfig != nil {
 		name, err := resource.NewFromString(newConfig.MaintenanceConfig.SensorName)
 		if err != nil {
-			r.logger.Warnf("Sensor Name %s is not in a supported format", newConfig.MaintenanceConfig.SensorName)
+			r.logger.Warnf("sensor_name %s in maintenance config is not in a supported format", newConfig.MaintenanceConfig.SensorName)
 		} else {
 			sensorComponent, err := robot.ResourceFromRobot[sensor.Sensor](r, name)
 			if err != nil {
