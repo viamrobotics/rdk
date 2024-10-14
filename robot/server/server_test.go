@@ -22,6 +22,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/cloud"
@@ -270,7 +271,7 @@ func TestServer(t *testing.T) {
 
 			observed := resp.Discovery[0].Results.AsMap()
 			expected := map[string]interface{}{}
-			expectedQ := &pb.DiscoveryQuery{Subtype: "rdk:component:arm", Model: "rdk:builtin:some-arm"}
+			expectedQ := &pb.DiscoveryQuery{Subtype: "rdk:component:arm", Model: "rdk:builtin:some-arm", Extra: &structpb.Struct{}}
 			test.That(t, resp.Discovery[0].Query, test.ShouldResemble, expectedQ)
 			test.That(t, observed, test.ShouldResemble, expected)
 		})
@@ -285,7 +286,7 @@ func TestServer(t *testing.T) {
 
 			observed := resp.Discovery[0].Results.AsMap()
 			expected := map[string]interface{}{}
-			expectedQ := &pb.DiscoveryQuery{Subtype: "arm", Model: "some-arm"}
+			expectedQ := &pb.DiscoveryQuery{Subtype: "arm", Model: "some-arm", Extra: &structpb.Struct{}}
 			test.That(t, resp.Discovery[0].Query, test.ShouldResemble, expectedQ)
 			test.That(t, observed, test.ShouldResemble, expected)
 		})
