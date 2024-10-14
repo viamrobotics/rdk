@@ -31,7 +31,7 @@ const defaultBaudRate = 9600
 type Config struct {
 	SPI      string `json:"spi_bus"`
 	BaudRate *int   `json:"spi_baud_rate,omitempty"`
-	Pfreq    *uint  `json:"polling_freq_hz,omitempty"`
+	Pfreq    *int   `json:"polling_freq_hz,omitempty"`
 	CSPin    string `json:"chip_select_pin"`
 }
 
@@ -67,7 +67,7 @@ type vectornav struct {
 
 	mu      sync.Mutex
 	spiMu   sync.Mutex
-	polling uint
+	polling int
 
 	workers       *goutils.StoppableWorkers
 	bus           buses.SPI
@@ -119,13 +119,13 @@ func newVectorNav(
 
 	baudRate := *newConf.BaudRate
 	if baudRate == 0 {
-		logger.CInfof(ctx, "we are setting the baudRate to %d since no value was passed in", DefaultBaudRate)
-		baudRate = DefaultBaudRate
+		logger.CInfof(ctx, "we are setting the baudRate to %d since no value was passed in", defaultBaudRate)
+		baudRate = defaultBaudRate
 	}
 
 	pollFreq := uint(200)
 	if *newConf.Pfreq > 0 {
-		pollFreq = *newConf.Pfreq
+		pollFreq = uint(*newConf.Pfreq)
 	}
 
 	v := &vectornav{
@@ -135,7 +135,7 @@ func newVectorNav(
 		chipSelectPin: newConf.CSPin,
 		baudRate:      baudRate,
 		busClosed:     false,
-		polling:       pollFreq,
+		polling:       int(pollFreq),
 	}
 
 	mdl, err := v.readRegisterSPI(ctx, modelNumber, 24)
@@ -168,8 +168,7 @@ func newVectorNav(
 	refvec = append(refvec, utils.BytesFromFloat64LE(40.730610)...)
 	refvec = append(refvec, utils.BytesFromFloat64LE(-73.935242)...)
 	refvec = append(refvec, utils.BytesFromFloat64LE(10.0)...)
-	err = v.writeRegisterSPI(ctx, referenceVectorConfiguration, refvec)
-	if err != nil {
+	if err = v.writeRegisterSPI(ctx, referenceVectorConfiguration, refvec); err != nil {
 		return nil, errors.Wrap(err, "couldn't set reference vector")
 	}
 	// enforce acceleration tuinning and reduce "trust" in acceleration data
@@ -184,28 +183,23 @@ func newVectorNav(
 	accVpeTunning = append(accVpeTunning, utils.BytesFromFloat32LE(10)...)
 	accVpeTunning = append(accVpeTunning, utils.BytesFromFloat32LE(10)...)
 
-	err = v.writeRegisterSPI(ctx, vpeAccTunning, accVpeTunning)
-	if err != nil {
+	if err = v.writeRegisterSPI(ctx, vpeAccTunning, accVpeTunning); err != nil {
 		return nil, errors.Wrap(err, "couldn't set vpe adaptive tunning")
 	}
-	err = v.writeRegisterSPI(ctx, deltaVDeltaThetaConfig, []byte{0, 0, 0, 0, 0, 0})
-	if err != nil {
+	if err = v.writeRegisterSPI(ctx, deltaVDeltaThetaConfig, []byte{0, 0, 0, 0, 0, 0}); err != nil {
 		return nil, errors.Wrap(err, "couldn't configure deltaV register")
 	}
 
 	// tare the heading
-	err = v.vectornavTareSPI(ctx)
-	if err != nil {
+	if err = v.vectornavTareSPI(ctx); err != nil {
 		return nil, err
 	}
 	// compensate for acceleration bias due to misalignement
-	err = v.compensateAccelBias(ctx, v.polling)
-	if err != nil {
+	if err = v.compensateAccelBias(ctx, pollFreq); err != nil {
 		return nil, err
 	}
 	// compensate for constant DV bias in mesurament
-	err = v.compensateDVBias(ctx, v.polling)
-	if err != nil {
+	if err = v.compensateDVBias(ctx, pollFreq); err != nil {
 		return nil, err
 	}
 
