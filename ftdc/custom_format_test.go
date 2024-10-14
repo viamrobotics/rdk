@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"testing"
 
-	"go.viam.com/rdk/logging"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/logging"
 )
 
 type Statser1 struct {
@@ -32,12 +33,12 @@ func TestCustomFormatRoundtripBasic(t *testing.T) {
 	ftdc := NewWithWriter(serializedData, logger.Sublogger("ftdc"))
 
 	// Write two datapoints with "schema 1".
-	datumV1 := Datum{
+	datumV1 := datum{
 		Time: 0,
 		Data: map[string]any{
 			"s1": &Basic{0},
 		},
-		generationId: 1,
+		generationID: 1,
 	}
 
 	ftdc.newDatum(datumV1)
@@ -46,12 +47,12 @@ func TestCustomFormatRoundtripBasic(t *testing.T) {
 	ftdc.newDatum(datumV1)
 
 	// Write two more datapoints with "schema 2".
-	datumV2 := Datum{
+	datumV2 := datum{
 		Time: 2,
 		Data: map[string]any{
 			"s2": &Basic{2},
 		},
-		generationId: 2,
+		generationID: 2,
 	}
 	ftdc.newDatum(datumV2)
 	datumV2.Time = 3
@@ -92,26 +93,26 @@ func TestCustomFormatRoundtripRich(t *testing.T) {
 
 	datums := 10
 	for idx := 0; idx < datums; idx++ {
-		datumV1 := Datum{
+		datumV1 := datum{
 			Time: int64(idx),
 			Data: map[string]any{
 				"s1": Statser1{0, idx, 1.0},
 			},
-			generationId: 1,
+			generationID: 1,
 		}
 
 		ftdc.newDatum(datumV1)
 	}
 
 	for idx := datums; idx < 2*datums; idx++ {
-		datumV2 := Datum{
+		datumV2 := datum{
 			Time: int64(idx),
 			Data: map[string]any{
 				"s1": Statser1{idx, idx, 1.0},
 				// The second metric here is to test a value that flips between a diff and no diff.
 				"s2": Statser2{0, 1 + (idx / 3), 100.0},
 			},
-			generationId: 2,
+			generationID: 2,
 		}
 
 		ftdc.newDatum(datumV2)

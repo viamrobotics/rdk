@@ -1,3 +1,5 @@
+// Package ftdc ...
+//
 // To build intuition for the file format, let's start with a simple example input being serialized
 // with a simple format. Let's say we have two data points (two "datum"):
 //

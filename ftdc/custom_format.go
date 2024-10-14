@@ -16,7 +16,7 @@ import (
 // epsilon is a small value for determining whether a float is 0.0.
 const epsilon = 1e-9
 
-type Schema struct {
+type schema struct {
 	// A `Datum`s data is a map[string]any. Even if two datum's have maps with the same keys, we do
 	// not assume ranging over the map will yield the same order. Thus we explicitly write down an
 	// order to walk the map of new data values.
@@ -32,7 +32,7 @@ type Schema struct {
 // writeSchema writes down names for metrics in the form of a json array. All subsequent calls to
 // `writeDatum` will assume this "header" representation until the next call to `writeSchema`. A
 // full description of the file format is recorded in `doc.go`.
-func writeSchema(schema *Schema, output io.Writer) {
+func writeSchema(schema *schema, output io.Writer) {
 	// New schema byte
 	if _, err := output.Write([]byte{0x1}); err != nil {
 		panic(err)
@@ -67,9 +67,7 @@ func writeDatum(time int64, prev, curr []float32, output io.Writer) {
 	diffs := make([]float32, numPts)
 	if len(prev) == 0 {
 		// If there was no previous reading to compare against, assume it was all zeroes.
-		for idx := range curr {
-			diffs[idx] = curr[idx]
-		}
+		copy(diffs, curr)
 	} else {
 		for idx := range curr {
 			diffs[idx] = curr[idx] - prev[idx]
@@ -154,7 +152,7 @@ func getFieldsForItem(item any) []string {
 // For correctness, it must be the case that the `mapOrder` and `fieldOrder` are consistent. I.e: if
 // the `mapOrder` is `A` then `B`, the `fieldOrder` must list all of the fields of `A` first,
 // followed by all the fields of `B`.
-func getSchema(data map[string]any) *Schema {
+func getSchema(data map[string]any) *schema {
 	var mapOrder []string
 	var fields []string
 
@@ -167,7 +165,7 @@ func getSchema(data map[string]any) *Schema {
 		}
 	}
 
-	return &Schema{
+	return &schema{
 		mapOrder:   mapOrder,
 		fieldOrder: fields,
 	}
@@ -176,7 +174,7 @@ func getSchema(data map[string]any) *Schema {
 // flatten takes an input `Datum` and a `mapOrder` from the current `Schema` and returns a list of
 // `float32`s representing the readings. Similar to `getFieldsForItem`, there are constraints on
 // input data shape that this code currently does not validate.
-func flatten(datum Datum, schema *Schema) []float32 {
+func flatten(datum datum, schema *schema) []float32 {
 	ret := make([]float32, 0, len(schema.fieldOrder))
 
 	for _, key := range schema.mapOrder {
@@ -224,8 +222,8 @@ func flatten(datum Datum, schema *Schema) []float32 {
 // parse reads the entire contents from `rawReader` and returns a list of `Datum`. If an error
 // occurs, the []Datum parsed up until the place of the error will be returned, in addition to a
 // non-nil error.
-func parse(rawReader io.Reader) ([]Datum, error) {
-	ret := make([]Datum, 0)
+func parse(rawReader io.Reader) ([]datum, error) {
+	ret := make([]datum, 0)
 
 	// prevValues are the previous values used for producing the diff bits. This is overwritten when
 	// a new metrics reading is made. and nilled out when the schema changes.
@@ -234,7 +232,7 @@ func parse(rawReader io.Reader) ([]Datum, error) {
 	// bufio's Reader allows for peeking and potentially better control over how much data to read
 	// from disk at a time.
 	reader := bufio.NewReader(rawReader)
-	var schema *Schema = nil
+	var schema *schema
 	for {
 		peek, err := reader.Peek(1)
 		if err != nil {
@@ -249,6 +247,11 @@ func parse(rawReader io.Reader) ([]Datum, error) {
 		// document. The rest of the bits (for diffing) are irrelevant and will be zero. Thus the
 		// check against `0x1`.
 		if peek[0] == 0x1 {
+			//nolint
+			//
+			// Justifying the nolint: if `Peek(1)` does not return an error, `ReadByte` must not be
+			// able to return an error.
+			//
 			// Consume the 0x1 byte.
 			_, _ = reader.ReadByte()
 
@@ -262,7 +265,7 @@ func parse(rawReader io.Reader) ([]Datum, error) {
 			prevValues = nil
 			continue
 		} else if schema == nil {
-			return nil, errors.New("First byte of FTDC data must be the magic 0x1 representing a new schema.")
+			return nil, errors.New("first byte of FTDC data must be the magic 0x1 representing a new schema")
 		}
 
 		// This FTDC document is a metric document. Read the "diff bits" that describe which metrics
@@ -290,7 +293,7 @@ func parse(rawReader io.Reader) ([]Datum, error) {
 
 		// Construct a `Datum` that hydrates/merged the full set of float32 metrics with the metric
 		// names as written in the most recent schema document.
-		ret = append(ret, Datum{
+		ret = append(ret, datum{
 			Time: dataTime,
 			Data: schema.Hydrate(data),
 		})
@@ -304,7 +307,7 @@ func parse(rawReader io.Reader) ([]Datum, error) {
 //
 // readSchema returns the described schema and a new reader that's positioned on the first byte of
 // the next ftdc document.
-func readSchema(reader *bufio.Reader) (*Schema, *bufio.Reader) {
+func readSchema(reader *bufio.Reader) (*schema, *bufio.Reader) {
 	decoder := json.NewDecoder(reader)
 	if !decoder.More() {
 		panic("no json")
@@ -326,8 +329,8 @@ func readSchema(reader *bufio.Reader) (*Schema, *bufio.Reader) {
 
 	// Consume a newline character. The JSON Encoder will unconditionally append a newline that the
 	// JSON decoder will not* consume. This is a sharp edge of the Golang JSON API.
-	ch, _ := retReader.ReadByte()
-	if ch != '\n' {
+	ch, err := retReader.ReadByte()
+	if ch != '\n' || err != nil {
 		panic("not a newline")
 	}
 
@@ -338,6 +341,7 @@ func readSchema(reader *bufio.Reader) (*Schema, *bufio.Reader) {
 	var mapOrder []string
 	metricNameSet := make(map[string]struct{})
 	for _, field := range fields {
+		//nolint:gocritic
 		metricName := field[:strings.Index(field, ".")]
 		if _, exists := metricNameSet[metricName]; !exists {
 			mapOrder = append(mapOrder, metricName)
@@ -345,7 +349,7 @@ func readSchema(reader *bufio.Reader) (*Schema, *bufio.Reader) {
 		}
 	}
 
-	return &Schema{
+	return &schema{
 		fieldOrder: fields,
 		mapOrder:   mapOrder,
 	}, retReader
@@ -355,7 +359,7 @@ func readSchema(reader *bufio.Reader) (*Schema, *bufio.Reader) {
 // metrics that have changed. Note that the first byte of the input reader is "packed" with the
 // schema bit. Thus the first byte can represent 7 metrics and the remaining bytes can each
 // represent 8 metrics.
-func readDiffBits(reader *bufio.Reader, schema *Schema) []int {
+func readDiffBits(reader *bufio.Reader, schema *schema) []int {
 	// 1 diff bit per metric + 1 bit for the packed "schema bit".
 	numBits := len(schema.fieldOrder) + 1
 
@@ -395,8 +399,9 @@ func readDiffBits(reader *bufio.Reader, schema *Schema) []int {
 // readData returns the "hydrated" metrics for a data reading. For example, if there are ten metrics
 // and none of them changed, the returned []float32 will be identical to `prevValues`. `prevValues`
 // is the post-hydration list and consequently matches the `schema.fieldOrder` size.
-func readData(reader *bufio.Reader, schema *Schema, diffedFields []int, prevValues []float32) ([]float32, error) {
+func readData(reader *bufio.Reader, schema *schema, diffedFields []int, prevValues []float32) ([]float32, error) {
 	if prevValues != nil && len(prevValues) != len(schema.fieldOrder) {
+		//nolint
 		return nil, fmt.Errorf("Parser error. Mismatched `prevValues` and schema size. PrevValues: %d Schema: %d",
 			len(prevValues), len(schema.fieldOrder))
 	}
@@ -405,7 +410,6 @@ func readData(reader *bufio.Reader, schema *Schema, diffedFields []int, prevValu
 
 	// For each metric in the schema:
 	for dataIdx := 0; dataIdx < len(schema.fieldOrder); dataIdx++ {
-
 		// See if the metric index exists in the `diffedFields` array.
 		diffFromPrev := false
 		for _, fieldIdx := range diffedFields {
@@ -419,7 +423,9 @@ func readData(reader *bufio.Reader, schema *Schema, diffedFields []int, prevValu
 			// If the metric existed, it's because there was a fresh reading in the input
 			// `reader`. Parse the value from the `reader`.
 			ret = append(ret, 0.0)
-			binary.Read(reader, binary.BigEndian, &ret[dataIdx])
+			if err := binary.Read(reader, binary.BigEndian, &ret[dataIdx]); err != nil {
+				return nil, err
+			}
 		} else {
 			// Otherwise, the metric did not change. Use the previous value.
 			if prevValues == nil {
@@ -436,10 +442,11 @@ func readData(reader *bufio.Reader, schema *Schema, diffedFields []int, prevValu
 }
 
 // Hydrate takes the input []float slice of `data` and matches those to their corresponding metric
-// names. Returning a
-func (schema *Schema) Hydrate(data []float32) map[string]any {
+// names. Returning a.
+func (schema *schema) Hydrate(data []float32) map[string]any {
 	ret := make(map[string]any)
 	for fieldIdx, metricName := range schema.fieldOrder {
+		//nolint:gocritic
 		statsName := metricName[:strings.Index(metricName, ".")]
 		metricName = metricName[strings.Index(metricName, ".")+1:]
 

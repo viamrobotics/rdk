@@ -1,5 +1,3 @@
-// ftdc (full-time data capture) is a tool for storing observability data on disk in a compact
-// binary format for production debugging.
 package ftdc
 
 import (
@@ -10,23 +8,26 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
-type Datum struct {
+type datum struct {
 	Time int64
 	Data map[string]any
 
-	generationId int
+	generationID int
 }
 
+// FTDC is a tool for storing observability data on disk in a compact binary format for production
+// debugging.
 type FTDC struct {
 	// Fields used to generate and serialize FTDC output to bytes.
 	//
-	// inputGenerationId changes when new pieces are added to FTDC at runtime that change the
+	// inputGenerationID changes when new pieces are added to FTDC at runtime that change the
 	// schema.
-	inputGenerationId int
-	// outputGenerationId represents the last schema written to the FTDC `outputWriter`.
-	outputGenerationId int
+	//nolint:unused
+	inputGenerationID int
+	// outputGenerationID represents the last schema written to the FTDC `outputWriter`.
+	outputGenerationID int
 	// The schema used describe how new Datums are serialized.
-	currSchema *Schema
+	currSchema *schema
 	// The serialization format compares new metrics to the prior metric reading to determine what
 	// to write. `prevFlatData` is the field used to create a diff that's serialized. For
 	// simplicity, all metrics are massaged into a 32-bit float. See `custom_format.go` for a more
@@ -46,12 +47,14 @@ type FTDC struct {
 	logger logging.Logger
 }
 
+// New creates a new *FTDC.
 func New(logger logging.Logger) *FTDC {
 	return &FTDC{
 		logger: logger,
 	}
 }
 
+// NewWithWriter creates a new *FTDC that outputs bytes to the specified writer.
 func NewWithWriter(writer io.Writer, logger logging.Logger) *FTDC {
 	return &FTDC{
 		logger:       logger,
@@ -61,20 +64,20 @@ func NewWithWriter(writer io.Writer, logger logging.Logger) *FTDC {
 
 // newDatum takes an ftdc reading ("Datum") as input and serializes + writes it to the backing
 // medium (e.g: a file). See `writeSchema`s documentation for a full description of the file format.
-func (ftdc *FTDC) newDatum(datum Datum) error {
+func (ftdc *FTDC) newDatum(datum datum) error {
 	toWrite, err := ftdc.getWriter()
 	if err != nil {
 		return err
 	}
 
 	// The input `datum` being processed is for a different schema than we were previously using.
-	if datum.generationId != ftdc.outputGenerationId {
+	if datum.generationID != ftdc.outputGenerationID {
 		// Compute the new schema and write that to disk.
 		ftdc.currSchema = getSchema(datum.Data)
 		writeSchema(ftdc.currSchema, toWrite)
 
 		// Update the `outputGenerationId` to reflect the new schema.
-		ftdc.outputGenerationId = datum.generationId
+		ftdc.outputGenerationID = datum.generationID
 
 		data := flatten(datum, ftdc.currSchema)
 		// Write the new data point to disk. When schema changes, we do not do any diffing. We write
