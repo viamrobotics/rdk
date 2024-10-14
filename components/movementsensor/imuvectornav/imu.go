@@ -212,9 +212,9 @@ func newVectorNav(
 	if pollFreq > 0 {
 		logger.CDebugf(ctx, "vecnav: will poll at %d Hz", pollFreq)
 		waitCh := make(chan struct{})
-		pollHertz := 1.0 / float64(pollFreq)
+		pollPerSecond := 1.0 / float64(pollFreq)
 		v.workers = goutils.NewBackgroundStoppableWorkers(func(cancelCtx context.Context) {
-			timer := time.NewTicker(time.Duration(pollHertz * float64(time.Second)))
+			timer := time.NewTicker(time.Duration(pollPerSecond * float64(time.Second)))
 			defer timer.Stop()
 			close(waitCh)
 			for {
