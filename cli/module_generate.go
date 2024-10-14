@@ -329,7 +329,7 @@ func wrapResolveOrg(cCtx *cli.Context, c *viamClient, newModule *moduleInputs) e
 }
 
 func catchResolveOrgErr(cCtx *cli.Context, c *viamClient, newModule *moduleInputs, caughtErr error) error {
-	if strings.Contains(caughtErr.Error(), "not logged in") {
+	if strings.Contains(caughtErr.Error(), "not logged in") || strings.Contains(caughtErr.Error(), "error while refreshing token") {
 		originalWriter := cCtx.App.Writer
 		cCtx.App.Writer = io.Discard
 		err := c.loginAction(cCtx)
