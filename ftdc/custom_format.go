@@ -68,7 +68,7 @@ type Schema struct {
 // metric_reading =
 //
 //	metric_identifier : 0b0 (a single bit of value 0)
-//	diff_bit : bit*
+//	diff_bit : bit* + byte alignment padding
 //	time: int64 <Golang: `time.Now().Unix()`. Nanoseconds since the 1970 epoch.>
 //	values : float32*
 //
@@ -77,16 +77,25 @@ type Schema struct {
 // and a UNIX newline (0x0a). The JSON strings are "flattened" using a dot to concatenate the map
 // key with the metric name. E.g:
 //
-// ["motor.powerPct", "motor.pos", "gps.lat", "gps.long"]\n
+// 0000 0001 ["motor.powerPct", "motor.pos", "gps.lat", "gps.long"]\n
+// 7       0
 //
 // Following a schema document will be 0 or more metric documents. A metric reading has one diff bit
 // per reading (i.e: the "size" of the schema). In our example, that's four bits.  A diff bit is set
 // to `0` if the new reading for a given metric is same as the immediately prior reading. A diff bit
 // is set to `1` if the readings differ. Each reading that differs will have one 32-bit float value
-// written as part of this metric reading document.
+// written as part of this metric reading document. A metric can contain numeric values that are not
+// 32-bit floats. This format is lossy. We don't expect to need the fully ~7 (`math.log10(2**23)`)
+// significant figures of precision a float32 provides.
 //
 // The diff bits immediately follow the metric bit value of 0. In other words, the first byte
-// containing the metric bit is packed/merged with the first (up to seven) diff bits.
+// containing the metric bit is packed/merged with the first (up to seven) diff bits. The remaining
+// diff bytes each contain up to eight diff bits. The last diff byte may not have eight metrics to
+// fill out a full byte. A full byte will be written none the less for alignment. The higher bits
+// will be wasted.
+//
+// Note that the number of diff bytes to write/read is a function of the number of fields in the
+// most recent schema.
 //
 // The initial metric reading immediately following a schema document does not have a diff to
 // compare against. In this case the format assumes a prior value of `0` for each metric. To
@@ -127,11 +136,16 @@ type Schema struct {
 // take.
 func writeSchema(schema *Schema, output io.Writer) {
 	// New schema byte
-	output.Write([]byte{0x1})
+	if _, err := output.Write([]byte{0x1}); err != nil {
+		panic(err)
+	}
+
 	encoder := json.NewEncoder(output)
 	// `json.Encoder.Encode` assumes it convenient to append a newline character at the very
 	// end. This newline has been included in the format specification. Parsers must read over that.
-	encoder.Encode(schema.fieldOrder)
+	if err := encoder.Encode(schema.fieldOrder); err != nil {
+		panic(err)
+	}
 }
 
 // writeDatum writes out the three data format parts associated with every reading: the time, the
@@ -139,7 +153,7 @@ func writeSchema(schema *Schema, output io.Writer) {
 //
 // This may only call this when `len(curr) > 0`. `prev` may be nil or empty. If `prev` is non-empty,
 // `len(prev)` must equal `len(curr)`.
-func writeDatum(time int64, prev, curr []float32, output io.Writer, ftdc *FTDC) {
+func writeDatum(time int64, prev, curr []float32, output io.Writer) {
 	numPts := len(curr)
 	if numPts == 0 {
 		// Handled by the caller.
@@ -189,15 +203,21 @@ func writeDatum(time int64, prev, curr []float32, output io.Writer, ftdc *FTDC) 
 		}
 	}
 
-	output.Write(diffBits)
+	if _, err := output.Write(diffBits); err != nil {
+		panic(err)
+	}
 
 	// Write time between diff bits and values.
-	binary.Write(output, binary.BigEndian, time)
+	if err := binary.Write(output, binary.BigEndian, time); err != nil {
+		panic(err)
+	}
 
 	// Write out values for metrics that changed across reading.
 	for idx, diff := range diffs {
 		if diff > epsilon {
-			binary.Write(output, binary.BigEndian, curr[idx])
+			if err := binary.Write(output, binary.BigEndian, curr[idx]); err != nil {
+				panic(err)
+			}
 		}
 	}
 }
@@ -232,15 +252,16 @@ func getFieldsForItem(item any) []string {
 // getSchema returns a schema for a full FTDC datum. It immortalizes two properties:
 // - mapOrder: The order to iterate future input `map[string]any` data.
 // - fieldOrder: The order diff bits and values are to be written in.
+//
+// For correctness, it must be the case that the `mapOrder` and `fieldOrder` are consistent. I.e: if
+// the `mapOrder` is `A` then `B`, the `fieldOrder` must list all of the fields of `A` first,
+// followed by all the fields of `B`.
 func getSchema(data map[string]any) *Schema {
 	var mapOrder []string
-	for key, _ := range data {
-		mapOrder = append(mapOrder, key)
-	}
-
 	var fields []string
-	for _, key := range mapOrder {
-		stats := data[key]
+
+	for key, stats := range data {
+		mapOrder = append(mapOrder, key)
 		for _, field := range getFieldsForItem(stats) {
 			// We insert a `.` into every metric/field name we get a recording for. This property is
 			// assumed elsewhere.
@@ -254,9 +275,9 @@ func getSchema(data map[string]any) *Schema {
 	}
 }
 
-// flatten takes an input `Datum` and returns a list of `float32`s representing the
-// readings. Similar to `getFieldsForItem`, there are constraints on input data shape that this code
-// currently does not validate.
+// flatten takes an input `Datum` and a `mapOrder` from the current `Schema` and returns a list of
+// `float32`s representing the readings. Similar to `getFieldsForItem`, there are constraints on
+// input data shape that this code currently does not validate.
 func flatten(datum Datum, mapOrder []string) []float32 {
 	ret := make([]float32, 0, 10*len(mapOrder))
 
@@ -334,14 +355,12 @@ func parse(rawReader io.Reader) ([]Datum, error) {
 
 			// Read json and position the cursor at the next FTDC document. The JSON reader may
 			// "over-read", so `readSchema` assembles a new reader positioned at the right spot. The
-			// schema bytes themselves are expected to be a list of strings, e.g: `["metricNameOne",
+			// schema bytes themselves are expected to be a list of strings, e.g: `["metricName1",
 			// "metricName2"]`.
 			schema, reader = readSchema(reader)
 
 			// We cannot diff against values from the old schema.
 			prevValues = nil
-
-			//
 			continue
 		} else if schema == nil {
 			return nil, errors.New("First byte of FTDC data must be the magic one")
@@ -351,15 +370,17 @@ func parse(rawReader io.Reader) ([]Datum, error) {
 		// have changed since the prior metric document. Note, the reader is positioned on the
 		// "packed byte" where the first bit is not a diff bit. `readDiffBits` must account for
 		// that.
-		diffedFields := readDiffBits(reader, schema)
+		diffedFieldsIndexes := readDiffBits(reader, schema)
 
 		// The next eight bytes after the diff bits is the time in nanoseconds since the 1970 epoch.
 		var dataTime int64
-		binary.Read(reader, binary.BigEndian, &dataTime)
+		if err = binary.Read(reader, binary.BigEndian, &dataTime); err != nil {
+			return ret, err
+		}
 
 		// Read the payload. There will be one float32 value for each diff bit set to `1`, i.e:
 		// `len(diffedFields)`.
-		data, err := readData(reader, schema, diffedFields, prevValues)
+		data, err := readData(reader, schema, diffedFieldsIndexes, prevValues)
 		if err != nil {
 			return ret, err
 		}

@@ -1,3 +1,5 @@
+// ftdc (full-time data capture) is a tool for storing observability data on disk in a compact
+// binary format for production debugging.
 package ftdc
 
 import (
@@ -18,15 +20,17 @@ type Datum struct {
 type FTDC struct {
 	// Fields used to generate and serialize FTDC output to bytes.
 	//
-	// inputGenerationId changes when new pieces are added to FTDC at runtmie that change the
+	// inputGenerationId changes when new pieces are added to FTDC at runtime that change the
 	// schema.
 	inputGenerationId int
-	// outputGenerationId represents the last schema written to the FTDC output stream.
+	// outputGenerationId represents the last schema written to the FTDC `outputWriter`.
 	outputGenerationId int
 	// The schema used describe how new Datums are serialized.
 	currSchema *Schema
 	// The serialization format compares new metrics to the prior metric reading to determine what
-	// to write. `prevFlatData` is the field used to create a diff that's serialized.
+	// to write. `prevFlatData` is the field used to create a diff that's serialized. For
+	// simplicity, all metrics are massaged into a 32-bit float. See `custom_format.go` for a more
+	// detailed description.
 	prevFlatData []float32
 
 	// Fields used to manage where serialized FTDC bytes are written.
@@ -75,7 +79,7 @@ func (ftdc *FTDC) newDatum(datum Datum) error {
 		data := flatten(datum, ftdc.currSchema.mapOrder)
 		// Write the new data point to disk. When schema changes, we do not do any diffing. We write
 		// a raw value for each metric.
-		writeDatum(datum.Time, nil, data, toWrite, ftdc)
+		writeDatum(datum.Time, nil, data, toWrite)
 		ftdc.prevFlatData = data
 
 		return nil
@@ -84,7 +88,7 @@ func (ftdc *FTDC) newDatum(datum Datum) error {
 	// The input `datum` is for the same schema as the prior datum. Flatten the values and write a
 	// datum entry diffed against the `prevFlatData`.
 	data := flatten(datum, ftdc.currSchema.mapOrder)
-	writeDatum(datum.Time, ftdc.prevFlatData, data, toWrite, ftdc)
+	writeDatum(datum.Time, ftdc.prevFlatData, data, toWrite)
 	ftdc.prevFlatData = data
 	return nil
 }
