@@ -39,10 +39,6 @@ jobs:
         with:
           ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.event.ref }}
 
-      - uses: actions/setup-python@v5
-        with:
-          cache: "pip"
-
       - name: Set main env vars
         if: github.event_name != 'pull_request_target'
         run: |
