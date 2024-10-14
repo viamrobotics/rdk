@@ -1195,7 +1195,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 			} else {
 				canReconfigure, err := r.checkMaintenanceSensorReadings(ctx, newConfig.MaintenanceConfig.MaintenanceAllowedKey, sensorComponent)
 				if !canReconfigure {
-					r.logger.Info("maintenanceAllowedKey found from readings on maintenance sensor. Reconfigure disabled")
+					r.logger.Info("maintenanceAllowedKey found from readings on maintenance sensor. Skipping reconfiguration.")
 					diff, err := config.DiffConfigs(*r.Config(), *newConfig, false)
 					if err != nil {
 						r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
