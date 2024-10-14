@@ -148,11 +148,13 @@ func (q *dualQuaternion) Transformation(by dualquat.Number) dualquat.Number {
 	} else {
 		newReal = quat.Mul(q.Real, by.Real)
 	}
-	if vecLen := quat.Abs(newReal); vecLen-1 > 1e-10 || vecLen-1 < -1e-10 {
-		newReal.Real /= vecLen
-		newReal.Imag /= vecLen
-		newReal.Jmag /= vecLen
-		newReal.Kmag /= vecLen
+	// Multiplication is faster than division. Thus if this is hit, it is faster to divide once and multiply four times.
+	// However, if this is not hit, it may be a wash. The branch predictor won't save us as the following lines rely on newReal.
+	if vecLen := 1 / quat.Abs(newReal); vecLen-1 > 1e-10 || vecLen-1 < -1e-10 {
+		newReal.Real *= vecLen
+		newReal.Imag *= vecLen
+		newReal.Jmag *= vecLen
+		newReal.Kmag *= vecLen
 	}
 
 	if q.Dual.Real == 0 && q.Dual.Imag == 0 && q.Dual.Jmag == 0 && q.Dual.Kmag == 0 {

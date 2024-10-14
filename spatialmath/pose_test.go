@@ -181,7 +181,7 @@ func BenchmarkCompose(b *testing.B) {
 	var x Pose
 	numIter := 10000
 	poses := [][]Pose{}
-	
+
 	for i := 0; i < numIter; i++ {
 		p1 := randPose(r)
 		p2 := randPose(r)
@@ -190,7 +190,7 @@ func BenchmarkCompose(b *testing.B) {
 	for i := 0; len(poses) < b.N; i++ {
 		poses = append(poses, []Pose{poses[i][0], poses[i][1]})
 	}
-	
+
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		x = Compose(poses[n][0], poses[n][1])
