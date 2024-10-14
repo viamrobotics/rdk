@@ -149,7 +149,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	return deps, nil
 }
 
-// init registers a pi motor based on pigpio.
+// init registers a motor controlled by settign pwm and gpio pins on the underlying board.
 func init() {
 	resource.RegisterComponent(motor.API, model, resource.Registration[motor.Motor, *Config]{
 		Constructor: createNewMotor,

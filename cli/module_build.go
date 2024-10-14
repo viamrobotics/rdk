@@ -78,6 +78,7 @@ func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context) error {
 
 	gitRef := cCtx.String(moduleBuildFlagRef)
 	token := cCtx.String(moduleBuildFlagToken)
+	workdir := cCtx.String(moduleBuildFlagWorkdir)
 	req := buildpb.StartBuildRequest{
 		Repo:          manifest.URL,
 		Ref:           &gitRef,
@@ -85,6 +86,7 @@ func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context) error {
 		ModuleId:      manifest.ModuleID,
 		ModuleVersion: version,
 		Token:         &token,
+		Workdir:       &workdir,
 	}
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
