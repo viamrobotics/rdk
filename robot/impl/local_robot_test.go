@@ -3916,7 +3916,7 @@ func TestCheckMaintenanceSensorReadings(t *testing.T) {
 		localRobot := r.(*localRobot)
 		canReconfigure, err := localRobot.checkMaintenanceSensorReadings(context.Background(), "", newErrorSensor())
 
-		test.That(t, canReconfigure, test.ShouldEqual, true)
+		test.That(t, canReconfigure, test.ShouldEqual, false)
 		test.That(t, err.Error(), test.ShouldEqual, "error reading maintenance sensor readings. Wallet not found")
 	})
 	t.Run("maintenanceAllowedKey does not exist", func(t *testing.T) {
@@ -3925,7 +3925,7 @@ func TestCheckMaintenanceSensorReadings(t *testing.T) {
 		canReconfigure, err := localRobot.checkMaintenanceSensorReadings(context.Background(), "keyDoesNotExist", newValidSensor())
 
 		test.That(t, canReconfigure, test.ShouldEqual, true)
-		test.That(t, err.Error(), test.ShouldEqual, "error getting MaintenanceAllowedKey keyDoesNotExist from sensor reading")
+		test.That(t, err.Error(), test.ShouldEqual, "error getting maintenance_allowed_key keyDoesNotExist from sensor reading")
 	})
 	t.Run("maintenanceAllowedKey is not a boolean", func(t *testing.T) {
 		r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
