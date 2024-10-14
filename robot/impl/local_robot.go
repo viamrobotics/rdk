@@ -1187,7 +1187,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	if newConfig.MaintenanceConfig != nil {
 		name, err := resource.NewFromString(newConfig.MaintenanceConfig.SensorName)
 		if err != nil {
-			r.logger.Warnf("Sensor Name %s is not in a supported format", newConfig.MaintenanceConfig.SensorName)
+			r.logger.Warnf("sensor_name %s in maintenance config is not in a supported format", newConfig.MaintenanceConfig.SensorName)
 		} else {
 			sensorComponent, err := robot.ResourceFromRobot[sensor.Sensor](r, name)
 			if err != nil {
@@ -1195,14 +1195,14 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 			} else {
 				canReconfigure, err := r.checkMaintenanceSensorReadings(ctx, newConfig.MaintenanceConfig.MaintenanceAllowedKey, sensorComponent)
 				if !canReconfigure {
-					r.logger.Info("maintenanceAllowedKey found from readings on maintenance sensor. Reconfigure disabled")
+					r.logger.Info("maintenanceAllowedKey found from readings on maintenance sensor. Skipping reconfiguration.")
 					diff, err := config.DiffConfigs(*r.Config(), *newConfig, false)
 					if err != nil {
 						r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
 					}
 					// NetworkEqual checks if Cloud/Auth/Network are equal between configs
 					if diff != nil && !diff.NetworkEqual {
-						r.logger.Info("Reconfigure disabled but Cloud/Auth/Network config section has been updated")
+						r.logger.Info("Machine reconfiguration skipped but Cloud/Auth/Network config section contain changes and will be applied.")
 					}
 					return
 				}
