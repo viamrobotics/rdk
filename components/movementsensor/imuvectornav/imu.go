@@ -31,7 +31,7 @@ const DefaultBaudRate = 9600
 type Config struct {
 	SPI      string `json:"spi_bus"`
 	BaudRate *int   `json:"spi_baud_rate,omitempty"`
-	Pfreq    *int   `json:"polling_freq_hz,omitempty"`
+	Pfreq    *uint  `json:"polling_freq_hz,omitempty"`
 	CSPin    string `json:"chip_select_pin"`
 }
 
@@ -123,7 +123,7 @@ func newVectorNav(
 		baudRate = DefaultBaudRate
 	}
 
-	pollFreq := 200
+	pollFreq := uint(200)
 	if *newConf.Pfreq > 0 {
 		pollFreq = *newConf.Pfreq
 	}
@@ -135,7 +135,7 @@ func newVectorNav(
 		chipSelectPin: newConf.CSPin,
 		baudRate:      baudRate,
 		busClosed:     false,
-		polling:       uint(pollFreq),
+		polling:       pollFreq,
 	}
 
 	mdl, err := v.readRegisterSPI(ctx, modelNumber, 24)
