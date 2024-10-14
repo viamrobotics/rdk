@@ -48,7 +48,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		helperModel,
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: newHelper,
-			Discover: func(ctx context.Context, logger logging.Logger, extra interface{}) (interface{}, error) {
+			Discover: func(ctx context.Context, logger logging.Logger, extra map[string]interface{}) (interface{}, error) {
 				return map[string]string{
 					"foo": "bar",
 				}, nil

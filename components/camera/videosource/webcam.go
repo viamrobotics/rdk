@@ -45,7 +45,7 @@ func init() {
 		ModelWebcam,
 		resource.Registration[camera.Camera, *WebcamConfig]{
 			Constructor: NewWebcam,
-			Discover: func(ctx context.Context, logger logging.Logger, extra interface{}) (interface{}, error) {
+			Discover: func(ctx context.Context, logger logging.Logger, extra map[string]interface{}) (interface{}, error) {
 				return Discover(ctx, getVideoDrivers, logger)
 			},
 		})

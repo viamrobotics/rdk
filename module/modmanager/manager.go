@@ -1210,13 +1210,14 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger log
 					) (resource.Resource, error) {
 						return mgr.AddResource(ctx, conf, DepsToNames(deps))
 					},
-					Discover: func(ctx context.Context, logger logging.Logger, extra interface{}) (interface{}, error) {
-						if extra == nil {
-							extra = &structpb.Struct{}
+					Discover: func(ctx context.Context, logger logging.Logger, extra map[string]interface{}) (interface{}, error) {
+						extraStruct, err := structpb.NewStruct(extra)
+						if err != nil {
+							return nil, err
 						}
 						req := &robotpb.DiscoverComponentsRequest{
 							Queries: []*robotpb.DiscoveryQuery{
-								{Subtype: apiCopy.API.String(), Model: modelCopy.String(), Extra: extra.(*structpb.Struct)},
+								{Subtype: apiCopy.API.String(), Model: modelCopy.String(), Extra: extraStruct},
 							},
 						}
 

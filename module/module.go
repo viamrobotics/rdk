@@ -546,7 +546,7 @@ func (m *Module) DiscoverComponents(
 			return nil, fmt.Errorf("discovery not supported for API %s and model %s", api, model)
 		}
 
-		results, err := resInfo.Discover(ctx, m.logger, q.Extra)
+		results, err := resInfo.Discover(ctx, m.logger, q.Extra.AsMap())
 		if err != nil {
 			return nil, fmt.Errorf("error discovering components for API %s and model %s: %w", api, model, err)
 		}

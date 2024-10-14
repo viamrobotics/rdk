@@ -54,7 +54,7 @@ func init() {
 		) (resource.Resource, error) {
 			return nil, errors.New("no")
 		},
-		Discover: func(ctx context.Context, logger logging.Logger, extra interface{}) (interface{}, error) {
+		Discover: func(ctx context.Context, logger logging.Logger, extra map[string]any) (interface{}, error) {
 			return workingDiscovery, nil
 		},
 	})
@@ -65,7 +65,7 @@ func init() {
 		) (resource.Resource, error) {
 			return nil, errors.New("no")
 		},
-		Discover: func(ctx context.Context, logger logging.Logger, extra interface{}) (interface{}, error) {
+		Discover: func(ctx context.Context, logger logging.Logger, extra map[string]interface{}) (interface{}, error) {
 			return nil, errFailed
 		},
 	})
