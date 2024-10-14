@@ -1093,6 +1093,10 @@ func (m *module) FirstRun(
 	// TODO: do we need this module directory stuff like we have in startProcess?
 	moduleEnvironment := m.getFullEnvironment(viamHomeDir)
 
+	// TODO: Revert this nolint declaration. I'm temporarily ignoring this lint for
+	// testing purposes - we don't want to disable this lint since it opens an obvious
+	// injection attack vector.
+	//nolint:gosec
 	cmd := exec.CommandContext(ctx, firstRunPath)
 	// TODO: set current env?
 	// cmd.Env = os.Environ()

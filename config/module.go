@@ -47,14 +47,17 @@ type Module struct {
 	// LocalVersion is an in-process fake version used for local module change management.
 	LocalVersion string
 
-	// FirstRunPath is the path to be executed during the setup phase.
-	FirstRunPath string `json:first_run`
+	// FirstRun is the path to be executed during the setup phase.
+	// TODO: remove this after implementing the setup phase life-cycle and
+	// testing it, since per-scope this field should only be included in a
+	// module's meta.json file'
+	FirstRun string `json:"first_run"`
 }
 
 // JSONManifest contains meta.json fields that are used by both RDK and CLI.
 type JSONManifest struct {
-	Entrypoint   string `json:"entrypoint"`
-	FirstRunPath string `json:"entrypoint"`
+	Entrypoint string `json:"entrypoint"`
+	FirstRun   string `json:"first_run"`
 }
 
 // ModuleType indicates where a module comes from.
@@ -224,8 +227,8 @@ func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 // 3. otherwise use the exe path from config, or fail if this is a local tarball.
 // Note: the working directory must be the unpacked tarball directory or local exec directory.
 func (m Module) EvaluateFirstRunPath(packagesDir string) (string, error) {
-	if !filepath.IsAbs(m.FirstRunPath) {
-		return "", fmt.Errorf("expected FirstRunPath to be absolute path, got %s", m.FirstRunPath)
+	if !filepath.IsAbs(m.FirstRun) {
+		return "", fmt.Errorf("expected FirstRun to be absolute path, got %s", m.FirstRun)
 	}
 	firstRunDir, err := m.exeDir(packagesDir)
 	if err != nil {
@@ -246,7 +249,7 @@ func (m Module) EvaluateFirstRunPath(packagesDir string) (string, error) {
 			if err != nil {
 				return "", err
 			}
-			firstRun, err := utils.SafeJoinDir(firstRunDir, meta.FirstRunPath)
+			firstRun, err := utils.SafeJoinDir(firstRunDir, meta.FirstRun)
 			if err != nil {
 				return "", err
 			}
@@ -265,11 +268,11 @@ func (m Module) EvaluateFirstRunPath(packagesDir string) (string, error) {
 			// note: this error deprecates the side-by-side case because the side-by-side case is deprecated.
 			return "", errors.Wrapf(err, "couldn't find meta.json inside tarball %s (or next to it)", m.ExePath)
 		}
-		firstRun, err := utils.SafeJoinDir(firstRunDir, meta.FirstRunPath)
+		firstRun, err := utils.SafeJoinDir(firstRunDir, meta.FirstRun)
 		if err != nil {
 			return "", err
 		}
 		return filepath.Abs(firstRun)
 	}
-	return m.FirstRunPath, nil
+	return m.FirstRun, nil
 }
