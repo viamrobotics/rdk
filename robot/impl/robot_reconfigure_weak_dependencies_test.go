@@ -12,126 +12,14 @@ import (
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/components/arm/fake"
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
-	"go.viam.com/rdk/components/audioinput"
-	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/components/base"
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
-	"go.viam.com/rdk/components/camera"
-	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/components/generic"
-	// TODO(RSDK-7884): change everything that depends on this import to a mock.
-	"go.viam.com/rdk/components/gripper"
-	// TODO(RSDK-7884): change everything that depends on this import to a mock.
-	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	// TODO(RSDK-7884): change everything that depends on this import to a mock.
-	"go.viam.com/rdk/services/sensors"
-	rdktestutils "go.viam.com/rdk/testutils"
 	rutils "go.viam.com/rdk/utils"
 )
-
-// this serves as a test for updateWeakDependents as the sensors service defines a weak
-// dependency.
-func TestSensorsServiceReconfigure(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-
-	// emptyCfg, err := config.Read(context.Background(), "data/diff_config_empty.json", logger)
-	emptyCfg := &config.Config{}
-	// cfg, err := config.Read(context.Background(), "data/fake.json", logger)
-	// test.That(t, err, test.ShouldBeNil)
-	cfg := processConfig(t, &config.Config{
-		Components: []resource.Config{
-			{
-				Name:  "pieceGripper",
-				API:   gripper.API,
-				Model: resource.DefaultModelFamily.WithModel("fake"),
-			},
-			{
-				Name:  "mic1",
-				API:   audioinput.API,
-				Model: resource.DefaultModelFamily.WithModel("fake"),
-			},
-			{
-				Name:  "camera",
-				API:   camera.API,
-				Model: resource.DefaultModelFamily.WithModel("fake"),
-			},
-			{
-				Name:  "pieceArm",
-				API:   mockAPI,
-				Model: resource.DefaultModelFamily.WithModel("fake"),
-				Attributes: rutils.AttributeMap{
-					"model-path": "../../components/arm/fake/fake_model.json",
-				},
-			},
-			{
-				Name:  "movement_sensor1",
-				API:   movementsensor.API,
-				Model: resource.DefaultModelFamily.WithModel("fake"),
-			},
-			{
-				Name:  "movement_sensor2",
-				API:   movementsensor.API,
-				Model: resource.DefaultModelFamily.WithModel("fake"),
-			},
-		},
-	})
-
-	sensorNames := []resource.Name{movementsensor.Named("movement_sensor1"), movementsensor.Named("movement_sensor2")}
-
-	t.Run("empty to two sensors", func(t *testing.T) {
-		robot := setupLocalRobot(t, context.Background(), emptyCfg, logger)
-
-		svc, err := sensors.FromRobot(robot, resource.DefaultServiceName)
-		test.That(t, err, test.ShouldBeNil)
-
-		foundSensors, err := svc.Sensors(context.Background(), map[string]interface{}{})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, foundSensors, test.ShouldBeEmpty)
-
-		robot.Reconfigure(context.Background(), cfg)
-
-		foundSensors, err = svc.Sensors(context.Background(), map[string]interface{}{})
-		test.That(t, err, test.ShouldBeNil)
-		rdktestutils.VerifySameResourceNames(t, foundSensors, sensorNames)
-	})
-
-	t.Run("two sensors to empty", func(t *testing.T) {
-		robot := setupLocalRobot(t, context.Background(), cfg, logger)
-
-		svc, err := sensors.FromRobot(robot, resource.DefaultServiceName)
-		test.That(t, err, test.ShouldBeNil)
-
-		foundSensors, err := svc.Sensors(context.Background(), map[string]interface{}{})
-		test.That(t, err, test.ShouldBeNil)
-		rdktestutils.VerifySameResourceNames(t, foundSensors, sensorNames)
-
-		robot.Reconfigure(context.Background(), emptyCfg)
-
-		foundSensors, err = svc.Sensors(context.Background(), map[string]interface{}{})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, foundSensors, test.ShouldBeEmpty)
-	})
-
-	t.Run("two sensors to two sensors", func(t *testing.T) {
-		robot := setupLocalRobot(t, context.Background(), cfg, logger)
-
-		svc, err := sensors.FromRobot(robot, resource.DefaultServiceName)
-		test.That(t, err, test.ShouldBeNil)
-
-		foundSensors, err := svc.Sensors(context.Background(), map[string]interface{}{})
-		test.That(t, err, test.ShouldBeNil)
-		rdktestutils.VerifySameResourceNames(t, foundSensors, sensorNames)
-
-		robot.Reconfigure(context.Background(), cfg)
-
-		foundSensors, err = svc.Sensors(context.Background(), map[string]interface{}{})
-		test.That(t, err, test.ShouldBeNil)
-		rdktestutils.VerifySameResourceNames(t, foundSensors, sensorNames)
-	})
-}
 
 type someTypeWithWeakAndStrongDeps struct {
 	resource.Named

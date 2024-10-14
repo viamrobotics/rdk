@@ -378,8 +378,18 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 	} else if !rc.serverIsWebrtcEnabled {
 		// If we failed to connect via webrtc and* we've never previously connected over webrtc, try
 		// to connect with a grpc over a tcp connection.
-		dialOptionsGRPCOnly := dialOptionsWebRTCOnly
+		//
+		// Put our "force GRPC" option in front and the user input values at the end. This ensures
+		// user inputs take precedence.
+		dialOptionsGRPCOnly := make([]rpc.DialOption, len(rc.dialOptions)+2)
+		copy(dialOptionsGRPCOnly[2:], rc.dialOptions)
 		dialOptionsGRPCOnly[0] = rpc.WithForceDirectGRPC()
+
+		// Using `WithForceDirectGRPC` disables mdns lookups. This is not the same behavior as a
+		// webrtc dial which will* fallback to a direct grpc connection with* the mdns address. So
+		// we add this flag to partially override the above override.
+		dialOptionsGRPCOnly[1] = rpc.WithDialMulticastDNSOptions(rpc.DialMulticastDNSOptions{Disable: false})
+
 		grpcConn, grpcErr := grpc.Dial(ctx, rc.address, dialLogger, dialOptionsGRPCOnly...)
 		if grpcErr == nil {
 			conn = grpcConn

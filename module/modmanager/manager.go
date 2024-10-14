@@ -203,6 +203,26 @@ func (mgr *Manager) Handles() map[string]modlib.HandlerMap {
 	return res
 }
 
+// An allowed list of specific viam namespace modules. We want to allow running some of our official
+// modules even in an untrusted environment.
+var allowedModules = map[string]bool{
+	"viam:raspberry-pi": true,
+}
+
+// Checks if the modules added in an untrusted environment are Viam modules
+// and returns `true` and a list of their configs if any exist in the passed-in slice.
+func checkIfAllowed(confs ...config.Module) (
+	allowed bool /*false*/, newConfs []config.Module,
+) {
+	for _, conf := range confs {
+		if ok := allowedModules[conf.ModuleID]; ok {
+			allowed = true
+			newConfs = append(newConfs, conf)
+		}
+	}
+	return allowed, newConfs
+}
+
 // Add adds and starts a new resource modules for each given module configuration.
 //
 // Each module configuration should have a unique name - if duplicate names are detected,
@@ -212,7 +232,15 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 	defer mgr.mu.Unlock()
 
 	if mgr.untrustedEnv {
-		return errModularResourcesDisabled
+		allowed, newConfs := checkIfAllowed(confs...)
+		if !allowed {
+			return errModularResourcesDisabled
+		}
+		// overwrite with just the modules we've allowed
+		confs = newConfs
+		mgr.logger.CWarnw(
+			ctx, "Running in an untrusted environment; will only add some modules", "modules",
+			confs)
 	}
 
 	var (
@@ -834,11 +862,11 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 		if orphanedResourceNames := mgr.attemptRestart(mgr.restartCtx, mod); orphanedResourceNames != nil {
 			if mgr.removeOrphanedResources != nil {
 				mgr.removeOrphanedResources(mgr.restartCtx, orphanedResourceNames)
-				rNames := make([]string, 0, len(orphanedResourceNames))
-				for _, rName := range orphanedResourceNames {
-					rNames = append(rNames, rName.String())
-				}
-				mgr.logger.Debugw("Removed resources after failed module restart", "module", mod.cfg.Name, "resources", rNames)
+				mgr.logger.Debugw(
+					"Removed resources after failed module restart",
+					"module", mod.cfg.Name,
+					"resources", resource.NamesToStrings(orphanedResourceNames),
+				)
 			}
 			return false
 		}

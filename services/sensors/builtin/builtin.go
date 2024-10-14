@@ -14,7 +14,7 @@ import (
 )
 
 func init() {
-	resource.RegisterDefaultService(
+	resource.RegisterService(
 		sensors.API,
 		resource.DefaultServiceModel,
 		resource.Registration[sensors.Service, resource.NoNativeConfig]{
@@ -36,6 +36,8 @@ func NewBuiltIn(
 	if err := s.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
+
+	s.logger.Warn("sensors service is deprecated")
 	return s, nil
 }
 

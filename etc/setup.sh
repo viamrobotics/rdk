@@ -35,9 +35,6 @@ do_piOS(){
 	# Install backports
 	apt-get install -y -t $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2)-backports golang-go
 
-	# Raspberry Pi support
-	test "$(uname -m)" = "aarch64" && apt-get install -y libpigpio-dev
-
 	# upx
 	UPX_URL=https://github.com/upx/upx/releases/download/v4.0.2/upx-4.0.2-amd64_linux.tar.xz
 	if [ "$(uname -m)" = "aarch64" ]; then
