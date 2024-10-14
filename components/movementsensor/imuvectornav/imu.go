@@ -32,7 +32,7 @@ type Config struct {
 	SPI      string `json:"spi_bus"`
 	BaudRate *int   `json:"spi_baud_rate,omitempty"`
 	Pfreq    *int   `json:"polling_freq_hz,omitempty"`
-	GPIOPin  string `json:"chip_select_pin"` // this is the gpio number that we plugged it into
+	CSPin    string `json:"chip_select_pin"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -42,7 +42,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 		return nil, resource.NewConfigValidationFieldRequiredError(path, "spi")
 	}
 
-	if cfg.GPIOPin == "" {
+	if cfg.CSPin == "" {
 		return nil, resource.NewConfigValidationFieldRequiredError(path, "cs_pin (chip select pin)")
 	}
 	return deps, nil
@@ -161,7 +161,7 @@ func configParsingAndSetup(ctx context.Context, logger logging.Logger, cfg *Conf
 		pollFreq = *cfg.Pfreq
 	}
 
-	return baudRate, pollFreq, cfg.GPIOPin
+	return baudRate, pollFreq, cfg.CSPin
 }
 
 func (vn *vectornav) registerReading(ctx context.Context, logger logging.Logger) error {
