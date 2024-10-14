@@ -726,30 +726,8 @@ func TestCopyOnlyPublicFields(t *testing.T) {
 		test.That(t, cfgCopy.Network.TLSConfig, test.ShouldBeNil)
 	})
 }
-
-func TestNewTLSConfig(t *testing.T) {
-	for _, tc := range []struct {
-		TestName     string
-		Config       *config.Config
-		HasTLSConfig bool
-	}{
-		{TestName: "no cloud", Config: &config.Config{}, HasTLSConfig: false},
-		{TestName: "cloud but no cert", Config: &config.Config{Cloud: &config.Cloud{TLSCertificate: ""}}, HasTLSConfig: false},
-		{TestName: "cloud and cert", Config: &config.Config{Cloud: &config.Cloud{TLSCertificate: "abc"}}, HasTLSConfig: true},
-	} {
-		t.Run(tc.TestName, func(t *testing.T) {
-			observed := config.NewTLSConfig(tc.Config)
-			if tc.HasTLSConfig {
-				test.That(t, observed.MinVersion, test.ShouldEqual, tls.VersionTLS12)
-			} else {
-				test.That(t, observed, test.ShouldResemble, &config.TLSConfig{})
-			}
-		})
-	}
-}
-
-func TestUpdateCert(t *testing.T) {
-	t.Run("cert update", func(t *testing.T) {
+func TestCreateTLSWithCert(t *testing.T) {
+	t.Run("create TLS cert", func(t *testing.T) {
 		cfg := &config.Config{
 			Cloud: &config.Cloud{
 				TLSCertificate: `-----BEGIN CERTIFICATE-----
@@ -775,8 +753,7 @@ ph2C/7IgjA==
 		cert, err := tls.X509KeyPair([]byte(cfg.Cloud.TLSCertificate), []byte(cfg.Cloud.TLSPrivateKey))
 		test.That(t, err, test.ShouldBeNil)
 
-		tlsCfg := config.NewTLSConfig(cfg)
-		err = tlsCfg.UpdateCert(cfg)
+		tlsCfg, err := config.CreateTLSWithCert(cfg)
 		test.That(t, err, test.ShouldBeNil)
 
 		observed, err := tlsCfg.GetCertificate(&tls.ClientHelloInfo{})
@@ -785,8 +762,7 @@ ph2C/7IgjA==
 	})
 	t.Run("cert error", func(t *testing.T) {
 		cfg := &config.Config{Cloud: &config.Cloud{TLSCertificate: "abcd", TLSPrivateKey: "abcd"}}
-		tlsCfg := &config.TLSConfig{}
-		err := tlsCfg.UpdateCert(cfg)
+		_, err := config.CreateTLSWithCert(cfg)
 		test.That(t, err, test.ShouldBeError, errors.New("tls: failed to find any PEM data in certificate input"))
 	})
 }
@@ -862,15 +838,14 @@ ph2C/7IgjA==
 	expectedRemoteDiffManagerNoCloud := remoteDiffManager
 	expectedRemoteDiffManagerNoCloud.Auth = expectedRemoteAuthNoCloud
 
-	tlsCfg := &config.TLSConfig{}
-	err := tlsCfg.UpdateCert(cloudWTLSCfg)
+	tlsCfg, err := config.CreateTLSWithCert(cloudWTLSCfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	expectedCloudWTLSCfg := &config.Config{Cloud: cloudWTLS, Remotes: []config.Remote{}}
-	expectedCloudWTLSCfg.Network.TLSConfig = tlsCfg.Config
+	expectedCloudWTLSCfg.Network.TLSConfig = tlsCfg
 
 	expectedRemotesCloudWTLSCfg := &config.Config{Cloud: cloudWTLS, Remotes: []config.Remote{expectedRemoteCloud, remoteDiffManager}}
-	expectedRemotesCloudWTLSCfg.Network.TLSConfig = tlsCfg.Config
+	expectedRemotesCloudWTLSCfg.Network.TLSConfig = tlsCfg
 
 	for _, tc := range []struct {
 		TestName string
@@ -893,15 +868,26 @@ ph2C/7IgjA==
 		{TestName: "remotes cloud and cert", Config: remotesCloudWTLSCfg, Expected: expectedRemotesCloudWTLSCfg},
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
-			observed, err := config.ProcessConfig(tc.Config, &config.TLSConfig{})
+			observed, err := config.ProcessConfig(tc.Config)
 			test.That(t, err, test.ShouldBeNil)
+			// TLSConfig holds funcs, which do not resemble each other so check separately and nil them out after.
+			if tc.Expected.Network.TLSConfig != nil {
+				obsCert, err := observed.Network.TLSConfig.GetCertificate(nil)
+				test.That(t, err, test.ShouldBeNil)
+				expCert, err := tc.Expected.Network.TLSConfig.GetCertificate(nil)
+				test.That(t, err, test.ShouldBeNil)
+
+				test.That(t, obsCert, test.ShouldResemble, expCert)
+				tc.Expected.Network.TLSConfig = nil
+				observed.Network.TLSConfig = nil
+			}
 			test.That(t, observed, test.ShouldResemble, tc.Expected)
 		})
 	}
 
 	t.Run("cert error", func(t *testing.T) {
 		cfg := &config.Config{Cloud: &config.Cloud{TLSCertificate: "abcd", TLSPrivateKey: "abcd"}}
-		_, err := config.ProcessConfig(cfg, &config.TLSConfig{})
+		_, err := config.ProcessConfig(cfg)
 		test.That(t, err, test.ShouldBeError, errors.New("tls: failed to find any PEM data in certificate input"))
 	})
 }
