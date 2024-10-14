@@ -2,7 +2,6 @@ package ftdc
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -454,17 +453,4 @@ func (schema *Schema) Hydrate(data []float32) map[string]any {
 		}
 	}
 	return ret
-}
-
-// dumpInmemBuffer is a helper for debugging. It can be used for printing the contents of the output
-// ftdc file at specific moments in time. To perhaps narrow down where in code an unexpected byte
-// was written.
-func dumpInmemBuffer(buf *bytes.Buffer, logger logging.Logger) {
-	for idx, val := range buf.Bytes() {
-		logger.Infof("%x ", val)
-		if idx%8 == 0 {
-			logging.Info()
-		}
-	}
-	logging.Info()
 }
