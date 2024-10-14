@@ -1,39 +1,38 @@
 <script lang="ts">
 import {
-  movementSensorApi as movementsensorApi,
-  type ServiceError,
-  type commonApi,
-} from '@viamrobotics/sdk';
-import { displayError } from '@/lib/error';
-import Collapse from '@/lib/components/collapse.svelte';
-import { setAsyncInterval } from '@/lib/schedule';
-import {
-  getProperties,
-  getOrientation,
+  getAccuracy,
   getAngularVelocity,
+  getCompassHeading,
   getLinearAcceleration,
   getLinearVelocity,
-  getCompassHeading,
+  getOrientation,
   getPosition,
-  getAccuracy,
+  getProperties,
 } from '@/api/movement-sensor';
-import { useRobotClient, useConnect } from '@/hooks/robot-client';
-import { Icon } from '@viamrobotics/prime-core';
-import { Tooltip } from '@viamrobotics/prime-core';
+import { useConnect, useRobotClient } from '@/hooks/robot-client';
+import Collapse from '@/lib/components/collapse.svelte';
+import { displayError } from '@/lib/error';
+import { setAsyncInterval } from '@/lib/schedule';
+import { Icon, Tooltip } from '@viamrobotics/prime-core';
+import {
+  ConnectError,
+  movementSensorApi as movementsensorApi,
+  type commonApi,
+} from '@viamrobotics/sdk';
 
 export let name: string;
 
 const { robotClient } = useRobotClient();
 
-let orientation: commonApi.Orientation.AsObject | undefined;
-let angularVelocity: commonApi.Vector3.AsObject | undefined;
-let linearVelocity: commonApi.Vector3.AsObject | undefined;
-let linearAcceleration: commonApi.Vector3.AsObject | undefined;
+let orientation: commonApi.Orientation | undefined;
+let angularVelocity: commonApi.Vector3 | undefined;
+let linearVelocity: commonApi.Vector3 | undefined;
+let linearAcceleration: commonApi.Vector3 | undefined;
 let compassHeading: number | undefined;
-let coordinate: commonApi.GeoPoint.AsObject | undefined;
+let coordinate: commonApi.GeoPoint | undefined;
 let altitudeM: number | undefined;
-let properties: movementsensorApi.GetPropertiesResponse.AsObject | undefined;
-let accuracy: movementsensorApi.GetAccuracyResponse.AsObject | undefined;
+let properties: movementsensorApi.GetPropertiesResponse | undefined;
+let accuracy: movementsensorApi.GetAccuracyResponse | undefined;
 
 let expanded = false;
 
@@ -78,7 +77,7 @@ const refresh = async () => {
     coordinate = results[5]?.coordinate;
     altitudeM = results[5]?.altitudeM;
   } catch (error) {
-    displayError(error as ServiceError);
+    displayError(error as ConnectError);
   }
 
   /*
@@ -95,7 +94,7 @@ const refresh = async () => {
   } catch (error: unknown) {
     // eslint-disable-next-line no-console
     console.error(
-      `Unhandled GetAccuracy error: ${(error as ServiceError).message}`
+      `Unhandled GetAccuracy error: ${(error as ConnectError).message}`
     );
   }
 };
@@ -323,11 +322,11 @@ useConnect(() => {
       </div>
     {/if}
 
-    {#if (accuracy?.accuracyMap.length ?? 0) > 0}
+    {#if (accuracy?.accuracy.length ?? 0) > 0}
       <div class="overflow-auto">
         <h3 class="mb-1">Accuracy Map</h3>
         <table class="w-full border border-t-0 border-medium p-4">
-          {#each accuracy?.accuracyMap ?? [] as pair (pair[0])}
+          {#each Object.entries(accuracy?.accuracy ?? []) as pair (pair[0])}
             <tr>
               <td class="border border-medium p-2">
                 {pair[0]}

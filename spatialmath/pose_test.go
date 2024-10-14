@@ -178,25 +178,27 @@ var result Pose
 func BenchmarkCompose(b *testing.B) {
 	r := rand.New(rand.NewSource(517))
 	var x Pose
-	for n := 0; n < b.N; n++ {
-		x = Compose(randPose(r), randPose(r))
-	}
-	// Prevent compiler from interfering with benchmark
-	result = x
-}
+	numIter := 10000
+	poses := [][]Pose{}
 
-// Use this to measure the actual speed of Compose above
-func BenchmarkRandPose(b *testing.B) {
-	r := rand.New(rand.NewSource(517))
-	var x Pose
+	for i := 0; i < numIter; i++ {
+		p1 := randPose(r)
+		p2 := randPose(r)
+		poses = append(poses, []Pose{p1, p2})
+	}
+	for i := 0; len(poses) < b.N; i++ {
+		poses = append(poses, []Pose{poses[i][0], poses[i][1]})
+	}
+
+	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		x = randPose(r)
+		x = Compose(poses[n][0], poses[n][1])
 	}
 	// Prevent compiler from interfering with benchmark
 	result = x
 }
 
 func randPose(r *rand.Rand) Pose {
-	ov := &OrientationVector{2 * math.Pi * (r.Float64()-0.5), r.Float64()-0.5, r.Float64()-0.5, r.Float64()-0.5}
-	return NewPose(r3.Vector{300*(r.Float64()-0.5), 300*(r.Float64()-0.5), 300*(r.Float64()-0.5)}, ov)
+	ov := &OrientationVector{2 * math.Pi * (r.Float64() - 0.5), r.Float64() - 0.5, r.Float64() - 0.5, r.Float64() - 0.5}
+	return NewPose(r3.Vector{300 * (r.Float64() - 0.5), 300 * (r.Float64() - 0.5), 300 * (r.Float64() - 0.5)}, ov)
 }

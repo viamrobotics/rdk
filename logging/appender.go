@@ -50,7 +50,7 @@ func (appender ConsoleAppender) Write(entry zapcore.Entry, fields []zapcore.Fiel
 	}
 	toPrint = append(toPrint, entry.Message)
 	if len(fields) == 0 {
-		fmt.Fprintln(appender.Writer, strings.Join(toPrint, "\t"))
+		fmt.Fprintln(appender.Writer, strings.Join(toPrint, "\t")) //nolint:errcheck
 		return nil
 	}
 
@@ -61,12 +61,12 @@ func (appender ConsoleAppender) Write(entry zapcore.Entry, fields []zapcore.Fiel
 	buf, err := jsonEncoder.EncodeEntry(zapcore.Entry{}, fields)
 	if err != nil {
 		// Log what we have and return the error.
-		fmt.Fprintln(appender.Writer, strings.Join(toPrint, "\t"))
+		fmt.Fprintln(appender.Writer, strings.Join(toPrint, "\t")) //nolint:errcheck
 		return err
 	}
 	toPrint = append(toPrint, string(buf.Bytes()))
 
-	fmt.Fprintln(appender.Writer, strings.Join(toPrint, "\t"))
+	fmt.Fprintln(appender.Writer, strings.Join(toPrint, "\t")) //nolint:errcheck
 	return nil
 }
 

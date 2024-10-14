@@ -147,14 +147,15 @@ func (q *dualQuaternion) Transformation(by dualquat.Number) dualquat.Number {
 	} else {
 		newReal = quat.Mul(q.Real, by.Real)
 	}
-	if vecLen := quat.Abs(newReal); vecLen - 1 > 1e-10 || vecLen - 1 < -1e-10 {
-		newReal.Real /= vecLen
-		newReal.Imag /= vecLen
-		newReal.Jmag /= vecLen
-		newReal.Kmag /= vecLen
+	// Multiplication is faster than division. Thus if this is hit, it is faster to divide once and multiply four times.
+	// However, if this is not hit, it may be a wash. The branch predictor won't save us as the following lines rely on newReal.
+	if vecLen := 1 / quat.Abs(newReal); vecLen-1 > 1e-10 || vecLen-1 < -1e-10 {
+		newReal.Real *= vecLen
+		newReal.Imag *= vecLen
+		newReal.Jmag *= vecLen
+		newReal.Kmag *= vecLen
 	}
 
-	//nolint: gocritic
 	if q.Dual.Real == 0 && q.Dual.Imag == 0 && q.Dual.Jmag == 0 && q.Dual.Kmag == 0 {
 		return dualquat.Number{
 			Real: newReal,
@@ -171,10 +172,14 @@ func (q *dualQuaternion) Transformation(by dualquat.Number) dualquat.Number {
 		Real: newReal,
 		// Equivalent to but faster than quat.Add(quat.Mul(q.Real, by.Dual), quat.Mul(q.Dual, by.Real))
 		Dual: quat.Number{
-			Real: q.Real.Real*by.Dual.Real - q.Real.Imag*by.Dual.Imag - q.Real.Jmag*by.Dual.Jmag - q.Real.Kmag*by.Dual.Kmag + q.Dual.Real*by.Real.Real - q.Dual.Imag*by.Real.Imag - q.Dual.Jmag*by.Real.Jmag - q.Dual.Kmag*by.Real.Kmag,
-			Imag: q.Real.Real*by.Dual.Imag + q.Real.Imag*by.Dual.Real + q.Real.Jmag*by.Dual.Kmag - q.Real.Kmag*by.Dual.Jmag + q.Dual.Real*by.Real.Imag + q.Dual.Imag*by.Real.Real + q.Dual.Jmag*by.Real.Kmag - q.Dual.Kmag*by.Real.Jmag,
-			Jmag: q.Real.Real*by.Dual.Jmag - q.Real.Imag*by.Dual.Kmag + q.Real.Jmag*by.Dual.Real + q.Real.Kmag*by.Dual.Imag + q.Dual.Real*by.Real.Jmag - q.Dual.Imag*by.Real.Kmag + q.Dual.Jmag*by.Real.Real + q.Dual.Kmag*by.Real.Imag,
-			Kmag: q.Real.Real*by.Dual.Kmag + q.Real.Imag*by.Dual.Jmag - q.Real.Jmag*by.Dual.Imag + q.Real.Kmag*by.Dual.Real + q.Dual.Real*by.Real.Kmag + q.Dual.Imag*by.Real.Jmag - q.Dual.Jmag*by.Real.Imag + q.Dual.Kmag*by.Real.Real,
+			Real: q.Real.Real*by.Dual.Real - q.Real.Imag*by.Dual.Imag - q.Real.Jmag*by.Dual.Jmag - q.Real.Kmag*by.Dual.Kmag +
+				q.Dual.Real*by.Real.Real - q.Dual.Imag*by.Real.Imag - q.Dual.Jmag*by.Real.Jmag - q.Dual.Kmag*by.Real.Kmag,
+			Imag: q.Real.Real*by.Dual.Imag + q.Real.Imag*by.Dual.Real + q.Real.Jmag*by.Dual.Kmag - q.Real.Kmag*by.Dual.Jmag +
+				q.Dual.Real*by.Real.Imag + q.Dual.Imag*by.Real.Real + q.Dual.Jmag*by.Real.Kmag - q.Dual.Kmag*by.Real.Jmag,
+			Jmag: q.Real.Real*by.Dual.Jmag - q.Real.Imag*by.Dual.Kmag + q.Real.Jmag*by.Dual.Real + q.Real.Kmag*by.Dual.Imag +
+				q.Dual.Real*by.Real.Jmag - q.Dual.Imag*by.Real.Kmag + q.Dual.Jmag*by.Real.Real + q.Dual.Kmag*by.Real.Imag,
+			Kmag: q.Real.Real*by.Dual.Kmag + q.Real.Imag*by.Dual.Jmag - q.Real.Jmag*by.Dual.Imag + q.Real.Kmag*by.Dual.Real +
+				q.Dual.Real*by.Real.Kmag + q.Dual.Imag*by.Real.Jmag - q.Dual.Jmag*by.Real.Imag + q.Dual.Kmag*by.Real.Real,
 		},
 	}
 }

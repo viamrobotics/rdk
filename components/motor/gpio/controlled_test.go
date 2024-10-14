@@ -2,7 +2,6 @@ package gpio
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"go.viam.com/test"
@@ -106,8 +105,7 @@ func TestControlledMotorCreation(t *testing.T) {
 	expectedPID := control.PIDConfig{P: 0.1, I: 2.0, D: 0.0}
 	cm.tunedVals = &[]control.PIDConfig{expectedPID, {}}
 	expectedeMap := make(map[string]interface{})
-	expectedeMap["get_tuned_pid"] = (fmt.Sprintf("{p: %v, i: %v, d: %v, type: %v} ",
-		expectedPID.P, expectedPID.I, expectedPID.D, expectedPID.Type))
+	expectedeMap["get_tuned_pid"] = expectedPID.String()
 
 	req := make(map[string]interface{})
 	req["get_tuned_pid"] = true

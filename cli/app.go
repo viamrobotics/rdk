@@ -60,6 +60,8 @@ const (
 	moduleBuildFlagBuildID   = "id"
 	moduleBuildFlagPlatform  = "platform"
 	moduleBuildFlagWait      = "wait"
+	moduleBuildFlagToken     = "token"
+	moduleBuildFlagWorkdir   = "workdir"
 	moduleBuildFlagGroupLogs = "group-logs"
 	moduleBuildRestartOnly   = "restart-only"
 	moduleBuildFlagNoBuild   = "no-build"
@@ -1623,6 +1625,15 @@ Example:
 									Name:  moduleBuildFlagRef,
 									Usage: "git ref to clone when building your module. This can be a branch name or a commit hash",
 									Value: "main",
+								},
+								&cli.StringFlag{
+									Name:  moduleBuildFlagToken,
+									Usage: "checkout token for private repos, not necessary for public repos",
+								},
+								&cli.StringFlag{
+									Name:  moduleBuildFlagWorkdir,
+									Usage: "use this to indicate that your meta.json is in a subdirectory of your repo." + " --module flag should be relative to this",
+									Value: ".",
 								},
 							},
 							Action: ModuleBuildStartAction,

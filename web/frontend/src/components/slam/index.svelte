@@ -1,33 +1,32 @@
 <script lang="ts">
 /* eslint-disable require-atomic-updates */
 
-import * as THREE from 'three';
-import { onMount } from 'svelte';
-import {
-  commonApi,
-  slamApi,
-  motionApi,
-  SlamClient,
-  MotionClient,
-  type Pose,
-  type ServiceError,
-} from '@viamrobotics/sdk';
-import { SlamMap2D } from '@viamrobotics/prime-blocks';
-import { copyToClipboard } from '@/lib/copy-to-clipboard';
-import { filterSubtype } from '@/lib/resource';
 import { moveOnMap } from '@/api/motion';
-import { notify } from '@viamrobotics/prime';
-import { setAsyncInterval } from '@/lib/schedule';
-import { components, services } from '@/stores/resources';
+import { useConnect, useRobotClient } from '@/hooks/robot-client';
 import Collapse from '@/lib/components/collapse.svelte';
 import Dropzone from '@/lib/components/dropzone.svelte';
-import { useRobotClient, useConnect } from '@/hooks/robot-client';
-import type { SLAMOverrides } from '@/types/overrides';
+import { copyToClipboard } from '@/lib/copy-to-clipboard';
 import { rcLogConditionally } from '@/lib/log';
-import { grpc } from '@improbable-eng/grpc-web';
-import type { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
+import { filterSubtype } from '@/lib/resource';
+import { setAsyncInterval } from '@/lib/schedule';
+import { components, services } from '@/stores/resources';
+import type { SLAMOverrides } from '@/types/overrides';
+import { notify } from '@viamrobotics/prime';
+import { SlamMap2D } from '@viamrobotics/prime-blocks';
+import {
+  Code,
+  ConnectError,
+  motionApi,
+  MotionClient,
+  ResourceName,
+  slamApi,
+  SlamClient,
+  Timestamp,
+  type Pose,
+} from '@viamrobotics/sdk';
+import { onMount } from 'svelte';
+import * as THREE from 'three';
 import type { ValueOf } from 'type-fest';
-type ResourceName = commonApi.ResourceName.AsObject;
 type MappingMode = ValueOf<typeof slamApi.MappingMode>;
 
 export let name: string;
@@ -71,7 +70,7 @@ let motionPath: Float32Array | undefined;
 let mappingSessionStarted = false;
 let isLocalizingMode: boolean | undefined;
 let lastReconfigured: Timestamp | undefined;
-let mappingMode: MappingMode = slamApi.MappingMode.MAPPING_MODE_UNSPECIFIED;
+let mappingMode: MappingMode = slamApi.MappingMode.UNSPECIFIED;
 
 $: pointcloudLoaded = Boolean(pointcloud?.length) && pose !== undefined;
 $: moveClicked = Boolean(executionID);
@@ -87,10 +86,10 @@ $: slamResourceName = filterSubtype($services, 'slam').find(
 $: allowMove = bases.length === 1 && destination && !moveClicked;
 
 const mappingModeToDisplayText: Record<MappingMode, string> = {
-  [slamApi.MappingMode.MAPPING_MODE_CREATE_NEW_MAP]: 'create',
-  [slamApi.MappingMode.MAPPING_MODE_LOCALIZE_ONLY]: 'localize',
-  [slamApi.MappingMode.MAPPING_MODE_UPDATE_EXISTING_MAP]: 'update',
-  [slamApi.MappingMode.MAPPING_MODE_UNSPECIFIED]: 'undefined',
+  [slamApi.MappingMode.CREATE_NEW_MAP]: 'create',
+  [slamApi.MappingMode.LOCALIZE_ONLY]: 'localize',
+  [slamApi.MappingMode.UPDATE_EXISTING_MAP]: 'update',
+  [slamApi.MappingMode.UNSPECIFIED]: 'undefined',
 } as const;
 
 const deleteDestinationMarker = () => {
@@ -108,7 +107,7 @@ const setMappingMode = async () => {
     const props = await slamClient.getProperties();
     mappingMode = props.mappingMode;
   } catch (error) {
-    mappingMode = slamApi.MappingMode.MAPPING_MODE_UNSPECIFIED;
+    mappingMode = slamApi.MappingMode.UNSPECIFIED;
     notify.danger('can not get slam properties', error as string);
   }
 };
@@ -129,21 +128,21 @@ const refresh2d = async () => {
        * SLAM session is in to know whether or not to update the map.
        */
       const statuses = await $robotClient.getStatus([slamResourceName]);
-      const lastReconfiguredStatus = (statuses ?? []).find((status) =>
-        status.hasLastReconfigured()
+      const lastReconfiguredStatus = (statuses ?? []).find(
+        (status) => status.lastReconfigured !== undefined
       );
-      const newLastReconfigured = lastReconfiguredStatus?.getLastReconfigured();
+      const newLastReconfigured = lastReconfiguredStatus?.lastReconfigured;
 
       // assuming reconfigures do not happen at the nanosecond scale
       if (
-        newLastReconfigured?.getSeconds() !== lastReconfigured?.getSeconds() ||
+        newLastReconfigured?.seconds !== lastReconfigured?.seconds ||
         isLocalizingMode === undefined
       ) {
         lastReconfigured = newLastReconfigured;
 
         const props = await slamClient.getProperties();
         isLocalizingMode =
-          props.mappingMode === slamApi.MappingMode.MAPPING_MODE_LOCALIZE_ONLY;
+          props.mappingMode === slamApi.MappingMode.LOCALIZE_ONLY;
       }
 
       /*
@@ -188,11 +187,12 @@ const refreshPaths = async () => {
     refreshErrorMessagePaths = undefined;
     const base = bases[0]!;
     const listPlanStatusesResponse = await motionClient.listPlanStatuses(true);
-    const baseHasPlan = listPlanStatusesResponse.planStatusesWithIdsList
+    const baseHasPlan = listPlanStatusesResponse.planStatusesWithIds
       .map((plan) => plan.componentName)
       .find(
         (planComponentName) =>
-          planComponentName?.namespace === base.namespace &&
+          planComponentName !== undefined &&
+          planComponentName.namespace === base.namespace &&
           planComponentName.subtype === base.subtype &&
           planComponentName.type === base.type &&
           planComponentName.name === base.name
@@ -207,13 +207,12 @@ const refreshPaths = async () => {
     const getPlanResponse = await motionClient.getPlan(base, true);
     if (
       getPlanResponse.currentPlanWithStatus?.status?.state ===
-      motionApi.PlanState.PLAN_STATE_IN_PROGRESS
+      motionApi.PlanState.IN_PROGRESS
     ) {
       const pathsInMeters: number[] = [];
-      for (const {
-        stepMap: [stepMap],
-      } of getPlanResponse.currentPlanWithStatus.plan?.stepsList ?? []) {
-        const { pose: stepPose } = stepMap?.[1] ?? {};
+      for (const step of getPlanResponse.currentPlanWithStatus.plan?.steps ??
+        []) {
+        const { pose: stepPose } = step.step[1] ?? {};
         if (stepPose) {
           pathsInMeters.push(stepPose.x / 1000, stepPose.y / 1000);
         }
@@ -233,7 +232,7 @@ const refreshPaths = async () => {
       'message' in error
     ) {
       // This is the error code when the component has not been used in a plan yet.
-      if (error.code !== grpc.Code.Unknown) {
+      if (error.code !== Code.Unknown) {
         refreshErrorMessagePaths = `${refreshErrorMessage} ${
           (error as { message: string }).message
         }`;
@@ -329,7 +328,7 @@ const handleMoveClick = async () => {
     );
     await refreshPaths();
   } catch (error) {
-    notify.danger((error as ServiceError).message);
+    notify.danger((error as ConnectError).message);
   }
 };
 
@@ -339,7 +338,7 @@ const handleStopMoveClick = async () => {
     await motionClient.stopPlan(base);
     await refreshPaths();
   } catch (error) {
-    notify.danger((error as ServiceError).message);
+    notify.danger((error as ConnectError).message);
   }
 };
 
@@ -381,7 +380,7 @@ const handleStartMapping = async () => {
         mappingSessionStarted = true;
         sessionId = await overrides.startMappingSession(
           mapName,
-          props.sensorInfoList
+          props.sensorInfo
         );
         startMappingIntervals(Date.now());
       }
@@ -457,7 +456,7 @@ onMount(async () => {
       hasActiveSession = true;
       sessionId = activeSession.id;
       const startMilliseconds =
-        (activeSession.timeCloudRunJobStarted?.seconds ?? 0) * 1000;
+        Number(activeSession.timeCloudRunJobStarted?.seconds ?? 0n) * 1000;
       startMappingIntervals(startMilliseconds);
     }
   }
@@ -497,7 +496,7 @@ useConnect(() => {
       <div class="flex flex-col gap-6 pb-4">
         {#if overrides?.isCloudSlam && overrides.mappingDetails}
           <header class="flex flex-col justify-between gap-3 text-xs">
-            {#if mappingMode !== slamApi.MappingMode.MAPPING_MODE_UNSPECIFIED}
+            {#if mappingMode !== slamApi.MappingMode.UNSPECIFIED}
               <div class="flex flex-col">
                 <span class="font-bold text-gray-800">Mapping mode</span>
                 <span class="capitalize text-subtle-2"

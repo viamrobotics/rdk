@@ -91,7 +91,7 @@ func Named(name string) resource.Name {
 // LinearAcceleration example:
 //
 //	// Get the current linear acceleration of the movement sensor.
-//	linVel, err := myMovementSensor.LinearVelocity(context.Background(), nil)
+//	linAcc, err := myMovementSensor.LinearAcceleration(context.Background(), nil)
 //
 // CompassHeading example:
 //
@@ -107,9 +107,9 @@ func Named(name string) resource.Name {
 //	orientation := sensorOrientation.OrientationVectorDegrees()
 //
 //	// Print out the orientation vector.
-//	logger.Info("The x component of the orientation vector: ", orientation.0X)
-//	logger.Info("The y component of the orientation vector: ", orientation.0Y)
-//	logger.Info("The z component of the orientation vector: ", orientation.0Z)
+//	logger.Info("The x component of the orientation vector: ", orientation.OX)
+//	logger.Info("The y component of the orientation vector: ", orientation.OY)
+//	logger.Info("The z component of the orientation vector: ", orientation.OZ)
 //	logger.Info("The number of degrees that the movement sensor is rotated about the vector: ", orientation.Theta)
 //
 // Properties example:

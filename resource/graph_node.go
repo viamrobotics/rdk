@@ -79,6 +79,10 @@ type GraphNode struct {
 	// stored the on the revision field.
 	pendingRevision string
 	revision        string
+
+	// unreachable is an informational field that indicates if a resource on a remote
+	// machine is disconnected.
+	unreachable bool
 }
 
 var (
@@ -270,7 +274,7 @@ func (w *GraphNode) MarkedForRemoval() bool {
 // The additional `args` should come in key/value pairs for structured logging.
 func (w *GraphNode) LogAndSetLastError(err error, args ...any) {
 	w.mu.Lock()
-	w.lastErr = errors.Join(w.lastErr, err)
+	w.lastErr = err
 	w.transitionTo(NodeStateUnhealthy)
 	w.mu.Unlock()
 
@@ -343,6 +347,13 @@ func (w *GraphNode) UpdateRevision(revision string) {
 		w.pendingRevision = revision
 		w.revision = revision
 	}
+}
+
+func (w *GraphNode) markReachability(reachable bool) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	w.unreachable = !reachable
 }
 
 // SetNewConfig is used to inform the node that it has been modified

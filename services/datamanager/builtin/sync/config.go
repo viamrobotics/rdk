@@ -1,11 +1,11 @@
-// Package sync implements datasync for the builtin datamanger
 package sync
 
 import (
 	"reflect"
+	"strings"
 
 	"go.viam.com/rdk/components/sensor"
-	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/logging"
 )
 
 // Config is the sync config from builtin.
@@ -66,7 +66,7 @@ type Config struct {
 	FileLastModifiedMillis int
 	// MaximumNumSyncThreads defines the maximum number of goroutines which
 	// data sync should create to sync data to the cloud
-	// defaults to 1000
+	// defaults to runtime.NumCpu() / 2
 	MaximumNumSyncThreads int
 	// ScheduledSyncDisabled, when true disables data capture syncing every SyncIntervalMins
 	ScheduledSyncDisabled bool
@@ -88,7 +88,7 @@ type Config struct {
 }
 
 func (c Config) schedulerEnabled() bool {
-	configDisabled := c.ScheduledSyncDisabled || utils.Float64AlmostEqual(c.SyncIntervalMins, 0.0, 0.00001)
+	configDisabled := c.ScheduledSyncDisabled
 	selectiveSyncerInvalid := c.SelectiveSyncSensorEnabled && c.SelectiveSyncSensor == nil
 	return !configDisabled && !selectiveSyncerInvalid
 }
@@ -109,6 +109,73 @@ func (c Config) Equal(o Config) bool {
 		c.SelectiveSyncSensor == o.SelectiveSyncSensor
 }
 
-func (c Config) syncPaths() []string {
+func (c *Config) logDiff(o Config, logger logging.Logger) {
+	if c.Equal(o) {
+		return
+	}
+
+	logger.Info("sync config changes:")
+	if !reflect.DeepEqual(c.AdditionalSyncPaths, o.AdditionalSyncPaths) {
+		logger.Infof("additional_sync_paths: old: %s, new: %s",
+			strings.Join(c.AdditionalSyncPaths, " "), strings.Join(o.AdditionalSyncPaths, " "))
+	}
+
+	if c.CaptureDir != o.CaptureDir {
+		logger.Infof("capture_dir: old: %s, new: %s", c.CaptureDir, o.CaptureDir)
+	}
+
+	if c.CaptureDisabled != o.CaptureDisabled {
+		logger.Infof("capture_disabled: old: %t, new: %t", c.CaptureDisabled, o.CaptureDisabled)
+	}
+
+	if c.DeleteEveryNthWhenDiskFull != o.DeleteEveryNthWhenDiskFull {
+		logger.Infof("delete_every_nth_when_disk_full: old: %d, new: %d",
+			c.DeleteEveryNthWhenDiskFull, o.DeleteEveryNthWhenDiskFull)
+	}
+
+	if c.FileLastModifiedMillis != o.FileLastModifiedMillis {
+		logger.Infof("file_last_modified_millis: old: %d, new: %d", c.FileLastModifiedMillis, o.FileLastModifiedMillis)
+	}
+
+	if c.MaximumNumSyncThreads != o.MaximumNumSyncThreads {
+		logger.Infof("maximum_num_sync_threads: old: %d, new: %d", c.MaximumNumSyncThreads, o.MaximumNumSyncThreads)
+	}
+
+	if c.ScheduledSyncDisabled != o.ScheduledSyncDisabled {
+		logger.Infof("sync_disabled: old: %t, new: %t", c.ScheduledSyncDisabled, o.ScheduledSyncDisabled)
+	}
+
+	if c.SelectiveSyncerName != o.SelectiveSyncerName {
+		logger.Infof("selective_syncer_name: old: %s, new: %s", c.SelectiveSyncerName, o.SelectiveSyncerName)
+	}
+
+	if c.SyncIntervalMins != o.SyncIntervalMins {
+		logger.Infof("sync_interval_mins: old: %f, new: %f", c.SyncIntervalMins, o.SyncIntervalMins)
+	}
+
+	if !reflect.DeepEqual(c.Tags, o.Tags) {
+		logger.Infof("tags: old: %s, new: %s", strings.Join(c.Tags, " "), strings.Join(o.Tags, " "))
+	}
+
+	if c.SelectiveSyncSensorEnabled != o.SelectiveSyncSensorEnabled {
+		logger.Infof("SelectiveSyncSensorEnabled: old: %t, new: %t", c.SelectiveSyncSensorEnabled, o.SelectiveSyncSensorEnabled)
+	}
+
+	if c.SelectiveSyncSensor != o.SelectiveSyncSensor {
+		oldName := ""
+		if c.SelectiveSyncSensor != nil {
+			oldName = c.SelectiveSyncSensor.Name().String()
+		}
+
+		newName := ""
+		if o.SelectiveSyncSensor != nil {
+			newName = o.SelectiveSyncSensor.Name().String()
+		}
+		logger.Infof("SelectiveSyncSensor: old: %s, new: %s", oldName, newName)
+	}
+}
+
+// SyncPaths returns the capture directory and additional sync paths as a slice.
+func (c Config) SyncPaths() []string {
 	return append([]string{c.CaptureDir}, c.AdditionalSyncPaths...)
 }

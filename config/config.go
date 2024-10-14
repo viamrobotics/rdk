@@ -29,17 +29,18 @@ import (
 
 // A Config describes the configuration of a robot.
 type Config struct {
-	Cloud      *Cloud
-	Modules    []Module
-	Remotes    []Remote
-	Components []resource.Config
-	Processes  []pexec.ProcessConfig
-	Services   []resource.Config
-	Packages   []PackageConfig
-	Network    NetworkConfig
-	Auth       AuthConfig
-	Debug      bool
-	LogConfig  []logging.LoggerPatternConfig
+	Cloud             *Cloud
+	Modules           []Module
+	Remotes           []Remote
+	Components        []resource.Config
+	Processes         []pexec.ProcessConfig
+	Services          []resource.Config
+	Packages          []PackageConfig
+	Network           NetworkConfig
+	Auth              AuthConfig
+	Debug             bool
+	LogConfig         []logging.LoggerPatternConfig
+	MaintenanceConfig *MaintenanceConfig
 
 	ConfigFilePath string
 
@@ -77,6 +78,13 @@ type Config struct {
 	toCache []byte
 }
 
+// MaintenanceConfig specifies a sensor that the machine will check to determine if the machine should reconfigure.
+// This Config is not validated during config processing but it will be validated during reconfiguration.
+type MaintenanceConfig struct {
+	SensorName            string `json:"sensor_name"`
+	MaintenanceAllowedKey string `json:"maintenance_allowed_key"`
+}
+
 // NOTE: This data must be maintained with what is in Config.
 type configData struct {
 	Cloud               *Cloud                        `json:"cloud,omitempty"`
@@ -93,6 +101,7 @@ type configData struct {
 	EnableWebProfile    bool                          `json:"enable_web_profile"`
 	LogConfig           []logging.LoggerPatternConfig `json:"log,omitempty"`
 	Revision            string                        `json:"revision,omitempty"`
+	MaintenanceConfig   *MaintenanceConfig            `json:"maintenance,omitempty"`
 }
 
 // AppValidationStatus refers to the.
@@ -299,6 +308,7 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	c.EnableWebProfile = conf.EnableWebProfile
 	c.LogConfig = conf.LogConfig
 	c.Revision = conf.Revision
+	c.MaintenanceConfig = conf.MaintenanceConfig
 
 	return nil
 }
@@ -330,6 +340,7 @@ func (c Config) MarshalJSON() ([]byte, error) {
 		EnableWebProfile:    c.EnableWebProfile,
 		LogConfig:           c.LogConfig,
 		Revision:            c.Revision,
+		MaintenanceConfig:   c.MaintenanceConfig,
 	})
 }
 
@@ -899,7 +910,7 @@ type AuthHandlerConfig struct {
 //					}
 //				}
 //			],
-//		"external_auth_config": {}
+//		    "external_auth_config": {}
 //	}
 func (config *AuthConfig) Validate(path string) error {
 	seenTypes := make(map[string]struct{}, len(config.Handlers))
@@ -928,8 +939,8 @@ func (config *AuthHandlerConfig) Validate(path string) error {
 	}
 	switch config.Type {
 	case rpc.CredentialsTypeAPIKey:
-		if config.Config.String("key") == "" && len(config.Config.StringSlice("keys")) == 0 {
-			return resource.NewConfigValidationError(fmt.Sprintf("%s.config", path), errors.New("key or keys is required"))
+		if len(config.Config.StringSlice("keys")) == 0 {
+			return resource.NewConfigValidationError(fmt.Sprintf("%s.config", path), errors.New("keys is required"))
 		}
 	case rpc.CredentialsTypeExternal:
 		return errors.New("robot cannot issue external auth tokens")

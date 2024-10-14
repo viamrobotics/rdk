@@ -1,13 +1,16 @@
-import './index.css';
-import type { Credentials } from '@viamrobotics/rpc';
-import RemoteControlCards from './components/remote-control-cards.svelte';
 import type { RCOverrides } from '@/types/overrides';
+import type { Credential } from '@viamrobotics/sdk';
+import RemoteControlCards from './components/remote-control-cards.svelte';
+import './index.css';
 
 export const createRcApp = (
   target: HTMLElement,
   props: {
     host: string;
-    bakedAuth?: { authEntity: string; creds: Credentials };
+    bakedAuth?: {
+      authEntity: string;
+      creds: Credential;
+    };
     supportedAuthTypes?: string[];
     webrtcEnabled: boolean;
     signalingAddress: string;

@@ -63,7 +63,7 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 // SetRPM example:
 //
 //	// Set the motor's RPM to 50
-//	myMotorComponent.SetRPM(context.Background(), 50)
+//	myMotorComponent.SetRPM(context.Background(), 50, nil)
 //
 // ResetZeroPosition example:
 //
@@ -217,4 +217,23 @@ func GetRequestedDirection(rpm, revolutions float64) float64 {
 		dir = -1.0
 	}
 	return dir
+}
+
+// GetSign returns the sign of the float as a helper for getting
+// the intended direction of travel of a motor.
+func GetSign(x float64) float64 {
+	if x == 0 {
+		return 0
+	}
+	if math.Signbit(x) {
+		return -1.0
+	}
+	return 1.0
+}
+
+// ClampPower clamps a percentage power to 1.0 or -1.0.
+func ClampPower(pwr float64) float64 {
+	pwr = math.Min(pwr, 1.0)
+	pwr = math.Max(pwr, -1.0)
+	return pwr
 }

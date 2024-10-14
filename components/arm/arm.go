@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -66,7 +67,7 @@ func Named(name string) resource.Name {
 //	// Create a Pose for the arm.
 //	examplePose := spatialmath.NewPose(
 //	        r3.Vector{X: 5, Y: 5, Z: 5},
-//	        &spatialmath.OrientationVectorDegrees{0X: 5, 0Y: 5, Theta: 20}
+//	        &spatialmath.OrientationVectorDegrees{OX: 5, OY: 5, Theta: 20},
 //	)
 //
 //	// Move your arm to the Pose.
@@ -187,16 +188,19 @@ func CheckDesiredJointPositions(ctx context.Context, a Arm, desiredInputs []refe
 		max := limits[i].Max
 		min := limits[i].Min
 		currPosition := checkPositions[i]
-		// to make sure that val is a valid input
-		// it must either bring the joint more
-		// inbounds or keep the joint inbounds.
+		// to make sure that val is a valid input it must either bring the joint closer inbounds or keep the joint inbounds.
 		if currPosition.Value > limits[i].Max {
 			max = currPosition.Value
 		} else if currPosition.Value < limits[i].Min {
 			min = currPosition.Value
 		}
 		if val.Value > max || val.Value < min {
-			return fmt.Errorf("joint %v needs to be within range [%v, %v] and cannot be moved to %v", i, min, max, val.Value)
+			return fmt.Errorf("joint %v needs to be within range [%v, %v] and cannot be moved to %v",
+				i,
+				utils.RadToDeg(min),
+				utils.RadToDeg(max),
+				utils.RadToDeg(val.Value),
+			)
 		}
 	}
 	return nil

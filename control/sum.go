@@ -34,6 +34,8 @@ func newSum(config BlockConfig, logger logging.Logger) (Block, error) {
 }
 
 func (b *sum) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*Signal, bool) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	// sum blocks only support signals with the same number of inputs
 	if len(x)%2 != 0 {
 		return b.y, false

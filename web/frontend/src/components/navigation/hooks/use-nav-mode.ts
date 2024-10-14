@@ -1,13 +1,13 @@
-import { type ServiceError, navigationApi } from '@viamrobotics/sdk';
-import { useNavClient } from './use-nav-client';
+import { ConnectError, navigationApi } from '@viamrobotics/sdk';
 import { writable } from 'svelte/store';
+import { useNavClient } from './use-nav-client';
 
-export type NavigationMode = navigationApi.ModeMap[keyof navigationApi.ModeMap];
+export type NavigationMode = navigationApi.Mode;
 
 export const useNavMode = (name: string) => {
   const navClient = useNavClient(name);
   const mode = writable<NavigationMode | undefined>(undefined);
-  const error = writable<ServiceError | undefined>(undefined);
+  const error = writable<ConnectError | undefined>(undefined);
 
   const fetchMode = async () => {
     try {
@@ -15,7 +15,7 @@ export const useNavMode = (name: string) => {
       error.set(undefined);
     } catch (error_) {
       mode.set(undefined);
-      error.set(error_ as ServiceError);
+      error.set(error_ as ConnectError);
     }
   };
 
@@ -25,7 +25,7 @@ export const useNavMode = (name: string) => {
       mode.set(value);
       error.set(undefined);
     } catch (error_) {
-      error.set(error_ as ServiceError);
+      error.set(error_ as ConnectError);
     }
   };
 

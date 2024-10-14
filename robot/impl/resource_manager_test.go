@@ -9,6 +9,7 @@ import (
 	"os"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/jhump/protoreflect/desc"
@@ -58,6 +59,7 @@ import (
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/packages"
+	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/shell"
 	"go.viam.com/rdk/services/vision"
@@ -2059,4 +2061,136 @@ func TestReconfigureParity(t *testing.T) {
 		i, j = pair[1], pair[0]
 		testReconfigureParity(t, files[i], files[j])
 	}
+}
+
+// Consider a case where a main part viam-server is configured with a remote part viam-server. We
+// want to ensure that once calling `ResourceNames` on the main part returns some remote resource --
+// that remote resource will always be returned until it is configured away. When either the remote
+// robot removes it from its config. Or when the main part removes the remote.
+func TestOfflineRemoteResources(t *testing.T) {
+	logger, _ := logging.NewObservedTestLogger(t)
+	ctx := context.Background()
+
+	motorName := "remoteMotorFoo"
+	motorResourceName := resource.NewName(motor.API, motorName)
+
+	remoteCfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:                motorName,
+				Model:               resource.DefaultModelFamily.WithModel("fake"),
+				API:                 motor.API,
+				ConvertedAttributes: &fakemotor.Config{},
+			},
+		},
+	}
+
+	remoteRobot := setupLocalRobot(t, ctx, remoteCfg, logger.Sublogger("remote"))
+	remoteOptions, _, remoteAddr := robottestutils.CreateBaseOptionsAndListener(t)
+	err := remoteRobot.StartWeb(ctx, remoteOptions)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Set up a local main robot which is connected to the remote.
+	mainRobotCfg := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "remote",
+				Address: remoteAddr,
+				// These values dictate how quickly we'll observe the remote going offline. And how
+				// quickly we'll observe it coming back online.
+				ConnectionCheckInterval: 10 * time.Millisecond,
+				ReconnectInterval:       10 * time.Millisecond,
+			},
+		},
+	}
+	mainRobotI := setupLocalRobot(t, ctx, mainRobotCfg, logger.Sublogger("main"))
+	// We'll manually access the resource manager to move the test forward.
+	mainRobot := mainRobotI.(*localRobot)
+	mainOptions, _, mainAddr := robottestutils.CreateBaseOptionsAndListener(t)
+	mainRobot.StartWeb(ctx, mainOptions)
+
+	// Create an "application" client to the robot.
+	mainClient, err := client.New(ctx, mainAddr, logger.Sublogger("client"))
+	test.That(t, err, test.ShouldBeNil)
+	defer mainClient.Close(ctx)
+	resourceNames := mainClient.ResourceNames()
+
+	// When the `mainClient` requests `ResourceNames`, the motor will be annotated to include its
+	// remote.
+	motorResourceNameFromMain := motorResourceName.PrependRemote("remote")
+	// Search the list of "main" resources for the remote motor. Sanity check that we find it.
+	test.That(t, resourceNames, test.ShouldContain, motorResourceNameFromMain)
+
+	// Grab the RobotClient resource graph node from the main robot that is connected to the
+	// remote. We'll use this to know when the main robot observes the remote has gone offline.
+	mainToRemoteClientRes, _ := mainRobot.RemoteByName("remote")
+	test.That(t, mainToRemoteClientRes, test.ShouldNotBeNil)
+	mainToRemoteClient := mainToRemoteClientRes.(*client.RobotClient)
+	test.That(t, mainToRemoteClient.Connected(), test.ShouldBeTrue)
+
+	// Stop the remote's web server. Wait for the main robot to observe there's a connection problem.
+	logger.Info("Stopping web")
+	remoteRobot.StopWeb()
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, mainToRemoteClient.Connected(), test.ShouldBeFalse)
+	})
+
+	// Manually kick the resource manager to update remote resource names.
+	logger.Info("Updating remote resource names")
+	mainRobot.manager.updateRemotesResourceNames(logging.EnableDebugModeWithKey(ctx, "testOfflineRemoteResources.nodeOffline"))
+
+	// The robot client keeps a cache of resource names. Manually refresh before re-asking the main
+	// robot what resources it hsa.
+	mainClient.Refresh(ctx)
+	resourceNames = mainClient.ResourceNames()
+
+	// Scan again for the remote motor. Assert it still exists.
+	test.That(t, resourceNames, test.ShouldContain, motorResourceNameFromMain)
+
+	// Restart the remote web server. We closed the old listener, so just pass in the web address as
+	// part of the web options.
+	logger.Info("Restarting web server")
+	err = remoteRobot.StartWeb(ctx, weboptions.Options{
+		Network: config.NetworkConfig{
+			NetworkConfigData: config.NetworkConfigData{
+				BindAddress: remoteAddr,
+			},
+		},
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	// Wait until the main robot sees the remote is online. This gets stuck behind a 10 second dial
+	// timeout. So we must manually increase the time we're willing to wait.
+	testutils.WaitForAssertionWithSleep(t, 50*time.Millisecond, 1000, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, mainToRemoteClient.Connected(), test.ShouldBeTrue)
+	})
+
+	// Again, manually refresh the list of resources to clear the cache. Assert the remote motor
+	// still exists.
+	mainToRemoteClient.Refresh(logging.EnableDebugModeWithKey(ctx, "refresh"))
+	test.That(t, resourceNames, test.ShouldContain, motorResourceNameFromMain)
+
+	// Reconfigure away the motor on the remote robot.
+	remoteCfg.Components = []resource.Config{}
+	remoteRobot.Reconfigure(ctx, remoteCfg)
+
+	// Assert the main robot's client object eventually observes that the motor is no longer a
+	// component.
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
+		mainToRemoteClient.Refresh(ctx)
+		resourceNames := mainToRemoteClient.ResourceNames()
+		test.That(t, resourceNames, test.ShouldNotContain, motorResourceNameFromMain)
+	})
+
+	// Manually update remote resource names. Knowing the robot client servicing the information has
+	// the updated view.
+	mainRobot.manager.updateRemotesResourceNames(ctx)
+
+	// Force a refresh of resource names on the application client connection. Assert the motor no
+	// longer appears.
+	mainClient.Refresh(ctx)
+	test.That(t, resourceNames, test.ShouldNotContain, mainClient.ResourceNames())
 }

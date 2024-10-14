@@ -437,9 +437,6 @@ func (g genericSubypeCollection[ResourceT]) Resource(name string) (Resource, err
 }
 
 func (g genericSubypeCollection[ResourceT]) ReplaceAll(resources map[Name]Resource) error {
-	if len(resources) == 0 {
-		return nil
-	}
 	copied := make(map[Name]ResourceT, len(resources))
 	for k, v := range resources {
 		typed, err := AsType[ResourceT](v)

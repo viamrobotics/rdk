@@ -90,7 +90,9 @@ func (ov *OrientationVector) Vector() r3.Vector {
 func (ovd *OrientationVectorDegrees) Normalize() {
 	norm := ovd.computeNormal()
 	if norm == 0.0 { // avoid division by zero
-		panic("orientation vec has length of 0")
+		// Vector not set, use default
+		ovd.OZ = 1
+		return
 	}
 	ovd.OX /= norm
 	ovd.OY /= norm
@@ -101,7 +103,9 @@ func (ovd *OrientationVectorDegrees) Normalize() {
 func (ov *OrientationVector) Normalize() {
 	norm := ov.computeNormal()
 	if norm == 0.0 { // avoid division by zero
-		panic("orientation vec has length of 0")
+		// Vector not set, use default
+		ov.OZ = 1
+		return
 	}
 	ov.OX /= norm
 	ov.OY /= norm
