@@ -1201,7 +1201,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 						r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
 					}
 					// NetworkEqual checks if Cloud/Auth/Network are equal between configs
-					if !diff.NetworkEqual {
+					if diff != nil && !diff.NetworkEqual {
 						r.logger.Info("Reconfigure disabled but Cloud/Auth/Network config section has been updated")
 					}
 					return
