@@ -24,8 +24,8 @@ import (
 
 var model = resource.DefaultModelFamily.WithModel("imu-vectornav")
 
-// DefaultBaudRate is the value we assign if there is no value specified in the attributes.
-const DefaultBaudRate = 9600
+// defaultBaudRate is the value we assign if there is no value specified in the attributes.
+const defaultBaudRate = 9600
 
 // Config is used for converting a vectornav IMU MovementSensor config attributes.
 type Config struct {
