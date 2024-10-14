@@ -2,6 +2,7 @@ package spatialmath
 
 import (
 	"math"
+	"math/rand"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -23,7 +24,7 @@ func TestBasicPoseConstruction(t *testing.T) {
 	ovCompare(t, p.Orientation().OrientationVectorRadians(), ov)
 	ptCompare(t, p.Point(), r3.Vector{1, 2, 3})
 
-	aa := QuatToR4AA(ov.ToQuat())
+	aa := QuatToR4AA(ov.Quaternion())
 	p = NewPose(r3.Vector{1, 2, 3}, &R4AA{aa.Theta, aa.RX, aa.RY, aa.RZ})
 	ptCompare(t, p.Point(), r3.Vector{1, 2, 3})
 	ovCompare(t, p.Orientation().OrientationVectorRadians(), ov)
@@ -171,4 +172,34 @@ func BenchmarkPoseBetween(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		PoseBetween(p1b, p2b)
 	}
+}
+
+var result Pose
+
+func BenchmarkCompose(b *testing.B) {
+	r := rand.New(rand.NewSource(517))
+	var x Pose
+	numIter := 10000
+	poses := [][]Pose{}
+
+	for i := 0; i < numIter; i++ {
+		p1 := randPose(r)
+		p2 := randPose(r)
+		poses = append(poses, []Pose{p1, p2})
+	}
+	for i := 0; len(poses) < b.N; i++ {
+		poses = append(poses, []Pose{poses[i][0], poses[i][1]})
+	}
+
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		x = Compose(poses[n][0], poses[n][1])
+	}
+	// Prevent compiler from interfering with benchmark
+	result = x
+}
+
+func randPose(r *rand.Rand) Pose {
+	ov := &OrientationVector{2 * math.Pi * (r.Float64() - 0.5), r.Float64() - 0.5, r.Float64() - 0.5, r.Float64() - 0.5}
+	return NewPose(r3.Vector{300 * (r.Float64() - 0.5), 300 * (r.Float64() - 0.5), 300 * (r.Float64() - 0.5)}, ov)
 }
