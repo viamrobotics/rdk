@@ -55,6 +55,7 @@ import (
 	rgrpc "go.viam.com/rdk/grpc"
 	internalcloud "go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -3927,13 +3928,29 @@ func TestCheckMaintenanceSensorReadings(t *testing.T) {
 		test.That(t, canReconfigure, test.ShouldEqual, true)
 		test.That(t, err.Error(), test.ShouldEqual, "error getting maintenance_allowed_key keyDoesNotExist from sensor reading")
 	})
-	t.Run("maintenanceAllowedKey is not a boolean", func(t *testing.T) {
+	t.Run("maintenanceAllowedKey is a number not a boolean", func(t *testing.T) {
 		r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
 		localRobot := r.(*localRobot)
 		canReconfigure, err := localRobot.checkMaintenanceSensorReadings(context.Background(), "ThatIsNotAWallet", newValidSensor())
 
 		test.That(t, canReconfigure, test.ShouldEqual, true)
 		test.That(t, err.Error(), test.ShouldEqual, "maintenanceAllowedKey ThatIsNotAWallet is not a bool value")
+	})
+	t.Run("maintenanceAllowedKey is one not a boolean", func(t *testing.T) {
+		r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
+		localRobot := r.(*localRobot)
+		canReconfigure, err := localRobot.checkMaintenanceSensorReadings(context.Background(), "OneIsNotTrue", newValidSensor())
+
+		test.That(t, canReconfigure, test.ShouldEqual, true)
+		test.That(t, err.Error(), test.ShouldEqual, "maintenanceAllowedKey OneIsNotTrue is not a bool value")
+	})
+	t.Run("maintenanceAllowedKey is string true not a boolean", func(t *testing.T) {
+		r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
+		localRobot := r.(*localRobot)
+		canReconfigure, err := localRobot.checkMaintenanceSensorReadings(context.Background(), "TrueIsNotTrue", newValidSensor())
+
+		test.That(t, canReconfigure, test.ShouldEqual, true)
+		test.That(t, err.Error(), test.ShouldEqual, "maintenanceAllowedKey TrueIsNotTrue is not a bool value")
 	})
 }
 
@@ -3973,7 +3990,12 @@ func TestCheckMaintenanceSensorReadingsSuccess(t *testing.T) {
 func newValidSensor() sensor.Sensor {
 	s := &inject.Sensor{}
 	s.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-		return map[string]any{"ThatsMyWallet": false, "ThatsNotMyWallet": true, "ThatIsNotAWallet": 5}, nil
+		// We want to ensure that we get the same readings after convering to proto and back to go
+		readings := map[string]any{"ThatsMyWallet": false, "ThatsNotMyWallet": true,
+			"ThatIsNotAWallet": 5, "TrueIsNotTrue": "true", "OneIsNotTrue": 1}
+		readingsProto, _ := protoutils.ReadingGoToProto(readings)
+		retReadings, _ := protoutils.ReadingProtoToGo(readingsProto)
+		return retReadings, nil
 	}
 	s.CloseFunc = func(ctx context.Context) error { return nil }
 	return s
