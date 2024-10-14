@@ -3987,6 +3987,14 @@ func newErrorSensor() sensor.Sensor {
 	return s
 }
 
+func newInvalidSensor() sensor.Sensor {
+	s := &inject.Sensor{}
+	s.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+		return map[string]any{"ThatsMyWallet": 1, "ThatsNotMyWallet": 2}, nil
+	}
+	return s
+}
+
 func TestMaintenanceConfig(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
@@ -4012,7 +4020,7 @@ func TestMaintenanceConfig(t *testing.T) {
 			conf resource.Config,
 			logger logging.Logger,
 		) (sensor.Sensor, error) {
-			return newErrorSensor(), nil
+			return newInvalidSensor(), nil
 		}})
 	defer func() {
 		resource.Deregister(sensor.API, model)
@@ -4124,7 +4132,7 @@ func TestMaintenanceConfig(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldEqual, "resource \"rdk:component:sensor/sensor2\" not found")
 	})
 
-	t.Run("conflicting remote and main sensors default to main", func(t *testing.T) {
+	t.Run("conflicting remote and main sensor names default to main", func(t *testing.T) {
 		ctx := context.Background()
 		// Setup remote with error maintenance sensor, if sensor is ever called it will error and reconfigure normally
 		remoteErrConfig := &config.Config{

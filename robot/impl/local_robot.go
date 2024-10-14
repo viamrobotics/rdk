@@ -1486,6 +1486,7 @@ func (r *localRobot) checkMaintenanceSensorReadings(ctx context.Context,
 	// Context timeouts on this call should be handled by grpc
 	readings, err := sensor.Readings(ctx, map[string]interface{}{})
 	if err != nil {
+		// if the sensor errors or timeouts we return false to block reconfigure
 		return false, errors.Errorf("error reading maintenance sensor readings. %s", err.Error())
 	}
 	readingVal, ok := readings[maintenanceAllowedKey]
