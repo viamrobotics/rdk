@@ -32,7 +32,7 @@ type Config struct {
 	SPI      string `json:"spi_bus"`
 	BaudRate *int   `json:"spi_baud_rate,omitempty"`
 	Pfreq    *int   `json:"polling_freq_hz,omitempty"`
-	CSPin    string `json:"chip_select_pin"` // This value will be either 1 or 0 on raspberry pis
+	CSPin    string `json:"chip_select_pin"` // This value will be either 1 or 0 for linux's default spi bus
 }
 
 // Validate ensures all parts of the config are valid.
