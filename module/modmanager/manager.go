@@ -355,13 +355,13 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 		}
 	}
 
-	// if err := mod.firstRun(ctx, mgr.logger, mgr.viamHomeDir, mgr.packagesDir); err != nil {
-	// 	return err
-	// }
-
 	cleanup := rutils.SlowStartupLogger(
 		ctx, "Waiting for module to complete startup and registration", "module", mod.cfg.Name, mgr.logger)
 	defer cleanup()
+
+	if err := mod.firstRun(ctx, mgr.logger, mgr.viamHomeDir, mgr.packagesDir); err != nil {
+		return err
+	}
 
 	if err := mgr.startModuleProcess(mod); err != nil {
 		return errors.WithMessage(err, "error while starting module "+mod.cfg.Name)
@@ -1112,7 +1112,7 @@ func (m *module) firstRun(
 		return err
 	}
 	// TODO: do we need unset/default logger logic?
-	m.logger.Info(cmdOut)
+	logger.Info(cmdOut)
 	return nil
 }
 
