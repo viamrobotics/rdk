@@ -3934,7 +3934,7 @@ func TestCheckMaintenanceSensorReadings(t *testing.T) {
 		canReconfigure, err := localRobot.checkMaintenanceSensorReadings(context.Background(), "ThatIsNotAWallet", newValidSensor())
 
 		test.That(t, canReconfigure, test.ShouldEqual, true)
-		test.That(t, err.Error(), test.ShouldEqual, "maintenanceAllowedKey ThatIsNotAWallet is not a bool value")
+		test.That(t, err.Error(), test.ShouldEqual, "maintenance_allowed_key ThatIsNotAWallet is not a bool value")
 	})
 	t.Run("maintenanceAllowedKey is one not a boolean", func(t *testing.T) {
 		r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
@@ -3942,7 +3942,7 @@ func TestCheckMaintenanceSensorReadings(t *testing.T) {
 		canReconfigure, err := localRobot.checkMaintenanceSensorReadings(context.Background(), "OneIsNotTrue", newValidSensor())
 
 		test.That(t, canReconfigure, test.ShouldEqual, true)
-		test.That(t, err.Error(), test.ShouldEqual, "maintenanceAllowedKey OneIsNotTrue is not a bool value")
+		test.That(t, err.Error(), test.ShouldEqual, "maintenance_allowed_key OneIsNotTrue is not a bool value")
 	})
 	t.Run("maintenanceAllowedKey is string true not a boolean", func(t *testing.T) {
 		r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
@@ -3950,7 +3950,7 @@ func TestCheckMaintenanceSensorReadings(t *testing.T) {
 		canReconfigure, err := localRobot.checkMaintenanceSensorReadings(context.Background(), "TrueIsNotTrue", newValidSensor())
 
 		test.That(t, canReconfigure, test.ShouldEqual, true)
-		test.That(t, err.Error(), test.ShouldEqual, "maintenanceAllowedKey TrueIsNotTrue is not a bool value")
+		test.That(t, err.Error(), test.ShouldEqual, "maintenance_allowed_key TrueIsNotTrue is not a bool value")
 	})
 }
 
