@@ -5,15 +5,13 @@ package arm
 
 import (
 	"context"
-	"fmt"
-	"strings"
+	"errors"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/referenceframe/urdf"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -136,38 +134,14 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 		// if the error tells us the method is unimplemented, then we
 		// can use the kinematics and joint positions endpoints to
 		// construct the geometries of the arm
-		if strings.Contains(err.Error(), "unimplemented") {
-			var err error
-
+		if errors.Is(err, errors.New("unimplemented")) {
 			kinematicsPbResp, err := s.GetKinematics(ctx, &commonpb.GetKinematicsRequest{Name: req.GetName()})
 			if err != nil {
 				return nil, err
 			}
-			format := kinematicsPbResp.GetFormat()
-			data := kinematicsPbResp.GetKinematicsData()
-			var model referenceframe.Model
-			switch format {
-			case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA:
-				model, err = referenceframe.UnmarshalModelJSON(data, req.GetName())
-				if err != nil {
-					return nil, err
-				}
-			case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF:
-				modelconf, err := urdf.UnmarshalModelXML(data, req.GetName())
-				if err != nil {
-					return nil, err
-				}
-				model, err = modelconf.ParseConfig(req.GetName())
-				if err != nil {
-					return nil, err
-				}
-			case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED:
-				fallthrough
-			default:
-				if formatName, ok := commonpb.KinematicsFileFormat_name[int32(format)]; ok {
-					return nil, fmt.Errorf("unable to parse file of type %s", formatName)
-				}
-				return nil, fmt.Errorf("unable to parse unknown file type %d", format)
+			model, err := updateKinematicHelper(req.GetName(), kinematicsPbResp)
+			if err != nil {
+				return nil, err
 			}
 
 			jointPbResp, err := s.GetJointPositions(ctx, &pb.GetJointPositionsRequest{Name: req.GetName()})
