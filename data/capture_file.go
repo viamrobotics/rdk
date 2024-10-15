@@ -1,6 +1,8 @@
 package data
 
 import (
+	"bufio"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"os"
@@ -12,6 +14,8 @@ import (
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
+	"google.golang.org/protobuf/encoding/protowire"
+	"google.golang.org/protobuf/proto"
 
 	"go.viam.com/rdk/utils"
 )
@@ -80,6 +84,179 @@ func NewCaptureFile(f *os.File) (*CaptureFile, error) {
 // ReadMetadata reads and returns the metadata in f.
 func (f *CaptureFile) ReadMetadata() *v1.DataCaptureMetadata {
 	return f.Metadata
+}
+
+var errInvalidVarint = errors.New("invalid varint32 encountered")
+
+func ReadTag(r io.Reader, num *protowire.Number, typ *protowire.Type) (n int, err error) {
+	// Per AbstractParser#parsePartialDelimitedFrom with
+	// CodedInputStream#readRawVarint32.
+	var headerBuf [binary.MaxVarintLen32]byte
+	var bytesRead, length int
+	var tagNum protowire.Number
+	var tagType protowire.Type
+	for length <= 0 { // i.e. no varint has been decoded yet.
+		if bytesRead >= len(headerBuf) {
+			return bytesRead, errInvalidVarint
+		}
+		// We have to read byte by byte here to avoid reading more bytes
+		// than required. Each read byte is appended to what we have
+		// read before.
+		newBytesRead, err := r.Read(headerBuf[bytesRead : bytesRead+1])
+		if newBytesRead == 0 {
+			if err != nil {
+				return bytesRead, err
+			}
+			// A Reader should not return (0, nil), but if it does,
+			// it should be treated as no-op (according to the
+			// Reader contract). So let's go on...
+			continue
+		}
+		bytesRead += newBytesRead
+		// Now present everything read so far to the varint decoder and
+		// see if a varint with a tag type can be decoded already.
+		tagNum, tagType, length = protowire.ConsumeTag(headerBuf[:bytesRead])
+	}
+	*num = tagNum
+	*typ = tagType
+	return bytesRead, nil
+}
+
+// *SensorMetadata
+func ReadMessageLength(r io.Reader, m *uint64) (n int, err error) {
+	// Per AbstractParser#parsePartialDelimitedFrom with
+	// CodedInputStream#readRawVarint32.
+	var headerBuf [binary.MaxVarintLen32]byte
+	var bytesRead, varIntBytes int
+	var messageLength uint64
+	for varIntBytes <= 0 { // i.e. no varint has been decoded yet.
+		if bytesRead >= len(headerBuf) {
+			return bytesRead, errInvalidVarint
+		}
+		// We have to read byte by byte here to avoid reading more bytes
+		// than required. Each read byte is appended to what we have
+		// read before.
+		newBytesRead, err := r.Read(headerBuf[bytesRead : bytesRead+1])
+		if newBytesRead == 0 {
+			if err != nil {
+				return bytesRead, err
+			}
+			// A Reader should not return (0, nil), but if it does,
+			// it should be treated as no-op (according to the
+			// Reader contract). So let's go on...
+			continue
+		}
+		bytesRead += newBytesRead
+		// Now present everything read so far to the varint decoder and
+		// see if a varint can be decoded already.
+		messageLength, varIntBytes = protowire.ConsumeVarint(headerBuf[:bytesRead])
+	}
+	*m = messageLength
+	return bytesRead, nil
+}
+
+func (f *CaptureFile) BinaryReader(md *v1.SensorMetadata) (io.Reader, error) {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+
+	if f.Metadata.Type != v1.DataType_DATA_TYPE_BINARY_SENSOR {
+		return nil, errors.New("expected CaptureFile to be of type BINARY")
+	}
+
+	// seek to the first 32 bit varint delimeter
+	if _, err := f.file.Seek(f.initialReadOffset, io.SeekStart); err != nil {
+		return nil, err
+	}
+	// remove delimiter (we know we will only have one for the binary image)
+	var topLevelMsgLen uint64
+	bytesRead, err := ReadMessageLength(f.file, &topLevelMsgLen)
+	if err != nil {
+		return nil, err
+	}
+	actualLen := f.size - (f.initialReadOffset + int64(bytesRead))
+	if int64(topLevelMsgLen) != actualLen {
+		return nil, fmt.Errorf("binary capture file payload described as having byte size %d, actual size: %d", topLevelMsgLen, actualLen)
+	}
+	// now we parse the *v1.SensorMetadata and the binary payload of a binary *v1.SensorData
+	var (
+		tagNum  protowire.Number
+		tagType protowire.Type
+		n       int
+	)
+	n, err = ReadTag(f.file, &tagNum, &tagType)
+	bytesRead += n
+	if err != nil {
+		return nil, err
+	}
+
+	if !tagNum.IsValid() {
+		return nil, fmt.Errorf("tagNum %d is invalid", tagNum)
+	}
+
+	// TODO: Techically it isn't guranteed this value will be 1
+	// but this code currently assumes it will for simplicity
+	// see: https://protobuf.dev/programming-guides/encoding/#optional
+	if tagNum != 1 {
+		return nil, fmt.Errorf("expected tagNum to be 1 but instead it is %d", tagNum)
+	}
+
+	// expected LEN type https://protobuf.dev/programming-guides/encoding/#structure
+	// in this case an embedded message
+	if tagType != protowire.BytesType {
+		return nil, fmt.Errorf("expected tagNum 1 to have LEN wire type, instead it has wire type: %d", tagType)
+	}
+
+	var sensorMDLen uint64
+	n, err = ReadMessageLength(f.file, &sensorMDLen)
+	bytesRead += n
+	if err != nil {
+		return nil, err
+	}
+	sensorMDBytes := make([]byte, sensorMDLen)
+	n, err = io.ReadFull(f.file, sensorMDBytes)
+	bytesRead += n
+	if err != nil {
+		return nil, err
+	}
+	err = proto.Unmarshal(sensorMDBytes, md)
+	if err != nil {
+		return nil, err
+	}
+
+	var (
+		payloadTagNum  protowire.Number
+		payloadTagType protowire.Type
+	)
+	n, err = ReadTag(f.file, &payloadTagNum, &payloadTagType)
+	bytesRead += n
+	if err != nil {
+		return nil, err
+	}
+
+	if !payloadTagNum.IsValid() {
+		return nil, fmt.Errorf("payloadTagNum %d is invalid", payloadTagNum)
+	}
+
+	// should be 3 as that is the field number of v1.SensorData's binary oneof
+	if payloadTagNum != 3 {
+		return nil, fmt.Errorf("expected payloadTagNum to be 3 but was actually %d", payloadTagNum)
+	}
+
+	if payloadTagType != protowire.BytesType {
+		return nil, fmt.Errorf("expected payloadTagType LEN wire type, instead it has wire type: %d", payloadTagType)
+	}
+
+	var payloadLen uint64
+	n, err = ReadMessageLength(f.file, &payloadLen)
+	bytesRead += n
+	if err != nil {
+		return nil, err
+	}
+	actualPayloadLen := f.size - (f.initialReadOffset + int64(bytesRead))
+	if int64(payloadLen) != actualPayloadLen {
+		return nil, fmt.Errorf("capture file contains incomplete binary payload or data after the binary payload, payloadLength described in capture file: %d, actual payload length: %d, filesize: %d, bytesRead: %d", payloadLen, actualPayloadLen, f.size, bytesRead)
+	}
+	return bufio.NewReader(f.file), nil
 }
 
 // ReadNext returns the next SensorData reading.
