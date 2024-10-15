@@ -549,10 +549,7 @@ func renderTemplate(c *cli.Context, module moduleInputs) error {
 		}
 		return nil
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // Generate stubs for the resource.
