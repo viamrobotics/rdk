@@ -24,12 +24,15 @@ import (
 
 var model = resource.DefaultModelFamily.WithModel("imu-vectornav")
 
+// defaultBaudRate is the value we assign if there is no value specified in the attributes.
+const defaultBaudRate = 9600
+
 // Config is used for converting a vectornav IMU MovementSensor config attributes.
 type Config struct {
-	SPI   string `json:"spi_bus"`
-	Speed *int   `json:"spi_baud_rate"`
-	Pfreq *int   `json:"polling_freq_hz"`
-	CSPin string `json:"chip_select_pin"`
+	SPI      string `json:"spi_bus"`
+	BaudRate int    `json:"spi_baud_rate,omitempty"`
+	Pfreq    int    `json:"polling_freq_hz,omitempty"`
+	CSPin    string `json:"chip_select_pin"` // This value will be either 1 or 0 for linux's default spi bus
 }
 
 // Validate ensures all parts of the config are valid.
@@ -37,14 +40,6 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	var deps []string
 	if cfg.SPI == "" {
 		return nil, resource.NewConfigValidationFieldRequiredError(path, "spi")
-	}
-
-	if cfg.Speed == nil {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "spi_baud_rate")
-	}
-
-	if cfg.Pfreq == nil {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "polling_freq_hz")
 	}
 
 	if cfg.CSPin == "" {
@@ -74,12 +69,12 @@ type vectornav struct {
 	spiMu   sync.Mutex
 	polling int
 
-	workers   *goutils.StoppableWorkers
-	bus       buses.SPI
-	cs        string
-	speed     int
-	logger    logging.Logger
-	busClosed bool
+	workers       *goutils.StoppableWorkers
+	bus           buses.SPI
+	chipSelectPin string
+	baudRate      int
+	logger        logging.Logger
+	busClosed     bool
 
 	bdVX float64
 	bdVY float64
@@ -122,21 +117,27 @@ func newVectorNav(
 		return nil, err
 	}
 
-	speed := *newConf.Speed
-	if speed == 0 {
-		speed = 8000000
+	baudRate := newConf.BaudRate
+	if baudRate == 0 {
+		logger.CInfof(ctx, "we are setting the baudRate to %d since no value was passed in", defaultBaudRate)
+		baudRate = defaultBaudRate
 	}
 
-	pfreq := *newConf.Pfreq
-	v := &vectornav{
-		Named:     conf.ResourceName().AsNamed(),
-		bus:       buses.NewSpiBus(newConf.SPI),
-		logger:    logger,
-		cs:        newConf.CSPin,
-		speed:     speed,
-		busClosed: false,
-		polling:   pfreq,
+	pollFreq := uint(200)
+	if newConf.Pfreq > 0 {
+		pollFreq = uint(newConf.Pfreq)
 	}
+
+	v := &vectornav{
+		Named:         conf.ResourceName().AsNamed(),
+		bus:           buses.NewSpiBus(newConf.SPI),
+		logger:        logger,
+		chipSelectPin: newConf.CSPin,
+		baudRate:      baudRate,
+		busClosed:     false,
+		polling:       int(pollFreq),
+	}
+
 	mdl, err := v.readRegisterSPI(ctx, modelNumber, 24)
 	if err != nil {
 		return nil, err
@@ -167,8 +168,7 @@ func newVectorNav(
 	refvec = append(refvec, utils.BytesFromFloat64LE(40.730610)...)
 	refvec = append(refvec, utils.BytesFromFloat64LE(-73.935242)...)
 	refvec = append(refvec, utils.BytesFromFloat64LE(10.0)...)
-	err = v.writeRegisterSPI(ctx, referenceVectorConfiguration, refvec)
-	if err != nil {
+	if err = v.writeRegisterSPI(ctx, referenceVectorConfiguration, refvec); err != nil {
 		return nil, errors.Wrap(err, "couldn't set reference vector")
 	}
 	// enforce acceleration tuinning and reduce "trust" in acceleration data
@@ -183,63 +183,52 @@ func newVectorNav(
 	accVpeTunning = append(accVpeTunning, utils.BytesFromFloat32LE(10)...)
 	accVpeTunning = append(accVpeTunning, utils.BytesFromFloat32LE(10)...)
 
-	err = v.writeRegisterSPI(ctx, vpeAccTunning, accVpeTunning)
-	if err != nil {
+	if err = v.writeRegisterSPI(ctx, vpeAccTunning, accVpeTunning); err != nil {
 		return nil, errors.Wrap(err, "couldn't set vpe adaptive tunning")
 	}
-	err = v.writeRegisterSPI(ctx, deltaVDeltaThetaConfig, []byte{0, 0, 0, 0, 0, 0})
-	if err != nil {
+	if err = v.writeRegisterSPI(ctx, deltaVDeltaThetaConfig, []byte{0, 0, 0, 0, 0, 0}); err != nil {
 		return nil, errors.Wrap(err, "couldn't configure deltaV register")
 	}
+
 	// tare the heading
-	err = v.vectornavTareSPI(ctx)
-	if err != nil {
+	if err = v.vectornavTareSPI(ctx); err != nil {
 		return nil, err
 	}
-	smp := uint(100)
-	if v.polling > 0 {
-		smp = uint(v.polling)
-	}
-
 	// compensate for acceleration bias due to misalignement
-	err = v.compensateAccelBias(ctx, smp)
-	if err != nil {
+	if err = v.compensateAccelBias(ctx, pollFreq); err != nil {
 		return nil, err
 	}
-	// compensate for constant DV bias in mesurament
-	err = v.compensateDVBias(ctx, smp)
-	if err != nil {
+	// compensate for constant DV bias in measurement
+	if err = v.compensateDVBias(ctx, pollFreq); err != nil {
 		return nil, err
 	}
 
-	// optionally start a polling goroutine
-	if pfreq > 0 {
-		logger.CDebugf(ctx, "vecnav: will pool at %d Hz", pfreq)
-		waitCh := make(chan struct{})
-		s := 1.0 / float64(pfreq)
-		v.workers = goutils.NewBackgroundStoppableWorkers(func(cancelCtx context.Context) {
-			timer := time.NewTicker(time.Duration(s * float64(time.Second)))
-			defer timer.Stop()
-			close(waitCh)
-			for {
-				select {
-				case <-cancelCtx.Done():
+	logger.CDebugf(ctx, "vecnav: will poll at %d Hz", pollFreq)
+	waitCh := make(chan struct{})
+	pollPerSecond := 1.0 / float64(pollFreq)
+	v.workers = goutils.NewBackgroundStoppableWorkers(func(cancelCtx context.Context) {
+		timer := time.NewTicker(time.Duration(pollPerSecond * float64(time.Second)))
+		defer timer.Stop()
+		close(waitCh)
+		for {
+			select {
+			case <-cancelCtx.Done():
+				return
+			default:
+			}
+			select {
+			case <-cancelCtx.Done():
+				return
+			case <-timer.C:
+				err := v.getReadings(ctx)
+				if err != nil {
 					return
-				default:
-				}
-				select {
-				case <-cancelCtx.Done():
-					return
-				case <-timer.C:
-					err := v.getReadings(ctx)
-					if err != nil {
-						return
-					}
 				}
 			}
-		})
-		<-waitCh
-	}
+		}
+	})
+	<-waitCh
+
 	return v, nil
 }
 
@@ -313,10 +302,10 @@ func (vn *vectornav) getReadings(ctx context.Context) error {
 	vn.magnetometer.X = float64(utils.Float32FromBytesLE(out[12:16]))
 	vn.magnetometer.Y = float64(utils.Float32FromBytesLE(out[16:20]))
 	vn.magnetometer.Z = float64(utils.Float32FromBytesLE(out[20:24]))
-	// unit mm/s^2
-	vn.acceleration.X = float64(utils.Float32FromBytesLE(out[24:28])) * 1000
-	vn.acceleration.Y = float64(utils.Float32FromBytesLE(out[28:32])) * 1000
-	vn.acceleration.Z = float64(utils.Float32FromBytesLE(out[32:36])) * 1000
+	// unit m/s^2
+	vn.acceleration.X = float64(utils.Float32FromBytesLE(out[24:28]))
+	vn.acceleration.Y = float64(utils.Float32FromBytesLE(out[28:32]))
+	vn.acceleration.Z = float64(utils.Float32FromBytesLE(out[32:36]))
 	// unit rad/s
 	vn.angularVelocity.X = utils.RadToDeg(float64(utils.Float32FromBytesLE(out[36:40])))
 	vn.angularVelocity.Y = utils.RadToDeg(float64(utils.Float32FromBytesLE(out[40:44])))
@@ -349,18 +338,18 @@ func (vn *vectornav) readRegisterSPI(ctx context.Context, reg vectornavRegister,
 		return nil, err
 	}
 	cmd := []byte{byte(vectorNavSPIRead), byte(reg), 0, 0}
-	_, err = hnd.Xfer(ctx, uint(vn.speed), vn.cs, 3, cmd)
+	_, err = hnd.Xfer(ctx, uint(vn.baudRate), vn.chipSelectPin, 3, cmd)
 	if err != nil {
 		return nil, err
 	}
 	goutils.SelectContextOrWait(ctx, 110*time.Microsecond)
 	cmd = make([]byte, readLen+4)
-	out, err := hnd.Xfer(ctx, uint(vn.speed), vn.cs, 3, cmd)
+	out, err := hnd.Xfer(ctx, uint(vn.baudRate), vn.chipSelectPin, 3, cmd)
 	if err != nil {
 		return nil, err
 	}
 	if out[3] != 0 {
-		return nil, errors.Errorf("vectornav read error returned %d speed was %d", out[3], vn.speed)
+		return nil, errors.Errorf("vectornav read error returned %d baudRate was %d", out[3], vn.baudRate)
 	}
 	err = hnd.Close()
 	if err != nil {
@@ -382,13 +371,13 @@ func (vn *vectornav) writeRegisterSPI(ctx context.Context, reg vectornavRegister
 	}
 	cmd := []byte{byte(vectorNavSPIWrite), byte(reg), 0, 0}
 	cmd = append(cmd, data...)
-	_, err = hnd.Xfer(ctx, uint(vn.speed), vn.cs, 3, cmd)
+	_, err = hnd.Xfer(ctx, uint(vn.baudRate), vn.chipSelectPin, 3, cmd)
 	if err != nil {
 		return err
 	}
 	goutils.SelectContextOrWait(ctx, 110*time.Microsecond)
 	cmd = make([]byte, len(data)+4)
-	out, err := hnd.Xfer(ctx, uint(vn.speed), vn.cs, 3, cmd)
+	out, err := hnd.Xfer(ctx, uint(vn.baudRate), vn.chipSelectPin, 3, cmd)
 	if err != nil {
 		return err
 	}
@@ -414,13 +403,13 @@ func (vn *vectornav) vectornavTareSPI(ctx context.Context) error {
 		return err
 	}
 	cmd := []byte{byte(vectorNavSPITare), 0, 0, 0}
-	_, err = hnd.Xfer(ctx, uint(vn.speed), vn.cs, 3, cmd)
+	_, err = hnd.Xfer(ctx, uint(vn.baudRate), vn.chipSelectPin, 3, cmd)
 	if err != nil {
 		return err
 	}
 	goutils.SelectContextOrWait(ctx, 110*time.Microsecond)
 	cmd = []byte{0, 0, 0, 0}
-	out, err := hnd.Xfer(ctx, uint(vn.speed), vn.cs, 3, cmd)
+	out, err := hnd.Xfer(ctx, uint(vn.baudRate), vn.chipSelectPin, 3, cmd)
 	if err != nil {
 		return err
 	}
@@ -470,7 +459,7 @@ func (vn *vectornav) compensateAccelBias(ctx context.Context, smpSize uint) erro
 		accMX += utils.Float32FromBytesLE(acc[0:4])
 		accMY += utils.Float32FromBytesLE(acc[4:8])
 		accMZ += utils.Float32FromBytesLE(acc[8:12])
-		if !goutils.SelectContextOrWait(ctx, 10*time.Millisecond) {
+		if !goutils.SelectContextOrWait(ctx, 50*time.Microsecond) {
 			return errors.New("error in context during acceleration compensation")
 		}
 	}
