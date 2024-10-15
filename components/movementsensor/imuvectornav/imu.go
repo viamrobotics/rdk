@@ -30,8 +30,8 @@ const defaultBaudRate = 9600
 // Config is used for converting a vectornav IMU MovementSensor config attributes.
 type Config struct {
 	SPI      string `json:"spi_bus"`
-	BaudRate *int   `json:"spi_baud_rate,omitempty"`
-	Pfreq    *int   `json:"polling_freq_hz,omitempty"`
+	BaudRate int    `json:"spi_baud_rate,omitempty"`
+	Pfreq    int    `json:"polling_freq_hz,omitempty"`
 	CSPin    string `json:"chip_select_pin"` // This value will be either 1 or 0 for linux's default spi bus
 }
 
@@ -117,15 +117,15 @@ func newVectorNav(
 		return nil, err
 	}
 
-	baudRate := *newConf.BaudRate
+	baudRate := newConf.BaudRate
 	if baudRate == 0 {
 		logger.CInfof(ctx, "we are setting the baudRate to %d since no value was passed in", defaultBaudRate)
 		baudRate = defaultBaudRate
 	}
 
 	pollFreq := uint(200)
-	if *newConf.Pfreq > 0 {
-		pollFreq = uint(*newConf.Pfreq)
+	if newConf.Pfreq > 0 {
+		pollFreq = uint(newConf.Pfreq)
 	}
 
 	v := &vectornav{
