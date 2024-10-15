@@ -23,6 +23,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/cloud"
+	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	icloud "go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
@@ -1175,6 +1176,44 @@ func (r *localRobot) applyLocalModuleVersions(cfg *config.Config) {
 }
 
 func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, forceSync bool) {
+	// Maintenance config can be configured to block reconfigure based off of a sensor reading
+	// These sensors can be configured on the main robot, or a remote
+	// In situations where there are conflicting sensor names the following behavior happens
+	// Main robot and remote share sensor name -> main robot sensor is chosen
+	// Only remote has the sensor name -> remote sensor is read
+	// Multiple remotes share a senor name -> conflict error is returned and reconfigure happens
+	// To specify a specific remote sensor use the name format remoteName:sensorName to specify a remote sensor
+	if newConfig.MaintenanceConfig != nil {
+		name, err := resource.NewFromString(newConfig.MaintenanceConfig.SensorName)
+		if err != nil {
+			r.logger.Warnf("sensor_name %s in maintenance config is not in a supported format", newConfig.MaintenanceConfig.SensorName)
+		} else {
+			sensorComponent, err := robot.ResourceFromRobot[sensor.Sensor](r, name)
+			if err != nil {
+				r.logger.Warnf("%s, Starting reconfiguration", err.Error())
+			} else {
+				canReconfigure, err := r.checkMaintenanceSensorReadings(ctx, newConfig.MaintenanceConfig.MaintenanceAllowedKey, sensorComponent)
+				if !canReconfigure {
+					r.logger.Info("maintenance_allowed_key found from readings on maintenance sensor. Skipping reconfiguration.")
+					diff, err := config.DiffConfigs(*r.Config(), *newConfig, false)
+					if err != nil {
+						r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
+					}
+					// NetworkEqual checks if Cloud/Auth/Network are equal between configs
+					if diff != nil && !diff.NetworkEqual {
+						r.logger.Info("Machine reconfiguration skipped but Cloud/Auth/Network config section contain changes and will be applied.")
+					}
+					return
+				}
+				if err != nil {
+					r.logger.Warn(err.Error() + ". Starting reconfiguration")
+				} else {
+					r.logger.Info("maintenance_allowed_key found from readings on maintenance sensor. Starting reconfiguration")
+				}
+			}
+		}
+	}
+
 	r.configRevisionMu.Lock()
 	r.configRevision = config.Revision{
 		Revision:    newConfig.Revision,
@@ -1435,4 +1474,29 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 // Version returns version information about the robot.
 func (r *localRobot) Version(ctx context.Context) (robot.VersionResponse, error) {
 	return robot.Version()
+}
+
+// checkMaintenanceSensorReadings ensures that errors from reading a sensor are handled properly.
+func (r *localRobot) checkMaintenanceSensorReadings(ctx context.Context,
+	maintenanceAllowedKey string, sensor resource.Sensor,
+) (bool, error) {
+	timeout := 5 * time.Second
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	// Context timeouts on this call should be handled by grpc
+	readings, err := sensor.Readings(ctx, map[string]interface{}{})
+	if err != nil {
+		// if the sensor errors or timeouts we return false to block reconfigure
+		return false, errors.Errorf("error reading maintenance sensor readings. %s", err.Error())
+	}
+	readingVal, ok := readings[maintenanceAllowedKey]
+	if !ok {
+		return true, errors.Errorf("error getting maintenance_allowed_key %s from sensor reading", maintenanceAllowedKey)
+	}
+	canReconfigure, ok := readingVal.(bool)
+	if !ok {
+		return true, errors.Errorf("maintenance_allowed_key %s is not a bool value", maintenanceAllowedKey)
+	}
+	return canReconfigure, nil
 }
