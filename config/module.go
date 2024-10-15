@@ -228,7 +228,7 @@ func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 // Note: the working directory must be the unpacked tarball directory or local exec directory.
 func (m Module) EvaluateFirstRunPath(packagesDir string) (string, error) {
 	if !filepath.IsAbs(m.FirstRun) {
-		return "", fmt.Errorf("expected FirstRun to be absolute path, got %s", m.FirstRun)
+		return "", fmt.Errorf("expected FirstRun to be absolute path, got %q", m.FirstRun)
 	}
 	firstRunDir, err := m.exeDir(packagesDir)
 	if err != nil {

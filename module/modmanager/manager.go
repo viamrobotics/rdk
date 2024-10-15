@@ -355,6 +355,10 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 		}
 	}
 
+	// if err := mod.firstRun(ctx, mgr.logger, mgr.viamHomeDir, mgr.packagesDir); err != nil {
+	// 	return err
+	// }
+
 	cleanup := rutils.SlowStartupLogger(
 		ctx, "Waiting for module to complete startup and registration", "module", mod.cfg.Name, mgr.logger)
 	defer cleanup()
@@ -1077,7 +1081,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 }
 
 // TODO: return exit code?
-func (m *module) FirstRun(
+func (m *module) firstRun(
 	ctx context.Context,
 	logger logging.Logger,
 	viamHomeDir string,
