@@ -303,8 +303,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	ctx = rpc.ContextWithDialer(ctx, rpcDialer)
 
 	processConfig := func(in *config.Config) (*config.Config, error) {
-		tlsCfg := config.NewTLSConfig(cfg)
-		out, err := config.ProcessConfig(in, tlsCfg)
+		out, err := config.ProcessConfig(in)
 		if err != nil {
 			return nil, err
 		}
