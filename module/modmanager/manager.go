@@ -26,6 +26,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/config"
 	rdkgrpc "go.viam.com/rdk/grpc"
@@ -1209,10 +1210,14 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger log
 					) (resource.Resource, error) {
 						return mgr.AddResource(ctx, conf, DepsToNames(deps))
 					},
-					Discover: func(ctx context.Context, logger logging.Logger) (interface{}, error) {
+					Discover: func(ctx context.Context, logger logging.Logger, extra map[string]interface{}) (interface{}, error) {
+						extraStruct, err := structpb.NewStruct(extra)
+						if err != nil {
+							return nil, err
+						}
 						req := &robotpb.DiscoverComponentsRequest{
 							Queries: []*robotpb.DiscoveryQuery{
-								{Subtype: apiCopy.API.String(), Model: modelCopy.String()},
+								{Subtype: apiCopy.API.String(), Model: modelCopy.String(), Extra: extraStruct},
 							},
 						}
 

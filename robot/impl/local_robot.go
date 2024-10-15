@@ -1072,13 +1072,14 @@ func RobotFromResources(
 // component configurations.
 func (r *localRobot) DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error) {
 	// dedupe queries
-	deduped := make(map[resource.DiscoveryQuery]struct{}, len(qs))
+	deduped := make(map[string]resource.DiscoveryQuery, len(qs))
 	for _, q := range qs {
-		deduped[q] = struct{}{}
+		key := q.API.String() + ":" + q.Model.String()
+		deduped[key] = q
 	}
 
 	discoveries := make([]resource.Discovery, 0, len(deduped))
-	for q := range deduped {
+	for _, q := range deduped {
 		if internalDiscovery, isInternal := r.discoverRobotInternals(q); isInternal {
 			discoveries = append(discoveries, resource.Discovery{Query: q, Results: internalDiscovery})
 			continue
@@ -1090,7 +1091,7 @@ func (r *localRobot) DiscoverComponents(ctx context.Context, qs []resource.Disco
 		}
 
 		if reg.Discover != nil {
-			discovered, err := reg.Discover(ctx, r.logger.Sublogger("discovery"))
+			discovered, err := reg.Discover(ctx, r.logger.Sublogger("discovery"), q.Extra)
 			if err != nil {
 				return nil, &resource.DiscoverError{Query: q}
 			}
