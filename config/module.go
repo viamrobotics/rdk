@@ -227,10 +227,6 @@ func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 // 3. otherwise use the exe path from config, or fail if this is a local tarball.
 // Note: the working directory must be the unpacked tarball directory or local exec directory.
 func (m Module) EvaluateFirstRunPath(packagesDir string) (string, error) {
-	// TODO: check meta.json field instead of config field, which won't exist in the final implementation
-	if !filepath.IsAbs(m.FirstRun) {
-		return "", fmt.Errorf("expected FirstRun to be absolute path, got %q", m.FirstRun)
-	}
 	firstRunDir, err := m.exeDir(packagesDir)
 	if err != nil {
 		return "", err
@@ -247,8 +243,6 @@ func (m Module) EvaluateFirstRunPath(packagesDir string) (string, error) {
 		if err == nil {
 			// this is case 1, meta.json in exe dir
 			meta, err := parseJSONFile[JSONManifest](metaPath)
-			// TODO: use this instead!
-			meta.FirstRun
 			if err != nil {
 				return "", err
 			}
@@ -256,6 +250,7 @@ func (m Module) EvaluateFirstRunPath(packagesDir string) (string, error) {
 			if err != nil {
 				return "", err
 			}
+			// TODO: investigate
 			return filepath.Abs(firstRun)
 		}
 	}
@@ -275,6 +270,7 @@ func (m Module) EvaluateFirstRunPath(packagesDir string) (string, error) {
 		if err != nil {
 			return "", err
 		}
+		// TODO: investigate
 		return filepath.Abs(firstRun)
 	}
 	return m.FirstRun, nil
