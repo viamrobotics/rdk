@@ -45,6 +45,9 @@ func TestPtgRrtBidirectional(t *testing.T) {
 	opt := newBasicPlannerOptions(ackermanFrame)
 	opt.DistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
 	opt.StartPose = spatialmath.NewZeroPose()
+	opt.AtGoalMetric = func(startPose, goalPose spatialmath.Pose) bool {
+		return spatialmath.PoseAlmostCoincidentEps(startPose, goalPose, opt.GoalThreshold)
+	}
 	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
 	tp, ok := mp.(*tpSpaceRRTMotionPlanner)
