@@ -209,40 +209,6 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	var goalPose spatialmath.Pose
 	var goalNode node
 
-	goalScore := math.Inf(1)
-	for k, v := range rrt.maps.startMap {
-		if v == nil {
-			if k.Pose() != nil {
-				startPose = k.Pose()
-			} else {
-				rrt.solutionChan <- &rrtSolution{err: fmt.Errorf("node %v must provide a Pose", k)}
-				return
-			}
-			break
-		}
-	}
-	for k, v := range rrt.maps.goalMap {
-		if v == nil {
-			// There may be more than one node in the tree which satisfies the goal, i.e. its parent is nil.
-			// However for the purposes of this we can just take the first one we see.
-			if k.Pose() != nil {
-				dist := mp.planOpts.DistanceFunc(&ik.Segment{StartPosition: startPose, EndPosition: k.Pose()})
-				if dist < goalScore {
-					// Update to use the closest goal to the start.
-					// This is necessary in order to solve deterministically.
-					goalPose = k.Pose()
-					goalScore = dist
-					goalNode = k
-				}
-			} else {
-				rrt.solutionChan <- &rrtSolution{err: fmt.Errorf("node %v must provide a Pose", k)}
-				return
-			}
-		}
-	}
-	mp.goalNodes = append(mp.goalNodes, goalNode)
-	mp.logger.CDebugf(ctx, "Starting TPspace solving with startMap len %d and goalMap len %d", len(rrt.maps.startMap), len(rrt.maps.goalMap))
-
 	publishFinishedPath := func(path []node) {
 		// If we've reached the goal, extract the path from the RRT trees and return
 		correctedPath, err := rectifyTPspacePath(path, mp.frame, startPose)
@@ -282,6 +248,46 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 		rrt.solutionChan <- &rrtSolution{steps: correctedPath, maps: rrt.maps}
 	}
 
+	goalScore := math.Inf(1)
+	for k, v := range rrt.maps.startMap {
+		if v == nil {
+			if k.Pose() != nil {
+				startPose = k.Pose()
+			} else {
+				rrt.solutionChan <- &rrtSolution{err: fmt.Errorf("node %v must provide a Pose", k)}
+				return
+			}
+			break
+		}
+	}
+	for k, v := range rrt.maps.goalMap {
+		if v == nil {
+			// There may be more than one node in the tree which satisfies the goal, i.e. its parent is nil.
+			// However for the purposes of this we can just take the first one we see.
+			if k.Pose() != nil {
+				dist := mp.planOpts.DistanceFunc(&ik.Segment{StartPosition: startPose, EndPosition: k.Pose()})
+				if dist < goalScore {
+					// Update to use the closest goal to the start.
+					// This is necessary in order to solve deterministically.
+					goalPose = k.Pose()
+					goalScore = dist
+					goalNode = k
+				}
+				// Check to see if the startPose is already within some predefined delta of the goalPose
+				if mp.planOpts.AtGoalMetric(startPose, k.Pose()) {
+					path := extractTPspacePath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{a: k, b: k})
+					publishFinishedPath(path)
+					return
+				}
+			} else {
+				rrt.solutionChan <- &rrtSolution{err: fmt.Errorf("node %v must provide a Pose", k)}
+				return
+			}
+		}
+	}
+	mp.goalNodes = append(mp.goalNodes, goalNode)
+	mp.logger.CDebugf(ctx, "Starting TPspace solving with startMap len %d and goalMap len %d", len(rrt.maps.startMap), len(rrt.maps.goalMap))
+
 	m1chan := make(chan *nodeAndError, 1)
 	m2chan := make(chan *nodeAndError, 1)
 	defer close(m1chan)
@@ -306,36 +312,6 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			rrt.solutionChan <- &rrtSolution{err: fmt.Errorf("TP Space RRT timeout %w", ctx.Err()), maps: rrt.maps}
 			return
 		}
-
-		// Check to see if the startPose is already within some predefined delta of the goalPose
-		if iter == 0 {
-			atGoal := func(startPose, goalPose spatialmath.Pose) bool {
-				if mp.planOpts.profile == PositionOnlyMotionProfile {
-					return spatialmath.PoseAlmostCoincidentEps(startPose, goalPose, mp.planOpts.planDeviationMM)
-				}
-				return spatialmath.OrientationAlmostEqual(goalPose.Orientation(), startPose.Orientation()) &&
-					spatialmath.PoseAlmostCoincidentEps(goalPose, startPose, mp.planOpts.planDeviationMM)
-			}
-			if atGoal(startPose, goalPose) {
-				path := extractTPspacePath(rrt.maps.startMap, rrt.maps.goalMap,
-					&nodePair{
-						a: &basicNode{
-							q:      referenceframe.FloatsToInputs([]float64{0, 0, 0, 0}),
-							pose:   startPose,
-							corner: false,
-						},
-						b: &basicNode{
-							q:      referenceframe.FloatsToInputs([]float64{0, 0, 0, 0}),
-							pose:   goalPose,
-							corner: false,
-						},
-					},
-				)
-				publishFinishedPath(path)
-				return
-			}
-		}
-
 		utils.PanicCapturingGo(func() {
 			m1chan <- mp.attemptExtension(ctx, randPosNode, rrt.maps.startMap, false)
 		})

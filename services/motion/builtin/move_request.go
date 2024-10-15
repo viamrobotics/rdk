@@ -164,10 +164,6 @@ func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan) (state
 	if !ok {
 		return state.ExecuteResponse{}, errors.New("exeuctionState.CurrentPoses() does not contain an entry for the LocalizationFrame")
 	}
-	planDevMM, err := utils.AssertType[float64](mr.planRequest.Options["planDeviationMM"])
-	if err != nil {
-		return state.ExecuteResponse{}, err
-	}
 	profile, err := utils.AssertType[string](mr.planRequest.Options["motion_profile"])
 	if err != nil {
 		profile = ""
@@ -175,10 +171,10 @@ func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan) (state
 	atGoalCheck := func(basePose spatialmath.Pose) bool {
 		goal := mr.planRequest.Goal.Pose()
 		if profile == motionplan.PositionOnlyMotionProfile {
-			return spatialmath.PoseAlmostCoincidentEps(goal, basePose, planDevMM)
+			return spatialmath.PoseAlmostCoincidentEps(goal, basePose, mr.planRequest.GoalThreshold)
 		}
 		return spatialmath.OrientationAlmostEqualEps(goal.Orientation(), basePose.Orientation(), 5) &&
-			spatialmath.PoseAlmostCoincidentEps(goal, basePose, planDevMM)
+			spatialmath.PoseAlmostCoincidentEps(goal, basePose, mr.planRequest.GoalThreshold)
 	}
 	if resp := atGoalCheck(currentPosition.Pose()); !resp {
 		return state.ExecuteResponse{Replan: true, ReplanReason: "issuing a replan since we are not within planDeviationMM of the goal"}, nil
@@ -910,9 +906,6 @@ func (ms *builtIn) createBaseMoveRequest(
 
 	var backgroundWorkers sync.WaitGroup
 
-	// assign a planDeviationMM to our PlanRequest options so we know if we are already at the goal at plan time
-	valExtra.extra["planDeviationMM"] = motionCfg.planDeviationMM
-
 	mr := &moveRequest{
 		config: motionCfg,
 		logger: ms.logger,
@@ -924,6 +917,7 @@ func (ms *builtIn) createBaseMoveRequest(
 			StartConfiguration: currentInputs,
 			StartPose:          startPose,
 			WorldState:         worldState,
+			GoalThreshold:      motionCfg.planDeviationMM,
 			Options:            valExtra.extra,
 		},
 		kinematicBase:     kb,
