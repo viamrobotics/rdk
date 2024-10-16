@@ -45,31 +45,6 @@ var (
 	templatesPath = filepath.Join(basePath, "_templates")
 )
 
-// module contains the necessary information to fill out template files.
-// type moduleInputs struct {
-// 	ModuleName       string    `json:"module_name"`
-// 	IsPublic         bool      `json:"-"`
-// 	Namespace        string    `json:"namespace"`
-// 	OrgID            string    `json:"-"`
-// 	Language         string    `json:"language"`
-// 	Resource         string    `json:"-"`
-// 	ResourceType     string    `json:"resource_type"`
-// 	ResourceSubtype  string    `json:"resource_subtype"`
-// 	ModelName        string    `json:"model_name"`
-// 	EnableCloudBuild bool      `json:"enable_cloud_build"`
-// 	RegisterOnApp    bool      `json:"-"`
-// 	GeneratorVersion string    `json:"generator_version"`
-// 	GeneratedOn      time.Time `json:"generated_on"`
-
-// 	ModulePascal          string `json:"-"`
-// 	API                   string `json:"-"`
-// 	ResourceSubtypePascal string `json:"-"`
-// 	ModelPascal           string `json:"-"`
-// 	ModelTriple           string `json:"-"`
-
-// 	SDKVersion string `json:"-"`
-// }
-
 // GenerateModuleAction runs the module generate cli and generates necessary module templates based on user input.
 func GenerateModuleAction(cCtx *cli.Context) error {
 	c, err := newViamClient(cCtx)
@@ -358,12 +333,6 @@ func populateAdditionalInfo(newModule *common.ModuleInputs) {
 	newModule.ResourceType = strings.Split(newModule.Resource, " ")[1]
 
 	titleCaser := cases.Title(language.Und)
-	// replacer := strings.NewReplacer("_", "", "-", "")
-	// newModule.ModulePascal = replacer.Replace(titleCaser.String(newModule.ModuleName))
-	// newModule.API = fmt.Sprintf("rdk:%s:%s", newModule.ResourceType, newModule.ResourceSubtype)
-	// newModule.ResourceSubtypePascal = replacer.Replace(titleCaser.String(newModule.ResourceSubtype))
-	// newModule.ModelPascal = replacer.Replace(titleCaser.String(newModule.ModelName))
-	// newModule.ModelTriple = fmt.Sprintf("%s:%s:%s", newModule.Namespace, newModule.ModuleName, newModule.ModelName)
 	replacer := strings.NewReplacer("_", " ", "-", " ")
 	spaceReplacer := strings.NewReplacer(" ", "", "_", "", "-", "")
 	newModule.ModulePascal = spaceReplacer.Replace(titleCaser.String(replacer.Replace(newModule.ModuleName)))
@@ -372,7 +341,6 @@ func populateAdditionalInfo(newModule *common.ModuleInputs) {
 	newModule.API = fmt.Sprintf("rdk:%s:%s", newModule.ResourceType, newModule.ResourceSubtype)
 	newModule.ResourceSubtypePascal = spaceReplacer.Replace(titleCaser.String(replacer.Replace(newModule.ResourceSubtype)))
 	if newModule.Language == golang {
-		// go sdk does not use underscores
 		newModule.ResourceSubtype = spaceReplacer.Replace(newModule.ResourceSubtype)
 	}
 	newModule.ResourceTypePascal = spaceReplacer.Replace(titleCaser.String(replacer.Replace(newModule.ResourceType)))
