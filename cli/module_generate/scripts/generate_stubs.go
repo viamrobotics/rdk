@@ -3,6 +3,7 @@ package scripts
 
 import (
 	"bytes"
+	"context"
 	_ "embed"
 	"fmt"
 	"go/ast"
@@ -28,7 +29,9 @@ var goTmpl string
 func getClientCode(module common.ModuleInputs) (string, error) {
 	url := fmt.Sprintf("https://raw.githubusercontent.com/viamrobotics/rdk/refs/tags/v%s/%ss/%s/client.go",
 		module.SDKVersion, module.ResourceType, module.ResourceSubtype)
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	// req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
+
 	if err != nil {
 		return "", errors.Wrapf(err, "cannot get client code")
 	}
@@ -177,7 +180,7 @@ func parseFunctionSignature(resourceSubtype, resourceSubtypePascal string, funcD
 			case str == resourceSubtypePascal:
 				str = fmt.Sprintf("%s.%s", resourceSubtype, resourceSubtypePascal)
 			}
-			
+
 			if isPointer {
 				str = fmt.Sprintf("*%s", str)
 			} else if isMapPointer {
