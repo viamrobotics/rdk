@@ -28,7 +28,6 @@ var goTmpl string
 func getClientCode(module common.ModuleInputs) (string, error) {
 	url := fmt.Sprintf("https://raw.githubusercontent.com/viamrobotics/rdk/refs/tags/v%s/%ss/%s/client.go",
 		module.SDKVersion, module.ResourceType, module.ResourceSubtype)
-
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return "", errors.Wrapf(err, "cannot get client code")
@@ -107,7 +106,8 @@ func formatType(typeExpr ast.Expr) string {
 	}
 	return buf.String()
 }
-func handleMapType(str string, resourceSubtype string) string {
+
+func handleMapType(str, resourceSubtype string) string {
 	endStr := strings.Index(str, "]")
 	keyType := strings.TrimSpace(str[4:endStr])
 	valueType := strings.TrimSpace(str[endStr+1:])
@@ -167,16 +167,17 @@ func parseFunctionSignature(resourceSubtype, resourceSubtypePascal string, funcD
 				isMapPointer = true
 			}
 			// add subtype package name for exported types from that package
-			if strings.HasPrefix(str, "map[") {
+			switch {
+			case strings.HasPrefix(str, "map["):
 				str = handleMapType(str, resourceSubtype)
-			}
-			if unicode.IsUpper(rune(str[0])) {
+			case unicode.IsUpper(rune(str[0])):
 				str = fmt.Sprintf("%s.%s", resourceSubtype, str)
-			} else if strings.HasPrefix(str, "[]") && unicode.IsUpper(rune(str[2])) {
+			case strings.HasPrefix(str, "[]") && unicode.IsUpper(rune(str[2])):
 				str = fmt.Sprintf("[]%s.%s", resourceSubtype, str[2:])
-			} else if str == resourceSubtypePascal {
+			case str == resourceSubtypePascal:
 				str = fmt.Sprintf("%s.%s", resourceSubtype, resourceSubtypePascal)
 			}
+			
 			if isPointer {
 				str = fmt.Sprintf("*%s", str)
 			} else if isMapPointer {
@@ -193,11 +194,12 @@ func parseFunctionSignature(resourceSubtype, resourceSubtypePascal string, funcD
 // and replaces the receiver with the new model type.
 func formatEmptyFunction(receiver, funcName, args string, returns []string) string {
 	var returnDef string
-	if len(returns) == 0 {
+	switch {
+	case len(returns) == 0:
 		returnDef = ""
-	} else if len(returns) == 1 {
+	case len(returns) == 1:
 		returnDef = returns[0]
-	} else {
+	default:
 		returnDef = fmt.Sprintf("(%s)", strings.Join(returns, ","))
 	}
 	newFunc := fmt.Sprintf("func (s *%s) %s(%s) %s{\n\tpanic(\"not implemented\")\n}\n\n", receiver, funcName, args, returnDef)

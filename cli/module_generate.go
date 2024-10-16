@@ -19,11 +19,12 @@ import (
 	"github.com/charmbracelet/huh/spinner"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
-	"go.viam.com/rdk/cli/module_generate/common"
-	gen "go.viam.com/rdk/cli/module_generate/scripts"
 	"go.viam.com/utils"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+
+	"go.viam.com/rdk/cli/module_generate/common"
+	gen "go.viam.com/rdk/cli/module_generate/scripts"
 )
 
 //go:embed module_generate/scripts
