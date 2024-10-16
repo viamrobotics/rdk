@@ -126,7 +126,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 
 	// Read the config from disk and use it to initialize the remote logger.
 	initialReadCtx, cancel := context.WithTimeout(ctx, time.Second*5)
-	cfgFromDisk, err := config.ReadLocalConfig(initialReadCtx, argsParsed.ConfigFile, logger.Sublogger("initial_config_read"))
+	cfgFromDisk, err := config.ReadLocalConfig(initialReadCtx, argsParsed.ConfigFile, logger.Sublogger("config"))
 	if err != nil {
 		cancel()
 		return err
@@ -150,17 +150,14 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 				ID:         cfgFromDisk.Cloud.ID,
 				Secret:     cfgFromDisk.Cloud.Secret,
 			},
-			// Explicitly create a different logger here instead of making a
-			// sublogger of `rdk` to avoid `rdk.networking` never getting the actual
-			// net appender as an appender.
-			nil, false, logging.NewLogger("rdk.networking.netlogger"),
+			nil, false, logger.Sublogger("networking").Sublogger("netlogger"),
 		)
 		if err != nil {
 			return err
 		}
 		defer netAppender.Close()
 
-		logger.AddAppender(netAppender)
+		registry.AddAppenderToAll(netAppender)
 	}
 	// log version after netlogger is initialized so it's captured in cloud machine logs.
 	logVersion(logger)
