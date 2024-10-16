@@ -4239,3 +4239,26 @@ func TestMaintenanceConfig(t *testing.T) {
 		test.That(t, sensorUnBlocked, test.ShouldNotBeNil)
 	})
 }
+
+func TestRemovingOfflineRemote(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+	cfg := config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:     "remoteOffline",
+				Insecure: true,
+				Address:  "123.123.123.123",
+			},
+		},
+	}
+	r := setupLocalRobot(t, ctx, &cfg, logger)
+	time.Sleep(2 * time.Second)
+	localRobot := r.(*localRobot)
+	remotes := localRobot.manager.resources.FindNodesByAPI(client.RemoteAPI)
+	test.That(t, remotes[0].Name, test.ShouldEqual, "remoteOffline")
+	r.Reconfigure(ctx, &config.Config{})
+	time.Sleep((2 * time.Second))
+	remotes = localRobot.manager.resources.FindNodesByAPI(client.RemoteAPI)
+	test.That(t, remotes, test.ShouldBeEmpty)
+}

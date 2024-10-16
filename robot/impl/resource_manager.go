@@ -237,10 +237,10 @@ func (manager *resourceManager) updateRemoteResourceNames(
 				// it is possible that we are switching to a new remote with a identical resource name(s), so we may
 				// need to create these resource clients.
 				if !recreateAllClients {
-					// ticker event, likely no changes to remote resources, skip closing and readding duplicate name resource clients
+					// ticker event, likely no changes to remote resources, skip closing and reading duplicate name resource clients
 					continue
 				}
-				// reconfiguration attempt, remote could have changed, so close all duplicate name remote resource clients and read new ones later
+				// reconfiguration attempt, remote could have changed, so close all duplicate name remote resource clients and re-add new ones later
 				resLogger.CDebugw(ctx, "attempting to remove remote resource")
 				if err := manager.markChildrenForUpdate(resName); err != nil {
 					resLogger.CErrorw(ctx,
@@ -790,6 +790,10 @@ func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr
 		manager.logger.CInfow(ctx, fmt.Sprintf("Now %s a remote", verb), "resource", resName)
 		switch resName.API {
 		case client.RemoteAPI:
+			// If a remote is marked for removal then do not change status to unhealthy
+			if !gNode.MarkedForRemoval() {
+				continue
+			}
 			remConf, err := resource.NativeConfig[*config.Remote](gNode.Config())
 			if err != nil {
 				manager.logger.CErrorw(ctx, "remote config error", "error", err)
@@ -808,11 +812,8 @@ func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr
 			}
 			rr, err := manager.processRemote(ctx, *remConf, gNode)
 			if err != nil {
-				// If a remote is marked for removal then do not change status to unhealthy
-				if !gNode.MarkedForRemoval() {
-					gNode.LogAndSetLastError(
-						fmt.Errorf("error connecting to remote: %w", err), "remote", remConf.Name)
-				}
+				gNode.LogAndSetLastError(
+					fmt.Errorf("error connecting to remote: %w", err), "remote", remConf.Name)
 				continue
 			}
 			manager.addRemote(ctx, rr, gNode, *remConf)
