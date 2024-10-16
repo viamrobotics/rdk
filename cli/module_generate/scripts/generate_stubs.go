@@ -55,6 +55,10 @@ func getClientCode(module common.ModuleInputs) (string, error) {
 func setGoModuleTemplate(clientCode string, module common.ModuleInputs) (*common.GoModuleTmpl, error) {
 	var goTmplInputs common.GoModuleTmpl
 
+	if module.ResourceSubtype == "input" {
+		module.ResourceSubtypePascal = "Controller"
+	}
+
 	fset := token.NewFileSet()
 	node, err := parser.ParseFile(fset, "", clientCode, parser.AllErrors)
 	if err != nil {
