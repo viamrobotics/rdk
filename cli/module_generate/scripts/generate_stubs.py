@@ -100,12 +100,15 @@ def main(
             elif isinstance(stmt, ast.ClassDef) and stmt.name == resource_name:
                 for cstmt in stmt.body:
                     if isinstance(cstmt, ast.ClassDef):
+                        nodes_to_remove = []
                         cstmt.bases = [ast.Name(id=f"{resource_name}.{cstmt.name}", ctx=ast.Load())]
                         for scstmt in cstmt.body:
-                            if isinstance(scstmt, ast.Expr):
-                                cstmt.body.remove(scstmt)
+                            if isinstance(scstmt, ast.AnnAssign) or isinstance(scstmt, ast.Expr) or (isinstance(scstmt, ast.FunctionDef) and scstmt.name == "__init__"):
+                                nodes_to_remove.append(scstmt)
                             elif isinstance(scstmt, ast.AsyncFunctionDef):
                                 replace_async_func(scstmt)
+                        for node in nodes_to_remove:
+                            cstmt.body.remove(node)
                         indented_code = '\n'.join(['    ' + line for line in ast.unparse(cstmt).splitlines()])
                         subclasses.append(indented_code)
                     elif isinstance(cstmt, ast.AnnAssign):
