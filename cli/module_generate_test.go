@@ -140,15 +140,6 @@ func TestGenerateModuleAction(t *testing.T) {
 		err = generatePythonStubs(testModule)
 		test.That(t, err, test.ShouldBeNil)
 	})
-	// t.Run("test generate python stubs", func(t *testing.T) {
-	// 	setupDirectories(cCtx, expectedPythonTestModule.ModuleName)
-	// 	_ = os.Mkdir(filepath.Join(modulePath, "src"), 0o755)
-	// 	_, err := os.Stat(filepath.Join(modulePath, "src"))
-	// 	test.That(t, err, test.ShouldBeNil)
-
-	// 	err = generatePythonStubs(expectedPythonTestModule)
-	// 	test.That(t, err, test.ShouldBeNil)
-	// })
 
 	t.Run("test generate cloud build", func(t *testing.T) {
 		setupDirectories(cCtx, testModule.ModuleName)
