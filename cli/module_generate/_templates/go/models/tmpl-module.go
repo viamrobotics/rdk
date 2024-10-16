@@ -54,7 +54,6 @@ type {{.ModuleCamel}}{{.ModelPascal}} struct {
 
 }
 
-
 func new{{.ModulePascal}}{{.ModelPascal}}(ctx context.Context, deps resource.Dependencies, rawConf resource.Config, logger logging.Logger) ({{.ResourceSubtype}}.{{if eq .ResourceType "component"}}{{.ResourceSubtypePascal}}{{else}}Service{{end}}, error) {
 	conf, err := resource.NativeConfig[*Config](rawConf)
 	if err != nil {
