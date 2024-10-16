@@ -658,22 +658,22 @@ func TestCaptureBufferReader(t *testing.T) {
 	})
 }
 
-func BenchmarkBinaryReader(b *testing.B) {
+func BenchmarkChunked(b *testing.B) {
 	type testCase struct {
 		name string
 		data []byte
 	}
-	eightKBFilled := make([]byte, 1024*8, 1024*8)
+	eightKBFilled := make([]byte, 1024*8)
 	for i := range eightKBFilled {
 		eightKBFilled[i] = uint8(i % 256)
 	}
 
-	oneMbFilled := make([]byte, 1024*1000, 1024*1000)
+	oneMbFilled := make([]byte, 1024*1000)
 	for i := range eightKBFilled {
 		oneMbFilled[i] = uint8(i % 256)
 	}
 
-	eightMbFilled := make([]byte, 1024*1000*8, 1024*1000*8)
+	eightMbFilled := make([]byte, 1024*1000*8)
 	for i := range eightMbFilled {
 		eightMbFilled[i] = uint8(i % 256)
 	}
@@ -681,11 +681,11 @@ func BenchmarkBinaryReader(b *testing.B) {
 	tcs := []testCase{
 		{"empty data", []byte{}},
 		{"small data", []byte("this is a fake image")},
-		{"8kb empty", make([]byte, 1024*8, 1024*8)},
+		{"8kb empty", make([]byte, 1024*8)},
 		{"8kb filled", eightKBFilled},
-		{"1mb empty", make([]byte, 1024*1000, 1024*1000)},
+		{"1mb empty", make([]byte, 1024*1000)},
 		{"1mb filled", oneMbFilled},
-		{"8mb empty", make([]byte, 1024*1000*8, 1024*1000*8)},
+		{"8mb empty", make([]byte, 1024*1000*8)},
 		{"8mb filled", eightMbFilled},
 	}
 
@@ -694,53 +694,167 @@ func BenchmarkBinaryReader(b *testing.B) {
 		_, err := s.Write(tc.data)
 		test.That(b, err, test.ShouldBeNil)
 		expectedHash := s.Sum(nil)
+		tmpDir := b.TempDir()
+		name := resource.NewName(resource.APINamespaceRDK.WithComponentType("camera"), "my-cam")
+		additionalParams := map[string]string{"mime_type": rutils.MimeTypeJPEG, "test": "1"}
+		methodParams, err := rprotoutils.ConvertStringMapToAnyPBMap(additionalParams)
+		test.That(b, err, test.ShouldBeNil)
+
+		readImageCaptureMetadata := BuildCaptureMetadata(
+			name.API,
+			name.ShortName(),
+			readImage,
+			additionalParams,
+			methodParams,
+			[]string{"my", "tags"},
+		)
+
+		now := time.Now()
+		timeRequested := timestamppb.New(now.UTC())
+		timeReceived := timestamppb.New(now.Add(time.Millisecond).UTC())
+		msg := &v1.SensorData{
+			Metadata: &v1.SensorMetadata{
+				TimeRequested: timeRequested,
+				TimeReceived:  timeReceived,
+			},
+			Data: &v1.SensorData_Binary{
+				Binary: tc.data,
+			},
+		}
+
+		buf := NewCaptureBuffer(tmpDir, readImageCaptureMetadata, int64(4*1024))
+
+		// Path() is the same as the first paramenter passed to NewCaptureBuffer
+		test.That(b, buf.Path(), test.ShouldResemble, tmpDir)
+		test.That(b, buf.metaData, test.ShouldResemble, readImageCaptureMetadata)
+
+		test.That(b, buf.Write(msg), test.ShouldBeNil)
+		test.That(b, buf.Flush(), test.ShouldBeNil)
+		dirEntries, err := os.ReadDir(buf.Path())
+		test.That(b, err, test.ShouldBeNil)
+		test.That(b, len(dirEntries), test.ShouldEqual, 1)
+		test.That(b, filepath.Ext(dirEntries[0].Name()), test.ShouldResemble, CompletedCaptureFileExt)
+		f, err := os.Open(filepath.Join(buf.Path(), dirEntries[0].Name()))
+		test.That(b, err, test.ShouldBeNil)
+		b.Cleanup(func() { test.That(b, f.Close(), test.ShouldBeNil) })
+
 		b.ResetTimer()
-		b.Run(tc.name+" read entire binary", func(b *testing.B) {
+		b.Run("chunked "+tc.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				tmpDir := b.TempDir()
-				name := resource.NewName(resource.APINamespaceRDK.WithComponentType("camera"), "my-cam")
-				additionalParams := map[string]string{"mime_type": rutils.MimeTypeJPEG, "test": "1"}
-				methodParams, err := rprotoutils.ConvertStringMapToAnyPBMap(additionalParams)
+				ret, err := f.Seek(0, io.SeekStart)
 				test.That(b, err, test.ShouldBeNil)
+				test.That(b, ret, test.ShouldEqual, 0)
+				cf2, err := NewCaptureFile(f)
+				test.That(b, err, test.ShouldBeNil)
+				test.That(b, cf2.ReadMetadata(), test.ShouldResemble, readImageCaptureMetadata)
 
-				readImageCaptureMetadata := BuildCaptureMetadata(
-					name.API,
-					name.ShortName(),
-					readImage,
-					additionalParams,
-					methodParams,
-					[]string{"my", "tags"},
-				)
-
-				now := time.Now()
-				timeRequested := timestamppb.New(now.UTC())
-				timeReceived := timestamppb.New(now.Add(time.Millisecond).UTC())
-				msg := &v1.SensorData{
-					Metadata: &v1.SensorMetadata{
-						TimeRequested: timeRequested,
-						TimeReceived:  timeReceived,
-					},
-					Data: &v1.SensorData_Binary{
-						Binary: tc.data,
-					},
+				var md v1.SensorMetadata
+				r, err := cf2.BinaryReader(&md)
+				test.That(b, err, test.ShouldBeNil)
+				test.That(b, r, test.ShouldNotBeNil)
+				test.That(b, &md, test.ShouldResemble, msg.GetMetadata())
+				data := make([]byte, 4064)
+				h := sha1.New()
+				for {
+					n, err := r.Read(data)
+					if errors.Is(err, io.EOF) {
+						break
+					}
+					test.That(b, err, test.ShouldBeNil)
+					_, err = h.Write(data[:n])
+					test.That(b, err, test.ShouldBeNil)
 				}
+				actualHash := h.Sum(nil)
+				test.That(b, actualHash, test.ShouldResemble, expectedHash)
+			}
+		})
+	}
+}
 
-				buf := NewCaptureBuffer(tmpDir, readImageCaptureMetadata, int64(4*1024))
+func BenchmarkNonChunked(b *testing.B) {
+	type testCase struct {
+		name string
+		data []byte
+	}
+	eightKBFilled := make([]byte, 1024*8)
+	for i := range eightKBFilled {
+		eightKBFilled[i] = uint8(i % 256)
+	}
 
-				// Path() is the same as the first paramenter passed to NewCaptureBuffer
-				test.That(b, buf.Path(), test.ShouldResemble, tmpDir)
-				test.That(b, buf.metaData, test.ShouldResemble, readImageCaptureMetadata)
+	oneMbFilled := make([]byte, 1024*1000)
+	for i := range eightKBFilled {
+		oneMbFilled[i] = uint8(i % 256)
+	}
 
-				test.That(b, buf.Write(msg), test.ShouldBeNil)
-				test.That(b, buf.Flush(), test.ShouldBeNil)
-				dirEntries, err := os.ReadDir(buf.Path())
+	eightMbFilled := make([]byte, 1024*1000*8)
+	for i := range eightMbFilled {
+		eightMbFilled[i] = uint8(i % 256)
+	}
+
+	tcs := []testCase{
+		{"empty data", []byte{}},
+		{"small data", []byte("this is a fake image")},
+		{"8kb empty", make([]byte, 1024*8)},
+		{"8kb filled", eightKBFilled},
+		{"1mb empty", make([]byte, 1024*1000)},
+		{"1mb filled", oneMbFilled},
+		{"8mb empty", make([]byte, 1024*1000*8)},
+		{"8mb filled", eightMbFilled},
+	}
+
+	for _, tc := range tcs {
+		s := sha1.New()
+		_, err := s.Write(tc.data)
+		test.That(b, err, test.ShouldBeNil)
+		expectedHash := s.Sum(nil)
+		tmpDir := b.TempDir()
+		name := resource.NewName(resource.APINamespaceRDK.WithComponentType("camera"), "my-cam")
+		additionalParams := map[string]string{"mime_type": rutils.MimeTypeJPEG, "test": "1"}
+		methodParams, err := rprotoutils.ConvertStringMapToAnyPBMap(additionalParams)
+		test.That(b, err, test.ShouldBeNil)
+
+		readImageCaptureMetadata := BuildCaptureMetadata(
+			name.API,
+			name.ShortName(),
+			readImage,
+			additionalParams,
+			methodParams,
+			[]string{"my", "tags"},
+		)
+
+		now := time.Now()
+		timeRequested := timestamppb.New(now.UTC())
+		timeReceived := timestamppb.New(now.Add(time.Millisecond).UTC())
+		msg := &v1.SensorData{
+			Metadata: &v1.SensorMetadata{
+				TimeRequested: timeRequested,
+				TimeReceived:  timeReceived,
+			},
+			Data: &v1.SensorData_Binary{
+				Binary: tc.data,
+			},
+		}
+
+		buf := NewCaptureBuffer(tmpDir, readImageCaptureMetadata, int64(4*1024))
+
+		test.That(b, buf.Path(), test.ShouldResemble, tmpDir)
+		test.That(b, buf.metaData, test.ShouldResemble, readImageCaptureMetadata)
+
+		test.That(b, buf.Write(msg), test.ShouldBeNil)
+		test.That(b, buf.Flush(), test.ShouldBeNil)
+		dirEntries, err := os.ReadDir(buf.Path())
+		test.That(b, err, test.ShouldBeNil)
+		test.That(b, len(dirEntries), test.ShouldEqual, 1)
+		test.That(b, filepath.Ext(dirEntries[0].Name()), test.ShouldResemble, CompletedCaptureFileExt)
+		f, err := os.Open(filepath.Join(buf.Path(), dirEntries[0].Name()))
+		test.That(b, err, test.ShouldBeNil)
+		b.Cleanup(func() { test.That(b, f.Close(), test.ShouldBeNil) })
+		b.ResetTimer()
+		b.Run("non chunked "+tc.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				ret, err := f.Seek(0, io.SeekStart)
 				test.That(b, err, test.ShouldBeNil)
-				test.That(b, len(dirEntries), test.ShouldEqual, 1)
-				test.That(b, filepath.Ext(dirEntries[0].Name()), test.ShouldResemble, CompletedCaptureFileExt)
-				f, err := os.Open(filepath.Join(buf.Path(), dirEntries[0].Name()))
-				test.That(b, err, test.ShouldBeNil)
-				defer func() { test.That(b, f.Close(), test.ShouldBeNil) }()
-
+				test.That(b, ret, test.ShouldEqual, 0)
 				cf2, err := NewCaptureFile(f)
 				test.That(b, err, test.ShouldBeNil)
 				test.That(b, cf2.ReadMetadata(), test.ShouldResemble, readImageCaptureMetadata)
@@ -755,86 +869,26 @@ func BenchmarkBinaryReader(b *testing.B) {
 				test.That(b, actualHash, test.ShouldResemble, expectedHash)
 			}
 		})
-		// b.Run(tc.name+" chunked", func(b *testing.B) {
-		// 	for i := 0; i < b.N; i++ {
-		// 		tmpDir := b.TempDir()
-		// 		name := resource.NewName(resource.APINamespaceRDK.WithComponentType("camera"), "my-cam")
-		// 		additionalParams := map[string]string{"mime_type": rutils.MimeTypeJPEG, "test": "1"}
-		// 		methodParams, err := rprotoutils.ConvertStringMapToAnyPBMap(additionalParams)
-		// 		test.That(b, err, test.ShouldBeNil)
-
-		// 		readImageCaptureMetadata := BuildCaptureMetadata(
-		// 			name.API,
-		// 			name.ShortName(),
-		// 			readImage,
-		// 			additionalParams,
-		// 			methodParams,
-		// 			[]string{"my", "tags"},
-		// 		)
-
-		// 		now := time.Now()
-		// 		timeRequested := timestamppb.New(now.UTC())
-		// 		timeReceived := timestamppb.New(now.Add(time.Millisecond).UTC())
-		// 		msg := &v1.SensorData{
-		// 			Metadata: &v1.SensorMetadata{
-		// 				TimeRequested: timeRequested,
-		// 				TimeReceived:  timeReceived,
-		// 			},
-		// 			Data: &v1.SensorData_Binary{
-		// 				Binary: tc.data,
-		// 			},
-		// 		}
-
-		// 		buf := NewCaptureBuffer(tmpDir, readImageCaptureMetadata, int64(4*1024))
-
-		// 		// Path() is the same as the first paramenter passed to NewCaptureBuffer
-		// 		test.That(b, buf.Path(), test.ShouldResemble, tmpDir)
-		// 		test.That(b, buf.metaData, test.ShouldResemble, readImageCaptureMetadata)
-
-		// 		test.That(b, buf.Write(msg), test.ShouldBeNil)
-		// 		test.That(b, buf.Flush(), test.ShouldBeNil)
-		// 		dirEntries, err := os.ReadDir(buf.Path())
-		// 		test.That(b, err, test.ShouldBeNil)
-		// 		test.That(b, len(dirEntries), test.ShouldEqual, 1)
-		// 		test.That(b, filepath.Ext(dirEntries[0].Name()), test.ShouldResemble, CompletedCaptureFileExt)
-		// 		f, err := os.Open(filepath.Join(buf.Path(), dirEntries[0].Name()))
-		// 		test.That(b, err, test.ShouldBeNil)
-		// 		defer func() { test.That(b, f.Close(), test.ShouldBeNil) }()
-
-		// 		cf2, err := NewCaptureFile(f)
-		// 		test.That(b, err, test.ShouldBeNil)
-		// 		test.That(b, cf2.ReadMetadata(), test.ShouldResemble, readImageCaptureMetadata)
-
-		// 		var md v1.SensorMetadata
-		// 		r, err := cf2.BinaryReader(&md)
-		// 		test.That(b, err, test.ShouldBeNil)
-		// 		test.That(b, r, test.ShouldNotBeNil)
-		// 		test.That(b, &md, test.ShouldResemble, msg.GetMetadata())
-		// 		data, err := io.ReadAll(r)
-		// 		test.That(b, err, test.ShouldBeNil)
-		// 		test.That(b, data, test.ShouldResemble, msg.GetBinary())
-		// 	}
-		// })
 	}
 }
 
 func FuzzBinaryReader(f *testing.F) {
-	eightKBFilled := make([]byte, 1024*8, 1024*8)
+	eightKBFilled := make([]byte, 1024*8)
 	for i := range eightKBFilled {
 		eightKBFilled[i] = uint8(i % 256)
 	}
 
-	eightMbFilled := make([]byte, 1024*1000*8, 1024*1000*8)
+	eightMbFilled := make([]byte, 1024*1000*8)
 	for i := range eightMbFilled {
 		eightMbFilled[i] = uint8(i % 256)
 	}
 
 	tcs := [][]byte{
-		[]byte{},
+		{},
 		[]byte("this is a fake image"),
-		make([]byte, 1024*8, 1024*8),
+		make([]byte, 1024*8),
 		eightKBFilled,
-		make([]byte, 1024*1000*8, 1024*1000*8),
+		make([]byte, 1024*1000*8),
 	}
 
 	for _, tc := range tcs {
@@ -900,7 +954,7 @@ func FuzzBinaryReader(f *testing.F) {
 	})
 }
 
-// nolint
+//nolint
 func getCaptureFiles(dir string) (dcFiles, progFiles []string) {
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {

@@ -88,7 +88,7 @@ func (f *CaptureFile) ReadMetadata() *v1.DataCaptureMetadata {
 
 var errInvalidVarint = errors.New("invalid varint32 encountered")
 
-func ReadTag(r io.Reader, num *protowire.Number, typ *protowire.Type) (n int, err error) {
+func readTag(r io.Reader, num *protowire.Number, typ *protowire.Type) (n int, err error) {
 	// Per AbstractParser#parsePartialDelimitedFrom with
 	// CodedInputStream#readRawVarint32.
 	var headerBuf [binary.MaxVarintLen32]byte
@@ -122,8 +122,8 @@ func ReadTag(r io.Reader, num *protowire.Number, typ *protowire.Type) (n int, er
 	return bytesRead, nil
 }
 
-// *SensorMetadata
-func ReadMessageLength(r io.Reader, m *uint64) (n int, err error) {
+// *SensorMetadata.
+func readMessageLength(r io.Reader, m *uint64) (n int, err error) {
 	// Per AbstractParser#parsePartialDelimitedFrom with
 	// CodedInputStream#readRawVarint32.
 	var headerBuf [binary.MaxVarintLen32]byte
@@ -155,6 +155,9 @@ func ReadMessageLength(r io.Reader, m *uint64) (n int, err error) {
 	return bytesRead, nil
 }
 
+// BinaryReader reads v1.SensorMetadata from a binary capture file and returns
+// an io.Reader which will read the binary payload.
+// Returns an error if the file does not contain a valid binary capture file.
 func (f *CaptureFile) BinaryReader(md *v1.SensorMetadata) (io.Reader, error) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
@@ -169,7 +172,7 @@ func (f *CaptureFile) BinaryReader(md *v1.SensorMetadata) (io.Reader, error) {
 	}
 	// remove delimiter (we know we will only have one for the binary image)
 	var topLevelMsgLen uint64
-	bytesRead, err := ReadMessageLength(f.file, &topLevelMsgLen)
+	bytesRead, err := readMessageLength(f.file, &topLevelMsgLen)
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +186,7 @@ func (f *CaptureFile) BinaryReader(md *v1.SensorMetadata) (io.Reader, error) {
 		tagType protowire.Type
 		n       int
 	)
-	n, err = ReadTag(f.file, &tagNum, &tagType)
+	n, err = readTag(f.file, &tagNum, &tagType)
 	bytesRead += n
 	if err != nil {
 		return nil, err
@@ -193,7 +196,7 @@ func (f *CaptureFile) BinaryReader(md *v1.SensorMetadata) (io.Reader, error) {
 		return nil, fmt.Errorf("tagNum %d is invalid", tagNum)
 	}
 
-	// TODO: Techically it isn't guranteed this value will be 1
+	// TODO: Techically it isn't guaranteed this value will be 1
 	// but this code currently assumes it will for simplicity
 	// see: https://protobuf.dev/programming-guides/encoding/#optional
 	if tagNum != 1 {
@@ -207,7 +210,7 @@ func (f *CaptureFile) BinaryReader(md *v1.SensorMetadata) (io.Reader, error) {
 	}
 
 	var sensorMDLen uint64
-	n, err = ReadMessageLength(f.file, &sensorMDLen)
+	n, err = readMessageLength(f.file, &sensorMDLen)
 	bytesRead += n
 	if err != nil {
 		return nil, err
@@ -227,7 +230,7 @@ func (f *CaptureFile) BinaryReader(md *v1.SensorMetadata) (io.Reader, error) {
 		payloadTagNum  protowire.Number
 		payloadTagType protowire.Type
 	)
-	n, err = ReadTag(f.file, &payloadTagNum, &payloadTagType)
+	n, err = readTag(f.file, &payloadTagNum, &payloadTagType)
 	bytesRead += n
 	if err != nil {
 		return nil, err
@@ -247,14 +250,17 @@ func (f *CaptureFile) BinaryReader(md *v1.SensorMetadata) (io.Reader, error) {
 	}
 
 	var payloadLen uint64
-	n, err = ReadMessageLength(f.file, &payloadLen)
+	n, err = readMessageLength(f.file, &payloadLen)
 	bytesRead += n
 	if err != nil {
 		return nil, err
 	}
 	actualPayloadLen := f.size - (f.initialReadOffset + int64(bytesRead))
 	if int64(payloadLen) != actualPayloadLen {
-		return nil, fmt.Errorf("capture file contains incomplete binary payload or data after the binary payload, payloadLength described in capture file: %d, actual payload length: %d, filesize: %d, bytesRead: %d", payloadLen, actualPayloadLen, f.size, bytesRead)
+		return nil, fmt.Errorf("capture file contains incomplete binary payload "+
+			"or data after the binary payload, payloadLength described in capture file: "+
+			"%d, actual payload length: %d, filesize: %d, bytesRead: %d",
+			payloadLen, actualPayloadLen, f.size, bytesRead)
 	}
 	return bufio.NewReader(f.file), nil
 }
