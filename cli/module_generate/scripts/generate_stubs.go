@@ -33,6 +33,7 @@ func getClientCode(module common.ModuleInputs) (string, error) {
 	if err != nil {
 		return "", errors.Wrapf(err, "cannot get client code")
 	}
+
 	//nolint:bodyclose
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
