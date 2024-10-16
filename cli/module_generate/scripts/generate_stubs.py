@@ -97,11 +97,10 @@ def main(
                 )
                 i = f"from {stmt.module} import {i_strings}"
                 imports.append(i)
-            elif isinstance(stmt, ast.If):
-                imports.append(ast.unparse(stmt))
             elif isinstance(stmt, ast.ClassDef) and stmt.name == resource_name:
                 for cstmt in stmt.body:
                     if isinstance(cstmt, ast.ClassDef):
+                        cstmt.bases = [ast.Name(id=f"{resource_name}.{cstmt.name}", ctx=ast.Load())]
                         for scstmt in cstmt.body:
                             if isinstance(scstmt, ast.Expr):
                                 cstmt.body.remove(scstmt)
