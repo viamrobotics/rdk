@@ -29,9 +29,7 @@ var goTmpl string
 func getClientCode(module common.ModuleInputs) (string, error) {
 	url := fmt.Sprintf("https://raw.githubusercontent.com/viamrobotics/rdk/refs/tags/v%s/%ss/%s/client.go",
 		module.SDKVersion, module.ResourceType, module.ResourceSubtype)
-	// req, err := http.NewRequest(http.MethodGet, url, nil)
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
-
 	if err != nil {
 		return "", errors.Wrapf(err, "cannot get client code")
 	}
