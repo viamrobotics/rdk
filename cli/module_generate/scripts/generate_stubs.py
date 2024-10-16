@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 from importlib import import_module
+from typing import List
 
 
 def return_attribute(resource_name: str, attr: str) -> ast.Attribute:
@@ -10,6 +11,25 @@ def return_attribute(resource_name: str, attr: str) -> ast.Attribute:
         value=ast.Name(id=resource_name, ctx=ast.Load()),
         attr=attr,
         ctx=ast.Load())
+
+
+def replace_async_func(stmt: ast.AsyncFunctionDef) -> None:
+    stmt.body = [
+        ast.Raise(
+            exc=ast.Call(func=ast.Name(id='NotImplementedError', ctx=ast.Load()),
+                         args=[], 
+                         keywords=[]),
+            cause=None)
+    ]
+    stmt.decorator_list = []
+
+
+def get_final_imports(imports: List[str]) -> List[str]:
+    final_imports = []
+    for i in imports:
+        if i not in final_imports:
+            final_imports.append(i)
+    return final_imports
 
 
 def main(
@@ -41,6 +61,7 @@ def main(
         "viam.resource.types",
     ]
     abstract_methods = []
+    subclasses = []
     with open(module.__file__, "r") as f:
         def update_annotation(annotation):
             if isinstance(annotation, ast.Name) and annotation.id in nodes:
@@ -76,26 +97,24 @@ def main(
                 )
                 i = f"from {stmt.module} import {i_strings}"
                 imports.append(i)
+            elif isinstance(stmt, ast.If):
+                imports.append(ast.unparse(stmt))
             elif isinstance(stmt, ast.ClassDef) and stmt.name == resource_name:
                 for cstmt in stmt.body:
                     if isinstance(cstmt, ast.ClassDef):
-                        nodes.append(cstmt.name)
+                        for scstmt in cstmt.body:
+                            if isinstance(scstmt, ast.Expr):
+                                cstmt.body.remove(scstmt)
+                            elif isinstance(scstmt, ast.AsyncFunctionDef):
+                                replace_async_func(scstmt)
+                        indented_code = '\n'.join(['    ' + line for line in ast.unparse(cstmt).splitlines()])
+                        subclasses.append(indented_code)
                     elif isinstance(cstmt, ast.AnnAssign):
                         nodes.append(cstmt.target.id)
                     elif isinstance(cstmt, ast.AsyncFunctionDef):
                         for arg in cstmt.args.args:
                             arg.annotation = update_annotation(arg.annotation)
-
-                        cstmt.body = [
-                            ast.Raise(
-                                exc=ast.Call(
-                                    func=ast.Name(id='NotImplementedError', ctx=ast.Load()),
-                                    args=[],
-                                    keywords=[]),
-                                cause=None,
-                                )
-                        ]
-                        cstmt.decorator_list = []
+                        replace_async_func(cstmt)
                         if isinstance(cstmt.returns, ast.Name) and cstmt.returns.id in nodes:
                             cstmt.returns = return_attribute(resource_name, cstmt.returns.id)
                         indented_code = '\n'.join(['    ' + line for line in ast.unparse(cstmt).splitlines()])
@@ -157,6 +176,7 @@ class {3}({4}, EasyResource):
         """
         return super().reconfigure(config, dependencies)
 
+{9}
 {8}
 
 
@@ -164,7 +184,7 @@ if __name__ == '__main__':
     asyncio.run(Module.run_from_registry())
 
 '''.format(
-        "\n".join(list(set(imports))),
+        "\n".join(get_final_imports(imports)),
         resource_type,
         resource_subtype,
         model_name_pascal,
@@ -172,7 +192,8 @@ if __name__ == '__main__':
         namespace,
         mod_name,
         model_name,
-        '\n\n'.join([f'{method}' for method in abstract_methods]),
+        '\n\n'.join([method for method in abstract_methods]),
+        '\n\n'.join([subclass for subclass in subclasses])
     )
     f_name = os.path.join(mod_name, "src", "main.py")
     with open(f_name, "w+") as f:
