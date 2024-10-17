@@ -1109,11 +1109,11 @@ func (m *module) firstRun(
 	}
 	cmdOut, err := cmd.CombinedOutput()
 	if err != nil {
-		logger.Errorw(">>> command failed", "path", firstRunPath, "output", cmdOut, "error", err)
+		logger.Errorw(">>> command failed", "path", firstRunPath, "output", string(cmdOut), "error", err)
 		return err
 	}
 	// TODO: do we need unset/default logger logic?
-	logger.Info("+++ command succeeded", cmdOut)
+	logger.Infow("+++ command succeeded", "output", string(cmdOut))
 	return nil
 }
 
