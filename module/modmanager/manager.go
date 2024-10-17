@@ -1081,7 +1081,6 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 }
 
 // FirstRun is runs a module-specific setup script.
-// TODO: return exit code?
 func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	logger := mgr.logger.AsZap().With("name", conf.Name)
 
