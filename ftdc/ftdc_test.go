@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"testing"
 
-	"go.viam.com/rdk/logging"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/logging"
 )
 
 type fooStats struct {
@@ -34,23 +35,23 @@ func TestFTDCSchemaGenerations(t *testing.T) {
 	foo1 := &foo{}
 
 	// Generations are a way of keeping track of when schema's change.
-	preAddGenerationId := ftdc.inputGenerationID
+	preAddGenerationID := ftdc.inputGenerationID
 	// In the initial and steady states, the input and output generations are equal.
-	test.That(t, ftdc.outputGenerationID, test.ShouldEqual, preAddGenerationId)
+	test.That(t, ftdc.outputGenerationID, test.ShouldEqual, preAddGenerationID)
 
 	// Calling `Add` changes the schema. The `inputGenerationID` is incremented (to "1") to denote
 	// this.
 	ftdc.Add("foo1", foo1)
-	test.That(t, ftdc.inputGenerationID, test.ShouldEqual, preAddGenerationId+1)
+	test.That(t, ftdc.inputGenerationID, test.ShouldEqual, preAddGenerationID+1)
 	// The `outputGenerationID` is still at "0".
-	test.That(t, ftdc.outputGenerationID, test.ShouldEqual, preAddGenerationId)
+	test.That(t, ftdc.outputGenerationID, test.ShouldEqual, preAddGenerationID)
 
 	// Constructing a datum will:
 	// - Have data for the `foo1` Statser.
 	// - Be stamped with the `inputGenerationID` of 1.
 	datum := ftdc.constructDatum()
 	test.That(t, datum.generationID, test.ShouldEqual, ftdc.inputGenerationID)
-	test.That(t, ftdc.outputGenerationID, test.ShouldEqual, preAddGenerationId)
+	test.That(t, ftdc.outputGenerationID, test.ShouldEqual, preAddGenerationID)
 
 	// writeDatum will serialize the datum in the "custom format". Part of the bytes written will be
 	// the new schema at generation "1". The `outputGenerationID` will be updated to reflect that
@@ -61,9 +62,9 @@ func TestFTDCSchemaGenerations(t *testing.T) {
 
 	// We are going to add another `Statser`. Assert that the `inputGenerationID` gets incremented after calling `Add`.
 	foo2 := &foo{}
-	preAddGenerationId = ftdc.inputGenerationID
+	preAddGenerationID = ftdc.inputGenerationID
 	ftdc.Add("foo2", foo2)
-	test.That(t, ftdc.inputGenerationID, test.ShouldEqual, preAddGenerationId+1)
+	test.That(t, ftdc.inputGenerationID, test.ShouldEqual, preAddGenerationID+1)
 
 	// Updating the values on the `foo` objects changes the output of the "stats" object they return
 	// as part of `constructDatum`.
@@ -74,7 +75,7 @@ func TestFTDCSchemaGenerations(t *testing.T) {
 	// `foo2`.
 	datum = ftdc.constructDatum()
 	test.That(t, datum.generationID, test.ShouldEqual, ftdc.inputGenerationID)
-	test.That(t, ftdc.outputGenerationID, test.ShouldEqual, preAddGenerationId)
+	test.That(t, ftdc.outputGenerationID, test.ShouldEqual, preAddGenerationID)
 
 	// Writing the second datum updates the `outputGenerationID` and we are again in the steady
 	// state.

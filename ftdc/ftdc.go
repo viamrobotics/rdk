@@ -11,12 +11,12 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
-// datum combines the `Stats` call to all registered `Statser`s at some "time". The heirarchy of
+// datum combines the `Stats` call to all registered `Statser`s at some "time". The hierarchy of
 // terminology:
 // - A `datum` is the aggregation of a single call to each `Statser.Stats()` at some "time".
 // - A Statser.`Stats` return value is a collection of "reading"s from the "subsystem" `name`.
 // - "Metric name": Each field name in the structure returned by the `Stats` call is a "metric name".
-// - A "value" is the the numeric value of a metric at one specific point in time.
+// - A "value" is the numeric value of a metric at one specific point in time.
 // - A "reading" is a "metric name" and a "value" at the given `datum.Time`.
 //
 // A example fully described `datum` object:
@@ -54,6 +54,7 @@ type datum struct {
 	generationID int
 }
 
+// Statser implements Stats.
 type Statser interface {
 	// The Stats method must return a struct with public field members that are either:
 	// - Numbers (e.g: int, float64, byte, etc...)
@@ -120,6 +121,7 @@ func NewWithWriter(writer io.Writer, logger logging.Logger) *FTDC {
 	}
 }
 
+// Add regsiters a new staters that will be recorded in future FTDC loop iterations.
 func (ftdc *FTDC) Add(name string, statser Statser) {
 	ftdc.mu.Lock()
 	defer ftdc.mu.Unlock()
@@ -141,6 +143,7 @@ func (ftdc *FTDC) Add(name string, statser Statser) {
 	ftdc.inputGenerationID++
 }
 
+// Remove removes a statser that was previously `Add`ed with the given `name`.
 func (ftdc *FTDC) Remove(name string) {
 	ftdc.mu.Lock()
 	defer ftdc.mu.Unlock()
