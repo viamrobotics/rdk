@@ -473,6 +473,16 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 		return nil, errors.Errorf("invariant: no constructor for %q", conf.API)
 	}
 	resLogger := m.logger.Sublogger(conf.ResourceName().String())
+	levelStr := req.Config.GetLogConfiguration().GetLevel()
+	// An unset LogConfiguration will materialize as an empty string.
+	if levelStr != "" {
+		if level, err := logging.LevelFromString(levelStr); err == nil {
+			resLogger.SetLevel(level)
+		} else {
+			m.logger.Warnw("LogConfiguration does not contain a valid level.", "resource", conf.ResourceName().Name, "level", levelStr)
+		}
+	}
+
 	res, err := resInfo.Constructor(ctx, deps, *conf, resLogger)
 	if err != nil {
 		return nil, err
@@ -611,10 +621,13 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 
 	if logger, ok := m.resLoggers[res]; ok {
 		levelStr := req.GetConfig().GetLogConfiguration().GetLevel()
-		if level, err := logging.LevelFromString(levelStr); err == nil {
-			logger.SetLevel(level)
-		} else {
-			m.logger.Warnw("LogConfiguration does not contain a valid level.", "resource", res.Name().Name, "level", levelStr)
+		// An unset LogConfiguration will materialize as an empty string.
+		if levelStr != "" {
+			if level, err := logging.LevelFromString(levelStr); err == nil {
+				logger.SetLevel(level)
+			} else {
+				m.logger.Warnw("LogConfiguration does not contain a valid level.", "resource", res.Name().Name, "level", levelStr)
+			}
 		}
 	}
 

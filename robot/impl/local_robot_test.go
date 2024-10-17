@@ -3767,6 +3767,14 @@ func TestLogPropagation(t *testing.T) {
 				API:   generic.API,
 				Model: helperModel,
 			},
+			{
+				Name:  "starts-at-debug",
+				API:   generic.API,
+				Model: helperModel,
+				LogConfiguration: &resource.LogConfig{
+					Level: logging.DEBUG,
+				},
+			},
 		},
 		Services: []resource.Config{
 			{
@@ -3802,6 +3810,18 @@ func TestLogPropagation(t *testing.T) {
 
 	config.UpdateLoggerRegistryFromConfig(registry, cfg, logger)
 	lr := setupLocalRobot(t, ctx, cfg, logger)
+
+	// Depends on RSDK-9041.
+	//
+	// startsAtDebugRes, err := lr.ResourceByName(generic.Named("starts-at-debug"))
+	// test.That(t, err, test.ShouldBeNil)
+	// _, err = startsAtDebugRes.DoCommand(ctx,
+	//  	map[string]interface{}{"command": "log", "msg": "starts at debug log line", "level": "DEBUG"})
+	// test.That(t, err, test.ShouldBeNil)
+	// testutils.WaitForAssertion(t, func(tb testing.TB) {
+	//  	tb.Helper()
+	//  	test.That(t, observer.FilterMessage("starts at debug log line\n").Len(), test.ShouldEqual, 1)
+	// })
 
 	resourceNames := []resource.Name{
 		generic.Named("foo"),
