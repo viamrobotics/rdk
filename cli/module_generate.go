@@ -261,8 +261,7 @@ func promptUser() (*common.ModuleInputs, error) {
 					if s == "" {
 						return errors.New("model name must not be empty")
 					}
-					// match, err := regexp.MatchString("^[a-zA-Z0-9]+(?:[_-][a-zA-Z0-9]+)*$", s) //see if this works too
-					match, err := regexp.MatchString("^[a-z0-9]+(?:[_-][a-z0-9]+)*$", s)
+					match, err := regexp.MatchString("^[a-zA-Z0-9]+(?:[_-][a-zA-Z0-9]+)*$", s)
 					if !match || err != nil {
 						return errors.New("module names can only contain alphanumeric characters, dashes, and underscores")
 					}
