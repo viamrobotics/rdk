@@ -215,8 +215,8 @@ class {3}({4}, EasyResource):
         """
         return super().reconfigure(config, dependencies)
 
-{9}
 {8}
+{9}
 
 
 if __name__ == '__main__':
@@ -231,8 +231,8 @@ if __name__ == '__main__':
         namespace,
         mod_name,
         model_name,
-        '\n\n'.join([method for method in abstract_methods]),
         '\n\n'.join([subclass for subclass in subclasses]),
+        '\n\n'.join([method for method in abstract_methods]),
     )
     f_name = os.path.join(mod_name, "src", "main.py")
     with open(f_name, "w+") as f:
