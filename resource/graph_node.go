@@ -276,7 +276,7 @@ func (w *GraphNode) LogAndSetLastError(err error, args ...any) {
 	w.mu.Lock()
 	w.lastErr = err
 	// Resources should not transition from removing to unhealthy
-	if (w.state != NodeStateRemoving) {
+	if w.state != NodeStateRemoving {
 		w.transitionTo(NodeStateUnhealthy)
 	}
 	w.mu.Unlock()
