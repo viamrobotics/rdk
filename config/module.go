@@ -244,7 +244,6 @@ func (m Module) EvaluateFirstRunPath(packagesDir string) (string, error) {
 			if err != nil {
 				return "", err
 			}
-			// TODO: investigate
 			return filepath.Abs(firstRun)
 		}
 	}
@@ -264,9 +263,7 @@ func (m Module) EvaluateFirstRunPath(packagesDir string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		// TODO: investigate
 		return filepath.Abs(firstRun)
 	}
-	// TODO: this is not an error!
 	return "", errors.New("no first run script")
 }
