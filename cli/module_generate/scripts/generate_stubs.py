@@ -21,24 +21,43 @@ def return_attribute(value: str, attr: str) -> ast.Attribute:
         ctx=ast.Load())
 
 
-def update_annotation(resource_name: str, annotation: ast.AST, nodes: List[str], parent: str) -> ast.AST:
+def update_annotation(
+    resource_name: str,
+    annotation: ast.AST,
+    nodes: List[str],
+    parent: str
+) -> ast.AST:
     if isinstance(annotation, ast.Name) and annotation.id in nodes:
         value = f"{resource_name}.{parent}" if parent else resource_name
         return return_attribute(value, annotation.id)
     elif isinstance(annotation, ast.Subscript):
-        annotation.slice = update_annotation(resource_name, annotation.slice, nodes, parent)
+        annotation.slice = update_annotation(
+            resource_name,
+            annotation.slice,
+            nodes,
+            parent)
         return annotation
     return annotation
 
 
-def replace_async_func(resource_name: str, func: ast.AsyncFunctionDef, nodes: List[str], parent: str = "") -> None:
+def replace_async_func(
+    resource_name: str,
+    func: ast.AsyncFunctionDef,
+    nodes: List[str],
+    parent: str = ""
+) -> None:
     for arg in func.args.args:
-        arg.annotation = update_annotation(resource_name, arg.annotation, nodes, parent)
+        arg.annotation = update_annotation(
+            resource_name,
+            arg.annotation,
+            nodes,
+            parent)
     func.body = [
         ast.Raise(
-            exc=ast.Call(func=ast.Name(id='NotImplementedError', ctx=ast.Load()),
-                            args=[], 
-                            keywords=[]),
+            exc=ast.Call(func=ast.Name(id='NotImplementedError',
+                                       ctx=ast.Load()),
+                         args=[], 
+                         keywords=[]),
             cause=None)
     ]
     func.decorator_list = []
@@ -60,7 +79,8 @@ def main(
     module = import_module(module_name)
     resource_name = {
         "input": "Controller", "slam": "SLAM", "mlmodel": "MLModel"
-    }.get(resource_subtype, "".join(word.capitalize() for word in resource_subtype.split("_")))
+    }.get(resource_subtype, "".join(word.capitalize()
+                                    for word in resource_subtype.split("_")))
 
     imports, subclasses, nodes, abstract_methods = [], [], [], []
     modules_to_ignore = [
@@ -76,10 +96,9 @@ def main(
                 for imp in stmt.names:
                     if imp.name in modules_to_ignore:
                         continue
-                    imports.append(f"import {imp.name} as {imp.asname}" if imp.asname else f"import {imp.name}")
-            elif isinstance(stmt, ast.ImportFrom):
-                if stmt.module in modules_to_ignore or stmt.module is None:
-                    continue
+                    imports.append(f"import {imp.name} as {imp.asname}"
+                                   if imp.asname else f"import {imp.name}")
+            elif isinstance(stmt, ast.ImportFrom) and stmt.module and stmt.module not in modules_to_ignore:
                 i_strings = ", ".join(
                     [
                         (
