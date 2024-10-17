@@ -61,8 +61,12 @@ def replace_async_func(
             cause=None)
     ]
     func.decorator_list = []
-    if isinstance(func.returns, ast.Name) or isinstance(func.returns, ast.Subscript):
-        func.returns = update_annotation(resource_name, func.returns, nodes, parent)
+    if isinstance(func.returns, (ast.Name, ast.Subscript)):
+        func.returns = update_annotation(
+            resource_name, func.returns, nodes, parent
+        )
+
+
 def parse_subclass(
         resource_name: str, stmt: ast.ClassDef, base=""
 ) -> List[str]:
@@ -70,7 +74,9 @@ def parse_subclass(
     base = base if base else resource_name
     stmt.bases = [ast.Name(id=f"{base}.{stmt.name}", ctx=ast.Load())]
     for cstmt in stmt.body:
-        if isinstance(cstmt, ast.Expr) or (isinstance(cstmt, ast.FunctionDef) and cstmt.name == "__init__"):
+        if isinstance(cstmt, ast.Expr) or (
+            isinstance(cstmt, ast.FunctionDef) and cstmt.name == "__init__"
+        ):
             nodes_to_remove.append(cstmt)
         elif isinstance(cstmt, ast.AnnAssign):
             nodes.append(cstmt.target.id)
@@ -81,7 +87,9 @@ def parse_subclass(
             replace_async_func(resource_name, cstmt, nodes, stmt.name)
     for node in nodes_to_remove:
         stmt.body.remove(node)
-    return '\n'.join(['    ' + line for line in ast.unparse(stmt).splitlines()])
+    return '\n'.join(
+        ['    ' + line for line in ast.unparse(stmt).splitlines()]
+    )
 
 
 def main(
@@ -94,7 +102,9 @@ def main(
     import isort
     from slugify import slugify
 
-    module_name = f"viam.{resource_type}s.{resource_subtype}.{resource_subtype}"
+    module_name = (
+        f"viam.{resource_type}s.{resource_subtype}.{resource_subtype}"
+    )
     module = import_module(module_name)
     resource_name = {
         "input": "Controller", "slam": "SLAM", "mlmodel": "MLModel"
@@ -117,7 +127,11 @@ def main(
                         continue
                     imports.append(f"import {imp.name} as {imp.asname}"
                                    if imp.asname else f"import {imp.name}")
-            elif isinstance(stmt, ast.ImportFrom) and stmt.module and stmt.module not in modules_to_ignore:
+            elif (
+                isinstance(stmt, ast.ImportFrom)
+                and stmt.module
+                and stmt.module not in modules_to_ignore
+            ):
                 i_strings = ", ".join(
                     [
                         (
@@ -138,7 +152,9 @@ def main(
                         nodes.append(cstmt.target.id)
                     elif isinstance(cstmt, ast.AsyncFunctionDef):
                         replace_async_func(resource_name, cstmt, nodes)
-                        indented_code = '\n'.join(['    ' + line for line in ast.unparse(cstmt).splitlines()])
+                        indented_code = '\n'.join(
+                            ['    ' + line for line in ast.unparse(cstmt).splitlines()]
+                        )
                         abstract_methods.append(indented_code)
 
     model_name_pascal = "".join(
