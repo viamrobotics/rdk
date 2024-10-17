@@ -1088,6 +1088,7 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	// that the first run script does not exist and we debug log and exit quietly.
 	firstRunPath, err := conf.EvaluateFirstRunPath(packages.LocalPackagesDir(mgr.packagesDir))
 	if err != nil {
+		// TODO(RSDK-9067): some first run path evaluation errors should be promoted to WARN logs.
 		logger.Debug("no first run script detected, skipping setup phase", "error", err)
 		return nil
 	}
