@@ -216,8 +216,12 @@ func formatEmptyFunction(receiver, funcName, args string, returns []string) stri
 	return newFunc
 }
 
-//go:generate go install golang.org/x/tools/cmd/goimports@latest
 func runGoImports(src []byte) ([]byte, error) {
+	if _, err := exec.LookPath("goimports"); err != nil {
+		fmt.Println("goimports is not installed. Please install it using 'go install golang.org/x/tools/cmd/goimports@latest' to proceed.")
+		return nil, errors.New("goimports not found in PATH")
+	}
+
 	// use the goimports tool
 	cmd := exec.Command("goimports")
 	cmd.Stdin = bytes.NewReader(src)
