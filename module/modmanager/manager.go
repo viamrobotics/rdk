@@ -1092,6 +1092,10 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 		return nil
 	}
 
+	// TODO(RSDK-9062): Only run setup phase once per module/version. This information should be persisted on disk.
+
+	logger.Info("executing first run script")
+
 	// TODO: this is normally set on a module but it seems like we can safely get it on demand.
 	var dataDir string
 	if mgr.moduleDataParentDir != "" {
@@ -1124,6 +1128,9 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 		resultLogger.Errorw("command failed", "error", err)
 		return err
 	}
+
+	// TODO(RSDK-9062): Persist setup phase success for module/version so that we do not run again.
+
 	resultLogger.Infow("command succeeded")
 	return nil
 }
