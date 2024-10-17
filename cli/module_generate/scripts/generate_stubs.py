@@ -62,7 +62,7 @@ def main(
         "input": "Controller", "slam": "SLAM", "mlmodel": "MLModel"
     }.get(resource_subtype, "".join(word.capitalize() for word in resource_subtype.split("_")))
 
-    imports, abstract_methods, subclasses, nodes = [], [], [], []
+    imports, subclasses, nodes, abstract_methods = [], [], [], []
     modules_to_ignore = [
         "abc",
         "component_base",
@@ -76,10 +76,7 @@ def main(
                 for imp in stmt.names:
                     if imp.name in modules_to_ignore:
                         continue
-                    if imp.asname:
-                        imports.append(f"import {imp.name} as {imp.asname}")
-                    else:
-                        imports.append(f"import {imp.name}")
+                    imports.append(f"import {imp.name} as {imp.asname}" if imp.asname else f"import {imp.name}")
             elif isinstance(stmt, ast.ImportFrom):
                 if stmt.module in modules_to_ignore or stmt.module is None:
                     continue
