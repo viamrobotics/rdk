@@ -12,6 +12,7 @@ import (
 	"go/token"
 	"io"
 	"net/http"
+	"os/exec"
 	"strings"
 	"text/template"
 	"unicode"
@@ -69,6 +70,10 @@ func setGoModuleTemplate(clientCode string, module common.ModuleInputs) (*common
 	var imports []string
 	for _, imp := range node.Imports {
 		path := imp.Path.Value
+		// check for the specific import path and set the alias
+		if path == `"go.viam.com/rdk/vision"` {
+			imp.Name = &ast.Ident{Name: "vis"}
+		}
 		if imp.Name != nil {
 			path = fmt.Sprintf("%s %s", imp.Name.Name, path)
 		}
@@ -168,7 +173,7 @@ func parseFunctionSignature(resourceSubtype, resourceSubtypePascal string, funcD
 				str = str[3:]
 				isMapPointer = true
 			}
-			// add subtype package name for exported types from that package
+
 			switch {
 			case strings.HasPrefix(str, "map["):
 				str = handleMapType(str, resourceSubtype)
@@ -179,11 +184,14 @@ func parseFunctionSignature(resourceSubtype, resourceSubtypePascal string, funcD
 			case str == resourceSubtypePascal:
 				str = fmt.Sprintf("%s.%s", resourceSubtype, resourceSubtypePascal)
 			}
-
 			if isPointer {
 				str = fmt.Sprintf("*%s", str)
 			} else if isMapPointer {
 				str = fmt.Sprintf("[]*%s", str)
+			}
+			// fixing vision service package imports
+			if strings.Contains(str, "vision.Object") {
+				str = strings.ReplaceAll(str, "vision.Object", "vis.Object")
 			}
 			returns = append(returns, str)
 		}
@@ -208,6 +216,21 @@ func formatEmptyFunction(receiver, funcName, args string, returns []string) stri
 	return newFunc
 }
 
+func runGoImports(src []byte) ([]byte, error) {
+	// use the goimports tool
+	cmd := exec.Command("goimports")
+	cmd.Stdin = bytes.NewReader(src)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	//run the command
+	err := cmd.Run()
+	if err != nil {
+		return nil, err
+	}
+	return out.Bytes(), nil
+}
+
 // RenderGoTemplates outputs the method stubs for created module.
 func RenderGoTemplates(module common.ModuleInputs) ([]byte, error) {
 	clientCode, err := getClientCode(module)
@@ -219,14 +242,21 @@ func RenderGoTemplates(module common.ModuleInputs) ([]byte, error) {
 	if err != nil {
 		return empty, err
 	}
+
 	var output bytes.Buffer
 	tmpl, err := template.New("module").Parse(goTmpl)
 	if err != nil {
 		return empty, err
 	}
+
 	err = tmpl.Execute(&output, goModule)
 	if err != nil {
 		return empty, err
 	}
-	return output.Bytes(), nil
+
+	formattedCode, err := runGoImports(output.Bytes())
+	if err != nil {
+		return empty, errors.Wrap(err, "failed to run goimports")
+	}
+	return formattedCode, nil
 }
