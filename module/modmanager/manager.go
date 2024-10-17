@@ -359,10 +359,6 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 		ctx, "Waiting for module to complete startup and registration", "module", mod.cfg.Name, mgr.logger)
 	defer cleanup()
 
-	if err := mod.firstRun(ctx, mgr.logger, mgr.viamHomeDir, mgr.packagesDir); err != nil {
-		return err
-	}
-
 	if err := mgr.startModuleProcess(mod); err != nil {
 		return errors.WithMessage(err, "error while starting module "+mod.cfg.Name)
 	}
@@ -1081,21 +1077,29 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 }
 
 // TODO: return exit code?
-func (m *module) firstRun(
+func (mgr *Manager) FirstRun(
 	ctx context.Context,
-	logger logging.Logger,
-	viamHomeDir string,
-	packagesDir string,
+	conf config.Module,
 ) error {
 	// We evaluate the Module's ExePath absolutely in the viam-server process so that
 	// setting the CWD does not cause issues with relative process names
-	firstRunPath, err := m.cfg.EvaluateFirstRunPath(packages.LocalPackagesDir(packagesDir))
+	firstRunPath, err := conf.EvaluateFirstRunPath(packages.LocalPackagesDir(mgr.packagesDir))
 	if err != nil {
 		return err
 	}
 
-	// TODO: do we need this module directory stuff like we have in startProcess?
-	moduleEnvironment := m.getFullEnvironment(viamHomeDir)
+	// TODO: this is normally set on a module but it seems like we can safely get it on demand.
+	var dataDir string
+	if mgr.moduleDataParentDir != "" {
+		var err error
+		// TODO: why isn't conf.Name being sanitized like PackageConfig.SanitizedName?
+		dataDir, err = rutils.SafeJoinDir(mgr.moduleDataParentDir, conf.Name)
+		if err != nil {
+			return err
+		}
+	}
+
+	moduleEnvironment := getFullEnvironment(conf, dataDir, mgr.viamHomeDir)
 
 	// TODO: Revert this nolint declaration. I'm temporarily ignoring this lint for
 	// testing purposes - we don't want to disable this lint since it opens an obvious
@@ -1109,11 +1113,11 @@ func (m *module) firstRun(
 	}
 	cmdOut, err := cmd.CombinedOutput()
 	if err != nil {
-		logger.Errorw(">>> command failed", "path", firstRunPath, "output", string(cmdOut), "error", err)
+		mgr.logger.Errorw(">>> command failed", "path", firstRunPath, "output", string(cmdOut), "error", err)
 		return err
 	}
 	// TODO: do we need unset/default logger logic?
-	logger.Infow("+++ command succeeded", "output", string(cmdOut))
+	mgr.logger.Infow("+++ command succeeded", "output", string(cmdOut))
 	return nil
 }
 
@@ -1322,15 +1326,24 @@ func (m *module) cleanupAfterCrash(mgr *Manager) {
 }
 
 func (m *module) getFullEnvironment(viamHomeDir string) map[string]string {
+	return getFullEnvironment(m.cfg, m.dataDir, viamHomeDir)
+}
+
+// TODO: consider making this a module config method.
+func getFullEnvironment(
+	cfg config.Module,
+	dataDir string,
+	viamHomeDir string,
+) map[string]string {
 	environment := map[string]string{
 		"VIAM_HOME":        viamHomeDir,
-		"VIAM_MODULE_DATA": m.dataDir,
+		"VIAM_MODULE_DATA": dataDir,
 	}
-	if m.cfg.Type == config.ModuleTypeRegistry {
-		environment["VIAM_MODULE_ID"] = m.cfg.ModuleID
+	if cfg.Type == config.ModuleTypeRegistry {
+		environment["VIAM_MODULE_ID"] = cfg.ModuleID
 	}
 	// Overwrite the base environment variables with the module's environment variables (if specified)
-	for key, value := range m.cfg.Environment {
+	for key, value := range cfg.Environment {
 		environment[key] = value
 	}
 	return environment

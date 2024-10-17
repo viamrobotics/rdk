@@ -1243,7 +1243,27 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		return
 	}
 
-	// TODO: execute `run_first` script
+	r.logger.CInfo(ctx, "running module setup phase")
+	// Diff configs before resolving dependencies to find what modules have been added or updated. We run the setup phase for these modules before proceeding with reconfiguration.
+	diff, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
+	if err != nil {
+		r.logger.CErrorw(ctx, "error diffing the configs for setup phase", "error", err)
+		return
+	}
+	// TODO: merge Added + Modified into one loop
+	for _, mod := range diff.Added.Modules {
+		if err := r.manager.moduleManager.FirstRun(ctx, mod); err != nil {
+			r.logger.CErrorw(ctx, "error executing setup phase", "module", mod.Name, "error", err)
+			return
+		}
+	}
+	for _, mod := range diff.Modified.Modules {
+		if err := r.manager.moduleManager.FirstRun(ctx, mod); err != nil {
+			r.logger.CErrorw(ctx, "error executing setup phase", "module", mod.Name, "error", err)
+			return
+		}
+	}
+	r.logger.CInfo(ctx, "setup phase succeeded")
 
 	if newConfig.Cloud != nil {
 		r.Logger().CDebug(ctx, "updating cached config")
@@ -1300,7 +1320,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 
 	// Now that we have the new config and all references are resolved, diff it
 	// with the current generated config to see what has changed
-	diff, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
+	diff, err = config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
 	if err != nil {
 		r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
 		return
