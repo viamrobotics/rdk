@@ -216,6 +216,7 @@ func formatEmptyFunction(receiver, funcName, args string, returns []string) stri
 	return newFunc
 }
 
+//go:generate go install golang.org/x/tools/cmd/goimports@latest
 func runGoImports(src []byte) ([]byte, error) {
 	// use the goimports tool
 	cmd := exec.Command("goimports")
