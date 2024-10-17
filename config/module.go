@@ -46,12 +46,6 @@ type Module struct {
 
 	// LocalVersion is an in-process fake version used for local module change management.
 	LocalVersion string
-
-	// FirstRun is the path to be executed during the setup phase.
-	// TODO: remove this after implementing the setup phase life-cycle and
-	// testing it, since per-scope this field should only be included in a
-	// module's meta.json file'
-	FirstRun string `json:"first_run"`
 }
 
 // JSONManifest contains meta.json fields that are used by both RDK and CLI.
@@ -273,5 +267,6 @@ func (m Module) EvaluateFirstRunPath(packagesDir string) (string, error) {
 		// TODO: investigate
 		return filepath.Abs(firstRun)
 	}
-	return m.FirstRun, nil
+	// TODO: this is not an error!
+	return "", errors.New("no first run script")
 }
