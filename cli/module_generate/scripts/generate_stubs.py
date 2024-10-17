@@ -62,18 +62,15 @@ def main(
         "input": "Controller", "slam": "SLAM", "mlmodel": "MLModel"
     }.get(resource_subtype, "".join(word.capitalize() for word in resource_subtype.split("_")))
 
-    imports = []
+    imports, abstract_methods, subclasses, nodes = [], [], [], []
     modules_to_ignore = [
         "abc",
         "component_base",
         "service_base",
         "viam.resource.types",
     ]
-    abstract_methods = []
-    subclasses = []
     with open(module.__file__, "r") as f:
         tree = ast.parse(f.read())
-        nodes = []
         for stmt in tree.body:
             if isinstance(stmt, ast.Import):
                 for imp in stmt.names:
