@@ -1102,9 +1102,7 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 
 	moduleEnvironment := getFullEnvironment(conf, dataDir, mgr.viamHomeDir)
 
-	// TODO: Revert this nolint declaration. I'm temporarily ignoring this lint for
-	// testing purposes - we don't want to disable this lint since it opens an obvious
-	// injection attack vector.
+	// Yes, we are deliberating executing arbitrary user code here.
 	//nolint:gosec
 	cmd := exec.CommandContext(ctx, firstRunPath)
 	// TODO: set current env?
