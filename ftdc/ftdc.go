@@ -175,9 +175,9 @@ func (ftdc *FTDC) constructDatum() datum {
 	return datum
 }
 
-// newDatum takes an ftdc reading ("Datum") as input and serializes + writes it to the backing
+// writeDatum takes an ftdc reading ("Datum") as input and serializes + writes it to the backing
 // medium (e.g: a file). See `writeSchema`s documentation for a full description of the file format.
-func (ftdc *FTDC) newDatum(datum datum) error {
+func (ftdc *FTDC) writeDatum(datum datum) error {
 	toWrite, err := ftdc.getWriter()
 	if err != nil {
 		return err

@@ -41,10 +41,10 @@ func TestCustomFormatRoundtripBasic(t *testing.T) {
 		generationID: 1,
 	}
 
-	ftdc.newDatum(datumV1)
+	ftdc.writeDatum(datumV1)
 	datumV1.Time = 1
 	datumV1.Data["s1"].(*Basic).Foo = 1
-	ftdc.newDatum(datumV1)
+	ftdc.writeDatum(datumV1)
 
 	// Write two more datapoints with "schema 2".
 	datumV2 := datum{
@@ -54,10 +54,10 @@ func TestCustomFormatRoundtripBasic(t *testing.T) {
 		},
 		generationID: 2,
 	}
-	ftdc.newDatum(datumV2)
+	ftdc.writeDatum(datumV2)
 	datumV2.Time = 3
 	datumV2.Data["s2"].(*Basic).Foo = 3
-	ftdc.newDatum(datumV2)
+	ftdc.writeDatum(datumV2)
 
 	parsed, err := parse(serializedData)
 	test.That(t, err, test.ShouldBeNil)
@@ -101,7 +101,7 @@ func TestCustomFormatRoundtripRich(t *testing.T) {
 			generationID: 1,
 		}
 
-		ftdc.newDatum(datumV1)
+		ftdc.writeDatum(datumV1)
 	}
 
 	for idx := datums; idx < 2*datums; idx++ {
@@ -115,7 +115,7 @@ func TestCustomFormatRoundtripRich(t *testing.T) {
 			generationID: 2,
 		}
 
-		ftdc.newDatum(datumV2)
+		ftdc.writeDatum(datumV2)
 	}
 
 	parsed, err := parse(serializedData)

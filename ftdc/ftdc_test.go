@@ -55,7 +55,7 @@ func TestFTDCSchemaGenerations(t *testing.T) {
 	// writeDatum will serialize the datum in the "custom format". Part of the bytes written will be
 	// the new schema at generation "1". The `outputGenerationID` will be updated to reflect that
 	// "1" is the "current schema".
-	err := ftdc.newDatum(datum)
+	err := ftdc.writeDatum(datum)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ftdc.outputGenerationID, test.ShouldEqual, ftdc.inputGenerationID)
 
@@ -78,7 +78,7 @@ func TestFTDCSchemaGenerations(t *testing.T) {
 
 	// Writing the second datum updates the `outputGenerationID` and we are again in the steady
 	// state.
-	err = ftdc.newDatum(datum)
+	err = ftdc.writeDatum(datum)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ftdc.outputGenerationID, test.ShouldEqual, ftdc.inputGenerationID)
 
