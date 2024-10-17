@@ -41,6 +41,10 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
+const (
+	defaultFirstRunTimeout = 1 * time.Hour
+)
+
 var (
 	validateConfigTimeout       = 5 * time.Second
 	errMessageExitStatus143     = "exit status 143"
@@ -1102,9 +1106,13 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 
 	moduleEnvironment := getFullEnvironment(conf, dataDir, mgr.viamHomeDir)
 
+	// TODO(RSDK-9060): support a user-supplied timeout
+	cmdCtx, cancel := context.WithTimeout(ctx, defaultFirstRunTimeout)
+	defer cancel()
+
 	// Yes, we are deliberating executing arbitrary user code here.
 	//nolint:gosec
-	cmd := exec.CommandContext(ctx, firstRunPath)
+	cmd := exec.CommandContext(cmdCtx, firstRunPath)
 	// TODO: set current env?
 	// cmd.Env = os.Environ()
 	for key, val := range moduleEnvironment {
