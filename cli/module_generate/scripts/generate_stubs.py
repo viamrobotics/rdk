@@ -58,14 +58,9 @@ def main(
 
     module_name = f"viam.{resource_type}s.{resource_subtype}.{resource_subtype}"
     module = import_module(module_name)
-    if resource_subtype == "input":
-        resource_name = "Controller"
-    elif resource_subtype == "slam":
-        resource_name = "SLAM"
-    elif resource_subtype == "mlmodel":
-        resource_name = "MLModel"
-    else:
-        resource_name = "".join(word.capitalize() for word in resource_subtype.split("_"))
+    resource_name = {
+        "input": "Controller", "slam": "SLAM", "mlmodel": "MLModel"
+    }.get(resource_subtype, "".join(word.capitalize() for word in resource_subtype.split("_")))
 
     imports = []
     modules_to_ignore = [
