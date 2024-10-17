@@ -63,6 +63,25 @@ def replace_async_func(
     func.decorator_list = []
     if isinstance(func.returns, ast.Name) or isinstance(func.returns, ast.Subscript):
         func.returns = update_annotation(resource_name, func.returns, nodes, parent)
+def parse_subclass(
+        resource_name: str, stmt: ast.ClassDef, base=""
+) -> List[str]:
+    nodes, nodes_to_remove = [], []
+    base = base if base else resource_name
+    stmt.bases = [ast.Name(id=f"{base}.{stmt.name}", ctx=ast.Load())]
+    for cstmt in stmt.body:
+        if isinstance(cstmt, ast.Expr) or (isinstance(cstmt, ast.FunctionDef) and cstmt.name == "__init__"):
+            nodes_to_remove.append(cstmt)
+        elif isinstance(cstmt, ast.AnnAssign):
+            nodes.append(cstmt.target.id)
+            nodes_to_remove.append(cstmt)
+        elif isinstance(cstmt, ast.ClassDef):
+            parse_subclass(resource_name, cstmt, stmt.name, stmt.bases[0].id)
+        elif isinstance(cstmt, ast.AsyncFunctionDef):
+            replace_async_func(resource_name, cstmt, nodes, stmt.name)
+    for node in nodes_to_remove:
+        stmt.body.remove(node)
+    return '\n'.join(['    ' + line for line in ast.unparse(stmt).splitlines()])
 
 
 def main(
@@ -114,21 +133,7 @@ def main(
             elif isinstance(stmt, ast.ClassDef) and stmt.name == resource_name:
                 for cstmt in stmt.body:
                     if isinstance(cstmt, ast.ClassDef):
-                        subnodes = []
-                        nodes_to_remove = []
-                        cstmt.bases = [ast.Name(id=f"{resource_name}.{cstmt.name}", ctx=ast.Load())]
-                        for scstmt in cstmt.body:
-                            if isinstance(scstmt, ast.Expr) or (isinstance(scstmt, ast.FunctionDef) and scstmt.name == "__init__"):
-                                nodes_to_remove.append(scstmt)
-                            elif isinstance(scstmt, ast.AnnAssign):
-                                subnodes.append(scstmt.target.id)
-                                nodes_to_remove.append(scstmt)
-                            elif isinstance(scstmt, ast.AsyncFunctionDef):
-                                replace_async_func(resource_name, scstmt, subnodes, cstmt.name)
-                        for node in nodes_to_remove:
-                            cstmt.body.remove(node)
-                        indented_code = '\n'.join(['    ' + line for line in ast.unparse(cstmt).splitlines()])
-                        subclasses.append(indented_code)
+                        subclasses.append(parse_subclass(resource_name, cstmt))
                     elif isinstance(cstmt, ast.AnnAssign):
                         nodes.append(cstmt.target.id)
                     elif isinstance(cstmt, ast.AsyncFunctionDef):
@@ -209,7 +214,7 @@ if __name__ == '__main__':
         mod_name,
         model_name,
         '\n\n'.join([method for method in abstract_methods]),
-        '\n\n'.join([subclass for subclass in subclasses])
+        '\n\n'.join([subclass for subclass in subclasses]),
     )
     f_name = os.path.join(mod_name, "src", "main.py")
     with open(f_name, "w+") as f:
