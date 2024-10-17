@@ -1076,11 +1076,9 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 	}
 }
 
+// FirstRun is runs a module-specific setup script.
 // TODO: return exit code?
-func (mgr *Manager) FirstRun(
-	ctx context.Context,
-	conf config.Module,
-) error {
+func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	// We evaluate the Module's ExePath absolutely in the viam-server process so that
 	// setting the CWD does not cause issues with relative process names
 	firstRunPath, err := conf.EvaluateFirstRunPath(packages.LocalPackagesDir(mgr.packagesDir))
