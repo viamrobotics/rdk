@@ -1079,11 +1079,14 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 // FirstRun is runs a module-specific setup script.
 // TODO: return exit code?
 func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
-	// We evaluate the Module's ExePath absolutely in the viam-server process so that
-	// setting the CWD does not cause issues with relative process names
+	logger := mgr.logger.WithFields("name", conf.Name)
+
+	// Evaluate the Module's FirstRun path. If there is an error we assume
+	// that the first run script does not exist and we debug log and exit quietly.
 	firstRunPath, err := conf.EvaluateFirstRunPath(packages.LocalPackagesDir(mgr.packagesDir))
 	if err != nil {
-		return err
+		logger.Debug("no first run script detected, skipping setup phase", "error", err)
+		return nil
 	}
 
 	// TODO: this is normally set on a module but it seems like we can safely get it on demand.
@@ -1111,11 +1114,10 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	}
 	cmdOut, err := cmd.CombinedOutput()
 	if err != nil {
-		mgr.logger.Errorw("command failed", "path", firstRunPath, "output", string(cmdOut), "error", err)
+		logger.Errorw("command failed", "path", firstRunPath, "output", string(cmdOut), "error", err)
 		return err
 	}
-	// TODO: do we need unset/default logger logic?
-	mgr.logger.Infow("command succeeded", "output", string(cmdOut))
+	logger.Infow("command succeeded", "output", string(cmdOut))
 	return nil
 }
 
