@@ -1119,11 +1119,13 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 		cmd.Env = append(cmd.Env, key+"="+val)
 	}
 	cmdOut, err := cmd.CombinedOutput()
+
+	resultLogger := logger.With("path", firstRunPath, "output", string(cmdOut))
 	if err != nil {
-		logger.Errorw("command failed", "path", firstRunPath, "output", string(cmdOut), "error", err)
+		resultLogger.Errorw("command failed", "error", err)
 		return err
 	}
-	logger.Infow("command succeeded", "output", string(cmdOut))
+	resultLogger.Infow("command succeeded")
 	return nil
 }
 
