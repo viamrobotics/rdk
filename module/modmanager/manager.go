@@ -1111,11 +1111,11 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	}
 	cmdOut, err := cmd.CombinedOutput()
 	if err != nil {
-		mgr.logger.Errorw(">>> command failed", "path", firstRunPath, "output", string(cmdOut), "error", err)
+		mgr.logger.Errorw("command failed", "path", firstRunPath, "output", string(cmdOut), "error", err)
 		return err
 	}
 	// TODO: do we need unset/default logger logic?
-	mgr.logger.Infow("+++ command succeeded", "output", string(cmdOut))
+	mgr.logger.Infow("command succeeded", "output", string(cmdOut))
 	return nil
 }
 
