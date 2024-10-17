@@ -87,6 +87,8 @@ def parse_subclass(
             replace_async_func(resource_name, cstmt, nodes, stmt.name)
     for node in nodes_to_remove:
         stmt.body.remove(node)
+    if stmt.body == []:
+        stmt.body = [ast.Pass()]
     return '\n'.join(
         ['    ' + line for line in ast.unparse(stmt).splitlines()]
     )
