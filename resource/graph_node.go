@@ -275,7 +275,10 @@ func (w *GraphNode) MarkedForRemoval() bool {
 func (w *GraphNode) LogAndSetLastError(err error, args ...any) {
 	w.mu.Lock()
 	w.lastErr = err
-	w.transitionTo(NodeStateUnhealthy)
+	// Resources should not transition from removing to unhealthy
+	if (w.state != NodeStateRemoving) {
+		w.transitionTo(NodeStateUnhealthy)
+	}
 	w.mu.Unlock()
 
 	if w.logger != nil {

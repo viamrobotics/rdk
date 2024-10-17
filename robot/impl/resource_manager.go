@@ -790,8 +790,8 @@ func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr
 		manager.logger.CInfow(ctx, fmt.Sprintf("Now %s a remote", verb), "resource", resName)
 		switch resName.API {
 		case client.RemoteAPI:
-			// If a remote is marked for removal then do not change status to unhealthy
-			if gNode.MarkedForRemoval() {
+			// If a remote is marked for removal then do not process remote
+			if gNode.MarkedForRemoval(){
 				continue
 			}
 			remConf, err := resource.NativeConfig[*config.Remote](gNode.Config())
