@@ -1244,8 +1244,8 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	}
 
 	r.logger.CInfo(ctx, "running module setup phase")
-	// Diff configs before resolving dependencies to find what modules have 
-	// been added or updated. We run the setup phase for these modules before 
+	// Diff configs before resolving dependencies to find what modules have
+	// been added or updated. We run the setup phase for these modules before
 	// proceeding with reconfiguration.
 	diff, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
 	if err != nil {
