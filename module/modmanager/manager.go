@@ -301,7 +301,7 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module) error {
 	// only set the module data directory if the parent dir is present (which it might not be during tests)
 	if mgr.moduleDataParentDir != "" {
 		var err error
-		// todo: why isn't conf.Name being sanitized like PackageConfig.SanitizedName?
+		// TODO: why isn't conf.Name being sanitized like PackageConfig.SanitizedName?
 		moduleDataDir, err = rutils.SafeJoinDir(mgr.moduleDataParentDir, conf.Name)
 		if err != nil {
 			return err
