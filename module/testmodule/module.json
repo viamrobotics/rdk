@@ -2,8 +2,7 @@
 	"modules": [
 		{
 			"name": "TestModule",
-			"executable_path": "module/testmodule/run.sh",
-			"first_run": "module/testmodule/first_run.sh"
+			"executable_path": "module/testmodule/run.sh"
 		}
 	],
 	"components": [
