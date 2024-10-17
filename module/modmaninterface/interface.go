@@ -27,5 +27,7 @@ type ModuleManager interface {
 	Provides(cfg resource.Config) bool
 	Handles() map[string]module.HandlerMap
 
+	FirstRun(ctx context.Context, conf config.Module) error
+
 	Close(ctx context.Context) error
 }
