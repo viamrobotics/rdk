@@ -6,6 +6,7 @@ package robotimpl
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1243,7 +1244,6 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		return
 	}
 
-	r.logger.CInfo(ctx, "running module setup phase")
 	// Diff configs before resolving dependencies to find what modules have
 	// been added or updated. We run the setup phase for these modules before
 	// proceeding with reconfiguration.
@@ -1252,20 +1252,14 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		r.logger.CErrorw(ctx, "error diffing the configs for setup phase", "error", err)
 		return
 	}
-	// TODO: merge Added + Modified into one loop
-	for _, mod := range diff.Added.Modules {
+
+	changedModules := slices.Concat(nil, diff.Added.Modules, diff.Modified.Modules)
+	for _, mod := range changedModules {
 		if err := r.manager.moduleManager.FirstRun(ctx, mod); err != nil {
 			r.logger.CErrorw(ctx, "error executing setup phase", "module", mod.Name, "error", err)
 			return
 		}
 	}
-	for _, mod := range diff.Modified.Modules {
-		if err := r.manager.moduleManager.FirstRun(ctx, mod); err != nil {
-			r.logger.CErrorw(ctx, "error executing setup phase", "module", mod.Name, "error", err)
-			return
-		}
-	}
-	r.logger.CInfo(ctx, "setup phase succeeded")
 
 	if newConfig.Cloud != nil {
 		r.Logger().CDebug(ctx, "updating cached config")
