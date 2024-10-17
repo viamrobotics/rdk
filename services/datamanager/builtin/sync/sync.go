@@ -388,7 +388,7 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, f.Name(), func(ctx context.Context) (uint64, error) {
 		msg := "error uploading data capture file %s, size: %s, md: %s"
 		errMetadata := fmt.Sprintf(msg, captureFile.GetPath(), data.FormatBytesI64(captureFile.Size()), captureFile.ReadMetadata())
-		bytesUploaded, err := uploadDataCaptureFile(ctx, captureFile, s.cloudConn, logger)
+		bytesUploaded, err := uploadDataCaptureFile(ctx, captureFile, s.cloudConn, s.config.Flag, logger)
 		if err != nil {
 			return 0, errors.Wrap(err, errMetadata)
 		}

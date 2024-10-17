@@ -10,6 +10,7 @@ import (
 
 // Config is the sync config from builtin.
 type Config struct {
+	Flag bool
 	// AdditionalSyncPaths defines the file system paths
 	// that should be synced in addition to the CaptureDir.
 	// Generally 3rd party programs will write arbitrary
