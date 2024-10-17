@@ -97,6 +97,7 @@ require (
 	golang.org/x/text v0.19.0
 	golang.org/x/time v0.6.0
 	golang.org/x/tools v0.24.0
+	golang.org/x/tools/cmd/goimports v0.26.0
 	gonum.org/v1/gonum v0.12.0
 	gonum.org/v1/plot v0.12.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20240827150818-7e3bb234dfed
