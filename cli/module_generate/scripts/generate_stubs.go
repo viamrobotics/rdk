@@ -223,7 +223,7 @@ func runGoImports(src []byte) ([]byte, error) {
 	var out bytes.Buffer
 	cmd.Stdout = &out
 
-	//run the command
+	// run the command
 	err := cmd.Run()
 	if err != nil {
 		return nil, err
