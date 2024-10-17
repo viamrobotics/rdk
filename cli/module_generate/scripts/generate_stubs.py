@@ -6,6 +6,14 @@ from importlib import import_module
 from typing import List
 
 
+def get_final_imports(imports: List[str]) -> List[str]:
+    final_imports = []
+    for i in imports:
+        if i not in final_imports:
+            final_imports.append(i)
+    return final_imports
+
+
 def return_attribute(value: str, attr: str) -> ast.Attribute:
     return ast.Attribute(
         value=ast.Name(id=value, ctx=ast.Load()),
@@ -13,12 +21,29 @@ def return_attribute(value: str, attr: str) -> ast.Attribute:
         ctx=ast.Load())
 
 
-def get_final_imports(imports: List[str]) -> List[str]:
-    final_imports = []
-    for i in imports:
-        if i not in final_imports:
-            final_imports.append(i)
-    return final_imports
+def update_annotation(resource_name: str, annotation: ast.AST, nodes: List[str], parent: str) -> ast.AST:
+    if isinstance(annotation, ast.Name) and annotation.id in nodes:
+        value = f"{resource_name}.{parent}" if parent else resource_name
+        return return_attribute(value, annotation.id)
+    elif isinstance(annotation, ast.Subscript):
+        annotation.slice = update_annotation(resource_name, annotation.slice, nodes, parent)
+        return annotation
+    return annotation
+
+
+def replace_async_func(resource_name: str, func: ast.AsyncFunctionDef, nodes: List[str], parent: str = "") -> None:
+    for arg in func.args.args:
+        arg.annotation = update_annotation(resource_name, arg.annotation, nodes, parent)
+    func.body = [
+        ast.Raise(
+            exc=ast.Call(func=ast.Name(id='NotImplementedError', ctx=ast.Load()),
+                            args=[], 
+                            keywords=[]),
+            cause=None)
+    ]
+    func.decorator_list = []
+    if isinstance(func.returns, ast.Name) or isinstance(func.returns, ast.Subscript):
+        func.returns = update_annotation(resource_name, func.returns, nodes, parent)
 
 
 def main(
@@ -52,30 +77,6 @@ def main(
     abstract_methods = []
     subclasses = []
     with open(module.__file__, "r") as f:
-        def update_annotation(annotation: ast.Name | ast.Subscript, parent: str = ""):
-            if isinstance(annotation, ast.Name) and annotation.id in nodes:
-                value = f"{resource_name}.{parent}" if parent else resource_name
-                return return_attribute(value, annotation.id)
-            elif isinstance(annotation, ast.Subscript):
-                annotation.slice = update_annotation(annotation.slice, parent)
-                return annotation
-            return annotation
-
-        def replace_async_func(stmt: ast.AsyncFunctionDef, nodes: List[str], parent: str = "") -> None:
-            for arg in stmt.args.args:
-                arg.annotation = update_annotation(arg.annotation, parent)
-            stmt.body = [
-                ast.Raise(
-                    exc=ast.Call(func=ast.Name(id='NotImplementedError', ctx=ast.Load()),
-                                 args=[], 
-                                 keywords=[]),
-                    cause=None)
-            ]
-            stmt.decorator_list = []
-            if isinstance(stmt.returns, ast.Name) and stmt.returns.id in nodes:
-                value = f"{resource_name}.{parent}" if parent else resource_name
-                stmt.returns = return_attribute(value, stmt.returns.id)
-
         tree = ast.parse(f.read())
         nodes = []
         for stmt in tree.body:
@@ -115,7 +116,7 @@ def main(
                                 subnodes.append(scstmt.target.id)
                                 nodes_to_remove.append(scstmt)
                             elif isinstance(scstmt, ast.AsyncFunctionDef):
-                                replace_async_func(scstmt, subnodes, cstmt.name)
+                                replace_async_func(resource_name, scstmt, subnodes, cstmt.name)
                         for node in nodes_to_remove:
                             cstmt.body.remove(node)
                         indented_code = '\n'.join(['    ' + line for line in ast.unparse(cstmt).splitlines()])
@@ -123,7 +124,7 @@ def main(
                     elif isinstance(cstmt, ast.AnnAssign):
                         nodes.append(cstmt.target.id)
                     elif isinstance(cstmt, ast.AsyncFunctionDef):
-                        replace_async_func(cstmt, nodes)
+                        replace_async_func(resource_name, cstmt, nodes)
                         indented_code = '\n'.join(['    ' + line for line in ast.unparse(cstmt).splitlines()])
                         abstract_methods.append(indented_code)
 
