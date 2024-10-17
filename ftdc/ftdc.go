@@ -2,12 +2,51 @@ package ftdc
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
+	"sync"
+	"time"
 
 	"go.viam.com/rdk/logging"
 )
 
+// datum combines the `Stats` call to all registered `Statser`s at some "time". The heirarchy of
+// terminology:
+// - A `datum` is the aggregation of a single call to each `Statser.Stats()` at some "time".
+// - A Statser.`Stats` return value is a collection of "reading"s from the "subsystem" `name`.
+// - "Metric name": Each field name in the structure returned by the `Stats` call is a "metric name".
+// - A "value" is the the numeric value of a metric at one specific point in time.
+// - A "reading" is a "metric name" and a "value" at the given `datum.Time`.
+//
+// A example fully described `datum` object:
+//
+//	datum: { <-- datum
+//	    Time: 1000,
+//	    Data: {
+//	        "resource_manager": struct resourceManagerStats { <-- Stats
+//	            NumComponents: 10, <-- Reading
+//	            NumErrorState: 1, <-- Reading...
+//	            NumReconfigures: 19991,
+//	        },
+//	        "webrtc": struct webRTCStats { <-- Stats
+//	            NumPeerConnectionsTotal: 5004,
+//	            CurrentPeerConnections: 6,
+//	            VideoDataSentGB: 1.997,
+//	        }
+//	        "data_manager": struct dataManagerStats { <-- Stats
+//	            DataFilesUploaded: 8842,
+//	            DataFilesToUpload: 6,
+//	            NumErrorsUploadingDataFiles: 0,
+//	        }
+//	    }
+//	}
+//
+// Where `resource_manager` is a "subsystem name".
+//
+// And where `NumComponents` without a corresponding value is simply a "metric name". And "5004"
+// without context of a metric name is a simply a "value". Those terms are more relevant to the FTDC
+// file format.
 type datum struct {
 	Time int64
 	Data map[string]any
@@ -15,14 +54,33 @@ type datum struct {
 	generationID int
 }
 
+type Statser interface {
+	// The Stats method must return a struct with public field members that are either:
+	// - Numbers (e.g: int, float64, byte, etc...)
+	// - A "recursive" structure that has the same properties as this return value (public field
+	//   members with numbers, or more structures). (NOT YET SUPPORTED)
+	//
+	// The return value must not be a map. This is to enforce a "schema" constraints.
+	Stats() any
+}
+
+type namedStatser struct {
+	name    string
+	statser Statser
+}
+
 // FTDC is a tool for storing observability data on disk in a compact binary format for production
 // debugging.
 type FTDC struct {
+	// mu protects the `statser` member. The `statser` member is modified during user calls to `Add`
+	// and `Remove`. Additionally, there's a concurrent background reader of the `statser` member.
+	mu       sync.Mutex
+	statsers []namedStatser
+
 	// Fields used to generate and serialize FTDC output to bytes.
 	//
 	// inputGenerationID changes when new pieces are added to FTDC at runtime that change the
 	// schema.
-	//nolint:unused
 	inputGenerationID int
 	// outputGenerationID represents the last schema written to the FTDC `outputWriter`.
 	outputGenerationID int
@@ -60,6 +118,61 @@ func NewWithWriter(writer io.Writer, logger logging.Logger) *FTDC {
 		logger:       logger,
 		outputWriter: writer,
 	}
+}
+
+func (ftdc *FTDC) Add(name string, statser Statser) {
+	ftdc.mu.Lock()
+	defer ftdc.mu.Unlock()
+
+	for _, statser := range ftdc.statsers {
+		if statser.name == name {
+			ftdc.logger.Warnw("Trying to add conflicting ftdc section", "name", name)
+			// FTDC output is broken down into separate "sections". The `name` is used to label each
+			// section. We return here to predictably include one of the `Add`ed statsers.
+			return
+		}
+	}
+
+	ftdc.logger.Debugw("Added statser", "name", name, "type", fmt.Sprintf("%T", statser))
+	ftdc.statsers = append(ftdc.statsers, namedStatser{
+		name:    name,
+		statser: statser,
+	})
+	ftdc.inputGenerationID++
+}
+
+func (ftdc *FTDC) Remove(name string) {
+	ftdc.mu.Lock()
+	defer ftdc.mu.Unlock()
+
+	for idx, statser := range ftdc.statsers {
+		if statser.name == name {
+			ftdc.logger.Debugw("Removed statser", "name", name, "type", fmt.Sprintf("%T", statser.statser))
+			ftdc.statsers = append(ftdc.statsers[0:idx], ftdc.statsers[idx+1:len(ftdc.statsers)]...)
+			ftdc.inputGenerationID++
+			return
+		}
+	}
+
+	ftdc.logger.Warnw("Did not find statser to remove", "name", name)
+}
+
+// constructDatum walks all of the registered `statser`s to construct a `datum`.
+func (ftdc *FTDC) constructDatum() datum {
+	datum := datum{
+		Time: time.Now().Unix(),
+		Data: map[string]any{},
+	}
+
+	ftdc.mu.Lock()
+	defer ftdc.mu.Unlock()
+	datum.generationID = ftdc.inputGenerationID
+	for idx := range ftdc.statsers {
+		namedStatser := &ftdc.statsers[idx]
+		datum.Data[namedStatser.name] = namedStatser.statser.Stats()
+	}
+
+	return datum
 }
 
 // newDatum takes an ftdc reading ("Datum") as input and serializes + writes it to the backing
