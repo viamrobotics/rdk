@@ -49,6 +49,7 @@ type Config struct {
 	ScheduledSyncDisabled  bool     `json:"sync_disabled"`
 	SelectiveSyncerName    string   `json:"selective_syncer_name"`
 	SyncIntervalMins       float64  `json:"sync_interval_mins"`
+	Flag                   bool     `json:"flag"`
 }
 
 // Validate returns components which will be depended upon weakly due to the above matcher.
@@ -119,6 +120,7 @@ func (c *Config) syncConfig(syncSensor sensor.Sensor, syncSensorEnabled bool, lo
 	}
 
 	return datasync.Config{
+		Flag:                       c.Flag,
 		AdditionalSyncPaths:        c.AdditionalSyncPaths,
 		Tags:                       c.Tags,
 		CaptureDir:                 c.getCaptureDir(),

@@ -2,6 +2,7 @@ package data
 
 import (
 	"bufio"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"os"
@@ -13,9 +14,9 @@ import (
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
-	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/encoding/protowire"
+	"google.golang.org/protobuf/proto"
 
-	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
 
@@ -42,20 +43,18 @@ const (
 // length delimited protobuf messages, where the first message is the CaptureMetadata for the file, and ensuing
 // messages contain the captured data.
 type CaptureFile struct {
-	path     string
-	lock     sync.Mutex
-	file     *os.File
-	writer   *bufio.Writer
-	size     int64
-	metadata *v1.DataCaptureMetadata
-
+	Metadata          *v1.DataCaptureMetadata
+	path              string
+	size              int64
 	initialReadOffset int64
-	readOffset        int64
-	writeOffset       int64
+
+	lock       sync.Mutex
+	file       *os.File
+	readOffset int64
 }
 
-// ReadCaptureFile creates a File struct from a passed os.File previously constructed using NewFile.
-func ReadCaptureFile(f *os.File) (*CaptureFile, error) {
+// NewCaptureFile creates a File struct from a passed os.File previously constructed using NewFile.
+func NewCaptureFile(f *os.File) (*CaptureFile, error) {
 	if !IsDataCaptureFile(f) {
 		return nil, errors.Errorf("%s is not a data capture file", f.Name())
 	}
@@ -73,56 +72,203 @@ func ReadCaptureFile(f *os.File) (*CaptureFile, error) {
 	ret := CaptureFile{
 		path:              f.Name(),
 		file:              f,
-		writer:            bufio.NewWriter(f),
 		size:              finfo.Size(),
-		metadata:          md,
+		Metadata:          md,
 		initialReadOffset: int64(initOffset),
 		readOffset:        int64(initOffset),
-		writeOffset:       int64(initOffset),
 	}
 
 	return &ret, nil
 }
 
-// NewCaptureFile creates a new *CaptureFile with the specified md in the specified directory.
-func NewCaptureFile(dir string, md *v1.DataCaptureMetadata) (*CaptureFile, error) {
-	fileName := CaptureFilePathWithReplacedReservedChars(
-		filepath.Join(dir, getFileTimestampName()) + InProgressCaptureFileExt)
-	//nolint:gosec
-	f, err := os.OpenFile(fileName, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0o600)
-	if err != nil {
-		return nil, err
-	}
-
-	// Then write first metadata message to the file.
-	n, err := pbutil.WriteDelimited(f, md)
-	if err != nil {
-		return nil, err
-	}
-	return &CaptureFile{
-		path:              f.Name(),
-		writer:            bufio.NewWriter(f),
-		file:              f,
-		size:              int64(n),
-		initialReadOffset: int64(n),
-		readOffset:        int64(n),
-		writeOffset:       int64(n),
-	}, nil
-}
-
 // ReadMetadata reads and returns the metadata in f.
 func (f *CaptureFile) ReadMetadata() *v1.DataCaptureMetadata {
-	return f.metadata
+	return f.Metadata
+}
+
+var errInvalidVarint = errors.New("invalid varint32 encountered")
+
+func readTag(r io.Reader, num *protowire.Number, typ *protowire.Type) (n int, err error) {
+	// Per AbstractParser#parsePartialDelimitedFrom with
+	// CodedInputStream#readRawVarint32.
+	var headerBuf [binary.MaxVarintLen32]byte
+	var bytesRead, length int
+	var tagNum protowire.Number
+	var tagType protowire.Type
+	for length <= 0 { // i.e. no varint has been decoded yet.
+		if bytesRead >= len(headerBuf) {
+			return bytesRead, errInvalidVarint
+		}
+		// We have to read byte by byte here to avoid reading more bytes
+		// than required. Each read byte is appended to what we have
+		// read before.
+		newBytesRead, err := r.Read(headerBuf[bytesRead : bytesRead+1])
+		if newBytesRead == 0 {
+			if err != nil {
+				return bytesRead, err
+			}
+			// A Reader should not return (0, nil), but if it does,
+			// it should be treated as no-op (according to the
+			// Reader contract). So let's go on...
+			continue
+		}
+		bytesRead += newBytesRead
+		// Now present everything read so far to the varint decoder and
+		// see if a varint with a tag type can be decoded already.
+		tagNum, tagType, length = protowire.ConsumeTag(headerBuf[:bytesRead])
+	}
+	*num = tagNum
+	*typ = tagType
+	return bytesRead, nil
+}
+
+// *SensorMetadata.
+func readMessageLength(r io.Reader, m *uint64) (n int, err error) {
+	// Per AbstractParser#parsePartialDelimitedFrom with
+	// CodedInputStream#readRawVarint32.
+	var headerBuf [binary.MaxVarintLen32]byte
+	var bytesRead, varIntBytes int
+	var messageLength uint64
+	for varIntBytes <= 0 { // i.e. no varint has been decoded yet.
+		if bytesRead >= len(headerBuf) {
+			return bytesRead, errInvalidVarint
+		}
+		// We have to read byte by byte here to avoid reading more bytes
+		// than required. Each read byte is appended to what we have
+		// read before.
+		newBytesRead, err := r.Read(headerBuf[bytesRead : bytesRead+1])
+		if newBytesRead == 0 {
+			if err != nil {
+				return bytesRead, err
+			}
+			// A Reader should not return (0, nil), but if it does,
+			// it should be treated as no-op (according to the
+			// Reader contract). So let's go on...
+			continue
+		}
+		bytesRead += newBytesRead
+		// Now present everything read so far to the varint decoder and
+		// see if a varint can be decoded already.
+		messageLength, varIntBytes = protowire.ConsumeVarint(headerBuf[:bytesRead])
+	}
+	*m = messageLength
+	return bytesRead, nil
+}
+
+// BinaryReader reads v1.SensorMetadata from a binary capture file and returns
+// an io.Reader which will read the binary payload.
+// Returns an error if the file does not contain a valid binary capture file.
+func (f *CaptureFile) BinaryReader(md *v1.SensorMetadata) (io.Reader, error) {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+
+	if f.Metadata.Type != v1.DataType_DATA_TYPE_BINARY_SENSOR {
+		return nil, errors.New("expected CaptureFile to be of type BINARY")
+	}
+
+	// seek to the first 32 bit varint delimeter
+	if _, err := f.file.Seek(f.initialReadOffset, io.SeekStart); err != nil {
+		return nil, err
+	}
+	// remove delimiter (we know we will only have one for the binary image)
+	var topLevelMsgLen uint64
+	bytesRead, err := readMessageLength(f.file, &topLevelMsgLen)
+	if err != nil {
+		return nil, err
+	}
+	actualLen := f.size - (f.initialReadOffset + int64(bytesRead))
+	if int64(topLevelMsgLen) != actualLen {
+		return nil, fmt.Errorf("binary capture file payload described as having byte size %d, actual size: %d", topLevelMsgLen, actualLen)
+	}
+	// now we parse the *v1.SensorMetadata and the binary payload of a binary *v1.SensorData
+	var (
+		tagNum  protowire.Number
+		tagType protowire.Type
+		n       int
+	)
+	n, err = readTag(f.file, &tagNum, &tagType)
+	bytesRead += n
+	if err != nil {
+		return nil, err
+	}
+
+	if !tagNum.IsValid() {
+		return nil, fmt.Errorf("tagNum %d is invalid", tagNum)
+	}
+
+	// TODO: Techically it isn't guaranteed this value will be 1
+	// but this code currently assumes it will for simplicity
+	// see: https://protobuf.dev/programming-guides/encoding/#optional
+	if tagNum != 1 {
+		return nil, fmt.Errorf("expected tagNum to be 1 but instead it is %d", tagNum)
+	}
+
+	// expected LEN type https://protobuf.dev/programming-guides/encoding/#structure
+	// in this case an embedded message
+	if tagType != protowire.BytesType {
+		return nil, fmt.Errorf("expected tagNum 1 to have LEN wire type, instead it has wire type: %d", tagType)
+	}
+
+	var sensorMDLen uint64
+	n, err = readMessageLength(f.file, &sensorMDLen)
+	bytesRead += n
+	if err != nil {
+		return nil, err
+	}
+	sensorMDBytes := make([]byte, sensorMDLen)
+	n, err = io.ReadFull(f.file, sensorMDBytes)
+	bytesRead += n
+	if err != nil {
+		return nil, err
+	}
+	err = proto.Unmarshal(sensorMDBytes, md)
+	if err != nil {
+		return nil, err
+	}
+
+	var (
+		payloadTagNum  protowire.Number
+		payloadTagType protowire.Type
+	)
+	n, err = readTag(f.file, &payloadTagNum, &payloadTagType)
+	bytesRead += n
+	if err != nil {
+		return nil, err
+	}
+
+	if !payloadTagNum.IsValid() {
+		return nil, fmt.Errorf("payloadTagNum %d is invalid", payloadTagNum)
+	}
+
+	// should be 3 as that is the field number of v1.SensorData's binary oneof
+	if payloadTagNum != 3 {
+		return nil, fmt.Errorf("expected payloadTagNum to be 3 but was actually %d", payloadTagNum)
+	}
+
+	if payloadTagType != protowire.BytesType {
+		return nil, fmt.Errorf("expected payloadTagType LEN wire type, instead it has wire type: %d", payloadTagType)
+	}
+
+	var payloadLen uint64
+	n, err = readMessageLength(f.file, &payloadLen)
+	bytesRead += n
+	if err != nil {
+		return nil, err
+	}
+	actualPayloadLen := f.size - (f.initialReadOffset + int64(bytesRead))
+	if int64(payloadLen) != actualPayloadLen {
+		return nil, fmt.Errorf("capture file contains incomplete binary payload "+
+			"or data after the binary payload, payloadLength described in capture file: "+
+			"%d, actual payload length: %d, filesize: %d, bytesRead: %d",
+			payloadLen, actualPayloadLen, f.size, bytesRead)
+	}
+	return bufio.NewReader(f.file), nil
 }
 
 // ReadNext returns the next SensorData reading.
 func (f *CaptureFile) ReadNext() (*v1.SensorData, error) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
-
-	if err := f.writer.Flush(); err != nil {
-		return nil, err
-	}
 
 	if _, err := f.file.Seek(f.readOffset, io.SeekStart); err != nil {
 		return nil, err
@@ -137,30 +283,6 @@ func (f *CaptureFile) ReadNext() (*v1.SensorData, error) {
 	return &r, nil
 }
 
-// WriteNext writes the next SensorData reading.
-func (f *CaptureFile) WriteNext(data *v1.SensorData) error {
-	f.lock.Lock()
-	defer f.lock.Unlock()
-
-	if _, err := f.file.Seek(f.writeOffset, 0); err != nil {
-		return err
-	}
-	n, err := pbutil.WriteDelimited(f.writer, data)
-	if err != nil {
-		return err
-	}
-	f.size += int64(n)
-	f.writeOffset += int64(n)
-	return nil
-}
-
-// Flush flushes any buffered writes to disk.
-func (f *CaptureFile) Flush() error {
-	f.lock.Lock()
-	defer f.lock.Unlock()
-	return f.writer.Flush()
-}
-
 // Reset resets the read pointer of f.
 func (f *CaptureFile) Reset() {
 	f.lock.Lock()
@@ -170,8 +292,6 @@ func (f *CaptureFile) Reset() {
 
 // Size returns the size of the file.
 func (f *CaptureFile) Size() int64 {
-	f.lock.Lock()
-	defer f.lock.Unlock()
 	return f.size
 }
 
@@ -182,18 +302,6 @@ func (f *CaptureFile) GetPath() string {
 
 // Close closes the file.
 func (f *CaptureFile) Close() error {
-	f.lock.Lock()
-	defer f.lock.Unlock()
-	if err := f.writer.Flush(); err != nil {
-		return err
-	}
-
-	// Rename file to indicate that it is done being written.
-	withoutExt := strings.TrimSuffix(f.file.Name(), filepath.Ext(f.file.Name()))
-	newName := withoutExt + CompletedCaptureFileExt
-	if err := os.Rename(f.file.Name(), newName); err != nil {
-		return err
-	}
 	return f.file.Close()
 }
 
@@ -207,47 +315,9 @@ func (f *CaptureFile) Delete() error {
 	return os.Remove(f.GetPath())
 }
 
-// BuildCaptureMetadata builds a DataCaptureMetadata object and returns error if
-// additionalParams fails to convert to anypb map.
-func BuildCaptureMetadata(
-	compAPI resource.API,
-	compName string,
-	method string,
-	additionalParams map[string]string,
-	methodParams map[string]*anypb.Any,
-	tags []string,
-) *v1.DataCaptureMetadata {
-	dataType := getDataType(method)
-	return &v1.DataCaptureMetadata{
-		ComponentType:    compAPI.String(),
-		ComponentName:    compName,
-		MethodName:       method,
-		Type:             dataType,
-		MethodParameters: methodParams,
-		FileExtension:    GetFileExt(dataType, method, additionalParams),
-		Tags:             tags,
-	}
-}
-
 // IsDataCaptureFile returns whether or not f is a data capture file.
 func IsDataCaptureFile(f *os.File) bool {
-	return filepath.Ext(f.Name()) == CompletedCaptureFileExt || filepath.Ext(f.Name()) == InProgressCaptureFileExt
-}
-
-// Create a filename based on the current time.
-func getFileTimestampName() string {
-	// RFC3339Nano is a standard time format e.g. 2006-01-02T15:04:05Z07:00.
-	return time.Now().Format(time.RFC3339Nano)
-}
-
-// TODO DATA-246: Implement this in some more robust, programmatic way.
-func getDataType(methodName string) v1.DataType {
-	switch methodName {
-	case nextPointCloud, readImage, pointCloudMap, GetImages:
-		return v1.DataType_DATA_TYPE_BINARY_SENSOR
-	default:
-		return v1.DataType_DATA_TYPE_TABULAR_SENSOR
-	}
+	return filepath.Ext(f.Name()) == CompletedCaptureFileExt
 }
 
 // GetFileExt gets the file extension for a capture file.
@@ -283,6 +353,28 @@ func GetFileExt(dataType v1.DataType, methodName string, parameters map[string]s
 	return defaultFileExt
 }
 
+// FilePathWithReplacedReservedChars returns the filepath with substitutions
+// for reserved characters.
+func FilePathWithReplacedReservedChars(filepath string) string {
+	return strings.ReplaceAll(filepath, filePathReservedChars, "_")
+}
+
+// Create a filename based on the current time.
+func getFileTimestampName() string {
+	// RFC3339Nano is a standard time format e.g. 2006-01-02T15:04:05Z07:00.
+	return time.Now().Format(time.RFC3339Nano)
+}
+
+// TODO DATA-246: Implement this in some more robust, programmatic way.
+func getDataType(methodName string) v1.DataType {
+	switch methodName {
+	case nextPointCloud, readImage, pointCloudMap, GetImages:
+		return v1.DataType_DATA_TYPE_BINARY_SENSOR
+	default:
+		return v1.DataType_DATA_TYPE_TABULAR_SENSOR
+	}
+}
+
 // SensorDataFromCaptureFilePath returns all readings in the file at filePath.
 // NOTE: (Nick S) At time of writing this is only used in tests.
 func SensorDataFromCaptureFilePath(filePath string) ([]*v1.SensorData, error) {
@@ -291,7 +383,7 @@ func SensorDataFromCaptureFilePath(filePath string) ([]*v1.SensorData, error) {
 	if err != nil {
 		return nil, err
 	}
-	dcFile, err := ReadCaptureFile(f)
+	dcFile, err := NewCaptureFile(f)
 	if err != nil {
 		return nil, err
 	}
@@ -316,10 +408,4 @@ func SensorDataFromCaptureFile(f *CaptureFile) ([]*v1.SensorData, error) {
 		ret = append(ret, next)
 	}
 	return ret, nil
-}
-
-// CaptureFilePathWithReplacedReservedChars returns the filepath with substitutions
-// for reserved characters.
-func CaptureFilePathWithReplacedReservedChars(filepath string) string {
-	return strings.ReplaceAll(filepath, filePathReservedChars, "_")
 }
