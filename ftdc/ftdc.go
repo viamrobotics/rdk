@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"sync"
 	"time"
 
@@ -151,7 +152,7 @@ func (ftdc *FTDC) Remove(name string) {
 	for idx, statser := range ftdc.statsers {
 		if statser.name == name {
 			ftdc.logger.Debugw("Removed statser", "name", name, "type", fmt.Sprintf("%T", statser.statser))
-			ftdc.statsers = append(ftdc.statsers[0:idx], ftdc.statsers[idx+1:len(ftdc.statsers)]...)
+			ftdc.statsers = slices.Delete(ftdc.statsers, idx, idx+1)
 			ftdc.inputGenerationID++
 			return
 		}
