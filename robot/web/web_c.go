@@ -5,6 +5,7 @@ package web
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"net/http"
 	"slices"
 	"sync"
@@ -82,49 +83,49 @@ func (svc *webService) streamInitialized() bool {
 
 func (svc *webService) addNewStreams(ctx context.Context) error {
 	if !svc.streamInitialized() {
-		return nil
+		return fmt.Errorf("stream server not initialized")
 	}
 	svc.refreshVideoSources()
 	svc.refreshAudioSources()
-
-	// Initialize streams for video sources
 	for name := range svc.videoSources {
 		config := gostream.StreamConfig{
 			Name: name,
 		}
 		config.VideoEncoderFactory = svc.opts.streamConfig.VideoEncoderFactory
-		stream, err := svc.streamServer.Server.NewStream(config)
-		// Skip if stream is already registered, otherwise raise any other errors
-		var registeredError *webstream.StreamAlreadyRegisteredError
-		if errors.As(err, &registeredError) {
-			continue
-		} else if err != nil {
+		stream, err := svc.createStream(config, name)
+		if err != nil {
 			return err
-		}
-		if !svc.streamServer.HasStreams {
-			svc.streamServer.HasStreams = true
 		}
 		svc.startVideoStream(ctx, svc.videoSources[name], stream)
 	}
-
-	// Initialize streams for audio sources
 	for name := range svc.audioSources {
 		config := gostream.StreamConfig{
 			Name: name,
 		}
 		config.AudioEncoderFactory = svc.opts.streamConfig.AudioEncoderFactory
-		stream, err := svc.streamServer.Server.NewStream(config)
-		// Skip if stream is already registered, otherwise raise any other errors
-		var registeredError *webstream.StreamAlreadyRegisteredError
-		if errors.As(err, &registeredError) {
-			continue
-		} else if err != nil {
+		stream, err := svc.createStream(config, name)
+		if err != nil {
 			return err
 		}
 		svc.startAudioStream(ctx, svc.audioSources[name], stream)
 	}
-
 	return nil
+}
+
+func (svc *webService) createStream(config gostream.StreamConfig, name string) (gostream.Stream, error) {
+	stream, err := svc.streamServer.Server.NewStream(config)
+	// Skip if stream is already registered, otherwise raise any other errors
+	var registeredError *webstream.StreamAlreadyRegisteredError
+	if errors.As(err, &registeredError) {
+		svc.logger.Debugw("stream already registered", "name", name)
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+	if !svc.streamServer.HasStreams {
+		svc.streamServer.HasStreams = true
+	}
+	return stream, nil
 }
 
 func (svc *webService) makeStreamServer() (*StreamServer, error) {
