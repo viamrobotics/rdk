@@ -3708,6 +3708,7 @@ func TestModuleLogging(t *testing.T) {
 
 	ctx := context.Background()
 	logger, observer, registry := logging.NewObservedTestLoggerWithRegistry(t, "rdk")
+	logger.SetLevel(logging.INFO)
 	helperModel := resource.NewModel("rdk", "test", "helper")
 	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
 
