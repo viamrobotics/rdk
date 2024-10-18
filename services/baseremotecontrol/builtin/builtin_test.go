@@ -35,9 +35,10 @@ func TestBaseRemoteControl(t *testing.T) {
 	cfg.ControlModeName = "fail"
 	_, err = cfg.Validate("")
 	test.That(t, err, test.ShouldBeError,
-		errors.New(
-			//nolint: lll
-			`Error validating. Path: "" Error: Control mode 'fail' is not in [joystickControl triggerSpeedControl buttonControl arrowControl droneControl]`))
+		errors.Errorf(
+			`Error validating. Path: "" Error: Control mode '%s' is not in %v`,
+			cfg.ControlModeName,
+			modes))
 
 	fakeController := &inject.InputController{}
 	fakeBase := &fakebase.Base{}

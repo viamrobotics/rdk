@@ -32,6 +32,8 @@ const (
 	droneControl
 )
 
+var modes = []string{"joystickControl", "triggerSpeedControl", "buttonControl", "arrowControl", "droneControl"}
+
 func init() {
 	resource.RegisterService(baseremotecontrol.API, resource.DefaultServiceModel, resource.Registration[baseremotecontrol.Service, *Config]{
 		Constructor: NewBuiltIn,
@@ -64,8 +66,6 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	deps = append(deps, conf.BaseName)
 
 	if conf.ControlModeName != "" {
-		modes := []string{"joystickControl", "triggerSpeedControl", "buttonControl", "arrowControl", "droneControl"}
-
 		configModeExists := false
 		for _, mode := range modes {
 			if mode == conf.ControlModeName {
