@@ -68,7 +68,8 @@ func (c *viamClient) dataExportAction(cCtx *cli.Context) error {
 
 	switch cCtx.String(dataFlagDataType) {
 	case dataTypeBinary:
-		if err := c.binaryData(cCtx.Path(dataFlagDestination), filter, cCtx.Uint(dataFlagParallelDownloads)); err != nil {
+		if err := c.binaryData(cCtx.Path(dataFlagDestination), filter, cCtx.Uint(dataFlagParallelDownloads),
+			cCtx.Uint(dataFlagTimeout)); err != nil {
 			return err
 		}
 	case dataTypeTabular:
@@ -264,14 +265,14 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 }
 
 // BinaryData downloads binary data matching filter to dst.
-func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownloads uint) error {
+func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownloads, timeout uint) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
 
 	return c.performActionOnBinaryDataFromFilter(
 		func(id *datapb.BinaryID) error {
-			return c.downloadBinary(dst, id)
+			return c.downloadBinary(dst, id, timeout)
 		},
 		filter, parallelDownloads,
 		func(i int32) {
@@ -295,17 +296,12 @@ func (c *viamClient) performActionOnBinaryDataFromFilter(actionOnBinaryData func
 	defer cancel()
 	var wg sync.WaitGroup
 
-	// In one routine, get all IDs matching the filter and pass them into ids.
+	// In one routine, get all IDs matching the filter and pass them into the ids channel.
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		// If limit is too high the request can time out, so limit each call to a maximum value of 100.
-		var limit uint
-		if parallelActions > maxLimit {
-			limit = maxLimit
-		} else {
-			limit = parallelActions
-		}
+		limit := min(parallelActions, maxLimit)
 		if err := getMatchingBinaryIDs(ctx, c.dataClient, filter, ids, limit); err != nil {
 			errs <- err
 			cancel()
@@ -372,7 +368,7 @@ func (c *viamClient) performActionOnBinaryDataFromFilter(actionOnBinaryData func
 	return nil
 }
 
-// getMatchingIDs queries client for all BinaryData matching filter, and passes each of their ids into ids.
+// getMatchingBinaryIDs queries client for all BinaryData matching filter, and passes each of their ids into ids.
 func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, filter *datapb.Filter,
 	ids chan *datapb.BinaryID, limit uint,
 ) error {
@@ -412,7 +408,7 @@ func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, 
 	}
 }
 
-func (c *viamClient) downloadBinary(dst string, id *datapb.BinaryID) error {
+func (c *viamClient) downloadBinary(dst string, id *datapb.BinaryID, timeout uint) error {
 	debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Attempting to download binary file %s", id.FileId)
 
 	var resp *datapb.BinaryDataByIDsResponse
@@ -479,7 +475,7 @@ func (c *viamClient) downloadBinary(dst string, id *datapb.BinaryID) error {
 		return err
 	}
 
-	var bin []byte
+	var r io.ReadCloser
 	if largeFile {
 		debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Attempting file %s as a large file download", id.FileId)
 		// Make request to the URI for large files since we exceed the message limit for gRPC
@@ -500,9 +496,11 @@ func (c *viamClient) downloadBinary(dst string, id *datapb.BinaryID) error {
 			req.Header.Add("key", apiKey.KeyCrypto)
 		}
 
+		httpClient := &http.Client{Timeout: time.Duration(timeout) * time.Second}
+
 		var res *http.Response
 		for count := 0; count < maxRetryCount; count++ {
-			res, err = c.authFlow.httpClient.Do(req)
+			res, err = httpClient.Do(req)
 
 			if err == nil && res.StatusCode == http.StatusOK {
 				debugf(c.c.App.Writer, c.c.Bool(debugFlag),
@@ -524,18 +522,12 @@ func (c *viamClient) downloadBinary(dst string, id *datapb.BinaryID) error {
 			utils.UncheckedError(res.Body.Close())
 		}()
 
-		bin, err = io.ReadAll(res.Body)
-		if err != nil {
-			debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Failed downloading large file %s, error occurred while reading: %s", id.FileId, err)
-			return errors.Wrapf(err, serverErrorMessage)
-		}
+		r = res.Body
 	} else {
 		// If the binary has not already been populated as large file download,
 		// get the binary data from the response.
-		bin = datum.GetBinary()
+		r = io.NopCloser(bytes.NewReader(datum.GetBinary()))
 	}
-
-	r := io.NopCloser(bytes.NewReader(bin))
 
 	dataPath := filepath.Join(dst, dataDir, fileName)
 	ext := datum.GetMetadata().GetFileExt()
