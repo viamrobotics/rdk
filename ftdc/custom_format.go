@@ -129,6 +129,52 @@ func isNumeric(kind reflect.Kind) bool {
 		kind == reflect.Float32 || kind == reflect.Float64
 }
 
+func flattenStruct(item reflect.Value) ([]float32, error) {
+	flattenPtr := func(inp reflect.Value) reflect.Value {
+		for inp.Kind() == reflect.Pointer {
+			inp = inp.Elem()
+		}
+		return inp
+	}
+
+	rVal := flattenPtr(item)
+
+	var numbers []float32
+	// Use reflection to walk the member fields of an individual set of metric readings. We rely
+	// on reflection always walking fields in the same order.
+	//
+	// Note, while reflection in this way isn't intrinsically expensive, it is making more small
+	// function calls and allocations than some more raw alternatives. For example, we can have
+	// the "schema" keep a (field, offset, type) index and we instead access get a single unsafe
+	// pointer to each structure and walk out index to pull out the relevant numbers.
+	for memberIdx := 0; memberIdx < rVal.NumField(); memberIdx++ {
+		rField := flattenPtr(rVal.Field(memberIdx))
+		switch {
+		case rField.CanUint():
+			numbers = append(numbers, float32(rField.Uint()))
+		case rField.CanInt():
+			numbers = append(numbers, float32(rField.Int()))
+		case rField.CanFloat():
+			numbers = append(numbers, float32(rField.Float()))
+		case rField.Kind() == reflect.Struct:
+			subNumbers, err := flattenStruct(rField)
+			if err != nil {
+				return nil, err
+			}
+			numbers = append(numbers, subNumbers...)
+		default:
+			// Embedded structs? Just grab a global logger for now. A second pass will better
+			// validate inputs/remove limitations. And thread through a proper logger if still
+			// necessary.
+			logging.Global().Warn("Bad number type. Type:", rField.Type())
+			// Ignore via writing a 0 and continue.
+			numbers = append(numbers, 0)
+		}
+	}
+
+	return numbers, nil
+}
+
 // getFieldsForStruct returns the (flattened) list of strings for a metric structure. For example the
 // following type:
 //
@@ -234,33 +280,12 @@ func flatten(datum datum, schema *schema) []float32 {
 			return nil
 		}
 
-		rVal := reflect.ValueOf(stats)
-		if rVal.Kind() == reflect.Pointer {
-			rVal = rVal.Elem()
+		numbers, err := flattenStruct(reflect.ValueOf(stats))
+		if err != nil {
+			panic(err)
 		}
-
-		// Use reflection to walk the member fields of an individual set of metric readings. We rely
-		// on reflection always walking fields in the same order.
-		//
-		// Note, while reflection in this way isn't intrinsically expensive, it is making more small
-		// function calls and allocations than some more raw alternatives. For example, we can have
-		// the "schema" keep a (field, offset, type) index and we instead access get a single unsafe
-		// pointer to each structure and walk out index to pull out the relevant numbers.
-		for memberIdx := 0; memberIdx < rVal.NumField(); memberIdx++ {
-			rField := rVal.Field(memberIdx)
-			switch {
-			case rField.CanInt():
-				ret = append(ret, float32(rField.Int()))
-			case rField.CanFloat():
-				ret = append(ret, float32(rField.Float()))
-			default:
-				// Embedded structs? Just grab a global logger for now. A second pass will better
-				// validate inputs/remove limitations. And thread through a proper logger if still
-				// necessary.
-				logging.Global().Warn("Bad number type. Type:", rField.Type())
-				// Ignore via writing a 0 and continue.
-				ret = append(ret, 0)
-			}
+		for _, number := range numbers {
+			ret = append(ret, number)
 		}
 	}
 

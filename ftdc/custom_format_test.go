@@ -177,8 +177,82 @@ type Nested struct {
 }
 
 func TestNestedReflection(t *testing.T) {
-	fields, err := getFieldsForStruct(reflect.TypeOf(&TopLevel{100, Nested{200, struct{ Z uint8 }{255}}}))
+	val := &TopLevel{100, Nested{200, struct{ Z uint8 }{255}}}
+	fields, err := getFieldsForStruct(reflect.TypeOf(val))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fields, test.ShouldResemble,
 		[]string{"X", "Nested.Y", "Nested.Deeper.Z"})
+}
+
+type Complex struct {
+	F1 float32
+	F2 struct {
+		F3 float32
+		F4 float32
+	}
+	F5 struct {
+		F6 float32
+	}
+	F7  float32
+	F8  struct{}
+	F9  float32
+	F10 struct {
+		F11 float32
+		F12 float32
+		F13 float32
+	}
+	F14 struct {
+		F15 struct {
+			F16 struct {
+				F17 float32
+			}
+		}
+	}
+}
+
+func TestNestedReflectionParity(t *testing.T) {
+	complex := Complex{
+		F1: 1,
+		F2: struct {
+			F3 float32
+			F4 float32
+		}{3, 4},
+		F5: struct {
+			F6 float32
+		}{6},
+		F7: 7,
+		F8: struct{}{},
+		F9: 9,
+		F10: struct {
+			F11 float32
+			F12 float32
+			F13 float32
+		}{11, 12, 13},
+		F14: struct {
+			F15 struct {
+				F16 struct {
+					F17 float32
+				}
+			}
+		}{
+			F15: struct {
+				F16 struct {
+					F17 float32
+				}
+			}{
+				F16: struct {
+					F17 float32
+				}{17},
+			},
+		},
+	}
+
+	fields, err := getFieldsForStruct(reflect.TypeOf(complex))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fields, test.ShouldResemble,
+		[]string{"F1", "F2.F3", "F2.F4", "F5.F6", "F7", "F9", "F10.F11", "F10.F12", "F10.F13", "F14.F15.F16.F17"})
+	values, err := flattenStruct(reflect.ValueOf(complex))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, values, test.ShouldResemble,
+		[]float32{1, 3, 4, 6, 7, 9, 11, 12, 13, 17})
 }
