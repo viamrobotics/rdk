@@ -86,6 +86,12 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 	}
 	svc.refreshVideoSources()
 	svc.refreshAudioSources()
+	if svc.opts.streamConfig == nil {
+		if len(svc.videoSources) != 0 || len(svc.audioSources) != 0 {
+			svc.logger.Debug("not starting streams due to no stream config being set")
+		}
+		return nil
+	}
 	for name := range svc.videoSources {
 		config := gostream.StreamConfig{
 			Name: name,
