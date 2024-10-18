@@ -91,7 +91,7 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 			Name: name,
 		}
 		config.VideoEncoderFactory = svc.opts.streamConfig.VideoEncoderFactory
-		// TODO(RSDK): Add handler for target framerate
+		// TODO(RSDK-9079) Add reliable framerate fetcher for stream videosources
 		stream, err := svc.createStream(config, name)
 		if err != nil {
 			return err
