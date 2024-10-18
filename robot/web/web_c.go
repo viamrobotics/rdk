@@ -5,7 +5,6 @@ package web
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"net/http"
 	"slices"
 	"sync"
@@ -83,7 +82,7 @@ func (svc *webService) streamInitialized() bool {
 
 func (svc *webService) addNewStreams(ctx context.Context) error {
 	if !svc.streamInitialized() {
-		return fmt.Errorf("stream server not initialized")
+		errors.New("stream server not initialized")
 	}
 	svc.refreshVideoSources()
 	svc.refreshAudioSources()
