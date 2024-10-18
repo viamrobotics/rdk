@@ -11,12 +11,11 @@ var (
 
 func init() {
 	resource.Register{{ .ResourceType}}({{.ResourceSubtype}}.API, {{.ModelPascal}},
-		resource.Registration[{{.ResourceSubtype}}.{{if eq .ResourceType "component"}}{{.ResourceSubtypePascal}}{{else}}Service{{end}}, *Config]{
+		resource.Registration[{{if eq .ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .ResourceType "component"}}{{.ResourceSubtypePascal}}{{else}}Service{{end}}{{end}}, *Config]{
 			Constructor: new{{.ModulePascal}}{{.ModelPascal}},
 		},
 	)
 }
-
 
 type Config struct {
 	// Put config attributes here
@@ -54,7 +53,7 @@ type {{.ModuleCamel}}{{.ModelPascal}} struct {
 
 }
 
-func new{{.ModulePascal}}{{.ModelPascal}}(ctx context.Context, deps resource.Dependencies, rawConf resource.Config, logger logging.Logger) ({{.ResourceSubtype}}.{{if eq .ResourceType "component"}}{{.ResourceSubtypePascal}}{{else}}Service{{end}}, error) {
+func new{{.ModulePascal}}{{.ModelPascal}}(ctx context.Context, deps resource.Dependencies, rawConf resource.Config, logger logging.Logger) ({{if eq .ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .ResourceType "component"}}{{.ResourceSubtypePascal}}{{else}}Service{{end}}{{end}}, error) {
 	conf, err := resource.NativeConfig[*Config](rawConf)
 	if err != nil {
 		return nil, err
@@ -81,7 +80,6 @@ func (s *{{.ModuleCamel}}{{.ModelPascal}}) Reconfigure(ctx context.Context, deps
 	// Put reconfigure code here
 	return nil
 }
-
 
 func (s *{{.ModuleCamel}}{{.ModelPascal}}) Close(context.Context) error {
 	return nil
