@@ -1095,7 +1095,7 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 
 	logger.Info("executing first run script")
 
-	// TODO: this is normally set on a module but it seems like we can safely get it on demand.
+	// This value is normally set on a field on the [module] struct but it seems like we can safely get it on demand.
 	var dataDir string
 	if mgr.moduleDataParentDir != "" {
 		var err error
@@ -1112,8 +1112,7 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	cmdCtx, cancel := context.WithTimeout(ctx, defaultFirstRunTimeout)
 	defer cancel()
 
-	// Yes, we are deliberating executing arbitrary user code here.
-	//nolint:gosec
+	//nolint:gosec // Yes, we are deliberating executing arbitrary user code here.
 	cmd := exec.CommandContext(cmdCtx, firstRunPath)
 	// TODO: set current env?
 	// cmd.Env = os.Environ()
