@@ -51,6 +51,7 @@ type PlanRequest struct {
 	WorldState         *frame.WorldState
 	BoundingRegions    []spatialmath.Geometry
 	Constraints        *Constraints
+	GoalThreshold      float64
 	Options            map[string]interface{}
 }
 
@@ -106,6 +107,10 @@ func (req *PlanRequest) validatePlanRequest() error {
 		if !destinationBoundingRegionCheck(&ik.State{}) {
 			return errors.New("destination was not within the provided bounding regions")
 		}
+	}
+
+	if req.GoalThreshold == 0 {
+		req.GoalThreshold = 0.1
 	}
 
 	frameDOF := len(req.Frame.DoF())
