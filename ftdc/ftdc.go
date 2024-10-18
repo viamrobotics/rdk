@@ -229,6 +229,8 @@ func (ftdc *FTDC) writeDatum(datum datum) error {
 		if schemaErr != nil {
 			ftdc.logger.Warnw("Could not generate schema for statser",
 				"statser", schemaErr.statserName, "err", schemaErr.err)
+			// We choose to remove the misbehaving statser such that subsequent datums will be
+			// well-formed.
 			ftdc.conditionalRemoveStatser(schemaErr.statserName, datum.generationID)
 			return schemaErr
 		}
