@@ -166,7 +166,7 @@ func (ftdc *FTDC) Remove(name string) {
 }
 
 // conditionalRemoveStatser first checks the generation matches before removing the `name` Statser.
-func (ftdc *FTDC) conditionalRemoveStatser(name string, generationId int) {
+func (ftdc *FTDC) conditionalRemoveStatser(name string, generationID int) {
 	ftdc.mu.Lock()
 	defer ftdc.mu.Unlock()
 
@@ -177,9 +177,9 @@ func (ftdc *FTDC) conditionalRemoveStatser(name string, generationId int) {
 	//
 	// In the (honestly, more likely) event, the `Statser` is still bad, we will eventually succeed
 	// in removing it. As later `Datum` objects to write will have an updated `generationId`.
-	if generationId != ftdc.inputGenerationID {
+	if generationID != ftdc.inputGenerationID {
 		ftdc.logger.Debugw("Not removing statser due to concurrent operation",
-			"datumGenerationId", generationId, "ftdcGenerationId", ftdc.inputGenerationID)
+			"datumGenerationId", generationID, "ftdcGenerationId", ftdc.inputGenerationID)
 		return
 	}
 

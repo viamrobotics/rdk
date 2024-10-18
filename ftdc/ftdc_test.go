@@ -3,7 +3,6 @@ package ftdc
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"testing"
 
 	"go.viam.com/test"
@@ -221,5 +220,14 @@ func TestNestedStructs(t *testing.T) {
 
 	datums, err := parseWithLogger(ftdcData, logger)
 	test.That(t, err, test.ShouldBeNil)
-	fmt.Println("Datums:", datums)
+	test.That(t, len(datums), test.ShouldEqual, 2)
+	test.That(t, len(datums[0].Data), test.ShouldEqual, 1)
+	test.That(t, datums[0].Data["nested"], test.ShouldResemble, map[string]float32{
+		"X":   0,
+		"Y.Z": 0,
+	})
+	test.That(t, datums[1].Data["nested"], test.ShouldResemble, map[string]float32{
+		"X":   1,
+		"Y.Z": 2,
+	})
 }

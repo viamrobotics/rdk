@@ -121,7 +121,12 @@ func writeDatum(time int64, prev, curr []float32, output io.Writer) {
 var notStructError = errors.New("Stats object is not a struct")
 
 func isNumeric(kind reflect.Kind) bool {
-	return kind == reflect.Bool || kind == reflect.Int || kind == reflect.Int8 || kind == reflect.Int16 || kind == reflect.Int32 || kind == reflect.Int64 || kind == reflect.Uint || kind == reflect.Uint8 || kind == reflect.Uint16 || kind == reflect.Uint32 || kind == reflect.Uint64 || kind == reflect.Float32 || kind == reflect.Float64
+	return kind == reflect.Bool ||
+		kind == reflect.Int ||
+		kind == reflect.Int8 || kind == reflect.Int16 || kind == reflect.Int32 || kind == reflect.Int64 ||
+		kind == reflect.Uint ||
+		kind == reflect.Uint8 || kind == reflect.Uint16 || kind == reflect.Uint32 || kind == reflect.Uint64 ||
+		kind == reflect.Float32 || kind == reflect.Float64
 }
 
 // getFieldsForStruct returns the (flattened) list of strings for a metric structure. For example the
