@@ -72,7 +72,7 @@ func TestCombinedCPUs(t *testing.T) {
 	test.That(t, len(ik.solvers), test.ShouldEqual, 1)
 }
 
-func solveTest(ctx context.Context, solver InverseKinematics, solveFunc func([]float64)float64, seed []float64) ([][]float64, error) {
+func solveTest(ctx context.Context, solver InverseKinematics, solveFunc func([]float64) float64, seed []float64) ([][]float64, error) {
 	solutionGen := make(chan *Solution)
 	ikErr := make(chan error)
 	ctxWithCancel, cancel := context.WithCancel(ctx)

@@ -4,7 +4,6 @@ package ik
 
 import (
 	"context"
-	"math"
 	"math/rand"
 	"sync"
 
@@ -18,9 +17,8 @@ import (
 )
 
 var (
-	errNoSolve     = errors.New("kinematics could not solve for position")
-	errBadBounds   = errors.New("cannot set upper or lower bounds for nlopt, slice is empty. Are you trying to move a static frame?")
-	errTooManyVals = errors.New("passed in too many joint positions")
+	errNoSolve   = errors.New("kinematics could not solve for position")
+	errBadBounds = errors.New("cannot set upper or lower bounds for nlopt, slice is empty. Are you trying to move a static frame?")
 )
 
 const (
@@ -32,7 +30,6 @@ const (
 // NloptIK TODO.
 type NloptIK struct {
 	id            int
-	minFunc       func([]float64) float64
 	lowerBound    []float64
 	upperBound    []float64
 	maxIterations int
@@ -94,10 +91,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	var err error
 
 	// Determine optimal jump values; start with default, and if gradient is zero, increase to 1 to try to avoid underflow.
-	jump, err := ik.calcJump(defaultJump, seed, minFunc)
-	if err != nil {
-		return err
-	}
+	jump := ik.calcJump(defaultJump, seed, minFunc)
 
 	iterations := 0
 	solutionsFound := 0
@@ -223,30 +217,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	return multierr.Combine(err, errNoSolve)
 }
 
-// updateBounds will set the allowable maximum/minimum joint angles to disincentivise large swings before small swings
-// have been tried.
-func (ik *NloptIK) updateBounds(seed []float64, tries int, opt *nlopt.NLopt) error {
-	rangeStep := 0.1
-	newLower := make([]float64, len(ik.lowerBound))
-	newUpper := make([]float64, len(ik.upperBound))
-
-	for i, pos := range seed {
-		newLower[i] = math.Max(ik.lowerBound[i], pos-(rangeStep*float64(tries*(i+1))))
-		newUpper[i] = math.Min(ik.upperBound[i], pos+(rangeStep*float64(tries*(i+1))))
-
-		// Allow full freedom of movement for the two most distal joints
-		if i > len(seed)-2 {
-			newLower[i] = ik.lowerBound[i]
-			newUpper[i] = ik.upperBound[i]
-		}
-	}
-	return multierr.Combine(
-		opt.SetLowerBounds(newLower),
-		opt.SetUpperBounds(newUpper),
-	)
-}
-
-func (ik *NloptIK) calcJump(testJump float64, seed []float64, minFunc func([]float64) float64) ([]float64, error) {
+func (ik *NloptIK) calcJump(testJump float64, seed []float64, minFunc func([]float64) float64) []float64 {
 	jump := make([]float64, 0, len(seed))
 	seedDist := minFunc(seed)
 	for i, testVal := range seed {
@@ -273,5 +244,5 @@ func (ik *NloptIK) calcJump(testJump float64, seed []float64, minFunc func([]flo
 			jump = append(jump, testJump)
 		}
 	}
-	return jump, nil
+	return jump
 }

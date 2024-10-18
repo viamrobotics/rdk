@@ -35,43 +35,6 @@ type Solution struct {
 	Exact         bool
 }
 
-type Goal struct {
-	component string
-	goal referenceframe.PoseInFrame
-}
-
-func NewGoal(component string, goal referenceframe.PoseInFrame) Goal {
-	return Goal{component, goal}
-}
-
-type linearizedFrameSystem struct {
-	fs referenceframe.FrameSystem
-	
-	goals []Goal
-	frames []referenceframe.Frame
-}
-
-// Transform returns the pose between the two frames of this solver for a given set of inputs.
-//~ func (lfs *linearizedFrameSystem) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
-	//~ if len(inputs) != len(lfs.DoF()) {
-		//~ return nil, referenceframe.NewIncorrectInputLengthError(len(inputs), len(sf.DoF()))
-	//~ }
-	//~ pf := referenceframe.NewPoseInFrame(sf.solveFrameName, spatial.NewZeroPose())
-	//~ solveName := sf.goalFrameName
-	//~ if sf.worldRooted {
-		//~ solveName = referenceframe.World
-	//~ }
-	//~ tf, err := sf.fss.Transform(sf.sliceToMap(inputs), pf, solveName)
-	//~ if err != nil {
-		//~ return nil, err
-	//~ }
-	//~ return tf.(*referenceframe.PoseInFrame).Pose(), nil
-//~ }
-
-// 
-//~ func (lfs *linearizedFrameSystem) DoF() () {
-
-
 // generateRandomPositions generates a random set of positions within the limits of this solver.
 func generateRandomPositions(randSeed *rand.Rand, lowerBound, upperBound []float64) []float64 {
 	pos := make([]float64, len(lowerBound))
@@ -103,6 +66,7 @@ func limitsToArrays(limits []referenceframe.Limit) ([]float64, []float64) {
 	return min, max
 }
 
+// NewMetricMinFunc takes a metric and a frame, and converts to a function able to be minimized with Solve().
 func NewMetricMinFunc(metric StateMetric, frame referenceframe.Frame) func([]float64) float64 {
 	return func(x []float64) float64 {
 		mInput := &State{Frame: frame}
@@ -118,16 +82,16 @@ func NewMetricMinFunc(metric StateMetric, frame referenceframe.Frame) func([]flo
 	}
 }
 
-// SolveMetric is a wrapper for Metrics to be used easily with Solve for IK solvers
+// SolveMetric is a wrapper for Metrics to be used easily with Solve for IK solvers.
 func SolveMetric(
+	ctx context.Context,
 	ik InverseKinematics,
 	frame referenceframe.Frame,
-	ctx context.Context,
 	solutionChan chan<- *Solution,
-	seed []float64,
+	seed []referenceframe.Input,
 	solveMetric StateMetric,
 	rseed int,
 ) error {
 	minFunc := NewMetricMinFunc(solveMetric, frame)
-	return ik.Solve(ctx, solutionChan, seed, minFunc, rseed)
+	return ik.Solve(ctx, solutionChan, referenceframe.InputsToFloats(seed), minFunc, rseed)
 }
