@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"go.viam.com/rdk/ftdc"
 	"go.viam.com/rdk/logging"
 )
 
@@ -568,6 +569,36 @@ func (w *GraphNode) resourceStatus() Status {
 		Revision:    w.revision,
 		Error:       err,
 	}
+}
+
+type graphNodeStats struct {
+	State    int
+	ResStats any
+}
+
+func (w *GraphNode) Stats() any {
+	ret := graphNodeStats{}
+
+	res, err := w.Resource()
+	switch err {
+	case nil:
+		ret.State = 0
+	case errNotInitalized:
+		ret.State = 1
+	case errPendingRemoval:
+		ret.State = 2
+	default:
+		// `w.lastErr != nil`
+		ret.State = 3
+	}
+
+	if statser, isStatser := res.(ftdc.Statser); isStatser && err == nil {
+		ret.ResStats = statser.Stats()
+	} else {
+		ret.ResStats = struct{}{}
+	}
+
+	return ret
 }
 
 // Status encapsulates a resource name along with state transition metadata.

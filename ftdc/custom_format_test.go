@@ -60,7 +60,7 @@ func TestCustomFormatRoundtripBasic(t *testing.T) {
 	datumV2.Data["s2"].(*Basic).Foo = 3
 	ftdc.writeDatum(datumV2)
 
-	parsed, err := parse(serializedData)
+	parsed, err := Parse(serializedData)
 	test.That(t, err, test.ShouldBeNil)
 	logger.Info("Parsed data:", parsed)
 
@@ -119,7 +119,7 @@ func TestCustomFormatRoundtripRich(t *testing.T) {
 		ftdc.writeDatum(datumV2)
 	}
 
-	parsed, err := parse(serializedData)
+	parsed, err := Parse(serializedData)
 	test.That(t, err, test.ShouldBeNil)
 	logger.Info("Parsed data:", parsed)
 
@@ -153,12 +153,12 @@ func TestCustomFormatRoundtripRich(t *testing.T) {
 }
 
 func TestReflection(t *testing.T) {
-	fields, err := getFieldsForStruct(reflect.TypeOf(&Basic{100}))
+	fields, err := getFieldsForStruct(reflect.ValueOf(&Basic{100}))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fields, test.ShouldResemble,
 		[]string{"Foo"})
 
-	fields, err = getFieldsForStruct(reflect.TypeOf(Statser1{100, 0, 44.4}))
+	fields, err = getFieldsForStruct(reflect.ValueOf(Statser1{100, 0, 44.4}))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fields, test.ShouldResemble,
 		[]string{"Metric1", "Metric2", "Metric3"})
@@ -178,7 +178,7 @@ type Nested struct {
 
 func TestNestedReflection(t *testing.T) {
 	val := &TopLevel{100, Nested{200, struct{ Z uint8 }{255}}}
-	fields, err := getFieldsForStruct(reflect.TypeOf(val))
+	fields, err := getFieldsForStruct(reflect.ValueOf(val))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fields, test.ShouldResemble,
 		[]string{"X", "Nested.Y", "Nested.Deeper.Z"})
@@ -255,7 +255,7 @@ func TestNestedReflectionParity(t *testing.T) {
 		},
 	}
 
-	fields, err := getFieldsForStruct(reflect.TypeOf(complexObj))
+	fields, err := getFieldsForStruct(reflect.ValueOf(complexObj))
 	test.That(t, err, test.ShouldBeNil)
 	// There will be one "field" for each number in the above `Complex` structure.
 	test.That(t, fields, test.ShouldResemble,
@@ -265,4 +265,31 @@ func TestNestedReflectionParity(t *testing.T) {
 	// For convenience, the number values match the field name.
 	test.That(t, values, test.ShouldResemble,
 		[]float32{1, 3, 4, 6, 7, 9, 11, 12, 13, 17})
+}
+
+type nestsAny struct {
+	Number float32
+	Struct any
+}
+
+func TestNestedAny(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	stat := nestsAny{10, struct{ X int }{5}}
+	fields, err := getFieldsForStruct(reflect.ValueOf(stat))
+	logger.Info("Fields:", fields, "Err:", err)
+	// ["Number", "Struct.X"]
+
+	values, err := flattenStruct(reflect.ValueOf(stat))
+	logger.Info("Values:", values, "Err:", err)
+	// [10, 5]
+
+	stat = nestsAny{10, nil}
+	fields, err = getFieldsForStruct(reflect.ValueOf(stat))
+	logger.Info("Fields:", fields, "Err:", err)
+	// ["Number"]
+
+	values, err = flattenStruct(reflect.ValueOf(stat))
+	logger.Info("Values:", values, "Err:", err)
+	// [10]
 }

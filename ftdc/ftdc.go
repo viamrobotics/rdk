@@ -2,6 +2,7 @@ package ftdc
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/utils"
 )
 
 // datum combines the `Stats` call to all registered `Statser`s at some "time". The hierarchy of
@@ -94,6 +96,10 @@ type FTDC struct {
 	// detailed description.
 	prevFlatData []float32
 
+	readStatsWorker  *utils.StoppableWorkers
+	datumCh          chan datum
+	outputWorkerDone chan struct{}
+
 	// Fields used to manage where serialized FTDC bytes are written.
 	//
 	// When debug is true, the `outputWriter` will "tee" data to both the `currOutputFile` and
@@ -109,16 +115,18 @@ type FTDC struct {
 
 // New creates a new *FTDC.
 func New(logger logging.Logger) *FTDC {
-	return &FTDC{
-		logger: logger,
-	}
+	return NewWithWriter(nil, logger)
 }
 
 // NewWithWriter creates a new *FTDC that outputs bytes to the specified writer.
 func NewWithWriter(writer io.Writer, logger logging.Logger) *FTDC {
 	return &FTDC{
-		logger:       logger,
-		outputWriter: writer,
+		// Allow for some wiggle before blocking producers.
+		datumCh:          make(chan datum, 20),
+		outputWorkerDone: make(chan struct{}),
+		logger:           logger,
+		outputWriter:     writer,
+		debug:            true,
 	}
 }
 
@@ -163,6 +171,70 @@ func (ftdc *FTDC) Remove(name string) {
 
 	ftdc.logger.Warnw("Did not find statser to remove",
 		"name", name, "generationId", ftdc.inputGenerationID)
+}
+
+// Start spins off the background goroutine for collecting/writing FTDC data.
+func (ftdc *FTDC) Start() {
+	ftdc.readStatsWorker = utils.NewStoppableWorkerWithTicker(time.Second, ftdc.statsReader)
+	go ftdc.statsWriter()
+}
+
+func (ftdc *FTDC) statsReader(ctx context.Context) {
+	datum := ftdc.constructDatum()
+	if datum.generationID == 0 {
+		// No "statsers" were `Add`ed. No data to write out.
+		return
+	}
+
+	// `Debugw` does not seem to serialize any of the `datum` value.
+	ftdc.logger.Debugf("Metrics collected. Datum: %+v", datum)
+
+	select {
+	case ftdc.datumCh <- datum:
+		break
+	case <-ftdc.outputWorkerDone:
+		break
+	case <-ctx.Done():
+		break
+	}
+}
+
+func (ftdc *FTDC) statsWriter() {
+	defer func() {
+		if ftdc.currOutputFile != nil {
+			ftdc.currOutputFile.Close()
+		}
+		close(ftdc.outputWorkerDone)
+	}()
+
+	datumsWritten := 0
+	for datum := range ftdc.datumCh {
+		if err := ftdc.writeDatum(datum); err != nil {
+			ftdc.logger.Error("Error writing ftdc data. Shutting down FTDC.", "err", err)
+			// To shut down, we just exit. Closing the `ftdc.outputWorkerDone`. The `statsReader`
+			// goroutine will eventually observe that channel was closed and also exit.
+			return
+		}
+
+		datumsWritten++
+		if datumsWritten%30 == 0 && ftdc.currOutputFile != nil {
+			ftdc.currOutputFile.Sync()
+		}
+	}
+}
+
+// StopAndJoin stops the background worker started by `Start`. It is only legal to call this after
+// `Start` returns.
+func (ftdc *FTDC) StopAndJoin(ctx context.Context) {
+	ftdc.readStatsWorker.Stop()
+	close(ftdc.datumCh)
+
+	// Closing the `statsCh` signals to the `outputWorker` to complete and exit. We use a timeout to
+	// limit how long we're willing to wait for the `outputWorker` to drain.
+	select {
+	case <-ftdc.outputWorkerDone:
+	case <-time.After(10 * time.Second):
+	}
 }
 
 // conditionalRemoveStatser first checks the generation matches before removing the `name` Statser.
@@ -236,7 +308,9 @@ func (ftdc *FTDC) writeDatum(datum datum) error {
 		}
 
 		ftdc.currSchema = newSchema
-		writeSchema(ftdc.currSchema, toWrite)
+		if err = writeSchema(ftdc.currSchema, toWrite); err != nil {
+			return err
+		}
 
 		// Update the `outputGenerationId` to reflect the new schema.
 		ftdc.outputGenerationID = datum.generationID
@@ -248,7 +322,9 @@ func (ftdc *FTDC) writeDatum(datum datum) error {
 
 		// Write the new data point to disk. When schema changes, we do not do any diffing. We write
 		// a raw value for each metric.
-		writeDatum(datum.Time, nil, data, toWrite)
+		if err = writeDatum(datum.Time, nil, data, toWrite); err != nil {
+			return err
+		}
 		ftdc.prevFlatData = data
 
 		return nil
@@ -261,7 +337,9 @@ func (ftdc *FTDC) writeDatum(datum datum) error {
 		return err
 	}
 
-	writeDatum(datum.Time, ftdc.prevFlatData, data, toWrite)
+	if err = writeDatum(datum.Time, ftdc.prevFlatData, data, toWrite); err != nil {
+		return err
+	}
 	ftdc.prevFlatData = data
 	return nil
 }
@@ -274,7 +352,7 @@ func (ftdc *FTDC) getWriter() (io.Writer, error) {
 	}
 
 	var err error
-	ftdc.currOutputFile, err = os.Create("./viam-server-custom.ftdc")
+	ftdc.currOutputFile, err = os.Create("./viam-server.ftdc")
 	if err != nil {
 		ftdc.logger.Warnw("FTDC failed to open file", "err", err)
 		return nil, err

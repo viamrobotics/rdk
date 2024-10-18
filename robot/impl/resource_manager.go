@@ -19,6 +19,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/ftdc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module/modmanager"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
@@ -63,6 +64,7 @@ type resourceManagerOptions struct {
 	allowInsecureCreds bool
 	untrustedEnv       bool
 	tlsConfig          *tls.Config
+	ftdc               *ftdc.FTDC
 }
 
 // newResourceManager returns a properly initialized set of parts.
@@ -72,8 +74,15 @@ func newResourceManager(
 	logger logging.Logger,
 ) *resourceManager {
 	resLogger := logger.Sublogger("resource_manager")
+	var resourceGraph *resource.Graph
+	if opts.ftdc != nil {
+		resourceGraph = resource.NewGraphWithFTDC(opts.ftdc)
+	} else {
+		resourceGraph = resource.NewGraph()
+	}
+
 	return &resourceManager{
-		resources:      resource.NewGraph(),
+		resources:      resourceGraph,
 		processManager: newProcessManager(opts, logger),
 		processConfigs: make(map[string]pexec.ProcessConfig),
 		opts:           opts,
@@ -138,7 +147,16 @@ func (manager *resourceManager) addRemote(
 			return
 		}
 	} else {
+		if manager.opts.ftdc != nil {
+			manager.opts.ftdc.Remove(rName.String())
+		}
+
+		// SwapResource can change the underlying resource from a non-remote to a remote?
 		gNode.SwapResource(rr, builtinModel)
+
+		if manager.opts.ftdc != nil {
+			manager.opts.ftdc.Add(rName.String(), gNode)
+		}
 	}
 	manager.updateRemoteResourceNames(ctx, rName, rr, true)
 }
@@ -257,7 +275,14 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		}
 
 		if nodeAlreadyExists {
+			if manager.opts.ftdc != nil {
+				manager.opts.ftdc.Remove(resName.String())
+			}
 			gNode.SwapResource(res, unknownModel)
+
+			if manager.opts.ftdc != nil {
+				manager.opts.ftdc.Add(resName.String(), gNode)
+			}
 		} else {
 			gNode = resource.NewConfiguredGraphNode(resource.Config{}, res, unknownModel)
 			if err := manager.resources.AddNode(resName, gNode); err != nil {
@@ -720,7 +745,15 @@ func (manager *resourceManager) completeConfig(
 							manager.logger.CErrorw(
 								ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
 						} else {
+							if manager.opts.ftdc != nil {
+								manager.opts.ftdc.Remove(resName.String())
+							}
+
 							gNode.SwapResource(newRes, conf.Model)
+
+							if manager.opts.ftdc != nil {
+								manager.opts.ftdc.Add(resName.String(), gNode)
+							}
 						}
 
 					default:
