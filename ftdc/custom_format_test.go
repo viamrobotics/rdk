@@ -152,8 +152,13 @@ func TestCustomFormatRoundtripRich(t *testing.T) {
 }
 
 func TestReflection(t *testing.T) {
-	test.That(t, getFieldsForItem(&Basic{100}), test.ShouldResemble,
+	fields, err := getFieldsForItem(&Basic{100})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fields, test.ShouldResemble,
 		[]string{"Foo"})
-	test.That(t, getFieldsForItem(&Statser1{100, 0, 44.4}), test.ShouldResemble,
+
+	fields, err = getFieldsForItem(&Statser1{100, 0, 44.4})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fields, test.ShouldResemble,
 		[]string{"Metric1", "Metric2", "Metric3"})
 }

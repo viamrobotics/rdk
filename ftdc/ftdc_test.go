@@ -2,6 +2,7 @@ package ftdc
 
 import (
 	"bytes"
+	"errors"
 	"testing"
 
 	"go.viam.com/test"
@@ -106,4 +107,64 @@ func TestFTDCSchemaGenerations(t *testing.T) {
 	test.That(t, len(datum2.Data), test.ShouldEqual, 2)
 	test.That(t, datum2.Data["foo1"], test.ShouldResemble, map[string]float32{"X": 1, "Y": 0})
 	test.That(t, datum2.Data["foo2"], test.ShouldResemble, map[string]float32{"X": 2, "Y": 0})
+}
+
+type badStatser struct {
+}
+
+func (badStatser badStatser) Stats() any {
+	// Returning maps are disallowed.
+	return map[string]float32{"X": 42}
+}
+
+func TestRemoveBadStatser(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	// ftdcData will be appended to on each call to `writeDatum`. At the end of the test we can pass
+	// this to `parse` to assert we have the expected results.
+	ftdcData := bytes.NewBuffer(nil)
+	ftdc := NewWithWriter(ftdcData, logger.Sublogger("ftdc"))
+
+	// `foo` implements `Statser`.
+	foo1 := &foo{x: 1, y: 2}
+	ftdc.Add("foo1", foo1)
+
+	// `badStatser` implements `Statser`, but returns a map instead of a struct. This will fail at
+	// `writeDatum`.
+	ftdc.Add("badStatser", badStatser{})
+
+	// constructDatum should succeed as it does not perform validation.
+	datum := ftdc.constructDatum()
+	test.That(t, len(datum.Data), test.ShouldEqual, 2)
+	test.That(t, datum.Data["foo1"], test.ShouldNotBeNil)
+	test.That(t, datum.Data["badStatser"], test.ShouldNotBeNil)
+
+	// writeDatum will discover the map and error out.
+	err := ftdc.writeDatum(datum)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// We can additionally verify the error is a schemaError that identifies the statser that
+	// misbehaved.
+	var schemaError *schemaError
+	test.That(t, errors.As(err, &schemaError), test.ShouldBeTrue)
+	test.That(t, schemaError.statserName, test.ShouldEqual, "badStatser")
+
+	// The `writeDatum` error should auto-remove `badStatser`. Verify only `foo1` is returned on a
+	// following call to `constructDatum`.
+	datum = ftdc.constructDatum()
+	test.That(t, len(datum.Data), test.ShouldEqual, 1)
+	test.That(t, datum.Data["foo1"], test.ShouldNotBeNil)
+	test.That(t, datum.Data["badStatser"], test.ShouldBeNil)
+
+	// This time writing the datum works.
+	err = ftdc.writeDatum(datum)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Verify the contents of the ftdc data.
+	datums, err := parseWithLogger(ftdcData, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// We called `writeDatum` twice, but only the second succeeded.
+	test.That(t, len(datums), test.ShouldEqual, 1)
+	test.That(t, datums[0].Data["foo1"], test.ShouldResemble, map[string]float32{"X": 1, "Y": 2})
 }

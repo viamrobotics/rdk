@@ -129,14 +129,16 @@ func (ftdc *FTDC) Add(name string, statser Statser) {
 
 	for _, statser := range ftdc.statsers {
 		if statser.name == name {
-			ftdc.logger.Warnw("Trying to add conflicting ftdc section", "name", name)
+			ftdc.logger.Warnw("Trying to add conflicting ftdc section", "name", name,
+				"generationId", ftdc.inputGenerationID)
 			// FTDC output is broken down into separate "sections". The `name` is used to label each
 			// section. We return here to predictably include one of the `Add`ed statsers.
 			return
 		}
 	}
 
-	ftdc.logger.Debugw("Added statser", "name", name, "type", fmt.Sprintf("%T", statser))
+	ftdc.logger.Debugw("Added statser", "name", name,
+		"type", fmt.Sprintf("%T", statser), "generationId", ftdc.inputGenerationID)
 	ftdc.statsers = append(ftdc.statsers, namedStatser{
 		name:    name,
 		statser: statser,
@@ -151,14 +153,47 @@ func (ftdc *FTDC) Remove(name string) {
 
 	for idx, statser := range ftdc.statsers {
 		if statser.name == name {
-			ftdc.logger.Debugw("Removed statser", "name", name, "type", fmt.Sprintf("%T", statser.statser))
+			ftdc.logger.Debugw("Removed statser", "name", name,
+				"type", fmt.Sprintf("%T", statser.statser), "generationId", ftdc.inputGenerationID)
 			ftdc.statsers = slices.Delete(ftdc.statsers, idx, idx+1)
 			ftdc.inputGenerationID++
 			return
 		}
 	}
 
-	ftdc.logger.Warnw("Did not find statser to remove", "name", name)
+	ftdc.logger.Warnw("Did not find statser to remove",
+		"name", name, "generationId", ftdc.inputGenerationID)
+}
+
+// conditionalRemoveStatser first checks the generation matches before removing the `name` Statser.
+func (ftdc *FTDC) conditionalRemoveStatser(name string, generationId int) {
+	ftdc.mu.Lock()
+	defer ftdc.mu.Unlock()
+
+	// This function gets called by the "write ftdc" actor. Which is concurrent to a user
+	// adding/removing `Statser`s. If the datum/name that created a problem came from a different
+	// "generation", optimistically guess that the user fixed the problem, and avoid removing a
+	// perhaps working `Statser`.
+	//
+	// In the (honestly, more likely) event, the `Statser` is still bad, we will eventually succeed
+	// in removing it. As later `Datum` objects to write will have an updated `generationId`.
+	if generationId != ftdc.inputGenerationID {
+		ftdc.logger.Debugw("Not removing statser due to concurrent operation",
+			"datumGenerationId", generationId, "ftdcGenerationId", ftdc.inputGenerationID)
+		return
+	}
+
+	for idx, statser := range ftdc.statsers {
+		if statser.name == name {
+			ftdc.logger.Debugw("Removed statser", "name", name,
+				"type", fmt.Sprintf("%T", statser.statser), "generationId", ftdc.inputGenerationID)
+			ftdc.statsers = slices.Delete(ftdc.statsers, idx, idx+1)
+			ftdc.inputGenerationID++
+			return
+		}
+	}
+
+	ftdc.logger.Warnw("Did not find statser to remove", "name", name, "generationId", ftdc.inputGenerationID)
 }
 
 // constructDatum walks all of the registered `statser`s to construct a `datum`.
@@ -190,7 +225,15 @@ func (ftdc *FTDC) writeDatum(datum datum) error {
 	// The input `datum` being processed is for a different schema than we were previously using.
 	if datum.generationID != ftdc.outputGenerationID {
 		// Compute the new schema and write that to disk.
-		ftdc.currSchema = getSchema(datum.Data)
+		newSchema, schemaErr := getSchema(datum.Data)
+		if schemaErr != nil {
+			ftdc.logger.Warnw("Could not generate schema for statser",
+				"statser", schemaErr.statserName, "err", schemaErr.err)
+			ftdc.conditionalRemoveStatser(schemaErr.statserName, datum.generationID)
+			return schemaErr
+		}
+
+		ftdc.currSchema = newSchema
 		writeSchema(ftdc.currSchema, toWrite)
 
 		// Update the `outputGenerationId` to reflect the new schema.

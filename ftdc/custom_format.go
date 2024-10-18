@@ -118,6 +118,8 @@ func writeDatum(time int64, prev, curr []float32, output io.Writer) {
 	}
 }
 
+var notStructError = errors.New("Stats object is not a struct")
+
 // getFieldsForItem returns the (flattened) list of strings for a metric structure. For example the
 // following type:
 //
@@ -131,18 +133,31 @@ func writeDatum(time int64, prev, curr []float32, output io.Writer) {
 // The function right now does not recursively walk data structures. We assume for now that the
 // caller will only feed "already flat" structures into FTDC. Later commits will better validate
 // input and remove limitations.
-func getFieldsForItem(item any) []string {
+func getFieldsForItem(item any) ([]string, error) {
 	var fields []string
 	rType := reflect.TypeOf(item)
 	if val := reflect.ValueOf(item); val.Kind() == reflect.Pointer {
 		rType = val.Elem().Type()
 	}
 
+	if rType.Kind() != reflect.Struct {
+		return nil, fmt.Errorf("%w Type: %T", notStructError, item)
+	}
+
 	for memberIdx := 0; memberIdx < rType.NumField(); memberIdx++ {
 		fields = append(fields, rType.Field(memberIdx).Name)
 	}
 
-	return fields
+	return fields, nil
+}
+
+type schemaError struct {
+	statserName string
+	err         error
+}
+
+func (err *schemaError) Error() string {
+	return fmt.Sprintf("SchemaError: %s StatserName: %s", err.err.Error(), err.statserName)
 }
 
 // getSchema returns a schema for a full FTDC datum. It immortalizes two properties:
@@ -152,13 +167,18 @@ func getFieldsForItem(item any) []string {
 // For correctness, it must be the case that the `mapOrder` and `fieldOrder` are consistent. I.e: if
 // the `mapOrder` is `A` then `B`, the `fieldOrder` must list all of the fields of `A` first,
 // followed by all the fields of `B`.
-func getSchema(data map[string]any) *schema {
+func getSchema(data map[string]any) (*schema, *schemaError) {
 	var mapOrder []string
 	var fields []string
 
 	for key, stats := range data {
 		mapOrder = append(mapOrder, key)
-		for _, field := range getFieldsForItem(stats) {
+		fieldsForItem, err := getFieldsForItem(stats)
+		if err != nil {
+			return nil, &schemaError{key, err}
+		}
+
+		for _, field := range fieldsForItem {
 			// We insert a `.` into every metric/field name we get a recording for. This property is
 			// assumed elsewhere.
 			fields = append(fields, fmt.Sprintf("%v.%v", key, field))
@@ -168,7 +188,7 @@ func getSchema(data map[string]any) *schema {
 	return &schema{
 		mapOrder:   mapOrder,
 		fieldOrder: fields,
-	}
+	}, nil
 }
 
 // flatten takes an input `Datum` and a `mapOrder` from the current `Schema` and returns a list of
@@ -219,10 +239,17 @@ func flatten(datum datum, schema *schema) []float32 {
 	return ret
 }
 
+func parse(rawReader io.Reader) ([]datum, error) {
+	logger := logging.NewLogger("")
+	logger.SetLevel(logging.ERROR)
+
+	return parseWithLogger(rawReader, logger)
+}
+
 // parse reads the entire contents from `rawReader` and returns a list of `Datum`. If an error
 // occurs, the []Datum parsed up until the place of the error will be returned, in addition to a
 // non-nil error.
-func parse(rawReader io.Reader) ([]datum, error) {
+func parseWithLogger(rawReader io.Reader, logger logging.Logger) ([]datum, error) {
 	ret := make([]datum, 0)
 
 	// prevValues are the previous values used for producing the diff bits. This is overwritten when
@@ -236,6 +263,7 @@ func parse(rawReader io.Reader) ([]datum, error) {
 	for {
 		peek, err := reader.Peek(1)
 		if err != nil {
+			logger.Debugw("Beginning peek error", "error", err)
 			if errors.Is(err, io.EOF) {
 				break
 			}
@@ -260,6 +288,7 @@ func parse(rawReader io.Reader) ([]datum, error) {
 			// schema bytes themselves are expected to be a list of strings, e.g: `["metricName1",
 			// "metricName2"]`.
 			schema, reader = readSchema(reader)
+			logger.Debugw("Schema bit", "parsedSchema", schema)
 
 			// We cannot diff against values from the old schema.
 			prevValues = nil
@@ -273,19 +302,24 @@ func parse(rawReader io.Reader) ([]datum, error) {
 		// "packed byte" where the first bit is not a diff bit. `readDiffBits` must account for
 		// that.
 		diffedFieldsIndexes := readDiffBits(reader, schema)
+		logger.Debugw("Diff bits", "changedFields", diffedFieldsIndexes)
 
 		// The next eight bytes after the diff bits is the time in nanoseconds since the 1970 epoch.
 		var dataTime int64
 		if err = binary.Read(reader, binary.BigEndian, &dataTime); err != nil {
+			logger.Debugw("Error reading time", "error", err)
 			return ret, err
 		}
+		logger.Debugw("Read time", "time", dataTime)
 
 		// Read the payload. There will be one float32 value for each diff bit set to `1`, i.e:
 		// `len(diffedFields)`.
 		data, err := readData(reader, schema, diffedFieldsIndexes, prevValues)
 		if err != nil {
+			logger.Debugw("Error reading data", "error", err)
 			return ret, err
 		}
+		logger.Debugw("Read data", "data", data)
 
 		// The old `prevValues` is no longer needed. Set the `prevValues` to the new hydrated
 		// `data`.
@@ -297,6 +331,7 @@ func parse(rawReader io.Reader) ([]datum, error) {
 			Time: dataTime,
 			Data: schema.Hydrate(data),
 		})
+		logger.Debugw("Hydrated data", "data", ret[len(ret)-1].Data)
 	}
 
 	return ret, nil
