@@ -1086,14 +1086,12 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 
 	// Evaluate the Module's FirstRun path. If there is an error we assume
 	// that the first run script does not exist and we debug log and exit quietly.
-	firstRunPath, err := conf.EvaluateFirstRunPath(packages.LocalPackagesDir(mgr.packagesDir))
+	firstRunPath, markSuccess, err := conf.EvaluateFirstRunPath(packages.LocalPackagesDir(mgr.packagesDir))
 	if err != nil {
 		// TODO(RSDK-9067): some first run path evaluation errors should be promoted to WARN logs.
 		logger.Debug("no first run script detected, skipping setup phase", "error", err)
 		return nil
 	}
-
-	// TODO(RSDK-9062): Only run setup phase once per module/version. This information should be persisted on disk.
 
 	logger.Info("executing first run script")
 
@@ -1130,9 +1128,10 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 		return err
 	}
 
-	// TODO(RSDK-9062): Persist setup phase success for module/version so that we do not run again.
-
 	resultLogger.Infow("command succeeded")
+	if err := markSuccess(); err != nil {
+		logger.Errorw("failed to mark success", "error", err)
+	}
 	return nil
 }
 
