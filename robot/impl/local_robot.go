@@ -6,7 +6,6 @@ package robotimpl
 
 import (
 	"context"
-	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1244,17 +1243,8 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		return
 	}
 
-	// Diff configs before resolving dependencies to find what modules have
-	// been added or updated. We run the setup phase for these modules before
-	// proceeding with reconfiguration.
-	diff, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
-	if err != nil {
-		r.logger.CErrorw(ctx, "error diffing the configs for setup phase", "error", err)
-		return
-	}
-
-	changedModules := slices.Concat(nil, diff.Added.Modules, diff.Modified.Modules)
-	for _, mod := range changedModules {
+	// Run the setup phase for all modules in new config modules before proceeding with reconfiguration.
+	for _, mod := range newConfig.Modules {
 		if err := r.manager.moduleManager.FirstRun(ctx, mod); err != nil {
 			r.logger.CErrorw(ctx, "error executing setup phase", "module", mod.Name, "error", err)
 			return
@@ -1316,7 +1306,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 
 	// Now that we have the new config and all references are resolved, diff it
 	// with the current generated config to see what has changed
-	diff, err = config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
+	diff, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
 	if err != nil {
 		r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
 		return
