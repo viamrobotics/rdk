@@ -28,6 +28,20 @@ func FieldToProto(field zap.Field) (*structpb.Struct, error) {
 	return protoutils.StructToStructPb(field)
 }
 
+// FieldFromProto unmarshals a proto-encoded zap.Field.
+func FieldFromProto(field *structpb.Struct) (zap.Field, error) {
+	fieldJSON, err := json.Marshal(field)
+	if err != nil {
+		return zap.Field{}, err
+	}
+
+	var zf zap.Field
+	if err := json.Unmarshal(fieldJSON, &zf); err != nil {
+		return zap.Field{}, err
+	}
+	return zf, err
+}
+
 // FieldKeyAndValueFromProto examines a *structpb.Struct and returns its key
 // string and native golang value.
 func FieldKeyAndValueFromProto(field *structpb.Struct) (string, any, error) {
