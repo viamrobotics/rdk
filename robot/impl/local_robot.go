@@ -1243,6 +1243,14 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		return
 	}
 
+	// Run the setup phase for all modules in new config modules before proceeding with reconfiguration.
+	for _, mod := range newConfig.Modules {
+		if err := r.manager.moduleManager.FirstRun(ctx, mod); err != nil {
+			r.logger.CErrorw(ctx, "error executing setup phase", "module", mod.Name, "error", err)
+			return
+		}
+	}
+
 	if newConfig.Cloud != nil {
 		r.Logger().CDebug(ctx, "updating cached config")
 		if err := newConfig.StoreToCache(); err != nil {
