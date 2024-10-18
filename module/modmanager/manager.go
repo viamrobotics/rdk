@@ -1114,8 +1114,8 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 
 	//nolint:gosec // Yes, we are deliberating executing arbitrary user code here.
 	cmd := exec.CommandContext(cmdCtx, firstRunPath)
-	// TODO: set current env?
-	// cmd.Env = os.Environ()
+
+	cmd.Env = os.Environ()
 	for key, val := range moduleEnvironment {
 		cmd.Env = append(cmd.Env, key+"="+val)
 	}
