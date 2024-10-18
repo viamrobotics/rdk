@@ -79,6 +79,10 @@ func setGoModuleTemplate(clientCode string, module common.ModuleInputs) (*common
 		}
 		imports = append(imports, path)
 	}
+	// if module.ResourceSubtype == "generic" {
+	// 	module.ResourceSubtypePascal = "Resource"
+	// 	module.ResourceSubtype = "resource"
+	// }
 
 	var functions []string
 	ast.Inspect(node, func(n ast.Node) bool {
@@ -216,6 +220,20 @@ func formatEmptyFunction(receiver, funcName, args string, returns []string) stri
 	return newFunc
 }
 
+func installGoImports() error {
+	// check if goimports is already installed
+	_, err := exec.LookPath("goimports")
+	if err == nil {
+		return nil
+	}
+	// if not found, try to install it
+	cmd := exec.Command("go", "install", "golang.org/x/tools/cmd/goimports")
+	err = cmd.Run()
+	if err != nil {
+		return errors.Wrap(err, "failed to install goimports")
+	}
+	return nil
+}
 func runGoImports(src []byte) ([]byte, error) {
 	// use the goimports tool
 	cmd := exec.Command("goimports")
@@ -233,6 +251,12 @@ func runGoImports(src []byte) ([]byte, error) {
 
 // RenderGoTemplates outputs the method stubs for created module.
 func RenderGoTemplates(module common.ModuleInputs) ([]byte, error) {
+	// install goimports
+	err := installGoImports()
+	if err != nil {
+		return nil, err
+	}
+
 	clientCode, err := getClientCode(module)
 	var empty []byte
 	if err != nil {
