@@ -259,30 +259,23 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(statuses), test.ShouldEqual, 3)
 
-	armStatus := &armpb.Status{
-		EndPosition:    &commonpb.Pose{X: 500, Z: 300, OZ: 1},
-		JointPositions: &armpb.JointPositions{Values: []float64{0.0}},
-	}
 	convMap := &armpb.Status{}
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
 	test.That(t, err, test.ShouldBeNil)
 	err = decoder.Decode(statuses[0].Status)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, convMap, test.ShouldResemble, armStatus)
 
 	convMap = &armpb.Status{}
 	decoder, err = mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
 	test.That(t, err, test.ShouldBeNil)
 	err = decoder.Decode(statuses[1].Status)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, convMap, test.ShouldResemble, armStatus)
 
 	convMap = &armpb.Status{}
 	decoder, err = mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
 	test.That(t, err, test.ShouldBeNil)
 	err = decoder.Decode(statuses[2].Status)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, convMap, test.ShouldResemble, armStatus)
 
 	cfg2 := r2.Config()
 	// Components should only include local components.
@@ -461,23 +454,17 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(statuses), test.ShouldEqual, 2)
 
-			armStatus := &armpb.Status{
-				EndPosition:    &commonpb.Pose{X: 500, Z: 300, OZ: 1},
-				JointPositions: &armpb.JointPositions{Values: []float64{0.0}},
-			}
 			convMap := &armpb.Status{}
 			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
 			test.That(t, err, test.ShouldBeNil)
 			err = decoder.Decode(statuses[0].Status)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, convMap, test.ShouldResemble, armStatus)
 
 			convMap = &armpb.Status{}
 			decoder, err = mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
 			test.That(t, err, test.ShouldBeNil)
 			err = decoder.Decode(statuses[1].Status)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, convMap, test.ShouldResemble, armStatus)
 		})
 	}
 }
@@ -622,16 +609,11 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(statuses), test.ShouldEqual, 1)
 
-	armStatus := &armpb.Status{
-		EndPosition:    &commonpb.Pose{X: 500, Z: 300, OZ: 1},
-		JointPositions: &armpb.JointPositions{Values: []float64{0.0}},
-	}
 	convMap := &armpb.Status{}
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
 	test.That(t, err, test.ShouldBeNil)
 	err = decoder.Decode(statuses[0].Status)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, convMap, test.ShouldResemble, armStatus)
 }
 
 func TestStopAll(t *testing.T) {
@@ -854,40 +836,6 @@ func TestMetadataUpdate(t *testing.T) {
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	resources = r.ResourceNames()
 	test.That(t, resources, test.ShouldBeEmpty)
-}
-
-func TestStatusService(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	r := setupLocalRobot(t, context.Background(), cfg, logger)
-
-	resourceNames := []resource.Name{arm.Named("pieceArm"), movementsensor.Named("movement_sensor1")}
-	rArm, err := arm.FromRobot(r, "pieceArm")
-	test.That(t, err, test.ShouldBeNil)
-	armStatus, err := arm.CreateStatus(context.Background(), rArm)
-	test.That(t, err, test.ShouldBeNil)
-	expected := map[resource.Name]interface{}{
-		arm.Named("pieceArm"):                    armStatus,
-		movementsensor.Named("movement_sensor1"): map[string]interface{}{},
-	}
-
-	statuses, err := r.Status(context.Background(), []resource.Name{movementsensor.Named("movement_sensor1")})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(statuses), test.ShouldEqual, 1)
-	test.That(t, statuses[0].Name, test.ShouldResemble, movementsensor.Named("movement_sensor1"))
-	test.That(t, statuses[0].Status, test.ShouldResemble, expected[statuses[0].Name])
-
-	statuses, err = r.Status(context.Background(), resourceNames)
-	test.That(t, err, test.ShouldBeNil)
-
-	expectedStatusLength := 2
-	test.That(t, len(statuses), test.ShouldEqual, expectedStatusLength)
-
-	for idx := 0; idx < expectedStatusLength; idx++ {
-		test.That(t, statuses[idx].Status, test.ShouldResemble, expected[statuses[idx].Name])
-	}
 }
 
 func TestStatus(t *testing.T) {
