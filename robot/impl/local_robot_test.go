@@ -4240,7 +4240,7 @@ func TestMaintenanceConfig(t *testing.T) {
 	})
 }
 
-func TestRemovingOfflineRemote(t *testing.T) {
+func TestRemovingOfflineRemotes(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	cfg := config.Config{
@@ -4260,5 +4260,83 @@ func TestRemovingOfflineRemote(t *testing.T) {
 	r.Reconfigure(ctx, &config.Config{})
 	time.Sleep((2 * time.Second))
 	remotes = localRobot.manager.resources.FindNodesByAPI(client.RemoteAPI)
+	test.That(t, remotes, test.ShouldBeEmpty)
+}
+
+func TestRemovingOfflineRemote(t *testing.T) {
+	logger, _ := logging.NewObservedTestLogger(t)
+	ctx := context.Background()
+
+	motorName := "remoteMotorFoo"
+	motorResourceName := resource.NewName(motor.API, motorName)
+
+	remoteCfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:                motorName,
+				Model:               resource.DefaultModelFamily.WithModel("fake"),
+				API:                 motor.API,
+				ConvertedAttributes: &fakemotor.Config{},
+			},
+		},
+	}
+
+	remoteRobot := setupLocalRobot(t, ctx, remoteCfg, logger.Sublogger("remote"))
+	remoteOptions, _, remoteAddr := robottestutils.CreateBaseOptionsAndListener(t)
+	err := remoteRobot.StartWeb(ctx, remoteOptions)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Set up a local main robot which is connected to the remote.
+	mainRobotCfg := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "remote",
+				Address: remoteAddr,
+				// These values dictate how quickly we'll observe the remote going offline. And how
+				// quickly we'll observe it coming back online.
+				ConnectionCheckInterval: 10 * time.Millisecond,
+				ReconnectInterval:       10 * time.Millisecond,
+			},
+		},
+	}
+	mainRobotI := setupLocalRobot(t, ctx, mainRobotCfg, logger.Sublogger("main"))
+	// We'll manually access the resource manager to move the test forward.
+	mainRobot := mainRobotI.(*localRobot)
+	mainOptions, _, mainAddr := robottestutils.CreateBaseOptionsAndListener(t)
+	mainRobot.StartWeb(ctx, mainOptions)
+
+	// Create an "application" client to the robot.
+	mainClient, err := client.New(ctx, mainAddr, logger.Sublogger("client"))
+	test.That(t, err, test.ShouldBeNil)
+	defer mainClient.Close(ctx)
+	resourceNames := mainClient.ResourceNames()
+
+	// When the `mainClient` requests `ResourceNames`, the motor will be annotated to include its
+	// remote.
+	motorResourceNameFromMain := motorResourceName.PrependRemote("remote")
+	// Search the list of "main" resources for the remote motor. Sanity check that we find it.
+	test.That(t, resourceNames, test.ShouldContain, motorResourceNameFromMain)
+
+	// Grab the RobotClient resource graph node from the main robot that is connected to the
+	// remote. We'll use this to know when the main robot observes the remote has gone offline.
+	mainToRemoteClientRes, _ := mainRobot.RemoteByName("remote")
+	test.That(t, mainToRemoteClientRes, test.ShouldNotBeNil)
+	mainToRemoteClient := mainToRemoteClientRes.(*client.RobotClient)
+	test.That(t, mainToRemoteClient.Connected(), test.ShouldBeTrue)
+
+	// Stop the remote's web server. Wait for the main robot to observe there's a connection problem.
+	logger.Info("Stopping web")
+	remoteRobot.StopWeb()
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, mainToRemoteClient.Connected(), test.ShouldBeFalse)
+	})
+
+	// Reconfigure the main robot with the offline remote removed
+	mainRobot.Reconfigure(ctx, &config.Config{})
+	time.Sleep((2 * time.Second))
+
+	// Ensure that the remote has been remoted correctly
+	remotes := mainRobot.manager.resources.FindNodesByAPI(client.RemoteAPI)
 	test.That(t, remotes, test.ShouldBeEmpty)
 }
