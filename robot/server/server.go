@@ -6,11 +6,13 @@ package server
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
@@ -424,44 +426,44 @@ func (s *Server) Log(ctx context.Context, req *pb.LogRequest) (*pb.LogResponse, 
 	}
 	log := req.Logs[0]
 
-	// Use a sublogger of robot logger with correct logger name. Also we "set masquerading" such that:
-	// - The logger level is changed to DEBUG.
-	// - Not add this `server.go` file as a caller to the output log. To mimic the caller passed in
-	//   from gRPC.
-	//
-	// We trust module libraries to handle their own levels. And only send us logs
-	// over gRPC that we should be outputting.
-	logger := s.robot.Logger().Sublogger(log.LoggerName)
-	logger.SetMasquerading()
-
-	fields := make([]any, 0, len(log.Fields)*2)
-	for _, fieldP := range log.Fields {
-		key, val, err := logging.FieldKeyAndValueFromProto(fieldP)
-		if err != nil {
-			return nil, err
-		}
-		fields = append(fields, key, val)
+	level, err := logging.LevelFromString(log.Level)
+	if err != nil {
+		return nil, fmt.Errorf("LogRequest received with invalid level %q", log.Level)
 	}
 
+	// Create a custom log entry and write entry unconditionally to logger. We
+	// trust module libraries to handle their own levels and only send us logs
+	// over gRPC that we should be outputting.
+	zEntry := zapcore.Entry{
+		Level:      level.AsZap(),
+		Time:       time.Now(),
+		LoggerName: log.LoggerName,
+		Message:    log.Message,
+		// `Caller` is already encoded in `Message` above
+		// `Stack` is not included
+	}
+	fields := make([]zapcore.Field, 0, len(log.Fields)*2)
+	for _, fieldP := range log.Fields {
+		field, err := logging.FieldFromProto(fieldP)
+		if err != nil {
+			return nil, errors.Wrap(err, "error converting LogRequest log field from proto")
+		}
+		fields = append(fields, field)
+	}
 	// Insert field of `{"log_ts": log.Time}` to encode the timestamp of this
 	// log.
-	fields = append(fields, logTSKey, log.Time.AsTime())
-
-	level, err := logging.LevelFromString(log.Level)
-	switch {
-	case err != nil:
-		logger.Warn("logger named %q sent a log over gRPC with an invalid level %q", log.LoggerName, log.Level)
-	case level == logging.DEBUG:
-		logger.Debugw(log.Message, fields...)
-	case level == logging.INFO:
-		logger.Infow(log.Message, fields...)
-	case level == logging.WARN:
-		logger.Warnw(log.Message, fields...)
-	case level == logging.ERROR:
-		logger.Errorw(log.Message, fields...)
-	default:
+	tsField := zapcore.Field{
+		Key:    logTSKey,
+		Type:   zapcore.StringType,
+		String: log.Time.AsTime().Format(logging.DefaultTimeFormatStr),
+	}
+	fields = append(fields, tsField)
+	entry := logging.LogEntry{
+		Entry:  zEntry,
+		Fields: fields,
 	}
 
+	s.robot.Logger().Write(&entry)
 	return &pb.LogResponse{}, nil
 }
 
