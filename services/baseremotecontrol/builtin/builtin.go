@@ -32,6 +32,8 @@ const (
 	droneControl
 )
 
+var modes = []string{"joystickControl", "triggerSpeedControl", "buttonControl", "arrowControl", "droneControl"}
+
 func init() {
 	resource.RegisterService(baseremotecontrol.API, resource.DefaultServiceModel, resource.Registration[baseremotecontrol.Service, *Config]{
 		Constructor: NewBuiltIn,
@@ -62,6 +64,20 @@ func (conf *Config) Validate(path string) ([]string, error) {
 		return nil, resource.NewConfigValidationFieldRequiredError(path, "base")
 	}
 	deps = append(deps, conf.BaseName)
+
+	if conf.ControlModeName != "" {
+		configModeExists := false
+		for _, mode := range modes {
+			if mode == conf.ControlModeName {
+				configModeExists = true
+				break
+			}
+		}
+
+		if !configModeExists {
+			return nil, resource.NewConfigValidationError(path, errors.Errorf("Control mode '%s' is not in %v", conf.ControlModeName, modes))
+		}
+	}
 
 	return deps, nil
 }
