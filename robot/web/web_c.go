@@ -82,7 +82,7 @@ func (svc *webService) streamInitialized() bool {
 
 func (svc *webService) addNewStreams(ctx context.Context) error {
 	if !svc.streamInitialized() {
-		errors.New("stream server not initialized")
+		return errors.New("stream server not initialized")
 	}
 	svc.refreshVideoSources()
 	svc.refreshAudioSources()
@@ -91,6 +91,7 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 			Name: name,
 		}
 		config.VideoEncoderFactory = svc.opts.streamConfig.VideoEncoderFactory
+		// TODO(RSDK): Add handler for target framerate
 		stream, err := svc.createStream(config, name)
 		if err != nil {
 			return err
