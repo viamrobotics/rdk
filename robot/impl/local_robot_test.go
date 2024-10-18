@@ -3700,6 +3700,50 @@ func doCommand(ctx context.Context, req map[string]interface{}, logger logging.L
 	}
 }
 
+func TestModuleLogging(t *testing.T) {
+	// Similar to, but slightly different from `TestLogPropagation` below. We
+	// want to ensure that the RDK trusts modules to handle `log_configuration`
+	// fields themselves. Even if the RDK is configured at INFO level, assert
+	// that modular resources can log at their own, configured levels.
+
+	ctx := context.Background()
+	logger, observer, registry := logging.NewObservedTestLoggerWithRegistry(t, "rdk")
+	helperModel := resource.NewModel("rdk", "test", "helper")
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "helper",
+				API:   generic.API,
+				Model: helperModel,
+				LogConfiguration: &resource.LogConfig{
+					Level: logging.DEBUG,
+				},
+			},
+		},
+	}
+
+	config.UpdateLoggerRegistryFromConfig(registry, cfg, logger)
+	lr := setupLocalRobot(t, ctx, cfg, logger)
+
+	startsAtDebugRes, err := lr.ResourceByName(generic.Named("helper"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = startsAtDebugRes.DoCommand(ctx,
+		map[string]interface{}{"command": "log", "msg": "debug log line", "level": "DEBUG"})
+	test.That(t, err, test.ShouldBeNil)
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
+		test.That(t, observer.FilterMessageSnippet("debug log line").Len(), test.ShouldEqual, 1)
+	})
+}
+
 func TestLogPropagation(t *testing.T) {
 	// Mimic what entrypoint code does: use a config to update a registry, and
 	// assert log levels are propagated to a robot. This means we call
@@ -3767,14 +3811,6 @@ func TestLogPropagation(t *testing.T) {
 				API:   generic.API,
 				Model: helperModel,
 			},
-			{
-				Name:  "starts-at-debug",
-				API:   generic.API,
-				Model: helperModel,
-				LogConfiguration: &resource.LogConfig{
-					Level: logging.DEBUG,
-				},
-			},
 		},
 		Services: []resource.Config{
 			{
@@ -3810,18 +3846,6 @@ func TestLogPropagation(t *testing.T) {
 
 	config.UpdateLoggerRegistryFromConfig(registry, cfg, logger)
 	lr := setupLocalRobot(t, ctx, cfg, logger)
-
-	// Depends on RSDK-9041.
-	//
-	// startsAtDebugRes, err := lr.ResourceByName(generic.Named("starts-at-debug"))
-	// test.That(t, err, test.ShouldBeNil)
-	// _, err = startsAtDebugRes.DoCommand(ctx,
-	//  	map[string]interface{}{"command": "log", "msg": "starts at debug log line", "level": "DEBUG"})
-	// test.That(t, err, test.ShouldBeNil)
-	// testutils.WaitForAssertion(t, func(tb testing.TB) {
-	//  	tb.Helper()
-	//  	test.That(t, observer.FilterMessage("starts at debug log line\n").Len(), test.ShouldEqual, 1)
-	// })
 
 	resourceNames := []resource.Name{
 		generic.Named("foo"),

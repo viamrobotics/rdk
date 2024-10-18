@@ -425,9 +425,12 @@ func (s *Server) Log(ctx context.Context, req *pb.LogRequest) (*pb.LogResponse, 
 	}
 	log := req.Logs[0]
 
-	// Use a sublogger of robot logger with correct logger name. Disable caller
-	// to mimic caller passed in from gRPC request.
+	// Use a sublogger of robot logger with correct logger name. Set logger to
+	// DEBUG (most accepting) level: we trust module libraries to handle their
+	// own levels and only send us logs over gRPC that we should be outputting.
+	// Disable caller to mimic caller passed in from gRPC request.
 	logger := s.robot.Logger().Sublogger(log.LoggerName)
+	logger.SetLevel(logging.DEBUG)
 	l := logger.WithOptions(zap.WithCaller(false))
 
 	fields := make([]any, 0, len(log.Fields)*2)
