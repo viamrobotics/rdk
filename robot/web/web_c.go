@@ -94,8 +94,15 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 		}
 		config.VideoEncoderFactory = svc.opts.streamConfig.VideoEncoderFactory
 		stream, err := svc.streamServer.Server.NewStream(config)
-		if err != nil {
+		// Skip if stream is already registered, otherwise raise any other errors
+		var registeredError *webstream.StreamAlreadyRegisteredError
+		if errors.As(err, &registeredError) {
+			continue
+		} else if err != nil {
 			return err
+		}
+		if !svc.streamServer.HasStreams {
+			svc.streamServer.HasStreams = true
 		}
 		svc.startVideoStream(ctx, svc.videoSources[name], stream)
 	}
@@ -107,10 +114,13 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 		}
 		config.AudioEncoderFactory = svc.opts.streamConfig.AudioEncoderFactory
 		stream, err := svc.streamServer.Server.NewStream(config)
-		if err != nil {
+		// Skip if stream is already registered, otherwise raise any other errors
+		var registeredError *webstream.StreamAlreadyRegisteredError
+		if errors.As(err, &registeredError) {
+			continue
+		} else if err != nil {
 			return err
 		}
-		// start audio stream
 		svc.startAudioStream(ctx, svc.audioSources[name], stream)
 	}
 
