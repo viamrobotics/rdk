@@ -11,7 +11,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
@@ -425,13 +424,15 @@ func (s *Server) Log(ctx context.Context, req *pb.LogRequest) (*pb.LogResponse, 
 	}
 	log := req.Logs[0]
 
-	// Use a sublogger of robot logger with correct logger name. Set logger to
-	// DEBUG (most accepting) level: we trust module libraries to handle their
-	// own levels and only send us logs over gRPC that we should be outputting.
-	// Disable caller to mimic caller passed in from gRPC request.
+	// Use a sublogger of robot logger with correct logger name. Also we "set masquerading" such that:
+	// - The logger level is changed to DEBUG.
+	// - Not add this `server.go` file as a caller to the output log. To mimic the caller passed in
+	//   from gRPC.
+	//
+	// We trust module libraries to handle their own levels. And only send us logs
+	// over gRPC that we should be outputting.
 	logger := s.robot.Logger().Sublogger(log.LoggerName)
-	logger.SetLevel(logging.DEBUG)
-	l := logger.WithOptions(zap.WithCaller(false))
+	logger.SetMasquerading()
 
 	fields := make([]any, 0, len(log.Fields)*2)
 	for _, fieldP := range log.Fields {
@@ -449,15 +450,15 @@ func (s *Server) Log(ctx context.Context, req *pb.LogRequest) (*pb.LogResponse, 
 	level, err := logging.LevelFromString(log.Level)
 	switch {
 	case err != nil:
-		l.Warn("logger named %q sent a log over gRPC with an invalid level %q", log.LoggerName, log.Level)
+		logger.Warn("logger named %q sent a log over gRPC with an invalid level %q", log.LoggerName, log.Level)
 	case level == logging.DEBUG:
-		l.Debugw(log.Message, fields...)
+		logger.Debugw(log.Message, fields...)
 	case level == logging.INFO:
-		l.Infow(log.Message, fields...)
+		logger.Infow(log.Message, fields...)
 	case level == logging.WARN:
-		l.Warnw(log.Message, fields...)
+		logger.Warnw(log.Message, fields...)
 	case level == logging.ERROR:
-		l.Errorw(log.Message, fields...)
+		logger.Errorw(log.Message, fields...)
 	default:
 	}
 

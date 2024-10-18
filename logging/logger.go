@@ -21,6 +21,7 @@ type Logger interface {
 	// Unconditionally logs a LogEntry object. Specifically any configured log level is ignored.
 	Write(*LogEntry)
 	WithFields(args ...interface{}) Logger
+	SetMasquerading()
 
 	CDebug(ctx context.Context, args ...interface{})
 	CDebugf(ctx context.Context, template string, args ...interface{})
@@ -124,6 +125,8 @@ func (logger *zLogger) AsZap() *zap.SugaredLogger {
 func (logger zLogger) Sublogger(name string) Logger {
 	return &zLogger{logger.AsZap().Named(name)}
 }
+
+func (logger zLogger) SetMasquerading() {}
 
 func (logger zLogger) CDebug(ctx context.Context, args ...interface{}) {
 	logger.Debug(args...)

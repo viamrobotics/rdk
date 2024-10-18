@@ -19,6 +19,9 @@ type (
 	impl struct {
 		name  string
 		level AtomicLevel
+		// A masquerading logger is logging on behalf of something else. It will not add its own
+		// filename to the output log.
+		masquerading bool
 
 		appenders []Appender
 		registry  *Registry
@@ -44,7 +47,9 @@ func (imp *impl) NewLogEntry() *LogEntry {
 	ret := &LogEntry{}
 	ret.Time = time.Now()
 	ret.LoggerName = imp.name
-	ret.Caller = getCaller()
+	if !imp.masquerading {
+		ret.Caller = getCaller()
+	}
 
 	return ret
 }
@@ -80,6 +85,7 @@ func (imp *impl) Sublogger(subname string) Logger {
 	sublogger := &impl{
 		newName,
 		NewAtomicLevelAt(imp.level.Get()),
+		false, // not masquerading
 		imp.appenders,
 		imp.registry,
 		imp.testHelper,
@@ -142,6 +148,11 @@ func (imp *impl) WithFields(args ...interface{}) Logger {
 		imp,
 		fields,
 	}
+}
+
+func (imp *impl) SetMasquerading() {
+	imp.SetLevel(DEBUG)
+	imp.masquerading = true
 }
 
 func (imp *impl) AsZap() *zap.SugaredLogger {
