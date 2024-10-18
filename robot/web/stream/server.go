@@ -50,7 +50,6 @@ type Server struct {
 // NewServer returns a server that will run on the given port and initially starts with the given
 // stream.
 func NewServer(
-	streams []gostream.Stream,
 	robot robot.Robot,
 	logger logging.Logger,
 ) (*Server, error) {
@@ -65,11 +64,6 @@ func NewServer(
 		isAlive:           true,
 	}
 
-	for _, stream := range streams {
-		if err := server.add(stream); err != nil {
-			return nil, err
-		}
-	}
 	server.startMonitorCameraAvailable()
 
 	return server, nil
