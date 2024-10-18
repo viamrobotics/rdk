@@ -1342,7 +1342,6 @@ func (m *module) getFullEnvironment(viamHomeDir string) map[string]string {
 	return getFullEnvironment(m.cfg, m.dataDir, viamHomeDir)
 }
 
-// TODO: consider making this a module config method.
 func getFullEnvironment(
 	cfg config.Module,
 	dataDir string,
