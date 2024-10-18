@@ -79,10 +79,6 @@ func setGoModuleTemplate(clientCode string, module common.ModuleInputs) (*common
 		}
 		imports = append(imports, path)
 	}
-	// if module.ResourceSubtype == "generic" {
-	// 	module.ResourceSubtypePascal = "Resource"
-	// 	module.ResourceSubtype = "resource"
-	// }
 
 	var functions []string
 	ast.Inspect(node, func(n ast.Node) bool {
