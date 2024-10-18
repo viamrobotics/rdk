@@ -120,7 +120,11 @@ func writeDatum(time int64, prev, curr []float32, output io.Writer) {
 
 var notStructError = errors.New("Stats object is not a struct")
 
-// getFieldsForItem returns the (flattened) list of strings for a metric structure. For example the
+func isNumeric(kind reflect.Kind) bool {
+	return kind == reflect.Bool || kind == reflect.Int || kind == reflect.Int8 || kind == reflect.Int16 || kind == reflect.Int32 || kind == reflect.Int64 || kind == reflect.Uint || kind == reflect.Uint8 || kind == reflect.Uint16 || kind == reflect.Uint32 || kind == reflect.Uint64 || kind == reflect.Float32 || kind == reflect.Float64
+}
+
+// getFieldsForStruct returns the (flattened) list of strings for a metric structure. For example the
 // following type:
 //
 //	type Foo {
@@ -133,19 +137,38 @@ var notStructError = errors.New("Stats object is not a struct")
 // The function right now does not recursively walk data structures. We assume for now that the
 // caller will only feed "already flat" structures into FTDC. Later commits will better validate
 // input and remove limitations.
-func getFieldsForItem(item any) ([]string, error) {
-	var fields []string
-	rType := reflect.TypeOf(item)
-	if val := reflect.ValueOf(item); val.Kind() == reflect.Pointer {
-		rType = val.Elem().Type()
+func getFieldsForStruct(item reflect.Type) ([]string, error) {
+	flattenPtr := func(inp reflect.Type) reflect.Type {
+		for inp.Kind() == reflect.Pointer {
+			inp = inp.Elem()
+		}
+		return inp
 	}
 
+	rType := flattenPtr(item)
 	if rType.Kind() != reflect.Struct {
 		return nil, fmt.Errorf("%w Type: %T", notStructError, item)
 	}
 
+	var fields []string
 	for memberIdx := 0; memberIdx < rType.NumField(); memberIdx++ {
-		fields = append(fields, rType.Field(memberIdx).Name)
+		structField := rType.Field(memberIdx)
+		fieldType := flattenPtr(structField.Type)
+		if isNumeric(fieldType.Kind()) {
+			fields = append(fields, structField.Name)
+			continue
+		}
+
+		if fieldType.Kind() == reflect.Struct {
+			subFields, err := getFieldsForStruct(fieldType)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, subField := range subFields {
+				fields = append(fields, fmt.Sprintf("%v.%v", structField.Name, subField))
+			}
+		}
 	}
 
 	return fields, nil
@@ -173,7 +196,7 @@ func getSchema(data map[string]any) (*schema, *schemaError) {
 
 	for key, stats := range data {
 		mapOrder = append(mapOrder, key)
-		fieldsForItem, err := getFieldsForItem(stats)
+		fieldsForItem, err := getFieldsForStruct(reflect.TypeOf(stats))
 		if err != nil {
 			return nil, &schemaError{key, err}
 		}

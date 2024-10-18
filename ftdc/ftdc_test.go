@@ -3,6 +3,7 @@ package ftdc
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"testing"
 
 	"go.viam.com/test"
@@ -167,4 +168,58 @@ func TestRemoveBadStatser(t *testing.T) {
 	// We called `writeDatum` twice, but only the second succeeded.
 	test.That(t, len(datums), test.ShouldEqual, 1)
 	test.That(t, datums[0].Data["foo1"], test.ShouldResemble, map[string]float32{"X": 1, "Y": 2})
+}
+
+type nestedStatser struct {
+	x int
+	z int
+}
+
+type nestedStatserTopLevel struct {
+	X int
+	Y struct {
+		Z int
+	}
+}
+
+func (statser *nestedStatser) Stats() any {
+	return nestedStatserTopLevel{
+		X: statser.x,
+		Y: struct {
+			Z int
+		}{statser.z},
+	}
+}
+
+func TestNestedStructs(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	// ftdcData will be appended to on each call to `writeDatum`. At the end of the test we can pass
+	// this to `parse` to assert we have the expected results.
+	ftdcData := bytes.NewBuffer(nil)
+	ftdc := NewWithWriter(ftdcData, logger.Sublogger("ftdc"))
+
+	statser := &nestedStatser{}
+	ftdc.Add("nested", statser)
+
+	datum := ftdc.constructDatum()
+	test.That(t, len(datum.Data), test.ShouldEqual, 1)
+	test.That(t, datum.Data["nested"], test.ShouldNotBeNil)
+
+	err := ftdc.writeDatum(datum)
+	test.That(t, err, test.ShouldBeNil)
+
+	statser.x = 1
+	statser.z = 2
+
+	datum = ftdc.constructDatum()
+	test.That(t, len(datum.Data), test.ShouldEqual, 1)
+	test.That(t, datum.Data["nested"], test.ShouldNotBeNil)
+
+	err = ftdc.writeDatum(datum)
+	test.That(t, err, test.ShouldBeNil)
+
+	datums, err := parseWithLogger(ftdcData, logger)
+	test.That(t, err, test.ShouldBeNil)
+	fmt.Println("Datums:", datums)
 }

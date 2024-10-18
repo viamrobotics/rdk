@@ -2,6 +2,7 @@ package ftdc
 
 import (
 	"bytes"
+	"reflect"
 	"testing"
 
 	"go.viam.com/test"
@@ -152,13 +153,32 @@ func TestCustomFormatRoundtripRich(t *testing.T) {
 }
 
 func TestReflection(t *testing.T) {
-	fields, err := getFieldsForItem(&Basic{100})
+	fields, err := getFieldsForStruct(reflect.TypeOf(&Basic{100}))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fields, test.ShouldResemble,
 		[]string{"Foo"})
 
-	fields, err = getFieldsForItem(&Statser1{100, 0, 44.4})
+	fields, err = getFieldsForStruct(reflect.TypeOf(Statser1{100, 0, 44.4}))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fields, test.ShouldResemble,
 		[]string{"Metric1", "Metric2", "Metric3"})
+}
+
+type TopLevel struct {
+	X      int
+	Nested Nested
+}
+
+type Nested struct {
+	Y      int
+	Deeper struct {
+		Z uint8
+	}
+}
+
+func TestNestedReflection(t *testing.T) {
+	fields, err := getFieldsForStruct(reflect.TypeOf(&TopLevel{100, Nested{200, struct{ Z uint8 }{255}}}))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fields, test.ShouldResemble,
+		[]string{"X", "Nested.Y", "Nested.Deeper.Z"})
 }
