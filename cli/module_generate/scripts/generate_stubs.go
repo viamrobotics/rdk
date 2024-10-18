@@ -230,6 +230,7 @@ func installGoImports() error {
 	}
 	return nil
 }
+
 func runGoImports(src []byte) ([]byte, error) {
 	// use the goimports tool
 	cmd := exec.Command("goimports")
