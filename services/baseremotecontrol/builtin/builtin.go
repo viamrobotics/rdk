@@ -63,6 +63,22 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	}
 	deps = append(deps, conf.BaseName)
 
+	if conf.ControlModeName != "" {
+		modes := []string{"joystickControl", "triggerSpeedControl", "buttonControl", "arrowControl", "droneControl"}
+
+		configModeExists := false
+		for _, mode := range modes {
+			if mode == conf.ControlModeName {
+				configModeExists = true
+				break
+			}
+		}
+
+		if !configModeExists {
+			return nil, resource.NewConfigValidationError(path, errors.Errorf("Control mode '%s' is not in %v", conf.ControlModeName, modes))
+		}
+	}
+
 	return deps, nil
 }
 
