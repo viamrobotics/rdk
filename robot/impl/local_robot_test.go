@@ -3736,7 +3736,6 @@ func TestModuleLogging(t *testing.T) {
 
 	startsAtDebugRes, err := lr.ResourceByName(generic.Named("helper"))
 	test.That(t, err, test.ShouldBeNil)
-	fmt.Println("DBG. Making request")
 	_, err = startsAtDebugRes.DoCommand(ctx,
 		map[string]interface{}{"command": "log", "msg": "debug log line", "level": "DEBUG"})
 	test.That(t, err, test.ShouldBeNil)
