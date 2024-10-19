@@ -1128,6 +1128,10 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	}
 
 	resultLogger.Infow("command succeeded")
+
+	// Mark success by writing a marker file to disk. This is a best
+	// effort; if writing to disk fails the setup phase will run again
+	// for this module and version and we are okay with that.
 	if err := markSuccess(); err != nil {
 		logger.Errorw("failed to mark success", "error", err)
 	}
