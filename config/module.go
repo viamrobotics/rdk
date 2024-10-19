@@ -217,6 +217,11 @@ func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 
 // FirstRunSuccessSuffix is the suffix of the file whose existence
 // denotes that the setup phase for a module ran successfully.
+//
+// Note that we create a new file instead of writing to `.status.json`,
+// which contains various package/module state tracking information.
+// Writing to `.status.json` introduces the risk of corrupting it, which
+// could break or uncoordinate package sync.
 const FirstRunSuccessSuffix = ".first_run_succeeded"
 
 // EvaluateFirstRunPath returns absolute FirstRunPath from one of two sources (in order of precedence):
