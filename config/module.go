@@ -215,9 +215,9 @@ func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 	return m.ExePath, nil
 }
 
-// FirstRunSuccessExt is the extension of the file whose existence
+// FirstRunSuccessSuffix is the suffix of the file whose existence
 // denotes that the setup phase for a module ran successfully.
-const FirstRunSuccessExt = ".first_run_succeeded"
+const FirstRunSuccessSuffix = ".first_run_succeeded"
 
 // EvaluateFirstRunPath returns absolute FirstRunPath from one of two sources (in order of precedence):
 // 1. if there is a meta.json in the exe dir, use that, except in local non-tarball case.
@@ -237,7 +237,7 @@ func (m Module) EvaluateFirstRunPath(packagesDir string) (
 		return "", noop, err
 	}
 
-	firstRunSuccessPath := firstRunDir + FirstRunSuccessExt
+	firstRunSuccessPath := firstRunDir + FirstRunSuccessSuffix
 	if _, err := os.Stat(firstRunSuccessPath); !errors.Is(err, os.ErrNotExist) {
 		return "", noop, errors.New("first run already ran")
 	}

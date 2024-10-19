@@ -272,7 +272,7 @@ func commonCleanup(logger logging.Logger, expectedPackageDirectories map[string]
 			}
 			_, expectedToExist := expectedPackageDirectories[packageDirName]
 			_, expectedStatusFileToExist := expectedPackageDirectories[strings.TrimSuffix(packageDirName, statusFileExt)]
-			_, expectedFirstRunSuccessFileToExist := expectedPackageDirectories[strings.TrimSuffix(packageDirName, config.FirstRunSuccessExt)]
+			_, expectedFirstRunSuccessFileToExist := expectedPackageDirectories[strings.TrimSuffix(packageDirName, config.FirstRunSuccessSuffix)]
 			if !expectedToExist && !expectedStatusFileToExist && !expectedFirstRunSuccessFileToExist {
 				logger.Debugf("Removing old package file(s) %s", packageDirName)
 				allErrors = multierr.Append(allErrors, os.RemoveAll(packageDirName))
