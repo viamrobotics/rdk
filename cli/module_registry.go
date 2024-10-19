@@ -421,6 +421,9 @@ func (c *viamClient) updateModule(moduleID moduleID, manifest moduleManifest) (*
 		Models:      models,
 		Entrypoint:  manifest.Entrypoint,
 	}
+	if manifest.FirstRun != "" {
+		req.FirstRun = &manifest.FirstRun
+	}
 	return c.client.UpdateModule(c.c.Context, &req)
 }
 

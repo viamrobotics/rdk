@@ -199,6 +199,15 @@ var testModuleWithError = Module{
 		Error: "i have a bad error ah!",
 	},
 }
+var testModuleWithTimeout = Module{
+	Name:            "testmod",
+	ExePath:         "/tmp/test.mod",
+	LogLevel:        "debug",
+	Type:            ModuleTypeLocal,
+	ModuleID:        "a:b",
+	Environment:     map[string]string{"SOME_VAR": "value"},
+	FirstRunTimeout: time.Minute,
+}
 
 var testPackageConfig = PackageConfig{
 	Name:    "package-name",
@@ -239,6 +248,7 @@ func validateModule(t *testing.T, actual, expected Module) {
 	test.That(t, actual.Name, test.ShouldEqual, expected.Name)
 	test.That(t, actual.ExePath, test.ShouldEqual, expected.ExePath)
 	test.That(t, actual.LogLevel, test.ShouldEqual, expected.LogLevel)
+	test.That(t, actual.FirstRunTimeout, test.ShouldEqual, expected.FirstRunTimeout)
 	test.That(t, actual, test.ShouldResemble, expected)
 }
 
@@ -296,11 +306,21 @@ func TestModuleConfigToProto(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, protoWithErr.Status, test.ShouldNotBeNil)
 
-	out, err = ModuleConfigFromProto(proto)
+	out, err = ModuleConfigFromProto(protoWithErr)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out, test.ShouldNotBeNil)
 
-	validateModule(t, *out, testModule)
+	validateModule(t, *out, testModuleWithError)
+
+	protoWithTimeout, err := ModuleConfigToProto(&testModuleWithTimeout)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, protoWithTimeout.Status, test.ShouldBeNil)
+
+	out, err = ModuleConfigFromProto(protoWithTimeout)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out, test.ShouldNotBeNil)
+
+	validateModule(t, *out, testModuleWithTimeout)
 }
 
 //nolint:thelper
