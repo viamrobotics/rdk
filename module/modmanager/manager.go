@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -38,6 +39,10 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/packages"
 	rutils "go.viam.com/rdk/utils"
+)
+
+const (
+	defaultFirstRunTimeout = 1 * time.Hour
 )
 
 var (
@@ -300,7 +305,7 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module) error {
 	// only set the module data directory if the parent dir is present (which it might not be during tests)
 	if mgr.moduleDataParentDir != "" {
 		var err error
-		// todo: why isn't conf.Name being sanitized like PackageConfig.SanitizedName?
+		// TODO: why isn't conf.Name being sanitized like PackageConfig.SanitizedName?
 		moduleDataDir, err = rutils.SafeJoinDir(mgr.moduleDataParentDir, conf.Name)
 		if err != nil {
 			return err
@@ -1075,6 +1080,64 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 	}
 }
 
+// FirstRun is runs a module-specific setup script.
+func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
+	logger := mgr.logger.AsZap().With("name", conf.Name)
+
+	// Evaluate the Module's FirstRun path. If there is an error we assume
+	// that the first run script does not exist and we debug log and exit quietly.
+	firstRunPath, markSuccess, err := conf.EvaluateFirstRunPath(packages.LocalPackagesDir(mgr.packagesDir))
+	if err != nil {
+		// TODO(RSDK-9067): some first run path evaluation errors should be promoted to WARN logs.
+		logger.Debug("no first run script detected, skipping setup phase", "error", err)
+		return nil
+	}
+
+	logger.Info("executing first run script")
+
+	// This value is normally set on a field on the [module] struct but it seems like we can safely get it on demand.
+	var dataDir string
+	if mgr.moduleDataParentDir != "" {
+		var err error
+		// TODO: why isn't conf.Name being sanitized like PackageConfig.SanitizedName?
+		dataDir, err = rutils.SafeJoinDir(mgr.moduleDataParentDir, conf.Name)
+		if err != nil {
+			return err
+		}
+	}
+
+	moduleEnvironment := getFullEnvironment(conf, dataDir, mgr.viamHomeDir)
+
+	// TODO(RSDK-9060): support a user-supplied timeout
+	cmdCtx, cancel := context.WithTimeout(ctx, defaultFirstRunTimeout)
+	defer cancel()
+
+	//nolint:gosec // Yes, we are deliberating executing arbitrary user code here.
+	cmd := exec.CommandContext(cmdCtx, firstRunPath)
+
+	cmd.Env = os.Environ()
+	for key, val := range moduleEnvironment {
+		cmd.Env = append(cmd.Env, key+"="+val)
+	}
+	cmdOut, err := cmd.CombinedOutput()
+
+	resultLogger := logger.With("path", firstRunPath, "output", string(cmdOut))
+	if err != nil {
+		resultLogger.Errorw("command failed", "error", err)
+		return err
+	}
+
+	resultLogger.Infow("command succeeded")
+
+	// Mark success by writing a marker file to disk. This is a best
+	// effort; if writing to disk fails the setup phase will run again
+	// for this module and version and we are okay with that.
+	if err := markSuccess(); err != nil {
+		logger.Errorw("failed to mark success", "error", err)
+	}
+	return nil
+}
+
 func (m *module) startProcess(
 	ctx context.Context,
 	parentAddr string,
@@ -1280,15 +1343,23 @@ func (m *module) cleanupAfterCrash(mgr *Manager) {
 }
 
 func (m *module) getFullEnvironment(viamHomeDir string) map[string]string {
+	return getFullEnvironment(m.cfg, m.dataDir, viamHomeDir)
+}
+
+func getFullEnvironment(
+	cfg config.Module,
+	dataDir string,
+	viamHomeDir string,
+) map[string]string {
 	environment := map[string]string{
 		"VIAM_HOME":        viamHomeDir,
-		"VIAM_MODULE_DATA": m.dataDir,
+		"VIAM_MODULE_DATA": dataDir,
 	}
-	if m.cfg.Type == config.ModuleTypeRegistry {
-		environment["VIAM_MODULE_ID"] = m.cfg.ModuleID
+	if cfg.Type == config.ModuleTypeRegistry {
+		environment["VIAM_MODULE_ID"] = cfg.ModuleID
 	}
 	// Overwrite the base environment variables with the module's environment variables (if specified)
-	for key, value := range m.cfg.Environment {
+	for key, value := range cfg.Environment {
 		environment[key] = value
 	}
 	return environment
