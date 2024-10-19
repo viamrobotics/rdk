@@ -237,12 +237,12 @@ func (m Module) EvaluateFirstRunPath(packagesDir string) (
 	error,
 ) {
 	noop := func() error { return nil }
-	firstRunDir, err := m.exeDir(packagesDir)
+	unpackedModDir, err := m.exeDir(packagesDir)
 	if err != nil {
 		return "", noop, err
 	}
 
-	firstRunSuccessPath := firstRunDir + FirstRunSuccessSuffix
+	firstRunSuccessPath := unpackedModDir + FirstRunSuccessSuffix
 	if _, err := os.Stat(firstRunSuccessPath); !errors.Is(err, os.ErrNotExist) {
 		return "", noop, errors.New("first run already ran")
 	}
@@ -256,7 +256,7 @@ func (m Module) EvaluateFirstRunPath(packagesDir string) (
 	localNonTarball := m.Type == ModuleTypeLocal && !m.NeedsSyntheticPackage()
 	if !localNonTarball {
 		// this is case 1, meta.json in exe folder.
-		metaPath, err := utils.SafeJoinDir(firstRunDir, "meta.json")
+		metaPath, err := utils.SafeJoinDir(unpackedModDir, "meta.json")
 		if err != nil {
 			return "", noop, err
 		}
@@ -267,7 +267,7 @@ func (m Module) EvaluateFirstRunPath(packagesDir string) (
 			if err != nil {
 				return "", noop, err
 			}
-			firstRun, err := utils.SafeJoinDir(firstRunDir, meta.FirstRun)
+			firstRun, err := utils.SafeJoinDir(unpackedModDir, meta.FirstRun)
 			if err != nil {
 				return "", noop, err
 			}
@@ -287,7 +287,7 @@ func (m Module) EvaluateFirstRunPath(packagesDir string) (
 			// note: this error deprecates the side-by-side case because the side-by-side case is deprecated.
 			return "", noop, errors.Wrapf(err, "couldn't find meta.json inside tarball %s (or next to it)", m.ExePath)
 		}
-		firstRun, err := utils.SafeJoinDir(firstRunDir, meta.FirstRun)
+		firstRun, err := utils.SafeJoinDir(unpackedModDir, meta.FirstRun)
 		if err != nil {
 			return "", noop, err
 		}
