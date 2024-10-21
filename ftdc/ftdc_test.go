@@ -215,7 +215,7 @@ func TestNestedStructs(t *testing.T) {
 	test.That(t, datum.Data["nested"], test.ShouldNotBeNil)
 
 	schema, schemaErr := getSchema(datum.Data)
-test.That(t, schemaErr, test.ShouldBeNil)
+	test.That(t, schemaErr, test.ShouldBeNil)
 	flattened, err := flatten(datum, schema)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, flattened, test.ShouldResemble, []float32{1, 2})
