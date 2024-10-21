@@ -219,7 +219,9 @@ func TestNestedStructs(t *testing.T) {
 	if schemaErr != nil {
 		panic(err)
 	}
-	test.That(t, flatten(datum, schema), test.ShouldResemble, []float32{1, 2})
+	flattened, err := flatten(datum, schema)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, flattened, test.ShouldResemble, []float32{1, 2})
 
 	err = ftdc.writeDatum(datum)
 	test.That(t, err, test.ShouldBeNil)

@@ -241,7 +241,11 @@ func (ftdc *FTDC) writeDatum(datum datum) error {
 		// Update the `outputGenerationId` to reflect the new schema.
 		ftdc.outputGenerationID = datum.generationID
 
-		data := flatten(datum, ftdc.currSchema)
+		data, err := flatten(datum, ftdc.currSchema)
+		if err != nil {
+			return err
+		}
+
 		// Write the new data point to disk. When schema changes, we do not do any diffing. We write
 		// a raw value for each metric.
 		writeDatum(datum.Time, nil, data, toWrite)
@@ -252,7 +256,11 @@ func (ftdc *FTDC) writeDatum(datum datum) error {
 
 	// The input `datum` is for the same schema as the prior datum. Flatten the values and write a
 	// datum entry diffed against the `prevFlatData`.
-	data := flatten(datum, ftdc.currSchema)
+	data, err := flatten(datum, ftdc.currSchema)
+	if err != nil {
+		return err
+	}
+
 	writeDatum(datum.Time, ftdc.prevFlatData, data, toWrite)
 	ftdc.prevFlatData = data
 	return nil

@@ -246,16 +246,16 @@ func getSchema(data map[string]any) (*schema, *schemaError) {
 	var fields []string
 
 	for name, stats := range data {
-		mapOrder = append(mapOrder, key)
+		mapOrder = append(mapOrder, name)
 		fieldsForItem, err := getFieldsForStruct(reflect.TypeOf(stats))
 		if err != nil {
-			return nil, &schemaError{key, err}
+			return nil, &schemaError{name, err}
 		}
 
 		for _, field := range fieldsForItem {
 			// We insert a `.` into every metric/field name we get a recording for. This property is
 			// assumed elsewhere.
-			fields = append(fields, fmt.Sprintf("%v.%v", key, field))
+			fields = append(fields, fmt.Sprintf("%v.%v", name, field))
 		}
 	}
 
@@ -268,7 +268,7 @@ func getSchema(data map[string]any) (*schema, *schemaError) {
 // flatten takes an input `Datum` and a `mapOrder` from the current `Schema` and returns a list of
 // `float32`s representing the readings. Similar to `getFieldsForItem`, there are constraints on
 // input data shape that this code currently does not validate.
-func flatten(datum datum, schema *schema) []float32 {
+func flatten(datum datum, schema *schema) ([]float32, error) {
 	ret := make([]float32, 0, len(schema.fieldOrder))
 
 	for _, key := range schema.mapOrder {
@@ -276,18 +276,18 @@ func flatten(datum datum, schema *schema) []float32 {
 		// the current schema.
 		stats, exists := datum.Data[key]
 		if !exists {
-			logging.Global().Warn("Missing data. Need to know how much to skip in the output float32")
-			return nil
+			// nolint
+			return nil, fmt.Errorf("Missing statser name. Name: %v", key)
 		}
 
 		numbers, err := flattenStruct(reflect.ValueOf(stats))
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 		ret = append(ret, numbers...)
 	}
 
-	return ret
+	return ret, nil
 }
 
 func parse(rawReader io.Reader) ([]datum, error) {
