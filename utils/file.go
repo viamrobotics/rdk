@@ -47,3 +47,10 @@ func SafeJoinDir(parent, subdir string) (string, error) {
 	}
 	return res, nil
 }
+
+// PathExists returns true if the file exists, false if it doesn't or in
+// any error case. No guarantees about doing the right thing with links.
+func PathExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
