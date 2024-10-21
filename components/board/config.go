@@ -36,7 +36,7 @@ func (config *I2CConfig) Validate(path string) error {
 // AnalogReaderConfig describes the configuration of an analog reader on a board.
 type AnalogReaderConfig struct {
 	Name              string `json:"name"`
-	Pin               string `json:"pin"`
+	Channel           string `json:"channel"`
 	AverageOverMillis int    `json:"average_over_ms,omitempty"`
 	SamplesPerSecond  int    `json:"samples_per_sec,omitempty"`
 }

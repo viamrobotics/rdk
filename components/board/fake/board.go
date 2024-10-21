@@ -110,12 +110,12 @@ func (b *Board) processConfig(conf resource.Config) error {
 	for _, c := range newConf.AnalogReaders {
 		stillExists[c.Name] = struct{}{}
 		if curr, ok := b.Analogs[c.Name]; ok {
-			if curr.pin != c.Pin {
-				curr.reset(c.Pin)
+			if curr.pin != c.Channel {
+				curr.reset(c.Channel)
 			}
 			continue
 		}
-		b.Analogs[c.Name] = newAnalogReader(c.Pin)
+		b.Analogs[c.Name] = newAnalogReader(c.Channel)
 	}
 	for name := range b.Analogs {
 		if _, ok := stillExists[name]; ok {

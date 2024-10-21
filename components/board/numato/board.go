@@ -458,7 +458,7 @@ func connect(ctx context.Context, name resource.Name, conf *Config, logger loggi
 
 	b.analogs = map[string]*pinwrappers.AnalogSmoother{}
 	for _, c := range conf.Analogs {
-		r := &analog{b, c.Pin}
+		r := &analog{b, c.Channel}
 		b.analogs[c.Name] = pinwrappers.SmoothAnalogReader(r, c, logger)
 	}
 
