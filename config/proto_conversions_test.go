@@ -199,6 +199,7 @@ var testModuleWithError = Module{
 		Error: "i have a bad error ah!",
 	},
 }
+
 var testModuleWithTimeout = Module{
 	Name:            "testmod",
 	ExePath:         "/tmp/test.mod",
