@@ -45,6 +45,9 @@ func TestPtgRrtBidirectional(t *testing.T) {
 	opt := newBasicPlannerOptions(ackermanFrame)
 	opt.DistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
 	opt.StartPose = spatialmath.NewZeroPose()
+	opt.AtGoalMetric = func(startPose, goalPose spatialmath.Pose) bool {
+		return spatialmath.PoseAlmostCoincidentEps(startPose, goalPose, opt.GoalThreshold)
+	}
 	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
 	tp, ok := mp.(*tpSpaceRRTMotionPlanner)
@@ -149,6 +152,9 @@ func TestPtgWithObstacle(t *testing.T) {
 	for name, constraint := range collisionConstraints {
 		opt.AddStateConstraint(name, constraint)
 	}
+	opt.AtGoalMetric = func(startPose, goalPose spatialmath.Pose) bool {
+		return spatialmath.PoseAlmostCoincidentEps(startPose, goalPose, opt.GoalThreshold)
+	}
 
 	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
@@ -167,7 +173,6 @@ func TestPtgWithObstacle(t *testing.T) {
 		tp.logger.Debugf("$SG,%f,%f", goalPos.Point().X, goalPos.Point().Y)
 	}
 	plan, err := tp.plan(ctx, goalPos, nil)
-
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
 

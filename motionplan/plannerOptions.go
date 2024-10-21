@@ -180,6 +180,9 @@ type plannerOptions struct {
 	// DistanceFunc is the function that the planner will use to measure the degree of "closeness" between two states of the robot
 	DistanceFunc ik.SegmentMetric
 
+	// AtGoalMetric is a function that only the tpspace planner will use on the first iteration to determine if we are already at the goal
+	AtGoalMetric func(startPose, goalPose spatialmath.Pose) bool
+
 	// ScoreFunc is the function that the planner will use to evaluate a plan for final cost comparisons.
 	ScoreFunc ik.SegmentMetric
 
