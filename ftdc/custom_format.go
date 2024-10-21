@@ -284,9 +284,7 @@ func flatten(datum datum, schema *schema) []float32 {
 		if err != nil {
 			panic(err)
 		}
-		for _, number := range numbers {
-			ret = append(ret, number)
-		}
+		ret = append(ret, numbers...)
 	}
 
 	return ret

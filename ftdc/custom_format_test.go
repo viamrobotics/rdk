@@ -211,7 +211,13 @@ type Complex struct {
 }
 
 func TestNestedReflectionParity(t *testing.T) {
-	complex := Complex{
+	// We use reflection in two paths:
+	// - Walking a "stats" object to create a schema.
+	// - Walking a "stats" object to get/flatten all of the values.
+	//
+	// It's critical that these two walks happen in the same order. Such that keys from the schema
+	// walk match their corresponding values.
+	complexObj := Complex{
 		F1: 1,
 		F2: struct {
 			F3 float32
@@ -221,6 +227,8 @@ func TestNestedReflectionParity(t *testing.T) {
 			F6 float32
 		}{6},
 		F7: 7,
+		// F8 is tricky -- there are no leaf nodes. Therefore it must not be part of neither the
+		// schema nor value output.
 		F8: struct{}{},
 		F9: 9,
 		F10: struct {
@@ -247,12 +255,14 @@ func TestNestedReflectionParity(t *testing.T) {
 		},
 	}
 
-	fields, err := getFieldsForStruct(reflect.TypeOf(complex))
+	fields, err := getFieldsForStruct(reflect.TypeOf(complexObj))
 	test.That(t, err, test.ShouldBeNil)
+	// There will be one "field" for each number in the above `Complex` structure.
 	test.That(t, fields, test.ShouldResemble,
 		[]string{"F1", "F2.F3", "F2.F4", "F5.F6", "F7", "F9", "F10.F11", "F10.F12", "F10.F13", "F14.F15.F16.F17"})
-	values, err := flattenStruct(reflect.ValueOf(complex))
+	values, err := flattenStruct(reflect.ValueOf(complexObj))
 	test.That(t, err, test.ShouldBeNil)
+	// For convenience, the number values match the field name.
 	test.That(t, values, test.ShouldResemble,
 		[]float32{1, 3, 4, 6, 7, 9, 11, 12, 13, 17})
 }
