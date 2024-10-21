@@ -70,8 +70,8 @@ func TestDiffConfigs(t *testing.T) {
 				Attributes: utils.AttributeMap{
 					"analogs": []interface{}{
 						map[string]interface{}{
-							"name": "analog1",
-							"pin":  "0",
+							"name":    "analog1",
+							"channel": "0",
 						},
 					},
 					"digital_interrupts": []interface{}{
@@ -84,8 +84,8 @@ func TestDiffConfigs(t *testing.T) {
 				ConvertedAttributes: &fakeboard.Config{
 					AnalogReaders: []board.AnalogReaderConfig{
 						{
-							Name: "analog1",
-							Pin:  "0",
+							Name:    "analog1",
+							Channel: "0",
 						},
 					}, DigitalInterrupts: []board.DigitalInterruptConfig{
 						{
@@ -157,8 +157,8 @@ func TestDiffConfigs(t *testing.T) {
 				Attributes: utils.AttributeMap{
 					"analogs": []interface{}{
 						map[string]interface{}{
-							"name": "analog1",
-							"pin":  "1",
+							"name":    "analog1",
+							"channel": "1",
 						},
 					},
 					"digital_interrupts": []interface{}{
@@ -171,8 +171,8 @@ func TestDiffConfigs(t *testing.T) {
 				ConvertedAttributes: &fakeboard.Config{
 					AnalogReaders: []board.AnalogReaderConfig{
 						{
-							Name: "analog1",
-							Pin:  "1",
+							Name:    "analog1",
+							Channel: "1",
 						},
 					}, DigitalInterrupts: []board.DigitalInterruptConfig{
 						{
@@ -334,13 +334,13 @@ func TestDiffConfigs(t *testing.T) {
 							Attributes: utils.AttributeMap{
 								"analogs": []interface{}{
 									map[string]interface{}{
-										"name": "analog1",
-										"pin":  "1",
+										"name":    "analog1",
+										"channel": "1",
 									},
 								},
 							},
 							ConvertedAttributes: &fakeboard.Config{
-								AnalogReaders: []board.AnalogReaderConfig{{Name: "analog1", Pin: "1"}},
+								AnalogReaders: []board.AnalogReaderConfig{{Name: "analog1", Channel: "1"}},
 							},
 						},
 					},
