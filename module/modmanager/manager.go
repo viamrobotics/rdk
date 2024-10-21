@@ -2,6 +2,7 @@
 package modmanager
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io/fs"
@@ -1093,6 +1094,7 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 		return nil
 	}
 
+	logger = logger.With("path", firstRunPath)
 	logger.Info("executing first run script")
 
 	// This value is normally set on a field on the [module] struct but it seems like we can safely get it on demand.
@@ -1119,15 +1121,55 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	for key, val := range moduleEnvironment {
 		cmd.Env = append(cmd.Env, key+"="+val)
 	}
-	cmdOut, err := cmd.CombinedOutput()
 
-	resultLogger := logger.With("path", firstRunPath, "output", string(cmdOut))
+	stdOut, err := cmd.StdoutPipe()
 	if err != nil {
-		resultLogger.Errorw("command failed", "error", err)
+		return err
+	}
+	stdErr, err := cmd.StderrPipe()
+	if err != nil {
 		return err
 	}
 
-	resultLogger.Infow("command succeeded")
+	var combined []string
+	var mu sync.Mutex
+
+	scanOut := bufio.NewScanner(stdOut)
+	go func() {
+		for scanOut.Scan() {
+			out := scanOut.Text()
+			logger.Infow("command stdio", "output", out)
+			mu.Lock()
+			combined = append(combined, out)
+			mu.Unlock()
+		}
+	}()
+	scanErr := bufio.NewScanner(stdErr)
+	go func() {
+		for scanErr.Scan() {
+			out := scanErr.Text()
+			logger.Warnw("command stderr", "output", out)
+			mu.Lock()
+			combined = append(combined, out)
+			mu.Unlock()
+		}
+	}()
+	if err := cmd.Start(); err != nil {
+		logger.Errorw("command failed to start", "error", err)
+		return err
+	}
+	if err := cmd.Wait(); err != nil {
+		logger.Errorw("command failed", "error", err)
+		return err
+	}
+	logger.Infow("command succeeded", "combined output", combined)
+
+	if err := scanOut.Err(); err != nil {
+		logger.Warn("error scanning stdio", "error", err)
+	}
+	if err := scanErr.Err(); err != nil {
+		logger.Warn("error scanning stderr", "error", err)
+	}
 
 	// Mark success by writing a marker file to disk. This is a best
 	// effort; if writing to disk fails the setup phase will run again
