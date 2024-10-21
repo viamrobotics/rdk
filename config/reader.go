@@ -51,8 +51,9 @@ func parseOsRelease(body *bufio.Reader) map[string]string {
 		if err != nil {
 			return ret
 		}
-		before, after, _ := strings.Cut(line, "=")
-		ret[before] = after
+		key, value, _ := strings.Cut(line, "=")
+		// note: we trim `value` rather than `line` because os_version value is quoted sometimes.
+		ret[key] = strings.Trim(value, "\n\"")
 	}
 }
 
