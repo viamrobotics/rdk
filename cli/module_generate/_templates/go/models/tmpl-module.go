@@ -11,7 +11,7 @@ var (
 
 func init() {
 	resource.Register{{ .ResourceType}}({{.ResourceSubtype}}.API, {{.ModelPascal}},
-		resource.Registration[{{if eq .ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .ResourceType "component"}}{{.ResourceSubtypePascal}}{{else}}Service{{end}}{{end}}, *Config]{
+		resource.Registration[{{if eq .ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .ResourceType "component"}}{{.ResourceSubtype}}.{{.ResourceSubtypePascal}}{{else}}{{.ResourceSubtype}}.Service{{end}}{{end}}, *Config]{
 			Constructor: new{{.ModulePascal}}{{.ModelPascal}},
 		},
 	)
@@ -53,7 +53,7 @@ type {{.ModuleCamel}}{{.ModelPascal}} struct {
 
 }
 
-func new{{.ModulePascal}}{{.ModelPascal}}(ctx context.Context, deps resource.Dependencies, rawConf resource.Config, logger logging.Logger) ({{if eq .ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .ResourceType "component"}}{{.ResourceSubtypePascal}}{{else}}Service{{end}}{{end}}, error) {
+func new{{.ModulePascal}}{{.ModelPascal}}(ctx context.Context, deps resource.Dependencies, rawConf resource.Config, logger logging.Logger) ({{if eq .ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .ResourceType "component"}}{{.ResourceSubtype}}.{{.ResourceSubtypePascal}}{{else}}{{.ResourceSubtype}}.Service{{end}}{{end}}, error) {
 	conf, err := resource.NativeConfig[*Config](rawConf)
 	if err != nil {
 		return nil, err
@@ -70,7 +70,6 @@ func new{{.ModulePascal}}{{.ModelPascal}}(ctx context.Context, deps resource.Dep
 	}
 	return s, nil
 }
-
 
 func (s *{{.ModuleCamel}}{{.ModelPascal}}) Name() resource.Name {
 	return s.name
