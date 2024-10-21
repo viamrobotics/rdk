@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -39,6 +40,9 @@ type Module struct {
 	// They overwrite existing environment variables.
 	Environment map[string]string `json:"env,omitempty"`
 
+	// FirstRunTimeout is the timeout duration for the first run script.
+	FirstRunTimeout time.Duration `json:"first_run_timeout,omitempty"`
+
 	// Status refers to the validations done in the APP to make sure a module is configured correctly
 	Status           *AppValidationStatus `json:"status"`
 	alreadyValidated bool
@@ -51,6 +55,7 @@ type Module struct {
 // JSONManifest contains meta.json fields that are used by both RDK and CLI.
 type JSONManifest struct {
 	Entrypoint string `json:"entrypoint"`
+	FirstRun   string `json:"first_run"`
 }
 
 // ModuleType indicates where a module comes from.
@@ -212,4 +217,86 @@ func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 		return filepath.Abs(entrypoint)
 	}
 	return m.ExePath, nil
+}
+
+// FirstRunSuccessSuffix is the suffix of the file whose existence
+// denotes that the setup phase for a module ran successfully.
+//
+// Note that we create a new file instead of writing to `.status.json`,
+// which contains various package/module state tracking information.
+// Writing to `.status.json` introduces the risk of corrupting it, which
+// could break or uncoordinate package sync.
+const FirstRunSuccessSuffix = ".first_run_succeeded"
+
+// EvaluateFirstRunPath returns absolute FirstRunPath from one of two sources (in order of precedence):
+// 1. if there is a meta.json in the exe dir, use that, except in local non-tarball case.
+// 2. if this is a local tarball and there's a meta.json next to the tarball, use that.
+// Note: the working directory must be the unpacked tarball directory or local exec directory.
+//
+// On success (i.e. if the returned error is nil), this function also returns a function that creates
+// a marker file indicating that the setup phase has run successfully.
+func (m Module) EvaluateFirstRunPath(packagesDir string) (
+	string,
+	func() error,
+	error,
+) {
+	noop := func() error { return nil }
+	unpackedModDir, err := m.exeDir(packagesDir)
+	if err != nil {
+		return "", noop, err
+	}
+
+	firstRunSuccessPath := unpackedModDir + FirstRunSuccessSuffix
+	if _, err := os.Stat(firstRunSuccessPath); !errors.Is(err, os.ErrNotExist) {
+		return "", noop, errors.New("first run already ran")
+	}
+	markFirstRunSuccess := func() error {
+		//nolint:gosec // safe
+		_, err := os.Create(firstRunSuccessPath)
+		return err
+	}
+
+	// note: we don't look at internal meta.json in local non-tarball case because user has explicitly requested a binary.
+	localNonTarball := m.Type == ModuleTypeLocal && !m.NeedsSyntheticPackage()
+	if !localNonTarball {
+		// this is case 1, meta.json in exe folder.
+		metaPath, err := utils.SafeJoinDir(unpackedModDir, "meta.json")
+		if err != nil {
+			return "", noop, err
+		}
+		_, err = os.Stat(metaPath)
+		if err == nil {
+			// this is case 1, meta.json in exe dir
+			meta, err := parseJSONFile[JSONManifest](metaPath)
+			if err != nil {
+				return "", noop, err
+			}
+			firstRun, err := utils.SafeJoinDir(unpackedModDir, meta.FirstRun)
+			if err != nil {
+				return "", noop, err
+			}
+			firstRunPath, err := filepath.Abs(firstRun)
+			return firstRunPath, markFirstRunSuccess, err
+		}
+	}
+	if m.NeedsSyntheticPackage() {
+		// this is case 2, side-by-side
+		// TODO(RSDK-7848): remove this case once java sdk supports internal meta.json.
+		metaPath, err := utils.SafeJoinDir(filepath.Dir(m.ExePath), "meta.json")
+		if err != nil {
+			return "", noop, err
+		}
+		meta, err := parseJSONFile[JSONManifest](metaPath)
+		if err != nil {
+			// note: this error deprecates the side-by-side case because the side-by-side case is deprecated.
+			return "", noop, errors.Wrapf(err, "couldn't find meta.json inside tarball %s (or next to it)", m.ExePath)
+		}
+		firstRun, err := utils.SafeJoinDir(unpackedModDir, meta.FirstRun)
+		if err != nil {
+			return "", noop, err
+		}
+		firstRunPath, err := filepath.Abs(firstRun)
+		return firstRunPath, markFirstRunSuccess, err
+	}
+	return "", noop, errors.New("no first run script")
 }

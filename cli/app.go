@@ -102,6 +102,7 @@ const (
 	dataFlagDeleteTabularDataOlderThanDays = "delete-older-than-days"
 	dataFlagDatabasePassword               = "password"
 	dataFlagFilterTags                     = "filter-tags"
+	dataFlagTimeout                        = "timeout"
 
 	packageFlagName        = "name"
 	packageFlagVersion     = "version"
@@ -423,6 +424,11 @@ var app = &cli.App{
 							Name:  dataFlagDataType,
 							Usage: "type of data to download. can be binary or tabular",
 						},
+						&cli.UintFlag{
+							Name:  dataFlagTimeout,
+							Usage: "number of seconds to wait for large file downloads",
+							Value: 30,
+						},
 					},
 						commonFilterFlags...),
 					Action: DataExportAction,
@@ -716,6 +722,11 @@ var app = &cli.App{
 							Required: false,
 							Usage:    "number of download requests to make in parallel",
 							Value:    100,
+						},
+						&cli.UintFlag{
+							Name:  dataFlagTimeout,
+							Usage: "number of seconds to wait for large file downloads",
+							Value: 30,
 						},
 					},
 					Action: DatasetDownloadAction,

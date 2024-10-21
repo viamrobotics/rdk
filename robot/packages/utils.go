@@ -252,7 +252,8 @@ func commonCleanup(logger logging.Logger, expectedPackageDirectories map[string]
 			continue
 		}
 
-		// There should be no non-dir files in the packages/data dir except .status.json files. Delete any that exist
+		// There should be no non-dir files in the packages/data dir
+		// except .status.json and .first_run_succeeded. Delete any that exist
 		if packageTypeDir.Type()&os.ModeDir != os.ModeDir && !strings.HasSuffix(packageTypeDirName, statusFileExt) {
 			allErrors = multierr.Append(allErrors, os.Remove(packageTypeDirName))
 			continue
@@ -271,7 +272,8 @@ func commonCleanup(logger logging.Logger, expectedPackageDirectories map[string]
 			}
 			_, expectedToExist := expectedPackageDirectories[packageDirName]
 			_, expectedStatusFileToExist := expectedPackageDirectories[strings.TrimSuffix(packageDirName, statusFileExt)]
-			if !expectedToExist && !expectedStatusFileToExist {
+			_, expectedFirstRunSuccessFileToExist := expectedPackageDirectories[strings.TrimSuffix(packageDirName, config.FirstRunSuccessSuffix)]
+			if !expectedToExist && !expectedStatusFileToExist && !expectedFirstRunSuccessFileToExist {
 				logger.Debugf("Removing old package file(s) %s", packageDirName)
 				allErrors = multierr.Append(allErrors, os.RemoveAll(packageDirName))
 			}
@@ -294,6 +296,8 @@ type syncStatus string
 const (
 	syncStatusDownloading syncStatus = "downloading"
 	syncStatusDone        syncStatus = "done"
+
+	statusFileExt = ".status.json"
 )
 
 type packageSyncFile struct {
@@ -303,8 +307,6 @@ type packageSyncFile struct {
 	Status          syncStatus `json:"sync_status"`
 	TarballChecksum string     `json:"tarball_checksum"`
 }
-
-var statusFileExt = ".status.json"
 
 func packageIsSynced(pkg config.PackageConfig, packagesDir string, logger logging.Logger) bool {
 	syncFile, err := readStatusFile(pkg, packagesDir)
