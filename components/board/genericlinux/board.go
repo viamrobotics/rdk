@@ -196,9 +196,9 @@ func (b *Board) reconfigureGpios(newConf *LinuxBoardConfig) error {
 func (b *Board) reconfigureAnalogReaders(ctx context.Context, newConf *LinuxBoardConfig) error {
 	stillExists := map[string]struct{}{}
 	for _, c := range newConf.AnalogReaders {
-		channel, err := strconv.Atoi(c.Pin)
+		channel, err := strconv.Atoi(c.Channel)
 		if err != nil {
-			return errors.Errorf("bad analog pin (%s)", c.Pin)
+			return errors.Errorf("bad analog pin (%s)", c.Channel)
 		}
 
 		bus := buses.NewSpiBus(c.SPIBus)
