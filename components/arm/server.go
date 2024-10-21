@@ -141,7 +141,7 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 			if err != nil {
 				return nil, err
 			}
-			model, err := updateKinematicHelper(req.GetName(), kinematicsPbResp)
+			model, err := parseKinematicsResponse(req.GetName(), kinematicsPbResp)
 			if err != nil {
 				return nil, err
 			}

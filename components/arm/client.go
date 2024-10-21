@@ -198,5 +198,5 @@ func (c *client) updateKinematics(ctx context.Context, extra map[string]interfac
 		return nil, err
 	}
 
-	return updateKinematicHelper(c.name, resp)
+	return parseKinematicsResponse(c.name, resp)
 }

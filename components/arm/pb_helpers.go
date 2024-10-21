@@ -9,7 +9,7 @@ import (
 	"go.viam.com/rdk/referenceframe/urdf"
 )
 
-func updateKinematicHelper(name string, resp *commonpb.GetKinematicsResponse) (referenceframe.Model, error) {
+func parseKinematicsResponse(name string, resp *commonpb.GetKinematicsResponse) (referenceframe.Model, error) {
 	format := resp.GetFormat()
 	data := resp.GetKinematicsData()
 
