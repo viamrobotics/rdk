@@ -3,7 +3,7 @@ import os
 import subprocess
 import sys
 from importlib import import_module
-from typing import List
+from typing import List, Set
 
 
 def return_attribute(value: str, attr: str) -> ast.Attribute:
@@ -16,7 +16,7 @@ def return_attribute(value: str, attr: str) -> ast.Attribute:
 def update_annotation(
     resource_name: str,
     annotation: ast.Name | ast.Subscript,
-    nodes: List[str],
+    nodes: Set[str],
     parent: str
 ) -> ast.Attribute | ast.Subscript:
     if isinstance(annotation, ast.Name) and annotation.id in nodes:
@@ -34,7 +34,7 @@ def update_annotation(
 def replace_async_func(
     resource_name: str,
     func: ast.AsyncFunctionDef,
-    nodes: List[str],
+    nodes: Set[str],
     parent: str = ""
 ) -> None:
     for arg in func.args.args:
@@ -62,7 +62,8 @@ def return_subclass(
         resource_name: str, stmt: ast.ClassDef, parent=""
 ) -> List[str]:
     def parse_subclass(resource_name: str, stmt: ast.ClassDef, parent: str):
-        nodes, nodes_to_remove = [], []
+        nodes = set()
+        nodes_to_remove = []
         parent = parent if parent else resource_name
         stmt.bases = [ast.Name(id=f"{parent}.{stmt.name}", ctx=ast.Load())]
         for cstmt in stmt.body:
@@ -71,7 +72,7 @@ def return_subclass(
             ):
                 nodes_to_remove.append(cstmt)
             elif isinstance(cstmt, ast.AnnAssign):
-                nodes.append(cstmt.target.id)
+                nodes.add(cstmt.target.id)
                 nodes_to_remove.append(cstmt)
             elif isinstance(cstmt, ast.ClassDef):
                 parse_subclass(resource_name, cstmt, stmt.bases[0].id)
@@ -107,7 +108,8 @@ def main(
     }.get(resource_subtype, "".join(word.capitalize()
                                     for word in resource_subtype.split("_")))
 
-    imports, subclasses, nodes, abstract_methods = [], [], [], []
+    imports, subclasses, abstract_methods = [], [], []
+    nodes = set()
     modules_to_ignore = [
         "abc",
         "component_base",
@@ -145,7 +147,7 @@ def main(
                     if isinstance(cstmt, ast.ClassDef):
                         subclasses.append(return_subclass(resource_name, cstmt))
                     elif isinstance(cstmt, ast.AnnAssign):
-                        nodes.append(cstmt.target.id)
+                        nodes.add(cstmt.target.id)
                     elif isinstance(cstmt, ast.AsyncFunctionDef):
                         replace_async_func(resource_name, cstmt, nodes)
                         indented_code = '\n'.join(
