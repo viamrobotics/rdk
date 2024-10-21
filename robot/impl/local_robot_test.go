@@ -20,7 +20,6 @@ import (
 	"github.com/golang/geo/r3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
-
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -4344,7 +4343,7 @@ func TestRemovingOfflineRemote(t *testing.T) {
 	remotes := mainRobot.manager.resources.FindNodesByAPI(client.RemoteAPI)
 	node, _ := mainRobot.manager.resources.Node(remotes[0])
 	node.LogAndSetLastError(errors.New("Set Node to unhealthy"))
-	
+
 	// Reconfigure the main robot with the offline remote removed
 	mainRobot.Reconfigure(ctx, &config.Config{})
 
