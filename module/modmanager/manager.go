@@ -1090,12 +1090,12 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	firstRunPath, markSuccess, err := conf.EvaluateFirstRunPath(packages.LocalPackagesDir(mgr.packagesDir))
 	if err != nil {
 		// TODO(RSDK-9067): some first run path evaluation errors should be promoted to WARN logs.
-		logger.Debug("no first run script detected, skipping setup phase", "error", err)
+		logger.Debugw("no first run script detected, skipping setup phase", "error", err)
 		return nil
 	}
 
 	logger = logger.With("path", firstRunPath)
-	logger.Info("executing first run script")
+	logger.Infow("executing first run script")
 
 	// This value is normally set on a field on the [module] struct but it seems like we can safely get it on demand.
 	var dataDir string
@@ -1138,7 +1138,7 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	go func() {
 		for scanOut.Scan() {
 			out := scanOut.Text()
-			logger.Infow("command stdio", "output", out)
+			logger.Infow("first run stdio", "output", out)
 			mu.Lock()
 			combined = append(combined, out)
 			mu.Unlock()
@@ -1148,27 +1148,27 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	go func() {
 		for scanErr.Scan() {
 			out := scanErr.Text()
-			logger.Warnw("command stderr", "output", out)
+			logger.Warnw("first run stderr", "output", out)
 			mu.Lock()
 			combined = append(combined, out)
 			mu.Unlock()
 		}
 	}()
 	if err := cmd.Start(); err != nil {
-		logger.Errorw("command failed to start", "error", err)
+		logger.Errorw("first run failed to start", "error", err)
 		return err
 	}
 	if err := cmd.Wait(); err != nil {
-		logger.Errorw("command failed", "error", err, "combined output", combined)
+		logger.Errorw("first run failed", "error", err, "combined output", combined)
 		return err
 	}
-	logger.Infow("command succeeded", "combined output", combined)
+	logger.Infow("first run succeeded", "combined output", combined)
 
 	if err := scanOut.Err(); err != nil {
-		logger.Warn("error scanning stdio", "error", err)
+		logger.Warnw("error scanning first run stdio", "error", err)
 	}
 	if err := scanErr.Err(); err != nil {
-		logger.Warn("error scanning stderr", "error", err)
+		logger.Warnw("error scanning first run stderr", "error", err)
 	}
 
 	// Mark success by writing a marker file to disk. This is a best
