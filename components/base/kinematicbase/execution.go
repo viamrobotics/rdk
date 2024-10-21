@@ -495,7 +495,6 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 func (ptgk *ptgBaseKinematics) getCorrectionSolution(ctx context.Context, goals []courseCorrectionGoal) (courseCorrectionGoal, error) {
 	for _, goal := range goals {
 		solveMetric := ik.NewScaledSquaredNormMetric(goal.Goal, 50)
-		solutionChan := make(chan *ik.Solution, 1)
 		ptgk.logger.Debug("attempting goal ", spatialmath.PoseToProtobuf(goal.Goal))
 		seed := []referenceframe.Input{{math.Pi / 2}, {ptgk.linVelocityMMPerSecond / 2}, {math.Pi / 2}, {ptgk.linVelocityMMPerSecond / 2}}
 		if goal.Goal.Point().X > 0 {
@@ -505,24 +504,17 @@ func (ptgk *ptgBaseKinematics) getCorrectionSolution(ctx context.Context, goals 
 		}
 		// Attempt to use our course correction solver to solve for a new set of trajectories which will get us from our current position
 		// to our goal point along our original trajectory.
-		err := ptgk.ptgs[ptgk.courseCorrectionIdx].Solve(
+		solution, err := ptgk.ptgs[ptgk.courseCorrectionIdx].Solve(
 			ctx,
-			solutionChan,
 			seed,
 			solveMetric,
-			0,
 		)
 		if err != nil {
 			return courseCorrectionGoal{}, err
 		}
-		var solution *ik.Solution
-		select {
-		case solution = <-solutionChan:
-		default:
-		}
 		ptgk.logger.Debug("solution ", solution)
 		if solution.Score < courseCorrectionMaxScore {
-			goal.Solution = solution.Configuration
+			goal.Solution = referenceframe.FloatsToInputs(solution.Configuration)
 			return goal, nil
 		}
 	}
