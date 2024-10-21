@@ -12,7 +12,6 @@ import (
 	"go/token"
 	"io"
 	"net/http"
-	"os/exec"
 	"strings"
 	"text/template"
 	"unicode"
@@ -77,6 +76,12 @@ func setGoModuleTemplate(clientCode string, module common.ModuleInputs) (*common
 		if imp.Name != nil {
 			path = fmt.Sprintf("%s %s", imp.Name.Name, path)
 		}
+		// imports = removeUnusedImports(imports)
+		// Call helper function to check if the import should be removed
+		// fmt.Println("the path going in is:", path)
+		// if shouldRemoveImport(path) {
+		// 	continue // Skip adding this import
+		// }
 		imports = append(imports, path)
 	}
 
@@ -216,43 +221,66 @@ func formatEmptyFunction(receiver, funcName, args string, returns []string) stri
 	return newFunc
 }
 
-func installGoImports() error {
-	// check if goimports is already installed
-	_, err := exec.LookPath("goimports")
-	if err == nil {
-		return nil
-	}
-	// if not found, try to install it
-	cmd := exec.Command("go", "install", "golang.org/x/tools/cmd/goimports")
-	err = cmd.Run()
-	if err != nil {
-		return errors.Wrap(err, "failed to install goimports")
-	}
-	return nil
-}
+// func installGoImports() error {
+// 	// check if goimports is already installed
+// 	_, err := exec.LookPath("goimports")
+// 	if err == nil {
+// 		return nil
+// 	}
+// 	// if not found, try to install it
+// 	cmd := exec.Command("go", "install", "golang.org/x/tools/cmd/goimports")
+// 	err = cmd.Run()
+// 	if err != nil {
+// 		return errors.Wrap(err, "failed to install goimports")
+// 	}
+// 	return nil
+// }
 
-func runGoImports(src []byte) ([]byte, error) {
-	// use the goimports tool
-	cmd := exec.Command("goimports")
-	cmd.Stdin = bytes.NewReader(src)
-	var out bytes.Buffer
-	cmd.Stdout = &out
+// func runGoImports(src []byte) ([]byte, error) {
+// 	// use the goimports tool
+// 	// cmd := exec.Command("goimports")
+// 	cmd := exec.Command("gofmt -s")
+// 	cmd.Stdin = bytes.NewReader(src)
+// 	var out bytes.Buffer
+// 	cmd.Stdout = &out
 
-	// run the command
-	err := cmd.Run()
-	if err != nil {
-		return nil, err
-	}
-	return out.Bytes(), nil
-}
+// 	// run the command
+// 	err := cmd.Run()
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return out.Bytes(), nil
+// }
+
+// Helper function to check if an import is in the removeImports array
+// func shouldRemoveImport(path string) bool {
+// 	removeImports := []string{
+// 		`"go.viam.com/rdk/protoutils"`,
+// 		`rprotoutils "go.viam.com/rdk/protoutils"`,
+// 		`rprotoutils`,
+// 		`"go.viam.com/utils/protoutils"`,
+// 		`commonpb "go.viam.com/api/common/v1"`,
+// 		`pb "go.viam.com/api/component/robot/v1"`,
+// 		`"google.golang.org/protobuf/types/known/structpb"`,
+// 		`"go.viam.com/utils/rpc"`,
+// 	}
+// 	//the api/compnent line needs help probs
+// 	for _, remove := range removeImports {
+// 		fmt.Println("Comparing:", path, "with", remove)
+// 		if path == remove {
+// 			return true // import should be removed
+// 		}
+// 	}
+// 	return false // import is not in the remove list
+// }
 
 // RenderGoTemplates outputs the method stubs for created module.
 func RenderGoTemplates(module common.ModuleInputs) ([]byte, error) {
 	// install goimports
-	err := installGoImports()
-	if err != nil {
-		return nil, err
-	}
+	// err := installGoImports()
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	clientCode, err := getClientCode(module)
 	var empty []byte
@@ -275,9 +303,11 @@ func RenderGoTemplates(module common.ModuleInputs) ([]byte, error) {
 		return empty, err
 	}
 
-	formattedCode, err := runGoImports(output.Bytes())
-	if err != nil {
-		return empty, errors.Wrap(err, "failed to run goimports")
-	}
-	return formattedCode, nil
+	// formattedCode, err := runGoImports(output.Bytes())
+	// if err != nil {
+	// 	return empty, errors.Wrap(err, "failed to run goimports")
+	// }
+	// return formattedCode, nil
+
+	return output.Bytes(), nil
 }
