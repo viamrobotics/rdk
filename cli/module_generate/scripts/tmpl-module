@@ -12,12 +12,11 @@ var (
 
 func init() {
 	resource.Register{{ .Module.ResourceTypePascal}}({{.Module.ResourceSubtype}}.API, {{.Module.ModelPascal}},
-		resource.Registration[{{if eq .Module.ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .Module.ResourceType "component"}}{{.Module.ResourceSubtypePascal}}{{else}}Service{{end}}{{end}}, *Config]{
+		resource.Registration[{{if eq .Module.ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .Module.ResourceType "component"}}{{.Module.ResourceSubtype}}.{{.Module.ResourceSubtypePascal}}{{else}}{{.Module.ResourceSubtype}}.Service{{end}}{{end}}, *Config]{
 			Constructor: new{{.Module.ModulePascal}}{{.Module.ModelPascal}},
 		},
 	)
 }
-
 
 type Config struct {
 	// Put config attributes here
@@ -55,7 +54,7 @@ type {{.ModelType}} struct {
 
 }
 
-func new{{.Module.ModulePascal}}{{.Module.ModelPascal}}(ctx context.Context, deps resource.Dependencies, rawConf resource.Config, logger logging.Logger) ({{if eq .Module.ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .Module.ResourceType "component"}}{{.Module.ResourceSubtypePascal}}{{else}}Service{{end}}{{end}}, error) {
+func new{{.Module.ModulePascal}}{{.Module.ModelPascal}}(ctx context.Context, deps resource.Dependencies, rawConf resource.Config, logger logging.Logger) ({{if eq .Module.ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .Module.ResourceType "component"}}{{.Module.ResourceSubtype}}.{{.Module.ResourceSubtypePascal}}{{else}}{{.Module.ResourceSubtype}}.Service{{end}}{{end}}, error) {
 	conf, err := resource.NativeConfig[*Config](rawConf)
 	if err != nil {
 		return nil, err
@@ -72,7 +71,6 @@ func new{{.Module.ModulePascal}}{{.Module.ModelPascal}}(ctx context.Context, dep
 	}
 	return s, nil
 }
-
 
 func (s *{{.ModelType}}) Name() resource.Name {
 	return s.name
