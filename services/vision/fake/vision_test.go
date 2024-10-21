@@ -5,17 +5,17 @@ import (
 	"image"
 	"testing"
 
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/test"
 )
 
 func TestFakeVision(t *testing.T) {
-	cfg := &Config{}
 	ctx := context.Background()
 	r := &inject.Robot{}
 	name := vision.Named("test_fake")
-	srv, err := registerFake(ctx, name, cfg, r)
+	srv, err := registerFake(name, r)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, srv.Name(), test.ShouldResemble, name)
 	img := image.NewRGBA(image.Rect(0, 0, 100, 200))

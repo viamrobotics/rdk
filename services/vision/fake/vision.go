@@ -5,20 +5,17 @@ import (
 	"context"
 	"image"
 
-	rdkutils "go.viam.com/rdk/utils"
-	"go.viam.com/rdk/vision/classification"
-	"go.viam.com/rdk/vision/objectdetection"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/vision"
+	rdkutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/vision/classification"
+	"go.viam.com/rdk/vision/objectdetection"
 )
 
-var (
-	// Model is the model of the fake buildin camera.
-	Model = resource.DefaultModelFamily.WithModel("fake")
-)
+// Model is the model of the fake buildin camera.
+var Model = resource.DefaultModelFamily.WithModel("fake")
 
 const (
 	fakeClassLabel = "a_classification"
@@ -32,15 +29,11 @@ func init() {
 		DeprecatedRobotConstructor: func(
 			ctx context.Context, r any, c resource.Config, logger logging.Logger,
 		) (vision.Service, error) {
-			attrs, err := resource.NativeConfig[*Config](c)
-			if err != nil {
-				return nil, err
-			}
 			actualR, err := rdkutils.AssertType[robot.Robot](r)
 			if err != nil {
 				return nil, err
 			}
-			return registerFake(ctx, c.ResourceName(), attrs, actualR)
+			return registerFake(c.ResourceName(), actualR)
 		},
 	})
 }
@@ -74,9 +67,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 
 // registerFake creates a new fake vision service from the config.
 func registerFake(
-	ctx context.Context,
 	name resource.Name,
-	conf *Config,
 	r robot.Robot,
 ) (vision.Service, error) {
 	return vision.NewService(name, r, nil, fakeClassifier, fakeDetector, nil)
