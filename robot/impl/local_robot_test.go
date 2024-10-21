@@ -4339,10 +4339,6 @@ func TestRemovingOfflineRemote(t *testing.T) {
 		tb.Helper()
 		test.That(tb, mainToRemoteClient.Connected(), test.ShouldBeFalse)
 	})
-	// Set node status to unhealthy
-	remotes := mainRobot.manager.resources.FindNodesByAPI(client.RemoteAPI)
-	node, _ := mainRobot.manager.resources.Node(remotes[0])
-	node.LogAndSetLastError(errors.New("Set Node to unhealthy"))
 
 	// Reconfigure the main robot with the offline remote removed
 	mainRobot.Reconfigure(ctx, &config.Config{})
