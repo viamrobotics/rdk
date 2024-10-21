@@ -237,10 +237,10 @@ func (manager *resourceManager) updateRemoteResourceNames(
 				// it is possible that we are switching to a new remote with a identical resource name(s), so we may
 				// need to create these resource clients.
 				if !recreateAllClients {
-					// ticker event, likely no changes to remote resources, skip closing and readding duplicate name resource clients
+					// ticker event, likely no changes to remote resources, skip closing and re-adding duplicate name resource clients
 					continue
 				}
-				// reconfiguration attempt, remote could have changed, so close all duplicate name remote resource clients and readd new ones later
+				// reconfiguration attempt, remote could have changed, so close all duplicate name remote resource clients and re-add new ones later
 				resLogger.CDebugw(ctx, "attempting to remove remote resource")
 				if err := manager.markChildrenForUpdate(resName); err != nil {
 					resLogger.CErrorw(ctx,
@@ -778,6 +778,10 @@ func (manager *resourceManager) completeConfig(
 func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr *localRobot) {
 	for _, resName := range manager.resources.FindNodesByAPI(client.RemoteAPI) {
 		gNode, ok := manager.resources.Node(resName)
+		// If a remote is marked for removal then do not process remote
+		if gNode.MarkedForRemoval() {
+			continue
+		}
 		if !ok || !gNode.NeedsReconfigure() {
 			continue
 		}
