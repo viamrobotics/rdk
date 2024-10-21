@@ -57,7 +57,7 @@ func parseOsRelease(body *bufio.Reader) map[string]string {
 	}
 }
 
-// append key:value pair to orig if value is non-empty
+// append key:value pair to orig if value is non-empty.
 func appendPairIfNonempty(orig []string, key, value string) []string {
 	if value != "" {
 		return append(orig, key+":"+value)
