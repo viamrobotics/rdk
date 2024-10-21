@@ -20,6 +20,7 @@ import (
 	"github.com/golang/geo/r3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -4240,29 +4241,6 @@ func TestMaintenanceConfig(t *testing.T) {
 	})
 }
 
-func TestRemovingOfflineRemotes(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	ctx := context.Background()
-	cfg := config.Config{
-		Remotes: []config.Remote{
-			{
-				Name:     "remoteOffline",
-				Insecure: true,
-				Address:  "123.123.123.123",
-			},
-		},
-	}
-	r := setupLocalRobot(t, ctx, &cfg, logger)
-	time.Sleep(2 * time.Second)
-	localRobot := r.(*localRobot)
-	remotes := localRobot.manager.resources.FindNodesByAPI(client.RemoteAPI)
-	test.That(t, remotes[0].Name, test.ShouldEqual, "remoteOffline")
-	r.Reconfigure(ctx, &config.Config{})
-	time.Sleep((2 * time.Second))
-	remotes = localRobot.manager.resources.FindNodesByAPI(client.RemoteAPI)
-	test.That(t, remotes, test.ShouldBeEmpty)
-}
-
 func TestRemovingOfflineRemote(t *testing.T) {
 	logger, _ := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
@@ -4302,20 +4280,6 @@ func TestRemovingOfflineRemote(t *testing.T) {
 	mainRobotI := setupLocalRobot(t, ctx, mainRobotCfg, logger.Sublogger("main"))
 	// We'll manually access the resource manager to move the test forward.
 	mainRobot := mainRobotI.(*localRobot)
-	mainOptions, _, mainAddr := robottestutils.CreateBaseOptionsAndListener(t)
-	mainRobot.StartWeb(ctx, mainOptions)
-
-	// Create an "application" client to the robot.
-	mainClient, err := client.New(ctx, mainAddr, logger.Sublogger("client"))
-	test.That(t, err, test.ShouldBeNil)
-	defer mainClient.Close(ctx)
-	resourceNames := mainClient.ResourceNames()
-
-	// When the `mainClient` requests `ResourceNames`, the motor will be annotated to include its
-	// remote.
-	motorResourceNameFromMain := motorResourceName.PrependRemote("remote")
-	// Search the list of "main" resources for the remote motor. Sanity check that we find it.
-	test.That(t, resourceNames, test.ShouldContain, motorResourceNameFromMain)
 
 	// Grab the RobotClient resource graph node from the main robot that is connected to the
 	// remote. We'll use this to know when the main robot observes the remote has gone offline.
@@ -4331,12 +4295,20 @@ func TestRemovingOfflineRemote(t *testing.T) {
 		tb.Helper()
 		test.That(tb, mainToRemoteClient.Connected(), test.ShouldBeFalse)
 	})
-
+	// Set node status to unhealthy
+	remotes := mainRobot.manager.resources.FindNodesByAPI(client.RemoteAPI)
+	node, _ := mainRobot.manager.resources.Node(remotes[0])
+	node.LogAndSetLastError(errors.New("Set Node to unhealthy"))
+	
 	// Reconfigure the main robot with the offline remote removed
 	mainRobot.Reconfigure(ctx, &config.Config{})
-	time.Sleep((2 * time.Second))
 
 	// Ensure that the remote has been remoted correctly
-	remotes := mainRobot.manager.resources.FindNodesByAPI(client.RemoteAPI)
-	test.That(t, remotes, test.ShouldBeEmpty)
+	findRemote, ok := mainRobot.RemoteByName("remote")
+	test.That(t, findRemote, test.ShouldBeEmpty)
+	test.That(t, ok, test.ShouldBeFalse)
+
+	// Ensure that motor is removed
+	names := mainRobot.ResourceNames()
+	test.That(t, names, test.ShouldNotContain, motorResourceName)
 }
