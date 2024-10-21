@@ -15,10 +15,10 @@ def return_attribute(value: str, attr: str) -> ast.Attribute:
 
 def update_annotation(
     resource_name: str,
-    annotation: ast.AST,
+    annotation: ast.Name | ast.Subscript,
     nodes: List[str],
     parent: str
-) -> ast.AST:
+) -> ast.Attribute | ast.Subscript:
     if isinstance(annotation, ast.Name) and annotation.id in nodes:
         value = f"{resource_name}.{parent}" if parent else resource_name
         return return_attribute(value, annotation.id)
@@ -28,7 +28,6 @@ def update_annotation(
             annotation.slice,
             nodes,
             parent)
-        return annotation
     return annotation
 
 
