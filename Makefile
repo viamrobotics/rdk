@@ -11,9 +11,6 @@ TAG_VERSION?=$(shell git tag --points-at | sort -Vr | head -n1)
 DATE_COMPILED?=$(shell date +'%Y-%m-%d')
 COMMON_LDFLAGS = -s -w -X 'go.viam.com/rdk/config.Version=${TAG_VERSION}' -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}' -X 'go.viam.com/rdk/config.DateCompiled=${DATE_COMPILED}'
 LDFLAGS = -ldflags "-extld=$(shell pwd)/etc/ld_wrapper.sh $(COMMON_LDFLAGS)"
-ifeq ($(shell command -v dpkg >/dev/null && dpkg --print-architecture),armhf)
-GOFLAGS += -tags=no_tflite
-endif
 
 default: build lint server
 
