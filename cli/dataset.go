@@ -165,14 +165,15 @@ func DatasetDownloadAction(c *cli.Context) error {
 		return err
 	}
 	if err := client.downloadDataset(c.Path(dataFlagDestination), c.String(datasetFlagDatasetID),
-		c.Bool(datasetFlagIncludeJSONLines), c.Uint(dataFlagParallelDownloads)); err != nil {
+		c.Bool(datasetFlagIncludeJSONLines), c.Uint(dataFlagParallelDownloads),
+		c.Uint(dataFlagTimeout)); err != nil {
 		return err
 	}
 	return nil
 }
 
 // downloadDataset downloads a dataset with the specified ID.
-func (c *viamClient) downloadDataset(dst, datasetID string, includeJSONLines bool, parallelDownloads uint) error {
+func (c *viamClient) downloadDataset(dst, datasetID string, includeJSONLines bool, parallelDownloads, timeout uint) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -206,7 +207,7 @@ func (c *viamClient) downloadDataset(dst, datasetID string, includeJSONLines boo
 
 	return c.performActionOnBinaryDataFromFilter(
 		func(id *datapb.BinaryID) error {
-			downloadErr := c.downloadBinary(dst, id)
+			downloadErr := c.downloadBinary(dst, id, timeout)
 			var datasetErr error
 			if includeJSONLines {
 				datasetErr = binaryDataToJSONLines(c.c.Context, c.dataClient, dst, datasetFile, id)
