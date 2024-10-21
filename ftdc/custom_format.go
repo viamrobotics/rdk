@@ -245,7 +245,7 @@ func getSchema(data map[string]any) (*schema, *schemaError) {
 	var mapOrder []string
 	var fields []string
 
-	for key, stats := range data {
+	for name, stats := range data {
 		mapOrder = append(mapOrder, key)
 		fieldsForItem, err := getFieldsForStruct(reflect.TypeOf(stats))
 		if err != nil {
