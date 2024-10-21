@@ -1159,7 +1159,7 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 		return err
 	}
 	if err := cmd.Wait(); err != nil {
-		logger.Errorw("command failed", "error", err)
+		logger.Errorw("command failed", "error", err, "combined output", combined)
 		return err
 	}
 	logger.Infow("command succeeded", "combined output", combined)
