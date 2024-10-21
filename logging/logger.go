@@ -174,7 +174,7 @@ func (logger zLogger) CErrorw(ctx context.Context, msg string, keysAndValues ...
 }
 
 func (logger zLogger) Write(entry *LogEntry) {
-	err := logger.Desugar().Core().Write(entry.Entry, entry.fields)
+	err := logger.Desugar().Core().Write(entry.Entry, entry.Fields)
 	if err != nil {
 		fmt.Fprint(os.Stderr, err)
 	}
