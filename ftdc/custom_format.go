@@ -118,7 +118,7 @@ func writeDatum(time int64, prev, curr []float32, output io.Writer) {
 	}
 }
 
-var notStructError = errors.New("Stats object is not a struct")
+var notStructError = errors.New("stats object is not a struct")
 
 func isNumeric(kind reflect.Kind) bool {
 	return kind == reflect.Bool ||
