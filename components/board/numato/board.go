@@ -34,9 +34,25 @@ var errNoBoard = errors.New("no numato boards found")
 
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
-	Analogs    []board.AnalogReaderConfig `json:"analogs,omitempty"`
-	Pins       int                        `json:"pins"`
-	SerialPath string                     `json:"serial_path,omitempty"`
+	Analogs    []AnalogConfig `json:"analogs,omitempty"`
+	Pins       int            `json:"pins"`
+	SerialPath string         `json:"serial_path,omitempty"`
+}
+
+// AnalogConfig describes the configuration of an analog reader on a numato board.
+type AnalogConfig struct {
+	Name              string `json:"name"`
+	Pin               string `json:"pin"`
+	AverageOverMillis int    `json:"average_over_ms,omitempty"`
+	SamplesPerSecond  int    `json:"samples_per_sec,omitempty"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *AnalogConfig) Validate(path string) error {
+	if config.Name == "" {
+		return resource.NewConfigValidationFieldRequiredError(path, "name")
+	}
+	return nil
 }
 
 func init() {
@@ -458,8 +474,8 @@ func connect(ctx context.Context, name resource.Name, conf *Config, logger loggi
 
 	b.analogs = map[string]*pinwrappers.AnalogSmoother{}
 	for _, c := range conf.Analogs {
-		r := &analog{b, c.Channel}
-		b.analogs[c.Name] = pinwrappers.SmoothAnalogReader(r, c, logger)
+		r := &analog{b, c.Pin}
+		b.analogs[c.Name] = numatoAnalogToSmoothAnalog(r, c, logger)
 	}
 
 	b.lines = make(chan string)
@@ -472,4 +488,15 @@ func connect(ctx context.Context, name resource.Name, conf *Config, logger loggi
 	}
 	b.logger.CDebugw(ctx, "numato startup", "version", ver)
 	return b, nil
+}
+
+func numatoAnalogToSmoothAnalog(r board.Analog, c AnalogConfig, logger logging.Logger) *pinwrappers.AnalogSmoother {
+	genericCfg := board.AnalogReaderConfig{
+		Name:              c.Name,
+		Channel:           c.Pin,
+		SamplesPerSecond:  c.SamplesPerSecond,
+		AverageOverMillis: c.AverageOverMillis,
+	}
+
+	return pinwrappers.SmoothAnalogReader(r, genericCfg, logger)
 }

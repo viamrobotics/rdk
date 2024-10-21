@@ -45,7 +45,7 @@ func TestNumato1(t *testing.T) {
 		ctx,
 		board.Named("foo"),
 		&Config{
-			Analogs: []board.AnalogReaderConfig{{Name: "foo", Channel: "01"}},
+			Analogs: []AnalogConfig{{Name: "foo", Pin: "01"}},
 			Pins:    2,
 		},
 		logger,
@@ -121,13 +121,13 @@ func TestConfigValidate(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"pins" is required`)
 
 	validConfig := Config{Pins: 128}
-	validConfig.Analogs = []board.AnalogReaderConfig{{}}
+	validConfig.Analogs = []AnalogConfig{{}}
 	_, err = validConfig.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `path.analogs.0`)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "name")
 
-	validConfig.Analogs = []board.AnalogReaderConfig{{Name: "bar"}}
+	validConfig.Analogs = []AnalogConfig{{Name: "bar"}}
 	_, err = validConfig.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 }
