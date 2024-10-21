@@ -109,8 +109,7 @@ func TestFTDCSchemaGenerations(t *testing.T) {
 	test.That(t, datum2.Data["foo2"], test.ShouldResemble, map[string]float32{"X": 2, "Y": 0})
 }
 
-type badStatser struct {
-}
+type badStatser struct{}
 
 func (badStatser badStatser) Stats() any {
 	// Returning maps are disallowed.

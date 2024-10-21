@@ -118,7 +118,7 @@ func writeDatum(time int64, prev, curr []float32, output io.Writer) {
 	}
 }
 
-var notStructError = errors.New("stats object is not a struct")
+var errNotStruct = errors.New("stats object is not a struct")
 
 func isNumeric(kind reflect.Kind) bool {
 	return kind == reflect.Bool ||
@@ -198,7 +198,7 @@ func getFieldsForStruct(item reflect.Type) ([]string, error) {
 
 	rType := flattenPtr(item)
 	if rType.Kind() != reflect.Struct {
-		return nil, fmt.Errorf("%w Type: %T", notStructError, item)
+		return nil, fmt.Errorf("%w Type: %T", errNotStruct, item)
 	}
 
 	var fields []string
@@ -276,7 +276,7 @@ func flatten(datum datum, schema *schema) ([]float32, error) {
 		// the current schema.
 		stats, exists := datum.Data[key]
 		if !exists {
-			// nolint
+			//nolint
 			return nil, fmt.Errorf("Missing statser name. Name: %v", key)
 		}
 
