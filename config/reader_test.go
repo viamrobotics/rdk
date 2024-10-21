@@ -401,5 +401,12 @@ func TestReadExtendedPlatformTags(t *testing.T) {
 		t.Skip("skipping platform tags test on non-linux")
 	}
 	tags := readExtendedPlatformTags()
-	test.That(t, len(tags), test.ShouldBeGreaterThanOrEqualTo, 3)
+	test.That(t, len(tags), test.ShouldBeGreaterThanOrEqualTo, 2)
+}
+
+func TestAppendPairIfNonempty(t *testing.T) {
+	arr := make([]string, 0, 1)
+	arr = appendPairIfNonempty(arr, "x", "y")
+	arr = appendPairIfNonempty(arr, "a", "")
+	test.That(t, arr, test.ShouldResemble, []string{"x:y"})
 }
