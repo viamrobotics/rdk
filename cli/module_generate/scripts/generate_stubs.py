@@ -6,14 +6,6 @@ from importlib import import_module
 from typing import List
 
 
-def get_final_imports(imports: List[str]) -> List[str]:
-    final_imports = []
-    for i in imports:
-        if i not in final_imports:
-            final_imports.append(i)
-    return final_imports
-
-
 def return_attribute(value: str, attr: str) -> ast.Attribute:
     return ast.Attribute(
         value=ast.Name(id=value, ctx=ast.Load()),
@@ -223,7 +215,7 @@ if __name__ == '__main__':
     asyncio.run(Module.run_from_registry())
 
 '''.format(
-        "\n".join(get_final_imports(imports)),
+        "\n".join(list(set(imports))),
         resource_type,
         resource_subtype,
         model_name_pascal,
