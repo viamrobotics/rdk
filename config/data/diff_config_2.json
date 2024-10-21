@@ -41,7 +41,7 @@
                 "analogs": [
                     {
                         "name": "analog1",
-                        "pin": "1"
+                        "channel": "1"
                     }
                 ],
                 "digital_interrupts": [
