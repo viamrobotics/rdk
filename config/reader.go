@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -11,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/a8m/envsubst"
@@ -42,6 +44,39 @@ const (
 	LocalPackagesSuffix = "-local"
 )
 
+func parseOsRelease(body *bufio.Reader) map[string]string {
+	ret := make(map[string]string)
+	for {
+		line, err := body.ReadString('\n')
+		if err != nil {
+			return ret
+		}
+		before, after, _ := strings.Cut(line, "=")
+		ret[before] = after
+	}
+}
+
+// This reads the granular platform constraints (os version, distro, etc).
+// This further constrains the basic runtime.GOOS/GOARCH stuff in getAgentInfo
+// so module authors can publish builds with ABI or SDK dependencies. The
+// list of tags returned by this function is expected to grow.
+func readExtendedPlatformTags() []string {
+	// TODO(APP-6696): CI in multiple environments (alpine + mac), darwin support.
+	tags := make([]string, 0, 4)
+	if runtime.GOOS == "linux" && rutils.PathExists("/etc/os-release") {
+		if body, err := os.Open("/etc/os-release"); err != nil {
+			logging.Global().Errorw("can't open /etc/os-release, modules may not load correctly", "err", err)
+		} else {
+			defer body.Close() //nolint:errcheck
+			osRelease := parseOsRelease(bufio.NewReader(body))
+			tags = append(tags, "distro:"+osRelease["ID"])
+			tags = append(tags, "os_version:"+osRelease["VERSION_ID"])
+			tags = append(tags, "codename:"+osRelease["VERSION_CODENAME"])
+		}
+	}
+	return tags
+}
+
 func getAgentInfo() (*apppb.AgentInfo, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -70,12 +105,13 @@ func getAgentInfo() (*apppb.AgentInfo, error) {
 	platform := fmt.Sprintf("%s/%s", runtime.GOOS, arch)
 
 	return &apppb.AgentInfo{
-		Host:        hostname,
-		Ips:         ips,
-		Os:          runtime.GOOS,
-		Version:     Version,
-		GitRevision: GitRevision,
-		Platform:    &platform,
+		Host:         hostname,
+		Ips:          ips,
+		Os:           runtime.GOOS,
+		Version:      Version,
+		GitRevision:  GitRevision,
+		Platform:     &platform,
+		PlatformTags: readExtendedPlatformTags(),
 	}, nil
 }
 
