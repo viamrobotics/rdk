@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -393,4 +394,12 @@ func TestReadTLSFromCache(t *testing.T) {
 		err = tls.readFromCache(robotPartID, logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
+}
+
+func TestReadExtendedPlatformTags(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("skipping platform tags test on non-linux")
+	}
+	tags := readExtendedPlatformTags()
+	test.That(t, len(tags), test.ShouldBeGreaterThanOrEqualTo, 3)
 }
