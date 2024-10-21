@@ -2,6 +2,7 @@ package ftdc
 
 import (
 	"bytes"
+	"reflect"
 	"testing"
 
 	"go.viam.com/test"
@@ -152,8 +153,116 @@ func TestCustomFormatRoundtripRich(t *testing.T) {
 }
 
 func TestReflection(t *testing.T) {
-	test.That(t, getFieldsForItem(&Basic{100}), test.ShouldResemble,
+	fields, err := getFieldsForStruct(reflect.TypeOf(&Basic{100}))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fields, test.ShouldResemble,
 		[]string{"Foo"})
-	test.That(t, getFieldsForItem(&Statser1{100, 0, 44.4}), test.ShouldResemble,
+
+	fields, err = getFieldsForStruct(reflect.TypeOf(Statser1{100, 0, 44.4}))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fields, test.ShouldResemble,
 		[]string{"Metric1", "Metric2", "Metric3"})
+}
+
+type TopLevel struct {
+	X      int
+	Nested Nested
+}
+
+type Nested struct {
+	Y      int
+	Deeper struct {
+		Z uint8
+	}
+}
+
+func TestNestedReflection(t *testing.T) {
+	val := &TopLevel{100, Nested{200, struct{ Z uint8 }{255}}}
+	fields, err := getFieldsForStruct(reflect.TypeOf(val))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fields, test.ShouldResemble,
+		[]string{"X", "Nested.Y", "Nested.Deeper.Z"})
+}
+
+type Complex struct {
+	F1 float32
+	F2 struct {
+		F3 float32
+		F4 float32
+	}
+	F5 struct {
+		F6 float32
+	}
+	F7  float32
+	F8  struct{}
+	F9  float32
+	F10 struct {
+		F11 float32
+		F12 float32
+		F13 float32
+	}
+	F14 struct {
+		F15 struct {
+			F16 struct {
+				F17 float32
+			}
+		}
+	}
+}
+
+func TestNestedReflectionParity(t *testing.T) {
+	// We use reflection in two paths:
+	// - Walking a "stats" object to create a schema.
+	// - Walking a "stats" object to get/flatten all of the values.
+	//
+	// It's critical that these two walks happen in the same order. Such that keys from the schema
+	// walk match their corresponding values.
+	complexObj := Complex{
+		F1: 1,
+		F2: struct {
+			F3 float32
+			F4 float32
+		}{3, 4},
+		F5: struct {
+			F6 float32
+		}{6},
+		F7: 7,
+		// F8 is tricky -- there are no leaf nodes. Therefore it must not be part of neither the
+		// schema nor value output.
+		F8: struct{}{},
+		F9: 9,
+		F10: struct {
+			F11 float32
+			F12 float32
+			F13 float32
+		}{11, 12, 13},
+		F14: struct {
+			F15 struct {
+				F16 struct {
+					F17 float32
+				}
+			}
+		}{
+			F15: struct {
+				F16 struct {
+					F17 float32
+				}
+			}{
+				F16: struct {
+					F17 float32
+				}{17},
+			},
+		},
+	}
+
+	fields, err := getFieldsForStruct(reflect.TypeOf(complexObj))
+	test.That(t, err, test.ShouldBeNil)
+	// There will be one "field" for each number in the above `Complex` structure.
+	test.That(t, fields, test.ShouldResemble,
+		[]string{"F1", "F2.F3", "F2.F4", "F5.F6", "F7", "F9", "F10.F11", "F10.F12", "F10.F13", "F14.F15.F16.F17"})
+	values, err := flattenStruct(reflect.ValueOf(complexObj))
+	test.That(t, err, test.ShouldBeNil)
+	// For convenience, the number values match the field name.
+	test.That(t, values, test.ShouldResemble,
+		[]float32{1, 3, 4, 6, 7, 9, 11, 12, 13, 17})
 }
