@@ -54,7 +54,7 @@ const (
 	moduleFlagID              = "id"
 	moduleFlagResourceType    = "resource-type"
 	moduleFlagResourceSubtype = "resource-subtype"
-	moduleFlagConstraints     = "constraints"
+	moduleFlagTags            = "tags"
 
 	moduleBuildFlagPath      = "module"
 	moduleBuildFlagRef       = "ref"
@@ -1597,7 +1597,7 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name: moduleFlagConstraints,
+							Name: moduleFlagTags,
 							Usage: "Optional extra fields for constraining the platforms to which this binary is deployed. " +
 								"Examples: distro:debian, distro:ubuntu, os_version:22.04, os_codename:jammy. " +
 								"You can provide multiple tags in this field by separating them with a comma. For a machine to use " +
