@@ -77,7 +77,6 @@ func setGoModuleTemplate(clientCode string, module common.ModuleInputs) (*common
 			path = fmt.Sprintf("%s %s", imp.Name.Name, path)
 		}
 		imports = append(imports, path)
-
 	}
 	var functions []string
 	ast.Inspect(node, func(n ast.Node) bool {

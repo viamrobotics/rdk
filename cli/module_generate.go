@@ -577,7 +577,7 @@ func generateGolangStubs(module common.ModuleInputs) error {
 		return errors.Wrap(err, "cannot generate go stubs -- unable to write to file")
 	}
 
-	//run goimports on module file out here
+	// run goimports on module file out here
 	err = runGoImports(moduleFile)
 	if err != nil {
 		return errors.Wrap(err, "cannot generate go stubs -- unable to sort imports")
@@ -586,9 +586,9 @@ func generateGolangStubs(module common.ModuleInputs) error {
 	return nil
 }
 
-// run goimports to remove unused imports and add necessary imports
+// run goimports to remove unused imports and add necessary imports.
 func runGoImports(moduleFile *os.File) error {
-	//installing goimports
+	// installing goimports
 	installCmd := exec.Command("go", "install", "golang.org/x/tools/cmd/goimports@latest")
 	if err := installCmd.Run(); err != nil {
 		return fmt.Errorf("failed to install goimports: %w", err)
@@ -600,14 +600,14 @@ func runGoImports(moduleFile *os.File) error {
 	if err != nil {
 		return fmt.Errorf("failed to get GOPATH: %w", err)
 	}
-	gobinariesPath := strings.TrimSpace(string(gobinariesPathBytes[:]))
+	gobinariesPath := strings.TrimSpace(string(gobinariesPathBytes))
 
 	// run goimport on the module file
+	//nolint:gosec
 	formatCmd := exec.Command(fmt.Sprintf("%s/bin/goimports", gobinariesPath), "-w", moduleFile.Name())
 	_, err = formatCmd.Output()
 	if err != nil {
 		return fmt.Errorf("failed to run goimports: %w", err)
-
 	}
 	return err
 }
