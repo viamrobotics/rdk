@@ -108,7 +108,7 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 		}
 
 		// Call `createStream`. `createStream` is responsible for first checking if the stream
-		// already exists.
+		// already exists. If it does, it skips creating a new stream and we continue to the next source.
 		//
 		// TODO(RSDK-9079) Add reliable framerate fetcher for stream videosources
 		stream, alreadyRegistered, err := svc.createStream(config, name)
@@ -118,8 +118,6 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 			continue
 		}
 
-		// If the stream already exists, `createStream` will return a `nil` stream and `nil`
-		// error. `startVideoStream` copes with this input.
 		svc.startVideoStream(ctx, svc.videoSources[name], stream)
 	}
 	for name := range svc.audioSources {
