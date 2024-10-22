@@ -48,6 +48,12 @@ var (
 
 // GenerateModuleAction runs the module generate cli and generates necessary module templates based on user input.
 func GenerateModuleAction(cCtx *cli.Context) error {
+	// fpath := filepath.Join("my-module", "models", "module.go")
+	// ff, _ := os.Open(fpath)
+	// defer ff.Close()
+	// _, err := runGoImports(ff)
+	// return err
+
 	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
@@ -571,7 +577,39 @@ func generateGolangStubs(module common.ModuleInputs) error {
 		return errors.Wrap(err, "cannot generate go stubs -- unable to write to file")
 	}
 
+	//run goimports on module file out here
+	err = runGoImports(moduleFile)
+	if err != nil {
+		return errors.Wrap(err, "cannot generate go stubs -- unable to sort imports")
+	}
+
 	return nil
+}
+
+// run goimports to remove unused imports and add necessary imports
+func runGoImports(moduleFile *os.File) error {
+	//installing goimports
+	installCmd := exec.Command("go", "install", "golang.org/x/tools/cmd/goimports@latest")
+	if err := installCmd.Run(); err != nil {
+		return fmt.Errorf("failed to install goimports: %w", err)
+	}
+
+	// check to see if the GOPATH is set
+	gobinariesPathCmd := exec.Command("go", "env", "GOPATH")
+	gobinariesPathBytes, err := gobinariesPathCmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to get GOPATH: %w", err)
+	}
+	gobinariesPath := strings.TrimSpace(string(gobinariesPathBytes[:]))
+
+	// run goimport on the module file
+	formatCmd := exec.Command(fmt.Sprintf("%s/bin/goimports", gobinariesPath), "-w", moduleFile.Name())
+	_, err = formatCmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to run goimports: %w", err)
+
+	}
+	return err
 }
 
 func generatePythonStubs(module common.ModuleInputs) error {

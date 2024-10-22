@@ -76,18 +76,9 @@ func setGoModuleTemplate(clientCode string, module common.ModuleInputs) (*common
 		if imp.Name != nil {
 			path = fmt.Sprintf("%s %s", imp.Name.Name, path)
 		}
-		// check for unused imports
-		if shouldRemoveImport(path) {
-			continue
-		}
 		imports = append(imports, path)
 
 	}
-	// check for imports that need to be added
-	if shouldAdd, essentialImport := shouldAddImport(imports); shouldAdd {
-		imports = append(imports, essentialImport)
-	}
-
 	var functions []string
 	ast.Inspect(node, func(n ast.Node) bool {
 		if funcDecl, ok := n.(*ast.FuncDecl); ok {
@@ -222,96 +213,6 @@ func formatEmptyFunction(receiver, funcName, args string, returns []string) stri
 	}
 	newFunc := fmt.Sprintf("func (s *%s) %s(%s) %s{\n\tpanic(\"not implemented\")\n}\n\n", receiver, funcName, args, returnDef)
 	return newFunc
-}
-
-// Helper function to check if an import is in the removeImports array
-func shouldRemoveImport(path string) bool {
-	removeImports := []string{
-		`"go.viam.com/rdk/protoutils"`,
-		`rprotoutils "go.viam.com/rdk/protoutils"`,
-		`rprotoutils`,
-		`"go.viam.com/utils"`,
-		`"go.viam.com/rdk/utils"`,
-		`vprotoutils "go.viam.com/utils/protoutils"`,
-		`goutils "go.viam.com/utils"`,
-		`"go.viam.com/utils/protoutils"`,
-		`goprotoutils "go.viam.com/utils/protoutils"`,
-		`commonpb "go.viam.com/api/common/v1"`,
-		`streampb "go.viam.com/api/stream/v1"`,
-		`pb "go.viam.com/api/component/base/v1"`,
-		`pb "go.viam.com/api/component/audioinput/v1"`,
-		`pb "go.viam.com/api/component/camera/v1"`,
-		`pb "go.viam.com/api/component/encoder/v1"`,
-		`pb "go.viam.com/api/component/gantry/v1"`,
-		`pb "go.viam.com/api/component/gripper/v1"`,
-		`pb "go.viam.com/api/component/inputcontroller/v1"`,
-		`pb "go.viam.com/api/component/motor/v1"`,
-		`pb "go.viam.com/api/component/movementsensor/v1"`,
-		`pb "go.viam.com/api/component/posetracker/v1"`,
-		`pb "go.viam.com/api/component/powersensor/v1"`,
-		`pb "go.viam.com/api/component/sensor/v1"`,
-		`pb "go.viam.com/api/component/servo/v1"`,
-		`pb "go.viam.com/api/service/motion/v1"`,
-		`pb "go.viam.com/api/service/navigation/v1"`,
-		`pb "go.viam.com/api/service/slam/v1"`,
-		`pb "go.viam.com/api/service/vision/v1"`,
-		`genericpb "go.viam.com/api/service/generic/v1"`,
-		`genericpb "go.viam.com/api/component/generic/v1"`,
-		`"google.golang.org/protobuf/types/known/structpb"`,
-		`"google.golang.org/protobuf/types/known/timestamppb"`,
-		`"golang.org/x/exp/slices"`,
-		`"google.golang.org/protobuf/proto"`,
-		`"go.viam.com/rdk/grpc"`,
-		`"go.viam.com/rdk/rimage"`,
-		`"go.viam.com/rdk/rimage/transform"`,
-		`"github.com/pion/rtp"`,
-		`"go.viam.com/rdk/data"`,
-		`"golang.org/x/exp/slices"`,
-		`"github.com/viamrobotics/webrtc/v3"`,
-		`"github.com/google/uuid"`,
-		`"go.opencensus.io/trace"`,
-		`"gorgonia.org/tensor"`,
-		`"io"`,
-		`"math"`,
-		`"sync"`,
-		`"bytes"`,
-		`"fmt"`,
-		`"os"`,
-		`"sync/atomic"`,
-		`"time"`,
-		`"unsafe"`,
-	}
-
-	for _, remove := range removeImports {
-		if path == remove {
-			return true
-		}
-	}
-
-	return false
-}
-func shouldAddImport(imports []string) (bool, string) {
-	essentialImports := []string{
-		`"context"`,
-		`"errors"`,
-		`"go.viam.com/utils/rpc"`,
-	}
-
-	for _, essential := range essentialImports {
-		found := false
-		for _, imp := range imports {
-			if (essential == `"errors"` && imp == `"github.com/pkg/errors"`) || imp == essential {
-				found = true
-				break
-			}
-		}
-		// if a needed import is missing, add it
-		if !found {
-			return true, essential
-		}
-	}
-	// if there are no missing imports return an empty string
-	return false, ""
 }
 
 // RenderGoTemplates outputs the method stubs for created module.
