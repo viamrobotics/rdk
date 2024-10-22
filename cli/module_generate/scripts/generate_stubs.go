@@ -89,6 +89,14 @@ func setGoModuleTemplate(clientCode string, module common.ModuleInputs) (*common
 		return true
 	})
 
+	// add DoCommand function stub to mlmodel
+	doCommandReturns := []string{"map[string]interface{}", "error"}
+	doCommandArgs := "ctx context.Context, cmd map[string]interface{}"
+	if module.ResourceSubtype == "mlmodel" {
+		doCommandFunction := formatEmptyFunction(module.ModuleCamel+module.ModelPascal, "DoCommand", doCommandArgs, doCommandReturns)
+		functions = append(functions, doCommandFunction)
+	}
+
 	goTmplInputs.Imports = strings.Join(imports, "\n")
 	if module.ResourceType == "component" {
 		goTmplInputs.ObjName = module.ResourceSubtypePascal
