@@ -1598,10 +1598,11 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 						},
 						&cli.StringFlag{
 							Name: moduleFlagTags,
-							Usage: "Optional extra fields for constraining the platforms to which this binary is deployed. " +
-								"Examples: distro:debian, distro:ubuntu, os_version:22.04, os_codename:jammy. " +
-								"You can provide multiple tags in this field by separating them with a comma. For a machine to use " +
-								"an upload, all tags must be satisified as well as the --platform field.",
+							Usage: `Optional extra fields for constraining the platforms to which this binary
+                             is deployed. Examples: distro:debian, distro:ubuntu, os_version:22.04,
+                             os_codename:jammy. You can provide multiple tags in this field by separating
+                             them with a comma. For a machine to use an upload, all tags must be satisified
+                             as well as the --platform field.`,
 						},
 						&cli.BoolFlag{
 							Name:  moduleFlagForce,
