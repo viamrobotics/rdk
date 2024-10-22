@@ -101,9 +101,9 @@ func TestFieldConversion(t *testing.T) {
 		},
 		{
 			field: zap.Field{
-				Key:    "error",
-				Type:   zapcore.ErrorType,
-				String: "error message",
+				Key:       "error",
+				Type:      zapcore.ErrorType,
+				Interface: errors.New("error message"),
 			},
 			// Error types retain only their message. Stacks are contained in log.Stack.
 			expectedVal: "error message",
