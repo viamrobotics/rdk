@@ -248,7 +248,6 @@ func (svc *webService) refreshAudioSources() {
 
 // Update updates the web service when the robot has changed.
 func (svc *webService) Reconfigure(ctx context.Context, deps resource.Dependencies, _ resource.Config) error {
-	svc.logger.Info("Hit Reconfigure")
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	if err := svc.updateResources(deps); err != nil {
@@ -269,7 +268,6 @@ func (svc *webService) closeStreamServer() {
 }
 
 func (svc *webService) initStreamServer(ctx context.Context, options *weboptions.Options) error {
-	svc.logger.Info("Hit initStreamServer")
 	var err error
 	svc.streamServer, err = svc.makeStreamServer()
 	if err != nil {
