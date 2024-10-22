@@ -84,31 +84,50 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 	if !svc.streamInitialized() {
 		return errors.New("stream server not initialized")
 	}
+
+	// Refreshing sources will walk the robot resources for anything implementing the camera and
+	// audioinput APIs and mutate the `svc.videoSources` and `svc.audioSources` maps.
 	svc.refreshVideoSources()
 	svc.refreshAudioSources()
+
 	if svc.opts.streamConfig == nil {
+		// The `streamConfig` dictates the video and audio encoder libraries to use. We can't do
+		// much if none are present.
 		if len(svc.videoSources) != 0 || len(svc.audioSources) != 0 {
-			svc.logger.Debug("not starting streams due to no stream config being set")
+			svc.logger.Warn("not starting streams due to no stream config being set")
 		}
 		return nil
 	}
+
 	for name := range svc.videoSources {
+		// We walk the updated set of `videoSources` and ensure all of the sources are "created" and
+		// "started".
 		config := gostream.StreamConfig{
-			Name: name,
+			Name:                name,
+			VideoEncoderFactory: svc.opts.streamConfig.VideoEncoderFactory,
 		}
-		config.VideoEncoderFactory = svc.opts.streamConfig.VideoEncoderFactory
+
+		// Call `createStream`. `createStream` is responsible for first checking if the stream
+		// already exists.
+		//
 		// TODO(RSDK-9079) Add reliable framerate fetcher for stream videosources
 		stream, err := svc.createStream(config, name)
 		if err != nil {
 			return err
 		}
+
+		// If the stream already exists, `createStream` will return a `nil` stream and `nil`
+		// error. `startVideoStream` copes with this input.
 		svc.startVideoStream(ctx, svc.videoSources[name], stream)
 	}
 	for name := range svc.audioSources {
+		// Similarly, we walk the updated set of `audioSources` and ensure all of the audio sources
+		// are "created" and "started". `createStream` and `startAudioStream` have the same
+		// behaviors as described above for video streams.
 		config := gostream.StreamConfig{
-			Name: name,
+			Name:                name,
+			AudioEncoderFactory: svc.opts.streamConfig.AudioEncoderFactory,
 		}
-		config.AudioEncoderFactory = svc.opts.streamConfig.AudioEncoderFactory
 		stream, err := svc.createStream(config, name)
 		if err != nil {
 			return err
