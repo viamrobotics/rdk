@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"net/http"
+	"runtime"
 	"slices"
 	"sync"
 
@@ -100,13 +101,17 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 	}
 
 	for name := range svc.videoSources {
+		if runtime.GOOS == "windows" {
+			// TODO(RSDK-1771): support video on windows
+			svc.logger.Warn("video streaming not supported on Windows yet")
+			break
+		}
 		// We walk the updated set of `videoSources` and ensure all of the sources are "created" and
 		// "started".
 		config := gostream.StreamConfig{
 			Name:                name,
 			VideoEncoderFactory: svc.opts.streamConfig.VideoEncoderFactory,
 		}
-
 		// Call `createStream`. `createStream` is responsible for first checking if the stream
 		// already exists. If it does, it skips creating a new stream and we continue to the next source.
 		//
@@ -117,9 +122,9 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 		} else if alreadyRegistered {
 			continue
 		}
-
 		svc.startVideoStream(ctx, svc.videoSources[name], stream)
 	}
+
 	for name := range svc.audioSources {
 		// Similarly, we walk the updated set of `audioSources` and ensure all of the audio sources
 		// are "created" and "started". `createStream` and `startAudioStream` have the same
@@ -136,6 +141,7 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 		}
 		svc.startAudioStream(ctx, svc.audioSources[name], stream)
 	}
+
 	return nil
 }
 
