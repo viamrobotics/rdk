@@ -85,7 +85,7 @@ require (
 	go.uber.org/atomic v1.11.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
-	go.viam.com/api v0.1.350-0.20241022000711-281f4a219444
+	go.viam.com/api v0.1.350
 	go.viam.com/test v1.1.1-0.20220913152726-5da9916c08a2
 	go.viam.com/utils v0.1.106
 	goji.io v2.0.2+incompatible

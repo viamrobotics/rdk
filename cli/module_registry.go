@@ -455,10 +455,10 @@ func (c *viamClient) uploadModuleFile(
 		return nil, err
 	}
 	moduleFileInfo := apppb.ModuleFileInfo{
-		ModuleId:    moduleID.String(),
-		Version:     version,
-		Platform:    platform,
-		Constraints: constraints,
+		ModuleId:     moduleID.String(),
+		Version:      version,
+		Platform:     platform,
+		PlatformTags: constraints,
 	}
 	req := &apppb.UploadModuleFileRequest{
 		ModuleFile: &apppb.UploadModuleFileRequest_ModuleFileInfo{ModuleFileInfo: &moduleFileInfo},
