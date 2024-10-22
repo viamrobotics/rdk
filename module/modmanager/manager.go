@@ -1131,17 +1131,11 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 		return err
 	}
 
-	var combined []string
-	var mu sync.Mutex
-
 	scanOut := bufio.NewScanner(stdOut)
 	go func() {
 		for scanOut.Scan() {
 			out := scanOut.Text()
 			logger.Infow("first run stdio", "output", out)
-			mu.Lock()
-			combined = append(combined, out)
-			mu.Unlock()
 		}
 	}()
 	scanErr := bufio.NewScanner(stdErr)
@@ -1149,9 +1143,6 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 		for scanErr.Scan() {
 			out := scanErr.Text()
 			logger.Warnw("first run stderr", "output", out)
-			mu.Lock()
-			combined = append(combined, out)
-			mu.Unlock()
 		}
 	}()
 	if err := cmd.Start(); err != nil {
@@ -1159,10 +1150,10 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 		return err
 	}
 	if err := cmd.Wait(); err != nil {
-		logger.Errorw("first run failed", "error", err, "combined output", combined)
+		logger.Errorw("first run failed", "error", err)
 		return err
 	}
-	logger.Infow("first run succeeded", "combined output", combined)
+	logger.Infow("first run succeeded")
 
 	if err := scanOut.Err(); err != nil {
 		logger.Warnw("error scanning first run stdio", "error", err)
