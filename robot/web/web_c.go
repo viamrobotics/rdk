@@ -111,9 +111,11 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 		// already exists.
 		//
 		// TODO(RSDK-9079) Add reliable framerate fetcher for stream videosources
-		stream, err := svc.createStream(config, name)
+		stream, alreadyRegistered, err := svc.createStream(config, name)
 		if err != nil {
 			return err
+		} else if alreadyRegistered {
+			continue
 		}
 
 		// If the stream already exists, `createStream` will return a `nil` stream and `nil`
@@ -128,29 +130,31 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 			Name:                name,
 			AudioEncoderFactory: svc.opts.streamConfig.AudioEncoderFactory,
 		}
-		stream, err := svc.createStream(config, name)
+		stream, alreadyRegistered, err := svc.createStream(config, name)
 		if err != nil {
 			return err
+		} else if alreadyRegistered {
+			continue
 		}
 		svc.startAudioStream(ctx, svc.audioSources[name], stream)
 	}
 	return nil
 }
 
-func (svc *webService) createStream(config gostream.StreamConfig, name string) (gostream.Stream, error) {
+func (svc *webService) createStream(config gostream.StreamConfig, name string) (gostream.Stream, bool, error) {
 	stream, err := svc.streamServer.Server.NewStream(config)
 	// Skip if stream is already registered, otherwise raise any other errors
 	var registeredError *webstream.StreamAlreadyRegisteredError
 	if errors.As(err, &registeredError) {
 		svc.logger.Debugw("stream already registered", "name", name)
-		return nil, nil
+		return nil, true, nil
 	} else if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if !svc.streamServer.HasStreams {
 		svc.streamServer.HasStreams = true
 	}
-	return stream, nil
+	return stream, false, err
 }
 
 func (svc *webService) makeStreamServer() (*StreamServer, error) {
@@ -186,7 +190,6 @@ func (svc *webService) propertiesFromStream(ctx context.Context, stream gostream
 	if !ok {
 		return camera.Properties{}, errors.Errorf("cannot convert resource (type %T) to type (%T)", res, camera.Camera(nil))
 	}
-
 	return cam.Properties(ctx)
 }
 
@@ -197,7 +200,6 @@ func (svc *webService) startVideoStream(ctx context.Context, source gostream.Vid
 		if props, err := svc.propertiesFromStream(ctx, stream); err == nil && slices.Contains(props.MimeTypes, rutils.MimeTypeH264) {
 			streamVideoCtx = gostream.WithMIMETypeHint(streamVideoCtx, rutils.WithLazyMIMEType(rutils.MimeTypeH264))
 		}
-
 		return webstream.StreamVideoSource(streamVideoCtx, source, stream, opts, svc.logger)
 	})
 }
@@ -246,6 +248,7 @@ func (svc *webService) refreshAudioSources() {
 
 // Update updates the web service when the robot has changed.
 func (svc *webService) Reconfigure(ctx context.Context, deps resource.Dependencies, _ resource.Config) error {
+	svc.logger.Info("Hit Reconfigure")
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	if err := svc.updateResources(deps); err != nil {
@@ -266,6 +269,7 @@ func (svc *webService) closeStreamServer() {
 }
 
 func (svc *webService) initStreamServer(ctx context.Context, options *weboptions.Options) error {
+	svc.logger.Info("Hit initStreamServer")
 	var err error
 	svc.streamServer, err = svc.makeStreamServer()
 	if err != nil {
