@@ -161,14 +161,6 @@ func (svc *webService) createStream(config gostream.StreamConfig, name string) (
 	return stream, false, err
 }
 
-func (svc *webService) makeStreamServer() (*StreamServer, error) {
-	server, err := webstream.NewServer(svc.r, svc.logger)
-	if err != nil {
-		return nil, err
-	}
-	return &StreamServer{server, false}, nil
-}
-
 func (svc *webService) startStream(streamFunc func(opts *webstream.BackoffTuningOptions) error) {
 	waitCh := make(chan struct{})
 	svc.webWorkers.Add(1)
@@ -273,10 +265,11 @@ func (svc *webService) closeStreamServer() {
 
 func (svc *webService) initStreamServer(ctx context.Context, options *weboptions.Options) error {
 	var err error
-	svc.streamServer, err = svc.makeStreamServer()
+	server, err := webstream.NewServer(svc.r, svc.logger)
 	if err != nil {
 		return err
 	}
+	svc.streamServer = &StreamServer{server, false}
 	err = svc.addNewStreams(ctx)
 	if err != nil {
 		return err
