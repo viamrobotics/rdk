@@ -48,12 +48,6 @@ var (
 
 // GenerateModuleAction runs the module generate cli and generates necessary module templates based on user input.
 func GenerateModuleAction(cCtx *cli.Context) error {
-	// fpath := filepath.Join("my-module", "models", "module.go")
-	// ff, _ := os.Open(fpath)
-	// defer ff.Close()
-	// _, err := runGoImports(ff)
-	// return err
-
 	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
