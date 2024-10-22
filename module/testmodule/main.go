@@ -179,7 +179,7 @@ func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map
 		msg := req["msg"].(string)
 		switch level {
 		case logging.DEBUG:
-			h.logger.CDebugw(ctx, msg, "foo", "bar")
+			h.logger.CDebugw(ctx, msg, "foo", "bar", "err", errors.New("crash me"))
 		case logging.INFO:
 			h.logger.CInfow(ctx, msg, "foo", "bar")
 		case logging.WARN:
