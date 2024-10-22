@@ -83,7 +83,8 @@ func (svc *webService) streamInitialized() bool {
 
 func (svc *webService) addNewStreams(ctx context.Context) error {
 	if !svc.streamInitialized() {
-		return errors.New("stream server not initialized")
+		svc.logger.Warn("not starting streams because the stream server is not initialized")
+		return nil
 	}
 
 	// Refreshing sources will walk the robot resources for anything implementing the camera and
