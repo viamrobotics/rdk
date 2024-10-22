@@ -1083,7 +1083,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 
 // FirstRun is runs a module-specific setup script.
 func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
-	logger := mgr.logger.AsZap().With("name", conf.Name)
+	logger := mgr.logger.Sublogger("first_run").AsZap().With("name", conf.Name)
 
 	// Evaluate the Module's FirstRun path. If there is an error we assume
 	// that the first run script does not exist and we debug log and exit quietly.
