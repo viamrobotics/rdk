@@ -1083,7 +1083,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 
 // FirstRun is runs a module-specific setup script.
 func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
-	logger := mgr.logger.Sublogger("first_run").AsZap().With("name", conf.Name)
+	logger := mgr.logger.Sublogger("first_run").WithFields("module", conf.Name)
 
 	// Evaluate the Module's FirstRun path. If there is an error we assume
 	// that the first run script does not exist and we debug log and exit quietly.
@@ -1094,7 +1094,7 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 		return nil
 	}
 
-	logger = logger.With("path", firstRunPath)
+	logger = logger.WithFields("module", conf.Name, "path", firstRunPath)
 	logger.Infow("executing first run script")
 
 	// This value is normally set on a field on the [module] struct but it seems like we can safely get it on demand.
