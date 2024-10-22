@@ -264,14 +264,9 @@ func (svc *webService) closeStreamServer() {
 }
 
 func (svc *webService) initStreamServer(ctx context.Context, options *weboptions.Options) error {
-	var err error
-	server, err := webstream.NewServer(svc.r, svc.logger)
-	if err != nil {
-		return err
-	}
+	server := webstream.NewServer(svc.r, svc.logger)
 	svc.streamServer = &StreamServer{server, false}
-	err = svc.addNewStreams(ctx)
-	if err != nil {
+	if err := svc.addNewStreams(ctx); err != nil {
 		return err
 	}
 	if err := svc.rpcServer.RegisterServiceServer(

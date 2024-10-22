@@ -52,7 +52,7 @@ type Server struct {
 func NewServer(
 	robot robot.Robot,
 	logger logging.Logger,
-) (*Server, error) {
+) *Server {
 	closedCtx, closedFn := context.WithCancel(context.Background())
 	server := &Server{
 		closedCtx:         closedCtx,
@@ -63,10 +63,8 @@ func NewServer(
 		activePeerStreams: map[*webrtc.PeerConnection]map[string]*peerState{},
 		isAlive:           true,
 	}
-
 	server.startMonitorCameraAvailable()
-
-	return server, nil
+	return server
 }
 
 // StreamAlreadyRegisteredError indicates that a stream has a name that is already registered on
