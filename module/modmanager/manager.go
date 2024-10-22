@@ -1134,15 +1134,19 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	scanOut := bufio.NewScanner(stdOut)
 	go func() {
 		for scanOut.Scan() {
-			out := scanOut.Text()
-			logger.Infow("first run stdio", "output", out)
+			logger.Infow("first run stdio", "output", scanOut.Text())
+		}
+		if err := scanOut.Err(); err != nil {
+			logger.Errorw("error scanning first run stdio", "error", err)
 		}
 	}()
 	scanErr := bufio.NewScanner(stdErr)
 	go func() {
 		for scanErr.Scan() {
-			out := scanErr.Text()
-			logger.Warnw("first run stderr", "output", out)
+			logger.Warnw("first run stderr", "output", scanErr.Text())
+		}
+		if err := scanErr.Err(); err != nil {
+			logger.Errorw("error scanning first run stderr", "error", err)
 		}
 	}()
 	if err := cmd.Start(); err != nil {
@@ -1154,13 +1158,6 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 		return err
 	}
 	logger.Infow("first run succeeded")
-
-	if err := scanOut.Err(); err != nil {
-		logger.Warnw("error scanning first run stdio", "error", err)
-	}
-	if err := scanErr.Err(); err != nil {
-		logger.Warnw("error scanning first run stderr", "error", err)
-	}
 
 	// Mark success by writing a marker file to disk. This is a best
 	// effort; if writing to disk fails the setup phase will run again
