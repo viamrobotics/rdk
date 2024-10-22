@@ -56,9 +56,8 @@ tool-install:
 		github.com/axw/gocov/gocov \
 		gotest.tools/gotestsum \
 		github.com/rhysd/actionlint/cmd/actionlint \
-		golang.org/x/tools/cmd/stringer \
-		golang.org/x/tools/cmd/goimports
-
+		golang.org/x/tools/cmd/stringer 
+		
 lint: lint-go lint-web
 	PATH=$(PATH_WITH_TOOLS) actionlint
 
