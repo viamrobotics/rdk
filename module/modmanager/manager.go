@@ -1136,7 +1136,10 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 		for scanOut.Scan() {
 			logger.Infow("got stdio", "output", scanOut.Text())
 		}
-		if err := scanOut.Err(); err != nil {
+		// This scanner keeps trying to read stdio until the command terminates,
+		// at which point the stdio pipe handle is no longer available. This sometimes
+		// results in an `os.ErrClosed`, which we discard.
+		if err := scanOut.Err(); err != nil && !errors.Is(err, os.ErrClosed) {
 			logger.Errorw("error scanning stdio", "error", err)
 		}
 	}()
@@ -1145,7 +1148,10 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 		for scanErr.Scan() {
 			logger.Warnw("got stderr", "output", scanErr.Text())
 		}
-		if err := scanErr.Err(); err != nil {
+		// This scanner keeps trying to read stderr until the command terminates,
+		// at which point the stderr pipe handle is no longer available. This sometimes
+		// results in an `os.ErrClosed`, which we discard.
+		if err := scanErr.Err(); err != nil && !errors.Is(err, os.ErrClosed) {
 			logger.Errorw("error scanning stderr", "error", err)
 		}
 	}()
