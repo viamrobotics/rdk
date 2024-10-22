@@ -1095,7 +1095,7 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	}
 
 	logger = logger.WithFields("module", conf.Name, "path", firstRunPath)
-	logger.Infow("executing first run script")
+	logger.Infow("executing script")
 
 	// This value is normally set on a field on the [module] struct but it seems like we can safely get it on demand.
 	var dataDir string
@@ -1134,30 +1134,30 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	scanOut := bufio.NewScanner(stdOut)
 	go func() {
 		for scanOut.Scan() {
-			logger.Infow("first run stdio", "output", scanOut.Text())
+			logger.Infow("got stdio", "output", scanOut.Text())
 		}
 		if err := scanOut.Err(); err != nil {
-			logger.Errorw("error scanning first run stdio", "error", err)
+			logger.Errorw("error scanning stdio", "error", err)
 		}
 	}()
 	scanErr := bufio.NewScanner(stdErr)
 	go func() {
 		for scanErr.Scan() {
-			logger.Warnw("first run stderr", "output", scanErr.Text())
+			logger.Warnw("got stderr", "output", scanErr.Text())
 		}
 		if err := scanErr.Err(); err != nil {
-			logger.Errorw("error scanning first run stderr", "error", err)
+			logger.Errorw("error scanning stderr", "error", err)
 		}
 	}()
 	if err := cmd.Start(); err != nil {
-		logger.Errorw("first run failed to start", "error", err)
+		logger.Errorw("failed to start", "error", err)
 		return err
 	}
 	if err := cmd.Wait(); err != nil {
-		logger.Errorw("first run failed", "error", err)
+		logger.Errorw("failed", "error", err)
 		return err
 	}
-	logger.Infow("first run succeeded")
+	logger.Infow("succeeded")
 
 	// Mark success by writing a marker file to disk. This is a best
 	// effort; if writing to disk fails the setup phase will run again
