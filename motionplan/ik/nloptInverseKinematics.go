@@ -30,8 +30,7 @@ const (
 // NloptIK TODO.
 type NloptIK struct {
 	id            int
-	lowerBound    []float64
-	upperBound    []float64
+	limits        []referenceframe.Limit
 	maxIterations int
 	epsilon       float64
 	logger        logging.Logger
@@ -52,8 +51,8 @@ type optimizeReturn struct {
 	err      error
 }
 
-// CreateNloptIKSolver creates an nloptIK object that can perform gradient descent on metrics for Frames. The parameters are the Frame on
-// which Transform() will be called, a logger, and the number of iterations to run. If the iteration count is less than 1, it will be set
+// CreateNloptIKSolver creates an nloptIK object that can perform gradient descent on functions. The parameters are the limits
+// of the solver, a logger, and the number of iterations to run. If the iteration count is less than 1, it will be set
 // to the default of 5000.
 func CreateNloptIKSolver(
 	limits []referenceframe.Limit,
@@ -61,7 +60,7 @@ func CreateNloptIKSolver(
 	iter int,
 	exact, useRelTol bool,
 ) (*NloptIK, error) {
-	ik := &NloptIK{logger: logger}
+	ik := &NloptIK{logger: logger, limits: limits}
 	ik.id = 0
 
 	// Stop optimizing when iterations change by less than this much
@@ -72,11 +71,16 @@ func CreateNloptIKSolver(
 		iter = defaultMaxIter
 	}
 	ik.maxIterations = iter
-	ik.lowerBound, ik.upperBound = limitsToArrays(limits)
+
 	ik.exact = exact
 	ik.useRelTol = useRelTol
 
 	return ik, nil
+}
+
+// DoF returns the DoF of the solver.
+func (ik *NloptIK) DoF() []referenceframe.Limit {
+	return ik.limits
 }
 
 // Solve runs the actual solver and sends any solutions found to the given channel.
@@ -96,44 +100,46 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	iterations := 0
 	solutionsFound := 0
 
-	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, uint(len(ik.lowerBound)))
+	lowerBound, upperBound := limitsToArrays(ik.limits)
+	if len(lowerBound) == 0 || len(upperBound) == 0 {
+		return errBadBounds
+	}
+
+	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, uint(len(lowerBound)))
 	defer opt.Destroy()
 	if err != nil {
 		return errors.Wrap(err, "nlopt creation error")
 	}
 
-	if len(ik.lowerBound) == 0 || len(ik.upperBound) == 0 {
-		return errBadBounds
-	}
 	var activeSolvers sync.WaitGroup
 
 	jumpVal := 0.
 
-	// x is our set of inputs
+	// checkVals is our set of inputs that we evaluate for distance
 	// Gradient is, under the hood, a unsafe C structure that we are meant to mutate in place.
-	nloptMinFunc := func(x, gradient []float64) float64 {
+	nloptMinFunc := func(checkVals, gradient []float64) float64 {
 		iterations++
-		dist := minFunc(x)
+		dist := minFunc(checkVals)
 		if len(gradient) > 0 {
 			// Yes, the for loop below is logically equivalent to not having this if statement. But CPU branch prediction means having the
 			// if statement is faster.
 			for i := range gradient {
 				jumpVal = jump[i]
 				flip := false
-				x[i] += jumpVal
-				ub := ik.upperBound[i]
-				if x[i] >= ub {
+				checkVals[i] += jumpVal
+				ub := upperBound[i]
+				if checkVals[i] >= ub {
 					flip = true
-					x[i] -= 2 * jumpVal
+					checkVals[i] -= 2 * jumpVal
 				}
 
-				dist2 := minFunc(x)
+				dist2 := minFunc(checkVals)
 				gradient[i] = (dist2 - dist) / jumpVal
 				if flip {
-					x[i] += jumpVal
+					checkVals[i] += jumpVal
 					gradient[i] *= -1
 				} else {
-					x[i] -= jumpVal
+					checkVals[i] -= jumpVal
 				}
 			}
 		}
@@ -142,9 +148,9 @@ func (ik *NloptIK) Solve(ctx context.Context,
 
 	err = multierr.Combine(
 		opt.SetFtolAbs(ik.epsilon),
-		opt.SetLowerBounds(ik.lowerBound),
+		opt.SetLowerBounds(lowerBound),
 		opt.SetStopVal(ik.epsilon),
-		opt.SetUpperBounds(ik.upperBound),
+		opt.SetUpperBounds(upperBound),
 		opt.SetXtolAbs1(ik.epsilon),
 		opt.SetMinObjective(nloptMinFunc),
 		opt.SetMaxEval(nloptStepsPerIter),
@@ -209,7 +215,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		if err != nil {
 			return err
 		}
-		seed = generateRandomPositions(randSeed, ik.lowerBound, ik.upperBound)
+		seed = generateRandomPositions(randSeed, lowerBound, upperBound)
 	}
 	if solutionsFound > 0 {
 		return nil
@@ -219,14 +225,16 @@ func (ik *NloptIK) Solve(ctx context.Context,
 
 func (ik *NloptIK) calcJump(testJump float64, seed []float64, minFunc func([]float64) float64) []float64 {
 	jump := make([]float64, 0, len(seed))
+	lowerBound, upperBound := limitsToArrays(ik.limits)
+
 	seedDist := minFunc(seed)
 	for i, testVal := range seed {
 		seedTest := append(make([]float64, 0, len(seed)), seed...)
 		for jumpVal := testJump; jumpVal < 0.1; jumpVal *= 10 {
 			seedTest[i] = testVal + jumpVal
-			if seedTest[i] > ik.upperBound[i] {
+			if seedTest[i] > upperBound[i] {
 				seedTest[i] = testVal - jumpVal
-				if seedTest[i] < ik.lowerBound[i] {
+				if seedTest[i] < lowerBound[i] {
 					jump = append(jump, testJump)
 					break
 				}

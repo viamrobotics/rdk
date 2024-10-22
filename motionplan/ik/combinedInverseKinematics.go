@@ -16,23 +16,27 @@ import (
 
 // CombinedIK defines the fields necessary to run a combined solver.
 type CombinedIK struct {
-	solvers    []InverseKinematics
-	logger     logging.Logger
-	lowerBound []float64
-	upperBound []float64
+	solvers []InverseKinematics
+	logger  logging.Logger
+	limits  []referenceframe.Limit
 }
 
 // CreateCombinedIKFrameSolver creates a combined parallel IK solver that operates on a frame with a number of nlopt solvers equal to the
 // nCPU passed in. Each will be given a different random seed. When asked to solve, all solvers will be run in parallel
 // and the first valid found solution will be returned.
-func CreateCombinedIKFrameSolver(model referenceframe.Frame, logger logging.Logger, nCPU int, goalThreshold float64) (*CombinedIK, error) {
+func CreateCombinedIKFrameSolver(
+	model referenceframe.Frame,
+	logger logging.Logger,
+	nCPU int,
+	goalThreshold float64,
+) (InverseKinematics, error) {
 	ik := &CombinedIK{}
-	ik.lowerBound, ik.upperBound = limitsToArrays(model.DoF())
+	ik.limits = model.DoF()
 	if nCPU == 0 {
 		nCPU = 1
 	}
 	for i := 1; i <= nCPU; i++ {
-		nlopt, err := CreateNloptIKSolver(model.DoF(), logger, -1, true, true)
+		nlopt, err := CreateNloptIKSolver(ik.limits, logger, -1, true, true)
 		nlopt.id = i
 		if err != nil {
 			return nil, err
@@ -63,13 +67,15 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 	defer activeSolvers.Wait()
 	activeSolvers.Add(len(ik.solvers))
 
+	lowerBound, upperBound := limitsToArrays(ik.limits)
+
 	for i, solver := range ik.solvers {
 		rseed += 1500
 		parseed := rseed
 		thisSolver := solver
 		seedFloats := seed
 		if i > 0 {
-			seedFloats = generateRandomPositions(randSeed, ik.lowerBound, ik.upperBound)
+			seedFloats = generateRandomPositions(randSeed, lowerBound, upperBound)
 		}
 
 		utils.PanicCapturingGo(func() {
@@ -124,4 +130,9 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 	}
 	activeSolvers.Wait()
 	return collectedErrs
+}
+
+// DoF returns the DoF of the solver.
+func (ik *CombinedIK) DoF() []referenceframe.Limit {
+	return ik.limits
 }

@@ -12,6 +12,9 @@ import (
 )
 
 const (
+	// If limits are infinite, we use this to bound creating random seeds.
+	defaultLimit = 999
+
 	// Default distance below which two distances are considered equal.
 	defaultEpsilon = 0.001
 
@@ -22,6 +25,7 @@ const (
 // InverseKinematics defines an interface which, provided with seed inputs and a function to minimize to zero, will output all found
 // solutions to the provided channel until cancelled or otherwise completes.
 type InverseKinematics interface {
+	referenceframe.Limited
 	// Solve receives a context, a channel to which solutions will be provided, a function whose output should be minimized, and a
 	// number of iterations to run.
 	Solve(context.Context, chan<- *Solution, []float64, func([]float64) float64, int) error
@@ -41,12 +45,11 @@ func generateRandomPositions(randSeed *rand.Rand, lowerBound, upperBound []float
 	for i, l := range lowerBound {
 		u := upperBound[i]
 
-		// Default to [-999,999] as range if limits are infinite
 		if l == math.Inf(-1) {
-			l = -999
+			l = -defaultLimit
 		}
 		if u == math.Inf(1) {
-			u = 999
+			u = defaultLimit
 		}
 
 		jRange := math.Abs(u - l)

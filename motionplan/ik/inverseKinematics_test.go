@@ -69,7 +69,7 @@ func TestCombinedCPUs(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateCombinedIKFrameSolver(m, logger, runtime.NumCPU()/400000, defaultGoalThreshold)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(ik.solvers), test.ShouldEqual, 1)
+	test.That(t, len(ik.(*CombinedIK).solvers), test.ShouldEqual, 1)
 }
 
 func solveTest(ctx context.Context, solver InverseKinematics, solveFunc func([]float64) float64, seed []float64) ([][]float64, error) {
