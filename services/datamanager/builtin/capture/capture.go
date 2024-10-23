@@ -10,6 +10,8 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/data"
@@ -52,11 +54,15 @@ type Capture struct {
 
 	collectorsMu sync.Mutex
 	collectors   collectors
-
 	// captureDir is only stored on Capture so that we can detect when it changs
 	captureDir string
 	// maxCaptureFileSize is only stored on Capture so that we can detect when it changs
 	maxCaptureFileSize int64
+
+	mongoMU         sync.Mutex
+	mongoClient     *mongo.Client
+	mongoCollection *mongo.Collection
+	mongoConfig     *MongoConfig
 }
 
 type (
@@ -93,7 +99,11 @@ func format(c datamanager.DataCaptureConfig) string {
 		c.Name, c.Method, c.CaptureFrequencyHz, c.CaptureQueueSize, c.AdditionalParams, c.Disabled, c.Tags, c.CaptureDirectory)
 }
 
-func (c *Capture) newCollectors(collectorConfigsByResource CollectorConfigsByResource, config Config) collectors {
+func (c *Capture) newCollectors(
+	collectorConfigsByResource CollectorConfigsByResource,
+	config Config,
+	collection *mongo.Collection,
+) collectors {
 	// Initialize or add collectors based on changes to the component configurations.
 	newCollectors := make(map[collectorMetadata]*collectorAndConfig)
 	for res, cfgs := range collectorConfigsByResource {
@@ -112,7 +122,7 @@ func (c *Capture) newCollectors(collectorConfigsByResource CollectorConfigsByRes
 				continue
 			}
 
-			newCollectorAndConfig, err := c.initializeOrUpdateCollector(res, md, cfg, config)
+			newCollectorAndConfig, err := c.initializeOrUpdateCollector(res, md, cfg, config, collection)
 			if err != nil {
 				c.logger.Warnw("failed to initialize or update collector",
 					"error", err, "resource_name", res.Name(), "metadata", md, "data capture config", format(cfg))
@@ -122,6 +132,73 @@ func (c *Capture) newCollectors(collectorConfigsByResource CollectorConfigsByRes
 		}
 	}
 	return newCollectors
+}
+
+func (c *Capture) mongoSetup(ctx context.Context, config Config) *mongo.Collection {
+	if err := config.MongoConfig.validate(); err != nil {
+		c.logger.Warn("mongo_config is invalid: %s", err.Error())
+		return nil
+	}
+	// Use the SetServerAPIOptions() method to set the Stable API version to 1
+	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
+	// Create a new client and connect to the server
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(config.MongoConfig.URI).SetServerAPIOptions(serverAPI))
+	if err != nil {
+		c.logger.Warn("failed to create mongo connection with mongo_config.url")
+		return nil
+	}
+	c.mongoClient = client
+	c.mongoCollection = c.mongoClient.Database(config.MongoConfig.Database).Collection(config.MongoConfig.Collection)
+	c.mongoConfig = config.MongoConfig
+	return c.mongoCollection
+}
+
+// mongoReconfigure
+// it shuts down the collectors when on the mongo client is no longer being valid based on the new config
+// and attempts to create a new mongo client when the new config perscribes one.
+// returns a *mongo.Collection when the client is valid and nil when it is not.
+func (c *Capture) mongoReconfigure(ctx context.Context, config Config) *mongo.Collection {
+	c.mongoMU.Lock()
+	defer c.mongoMU.Unlock()
+
+	switch {
+	case c.mongoClient == nil && c.mongoConfig == nil && config.MongoConfig == nil:
+		// no relevant mongo config, no-op
+		return nil
+	case c.mongoClient != nil && c.mongoConfig == nil && config.MongoConfig == nil:
+		c.logger.Info("mongo client is non nil when mongo config was & still is nil, resetting all collectors")
+		c.closeNoMongoMutex(ctx)
+		return nil
+	case c.mongoClient == nil && c.mongoConfig != nil && config.MongoConfig == nil:
+		c.logger.Info("mongo config removed, but mongoClient is nil, no-op")
+		c.mongoConfig = nil
+		return nil
+	case c.mongoClient != nil && c.mongoConfig != nil && config.MongoConfig == nil:
+		c.logger.Info("mongo client is non nil when mongo config was non nil & is now nil, resetting all collectors")
+		c.closeNoMongoMutex(ctx)
+		c.mongoConfig = nil
+		return nil
+	case c.mongoClient == nil && c.mongoConfig == nil && config.MongoConfig != nil:
+		c.logger.Info("mongo client is nil when mongo config was nil & is now non, setting up connection")
+		return c.mongoSetup(ctx, config)
+	case c.mongoClient != nil && c.mongoConfig == nil && config.MongoConfig != nil:
+		c.logger.Info("mongo client is non nil when mongo config was nil & is now non, resetting all collectors and setting up connection")
+		c.closeNoMongoMutex(ctx)
+		return c.mongoSetup(ctx, config)
+	case c.mongoClient == nil && c.mongoConfig != nil && config.MongoConfig != nil:
+		c.logger.Info("mongo client is nil when mongo config was not nil & is now non nil, setting up connection")
+		return c.mongoSetup(ctx, config)
+	default:
+		// both configs defined
+		if !c.mongoConfig.Equal(*config.MongoConfig) {
+			// if config changed, close & set up again
+			c.logger.Info("mongo_uri, database or collection changed, resetting all collectors and setting up mongo")
+			c.closeNoMongoMutex(ctx)
+			return c.mongoSetup(ctx, config)
+		}
+		// mongo client is non nil & old config equals new config, no-op
+		return c.mongoCollection
+	}
 }
 
 // Reconfigure reconfigures Capture.
@@ -136,10 +213,11 @@ func (c *Capture) Reconfigure(
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if config.CaptureDisabled {
 		c.logger.Info("Capture Disabled")
-		c.Close()
+		c.Close(ctx)
 		return
 	}
 
+	collection := c.mongoReconfigure(ctx, config)
 	if c.captureDir != config.CaptureDir {
 		c.logger.Infof("capture_dir old: %s, new: %s", c.captureDir, config.CaptureDir)
 	}
@@ -148,7 +226,7 @@ func (c *Capture) Reconfigure(
 		c.logger.Infof("maximum_capture_file_size_bytes old: %d, new: %d", c.maxCaptureFileSize, config.MaximumCaptureFileSizeBytes)
 	}
 
-	newCollectors := c.newCollectors(collectorConfigsByResource, config)
+	newCollectors := c.newCollectors(collectorConfigsByResource, config, collection)
 	// If a component/method has been removed from the config, close the collector.
 	c.collectorsMu.Lock()
 	for md, collAndConfig := range c.collectors {
@@ -164,9 +242,30 @@ func (c *Capture) Reconfigure(
 }
 
 // Close closes the capture manager.
-func (c *Capture) Close() {
+func (c *Capture) Close(ctx context.Context) {
 	c.FlushCollectors()
 	c.closeCollectors()
+	c.mongoMU.Lock()
+	defer c.mongoMU.Unlock()
+	if c.mongoClient != nil {
+		c.logger.Info("c.mongoClient.Disconnect START")
+		err := c.mongoClient.Disconnect(ctx)
+		c.logger.Info("c.mongoClient.Disconnect END, err: %w", err)
+		c.mongoClient = nil
+		c.mongoCollection = nil
+	}
+}
+
+func (c *Capture) closeNoMongoMutex(ctx context.Context) {
+	c.FlushCollectors()
+	c.closeCollectors()
+	if c.mongoClient != nil {
+		c.logger.Info("c.mongoClient.Disconnect START")
+		err := c.mongoClient.Disconnect(ctx)
+		c.logger.Info("c.mongoClient.Disconnect END, err: %w", err)
+		c.mongoClient = nil
+		c.mongoCollection = nil
+	}
 }
 
 // Initialize a collector for the component/method or update it if it has previously been created.
@@ -176,6 +275,7 @@ func (c *Capture) initializeOrUpdateCollector(
 	md collectorMetadata,
 	collectorConfig datamanager.DataCaptureConfig,
 	config Config,
+	collection *mongo.Collection,
 ) (*collectorAndConfig, error) {
 	// TODO(DATA-451): validate method params
 	methodParams, err := protoutils.ConvertStringMapToAnyPBMap(collectorConfig.AdditionalParams)
@@ -237,10 +337,13 @@ func (c *Capture) initializeOrUpdateCollector(
 	queueSize := defaultIfZeroVal(collectorConfig.CaptureQueueSize, defaultCaptureQueueSize)
 	bufferSize := defaultIfZeroVal(collectorConfig.CaptureBufferSize, defaultCaptureBufferSize)
 	collector, err := collectorConstructor(res, data.CollectorParams{
-		ComponentName: collectorConfig.Name.ShortName(),
-		Interval:      data.GetDurationFromHz(collectorConfig.CaptureFrequencyHz),
-		MethodParams:  methodParams,
-		Target:        data.NewCaptureBuffer(targetDir, captureMetadata, config.MaximumCaptureFileSizeBytes),
+		MongoCollection: collection,
+		ComponentName:   collectorConfig.Name.ShortName(),
+		ComponentType:   collectorConfig.Name.API.String(),
+		MethodName:      collectorConfig.Method,
+		Interval:        data.GetDurationFromHz(collectorConfig.CaptureFrequencyHz),
+		MethodParams:    methodParams,
+		Target:          data.NewCaptureBuffer(targetDir, captureMetadata, config.MaximumCaptureFileSizeBytes),
 		// Set queue size to defaultCaptureQueueSize if it was not set in the config.
 		QueueSize:  queueSize,
 		BufferSize: bufferSize,
