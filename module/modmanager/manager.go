@@ -1095,7 +1095,7 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	}
 
 	logger = logger.WithFields("module", conf.Name, "path", firstRunPath)
-	logger.Infow("executing script")
+	logger.Infow("executing first run script")
 
 	// This value is normally set on a field on the [module] struct but it seems like we can safely get it on demand.
 	var dataDir string
