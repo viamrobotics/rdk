@@ -25,6 +25,18 @@ func FieldToProto(field zap.Field) (*structpb.Struct, error) {
 		field.String = fmt.Sprintf("%f", math.Float64frombits(uint64(field.Integer)))
 	}
 
+	// RSDK-9097: Calling FieldToProto goes through a marshal -> unmarshal sequence. Marshaling
+	// errors as-is will give us a zapcore type of error, but an empty `String` and an empty object
+	// for the `Interface`. Unmarshalling in `FieldFromProto` subsequently creates a zapcore.Field
+	// object with the "error" type, but no underlying `Interface`. Using the zapcore JSONEncoder
+	// fails when the underlying empty `Interface` is cast to an `error`.
+	//
+	// We work around this in the short-term by just turning errors into strings.
+	if field.Type == zapcore.ErrorType {
+		field.Type = zapcore.StringType
+		field.String = field.Interface.(error).Error()
+	}
+
 	return protoutils.StructToStructPb(field)
 }
 
@@ -39,6 +51,7 @@ func FieldFromProto(field *structpb.Struct) (zap.Field, error) {
 	if err := json.Unmarshal(fieldJSON, &zf); err != nil {
 		return zap.Field{}, err
 	}
+
 	return zf, err
 }
 

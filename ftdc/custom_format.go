@@ -118,7 +118,64 @@ func writeDatum(time int64, prev, curr []float32, output io.Writer) {
 	}
 }
 
-// getFieldsForItem returns the (flattened) list of strings for a metric structure. For example the
+var errNotStruct = errors.New("stats object is not a struct")
+
+func isNumeric(kind reflect.Kind) bool {
+	return kind == reflect.Bool ||
+		kind == reflect.Int ||
+		kind == reflect.Int8 || kind == reflect.Int16 || kind == reflect.Int32 || kind == reflect.Int64 ||
+		kind == reflect.Uint ||
+		kind == reflect.Uint8 || kind == reflect.Uint16 || kind == reflect.Uint32 || kind == reflect.Uint64 ||
+		kind == reflect.Float32 || kind == reflect.Float64
+}
+
+func flattenStruct(item reflect.Value) ([]float32, error) {
+	flattenPtr := func(inp reflect.Value) reflect.Value {
+		for inp.Kind() == reflect.Pointer {
+			inp = inp.Elem()
+		}
+		return inp
+	}
+
+	rVal := flattenPtr(item)
+
+	var numbers []float32
+	// Use reflection to walk the member fields of an individual set of metric readings. We rely
+	// on reflection always walking fields in the same order.
+	//
+	// Note, while reflection in this way isn't intrinsically expensive, it is making more small
+	// function calls and allocations than some more raw alternatives. For example, we can have
+	// the "schema" keep a (field, offset, type) index and we instead access get a single unsafe
+	// pointer to each structure and walk out index to pull out the relevant numbers.
+	for memberIdx := 0; memberIdx < rVal.NumField(); memberIdx++ {
+		rField := flattenPtr(rVal.Field(memberIdx))
+		switch {
+		case rField.CanUint():
+			numbers = append(numbers, float32(rField.Uint()))
+		case rField.CanInt():
+			numbers = append(numbers, float32(rField.Int()))
+		case rField.CanFloat():
+			numbers = append(numbers, float32(rField.Float()))
+		case rField.Kind() == reflect.Struct:
+			subNumbers, err := flattenStruct(rField)
+			if err != nil {
+				return nil, err
+			}
+			numbers = append(numbers, subNumbers...)
+		default:
+			// Embedded structs? Just grab a global logger for now. A second pass will better
+			// validate inputs/remove limitations. And thread through a proper logger if still
+			// necessary.
+			logging.Global().Warn("Bad number type. Type:", rField.Type())
+			// Ignore via writing a 0 and continue.
+			numbers = append(numbers, 0)
+		}
+	}
+
+	return numbers, nil
+}
+
+// getFieldsForStruct returns the (flattened) list of strings for a metric structure. For example the
 // following type:
 //
 //	type Foo {
@@ -131,18 +188,50 @@ func writeDatum(time int64, prev, curr []float32, output io.Writer) {
 // The function right now does not recursively walk data structures. We assume for now that the
 // caller will only feed "already flat" structures into FTDC. Later commits will better validate
 // input and remove limitations.
-func getFieldsForItem(item any) []string {
+func getFieldsForStruct(item reflect.Type) ([]string, error) {
+	flattenPtr := func(inp reflect.Type) reflect.Type {
+		for inp.Kind() == reflect.Pointer {
+			inp = inp.Elem()
+		}
+		return inp
+	}
+
+	rType := flattenPtr(item)
+	if rType.Kind() != reflect.Struct {
+		return nil, fmt.Errorf("%w Type: %T", errNotStruct, item)
+	}
+
 	var fields []string
-	rType := reflect.TypeOf(item)
-	if val := reflect.ValueOf(item); val.Kind() == reflect.Pointer {
-		rType = val.Elem().Type()
-	}
-
 	for memberIdx := 0; memberIdx < rType.NumField(); memberIdx++ {
-		fields = append(fields, rType.Field(memberIdx).Name)
+		structField := rType.Field(memberIdx)
+		fieldType := flattenPtr(structField.Type)
+		if isNumeric(fieldType.Kind()) {
+			fields = append(fields, structField.Name)
+			continue
+		}
+
+		if fieldType.Kind() == reflect.Struct {
+			subFields, err := getFieldsForStruct(fieldType)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, subField := range subFields {
+				fields = append(fields, fmt.Sprintf("%v.%v", structField.Name, subField))
+			}
+		}
 	}
 
-	return fields
+	return fields, nil
+}
+
+type schemaError struct {
+	statserName string
+	err         error
+}
+
+func (err *schemaError) Error() string {
+	return fmt.Sprintf("SchemaError: %s StatserName: %s", err.err.Error(), err.statserName)
 }
 
 // getSchema returns a schema for a full FTDC datum. It immortalizes two properties:
@@ -152,29 +241,34 @@ func getFieldsForItem(item any) []string {
 // For correctness, it must be the case that the `mapOrder` and `fieldOrder` are consistent. I.e: if
 // the `mapOrder` is `A` then `B`, the `fieldOrder` must list all of the fields of `A` first,
 // followed by all the fields of `B`.
-func getSchema(data map[string]any) *schema {
+func getSchema(data map[string]any) (*schema, *schemaError) {
 	var mapOrder []string
 	var fields []string
 
-	for key, stats := range data {
-		mapOrder = append(mapOrder, key)
-		for _, field := range getFieldsForItem(stats) {
+	for name, stats := range data {
+		mapOrder = append(mapOrder, name)
+		fieldsForItem, err := getFieldsForStruct(reflect.TypeOf(stats))
+		if err != nil {
+			return nil, &schemaError{name, err}
+		}
+
+		for _, field := range fieldsForItem {
 			// We insert a `.` into every metric/field name we get a recording for. This property is
 			// assumed elsewhere.
-			fields = append(fields, fmt.Sprintf("%v.%v", key, field))
+			fields = append(fields, fmt.Sprintf("%v.%v", name, field))
 		}
 	}
 
 	return &schema{
 		mapOrder:   mapOrder,
 		fieldOrder: fields,
-	}
+	}, nil
 }
 
 // flatten takes an input `Datum` and a `mapOrder` from the current `Schema` and returns a list of
 // `float32`s representing the readings. Similar to `getFieldsForItem`, there are constraints on
 // input data shape that this code currently does not validate.
-func flatten(datum datum, schema *schema) []float32 {
+func flatten(datum datum, schema *schema) ([]float32, error) {
 	ret := make([]float32, 0, len(schema.fieldOrder))
 
 	for _, key := range schema.mapOrder {
@@ -182,47 +276,31 @@ func flatten(datum datum, schema *schema) []float32 {
 		// the current schema.
 		stats, exists := datum.Data[key]
 		if !exists {
-			logging.Global().Warn("Missing data. Need to know how much to skip in the output float32")
-			return nil
+			//nolint
+			return nil, fmt.Errorf("Missing statser name. Name: %v", key)
 		}
 
-		rVal := reflect.ValueOf(stats)
-		if rVal.Kind() == reflect.Pointer {
-			rVal = rVal.Elem()
+		numbers, err := flattenStruct(reflect.ValueOf(stats))
+		if err != nil {
+			return nil, err
 		}
-
-		// Use reflection to walk the member fields of an individual set of metric readings. We rely
-		// on reflection always walking fields in the same order.
-		//
-		// Note, while reflection in this way isn't intrinsically expensive, it is making more small
-		// function calls and allocations than some more raw alternatives. For example, we can have
-		// the "schema" keep a (field, offset, type) index and we instead access get a single unsafe
-		// pointer to each structure and walk out index to pull out the relevant numbers.
-		for memberIdx := 0; memberIdx < rVal.NumField(); memberIdx++ {
-			rField := rVal.Field(memberIdx)
-			switch {
-			case rField.CanInt():
-				ret = append(ret, float32(rField.Int()))
-			case rField.CanFloat():
-				ret = append(ret, float32(rField.Float()))
-			default:
-				// Embedded structs? Just grab a global logger for now. A second pass will better
-				// validate inputs/remove limitations. And thread through a proper logger if still
-				// necessary.
-				logging.Global().Warn("Bad number type. Type:", rField.Type())
-				// Ignore via writing a 0 and continue.
-				ret = append(ret, 0)
-			}
-		}
+		ret = append(ret, numbers...)
 	}
 
-	return ret
+	return ret, nil
+}
+
+func parse(rawReader io.Reader) ([]datum, error) {
+	logger := logging.NewLogger("")
+	logger.SetLevel(logging.ERROR)
+
+	return parseWithLogger(rawReader, logger)
 }
 
 // parse reads the entire contents from `rawReader` and returns a list of `Datum`. If an error
 // occurs, the []Datum parsed up until the place of the error will be returned, in addition to a
 // non-nil error.
-func parse(rawReader io.Reader) ([]datum, error) {
+func parseWithLogger(rawReader io.Reader, logger logging.Logger) ([]datum, error) {
 	ret := make([]datum, 0)
 
 	// prevValues are the previous values used for producing the diff bits. This is overwritten when
@@ -236,6 +314,7 @@ func parse(rawReader io.Reader) ([]datum, error) {
 	for {
 		peek, err := reader.Peek(1)
 		if err != nil {
+			logger.Debugw("Beginning peek error", "error", err)
 			if errors.Is(err, io.EOF) {
 				break
 			}
@@ -260,6 +339,7 @@ func parse(rawReader io.Reader) ([]datum, error) {
 			// schema bytes themselves are expected to be a list of strings, e.g: `["metricName1",
 			// "metricName2"]`.
 			schema, reader = readSchema(reader)
+			logger.Debugw("Schema bit", "parsedSchema", schema)
 
 			// We cannot diff against values from the old schema.
 			prevValues = nil
@@ -273,19 +353,24 @@ func parse(rawReader io.Reader) ([]datum, error) {
 		// "packed byte" where the first bit is not a diff bit. `readDiffBits` must account for
 		// that.
 		diffedFieldsIndexes := readDiffBits(reader, schema)
+		logger.Debugw("Diff bits", "changedFields", diffedFieldsIndexes)
 
 		// The next eight bytes after the diff bits is the time in nanoseconds since the 1970 epoch.
 		var dataTime int64
 		if err = binary.Read(reader, binary.BigEndian, &dataTime); err != nil {
+			logger.Debugw("Error reading time", "error", err)
 			return ret, err
 		}
+		logger.Debugw("Read time", "time", dataTime)
 
 		// Read the payload. There will be one float32 value for each diff bit set to `1`, i.e:
 		// `len(diffedFields)`.
 		data, err := readData(reader, schema, diffedFieldsIndexes, prevValues)
 		if err != nil {
+			logger.Debugw("Error reading data", "error", err)
 			return ret, err
 		}
+		logger.Debugw("Read data", "data", data)
 
 		// The old `prevValues` is no longer needed. Set the `prevValues` to the new hydrated
 		// `data`.
@@ -297,6 +382,7 @@ func parse(rawReader io.Reader) ([]datum, error) {
 			Time: dataTime,
 			Data: schema.Hydrate(data),
 		})
+		logger.Debugw("Hydrated data", "data", ret[len(ret)-1].Data)
 	}
 
 	return ret, nil

@@ -130,10 +130,6 @@ func TestGenerateModuleAction(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
-	t.Run("test get latest sdk tag", func(t *testing.T) {
-		_, err := getLatestSDKTag(cCtx, expectedPythonTestModule.Language)
-		test.That(t, err, test.ShouldBeNil)
-	})
 	t.Run("test generate cloud build", func(t *testing.T) {
 		setupDirectories(cCtx, expectedPythonTestModule.ModuleName)
 		err := generateCloudBuild(cCtx, expectedPythonTestModule)

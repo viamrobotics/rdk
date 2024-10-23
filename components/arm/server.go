@@ -5,6 +5,7 @@ package arm
 
 import (
 	"context"
+	"errors"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
@@ -15,6 +16,8 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
+
+var errUnimplemented = errors.New("unimplemented")
 
 // serviceServer implements the ArmService from arm.proto.
 type serviceServer struct {
@@ -130,6 +133,31 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 	}
 	geometries, err := res.Geometries(ctx, req.Extra.AsMap())
 	if err != nil {
+		// if the error tells us the method is unimplemented, then we
+		// can use the kinematics and joint positions endpoints to
+		// construct the geometries of the arm
+		if errors.Is(err, errUnimplemented) {
+			kinematicsPbResp, err := s.GetKinematics(ctx, &commonpb.GetKinematicsRequest{Name: req.GetName()})
+			if err != nil {
+				return nil, err
+			}
+			model, err := parseKinematicsResponse(req.GetName(), kinematicsPbResp)
+			if err != nil {
+				return nil, err
+			}
+
+			jointPbResp, err := s.GetJointPositions(ctx, &pb.GetJointPositionsRequest{Name: req.GetName()})
+			if err != nil {
+				return nil, err
+			}
+			jointPositionsPb := jointPbResp.GetPositions()
+
+			gifs, err := model.Geometries(model.InputFromProtobuf(jointPositionsPb))
+			if err != nil {
+				return nil, err
+			}
+			return &commonpb.GetGeometriesResponse{Geometries: spatialmath.NewGeometriesToProto(gifs.Geometries())}, nil
+		}
 		return nil, err
 	}
 	return &commonpb.GetGeometriesResponse{Geometries: spatialmath.NewGeometriesToProto(geometries)}, nil
