@@ -4352,3 +4352,74 @@ func TestRemovingOfflineRemote(t *testing.T) {
 	names := mainRobot.ResourceNames()
 	test.That(t, names, test.ShouldNotContain, motorResourceName)
 }
+
+// TestRemovingOfflineRemotes tests a case where a robot's reconfigure loop is modifying
+// a resource graph node at the same time as the complete config loop. In this case the remote is
+// marked to be removed by the reconfig loop and then marked unhealthy by the complete config
+// loop. This caused the remote that should have been removed to be stay on the robot
+// and continue to try and reconnect. We recreate that scenario and ensure that our fix
+// prevents that behavior and removes the remote correctly.
+func TestRemovingOfflineRemotes(t *testing.T) {
+	// Close the robot to stop the background workers from processing any messages to triggerConfig
+	r := setupLocalRobot(t, context.Background(), &config.Config{}, logging.NewTestLogger(t))
+	r.Close(context.Background())
+	localRobot := r.(*localRobot)
+
+	// Create a context that we can cancel to similuate the remote connection timeout
+	ctxCompleteConfig, cancelCompleteConfig := context.WithCancel(context.Background())
+
+	// This cancel is used to ensure the goroutine is cleaned up properly after the test
+	ctxReconfig, cancelReconfig := context.WithCancel(context.Background())
+
+	// Create a remote graph node and manually add it to the graph
+	// This is to avoid calling reconfigure and blocking on trying to connect to the remote
+	remoteName := fromRemoteNameToRemoteNodeName("remoteOffline")
+	node := resource.NewConfiguredGraphNode(
+		resource.Config{
+			ConvertedAttributes: &config.Remote{
+				Name:    "remoteOffline",
+				Address: "123.123.123.123",
+			},
+		}, nil, builtinModel)
+	// Set node to unhealthy
+	node.LogAndSetLastError(errors.New("Its so bad plz help"))
+	localRobot.manager.resources.AddNode(remoteName, node)
+
+	// Set up a wait group to ensure go routines do not leak after test ends
+	var wg sync.WaitGroup
+	// Spin up the two competing go routines
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		localRobot.manager.completeConfig(ctxCompleteConfig, localRobot, false)
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		r.Reconfigure(ctxReconfig, &config.Config{})
+	}()
+
+	// Sleep needed to ensure reconfig is waiting on complete cofig to release the lock
+	// and that complete config is hanging on trying to dial the remote
+	time.Sleep(2 * time.Second)
+
+	// Ensure that the remote is not marked for removal while trying to connect to the remote
+	remote, ok := localRobot.manager.resources.Node(remoteName)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, remote.State(), test.ShouldEqual, resource.NodeStateUnhealthy)
+
+	// Simulate a timeout by canceling the context while trying to connect to the remote
+	cancelCompleteConfig()
+
+	// Ensure that the remote is removed from the robot
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
+		remote, ok := r.RemoteByName("remoteOffline")
+		test.That(tb, ok, test.ShouldBeFalse)
+		test.That(tb, remote, test.ShouldBeNil)
+	})
+
+	// Wait for both goroutines to complete before finishing test
+	cancelReconfig()
+	wg.Wait()
+}

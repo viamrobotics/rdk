@@ -1255,6 +1255,8 @@ func (manager *resourceManager) markRemoved(
 	conf *config.Config,
 	logger logging.Logger,
 ) (pexec.ProcessManager, []resource.Resource, map[resource.Name]struct{}) {
+	manager.resourceGraphLock.Lock()
+	defer manager.resourceGraphLock.Unlock()
 	processesToClose := newProcessManager(manager.opts, logger)
 	for _, conf := range conf.Processes {
 		if manager.opts.untrustedEnv {
