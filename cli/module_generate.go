@@ -582,28 +582,43 @@ func generateGolangStubs(module common.ModuleInputs) error {
 
 // run goimports to remove unused imports and add necessary imports.
 func runGoImports(moduleFile *os.File) error {
-	// installing goimports
-	installCmd := exec.Command("go", "install", "golang.org/x/tools/cmd/goimports@latest")
-	if err := installCmd.Run(); err != nil {
-		return fmt.Errorf("failed to install goimports: %w", err)
+	// check if the gopath is set
+	goPath, err := checkGoPath()
+	if err != nil {
+		return err
 	}
 
-	// check to see if the GOPATH is set
-	gobinariesPathCmd := exec.Command("go", "env", "GOPATH")
-	gobinariesPathBytes, err := gobinariesPathCmd.Output()
-	if err != nil {
-		return fmt.Errorf("failed to get GOPATH: %w", err)
+	// check if goimports exists in the bin directory
+	goImportsPath := fmt.Sprintf("%s/bin/goimports", goPath)
+	if _, err := os.Stat(goImportsPath); os.IsNotExist(err) {
+		fmt.Println("goimports is not installed. Attempting to install...")
+		installCmd := exec.Command("go", "install", "golang.org/x/tools/cmd/goimports@latest")
+		if err := installCmd.Run(); err != nil {
+			return fmt.Errorf("failed to install goimports: %w", err)
+		}
 	}
-	gobinariesPath := strings.TrimSpace(string(gobinariesPathBytes))
+
+	// goimports is installed
+	fmt.Println("goimports is installed")
 
 	// run goimport on the module file
 	//nolint:gosec
-	formatCmd := exec.Command(fmt.Sprintf("%s/bin/goimports", gobinariesPath), "-w", moduleFile.Name())
+	formatCmd := exec.Command(goImportsPath, "-w", moduleFile.Name())
 	_, err = formatCmd.Output()
 	if err != nil {
 		return fmt.Errorf("failed to run goimports: %w", err)
 	}
 	return err
+}
+func checkGoPath() (string, error) {
+	goPathCmd := exec.Command("go", "env", "GOPATH")
+	goPathBytes, err := goPathCmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to get GOPATH: %w", err)
+	}
+	goPath := strings.TrimSpace(string(goPathBytes))
+
+	return goPath, err
 }
 
 func generatePythonStubs(module common.ModuleInputs) error {
