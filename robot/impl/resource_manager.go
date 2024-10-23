@@ -778,7 +778,7 @@ func (manager *resourceManager) completeConfig(
 func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr *localRobot) {
 	for _, resName := range manager.resources.FindNodesByAPI(client.RemoteAPI) {
 		gNode, ok := manager.resources.Node(resName)
-		if !ok || !gNode.NeedsReconfigure() || gNode.MarkedForRemoval() {
+		if !ok || !gNode.NeedsReconfigure() {
 			continue
 		}
 		var verb string
