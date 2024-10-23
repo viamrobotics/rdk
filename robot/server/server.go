@@ -445,6 +445,17 @@ func (s *Server) Log(ctx context.Context, req *pb.LogRequest) (*pb.LogResponse, 
 	fields := make([]zapcore.Field, 0, len(log.Fields)*2)
 	for _, fieldP := range log.Fields {
 		field, err := logging.FieldFromProto(fieldP)
+
+		// Handle poorly serialized error fields (force them into a string type
+		// with an empty value). Newer Golang modules should serialize correctly
+		// (turn errors into strings client-side) per RSDK-9097.
+		if field.Type == zapcore.ErrorType {
+			if _, ok := field.Interface.(error); !ok {
+				field.Type = zapcore.StringType
+				field.String = ""
+			}
+		}
+
 		if err != nil {
 			return nil, errors.Wrap(err, "error converting LogRequest log field from proto")
 		}
