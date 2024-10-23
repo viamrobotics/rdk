@@ -91,7 +91,10 @@ func setGoModuleTemplate(clientCode string, module common.ModuleInputs) (*common
 
 	// add DoCommand function stub to mlmodel
 	if module.ResourceSubtype == "mlmodel" {
-		doCommandFunction := formatEmptyFunction(module.ModuleCamel+module.ModelPascal, "DoCommand", "ctx context.Context, cmd map[string]interface{}", []string{"map[string]interface{}", "error"})
+		doCommandFunction := formatEmptyFunction(module.ModuleCamel+module.ModelPascal,
+			"DoCommand",
+			"ctx context.Context, cmd map[string]interface{}",
+			[]string{"map[string]interface{}", "error"})
 		functions = append(functions, doCommandFunction)
 	}
 
