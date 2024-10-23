@@ -111,9 +111,8 @@ func (logger *zLogger) AddAppender(appender Appender) {
 	// Not supported
 }
 
-func (logger zLogger) WithFields(args ...interface{}) Logger {
-	// Not supported. Use With() instead.
-	return nil
+func (logger *zLogger) WithFields(args ...interface{}) Logger {
+	return &zLogger{logger.AsZap().With(args...)}
 }
 
 // AsZap converts the logger to a zap logger.
