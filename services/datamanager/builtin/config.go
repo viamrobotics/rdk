@@ -43,12 +43,13 @@ type Config struct {
 	DeleteEveryNthWhenDiskFull  int   `json:"delete_every_nth_when_disk_full"`
 	MaximumCaptureFileSizeBytes int64 `json:"maximum_capture_file_size_bytes"`
 	// Sync
-	AdditionalSyncPaths    []string `json:"additional_sync_paths"`
-	FileLastModifiedMillis int      `json:"file_last_modified_millis"`
-	MaximumNumSyncThreads  int      `json:"maximum_num_sync_threads"`
-	ScheduledSyncDisabled  bool     `json:"sync_disabled"`
-	SelectiveSyncerName    string   `json:"selective_syncer_name"`
-	SyncIntervalMins       float64  `json:"sync_interval_mins"`
+	AdditionalSyncPaths    []string             `json:"additional_sync_paths"`
+	FileLastModifiedMillis int                  `json:"file_last_modified_millis"`
+	MaximumNumSyncThreads  int                  `json:"maximum_num_sync_threads"`
+	ScheduledSyncDisabled  bool                 `json:"sync_disabled"`
+	SelectiveSyncerName    string               `json:"selective_syncer_name"`
+	SyncIntervalMins       float64              `json:"sync_interval_mins"`
+	MongoConfig            *capture.MongoConfig `json:"mongo_config"`
 }
 
 // Validate returns components which will be depended upon weakly due to the above matcher.
@@ -89,6 +90,7 @@ func (c *Config) captureConfig() capture.Config {
 		CaptureDir:                  c.getCaptureDir(),
 		Tags:                        c.Tags,
 		MaximumCaptureFileSizeBytes: maximumCaptureFileSizeBytes,
+		MongoConfig:                 c.MongoConfig,
 	}
 }
 

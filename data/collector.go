@@ -11,6 +11,8 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.opencensus.io/trace"
 	v1 "go.viam.com/api/app/datasync/v1"
 	pb "go.viam.com/api/common/v1"
@@ -58,9 +60,14 @@ type Collector interface {
 type collector struct {
 	clock          clock.Clock
 	captureResults chan *v1.SensorData
-	captureErrors  chan error
-	interval       time.Duration
-	params         map[string]*anypb.Any
+
+	mongoCollection *mongo.Collection
+	componentName   string
+	componentType   string
+	methodName      string
+	captureErrors   chan error
+	interval        time.Duration
+	params          map[string]*anypb.Any
 	// `lock` serializes calls to `Flush` and `Close`.
 	lock             sync.Mutex
 	logger           logging.Logger
@@ -257,7 +264,11 @@ func NewCollector(captureFunc CaptureFunc, params CollectorParams) (Collector, e
 		c = params.Clock
 	}
 	return &collector{
+		componentName:    params.ComponentName,
+		componentType:    params.ComponentType,
+		methodName:       params.MethodName,
 		captureResults:   make(chan *v1.SensorData, params.QueueSize),
+		mongoCollection:  params.MongoCollection,
 		captureErrors:    make(chan error, params.QueueSize),
 		interval:         params.Interval,
 		params:           params.MethodParams,
@@ -269,6 +280,48 @@ func NewCollector(captureFunc CaptureFunc, params CollectorParams) (Collector, e
 		clock:            c,
 		lastLoggedErrors: make(map[string]int64, 0),
 	}, nil
+}
+
+// PBStructToBSON converts a structpb.Struct to a bson.M.
+func PBStructToBSON(s *structpb.Struct) (bson.M, error) {
+	bsonMap := make(bson.M)
+	for k, v := range s.Fields {
+		bsonValue, err := convertPBStructValueToBSON(v)
+		if err != nil {
+			return nil, err
+		}
+		bsonMap[k] = bsonValue
+	}
+	return bsonMap, nil
+}
+
+func convertPBStructValueToBSON(v *structpb.Value) (interface{}, error) {
+	switch v.Kind.(type) {
+	case *structpb.Value_NullValue:
+		var ret interface{}
+		return ret, nil
+	case *structpb.Value_NumberValue:
+		return v.GetNumberValue(), nil
+	case *structpb.Value_StringValue:
+		return v.GetStringValue(), nil
+	case *structpb.Value_BoolValue:
+		return v.GetBoolValue(), nil
+	case *structpb.Value_StructValue:
+		return PBStructToBSON(v.GetStructValue())
+	case *structpb.Value_ListValue:
+		list := v.GetListValue()
+		var slice bson.A
+		for _, item := range list.Values {
+			bsonValue, err := convertPBStructValueToBSON(item)
+			if err != nil {
+				return nil, err
+			}
+			slice = append(slice, bsonValue)
+		}
+		return slice, nil
+	default:
+		return nil, fmt.Errorf("unsupported value type: %T", v.Kind)
+	}
 }
 
 func (c *collector) writeCaptureResults() {
@@ -285,7 +338,42 @@ func (c *collector) writeCaptureResults() {
 				c.logger.Error(errors.Wrap(err, fmt.Sprintf("failed to write to collector %s", c.target.Path())).Error())
 				return
 			}
+
+			c.maybeWriteToMongo(msg)
 		}
+	}
+}
+
+func (c *collector) maybeWriteToMongo(msg *v1.SensorData) {
+	c.logger.Info("maybeWriteToMongo START")
+	defer c.logger.Info("maybeWriteToMongo END")
+	if c.mongoCollection == nil {
+		return
+	}
+	s := msg.GetStruct()
+	if s == nil {
+		return
+	}
+
+	wrapper, err := structpb.NewStruct(map[string]any{
+		"component_name": c.componentName,
+		"component_type": c.componentType,
+		"method_name":    c.methodName,
+		"data":           s.AsMap(),
+	})
+	if err != nil {
+		c.logger.Error(errors.Wrap(err, "failed to wrap sensor data"))
+		return
+	}
+
+	doc, err := PBStructToBSON(wrapper)
+	if err != nil {
+		c.logger.Error(errors.Wrap(err, "failed to serialize sensor data into bson"))
+		return
+	}
+
+	if _, err := c.mongoCollection.InsertOne(c.cancelCtx, doc); err != nil {
+		c.logger.Error(errors.Wrap(err, "failed to write to mongo"))
 	}
 }
 
