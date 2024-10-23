@@ -1156,14 +1156,14 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 		}
 	}()
 	if err := cmd.Start(); err != nil {
-		logger.Errorw("failed to start", "error", err)
+		logger.Errorw("failed to start first run script", "error", err)
 		return err
 	}
 	if err := cmd.Wait(); err != nil {
-		logger.Errorw("failed", "error", err)
+		logger.Errorw("first run script failed", "error", err)
 		return err
 	}
-	logger.Infow("succeeded")
+	logger.Info("first run script succeeded")
 
 	// Mark success by writing a marker file to disk. This is a best
 	// effort; if writing to disk fails the setup phase will run again
