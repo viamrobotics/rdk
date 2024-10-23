@@ -52,6 +52,16 @@ func FieldFromProto(field *structpb.Struct) (zap.Field, error) {
 		return zap.Field{}, err
 	}
 
+	// Handle poorly serialized error fields (force them into a string type with
+	// an empty value). Newer Golang modules should serialize correctly (turn
+	// errors into strings client-side) per RSDK-9097.
+	if zf.Type == zapcore.ErrorType {
+		if _, ok := zf.Interface.(error); !ok {
+			zf.Type = zapcore.StringType
+			zf.String = ""
+		}
+	}
+
 	return zf, err
 }
 
