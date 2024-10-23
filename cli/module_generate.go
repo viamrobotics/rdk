@@ -591,17 +591,14 @@ func runGoImports(moduleFile *os.File) error {
 	// check if goimports exists in the bin directory
 	goImportsPath := fmt.Sprintf("%s/bin/goimports", goPath)
 	if _, err := os.Stat(goImportsPath); os.IsNotExist(err) {
-		fmt.Println("goimports is not installed. Attempting to install...")
+		// installing goimports
 		installCmd := exec.Command("go", "install", "golang.org/x/tools/cmd/goimports@latest")
 		if err := installCmd.Run(); err != nil {
 			return fmt.Errorf("failed to install goimports: %w", err)
 		}
 	}
 
-	// goimports is installed
-	fmt.Println("goimports is installed")
-
-	// run goimport on the module file
+	// goimports is installed. Run goimport on the module file
 	//nolint:gosec
 	formatCmd := exec.Command(goImportsPath, "-w", moduleFile.Name())
 	_, err = formatCmd.Output()
@@ -610,6 +607,7 @@ func runGoImports(moduleFile *os.File) error {
 	}
 	return err
 }
+
 func checkGoPath() (string, error) {
 	goPathCmd := exec.Command("go", "env", "GOPATH")
 	goPathBytes, err := goPathCmd.Output()
