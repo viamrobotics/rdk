@@ -14,7 +14,7 @@ import (
 
 const (
 	// If limits are infinite, we use this to bound creating random seeds.
-	defaultLimit = 999
+	defaultLimitSeedPoint = 999
 
 	// Default distance below which two distances are considered equal.
 	defaultEpsilon = 0.001
@@ -47,10 +47,10 @@ func generateRandomPositions(randSeed *rand.Rand, lowerBound, upperBound []float
 		u := upperBound[i]
 
 		if l == math.Inf(-1) {
-			l = -defaultLimit
+			l = -defaultLimitSeedPoint
 		}
 		if u == math.Inf(1) {
-			u = defaultLimit
+			u = defaultLimitSeedPoint
 		}
 
 		jRange := math.Abs(u - l)
