@@ -3,7 +3,6 @@ package mygizmo
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 
@@ -58,7 +57,6 @@ func NewMyGizmo(
 	conf resource.Config,
 	logger logging.Logger,
 ) (gizmoapi.Gizmo, error) {
-	logger.Errorw("hello", "err", errors.New("from the other side"))
 	g := &myActualGizmo{
 		Named: conf.ResourceName().AsNamed(),
 	}
