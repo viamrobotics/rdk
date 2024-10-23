@@ -78,7 +78,7 @@ func NewMetricMinFunc(metric StateMetric, frame referenceframe.Frame, logger log
 		eePos, err := frame.Transform(inputs)
 		if eePos == nil || (err != nil && !strings.Contains(err.Error(), referenceframe.OOBErrString)) {
 			logger.Errorw("error calculating frame Transform in IK", "error", err)
-			return 0
+			return math.Inf(1)
 		}
 		mInput.Configuration = inputs
 		mInput.Position = eePos
