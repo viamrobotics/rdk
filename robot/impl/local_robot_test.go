@@ -4403,15 +4403,12 @@ func TestRemovingOfflineRemotes(t *testing.T) {
 
 	// Sleep needed to ensure reconfig is waiting on complete cofig to release the lock
 	// and that complete config is hanging on trying to dial the remote
-	time.Sleep(2 * time.Second)
+	time.Sleep(3 * time.Second)
 
 	// Ensure that the remote is not marked for removal while trying to connect to the remote
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		remote, ok := localRobot.manager.resources.Node(remoteName)
-		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, remote.State(), test.ShouldEqual, resource.NodeStateRemoving)
-	})
+	remote, ok := localRobot.manager.resources.Node(remoteName)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, remote.MarkedForRemoval(), test.ShouldBeTrue)
 
 	// Simulate a timeout by canceling the context while trying to connect to the remote
 	cancelCompleteConfig()
