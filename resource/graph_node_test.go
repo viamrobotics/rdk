@@ -359,5 +359,6 @@ func TestTransitionToBlocking(t *testing.T) {
 	test.That(t, node.MarkedForRemoval(), test.ShouldBeTrue)
 	// Attempt to set state to unhealthy
 	node.LogAndSetLastError(errors.New("Its error time"))
+	// Node should stay still be in state removing
 	test.That(t, node.MarkedForRemoval(), test.ShouldBeTrue)
 }
