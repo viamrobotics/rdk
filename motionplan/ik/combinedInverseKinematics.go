@@ -14,9 +14,9 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
-// CombinedIK defines the fields necessary to run a combined solver.
-type CombinedIK struct {
-	solvers []InverseKinematics
+// combinedIK defines the fields necessary to run a combined solver.
+type combinedIK struct {
+	solvers []Solver
 	logger  logging.Logger
 	limits  []referenceframe.Limit
 }
@@ -29,14 +29,15 @@ func CreateCombinedIKFrameSolver(
 	logger logging.Logger,
 	nCPU int,
 	goalThreshold float64,
-) (InverseKinematics, error) {
-	ik := &CombinedIK{}
+) (Solver, error) {
+	ik := &combinedIK{}
 	ik.limits = model.DoF()
 	if nCPU == 0 {
 		nCPU = 1
 	}
 	for i := 1; i <= nCPU; i++ {
-		nlopt, err := CreateNloptIKSolver(ik.limits, logger, -1, true, true)
+		solver, err := CreateNloptSolver(ik.limits, logger, -1, true, true)
+		nlopt := solver.(*nloptIK)
 		nlopt.id = i
 		if err != nil {
 			return nil, err
@@ -49,7 +50,7 @@ func CreateCombinedIKFrameSolver(
 
 // Solve will initiate solving for the given position in all child solvers, seeding with the specified initial joint
 // positions. If unable to solve, the returned error will be non-nil.
-func (ik *CombinedIK) Solve(ctx context.Context,
+func (ik *combinedIK) Solve(ctx context.Context,
 	c chan<- *Solution,
 	seed []float64,
 	m func([]float64) float64,
@@ -133,6 +134,6 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 }
 
 // DoF returns the DoF of the solver.
-func (ik *CombinedIK) DoF() []referenceframe.Limit {
+func (ik *combinedIK) DoF() []referenceframe.Limit {
 	return ik.limits
 }

@@ -27,8 +27,7 @@ const (
 	defaultJump       = 1e-8
 )
 
-// NloptIK TODO.
-type NloptIK struct {
+type nloptIK struct {
 	id            int
 	limits        []referenceframe.Limit
 	maxIterations int
@@ -51,16 +50,16 @@ type optimizeReturn struct {
 	err      error
 }
 
-// CreateNloptIKSolver creates an nloptIK object that can perform gradient descent on functions. The parameters are the limits
+// CreateNloptSolver creates an nloptIK object that can perform gradient descent on functions. The parameters are the limits
 // of the solver, a logger, and the number of iterations to run. If the iteration count is less than 1, it will be set
 // to the default of 5000.
-func CreateNloptIKSolver(
+func CreateNloptSolver(
 	limits []referenceframe.Limit,
 	logger logging.Logger,
 	iter int,
 	exact, useRelTol bool,
-) (*NloptIK, error) {
-	ik := &NloptIK{logger: logger, limits: limits}
+) (Solver, error) {
+	ik := &nloptIK{logger: logger, limits: limits}
 	ik.id = 0
 
 	// Stop optimizing when iterations change by less than this much
@@ -79,12 +78,12 @@ func CreateNloptIKSolver(
 }
 
 // DoF returns the DoF of the solver.
-func (ik *NloptIK) DoF() []referenceframe.Limit {
+func (ik *nloptIK) DoF() []referenceframe.Limit {
 	return ik.limits
 }
 
 // Solve runs the actual solver and sends any solutions found to the given channel.
-func (ik *NloptIK) Solve(ctx context.Context,
+func (ik *nloptIK) Solve(ctx context.Context,
 	solutionChan chan<- *Solution,
 	seed []float64,
 	minFunc func([]float64) float64,
@@ -223,7 +222,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	return multierr.Combine(err, errNoSolve)
 }
 
-func (ik *NloptIK) calcJump(testJump float64, seed []float64, minFunc func([]float64) float64) []float64 {
+func (ik *nloptIK) calcJump(testJump float64, seed []float64, minFunc func([]float64) float64) []float64 {
 	jump := make([]float64, 0, len(seed))
 	lowerBound, upperBound := limitsToArrays(ik.limits)
 

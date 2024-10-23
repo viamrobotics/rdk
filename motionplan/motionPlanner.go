@@ -239,7 +239,7 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 }
 
 type planner struct {
-	solver   ik.InverseKinematics
+	solver   ik.Solver
 	frame    frame.Frame
 	logger   logging.Logger
 	randseed *rand.Rand
@@ -379,7 +379,7 @@ func (mp *planner) getSolutions(ctx context.Context, seed []frame.Input) ([]node
 	utils.PanicCapturingGo(func() {
 		defer close(ikErr)
 		defer activeSolvers.Done()
-		ikErr <- ik.SolveMetric(ctxWithCancel, mp.solver, mp.frame, solutionGen, seed, mp.planOpts.goalMetric, mp.randseed.Int())
+		ikErr <- ik.SolveMetric(ctxWithCancel, mp.solver, mp.frame, solutionGen, seed, mp.planOpts.goalMetric, mp.randseed.Int(), mp.logger)
 	})
 
 	solutions := map[float64][]frame.Input{}

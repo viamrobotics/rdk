@@ -56,7 +56,7 @@ func newCbirrtOptions(planOpts *plannerOptions) (*cbirrtOptions, error) {
 // https://ieeexplore.ieee.org/document/5152399/
 type cBiRRTMotionPlanner struct {
 	*planner
-	fastGradDescent *ik.NloptIK
+	fastGradDescent ik.Solver
 	algOpts         *cbirrtOptions
 }
 
@@ -75,7 +75,7 @@ func newCBiRRTMotionPlanner(
 		return nil, err
 	}
 	// nlopt should try only once
-	nlopt, err := ik.CreateNloptIKSolver(frame.DoF(), logger, 1, true, true)
+	nlopt, err := ik.CreateNloptSolver(frame.DoF(), logger, 1, true, true)
 	if err != nil {
 		return nil, err
 	}
@@ -380,6 +380,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			target,
 			mp.planOpts.pathMetric,
 			randseed.Int(),
+			mp.logger,
 		)
 		// We should have zero or one solutions
 		var solved *ik.Solution

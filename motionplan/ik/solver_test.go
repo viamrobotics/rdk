@@ -33,7 +33,7 @@ func TestCombinedIKinematics(t *testing.T) {
 		r3.Vector{X: -46, Y: -133, Z: 372},
 		&spatial.OrientationVectorDegrees{OX: 1.79, OY: -1.32, OZ: -1.11},
 	)
-	solveFunc := NewMetricMinFunc(NewSquaredNormMetric(pos), m)
+	solveFunc := NewMetricMinFunc(NewSquaredNormMetric(pos), m, logger)
 	solution, err := solveTest(context.Background(), ik, solveFunc, home)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -42,7 +42,7 @@ func TestCombinedIKinematics(t *testing.T) {
 		r3.Vector{X: -66, Y: -133, Z: 372},
 		&spatial.OrientationVectorDegrees{OX: 1.78, OY: -3.3, OZ: -1.11},
 	)
-	solveFunc = NewMetricMinFunc(NewSquaredNormMetric(pos), m)
+	solveFunc = NewMetricMinFunc(NewSquaredNormMetric(pos), m, logger)
 	_, err = solveTest(context.Background(), ik, solveFunc, solution[0])
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -58,7 +58,7 @@ func TestUR5NloptIKinematics(t *testing.T) {
 	goalJP := frame.JointPositionsFromRadians([]float64{-4.128, 2.71, 2.798, 2.3, 1.291, 0.62})
 	goal, err := m.Transform(m.InputFromProtobuf(goalJP))
 	test.That(t, err, test.ShouldBeNil)
-	solveFunc := NewMetricMinFunc(NewSquaredNormMetric(goal), m)
+	solveFunc := NewMetricMinFunc(NewSquaredNormMetric(goal), m, logger)
 	_, err = solveTest(context.Background(), ik, solveFunc, home)
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -69,10 +69,10 @@ func TestCombinedCPUs(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateCombinedIKFrameSolver(m, logger, runtime.NumCPU()/400000, defaultGoalThreshold)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(ik.(*CombinedIK).solvers), test.ShouldEqual, 1)
+	test.That(t, len(ik.(*combinedIK).solvers), test.ShouldEqual, 1)
 }
 
-func solveTest(ctx context.Context, solver InverseKinematics, solveFunc func([]float64) float64, seed []float64) ([][]float64, error) {
+func solveTest(ctx context.Context, solver Solver, solveFunc func([]float64) float64, seed []float64) ([][]float64, error) {
 	solutionGen := make(chan *Solution)
 	ikErr := make(chan error)
 	ctxWithCancel, cancel := context.WithCancel(ctx)

@@ -24,7 +24,7 @@ type ptgIK struct {
 	PTG
 	refDist         float64
 	ptgFrame        referenceframe.Frame
-	fastGradDescent *ik.NloptIK
+	fastGradDescent ik.Solver
 
 	gridSim PTGSolver
 
@@ -58,7 +58,7 @@ func NewPTGIK(simPTG PTG, logger logging.Logger, refDistLong, refDistShort float
 
 	ptgFrame := newPTGIKFrame(simPTG, limits)
 
-	nlopt, err := ik.CreateNloptIKSolver(ptgFrame.DoF(), logger, 1, false, false)
+	nlopt, err := ik.CreateNloptSolver(ptgFrame.DoF(), logger, 1, false, false)
 	if err != nil {
 		return nil, err
 	}

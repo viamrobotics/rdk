@@ -14,18 +14,18 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-func TestCreateNloptIKSolver(t *testing.T) {
+func TestCreateNloptSolver(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	ik, err := CreateNloptIKSolver(m.DoF(), logger, -1, false, true)
+	ik, err := CreateNloptSolver(m.DoF(), logger, -1, false, true)
 	test.That(t, err, test.ShouldBeNil)
-	ik.id = 1
+	ik.(*nloptIK).id = 1
 
 	// matches xarm home end effector position
 	pos := spatialmath.NewPoseFromPoint(r3.Vector{X: 207, Z: 112})
 	seed := []float64{1, 1, -1, 1, 1, 0}
-	solveFunc := NewMetricMinFunc(NewSquaredNormMetric(pos), m)
+	solveFunc := NewMetricMinFunc(NewSquaredNormMetric(pos), m, logger)
 	_, err = solveTest(context.Background(), ik, solveFunc, seed)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -36,7 +36,7 @@ func TestCreateNloptIKSolver(t *testing.T) {
 
 	// Check unpacking from proto
 	seed = referenceframe.InputsToFloats(m.InputFromProtobuf(&pb.JointPositions{Values: []float64{49, 28, -101, 0, -73, 0}}))
-	solveFunc = NewMetricMinFunc(NewSquaredNormMetric(pos), m)
+	solveFunc = NewMetricMinFunc(NewSquaredNormMetric(pos), m, logger)
 
 	_, err = solveTest(context.Background(), ik, solveFunc, seed)
 	test.That(t, err, test.ShouldBeNil)
