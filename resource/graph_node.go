@@ -524,9 +524,10 @@ func (w *GraphNode) transitionTo(state NodeState) {
 		return
 	}
 
-	// if state of a node is removing it cannot transition to another state until it is removed.
+	// if state of a node is removing it cannot transition to unhealthy until it is removed.
 	// currently this is the only canTransitionTo that is enforcing a block in transition
-	if w.state == NodeStateRemoving && !w.canTransitionTo(state) {
+	// this also does not block SwapResource from swapping a removing resource to ready
+	if w.state == NodeStateRemoving && state == NodeStateUnhealthy {
 		w.logger.Debug("node cannot transition from removing to unhealthy, blocking transition")
 		return
 	}
