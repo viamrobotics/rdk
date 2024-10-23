@@ -40,15 +40,15 @@ func BuildTempModule(tb testing.TB, dir string) string {
 	return modPath
 }
 
-// BuildTempModuleWithFirstRun will run "go build ." in the provided RDK directory and return the
-// path to the built temporary file. This function will fail the current test if there
-// are any build-related errors.
-func BuildTempModuleWithFirstRun(tb testing.TB, dir string) string {
+// BuildTempModuleWithFirstRun ... TODO
+func BuildTempModuleWithFirstRun(tb testing.TB, modDir string) string {
 	tb.Helper()
-	modPath := filepath.Join(tb.TempDir(), filepath.Base(dir))
+
+	exeDir := tb.TempDir()
+	exePath := filepath.Join(exeDir, filepath.Base(modDir))
 	//nolint:gosec
-	builder := exec.Command("go", "build", "-o", modPath, ".")
-	builder.Dir = utils.ResolveFile(dir)
+	builder := exec.Command("go", "build", "-o", exePath, ".")
+	builder.Dir = utils.ResolveFile(modDir)
 	out, err := builder.CombinedOutput()
 	// NOTE (Nick S): Workaround for the tickets below:
 	// https://viam.atlassian.net/browse/RSDK-7145
@@ -66,15 +66,19 @@ func BuildTempModuleWithFirstRun(tb testing.TB, dir string) string {
 		tb.Fatalf("failed to build temporary module for testing")
 	}
 
-	packer := exec.Command("tar", "czf", "module.tar.gz", modPath, "meta.json", "first_run.sh")
-	packer.Dir = utils.ResolveFile(dir)
-	out, err = packer.CombinedOutput()
-	tb.Log(string(out))
-	if err != nil {
-		tb.Fatal(err)
+	for _, file := range []string{
+		"meta.json",
+		"first_run.sh",
+	} {
+		//nolint:gosec // TODO: use io.Copy instead
+		copier := exec.Command("cp", file, exeDir)
+		copier.Dir = utils.ResolveFile(modDir)
+		_, err = copier.CombinedOutput()
+		if err != nil {
+			tb.Fatal(err)
+		}
 	}
-
-	return modPath
+	return exePath
 }
 
 // MockBuffer is a buffered writer that just appends data to an array to read
