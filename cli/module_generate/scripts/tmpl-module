@@ -84,6 +84,7 @@ func (s *{{.ModelType}}) Reconfigure(ctx context.Context, deps resource.Dependen
 {{.Functions}}
 
 func (s *{{.ModelType}}) Close(context.Context) error {
+	// Put close code here
 	s.cancelFunc()
 	return nil
 }

@@ -77,9 +77,11 @@ func (s *{{.ModuleCamel}}{{.ModelPascal}}) Name() resource.Name {
 
 func (s *{{.ModuleCamel}}{{.ModelPascal}}) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	// Put reconfigure code here
-	return nil
+	return errUnimplemented
 }
 
 func (s *{{.ModuleCamel}}{{.ModelPascal}}) Close(context.Context) error {
+	// Put close code here
+	s.cancelFunc()
 	return nil
 }

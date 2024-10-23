@@ -662,10 +662,13 @@ func generatePythonStubs(module common.ModuleInputs) error {
 
 func getLatestSDKTag(c *cli.Context, language string) (string, error) {
 	var repo string
-	if language == python {
+	switch language {
+	case python:
 		repo = "viam-python-sdk"
-	} else if language == golang {
+	case golang:
 		repo = "rdk"
+	default:
+		repo = "viam-python-sdk"
 	}
 	debugf(c.App.Writer, c.Bool(debugFlag), "Getting the latest release tag for %s", repo)
 	url := fmt.Sprintf("https://api.github.com/repos/viamrobotics/%s/releases", repo)
