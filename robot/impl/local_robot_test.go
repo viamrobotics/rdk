@@ -4374,12 +4374,14 @@ func TestRemovingOfflineRemotes(t *testing.T) {
 	// Create a remote graph node and manually add it to the graph
 	// This is to avoid calling reconfigure and blocking on trying to connect to the remote
 	remoteName := fromRemoteNameToRemoteNodeName("remoteOffline")
+	configRemote := config.Remote{
+		Name:    "remoteOffline",
+		Address: "123.123.123.123",
+	}
+	configRemote.Validate("")
 	node := resource.NewConfiguredGraphNode(
 		resource.Config{
-			ConvertedAttributes: &config.Remote{
-				Name:    "remoteOffline",
-				Address: "123.123.123.123",
-			},
+			ConvertedAttributes: &configRemote,
 		}, nil, builtinModel)
 	// Set node to unhealthy
 	node.LogAndSetLastError(errors.New("Its so bad plz help"))
@@ -4406,7 +4408,7 @@ func TestRemovingOfflineRemotes(t *testing.T) {
 	// Ensure that the remote is not marked for removal while trying to connect to the remote
 	remote, ok := localRobot.manager.resources.Node(remoteName)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, remote.State(), test.ShouldEqual, resource.NodeStateUnhealthy)
+	test.That(t, remote.State(), test.ShouldEqual, resource.NodeStateRemoving)
 
 	// Simulate a timeout by canceling the context while trying to connect to the remote
 	cancelCompleteConfig()

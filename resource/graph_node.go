@@ -524,6 +524,13 @@ func (w *GraphNode) transitionTo(state NodeState) {
 		return
 	}
 
+	// if state of a node is removing it cannot transition to another state until it is removed.
+	// currently this is the only canTransitionTo that is enforcing a block in transition
+	if w.state == NodeStateRemoving && !w.canTransitionTo(state) {
+		w.logger.Debug("node cannot transition from removing to unhealthy, blocking transition")
+		return
+	}
+
 	if !w.canTransitionTo(state) && w.logger != nil {
 		w.logger.Warnw("unexpected resource state transition", "from", w.state.String(), "to", state.String())
 	}
