@@ -96,11 +96,6 @@ func setGoModuleTemplate(clientCode string, module common.ModuleInputs) (*common
 	}
 
 	goTmplInputs.Imports = strings.Join(imports, "\n")
-	if module.ResourceType == "component" {
-		goTmplInputs.ObjName = module.ResourceSubtypePascal
-	} else {
-		goTmplInputs.ObjName = "Service"
-	}
 	goTmplInputs.ModelType = module.ModuleCamel + module.ModelPascal
 	goTmplInputs.Functions = strings.Join(functions, " ")
 	goTmplInputs.Module = module
