@@ -40,6 +40,43 @@ func BuildTempModule(tb testing.TB, dir string) string {
 	return modPath
 }
 
+// BuildTempModuleWithFirstRun will run "go build ." in the provided RDK directory and return the
+// path to the built temporary file. This function will fail the current test if there
+// are any build-related errors.
+func BuildTempModuleWithFirstRun(tb testing.TB, dir string) string {
+	tb.Helper()
+	modPath := filepath.Join(tb.TempDir(), filepath.Base(dir))
+	//nolint:gosec
+	builder := exec.Command("go", "build", "-o", modPath, ".")
+	builder.Dir = utils.ResolveFile(dir)
+	out, err := builder.CombinedOutput()
+	// NOTE (Nick S): Workaround for the tickets below:
+	// https://viam.atlassian.net/browse/RSDK-7145
+	// https://viam.atlassian.net/browse/RSDK-7144
+	// Don't fail build if platform has known compile warnings (due to C deps)
+	isPlatformWithKnownCompileWarnings := runtime.GOARCH == "arm" || runtime.GOOS == "darwin"
+	hasCompilerWarnings := len(out) != 0
+	if hasCompilerWarnings && !isPlatformWithKnownCompileWarnings {
+		tb.Errorf(`output from "go build .": %s`, out)
+	}
+	if err != nil {
+		tb.Error(err)
+	}
+	if tb.Failed() {
+		tb.Fatalf("failed to build temporary module for testing")
+	}
+
+	packer := exec.Command("tar", "czf", "module.tar.gz", modPath, "meta.json", "first_run.sh")
+	packer.Dir = utils.ResolveFile(dir)
+	out, err = packer.CombinedOutput()
+	tb.Log(string(out))
+	if err != nil {
+		tb.Fatal(err)
+	}
+
+	return modPath
+}
+
 // MockBuffer is a buffered writer that just appends data to an array to read
 // without needing a real file system for testing.
 type MockBuffer struct {
