@@ -4406,9 +4406,12 @@ func TestRemovingOfflineRemotes(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	// Ensure that the remote is not marked for removal while trying to connect to the remote
-	remote, ok := localRobot.manager.resources.Node(remoteName)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, remote.State(), test.ShouldEqual, resource.NodeStateRemoving)
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
+		remote, ok := localRobot.manager.resources.Node(remoteName)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, remote.State(), test.ShouldEqual, resource.NodeStateRemoving)
+	})
 
 	// Simulate a timeout by canceling the context while trying to connect to the remote
 	cancelCompleteConfig()
