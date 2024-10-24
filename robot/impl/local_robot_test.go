@@ -4395,7 +4395,7 @@ func TestRemovingOfflineRemotes(t *testing.T) {
 		defer wg.Done()
 		localRobot.manager.completeConfig(ctxCompleteConfig, localRobot, false)
 	}()
-	
+
 	// ensure that complete config grabs the lock
 	time.Sleep(1 * time.Second)
 	wg.Add(1)
