@@ -48,7 +48,7 @@ type Arguments struct {
 	OutputTelemetry            bool   `flag:"output-telemetry,usage=print out telemetry data (metrics and spans)"`
 	DisableMulticastDNS        bool   `flag:"disable-mdns,usage=disable server discovery through multicast DNS"`
 	DumpResourcesPath          string `flag:"dump-resources,usage=dump all resource registrations as json to the provided file path"`
-	EnableFTDC                 bool   `flag:"ftdc",usage=enable fulltime data capture for diagnostics`
+	EnableFTDC                 bool   `flag:"ftdc,usage=enable fulltime data capture for diagnostics"`
 }
 
 type robotServer struct {

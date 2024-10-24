@@ -56,6 +56,7 @@ func writeSchema(schema *schema, output io.Writer) error {
 func writeDatum(time int64, prev, curr []float32, output io.Writer) error {
 	numPts := len(curr)
 	if len(prev) != 0 && numPts != len(prev) {
+		//nolint:stylecheck
 		return fmt.Errorf("Bad input sizes. Prev: %v Curr: %v", len(prev), len(curr))
 	}
 
@@ -285,7 +286,7 @@ func getSchema(data map[string]any) (*schema, *schemaError) {
 // flatten takes an input `Datum` and a `mapOrder` from the current `Schema` and returns a list of
 // `float32`s representing the readings. Similar to `getFieldsForItem`, there are constraints on
 // input data shape that this code currently does not validate.
-func flatten(datum datum, schema *schema) ([]float32, error) {
+func flatten(datum Datum, schema *schema) ([]float32, error) {
 	ret := make([]float32, 0, len(schema.fieldOrder))
 
 	for _, key := range schema.mapOrder {
@@ -307,18 +308,19 @@ func flatten(datum datum, schema *schema) ([]float32, error) {
 	return ret, nil
 }
 
-func Parse(rawReader io.Reader) ([]datum, error) {
+// Parse reads the entire contents from `rawReader` and returns a list of `Datum`. If an error
+// occurs, the []Datum parsed up until the place of the error will be returned, in addition to a
+// non-nil error.
+func Parse(rawReader io.Reader) ([]Datum, error) {
 	logger := logging.NewLogger("")
 	logger.SetLevel(logging.ERROR)
 
 	return ParseWithLogger(rawReader, logger)
 }
 
-// parse reads the entire contents from `rawReader` and returns a list of `Datum`. If an error
-// occurs, the []Datum parsed up until the place of the error will be returned, in addition to a
-// non-nil error.
-func ParseWithLogger(rawReader io.Reader, logger logging.Logger) ([]datum, error) {
-	ret := make([]datum, 0)
+// ParseWithLogger parses with a logger for output.
+func ParseWithLogger(rawReader io.Reader, logger logging.Logger) ([]Datum, error) {
+	ret := make([]Datum, 0)
 
 	// prevValues are the previous values used for producing the diff bits. This is overwritten when
 	// a new metrics reading is made. and nilled out when the schema changes.
@@ -395,7 +397,7 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) ([]datum, error
 
 		// Construct a `Datum` that hydrates/merged the full set of float32 metrics with the metric
 		// names as written in the most recent schema document.
-		ret = append(ret, datum{
+		ret = append(ret, Datum{
 			Time: dataTime,
 			Data: schema.Hydrate(data),
 		})

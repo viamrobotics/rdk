@@ -576,10 +576,12 @@ type graphNodeStats struct {
 	ResStats any
 }
 
+// Stats satisfies the FTDC Statser interface.
 func (w *GraphNode) Stats() any {
 	ret := graphNodeStats{}
 
 	res, err := w.Resource()
+	//nolint:errorlint
 	switch err {
 	case nil:
 		ret.State = 0

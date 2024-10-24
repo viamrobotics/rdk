@@ -44,6 +44,7 @@ func newFuncOption(f func(*options)) *funcOption {
 	}
 }
 
+// WithFTDC enables FTDC.
 func WithFTDC() Option {
 	return newFuncOption(func(o *options) {
 		o.enableFTDC = true

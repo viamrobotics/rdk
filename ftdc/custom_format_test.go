@@ -34,7 +34,7 @@ func TestCustomFormatRoundtripBasic(t *testing.T) {
 	ftdc := NewWithWriter(serializedData, logger.Sublogger("ftdc"))
 
 	// Write two datapoints with "schema 1".
-	datumV1 := datum{
+	datumV1 := Datum{
 		Time: 0,
 		Data: map[string]any{
 			"s1": &Basic{0},
@@ -48,7 +48,7 @@ func TestCustomFormatRoundtripBasic(t *testing.T) {
 	ftdc.writeDatum(datumV1)
 
 	// Write two more datapoints with "schema 2".
-	datumV2 := datum{
+	datumV2 := Datum{
 		Time: 2,
 		Data: map[string]any{
 			"s2": &Basic{2},
@@ -94,7 +94,7 @@ func TestCustomFormatRoundtripRich(t *testing.T) {
 
 	datums := 10
 	for idx := 0; idx < datums; idx++ {
-		datumV1 := datum{
+		datumV1 := Datum{
 			Time: int64(idx),
 			Data: map[string]any{
 				"s1": Statser1{0, idx, 1.0},
@@ -106,7 +106,7 @@ func TestCustomFormatRoundtripRich(t *testing.T) {
 	}
 
 	for idx := datums; idx < 2*datums; idx++ {
-		datumV2 := datum{
+		datumV2 := Datum{
 			Time: int64(idx),
 			Data: map[string]any{
 				"s1": Statser1{idx, idx, 1.0},
