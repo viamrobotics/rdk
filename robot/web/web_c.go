@@ -15,7 +15,6 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
@@ -48,8 +47,8 @@ func New(r robot.Robot, logger logging.Logger, opts ...Option) Service {
 		streamServer: nil,
 		services:     map[resource.API]resource.APIResourceCollection[resource.Resource]{},
 		opts:         wOpts,
-		videoSources: map[string]gostream.HotSwappableVideoSource{},
-		audioSources: map[string]gostream.HotSwappableAudioSource{},
+		// videoSources: map[string]gostream.HotSwappableVideoSource{},
+		// audioSources: map[string]gostream.HotSwappableAudioSource{},
 	}
 	return webSvc
 }
@@ -73,8 +72,8 @@ type webService struct {
 	webWorkers   sync.WaitGroup
 	modWorkers   sync.WaitGroup
 
-	videoSources map[string]gostream.HotSwappableVideoSource
-	audioSources map[string]gostream.HotSwappableAudioSource
+	// videoSources map[string]gostream.HotSwappableVideoSource
+	// audioSources map[string]gostream.HotSwappableAudioSource
 }
 
 func (svc *webService) streamInitialized() bool {
@@ -82,6 +81,7 @@ func (svc *webService) streamInitialized() bool {
 }
 
 func (svc *webService) addNewStreams(ctx context.Context) error {
+	svc.logger.Info("adding new streams")
 	if !svc.streamInitialized() {
 		svc.logger.Warn("not starting streams because the stream server is not initialized")
 		return nil
@@ -89,19 +89,21 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 
 	// Refreshing sources will walk the robot resources for anything implementing the camera and
 	// audioinput APIs and mutate the `svc.videoSources` and `svc.audioSources` maps.
-	svc.refreshVideoSources()
-	svc.refreshAudioSources()
+	svc.logger.Info("refreshing video and audio sources")
+	svc.streamServer.Server.RefreshVideoSources()
+	svc.streamServer.Server.RefreshAudioSources()
 
 	if svc.opts.streamConfig == nil {
 		// The `streamConfig` dictates the video and audio encoder libraries to use. We can't do
 		// much if none are present.
-		if len(svc.videoSources) != 0 || len(svc.audioSources) != 0 {
+		if len(svc.streamServer.Server.VideoSources) != 0 || len(svc.streamServer.Server.AudioSources) != 0 {
 			svc.logger.Warn("not starting streams due to no stream config being set")
 		}
 		return nil
 	}
 
-	for name := range svc.videoSources {
+	svc.logger.Info("starting video and audio streams")
+	for name := range svc.streamServer.Server.VideoSources {
 		if runtime.GOOS == "windows" {
 			// TODO(RSDK-1771): support video on windows
 			svc.logger.Warn("video streaming not supported on Windows yet")
@@ -117,16 +119,16 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 		// already exists. If it does, it skips creating a new stream and we continue to the next source.
 		//
 		// TODO(RSDK-9079) Add reliable framerate fetcher for stream videosources
-		stream, alreadyRegistered, err := svc.createStream(config, name)
+		stream, alreadyRegistered, err := svc.streamServer.Server.CreateStream(config, name)
 		if err != nil {
 			return err
 		} else if alreadyRegistered {
 			continue
 		}
-		svc.startVideoStream(ctx, svc.videoSources[name], stream)
+		svc.startVideoStream(ctx, svc.streamServer.Server.VideoSources[name], stream)
 	}
 
-	for name := range svc.audioSources {
+	for name := range svc.streamServer.Server.AudioSources {
 		// Similarly, we walk the updated set of `audioSources` and ensure all of the audio sources
 		// are "created" and "started". `createStream` and `startAudioStream` have the same
 		// behaviors as described above for video streams.
@@ -134,33 +136,33 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 			Name:                name,
 			AudioEncoderFactory: svc.opts.streamConfig.AudioEncoderFactory,
 		}
-		stream, alreadyRegistered, err := svc.createStream(config, name)
+		stream, alreadyRegistered, err := svc.streamServer.Server.CreateStream(config, name)
 		if err != nil {
 			return err
 		} else if alreadyRegistered {
 			continue
 		}
-		svc.startAudioStream(ctx, svc.audioSources[name], stream)
+		svc.startAudioStream(ctx, svc.streamServer.Server.AudioSources[name], stream)
 	}
 
 	return nil
 }
 
-func (svc *webService) createStream(config gostream.StreamConfig, name string) (gostream.Stream, bool, error) {
-	stream, err := svc.streamServer.Server.NewStream(config)
-	// Skip if stream is already registered, otherwise raise any other errors
-	var registeredError *webstream.StreamAlreadyRegisteredError
-	if errors.As(err, &registeredError) {
-		svc.logger.Debugw("stream already registered", "name", name)
-		return nil, true, nil
-	} else if err != nil {
-		return nil, false, err
-	}
-	if !svc.streamServer.HasStreams {
-		svc.streamServer.HasStreams = true
-	}
-	return stream, false, err
-}
+// func (svc *webService) createStream(config gostream.StreamConfig, name string) (gostream.Stream, bool, error) {
+// 	stream, err := svc.streamServer.Server.NewStream(config)
+// 	// Skip if stream is already registered, otherwise raise any other errors
+// 	var registeredError *webstream.StreamAlreadyRegisteredError
+// 	if errors.As(err, &registeredError) {
+// 		svc.logger.Debugw("stream already registered", "name", name)
+// 		return nil, true, nil
+// 	} else if err != nil {
+// 		return nil, false, err
+// 	}
+// 	if !svc.streamServer.HasStreams {
+// 		svc.streamServer.HasStreams = true
+// 	}
+// 	return stream, false, err
+// }
 
 func (svc *webService) startStream(streamFunc func(opts *webstream.BackoffTuningOptions) error) {
 	waitCh := make(chan struct{})
@@ -209,39 +211,39 @@ func (svc *webService) startAudioStream(ctx context.Context, source gostream.Aud
 	})
 }
 
-// refreshVideoSources checks and initializes every possible video source that could be viewed from the robot.
-func (svc *webService) refreshVideoSources() {
-	for _, name := range camera.NamesFromRobot(svc.r) {
-		cam, err := camera.FromRobot(svc.r, name)
-		if err != nil {
-			continue
-		}
-		existing, ok := svc.videoSources[cam.Name().SDPTrackName()]
-		if ok {
-			existing.Swap(cam)
-			continue
-		}
-		newSwapper := gostream.NewHotSwappableVideoSource(cam)
-		svc.videoSources[cam.Name().SDPTrackName()] = newSwapper
-	}
-}
+// // refreshVideoSources checks and initializes every possible video source that could be viewed from the robot.
+// func (svc *webService) refreshVideoSources() {
+// 	for _, name := range camera.NamesFromRobot(svc.r) {
+// 		cam, err := camera.FromRobot(svc.r, name)
+// 		if err != nil {
+// 			continue
+// 		}
+// 		existing, ok := svc.streamServer.Server.VideoSources[cam.Name().SDPTrackName()]
+// 		if ok {
+// 			existing.Swap(cam)
+// 			continue
+// 		}
+// 		newSwapper := gostream.NewHotSwappableVideoSource(cam)
+// 		svc.streamServer.Server.VideoSources[cam.Name().SDPTrackName()] = newSwapper
+// 	}
+// }
 
-// refreshAudioSources checks and initializes every possible audio source that could be viewed from the robot.
-func (svc *webService) refreshAudioSources() {
-	for _, name := range audioinput.NamesFromRobot(svc.r) {
-		input, err := audioinput.FromRobot(svc.r, name)
-		if err != nil {
-			continue
-		}
-		existing, ok := svc.audioSources[input.Name().SDPTrackName()]
-		if ok {
-			existing.Swap(input)
-			continue
-		}
-		newSwapper := gostream.NewHotSwappableAudioSource(input)
-		svc.audioSources[input.Name().SDPTrackName()] = newSwapper
-	}
-}
+// // refreshAudioSources checks and initializes every possible audio source that could be viewed from the robot.
+// func (svc *webService) refreshAudioSources() {
+// 	for _, name := range audioinput.NamesFromRobot(svc.r) {
+// 		input, err := audioinput.FromRobot(svc.r, name)
+// 		if err != nil {
+// 			continue
+// 		}
+// 		existing, ok := svc.streamServer.Server.AudioSources[input.Name().SDPTrackName()]
+// 		if ok {
+// 			existing.Swap(input)
+// 			continue
+// 		}
+// 		newSwapper := gostream.NewHotSwappableAudioSource(input)
+// 		svc.streamServer.Server.AudioSources[input.Name().SDPTrackName()] = newSwapper
+// 	}
+// }
 
 // Update updates the web service when the robot has changed.
 func (svc *webService) Reconfigure(ctx context.Context, deps resource.Dependencies, _ resource.Config) error {

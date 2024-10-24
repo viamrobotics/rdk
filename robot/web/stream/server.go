@@ -45,6 +45,11 @@ type Server struct {
 	activePeerStreams       map[*webrtc.PeerConnection]map[string]*peerState
 	activeBackgroundWorkers sync.WaitGroup
 	isAlive                 bool
+
+	streamConfig gostream.StreamConfig
+	webWorkers   sync.WaitGroup
+	VideoSources map[string]gostream.HotSwappableVideoSource
+	AudioSources map[string]gostream.HotSwappableAudioSource
 }
 
 // NewServer returns a server that will run on the given port and initially starts with the given
@@ -62,6 +67,8 @@ func NewServer(
 		nameToStreamState: map[string]*state.StreamState{},
 		activePeerStreams: map[*webrtc.PeerConnection]map[string]*peerState{},
 		isAlive:           true,
+		VideoSources:      map[string]gostream.HotSwappableVideoSource{},
+		AudioSources:      map[string]gostream.HotSwappableAudioSource{},
 	}
 	server.startMonitorCameraAvailable()
 	return server
@@ -411,4 +418,54 @@ func (server *Server) removeMissingStreams() {
 		}
 		utils.UncheckedError(streamState.Close())
 	}
+}
+
+// refreshVideoSources checks and initializes every possible video source that could be viewed from the robot.
+func (server *Server) RefreshVideoSources() {
+	for _, name := range camera.NamesFromRobot(server.robot) {
+		cam, err := camera.FromRobot(server.robot, name)
+		if err != nil {
+			continue
+		}
+		existing, ok := server.VideoSources[cam.Name().SDPTrackName()]
+		if ok {
+			existing.Swap(cam)
+			continue
+		}
+		newSwapper := gostream.NewHotSwappableVideoSource(cam)
+		server.VideoSources[cam.Name().SDPTrackName()] = newSwapper
+	}
+}
+
+// refreshAudioSources checks and initializes every possible audio source that could be viewed from the robot.
+func (server *Server) RefreshAudioSources() {
+	for _, name := range audioinput.NamesFromRobot(server.robot) {
+		input, err := audioinput.FromRobot(server.robot, name)
+		if err != nil {
+			continue
+		}
+		existing, ok := server.AudioSources[input.Name().SDPTrackName()]
+		if ok {
+			existing.Swap(input)
+			continue
+		}
+		newSwapper := gostream.NewHotSwappableAudioSource(input)
+		server.AudioSources[input.Name().SDPTrackName()] = newSwapper
+	}
+}
+
+func (server *Server) CreateStream(config gostream.StreamConfig, name string) (gostream.Stream, bool, error) {
+	stream, err := server.NewStream(config)
+	// Skip if stream is already registered, otherwise raise any other errors
+	var registeredError *StreamAlreadyRegisteredError
+	if errors.As(err, &registeredError) {
+		server.logger.Debugw("stream already registered", "name", name)
+		return nil, true, nil
+	} else if err != nil {
+		return nil, false, err
+	}
+	// if !svc.streamSe`rver.HasStreams {
+	// 	svc.streamServer.HasStreams = true
+	// }
+	return stream, false, err
 }
