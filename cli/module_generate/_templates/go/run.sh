@@ -11,7 +11,6 @@ if ! (
     go get golang.org/x/tools/cmd/goimports@latest  > /dev/null 2>&1
     gofmt -w -s .
     go mod tidy  > /dev/null 2>&1
-    goimports -w main.go models/module.go 
 ); then
     echo "Go packages could not be installed. Quitting..." >&2
     exit 1
