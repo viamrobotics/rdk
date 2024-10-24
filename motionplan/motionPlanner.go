@@ -239,7 +239,7 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 }
 
 type planner struct {
-	solver   ik.InverseKinematics
+	solver   ik.Solver
 	frame    frame.Frame
 	logger   logging.Logger
 	randseed *rand.Rand
@@ -248,7 +248,7 @@ type planner struct {
 }
 
 func newPlanner(frame frame.Frame, seed *rand.Rand, logger logging.Logger, opt *plannerOptions) (*planner, error) {
-	solver, err := ik.CreateCombinedIKSolver(frame, logger, opt.NumThreads, opt.GoalThreshold)
+	solver, err := ik.CreateCombinedIKFrameSolver(frame, logger, opt.NumThreads, opt.GoalThreshold)
 	if err != nil {
 		return nil, err
 	}
@@ -379,7 +379,7 @@ func (mp *planner) getSolutions(ctx context.Context, seed []frame.Input) ([]node
 	utils.PanicCapturingGo(func() {
 		defer close(ikErr)
 		defer activeSolvers.Done()
-		ikErr <- mp.solver.Solve(ctxWithCancel, solutionGen, seed, mp.planOpts.goalMetric, mp.randseed.Int())
+		ikErr <- ik.SolveMetric(ctxWithCancel, mp.solver, mp.frame, solutionGen, seed, mp.planOpts.goalMetric, mp.randseed.Int(), mp.logger)
 	})
 
 	solutions := map[float64][]frame.Input{}
@@ -399,7 +399,7 @@ IK:
 
 		select {
 		case stepSolution := <-solutionGen:
-			step := stepSolution.Configuration
+			step := frame.FloatsToInputs(stepSolution.Configuration)
 			// Ensure the end state is a valid one
 			statePass, failName := mp.planOpts.CheckStateConstraints(&ik.State{
 				Configuration: step,

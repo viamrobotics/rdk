@@ -2,6 +2,7 @@
 package tpspace
 
 import (
+	"context"
 	"errors"
 	"math"
 
@@ -20,13 +21,14 @@ var flipPose = spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVector
 
 // PTGSolver wraps a PTG with the ability to perform Inverse Kinematics.
 type PTGSolver interface {
-	// Solve will return the (alpha, dist) TP-space coordinates whose corresponding relative pose minimizes the given function
-	ik.InverseKinematics
+	referenceframe.Limited
 	PTG
 
 	// Returns the set of trajectory nodes along the given trajectory, out to the requested distance.
 	// This will return `TrajNode`s starting at dist=start, and every `resolution` increments thereafter, and finally at `end` exactly.
 	Trajectory(alpha, start, end, resolution float64) ([]*TrajNode, error)
+	// Solve will return the (alpha, dist) TP-space coordinates whose corresponding relative pose minimizes the given function
+	Solve(context.Context, []referenceframe.Input, ik.StateMetric) (*ik.Solution, error)
 }
 
 // PTGProvider is something able to provide a set of PTGs associsated with it. For example, a frame which precomputes
