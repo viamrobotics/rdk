@@ -65,7 +65,7 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 			ModuleName:       "my-module",
 			IsPublic:         false,
 			Namespace:        "my-org",
-			Language:         python,
+			Language:         golang,
 			Resource:         resourceSubtype + " " + resourceType,
 			ResourceType:     resourceType,
 			ResourceSubtype:  resourceSubtype,
@@ -668,7 +668,7 @@ func getLatestSDKTag(c *cli.Context, language string) (string, error) {
 	case golang:
 		repo = "rdk"
 	default:
-		return "", errors.New("Unexpected language was selected. Cannot produce template.")
+		return "", errors.New("cannot produce template -- unexpected language was selected")
 	}
 	debugf(c.App.Writer, c.Bool(debugFlag), "Getting the latest release tag for %s", repo)
 	url := fmt.Sprintf("https://api.github.com/repos/viamrobotics/%s/releases", repo)
