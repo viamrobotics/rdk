@@ -45,7 +45,6 @@ require (
 	github.com/golang/geo v0.0.0-20210211234256-740aa86cb551
 	github.com/golang/protobuf v1.5.4
 	github.com/golangci/golangci-lint v1.61.0
-	github.com/google/flatbuffers v2.0.6+incompatible
 	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.6.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
@@ -59,7 +58,6 @@ require (
 	github.com/lestrrat-go/jwx v1.2.29
 	github.com/lmittmann/ppm v1.0.2
 	github.com/lucasb-eyer/go-colorful v1.2.0
-	github.com/mattn/go-tflite v1.0.4
 	github.com/matttproud/golang_protobuf_extensions v1.0.4
 	github.com/mkch/gpio v0.0.0-20190919032813-8327cd97d95e
 	github.com/montanaflynn/stats v0.7.0
@@ -247,6 +245,7 @@ require (
 	github.com/golangci/revgrep v0.5.3 // indirect
 	github.com/golangci/unconvert v0.0.0-20240309020433-c5143eacb3ed // indirect
 	github.com/gonuts/binary v0.2.0 // indirect
+	github.com/google/flatbuffers v2.0.6+incompatible // indirect
 	github.com/google/go-containerregistry v0.15.2 // indirect
 	github.com/google/pprof v0.0.0-20240827171923-fa2c70bbbfe5 // indirect
 	github.com/google/s2a-go v0.1.8 // indirect
@@ -301,7 +300,6 @@ require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
-	github.com/mattn/go-pointer v0.0.1 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/mgechev/revive v1.3.9 // indirect
 	github.com/miekg/dns v1.1.53 // indirect

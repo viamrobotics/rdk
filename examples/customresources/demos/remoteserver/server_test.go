@@ -1,5 +1,3 @@
-//go:build !no_tflite
-
 package main_test
 
 import (
