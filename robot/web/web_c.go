@@ -70,7 +70,6 @@ type webService struct {
 
 func (svc *webService) streamInitialized() bool {
 	return svc.streamServer != nil
-
 }
 
 func (svc *webService) addNewStreams(ctx context.Context) error {
