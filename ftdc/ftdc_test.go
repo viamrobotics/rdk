@@ -86,7 +86,7 @@ func TestFTDCSchemaGenerations(t *testing.T) {
 
 	// Go back and parse the written data. There two be two datum objects due to two calls to
 	// `writeDatum`.
-	datums, err := parse(ftdcData)
+	datums, err := Parse(ftdcData)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(datums), test.ShouldEqual, 2)
 
@@ -160,7 +160,7 @@ func TestRemoveBadStatser(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Verify the contents of the ftdc data.
-	datums, err := parseWithLogger(ftdcData, logger)
+	datums, err := ParseWithLogger(ftdcData, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	// We called `writeDatum` twice, but only the second succeeded.
@@ -223,7 +223,7 @@ func TestNestedStructs(t *testing.T) {
 	err = ftdc.writeDatum(datum)
 	test.That(t, err, test.ShouldBeNil)
 
-	datums, err := parseWithLogger(ftdcData, logger)
+	datums, err := ParseWithLogger(ftdcData, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(datums), test.ShouldEqual, 2)
 	test.That(t, len(datums[0].Data), test.ShouldEqual, 1)
