@@ -5,7 +5,6 @@ package web
 import (
 	"bytes"
 	"context"
-	"math"
 	"net/http"
 	"runtime"
 	"slices"
@@ -84,150 +83,83 @@ func (svc *webService) streamInitialized() bool {
 
 func (svc *webService) addNewStreams(ctx context.Context) error {
 	if !svc.streamInitialized() {
+		svc.logger.Warn("not starting streams because the stream server is not initialized")
 		return nil
 	}
+
+	// Refreshing sources will walk the robot resources for anything implementing the camera and
+	// audioinput APIs and mutate the `svc.videoSources` and `svc.audioSources` maps.
 	svc.refreshVideoSources()
 	svc.refreshAudioSources()
+
 	if svc.opts.streamConfig == nil {
+		// The `streamConfig` dictates the video and audio encoder libraries to use. We can't do
+		// much if none are present.
 		if len(svc.videoSources) != 0 || len(svc.audioSources) != 0 {
-			svc.logger.Debug("not starting streams due to no stream config being set")
+			svc.logger.Warn("not starting streams due to no stream config being set")
 		}
 		return nil
 	}
 
-	newStream := func(name string, isVideo bool) (gostream.Stream, bool, error) {
-		// Configure new stream
+	for name := range svc.videoSources {
+		if runtime.GOOS == "windows" {
+			// TODO(RSDK-1771): support video on windows
+			svc.logger.Warn("video streaming not supported on Windows yet")
+			break
+		}
+		// We walk the updated set of `videoSources` and ensure all of the sources are "created" and
+		// "started".
 		config := gostream.StreamConfig{
-			Name: name,
+			Name:                name,
+			VideoEncoderFactory: svc.opts.streamConfig.VideoEncoderFactory,
 		}
-
-		if isVideo {
-			config.VideoEncoderFactory = svc.opts.streamConfig.VideoEncoderFactory
-		} else {
-			config.AudioEncoderFactory = svc.opts.streamConfig.AudioEncoderFactory
-		}
-		stream, err := svc.streamServer.Server.NewStream(config)
-
-		// Skip if stream is already registered, otherwise raise any other errors
-		var registeredError *webstream.StreamAlreadyRegisteredError
-		if errors.As(err, &registeredError) {
-			return nil, true, nil
-		} else if err != nil {
-			return nil, false, err
-		}
-
-		if !svc.streamServer.HasStreams {
-			svc.streamServer.HasStreams = true
-		}
-		return stream, false, nil
-	}
-
-	for name, source := range svc.videoSources {
-		const isVideo = true
-		stream, alreadyRegistered, err := newStream(name, isVideo)
+		// Call `createStream`. `createStream` is responsible for first checking if the stream
+		// already exists. If it does, it skips creating a new stream and we continue to the next source.
+		//
+		// TODO(RSDK-9079) Add reliable framerate fetcher for stream videosources
+		stream, alreadyRegistered, err := svc.createStream(config, name)
 		if err != nil {
 			return err
 		} else if alreadyRegistered {
 			continue
 		}
-
-		svc.startVideoStream(ctx, source, stream)
+		svc.startVideoStream(ctx, svc.videoSources[name], stream)
 	}
 
-	for name, source := range svc.audioSources {
-		const isVideo = false
-		stream, alreadyRegistered, err := newStream(name, isVideo)
+	for name := range svc.audioSources {
+		// Similarly, we walk the updated set of `audioSources` and ensure all of the audio sources
+		// are "created" and "started". `createStream` and `startAudioStream` have the same
+		// behaviors as described above for video streams.
+		config := gostream.StreamConfig{
+			Name:                name,
+			AudioEncoderFactory: svc.opts.streamConfig.AudioEncoderFactory,
+		}
+		stream, alreadyRegistered, err := svc.createStream(config, name)
 		if err != nil {
 			return err
 		} else if alreadyRegistered {
 			continue
 		}
-
-		svc.startAudioStream(ctx, source, stream)
+		svc.startAudioStream(ctx, svc.audioSources[name], stream)
 	}
 
 	return nil
 }
 
-func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, error) {
-	svc.refreshVideoSources()
-	svc.refreshAudioSources()
-	var streams []gostream.Stream
-	var streamTypes []bool
-
-	if svc.opts.streamConfig == nil || (len(svc.videoSources) == 0 && len(svc.audioSources) == 0) {
-		if len(svc.videoSources) != 0 || len(svc.audioSources) != 0 {
-			svc.logger.Debug("not starting streams due to no stream config being set")
-		}
-		noopServer, err := webstream.NewServer(streams, svc.r, svc.logger.Sublogger("stream"))
-		return &StreamServer{noopServer, false}, err
+func (svc *webService) createStream(config gostream.StreamConfig, name string) (gostream.Stream, bool, error) {
+	stream, err := svc.streamServer.Server.NewStream(config)
+	// Skip if stream is already registered, otherwise raise any other errors
+	var registeredError *webstream.StreamAlreadyRegisteredError
+	if errors.As(err, &registeredError) {
+		svc.logger.Debugw("stream already registered", "name", name)
+		return nil, true, nil
+	} else if err != nil {
+		return nil, false, err
 	}
-
-	addStream := func(streams []gostream.Stream, name string, isVideo bool) ([]gostream.Stream, error) {
-		config := gostream.StreamConfig{
-			Name: name,
-		}
-		if isVideo {
-			config.VideoEncoderFactory = svc.opts.streamConfig.VideoEncoderFactory
-
-			// set TargetFrameRate to the framerate of the video source if available
-			props, err := svc.videoSources[name].MediaProperties(ctx)
-			if err != nil {
-				svc.logger.Warnw("failed to get video source properties", "name", name, "error", err)
-			} else if props.FrameRate > 0.0 {
-				// round float up to nearest int
-				config.TargetFrameRate = int(math.Ceil(float64(props.FrameRate)))
-			}
-			// default to 60fps if the video source doesn't have a framerate
-			if config.TargetFrameRate == 0 {
-				config.TargetFrameRate = 60
-			}
-
-			if runtime.GOOS == "windows" {
-				// TODO(RSDK-1771): support video on windows
-				svc.logger.Warnw("not starting video stream since not supported on Windows yet", "name", name)
-				return streams, nil
-			}
-		} else {
-			config.AudioEncoderFactory = svc.opts.streamConfig.AudioEncoderFactory
-		}
-		stream, err := gostream.NewStream(config, svc.logger)
-		if err != nil {
-			return streams, err
-		}
-		return append(streams, stream), nil
+	if !svc.streamServer.HasStreams {
+		svc.streamServer.HasStreams = true
 	}
-	for name := range svc.videoSources {
-		var err error
-		streams, err = addStream(streams, name, true)
-		if err != nil {
-			return nil, err
-		}
-		streamTypes = append(streamTypes, true)
-	}
-	for name := range svc.audioSources {
-		var err error
-		streams, err = addStream(streams, name, false)
-		if err != nil {
-			return nil, err
-		}
-		streamTypes = append(streamTypes, false)
-	}
-
-	streamServer, err := webstream.NewServer(streams, svc.r, svc.logger.Sublogger("stream"))
-	if err != nil {
-		return nil, err
-	}
-
-	for idx, stream := range streams {
-		if streamTypes[idx] {
-			svc.startVideoStream(ctx, svc.videoSources[stream.Name()], stream)
-		} else {
-			svc.startAudioStream(ctx, svc.audioSources[stream.Name()], stream)
-		}
-	}
-
-	return &StreamServer{streamServer, true}, nil
+	return stream, false, err
 }
 
 func (svc *webService) startStream(streamFunc func(opts *webstream.BackoffTuningOptions) error) {
@@ -255,7 +187,6 @@ func (svc *webService) propertiesFromStream(ctx context.Context, stream gostream
 	if !ok {
 		return camera.Properties{}, errors.Errorf("cannot convert resource (type %T) to type (%T)", res, camera.Camera(nil))
 	}
-
 	return cam.Properties(ctx)
 }
 
@@ -266,7 +197,6 @@ func (svc *webService) startVideoStream(ctx context.Context, source gostream.Vid
 		if props, err := svc.propertiesFromStream(ctx, stream); err == nil && slices.Contains(props.MimeTypes, rutils.MimeTypeH264) {
 			streamVideoCtx = gostream.WithMIMETypeHint(streamVideoCtx, rutils.WithLazyMIMEType(rutils.MimeTypeH264))
 		}
-
 		return webstream.StreamVideoSource(streamVideoCtx, source, stream, opts, svc.logger)
 	})
 }
@@ -335,9 +265,9 @@ func (svc *webService) closeStreamServer() {
 }
 
 func (svc *webService) initStreamServer(ctx context.Context, options *weboptions.Options) error {
-	var err error
-	svc.streamServer, err = svc.makeStreamServer(ctx)
-	if err != nil {
+	server := webstream.NewServer(svc.r, svc.logger)
+	svc.streamServer = &StreamServer{server, false}
+	if err := svc.addNewStreams(ctx); err != nil {
 		return err
 	}
 	if err := svc.rpcServer.RegisterServiceServer(
