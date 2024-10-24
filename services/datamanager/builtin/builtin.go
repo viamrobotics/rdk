@@ -129,13 +129,13 @@ func New(
 }
 
 // Close releases all resources managed by data_manager.
-func (b *builtIn) Close(_ context.Context) error {
+func (b *builtIn) Close(ctx context.Context) error {
 	b.logger.Info("Close START")
 	defer b.logger.Info("Close END")
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.diskSummaryLogger.close()
-	b.capture.Close()
+	b.capture.Close(ctx)
 	b.sync.Close()
 	return nil
 }
