@@ -165,7 +165,7 @@ func TestColorDetectionSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer detector.Close(ctx)
 
-	resImg, _, err := camera.ReadImage(ctx, detector)
+	resImg, _, err := detector.GetImage(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	ovImg := rimage.ConvertImage(resImg)
 	test.That(t, ovImg.GetXY(852, 431), test.ShouldResemble, rimage.Red)
@@ -188,7 +188,7 @@ func TestTFLiteDetectionSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer detector.Close(ctx)
 
-	resImg, _, err := camera.ReadImage(ctx, detector)
+	resImg, _, err := detector.GetImage(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	ovImg := rimage.ConvertImage(resImg)
 	test.That(t, ovImg.GetXY(624, 402), test.ShouldResemble, rimage.Red)
@@ -213,7 +213,7 @@ func BenchmarkColorDetectionSource(b *testing.B) {
 	b.ResetTimer()
 	// begin benchmarking
 	for i := 0; i < b.N; i++ {
-		_, _, _ = camera.ReadImage(ctx, detector)
+		_, _, _ = detector.GetImage(ctx)
 	}
 	test.That(b, detector.Close(context.Background()), test.ShouldBeNil)
 }
@@ -235,7 +235,7 @@ func BenchmarkTFLiteDetectionSource(b *testing.B) {
 	b.ResetTimer()
 	// begin benchmarking
 	for i := 0; i < b.N; i++ {
-		_, _, _ = camera.ReadImage(ctx, detector)
+		_, _, _ = detector.GetImage(ctx)
 	}
 	test.That(b, detector.Close(context.Background()), test.ShouldBeNil)
 }

@@ -2,6 +2,7 @@ package camera
 
 import (
 	"context"
+	"image"
 	"time"
 
 	"github.com/pion/mediadevices/pkg/prop"
@@ -195,6 +196,10 @@ type videoSource struct {
 
 func (vs *videoSource) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 	return vs.videoSource.Stream(ctx, errHandlers...)
+}
+
+func (vs *videoSource) GetImage(ctx context.Context) (image.Image, func(), error) {
+	return ReadImage(ctx, vs.videoSource)
 }
 
 // Images is for getting simultaneous images from different sensors

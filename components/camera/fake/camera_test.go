@@ -104,9 +104,7 @@ func cameraTest(
 	distortion transform.Distorter,
 ) {
 	t.Helper()
-	stream, err := cam.Stream(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	img, _, err := stream.Next(context.Background())
+	img, _, err := cam.GetImage(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, img.Bounds().Dx(), test.ShouldEqual, width)
 	test.That(t, img.Bounds().Dy(), test.ShouldEqual, height)
@@ -185,9 +183,7 @@ func TestRTPPassthrough(t *testing.T) {
 		camera, err := NewCamera(context.Background(), nil, cfg, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		stream, err := camera.Stream(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-		img, _, err := stream.Next(context.Background())
+		img, _, err := camera.GetImage(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		// GetImage returns the world jpeg
 		test.That(t, img.Bounds(), test.ShouldResemble, image.Rectangle{Max: image.Point{X: 480, Y: 270}})

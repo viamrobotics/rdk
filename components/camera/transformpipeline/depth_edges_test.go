@@ -7,13 +7,11 @@ import (
 	"image"
 	"testing"
 
-	"github.com/pion/mediadevices/pkg/prop"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/fake"
-	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/depthadapter"
@@ -25,16 +23,17 @@ func TestDepthSource(t *testing.T) {
 	img, err := rimage.NewDepthMapFromFile(
 		context.Background(), artifact.MustPath("rimage/board1_gray_small.png"))
 	test.That(t, err, test.ShouldBeNil)
-	source := &fake.StaticSource{DepthImg: img}
+	source, err := camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{DepthImg: img}, nil, camera.UnspecifiedStream)
+	test.That(t, err, test.ShouldBeNil)
 	am := utils.AttributeMap{
 		"high_threshold": 0.85,
 		"low_threshold":  0.40,
 		"blur_radius":    3.0,
 	}
-	ds, stream, err := newDepthEdgesTransform(context.Background(), gostream.NewVideoSource(source, prop.Video{}), am)
+	ds, stream, err := newDepthEdgesTransform(context.Background(), source, am)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.DepthStream)
-	_, _, err = camera.ReadImage(context.Background(), ds)
+	_, _, err = ds.GetImage(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ds.Close(context.Background()), test.ShouldBeNil)
 }
@@ -57,16 +56,17 @@ func (h *depthSourceTestHelper) Process(
 	pCtx.GotDebugImage(dm.ToPrettyPicture(0, rimage.MaxDepth), "aligned-depth")
 
 	// create edge map
-	source := &fake.StaticSource{DepthImg: dm}
+	source, err := camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{DepthImg: dm}, nil, camera.UnspecifiedStream)
+	test.That(t, err, test.ShouldBeNil)
 	am := utils.AttributeMap{
 		"high_threshold": 0.85,
 		"low_threshold":  0.40,
 		"blur_radius":    3.0,
 	}
-	ds, stream, err := newDepthEdgesTransform(context.Background(), gostream.NewVideoSource(source, prop.Video{}), am)
+	ds, stream, err := newDepthEdgesTransform(context.Background(), source, am)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.DepthStream)
-	edges, _, err := camera.ReadImage(context.Background(), ds)
+	edges, _, err := ds.GetImage(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ds.Close(context.Background()), test.ShouldBeNil)
 
@@ -78,12 +78,13 @@ func (h *depthSourceTestHelper) Process(
 	pCtx.GotDebugPointCloud(fixedPointCloud, "aligned-pointcloud")
 
 	// preprocess depth map
-	source = &fake.StaticSource{DepthImg: dm}
-	rs, stream, err := newDepthPreprocessTransform(context.Background(), gostream.NewVideoSource(source, prop.Video{}))
+	source, err = camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{DepthImg: dm}, nil, camera.UnspecifiedStream)
+	test.That(t, err, test.ShouldBeNil)
+	rs, stream, err := newDepthPreprocessTransform(context.Background(), source)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.DepthStream)
 
-	output, _, err := camera.ReadImage(context.Background(), rs)
+	output, _, err := rs.GetImage(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	preprocessed, err := rimage.ConvertImageToDepthMap(context.Background(), output)
 	test.That(t, err, test.ShouldBeNil)
@@ -94,11 +95,17 @@ func (h *depthSourceTestHelper) Process(
 	test.That(t, preprocessedPointCloud.MetaData().HasColor, test.ShouldBeFalse)
 	pCtx.GotDebugPointCloud(preprocessedPointCloud, "preprocessed-aligned-pointcloud")
 
-	source = &fake.StaticSource{DepthImg: preprocessed}
-	ds, stream, err = newDepthEdgesTransform(context.Background(), gostream.NewVideoSource(source, prop.Video{}), am)
+	source, err = camera.NewVideoSourceFromReader(
+		context.Background(),
+		&fake.StaticSource{DepthImg: preprocessed},
+		nil,
+		camera.UnspecifiedStream,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	ds, stream, err = newDepthEdgesTransform(context.Background(), source, am)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.DepthStream)
-	processedEdges, _, err := camera.ReadImage(context.Background(), ds)
+	processedEdges, _, err := ds.GetImage(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ds.Close(context.Background()), test.ShouldBeNil)
 

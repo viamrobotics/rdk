@@ -7,7 +7,6 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
 )
@@ -137,11 +136,11 @@ func (Transformation) JSONSchema() *jsonschema.Schema {
 func buildTransform(
 	ctx context.Context,
 	r robot.Robot,
-	source gostream.VideoSource,
+	source camera.VideoSource,
 	stream camera.ImageType,
 	tr Transformation,
 	sourceString string,
-) (gostream.VideoSource, camera.ImageType, error) {
+) (camera.VideoSource, camera.ImageType, error) {
 	switch transformType(tr.Type) {
 	case transformTypeUnspecified, transformTypeIdentity:
 		return source, stream, nil

@@ -99,13 +99,11 @@ func TestClient(t *testing.T) {
 		ts := time.UnixMilli(12345)
 		return images, resource.ResponseMetadata{CapturedAt: ts}, nil
 	}
-	injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
-		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-			imageReleasedMu.Lock()
-			imageReleased = true
-			imageReleasedMu.Unlock()
-			return imgPng, func() {}, nil
-		})), nil
+	injectCamera.GetImageFunc = func(ctx context.Context) (image.Image, func(), error) {
+		imageReleasedMu.Lock()
+		imageReleased = true
+		imageReleasedMu.Unlock()
+		return imgPng, func() {}, nil
 	}
 	// depth camera
 	injectCameraDepth := &inject.Camera{}
@@ -127,13 +125,11 @@ func TestClient(t *testing.T) {
 	injectCameraDepth.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return projA, nil
 	}
-	injectCameraDepth.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
-		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-			imageReleasedMu.Lock()
-			imageReleased = true
-			imageReleasedMu.Unlock()
-			return depthImg, func() {}, nil
-		})), nil
+	injectCameraDepth.GetImageFunc = func(ctx context.Context) (image.Image, func(), error) {
+		imageReleasedMu.Lock()
+		imageReleased = true
+		imageReleasedMu.Unlock()
+		return depthImg, func() {}, nil
 	}
 	// bad camera
 	injectCamera2 := &inject.Camera{}
@@ -146,8 +142,8 @@ func TestClient(t *testing.T) {
 	injectCamera2.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return nil, errCameraProjectorFailed
 	}
-	injectCamera2.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
-		return nil, errStreamFailed
+	injectCamera2.GetImageFunc = func(ctx context.Context) (image.Image, func(), error) {
+		return nil, func() {}, errGetImageFailed
 	}
 
 	resources := map[resource.Name]camera.Camera{
@@ -181,7 +177,7 @@ func TestClient(t *testing.T) {
 		camera1Client, err := camera.NewClientFromConn(context.Background(), conn, "", camera.Named(testCameraName), logger)
 		test.That(t, err, test.ShouldBeNil)
 		ctx := gostream.WithMIMETypeHint(context.Background(), rutils.MimeTypeRawRGBA)
-		frame, _, err := camera.ReadImage(ctx, camera1Client)
+		frame, _, err := camera1Client.GetImage(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		compVal, _, err := rimage.CompareImages(img, frame)
 		test.That(t, err, test.ShouldBeNil)
@@ -232,7 +228,7 @@ func TestClient(t *testing.T) {
 
 		ctx := gostream.WithMIMETypeHint(
 			context.Background(), rutils.WithLazyMIMEType(rutils.MimeTypePNG))
-		frame, _, err := camera.ReadImage(ctx, client)
+		frame, _, err := client.GetImage(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		dm, err := rimage.ConvertImageToDepthMap(context.Background(), frame)
 		test.That(t, err, test.ShouldBeNil)
@@ -251,9 +247,9 @@ func TestClient(t *testing.T) {
 		client2, err := resourceAPI.RPCClient(context.Background(), conn, "", camera.Named(failCameraName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		_, _, err = camera.ReadImage(context.Background(), client2)
+		_, _, err = client2.GetImage(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errStreamFailed.Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
 
 		_, err = client2.NextPointCloud(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
@@ -272,63 +268,63 @@ func TestClient(t *testing.T) {
 		camClient, err := camera.NewClientFromConn(context.Background(), conn, "", camera.Named(testCameraName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+		injectCamera.GetImageFunc = func(ctx context.Context) (image.Image, func(), error) {
 			extra, ok := camera.FromContext(ctx)
 			test.That(t, ok, test.ShouldBeTrue)
 			test.That(t, extra, test.ShouldBeEmpty)
-			return nil, errStreamFailed
+			return nil, func() {}, errGetImageFailed
 		}
 
 		ctx := context.Background()
-		_, _, err = camera.ReadImage(ctx, camClient)
+		_, _, err = camClient.GetImage(ctx)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errStreamFailed.Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
 
-		injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+		injectCamera.GetImageFunc = func(ctx context.Context) (image.Image, func(), error) {
 			extra, ok := camera.FromContext(ctx)
 			test.That(t, ok, test.ShouldBeTrue)
 			test.That(t, len(extra), test.ShouldEqual, 1)
 			test.That(t, extra["hello"], test.ShouldEqual, "world")
-			return nil, errStreamFailed
+			return nil, func() {}, errGetImageFailed
 		}
 
 		// one kvp created with camera.Extra
 		ext := camera.Extra{"hello": "world"}
 		ctx = camera.NewContext(ctx, ext)
-		_, _, err = camera.ReadImage(ctx, camClient)
+		_, _, err = camClient.GetImage(ctx)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errStreamFailed.Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
 
-		injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+		injectCamera.GetImageFunc = func(ctx context.Context) (image.Image, func(), error) {
 			extra, ok := camera.FromContext(ctx)
 			test.That(t, ok, test.ShouldBeTrue)
 			test.That(t, len(extra), test.ShouldEqual, 1)
 			test.That(t, extra[data.FromDMString], test.ShouldBeTrue)
 
-			return nil, errStreamFailed
+			return nil, func() {}, errGetImageFailed
 		}
 
 		// one kvp created with data.FromDMContextKey
 		ctx = context.WithValue(context.Background(), data.FromDMContextKey{}, true)
-		_, _, err = camera.ReadImage(ctx, camClient)
+		_, _, err = camClient.GetImage(ctx)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errStreamFailed.Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
 
-		injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+		injectCamera.GetImageFunc = func(ctx context.Context) (image.Image, func(), error) {
 			extra, ok := camera.FromContext(ctx)
 			test.That(t, ok, test.ShouldBeTrue)
 			test.That(t, len(extra), test.ShouldEqual, 2)
 			test.That(t, extra["hello"], test.ShouldEqual, "world")
 			test.That(t, extra[data.FromDMString], test.ShouldBeTrue)
-			return nil, errStreamFailed
+			return nil, func() {}, errGetImageFailed
 		}
 
 		// merge values from data and camera
 		ext = camera.Extra{"hello": "world"}
 		ctx = camera.NewContext(ctx, ext)
-		_, _, err = camera.ReadImage(ctx, camClient)
+		_, _, err = camClient.GetImage(ctx)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errStreamFailed.Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
@@ -453,16 +449,14 @@ func TestClientLazyImage(t *testing.T) {
 	imgPng, err := png.Decode(bytes.NewReader(imgBuf.Bytes()))
 	test.That(t, err, test.ShouldBeNil)
 
-	injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
-		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-			mimeType, _ := rutils.CheckLazyMIMEType(gostream.MIMETypeHint(ctx, rutils.MimeTypeRawRGBA))
-			switch mimeType {
-			case rutils.MimeTypePNG:
-				return imgPng, func() {}, nil
-			default:
-				return nil, nil, errInvalidMimeType
-			}
-		})), nil
+	injectCamera.GetImageFunc = func(ctx context.Context) (image.Image, func(), error) {
+		mimeType, _ := rutils.CheckLazyMIMEType(gostream.MIMETypeHint(ctx, rutils.MimeTypeRawRGBA))
+		switch mimeType {
+		case rutils.MimeTypePNG:
+			return imgPng, func() {}, nil
+		default:
+			return nil, nil, errInvalidMimeType
+		}
 	}
 
 	resources := map[resource.Name]camera.Camera{
@@ -484,7 +478,7 @@ func TestClientLazyImage(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := gostream.WithMIMETypeHint(context.Background(), rutils.MimeTypePNG)
-	frame, _, err := camera.ReadImage(ctx, camera1Client)
+	frame, _, err := camera1Client.GetImage(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	// Should always lazily decode
 	test.That(t, frame, test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
@@ -492,7 +486,7 @@ func TestClientLazyImage(t *testing.T) {
 	test.That(t, frameLazy.RawData(), test.ShouldResemble, imgBuf.Bytes())
 
 	ctx = gostream.WithMIMETypeHint(context.Background(), rutils.WithLazyMIMEType(rutils.MimeTypePNG))
-	frame, _, err = camera.ReadImage(ctx, camera1Client)
+	frame, _, err = camera1Client.GetImage(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, frame, test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
 	frameLazy = frame.(*rimage.LazyEncodedImage)
@@ -582,10 +576,8 @@ func TestClientStreamAfterClose(t *testing.T) {
 	injectCamera.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{}, nil
 	}
-	injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
-		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-			return img, func() {}, nil
-		})), nil
+	injectCamera.GetImageFunc = func(ctx context.Context) (image.Image, func(), error) {
+		return img, func() {}, nil
 	}
 
 	// Register CameraService API in our gRPC server.

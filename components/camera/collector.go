@@ -96,7 +96,7 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 
 		ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
 
-		img, release, err := ReadImage(ctx, camera)
+		img, release, err := camera.GetImage(ctx)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.

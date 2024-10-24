@@ -26,9 +26,6 @@ func TestPCD(t *testing.T) {
 	cam, err := newCamera(ctx, resource.Name{API: camera.API}, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = cam.Stream(ctx)
-	test.That(t, err, test.ShouldBeNil)
-
 	pc, err := cam.NextPointCloud(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pc.Size(), test.ShouldEqual, 628)
@@ -45,13 +42,10 @@ func TestPCD(t *testing.T) {
 	cam, err = newCamera(ctx, resource.Name{API: camera.API}, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	stream, err := cam.Stream(ctx)
-	test.That(t, err, test.ShouldBeNil)
-
 	readInImage, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
 	test.That(t, err, test.ShouldBeNil)
 
-	strmImg, _, err := stream.Next(ctx)
+	strmImg, _, err := cam.GetImage(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, strmImg, test.ShouldResemble, readInImage)
 	test.That(t, strmImg.Bounds(), test.ShouldResemble, readInImage.Bounds())
@@ -68,16 +62,13 @@ func TestColor(t *testing.T) {
 	cam, err := newCamera(ctx, resource.Name{API: camera.API}, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	stream, err := cam.Stream(ctx)
-	test.That(t, err, test.ShouldBeNil)
-
 	_, err = cam.NextPointCloud(ctx)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	readInImage, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
 	test.That(t, err, test.ShouldBeNil)
 
-	strmImg, _, err := stream.Next(ctx)
+	strmImg, _, err := cam.GetImage(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, strmImg, test.ShouldResemble, readInImage)
 	test.That(t, strmImg.Bounds(), test.ShouldResemble, readInImage.Bounds())
@@ -108,13 +99,10 @@ func TestColorOddResolution(t *testing.T) {
 	cam, err := newCamera(ctx, resource.Name{API: camera.API}, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	stream, err := cam.Stream(ctx)
-	test.That(t, err, test.ShouldBeNil)
-
 	readInImage, err := rimage.NewImageFromFile(imgFilePath)
 	test.That(t, err, test.ShouldBeNil)
 
-	strmImg, _, err := stream.Next(ctx)
+	strmImg, _, err := cam.GetImage(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
 	expectedBounds := image.Rect(0, 0, readInImage.Bounds().Dx()-1, readInImage.Bounds().Dy()-1)

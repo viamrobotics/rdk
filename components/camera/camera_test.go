@@ -183,9 +183,7 @@ func TestCameraWithNoProjector(t *testing.T) {
 	_, got := pc.At(0, 0, 0)
 	test.That(t, got, test.ShouldBeTrue)
 
-	img, _, err := camera.ReadImage(
-		gostream.WithMIMETypeHint(context.Background(), rutils.WithLazyMIMEType(rutils.MimeTypePNG)),
-		noProj2)
+	img, _, err := noProj2.GetImage(gostream.WithMIMETypeHint(context.Background(), rutils.WithLazyMIMEType(rutils.MimeTypePNG)))
 	test.That(t, err, test.ShouldBeNil)
 
 	depthImg := img.(*rimage.DepthMap)
@@ -234,9 +232,7 @@ func TestCameraWithProjector(t *testing.T) {
 	_, got := pc.At(0, 0, 0)
 	test.That(t, got, test.ShouldBeTrue)
 
-	img, _, err := camera.ReadImage(
-		gostream.WithMIMETypeHint(context.Background(), rutils.MimeTypePNG),
-		cam2)
+	img, _, err := cam2.GetImage(gostream.WithMIMETypeHint(context.Background(), rutils.MimeTypePNG))
 	test.That(t, err, test.ShouldBeNil)
 
 	depthImg := img.(*rimage.DepthMap)

@@ -119,6 +119,9 @@ type VideoSource interface {
 	// that may have a MIME type hint dictated in the context via gostream.WithMIMETypeHint.
 	Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error)
 
+	// GetImage returns a single image that may have a MIME type hint dictated in the context via gostream.WithMIMETypeHint.
+	GetImage(ctx context.Context) (image.Image, func(), error)
+
 	// NextPointCloud returns the next immediately available point cloud, not necessarily one
 	// a part of a sequence. In the future, there could be streaming of point clouds.
 	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)

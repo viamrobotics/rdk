@@ -228,6 +228,10 @@ func (c *client) Stream(
 	return stream, nil
 }
 
+func (c *client) GetImage(ctx context.Context) (image.Image, func(), error) {
+	return c.Read(ctx)
+}
+
 func (c *client) Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::Images")
 	defer span.End()

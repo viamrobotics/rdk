@@ -11,7 +11,6 @@ import (
 	"golang.org/x/image/draw"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -25,14 +24,14 @@ type rotateConfig struct {
 
 // rotateSource is the source to be rotated and the kind of image type.
 type rotateSource struct {
-	originalStream gostream.VideoStream
-	stream         camera.ImageType
-	angle          float64
+	src    camera.VideoSource
+	stream camera.ImageType
+	angle  float64
 }
 
 // newRotateTransform creates a new rotation transform.
-func newRotateTransform(ctx context.Context, source gostream.VideoSource, stream camera.ImageType, am utils.AttributeMap,
-) (gostream.VideoSource, camera.ImageType, error) {
+func newRotateTransform(ctx context.Context, source camera.VideoSource, stream camera.ImageType, am utils.AttributeMap,
+) (camera.VideoSource, camera.ImageType, error) {
 	conf, err := resource.TransformAttributeMap[*rotateConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, errors.Wrap(err, "cannot parse rotate attribute map")
@@ -52,7 +51,7 @@ func newRotateTransform(ctx context.Context, source gostream.VideoSource, stream
 	if props.DistortionParams != nil {
 		cameraModel.Distortion = props.DistortionParams
 	}
-	reader := &rotateSource{gostream.NewEmbeddedVideoStream(source), stream, conf.Angle}
+	reader := &rotateSource{source, stream, conf.Angle}
 	src, err := camera.NewVideoSourceFromReader(ctx, reader, &cameraModel, stream)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
@@ -64,7 +63,7 @@ func newRotateTransform(ctx context.Context, source gostream.VideoSource, stream
 func (rs *rotateSource) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::rotate::Read")
 	defer span.End()
-	orig, release, err := rs.originalStream.Next(ctx)
+	orig, release, err := rs.src.GetImage(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -86,7 +85,7 @@ func (rs *rotateSource) Read(ctx context.Context) (image.Image, func(), error) {
 
 // Close closes the original stream.
 func (rs *rotateSource) Close(ctx context.Context) error {
-	return rs.originalStream.Close(ctx)
+	return rs.src.Close(ctx)
 }
 
 // resizeConfig are the attributes for a resize transform.
@@ -96,16 +95,16 @@ type resizeConfig struct {
 }
 
 type resizeSource struct {
-	originalStream gostream.VideoStream
-	stream         camera.ImageType
-	height         int
-	width          int
+	src    camera.VideoSource
+	stream camera.ImageType
+	height int
+	width  int
 }
 
 // newResizeTransform creates a new resize transform.
 func newResizeTransform(
-	ctx context.Context, source gostream.VideoSource, stream camera.ImageType, am utils.AttributeMap,
-) (gostream.VideoSource, camera.ImageType, error) {
+	ctx context.Context, source camera.VideoSource, stream camera.ImageType, am utils.AttributeMap,
+) (camera.VideoSource, camera.ImageType, error) {
 	conf, err := resource.TransformAttributeMap[*resizeConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
@@ -117,7 +116,7 @@ func newResizeTransform(
 		return nil, camera.UnspecifiedStream, errors.New("new height for resize transform cannot be 0")
 	}
 
-	reader := &resizeSource{gostream.NewEmbeddedVideoStream(source), stream, conf.Height, conf.Width}
+	reader := &resizeSource{source, stream, conf.Height, conf.Width}
 	src, err := camera.NewVideoSourceFromReader(ctx, reader, nil, stream)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
@@ -129,7 +128,7 @@ func newResizeTransform(
 func (rs *resizeSource) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::resize::Read")
 	defer span.End()
-	orig, release, err := rs.originalStream.Next(ctx)
+	orig, release, err := rs.src.GetImage(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -153,7 +152,7 @@ func (rs *resizeSource) Read(ctx context.Context) (image.Image, func(), error) {
 
 // Close closes the original stream.
 func (rs *resizeSource) Close(ctx context.Context) error {
-	return rs.originalStream.Close(ctx)
+	return rs.src.Close(ctx)
 }
 
 // cropConfig are the attributes for a crop transform.
@@ -165,15 +164,15 @@ type cropConfig struct {
 }
 
 type cropSource struct {
-	originalStream gostream.VideoStream
-	imgType        camera.ImageType
-	cropWindow     image.Rectangle
+	src        camera.VideoSource
+	imgType    camera.ImageType
+	cropWindow image.Rectangle
 }
 
 // newCropTransform creates a new crop transform.
 func newCropTransform(
-	ctx context.Context, source gostream.VideoSource, stream camera.ImageType, am utils.AttributeMap,
-) (gostream.VideoSource, camera.ImageType, error) {
+	ctx context.Context, source camera.VideoSource, stream camera.ImageType, am utils.AttributeMap,
+) (camera.VideoSource, camera.ImageType, error) {
 	conf, err := resource.TransformAttributeMap[*cropConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
@@ -189,7 +188,7 @@ func newCropTransform(
 	}
 	cropRect := image.Rect(conf.XMin, conf.YMin, conf.XMax, conf.YMax)
 
-	reader := &cropSource{gostream.NewEmbeddedVideoStream(source), stream, cropRect}
+	reader := &cropSource{source, stream, cropRect}
 	src, err := camera.NewVideoSourceFromReader(ctx, reader, nil, stream)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
@@ -201,7 +200,7 @@ func newCropTransform(
 func (cs *cropSource) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::crop::Read")
 	defer span.End()
-	orig, release, err := cs.originalStream.Next(ctx)
+	orig, release, err := cs.src.GetImage(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -229,5 +228,5 @@ func (cs *cropSource) Read(ctx context.Context) (image.Image, func(), error) {
 
 // Close closes the original stream.
 func (cs *cropSource) Close(ctx context.Context) error {
-	return cs.originalStream.Close(ctx)
+	return cs.src.Close(ctx)
 }

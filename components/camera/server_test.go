@@ -31,7 +31,7 @@ var (
 	errGeneratePointCloudFailed = errors.New("can't generate next point cloud")
 	errPropertiesFailed         = errors.New("can't get camera properties")
 	errCameraProjectorFailed    = errors.New("can't get camera properties")
-	errStreamFailed             = errors.New("can't generate stream")
+	errGetImageFailed           = errors.New("can't get image")
 	errCameraUnimplemented      = errors.New("not found")
 )
 
@@ -112,25 +112,23 @@ func TestServer(t *testing.T) {
 		return projA, nil
 	}
 	wooMIME := "image/woohoo"
-	injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
-		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-			imageReleasedMu.Lock()
-			imageReleased = true
-			imageReleasedMu.Unlock()
-			mimeType, _ := utils.CheckLazyMIMEType(gostream.MIMETypeHint(ctx, utils.MimeTypeRawRGBA))
-			switch mimeType {
-			case "", utils.MimeTypeRawRGBA:
-				return img, func() {}, nil
-			case utils.MimeTypePNG:
-				return imgPng, func() {}, nil
-			case utils.MimeTypeJPEG:
-				return imgJpeg, func() {}, nil
-			case "image/woohoo":
-				return rimage.NewLazyEncodedImage([]byte{1, 2, 3}, mimeType), func() {}, nil
-			default:
-				return nil, nil, errInvalidMimeType
-			}
-		})), nil
+	injectCamera.GetImageFunc = func(ctx context.Context) (image.Image, func(), error) {
+		imageReleasedMu.Lock()
+		imageReleased = true
+		imageReleasedMu.Unlock()
+		mimeType, _ := utils.CheckLazyMIMEType(gostream.MIMETypeHint(ctx, utils.MimeTypeRawRGBA))
+		switch mimeType {
+		case "", utils.MimeTypeRawRGBA:
+			return img, func() {}, nil
+		case utils.MimeTypePNG:
+			return imgPng, func() {}, nil
+		case utils.MimeTypeJPEG:
+			return imgJpeg, func() {}, nil
+		case "image/woohoo":
+			return rimage.NewLazyEncodedImage([]byte{1, 2, 3}, mimeType), func() {}, nil
+		default:
+			return nil, nil, errInvalidMimeType
+		}
 	}
 	// depth camera
 	depthImage := rimage.NewEmptyDepthMap(10, 20)
@@ -155,13 +153,11 @@ func TestServer(t *testing.T) {
 	injectCameraDepth.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return projA, nil
 	}
-	injectCameraDepth.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
-		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-			imageReleasedMu.Lock()
-			imageReleased = true
-			imageReleasedMu.Unlock()
-			return depthImage, func() {}, nil
-		})), nil
+	injectCameraDepth.GetImageFunc = func(ctx context.Context) (image.Image, func(), error) {
+		imageReleasedMu.Lock()
+		imageReleased = true
+		imageReleasedMu.Unlock()
+		return depthImage, func() {}, nil
 	}
 	// bad camera
 	injectCamera2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
@@ -173,8 +169,8 @@ func TestServer(t *testing.T) {
 	injectCamera2.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return nil, errCameraProjectorFailed
 	}
-	injectCamera2.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
-		return nil, errStreamFailed
+	injectCamera2.GetImageFunc = func(ctx context.Context) (image.Image, func(), error) {
+		return nil, func() {}, errGetImageFailed
 	}
 
 	// does a depth camera transfer its depth image properly
@@ -284,7 +280,7 @@ func TestServer(t *testing.T) {
 		// bad camera
 		_, err = cameraServer.GetImage(context.Background(), &pb.GetImageRequest{Name: failCameraName, MimeType: utils.MimeTypeRawRGBA})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errStreamFailed.Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
 	})
 
 	t.Run("GetImage with lazy", func(t *testing.T) {
@@ -367,7 +363,7 @@ func TestServer(t *testing.T) {
 
 		_, err = cameraServer.RenderFrame(context.Background(), &pb.RenderFrameRequest{Name: failCameraName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errStreamFailed.Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
 	})
 
 	t.Run("GetPointCloud", func(t *testing.T) {
@@ -435,11 +431,11 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("GetImage with extra", func(t *testing.T) {
-		injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+		injectCamera.GetImageFunc = func(ctx context.Context) (image.Image, func(), error) {
 			extra, ok := camera.FromContext(ctx)
 			test.That(t, ok, test.ShouldBeTrue)
 			test.That(t, extra, test.ShouldBeEmpty)
-			return nil, errStreamFailed
+			return nil, func() {}, errGetImageFailed
 		}
 
 		_, err := cameraServer.GetImage(context.Background(), &pb.GetImageRequest{
@@ -447,14 +443,14 @@ func TestServer(t *testing.T) {
 		})
 
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errStreamFailed.Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
 
-		injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+		injectCamera.GetImageFunc = func(ctx context.Context) (image.Image, func(), error) {
 			extra, ok := camera.FromContext(ctx)
 			test.That(t, ok, test.ShouldBeTrue)
 			test.That(t, len(extra), test.ShouldEqual, 1)
 			test.That(t, extra["hello"], test.ShouldEqual, "world")
-			return nil, errStreamFailed
+			return nil, func() {}, errGetImageFailed
 		}
 
 		ext, err := goprotoutils.StructToStructPb(camera.Extra{"hello": "world"})
@@ -466,15 +462,15 @@ func TestServer(t *testing.T) {
 		})
 
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errStreamFailed.Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
 
-		injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+		injectCamera.GetImageFunc = func(ctx context.Context) (image.Image, func(), error) {
 			extra, ok := camera.FromContext(ctx)
 			test.That(t, ok, test.ShouldBeTrue)
 			test.That(t, len(extra), test.ShouldEqual, 1)
 			test.That(t, extra[data.FromDMString], test.ShouldBeTrue)
 
-			return nil, errStreamFailed
+			return nil, func() {}, errGetImageFailed
 		}
 
 		// one kvp created with data.FromDMContextKey
@@ -487,15 +483,15 @@ func TestServer(t *testing.T) {
 		})
 
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errStreamFailed.Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
 
-		injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+		injectCamera.GetImageFunc = func(ctx context.Context) (image.Image, func(), error) {
 			extra, ok := camera.FromContext(ctx)
 			test.That(t, ok, test.ShouldBeTrue)
 			test.That(t, len(extra), test.ShouldEqual, 2)
 			test.That(t, extra["hello"], test.ShouldEqual, "world")
 			test.That(t, extra[data.FromDMString], test.ShouldBeTrue)
-			return nil, errStreamFailed
+			return nil, func() {}, errGetImageFailed
 		}
 
 		// use values from data and camera
@@ -513,7 +509,7 @@ func TestServer(t *testing.T) {
 		})
 
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errStreamFailed.Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
 	})
 }
 
