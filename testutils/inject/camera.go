@@ -2,12 +2,12 @@ package inject
 
 import (
 	"context"
+	"image"
 
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/rtppassthrough"
-	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
@@ -20,14 +20,11 @@ type Camera struct {
 	RTPPassthroughSource rtppassthrough.Source
 	DoFunc               func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	ImagesFunc           func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error)
-	StreamFunc           func(
-		ctx context.Context,
-		errHandlers ...gostream.ErrorHandler,
-	) (gostream.VideoStream, error)
-	NextPointCloudFunc func(ctx context.Context) (pointcloud.PointCloud, error)
-	ProjectorFunc      func(ctx context.Context) (transform.Projector, error)
-	PropertiesFunc     func(ctx context.Context) (camera.Properties, error)
-	CloseFunc          func(ctx context.Context) error
+	GetImageFunc         func(ctx context.Context) (image.Image, func(), error)
+	NextPointCloudFunc   func(ctx context.Context) (pointcloud.PointCloud, error)
+	ProjectorFunc        func(ctx context.Context) (transform.Projector, error)
+	PropertiesFunc       func(ctx context.Context) (camera.Properties, error)
+	CloseFunc            func(ctx context.Context) error
 }
 
 // NewCamera returns a new injected camera.
@@ -51,18 +48,15 @@ func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 	return nil, errors.New("NextPointCloud unimplemented")
 }
 
-// Stream calls the injected Stream or the real version.
-func (c *Camera) Stream(
-	ctx context.Context,
-	errHandlers ...gostream.ErrorHandler,
-) (gostream.VideoStream, error) {
-	if c.StreamFunc != nil {
-		return c.StreamFunc(ctx, errHandlers...)
+// GetImage calls the injected GetImage or the real version.
+func (c *Camera) GetImage(ctx context.Context) (image.Image, func(), error) {
+	if c.GetImageFunc != nil {
+		return c.GetImageFunc(ctx)
 	}
 	if c.Camera != nil {
-		return c.Camera.Stream(ctx, errHandlers...)
+		return c.Camera.GetImage(ctx)
 	}
-	return nil, errors.Wrap(ctx.Err(), "no stream function available")
+	return nil, func() {}, errors.Wrap(ctx.Err(), "no GetImage function available")
 }
 
 // Properties calls the injected Properties or the real version.

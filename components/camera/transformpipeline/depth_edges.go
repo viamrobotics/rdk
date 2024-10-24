@@ -8,7 +8,6 @@ import (
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -23,13 +22,13 @@ type depthEdgesConfig struct {
 
 // depthEdgesSource applies a Canny Edge Detector to the depth map.
 type depthEdgesSource struct {
-	stream     gostream.VideoStream
+	src        camera.VideoSource
 	detector   *rimage.CannyEdgeDetector
 	blurRadius float64
 }
 
-func newDepthEdgesTransform(ctx context.Context, source gostream.VideoSource, am utils.AttributeMap,
-) (gostream.VideoSource, camera.ImageType, error) {
+func newDepthEdgesTransform(ctx context.Context, source camera.VideoSource, am utils.AttributeMap,
+) (camera.VideoSource, camera.ImageType, error) {
 	conf, err := resource.TransformAttributeMap[*depthEdgesConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
@@ -45,7 +44,7 @@ func newDepthEdgesTransform(ctx context.Context, source gostream.VideoSource, am
 		cameraModel.Distortion = props.DistortionParams
 	}
 	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(conf.HiThresh, conf.LoThresh, true)
-	videoSrc := &depthEdgesSource{gostream.NewEmbeddedVideoStream(source), canny, 3.0}
+	videoSrc := &depthEdgesSource{source, canny, 3.0}
 	src, err := camera.NewVideoSourceFromReader(ctx, videoSrc, &cameraModel, camera.DepthStream)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
@@ -57,7 +56,7 @@ func newDepthEdgesTransform(ctx context.Context, source gostream.VideoSource, am
 func (os *depthEdgesSource) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::depthEdges::Read")
 	defer span.End()
-	i, closer, err := os.stream.Next(ctx)
+	i, closer, err := os.src.GetImage(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -73,5 +72,5 @@ func (os *depthEdgesSource) Read(ctx context.Context) (image.Image, func(), erro
 }
 
 func (os *depthEdgesSource) Close(ctx context.Context) error {
-	return os.stream.Close(ctx)
+	return os.src.Close(ctx)
 }

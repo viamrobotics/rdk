@@ -93,7 +93,7 @@ func (s *serviceServer) GetImage(
 		// network. Just to be discarded.
 		img, release, err = castedCam.Read(ctx)
 	default:
-		img, release, err = ReadImage(gostream.WithMIMETypeHint(ctx, req.MimeType), cam)
+		img, release, err = cam.GetImage(gostream.WithMIMETypeHint(ctx, req.MimeType))
 	}
 	if err != nil {
 		return nil, err

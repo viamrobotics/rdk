@@ -334,13 +334,11 @@ func TestStatusClient(t *testing.T) {
 
 	var imageReleased bool
 	var imageReleasedMu sync.Mutex
-	injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
-		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-			imageReleasedMu.Lock()
-			imageReleased = true
-			imageReleasedMu.Unlock()
-			return img, func() {}, nil
-		})), nil
+	injectCamera.GetImageFunc = func(ctx context.Context) (image.Image, func(), error) {
+		imageReleasedMu.Lock()
+		imageReleased = true
+		imageReleasedMu.Unlock()
+		return img, func() {}, nil
 	}
 
 	injectInputDev := &inject.InputController{}
@@ -512,7 +510,7 @@ func TestStatusClient(t *testing.T) {
 
 	camera1, err := camera.FromRobot(client, "camera1")
 	test.That(t, err, test.ShouldBeNil)
-	_, _, err = camera.ReadImage(context.Background(), camera1)
+	_, _, err = camera1.GetImage(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
@@ -591,7 +589,7 @@ func TestStatusClient(t *testing.T) {
 	camera1, err = camera.FromRobot(client, "camera1")
 	test.That(t, err, test.ShouldBeNil)
 	ctx := gostream.WithMIMETypeHint(context.Background(), rutils.MimeTypeRawRGBA)
-	frame, _, err := camera.ReadImage(ctx, camera1)
+	frame, _, err := camera1.GetImage(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	compVal, _, err := rimage.CompareImages(img, frame)
 	test.That(t, err, test.ShouldBeNil)

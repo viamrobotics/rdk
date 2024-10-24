@@ -8,7 +8,6 @@ import (
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -23,14 +22,14 @@ type undistortConfig struct {
 // undistortSource will undistort the original image according to the Distortion parameters
 // within the intrinsic parameters.
 type undistortSource struct {
-	originalStream gostream.VideoStream
+	originalSource camera.VideoSource
 	stream         camera.ImageType
 	cameraParams   *transform.PinholeCameraModel
 }
 
 func newUndistortTransform(
-	ctx context.Context, source gostream.VideoSource, stream camera.ImageType, am utils.AttributeMap,
-) (gostream.VideoSource, camera.ImageType, error) {
+	ctx context.Context, source camera.VideoSource, stream camera.ImageType, am utils.AttributeMap,
+) (camera.VideoSource, camera.ImageType, error) {
 	conf, err := resource.TransformAttributeMap[*undistortConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
@@ -40,7 +39,7 @@ func newUndistortTransform(
 	}
 	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(conf.CameraParams, conf.DistortionParams)
 	reader := &undistortSource{
-		gostream.NewEmbeddedVideoStream(source),
+		source,
 		stream,
 		&cameraModel,
 	}
@@ -55,7 +54,7 @@ func newUndistortTransform(
 func (us *undistortSource) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::undistort::Read")
 	defer span.End()
-	orig, release, err := us.originalStream.Next(ctx)
+	orig, release, err := us.originalSource.GetImage(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -84,5 +83,5 @@ func (us *undistortSource) Read(ctx context.Context) (image.Image, func(), error
 
 // Close closes the original stream.
 func (us *undistortSource) Close(ctx context.Context) error {
-	return us.originalStream.Close(ctx)
+	return us.originalSource.Close(ctx)
 }

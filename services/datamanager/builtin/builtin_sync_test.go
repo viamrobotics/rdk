@@ -24,7 +24,6 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
-	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
@@ -154,11 +153,10 @@ func TestSyncEnabled(t *testing.T) {
 			imgPng := newImgPng(t)
 			r := setupRobot(tc.cloudConnectionErr, map[resource.Name]resource.Resource{
 				camera.Named("c1"): &inject.Camera{
-					StreamFunc: func(
+					GetImageFunc: func(
 						ctx context.Context,
-						errHandlers ...gostream.ErrorHandler,
-					) (gostream.VideoStream, error) {
-						return newVideoStream(imgPng), nil
+					) (image.Image, func(), error) {
+						return imgPng, func() {}, nil
 					},
 				},
 			})
@@ -356,11 +354,10 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 				} else {
 					r = setupRobot(tc.cloudConnectionErr, map[resource.Name]resource.Resource{
 						camera.Named("c1"): &inject.Camera{
-							StreamFunc: func(
+							GetImageFunc: func(
 								ctx context.Context,
-								errHandlers ...gostream.ErrorHandler,
-							) (gostream.VideoStream, error) {
-								return newVideoStream(imgPng), nil
+							) (image.Image, func(), error) {
+								return imgPng, func() {}, nil
 							},
 						},
 					})
@@ -758,11 +755,10 @@ func TestStreamingDCUpload(t *testing.T) {
 			imgPng := newImgPng(t)
 			r := setupRobot(nil, map[resource.Name]resource.Resource{
 				camera.Named("c1"): &inject.Camera{
-					StreamFunc: func(
+					GetImageFunc: func(
 						ctx context.Context,
-						errHandlers ...gostream.ErrorHandler,
-					) (gostream.VideoStream, error) {
-						return newVideoStream(imgPng), nil
+					) (image.Image, func(), error) {
+						return imgPng, func() {}, nil
 					},
 				},
 			})
@@ -998,11 +994,10 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			imgPng := newImgPng(t)
 			r := setupRobot(nil, map[resource.Name]resource.Resource{
 				camera.Named("c1"): &inject.Camera{
-					StreamFunc: func(
+					GetImageFunc: func(
 						ctx context.Context,
-						errHandlers ...gostream.ErrorHandler,
-					) (gostream.VideoStream, error) {
-						return newVideoStream(imgPng), nil
+					) (image.Image, func(), error) {
+						return imgPng, func() {}, nil
 					},
 				},
 			})
@@ -1154,14 +1149,6 @@ func populateFileContents(fileContents []byte) []byte {
 	}
 
 	return fileContents
-}
-
-func newVideoStream(imgPng image.Image) gostream.VideoStream {
-	return gostream.NewEmbeddedVideoStreamFromReader(
-		gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-			return imgPng, func() {}, nil
-		}),
-	)
 }
 
 func newImgPng(t *testing.T) image.Image {

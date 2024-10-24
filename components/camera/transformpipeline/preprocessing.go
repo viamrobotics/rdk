@@ -8,19 +8,18 @@ import (
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 )
 
 // preprocessDepthTransform applies pre-processing functions to depth maps in order to smooth edges and fill holes.
 type preprocessDepthTransform struct {
-	stream gostream.VideoStream
+	src camera.VideoSource
 }
 
-func newDepthPreprocessTransform(ctx context.Context, source gostream.VideoSource,
-) (gostream.VideoSource, camera.ImageType, error) {
-	reader := &preprocessDepthTransform{gostream.NewEmbeddedVideoStream(source)}
+func newDepthPreprocessTransform(ctx context.Context, source camera.VideoSource,
+) (camera.VideoSource, camera.ImageType, error) {
+	reader := &preprocessDepthTransform{source}
 
 	props, err := propsFromVideoSource(ctx, source)
 	if err != nil {
@@ -43,7 +42,7 @@ func newDepthPreprocessTransform(ctx context.Context, source gostream.VideoSourc
 func (os *preprocessDepthTransform) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::depthPreprocess::Read")
 	defer span.End()
-	i, release, err := os.stream.Next(ctx)
+	i, release, err := os.src.GetImage(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -59,5 +58,5 @@ func (os *preprocessDepthTransform) Read(ctx context.Context) (image.Image, func
 }
 
 func (os *preprocessDepthTransform) Close(ctx context.Context) error {
-	return os.stream.Close(ctx)
+	return os.src.Close(ctx)
 }
