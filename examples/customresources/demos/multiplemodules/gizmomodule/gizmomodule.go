@@ -9,7 +9,6 @@ import (
 )
 
 func main() {
-	// ModularMain will create a logger named "gizmomodule", and will stand up a module which will
-	// host our gizmo.
-	module.ModularMain("gizmomodule", resource.APIModel{gizmoapi.API, mygizmosummer.Model})
+	// ModularMain will stand up a module which will host our gizmo.
+	module.ModularMain(resource.APIModel{gizmoapi.API, mygizmosummer.Model})
 }

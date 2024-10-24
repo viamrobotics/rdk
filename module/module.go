@@ -196,7 +196,8 @@ type Module struct {
 	robotpb.UnimplementedRobotServiceServer
 }
 
-// NewModule returns the basic module framework/structure.
+// NewModule returns the basic module framework/structure. Use ModularMain and NewModuleFromArgs unless
+// you really know what you're doing.
 func NewModule(ctx context.Context, address string, logger logging.Logger) (*Module, error) {
 	// TODO(PRODUCT-343): session support likely means interceptors here
 	opMgr := operation.NewManager(logger)
@@ -263,11 +264,11 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 }
 
 // NewModuleFromArgs directly parses the command line argument to get its address.
-func NewModuleFromArgs(ctx context.Context, logger logging.Logger) (*Module, error) {
+func NewModuleFromArgs(ctx context.Context) (*Module, error) {
 	if len(os.Args) < 2 {
 		return nil, errors.New("need socket path as command line argument")
 	}
-	return NewModule(ctx, os.Args[1], logger)
+	return NewModule(ctx, os.Args[1], NewLoggerFromArgs(""))
 }
 
 // Start starts the module service and grpc server.

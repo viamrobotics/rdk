@@ -15,10 +15,8 @@ import (
 )
 
 func main() {
-	// We will use a logging.Logger named "complexmodule," and our module will support 4 different
-	// resource models.
+	// ModularMain will stand up a module which will host 4 different models.
 	module.ModularMain(
-		"complexmodule",
 		resource.APIModel{gizmoapi.API, mygizmo.Model},
 		resource.APIModel{summationapi.API, mysum.Model},
 		resource.APIModel{base.API, mybase.Model},
