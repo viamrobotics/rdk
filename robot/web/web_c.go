@@ -21,18 +21,9 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	weboptions "go.viam.com/rdk/robot/web/options"
 	webstream "go.viam.com/rdk/robot/web/stream"
 	rutils "go.viam.com/rdk/utils"
 )
-
-// StreamServer manages streams and displays.
-type StreamServer struct {
-	// Server serves streams
-	Server *webstream.Server
-	// HasStreams is true if service has streams that require a WebRTC connection.
-	HasStreams bool
-}
 
 // New returns a new web service for the given robot.
 func New(r robot.Robot, logger logging.Logger, opts ...Option) Service {
@@ -61,7 +52,7 @@ type webService struct {
 	r            robot.Robot
 	rpcServer    rpc.Server
 	modServer    rpc.Server
-	streamServer *StreamServer
+	streamServer *webstream.Server
 	services     map[resource.API]resource.APIResourceCollection[resource.Resource]
 	opts         options
 	addr         string
@@ -78,7 +69,7 @@ type webService struct {
 }
 
 func (svc *webService) streamInitialized() bool {
-	return svc.streamServer != nil && svc.streamServer.Server != nil
+	return svc.streamServer != nil
 }
 
 func (svc *webService) addNewStreams(ctx context.Context) error {
@@ -147,7 +138,7 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 }
 
 func (svc *webService) createStream(config gostream.StreamConfig, name string) (gostream.Stream, bool, error) {
-	stream, err := svc.streamServer.Server.NewStream(config)
+	stream, err := svc.streamServer.NewStream(config)
 	// Skip if stream is already registered, otherwise raise any other errors
 	var registeredError *webstream.StreamAlreadyRegisteredError
 	if errors.As(err, &registeredError) {
@@ -155,9 +146,6 @@ func (svc *webService) createStream(config gostream.StreamConfig, name string) (
 		return nil, true, nil
 	} else if err != nil {
 		return nil, false, err
-	}
-	if !svc.streamServer.HasStreams {
-		svc.streamServer.HasStreams = true
 	}
 	return stream, false, err
 }
@@ -257,30 +245,25 @@ func (svc *webService) Reconfigure(ctx context.Context, deps resource.Dependenci
 }
 
 func (svc *webService) closeStreamServer() {
-	if svc.streamServer.Server != nil {
-		if err := svc.streamServer.Server.Close(); err != nil {
+	if svc.streamInitialized() {
+		if err := svc.streamServer.Close(); err != nil {
 			svc.logger.Errorw("error closing stream server", "error", err)
 		}
 	}
 }
 
-func (svc *webService) initStreamServer(ctx context.Context, options *weboptions.Options) error {
-	server := webstream.NewServer(svc.r, svc.logger)
-	svc.streamServer = &StreamServer{server, false}
+func (svc *webService) initStreamServer(ctx context.Context) error {
+	svc.streamServer = webstream.NewServer(svc.r, svc.logger)
 	if err := svc.addNewStreams(ctx); err != nil {
 		return err
 	}
 	if err := svc.rpcServer.RegisterServiceServer(
 		ctx,
 		&streampb.StreamService_ServiceDesc,
-		svc.streamServer.Server,
+		svc.streamServer,
 		streampb.RegisterStreamServiceHandlerFromEndpoint,
 	); err != nil {
 		return err
-	}
-	if svc.streamServer.HasStreams {
-		// force WebRTC template rendering
-		options.PreferWebRTC = true
 	}
 	return nil
 }
