@@ -4395,6 +4395,9 @@ func TestRemovingOfflineRemotes(t *testing.T) {
 		defer wg.Done()
 		localRobot.manager.completeConfig(ctxCompleteConfig, localRobot, false)
 	}()
+	
+	// ensure that complete config grabs the lock
+	time.Sleep(1 * time.Second)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -4403,7 +4406,7 @@ func TestRemovingOfflineRemotes(t *testing.T) {
 
 	// Sleep needed to ensure reconfig is waiting on complete cofig to release the lock
 	// and that complete config is hanging on trying to dial the remote
-	time.Sleep(3 * time.Second)
+	time.Sleep(2 * time.Second)
 
 	// Ensure that the remote is not marked for removal while trying to connect to the remote
 	remote, ok := localRobot.manager.resources.Node(remoteName)
