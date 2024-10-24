@@ -83,6 +83,7 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 
 			SDKVersion: "0.0.0",
 		}
+		populateAdditionalInfo(newModule)
 	} else {
 		newModule, err = promptUser()
 		if err != nil {
