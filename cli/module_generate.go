@@ -668,7 +668,7 @@ func getLatestSDKTag(c *cli.Context, language string) (string, error) {
 	case golang:
 		repo = "rdk"
 	default:
-		return "", errors.Errorf("Unexpected language was selected. Cannot produce template.")
+		return "", errors.New("Unexpected language was selected. Cannot produce template.")
 	}
 	debugf(c.App.Writer, c.Bool(debugFlag), "Getting the latest release tag for %s", repo)
 	url := fmt.Sprintf("https://api.github.com/repos/viamrobotics/%s/releases", repo)
