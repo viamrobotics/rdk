@@ -344,9 +344,17 @@ func (c *collector) writeCaptureResults() {
 	}
 }
 
+// TabularData is a denormalized sensor reading.
+type TabularData struct {
+	TimeRequested time.Time `bson:"time_requested"`
+	TimeReceived  time.Time `bson:"time_received"`
+	ComponentName string    `bson:"component_name"`
+	ComponentType string    `bson:"component_type"`
+	MethodName    string    `bson:"method_name"`
+	Data          bson.M    `bson:"data"`
+}
+
 func (c *collector) maybeWriteToMongo(msg *v1.SensorData) {
-	c.logger.Info("maybeWriteToMongo START")
-	defer c.logger.Info("maybeWriteToMongo END")
 	if c.mongoCollection == nil {
 		return
 	}
@@ -355,24 +363,22 @@ func (c *collector) maybeWriteToMongo(msg *v1.SensorData) {
 		return
 	}
 
-	wrapper, err := structpb.NewStruct(map[string]any{
-		"component_name": c.componentName,
-		"component_type": c.componentType,
-		"method_name":    c.methodName,
-		"data":           s.AsMap(),
-	})
+	data, err := PBStructToBSON(s)
 	if err != nil {
-		c.logger.Error(errors.Wrap(err, "failed to wrap sensor data"))
+		c.logger.Error(errors.Wrap(err, "failed to convert sensor data into bson"))
 		return
 	}
 
-	doc, err := PBStructToBSON(wrapper)
-	if err != nil {
-		c.logger.Error(errors.Wrap(err, "failed to serialize sensor data into bson"))
-		return
+	td := TabularData{
+		TimeRequested: msg.Metadata.TimeRequested.AsTime(),
+		TimeReceived:  msg.Metadata.TimeReceived.AsTime(),
+		ComponentName: c.componentName,
+		ComponentType: c.componentType,
+		MethodName:    c.methodName,
+		Data:          data,
 	}
 
-	if _, err := c.mongoCollection.InsertOne(c.cancelCtx, doc); err != nil {
+	if _, err := c.mongoCollection.InsertOne(c.cancelCtx, td); err != nil {
 		c.logger.Error(errors.Wrap(err, "failed to write to mongo"))
 	}
 }

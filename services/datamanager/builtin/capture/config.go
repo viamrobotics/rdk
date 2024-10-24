@@ -19,14 +19,6 @@ func (mc MongoConfig) validate() error {
 		return errors.New("mongo config URI can't be empty string")
 	}
 
-	if mc.Database == "" {
-		return errors.New("mongo config Database can't be empty string")
-	}
-
-	if mc.Collection == "" {
-		return errors.New("mongo config Collection can't be empty string")
-	}
-
 	return nil
 }
 
