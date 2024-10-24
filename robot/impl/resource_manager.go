@@ -237,10 +237,10 @@ func (manager *resourceManager) updateRemoteResourceNames(
 				// it is possible that we are switching to a new remote with a identical resource name(s), so we may
 				// need to create these resource clients.
 				if !recreateAllClients {
-					// ticker event, likely no changes to remote resources, skip closing and readding duplicate name resource clients
+					// ticker event, likely no changes to remote resources, skip closing and re-adding duplicate name resource clients
 					continue
 				}
-				// reconfiguration attempt, remote could have changed, so close all duplicate name remote resource clients and readd new ones later
+				// reconfiguration attempt, remote could have changed, so close all duplicate name remote resource clients and re-add new ones later
 				resLogger.CDebugw(ctx, "attempting to remove remote resource")
 				if err := manager.markChildrenForUpdate(resName); err != nil {
 					resLogger.CErrorw(ctx,
