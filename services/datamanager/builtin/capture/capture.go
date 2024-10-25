@@ -150,7 +150,7 @@ func (c *Capture) mongoSetup(ctx context.Context, mc MongoConfig) *mongo.Collect
 	// Create a new client and connect to the server
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(mc.URI).SetServerAPIOptions(serverAPI))
 	if err != nil {
-		c.logger.Warn("failed to create mongo connection with mongo_config.url")
+		c.logger.Warn("failed to create mongo connection with mongo_config.uri")
 		return nil
 	}
 	c.mongoClient = client
