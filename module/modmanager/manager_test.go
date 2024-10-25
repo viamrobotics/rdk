@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/pion/rtp"
+	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 	v1 "go.viam.com/api/module/v1"
 	"go.viam.com/test"
@@ -1455,19 +1456,31 @@ func TestFirstRun(t *testing.T) {
 
 		test.That(tb, logs.FilterMessage("executing first run script").Len(), test.ShouldEqual, 1)
 
-		stdio := logs.FilterMessage("got stdio")
-		test.That(tb, stdio.Len(), test.ShouldEqual, 3)
-
-		expectedOutput := map[string]struct{}{
-			"success line 1": {},
-			"success line 2": {},
-			"success line 3": {},
+		stdio := logs.FilterMessage("got stdio").FilterLevelExact(zapcore.InfoLevel)
+		test.That(tb, stdio.Len(), test.ShouldEqual, 4)
+		expectedStdio := map[string]struct{}{
+			"running... 1": {},
+			"running... 2": {},
+			"running... 3": {},
+			"done!":        {},
 		}
 		for _, msg := range stdio.All() {
 			line := msg.ContextMap()["output"].(string)
-			delete(expectedOutput, line)
+			delete(expectedStdio, line)
 		}
-		test.That(tb, expectedOutput, test.ShouldBeEmpty)
+		test.That(tb, expectedStdio, test.ShouldBeEmpty)
+
+		stderr := logs.FilterMessage("got stderr").FilterLevelExact(zapcore.WarnLevel)
+		test.That(tb, stderr.Len(), test.ShouldEqual, 2)
+		expectedStderr := map[string]struct{}{
+			"hiccup 1": {},
+			"hiccup 2": {},
+		}
+		for _, msg := range stderr.All() {
+			line := msg.ContextMap()["output"].(string)
+			delete(expectedStderr, line)
+		}
+		test.That(tb, expectedStderr, test.ShouldBeEmpty)
 
 		test.That(tb, logs.FilterMessage("first run script succeeded").Len(), test.ShouldEqual, 1)
 	})
