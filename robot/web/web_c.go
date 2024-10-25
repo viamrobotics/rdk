@@ -6,14 +6,12 @@ import (
 	"bytes"
 	"context"
 	"net/http"
-	"runtime"
 	"sync"
 
 	"github.com/pkg/errors"
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -67,110 +65,6 @@ type webService struct {
 	modWorkers   sync.WaitGroup
 }
 
-func (svc *webService) streamInitialized() bool {
-	return svc.streamServer != nil && svc.streamServer.Server != nil
-}
-
-func (svc *webService) addNewStreams(ctx context.Context) error {
-	svc.logger.Info("adding new streams")
-	if !svc.streamInitialized() {
-		svc.logger.Warn("not starting streams because the stream server is not initialized")
-		return nil
-	}
-
-	// Refreshing sources will walk the robot resources for anything implementing the camera and
-	// audioinput APIs and mutate the `svc.videoSources` and `svc.audioSources` maps.
-	svc.logger.Info("refreshing video and audio sources")
-	svc.streamServer.Server.RefreshVideoSources()
-	svc.streamServer.Server.RefreshAudioSources()
-
-	if svc.opts.streamConfig == nil {
-		// The `streamConfig` dictates the video and audio encoder libraries to use. We can't do
-		// much if none are present.
-		if len(svc.streamServer.Server.VideoSources) != 0 || len(svc.streamServer.Server.AudioSources) != 0 {
-			svc.logger.Warn("not starting streams due to no stream config being set")
-		}
-		return nil
-	}
-
-	svc.logger.Info("starting video and audio streams")
-	for name := range svc.streamServer.Server.VideoSources {
-		if runtime.GOOS == "windows" {
-			// TODO(RSDK-1771): support video on windows
-			svc.logger.Warn("video streaming not supported on Windows yet")
-			break
-		}
-		// We walk the updated set of `videoSources` and ensure all of the sources are "created" and
-		// "started".
-		config := gostream.StreamConfig{
-			Name:                name,
-			VideoEncoderFactory: svc.opts.streamConfig.VideoEncoderFactory,
-		}
-		// Call `createStream`. `createStream` is responsible for first checking if the stream
-		// already exists. If it does, it skips creating a new stream and we continue to the next source.
-		//
-		// TODO(RSDK-9079) Add reliable framerate fetcher for stream videosources
-		stream, alreadyRegistered, err := svc.streamServer.Server.CreateStream(config, name)
-		if err != nil {
-			return err
-		} else if alreadyRegistered {
-			continue
-		}
-		svc.streamServer.Server.StartVideoStream(ctx, svc.streamServer.Server.VideoSources[name], stream)
-	}
-
-	for name := range svc.streamServer.Server.AudioSources {
-		// Similarly, we walk the updated set of `audioSources` and ensure all of the audio sources
-		// are "created" and "started". `createStream` and `startAudioStream` have the same
-		// behaviors as described above for video streams.
-		config := gostream.StreamConfig{
-			Name:                name,
-			AudioEncoderFactory: svc.opts.streamConfig.AudioEncoderFactory,
-		}
-		stream, alreadyRegistered, err := svc.streamServer.Server.CreateStream(config, name)
-		if err != nil {
-			return err
-		} else if alreadyRegistered {
-			continue
-		}
-		svc.streamServer.Server.StartAudioStream(ctx, svc.streamServer.Server.AudioSources[name], stream)
-	}
-
-	return nil
-}
-
-// func (svc *webService) propertiesFromStream(ctx context.Context, stream gostream.Stream) (camera.Properties, error) {
-// 	res, err := svc.r.ResourceByName(camera.Named(stream.Name()))
-// 	if err != nil {
-// 		return camera.Properties{}, err
-// 	}
-
-// 	cam, ok := res.(camera.Camera)
-// 	if !ok {
-// 		return camera.Properties{}, errors.Errorf("cannot convert resource (type %T) to type (%T)", res, camera.Camera(nil))
-// 	}
-// 	return cam.Properties(ctx)
-// }
-
-// func (svc *webService) startVideoStream(ctx context.Context, source gostream.VideoSource, stream gostream.Stream) {
-// 	svc.streamServer.Server.StartStream(func(opts *webstream.BackoffTuningOptions) error {
-// 		streamVideoCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
-// 		// Use H264 for cameras that support it; but do not override upstream values.
-// 		if props, err := svc.propertiesFromStream(ctx, stream); err == nil && slices.Contains(props.MimeTypes, rutils.MimeTypeH264) {
-// 			streamVideoCtx = gostream.WithMIMETypeHint(streamVideoCtx, rutils.WithLazyMIMEType(rutils.MimeTypeH264))
-// 		}
-// 		return webstream.StreamVideoSource(streamVideoCtx, source, stream, opts, svc.logger)
-// 	})
-// }
-
-// func (svc *webService) startAudioStream(ctx context.Context, source gostream.AudioSource, stream gostream.Stream) {
-// 	svc.streamServer.Server.StartStream(func(opts *webstream.BackoffTuningOptions) error {
-// 		// Merge ctx that may be coming from a Reconfigure.
-// 		streamAudioCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
-// 		return webstream.StreamAudioSource(streamAudioCtx, source, stream, opts, svc.logger)
-// 	})
-// }
-
 // Update updates the web service when the robot has changed.
 func (svc *webService) Reconfigure(ctx context.Context, deps resource.Dependencies, _ resource.Config) error {
 	svc.mu.Lock()
@@ -181,7 +75,7 @@ func (svc *webService) Reconfigure(ctx context.Context, deps resource.Dependenci
 	if !svc.isRunning {
 		return nil
 	}
-	return svc.addNewStreams(svc.cancelCtx)
+	return svc.streamServer.Server.AddNewStreams(svc.cancelCtx)
 }
 
 func (svc *webService) closeStreamServer() {
@@ -193,9 +87,9 @@ func (svc *webService) closeStreamServer() {
 }
 
 func (svc *webService) initStreamServer(ctx context.Context, options *weboptions.Options) error {
-	server := webstream.NewServer(svc.r, svc.logger)
+	server := webstream.NewServer(svc.r, *svc.opts.streamConfig, svc.logger)
 	svc.streamServer = &StreamServer{server, false}
-	if err := svc.addNewStreams(ctx); err != nil {
+	if err := svc.streamServer.Server.AddNewStreams(ctx); err != nil {
 		return err
 	}
 	if err := svc.rpcServer.RegisterServiceServer(
