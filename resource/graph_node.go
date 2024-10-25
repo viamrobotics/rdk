@@ -609,8 +609,6 @@ func (w *GraphNode) Stats() any {
 
 	if statser, isStatser := res.(ftdc.Statser); isStatser && err == nil {
 		ret.ResStats = statser.Stats()
-	} else {
-		ret.ResStats = struct{}{}
 	}
 
 	return ret
