@@ -147,16 +147,7 @@ func (manager *resourceManager) addRemote(
 			return
 		}
 	} else {
-		if manager.opts.ftdc != nil {
-			manager.opts.ftdc.Remove(rName.String())
-		}
-
-		// SwapResource can change the underlying resource from a non-remote to a remote?
-		gNode.SwapResource(rr, builtinModel)
-
-		if manager.opts.ftdc != nil {
-			manager.opts.ftdc.Add(rName.String(), gNode)
-		}
+		gNode.SwapResourceWithFTDCTracking(rr, builtinModel, manager.opts.ftdc)
 	}
 	manager.updateRemoteResourceNames(ctx, rName, rr, true)
 }
@@ -275,14 +266,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		}
 
 		if nodeAlreadyExists {
-			if manager.opts.ftdc != nil {
-				manager.opts.ftdc.Remove(resName.String())
-			}
-			gNode.SwapResource(res, unknownModel)
-
-			if manager.opts.ftdc != nil {
-				manager.opts.ftdc.Add(resName.String(), gNode)
-			}
+			gNode.SwapResourceWithFTDCTracking(res, unknownModel, manager.opts.ftdc)
 		} else {
 			gNode = resource.NewConfiguredGraphNode(resource.Config{}, res, unknownModel)
 			if err := manager.resources.AddNode(resName, gNode); err != nil {
@@ -745,15 +729,7 @@ func (manager *resourceManager) completeConfig(
 							manager.logger.CErrorw(
 								ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
 						} else {
-							if manager.opts.ftdc != nil {
-								manager.opts.ftdc.Remove(resName.String())
-							}
-
-							gNode.SwapResource(newRes, conf.Model)
-
-							if manager.opts.ftdc != nil {
-								manager.opts.ftdc.Add(resName.String(), gNode)
-							}
+							gNode.SwapResourceWithFTDCTracking(newRes, conf.Model, manager.opts.ftdc)
 						}
 
 					default:

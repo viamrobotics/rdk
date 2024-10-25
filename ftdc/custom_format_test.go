@@ -278,18 +278,57 @@ func TestNestedAny(t *testing.T) {
 	stat := nestsAny{10, struct{ X int }{5}}
 	fields, err := getFieldsForStruct(reflect.ValueOf(stat))
 	logger.Info("Fields:", fields, "Err:", err)
-	// ["Number", "Struct.X"]
+	test.That(t, fields, test.ShouldResemble, []string{"Number", "Struct.X"})
 
 	values, err := flattenStruct(reflect.ValueOf(stat))
 	logger.Info("Values:", values, "Err:", err)
-	// [10, 5]
+	test.That(t, values, test.ShouldResemble, []float32{10, 5})
 
 	stat = nestsAny{10, nil}
 	fields, err = getFieldsForStruct(reflect.ValueOf(stat))
 	logger.Info("Fields:", fields, "Err:", err)
-	// ["Number"]
+	test.That(t, fields, test.ShouldResemble, []string{"Number"})
 
 	values, err = flattenStruct(reflect.ValueOf(stat))
 	logger.Info("Values:", values, "Err:", err)
-	// [10]
+	test.That(t, values, test.ShouldResemble, []float32{10})
+}
+
+func TestWeirdStats(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	aChannel := make(chan struct{})
+	stat := nestsAny{10, struct {
+		aChannel      *chan struct{}
+		aString       string
+		hiddenNumeric bool
+		anArray       [5]int
+	}{
+		aChannel:      &aChannel,
+		aString:       "definitely a string and not a numeric",
+		hiddenNumeric: true,
+		anArray:       [5]int{5, 4, 3, 2, 1},
+	}}
+
+	fields, err := getFieldsForStruct(reflect.ValueOf(stat))
+	logger.Info("Fields:", fields, " Err:", err)
+	test.That(t, fields, test.ShouldResemble, []string{"Number", "Struct.hiddenNumeric"})
+
+	values, err := flattenStruct(reflect.ValueOf(stat))
+	logger.Info("Values:", values, " Err:", err)
+	test.That(t, values, test.ShouldResemble, []float32{10, 1})
+}
+
+func TestNilNestedStats(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	stat := nestsAny{10, nil}
+
+	fields, err := getFieldsForStruct(reflect.ValueOf(stat))
+	logger.Info("Fields:", fields, " Err:", err)
+	test.That(t, fields, test.ShouldResemble, []string{"Number"})
+
+	values, err := flattenStruct(reflect.ValueOf(stat))
+	logger.Info("Values:", values, " Err:", err)
+	test.That(t, values, test.ShouldResemble, []float32{10})
 }

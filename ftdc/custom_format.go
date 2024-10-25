@@ -146,7 +146,7 @@ func flattenStruct(item reflect.Value) ([]float32, error) {
 	}
 
 	rVal := flattenPtr(item)
-	if (rVal.Kind() == reflect.Pointer || rVal.Kind() == reflect.Interface) && rVal.IsNil() {
+	if rVal.Kind() != reflect.Struct {
 		return []float32{}, nil
 	}
 
@@ -167,6 +167,12 @@ func flattenStruct(item reflect.Value) ([]float32, error) {
 			numbers = append(numbers, float32(rField.Int()))
 		case rField.CanFloat():
 			numbers = append(numbers, float32(rField.Float()))
+		case rField.Kind() == reflect.Bool:
+			if rField.Bool() {
+				numbers = append(numbers, 1)
+			} else {
+				numbers = append(numbers, 0)
+			}
 		case rField.Kind() == reflect.Struct ||
 			rField.Kind() == reflect.Pointer ||
 			rField.Kind() == reflect.Interface:
@@ -175,13 +181,12 @@ func flattenStruct(item reflect.Value) ([]float32, error) {
 				return nil, err
 			}
 			numbers = append(numbers, subNumbers...)
+		case isNumeric(rField.Kind()):
+			//nolint:stylecheck
+			return nil, fmt.Errorf("A numeric type was forgotten to be included. Kind: %v", rField.Kind())
 		default:
-			// Embedded structs? Just grab a global logger for now. A second pass will better
-			// validate inputs/remove limitations. And thread through a proper logger if still
-			// necessary.
-			logging.Global().Warn("Bad number type. Type:", rField.Type())
-			// Ignore via writing a 0 and continue.
-			numbers = append(numbers, 0)
+			// Getting the keys for a structure will ignore these types. Such as the antagonistic
+			// `channel`, or `string`. We follow suit in ignoring these types.
 		}
 	}
 
@@ -198,9 +203,14 @@ func flattenStruct(item reflect.Value) ([]float32, error) {
 //
 // Will return `["PowerPct", "Pos"]`.
 //
-// The function right now does not recursively walk data structures. We assume for now that the
-// caller will only feed "already flat" structures into FTDC. Later commits will better validate
-// input and remove limitations.
+// Nested structures will walk and return a "dot delimited" name. E.g:
+//
+//	type ParentFoo {
+//	  Healthy Bool
+//	  FooField Foo
+//	}
+//
+// Will return `["Healthy", "FooField.PowerPct", "FooField.Pos"]`.
 func getFieldsForStruct(item reflect.Value) ([]string, error) {
 	flattenPtr := func(inp reflect.Value) reflect.Value {
 		for inp.Kind() == reflect.Pointer || inp.Kind() == reflect.Interface {
@@ -213,7 +223,7 @@ func getFieldsForStruct(item reflect.Value) ([]string, error) {
 	}
 
 	rVal := flattenPtr(item)
-	if (rVal.Kind() == reflect.Pointer || rVal.Kind() == reflect.Interface) && rVal.IsNil() {
+	if rVal.Kind() != reflect.Struct {
 		return nil, errNotStruct
 	}
 

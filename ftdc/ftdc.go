@@ -3,6 +3,7 @@ package ftdc
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -176,7 +177,7 @@ func (ftdc *FTDC) Remove(name string) {
 // Start spins off the background goroutine for collecting/writing FTDC data.
 func (ftdc *FTDC) Start() {
 	ftdc.readStatsWorker = utils.NewStoppableWorkerWithTicker(time.Second, ftdc.statsReader)
-	go ftdc.statsWriter()
+	utils.PanicCapturingGo(ftdc.statsWriter)
 }
 
 func (ftdc *FTDC) statsReader(ctx context.Context) {
@@ -209,7 +210,13 @@ func (ftdc *FTDC) statsWriter() {
 
 	datumsWritten := 0
 	for datum := range ftdc.datumCh {
-		if err := ftdc.writeDatum(datum); err != nil {
+		if err := ftdc.writeDatum(datum); err != nil && !errors.Is(err, errNotStruct) {
+			// This code path ignores `errNotStruct` errors and shuts down on everything else.  An
+			// `errNotStruct` happens when some registered `Statser` returned a `map` instead of a
+			// `struct`. The lower level `writeDatum` call has handled the error by removing the
+			// `Statser` from "registry". But bubbles it up to signal that no `Datum` was written.
+			// The errors that do get handled here are expected to simply be FS/disk failure errors.
+
 			ftdc.logger.Error("Error writing ftdc data. Shutting down FTDC.", "err", err)
 			// To shut down, we just exit. Closing the `ftdc.outputWorkerDone`. The `statsReader`
 			// goroutine will eventually observe that channel was closed and also exit.

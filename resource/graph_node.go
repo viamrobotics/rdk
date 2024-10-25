@@ -254,6 +254,24 @@ func (w *GraphNode) SwapResource(newRes Resource, newModel Model) {
 	w.lastReconfigured = &now
 }
 
+// SwapResourceWithFTDCTracking wraps SwapResources, but also updates FTDC to communicate that the
+// `Stats` method may return different values. As we'll now be calling `Stats` on a potentially
+// different underlying `Model`.
+func (w *GraphNode) SwapResourceWithFTDCTracking(newRes Resource, newModel Model, ftdc *ftdc.FTDC) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.SwapResource(newRes, newModel)
+
+	// Calling `Stats` acquires the `GraphNode.mu` (via the `Resource` method). This allows us to
+	// safely Remove->Add in one step instead of needing to Remove->SwapResource->Add.
+	if ftdc != nil {
+		// We call `Remove` followed by `Add` instead of only calling `Add`. Only calling `Add`
+		// would result in a warning that we're overriding an existing ftdc "system".
+		ftdc.Remove(newRes.Name().String())
+		ftdc.Add(newRes.Name().String(), w)
+	}
+}
+
 // MarkForRemoval marks this node for removal at a later time.
 func (w *GraphNode) MarkForRemoval() {
 	w.mu.Lock()
