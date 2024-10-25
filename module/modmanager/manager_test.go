@@ -1453,8 +1453,6 @@ func TestFirstRun(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			tb.Helper()
-
 			test.That(tb, logs.FilterMessage("executing first run script").Len(), test.ShouldEqual, 1)
 
 			stdio := logs.FilterMessage("got stdio").FilterLevelExact(zapcore.InfoLevel)
@@ -1492,8 +1490,6 @@ func TestFirstRun(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			tb.Helper()
-
 			test.That(tb, logs.FilterMessage("executing first run script").Len(), test.ShouldEqual, 1)
 
 			stdio := logs.FilterMessage("got stdio").FilterLevelExact(zapcore.InfoLevel)
@@ -1533,8 +1529,6 @@ func TestFirstRun(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			tb.Helper()
-
 			test.That(tb, logs.FilterMessage("first run already ran").Len(), test.ShouldEqual, 1)
 		})
 	})
@@ -1553,7 +1547,6 @@ func TestFirstRun(t *testing.T) {
 		err = mgr.FirstRun(ctx, modCfg)
 		test.That(t, err, test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			tb.Helper()
 			test.That(tb, logs.FilterMessage("first run already ran").Len(), test.ShouldEqual, 1)
 		})
 	})
