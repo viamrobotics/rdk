@@ -1487,12 +1487,30 @@ func TestFirstRun(t *testing.T) {
 	})
 
 	// First run should not run again if method is called
+	logs.TakeAll() // truncate observed logs
 	err = mgr.FirstRun(ctx, modCfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
 
+		test.That(tb, logs.FilterMessage("first run already ran").Len(), test.ShouldEqual, 1)
+	})
+
+	// First run should not run again even module manager is restarted
+	logs.TakeAll() // truncate observed logs
+	err = mgr.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+
+	opts = modmanageroptions.Options{
+		UntrustedEnv: false,
+	}
+	mgr = setupModManager(t, ctx, parentAddr, logger, opts)
+
+	err = mgr.FirstRun(ctx, modCfg)
+	test.That(t, err, test.ShouldBeNil)
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
 		test.That(tb, logs.FilterMessage("first run already ran").Len(), test.ShouldEqual, 1)
 	})
 }
