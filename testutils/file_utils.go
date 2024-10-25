@@ -12,13 +12,15 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-func buildTempModule(tb testing.TB, exeDestDir, exeName, modSrcDir string) string {
+// BuildTempModule will attempt to build the module in the provided directory and put the
+// resulting executable binary into a temporary directory. If successful, this function will
+// return the path to the executable binary.
+func BuildTempModule(tb testing.TB, modDir string) string {
 	tb.Helper()
-
-	exePath := filepath.Join(exeDestDir, exeName)
+	exePath := filepath.Join(tb.TempDir(), filepath.Base(modDir))
 	//nolint:gosec
 	builder := exec.Command("go", "build", "-o", exePath, ".")
-	builder.Dir = utils.ResolveFile(modSrcDir)
+	builder.Dir = utils.ResolveFile(modDir)
 	out, err := builder.CombinedOutput()
 	// NOTE (Nick S): Workaround for the tickets below:
 	// https://viam.atlassian.net/browse/RSDK-7145
@@ -38,17 +40,6 @@ func buildTempModule(tb testing.TB, exeDestDir, exeName, modSrcDir string) strin
 	return exePath
 }
 
-// BuildTempModule will attempt to build the module in the provided directory and put the
-// resulting executable binary into a temporary directory. If successful, this function will
-// return the path to the executable binary.
-func BuildTempModule(tb testing.TB, modDir string) string {
-	tb.Helper()
-
-	exeDir := tb.TempDir()
-	exeName := filepath.Base(modDir)
-	return buildTempModule(tb, exeDir, exeName, modDir)
-}
-
 // BuildTempModuleWithFirstRun will attempt to build the module in the provided directory and put the
 // resulting executable binary into a temporary directory. After building, it will also copy "meta.json"
 // and "first_run.sh" into the same temporary directory. It is assumed that these files are in the
@@ -56,9 +47,8 @@ func BuildTempModule(tb testing.TB, modDir string) string {
 func BuildTempModuleWithFirstRun(tb testing.TB, modDir string) string {
 	tb.Helper()
 
-	exeDir := tb.TempDir()
-	exeName := filepath.Base(modDir)
-	exePath := buildTempModule(tb, exeDir, exeName, modDir)
+	exePath := BuildTempModule(tb, modDir)
+	exeDir := filepath.Dir(exePath)
 
 	for _, file := range []string{
 		"meta.json",
