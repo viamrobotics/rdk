@@ -7,22 +7,18 @@ import (
 	"context"
 	"net/http"
 	"runtime"
-	"slices"
 	"sync"
 
 	"github.com/pkg/errors"
 	streampb "go.viam.com/api/stream/v1"
-	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	webstream "go.viam.com/rdk/robot/web/stream"
-	rutils "go.viam.com/rdk/utils"
 )
 
 // StreamServer manages streams and displays.
@@ -120,7 +116,7 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 		} else if alreadyRegistered {
 			continue
 		}
-		svc.startVideoStream(ctx, svc.streamServer.Server.VideoSources[name], stream)
+		svc.streamServer.Server.StartVideoStream(ctx, svc.streamServer.Server.VideoSources[name], stream)
 	}
 
 	for name := range svc.streamServer.Server.AudioSources {
@@ -137,43 +133,43 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 		} else if alreadyRegistered {
 			continue
 		}
-		svc.startAudioStream(ctx, svc.streamServer.Server.AudioSources[name], stream)
+		svc.streamServer.Server.StartAudioStream(ctx, svc.streamServer.Server.AudioSources[name], stream)
 	}
 
 	return nil
 }
 
-func (svc *webService) propertiesFromStream(ctx context.Context, stream gostream.Stream) (camera.Properties, error) {
-	res, err := svc.r.ResourceByName(camera.Named(stream.Name()))
-	if err != nil {
-		return camera.Properties{}, err
-	}
+// func (svc *webService) propertiesFromStream(ctx context.Context, stream gostream.Stream) (camera.Properties, error) {
+// 	res, err := svc.r.ResourceByName(camera.Named(stream.Name()))
+// 	if err != nil {
+// 		return camera.Properties{}, err
+// 	}
 
-	cam, ok := res.(camera.Camera)
-	if !ok {
-		return camera.Properties{}, errors.Errorf("cannot convert resource (type %T) to type (%T)", res, camera.Camera(nil))
-	}
-	return cam.Properties(ctx)
-}
+// 	cam, ok := res.(camera.Camera)
+// 	if !ok {
+// 		return camera.Properties{}, errors.Errorf("cannot convert resource (type %T) to type (%T)", res, camera.Camera(nil))
+// 	}
+// 	return cam.Properties(ctx)
+// }
 
-func (svc *webService) startVideoStream(ctx context.Context, source gostream.VideoSource, stream gostream.Stream) {
-	svc.streamServer.Server.StartStream(func(opts *webstream.BackoffTuningOptions) error {
-		streamVideoCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
-		// Use H264 for cameras that support it; but do not override upstream values.
-		if props, err := svc.propertiesFromStream(ctx, stream); err == nil && slices.Contains(props.MimeTypes, rutils.MimeTypeH264) {
-			streamVideoCtx = gostream.WithMIMETypeHint(streamVideoCtx, rutils.WithLazyMIMEType(rutils.MimeTypeH264))
-		}
-		return webstream.StreamVideoSource(streamVideoCtx, source, stream, opts, svc.logger)
-	})
-}
+// func (svc *webService) startVideoStream(ctx context.Context, source gostream.VideoSource, stream gostream.Stream) {
+// 	svc.streamServer.Server.StartStream(func(opts *webstream.BackoffTuningOptions) error {
+// 		streamVideoCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
+// 		// Use H264 for cameras that support it; but do not override upstream values.
+// 		if props, err := svc.propertiesFromStream(ctx, stream); err == nil && slices.Contains(props.MimeTypes, rutils.MimeTypeH264) {
+// 			streamVideoCtx = gostream.WithMIMETypeHint(streamVideoCtx, rutils.WithLazyMIMEType(rutils.MimeTypeH264))
+// 		}
+// 		return webstream.StreamVideoSource(streamVideoCtx, source, stream, opts, svc.logger)
+// 	})
+// }
 
-func (svc *webService) startAudioStream(ctx context.Context, source gostream.AudioSource, stream gostream.Stream) {
-	svc.streamServer.Server.StartStream(func(opts *webstream.BackoffTuningOptions) error {
-		// Merge ctx that may be coming from a Reconfigure.
-		streamAudioCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
-		return webstream.StreamAudioSource(streamAudioCtx, source, stream, opts, svc.logger)
-	})
-}
+// func (svc *webService) startAudioStream(ctx context.Context, source gostream.AudioSource, stream gostream.Stream) {
+// 	svc.streamServer.Server.StartStream(func(opts *webstream.BackoffTuningOptions) error {
+// 		// Merge ctx that may be coming from a Reconfigure.
+// 		streamAudioCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
+// 		return webstream.StreamAudioSource(streamAudioCtx, source, stream, opts, svc.logger)
+// 	})
+// }
 
 // Update updates the web service when the robot has changed.
 func (svc *webService) Reconfigure(ctx context.Context, deps resource.Dependencies, _ resource.Config) error {

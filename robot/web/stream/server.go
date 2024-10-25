@@ -3,6 +3,7 @@ package webstream
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -484,4 +485,38 @@ func (server *Server) StartStream(streamFunc func(opts *BackoffTuningOptions) er
 		}
 	})
 	<-waitCh
+}
+
+func (server *Server) StartVideoStream(ctx context.Context, source gostream.VideoSource, stream gostream.Stream) {
+	server.StartStream(func(opts *BackoffTuningOptions) error {
+		// TODO(seanp): Is it ok to merge with closedCtx here?
+		streamVideoCtx, _ := utils.MergeContext(server.closedCtx, ctx)
+		// Use H264 for cameras that support it; but do not override upstream values.
+		if props, err := server.propertiesFromStream(ctx, stream); err == nil && slices.Contains(props.MimeTypes, rutils.MimeTypeH264) {
+			streamVideoCtx = gostream.WithMIMETypeHint(streamVideoCtx, rutils.WithLazyMIMEType(rutils.MimeTypeH264))
+		}
+		// TODO(seanp): Should we make StreamVideoSource private?
+		return StreamVideoSource(streamVideoCtx, source, stream, opts, server.logger)
+	})
+}
+
+func (server *Server) StartAudioStream(ctx context.Context, source gostream.AudioSource, stream gostream.Stream) {
+	server.StartStream(func(opts *BackoffTuningOptions) error {
+		// Merge ctx that may be coming from a Reconfigure.
+		streamAudioCtx, _ := utils.MergeContext(server.closedCtx, ctx)
+		return StreamAudioSource(streamAudioCtx, source, stream, opts, server.logger)
+	})
+}
+
+func (server *Server) propertiesFromStream(ctx context.Context, stream gostream.Stream) (camera.Properties, error) {
+	res, err := server.robot.ResourceByName(camera.Named(stream.Name()))
+	if err != nil {
+		return camera.Properties{}, err
+	}
+
+	cam, ok := res.(camera.Camera)
+	if !ok {
+		return camera.Properties{}, errors.Errorf("cannot convert resource (type %T) to type (%T)", res, camera.Camera(nil))
+	}
+	return cam.Properties(ctx)
 }
