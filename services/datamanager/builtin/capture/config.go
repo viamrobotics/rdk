@@ -1,7 +1,5 @@
 package capture
 
-import "errors"
-
 // MongoConfig is the optional data capture mongo config.
 type MongoConfig struct {
 	URI        string `json:"uri"`
@@ -12,14 +10,6 @@ type MongoConfig struct {
 // Equal returns true when both MongoConfigs are equal.
 func (mc MongoConfig) Equal(o MongoConfig) bool {
 	return mc.URI == o.URI && mc.Database == o.Database && mc.Collection == o.Collection
-}
-
-func (mc MongoConfig) validate() error {
-	if mc.URI == "" {
-		return errors.New("mongo config URI can't be empty string")
-	}
-
-	return nil
 }
 
 // Config is the capture config.

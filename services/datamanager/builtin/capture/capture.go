@@ -63,6 +63,8 @@ type Capture struct {
 	// maxCaptureFileSize is only stored on Capture so that we can detect when it changs
 	maxCaptureFileSize int64
 
+	// the mongo* struct members are protected by
+	// mongoMU and are either all nil or all non nil
 	mongoMU         sync.Mutex
 	mongoClient     *mongo.Client
 	mongoCollection *mongo.Collection
@@ -138,26 +140,32 @@ func (c *Capture) newCollectors(
 	return newCollectors
 }
 
-func (c *Capture) mongoSetup(ctx context.Context, mc MongoConfig) *mongo.Collection {
-	if err := mc.validate(); err != nil {
-		c.logger.Warn("mongo_config is invalid: %s", err.Error())
-		return nil
+func (c *Capture) mongoSetup(ctx context.Context, newConfig MongoConfig) *mongo.Collection {
+	oldConfig := c.mongoConfig
+	if oldConfig != nil && oldConfig.Equal(newConfig) && c.mongoClient != nil {
+		// if we have a client & the configs are equal, reuse the existing collection
+		return c.mongoCollection
 	}
-	// closes collectors and old connection if there is one and nils out mongo connection struct members
+
+	// We now know we want a mongo connection and that we either don't have one, or we have one
+	// but the config has changed.
+	// In either case we need to close all collectors and the client connection (if one exists),
+	// create a new client & return the configured collection.
 	c.closeNoMongoMutex(ctx)
 	// Use the SetServerAPIOptions() method to set the Stable API version to 1
 	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
 	// Create a new client and connect to the server
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(mc.URI).SetServerAPIOptions(serverAPI))
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(newConfig.URI).SetServerAPIOptions(serverAPI))
 	if err != nil {
-		c.logger.Warn("failed to create mongo connection with mongo_config.uri")
+		c.logger.Warn("failed to create mongo connection with mongo_capture_config.uri")
 		return nil
 	}
+	database := defaultIfZeroVal(newConfig.Database, defaultMongoDatabaseName)
+	collection := defaultIfZeroVal(newConfig.Collection, defaultMongoCollectionName)
 	c.mongoClient = client
-	database := defaultIfZeroVal(mc.Database, defaultMongoDatabaseName)
-	collection := defaultIfZeroVal(mc.Collection, defaultMongoCollectionName)
 	c.mongoCollection = c.mongoClient.Database(database).Collection(collection)
-	c.mongoConfig = &mc
+	c.mongoConfig = &newConfig
+	c.logger.Info("mongo connection established")
 	return c.mongoCollection
 }
 
@@ -165,46 +173,28 @@ func (c *Capture) mongoSetup(ctx context.Context, mc MongoConfig) *mongo.Collect
 // it shuts down the collectors when on the mongo client is no longer being valid based on the new config
 // and attempts to create a new mongo client when the new config perscribes one.
 // returns a *mongo.Collection when the client is valid and nil when it is not.
-func (c *Capture) mongoReconfigure(ctx context.Context, mc *MongoConfig) *mongo.Collection {
+func (c *Capture) mongoReconfigure(ctx context.Context, newConfig *MongoConfig) *mongo.Collection {
 	c.mongoMU.Lock()
 	defer c.mongoMU.Unlock()
+	noClient := c.mongoClient == nil
+	disabled := newConfig == nil || newConfig.URI == ""
 
-	switch {
-	case c.mongoClient == nil && c.mongoConfig == nil && mc == nil:
-		// no relevant mongo config, no-op
+	if noClient && disabled {
+		// if we don't have a client and the new config
+		// isn't asking for a mongo connection, no-op
 		return nil
-	case c.mongoClient != nil && c.mongoConfig == nil && mc == nil:
-		c.logger.Info("mongo client is non nil when mongo config was & still is nil, resetting all collectors")
-		c.closeNoMongoMutex(ctx)
-		return nil
-	case c.mongoClient == nil && c.mongoConfig != nil && mc == nil:
-		c.logger.Info("mongo config removed, but mongoClient is nil, no-op")
-		c.mongoConfig = nil
-		return nil
-	case c.mongoClient != nil && c.mongoConfig != nil && mc == nil:
-		c.logger.Info("mongo client is non nil when mongo config was non nil & is now nil, resetting all collectors")
-		c.closeNoMongoMutex(ctx)
-		c.mongoConfig = nil
-		return nil
-	case c.mongoClient == nil && c.mongoConfig == nil && mc != nil:
-		c.logger.Info("mongo client is nil when mongo config was nil & is now non nil, resetting collectors and setting up connection")
-		return c.mongoSetup(ctx, *mc)
-	case c.mongoClient != nil && c.mongoConfig == nil && mc != nil:
-		c.logger.Info("mongo client is non nil when mongo config was nil & is now non, resetting all collectors and setting up connection")
-		return c.mongoSetup(ctx, *mc)
-	case c.mongoClient == nil && c.mongoConfig != nil && mc != nil:
-		c.logger.Info("mongo client is nil when mongo config was not nil & is now non nil, setting up connection")
-		return c.mongoSetup(ctx, *mc)
-	default:
-		// both configs and mongo client defined
-		if !c.mongoConfig.Equal(*mc) {
-			// if config changed, close & set up again
-			c.logger.Info("mongo_uri, database or collection changed, resetting all collectors and setting up mongo")
-			return c.mongoSetup(ctx, *mc)
-		}
-		// mongo client is non nil & old config equals new config, no-op
-		return c.mongoCollection
 	}
+
+	if disabled {
+		// if we currently have a client, and the new config is disabled
+		// call close to disconnect from mongo, and close the collectors.
+		// They will be recreated later during Reconfigure without a collection.
+		c.closeNoMongoMutex(ctx)
+		return nil
+	}
+
+	// If the config is enabled, setup mongo
+	return c.mongoSetup(ctx, *newConfig)
 }
 
 // Reconfigure reconfigures Capture.
@@ -223,7 +213,6 @@ func (c *Capture) Reconfigure(
 		return
 	}
 
-	collection := c.mongoReconfigure(ctx, config.MongoConfig)
 	if c.captureDir != config.CaptureDir {
 		c.logger.Infof("capture_dir old: %s, new: %s", c.captureDir, config.CaptureDir)
 	}
@@ -232,6 +221,7 @@ func (c *Capture) Reconfigure(
 		c.logger.Infof("maximum_capture_file_size_bytes old: %d, new: %d", c.maxCaptureFileSize, config.MaximumCaptureFileSizeBytes)
 	}
 
+	collection := c.mongoReconfigure(ctx, config.MongoConfig)
 	newCollectors := c.newCollectors(collectorConfigsByResource, config, collection)
 	// If a component/method has been removed from the config, close the collector.
 	c.collectorsMu.Lock()
@@ -254,9 +244,11 @@ func (c *Capture) Close(ctx context.Context) {
 	c.mongoMU.Lock()
 	defer c.mongoMU.Unlock()
 	if c.mongoClient != nil {
+		c.logger.Info("closing mongo connection")
 		goutils.UncheckedError(c.mongoClient.Disconnect(ctx))
 		c.mongoClient = nil
 		c.mongoCollection = nil
+		c.mongoConfig = nil
 	}
 }
 
@@ -264,9 +256,11 @@ func (c *Capture) closeNoMongoMutex(ctx context.Context) {
 	c.FlushCollectors()
 	c.closeCollectors()
 	if c.mongoClient != nil {
+		c.logger.Info("closing mongo connection")
 		goutils.UncheckedError(c.mongoClient.Disconnect(ctx))
 		c.mongoClient = nil
 		c.mongoCollection = nil
+		c.mongoConfig = nil
 	}
 }
 
