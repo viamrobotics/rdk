@@ -210,7 +210,8 @@ func (ftdc *FTDC) statsWriter() {
 
 	datumsWritten := 0
 	for datum := range ftdc.datumCh {
-		if err := ftdc.writeDatum(datum); err != nil && !errors.Is(err, errNotStruct) {
+		var schemaErr *schemaError
+		if err := ftdc.writeDatum(datum); err != nil && !errors.As(err, &schemaErr) {
 			// This code path ignores `errNotStruct` errors and shuts down on everything else.  An
 			// `errNotStruct` happens when some registered `Statser` returned a `map` instead of a
 			// `struct`. The lower level `writeDatum` call has handled the error by removing the
