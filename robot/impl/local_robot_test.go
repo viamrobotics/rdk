@@ -4355,7 +4355,7 @@ func TestRemovingOfflineRemote(t *testing.T) {
 
 // TestRemovingOfflineRemotes tests a case where a robot's reconfigure loop is modifying
 // a resource graph node at the same time as the complete config loop. In this case the remote is
-// marked to be removed by the reconfig loop and then marked unhealthy by the complete config
+// marked to be removed by the reconfig loop and then changed to [NodeStateUnhealthy] by the complete config
 // loop. This caused the remote that should have been removed to be stay on the robot
 // and continue to try and reconnect. We recreate that scenario and ensure that our fix
 // prevents that behavior and removes the remote correctly.
@@ -4383,7 +4383,7 @@ func TestRemovingOfflineRemotes(t *testing.T) {
 		resource.Config{
 			ConvertedAttributes: &configRemote,
 		}, nil, builtinModel)
-	// Set node to unhealthy
+	// Set node to [NodeStateUnhealthy]
 	node.LogAndSetLastError(errors.New("Its so bad plz help"))
 	localRobot.manager.resources.AddNode(remoteName, node)
 
@@ -4396,7 +4396,7 @@ func TestRemovingOfflineRemotes(t *testing.T) {
 		localRobot.manager.completeConfig(ctxCompleteConfig, localRobot, false)
 	}()
 
-	// ensure that complete config grabs the lock
+	// Ensure that complete config grabs the lock
 	time.Sleep(1 * time.Second)
 	wg.Add(1)
 	go func() {

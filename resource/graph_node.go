@@ -524,11 +524,11 @@ func (w *GraphNode) transitionTo(state NodeState) {
 		return
 	}
 
-	// if state of a node is removing it cannot transition to unhealthy until it is removed.
+	// if state of a node is [NodeStateRemoving] it cannot transition to [NodeStateUnhealthy] until it is removed.
 	// currently this is the only hard blocked transition
 	// note this does not block SwapResource from transitioning a removing resource to ready
 	if w.state == NodeStateRemoving && state == NodeStateUnhealthy {
-		w.logger.Debug("node cannot transition from removing to unhealthy, blocking transition")
+		w.logger.Debug("node cannot transition from [NodeStateRemoving] to [NodeStateUnhealthy], blocking transition")
 		return
 	}
 

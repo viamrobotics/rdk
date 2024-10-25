@@ -132,7 +132,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 		state, transitionedAt = toState, toTransitionedAt
 	}
 
-	// mark it as unhealthy
+	// mark it as [NodeStateUnhealthy]
 	ourErr := errors.New("whoops")
 	node.LogAndSetLastError(ourErr)
 	_, err := node.Resource()
@@ -146,11 +146,12 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	node.MarkForRemoval()
 	test.That(t, node.MarkedForRemoval(), test.ShouldBeTrue)
 
-	// Attempt to change status to unhealthy
+	// Attempt to change status to [NodeStateUnhealthy]
 	ourErr = errors.New("whoops")
 	node.LogAndSetLastError(ourErr)
 	status := node.ResourceStatus()
-	// Ensure that error is set and node stays in NodeStateRemoving since state transition Unhealthy -> removing is blocked
+	// Ensure that error is set and node stays in [NodeStateUnhealthy] 
+	// since state transition [NodeStateUnhealthy] -> [NodeStateRemoving] is blocked
 	test.That(t, status.Error.Error(), test.ShouldContainSubstring, "whoops")
 	test.That(t, node.MarkedForRemoval(), test.ShouldBeTrue)
 
@@ -351,13 +352,13 @@ func TestClose(t *testing.T) {
 	}
 }
 
-// TestTransitionToBlocking ensures a node marked removing cannot transition to the unhealthy state.
+// TestTransitionToBlocking ensures a node marked removing cannot transition to [NodeStateUnhealthy] state.
 func TestTransitionToBlocking(t *testing.T) {
 	node := withTestLogger(t, resource.NewUninitializedNode())
 	// Set state removing
 	node.MarkForRemoval()
 	test.That(t, node.MarkedForRemoval(), test.ShouldBeTrue)
-	// Attempt to set state to unhealthy
+	// Attempt to set state to [NodeStateUnhealthy]
 	node.LogAndSetLastError(errors.New("Its error time"))
 	// Node should stay still be in state removing
 	test.That(t, node.MarkedForRemoval(), test.ShouldBeTrue)
