@@ -425,7 +425,7 @@ func (server *Server) removeMissingStreams() {
 }
 
 // refreshVideoSources checks and initializes every possible video source that could be viewed from the robot.
-func (server *Server) RefreshVideoSources() {
+func (server *Server) refreshVideoSources() {
 	for _, name := range camera.NamesFromRobot(server.robot) {
 		cam, err := camera.FromRobot(server.robot, name)
 		if err != nil {
@@ -442,7 +442,7 @@ func (server *Server) RefreshVideoSources() {
 }
 
 // refreshAudioSources checks and initializes every possible audio source that could be viewed from the robot.
-func (server *Server) RefreshAudioSources() {
+func (server *Server) refreshAudioSources() {
 	for _, name := range audioinput.NamesFromRobot(server.robot) {
 		input, err := audioinput.FromRobot(server.robot, name)
 		if err != nil {
@@ -458,7 +458,7 @@ func (server *Server) RefreshAudioSources() {
 	}
 }
 
-func (server *Server) CreateStream(config gostream.StreamConfig, name string) (gostream.Stream, bool, error) {
+func (server *Server) createStream(config gostream.StreamConfig, name string) (gostream.Stream, bool, error) {
 	stream, err := server.NewStream(config)
 	// Skip if stream is already registered, otherwise raise any other errors
 	var registeredError *StreamAlreadyRegisteredError
@@ -474,7 +474,7 @@ func (server *Server) CreateStream(config gostream.StreamConfig, name string) (g
 	return stream, false, err
 }
 
-func (server *Server) StartStream(streamFunc func(opts *BackoffTuningOptions) error) {
+func (server *Server) startSTream(streamFunc func(opts *BackoffTuningOptions) error) {
 	waitCh := make(chan struct{})
 	server.ssWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
@@ -489,8 +489,8 @@ func (server *Server) StartStream(streamFunc func(opts *BackoffTuningOptions) er
 	<-waitCh
 }
 
-func (server *Server) StartVideoStream(ctx context.Context, source gostream.VideoSource, stream gostream.Stream) {
-	server.StartStream(func(opts *BackoffTuningOptions) error {
+func (server *Server) startVideoStream(ctx context.Context, source gostream.VideoSource, stream gostream.Stream) {
+	server.startSTream(func(opts *BackoffTuningOptions) error {
 		// TODO(seanp): Is it ok to merge with closedCtx here?
 		streamVideoCtx, _ := utils.MergeContext(server.closedCtx, ctx)
 		// Use H264 for cameras that support it; but do not override upstream values.
@@ -502,8 +502,8 @@ func (server *Server) StartVideoStream(ctx context.Context, source gostream.Vide
 	})
 }
 
-func (server *Server) StartAudioStream(ctx context.Context, source gostream.AudioSource, stream gostream.Stream) {
-	server.StartStream(func(opts *BackoffTuningOptions) error {
+func (server *Server) startAudioStream(ctx context.Context, source gostream.AudioSource, stream gostream.Stream) {
+	server.startSTream(func(opts *BackoffTuningOptions) error {
 		// Merge ctx that may be coming from a Reconfigure.
 		streamAudioCtx, _ := utils.MergeContext(server.closedCtx, ctx)
 		return StreamAudioSource(streamAudioCtx, source, stream, opts, server.logger)
@@ -527,8 +527,8 @@ func (server *Server) AddNewStreams(ctx context.Context) error {
 	// Refreshing sources will walk the robot resources for anything implementing the camera and
 	// audioinput APIs and mutate the `svc.videoSources` and `svc.audioSources` maps.
 	server.logger.Info("refreshing video and audio sources")
-	server.RefreshVideoSources()
-	server.RefreshAudioSources()
+	server.refreshVideoSources()
+	server.refreshAudioSources()
 
 	if server.streamConfig == (gostream.StreamConfig{}) {
 		// The `streamConfig` dictates the video and audio encoder libraries to use. We can't do
@@ -556,13 +556,13 @@ func (server *Server) AddNewStreams(ctx context.Context) error {
 		// already exists. If it does, it skips creating a new stream and we continue to the next source.
 		//
 		// TODO(RSDK-9079) Add reliable framerate fetcher for stream videosources
-		stream, alreadyRegistered, err := server.CreateStream(config, name)
+		stream, alreadyRegistered, err := server.createStream(config, name)
 		if err != nil {
 			return err
 		} else if alreadyRegistered {
 			continue
 		}
-		server.StartVideoStream(ctx, server.VideoSources[name], stream)
+		server.startVideoStream(ctx, server.VideoSources[name], stream)
 	}
 
 	for name := range server.AudioSources {
@@ -573,13 +573,13 @@ func (server *Server) AddNewStreams(ctx context.Context) error {
 			Name:                name,
 			AudioEncoderFactory: server.streamConfig.AudioEncoderFactory,
 		}
-		stream, alreadyRegistered, err := server.CreateStream(config, name)
+		stream, alreadyRegistered, err := server.createStream(config, name)
 		if err != nil {
 			return err
 		} else if alreadyRegistered {
 			continue
 		}
-		server.StartAudioStream(ctx, server.AudioSources[name], stream)
+		server.startAudioStream(ctx, server.AudioSources[name], stream)
 	}
 
 	return nil
