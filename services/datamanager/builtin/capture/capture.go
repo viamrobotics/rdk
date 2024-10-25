@@ -165,7 +165,7 @@ func (c *Capture) mongoSetup(ctx context.Context, newConfig MongoConfig) *mongo.
 	c.mongoClient = client
 	c.mongoCollection = c.mongoClient.Database(database).Collection(collection)
 	c.mongoConfig = &newConfig
-	c.logger.Info("mongo connection established")
+	c.logger.Info("mongo client created")
 	return c.mongoCollection
 }
 
