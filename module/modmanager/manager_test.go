@@ -1441,15 +1441,52 @@ func TestFirstRun(t *testing.T) {
 		Name:    "test-module",
 		ExePath: exePath,
 	}
-
-	// First run for first time
 	parentAddr := setupSocketWithRobot(t)
 	opts := modmanageroptions.Options{
 		UntrustedEnv: false,
 	}
 	mgr := setupModManager(t, ctx, parentAddr, logger, opts)
 
+	// First run fails
+	t.Setenv("VIAM_TEST_FAIL_RUN_FIRST", "1")
 	err := mgr.FirstRun(ctx, modCfg)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, os.Unsetenv("VIAM_TEST_FAIL_RUN_FIRST"), test.ShouldBeNil)
+
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
+
+		test.That(tb, logs.FilterMessage("executing first run script").Len(), test.ShouldEqual, 1)
+
+		stdio := logs.FilterMessage("got stdio").FilterLevelExact(zapcore.InfoLevel)
+		test.That(tb, stdio.Len(), test.ShouldEqual, 1)
+		expectedStdio := map[string]struct{}{
+			"failed!": {},
+		}
+		for _, msg := range stdio.All() {
+			line := msg.ContextMap()["output"].(string)
+			delete(expectedStdio, line)
+		}
+		test.That(tb, expectedStdio, test.ShouldBeEmpty)
+
+		stderr := logs.FilterMessage("got stderr").FilterLevelExact(zapcore.WarnLevel)
+		test.That(tb, stderr.Len(), test.ShouldEqual, 2)
+		expectedStderr := map[string]struct{}{
+			"erroring... 1": {},
+			"erroring... 2": {},
+		}
+		for _, msg := range stderr.All() {
+			line := msg.ContextMap()["output"].(string)
+			delete(expectedStderr, line)
+		}
+		test.That(tb, expectedStderr, test.ShouldBeEmpty)
+
+		test.That(tb, logs.FilterMessage("first run script failed").Len(), test.ShouldEqual, 1)
+	})
+
+	// First run succeeds
+	logs.TakeAll() // truncate observed logs
+	err = mgr.FirstRun(ctx, modCfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
