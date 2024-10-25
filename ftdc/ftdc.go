@@ -2,6 +2,8 @@ package ftdc
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -9,20 +11,22 @@ import (
 	"sync"
 	"time"
 
+	"go.viam.com/utils"
+
 	"go.viam.com/rdk/logging"
 )
 
-// datum combines the `Stats` call to all registered `Statser`s at some "time". The hierarchy of
+// Datum combines the `Stats` call to all registered `Statser`s at some "time". The hierarchy of
 // terminology:
-// - A `datum` is the aggregation of a single call to each `Statser.Stats()` at some "time".
+// - A `Datum` is the aggregation of a single call to each `Statser.Stats()` at some "time".
 // - A Statser.`Stats` return value is a collection of "reading"s from the "subsystem" `name`.
 // - "Metric name": Each field name in the structure returned by the `Stats` call is a "metric name".
 // - A "value" is the numeric value of a metric at one specific point in time.
-// - A "reading" is a "metric name" and a "value" at the given `datum.Time`.
+// - A "reading" is a "metric name" and a "value" at the given `Datum.Time`.
 //
-// A example fully described `datum` object:
+// A example fully described `Datum` object:
 //
-//	datum: { <-- datum
+//	Datum: { <-- Datum
 //	    Time: 1000,
 //	    Data: {
 //	        "resource_manager": struct resourceManagerStats { <-- Stats
@@ -48,7 +52,7 @@ import (
 // And where `NumComponents` without a corresponding value is simply a "metric name". And "5004"
 // without context of a metric name is a simply a "value". Those terms are more relevant to the FTDC
 // file format.
-type datum struct {
+type Datum struct {
 	Time int64
 	Data map[string]any
 
@@ -94,6 +98,10 @@ type FTDC struct {
 	// detailed description.
 	prevFlatData []float32
 
+	readStatsWorker  *utils.StoppableWorkers
+	datumCh          chan Datum
+	outputWorkerDone chan struct{}
+
 	// Fields used to manage where serialized FTDC bytes are written.
 	//
 	// When debug is true, the `outputWriter` will "tee" data to both the `currOutputFile` and
@@ -109,16 +117,17 @@ type FTDC struct {
 
 // New creates a new *FTDC.
 func New(logger logging.Logger) *FTDC {
-	return &FTDC{
-		logger: logger,
-	}
+	return NewWithWriter(nil, logger)
 }
 
 // NewWithWriter creates a new *FTDC that outputs bytes to the specified writer.
 func NewWithWriter(writer io.Writer, logger logging.Logger) *FTDC {
 	return &FTDC{
-		logger:       logger,
-		outputWriter: writer,
+		// Allow for some wiggle before blocking producers.
+		datumCh:          make(chan Datum, 20),
+		outputWorkerDone: make(chan struct{}),
+		logger:           logger,
+		outputWriter:     writer,
 	}
 }
 
@@ -165,6 +174,77 @@ func (ftdc *FTDC) Remove(name string) {
 		"name", name, "generationId", ftdc.inputGenerationID)
 }
 
+// Start spins off the background goroutine for collecting/writing FTDC data.
+func (ftdc *FTDC) Start() {
+	ftdc.readStatsWorker = utils.NewStoppableWorkerWithTicker(time.Second, ftdc.statsReader)
+	utils.PanicCapturingGo(ftdc.statsWriter)
+}
+
+func (ftdc *FTDC) statsReader(ctx context.Context) {
+	datum := ftdc.constructDatum()
+	if datum.generationID == 0 {
+		// No "statsers" were `Add`ed. No data to write out.
+		return
+	}
+
+	// `Debugw` does not seem to serialize any of the `datum` value.
+	ftdc.logger.Debugf("Metrics collected. Datum: %+v", datum)
+
+	select {
+	case ftdc.datumCh <- datum:
+		break
+	case <-ftdc.outputWorkerDone:
+		break
+	case <-ctx.Done():
+		break
+	}
+}
+
+func (ftdc *FTDC) statsWriter() {
+	defer func() {
+		if ftdc.currOutputFile != nil {
+			utils.UncheckedError(ftdc.currOutputFile.Close())
+		}
+		close(ftdc.outputWorkerDone)
+	}()
+
+	datumsWritten := 0
+	for datum := range ftdc.datumCh {
+		var schemaErr *schemaError
+		if err := ftdc.writeDatum(datum); err != nil && !errors.As(err, &schemaErr) {
+			// This code path ignores `errNotStruct` errors and shuts down on everything else.  An
+			// `errNotStruct` happens when some registered `Statser` returned a `map` instead of a
+			// `struct`. The lower level `writeDatum` call has handled the error by removing the
+			// `Statser` from "registry". But bubbles it up to signal that no `Datum` was written.
+			// The errors that do get handled here are expected to simply be FS/disk failure errors.
+
+			ftdc.logger.Error("Error writing ftdc data. Shutting down FTDC.", "err", err)
+			// To shut down, we just exit. Closing the `ftdc.outputWorkerDone`. The `statsReader`
+			// goroutine will eventually observe that channel was closed and also exit.
+			return
+		}
+
+		datumsWritten++
+		if datumsWritten%30 == 0 && ftdc.currOutputFile != nil {
+			utils.UncheckedError(ftdc.currOutputFile.Sync())
+		}
+	}
+}
+
+// StopAndJoin stops the background worker started by `Start`. It is only legal to call this after
+// `Start` returns.
+func (ftdc *FTDC) StopAndJoin(ctx context.Context) {
+	ftdc.readStatsWorker.Stop()
+	close(ftdc.datumCh)
+
+	// Closing the `statsCh` signals to the `outputWorker` to complete and exit. We use a timeout to
+	// limit how long we're willing to wait for the `outputWorker` to drain.
+	select {
+	case <-ftdc.outputWorkerDone:
+	case <-time.After(10 * time.Second):
+	}
+}
+
 // conditionalRemoveStatser first checks the generation matches before removing the `name` Statser.
 func (ftdc *FTDC) conditionalRemoveStatser(name string, generationID int) {
 	ftdc.mu.Lock()
@@ -197,8 +277,8 @@ func (ftdc *FTDC) conditionalRemoveStatser(name string, generationID int) {
 }
 
 // constructDatum walks all of the registered `statser`s to construct a `datum`.
-func (ftdc *FTDC) constructDatum() datum {
-	datum := datum{
+func (ftdc *FTDC) constructDatum() Datum {
+	datum := Datum{
 		Time: time.Now().Unix(),
 		Data: map[string]any{},
 	}
@@ -216,7 +296,7 @@ func (ftdc *FTDC) constructDatum() datum {
 
 // writeDatum takes an ftdc reading ("Datum") as input and serializes + writes it to the backing
 // medium (e.g: a file). See `writeSchema`s documentation for a full description of the file format.
-func (ftdc *FTDC) writeDatum(datum datum) error {
+func (ftdc *FTDC) writeDatum(datum Datum) error {
 	toWrite, err := ftdc.getWriter()
 	if err != nil {
 		return err
@@ -236,7 +316,9 @@ func (ftdc *FTDC) writeDatum(datum datum) error {
 		}
 
 		ftdc.currSchema = newSchema
-		writeSchema(ftdc.currSchema, toWrite)
+		if err = writeSchema(ftdc.currSchema, toWrite); err != nil {
+			return err
+		}
 
 		// Update the `outputGenerationId` to reflect the new schema.
 		ftdc.outputGenerationID = datum.generationID
@@ -248,7 +330,9 @@ func (ftdc *FTDC) writeDatum(datum datum) error {
 
 		// Write the new data point to disk. When schema changes, we do not do any diffing. We write
 		// a raw value for each metric.
-		writeDatum(datum.Time, nil, data, toWrite)
+		if err = writeDatum(datum.Time, nil, data, toWrite); err != nil {
+			return err
+		}
 		ftdc.prevFlatData = data
 
 		return nil
@@ -261,7 +345,9 @@ func (ftdc *FTDC) writeDatum(datum datum) error {
 		return err
 	}
 
-	writeDatum(datum.Time, ftdc.prevFlatData, data, toWrite)
+	if err = writeDatum(datum.Time, ftdc.prevFlatData, data, toWrite); err != nil {
+		return err
+	}
 	ftdc.prevFlatData = data
 	return nil
 }
@@ -274,7 +360,7 @@ func (ftdc *FTDC) getWriter() (io.Writer, error) {
 	}
 
 	var err error
-	ftdc.currOutputFile, err = os.Create("./viam-server-custom.ftdc")
+	ftdc.currOutputFile, err = os.Create("./viam-server.ftdc")
 	if err != nil {
 		ftdc.logger.Warnw("FTDC failed to open file", "err", err)
 		return nil, err

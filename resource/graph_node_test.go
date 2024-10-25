@@ -165,7 +165,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 
 	// but we end up configuring it
 	ourRes := &someResource{Resource: testutils.NewUnimplementedResource(generic.Named("foo"))}
-	node.SwapResource(ourRes, resource.DefaultModelFamily.WithModel("bar"))
+	node.SwapResource(ourRes, resource.DefaultModelFamily.WithModel("bar"), nil)
 	test.That(t, node.ResourceModel(), test.ShouldResemble, resource.DefaultModelFamily.WithModel("bar"))
 	test.That(t, node.MarkedForRemoval(), test.ShouldBeFalse)
 	test.That(t, node.IsUninitialized(), test.ShouldBeFalse)
@@ -199,7 +199,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 
 	// it reconfigured
 	ourRes2 := &someResource{Resource: testutils.NewUnimplementedResource(generic.Named("foo"))}
-	node.SwapResource(ourRes2, resource.DefaultModelFamily.WithModel("baz"))
+	node.SwapResource(ourRes2, resource.DefaultModelFamily.WithModel("baz"), nil)
 	test.That(t, node.ResourceModel(), test.ShouldResemble, resource.DefaultModelFamily.WithModel("baz"))
 	res, err = node.Resource()
 	test.That(t, err, test.ShouldBeNil)
@@ -240,7 +240,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 
 	// it reconfigured
 	ourRes3 := &someResource{Resource: testutils.NewUnimplementedResource(generic.Named("fooa"))}
-	node.SwapResource(ourRes3, resource.DefaultModelFamily.WithModel("bazz"))
+	node.SwapResource(ourRes3, resource.DefaultModelFamily.WithModel("bazz"), nil)
 	test.That(t, node.ResourceModel(), test.ShouldResemble, resource.DefaultModelFamily.WithModel("bazz"))
 	res, err = node.Resource()
 	test.That(t, err, test.ShouldBeNil)
@@ -268,7 +268,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	verifySameState(t, node)
 
 	ourRes4 := &someResource{Resource: testutils.NewUnimplementedResource(generic.Named("foob")), shouldErr: true}
-	node.SwapResource(ourRes4, resource.DefaultModelFamily.WithModel("bazzz"))
+	node.SwapResource(ourRes4, resource.DefaultModelFamily.WithModel("bazzz"), nil)
 	test.That(t, node.ResourceModel(), test.ShouldResemble, resource.DefaultModelFamily.WithModel("bazzz"))
 	res, err = node.Resource()
 	test.That(t, err, test.ShouldBeNil)

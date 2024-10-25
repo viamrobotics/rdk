@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"errors"
 	"testing"
+	"time"
 
 	"go.viam.com/test"
+	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/logging"
 )
@@ -86,7 +88,7 @@ func TestFTDCSchemaGenerations(t *testing.T) {
 
 	// Go back and parse the written data. There two be two datum objects due to two calls to
 	// `writeDatum`.
-	datums, err := parse(ftdcData)
+	datums, err := Parse(ftdcData)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(datums), test.ShouldEqual, 2)
 
@@ -160,7 +162,7 @@ func TestRemoveBadStatser(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Verify the contents of the ftdc data.
-	datums, err := parseWithLogger(ftdcData, logger)
+	datums, err := ParseWithLogger(ftdcData, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	// We called `writeDatum` twice, but only the second succeeded.
@@ -223,7 +225,7 @@ func TestNestedStructs(t *testing.T) {
 	err = ftdc.writeDatum(datum)
 	test.That(t, err, test.ShouldBeNil)
 
-	datums, err := parseWithLogger(ftdcData, logger)
+	datums, err := ParseWithLogger(ftdcData, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(datums), test.ShouldEqual, 2)
 	test.That(t, len(datums[0].Data), test.ShouldEqual, 1)
@@ -235,4 +237,50 @@ func TestNestedStructs(t *testing.T) {
 		"X":   1,
 		"Y.Z": 2,
 	})
+}
+
+// TestStatsWriterContinuesOnSchemaError asserts that "schema errors" are handled by removing the
+// violating statser, but otherwise FTDC keeps going.
+func TestStatsWriterContinuesOnSchemaError(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	// ftdcData will be appended to on each call to `writeDatum`. At the end of the test we can pass
+	// this to `parse` to assert we have the expected results.
+	ftdcData := bytes.NewBuffer(nil)
+	ftdc := NewWithWriter(ftdcData, logger.Sublogger("ftdc"))
+
+	// `badStatser` implements `Statser` but returns a `map` which is disallowed.
+	badStatser := &badStatser{}
+	ftdc.Add("badStatser", badStatser)
+
+	// Construct a datum with a `badStatser` reading that contains a map.
+	datum := ftdc.constructDatum()
+	test.That(t, len(datum.Data), test.ShouldEqual, 1)
+	test.That(t, datum.Data["badStatser"], test.ShouldNotBeNil)
+
+	// Start the `statsWriter` and manually push it the bad `datum`.
+	go ftdc.statsWriter()
+	ftdc.datumCh <- datum
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		ftdc.mu.Lock()
+		defer ftdc.mu.Unlock()
+
+		// Assert that the `statsWriter`, via calls to `writeDatum` identify the bad `map` value and
+		// remove the `badStatser`.
+		test.That(tb, len(ftdc.statsers), test.ShouldEqual, 0)
+	})
+
+	// Assert that `statsWriter` is still operating by waiting for 1 second.
+	select {
+	case <-ftdc.outputWorkerDone:
+		t.Fatalf("A bad statser caused FTDC to abort")
+	case <-time.After(time.Second):
+		break
+	}
+
+	// Closing the `datumCh` will cause the `statsWriter` to exit as it no longer can get input.
+	close(ftdc.datumCh)
+
+	// Wait for the `statsWriter` goroutine to exit.
+	<-ftdc.outputWorkerDone
 }

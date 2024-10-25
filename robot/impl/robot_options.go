@@ -18,6 +18,8 @@ type options struct {
 
 	// shutdownCallback provides a callback for the robot to be able to shut itself down.
 	shutdownCallback func()
+
+	enableFTDC bool
 }
 
 // Option configures how we set up the web service.
@@ -40,6 +42,13 @@ func newFuncOption(f func(*options)) *funcOption {
 	return &funcOption{
 		f: f,
 	}
+}
+
+// WithFTDC enables FTDC.
+func WithFTDC() Option {
+	return newFuncOption(func(o *options) {
+		o.enableFTDC = true
+	})
 }
 
 // WithWebOptions returns a Option which sets the streamConfig
