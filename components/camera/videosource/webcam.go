@@ -566,7 +566,7 @@ func (c *monitoredWebcam) Stream(ctx context.Context, errHandlers ...gostream.Er
 }
 
 func (c *monitoredWebcam) GetImage(ctx context.Context) (image.Image, func(), error) {
-	return gostream.ReadImage(ctx, c.underlyingSource)
+	return camera.ReadImage(ctx, c.underlyingSource)
 }
 
 func (c *monitoredWebcam) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
