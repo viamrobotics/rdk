@@ -50,12 +50,22 @@ func BuildTempModuleWithFirstRun(tb testing.TB, modDir string) string {
 	exePath := BuildTempModule(tb, modDir)
 	exeDir := filepath.Dir(exePath)
 
-	for _, file := range []string{
-		"meta.json",
-		"first_run.sh",
+	type copyOp struct {
+		src  string
+		dest string
+	}
+
+	for _, cp := range []copyOp{
+		// TODO(RSDK-9151): Having a `meta.json` in the testmodule directory results in
+		// unintended behavior changes across our test suite. To avoid this, we name the
+		// file `test_meta.json` in the source test module directory and rename it in the
+		// destination directory that contains the built executable. This is fine for now
+		// but we should investigate and understand why this happens.
+		{"test_meta.json", "meta.json"},
+		{"first_run.sh", "first_run.sh"},
 	} {
 		//nolint:gosec // TODO: use io.Copy instead
-		copier := exec.Command("cp", file, exeDir)
+		copier := exec.Command("cp", cp.src, filepath.Join(exeDir, cp.dest))
 		copier.Dir = utils.ResolveFile(modDir)
 		_, err := copier.CombinedOutput()
 		if err != nil {
