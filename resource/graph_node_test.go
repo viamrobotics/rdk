@@ -132,24 +132,34 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 		state, transitionedAt = toState, toTransitionedAt
 	}
 
+	// mark it as [NodeStateUnhealthy]
+	ourErr := errors.New("whoops")
+	node.LogAndSetLastError(ourErr)
+	_, err := node.Resource()
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "whoops")
+
+	verifyStateTransition(t, node, resource.NodeStateUnhealthy)
+
 	// mark it for removal
 	test.That(t, node.MarkedForRemoval(), test.ShouldBeFalse)
 	node.MarkForRemoval()
 	test.That(t, node.MarkedForRemoval(), test.ShouldBeTrue)
 
-	_, err := node.Resource()
+	// Attempt to change status to [NodeStateUnhealthy]
+	ourErr = errors.New("whoops")
+	node.LogAndSetLastError(ourErr)
+	status := node.ResourceStatus()
+	// Ensure that error is set and node stays in [NodeStateUnhealthy]
+	// since state transition [NodeStateUnhealthy] -> [NodeStateRemoving] is blocked
+	test.That(t, status.Error.Error(), test.ShouldContainSubstring, "whoops")
+	test.That(t, node.MarkedForRemoval(), test.ShouldBeTrue)
+
+	_, err = node.Resource()
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "pending removal")
 
 	verifyStateTransition(t, node, resource.NodeStateRemoving)
-
-	ourErr := errors.New("whoops")
-	node.LogAndSetLastError(ourErr)
-	_, err = node.Resource()
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "whoops")
-
-	verifyStateTransition(t, node, resource.NodeStateUnhealthy)
 
 	test.That(t, node.UnresolvedDependencies(), test.ShouldResemble, initialDeps)
 
@@ -340,4 +350,16 @@ func TestClose(t *testing.T) {
 	case <-time.After(time.Second * 20):
 		t.Fatal("node took too long to close, might be a deadlock")
 	}
+}
+
+// TestTransitionToBlocking ensures a node marked removing cannot transition to [NodeStateUnhealthy] state.
+func TestTransitionToBlocking(t *testing.T) {
+	node := withTestLogger(t, resource.NewUninitializedNode())
+	// Set state removing
+	node.MarkForRemoval()
+	test.That(t, node.MarkedForRemoval(), test.ShouldBeTrue)
+	// Attempt to set state to [NodeStateUnhealthy]
+	node.LogAndSetLastError(errors.New("Its error time"))
+	// Node should stay still be in state removing
+	test.That(t, node.MarkedForRemoval(), test.ShouldBeTrue)
 }
