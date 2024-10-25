@@ -59,7 +59,7 @@ def replace_async_func(
 
 
 def return_subclass(
-        resource_name: str, stmt: ast.ClassDef, parent=""
+        resource_name: str, stmt: ast.ClassDef, parent: str = ""
 ) -> List[str]:
     def parse_subclass(resource_name: str, stmt: ast.ClassDef, parent: str):
         nodes = set()
