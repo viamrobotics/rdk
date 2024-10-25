@@ -65,7 +65,7 @@ type webService struct {
 	modWorkers   sync.WaitGroup
 }
 
-// Update updates the web service when the robot has changed.
+// Reconfigure pulls resources and updates the stream server audio and video streams with the new resources.
 func (svc *webService) Reconfigure(ctx context.Context, deps resource.Dependencies, _ resource.Config) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()

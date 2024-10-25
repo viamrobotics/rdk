@@ -468,9 +468,6 @@ func (server *Server) createStream(config gostream.StreamConfig, name string) (g
 	} else if err != nil {
 		return nil, false, err
 	}
-	// if !svc.streamSe`rver.HasStreams {
-	// 	svc.streamServer.HasStreams = true
-	// }
 	return stream, false, err
 }
 
@@ -523,10 +520,11 @@ func (server *Server) propertiesFromStream(ctx context.Context, stream gostream.
 	return cam.Properties(ctx)
 }
 
+// AddNewStreams adds new video and audio streams to the server with the updated set of video and
+// audio sources.
 func (server *Server) AddNewStreams(ctx context.Context) error {
 	// Refreshing sources will walk the robot resources for anything implementing the camera and
 	// audioinput APIs and mutate the `svc.videoSources` and `svc.audioSources` maps.
-	server.logger.Info("refreshing video and audio sources")
 	server.refreshVideoSources()
 	server.refreshAudioSources()
 
