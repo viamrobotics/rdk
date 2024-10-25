@@ -1447,7 +1447,7 @@ func TestFirstRun(t *testing.T) {
 	}
 	mgr := setupModManager(t, ctx, parentAddr, logger, opts)
 
-	t.Run("first run fails", func(t *testing.T) {
+	t.Run("fails", func(t *testing.T) {
 		t.Setenv("VIAM_TEST_FAIL_RUN_FIRST", "1")
 		err := mgr.FirstRun(ctx, modCfg)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -1485,7 +1485,7 @@ func TestFirstRun(t *testing.T) {
 	})
 
 	// First run succeeds
-	t.Run("first run succeeds", func(t *testing.T) {
+	t.Run("succeeds", func(t *testing.T) {
 		logs.TakeAll() // truncate observed logs
 
 		err := mgr.FirstRun(ctx, modCfg)
@@ -1526,7 +1526,7 @@ func TestFirstRun(t *testing.T) {
 		})
 	})
 
-	t.Run("first run skipped after success", func(t *testing.T) {
+	t.Run("skipped after success", func(t *testing.T) {
 		logs.TakeAll() // truncate observed logs
 
 		err := mgr.FirstRun(ctx, modCfg)
@@ -1539,7 +1539,7 @@ func TestFirstRun(t *testing.T) {
 		})
 	})
 
-	t.Run("first run skipped after success and module manager restart", func(t *testing.T) {
+	t.Run("skipped after success and module manager restart", func(t *testing.T) {
 		logs.TakeAll() // truncate observed logs
 
 		err := mgr.Close(context.Background())
