@@ -113,7 +113,7 @@ func NewConfiguredGraphNode(config Config, res Resource, resModel Model) *GraphN
 	node := NewUninitializedNode()
 	node.SetNewConfig(config, nil)
 	node.setDependenciesResolved()
-	node.SwapResource(res, resModel)
+	node.SwapResource(res, resModel, nil)
 	return node
 }
 
@@ -234,7 +234,11 @@ func (w *GraphNode) UnsetResource() {
 // and indicate it no longer needs reconfiguration. SwapResource also
 // increments the graphLogicalClock and sets updatedAt for this GraphNode
 // to the new value.
-func (w *GraphNode) SwapResource(newRes Resource, newModel Model) {
+//
+// The `ftdc` input may be nil (e.g: testing). If present, this will also updates FTDC to
+// communicate that the `Stats` method may return different values. As we'll now be calling `Stats`
+// on a potentially different underlying `Model`.
+func (w *GraphNode) SwapResource(newRes Resource, newModel Model, ftdc *ftdc.FTDC) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.current = newRes
@@ -252,15 +256,6 @@ func (w *GraphNode) SwapResource(newRes Resource, newModel Model) {
 	}
 	now := time.Now()
 	w.lastReconfigured = &now
-}
-
-// SwapResourceWithFTDCTracking wraps SwapResources, but also updates FTDC to communicate that the
-// `Stats` method may return different values. As we'll now be calling `Stats` on a potentially
-// different underlying `Model`.
-func (w *GraphNode) SwapResourceWithFTDCTracking(newRes Resource, newModel Model, ftdc *ftdc.FTDC) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	w.SwapResource(newRes, newModel)
 
 	// Calling `Stats` acquires the `GraphNode.mu` (via the `Resource` method). This allows us to
 	// safely Remove->Add in one step instead of needing to Remove->SwapResource->Add.

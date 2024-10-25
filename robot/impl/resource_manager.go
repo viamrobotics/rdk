@@ -147,7 +147,7 @@ func (manager *resourceManager) addRemote(
 			return
 		}
 	} else {
-		gNode.SwapResourceWithFTDCTracking(rr, builtinModel, manager.opts.ftdc)
+		gNode.SwapResource(rr, builtinModel, manager.opts.ftdc)
 	}
 	manager.updateRemoteResourceNames(ctx, rName, rr, true)
 }
@@ -266,7 +266,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		}
 
 		if nodeAlreadyExists {
-			gNode.SwapResourceWithFTDCTracking(res, unknownModel, manager.opts.ftdc)
+			gNode.SwapResource(res, unknownModel, manager.opts.ftdc)
 		} else {
 			gNode = resource.NewConfiguredGraphNode(resource.Config{}, res, unknownModel)
 			if err := manager.resources.AddNode(resName, gNode); err != nil {
@@ -729,7 +729,7 @@ func (manager *resourceManager) completeConfig(
 							manager.logger.CErrorw(
 								ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
 						} else {
-							gNode.SwapResourceWithFTDCTracking(newRes, conf.Model, manager.opts.ftdc)
+							gNode.SwapResource(newRes, conf.Model, manager.opts.ftdc)
 						}
 
 					default:
