@@ -66,7 +66,7 @@ func BuildTempModuleWithFirstRun(tb testing.TB, modDir string) string {
 		{"test_meta.json", "meta.json"},
 		{"first_run.sh", "first_run.sh"},
 	} {
-		srcPath := filepath.Join(utils.ResolveFile(modDir), cp.src)
+		srcPath := utils.ResolveFile(filepath.Join(modDir, cp.src))
 		//nolint:gosec
 		src, err := os.Open(srcPath)
 		if err != nil {
