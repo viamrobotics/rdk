@@ -12,15 +12,13 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// BuildTempModule will attempt to build the module in the provided directory and put the
-// resulting executable binary into a temporary directory. If successful, this function will
-// return the path to the executable binary.
-func BuildTempModule(tb testing.TB, dir string) string {
+func buildTempModule(tb testing.TB, exeDestDir, exeName, modSrcDir string) string {
 	tb.Helper()
-	modPath := filepath.Join(tb.TempDir(), filepath.Base(dir))
+
+	exePath := filepath.Join(exeDestDir, exeName)
 	//nolint:gosec
-	builder := exec.Command("go", "build", "-o", modPath, ".")
-	builder.Dir = utils.ResolveFile(dir)
+	builder := exec.Command("go", "build", "-o", exePath, ".")
+	builder.Dir = utils.ResolveFile(modSrcDir)
 	out, err := builder.CombinedOutput()
 	// NOTE (Nick S): Workaround for the tickets below:
 	// https://viam.atlassian.net/browse/RSDK-7145
@@ -37,7 +35,18 @@ func BuildTempModule(tb testing.TB, dir string) string {
 	if tb.Failed() {
 		tb.Fatalf("failed to build temporary module for testing")
 	}
-	return modPath
+	return exePath
+}
+
+// BuildTempModule will attempt to build the module in the provided directory and put the
+// resulting executable binary into a temporary directory. If successful, this function will
+// return the path to the executable binary.
+func BuildTempModule(tb testing.TB, modDir string) string {
+	tb.Helper()
+
+	exeDir := tb.TempDir()
+	exeName := filepath.Base(modDir)
+	return buildTempModule(tb, exeDir, exeName, modDir)
 }
 
 // BuildTempModuleWithFirstRun will attempt to build the module in the provided directory and put the
@@ -48,26 +57,8 @@ func BuildTempModuleWithFirstRun(tb testing.TB, modDir string) string {
 	tb.Helper()
 
 	exeDir := tb.TempDir()
-	exePath := filepath.Join(exeDir, filepath.Base(modDir))
-	//nolint:gosec
-	builder := exec.Command("go", "build", "-o", exePath, ".")
-	builder.Dir = utils.ResolveFile(modDir)
-	out, err := builder.CombinedOutput()
-	// NOTE (Nick S): Workaround for the tickets below:
-	// https://viam.atlassian.net/browse/RSDK-7145
-	// https://viam.atlassian.net/browse/RSDK-7144
-	// Don't fail build if platform has known compile warnings (due to C deps)
-	isPlatformWithKnownCompileWarnings := runtime.GOARCH == "arm" || runtime.GOOS == "darwin"
-	hasCompilerWarnings := len(out) != 0
-	if hasCompilerWarnings && !isPlatformWithKnownCompileWarnings {
-		tb.Errorf(`output from "go build .": %s`, out)
-	}
-	if err != nil {
-		tb.Error(err)
-	}
-	if tb.Failed() {
-		tb.Fatalf("failed to build temporary module for testing")
-	}
+	exeName := filepath.Base(modDir)
+	exePath := buildTempModule(tb, exeDir, exeName, modDir)
 
 	for _, file := range []string{
 		"meta.json",
@@ -76,7 +67,7 @@ func BuildTempModuleWithFirstRun(tb testing.TB, modDir string) string {
 		//nolint:gosec // TODO: use io.Copy instead
 		copier := exec.Command("cp", file, exeDir)
 		copier.Dir = utils.ResolveFile(modDir)
-		_, err = copier.CombinedOutput()
+		_, err := copier.CombinedOutput()
 		if err != nil {
 			tb.Fatal(err)
 		}
