@@ -7,10 +7,12 @@ if [[ -n "$VIAM_TEST_FAIL_RUN_FIRST" ]]; then
     exit 1
 fi
 
-cat << EOF
-success line 1
-success line 2
-success line 3
-EOF
+echo "running... 1"
+>&2 echo "hiccup 1"
+echo "running... 2"
+echo "running... 3"
+>&2 echo "hiccup 2"
+echo "done!"
+
 
 exit 0
