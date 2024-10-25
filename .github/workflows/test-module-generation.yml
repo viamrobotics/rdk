@@ -15,6 +15,7 @@ jobs:
             { subtype: "arm", type: "component" },
             { subtype: "audio_input", type: "component" },
             { subtype: "base", type: "component" },
+            { subtype: "board", type: "component" },
             { subtype: "camera", type: "component" },
             { subtype: "encoder", type: "component" },
             { subtype: "gantry", type: "component" },
@@ -50,7 +51,7 @@ jobs:
       - name: Run module
         run: |
           cd my-module
-          chmod +x run.sh
+
           ./run.sh /tmp/viam.sock &
           PID=$!
           sleep 5
