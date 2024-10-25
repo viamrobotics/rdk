@@ -47,7 +47,8 @@ type Server struct {
 	isAlive                 bool
 
 	streamConfig gostream.StreamConfig
-	webWorkers   sync.WaitGroup
+	// webWorkers   sync.WaitGroup
+	ssWorkers    sync.WaitGroup
 	VideoSources map[string]gostream.HotSwappableVideoSource
 	AudioSources map[string]gostream.HotSwappableAudioSource
 }
@@ -468,4 +469,19 @@ func (server *Server) CreateStream(config gostream.StreamConfig, name string) (g
 	// 	svc.streamServer.HasStreams = true
 	// }
 	return stream, false, err
+}
+
+func (server *Server) StartStream(streamFunc func(opts *BackoffTuningOptions) error) {
+	waitCh := make(chan struct{})
+	server.ssWorkers.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer server.ssWorkers.Done()
+		close(waitCh)
+		if err := streamFunc(&BackoffTuningOptions{}); err != nil {
+			if utils.FilterOutError(err, context.Canceled) != nil {
+				server.logger.Errorw("error streaming", "error", err)
+			}
+		}
+	})
+	<-waitCh
 }

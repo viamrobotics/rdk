@@ -47,8 +47,6 @@ func New(r robot.Robot, logger logging.Logger, opts ...Option) Service {
 		streamServer: nil,
 		services:     map[resource.API]resource.APIResourceCollection[resource.Resource]{},
 		opts:         wOpts,
-		// videoSources: map[string]gostream.HotSwappableVideoSource{},
-		// audioSources: map[string]gostream.HotSwappableAudioSource{},
 	}
 	return webSvc
 }
@@ -71,9 +69,6 @@ type webService struct {
 	isRunning    bool
 	webWorkers   sync.WaitGroup
 	modWorkers   sync.WaitGroup
-
-	// videoSources map[string]gostream.HotSwappableVideoSource
-	// audioSources map[string]gostream.HotSwappableAudioSource
 }
 
 func (svc *webService) streamInitialized() bool {
@@ -148,37 +143,6 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 	return nil
 }
 
-// func (svc *webService) createStream(config gostream.StreamConfig, name string) (gostream.Stream, bool, error) {
-// 	stream, err := svc.streamServer.Server.NewStream(config)
-// 	// Skip if stream is already registered, otherwise raise any other errors
-// 	var registeredError *webstream.StreamAlreadyRegisteredError
-// 	if errors.As(err, &registeredError) {
-// 		svc.logger.Debugw("stream already registered", "name", name)
-// 		return nil, true, nil
-// 	} else if err != nil {
-// 		return nil, false, err
-// 	}
-// 	if !svc.streamServer.HasStreams {
-// 		svc.streamServer.HasStreams = true
-// 	}
-// 	return stream, false, err
-// }
-
-func (svc *webService) startStream(streamFunc func(opts *webstream.BackoffTuningOptions) error) {
-	waitCh := make(chan struct{})
-	svc.webWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer svc.webWorkers.Done()
-		close(waitCh)
-		if err := streamFunc(&webstream.BackoffTuningOptions{}); err != nil {
-			if utils.FilterOutError(err, context.Canceled) != nil {
-				svc.logger.Errorw("error streaming", "error", err)
-			}
-		}
-	})
-	<-waitCh
-}
-
 func (svc *webService) propertiesFromStream(ctx context.Context, stream gostream.Stream) (camera.Properties, error) {
 	res, err := svc.r.ResourceByName(camera.Named(stream.Name()))
 	if err != nil {
@@ -193,7 +157,7 @@ func (svc *webService) propertiesFromStream(ctx context.Context, stream gostream
 }
 
 func (svc *webService) startVideoStream(ctx context.Context, source gostream.VideoSource, stream gostream.Stream) {
-	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
+	svc.streamServer.Server.StartStream(func(opts *webstream.BackoffTuningOptions) error {
 		streamVideoCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
 		// Use H264 for cameras that support it; but do not override upstream values.
 		if props, err := svc.propertiesFromStream(ctx, stream); err == nil && slices.Contains(props.MimeTypes, rutils.MimeTypeH264) {
@@ -204,46 +168,12 @@ func (svc *webService) startVideoStream(ctx context.Context, source gostream.Vid
 }
 
 func (svc *webService) startAudioStream(ctx context.Context, source gostream.AudioSource, stream gostream.Stream) {
-	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
+	svc.streamServer.Server.StartStream(func(opts *webstream.BackoffTuningOptions) error {
 		// Merge ctx that may be coming from a Reconfigure.
 		streamAudioCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
 		return webstream.StreamAudioSource(streamAudioCtx, source, stream, opts, svc.logger)
 	})
 }
-
-// // refreshVideoSources checks and initializes every possible video source that could be viewed from the robot.
-// func (svc *webService) refreshVideoSources() {
-// 	for _, name := range camera.NamesFromRobot(svc.r) {
-// 		cam, err := camera.FromRobot(svc.r, name)
-// 		if err != nil {
-// 			continue
-// 		}
-// 		existing, ok := svc.streamServer.Server.VideoSources[cam.Name().SDPTrackName()]
-// 		if ok {
-// 			existing.Swap(cam)
-// 			continue
-// 		}
-// 		newSwapper := gostream.NewHotSwappableVideoSource(cam)
-// 		svc.streamServer.Server.VideoSources[cam.Name().SDPTrackName()] = newSwapper
-// 	}
-// }
-
-// // refreshAudioSources checks and initializes every possible audio source that could be viewed from the robot.
-// func (svc *webService) refreshAudioSources() {
-// 	for _, name := range audioinput.NamesFromRobot(svc.r) {
-// 		input, err := audioinput.FromRobot(svc.r, name)
-// 		if err != nil {
-// 			continue
-// 		}
-// 		existing, ok := svc.streamServer.Server.AudioSources[input.Name().SDPTrackName()]
-// 		if ok {
-// 			existing.Swap(input)
-// 			continue
-// 		}
-// 		newSwapper := gostream.NewHotSwappableAudioSource(input)
-// 		svc.streamServer.Server.AudioSources[input.Name().SDPTrackName()] = newSwapper
-// 	}
-// }
 
 // Update updates the web service when the robot has changed.
 func (svc *webService) Reconfigure(ctx context.Context, deps resource.Dependencies, _ resource.Config) error {
