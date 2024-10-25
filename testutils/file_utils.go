@@ -12,9 +12,9 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// BuildTempModule will run "go build ." in the provided RDK directory and return the
-// path to the built temporary file. This function will fail the current test if there
-// are any build-related errors.
+// BuildTempModule will attempt to build the module in the provided directory and put the
+// resulting executable binary into a temporary directory. If successful, this function will
+// return the path to the executable binary.
 func BuildTempModule(tb testing.TB, dir string) string {
 	tb.Helper()
 	modPath := filepath.Join(tb.TempDir(), filepath.Base(dir))
@@ -40,7 +40,10 @@ func BuildTempModule(tb testing.TB, dir string) string {
 	return modPath
 }
 
-// BuildTempModuleWithFirstRun ... TODO.
+// BuildTempModuleWithFirstRun will attempt to build the module in the provided directory and put the
+// resulting executable binary into a temporary directory. After building, it will also copy "meta.json"
+// and "first_run.sh" into the same temporary directory. It is assumed that these files are in the
+// provided module directory. If successful, this function will return the path to the executable binary.
 func BuildTempModuleWithFirstRun(tb testing.TB, modDir string) string {
 	tb.Helper()
 
