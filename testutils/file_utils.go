@@ -18,7 +18,7 @@ import (
 // resulting executable binary into a temporary directory. If successful, this function will
 // return the path to the executable binary.
 func BuildTempModule(tb testing.TB, modDir string) string {
-	tb.Helper()
+	// tb.Helper()
 	exePath := filepath.Join(tb.TempDir(), filepath.Base(modDir))
 	//nolint:gosec
 	builder := exec.Command("go", "build", "-o", exePath, ".")
@@ -47,7 +47,7 @@ func BuildTempModule(tb testing.TB, modDir string) string {
 // and "first_run.sh" into the same temporary directory. It is assumed that these files are in the
 // provided module directory. If successful, this function will return the path to the executable binary.
 func BuildTempModuleWithFirstRun(tb testing.TB, modDir string) string {
-	tb.Helper()
+	// tb.Helper()
 
 	exePath := BuildTempModule(tb, modDir)
 	exeDir := filepath.Dir(exePath)
