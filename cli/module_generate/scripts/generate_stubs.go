@@ -88,9 +88,9 @@ func setGoModuleTemplate(clientCode string, module common.ModuleInputs) (*common
 			}
 		}
 		if funcDecl, ok := n.(*ast.FuncDecl); ok {
-			name, args, returns := parseFunctionSignature(module.ResourceSubtype, module.ResourceSubtypePascal, funcDecl)
+			name, receiver,  args, returns := parseFunctionSignature(module.ResourceSubtype, module.ResourceSubtypePascal, module.ModuleCamel+module.ModelPascal, funcDecl)
 			if name != "" {
-				functions = append(functions, formatEmptyFunction(module.ModuleCamel+module.ModelPascal, name, args, returns))
+				functions = append(functions, formatEmptyFunction(receiver, name, args, returns))
 			}
 		}
 		return true
@@ -147,7 +147,7 @@ func formatStruct(typeSpec *ast.TypeSpec, client string) string {
 }
 
 // parseFunctionSignature parses function declarations into the function name, the arguments, and the return types.
-func parseFunctionSignature(resourceSubtype, resourceSubtypePascal string, funcDecl *ast.FuncDecl) (name, args string, returns []string) {
+func parseFunctionSignature(resourceSubtype, resourceSubtypePascal string, modelType string, funcDecl *ast.FuncDecl) (name string, receiver string, args string, returns []string) {
 	if funcDecl == nil {
 		return
 	}
@@ -159,6 +159,19 @@ func parseFunctionSignature(resourceSubtype, resourceSubtypePascal string, funcD
 	}
 	if funcName == "Close" || funcName == "Name" || funcName == "Reconfigure" {
 		return
+	}
+
+	// Receiver
+	receiver = modelType
+	if funcDecl.Recv != nil && len(funcDecl.Recv.List) > 0 {
+		field := funcDecl.Recv.List[0]
+		if f, ok := field.Type.(*ast.StarExpr); ok {
+			if ident, ok := f.X.(*ast.Ident); ok {
+				if ident.Name != "client" {
+					receiver = ident.Name
+				}
+			}
+		}
 	}
 
 	// Parameters
@@ -215,7 +228,7 @@ func parseFunctionSignature(resourceSubtype, resourceSubtypePascal string, funcD
 		}
 	}
 
-	return funcName, strings.Join(params, ", "), returns
+	return funcName, receiver, strings.Join(params, ", "), returns
 }
 
 // formatEmptyFunction outputs the new function that removes the function body, adds the panic unimplemented statement,
