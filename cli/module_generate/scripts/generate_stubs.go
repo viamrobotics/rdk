@@ -80,6 +80,13 @@ func setGoModuleTemplate(clientCode string, module common.ModuleInputs) (*common
 	}
 	var functions []string
 	ast.Inspect(node, func(n ast.Node) bool {
+		if typeSpec, ok := n.(*ast.TypeSpec); ok {
+			if _, ok := typeSpec.Type.(*ast.StructType); ok {
+				if strings.Contains(typeSpec.Name.Name, "Client") {
+					functions = append(functions, formatStruct(typeSpec, module.ModuleCamel+module.ModelPascal))
+				}
+			}
+		}
 		if funcDecl, ok := n.(*ast.FuncDecl); ok {
 			name, args, returns := parseFunctionSignature(module.ResourceSubtype, module.ResourceSubtypePascal, funcDecl)
 			if name != "" {
@@ -128,6 +135,15 @@ func handleMapType(str, resourceSubtype string) string {
 	}
 
 	return fmt.Sprintf("map[%s]%s", keyType, valueType)
+}
+
+func formatStruct(typeSpec *ast.TypeSpec, client string) string {
+	var buf bytes.Buffer
+	err := printer.Fprint(&buf, token.NewFileSet(), typeSpec)
+	if err != nil {
+		return fmt.Sprintf("Error formatting type: %v", err)
+	}
+	return "type " + strings.ReplaceAll(buf.String(), "*client", "*"+client) + "\n\n"
 }
 
 // parseFunctionSignature parses function declarations into the function name, the arguments, and the return types.
