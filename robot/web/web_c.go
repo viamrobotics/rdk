@@ -12,6 +12,7 @@ import (
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -79,13 +80,22 @@ func (svc *webService) Reconfigure(ctx context.Context, deps resource.Dependenci
 }
 
 func (svc *webService) closeStreamServer() {
-	if err := svc.streamServer.Server.Close(); err != nil {
-		svc.logger.Errorw("error closing stream server", "error", err)
+	if svc.streamServer.Server != nil {
+		if err := svc.streamServer.Server.Close(); err != nil {
+			svc.logger.Errorw("error closing stream server", "error", err)
+		}
 	}
 }
 
 func (svc *webService) initStreamServer(ctx context.Context, options *weboptions.Options) error {
-	server := webstream.NewServer(svc.r, *svc.opts.streamConfig, svc.logger)
+	// Check to make sure stream config option is set in the webservice.
+	var streamConfig gostream.StreamConfig
+	if svc.opts.streamConfig != nil {
+		streamConfig = *svc.opts.streamConfig
+	} else {
+		svc.logger.Warn("streamConfig is nil, using empty config")
+	}
+	server := webstream.NewServer(svc.r, streamConfig, svc.logger)
 	svc.streamServer = &StreamServer{server, false}
 	if err := svc.streamServer.Server.AddNewStreams(ctx); err != nil {
 		return err
