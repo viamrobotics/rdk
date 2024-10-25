@@ -1,6 +1,8 @@
 package testutils
 
 import (
+	"io"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -51,8 +53,8 @@ func BuildTempModuleWithFirstRun(tb testing.TB, modDir string) string {
 	exeDir := filepath.Dir(exePath)
 
 	type copyOp struct {
-		src  string
-		dest string
+		src string
+		dst string
 	}
 
 	for _, cp := range []copyOp{
@@ -64,11 +66,19 @@ func BuildTempModuleWithFirstRun(tb testing.TB, modDir string) string {
 		{"test_meta.json", "meta.json"},
 		{"first_run.sh", "first_run.sh"},
 	} {
-		//nolint:gosec // TODO: use io.Copy instead
-		copier := exec.Command("cp", cp.src, filepath.Join(exeDir, cp.dest))
-		copier.Dir = utils.ResolveFile(modDir)
-		_, err := copier.CombinedOutput()
+		srcPath := filepath.Join(utils.ResolveFile(modDir), cp.src)
+		//nolint:gosec
+		src, err := os.Open(srcPath)
 		if err != nil {
+			tb.Fatal(err)
+		}
+		dstPath := filepath.Join(exeDir, cp.dst)
+		//nolint:gosec
+		dst, err := os.OpenFile(dstPath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o500)
+		if err != nil {
+			tb.Fatal(err)
+		}
+		if _, err = io.Copy(dst, src); err != nil {
 			tb.Fatal(err)
 		}
 	}
