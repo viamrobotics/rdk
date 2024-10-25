@@ -358,6 +358,15 @@ func (c *collector) maybeWriteToMongo(msg *v1.SensorData) {
 	if c.mongoCollection == nil {
 		return
 	}
+
+	// currently vision.CaptureAllFromCamera and camera.GetImages are stored in .capture files as VERY LARGE
+	// tabular sensor data
+	// That is a mistake which we are rectifying but in the meantime we don't want data captured from those methods to be synced
+	// to mongo
+	if getDataType(c.methodName) == v1.DataType_DATA_TYPE_BINARY_SENSOR || c.methodName == captureAllFromCamera {
+		return
+	}
+
 	s := msg.GetStruct()
 	if s == nil {
 		return
