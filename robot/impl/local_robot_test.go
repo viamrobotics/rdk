@@ -4343,7 +4343,7 @@ func TestRemovingOfflineRemote(t *testing.T) {
 	// Reconfigure the main robot with the offline remote removed
 	mainRobot.Reconfigure(ctx, &config.Config{})
 
-	// Ensure that the remote has been remoted correctly
+	// Ensure that the remote has been removed correctly
 	findRemote, ok := mainRobot.RemoteByName("remote")
 	test.That(t, findRemote, test.ShouldBeEmpty)
 	test.That(t, ok, test.ShouldBeFalse)
@@ -4367,9 +4367,11 @@ func TestRemovingOfflineRemotes(t *testing.T) {
 
 	// Create a context that we can cancel to similuate the remote connection timeout
 	ctxCompleteConfig, cancelCompleteConfig := context.WithCancel(context.Background())
+	defer cancelCompleteConfig()
 
 	// This cancel is used to ensure the goroutine is cleaned up properly after the test
 	ctxReconfig, cancelReconfig := context.WithCancel(context.Background())
+	defer cancelReconfig()
 
 	// Create a remote graph node and manually add it to the graph
 	// This is to avoid calling reconfigure and blocking on trying to connect to the remote

@@ -150,7 +150,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	ourErr = errors.New("whoops")
 	node.LogAndSetLastError(ourErr)
 	status := node.ResourceStatus()
-	// Ensure that error is set and node stays in [NodeStateUnhealthy] 
+	// Ensure that error is set and node stays in [NodeStateUnhealthy]
 	// since state transition [NodeStateUnhealthy] -> [NodeStateRemoving] is blocked
 	test.That(t, status.Error.Error(), test.ShouldContainSubstring, "whoops")
 	test.That(t, node.MarkedForRemoval(), test.ShouldBeTrue)
