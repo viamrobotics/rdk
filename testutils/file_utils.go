@@ -40,7 +40,7 @@ func BuildTempModule(tb testing.TB, dir string) string {
 	return modPath
 }
 
-// BuildTempModuleWithFirstRun ... TODO
+// BuildTempModuleWithFirstRun ... TODO.
 func BuildTempModuleWithFirstRun(tb testing.TB, modDir string) string {
 	tb.Helper()
 
