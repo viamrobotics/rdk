@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/pion/rtp"
+	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 	v1 "go.viam.com/api/module/v1"
 	"go.viam.com/test"
@@ -1429,4 +1430,131 @@ func TestModularDiscovery(t *testing.T) {
 			test.That(t, discovery.Results["extra"], test.ShouldEqual, tc.expectedExtra)
 		})
 	}
+}
+
+func TestFirstRun(t *testing.T) {
+	ctx := context.Background()
+	logger, logs := logging.NewObservedTestLogger(t)
+
+	exePath := rtestutils.BuildTempModuleWithFirstRun(t, "module/testmodule")
+	modCfg := config.Module{
+		Name:    "test-module",
+		ExePath: exePath,
+	}
+	parentAddr := setupSocketWithRobot(t)
+	opts := modmanageroptions.Options{
+		UntrustedEnv: false,
+	}
+	mgr := setupModManager(t, ctx, parentAddr, logger, opts)
+
+	t.Run("fails", func(t *testing.T) {
+		t.Setenv("VIAM_TEST_FAIL_RUN_FIRST", "1")
+		err := mgr.FirstRun(ctx, modCfg)
+		test.That(t, err, test.ShouldNotBeNil)
+
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+
+			test.That(tb, logs.FilterMessage("executing first run script").Len(), test.ShouldEqual, 1)
+
+			stdio := logs.FilterMessage("got stdio").FilterLevelExact(zapcore.InfoLevel)
+			test.That(tb, stdio.Len(), test.ShouldEqual, 1)
+			expectedStdio := map[string]struct{}{
+				"failed!": {},
+			}
+			for _, msg := range stdio.All() {
+				line := msg.ContextMap()["output"].(string)
+				delete(expectedStdio, line)
+			}
+			test.That(tb, expectedStdio, test.ShouldBeEmpty)
+
+			stderr := logs.FilterMessage("got stderr").FilterLevelExact(zapcore.WarnLevel)
+			test.That(tb, stderr.Len(), test.ShouldEqual, 2)
+			expectedStderr := map[string]struct{}{
+				"erroring... 1": {},
+				"erroring... 2": {},
+			}
+			for _, msg := range stderr.All() {
+				line := msg.ContextMap()["output"].(string)
+				delete(expectedStderr, line)
+			}
+			test.That(tb, expectedStderr, test.ShouldBeEmpty)
+
+			test.That(tb, logs.FilterMessage("first run script failed").Len(), test.ShouldEqual, 1)
+		})
+	})
+
+	// First run succeeds
+	t.Run("succeeds", func(t *testing.T) {
+		logs.TakeAll() // truncate observed logs
+
+		err := mgr.FirstRun(ctx, modCfg)
+		test.That(t, err, test.ShouldBeNil)
+
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+
+			test.That(tb, logs.FilterMessage("executing first run script").Len(), test.ShouldEqual, 1)
+
+			stdio := logs.FilterMessage("got stdio").FilterLevelExact(zapcore.InfoLevel)
+			test.That(tb, stdio.Len(), test.ShouldEqual, 4)
+			expectedStdio := map[string]struct{}{
+				"running... 1": {},
+				"running... 2": {},
+				"running... 3": {},
+				"done!":        {},
+			}
+			for _, msg := range stdio.All() {
+				line := msg.ContextMap()["output"].(string)
+				delete(expectedStdio, line)
+			}
+			test.That(tb, expectedStdio, test.ShouldBeEmpty)
+
+			stderr := logs.FilterMessage("got stderr").FilterLevelExact(zapcore.WarnLevel)
+			test.That(tb, stderr.Len(), test.ShouldEqual, 2)
+			expectedStderr := map[string]struct{}{
+				"hiccup 1": {},
+				"hiccup 2": {},
+			}
+			for _, msg := range stderr.All() {
+				line := msg.ContextMap()["output"].(string)
+				delete(expectedStderr, line)
+			}
+			test.That(tb, expectedStderr, test.ShouldBeEmpty)
+
+			test.That(tb, logs.FilterMessage("first run script succeeded").Len(), test.ShouldEqual, 1)
+		})
+	})
+
+	t.Run("skipped after success", func(t *testing.T) {
+		logs.TakeAll() // truncate observed logs
+
+		err := mgr.FirstRun(ctx, modCfg)
+		test.That(t, err, test.ShouldBeNil)
+
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+
+			test.That(tb, logs.FilterMessage("first run already ran").Len(), test.ShouldEqual, 1)
+		})
+	})
+
+	t.Run("skipped after success and module manager restart", func(t *testing.T) {
+		logs.TakeAll() // truncate observed logs
+
+		err := mgr.Close(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+
+		opts = modmanageroptions.Options{
+			UntrustedEnv: false,
+		}
+		mgr = setupModManager(t, ctx, parentAddr, logger, opts)
+
+		err = mgr.FirstRun(ctx, modCfg)
+		test.That(t, err, test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			test.That(tb, logs.FilterMessage("first run already ran").Len(), test.ShouldEqual, 1)
+		})
+	})
 }

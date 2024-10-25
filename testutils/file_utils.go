@@ -12,15 +12,13 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// BuildTempModule will run "go build ." in the provided RDK directory and return the
-// path to the built temporary file. This function will fail the current test if there
-// are any build-related errors.
-func BuildTempModule(tb testing.TB, dir string) string {
+func buildTempModule(tb testing.TB, exeDestDir, exeName, modSrcDir string) string {
 	tb.Helper()
-	modPath := filepath.Join(tb.TempDir(), filepath.Base(dir))
+
+	exePath := filepath.Join(exeDestDir, exeName)
 	//nolint:gosec
-	builder := exec.Command("go", "build", "-o", modPath, ".")
-	builder.Dir = utils.ResolveFile(dir)
+	builder := exec.Command("go", "build", "-o", exePath, ".")
+	builder.Dir = utils.ResolveFile(modSrcDir)
 	out, err := builder.CombinedOutput()
 	// NOTE (Nick S): Workaround for the tickets below:
 	// https://viam.atlassian.net/browse/RSDK-7145
@@ -37,7 +35,44 @@ func BuildTempModule(tb testing.TB, dir string) string {
 	if tb.Failed() {
 		tb.Fatalf("failed to build temporary module for testing")
 	}
-	return modPath
+	return exePath
+}
+
+// BuildTempModule will attempt to build the module in the provided directory and put the
+// resulting executable binary into a temporary directory. If successful, this function will
+// return the path to the executable binary.
+func BuildTempModule(tb testing.TB, modDir string) string {
+	tb.Helper()
+
+	exeDir := tb.TempDir()
+	exeName := filepath.Base(modDir)
+	return buildTempModule(tb, exeDir, exeName, modDir)
+}
+
+// BuildTempModuleWithFirstRun will attempt to build the module in the provided directory and put the
+// resulting executable binary into a temporary directory. After building, it will also copy "meta.json"
+// and "first_run.sh" into the same temporary directory. It is assumed that these files are in the
+// provided module directory. If successful, this function will return the path to the executable binary.
+func BuildTempModuleWithFirstRun(tb testing.TB, modDir string) string {
+	tb.Helper()
+
+	exeDir := tb.TempDir()
+	exeName := filepath.Base(modDir)
+	exePath := buildTempModule(tb, exeDir, exeName, modDir)
+
+	for _, file := range []string{
+		"meta.json",
+		"first_run.sh",
+	} {
+		//nolint:gosec // TODO: use io.Copy instead
+		copier := exec.Command("cp", file, exeDir)
+		copier.Dir = utils.ResolveFile(modDir)
+		_, err := copier.CombinedOutput()
+		if err != nil {
+			tb.Fatal(err)
+		}
+	}
+	return exePath
 }
 
 // MockBuffer is a buffered writer that just appends data to an array to read
