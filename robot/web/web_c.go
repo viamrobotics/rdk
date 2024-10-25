@@ -79,10 +79,8 @@ func (svc *webService) Reconfigure(ctx context.Context, deps resource.Dependenci
 }
 
 func (svc *webService) closeStreamServer() {
-	if svc.streamServer.Server != nil {
-		if err := svc.streamServer.Server.Close(); err != nil {
-			svc.logger.Errorw("error closing stream server", "error", err)
-		}
+	if err := svc.streamServer.Server.Close(); err != nil {
+		svc.logger.Errorw("error closing stream server", "error", err)
 	}
 }
 
