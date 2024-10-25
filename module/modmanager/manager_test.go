@@ -1442,6 +1442,7 @@ func TestFirstRun(t *testing.T) {
 		ExePath: exePath,
 	}
 
+	// First run for first time
 	parentAddr := setupSocketWithRobot(t)
 	opts := modmanageroptions.Options{
 		UntrustedEnv: false,
@@ -1483,5 +1484,15 @@ func TestFirstRun(t *testing.T) {
 		test.That(tb, expectedStderr, test.ShouldBeEmpty)
 
 		test.That(tb, logs.FilterMessage("first run script succeeded").Len(), test.ShouldEqual, 1)
+	})
+
+	// First run should not run again if method is called
+	err = mgr.FirstRun(ctx, modCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
+
+		test.That(tb, logs.FilterMessage("first run already ran").Len(), test.ShouldEqual, 1)
 	})
 }
