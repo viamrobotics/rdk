@@ -1433,7 +1433,7 @@ func TestModularDiscovery(t *testing.T) {
 
 func TestFirstRun(t *testing.T) {
 	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 
 	exePath := rtestutils.BuildTempModuleWithFirstRun(t, "module/testmodule")
 	modCfg := config.Module{
@@ -1449,4 +1449,26 @@ func TestFirstRun(t *testing.T) {
 
 	err := mgr.FirstRun(ctx, modCfg)
 	test.That(t, err, test.ShouldBeNil)
+
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
+
+		test.That(tb, logs.FilterMessage("executing first run script").Len(), test.ShouldEqual, 1)
+
+		stdio := logs.FilterMessage("got stdio")
+		test.That(tb, stdio.Len(), test.ShouldEqual, 3)
+
+		expectedOutput := map[string]struct{}{
+			"success line 1": {},
+			"success line 2": {},
+			"success line 3": {},
+		}
+		for _, msg := range stdio.All() {
+			line := msg.ContextMap()["output"].(string)
+			delete(expectedOutput, line)
+		}
+		test.That(tb, expectedOutput, test.ShouldBeEmpty)
+
+		test.That(tb, logs.FilterMessage("first run script succeeded").Len(), test.ShouldEqual, 1)
+	})
 }
