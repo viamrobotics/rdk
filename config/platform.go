@@ -14,9 +14,9 @@ import (
 )
 
 var (
-	cudaRegex         = regexp.MustCompile(`Cuda compilation tools, release (\d+)\.`)
-	dpkgVersionRegex  = regexp.MustCompile(`\nVersion: (\d+)\D`)
-	savedPlatformTags []string
+	cudaRegex            = regexp.MustCompile(`Cuda compilation tools, release (\d+)\.`)
+	aptCacheVersionRegex = regexp.MustCompile(`\nVersion: (\d+)\D`)
+	savedPlatformTags    []string
 )
 
 // helper to read platform tags for GPU-related system libraries.
@@ -39,7 +39,7 @@ func readGPUTags(tags []string) []string {
 		out, err := exec.CommandContext(ctx, "apt-cache", "show", "nvidia-jetpack").Output()
 		// note: the error case here will usually mean 'package missing', we don't analyze it.
 		if err == nil {
-			if match := dpkgVersionRegex.FindSubmatch(out); match != nil {
+			if match := aptCacheVersionRegex.FindSubmatch(out); match != nil {
 				tags = append(tags, "jetpack:"+string(match[1]))
 			}
 		}

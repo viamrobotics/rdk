@@ -35,21 +35,32 @@ Build cuda_11.5.r11.5/compiler.30672275_0
 		test.That(t, string(match[1]), test.ShouldResemble, "11")
 	})
 
-	t.Run("dpkg", func(t *testing.T) {
-		output := `Package: libwebkit2gtk-4.0-37
-Status: install ok installed
-Priority: optional
-Section: libs
-Installed-Size: 81548
-Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
-Architecture: amd64
-Multi-Arch: same
-Source: webkit2gtk
-Version: 2.46.1-0ubuntu0.22.04.3
-Depends: libjavascriptcoregtk-4.0-18 (= 2.46.1-0ubuntu0.22.04.3), gstreamer1.0-plugins-base
-`
-		match := dpkgVersionRegex.FindSubmatch([]byte(output))
+	t.Run("apt-cache", func(t *testing.T) {
+		jp5 := `Package: nvidia-jetpack
+Version: 5.1.1-b56
+Architecture: arm64
+Maintainer: NVIDIA Corporation
+Installed-Size: 194
+Depends: nvidia-jetpack-runtime (= 5.1.1-b56), nvidia-jetpack-dev (= 5.1.1-b56)
+Homepage: http://developer.nvidia.com/jetson
+Priority: standard
+Section: metapackages`
+		match := aptCacheVersionRegex.FindSubmatch([]byte(jp5))
 		test.That(t, match, test.ShouldNotBeNil)
-		test.That(t, string(match[1]), test.ShouldResemble, "2")
+		test.That(t, string(match[1]), test.ShouldResemble, "5")
+
+		jp6 := `Package: nvidia-jetpack
+Source: nvidia-jetpack (6.1)
+Version: 6.1+b123
+Architecture: arm64
+Maintainer: NVIDIA Corporation
+Installed-Size: 194
+Depends: nvidia-jetpack-runtime (= 6.1+b123), nvidia-jetpack-dev (= 6.1+b123)
+Homepage: http://developer.nvidia.com/jetson
+Priority: standard
+Section: metapackages`
+		match = aptCacheVersionRegex.FindSubmatch([]byte(jp6))
+		test.That(t, match, test.ShouldNotBeNil)
+		test.That(t, string(match[1]), test.ShouldResemble, "6")
 	})
 }
