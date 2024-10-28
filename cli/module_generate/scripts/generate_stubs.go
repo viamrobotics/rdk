@@ -183,6 +183,8 @@ func parseFunctionSignature(resourceSubtype, resourceSubtypePascal string, model
 				paramType = fmt.Sprintf("%s.%s", resourceSubtype, paramType)
 			} else if strings.HasPrefix(paramType, "[]") && unicode.IsUpper(rune(paramType[2])) {
 				paramType = fmt.Sprintf("[]%s.%s", resourceSubtype, paramType[2:])
+			} else if strings.HasPrefix(paramType, "chan ") && unicode.IsUpper(rune(paramType[5])) {
+				paramType = fmt.Sprintf("chan %s.%s", resourceSubtype, paramType[5:])
 			}
 
 			for _, name := range param.Names {
