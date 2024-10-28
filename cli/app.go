@@ -42,7 +42,6 @@ const (
 	apiKeyCreateFlagName = "name"
 
 	moduleFlagName            = "name"
-	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
 	moduleFlagPath            = "module"
 	moduleFlagVersion         = "version"
@@ -1497,11 +1496,6 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Name:  "generate",
 					Usage: "generate a new modular resource via prompts",
 					Flags: []cli.Flag{
-						&cli.StringFlag{
-							Name:  moduleFlagLanguage,
-							Usage: "resource type to use in module",
-							Value: "python",
-						},
 						&cli.StringFlag{
 							Name:  moduleFlagResourceType,
 							Usage: "resource type to use in module",
