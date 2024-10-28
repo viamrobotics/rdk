@@ -4,7 +4,6 @@ go 1.23
 
 require (
 	github.com/AlekSi/gocov-xml v1.0.0
-	github.com/CPRT/roboclaw v0.0.0-20190825181223-76871438befc
 	github.com/Masterminds/semver/v3 v3.3.0
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/NYTimes/gziphandler v1.1.1
@@ -382,7 +381,6 @@ require (
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/stretchr/testify v1.9.0 // indirect
 	github.com/subosito/gotenv v1.4.1 // indirect
-	github.com/tarm/serial v0.0.0-20180830185346-98f6abe2eb07 // indirect
 	github.com/tdakkota/asciicheck v0.2.0 // indirect
 	github.com/tetafro/godot v1.4.17 // indirect
 	github.com/tetratelabs/wazero v1.2.0 // indirect

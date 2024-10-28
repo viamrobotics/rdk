@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"go.viam.com/rdk/ftdc"
 	"go.viam.com/rdk/logging"
 )
 
@@ -112,7 +113,7 @@ func NewConfiguredGraphNode(config Config, res Resource, resModel Model) *GraphN
 	node := NewUninitializedNode()
 	node.SetNewConfig(config, nil)
 	node.setDependenciesResolved()
-	node.SwapResource(res, resModel)
+	node.SwapResource(res, resModel, nil)
 	return node
 }
 
@@ -233,7 +234,11 @@ func (w *GraphNode) UnsetResource() {
 // and indicate it no longer needs reconfiguration. SwapResource also
 // increments the graphLogicalClock and sets updatedAt for this GraphNode
 // to the new value.
-func (w *GraphNode) SwapResource(newRes Resource, newModel Model) {
+//
+// The `ftdc` input may be nil (e.g: testing). If present, this will also updates FTDC to
+// communicate that the `Stats` method may return different values. As we'll now be calling `Stats`
+// on a potentially different underlying `Model`.
+func (w *GraphNode) SwapResource(newRes Resource, newModel Model, ftdc *ftdc.FTDC) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.current = newRes
@@ -251,6 +256,15 @@ func (w *GraphNode) SwapResource(newRes Resource, newModel Model) {
 	}
 	now := time.Now()
 	w.lastReconfigured = &now
+
+	// Calling `Stats` acquires the `GraphNode.mu` (via the `Resource` method). This allows us to
+	// safely Remove->Add in one step instead of needing to Remove->SwapResource->Add.
+	if ftdc != nil {
+		// We call `Remove` followed by `Add` instead of only calling `Add`. Only calling `Add`
+		// would result in a warning that we're overriding an existing ftdc "system".
+		ftdc.Remove(newRes.Name().String())
+		ftdc.Add(newRes.Name().String(), w)
+	}
 }
 
 // MarkForRemoval marks this node for removal at a later time.
@@ -524,6 +538,14 @@ func (w *GraphNode) transitionTo(state NodeState) {
 		return
 	}
 
+	// if state of a node is [NodeStateRemoving] it cannot transition to [NodeStateUnhealthy] until it is removed.
+	// currently this is the only hard blocked transition
+	// note this does not block SwapResource from transitioning a removing resource to ready
+	if w.state == NodeStateRemoving && state == NodeStateUnhealthy {
+		w.logger.Debug("node cannot transition from [NodeStateRemoving] to [NodeStateUnhealthy], blocking transition")
+		return
+	}
+
 	if !w.canTransitionTo(state) && w.logger != nil {
 		w.logger.Warnw("unexpected resource state transition", "from", w.state.String(), "to", state.String())
 	}
@@ -568,6 +590,36 @@ func (w *GraphNode) resourceStatus() Status {
 		Revision:    w.revision,
 		Error:       err,
 	}
+}
+
+type graphNodeStats struct {
+	State    int
+	ResStats any
+}
+
+// Stats satisfies the FTDC Statser interface.
+func (w *GraphNode) Stats() any {
+	ret := graphNodeStats{}
+
+	res, err := w.Resource()
+	//nolint:errorlint
+	switch err {
+	case nil:
+		ret.State = 0
+	case errNotInitalized:
+		ret.State = 1
+	case errPendingRemoval:
+		ret.State = 2
+	default:
+		// `w.lastErr != nil`
+		ret.State = 3
+	}
+
+	if statser, isStatser := res.(ftdc.Statser); isStatser && err == nil {
+		ret.ResStats = statser.Stats()
+	}
+
+	return ret
 }
 
 // Status encapsulates a resource name along with state transition metadata.

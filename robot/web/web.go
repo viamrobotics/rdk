@@ -424,7 +424,7 @@ func (svc *webService) stopWeb() {
 	svc.isRunning = false
 	svc.webWorkers.Wait()
 	if svc.streamServer != nil {
-		svc.streamServer.Server.SsWorkers.Wait()
+		svc.streamServer.SsWorkers.Wait()
 	}
 }
 
@@ -536,7 +536,7 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 		return err
 	}
 
-	if err := svc.initStreamServer(ctx, &options); err != nil {
+	if err := svc.initStreamServer(ctx); err != nil {
 		return err
 	}
 
