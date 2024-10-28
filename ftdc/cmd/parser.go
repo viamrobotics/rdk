@@ -12,6 +12,14 @@ import (
 	"go.viam.com/rdk/ftdc"
 )
 
+// gnuplotWriter organizes all of the output for `gnuplot` to create a graph from FTDC
+// data. Notably:
+//
+//   - Each graph consists of all the readings for an individual metric. There is one file per metric
+//     and each file contains all of the (time, value) points to graph.
+//   - There is additionally one "top-level" file. This is the file to call `gnuplot` against. This
+//     file contains all layout/styling information. This file will additionally have one line per
+//     graph. Each of these lines will contain the OS file path for the above filenames.
 type gnuplotWriter struct {
 	// metricFiles contain the actual data points to be graphed. A "top level" gnuplot will
 	// reference them.
@@ -20,18 +28,15 @@ type gnuplotWriter struct {
 	tempdir string
 }
 
+// writeln is a wrapper for Fprintln that panics on any error.
 func writeln(toWrite io.Writer, str string) {
-	_, err := toWrite.Write([]byte(str))
-	if err != nil {
-		panic(err)
-	}
-
-	_, err = toWrite.Write([]byte{byte('\n')})
+	_, err := fmt.Fprintln(toWrite, str)
 	if err != nil {
 		panic(err)
 	}
 }
 
+// writelnf will string format the latter arguments and call writeln.
 func writelnf(toWrite io.Writer, formatStr string, args ...any) {
 	writeln(toWrite, fmt.Sprintf(formatStr, args...))
 }
@@ -72,6 +77,7 @@ func (gpw *gnuplotWriter) addFlatDatum(datum ftdc.FlatDatum) {
 	}
 }
 
+// RenderAndClose writes out the "top-level" file and closes all file handles.
 func (gpw *gnuplotWriter) RenderAndClose() {
 	gnuFile, err := os.CreateTemp(gpw.tempdir, "main")
 	if err != nil {
