@@ -493,8 +493,7 @@ func (server *Server) startVideoStream(ctx context.Context, source gostream.Vide
 		if props, err := server.propertiesFromStream(ctx, stream); err == nil && slices.Contains(props.MimeTypes, rutils.MimeTypeH264) {
 			streamVideoCtx = gostream.WithMIMETypeHint(streamVideoCtx, rutils.WithLazyMIMEType(rutils.MimeTypeH264))
 		}
-		// TODO(seanp): Should we make StreamVideoSource private?
-		return StreamVideoSource(streamVideoCtx, source, stream, opts, server.logger)
+		return streamVideoSource(streamVideoCtx, source, stream, opts, server.logger)
 	})
 }
 
@@ -502,7 +501,7 @@ func (server *Server) startAudioStream(ctx context.Context, source gostream.Audi
 	server.startStream(func(opts *BackoffTuningOptions) error {
 		// Merge ctx that may be coming from a Reconfigure.
 		streamAudioCtx, _ := utils.MergeContext(server.closedCtx, ctx)
-		return StreamAudioSource(streamAudioCtx, source, stream, opts, server.logger)
+		return streamAudioSource(streamAudioCtx, source, stream, opts, server.logger)
 	})
 }
 
