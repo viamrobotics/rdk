@@ -423,9 +423,6 @@ func (svc *webService) stopWeb() {
 	}
 	svc.isRunning = false
 	svc.webWorkers.Wait()
-	if svc.streamServer != nil {
-		svc.streamServer.SsWorkers.Wait()
-	}
 }
 
 // Close closes a webService via calls to its Cancel func.

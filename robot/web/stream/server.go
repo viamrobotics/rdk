@@ -49,7 +49,6 @@ type Server struct {
 	isAlive                 bool
 
 	streamConfig gostream.StreamConfig
-	SsWorkers    sync.WaitGroup
 	videoSources map[string]gostream.HotSwappableVideoSource
 	audioSources map[string]gostream.HotSwappableAudioSource
 }
@@ -473,9 +472,9 @@ func (server *Server) createStream(config gostream.StreamConfig, name string) (g
 
 func (server *Server) startStream(streamFunc func(opts *BackoffTuningOptions) error) {
 	waitCh := make(chan struct{})
-	server.SsWorkers.Add(1)
+	server.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
-		defer server.SsWorkers.Done()
+		defer server.activeBackgroundWorkers.Done()
 		close(waitCh)
 		if err := streamFunc(&BackoffTuningOptions{}); err != nil {
 			if utils.FilterOutError(err, context.Canceled) != nil {
@@ -518,8 +517,9 @@ func (server *Server) propertiesFromStream(ctx context.Context, stream gostream.
 	return cam.Properties(ctx)
 }
 
-// AddNewStreams adds new video and audio streams to the server with the updated set of video and
-// audio sources.
+// AddNewStreams adds new video and audio streams to the server using the updated set of video and
+// audio sources. It refreshes the sources, checks for a valid stream configuration, and starts
+// the streams if applicable.
 func (server *Server) AddNewStreams(ctx context.Context) error {
 	// Refreshing sources will walk the robot resources for anything implementing the camera and
 	// audioinput APIs and mutate the `svc.videoSources` and `svc.audioSources` maps.
