@@ -97,7 +97,7 @@ func (svc *webService) initStreamServer(ctx context.Context, options *weboptions
 	}
 	server := webstream.NewServer(svc.r, streamConfig, svc.logger)
 	svc.streamServer = &StreamServer{server, false}
-	if err := svc.streamServer.Server.AddNewStreams(ctx); err != nil {
+	if err := svc.streamServer.Server.AddNewStreams(svc.cancelCtx); err != nil {
 		return err
 	}
 	if err := svc.rpcServer.RegisterServiceServer(

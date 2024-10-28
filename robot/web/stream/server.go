@@ -49,7 +49,7 @@ type Server struct {
 	isAlive                 bool
 
 	streamConfig gostream.StreamConfig
-	ssWorkers    sync.WaitGroup
+	SsWorkers    sync.WaitGroup
 	VideoSources map[string]gostream.HotSwappableVideoSource
 	AudioSources map[string]gostream.HotSwappableAudioSource
 }
@@ -471,11 +471,11 @@ func (server *Server) createStream(config gostream.StreamConfig, name string) (g
 	return stream, false, err
 }
 
-func (server *Server) startSTream(streamFunc func(opts *BackoffTuningOptions) error) {
+func (server *Server) startStream(streamFunc func(opts *BackoffTuningOptions) error) {
 	waitCh := make(chan struct{})
-	server.ssWorkers.Add(1)
+	server.SsWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
-		defer server.ssWorkers.Done()
+		defer server.SsWorkers.Done()
 		close(waitCh)
 		if err := streamFunc(&BackoffTuningOptions{}); err != nil {
 			if utils.FilterOutError(err, context.Canceled) != nil {
@@ -487,8 +487,7 @@ func (server *Server) startSTream(streamFunc func(opts *BackoffTuningOptions) er
 }
 
 func (server *Server) startVideoStream(ctx context.Context, source gostream.VideoSource, stream gostream.Stream) {
-	server.startSTream(func(opts *BackoffTuningOptions) error {
-		// TODO(seanp): Is it ok to merge with closedCtx here?
+	server.startStream(func(opts *BackoffTuningOptions) error {
 		streamVideoCtx, _ := utils.MergeContext(server.closedCtx, ctx)
 		// Use H264 for cameras that support it; but do not override upstream values.
 		if props, err := server.propertiesFromStream(ctx, stream); err == nil && slices.Contains(props.MimeTypes, rutils.MimeTypeH264) {
@@ -500,7 +499,7 @@ func (server *Server) startVideoStream(ctx context.Context, source gostream.Vide
 }
 
 func (server *Server) startAudioStream(ctx context.Context, source gostream.AudioSource, stream gostream.Stream) {
-	server.startSTream(func(opts *BackoffTuningOptions) error {
+	server.startStream(func(opts *BackoffTuningOptions) error {
 		// Merge ctx that may be coming from a Reconfigure.
 		streamAudioCtx, _ := utils.MergeContext(server.closedCtx, ctx)
 		return StreamAudioSource(streamAudioCtx, source, stream, opts, server.logger)
