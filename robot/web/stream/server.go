@@ -320,6 +320,70 @@ func (server *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStre
 	return &streampb.RemoveStreamResponse{}, nil
 }
 
+// AddNewStreams adds new video and audio streams to the server using the updated set of video and
+// audio sources. It refreshes the sources, checks for a valid stream configuration, and starts
+// the streams if applicable.
+func (server *Server) AddNewStreams(ctx context.Context) error {
+	// Refreshing sources will walk the robot resources for anything implementing the camera and
+	// audioinput APIs and mutate the `svc.videoSources` and `svc.audioSources` maps.
+	server.refreshVideoSources()
+	server.refreshAudioSources()
+
+	if server.streamConfig == (gostream.StreamConfig{}) {
+		// The `streamConfig` dictates the video and audio encoder libraries to use. We can't do
+		// much if none are present.
+		if len(server.videoSources) != 0 || len(server.audioSources) != 0 {
+			server.logger.Warn("not starting streams due to no stream config being set")
+		}
+		return nil
+	}
+
+	server.logger.Info("starting video and audio streams")
+	for name := range server.videoSources {
+		if runtime.GOOS == "windows" {
+			// TODO(RSDK-1771): support video on windows
+			server.logger.Warn("video streaming not supported on Windows yet")
+			break
+		}
+		// We walk the updated set of `videoSources` and ensure all of the sources are "created" and
+		// "started".
+		config := gostream.StreamConfig{
+			Name:                name,
+			VideoEncoderFactory: server.streamConfig.VideoEncoderFactory,
+		}
+		// Call `createStream`. `createStream` is responsible for first checking if the stream
+		// already exists. If it does, it skips creating a new stream and we continue to the next source.
+		//
+		// TODO(RSDK-9079) Add reliable framerate fetcher for stream videosources
+		stream, alreadyRegistered, err := server.createStream(config, name)
+		if err != nil {
+			return err
+		} else if alreadyRegistered {
+			continue
+		}
+		server.startVideoStream(ctx, server.videoSources[name], stream)
+	}
+
+	for name := range server.audioSources {
+		// Similarly, we walk the updated set of `audioSources` and ensure all of the audio sources
+		// are "created" and "started". `createStream` and `startAudioStream` have the same
+		// behaviors as described above for video streams.
+		config := gostream.StreamConfig{
+			Name:                name,
+			AudioEncoderFactory: server.streamConfig.AudioEncoderFactory,
+		}
+		stream, alreadyRegistered, err := server.createStream(config, name)
+		if err != nil {
+			return err
+		} else if alreadyRegistered {
+			continue
+		}
+		server.startAudioStream(ctx, server.audioSources[name], stream)
+	}
+
+	return nil
+}
+
 // Close closes the Server and waits for spun off goroutines to complete.
 func (server *Server) Close() error {
 	server.closedFn()
@@ -515,68 +579,4 @@ func (server *Server) propertiesFromStream(ctx context.Context, stream gostream.
 		return camera.Properties{}, errors.Errorf("cannot convert resource (type %T) to type (%T)", res, camera.Camera(nil))
 	}
 	return cam.Properties(ctx)
-}
-
-// AddNewStreams adds new video and audio streams to the server using the updated set of video and
-// audio sources. It refreshes the sources, checks for a valid stream configuration, and starts
-// the streams if applicable.
-func (server *Server) AddNewStreams(ctx context.Context) error {
-	// Refreshing sources will walk the robot resources for anything implementing the camera and
-	// audioinput APIs and mutate the `svc.videoSources` and `svc.audioSources` maps.
-	server.refreshVideoSources()
-	server.refreshAudioSources()
-
-	if server.streamConfig == (gostream.StreamConfig{}) {
-		// The `streamConfig` dictates the video and audio encoder libraries to use. We can't do
-		// much if none are present.
-		if len(server.videoSources) != 0 || len(server.audioSources) != 0 {
-			server.logger.Warn("not starting streams due to no stream config being set")
-		}
-		return nil
-	}
-
-	server.logger.Info("starting video and audio streams")
-	for name := range server.videoSources {
-		if runtime.GOOS == "windows" {
-			// TODO(RSDK-1771): support video on windows
-			server.logger.Warn("video streaming not supported on Windows yet")
-			break
-		}
-		// We walk the updated set of `videoSources` and ensure all of the sources are "created" and
-		// "started".
-		config := gostream.StreamConfig{
-			Name:                name,
-			VideoEncoderFactory: server.streamConfig.VideoEncoderFactory,
-		}
-		// Call `createStream`. `createStream` is responsible for first checking if the stream
-		// already exists. If it does, it skips creating a new stream and we continue to the next source.
-		//
-		// TODO(RSDK-9079) Add reliable framerate fetcher for stream videosources
-		stream, alreadyRegistered, err := server.createStream(config, name)
-		if err != nil {
-			return err
-		} else if alreadyRegistered {
-			continue
-		}
-		server.startVideoStream(ctx, server.videoSources[name], stream)
-	}
-
-	for name := range server.audioSources {
-		// Similarly, we walk the updated set of `audioSources` and ensure all of the audio sources
-		// are "created" and "started". `createStream` and `startAudioStream` have the same
-		// behaviors as described above for video streams.
-		config := gostream.StreamConfig{
-			Name:                name,
-			AudioEncoderFactory: server.streamConfig.AudioEncoderFactory,
-		}
-		stream, alreadyRegistered, err := server.createStream(config, name)
-		if err != nil {
-			return err
-		} else if alreadyRegistered {
-			continue
-		}
-		server.startAudioStream(ctx, server.audioSources[name], stream)
-	}
-
-	return nil
 }
