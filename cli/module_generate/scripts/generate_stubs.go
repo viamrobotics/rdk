@@ -157,7 +157,7 @@ func parseFunctionSignature(
 	resourceSubtypePascal string,
 	modelType string,
 	funcDecl *ast.FuncDecl,
-) (name string, receiver string, args string, returns []string) {
+) (name, receiver, args string, returns []string) {
 	if funcDecl == nil {
 		return
 	}
