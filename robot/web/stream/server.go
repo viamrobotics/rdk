@@ -50,8 +50,8 @@ type Server struct {
 
 	streamConfig gostream.StreamConfig
 	SsWorkers    sync.WaitGroup
-	VideoSources map[string]gostream.HotSwappableVideoSource
-	AudioSources map[string]gostream.HotSwappableAudioSource
+	videoSources map[string]gostream.HotSwappableVideoSource
+	audioSources map[string]gostream.HotSwappableAudioSource
 }
 
 // NewServer returns a server that will run on the given port and initially starts with the given
@@ -71,8 +71,8 @@ func NewServer(
 		activePeerStreams: map[*webrtc.PeerConnection]map[string]*peerState{},
 		isAlive:           true,
 		streamConfig:      streamConfig,
-		VideoSources:      map[string]gostream.HotSwappableVideoSource{},
-		AudioSources:      map[string]gostream.HotSwappableAudioSource{},
+		videoSources:      map[string]gostream.HotSwappableVideoSource{},
+		audioSources:      map[string]gostream.HotSwappableAudioSource{},
 	}
 	server.startMonitorCameraAvailable()
 	return server
@@ -431,13 +431,13 @@ func (server *Server) refreshVideoSources() {
 		if err != nil {
 			continue
 		}
-		existing, ok := server.VideoSources[cam.Name().SDPTrackName()]
+		existing, ok := server.videoSources[cam.Name().SDPTrackName()]
 		if ok {
 			existing.Swap(cam)
 			continue
 		}
 		newSwapper := gostream.NewHotSwappableVideoSource(cam)
-		server.VideoSources[cam.Name().SDPTrackName()] = newSwapper
+		server.videoSources[cam.Name().SDPTrackName()] = newSwapper
 	}
 }
 
@@ -448,13 +448,13 @@ func (server *Server) refreshAudioSources() {
 		if err != nil {
 			continue
 		}
-		existing, ok := server.AudioSources[input.Name().SDPTrackName()]
+		existing, ok := server.audioSources[input.Name().SDPTrackName()]
 		if ok {
 			existing.Swap(input)
 			continue
 		}
 		newSwapper := gostream.NewHotSwappableAudioSource(input)
-		server.AudioSources[input.Name().SDPTrackName()] = newSwapper
+		server.audioSources[input.Name().SDPTrackName()] = newSwapper
 	}
 }
 
@@ -529,14 +529,14 @@ func (server *Server) AddNewStreams(ctx context.Context) error {
 	if server.streamConfig == (gostream.StreamConfig{}) {
 		// The `streamConfig` dictates the video and audio encoder libraries to use. We can't do
 		// much if none are present.
-		if len(server.VideoSources) != 0 || len(server.AudioSources) != 0 {
+		if len(server.videoSources) != 0 || len(server.audioSources) != 0 {
 			server.logger.Warn("not starting streams due to no stream config being set")
 		}
 		return nil
 	}
 
 	server.logger.Info("starting video and audio streams")
-	for name := range server.VideoSources {
+	for name := range server.videoSources {
 		if runtime.GOOS == "windows" {
 			// TODO(RSDK-1771): support video on windows
 			server.logger.Warn("video streaming not supported on Windows yet")
@@ -558,10 +558,10 @@ func (server *Server) AddNewStreams(ctx context.Context) error {
 		} else if alreadyRegistered {
 			continue
 		}
-		server.startVideoStream(ctx, server.VideoSources[name], stream)
+		server.startVideoStream(ctx, server.videoSources[name], stream)
 	}
 
-	for name := range server.AudioSources {
+	for name := range server.audioSources {
 		// Similarly, we walk the updated set of `audioSources` and ensure all of the audio sources
 		// are "created" and "started". `createStream` and `startAudioStream` have the same
 		// behaviors as described above for video streams.
@@ -575,7 +575,7 @@ func (server *Server) AddNewStreams(ctx context.Context) error {
 		} else if alreadyRegistered {
 			continue
 		}
-		server.startAudioStream(ctx, server.AudioSources[name], stream)
+		server.startAudioStream(ctx, server.audioSources[name], stream)
 	}
 
 	return nil
