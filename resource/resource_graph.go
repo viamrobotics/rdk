@@ -236,16 +236,18 @@ func (g *Graph) FindNodesByAPI(api API) []Name {
 
 // findNodesByShortName returns all resources matching the given short name.
 func (g *Graph) findNodesByShortName(name string) []Name {
-	hasRemote := strings.Contains(name, ":")
+	hasRemoteOrTriplet := strings.Contains(name, ":")
 	var matches []Name
 	for nodeName := range g.nodes {
 		if !(nodeName.API.IsComponent() || nodeName.API.IsService()) {
 			continue
 		}
-		if hasRemote {
+		if hasRemoteOrTriplet {
 			// check the whole remote. we could technically check
 			// a prefix of the remote but thats excluded for now.
 			if nodeName.ShortName() == name {
+				matches = append(matches, nodeName)
+			} else if nodeName.String() == name {
 				matches = append(matches, nodeName)
 			}
 			continue
