@@ -296,7 +296,7 @@ func getSchema(data map[string]any) (*schema, *schemaError) {
 // flatten takes an input `Datum` and a `mapOrder` from the current `Schema` and returns a list of
 // `float32`s representing the readings. Similar to `getFieldsForItem`, there are constraints on
 // input data shape that this code currently does not validate.
-func flatten(datum Datum, schema *schema) ([]float32, error) {
+func flatten(datum datum, schema *schema) ([]float32, error) {
 	ret := make([]float32, 0, len(schema.fieldOrder))
 
 	for _, key := range schema.mapOrder {
