@@ -400,7 +400,7 @@ func TestReadExtendedPlatformTags(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("skipping platform tags test on non-linux")
 	}
-	tags := readExtendedPlatformTags()
+	tags := readExtendedPlatformTags(true)
 	test.That(t, len(tags), test.ShouldBeGreaterThanOrEqualTo, 2)
 }
 

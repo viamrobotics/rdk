@@ -1,7 +1,6 @@
 package config
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -10,11 +9,8 @@ import (
 	"io/fs"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"regexp"
 	"runtime"
-	"strings"
 	"time"
 
 	"github.com/a8m/envsubst"
@@ -36,12 +32,6 @@ var (
 	DateCompiled = ""
 )
 
-var (
-	cudaRegex          = regexp.MustCompile(`Cuda compilation tools, release (\d+)\.`)
-	dpkgVersionRegex   = regexp.MustCompile(`\nVersion: (\d+)\D`)
-	cudaPlatformGlobal = cudaPlatform{}
-)
-
 const (
 	initialReadTimeout     = 1 * time.Second
 	readTimeout            = 5 * time.Second
@@ -51,100 +41,6 @@ const (
 	// LocalPackagesSuffix is used by the local package manager.
 	LocalPackagesSuffix = "-local"
 )
-
-// stores cuda-specific version strings that should be run once at startup.
-type cudaPlatform struct {
-	hasRun         bool
-	cudaVersion    string
-	jetpackVersion string
-}
-
-// read the.
-func (cp *cudaPlatform) read() {
-	// set hasRun at the top; we don't want to rerun even if this failed.
-	cp.hasRun = true
-	// this timeout is for all steps in this function.
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-	defer cancel()
-	if _, err := exec.LookPath("nvcc"); err == nil {
-		out, err := exec.CommandContext(ctx, "nvcc", "--version").Output()
-		if err != nil {
-			logging.Global().Errorw("error getting cuda version from nvcc. cuda-specific modules may not load", "err", err)
-		}
-		if match := cudaRegex.FindSubmatch(out); match != nil {
-			cp.cudaVersion = string(match[1])
-		} else {
-			logging.Global().Errorw("error parsing `nvcc --version` output. cuda-specific modules may not load")
-		}
-	}
-	if _, err := exec.LookPath("dpkg"); err == nil {
-		out, err := exec.CommandContext(ctx, "dpkg", "-s", "nvidia-jetpack").Output()
-		// note: the error case here will usually mean 'package missing', we don't analyze it.
-		if err == nil {
-			if match := dpkgVersionRegex.FindSubmatch(out); match != nil {
-				cp.jetpackVersion = string(match[1])
-			}
-		}
-	}
-}
-
-func (cp cudaPlatform) addTags(tags []string) []string {
-	if cp.cudaVersion != "" {
-		tags = append(tags, "cuda:true", "cuda_version:"+cp.cudaVersion)
-	}
-	if cp.jetpackVersion != "" {
-		tags = append(tags, "jetpack:"+cp.jetpackVersion)
-	}
-	return tags
-}
-
-func parseOsRelease(body *bufio.Reader) map[string]string {
-	ret := make(map[string]string)
-	for {
-		line, err := body.ReadString('\n')
-		if err != nil {
-			return ret
-		}
-		key, value, _ := strings.Cut(line, "=")
-		// note: we trim `value` rather than `line` because os_version value is quoted sometimes.
-		ret[key] = strings.Trim(value, "\n\"")
-	}
-}
-
-// append key:value pair to orig if value is non-empty.
-func appendPairIfNonempty(orig []string, key, value string) []string {
-	if value != "" {
-		return append(orig, key+":"+value)
-	}
-	return orig
-}
-
-// This reads the granular platform constraints (os version, distro, etc).
-// This further constrains the basic runtime.GOOS/GOARCH stuff in getAgentInfo
-// so module authors can publish builds with ABI or SDK dependencies. The
-// list of tags returned by this function is expected to grow.
-func readExtendedPlatformTags() []string {
-	// TODO(APP-6696): CI in multiple environments (alpine + mac), darwin support.
-	tags := make([]string, 0, 3)
-	if runtime.GOOS == "linux" {
-		if body, err := os.Open("/etc/os-release"); err != nil {
-			if !os.IsNotExist(err) {
-				logging.Global().Errorw("can't open /etc/os-release, modules may not load correctly", "err", err)
-			}
-		} else {
-			defer body.Close() //nolint:errcheck
-			osRelease := parseOsRelease(bufio.NewReader(body))
-			tags = appendPairIfNonempty(tags, "distro", osRelease["ID"])
-			tags = appendPairIfNonempty(tags, "os_version", osRelease["VERSION_ID"])
-			tags = appendPairIfNonempty(tags, "codename", osRelease["VERSION_CODENAME"])
-		}
-		if !cudaPlatformGlobal.hasRun {
-			cudaPlatformGlobal.read()
-		}
-		tags = cudaPlatformGlobal.addTags(tags)
-	}
-	return tags
-}
 
 func getAgentInfo() (*apppb.AgentInfo, error) {
 	hostname, err := os.Hostname()
@@ -180,7 +76,7 @@ func getAgentInfo() (*apppb.AgentInfo, error) {
 		Version:      Version,
 		GitRevision:  GitRevision,
 		Platform:     &platform,
-		PlatformTags: readExtendedPlatformTags(),
+		PlatformTags: readExtendedPlatformTags(true),
 	}, nil
 }
 
