@@ -152,7 +152,12 @@ func formatStruct(typeSpec *ast.TypeSpec, client string) string {
 }
 
 // parseFunctionSignature parses function declarations into the function name, the arguments, and the return types.
-func parseFunctionSignature(resourceSubtype, resourceSubtypePascal string, modelType string, funcDecl *ast.FuncDecl) (name string, receiver string, args string, returns []string) {
+func parseFunctionSignature(
+	resourceSubtype,
+	resourceSubtypePascal string,
+	modelType string,
+	funcDecl *ast.FuncDecl,
+) (name string, receiver string, args string, returns []string) {
 	if funcDecl == nil {
 		return
 	}
