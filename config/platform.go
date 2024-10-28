@@ -35,8 +35,8 @@ func readGPUTags(tags []string) []string {
 			logging.Global().Errorw("error parsing `nvcc --version` output. Cuda-specific modules may not load")
 		}
 	}
-	if _, err := exec.LookPath("dpkg"); err == nil {
-		out, err := exec.CommandContext(ctx, "dpkg", "-s", "nvidia-jetpack").Output()
+	if _, err := exec.LookPath("apt-cache"); err == nil {
+		out, err := exec.CommandContext(ctx, "apt-cache", "show", "nvidia-jetpack").Output()
 		// note: the error case here will usually mean 'package missing', we don't analyze it.
 		if err == nil {
 			if match := dpkgVersionRegex.FindSubmatch(out); match != nil {
