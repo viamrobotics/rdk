@@ -46,7 +46,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Run module generator
-        run: go run ./cli/viam --debug module generate --resource-subtype "${{ matrix.resource.subtype }}" --resource-type "${{ matrix.resource.type }}
+        run: go run ./cli/viam --debug module generate --resource-subtype "${{ matrix.resource.subtype }}" --resource-type "${{ matrix.resource.type }}"
 
       - name: Run module
         run: |
