@@ -1,4 +1,4 @@
-// main is a main package
+// main provides a CLI tool for viewing `.ftdc` files emitted by the `viam-server`.
 package main
 
 import (
@@ -14,12 +14,13 @@ import (
 
 // gnuplotWriter organizes all of the output for `gnuplot` to create a graph from FTDC
 // data. Notably:
-//
 //   - Each graph consists of all the readings for an individual metric. There is one file per metric
 //     and each file contains all of the (time, value) points to graph.
 //   - There is additionally one "top-level" file. This is the file to call `gnuplot` against. This
 //     file contains all layout/styling information. This file will additionally have one line per
 //     graph. Each of these lines will contain the OS file path for the above filenames.
+//   - Each graph will have the same bounds on the X (Time) axis. Scanning vertically through the
+//     graphs at the same horizontal position will show readings as of a common point in time.
 type gnuplotWriter struct {
 	// metricFiles contain the actual data points to be graphed. A "top level" gnuplot will
 	// reference them.
@@ -105,9 +106,23 @@ func (gpw *gnuplotWriter) RenderAndClose() {
 }
 
 func main() {
+	if len(os.Args) < 2 {
+		// We are a CLI, it's appropriate to write to stdout.
+		//
+		//nolint:forbidigo
+		fmt.Println("Expected an FTDC filename. E.g: go run parser.go <path-to>/viam-server.ftdc")
+		return
+	}
+
 	ftdcFile, err := os.Open(os.Args[1])
 	if err != nil {
-		panic(err)
+		// We are a CLI, it's appropriate to write to stdout.
+		//
+		//nolint:forbidigo
+		fmt.Println("Error opening file. File:", os.Args[1], "Err:", err)
+		//nolint:forbidigo
+		fmt.Println("Expected an FTDC filename. E.g: go run parser.go <path-to>/viam-server.ftdc")
+		return
 	}
 
 	data, err := ftdc.Parse(ftdcFile)
