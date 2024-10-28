@@ -325,7 +325,7 @@ func flatten(datum datum, schema *schema) ([]float32, error) {
 //
 // A `FlatDatum` would be:
 //
-// [ Reading{"webrtc.connections", 5}, Reading{"webrtc.bytesSent", 8096} ]
+// [ Reading{"webrtc.connections", 5}, Reading{"webrtc.bytesSent", 8096} ].
 type FlatDatum struct {
 	Time     int64
 	Readings []Reading
@@ -335,6 +335,23 @@ type FlatDatum struct {
 type Reading struct {
 	MetricName string
 	Value      float32
+}
+
+// asDatum converts the flat array of `Reading`s into a `datum` object with a two layer `Data` map.
+func (flatDatum *FlatDatum) asDatum() datum {
+	var metricNames []string
+	var values []float32
+	for _, reading := range flatDatum.Readings {
+		metricNames = append(metricNames, reading.MetricName)
+		values = append(values, reading.Value)
+	}
+
+	ret := datum{
+		Time: flatDatum.Time,
+		Data: hydrate(metricNames, values),
+	}
+
+	return ret
 }
 
 // Parse reads the entire contents from `rawReader` and returns a list of `Datum`. If an error
@@ -434,6 +451,15 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) ([]FlatDatum, e
 	}
 
 	return ret, nil
+}
+
+func flatDatumsToDatums(inp []FlatDatum) []datum {
+	ret := make([]datum, len(inp))
+	for idx, flatDatum := range inp {
+		ret[idx] = flatDatum.asDatum()
+	}
+
+	return ret
 }
 
 // readSchema expects to be positioned on the beginning of a json list data type (a left square
@@ -576,28 +602,40 @@ func readData(reader *bufio.Reader, schema *schema, diffedFields []int, prevValu
 }
 
 // Hydrate takes the input []float slice of `data` and matches those to their corresponding metric
-// names. Returning a.
+// names. Returning a two layer map. The top-level map is keyed on a "system" (corresponding to an
+// `FTDC.Add` call) and the lower level map corresponds to the keys and values struct a `Stats` call
+// returns. There's no business requirement that nested structures only be represented as two
+// layers. It's just this way for simplicity of the type system and implementation. And right now,
+// only tests are concerned with the advantage of `Hydrate`ing data.
 func (schema *schema) Hydrate(data []float32) map[string]any {
+	return hydrate(schema.fieldOrder, data)
+}
+
+func hydrate(fullyQualifiedMetricNames []string, values []float32) map[string]any {
 	ret := make(map[string]any)
-	for fieldIdx, metricName := range schema.fieldOrder {
+	for fieldIdx, metricName := range fullyQualifiedMetricNames {
 		//nolint:gocritic
 		statsName := metricName[:strings.Index(metricName, ".")]
 		metricName = metricName[strings.Index(metricName, ".")+1:]
 
 		if mp, exists := ret[statsName]; exists {
-			mp.(map[string]float32)[metricName] = data[fieldIdx]
+			mp.(map[string]float32)[metricName] = values[fieldIdx]
 		} else {
 			mp := map[string]float32{
-				metricName: data[fieldIdx],
+				metricName: values[fieldIdx],
 			}
 			ret[statsName] = mp
 		}
 	}
+
 	return ret
 }
 
+// Zip walks the schema and input `data` as parallel arrays and pairs up the metric names with their
+// corresponding reading. The metric names are "fully qualified" with their statser "system"
+// name. Using dots as delimiters representing the original structure.
 func (schema *schema) Zip(data []float32) []Reading {
-	ret := make([]Reading, len(schema.fieldOrder), len(schema.fieldOrder))
+	ret := make([]Reading, len(schema.fieldOrder))
 	for fieldIdx, metricName := range schema.fieldOrder {
 		ret[fieldIdx] = Reading{metricName, data[fieldIdx]}
 	}

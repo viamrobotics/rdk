@@ -68,7 +68,7 @@ func TestCustomFormatRoundtripBasic(t *testing.T) {
 	test.That(t, len(parsed), test.ShouldEqual, 4)
 
 	// The first two datapoints use "schema 1", the `s1` name.
-	for idx, datum := range parsed[:2] {
+	for idx, datum := range flatDatumsToDatums(parsed[:2]) {
 		// Time == idx is a property of the constructed input.
 		test.That(t, datum.Time, test.ShouldEqual, idx)
 		// Similarly, Data["s1"].Foo also == idx.
@@ -76,7 +76,7 @@ func TestCustomFormatRoundtripBasic(t *testing.T) {
 	}
 
 	for idx := 2; idx < len(parsed); idx++ {
-		datum := parsed[idx]
+		datum := parsed[idx].asDatum()
 
 		// Time == idx is a property of the constructed input.
 		test.That(t, datum.Time, test.ShouldEqual, idx)
@@ -92,8 +92,8 @@ func TestCustomFormatRoundtripRich(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ftdc := NewWithWriter(serializedData, logger.Sublogger("ftdc"))
 
-	datums := 10
-	for idx := 0; idx < datums; idx++ {
+	numDatumsPerSchema := 10
+	for idx := 0; idx < numDatumsPerSchema; idx++ {
 		datumV1 := datum{
 			Time: int64(idx),
 			Data: map[string]any{
@@ -105,7 +105,7 @@ func TestCustomFormatRoundtripRich(t *testing.T) {
 		ftdc.writeDatum(datumV1)
 	}
 
-	for idx := datums; idx < 2*datums; idx++ {
+	for idx := numDatumsPerSchema; idx < 2*numDatumsPerSchema; idx++ {
 		datumV2 := datum{
 			Time: int64(idx),
 			Data: map[string]any{
@@ -119,15 +119,16 @@ func TestCustomFormatRoundtripRich(t *testing.T) {
 		ftdc.writeDatum(datumV2)
 	}
 
-	parsed, err := Parse(serializedData)
+	flatDatums, err := Parse(serializedData)
 	test.That(t, err, test.ShouldBeNil)
-	logger.Info("Parsed data:", parsed)
+	datums := flatDatumsToDatums(flatDatums)
+	logger.Info("Parsed data:", datums)
 
 	// There are twenty datapoints in total.
-	test.That(t, len(parsed), test.ShouldEqual, 2*datums)
+	test.That(t, len(datums), test.ShouldEqual, 2*numDatumsPerSchema)
 
 	// The first two datapoints use "schema 1", the `s1` name.
-	for idx, datum := range parsed[:datums] {
+	for idx, datum := range datums[:numDatumsPerSchema] {
 		// Time == idx is a property of the constructed input.
 		test.That(t, datum.Time, test.ShouldEqual, idx)
 		// Similarly, Data["s1"].Foo also == idx.
@@ -136,8 +137,8 @@ func TestCustomFormatRoundtripRich(t *testing.T) {
 		test.That(t, datum.Data["s1"].(map[string]float32)["Metric3"], test.ShouldEqual, 1)
 	}
 
-	for idx := datums; idx < len(parsed); idx++ {
-		datum := parsed[idx]
+	for idx := numDatumsPerSchema; idx < len(datums); idx++ {
+		datum := datums[idx]
 
 		// Time == idx is a property of the constructed input.
 		test.That(t, datum.Time, test.ShouldEqual, idx)

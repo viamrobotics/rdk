@@ -1,3 +1,4 @@
+// main is a main package
 package main
 
 import (
@@ -5,6 +6,8 @@ import (
 	"io"
 	"os"
 	"strings"
+
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/ftdc"
 )
@@ -74,8 +77,11 @@ func (gpw *gnuplotWriter) RenderAndClose() {
 	if err != nil {
 		panic(err)
 	}
-	defer gnuFile.Close()
+	defer utils.UncheckedErrorFunc(gnuFile.Close)
 
+	// We are a CLI, it's appropriate to write to stdout.
+	//
+	//nolint:forbidigo
 	fmt.Println("GNUPlot File:", gnuFile.Name())
 	writelnf(gnuFile, "set term png size %d, %d", 1000, 200*len(gpw.metricFiles))
 	writeln(gnuFile, "set output 'plot.png'")
@@ -88,12 +94,11 @@ func (gpw *gnuplotWriter) RenderAndClose() {
 
 	for metricName, file := range gpw.metricFiles {
 		writelnf(gnuFile, "plot '%v' using 1:2 with lines linestyle 7 lw 4 title '%v'", file.Name(), strings.ReplaceAll(metricName, "_", "\\_"))
-		file.Close()
+		utils.UncheckedErrorFunc(file.Close)
 	}
 }
 
 func main() {
-	fmt.Println("Args:", os.Args)
 	ftdcFile, err := os.Open(os.Args[1])
 	if err != nil {
 		panic(err)
