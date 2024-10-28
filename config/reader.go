@@ -10,7 +10,9 @@ import (
 	"io/fs"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -34,6 +36,12 @@ var (
 	DateCompiled = ""
 )
 
+var (
+	cudaRegex          = regexp.MustCompile(`Cuda compilation tools, release (\d+)\.`)
+	dpkgVersionRegex   = regexp.MustCompile(`\nVersion: (\d+)\D`)
+	cudaPlatformGlobal = cudaPlatform{}
+)
+
 const (
 	initialReadTimeout     = 1 * time.Second
 	readTimeout            = 5 * time.Second
@@ -43,6 +51,49 @@ const (
 	// LocalPackagesSuffix is used by the local package manager.
 	LocalPackagesSuffix = "-local"
 )
+
+// stores cuda-specific version strings that should be run once at startup.
+type cudaPlatform struct {
+	hasRun         bool
+	cudaVersion    string
+	jetpackVersion string
+}
+
+// read the.
+func (cp *cudaPlatform) read() {
+	// set hasRun at the top; we don't want to rerun even if this failed.
+	cp.hasRun = true
+	// this timeout is for all steps in this function.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+	if _, err := exec.LookPath("nvcc"); err == nil {
+		out, err := exec.CommandContext(ctx, "nvcc", "--version").Output()
+		if err != nil {
+			logging.Global().Errorw("error getting cuda version from nvcc. cuda-specific modules may not load", "err", err)
+		}
+		if match := cudaRegex.FindSubmatch(out); match != nil {
+			cp.cudaVersion = string(match[1])
+		} else {
+			logging.Global().Errorw("error parsing `nvcc --version` output. cuda-specific modules may not load")
+		}
+	}
+	if _, err := exec.LookPath("dpkg"); err == nil {
+		out, err := exec.CommandContext(ctx, "dpkg", "-s", "nvidia-jetpack").Output()
+		// note: the error case here will usually mean 'package missing', we don't analyze it.
+		if err == nil {
+			if match := dpkgVersionRegex.FindSubmatch(out); match != nil {
+				cp.jetpackVersion = string(match[1])
+			}
+		}
+	}
+}
+
+func (cp cudaPlatform) addTags(tags []string) []string {
+	if cp.cudaVersion != "" {
+		tags = append(tags, "cuda:true", "cuda_version:"+cp.cudaVersion)
+	}
+	return tags
+}
 
 func parseOsRelease(body *bufio.Reader) map[string]string {
 	ret := make(map[string]string)
@@ -84,6 +135,10 @@ func readExtendedPlatformTags() []string {
 			tags = appendPairIfNonempty(tags, "os_version", osRelease["VERSION_ID"])
 			tags = appendPairIfNonempty(tags, "codename", osRelease["VERSION_CODENAME"])
 		}
+		if !cudaPlatformGlobal.hasRun {
+			cudaPlatformGlobal.read()
+		}
+		tags = cudaPlatformGlobal.addTags(tags)
 	}
 	return tags
 }
