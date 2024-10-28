@@ -20,6 +20,8 @@ updates:
         update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
     assignees:
       - joncha1
+      - 10zingpd
+      - IanWhalen
   - package-ecosystem: "npm"
     directory: "web/frontend"
     schedule:
@@ -43,3 +45,5 @@ updates:
     assignees:
       - Otterverse
       - joncha1
+      - 10zingpd
+      - IanWhalen
