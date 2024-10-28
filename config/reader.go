@@ -42,7 +42,7 @@ const (
 	LocalPackagesSuffix = "-local"
 )
 
-func getAgentInfo() (*apppb.AgentInfo, error) {
+func getAgentInfo(logger logging.Logger) (*apppb.AgentInfo, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, err
@@ -76,7 +76,7 @@ func getAgentInfo() (*apppb.AgentInfo, error) {
 		Version:      Version,
 		GitRevision:  GitRevision,
 		Platform:     &platform,
-		PlatformTags: readExtendedPlatformTags(true),
+		PlatformTags: readExtendedPlatformTags(logger, true),
 	}, nil
 }
 
@@ -655,7 +655,7 @@ func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger logging.Logge
 	}
 	defer utils.UncheckedErrorFunc(conn.Close)
 
-	agentInfo, err := getAgentInfo()
+	agentInfo, err := getAgentInfo(logger)
 	if err != nil {
 		return nil, shouldCheckCacheOnFailure, err
 	}

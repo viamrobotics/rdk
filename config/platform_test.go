@@ -5,13 +5,16 @@ import (
 	"testing"
 
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/logging"
 )
 
 func TestReadExtendedPlatformTags(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("skipping platform tags test on non-linux")
 	}
-	tags := readExtendedPlatformTags(true)
+	logger := logging.NewTestLogger(t)
+	tags := readExtendedPlatformTags(logger, true)
 	test.That(t, len(tags), test.ShouldBeGreaterThanOrEqualTo, 2)
 }
 
