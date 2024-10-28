@@ -318,10 +318,29 @@ func flatten(datum Datum, schema *schema) ([]float32, error) {
 	return ret, nil
 }
 
+// FlatDatum has the same information as a `datum`, but without the arbitrarily nested `Data`
+// map. Using dots to join keys as per the disk format. So where a `Data` map might be:
+//
+// { "webrtc": { "connections": 5, "bytesSent": 8096 } }
+//
+// A `FlatDatum` would be:
+//
+// [ Reading{"webrtc.connections", 5}, Reading{"webrtc.bytesSent", 8096} ]
+type FlatDatum struct {
+	Time     int64
+	Readings []Reading
+}
+
+// Reading is a "fully qualified" metric name paired with a value.
+type Reading struct {
+	MetricName string
+	Value      float32
+}
+
 // Parse reads the entire contents from `rawReader` and returns a list of `Datum`. If an error
 // occurs, the []Datum parsed up until the place of the error will be returned, in addition to a
 // non-nil error.
-func Parse(rawReader io.Reader) ([]Datum, error) {
+func Parse(rawReader io.Reader) ([]FlatDatum, error) {
 	logger := logging.NewLogger("")
 	logger.SetLevel(logging.ERROR)
 
@@ -329,8 +348,8 @@ func Parse(rawReader io.Reader) ([]Datum, error) {
 }
 
 // ParseWithLogger parses with a logger for output.
-func ParseWithLogger(rawReader io.Reader, logger logging.Logger) ([]Datum, error) {
-	ret := make([]Datum, 0)
+func ParseWithLogger(rawReader io.Reader, logger logging.Logger) ([]FlatDatum, error) {
+	ret := make([]FlatDatum, 0)
 
 	// prevValues are the previous values used for producing the diff bits. This is overwritten when
 	// a new metrics reading is made. and nilled out when the schema changes.
@@ -407,11 +426,11 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) ([]Datum, error
 
 		// Construct a `Datum` that hydrates/merged the full set of float32 metrics with the metric
 		// names as written in the most recent schema document.
-		ret = append(ret, Datum{
-			Time: dataTime,
-			Data: schema.Hydrate(data),
+		ret = append(ret, FlatDatum{
+			Time:     dataTime,
+			Readings: schema.Zip(data),
 		})
-		logger.Debugw("Hydrated data", "data", ret[len(ret)-1].Data)
+		logger.Debugw("Hydrated data", "data", ret[len(ret)-1].Readings)
 	}
 
 	return ret, nil
@@ -574,5 +593,14 @@ func (schema *schema) Hydrate(data []float32) map[string]any {
 			ret[statsName] = mp
 		}
 	}
+	return ret
+}
+
+func (schema *schema) Zip(data []float32) []Reading {
+	ret := make([]Reading, len(schema.fieldOrder), len(schema.fieldOrder))
+	for fieldIdx, metricName := range schema.fieldOrder {
+		ret[fieldIdx] = Reading{metricName, data[fieldIdx]}
+	}
+
 	return ret
 }
