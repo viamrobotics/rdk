@@ -90,13 +90,27 @@ func (gpw *gnuplotWriter) RenderAndClose() {
 	//
 	//nolint:forbidigo
 	fmt.Println("GNUPlot File:", gnuFile.Name())
+
+	// Write a png with width of 1000 pixels and 200 pixels of height per metric/graph.
 	writelnf(gnuFile, "set term png size %d, %d", 1000, 200*len(gpw.metricFiles))
+
+	// The output filename
 	writeln(gnuFile, "set output 'plot.png'")
+
+	// We're making separate graphs instead of a single big graph. The graphs will be arranged in a
+	// rectangle with 1 column and X rows. Where X is the number of metrics.  Add some margins for
+	// aesthetics.
 	writelnf(gnuFile, "set multiplot layout %v,1 margins 0.05,0.9, 0.05,0.9 spacing screen 0, char 5", len(gpw.metricFiles))
+
+	//  Axis labeling/formatting/type information.
 	writeln(gnuFile, "set timefmt '%s'")
 	writeln(gnuFile, "set format x '%H:%M:%S'")
 	writeln(gnuFile, "set xlabel 'Time'")
 	writeln(gnuFile, "set xdata time")
+
+	// FTDC does not have negative numbers, so start the Y-axis at 0. Except that it may things like
+	// position or voltages? Revisit if this can be more granular as a per-graph setting rather than
+	// a global.
 	writeln(gnuFile, "set yrange [0:*]")
 
 	for metricName, file := range gpw.metricFiles {
