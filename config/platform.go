@@ -27,12 +27,12 @@ func readGPUTags(tags []string) []string {
 	if _, err := exec.LookPath("nvcc"); err == nil {
 		out, err := exec.CommandContext(ctx, "nvcc", "--version").Output()
 		if err != nil {
-			logging.Global().Errorw("error getting cuda version from nvcc. cuda-specific modules may not load", "err", err)
+			logging.Global().Errorw("error getting Cuda version from nvcc. Cuda-specific modules may not load", "err", err)
 		}
 		if match := cudaRegex.FindSubmatch(out); match != nil {
 			tags = append(tags, "cuda:true", "cuda_version:"+string(match[1]))
 		} else {
-			logging.Global().Errorw("error parsing `nvcc --version` output. cuda-specific modules may not load")
+			logging.Global().Errorw("error parsing `nvcc --version` output. Cuda-specific modules may not load")
 		}
 	}
 	if _, err := exec.LookPath("dpkg"); err == nil {
@@ -101,6 +101,8 @@ func readExtendedPlatformTags(cache bool) []string {
 	}
 	if cache {
 		savedPlatformTags = tags
+		// note: we only log in the cache condition because it would be annoying to log this in a loop.
+		logging.Global().Infow("platform tags", "tags", strings.Join(tags, ","))
 	}
 	return tags
 }
