@@ -92,6 +92,9 @@ func (cp cudaPlatform) addTags(tags []string) []string {
 	if cp.cudaVersion != "" {
 		tags = append(tags, "cuda:true", "cuda_version:"+cp.cudaVersion)
 	}
+	if cp.jetpackVersion != "" {
+		tags = append(tags, "jetpack:"+cp.jetpackVersion)
+	}
 	return tags
 }
 
