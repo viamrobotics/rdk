@@ -51,7 +51,6 @@ jobs:
       - name: Run module
         run: |
           cd my-module
-
           ./run.sh /tmp/viam.sock &
           PID=$!
           sleep 5

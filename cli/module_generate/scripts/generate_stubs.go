@@ -88,7 +88,12 @@ func setGoModuleTemplate(clientCode string, module common.ModuleInputs) (*common
 			}
 		}
 		if funcDecl, ok := n.(*ast.FuncDecl); ok {
-			name, receiver,  args, returns := parseFunctionSignature(module.ResourceSubtype, module.ResourceSubtypePascal, module.ModuleCamel+module.ModelPascal, funcDecl)
+			name, receiver, args, returns := parseFunctionSignature(
+				module.ResourceSubtype,
+				module.ResourceSubtypePascal,
+				module.ModuleCamel+module.ModelPascal,
+				funcDecl,
+			)
 			if name != "" {
 				functions = append(functions, formatEmptyFunction(receiver, name, args, returns))
 			}
@@ -179,11 +184,12 @@ func parseFunctionSignature(resourceSubtype, resourceSubtypePascal string, model
 	if funcDecl.Type.Params != nil {
 		for _, param := range funcDecl.Type.Params.List {
 			paramType := formatType(param.Type)
-			if unicode.IsUpper(rune(paramType[0])) {
+			switch {
+			case unicode.IsUpper(rune(paramType[0])):
 				paramType = fmt.Sprintf("%s.%s", resourceSubtype, paramType)
-			} else if strings.HasPrefix(paramType, "[]") && unicode.IsUpper(rune(paramType[2])) {
+			case strings.HasPrefix(paramType, "[]") && unicode.IsUpper(rune(paramType[2])):
 				paramType = fmt.Sprintf("[]%s.%s", resourceSubtype, paramType[2:])
-			} else if strings.HasPrefix(paramType, "chan ") && unicode.IsUpper(rune(paramType[5])) {
+			case strings.HasPrefix(paramType, "chan ") && unicode.IsUpper(rune(paramType[5])):
 				paramType = fmt.Sprintf("chan %s.%s", resourceSubtype, paramType[5:])
 			}
 
