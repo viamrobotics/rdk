@@ -94,7 +94,7 @@ func TestFTDCSchemaGenerations(t *testing.T) {
 
 	// Assert the datum1.Time <= datum2.Time. Don't trust consecutive clock reads to get an updated
 	// value.
-	datum1, datum2 := datums[0], datums[1]
+	datum1, datum2 := datums[0].asDatum(), datums[1].asDatum()
 	test.That(t, datum1.Time, test.ShouldBeLessThanOrEqualTo, datum2.Time)
 
 	// Assert the contents of the datum. While we seemingly only assert on the "values" of X and Y
@@ -167,7 +167,7 @@ func TestRemoveBadStatser(t *testing.T) {
 
 	// We called `writeDatum` twice, but only the second succeeded.
 	test.That(t, len(datums), test.ShouldEqual, 1)
-	test.That(t, datums[0].Data["foo1"], test.ShouldResemble, map[string]float32{"X": 1, "Y": 2})
+	test.That(t, datums[0].asDatum().Data["foo1"], test.ShouldResemble, map[string]float32{"X": 1, "Y": 2})
 }
 
 type nestedStatser struct {
@@ -225,8 +225,9 @@ func TestNestedStructs(t *testing.T) {
 	err = ftdc.writeDatum(datum)
 	test.That(t, err, test.ShouldBeNil)
 
-	datums, err := ParseWithLogger(ftdcData, logger)
+	flatDatums, err := ParseWithLogger(ftdcData, logger)
 	test.That(t, err, test.ShouldBeNil)
+	datums := flatDatumsToDatums(flatDatums)
 	test.That(t, len(datums), test.ShouldEqual, 2)
 	test.That(t, len(datums[0].Data), test.ShouldEqual, 1)
 	test.That(t, datums[0].Data["nested"], test.ShouldResemble, map[string]float32{

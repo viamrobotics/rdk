@@ -5,10 +5,6 @@ run:
   deadline: 900s
   modules-download-mode: readonly
   skip-dirs-use-default: false
-  skip-dirs:
-    # TFlite uses FlatBuffer generated code that's ugly
-    - ml/inference/tflite_metadata$
-    - ml/inference/tflite$
   tests: true
 linters:
   enable-all: true
