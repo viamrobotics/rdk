@@ -2,10 +2,15 @@
 package main
 
 import (
+	"bufio"
+	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
+	"os/exec"
 	"strings"
+	"time"
 
 	"go.viam.com/utils"
 
@@ -27,6 +32,20 @@ type gnuplotWriter struct {
 	metricFiles map[string]*os.File
 
 	tempdir string
+
+	options graphOptions
+}
+
+type graphOptions struct {
+	minTimeSeconds int64
+	maxTimeSeconds int64
+}
+
+func defaultGraphOptions() graphOptions {
+	return graphOptions{
+		minTimeSeconds: 0,
+		maxTimeSeconds: math.MaxInt64,
+	}
 }
 
 // writeln is a wrapper for Fprintln that panics on any error.
@@ -42,7 +61,7 @@ func writelnf(toWrite io.Writer, formatStr string, args ...any) {
 	writeln(toWrite, fmt.Sprintf(formatStr, args...))
 }
 
-func newGnuPlotWriter() *gnuplotWriter {
+func newGnuPlotWriter(graphOptions graphOptions) *gnuplotWriter {
 	tempdir, err := os.MkdirTemp("", "ftdc_parser")
 	if err != nil {
 		panic(err)
@@ -51,6 +70,7 @@ func newGnuPlotWriter() *gnuplotWriter {
 	return &gnuplotWriter{
 		metricFiles: make(map[string]*os.File),
 		tempdir:     tempdir,
+		options:     graphOptions,
 	}
 }
 
@@ -68,18 +88,34 @@ func (gpw *gnuplotWriter) getDatafile(metricName string) io.Writer {
 	return datafile
 }
 
-func (gpw *gnuplotWriter) addPoint(timeInt int64, metricName string, metricValue float32) {
-	writelnf(gpw.getDatafile(metricName), "%v %.2f", timeInt, metricValue)
+func (gpw *gnuplotWriter) addPoint(timeSeconds int64, metricName string, metricValue float32) {
+	if timeSeconds < gpw.options.minTimeSeconds || timeSeconds > gpw.options.maxTimeSeconds {
+		return
+	}
+
+	writelnf(gpw.getDatafile(metricName), "%v %.5f", timeSeconds, metricValue)
 }
 
 func (gpw *gnuplotWriter) addFlatDatum(datum ftdc.FlatDatum) {
 	for _, reading := range datum.Readings {
-		gpw.addPoint(datum.Time, reading.MetricName, reading.Value)
+		gpw.addPoint(datum.ConvertedTime().Unix(), reading.MetricName, reading.Value)
 	}
 }
 
-// RenderAndClose writes out the "top-level" file and closes all file handles.
-func (gpw *gnuplotWriter) RenderAndClose() {
+// Render runs the compiler and invokes gnuplot, creating an image file.
+func (gpw *gnuplotWriter) Render() {
+	filename := gpw.CompileAndClose()
+	gnuplotCmd := exec.Command("gnuplot", filename)
+	outputBytes, err := gnuplotCmd.CombinedOutput()
+	if err != nil {
+		fmt.Println("error running gnuplot:", err)
+		fmt.Println("gnuplot output:", string(outputBytes))
+	}
+}
+
+// Compile writes out all of the underlying files for gnuplot. And returns the "top-level" filename
+// that can be input to gnuplot. The returned filename is an absolute path.
+func (gpw *gnuplotWriter) CompileAndClose() string {
 	gnuFile, err := os.CreateTemp(gpw.tempdir, "main")
 	if err != nil {
 		panic(err)
@@ -117,6 +153,8 @@ func (gpw *gnuplotWriter) RenderAndClose() {
 		writelnf(gnuFile, "plot '%v' using 1:2 with lines linestyle 7 lw 4 title '%v'", file.Name(), strings.ReplaceAll(metricName, "_", "\\_"))
 		utils.UncheckedErrorFunc(file.Close)
 	}
+
+	return gnuFile.Name()
 }
 
 func main() {
@@ -144,10 +182,67 @@ func main() {
 		panic(err)
 	}
 
-	gpw := newGnuPlotWriter()
-	for _, flatDatum := range data {
-		gpw.addFlatDatum(flatDatum)
-	}
+	stdinReader := bufio.NewReader(os.Stdin)
+	render := true
+	graphOptions := defaultGraphOptions()
+	for {
+		if render {
+			gpw := newGnuPlotWriter(graphOptions)
+			for _, flatDatum := range data {
+				gpw.addFlatDatum(flatDatum)
+			}
 
-	gpw.RenderAndClose()
+			gpw.Render()
+		}
+
+		fmt.Print("$ ")
+		cmd, err := stdinReader.ReadString('\n')
+		switch {
+		case err != nil && errors.Is(err, io.EOF):
+			fmt.Println("\nExiting...")
+			return
+		case cmd == "quit":
+			return
+		case cmd == "h" || cmd == "help":
+			fmt.Println("range <start> <end>")
+			fmt.Println("-  Only plot datapoints within the given range. \"zoom in\"")
+			fmt.Println("-  E.g: range 2024-09-24T18:00:00 2024-09-24T18:30:00")
+			fmt.Println("-  All times in UTC")
+			fmt.Println()
+			fmt.Println("reset range")
+			fmt.Println("-  Unset any prior range. \"zoom out to full\"")
+			fmt.Println()
+			fmt.Println("`quit` or Ctrl-d to exit")
+		case strings.HasPrefix(cmd, "range "):
+			pieces := strings.SplitN(cmd, " ", 3)
+			// TrimSpace to remove the newline.
+			start, end := pieces[1], strings.TrimSpace(pieces[2])
+			_, _ = start, end
+
+			if start == "start" {
+				graphOptions.minTimeSeconds = 0
+			} else {
+				goTime, err := time.Parse("2006-01-02T15:04:05", start)
+				if err != nil {
+					fmt.Printf("Error parsing start time. Inp: %q Err: %v\n", start, err)
+					continue
+				}
+				graphOptions.minTimeSeconds = goTime.Unix()
+			}
+
+			if end == "end" {
+				graphOptions.maxTimeSeconds = math.MaxInt64
+			} else {
+				goTime, err := time.Parse("2006-01-02T15:04:05", end)
+				if err != nil {
+					fmt.Printf("Error parsing end time. Inp: %q Err: %v\n", end, err)
+					continue
+				}
+				graphOptions.maxTimeSeconds = goTime.Unix()
+			}
+		case strings.HasPrefix(cmd, "reset range"):
+			graphOptions.minTimeSeconds = 0
+			graphOptions.maxTimeSeconds = math.MaxInt64
+		}
+	}
 }

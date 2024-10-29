@@ -7,8 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"reflect"
 	"strings"
+	"time"
 
 	"go.viam.com/rdk/logging"
 )
@@ -96,7 +98,7 @@ func writeDatum(time int64, prev, curr []float32, output io.Writer) error {
 
 		// When using floating point numbers, it's customary to avoid `== 0` and `!= 0`. And instead
 		// compare to some small (epsilon) value.
-		if diffs[diffIdx] > epsilon {
+		if math.Abs(float64(diffs[diffIdx])) > epsilon {
 			diffBits[byteIdx] |= (1 << bitOffset)
 		}
 	}
@@ -112,7 +114,7 @@ func writeDatum(time int64, prev, curr []float32, output io.Writer) error {
 
 	// Write out values for metrics that changed across reading.
 	for idx, diff := range diffs {
-		if diff > epsilon {
+		if math.Abs(float64(diff)) > epsilon {
 			if err := binary.Write(output, binary.BigEndian, curr[idx]); err != nil {
 				return fmt.Errorf("Error writing values: %w", err)
 			}
@@ -337,6 +339,15 @@ type Reading struct {
 	Value      float32
 }
 
+// ConvertedTime turns the `Time` int64 value in nanoseconds since the epoch into a `time.Time`
+// object in the UTC timezone.
+func (flatDatum *FlatDatum) ConvertedTime() time.Time {
+	nanosPerSecond := int64(1_000_000_000)
+	seconds := flatDatum.Time / nanosPerSecond
+	nanos := flatDatum.Time % nanosPerSecond
+	return time.Unix(seconds, nanos).UTC()
+}
+
 // asDatum converts the flat array of `Reading`s into a `datum` object with a two layer `Data` map.
 func (flatDatum *FlatDatum) asDatum() datum {
 	var metricNames []string
@@ -420,13 +431,13 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) ([]FlatDatum, e
 		diffedFieldsIndexes := readDiffBits(reader, schema)
 		logger.Debugw("Diff bits", "changedFields", diffedFieldsIndexes)
 
-		// The next eight bytes after the diff bits is the time in nanoseconds since the 1970 epoch.
+		// The next eight bytes after the diff bits is the time in microseconds since the 1970 epoch.
 		var dataTime int64
 		if err = binary.Read(reader, binary.BigEndian, &dataTime); err != nil {
 			logger.Debugw("Error reading time", "error", err)
 			return ret, err
 		}
-		logger.Debugw("Read time", "time", dataTime)
+		logger.Debugw("Read time", "time", dataTime, "seconds", dataTime/1e9)
 
 		// Read the payload. There will be one float32 value for each diff bit set to `1`, i.e:
 		// `len(diffedFields)`.

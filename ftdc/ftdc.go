@@ -53,6 +53,7 @@ import (
 // without context of a metric name is a simply a "value". Those terms are more relevant to the FTDC
 // file format.
 type datum struct {
+	// Time in nanoseconds since the epoch.
 	Time int64
 	Data map[string]any
 
@@ -279,7 +280,7 @@ func (ftdc *FTDC) conditionalRemoveStatser(name string, generationID int) {
 // constructDatum walks all of the registered `statser`s to construct a `datum`.
 func (ftdc *FTDC) constructDatum() datum {
 	datum := datum{
-		Time: time.Now().Unix(),
+		Time: time.Now().UnixNano(),
 		Data: map[string]any{},
 	}
 
