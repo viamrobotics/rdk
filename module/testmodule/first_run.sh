@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 
+echo_to_stderr() {
+    >&2 echo $1
+}
+
 if [[ -n "$VIAM_TEST_FAIL_RUN_FIRST" ]]; then
-    >&2 echo "erroring... 1"
-    >&2 echo "erroring... 2"
+    echo_to_stderr "erroring... 1"
+    echo_to_stderr "erroring... 2"
     echo "failed!"
 
     sleep 1
@@ -11,10 +15,10 @@ if [[ -n "$VIAM_TEST_FAIL_RUN_FIRST" ]]; then
 fi
 
 echo "running... 1"
->&2 echo "hiccup 1"
+echo_to_stderr "hiccup 1"
 echo "running... 2"
 echo "running... 3"
->&2 echo "hiccup 2"
+echo_to_stderr "hiccup 2"
 echo "done!"
 
 sleep 1
