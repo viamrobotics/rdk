@@ -67,24 +67,7 @@ func BuildTempModuleWithFirstRun(tb testing.TB, modDir string) string {
 		{"first_run_meta.json", "meta.json"},
 		{"first_run.sh", "first_run.sh"},
 	} {
-		resolvedModDir := utils.ResolveFile(modDir)
-
-		//nolint:gosec
-		dir, err := os.Open(resolvedModDir)
-		if err != nil {
-			tb.Fatal(err)
-		}
-		files, err := dir.ReadDir(-1)
-		if err != nil {
-			tb.Fatal(err)
-		}
-
-		tb.Log("files in mod directory:")
-		for _, file := range files {
-			tb.Log(file)
-		}
-
-		srcPath := filepath.Join(resolvedModDir, cp.src)
+		srcPath := utils.ResolveFile(filepath.Join(modDir, cp.src))
 		//nolint:gosec
 		src, err := os.Open(srcPath)
 		if err != nil {
