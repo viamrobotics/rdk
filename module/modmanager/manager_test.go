@@ -1447,102 +1447,113 @@ func TestFirstRun(t *testing.T) {
 	}
 	mgr := setupModManager(t, ctx, parentAddr, logger, opts)
 
-	// Subtests must be run sequentially in the given order.
-	// Re-ordering the tests is likely to cause failures.
+	t.Log("=== FIRST RUN FAILS ===")
 
-	t.Run("fails", func(t *testing.T) {
-		t.Setenv("VIAM_TEST_FAIL_RUN_FIRST", "1")
-		err := mgr.FirstRun(ctx, modCfg)
-		test.That(t, err, test.ShouldNotBeNil)
-
-		test.That(t, logs.FilterMessage("executing first run script").Len(), test.ShouldEqual, 1)
-
-		stdio := logs.FilterMessage("got stdio").FilterLevelExact(zapcore.InfoLevel)
-		test.That(t, stdio.Len(), test.ShouldEqual, 1)
-		expectedStdio := map[string]struct{}{
-			"failed!": {},
+	const failEnvVarKey = "VIAM_TEST_FAIL_RUN_FIRST"
+	origFailEnvVar, origFailEnvVarSet := os.LookupEnv(failEnvVarKey)
+	unsetFailEnvVar := func() {
+		if origFailEnvVarSet {
+			err := os.Setenv(failEnvVarKey, origFailEnvVar)
+			test.That(t, err, test.ShouldBeNil)
+		} else {
+			err := os.Unsetenv(failEnvVarKey)
+			test.That(t, err, test.ShouldBeNil)
 		}
-		for _, msg := range stdio.All() {
-			line := msg.ContextMap()["output"].(string)
-			delete(expectedStdio, line)
-		}
-		test.That(t, expectedStdio, test.ShouldBeEmpty)
+	}
+	t.Setenv(failEnvVarKey, "1")
 
-		stderr := logs.FilterMessage("got stderr").FilterLevelExact(zapcore.WarnLevel)
-		test.That(t, stderr.Len(), test.ShouldEqual, 2)
-		expectedStderr := map[string]struct{}{
-			"erroring... 1": {},
-			"erroring... 2": {},
-		}
-		for _, msg := range stderr.All() {
-			line := msg.ContextMap()["output"].(string)
-			delete(expectedStderr, line)
-		}
-		test.That(t, expectedStderr, test.ShouldBeEmpty)
+	err := mgr.FirstRun(ctx, modCfg)
+	test.That(t, err, test.ShouldNotBeNil)
 
-		test.That(t, logs.FilterMessage("first run script failed").Len(), test.ShouldEqual, 1)
-	})
+	test.That(t, logs.FilterMessage("executing first run script").Len(), test.ShouldEqual, 1)
 
-	t.Run("succeeds", func(t *testing.T) {
-		logs.TakeAll() // truncate observed logs
+	stdio := logs.FilterMessage("got stdio").FilterLevelExact(zapcore.InfoLevel)
+	test.That(t, stdio.Len(), test.ShouldEqual, 1)
+	expectedStdio := map[string]struct{}{
+		"failed!": {},
+	}
+	for _, msg := range stdio.All() {
+		line := msg.ContextMap()["output"].(string)
+		delete(expectedStdio, line)
+	}
+	test.That(t, expectedStdio, test.ShouldBeEmpty)
 
-		err := mgr.FirstRun(ctx, modCfg)
-		test.That(t, err, test.ShouldBeNil)
+	stderr := logs.FilterMessage("got stderr").FilterLevelExact(zapcore.WarnLevel)
+	test.That(t, stderr.Len(), test.ShouldEqual, 2)
+	expectedStderr := map[string]struct{}{
+		"erroring... 1": {},
+		"erroring... 2": {},
+	}
+	for _, msg := range stderr.All() {
+		line := msg.ContextMap()["output"].(string)
+		delete(expectedStderr, line)
+	}
+	test.That(t, expectedStderr, test.ShouldBeEmpty)
 
-		test.That(t, logs.FilterMessage("executing first run script").Len(), test.ShouldEqual, 1)
+	test.That(t, logs.FilterMessage("first run script failed").Len(), test.ShouldEqual, 1)
 
-		stdio := logs.FilterMessage("got stdio").FilterLevelExact(zapcore.InfoLevel)
-		test.That(t, stdio.Len(), test.ShouldEqual, 4)
-		expectedStdio := map[string]struct{}{
-			"running... 1": {},
-			"running... 2": {},
-			"running... 3": {},
-			"done!":        {},
-		}
-		for _, msg := range stdio.All() {
-			line := msg.ContextMap()["output"].(string)
-			delete(expectedStdio, line)
-		}
-		test.That(t, expectedStdio, test.ShouldBeEmpty)
+	unsetFailEnvVar()
 
-		stderr := logs.FilterMessage("got stderr").FilterLevelExact(zapcore.WarnLevel)
-		test.That(t, stderr.Len(), test.ShouldEqual, 2)
-		expectedStderr := map[string]struct{}{
-			"hiccup 1": {},
-			"hiccup 2": {},
-		}
-		for _, msg := range stderr.All() {
-			line := msg.ContextMap()["output"].(string)
-			delete(expectedStderr, line)
-		}
-		test.That(t, expectedStderr, test.ShouldBeEmpty)
+	t.Log("=== FIRST RUN SUCCEEDS ===")
 
-		test.That(t, logs.FilterMessage("first run script succeeded").Len(), test.ShouldEqual, 1)
-	})
+	logs.TakeAll() // remove logs observed up to this point
 
-	t.Run("skipped after success", func(t *testing.T) {
-		logs.TakeAll() // truncate observed logs
+	err = mgr.FirstRun(ctx, modCfg)
+	test.That(t, err, test.ShouldBeNil)
 
-		err := mgr.FirstRun(ctx, modCfg)
-		test.That(t, err, test.ShouldBeNil)
+	test.That(t, logs.FilterMessage("executing first run script").Len(), test.ShouldEqual, 1)
 
-		test.That(t, logs.FilterMessage("first run already ran").Len(), test.ShouldEqual, 1)
-	})
+	stdio = logs.FilterMessage("got stdio").FilterLevelExact(zapcore.InfoLevel)
+	test.That(t, stdio.Len(), test.ShouldEqual, 4)
+	expectedStdio = map[string]struct{}{
+		"running... 1": {},
+		"running... 2": {},
+		"running... 3": {},
+		"done!":        {},
+	}
+	for _, msg := range stdio.All() {
+		line := msg.ContextMap()["output"].(string)
+		delete(expectedStdio, line)
+	}
+	test.That(t, expectedStdio, test.ShouldBeEmpty)
 
-	t.Run("skipped after success and module manager restart", func(t *testing.T) {
-		logs.TakeAll() // truncate observed logs
+	stderr = logs.FilterMessage("got stderr").FilterLevelExact(zapcore.WarnLevel)
+	test.That(t, stderr.Len(), test.ShouldEqual, 2)
+	expectedStderr = map[string]struct{}{
+		"hiccup 1": {},
+		"hiccup 2": {},
+	}
+	for _, msg := range stderr.All() {
+		line := msg.ContextMap()["output"].(string)
+		delete(expectedStderr, line)
+	}
+	test.That(t, expectedStderr, test.ShouldBeEmpty)
 
-		err := mgr.Close(context.Background())
-		test.That(t, err, test.ShouldBeNil)
+	test.That(t, logs.FilterMessage("first run script succeeded").Len(), test.ShouldEqual, 1)
 
-		opts = modmanageroptions.Options{
-			UntrustedEnv: false,
-		}
-		mgr = setupModManager(t, ctx, parentAddr, logger, opts)
+	t.Log("=== FIRST RUN SKIPPED AFTER SUCCESS ===")
 
-		err = mgr.FirstRun(ctx, modCfg)
-		test.That(t, err, test.ShouldBeNil)
+	logs.TakeAll() // remove logs observed up to this point
 
-		test.That(t, logs.FilterMessage("first run already ran").Len(), test.ShouldEqual, 1)
-	})
+	err = mgr.FirstRun(ctx, modCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, logs.FilterMessage("first run already ran").Len(), test.ShouldEqual, 1)
+
+	t.Log("FIRST RUN SKIPPED AFTER SUCCESS AND MODULE MANAGER RESTART")
+
+	logs.TakeAll() // remove logs observed up to this point
+
+	err = mgr.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+
+	opts = modmanageroptions.Options{
+		UntrustedEnv: false,
+	}
+	mgr = setupModManager(t, ctx, parentAddr, logger, opts)
+
+	err = mgr.FirstRun(ctx, modCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, logs.FilterMessage("first run already ran").Len(), test.ShouldEqual, 1)
 }
