@@ -1482,7 +1482,6 @@ func TestFirstRun(t *testing.T) {
 		})
 	})
 
-	// First run succeeds
 	t.Run("succeeds", func(t *testing.T) {
 		logs.TakeAll() // truncate observed logs
 
