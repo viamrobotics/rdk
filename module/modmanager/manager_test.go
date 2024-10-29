@@ -1447,6 +1447,9 @@ func TestFirstRun(t *testing.T) {
 	}
 	mgr := setupModManager(t, ctx, parentAddr, logger, opts)
 
+	// Subtests must be run sequentially in the given order.
+	// Re-ordering the tests is likely to cause failures.
+
 	t.Run("fails", func(t *testing.T) {
 		t.Setenv("VIAM_TEST_FAIL_RUN_FIRST", "1")
 		err := mgr.FirstRun(ctx, modCfg)
