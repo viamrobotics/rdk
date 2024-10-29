@@ -22,7 +22,7 @@ var (
 // helper to read platform tags for GPU-related system libraries.
 func readGPUTags(logger logging.Logger, tags []string) []string {
 	// this timeout is for all steps in this function.
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	if _, err := exec.LookPath("nvcc"); err == nil {
 		out, err := exec.CommandContext(ctx, "nvcc", "--version").Output()
