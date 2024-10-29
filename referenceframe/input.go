@@ -17,6 +17,8 @@ type Input struct {
 	Value float64
 }
 
+// JointPositionsFromInputs converts the given slice of Input to a JointPositions struct,
+// using the ProtobufFromInput function provided by the given Frame.
 func JointPositionsFromInputs(f Frame, inputs []Input) (*pb.JointPositions, error) {
 	if f == nil {
 		// if a frame is not provided, we will assume all inputs are specified in degrees and need to be converted to radians
@@ -28,6 +30,8 @@ func JointPositionsFromInputs(f Frame, inputs []Input) (*pb.JointPositions, erro
 	return f.ProtobufFromInput(inputs), nil
 }
 
+// InputsFromJointPositions converts the given JointPositions struct to a slice of Input,
+// using the ProtobufFromInput function provided by the given Frame.
 func InputsFromJointPositions(f Frame, jp *pb.JointPositions) ([]Input, error) {
 	if f == nil {
 		// if a frame is not provided, we will assume all inputs are specified in degrees and need to be converted to radians

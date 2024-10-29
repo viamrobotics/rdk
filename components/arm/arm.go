@@ -8,7 +8,6 @@ package arm
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	v1 "go.viam.com/api/common/v1"
@@ -22,8 +21,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
-
-var ErrModelNotValid = errors.New("unable to retrieve a valid arm model from arm")
 
 func init() {
 	resource.RegisterAPI(API, resource.APIRegistration[Arm]{
