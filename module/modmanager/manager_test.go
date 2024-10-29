@@ -1455,34 +1455,32 @@ func TestFirstRun(t *testing.T) {
 		err := mgr.FirstRun(ctx, modCfg)
 		test.That(t, err, test.ShouldNotBeNil)
 
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			test.That(tb, logs.FilterMessage("executing first run script").Len(), test.ShouldEqual, 1)
+		test.That(t, logs.FilterMessage("executing first run script").Len(), test.ShouldEqual, 1)
 
-			stdio := logs.FilterMessage("got stdio").FilterLevelExact(zapcore.InfoLevel)
-			test.That(tb, stdio.Len(), test.ShouldEqual, 1)
-			expectedStdio := map[string]struct{}{
-				"failed!": {},
-			}
-			for _, msg := range stdio.All() {
-				line := msg.ContextMap()["output"].(string)
-				delete(expectedStdio, line)
-			}
-			test.That(tb, expectedStdio, test.ShouldBeEmpty)
+		stdio := logs.FilterMessage("got stdio").FilterLevelExact(zapcore.InfoLevel)
+		test.That(t, stdio.Len(), test.ShouldEqual, 1)
+		expectedStdio := map[string]struct{}{
+			"failed!": {},
+		}
+		for _, msg := range stdio.All() {
+			line := msg.ContextMap()["output"].(string)
+			delete(expectedStdio, line)
+		}
+		test.That(t, expectedStdio, test.ShouldBeEmpty)
 
-			stderr := logs.FilterMessage("got stderr").FilterLevelExact(zapcore.WarnLevel)
-			test.That(tb, stderr.Len(), test.ShouldEqual, 2)
-			expectedStderr := map[string]struct{}{
-				"erroring... 1": {},
-				"erroring... 2": {},
-			}
-			for _, msg := range stderr.All() {
-				line := msg.ContextMap()["output"].(string)
-				delete(expectedStderr, line)
-			}
-			test.That(tb, expectedStderr, test.ShouldBeEmpty)
+		stderr := logs.FilterMessage("got stderr").FilterLevelExact(zapcore.WarnLevel)
+		test.That(t, stderr.Len(), test.ShouldEqual, 2)
+		expectedStderr := map[string]struct{}{
+			"erroring... 1": {},
+			"erroring... 2": {},
+		}
+		for _, msg := range stderr.All() {
+			line := msg.ContextMap()["output"].(string)
+			delete(expectedStderr, line)
+		}
+		test.That(t, expectedStderr, test.ShouldBeEmpty)
 
-			test.That(tb, logs.FilterMessage("first run script failed").Len(), test.ShouldEqual, 1)
-		})
+		test.That(t, logs.FilterMessage("first run script failed").Len(), test.ShouldEqual, 1)
 	})
 
 	t.Run("succeeds", func(t *testing.T) {
@@ -1491,37 +1489,35 @@ func TestFirstRun(t *testing.T) {
 		err := mgr.FirstRun(ctx, modCfg)
 		test.That(t, err, test.ShouldBeNil)
 
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			test.That(tb, logs.FilterMessage("executing first run script").Len(), test.ShouldEqual, 1)
+		test.That(t, logs.FilterMessage("executing first run script").Len(), test.ShouldEqual, 1)
 
-			stdio := logs.FilterMessage("got stdio").FilterLevelExact(zapcore.InfoLevel)
-			test.That(tb, stdio.Len(), test.ShouldEqual, 4)
-			expectedStdio := map[string]struct{}{
-				"running... 1": {},
-				"running... 2": {},
-				"running... 3": {},
-				"done!":        {},
-			}
-			for _, msg := range stdio.All() {
-				line := msg.ContextMap()["output"].(string)
-				delete(expectedStdio, line)
-			}
-			test.That(tb, expectedStdio, test.ShouldBeEmpty)
+		stdio := logs.FilterMessage("got stdio").FilterLevelExact(zapcore.InfoLevel)
+		test.That(t, stdio.Len(), test.ShouldEqual, 4)
+		expectedStdio := map[string]struct{}{
+			"running... 1": {},
+			"running... 2": {},
+			"running... 3": {},
+			"done!":        {},
+		}
+		for _, msg := range stdio.All() {
+			line := msg.ContextMap()["output"].(string)
+			delete(expectedStdio, line)
+		}
+		test.That(t, expectedStdio, test.ShouldBeEmpty)
 
-			stderr := logs.FilterMessage("got stderr").FilterLevelExact(zapcore.WarnLevel)
-			test.That(tb, stderr.Len(), test.ShouldEqual, 2)
-			expectedStderr := map[string]struct{}{
-				"hiccup 1": {},
-				"hiccup 2": {},
-			}
-			for _, msg := range stderr.All() {
-				line := msg.ContextMap()["output"].(string)
-				delete(expectedStderr, line)
-			}
-			test.That(tb, expectedStderr, test.ShouldBeEmpty)
+		stderr := logs.FilterMessage("got stderr").FilterLevelExact(zapcore.WarnLevel)
+		test.That(t, stderr.Len(), test.ShouldEqual, 2)
+		expectedStderr := map[string]struct{}{
+			"hiccup 1": {},
+			"hiccup 2": {},
+		}
+		for _, msg := range stderr.All() {
+			line := msg.ContextMap()["output"].(string)
+			delete(expectedStderr, line)
+		}
+		test.That(t, expectedStderr, test.ShouldBeEmpty)
 
-			test.That(tb, logs.FilterMessage("first run script succeeded").Len(), test.ShouldEqual, 1)
-		})
+		test.That(t, logs.FilterMessage("first run script succeeded").Len(), test.ShouldEqual, 1)
 	})
 
 	t.Run("skipped after success", func(t *testing.T) {
@@ -1530,9 +1526,7 @@ func TestFirstRun(t *testing.T) {
 		err := mgr.FirstRun(ctx, modCfg)
 		test.That(t, err, test.ShouldBeNil)
 
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			test.That(tb, logs.FilterMessage("first run already ran").Len(), test.ShouldEqual, 1)
-		})
+		test.That(t, logs.FilterMessage("first run already ran").Len(), test.ShouldEqual, 1)
 	})
 
 	t.Run("skipped after success and module manager restart", func(t *testing.T) {
@@ -1548,8 +1542,7 @@ func TestFirstRun(t *testing.T) {
 
 		err = mgr.FirstRun(ctx, modCfg)
 		test.That(t, err, test.ShouldBeNil)
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			test.That(tb, logs.FilterMessage("first run already ran").Len(), test.ShouldEqual, 1)
-		})
+
+		test.That(t, logs.FilterMessage("first run already ran").Len(), test.ShouldEqual, 1)
 	})
 }
