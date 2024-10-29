@@ -431,7 +431,7 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) ([]FlatDatum, e
 		diffedFieldsIndexes := readDiffBits(reader, schema)
 		logger.Debugw("Diff bits", "changedFields", diffedFieldsIndexes)
 
-		// The next eight bytes after the diff bits is the time in microseconds since the 1970 epoch.
+		// The next eight bytes after the diff bits is the time in nanoseconds since the 1970 epoch.
 		var dataTime int64
 		if err = binary.Read(reader, binary.BigEndian, &dataTime); err != nil {
 			logger.Debugw("Error reading time", "error", err)

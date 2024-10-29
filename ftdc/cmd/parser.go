@@ -194,6 +194,7 @@ func main() {
 
 			gpw.Render()
 		}
+		render = true
 
 		fmt.Print("$ ")
 		cmd, err := stdinReader.ReadString('\n')
@@ -202,8 +203,10 @@ func main() {
 			fmt.Println("\nExiting...")
 			return
 		case cmd == "quit":
+			fmt.Println("Exiting...")
 			return
 		case cmd == "h" || cmd == "help":
+			render = false
 			fmt.Println("range <start> <end>")
 			fmt.Println("-  Only plot datapoints within the given range. \"zoom in\"")
 			fmt.Println("-  E.g: range 2024-09-24T18:00:00 2024-09-24T18:30:00")
@@ -243,6 +246,11 @@ func main() {
 		case strings.HasPrefix(cmd, "reset range"):
 			graphOptions.minTimeSeconds = 0
 			graphOptions.maxTimeSeconds = math.MaxInt64
+		case len(strings.TrimSpace(cmd)) == 0:
+			render = false
+		default:
+			fmt.Println("Unknown command. Type `h` for help.")
+			render = false
 		}
 	}
 }
