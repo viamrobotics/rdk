@@ -1133,7 +1133,11 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	}
 
 	scanOut := bufio.NewScanner(stdOut)
+	var wg sync.WaitGroup
+	wg.Add(2)
 	go func() {
+		defer wg.Done()
+
 		for scanOut.Scan() {
 			logger.Infow("got stdio", "output", scanOut.Text())
 		}
@@ -1146,6 +1150,8 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	}()
 	scanErr := bufio.NewScanner(stdErr)
 	go func() {
+		defer wg.Done()
+
 		for scanErr.Scan() {
 			logger.Warnw("got stderr", "output", scanErr.Text())
 		}
@@ -1164,6 +1170,7 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 		logger.Errorw("first run script failed", "error", err)
 		return err
 	}
+	wg.Wait()
 	logger.Info("first run script succeeded")
 
 	// Mark success by writing a marker file to disk. This is a best
