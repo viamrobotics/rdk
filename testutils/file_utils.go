@@ -1,6 +1,7 @@
 package testutils
 
 import (
+	"errors"
 	"io"
 	"os"
 	"os/exec"
@@ -78,8 +79,18 @@ func BuildTempModuleWithFirstRun(tb testing.TB, modDir string) string {
 		if err != nil {
 			tb.Fatal(err)
 		}
+		closeFiles := func() {
+			if err := errors.Join(src.Close(), dst.Close()); err != nil {
+				tb.Error(err)
+			}
+		}
 		if _, err = io.Copy(dst, src); err != nil {
+			closeFiles()
 			tb.Fatal(err)
+		}
+		closeFiles()
+		if tb.Failed() {
+			tb.FailNow()
 		}
 	}
 	return exePath
