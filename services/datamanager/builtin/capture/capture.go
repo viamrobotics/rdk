@@ -169,10 +169,10 @@ func (c *Capture) mongoSetup(ctx context.Context, newConfig MongoConfig) *mongo.
 	return c.mongoCollection
 }
 
-// mongoReconfigure
-// it shuts down the collectors when on the mongo client is no longer being valid based on the new config
-// and attempts to create a new mongo client when the new config perscribes one.
-// returns a *mongo.Collection when the client is valid and nil when it is not.
+// mongoReconfigure shuts down the collectors when the mongo client is no longer being
+// valid based on the new config and attempts to create a new mongo client when the new c
+// config perscribes one.
+// returns a *mongo.Collection when the new client is valid and nil when it is not.
 func (c *Capture) mongoReconfigure(ctx context.Context, newConfig *MongoConfig) *mongo.Collection {
 	c.mongoMU.Lock()
 	defer c.mongoMU.Unlock()
@@ -187,7 +187,7 @@ func (c *Capture) mongoReconfigure(ctx context.Context, newConfig *MongoConfig) 
 
 	if disabled {
 		// if we currently have a client, and the new config is disabled
-		// call close to disconnect from mongo, and close the collectors.
+		// call close to disconnect from mongo and close the collectors.
 		// They will be recreated later during Reconfigure without a collection.
 		c.closeNoMongoMutex(ctx)
 		return nil
