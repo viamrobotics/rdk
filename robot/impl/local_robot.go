@@ -1274,51 +1274,62 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 
 	// Add default services and process their dependencies. Dependencies may
 	// already come from config validation so we check that here.
-	seen := make(map[resource.API]int)
+	seen := make(map[resource.API][]int)
 	for idx, val := range newConfig.Services {
-		seen[val.API] = idx
+		seen[val.API] = append(seen[val.API], idx)
 	}
 	for _, name := range resource.DefaultServices() {
-		existingConfIdx, hasExistingConf := seen[name.API]
-		overwritesBuiltin := false
-		svcCfg := resource.Config{
+		existingConfIdxs, hasExistingConf := seen[name.API]
+		svcCfgs := []resource.Config{}
+
+		defaultSvcCfg := resource.Config{
 			Name:  name.Name,
 			Model: resource.DefaultServiceModel,
 			API:   name.API,
 		}
+
+		overwritesBuiltin := false
 		if hasExistingConf {
-			// Overwrite the builtin service if the configured service uses the same name.
-			// Otherwise, allow both to coexist.
-			if svcCfg.Name == newConfig.Services[existingConfIdx].Name {
-				overwritesBuiltin = true
-				svcCfg = newConfig.Services[existingConfIdx]
+			for _, existingConfIdx := range existingConfIdxs {
+				// Overwrite the builtin service if the configured service uses the same name.
+				// Otherwise, allow both to coexist.
+				if defaultSvcCfg.Name == newConfig.Services[existingConfIdx].Name {
+					overwritesBuiltin = true
+				}
+				svcCfgs = append(svcCfgs, newConfig.Services[existingConfIdx])
 			}
+		}
+		if !overwritesBuiltin {
+			svcCfgs = append(svcCfgs, defaultSvcCfg)
 		}
 
-		if svcCfg.ConvertedAttributes != nil || svcCfg.Attributes != nil {
-			// previously processed
-			continue
-		}
+		for i, svcCfg := range svcCfgs {
+			if svcCfg.ConvertedAttributes != nil || svcCfg.Attributes != nil {
+				// previously processed
+				continue
+			}
 
-		// we find dependencies through configs, so we must try to validate even a default config
-		if reg, ok := resource.LookupRegistration(svcCfg.API, svcCfg.Model); ok && reg.AttributeMapConverter != nil {
-			converted, err := reg.AttributeMapConverter(utils.AttributeMap{})
-			if err != nil {
-				allErrs = multierr.Combine(allErrs, errors.Wrapf(err, "error converting attributes for %s", svcCfg.API))
-				continue
+			// we find dependencies through configs, so we must try to validate even a default config
+			if reg, ok := resource.LookupRegistration(svcCfg.API, svcCfg.Model); ok && reg.AttributeMapConverter != nil {
+				converted, err := reg.AttributeMapConverter(utils.AttributeMap{})
+				if err != nil {
+					allErrs = multierr.Combine(allErrs, errors.Wrapf(err, "error converting attributes for %s", svcCfg.API))
+					continue
+				}
+				svcCfg.ConvertedAttributes = converted
+				deps, err := converted.Validate("")
+				if err != nil {
+					allErrs = multierr.Combine(allErrs, errors.Wrapf(err, "error getting default service dependencies for %s", svcCfg.API))
+					continue
+				}
+				svcCfg.ImplicitDependsOn = deps
 			}
-			svcCfg.ConvertedAttributes = converted
-			deps, err := converted.Validate("")
-			if err != nil {
-				allErrs = multierr.Combine(allErrs, errors.Wrapf(err, "error getting default service dependencies for %s", svcCfg.API))
-				continue
+			// Update existing service configs, and the final config will be the default service, if not overridden
+			if i < len(existingConfIdxs) {
+				newConfig.Services[existingConfIdxs[i]] = svcCfg
+			} else {
+				newConfig.Services = append(newConfig.Services, svcCfg)
 			}
-			svcCfg.ImplicitDependsOn = deps
-		}
-		if overwritesBuiltin {
-			newConfig.Services[existingConfIdx] = svcCfg
-		} else {
-			newConfig.Services = append(newConfig.Services, svcCfg)
 		}
 	}
 
