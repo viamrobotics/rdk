@@ -1280,14 +1280,18 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	}
 	for _, name := range resource.DefaultServices() {
 		existingConfIdx, hasExistingConf := seen[name.API]
-		var svcCfg resource.Config
+		overwritesBuiltin := false
+		svcCfg := resource.Config{
+			Name:  name.Name,
+			Model: resource.DefaultServiceModel,
+			API:   name.API,
+		}
 		if hasExistingConf {
-			svcCfg = newConfig.Services[existingConfIdx]
-		} else {
-			svcCfg = resource.Config{
-				Name:  name.Name,
-				Model: resource.DefaultServiceModel,
-				API:   name.API,
+			// Overwrite the builtin service if the configured service uses the same name.
+			// Otherwise, allow both to coexist.
+			if svcCfg.Name == newConfig.Services[existingConfIdx].Name {
+				overwritesBuiltin = true
+				svcCfg = newConfig.Services[existingConfIdx]
 			}
 		}
 
@@ -1311,7 +1315,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 			}
 			svcCfg.ImplicitDependsOn = deps
 		}
-		if hasExistingConf {
+		if overwritesBuiltin {
 			newConfig.Services[existingConfIdx] = svcCfg
 		} else {
 			newConfig.Services = append(newConfig.Services, svcCfg)
