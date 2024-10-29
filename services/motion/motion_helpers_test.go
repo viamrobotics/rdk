@@ -7,7 +7,6 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/arm"
@@ -117,8 +116,8 @@ func TestOOBArmMotion(t *testing.T) {
 	OOBFloats := []float64{0, 0, 0, 0, 0, 720}
 	injectedArm := &inject.Arm{
 		Arm: notReal,
-		JointPositionsFunc: func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
-			return &pb.JointPositions{Values: OOBFloats}, nil
+		JointPositionsFunc: func(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
+			return referenceframe.FloatsToInputs(OOBFloats), nil
 		},
 		CurrentInputsFunc: func(ctx context.Context) ([]referenceframe.Input, error) {
 			return referenceframe.FloatsToInputs(OOBFloats), nil
@@ -139,12 +138,12 @@ func TestOOBArmMotion(t *testing.T) {
 	})
 
 	t.Run("MoveToJointPositions fails OOB and moving further OOB", func(t *testing.T) {
-		err := injectedArm.MoveToJointPositions(context.Background(), &pb.JointPositions{Values: []float64{0, 0, 0, 0, 0, 900}}, nil)
+		err := injectedArm.MoveToJointPositions(context.Background(), referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 900}), nil)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
 	t.Run("MoveToJointPositions succeeds when OOB and moving further in-bounds", func(t *testing.T) {
-		err := injectedArm.MoveToJointPositions(context.Background(), &pb.JointPositions{Values: []float64{0, 0, 0, 0, 0, 0}}, nil)
+		err := injectedArm.MoveToJointPositions(context.Background(), referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0}), nil)
 		test.That(t, err, test.ShouldBeNil)
 	})
 }

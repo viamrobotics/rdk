@@ -10,11 +10,33 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// Input wraps the input to a mutable frame, e.g. a joint angle or a gantry position. Revolute inputs should be in
-// radians. Prismatic inputs should be in mm.
-// TODO: Determine what more this needs, or eschew in favor of raw float64s if nothing needed.
+// Input wraps the input to a mutable frame, e.g. a joint angle or a gantry position.
+//   - revolute inputs should be in radians.
+//   - prismatic inputs should be in mm.
 type Input struct {
 	Value float64
+}
+
+func JointPositionsFromInputs(f Frame, inputs []Input) (*pb.JointPositions, error) {
+	if f == nil {
+		// if a frame is not provided, we will assume all inputs are specified in degrees and need to be converted to radians
+		return JointPositionsFromRadians(InputsToFloats(inputs)), nil
+	}
+	if len(f.DoF()) != len(inputs) {
+		return nil, NewIncorrectDoFError(len(inputs), len(f.DoF()))
+	}
+	return f.ProtobufFromInput(inputs), nil
+}
+
+func InputsFromJointPositions(f Frame, jp *pb.JointPositions) ([]Input, error) {
+	if f == nil {
+		// if a frame is not provided, we will assume all inputs are specified in degrees and need to be converted to radians
+		return FloatsToInputs(JointPositionsToRadians(jp)), nil
+	}
+	if len(f.DoF()) != len(jp.Values) {
+		return nil, NewIncorrectDoFError(len(jp.Values), len(f.DoF()))
+	}
+	return f.InputFromProtobuf(jp), nil
 }
 
 // FloatsToInputs wraps a slice of floats in Inputs.

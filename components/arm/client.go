@@ -5,7 +5,6 @@ package arm
 
 import (
 	"context"
-	"errors"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
@@ -18,8 +17,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
-
-var errArmClientModelNotValid = errors.New("unable to retrieve a valid arm model from arm client")
 
 // client implements ArmServiceClient.
 type client struct {
@@ -49,7 +46,12 @@ func NewClientFromConn(
 	}
 	clientFrame, err := c.updateKinematics(ctx, nil)
 	if err != nil {
-		logger.CErrorw(ctx, "error getting model for arm; will not allow certain methods", "err", err)
+		logger.CWarnw(
+			ctx,
+			"error getting model for arm; making the assumption that joints are revolute and that their positions are specified in degrees",
+			"err",
+			err,
+		)
 	} else {
 		c.model = clientFrame
 	}
@@ -87,7 +89,7 @@ func (c *client) MoveToPosition(ctx context.Context, pose spatialmath.Pose, extr
 	return err
 }
 
-func (c *client) MoveToJointPositions(ctx context.Context, positions *pb.JointPositions, extra map[string]interface{}) error {
+func (c *client) MoveToJointPositions(ctx context.Context, positions []referenceframe.Input, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -95,15 +97,19 @@ func (c *client) MoveToJointPositions(ctx context.Context, positions *pb.JointPo
 	if positions == nil {
 		c.logger.Warnf("%s MoveToJointPositions: position parameter is nil", c.name)
 	}
+	jp, err := referenceframe.JointPositionsFromInputs(c.model, positions)
+	if err != nil {
+		return err
+	}
 	_, err = c.client.MoveToJointPositions(ctx, &pb.MoveToJointPositionsRequest{
 		Name:      c.name,
-		Positions: positions,
+		Positions: jp,
 		Extra:     ext,
 	})
 	return err
 }
 
-func (c *client) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+func (c *client) JointPositions(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
@@ -115,7 +121,7 @@ func (c *client) JointPositions(ctx context.Context, extra map[string]interface{
 	if err != nil {
 		return nil, err
 	}
-	return resp.Positions, nil
+	return referenceframe.InputsFromJointPositions(c.model, resp.Positions)
 }
 
 func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
@@ -135,23 +141,12 @@ func (c *client) ModelFrame() referenceframe.Model {
 }
 
 func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	if c.model == nil {
-		return nil, errArmClientModelNotValid
-	}
-	resp, err := c.JointPositions(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	return c.model.InputFromProtobuf(resp), nil
+	return c.JointPositions(ctx, nil)
 }
 
 func (c *client) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
-	if c.model == nil {
-		return errArmClientModelNotValid
-	}
 	for _, goal := range inputSteps {
-		err := c.MoveToJointPositions(ctx, c.model.ProtobufFromInput(goal), nil)
-		if err != nil {
+		if err := c.MoveToJointPositions(ctx, goal, nil); err != nil {
 			return err
 		}
 	}

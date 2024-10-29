@@ -6,6 +6,7 @@ package eva
 import (
 	"bytes"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/json"
@@ -18,7 +19,6 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
@@ -129,12 +129,12 @@ func NewEva(ctx context.Context, conf resource.Config, logger logging.Logger) (a
 	return e, nil
 }
 
-func (e *eva) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+func (e *eva) JointPositions(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
 	data, err := e.DataSnapshot(ctx)
 	if err != nil {
-		return &pb.JointPositions{}, err
+		return nil, err
 	}
-	return referenceframe.JointPositionsFromRadians(data.ServosPosition), nil
+	return referenceframe.FloatsToInputs(data.ServosPosition), nil
 }
 
 // EndPosition computes and returns the current cartesian position.
@@ -153,17 +153,15 @@ func (e *eva) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra ma
 	return motion.MoveArm(ctx, e.logger, e, pos)
 }
 
-func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions, extra map[string]interface{}) error {
+func (e *eva) MoveToJointPositions(ctx context.Context, newPositions []referenceframe.Input, extra map[string]interface{}) error {
 	// check that joint positions are not out of bounds
-	inputs := e.ModelFrame().InputFromProtobuf(newPositions)
-	if err := arm.CheckDesiredJointPositions(ctx, e, inputs); err != nil {
+	if err := arm.CheckDesiredJointPositions(ctx, e, newPositions); err != nil {
 		return err
 	}
 	ctx, done := e.opMgr.New(ctx)
 	defer done()
 
-	radians := referenceframe.JointPositionsToRadians(newPositions)
-
+	radians := referenceframe.InputsToFloats(newPositions)
 	err := e.doMoveJoints(ctx, radians)
 	if err == nil {
 		return nil
@@ -383,11 +381,7 @@ func (e *eva) ModelFrame() referenceframe.Model {
 }
 
 func (e *eva) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := e.JointPositions(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	return e.model.InputFromProtobuf(res), nil
+	return e.JointPositions(ctx, nil)
 }
 
 func (e *eva) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
@@ -395,7 +389,7 @@ func (e *eva) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Inp
 		if err := arm.CheckDesiredJointPositions(ctx, e, goal); err != nil {
 			return err
 		}
-		err := e.MoveToJointPositions(ctx, e.model.ProtobufFromInput(goal), nil)
+		err := e.MoveToJointPositions(ctx, goal, nil)
 		if err != nil {
 			return err
 		}

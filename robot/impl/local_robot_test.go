@@ -20,6 +20,7 @@ import (
 	"github.com/golang/geo/r3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -1218,8 +1219,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	r0Arm, ok := r0arm1.(arm.Arm)
 	test.That(t, ok, test.ShouldBeTrue)
-	tPos := referenceframe.JointPositionsFromRadians([]float64{math.Pi})
-	err = r0Arm.MoveToJointPositions(context.Background(), tPos, nil)
+	err = r0Arm.MoveToJointPositions(context.Background(), []referenceframe.Input{{math.Pi}}, nil)
 	test.That(t, err, test.ShouldBeNil)
 	p0Arm1, err := r0Arm.JointPositions(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -1269,7 +1269,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	pos, err := rrArm1.JointPositions(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pos.Values, test.ShouldResemble, p0Arm1.Values)
+	test.That(t, pos, test.ShouldResemble, p0Arm1)
 
 	arm1, err = r.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
@@ -1277,7 +1277,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	pos, err = rrArm1.JointPositions(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pos.Values, test.ShouldResemble, p0Arm1.Values)
+	test.That(t, pos, test.ShouldResemble, p0Arm1)
 
 	_, err = r.ResourceByName(arm.Named("remote:foo:pieceArm"))
 	test.That(t, err, test.ShouldBeNil)

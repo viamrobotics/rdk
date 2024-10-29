@@ -17,7 +17,6 @@ import (
 	"github.com/benbjohnson/clock"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
-	v1Arm "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -33,6 +32,7 @@ import (
 	"go.viam.com/rdk/internal/cloud"
 	cloudinject "go.viam.com/rdk/internal/testutils/inject"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/builtin/capture"
@@ -284,8 +284,8 @@ func TestFileDeletion(t *testing.T) {
 			JointPositionsFunc: func(
 				ctx context.Context,
 				extra map[string]interface{},
-			) (*v1Arm.JointPositions, error) {
-				return &v1Arm.JointPositions{Values: []float64{1.0, 2.0, 3.0, 4.0}}, nil
+			) ([]referenceframe.Input, error) {
+				return referenceframe.FloatsToInputs([]float64{1.0, 2.0, 3.0, 4.0}), nil
 			},
 		},
 		gantry.Named("gantry1"): &inject.Gantry{

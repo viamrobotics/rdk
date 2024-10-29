@@ -75,12 +75,12 @@ func TestIncorrectInputs(t *testing.T) {
 	// test incorrect number of inputs
 	pose, err := m.Transform(make([]Input, dof+1))
 	test.That(t, pose, test.ShouldBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, NewIncorrectInputLengthError(dof+1, dof).Error())
+	test.That(t, err.Error(), test.ShouldContainSubstring, NewIncorrectDoFError(dof+1, dof).Error())
 
 	// test incorrect number of inputs to Geometries
 	gf, err := m.Geometries(make([]Input, dof-1))
 	test.That(t, gf, test.ShouldBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, NewIncorrectInputLengthError(dof-1, dof).Error())
+	test.That(t, err.Error(), test.ShouldContainSubstring, NewIncorrectDoFError(dof-1, dof).Error())
 }
 
 func TestModelGeometries(t *testing.T) {
