@@ -142,13 +142,13 @@ func handleMapType(str, resourceSubtype string) string {
 	return fmt.Sprintf("map[%s]%s", keyType, valueType)
 }
 
-func formatStruct(typeSpec *ast.TypeSpec, client string) string {
+func formatStruct(typeSpec *ast.TypeSpec, modelType string) string {
 	var buf bytes.Buffer
 	err := printer.Fprint(&buf, token.NewFileSet(), typeSpec)
 	if err != nil {
 		return fmt.Sprintf("Error formatting type: %v", err)
 	}
-	return "type " + strings.ReplaceAll(buf.String(), "*client", "*"+client) + "\n\n"
+	return "type " + strings.ReplaceAll(buf.String(), "*client", "*"+modelType) + "\n\n"
 }
 
 // parseFunctionSignature parses function declarations into the function name, the arguments, and the return types.
@@ -175,8 +175,8 @@ func parseFunctionSignature(
 	receiver = modelType
 	if funcDecl.Recv != nil && len(funcDecl.Recv.List) > 0 {
 		field := funcDecl.Recv.List[0]
-		if f, ok := field.Type.(*ast.StarExpr); ok {
-			if ident, ok := f.X.(*ast.Ident); ok {
+		if starExpr, ok := field.Type.(*ast.StarExpr); ok {
+			if ident, ok := starExpr.X.(*ast.Ident); ok {
 				if ident.Name != "client" {
 					receiver = ident.Name
 				}
