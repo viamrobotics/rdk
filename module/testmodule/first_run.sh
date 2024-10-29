@@ -4,6 +4,9 @@ if [[ -n "$VIAM_TEST_FAIL_RUN_FIRST" ]]; then
     >&2 echo "erroring... 1"
     >&2 echo "erroring... 2"
     echo "failed!"
+
+    sleep 1
+
     exit 1
 fi
 
@@ -14,5 +17,6 @@ echo "running... 3"
 >&2 echo "hiccup 2"
 echo "done!"
 
+sleep 1
 
 exit 0
