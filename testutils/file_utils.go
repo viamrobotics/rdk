@@ -21,10 +21,13 @@ import (
 func BuildTempModule(tb testing.TB, modDir string) string {
 	// tb.Helper()
 	exePath := filepath.Join(tb.TempDir(), filepath.Base(modDir))
+	println("exePath", exePath)
 	//nolint:gosec
 	builder := exec.Command("go", "build", "-o", exePath, ".")
 	builder.Dir = utils.ResolveFile(modDir)
+	println("builder.Dir", builder.Dir)
 	out, err := builder.CombinedOutput()
+	println("out", string(out))
 	// NOTE (Nick S): Workaround for the tickets below:
 	// https://viam.atlassian.net/browse/RSDK-7145
 	// https://viam.atlassian.net/browse/RSDK-7144
@@ -49,6 +52,8 @@ func BuildTempModule(tb testing.TB, modDir string) string {
 // provided module directory. If successful, this function will return the path to the executable binary.
 func BuildTempModuleWithFirstRun(tb testing.TB, modDir string) string {
 	// tb.Helper()
+	out, _ := exec.Command("git", "status").CombinedOutput()
+	println("git status output at top", string(out))
 
 	exePath := BuildTempModule(tb, modDir)
 	exeDir := filepath.Dir(exePath)
