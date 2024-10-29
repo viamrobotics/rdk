@@ -61,10 +61,10 @@ func BuildTempModuleWithFirstRun(tb testing.TB, modDir string) string {
 	for _, cp := range []copyOp{
 		// TODO(RSDK-9151): Having a `meta.json` in the testmodule directory results in
 		// unintended behavior changes across our test suite. To avoid this, we name the
-		// file `test_meta.json` in the source test module directory and rename it in the
+		// file `first_run_meta.json` in the source test module directory and rename it in the
 		// destination directory that contains the built executable. This is fine for now
 		// but we should investigate and understand why this happens.
-		{"test_meta.json", "meta.json"},
+		{"first_run_meta.json", "meta.json"},
 		{"first_run.sh", "first_run.sh"},
 	} {
 		resolvedModDir := utils.ResolveFile(modDir)
