@@ -188,13 +188,19 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, joints []referenceframe.
 	return nil
 }
 
+// GoToInputs moves the fake arm through the given inputs.
 func (a *Arm) MoveThroughJointPositions(
 	ctx context.Context,
 	positions [][]referenceframe.Input,
 	_ *arm.MoveOptions,
 	_ map[string]interface{},
 ) error {
-	return a.GoToInputs(ctx, positions...)
+	for _, goal := range positions {
+		if err := a.MoveToJointPositions(ctx, goal, nil); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // JointPositions returns joints.
@@ -223,12 +229,7 @@ func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 
 // GoToInputs moves the fake arm to the given inputs.
 func (a *Arm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
-	for _, goal := range inputSteps {
-		if err := a.MoveToJointPositions(ctx, goal, nil); err != nil {
-			return err
-		}
-	}
-	return nil
+	return a.MoveThroughJointPositions(ctx, inputSteps, arm.NewDefaultMoveOptions(), nil)
 }
 
 // Close does nothing.

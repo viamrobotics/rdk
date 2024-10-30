@@ -195,21 +195,7 @@ func (x *xArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error
 }
 
 func (x *xArm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
-	for _, goal := range inputSteps {
-		// check that joint positions are not out of bounds
-		if err := arm.CheckDesiredJointPositions(ctx, x, goal); err != nil {
-			return err
-		}
-	}
-	curPos, err := x.JointPositions(ctx, nil)
-	if err != nil {
-		return err
-	}
-	armRawSteps, err := x.createRawJointSteps(curPos, inputSteps)
-	if err != nil {
-		return err
-	}
-	return x.executeInputs(ctx, armRawSteps)
+	return x.MoveThroughJointPositions(ctx, inputSteps, arm.NewDefaultMoveOptions(), nil)
 }
 
 func (x *xArm) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {

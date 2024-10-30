@@ -184,7 +184,16 @@ func (e *eva) MoveThroughJointPositions(
 	_ *arm.MoveOptions,
 	_ map[string]interface{},
 ) error {
-	return e.GoToInputs(ctx, positions...)
+	for _, goal := range positions {
+		if err := arm.CheckDesiredJointPositions(ctx, e, goal); err != nil {
+			return err
+		}
+		err := e.MoveToJointPositions(ctx, goal, nil)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (e *eva) doMoveJoints(ctx context.Context, joints []float64) error {
@@ -394,16 +403,7 @@ func (e *eva) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 }
 
 func (e *eva) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
-	for _, goal := range inputSteps {
-		if err := arm.CheckDesiredJointPositions(ctx, e, goal); err != nil {
-			return err
-		}
-		err := e.MoveToJointPositions(ctx, goal, nil)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return e.MoveThroughJointPositions(ctx, inputSteps, arm.NewDefaultMoveOptions(), nil)
 }
 
 func (e *eva) Close(ctx context.Context) error {

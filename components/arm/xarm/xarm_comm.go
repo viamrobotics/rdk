@@ -365,7 +365,21 @@ func (x *xArm) MoveThroughJointPositions(
 	_ *arm.MoveOptions,
 	_ map[string]interface{},
 ) error {
-	return x.GoToInputs(ctx, positions...)
+	for _, goal := range positions {
+		// check that joint positions are not out of bounds
+		if err := arm.CheckDesiredJointPositions(ctx, x, goal); err != nil {
+			return err
+		}
+	}
+	curPos, err := x.JointPositions(ctx, nil)
+	if err != nil {
+		return err
+	}
+	armRawSteps, err := x.createRawJointSteps(curPos, positions)
+	if err != nil {
+		return err
+	}
+	return x.executeInputs(ctx, armRawSteps)
 }
 
 // Using the configured moveHz, joint speed, and joint acceleration, create the series of joint positions for the arm to follow,
