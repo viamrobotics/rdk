@@ -118,11 +118,11 @@ type Arm interface {
 	// This will block until done or a new operation cancels this one.
 	MoveToPosition(ctx context.Context, pose spatialmath.Pose, extra map[string]interface{}) error
 
-	// MoveToJointPositions moves the arm's joints through the given positions in the order they are specified.
+	// MoveToJointPositions moves the arm's joints to the given positions.
 	// This will block until done or a new operation cancels this one.
 	MoveToJointPositions(ctx context.Context, positions []referenceframe.Input, extra map[string]interface{}) error
 
-	// MoveToJointPositions moves the arm's joints to the given positions.
+	// MoveThroughJointPositions moves the arm's joints through the given positions in the order they are specified.
 	// This will block until done or a new operation cancels this one.
 	MoveThroughJointPositions(ctx context.Context, positions [][]referenceframe.Input, options *MoveOptions, extra map[string]any) error
 
