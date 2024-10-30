@@ -207,7 +207,7 @@ var testModuleWithTimeout = Module{
 	Type:            ModuleTypeLocal,
 	ModuleID:        "a:b",
 	Environment:     map[string]string{"SOME_VAR": "value"},
-	FirstRunTimeout: time.Minute,
+	FirstRunTimeout: utils.Duration(time.Minute),
 }
 
 var testPackageConfig = PackageConfig{

@@ -309,7 +309,7 @@ func ModuleConfigToProto(module *Module) (*pb.ModuleConfig, error) {
 		ModuleId:        module.ModuleID,
 		Env:             module.Environment,
 		Status:          status,
-		FirstRunTimeout: durationpb.New(module.FirstRunTimeout),
+		FirstRunTimeout: durationpb.New(module.FirstRunTimeout.Unwrap()),
 	}
 
 	return &proto, nil
@@ -330,7 +330,7 @@ func ModuleConfigFromProto(proto *pb.ModuleConfig) (*Module, error) {
 		ModuleID:        proto.GetModuleId(),
 		Environment:     proto.GetEnv(),
 		Status:          status,
-		FirstRunTimeout: proto.GetFirstRunTimeout().AsDuration(),
+		FirstRunTimeout: rutils.Duration(proto.GetFirstRunTimeout().AsDuration()),
 	}
 	return &module, nil
 }

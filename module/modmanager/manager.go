@@ -1113,7 +1113,10 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 
 	timeout := defaultFirstRunTimeout
 	if conf.FirstRunTimeout > 0 {
-		timeout = conf.FirstRunTimeout
+		logger.Infow("hey sailor, looks like you configured a custom timeout!", "timeout", conf.FirstRunTimeout)
+		timeout = conf.FirstRunTimeout.Unwrap()
+	} else {
+		logger.Info("no custom timeout? bummer...")
 	}
 	cmdCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()

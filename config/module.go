@@ -8,7 +8,6 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/pkg/errors"
 
@@ -42,7 +41,7 @@ type Module struct {
 	Environment map[string]string `json:"env,omitempty"`
 
 	// FirstRunTimeout is the timeout duration for the first run script.
-	FirstRunTimeout time.Duration `json:"first_run_timeout,omitempty"`
+	FirstRunTimeout utils.Duration `json:"first_run_timeout,omitempty"`
 
 	// Status refers to the validations done in the APP to make sure a module is configured correctly
 	Status           *AppValidationStatus `json:"status"`
