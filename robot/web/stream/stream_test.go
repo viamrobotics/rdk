@@ -226,7 +226,6 @@ func TestGetStreamOptions(t *testing.T) {
 	defer webSvc.Close(ctx)
 	conn, err := rgrpc.Dial(context.Background(), addr, logger.Sublogger("TestDial"), rpc.WithDisableDirectGRPC())
 	test.That(t, err, test.ShouldBeNil)
-	//nolint
 	defer conn.Close()
 	test.That(t, err, test.ShouldBeNil)
 
