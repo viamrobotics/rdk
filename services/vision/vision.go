@@ -49,7 +49,7 @@ func init() {
 //	}
 //
 //	// Get detections from the camera output
-//	detections, err := myDetectorService.DetectionsFromCamera(context.Background(), "cam", nil)
+//	detections, err := myDetectorService.DetectionsFromCamera(context.Background(), "camera-1", nil)
 //	if err != nil {
 //		logger.Fatalf("Could not get detections: %v", err)
 //	}
@@ -59,7 +59,7 @@ func init() {
 //
 // Detections example:
 //
-//	cam, err := camera.FromRobot(machine, "cam")
+//	cam, err := camera.FromRobot(machine, "camera-1")
 //	if err != nil {
 //		logger.Error(err)
 //		return
@@ -92,7 +92,7 @@ func init() {
 //		return
 //	}
 //	// Get the 2 classifications with the highest confidence scores from the camera output
-//	classifications, err := myClassifierService.ClassificationsFromCamera(context.Background(), "cam", 2, nil)
+//	classifications, err := myClassifierService.ClassificationsFromCamera(context.Background(), "camera-1", 2, nil)
 //	if err != nil {
 //		logger.Fatalf("Could not get classifications: %v", err)
 //	}
@@ -102,7 +102,7 @@ func init() {
 //
 // Classifications example:
 //
-//	cam, err := camera.FromRobot(machine, "cam")
+//	cam, err := camera.FromRobot(machine, "camera-1")
 //	if err != nil {
 //		logger.Error(err)
 //		return
@@ -135,7 +135,7 @@ func init() {
 //		return
 //	}
 //	// Get the objects from the camera output
-//	objects, err := mySegmenterService.GetObjectPointClouds(context.Background(), "cam", nil)
+//	objects, err := mySegmenterService.GetObjectPointClouds(context.Background(), "camera-1", nil)
 //	if err != nil {
 //		logger.Fatalf("Could not get point clouds: %v", err)
 //	}
@@ -151,7 +151,7 @@ func init() {
 //		ReturnDetections: true,
 //	}
 //	// Get the captured data for a camera
-//	capture, err := visService.CaptureAllFromCamera(context.Background(), "cam", captOpts, nil)
+//	capture, err := visService.CaptureAllFromCamera(context.Background(), "camera-1", captOpts, nil)
 //	if err != nil {
 //		logger.Fatalf("Could not get capture data from vision service: %v", err)
 //	}
