@@ -25,11 +25,11 @@ func JointPositionsFromInputs(f Frame, inputs []Input) (*pb.JointPositions, erro
 		// if a frame is not provided, we will assume all inputs are specified in degrees and need to be converted to radians
 		return JointPositionsFromRadians(InputsToFloats(inputs)), nil
 	}
-	if inputs == nil {
-		return nil, errors.New("inputs cannot be nil")
-	}
 	if len(f.DoF()) != len(inputs) {
 		return nil, NewIncorrectDoFError(len(inputs), len(f.DoF()))
+	}
+	if inputs == nil {
+		return nil, errors.New("inputs cannot be nil")
 	}
 	return f.ProtobufFromInput(inputs), nil
 }
@@ -41,11 +41,11 @@ func InputsFromJointPositions(f Frame, jp *pb.JointPositions) ([]Input, error) {
 		// if a frame is not provided, we will assume all inputs are specified in degrees and need to be converted to radians
 		return FloatsToInputs(JointPositionsToRadians(jp)), nil
 	}
-	if jp == nil {
-		return nil, errors.New("jointPositions cannot be nil")
-	}
 	if len(f.DoF()) != len(jp.Values) {
 		return nil, NewIncorrectDoFError(len(jp.Values), len(f.DoF()))
+	}
+	if jp == nil {
+		return nil, errors.New("jointPositions cannot be nil")
 	}
 	return f.InputFromProtobuf(jp), nil
 }
