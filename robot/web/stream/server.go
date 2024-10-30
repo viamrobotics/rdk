@@ -361,6 +361,9 @@ func (server *Server) GetStreamOptions(
 func (server *Server) generateResolutions(width, height int) [5][2]int {
 	var resolutions [5][2]int
 	for i := 1; i <= 5; i++ {
+		// We use integer division to get the scaled width and height. Fractions are truncated
+		// to the nearest integer. This means that the scaled width and height may not match the
+		// original aspect ratio exactly.
 		scaledWidth := width / i
 		scaledHeight := height / i
 		resolutions[i-1] = [2]int{scaledWidth, scaledHeight}
