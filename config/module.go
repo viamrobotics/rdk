@@ -12,6 +12,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
@@ -235,7 +236,7 @@ const FirstRunSuccessSuffix = ".first_run_succeeded"
 //
 // On success (i.e. if the returned error is nil), this function also returns a function that creates
 // a marker file indicating that the setup phase has run successfully.
-func (m Module) EvaluateFirstRunPath(packagesDir string) (
+func (m Module) EvaluateFirstRunPath(packagesDir string, logger logging.Logger) (
 	string,
 	func() error,
 	error,
@@ -248,6 +249,7 @@ func (m Module) EvaluateFirstRunPath(packagesDir string) (
 
 	firstRunSuccessPath := unpackedModDir + FirstRunSuccessSuffix
 	if _, err := os.Stat(firstRunSuccessPath); !errors.Is(err, os.ErrNotExist) {
+		logger.Info("first run already ran")
 		return "", noop, errors.New("first run already ran")
 	}
 	markFirstRunSuccess := func() error {
