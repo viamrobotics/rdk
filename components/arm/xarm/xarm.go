@@ -191,11 +191,7 @@ func (x *xArm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf
 }
 
 func (x *xArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := x.JointPositions(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	return x.model.InputFromProtobuf(res), nil
+	return x.JointPositions(ctx, nil)
 }
 
 func (x *xArm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
@@ -209,8 +205,7 @@ func (x *xArm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.In
 	if err != nil {
 		return err
 	}
-	from := x.model.InputFromProtobuf(curPos)
-	armRawSteps, err := x.createRawJointSteps(from, inputSteps)
+	armRawSteps, err := x.createRawJointSteps(curPos, inputSteps)
 	if err != nil {
 		return err
 	}

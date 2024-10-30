@@ -12,6 +12,7 @@ import (
 
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/referenceframe/urdf"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -55,10 +56,7 @@ func (s *serviceServer) GetEndPosition(
 }
 
 // GetJointPositions gets the current joint position of an arm of the underlying robot.
-func (s *serviceServer) GetJointPositions(
-	ctx context.Context,
-	req *pb.GetJointPositionsRequest,
-) (*pb.GetJointPositionsResponse, error) {
+func (s *serviceServer) GetJointPositions(ctx context.Context, req *pb.GetJointPositionsRequest) (*pb.GetJointPositionsResponse, error) {
 	arm, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
@@ -67,13 +65,11 @@ func (s *serviceServer) GetJointPositions(
 	if err != nil {
 		return nil, err
 	}
-	// Have a default empty joint position object in case the position returned is nil,
-	// this guards against nil objects being transferred over the wire.
-	convertedPos := &pb.JointPositions{Values: []float64{}}
-	if pos != nil {
-		convertedPos.Values = pos.Values
+	jp, err := referenceframe.JointPositionsFromInputs(arm.ModelFrame(), pos)
+	if err != nil {
+		return nil, err
 	}
-	return &pb.GetJointPositionsResponse{Positions: convertedPos}, nil
+	return &pb.GetJointPositionsResponse{Positions: jp}, nil
 }
 
 // MoveToPosition returns the position of the arm specified.
@@ -100,7 +96,11 @@ func (s *serviceServer) MoveToJointPositions(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.MoveToJointPositionsResponse{}, arm.MoveToJointPositions(ctx, req.Positions, req.Extra.AsMap())
+	inputs, err := referenceframe.InputsFromJointPositions(arm.ModelFrame(), req.Positions)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.MoveToJointPositionsResponse{}, arm.MoveToJointPositions(ctx, inputs, req.Extra.AsMap())
 }
 
 // Stop stops the arm specified.

@@ -44,9 +44,9 @@ func NewFrameAlreadyExistsError(frameName string) error {
 	return errors.Errorf("frame with name %q already in frame system", frameName)
 }
 
-// NewIncorrectInputLengthError returns an error indicating that the length of the Input array does not match the DoF of the frame.
-func NewIncorrectInputLengthError(actual, expected int) error {
-	return errors.Errorf("number of inputs does not match frame DoF, expected %d but got %d", expected, actual)
+// NewIncorrectDoFError returns an error indicating that the length of the array does not match the DoF of the frame.
+func NewIncorrectDoFError(actual, expected int) error {
+	return errors.Errorf("array length does not match frame DoF, expected %d but got %d", expected, actual)
 }
 
 // NewUnsupportedJointTypeError returns an error indicating that a given joint type is not supported by current model parsing.

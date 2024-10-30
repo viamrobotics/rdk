@@ -1,6 +1,7 @@
 package referenceframe
 
 import (
+	"errors"
 	"fmt"
 	"math"
 
@@ -10,11 +11,43 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// Input wraps the input to a mutable frame, e.g. a joint angle or a gantry position. Revolute inputs should be in
-// radians. Prismatic inputs should be in mm.
-// TODO: Determine what more this needs, or eschew in favor of raw float64s if nothing needed.
+// Input wraps the input to a mutable frame, e.g. a joint angle or a gantry position.
+//   - revolute inputs should be in radians.
+//   - prismatic inputs should be in mm.
 type Input struct {
 	Value float64
+}
+
+// JointPositionsFromInputs converts the given slice of Input to a JointPositions struct,
+// using the ProtobufFromInput function provided by the given Frame.
+func JointPositionsFromInputs(f Frame, inputs []Input) (*pb.JointPositions, error) {
+	if f == nil {
+		// if a frame is not provided, we will assume all inputs are specified in degrees and need to be converted to radians
+		return JointPositionsFromRadians(InputsToFloats(inputs)), nil
+	}
+	if len(f.DoF()) != len(inputs) {
+		return nil, NewIncorrectDoFError(len(inputs), len(f.DoF()))
+	}
+	if inputs == nil {
+		return nil, errors.New("inputs cannot be nil")
+	}
+	return f.ProtobufFromInput(inputs), nil
+}
+
+// InputsFromJointPositions converts the given JointPositions struct to a slice of Input,
+// using the ProtobufFromInput function provided by the given Frame.
+func InputsFromJointPositions(f Frame, jp *pb.JointPositions) ([]Input, error) {
+	if f == nil {
+		// if a frame is not provided, we will assume all inputs are specified in degrees and need to be converted to radians
+		return FloatsToInputs(JointPositionsToRadians(jp)), nil
+	}
+	if len(f.DoF()) != len(jp.Values) {
+		return nil, NewIncorrectDoFError(len(jp.Values), len(f.DoF()))
+	}
+	if jp == nil {
+		return nil, errors.New("jointPositions cannot be nil")
+	}
+	return f.InputFromProtobuf(jp), nil
 }
 
 // FloatsToInputs wraps a slice of floats in Inputs.

@@ -11,6 +11,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"go.viam.com/rdk/data"
+	"go.viam.com/rdk/referenceframe"
 )
 
 type method int64
@@ -82,9 +83,11 @@ func newJointPositionsCollector(resource interface{}, params data.CollectorParam
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, jointPositions.String(), err)
 		}
-		return pb.GetJointPositionsResponse{
-			Positions: v,
-		}, nil
+		jp, err := referenceframe.JointPositionsFromInputs(arm.ModelFrame(), v)
+		if err != nil {
+			return nil, data.FailedToReadErr(params.ComponentName, jointPositions.String(), err)
+		}
+		return pb.GetJointPositionsResponse{Positions: jp}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }

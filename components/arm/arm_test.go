@@ -73,8 +73,8 @@ func TestCreateStatus(t *testing.T) {
 	injectArm := &inject.Arm{}
 
 	//nolint:unparam
-	successfulJointPositionsFunc := func(context.Context, map[string]interface{}) (*pb.JointPositions, error) {
-		return successfulStatus.JointPositions, nil
+	successfulJointPositionsFunc := func(context.Context, map[string]interface{}) ([]referenceframe.Input, error) {
+		return referenceframe.FloatsToInputs(referenceframe.JointPositionsToRadians(successfulStatus.JointPositions)), nil
 	}
 
 	successfulIsMovingFunc := func(context.Context) (bool, error) {
@@ -161,7 +161,7 @@ func TestCreateStatus(t *testing.T) {
 		injectArm.ModelFrameFunc = successfulModelFrameFunc
 
 		errFail := errors.New("can't get joint positions")
-		injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+		injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
 			return nil, errFail
 		}
 
@@ -170,31 +170,9 @@ func TestCreateStatus(t *testing.T) {
 		test.That(t, actualStatus, test.ShouldBeNil)
 	})
 
-	t.Run("nil JointPositions", func(t *testing.T) {
-		injectArm.IsMovingFunc = successfulIsMovingFunc
-		injectArm.ModelFrameFunc = successfulModelFrameFunc
-
-		injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
-			return nil, nil //nolint:nilnil
-		}
-
-		expectedStatus := &pb.Status{
-			EndPosition:    nil,
-			JointPositions: nil,
-			IsMoving:       successfulStatus.IsMoving,
-		}
-
-		actualStatus, err := arm.CreateStatus(context.Background(), injectArm)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, actualStatus.EndPosition, test.ShouldEqual, expectedStatus.EndPosition)
-		test.That(t, actualStatus.JointPositions, test.ShouldEqual, expectedStatus.JointPositions)
-		test.That(t, actualStatus.IsMoving, test.ShouldEqual, expectedStatus.IsMoving)
-	})
-
 	t.Run("nil model frame", func(t *testing.T) {
 		injectArm.IsMovingFunc = successfulIsMovingFunc
 		injectArm.JointPositionsFunc = successfulJointPositionsFunc
-
 		injectArm.ModelFrameFunc = func() referenceframe.Model {
 			return nil
 		}

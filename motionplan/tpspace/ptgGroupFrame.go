@@ -287,7 +287,7 @@ func (pf *ptgGroupFrame) PTGSolvers() []PTGSolver {
 func (pf *ptgGroupFrame) validInputs(inputs []referenceframe.Input) error {
 	var errAll error
 	if len(inputs) != len(pf.limits) {
-		return referenceframe.NewIncorrectInputLengthError(len(inputs), len(pf.limits))
+		return referenceframe.NewIncorrectDoFError(len(inputs), len(pf.limits))
 	}
 	for i := 0; i < len(pf.limits); i++ {
 		if inputs[i].Value < pf.limits[i].Min || inputs[i].Value > pf.limits[i].Max {
