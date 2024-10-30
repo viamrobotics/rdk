@@ -65,7 +65,7 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 			ModuleName:       "my-module",
 			IsPublic:         false,
 			Namespace:        "my-org",
-			Language:         python,
+			Language:         cCtx.String(moduleFlagLanguage),
 			Resource:         resourceSubtype + " " + resourceType,
 			ResourceType:     resourceType,
 			ResourceSubtype:  resourceSubtype,
