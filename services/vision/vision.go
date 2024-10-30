@@ -41,7 +41,7 @@ func init() {
 // For more information, see the [vision service docs].
 //
 // DetectionsFromCamera example:
-
+//
 //	myDetectorService, err := vision.FromRobot(machine, "my_detector")
 //	if err != nil {
 //		logger.Error(err)
