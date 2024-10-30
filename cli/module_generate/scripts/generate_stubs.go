@@ -80,22 +80,10 @@ func setGoModuleTemplate(clientCode string, module common.ModuleInputs) (*common
 	}
 	var functions []string
 	ast.Inspect(node, func(n ast.Node) bool {
-		if typeSpec, ok := n.(*ast.TypeSpec); ok {
-			if _, ok := typeSpec.Type.(*ast.StructType); ok {
-				if strings.Contains(typeSpec.Name.Name, "Client") {
-					functions = append(functions, formatStruct(typeSpec, module.ModuleCamel+module.ModelPascal))
-				}
-			}
-		}
 		if funcDecl, ok := n.(*ast.FuncDecl); ok {
-			name, receiver, args, returns := parseFunctionSignature(
-				module.ResourceSubtype,
-				module.ResourceSubtypePascal,
-				module.ModuleCamel+module.ModelPascal,
-				funcDecl,
-			)
+			name, args, returns := parseFunctionSignature(module.ResourceSubtype, module.ResourceSubtypePascal, funcDecl)
 			if name != "" {
-				functions = append(functions, formatEmptyFunction(receiver, name, args, returns))
+				functions = append(functions, formatEmptyFunction(name, args, returns))
 			}
 		}
 		return true
@@ -142,22 +130,8 @@ func handleMapType(str, resourceSubtype string) string {
 	return fmt.Sprintf("map[%s]%s", keyType, valueType)
 }
 
-func formatStruct(typeSpec *ast.TypeSpec, client string) string {
-	var buf bytes.Buffer
-	err := printer.Fprint(&buf, token.NewFileSet(), typeSpec)
-	if err != nil {
-		return fmt.Sprintf("Error formatting type: %v", err)
-	}
-	return "type " + strings.ReplaceAll(buf.String(), "*client", "*"+client) + "\n\n"
-}
-
 // parseFunctionSignature parses function declarations into the function name, the arguments, and the return types.
-func parseFunctionSignature(
-	resourceSubtype,
-	resourceSubtypePascal string,
-	modelType string,
-	funcDecl *ast.FuncDecl,
-) (name, receiver, args string, returns []string) {
+func parseFunctionSignature(resourceSubtype, resourceSubtypePascal string, funcDecl *ast.FuncDecl) (name, args string, returns []string) {
 	if funcDecl == nil {
 		return
 	}
@@ -171,31 +145,15 @@ func parseFunctionSignature(
 		return
 	}
 
-	// Receiver
-	receiver = modelType
-	if funcDecl.Recv != nil && len(funcDecl.Recv.List) > 0 {
-		field := funcDecl.Recv.List[0]
-		if f, ok := field.Type.(*ast.StarExpr); ok {
-			if ident, ok := f.X.(*ast.Ident); ok {
-				if ident.Name != "client" {
-					receiver = ident.Name
-				}
-			}
-		}
-	}
-
 	// Parameters
 	var params []string
 	if funcDecl.Type.Params != nil {
 		for _, param := range funcDecl.Type.Params.List {
 			paramType := formatType(param.Type)
-			switch {
-			case unicode.IsUpper(rune(paramType[0])):
+			if unicode.IsUpper(rune(paramType[0])) {
 				paramType = fmt.Sprintf("%s.%s", resourceSubtype, paramType)
-			case strings.HasPrefix(paramType, "[]") && unicode.IsUpper(rune(paramType[2])):
+			} else if strings.HasPrefix(paramType, "[]") && unicode.IsUpper(rune(paramType[2])) {
 				paramType = fmt.Sprintf("[]%s.%s", resourceSubtype, paramType[2:])
-			case strings.HasPrefix(paramType, "chan ") && unicode.IsUpper(rune(paramType[5])):
-				paramType = fmt.Sprintf("chan %s.%s", resourceSubtype, paramType[5:])
 			}
 
 			for _, name := range param.Names {
@@ -241,7 +199,7 @@ func parseFunctionSignature(
 		}
 	}
 
-	return funcName, receiver, strings.Join(params, ", "), returns
+	return funcName, strings.Join(params, ", "), returns
 }
 
 // formatEmptyFunction outputs the new function that removes the function body, adds the panic unimplemented statement,
