@@ -334,7 +334,7 @@ func (server *Server) GetStreamOptions(ctx context.Context, req *streampb.GetStr
 	// If the camera properties don't have intrinsic parameters, we can't determine the available
 	// resolutions.
 	if camProps.IntrinsicParams == nil {
-		return nil, fmt.Errorf("IntrinsicParams not available in camera properties")
+		return nil, fmt.Errorf("IntrinsicParams not available in camera %s properties", req.Name)
 	}
 	height, width := camProps.IntrinsicParams.Height, camProps.IntrinsicParams.Width
 	scaledResolutions := server.generateResolutions(width, height)
