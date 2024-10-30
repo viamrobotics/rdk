@@ -319,6 +319,50 @@ func (server *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStre
 	return &streampb.RemoveStreamResponse{}, nil
 }
 
+// GetStreamOptions implements part of the StreamServiceServer. It returns the available dynamic resolutions
+// for a given stream name. The resolutions are scaled down from the original resolution in the camera
+// properties.
+func (server *Server) GetStreamOptions(ctx context.Context, req *streampb.GetStreamOptionsRequest) (*streampb.GetStreamOptionsResponse, error) {
+	cam, err := camera.FromRobot(server.robot, req.Name)
+	if err != nil {
+		return nil, err
+	}
+	camProps, err := cam.Properties(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// If the camera properties don't have intrinsic parameters, we can't determine the available
+	// resolutions.
+	if camProps.IntrinsicParams == nil {
+		return nil, fmt.Errorf("IntrinsicParams not available in camera properties")
+	}
+	height, width := camProps.IntrinsicParams.Height, camProps.IntrinsicParams.Width
+	scaledResolutions := server.generateResolutions(width, height)
+	resolutions := make([]*streampb.Resolution, 0, 5)
+	for _, res := range scaledResolutions {
+		resolutions = append(resolutions, &streampb.Resolution{
+			Height: int32(res[1]),
+			Width:  int32(res[0]),
+		})
+	}
+	return &streampb.GetStreamOptionsResponse{
+		Resolutions: resolutions,
+	}, nil
+}
+
+// generateResolutions takes the original width and height of an image and returns
+// a list of 5 smaller width/height options that maintain the same aspect ratio.
+func (server *Server) generateResolutions(width, height int) [5][2]int {
+	var resolutions [5][2]int
+	for i := 1; i <= 5; i++ {
+		scaledWidth := width / i
+		scaledHeight := height / i
+		resolutions[i-1] = [2]int{scaledWidth, scaledHeight}
+		server.logger.Infof("Scaled resolution %d: %dx%d", i, scaledWidth, scaledHeight)
+	}
+	return resolutions
+}
+
 // AddNewStreams adds new video and audio streams to the server using the updated set of video and
 // audio sources. It refreshes the sources, checks for a valid stream configuration, and starts
 // the streams if applicable.
