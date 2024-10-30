@@ -179,7 +179,7 @@ jobs:
             --platform linux/arm/v7 \
             -v `pwd`:/rdk \
             ghcr.io/viamrobotics/rdk-devenv:armhf-cache \
-            sudo -Hu testbot bash -lc 'sudo apt-get install -y python3-venv && cd /rdk && go test -v -tags=no_tflite ./...'
+            sudo -Hu testbot bash -lc 'sudo apt-get install -y python3-venv && cd /rdk && go test -v ./...'
 
   motion_tests:
     name: Test Longer-running Motion Plans if affected

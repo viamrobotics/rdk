@@ -48,6 +48,7 @@ type Arguments struct {
 	OutputTelemetry            bool   `flag:"output-telemetry,usage=print out telemetry data (metrics and spans)"`
 	DisableMulticastDNS        bool   `flag:"disable-mdns,usage=disable server discovery through multicast DNS"`
 	DumpResourcesPath          string `flag:"dump-resources,usage=dump all resource registrations as json to the provided file path"`
+	EnableFTDC                 bool   `flag:"ftdc,usage=enable fulltime data capture for diagnostics [beta feature]"`
 }
 
 type robotServer struct {
@@ -368,6 +369,10 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		logStackTraceAndCancel(cancel, s.logger)
 	})
 	robotOptions = append(robotOptions, shutdownCallbackOpt)
+
+	if s.args.EnableFTDC {
+		robotOptions = append(robotOptions, robotimpl.WithFTDC())
+	}
 
 	myRobot, err := robotimpl.New(ctx, processedConfig, s.logger, robotOptions...)
 	if err != nil {

@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
+	"go.viam.com/rdk/ftdc"
 	"go.viam.com/rdk/logging"
 )
 
@@ -28,6 +29,7 @@ type Graph struct {
 	// pointer to this logicalClock. Whenever SwapResource is called on a node
 	// (the resource updates), the logicalClock is incremented.
 	logicalClock *atomic.Int64
+	ftdc         *ftdc.FTDC
 }
 
 // NewGraph creates a new resource graph.
@@ -39,6 +41,13 @@ func NewGraph() *Graph {
 		transitiveClosureMatrix: transitiveClosureMatrix{},
 		logicalClock:            &atomic.Int64{},
 	}
+}
+
+// NewGraphWithFTDC creates a new resource graph with ftdc.
+func NewGraphWithFTDC(ftdc *ftdc.FTDC) *Graph {
+	ret := NewGraph()
+	ret.ftdc = ftdc
+	return ret
 }
 
 // CurrLogicalClockValue returns current the logical clock value.
@@ -276,6 +285,9 @@ func (g *Graph) addNode(node Name, nodeVal *GraphNode) error {
 		return val.replace(nodeVal)
 	}
 	nodeVal.setGraphLogicalClock(g.logicalClock)
+	if g.ftdc != nil {
+		g.ftdc.Add(node.String(), nodeVal)
+	}
 	g.nodes[node] = nodeVal
 
 	if _, ok := g.transitiveClosureMatrix[node]; !ok {
@@ -372,6 +384,9 @@ func (g *Graph) remove(node Name) {
 	delete(g.parents, node)
 	delete(g.children, node)
 	delete(g.nodes, node)
+	if g.ftdc != nil {
+		g.ftdc.Remove(node.String())
+	}
 }
 
 // MarkForRemoval marks the given graph for removal at a later point

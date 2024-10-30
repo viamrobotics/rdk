@@ -4,6 +4,7 @@ package ik
 
 import (
 	"context"
+	"math/rand"
 	"sync"
 
 	"go.uber.org/multierr"
@@ -13,24 +14,30 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
-// CombinedIK defines the fields necessary to run a combined solver.
-type CombinedIK struct {
-	solvers []InverseKinematics
-	model   referenceframe.Frame
+// combinedIK defines the fields necessary to run a combined solver.
+type combinedIK struct {
+	solvers []Solver
 	logger  logging.Logger
+	limits  []referenceframe.Limit
 }
 
-// CreateCombinedIKSolver creates a combined parallel IK solver with a number of nlopt solvers equal to the nCPU
-// passed in. Each will be given a different random seed. When asked to solve, all solvers will be run in parallel
+// CreateCombinedIKFrameSolver creates a combined parallel IK solver that operates on a frame with a number of nlopt solvers equal to the
+// nCPU passed in. Each will be given a different random seed. When asked to solve, all solvers will be run in parallel
 // and the first valid found solution will be returned.
-func CreateCombinedIKSolver(model referenceframe.Frame, logger logging.Logger, nCPU int, goalThreshold float64) (*CombinedIK, error) {
-	ik := &CombinedIK{}
-	ik.model = model
+func CreateCombinedIKFrameSolver(
+	model referenceframe.Frame,
+	logger logging.Logger,
+	nCPU int,
+	goalThreshold float64,
+) (Solver, error) {
+	ik := &combinedIK{}
+	ik.limits = model.DoF()
 	if nCPU == 0 {
 		nCPU = 1
 	}
 	for i := 1; i <= nCPU; i++ {
-		nlopt, err := CreateNloptIKSolver(model, logger, -1, true, true)
+		solver, err := CreateNloptSolver(ik.limits, logger, -1, true, true)
+		nlopt := solver.(*nloptIK)
 		nlopt.id = i
 		if err != nil {
 			return nil, err
@@ -43,30 +50,39 @@ func CreateCombinedIKSolver(model referenceframe.Frame, logger logging.Logger, n
 
 // Solve will initiate solving for the given position in all child solvers, seeding with the specified initial joint
 // positions. If unable to solve, the returned error will be non-nil.
-func (ik *CombinedIK) Solve(ctx context.Context,
+func (ik *combinedIK) Solve(ctx context.Context,
 	c chan<- *Solution,
-	seed []referenceframe.Input,
-	m StateMetric,
+	seed []float64,
+	m func([]float64) float64,
 	rseed int,
 ) error {
 	var err error
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	//nolint: gosec
+	randSeed := rand.New(rand.NewSource(int64(rseed)))
+
 	errChan := make(chan error, len(ik.solvers))
 	var activeSolvers sync.WaitGroup
 	defer activeSolvers.Wait()
 	activeSolvers.Add(len(ik.solvers))
 
-	for _, solver := range ik.solvers {
+	lowerBound, upperBound := limitsToArrays(ik.limits)
+
+	for i, solver := range ik.solvers {
 		rseed += 1500
 		parseed := rseed
 		thisSolver := solver
+		seedFloats := seed
+		if i > 0 {
+			seedFloats = generateRandomPositions(randSeed, lowerBound, upperBound)
+		}
 
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
 
-			errChan <- thisSolver.Solve(ctxWithCancel, c, seed, m, parseed)
+			errChan <- thisSolver.Solve(ctxWithCancel, c, seedFloats, m, parseed)
 		})
 	}
 
@@ -117,12 +133,7 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 	return collectedErrs
 }
 
-// Frame returns the associated referenceframe.
-func (ik *CombinedIK) Frame() referenceframe.Frame {
-	return ik.model
-}
-
-// DoF returns the DoF of the associated referenceframe.
-func (ik *CombinedIK) DoF() []referenceframe.Limit {
-	return ik.model.DoF()
+// DoF returns the DoF of the solver.
+func (ik *combinedIK) DoF() []referenceframe.Limit {
+	return ik.limits
 }
