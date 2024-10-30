@@ -48,6 +48,7 @@ type Arguments struct {
 	OutputTelemetry            bool   `flag:"output-telemetry,usage=print out telemetry data (metrics and spans)"`
 	DisableMulticastDNS        bool   `flag:"disable-mdns,usage=disable server discovery through multicast DNS"`
 	DumpResourcesPath          string `flag:"dump-resources,usage=dump all resource registrations as json to the provided file path"`
+	EnableFTDC                 bool   `flag:"ftdc,usage=enable fulltime data capture for diagnostics [beta feature]"`
 }
 
 type robotServer struct {
@@ -150,17 +151,14 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 				ID:         cfgFromDisk.Cloud.ID,
 				Secret:     cfgFromDisk.Cloud.Secret,
 			},
-			// Explicitly create a different logger here instead of making a
-			// sublogger of `rdk` to avoid `rdk.networking` never getting the actual
-			// net appender as an appender.
-			nil, false, logging.NewLogger("rdk.networking.netlogger"),
+			nil, false, logger.Sublogger("networking").Sublogger("netlogger"),
 		)
 		if err != nil {
 			return err
 		}
 		defer netAppender.Close()
 
-		logger.AddAppender(netAppender)
+		registry.AddAppenderToAll(netAppender)
 	}
 	// log version after netlogger is initialized so it's captured in cloud machine logs.
 	logVersion(logger)
@@ -303,8 +301,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	ctx = rpc.ContextWithDialer(ctx, rpcDialer)
 
 	processConfig := func(in *config.Config) (*config.Config, error) {
-		tlsCfg := config.NewTLSConfig(cfg)
-		out, err := config.ProcessConfig(in, tlsCfg)
+		out, err := config.ProcessConfig(in)
 		if err != nil {
 			return nil, err
 		}
@@ -372,6 +369,10 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		logStackTraceAndCancel(cancel, s.logger)
 	})
 	robotOptions = append(robotOptions, shutdownCallbackOpt)
+
+	if s.args.EnableFTDC {
+		robotOptions = append(robotOptions, robotimpl.WithFTDC())
+	}
 
 	myRobot, err := robotimpl.New(ctx, processedConfig, s.logger, robotOptions...)
 	if err != nil {

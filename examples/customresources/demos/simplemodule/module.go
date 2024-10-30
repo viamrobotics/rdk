@@ -24,9 +24,8 @@ func main() {
 		Constructor: newCounter,
 	})
 
-	// Next, we run a module, which will log things as "simple-module." This module has a single
-	// model in it, the one we have created.
-	module.ModularMain("simple-module", resource.APIModel{generic.API, myModel})
+	// Next, we run a module which will have a singl model.
+	module.ModularMain(resource.APIModel{generic.API, myModel})
 }
 
 // newCounter is used to create a new instance of our specific model. It is called for each component in the robot's config with this model.

@@ -50,10 +50,9 @@ type Server struct {
 // NewServer returns a server that will run on the given port and initially starts with the given
 // stream.
 func NewServer(
-	streams []gostream.Stream,
 	robot robot.Robot,
 	logger logging.Logger,
-) (*Server, error) {
+) *Server {
 	closedCtx, closedFn := context.WithCancel(context.Background())
 	server := &Server{
 		closedCtx:         closedCtx,
@@ -64,15 +63,8 @@ func NewServer(
 		activePeerStreams: map[*webrtc.PeerConnection]map[string]*peerState{},
 		isAlive:           true,
 	}
-
-	for _, stream := range streams {
-		if err := server.add(stream); err != nil {
-			return nil, err
-		}
-	}
 	server.startMonitorCameraAvailable()
-
-	return server, nil
+	return server
 }
 
 // StreamAlreadyRegisteredError indicates that a stream has a name that is already registered on

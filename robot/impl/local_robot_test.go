@@ -48,12 +48,14 @@ import (
 	fakemotor "go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/components/movementsensor"
 	_ "go.viam.com/rdk/components/register"
+	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
 	rgrpc "go.viam.com/rdk/grpc"
 	internalcloud "go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -3698,6 +3700,51 @@ func doCommand(ctx context.Context, req map[string]interface{}, logger logging.L
 	}
 }
 
+func TestModuleLogging(t *testing.T) {
+	// Similar to, but slightly different from `TestLogPropagation` below. We
+	// want to ensure that the RDK trusts modules to handle `log_configuration`
+	// fields themselves. Even if the RDK is configured at INFO level, assert
+	// that modular resources can log at their own, configured levels.
+
+	ctx := context.Background()
+	logger, observer, registry := logging.NewObservedTestLoggerWithRegistry(t, "rdk")
+	logger.SetLevel(logging.INFO)
+	helperModel := resource.NewModel("rdk", "test", "helper")
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "helper",
+				API:   generic.API,
+				Model: helperModel,
+				LogConfiguration: &resource.LogConfig{
+					Level: logging.DEBUG,
+				},
+			},
+		},
+	}
+
+	config.UpdateLoggerRegistryFromConfig(registry, cfg, logger)
+	lr := setupLocalRobot(t, ctx, cfg, logger)
+
+	startsAtDebugRes, err := lr.ResourceByName(generic.Named("helper"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = startsAtDebugRes.DoCommand(ctx,
+		map[string]interface{}{"command": "log", "msg": "debug log line", "level": "DEBUG"})
+	test.That(t, err, test.ShouldBeNil)
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
+		test.That(t, observer.FilterMessageSnippet("debug log line").Len(), test.ShouldEqual, 1)
+	})
+}
+
 func TestLogPropagation(t *testing.T) {
 	// Mimic what entrypoint code does: use a config to update a registry, and
 	// assert log levels are propagated to a robot. This means we call
@@ -3906,4 +3953,480 @@ func TestLogPropagation(t *testing.T) {
 			test.That(t, observer.FilterMessageSnippet(debugLogLine).Len(), test.ShouldEqual, 1)
 		})
 	}
+}
+
+func TestCheckMaintenanceSensorReadings(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	t.Run("Sensor reading errors out", func(t *testing.T) {
+		r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
+		localRobot := r.(*localRobot)
+		canReconfigure, err := localRobot.checkMaintenanceSensorReadings(context.Background(), "", newErrorSensor())
+
+		test.That(t, canReconfigure, test.ShouldEqual, false)
+		test.That(t, err.Error(), test.ShouldEqual, "error reading maintenance sensor readings. Wallet not found")
+	})
+	t.Run("maintenanceAllowedKey does not exist", func(t *testing.T) {
+		r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
+		localRobot := r.(*localRobot)
+		canReconfigure, err := localRobot.checkMaintenanceSensorReadings(context.Background(), "keyDoesNotExist", newValidSensor())
+
+		test.That(t, canReconfigure, test.ShouldEqual, true)
+		test.That(t, err.Error(), test.ShouldEqual, "error getting maintenance_allowed_key keyDoesNotExist from sensor reading")
+	})
+	t.Run("maintenanceAllowedKey is a number not a boolean", func(t *testing.T) {
+		r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
+		localRobot := r.(*localRobot)
+		canReconfigure, err := localRobot.checkMaintenanceSensorReadings(context.Background(), "ThatIsNotAWallet", newValidSensor())
+
+		test.That(t, canReconfigure, test.ShouldEqual, true)
+		test.That(t, err.Error(), test.ShouldEqual, "maintenance_allowed_key ThatIsNotAWallet is not a bool value")
+	})
+	t.Run("maintenanceAllowedKey is one not a boolean", func(t *testing.T) {
+		r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
+		localRobot := r.(*localRobot)
+		canReconfigure, err := localRobot.checkMaintenanceSensorReadings(context.Background(), "OneIsNotTrue", newValidSensor())
+
+		test.That(t, canReconfigure, test.ShouldEqual, true)
+		test.That(t, err.Error(), test.ShouldEqual, "maintenance_allowed_key OneIsNotTrue is not a bool value")
+	})
+	t.Run("maintenanceAllowedKey is string true not a boolean", func(t *testing.T) {
+		r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
+		localRobot := r.(*localRobot)
+		canReconfigure, err := localRobot.checkMaintenanceSensorReadings(context.Background(), "TrueIsNotTrue", newValidSensor())
+
+		test.That(t, canReconfigure, test.ShouldEqual, true)
+		test.That(t, err.Error(), test.ShouldEqual, "maintenance_allowed_key TrueIsNotTrue is not a bool value")
+	})
+}
+
+func TestCheckMaintenanceSensorReadingsSuccess(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	testsValid := []struct {
+		testName              string
+		canReconfigure        bool
+		maintenanceAllowedKey string
+		sensor                resource.Sensor
+	}{
+		{
+			testName:              "Sensor returns reading false",
+			canReconfigure:        false,
+			maintenanceAllowedKey: "ThatsMyWallet",
+			sensor:                newValidSensor(),
+		},
+		{
+			testName:              "Sensor returns reading true",
+			canReconfigure:        true,
+			maintenanceAllowedKey: "ThatsNotMyWallet",
+			sensor:                newValidSensor(),
+		},
+	}
+	for _, tc := range testsValid {
+		t.Run("", func(t *testing.T) {
+			r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
+			localRobot := r.(*localRobot)
+			canReconfigure, err := localRobot.checkMaintenanceSensorReadings(context.Background(), tc.maintenanceAllowedKey, tc.sensor)
+
+			test.That(t, canReconfigure, test.ShouldEqual, tc.canReconfigure)
+			test.That(t, err, test.ShouldBeNil)
+		})
+	}
+}
+
+func newValidSensor() sensor.Sensor {
+	s := &inject.Sensor{}
+	s.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+		// We want to ensure that we get the same readings after convering to proto and back to go
+		readings := map[string]any{
+			"ThatsMyWallet": false, "ThatsNotMyWallet": true,
+			"ThatIsNotAWallet": 5, "TrueIsNotTrue": "true", "OneIsNotTrue": 1,
+		}
+		readingsProto, _ := protoutils.ReadingGoToProto(readings)
+		retReadings, _ := protoutils.ReadingProtoToGo(readingsProto)
+		return retReadings, nil
+	}
+	s.CloseFunc = func(ctx context.Context) error { return nil }
+	return s
+}
+
+func newErrorSensor() sensor.Sensor {
+	s := &inject.Sensor{}
+	s.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+		return nil, errors.New("Wallet not found")
+	}
+	return s
+}
+
+func newInvalidSensor() sensor.Sensor {
+	s := &inject.Sensor{}
+	s.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+		return map[string]any{"ThatsMyWallet": 1, "ThatsNotMyWallet": 2}, nil
+	}
+	return s
+}
+
+func TestMaintenanceConfig(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+	modelErrorSensor := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+	resource.RegisterComponent(
+		sensor.API,
+		model,
+		resource.Registration[sensor.Sensor, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (sensor.Sensor, error) {
+			return newValidSensor(), nil
+		}})
+	resource.RegisterComponent(
+		sensor.API,
+		modelErrorSensor,
+		resource.Registration[sensor.Sensor, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (sensor.Sensor, error) {
+			return newInvalidSensor(), nil
+		}})
+	defer func() {
+		resource.Deregister(sensor.API, model)
+		resource.Deregister(sensor.API, modelErrorSensor)
+	}()
+	remoteCfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "sensor",
+				Model: model,
+				API:   sensor.API,
+			},
+		},
+	}
+	sensor1 := []resource.Config{
+		{
+			Name:  "sensor",
+			Model: model,
+			API:   sensor.API,
+		},
+	}
+	sensor2 := []resource.Config{
+		{
+			Name:  "sensor2",
+			API:   sensor.API,
+			Model: model,
+		},
+	}
+	// This needs to share a name with sensor so name colisions can be tested
+	errorSensor := []resource.Config{
+		{
+			Name:  "sensor",
+			API:   sensor.API,
+			Model: modelErrorSensor,
+		},
+	}
+	cfgBlocked := &config.Config{
+		MaintenanceConfig: &config.MaintenanceConfig{SensorName: "rdk:component:sensor/sensor", MaintenanceAllowedKey: "ThatsMyWallet"},
+		Components:        sensor2,
+	}
+
+	t.Run("maintenanceConfig sensor blocks reconfigure, reconfigure reenabled when maintenanceConfig removed", func(t *testing.T) {
+		cfg := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{SensorName: "rdk:component:sensor/sensor", MaintenanceAllowedKey: "ThatsMyWallet"},
+			Components:        sensor1,
+		}
+		cfgUnblock := &config.Config{
+			Components: sensor2,
+		}
+
+		r := setupLocalRobot(t, context.Background(), cfg, logger)
+		sensorResource, err := r.ResourceByName(sensor.Named("sensor"))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, sensorResource, test.ShouldNotBeNil)
+
+		// Maintenance sensor will block reconfig so sensor2 should not be added
+		r.Reconfigure(ctx, cfgBlocked)
+		sensorBlocked, err := r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, sensorBlocked, test.ShouldBeNil)
+		test.That(t, err.Error(), test.ShouldEqual, "resource \"rdk:component:sensor/sensor2\" not found")
+
+		// removing maintenance config unblocks reconfig and allows sensor to be added
+		r.Reconfigure(ctx, cfgUnblock)
+		sensorBlocked, err = r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, sensorBlocked, test.ShouldNotBeNil)
+	})
+
+	t.Run("remote sensor successfully blocks reconfigure when remote name is specified and not specified", func(t *testing.T) {
+		ctx := context.Background()
+		// Setup remote with maintenance sensor
+		remote := setupLocalRobot(t, context.Background(), remoteCfg, logger)
+		options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+		err := remote.StartWeb(ctx, options)
+		test.That(t, err, test.ShouldBeNil)
+		cfg := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{SensorName: "rdk:component:sensor/sensor", MaintenanceAllowedKey: "ThatsMyWallet"},
+			Remotes: []config.Remote{
+				{
+					Name:     "remote",
+					Insecure: true,
+					Address:  addr,
+				},
+			},
+		}
+		cfgBlocked := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{SensorName: "rdk:component:sensor/sensor", MaintenanceAllowedKey: "ThatsMyWallet"},
+			Components:        sensor2,
+		}
+		cfgBlockedWithRemoteSpecified := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{SensorName: "rdk:component:sensor/remote:sensor", MaintenanceAllowedKey: "ThatsMyWallet"},
+			Components:        sensor2,
+		}
+
+		// Setup robot pointing maintenanceConfig at the remote sensor
+		r := setupLocalRobot(t, context.Background(), cfg, logger)
+
+		// reconfig should be blocked ensure new resource is not added
+		r.Reconfigure(ctx, cfgBlocked)
+		sensorBlocked, err := r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, sensorBlocked, test.ShouldBeNil)
+		test.That(t, err.Error(), test.ShouldEqual, "resource \"rdk:component:sensor/sensor2\" not found")
+
+		// Attempt to reconfig again using remote:sensor name
+		// Reconfig should still be blocked
+		r.Reconfigure(ctx, cfgBlockedWithRemoteSpecified)
+		sensorBlocked, err = r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, sensorBlocked, test.ShouldBeNil)
+		test.That(t, err.Error(), test.ShouldEqual, "resource \"rdk:component:sensor/sensor2\" not found")
+	})
+
+	t.Run("conflicting remote and main sensor names default to main", func(t *testing.T) {
+		ctx := context.Background()
+		// Setup remote with error maintenance sensor, if sensor is ever called it will error and reconfigure normally
+		remoteErrConfig := &config.Config{
+			Components: errorSensor,
+		}
+		remote := setupLocalRobot(t, context.Background(), remoteErrConfig, logger)
+		options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+		err := remote.StartWeb(ctx, options)
+		test.That(t, err, test.ShouldBeNil)
+		cfg := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{SensorName: "rdk:component:sensor/sensor", MaintenanceAllowedKey: "ThatsMyWallet"},
+			Remotes: []config.Remote{
+				{
+					Name:     "remote",
+					Insecure: true,
+					Address:  addr,
+				},
+			},
+			Components: sensor1,
+		}
+		cfgRemoteUnblocked := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{SensorName: "rdk:component:sensor/remote:sensor", MaintenanceAllowedKey: "ThatsMyWallet"},
+			Components:        sensor2,
+		}
+
+		// Setup robot pointing maintenanceConfig with conflicting sensors
+		r := setupLocalRobot(t, context.Background(), cfg, logger)
+
+		// reconfig should be blocked since the sensor on main if chosen instead of the remote
+		r.Reconfigure(ctx, cfgBlocked)
+		sensorBlocked, err := r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, sensorBlocked, test.ShouldBeNil)
+		test.That(t, err.Error(), test.ShouldEqual, "resource \"rdk:component:sensor/sensor2\" not found")
+
+		// robot should reconfigure since remote will return an error
+		r.Reconfigure(ctx, cfgRemoteUnblocked)
+		sensorBlocked, err = r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, sensorBlocked, test.ShouldNotBeNil)
+	})
+	t.Run("multiple remotes with conflicting names errors out", func(t *testing.T) {
+		ctx := context.Background()
+		//  setup two identical remotes
+		remote := setupLocalRobot(t, context.Background(), remoteCfg, logger)
+		options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+		err := remote.StartWeb(ctx, options)
+		test.That(t, err, test.ShouldBeNil)
+		remote2 := setupLocalRobot(t, context.Background(), remoteCfg, logger)
+		options2, _, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
+		err = remote2.StartWeb(ctx, options2)
+		test.That(t, err, test.ShouldBeNil)
+		cfg := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{SensorName: "rdk:component:sensor/sensor", MaintenanceAllowedKey: "ThatsMyWallet"},
+			Remotes: []config.Remote{
+				{
+					Name:     "remote",
+					Insecure: true,
+					Address:  addr,
+				},
+				{
+					Name:     "remote2",
+					Insecure: true,
+					Address:  addr2,
+				},
+			},
+		}
+
+		cfgUnblocked := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{SensorName: "rdk:component:sensor/sensor", MaintenanceAllowedKey: "ThatsMyWallet"},
+			Components:        sensor2,
+		}
+
+		// Setup robot pointing maintenanceConfig with conflicting remote sensors
+		r := setupLocalRobot(t, context.Background(), cfg, logger)
+
+		// reconfig should not be blocked because the two remotes will have conflicting resources resulting in reconfiguring
+		r.Reconfigure(ctx, cfgUnblocked)
+		sensorUnBlocked, err := r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, sensorUnBlocked, test.ShouldNotBeNil)
+	})
+}
+
+func TestRemovingOfflineRemote(t *testing.T) {
+	logger, _ := logging.NewObservedTestLogger(t)
+	ctx := context.Background()
+
+	motorName := "remoteMotorFoo"
+	motorResourceName := resource.NewName(motor.API, motorName)
+
+	remoteCfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:                motorName,
+				Model:               resource.DefaultModelFamily.WithModel("fake"),
+				API:                 motor.API,
+				ConvertedAttributes: &fakemotor.Config{},
+			},
+		},
+	}
+
+	remoteRobot := setupLocalRobot(t, ctx, remoteCfg, logger.Sublogger("remote"))
+	remoteOptions, _, remoteAddr := robottestutils.CreateBaseOptionsAndListener(t)
+	err := remoteRobot.StartWeb(ctx, remoteOptions)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Set up a local main robot which is connected to the remote.
+	mainRobotCfg := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "remote",
+				Address: remoteAddr,
+				// These values dictate how quickly we'll observe the remote going offline. And how
+				// quickly we'll observe it coming back online.
+				ConnectionCheckInterval: 10 * time.Millisecond,
+				ReconnectInterval:       10 * time.Millisecond,
+			},
+		},
+	}
+	mainRobotI := setupLocalRobot(t, ctx, mainRobotCfg, logger.Sublogger("main"))
+	// We'll manually access the resource manager to move the test forward.
+	mainRobot := mainRobotI.(*localRobot)
+
+	// Grab the RobotClient resource graph node from the main robot that is connected to the
+	// remote. We'll use this to know when the main robot observes the remote has gone offline.
+	mainToRemoteClientRes, _ := mainRobot.RemoteByName("remote")
+	test.That(t, mainToRemoteClientRes, test.ShouldNotBeNil)
+	mainToRemoteClient := mainToRemoteClientRes.(*client.RobotClient)
+	test.That(t, mainToRemoteClient.Connected(), test.ShouldBeTrue)
+
+	// Stop the remote's web server. Wait for the main robot to observe there's a connection problem.
+	logger.Info("Stopping web")
+	remoteRobot.StopWeb()
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, mainToRemoteClient.Connected(), test.ShouldBeFalse)
+	})
+
+	// Reconfigure the main robot with the offline remote removed
+	mainRobot.Reconfigure(ctx, &config.Config{})
+
+	// Ensure that the remote has been removed correctly
+	findRemote, ok := mainRobot.RemoteByName("remote")
+	test.That(t, findRemote, test.ShouldBeEmpty)
+	test.That(t, ok, test.ShouldBeFalse)
+
+	// Ensure that motor is removed
+	names := mainRobot.ResourceNames()
+	test.That(t, names, test.ShouldNotContain, motorResourceName)
+}
+
+// TestRemovingOfflineRemotes tests a case where a robot's reconfigure loop is modifying
+// a resource graph node at the same time as the complete config loop. In this case the remote is
+// marked to be removed by the reconfig loop and then changed to [NodeStateUnhealthy] by the complete config
+// loop. This caused the remote that should have been removed to be stay on the robot
+// and continue to try and reconnect. We recreate that scenario and ensure that our fix
+// prevents that behavior and removes the remote correctly.
+func TestRemovingOfflineRemotes(t *testing.T) {
+	// Close the robot to stop the background workers from processing any messages to triggerConfig
+	r := setupLocalRobot(t, context.Background(), &config.Config{}, logging.NewTestLogger(t))
+	r.Close(context.Background())
+	localRobot := r.(*localRobot)
+
+	// Create a context that we can cancel to similuate the remote connection timeout
+	ctxCompleteConfig, cancelCompleteConfig := context.WithCancel(context.Background())
+	defer cancelCompleteConfig()
+
+	// This cancel is used to ensure the goroutine is cleaned up properly after the test
+	ctxReconfig, cancelReconfig := context.WithCancel(context.Background())
+	defer cancelReconfig()
+
+	// Create a remote graph node and manually add it to the graph
+	// This is to avoid calling reconfigure and blocking on trying to connect to the remote
+	remoteName := fromRemoteNameToRemoteNodeName("remoteOffline")
+	configRemote := config.Remote{
+		Name:    "remoteOffline",
+		Address: "123.123.123.123",
+	}
+	configRemote.Validate("")
+	node := resource.NewConfiguredGraphNode(
+		resource.Config{
+			ConvertedAttributes: &configRemote,
+		}, nil, builtinModel)
+	// Set node to [NodeStateUnhealthy]
+	node.LogAndSetLastError(errors.New("Its so bad plz help"))
+	localRobot.manager.resources.AddNode(remoteName, node)
+
+	// Set up a wait group to ensure go routines do not leak after test ends
+	var wg sync.WaitGroup
+	// Spin up the two competing go routines
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		localRobot.manager.completeConfig(ctxCompleteConfig, localRobot, false)
+	}()
+
+	// Ensure that complete config grabs the lock
+	time.Sleep(1 * time.Second)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		r.Reconfigure(ctxReconfig, &config.Config{})
+	}()
+
+	// Sleep needed to ensure reconfig is waiting on complete cofig to release the lock
+	// and that complete config is hanging on trying to dial the remote
+	time.Sleep(2 * time.Second)
+
+	// Ensure that the remote is not marked for removal while trying to connect to the remote
+	remote, ok := localRobot.manager.resources.Node(remoteName)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, remote.MarkedForRemoval(), test.ShouldBeTrue)
+
+	// Simulate a timeout by canceling the context while trying to connect to the remote
+	cancelCompleteConfig()
+
+	// Ensure that the remote is removed from the robot
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
+		remote, ok := r.RemoteByName("remoteOffline")
+		test.That(tb, ok, test.ShouldBeFalse)
+		test.That(tb, remote, test.ShouldBeNil)
+	})
+
+	// Wait for both goroutines to complete before finishing test
+	cancelReconfig()
+	wg.Wait()
 }

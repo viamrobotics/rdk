@@ -1384,33 +1384,49 @@ func TestModularDiscovery(t *testing.T) {
 	err := mgr.Add(ctx, modCfg)
 	test.That(t, err, test.ShouldBeNil)
 
-	// The helper model implements actual (foobar) discovery
+	// The "helper" model implements actual (foobar) discovery
 	reg, ok := resource.LookupRegistration(generic.API, resource.NewModel("rdk", "test", "helper"))
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, reg, test.ShouldNotBeNil)
-
-	// Check that the Discover function is registered and make call
 	test.That(t, reg.Discover, test.ShouldNotBeNil)
-	result, err := reg.Discover(ctx, logger)
-	test.That(t, err, test.ShouldBeNil)
-	t.Log("Discovery result: ", result)
 
-	// Format result
-	jsonData, err := json.Marshal(result)
-	test.That(t, err, test.ShouldBeNil)
-	// Debug: print the JSON data
-	t.Logf("Raw JSON: %s", string(jsonData))
+	testCases := []struct {
+		name          string
+		params        map[string]interface{}
+		expectedExtra string
+	}{
+		{
+			name:          "Without extra set",
+			params:        map[string]interface{}{},
+			expectedExtra: "default",
+		},
+		{
+			name:          "With extra set",
+			params:        map[string]interface{}{"extra": "not the default"},
+			expectedExtra: "not the default",
+		},
+	}
 
-	var discoveryResult testDiscoveryResult
-	err = json.Unmarshal(jsonData, &discoveryResult)
-	test.That(t, err, test.ShouldBeNil)
-	// Debug: print the casted struct
-	t.Logf("Casted struct: %+v", discoveryResult)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := reg.Discover(ctx, logger, tc.params)
+			test.That(t, err, test.ShouldBeNil)
+			t.Log("Discovery result: ", result)
 
-	// Test fields
-	test.That(t, len(discoveryResult.Discovery), test.ShouldEqual, 1)
-	discovery := discoveryResult.Discovery[0]
-	test.That(t, discovery.Query.Subtype, test.ShouldEqual, "rdk:component:generic")
-	test.That(t, discovery.Query.Model, test.ShouldEqual, "rdk:test:helper")
-	test.That(t, discovery.Results["foo"], test.ShouldEqual, "bar")
+			jsonData, err := json.Marshal(result)
+			test.That(t, err, test.ShouldBeNil)
+			t.Logf("Raw JSON: %s", string(jsonData))
+
+			var discoveryResult testDiscoveryResult
+			err = json.Unmarshal(jsonData, &discoveryResult)
+			test.That(t, err, test.ShouldBeNil)
+			t.Logf("Casted struct: %+v", discoveryResult)
+
+			test.That(t, len(discoveryResult.Discovery), test.ShouldEqual, 1)
+			discovery := discoveryResult.Discovery[0]
+			test.That(t, discovery.Query.Subtype, test.ShouldEqual, "rdk:component:generic")
+			test.That(t, discovery.Query.Model, test.ShouldEqual, "rdk:test:helper")
+			test.That(t, discovery.Results["extra"], test.ShouldEqual, tc.expectedExtra)
+		})
+	}
 }

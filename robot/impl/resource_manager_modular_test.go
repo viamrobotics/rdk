@@ -476,6 +476,10 @@ func (m *dummyModMan) Close(ctx context.Context) error {
 	return nil
 }
 
+func (m *dummyModMan) FirstRun(ctx context.Context, conf config.Module) error {
+	return nil
+}
+
 func TestTwoModulesSameName(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)

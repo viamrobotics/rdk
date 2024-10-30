@@ -196,7 +196,8 @@ type Module struct {
 	robotpb.UnimplementedRobotServiceServer
 }
 
-// NewModule returns the basic module framework/structure.
+// NewModule returns the basic module framework/structure. Use ModularMain and NewModuleFromArgs unless
+// you really know what you're doing.
 func NewModule(ctx context.Context, address string, logger logging.Logger) (*Module, error) {
 	// TODO(PRODUCT-343): session support likely means interceptors here
 	opMgr := operation.NewManager(logger)
@@ -263,11 +264,11 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 }
 
 // NewModuleFromArgs directly parses the command line argument to get its address.
-func NewModuleFromArgs(ctx context.Context, logger logging.Logger) (*Module, error) {
+func NewModuleFromArgs(ctx context.Context) (*Module, error) {
 	if len(os.Args) < 2 {
 		return nil, errors.New("need socket path as command line argument")
 	}
-	return NewModule(ctx, os.Args[1], logger)
+	return NewModule(ctx, os.Args[1], NewLoggerFromArgs(""))
 }
 
 // Start starts the module service and grpc server.
@@ -473,6 +474,16 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 		return nil, errors.Errorf("invariant: no constructor for %q", conf.API)
 	}
 	resLogger := m.logger.Sublogger(conf.ResourceName().String())
+	levelStr := req.Config.GetLogConfiguration().GetLevel()
+	// An unset LogConfiguration will materialize as an empty string.
+	if levelStr != "" {
+		if level, err := logging.LevelFromString(levelStr); err == nil {
+			resLogger.SetLevel(level)
+		} else {
+			m.logger.Warnw("LogConfiguration does not contain a valid level.", "resource", conf.ResourceName().Name, "level", levelStr)
+		}
+	}
+
 	res, err := resInfo.Constructor(ctx, deps, *conf, resLogger)
 	if err != nil {
 		return nil, err
@@ -546,7 +557,7 @@ func (m *Module) DiscoverComponents(
 			return nil, fmt.Errorf("discovery not supported for API %s and model %s", api, model)
 		}
 
-		results, err := resInfo.Discover(ctx, m.logger)
+		results, err := resInfo.Discover(ctx, m.logger, q.Extra.AsMap())
 		if err != nil {
 			return nil, fmt.Errorf("error discovering components for API %s and model %s: %w", api, model, err)
 		}
@@ -611,10 +622,13 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 
 	if logger, ok := m.resLoggers[res]; ok {
 		levelStr := req.GetConfig().GetLogConfiguration().GetLevel()
-		if level, err := logging.LevelFromString(levelStr); err == nil {
-			logger.SetLevel(level)
-		} else {
-			m.logger.Warnw("LogConfiguration does not contain a valid level.", "resource", res.Name().Name, "level", levelStr)
+		// An unset LogConfiguration will materialize as an empty string.
+		if levelStr != "" {
+			if level, err := logging.LevelFromString(levelStr); err == nil {
+				logger.SetLevel(level)
+			} else {
+				m.logger.Warnw("LogConfiguration does not contain a valid level.", "resource", res.Name().Name, "level", levelStr)
+			}
 		}
 	}
 

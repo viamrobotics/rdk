@@ -38,7 +38,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 	logger.Debug("debug mode enabled")
 
 	var err error
-	myMod, err = module.NewModuleFromArgs(ctx, logger)
+	myMod, err = module.NewModuleFromArgs(ctx)
 	if err != nil {
 		return err
 	}
@@ -48,9 +48,17 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		helperModel,
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: newHelper,
-			Discover: func(ctx context.Context, logger logging.Logger) (interface{}, error) {
+			Discover: func(ctx context.Context, logger logging.Logger, extra map[string]interface{}) (interface{}, error) {
+				extraVal, ok := extra["extra"]
+				if !ok {
+					extraVal = "default"
+				}
+				extraValStr, ok := extraVal.(string)
+				if !ok {
+					return nil, errors.New("'extra' value must be a string")
+				}
 				return map[string]string{
-					"foo": "bar",
+					"extra": extraValStr,
 				}, nil
 			},
 		})
@@ -171,7 +179,7 @@ func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map
 		msg := req["msg"].(string)
 		switch level {
 		case logging.DEBUG:
-			h.logger.CDebugw(ctx, msg, "foo", "bar")
+			h.logger.CDebugw(ctx, msg, "foo", "bar", "err", errors.New("crash me"))
 		case logging.INFO:
 			h.logger.CInfow(ctx, msg, "foo", "bar")
 		case logging.WARN:

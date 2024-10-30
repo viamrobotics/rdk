@@ -110,6 +110,15 @@ func (lr *Registry) GetCurrentConfig() []LoggerPatternConfig {
 	return lr.logConfig
 }
 
+// AddAppenderToAll adds the specified appender to all loggers in the registry.
+func (lr *Registry) AddAppenderToAll(appender Appender) {
+	lr.mu.RLock()
+	defer lr.mu.RUnlock()
+	for _, logger := range lr.loggers {
+		logger.AddAppender(appender)
+	}
+}
+
 // getOrRegister will either:
 //   - return an existing logger for the input logger `name` or
 //   - register the input `logger` for the given logger `name` and configure it based on the

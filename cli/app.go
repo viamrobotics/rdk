@@ -52,6 +52,9 @@ const (
 	moduleFlagHomeDir         = "home"
 	moduleCreateLocalOnly     = "local-only"
 	moduleFlagID              = "id"
+	moduleFlagResourceType    = "resource-type"
+	moduleFlagResourceSubtype = "resource-subtype"
+	moduleFlagTags            = "tags"
 
 	moduleBuildFlagPath      = "module"
 	moduleBuildFlagRef       = "ref"
@@ -100,6 +103,7 @@ const (
 	dataFlagDeleteTabularDataOlderThanDays = "delete-older-than-days"
 	dataFlagDatabasePassword               = "password"
 	dataFlagFilterTags                     = "filter-tags"
+	dataFlagTimeout                        = "timeout"
 
 	packageFlagName        = "name"
 	packageFlagVersion     = "version"
@@ -421,6 +425,11 @@ var app = &cli.App{
 							Name:  dataFlagDataType,
 							Usage: "type of data to download. can be binary or tabular",
 						},
+						&cli.UintFlag{
+							Name:  dataFlagTimeout,
+							Usage: "number of seconds to wait for large file downloads",
+							Value: 30,
+						},
 					},
 						commonFilterFlags...),
 					Action: DataExportAction,
@@ -714,6 +723,11 @@ var app = &cli.App{
 							Required: false,
 							Usage:    "number of download requests to make in parallel",
 							Value:    100,
+						},
+						&cli.UintFlag{
+							Name:  dataFlagTimeout,
+							Usage: "number of seconds to wait for large file downloads",
+							Value: 30,
 						},
 					},
 					Action: DatasetDownloadAction,
@@ -1479,6 +1493,21 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Action: CreateModuleAction,
 				},
 				{
+					Name:  "generate",
+					Usage: "generate a new modular resource via prompts",
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:  moduleFlagResourceType,
+							Usage: "resource type to use in module",
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagResourceSubtype,
+							Usage: "resource subtype to use in module",
+						},
+					},
+					Action: GenerateModuleAction,
+				},
+				{
 					Name:  "update",
 					Usage: "update a module's metadata on app.viam.com",
 					Flags: []cli.Flag{
@@ -1566,6 +1595,14 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
                       darwin/amd64  (Intel macs)
                       darwin/arm64  (Apple silicon macs)`,
 							Required: true,
+						},
+						&cli.StringFlag{
+							Name: moduleFlagTags,
+							Usage: `Optional extra fields for constraining the platforms to which this binary
+                             is deployed. Examples: distro:debian, distro:ubuntu, os_version:22.04,
+                             os_codename:jammy. You can provide multiple tags in this field by separating
+                             them with a comma. For a machine to use an upload, all tags must be satisified
+                             as well as the --platform field.`,
 						},
 						&cli.BoolFlag{
 							Name:  moduleFlagForce,

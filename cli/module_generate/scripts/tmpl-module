@@ -1,0 +1,90 @@
+package models
+
+import (
+    "go.viam.com/rdk/{{ .Module.ResourceType }}s/{{ .Module.ResourceSubtype}}"
+	{{.Imports}}
+)
+
+var (
+	{{.Module.ModelPascal}} = resource.NewModel("{{ .Module.Namespace}}", "{{ .Module.ModuleName}}", "{{.Module.ModelName}}")
+	errUnimplemented = errors.New("unimplemented")
+)
+
+func init() {
+	resource.Register{{ .Module.ResourceTypePascal}}({{.Module.ResourceSubtype}}.API, {{.Module.ModelPascal}},
+		resource.Registration[{{if eq .Module.ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .Module.ResourceType "component"}}{{.Module.ResourceSubtype}}.{{.Module.ResourceSubtypePascal}}{{else}}{{.Module.ResourceSubtype}}.Service{{end}}{{end}}, *Config]{
+			Constructor: new{{.Module.ModulePascal}}{{.Module.ModelPascal}},
+		},
+	)
+}
+
+type Config struct {
+	// Put config attributes here
+
+	/* if your model  does not need a config,
+	   replace *Config in the init function with resource.NoNativeConfig */
+
+	/* Uncomment this if your model does not need to be validated
+	    and has no implicit dependecies. */
+	// resource.TriviallyValidateConfig
+
+}
+
+func (cfg *Config) Validate(path string) ([]string, error) {
+	// Add config validation code here
+	 return nil, nil
+}
+
+type {{.ModelType}} struct {
+	name   resource.Name
+
+	logger logging.Logger
+	cfg    *Config
+
+	cancelCtx  context.Context
+	cancelFunc func()
+
+
+	/* Uncomment this if your model does not need to reconfigure. */
+	// resource.TriviallyReconfigurable
+
+	// Uncomment this if the model does not have any goroutines that
+	// need to be shut down while closing.
+	// resource.TriviallyCloseable
+
+}
+
+func new{{.Module.ModulePascal}}{{.Module.ModelPascal}}(ctx context.Context, deps resource.Dependencies, rawConf resource.Config, logger logging.Logger) ({{if eq .Module.ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .Module.ResourceType "component"}}{{.Module.ResourceSubtype}}.{{.Module.ResourceSubtypePascal}}{{else}}{{.Module.ResourceSubtype}}.Service{{end}}{{end}}, error) {
+	conf, err := resource.NativeConfig[*Config](rawConf)
+	if err != nil {
+		return nil, err
+	}
+
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+
+	s := &{{.ModelType}}{
+		name:       rawConf.ResourceName(),
+		logger:     logger,
+		cfg:        conf,
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+	}
+	return s, nil
+}
+
+func (s *{{.ModelType}}) Name() resource.Name {
+	return s.name
+}
+
+func (s *{{.ModelType}}) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	// Put reconfigure code here
+	return errUnimplemented
+}
+
+{{.Functions}}
+
+func (s *{{.ModelType}}) Close(context.Context) error {
+	// Put close code here
+	s.cancelFunc()
+	return nil
+}

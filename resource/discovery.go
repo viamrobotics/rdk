@@ -12,10 +12,11 @@ type (
 	DiscoveryQuery struct {
 		API   API
 		Model Model
+		Extra map[string]interface{}
 	}
 
 	// DiscoveryFunc is a function that discovers component configurations.
-	DiscoveryFunc func(ctx context.Context, logger logging.Logger) (interface{}, error)
+	DiscoveryFunc func(ctx context.Context, logger logging.Logger, extra map[string]interface{}) (interface{}, error)
 
 	// Discovery holds a Query and a corresponding discovered component configuration. A
 	// discovered component configuration can be comprised of primitives, a list of
@@ -38,6 +39,6 @@ func (e *DiscoverError) Error() string {
 }
 
 // NewDiscoveryQuery returns a discovery query for a given API and model.
-func NewDiscoveryQuery(api API, model Model) DiscoveryQuery {
-	return DiscoveryQuery{api, model}
+func NewDiscoveryQuery(api API, model Model, extra map[string]interface{}) DiscoveryQuery {
+	return DiscoveryQuery{api, model, extra}
 }

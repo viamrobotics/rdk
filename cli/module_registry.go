@@ -248,6 +248,7 @@ func UploadModuleAction(c *cli.Context) error {
 	versionArg := c.String(moduleFlagVersion)
 	platformArg := c.String(moduleFlagPlatform)
 	forceUploadArg := c.Bool(moduleFlagForce)
+	constraints := c.String(moduleFlagTags)
 	moduleUploadPath := c.Args().First()
 	if c.Args().Len() > 1 {
 		return errors.New("too many arguments passed to upload command. " +
@@ -325,7 +326,11 @@ func UploadModuleAction(c *cli.Context) error {
 		}
 	}
 
-	response, err := client.uploadModuleFile(moduleID, versionArg, platformArg, tarballPath)
+	var constraintsList []string
+	if constraints != "" {
+		constraintsList = strings.Split(constraints, ",")
+	}
+	response, err := client.uploadModuleFile(moduleID, versionArg, platformArg, constraintsList, tarballPath)
 	if err != nil {
 		return err
 	}
@@ -421,6 +426,9 @@ func (c *viamClient) updateModule(moduleID moduleID, manifest moduleManifest) (*
 		Models:      models,
 		Entrypoint:  manifest.Entrypoint,
 	}
+	if manifest.FirstRun != "" {
+		req.FirstRun = &manifest.FirstRun
+	}
 	return c.client.UpdateModule(c.c.Context, &req)
 }
 
@@ -428,6 +436,7 @@ func (c *viamClient) uploadModuleFile(
 	moduleID moduleID,
 	version,
 	platform string,
+	constraints []string,
 	tarballPath string,
 ) (*apppb.UploadModuleFileResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
@@ -446,9 +455,10 @@ func (c *viamClient) uploadModuleFile(
 		return nil, err
 	}
 	moduleFileInfo := apppb.ModuleFileInfo{
-		ModuleId: moduleID.String(),
-		Version:  version,
-		Platform: platform,
+		ModuleId:     moduleID.String(),
+		Version:      version,
+		Platform:     platform,
+		PlatformTags: constraints,
 	}
 	req := &apppb.UploadModuleFileRequest{
 		ModuleFile: &apppb.UploadModuleFileRequest_ModuleFileInfo{ModuleFileInfo: &moduleFileInfo},

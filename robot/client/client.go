@@ -812,9 +812,17 @@ func (rc *RobotClient) Logger() logging.Logger {
 func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error) {
 	pbQueries := make([]*pb.DiscoveryQuery, 0, len(qs))
 	for _, q := range qs {
+		extra, err := structpb.NewStruct(q.Extra)
+		if err != nil {
+			return nil, err
+		}
 		pbQueries = append(
 			pbQueries,
-			&pb.DiscoveryQuery{Subtype: q.API.String(), Model: q.Model.String()},
+			&pb.DiscoveryQuery{
+				Subtype: q.API.String(),
+				Model:   q.Model.String(),
+				Extra:   extra,
+			},
 		)
 	}
 
@@ -836,6 +844,7 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.Dis
 		q := resource.DiscoveryQuery{
 			API:   s,
 			Model: m,
+			Extra: disc.Query.Extra.AsMap(),
 		}
 		discoveries = append(
 			discoveries, resource.Discovery{

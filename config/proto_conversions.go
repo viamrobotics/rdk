@@ -302,13 +302,14 @@ func ModuleConfigToProto(module *Module) (*pb.ModuleConfig, error) {
 	}
 
 	proto := pb.ModuleConfig{
-		Name:     module.Name,
-		Path:     module.ExePath,
-		LogLevel: module.LogLevel,
-		Type:     string(module.Type),
-		ModuleId: module.ModuleID,
-		Env:      module.Environment,
-		Status:   status,
+		Name:            module.Name,
+		Path:            module.ExePath,
+		LogLevel:        module.LogLevel,
+		Type:            string(module.Type),
+		ModuleId:        module.ModuleID,
+		Env:             module.Environment,
+		Status:          status,
+		FirstRunTimeout: durationpb.New(module.FirstRunTimeout),
 	}
 
 	return &proto, nil
@@ -322,13 +323,14 @@ func ModuleConfigFromProto(proto *pb.ModuleConfig) (*Module, error) {
 	}
 
 	module := Module{
-		Name:        proto.GetName(),
-		ExePath:     proto.GetPath(),
-		LogLevel:    proto.GetLogLevel(),
-		Type:        ModuleType(proto.GetType()),
-		ModuleID:    proto.GetModuleId(),
-		Environment: proto.GetEnv(),
-		Status:      status,
+		Name:            proto.GetName(),
+		ExePath:         proto.GetPath(),
+		LogLevel:        proto.GetLogLevel(),
+		Type:            ModuleType(proto.GetType()),
+		ModuleID:        proto.GetModuleId(),
+		Environment:     proto.GetEnv(),
+		Status:          status,
+		FirstRunTimeout: proto.GetFirstRunTimeout().AsDuration(),
 	}
 	return &module, nil
 }

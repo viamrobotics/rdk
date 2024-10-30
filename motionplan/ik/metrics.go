@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"

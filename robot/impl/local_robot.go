@@ -23,7 +23,9 @@ import (
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/cloud"
+	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/ftdc"
 	icloud "go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
@@ -85,6 +87,7 @@ type localRobot struct {
 	// map keyed by Module.Name. This is necessary to get the package manager to use a new folder
 	// when a local tarball is updated.
 	localModuleVersions map[string]semver.Version
+	ftdc                *ftdc.FTDC
 }
 
 // ExportResourcesAsDot exports the resource graph as a DOT representation for
@@ -174,6 +177,10 @@ func (r *localRobot) Close(ctx context.Context) error {
 	if r.webSvc != nil {
 		err = multierr.Combine(err, r.webSvc.Close(ctx))
 	}
+	if r.ftdc != nil {
+		r.ftdc.StopAndJoin(ctx)
+	}
+
 	return err
 }
 
@@ -402,6 +409,12 @@ func newWithResources(
 		opt.apply(&rOpts)
 	}
 
+	var ftdcWorker *ftdc.FTDC
+	if rOpts.enableFTDC {
+		ftdcWorker = ftdc.New(logger.Sublogger("ftdc"))
+		ftdcWorker.Start()
+	}
+
 	closeCtx, cancel := context.WithCancel(ctx)
 	r := &localRobot{
 		manager: newResourceManager(
@@ -411,6 +424,7 @@ func newWithResources(
 				allowInsecureCreds: cfg.AllowInsecureCreds,
 				untrustedEnv:       cfg.UntrustedEnv,
 				tlsConfig:          cfg.Network.TLSConfig,
+				ftdc:               ftdcWorker,
 			},
 			logger,
 		),
@@ -426,6 +440,7 @@ func newWithResources(
 		cloudConnSvc:               icloud.NewCloudConnectionService(cfg.Cloud, logger),
 		shutdownCallback:           rOpts.shutdownCallback,
 		localModuleVersions:        make(map[string]semver.Version),
+		ftdc:                       ftdcWorker,
 	}
 	r.mostRecentCfg.Store(config.Config{})
 	var heartbeatWindow time.Duration
@@ -1049,8 +1064,7 @@ func RobotFromConfigPath(ctx context.Context, cfgPath string, logger logging.Log
 
 // RobotFromConfig is a helper to process a config and then create a robot based on it.
 func RobotFromConfig(ctx context.Context, cfg *config.Config, logger logging.Logger, opts ...Option) (robot.LocalRobot, error) {
-	tlsConfig := config.NewTLSConfig(cfg)
-	processedCfg, err := config.ProcessConfig(cfg, tlsConfig)
+	processedCfg, err := config.ProcessConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -1072,13 +1086,14 @@ func RobotFromResources(
 // component configurations.
 func (r *localRobot) DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error) {
 	// dedupe queries
-	deduped := make(map[resource.DiscoveryQuery]struct{}, len(qs))
+	deduped := make(map[string]resource.DiscoveryQuery, len(qs))
 	for _, q := range qs {
-		deduped[q] = struct{}{}
+		key := q.API.String() + ":" + q.Model.String()
+		deduped[key] = q
 	}
 
 	discoveries := make([]resource.Discovery, 0, len(deduped))
-	for q := range deduped {
+	for _, q := range deduped {
 		if internalDiscovery, isInternal := r.discoverRobotInternals(q); isInternal {
 			discoveries = append(discoveries, resource.Discovery{Query: q, Results: internalDiscovery})
 			continue
@@ -1090,7 +1105,7 @@ func (r *localRobot) DiscoverComponents(ctx context.Context, qs []resource.Disco
 		}
 
 		if reg.Discover != nil {
-			discovered, err := reg.Discover(ctx, r.logger.Sublogger("discovery"))
+			discovered, err := reg.Discover(ctx, r.logger.Sublogger("discovery"), q.Extra)
 			if err != nil {
 				return nil, &resource.DiscoverError{Query: q}
 			}
@@ -1174,6 +1189,44 @@ func (r *localRobot) applyLocalModuleVersions(cfg *config.Config) {
 }
 
 func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, forceSync bool) {
+	// Maintenance config can be configured to block reconfigure based off of a sensor reading
+	// These sensors can be configured on the main robot, or a remote
+	// In situations where there are conflicting sensor names the following behavior happens
+	// Main robot and remote share sensor name -> main robot sensor is chosen
+	// Only remote has the sensor name -> remote sensor is read
+	// Multiple remotes share a senor name -> conflict error is returned and reconfigure happens
+	// To specify a specific remote sensor use the name format remoteName:sensorName to specify a remote sensor
+	if newConfig.MaintenanceConfig != nil {
+		name, err := resource.NewFromString(newConfig.MaintenanceConfig.SensorName)
+		if err != nil {
+			r.logger.Warnf("sensor_name %s in maintenance config is not in a supported format", newConfig.MaintenanceConfig.SensorName)
+		} else {
+			sensorComponent, err := robot.ResourceFromRobot[sensor.Sensor](r, name)
+			if err != nil {
+				r.logger.Warnf("%s, Starting reconfiguration", err.Error())
+			} else {
+				canReconfigure, err := r.checkMaintenanceSensorReadings(ctx, newConfig.MaintenanceConfig.MaintenanceAllowedKey, sensorComponent)
+				if !canReconfigure {
+					r.logger.Info("maintenance_allowed_key found from readings on maintenance sensor. Skipping reconfiguration.")
+					diff, err := config.DiffConfigs(*r.Config(), *newConfig, false)
+					if err != nil {
+						r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
+					}
+					// NetworkEqual checks if Cloud/Auth/Network are equal between configs
+					if diff != nil && !diff.NetworkEqual {
+						r.logger.Info("Machine reconfiguration skipped but Cloud/Auth/Network config section contain changes and will be applied.")
+					}
+					return
+				}
+				if err != nil {
+					r.logger.Warn(err.Error() + ". Starting reconfiguration")
+				} else {
+					r.logger.Info("maintenance_allowed_key found from readings on maintenance sensor. Starting reconfiguration")
+				}
+			}
+		}
+	}
+
 	r.configRevisionMu.Lock()
 	r.configRevision = config.Revision{
 		Revision:    newConfig.Revision,
@@ -1202,6 +1255,14 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	if err != nil {
 		r.Logger().CErrorw(ctx, "reconfiguration aborted because local modules or packages sync failed", "error", err)
 		return
+	}
+
+	// Run the setup phase for all modules in new config modules before proceeding with reconfiguration.
+	for _, mod := range newConfig.Modules {
+		if err := r.manager.moduleManager.FirstRun(ctx, mod); err != nil {
+			r.logger.CErrorw(ctx, "error executing setup phase", "module", mod.Name, "error", err)
+			return
+		}
 	}
 
 	if newConfig.Cloud != nil {
@@ -1434,4 +1495,29 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 // Version returns version information about the robot.
 func (r *localRobot) Version(ctx context.Context) (robot.VersionResponse, error) {
 	return robot.Version()
+}
+
+// checkMaintenanceSensorReadings ensures that errors from reading a sensor are handled properly.
+func (r *localRobot) checkMaintenanceSensorReadings(ctx context.Context,
+	maintenanceAllowedKey string, sensor resource.Sensor,
+) (bool, error) {
+	timeout := 5 * time.Second
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	// Context timeouts on this call should be handled by grpc
+	readings, err := sensor.Readings(ctx, map[string]interface{}{})
+	if err != nil {
+		// if the sensor errors or timeouts we return false to block reconfigure
+		return false, errors.Errorf("error reading maintenance sensor readings. %s", err.Error())
+	}
+	readingVal, ok := readings[maintenanceAllowedKey]
+	if !ok {
+		return true, errors.Errorf("error getting maintenance_allowed_key %s from sensor reading", maintenanceAllowedKey)
+	}
+	canReconfigure, ok := readingVal.(bool)
+	if !ok {
+		return true, errors.Errorf("maintenance_allowed_key %s is not a bool value", maintenanceAllowedKey)
+	}
+	return canReconfigure, nil
 }

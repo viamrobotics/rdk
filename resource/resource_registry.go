@@ -270,7 +270,8 @@ func Register[ResourceT Resource, ConfigT ConfigValidator](
 	apiModel := APIModel{api, model}
 	_, old := registry[apiModel]
 	if old {
-		panic(errors.Errorf("trying to register two resources with same api: %q, model: %q", api, model))
+		logging.Global().Errorw("An api, model pair is being double registered. Overwriting the old with the new.",
+			"api", api, "model", model)
 	}
 	if reg.Constructor == nil && reg.DeprecatedRobotConstructor == nil {
 		panic(errors.Errorf("cannot register a nil constructor for api: %q, model: %q", api, model))
@@ -359,7 +360,8 @@ func RegisterAPI[ResourceT Resource](api API, creator APIRegistration[ResourceT]
 	defer registryMu.Unlock()
 	_, old := apiRegistry[api]
 	if old {
-		panic(errors.Errorf("trying to register two of the same resource api: %s", api))
+		logging.Global().Errorw("An api name is being double registered. Overwriting the old with the new.",
+			"api", api)
 	}
 	if creator.RPCServiceServerConstructor != nil &&
 		(creator.RPCServiceDesc == nil || creator.RPCServiceHandler == nil) {

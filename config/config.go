@@ -12,7 +12,6 @@ import (
 	"reflect"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -950,63 +949,41 @@ func (config *AuthHandlerConfig) Validate(path string) error {
 	return nil
 }
 
-// TLSConfig stores the TLS config for the robot.
-type TLSConfig struct {
-	*tls.Config
-	certMu  sync.Mutex
-	tlsCert *tls.Certificate
-}
-
-// NewTLSConfig creates a new tls config.
-func NewTLSConfig(cfg *Config) *TLSConfig {
-	tlsCfg := &TLSConfig{}
-	var tlsConfig *tls.Config
-	if cfg.Cloud != nil && cfg.Cloud.TLSCertificate != "" {
-		tlsConfig = &tls.Config{
-			MinVersion: tls.VersionTLS12,
-			GetCertificate: func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
-				// always return same cert
-				tlsCfg.certMu.Lock()
-				defer tlsCfg.certMu.Unlock()
-				return tlsCfg.tlsCert, nil
-			},
-			GetClientCertificate: func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-				// always return same cert
-				tlsCfg.certMu.Lock()
-				defer tlsCfg.certMu.Unlock()
-				return tlsCfg.tlsCert, nil
-			},
-		}
-	}
-	tlsCfg.Config = tlsConfig
-	return tlsCfg
-}
-
-// UpdateCert updates the TLS certificate to be returned.
-func (t *TLSConfig) UpdateCert(cfg *Config) error {
+// CreateTLSWithCert creates a tls.Config with the TLS certificate to be returned.
+func CreateTLSWithCert(cfg *Config) (*tls.Config, error) {
 	cert, err := tls.X509KeyPair([]byte(cfg.Cloud.TLSCertificate), []byte(cfg.Cloud.TLSPrivateKey))
 	if err != nil {
-		return err
+		return nil, err
 	}
-	t.certMu.Lock()
-	t.tlsCert = &cert
-	t.certMu.Unlock()
-	return nil
+	return &tls.Config{
+		MinVersion: tls.VersionTLS12,
+		GetCertificate: func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			// always return same cert
+			return &cert, nil
+		},
+		GetClientCertificate: func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			// always return same cert
+			return &cert, nil
+		},
+	}, nil
 }
 
 // ProcessConfig processes robot configs.
-func ProcessConfig(in *Config, tlsCfg *TLSConfig) (*Config, error) {
+func ProcessConfig(in *Config) (*Config, error) {
 	out := *in
 	var selfCreds *rpc.Credentials
 	if in.Cloud != nil {
+		// We expect a cloud config from app to always contain a non-empty `TLSCertificate` field.
+		// We do this empty string check just to cope with unexpected input, such as cached configs
+		// that are hand altered to have their `TLSCertificate` removed.
 		if in.Cloud.TLSCertificate != "" {
-			if err := tlsCfg.UpdateCert(in); err != nil {
+			tlsConfig, err := CreateTLSWithCert(in)
+			if err != nil {
 				return nil, err
 			}
+			out.Network.TLSConfig = tlsConfig
 		}
-
 		selfCreds = &rpc.Credentials{rutils.CredentialsTypeRobotSecret, in.Cloud.Secret}
-		out.Network.TLSConfig = tlsCfg.Config // override
 	}
 
 	out.Remotes = make([]Remote, len(in.Remotes))
