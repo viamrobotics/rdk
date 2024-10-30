@@ -1579,6 +1579,9 @@ func TestFirstRun(t *testing.T) {
 
 		var errExit *exec.ExitError
 		test.That(t, errors.As(err, &errExit), test.ShouldBeTrue)
+		// This error message might be different on a non-unix platform.
+		// Feel free to adjust this assertion if it ever fails on a
+		// newly-tested platform (e.g. Windows).
 		test.That(t, errExit.String(), test.ShouldContainSubstring, "signal: killed")
 	})
 }
