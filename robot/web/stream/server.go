@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"runtime"
-	"slices"
 	"sync"
 	"time"
 
@@ -552,10 +551,6 @@ func (server *Server) startStream(streamFunc func(opts *BackoffTuningOptions) er
 func (server *Server) startVideoStream(ctx context.Context, source gostream.VideoSource, stream gostream.Stream) {
 	server.startStream(func(opts *BackoffTuningOptions) error {
 		streamVideoCtx, _ := utils.MergeContext(server.closedCtx, ctx)
-		// Use H264 for cameras that support it; but do not override upstream values.
-		if props, err := server.propertiesFromStream(ctx, stream); err == nil && slices.Contains(props.MimeTypes, rutils.MimeTypeH264) {
-			streamVideoCtx = gostream.WithMIMETypeHint(streamVideoCtx, rutils.WithLazyMIMEType(rutils.MimeTypeH264))
-		}
 		return streamVideoSource(streamVideoCtx, source, stream, opts, server.logger)
 	})
 }
@@ -566,17 +561,4 @@ func (server *Server) startAudioStream(ctx context.Context, source gostream.Audi
 		streamAudioCtx, _ := utils.MergeContext(server.closedCtx, ctx)
 		return streamAudioSource(streamAudioCtx, source, stream, opts, server.logger)
 	})
-}
-
-func (server *Server) propertiesFromStream(ctx context.Context, stream gostream.Stream) (camera.Properties, error) {
-	res, err := server.robot.ResourceByName(camera.Named(stream.Name()))
-	if err != nil {
-		return camera.Properties{}, err
-	}
-
-	cam, ok := res.(camera.Camera)
-	if !ok {
-		return camera.Properties{}, errors.Errorf("cannot convert resource (type %T) to type (%T)", res, camera.Camera(nil))
-	}
-	return cam.Properties(ctx)
 }
