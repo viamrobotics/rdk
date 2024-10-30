@@ -10,6 +10,7 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
@@ -356,6 +357,15 @@ func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions []referenc
 	ctx, done := x.opMgr.New(ctx)
 	defer done()
 	return x.GoToInputs(ctx, newPositions)
+}
+
+func (x *xArm) MoveThroughJointPositions(
+	ctx context.Context,
+	positions [][]referenceframe.Input,
+	_ *arm.MoveOptions,
+	_ map[string]interface{},
+) error {
+	return x.GoToInputs(ctx, positions...)
 }
 
 // Using the configured moveHz, joint speed, and joint acceleration, create the series of joint positions for the arm to follow,

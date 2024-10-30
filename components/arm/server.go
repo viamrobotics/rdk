@@ -103,6 +103,28 @@ func (s *serviceServer) MoveToJointPositions(
 	return &pb.MoveToJointPositionsResponse{}, arm.MoveToJointPositions(ctx, inputs, req.Extra.AsMap())
 }
 
+// MoveThroughJointPositions moves an arm of the underlying robot through the requested joint positions.
+func (s *serviceServer) MoveThroughJointPositions(
+	ctx context.Context,
+	req *pb.MoveThroughJointPositionsRequest,
+) (*pb.MoveToJointPositionsResponse, error) {
+	operation.CancelOtherWithLabel(ctx, req.Name)
+	arm, err := s.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	allInputs := make([][]referenceframe.Input, 0, len(req.Positions))
+	for _, position := range req.Positions {
+		inputs, err := referenceframe.InputsFromJointPositions(arm.ModelFrame(), position)
+		if err != nil {
+			return nil, err
+		}
+		allInputs = append(allInputs, inputs)
+	}
+	err = arm.MoveThroughJointPositions(ctx, allInputs, moveOptionsFromProtobuf(req.Options), req.Extra.AsMap())
+	return &pb.MoveToJointPositionsResponse{}, err
+}
+
 // Stop stops the arm specified.
 func (s *serviceServer) Stop(ctx context.Context, req *pb.StopRequest) (*pb.StopResponse, error) {
 	operation.CancelOtherWithLabel(ctx, req.Name)

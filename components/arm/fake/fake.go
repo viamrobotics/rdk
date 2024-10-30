@@ -188,6 +188,15 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, joints []referenceframe.
 	return nil
 }
 
+func (a *Arm) MoveThroughJointPositions(
+	ctx context.Context,
+	positions [][]referenceframe.Input,
+	_ *arm.MoveOptions,
+	_ map[string]interface{},
+) error {
+	return a.GoToInputs(ctx, positions...)
+}
+
 // JointPositions returns joints.
 func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
 	a.mu.RLock()

@@ -75,17 +75,26 @@ func Named(name string) resource.Name {
 //
 // MoveToJointPositions example:
 //
-//	// Assumes you have imported "go.viam.com/api/component/arm/v1" as `componentpb`
 //	myArm, err := arm.FromRobot(machine, "my_arm")
 //
-//	// Declare an array of values with your desired rotational value for each joint on the arm.
-//	degrees := []float64{4.0, 5.0, 6.0}
+//	// Declare an array of values with your desired rotational value (in radians) for each joint on the arm.
+//	inputs := referenceframe.FloatsToInputs([]float64{0, math.Pi/2, math.Pi})
 //
-//	// Declare a new JointPositions with these values.
-//	jointPos := &componentpb.JointPositions{Values: degrees}
+//	// Move each joint of the arm to the positions specified in the above slice
+//	err = myArm.MoveToJointPositions(context.Background(), inputs, nil)
 //
-//	// Move each joint of the arm to the position these values specify.
-//	err = myArm.MoveToJointPositions(context.Background(), jointPos, nil)
+// MoveToJointPositions example:
+//
+//	myArm, err := arm.FromRobot(machine, "my_arm")
+//
+//	// Declare a 2D array of values with your desired rotational value (in radians) for each joint on the arm.
+//	inputs := [][]referenceframe.Input{
+//		referenceframe.FloatsToInputs([]float64{0, math.Pi/2, math.Pi})
+//		referenceframe.FloatsToInputs([]float64{0, 0, 0})
+//	}
+//
+//	// Move each joint of the arm through the positions in the slice defined above
+//	err = myArm.MoveThroughJointPositions(context.Background(), inputs, nil, nil)
 //
 // JointPositions example:
 //
@@ -109,9 +118,13 @@ type Arm interface {
 	// This will block until done or a new operation cancels this one.
 	MoveToPosition(ctx context.Context, pose spatialmath.Pose, extra map[string]interface{}) error
 
-	// MoveToJointPositions moves the arm's joints to the given positions.
+	// MoveToJointPositions moves the arm's joints through the given positions in the order they are specified.
 	// This will block until done or a new operation cancels this one.
 	MoveToJointPositions(ctx context.Context, positions []referenceframe.Input, extra map[string]interface{}) error
+
+	// MoveToJointPositions moves the arm's joints to the given positions.
+	// This will block until done or a new operation cancels this one.
+	MoveThroughJointPositions(ctx context.Context, positions [][]referenceframe.Input, options *MoveOptions, extra map[string]any) error
 
 	// JointPositions returns the current joint positions of the arm.
 	JointPositions(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error)

@@ -94,9 +94,6 @@ func (c *client) MoveToJointPositions(ctx context.Context, positions []reference
 	if err != nil {
 		return err
 	}
-	if positions == nil {
-		c.logger.Warnf("%s MoveToJointPositions: position parameter is nil", c.name)
-	}
 	jp, err := referenceframe.JointPositionsFromInputs(c.model, positions)
 	if err != nil {
 		return err
@@ -104,6 +101,36 @@ func (c *client) MoveToJointPositions(ctx context.Context, positions []reference
 	_, err = c.client.MoveToJointPositions(ctx, &pb.MoveToJointPositionsRequest{
 		Name:      c.name,
 		Positions: jp,
+		Extra:     ext,
+	})
+	return err
+}
+
+func (c *client) MoveThroughJointPositions(
+	ctx context.Context,
+	positions [][]referenceframe.Input,
+	options *MoveOptions,
+	extra map[string]interface{},
+) error {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+	if positions == nil {
+		c.logger.Warnf("%s MoveThroughJointPositions: position argument is nil", c.name)
+	}
+	allJPs := make([]*pb.JointPositions, 0, len(positions))
+	for _, position := range positions {
+		jp, err := referenceframe.JointPositionsFromInputs(c.model, position)
+		if err != nil {
+			return err
+		}
+		allJPs = append(allJPs, jp)
+	}
+	_, err = c.client.MoveThroughJointPositions(ctx, &pb.MoveThroughJointPositionsRequest{
+		Name:      c.name,
+		Positions: allJPs,
+		Options:   options.toProtobuf(),
 		Extra:     ext,
 	})
 	return err

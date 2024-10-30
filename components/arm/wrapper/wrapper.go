@@ -135,6 +135,15 @@ func (wrapper *Arm) MoveToJointPositions(ctx context.Context, joints []reference
 	return wrapper.actual.MoveToJointPositions(ctx, joints, extra)
 }
 
+func (wrapper *Arm) MoveThroughJointPositions(
+	ctx context.Context,
+	positions [][]referenceframe.Input,
+	_ *arm.MoveOptions,
+	_ map[string]interface{},
+) error {
+	return wrapper.GoToInputs(ctx, positions...)
+}
+
 // JointPositions returns the set joints.
 func (wrapper *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
 	wrapper.mu.RLock()

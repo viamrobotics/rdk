@@ -6,6 +6,7 @@ package eva
 import (
 	"bytes"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/json"
@@ -175,6 +176,15 @@ func (e *eva) MoveToJointPositions(ctx context.Context, newPositions []reference
 	}
 
 	return e.doMoveJoints(ctx, radians)
+}
+
+func (e *eva) MoveThroughJointPositions(
+	ctx context.Context,
+	positions [][]referenceframe.Input,
+	_ *arm.MoveOptions,
+	_ map[string]interface{},
+) error {
+	return e.GoToInputs(ctx, positions...)
 }
 
 func (e *eva) doMoveJoints(ctx context.Context, joints []float64) error {

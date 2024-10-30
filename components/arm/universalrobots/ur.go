@@ -4,6 +4,7 @@ package universalrobots
 import (
 	"bufio"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
@@ -381,6 +382,15 @@ func (ua *urArm) MoveToJointPositions(ctx context.Context, joints []referencefra
 		return err
 	}
 	return ua.moveToJointPositionRadians(ctx, referenceframe.InputsToFloats(joints))
+}
+
+func (ua *urArm) MoveThroughJointPositions(
+	ctx context.Context,
+	positions [][]referenceframe.Input,
+	_ *arm.MoveOptions,
+	_ map[string]interface{},
+) error {
+	return ua.GoToInputs(ctx, positions...)
 }
 
 // Stop stops the arm with some deceleration.

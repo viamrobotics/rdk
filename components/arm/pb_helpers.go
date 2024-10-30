@@ -4,10 +4,52 @@ import (
 	"fmt"
 
 	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/arm/v1"
 
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/referenceframe/urdf"
+	"go.viam.com/rdk/utils"
 )
+
+const (
+	defaultMaxVelDegPerSec  = 60.
+	defaultMaxAccDegPerSec2 = 1.
+)
+
+type MoveOptions struct {
+	MaxVel, MaxAcc float64
+}
+
+func NewDefaultMoveOptions() *MoveOptions {
+	return moveOptionsFromProtobuf(nil)
+}
+
+func moveOptionsFromProtobuf(protobuf *pb.MoveOptions) *MoveOptions {
+	if protobuf == nil {
+		protobuf = &pb.MoveOptions{}
+	}
+
+	var vel, acc float64
+	if protobuf.MaxVelDegsPerSec == nil {
+		vel = defaultMaxVelDegPerSec
+	}
+	if protobuf.MaxAccDegsPerSec2 == nil {
+		acc = defaultMaxAccDegPerSec2
+	}
+	return &MoveOptions{
+		MaxVel: utils.DegToRad(vel),
+		MaxAcc: utils.DegToRad(acc),
+	}
+}
+
+func (opts MoveOptions) toProtobuf() *pb.MoveOptions {
+	vel := utils.RadToDeg(opts.MaxVel)
+	acc := utils.RadToDeg(opts.MaxAcc)
+	return &pb.MoveOptions{
+		MaxVelDegsPerSec:  &vel,
+		MaxAccDegsPerSec2: &acc,
+	}
+}
 
 func parseKinematicsResponse(name string, resp *commonpb.GetKinematicsResponse) (referenceframe.Model, error) {
 	format := resp.GetFormat()
