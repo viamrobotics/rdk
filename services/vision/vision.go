@@ -109,6 +109,10 @@ func init() {
 //	}
 //	// Get the stream from a camera
 //	camStream, err := myCam.Stream(context.Background())
+//	if err!=nil {
+//			logger.Error(err)
+//			return
+//	}
 //	// Get an image from the camera stream
 //	img, release, err := camStream.Next(context.Background())
 //	defer release()
