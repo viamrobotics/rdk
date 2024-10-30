@@ -524,7 +524,7 @@ func (server *Server) refreshAudioSources() {
 func (server *Server) createStream(config gostream.StreamConfig, name string) (gostream.Stream, bool, error) {
 	stream, err := server.NewStream(config)
 	// Skip if stream is already registered, otherwise raise any other errors
-	var registeredError &StreamAlreadyRegisteredError{}
+	var registeredError = &StreamAlreadyRegisteredError{}
 	if errors.As(err, &registeredError) {
 		server.logger.Debugw("stream already registered", "name", name)
 		return nil, true, nil
