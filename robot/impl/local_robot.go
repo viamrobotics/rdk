@@ -1516,7 +1516,7 @@ func (r *localRobot) processMaintenanceConfig(ctx context.Context, newConfig *co
 	canReconfigure, err := r.checkMaintenanceSensorReadings(ctx, newConfig.MaintenanceConfig.MaintenanceAllowedKey, sensorComponent)
 	if !canReconfigure {
 		if err != nil {
-			r.logger.Infof("%s, Skipping reconfiguration.", err.Error())
+			r.logger.Errorf("%s, Skipping reconfiguration.", err.Error())
 		} else {
 			r.logger.Info("maintenance_allowed_key found from readings on maintenance sensor. Skipping reconfiguration.")
 		}
