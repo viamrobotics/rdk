@@ -322,7 +322,10 @@ func (server *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStre
 // GetStreamOptions implements part of the StreamServiceServer. It returns the available dynamic resolutions
 // for a given stream name. The resolutions are scaled down from the original resolution in the camera
 // properties.
-func (server *Server) GetStreamOptions(ctx context.Context, req *streampb.GetStreamOptionsRequest) (*streampb.GetStreamOptionsResponse, error) {
+func (server *Server) GetStreamOptions(
+	ctx context.Context,
+	req *streampb.GetStreamOptionsRequest,
+) (*streampb.GetStreamOptionsResponse, error) {
 	cam, err := camera.FromRobot(server.robot, req.Name)
 	if err != nil {
 		return nil, err
