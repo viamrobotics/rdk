@@ -195,3 +195,57 @@ func TestAudioTrackIsNotCreatedForVideoStream(t *testing.T) {
 	// camera should only create a video track. Assert the audio track does not exist.
 	test.That(t, conn.PeerConn().CurrentLocalDescription().SDP, test.ShouldNotContainSubstring, "m=audio")
 }
+
+func TestGetStreamOptions(t *testing.T) {
+	logger := logging.NewTestLogger(t).Sublogger("TestWebReconfigure")
+	origCfg := &config.Config{Components: []resource.Config{
+		{
+			Name:  "fake-cam-1",
+			API:   resource.NewAPI("rdk", "component", "camera"),
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			ConvertedAttributes: &fake.Config{
+				Animated: true,
+				Width:    100,
+				Height:   50,
+			},
+		},
+		{
+			Name:  "fake-cam-2",
+			API:   resource.NewAPI("rdk", "component", "camera"),
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			ConvertedAttributes: &fake.Config{
+				Animated: true,
+				Width:    1920,
+				Height:   1080,
+			},
+		},
+	}}
+
+	ctx, robot, addr, webSvc := setupRealRobot(t, origCfg, logger)
+	defer robot.Close(ctx)
+	defer webSvc.Close(ctx)
+	conn, err := rgrpc.Dial(context.Background(), addr, logger.Sublogger("TestDial"), rpc.WithDisableDirectGRPC())
+	test.That(t, err, test.ShouldBeNil)
+	//nolint
+	defer conn.Close()
+	test.That(t, err, test.ShouldBeNil)
+
+	livestreamClient := streampb.NewStreamServiceClient(conn)
+	listResp, err := livestreamClient.ListStreams(ctx, &streampb.ListStreamsRequest{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(listResp.Names), test.ShouldEqual, 2)
+
+	streamOptionsResp, err := livestreamClient.GetStreamOptions(ctx, &streampb.GetStreamOptionsRequest{
+		Name: "fake-cam-1",
+	})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, streamOptionsResp, test.ShouldNotBeNil)
+	test.That(t, len(streamOptionsResp.Resolutions), test.ShouldEqual, 5)
+
+	streamOptionsResp, err = livestreamClient.GetStreamOptions(ctx, &streampb.GetStreamOptionsRequest{
+		Name: "fake-cam-2",
+	})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, streamOptionsResp, test.ShouldNotBeNil)
+	test.That(t, len(streamOptionsResp.Resolutions), test.ShouldEqual, 5)
+}
