@@ -3969,7 +3969,7 @@ func TestCheckMaintenanceSensorReadings(t *testing.T) {
 		localRobot := r.(*localRobot)
 		canReconfigure, err := localRobot.checkMaintenanceSensorReadings(context.Background(), "keyDoesNotExist", newValidSensor())
 
-		test.That(t, canReconfigure, test.ShouldEqual, true)
+		test.That(t, canReconfigure, test.ShouldEqual, false)
 		test.That(t, err.Error(), test.ShouldEqual, "error getting maintenance_allowed_key keyDoesNotExist from sensor reading")
 	})
 	t.Run("maintenanceAllowedKey is a number not a boolean", func(t *testing.T) {
@@ -3977,7 +3977,7 @@ func TestCheckMaintenanceSensorReadings(t *testing.T) {
 		localRobot := r.(*localRobot)
 		canReconfigure, err := localRobot.checkMaintenanceSensorReadings(context.Background(), "ThatIsNotAWallet", newValidSensor())
 
-		test.That(t, canReconfigure, test.ShouldEqual, true)
+		test.That(t, canReconfigure, test.ShouldEqual, false)
 		test.That(t, err.Error(), test.ShouldEqual, "maintenance_allowed_key ThatIsNotAWallet is not a bool value")
 	})
 	t.Run("maintenanceAllowedKey is one not a boolean", func(t *testing.T) {
@@ -3985,7 +3985,7 @@ func TestCheckMaintenanceSensorReadings(t *testing.T) {
 		localRobot := r.(*localRobot)
 		canReconfigure, err := localRobot.checkMaintenanceSensorReadings(context.Background(), "OneIsNotTrue", newValidSensor())
 
-		test.That(t, canReconfigure, test.ShouldEqual, true)
+		test.That(t, canReconfigure, test.ShouldEqual, false)
 		test.That(t, err.Error(), test.ShouldEqual, "maintenance_allowed_key OneIsNotTrue is not a bool value")
 	})
 	t.Run("maintenanceAllowedKey is string true not a boolean", func(t *testing.T) {
@@ -3993,7 +3993,7 @@ func TestCheckMaintenanceSensorReadings(t *testing.T) {
 		localRobot := r.(*localRobot)
 		canReconfigure, err := localRobot.checkMaintenanceSensorReadings(context.Background(), "TrueIsNotTrue", newValidSensor())
 
-		test.That(t, canReconfigure, test.ShouldEqual, true)
+		test.That(t, canReconfigure, test.ShouldEqual, false)
 		test.That(t, err.Error(), test.ShouldEqual, "maintenance_allowed_key TrueIsNotTrue is not a bool value")
 	})
 }
@@ -4058,7 +4058,7 @@ func newErrorSensor() sensor.Sensor {
 func newInvalidSensor() sensor.Sensor {
 	s := &inject.Sensor{}
 	s.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-		return map[string]any{"ThatsMyWallet": 1, "ThatsNotMyWallet": 2}, nil
+		return map[string]any{"ThatsMyWallet": true, "ThatsNotMyWallet": false}, nil
 	}
 	return s
 }
