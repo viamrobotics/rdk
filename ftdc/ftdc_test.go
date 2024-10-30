@@ -3,6 +3,10 @@ package ftdc
 import (
 	"bytes"
 	"errors"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -284,4 +288,99 @@ func TestStatsWriterContinuesOnSchemaError(t *testing.T) {
 
 	// Wait for the `statsWriter` goroutine to exit.
 	<-ftdc.outputWorkerDone
+}
+
+func TestCountingBytes(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	// We must not use `NewWithWriter`. Forcing a writer for FTDC data is not compatible with FTDC
+	// file rotation.
+	ftdc := New(logger.Sublogger("ftdc"))
+	// Expect a log rotation after 1,000 bytes. For a changing `foo` object, this is ~60 datums.
+	ftdc.maxFileSize = 1000
+
+	ftdcFileDir, err := os.MkdirTemp("./", "countingBytesTest")
+	test.That(t, err, test.ShouldBeNil)
+	defer os.RemoveAll(ftdcFileDir)
+
+	// Isolate all of the files we're going to create to a single, fresh directory.
+	ftdc.ftdcDir = ftdcFileDir
+
+	timesRolledOver := 0
+	foo := &foo{}
+	ftdc.Add("foo", foo)
+	for cnt := 0; cnt < 1000; cnt += 1 {
+		foo.x = cnt
+		foo.y = 2 * cnt
+
+		datum := ftdc.constructDatum()
+		datum.Time = int64(cnt)
+		err := ftdc.writeDatum(datum)
+		test.That(t, err, test.ShouldBeNil)
+
+		// If writing a datum takes the bytes written to larger than configured max file size, an
+		// explicit call to `getWriter` should create a new file and reset the count.
+		if ftdc.bytesWrittenCounter.count >= ftdc.maxFileSize {
+			// We're about to write a new ftdc file. The ftdc file names are a function of
+			// "now". Given the test runs fast, the generated name will collide (names only use
+			// seconds resolution).  Make a subdirectory to avoid a naming conflict.
+			ftdc.ftdcDir, err = os.MkdirTemp(ftdcFileDir, "subdirectory")
+			test.That(t, err, test.ShouldBeNil)
+
+			_, err = ftdc.getWriter()
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, ftdc.bytesWrittenCounter.count, test.ShouldBeLessThan, 1000)
+			timesRolledOver += 1
+		}
+	}
+	logger.Info("Rolled over:", timesRolledOver)
+
+	// Assert that the test rolled over at least once. Otherwise the test "passed" without
+	// exercising the intended code.
+	test.That(t, timesRolledOver, test.ShouldBeGreaterThan, 0)
+
+	numFTDCFiles := 0
+	timeSeen := make(map[int64]struct{})
+	filepath.Walk(ftdcFileDir, filepath.WalkFunc(func(path string, info fs.FileInfo, err error) error {
+		logger.Info("Path:", path)
+		if !strings.HasSuffix(path, ".ftdc") {
+			return nil
+		}
+
+		// We have an FTDC file. Count it for a later test assertion.
+		numFTDCFiles += 1
+
+		// Additionally, parse the file (in isolation) and assert its contents are correct.
+		ftdcFile, err := os.Open(path)
+		test.That(t, err, test.ShouldBeNil)
+		defer ftdcFile.Close()
+
+		logger.SetLevel(logging.INFO)
+		datums, err := ParseWithLogger(ftdcFile, logger)
+		logger.SetLevel(logging.DEBUG)
+		test.That(t, err, test.ShouldBeNil)
+
+		for _, flatDatum := range datums {
+			// Each datum contains two metrics: `foo.X` and `foo.Y`. The "time" must be between [0,
+			// 1000).
+			test.That(t, flatDatum.Time, test.ShouldBeGreaterThanOrEqualTo, 0)
+			test.That(t, flatDatum.Time, test.ShouldBeLessThan, 1000)
+			test.That(t, timeSeen, test.ShouldNotContainKey, flatDatum.Time)
+			timeSeen[flatDatum.Time] = struct{}{}
+
+			// As per construction:
+			// - `foo.X` must be equal to the "time" and
+			// - `foo.Y` must be `2*time`.
+			datum := flatDatum.asDatum()
+			test.That(t, datum.Data["foo"].(map[string]float32)["X"], test.ShouldEqual, flatDatum.Time)
+			test.That(t, datum.Data["foo"].(map[string]float32)["Y"], test.ShouldEqual, 2*flatDatum.Time)
+		}
+
+		return nil
+	}))
+	test.That(t, len(timeSeen), test.ShouldEqual, 1000)
+
+	// There will be 1 FTDC file per `timesRolledOver`. And an additional file for first call to
+	// `writeDatum`. Thus the subtraction of `1` to get the right equation.
+	test.That(t, timesRolledOver, test.ShouldEqual, numFTDCFiles-1)
 }
