@@ -309,7 +309,7 @@ func TestCountingBytes(t *testing.T) {
 	timesRolledOver := 0
 	foo := &foo{}
 	ftdc.Add("foo", foo)
-	for cnt := 0; cnt < 1000; cnt += 1 {
+	for cnt := 0; cnt < 1000; cnt++ {
 		foo.x = cnt
 		foo.y = 2 * cnt
 
@@ -330,7 +330,7 @@ func TestCountingBytes(t *testing.T) {
 			_, err = ftdc.getWriter()
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, ftdc.bytesWrittenCounter.count, test.ShouldBeLessThan, 1000)
-			timesRolledOver += 1
+			timesRolledOver++
 		}
 	}
 	logger.Info("Rolled over:", timesRolledOver)
@@ -339,16 +339,27 @@ func TestCountingBytes(t *testing.T) {
 	// exercising the intended code.
 	test.That(t, timesRolledOver, test.ShouldBeGreaterThan, 0)
 
+	// We're about to walk all of the output FTDC files to make some assertions. Many assertions are
+	// isolated to within a single FTDC file, but the following two assertions are in aggregate
+	// across all of the files/data:
+	// - That the number of FTDC files found corresponds to the number of times we've "rolled over".
+	// - That every "time" in the [0, 1000) range we constructed a datum from is found.
 	numFTDCFiles := 0
 	timeSeen := make(map[int64]struct{})
-	filepath.Walk(ftdcFileDir, filepath.WalkFunc(func(path string, info fs.FileInfo, err error) error {
+	filepath.Walk(ftdcFileDir, filepath.WalkFunc(func(path string, info fs.FileInfo, walkErr error) error {
 		logger.Info("Path:", path)
 		if !strings.HasSuffix(path, ".ftdc") {
 			return nil
 		}
 
+		if walkErr != nil {
+			logger.Info("Unexpected walk error. Continuing under the assumption any actual* problem will",
+				"be caught by the assertions. WalkErr:", walkErr)
+			return nil
+		}
+
 		// We have an FTDC file. Count it for a later test assertion.
-		numFTDCFiles += 1
+		numFTDCFiles++
 
 		// Additionally, parse the file (in isolation) and assert its contents are correct.
 		ftdcFile, err := os.Open(path)
@@ -365,7 +376,10 @@ func TestCountingBytes(t *testing.T) {
 			// 1000).
 			test.That(t, flatDatum.Time, test.ShouldBeGreaterThanOrEqualTo, 0)
 			test.That(t, flatDatum.Time, test.ShouldBeLessThan, 1000)
+
+			// Assert the "time" is new.
 			test.That(t, timeSeen, test.ShouldNotContainKey, flatDatum.Time)
+			// Mark the "time" as seen.
 			timeSeen[flatDatum.Time] = struct{}{}
 
 			// As per construction:

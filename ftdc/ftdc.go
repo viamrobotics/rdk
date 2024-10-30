@@ -110,7 +110,7 @@ type FTDC struct {
 	debug        bool
 	outputWriter io.Writer
 	// bytesWrittenCounter will count bytes that are written to the `outputWriter`. We use an
-	// `io.Writer` implementor for this, as opposed to just counting by hand, primarily as a
+	// `io.Writer` implementer for this, as opposed to just counting by hand, primarily as a
 	// convenience for working with `json.NewEncoder(writer).Encode(...)`. This counter is folded
 	// into the above `outputWriter`.
 	bytesWrittenCounter countingWriter
@@ -391,7 +391,9 @@ func (ftdc *FTDC) getWriter() (io.Writer, error) {
 	// If we're in the logic branch where we have exceeded our FTDC file rotation quota, we first
 	// close the `currOutputFile`.
 	if ftdc.currOutputFile != nil {
-		ftdc.currOutputFile.Close()
+		// Dan: An error closing a file (any resource for that matter) is not an error. I will die
+		// on that hill.
+		utils.UncheckedError(ftdc.currOutputFile.Close())
 	}
 
 	var err error
@@ -399,11 +401,19 @@ func (ftdc *FTDC) getWriter() (io.Writer, error) {
 	// good reason before giving up entirely and shutting down FTDC.
 	for numTries := 0; numTries < 5; numTries++ {
 		now := time.Now().UTC()
+		// lint wants 0o600 file permissions. We don't expect the unix user someone is ssh'ed in as
+		// to be on the same unix user as is running the viam-server process. Thus the file needs to
+		// be accessible by anyone.
+		//
+		//nolint:gosec
 		ftdc.currOutputFile, err = os.OpenFile(path.Join(ftdc.ftdcDir,
 			// Filename example: viam-server-2024-10-04T18-42-02.ftdc
 			fmt.Sprintf("viam-server-%d-%02d-%02dT%02d-%02d-%02dZ.ftdc",
 				now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second())),
-			os.O_RDWR|os.O_CREATE|os.O_EXCL, 0644)
+			// Create a new file in read+write mode. `O_EXCL` is used to guarantee a new file is
+			// created. If the filename already exists, that flag changes the `os.OpenFile` behavior
+			// to return an error.
+			os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o644)
 		if err == nil {
 			break
 		}
