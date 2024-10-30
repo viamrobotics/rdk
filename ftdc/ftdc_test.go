@@ -297,7 +297,7 @@ func TestCountingBytes(t *testing.T) {
 	// file rotation.
 	ftdc := New(logger.Sublogger("ftdc"))
 	// Expect a log rotation after 1,000 bytes. For a changing `foo` object, this is ~60 datums.
-	ftdc.maxFileSize = 1000
+	ftdc.maxFileSizeBytes = 1000
 
 	ftdcFileDir, err := os.MkdirTemp("./", "countingBytesTest")
 	test.That(t, err, test.ShouldBeNil)
@@ -320,7 +320,7 @@ func TestCountingBytes(t *testing.T) {
 
 		// If writing a datum takes the bytes written to larger than configured max file size, an
 		// explicit call to `getWriter` should create a new file and reset the count.
-		if ftdc.bytesWrittenCounter.count >= ftdc.maxFileSize {
+		if ftdc.bytesWrittenCounter.count >= ftdc.maxFileSizeBytes {
 			// We're about to write a new ftdc file. The ftdc file names are a function of
 			// "now". Given the test runs fast, the generated name will collide (names only use
 			// seconds resolution).  Make a subdirectory to avoid a naming conflict.

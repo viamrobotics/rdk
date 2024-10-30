@@ -115,7 +115,7 @@ type FTDC struct {
 	// into the above `outputWriter`.
 	bytesWrittenCounter countingWriter
 	currOutputFile      *os.File
-	maxFileSize         int64
+	maxFileSizeBytes    int64
 	// ftdcDir controls where FTDC data files will be written.
 	ftdcDir string
 	// inmemBuffer will remain nil when `debug` is false.
@@ -137,7 +137,7 @@ func NewWithWriter(writer io.Writer, logger logging.Logger) *FTDC {
 		outputWorkerDone: make(chan struct{}),
 		logger:           logger,
 		outputWriter:     writer,
-		maxFileSize:      1_000_000,
+		maxFileSizeBytes: 1_000_000,
 	}
 }
 
@@ -384,7 +384,7 @@ func (ftdc *FTDC) getWriter() (io.Writer, error) {
 
 	// If we have an active outputWriter and we have not exceeded our FTDC file rotation quota, we
 	// can just return.
-	if ftdc.outputWriter != nil && ftdc.bytesWrittenCounter.count < ftdc.maxFileSize {
+	if ftdc.outputWriter != nil && ftdc.bytesWrittenCounter.count < ftdc.maxFileSizeBytes {
 		return ftdc.outputWriter, nil
 	}
 
