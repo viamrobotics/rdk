@@ -83,7 +83,7 @@ func setGoModuleTemplate(clientCode string, module common.ModuleInputs) (*common
 		if funcDecl, ok := n.(*ast.FuncDecl); ok {
 			name, args, returns := parseFunctionSignature(module.ResourceSubtype, module.ResourceSubtypePascal, funcDecl)
 			if name != "" {
-				functions = append(functions, formatEmptyFunction(name, args, returns))
+				functions = append(functions, formatEmptyFunction(module.ModuleCamel+module.ModelPascal, name, args, returns))
 			}
 		}
 		return true
