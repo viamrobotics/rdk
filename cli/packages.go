@@ -178,9 +178,11 @@ func PackageUploadAction(c *cli.Context) error {
 		return err
 	}
 
-	_, err = convertPackageTypeToProto(c.String(packageFlagType))
-	if err != nil {
-		return err
+	// Default to "unspecified" if no package type is provided
+	modelType := c.String(packageFlagType)
+	if modelType == "" {
+		fmt.Print("model type was not specified, defaulting to 'unspecified'")
+		modelType = string(PackageTypeUnspecified)
 	}
 
 	resp, err := client.uploadPackage(
@@ -195,7 +197,8 @@ func PackageUploadAction(c *cli.Context) error {
 		return err
 	}
 
-	printf(c.App.Writer, "Successfully uploaded package %s, version: %s!", resp.GetId(), resp.GetVersion())
+	printf(c.App.Writer, "Successfully uploaded package %s, version: %s as "+
+		"type: %s!", resp.GetId(), resp.GetVersion(), modelType)
 	return nil
 }
 
