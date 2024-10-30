@@ -3,14 +3,15 @@ package modmanager
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"errors"
 	"github.com/pion/rtp"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
@@ -18,7 +19,6 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
-	"os/exec"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/camera"
