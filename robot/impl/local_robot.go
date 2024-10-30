@@ -1209,8 +1209,9 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 				if !canReconfigure {
 					if err != nil {
 						r.logger.CErrorw(ctx, "error reading maintenance sensor", "error", err)
+					} else {
+						r.logger.Info("maintenance_allowed_key found from readings on maintenance sensor. Skipping reconfiguration.")
 					}
-					r.logger.Info("maintenance_allowed_key found from readings on maintenance sensor. Skipping reconfiguration.")
 					diff, err := config.DiffConfigs(*r.Config(), *newConfig, false)
 					if err != nil {
 						r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
@@ -1221,11 +1222,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 					}
 					return
 				}
-				if err != nil {
-					r.logger.Warn(err.Error() + ". Starting reconfiguration")
-				} else {
-					r.logger.Info("maintenance_allowed_key found from readings on maintenance sensor. Starting reconfiguration")
-				}
+				r.logger.Info("maintenance_allowed_key found from readings on maintenance sensor. Starting reconfiguration")
 			}
 		}
 	}
