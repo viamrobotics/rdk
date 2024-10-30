@@ -326,6 +326,9 @@ func (server *Server) GetStreamOptions(
 	ctx context.Context,
 	req *streampb.GetStreamOptionsRequest,
 ) (*streampb.GetStreamOptionsResponse, error) {
+	if req.Name == "" {
+		return nil, errors.New("stream name is required")
+	}
 	cam, err := camera.FromRobot(server.robot, req.Name)
 	if err != nil {
 		return nil, err

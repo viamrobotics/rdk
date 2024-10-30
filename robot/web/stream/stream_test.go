@@ -235,7 +235,17 @@ func TestGetStreamOptions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(listResp.Names), test.ShouldEqual, 2)
 
-	streamOptionsResp, err := livestreamClient.GetStreamOptions(ctx, &streampb.GetStreamOptionsRequest{
+	streamOptionsResp, err := livestreamClient.GetStreamOptions(ctx, &streampb.GetStreamOptionsRequest{})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, streamOptionsResp, test.ShouldBeNil)
+
+	streamOptionsResp, err = livestreamClient.GetStreamOptions(ctx, &streampb.GetStreamOptionsRequest{
+		Name: "invalid-name",
+	})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, streamOptionsResp, test.ShouldBeNil)
+
+	streamOptionsResp, err = livestreamClient.GetStreamOptions(ctx, &streampb.GetStreamOptionsRequest{
 		Name: "fake-cam-1",
 	})
 	test.That(t, err, test.ShouldBeNil)
