@@ -1435,7 +1435,7 @@ func TestModularDiscovery(t *testing.T) {
 }
 
 func TestFirstRun(t *testing.T) {
-	t.Run("happy path", func(t *testing.T) {
+	t.Run("fails", func(t *testing.T) {
 		ctx := context.Background()
 		logger, logs := logging.NewObservedTestLogger(t)
 
@@ -1450,20 +1450,7 @@ func TestFirstRun(t *testing.T) {
 		}
 		mgr := setupModManager(t, ctx, parentAddr, logger, opts)
 
-		t.Log("=== FIRST RUN FAILS ===")
-
-		const failEnvVarKey = "VIAM_TEST_FAIL_RUN_FIRST"
-		origFailEnvVar, origFailEnvVarSet := os.LookupEnv(failEnvVarKey)
-		unsetFailEnvVar := func() {
-			if origFailEnvVarSet {
-				err := os.Setenv(failEnvVarKey, origFailEnvVar)
-				test.That(t, err, test.ShouldBeNil)
-			} else {
-				err := os.Unsetenv(failEnvVarKey)
-				test.That(t, err, test.ShouldBeNil)
-			}
-		}
-		t.Setenv(failEnvVarKey, "1")
+		t.Setenv("VIAM_TEST_FAIL_RUN_FIRST", "1")
 
 		err := mgr.FirstRun(ctx, modCfg)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -1494,21 +1481,33 @@ func TestFirstRun(t *testing.T) {
 		test.That(t, expectedStderr, test.ShouldBeEmpty)
 
 		test.That(t, logs.FilterMessage("first run script failed").Len(), test.ShouldEqual, 1)
+	})
 
-		unsetFailEnvVar()
+	t.Run("succeeds once", func(t *testing.T) {
+		ctx := context.Background()
+		logger, logs := logging.NewObservedTestLogger(t)
+
+		exePath := rtestutils.BuildTempModuleWithFirstRun(t, "module/testmodule")
+		modCfg := config.Module{
+			Name:    "test-module",
+			ExePath: exePath,
+		}
+		parentAddr := setupSocketWithRobot(t)
+		opts := modmanageroptions.Options{
+			UntrustedEnv: false,
+		}
+		mgr := setupModManager(t, ctx, parentAddr, logger, opts)
 
 		t.Log("=== FIRST RUN SUCCEEDS ===")
 
-		logs.TakeAll() // remove logs observed up to this point
-
-		err = mgr.FirstRun(ctx, modCfg)
+		err := mgr.FirstRun(ctx, modCfg)
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, logs.FilterMessage("executing first run script").Len(), test.ShouldEqual, 1)
 
-		stdio = logs.FilterMessage("got stdio").FilterLevelExact(zapcore.InfoLevel)
+		stdio := logs.FilterMessage("got stdio").FilterLevelExact(zapcore.InfoLevel)
 		test.That(t, stdio.Len(), test.ShouldEqual, 4)
-		expectedStdio = map[string]struct{}{
+		expectedStdio := map[string]struct{}{
 			"running... 1": {},
 			"running... 2": {},
 			"running... 3": {},
@@ -1520,9 +1519,9 @@ func TestFirstRun(t *testing.T) {
 		}
 		test.That(t, expectedStdio, test.ShouldBeEmpty)
 
-		stderr = logs.FilterMessage("got stderr").FilterLevelExact(zapcore.WarnLevel)
+		stderr := logs.FilterMessage("got stderr").FilterLevelExact(zapcore.WarnLevel)
 		test.That(t, stderr.Len(), test.ShouldEqual, 2)
-		expectedStderr = map[string]struct{}{
+		expectedStderr := map[string]struct{}{
 			"hiccup 1": {},
 			"hiccup 2": {},
 		}
