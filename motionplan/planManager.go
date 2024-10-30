@@ -35,7 +35,6 @@ const (
 // motionplan.PlanMotion() -> SolvableFrameSystem.SolveWaypointsWithOptions() -> planManager.planSingleWaypoint().
 type planManager struct {
 	*planner
-	frame                   *solverFrame
 	activeBackgroundWorkers sync.WaitGroup
 
 	useTPspace bool

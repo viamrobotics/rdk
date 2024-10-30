@@ -206,6 +206,7 @@ func (g *Graph) FindNodesByShortNameAndAPI(name Name) []Name {
 	var ret []Name
 	for k, v := range g.nodes {
 		if name.Name == k.Name && name.API == k.API && v != nil {
+			fmt.Println("name API", name.API)
 			ret = append(ret, k)
 		}
 	}

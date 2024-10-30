@@ -163,8 +163,8 @@ type plannerOptions struct {
 	// The maximum percent of a joints range of motion to allow per step.
 	FrameStep float64 `json:"frame_step"`
 
-	// If the dot product between two sets of joint angles is less than this, consider them identical.
-	JointSolveDist float64 `json:"joint_solve_dist"`
+	// If the dot product between two sets of inputs is less than this, consider them identical.
+	InputIdentDist float64 `json:"input_ident_dist"`
 
 	// Number of iterations to mrun before beginning to accept randomly seeded locations.
 	IterBeforeRand int `json:"iter_before_rand"`

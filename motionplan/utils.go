@@ -5,6 +5,7 @@ package motionplan
 import (
 	"math"
 
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -98,3 +99,12 @@ func (r *resultPromise) result() ([]node, error) {
 	}
 	return planReturn.steps, nil
 }
+
+// linearizedFrameSystem wraps a framesystem, allowing 
+type linearizedFrameSystem struct {
+	fss  referenceframe.FrameSystem
+	// List of names of all frames that could move, used for collision detection
+	// As an example a gripper attached to an arm which is moving relative to World, would not be in frames below but in this object
+	frames         []referenceframe.Frame // cached ordering of frames. Order is unimportant but cannot change once set.
+}
+

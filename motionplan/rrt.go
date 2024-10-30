@@ -71,7 +71,7 @@ func (maps *rrtMaps) fillPosOnlyGoal(goal spatialmath.Pose, posSeeds, dof int) e
 
 // initRRTsolutions will create the maps to be used by a RRT-based algorithm. It will generate IK solutions to pre-populate the goal
 // map, and will check if any of those goals are able to be directly interpolated to.
-func initRRTSolutions(ctx context.Context, mp motionPlanner, seed []referenceframe.Input) *rrtSolution {
+func initRRTSolutions(ctx context.Context, mp motionPlanner, seed map[string][]referenceframe.Input) *rrtSolution {
 	rrt := &rrtSolution{
 		maps: &rrtMaps{
 			startMap: map[node]node{},
@@ -150,7 +150,7 @@ func fixedStepInterpolation(start, target node, qstep []float64) []referencefram
 // TODO: This is somewhat redundant with a State.
 type node interface {
 	// return the configuration associated with the node
-	Q() []referenceframe.Input
+	Q() map[string][]referenceframe.Input
 	Cost() float64
 	SetCost(float64)
 	Pose() spatialmath.Pose

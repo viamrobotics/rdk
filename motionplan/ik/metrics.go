@@ -12,9 +12,7 @@ import (
 
 const orientationDistanceScaling = 10.
 
-var globalLogger = logging.Global()
-
-// Segment contains all the information a constraint needs to determine validity for a movement.
+// Segment is a referenceframe.Frame-specific contains all the information a constraint needs to determine validity for a movement.
 // It contains the starting inputs, the ending inputs, corresponding poses, and the frame it refers to.
 // Pose fields may be empty, and may be filled in by a constraint that needs them.
 type Segment struct {
