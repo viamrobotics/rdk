@@ -1197,33 +1197,9 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	// Multiple remotes share a senor name -> conflict error is returned and reconfigure happens
 	// To specify a specific remote sensor use the name format remoteName:sensorName to specify a remote sensor
 	if newConfig.MaintenanceConfig != nil {
-		name, err := resource.NewFromString(newConfig.MaintenanceConfig.SensorName)
-		if err != nil {
-			r.logger.Warnf("sensor_name %s in maintenance config is not in a supported format", newConfig.MaintenanceConfig.SensorName)
-		} else {
-			sensorComponent, err := robot.ResourceFromRobot[sensor.Sensor](r, name)
-			if err != nil {
-				r.logger.Warnf("%s, Starting reconfiguration", err.Error())
-			} else {
-				canReconfigure, err := r.checkMaintenanceSensorReadings(ctx, newConfig.MaintenanceConfig.MaintenanceAllowedKey, sensorComponent)
-				if !canReconfigure {
-					r.logger.Info("maintenance_allowed_key found from readings on maintenance sensor. Skipping reconfiguration.")
-					diff, err := config.DiffConfigs(*r.Config(), *newConfig, false)
-					if err != nil {
-						r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
-					}
-					// NetworkEqual checks if Cloud/Auth/Network are equal between configs
-					if diff != nil && !diff.NetworkEqual {
-						r.logger.Info("Machine reconfiguration skipped but Cloud/Auth/Network config section contain changes and will be applied.")
-					}
-					return
-				}
-				if err != nil {
-					r.logger.Warn(err.Error() + ". Starting reconfiguration")
-				} else {
-					r.logger.Info("maintenance_allowed_key found from readings on maintenance sensor. Starting reconfiguration")
-				}
-			}
+		canReconfigure := r.processMaintenanceConfig(ctx, newConfig)
+		if !canReconfigure {
+			return
 		}
 	}
 
@@ -1520,4 +1496,44 @@ func (r *localRobot) checkMaintenanceSensorReadings(ctx context.Context,
 		return true, errors.Errorf("maintenance_allowed_key %s is not a bool value", maintenanceAllowedKey)
 	}
 	return canReconfigure, nil
+}
+
+// processMaintenanceConfig returns whether a machine should reconfigure along with any errors processing
+// the maintenance config.
+func (r *localRobot) processMaintenanceConfig(ctx context.Context, newConfig *config.Config) bool {
+	name, err := resource.NewFromString(newConfig.MaintenanceConfig.SensorName)
+	if err != nil {
+		r.logger.Warnf("sensor_name %s in maintenance config is not in a supported format", newConfig.MaintenanceConfig.SensorName)
+		return true
+	}
+
+	sensorComponent, err := robot.ResourceFromRobot[sensor.Sensor](r, name)
+	if err != nil {
+		r.logger.Warnf("%s, Starting reconfiguration", err.Error())
+		return true
+	}
+
+	canReconfigure, err := r.checkMaintenanceSensorReadings(ctx, newConfig.MaintenanceConfig.MaintenanceAllowedKey, sensorComponent)
+	if !canReconfigure {
+		if err != nil {
+			r.logger.Infof("%s, Skipping reconfiguration.", err.Error())
+		} else {
+			r.logger.Info("maintenance_allowed_key found from readings on maintenance sensor. Skipping reconfiguration.")
+		}
+		diff, err := config.DiffConfigs(*r.Config(), *newConfig, false)
+		if err != nil {
+			r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
+		}
+		// NetworkEqual checks if Cloud/Auth/Network are equal between configs
+		if diff != nil && !diff.NetworkEqual {
+			r.logger.Info("Machine reconfiguration skipped but Cloud/Auth/Network config section contain changes and will be applied.")
+		}
+		return false
+	}
+	if err != nil {
+		r.logger.Warn(err.Error() + ". Starting reconfiguration")
+	} else {
+		r.logger.Info("maintenance_allowed_key found from readings on maintenance sensor. Starting reconfiguration")
+	}
+	return true
 }
