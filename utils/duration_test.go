@@ -18,6 +18,7 @@ func FuzzDurationJSONRoundtrip(f *testing.F) {
 	f.Add("8us")
 	f.Add("600ns")
 	f.Add("1h2m10s")
+	f.Add("`0`")
 	f.Add("5")
 	f.Fuzz(func(t *testing.T, s string) {
 		// marshal input to JSON. this should always succeed.
