@@ -1207,7 +1207,11 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 			} else {
 				canReconfigure, err := r.checkMaintenanceSensorReadings(ctx, newConfig.MaintenanceConfig.MaintenanceAllowedKey, sensorComponent)
 				if !canReconfigure {
-					r.logger.Info("maintenance_allowed_key found from readings on maintenance sensor. Skipping reconfiguration.")
+					if err != nil {
+						r.logger.CErrorw(ctx, "error reading maintenance sensor", "error", err)
+					} else {
+						r.logger.Info("maintenance_allowed_key found from readings on maintenance sensor. Skipping reconfiguration.")
+					}
 					diff, err := config.DiffConfigs(*r.Config(), *newConfig, false)
 					if err != nil {
 						r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
@@ -1218,11 +1222,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 					}
 					return
 				}
-				if err != nil {
-					r.logger.Warn(err.Error() + ". Starting reconfiguration")
-				} else {
-					r.logger.Info("maintenance_allowed_key found from readings on maintenance sensor. Starting reconfiguration")
-				}
+				r.logger.Info("maintenance_allowed_key found from readings on maintenance sensor. Starting reconfiguration")
 			}
 		}
 	}
@@ -1528,11 +1528,11 @@ func (r *localRobot) checkMaintenanceSensorReadings(ctx context.Context,
 	}
 	readingVal, ok := readings[maintenanceAllowedKey]
 	if !ok {
-		return true, errors.Errorf("error getting maintenance_allowed_key %s from sensor reading", maintenanceAllowedKey)
+		return false, errors.Errorf("error getting maintenance_allowed_key %s from sensor reading", maintenanceAllowedKey)
 	}
 	canReconfigure, ok := readingVal.(bool)
 	if !ok {
-		return true, errors.Errorf("maintenance_allowed_key %s is not a bool value", maintenanceAllowedKey)
+		return false, errors.Errorf("maintenance_allowed_key %s is not a bool value", maintenanceAllowedKey)
 	}
 	return canReconfigure, nil
 }
