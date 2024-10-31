@@ -1087,7 +1087,8 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 
 	// Evaluate the Module's FirstRun path. If there is an error we assume
 	// that the first run script does not exist and we debug log and exit quietly.
-	firstRunPath, markSuccess, err := conf.EvaluateFirstRunPath(packages.LocalPackagesDir(mgr.packagesDir))
+	localPackagesDir := packages.LocalPackagesDir(mgr.packagesDir)
+	firstRunPath, markSuccess, err := conf.EvaluateFirstRunPath(localPackagesDir, logger)
 	if err != nil {
 		// TODO(RSDK-9067): some first run path evaluation errors should be promoted to WARN logs.
 		logger.Debugw("no first run script detected, skipping setup phase", "error", err)
@@ -1132,7 +1133,11 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	}
 
 	scanOut := bufio.NewScanner(stdOut)
+	var wg sync.WaitGroup
+	wg.Add(2)
 	go func() {
+		defer wg.Done()
+
 		for scanOut.Scan() {
 			logger.Infow("got stdio", "output", scanOut.Text())
 		}
@@ -1145,6 +1150,8 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	}()
 	scanErr := bufio.NewScanner(stdErr)
 	go func() {
+		defer wg.Done()
+
 		for scanErr.Scan() {
 			logger.Warnw("got stderr", "output", scanErr.Text())
 		}
@@ -1163,6 +1170,7 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 		logger.Errorw("first run script failed", "error", err)
 		return err
 	}
+	wg.Wait()
 	logger.Info("first run script succeeded")
 
 	// Mark success by writing a marker file to disk. This is a best

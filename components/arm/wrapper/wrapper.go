@@ -7,8 +7,6 @@ import (
 	"strings"
 	"sync"
 
-	pb "go.viam.com/api/component/arm/v1"
-
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
@@ -124,10 +122,9 @@ func (wrapper *Arm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, ex
 }
 
 // MoveToJointPositions sets the joints.
-func (wrapper *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions, extra map[string]interface{}) error {
+func (wrapper *Arm) MoveToJointPositions(ctx context.Context, joints []referenceframe.Input, extra map[string]interface{}) error {
 	// check that joint positions are not out of bounds
-	inputs := wrapper.model.InputFromProtobuf(joints)
-	if err := arm.CheckDesiredJointPositions(ctx, wrapper, inputs); err != nil {
+	if err := arm.CheckDesiredJointPositions(ctx, wrapper, joints); err != nil {
 		return err
 	}
 	ctx, done := wrapper.opMgr.New(ctx)
@@ -139,7 +136,7 @@ func (wrapper *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPo
 }
 
 // JointPositions returns the set joints.
-func (wrapper *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+func (wrapper *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
 	wrapper.mu.RLock()
 	defer wrapper.mu.RUnlock()
 
@@ -169,11 +166,7 @@ func (wrapper *Arm) IsMoving(ctx context.Context) (bool, error) {
 func (wrapper *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	wrapper.mu.RLock()
 	defer wrapper.mu.RUnlock()
-	res, err := wrapper.actual.JointPositions(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	return wrapper.model.InputFromProtobuf(res), nil
+	return wrapper.actual.JointPositions(ctx, nil)
 }
 
 // GoToInputs moves the arm to the specified goal inputs.
@@ -183,7 +176,7 @@ func (wrapper *Arm) GoToInputs(ctx context.Context, inputSteps ...[]referencefra
 		if err := arm.CheckDesiredJointPositions(ctx, wrapper, goal); err != nil {
 			return err
 		}
-		err := wrapper.MoveToJointPositions(ctx, wrapper.model.ProtobufFromInput(goal), nil)
+		err := wrapper.MoveToJointPositions(ctx, goal, nil)
 		if err != nil {
 			return err
 		}

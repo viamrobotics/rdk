@@ -39,7 +39,7 @@ func RestrictedRandomFrameInputs(m Frame, rSeed *rand.Rand, restrictionPercent f
 	}
 	dof := m.DoF()
 	if len(reference) != len(dof) {
-		return nil, NewIncorrectInputLengthError(len(reference), len(dof))
+		return nil, NewIncorrectDoFError(len(reference), len(dof))
 	}
 	pos := make([]Input, 0, len(dof))
 	for i, limit := range dof {
@@ -151,7 +151,7 @@ func (bf *baseFrame) Interpolate(from, to []Input, by float64) ([]Input, error) 
 func (bf *baseFrame) validInputs(inputs []Input) error {
 	var errAll error
 	if len(inputs) != len(bf.limits) {
-		return NewIncorrectInputLengthError(len(inputs), len(bf.limits))
+		return NewIncorrectDoFError(len(inputs), len(bf.limits))
 	}
 	for i := 0; i < len(bf.limits); i++ {
 		if inputs[i].Value < bf.limits[i].Min || inputs[i].Value > bf.limits[i].Max {
@@ -181,7 +181,7 @@ func (sf *tailGeometryStaticFrame) Geometries(input []Input) (*GeometriesInFrame
 		return NewGeometriesInFrame(sf.Name(), nil), nil
 	}
 	if len(input) != 0 {
-		return nil, NewIncorrectInputLengthError(len(input), 0)
+		return nil, NewIncorrectDoFError(len(input), 0)
 	}
 	newGeom := sf.geometry.Transform(sf.transform)
 	if newGeom.Label() == "" {
@@ -242,7 +242,7 @@ func NewStaticFrameWithGeometry(name string, pose spatial.Pose, geometry spatial
 // Transform returns the pose associated with this static referenceframe.
 func (sf *staticFrame) Transform(input []Input) (spatial.Pose, error) {
 	if len(input) != 0 {
-		return nil, NewIncorrectInputLengthError(len(input), 0)
+		return nil, NewIncorrectDoFError(len(input), 0)
 	}
 	return sf.transform, nil
 }
@@ -263,7 +263,7 @@ func (sf *staticFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 		return NewGeometriesInFrame(sf.Name(), nil), nil
 	}
 	if len(input) != 0 {
-		return nil, NewIncorrectInputLengthError(len(input), 0)
+		return nil, NewIncorrectDoFError(len(input), 0)
 	}
 	newGeom := sf.geometry.Transform(spatial.NewZeroPose())
 	if newGeom.Label() == "" {
@@ -489,10 +489,10 @@ func (pf *poseFrame) Transform(inputs []Input) (spatial.Pose, error) {
 // Interpolate interpolates the given amount between the two sets of inputs.
 func (pf *poseFrame) Interpolate(from, to []Input, by float64) ([]Input, error) {
 	if err := pf.baseFrame.validInputs(from); err != nil {
-		return nil, NewIncorrectInputLengthError(len(from), len(pf.DoF()))
+		return nil, NewIncorrectDoFError(len(from), len(pf.DoF()))
 	}
 	if err := pf.baseFrame.validInputs(to); err != nil {
-		return nil, NewIncorrectInputLengthError(len(to), len(pf.DoF()))
+		return nil, NewIncorrectDoFError(len(to), len(pf.DoF()))
 	}
 	fromPose, err := pf.Transform(from)
 	if err != nil {

@@ -16,17 +16,17 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
-// Datum combines the `Stats` call to all registered `Statser`s at some "time". The hierarchy of
+// datum combines the `Stats` call to all registered `Statser`s at some "time". The hierarchy of
 // terminology:
-// - A `Datum` is the aggregation of a single call to each `Statser.Stats()` at some "time".
+// - A `datum` is the aggregation of a single call to each `Statser.Stats()` at some "time".
 // - A Statser.`Stats` return value is a collection of "reading"s from the "subsystem" `name`.
 // - "Metric name": Each field name in the structure returned by the `Stats` call is a "metric name".
 // - A "value" is the numeric value of a metric at one specific point in time.
-// - A "reading" is a "metric name" and a "value" at the given `Datum.Time`.
+// - A "reading" is a "metric name" and a "value" at the given `datum.Time`.
 //
-// A example fully described `Datum` object:
+// A example fully described `datum` object:
 //
-//	Datum: { <-- Datum
+//	datum: { <-- datum
 //	    Time: 1000,
 //	    Data: {
 //	        "resource_manager": struct resourceManagerStats { <-- Stats
@@ -52,7 +52,7 @@ import (
 // And where `NumComponents` without a corresponding value is simply a "metric name". And "5004"
 // without context of a metric name is a simply a "value". Those terms are more relevant to the FTDC
 // file format.
-type Datum struct {
+type datum struct {
 	Time int64
 	Data map[string]any
 
@@ -99,7 +99,7 @@ type FTDC struct {
 	prevFlatData []float32
 
 	readStatsWorker  *utils.StoppableWorkers
-	datumCh          chan Datum
+	datumCh          chan datum
 	outputWorkerDone chan struct{}
 
 	// Fields used to manage where serialized FTDC bytes are written.
@@ -124,7 +124,7 @@ func New(logger logging.Logger) *FTDC {
 func NewWithWriter(writer io.Writer, logger logging.Logger) *FTDC {
 	return &FTDC{
 		// Allow for some wiggle before blocking producers.
-		datumCh:          make(chan Datum, 20),
+		datumCh:          make(chan datum, 20),
 		outputWorkerDone: make(chan struct{}),
 		logger:           logger,
 		outputWriter:     writer,
@@ -277,8 +277,8 @@ func (ftdc *FTDC) conditionalRemoveStatser(name string, generationID int) {
 }
 
 // constructDatum walks all of the registered `statser`s to construct a `datum`.
-func (ftdc *FTDC) constructDatum() Datum {
-	datum := Datum{
+func (ftdc *FTDC) constructDatum() datum {
+	datum := datum{
 		Time: time.Now().Unix(),
 		Data: map[string]any{},
 	}
@@ -296,7 +296,7 @@ func (ftdc *FTDC) constructDatum() Datum {
 
 // writeDatum takes an ftdc reading ("Datum") as input and serializes + writes it to the backing
 // medium (e.g: a file). See `writeSchema`s documentation for a full description of the file format.
-func (ftdc *FTDC) writeDatum(datum Datum) error {
+func (ftdc *FTDC) writeDatum(datum datum) error {
 	toWrite, err := ftdc.getWriter()
 	if err != nil {
 		return err
