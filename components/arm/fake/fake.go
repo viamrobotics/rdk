@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-	pb "go.viam.com/api/component/arm/v1"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/eva"
@@ -175,26 +174,25 @@ func (a *Arm) MoveToPosition(ctx context.Context, pose spatialmath.Pose, extra m
 }
 
 // MoveToJointPositions sets the joints.
-func (a *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions, extra map[string]interface{}) error {
-	inputs := a.model.InputFromProtobuf(joints)
-	if err := arm.CheckDesiredJointPositions(ctx, a, inputs); err != nil {
+func (a *Arm) MoveToJointPositions(ctx context.Context, joints []referenceframe.Input, extra map[string]interface{}) error {
+	if err := arm.CheckDesiredJointPositions(ctx, a, joints); err != nil {
 		return err
 	}
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	_, err := a.model.Transform(inputs)
+	_, err := a.model.Transform(joints)
 	if err != nil {
 		return err
 	}
-	copy(a.joints, inputs)
+	copy(a.joints, joints)
 	return nil
 }
 
 // JointPositions returns joints.
-func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	return a.model.ProtobufFromInput(a.joints), nil
+	return a.joints, nil
 }
 
 // Stop doesn't do anything for a fake arm.
@@ -217,11 +215,7 @@ func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 // GoToInputs moves the fake arm to the given inputs.
 func (a *Arm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
 	for _, goal := range inputSteps {
-		a.mu.RLock()
-		positionDegs := a.model.ProtobufFromInput(goal)
-		a.mu.RUnlock()
-		err := a.MoveToJointPositions(ctx, positionDegs, nil)
-		if err != nil {
+		if err := a.MoveToJointPositions(ctx, goal, nil); err != nil {
 			return err
 		}
 	}

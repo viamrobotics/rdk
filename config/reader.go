@@ -1,7 +1,6 @@
 package config
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -12,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"time"
 
 	"github.com/a8m/envsubst"
@@ -44,51 +42,7 @@ const (
 	LocalPackagesSuffix = "-local"
 )
 
-func parseOsRelease(body *bufio.Reader) map[string]string {
-	ret := make(map[string]string)
-	for {
-		line, err := body.ReadString('\n')
-		if err != nil {
-			return ret
-		}
-		key, value, _ := strings.Cut(line, "=")
-		// note: we trim `value` rather than `line` because os_version value is quoted sometimes.
-		ret[key] = strings.Trim(value, "\n\"")
-	}
-}
-
-// append key:value pair to orig if value is non-empty.
-func appendPairIfNonempty(orig []string, key, value string) []string {
-	if value != "" {
-		return append(orig, key+":"+value)
-	}
-	return orig
-}
-
-// This reads the granular platform constraints (os version, distro, etc).
-// This further constrains the basic runtime.GOOS/GOARCH stuff in getAgentInfo
-// so module authors can publish builds with ABI or SDK dependencies. The
-// list of tags returned by this function is expected to grow.
-func readExtendedPlatformTags() []string {
-	// TODO(APP-6696): CI in multiple environments (alpine + mac), darwin support.
-	tags := make([]string, 0, 3)
-	if runtime.GOOS == "linux" {
-		if body, err := os.Open("/etc/os-release"); err != nil {
-			if !os.IsNotExist(err) {
-				logging.Global().Errorw("can't open /etc/os-release, modules may not load correctly", "err", err)
-			}
-		} else {
-			defer body.Close() //nolint:errcheck
-			osRelease := parseOsRelease(bufio.NewReader(body))
-			tags = appendPairIfNonempty(tags, "distro", osRelease["ID"])
-			tags = appendPairIfNonempty(tags, "os_version", osRelease["VERSION_ID"])
-			tags = appendPairIfNonempty(tags, "codename", osRelease["VERSION_CODENAME"])
-		}
-	}
-	return tags
-}
-
-func getAgentInfo() (*apppb.AgentInfo, error) {
+func getAgentInfo(logger logging.Logger) (*apppb.AgentInfo, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, err
@@ -122,7 +76,7 @@ func getAgentInfo() (*apppb.AgentInfo, error) {
 		Version:      Version,
 		GitRevision:  GitRevision,
 		Platform:     &platform,
-		PlatformTags: readExtendedPlatformTags(),
+		PlatformTags: readExtendedPlatformTags(logger, true),
 	}, nil
 }
 
@@ -701,7 +655,7 @@ func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger logging.Logge
 	}
 	defer utils.UncheckedErrorFunc(conn.Close)
 
-	agentInfo, err := getAgentInfo()
+	agentInfo, err := getAgentInfo(logger)
 	if err != nil {
 		return nil, shouldCheckCacheOnFailure, err
 	}

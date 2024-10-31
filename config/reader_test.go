@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -394,19 +393,4 @@ func TestReadTLSFromCache(t *testing.T) {
 		err = tls.readFromCache(robotPartID, logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
-}
-
-func TestReadExtendedPlatformTags(t *testing.T) {
-	if runtime.GOOS != "linux" {
-		t.Skip("skipping platform tags test on non-linux")
-	}
-	tags := readExtendedPlatformTags()
-	test.That(t, len(tags), test.ShouldBeGreaterThanOrEqualTo, 2)
-}
-
-func TestAppendPairIfNonempty(t *testing.T) {
-	arr := make([]string, 0, 1)
-	arr = appendPairIfNonempty(arr, "x", "y")
-	arr = appendPairIfNonempty(arr, "a", "")
-	test.That(t, arr, test.ShouldResemble, []string{"x:y"})
 }

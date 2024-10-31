@@ -180,7 +180,7 @@ func (sf *solverFrame) Name() string {
 // Transform returns the pose between the two frames of this solver for a given set of inputs.
 func (sf *solverFrame) Transform(inputs []frame.Input) (spatial.Pose, error) {
 	if len(inputs) != len(sf.DoF()) {
-		return nil, frame.NewIncorrectInputLengthError(len(inputs), len(sf.DoF()))
+		return nil, frame.NewIncorrectDoFError(len(inputs), len(sf.DoF()))
 	}
 	pf := frame.NewPoseInFrame(sf.solveFrameName, spatial.NewZeroPose())
 	solveName := sf.goalFrameName
@@ -197,10 +197,10 @@ func (sf *solverFrame) Transform(inputs []frame.Input) (spatial.Pose, error) {
 // Interpolate interpolates the given amount between the two sets of inputs.
 func (sf *solverFrame) Interpolate(from, to []frame.Input, by float64) ([]frame.Input, error) {
 	if len(from) != len(sf.DoF()) {
-		return nil, frame.NewIncorrectInputLengthError(len(from), len(sf.DoF()))
+		return nil, frame.NewIncorrectDoFError(len(from), len(sf.DoF()))
 	}
 	if len(to) != len(sf.DoF()) {
-		return nil, frame.NewIncorrectInputLengthError(len(to), len(sf.DoF()))
+		return nil, frame.NewIncorrectDoFError(len(to), len(sf.DoF()))
 	}
 	interp := make([]frame.Input, 0, len(to))
 	posIdx := 0
@@ -250,7 +250,7 @@ func (sf *solverFrame) ProtobufFromInput(input []frame.Input) *pb.JointPositions
 // geometries in the solverFrame in the reference frame of the World frame.
 func (sf *solverFrame) Geometries(inputs []frame.Input) (*frame.GeometriesInFrame, error) {
 	if len(inputs) != len(sf.DoF()) {
-		return nil, frame.NewIncorrectInputLengthError(len(inputs), len(sf.DoF()))
+		return nil, frame.NewIncorrectDoFError(len(inputs), len(sf.DoF()))
 	}
 	var errAll error
 	inputMap := sf.sliceToMap(inputs)
