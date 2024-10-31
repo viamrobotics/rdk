@@ -189,9 +189,13 @@ func parseFunctionSignature(
 	if funcDecl.Type.Params != nil {
 		for _, param := range funcDecl.Type.Params.List {
 			paramType := formatType(param.Type)
+
+			// Check if `paramType` is a type that is capitalized.
+			// If so, attribute the type to <resourceSubtype>.
 			switch {
 			case unicode.IsUpper(rune(paramType[0])):
 				paramType = fmt.Sprintf("%s.%s", resourceSubtype, paramType)
+			// IF `paramType` has a prefix, check if type is capitalized after prefix.
 			case strings.HasPrefix(paramType, "[]") && unicode.IsUpper(rune(paramType[2])):
 				paramType = fmt.Sprintf("[]%s.%s", resourceSubtype, paramType[2:])
 			case strings.HasPrefix(paramType, "chan ") && unicode.IsUpper(rune(paramType[5])):
