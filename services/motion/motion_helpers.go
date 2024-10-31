@@ -84,5 +84,5 @@ func MoveArm(ctx context.Context, logger logging.Logger, a arm.Arm, dst spatialm
 	if err != nil {
 		return err
 	}
-	return a.MoveThroughJointPositions(ctx, plan, arm.NewDefaultMoveOptions(), nil)
+	return a.MoveThroughJointPositions(ctx, plan, nil, nil)
 }

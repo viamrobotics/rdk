@@ -107,7 +107,7 @@ func (s *serviceServer) MoveToJointPositions(
 func (s *serviceServer) MoveThroughJointPositions(
 	ctx context.Context,
 	req *pb.MoveThroughJointPositionsRequest,
-) (*pb.MoveToJointPositionsResponse, error) {
+) (*pb.MoveThroughJointPositionsResponse, error) {
 	operation.CancelOtherWithLabel(ctx, req.Name)
 	arm, err := s.coll.Resource(req.Name)
 	if err != nil {
@@ -122,7 +122,7 @@ func (s *serviceServer) MoveThroughJointPositions(
 		allInputs = append(allInputs, inputs)
 	}
 	err = arm.MoveThroughJointPositions(ctx, allInputs, moveOptionsFromProtobuf(req.Options), req.Extra.AsMap())
-	return &pb.MoveToJointPositionsResponse{}, err
+	return &pb.MoveThroughJointPositionsResponse{}, err
 }
 
 // Stop stops the arm specified.

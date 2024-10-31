@@ -32,12 +32,14 @@ func TestClient(t *testing.T) {
 	var (
 		capArmPos      spatialmath.Pose
 		capArmJointPos []referenceframe.Input
+		moveOptions    arm.MoveOptions
 		extraOptions   map[string]interface{}
 	)
 
 	pos1 := spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})
 	jointPos1 := []referenceframe.Input{{1.}, {2.}, {3.}}
 	expectedGeometries := []spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{1, 2, 3}, "")}
+	expectedMoveOptions := arm.MoveOptions{MaxVel: 1, MaxAcc: 2}
 	injectArm := &inject.Arm{}
 	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		extraOptions = extra
@@ -52,9 +54,19 @@ func TestClient(t *testing.T) {
 		extraOptions = extra
 		return nil
 	}
-
 	injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp []referenceframe.Input, extra map[string]interface{}) error {
 		capArmJointPos = jp
+		extraOptions = extra
+		return nil
+	}
+	injectArm.MoveThroughJointPositionsFunc = func(
+		ctx context.Context,
+		positions [][]referenceframe.Input,
+		options *arm.MoveOptions,
+		extra map[string]interface{},
+	) error {
+		capArmJointPos = positions[len(positions)-1]
+		moveOptions = *options
 		extraOptions = extra
 		return nil
 	}
@@ -82,7 +94,6 @@ func TestClient(t *testing.T) {
 		capArmPos = ap
 		return nil
 	}
-
 	injectArm2.MoveToJointPositionsFunc = func(ctx context.Context, jp []referenceframe.Input, extra map[string]interface{}) error {
 		capArmJointPos = jp
 		return nil
@@ -94,11 +105,10 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 
-	armSvc, err := resource.NewAPIResourceCollection(
-		arm.API, map[resource.Name]arm.Arm{
-			arm.Named(testArmName):  injectArm,
-			arm.Named(testArmName2): injectArm2,
-		})
+	armSvc, err := resource.NewAPIResourceCollection(arm.API, map[resource.Name]arm.Arm{
+		arm.Named(testArmName):  injectArm,
+		arm.Named(testArmName2): injectArm2,
+	})
 	test.That(t, err, test.ShouldBeNil)
 	resourceAPI, ok, err := resource.LookupAPIRegistration[arm.Arm](arm.API)
 	test.That(t, err, test.ShouldBeNil)
@@ -163,6 +173,17 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArmJointPos, test.ShouldResemble, jointPos2)
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "MoveToJointPositions"})
+
+ 		err = arm1Client.MoveThroughJointPositions(
+			context.Background(),
+			[][]referenceframe.Input{jointPos2, jointPos1},
+			&expectedMoveOptions,
+			map[string]interface{}{"foo": "MoveThroughJointPositions"},
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capArmJointPos, test.ShouldResemble, jointPos1)
+		test.That(t, moveOptions, test.ShouldResemble, expectedMoveOptions)
+		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "MoveThroughJointPositions"})
 
 		err = arm1Client.Stop(context.Background(), map[string]interface{}{"foo": "Stop"})
 		test.That(t, err, test.ShouldNotBeNil)

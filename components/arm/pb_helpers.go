@@ -21,11 +21,11 @@ func moveOptionsFromProtobuf(protobuf *pb.MoveOptions) *MoveOptions {
 	}
 
 	var vel, acc float64
-	if protobuf.MaxVelDegsPerSec == nil {
-		vel = 0
+	if protobuf.MaxVelDegsPerSec != nil {
+		vel = *protobuf.MaxVelDegsPerSec
 	}
-	if protobuf.MaxAccDegsPerSec2 == nil {
-		acc = 0
+	if protobuf.MaxAccDegsPerSec2 != nil {
+		acc = *protobuf.MaxAccDegsPerSec2
 	}
 	return &MoveOptions{
 		MaxVel: utils.DegToRad(vel),
