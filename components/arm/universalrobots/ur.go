@@ -517,7 +517,7 @@ func (ua *urArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 
 // GoToInputs moves the UR arm to the Inputs specified.
 func (ua *urArm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
-	return ua.MoveThroughJointPositions(ctx, inputSteps, arm.NewDefaultMoveOptions(), nil)
+	return ua.MoveThroughJointPositions(ctx, inputSteps, nil, nil)
 }
 
 // Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their

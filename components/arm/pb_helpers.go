@@ -11,17 +11,8 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-const (
-	defaultMaxVelDegPerSec  = 60.
-	defaultMaxAccDegPerSec2 = 1.
-)
-
 type MoveOptions struct {
 	MaxVel, MaxAcc float64
-}
-
-func NewDefaultMoveOptions() *MoveOptions {
-	return moveOptionsFromProtobuf(nil)
 }
 
 func moveOptionsFromProtobuf(protobuf *pb.MoveOptions) *MoveOptions {
@@ -31,10 +22,10 @@ func moveOptionsFromProtobuf(protobuf *pb.MoveOptions) *MoveOptions {
 
 	var vel, acc float64
 	if protobuf.MaxVelDegsPerSec == nil {
-		vel = defaultMaxVelDegPerSec
+		vel = 0
 	}
 	if protobuf.MaxAccDegsPerSec2 == nil {
-		acc = defaultMaxAccDegPerSec2
+		acc = 0
 	}
 	return &MoveOptions{
 		MaxVel: utils.DegToRad(vel),

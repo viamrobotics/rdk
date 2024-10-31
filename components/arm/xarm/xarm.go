@@ -195,7 +195,7 @@ func (x *xArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error
 }
 
 func (x *xArm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
-	return x.MoveThroughJointPositions(ctx, inputSteps, arm.NewDefaultMoveOptions(), nil)
+	return x.MoveThroughJointPositions(ctx, inputSteps, nil, nil)
 }
 
 func (x *xArm) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {

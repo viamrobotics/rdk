@@ -403,7 +403,7 @@ func (e *eva) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 }
 
 func (e *eva) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
-	return e.MoveThroughJointPositions(ctx, inputSteps, arm.NewDefaultMoveOptions(), nil)
+	return e.MoveThroughJointPositions(ctx, inputSteps, nil, nil)
 }
 
 func (e *eva) Close(ctx context.Context) error {

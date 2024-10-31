@@ -229,7 +229,7 @@ func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 
 // GoToInputs moves the fake arm to the given inputs.
 func (a *Arm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
-	return a.MoveThroughJointPositions(ctx, inputSteps, arm.NewDefaultMoveOptions(), nil)
+	return a.MoveThroughJointPositions(ctx, inputSteps, nil, nil)
 }
 
 // Close does nothing.
