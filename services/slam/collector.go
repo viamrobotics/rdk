@@ -4,6 +4,7 @@ import (
 	"context"
 
 	pb "go.viam.com/api/service/slam/v1"
+	uprotoutils "go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"go.viam.com/rdk/data"
@@ -33,12 +34,22 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
+		var res data.CaptureResult
 		pose, err := slam.Position(ctx)
 		if err != nil {
-			return nil, data.FailedToReadErr(params.ComponentName, position.String(), err)
+			return res, data.FailedToReadErr(params.ComponentName, position.String(), err)
 		}
-		return &pb.GetPositionResponse{Pose: spatialmath.PoseToProtobuf(pose)}, nil
+		readings, err := uprotoutils.StructToStructPbIgnoreOmitEmpty(&pb.GetPositionResponse{Pose: spatialmath.PoseToProtobuf(pose)})
+		if err != nil {
+			return res, err
+		}
+		return data.CaptureResult{
+			Type: data.CaptureTypeTabular,
+			TabularData: data.TabularData{
+				Payload: readings,
+			},
+		}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }
@@ -49,19 +60,26 @@ func newPointCloudMapCollector(resource interface{}, params data.CollectorParams
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
+		var res data.CaptureResult
 		// edited maps do not need to be captured because they should not be modified
 		f, err := slam.PointCloudMap(ctx, false)
 		if err != nil {
-			return nil, data.FailedToReadErr(params.ComponentName, pointCloudMap.String(), err)
+			return res, data.FailedToReadErr(params.ComponentName, pointCloudMap.String(), err)
 		}
 
 		pcd, err := HelperConcatenateChunksToFull(f)
 		if err != nil {
-			return nil, data.FailedToReadErr(params.ComponentName, pointCloudMap.String(), err)
+			return res, data.FailedToReadErr(params.ComponentName, pointCloudMap.String(), err)
 		}
 
-		return pcd, nil
+		return data.CaptureResult{
+			Type: data.CaptureTypeBinary,
+			Binaries: []data.Binary{{
+				Payload:  pcd,
+				MimeType: data.MimeTypeApplicationPcd,
+			}},
+		}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }

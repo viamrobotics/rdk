@@ -5,33 +5,36 @@ import (
 	"testing"
 	"time"
 
-	clk "github.com/benbjohnson/clock"
+	"github.com/benbjohnson/clock"
+	datasyncpb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/data"
-	du "go.viam.com/rdk/data/testutils"
 	"go.viam.com/rdk/logging"
 	tu "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
 const (
-	captureInterval = time.Second
-	numRetries      = 5
+	captureInterval = time.Millisecond
 )
 
 var readingMap = map[string]any{"reading1": false, "reading2": "test"}
 
-func TestSensorCollector(t *testing.T) {
-	mockClock := clk.NewMock()
-	buf := tu.MockBuffer{}
+func TestCollectors(t *testing.T) {
+	start := time.Now()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	buf := tu.NewMockBuffer(ctx)
 	params := data.CollectorParams{
+		DataType:      data.CaptureTypeTabular,
 		ComponentName: "sensor",
 		Interval:      captureInterval,
 		Logger:        logging.NewTestLogger(t),
-		Target:        &buf,
-		Clock:         mockClock,
+		Target:        buf,
+		Clock:         clock.New(),
 	}
 
 	sens := newSensor()
@@ -40,13 +43,20 @@ func TestSensorCollector(t *testing.T) {
 
 	defer col.Close()
 	col.Collect()
-	mockClock.Add(captureInterval)
 
-	tu.Retry(func() bool {
-		return buf.Length() != 0
-	}, numRetries)
-	test.That(t, buf.Length(), test.ShouldBeGreaterThan, 0)
-	test.That(t, buf.Writes[0].GetStruct().AsMap(), test.ShouldResemble, du.GetExpectedReadingsStruct(readingMap).AsMap())
+	tu.CheckMockBufferWrites(t, ctx, start, buf.TabularWrites, &datasyncpb.SensorData{
+		Metadata: &datasyncpb.SensorMetadata{},
+		Data: &datasyncpb.SensorData_Struct{Struct: &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"readings": structpb.NewStructValue(&structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"reading1": structpb.NewBoolValue(false),
+						"reading2": structpb.NewStringValue("test"),
+					},
+				}),
+			},
+		}},
+	})
 }
 
 func newSensor() sensor.Sensor {

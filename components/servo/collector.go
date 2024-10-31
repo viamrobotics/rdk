@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	pb "go.viam.com/api/component/servo/v1"
+	uprotoutils "go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"go.viam.com/rdk/data"
@@ -31,18 +32,28 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
+		var res data.CaptureResult
 		pos, err := servo.Position(ctx, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
 			if errors.Is(err, data.ErrNoCaptureToStore) {
-				return nil, err
+				return res, err
 			}
-			return nil, data.FailedToReadErr(params.ComponentName, position.String(), err)
+			return res, data.FailedToReadErr(params.ComponentName, position.String(), err)
 		}
-		return pb.GetPositionResponse{
+		readings, err := uprotoutils.StructToStructPbIgnoreOmitEmpty(pb.GetPositionResponse{
 			PositionDeg: pos,
+		})
+		if err != nil {
+			return res, err
+		}
+		return data.CaptureResult{
+			Type: data.CaptureTypeTabular,
+			TabularData: data.TabularData{
+				Payload: readings,
+			},
 		}, nil
 	})
 	return data.NewCollector(cFunc, params)

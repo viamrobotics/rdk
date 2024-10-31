@@ -1,16 +1,18 @@
 package testutils
 
 import (
+	"context"
 	"errors"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"sync"
 	"testing"
+	"time"
 
 	v1 "go.viam.com/api/app/datasync/v1"
+	"go.viam.com/test"
 
 	"go.viam.com/rdk/utils"
 )
@@ -100,33 +102,83 @@ func BuildTempModuleWithFirstRun(tb testing.TB, modDir string) string {
 // MockBuffer is a buffered writer that just appends data to an array to read
 // without needing a real file system for testing.
 type MockBuffer struct {
-	lock   sync.Mutex
-	Writes []*v1.SensorData
+	ctx           context.Context
+	BinaryWrites  chan []*v1.SensorData
+	TabularWrites chan []*v1.SensorData
 }
 
-// Write adds a collected sensor reading to the array.
-func (m *MockBuffer) Write(item *v1.SensorData) error {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	m.Writes = append(m.Writes, item)
+// NewMockBuffer returns a mock buffer.
+func NewMockBuffer(ctx context.Context) *MockBuffer {
+	return &MockBuffer{
+		ctx:           ctx,
+		BinaryWrites:  make(chan []*v1.SensorData, 1),
+		TabularWrites: make(chan []*v1.SensorData, 1),
+	}
+}
+
+// CheckMockBufferWrites checks that the writes to either
+// MockBuffer.BinaryWrites or MockBuffer.TabularWrites
+// are match the expected data & metadata (timestamps).
+func CheckMockBufferWrites(
+	t *testing.T,
+	ctx context.Context,
+	start time.Time,
+	writes chan []*v1.SensorData,
+	expected *v1.SensorData,
+) {
+	select {
+	case <-ctx.Done():
+		t.Error("timeout")
+		t.FailNow()
+	case writes := <-writes:
+		end := time.Now()
+		test.That(t, len(writes), test.ShouldEqual, 1)
+		write := writes[0]
+		// nil out to make comparable
+		requestedAt := write.Metadata.TimeRequested.AsTime()
+		receivedAt := write.Metadata.TimeReceived.AsTime()
+		test.That(t, start, test.ShouldHappenOnOrBefore, requestedAt)
+		test.That(t, requestedAt, test.ShouldHappenOnOrBefore, receivedAt)
+		test.That(t, requestedAt, test.ShouldHappenOnOrBefore, receivedAt)
+		test.That(t, receivedAt, test.ShouldHappenOnOrBefore, end)
+		// nil out to make comparable
+		write.Metadata.TimeRequested = nil
+		write.Metadata.TimeReceived = nil
+		test.That(t, write, test.ShouldResemble, expected)
+	}
+}
+
+// WriteBinary adds binary readings to the array.
+func (m *MockBuffer) WriteBinary(items []*v1.SensorData) error {
+	if err := m.ctx.Err(); err != nil {
+		return err
+	}
+	select {
+	case m.BinaryWrites <- items:
+	case <-m.ctx.Done():
+	}
+	return nil
+}
+
+// WriteTabular adds tabular readings to the array.
+func (m *MockBuffer) WriteTabular(items []*v1.SensorData) error {
+	if err := m.ctx.Err(); err != nil {
+		return err
+	}
+
+	select {
+	case m.TabularWrites <- items:
+	case <-m.ctx.Done():
+	}
 	return nil
 }
 
 // Flush does nothing in this implementation as all data will be stored in memory.
 func (m *MockBuffer) Flush() error {
-	m.lock.Lock()
-	defer m.lock.Unlock()
 	return nil
 }
 
 // Path returns a hardcoded fake path.
 func (m *MockBuffer) Path() string {
 	return "/mock/dir"
-}
-
-// Length gets the length of the buffer without race conditions.
-func (m *MockBuffer) Length() int {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	return len(m.Writes)
 }

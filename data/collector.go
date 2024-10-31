@@ -5,7 +5,6 @@ package data
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"sync"
 	"time"
 
@@ -14,8 +13,9 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.opencensus.io/trace"
-	v1 "go.viam.com/api/app/datasync/v1"
-	pb "go.viam.com/api/common/v1"
+	dataPB "go.viam.com/api/app/data/v1"
+	datasyncPB "go.viam.com/api/app/datasync/v1"
+	camerapb "go.viam.com/api/component/camera/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc/codes"
@@ -25,6 +25,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/logging"
+	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
 
@@ -32,7 +33,264 @@ import (
 var sleepCaptureCutoff = 2 * time.Millisecond
 
 // CaptureFunc allows the creation of simple Capturers with anonymous functions.
-type CaptureFunc func(ctx context.Context, params map[string]*anypb.Any) (interface{}, error)
+type CaptureFunc func(ctx context.Context, params map[string]*anypb.Any) (CaptureResult, error)
+
+// Timestamps are the timestamps the data was captured.
+type Timestamps struct {
+	// TimeRequested represents the time the request for the data was started
+	TimeRequested time.Time
+	// TimeRequested represents the time the response for the request for the data
+	// was received
+	TimeReceived time.Time
+}
+
+// MimeType represents the mime type of the sensor data.
+type MimeType int
+
+// This follows the mime types supported in
+// https://github.com/viamrobotics/api/pull/571/files#diff-b77927298d8d5d5228beeea47bd0860d9b322b4f3ef45e129bc238ec17704826R75
+const (
+	// MimeTypeUnspecified means that the mime type was not specified.
+	MimeTypeUnspecified MimeType = iota
+	// MimeTypeImageJpeg means that the mime type is jpeg.
+	MimeTypeImageJpeg
+	// MimeTypeImagePng means that the mime type is png.
+	MimeTypeImagePng
+	// MimeTypeApplicationPcd means that the mime type is pcd.
+	MimeTypeApplicationPcd
+)
+
+// CaptureResult is the result of a capture function.
+type CaptureResult struct {
+	Timestamps
+	// Type represents the type of result (binary or tabular)
+	Type CaptureType
+	// TabularData contains the tabular data payload when Type == CaptureResultTypeTabular
+	TabularData TabularData
+	// Binaries contains binary data responses when Type == CaptureResultTypeBinary
+	Binaries []Binary
+}
+
+// Binary represents an element of a binary capture result response.
+type Binary struct {
+	// Payload contains the binary payload
+	Payload []byte
+	// MimeType  descibes the payload's MimeType
+	MimeType MimeType
+	// Annotations provide metadata about the Payload
+	Annotations Annotations
+}
+
+// ToProto converts MimeType to datasyncPB.
+func (mt MimeType) ToProto() datasyncPB.MimeType {
+	switch mt {
+	case MimeTypeUnspecified:
+		return datasyncPB.MimeType_MIME_TYPE_UNSPECIFIED
+	case MimeTypeImageJpeg:
+		return datasyncPB.MimeType_MIME_TYPE_IMAGE_JPEG
+	case MimeTypeImagePng:
+		return datasyncPB.MimeType_MIME_TYPE_IMAGE_PNG
+	case MimeTypeApplicationPcd:
+		return datasyncPB.MimeType_MIME_TYPE_APPLICATION_PCD
+	default:
+		return datasyncPB.MimeType_MIME_TYPE_UNSPECIFIED
+	}
+}
+
+// TabularData contains a tabular data payload.
+type TabularData struct {
+	Payload *structpb.Struct
+}
+
+// BoundingBox represents a labeled bounding box
+// with an optional confidence interval between 0 and 1.
+type BoundingBox struct {
+	Label          string
+	Confidence     *float64
+	XMinNormalized float64
+	YMinNormalized float64
+	XMaxNormalized float64
+	YMaxNormalized float64
+}
+
+// Classification represents a labeled classification
+// with an optional confidence interval between 0 and 1.
+type Classification struct {
+	Label      string
+	Confidence *float64
+}
+
+// Annotations represents ML classifications.
+type Annotations struct {
+	BoundingBoxes   []BoundingBox
+	Classifications []Classification
+}
+
+// ToProto converts Annotations to *dataPB.Annotations.
+func (mt Annotations) ToProto() *dataPB.Annotations {
+	var bboxes []*dataPB.BoundingBox
+	for _, bb := range mt.BoundingBoxes {
+		bboxes = append(bboxes, &dataPB.BoundingBox{
+			Label:          bb.Label,
+			Confidence:     bb.Confidence,
+			XMinNormalized: bb.XMinNormalized,
+			XMaxNormalized: bb.XMaxNormalized,
+			YMinNormalized: bb.YMinNormalized,
+			YMaxNormalized: bb.YMaxNormalized,
+		})
+	}
+
+	var classifications []*dataPB.Classification
+	for _, c := range mt.Classifications {
+		classifications = append(classifications, &dataPB.Classification{
+			Label:      c.Label,
+			Confidence: c.Confidence,
+		})
+	}
+
+	return &dataPB.Annotations{
+		Bboxes:          bboxes,
+		Classifications: classifications,
+	}
+}
+
+// Validate returns an error if the *CaptureResult is invalid.
+func (cr *CaptureResult) Validate() error {
+	var ts Timestamps
+	if cr.Timestamps.TimeRequested == ts.TimeRequested {
+		return errors.New("Timestamps.TimeRequested must be set")
+	}
+
+	if cr.Timestamps.TimeReceived == ts.TimeReceived {
+		return errors.New("Timestamps.TimeRequested must be set")
+	}
+
+	switch cr.Type {
+	case CaptureTypeTabular:
+		if len(cr.Binaries) > 0 {
+			return errors.New("tabular result can't contain binary data")
+		}
+		if cr.TabularData.Payload == nil {
+			return errors.New("tabular result must have non empty tabular data")
+		}
+		return nil
+	case CaptureTypeBinary:
+		if cr.TabularData.Payload != nil {
+			return errors.New("binary result can't contain tabular data")
+		}
+		if len(cr.Binaries) == 0 {
+			return errors.New("binary result must have non empty binary data")
+		}
+
+		for _, b := range cr.Binaries {
+			if len(b.Payload) == 0 {
+				return errors.New("binary results can't have empty binary payload")
+			}
+		}
+		return nil
+	case CaptureTypeUnspecified:
+		return fmt.Errorf("unknown CaptureResultType: %d", cr.Type)
+	default:
+		return fmt.Errorf("unknown CaptureResultType: %d", cr.Type)
+	}
+}
+
+// NewBinaryCaptureResult returns a binary capture result.
+func NewBinaryCaptureResult(ts Timestamps, binaries []Binary) CaptureResult {
+	return CaptureResult{
+		Timestamps: ts,
+		Type:       CaptureTypeBinary,
+		Binaries:   binaries,
+	}
+}
+
+// NewTabularCaptureResultReadings returns a tabular readings result.
+func NewTabularCaptureResultReadings(reqT time.Time, readings map[string]interface{}) (CaptureResult, error) {
+	var res CaptureResult
+	values, err := rprotoutils.ReadingGoToProto(readings)
+	if err != nil {
+		return res, err
+	}
+
+	return CaptureResult{
+		Timestamps: Timestamps{
+			TimeRequested: reqT,
+			TimeReceived:  time.Now(),
+		},
+		Type: CaptureTypeTabular,
+		TabularData: TabularData{
+			Payload: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"readings": structpb.NewStructValue(&structpb.Struct{Fields: values}),
+				},
+			},
+		},
+	}, nil
+}
+
+// NewTabularCaptureResult returns a tabular result.
+func NewTabularCaptureResult(reqT time.Time, i interface{}) (CaptureResult, error) {
+	var res CaptureResult
+	readings, err := protoutils.StructToStructPbIgnoreOmitEmpty(i)
+	if err != nil {
+		return res, err
+	}
+
+	return CaptureResult{
+		Timestamps: Timestamps{
+			TimeRequested: reqT,
+			TimeReceived:  time.Now(),
+		},
+		Type: CaptureTypeTabular,
+		TabularData: TabularData{
+			Payload: readings,
+		},
+	}, nil
+}
+
+// ToProto converts a CaptureResult into a []*datasyncPB.SensorData{}.
+func (cr CaptureResult) ToProto() []*datasyncPB.SensorData {
+	ts := cr.Timestamps
+	if td := cr.TabularData.Payload; td != nil {
+		return []*datasyncPB.SensorData{{
+			Metadata: &datasyncPB.SensorMetadata{
+				TimeRequested: timestamppb.New(ts.TimeRequested.UTC()),
+				TimeReceived:  timestamppb.New(ts.TimeReceived.UTC()),
+			},
+			Data: &datasyncPB.SensorData_Struct{
+				Struct: td,
+			},
+		}}
+	}
+
+	var sd []*datasyncPB.SensorData
+	for _, b := range cr.Binaries {
+		sd = append(sd, &datasyncPB.SensorData{
+			Metadata: &datasyncPB.SensorMetadata{
+				TimeRequested: timestamppb.New(ts.TimeRequested.UTC()),
+				TimeReceived:  timestamppb.New(ts.TimeReceived.UTC()),
+				MimeType:      b.MimeType.ToProto(),
+				Annotations:   b.Annotations.ToProto(),
+			},
+			Data: &datasyncPB.SensorData_Binary{
+				Binary: b.Payload,
+			},
+		})
+	}
+	return sd
+}
+
+// CameraFormatToMimeType converts a camera camerapb.Format into a MimeType.
+func CameraFormatToMimeType(f camerapb.Format) MimeType {
+	if f == camerapb.Format_FORMAT_JPEG {
+		return MimeTypeImageJpeg
+	}
+
+	if f == camerapb.Format_FORMAT_PNG {
+		return MimeTypeImagePng
+	}
+	return MimeTypeUnspecified
+}
 
 // FromDMContextKey is used to check whether the context is from data management.
 // Deprecated: use a camera.Extra with camera.NewContext instead.
@@ -58,9 +316,9 @@ type Collector interface {
 }
 
 type collector struct {
-	clock          clock.Clock
-	captureResults chan *v1.SensorData
+	clock clock.Clock
 
+	captureResults  chan CaptureResult
 	mongoCollection *mongo.Collection
 	componentName   string
 	componentType   string
@@ -78,6 +336,7 @@ type collector struct {
 	captureFunc      CaptureFunc
 	target           CaptureBufferedWriter
 	lastLoggedErrors map[string]int64
+	dataType         CaptureType
 }
 
 // Close closes the channels backing the Collector. It should always be called before disposing of a Collector to avoid
@@ -178,10 +437,27 @@ func (c *collector) tickerBasedCapture(started chan struct{}) {
 	}
 }
 
+func (c *collector) validateReadingType(t CaptureType) error {
+	switch c.dataType {
+	case CaptureTypeTabular:
+		if t != CaptureTypeTabular {
+			return fmt.Errorf("expected result of type CaptureTypeTabular, instead got CaptureResultType: %d", t)
+		}
+		return nil
+	case CaptureTypeBinary:
+		if t != CaptureTypeBinary {
+			return fmt.Errorf("expected result of type CaptureTypeBinary,instead got CaptureResultType: %d", t)
+		}
+		return nil
+	case CaptureTypeUnspecified:
+		return fmt.Errorf("unknown collector data type: %d", c.dataType)
+	default:
+		return fmt.Errorf("unknown collector data type: %d", c.dataType)
+	}
+}
+
 func (c *collector) getAndPushNextReading() {
-	timeRequested := timestamppb.New(c.clock.Now().UTC())
 	reading, err := c.captureFunc(c.cancelCtx, c.params)
-	timeReceived := timestamppb.New(c.clock.Now().UTC())
 
 	if c.cancelCtx.Err() != nil {
 		return
@@ -196,56 +472,22 @@ func (c *collector) getAndPushNextReading() {
 		return
 	}
 
-	var msg v1.SensorData
-	switch v := reading.(type) {
-	case []byte:
-		msg = v1.SensorData{
-			Metadata: &v1.SensorMetadata{
-				TimeRequested: timeRequested,
-				TimeReceived:  timeReceived,
-			},
-			Data: &v1.SensorData_Binary{
-				Binary: v,
-			},
-		}
-	default:
-		// If it's not bytes, it's a struct.
-		var pbReading *structpb.Struct
-		var err error
+	if err := c.validateReadingType(reading.Type); err != nil {
+		c.captureErrors <- errors.Wrap(err, "capture result invalid type")
+		return
+	}
 
-		if reflect.TypeOf(reading) == reflect.TypeOf(pb.GetReadingsResponse{}) {
-			// We special-case the GetReadingsResponse because it already contains
-			// structpb.Values in it, and the StructToStructPb logic does not handle
-			// that cleanly.
-			topLevelMap := make(map[string]*structpb.Value)
-			topLevelMap["readings"] = structpb.NewStructValue(
-				&structpb.Struct{Fields: reading.(pb.GetReadingsResponse).Readings},
-			)
-			pbReading = &structpb.Struct{Fields: topLevelMap}
-		} else {
-			pbReading, err = protoutils.StructToStructPbIgnoreOmitEmpty(reading)
-			if err != nil {
-				c.captureErrors <- errors.Wrap(err, "error while converting reading to structpb.Struct")
-				return
-			}
-		}
-
-		msg = v1.SensorData{
-			Metadata: &v1.SensorMetadata{
-				TimeRequested: timeRequested,
-				TimeReceived:  timeReceived,
-			},
-			Data: &v1.SensorData_Struct{
-				Struct: pbReading,
-			},
-		}
+	if err := reading.Validate(); err != nil {
+		c.captureErrors <- errors.Wrap(err, "capture result failed validation")
+		return
 	}
 
 	select {
-	// If c.captureResults is full, c.captureResults <- a can block indefinitely. This additional select block allows cancel to
+	// If c.captureResults is full, c.captureResults <- a can block indefinitely.
+	// This additional select block allows cancel to
 	// still work when this happens.
 	case <-c.cancelCtx.Done():
-	case c.captureResults <- &msg:
+	case c.captureResults <- reading:
 	}
 }
 
@@ -267,9 +509,10 @@ func NewCollector(captureFunc CaptureFunc, params CollectorParams) (Collector, e
 		componentName:    params.ComponentName,
 		componentType:    params.ComponentType,
 		methodName:       params.MethodName,
-		captureResults:   make(chan *v1.SensorData, params.QueueSize),
 		mongoCollection:  params.MongoCollection,
+		captureResults:   make(chan CaptureResult, params.QueueSize),
 		captureErrors:    make(chan error, params.QueueSize),
+		dataType:         params.DataType,
 		interval:         params.Interval,
 		params:           params.MethodParams,
 		logger:           params.Logger,
@@ -292,8 +535,24 @@ func (c *collector) writeCaptureResults() {
 		case <-c.cancelCtx.Done():
 			return
 		case msg := <-c.captureResults:
-			if err := c.target.Write(msg); err != nil {
-				c.logger.Error(errors.Wrap(err, fmt.Sprintf("failed to write to collector %s", c.target.Path())).Error())
+			proto := msg.ToProto()
+
+			switch msg.Type {
+			case CaptureTypeTabular:
+				if err := c.target.WriteTabular(proto); err != nil {
+					c.logger.Error(errors.Wrap(err, fmt.Sprintf("failed to write tabular data to prog file %s", c.target.Path())).Error())
+					return
+				}
+			case CaptureTypeBinary:
+				if err := c.target.WriteBinary(proto); err != nil {
+					c.logger.Error(errors.Wrap(err, fmt.Sprintf("failed to write binary data to prog file %s", c.target.Path())).Error())
+					return
+				}
+			case CaptureTypeUnspecified:
+				c.logger.Error(fmt.Sprintf("collector returned invalid result type: %d", msg.Type))
+				return
+			default:
+				c.logger.Error(fmt.Sprintf("collector returned invalid result type: %d", msg.Type))
 				return
 			}
 
@@ -302,8 +561,9 @@ func (c *collector) writeCaptureResults() {
 	}
 }
 
-// TabularData is a denormalized sensor reading.
-type TabularData struct {
+// TabularDataBson is a denormalized sensor reading that can be
+// encoded into BSON.
+type TabularDataBson struct {
 	TimeRequested time.Time `bson:"time_requested"`
 	TimeReceived  time.Time `bson:"time_received"`
 	ComponentName string    `bson:"component_name"`
@@ -315,21 +575,16 @@ type TabularData struct {
 // maybeWriteToMongo will write to the mongoCollection
 // if it is non-nil and the msg is tabular data
 // logs errors on failure.
-func (c *collector) maybeWriteToMongo(msg *v1.SensorData) {
+func (c *collector) maybeWriteToMongo(msg CaptureResult) {
 	if c.mongoCollection == nil {
 		return
 	}
 
-	// DATA-3338:
-	// currently vision.CaptureAllFromCamera and camera.GetImages are stored in .capture files as VERY LARGE
-	// tabular sensor data
-	// That is a mistake which we are rectifying but in the meantime we don't want data captured from those methods to be synced
-	// to mongo
-	if getDataType(c.methodName) == v1.DataType_DATA_TYPE_BINARY_SENSOR || c.methodName == captureAllFromCamera {
+	if msg.Type != CaptureTypeTabular {
 		return
 	}
 
-	s := msg.GetStruct()
+	s := msg.TabularData.Payload
 	if s == nil {
 		return
 	}
@@ -340,9 +595,9 @@ func (c *collector) maybeWriteToMongo(msg *v1.SensorData) {
 		return
 	}
 
-	td := TabularData{
-		TimeRequested: msg.Metadata.TimeRequested.AsTime(),
-		TimeReceived:  msg.Metadata.TimeReceived.AsTime(),
+	td := TabularDataBson{
+		TimeRequested: msg.TimeRequested,
+		TimeReceived:  msg.TimeReceived,
 		ComponentName: c.componentName,
 		ComponentType: c.componentType,
 		MethodName:    c.methodName,
