@@ -3,10 +3,8 @@ package modmanager
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sync/atomic"
 	"testing"
@@ -1575,13 +1573,6 @@ func TestFirstRun(t *testing.T) {
 		}
 		mgr := setupModManager(t, ctx, parentAddr, logger, opts)
 		err := mgr.FirstRun(ctx, modCfg)
-		test.That(t, err, test.ShouldNotBeNil)
-
-		var errExit *exec.ExitError
-		test.That(t, errors.As(err, &errExit), test.ShouldBeTrue)
-		// This error message might be different on a non-unix platform.
-		// Feel free to adjust this assertion if it ever fails on a
-		// newly-tested platform (e.g. Windows).
-		test.That(t, errExit.String(), test.ShouldContainSubstring, "signal: killed")
+		test.That(t, err, test.ShouldResemble, context.DeadlineExceeded)
 	})
 }
