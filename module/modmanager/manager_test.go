@@ -3,8 +3,10 @@ package modmanager
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sync/atomic"
 	"testing"
@@ -1562,17 +1564,34 @@ func TestFirstRun(t *testing.T) {
 		ctx := context.Background()
 		logger := logging.NewTestLogger(t)
 		exePath := rtestutils.BuildTempModuleWithFirstRun(t, "module/testmodule")
-		modCfg := config.Module{
-			Name:            "test-module",
-			ExePath:         exePath,
-			FirstRunTimeout: rutils.Duration(1 * time.Nanosecond),
-		}
 		parentAddr := setupSocketWithRobot(t)
 		opts := modmanageroptions.Options{
 			UntrustedEnv: false,
 		}
 		mgr := setupModManager(t, ctx, parentAddr, logger, opts)
+
+		// set a timeout that is slow enough to allow a process to start
+		// but expires before the process finishes. this should result
+		// in the process getting killed.
+		modCfg := config.Module{
+			Name:            "test-module",
+			ExePath:         exePath,
+			FirstRunTimeout: rutils.Duration(1 * time.Millisecond),
+		}
 		err := mgr.FirstRun(ctx, modCfg)
+		test.That(t, err, test.ShouldNotBeNil)
+
+		var errExit *exec.ExitError
+		test.That(t, errors.As(err, &errExit), test.ShouldBeTrue)
+		// This error message might be different on a non-unix platform.
+		// Feel free to adjust this assertion if it ever fails on a
+		// newly-tested platform (e.g. Windows).
+		test.That(t, errExit.String(), test.ShouldContainSubstring, "signal: killed")
+
+		// set a timeout that expires before the process can even start.
+		// this should result in a [context.DeadlineExceeded] error.
+		modCfg.FirstRunTimeout = rutils.Duration(1 * time.Nanosecond)
+		err = mgr.FirstRun(ctx, modCfg)
 		test.That(t, err, test.ShouldResemble, context.DeadlineExceeded)
 	})
 }
