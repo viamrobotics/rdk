@@ -1,7 +1,6 @@
 package data
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"os"
@@ -13,9 +12,7 @@ import (
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
-	"google.golang.org/protobuf/types/known/anypb"
 
-	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
 
@@ -42,20 +39,18 @@ const (
 // length delimited protobuf messages, where the first message is the CaptureMetadata for the file, and ensuing
 // messages contain the captured data.
 type CaptureFile struct {
-	path     string
-	lock     sync.Mutex
-	file     *os.File
-	writer   *bufio.Writer
-	size     int64
-	metadata *v1.DataCaptureMetadata
-
+	Metadata          *v1.DataCaptureMetadata
+	path              string
+	size              int64
 	initialReadOffset int64
-	readOffset        int64
-	writeOffset       int64
+
+	lock       sync.Mutex
+	file       *os.File
+	readOffset int64
 }
 
-// ReadCaptureFile creates a File struct from a passed os.File previously constructed using NewFile.
-func ReadCaptureFile(f *os.File) (*CaptureFile, error) {
+// NewCaptureFile creates a File struct from a passed os.File previously constructed using NewFile.
+func NewCaptureFile(f *os.File) (*CaptureFile, error) {
 	if !IsDataCaptureFile(f) {
 		return nil, errors.Errorf("%s is not a data capture file", f.Name())
 	}
@@ -73,56 +68,24 @@ func ReadCaptureFile(f *os.File) (*CaptureFile, error) {
 	ret := CaptureFile{
 		path:              f.Name(),
 		file:              f,
-		writer:            bufio.NewWriter(f),
 		size:              finfo.Size(),
-		metadata:          md,
+		Metadata:          md,
 		initialReadOffset: int64(initOffset),
 		readOffset:        int64(initOffset),
-		writeOffset:       int64(initOffset),
 	}
 
 	return &ret, nil
 }
 
-// NewCaptureFile creates a new *CaptureFile with the specified md in the specified directory.
-func NewCaptureFile(dir string, md *v1.DataCaptureMetadata) (*CaptureFile, error) {
-	fileName := CaptureFilePathWithReplacedReservedChars(
-		filepath.Join(dir, getFileTimestampName()) + InProgressCaptureFileExt)
-	//nolint:gosec
-	f, err := os.OpenFile(fileName, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0o600)
-	if err != nil {
-		return nil, err
-	}
-
-	// Then write first metadata message to the file.
-	n, err := pbutil.WriteDelimited(f, md)
-	if err != nil {
-		return nil, err
-	}
-	return &CaptureFile{
-		path:              f.Name(),
-		writer:            bufio.NewWriter(f),
-		file:              f,
-		size:              int64(n),
-		initialReadOffset: int64(n),
-		readOffset:        int64(n),
-		writeOffset:       int64(n),
-	}, nil
-}
-
 // ReadMetadata reads and returns the metadata in f.
 func (f *CaptureFile) ReadMetadata() *v1.DataCaptureMetadata {
-	return f.metadata
+	return f.Metadata
 }
 
 // ReadNext returns the next SensorData reading.
 func (f *CaptureFile) ReadNext() (*v1.SensorData, error) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
-
-	if err := f.writer.Flush(); err != nil {
-		return nil, err
-	}
 
 	if _, err := f.file.Seek(f.readOffset, io.SeekStart); err != nil {
 		return nil, err
@@ -137,30 +100,6 @@ func (f *CaptureFile) ReadNext() (*v1.SensorData, error) {
 	return &r, nil
 }
 
-// WriteNext writes the next SensorData reading.
-func (f *CaptureFile) WriteNext(data *v1.SensorData) error {
-	f.lock.Lock()
-	defer f.lock.Unlock()
-
-	if _, err := f.file.Seek(f.writeOffset, 0); err != nil {
-		return err
-	}
-	n, err := pbutil.WriteDelimited(f.writer, data)
-	if err != nil {
-		return err
-	}
-	f.size += int64(n)
-	f.writeOffset += int64(n)
-	return nil
-}
-
-// Flush flushes any buffered writes to disk.
-func (f *CaptureFile) Flush() error {
-	f.lock.Lock()
-	defer f.lock.Unlock()
-	return f.writer.Flush()
-}
-
 // Reset resets the read pointer of f.
 func (f *CaptureFile) Reset() {
 	f.lock.Lock()
@@ -170,8 +109,6 @@ func (f *CaptureFile) Reset() {
 
 // Size returns the size of the file.
 func (f *CaptureFile) Size() int64 {
-	f.lock.Lock()
-	defer f.lock.Unlock()
 	return f.size
 }
 
@@ -182,18 +119,6 @@ func (f *CaptureFile) GetPath() string {
 
 // Close closes the file.
 func (f *CaptureFile) Close() error {
-	f.lock.Lock()
-	defer f.lock.Unlock()
-	if err := f.writer.Flush(); err != nil {
-		return err
-	}
-
-	// Rename file to indicate that it is done being written.
-	withoutExt := strings.TrimSuffix(f.file.Name(), filepath.Ext(f.file.Name()))
-	newName := withoutExt + CompletedCaptureFileExt
-	if err := os.Rename(f.file.Name(), newName); err != nil {
-		return err
-	}
 	return f.file.Close()
 }
 
@@ -207,47 +132,9 @@ func (f *CaptureFile) Delete() error {
 	return os.Remove(f.GetPath())
 }
 
-// BuildCaptureMetadata builds a DataCaptureMetadata object and returns error if
-// additionalParams fails to convert to anypb map.
-func BuildCaptureMetadata(
-	compAPI resource.API,
-	compName string,
-	method string,
-	additionalParams map[string]string,
-	methodParams map[string]*anypb.Any,
-	tags []string,
-) *v1.DataCaptureMetadata {
-	dataType := getDataType(method)
-	return &v1.DataCaptureMetadata{
-		ComponentType:    compAPI.String(),
-		ComponentName:    compName,
-		MethodName:       method,
-		Type:             dataType,
-		MethodParameters: methodParams,
-		FileExtension:    GetFileExt(dataType, method, additionalParams),
-		Tags:             tags,
-	}
-}
-
 // IsDataCaptureFile returns whether or not f is a data capture file.
 func IsDataCaptureFile(f *os.File) bool {
-	return filepath.Ext(f.Name()) == CompletedCaptureFileExt || filepath.Ext(f.Name()) == InProgressCaptureFileExt
-}
-
-// Create a filename based on the current time.
-func getFileTimestampName() string {
-	// RFC3339Nano is a standard time format e.g. 2006-01-02T15:04:05Z07:00.
-	return time.Now().Format(time.RFC3339Nano)
-}
-
-// TODO DATA-246: Implement this in some more robust, programmatic way.
-func getDataType(methodName string) v1.DataType {
-	switch methodName {
-	case nextPointCloud, readImage, pointCloudMap, GetImages:
-		return v1.DataType_DATA_TYPE_BINARY_SENSOR
-	default:
-		return v1.DataType_DATA_TYPE_TABULAR_SENSOR
-	}
+	return filepath.Ext(f.Name()) == CompletedCaptureFileExt
 }
 
 // GetFileExt gets the file extension for a capture file.
@@ -283,6 +170,28 @@ func GetFileExt(dataType v1.DataType, methodName string, parameters map[string]s
 	return defaultFileExt
 }
 
+// FilePathWithReplacedReservedChars returns the filepath with substitutions
+// for reserved characters.
+func FilePathWithReplacedReservedChars(filepath string) string {
+	return strings.ReplaceAll(filepath, filePathReservedChars, "_")
+}
+
+// Create a filename based on the current time.
+func getFileTimestampName() string {
+	// RFC3339Nano is a standard time format e.g. 2006-01-02T15:04:05Z07:00.
+	return time.Now().Format(time.RFC3339Nano)
+}
+
+// TODO DATA-246: Implement this in some more robust, programmatic way.
+func getDataType(methodName string) v1.DataType {
+	switch methodName {
+	case nextPointCloud, readImage, pointCloudMap, GetImages:
+		return v1.DataType_DATA_TYPE_BINARY_SENSOR
+	default:
+		return v1.DataType_DATA_TYPE_TABULAR_SENSOR
+	}
+}
+
 // SensorDataFromCaptureFilePath returns all readings in the file at filePath.
 // NOTE: (Nick S) At time of writing this is only used in tests.
 func SensorDataFromCaptureFilePath(filePath string) ([]*v1.SensorData, error) {
@@ -291,7 +200,7 @@ func SensorDataFromCaptureFilePath(filePath string) ([]*v1.SensorData, error) {
 	if err != nil {
 		return nil, err
 	}
-	dcFile, err := ReadCaptureFile(f)
+	dcFile, err := NewCaptureFile(f)
 	if err != nil {
 		return nil, err
 	}
@@ -316,10 +225,4 @@ func SensorDataFromCaptureFile(f *CaptureFile) ([]*v1.SensorData, error) {
 		ret = append(ret, next)
 	}
 	return ret, nil
-}
-
-// CaptureFilePathWithReplacedReservedChars returns the filepath with substitutions
-// for reserved characters.
-func CaptureFilePathWithReplacedReservedChars(filepath string) string {
-	return strings.ReplaceAll(filepath, filePathReservedChars, "_")
 }
