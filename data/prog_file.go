@@ -35,9 +35,8 @@ func BuildCaptureMetadata(
 	}
 }
 
-// TODO Data-343: Reorganize this into a more standard interface/package, and add tests.
-
-// ProgFile is the data structure containing data captured by collectors. It is backed by a file on disk containing
+// ProgFile is the data structure containing data captured by collectors.
+// It is backed by a file on disk containing
 // length delimited protobuf messages, where the first message is the CaptureMetadata for the file, and ensuing
 // messages contain the captured data.
 type ProgFile struct {
