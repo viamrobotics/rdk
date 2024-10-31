@@ -1567,7 +1567,7 @@ func TestFirstRun(t *testing.T) {
 		modCfg := config.Module{
 			Name:            "test-module",
 			ExePath:         exePath,
-			FirstRunTimeout: rutils.Duration(1 * time.Millisecond),
+			FirstRunTimeout: rutils.Duration(1 * time.Nanosecond),
 		}
 		parentAddr := setupSocketWithRobot(t)
 		opts := modmanageroptions.Options{
