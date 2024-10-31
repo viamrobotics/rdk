@@ -333,19 +333,73 @@ func (server *Server) GetStreamOptions(
 	if err != nil {
 		return nil, err
 	}
+
+	// If the camera properties do not have intrinsic parameters, we need to sample a frame to get the
+	// width and height.
+	var width, height int
 	camProps, err := cam.Properties(ctx)
-	if err != nil {
-		return nil, err
+	if err != nil || camProps.IntrinsicParams == nil || camProps.IntrinsicParams.Width == 0 || camProps.IntrinsicParams.Height == 0 {
+		server.logger.Debug("IntrinsicParams not available or width/height not found, sampling frame size")
+		server.logger.Info("IntrinsicParams not available or width/height not found, sampling frame size")
+		width, height, err = server.sampleFrameSize(ctx, cam)
+		if err != nil {
+			return nil, fmt.Errorf("failed to sample frame size: %w", err)
+		}
+	} else {
+		server.logger.Info("IntrinsicParams width and height found")
+		width, height = camProps.IntrinsicParams.Width, camProps.IntrinsicParams.Height
 	}
-	// If the camera properties don't have intrinsic parameters, we can't determine the available
-	// resolutions.
-	if camProps.IntrinsicParams == nil {
-		return nil, fmt.Errorf("IntrinsicParams not available in camera %s properties", req.Name)
-	}
-	height, width := camProps.IntrinsicParams.Height, camProps.IntrinsicParams.Width
+	// var width, height int
+	// if camProps.IntrinsicParams.Width != 0 && camProps.IntrinsicParams.Height != 0 {
+	//     width, height = camProps.IntrinsicParams.Width, camProps.IntrinsicParams.Height
+	// } else {
+	//     server.logger.Debug("IntrinsicParams width and height not found, sampling frame size")
+	//     width, height, err = server.sampleFrameSize(ctx, cam)
+	//     if err != nil {
+	//         return nil, fmt.Errorf("failed to sample frame size: %w", err)
+	//     }
+	// }
+
+	// height, width := camProps.IntrinsicParams.Height, camProps.IntrinsicParams.Width
+	// get properties of video source
+	// vs := server.videoSources[req.Name]
+	// if vs == nil {
+	// 	return nil, fmt.Errorf("video source %s not found", req.Name)
+	// }
+	// props, err := vs.MediaProperties(ctx)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// var width, height int
+	// props, err := vs.MediaProperties(ctx)
+	// if err != nil {
+	// 	server.logger.Info("could not get media properties")
+	// 	return nil, err
+	// }
+	// width, height = props.Width, props.Height
+	// if provider, ok := vs.(gostream.MediaPropertyProvider[prop.Video]); ok {
+	// 	props, err := provider.MediaProperties(ctx)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	// Type assertion to prop.Video
+	// 	// props, ok := propsAny.(prop.Video)
+	// 	// if !ok {
+	// 	// 	return nil, fmt.Errorf("expected prop.Video, got %T", propsAny)
+	// 	// }
+	// 	// if props == nil {
+	// 	// 	return nil, fmt.Errorf("no properties found for media %s", req.Name)
+	// 	// }
+	// 	width, height = props.Width, props.Height
+	// } else {
+	// 	server.logger.Debug("no properties found for media; will assume empty")
+	// 	return nil, fmt.Errorf("no properties found for media %s", req.Name)
+	// }
+	server.logger.Infof("Original resolution here: %dx%d", width, height)
 	scaledResolutions := server.generateResolutions(width, height)
 	resolutions := make([]*streampb.Resolution, 0, 5)
 	for _, res := range scaledResolutions {
+		// log the scaled resolutions
 		resolutions = append(resolutions, &streampb.Resolution{
 			Height: int32(res[1]),
 			Width:  int32(res[0]),
@@ -359,6 +413,7 @@ func (server *Server) GetStreamOptions(
 // generateResolutions takes the original width and height of an image and returns
 // a list of 5 smaller width/height options that maintain the same aspect ratio.
 func (server *Server) generateResolutions(width, height int) [5][2]int {
+	server.logger.Infof("Original resolution: %dx%d", width, height)
 	var resolutions [5][2]int
 	for i := 1; i <= 5; i++ {
 		// We use integer division to get the scaled width and height. Fractions are truncated
@@ -370,6 +425,21 @@ func (server *Server) generateResolutions(width, height int) [5][2]int {
 		server.logger.Infof("Scaled resolution %d: %dx%d", i, scaledWidth, scaledHeight)
 	}
 	return resolutions
+}
+
+// sampleFrameSize takes in a camera.Camera and pulls a freame with Stream Next and returns the width and height
+func (server *Server) sampleFrameSize(ctx context.Context, cam camera.Camera) (int, int, error) {
+	stream, err := cam.Stream(ctx)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer stream.Close(ctx)
+	frame, release, err := stream.Next(ctx)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer release()
+	return frame.Bounds().Dx(), frame.Bounds().Dy(), nil
 }
 
 // AddNewStreams adds new video and audio streams to the server using the updated set of video and

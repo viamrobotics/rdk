@@ -48,6 +48,7 @@ func streamMediaSource[T, U any](
 	logger logging.Logger,
 ) error {
 	streamLoop := func() error {
+		logger.Info("hit stream loop")
 		readyCh, readyCtx := stream.StreamingReady()
 		select {
 		case <-ctx.Done():
@@ -60,9 +61,13 @@ func streamMediaSource[T, U any](
 			props, err = provider.MediaProperties(ctx)
 			if err != nil {
 				logger.Debugw("no properties found for media; will assume empty", "error", err)
+				logger.Info("no properties found for media; will assume empty")
 			}
+			// print props width height
+			logger.Debugw("properties found for media", "props", props)
 		} else {
 			logger.Debug("no properties found for media; will assume empty")
+			logger.Info("no properties found for media; will assume empty")
 		}
 		input, err := inputChan(props)
 		if err != nil {
