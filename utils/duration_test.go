@@ -5,8 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"go.viam.com/rdk/utils"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/utils"
 )
 
 func FuzzDurationJSONRoundtrip(f *testing.F) {
