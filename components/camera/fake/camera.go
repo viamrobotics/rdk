@@ -38,8 +38,9 @@ var (
 )
 
 const (
-	initialWidth  = 1280
-	initialHeight = 720
+	initialWidth      = 1280
+	initialHeight     = 720
+	defaultIntrinsics = true
 )
 
 func init() {
@@ -73,9 +74,13 @@ func NewCamera(
 	if height > 0 {
 		height = newConf.Height
 	}
+	intrinsics := defaultIntrinsics
+	if newConf.Intrinsics != nil {
+		intrinsics = *newConf.Intrinsics
+	}
 	var resModel *transform.PinholeCameraModel
-	if newConf.Intrinsics {
-		resModel = fakeModel(newConf.Width, newConf.Height)
+	if intrinsics {
+		resModel = fakeModel(width, height)
 	} else {
 		resModel = nil
 	}
@@ -116,11 +121,11 @@ func NewCamera(
 
 // Config are the attributes of the fake camera config.
 type Config struct {
-	Width          int  `json:"width,omitempty"`
-	Height         int  `json:"height,omitempty"`
-	Animated       bool `json:"animated,omitempty"`
-	RTPPassthrough bool `json:"rtp_passthrough,omitempty"`
-	Intrinsics     bool `json:"intrinsics,omitempty"`
+	Width          int   `json:"width,omitempty"`
+	Height         int   `json:"height,omitempty"`
+	Animated       bool  `json:"animated,omitempty"`
+	RTPPassthrough bool  `json:"rtp_passthrough,omitempty"`
+	Intrinsics     *bool `json:"intrinsics,omitempty"`
 }
 
 // Validate checks that the config attributes are valid for a fake camera.
