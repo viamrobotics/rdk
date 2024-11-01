@@ -10,6 +10,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
+        language: ["python", "go"]
         resource:
           [
             { subtype: "arm", type: "component" },
@@ -46,7 +47,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Run module generator
-        run: go run ./cli/viam --debug module generate --resource-subtype "${{ matrix.resource.subtype }}" --resource-type "${{ matrix.resource.type }}"
+        run: go run ./cli/viam --debug module generate --resource-subtype "${{ matrix.resource.subtype }}" --resource-type "${{ matrix.resource.type }}" --language "${{ matrix.language }}"
 
       - name: Run module
         run: |
