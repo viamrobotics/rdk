@@ -1220,22 +1220,39 @@ func TestConfigRobotRevision(t *testing.T) {
 	test.That(t, cfg.Revision, test.ShouldEqual, "rev1")
 }
 
-func TestConfigMarshalUnMarshal(t *testing.T) {
-	c := config.Config{
-		MaintenanceConfig: &config.MaintenanceConfig{
-			SensorName:            "SensorName",
-			MaintenanceAllowedKey: "Key",
-		},
+func TestConfigJSONMarshalRoundtrip(t *testing.T) {
+	type testcase struct {
+		name     string
+		c        config.Config
+		expected config.Config
 	}
-	expectedVal := config.Config{
-		MaintenanceConfig: &config.MaintenanceConfig{
-			SensorName:            "SensorName",
-			MaintenanceAllowedKey: "Key",
-		},
-	}
-	val, err := c.MarshalJSON()
-	test.That(t, err, test.ShouldBeNil)
 
-	c.UnmarshalJSON(val)
-	test.That(t, c, test.ShouldResemble, expectedVal)
+	for _, tc := range []testcase{
+		{
+			name: "maintenance config",
+			c: config.Config{
+				MaintenanceConfig: &config.MaintenanceConfig{
+					SensorName:            "SensorName",
+					MaintenanceAllowedKey: "Key",
+				},
+			},
+			expected: config.Config{
+				MaintenanceConfig: &config.MaintenanceConfig{
+					SensorName:            "SensorName",
+					MaintenanceAllowedKey: "Key",
+				},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := tc.c
+
+			data, err := c.MarshalJSON()
+			test.That(t, err, test.ShouldBeNil)
+
+			err = c.UnmarshalJSON(data)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, c, test.ShouldResemble, tc.expected)
+		})
+	}
 }
