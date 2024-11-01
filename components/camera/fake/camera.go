@@ -38,9 +38,9 @@ var (
 )
 
 const (
-	initialWidth      = 1280
-	initialHeight     = 720
-	defaultIntrinsics = true
+	initialWidth  = 1280
+	initialHeight = 720
+	defaultModel  = true
 )
 
 func init() {
@@ -74,12 +74,12 @@ func NewCamera(
 	if height > 0 {
 		height = newConf.Height
 	}
-	intrinsics := defaultIntrinsics
-	if newConf.Intrinsics != nil {
-		intrinsics = *newConf.Intrinsics
+	model := defaultModel
+	if newConf.Model != nil {
+		model = *newConf.Model
 	}
 	var resModel *transform.PinholeCameraModel
-	if intrinsics {
+	if model {
 		resModel = fakeModel(width, height)
 	} else {
 		resModel = nil
@@ -125,7 +125,7 @@ type Config struct {
 	Height         int   `json:"height,omitempty"`
 	Animated       bool  `json:"animated,omitempty"`
 	RTPPassthrough bool  `json:"rtp_passthrough,omitempty"`
-	Intrinsics     *bool `json:"intrinsics,omitempty"`
+	Model          *bool `json:"model,omitempty"`
 }
 
 // Validate checks that the config attributes are valid for a fake camera.
@@ -168,12 +168,8 @@ var fakeDistortion = &transform.BrownConrady{
 
 func fakeModel(width, height int) *transform.PinholeCameraModel {
 	intrinsics := *fakeIntrinsics
-	if width > 0 {
-		intrinsics.Width = width
-	}
-	if height > 0 {
-		intrinsics.Height = height
-	}
+	intrinsics.Width = width
+	intrinsics.Height = height
 	return &transform.PinholeCameraModel{
 		PinholeCameraIntrinsics: &intrinsics,
 		Distortion:              fakeDistortion,
