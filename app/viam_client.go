@@ -12,7 +12,7 @@ type viamClient struct {
 	conn rpc.ClientConn
 }
 
-func createViamClient(ctx context.Context, viamBaseURL string, viamAPIKey string, viamAPIKeyID string, logger logging.Logger) (*viamClient, error) {
+func createViamClient(ctx context.Context, viamBaseURL string, opts rpc.DialOption, logger logging.Logger) (*viamClient, error) {
 	if viamBaseURL == "" {
 		viamBaseURL = "https://app.viam.com"
 	}
@@ -20,14 +20,6 @@ func createViamClient(ctx context.Context, viamBaseURL string, viamAPIKey string
 	if err != nil {
 		return nil, err
 	}
-
-	opts := rpc.WithEntityCredentials(
-		viamAPIKeyID,
-		rpc.Credentials{
-			Type: rpc.CredentialsTypeAPIKey,
-			Payload: viamAPIKey,
-		},
-	)
 
 	conn, err := rpc.DialDirectGRPC(ctx, viamURL.Host, logger, opts)
 	if err != nil {
