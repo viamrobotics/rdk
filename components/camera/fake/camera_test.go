@@ -162,7 +162,7 @@ func TestRTPPassthrough(t *testing.T) {
 
 func TestPropertiesToggle(t *testing.T) {
 	// Test fake camera without setting model
-	// IntrinsicParams and DistortionParams should be nil from Properties
+	// IntrinsicParams and DistortionParams Properties should be nil
 	ctx := context.Background()
 	cfg1 := resource.Config{
 		Name:                "test1",
@@ -181,7 +181,7 @@ func TestPropertiesToggle(t *testing.T) {
 	test.That(t, cam1.Close(ctx), test.ShouldBeNil)
 
 	// Test fake camera with model set to true
-	// IntrinsicParams and DistortionParams should be set from Properties
+	// IntrinsicParams and DistortionParams Properties should be set
 	cfg2 := resource.Config{
 		Name:  "test2",
 		API:   camera.API,
@@ -199,6 +199,4 @@ func TestPropertiesToggle(t *testing.T) {
 	test.That(t, propsRes2.IntrinsicParams, test.ShouldNotBeNil)
 	test.That(t, propsRes2.DistortionParams, test.ShouldNotBeNil)
 	test.That(t, cam2.Close(ctx), test.ShouldBeNil)
-
-	// Test fake camera with model set to nil
 }
