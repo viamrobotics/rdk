@@ -1499,7 +1499,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:  moduleFlagLanguage,
-							Usage: "resource type to use in module",
+							Usage: "language to use for module",
 							Value: "python",
 						},
 						&cli.StringFlag{
