@@ -35,6 +35,7 @@ import (
 	"go.viam.com/rdk/services/shell"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/utils"
 )
 
 func TestConfigRobot(t *testing.T) {
@@ -1240,6 +1241,27 @@ func TestConfigJSONMarshalRoundtrip(t *testing.T) {
 				MaintenanceConfig: &config.MaintenanceConfig{
 					SensorName:            "SensorName",
 					MaintenanceAllowedKey: "Key",
+				},
+			},
+		},
+		{
+			name: "module",
+			c: config.Config{
+				Modules: []config.Module{
+					{
+						Name:            "ModuleName",
+						ExePath:         "ExecutablePath",
+						FirstRunTimeout: utils.Duration(5 * time.Minute),
+					},
+				},
+			},
+			expected: config.Config{
+				Modules: []config.Module{
+					{
+						Name:            "ModuleName",
+						ExePath:         "ExecutablePath",
+						FirstRunTimeout: utils.Duration(5 * time.Minute),
+					},
 				},
 			},
 		},
