@@ -160,5 +160,47 @@ func TestRTPPassthrough(t *testing.T) {
 	})
 }
 
-// func TestIntricsicParams(t *testing.T) {
-// }
+func TestPropertiesToggle(t *testing.T) {
+	// Test fake camera with model set to false
+	// IntrinsicParams and DistortionParams should be nil from Properties
+	ctx := context.Background()
+	modleFalse := false
+	cfg1 := resource.Config{
+		Name:  "test1",
+		API:   camera.API,
+		Model: Model,
+		ConvertedAttributes: &Config{
+			Model: &modleFalse,
+		},
+	}
+	cam1, err := NewCamera(ctx, nil, cfg1, logging.NewTestLogger(t))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, cam1, test.ShouldNotBeNil)
+	propsRes, err := cam1.Properties(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, propsRes, test.ShouldNotBeNil)
+	test.That(t, propsRes.IntrinsicParams, test.ShouldBeNil)
+	test.That(t, propsRes.DistortionParams, test.ShouldBeNil)
+	test.That(t, cam1.Close(ctx), test.ShouldBeNil)
+
+	// Test fake camera with model set to true
+	// IntrinsicParams and DistortionParams should not be nil from Properties
+	modelTrue := true
+	cfg2 := resource.Config{
+		Name:  "test2",
+		API:   camera.API,
+		Model: Model,
+		ConvertedAttributes: &Config{
+			Model: &modelTrue,
+		},
+	}
+	cam2, err := NewCamera(ctx, nil, cfg2, logging.NewTestLogger(t))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, cam2, test.ShouldNotBeNil)
+	propsRes, err = cam2.Properties(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, propsRes, test.ShouldNotBeNil)
+	test.That(t, propsRes.IntrinsicParams, test.ShouldNotBeNil)
+	test.That(t, propsRes.DistortionParams, test.ShouldNotBeNil)
+	test.That(t, cam2.Close(ctx), test.ShouldBeNil)
+}
