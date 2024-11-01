@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	packagespb "go.viam.com/api/app/packages/v1"
 	pb "go.viam.com/api/app/v1"
+	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
@@ -330,7 +331,7 @@ func ModuleConfigFromProto(proto *pb.ModuleConfig) (*Module, error) {
 		ModuleID:        proto.GetModuleId(),
 		Environment:     proto.GetEnv(),
 		Status:          status,
-		FirstRunTimeout: rutils.Duration(proto.GetFirstRunTimeout().AsDuration()),
+		FirstRunTimeout: utils.Duration(proto.GetFirstRunTimeout().AsDuration()),
 	}
 	return &module, nil
 }

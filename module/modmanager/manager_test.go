@@ -1576,7 +1576,7 @@ func TestFirstRun(t *testing.T) {
 		modCfg := config.Module{
 			Name:            "test-module",
 			ExePath:         exePath,
-			FirstRunTimeout: rutils.Duration(1 * time.Millisecond),
+			FirstRunTimeout: utils.Duration(1 * time.Millisecond),
 		}
 		err := mgr.FirstRun(ctx, modCfg)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -1590,7 +1590,7 @@ func TestFirstRun(t *testing.T) {
 
 		// set a timeout that expires before the process can even start.
 		// this should result in a [context.DeadlineExceeded] error.
-		modCfg.FirstRunTimeout = rutils.Duration(1 * time.Nanosecond)
+		modCfg.FirstRunTimeout = utils.Duration(1 * time.Nanosecond)
 		err = mgr.FirstRun(ctx, modCfg)
 		test.That(t, err, test.ShouldResemble, context.DeadlineExceeded)
 	})
