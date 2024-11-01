@@ -188,7 +188,7 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, joints []referenceframe.
 	return nil
 }
 
-// GoToInputs moves the fake arm through the given inputs.
+// MoveThroughJointPositions moves the fake arm through the given inputs.
 func (a *Arm) MoveThroughJointPositions(
 	ctx context.Context,
 	positions [][]referenceframe.Input,

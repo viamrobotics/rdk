@@ -135,6 +135,7 @@ func (wrapper *Arm) MoveToJointPositions(ctx context.Context, joints []reference
 	return wrapper.actual.MoveToJointPositions(ctx, joints, extra)
 }
 
+// MoveThroughJointPositions moves the arm sequentially through the given joints.
 func (wrapper *Arm) MoveThroughJointPositions(
 	ctx context.Context,
 	positions [][]referenceframe.Input,

@@ -6,7 +6,6 @@ package eva
 import (
 	"bytes"
 	"context"
-
 	// for embedding model file.
 	_ "embed"
 	"encoding/json"

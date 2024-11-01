@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// MoveOptions define parameters to be obeyed during arm movement.
 type MoveOptions struct {
 	MaxVel, MaxAcc float64
 }

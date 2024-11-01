@@ -67,7 +67,7 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, positions []referencefra
 	return a.MoveToJointPositionsFunc(ctx, positions, extra)
 }
 
-// MoveToJointPositions calls the injected MoveToJointPositions or the real version.
+// MoveThroughJointPositions calls the injected MoveThroughJointPositions or the real version.
 func (a *Arm) MoveThroughJointPositions(
 	ctx context.Context,
 	positions [][]referenceframe.Input,

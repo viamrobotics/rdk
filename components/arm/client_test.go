@@ -174,7 +174,7 @@ func TestClient(t *testing.T) {
 		test.That(t, capArmJointPos, test.ShouldResemble, jointPos2)
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "MoveToJointPositions"})
 
- 		err = arm1Client.MoveThroughJointPositions(
+		err = arm1Client.MoveThroughJointPositions(
 			context.Background(),
 			[][]referenceframe.Input{jointPos2, jointPos1},
 			&expectedMoveOptions,
