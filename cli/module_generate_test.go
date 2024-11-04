@@ -13,11 +13,12 @@ import (
 	"go.viam.com/test"
 	"google.golang.org/grpc"
 
+	"go.viam.com/rdk/cli/module_generate/common"
 	"go.viam.com/rdk/testutils/inject"
 )
 
 func TestGenerateModuleAction(t *testing.T) {
-	expectedPythonTestModule := moduleInputs{
+	testModule := common.ModuleInputs{
 		ModuleName:       "my-module",
 		IsPublic:         false,
 		Namespace:        "my-org",
@@ -43,20 +44,20 @@ func TestGenerateModuleAction(t *testing.T) {
 
 	testDir := t.TempDir()
 	testChdir(t, testDir)
-	modulePath := filepath.Join(testDir, expectedPythonTestModule.ModuleName)
+	modulePath := filepath.Join(testDir, testModule.ModuleName)
 
 	t.Run("test setting up module directory", func(t *testing.T) {
-		_, err := os.Stat(filepath.Join(testDir, expectedPythonTestModule.ModuleName))
+		_, err := os.Stat(filepath.Join(testDir, testModule.ModuleName))
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, setupDirectories(cCtx, expectedPythonTestModule.ModuleName), test.ShouldBeNil)
-		_, err = os.Stat(filepath.Join(testDir, expectedPythonTestModule.ModuleName))
+		test.That(t, setupDirectories(cCtx, testModule.ModuleName), test.ShouldBeNil)
+		_, err = os.Stat(filepath.Join(testDir, testModule.ModuleName))
 		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("test render common files", func(t *testing.T) {
-		setupDirectories(cCtx, expectedPythonTestModule.ModuleName)
+		setupDirectories(cCtx, testModule.ModuleName)
 
-		err := renderCommonFiles(cCtx, expectedPythonTestModule)
+		err := renderCommonFiles(cCtx, testModule)
 		test.That(t, err, test.ShouldBeNil)
 		_, err = os.Stat(filepath.Join(modulePath, ".viam-gen-info"))
 		test.That(t, err, test.ShouldBeNil)
@@ -66,10 +67,10 @@ func TestGenerateModuleAction(t *testing.T) {
 		defer viamGenInfo.Close()
 		bytes, err := io.ReadAll(viamGenInfo)
 		test.That(t, err, test.ShouldBeNil)
-		var module moduleInputs
+		var module common.ModuleInputs
 		err = json.Unmarshal(bytes, &module)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, module.ModuleName, test.ShouldEqual, expectedPythonTestModule.ModuleName)
+		test.That(t, module.ModuleName, test.ShouldEqual, testModule.ModuleName)
 
 		// cloud build enabled
 		_, err = os.Stat(filepath.Join(modulePath, ".github"))
@@ -81,8 +82,8 @@ func TestGenerateModuleAction(t *testing.T) {
 	})
 
 	t.Run("test copy python template", func(t *testing.T) {
-		setupDirectories(cCtx, expectedPythonTestModule.ModuleName)
-		err := copyLanguageTemplate(cCtx, "python", expectedPythonTestModule.ModuleName)
+		setupDirectories(cCtx, testModule.ModuleName)
+		err := copyLanguageTemplate(cCtx, "python", testModule.ModuleName)
 		test.That(t, err, test.ShouldBeNil)
 		_, err = os.Stat(filepath.Join(modulePath, "src"))
 		test.That(t, err, test.ShouldBeNil)
@@ -97,12 +98,12 @@ func TestGenerateModuleAction(t *testing.T) {
 	})
 
 	t.Run("test render template", func(t *testing.T) {
-		setupDirectories(cCtx, expectedPythonTestModule.ModuleName)
+		setupDirectories(cCtx, testModule.ModuleName)
 		_ = os.Mkdir(filepath.Join(modulePath, "src"), 0o755)
 		_, err := os.Stat(filepath.Join(modulePath, "src"))
 		test.That(t, err, test.ShouldBeNil)
 
-		err = renderTemplate(cCtx, expectedPythonTestModule)
+		err = renderTemplate(cCtx, testModule)
 		test.That(t, err, test.ShouldBeNil)
 		_, err = os.Stat(filepath.Join(modulePath, "requirements.txt"))
 		test.That(t, err, test.ShouldBeNil)
@@ -111,28 +112,38 @@ func TestGenerateModuleAction(t *testing.T) {
 	})
 
 	t.Run("test generate stubs", func(t *testing.T) {
-		setupDirectories(cCtx, expectedPythonTestModule.ModuleName)
+		setupDirectories(cCtx, testModule.ModuleName)
 		_ = os.Mkdir(filepath.Join(modulePath, "src"), 0o755)
 		_, err := os.Stat(filepath.Join(modulePath, "src"))
 		test.That(t, err, test.ShouldBeNil)
 
-		err = generateStubs(cCtx, expectedPythonTestModule)
+		err = generateStubs(cCtx, testModule)
+		test.That(t, err, test.ShouldBeNil)
+	})
+	t.Run("test generate go stubs", func(t *testing.T) {
+		testModule.Language = "go"
+		testModule.SDKVersion = "0.44.0"
+		setupDirectories(cCtx, testModule.ModuleName)
+		_ = os.Mkdir(filepath.Join(modulePath, "models"), 0o755)
+
+		err := generateGolangStubs(testModule)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("test generate python stubs", func(t *testing.T) {
-		setupDirectories(cCtx, expectedPythonTestModule.ModuleName)
+		testModule.Language = "python"
+		setupDirectories(cCtx, testModule.ModuleName)
 		_ = os.Mkdir(filepath.Join(modulePath, "src"), 0o755)
 		_, err := os.Stat(filepath.Join(modulePath, "src"))
 		test.That(t, err, test.ShouldBeNil)
 
-		err = generatePythonStubs(expectedPythonTestModule)
+		err = generatePythonStubs(testModule)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("test generate cloud build", func(t *testing.T) {
-		setupDirectories(cCtx, expectedPythonTestModule.ModuleName)
-		err := generateCloudBuild(cCtx, expectedPythonTestModule)
+		setupDirectories(cCtx, testModule.ModuleName)
+		err := generateCloudBuild(cCtx, testModule)
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = os.Stat(filepath.Join(modulePath, "run.sh"))
@@ -147,15 +158,15 @@ func TestGenerateModuleAction(t *testing.T) {
 				return &v1.StartBuildResponse{BuildId: "xyz123"}, nil
 			},
 		}, nil, map[string]any{}, "token")
-		err := createModuleAndManifest(cCtx, ac, expectedPythonTestModule)
+		err := createModuleAndManifest(cCtx, ac, testModule)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("test render manifest", func(t *testing.T) {
-		setupDirectories(cCtx, expectedPythonTestModule.ModuleName)
-		err := renderManifest(cCtx, "moduleId", expectedPythonTestModule)
+		setupDirectories(cCtx, testModule.ModuleName)
+		err := renderManifest(cCtx, "moduleId", testModule)
 		test.That(t, err, test.ShouldBeNil)
-		_, err = os.Stat(filepath.Join(testDir, expectedPythonTestModule.ModuleName, "meta.json"))
+		_, err = os.Stat(filepath.Join(testDir, testModule.ModuleName, "meta.json"))
 		test.That(t, err, test.ShouldBeNil)
 	})
 }

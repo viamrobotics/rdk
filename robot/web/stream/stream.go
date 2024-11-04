@@ -14,8 +14,8 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
-// StreamVideoSource starts a stream from a video source with a throttled error handler.
-func StreamVideoSource(
+// streamVideoSource starts a stream from a video source with a throttled error handler.
+func streamVideoSource(
 	ctx context.Context,
 	source gostream.VideoSource,
 	stream gostream.Stream,
@@ -25,8 +25,8 @@ func StreamVideoSource(
 	return gostream.StreamVideoSourceWithErrorHandler(ctx, source, stream, backoffOpts.getErrorThrottledHandler(logger, stream.Name()), logger)
 }
 
-// StreamAudioSource starts a stream from an audio source with a throttled error handler.
-func StreamAudioSource(
+// streamAudioSource starts a stream from an audio source with a throttled error handler.
+func streamAudioSource(
 	ctx context.Context,
 	source gostream.AudioSource,
 	stream gostream.Stream,

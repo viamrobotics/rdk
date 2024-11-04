@@ -1,5 +1,3 @@
-//go:build !no_tflite
-
 package transformpipeline
 
 import (
@@ -18,7 +16,6 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
-	"go.viam.com/rdk/services/mlmodel"
 	_ "go.viam.com/rdk/services/mlmodel/register"
 	"go.viam.com/rdk/services/vision"
 	_ "go.viam.com/rdk/services/vision/register"
@@ -64,27 +61,6 @@ func buildRobotWithFakeCamera(logger logging.Logger) (robot.Robot, error) {
 		},
 	}
 	cfg.Services = append(cfg.Services, colorSrv1)
-	tfliteSrv2 := resource.Config{
-		Name:  "detector_tflite",
-		API:   mlmodel.API,
-		Model: resource.DefaultModelFamily.WithModel("tflite_cpu"),
-		Attributes: rutils.AttributeMap{
-			"model_path":  artifact.MustPath("vision/tflite/effdet0.tflite"),
-			"label_path":  artifact.MustPath("vision/tflite/effdetlabels.txt"),
-			"num_threads": 1,
-		},
-	}
-	cfg.Services = append(cfg.Services, tfliteSrv2)
-	visionSrv2 := resource.Config{
-		Name:  "vision_detector",
-		API:   vision.API,
-		Model: resource.DefaultModelFamily.WithModel("mlmodel"),
-		Attributes: rutils.AttributeMap{
-			"mlmodel_name": "detector_tflite",
-		},
-		DependsOn: []string{"detector_tflite"},
-	}
-	cfg.Services = append(cfg.Services, visionSrv2)
 	cameraComp := resource.Config{
 		Name:  "fake_cam",
 		API:   camera.API,
@@ -115,26 +91,6 @@ func buildRobotWithFakeCamera(logger logging.Logger) (robot.Robot, error) {
 		DependsOn: []string{"fake_cam"},
 	}
 	cfg.Components = append(cfg.Components, detectorComp)
-	// create 2nd fake detector camera
-	tfliteComp := resource.Config{
-		Name:  "tflite_detect",
-		API:   camera.API,
-		Model: resource.DefaultModelFamily.WithModel("transform"),
-		Attributes: rutils.AttributeMap{
-			"source": "fake_cam",
-			"pipeline": []rutils.AttributeMap{
-				{
-					"type": "detections",
-					"attributes": rutils.AttributeMap{
-						"detector_name":        "vision_detector",
-						"confidence_threshold": 0.35,
-					},
-				},
-			},
-		},
-		DependsOn: []string{"fake_cam"},
-	}
-	cfg.Components = append(cfg.Components, tfliteComp)
 	if err := cfg.Ensure(false, logger); err != nil {
 		return nil, err
 	}
@@ -173,29 +129,6 @@ func TestColorDetectionSource(t *testing.T) {
 	test.That(t, detector.Close(context.Background()), test.ShouldBeNil)
 }
 
-func TestTFLiteDetectionSource(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	r, err := buildRobotWithFakeCamera(logger)
-	defer func() {
-		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-	}()
-	test.That(t, err, test.ShouldBeNil)
-
-	detector, err := camera.FromRobot(r, "tflite_detect")
-	test.That(t, err, test.ShouldBeNil)
-	defer detector.Close(ctx)
-
-	resImg, _, err := detector.GetImage(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	ovImg := rimage.ConvertImage(resImg)
-	test.That(t, ovImg.GetXY(624, 402), test.ShouldResemble, rimage.Red)
-	test.That(t, ovImg.GetXY(815, 647), test.ShouldResemble, rimage.Red)
-	test.That(t, detector.Close(context.Background()), test.ShouldBeNil)
-}
-
 func BenchmarkColorDetectionSource(b *testing.B) {
 	logger := logging.NewTestLogger(b)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -207,28 +140,6 @@ func BenchmarkColorDetectionSource(b *testing.B) {
 	}()
 	test.That(b, err, test.ShouldBeNil)
 	detector, err := camera.FromRobot(r, "color_detect")
-	test.That(b, err, test.ShouldBeNil)
-	defer detector.Close(ctx)
-
-	b.ResetTimer()
-	// begin benchmarking
-	for i := 0; i < b.N; i++ {
-		_, _, _ = detector.GetImage(ctx)
-	}
-	test.That(b, detector.Close(context.Background()), test.ShouldBeNil)
-}
-
-func BenchmarkTFLiteDetectionSource(b *testing.B) {
-	logger := logging.NewTestLogger(b)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	r, err := buildRobotWithFakeCamera(logger)
-	defer func() {
-		test.That(b, r.Close(context.Background()), test.ShouldBeNil)
-	}()
-	test.That(b, err, test.ShouldBeNil)
-	detector, err := camera.FromRobot(r, "tflite_detect")
 	test.That(b, err, test.ShouldBeNil)
 	defer detector.Close(ctx)
 
