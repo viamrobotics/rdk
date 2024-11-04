@@ -415,7 +415,7 @@ func (server *Server) sampleFrameSize(ctx context.Context, cam camera.Camera) (i
 				break
 			}
 			server.logger.Warnf("failed to get frame, retrying... (%d/5)", i+1)
-			time.Sleep(50 * time.Millisecond)
+			time.Sleep(retryDelay)
 		}
 	}
 	if release != nil {
