@@ -295,31 +295,57 @@ func TestGetStreamOptions(t *testing.T) {
 	test.That(t, streamOptionsResp, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
+	// Sanity check that we get valid stream options for both properties and sampling.
 	streamOptionsResp, err = livestreamClient.GetStreamOptions(ctx, &streampb.GetStreamOptionsRequest{
 		Name: "fake-cam-1-0",
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, streamOptionsResp, test.ShouldNotBeNil)
 	test.That(t, len(streamOptionsResp.Resolutions), test.ShouldEqual, 5)
-
-	expectedResolutions := []struct {
-		Width  int32
-		Height int32
-	}{
-		{Width: 1920, Height: 1080},
-		{Width: 960, Height: 540},
-		{Width: 640, Height: 360},
-		{Width: 480, Height: 270},
-		{Width: 384, Height: 216},
-	}
 	streamOptionsResp, err = livestreamClient.GetStreamOptions(ctx, &streampb.GetStreamOptionsRequest{
-		Name: "fake-cam-2-0",
+		Name: "fake-cam-1-1",
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, streamOptionsResp, test.ShouldNotBeNil)
 	test.That(t, len(streamOptionsResp.Resolutions), test.ShouldEqual, 5)
-	for i, expected := range expectedResolutions {
-		test.That(t, streamOptionsResp.Resolutions[i].Width, test.ShouldEqual, expected.Width)
-		test.That(t, streamOptionsResp.Resolutions[i].Height, test.ShouldEqual, expected.Height)
+
+	testGetStreamOptions := func(name string, expectedResolutions []struct{ Width, Height int32 }) {
+		streamOptionsResp, err := livestreamClient.GetStreamOptions(ctx, &streampb.GetStreamOptionsRequest{
+			Name: name,
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, streamOptionsResp, test.ShouldNotBeNil)
+		test.That(t, len(streamOptionsResp.Resolutions), test.ShouldEqual, len(expectedResolutions))
+		for i, expected := range expectedResolutions {
+			test.That(t, streamOptionsResp.Resolutions[i].Width, test.ShouldEqual, expected.Width)
+			test.That(t, streamOptionsResp.Resolutions[i].Height, test.ShouldEqual, expected.Height)
+		}
 	}
+
+	// Define expected resolutions based on camera resolutions
+	resolutionsMap := map[string][]struct{ Width, Height int32 }{
+		"fake-cam-0-0": generateExpectedResolutions(640, 480),
+		"fake-cam-0-1": generateExpectedResolutions(640, 480),
+		"fake-cam-1-0": generateExpectedResolutions(1280, 720),
+		"fake-cam-1-1": generateExpectedResolutions(1280, 720),
+		"fake-cam-2-0": generateExpectedResolutions(1920, 1080),
+		"fake-cam-2-1": generateExpectedResolutions(1920, 1080),
+	}
+
+	// Test each camera
+	for name, expectedResolutions := range resolutionsMap {
+		testGetStreamOptions(name, expectedResolutions)
+	}
+}
+
+func generateExpectedResolutions(width, height int32) []struct{ Width, Height int32 } {
+	resolutions := []struct{ Width, Height int32 }{
+		{Width: width, Height: height},
+	}
+	for i := 0; i < 4; i++ {
+		width = width / 2
+		height = height / 2
+		resolutions = append(resolutions, struct{ Width, Height int32 }{Width: width, Height: height})
+	}
+	return resolutions
 }
