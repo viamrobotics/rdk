@@ -16,6 +16,7 @@ import (
 var (
 	cudaRegex            = regexp.MustCompile(`Cuda compilation tools, release (\d+)\.`)
 	aptCacheVersionRegex = regexp.MustCompile(`\nVersion: (\d+)\D`)
+	piModelRegex         = regexp.MustCompile(`Raspberry Pi (\d+)`)
 	savedPlatformTags    []string
 )
 
@@ -43,6 +44,21 @@ func readGPUTags(logger logging.Logger, tags []string) []string {
 				tags = append(tags, "jetpack:"+string(match[1]))
 			}
 		}
+	}
+	return tags
+}
+
+// helper to add raspberry pi tags to the list.
+func readPiTags(logger logging.Logger, tags []string) []string {
+	body, err := os.ReadFile("/proc/device-tree/model")
+	if err != nil {
+		if !os.IsNotExist(err) {
+			logger.Errorw("can't open /proc/device-tree/model, modules may not load correctly", "err", err)
+		}
+		return tags
+	}
+	if match := piModelRegex.FindSubmatch(body); match != nil {
+		tags = append(tags, "pi:"+string(match[1]))
 	}
 	return tags
 }
@@ -98,6 +114,7 @@ func readExtendedPlatformTags(logger logging.Logger, cache bool) []string {
 	if runtime.GOOS == "linux" {
 		tags = readLinuxTags(logger, tags)
 		tags = readGPUTags(logger, tags)
+		tags = readPiTags(logger, tags)
 	}
 	if cache {
 		savedPlatformTags = tags

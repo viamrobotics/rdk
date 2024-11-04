@@ -25,7 +25,7 @@ func TestAppendPairIfNonempty(t *testing.T) {
 	test.That(t, arr, test.ShouldResemble, []string{"x:y"})
 }
 
-func TestCudaRegexes(t *testing.T) {
+func TestRegexes(t *testing.T) {
 	t.Run("cuda", func(t *testing.T) {
 		output := `nvcc: NVIDIA (R) Cuda compiler driver
 Copyright (c) 2005-2021 NVIDIA Corporation
@@ -65,5 +65,11 @@ Section: metapackages`
 		match = aptCacheVersionRegex.FindSubmatch([]byte(jp6))
 		test.That(t, match, test.ShouldNotBeNil)
 		test.That(t, string(match[1]), test.ShouldResemble, "6")
+	})
+
+	t.Run("pi", func(t *testing.T) {
+		match := piModelRegex.FindStringSubmatch("Raspberry Pi 5 Model B Rev 1.0")
+		test.That(t, match, test.ShouldNotBeNil)
+		test.That(t, match[1], test.ShouldResemble, "5")
 	})
 }
