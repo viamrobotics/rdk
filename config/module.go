@@ -42,7 +42,7 @@ type Module struct {
 	Environment map[string]string `json:"env,omitempty"`
 
 	// FirstRunTimeout is the timeout duration for the first run script.
-	// Setting this field to a zero value (e.g. 0 * [time.Second]) will 
+	// Setting this field to a zero value (e.g. 0 * [time.Second]) will
 	// set the first run timeout to the default value of 1 hour, which
 	// is equivalent to leaving this field unset. If you wish to set an
 	// immediate timeout you can set this field to a negative value.
