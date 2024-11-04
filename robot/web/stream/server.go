@@ -3,6 +3,7 @@ package webstream
 import (
 	"context"
 	"fmt"
+	"image"
 	"runtime"
 	"sync"
 	"time"
@@ -26,7 +27,10 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-var monitorCameraInterval = time.Second
+const (
+	frameTimeout          = 200 * time.Millisecond
+	monitorCameraInterval = time.Second
+)
 
 type peerState struct {
 	streamState *state.StreamState
@@ -384,24 +388,38 @@ func (server *Server) generateResolutions(width, height int32) []Resolution {
 	return resolutions
 }
 
-// sampleFrameSize takes in a camera.Camera, starts a stream, pulls a frame
-// using Stream.Next, and returns the width and height of the frame.
+// sampleFrameSize takes in a camera.Camera, starts a stream, attempts to
+// pull a frame using Stream.Next, and returns the width and height.
 func (server *Server) sampleFrameSize(ctx context.Context, cam camera.Camera) (int, int, error) {
 	server.logger.Debug("sampling frame size")
 	stream, err := cam.Stream(ctx)
 	if err != nil {
 		return 0, 0, err
 	}
-	frame, release, err := stream.Next(ctx)
-	if err != nil {
-		return 0, 0, err
-	}
 	defer func() {
-		release()
 		if cerr := stream.Close(ctx); cerr != nil {
 			server.logger.Error("failed to close stream:", cerr)
 		}
 	}()
+	// Attempt to get a frame from the stream with a maximum of 3 retries.
+	// Each attempt waits for a maximum of 200ms before timing out.
+	var frame image.Image
+	var release func()
+	for i := 0; i < 3; i++ {
+		timeoutCtx, cancel := context.WithTimeout(ctx, frameTimeout)
+		defer cancel()
+		frame, release, err = stream.Next(timeoutCtx)
+		if err == nil {
+			break
+		}
+		server.logger.Warnf("failed to get frame, retrying... (%d/3)", i+1)
+	}
+	if release != nil {
+		defer release()
+	}
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to get frame after 3 attempts: %w", err)
+	}
 	return frame.Bounds().Dx(), frame.Bounds().Dy(), nil
 }
 
