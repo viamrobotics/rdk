@@ -29,6 +29,7 @@ import (
 
 const (
 	monitorCameraInterval = time.Second
+	retryDelay            = 50 * time.Millisecond
 )
 
 type peerState struct {
@@ -401,14 +402,21 @@ func (server *Server) sampleFrameSize(ctx context.Context, cam camera.Camera) (i
 		}
 	}()
 	// Attempt to get a frame from the stream with a maximum of 5 retries.
+	// This is useful if cameras have a warm-up period before they can start streaming.
 	var frame image.Image
 	var release func()
 	for i := 0; i < 5; i++ {
-		frame, release, err = stream.Next(ctx)
-		if err == nil {
-			break
+		select {
+		case <-ctx.Done():
+			return 0, 0, ctx.Err()
+		default:
+			frame, release, err = stream.Next(ctx)
+			if err == nil {
+				break
+			}
+			server.logger.Warnf("failed to get frame, retrying... (%d/5)", i+1)
+			time.Sleep(50 * time.Millisecond)
 		}
-		server.logger.Warnf("failed to get frame, retrying... (%d/5)", i+1)
 	}
 	if release != nil {
 		defer release()
