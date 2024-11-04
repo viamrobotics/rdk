@@ -21,15 +21,26 @@ var (
 
 type MockConn struct{}
 
-func (m *MockConn) Invoke(ctx context.Context, method string, args any, reply any, opts ...grpc.CallOption) error {
+func (m *MockConn) Invoke(ctx context.Context, method string, args, reply any, opts ...grpc.CallOption) error {
 	return nil
 }
-func (m *MockConn) NewStream(ctx context.Context, desc *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+
+func (m *MockConn) NewStream(
+	ctx context.Context,
+	desc *grpc.StreamDesc,
+	method string,
+	opts ...grpc.CallOption,
+) (grpc.ClientStream, error) {
 	return nil, nil
 }
 func (m *MockConn) PeerConn() *webrtc.PeerConnection { return nil }
 func (m *MockConn) Close() error                     { return nil }
-func mockDialDirectGRPC(ctx context.Context, address string, logger utils.ZapCompatibleLogger, opts ...rpc.DialOption) (rpc.ClientConn, error) {
+func mockDialDirectGRPC(
+	ctx context.Context,
+	address string,
+	logger utils.ZapCompatibleLogger,
+	opts ...rpc.DialOption,
+) (rpc.ClientConn, error) {
 	return &MockConn{}, nil
 }
 

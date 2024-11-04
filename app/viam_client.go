@@ -55,6 +55,7 @@ func CreateViamClient(ctx context.Context, baseURL, apiKey, apiKeyID string, log
 	return &ViamClient{conn: conn}, nil
 }
 
+// Close closes the gRPC connection.
 func (c *ViamClient) Close() error {
 	return c.conn.Close()
 }
