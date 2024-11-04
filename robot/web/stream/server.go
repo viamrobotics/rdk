@@ -378,12 +378,12 @@ func (server *Server) generateResolutions(width, height int32) []resolution {
 	}
 	// We use integer division to get the scaled width and height. Fractions are truncated
 	// to the nearest integer. This means that the scaled width and height may not match the
-	// original aspect ratio exactly.
+	// original aspect ratio exactly if source dimensions are odd.
 	for i := 0; i < 4; i++ {
 		width /= 2
 		height /= 2
 		resolutions = append(resolutions, resolution{width: width, height: height})
-		server.logger.Debugf("Scaled resolution %d: %dx%d", i, width, height)
+		server.logger.Debugf("scaled resolution %d: %dx%d", i, width, height)
 	}
 	return resolutions
 }
