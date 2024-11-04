@@ -31,7 +31,7 @@ func TestInternalMeta(t *testing.T) {
 		}
 		exePath, err := mod.EvaluateExePath(packagesDir)
 		test.That(t, err, test.ShouldBeNil)
-		exeDir, err := mod.exeDir(packagesDir)
+		exeDir, err := mod.UnpackedModuleDirectory(packagesDir)
 		test.That(t, err, test.ShouldBeNil)
 		// "entry" is from meta.json.
 		test.That(t, exePath, test.ShouldEqual, filepath.Join(exeDir, "entry"))
@@ -77,7 +77,7 @@ func TestSyntheticModule(t *testing.T) {
 	})
 
 	t.Run("syntheticPackageExeDir", func(t *testing.T) {
-		dir, err := modNeedsSynthetic.exeDir(tmp)
+		dir, err := modNeedsSynthetic.UnpackedModuleDirectory(tmp)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, dir, test.ShouldEqual, filepath.Join(tmp, "data/module/synthetic--"))
 	})
@@ -91,7 +91,7 @@ func TestSyntheticModule(t *testing.T) {
 		// local tarball case
 		syntheticPath, err := modNeedsSynthetic.EvaluateExePath(tmp)
 		test.That(t, err, test.ShouldBeNil)
-		exeDir, err := modNeedsSynthetic.exeDir(tmp)
+		exeDir, err := modNeedsSynthetic.UnpackedModuleDirectory(tmp)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, syntheticPath, test.ShouldEqual, filepath.Join(exeDir, meta.Entrypoint))
 

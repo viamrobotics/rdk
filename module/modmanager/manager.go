@@ -1088,7 +1088,23 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	// Evaluate the Module's FirstRun path. If there is an error we assume
 	// that the first run script does not exist and we debug log and exit quietly.
 	localPackagesDir := packages.LocalPackagesDir(mgr.packagesDir)
-	firstRunPath, markSuccess, err := conf.EvaluateFirstRunPath(localPackagesDir, logger)
+	unpackedModDir, err := conf.UnpackedModuleDirectory(localPackagesDir)
+	if err != nil {
+		logger.Errorw("error finding unpacked module directory", "error", err)
+		return nil
+	}
+
+	// Check if FirstRun already ran succesfully for this module version by
+	// checking for the existence of a marker file.
+	// TODO: add a module method for this?
+	firstRunSuccessPath := unpackedModDir + config.FirstRunSuccessSuffix
+	if _, err := os.Stat(firstRunSuccessPath); !errors.Is(err, os.ErrNotExist) {
+		logger.Info("first run already ran")
+		return nil
+	}
+
+	// TODO: create a "GetMeta" method.
+	firstRunPath, err := conf.EvaluateFirstRunPath(unpackedModDir, logger)
 	if err != nil {
 		// TODO(RSDK-9067): some first run path evaluation errors should be promoted to WARN logs.
 		logger.Debugw("no first run script detected, skipping setup phase", "error", err)
@@ -1179,8 +1195,14 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	// Mark success by writing a marker file to disk. This is a best
 	// effort; if writing to disk fails the setup phase will run again
 	// for this module and version and we are okay with that.
-	if err := markSuccess(); err != nil {
+	//nolint:gosec // safe
+	markerFile, err := os.Create(firstRunSuccessPath)
+	if err != nil {
 		logger.Errorw("failed to mark success", "error", err)
+	}
+	if err = markerFile.Close(); err != nil {
+		logger.Errorw("failed to close marker file", "error", err)
+
 	}
 	return nil
 }
