@@ -40,10 +40,6 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-const (
-	defaultFirstRunTimeout = 1 * time.Hour
-)
-
 var (
 	validateConfigTimeout       = 5 * time.Second
 	errMessageExitStatus143     = "exit status 143"
