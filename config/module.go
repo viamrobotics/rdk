@@ -142,8 +142,8 @@ func (m Module) SyntheticPackage() (PackageConfig, error) {
 	return PackageConfig{Name: name, Package: name, Type: PackageTypeModule, Version: m.LocalVersion}, nil
 }
 
-// UnpackedModuleDirectory returns the parent directory for the unpacked module.
-func (m Module) UnpackedModuleDirectory(packagesDir string) (string, error) {
+// exeDir returns the parent directory for the unpacked module.
+func (m Module) exeDir(packagesDir string) (string, error) {
 	if !m.NeedsSyntheticPackage() {
 		return filepath.Dir(m.ExePath), nil
 	}
@@ -177,7 +177,7 @@ func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 	if !filepath.IsAbs(m.ExePath) {
 		return "", fmt.Errorf("expected ExePath to be absolute path, got %s", m.ExePath)
 	}
-	exeDir, err := m.UnpackedModuleDirectory(packagesDir)
+	exeDir, err := m.exeDir(packagesDir)
 	if err != nil {
 		return "", err
 	}
@@ -237,28 +237,52 @@ const FirstRunSuccessSuffix = ".first_run_succeeded"
 // 1. if there is a meta.json in the exe dir, use that, except in local non-tarball case.
 // 2. if this is a local tarball and there's a meta.json next to the tarball, use that.
 // Note: the working directory must be the unpacked tarball directory or local exec directory.
-func (m Module) EvaluateFirstRunPath(unpackedModDir string, logger logging.Logger) (string, error) {
+//
+// On success (i.e. if the returned error is nil), this function also returns a function that creates
+// a marker file indicating that the setup phase has run successfully.
+func (m Module) EvaluateFirstRunPath(packagesDir string, logger logging.Logger) (
+	string,
+	func() error,
+	error,
+) {
+	noop := func() error { return nil }
+	unpackedModDir, err := m.exeDir(packagesDir)
+	if err != nil {
+		return "", noop, err
+	}
+
+	firstRunSuccessPath := unpackedModDir + FirstRunSuccessSuffix
+	if _, err := os.Stat(firstRunSuccessPath); !errors.Is(err, os.ErrNotExist) {
+		logger.Info("first run already ran")
+		return "", noop, errors.New("first run already ran")
+	}
+	markFirstRunSuccess := func() error {
+		//nolint:gosec // safe
+		_, err := os.Create(firstRunSuccessPath)
+		return err
+	}
+
 	// note: we don't look at internal meta.json in local non-tarball case because user has explicitly requested a binary.
 	localNonTarball := m.Type == ModuleTypeLocal && !m.NeedsSyntheticPackage()
 	if !localNonTarball {
 		// this is case 1, meta.json in exe folder.
 		metaPath, err := utils.SafeJoinDir(unpackedModDir, "meta.json")
 		if err != nil {
-			return "", err
+			return "", noop, err
 		}
 		_, err = os.Stat(metaPath)
 		if err == nil {
 			// this is case 1, meta.json in exe dir
 			meta, err := parseJSONFile[JSONManifest](metaPath)
 			if err != nil {
-				return "", err
+				return "", noop, err
 			}
 			firstRun, err := utils.SafeJoinDir(unpackedModDir, meta.FirstRun)
 			if err != nil {
-				return "", err
+				return "", noop, err
 			}
 			firstRunPath, err := filepath.Abs(firstRun)
-			return firstRunPath, err
+			return firstRunPath, markFirstRunSuccess, err
 		}
 	}
 	if m.NeedsSyntheticPackage() {
@@ -266,19 +290,19 @@ func (m Module) EvaluateFirstRunPath(unpackedModDir string, logger logging.Logge
 		// TODO(RSDK-7848): remove this case once java sdk supports internal meta.json.
 		metaPath, err := utils.SafeJoinDir(filepath.Dir(m.ExePath), "meta.json")
 		if err != nil {
-			return "", err
+			return "", noop, err
 		}
 		meta, err := parseJSONFile[JSONManifest](metaPath)
 		if err != nil {
 			// note: this error deprecates the side-by-side case because the side-by-side case is deprecated.
-			return "", errors.Wrapf(err, "couldn't find meta.json inside tarball %s (or next to it)", m.ExePath)
+			return "", noop, errors.Wrapf(err, "couldn't find meta.json inside tarball %s (or next to it)", m.ExePath)
 		}
 		firstRun, err := utils.SafeJoinDir(unpackedModDir, meta.FirstRun)
 		if err != nil {
-			return "", err
+			return "", noop, err
 		}
 		firstRunPath, err := filepath.Abs(firstRun)
-		return firstRunPath, err
+		return firstRunPath, markFirstRunSuccess, err
 	}
-	return "", errors.New("no first run script")
+	return "", noop, errors.New("no first run script")
 }
