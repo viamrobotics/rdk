@@ -209,9 +209,8 @@ func TestGetStreamOptions(t *testing.T) {
 			API:   resource.NewAPI("rdk", "component", "camera"),
 			Model: resource.DefaultModelFamily.WithModel("fake"),
 			ConvertedAttributes: &fake.Config{
-				Animated: true,
-				Width:    640,
-				Height:   480,
+				Width:  640,
+				Height: 480,
 			},
 		},
 		{
@@ -219,10 +218,9 @@ func TestGetStreamOptions(t *testing.T) {
 			API:   resource.NewAPI("rdk", "component", "camera"),
 			Model: resource.DefaultModelFamily.WithModel("fake"),
 			ConvertedAttributes: &fake.Config{
-				Animated: true,
-				Width:    640,
-				Height:   480,
-				Model:    true,
+				Width:  640,
+				Height: 480,
+				Model:  true,
 			},
 		},
 		// 720p
@@ -231,9 +229,8 @@ func TestGetStreamOptions(t *testing.T) {
 			API:   resource.NewAPI("rdk", "component", "camera"),
 			Model: resource.DefaultModelFamily.WithModel("fake"),
 			ConvertedAttributes: &fake.Config{
-				Animated: true,
-				Width:    1280,
-				Height:   720,
+				Width:  1280,
+				Height: 720,
 			},
 		},
 		{
@@ -241,10 +238,9 @@ func TestGetStreamOptions(t *testing.T) {
 			API:   resource.NewAPI("rdk", "component", "camera"),
 			Model: resource.DefaultModelFamily.WithModel("fake"),
 			ConvertedAttributes: &fake.Config{
-				Animated: true,
-				Width:    1280,
-				Height:   720,
-				Model:    true,
+				Width:  1280,
+				Height: 720,
+				Model:  true,
 			},
 		},
 		// 1080p
