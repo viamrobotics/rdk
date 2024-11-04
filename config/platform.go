@@ -58,7 +58,7 @@ func parsePi(raw []byte) *piModel {
 	if match := piModelRegex.FindSubmatch(raw); match != nil {
 		litePlus := string(match[3])
 		cm := string(match[1])
-		model := strings.Replace(string(match[5]), " Plus", "+", 1)
+		model := strings.Replace(string(match[5]), " Plus", "p", 1)
 		ret := &piModel{
 			version: string(match[2]),
 		}
@@ -74,7 +74,7 @@ func parsePi(raw []byte) *piModel {
 		case "Lite":
 			ret.longVersion += "l"
 		case "Plus":
-			ret.longVersion += "+"
+			ret.longVersion += "p"
 		}
 		ret.longVersion += model
 		return ret
