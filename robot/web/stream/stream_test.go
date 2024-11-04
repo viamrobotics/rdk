@@ -343,8 +343,8 @@ func generateExpectedResolutions(width, height int32) []struct{ Width, Height in
 		{Width: width, Height: height},
 	}
 	for i := 0; i < 4; i++ {
-		width = width / 2
-		height = height / 2
+		width /= 2
+		height /= 2
 		resolutions = append(resolutions, struct{ Width, Height int32 }{Width: width, Height: height})
 	}
 	return resolutions
