@@ -3,13 +3,90 @@ import os
 import subprocess
 import sys
 from importlib import import_module
+from typing import List, Set
 
 
-def return_attribute(resource_name: str, attr: str) -> ast.Attribute:
+def return_attribute(value: str, attr: str) -> ast.Attribute:
     return ast.Attribute(
-        value=ast.Name(id=resource_name, ctx=ast.Load()),
+        value=ast.Name(id=value, ctx=ast.Load()),
         attr=attr,
         ctx=ast.Load())
+
+
+def update_annotation(
+    resource_name: str,
+    annotation: ast.Name | ast.Subscript,
+    nodes: Set[str],
+    parent: str
+) -> ast.Attribute | ast.Subscript:
+    if isinstance(annotation, ast.Name) and annotation.id in nodes:
+        value = parent if parent else resource_name
+        return return_attribute(value, annotation.id)
+    elif isinstance(annotation, ast.Subscript):
+        annotation.slice = update_annotation(
+            resource_name,
+            annotation.slice,
+            nodes,
+            parent)
+    return annotation
+
+
+def replace_async_func(
+    resource_name: str,
+    func: ast.AsyncFunctionDef,
+    nodes: Set[str],
+    parent: str = ""
+) -> None:
+    for arg in func.args.args:
+        arg.annotation = update_annotation(
+            resource_name,
+            arg.annotation,
+            nodes,
+            parent)
+    func.body = [
+        ast.Raise(
+            exc=ast.Call(func=ast.Name(id='NotImplementedError',
+                                       ctx=ast.Load()),
+                         args=[], 
+                         keywords=[]),
+            cause=None)
+    ]
+    func.decorator_list = []
+    if isinstance(func.returns, (ast.Name, ast.Subscript)):
+        func.returns = update_annotation(
+            resource_name, func.returns, nodes, parent
+        )
+
+
+def return_subclass(
+        resource_name: str, stmt: ast.ClassDef, parent: str = ""
+) -> List[str]:
+    def parse_subclass(resource_name: str, stmt: ast.ClassDef, parent: str):
+        nodes = set()
+        nodes_to_remove = []
+        parent = parent if parent else resource_name
+        stmt.bases = [ast.Name(id=f"{parent}.{stmt.name}", ctx=ast.Load())]
+        for cstmt in stmt.body:
+            if isinstance(cstmt, ast.Expr) or (
+                isinstance(cstmt, ast.FunctionDef) and cstmt.name == "__init__"
+            ):
+                nodes_to_remove.append(cstmt)
+            elif isinstance(cstmt, ast.AnnAssign):
+                nodes.add(cstmt.target.id)
+                nodes_to_remove.append(cstmt)
+            elif isinstance(cstmt, ast.ClassDef):
+                parse_subclass(resource_name, cstmt, stmt.bases[0].id)
+            elif isinstance(cstmt, ast.AsyncFunctionDef):
+                replace_async_func(resource_name, cstmt, nodes, stmt.bases[0].id)
+        for node in nodes_to_remove:
+            stmt.body.remove(node)
+        if stmt.body == []:
+            stmt.body = [ast.Pass()]
+
+    parse_subclass(resource_name, stmt, parent)
+    return '\n'.join(
+        ['    ' + line for line in ast.unparse(stmt).splitlines()]
+    )
 
 
 def main(
@@ -22,48 +99,37 @@ def main(
     import isort
     from slugify import slugify
 
-    module_name = f"viam.{resource_type}s.{resource_subtype}.{resource_subtype}"
+    module_name = (
+        f"viam.{resource_type}s.{resource_subtype}.{resource_subtype}"
+    )
     module = import_module(module_name)
-    if resource_subtype == "input":
-        resource_name = "Controller"
-    elif resource_subtype == "slam":
-        resource_name = "SLAM"
-    elif resource_subtype == "mlmodel":
-        resource_name = "MLModel"
-    else:
-        resource_name = "".join(word.capitalize() for word in resource_subtype.split("_"))
+    resource_name = {
+        "input": "Controller", "slam": "SLAM", "mlmodel": "MLModel"
+    }.get(resource_subtype, "".join(word.capitalize()
+                                    for word in resource_subtype.split("_")))
 
-    imports = []
+    imports, subclasses, abstract_methods = [], [], []
+    nodes = set()
     modules_to_ignore = [
         "abc",
         "component_base",
         "service_base",
         "viam.resource.types",
     ]
-    abstract_methods = []
     with open(module.__file__, "r") as f:
-        def update_annotation(annotation):
-            if isinstance(annotation, ast.Name) and annotation.id in nodes:
-                return return_attribute(resource_name, annotation.id)
-            elif isinstance(annotation, ast.Subscript):
-                annotation.slice = update_annotation(annotation.slice)
-                return annotation
-            return annotation
-
         tree = ast.parse(f.read())
-        nodes = []
         for stmt in tree.body:
             if isinstance(stmt, ast.Import):
                 for imp in stmt.names:
                     if imp.name in modules_to_ignore:
                         continue
-                    if imp.asname:
-                        imports.append(f"import {imp.name} as {imp.asname}")
-                    else:
-                        imports.append(f"import {imp.name}")
-            elif isinstance(stmt, ast.ImportFrom):
-                if stmt.module in modules_to_ignore or stmt.module is None:
-                    continue
+                    imports.append(f"import {imp.name} as {imp.asname}"
+                                   if imp.asname else f"import {imp.name}")
+            elif (
+                isinstance(stmt, ast.ImportFrom)
+                and stmt.module
+                and stmt.module not in modules_to_ignore
+            ):
                 i_strings = ", ".join(
                     [
                         (
@@ -79,26 +145,14 @@ def main(
             elif isinstance(stmt, ast.ClassDef) and stmt.name == resource_name:
                 for cstmt in stmt.body:
                     if isinstance(cstmt, ast.ClassDef):
-                        nodes.append(cstmt.name)
+                        subclasses.append(return_subclass(resource_name, cstmt))
                     elif isinstance(cstmt, ast.AnnAssign):
-                        nodes.append(cstmt.target.id)
+                        nodes.add(cstmt.target.id)
                     elif isinstance(cstmt, ast.AsyncFunctionDef):
-                        for arg in cstmt.args.args:
-                            arg.annotation = update_annotation(arg.annotation)
-
-                        cstmt.body = [
-                            ast.Raise(
-                                exc=ast.Call(
-                                    func=ast.Name(id='NotImplementedError', ctx=ast.Load()),
-                                    args=[],
-                                    keywords=[]),
-                                cause=None,
-                                )
-                        ]
-                        cstmt.decorator_list = []
-                        if isinstance(cstmt.returns, ast.Name) and cstmt.returns.id in nodes:
-                            cstmt.returns = return_attribute(resource_name, cstmt.returns.id)
-                        indented_code = '\n'.join(['    ' + line for line in ast.unparse(cstmt).splitlines()])
+                        replace_async_func(resource_name, cstmt, nodes)
+                        indented_code = '\n'.join(
+                            ['    ' + line for line in ast.unparse(cstmt).splitlines()]
+                        )
                         abstract_methods.append(indented_code)
 
     model_name_pascal = "".join(
@@ -158,6 +212,7 @@ class {3}({4}, EasyResource):
         return super().reconfigure(config, dependencies)
 
 {8}
+{9}
 
 
 if __name__ == '__main__':
@@ -172,6 +227,7 @@ if __name__ == '__main__':
         namespace,
         mod_name,
         model_name,
+        '\n\n'.join([subclass for subclass in subclasses]),
         '\n\n'.join([f'{method}' for method in abstract_methods]),
     )
     f_name = os.path.join(mod_name, "src", "main.py")
