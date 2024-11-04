@@ -52,6 +52,12 @@ type Server struct {
 	audioSources map[string]gostream.HotSwappableAudioSource
 }
 
+// Resolution holds the width and height of a video stream.
+// We use int32 to match the resolution type in the proto.
+type Resolution struct {
+	Width, Height int32
+}
+
 // NewServer returns a server that will run on the given port and initially starts with the given
 // stream.
 func NewServer(
@@ -362,8 +368,8 @@ func (server *Server) GetStreamOptions(
 // generateResolutions takes the original width and height of an image and returns
 // a list of the original resolution with 4 smaller width/height options that maintain
 // the same aspect ratio.
-func (server *Server) generateResolutions(width, height int32) []struct{ Width, Height int32 } {
-	resolutions := []struct{ Width, Height int32 }{
+func (server *Server) generateResolutions(width, height int32) []Resolution {
+	resolutions := []Resolution{
 		{Width: width, Height: height},
 	}
 	// We use integer division to get the scaled width and height. Fractions are truncated
@@ -372,7 +378,7 @@ func (server *Server) generateResolutions(width, height int32) []struct{ Width, 
 	for i := 0; i < 4; i++ {
 		width /= 2
 		height /= 2
-		resolutions = append(resolutions, struct{ Width, Height int32 }{Width: width, Height: height})
+		resolutions = append(resolutions, Resolution{Width: width, Height: height})
 		server.logger.Debugf("Scaled resolution %d: %dx%d", i, width, height)
 	}
 	return resolutions
