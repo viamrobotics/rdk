@@ -245,52 +245,28 @@ const FirstRunSuccessSuffix = ".first_run_succeeded"
 // 1. if there is a meta.json in the exe dir, use that, except in local non-tarball case.
 // 2. if this is a local tarball and there's a meta.json next to the tarball, use that.
 // Note: the working directory must be the unpacked tarball directory or local exec directory.
-//
-// On success (i.e. if the returned error is nil), this function also returns a function that creates
-// a marker file indicating that the setup phase has run successfully.
-func (m Module) EvaluateFirstRunPath(packagesDir string, logger logging.Logger) (
-	string,
-	func() error,
-	error,
-) {
-	noop := func() error { return nil }
-	unpackedModDir, err := m.exeDir(packagesDir)
-	if err != nil {
-		return "", noop, err
-	}
-
-	firstRunSuccessPath := unpackedModDir + FirstRunSuccessSuffix
-	if _, err := os.Stat(firstRunSuccessPath); !errors.Is(err, os.ErrNotExist) {
-		logger.Info("first run already ran")
-		return "", noop, errors.New("first run already ran")
-	}
-	markFirstRunSuccess := func() error {
-		//nolint:gosec // safe
-		_, err := os.Create(firstRunSuccessPath)
-		return err
-	}
-
+func (m Module) EvaluateFirstRunPath(unpackedModDir string, logger logging.Logger) (string, error) {
 	// note: we don't look at internal meta.json in local non-tarball case because user has explicitly requested a binary.
 	localNonTarball := m.Type == ModuleTypeLocal && !m.NeedsSyntheticPackage()
 	if !localNonTarball {
 		// this is case 1, meta.json in exe folder.
 		metaPath, err := utils.SafeJoinDir(unpackedModDir, "meta.json")
 		if err != nil {
-			return "", noop, err
+			return "", err
 		}
 		_, err = os.Stat(metaPath)
 		if err == nil {
 			// this is case 1, meta.json in exe dir
 			meta, err := parseJSONFile[JSONManifest](metaPath)
 			if err != nil {
-				return "", noop, err
+				return "", err
 			}
 			firstRun, err := utils.SafeJoinDir(unpackedModDir, meta.FirstRun)
 			if err != nil {
-				return "", noop, err
+				return "", err
 			}
 			firstRunPath, err := filepath.Abs(firstRun)
-			return firstRunPath, markFirstRunSuccess, err
+			return firstRunPath, err
 		}
 	}
 	if m.NeedsSyntheticPackage() {
@@ -298,21 +274,21 @@ func (m Module) EvaluateFirstRunPath(packagesDir string, logger logging.Logger) 
 		// TODO(RSDK-7848): remove this case once java sdk supports internal meta.json.
 		metaPath, err := utils.SafeJoinDir(filepath.Dir(m.ExePath), "meta.json")
 		if err != nil {
-			return "", noop, err
+			return "", err
 		}
 		meta, err := parseJSONFile[JSONManifest](metaPath)
 		if err != nil {
 			// note: this error deprecates the side-by-side case because the side-by-side case is deprecated.
-			return "", noop, errors.Wrapf(err, "couldn't find meta.json inside tarball %s (or next to it)", m.ExePath)
+			return "", errors.Wrapf(err, "couldn't find meta.json inside tarball %s (or next to it)", m.ExePath)
 		}
 		firstRun, err := utils.SafeJoinDir(unpackedModDir, meta.FirstRun)
 		if err != nil {
-			return "", noop, err
+			return "", err
 		}
 		firstRunPath, err := filepath.Abs(firstRun)
-		return firstRunPath, markFirstRunSuccess, err
+		return firstRunPath, err
 	}
-	return "", noop, errors.New("no first run script")
+	return "", errors.New("no first run script")
 }
 
 // FirstRun executes a module-specific setup script.
@@ -325,9 +301,22 @@ func (m *Module) FirstRun(
 ) error {
 	logger = logger.Sublogger("first_run").WithFields("module", m.Name)
 
+	unpackedModDir, err := m.exeDir(localPackagesDir)
+	if err != nil {
+		return err
+	}
+
+	// check if FirstRun already ran successfully for this module version by
+	// checking if a success marker file exists on disk.
+	firstRunSuccessPath := unpackedModDir + FirstRunSuccessSuffix
+	if _, err := os.Stat(firstRunSuccessPath); !errors.Is(err, os.ErrNotExist) {
+		logger.Info("first run already ran")
+		return nil
+	}
+
 	// Evaluate the Module's FirstRun path. If there is an error we assume
 	// that the first run script does not exist and we debug log and exit quietly.
-	firstRunPath, markSuccess, err := m.EvaluateFirstRunPath(localPackagesDir, logger)
+	firstRunPath, err := m.EvaluateFirstRunPath(unpackedModDir, logger)
 	if err != nil {
 		// TODO(RSDK-9067): some first run path evaluation errors should be promoted to WARN logs.
 		logger.Debugw("no first run script detected, skipping setup phase", "error", err)
@@ -405,8 +394,15 @@ func (m *Module) FirstRun(
 	// Mark success by writing a marker file to disk. This is a best
 	// effort; if writing to disk fails the setup phase will run again
 	// for this module and version and we are okay with that.
-	if err := markSuccess(); err != nil {
+	//nolint:gosec // safe
+	markerFile, err := os.Create(firstRunSuccessPath)
+	if err != nil {
 		logger.Errorw("failed to mark success", "error", err)
+		return nil
+	}
+	if err = markerFile.Close(); err != nil {
+		logger.Errorw("failed to close marker file", "error", err)
+		return nil
 	}
 	return nil
 }
