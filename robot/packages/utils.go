@@ -236,7 +236,7 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 }
 
 // commonCleanup is a helper for the various ManagerSyncer.Cleanup functions.
-func commonCleanup(logger logging.Logger, expectedPackageDirectories map[string]bool, packagesDataDir string) error {
+func commonCleanup(logger logging.Logger, expectedPackageEntries map[string]bool, packagesDataDir string) error {
 	topLevelFiles, err := os.ReadDir(packagesDataDir)
 	if err != nil {
 		return err
@@ -252,30 +252,32 @@ func commonCleanup(logger logging.Logger, expectedPackageDirectories map[string]
 			continue
 		}
 
-		// There should be no non-dir files in the packages/data dir
-		// except .status.json and .first_run_succeeded. Delete any that exist
+		// Delete any non-directory files in the packages/data dir except for those with suffixes:
+		//
+		// `.status.json` - these files contain download status infomration.
+		// `.first_run_succeeded` - these mark successful setup phase runs.
 		if packageTypeDir.Type()&os.ModeDir != os.ModeDir && !strings.HasSuffix(packageTypeDirName, statusFileExt) {
 			allErrors = multierr.Append(allErrors, os.Remove(packageTypeDirName))
 			continue
 		}
-		// read all of the packages in the directory and delete those that aren't in expectedPackageDirectories
+		// read all of the packages in the directory and delete those that aren't in expectedPackageEntries
 		packageDirs, err := os.ReadDir(packageTypeDirName)
 		if err != nil {
 			allErrors = multierr.Append(allErrors, err)
 			continue
 		}
-		for _, packageDir := range packageDirs {
-			packageDirName, err := rutils.SafeJoinDir(packageTypeDirName, packageDir.Name())
+		for _, entry := range packageDirs {
+			entryPath, err := rutils.SafeJoinDir(packageTypeDirName, entry.Name())
 			if err != nil {
 				allErrors = multierr.Append(allErrors, err)
 				continue
 			}
-			_, expectedToExist := expectedPackageDirectories[packageDirName]
-			_, expectedStatusFileToExist := expectedPackageDirectories[strings.TrimSuffix(packageDirName, statusFileExt)]
-			_, expectedFirstRunSuccessFileToExist := expectedPackageDirectories[strings.TrimSuffix(packageDirName, config.FirstRunSuccessSuffix)]
+			_, expectedToExist := expectedPackageEntries[entryPath]
+			_, expectedStatusFileToExist := expectedPackageEntries[strings.TrimSuffix(entryPath, statusFileExt)]
+			_, expectedFirstRunSuccessFileToExist := expectedPackageEntries[strings.TrimSuffix(entryPath, config.FirstRunSuccessSuffix)]
 			if !expectedToExist && !expectedStatusFileToExist && !expectedFirstRunSuccessFileToExist {
-				logger.Debugf("Removing old package file(s) %s", packageDirName)
-				allErrors = multierr.Append(allErrors, os.RemoveAll(packageDirName))
+				logger.Debugf("Removing old package file(s) %s", entryPath)
+				allErrors = multierr.Append(allErrors, os.RemoveAll(entryPath))
 			}
 		}
 		// re-read the directory, if there is nothing left in it, delete the directory
