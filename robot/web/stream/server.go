@@ -346,12 +346,12 @@ func (server *Server) GetStreamOptions(
 	} else {
 		width, height = camProps.IntrinsicParams.Width, camProps.IntrinsicParams.Height
 	}
-	scaledResolutions := server.generateResolutions(width, height)
+	scaledResolutions := server.generateResolutions(int32(width), int32(height))
 	resolutions := make([]*streampb.Resolution, 0, 5)
 	for _, res := range scaledResolutions {
 		resolutions = append(resolutions, &streampb.Resolution{
-			Height: int32(res[1]),
-			Width:  int32(res[0]),
+			Height: res.Height,
+			Width:  res.Width,
 		})
 	}
 	return &streampb.GetStreamOptionsResponse{
@@ -360,17 +360,20 @@ func (server *Server) GetStreamOptions(
 }
 
 // generateResolutions takes the original width and height of an image and returns
-// a list of 5 smaller width/height options that maintain the same aspect ratio.
-func (server *Server) generateResolutions(width, height int) [5][2]int {
-	var resolutions [5][2]int
-	for i := 1; i <= 5; i++ {
-		// We use integer division to get the scaled width and height. Fractions are truncated
-		// to the nearest integer. This means that the scaled width and height may not match the
-		// original aspect ratio exactly.
-		scaledWidth := width / i
-		scaledHeight := height / i
-		resolutions[i-1] = [2]int{scaledWidth, scaledHeight}
-		server.logger.Infof("Scaled resolution %d: %dx%d", i, scaledWidth, scaledHeight)
+// a list of the original resolution with 4 smaller width/height options that maintain
+// the same aspect ratio.
+func (server *Server) generateResolutions(width, height int32) []struct{ Width, Height int32 } {
+	resolutions := []struct{ Width, Height int32 }{
+		{Width: width, Height: height},
+	}
+	// We use integer division to get the scaled width and height. Fractions are truncated
+	// to the nearest integer. This means that the scaled width and height may not match the
+	// original aspect ratio exactly.
+	for i := 0; i < 4; i++ {
+		width /= 2
+		height /= 2
+		resolutions = append(resolutions, struct{ Width, Height int32 }{Width: width, Height: height})
+		server.logger.Debugf("Scaled resolution %d: %dx%d", i, width, height)
 	}
 	return resolutions
 }
