@@ -8,10 +8,10 @@ import (
 )
 
 var (
-	logger = logging.NewLogger("test")
+	logger             = logging.NewLogger("test")
 	defaultServiceHost = "https://app.viam.com"
-	testApiKey = "abcdefghijklmnopqrstuv0123456789"
-	testApiKeyID = "abcd0123-ef45-gh67-ij89-klmnopqr01234567"
+	testAPIKey         = "abcdefghijklmnopqrstuv0123456789"
+	testAPIKeyID       = "abcd0123-ef45-gh67-ij89-klmnopqr01234567"
 )
 
 func TestCreateViamClientWithURLTests(t *testing.T) {
@@ -27,7 +27,7 @@ func TestCreateViamClientWithURLTests(t *testing.T) {
 	}
 	for _, tt := range urlTests {
 		t.Run(tt.name, func(t *testing.T) {
-			client, err := CreateViamClient(context.Background(), tt.baseURL, testApiKey, testApiKeyID, logger)
+			client, err := CreateViamClient(context.Background(), tt.baseURL, testAPIKey, testAPIKeyID, logger)
 			if (err != nil) != tt.expectErr {
 				t.Errorf("Expected error: %v, got: %v", tt.expectErr, err)
 			}
@@ -45,11 +45,11 @@ func TestCreateViamClientWithApiKeyTests(t *testing.T) {
 		apiKeyID  string
 		expectErr bool
 	}{
-		{"Valid API Key", testApiKey, testApiKeyID, false},
-		{"Empty API Key", "", testApiKeyID, true},
-		{"Empty API Key ID", testApiKey, "", true},
-		{"Invalid API Key", "fake", testApiKeyID, true},
-		{"Invalid API Key ID", testApiKey, "fake", true},
+		{"Valid API Key", testAPIKey, testAPIKeyID, false},
+		{"Empty API Key", "", testAPIKeyID, true},
+		{"Empty API Key ID", testAPIKey, "", true},
+		{"Invalid API Key", "fake", testAPIKeyID, true},
+		{"Invalid API Key ID", testAPIKey, "fake", true},
 	}
 	for _, tt := range apiKeyTests {
 		t.Run(tt.name, func(t *testing.T) {
