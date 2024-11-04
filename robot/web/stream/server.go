@@ -401,18 +401,18 @@ func (server *Server) sampleFrameSize(ctx context.Context, cam camera.Camera) (i
 			server.logger.Error("failed to close stream:", cerr)
 		}
 	}()
-	// Attempt to get a frame from the stream with a maximum of 3 retries.
+	// Attempt to get a frame from the stream with a maximum of 5 retries.
 	// Each attempt waits for a maximum of 200ms before timing out.
 	var frame image.Image
 	var release func()
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 5; i++ {
 		timeoutCtx, cancel := context.WithTimeout(ctx, frameTimeout)
 		frame, release, err = stream.Next(timeoutCtx)
 		cancel() // Do not defer cancel to avoid context leak.
 		if err == nil {
 			break
 		}
-		server.logger.Warnf("failed to get frame, retrying... (%d/3)", i+1)
+		server.logger.Warnf("failed to get frame, retrying... (%d/5)", i+1)
 	}
 	if release != nil {
 		defer release()
