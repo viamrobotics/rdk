@@ -375,7 +375,8 @@ func (server *Server) generateResolutions(width, height int) [5][2]int {
 	return resolutions
 }
 
-// sampleFrameSize takes in a camera.Camera and pulls a frame with Stream Next and returns the width and height
+// sampleFrameSize takes in a camera.Camera, starts a stream, pulls a frame
+// using Stream.Next, and returns the width and height of the frame.
 func (server *Server) sampleFrameSize(ctx context.Context, cam camera.Camera) (int, int, error) {
 	server.logger.Debug("sampling frame size")
 	stream, err := cam.Stream(ctx)
