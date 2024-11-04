@@ -375,19 +375,23 @@ func (server *Server) generateResolutions(width, height int) [5][2]int {
 	return resolutions
 }
 
-// sampleFrameSize takes in a camera.Camera and pulls a freame with Stream Next and returns the width and height
+// sampleFrameSize takes in a camera.Camera and pulls a frame with Stream Next and returns the width and height
 func (server *Server) sampleFrameSize(ctx context.Context, cam camera.Camera) (int, int, error) {
 	server.logger.Debug("sampling frame size")
 	stream, err := cam.Stream(ctx)
 	if err != nil {
 		return 0, 0, err
 	}
-	defer stream.Close(ctx)
 	frame, release, err := stream.Next(ctx)
 	if err != nil {
 		return 0, 0, err
 	}
-	defer release()
+	defer func() {
+		release()
+		if cerr := stream.Close(ctx); cerr != nil {
+			server.logger.Error("failed to close stream:", cerr)
+		}
+	}()
 	return frame.Bounds().Dx(), frame.Bounds().Dy(), nil
 }
 
