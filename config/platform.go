@@ -16,7 +16,7 @@ import (
 var (
 	cudaRegex            = regexp.MustCompile(`Cuda compilation tools, release (\d+)\.`)
 	aptCacheVersionRegex = regexp.MustCompile(`\nVersion: (\d+)\D`)
-	piModelRegex         = regexp.MustCompile(`Raspberry Pi (\d+)`)
+	piModelRegex         = regexp.MustCompile(`Raspberry Pi\s?(Compute Module)?\s?(\d\w*)?\s?(Lite|Plus)?\s?(Model (.+))? Rev`)
 	savedPlatformTags    []string
 )
 
@@ -48,6 +48,40 @@ func readGPUTags(logger logging.Logger, tags []string) []string {
 	return tags
 }
 
+type piModel struct {
+	version     string
+	longVersion string
+}
+
+// inner logic for pi version parsing.
+func parsePi(raw []byte) *piModel {
+	if match := piModelRegex.FindSubmatch(raw); match != nil {
+		litePlus := string(match[3])
+		cm := string(match[1])
+		model := strings.Replace(string(match[5]), " Plus", "+", 1)
+		ret := &piModel{
+			version: string(match[2]),
+		}
+		if cm != "" {
+			ret.longVersion = "cm"
+		}
+		if ret.version == "" {
+			ret.version = "1"
+		}
+		ret.longVersion += ret.version
+		ret.version = ret.version[:1] // contract 3E to 3 now that it's been copied to longVersion
+		switch litePlus {
+		case "Lite":
+			ret.longVersion += "l"
+		case "Plus":
+			ret.longVersion += "+"
+		}
+		ret.longVersion += model
+		return ret
+	}
+	return nil
+}
+
 // helper to add raspberry pi tags to the list.
 func readPiTags(logger logging.Logger, tags []string) []string {
 	body, err := os.ReadFile("/proc/device-tree/model")
@@ -57,8 +91,9 @@ func readPiTags(logger logging.Logger, tags []string) []string {
 		}
 		return tags
 	}
-	if match := piModelRegex.FindSubmatch(body); match != nil {
-		tags = append(tags, "pi:"+string(match[1]))
+	if model := parsePi(body); model != nil {
+		tags = append(tags, "pi:"+model.version)
+		tags = append(tags, "pifull:"+model.longVersion)
 	}
 	return tags
 }
