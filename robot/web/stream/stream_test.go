@@ -14,7 +14,6 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/fake"
-	"go.viam.com/rdk/components/camera/videosource"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/gostream/codec/opus"
@@ -199,44 +198,75 @@ func TestAudioTrackIsNotCreatedForVideoStream(t *testing.T) {
 
 func TestGetStreamOptions(t *testing.T) {
 	logger := logging.NewTestLogger(t).Sublogger("TestWebReconfigure")
+	// Create a robot with several fake cameras of common resolutions.
+	// Fake cameras with a Model attribute will use Properties to
+	// determine source resolution. Fake cameras without a Model
+	// attribute will sample a frame to determine source resolution.
 	origCfg := &config.Config{Components: []resource.Config{
 		// 480p
-		// {
-		// 	Name:  "fake-cam-0",
-		// 	API:   resource.NewAPI("rdk", "component", "camera"),
-		// 	Model: resource.DefaultModelFamily.WithModel("fake"),
-		// 	ConvertedAttributes: &fake.Config{
-		// 		Animated: true,
-		// 		Width:    640,
-		// 		Height:   480,
-		// 	},
-		// },
-		// 720p
-		// {
-		// 	Name:  "fake-cam-1",
-		// 	API:   resource.NewAPI("rdk", "component", "camera"),
-		// 	Model: resource.DefaultModelFamily.WithModel("fake"),
-		// 	ConvertedAttributes: &fake.Config{
-		// 		Animated: true,
-		// 		Width:    1280,
-		// 		Height:   720,
-		// 	},
-		// },
 		{
-			Name:                "fake-cam-1",
-			API:                 resource.NewAPI("rdk", "component", "camera"),
-			Model:               resource.DefaultModelFamily.WithModel("webcam"),
-			ConvertedAttributes: &videosource.WebcamConfig{},
+			Name:  "fake-cam-0-0",
+			API:   resource.NewAPI("rdk", "component", "camera"),
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			ConvertedAttributes: &fake.Config{
+				Animated: true,
+				Width:    640,
+				Height:   480,
+			},
+		},
+		{
+			Name:  "fake-cam-0-1",
+			API:   resource.NewAPI("rdk", "component", "camera"),
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			ConvertedAttributes: &fake.Config{
+				Animated: true,
+				Width:    640,
+				Height:   480,
+				Model:    true,
+			},
+		},
+		// 720p
+		{
+			Name:  "fake-cam-1-0",
+			API:   resource.NewAPI("rdk", "component", "camera"),
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			ConvertedAttributes: &fake.Config{
+				Animated: true,
+				Width:    1280,
+				Height:   720,
+			},
+		},
+		{
+			Name:  "fake-cam-1-1",
+			API:   resource.NewAPI("rdk", "component", "camera"),
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			ConvertedAttributes: &fake.Config{
+				Animated: true,
+				Width:    1280,
+				Height:   720,
+				Model:    true,
+			},
 		},
 		// 1080p
 		{
-			Name:  "fake-cam-2",
+			Name:  "fake-cam-2-0",
 			API:   resource.NewAPI("rdk", "component", "camera"),
 			Model: resource.DefaultModelFamily.WithModel("fake"),
 			ConvertedAttributes: &fake.Config{
 				Animated: true,
 				Width:    1920,
 				Height:   1080,
+			},
+		},
+		{
+			Name:  "fake-cam-2-1",
+			API:   resource.NewAPI("rdk", "component", "camera"),
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			ConvertedAttributes: &fake.Config{
+				Animated: true,
+				Width:    1920,
+				Height:   1080,
+				Model:    true,
 			},
 		},
 	}}
@@ -251,7 +281,7 @@ func TestGetStreamOptions(t *testing.T) {
 	livestreamClient := streampb.NewStreamServiceClient(conn)
 	listResp, err := livestreamClient.ListStreams(ctx, &streampb.ListStreamsRequest{})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(listResp.Names), test.ShouldEqual, 2)
+	test.That(t, len(listResp.Names), test.ShouldEqual, 6)
 
 	streamOptionsResp, err := livestreamClient.GetStreamOptions(ctx, &streampb.GetStreamOptionsRequest{})
 	test.That(t, err, test.ShouldNotBeNil)
@@ -266,7 +296,7 @@ func TestGetStreamOptions(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 	streamOptionsResp, err = livestreamClient.GetStreamOptions(ctx, &streampb.GetStreamOptionsRequest{
-		Name: "fake-cam-1",
+		Name: "fake-cam-1-0",
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, streamOptionsResp, test.ShouldNotBeNil)
@@ -283,7 +313,7 @@ func TestGetStreamOptions(t *testing.T) {
 		{Width: 384, Height: 216},
 	}
 	streamOptionsResp, err = livestreamClient.GetStreamOptions(ctx, &streampb.GetStreamOptionsRequest{
-		Name: "fake-cam-2",
+		Name: "fake-cam-2-0",
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, streamOptionsResp, test.ShouldNotBeNil)
@@ -292,5 +322,4 @@ func TestGetStreamOptions(t *testing.T) {
 		test.That(t, streamOptionsResp.Resolutions[i].Width, test.ShouldEqual, expected.Width)
 		test.That(t, streamOptionsResp.Resolutions[i].Height, test.ShouldEqual, expected.Height)
 	}
-	// test.That(t, err, test.ShouldNotBeNil)
 }
