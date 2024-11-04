@@ -1260,6 +1260,10 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 
 	// Run the setup phase for new and modified modules in new config modules before proceeding with reconfiguration.
 	diffMods, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
+	if err != nil {
+		r.logger.CErrorw(ctx, "error diffing module configs before before first run", "error", err)
+		return
+	}
 	mods := slices.Concat[[]config.Module](diffMods.Added.Modules, diffMods.Modified.Modules)
 	for _, mod := range mods {
 		if err := r.manager.moduleManager.FirstRun(ctx, mod); err != nil {
