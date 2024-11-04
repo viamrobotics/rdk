@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/url"
 	"regexp"
+	"strings"
 
 	"go.viam.com/utils/rpc"
 
@@ -17,10 +18,14 @@ type ViamClient struct {
 	conn rpc.ClientConn
 }
 
+var dialDirectGRPC = rpc.DialDirectGRPC
+
 // CreateViamClient creates a ViamClient with an API Key.
 func CreateViamClient(ctx context.Context, baseURL, apiKey, apiKeyID string, logger logging.Logger) (*ViamClient, error) {
 	if baseURL == "" {
 		baseURL = "https://app.viam.com"
+	} else if !strings.HasPrefix(baseURL, "http://") && !strings.HasPrefix(baseURL, "https://") {
+		return nil, errors.New("use valid serviceHost URL")
 	}
 	serviceHost, err := url.Parse(baseURL + ":443")
 	if err != nil {
@@ -43,11 +48,15 @@ func CreateViamClient(ctx context.Context, baseURL, apiKey, apiKeyID string, log
 		},
 	)
 
-	conn, err := rpc.DialDirectGRPC(ctx, serviceHost.Host, logger, opts)
+	conn, err := dialDirectGRPC(ctx, serviceHost.Host, logger, opts)
 	if err != nil {
 		return nil, err
 	}
 	return &ViamClient{conn: conn}, nil
+}
+
+func (c *ViamClient) Close() error {
+	return c.conn.Close()
 }
 
 func validateAPIKeyFormat(apiKey string) bool {
