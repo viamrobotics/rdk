@@ -6,6 +6,7 @@ package robotimpl
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1257,8 +1258,10 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		return
 	}
 
-	// Run the setup phase for all modules in new config modules before proceeding with reconfiguration.
-	for _, mod := range newConfig.Modules {
+	// Run the setup phase for new and modified modules in new config modules before proceeding with reconfiguration.
+	diffMods, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
+	mods := slices.Concat[[]config.Module](diffMods.Added.Modules, diffMods.Modified.Modules)
+	for _, mod := range mods {
 		if err := r.manager.moduleManager.FirstRun(ctx, mod); err != nil {
 			r.logger.CErrorw(ctx, "error executing setup phase", "module", mod.Name, "error", err)
 			return
