@@ -28,7 +28,6 @@ import (
 )
 
 const (
-	frameTimeout          = 200 * time.Millisecond
 	monitorCameraInterval = time.Second
 )
 
@@ -402,13 +401,10 @@ func (server *Server) sampleFrameSize(ctx context.Context, cam camera.Camera) (i
 		}
 	}()
 	// Attempt to get a frame from the stream with a maximum of 5 retries.
-	// Each attempt waits for a maximum of 200ms before timing out.
 	var frame image.Image
 	var release func()
 	for i := 0; i < 5; i++ {
-		timeoutCtx, cancel := context.WithTimeout(ctx, frameTimeout)
-		frame, release, err = stream.Next(timeoutCtx)
-		cancel() // Do not defer cancel to avoid context leak.
+		frame, release, err = stream.Next(ctx)
 		if err == nil {
 			break
 		}
