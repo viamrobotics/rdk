@@ -314,12 +314,20 @@ func (m *Module) FirstRun(
 		return nil
 	}
 
-	// Evaluate the Module's FirstRun path. If there is an error we assume
-	// that the first run script does not exist and we debug log and exit quietly.
-	firstRunPath, err := m.EvaluateFirstRunPath(unpackedModDir, logger)
+	// Load the module's meta.json. If it doesn't exist or fails to load, debug log and exit quietly.
+	meta, err := m.getJSONManifest(unpackedModDir)
 	if err != nil {
-		// TODO(RSDK-9067): some first run path evaluation errors should be promoted to WARN logs.
-		logger.Debugw("no first run script detected, skipping setup phase", "error", err)
+		logger.Debugw("failed to load meta.json, skipping setup phase", "error", err)
+		return nil
+	}
+	relFirstRunPath, err := utils.SafeJoinDir(unpackedModDir, meta.FirstRun)
+	if err != nil {
+		logger.Errorw("failed to build path to first run script, skipping setup phase", "error", err)
+		return nil
+	}
+	firstRunPath, err := filepath.Abs(relFirstRunPath)
+	if err != nil {
+		logger.Errorw("failed to build absolute path to first run script, skipping setup phase", "path", relFirstRunPath, "error", err)
 		return nil
 	}
 
@@ -405,4 +413,44 @@ func (m *Module) FirstRun(
 		return nil
 	}
 	return nil
+}
+
+// getJSONManifest returns a loaded meta.json from one of two sources (in order of precedence):
+// 1. if there is a meta.json in the exe dir, use that, except in local non-tarball case.
+// 2. if this is a local tarball and there's a meta.json next to the tarball, use that.
+// Note: the working directory must be the unpacked tarball directory or local exec directory.
+func (m Module) getJSONManifest(unpackedModDir string) (*JSONManifest, error) {
+	// note: we don't look at internal meta.json in local non-tarball case because user has explicitly requested a binary.
+	localNonTarball := m.Type == ModuleTypeLocal && !m.NeedsSyntheticPackage()
+	if !localNonTarball {
+		// this is case 1, meta.json in exe folder.
+		metaPath, err := utils.SafeJoinDir(unpackedModDir, "meta.json")
+		if err != nil {
+			return nil, err
+		}
+		_, err = os.Stat(metaPath)
+		if err == nil {
+			// this is case 1, meta.json in exe dir
+			meta, err := parseJSONFile[JSONManifest](metaPath)
+			if err != nil {
+				return nil, err
+			}
+			return meta, nil
+		}
+	}
+	if m.NeedsSyntheticPackage() {
+		// this is case 2, side-by-side
+		// TODO(RSDK-7848): remove this case once java sdk supports internal meta.json.
+		metaPath, err := utils.SafeJoinDir(filepath.Dir(m.ExePath), "meta.json")
+		if err != nil {
+			return nil, err
+		}
+		meta, err := parseJSONFile[JSONManifest](metaPath)
+		if err != nil {
+			// note: this error deprecates the side-by-side case because the side-by-side case is deprecated.
+			return nil, errors.Wrapf(err, "couldn't find meta.json inside tarball %s (or next to it)", m.ExePath)
+		}
+		return meta, err
+	}
+	return nil, errors.New("failed to find meta.json")
 }
