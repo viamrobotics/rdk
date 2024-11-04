@@ -407,8 +407,8 @@ func (server *Server) sampleFrameSize(ctx context.Context, cam camera.Camera) (i
 	var release func()
 	for i := 0; i < 3; i++ {
 		timeoutCtx, cancel := context.WithTimeout(ctx, frameTimeout)
-		defer cancel()
 		frame, release, err = stream.Next(timeoutCtx)
+		cancel() // Do not defer cancel to avoid context leak.
 		if err == nil {
 			break
 		}
