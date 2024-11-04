@@ -3,8 +3,10 @@ package modmanager
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sync/atomic"
 	"testing"
@@ -1433,127 +1435,163 @@ func TestModularDiscovery(t *testing.T) {
 }
 
 func TestFirstRun(t *testing.T) {
-	ctx := context.Background()
-	logger, logs := logging.NewObservedTestLogger(t)
+	t.Run("fails", func(t *testing.T) {
+		ctx := context.Background()
+		logger, logs := logging.NewObservedTestLogger(t)
 
-	exePath := rtestutils.BuildTempModuleWithFirstRun(t, "module/testmodule")
-	modCfg := config.Module{
-		Name:    "test-module",
-		ExePath: exePath,
-	}
-	parentAddr := setupSocketWithRobot(t)
-	opts := modmanageroptions.Options{
-		UntrustedEnv: false,
-	}
-	mgr := setupModManager(t, ctx, parentAddr, logger, opts)
-
-	t.Log("=== FIRST RUN FAILS ===")
-
-	const failEnvVarKey = "VIAM_TEST_FAIL_RUN_FIRST"
-	origFailEnvVar, origFailEnvVarSet := os.LookupEnv(failEnvVarKey)
-	unsetFailEnvVar := func() {
-		if origFailEnvVarSet {
-			err := os.Setenv(failEnvVarKey, origFailEnvVar)
-			test.That(t, err, test.ShouldBeNil)
-		} else {
-			err := os.Unsetenv(failEnvVarKey)
-			test.That(t, err, test.ShouldBeNil)
+		exePath := rtestutils.BuildTempModuleWithFirstRun(t, "module/testmodule")
+		modCfg := config.Module{
+			Name:    "test-module",
+			ExePath: exePath,
 		}
-	}
-	t.Setenv(failEnvVarKey, "1")
+		parentAddr := setupSocketWithRobot(t)
+		opts := modmanageroptions.Options{
+			UntrustedEnv: false,
+		}
+		mgr := setupModManager(t, ctx, parentAddr, logger, opts)
 
-	err := mgr.FirstRun(ctx, modCfg)
-	test.That(t, err, test.ShouldNotBeNil)
+		t.Setenv("VIAM_TEST_FAIL_RUN_FIRST", "1")
 
-	test.That(t, logs.FilterMessage("executing first run script").Len(), test.ShouldEqual, 1)
+		err := mgr.FirstRun(ctx, modCfg)
+		test.That(t, err, test.ShouldNotBeNil)
 
-	stdio := logs.FilterMessage("got stdio").FilterLevelExact(zapcore.InfoLevel)
-	test.That(t, stdio.Len(), test.ShouldEqual, 1)
-	expectedStdio := map[string]struct{}{
-		"failed!": {},
-	}
-	for _, msg := range stdio.All() {
-		line := msg.ContextMap()["output"].(string)
-		delete(expectedStdio, line)
-	}
-	test.That(t, expectedStdio, test.ShouldBeEmpty)
+		test.That(t, logs.FilterMessage("executing first run script").Len(), test.ShouldEqual, 1)
 
-	stderr := logs.FilterMessage("got stderr").FilterLevelExact(zapcore.WarnLevel)
-	test.That(t, stderr.Len(), test.ShouldEqual, 2)
-	expectedStderr := map[string]struct{}{
-		"erroring... 1": {},
-		"erroring... 2": {},
-	}
-	for _, msg := range stderr.All() {
-		line := msg.ContextMap()["output"].(string)
-		delete(expectedStderr, line)
-	}
-	test.That(t, expectedStderr, test.ShouldBeEmpty)
+		stdio := logs.FilterMessage("got stdio").FilterLevelExact(zapcore.InfoLevel)
+		test.That(t, stdio.Len(), test.ShouldEqual, 1)
+		expectedStdio := map[string]struct{}{
+			"failed!": {},
+		}
+		for _, msg := range stdio.All() {
+			line := msg.ContextMap()["output"].(string)
+			delete(expectedStdio, line)
+		}
+		test.That(t, expectedStdio, test.ShouldBeEmpty)
 
-	test.That(t, logs.FilterMessage("first run script failed").Len(), test.ShouldEqual, 1)
+		stderr := logs.FilterMessage("got stderr").FilterLevelExact(zapcore.WarnLevel)
+		test.That(t, stderr.Len(), test.ShouldEqual, 2)
+		expectedStderr := map[string]struct{}{
+			"erroring... 1": {},
+			"erroring... 2": {},
+		}
+		for _, msg := range stderr.All() {
+			line := msg.ContextMap()["output"].(string)
+			delete(expectedStderr, line)
+		}
+		test.That(t, expectedStderr, test.ShouldBeEmpty)
 
-	unsetFailEnvVar()
+		test.That(t, logs.FilterMessage("first run script failed").Len(), test.ShouldEqual, 1)
+	})
 
-	t.Log("=== FIRST RUN SUCCEEDS ===")
+	t.Run("succeeds once", func(t *testing.T) {
+		ctx := context.Background()
+		logger, logs := logging.NewObservedTestLogger(t)
 
-	logs.TakeAll() // remove logs observed up to this point
+		exePath := rtestutils.BuildTempModuleWithFirstRun(t, "module/testmodule")
+		modCfg := config.Module{
+			Name:    "test-module",
+			ExePath: exePath,
+		}
+		parentAddr := setupSocketWithRobot(t)
+		opts := modmanageroptions.Options{
+			UntrustedEnv: false,
+		}
+		mgr := setupModManager(t, ctx, parentAddr, logger, opts)
 
-	err = mgr.FirstRun(ctx, modCfg)
-	test.That(t, err, test.ShouldBeNil)
+		t.Log("=== FIRST RUN SUCCEEDS ===")
 
-	test.That(t, logs.FilterMessage("executing first run script").Len(), test.ShouldEqual, 1)
+		err := mgr.FirstRun(ctx, modCfg)
+		test.That(t, err, test.ShouldBeNil)
 
-	stdio = logs.FilterMessage("got stdio").FilterLevelExact(zapcore.InfoLevel)
-	test.That(t, stdio.Len(), test.ShouldEqual, 4)
-	expectedStdio = map[string]struct{}{
-		"running... 1": {},
-		"running... 2": {},
-		"running... 3": {},
-		"done!":        {},
-	}
-	for _, msg := range stdio.All() {
-		line := msg.ContextMap()["output"].(string)
-		delete(expectedStdio, line)
-	}
-	test.That(t, expectedStdio, test.ShouldBeEmpty)
+		test.That(t, logs.FilterMessage("executing first run script").Len(), test.ShouldEqual, 1)
 
-	stderr = logs.FilterMessage("got stderr").FilterLevelExact(zapcore.WarnLevel)
-	test.That(t, stderr.Len(), test.ShouldEqual, 2)
-	expectedStderr = map[string]struct{}{
-		"hiccup 1": {},
-		"hiccup 2": {},
-	}
-	for _, msg := range stderr.All() {
-		line := msg.ContextMap()["output"].(string)
-		delete(expectedStderr, line)
-	}
-	test.That(t, expectedStderr, test.ShouldBeEmpty)
+		stdio := logs.FilterMessage("got stdio").FilterLevelExact(zapcore.InfoLevel)
+		test.That(t, stdio.Len(), test.ShouldEqual, 4)
+		expectedStdio := map[string]struct{}{
+			"running... 1": {},
+			"running... 2": {},
+			"running... 3": {},
+			"done!":        {},
+		}
+		for _, msg := range stdio.All() {
+			line := msg.ContextMap()["output"].(string)
+			delete(expectedStdio, line)
+		}
+		test.That(t, expectedStdio, test.ShouldBeEmpty)
 
-	test.That(t, logs.FilterMessage("first run script succeeded").Len(), test.ShouldEqual, 1)
+		stderr := logs.FilterMessage("got stderr").FilterLevelExact(zapcore.WarnLevel)
+		test.That(t, stderr.Len(), test.ShouldEqual, 2)
+		expectedStderr := map[string]struct{}{
+			"hiccup 1": {},
+			"hiccup 2": {},
+		}
+		for _, msg := range stderr.All() {
+			line := msg.ContextMap()["output"].(string)
+			delete(expectedStderr, line)
+		}
+		test.That(t, expectedStderr, test.ShouldBeEmpty)
 
-	t.Log("=== FIRST RUN SKIPPED AFTER SUCCESS ===")
+		test.That(t, logs.FilterMessage("first run script succeeded").Len(), test.ShouldEqual, 1)
 
-	logs.TakeAll() // remove logs observed up to this point
+		t.Log("=== FIRST RUN SKIPPED AFTER SUCCESS ===")
 
-	err = mgr.FirstRun(ctx, modCfg)
-	test.That(t, err, test.ShouldBeNil)
+		logs.TakeAll() // remove logs observed up to this point
 
-	test.That(t, logs.FilterMessage("first run already ran").Len(), test.ShouldEqual, 1)
+		err = mgr.FirstRun(ctx, modCfg)
+		test.That(t, err, test.ShouldBeNil)
 
-	t.Log("FIRST RUN SKIPPED AFTER SUCCESS AND MODULE MANAGER RESTART")
+		test.That(t, logs.FilterMessage("first run already ran").Len(), test.ShouldEqual, 1)
 
-	logs.TakeAll() // remove logs observed up to this point
+		t.Log("FIRST RUN SKIPPED AFTER SUCCESS AND MODULE MANAGER RESTART")
 
-	err = mgr.Close(context.Background())
-	test.That(t, err, test.ShouldBeNil)
+		logs.TakeAll() // remove logs observed up to this point
 
-	opts = modmanageroptions.Options{
-		UntrustedEnv: false,
-	}
-	mgr = setupModManager(t, ctx, parentAddr, logger, opts)
+		err = mgr.Close(context.Background())
+		test.That(t, err, test.ShouldBeNil)
 
-	err = mgr.FirstRun(ctx, modCfg)
-	test.That(t, err, test.ShouldBeNil)
+		opts = modmanageroptions.Options{
+			UntrustedEnv: false,
+		}
+		mgr = setupModManager(t, ctx, parentAddr, logger, opts)
 
-	test.That(t, logs.FilterMessage("first run already ran").Len(), test.ShouldEqual, 1)
+		err = mgr.FirstRun(ctx, modCfg)
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, logs.FilterMessage("first run already ran").Len(), test.ShouldEqual, 1)
+	})
+
+	t.Run("with timeout", func(t *testing.T) {
+		ctx := context.Background()
+		logger := logging.NewTestLogger(t)
+		exePath := rtestutils.BuildTempModuleWithFirstRun(t, "module/testmodule")
+		parentAddr := setupSocketWithRobot(t)
+		opts := modmanageroptions.Options{
+			UntrustedEnv: false,
+		}
+		mgr := setupModManager(t, ctx, parentAddr, logger, opts)
+
+		// set a timeout that is slow enough to allow a process to start
+		// but expires before the process finishes. this should result
+		// in the process getting killed.
+		modCfg := config.Module{
+			Name:            "test-module",
+			ExePath:         exePath,
+			FirstRunTimeout: utils.Duration(1 * time.Millisecond),
+		}
+		err := mgr.FirstRun(ctx, modCfg)
+		test.That(t, err, test.ShouldNotBeNil)
+
+		var errExit *exec.ExitError
+		test.That(t, errors.As(err, &errExit), test.ShouldBeTrue)
+		// This error message might be different on a non-unix platform.
+		// Feel free to adjust this assertion if it ever fails on a
+		// newly-tested platform (e.g. Windows).
+		test.That(t, errExit.String(), test.ShouldContainSubstring, "signal: killed")
+
+		// set a timeout that expires before the process can even start.
+		// this should result in a [context.DeadlineExceeded] error.
+		modCfg.FirstRunTimeout = utils.Duration(1 * time.Nanosecond)
+		err = mgr.FirstRun(ctx, modCfg)
+		test.That(t, err, test.ShouldResemble, context.DeadlineExceeded)
+	})
 }

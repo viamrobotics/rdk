@@ -1111,8 +1111,11 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 
 	moduleEnvironment := getFullEnvironment(conf, dataDir, mgr.viamHomeDir)
 
-	// TODO(RSDK-9060): support a user-supplied timeout
-	cmdCtx, cancel := context.WithTimeout(ctx, defaultFirstRunTimeout)
+	timeout := defaultFirstRunTimeout
+	if conf.FirstRunTimeout > 0 {
+		timeout = conf.FirstRunTimeout.Unwrap()
+	}
+	cmdCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	//nolint:gosec // Yes, we are deliberating executing arbitrary user code here.
