@@ -2,7 +2,6 @@ package camera
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/pion/mediadevices/pkg/prop"
@@ -106,7 +105,6 @@ func NewVideoSourceFromReader(
 	reader gostream.VideoReader,
 	syst *transform.PinholeCameraModel, imageType ImageType,
 ) (VideoSource, error) {
-	fmt.Println("YOOOO TESTING")
 	if reader == nil {
 		return nil, errors.New("cannot have a nil reader")
 	}
@@ -115,31 +113,9 @@ func NewVideoSourceFromReader(
 	if isRTPPassthrough {
 		rtpPassthroughSource = passthrough
 	}
-	// We want to fill properties with the frame size.
-	// If the reader is a VideoSource, we can get the properties directly.
-	// Otherwise, we need to sample the frame size.
-	vProp, err := sampleFrameSize(ctx, reader)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not get the frame size")
-	}
-	// log frame size
-	fmt.Printf("Frame size: %dx%d\n", vProp.Width, vProp.Height)
-	// vs := gostream.NewVideoSource(reader, prop.Video{})
-	vs := gostream.NewVideoSource(reader, vProp)
-	// check MEDIA properties here
-	// check media properties here
-	// cast to MediaPropertyProvider
-	// if mediaPropProvider, ok := reader.(gostream.VideoPropertyProvider); ok {
-	if mediaPropProvider, ok := reader.(gostream.MediaPropertyProvider[any]); ok {
-		mediaProps, err := mediaPropProvider.MediaProperties(ctx)
-		if err != nil {
-			fmt.Println("Error getting media properties in wrapper")
-		}
-		fmt.Printf("Media properties in wrapper: %v\n", mediaProps)
-	}
+	vs := gostream.NewVideoSource(reader, prop.Video{})
 	actualSystem := syst
 	if actualSystem == nil {
-		fmt.Println("actualSystem is nil")
 		srcCam, ok := reader.(VideoSource)
 		if ok {
 			props, err := srcCam.Properties(ctx)
@@ -163,26 +139,6 @@ func NewVideoSourceFromReader(
 		videoStream:          gostream.NewEmbeddedVideoStream(vs),
 		actualSource:         reader,
 		imageType:            imageType,
-	}, nil
-}
-
-// sampleFrameSize takes in a videoReader and returns prop.Video with the frame size.
-func sampleFrameSize(ctx context.Context, videoReader gostream.VideoReader) (prop.Video, error) {
-	if videoReader == nil {
-		return prop.Video{}, errors.New("cannot have a nil videoReader")
-	}
-	// Get the first frame to get the frame size.
-	img, release, err := videoReader.Read(ctx)
-	if err != nil {
-		return prop.Video{}, errors.Wrap(err, "could not get the first frame")
-	}
-	defer release()
-	if img == nil {
-		return prop.Video{}, errors.New("could not get the first frame")
-	}
-	return prop.Video{
-		Width:  img.Bounds().Dx(),
-		Height: img.Bounds().Dy(),
 	}, nil
 }
 

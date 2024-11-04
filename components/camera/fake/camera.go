@@ -92,8 +92,7 @@ func NewCamera(
 		bufAndCBByID:   make(map[rtppassthrough.SubscriptionID]bufAndCB),
 		logger:         logger,
 	}
-	// src, err := camera.NewVideoSourceFromReader(ctx, cam, resModel, camera.ColorStream)
-	src, err := camera.NewVideoSourceFromReader(ctx, cam, nil, camera.ColorStream)
+	src, err := camera.NewVideoSourceFromReader(ctx, cam, resModel, camera.ColorStream)
 	if err != nil {
 		return nil, err
 	}
