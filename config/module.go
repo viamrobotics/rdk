@@ -320,6 +320,10 @@ func (m *Module) FirstRun(
 		logger.Debugw("failed to load meta.json, skipping setup phase", "error", err)
 		return nil
 	}
+	if meta.FirstRun == "" {
+		logger.Debug("no first run script specified, skipping setup phase")
+		return nil
+	}
 	relFirstRunPath, err := utils.SafeJoinDir(unpackedModDir, meta.FirstRun)
 	if err != nil {
 		logger.Errorw("failed to build path to first run script, skipping setup phase", "error", err)
