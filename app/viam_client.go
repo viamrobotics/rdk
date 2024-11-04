@@ -25,7 +25,7 @@ func CreateViamClient(ctx context.Context, baseURL string, apiKey string, apiKey
 
 	switch {
 	case apiKey == "" || apiKeyID == "":
-		return nil, fmt.Errorf("API key and API key ID cannot be empty.")
+		return nil, fmt.Errorf("API key and API key ID cannot be empty")
 	case !validateApiKeyFormat(apiKey):
 		return nil, fmt.Errorf("API key should be a 32-char all-lowercase alphanumeric string")
 	case !validateApiKeyIDFormat(apiKeyID):
