@@ -37,6 +37,8 @@ type gnuplotWriter struct {
 }
 
 type graphOptions struct {
+	// minTimeSeconds and maxTimeSeconds control which datapoints should render based on their
+	// timestamp. The default is all datapoints (minTimeSeconds: 0, maxTimeSeconds: MaxInt64).
 	minTimeSeconds int64
 	maxTimeSeconds int64
 }
@@ -130,14 +132,10 @@ func (gpw *gnuplotWriter) CompileAndClose() string {
 	}
 	defer utils.UncheckedErrorFunc(gnuFile.Close)
 
-	// We are a CLI, it's appropriate to write to stdout.
-	//
-
-	nolintPrintln("GNUPlot File:", gnuFile.Name())
-
 	// Write a png with width of 1000 pixels and 200 pixels of height per metric/graph.
 	writelnf(gnuFile, "set term png size %d, %d", 1000, 200*len(gpw.metricFiles))
 
+	nolintPrintln("Output file: `plot.png`")
 	// The output filename
 	writeln(gnuFile, "set output 'plot.png'")
 
@@ -152,9 +150,9 @@ func (gpw *gnuplotWriter) CompileAndClose() string {
 	writeln(gnuFile, "set xlabel 'Time'")
 	writeln(gnuFile, "set xdata time")
 
-	// FTDC does not have negative numbers, so start the Y-axis at 0. Except that it may things like
-	// position or voltages? Revisit if this can be more granular as a per-graph setting rather than
-	// a global.
+	// FTDC does not have negative numbers, so start the Y-axis at 0. Except that some metrics may
+	// want to be negative like position or voltages? Revisit if this can be more granular as a
+	// per-graph setting rather than a global.
 	writeln(gnuFile, "set yrange [0:*]")
 
 	for metricName, file := range gpw.metricFiles {
@@ -208,6 +206,7 @@ func main() {
 		//nolint:forbidigo
 		fmt.Print("$ ")
 		cmd, err := stdinReader.ReadString('\n')
+		cmd = strings.TrimSpace(cmd)
 		switch {
 		case err != nil && errors.Is(err, io.EOF):
 			nolintPrintln("\nExiting...")
@@ -220,6 +219,8 @@ func main() {
 			nolintPrintln("range <start> <end>")
 			nolintPrintln("-  Only plot datapoints within the given range. \"zoom in\"")
 			nolintPrintln("-  E.g: range 2024-09-24T18:00:00 2024-09-24T18:30:00")
+			nolintPrintln("-       range start 2024-09-24T18:30:00")
+			nolintPrintln("-       range 2024-09-24T18:00:00 end")
 			nolintPrintln("-  All times in UTC")
 			nolintPrintln()
 			nolintPrintln("reset range")
@@ -229,8 +230,7 @@ func main() {
 		case strings.HasPrefix(cmd, "range "):
 			pieces := strings.SplitN(cmd, " ", 3)
 			// TrimSpace to remove the newline.
-			start, end := pieces[1], strings.TrimSpace(pieces[2])
-			_, _ = start, end
+			start, end := pieces[1], pieces[2]
 
 			if start == "start" {
 				graphOptions.minTimeSeconds = 0
@@ -239,7 +239,7 @@ func main() {
 				if err != nil {
 					// This is a CLI. It's acceptable to output to stdout.
 					//nolint:forbidigo
-					fmt.Printf("Error parsing start time. Inp: %q Err: %v\n", start, err)
+					fmt.Printf("Error parsing start time. Working example: `2024-09-24T18:00:00` Inp: %q Err: %v\n", start, err)
 					continue
 				}
 				graphOptions.minTimeSeconds = goTime.Unix()
@@ -252,7 +252,7 @@ func main() {
 				if err != nil {
 					// This is a CLI. It's acceptable to output to stdout.
 					//nolint:forbidigo
-					fmt.Printf("Error parsing end time. Inp: %q Err: %v\n", end, err)
+					fmt.Printf("Error parsing end time. Working example: `2024-09-24T18:00:00` Inp: %q Err: %v\n", end, err)
 					continue
 				}
 				graphOptions.maxTimeSeconds = goTime.Unix()
@@ -260,7 +260,7 @@ func main() {
 		case strings.HasPrefix(cmd, "reset range"):
 			graphOptions.minTimeSeconds = 0
 			graphOptions.maxTimeSeconds = math.MaxInt64
-		case len(strings.TrimSpace(cmd)) == 0:
+		case len(cmd) == 0:
 			render = false
 		default:
 			nolintPrintln("Unknown command. Type `h` for help.")
