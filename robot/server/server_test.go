@@ -55,6 +55,8 @@ var serverOneResourceResponse = []*commonpb.ResourceName{
 		Type:      serverNewResource.API.Type.Name,
 		Subtype:   serverNewResource.API.SubtypeName,
 		Name:      serverNewResource.Name,
+		RemotePath: []string{},
+		LocalName: "",
 	},
 }
 
@@ -325,17 +327,21 @@ func TestServer(t *testing.T) {
 		expectedResp := []*pb.ResourceRPCSubtype{
 			{
 				Subtype: &commonpb.ResourceName{
-					Namespace: string(serverNewResource.API.Type.Namespace),
-					Type:      serverNewResource.API.Type.Name,
-					Subtype:   serverNewResource.API.SubtypeName,
+					Namespace:  string(serverNewResource.API.Type.Namespace),
+					Type:       serverNewResource.API.Type.Name,
+					Subtype:    serverNewResource.API.SubtypeName,
+					RemotePath: []string{},
+					Name:       "",
 				},
 				ProtoService: desc1.GetFullyQualifiedName(),
 			},
 			{
 				Subtype: &commonpb.ResourceName{
-					Namespace: string(otherAPI.Type.Namespace),
-					Type:      otherAPI.Type.Name,
-					Subtype:   otherAPI.SubtypeName,
+					Namespace:  string(otherAPI.Type.Namespace),
+					Type:       otherAPI.Type.Name,
+					Subtype:    otherAPI.SubtypeName,
+					RemotePath: []string{},
+					Name:       "",
 				},
 				ProtoService: desc2.GetFullyQualifiedName(),
 			},

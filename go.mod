@@ -2,6 +2,8 @@ module go.viam.com/rdk
 
 go 1.23
 
+replace go.viam.com/api v0.1.348 => /Users/kschap/Documents/GitHub/api-kurt
+
 require (
 	github.com/AlekSi/gocov-xml v1.0.0
 	github.com/CPRT/roboclaw v0.0.0-20190825181223-76871438befc
