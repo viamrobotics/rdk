@@ -34,7 +34,7 @@ func moveOptionsFromProtobuf(protobuf *pb.MoveOptions) *MoveOptions {
 	}
 }
 
-func (opts MoveOptions) toProtobuf() *pb.MoveOptions {
+func (opts *MoveOptions) toProtobuf() *pb.MoveOptions {
 	vel := utils.RadToDeg(opts.MaxVelRads)
 	acc := utils.RadToDeg(opts.MaxAccRads)
 	return &pb.MoveOptions{

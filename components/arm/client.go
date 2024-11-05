@@ -127,12 +127,15 @@ func (c *client) MoveThroughJointPositions(
 		}
 		allJPs = append(allJPs, jp)
 	}
-	_, err = c.client.MoveThroughJointPositions(ctx, &pb.MoveThroughJointPositionsRequest{
+	req := &pb.MoveThroughJointPositionsRequest{
 		Name:      c.name,
 		Positions: allJPs,
-		Options:   options.toProtobuf(),
 		Extra:     ext,
-	})
+	}
+	if options != nil {
+		req.Options = options.toProtobuf()
+	}
+	_, err = c.client.MoveThroughJointPositions(ctx, req)
 	return err
 }
 
