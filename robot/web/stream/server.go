@@ -372,6 +372,54 @@ func (server *Server) GetStreamOptions(
 	}, nil
 }
 
+// SetStreamOptions implements part of the StreamServiceServer. It sets the resolution of the stream
+// to the given width and height.
+func (server *Server) SetStreamOptions(
+	ctx context.Context,
+	req *streampb.SetStreamOptionsRequest,
+) (*streampb.SetStreamOptionsResponse, error) {
+	if req.Name == "" {
+		return nil, errors.New("stream name is required")
+	}
+	if _, ok := server.videoSources[req.Name]; !ok {
+		return nil, errors.New("stream name not found")
+	}
+	if req.Resolution == nil {
+		return nil, errors.New("resolution is required")
+	}
+	if req.Resolution.Width <= 0 || req.Resolution.Height <= 0 {
+		return nil, errors.New("invalid resolution, width and height must be greater than 0")
+	}
+	_, err := camera.FromRobot(server.robot, req.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get camera from robot: %w", err)
+	}
+	err = server.resizeVideoSource(req.Name, int(req.Resolution.Width), int(req.Resolution.Height))
+	if err != nil {
+		return nil, fmt.Errorf("failed to resize video source: %w", err)
+	}
+	return &streampb.SetStreamOptionsResponse{}, nil
+}
+
+// ResizeVideoSource resizes the video source with the given name.
+func (server *Server) resizeVideoSource(name string, width, height int) error {
+	server.mu.Lock()
+	defer server.mu.Unlock()
+	existing, ok := server.videoSources[name]
+	if !ok {
+		return fmt.Errorf("video source %q not found", name)
+	}
+	cam, err := camera.FromRobot(server.robot, name)
+	if err != nil {
+		server.logger.Errorw("error getting camera from robot", "error", err)
+		return err
+	}
+	resizer := gostream.NewResizeVideoSource(cam, width, height)
+	server.logger.Debug("Resizing video source with swap")
+	existing.Swap(resizer)
+	return nil
+}
+
 // AddNewStreams adds new video and audio streams to the server using the updated set of video and
 // audio sources. It refreshes the sources, checks for a valid stream configuration, and starts
 // the streams if applicable.

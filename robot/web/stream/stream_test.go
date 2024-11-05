@@ -356,3 +356,69 @@ func TestGetStreamOptions(t *testing.T) {
 		testGetStreamOptions(name, expectedResolutions)
 	}
 }
+
+func TestSetStreamOptions(t *testing.T) {
+	logger := logging.NewTestLogger(t).Sublogger("TestWebReconfigure")
+	origCfg := &config.Config{Components: []resource.Config{
+		// 480p
+		{
+			Name:  "fake-cam-0-0",
+			API:   resource.NewAPI("rdk", "component", "camera"),
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			ConvertedAttributes: &fake.Config{
+				Width:  640,
+				Height: 480,
+			},
+		},
+	}}
+
+	ctx, robot, addr, webSvc := setupRealRobot(t, origCfg, logger)
+	defer robot.Close(ctx)
+	defer webSvc.Close(ctx)
+	conn, err := rgrpc.Dial(context.Background(), addr, logger.Sublogger("TestDial"), rpc.WithDisableDirectGRPC())
+	test.That(t, err, test.ShouldBeNil)
+	defer conn.Close()
+
+	livestreamClient := streampb.NewStreamServiceClient(conn)
+	listResp, err := livestreamClient.ListStreams(ctx, &streampb.ListStreamsRequest{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(listResp.Names), test.ShouldEqual, 1)
+
+	getStreamOptionsResp, err := livestreamClient.GetStreamOptions(ctx, &streampb.GetStreamOptionsRequest{
+		Name: "fake-cam-0-0",
+	})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, getStreamOptionsResp, test.ShouldNotBeNil)
+	test.That(t, len(getStreamOptionsResp.Resolutions), test.ShouldEqual, 5)
+
+	// Test setting stream options with invalid name
+	setStreamOptionsResp, err := livestreamClient.SetStreamOptions(ctx, &streampb.SetStreamOptionsRequest{
+		Name: "invalid-name",
+	})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, setStreamOptionsResp, test.ShouldBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+
+	// Test setting stream options without Name
+	setStreamOptionsResp, err = livestreamClient.SetStreamOptions(ctx, &streampb.SetStreamOptionsRequest{})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, setStreamOptionsResp, test.ShouldBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "name")
+
+	// Test setting stream options with invalid resolution (0x0)
+	setStreamOptionsResp, err = livestreamClient.SetStreamOptions(ctx, &streampb.SetStreamOptionsRequest{
+		Name:       "fake-cam-0-0",
+		Resolution: &streampb.Resolution{Width: 0, Height: 0},
+	})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, setStreamOptionsResp, test.ShouldBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid resolution")
+
+	// Test setting the stream optoins with a valid resolution
+	setStreamOptionsResp, err = livestreamClient.SetStreamOptions(ctx, &streampb.SetStreamOptionsRequest{
+		Name:       "fake-cam-0-0",
+		Resolution: &streampb.Resolution{Width: 320, Height: 240},
+	})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, setStreamOptionsResp, test.ShouldNotBeNil)
+}
