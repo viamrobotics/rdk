@@ -651,6 +651,7 @@ func sampleFrameSize(ctx context.Context, cam camera.Camera, logger logging.Logg
 	// This is useful if cameras have a warm-up period before they can start streaming.
 	var frame image.Image
 	var release func()
+retryLoop:
 	for i := 0; i < 5; i++ {
 		select {
 		case <-ctx.Done():
@@ -658,7 +659,7 @@ func sampleFrameSize(ctx context.Context, cam camera.Camera, logger logging.Logg
 		default:
 			frame, release, err = stream.Next(ctx)
 			if err == nil {
-				break
+				break retryLoop // Break out of the for loop, not just the select.
 			}
 			logger.Debugf("failed to get frame, retrying... (%d/5)", i+1)
 			time.Sleep(retryDelay)
