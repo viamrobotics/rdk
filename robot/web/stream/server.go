@@ -348,7 +348,7 @@ func (server *Server) GetStreamOptions(
 	var width, height int
 	camProps, err := cam.Properties(ctx)
 	if err != nil {
-		server.logger.Warn("failed to get camera properties:", err)
+		server.logger.Debug("failed to get camera properties:", err)
 	}
 	if err != nil || camProps.IntrinsicParams == nil || camProps.IntrinsicParams.Width == 0 || camProps.IntrinsicParams.Height == 0 {
 		server.logger.Debug("width and height not found in camera properties")
@@ -417,7 +417,7 @@ func (server *Server) sampleFrameSize(ctx context.Context, cam camera.Camera) (i
 			if err == nil {
 				break
 			}
-			server.logger.Warnf("failed to get frame, retrying... (%d/5)", i+1)
+			server.logger.Debugf("failed to get frame, retrying... (%d/5)", i+1)
 			time.Sleep(retryDelay)
 		}
 	}
@@ -425,7 +425,7 @@ func (server *Server) sampleFrameSize(ctx context.Context, cam camera.Camera) (i
 		defer release()
 	}
 	if err != nil {
-		return 0, 0, fmt.Errorf("failed to get frame after 3 attempts: %w", err)
+		return 0, 0, fmt.Errorf("failed to get frame after 5 attempts: %w", err)
 	}
 	return frame.Bounds().Dx(), frame.Bounds().Dy(), nil
 }
