@@ -330,7 +330,7 @@ func (d *DataClient) BinaryDataByIDs(ctx context.Context, binaryIds []*pb.Binary
 	// return resp.Data, nil
 	return data, nil
 }
-func (d *DataClient) DeleteTabularData(ctx context.Context, organizationId string, deleteOlderThanDays uint32) (deletedCount uint64, err error) {
+func (d *DataClient) DeleteTabularData(ctx context.Context, organizationId string, deleteOlderThanDays uint32) (uint64, error) {
 	resp, err := d.client.DeleteTabularData(ctx, &pb.DeleteTabularDataRequest{
 		OrganizationId:      organizationId,
 		DeleteOlderThanDays: deleteOlderThanDays,
@@ -355,23 +355,58 @@ func (d *DataClient) DeleteBinaryDataByFilter(ctx context.Context, filter *pb.Fi
 	}
 	return resp.DeletedCount, nil
 }
-func (d *DataClient) DeleteBinaryDataByIDs() error {
-	return errors.New("unimplemented")
+func (d *DataClient) DeleteBinaryDataByIDs(ctx context.Context, binaryIds []*pb.BinaryID) (uint64, error) {
+	resp, err := d.client.DeleteBinaryDataByIDs(ctx, &pb.DeleteBinaryDataByIDsRequest{
+		BinaryIds: binaryIds,
+	})
+	if err != nil {
+		return 0, err
+	}
+	return resp.DeletedCount, nil
 }
-func (d *DataClient) AddTagsToBinaryDataByIDs() error {
-	return errors.New("unimplemented")
+func (d *DataClient) AddTagsToBinaryDataByIDs(ctx context.Context, tags []string, binaryIds []*pb.BinaryID) error {
+	_, err := d.client.AddTagsToBinaryDataByIDs(ctx, &pb.AddTagsToBinaryDataByIDsRequest{BinaryIds: binaryIds, Tags: tags})
+	if err != nil {
+		return err
+	}
+	return nil
 }
-func (d *DataClient) AddTagsToBinaryDataByFilter() error {
-	return errors.New("unimplemented")
+func (d *DataClient) AddTagsToBinaryDataByFilter(ctx context.Context, tags []string, filter *pb.Filter) error {
+	if filter == nil {
+		filter = &pb.Filter{}
+	}
+	_, err := d.client.AddTagsToBinaryDataByFilter(ctx, &pb.AddTagsToBinaryDataByFilterRequest{Filter: filter, Tags: tags})
+	if err != nil {
+		return err
+	}
+	return nil
 }
-func (d *DataClient) RemoveTagsFromBinaryDataByIDs() error {
-	return errors.New("unimplemented")
+func (d *DataClient) RemoveTagsFromBinaryDataByIDs(ctx context.Context, tags []string, binaryIds []*pb.BinaryID) (uint64, error) {
+	resp, err := d.client.RemoveTagsFromBinaryDataByIDs(ctx, &pb.RemoveTagsFromBinaryDataByIDsRequest{BinaryIds: binaryIds, Tags: tags})
+	if err != nil {
+		return 0, err
+	}
+	return resp.DeletedCount, nil
 }
-func (d *DataClient) RemoveTagsFromBinaryDataByFilter() error {
-	return errors.New("unimplemented")
+func (d *DataClient) RemoveTagsFromBinaryDataByFilter(ctx context.Context, tags []string, filter *pb.Filter) (uint64, error) {
+	if filter == nil {
+		filter = &pb.Filter{}
+	}
+	resp, err := d.client.RemoveTagsFromBinaryDataByFilter(ctx, &pb.RemoveTagsFromBinaryDataByFilterRequest{Filter: filter, Tags: tags})
+	if err != nil {
+		return 0, err
+	}
+	return resp.DeletedCount, nil
 }
-func (d *DataClient) TagsByFilter() error {
-	return errors.New("unimplemented")
+func (d *DataClient) TagsByFilter(ctx context.Context, filter *pb.Filter) ([]string, error) {
+	if filter == nil {
+		filter = &pb.Filter{}
+	}
+	resp, err := d.client.TagsByFilter(ctx, &pb.TagsByFilterRequest{Filter: filter})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Tags, nil
 }
 func (d *DataClient) AddBoundingBoxToImageByID() error {
 	return errors.New("unimplemented")
