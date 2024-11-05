@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	tu "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -25,7 +26,7 @@ const (
 	numRetries      = 5
 )
 
-var floatList = []float64{1.0, 2.0, 3.0}
+var floatList = &pb.JointPositions{Values: []float64{1.0, 2.0, 3.0}}
 
 func TestCollectors(t *testing.T) {
 	tests := []struct {
@@ -51,11 +52,7 @@ func TestCollectors(t *testing.T) {
 		{
 			name:      "Joint positions collector should write a list of positions",
 			collector: arm.NewJointPositionsCollector,
-			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetJointPositionsResponse{
-				Positions: &pb.JointPositions{
-					Values: floatList,
-				},
-			}),
+			expected:  tu.ToProtoMapIgnoreOmitEmpty(pb.GetJointPositionsResponse{Positions: floatList}),
 		},
 	}
 
@@ -93,10 +90,11 @@ func newArm() arm.Arm {
 	a.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		return spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3}), nil
 	}
-	a.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
-		return &pb.JointPositions{
-			Values: floatList,
-		}, nil
+	a.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
+		return referenceframe.FloatsToInputs(referenceframe.JointPositionsToRadians(floatList)), nil
+	}
+	a.ModelFrameFunc = func() referenceframe.Model {
+		return nil
 	}
 	return a
 }

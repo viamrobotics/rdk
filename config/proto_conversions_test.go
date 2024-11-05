@@ -14,6 +14,7 @@ import (
 	packagespb "go.viam.com/api/app/packages/v1"
 	pb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
+	goutils "go.viam.com/utils"
 	"go.viam.com/utils/jwks"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
@@ -207,7 +208,7 @@ var testModuleWithTimeout = Module{
 	Type:            ModuleTypeLocal,
 	ModuleID:        "a:b",
 	Environment:     map[string]string{"SOME_VAR": "value"},
-	FirstRunTimeout: time.Minute,
+	FirstRunTimeout: goutils.Duration(time.Minute),
 }
 
 var testPackageConfig = PackageConfig{

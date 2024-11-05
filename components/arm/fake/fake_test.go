@@ -2,9 +2,9 @@ package fake
 
 import (
 	"context"
+	"math"
 	"testing"
 
-	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/logging"
@@ -115,13 +115,13 @@ func TestJointPositions(t *testing.T) {
 	// Round trip test for MoveToJointPositions -> JointPositions
 	arm, err := NewArm(ctx, nil, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	samplePositions := &pb.JointPositions{Values: []float64{0, 30, 60, 90, 60, 30}}
+	samplePositions := []referenceframe.Input{{0}, {math.Pi}, {-math.Pi}, {0}, {math.Pi}, {-math.Pi}}
 	test.That(t, arm.MoveToJointPositions(ctx, samplePositions, nil), test.ShouldBeNil)
 	positions, err := arm.JointPositions(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(positions.Values), test.ShouldEqual, len(samplePositions.Values))
-	for i := range samplePositions.Values {
-		test.That(t, positions.Values[i], test.ShouldAlmostEqual, samplePositions.Values[i])
+	test.That(t, len(positions), test.ShouldEqual, len(samplePositions))
+	for i := range samplePositions {
+		test.That(t, positions[i], test.ShouldResemble, samplePositions[i])
 	}
 
 	// Round trip test for GoToInputs -> CurrentInputs

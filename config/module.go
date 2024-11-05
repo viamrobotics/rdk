@@ -8,10 +8,11 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/pkg/errors"
+	goutils "go.viam.com/utils"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
@@ -41,7 +42,11 @@ type Module struct {
 	Environment map[string]string `json:"env,omitempty"`
 
 	// FirstRunTimeout is the timeout duration for the first run script.
-	FirstRunTimeout time.Duration `json:"first_run_timeout,omitempty"`
+	// Setting this field to a zero value (e.g. 0 * [time.Second]) will
+	// set the first run timeout to the default value of 1 hour, which
+	// is equivalent to leaving this field unset. If you wish to set an
+	// immediate timeout you can set this field to a negative value.
+	FirstRunTimeout goutils.Duration `json:"first_run_timeout,omitempty"`
 
 	// Status refers to the validations done in the APP to make sure a module is configured correctly
 	Status           *AppValidationStatus `json:"status"`
@@ -235,7 +240,7 @@ const FirstRunSuccessSuffix = ".first_run_succeeded"
 //
 // On success (i.e. if the returned error is nil), this function also returns a function that creates
 // a marker file indicating that the setup phase has run successfully.
-func (m Module) EvaluateFirstRunPath(packagesDir string) (
+func (m Module) EvaluateFirstRunPath(packagesDir string, logger logging.Logger) (
 	string,
 	func() error,
 	error,
@@ -248,6 +253,7 @@ func (m Module) EvaluateFirstRunPath(packagesDir string) (
 
 	firstRunSuccessPath := unpackedModDir + FirstRunSuccessSuffix
 	if _, err := os.Stat(firstRunSuccessPath); !errors.Is(err, os.ErrNotExist) {
+		logger.Info("first run already ran")
 		return "", noop, errors.New("first run already ran")
 	}
 	markFirstRunSuccess := func() error {

@@ -3284,11 +3284,17 @@ func TestRobotReconfigure(t *testing.T) {
 func TestDefaultServiceReconfigure(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
-	motionName := "motion"
+	motionName1 := "motion1"
+	motionName2 := "motion2"
 	cfg1 := &config.Config{
 		Services: []resource.Config{
 			{
-				Name:  motionName,
+				Name:  motionName1,
+				API:   motion.API,
+				Model: resource.DefaultServiceModel,
+			},
+			{
+				Name:  motionName2,
 				API:   motion.API,
 				Model: resource.DefaultServiceModel,
 			},
@@ -3298,7 +3304,9 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 
 	rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(),
 		[]resource.Name{
-			motion.Named(motionName),
+			motion.Named(motionName1),
+			motion.Named(motionName2),
+			motion.Named(resource.DefaultServiceName),
 		},
 	)
 

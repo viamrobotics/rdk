@@ -10,11 +10,13 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
+        language: ["python", "go"]
         resource:
           [
             { subtype: "arm", type: "component" },
             { subtype: "audio_input", type: "component" },
             { subtype: "base", type: "component" },
+            { subtype: "board", type: "component" },
             { subtype: "camera", type: "component" },
             { subtype: "encoder", type: "component" },
             { subtype: "gantry", type: "component" },
@@ -45,12 +47,11 @@ jobs:
           go-version-file: go.mod
 
       - name: Run module generator
-        run: go run ./cli/viam --debug module generate --resource-subtype "${{ matrix.resource.subtype }}" --resource-type "${{ matrix.resource.type }}"
+        run: go run ./cli/viam --debug module generate --resource-subtype "${{ matrix.resource.subtype }}" --resource-type "${{ matrix.resource.type }}" --language "${{ matrix.language }}"
 
       - name: Run module
         run: |
           cd my-module
-          chmod +x run.sh
           ./run.sh /tmp/viam.sock &
           PID=$!
           sleep 5

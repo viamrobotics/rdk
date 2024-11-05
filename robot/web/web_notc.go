@@ -9,7 +9,6 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/utils/rpc"
 )
 
@@ -63,7 +62,7 @@ func (svc *webService) Reconfigure(ctx context.Context, deps resource.Dependenci
 func (svc *webService) closeStreamServer() {}
 
 // stub implementation when gostream not available
-func (svc *webService) initStreamServer(ctx context.Context, options *weboptions.Options) error {
+func (svc *webService) initStreamServer(ctx context.Context) error {
 	return nil
 }
 

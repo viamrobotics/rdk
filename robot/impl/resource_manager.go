@@ -19,6 +19,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/ftdc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module/modmanager"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
@@ -63,6 +64,7 @@ type resourceManagerOptions struct {
 	allowInsecureCreds bool
 	untrustedEnv       bool
 	tlsConfig          *tls.Config
+	ftdc               *ftdc.FTDC
 }
 
 // newResourceManager returns a properly initialized set of parts.
@@ -72,8 +74,15 @@ func newResourceManager(
 	logger logging.Logger,
 ) *resourceManager {
 	resLogger := logger.Sublogger("resource_manager")
+	var resourceGraph *resource.Graph
+	if opts.ftdc != nil {
+		resourceGraph = resource.NewGraphWithFTDC(opts.ftdc)
+	} else {
+		resourceGraph = resource.NewGraph()
+	}
+
 	return &resourceManager{
-		resources:      resource.NewGraph(),
+		resources:      resourceGraph,
 		processManager: newProcessManager(opts, logger),
 		processConfigs: make(map[string]pexec.ProcessConfig),
 		opts:           opts,
@@ -138,7 +147,7 @@ func (manager *resourceManager) addRemote(
 			return
 		}
 	} else {
-		gNode.SwapResource(rr, builtinModel)
+		gNode.SwapResource(rr, builtinModel, manager.opts.ftdc)
 	}
 	manager.updateRemoteResourceNames(ctx, rName, rr, true)
 }
@@ -237,10 +246,10 @@ func (manager *resourceManager) updateRemoteResourceNames(
 				// it is possible that we are switching to a new remote with a identical resource name(s), so we may
 				// need to create these resource clients.
 				if !recreateAllClients {
-					// ticker event, likely no changes to remote resources, skip closing and readding duplicate name resource clients
+					// ticker event, likely no changes to remote resources, skip closing and re-adding duplicate name resource clients
 					continue
 				}
-				// reconfiguration attempt, remote could have changed, so close all duplicate name remote resource clients and readd new ones later
+				// reconfiguration attempt, remote could have changed, so close all duplicate name remote resource clients and re-add new ones later
 				resLogger.CDebugw(ctx, "attempting to remove remote resource")
 				if err := manager.markChildrenForUpdate(resName); err != nil {
 					resLogger.CErrorw(ctx,
@@ -257,7 +266,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		}
 
 		if nodeAlreadyExists {
-			gNode.SwapResource(res, unknownModel)
+			gNode.SwapResource(res, unknownModel, manager.opts.ftdc)
 		} else {
 			gNode = resource.NewConfiguredGraphNode(resource.Config{}, res, unknownModel)
 			if err := manager.resources.AddNode(resName, gNode); err != nil {
@@ -720,7 +729,7 @@ func (manager *resourceManager) completeConfig(
 							manager.logger.CErrorw(
 								ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
 						} else {
-							gNode.SwapResource(newRes, conf.Model)
+							gNode.SwapResource(newRes, conf.Model, manager.opts.ftdc)
 						}
 
 					default:

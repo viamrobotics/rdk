@@ -1,5 +1,3 @@
-//go:build !no_tflite
-
 // Package main tests out all four custom models in the complexmodule.
 package main_test
 

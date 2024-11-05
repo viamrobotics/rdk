@@ -2,6 +2,7 @@
 package modmanager
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io/fs"
@@ -1082,18 +1083,20 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 
 // FirstRun is runs a module-specific setup script.
 func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
-	logger := mgr.logger.AsZap().With("name", conf.Name)
+	logger := mgr.logger.Sublogger("first_run").WithFields("module", conf.Name)
 
 	// Evaluate the Module's FirstRun path. If there is an error we assume
 	// that the first run script does not exist and we debug log and exit quietly.
-	firstRunPath, markSuccess, err := conf.EvaluateFirstRunPath(packages.LocalPackagesDir(mgr.packagesDir))
+	localPackagesDir := packages.LocalPackagesDir(mgr.packagesDir)
+	firstRunPath, markSuccess, err := conf.EvaluateFirstRunPath(localPackagesDir, logger)
 	if err != nil {
 		// TODO(RSDK-9067): some first run path evaluation errors should be promoted to WARN logs.
-		logger.Debug("no first run script detected, skipping setup phase", "error", err)
+		logger.Debugw("no first run script detected, skipping setup phase", "error", err)
 		return nil
 	}
 
-	logger.Info("executing first run script")
+	logger = logger.WithFields("module", conf.Name, "path", firstRunPath)
+	logger.Infow("executing first run script")
 
 	// This value is normally set on a field on the [module] struct but it seems like we can safely get it on demand.
 	var dataDir string
@@ -1108,8 +1111,11 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 
 	moduleEnvironment := getFullEnvironment(conf, dataDir, mgr.viamHomeDir)
 
-	// TODO(RSDK-9060): support a user-supplied timeout
-	cmdCtx, cancel := context.WithTimeout(ctx, defaultFirstRunTimeout)
+	timeout := defaultFirstRunTimeout
+	if conf.FirstRunTimeout > 0 {
+		timeout = conf.FirstRunTimeout.Unwrap()
+	}
+	cmdCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	//nolint:gosec // Yes, we are deliberating executing arbitrary user code here.
@@ -1119,15 +1125,56 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	for key, val := range moduleEnvironment {
 		cmd.Env = append(cmd.Env, key+"="+val)
 	}
-	cmdOut, err := cmd.CombinedOutput()
 
-	resultLogger := logger.With("path", firstRunPath, "output", string(cmdOut))
+	stdOut, err := cmd.StdoutPipe()
 	if err != nil {
-		resultLogger.Errorw("command failed", "error", err)
+		return err
+	}
+	stdErr, err := cmd.StderrPipe()
+	if err != nil {
 		return err
 	}
 
-	resultLogger.Infow("command succeeded")
+	scanOut := bufio.NewScanner(stdOut)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+
+		for scanOut.Scan() {
+			logger.Infow("got stdio", "output", scanOut.Text())
+		}
+		// This scanner keeps trying to read stdio until the command terminates,
+		// at which point the stdio pipe handle is no longer available. This sometimes
+		// results in an `os.ErrClosed`, which we discard.
+		if err := scanOut.Err(); err != nil && !errors.Is(err, os.ErrClosed) {
+			logger.Errorw("error scanning stdio", "error", err)
+		}
+	}()
+	scanErr := bufio.NewScanner(stdErr)
+	go func() {
+		defer wg.Done()
+
+		for scanErr.Scan() {
+			logger.Warnw("got stderr", "output", scanErr.Text())
+		}
+		// This scanner keeps trying to read stderr until the command terminates,
+		// at which point the stderr pipe handle is no longer available. This sometimes
+		// results in an `os.ErrClosed`, which we discard.
+		if err := scanErr.Err(); err != nil && !errors.Is(err, os.ErrClosed) {
+			logger.Errorw("error scanning stderr", "error", err)
+		}
+	}()
+	if err := cmd.Start(); err != nil {
+		logger.Errorw("failed to start first run script", "error", err)
+		return err
+	}
+	if err := cmd.Wait(); err != nil {
+		logger.Errorw("first run script failed", "error", err)
+		return err
+	}
+	wg.Wait()
+	logger.Info("first run script succeeded")
 
 	// Mark success by writing a marker file to disk. This is a best
 	// effort; if writing to disk fails the setup phase will run again

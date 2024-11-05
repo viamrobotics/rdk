@@ -42,6 +42,7 @@ const (
 	apiKeyCreateFlagName = "name"
 
 	moduleFlagName            = "name"
+	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
 	moduleFlagPath            = "module"
 	moduleFlagVersion         = "version"
@@ -54,6 +55,7 @@ const (
 	moduleFlagID              = "id"
 	moduleFlagResourceType    = "resource-type"
 	moduleFlagResourceSubtype = "resource-subtype"
+	moduleFlagTags            = "tags"
 
 	moduleBuildFlagPath      = "module"
 	moduleBuildFlagRef       = "ref"
@@ -1496,6 +1498,11 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Usage: "generate a new modular resource via prompts",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
+							Name:  moduleFlagLanguage,
+							Usage: "language to use for module",
+							Value: "python",
+						},
+						&cli.StringFlag{
 							Name:  moduleFlagResourceType,
 							Usage: "resource type to use in module",
 						},
@@ -1594,6 +1601,14 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
                       darwin/amd64  (Intel macs)
                       darwin/arm64  (Apple silicon macs)`,
 							Required: true,
+						},
+						&cli.StringFlag{
+							Name: moduleFlagTags,
+							Usage: `Optional extra fields for constraining the platforms to which this binary
+                             is deployed. Examples: distro:debian, distro:ubuntu, os_version:22.04,
+                             os_codename:jammy. You can provide multiple tags in this field by separating
+                             them with a comma. For a machine to use an upload, all tags must be satisified
+                             as well as the --platform field.`,
 						},
 						&cli.BoolFlag{
 							Name:  moduleFlagForce,

@@ -114,7 +114,7 @@ func TestNewBoard(t *testing.T) {
 	}
 
 	conf := &Config{}
-	conf.AnalogReaders = []mcp3008helper.MCP3008AnalogConfig{{Name: "an1", Pin: "1"}}
+	conf.AnalogReaders = []mcp3008helper.MCP3008AnalogConfig{{Name: "an1", Channel: "1"}}
 
 	config := resource.Config{
 		Name:                "board1",
