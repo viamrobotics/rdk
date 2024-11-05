@@ -5,6 +5,7 @@ package dualgps
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"sync"
 
@@ -114,13 +115,27 @@ func (dg *dualGPS) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 	if err != nil {
 		return err
 	}
+
+	firstProps, err := first.Properties(ctx, nil)
+	if err != nil {
+		return err
+	}
 	dg.gps1 = first
 
 	second, err := movementsensor.FromDependencies(deps, newConf.Gps2)
 	if err != nil {
 		return err
 	}
+	secondProps, err := first.Properties(ctx, nil)
+	if err != nil {
+		return err
+	}
 	dg.gps2 = second
+
+	if !firstProps.PositionSupported || !secondProps.PositionSupported {
+		return fmt.Errorf(
+			"configured movement sensors %v and %v do not support reporting their Position, they cannot be used for dual-gps calculations")
+	}
 
 	dg.offset = defaultOffsetDegrees
 	if newConf.Offset != nil {
