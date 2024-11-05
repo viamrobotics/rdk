@@ -97,8 +97,9 @@ Section: metapackages`
 			{"Raspberry Pi Model B Rev", &piModel{version: "1", longVersion: "1B"}},
 		}
 
+		logger := logging.NewTestLogger(t)
 		for _, pair := range pairs {
-			parsed := parsePi([]byte(pair.a))
+			parsed := parsePi(logger, []byte(pair.a))
 			test.That(t, parsed, test.ShouldResemble, pair.b)
 		}
 	})

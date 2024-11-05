@@ -16,7 +16,7 @@ import (
 var (
 	cudaRegex            = regexp.MustCompile(`Cuda compilation tools, release (\d+)\.`)
 	aptCacheVersionRegex = regexp.MustCompile(`\nVersion: (\d+)\D`)
-	piModelRegex         = regexp.MustCompile(`Raspberry Pi\s?(Compute Module)?\s?(\d\w*)?\s?(Lite|Plus)?\s?(Model (.+))? Rev`)
+	piModelRegex         = regexp.MustCompile(`Raspberry Pi\s?(Compute Module)?\s?(\d\w*)?\s?(\w+)?\s?(Model (.+))? Rev`)
 	savedPlatformTags    []string
 )
 
@@ -54,7 +54,7 @@ type piModel struct {
 }
 
 // inner logic for pi version parsing.
-func parsePi(raw []byte) *piModel {
+func parsePi(logger logging.Logger, raw []byte) *piModel {
 	if match := piModelRegex.FindSubmatch(raw); match != nil {
 		litePlus := string(match[3])
 		cm := string(match[1])
@@ -75,6 +75,9 @@ func parsePi(raw []byte) *piModel {
 			ret.longVersion += "l"
 		case "Plus":
 			ret.longVersion += "p"
+		case "":
+		default:
+			logger.Warnw("Lite/Plus token has unexpected value; `pifull` platform tag may be wrong", "value", litePlus)
 		}
 		ret.longVersion += model
 		return ret
@@ -91,7 +94,7 @@ func readPiTags(logger logging.Logger, tags []string) []string {
 		}
 		return tags
 	}
-	if model := parsePi(body); model != nil {
+	if model := parsePi(logger, body); model != nil {
 		tags = append(tags, "pi:"+model.version)
 		tags = append(tags, "pifull:"+model.longVersion)
 	}
