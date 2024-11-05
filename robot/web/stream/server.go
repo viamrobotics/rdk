@@ -626,6 +626,10 @@ func GenerateResolutions(width, height int32, logger logging.Logger) []Resolutio
 	// to the nearest integer. This means that the scaled width and height may not match the
 	// original aspect ratio exactly if source dimensions are odd.
 	for i := 0; i < 4; i++ {
+		// Break if the next scaled resolution would be too small.
+		if width <= 1 || height <= 1 {
+			break
+		}
 		width /= 2
 		height /= 2
 		resolutions = append(resolutions, Resolution{Width: width, Height: height})

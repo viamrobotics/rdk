@@ -266,6 +266,26 @@ func TestGetStreamOptions(t *testing.T) {
 				Model:    true,
 			},
 		},
+		// Really small resolution
+		{
+			Name:  "fake-cam-3-0",
+			API:   resource.NewAPI("rdk", "component", "camera"),
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			ConvertedAttributes: &fake.Config{
+				Width:  2,
+				Height: 2,
+			},
+		},
+		{
+			Name:  "fake-cam-3-1",
+			API:   resource.NewAPI("rdk", "component", "camera"),
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			ConvertedAttributes: &fake.Config{
+				Width:  2,
+				Height: 2,
+				Model:  true,
+			},
+		},
 	}}
 
 	ctx, robot, addr, webSvc := setupRealRobot(t, origCfg, logger)
@@ -278,7 +298,7 @@ func TestGetStreamOptions(t *testing.T) {
 	livestreamClient := streampb.NewStreamServiceClient(conn)
 	listResp, err := livestreamClient.ListStreams(ctx, &streampb.ListStreamsRequest{})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(listResp.Names), test.ShouldEqual, 6)
+	test.That(t, len(listResp.Names), test.ShouldEqual, 8)
 
 	streamOptionsResp, err := livestreamClient.GetStreamOptions(ctx, &streampb.GetStreamOptionsRequest{})
 	test.That(t, err, test.ShouldNotBeNil)
@@ -327,6 +347,8 @@ func TestGetStreamOptions(t *testing.T) {
 		"fake-cam-1-1": webstream.GenerateResolutions(1280, 720, logger),
 		"fake-cam-2-0": webstream.GenerateResolutions(1920, 1080, logger),
 		"fake-cam-2-1": webstream.GenerateResolutions(1920, 1080, logger),
+		"fake-cam-3-0": webstream.GenerateResolutions(2, 2, logger),
+		"fake-cam-3-1": webstream.GenerateResolutions(2, 2, logger),
 	}
 
 	// Test each camera
