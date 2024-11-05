@@ -236,7 +236,7 @@ func TestServer(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArmJointPos, test.ShouldResemble, positionRads3)
-		test.That(t, moveOptions, test.ShouldResemble, arm.MoveOptions{MaxVel: utils.DegToRad(expectedVelocity)})
+		test.That(t, moveOptions, test.ShouldResemble, arm.MoveOptions{MaxVelRads: utils.DegToRad(expectedVelocity)})
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "MoveThroughJointPositions"})
 	})
 

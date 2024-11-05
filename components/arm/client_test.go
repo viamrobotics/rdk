@@ -39,7 +39,7 @@ func TestClient(t *testing.T) {
 	pos1 := spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})
 	jointPos1 := []referenceframe.Input{{1.}, {2.}, {3.}}
 	expectedGeometries := []spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{1, 2, 3}, "")}
-	expectedMoveOptions := arm.MoveOptions{MaxVel: 1, MaxAcc: 2}
+	expectedMoveOptions := arm.MoveOptions{MaxVelRads: 1, MaxAccRads: 2}
 	injectArm := &inject.Arm{}
 	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		extraOptions = extra

@@ -13,7 +13,7 @@ import (
 
 // MoveOptions define parameters to be obeyed during arm movement.
 type MoveOptions struct {
-	MaxVel, MaxAcc float64
+	MaxVelRads, MaxAccRads float64
 }
 
 func moveOptionsFromProtobuf(protobuf *pb.MoveOptions) *MoveOptions {
@@ -29,14 +29,14 @@ func moveOptionsFromProtobuf(protobuf *pb.MoveOptions) *MoveOptions {
 		acc = *protobuf.MaxAccDegsPerSec2
 	}
 	return &MoveOptions{
-		MaxVel: utils.DegToRad(vel),
-		MaxAcc: utils.DegToRad(acc),
+		MaxVelRads: utils.DegToRad(vel),
+		MaxAccRads: utils.DegToRad(acc),
 	}
 }
 
 func (opts MoveOptions) toProtobuf() *pb.MoveOptions {
-	vel := utils.RadToDeg(opts.MaxVel)
-	acc := utils.RadToDeg(opts.MaxAcc)
+	vel := utils.RadToDeg(opts.MaxVelRads)
+	acc := utils.RadToDeg(opts.MaxAccRads)
 	return &pb.MoveOptions{
 		MaxVelDegsPerSec:  &vel,
 		MaxAccDegsPerSec2: &acc,
