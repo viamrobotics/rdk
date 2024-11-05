@@ -341,12 +341,15 @@ func (server *Server) GetStreamOptions(
 	}
 	cam, err := camera.FromRobot(server.robot, req.Name)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get camera from robot: %w", err)
 	}
 	// If the camera properties do not have intrinsic parameters,
 	// we need to sample a frame to get the width and height.
 	var width, height int
 	camProps, err := cam.Properties(ctx)
+	if err != nil {
+		server.logger.Warn("failed to get camera properties:", err)
+	}
 	if err != nil || camProps.IntrinsicParams == nil || camProps.IntrinsicParams.Width == 0 || camProps.IntrinsicParams.Height == 0 {
 		server.logger.Debug("width and height not found in camera properties")
 		width, height, err = server.sampleFrameSize(ctx, cam)
