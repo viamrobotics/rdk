@@ -360,7 +360,7 @@ func (server *Server) GetStreamOptions(
 		width, height = camProps.IntrinsicParams.Width, camProps.IntrinsicParams.Height
 	}
 	scaledResolutions := GenerateResolutions(int32(width), int32(height), server.logger)
-	resolutions := make([]*streampb.Resolution, 0, 5)
+	resolutions := make([]*streampb.Resolution, 0, len(scaledResolutions))
 	for _, res := range scaledResolutions {
 		resolutions = append(resolutions, &streampb.Resolution{
 			Height: res.Height,
