@@ -181,17 +181,24 @@ func NewDataClient(
 }
 
 // TabularDataByFilter queries tabular data and metadata based on given filters.
-// ***I dont see anything about a file path here but python has something about it!!
 // returns []TabularData, uint64, string, and error:  returns multiple things containing the following: List[TabularData]: The tabular data, int: The count (number of entries), str: The last-returned page ID.
 func (d *DataClient) TabularDataByFilter(
 	//include dest?
 	ctx context.Context,
-	filter *pb.Filter,
-	limit uint64,
-	last string,
-	sortOrder pb.Order,
+	filter *pb.Filter, //optional - no filter implies all tabular data
+	limit uint64, //optional - max defaults to 50 if unspecified
+	last string, //optional
+	sortOrder pb.Order, //optional
 	countOnly bool,
 	includeInternalData bool) ([]TabularData, uint64, string, error) {
+	// initialize limit if it's unspecified (zero value)
+	if limit == 0 {
+		limit = 50
+	}
+	// ensure filter is not nil to represent a query for "all data"
+	if filter == nil {
+		filter = &pb.Filter{}
+	}
 	resp, err := d.client.TabularDataByFilter(ctx, &pb.TabularDataByFilterRequest{
 		DataRequest: &pb.DataRequest{ //need to do checks to make sure it fits the constraints
 			Filter:    filter,
@@ -213,7 +220,8 @@ func (d *DataClient) TabularDataByFilter(
 		// var metadata *pb.CaptureMetadata
 		var metadata CaptureMetadata
 		//is this check necessary??
-		if len(resp.Metadata) != 0 && mdIndex < uint32(len(resp.Metadata)) {
+		// Ensure the metadata index is within bounds
+		if len(resp.Metadata) != 0 && int(mdIndex) < len(resp.Metadata) {
 			metadata = CaptureMetadataFromProto(resp.Metadata[mdIndex])
 		}
 		//creating a list of tabularData
@@ -274,6 +282,14 @@ func (d *DataClient) BinaryDataByFilter(
 	countOnly bool,
 	// includeInternalData bool) ([]*pb.BinaryData, uint64, string, error) {
 	includeInternalData bool) ([]BinaryData, uint64, string, error) {
+	// initialize limit if it's unspecified (zero value)
+	if limit == 0 {
+		limit = 50
+	}
+	// ensure filter is not nil to represent a query for "all data"
+	if filter == nil {
+		filter = &pb.Filter{}
+	}
 	resp, err := d.client.BinaryDataByFilter(ctx, &pb.BinaryDataByFilterRequest{
 		DataRequest: &pb.DataRequest{ //need to do checks to make sure it fits the constraints
 			Filter:    filter,
@@ -315,12 +331,29 @@ func (d *DataClient) BinaryDataByIDs(ctx context.Context, binaryIds []*pb.Binary
 	return data, nil
 }
 func (d *DataClient) DeleteTabularData(ctx context.Context, organizationId string, deleteOlderThanDays uint32) (deletedCount uint64, err error) {
-	resp, _ := d.client.DeleteTabularData(ctx, &pb.DeleteTabularDataRequest{OrganizationId: organizationId, DeleteOlderThanDays: deleteOlderThanDays})
+	resp, err := d.client.DeleteTabularData(ctx, &pb.DeleteTabularDataRequest{
+		OrganizationId:      organizationId,
+		DeleteOlderThanDays: deleteOlderThanDays,
+	})
+	if err != nil {
+		return 0, err
+	}
 	return resp.DeletedCount, nil
 }
 
-func (d *DataClient) DeleteBinaryDataByFilter() error {
-	return errors.New("unimplemented")
+func (d *DataClient) DeleteBinaryDataByFilter(ctx context.Context, filter *pb.Filter) (uint64, error) {
+	//should probably do some sort of check that filter isn't empty otherwise i need to do something
+	if filter == nil {
+		filter = &pb.Filter{}
+	}
+	resp, err := d.client.DeleteBinaryDataByFilter(ctx, &pb.DeleteBinaryDataByFilterRequest{
+		Filter:              filter,
+		IncludeInternalData: true,
+	})
+	if err != nil {
+		return 0, err
+	}
+	return resp.DeletedCount, nil
 }
 func (d *DataClient) DeleteBinaryDataByIDs() error {
 	return errors.New("unimplemented")
