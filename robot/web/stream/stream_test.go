@@ -24,6 +24,7 @@ import (
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/web"
+	webstream "go.viam.com/rdk/robot/web/stream"
 	"go.viam.com/rdk/testutils/robottestutils"
 )
 
@@ -305,7 +306,7 @@ func TestGetStreamOptions(t *testing.T) {
 	test.That(t, streamOptionsResp, test.ShouldNotBeNil)
 	test.That(t, len(streamOptionsResp.Resolutions), test.ShouldEqual, 5)
 
-	testGetStreamOptions := func(name string, expectedResolutions []struct{ Width, Height int32 }) {
+	testGetStreamOptions := func(name string, expectedResolutions []webstream.Resolution) {
 		streamOptionsResp, err := livestreamClient.GetStreamOptions(ctx, &streampb.GetStreamOptionsRequest{
 			Name: name,
 		})
@@ -319,29 +320,17 @@ func TestGetStreamOptions(t *testing.T) {
 	}
 
 	// Define expected resolutions based on camera resolutions
-	resolutionsMap := map[string][]struct{ Width, Height int32 }{
-		"fake-cam-0-0": generateExpectedResolutions(640, 480),
-		"fake-cam-0-1": generateExpectedResolutions(640, 480),
-		"fake-cam-1-0": generateExpectedResolutions(1280, 720),
-		"fake-cam-1-1": generateExpectedResolutions(1280, 720),
-		"fake-cam-2-0": generateExpectedResolutions(1920, 1080),
-		"fake-cam-2-1": generateExpectedResolutions(1920, 1080),
+	resolutionsMap := map[string][]webstream.Resolution{
+		"fake-cam-0-0": webstream.GenerateResolutions(640, 480, logger),
+		"fake-cam-0-1": webstream.GenerateResolutions(640, 480, logger),
+		"fake-cam-1-0": webstream.GenerateResolutions(1280, 720, logger),
+		"fake-cam-1-1": webstream.GenerateResolutions(1280, 720, logger),
+		"fake-cam-2-0": webstream.GenerateResolutions(1920, 1080, logger),
+		"fake-cam-2-1": webstream.GenerateResolutions(1920, 1080, logger),
 	}
 
 	// Test each camera
 	for name, expectedResolutions := range resolutionsMap {
 		testGetStreamOptions(name, expectedResolutions)
 	}
-}
-
-func generateExpectedResolutions(width, height int32) []struct{ Width, Height int32 } {
-	resolutions := []struct{ Width, Height int32 }{
-		{Width: width, Height: height},
-	}
-	for i := 0; i < 4; i++ {
-		width /= 2
-		height /= 2
-		resolutions = append(resolutions, struct{ Width, Height int32 }{Width: width, Height: height})
-	}
-	return resolutions
 }
