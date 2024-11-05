@@ -6,6 +6,5 @@ import (
 	_ "go.viam.com/rdk/components/board/customlinux"
 	_ "go.viam.com/rdk/components/board/esp32"
 	_ "go.viam.com/rdk/components/board/fake"
-	_ "go.viam.com/rdk/components/board/numato"
 	_ "go.viam.com/rdk/components/board/pi5"
 )
