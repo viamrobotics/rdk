@@ -615,7 +615,7 @@ func (server *Server) startAudioStream(ctx context.Context, source gostream.Audi
 	})
 }
 
-// generateResolutions takes the original width and height of an image and returns
+// GenerateResolutions takes the original width and height of an image and returns
 // a list of the original resolution with 4 smaller width/height options that maintain
 // the same aspect ratio.
 func GenerateResolutions(width, height int32, logger logging.Logger) []Resolution {
