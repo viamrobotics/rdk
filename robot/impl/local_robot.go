@@ -1267,7 +1267,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	mods := slices.Concat[[]config.Module](diffMods.Added.Modules, diffMods.Modified.Modules)
 	for _, mod := range mods {
 		if err := r.manager.moduleManager.FirstRun(ctx, mod); err != nil {
-			r.logger.CErrorw(ctx, "error executing setup phase", "module", mod.Name, "error", err)
+			r.logger.CErrorw(ctx, "error executing first run", "module", mod.Name, "error", err)
 			return
 		}
 	}
