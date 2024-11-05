@@ -51,12 +51,12 @@ var serverNewResource = arm.Named("")
 
 var serverOneResourceResponse = []*commonpb.ResourceName{
 	{
-		Namespace: string(serverNewResource.API.Type.Namespace),
-		Type:      serverNewResource.API.Type.Name,
-		Subtype:   serverNewResource.API.SubtypeName,
-		Name:      serverNewResource.Name,
+		Namespace:  string(serverNewResource.API.Type.Namespace),
+		Type:       serverNewResource.API.Type.Name,
+		Subtype:    serverNewResource.API.SubtypeName,
+		Name:       serverNewResource.Name,
 		RemotePath: []string{},
-		LocalName: "",
+		LocalName:  "",
 	},
 }
 
