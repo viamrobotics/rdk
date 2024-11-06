@@ -2,12 +2,14 @@ package transformpipeline
 
 import (
 	"context"
+	"image"
 	"image/color"
 	"testing"
 
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
@@ -24,6 +26,11 @@ func TestTransformSegmenterProps(t *testing.T) {
 	vizServ := &inject.VisionService{}
 	logger := logging.NewTestLogger(t)
 
+	cam.StreamFunc = func(ctx context.Context,
+		errHandlers ...gostream.ErrorHandler,
+	) (gostream.MediaStream[image.Image], error) {
+		return &streamTest{}, nil
+	}
 	cam.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{}, nil
 	}
@@ -83,6 +90,11 @@ func TestTransformSegmenterFunctionality(t *testing.T) {
 	vizServ := &inject.VisionService{}
 	logger := logging.NewTestLogger(t)
 
+	cam.StreamFunc = func(ctx context.Context,
+		errHandlers ...gostream.ErrorHandler,
+	) (gostream.MediaStream[image.Image], error) {
+		return &streamTest{}, nil
+	}
 	cam.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{}, nil
 	}

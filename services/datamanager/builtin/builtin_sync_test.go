@@ -26,6 +26,7 @@ import (
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rimage"
 	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
@@ -153,10 +154,16 @@ func TestSyncEnabled(t *testing.T) {
 			imgPng := newImgPng(t)
 			r := setupRobot(tc.cloudConnectionErr, map[resource.Name]resource.Resource{
 				camera.Named("c1"): &inject.Camera{
-					GetImageFunc: func(
+					ImageFunc: func(
 						ctx context.Context,
-					) (image.Image, func(), error) {
-						return imgPng, func() {}, nil
+						mimeType string,
+						extra map[string]interface{},
+					) ([]byte, string, error) {
+						outBytes, err := rimage.EncodeImage(ctx, imgPng, mimeType)
+						if err != nil {
+							return nil, "", err
+						}
+						return outBytes, "", nil
 					},
 				},
 			})
@@ -352,12 +359,18 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 				if tc.dataType == v1.DataType_DATA_TYPE_TABULAR_SENSOR {
 					config, deps = setupConfig(t, r, enabledTabularCollectorConfigPath)
 				} else {
-					r = setupRobot(tc.cloudConnectionErr, map[resource.Name]resource.Resource{
+					r := setupRobot(nil, map[resource.Name]resource.Resource{
 						camera.Named("c1"): &inject.Camera{
-							GetImageFunc: func(
+							ImageFunc: func(
 								ctx context.Context,
-							) (image.Image, func(), error) {
-								return imgPng, func() {}, nil
+								mimeType string,
+								extra map[string]interface{},
+							) ([]byte, string, error) {
+								outBytes, err := rimage.EncodeImage(ctx, imgPng, mimeType)
+								if err != nil {
+									return nil, "", err
+								}
+								return outBytes, "", nil
 							},
 						},
 					})
@@ -755,10 +768,16 @@ func TestStreamingDCUpload(t *testing.T) {
 			imgPng := newImgPng(t)
 			r := setupRobot(nil, map[resource.Name]resource.Resource{
 				camera.Named("c1"): &inject.Camera{
-					GetImageFunc: func(
+					ImageFunc: func(
 						ctx context.Context,
-					) (image.Image, func(), error) {
-						return imgPng, func() {}, nil
+						mimeType string,
+						extra map[string]interface{},
+					) ([]byte, string, error) {
+						outBytes, err := rimage.EncodeImage(ctx, imgPng, mimeType)
+						if err != nil {
+							return nil, "", err
+						}
+						return outBytes, "", nil
 					},
 				},
 			})
@@ -994,10 +1013,16 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			imgPng := newImgPng(t)
 			r := setupRobot(nil, map[resource.Name]resource.Resource{
 				camera.Named("c1"): &inject.Camera{
-					GetImageFunc: func(
+					ImageFunc: func(
 						ctx context.Context,
-					) (image.Image, func(), error) {
-						return imgPng, func() {}, nil
+						mimeType string,
+						extra map[string]interface{},
+					) ([]byte, string, error) {
+						outBytes, err := rimage.EncodeImage(ctx, imgPng, mimeType)
+						if err != nil {
+							return nil, "", err
+						}
+						return outBytes, "", nil
 					},
 				},
 			})

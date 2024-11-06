@@ -13,6 +13,7 @@ import (
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -117,12 +118,19 @@ func (o *obsDepth) buildObsDepth(logger logging.Logger) func(
 
 // buildObsDepthNoIntrinsics will return the median depth in the depth map as a Geometry point.
 func (o *obsDepth) obsDepthNoIntrinsics(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
-	pic, release, err := src.GetImage(ctx)
+	ext, ok := camera.FromContext(ctx)
+	if !ok {
+		ext = camera.Extra{}
+	}
+	imgBytes, mimeType, err := src.Image(ctx, gostream.MIMETypeHint(ctx, utils.MimeTypeJPEG), ext)
 	if err != nil {
 		return nil, errors.Errorf("could not get image from %s", src)
 	}
-	defer release()
 
+	pic, err := rimage.DecodeImage(ctx, imgBytes, mimeType)
+	if err != nil {
+		return nil, errors.Errorf("could not decode image from %s", src)
+	}
 	dm, err := rimage.ConvertImageToDepthMap(ctx, pic)
 	if err != nil {
 		return nil, errors.New("could not convert image to depth map")
@@ -149,11 +157,18 @@ func (o *obsDepth) obsDepthWithIntrinsics(ctx context.Context, src camera.VideoS
 	if o.intrinsics == nil {
 		return nil, errors.New("tried to build obstacles depth with intrinsics but no instrinsics found")
 	}
-	pic, release, err := src.GetImage(ctx)
+	ext, ok := camera.FromContext(ctx)
+	if !ok {
+		ext = camera.Extra{}
+	}
+	imgBytes, mimeType, err := src.Image(ctx, gostream.MIMETypeHint(ctx, utils.MimeTypeJPEG), ext)
 	if err != nil {
 		return nil, errors.Errorf("could not get image from %s", src)
 	}
-	defer release()
+	pic, err := rimage.DecodeImage(ctx, imgBytes, mimeType)
+	if err != nil {
+		return nil, errors.Errorf("could not decode image from %s", src)
+	}
 	dm, err := rimage.ConvertImageToDepthMap(ctx, pic)
 	if err != nil {
 		return nil, errors.New("could not convert image to depth map")

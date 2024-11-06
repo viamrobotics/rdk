@@ -11,7 +11,6 @@ import (
 	pb "go.viam.com/api/component/camera/v1"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 
-	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
@@ -81,8 +80,7 @@ func (s *serviceServer) GetImage(
 	ext := req.Extra.AsMap()
 	ctx = NewContext(ctx, ext)
 
-	var img image.Image
-	var release func()
+	resp := pb.GetImageResponse{}
 	switch castedCam := cam.(type) {
 	case ReadImager:
 		// RSDK-8663: If available, call a method that reads exactly one image. The default
@@ -91,28 +89,36 @@ func (s *serviceServer) GetImage(
 		// second image from the underlying camera. This is particularly noticeable on camera
 		// clients. Where a second `GetImage` request can be processed/returned over the
 		// network. Just to be discarded.
-		img, release, err = castedCam.Read(ctx)
-	default:
-		img, release, err = cam.GetImage(gostream.WithMIMETypeHint(ctx, req.MimeType))
-	}
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if release != nil {
-			release()
+		// RSDK-9132(sean yu): In addition to what Dan said above, ReadImager is important
+		// for camera components that rely on the `release` functionality provided by gostream's `Read`
+		// such as viamrtsp.
+		// (check that this comment is 100% true before code review then delete this paranthetical statement)
+		img, release, err := castedCam.Read(ctx)
+		if err != nil {
+			return nil, err
 		}
-	}()
+		defer func() {
+			if release != nil {
+				release()
+			}
+		}()
 
-	actualMIME, _ := utils.CheckLazyMIMEType(req.MimeType)
-	resp := pb.GetImageResponse{
-		MimeType: actualMIME,
+		actualMIME, _ := utils.CheckLazyMIMEType(req.MimeType)
+		resp.MimeType = actualMIME
+		outBytes, err := rimage.EncodeImage(ctx, img, req.MimeType)
+		if err != nil {
+			return nil, err
+		}
+		resp.Image = outBytes
+	default:
+		imgBytes, mimeType, err := cam.Image(ctx, req.MimeType, ext)
+		if err != nil {
+			return nil, err
+		}
+		actualMIME, _ := utils.CheckLazyMIMEType(mimeType)
+		resp.MimeType = actualMIME
+		resp.Image = imgBytes
 	}
-	outBytes, err := rimage.EncodeImage(ctx, img, req.MimeType)
-	if err != nil {
-		return nil, err
-	}
-	resp.Image = outBytes
 	return &resp, nil
 }
 

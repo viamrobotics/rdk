@@ -63,7 +63,7 @@ func newRotateTransform(ctx context.Context, source camera.VideoSource, stream c
 func (rs *rotateSource) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::rotate::Read")
 	defer span.End()
-	orig, release, err := rs.src.GetImage(ctx)
+	orig, release, err := camera.ReadImage(ctx, rs.src)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -128,7 +128,7 @@ func newResizeTransform(
 func (rs *resizeSource) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::resize::Read")
 	defer span.End()
-	orig, release, err := rs.src.GetImage(ctx)
+	orig, release, err := camera.ReadImage(ctx, rs.src)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -200,7 +200,7 @@ func newCropTransform(
 func (cs *cropSource) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::crop::Read")
 	defer span.End()
-	orig, release, err := cs.src.GetImage(ctx)
+	orig, release, err := camera.ReadImage(ctx, cs.src)
 	if err != nil {
 		return nil, nil, err
 	}

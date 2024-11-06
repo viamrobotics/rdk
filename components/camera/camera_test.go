@@ -10,7 +10,6 @@ import (
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -183,13 +182,13 @@ func TestCameraWithNoProjector(t *testing.T) {
 	_, got := pc.At(0, 0, 0)
 	test.That(t, got, test.ShouldBeTrue)
 
-	img, _, err := noProj2.GetImage(gostream.WithMIMETypeHint(context.Background(), rutils.WithLazyMIMEType(rutils.MimeTypePNG)))
+	imgBytes, mimeType, err := noProj2.Image(context.Background(), rutils.WithLazyMIMEType(rutils.MimeTypePNG), nil)
+	test.That(t, err, test.ShouldBeNil)
+	img, err := rimage.DecodeImage(context.Background(), imgBytes, mimeType)
 	test.That(t, err, test.ShouldBeNil)
 
-	depthImg := img.(*rimage.DepthMap)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, depthImg.Bounds().Dx(), test.ShouldEqual, 1280)
-	test.That(t, depthImg.Bounds().Dy(), test.ShouldEqual, 720)
+	test.That(t, img.Bounds().Dx(), test.ShouldEqual, 1280)
+	test.That(t, img.Bounds().Dy(), test.ShouldEqual, 720)
 
 	test.That(t, noProj2.Close(context.Background()), test.ShouldBeNil)
 }
@@ -232,13 +231,14 @@ func TestCameraWithProjector(t *testing.T) {
 	_, got := pc.At(0, 0, 0)
 	test.That(t, got, test.ShouldBeTrue)
 
-	img, _, err := cam2.GetImage(gostream.WithMIMETypeHint(context.Background(), rutils.MimeTypePNG))
+	imgBytes, mimeType, err := cam2.Image(context.Background(), rutils.MimeTypePNG, nil)
+	test.That(t, err, test.ShouldBeNil)
+	img, err := rimage.DecodeImage(context.Background(), imgBytes, mimeType)
 	test.That(t, err, test.ShouldBeNil)
 
-	depthImg := img.(*rimage.DepthMap)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, depthImg.Bounds().Dx(), test.ShouldEqual, 1280)
-	test.That(t, depthImg.Bounds().Dy(), test.ShouldEqual, 720)
+	test.That(t, img.Bounds().Dx(), test.ShouldEqual, 1280)
+	test.That(t, img.Bounds().Dy(), test.ShouldEqual, 720)
 	// cam2 should implement a default GetImages, that just returns the one image
 	images, _, err := cam2.Images(context.Background())
 	test.That(t, err, test.ShouldBeNil)

@@ -107,7 +107,7 @@ func (ss *segmenterSource) NextPointCloud(ctx context.Context) (pointcloud.Point
 
 // Read returns the image if the stream is valid, else error.
 func (ss *segmenterSource) Read(ctx context.Context) (image.Image, func(), error) {
-	img, release, err := ss.src.GetImage(ctx)
+	img, release, err := camera.ReadImage(ctx, ss.src)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not get next source image: %w", err)
 	}

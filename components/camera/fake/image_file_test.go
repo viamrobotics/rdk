@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/utils"
 )
 
 func TestPCD(t *testing.T) {
@@ -45,10 +46,11 @@ func TestPCD(t *testing.T) {
 	readInImage, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
 	test.That(t, err, test.ShouldBeNil)
 
-	strmImg, _, err := cam.GetImage(ctx)
+	imgBytes, _, err := cam.Image(ctx, utils.MimeTypeJPEG, nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, strmImg, test.ShouldResemble, readInImage)
-	test.That(t, strmImg.Bounds(), test.ShouldResemble, readInImage.Bounds())
+	expectedBytes, err := rimage.EncodeImage(ctx, readInImage, utils.MimeTypeJPEG)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, imgBytes, test.ShouldResemble, expectedBytes)
 
 	err = cam.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
@@ -68,10 +70,11 @@ func TestColor(t *testing.T) {
 	readInImage, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
 	test.That(t, err, test.ShouldBeNil)
 
-	strmImg, _, err := cam.GetImage(ctx)
+	imgBytes, _, err := cam.Image(ctx, utils.MimeTypeJPEG, nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, strmImg, test.ShouldResemble, readInImage)
-	test.That(t, strmImg.Bounds(), test.ShouldResemble, readInImage.Bounds())
+	expectedBytes, err := rimage.EncodeImage(ctx, readInImage, utils.MimeTypeJPEG)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, imgBytes, test.ShouldResemble, expectedBytes)
 
 	err = cam.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
@@ -82,13 +85,13 @@ func TestColorOddResolution(t *testing.T) {
 	imgFile, err := os.Create(imgFilePath)
 	test.That(t, err, test.ShouldBeNil)
 
-	img := image.NewRGBA(image.Rect(0, 0, 3, 3))
+	img := image.NewNRGBA(image.Rect(0, 0, 3, 3))
 	for x := 0; x < img.Bounds().Dx(); x++ {
 		for y := 0; y < img.Bounds().Dy(); y++ {
 			img.Set(x, y, color.White)
 		}
 	}
-	err = jpeg.Encode(imgFile, img, nil)
+	err = jpeg.Encode(imgFile, img, &jpeg.Options{Quality: 75})
 	test.That(t, err, test.ShouldBeNil)
 	err = imgFile.Close()
 	test.That(t, err, test.ShouldBeNil)
@@ -99,15 +102,17 @@ func TestColorOddResolution(t *testing.T) {
 	cam, err := newCamera(ctx, resource.Name{API: camera.API}, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	readInImage, err := rimage.NewImageFromFile(imgFilePath)
+	imgBytes, _, err := cam.Image(ctx, utils.MimeTypeRawRGBA, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	strmImg, _, err := cam.GetImage(ctx)
+	strmImg, err := rimage.DecodeImage(ctx, imgBytes, utils.MimeTypeRawRGBA)
 	test.That(t, err, test.ShouldBeNil)
 
-	expectedBounds := image.Rect(0, 0, readInImage.Bounds().Dx()-1, readInImage.Bounds().Dy()-1)
-	test.That(t, strmImg, test.ShouldResemble, readInImage.SubImage(expectedBounds))
+	expectedBounds := image.Rect(0, 0, img.Bounds().Dx()-1, img.Bounds().Dy()-1)
 	test.That(t, strmImg.Bounds(), test.ShouldResemble, expectedBounds)
+	val, _, err := rimage.CompareImages(strmImg, img.SubImage(expectedBounds))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, val, test.ShouldBeLessThanOrEqualTo, 0)
 
 	err = cam.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)

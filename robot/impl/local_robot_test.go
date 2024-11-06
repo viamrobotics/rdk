@@ -58,6 +58,7 @@ import (
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/framesystem"
@@ -93,7 +94,9 @@ func TestConfig1(t *testing.T) {
 	c1, err := camera.FromRobot(r, "c1")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, c1.Name(), test.ShouldResemble, camera.Named("c1"))
-	pic, _, err := c1.GetImage(context.Background())
+	outBytes, mimeType, err := c1.Image(context.Background(), "", camera.Extra{})
+	test.That(t, err, test.ShouldBeNil)
+	pic, err := rimage.DecodeImage(context.Background(), outBytes, mimeType)
 	test.That(t, err, test.ShouldBeNil)
 
 	bounds := pic.Bounds()

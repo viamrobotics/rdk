@@ -68,7 +68,7 @@ func newDepthToPrettyTransform(
 func (dtp *depthToPretty) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::depthToPretty::Read")
 	defer span.End()
-	i, release, err := dtp.src.GetImage(ctx)
+	i, release, err := camera.ReadImage(ctx, dtp.src)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -89,7 +89,7 @@ func (dtp *depthToPretty) PointCloud(ctx context.Context) (pointcloud.PointCloud
 	if dtp.cameraModel == nil || dtp.cameraModel.PinholeCameraIntrinsics == nil {
 		return nil, errors.Wrapf(transform.ErrNoIntrinsics, "depthToPretty transform cannot project to pointcloud")
 	}
-	i, release, err := dtp.src.GetImage(ctx)
+	i, release, err := camera.ReadImage(ctx, dtp.src)
 	if err != nil {
 		return nil, err
 	}

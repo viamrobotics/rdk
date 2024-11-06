@@ -99,7 +99,7 @@ func TestClassifierSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer classifier.Close(ctx)
 
-	resImg, _, err := classifier.GetImage(ctx)
+	resImg, _, err := camera.ReadImage(ctx, classifier)
 	test.That(t, err, test.ShouldBeNil)
 	ovImg := rimage.ConvertImage(resImg)
 

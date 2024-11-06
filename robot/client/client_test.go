@@ -55,7 +55,6 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/gostream"
 	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
@@ -332,13 +331,12 @@ func TestStatusClient(t *testing.T) {
 	var imgBuf bytes.Buffer
 	test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
 
-	var imageReleased bool
-	var imageReleasedMu sync.Mutex
-	injectCamera.GetImageFunc = func(ctx context.Context) (image.Image, func(), error) {
-		imageReleasedMu.Lock()
-		imageReleased = true
-		imageReleasedMu.Unlock()
-		return img, func() {}, nil
+	injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, string, error) {
+		img, err := rimage.EncodeImage(ctx, img, mimeType)
+		if err != nil {
+			return nil, "", err
+		}
+		return img, mimeType, nil
 	}
 
 	injectInputDev := &inject.InputController{}
@@ -510,7 +508,7 @@ func TestStatusClient(t *testing.T) {
 
 	camera1, err := camera.FromRobot(client, "camera1")
 	test.That(t, err, test.ShouldBeNil)
-	_, _, err = camera1.GetImage(context.Background())
+	_, _, err = camera1.Image(context.Background(), "", camera.Extra{})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
@@ -588,15 +586,13 @@ func TestStatusClient(t *testing.T) {
 
 	camera1, err = camera.FromRobot(client, "camera1")
 	test.That(t, err, test.ShouldBeNil)
-	ctx := gostream.WithMIMETypeHint(context.Background(), rutils.MimeTypeRawRGBA)
-	frame, _, err := camera1.GetImage(ctx)
+	frameBytes, mimeType, err := camera1.Image(context.Background(), rutils.MimeTypeRawRGBA, camera.Extra{})
+	test.That(t, err, test.ShouldBeNil)
+	frame, err := rimage.DecodeImage(context.Background(), frameBytes, mimeType)
 	test.That(t, err, test.ShouldBeNil)
 	compVal, _, err := rimage.CompareImages(img, frame)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
-	imageReleasedMu.Lock()
-	test.That(t, imageReleased, test.ShouldBeTrue)
-	imageReleasedMu.Unlock()
 
 	gripper1, err = gripper.FromRobot(client, "gripper1")
 	test.That(t, err, test.ShouldBeNil)
@@ -975,7 +971,7 @@ func TestClientStreamDisconnectHandler(t *testing.T) {
 		t.Helper()
 
 		client.connected.Store(false)
-		//nolint:staticcheck // the status API is deprecated
+
 		_, err = client.client.StreamStatus(context.Background(), &pb.StreamStatusRequest{})
 		test.That(t, status.Code(err), test.ShouldEqual, codes.Unavailable)
 		test.That(t, err.Error(), test.ShouldContainSubstring, fmt.Sprintf("not connected to remote robot at %s", listener.Addr().String()))
@@ -986,7 +982,6 @@ func TestClientStreamDisconnectHandler(t *testing.T) {
 	t.Run("stream call to connected remote", func(t *testing.T) {
 		t.Helper()
 
-		//nolint:staticcheck // the status API is deprecated
 		ssc, err := client.client.StreamStatus(context.Background(), &pb.StreamStatusRequest{})
 		test.That(t, err, test.ShouldBeNil)
 		ssc.Recv()
@@ -996,7 +991,6 @@ func TestClientStreamDisconnectHandler(t *testing.T) {
 	t.Run("receive call from stream of disconnected remote", func(t *testing.T) {
 		t.Helper()
 
-		//nolint:staticcheck // the status API is deprecated
 		ssc, err := client.client.StreamStatus(context.Background(), &pb.StreamStatusRequest{})
 		test.That(t, err, test.ShouldBeNil)
 

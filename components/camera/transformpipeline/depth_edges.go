@@ -56,7 +56,7 @@ func newDepthEdgesTransform(ctx context.Context, source camera.VideoSource, am u
 func (os *depthEdgesSource) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::depthEdges::Read")
 	defer span.End()
-	i, closer, err := os.src.GetImage(ctx)
+	i, closer, err := camera.ReadImage(ctx, os.src)
 	if err != nil {
 		return nil, nil, err
 	}

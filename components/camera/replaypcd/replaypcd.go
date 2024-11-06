@@ -4,7 +4,6 @@ package replaypcd
 import (
 	"bytes"
 	"context"
-	"image"
 	"net/http"
 	"sync"
 	"time"
@@ -347,17 +346,8 @@ func (replay *pcdCamera) Stream(ctx context.Context, errHandlers ...gostream.Err
 	return stream, errors.New("Stream is unimplemented")
 }
 
-func (replay *pcdCamera) GetImage(ctx context.Context) (image.Image, func(), error) {
-	stream, err := replay.Stream(ctx)
-	if err != nil {
-		return nil, func() {}, err
-	}
-	defer func() {
-		if err := stream.Close(ctx); err != nil {
-			replay.logger.Errorf("stream failed to close: %w", err)
-		}
-	}()
-	return stream.Next(ctx)
+func (replay *pcdCamera) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, string, error) {
+	return nil, "", errors.New("Image is unimplemented")
 }
 
 // Close stops replay camera, closes the channels and its connections to the cloud.

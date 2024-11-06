@@ -7,7 +7,6 @@ import (
 	"image"
 	"image/jpeg"
 	"image/png"
-	"sync"
 	"testing"
 	"time"
 
@@ -17,7 +16,6 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
-	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -83,8 +81,6 @@ func TestServer(t *testing.T) {
 	err = pcA.Set(pointcloud.NewVector(5, 5, 5), nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	var imageReleased bool
-	var imageReleasedMu sync.Mutex
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
@@ -112,23 +108,30 @@ func TestServer(t *testing.T) {
 		return projA, nil
 	}
 	wooMIME := "image/woohoo"
-	injectCamera.GetImageFunc = func(ctx context.Context) (image.Image, func(), error) {
-		imageReleasedMu.Lock()
-		imageReleased = true
-		imageReleasedMu.Unlock()
-		mimeType, _ := utils.CheckLazyMIMEType(gostream.MIMETypeHint(ctx, utils.MimeTypeRawRGBA))
+	injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, string, error) {
+		if mimeType == "" {
+			mimeType = utils.MimeTypeRawRGBA
+		}
+		mimeType, _ = utils.CheckLazyMIMEType(mimeType)
+
+		var respImg image.Image
 		switch mimeType {
 		case "", utils.MimeTypeRawRGBA:
-			return img, func() {}, nil
+			respImg = img
 		case utils.MimeTypePNG:
-			return imgPng, func() {}, nil
+			respImg = imgPng
 		case utils.MimeTypeJPEG:
-			return imgJpeg, func() {}, nil
+			respImg = imgJpeg
 		case "image/woohoo":
-			return rimage.NewLazyEncodedImage([]byte{1, 2, 3}, mimeType), func() {}, nil
+			respImg = rimage.NewLazyEncodedImage([]byte{1, 2, 3}, mimeType)
 		default:
-			return nil, nil, errInvalidMimeType
+			return nil, "", errInvalidMimeType
 		}
+		resBytes, err := rimage.EncodeImage(ctx, respImg, mimeType)
+		if err != nil {
+			return nil, "", err
+		}
+		return resBytes, mimeType, nil
 	}
 	// depth camera
 	depthImage := rimage.NewEmptyDepthMap(10, 20)
@@ -153,11 +156,12 @@ func TestServer(t *testing.T) {
 	injectCameraDepth.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return projA, nil
 	}
-	injectCameraDepth.GetImageFunc = func(ctx context.Context) (image.Image, func(), error) {
-		imageReleasedMu.Lock()
-		imageReleased = true
-		imageReleasedMu.Unlock()
-		return depthImage, func() {}, nil
+	injectCameraDepth.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, string, error) {
+		resBytes, err := rimage.EncodeImage(ctx, depthImage, mimeType)
+		if err != nil {
+			return nil, "", err
+		}
+		return resBytes, mimeType, nil
 	}
 	// bad camera
 	injectCamera2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
@@ -169,8 +173,8 @@ func TestServer(t *testing.T) {
 	injectCamera2.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return nil, errCameraProjectorFailed
 	}
-	injectCamera2.GetImageFunc = func(ctx context.Context) (image.Image, func(), error) {
-		return nil, func() {}, errGetImageFailed
+	injectCamera2.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, string, error) {
+		return nil, "", errGetImageFailed
 	}
 
 	// does a depth camera transfer its depth image properly
@@ -186,9 +190,6 @@ func TestServer(t *testing.T) {
 			&pb.GetImageRequest{Name: testCameraName, MimeType: utils.MimeTypeRawRGBA},
 		)
 		test.That(t, err, test.ShouldBeNil)
-		imageReleasedMu.Lock()
-		test.That(t, imageReleased, test.ShouldBeTrue)
-		imageReleasedMu.Unlock()
 		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypeRawRGBA)
 		test.That(t, resp.Image[rimage.RawRGBAHeaderLength:], test.ShouldResemble, img.Pix)
 
@@ -198,9 +199,6 @@ func TestServer(t *testing.T) {
 			&pb.GetImageRequest{Name: testCameraName, MimeType: ""},
 		)
 		test.That(t, err, test.ShouldBeNil)
-		imageReleasedMu.Lock()
-		test.That(t, imageReleased, test.ShouldBeTrue)
-		imageReleasedMu.Unlock()
 		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypeJPEG)
 		test.That(t, resp.Image, test.ShouldNotBeNil)
 
@@ -210,29 +208,17 @@ func TestServer(t *testing.T) {
 			&pb.GetImageRequest{Name: depthCameraName, MimeType: ""},
 		)
 		test.That(t, err, test.ShouldBeNil)
-		imageReleasedMu.Lock()
-		test.That(t, imageReleased, test.ShouldBeTrue)
-		imageReleasedMu.Unlock()
 		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypeRawDepth)
 		test.That(t, resp.Image, test.ShouldNotBeNil)
 
-		imageReleasedMu.Lock()
-		imageReleased = false
-		imageReleasedMu.Unlock()
 		resp, err = cameraServer.GetImage(context.Background(), &pb.GetImageRequest{
 			Name:     testCameraName,
 			MimeType: "image/png",
 		})
 		test.That(t, err, test.ShouldBeNil)
-		imageReleasedMu.Lock()
-		test.That(t, imageReleased, test.ShouldBeTrue)
-		imageReleasedMu.Unlock()
 		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypePNG)
 		test.That(t, resp.Image, test.ShouldResemble, imgBuf.Bytes())
 
-		imageReleasedMu.Lock()
-		imageReleased = false
-		imageReleasedMu.Unlock()
 		_, err = cameraServer.GetImage(context.Background(), &pb.GetImageRequest{
 			Name:     testCameraName,
 			MimeType: "image/who",
@@ -241,17 +227,11 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, errInvalidMimeType.Error())
 
 		// depth camera
-		imageReleasedMu.Lock()
-		imageReleased = false
-		imageReleasedMu.Unlock()
 		resp, err = cameraServer.GetImage(
 			context.Background(),
 			&pb.GetImageRequest{Name: depthCameraName, MimeType: utils.MimeTypePNG},
 		)
 		test.That(t, err, test.ShouldBeNil)
-		imageReleasedMu.Lock()
-		test.That(t, imageReleased, test.ShouldBeTrue)
-		imageReleasedMu.Unlock()
 		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypePNG)
 		test.That(t, resp.Image, test.ShouldNotBeNil)
 		decodedDepth, err := rimage.DecodeImage(
@@ -264,17 +244,11 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, dm, test.ShouldResemble, depthImage)
 
-		imageReleasedMu.Lock()
-		imageReleased = false
-		imageReleasedMu.Unlock()
 		resp, err = cameraServer.GetImage(context.Background(), &pb.GetImageRequest{
 			Name:     depthCameraName,
 			MimeType: "image/png",
 		})
 		test.That(t, err, test.ShouldBeNil)
-		imageReleasedMu.Lock()
-		test.That(t, imageReleased, test.ShouldBeTrue)
-		imageReleasedMu.Unlock()
 		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypePNG)
 		test.That(t, resp.Image, test.ShouldResemble, depthBuf.Bytes())
 		// bad camera
@@ -327,29 +301,16 @@ func TestServer(t *testing.T) {
 			Name: testCameraName,
 		})
 		test.That(t, err, test.ShouldBeNil)
-		imageReleasedMu.Lock()
-		test.That(t, imageReleased, test.ShouldBeTrue)
-		imageReleasedMu.Unlock()
 		test.That(t, resp.ContentType, test.ShouldEqual, "image/jpeg")
 		test.That(t, resp.Data, test.ShouldResemble, imgBufJpeg.Bytes())
 
-		imageReleasedMu.Lock()
-		imageReleased = false
-		imageReleasedMu.Unlock()
 		resp, err = cameraServer.RenderFrame(context.Background(), &pb.RenderFrameRequest{
 			Name:     testCameraName,
 			MimeType: "image/png",
 		})
 		test.That(t, err, test.ShouldBeNil)
-		imageReleasedMu.Lock()
-		test.That(t, imageReleased, test.ShouldBeTrue)
-		imageReleasedMu.Unlock()
 		test.That(t, resp.ContentType, test.ShouldEqual, "image/png")
 		test.That(t, resp.Data, test.ShouldResemble, imgBuf.Bytes())
-
-		imageReleasedMu.Lock()
-		imageReleased = false
-		imageReleasedMu.Unlock()
 
 		_, err = cameraServer.RenderFrame(context.Background(), &pb.RenderFrameRequest{
 			Name:     testCameraName,
@@ -357,9 +318,6 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errInvalidMimeType.Error())
-		imageReleasedMu.Lock()
-		test.That(t, imageReleased, test.ShouldBeTrue)
-		imageReleasedMu.Unlock()
 
 		_, err = cameraServer.RenderFrame(context.Background(), &pb.RenderFrameRequest{Name: failCameraName})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -431,11 +389,9 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("GetImage with extra", func(t *testing.T) {
-		injectCamera.GetImageFunc = func(ctx context.Context) (image.Image, func(), error) {
-			extra, ok := camera.FromContext(ctx)
-			test.That(t, ok, test.ShouldBeTrue)
+		injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, string, error) {
 			test.That(t, extra, test.ShouldBeEmpty)
-			return nil, func() {}, errGetImageFailed
+			return nil, "", errGetImageFailed
 		}
 
 		_, err := cameraServer.GetImage(context.Background(), &pb.GetImageRequest{
@@ -445,15 +401,13 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
 
-		injectCamera.GetImageFunc = func(ctx context.Context) (image.Image, func(), error) {
-			extra, ok := camera.FromContext(ctx)
-			test.That(t, ok, test.ShouldBeTrue)
+		injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, string, error) {
 			test.That(t, len(extra), test.ShouldEqual, 1)
 			test.That(t, extra["hello"], test.ShouldEqual, "world")
-			return nil, func() {}, errGetImageFailed
+			return nil, "", errGetImageFailed
 		}
 
-		ext, err := goprotoutils.StructToStructPb(camera.Extra{"hello": "world"})
+		ext, err := goprotoutils.StructToStructPb(map[string]interface{}{"hello": "world"})
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = cameraServer.GetImage(context.Background(), &pb.GetImageRequest{
@@ -464,13 +418,11 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
 
-		injectCamera.GetImageFunc = func(ctx context.Context) (image.Image, func(), error) {
-			extra, ok := camera.FromContext(ctx)
-			test.That(t, ok, test.ShouldBeTrue)
+		injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, string, error) {
 			test.That(t, len(extra), test.ShouldEqual, 1)
 			test.That(t, extra[data.FromDMString], test.ShouldBeTrue)
 
-			return nil, func() {}, errGetImageFailed
+			return nil, "", errGetImageFailed
 		}
 
 		// one kvp created with data.FromDMContextKey
@@ -485,13 +437,11 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
 
-		injectCamera.GetImageFunc = func(ctx context.Context) (image.Image, func(), error) {
-			extra, ok := camera.FromContext(ctx)
-			test.That(t, ok, test.ShouldBeTrue)
+		injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, string, error) {
 			test.That(t, len(extra), test.ShouldEqual, 2)
 			test.That(t, extra["hello"], test.ShouldEqual, "world")
 			test.That(t, extra[data.FromDMString], test.ShouldBeTrue)
-			return nil, func() {}, errGetImageFailed
+			return nil, "", errGetImageFailed
 		}
 
 		// use values from data and camera
@@ -511,18 +461,4 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
 	})
-}
-
-//nolint
-func TestCameraClientIsReadImager(t *testing.T) {
-	// RSDK-8663: Enforce that a camera client always satisfies the optimized `ReadImager`
-	// interface.
-	cameraClient, err := camera.NewClientFromConn(nil, nil, "", resource.Name{}, nil)
-	test.That(t, err, test.ShouldBeNil)
-
-	if _, isReadImager := cameraClient.(camera.ReadImager); isReadImager {
-		// Success
-	} else {
-		t.Fatalf("Camera client is expected to be a `ReadImager`. Client type: %T", cameraClient)
-	}
 }

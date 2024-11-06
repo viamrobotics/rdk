@@ -2,7 +2,7 @@ package camera
 
 import "context"
 
-// Extra is the type of value stored in the Contexts.
+// Extra is the type used to represent the extra param for camera methods.
 type (
 	Extra map[string]interface{}
 	key   int

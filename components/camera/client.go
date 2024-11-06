@@ -21,8 +21,6 @@ import (
 	goprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/slices"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/data"
@@ -100,60 +98,6 @@ func NewClientFromConn(
 	}, nil
 }
 
-func getExtra(ctx context.Context) (*structpb.Struct, error) {
-	ext := &structpb.Struct{}
-	if extra, ok := FromContext(ctx); ok {
-		var err error
-		if ext, err = goprotoutils.StructToStructPb(extra); err != nil {
-			return nil, err
-		}
-	}
-
-	dataExt, err := data.GetExtraFromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	proto.Merge(ext, dataExt)
-	return ext, nil
-}
-
-// RSDK-8663: This method signature is depended on by the `camera.serviceServer` optimization that
-// avoids using an image stream just to get a single image.
-func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
-	ctx, span := trace.StartSpan(ctx, "camera::client::Read")
-	defer span.End()
-	mimeType := gostream.MIMETypeHint(ctx, "")
-	expectedType, _ := utils.CheckLazyMIMEType(mimeType)
-
-	ext, err := getExtra(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	resp, err := c.client.GetImage(ctx, &pb.GetImageRequest{
-		Name:     c.name,
-		MimeType: expectedType,
-		Extra:    ext,
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if expectedType != "" && resp.MimeType != expectedType {
-		c.logger.CDebugw(ctx, "got different MIME type than what was asked for", "sent", expectedType, "received", resp.MimeType)
-	} else {
-		resp.MimeType = mimeType
-	}
-
-	resp.MimeType = utils.WithLazyMIMEType(resp.MimeType)
-	img, err := rimage.DecodeImage(ctx, resp.Image, resp.MimeType)
-	if err != nil {
-		return nil, nil, err
-	}
-	return img, func() {}, nil
-}
-
 func (c *client) Stream(
 	ctx context.Context,
 	errHandlers ...gostream.ErrorHandler,
@@ -201,11 +145,17 @@ func (c *client) Stream(
 				return
 			}
 
-			frame, release, err := c.Read(streamCtx)
+			frame, mimeType, err := c.Image(streamCtx, gostream.MIMETypeHint(ctx, ""), nil)
 			if err != nil {
 				for _, handler := range errHandlers {
 					handler(streamCtx, err)
 				}
+			}
+
+			img, err := rimage.DecodeImage(ctx, frame, mimeType)
+			if err != nil {
+				c.logger.CWarnw(ctx, "error decoding image", "err", err)
+				return
 			}
 
 			select {
@@ -217,8 +167,8 @@ func (c *client) Stream(
 				}
 				return
 			case frameCh <- gostream.MediaReleasePairWithError[image.Image]{
-				Media:   frame,
-				Release: release,
+				Media:   img,
+				Release: func() {},
 				Err:     err,
 			}:
 			}
@@ -228,8 +178,32 @@ func (c *client) Stream(
 	return stream, nil
 }
 
-func (c *client) GetImage(ctx context.Context) (image.Image, func(), error) {
-	return c.Read(ctx)
+func (c *client) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, string, error) {
+	ctx, span := trace.StartSpan(ctx, "camera::client::GetImage")
+	defer span.End()
+	expectedType, _ := utils.CheckLazyMIMEType(mimeType)
+
+	structExtra, err := goprotoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, "", err
+	}
+	resp, err := c.client.GetImage(ctx, &pb.GetImageRequest{
+		Name:     c.name,
+		MimeType: expectedType,
+		Extra:    structExtra,
+	})
+	if err != nil {
+		return nil, "", err
+	}
+
+	if expectedType != "" && resp.MimeType != expectedType {
+		c.logger.CDebugw(ctx, "got different MIME type than what was asked for", "sent", expectedType, "received", resp.MimeType)
+	} else {
+		resp.MimeType = mimeType
+	}
+
+	mimeType = utils.WithLazyMIMEType(resp.MimeType)
+	return resp.Image, mimeType, nil
 }
 
 func (c *client) Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error) {

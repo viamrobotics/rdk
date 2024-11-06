@@ -54,7 +54,7 @@ func newUndistortTransform(
 func (us *undistortSource) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::undistort::Read")
 	defer span.End()
-	orig, release, err := us.originalSource.GetImage(ctx)
+	orig, release, err := camera.ReadImage(ctx, us.originalSource)
 	if err != nil {
 		return nil, nil, err
 	}

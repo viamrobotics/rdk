@@ -111,6 +111,10 @@ type Camera interface {
 //
 // [camera component docs]: https://docs.viam.com/components/camera/
 type VideoSource interface {
+	// Image returns a byte slice representing an image that tries to adhere to the MIME type hint.
+	// Image also may return a string representing the mime type hint or empty string if not.
+	Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, string, error)
+
 	// Images is used for getting simultaneous images from different imagers,
 	// along with associated metadata (just timestamp for now). It's not for getting a time series of images from the same imager.
 	Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error)
@@ -118,9 +122,6 @@ type VideoSource interface {
 	// Stream returns a stream that makes a best effort to return consecutive images
 	// that may have a MIME type hint dictated in the context via gostream.WithMIMETypeHint.
 	Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error)
-
-	// GetImage returns a single image that may have a MIME type hint dictated in the context via gostream.WithMIMETypeHint.
-	GetImage(ctx context.Context) (image.Image, func(), error)
 
 	// NextPointCloud returns the next immediately available point cloud, not necessarily one
 	// a part of a sequence. In the future, there could be streaming of point clouds.

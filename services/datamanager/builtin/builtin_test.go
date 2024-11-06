@@ -3,7 +3,6 @@ package builtin
 import (
 	"cmp"
 	"context"
-	"image"
 	"io/fs"
 	"maps"
 	"math"
@@ -34,6 +33,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/builtin/capture"
 	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
@@ -449,10 +449,16 @@ func TestSync(t *testing.T) {
 			if tc.dataType == v1.DataType_DATA_TYPE_BINARY_SENSOR {
 				r = setupRobot(tc.cloudConnectionErr, map[resource.Name]resource.Resource{
 					camera.Named("c1"): &inject.Camera{
-						GetImageFunc: func(
+						ImageFunc: func(
 							ctx context.Context,
-						) (image.Image, func(), error) {
-							return imgPng, func() {}, nil
+							mimeType string,
+							extra map[string]interface{},
+						) ([]byte, string, error) {
+							outBytes, err := rimage.EncodeImage(ctx, imgPng, mimeType)
+							if err != nil {
+								return nil, "", err
+							}
+							return outBytes, "", nil
 						},
 					},
 				})

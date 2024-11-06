@@ -42,7 +42,7 @@ func newDepthPreprocessTransform(ctx context.Context, source camera.VideoSource,
 func (os *preprocessDepthTransform) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::depthPreprocess::Read")
 	defer span.End()
-	i, release, err := os.src.GetImage(ctx)
+	i, release, err := camera.ReadImage(ctx, os.src)
 	if err != nil {
 		return nil, nil, err
 	}

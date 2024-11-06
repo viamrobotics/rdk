@@ -91,7 +91,7 @@ func (cs *classifierSource) Read(ctx context.Context) (image.Image, func(), erro
 		return nil, nil, errors.Wrap(err, "source_classifier can't find vision service")
 	}
 	// get image from source camera
-	img, release, err := cs.src.GetImage(ctx)
+	img, release, err := camera.ReadImage(ctx, cs.src)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not get next source image")
 	}

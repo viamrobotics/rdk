@@ -2,7 +2,6 @@ package camera
 
 import (
 	"context"
-	"image"
 	"time"
 
 	"github.com/pion/mediadevices/pkg/prop"
@@ -198,8 +197,17 @@ func (vs *videoSource) Stream(ctx context.Context, errHandlers ...gostream.Error
 	return vs.videoSource.Stream(ctx, errHandlers...)
 }
 
-func (vs *videoSource) GetImage(ctx context.Context) (image.Image, func(), error) {
-	return ReadImage(ctx, vs.videoSource)
+func (vs *videoSource) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, string, error) {
+	img, release, err := ReadImage(ctx, vs.videoSource)
+	if err != nil {
+		return nil, "", err
+	}
+	defer release()
+	outBytes, err := rimage.EncodeImage(ctx, img, mimeType)
+	if err != nil {
+		return nil, "", err
+	}
+	return outBytes, mimeType, nil
 }
 
 // Images is for getting simultaneous images from different sensors

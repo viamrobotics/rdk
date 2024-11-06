@@ -15,8 +15,11 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/utils"
 	viz "go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
 	"go.viam.com/rdk/vision/objectdetection"
@@ -271,11 +274,14 @@ func (vm *vizModel) DetectionsFromCamera(
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find camera named %s", cameraName)
 	}
-	img, release, err := cam.GetImage(ctx)
+	imgBytes, mimeType, err := cam.Image(ctx, gostream.MIMETypeHint(ctx, utils.MimeTypeJPEG), extra)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get image from %s", cameraName)
 	}
-	defer release()
+	img, err := rimage.DecodeImage(ctx, imgBytes, mimeType)
+	if err != nil {
+		return nil, errors.Errorf("could not decode image from %s", cameraName)
+	}
 	return vm.detectorFunc(ctx, img)
 }
 
@@ -314,11 +320,14 @@ func (vm *vizModel) ClassificationsFromCamera(
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find camera named %s", cameraName)
 	}
-	img, release, err := cam.GetImage(ctx)
+	imgBytes, mimeType, err := cam.Image(ctx, gostream.MIMETypeHint(ctx, utils.MimeTypeJPEG), extra)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get image from %s", cameraName)
 	}
-	defer release()
+	img, err := rimage.DecodeImage(ctx, imgBytes, mimeType)
+	if err != nil {
+		return nil, errors.Errorf("could not decode image from %s", cameraName)
+	}
 	fullClassifications, err := vm.classifierFunc(ctx, img)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get classifications from image")
@@ -364,11 +373,14 @@ func (vm *vizModel) CaptureAllFromCamera(
 	if err != nil {
 		return viscapture.VisCapture{}, errors.Wrapf(err, "could not find camera named %s", cameraName)
 	}
-	img, release, err := cam.GetImage(ctx)
+	imgBytes, mimeType, err := cam.Image(ctx, gostream.MIMETypeHint(ctx, utils.MimeTypeJPEG), extra)
 	if err != nil {
 		return viscapture.VisCapture{}, errors.Wrapf(err, "could not get image from %s", cameraName)
 	}
-	defer release()
+	img, err := rimage.DecodeImage(ctx, imgBytes, mimeType)
+	if err != nil {
+		return viscapture.VisCapture{}, errors.Errorf("could not decode image from %s", cameraName)
+	}
 	logger := vm.r.Logger()
 	var detections []objectdetection.Detection
 	if opt.ReturnDetections {

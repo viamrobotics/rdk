@@ -28,6 +28,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 )
 
@@ -565,8 +566,17 @@ func (c *monitoredWebcam) Stream(ctx context.Context, errHandlers ...gostream.Er
 	return c.exposedSwapper.Stream(ctx, errHandlers...)
 }
 
-func (c *monitoredWebcam) GetImage(ctx context.Context) (image.Image, func(), error) {
-	return camera.ReadImage(ctx, c.underlyingSource)
+func (c *monitoredWebcam) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, string, error) {
+	img, release, err := camera.ReadImage(ctx, c.underlyingSource)
+	if err != nil {
+		return nil, "", err
+	}
+	defer release()
+	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
+	if err != nil {
+		return nil, "", err
+	}
+	return imgBytes, mimeType, nil
 }
 
 func (c *monitoredWebcam) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {

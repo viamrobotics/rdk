@@ -33,7 +33,7 @@ func TestDepthSource(t *testing.T) {
 	ds, stream, err := newDepthEdgesTransform(context.Background(), source, am)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.DepthStream)
-	_, _, err = ds.GetImage(context.Background())
+	_, _, err = camera.ReadImage(context.Background(), ds)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ds.Close(context.Background()), test.ShouldBeNil)
 }
@@ -66,7 +66,7 @@ func (h *depthSourceTestHelper) Process(
 	ds, stream, err := newDepthEdgesTransform(context.Background(), source, am)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.DepthStream)
-	edges, _, err := ds.GetImage(context.Background())
+	edges, _, err := camera.ReadImage(context.Background(), ds)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ds.Close(context.Background()), test.ShouldBeNil)
 
@@ -84,7 +84,7 @@ func (h *depthSourceTestHelper) Process(
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.DepthStream)
 
-	output, _, err := rs.GetImage(context.Background())
+	output, _, err := camera.ReadImage(context.Background(), rs)
 	test.That(t, err, test.ShouldBeNil)
 	preprocessed, err := rimage.ConvertImageToDepthMap(context.Background(), output)
 	test.That(t, err, test.ShouldBeNil)
@@ -105,7 +105,7 @@ func (h *depthSourceTestHelper) Process(
 	ds, stream, err = newDepthEdgesTransform(context.Background(), source, am)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.DepthStream)
-	processedEdges, _, err := ds.GetImage(context.Background())
+	processedEdges, _, err := camera.ReadImage(context.Background(), ds)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ds.Close(context.Background()), test.ShouldBeNil)
 
