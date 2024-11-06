@@ -363,10 +363,11 @@ func (ftdc *FTDC) writeDatum(datum datum) error {
 }
 
 // getWriter returns an io.Writer xor error for writing schema/data information. `getWriter` is only
-// expected to be called by `newDatum`.
+// expected to be called by `writeDatum`.
 func (ftdc *FTDC) getWriter() (io.Writer, error) {
 	// If we have an `outputWriter` without a `currOutputFile`, it means ftdc was constructed with
-	// an explicit writer. We will use the passed in writer for all operations.
+	// an explicit writer. We will use the passed in writer for all operations. No file will ever be
+	// created.
 	if ftdc.outputWriter != nil && ftdc.currOutputFile == nil {
 		return ftdc.outputWriter, nil
 	}

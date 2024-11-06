@@ -366,6 +366,8 @@ func TestCountingBytes(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		defer ftdcFile.Close()
 
+		// Temporarily set the log level to INFO to avoid spammy logs. Debug logs during parsing are
+		// only interesting when parsing fails.
 		logger.SetLevel(logging.INFO)
 		datums, err := ParseWithLogger(ftdcFile, logger)
 		logger.SetLevel(logging.DEBUG)
