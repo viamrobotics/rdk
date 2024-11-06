@@ -2,12 +2,10 @@
 package modmanager
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -40,10 +38,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/packages"
 	rutils "go.viam.com/rdk/utils"
-)
-
-const (
-	defaultFirstRunTimeout = 1 * time.Hour
 )
 
 var (
@@ -1083,20 +1077,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 
 // FirstRun is runs a module-specific setup script.
 func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
-	logger := mgr.logger.Sublogger("first_run").WithFields("module", conf.Name)
-
-	// Evaluate the Module's FirstRun path. If there is an error we assume
-	// that the first run script does not exist and we debug log and exit quietly.
-	localPackagesDir := packages.LocalPackagesDir(mgr.packagesDir)
-	firstRunPath, markSuccess, err := conf.EvaluateFirstRunPath(localPackagesDir, logger)
-	if err != nil {
-		// TODO(RSDK-9067): some first run path evaluation errors should be promoted to WARN logs.
-		logger.Debugw("no first run script detected, skipping setup phase", "error", err)
-		return nil
-	}
-
-	logger = logger.WithFields("module", conf.Name, "path", firstRunPath)
-	logger.Infow("executing first run script")
+	pkgsDir := packages.LocalPackagesDir(mgr.packagesDir)
 
 	// This value is normally set on a field on the [module] struct but it seems like we can safely get it on demand.
 	var dataDir string
@@ -1108,81 +1089,9 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 			return err
 		}
 	}
+	env := getFullEnvironment(conf, dataDir, mgr.viamHomeDir)
 
-	moduleEnvironment := getFullEnvironment(conf, dataDir, mgr.viamHomeDir)
-
-	timeout := defaultFirstRunTimeout
-	if conf.FirstRunTimeout > 0 {
-		timeout = conf.FirstRunTimeout.Unwrap()
-	}
-	cmdCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	//nolint:gosec // Yes, we are deliberating executing arbitrary user code here.
-	cmd := exec.CommandContext(cmdCtx, firstRunPath)
-
-	cmd.Env = os.Environ()
-	for key, val := range moduleEnvironment {
-		cmd.Env = append(cmd.Env, key+"="+val)
-	}
-
-	stdOut, err := cmd.StdoutPipe()
-	if err != nil {
-		return err
-	}
-	stdErr, err := cmd.StderrPipe()
-	if err != nil {
-		return err
-	}
-
-	scanOut := bufio.NewScanner(stdOut)
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-
-		for scanOut.Scan() {
-			logger.Infow("got stdio", "output", scanOut.Text())
-		}
-		// This scanner keeps trying to read stdio until the command terminates,
-		// at which point the stdio pipe handle is no longer available. This sometimes
-		// results in an `os.ErrClosed`, which we discard.
-		if err := scanOut.Err(); err != nil && !errors.Is(err, os.ErrClosed) {
-			logger.Errorw("error scanning stdio", "error", err)
-		}
-	}()
-	scanErr := bufio.NewScanner(stdErr)
-	go func() {
-		defer wg.Done()
-
-		for scanErr.Scan() {
-			logger.Warnw("got stderr", "output", scanErr.Text())
-		}
-		// This scanner keeps trying to read stderr until the command terminates,
-		// at which point the stderr pipe handle is no longer available. This sometimes
-		// results in an `os.ErrClosed`, which we discard.
-		if err := scanErr.Err(); err != nil && !errors.Is(err, os.ErrClosed) {
-			logger.Errorw("error scanning stderr", "error", err)
-		}
-	}()
-	if err := cmd.Start(); err != nil {
-		logger.Errorw("failed to start first run script", "error", err)
-		return err
-	}
-	if err := cmd.Wait(); err != nil {
-		logger.Errorw("first run script failed", "error", err)
-		return err
-	}
-	wg.Wait()
-	logger.Info("first run script succeeded")
-
-	// Mark success by writing a marker file to disk. This is a best
-	// effort; if writing to disk fails the setup phase will run again
-	// for this module and version and we are okay with that.
-	if err := markSuccess(); err != nil {
-		logger.Errorw("failed to mark success", "error", err)
-	}
-	return nil
+	return conf.FirstRun(ctx, pkgsDir, dataDir, env, mgr.logger)
 }
 
 func (m *module) startProcess(
