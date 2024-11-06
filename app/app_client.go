@@ -619,3 +619,95 @@ func (c *AppClient) GetFragmentHistory(ctx context.Context, id string, pageToken
 	}
 	return resp.History, resp.NextPageToken, nil
 }
+
+func createAuthorization(orgId string, identityId string, identityType string, role string, resourceType string, resourceId string) (*pb.Authorization, error) {
+	if role != "owner" && role != "operator" {
+		return nil, errors.New("role string must be 'owner' or 'operator'")
+	}
+	if resourceType != "organization" && resourceType != "location" && resourceType != "robot" {
+		return nil, errors.New("resourceType must be 'organization', 'location', or 'robot'")
+	}
+
+	return &pb.Authorization{
+		AuthorizationType: role,
+		AuthorizationId: fmt.Sprintf("%s_%s", resourceType, role),
+		ResourceType: resourceType,
+		ResourceId: resourceId,
+		IdentityId: identityId,
+		OrganizationId: orgId,
+		IdentityType: identityType,
+	}, nil
+}
+
+// AddRole creates an identity authorization.
+func (c *AppClient) AddRole(ctx context.Context, orgId string, identityId string, role string, resourceType string, resourceId string) error {
+	authorization, err := createAuthorization(orgId, identityId, "", role, resourceType, resourceId)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.AddRole(ctx, &pb.AddRoleRequest{
+		Authorization: authorization,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// RemoveRole deletes an identity authorization.
+func (c *AppClient) RemoveRole(ctx context.Context, orgId string, identityId string, role string, resourceType string, resourceId string) error {
+	authorization, err := createAuthorization(orgId, identityId, "", role, resourceType, resourceId)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.RemoveRole(ctx, &pb.RemoveRoleRequest{
+		Authorization: authorization,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// ChangeRole changes an identity authorization to a new identity authorization.
+func (c *AppClient) ChangeRole(ctx context.Context, oldOrgId string, oldIdentityId string, oldRole string, oldResourceType string, oldResourceId string, newOrgId string, newIdentityId string, newRole string, newResourceType string, newResourceId string) error {
+	oldAuthorization, err := createAuthorization(oldOrgId, oldIdentityId, "", oldRole, oldResourceType, oldResourceId)
+	if err != nil {
+		return err
+	}
+	newAuthorization, err := createAuthorization(newOrgId, newIdentityId, "", newRole, newResourceType, newResourceId)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.ChangeRole(ctx, &pb.ChangeRoleRequest{
+		OldAuthorization: oldAuthorization,
+		NewAuthorization: newAuthorization,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// listAuthorizations returns all authorization roles for any given resources. If no resources are given, all resources within the organization will be included.
+func (c *AppClient) ListAuthorizations(ctx context.Context, orgId string, resourceIds []string) ([]*pb.Authorization, error) {
+	resp, err := c.client.ListAuthorizations(ctx, &pb.ListAuthorizationsRequest{
+		OrganizationId: orgId,
+		ResourceIds: resourceIds,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Authorizations, nil
+}
+
+// CheckPermissions checks the validity of a list of permissions.
+func (c *AppClient) CheckPermissions(ctx context.Context, permissions []*pb.AuthorizedPermissions) ([]*pb.AuthorizedPermissions, error) {
+	resp, err := c.client.CheckPermissions(ctx, &pb.CheckPermissionsRequest{
+		Permissions: permissions,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.AuthorizedPermissions, nil
+}
