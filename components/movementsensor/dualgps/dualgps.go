@@ -5,11 +5,13 @@ package dualgps
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"sync"
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
+	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
@@ -114,13 +116,40 @@ func (dg *dualGPS) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 	if err != nil {
 		return err
 	}
+
+	firstProps, err := first.Properties(ctx, nil)
+	if err != nil {
+		return err
+	}
 	dg.gps1 = first
 
 	second, err := movementsensor.FromDependencies(deps, newConf.Gps2)
 	if err != nil {
 		return err
 	}
+	secondProps, err := second.Properties(ctx, nil)
+	if err != nil {
+		return err
+	}
 	dg.gps2 = second
+
+	var errs error
+	if !firstProps.PositionSupported {
+		errs = multierr.Combine(
+			errs,
+			fmt.Errorf(
+				"configured movement sensor %v does not support reporting its Position, it cannot be used for dual-gps calculations",
+				first.Name().ShortName()))
+	}
+	if !secondProps.PositionSupported {
+		errs = multierr.Combine(errs,
+			fmt.Errorf(
+				"configured movement sensor %v does not support reporting its Position, it cannot be used for dual-gps calculations",
+				second.Name().ShortName()))
+	}
+	if errs != nil {
+		return errs
+	}
 
 	dg.offset = defaultOffsetDegrees
 	if newConf.Offset != nil {

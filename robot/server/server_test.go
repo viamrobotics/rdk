@@ -612,7 +612,7 @@ func TestServerGetStatus(t *testing.T) {
 		injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 			return nil, passedErr
 		}
-
+		//nolint:staticcheck // the status API is deprecated
 		_, err := server.GetStatus(context.Background(), &pb.GetStatusRequest{})
 		test.That(t, err, test.ShouldBeError, passedErr)
 	})
@@ -629,6 +629,7 @@ func TestServerGetStatus(t *testing.T) {
 			ResourceNames: []*commonpb.ResourceName{},
 		}
 
+		//nolint:staticcheck // the status API is deprecated
 		_, err := server.GetStatus(context.Background(), req)
 		test.That(
 			t,
@@ -664,6 +665,7 @@ func TestServerGetStatus(t *testing.T) {
 			ResourceNames: []*commonpb.ResourceName{protoutils.ResourceNameToProto(aStatus.Name)},
 		}
 
+		//nolint:staticcheck // the status API is deprecated
 		resp, err := server.GetStatus(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp.Status), test.ShouldEqual, 1)
@@ -712,6 +714,7 @@ func TestServerGetStatus(t *testing.T) {
 			},
 		}
 
+		//nolint:staticcheck // the status API is deprecated
 		resp, err := server.GetStatus(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp.Status), test.ShouldEqual, 2)
@@ -745,7 +748,7 @@ func TestServerGetStatus(t *testing.T) {
 			ctx:       cancelCtx,
 			messageCh: messageCh,
 		}
-
+		//nolint:staticcheck // the status API is deprecated
 		err := server.StreamStatus(&pb.StreamStatusRequest{Every: durationpb.New(time.Second)}, streamServer)
 		test.That(t, err, test.ShouldEqual, err1)
 	})
@@ -766,7 +769,7 @@ func TestServerGetStatus(t *testing.T) {
 			fail:      true,
 		}
 		dur := 100 * time.Millisecond
-
+		//nolint:staticcheck // the status API is deprecated
 		err := server.StreamStatus(&pb.StreamStatusRequest{Every: durationpb.New(dur)}, streamServer)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "send fail")
@@ -787,6 +790,7 @@ func TestServerGetStatus(t *testing.T) {
 		}
 		dur := 100 * time.Millisecond
 
+		//nolint:staticcheck // the status API is deprecated
 		streamErr := server.StreamStatus(&pb.StreamStatusRequest{Every: durationpb.New(dur)}, streamServer)
 		test.That(t, streamErr, test.ShouldResemble, context.DeadlineExceeded)
 	})
@@ -817,6 +821,7 @@ func TestServerGetStatus(t *testing.T) {
 		start := time.Now()
 		done := make(chan struct{})
 		go func() {
+			//nolint:staticcheck // the status API is deprecated
 			streamErr = server.StreamStatus(&pb.StreamStatusRequest{Every: durationpb.New(dur)}, streamServer)
 			close(done)
 		}()
