@@ -135,16 +135,16 @@ func (dg *dualGPS) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 
 	var errs error
 	if !firstProps.PositionSupported {
-		multierr.Combine(
+		errs = multierr.Combine(
 			errs,
 			fmt.Errorf(
-				"configured movement sensor %v does not support reporting its Position, it cannot be used for dual-gps calculations.",
+				"configured movement sensor %v does not support reporting its Position, it cannot be used for dual-gps calculations",
 				first.Name().ShortName()))
 	}
 	if !secondProps.PositionSupported {
-		multierr.Combine(errs,
+		errs = multierr.Combine(errs,
 			fmt.Errorf(
-				"configured movement sensor %v does not support reporting its Position, it cannot be used for dual-gps calculations.",
+				"configured movement sensor %v does not support reporting its Position, it cannot be used for dual-gps calculations",
 				second.Name().ShortName()))
 	}
 	if errs != nil {
