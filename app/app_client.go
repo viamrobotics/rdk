@@ -530,3 +530,92 @@ func (c *AppClient) DeleteRobot(ctx context.Context, id string) error {
 	}
 	return nil
 }
+
+// ListFragments gets a list of fragments.
+func (c *AppClient) ListFragments(ctx context.Context, orgId string, showPublic bool, fragmentVisibility []pb.FragmentVisibility) ([]*pb.Fragment, error) {
+	resp, err := c.client.ListFragments(ctx, &pb.ListFragmentsRequest{
+		OrganizationId: orgId,
+		ShowPublic: showPublic,
+		FragmentVisibility: fragmentVisibility,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Fragments, nil
+}
+
+// GetFragment gets a single fragment.
+func (c *AppClient) GetFragment(ctx context.Context, id string) (*pb.Fragment, error) {
+	resp, err := c.client.GetFragment(ctx, &pb.GetFragmentRequest{
+		Id: id,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Fragment, nil
+}
+
+// CreateFragment creates a fragment.
+func (c *AppClient) CreateFragment(ctx context.Context, name string, config *structpb.Struct, orgId string, visibility *pb.FragmentVisibility) (*pb.Fragment, error) {
+	resp, err := c.client.CreateFragment(ctx, &pb.CreateFragmentRequest{
+		Name: name,
+		Config: config,
+		OrganizationId: orgId,
+		Visibility: visibility,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Fragment, nil
+}
+
+// UpdateFragment updates a fragment.
+func (c *AppClient) UpdateFragment(ctx context.Context, id string, name string, config *structpb.Struct, public *bool, visibility *pb.FragmentVisibility) (*pb.Fragment, error) {
+	resp, err := c.client.UpdateFragment(ctx, &pb.UpdateFragmentRequest{
+		Id: id,
+		Name: name,
+		Config: config,
+		Public: public,
+		Visibility: visibility,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Fragment, nil
+}
+
+// DeleteFragment deletes a fragment.
+func (c *AppClient) DeleteFragment(ctx context.Context, id string) error {
+	_, err := c.client.DeleteFragment(ctx, &pb.DeleteFragmentRequest{
+		Id: id,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// ListMachineFragments gets top level and nested fragments for a amchine, as well as any other fragments specified by IDs. Additional fragments are useful when needing to view fragments that will be provisionally added to the machine alongside existing fragments.
+func (c *AppClient) ListMachineFragments(ctx context.Context, machineId string, additionalFragmentIds []string) ([]*pb.Fragment, error) {
+	resp, err := c.client.ListMachineFragments(ctx, &pb.ListMachineFragmentsRequest{
+		MachineId: machineId,
+		AdditionalFragmentIds: additionalFragmentIds,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Fragments, nil
+}
+
+// GetFragmentHistory gets the fragment's history.
+func (c *AppClient) GetFragmentHistory(ctx context.Context, id string, pageToken *string, pageLimit *int64) ([]*pb.FragmentHistoryEntry, string, error) {
+	resp, err := c.client.GetFragmentHistory(ctx, &pb.GetFragmentHistoryRequest{
+		Id: id,
+		PageToken: pageToken,
+		PageLimit: pageLimit,
+	})
+	if err != nil {
+		return nil, "", err
+	}
+	return resp.History, resp.NextPageToken, nil
+}
