@@ -414,6 +414,17 @@ func TestSetStreamOptions(t *testing.T) {
 	test.That(t, setStreamOptionsResp, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid resolution")
 
+	// Try adding stream
+	res, err := livestreamClient.AddStream(ctx, &streampb.AddStreamRequest{
+		Name: "fake-cam-0-0",
+	})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldNotBeNil)
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		videoCnt := strings.Count(conn.PeerConn().CurrentLocalDescription().SDP, "m=video")
+		test.That(tb, videoCnt, test.ShouldEqual, 1)
+	})
+
 	// Test setting the stream optoins with a valid resolution
 	setStreamOptionsResp, err = livestreamClient.SetStreamOptions(ctx, &streampb.SetStreamOptionsRequest{
 		Name:       "fake-cam-0-0",
@@ -421,4 +432,36 @@ func TestSetStreamOptions(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, setStreamOptionsResp, test.ShouldNotBeNil)
+
+	// Make sure that video strack is still alive through the peer connection
+	videoCnt := strings.Count(conn.PeerConn().CurrentLocalDescription().SDP, "m=video")
+	test.That(t, videoCnt, test.ShouldEqual, 1)
+
+	// try RemoveStream
+	removeRes, err := livestreamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{
+		Name: "fake-cam-0-0",
+	})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, removeRes, test.ShouldNotBeNil)
+	// testutils.WaitForAssertion(t, func(tb testing.TB) {
+	// 	videoCnt = strings.Count(conn.PeerConn().CurrentLocalDescription().SDP, "m=video")
+	// 	test.That(t, videoCnt, test.ShouldEqual, 0)
+	// })
+
+	// // Get image from camera and verify the resolution
+	// !!! this will not work need to go through webrtc path
+	// cam, err := camera.FromRobot(robot, "fake-cam-0-0")
+	// cam
+	// test.That(t, err, test.ShouldBeNil)
+	// defer cam.Close(ctx)
+	// var errHandlers []gostream.ErrorHandler
+	// stream, err := cam.Stream(ctx, errHandlers...)
+	// test.That(t, err, test.ShouldBeNil)
+	// defer stream.Close(ctx)
+	// img, release, err := stream.Next(ctx)
+	// release()
+	// test.That(t, err, test.ShouldBeNil)
+	// test.That(t, img.Bounds().Dx(), test.ShouldEqual, 320)
+	// test.That(t, img.Bounds().Dy(), test.ShouldEqual, 240)
+
 }
