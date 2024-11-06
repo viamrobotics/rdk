@@ -39,6 +39,36 @@ func TestDataClient(t *testing.T) {
 	grpcClient := &inject.DataServiceClient{}
 	client := DataClient{client: grpcClient}
 	t.Run("TabularDataByFilter", func(t *testing.T) {
+		// expected := {}
+		// expectedData := "" //change - not done
+		// expectedCount := 5 //change - not done
+		// expectedLast := "" //change - not done
+		// filter := &datapb.Filter{}
+		// limit := uint64(5)
+		// last := "last"
+		// sortOrder := datapb.Order_ORDER_DESCENDING  //i think this is correct
+		// countOnly := true
+		// includeInternalData := true
+		// myData := {
+		// 	Data: map[string]interface{}
+		// 	Metadata: CaptureMetadata
+		// }
+		// myFilter := create_filter(component_name="motor-1")
+		// myLast := nil
+
+		// returns: List[TabularData]: The tabular data, int: The count (number of entries), str: The last-returned page ID.
+
+		grpcClient.TabularDataByFilterFunc = func(ctx context.Context, in *datapb.TabularDataByFilterRequest, opts ...grpc.CallOption) (*datapb.TabularDataByFilterResponse, error) {
+			test.That(t, in.DataRequest, test.ShouldEqual)
+			test.That(t, in.CountOnly, test.ShouldBeTrue)
+			test.That(t, in.IncludeInternalData, test.ShouldBeTrue)
+			return &datapb.TabularDataByFilterResponse{Data: _, Count: _, Last: _}, nil
+		}
+
+		respData, respCount, respLast, _ := client.TabularDataByFilter(context.Background(), filter, limit, last, sortOrder, countOnly, includeInternalData)
+		test.That(t, respData, test.ShouldEqual, expectedData)
+		test.That(t, respCount, test.ShouldEqual, expectedCount)
+		test.That(t, respLast, test.ShouldEqual, expectedLast)
 
 	})
 	t.Run("TabularDataBySQL", func(t *testing.T) {
