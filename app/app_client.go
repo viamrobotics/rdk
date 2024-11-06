@@ -6,6 +6,9 @@ import (
 	"fmt"
 
 	pb "go.viam.com/api/app/v1"
+	common "go.viam.com/api/common/v1"
+	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type AppClient struct {
@@ -300,6 +303,227 @@ func (c *AppClient) DeleteLocationSecret(ctx context.Context, locationId string,
 	_, err := c.client.DeleteLocationSecret(ctx, &pb.DeleteLocationSecretRequest{
 		LocationId: locationId,
 		SecretId: secretId,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// GetRobot gets a specific robot by ID.
+func (c *AppClient) GetRobot(ctx context.Context, id string) (*pb.Robot, error) {
+	resp, err := c.client.GetRobot(ctx, &pb.GetRobotRequest{
+		Id: id,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Robot, nil
+}
+
+// GetRoverRentalRobots gets rover rental robots within an organization.
+func (c *AppClient) GetRoverRentalRobots(ctx context.Context, orgId string) ([]*pb.RoverRentalRobot, error) {
+	resp, err := c.client.GetRoverRentalRobots(ctx, &pb.GetRoverRentalRobotsRequest{
+		OrgId: orgId,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Robots, nil
+}
+
+// GetRobotParts gets a list of all the parts under a specific machine.
+func (c *AppClient) GetRobotParts(ctx context.Context, robotId string) ([]*pb.RobotPart, error) {
+	resp, err := c.client.GetRobotParts(ctx, &pb.GetRobotPartsRequest{
+		RobotId: robotId,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Parts, nil
+}
+
+// GetRobotPart gets a specific robot part and its config by ID.
+func (c *AppClient) GetRobotPart(ctx context.Context, id string) (*pb.RobotPart, string, error) {
+	resp, err := c.client.GetRobotPart(ctx, &pb.GetRobotPartRequest{
+		Id: id,
+	})
+	if err != nil {
+		return nil, "", err
+	}
+	return resp.Part, resp.ConfigJson, nil
+}
+
+// GetRobotPartLogs gets the logs associated with a robot part from a page, defaulting to the most recent page if pageToken is empty. Logs of all levels are returned when levels is empty.
+func (c *AppClient) GetRobotPartLogs(ctx context.Context, id string, filter *string, pageToken *string, levels []string, start *timestamppb.Timestamp, end *timestamppb.Timestamp, limit *int64, source *string) ([]*common.LogEntry, string, error) {
+	resp, err := c.client.GetRobotPartLogs(ctx, &pb.GetRobotPartLogsRequest{
+		Id: id,
+		Filter: filter,
+		PageToken: pageToken,
+		Levels: levels,
+		Start: start,
+		End: end,
+		Limit: limit,
+		Source: source,
+	})
+	if err != nil {
+		return nil, "", err
+	}
+	return resp.Logs, resp.NextPageToken, nil
+}
+
+// // TailRobotPartLogs gets a stream of log entries for a specific robot part. Logs are ordered by newest first.
+// func (c *AppClient) TailRobotPartLogs(ctx context.Context) (AppService_TailRobotPartLogsClient, error) {
+// 	resp, err := c.client.
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return resp, nil
+// }
+
+// GetRobotPartHistory gets a specific robot part history by ID.
+func (c *AppClient) GetRobotPartHistory(ctx context.Context, id string) ([]*pb.RobotPartHistoryEntry, error) {
+	resp, err := c.client.GetRobotPartHistory(ctx, &pb.GetRobotPartHistoryRequest{
+		Id: id,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.History, nil
+}
+
+// UpdaetRobotPart updates a robot part.
+func (c *AppClient) UpdateRobotPart(ctx context.Context, id string, name string, robotConfig *structpb.Struct) (*pb.RobotPart, error) {
+	resp, err := c.client.UpdateRobotPart(ctx, &pb.UpdateRobotPartRequest{
+		Id: id,
+		Name: name,
+		RobotConfig: robotConfig,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Part, nil
+}
+
+// NewRobotPart creates a new robot part.
+func (c *AppClient) NewRobotPart(ctx context.Context, robotId string, partName string) (string, error) {
+	resp, err := c.client.NewRobotPart(ctx, &pb.NewRobotPartRequest{
+		RobotId: robotId,
+		PartName: partName,
+	})
+	if err != nil {
+		return "", err
+	}
+	return resp.PartId, nil
+}
+
+// DeleteRobotPart deletes a robot part.
+func (c *AppClient) DeleteRobotPart(ctx context.Context, partId string) error {
+	_, err := c.client.DeleteRobotPart(ctx, &pb.DeleteRobotPartRequest{
+		PartId: partId,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// GetRobotAPIKeys gets the robot API keys for the robot.
+func (c *AppClient) GetRobotAPIKeys(ctx context.Context, robotId string) ([]*pb.APIKeyWithAuthorizations, error) {
+	resp, err := c.client.GetRobotAPIKeys(ctx, &pb.GetRobotAPIKeysRequest{
+		RobotId: robotId,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.ApiKeys, nil
+}
+
+// MarkPartAsMain marks the given part as the main part, and all the others as not.
+func (c *AppClient) MarkPartAsMain(ctx context.Context, partId string) error {
+	_, err := c.client.MarkPartAsMain(ctx, &pb.MarkPartAsMainRequest{
+		PartId: partId,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// MarkPartForRestart marks the given part for restart. Once the robot part checks-in with the app the flag is reset on the robot part. Calling this multiple times before a robot part checks-in has no effect.
+func (c *AppClient) MarkPartForRestart(ctx context.Context, partId string) error {
+	_, err := c.client.MarkPartForRestart(ctx, &pb.MarkPartForRestartRequest{
+		PartId: partId,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// CreateRobotPartSecret creates a new generated secret in the robot part. Succeeds if there are no more than 2 active secrets after creation.
+func (c *AppClient) CreateRobotPartSecret(ctx context.Context, partId string) (*pb.RobotPart, error) {
+	resp, err := c.client.CreateRobotPartSecret(ctx, &pb.CreateRobotPartSecretRequest{
+		PartId: partId,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Part, nil
+}
+
+// DeleteRobotPartSecret deletes a secret from the robot part.
+func (c *AppClient) DeleteRobotPartSecret(ctx context.Context, partId string, secretId string) error {
+	_, err := c.client.DeleteRobotPartSecret(ctx, &pb.DeleteRobotPartSecretRequest{
+		PartId: partId,
+		SecretId: secretId,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// ListRobots gets a list of robots under a location.
+func (c *AppClient) ListRobots(ctx context.Context, locationId string) ([]*pb.Robot, error) {
+	resp, err := c.client.ListRobots(ctx, &pb.ListRobotsRequest{
+		LocationId: locationId,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Robots, nil
+}
+
+// NewRobot creates a new robot.
+func (c *AppClient) NewRobot(ctx context.Context, name string, location string) (string, error) {
+	resp, err := c.client.NewRobot(ctx, &pb.NewRobotRequest{
+		Name: name,
+		Location: location,
+	})
+	if err != nil {
+		return "", err
+	}
+	return resp.Id, nil
+}
+
+// UpdateRobot updates a robot.
+func (c *AppClient) UpdateRobot(ctx context.Context, id string, name string, location string) (*pb.Robot, error) {
+	resp, err := c.client.UpdateRobot(ctx, &pb.UpdateRobotRequest{
+		Id: id,
+		Name: name,
+		Location: location,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Robot, nil
+}
+
+// DeleteRobot deletes a robot.
+func (c *AppClient) DeleteRobot(ctx context.Context, id string) error {
+	_, err := c.client.DeleteRobot(ctx, &pb.DeleteRobotRequest{
+		Id: id,
 	})
 	if err != nil {
 		return err
