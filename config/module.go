@@ -276,10 +276,6 @@ func (m *Module) FirstRun(
 		logger.Warn("failed to parse meta.json, skipping first run", "error", err)
 		return nil
 	}
-	if err != nil {
-		logger.Debugw("failed to load meta.json, skipping first run", "error", err)
-		return nil
-	}
 
 	if meta.FirstRun == "" {
 		logger.Debug("no first run script specified, skipping first run")
