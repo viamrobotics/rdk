@@ -233,7 +233,7 @@ func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 }
 
 // FirstRunSuccessSuffix is the suffix of the file whose existence
-// denotes that the setup phase for a module ran successfully.
+// denotes that the first run script for a module ran successfully.
 //
 // Note that we create a new file instead of writing to `.status.json`,
 // which contains various package/module state tracking information.
@@ -270,29 +270,29 @@ func (m *Module) FirstRun(
 	var pathErr *os.PathError
 	switch {
 	case errors.As(err, &pathErr):
-		logger.Debugw("meta.json not found, skipping setup phase", "error", err)
+		logger.Debugw("meta.json not found, skipping first run", "error", err)
 		return nil
 	case err != nil:
-		logger.Warn("failed to parse meta.json, skipping setup phase", "error", err)
+		logger.Warn("failed to parse meta.json, skipping first run", "error", err)
 		return nil
 	}
 	if err != nil {
-		logger.Debugw("failed to load meta.json, skipping setup phase", "error", err)
+		logger.Debugw("failed to load meta.json, skipping first run", "error", err)
 		return nil
 	}
 
 	if meta.FirstRun == "" {
-		logger.Debug("no first run script specified, skipping setup phase")
+		logger.Debug("no first run script specified, skipping first run")
 		return nil
 	}
 	relFirstRunPath, err := utils.SafeJoinDir(unpackedModDir, meta.FirstRun)
 	if err != nil {
-		logger.Errorw("failed to build path to first run script, skipping setup phase", "error", err)
+		logger.Errorw("failed to build path to first run script, skipping first run", "error", err)
 		return nil
 	}
 	firstRunPath, err := filepath.Abs(relFirstRunPath)
 	if err != nil {
-		logger.Errorw("failed to build absolute path to first run script, skipping setup phase", "path", relFirstRunPath, "error", err)
+		logger.Errorw("failed to build absolute path to first run script, skipping first run", "path", relFirstRunPath, "error", err)
 		return nil
 	}
 
@@ -365,7 +365,7 @@ func (m *Module) FirstRun(
 	logger.Info("first run script succeeded")
 
 	// Mark success by writing a marker file to disk. This is a best
-	// effort; if writing to disk fails the setup phase will run again
+	// effort; if writing to disk fails the first run script will run again
 	// for this module and version and we are okay with that.
 	//nolint:gosec // safe
 	markerFile, err := os.Create(firstRunSuccessPath)
