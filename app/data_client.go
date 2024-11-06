@@ -408,11 +408,24 @@ func (d *DataClient) TagsByFilter(ctx context.Context, filter *pb.Filter) ([]str
 	}
 	return resp.Tags, nil
 }
-func (d *DataClient) AddBoundingBoxToImageByID() error {
-	return errors.New("unimplemented")
+func (d *DataClient) AddBoundingBoxToImageByID(ctx context.Context, binaryIds []*pb.BinaryID, label string,
+	xMinNormalized float64,
+	yMinNormalized float64,
+	xMaxNormalized float64,
+	yMaxNormalized float64) (string, error) {
+	resp, err := d.client.AddBoundingBoxToImageByID(ctx, &pb.AddBoundingBoxToImageByIDRequest{BinaryId: &pb.BinaryID{}, Label: label, XMinNormalized: xMinNormalized, YMinNormalized: yMinNormalized, XMaxNormalized: xMaxNormalized, YMaxNormalized: yMaxNormalized})
+	if err != nil {
+		return "", err
+	}
+	return resp.BboxId, nil
+
 }
-func (d *DataClient) RemoveBoundingBoxFromImageByID() error {
-	return errors.New("unimplemented")
+func (d *DataClient) RemoveBoundingBoxFromImageByID(ctx context.Context, bboxId string, binaryId *pb.BinaryID) error {
+	_, err := d.client.RemoveBoundingBoxFromImageByID(ctx, &pb.RemoveBoundingBoxFromImageByIDRequest{BinaryId: binaryId, BboxId: bboxId})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 func (d *DataClient) BoundingBoxLabelsByFilter() error {
 	return errors.New("unimplemented")
