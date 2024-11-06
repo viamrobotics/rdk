@@ -126,7 +126,7 @@ func (dg *dualGPS) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 	if err != nil {
 		return err
 	}
-	secondProps, err := first.Properties(ctx, nil)
+	secondProps, err := second.Properties(ctx, nil)
 	if err != nil {
 		return err
 	}
