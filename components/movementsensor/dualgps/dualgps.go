@@ -132,12 +132,15 @@ func (dg *dualGPS) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 	}
 	dg.gps2 = second
 
-	if !firstProps.PositionSupported || !secondProps.PositionSupported {
-		return fmt.Errorf(
-			"configured movement sensors %v and %v do not support reporting their Position, they cannot be used for dual-gps calculations",
-			first.Name().ShortName(),
-			second.Name().ShortName(),
-		)
+        var errs error
+	if !firstProps.PositionSupported {
+		multierr.combine(errs, fmt.Errorf("configured movement sensor %v does not support reporting its Position, it cannot be used for dual-gps calculations.", first.Name().ShortName())
+	}
+	if !secondProps.PositionSupported {
+		multierr.combine(errs, fmt.Errorf("configured movement sensor %v does not support reporting its Position, it cannot be used for dual-gps calculations.", second.Name().ShortName())
+	}
+	if errs != nil {
+	        return errs
 	}
 
 	dg.offset = defaultOffsetDegrees
