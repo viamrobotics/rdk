@@ -359,7 +359,7 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 				if tc.dataType == v1.DataType_DATA_TYPE_TABULAR_SENSOR {
 					config, deps = setupConfig(t, r, enabledTabularCollectorConfigPath)
 				} else {
-					r := setupRobot(nil, map[resource.Name]resource.Resource{
+					r := setupRobot(tc.cloudConnectionErr, map[resource.Name]resource.Resource{
 						camera.Named("c1"): &inject.Camera{
 							ImageFunc: func(
 								ctx context.Context,

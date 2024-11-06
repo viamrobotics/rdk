@@ -35,12 +35,6 @@ func NewRPCServiceServer(coll resource.APIResourceCollection[Camera]) interface{
 	return &serviceServer{coll: coll, logger: logger, imgTypes: imgTypes}
 }
 
-// ReadImager is an interface that cameras can implement when they allow for returning a single
-// image object.
-type ReadImager interface {
-	Read(ctx context.Context) (image.Image, func(), error)
-}
-
 // GetImage returns an image from a camera of the underlying robot. If a specific MIME type
 // is requested and is not available, an error is returned.
 func (s *serviceServer) GetImage(
@@ -74,52 +68,14 @@ func (s *serviceServer) GetImage(
 			req.MimeType = utils.MimeTypeJPEG
 		}
 	}
-
 	req.MimeType = utils.WithLazyMIMEType(req.MimeType)
 
-	ext := req.Extra.AsMap()
-	ctx = NewContext(ctx, ext)
-
-	resp := pb.GetImageResponse{}
-	switch castedCam := cam.(type) {
-	case ReadImager:
-		// RSDK-8663: If available, call a method that reads exactly one image. The default
-		// `ReadImage` implementation will otherwise create a gostream `Stream`, call `Next` and
-		// `Close` the stream. However, between `Next` and `Close`, the stream may have pulled a
-		// second image from the underlying camera. This is particularly noticeable on camera
-		// clients. Where a second `GetImage` request can be processed/returned over the
-		// network. Just to be discarded.
-		// RSDK-9132(sean yu): In addition to what Dan said above, ReadImager is important
-		// for camera components that rely on the `release` functionality provided by gostream's `Read`
-		// such as viamrtsp.
-		// (check that this comment is 100% true before code review then delete this paranthetical statement)
-		img, release, err := castedCam.Read(ctx)
-		if err != nil {
-			return nil, err
-		}
-		defer func() {
-			if release != nil {
-				release()
-			}
-		}()
-
-		actualMIME, _ := utils.CheckLazyMIMEType(req.MimeType)
-		resp.MimeType = actualMIME
-		outBytes, err := rimage.EncodeImage(ctx, img, req.MimeType)
-		if err != nil {
-			return nil, err
-		}
-		resp.Image = outBytes
-	default:
-		imgBytes, mimeType, err := cam.Image(ctx, req.MimeType, ext)
-		if err != nil {
-			return nil, err
-		}
-		actualMIME, _ := utils.CheckLazyMIMEType(mimeType)
-		resp.MimeType = actualMIME
-		resp.Image = imgBytes
+	imgBytes, mimeType, err := cam.Image(ctx, req.MimeType, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
 	}
-	return &resp, nil
+	actualMIME, _ := utils.CheckLazyMIMEType(mimeType)
+	return &pb.GetImageResponse{MimeType: actualMIME, Image: imgBytes}, nil
 }
 
 // GetImages returns a list of images and metadata from a camera of the underlying robot.
