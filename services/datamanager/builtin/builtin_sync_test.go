@@ -163,7 +163,7 @@ func TestSyncEnabled(t *testing.T) {
 						if err != nil {
 							return nil, "", err
 						}
-						return outBytes, "", nil
+						return outBytes, mimeType, nil
 					},
 				},
 			})

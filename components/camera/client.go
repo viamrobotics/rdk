@@ -179,7 +179,7 @@ func (c *client) Stream(
 }
 
 func (c *client) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, string, error) {
-	ctx, span := trace.StartSpan(ctx, "camera::client::GetImage")
+	ctx, span := trace.StartSpan(ctx, "camera::client::Image")
 	defer span.End()
 	expectedType, _ := utils.CheckLazyMIMEType(mimeType)
 
@@ -202,8 +202,8 @@ func (c *client) Image(ctx context.Context, mimeType string, extra map[string]in
 		resp.MimeType = mimeType
 	}
 
-	mimeType = utils.WithLazyMIMEType(resp.MimeType)
-	return resp.Image, mimeType, nil
+	resp.MimeType = utils.WithLazyMIMEType(resp.MimeType)
+	return resp.Image, resp.MimeType, nil
 }
 
 func (c *client) Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error) {

@@ -122,7 +122,7 @@ func (o *obsDepth) obsDepthNoIntrinsics(ctx context.Context, src camera.VideoSou
 	if !ok {
 		ext = camera.Extra{}
 	}
-	imgBytes, mimeType, err := src.Image(ctx, gostream.MIMETypeHint(ctx, utils.MimeTypeJPEG), ext)
+	imgBytes, mimeType, err := src.Image(ctx, gostream.MIMETypeHint(ctx, utils.MimeTypeRawDepth), ext)
 	if err != nil {
 		return nil, errors.Errorf("could not get image from %s", src)
 	}
@@ -161,7 +161,7 @@ func (o *obsDepth) obsDepthWithIntrinsics(ctx context.Context, src camera.VideoS
 	if !ok {
 		ext = camera.Extra{}
 	}
-	imgBytes, mimeType, err := src.Image(ctx, gostream.MIMETypeHint(ctx, utils.MimeTypeJPEG), ext)
+	imgBytes, mimeType, err := src.Image(ctx, gostream.MIMETypeHint(ctx, utils.MimeTypeRawDepth), ext)
 	if err != nil {
 		return nil, errors.Errorf("could not get image from %s", src)
 	}

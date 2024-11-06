@@ -94,7 +94,7 @@ func TestConfig1(t *testing.T) {
 	c1, err := camera.FromRobot(r, "c1")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, c1.Name(), test.ShouldResemble, camera.Named("c1"))
-	outBytes, mimeType, err := c1.Image(context.Background(), "", camera.Extra{})
+	outBytes, mimeType, err := c1.Image(context.Background(), rutils.MimeTypeJPEG, camera.Extra{})
 	test.That(t, err, test.ShouldBeNil)
 	pic, err := rimage.DecodeImage(context.Background(), outBytes, mimeType)
 	test.That(t, err, test.ShouldBeNil)
