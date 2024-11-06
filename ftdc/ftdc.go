@@ -104,10 +104,6 @@ type FTDC struct {
 	outputWorkerDone chan struct{}
 
 	// Fields used to manage where serialized FTDC bytes are written.
-	//
-	// When debug is true, the `outputWriter` will "tee" data to both the `currOutputFile` and
-	// `inmemBuffer`. Otherwise `outputWriter` will just refer to the `currOutputFile`.
-	debug        bool
 	outputWriter io.Writer
 	// bytesWrittenCounter will count bytes that are written to the `outputWriter`. We use an
 	// `io.Writer` implementer for this, as opposed to just counting by hand, primarily as a
@@ -436,19 +432,10 @@ func (ftdc *FTDC) getWriter() (io.Writer, error) {
 	ftdc.outputGenerationID--
 
 	// Assign the `outputWriter`. The `outputWriter` is an abstraction for where FTDC formatted
-	// bytes go. Testing often prefers to just write bytes into memory, while in production we
-	// obviously want to persist bytes on disk.
-	if ftdc.debug {
-		// If we're in debug mode, we want to write to an in-memory buffer in addition to the output
-		// file. The in-memory buffer does not participate in "file rotation"; it's instantiated
-		// only on the first invocation to `getWriter`.
-		if ftdc.inmemBuffer == nil {
-			ftdc.inmemBuffer = bytes.NewBuffer(nil)
-		}
-		ftdc.outputWriter = io.MultiWriter(&ftdc.bytesWrittenCounter, ftdc.currOutputFile, ftdc.inmemBuffer)
-	} else {
-		ftdc.outputWriter = io.MultiWriter(&ftdc.bytesWrittenCounter, ftdc.currOutputFile)
-	}
+	// bytes go. Testing often prefers to just write bytes into memory (and consequently construct
+	// an FTDC with `NewWithWriter`). While in production we obviously want to persist bytes on
+	// disk.
+	ftdc.outputWriter = io.MultiWriter(&ftdc.bytesWrittenCounter, ftdc.currOutputFile)
 
 	return ftdc.outputWriter, nil
 }
