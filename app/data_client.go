@@ -1,11 +1,9 @@
 //go:build !no_cgo
 
-// Package arm contains a gRPC based arm client.
-package arm
+package app
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -158,8 +156,7 @@ func BinaryMetadataFromProto(proto *pb.BinaryMetadata) BinaryMetadata {
 type DataClient struct {
 	//do we want this to be a public interface that defines the functions but does not include client and private details?
 	//would not include client and private details
-	client      pb.DataServiceClient
-	TabularData TabularData
+	client pb.DataServiceClient
 }
 
 // (private) dataClient implements DataServiceClient. **do we want this?
@@ -408,7 +405,10 @@ func (d *DataClient) TagsByFilter(ctx context.Context, filter *pb.Filter) ([]str
 	}
 	return resp.Tags, nil
 }
-func (d *DataClient) AddBoundingBoxToImageByID(ctx context.Context, binaryIds []*pb.BinaryID, label string,
+func (d *DataClient) AddBoundingBoxToImageByID(
+	ctx context.Context,
+	binaryIds []*pb.BinaryID,
+	label string,
 	xMinNormalized float64,
 	yMinNormalized float64,
 	xMaxNormalized float64,
@@ -427,21 +427,60 @@ func (d *DataClient) RemoveBoundingBoxFromImageByID(ctx context.Context, bboxId 
 	}
 	return nil
 }
-func (d *DataClient) BoundingBoxLabelsByFilter() error {
-	return errors.New("unimplemented")
+func (d *DataClient) BoundingBoxLabelsByFilter(ctx context.Context, filter *pb.Filter) ([]string, error) {
+	if filter == nil {
+		filter = &pb.Filter{}
+	}
+	resp, err := d.client.BoundingBoxLabelsByFilter(ctx, &pb.BoundingBoxLabelsByFilterRequest{Filter: filter})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Labels, nil
 }
-func (d *DataClient) UpdateBoundingBox() error {
-	return errors.New("unimplemented")
+
+// ***python and typescript did not implement this one!!!
+func (d *DataClient) UpdateBoundingBox(ctx context.Context,
+	binaryId *pb.BinaryID,
+	bboxId string,
+	label string,
+	xMinNormalized float64,
+	yMinNormalized float64,
+	xMaxNormalized float64,
+	yMaxNormalized float64) error {
+
+	_, err := d.client.UpdateBoundingBox(ctx, &pb.UpdateBoundingBoxRequest{BinaryId: binaryId, BboxId: bboxId, Label: &label, XMinNormalized: &xMinNormalized, YMinNormalized: &yMinNormalized, XMaxNormalized: &xMaxNormalized, YMaxNormalized: &yMaxNormalized})
+	if err != nil {
+		return err
+	}
+	return nil
 }
-func (d *DataClient) GetDatabaseConnection() error {
-	return errors.New("unimplemented")
+
+// do we want to return more than a hostname??
+func (d *DataClient) GetDatabaseConnection(ctx context.Context, organizationId string) (string, error) {
+	resp, err := d.client.GetDatabaseConnection(ctx, &pb.GetDatabaseConnectionRequest{OrganizationId: organizationId})
+	if err != nil {
+		return "", err
+	}
+	return resp.Hostname, nil
 }
-func (d *DataClient) ConfigureDatabaseUser() error {
-	return errors.New("unimplemented")
+func (d *DataClient) ConfigureDatabaseUser(ctx context.Context, organizationId string, password string) error {
+	_, err := d.client.ConfigureDatabaseUser(ctx, &pb.ConfigureDatabaseUserRequest{OrganizationId: organizationId, Password: password})
+	if err != nil {
+		return err
+	}
+	return nil
 }
-func (d *DataClient) AddBinaryDataToDatasetByIDs() error {
-	return errors.New("unimplemented")
+func (d *DataClient) AddBinaryDataToDatasetByIDs(ctx context.Context, binaryIds []*pb.BinaryID, datasetId string) error {
+	_, err := d.client.AddBinaryDataToDatasetByIDs(ctx, &pb.AddBinaryDataToDatasetByIDsRequest{BinaryIds: binaryIds, DatasetId: datasetId})
+	if err != nil {
+		return err
+	}
+	return nil
 }
-func (d *DataClient) RemoveBinaryDataFromDatasetByIDs() error {
-	return errors.New("unimplemented")
+func (d *DataClient) RemoveBinaryDataFromDatasetByIDs(ctx context.Context, binaryIds []*pb.BinaryID, datasetId string) error {
+	_, err := d.client.RemoveBinaryDataFromDatasetByIDs(ctx, &pb.RemoveBinaryDataFromDatasetByIDsRequest{BinaryIds: binaryIds, DatasetId: datasetId})
+	if err != nil {
+		return err
+	}
+	return nil
 }
