@@ -264,12 +264,23 @@ func (m *Module) FirstRun(
 		return nil
 	}
 
-	// Load the module's meta.json. If it doesn't exist or fails to load, debug log and exit quietly.
+	// Load the module's meta.json. If it doesn't exist DEBUG log and exit quietly.
+	// For all other errors WARN log and exit.
 	meta, err := m.getJSONManifest(unpackedModDir)
+	var pathErr *os.PathError
+	switch {
+	case errors.As(err, &pathErr):
+		logger.Debugw("meta.json not found, skipping setup phase", "error", err)
+		return nil
+	case err != nil:
+		logger.Warn("failed to parse meta.json, skipping setup phase", "error", err)
+		return nil
+	}
 	if err != nil {
 		logger.Debugw("failed to load meta.json, skipping setup phase", "error", err)
 		return nil
 	}
+
 	if meta.FirstRun == "" {
 		logger.Debug("no first run script specified, skipping setup phase")
 		return nil
