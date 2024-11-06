@@ -83,7 +83,7 @@ const (
 )
 
 // NewBasicPlannerOptions specifies a set of basic options for the planner.
-func newBasicPlannerOptions(frame referenceframe.Frame) *plannerOptions {
+func newBasicPlannerOptions() *plannerOptions {
 	opt := &plannerOptions{}
 	opt.goalMetricConstructor = ik.NewSquaredNormMetric
 	opt.goalArcScore = ik.JointMetric
@@ -108,7 +108,6 @@ func newBasicPlannerOptions(frame referenceframe.Frame) *plannerOptions {
 	opt.FrameStep = defaultFrameStep
 	opt.JointSolveDist = defaultJointSolveDist
 	opt.IterBeforeRand = defaultIterBeforeRand
-	opt.qstep = getFrameSteps(frame, defaultFrameStep)
 
 	// Note the direct reference to a default here.
 	// This is due to a Go compiler issue where it will incorrectly refuse to compile with a circular reference error if this
@@ -125,10 +124,10 @@ func newBasicPlannerOptions(frame referenceframe.Frame) *plannerOptions {
 // plannerOptions are a set of options to be passed to a planner which will specify how to solve a motion planning problem.
 type plannerOptions struct {
 	ConstraintHandler
-	goalMetricConstructor func(spatialmath.Pose) ik.StateMetric
-	goalMetric            ik.StateMetric // Distance function which converges to the final goal position
-	goalArcScore          ik.SegmentMetric
-	pathMetric            ik.StateMetric // Distance function which converges on the valid manifold of intermediate path states
+	goalMetricConstructor func(PathStep) ik.StateFSMetric
+	goalMetric            ik.StateFSMetric // Distance function which converges to the final goal position
+	goalArcScore          ik.SegmentFSMetric
+	pathMetric            ik.StateFSMetric // Distance function which converges on the valid manifold of intermediate path states
 
 	extra map[string]interface{}
 
@@ -172,16 +171,13 @@ type plannerOptions struct {
 	// Number of seeds to pre-generate for bidirectional position-only solving.
 	PositionSeeds int `json:"position_seeds"`
 
-	// This is how far cbirrt will try to extend the map towards a goal per-step. Determined from FrameStep
-	qstep []float64
-
-	StartPose spatialmath.Pose // The starting pose of the plan. Useful when planning for frames with relative inputs.
+	StartPoses PathStep // The starting poses of the plan. Useful when planning for frames with relative inputs.
 
 	// DistanceFunc is the function that the planner will use to measure the degree of "closeness" between two states of the robot
-	DistanceFunc ik.SegmentMetric
+	DistanceFunc ik.SegmentFSMetric
 
 	// ScoreFunc is the function that the planner will use to evaluate a plan for final cost comparisons.
-	ScoreFunc ik.SegmentMetric
+	ScoreFunc ik.SegmentFSMetric
 
 	// profile is the string representing the motion profile
 	profile string
@@ -196,7 +192,7 @@ type plannerOptions struct {
 }
 
 // SetMetric sets the distance metric for the solver.
-func (p *plannerOptions) SetGoal(goal spatialmath.Pose) {
+func (p *plannerOptions) SetGoal(goal PathStep) {
 	p.goalMetric = p.goalMetricConstructor(goal)
 }
 
@@ -214,10 +210,17 @@ func (p *plannerOptions) SetMaxSolutions(maxSolutions int) {
 func (p *plannerOptions) SetMinScore(minScore float64) {
 	p.MinScore = minScore
 }
-
+https://en.wikipedia.org/wiki/2004_United_States_presidential_election
 // addPbConstraints will add all constraints from the protobuf constraint specification. This will deal with only the topological
 // constraints. It will return a bool indicating whether there are any to add.
-func (p *plannerOptions) addPbTopoConstraints(from, to spatialmath.Pose, constraints *Constraints) bool {
+func (p *plannerOptions) addPbTopoConstraints(from, to PathStep, constraints *Constraints) bool {
+	
+	// TODO: Currently our proto for constraints does not allow the specification of which frames should be constrainted relative to
+	// which other frames. If there is only one goal specified, then we assume that 
+	if len(to) == 1 {
+		
+	}
+	
 	topoConstraints := false
 	for _, linearConstraint := range constraints.GetLinearConstraint() {
 		topoConstraints = true

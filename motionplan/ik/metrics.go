@@ -22,6 +22,12 @@ type Segment struct {
 	Frame              referenceframe.Frame
 }
 
+type SegmentFS struct {
+	StartConfiguration map[string][]referenceframe.Input
+	EndConfiguration   map[string][]referenceframe.Input
+	FS                 referenceframe.FrameSystem
+}
+
 func (s *Segment) String() string {
 	return fmt.Sprintf(
 		"Segment: \n\t StartPosition: %v,\n\t EndPosition: %v,\n\t StartConfiguration:%v,\n\t EndConfiguration:%v,\n\t Frame: %v",
@@ -42,13 +48,22 @@ type State struct {
 	Frame         referenceframe.Frame
 }
 
+type StateFS struct {
+	Configuration map[string][]referenceframe.Input
+	FS            referenceframe.FrameSystem
+}
+
 // StateMetric are functions which, given a State, produces some score. Lower is better.
 // This is used for gradient descent to converge upon a goal pose, for example.
 type StateMetric func(*State) float64
 
+type StateFSMetric func(*StateFS) float64
+
 // SegmentMetric are functions which produce some score given an Segment. Lower is better.
 // This is used to sort produced IK solutions by goodness, for example.
 type SegmentMetric func(*Segment) float64
+
+type SegmentFSMetric func(*SegmentFS) float64
 
 // NewZeroMetric always returns zero as the distance between two points.
 func NewZeroMetric() StateMetric {

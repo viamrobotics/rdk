@@ -35,7 +35,7 @@ func kNearestNeighbors(planOpts *plannerOptions, tree rrtMap, target node, neigh
 
 	allCosts := make([]*neighbor, 0)
 	for rrtnode := range tree {
-		dist := planOpts.DistanceFunc(&ik.Segment{
+		dist := planOpts.DistanceFunc(&ik.SegmentFS{
 			StartConfiguration: target.Q(),
 			EndConfiguration:   rrtnode.Q(),
 		})
@@ -82,15 +82,9 @@ func (nm *neighborManager) nearestNeighbor(
 	bestDist := math.Inf(1)
 	var best node
 	for k := range tree {
-		seg := &ik.Segment{
+		seg := &ik.SegmentFS{
 			StartConfiguration: seed.Q(),
 			EndConfiguration:   k.Q(),
-		}
-		if pose := seed.Pose(); pose != nil {
-			seg.StartPosition = pose
-		}
-		if pose := k.Pose(); pose != nil {
-			seg.EndPosition = pose
 		}
 		dist := planOpts.DistanceFunc(seg)
 		if dist < bestDist {
@@ -161,15 +155,9 @@ func (nm *neighborManager) nnWorker(ctx context.Context, planOpts *plannerOption
 		default:
 		}
 
-		seg := &ik.Segment{
+		seg := &ik.SegmentFS{
 			StartConfiguration: nm.seedPos.Q(),
 			EndConfiguration:   candidate.Q(),
-		}
-		if pose := nm.seedPos.Pose(); pose != nil {
-			seg.StartPosition = pose
-		}
-		if pose := candidate.Pose(); pose != nil {
-			seg.EndPosition = pose
 		}
 		dist := planOpts.DistanceFunc(seg)
 		if dist < bestDist {

@@ -28,7 +28,7 @@ const (
 
 type rrtParallelPlanner interface {
 	motionPlanner
-	rrtBackgroundRunner(context.Context, []referenceframe.Input, *rrtParallelPlannerShared)
+	rrtBackgroundRunner(context.Context, map[string][]referenceframe.Input, *rrtParallelPlannerShared)
 }
 
 type rrtParallelPlannerShared struct {
@@ -61,7 +61,7 @@ func (maps *rrtMaps) fillPosOnlyGoal(goal spatialmath.Pose, posSeeds, dof int) e
 	}
 	for i := 0; i < posSeeds; i++ {
 		goalNode := &basicNode{
-			q:    make([]referenceframe.Input, dof),
+			q:    make(map[string][]referenceframe.Input),
 			pose: spatialmath.NewPose(goal.Point(), &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: float64(i) * thetaStep}),
 		}
 		maps.goalMap[goalNode] = nil
@@ -89,7 +89,7 @@ func initRRTSolutions(ctx context.Context, mp motionPlanner, seed map[string][]r
 	}
 
 	// the smallest interpolated distance between the start and end input represents a lower bound on cost
-	optimalCost := mp.opt().DistanceFunc(&ik.Segment{StartConfiguration: seed, EndConfiguration: solutions[0].Q()})
+	optimalCost := mp.opt().DistanceFunc(&ik.SegmentFS{StartConfiguration: seed, EndConfiguration: solutions[0].Q()})
 	rrt.maps.optNode = &basicNode{q: solutions[0].Q(), cost: optimalCost}
 
 	// Check for direct interpolation for the subset of IK solutions within some multiple of optimal
@@ -98,7 +98,7 @@ func initRRTSolutions(ctx context.Context, mp motionPlanner, seed map[string][]r
 	// initialize maps and check whether direct interpolation is an option
 	for _, solution := range solutions {
 		if canInterp {
-			cost := mp.opt().DistanceFunc(&ik.Segment{StartConfiguration: seed, EndConfiguration: solution.Q()})
+			cost := mp.opt().DistanceFunc(&ik.SegmentFS{StartConfiguration: seed, EndConfiguration: solution.Q()})
 			if cost < optimalCost*defaultOptimalityMultiple {
 				if mp.checkPath(seed, solution.Q()) {
 					rrt.steps = []node{seedNode, solution}
@@ -130,18 +130,26 @@ func shortestPath(maps *rrtMaps, nodePairs []*nodePair) *rrtSolution {
 
 // fixedStepInterpolation returns inputs at qstep distance along the path from start to target
 // if start and target have the same Input value, then no step increment is made.
-func fixedStepInterpolation(start, target node, qstep []float64) []referenceframe.Input {
-	newNear := make([]referenceframe.Input, 0, len(start.Q()))
-	for j, nearInput := range start.Q() {
-		if nearInput.Value == target.Q()[j].Value {
-			newNear = append(newNear, nearInput)
-		} else {
-			v1, v2 := nearInput.Value, target.Q()[j].Value
-			newVal := math.Min(qstep[j], math.Abs(v2-v1))
-			// get correct sign
-			newVal *= (v2 - v1) / math.Abs(v2-v1)
-			newNear = append(newNear, referenceframe.Input{nearInput.Value + newVal})
+func fixedStepInterpolation(start, target node, qstep map[string][]float64) map[string][]referenceframe.Input {
+	newNear := make(map[string][]referenceframe.Input)
+
+	// Iterate through each frame's inputs
+	for frameName, startInputs := range start.Q() {
+		targetInputs := target.Q()[frameName]
+		frameSteps := make([]referenceframe.Input, len(startInputs))
+
+		for j, nearInput := range startInputs {
+			if nearInput.Value == targetInputs[j].Value {
+				frameSteps[j] = nearInput
+			} else {
+				v1, v2 := nearInput.Value, targetInputs[j].Value
+				newVal := math.Min(qstep[frameName][j], math.Abs(v2-v1))
+				// get correct sign
+				newVal *= (v2 - v1) / math.Abs(v2-v1)
+				frameSteps[j] = referenceframe.Input{Value: nearInput.Value + newVal}
+			}
 		}
+		newNear[frameName] = frameSteps
 	}
 	return newNear
 }
@@ -153,20 +161,20 @@ type node interface {
 	Q() map[string][]referenceframe.Input
 	Cost() float64
 	SetCost(float64)
-	Pose() spatialmath.Pose
+	//~ Pose() spatialmath.Pose
 	Corner() bool
 	SetCorner(bool)
 }
 
 type basicNode struct {
-	q      []referenceframe.Input
+	q      map[string][]referenceframe.Input
 	cost   float64
 	pose   spatialmath.Pose
 	corner bool
 }
 
 // Special case constructors for nodes without costs to return NaN.
-func newConfigurationNode(q []referenceframe.Input) node {
+func newConfigurationNode(q map[string][]referenceframe.Input) node {
 	return &basicNode{
 		q:      q,
 		cost:   math.NaN(),
@@ -174,7 +182,7 @@ func newConfigurationNode(q []referenceframe.Input) node {
 	}
 }
 
-func (n *basicNode) Q() []referenceframe.Input {
+func (n *basicNode) Q() map[string][]referenceframe.Input {
 	return n.q
 }
 
@@ -266,7 +274,7 @@ type rrtPlan struct {
 	nodes []node
 }
 
-func newRRTPlan(solution []node, sf *solverFrame, relative bool) (Plan, error) {
+func newRRTPlan(solution []node, fss referenceframe.FrameSystem, relative bool) (Plan, error) {
 	if len(solution) < 2 {
 		if len(solution) == 1 {
 			// Started at the goal, nothing to do

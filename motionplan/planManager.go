@@ -41,106 +41,119 @@ type planManager struct {
 }
 
 func newPlanManager(
-	frame *solverFrame,
+	fss referenceframe.FrameSystem,
 	logger logging.Logger,
 	seed int,
 ) (*planManager, error) {
 	//nolint: gosec
-	p, err := newPlanner(frame, rand.New(rand.NewSource(int64(seed))), logger, newBasicPlannerOptions(frame))
+	p, err := newPlanner(fss, rand.New(rand.NewSource(int64(seed))), logger, nil)
 	if err != nil {
 		return nil, err
 	}
-	return &planManager{planner: p, frame: frame, useTPspace: len(frame.PTGSolvers()) > 0}, nil
+
+	// Check for PTG solvers in frame system
+	hasPTG := false
+	for _, f := range p.lfs.frames {
+		if _, ok := f.(tpspace.PTGProvider); ok {
+			hasPTG = true
+			break
+		}
+	}
+
+	return &planManager{
+		planner:    p,
+		useTPspace: hasPTG,
+	}, nil
 }
 
 // PlanMultiWaypoint plans a motion through multiple waypoints, using identical constraints for each
 // Unlike PlanSingleWaypoint, this does not break up individual.
-func (pm *planManager) PlanMultiWaypoint(ctx context.Context, request *PlanRequest, goals []spatialmath.Pose) (Plan, error) {
-	if pm.useTPspace {
-		return nil, errors.New("TPspace does not support multi-waypoint planning")
-	}
+//~ func (pm *planManager) PlanMultiWaypoint(ctx context.Context, request *PlanRequest, goals []spatialmath.Pose) (Plan, error) {
+	//~ if pm.useTPspace {
+		//~ return nil, errors.New("TPspace does not support multi-waypoint planning")
+	//~ }
 
-	if request.StartPose != nil {
-		request.Logger.Warn("plan request passed a start pose, but non-relative plans will use the pose from transforming StartConfiguration")
-	}
-	seed, err := pm.frame.mapToSlice(request.StartConfiguration)
-	if err != nil {
-		return nil, err
-	}
-	startPose, err := pm.frame.Transform(seed)
-	if err != nil {
-		return nil, err
-	}
+	//~ if request.StartPose != nil {
+		//~ request.Logger.Warn("plan request passed a start pose, but non-relative plans will use the pose from transforming StartConfiguration")
+	//~ }
+	//~ seed, err := pm.frame.mapToSlice(request.StartConfiguration)
+	//~ if err != nil {
+		//~ return nil, err
+	//~ }
+	//~ startPose, err := pm.frame.Transform(seed)
+	//~ if err != nil {
+		//~ return nil, err
+	//~ }
 
-	var cancel func()
+	//~ var cancel func()
 
-	request.Logger.CInfof(ctx,
-		"planning motion for frame %s\nGoal: %v\nStarting seed map %v\n, startPose %v\n, worldstate: %v\n",
-		request.Frame.Name(),
-		referenceframe.PoseInFrameToProtobuf(request.Goal),
-		request.StartConfiguration,
-		spatialmath.PoseToProtobuf(startPose),
-		request.WorldState.String(),
-	)
+	//~ request.Logger.CInfof(ctx,
+		//~ "planning motion for frame %s\nGoal: %v\nStarting seed map %v\n, startPose %v\n, worldstate: %v\n",
+		//~ request.Frame.Name(),
+		//~ referenceframe.PoseInFrameToProtobuf(request.Goal),
+		//~ request.StartConfiguration,
+		//~ spatialmath.PoseToProtobuf(startPose),
+		//~ request.WorldState.String(),
+	//~ )
 
-	// set timeout for entire planning process if specified
-	if timeout, ok := request.Options["timeout"].(float64); ok {
-		ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout*float64(time.Second)))
-	}
-	if cancel != nil {
-		defer cancel()
-	}
+	//~ // set timeout for entire planning process if specified
+	//~ if timeout, ok := request.Options["timeout"].(float64); ok {
+		//~ ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout*float64(time.Second)))
+	//~ }
+	//~ if cancel != nil {
+		//~ defer cancel()
+	//~ }
 
-	goalPos := request.Goal.Pose()
-	// If we are world rooted, translate the goal pose into the world frame
-	if pm.frame.worldRooted {
-		tf, err := pm.frame.fss.Transform(request.StartConfiguration, request.Goal, referenceframe.World)
-		if err != nil {
-			return nil, err
-		}
-		goalPos = tf.(*referenceframe.PoseInFrame).Pose()
-	}
-	goals = append(goals, goalPos)
+	//~ goalPos := request.Goal.Pose()
+	//~ // If we are world rooted, translate the goal pose into the world frame
+	//~ if pm.frame.worldRooted {
+		//~ tf, err := pm.frame.fss.Transform(request.StartConfiguration, request.Goal, referenceframe.World)
+		//~ if err != nil {
+			//~ return nil, err
+		//~ }
+		//~ goalPos = tf.(*referenceframe.PoseInFrame).Pose()
+	//~ }
+	//~ goals = append(goals, goalPos)
 
-	planners := make([]motionPlanner, len(goals))
-	for i, goal := range goals {
-		opt, err := pm.plannerSetupFromMoveRequest(
-			startPose,
-			goal,
-			request.StartConfiguration,
-			request.WorldState,
-			request.BoundingRegions,
-			request.Constraints,
-			request.Options,
-		)
-		if err != nil {
-			return nil, err
-		}
-		opt.SetGoal(goal)
+	//~ planners := make([]motionPlanner, len(goals))
+	//~ for i, goal := range goals {
+		//~ opt, err := pm.plannerSetupFromMoveRequest(
+			//~ startPose,
+			//~ goal,
+			//~ request.StartConfiguration,
+			//~ request.WorldState,
+			//~ request.BoundingRegions,
+			//~ request.Constraints,
+			//~ request.Options,
+		//~ )
+		//~ if err != nil {
+			//~ return nil, err
+		//~ }
+		//~ opt.SetGoal(goal)
 
-		//nolint: gosec
-		pathPlanner, err := opt.PlannerConstructor(
-			pm.frame,
-			rand.New(rand.NewSource(int64(pm.randseed.Int()))),
-			pm.logger,
-			opt,
-		)
-		if err != nil {
-			return nil, err
-		}
-		planners[i] = pathPlanner
+		//~ //nolint: gosec
+		//~ pathPlanner, err := opt.PlannerConstructor(
+			//~ pm.frame,
+			//~ rand.New(rand.NewSource(int64(pm.randseed.Int()))),
+			//~ pm.logger,
+			//~ opt,
+		//~ )
+		//~ if err != nil {
+			//~ return nil, err
+		//~ }
+		//~ planners[i] = pathPlanner
 
-		startPose = goal // Update startPose for the next iteration
-	}
+		//~ startPose = goal // Update startPose for the next iteration
+	//~ }
 
-	plan, err := pm.planAtomicWaypoints(ctx, goals, seed, planners, nil)
-	pm.activeBackgroundWorkers.Wait()
-	if err != nil {
-		return nil, fmt.Errorf("failed to plan path for valid goals: %w", err)
-	}
+	//~ plan, err := pm.planAtomicWaypoints(ctx, goals, seed, planners, nil)
+	//~ pm.activeBackgroundWorkers.Wait()
+	//~ if err != nil {
+		//~ return nil, fmt.Errorf("failed to plan path for valid goals: %w", err)
+	//~ }
 
-	return plan, nil
-}
+	//~ return plan, nil
+//~ }
 
 // PlanSingleWaypoint will solve the solver frame to one individual pose. If you have multiple waypoints to hit, call this multiple times.
 // Any constraints, etc, will be held for the entire motion.
@@ -152,28 +165,28 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequ
 	if request.StartPose != nil {
 		request.Logger.Warn("plan request passed a start pose, but non-relative plans will use the pose from transforming StartConfiguration")
 	}
-	seed, err := pm.frame.mapToSlice(request.StartConfiguration)
-	if err != nil {
-		return nil, err
-	}
-	startPose, err := pm.frame.Transform(seed)
-	if err != nil {
-		return nil, err
-	}
-	goalPos := request.Goal.Pose()
+	startPoses := map[string]*referenceframe.PoseInFrame{}
 
-	var cancel func()
+	// Use frame system to get configuration and transform
+	for frame, goal := range request.allGoals {
+		startPose, err := pm.fss.Transform(request.StartConfiguration, referenceframe.NewPoseInFrame(frame, spatialmath.NewZeroPose()), goal.Parent())
+		if err != nil {
+			return nil, err
+		}
+		startPoses[frame] = startPose.(*referenceframe.PoseInFrame)
 
-	request.Logger.CInfof(ctx,
-		"planning motion for frame %s\nGoal: %v\nStarting seed map %v\n, startPose %v\n, worldstate: %v\n",
-		request.Frame.Name(),
-		referenceframe.PoseInFrameToProtobuf(request.Goal),
-		request.StartConfiguration,
-		spatialmath.PoseToProtobuf(startPose),
-		request.WorldState.String(),
-	)
+		request.Logger.CInfof(ctx,
+			"planning motion for frame %s\nGoal: %v\nStarting seed map %v\n, startPose %v\n, worldstate: %v\n",
+			request.Frame.Name(),
+			referenceframe.PoseInFrameToProtobuf(goal),
+			request.StartConfiguration,
+			referenceframe.PoseInFrameToProtobuf(startPose.(*referenceframe.PoseInFrame)),
+			request.WorldState.String(),
+		)
+	}
 
 	// set timeout for entire planning process if specified
+	var cancel func()
 	if timeout, ok := request.Options["timeout"].(float64); ok {
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout*float64(time.Second)))
 	}
@@ -181,69 +194,70 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequ
 		defer cancel()
 	}
 
-	// If we are world rooted, translate the goal pose into the world frame
-	if pm.frame.worldRooted {
-		tf, err := pm.frame.fss.Transform(request.StartConfiguration, request.Goal, referenceframe.World)
-		if err != nil {
-			return nil, err
-		}
-		goalPos = tf.(*referenceframe.PoseInFrame).Pose()
-	}
+	// Transform goal pose into world frame if needed
+	// TODO: This is a useful optimization that was granted by 
+	//~ if request.Frame.WorldRooted() {
+		//~ tf, err := pm.fss.Transform(request.StartConfiguration, request.Goal, referenceframe.World)
+		//~ if err != nil {
+			//~ return nil, err
+		//~ }
+		//~ goalPos = tf.(*referenceframe.PoseInFrame).Pose()
+	//~ }
 
-	var goals []spatialmath.Pose
+	var goals []PathStep
 	var opts []*plannerOptions
 
-	subWaypoints := false
+	// TODO: This is a necessary optimization for linear motion to be performant
+	//~ subWaypoints := false
 
-	// linear motion profile has known intermediate points, so solving can be broken up and sped up
-	if profile, ok := request.Options["motion_profile"]; ok && profile == LinearMotionProfile {
-		subWaypoints = true
-	}
+	//~ // linear motion profile has known intermediate points, so solving can be broken up and sped up
+	//~ if profile, ok := request.Options["motion_profile"]; ok && profile == LinearMotionProfile {
+		//~ subWaypoints = true
+	//~ }
 
-	if len(request.Constraints.GetLinearConstraint()) > 0 {
-		subWaypoints = true
-	}
+	//~ if len(request.Constraints.GetLinearConstraint()) > 0 {
+		//~ subWaypoints = true
+	//~ }
 
-	// If we are seeding off of a pre-existing plan, we don't need the speedup of subwaypoints
-	if seedPlan != nil {
-		subWaypoints = false
-	}
+	//~ // If we are seeding off of a pre-existing plan, we don't need the speedup of subwaypoints
+	//~ if seedPlan != nil {
+		//~ subWaypoints = false
+	//~ }
 
-	if subWaypoints {
-		pathStepSize, ok := request.Options["path_step_size"].(float64)
-		if !ok {
-			pathStepSize = defaultPathStepSize
-		}
-		numSteps := PathStepCount(startPose, goalPos, pathStepSize)
+	//~ if subWaypoints {
+		//~ pathStepSize, ok := request.Options["path_step_size"].(float64)
+		//~ if !ok {
+			//~ pathStepSize = defaultPathStepSize
+		//~ }
+		//~ numSteps := PathStepCount(startPose, goalPos, pathStepSize)
 
-		from := startPose
-		for i := 1; i < numSteps; i++ {
-			by := float64(i) / float64(numSteps)
-			to := spatialmath.Interpolate(startPose, goalPos, by)
-			goals = append(goals, to)
-			opt, err := pm.plannerSetupFromMoveRequest(
-				from,
-				to,
-				request.StartConfiguration,
-				request.WorldState,
-				request.BoundingRegions,
-				request.Constraints,
-				request.Options,
-			)
-			if err != nil {
-				return nil, err
-			}
-			opt.SetGoal(to)
-			opts = append(opts, opt)
+		//~ from := startPose
+		//~ for i := 1; i < numSteps; i++ {
+			//~ by := float64(i) / float64(numSteps)
+			//~ to := spatialmath.Interpolate(startPose, goalPos, by)
+			//~ goals = append(goals, to)
+			//~ opt, err := pm.plannerSetupFromMoveRequest(
+				//~ from,
+				//~ to,
+				//~ request.StartConfiguration,
+				//~ request.WorldState,
+				//~ request.BoundingRegions,
+				//~ request.Constraints,
+				//~ request.Options,
+			//~ )
+			//~ if err != nil {
+				//~ return nil, err
+			//~ }
+			//~ opt.SetGoal(to)
+			//~ opts = append(opts, opt)
 
-			from = to
-		}
-		startPose = from
-	}
-	goals = append(goals, goalPos)
+			//~ from = to
+		//~ }
+		//~ startPose = from
+	//~ }
 	opt, err := pm.plannerSetupFromMoveRequest(
-		startPose,
-		goalPos,
+		startPoses,
+		request.allGoals,
 		request.StartConfiguration,
 		request.WorldState,
 		request.BoundingRegions,
@@ -254,8 +268,9 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequ
 		return nil, err
 	}
 	pm.planOpts = opt
-	opt.SetGoal(goalPos)
+	opt.SetGoal(request.allGoals)
 	opts = append(opts, opt)
+	goals = append(goals, request.allGoals)
 
 	planners := make([]motionPlanner, 0, len(opts))
 	// Set up planners for later execution
@@ -263,7 +278,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequ
 		// Build planner
 		//nolint: gosec
 		pathPlanner, err := opt.PlannerConstructor(
-			pm.frame,
+			pm.fss,
 			rand.New(rand.NewSource(int64(pm.randseed.Int()))),
 			pm.logger,
 			opt,
@@ -277,13 +292,13 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequ
 	// If we have multiple sub-waypoints, make sure the final goal is not unreachable.
 	if len(goals) > 1 {
 		// Viability check; ensure that the waypoint is not impossible to reach
-		_, err = planners[0].getSolutions(ctx, seed)
+		_, err = planners[0].getSolutions(ctx, request.StartConfiguration)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	plan, err := pm.planAtomicWaypoints(ctx, goals, seed, planners, seedPlan)
+	plan, err := pm.planAtomicWaypoints(ctx, goals, request.StartConfiguration, planners, seedPlan)
 	pm.activeBackgroundWorkers.Wait()
 	if err != nil {
 		if len(goals) > 1 {
@@ -299,8 +314,8 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequ
 // intermediate waypoint. Waypoints here refer to points that the software has generated to.
 func (pm *planManager) planAtomicWaypoints(
 	ctx context.Context,
-	goals []spatialmath.Pose,
-	seed []referenceframe.Input,
+	goals []PathStep,
+	seed map[string][]referenceframe.Input,
 	planners []motionPlanner,
 	seedPlan Plan,
 ) (Plan, error) {
@@ -311,7 +326,7 @@ func (pm *planManager) planAtomicWaypoints(
 
 	// try to solve each goal, one at a time
 	for i, goal := range goals {
-		pm.logger.Debug("start planning for ", spatialmath.PoseToProtobuf(goal))
+		pm.logger.Debug("start planning for ", goal.ToProto())
 		// Check if ctx is done between each waypoint
 		select {
 		case <-ctx.Done():
@@ -344,22 +359,22 @@ func (pm *planManager) planAtomicWaypoints(
 		if err != nil {
 			return nil, err
 		}
-		pm.logger.Debug("completed planning for ", spatialmath.PoseToProtobuf(goals[i]))
+		pm.logger.Debug("completed planning for ", goals[i].ToProto())
 		resultSlices = append(resultSlices, steps...)
 	}
 
-	return newRRTPlan(resultSlices, pm.frame, pm.useTPspace)
+	return newRRTPlan(resultSlices, pm.fss, pm.useTPspace)
 }
 
 // planSingleAtomicWaypoint attempts to plan a single waypoint. It may optionally be pre-seeded with rrt maps; these will be passed to the
 // planner if supported, or ignored if not.
 func (pm *planManager) planSingleAtomicWaypoint(
 	ctx context.Context,
-	goal spatialmath.Pose,
-	seed []referenceframe.Input,
+	goal PathStep,
+	seed map[string][]referenceframe.Input,
 	pathPlanner motionPlanner,
 	maps *rrtMaps,
-) ([]referenceframe.Input, *resultPromise, error) {
+) (map[string][]referenceframe.Input, *resultPromise, error) {
 	if parPlan, ok := pathPlanner.(rrtParallelPlanner); ok {
 		// rrtParallelPlanner supports solution look-ahead for parallel waypoint solving
 		// This will set that up, and if we get a result on `endpointPreview`, then the next iteration will be started, and the steps
@@ -406,8 +421,8 @@ func (pm *planManager) planSingleAtomicWaypoint(
 // as necessary.
 func (pm *planManager) planParallelRRTMotion(
 	ctx context.Context,
-	goal spatialmath.Pose,
-	seed []referenceframe.Input,
+	goal PathStep,
+	seed map[string][]referenceframe.Input,
 	pathPlanner rrtParallelPlanner,
 	endpointPreview chan node,
 	solutionChan chan *rrtSolution,
@@ -472,7 +487,7 @@ func (pm *planManager) planParallelRRTMotion(
 		if pathPlanner.opt().Fallback != nil {
 			//nolint: gosec
 			fallbackPlanner, err = pathPlanner.opt().Fallback.PlannerConstructor(
-				pm.frame,
+				pm.fss,
 				rand.New(rand.NewSource(int64(pm.randseed.Int()))),
 				pm.logger,
 				pathPlanner.opt().Fallback,
@@ -525,8 +540,17 @@ func (pm *planManager) planParallelRRTMotion(
 		// Receive the newly smoothed path from our original solve, and score it
 		finalSteps.steps = <-smoothChan
 		score := math.Inf(1)
+		
+		nodesToTrajectory := func(nodes []node) Trajectory {
+			traj := make(Trajectory, 0, len(nodes))
+			for _, n := range nodes {
+				traj = append(traj, n.Q())
+			}
+			return traj
+		}
+		
 		if finalSteps.steps != nil {
-			score = pm.frame.nodesToTrajectory(finalSteps.steps).EvaluateCost(pm.opt().ScoreFunc)
+			score = nodesToTrajectory(finalSteps.steps).EvaluateCost(pm.opt().ScoreFunc)
 		}
 
 		// If we ran a fallback, retrieve the result and compare to the smoothed path
@@ -535,7 +559,7 @@ func (pm *planManager) planParallelRRTMotion(
 			if err == nil {
 				// If the fallback successfully found a path, check if it is better than our smoothed previous path.
 				// The fallback should emerge pre-smoothed, so that should be a non-issue
-				altCost := pm.frame.nodesToTrajectory(alternate).EvaluateCost(pm.opt().ScoreFunc)
+				altCost := nodesToTrajectory(alternate).EvaluateCost(pm.opt().ScoreFunc)
 				if altCost < score {
 					pm.logger.CDebugf(ctx, "replacing path with score %f with better score %f", score, altCost)
 					finalSteps = &rrtSolution{steps: alternate}
@@ -557,7 +581,7 @@ func (pm *planManager) planParallelRRTMotion(
 
 // This is where the map[string]interface{} passed in via `extra` is used to decide how planning happens.
 func (pm *planManager) plannerSetupFromMoveRequest(
-	from, to spatialmath.Pose,
+	from, to PathStep,
 	seedMap map[string][]referenceframe.Input,
 	worldState *referenceframe.WorldState,
 	boundingRegions []spatialmath.Geometry,
@@ -566,13 +590,10 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 ) (*plannerOptions, error) {
 	planAlg := ""
 
-	// This will adjust the goal position to make movements more intuitive when using incrementation near poles
-	to = fixOvIncrement(to, from)
-
 	// Start with normal options
-	opt := newBasicPlannerOptions(pm.frame)
+	opt := newBasicPlannerOptions()
 	opt.extra = planningOpts
-	opt.StartPose = from
+	opt.StartPoses = from
 
 	collisionBufferMM := defaultCollisionBufferMM
 	collisionBufferMMRaw, ok := planningOpts["collision_buffer_mm"]
@@ -586,27 +607,33 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		}
 	}
 
-	// extract inputs corresponding to the frame
-	frameInputs, err := pm.frame.mapToSlice(seedMap)
-	if err != nil {
-		return nil, err
-	}
-
+	motionChains := make([]*motionChain, 0, len(to))
 	// create robot collision entities
-	movingGeometriesInFrame, err := pm.frame.Geometries(frameInputs)
-	if err != nil {
-		return nil, err // no geometries defined for frame
+	for frame, goal := range to {
+		chain, err := motionChainFromGoal(pm.fss, frame, goal)
+		if err != nil {
+			return nil, err
+		}
+		motionChains = append(motionChains, chain)
 	}
-	movingRobotGeometries := movingGeometriesInFrame.Geometries() // solver frame returns geoms in frame World
+	movingRobotGeometries := []spatialmath.Geometry{}
 
 	// find all geometries that are not moving but are in the frame system
-	staticRobotGeometries := make([]spatialmath.Geometry, 0)
-	frameSystemGeometries, err := referenceframe.FrameSystemGeometries(pm.frame.fss, seedMap)
+	staticRobotGeometries := []spatialmath.Geometry{}
+	frameSystemGeometries, err := referenceframe.FrameSystemGeometries(pm.fss, seedMap)
 	if err != nil {
 		return nil, err
 	}
 	for name, geometries := range frameSystemGeometries {
-		if !pm.frame.movingFrame(name) {
+		moving := false
+		for _, chain := range motionChains {
+			if chain.movingFS.Frame(name) != nil {
+				moving = true
+				movingRobotGeometries = append(movingRobotGeometries, geometries.Geometries()...)
+				break
+			}
+		}
+		if !moving {
 			staticRobotGeometries = append(staticRobotGeometries, geometries.Geometries()...)
 		}
 	}
@@ -614,7 +641,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	// Note that all obstacles in worldState are assumed to be static so it is ok to transform them into the world frame
 	// TODO(rb) it is bad practice to assume that the current inputs of the robot correspond to the passed in world state
 	// the state that observed the worldState should ultimately be included as part of the worldState message
-	worldGeometries, err := worldState.ObstaclesInWorldFrame(pm.frame.fss, seedMap)
+	worldGeometries, err := worldState.ObstaclesInWorldFrame(pm.fss, seedMap)
 	if err != nil {
 		return nil, err
 	}
@@ -785,7 +812,7 @@ func (pm *planManager) goodPlan(pr *rrtSolution, opt *plannerOptions) (bool, flo
 	return false, solutionCost
 }
 
-func (pm *planManager) planToRRTGoalMap(plan Plan, goal spatialmath.Pose) (*rrtMaps, error) {
+func (pm *planManager) planToRRTGoalMap(plan Plan, goal PathStep) (*rrtMaps, error) {
 	// TODO: make this work with any implementation of Plan
 	var rrt *rrtPlan
 	var ok bool
@@ -841,7 +868,7 @@ func (pm *planManager) planToRRTGoalMap(plan Plan, goal spatialmath.Pose) (*rrtM
 // is, the pose returned by `Transform` is a transformation rather than an absolute position.
 func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRequest, seedPlan Plan) (Plan, error) {
 	anyNonzero := false // Whether non-PTG frames exist
-	for _, movingFrame := range pm.frame.frames {
+	for _, movingFrame := range pm.fss.Frames() {
 		if _, isPTGframe := movingFrame.(tpspace.PTGProvider); isPTGframe {
 			continue
 		} else if len(movingFrame.DoF()) > 0 {
@@ -892,7 +919,8 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 		defer cancel()
 	}
 
-	tf, err := pm.frame.fss.Transform(request.StartConfiguration, request.Goal, referenceframe.World)
+	// Use frame name instead of Frame object
+	tf, err := pm.fss.Transform(request.StartConfiguration, request.Goal, referenceframe.World)
 	if err != nil {
 		return nil, err
 	}
@@ -904,8 +932,8 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 		return nil, err
 	}
 
-	// re-root the frame system on the relative frame
-	relativeOnlyFS, err := pm.frame.fss.FrameSystemSubset(request.Frame)
+	// Create frame system subset using frame name
+	relativeOnlyFS, err := pm.fss.FrameSystemSubset(pm.fss.Frame(request.Frame.Name()))
 	if err != nil {
 		return nil, err
 	}

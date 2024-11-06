@@ -100,3 +100,19 @@ func SolveMetric(
 	minFunc := NewMetricMinFunc(solveMetric, frame, logger)
 	return ik.Solve(ctx, solutionChan, referenceframe.InputsToFloats(seed), minFunc, rseed)
 }
+
+// SolveFSMetric is a wrapper for framesystems and FSMetrics to be used easily with Solve for IK solvers.
+func SolveFSMetric(
+	ctx context.Context,
+	ik Solver,
+	fss referenceframe.FrameSystem,
+	solutionChan chan<- *Solution,
+	seed map[string][]referenceframe.Input,
+	solveMetric StateFSMetric,
+	rseed int,
+	logger logging.Logger,
+) error {
+	//~ minFunc := NewFSMetricMinFunc(solveMetric, frame, logger)
+	//~ return ik.Solve(ctx, solutionChan, referenceframe.InputsToFloats(seed), minFunc, rseed)
+	return nil
+}

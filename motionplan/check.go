@@ -43,12 +43,8 @@ func CheckPlan(
 	// construct solverFrame
 	// Note that this requires all frames which move as part of the plan, to have an
 	// entry in the very first plan waypoint
-	sf, err := newSolverFrame(fs, checkFrame.Name(), referenceframe.World, plan.Trajectory()[0])
-	if err != nil {
-		return err
-	}
 	// construct planager
-	sfPlanner, err := newPlanManager(sf, logger, defaultRandomSeed)
+	sfPlanner, err := newPlanManager(fs, logger, defaultRandomSeed)
 	if err != nil {
 		return err
 	}
@@ -69,6 +65,7 @@ func checkPlanRelative(
 	lookAheadDistanceMM float64,
 	sfPlanner *planManager,
 ) error {
+	var err error
 	toWorld := func(pif *referenceframe.PoseInFrame, inputs map[string][]referenceframe.Input) (*referenceframe.PoseInFrame, error) {
 		transformable, err := fs.Transform(inputs, pif, referenceframe.World)
 		if err != nil {
@@ -85,22 +82,10 @@ func checkPlanRelative(
 	plan := executionState.Plan()
 	zeroPosePIF := referenceframe.NewPoseInFrame(checkFrame.Name(), spatialmath.NewZeroPose())
 
-	// determine plan's starting pose
-	planStartPoseWorld, err := toWorld(zeroPosePIF, plan.Trajectory()[0])
-	if err != nil {
-		return err
-	}
-
-	// determine plan's ending pose
-	planEndPoseWorld, err := toWorld(zeroPosePIF, plan.Trajectory()[len(plan.Path())-1])
-	if err != nil {
-		return err
-	}
-
 	// setup the planOpts. Poses should be in world frame. This allows us to know e.g. which obstacles may ephemerally collide.
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
-		planStartPoseWorld.Pose(),
-		planEndPoseWorld.Pose(),
+		plan.Path()[0],
+		plan.Path()[len(plan.Path())-1],
 		plan.Trajectory()[0],
 		worldState,
 		nil,
@@ -114,21 +99,6 @@ func checkPlanRelative(
 
 	currentInputs := executionState.CurrentInputs()
 	wayPointIdx := executionState.Index()
-	sf := sfPlanner.frame
-
-	// construct first segment's start configuration
-	// get checkFrame's currentInputs
-	// *currently* it is guaranteed that a relative frame will constitute 100% of a solver frame's dof
-	checkFrameCurrentInputs, err := sf.mapToSlice(currentInputs)
-	if err != nil {
-		return err
-	}
-
-	// construct first segment's end configuration
-	arcEndInputs, err := sf.mapToSlice(plan.Trajectory()[wayPointIdx])
-	if err != nil {
-		return err
-	}
 
 	// construct first segment's startPosition
 	currentPoses := executionState.CurrentPoses()
@@ -176,14 +146,14 @@ func checkPlanRelative(
 	errorState := spatialmath.PoseBetween(expectedCurrentPose, currentPoseInWorld.Pose())
 	currentArcEndPose := spatialmath.Compose(expectedArcEndInWorld.Pose(), errorState)
 
-	segments := make([]*ik.Segment, 0, len(plan.Path())-wayPointIdx)
+	segments := make([]*ik.SegmentFS, 0, len(plan.Path())-wayPointIdx)
 	// pre-pend to segments so we can connect to the input we have not finished actuating yet
-	segments = append(segments, &ik.Segment{
-		StartPosition:      currentPoseInWorld.Pose(),
-		EndPosition:        currentArcEndPose,
-		StartConfiguration: checkFrameCurrentInputs,
-		EndConfiguration:   arcEndInputs,
-		Frame:              sf,
+	segments = append(segments, &ik.SegmentFS{
+		//~ StartPosition:      currentPoseInWorld.Pose(),
+		//~ EndPosition:        currentArcEndPose,
+		StartConfiguration: currentInputs,
+		EndConfiguration:   plan.Trajectory()[wayPointIdx],
+		FS:              sfPlanner.fss,
 	})
 
 	lastArcEndPose := currentArcEndPose
@@ -195,15 +165,18 @@ func checkPlanRelative(
 			return err
 		}
 		thisArcEndPose := spatialmath.Compose(thisArcEndPoseInWorld.Pose(), errorState)
-		startInputs := plan.Trajectory()[i-1]
-		nextInputs := plan.Trajectory()[i]
-		segment, err := createSegment(sf, lastArcEndPose, thisArcEndPose, startInputs, nextInputs)
-		if err != nil {
-			return err
+		segment := &ik.SegmentFS{
+			//~ StartPosition:      lastArcEndPose,
+			//~ EndPosition:        thisArcEndPose,
+			StartConfiguration: plan.Trajectory()[i-1],
+			EndConfiguration:   plan.Trajectory()[i],
+			FS:              sfPlanner.fss,
 		}
 		lastArcEndPose = thisArcEndPose
 		segments = append(segments, segment)
 	}
+	// TODO: remove when poses are fixed
+	_ = lastArcEndPose
 
 	return checkSegments(sfPlanner, segments, lookAheadDistanceMM)
 }
@@ -216,7 +189,6 @@ func checkPlanAbsolute(
 	lookAheadDistanceMM float64,
 	sfPlanner *planManager,
 ) error {
-	sf := sfPlanner.frame
 	plan := executionState.Plan()
 	startingInputs := plan.Trajectory()[0]
 	currentInputs := executionState.CurrentInputs()
@@ -242,15 +214,12 @@ func checkPlanAbsolute(
 	offsetPlan := OffsetPlan(plan, errorState)
 
 	// get plan poses for checkFrame
-	poses, err := offsetPlan.Path().GetFramePoses(checkFrame.Name())
-	if err != nil {
-		return err
-	}
-	startPose := currentPoseIF.Pose()
+	poses := offsetPlan.Path()
+
 
 	// setup the planOpts
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
-		startPose,
+		executionState.CurrentPoses(),
 		poses[len(poses)-1],
 		startingInputs,
 		worldState,
@@ -262,13 +231,14 @@ func checkPlanAbsolute(
 	}
 
 	// create a list of segments to iterate through
-	segments := make([]*ik.Segment, 0, len(poses)-wayPointIdx)
+	segments := make([]*ik.SegmentFS, 0, len(poses)-wayPointIdx)
 
 	// iterate through remaining plan and append remaining segments to check
 	for i := wayPointIdx; i < len(offsetPlan.Path())-1; i++ {
-		segment, err := createSegment(sf, poses[i], poses[i+1], offsetPlan.Trajectory()[i], offsetPlan.Trajectory()[i+1])
-		if err != nil {
-			return err
+		segment := &ik.SegmentFS{
+			StartConfiguration: offsetPlan.Trajectory()[i],
+			EndConfiguration:   offsetPlan.Trajectory()[i+1],
+			FS:              sfPlanner.fss,
 		}
 		segments = append(segments, segment)
 	}
@@ -276,78 +246,48 @@ func checkPlanAbsolute(
 	return checkSegments(sfPlanner, segments, lookAheadDistanceMM)
 }
 
-// createSegment is a function to ease segment creation for solver frames.
-func createSegment(
-	sf *solverFrame,
-	currPose, nextPose spatialmath.Pose,
-	currInput, nextInput map[string][]referenceframe.Input,
-) (*ik.Segment, error) {
-	var currInputSlice, nextInputSlice []referenceframe.Input
-	var err error
-	if currInput != nil {
-		currInputSlice, err = sf.mapToSlice(currInput)
-		if err != nil {
-			return nil, err
-		}
-	}
-	nextInputSlice, err = sf.mapToSlice(nextInput)
-	if err != nil {
-		return nil, err
-	}
-
-	segment := &ik.Segment{
-		StartPosition:      currPose,
-		EndPosition:        nextPose,
-		StartConfiguration: currInputSlice,
-		EndConfiguration:   nextInputSlice,
-		Frame:              sf,
-	}
-
-	return segment, nil
-}
-
-func checkSegments(sfPlanner *planManager, segments []*ik.Segment, lookAheadDistanceMM float64) error {
+func checkSegments(sfPlanner *planManager, segments []*ik.SegmentFS, lookAheadDistanceMM float64) error {
 	// go through segments and check that we satisfy constraints
 	// TODO(RSDK-5007): If we can make interpolate a method on Frame the need to write this out will be lessened and we should be
 	// able to call CheckStateConstraintsAcrossSegment directly.
-	var totalTravelDistanceMM float64
-	for _, segment := range segments {
-		interpolatedConfigurations, err := interpolateSegment(segment, sfPlanner.planOpts.Resolution)
-		if err != nil {
-			return err
-		}
-		for _, interpConfig := range interpolatedConfigurations {
-			poseInPath, err := sfPlanner.frame.Transform(interpConfig)
-			if err != nil {
-				return err
-			}
+	//~ var totalTravelDistanceMM float64
+	//~ for _, segment := range segments {
+		//~ interpolatedConfigurations, err := interpolateSegmentFS(segment, sfPlanner.planOpts.Resolution)
+		//~ if err != nil {
+			//~ return err
+		//~ }
+		//~ for _, interpConfig := range interpolatedConfigurations {
+			//~ poseInPath, err := sfPlanner.frame.Transform(interpConfig)
+			//~ if err != nil {
+				//~ return err
+			//~ }
 
-			// Check if look ahead distance has been reached
-			currentTravelDistanceMM := totalTravelDistanceMM + poseInPath.Point().Distance(segment.StartPosition.Point())
-			if currentTravelDistanceMM > lookAheadDistanceMM {
-				return nil
-			}
+			//~ // Check if look ahead distance has been reached
+			//~ currentTravelDistanceMM := totalTravelDistanceMM + poseInPath.Point().Distance(segment.StartPosition.Point())
+			//~ if currentTravelDistanceMM > lookAheadDistanceMM {
+				//~ return nil
+			//~ }
 
-			// define State which only houses inputs, pose information not needed since we cannot get arcs from
-			// an interpolating poses, this would only yield a straight line.
-			interpolatedState := &ik.State{
-				Frame:         sfPlanner.frame,
-				Configuration: interpConfig,
-			}
+			//~ // define State which only houses inputs, pose information not needed since we cannot get arcs from
+			//~ // an interpolating poses, this would only yield a straight line.
+			//~ interpolatedState := &ik.StateFS{
+				//~ FS:         sfPlanner.fss,
+				//~ Configuration: interpConfig,
+			//~ }
 
-			// Checks for collision along the interpolated route and returns a the first interpolated pose where a collision is detected.
-			if isValid, err := sfPlanner.planOpts.CheckStateConstraints(interpolatedState); !isValid {
-				return fmt.Errorf("found constraint violation or collision in segment between %v and %v at %v: %s",
-					segment.StartPosition.Point(),
-					segment.EndPosition.Point(),
-					poseInPath.Point(),
-					err,
-				)
-			}
-		}
+			//~ // Checks for collision along the interpolated route and returns a the first interpolated pose where a collision is detected.
+			//~ if isValid, err := sfPlanner.planOpts.CheckStateConstraints(interpolatedState); !isValid {
+				//~ return fmt.Errorf("found constraint violation or collision in segment between %v and %v at %v: %s",
+					//~ segment.StartPosition.Point(),
+					//~ segment.EndPosition.Point(),
+					//~ poseInPath.Point(),
+					//~ err,
+				//~ )
+			//~ }
+		//~ }
 
-		// Update total traveled distance after segment has been checked
-		totalTravelDistanceMM += segment.EndPosition.Point().Distance(segment.StartPosition.Point())
-	}
+		//~ // Update total traveled distance after segment has been checked
+		//~ totalTravelDistanceMM += segment.EndPosition.Point().Distance(segment.StartPosition.Point())
+	//~ }
 	return nil
 }
