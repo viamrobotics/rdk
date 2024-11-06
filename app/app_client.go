@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	packages "go.viam.com/api/app/packages/v1"
 	pb "go.viam.com/api/app/v1"
 	common "go.viam.com/api/common/v1"
 	"google.golang.org/protobuf/types/known/structpb"
