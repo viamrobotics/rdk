@@ -4,6 +4,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -259,12 +260,46 @@ func (d *DataClient) TabularDataByMQL(ctx context.Context, organizationId string
 	if err != nil {
 		return nil, err
 	}
+	// Debugging output to verify RawData content
+	fmt.Printf("Response RawData: %v\n", resp.RawData)
+	//loop thru rawData
+	//for each rawData byte slice you will need to unmarshall it into map[string]interface
+	//then add each unmarshalled map to a list and return it
 	dataObjects := make([]map[string]interface{}, len(resp.RawData))
 	for i, rawData := range resp.RawData {
-		obj := make(map[string]interface{})
-		bson.Unmarshal(rawData, &obj)
+		var obj map[string]interface{}
+		if err := bson.Unmarshal(rawData, &obj); err != nil {
+			fmt.Printf("(func) unmarshalling error %d: %v", i, err)
+			return nil, err
+		}
 		dataObjects[i] = obj
 	}
+	// dataObjects := make([]map[string]interface{}, len(resp.RawData))
+	// for i, rawData := range resp.RawData {
+	// 	obj := make(map[string]interface{})
+	// 	bson.Unmarshal(rawData, &obj)
+	// 	dataObjects[i] = obj
+	// }
+	// Unmarshal all raw data at once as an array of maps
+	// var dataObjects []map[string]interface{}
+	// for _, rawData := range resp.RawData {
+	// 	var singleData []map[string]interface{} // This should match your expected structure
+	// 	if err := bson.Unmarshal(rawData, &singleData); err != nil {
+	// 		return nil, err
+	// 	}
+	// 	dataObjects = append(dataObjects, singleData...)
+	// }
+	// Unmarshal each raw data entry as a separate map
+	// dataObjects := make([]map[string]interface{}, len(resp.RawData))
+	// for i, rawData := range resp.RawData {
+	// 	var obj map[string]interface{}
+	// 	if err := bson.Unmarshal(rawData, &obj); err != nil {
+	// 		fmt.Printf("Unmarshalling error at index %d: %v\n", i, err)
+	// 		return nil, err
+	// 	}
+	// 	dataObjects[i] = obj
+	// }
+	fmt.Println("printing Deserialized dataObjects here", dataObjects)
 	return dataObjects, nil
 }
 
