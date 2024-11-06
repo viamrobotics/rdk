@@ -711,3 +711,83 @@ func (c *AppClient) CheckPermissions(ctx context.Context, permissions []*pb.Auth
 	}
 	return resp.AuthorizedPermissions, nil
 }
+
+// GetRegistryItem gets a registry item.
+func (c *AppClient) GetRegistryItem(ctx context.Context, itemId string) (*pb.RegistryItem, error) {
+	resp, err := c.client.GetRegistryItem(ctx, &pb.GetRegistryItemRequest{
+		ItemId: itemId,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Item, nil
+}
+
+// CreateRegistryItem creates a registry item.
+func (c *AppClient) CreateRegistryItem(ctx context.Context, orgId string, name string, packageType packages.PackageType) error {
+	_, err := c.client.CreateRegistryItem(ctx, &pb.CreateRegistryItemRequest{
+		OrganizationId: orgId,
+		Name: name,
+		Type: packageType,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// UpdateRegistryItem updates a registry item.
+func (c *AppClient) UpdateRegistryItem(ctx context.Context, itemId string, packageType packages.PackageType, description string, visibility pb.Visibility, url *string) error {
+	_, err := c.client.UpdateRegistryItem(ctx, &pb.UpdateRegistryItemRequest{
+		ItemId: itemId,
+		Type: packageType,
+		Description: description,
+		Visibility: visibility,
+		Url: url,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// ListRegistryItems lists the registry items in an organization.
+func (c *AppClient) ListRegistryItems(ctx context.Context, orgId *string, types []packages.PackageType, visibilities []pb.Visibility, platforms []string, statuses []pb.RegistryItemStatus, searchTerm *string, pageToken *string, publicNamespaces []string) ([]*pb.RegistryItem, error) {
+	resp, err := c.client.ListRegistryItems(ctx, &pb.ListRegistryItemsRequest{
+		OrganizationId: orgId,
+		Types: types,
+		Visibilities: visibilities,
+		Platforms: platforms,
+		Statuses: statuses,
+		SearchTerm: searchTerm,
+		PageToken: pageToken,
+		PublicNamespaces: publicNamespaces,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Items, nil
+}
+
+// DeleteRegistryItem deletes a registry item given an ID that is formatted as `prefix:name`` where `prefix`` is the owner's organization ID or namespace.
+func (c *AppClient) DeleteRegistryItem(ctx context.Context, itemId string) error {
+	_, err := c.client.DeleteRegistryItem(ctx, &pb.DeleteRegistryItemRequest{
+		ItemId: itemId,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// TransferRegistryItem transfers a registry item to a namespace.
+func (c *AppClient) TransferRegistryItem(ctx context.Context, itemId string, newPublicNamespace string) error {
+	_, err := c.client.TransferRegistryItem(ctx, &pb.TransferRegistryItemRequest{
+		ItemId: itemId,
+		NewPublicNamespace: newPublicNamespace,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
