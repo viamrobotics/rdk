@@ -1,7 +1,6 @@
 package ftdc
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -114,8 +113,6 @@ type FTDC struct {
 	maxFileSizeBytes    int64
 	// ftdcDir controls where FTDC data files will be written.
 	ftdcDir string
-	// inmemBuffer will remain nil when `debug` is false.
-	inmemBuffer *bytes.Buffer
 
 	logger logging.Logger
 }
