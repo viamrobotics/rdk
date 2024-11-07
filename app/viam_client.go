@@ -18,21 +18,23 @@ type ViamClient struct {
 	conn rpc.ClientConn
 }
 
+// Options has the options necessary to connect through gRPC.
 type Options struct {
-	baseURL string
-	entity string
+	baseURL     string
+	entity      string
 	credentials rpc.Credentials
 }
 
+// APIKeyOptions has what is necessary to connect through GRPC with an API key.
 type APIKeyOptions struct {
-	baseURL string
-	apiKey string
+	baseURL  string
+	apiKey   string
 	apiKeyID string
 }
 
 var dialDirectGRPC = rpc.DialDirectGRPC
 
-// CreateViamClientWithOptions creates a ViamClient with an Options struct
+// CreateViamClientWithOptions creates a ViamClient with an Options struct.
 func CreateViamClientWithOptions(ctx context.Context, options Options, logger logging.Logger) (*ViamClient, error) {
 	if options.baseURL == "" {
 		options.baseURL = "https://app.viam.com"
@@ -56,6 +58,7 @@ func CreateViamClientWithOptions(ctx context.Context, options Options, logger lo
 	return &ViamClient{conn: conn}, nil
 }
 
+// CreateViamClientWithAPIKey creates a ViamClient with an API key.
 func CreateViamClientWithAPIKey(ctx context.Context, apiKeyOptions APIKeyOptions, logger logging.Logger) (*ViamClient, error) {
 	if !validateAPIKeyFormat(apiKeyOptions.apiKey) {
 		return nil, errors.New("API key should be a 32-char all-lowercase alphanumeric string")
@@ -66,9 +69,9 @@ func CreateViamClientWithAPIKey(ctx context.Context, apiKeyOptions APIKeyOptions
 
 	opts := Options{
 		baseURL: apiKeyOptions.baseURL,
-		entity: apiKeyOptions.apiKeyID,
+		entity:  apiKeyOptions.apiKeyID,
 		credentials: rpc.Credentials{
-			Type: rpc.CredentialsTypeAPIKey,
+			Type:    rpc.CredentialsTypeAPIKey,
 			Payload: apiKeyOptions.apiKey,
 		},
 	}

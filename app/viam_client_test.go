@@ -13,10 +13,10 @@ import (
 )
 
 var (
-	logger             = logging.NewLogger("test")
-	defaultURL         = "https://app.viam.com"
-	testAPIKey         = "abcdefghijklmnopqrstuv0123456789"
-	testAPIKeyID       = "abcd0123-ef45-gh67-ij89-klmnopqr01234567"
+	logger       = logging.NewLogger("test")
+	defaultURL   = "https://app.viam.com"
+	testAPIKey   = "abcdefghijklmnopqrstuv0123456789"
+	testAPIKeyID = "abcd0123-ef45-gh67-ij89-klmnopqr01234567"
 )
 
 type MockConn struct{}
@@ -67,9 +67,9 @@ func TestCreateViamClientWithOptions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			opts := Options{
 				baseURL: tt.baseURL,
-				entity: tt.entity,
+				entity:  tt.entity,
 				credentials: rpc.Credentials{
-					Type: rpc.CredentialsTypeAPIKey,
+					Type:    rpc.CredentialsTypeAPIKey,
 					Payload: tt.payload,
 				},
 			}
@@ -104,7 +104,7 @@ func TestCreateViamClientWithAPIKeyTests(t *testing.T) {
 	for _, tt := range apiKeyTests {
 		t.Run(tt.name, func(t *testing.T) {
 			options := APIKeyOptions{
-				apiKey: tt.apiKey,
+				apiKey:   tt.apiKey,
 				apiKeyID: tt.apiKeyID,
 			}
 			client, err := CreateViamClientWithAPIKey(context.Background(), options, logger)
