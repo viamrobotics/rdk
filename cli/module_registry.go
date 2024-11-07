@@ -977,17 +977,22 @@ func DownloadModuleAction(c *cli.Context) error {
 			return fmt.Errorf("version %s not found in versions for module", requestedVersion)
 		}
 	}
-	infof(c.App.ErrWriter, "found version %s", ver.Version)
+	infof(c.App.ErrWriter, "Found version %s", ver.Version)
 	if len(ver.Files) == 0 {
 		return fmt.Errorf("version %s has 0 files uploaded", ver.Version)
 	}
 	platform := c.String(moduleFlagPlatform)
 	if platform == "" {
 		platform = fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
-		infof(c.App.ErrWriter, "using default platform %s", platform)
+		infof(c.App.ErrWriter, "Using current system platform %s", platform)
 	}
 	if !slices.ContainsFunc(ver.Files, func(file *apppb.Uploads) bool { return file.Platform == platform }) {
-		return fmt.Errorf("platform %s not present for version %s", platform, ver.Version)
+		availablePlatforms := make([]string, 0, len(ver.Files))
+		for _, upload := range ver.Files {
+			availablePlatforms = append(availablePlatforms, upload.Platform)
+		}
+		return fmt.Errorf("Platform %s not present for version %s. Available platforms: %s",
+			platform, ver.Version, strings.Join(availablePlatforms, ", "))
 	}
 	include := true
 	packageType := packagespb.PackageType_PACKAGE_TYPE_MODULE
