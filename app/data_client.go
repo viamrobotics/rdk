@@ -202,6 +202,22 @@ func BinaryMetadataFromProto(proto *pb.BinaryMetadata) BinaryMetadata {
 	}
 }
 
+func BinaryIdToProto(binaryId BinaryID) *pb.BinaryID {
+	return &pb.BinaryID{
+		FileId:         binaryId.FileId,
+		OrganizationId: binaryId.OrganizationId,
+		LocationId:     binaryId.LocationId,
+	}
+}
+
+func BinaryIdsToProto(binaryIds []BinaryID) []*pb.BinaryID {
+	var protoBinaryIds []*pb.BinaryID
+	for _, binaryId := range binaryIds {
+		protoBinaryIds = append(protoBinaryIds, BinaryIdToProto(binaryId))
+	}
+	return protoBinaryIds
+}
+
 // PropertiesToProtoResponse takes a map of features to struct and converts it
 // to a GetPropertiesResponse.
 func FilterToProto(filter Filter) *pb.Filter {
@@ -421,7 +437,7 @@ func (d *DataClient) BinaryDataByFilter(
 	filter Filter,
 	limit uint64,
 	last string,
-	sortOrder pb.Order,
+	sortOrder Order,
 	includeBinary bool,
 	countOnly bool,
 	// includeInternalData bool) ([]*pb.BinaryData, uint64, string, error) {
@@ -439,7 +455,7 @@ func (d *DataClient) BinaryDataByFilter(
 			Filter:    FilterToProto(filter),
 			Limit:     limit,
 			Last:      last,
-			SortOrder: sortOrder,
+			SortOrder: OrderToProto(sortOrder),
 		},
 		CountOnly:           countOnly,
 		IncludeInternalData: includeInternalData,
@@ -458,10 +474,10 @@ func (d *DataClient) BinaryDataByFilter(
 }
 
 // do i need to be including error as a return type for all of these?
-func (d *DataClient) BinaryDataByIDs(ctx context.Context, binaryIds []*pb.BinaryID) ([]BinaryData, error) {
+func (d *DataClient) BinaryDataByIDs(ctx context.Context, binaryIds []BinaryID) ([]BinaryData, error) {
 	resp, err := d.client.BinaryDataByIDs(ctx, &pb.BinaryDataByIDsRequest{
 		IncludeBinary: true,
-		BinaryIds:     binaryIds,
+		BinaryIds:     BinaryIdsToProto(binaryIds),
 	})
 	if err != nil {
 		return nil, err
@@ -499,17 +515,17 @@ func (d *DataClient) DeleteBinaryDataByFilter(ctx context.Context, filter Filter
 	}
 	return resp.DeletedCount, nil
 }
-func (d *DataClient) DeleteBinaryDataByIDs(ctx context.Context, binaryIds []*pb.BinaryID) (uint64, error) {
+func (d *DataClient) DeleteBinaryDataByIDs(ctx context.Context, binaryIds []BinaryID) (uint64, error) {
 	resp, err := d.client.DeleteBinaryDataByIDs(ctx, &pb.DeleteBinaryDataByIDsRequest{
-		BinaryIds: binaryIds,
+		BinaryIds: BinaryIdsToProto(binaryIds),
 	})
 	if err != nil {
 		return 0, err
 	}
 	return resp.DeletedCount, nil
 }
-func (d *DataClient) AddTagsToBinaryDataByIDs(ctx context.Context, tags []string, binaryIds []*pb.BinaryID) error {
-	_, err := d.client.AddTagsToBinaryDataByIDs(ctx, &pb.AddTagsToBinaryDataByIDsRequest{BinaryIds: binaryIds, Tags: tags})
+func (d *DataClient) AddTagsToBinaryDataByIDs(ctx context.Context, tags []string, binaryIds []BinaryID) error {
+	_, err := d.client.AddTagsToBinaryDataByIDs(ctx, &pb.AddTagsToBinaryDataByIDsRequest{BinaryIds: BinaryIdsToProto(binaryIds), Tags: tags})
 	if err != nil {
 		return err
 	}
@@ -525,8 +541,8 @@ func (d *DataClient) AddTagsToBinaryDataByFilter(ctx context.Context, tags []str
 	}
 	return nil
 }
-func (d *DataClient) RemoveTagsFromBinaryDataByIDs(ctx context.Context, tags []string, binaryIds []*pb.BinaryID) (uint64, error) {
-	resp, err := d.client.RemoveTagsFromBinaryDataByIDs(ctx, &pb.RemoveTagsFromBinaryDataByIDsRequest{BinaryIds: binaryIds, Tags: tags})
+func (d *DataClient) RemoveTagsFromBinaryDataByIDs(ctx context.Context, tags []string, binaryIds []BinaryID) (uint64, error) {
+	resp, err := d.client.RemoveTagsFromBinaryDataByIDs(ctx, &pb.RemoveTagsFromBinaryDataByIDsRequest{BinaryIds: BinaryIdsToProto(binaryIds), Tags: tags})
 	if err != nil {
 		return 0, err
 	}
@@ -554,21 +570,21 @@ func (d *DataClient) TagsByFilter(ctx context.Context, filter Filter) ([]string,
 }
 func (d *DataClient) AddBoundingBoxToImageByID(
 	ctx context.Context,
-	binaryIds []*pb.BinaryID,
+	binaryId BinaryID,
 	label string,
 	xMinNormalized float64,
 	yMinNormalized float64,
 	xMaxNormalized float64,
 	yMaxNormalized float64) (string, error) {
-	resp, err := d.client.AddBoundingBoxToImageByID(ctx, &pb.AddBoundingBoxToImageByIDRequest{BinaryId: &pb.BinaryID{}, Label: label, XMinNormalized: xMinNormalized, YMinNormalized: yMinNormalized, XMaxNormalized: xMaxNormalized, YMaxNormalized: yMaxNormalized})
+	resp, err := d.client.AddBoundingBoxToImageByID(ctx, &pb.AddBoundingBoxToImageByIDRequest{BinaryId: BinaryIdToProto(binaryId), Label: label, XMinNormalized: xMinNormalized, YMinNormalized: yMinNormalized, XMaxNormalized: xMaxNormalized, YMaxNormalized: yMaxNormalized})
 	if err != nil {
 		return "", err
 	}
 	return resp.BboxId, nil
 
 }
-func (d *DataClient) RemoveBoundingBoxFromImageByID(ctx context.Context, bboxId string, binaryId *pb.BinaryID) error {
-	_, err := d.client.RemoveBoundingBoxFromImageByID(ctx, &pb.RemoveBoundingBoxFromImageByIDRequest{BinaryId: binaryId, BboxId: bboxId})
+func (d *DataClient) RemoveBoundingBoxFromImageByID(ctx context.Context, bboxId string, binaryId BinaryID) error {
+	_, err := d.client.RemoveBoundingBoxFromImageByID(ctx, &pb.RemoveBoundingBoxFromImageByIDRequest{BinaryId: BinaryIdToProto(binaryId), BboxId: bboxId})
 	if err != nil {
 		return err
 	}
@@ -587,7 +603,7 @@ func (d *DataClient) BoundingBoxLabelsByFilter(ctx context.Context, filter Filte
 
 // ***python and typescript did not implement this one!!!
 func (d *DataClient) UpdateBoundingBox(ctx context.Context,
-	binaryId *pb.BinaryID,
+	binaryId BinaryID,
 	bboxId string,
 	label string,
 	xMinNormalized float64,
@@ -595,7 +611,7 @@ func (d *DataClient) UpdateBoundingBox(ctx context.Context,
 	xMaxNormalized float64,
 	yMaxNormalized float64) error {
 
-	_, err := d.client.UpdateBoundingBox(ctx, &pb.UpdateBoundingBoxRequest{BinaryId: binaryId, BboxId: bboxId, Label: &label, XMinNormalized: &xMinNormalized, YMinNormalized: &yMinNormalized, XMaxNormalized: &xMaxNormalized, YMaxNormalized: &yMaxNormalized})
+	_, err := d.client.UpdateBoundingBox(ctx, &pb.UpdateBoundingBoxRequest{BinaryId: BinaryIdToProto(binaryId), BboxId: bboxId, Label: &label, XMinNormalized: &xMinNormalized, YMinNormalized: &yMinNormalized, XMaxNormalized: &xMaxNormalized, YMaxNormalized: &yMaxNormalized})
 	if err != nil {
 		return err
 	}
@@ -617,15 +633,15 @@ func (d *DataClient) ConfigureDatabaseUser(ctx context.Context, organizationId s
 	}
 	return nil
 }
-func (d *DataClient) AddBinaryDataToDatasetByIDs(ctx context.Context, binaryIds []*pb.BinaryID, datasetId string) error {
-	_, err := d.client.AddBinaryDataToDatasetByIDs(ctx, &pb.AddBinaryDataToDatasetByIDsRequest{BinaryIds: binaryIds, DatasetId: datasetId})
+func (d *DataClient) AddBinaryDataToDatasetByIDs(ctx context.Context, binaryIds []BinaryID, datasetId string) error {
+	_, err := d.client.AddBinaryDataToDatasetByIDs(ctx, &pb.AddBinaryDataToDatasetByIDsRequest{BinaryIds: BinaryIdsToProto(binaryIds), DatasetId: datasetId})
 	if err != nil {
 		return err
 	}
 	return nil
 }
-func (d *DataClient) RemoveBinaryDataFromDatasetByIDs(ctx context.Context, binaryIds []*pb.BinaryID, datasetId string) error {
-	_, err := d.client.RemoveBinaryDataFromDatasetByIDs(ctx, &pb.RemoveBinaryDataFromDatasetByIDsRequest{BinaryIds: binaryIds, DatasetId: datasetId})
+func (d *DataClient) RemoveBinaryDataFromDatasetByIDs(ctx context.Context, binaryIds []BinaryID, datasetId string) error {
+	_, err := d.client.RemoveBinaryDataFromDatasetByIDs(ctx, &pb.RemoveBinaryDataFromDatasetByIDsRequest{BinaryIds: BinaryIdsToProto(binaryIds), DatasetId: datasetId})
 	if err != nil {
 		return err
 	}
