@@ -9,7 +9,6 @@ import (
 	_ "go.viam.com/rdk/components/movementsensor/gpsnmea"
 	_ "go.viam.com/rdk/components/movementsensor/gpsrtk"
 	_ "go.viam.com/rdk/components/movementsensor/imuvectornav"
-	_ "go.viam.com/rdk/components/movementsensor/imuwit"
 	_ "go.viam.com/rdk/components/movementsensor/merged"
 	_ "go.viam.com/rdk/components/movementsensor/replay"
 	_ "go.viam.com/rdk/components/movementsensor/wheeledodometry"
