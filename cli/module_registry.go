@@ -991,7 +991,7 @@ func DownloadModuleAction(c *cli.Context) error {
 		for _, upload := range ver.Files {
 			availablePlatforms = append(availablePlatforms, upload.Platform)
 		}
-		return fmt.Errorf("Platform %s not present for version %s. Available platforms: %s",
+		return fmt.Errorf("platform %s not present for version %s. available platforms: %s",
 			platform, ver.Version, strings.Join(availablePlatforms, ", "))
 	}
 	include := true
