@@ -10,14 +10,36 @@ import (
 	datapb "go.viam.com/api/app/data/v1"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/testutils/inject"
 )
 
-// var (
-// 	orgId = "e76d1b3b-0468-4efd-bb7f-fb1d2b352fcb"
-// )
+const (
+	component_name  = "component_name"
+	component_type  = "component_type"
+	method          = "method"
+	robot_name      = "robot_name"
+	robot_id        = "robot_id"
+	part_name       = "part_name"
+	part_id         = "part_id"
+	location_id     = "location_id"
+	organization_id = "organization_id"
+	// password       = "password"
+	mime_type  = "mime_type"
+	uri        = "some.robot.uri"
+	bbox_label = "bbox_label"
+	dataset_id = "dataset_id"
+	tag        = "tag"
+)
+
+var (
+	location_IDs      = []string{location_id}
+	org_IDs           = []string{organization_id}
+	mime_Types        = []string{mime_type}
+	Bbox_Labels       = []string{bbox_label}
+	method_parameters = map[string]interface{}{}
+	tags              = []string{tag}
+)
 
 // // Helper function to create BSON documents for MongoDB queries
 // func createMQLBSON() [][]byte {
@@ -41,38 +63,83 @@ func createGrpclient() datapb.DataServiceClient {
 func TestDataClient(t *testing.T) {
 	grpcClient := &inject.DataServiceClient{}
 	client := DataClient{client: grpcClient}
-	t.Run("TabularDataByFilter", func(t *testing.T) {
-		// expected := {}
-		// expectedData := "" //change - not done
-		// expectedCount := 5 //change - not done
-		// expectedLast := "" //change - not done
-		// filter := &datapb.Filter{}
-		// limit := uint64(5)
-		// last := "last"
-		// sortOrder := datapb.Order_ORDER_DESCENDING  //i think this is correct
-		// countOnly := true
-		// includeInternalData := true
-		// myData := {
-		// 	Data: map[string]interface{}
-		// 	Metadata: CaptureMetadata
-		// }
-		// myLast := nil
 
-		// returns: List[TabularData]: The tabular data, int: The count (number of entries), str: The last-returned page ID.
+	capture_interval := CaptureInterval{
+		Start: time.Now(),
+		End:   time.Now(),
+	}
+	tags_filter := TagsFilter{
+		Type: 2,
+		Tags: []string{"tag1", "tag2"},
+	}
+
+	myFilter := Filter{
+		ComponentName:   component_name,
+		ComponentType:   component_type,
+		Method:          method,
+		RobotName:       robot_name,
+		RobotId:         robot_id,
+		PartName:        part_name,
+		PartId:          part_id,
+		LocationIds:     location_IDs,
+		OrganizationIds: org_IDs,
+		MimeType:        mime_Types,
+		Interval:        capture_interval,
+		TagsFilter:      tags_filter, //asterix or no??
+		BboxLabels:      Bbox_Labels,
+		DatasetId:       dataset_id,
+	}
+	myTabularMetadata := CaptureMetadata{
+		OrganizationId:   organization_id,
+		LocationId:       location_id,
+		RobotName:        robot_name,
+		RobotId:          robot_id,
+		PartName:         part_name,
+		PartId:           part_id,
+		ComponentType:    component_type,
+		ComponentName:    component_name,
+		MethodName:       method,
+		MethodParameters: method_parameters,
+		Tags:             tags,
+		MimeType:         mime_type,
+	}
+	t.Run("TabularDataByFilter", func(t *testing.T) {
+		myDataRequest := DataRequest{
+			Filter:    myFilter,
+			Limit:     5,
+			Last:      "last",
+			SortOrder: Unspecified,
+		}
+		myTabularData := TabularData{
+			Data: map[string]interface{}{
+				"key": "value",
+			},
+			MetadataIndex: 0,
+			Metadata:      myTabularMetadata, //not sure if i need to pass this
+			TimeRequested: time.Now(),
+			TimeReceived:  time.Now(),
+		}
+		myTabularDatas := []TabularData{myTabularData}
+		myCount := uint64(5)
+		myLast := "last"
+		myLimit := uint64(100)
+		countOnly := true
+		includeInternalData := true
 
 		grpcClient.TabularDataByFilterFunc = func(ctx context.Context, in *datapb.TabularDataByFilterRequest, opts ...grpc.CallOption) (*datapb.TabularDataByFilterResponse, error) {
-			test.That(t, in.DataRequest, test.ShouldEqual)
+			test.That(t, in.DataRequest, test.ShouldEqual, myDataRequest)
 			test.That(t, in.CountOnly, test.ShouldBeTrue)
 			test.That(t, in.IncludeInternalData, test.ShouldBeTrue)
-			return &datapb.TabularDataByFilterResponse{Data: _, Count: _, Last: _}, nil
+			return &datapb.TabularDataByFilterResponse{Data: TabularDataToProtoList(myTabularDatas), Count: myCount, Last: myLast}, nil
+			//the only returns we care about are TabularData, int coint, and str last rewturned pg id
 		}
 
-		respTabularData, respCount, respLast, _ := client.TabularDataByFilter(context.Background(), filter, limit, last, sortOrder, countOnly, includeInternalData)
-		test.That(t, respData, test.ShouldEqual, expectedData)
-		test.That(t, respCount, test.ShouldEqual, expectedCount)
-		test.That(t, respLast, test.ShouldEqual, expectedLast)
-
+		respTabularData, respCount, respLast, _ := client.TabularDataByFilter(context.Background(), myFilter, myLimit, myLast, myDataRequest.SortOrder, countOnly, includeInternalData)
+		test.That(t, respTabularData, test.ShouldEqual, myTabularData)
+		test.That(t, respCount, test.ShouldEqual, myCount)
+		test.That(t, respLast, test.ShouldEqual, myLast)
 	})
+
 	t.Run("TabularDataBySQL", func(t *testing.T) {
 
 	})
@@ -95,7 +162,6 @@ func TestDataClient(t *testing.T) {
 			{"one": 1},
 			{"list": []string{"a", "b", "c"}},
 		}
-	
 
 		grpcClient.TabularDataByMQLFunc = func(ctx context.Context, in *datapb.TabularDataByMQLRequest, opts ...grpc.CallOption) (*datapb.TabularDataByMQLResponse, error) {
 			test.That(t, in.OrganizationId, test.ShouldEqual, org_id)
@@ -154,8 +220,8 @@ func TestDataClient(t *testing.T) {
 		response, _ := client.BinaryDataByIDs(context.Background(), binaryIDs)
 
 		// expectedData := BinaryData{binary: binary, Metadata: metadata}
-		// var expectedData []BinaryData{BinaryDataFromProto(binaryDataList)} 
-		var expectedData []BinaryData 
+		// var expectedData []BinaryData{BinaryDataFromProto(binaryDataList)}
+		var expectedData []BinaryData
 		for _, binaryDataItem := range binaryDataList {
 			convertedData := BinaryDataFromProto(binaryDataItem)
 			expectedData = append(expectedData, convertedData)
@@ -275,12 +341,11 @@ func TestDataClient(t *testing.T) {
 // client := datapb.NewDataServiceClient(conn)
 
 //notes on the param chekcing stuff
-	// var request *datapb.TabularDataByMQLRequest
+// var request *datapb.TabularDataByMQLRequest
 
-		// grpcClient.TabularDataByMQLFunc = func(ctx context.Context, in *datapb.TabularDataByMQLRequest, opts ...grpc.CallOption) (*datapb.TabularDataByMQLResponse, error) {
-		// 	request = in
-		// 	return &datapb.TabularDataByMQLResponse{RawData: mql_binary}, nil //MQlResponse is created with BSON data
-		// }
+// grpcClient.TabularDataByMQLFunc = func(ctx context.Context, in *datapb.TabularDataByMQLRequest, opts ...grpc.CallOption) (*datapb.TabularDataByMQLResponse, error) {
+// 	request = in
+// 	return &datapb.TabularDataByMQLResponse{RawData: mql_binary}, nil //MQlResponse is created with BSON data
+// }
 
-		// assert request.org
-		
+// assert request.org

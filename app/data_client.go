@@ -9,6 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	pb "go.viam.com/api/app/data/v1"
 	"go.viam.com/rdk/logging"
+	utils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -24,20 +25,20 @@ import (
 // i want to wrap NewDataServiceClient define a new dataclient struct and call the wrappers of the functions
 // // i want the user to call my dataClient struct w my wrappers and not the proto functions
 type CaptureMetadata struct {
-	organization_id   string
-	location_id2      string
-	robot_name        string
-	robot_id          string
-	part_name         string
-	part_id           string
-	component_type    string
-	component_name    string
-	method_name       string
-	method_parameters map[string]interface{}
+	OrganizationId   string
+	LocationId       string
+	RobotName        string
+	RobotId          string
+	PartName         string
+	PartId           string
+	ComponentType    string
+	ComponentName    string
+	MethodName       string
+	MethodParameters map[string]interface{}
 	//^^ supposed to be: map<string, google.protobuf.Any> method_parameters = 11;
-	tags []string
+	Tags []string
 	//^^ repeated string tags = 12;
-	mime_type string
+	MimeType string
 	//^^ string mime_type = 13;
 }
 type BinaryID struct {
@@ -52,6 +53,12 @@ type BoundingBox struct {
 	y_min_normalized float64
 	x_max_normalized float64
 	y_max_normalized float64
+}
+type DataRequest struct {
+	Filter    Filter
+	Limit     uint64
+	Last      string
+	SortOrder Order
 }
 
 // Annotations are data annotations used for machine learning.
@@ -158,18 +165,18 @@ func CaptureMetadataFromProto(proto *pb.CaptureMetadata) CaptureMetadata {
 		return CaptureMetadata{}
 	}
 	return CaptureMetadata{
-		organization_id:   proto.OrganizationId,
-		location_id2:      proto.LocationId,
-		robot_name:        proto.RobotName,
-		robot_id:          proto.RobotId,
-		part_name:         proto.PartName,
-		part_id:           proto.PartId,
-		component_type:    proto.ComponentType,
-		component_name:    proto.ComponentName,
-		method_name:       proto.MethodName,
-		method_parameters: methodParamsFromProto(proto.MethodParameters),
-		tags:              proto.Tags, // repeated string
-		mime_type:         proto.MimeType,
+		OrganizationId:   proto.OrganizationId,
+		LocationId:       proto.LocationId,
+		RobotName:        proto.RobotName,
+		RobotId:          proto.RobotId,
+		PartName:         proto.PartName,
+		PartId:           proto.PartId,
+		ComponentType:    proto.ComponentType,
+		ComponentName:    proto.ComponentName,
+		MethodName:       proto.MethodName,
+		MethodParameters: methodParamsFromProto(proto.MethodParameters),
+		Tags:             proto.Tags, // repeated string
+		MimeType:         proto.MimeType,
 	}
 }
 
@@ -216,6 +223,34 @@ func TabularDataFromProto(proto *pb.TabularData, metadata *pb.CaptureMetadata) T
 		TimeRequested: proto.TimeRequested.AsTime(),
 		TimeReceived:  proto.TimeReceived.AsTime(),
 	}
+}
+func TabularDataToProto(tabularData TabularData) *pb.TabularData {
+	structData, err := utils.StructToStructPb(tabularData.Data)
+	if err != nil {
+		return nil
+	}
+	timeRequested := timestamppb.New(tabularData.TimeRequested)
+	timeReceived := timestamppb.New(tabularData.TimeReceived)
+	return &pb.TabularData{
+		Data:          structData,
+		MetadataIndex: tabularData.MetadataIndex,
+		TimeRequested: timeRequested,
+		TimeReceived:  timeReceived,
+	}
+}
+func TabularDataToProtoList(tabularDatas []TabularData) []*pb.TabularData {
+	var protoList []*pb.TabularData
+	// loop through each TabularData item
+	for _, tabularData := range tabularDatas {
+		// convert each TabularData to *pb.TabularData
+		protoData := TabularDataToProto(tabularData)
+		if protoData != nil {
+			// append the converted *pb.TabularData to the list
+			protoList = append(protoList, protoData)
+		}
+	}
+	// return the list of converted *pb.TabularData items
+	return protoList
 }
 func TabularDataBsonHelper(rawData [][]byte) ([]map[string]interface{}, error) {
 	dataObjects := make([]map[string]interface{}, len(rawData))
@@ -298,13 +333,6 @@ func OrderToProto(sortOrder Order) pb.Order {
 		return pb.Order_ORDER_UNSPECIFIED // default or error handling
 	}
 }
-
-// LocationIds     []string
-// OrganizationIds []string
-// MimeType        []string
-// Interval        *CaptureInterval
-// TagsFilter      *TagsFilter
-// BboxLabels      []string
 
 type DataClient struct {
 	//do we want this to be a public interface that defines the functions but does not include client and private details?
