@@ -858,3 +858,89 @@ func (c *AppClient) ListModules(ctx context.Context, orgId *string) ([]*pb.Modul
 	return resp.Modules, nil
 }
 
+// APIKeyAuthorization is a struct with the necessary authorization data to create an API key.
+type APIKeyAuthorization struct {
+	// `role`` must be "owner" or "operator"
+	role string
+	// `resourceType` must be "organization", "location", or "robot"
+	resourceType string
+	resourceId string
+}
+
+// CreateKey creates a new API key associated with a list of authorizations
+func (c *AppClient) CreateKey(ctx context.Context, orgId string, keyAuthorizations []APIKeyAuthorization, name string) (string, string, error) {
+	var authorizations []*pb.Authorization
+	for _, keyAuthorization := range keyAuthorizations {
+		authorization, err := createAuthorization(orgId, "", "api-key", keyAuthorization.role, keyAuthorization.resourceType, keyAuthorization.resourceId)
+		if err != nil {
+			return "", "", nil
+		}
+		authorizations = append(authorizations, authorization)
+	}
+	
+	resp, err := c.client.CreateKey(ctx, &pb.CreateKeyRequest{
+		Authorizations: authorizations,
+		Name: name,
+	})
+	if err != nil {
+		return "", "", err
+	}
+	return resp.Key, resp.Id, nil
+}
+
+// DeleteKey deletes an API key.
+func (c *AppClient) DeleteKey(ctx context.Context, id string) error {
+	_, err := c.client.DeleteKey(ctx, &pb.DeleteKeyRequest{
+		Id: id,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// ListKeys lists all the keys for the organization.
+func (c *AppClient) ListKeys(ctx context.Context, orgId string) ([]*pb.APIKeyWithAuthorizations, error) {
+	resp, err := c.client.ListKeys(ctx, &pb.ListKeysRequest{
+		OrgId: orgId,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.ApiKeys, nil
+}
+
+// RenameKey renames an API key.
+func (c *AppClient) RenameKey(ctx context.Context, id string, name string) (string, string, error) {
+	resp, err := c.client.RenameKey(ctx, &pb.RenameKeyRequest{
+		Id: id,
+		Name: name,
+	})
+	if err != nil {
+		return "", "", err
+	}
+	return resp.Id, resp.Name, nil
+}
+
+// RotateKey rotates an API key.
+func (c *AppClient) RotateKey(ctx context.Context, id string) (string, string, error) {
+	resp, err := c.client.RotateKey(ctx, &pb.RotateKeyRequest{
+		Id: id,
+	})
+	if err != nil {
+		return "", "", err
+	}
+	return resp.Id, resp.Key, nil
+}
+
+// CreateKeyFromExistingKeyAuthorizations creates a new API key with an existing key's authorizations.
+func (c *AppClient) CreateKeyFromExistingKeyAuthorizations(ctx context.Context, id string) (string, string, error) {
+	resp, err := c.client.CreateKeyFromExistingKeyAuthorizations(ctx, &pb.CreateKeyFromExistingKeyAuthorizationsRequest{
+		Id: id,
+	})
+	if err != nil {
+		return "", "", err
+	}
+	return resp.Id, resp.Key, nil
+}
+
