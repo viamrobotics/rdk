@@ -131,7 +131,7 @@ func TestServer(t *testing.T) {
 		if err != nil {
 			return nil, camera.ImageMetadata{}, err
 		}
-		return resBytes, camera.ImageMetadata{}, nil
+		return resBytes, camera.ImageMetadata{MimeType: mimeType}, nil
 	}
 	// depth camera
 	depthImage := rimage.NewEmptyDepthMap(10, 20)
