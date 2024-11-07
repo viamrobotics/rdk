@@ -146,14 +146,14 @@ func (c *client) Stream(
 				return
 			}
 
-			resBytes, resMimeType, err := c.Image(streamCtx, mimeTypeFromCtx, nil)
+			resBytes, resMetadata, err := c.Image(streamCtx, mimeTypeFromCtx, nil)
 			if err != nil {
 				for _, handler := range errHandlers {
 					handler(streamCtx, err)
 				}
 			}
 
-			img, err := rimage.DecodeImage(ctx, resBytes, resMimeType)
+			img, err := rimage.DecodeImage(ctx, resBytes, resMetadata.MimeType)
 			if err != nil {
 				c.logger.CWarnw(ctx, "error decoding image", "err", err)
 				return
@@ -179,14 +179,14 @@ func (c *client) Stream(
 	return stream, nil
 }
 
-func (c *client) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, string, error) {
+func (c *client) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, ImageMetadata, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::Image")
 	defer span.End()
 	expectedType, _ := utils.CheckLazyMIMEType(mimeType)
 
 	convertedExtra, err := goprotoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, "", err
+		return nil, ImageMetadata{}, err
 	}
 	resp, err := c.client.GetImage(ctx, &pb.GetImageRequest{
 		Name:     c.name,
@@ -194,7 +194,7 @@ func (c *client) Image(ctx context.Context, mimeType string, extra map[string]in
 		Extra:    convertedExtra,
 	})
 	if err != nil {
-		return nil, "", err
+		return nil, ImageMetadata{}, err
 	}
 
 	if expectedType != "" && resp.MimeType != expectedType {
@@ -204,7 +204,7 @@ func (c *client) Image(ctx context.Context, mimeType string, extra map[string]in
 	}
 
 	resp.MimeType = utils.WithLazyMIMEType(resp.MimeType)
-	return resp.Image, resp.MimeType, nil
+	return resp.Image, ImageMetadata{MimeType: resp.MimeType}, nil
 }
 
 func (c *client) Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error) {

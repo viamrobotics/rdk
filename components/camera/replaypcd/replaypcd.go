@@ -346,8 +346,8 @@ func (replay *pcdCamera) Stream(ctx context.Context, errHandlers ...gostream.Err
 	return stream, errors.New("Stream is unimplemented")
 }
 
-func (replay *pcdCamera) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, string, error) {
-	return nil, "", errors.New("Image is unimplemented")
+func (replay *pcdCamera) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
+	return nil, camera.ImageMetadata{}, errors.New("Image is unimplemented")
 }
 
 // Close stops replay camera, closes the channels and its connections to the cloud.

@@ -72,6 +72,11 @@ type NamedImage struct {
 	SourceName string
 }
 
+// ImageMetadata contains useful information about returned image bytes such as its mimetype.
+type ImageMetadata struct {
+	MimeType string
+}
+
 // A Camera is a resource that can capture frames.
 type Camera interface {
 	resource.Resource
@@ -127,7 +132,7 @@ type Camera interface {
 type VideoSource interface {
 	// Image returns a byte slice representing an image that tries to adhere to the MIME type hint.
 	// Image also may return a string representing the mime type hint or empty string if not.
-	Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, string, error)
+	Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, ImageMetadata, error)
 
 	// Images is used for getting simultaneous images from different imagers,
 	// along with associated metadata (just timestamp for now). It's not for getting a time series of images from the same imager.
@@ -154,13 +159,13 @@ func ReadImage(ctx context.Context, src gostream.VideoSource) (image.Image, func
 	return gostream.ReadImage(ctx, src)
 }
 
-// GetGoImage retrieves frame bytes from a camera source and decodes it into an image.Image type.
+// GetGoImage retrieves image bytes from a camera source and decodes it into an image.Image type.
 func GetGoImage(ctx context.Context, mimeType string, extra map[string]interface{}, cam VideoSource) (image.Image, error) {
-	resBytes, resMimeType, err := cam.Image(context.Background(), mimeType, nil)
+	resBytes, resMetadata, err := cam.Image(context.Background(), mimeType, nil)
 	if err != nil {
 		return nil, fmt.Errorf("could not get image bytes from camera: %w", err)
 	}
-	img, err := rimage.DecodeImage(context.Background(), resBytes, resMimeType)
+	img, err := rimage.DecodeImage(context.Background(), resBytes, resMetadata.MimeType)
 	if err != nil {
 		return nil, fmt.Errorf("could not decode into image.Image: %w", err)
 	}

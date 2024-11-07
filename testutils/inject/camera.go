@@ -19,7 +19,7 @@ type Camera struct {
 	name                 resource.Name
 	RTPPassthroughSource rtppassthrough.Source
 	DoFunc               func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	ImageFunc            func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, string, error)
+	ImageFunc            func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error)
 	ImagesFunc           func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error)
 	StreamFunc           func(
 		ctx context.Context,
@@ -67,14 +67,14 @@ func (c *Camera) Stream(
 }
 
 // Image calls the injected Image or the real version.
-func (c *Camera) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, string, error) {
+func (c *Camera) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
 	if c.ImageFunc != nil {
 		return c.ImageFunc(ctx, mimeType, extra)
 	}
 	if c.Camera != nil {
 		return c.Camera.Image(ctx, mimeType, extra)
 	}
-	return nil, "", errors.Wrap(ctx.Err(), "no GetImage function available")
+	return nil, camera.ImageMetadata{}, errors.Wrap(ctx.Err(), "no GetImage function available")
 }
 
 // Properties calls the injected Properties or the real version.

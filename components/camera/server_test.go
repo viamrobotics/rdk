@@ -108,7 +108,7 @@ func TestServer(t *testing.T) {
 		return projA, nil
 	}
 	wooMIME := "image/woohoo"
-	injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, string, error) {
+	injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
 		if mimeType == "" {
 			mimeType = utils.MimeTypeRawRGBA
 		}
@@ -125,13 +125,13 @@ func TestServer(t *testing.T) {
 		case "image/woohoo":
 			respImg = rimage.NewLazyEncodedImage([]byte{1, 2, 3}, mimeType)
 		default:
-			return nil, "", errInvalidMimeType
+			return nil, camera.ImageMetadata{}, errInvalidMimeType
 		}
 		resBytes, err := rimage.EncodeImage(ctx, respImg, mimeType)
 		if err != nil {
-			return nil, "", err
+			return nil, camera.ImageMetadata{}, err
 		}
-		return resBytes, mimeType, nil
+		return resBytes, camera.ImageMetadata{}, nil
 	}
 	// depth camera
 	depthImage := rimage.NewEmptyDepthMap(10, 20)
@@ -156,12 +156,16 @@ func TestServer(t *testing.T) {
 	injectCameraDepth.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return projA, nil
 	}
-	injectCameraDepth.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, string, error) {
+	injectCameraDepth.ImageFunc = func(
+		ctx context.Context,
+		mimeType string,
+		extra map[string]interface{},
+	) ([]byte, camera.ImageMetadata, error) {
 		resBytes, err := rimage.EncodeImage(ctx, depthImage, mimeType)
 		if err != nil {
-			return nil, "", err
+			return nil, camera.ImageMetadata{}, err
 		}
-		return resBytes, mimeType, nil
+		return resBytes, camera.ImageMetadata{MimeType: mimeType}, nil
 	}
 	// bad camera
 	injectCamera2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
@@ -173,8 +177,8 @@ func TestServer(t *testing.T) {
 	injectCamera2.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return nil, errCameraProjectorFailed
 	}
-	injectCamera2.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, string, error) {
-		return nil, "", errGetImageFailed
+	injectCamera2.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
+		return nil, camera.ImageMetadata{}, errGetImageFailed
 	}
 
 	// does a depth camera transfer its depth image properly
@@ -389,9 +393,9 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("GetImage with extra", func(t *testing.T) {
-		injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, string, error) {
+		injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
 			test.That(t, extra, test.ShouldBeEmpty)
-			return nil, "", errGetImageFailed
+			return nil, camera.ImageMetadata{}, errGetImageFailed
 		}
 
 		_, err := cameraServer.GetImage(context.Background(), &pb.GetImageRequest{
@@ -401,10 +405,10 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
 
-		injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, string, error) {
+		injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
 			test.That(t, len(extra), test.ShouldEqual, 1)
 			test.That(t, extra["hello"], test.ShouldEqual, "world")
-			return nil, "", errGetImageFailed
+			return nil, camera.ImageMetadata{}, errGetImageFailed
 		}
 
 		ext, err := goprotoutils.StructToStructPb(map[string]interface{}{"hello": "world"})
@@ -418,11 +422,11 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
 
-		injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, string, error) {
+		injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
 			test.That(t, len(extra), test.ShouldEqual, 1)
 			test.That(t, extra[data.FromDMString], test.ShouldBeTrue)
 
-			return nil, "", errGetImageFailed
+			return nil, camera.ImageMetadata{}, errGetImageFailed
 		}
 
 		// one kvp created with data.FromDMContextKey
@@ -437,11 +441,11 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
 
-		injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, string, error) {
+		injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
 			test.That(t, len(extra), test.ShouldEqual, 2)
 			test.That(t, extra["hello"], test.ShouldEqual, "world")
 			test.That(t, extra[data.FromDMString], test.ShouldBeTrue)
-			return nil, "", errGetImageFailed
+			return nil, camera.ImageMetadata{}, errGetImageFailed
 		}
 
 		// use values from data and camera

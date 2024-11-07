@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/utils"
 	viz "go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
 	"go.viam.com/rdk/vision/objectdetection"
@@ -309,7 +310,7 @@ func (vm *vizModel) DetectionsFromCamera(
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find camera named %s", cameraName)
 	}
-	img, err := camera.GetGoImage(ctx, gostream.MIMETypeHint(ctx, ""), extra, cam)
+	img, err := camera.GetGoImage(ctx, gostream.MIMETypeHint(ctx, utils.MimeTypeJPEG), extra, cam)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get go image from %s", cameraName)
 	}
@@ -351,7 +352,7 @@ func (vm *vizModel) ClassificationsFromCamera(
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find camera named %s", cameraName)
 	}
-	img, err := camera.GetGoImage(ctx, gostream.MIMETypeHint(ctx, ""), extra, cam)
+	img, err := camera.GetGoImage(ctx, gostream.MIMETypeHint(ctx, utils.MimeTypeJPEG), extra, cam)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get go image from %s", cameraName)
 	}
@@ -400,7 +401,7 @@ func (vm *vizModel) CaptureAllFromCamera(
 	if err != nil {
 		return viscapture.VisCapture{}, errors.Wrapf(err, "could not find camera named %s", cameraName)
 	}
-	img, err := camera.GetGoImage(ctx, gostream.MIMETypeHint(ctx, ""), extra, cam)
+	img, err := camera.GetGoImage(ctx, gostream.MIMETypeHint(ctx, utils.MimeTypeJPEG), extra, cam)
 	if err != nil {
 		return viscapture.VisCapture{}, errors.Wrapf(err, "could not get image from %s", cameraName)
 	}

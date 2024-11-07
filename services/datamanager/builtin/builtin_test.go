@@ -453,12 +453,12 @@ func TestSync(t *testing.T) {
 							ctx context.Context,
 							mimeType string,
 							extra map[string]interface{},
-						) ([]byte, string, error) {
+						) ([]byte, camera.ImageMetadata, error) {
 							outBytes, err := rimage.EncodeImage(ctx, imgPng, mimeType)
 							if err != nil {
-								return nil, "", err
+								return nil, camera.ImageMetadata{}, err
 							}
-							return outBytes, mimeType, nil
+							return outBytes, camera.ImageMetadata{MimeType: mimeType}, nil
 						},
 					},
 				})

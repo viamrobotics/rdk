@@ -331,10 +331,10 @@ func TestStatusClient(t *testing.T) {
 	var imgBuf bytes.Buffer
 	test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
 
-	injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, string, error) {
+	injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
 		resBytes, err := rimage.EncodeImage(ctx, img, mimeType)
 		test.That(t, err, test.ShouldBeNil)
-		return resBytes, mimeType, nil
+		return resBytes, camera.ImageMetadata{MimeType: mimeType}, nil
 	}
 
 	injectInputDev := &inject.InputController{}

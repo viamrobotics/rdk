@@ -70,12 +70,12 @@ func (s *serviceServer) GetImage(
 	}
 	req.MimeType = utils.WithLazyMIMEType(req.MimeType)
 
-	imgBytes, mimeType, err := cam.Image(ctx, req.MimeType, req.Extra.AsMap())
+	resBytes, resMetadata, err := cam.Image(ctx, req.MimeType, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
-	actualMIME, _ := utils.CheckLazyMIMEType(mimeType)
-	return &pb.GetImageResponse{MimeType: actualMIME, Image: imgBytes}, nil
+	actualMIME, _ := utils.CheckLazyMIMEType(resMetadata.MimeType)
+	return &pb.GetImageResponse{MimeType: actualMIME, Image: resBytes}, nil
 }
 
 // GetImages returns a list of images and metadata from a camera of the underlying robot.

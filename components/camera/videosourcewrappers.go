@@ -197,17 +197,17 @@ func (vs *videoSource) Stream(ctx context.Context, errHandlers ...gostream.Error
 	return vs.videoSource.Stream(ctx, errHandlers...)
 }
 
-func (vs *videoSource) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, string, error) {
+func (vs *videoSource) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, ImageMetadata, error) {
 	img, release, err := ReadImage(ctx, vs.videoSource)
 	if err != nil {
-		return nil, "", err
+		return nil, ImageMetadata{}, err
 	}
 	defer release()
 	outBytes, err := rimage.EncodeImage(ctx, img, mimeType)
 	if err != nil {
-		return nil, "", err
+		return nil, ImageMetadata{}, err
 	}
-	return outBytes, mimeType, nil
+	return outBytes, ImageMetadata{MimeType: mimeType}, nil
 }
 
 // Images is for getting simultaneous images from different sensors

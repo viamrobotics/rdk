@@ -566,17 +566,17 @@ func (c *monitoredWebcam) Stream(ctx context.Context, errHandlers ...gostream.Er
 	return c.exposedSwapper.Stream(ctx, errHandlers...)
 }
 
-func (c *monitoredWebcam) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, string, error) {
+func (c *monitoredWebcam) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
 	img, release, err := camera.ReadImage(ctx, c.underlyingSource)
 	if err != nil {
-		return nil, "", err
+		return nil, camera.ImageMetadata{}, err
 	}
 	defer release()
 	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
 	if err != nil {
-		return nil, "", err
+		return nil, camera.ImageMetadata{}, err
 	}
-	return imgBytes, mimeType, nil
+	return imgBytes, camera.ImageMetadata{MimeType: mimeType}, nil
 }
 
 func (c *monitoredWebcam) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
