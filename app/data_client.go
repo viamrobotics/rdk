@@ -4,13 +4,13 @@ package app
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	pb "go.viam.com/api/app/data/v1"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -62,6 +62,7 @@ type Annotations struct {
 type TabularData struct {
 	Data map[string]interface{}
 	// Metadata *pb.CaptureMetadata //idk why i put a star here -- if we aren't returning it is it okay?
+	MetadataIndex uint32
 	Metadata      CaptureMetadata //idk why i put a star here
 	TimeRequested time.Time
 	TimeReceived  time.Time
@@ -156,16 +157,6 @@ func CaptureMetadataFromProto(proto *pb.CaptureMetadata) CaptureMetadata {
 	if proto == nil {
 		return CaptureMetadata{}
 	}
-	// Convert method parameters from protobuf to native map
-	methodParameters := make(map[string]interface{})
-	// Convert MethodParameters map[string]*anypb.Any to map[string]interface{}
-	for key, value := range proto.MethodParameters {
-		structValue := &structpb.Value{}
-		if err := value.UnmarshalTo(structValue); err != nil {
-			return CaptureMetadata{} // return error??
-		}
-		methodParameters[key] = structValue.AsInterface()
-	}
 	return CaptureMetadata{
 		organization_id:   proto.OrganizationId,
 		location_id2:      proto.LocationId,
@@ -176,11 +167,25 @@ func CaptureMetadataFromProto(proto *pb.CaptureMetadata) CaptureMetadata {
 		component_type:    proto.ComponentType,
 		component_name:    proto.ComponentName,
 		method_name:       proto.MethodName,
-		method_parameters: methodParameters,
+		method_parameters: methodParamsFromProto(proto.MethodParameters),
 		tags:              proto.Tags, // repeated string
 		mime_type:         proto.MimeType,
 	}
 }
+
+func methodParamsFromProto(proto map[string]*anypb.Any) map[string]interface{} {
+	// Convert MethodParameters map[string]*anypb.Any to map[string]interface{}
+	methodParameters := make(map[string]interface{})
+	for key, value := range proto {
+		structValue := &structpb.Value{}
+		if err := value.UnmarshalTo(structValue); err != nil {
+			return nil
+		}
+		methodParameters[key] = structValue.AsInterface()
+	}
+	return methodParameters
+}
+
 func BinaryDataFromProto(proto *pb.BinaryData) BinaryData {
 	return BinaryData{
 		Binary:   proto.Binary,
@@ -200,6 +205,27 @@ func BinaryMetadataFromProto(proto *pb.BinaryMetadata) BinaryMetadata {
 		Annotations:     AnnotationsFromProto(proto.Annotations),
 		DatasetIDs:      proto.DatasetIds,
 	}
+}
+
+// returns tabular data and the associated metadata
+func TabularDataFromProto(proto *pb.TabularData, metadata *pb.CaptureMetadata) TabularData {
+	return TabularData{
+		Data:          proto.Data.AsMap(), //we have data as this when it is is in non proto ==> map[string]interface{}
+		MetadataIndex: proto.MetadataIndex,
+		Metadata:      CaptureMetadataFromProto(metadata),
+		TimeRequested: proto.TimeRequested.AsTime(),
+		TimeReceived:  proto.TimeReceived.AsTime(),
+	}
+}
+func TabularDataBsonHelper(rawData [][]byte) ([]map[string]interface{}, error) {
+	dataObjects := make([]map[string]interface{}, len(rawData))
+	// Loop over each BSON byte array in the response and unmarshal directly into the dataObjects slice
+	for _, rawData := range rawData {
+		obj := make(map[string]interface{})
+		bson.Unmarshal(rawData, &obj)
+		dataObjects = append(dataObjects, obj)
+	}
+	return dataObjects, nil
 }
 
 func BinaryIdToProto(binaryId BinaryID) *pb.BinaryID {
@@ -307,57 +333,44 @@ func NewDataClient(
 // TabularDataByFilter queries tabular data and metadata based on given filters.
 // returns []TabularData, uint64, string, and error:  returns multiple things containing the following: List[TabularData]: The tabular data, int: The count (number of entries), str: The last-returned page ID.
 func (d *DataClient) TabularDataByFilter(
-	//include dest?
 	ctx context.Context,
-	// filter *pb.Filter, //optional - no filter implies all tabular data
 	filter Filter,
 	limit uint64, //optional - max defaults to 50 if unspecified
 	last string, //optional
 	sortOrder Order, //optional
 	countOnly bool,
 	includeInternalData bool) ([]TabularData, uint64, string, error) {
-	// initialize limit if it's unspecified (zero value)
 	if limit == 0 {
 		limit = 50
 	}
-
 	// // ensure filter is not nil to represent a query for "all data"
 	// if filter.IsEmpty(){
 	// 	filter = Filter{} //i think if it is empty than it just implies that ALL tabular data??
 	// }
 	resp, err := d.client.TabularDataByFilter(ctx, &pb.TabularDataByFilterRequest{
-		DataRequest: &pb.DataRequest{ //need to do checks to make sure it fits the constraints
+		DataRequest: &pb.DataRequest{
 			Filter:    FilterToProto(filter),
 			Limit:     limit,
 			Last:      last,
-			SortOrder: OrderToProto(sortOrder),
-		},
+			SortOrder: OrderToProto(sortOrder)},
 		CountOnly:           countOnly,
 		IncludeInternalData: includeInternalData,
 	})
-	//do we want this?
 	if err != nil {
 		return nil, 0, "", err
 	}
-	//need to undo the repeated tabularData in resp.Data and return it
+	//get the tabulardata --> get metadataIndex from tabularData,
+	//get metadata, --> use metadata[tabularData.MetdataIndex] to get the associated metadata with that tabular data!!
+	//then return tabularData with that metadata!!
 	dataArray := make([]TabularData, len(resp.Data))
-	for i, data := range resp.Data {
-		mdIndex := data.MetadataIndex
-		// var metadata *pb.CaptureMetadata
-		var metadata CaptureMetadata
-		//is this check necessary??
-		// Ensure the metadata index is within bounds
-		if len(resp.Metadata) != 0 && int(mdIndex) < len(resp.Metadata) {
-			metadata = CaptureMetadataFromProto(resp.Metadata[mdIndex])
+	for _, data := range resp.Data {
+		var metadata *pb.CaptureMetadata
+		if int(data.MetadataIndex) < len(resp.Metadata) {
+			metadata = resp.Metadata[data.MetadataIndex] // Access the correct metadata using MetadataIndex
 		}
-		//creating a list of tabularData
-		dataArray[i] = TabularData{
-			Data:          data.Data.AsMap(),
-			Metadata:      metadata,
-			TimeRequested: data.TimeRequested.AsTime(),
-			TimeReceived:  data.TimeReceived.AsTime(),
-		}
+		dataArray = append(dataArray, TabularDataFromProto(data, metadata)) //the metadata that we pass has already been indexed
 	}
+	//// TabularData contains data and metadata associated with tabular data.
 	return dataArray, resp.Count, resp.Last, nil
 }
 
@@ -370,15 +383,7 @@ func (d *DataClient) TabularDataBySQL(ctx context.Context, organizationId string
 	if err != nil {
 		return nil, err
 	}
-	// Initialize a an array of maps to hold the data objects (in python we had list of dicts)
-	dataObjects := make([]map[string]interface{}, len(resp.RawData))
-	// Loop over each BSON byte array in the response and unmarshal directly into the dataObjects slice
-	for i, rawData := range resp.RawData {
-		obj := make(map[string]interface{})
-		bson.Unmarshal(rawData, &obj)
-		//do we want an error message for bson.Unmarshal...?
-		dataObjects[i] = obj
-	}
+	dataObjects, nil := TabularDataBsonHelper(resp.RawData)
 	return dataObjects, nil
 }
 
@@ -388,47 +393,20 @@ func (d *DataClient) TabularDataByMQL(ctx context.Context, organizationId string
 	if err != nil {
 		return nil, err
 	}
-	// Debugging output to verify RawData content
-	fmt.Printf("Response RawData: %v\n", resp.RawData)
-	//loop thru rawData
-	//for each rawData byte slice you will need to unmarshall it into map[string]interface
-	//then add each unmarshalled map to a list and return it
-	dataObjects := make([]map[string]interface{}, len(resp.RawData))
-	for i, rawData := range resp.RawData {
-		var obj map[string]interface{}
-		if err := bson.Unmarshal(rawData, &obj); err != nil {
-			fmt.Printf("(func) unmarshalling error %d: %v", i, err)
-			return nil, err
-		}
-		dataObjects[i] = obj
-	}
-	// dataObjects := make([]map[string]interface{}, len(resp.RawData))
-	// for i, rawData := range resp.RawData {
-	// 	obj := make(map[string]interface{})
-	// 	bson.Unmarshal(rawData, &obj)
-	// 	dataObjects[i] = obj
-	// }
-	// Unmarshal all raw data at once as an array of maps
-	// var dataObjects []map[string]interface{}
-	// for _, rawData := range resp.RawData {
-	// 	var singleData []map[string]interface{} // This should match your expected structure
-	// 	if err := bson.Unmarshal(rawData, &singleData); err != nil {
-	// 		return nil, err
-	// 	}
-	// 	dataObjects = append(dataObjects, singleData...)
-	// }
-	// Unmarshal each raw data entry as a separate map
+	dataObjects, nil := TabularDataBsonHelper(resp.RawData)
+	return dataObjects, nil
+
 	// dataObjects := make([]map[string]interface{}, len(resp.RawData))
 	// for i, rawData := range resp.RawData {
 	// 	var obj map[string]interface{}
 	// 	if err := bson.Unmarshal(rawData, &obj); err != nil {
-	// 		fmt.Printf("Unmarshalling error at index %d: %v\n", i, err)
+	// 		fmt.Printf("(func) unmarshalling error %d: %v", i, err)
 	// 		return nil, err
 	// 	}
 	// 	dataObjects[i] = obj
 	// }
-	fmt.Println("printing Deserialized dataObjects here", dataObjects)
-	return dataObjects, nil
+
+	// fmt.Println("printing Deserialized dataObjects here", dataObjects)
 }
 
 func (d *DataClient) BinaryDataByFilter(
