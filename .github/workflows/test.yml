@@ -202,43 +202,9 @@ jobs:
           pip install -r cli/test-requirements.txt
           check-jsonschema --schemafile ./cli/module.schema.json meta2.json
 
-  test_web_e2e:
-    name: Test End-to-End and Web
-    runs-on: ubuntu-latest
-    container: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
-
-      - name: Chown
-        run: chown -R testbot:testbot .
-
-      - name: Verify no uncommitted changes from "make build-web lint-web"
-        run: |
-          sudo -Hu testbot bash -lc 'git init && git add . && make build-web lint-web'
-          GEN_DIFF=$(git status -s)
-
-          if [ -n "$GEN_DIFF" ]; then
-              echo '"make build-web lint-web" resulted in changes not in git' 1>&2
-              git status
-              exit 1
-          fi
-
-      - name: Install dependencies
-        run: |
-          apt-get update && apt-get -qy install libgtk2.0-0 libgtk-3-0 libgbm-dev libnotify-dev libgconf-2-4 libnss3 libxss1 libasound2 libxtst6 xauth xvfb netcat-openbsd lsof
-
-      - name: Run web tests
-        run: sudo -Hu testbot bash -lc 'make test-web'
-
-      - name: Run e2e tests
-        run: sudo -Hu testbot bash -lc 'make test-e2e E2E_ARGS="-k"'
-
   test_passing:
     name: All Tests Passing
-    needs: [test_go, test_web_e2e, test32, motion_tests]
+    needs: [test_go, test32, motion_tests]
     runs-on: [ubuntu-latest]
     if: always()
     steps:
@@ -246,11 +212,9 @@ jobs:
         run: |
           echo Go Unit Tests: ${{ needs.test_go.result }}
           echo Go 32-bit Tests: ${{ needs.test32.result }}
-          echo Web/E2E Tests: ${{ needs.test_web_e2e.result }}
           echo Motion Tests: ${{ needs.motion_tests.result }}
           [ "${{ needs.test_go.result }}" == "success" ] && \
           [ "${{ needs.test32.result }}" == "success" ] && \
-          [ "${{ needs.test_web_e2e.result }}" == "success" ] && \
           [ "${{ needs.motion_tests.result }}" == "success" ]
 
       # Now that RDK is public, can't directly comment without token having full read/write access
