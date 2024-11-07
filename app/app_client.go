@@ -792,3 +792,69 @@ func (c *AppClient) TransferRegistryItem(ctx context.Context, itemId string, new
 	}
 	return nil
 }
+
+// CreateModule creates a module.
+func (c *AppClient) CreateModule(ctx context.Context, orgId string, name string) (string, string, error) {
+	resp, err := c.client.CreateModule(ctx, &pb.CreateModuleRequest{
+		OrganizationId: orgId,
+		Name: name,
+	})
+	if err != nil {
+		return "", "", err
+	}
+	return resp.ModuleId, resp.Url, nil
+}
+
+// UpdateModule updates the documentation URL, description, models, entrypoint, and/or the visibility of a module. A path to a setup script can be added that is run before a newly downloaded module starts.
+func (c *AppClient) UpdateModule(ctx context.Context, moduleId string, visibility pb.Visibility, url string, description string, models []*pb.Model, entrypoint string, firstRun *string) (string, error) {
+	resp, err := c.client.UpdateModule(ctx, &pb.UpdateModuleRequest{
+		ModuleId: moduleId,
+		Visibility: visibility,
+		Url: url,
+		Description: description,
+		Models: models,
+		Entrypoint: entrypoint,
+		FirstRun: firstRun,
+	})
+	if err != nil {
+		return "", err
+	}
+	return resp.Url, nil
+}
+
+// // type moduleFileType interface {
+// // 	~pb.UploadModuleFileRequest_File | ~pb.UploadModuleFileRequest_ModuleFileInfo
+// // }
+
+// // func (c *AppClient) UploadModuleFile[moduleFileType moduleFileType](ctx context.Context, moduleFile moduleFileType) (string, error) {
+// // 	resp, err := c.client.UploadModuleFile(ctx, &pb.UploadModuleFileRequest{
+// // 		ModuleFile: moduleFile,
+// // 	})
+// // 	if err != nil {
+// // 		return "", err
+// // 	}
+// // 	return resp.Url, nil
+// // }
+
+// GetModule gets a module.
+func (c *AppClient) GetModule(ctx context.Context, moduleId string) (*pb.Module, error) {
+	resp, err := c.client.GetModule(ctx, &pb.GetModuleRequest{
+		ModuleId: moduleId,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Module, nil
+}
+
+// ListModules lists the modules in the organization.
+func (c *AppClient) ListModules(ctx context.Context, orgId *string) ([]*pb.Module, error) {
+	resp, err := c.client.ListModules(ctx, &pb.ListModulesRequest{
+		OrganizationId: orgId,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Modules, nil
+}
+
