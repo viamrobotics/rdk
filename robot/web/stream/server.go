@@ -336,6 +336,8 @@ func (server *Server) GetStreamOptions(
 	ctx context.Context,
 	req *streampb.GetStreamOptionsRequest,
 ) (*streampb.GetStreamOptionsResponse, error) {
+	server.mu.RLock()
+	defer server.mu.RUnlock()
 	if req.Name == "" {
 		return nil, errors.New("stream name is required")
 	}
