@@ -119,7 +119,7 @@ func (o *obsDepth) buildObsDepth(logger logging.Logger) func(
 
 // buildObsDepthNoIntrinsics will return the median depth in the depth map as a Geometry point.
 func (o *obsDepth) obsDepthNoIntrinsics(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
-	pic, err := camera.GetGoImage(ctx, gostream.MIMETypeHint(ctx, ""), nil, src)
+	pic, err := camera.GetGoImage(ctx, gostream.MIMETypeHint(ctx, utils.MimeTypeRawDepth), nil, src)
 	if err != nil {
 		return nil, fmt.Errorf("obstacle depth source (no intrinsics) error: %w", err)
 	}
@@ -149,7 +149,7 @@ func (o *obsDepth) obsDepthWithIntrinsics(ctx context.Context, src camera.VideoS
 	if o.intrinsics == nil {
 		return nil, errors.New("tried to build obstacles depth with intrinsics but no instrinsics found")
 	}
-	pic, err := camera.GetGoImage(ctx, utils.MimeTypeRawDepth, nil, src)
+	pic, err := camera.GetGoImage(ctx, gostream.MIMETypeHint(ctx, utils.MimeTypeRawDepth), nil, src)
 	if err != nil {
 		return nil, fmt.Errorf("obstacle depth source (with intrinsics) error: %w", err)
 	}
