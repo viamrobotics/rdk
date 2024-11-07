@@ -18,35 +18,30 @@ type ViamClient struct {
 	conn rpc.ClientConn
 }
 
+type Options struct {
+	baseURL string
+	entity string
+	credentials rpc.Credentials
+}
+
 var dialDirectGRPC = rpc.DialDirectGRPC
 
-// CreateViamClient creates a ViamClient with an API Key.
-func CreateViamClient(ctx context.Context, baseURL, apiKey, apiKeyID string, logger logging.Logger) (*ViamClient, error) {
-	if baseURL == "" {
-		baseURL = "https://app.viam.com"
-	} else if !strings.HasPrefix(baseURL, "http://") && !strings.HasPrefix(baseURL, "https://") {
-		return nil, errors.New("use valid serviceHost URL")
+// CreateViamClientWithOptions creates a ViamClient with an Options struct
+func CreateViamClientWithOptions(ctx context.Context, options Options, logger logging.Logger) (*ViamClient, error) {
+	if options.baseURL == "" {
+		options.baseURL = "https://app.viam.com"
+	} else if !strings.HasPrefix(options.baseURL, "http://") && !strings.HasPrefix(options.baseURL, "https://") {
+		return nil, errors.New("use valid URL")
 	}
-	serviceHost, err := url.Parse(baseURL + ":443")
+	serviceHost, err := url.Parse(options.baseURL + ":443")
 	if err != nil {
 		return nil, err
 	}
 
-	switch {
-	case apiKey == "" || apiKeyID == "":
-		return nil, errors.New("API key and API key ID cannot be empty")
-	case !validateAPIKeyFormat(apiKey):
-		return nil, errors.New("API key should be a 32-char all-lowercase alphanumeric string")
-	case !validateAPIKeyIDFormat(apiKeyID):
-		return nil, errors.New("API key ID should be an all-lowercase alphanumeric string with this format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx")
+	if options.credentials.Payload == "" || options.entity == "" {
+		return nil, errors.New("entity and payload cannot be empty")
 	}
-	opts := rpc.WithEntityCredentials(
-		apiKeyID,
-		rpc.Credentials{
-			Type:    rpc.CredentialsTypeAPIKey,
-			Payload: apiKey,
-		},
-	)
+	opts := rpc.WithEntityCredentials(options.entity, options.credentials)
 
 	conn, err := dialDirectGRPC(ctx, serviceHost.Host, logger, opts)
 	if err != nil {

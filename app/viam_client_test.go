@@ -14,7 +14,7 @@ import (
 
 var (
 	logger             = logging.NewLogger("test")
-	defaultServiceHost = "https://app.viam.com"
+	defaultURL         = "https://app.viam.com"
 	testAPIKey         = "abcdefghijklmnopqrstuv0123456789"
 	testAPIKeyID       = "abcd0123-ef45-gh67-ij89-klmnopqr01234567"
 )
@@ -44,23 +44,36 @@ func mockDialDirectGRPC(
 	return &MockConn{}, nil
 }
 
-func TestCreateViamClientWithURLTests(t *testing.T) {
+func TestCreateViamClientWithOptions(t *testing.T) {
 	urlTests := []struct {
 		name      string
 		baseURL   string
+		entity    string
+		payload   string
 		expectErr bool
 	}{
-		{"Default URL", defaultServiceHost, false},
-		{"Valid URL", "https://test.com", false},
-		{"Empty URL", "", false},
-		{"Invalid URL", "test", true},
+		{"Default URL", defaultURL, testAPIKeyID, testAPIKey, false},
+		{"Default URL", defaultURL, "", "", true},
+		{"Default URL", defaultURL, "", testAPIKey, true},
+		{"Default URL", defaultURL, testAPIKeyID, "", true},
+		{"Empty URL", "", testAPIKeyID, testAPIKey, false},
+		{"Valid URL", "https://test.com", testAPIKeyID, testAPIKey, false},
+		{"Invalid URL", "test", testAPIKey, testAPIKey, true},
 	}
 	originalDialDirectGRPC := dialDirectGRPC
 	dialDirectGRPC = mockDialDirectGRPC
 	defer func() { dialDirectGRPC = originalDialDirectGRPC }()
 	for _, tt := range urlTests {
 		t.Run(tt.name, func(t *testing.T) {
-			client, err := CreateViamClient(context.Background(), tt.baseURL, testAPIKey, testAPIKeyID, logger)
+			opts := Options{
+				baseURL: tt.baseURL,
+				entity: tt.entity,
+				credentials: rpc.Credentials{
+					Type: rpc.CredentialsTypeAPIKey,
+					Payload: tt.payload,
+				},
+			}
+			client, err := CreateViamClientWithOptions(context.Background(), opts, logger)
 			if (err != nil) != tt.expectErr {
 				t.Errorf("Expected error: %v, got: %v", tt.expectErr, err)
 			}
@@ -90,7 +103,7 @@ func TestCreateViamClientWithAPIKeyTests(t *testing.T) {
 	}
 	for _, tt := range apiKeyTests {
 		t.Run(tt.name, func(t *testing.T) {
-			client, err := CreateViamClient(context.Background(), defaultServiceHost, tt.apiKey, tt.apiKeyID, logger)
+			client, err := CreateViamClientWithOptions(context.Background(), defaultURL, tt.apiKey, tt.apiKeyID, logger)
 			if (err != nil) != tt.expectErr {
 				t.Errorf("Expected error: %v, got: %v", tt.expectErr, err)
 			}
