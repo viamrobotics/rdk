@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 //protobuf to type or type to protobuf (poseinframe to proto or proto to pose in frame)
@@ -39,7 +40,11 @@ type CaptureMetadata struct {
 	mime_type string
 	//^^ string mime_type = 13;
 }
-
+type BinaryID struct {
+	FileId         string
+	OrganizationId string
+	LocationId     string
+}
 type BoundingBox struct {
 	id               string
 	label            string
@@ -66,6 +71,7 @@ type BinaryData struct {
 	Metadata BinaryMetadata
 }
 
+// can the return type be a struct called BinaryMetadata that I made up???
 type BinaryMetadata struct {
 	ID string
 	//CaptureMetadata *pb.CaptureMetadata
@@ -78,6 +84,48 @@ type BinaryMetadata struct {
 	Annotations     Annotations
 	//Annotations *pb.Annotations
 	DatasetIDs []string
+}
+type Filter struct {
+	ComponentName   string
+	ComponentType   string
+	Method          string
+	RobotName       string
+	RobotId         string
+	PartName        string
+	PartId          string
+	LocationIds     []string
+	OrganizationIds []string
+	MimeType        []string
+	Interval        CaptureInterval //asterix or no??
+	TagsFilter      TagsFilter      //asterix or no??
+	BboxLabels      []string
+	DatasetId       string
+}
+
+// func (f Filter) IsEmpty() bool {
+// 	return reflect.DeepEqual(f, Filter{})
+// }
+
+//notes for above::
+// type TagsFilter struct {
+// 	state         protoimpl.MessageState
+// 	sizeCache     protoimpl.SizeCache
+// 	unknownFields protoimpl.UnknownFields
+
+// 	Type TagsFilterType `protobuf:"varint,1,opt,name=type,proto3,enum=viam.app.data.v1.TagsFilterType" json:"type,omitempty"`
+// 	// Tags are used to match documents if `type` is UNSPECIFIED or MATCH_BY_OR.
+// 	Tags []string `protobuf:"bytes,2,rep,name=tags,proto3" json:"tags,omitempty"`
+// }
+
+//type TagsFilterType int32
+
+type TagsFilter struct {
+	Type int32 //type TagsFilterType int32
+	Tags []string
+}
+type CaptureInterval struct {
+	Start time.Time
+	End   time.Time
 }
 
 func BoundingBoxFromProto(proto *pb.BoundingBox) BoundingBox {
@@ -154,6 +202,68 @@ func BinaryMetadataFromProto(proto *pb.BinaryMetadata) BinaryMetadata {
 	}
 }
 
+// PropertiesToProtoResponse takes a map of features to struct and converts it
+// to a GetPropertiesResponse.
+func FilterToProto(filter Filter) *pb.Filter {
+	return &pb.Filter{
+		ComponentName:   filter.ComponentName,
+		ComponentType:   filter.ComponentType,
+		Method:          filter.Method,
+		RobotName:       filter.RobotName,
+		RobotId:         filter.RobotId,
+		PartName:        filter.PartName,
+		PartId:          filter.PartId,
+		LocationIds:     filter.LocationIds,
+		OrganizationIds: filter.OrganizationIds,
+		MimeType:        filter.MimeType,
+		Interval:        CaptureIntervalToProto(filter.Interval), //check this ??
+		TagsFilter:      TagsFilterToProto(filter.TagsFilter),    //check this ??
+		BboxLabels:      filter.BboxLabels,
+		DatasetId:       filter.DatasetId,
+	}
+}
+func CaptureIntervalToProto(interval CaptureInterval) *pb.CaptureInterval {
+	return &pb.CaptureInterval{
+		Start: timestamppb.New(interval.Start),
+		End:   timestamppb.New(interval.End),
+	}
+}
+func TagsFilterToProto(tagsFilter TagsFilter) *pb.TagsFilter {
+	return &pb.TagsFilter{
+		Type: pb.TagsFilterType(tagsFilter.Type),
+		Tags: tagsFilter.Tags,
+	}
+}
+
+// shadow type for Order
+type Order int32
+
+// do i even need these below???
+const (
+	Unspecified Order = 0
+	Descending  Order = 1
+	Ascending   Order = 2
+)
+
+// Map SortOrder to corresponding values in pb.Order
+func OrderToProto(sortOrder Order) pb.Order {
+	switch sortOrder {
+	case Ascending:
+		return pb.Order_ORDER_ASCENDING
+	case Descending:
+		return pb.Order_ORDER_DESCENDING
+	default:
+		return pb.Order_ORDER_UNSPECIFIED // default or error handling
+	}
+}
+
+// LocationIds     []string
+// OrganizationIds []string
+// MimeType        []string
+// Interval        *CaptureInterval
+// TagsFilter      *TagsFilter
+// BboxLabels      []string
+
 type DataClient struct {
 	//do we want this to be a public interface that defines the functions but does not include client and private details?
 	//would not include client and private details
@@ -183,26 +293,28 @@ func NewDataClient(
 func (d *DataClient) TabularDataByFilter(
 	//include dest?
 	ctx context.Context,
-	filter *pb.Filter, //optional - no filter implies all tabular data
+	// filter *pb.Filter, //optional - no filter implies all tabular data
+	filter Filter,
 	limit uint64, //optional - max defaults to 50 if unspecified
 	last string, //optional
-	sortOrder pb.Order, //optional
+	sortOrder Order, //optional
 	countOnly bool,
 	includeInternalData bool) ([]TabularData, uint64, string, error) {
 	// initialize limit if it's unspecified (zero value)
 	if limit == 0 {
 		limit = 50
 	}
-	// ensure filter is not nil to represent a query for "all data"
-	if filter == nil {
-		filter = &pb.Filter{}
-	}
+
+	// // ensure filter is not nil to represent a query for "all data"
+	// if filter.IsEmpty(){
+	// 	filter = Filter{} //i think if it is empty than it just implies that ALL tabular data??
+	// }
 	resp, err := d.client.TabularDataByFilter(ctx, &pb.TabularDataByFilterRequest{
 		DataRequest: &pb.DataRequest{ //need to do checks to make sure it fits the constraints
-			Filter:    filter,
+			Filter:    FilterToProto(filter),
 			Limit:     limit,
 			Last:      last,
-			SortOrder: sortOrder,
+			SortOrder: OrderToProto(sortOrder),
 		},
 		CountOnly:           countOnly,
 		IncludeInternalData: includeInternalData,
@@ -306,7 +418,7 @@ func (d *DataClient) TabularDataByMQL(ctx context.Context, organizationId string
 func (d *DataClient) BinaryDataByFilter(
 	//dest string??
 	ctx context.Context,
-	filter *pb.Filter,
+	filter Filter,
 	limit uint64,
 	last string,
 	sortOrder pb.Order,
@@ -319,12 +431,12 @@ func (d *DataClient) BinaryDataByFilter(
 		limit = 50
 	}
 	// ensure filter is not nil to represent a query for "all data"
-	if filter == nil {
-		filter = &pb.Filter{}
-	}
+	// if filter == nil {
+	// 	filter = &pb.Filter{}
+	// }
 	resp, err := d.client.BinaryDataByFilter(ctx, &pb.BinaryDataByFilterRequest{
 		DataRequest: &pb.DataRequest{ //need to do checks to make sure it fits the constraints
-			Filter:    filter,
+			Filter:    FilterToProto(filter),
 			Limit:     limit,
 			Last:      last,
 			SortOrder: sortOrder,
@@ -360,7 +472,7 @@ func (d *DataClient) BinaryDataByIDs(ctx context.Context, binaryIds []*pb.Binary
 		data[i] = BinaryDataFromProto(protoData)
 	}
 	// return resp.Data, nil
-	return data, nil
+	return data, nil //the return type of this is: var data []BinaryData --> is that okay??? , do we only want go native types does this count?
 }
 func (d *DataClient) DeleteTabularData(ctx context.Context, organizationId string, deleteOlderThanDays uint32) (uint64, error) {
 	resp, err := d.client.DeleteTabularData(ctx, &pb.DeleteTabularDataRequest{
@@ -373,13 +485,13 @@ func (d *DataClient) DeleteTabularData(ctx context.Context, organizationId strin
 	return resp.DeletedCount, nil
 }
 
-func (d *DataClient) DeleteBinaryDataByFilter(ctx context.Context, filter *pb.Filter) (uint64, error) {
+func (d *DataClient) DeleteBinaryDataByFilter(ctx context.Context, filter Filter) (uint64, error) {
 	//should probably do some sort of check that filter isn't empty otherwise i need to do something
-	if filter == nil {
-		filter = &pb.Filter{}
-	}
+	// if filter == nil {
+	// 	filter = &pb.Filter{}
+	// }
 	resp, err := d.client.DeleteBinaryDataByFilter(ctx, &pb.DeleteBinaryDataByFilterRequest{
-		Filter:              filter,
+		Filter:              FilterToProto(filter),
 		IncludeInternalData: true,
 	})
 	if err != nil {
@@ -403,11 +515,11 @@ func (d *DataClient) AddTagsToBinaryDataByIDs(ctx context.Context, tags []string
 	}
 	return nil
 }
-func (d *DataClient) AddTagsToBinaryDataByFilter(ctx context.Context, tags []string, filter *pb.Filter) error {
-	if filter == nil {
-		filter = &pb.Filter{}
-	}
-	_, err := d.client.AddTagsToBinaryDataByFilter(ctx, &pb.AddTagsToBinaryDataByFilterRequest{Filter: filter, Tags: tags})
+func (d *DataClient) AddTagsToBinaryDataByFilter(ctx context.Context, tags []string, filter Filter) error {
+	// if filter == nil {
+	// 	filter = &pb.Filter{}
+	// }
+	_, err := d.client.AddTagsToBinaryDataByFilter(ctx, &pb.AddTagsToBinaryDataByFilterRequest{Filter: FilterToProto(filter), Tags: tags})
 	if err != nil {
 		return err
 	}
@@ -420,21 +532,21 @@ func (d *DataClient) RemoveTagsFromBinaryDataByIDs(ctx context.Context, tags []s
 	}
 	return resp.DeletedCount, nil
 }
-func (d *DataClient) RemoveTagsFromBinaryDataByFilter(ctx context.Context, tags []string, filter *pb.Filter) (uint64, error) {
-	if filter == nil {
-		filter = &pb.Filter{}
-	}
-	resp, err := d.client.RemoveTagsFromBinaryDataByFilter(ctx, &pb.RemoveTagsFromBinaryDataByFilterRequest{Filter: filter, Tags: tags})
+func (d *DataClient) RemoveTagsFromBinaryDataByFilter(ctx context.Context, tags []string, filter Filter) (uint64, error) {
+	// if filter == nil {
+	// 	filter = &pb.Filter{}
+	// }
+	resp, err := d.client.RemoveTagsFromBinaryDataByFilter(ctx, &pb.RemoveTagsFromBinaryDataByFilterRequest{Filter: FilterToProto(filter), Tags: tags})
 	if err != nil {
 		return 0, err
 	}
 	return resp.DeletedCount, nil
 }
-func (d *DataClient) TagsByFilter(ctx context.Context, filter *pb.Filter) ([]string, error) {
-	if filter == nil {
-		filter = &pb.Filter{}
-	}
-	resp, err := d.client.TagsByFilter(ctx, &pb.TagsByFilterRequest{Filter: filter})
+func (d *DataClient) TagsByFilter(ctx context.Context, filter Filter) ([]string, error) {
+	// if filter == nil {
+	// 	filter = &pb.Filter{}
+	// }
+	resp, err := d.client.TagsByFilter(ctx, &pb.TagsByFilterRequest{Filter: FilterToProto(filter)})
 	if err != nil {
 		return nil, err
 	}
@@ -462,11 +574,11 @@ func (d *DataClient) RemoveBoundingBoxFromImageByID(ctx context.Context, bboxId 
 	}
 	return nil
 }
-func (d *DataClient) BoundingBoxLabelsByFilter(ctx context.Context, filter *pb.Filter) ([]string, error) {
-	if filter == nil {
-		filter = &pb.Filter{}
-	}
-	resp, err := d.client.BoundingBoxLabelsByFilter(ctx, &pb.BoundingBoxLabelsByFilterRequest{Filter: filter})
+func (d *DataClient) BoundingBoxLabelsByFilter(ctx context.Context, filter Filter) ([]string, error) {
+	// if filter == nil {
+	// 	filter = &pb.Filter{}
+	// }
+	resp, err := d.client.BoundingBoxLabelsByFilter(ctx, &pb.BoundingBoxLabelsByFilterRequest{Filter: FilterToProto(filter)})
 	if err != nil {
 		return nil, err
 	}

@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	datapb "go.viam.com/api/app/data/v1"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -35,6 +37,7 @@ import (
 func createGrpclient() datapb.DataServiceClient {
 	return &inject.DataServiceClient{}
 }
+
 func TestDataClient(t *testing.T) {
 	grpcClient := &inject.DataServiceClient{}
 	client := DataClient{client: grpcClient}
@@ -53,7 +56,6 @@ func TestDataClient(t *testing.T) {
 		// 	Data: map[string]interface{}
 		// 	Metadata: CaptureMetadata
 		// }
-		// myFilter := create_filter(component_name="motor-1")
 		// myLast := nil
 
 		// returns: List[TabularData]: The tabular data, int: The count (number of entries), str: The last-returned page ID.
@@ -65,7 +67,7 @@ func TestDataClient(t *testing.T) {
 			return &datapb.TabularDataByFilterResponse{Data: _, Count: _, Last: _}, nil
 		}
 
-		respData, respCount, respLast, _ := client.TabularDataByFilter(context.Background(), filter, limit, last, sortOrder, countOnly, includeInternalData)
+		respTabularData, respCount, respLast, _ := client.TabularDataByFilter(context.Background(), filter, limit, last, sortOrder, countOnly, includeInternalData)
 		test.That(t, respData, test.ShouldEqual, expectedData)
 		test.That(t, respCount, test.ShouldEqual, expectedCount)
 		test.That(t, respLast, test.ShouldEqual, expectedLast)
@@ -93,6 +95,7 @@ func TestDataClient(t *testing.T) {
 			{"one": 1},
 			{"list": []string{"a", "b", "c"}},
 		}
+	
 
 		grpcClient.TabularDataByMQLFunc = func(ctx context.Context, in *datapb.TabularDataByMQLRequest, opts ...grpc.CallOption) (*datapb.TabularDataByMQLResponse, error) {
 			test.That(t, in.OrganizationId, test.ShouldEqual, org_id)
@@ -106,8 +109,59 @@ func TestDataClient(t *testing.T) {
 		fmt.Printf("Actual  : %#v\n", response)
 		test.That(t, response, test.ShouldResemble, expected) //*this test not working as expected yet!
 	})
-	t.Run("TabularDataByFilter", func(t *testing.T) {
+	t.Run("BinaryDataByFilter", func(t *testing.T) {
 
+	})
+	t.Run("BinaryDataByIDs", func(t *testing.T) {
+		binaryID1 := BinaryID{ //can this just be of type BinaryID??? why proto type?
+			FileId:         "file1",
+			OrganizationId: "org1",
+			LocationId:     "loc1",
+		}
+		//  ==> why would it have to be of type datapb??? cant it jsut be of BinaryID
+		binaryID2 := BinaryID{
+			FileId:         "file2",
+			OrganizationId: "org1",
+			LocationId:     "loc1",
+		}
+		binaryIDs := []BinaryID{binaryID1, binaryID2}
+
+		// binaryMetadata that acts as input!
+		metadata := BinaryMetadata{
+			ID:              "id1",
+			CaptureMetadata: CaptureMetadata{ /* I probs need to fill these fields in???*/ },
+			TimeRequested:   time.Now(),
+			TimeReceived:    time.Now(),
+			FileName:        "file.txt",
+			FileExt:         ".txt",
+			URI:             "http://ex/file.txt", //can i just make this up??
+			Annotations:     Annotations{ /* this too???*/ },
+			DatasetIDs:      []string{"dataset1", "dataset2"},
+		}
+
+		binary := []byte("something")
+		// binaryData that acts as input
+		binaryData := BinaryData{
+			Binary:   binary,
+			Metadata: metadata,
+		}
+		binaryDataList := []BinaryData{binaryData}
+
+		grpcClient.BinaryDataByIDsFunc = func(ctx context.Context, in *datapb.BinaryDataByIDsRequest, opts ...grpc.CallOption) (*datapb.BinaryDataByIDsResponse, error) {
+			test.That(t, in.BinaryIds, test.ShouldEqual, binaryIDs)
+			return &datapb.BinaryDataByIDsResponse{Data: binaryDataList, Count: uint64(len(binaryDataList))}, nil
+		}
+		response, _ := client.BinaryDataByIDs(context.Background(), binaryIDs)
+
+		// expectedData := BinaryData{binary: binary, Metadata: metadata}
+		// var expectedData []BinaryData{BinaryDataFromProto(binaryDataList)} 
+		var expectedData []BinaryData 
+		for _, binaryDataItem := range binaryDataList {
+			convertedData := BinaryDataFromProto(binaryDataItem)
+			expectedData = append(expectedData, convertedData)
+		}
+		//loop thru binary dataDataList and convert binaryDataFromproto each one---> and then add that to a list...!
+		test.That(t, response, test.ShouldResemble, expectedData)
 	})
 
 }
@@ -219,3 +273,14 @@ func TestDataClient(t *testing.T) {
 // conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
 // test.That(t, err, test.ShouldBeNil)
 // client := datapb.NewDataServiceClient(conn)
+
+//notes on the param chekcing stuff
+	// var request *datapb.TabularDataByMQLRequest
+
+		// grpcClient.TabularDataByMQLFunc = func(ctx context.Context, in *datapb.TabularDataByMQLRequest, opts ...grpc.CallOption) (*datapb.TabularDataByMQLResponse, error) {
+		// 	request = in
+		// 	return &datapb.TabularDataByMQLResponse{RawData: mql_binary}, nil //MQlResponse is created with BSON data
+		// }
+
+		// assert request.org
+		
