@@ -584,9 +584,7 @@ func TestStatusClient(t *testing.T) {
 
 	camera1, err = camera.FromRobot(client, "camera1")
 	test.That(t, err, test.ShouldBeNil)
-	frameBytes, mimeType, err := camera1.Image(context.Background(), rutils.MimeTypeRawRGBA, nil)
-	test.That(t, err, test.ShouldBeNil)
-	frame, err := rimage.DecodeImage(context.Background(), frameBytes, mimeType)
+	frame, err := camera.GetGoImage(context.Background(), rutils.MimeTypeRawRGBA, nil, camera1)
 	test.That(t, err, test.ShouldBeNil)
 	compVal, _, err := rimage.CompareImages(img, frame)
 	test.That(t, err, test.ShouldBeNil)

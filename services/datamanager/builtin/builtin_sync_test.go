@@ -370,7 +370,7 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 								if err != nil {
 									return nil, "", err
 								}
-								return outBytes, "", nil
+								return outBytes, mimeType, nil
 							},
 						},
 					})
@@ -777,7 +777,7 @@ func TestStreamingDCUpload(t *testing.T) {
 						if err != nil {
 							return nil, "", err
 						}
-						return outBytes, "", nil
+						return outBytes, mimeType, nil
 					},
 				},
 			})
@@ -1022,7 +1022,7 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 						if err != nil {
 							return nil, "", err
 						}
-						return outBytes, "", nil
+						return outBytes, mimeType, nil
 					},
 				},
 			})

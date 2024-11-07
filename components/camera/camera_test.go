@@ -182,9 +182,7 @@ func TestCameraWithNoProjector(t *testing.T) {
 	_, got := pc.At(0, 0, 0)
 	test.That(t, got, test.ShouldBeTrue)
 
-	imgBytes, mimeType, err := noProj2.Image(context.Background(), rutils.WithLazyMIMEType(rutils.MimeTypePNG), nil)
-	test.That(t, err, test.ShouldBeNil)
-	img, err := rimage.DecodeImage(context.Background(), imgBytes, mimeType)
+	img, err := camera.GetGoImage(context.Background(), rutils.WithLazyMIMEType(rutils.MimeTypePNG), nil, noProj2)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, img.Bounds().Dx(), test.ShouldEqual, 1280)
@@ -231,9 +229,7 @@ func TestCameraWithProjector(t *testing.T) {
 	_, got := pc.At(0, 0, 0)
 	test.That(t, got, test.ShouldBeTrue)
 
-	imgBytes, mimeType, err := cam2.Image(context.Background(), rutils.MimeTypePNG, nil)
-	test.That(t, err, test.ShouldBeNil)
-	img, err := rimage.DecodeImage(context.Background(), imgBytes, mimeType)
+	img, err := camera.GetGoImage(context.Background(), rutils.MimeTypePNG, nil, cam2)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, err, test.ShouldBeNil)

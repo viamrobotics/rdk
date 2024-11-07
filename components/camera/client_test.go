@@ -171,9 +171,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		camera1Client, err := camera.NewClientFromConn(context.Background(), conn, "", camera.Named(testCameraName), logger)
 		test.That(t, err, test.ShouldBeNil)
-		frameBytes, mimeType, err := camera1Client.Image(context.Background(), rutils.MimeTypeRawRGBA, nil)
-		test.That(t, err, test.ShouldBeNil)
-		frame, err := rimage.DecodeImage(context.Background(), frameBytes, mimeType)
+		frame, err := camera.GetGoImage(context.Background(), rutils.MimeTypeRawRGBA, nil, camera1Client)
 		test.That(t, err, test.ShouldBeNil)
 		compVal, _, err := rimage.CompareImages(img, frame)
 		test.That(t, err, test.ShouldBeNil)
@@ -220,9 +218,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		ctx := context.Background()
-		frameBytes, mimeType, err := client.Image(ctx, rutils.WithLazyMIMEType(rutils.MimeTypePNG), nil)
-		test.That(t, err, test.ShouldBeNil)
-		frame, err := rimage.DecodeImage(context.Background(), frameBytes, mimeType)
+		frame, err := camera.GetGoImage(ctx, rutils.WithLazyMIMEType(rutils.MimeTypePNG), nil, client)
 		test.That(t, err, test.ShouldBeNil)
 		dm, err := rimage.ConvertImageToDepthMap(context.Background(), frame)
 		test.That(t, err, test.ShouldBeNil)
@@ -463,9 +459,7 @@ func TestClientLazyImage(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
-	frameBytes, mimeType, err := camera1Client.Image(ctx, rutils.MimeTypePNG, nil)
-	test.That(t, err, test.ShouldBeNil)
-	frame, err := rimage.DecodeImage(ctx, frameBytes, mimeType)
+	frame, err := camera.GetGoImage(ctx, rutils.MimeTypePNG, nil, camera1Client)
 	test.That(t, err, test.ShouldBeNil)
 	// Should always lazily decode
 	test.That(t, frame, test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
@@ -473,9 +467,7 @@ func TestClientLazyImage(t *testing.T) {
 	test.That(t, frameLazy.RawData(), test.ShouldResemble, imgBuf.Bytes())
 
 	ctx = context.Background()
-	frameBytes, mimeType, err = camera1Client.Image(ctx, rutils.WithLazyMIMEType(rutils.MimeTypePNG), nil)
-	test.That(t, err, test.ShouldBeNil)
-	frame, err = rimage.DecodeImage(ctx, frameBytes, mimeType)
+	frame, err = camera.GetGoImage(ctx, rutils.WithLazyMIMEType(rutils.MimeTypePNG), nil, camera1Client)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, frame, test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
 	frameLazy = frame.(*rimage.LazyEncodedImage)

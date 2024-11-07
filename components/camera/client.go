@@ -128,7 +128,8 @@ func (c *client) Stream(
 	// with those from the new "generation".
 	healthyClientCh := c.maybeResetHealthyClientCh()
 
-	ctxWithMIME := gostream.WithMIMETypeHint(context.Background(), gostream.MIMETypeHint(ctx, ""))
+	mimeTypeFromCtx := gostream.MIMETypeHint(ctx, "")
+	ctxWithMIME := gostream.WithMIMETypeHint(context.Background(), mimeTypeFromCtx)
 	streamCtx, stream, frameCh := gostream.NewMediaStreamForChannel[image.Image](ctxWithMIME)
 
 	c.activeBackgroundWorkers.Add(1)
@@ -145,14 +146,14 @@ func (c *client) Stream(
 				return
 			}
 
-			frame, mimeType, err := c.Image(streamCtx, gostream.MIMETypeHint(ctx, ""), nil)
+			resBytes, resMimeType, err := c.Image(streamCtx, mimeTypeFromCtx, nil)
 			if err != nil {
 				for _, handler := range errHandlers {
 					handler(streamCtx, err)
 				}
 			}
 
-			img, err := rimage.DecodeImage(ctx, frame, mimeType)
+			img, err := rimage.DecodeImage(ctx, resBytes, resMimeType)
 			if err != nil {
 				c.logger.CWarnw(ctx, "error decoding image", "err", err)
 				return
@@ -183,14 +184,14 @@ func (c *client) Image(ctx context.Context, mimeType string, extra map[string]in
 	defer span.End()
 	expectedType, _ := utils.CheckLazyMIMEType(mimeType)
 
-	structExtra, err := goprotoutils.StructToStructPb(extra)
+	convertedExtra, err := goprotoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, "", err
 	}
 	resp, err := c.client.GetImage(ctx, &pb.GetImageRequest{
 		Name:     c.name,
 		MimeType: expectedType,
-		Extra:    structExtra,
+		Extra:    convertedExtra,
 	})
 	if err != nil {
 		return nil, "", err

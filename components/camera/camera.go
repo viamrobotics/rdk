@@ -6,6 +6,7 @@ package camera
 
 import (
 	"context"
+	"fmt"
 	"image"
 
 	"github.com/pkg/errors"
@@ -15,6 +16,7 @@ import (
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 )
@@ -76,8 +78,20 @@ type Camera interface {
 	VideoSource
 }
 
-// A VideoSource represents anything that can capture frames.
+// VideoSource represents anything that can capture frames.
 // For more information, see the [camera component docs].
+//
+// Image example:
+//
+//	myCamera, err := camera.FromRobot(machine, "my_camera")
+//
+//	// gets an image from the camera
+//	imageBytes, mimeType, err := myCamera.Image(context.Background(), utils.MimeTypeJPEG, nil)
+//
+// Or try to directly decode into an image.Image:
+//
+//	myCamera, err := camera.FromRobot(machine, "my_camera")
+//	img, err = camera.GetGoImage(context.Background(), utils.MimeTypeJPEG, nil, myCamera)
 //
 // Images example:
 //
@@ -138,6 +152,19 @@ type VideoSource interface {
 // ReadImage reads an image from the given source that is immediately available.
 func ReadImage(ctx context.Context, src gostream.VideoSource) (image.Image, func(), error) {
 	return gostream.ReadImage(ctx, src)
+}
+
+// GetGoImage retrieves frame bytes from a camera source and decodes it into an image.Image type.
+func GetGoImage(ctx context.Context, mimeType string, extra map[string]interface{}, cam VideoSource) (image.Image, error) {
+	resBytes, resMimeType, err := cam.Image(context.Background(), mimeType, nil)
+	if err != nil {
+		return nil, fmt.Errorf("could not get image bytes from camera: %w", err)
+	}
+	img, err := rimage.DecodeImage(context.Background(), resBytes, resMimeType)
+	if err != nil {
+		return nil, fmt.Errorf("could not decode into image.Image: %w", err)
+	}
+	return img, nil
 }
 
 // A PointCloudSource is a source that can generate pointclouds.
