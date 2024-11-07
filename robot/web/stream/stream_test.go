@@ -198,7 +198,7 @@ func TestAudioTrackIsNotCreatedForVideoStream(t *testing.T) {
 }
 
 func TestGetStreamOptions(t *testing.T) {
-	logger := logging.NewTestLogger(t).Sublogger("TestWebReconfigure")
+	logger := logging.NewTestLogger(t).Sublogger("GetStreamOptions")
 	// Create a robot with several fake cameras of common resolutions.
 	// Fake cameras with a Model attribute will use Properties to
 	// determine source resolution. Fake cameras without a Model
@@ -358,7 +358,7 @@ func TestGetStreamOptions(t *testing.T) {
 }
 
 func TestSetStreamOptions(t *testing.T) {
-	logger := logging.NewTestLogger(t).Sublogger("TestWebReconfigure")
+	logger := logging.NewTestLogger(t).Sublogger("TestSetStreamOptions")
 	origCfg := &config.Config{Components: []resource.Config{
 		// 480p
 		{
@@ -368,6 +368,16 @@ func TestSetStreamOptions(t *testing.T) {
 			ConvertedAttributes: &fake.Config{
 				Width:  640,
 				Height: 480,
+			},
+		},
+		{
+			Name:  "fake-cam-0-1",
+			API:   resource.NewAPI("rdk", "component", "camera"),
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			ConvertedAttributes: &fake.Config{
+				Width:          640,
+				Height:         480,
+				RTPPassthrough: true,
 			},
 		},
 	}}
@@ -382,7 +392,7 @@ func TestSetStreamOptions(t *testing.T) {
 	livestreamClient := streampb.NewStreamServiceClient(conn)
 	listResp, err := livestreamClient.ListStreams(ctx, &streampb.ListStreamsRequest{})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(listResp.Names), test.ShouldEqual, 1)
+	test.That(t, len(listResp.Names), test.ShouldEqual, 2)
 
 	getStreamOptionsResp, err := livestreamClient.GetStreamOptions(ctx, &streampb.GetStreamOptionsRequest{
 		Name: "fake-cam-0-0",
@@ -414,13 +424,16 @@ func TestSetStreamOptions(t *testing.T) {
 	test.That(t, setStreamOptionsResp, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid resolution")
 
-	// Try adding stream
+	// Add stream. We want to make sure that we can hot swap with
+	// SetStreamOptions with a live stream.
 	res, err := livestreamClient.AddStream(ctx, &streampb.AddStreamRequest{
 		Name: "fake-cam-0-0",
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotBeNil)
+	logger.Info("Checking video track is created")
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		logger.Info(conn.PeerConn().CurrentLocalDescription().SDP)
 		videoCnt := strings.Count(conn.PeerConn().CurrentLocalDescription().SDP, "m=video")
 		test.That(tb, videoCnt, test.ShouldEqual, 1)
 	})
@@ -437,31 +450,39 @@ func TestSetStreamOptions(t *testing.T) {
 	videoCnt := strings.Count(conn.PeerConn().CurrentLocalDescription().SDP, "m=video")
 	test.That(t, videoCnt, test.ShouldEqual, 1)
 
-	// try RemoveStream
+	// Add another stream that has RTPPassthrough enabled
+	res, err = livestreamClient.AddStream(ctx, &streampb.AddStreamRequest{
+		Name: "fake-cam-0-1",
+	})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldNotBeNil)
+	logger.Info(conn.PeerConn().CurrentLocalDescription().SDP)
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		videoCnt = strings.Count(conn.PeerConn().CurrentLocalDescription().SDP, "m=video")
+		test.That(tb, videoCnt, test.ShouldEqual, 2)
+	})
+
+	// Try setting stream options with RTPPassthrough enabled
+	setStreamOptionsResp, err = livestreamClient.SetStreamOptions(ctx, &streampb.SetStreamOptionsRequest{
+		Name:       "fake-cam-0-1",
+		Resolution: &streampb.Resolution{Width: 320, Height: 240},
+	})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, setStreamOptionsResp, test.ShouldNotBeNil)
+
+	// Make sure that video strack is still alive through the peer connection
+	videoCnt = strings.Count(conn.PeerConn().CurrentLocalDescription().SDP, "m=video")
+	test.That(t, videoCnt, test.ShouldEqual, 2)
+
+	// Make sure there are no problems removing streams
 	removeRes, err := livestreamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{
 		Name: "fake-cam-0-0",
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, removeRes, test.ShouldNotBeNil)
-	// testutils.WaitForAssertion(t, func(tb testing.TB) {
-	// 	videoCnt = strings.Count(conn.PeerConn().CurrentLocalDescription().SDP, "m=video")
-	// 	test.That(t, videoCnt, test.ShouldEqual, 0)
-	// })
-
-	// // Get image from camera and verify the resolution
-	// !!! this will not work need to go through webrtc path
-	// cam, err := camera.FromRobot(robot, "fake-cam-0-0")
-	// cam
-	// test.That(t, err, test.ShouldBeNil)
-	// defer cam.Close(ctx)
-	// var errHandlers []gostream.ErrorHandler
-	// stream, err := cam.Stream(ctx, errHandlers...)
-	// test.That(t, err, test.ShouldBeNil)
-	// defer stream.Close(ctx)
-	// img, release, err := stream.Next(ctx)
-	// release()
-	// test.That(t, err, test.ShouldBeNil)
-	// test.That(t, img.Bounds().Dx(), test.ShouldEqual, 320)
-	// test.That(t, img.Bounds().Dy(), test.ShouldEqual, 240)
-
+	removeRes, err = livestreamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{
+		Name: "fake-cam-0-1",
+	})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, removeRes, test.ShouldNotBeNil)
 }
