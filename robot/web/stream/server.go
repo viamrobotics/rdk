@@ -381,20 +381,13 @@ func (server *Server) SetStreamOptions(
 	if req.Name == "" {
 		return nil, errors.New("stream name is required")
 	}
-	if _, ok := server.videoSources[req.Name]; !ok {
-		return nil, errors.New("stream name not found")
-	}
 	if req.Resolution == nil {
 		return nil, errors.New("resolution is required")
 	}
 	if req.Resolution.Width <= 0 || req.Resolution.Height <= 0 {
 		return nil, errors.New("invalid resolution, width and height must be greater than 0")
 	}
-	_, err := camera.FromRobot(server.robot, req.Name)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get camera from robot: %w", err)
-	}
-	err = server.resizeVideoSource(req.Name, int(req.Resolution.Width), int(req.Resolution.Height))
+	err := server.resizeVideoSource(req.Name, int(req.Resolution.Width), int(req.Resolution.Height))
 	if err != nil {
 		return nil, fmt.Errorf("failed to resize video source: %w", err)
 	}

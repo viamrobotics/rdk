@@ -403,7 +403,8 @@ func TestSetStreamOptions(t *testing.T) {
 
 	// Test setting stream options with invalid name
 	setStreamOptionsResp, err := livestreamClient.SetStreamOptions(ctx, &streampb.SetStreamOptionsRequest{
-		Name: "invalid-name",
+		Name:       "invalid-name",
+		Resolution: &streampb.Resolution{Width: 320, Height: 240},
 	})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, setStreamOptionsResp, test.ShouldBeNil)
