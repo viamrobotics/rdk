@@ -91,15 +91,14 @@ func (c *AppClient) GetOrganizationNamespaceAvailability(ctx context.Context, na
 	return resp.Available, nil
 }
 
-
 // UpdateOrganization updates an organization.
-func (c *AppClient) UpdateOrganization(ctx context.Context, orgId string, name *string, namespace *string, region *string, cid *string) (*pb.Organization, error) {
+func (c *AppClient) UpdateOrganization(ctx context.Context, orgId string, name, namespace, region, cid *string) (*pb.Organization, error) {
 	resp, err := c.client.UpdateOrganization(ctx, &pb.UpdateOrganizationRequest{
-		OrganizationId: orgId,
-		Name: name,
+		OrganizationId:  orgId,
+		Name:            name,
 		PublicNamespace: namespace,
-		Region: region,
-		Cid: cid,
+		Region:          region,
+		Cid:             cid,
 	})
 	if err != nil {
 		return nil, err
@@ -130,11 +129,11 @@ func (c *AppClient) ListOrganizationMembers(ctx context.Context, orgId string) (
 }
 
 // CreateOrganizaitonInvite creates an organization invite to an organization.
-func (c *AppClient) CreateOrganizationInvite(ctx context.Context, orgId string, email string, authorizations []*pb.Authorization, sendEmailInvite *bool) (*pb.OrganizationInvite, error) {
+func (c *AppClient) CreateOrganizationInvite(ctx context.Context, orgId, email string, authorizations []*pb.Authorization, sendEmailInvite *bool) (*pb.OrganizationInvite, error) {
 	resp, err := c.client.CreateOrganizationInvite(ctx, &pb.CreateOrganizationInviteRequest{
-		OrganizationId: orgId,
-		Email: email,
-		Authorizations: authorizations,
+		OrganizationId:  orgId,
+		Email:           email,
+		Authorizations:  authorizations,
 		SendEmailInvite: sendEmailInvite,
 	})
 	if err != nil {
@@ -144,11 +143,11 @@ func (c *AppClient) CreateOrganizationInvite(ctx context.Context, orgId string, 
 }
 
 // UpdateOrganizationInviteAuthorizations updates the authorizations attached to an organization invite.
-func (c *AppClient) UpdateOrganizationInviteAuthorizations(ctx context.Context, orgId string, email string, addAuthorizations []*pb.Authorization, removeAuthorizations []*pb.Authorization) (*pb.OrganizationInvite, error) {
+func (c *AppClient) UpdateOrganizationInviteAuthorizations(ctx context.Context, orgId, email string, addAuthorizations, removeAuthorizations []*pb.Authorization) (*pb.OrganizationInvite, error) {
 	resp, err := c.client.UpdateOrganizationInviteAuthorizations(ctx, &pb.UpdateOrganizationInviteAuthorizationsRequest{
-		OrganizationId: orgId,
-		Email: email,
-		AddAuthorizations: addAuthorizations,
+		OrganizationId:       orgId,
+		Email:                email,
+		AddAuthorizations:    addAuthorizations,
 		RemoveAuthorizations: removeAuthorizations,
 	})
 	if err != nil {
@@ -158,10 +157,10 @@ func (c *AppClient) UpdateOrganizationInviteAuthorizations(ctx context.Context, 
 }
 
 // DeleteOrganizationMember deletes an organization member from an organization.
-func (c *AppClient) DeleteOrganizationMember(ctx context.Context, orgId string, userId string) error {
+func (c *AppClient) DeleteOrganizationMember(ctx context.Context, orgId, userId string) error {
 	_, err := c.client.DeleteOrganizationMember(ctx, &pb.DeleteOrganizationMemberRequest{
 		OrganizationId: orgId,
-		UserId: userId,
+		UserId:         userId,
 	})
 	if err != nil {
 		return err
@@ -170,10 +169,10 @@ func (c *AppClient) DeleteOrganizationMember(ctx context.Context, orgId string, 
 }
 
 // DeleteOrganizationInvite deletes an organization invite.
-func (c *AppClient) DeleteOrganizationInvite(ctx context.Context, orgId string, email string) error {
+func (c *AppClient) DeleteOrganizationInvite(ctx context.Context, orgId, email string) error {
 	_, err := c.client.DeleteOrganizationInvite(ctx, &pb.DeleteOrganizationInviteRequest{
 		OrganizationId: orgId,
-		Email: email,
+		Email:          email,
 	})
 	if err != nil {
 		return err
@@ -182,10 +181,10 @@ func (c *AppClient) DeleteOrganizationInvite(ctx context.Context, orgId string, 
 }
 
 // ResendOrganizationInvite resends an organization invite.
-func (c *AppClient) ResendOrganizationInvite(ctx context.Context, orgId string, email string) (*pb.OrganizationInvite, error) {
+func (c *AppClient) ResendOrganizationInvite(ctx context.Context, orgId, email string) (*pb.OrganizationInvite, error) {
 	resp, err := c.client.ResendOrganizationInvite(ctx, &pb.ResendOrganizationInviteRequest{
 		OrganizationId: orgId,
-		Email: email,
+		Email:          email,
 	})
 	if err != nil {
 		return nil, err
@@ -194,10 +193,10 @@ func (c *AppClient) ResendOrganizationInvite(ctx context.Context, orgId string, 
 }
 
 // CreateLocation creates a location.
-func (c *AppClient) CreateLocation(ctx context.Context, orgId string, name string, parentLocationId *string) (*pb.Location, error) {
+func (c *AppClient) CreateLocation(ctx context.Context, orgId, name string, parentLocationId *string) (*pb.Location, error) {
 	resp, err := c.client.CreateLocation(ctx, &pb.CreateLocationRequest{
-		OrganizationId: orgId,
-		Name: name,
+		OrganizationId:   orgId,
+		Name:             name,
 		ParentLocationId: parentLocationId,
 	})
 	if err != nil {
@@ -218,12 +217,12 @@ func (c *AppClient) GetLocation(ctx context.Context, locationId string) (*pb.Loc
 }
 
 // UpdateLocation updates a location.
-func (c *AppClient) UpdateLocation(ctx context.Context, locationId string, name *string, parentLocationId *string, region *string) (*pb.Location, error) {
+func (c *AppClient) UpdateLocation(ctx context.Context, locationId string, name, parentLocationId, region *string) (*pb.Location, error) {
 	resp, err := c.client.UpdateLocation(ctx, &pb.UpdateLocationRequest{
-		LocationId: locationId,
-		Name: name,
+		LocationId:       locationId,
+		Name:             name,
 		ParentLocationId: parentLocationId,
-		Region: region,
+		Region:           region,
 	})
 	if err != nil {
 		return nil, err
@@ -254,9 +253,9 @@ func (c *AppClient) ListLocations(ctx context.Context, orgId string) ([]*pb.Loca
 }
 
 // ShareLocation shares a location with an organization.
-func (c *AppClient) ShareLocation(ctx context.Context, locationId string, orgId string) error {
+func (c *AppClient) ShareLocation(ctx context.Context, locationId, orgId string) error {
 	_, err := c.client.ShareLocation(ctx, &pb.ShareLocationRequest{
-		LocationId: locationId,
+		LocationId:     locationId,
 		OrganizationId: orgId,
 	})
 	if err != nil {
@@ -266,9 +265,9 @@ func (c *AppClient) ShareLocation(ctx context.Context, locationId string, orgId 
 }
 
 // UnshareLocation stops sharing a location with an organization.
-func (c *AppClient) UnshareLocation(ctx context.Context, locationId string, orgId string) error {
+func (c *AppClient) UnshareLocation(ctx context.Context, locationId, orgId string) error {
 	_, err := c.client.UnshareLocation(ctx, &pb.UnshareLocationRequest{
-		LocationId: locationId,
+		LocationId:     locationId,
 		OrganizationId: orgId,
 	})
 	if err != nil {
@@ -300,10 +299,10 @@ func (c *AppClient) CreateLocationSecret(ctx context.Context, locationId string)
 }
 
 // Delete a secret from the location.
-func (c *AppClient) DeleteLocationSecret(ctx context.Context, locationId string, secretId string) error {
+func (c *AppClient) DeleteLocationSecret(ctx context.Context, locationId, secretId string) error {
 	_, err := c.client.DeleteLocationSecret(ctx, &pb.DeleteLocationSecretRequest{
 		LocationId: locationId,
-		SecretId: secretId,
+		SecretId:   secretId,
 	})
 	if err != nil {
 		return err
@@ -356,16 +355,16 @@ func (c *AppClient) GetRobotPart(ctx context.Context, id string) (*pb.RobotPart,
 }
 
 // GetRobotPartLogs gets the logs associated with a robot part from a page, defaulting to the most recent page if pageToken is empty. Logs of all levels are returned when levels is empty.
-func (c *AppClient) GetRobotPartLogs(ctx context.Context, id string, filter *string, pageToken *string, levels []string, start *timestamppb.Timestamp, end *timestamppb.Timestamp, limit *int64, source *string) ([]*common.LogEntry, string, error) {
+func (c *AppClient) GetRobotPartLogs(ctx context.Context, id string, filter, pageToken *string, levels []string, start, end *timestamppb.Timestamp, limit *int64, source *string) ([]*common.LogEntry, string, error) {
 	resp, err := c.client.GetRobotPartLogs(ctx, &pb.GetRobotPartLogsRequest{
-		Id: id,
-		Filter: filter,
+		Id:        id,
+		Filter:    filter,
 		PageToken: pageToken,
-		Levels: levels,
-		Start: start,
-		End: end,
-		Limit: limit,
-		Source: source,
+		Levels:    levels,
+		Start:     start,
+		End:       end,
+		Limit:     limit,
+		Source:    source,
 	})
 	if err != nil {
 		return nil, "", err
@@ -394,10 +393,10 @@ func (c *AppClient) GetRobotPartHistory(ctx context.Context, id string) ([]*pb.R
 }
 
 // UpdaetRobotPart updates a robot part.
-func (c *AppClient) UpdateRobotPart(ctx context.Context, id string, name string, robotConfig *structpb.Struct) (*pb.RobotPart, error) {
+func (c *AppClient) UpdateRobotPart(ctx context.Context, id, name string, robotConfig *structpb.Struct) (*pb.RobotPart, error) {
 	resp, err := c.client.UpdateRobotPart(ctx, &pb.UpdateRobotPartRequest{
-		Id: id,
-		Name: name,
+		Id:          id,
+		Name:        name,
 		RobotConfig: robotConfig,
 	})
 	if err != nil {
@@ -407,9 +406,9 @@ func (c *AppClient) UpdateRobotPart(ctx context.Context, id string, name string,
 }
 
 // NewRobotPart creates a new robot part.
-func (c *AppClient) NewRobotPart(ctx context.Context, robotId string, partName string) (string, error) {
+func (c *AppClient) NewRobotPart(ctx context.Context, robotId, partName string) (string, error) {
 	resp, err := c.client.NewRobotPart(ctx, &pb.NewRobotPartRequest{
-		RobotId: robotId,
+		RobotId:  robotId,
 		PartName: partName,
 	})
 	if err != nil {
@@ -474,9 +473,9 @@ func (c *AppClient) CreateRobotPartSecret(ctx context.Context, partId string) (*
 }
 
 // DeleteRobotPartSecret deletes a secret from the robot part.
-func (c *AppClient) DeleteRobotPartSecret(ctx context.Context, partId string, secretId string) error {
+func (c *AppClient) DeleteRobotPartSecret(ctx context.Context, partId, secretId string) error {
 	_, err := c.client.DeleteRobotPartSecret(ctx, &pb.DeleteRobotPartSecretRequest{
-		PartId: partId,
+		PartId:   partId,
 		SecretId: secretId,
 	})
 	if err != nil {
@@ -497,9 +496,9 @@ func (c *AppClient) ListRobots(ctx context.Context, locationId string) ([]*pb.Ro
 }
 
 // NewRobot creates a new robot.
-func (c *AppClient) NewRobot(ctx context.Context, name string, location string) (string, error) {
+func (c *AppClient) NewRobot(ctx context.Context, name, location string) (string, error) {
 	resp, err := c.client.NewRobot(ctx, &pb.NewRobotRequest{
-		Name: name,
+		Name:     name,
 		Location: location,
 	})
 	if err != nil {
@@ -509,10 +508,10 @@ func (c *AppClient) NewRobot(ctx context.Context, name string, location string) 
 }
 
 // UpdateRobot updates a robot.
-func (c *AppClient) UpdateRobot(ctx context.Context, id string, name string, location string) (*pb.Robot, error) {
+func (c *AppClient) UpdateRobot(ctx context.Context, id, name, location string) (*pb.Robot, error) {
 	resp, err := c.client.UpdateRobot(ctx, &pb.UpdateRobotRequest{
-		Id: id,
-		Name: name,
+		Id:       id,
+		Name:     name,
 		Location: location,
 	})
 	if err != nil {
@@ -535,8 +534,8 @@ func (c *AppClient) DeleteRobot(ctx context.Context, id string) error {
 // ListFragments gets a list of fragments.
 func (c *AppClient) ListFragments(ctx context.Context, orgId string, showPublic bool, fragmentVisibility []pb.FragmentVisibility) ([]*pb.Fragment, error) {
 	resp, err := c.client.ListFragments(ctx, &pb.ListFragmentsRequest{
-		OrganizationId: orgId,
-		ShowPublic: showPublic,
+		OrganizationId:     orgId,
+		ShowPublic:         showPublic,
 		FragmentVisibility: fragmentVisibility,
 	})
 	if err != nil {
@@ -559,10 +558,10 @@ func (c *AppClient) GetFragment(ctx context.Context, id string) (*pb.Fragment, e
 // CreateFragment creates a fragment.
 func (c *AppClient) CreateFragment(ctx context.Context, name string, config *structpb.Struct, orgId string, visibility *pb.FragmentVisibility) (*pb.Fragment, error) {
 	resp, err := c.client.CreateFragment(ctx, &pb.CreateFragmentRequest{
-		Name: name,
-		Config: config,
+		Name:           name,
+		Config:         config,
 		OrganizationId: orgId,
-		Visibility: visibility,
+		Visibility:     visibility,
 	})
 	if err != nil {
 		return nil, err
@@ -571,12 +570,12 @@ func (c *AppClient) CreateFragment(ctx context.Context, name string, config *str
 }
 
 // UpdateFragment updates a fragment.
-func (c *AppClient) UpdateFragment(ctx context.Context, id string, name string, config *structpb.Struct, public *bool, visibility *pb.FragmentVisibility) (*pb.Fragment, error) {
+func (c *AppClient) UpdateFragment(ctx context.Context, id, name string, config *structpb.Struct, public *bool, visibility *pb.FragmentVisibility) (*pb.Fragment, error) {
 	resp, err := c.client.UpdateFragment(ctx, &pb.UpdateFragmentRequest{
-		Id: id,
-		Name: name,
-		Config: config,
-		Public: public,
+		Id:         id,
+		Name:       name,
+		Config:     config,
+		Public:     public,
 		Visibility: visibility,
 	})
 	if err != nil {
@@ -599,7 +598,7 @@ func (c *AppClient) DeleteFragment(ctx context.Context, id string) error {
 // ListMachineFragments gets top level and nested fragments for a amchine, as well as any other fragments specified by IDs. Additional fragments are useful when needing to view fragments that will be provisionally added to the machine alongside existing fragments.
 func (c *AppClient) ListMachineFragments(ctx context.Context, machineId string, additionalFragmentIds []string) ([]*pb.Fragment, error) {
 	resp, err := c.client.ListMachineFragments(ctx, &pb.ListMachineFragmentsRequest{
-		MachineId: machineId,
+		MachineId:             machineId,
 		AdditionalFragmentIds: additionalFragmentIds,
 	})
 	if err != nil {
@@ -611,7 +610,7 @@ func (c *AppClient) ListMachineFragments(ctx context.Context, machineId string, 
 // GetFragmentHistory gets the fragment's history.
 func (c *AppClient) GetFragmentHistory(ctx context.Context, id string, pageToken *string, pageLimit *int64) ([]*pb.FragmentHistoryEntry, string, error) {
 	resp, err := c.client.GetFragmentHistory(ctx, &pb.GetFragmentHistoryRequest{
-		Id: id,
+		Id:        id,
 		PageToken: pageToken,
 		PageLimit: pageLimit,
 	})
@@ -621,7 +620,7 @@ func (c *AppClient) GetFragmentHistory(ctx context.Context, id string, pageToken
 	return resp.History, resp.NextPageToken, nil
 }
 
-func createAuthorization(orgId string, identityId string, identityType string, role string, resourceType string, resourceId string) (*pb.Authorization, error) {
+func createAuthorization(orgId, identityId, identityType, role, resourceType, resourceId string) (*pb.Authorization, error) {
 	if role != "owner" && role != "operator" {
 		return nil, errors.New("role string must be 'owner' or 'operator'")
 	}
@@ -631,17 +630,17 @@ func createAuthorization(orgId string, identityId string, identityType string, r
 
 	return &pb.Authorization{
 		AuthorizationType: role,
-		AuthorizationId: fmt.Sprintf("%s_%s", resourceType, role),
-		ResourceType: resourceType,
-		ResourceId: resourceId,
-		IdentityId: identityId,
-		OrganizationId: orgId,
-		IdentityType: identityType,
+		AuthorizationId:   fmt.Sprintf("%s_%s", resourceType, role),
+		ResourceType:      resourceType,
+		ResourceId:        resourceId,
+		IdentityId:        identityId,
+		OrganizationId:    orgId,
+		IdentityType:      identityType,
 	}, nil
 }
 
 // AddRole creates an identity authorization.
-func (c *AppClient) AddRole(ctx context.Context, orgId string, identityId string, role string, resourceType string, resourceId string) error {
+func (c *AppClient) AddRole(ctx context.Context, orgId, identityId, role, resourceType, resourceId string) error {
 	authorization, err := createAuthorization(orgId, identityId, "", role, resourceType, resourceId)
 	if err != nil {
 		return err
@@ -656,7 +655,7 @@ func (c *AppClient) AddRole(ctx context.Context, orgId string, identityId string
 }
 
 // RemoveRole deletes an identity authorization.
-func (c *AppClient) RemoveRole(ctx context.Context, orgId string, identityId string, role string, resourceType string, resourceId string) error {
+func (c *AppClient) RemoveRole(ctx context.Context, orgId, identityId, role, resourceType, resourceId string) error {
 	authorization, err := createAuthorization(orgId, identityId, "", role, resourceType, resourceId)
 	if err != nil {
 		return err
@@ -671,7 +670,7 @@ func (c *AppClient) RemoveRole(ctx context.Context, orgId string, identityId str
 }
 
 // ChangeRole changes an identity authorization to a new identity authorization.
-func (c *AppClient) ChangeRole(ctx context.Context, oldOrgId string, oldIdentityId string, oldRole string, oldResourceType string, oldResourceId string, newOrgId string, newIdentityId string, newRole string, newResourceType string, newResourceId string) error {
+func (c *AppClient) ChangeRole(ctx context.Context, oldOrgId, oldIdentityId, oldRole, oldResourceType, oldResourceId, newOrgId, newIdentityId, newRole, newResourceType, newResourceId string) error {
 	oldAuthorization, err := createAuthorization(oldOrgId, oldIdentityId, "", oldRole, oldResourceType, oldResourceId)
 	if err != nil {
 		return err
@@ -694,7 +693,7 @@ func (c *AppClient) ChangeRole(ctx context.Context, oldOrgId string, oldIdentity
 func (c *AppClient) ListAuthorizations(ctx context.Context, orgId string, resourceIds []string) ([]*pb.Authorization, error) {
 	resp, err := c.client.ListAuthorizations(ctx, &pb.ListAuthorizationsRequest{
 		OrganizationId: orgId,
-		ResourceIds: resourceIds,
+		ResourceIds:    resourceIds,
 	})
 	if err != nil {
 		return nil, err
@@ -725,11 +724,11 @@ func (c *AppClient) GetRegistryItem(ctx context.Context, itemId string) (*pb.Reg
 }
 
 // CreateRegistryItem creates a registry item.
-func (c *AppClient) CreateRegistryItem(ctx context.Context, orgId string, name string, packageType packages.PackageType) error {
+func (c *AppClient) CreateRegistryItem(ctx context.Context, orgId, name string, packageType packages.PackageType) error {
 	_, err := c.client.CreateRegistryItem(ctx, &pb.CreateRegistryItemRequest{
 		OrganizationId: orgId,
-		Name: name,
-		Type: packageType,
+		Name:           name,
+		Type:           packageType,
 	})
 	if err != nil {
 		return err
@@ -740,11 +739,11 @@ func (c *AppClient) CreateRegistryItem(ctx context.Context, orgId string, name s
 // UpdateRegistryItem updates a registry item.
 func (c *AppClient) UpdateRegistryItem(ctx context.Context, itemId string, packageType packages.PackageType, description string, visibility pb.Visibility, url *string) error {
 	_, err := c.client.UpdateRegistryItem(ctx, &pb.UpdateRegistryItemRequest{
-		ItemId: itemId,
-		Type: packageType,
+		ItemId:      itemId,
+		Type:        packageType,
 		Description: description,
-		Visibility: visibility,
-		Url: url,
+		Visibility:  visibility,
+		Url:         url,
 	})
 	if err != nil {
 		return err
@@ -753,15 +752,15 @@ func (c *AppClient) UpdateRegistryItem(ctx context.Context, itemId string, packa
 }
 
 // ListRegistryItems lists the registry items in an organization.
-func (c *AppClient) ListRegistryItems(ctx context.Context, orgId *string, types []packages.PackageType, visibilities []pb.Visibility, platforms []string, statuses []pb.RegistryItemStatus, searchTerm *string, pageToken *string, publicNamespaces []string) ([]*pb.RegistryItem, error) {
+func (c *AppClient) ListRegistryItems(ctx context.Context, orgId *string, types []packages.PackageType, visibilities []pb.Visibility, platforms []string, statuses []pb.RegistryItemStatus, searchTerm, pageToken *string, publicNamespaces []string) ([]*pb.RegistryItem, error) {
 	resp, err := c.client.ListRegistryItems(ctx, &pb.ListRegistryItemsRequest{
-		OrganizationId: orgId,
-		Types: types,
-		Visibilities: visibilities,
-		Platforms: platforms,
-		Statuses: statuses,
-		SearchTerm: searchTerm,
-		PageToken: pageToken,
+		OrganizationId:   orgId,
+		Types:            types,
+		Visibilities:     visibilities,
+		Platforms:        platforms,
+		Statuses:         statuses,
+		SearchTerm:       searchTerm,
+		PageToken:        pageToken,
 		PublicNamespaces: publicNamespaces,
 	})
 	if err != nil {
@@ -770,7 +769,7 @@ func (c *AppClient) ListRegistryItems(ctx context.Context, orgId *string, types 
 	return resp.Items, nil
 }
 
-// DeleteRegistryItem deletes a registry item given an ID that is formatted as `prefix:name`` where `prefix`` is the owner's organization ID or namespace.
+// DeleteRegistryItem deletes a registry item given an ID that is formatted as `prefix:name“ where `prefix“ is the owner's organization ID or namespace.
 func (c *AppClient) DeleteRegistryItem(ctx context.Context, itemId string) error {
 	_, err := c.client.DeleteRegistryItem(ctx, &pb.DeleteRegistryItemRequest{
 		ItemId: itemId,
@@ -782,9 +781,9 @@ func (c *AppClient) DeleteRegistryItem(ctx context.Context, itemId string) error
 }
 
 // TransferRegistryItem transfers a registry item to a namespace.
-func (c *AppClient) TransferRegistryItem(ctx context.Context, itemId string, newPublicNamespace string) error {
+func (c *AppClient) TransferRegistryItem(ctx context.Context, itemId, newPublicNamespace string) error {
 	_, err := c.client.TransferRegistryItem(ctx, &pb.TransferRegistryItemRequest{
-		ItemId: itemId,
+		ItemId:             itemId,
 		NewPublicNamespace: newPublicNamespace,
 	})
 	if err != nil {
@@ -794,10 +793,10 @@ func (c *AppClient) TransferRegistryItem(ctx context.Context, itemId string, new
 }
 
 // CreateModule creates a module.
-func (c *AppClient) CreateModule(ctx context.Context, orgId string, name string) (string, string, error) {
+func (c *AppClient) CreateModule(ctx context.Context, orgId, name string) (string, string, error) {
 	resp, err := c.client.CreateModule(ctx, &pb.CreateModuleRequest{
 		OrganizationId: orgId,
-		Name: name,
+		Name:           name,
 	})
 	if err != nil {
 		return "", "", err
@@ -806,15 +805,15 @@ func (c *AppClient) CreateModule(ctx context.Context, orgId string, name string)
 }
 
 // UpdateModule updates the documentation URL, description, models, entrypoint, and/or the visibility of a module. A path to a setup script can be added that is run before a newly downloaded module starts.
-func (c *AppClient) UpdateModule(ctx context.Context, moduleId string, visibility pb.Visibility, url string, description string, models []*pb.Model, entrypoint string, firstRun *string) (string, error) {
+func (c *AppClient) UpdateModule(ctx context.Context, moduleId string, visibility pb.Visibility, url, description string, models []*pb.Model, entrypoint string, firstRun *string) (string, error) {
 	resp, err := c.client.UpdateModule(ctx, &pb.UpdateModuleRequest{
-		ModuleId: moduleId,
-		Visibility: visibility,
-		Url: url,
+		ModuleId:    moduleId,
+		Visibility:  visibility,
+		Url:         url,
 		Description: description,
-		Models: models,
-		Entrypoint: entrypoint,
-		FirstRun: firstRun,
+		Models:      models,
+		Entrypoint:  entrypoint,
+		FirstRun:    firstRun,
 	})
 	if err != nil {
 		return "", err
@@ -864,10 +863,10 @@ type APIKeyAuthorization struct {
 	role string
 	// `resourceType` must be "organization", "location", or "robot"
 	resourceType string
-	resourceId string
+	resourceId   string
 }
 
-// CreateKey creates a new API key associated with a list of authorizations
+// CreateKey creates a new API key associated with a list of authorizations.
 func (c *AppClient) CreateKey(ctx context.Context, orgId string, keyAuthorizations []APIKeyAuthorization, name string) (string, string, error) {
 	var authorizations []*pb.Authorization
 	for _, keyAuthorization := range keyAuthorizations {
@@ -877,10 +876,10 @@ func (c *AppClient) CreateKey(ctx context.Context, orgId string, keyAuthorizatio
 		}
 		authorizations = append(authorizations, authorization)
 	}
-	
+
 	resp, err := c.client.CreateKey(ctx, &pb.CreateKeyRequest{
 		Authorizations: authorizations,
-		Name: name,
+		Name:           name,
 	})
 	if err != nil {
 		return "", "", err
@@ -911,9 +910,9 @@ func (c *AppClient) ListKeys(ctx context.Context, orgId string) ([]*pb.APIKeyWit
 }
 
 // RenameKey renames an API key.
-func (c *AppClient) RenameKey(ctx context.Context, id string, name string) (string, string, error) {
+func (c *AppClient) RenameKey(ctx context.Context, id, name string) (string, string, error) {
 	resp, err := c.client.RenameKey(ctx, &pb.RenameKeyRequest{
-		Id: id,
+		Id:   id,
 		Name: name,
 	})
 	if err != nil {
@@ -943,4 +942,3 @@ func (c *AppClient) CreateKeyFromExistingKeyAuthorizations(ctx context.Context, 
 	}
 	return resp.Id, resp.Key, nil
 }
-
