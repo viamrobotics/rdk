@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
@@ -110,7 +109,7 @@ func installPackage(
 }
 
 func cleanup(packagesDir string, p config.PackageConfig) error {
-	return multierr.Combine(
+	return errors.Join(
 		os.RemoveAll(p.LocalDataDirectory(packagesDir)),
 		os.Remove(p.LocalDownloadPath(packagesDir)),
 	)
@@ -248,7 +247,7 @@ func commonCleanup(logger logging.Logger, expectedPackageEntries map[string]bool
 	for _, packageTypeDir := range topLevelFiles {
 		packageTypeDirName, err := rutils.SafeJoinDir(packagesDataDir, packageTypeDir.Name())
 		if err != nil {
-			allErrors = multierr.Append(allErrors, err)
+			allErrors = errors.Join(allErrors, err)
 			continue
 		}
 
@@ -257,19 +256,19 @@ func commonCleanup(logger logging.Logger, expectedPackageEntries map[string]bool
 		// `.status.json` - these files contain download status infomration.
 		// `.first_run_succeeded` - these mark successful setup phase runs.
 		if packageTypeDir.Type()&os.ModeDir != os.ModeDir && !strings.HasSuffix(packageTypeDirName, statusFileExt) {
-			allErrors = multierr.Append(allErrors, os.Remove(packageTypeDirName))
+			allErrors = errors.Join(allErrors, os.Remove(packageTypeDirName))
 			continue
 		}
 		// read all of the packages in the directory and delete those that aren't in expectedPackageEntries
 		packageDirs, err := os.ReadDir(packageTypeDirName)
 		if err != nil {
-			allErrors = multierr.Append(allErrors, err)
+			allErrors = errors.Join(allErrors, err)
 			continue
 		}
 		for _, entry := range packageDirs {
 			entryPath, err := rutils.SafeJoinDir(packageTypeDirName, entry.Name())
 			if err != nil {
-				allErrors = multierr.Append(allErrors, err)
+				allErrors = errors.Join(allErrors, err)
 				continue
 			}
 			_, expectedToExist := expectedPackageEntries[entryPath]
@@ -277,17 +276,17 @@ func commonCleanup(logger logging.Logger, expectedPackageEntries map[string]bool
 			_, expectedFirstRunSuccessFileToExist := expectedPackageEntries[strings.TrimSuffix(entryPath, config.FirstRunSuccessSuffix)]
 			if !expectedToExist && !expectedStatusFileToExist && !expectedFirstRunSuccessFileToExist {
 				logger.Debugf("Removing old package file(s) %s", entryPath)
-				allErrors = multierr.Append(allErrors, os.RemoveAll(entryPath))
+				allErrors = errors.Join(allErrors, os.RemoveAll(entryPath))
 			}
 		}
 		// re-read the directory, if there is nothing left in it, delete the directory
 		packageDirs, err = os.ReadDir(packageTypeDirName)
 		if err != nil {
-			allErrors = multierr.Append(allErrors, err)
+			allErrors = errors.Join(allErrors, err)
 			continue
 		}
 		if len(packageDirs) == 0 {
-			allErrors = multierr.Append(allErrors, os.RemoveAll(packageTypeDirName))
+			allErrors = errors.Join(allErrors, os.RemoveAll(packageTypeDirName))
 		}
 	}
 	return allErrors
