@@ -146,17 +146,11 @@ func (c *client) Stream(
 				return
 			}
 
-			resBytes, resMetadata, err := c.Image(streamCtx, mimeTypeFromCtx, nil)
+			img, err := GetGoImage(streamCtx, mimeTypeFromCtx, nil, c)
 			if err != nil {
 				for _, handler := range errHandlers {
 					handler(streamCtx, err)
 				}
-			}
-
-			img, err := rimage.DecodeImage(ctx, resBytes, resMetadata.MimeType)
-			if err != nil {
-				c.logger.CWarnw(ctx, "error decoding image", "err", err)
-				return
 			}
 
 			select {
