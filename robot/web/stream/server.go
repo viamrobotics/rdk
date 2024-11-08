@@ -406,11 +406,11 @@ func (server *Server) resizeVideoSource(name string, width, height int) error {
 	}
 	cam, err := camera.FromRobot(server.robot, name)
 	if err != nil {
-		server.logger.Errorw("error getting camera from robot", "error", err)
+		server.logger.Errorf("error getting camera %q from robot", name)
 		return err
 	}
 	resizer := gostream.NewResizeVideoSource(cam, width, height)
-	server.logger.Debug("Resizing video source with swap")
+	server.logger.Debug("resizing video source with swap")
 	existing.Swap(resizer)
 	return nil
 }
