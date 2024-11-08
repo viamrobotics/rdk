@@ -271,10 +271,7 @@ func commonCleanup(logger logging.Logger, expectedPackageEntries map[string]bool
 				allErrors = errors.Join(allErrors, err)
 				continue
 			}
-			_, expectedToExist := expectedPackageEntries[entryPath]
-			_, expectedStatusFileToExist := expectedPackageEntries[strings.TrimSuffix(entryPath, statusFileExt)]
-			_, expectedFirstRunSuccessFileToExist := expectedPackageEntries[strings.TrimSuffix(entryPath, config.FirstRunSuccessSuffix)]
-			if !expectedToExist && !expectedStatusFileToExist && !expectedFirstRunSuccessFileToExist {
+			if deletePackageEntry(expectedPackageEntries, entryPath) {
 				logger.Debugf("Removing old package file(s) %s", entryPath)
 				allErrors = errors.Join(allErrors, os.RemoveAll(entryPath))
 			}
@@ -290,6 +287,27 @@ func commonCleanup(logger logging.Logger, expectedPackageEntries map[string]bool
 		}
 	}
 	return allErrors
+}
+
+// deletePackageEntry checks if a file or directory in the modules data directory should be deleted or not.
+func deletePackageEntry(expectedPackageEntries map[string]bool, entryPath string) bool {
+	// check if directory corresponds to a module version that is still managed by the package
+	// manager - if so DO NOT delete it.
+	if _, ok := expectedPackageEntries[entryPath]; ok {
+		return false
+	}
+	// check if directory corresponds to a module version download status file - if so DO NOT delete it.
+	if _, ok := expectedPackageEntries[strings.TrimSuffix(entryPath, statusFileExt)]; ok {
+		return false
+	}
+	// check if directory corresponds to a first run success marker file - if so DO NOT delete it.
+	if _, ok := expectedPackageEntries[strings.TrimSuffix(entryPath, config.FirstRunSuccessSuffix)]; ok {
+		return false
+	}
+
+	// if we reached this point then this directory or file does not correspond to an actively-managed
+	// module version, and it can safely be deleted.
+	return true
 }
 
 type syncStatus string
