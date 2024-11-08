@@ -75,6 +75,8 @@ type NamedImage struct {
 // ImageMetadata contains useful information about returned image bytes such as its mimetype.
 type ImageMetadata struct {
 	MimeType string
+	Width    int
+	Height   int
 }
 
 // A Camera is a resource that can capture frames.
