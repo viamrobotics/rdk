@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 
 	packages "go.viam.com/api/app/packages/v1"
 	pb "go.viam.com/api/app/v1"
@@ -15,6 +16,8 @@ import (
 
 type AppClient struct {
 	client pb.AppServiceClient
+
+	mu sync.Mutex
 }
 
 func NewAppClient(conn rpc.ClientConn) AppClient {
@@ -377,14 +380,19 @@ func (c *AppClient) GetRobotPartLogs(ctx context.Context, id string, filter, pag
 	return resp.Logs, resp.NextPageToken, nil
 }
 
-// // TailRobotPartLogs gets a stream of log entries for a specific robot part. Logs are ordered by newest first.
-// func (c *AppClient) TailRobotPartLogs(ctx context.Context) (AppService_TailRobotPartLogsClient, error) {
-// 	resp, err := c.client.
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return resp, nil
-// }
+// TailRobotPartLogs gets a stream of log entries for a specific robot part. Logs are ordered by newest first.
+func (c *AppClient) TailRobotPartLogs(ctx context.Context, id string, errorsOnly bool, filter *string, ch chan []*common.LogEntry) error {
+	stream := &appStream {client: c}
+
+	err := stream.startStream(ctx, id, errorsOnly, filter, ch)
+	if err != nil {
+		return err
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return nil
+}
 
 // GetRobotPartHistory gets a specific robot part history by ID.
 func (c *AppClient) GetRobotPartHistory(ctx context.Context, id string) ([]*pb.RobotPartHistoryEntry, error) {
