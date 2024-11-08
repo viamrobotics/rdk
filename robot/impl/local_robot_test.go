@@ -20,6 +20,7 @@ import (
 	"github.com/golang/geo/r3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -561,7 +562,10 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	test.That(t, setupLocalRobot(t, context.Background(), remoteConfig, logger).Close(context.Background()), test.ShouldBeNil)
 
 	// use cert
+	remoteConfig.Network.NetworkConfigData.TLSConfig = options.Network.TLSConfig.Clone()
+	remoteTLSConfig = remoteConfig.Network.NetworkConfigData.TLSConfig
 	remoteTLSConfig.Certificates = []tls.Certificate{cert}
+	remoteTLSConfig.ServerName = "somename"
 	test.That(t, setupLocalRobot(t, context.Background(), remoteConfig, logger).Close(context.Background()), test.ShouldBeNil)
 
 	// use cert with mDNS
