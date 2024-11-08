@@ -43,6 +43,7 @@ type StreamState struct {
 	streamSource  streamSource
 	// streamSourceSub is only non nil if streamSource == streamSourcePassthrough
 	streamSourceSub rtppassthrough.Subscription
+	resized         bool
 }
 
 // New returns a new *StreamState.
@@ -61,6 +62,7 @@ func New(
 		robot:     r,
 		msgChan:   make(chan msg),
 		tickChan:  make(chan struct{}),
+		resized:   false,
 		logger:    logger,
 	}
 
@@ -88,6 +90,14 @@ func (state *StreamState) Decrement() error {
 		return multierr.Combine(ErrClosed, err)
 	}
 	return state.send(msgTypeDecrement)
+}
+
+// Resize notifies the StreamState that the stream has been resized.
+func (state *StreamState) Resize() error {
+	if err := state.closedCtx.Err(); err != nil {
+		return multierr.Combine(ErrClosed, err)
+	}
+	return state.send(msgTypeResize)
 }
 
 // Close closes the StreamState.
@@ -129,6 +139,7 @@ const (
 	msgTypeUnknown msgType = iota
 	msgTypeIncrement
 	msgTypeDecrement
+	msgTypeResize
 )
 
 func (mt msgType) String() string {
@@ -185,6 +196,10 @@ func (state *StreamState) sourceEventHandler() {
 			if state.activeClients == 0 {
 				state.tick()
 			}
+		case msgTypeResize:
+			state.logger.Debug("resize event received")
+			state.resized = true
+			state.tick()
 		case msgTypeUnknown:
 			fallthrough
 		default:
@@ -268,6 +283,14 @@ func (state *StreamState) tick() {
 			state.Stream.Start()
 			state.streamSource = streamSourceGoStream
 		}
+	// If we are currently using passthrough, and sthe stream state changes to resized
+	// we need to stop the passthrough stream and restart it through gostream.
+	case state.streamSource == streamSourcePassthrough && state.resized:
+		state.logger.Info("stream resized, stopping passthrough stream")
+		state.stopInputStream()
+		state.Stream.Start()
+		state.streamSource = streamSourceGoStream
+		// state.resized = false
 	case state.streamSource == streamSourcePassthrough:
 		// no op if we are using passthrough & are healthy
 		state.logger.Debug("still healthy and using h264 passthrough")

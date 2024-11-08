@@ -393,6 +393,13 @@ func (server *Server) SetStreamOptions(
 	if err != nil {
 		return nil, fmt.Errorf("failed to resize video source: %w", err)
 	}
+	server.mu.RLock()
+	streamState, ok := server.nameToStreamState[req.Name]
+	server.mu.RUnlock()
+	if !ok {
+		return nil, fmt.Errorf("stream %q not found", req.Name)
+	}
+	streamState.Resize()
 	return &streampb.SetStreamOptionsResponse{}, nil
 }
 
