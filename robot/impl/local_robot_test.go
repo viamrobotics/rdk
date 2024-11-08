@@ -3571,11 +3571,14 @@ func TestMachineStatus(t *testing.T) {
 	})
 }
 
-// dialWithShortTimeout chooses a smaller timeout value to keep the test.
-func dialWithShortTimeout(client *client.RobotClient) error {
+// assertDialFails reconnects an existing `RobotClient` with a small timeout value to keep tests
+// fast.
+func assertDialFails(t *testing.T, client *client.RobotClient) {
+	t.Helper()
 	ctx, done := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer done()
-	return client.Connect(ctx)
+	err := client.Connect(ctx)
+	test.That(t, err, test.ShouldNotBeNil)
 }
 
 // TestStickyWebRTCConnection ensures that once a RobotClient object makes a WebRTC connection, it
@@ -3601,8 +3604,7 @@ func TestStickyWebRTCConnection(t *testing.T) {
 	robot.StopWeb()
 	// Explicitly reconnect the RobotClient. The "web" is down therefore this client will time out
 	// and error.
-	connectionErr = dialWithShortTimeout(robotClient)
-	test.That(t, connectionErr, test.ShouldNotBeNil)
+	assertDialFails(t, robotClient)
 
 	// Massage the options to restart the "web" on the same port as before. Note: this can result in
 	// a test bug/failure as another test may have picked up the same port in the meantime.
@@ -3612,14 +3614,13 @@ func TestStickyWebRTCConnection(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Explicitly reconnect with the robot client. Reconnecting will succeed, and this should be a
-	// WebRTC connection.
-	connectionErr = dialWithShortTimeout(robotClient)
+	// WebRTC connection. Because this reconnect should succeed, we do not pass in a timeout.
+	connectionErr = robotClient.Connect(ctx)
 	test.That(t, connectionErr, test.ShouldBeNil)
 
 	// Stop the "web" again. Assert we can no longer connect.
 	robot.StopWeb()
-	connectionErr = dialWithShortTimeout(robotClient)
-	test.That(t, connectionErr, test.ShouldNotBeNil)
+	assertDialFails(t, robotClient)
 
 	// Restart the "web" but only accept direct gRPC connections.
 	options.DisallowWebRTC = true
@@ -3628,8 +3629,7 @@ func TestStickyWebRTCConnection(t *testing.T) {
 
 	// Explicitly reconnect with the RobotClient. The RobotClient should only try creating a WebRTC
 	// connection and thus fail this attempt.
-	connectionErr = dialWithShortTimeout(robotClient)
-	test.That(t, connectionErr, test.ShouldNotBeNil)
+	assertDialFails(t, robotClient)
 
 	// However, a new RobotClient should happily create a direct gRPC connection.
 	cleanClient, err := client.New(ctx, addr, logger.Sublogger("clean_client"))
