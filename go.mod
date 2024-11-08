@@ -77,7 +77,7 @@ require (
 	github.com/viamrobotics/webrtc/v3 v3.99.10
 	github.com/xfmoulet/qoi v0.2.0
 	go-hep.org/x/hep v0.32.1
-	go.mongodb.org/mongo-driver v1.11.6
+	go.mongodb.org/mongo-driver v1.12.2
 	go.opencensus.io v0.24.0
 	go.uber.org/atomic v1.11.0
 	go.uber.org/multierr v1.11.0

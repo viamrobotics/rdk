@@ -282,48 +282,6 @@ func NewCollector(captureFunc CaptureFunc, params CollectorParams) (Collector, e
 	}, nil
 }
 
-// PBStructToBSON converts a structpb.Struct to a bson.M.
-func PBStructToBSON(s *structpb.Struct) (bson.M, error) {
-	bsonMap := make(bson.M)
-	for k, v := range s.Fields {
-		bsonValue, err := convertPBStructValueToBSON(v)
-		if err != nil {
-			return nil, err
-		}
-		bsonMap[k] = bsonValue
-	}
-	return bsonMap, nil
-}
-
-func convertPBStructValueToBSON(v *structpb.Value) (interface{}, error) {
-	switch v.Kind.(type) {
-	case *structpb.Value_NullValue:
-		var ret interface{}
-		return ret, nil
-	case *structpb.Value_NumberValue:
-		return v.GetNumberValue(), nil
-	case *structpb.Value_StringValue:
-		return v.GetStringValue(), nil
-	case *structpb.Value_BoolValue:
-		return v.GetBoolValue(), nil
-	case *structpb.Value_StructValue:
-		return PBStructToBSON(v.GetStructValue())
-	case *structpb.Value_ListValue:
-		list := v.GetListValue()
-		var slice bson.A
-		for _, item := range list.Values {
-			bsonValue, err := convertPBStructValueToBSON(item)
-			if err != nil {
-				return nil, err
-			}
-			slice = append(slice, bsonValue)
-		}
-		return slice, nil
-	default:
-		return nil, fmt.Errorf("unsupported value type: %T", v.Kind)
-	}
-}
-
 func (c *collector) writeCaptureResults() {
 	for {
 		if c.cancelCtx.Err() != nil {
@@ -354,11 +312,15 @@ type TabularData struct {
 	Data          bson.M    `bson:"data"`
 }
 
+// maybeWriteToMongo will write to the mongoCollection
+// if it is non-nil and the msg is tabular data
+// logs errors on failure.
 func (c *collector) maybeWriteToMongo(msg *v1.SensorData) {
 	if c.mongoCollection == nil {
 		return
 	}
 
+	// DATA-3338:
 	// currently vision.CaptureAllFromCamera and camera.GetImages are stored in .capture files as VERY LARGE
 	// tabular sensor data
 	// That is a mistake which we are rectifying but in the meantime we don't want data captured from those methods to be synced
@@ -372,7 +334,7 @@ func (c *collector) maybeWriteToMongo(msg *v1.SensorData) {
 		return
 	}
 
-	data, err := PBStructToBSON(s)
+	data, err := pbStructToBSON(s)
 	if err != nil {
 		c.logger.Error(errors.Wrap(err, "failed to convert sensor data into bson"))
 		return
