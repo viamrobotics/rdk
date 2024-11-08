@@ -148,6 +148,8 @@ func (mt msgType) String() string {
 		return "Increment"
 	case msgTypeDecrement:
 		return "Decrement"
+	case msgTypeResize:
+		return "Resize"
 	case msgTypeUnknown:
 		fallthrough
 	default:
