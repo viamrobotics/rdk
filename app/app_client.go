@@ -8,12 +8,17 @@ import (
 	packages "go.viam.com/api/app/packages/v1"
 	pb "go.viam.com/api/app/v1"
 	common "go.viam.com/api/common/v1"
+	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type AppClient struct {
 	client pb.AppServiceClient
+}
+
+func NewAppClient(conn rpc.ClientConn) AppClient {
+	return AppClient{client: pb.NewAppServiceClient(conn)}
 }
 
 // GetUserIDByEmail gets the ID of the user with the given email.
