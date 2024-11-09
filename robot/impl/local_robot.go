@@ -1108,7 +1108,7 @@ func (r *localRobot) DiscoverComponents(ctx context.Context, qs []resource.Disco
 		if reg.Discover != nil {
 			discovered, err := reg.Discover(ctx, r.logger.Sublogger("discovery"), q.Extra)
 			if err != nil {
-				return nil, &resource.DiscoverError{Query: q}
+				return nil, &resource.DiscoverError{Query: q, Cause: err}
 			}
 			discoveries = append(discoveries, resource.Discovery{Query: q, Results: discovered})
 		}
