@@ -90,7 +90,7 @@ func TestDiscovery(t *testing.T) {
 	t.Run("failing Discover", func(t *testing.T) {
 		r := setupLocalRobotWithFakeConfig(t)
 		_, err := r.DiscoverComponents(context.Background(), []resource.DiscoveryQuery{failQ})
-		test.That(t, err, test.ShouldBeError, &resource.DiscoverError{Query:failQ, Cause: errFailed})
+		test.That(t, err, test.ShouldBeError, &resource.DiscoverError{Query: failQ, Cause: errFailed})
 	})
 
 	t.Run("working Discover", func(t *testing.T) {
