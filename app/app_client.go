@@ -834,19 +834,56 @@ func (c *AppClient) UpdateModule(ctx context.Context, moduleId string, visibilit
 	return resp.Url, nil
 }
 
-// // type moduleFileType interface {
-// // 	~pb.UploadModuleFileRequest_File | ~pb.UploadModuleFileRequest_ModuleFileInfo
-// // }
+// type isModuleFile interface {
+// 	isUploadModuleFileRequest_ModuleFile()
+// }
 
-// // func (c *AppClient) UploadModuleFile[moduleFileType moduleFileType](ctx context.Context, moduleFile moduleFileType) (string, error) {
-// // 	resp, err := c.client.UploadModuleFile(ctx, &pb.UploadModuleFileRequest{
-// // 		ModuleFile: moduleFile,
-// // 	})
-// // 	if err != nil {
-// // 		return "", err
-// // 	}
-// // 	return resp.Url, nil
-// // }
+// type UploadModuleFileRequest_ModuleFileInfo struct {
+// 	*pb.UploadModuleFileRequest_ModuleFileInfo
+// }
+
+// func (UploadModuleFileRequest_ModuleFileInfo) isUploadModuleFileRequest_ModuleFile() {}
+
+// type UploadModuleFileRequest_File struct {
+// 	*pb.UploadModuleFileRequest_File
+// }
+
+// func (UploadModuleFileRequest_File) isUploadModuleFileRequest_ModuleFile() {}
+
+// type uploadStream struct {
+// 	gostream.
+// }
+
+// func (c *AppClient) UploadModuleFile(ctx context.Context, moduleFile isModuleFile, ch ) (string, error) {
+// 	c.mu.Lock()
+// 	streamCtx, stream, 
+	
+	// stream := &uploadStream{client: c}
+
+	// err = stream.startStream(ctx, moduleFile, ch)
+	
+	// var req *pb.UploadModuleFileRequest
+	// switch moduleFileInfo := moduleFile.(type) {
+	// case UploadModuleFileRequest_ModuleFileInfo:
+	// 	req = &pb.UploadModuleFileRequest{
+	// 		ModuleFile: &pb.UploadModuleFileRequest_ModuleFileInfo{
+	// 			ModuleFileInfo: moduleFileInfo.ModuleFileInfo,
+	// 		},
+	// 	}
+	// case UploadModuleFileRequest_File:
+	// 	req = &pb.UploadModuleFileRequest{
+	// 		ModuleFile: &pb.UploadModuleFileRequest_File{
+	// 			File: moduleFileInfo.File,
+	// 		},
+	// 	}
+	// }
+	
+	// resp, err := c.client.UploadModuleFile(ctx, req)
+	// if err != nil {
+	// 	return "", err
+	// }
+	// return resp.Url, nil
+// }
 
 // GetModule gets a module.
 func (c *AppClient) GetModule(ctx context.Context, moduleId string) (*pb.Module, error) {
