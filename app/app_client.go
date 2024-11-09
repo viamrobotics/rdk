@@ -20,7 +20,7 @@ type AppClient struct {
 	mu sync.Mutex
 }
 
-func NewAppClient(conn rpc.ClientConn) AppClient {
+func NewClientFromConn(conn rpc.ClientConn) AppClient {
 	return AppClient{client: pb.NewAppServiceClient(conn)}
 }
 
