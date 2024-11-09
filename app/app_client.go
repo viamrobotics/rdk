@@ -36,56 +36,71 @@ func (c *AppClient) GetUserIDByEmail(ctx context.Context, email string) (string,
 }
 
 // CreateOrganization creates a new organization.
-func (c *AppClient) CreateOrganization(ctx context.Context, name string) (*pb.Organization, error) {
+func (c *AppClient) CreateOrganization(ctx context.Context, name string) (*Organization, error) {
 	resp, err := c.client.CreateOrganization(ctx, &pb.CreateOrganizationRequest{
 		Name: name,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Organization, nil
+	return ProtoToOrganization(resp.Organization), nil
 }
 
 // ListOrganizations lists all the organizations.
-func (c *AppClient) ListOrganizations(ctx context.Context) ([]*pb.Organization, error) {
+func (c *AppClient) ListOrganizations(ctx context.Context) ([]*Organization, error) {
 	resp, err := c.client.ListOrganizations(ctx, &pb.ListOrganizationsRequest{})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Organizations, nil
+
+	var organizations []*Organization
+	for _, org := range resp.Organizations {
+		organizations = append(organizations, ProtoToOrganization(org))
+	}
+	return organizations, nil
 }
 
 // GetOrganizationsWithAccessToLocation gets all the organizations that have access to a location.
-func (c *AppClient) GetOrganizationsWithAccessToLocation(ctx context.Context, locationId string) ([]*pb.OrganizationIdentity, error) {
+func (c *AppClient) GetOrganizationsWithAccessToLocation(ctx context.Context, locationId string) ([]*OrganizationIdentity, error) {
 	resp, err := c.client.GetOrganizationsWithAccessToLocation(ctx, &pb.GetOrganizationsWithAccessToLocationRequest{
 		LocationId: locationId,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.OrganizationIdentities, nil
+
+	var organizations []*OrganizationIdentity
+	for _, org := range(resp.OrganizationIdentities) {
+		organizations = append(organizations, ProtoToOrganizationIdentity(org))
+	}
+	return organizations, nil
 }
 
 // ListOrganizationsByUser lists all the organizations that a user belongs to.
-func (c *AppClient) ListOrganizationsByUser(ctx context.Context, userId string) ([]*pb.OrgDetails, error) {
+func (c *AppClient) ListOrganizationsByUser(ctx context.Context, userId string) ([]*OrgDetails, error) {
 	resp, err := c.client.ListOrganizationsByUser(ctx, &pb.ListOrganizationsByUserRequest{
 		UserId: userId,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Orgs, nil
+
+	var organizations []*OrgDetails
+	for _, org := range(resp.Orgs) {
+		organizations = append(organizations, ProtoToOrgDetails(org))
+	}
+	return organizations, nil
 }
 
 // GetOrganization gets an organization.
-func (c *AppClient) GetOrganization(ctx context.Context, orgId string) (*pb.Organization, error) {
+func (c *AppClient) GetOrganization(ctx context.Context, orgId string) (*Organization, error) {
 	resp, err := c.client.GetOrganization(ctx, &pb.GetOrganizationRequest{
 		OrganizationId: orgId,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Organization, nil
+	return ProtoToOrganization(resp.Organization), nil
 }
 
 // GetOrganizationNamespaceAvailability checks for namespace availability throughout all organizations.
@@ -100,7 +115,7 @@ func (c *AppClient) GetOrganizationNamespaceAvailability(ctx context.Context, na
 }
 
 // UpdateOrganization updates an organization.
-func (c *AppClient) UpdateOrganization(ctx context.Context, orgId string, name, namespace, region, cid *string) (*pb.Organization, error) {
+func (c *AppClient) UpdateOrganization(ctx context.Context, orgId string, name, namespace, region, cid *string) (*Organization, error) {
 	resp, err := c.client.UpdateOrganization(ctx, &pb.UpdateOrganizationRequest{
 		OrganizationId:  orgId,
 		Name:            name,
@@ -111,7 +126,7 @@ func (c *AppClient) UpdateOrganization(ctx context.Context, orgId string, name, 
 	if err != nil {
 		return nil, err
 	}
-	return resp.Organization, nil
+	return ProtoToOrganization(resp.Organization), nil
 }
 
 // DeleteOrganization deletes an organization.
@@ -126,18 +141,27 @@ func (c *AppClient) DeleteOrganization(ctx context.Context, orgId string) error 
 }
 
 // ListOrganizationMembers lists all members of an organization and all invited members to the organization.
-func (c *AppClient) ListOrganizationMembers(ctx context.Context, orgId string) ([]*pb.OrganizationMember, []*pb.OrganizationInvite, error) {
+func (c *AppClient) ListOrganizationMembers(ctx context.Context, orgId string) ([]*OrganizationMember, []*OrganizationInvite, error) {
 	resp, err := c.client.ListOrganizationMembers(ctx, &pb.ListOrganizationMembersRequest{
 		OrganizationId: orgId,
 	})
 	if err != nil {
 		return nil, nil, err
 	}
-	return resp.Members, resp.Invites, nil
+
+	var members []*OrganizationMember
+	for _, member := range(resp.Members) {
+		members = append(members, ProtoToOrganizationMember(member))
+	}
+	var invites []*OrganizationInvite
+	for _, invite := range(resp.Invites) {
+		invites = append(invites, ProtoToOrganizationInvite(invite))
+	}
+	return members, invites, nil
 }
 
 // CreateOrganizaitonInvite creates an organization invite to an organization.
-func (c *AppClient) CreateOrganizationInvite(ctx context.Context, orgId, email string, authorizations []*pb.Authorization, sendEmailInvite *bool) (*pb.OrganizationInvite, error) {
+func (c *AppClient) CreateOrganizationInvite(ctx context.Context, orgId, email string, authorizations []*pb.Authorization, sendEmailInvite *bool) (*OrganizationInvite, error) {
 	resp, err := c.client.CreateOrganizationInvite(ctx, &pb.CreateOrganizationInviteRequest{
 		OrganizationId:  orgId,
 		Email:           email,
@@ -147,11 +171,11 @@ func (c *AppClient) CreateOrganizationInvite(ctx context.Context, orgId, email s
 	if err != nil {
 		return nil, err
 	}
-	return resp.Invite, nil
+	return ProtoToOrganizationInvite(resp.Invite), nil
 }
 
 // UpdateOrganizationInviteAuthorizations updates the authorizations attached to an organization invite.
-func (c *AppClient) UpdateOrganizationInviteAuthorizations(ctx context.Context, orgId, email string, addAuthorizations, removeAuthorizations []*pb.Authorization) (*pb.OrganizationInvite, error) {
+func (c *AppClient) UpdateOrganizationInviteAuthorizations(ctx context.Context, orgId, email string, addAuthorizations, removeAuthorizations []*pb.Authorization) (*OrganizationInvite, error) {
 	resp, err := c.client.UpdateOrganizationInviteAuthorizations(ctx, &pb.UpdateOrganizationInviteAuthorizationsRequest{
 		OrganizationId:       orgId,
 		Email:                email,
@@ -161,7 +185,7 @@ func (c *AppClient) UpdateOrganizationInviteAuthorizations(ctx context.Context, 
 	if err != nil {
 		return nil, err
 	}
-	return resp.Invite, nil
+	return ProtoToOrganizationInvite(resp.Invite), nil
 }
 
 // DeleteOrganizationMember deletes an organization member from an organization.
@@ -189,7 +213,7 @@ func (c *AppClient) DeleteOrganizationInvite(ctx context.Context, orgId, email s
 }
 
 // ResendOrganizationInvite resends an organization invite.
-func (c *AppClient) ResendOrganizationInvite(ctx context.Context, orgId, email string) (*pb.OrganizationInvite, error) {
+func (c *AppClient) ResendOrganizationInvite(ctx context.Context, orgId, email string) (*OrganizationInvite, error) {
 	resp, err := c.client.ResendOrganizationInvite(ctx, &pb.ResendOrganizationInviteRequest{
 		OrganizationId: orgId,
 		Email:          email,
@@ -197,7 +221,7 @@ func (c *AppClient) ResendOrganizationInvite(ctx context.Context, orgId, email s
 	if err != nil {
 		return nil, err
 	}
-	return resp.Invite, nil
+	return ProtoToOrganizationInvite(resp.Invite), nil
 }
 
 // CreateLocation creates a location.
