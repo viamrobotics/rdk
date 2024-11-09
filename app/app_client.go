@@ -382,7 +382,7 @@ func (c *AppClient) GetRobotPartLogs(ctx context.Context, id string, filter, pag
 
 // TailRobotPartLogs gets a stream of log entries for a specific robot part. Logs are ordered by newest first.
 func (c *AppClient) TailRobotPartLogs(ctx context.Context, id string, errorsOnly bool, filter *string, ch chan []*common.LogEntry) error {
-	stream := &appStream {client: c}
+	stream := &logStream {client: c}
 
 	err := stream.startStream(ctx, id, errorsOnly, filter, ch)
 	if err != nil {

@@ -9,7 +9,7 @@ import (
 	"go.viam.com/utils"
 )
 
-type appStream struct {
+type logStream struct {
 	*client
 	streamCancel context.CancelFunc
 	streamMu     sync.Mutex
@@ -18,7 +18,7 @@ type appStream struct {
 }
 
 
-func (s *appStream) startStream(ctx context.Context, id string, errorsOnly bool, filter *string, ch chan []*common.LogEntry) error {
+func (s *logStream) startStream(ctx context.Context, id string, errorsOnly bool, filter *string, ch chan []*common.LogEntry) error {
 	s.streamMu.Lock()
 	defer s.streamMu.Unlock()
 
@@ -61,7 +61,7 @@ func (s *appStream) startStream(ctx context.Context, id string, errorsOnly bool,
 	return nil
 }
 
-func (s *appStream) receiveFromStream(ctx context.Context, stream pb.AppService_TailRobotPartLogsClient, ch chan []*common.LogEntry) {
+func (s *logStream) receiveFromStream(ctx context.Context, stream pb.AppService_TailRobotPartLogsClient, ch chan []*common.LogEntry) {
 	defer s.streamCancel()
 
 	// repeatly receive from the stream
