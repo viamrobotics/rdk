@@ -43,7 +43,9 @@ type StreamState struct {
 	streamSource  streamSource
 	// streamSourceSub is only non nil if streamSource == streamSourcePassthrough
 	streamSourceSub rtppassthrough.Subscription
-	resized         bool
+	// resized is set to true when the stream has been resized.
+	// It is a signal to avoid trying to restart the passthrough stream.
+	resized bool
 }
 
 // New returns a new *StreamState.
@@ -264,6 +266,11 @@ func (state *StreamState) tick() {
 		// stop stream if there are no active clients
 		// noop if there is no stream source
 		state.stopInputStream()
+	// If streamSource is unknown and resized is true, we do not want to attempt passthrough.
+	case state.streamSource == streamSourceUnknown && state.resized:
+		state.logger.Debug("in a resized state, using gostream")
+		state.Stream.Start()
+		state.streamSource = streamSourceGoStream
 	case state.streamSource == streamSourceUnknown: // && state.activeClients > 0
 		// this is the first subscription, attempt passthrough
 		state.logger.Info("attempting to subscribe to rtp_passthrough")
@@ -274,6 +281,13 @@ func (state *StreamState) tick() {
 			state.Stream.Start()
 			state.streamSource = streamSourceGoStream
 		}
+	// If we are currently using passthrough, and the stream state changes to resized
+	// we need to stop the passthrough stream and restart it through gostream.
+	case state.streamSource == streamSourcePassthrough && state.resized:
+		state.logger.Info("stream resized, stopping passthrough stream")
+		state.stopInputStream()
+		state.Stream.Start()
+		state.streamSource = streamSourceGoStream
 	case state.streamSource == streamSourcePassthrough && state.streamSourceSub.Terminated.Err() != nil:
 		// restart stream if there we were using passthrough but the sub is terminated
 		state.logger.Info("previous subscription terminated attempting to subscribe to rtp_passthrough")
@@ -285,18 +299,10 @@ func (state *StreamState) tick() {
 			state.Stream.Start()
 			state.streamSource = streamSourceGoStream
 		}
-	// If we are currently using passthrough, and sthe stream state changes to resized
-	// we need to stop the passthrough stream and restart it through gostream.
-	case state.streamSource == streamSourcePassthrough && state.resized:
-		state.logger.Info("stream resized, stopping passthrough stream")
-		state.stopInputStream()
-		state.Stream.Start()
-		state.streamSource = streamSourceGoStream
-		// state.resized = false
 	case state.streamSource == streamSourcePassthrough:
 		// no op if we are using passthrough & are healthy
 		state.logger.Debug("still healthy and using h264 passthrough")
-	case state.streamSource == streamSourceGoStream:
+	case state.streamSource == streamSourceGoStream && !state.resized:
 		// Try to upgrade to passthrough if we are using gostream. We leave logs these as debugs as
 		// we expect some components to not implement rtp passthrough.
 		state.logger.Debugw("currently using gostream, trying upgrade to rtp_passthrough")
