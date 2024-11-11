@@ -58,10 +58,6 @@ func NewMotor(b board.Board, mc Config, name resource.Name, logger logging.Logge
 		motorType:   motorType,
 	}
 
-	if m.maxRPM == 0 {
-		m.maxRPM = 100
-	}
-
 	switch motorType {
 	case ABPwm, AB:
 		a, err := b.GPIOPinByName(mc.Pins.A)
@@ -104,6 +100,10 @@ func NewMotor(b board.Board, mc Config, name resource.Name, logger logging.Logge
 			return nil, err
 		}
 		m.EnablePinLow = enablePinLow
+	}
+
+	if m.maxRPM == 0 {
+		m.maxRPM = 100
 	}
 
 	return m, nil
