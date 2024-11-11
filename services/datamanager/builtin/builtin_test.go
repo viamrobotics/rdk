@@ -324,7 +324,7 @@ func TestFileDeletion(t *testing.T) {
 
 	// flush and close collectors to ensure we have exactly 4 files
 	// close capture to stop it from writing more files
-	b.capture.Close()
+	b.capture.Close(ctx)
 
 	// number of capture files is based on the number of unique
 	// collectors in the robot config used in this test
