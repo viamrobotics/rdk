@@ -36,9 +36,6 @@ const (
 	binaryMetaId   = "binary_id"
 	mongodbUri     = "mongo_uri"
 	hostName       = "host_name"
-
-	// deleteOlderThanDays = 1
-	// deletedCount = 5
 )
 
 var (
@@ -48,15 +45,23 @@ var (
 	BboxLabels       = []string{bboxLabel}
 	methodParameters = map[string]string{}
 	tags             = []string{tag}
-	// startTimePB       = timestamppb.Timestamp{Seconds: 30, Nanos: 30}
-	// endTimePB         = timestamppb.Timestamp{Seconds: 60, Nanos: 60}
-	startTime = time.Now().UTC()
-	endTime   = time.Now().UTC()
-	data      = map[string]interface{}{
+	startTime        = time.Now().UTC()
+	endTime          = time.Now().UTC()
+	data             = map[string]interface{}{
 		"key": "value",
 	}
 	binaryDataByte = []byte("BYTE")
-	mqlQuery       = []map[string]interface{}{
+	// expectedRawData = []map[string]interface{}{
+	//     {
+	//         "key1": startTime,
+	//         "key2": "2",
+	//         "key3": []int{1, 2, 3},
+	//         "key4": map[string]interface{}{
+	//             "key4sub1": endTime,
+	//         },
+	//     },
+	// }
+	mqlQuery = []map[string]interface{}{
 		{"$match": map[string]interface{}{"organization_id": "e76d1b3b-0468-4efd-bb7f-fb1d2b352fcb"}},
 		{"$limit": 1},
 	}
@@ -219,47 +224,61 @@ func TestDataClient(t *testing.T) {
 		test.That(t, respLast, test.ShouldEqual, expectedLast)
 	})
 
-	// t.Run("TabularDataBySQL", func(t *testing.T) {
-	// 	org_id := "MY_ORG"
-	// 	mySqlQuery := sqlQuery
-	// 	sqlBinary := []byte(sqlQuery)
-	// 	fmt.Printf("my sqlBinary  : %#v\n", sqlBinary)
-	// 	expected := [][]byte{sqlBinary} //we expect the raw binary data?
-	// 	fmt.Printf("my expected  : %#v\n", expected)
-	// 	// expected := myBsonMql
-	// 	// fmt.Printf("my expected  : %#v\n", expected)
-	// 	grpcClient.TabularDataBySQLFunc = func(ctx context.Context, in *datapb.TabularDataBySQLRequest, opts ...grpc.CallOption) (*datapb.TabularDataBySQLResponse, error) {
-	// 		test.That(t, in.OrganizationId, test.ShouldEqual, org_id)                  //to proto
-	// 		test.That(t, in.SqlQuery, test.ShouldResemble, mySqlQuery)                 //to proto
-	// 		return &datapb.TabularDataBySQLResponse{RawData: [][]byte{sqlBinary}}, nil //MQlResponse is created with BSON data
-	// 	}
+	t.Run("TabularDataBySQL", func(t *testing.T) {
+		expectedOrgId := organizationId
+		expectedSqlQuery := sqlQuery
+		expectedRawData := []map[string]interface{}{
+			{
+				"key1": startTime,
+				"key2": "2",
+				"key3": []int{1, 2, 3},
+				"key4": map[string]interface{}{
+					"key4sub1": endTime,
+				},
+			},
+		}
+		expectedRawDataPb := marshalToBSON(expectedRawData)
+		grpcClient.TabularDataBySQLFunc = func(ctx context.Context, in *datapb.TabularDataBySQLRequest, opts ...grpc.CallOption) (*datapb.TabularDataBySQLResponse, error) {
+			test.That(t, in.OrganizationId, test.ShouldEqual, expectedOrgId) //to proto
+			test.That(t, in.SqlQuery, test.ShouldResemble, expectedSqlQuery) //to proto
+			return &datapb.TabularDataBySQLResponse{
+				RawData: expectedRawDataPb,
+			}, nil
+		}
+		response, _ := client.TabularDataBySQL(context.Background(), expectedOrgId, expectedSqlQuery)
+		// // fmt.Printf("expected type: %T, value: %+v\n", expected, expected)
+		// // fmt.Printf("actual type: %T, value: %+v\n", response, response)
+		test.That(t, response, test.ShouldResemble, expectedRawData)
 
-	// 	response, _ := client.TabularDataBySQL(context.Background(), org_id, sqlQuery)
+	})
 
-	// 	// // fmt.Printf("expected type: %T, value: %+v\n", expected, expected)
-	// 	// // fmt.Printf("actual type: %T, value: %+v\n", response, response)
-	// 	test.That(t, response, test.ShouldResemble, expected) //*this test not working as expected yet!
+	t.Run("TabularDataByMQL", func(t *testing.T) {
+		expectedOrgId := organizationId
+		expectedMqlBinary := marshalToBSON(mqlQuery) //this is [][]byte type
+		//this is the format we want to get back...
+		expectedRawData := []map[string]interface{}{
+			{
+				"key1": startTime,
+				"key2": "2",
+				"key3": []int{1, 2, 3},
+				"key4": map[string]interface{}{
+					"key4sub1": endTime,
+				},
+			},
+		}
+		//this is the rawData in protobuf type that we will expect to pass to the response
+		expectedRawDataPb := marshalToBSON(expectedRawData)
 
-	// })
-
-	// t.Run("TabularDataByMQL", func(t *testing.T) {
-	// 	org_id := "MY_ORG"
-	// 	mql_binary := marshalToBSON(mqlQuery) //this is my mql binary type!
-	// 	// fmt.Printf("my mql_binary  : %#v\n", mql_binary)
-	// 	expected := mqlQuery //does this make sense???
-	// 	// fmt.Printf("my expected  : %#v\n", expected)
-	// 	grpcClient.TabularDataByMQLFunc = func(ctx context.Context, in *datapb.TabularDataByMQLRequest, opts ...grpc.CallOption) (*datapb.TabularDataByMQLResponse, error) {
-	// 		test.That(t, in.OrganizationId, test.ShouldEqual, org_id)         //to proto
-	// 		test.That(t, in.MqlBinary, test.ShouldResemble, mql_binary)       //to proto
-	// 		return &datapb.TabularDataByMQLResponse{RawData: mql_binary}, nil //MQlResponse is created with BSON data
-	// 	}
-
-	// 	response, _ := client.TabularDataByMQL(context.Background(), org_id, mql_binary)
-
-	// 	fmt.Printf("expected type: %T, value: %+v\n", expected, expected)
-	// 	fmt.Printf("actual type: %T, value: %+v\n", response, response)
-	// 	test.That(t, response, test.ShouldEqual, expected) //*this test not working as expected yet!
-	// })
+		grpcClient.TabularDataByMQLFunc = func(ctx context.Context, in *datapb.TabularDataByMQLRequest, opts ...grpc.CallOption) (*datapb.TabularDataByMQLResponse, error) {
+			test.That(t, in.OrganizationId, test.ShouldEqual, expectedOrgId)   //to proto
+			test.That(t, in.MqlBinary, test.ShouldResemble, expectedMqlBinary) //to proto
+			return &datapb.TabularDataByMQLResponse{
+				RawData: expectedRawDataPb,
+			}, nil
+		}
+		response, _ := client.TabularDataByMQL(context.Background(), expectedOrgId, expectedMqlBinary)
+		test.That(t, response, test.ShouldResemble, expectedRawData)
+	})
 	t.Run("BinaryDataByFilter", func(t *testing.T) {
 		includeBinary := true
 		countOnly := true
@@ -491,7 +510,7 @@ func TestDataClient(t *testing.T) {
 	t.Run("UpdateBoundingBox", func(t *testing.T) {
 		bBoxId := annotations.bboxes[0].id
 		expectedBinaryIdPb := BinaryIdToProto(binaryId)
-		
+
 		annotationsPb := AnnotationsToProto(annotations)
 		expectedLabel := annotationsPb.Bboxes[0].Label
 		expectedBBoxIdPb := annotationsPb.Bboxes[0].Id

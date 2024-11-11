@@ -37,11 +37,8 @@ type CaptureMetadata struct {
 	ComponentName    string
 	MethodName       string
 	MethodParameters map[string]string
-	//^^ supposed to be: map<string, google.protobuf.Any> method_parameters = 11;
 	Tags []string
-	//^^ repeated string tags = 12;
 	MimeType string
-	//^^ string mime_type = 13;
 }
 type BinaryID struct {
 	FileId         string
@@ -51,7 +48,7 @@ type BinaryID struct {
 type BoundingBox struct {
 	id             string
 	label          string
-	xMinNormalized float64 //should be double but no doubles in go
+	xMinNormalized float64
 	yMinNormalized float64
 	xMaxNormalized float64
 	yMaxNormalized float64
@@ -62,17 +59,13 @@ type DataRequest struct {
 	Last      string
 	SortOrder Order
 }
-
-// Annotations are data annotations used for machine learning.
 type Annotations struct {
-	//supposed to be repeated bounding boxes
 	bboxes []BoundingBox
 }
 type TabularData struct {
 	Data map[string]interface{}
-	// Metadata *pb.CaptureMetadata //idk why i put a star here -- if we aren't returning it is it okay?
 	MetadataIndex uint32
-	Metadata      CaptureMetadata //idk why i put a star here
+	Metadata      CaptureMetadata
 	TimeRequested time.Time
 	TimeReceived  time.Time
 }
@@ -81,10 +74,8 @@ type BinaryData struct {
 	Metadata BinaryMetadata
 }
 
-// can the return type be a struct called BinaryMetadata that I made up???
 type BinaryMetadata struct {
 	ID string
-	//CaptureMetadata *pb.CaptureMetadata
 	CaptureMetadata CaptureMetadata
 	TimeRequested   time.Time
 	TimeReceived    time.Time
@@ -92,7 +83,6 @@ type BinaryMetadata struct {
 	FileExt         string
 	URI             string
 	Annotations     Annotations
-	//Annotations *pb.Annotations
 	DatasetIDs []string
 }
 type Filter struct {
@@ -106,31 +96,14 @@ type Filter struct {
 	LocationIds     []string
 	OrganizationIds []string
 	MimeType        []string
-	Interval        CaptureInterval //asterix or no??
-	TagsFilter      TagsFilter      //asterix or no??
+	Interval        CaptureInterval
+	TagsFilter      TagsFilter
 	BboxLabels      []string
 	DatasetId       string
 }
 
-// func (f Filter) IsEmpty() bool {
-// 	return reflect.DeepEqual(f, Filter{})
-// }
-
-//notes for above::
-// type TagsFilter struct {
-// 	state         protoimpl.MessageState
-// 	sizeCache     protoimpl.SizeCache
-// 	unknownFields protoimpl.UnknownFields
-
-// 	Type TagsFilterType `protobuf:"varint,1,opt,name=type,proto3,enum=viam.app.data.v1.TagsFilterType" json:"type,omitempty"`
-// 	// Tags are used to match documents if `type` is UNSPECIFIED or MATCH_BY_OR.
-// 	Tags []string `protobuf:"bytes,2,rep,name=tags,proto3" json:"tags,omitempty"`
-// }
-
-//type TagsFilterType int32
-
 type TagsFilter struct {
-	Type int32 //type TagsFilterType int32
+	Type int32
 	Tags []string
 }
 type CaptureInterval struct {
@@ -142,7 +115,7 @@ func BoundingBoxFromProto(proto *pb.BoundingBox) BoundingBox {
 	return BoundingBox{
 		id:             proto.Id,
 		label:          proto.Label,
-		xMinNormalized: proto.XMinNormalized, // cast if i want int, or use float64 for precision
+		xMinNormalized: proto.XMinNormalized,
 		yMinNormalized: proto.YMinNormalized,
 		xMaxNormalized: proto.XMaxNormalized,
 		yMaxNormalized: proto.YMaxNormalized,
@@ -162,7 +135,6 @@ func AnnotationsFromProto(proto *pb.Annotations) Annotations {
 	}
 }
 func AnnotationsToProto(annotations Annotations) *pb.Annotations {
-	// Convert each BoundingBox in annotations to its proto type
 	var protoBboxes []*pb.BoundingBox
 	for _, bbox := range annotations.bboxes {
 		protoBboxes = append(protoBboxes, &pb.BoundingBox{
@@ -174,14 +146,11 @@ func AnnotationsToProto(annotations Annotations) *pb.Annotations {
 			YMaxNormalized: bbox.yMaxNormalized,
 		})
 	}
-	// Return the proto Annotations with converted bounding boxes
 	return &pb.Annotations{
 		Bboxes: protoBboxes,
 	}
 }
 func CaptureMetadataFromProto(proto *pb.CaptureMetadata) CaptureMetadata {
-	// fmt.Printf("this is proto in capturemetadata proto: %+v\n", proto)
-
 	if proto == nil {
 		return CaptureMetadata{}
 	}
@@ -197,13 +166,12 @@ func CaptureMetadataFromProto(proto *pb.CaptureMetadata) CaptureMetadata {
 		ComponentName:    proto.ComponentName,
 		MethodName:       proto.MethodName,
 		MethodParameters: methodParamsFromProto(proto.MethodParameters),
-		Tags:             proto.Tags, // repeated string
+		Tags:             proto.Tags,
 		MimeType:         proto.MimeType,
 	}
 
 }
 func CaptureMetadataToProto(metadata CaptureMetadata) *pb.CaptureMetadata {
-	// MethodParameters map[string]interface{}
 	methodParms, _ := protoutils.ConvertStringMapToAnyPBMap(metadata.MethodParameters)
 	return &pb.CaptureMetadata{
 		OrganizationId:   metadata.OrganizationId,
@@ -216,14 +184,13 @@ func CaptureMetadataToProto(metadata CaptureMetadata) *pb.CaptureMetadata {
 		ComponentName:    metadata.ComponentName,
 		MethodName:       metadata.MethodName,
 		MethodParameters: methodParms,
-		Tags:             metadata.Tags, // repeated string
+		Tags:             metadata.Tags,
 		MimeType:         metadata.MimeType,
 	}
 
 }
 
 func methodParamsFromProto(proto map[string]*anypb.Any) map[string]string {
-	// Convert MethodParameters map[string]*anypb.Any to map[string]interface{}
 	methodParameters := make(map[string]string)
 	for key, value := range proto {
 		structValue := &structpb.Value{}
@@ -279,7 +246,7 @@ func BinaryMetadataToProto(binaryMetadata BinaryMetadata) *pb.BinaryMetadata {
 func TabularDataFromProto(proto *pb.TabularData, metadata *pb.CaptureMetadata) TabularData {
 	fmt.Printf("this is proto in tabulardatafrom proto: %+v\n", metadata)
 	return TabularData{
-		Data:          proto.Data.AsMap(), //we have data as this when it is is in non proto ==> map[string]interface{}
+		Data:          proto.Data.AsMap(),
 		MetadataIndex: proto.MetadataIndex,
 		Metadata:      CaptureMetadataFromProto(metadata),
 		TimeRequested: proto.TimeRequested.AsTime(),
@@ -291,8 +258,6 @@ func TabularDataToProto(tabularData TabularData) *pb.TabularData {
 	if err != nil {
 		return nil
 	}
-	// timeRequested := timestamppb.New(tabularData.TimeRequested)
-	// timeReceived := timestamppb.New(tabularData.TimeReceived)
 	return &pb.TabularData{
 		Data:          structData,
 		MetadataIndex: tabularData.MetadataIndex,
@@ -302,16 +267,12 @@ func TabularDataToProto(tabularData TabularData) *pb.TabularData {
 }
 func TabularDataToProtoList(tabularDatas []TabularData) []*pb.TabularData {
 	var protoList []*pb.TabularData
-	// loop through each TabularData item
 	for _, tabularData := range tabularDatas {
-		// convert each TabularData to *pb.TabularData
 		protoData := TabularDataToProto(tabularData)
 		if protoData != nil {
-			// append the converted *pb.TabularData to the list
 			protoList = append(protoList, protoData)
 		}
 	}
-	// return the list of converted *pb.TabularData items
 	return protoList
 }
 func DataRequestToProto(dataRequest DataRequest) (*pb.DataRequest, error) {
@@ -355,8 +316,6 @@ func BinaryIdsToProto(binaryIds []BinaryID) []*pb.BinaryID {
 	return protoBinaryIds
 }
 
-// PropertiesToProtoResponse takes a map of features to struct and converts it
-// to a GetPropertiesResponse.
 func FilterToProto(filter Filter) *pb.Filter {
 	return &pb.Filter{
 		ComponentName:   filter.ComponentName,
@@ -369,8 +328,8 @@ func FilterToProto(filter Filter) *pb.Filter {
 		LocationIds:     filter.LocationIds,
 		OrganizationIds: filter.OrganizationIds,
 		MimeType:        filter.MimeType,
-		Interval:        CaptureIntervalToProto(filter.Interval), //check this ??
-		TagsFilter:      TagsFilterToProto(filter.TagsFilter),    //check this ??
+		Interval:        CaptureIntervalToProto(filter.Interval),
+		TagsFilter:      TagsFilterToProto(filter.TagsFilter), 
 		BboxLabels:      filter.BboxLabels,
 		DatasetId:       filter.DatasetId,
 	}
@@ -388,17 +347,14 @@ func TagsFilterToProto(tagsFilter TagsFilter) *pb.TagsFilter {
 	}
 }
 
-// shadow type for Order
 type Order int32
 
-// do i even need these below???
 const (
 	Unspecified Order = 0
 	Descending  Order = 1
 	Ascending   Order = 2
 )
 
-// Map SortOrder to corresponding values in pb.Order
 func OrderToProto(sortOrder Order) pb.Order {
 	switch sortOrder {
 	case Ascending:
@@ -406,7 +362,7 @@ func OrderToProto(sortOrder Order) pb.Order {
 	case Descending:
 		return pb.Order_ORDER_DESCENDING
 	default:
-		return pb.Order_ORDER_UNSPECIFIED // default or error handling
+		return pb.Order_ORDER_UNSPECIFIED
 	}
 }
 
@@ -417,10 +373,10 @@ type DataClient struct {
 }
 
 // (private) dataClient implements DataServiceClient. **do we want this?
-type dataClient interface {
-	// actual hold implementations of functions - how would the NewDataClient function work if we had private and public functions?
-	// client      pb.DataServiceClient
-}
+// type dataClient interface {
+// 	// actual hold implementations of functions - how would the NewDataClient function work if we had private and public functions?
+// 	// client      pb.DataServiceClient
+// }
 
 // NewDataClient constructs a new DataClient from connection passed in.
 func NewDataClient(
@@ -439,7 +395,7 @@ func NewDataClient(
 func (d *DataClient) TabularDataByFilter(
 	ctx context.Context,
 	filter Filter,
-	limit uint64, //optional - max defaults to 50 if unspecified
+	limit uint64, //optional
 	last string, //optional
 	sortOrder Order, //optional
 	countOnly bool,
@@ -531,19 +487,11 @@ func (d *DataClient) BinaryDataByFilter(
 	last string,
 	includeBinary bool,
 	countOnly bool,
-	// includeInternalData bool) ([]*pb.BinaryData, uint64, string, error) {
 	includeInternalData bool) ([]BinaryData, uint64, string, error) {
 	fmt.Println("client.BinaryDataByFilter was called")
-
-	// initialize limit if it's unspecified (zero value)
 	if limit == 0 {
 		limit = 50
 	}
-	// ensure filter is not nil to represent a query for "all data"
-	// if filter == nil {
-	// 	filter = &pb.Filter{}
-	// }
-
 	resp, err := d.client.BinaryDataByFilter(ctx, &pb.BinaryDataByFilterRequest{
 		DataRequest: &pb.DataRequest{ //need to do checks to make sure it fits the constraints
 			Filter:    FilterToProto(filter),
@@ -626,9 +574,6 @@ func (d *DataClient) AddTagsToBinaryDataByIDs(ctx context.Context, tags []string
 	return nil
 }
 func (d *DataClient) AddTagsToBinaryDataByFilter(ctx context.Context, tags []string, filter Filter) error {
-	// if filter == nil {
-	// 	filter = &pb.Filter{}
-	// }
 	_, err := d.client.AddTagsToBinaryDataByFilter(ctx, &pb.AddTagsToBinaryDataByFilterRequest{Filter: FilterToProto(filter), Tags: tags})
 	if err != nil {
 		return err
