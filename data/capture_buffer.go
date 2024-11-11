@@ -15,9 +15,9 @@ type CaptureBufferedWriter interface {
 
 // CaptureBuffer is a persistent queue of SensorData backed by a series of *data.CaptureFile.
 type CaptureBuffer struct {
-	Directory          string
-	MetaData           *v1.DataCaptureMetadata
-	nextFile           *CaptureFile
+	directory          string
+	metaData           *v1.DataCaptureMetadata
+	nextFile           *ProgFile
 	lock               sync.Mutex
 	maxCaptureFileSize int64
 }
@@ -25,8 +25,8 @@ type CaptureBuffer struct {
 // NewCaptureBuffer returns a new Buffer.
 func NewCaptureBuffer(dir string, md *v1.DataCaptureMetadata, maxCaptureFileSize int64) *CaptureBuffer {
 	return &CaptureBuffer{
-		Directory:          dir,
-		MetaData:           md,
+		directory:          dir,
+		metaData:           md,
 		maxCaptureFileSize: maxCaptureFileSize,
 	}
 }
@@ -36,12 +36,24 @@ func NewCaptureBuffer(dir string, md *v1.DataCaptureMetadata, maxCaptureFileSize
 // are still being written to are indicated with the extension
 // InProgressFileExt. Files that have finished being written to are indicated by
 // FileExt.
+func isBinary(item *v1.SensorData) bool {
+	if item == nil {
+		return false
+	}
+	switch item.Data.(type) {
+	case *v1.SensorData_Binary:
+		return true
+	default:
+		return false
+	}
+}
+
 func (b *CaptureBuffer) Write(item *v1.SensorData) error {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
-	if item.GetBinary() != nil {
-		binFile, err := NewCaptureFile(b.Directory, b.MetaData)
+	if isBinary(item) {
+		binFile, err := NewProgFile(b.directory, b.metaData)
 		if err != nil {
 			return err
 		}
@@ -55,7 +67,7 @@ func (b *CaptureBuffer) Write(item *v1.SensorData) error {
 	}
 
 	if b.nextFile == nil {
-		nextFile, err := NewCaptureFile(b.Directory, b.MetaData)
+		nextFile, err := NewProgFile(b.directory, b.metaData)
 		if err != nil {
 			return err
 		}
@@ -63,11 +75,11 @@ func (b *CaptureBuffer) Write(item *v1.SensorData) error {
 		// We want to special case on "CaptureAllFromCamera" because it is sensor data that contains images
 		// and their corresponding annotations. We want each image and its annotations to be stored in a
 		// separate file.
-	} else if b.nextFile.Size() > b.maxCaptureFileSize || b.MetaData.MethodName == "CaptureAllFromCamera" {
+	} else if b.nextFile.Size() > b.maxCaptureFileSize || b.metaData.MethodName == "CaptureAllFromCamera" {
 		if err := b.nextFile.Close(); err != nil {
 			return err
 		}
-		nextFile, err := NewCaptureFile(b.Directory, b.MetaData)
+		nextFile, err := NewProgFile(b.directory, b.metaData)
 		if err != nil {
 			return err
 		}
@@ -93,5 +105,5 @@ func (b *CaptureBuffer) Flush() error {
 
 // Path returns the path to the directory containing the backing data capture files.
 func (b *CaptureBuffer) Path() string {
-	return b.Directory
+	return b.directory
 }
