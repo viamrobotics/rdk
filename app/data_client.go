@@ -4,11 +4,13 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	pb "go.viam.com/api/app/data/v1"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/protoutils"
 	utils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -34,7 +36,7 @@ type CaptureMetadata struct {
 	ComponentType    string
 	ComponentName    string
 	MethodName       string
-	MethodParameters map[string]interface{}
+	MethodParameters map[string]string
 	//^^ supposed to be: map<string, google.protobuf.Any> method_parameters = 11;
 	Tags []string
 	//^^ repeated string tags = 12;
@@ -47,12 +49,12 @@ type BinaryID struct {
 	LocationId     string
 }
 type BoundingBox struct {
-	id               string
-	label            string
-	x_min_normalized float64 //should be double but no doubles in go
-	y_min_normalized float64
-	x_max_normalized float64
-	y_max_normalized float64
+	id             string
+	label          string
+	xMinNormalized float64 //should be double but no doubles in go
+	yMinNormalized float64
+	xMaxNormalized float64
+	yMaxNormalized float64
 }
 type DataRequest struct {
 	Filter    Filter
@@ -138,12 +140,12 @@ type CaptureInterval struct {
 
 func BoundingBoxFromProto(proto *pb.BoundingBox) BoundingBox {
 	return BoundingBox{
-		id:               proto.Id,
-		label:            proto.Label,
-		x_min_normalized: proto.XMinNormalized, // cast if i want int, or use float64 for precision
-		y_min_normalized: proto.YMinNormalized,
-		x_max_normalized: proto.XMaxNormalized,
-		y_max_normalized: proto.YMaxNormalized,
+		id:             proto.Id,
+		label:          proto.Label,
+		xMinNormalized: proto.XMinNormalized, // cast if i want int, or use float64 for precision
+		yMinNormalized: proto.YMinNormalized,
+		xMaxNormalized: proto.XMaxNormalized,
+		yMaxNormalized: proto.YMaxNormalized,
 	}
 }
 func AnnotationsFromProto(proto *pb.Annotations) Annotations {
@@ -159,11 +161,31 @@ func AnnotationsFromProto(proto *pb.Annotations) Annotations {
 		bboxes: bboxes,
 	}
 }
-
+func AnnotationsToProto(annotations Annotations) *pb.Annotations {
+	// Convert each BoundingBox in annotations to its proto type
+	var protoBboxes []*pb.BoundingBox
+	for _, bbox := range annotations.bboxes {
+		protoBboxes = append(protoBboxes, &pb.BoundingBox{
+			Id:             bbox.id,
+			Label:          bbox.label,
+			XMinNormalized: bbox.xMinNormalized,
+			YMinNormalized: bbox.yMinNormalized,
+			XMaxNormalized: bbox.xMaxNormalized,
+			YMaxNormalized: bbox.yMaxNormalized,
+		})
+	}
+	// Return the proto Annotations with converted bounding boxes
+	return &pb.Annotations{
+		Bboxes: protoBboxes,
+	}
+}
 func CaptureMetadataFromProto(proto *pb.CaptureMetadata) CaptureMetadata {
+	// fmt.Printf("this is proto in capturemetadata proto: %+v\n", proto)
+
 	if proto == nil {
 		return CaptureMetadata{}
 	}
+
 	return CaptureMetadata{
 		OrganizationId:   proto.OrganizationId,
 		LocationId:       proto.LocationId,
@@ -178,17 +200,37 @@ func CaptureMetadataFromProto(proto *pb.CaptureMetadata) CaptureMetadata {
 		Tags:             proto.Tags, // repeated string
 		MimeType:         proto.MimeType,
 	}
+
+}
+func CaptureMetadataToProto(metadata CaptureMetadata) *pb.CaptureMetadata {
+	// MethodParameters map[string]interface{}
+	methodParms, _ := protoutils.ConvertStringMapToAnyPBMap(metadata.MethodParameters)
+	return &pb.CaptureMetadata{
+		OrganizationId:   metadata.OrganizationId,
+		LocationId:       metadata.LocationId,
+		RobotName:        metadata.RobotName,
+		RobotId:          metadata.RobotId,
+		PartName:         metadata.PartName,
+		PartId:           metadata.PartId,
+		ComponentType:    metadata.ComponentType,
+		ComponentName:    metadata.ComponentName,
+		MethodName:       metadata.MethodName,
+		MethodParameters: methodParms,
+		Tags:             metadata.Tags, // repeated string
+		MimeType:         metadata.MimeType,
+	}
+
 }
 
-func methodParamsFromProto(proto map[string]*anypb.Any) map[string]interface{} {
+func methodParamsFromProto(proto map[string]*anypb.Any) map[string]string {
 	// Convert MethodParameters map[string]*anypb.Any to map[string]interface{}
-	methodParameters := make(map[string]interface{})
+	methodParameters := make(map[string]string)
 	for key, value := range proto {
 		structValue := &structpb.Value{}
 		if err := value.UnmarshalTo(structValue); err != nil {
 			return nil
 		}
-		methodParameters[key] = structValue.AsInterface()
+		methodParameters[key] = structValue.String()
 	}
 	return methodParameters
 }
@@ -197,6 +239,12 @@ func BinaryDataFromProto(proto *pb.BinaryData) BinaryData {
 	return BinaryData{
 		Binary:   proto.Binary,
 		Metadata: BinaryMetadataFromProto(proto.Metadata),
+	}
+}
+func BinaryDataToProto(binaryData BinaryData) *pb.BinaryData {
+	return &pb.BinaryData{
+		Binary:   binaryData.Binary,
+		Metadata: BinaryMetadataToProto(binaryData.Metadata),
 	}
 }
 
@@ -213,9 +261,23 @@ func BinaryMetadataFromProto(proto *pb.BinaryMetadata) BinaryMetadata {
 		DatasetIDs:      proto.DatasetIds,
 	}
 }
+func BinaryMetadataToProto(binaryMetadata BinaryMetadata) *pb.BinaryMetadata {
+	return &pb.BinaryMetadata{
+		Id:              binaryMetadata.ID,
+		CaptureMetadata: CaptureMetadataToProto(binaryMetadata.CaptureMetadata),
+		TimeRequested:   timestamppb.New(binaryMetadata.TimeRequested),
+		TimeReceived:    timestamppb.New(binaryMetadata.TimeReceived),
+		FileName:        binaryMetadata.FileName,
+		FileExt:         binaryMetadata.FileExt,
+		Uri:             binaryMetadata.URI,
+		Annotations:     AnnotationsToProto(binaryMetadata.Annotations),
+		DatasetIds:      binaryMetadata.DatasetIDs,
+	}
+}
 
 // returns tabular data and the associated metadata
 func TabularDataFromProto(proto *pb.TabularData, metadata *pb.CaptureMetadata) TabularData {
+	fmt.Printf("this is proto in tabulardatafrom proto: %+v\n", metadata)
 	return TabularData{
 		Data:          proto.Data.AsMap(), //we have data as this when it is is in non proto ==> map[string]interface{}
 		MetadataIndex: proto.MetadataIndex,
@@ -229,13 +291,13 @@ func TabularDataToProto(tabularData TabularData) *pb.TabularData {
 	if err != nil {
 		return nil
 	}
-	timeRequested := timestamppb.New(tabularData.TimeRequested)
-	timeReceived := timestamppb.New(tabularData.TimeReceived)
+	// timeRequested := timestamppb.New(tabularData.TimeRequested)
+	// timeReceived := timestamppb.New(tabularData.TimeReceived)
 	return &pb.TabularData{
 		Data:          structData,
 		MetadataIndex: tabularData.MetadataIndex,
-		TimeRequested: timeRequested,
-		TimeReceived:  timeReceived,
+		TimeRequested: timestamppb.New(tabularData.TimeRequested),
+		TimeReceived:  timestamppb.New(tabularData.TimeReceived),
 	}
 }
 func TabularDataToProtoList(tabularDatas []TabularData) []*pb.TabularData {
@@ -252,12 +314,26 @@ func TabularDataToProtoList(tabularDatas []TabularData) []*pb.TabularData {
 	// return the list of converted *pb.TabularData items
 	return protoList
 }
+func DataRequestToProto(dataRequest DataRequest) (*pb.DataRequest, error) {
+	return &pb.DataRequest{
+		Filter:    FilterToProto(dataRequest.Filter),
+		Limit:     dataRequest.Limit,
+		Last:      dataRequest.Last,
+		SortOrder: OrderToProto(dataRequest.SortOrder),
+	}, nil
+
+}
 func TabularDataBsonHelper(rawData [][]byte) ([]map[string]interface{}, error) {
-	dataObjects := make([]map[string]interface{}, len(rawData))
-	// Loop over each BSON byte array in the response and unmarshal directly into the dataObjects slice
-	for _, rawData := range rawData {
-		obj := make(map[string]interface{})
-		bson.Unmarshal(rawData, &obj)
+	dataObjects := []map[string]interface{}{}
+	for _, byteSlice := range rawData {
+		fmt.Printf("the byteslice is: %+v\n", byteSlice)
+		obj := map[string]interface{}{}
+		bson.Unmarshal(byteSlice, &obj)
+		for key, value := range obj {
+			if v, ok := value.(int32); ok {
+				obj[key] = int(v)
+			}
+		}
 		dataObjects = append(dataObjects, obj)
 	}
 	return dataObjects, nil
@@ -371,10 +447,6 @@ func (d *DataClient) TabularDataByFilter(
 	if limit == 0 {
 		limit = 50
 	}
-	// // ensure filter is not nil to represent a query for "all data"
-	// if filter.IsEmpty(){
-	// 	filter = Filter{} //i think if it is empty than it just implies that ALL tabular data??
-	// }
 	resp, err := d.client.TabularDataByFilter(ctx, &pb.TabularDataByFilterRequest{
 		DataRequest: &pb.DataRequest{
 			Filter:    FilterToProto(filter),
@@ -387,18 +459,18 @@ func (d *DataClient) TabularDataByFilter(
 	if err != nil {
 		return nil, 0, "", err
 	}
-	//get the tabulardata --> get metadataIndex from tabularData,
-	//get metadata, --> use metadata[tabularData.MetdataIndex] to get the associated metadata with that tabular data!!
-	//then return tabularData with that metadata!!
-	dataArray := make([]TabularData, len(resp.Data))
+	dataArray := []TabularData{}
+	var metadata *pb.CaptureMetadata
 	for _, data := range resp.Data {
-		var metadata *pb.CaptureMetadata
-		if int(data.MetadataIndex) < len(resp.Metadata) {
-			metadata = resp.Metadata[data.MetadataIndex] // Access the correct metadata using MetadataIndex
+		if len(resp.Metadata) != 0 && int(data.MetadataIndex) >= len(resp.Metadata) {
+			metadata = &pb.CaptureMetadata{} // Create new metadata if index is out of range
+		} else {
+			metadata = resp.Metadata[data.MetadataIndex]
+
 		}
-		dataArray = append(dataArray, TabularDataFromProto(data, metadata)) //the metadata that we pass has already been indexed
+		dataArray = append(dataArray, TabularDataFromProto(data, metadata))
+
 	}
-	//// TabularData contains data and metadata associated with tabular data.
 	return dataArray, resp.Count, resp.Last, nil
 }
 
@@ -421,8 +493,21 @@ func (d *DataClient) TabularDataByMQL(ctx context.Context, organizationId string
 	if err != nil {
 		return nil, err
 	}
-	dataObjects, nil := TabularDataBsonHelper(resp.RawData)
-	return dataObjects, nil
+
+	// var result []map[string]interface{}
+	// for _, bsonBytes := range resp.RawData {
+	// 	var decodedData map[string]interface{}
+	// 	err := bson.Unmarshal(bsonBytes, &decodedData)
+	// 	if err != nil {
+	// 		return nil, fmt.Errorf("error decoding BSON: %v", err)
+	// 	}
+	// 	fmt.Printf("this is decoded data: %+v\n", decodedData)
+	// 	result = append(result, decodedData)
+
+	// }
+	result, nil := TabularDataBsonHelper(resp.RawData)
+	fmt.Printf("this is result: %+v\n", result)
+	return result, nil
 
 	// dataObjects := make([]map[string]interface{}, len(resp.RawData))
 	// for i, rawData := range resp.RawData {
@@ -442,12 +527,14 @@ func (d *DataClient) BinaryDataByFilter(
 	ctx context.Context,
 	filter Filter,
 	limit uint64,
-	last string,
 	sortOrder Order,
+	last string,
 	includeBinary bool,
 	countOnly bool,
 	// includeInternalData bool) ([]*pb.BinaryData, uint64, string, error) {
 	includeInternalData bool) ([]BinaryData, uint64, string, error) {
+	fmt.Println("client.BinaryDataByFilter was called")
+
 	// initialize limit if it's unspecified (zero value)
 	if limit == 0 {
 		limit = 50
@@ -456,6 +543,7 @@ func (d *DataClient) BinaryDataByFilter(
 	// if filter == nil {
 	// 	filter = &pb.Filter{}
 	// }
+
 	resp, err := d.client.BinaryDataByFilter(ctx, &pb.BinaryDataByFilterRequest{
 		DataRequest: &pb.DataRequest{ //need to do checks to make sure it fits the constraints
 			Filter:    FilterToProto(filter),
@@ -463,6 +551,7 @@ func (d *DataClient) BinaryDataByFilter(
 			Last:      last,
 			SortOrder: OrderToProto(sortOrder),
 		},
+		IncludeBinary:       includeBinary,
 		CountOnly:           countOnly,
 		IncludeInternalData: includeInternalData,
 	})
@@ -493,7 +582,6 @@ func (d *DataClient) BinaryDataByIDs(ctx context.Context, binaryIds []BinaryID) 
 	for i, protoData := range resp.Data {
 		data[i] = BinaryDataFromProto(protoData)
 	}
-	// return resp.Data, nil
 	return data, nil //the return type of this is: var data []BinaryData --> is that okay??? , do we only want go native types does this count?
 }
 func (d *DataClient) DeleteTabularData(ctx context.Context, organizationId string, deleteOlderThanDays uint32) (uint64, error) {
@@ -597,9 +685,6 @@ func (d *DataClient) RemoveBoundingBoxFromImageByID(ctx context.Context, bboxId 
 	return nil
 }
 func (d *DataClient) BoundingBoxLabelsByFilter(ctx context.Context, filter Filter) ([]string, error) {
-	// if filter == nil {
-	// 	filter = &pb.Filter{}
-	// }
 	resp, err := d.client.BoundingBoxLabelsByFilter(ctx, &pb.BoundingBoxLabelsByFilterRequest{Filter: FilterToProto(filter)})
 	if err != nil {
 		return nil, err
@@ -632,6 +717,7 @@ func (d *DataClient) GetDatabaseConnection(ctx context.Context, organizationId s
 	}
 	return resp.Hostname, nil
 }
+
 func (d *DataClient) ConfigureDatabaseUser(ctx context.Context, organizationId string, password string) error {
 	_, err := d.client.ConfigureDatabaseUser(ctx, &pb.ConfigureDatabaseUserRequest{OrganizationId: organizationId, Password: password})
 	if err != nil {
