@@ -256,7 +256,7 @@ func (c *Capture) Close(ctx context.Context) {
 }
 
 // closeNoMongoMutex exists for cases when we need to perform close actions in a function
-// which is already holding the mongoMu
+// which is already holding the mongoMu.
 func (c *Capture) closeNoMongoMutex(ctx context.Context) {
 	c.FlushCollectors()
 	c.closeCollectors()
