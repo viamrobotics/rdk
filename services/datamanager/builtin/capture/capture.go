@@ -167,7 +167,7 @@ func (c *Capture) mongoSetup(ctx context.Context, newConfig MongoConfig) *mongo.
 	collection := defaultIfZeroVal(newConfig.Collection, defaultMongoCollectionName)
 	c.mongo = captureMongo{
 		client:     client,
-		collection: c.mongo.client.Database(database).Collection(collection),
+		collection: client.Database(database).Collection(collection),
 		config:     &newConfig,
 	}
 	c.logger.Info("mongo client created")
@@ -255,6 +255,8 @@ func (c *Capture) Close(ctx context.Context) {
 	}
 }
 
+// closeNoMongoMutex exists for cases when we need to perform close actions in a function
+// which is already holding the mongoMu
 func (c *Capture) closeNoMongoMutex(ctx context.Context) {
 	c.FlushCollectors()
 	c.closeCollectors()
