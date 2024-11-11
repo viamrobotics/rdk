@@ -399,7 +399,10 @@ func (server *Server) SetStreamOptions(
 	if !ok {
 		return nil, fmt.Errorf("stream %q not found", req.Name)
 	}
-	streamState.Resize()
+	err = streamState.Resize()
+	if err != nil {
+		return nil, fmt.Errorf("failed to resize stream: %w", err)
+	}
 	return &streampb.SetStreamOptionsResponse{}, nil
 }
 
