@@ -2,14 +2,14 @@ package capture
 
 // MongoConfig is the optional data capture mongo config.
 type MongoConfig struct {
-	ConnectionString string `json:"connection_string"`
-	Database         string `json:"database"`
-	Collection       string `json:"collection"`
+	URI        string `json:"uri"`
+	Database   string `json:"database"`
+	Collection string `json:"collection"`
 }
 
 // Equal returns true when both MongoConfigs are equal.
 func (mc MongoConfig) Equal(o MongoConfig) bool {
-	return mc.ConnectionString == o.ConnectionString && mc.Database == o.Database && mc.Collection == o.Collection
+	return mc.URI == o.URI && mc.Database == o.Database && mc.Collection == o.Collection
 }
 
 // Config is the capture config.

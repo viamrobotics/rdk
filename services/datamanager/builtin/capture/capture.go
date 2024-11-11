@@ -158,9 +158,9 @@ func (c *Capture) mongoSetup(ctx context.Context, newConfig MongoConfig) *mongo.
 	// Use the SetServerAPIOptions() method to set the Stable API version to 1
 	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
 	// Create a new client and connect to the server
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(newConfig.ConnectionString).SetServerAPIOptions(serverAPI))
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(newConfig.URI).SetServerAPIOptions(serverAPI))
 	if err != nil {
-		c.logger.Warn("failed to create mongo connection with mongo_capture_config.connection_string")
+		c.logger.Warn("failed to create mongo connection with mongo_capture_config.uri")
 		return nil
 	}
 	database := defaultIfZeroVal(newConfig.Database, defaultMongoDatabaseName)
@@ -182,7 +182,7 @@ func (c *Capture) mongoReconfigure(ctx context.Context, newConfig *MongoConfig) 
 	c.mongoMU.Lock()
 	defer c.mongoMU.Unlock()
 	noClient := c.mongo.client == nil
-	disabled := newConfig == nil || newConfig.ConnectionString == ""
+	disabled := newConfig == nil || newConfig.URI == ""
 
 	if noClient && disabled {
 		// if we don't have a client and the new config
