@@ -1,6 +1,8 @@
 package app
 
 import (
+	"fmt"
+
 	pb "go.viam.com/api/app/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -16,38 +18,46 @@ type Location struct {
 	Config *pb.StorageConfig
 }
 
-func ProtoToLocation(location *pb.Location) *Location {
+func ProtoToLocation(location *pb.Location) (*Location, error) {
 	var organizations []*LocationOrganization
 	for _, organization := range(location.Organizations) {
 		organizations = append(organizations, ProtoToLocationOrganization(organization))
+	}
+	auth, err := ProtoToLocationAuth(location.Auth)
+	if err != nil {
+		return nil, err
 	}
 	return &Location{
 		Id: location.Id,
 		Name: location.Name,
 		ParentLocationId: location.ParentLocationId,
-		Auth: ProtoToLocationAuth(location.Auth),
+		Auth: auth,
 		Organizations: organizations,
 		CreatedOn: location.CreatedOn,
 		RobotCount: location.RobotCount,
 		Config: location.Config,
-	}
+	}, nil
 }
 
-func LocationToProto(location *Location) *pb.Location {
+func LocationToProto(location *Location) (*pb.Location, error) {
 	var organizations []*pb.LocationOrganization
 	for _, organization := range(location.Organizations) {
 		organizations = append(organizations, LocationOrganizationToProto(organization))
+	}
+	auth, err := LocationAuthToProto(location.Auth)
+	if err != nil {
+		return nil, err
 	}
 	return &pb.Location{
 		Id: location.Id,
 		Name: location.Name,
 		ParentLocationId: location.ParentLocationId,
-		Auth: LocationAuthToProto(location.Auth),
+		Auth: auth,
 		Organizations: organizations,
 		CreatedOn: location.CreatedOn,
 		RobotCount: location.RobotCount,
 		Config: location.Config,
-	}
+	}, nil
 }
 
 type LocationOrganization struct {
@@ -71,21 +81,37 @@ func LocationOrganizationToProto(locationOrganization *LocationOrganization) *pb
 
 type LocationAuth struct {
 	LocationId string
-	Secrets []*pb.SharedSecret
+	Secrets []*SharedSecret
 }
 
-func ProtoToLocationAuth(locationAuth *pb.LocationAuth) *LocationAuth {
+func ProtoToLocationAuth(locationAuth *pb.LocationAuth) (*LocationAuth, error) {
+	var secrets []*SharedSecret
+	for _, secret := range(locationAuth.Secrets) {
+		s, err := ProtoToSharedSecret(secret)
+		if err != nil {
+			return nil, err
+		}
+		secrets = append(secrets, s)
+	}
 	return &LocationAuth{
 		LocationId: locationAuth.LocationId,
-		Secrets: locationAuth.Secrets,
-	}
+		Secrets: secrets,
+	}, nil
 }
 
-func LocationAuthToProto(locationAuth *LocationAuth) *pb.LocationAuth {
+func LocationAuthToProto(locationAuth *LocationAuth) (*pb.LocationAuth, error) {
+	var secrets []*pb.SharedSecret
+	for _, secret := range(locationAuth.Secrets) {
+		s, err := SharedSecretToProto(secret)
+		if err != nil {
+			return nil, err
+		}
+		secrets = append(secrets, s)
+	}
 	return &pb.LocationAuth{
 		LocationId: locationAuth.LocationId,
-		Secrets: locationAuth.Secrets,
-	}
+		Secrets: secrets,
+	}, nil
 }
 
 type SharedSecret struct {
@@ -94,20 +120,28 @@ type SharedSecret struct {
 	State SharedSecret_State
 }
 
-func ProtoToSharedSecret(sharedSecret *pb.SharedSecret) *SharedSecret {
+func ProtoToSharedSecret(sharedSecret *pb.SharedSecret) (*SharedSecret, error) {
+	state, err := ProtoToSharedSecretState(sharedSecret.State)
+	if err != nil {
+		return nil, err
+	}
 	return &SharedSecret{
 		Id: sharedSecret.Id,
 		CreatedOn: sharedSecret.CreatedOn,
-		State: ProtoToSharedSecretState(sharedSecret.State),
-	}
+		State: state,
+	}, nil
 }
 
-func SharedSecretToProto(sharedSecret *SharedSecret) *pb.SharedSecret {
+func SharedSecretToProto(sharedSecret *SharedSecret) (*pb.SharedSecret, error) {
+	state, err := SharedSecretStateToProto(sharedSecret.State)
+	if err != nil {
+		return nil, err
+	}
 	return &pb.SharedSecret{
 		Id: sharedSecret.Id,
 		CreatedOn: sharedSecret.CreatedOn,
-		State: SharedSecretStateToProto(sharedSecret.State),
-	}
+		State: state,
+	}, nil
 }
 
 type SharedSecret_State int32
@@ -118,24 +152,28 @@ const (
 	SharedSecret_STATE_DISABLED SharedSecret_State = 2
 )
 
-func ProtoToSharedSecretState(sharedSecretState pb.SharedSecret_State) SharedSecret_State {
+func ProtoToSharedSecretState(sharedSecretState pb.SharedSecret_State) (SharedSecret_State, error) {
 	switch sharedSecretState{
 	case pb.SharedSecret_STATE_UNSPECIFIED:
-		return SharedSecret_STATE_UNSPECIFIED
+		return SharedSecret_STATE_UNSPECIFIED, nil
 	case pb.SharedSecret_STATE_ENABLED:
-		return SharedSecret_STATE_ENABLED
+		return SharedSecret_STATE_ENABLED, nil
 	case pb.SharedSecret_STATE_DISABLED:
-		return SharedSecret_STATE_DISABLED
+		return SharedSecret_STATE_DISABLED, nil
+	default:
+		return 0, fmt.Errorf("uknown secret state: %v", sharedSecretState)
 	}
 }
 
-func SharedSecretStateToProto(sharedSecretState SharedSecret_State) pb.SharedSecret_State {
+func SharedSecretStateToProto(sharedSecretState SharedSecret_State) (pb.SharedSecret_State, error) {
 	switch sharedSecretState{
 	case SharedSecret_STATE_UNSPECIFIED:
-		return pb.SharedSecret_STATE_UNSPECIFIED
+		return pb.SharedSecret_STATE_UNSPECIFIED, nil
 	case SharedSecret_STATE_ENABLED:
-		return pb.SharedSecret_STATE_ENABLED
+		return pb.SharedSecret_STATE_ENABLED, nil
 	case SharedSecret_STATE_DISABLED:
-		return pb.SharedSecret_STATE_DISABLED
+		return pb.SharedSecret_STATE_DISABLED, nil
+	default:
+		return 0, fmt.Errorf("unknown secret state: %v", sharedSecretState)
 	}
 }

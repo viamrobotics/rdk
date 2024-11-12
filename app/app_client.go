@@ -236,7 +236,11 @@ func (c *AppClient) CreateLocation(ctx context.Context, orgId, name string, pare
 	if err != nil {
 		return nil, err
 	}
-	return ProtoToLocation(resp.Location), nil
+	location, err := ProtoToLocation(resp.Location)
+	if err != nil {
+		return nil, err
+	}
+	return location, nil
 }
 
 // GetLocation gets a location.
@@ -247,7 +251,11 @@ func (c *AppClient) GetLocation(ctx context.Context, locationId string) (*Locati
 	if err != nil {
 		return nil, err
 	}
-	return ProtoToLocation(resp.Location), nil
+	location, err := ProtoToLocation(resp.Location)
+	if err != nil {
+		return nil, err
+	}
+	return location, nil
 }
 
 // UpdateLocation updates a location.
@@ -261,7 +269,11 @@ func (c *AppClient) UpdateLocation(ctx context.Context, locationId string, name,
 	if err != nil {
 		return nil, err
 	}
-	return ProtoToLocation(resp.Location), nil
+	location, err := ProtoToLocation(resp.Location)
+	if err != nil {
+		return nil, err
+	}
+	return location, nil
 }
 
 // DeleteLocation deletes a location.
@@ -286,7 +298,11 @@ func (c *AppClient) ListLocations(ctx context.Context, orgId string) ([]*Locatio
 
 	var locations []*Location
 	for _, location := range(resp.Locations) {
-		locations = append(locations, ProtoToLocation(location))
+		l, err := ProtoToLocation(location)
+		if err != nil {
+			return nil, err
+		}
+		locations = append(locations, l)
 	}
 	return locations, nil
 }
@@ -323,7 +339,11 @@ func (c *AppClient) LocationAuth(ctx context.Context, locationId string) (*Locat
 	if err != nil {
 		return nil, err
 	}
-	return ProtoToLocationAuth(resp.Auth), nil
+	auth, err := ProtoToLocationAuth(resp.Auth)
+	if err != nil {
+		return nil, err
+	}
+	return auth, nil
 }
 
 // CreateLocationSecret creates a new generated secret in the location. Succeeds if there are no more than 2 active secrets after creation.
@@ -334,7 +354,11 @@ func (c *AppClient) CreateLocationSecret(ctx context.Context, locationId string)
 	if err != nil {
 		return nil, err
 	}
-	return ProtoToLocationAuth(resp.Auth), nil
+	auth, err := ProtoToLocationAuth(resp.Auth)
+	if err != nil {
+		return nil, err
+	}
+	return auth, nil
 }
 
 // Delete a secret from the location.
