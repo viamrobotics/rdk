@@ -227,7 +227,7 @@ func (c *AppClient) ResendOrganizationInvite(ctx context.Context, orgId, email s
 }
 
 // CreateLocation creates a location.
-func (c *AppClient) CreateLocation(ctx context.Context, orgId, name string, parentLocationId *string) (*pb.Location, error) {
+func (c *AppClient) CreateLocation(ctx context.Context, orgId, name string, parentLocationId *string) (*Location, error) {
 	resp, err := c.client.CreateLocation(ctx, &pb.CreateLocationRequest{
 		OrganizationId:   orgId,
 		Name:             name,
@@ -236,22 +236,22 @@ func (c *AppClient) CreateLocation(ctx context.Context, orgId, name string, pare
 	if err != nil {
 		return nil, err
 	}
-	return resp.Location, nil
+	return ProtoToLocation(resp.Location), nil
 }
 
 // GetLocation gets a location.
-func (c *AppClient) GetLocation(ctx context.Context, locationId string) (*pb.Location, error) {
+func (c *AppClient) GetLocation(ctx context.Context, locationId string) (*Location, error) {
 	resp, err := c.client.GetLocation(ctx, &pb.GetLocationRequest{
 		LocationId: locationId,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Location, nil
+	return ProtoToLocation(resp.Location), nil
 }
 
 // UpdateLocation updates a location.
-func (c *AppClient) UpdateLocation(ctx context.Context, locationId string, name, parentLocationId, region *string) (*pb.Location, error) {
+func (c *AppClient) UpdateLocation(ctx context.Context, locationId string, name, parentLocationId, region *string) (*Location, error) {
 	resp, err := c.client.UpdateLocation(ctx, &pb.UpdateLocationRequest{
 		LocationId:       locationId,
 		Name:             name,
@@ -261,7 +261,7 @@ func (c *AppClient) UpdateLocation(ctx context.Context, locationId string, name,
 	if err != nil {
 		return nil, err
 	}
-	return resp.Location, nil
+	return ProtoToLocation(resp.Location), nil
 }
 
 // DeleteLocation deletes a location.
@@ -276,14 +276,19 @@ func (c *AppClient) DeleteLocation(ctx context.Context, locationId string) error
 }
 
 // ListLocations gets a list of locations under the specified organization.
-func (c *AppClient) ListLocations(ctx context.Context, orgId string) ([]*pb.Location, error) {
+func (c *AppClient) ListLocations(ctx context.Context, orgId string) ([]*Location, error) {
 	resp, err := c.client.ListLocations(ctx, &pb.ListLocationsRequest{
 		OrganizationId: orgId,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Locations, nil
+
+	var locations []*Location
+	for _, location := range(resp.Locations) {
+		locations = append(locations, ProtoToLocation(location))
+	}
+	return locations, nil
 }
 
 // ShareLocation shares a location with an organization.
@@ -311,25 +316,25 @@ func (c *AppClient) UnshareLocation(ctx context.Context, locationId, orgId strin
 }
 
 // LocationAuth gets a location's authorization secrets.
-func (c *AppClient) LocationAuth(ctx context.Context, locationId string) (*pb.LocationAuth, error) {
+func (c *AppClient) LocationAuth(ctx context.Context, locationId string) (*LocationAuth, error) {
 	resp, err := c.client.LocationAuth(ctx, &pb.LocationAuthRequest{
 		LocationId: locationId,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Auth, nil
+	return ProtoToLocationAuth(resp.Auth), nil
 }
 
 // CreateLocationSecret creates a new generated secret in the location. Succeeds if there are no more than 2 active secrets after creation.
-func (c *AppClient) CreateLocationSecret(ctx context.Context, locationId string) (*pb.LocationAuth, error) {
+func (c *AppClient) CreateLocationSecret(ctx context.Context, locationId string) (*LocationAuth, error) {
 	resp, err := c.client.CreateLocationSecret(ctx, &pb.CreateLocationSecretRequest{
 		LocationId: locationId,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Auth, nil
+	return ProtoToLocationAuth(resp.Auth), nil
 }
 
 // Delete a secret from the location.
