@@ -104,21 +104,39 @@ func BuildTempModuleWithFirstRun(tb testing.TB, modDir string) string {
 // without needing a real file system for testing.
 type MockBuffer struct {
 	ctx    context.Context
+	cancel context.CancelFunc
 	Writes chan *v1.SensorData
 }
 
 // NewMockBuffer returns a mock buffer.
-func NewMockBuffer(ctx context.Context) *MockBuffer {
+func NewMockBuffer() *MockBuffer {
+	c, cancel := context.WithCancel(context.Background())
 	return &MockBuffer{
-		ctx:    ctx,
+		ctx:    c,
+		cancel: cancel,
 		Writes: make(chan *v1.SensorData, 1),
 	}
 }
 
+// ToStructPBStruct calls structpb.NewValue and fails tests if an error
+// is encountered.
+// Otherwise, returns a *structpb.Struct.
 func ToStructPBStruct(t *testing.T, v any) *structpb.Struct {
 	s, err := structpb.NewValue(v)
 	test.That(t, err, test.ShouldBeNil)
 	return s.GetStructValue()
+}
+
+func isBinary(item *v1.SensorData) bool {
+	if item == nil {
+		return false
+	}
+	switch item.Data.(type) {
+	case *v1.SensorData_Binary:
+		return true
+	default:
+		return false
+	}
 }
 
 // CheckMockBufferWrites checks that the Write
@@ -146,8 +164,18 @@ func CheckMockBufferWrites(
 		// nil out to make comparable
 		write.Metadata.TimeRequested = nil
 		write.Metadata.TimeReceived = nil
-		test.That(t, write, test.ShouldResemble, expected)
+		test.That(t, write.GetMetadata(), test.ShouldResemble, expected.GetMetadata())
+		if isBinary(write) {
+			test.That(t, write.GetBinary(), test.ShouldResemble, expected.GetBinary())
+		} else {
+			test.That(t, write.GetStruct(), test.ShouldResemble, expected.GetStruct())
+		}
 	}
+}
+
+// Close cancels the MockBuffer context so all methods stop blocking.
+func (m *MockBuffer) Close() {
+	m.cancel()
 }
 
 // Write adds the item to the channel.

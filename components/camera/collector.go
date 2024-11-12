@@ -36,9 +36,8 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-// TODO: add tests for this file.
-
-func newNextPointCloudCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+// NewNextPointCloudCollector creates a collector for camera.NextPointCloud.
+func NewNextPointCloudCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	camera, err := assertCamera(resource)
 	if err != nil {
 		return nil, err
@@ -74,7 +73,8 @@ func newNextPointCloudCollector(resource interface{}, params data.CollectorParam
 	return data.NewCollector(cFunc, params)
 }
 
-func newReadImageCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+// NewReadImageCollector creates a collector for camera.GetImage.
+func NewReadImageCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	camera, err := assertCamera(resource)
 	if err != nil {
 		return nil, err
@@ -126,7 +126,8 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 	return data.NewCollector(cFunc, params)
 }
 
-func newGetImagesCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+// NewGetImagesCollector creates a collector for camera.GetImages.
+func NewGetImagesCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	camera, err := assertCamera(resource)
 	if err != nil {
 		return nil, err

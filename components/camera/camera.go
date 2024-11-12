@@ -30,15 +30,15 @@ func init() {
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
 		MethodName: nextPointCloud.String(),
-	}, newNextPointCloudCollector)
+	}, NewNextPointCloudCollector)
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
 		MethodName: readImage.String(),
-	}, newReadImageCollector)
+	}, NewReadImageCollector)
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
 		MethodName: getImages.String(),
-	}, newGetImagesCollector)
+	}, NewGetImagesCollector)
 }
 
 // SubtypeName is a constant that identifies the camera resource subtype string.

@@ -23,9 +23,7 @@ const (
 
 func TestCollectors(t *testing.T) {
 	start := time.Now()
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	buf := tu.NewMockBuffer(ctx)
+	buf := tu.NewMockBuffer()
 	params := data.CollectorParams{
 		DataType:      data.CaptureTypeTabular,
 		ComponentName: "encoder",
@@ -42,7 +40,8 @@ func TestCollectors(t *testing.T) {
 	defer col.Close()
 	col.Collect()
 
-	test.That(t, err, test.ShouldBeNil)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
 	tu.CheckMockBufferWrites(t, ctx, start, buf.Writes, &datasyncpb.SensorData{
 		Metadata: &datasyncpb.SensorMetadata{},
 		Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
@@ -50,6 +49,7 @@ func TestCollectors(t *testing.T) {
 			"position_type": int(pb.PositionType_POSITION_TYPE_TICKS_COUNT),
 		})},
 	})
+	buf.Close()
 }
 
 func newEncoder() encoder.Encoder {

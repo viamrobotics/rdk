@@ -26,7 +26,6 @@ const (
 )
 
 func TestCollectors(t *testing.T) {
-
 	tests := []struct {
 		name      string
 		params    data.CollectorParams
@@ -79,9 +78,7 @@ func TestCollectors(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			start := time.Now()
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-			defer cancel()
-			buf := tu.NewMockBuffer(ctx)
+			buf := tu.NewMockBuffer()
 			tc.params.Clock = clock.New()
 			tc.params.Target = buf
 
@@ -92,7 +89,10 @@ func TestCollectors(t *testing.T) {
 			defer col.Close()
 			col.Collect()
 
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
 			tu.CheckMockBufferWrites(t, ctx, start, buf.Writes, tc.expected)
+			buf.Close()
 		})
 	}
 }

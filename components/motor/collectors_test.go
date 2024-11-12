@@ -53,9 +53,7 @@ func TestCollectors(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			start := time.Now()
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-			defer cancel()
-			buf := tu.NewMockBuffer(ctx)
+			buf := tu.NewMockBuffer()
 			params := data.CollectorParams{
 				DataType:      data.CaptureTypeTabular,
 				ComponentName: componentName,
@@ -72,7 +70,10 @@ func TestCollectors(t *testing.T) {
 			defer col.Close()
 			col.Collect()
 
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
 			tu.CheckMockBufferWrites(t, ctx, start, buf.Writes, tc.expected)
+			buf.Close()
 		})
 	}
 }
