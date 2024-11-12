@@ -310,7 +310,7 @@ func (vm *vizModel) DetectionsFromCamera(
 	}
 	img, release, err := camera.ReadImage(ctx, cam)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not get go image from %s", cameraName)
+		return nil, errors.Wrapf(err, "could not get image from %s", cameraName)
 	}
 	defer release()
 	return vm.detectorFunc(ctx, img)
@@ -353,7 +353,7 @@ func (vm *vizModel) ClassificationsFromCamera(
 	}
 	img, release, err := camera.ReadImage(ctx, cam)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not get go image from %s", cameraName)
+		return nil, errors.Wrapf(err, "could not get image from %s", cameraName)
 	}
 	defer release()
 	fullClassifications, err := vm.classifierFunc(ctx, img)
