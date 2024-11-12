@@ -29,7 +29,24 @@ const (
 var floatList = &pb.JointPositions{Values: []float64{1.0, 2.0, 3.0}}
 
 func TestCollectors(t *testing.T) {
-	l, err := structpb.NewList([]any{1.0, 2.0, 3.0})
+	expected1Struct, err := structpb.NewValue(map[string]any{
+		"pose": map[string]any{
+			"o_x":   0,
+			"o_y":   0,
+			"o_z":   1,
+			"theta": 0,
+			"x":     1,
+			"y":     2,
+			"z":     3,
+		},
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	expected2Struct, err := structpb.NewValue(map[string]any{
+		"positions": map[string]any{
+			"values": []any{1.0, 2.0, 3.0},
+		},
+	})
 	test.That(t, err, test.ShouldBeNil)
 
 	tests := []struct {
@@ -42,21 +59,7 @@ func TestCollectors(t *testing.T) {
 			collector: arm.NewEndPositionCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data: &datasyncpb.SensorData_Struct{Struct: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						"pose": structpb.NewStructValue(&structpb.Struct{
-							Fields: map[string]*structpb.Value{
-								"o_x":   structpb.NewNumberValue(0),
-								"o_y":   structpb.NewNumberValue(0),
-								"o_z":   structpb.NewNumberValue(1),
-								"theta": structpb.NewNumberValue(0),
-								"x":     structpb.NewNumberValue(1),
-								"y":     structpb.NewNumberValue(2),
-								"z":     structpb.NewNumberValue(3),
-							},
-						}),
-					},
-				}},
+				Data:     &datasyncpb.SensorData_Struct{Struct: expected1Struct.GetStructValue()},
 			},
 		},
 		{
@@ -64,13 +67,7 @@ func TestCollectors(t *testing.T) {
 			collector: arm.NewJointPositionsCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data: &datasyncpb.SensorData_Struct{Struct: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						"positions": structpb.NewStructValue(&structpb.Struct{
-							Fields: map[string]*structpb.Value{"values": structpb.NewListValue(l)},
-						}),
-					},
-				}},
+				Data:     &datasyncpb.SensorData_Struct{Struct: expected2Struct.GetStructValue()},
 			},
 		},
 	}

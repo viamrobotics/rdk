@@ -26,7 +26,14 @@ const (
 var floatList = []float64{1000, 2000, 3000}
 
 func TestCollectors(t *testing.T) {
-	l, err := structpb.NewList([]any{1000, 2000, 3000})
+	expected1Struct, err := structpb.NewValue(map[string]any{
+		"lengths_mm": []any{1000, 2000, 3000},
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	expected2Struct, err := structpb.NewValue(map[string]any{
+		"positions_mm": []any{1000, 2000, 3000},
+	})
 	test.That(t, err, test.ShouldBeNil)
 
 	tests := []struct {
@@ -39,11 +46,7 @@ func TestCollectors(t *testing.T) {
 			collector: gantry.NewLengthsCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data: &datasyncpb.SensorData_Struct{Struct: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						"lengths_mm": structpb.NewListValue(l),
-					},
-				}},
+				Data:     &datasyncpb.SensorData_Struct{Struct: expected1Struct.GetStructValue()},
 			},
 		},
 		{
@@ -51,11 +54,7 @@ func TestCollectors(t *testing.T) {
 			collector: gantry.NewPositionCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data: &datasyncpb.SensorData_Struct{Struct: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						"positions_mm": structpb.NewListValue(l),
-					},
-				}},
+				Data:     &datasyncpb.SensorData_Struct{Struct: expected2Struct.GetStructValue()},
 			},
 		},
 	}

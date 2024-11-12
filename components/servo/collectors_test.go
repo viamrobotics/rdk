@@ -42,13 +42,14 @@ func TestCollectors(t *testing.T) {
 	defer col.Close()
 	col.Collect()
 
+	expected1Struct, err := structpb.NewValue(map[string]any{
+		"position_deg": 1.0,
+	})
+	test.That(t, err, test.ShouldBeNil)
+
 	tu.CheckMockBufferWrites(t, ctx, start, buf.Writes, &datasyncpb.SensorData{
 		Metadata: &datasyncpb.SensorMetadata{},
-		Data: &datasyncpb.SensorData_Struct{Struct: &structpb.Struct{
-			Fields: map[string]*structpb.Value{
-				"position_deg": structpb.NewNumberValue(1.0),
-			},
-		}},
+		Data:     &datasyncpb.SensorData_Struct{Struct: expected1Struct.GetStructValue()},
 	})
 }
 

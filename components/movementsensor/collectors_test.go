@@ -34,6 +34,62 @@ var vec = r3.Vector{
 var readingMap = map[string]any{"reading1": false, "reading2": "test"}
 
 func TestCollectors(t *testing.T) {
+	expected1Struct, err := structpb.NewValue(map[string]any{
+		"linear_velocity": map[string]any{
+			"x": 1.0,
+			"y": 2.0,
+			"z": 3.0,
+		}})
+	test.That(t, err, test.ShouldBeNil)
+
+	expected2Struct, err := structpb.NewValue(map[string]any{
+		"coordinate": map[string]any{
+			"latitude":  1.0,
+			"longitude": 2.0,
+		},
+		"altitude_m": 3.0,
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	expected3Struct, err := structpb.NewValue(map[string]any{
+		"angular_velocity": map[string]any{
+			"x": 1.0,
+			"y": 2.0,
+			"z": 3.0,
+		},
+	},
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	expected4Struct, err := structpb.NewValue(map[string]any{"value": 1.0})
+	test.That(t, err, test.ShouldBeNil)
+
+	expected5Struct, err := structpb.NewValue(map[string]any{
+		"linear_acceleration": map[string]any{
+			"x": 1.0,
+			"y": 2.0,
+			"z": 3.0,
+		},
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	expected6Struct, err := structpb.NewValue(map[string]any{
+		"orientation": map[string]any{
+			"o_x":   0,
+			"o_y":   0,
+			"o_z":   1,
+			"theta": 0,
+		},
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	expected7Struct, err := structpb.NewValue(map[string]any{
+		"readings": map[string]any{
+			"reading1": false,
+			"reading2": "test",
+		}})
+	test.That(t, err, test.ShouldBeNil)
+
 	tests := []struct {
 		name      string
 		collector data.CollectorConstructor
@@ -44,17 +100,7 @@ func TestCollectors(t *testing.T) {
 			collector: movementsensor.NewLinearVelocityCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data: &datasyncpb.SensorData_Struct{Struct: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						"linear_velocity": structpb.NewStructValue(&structpb.Struct{
-							Fields: map[string]*structpb.Value{
-								"x": structpb.NewNumberValue(1.0),
-								"y": structpb.NewNumberValue(2.0),
-								"z": structpb.NewNumberValue(3.0),
-							},
-						}),
-					},
-				}},
+				Data:     &datasyncpb.SensorData_Struct{Struct: expected1Struct.GetStructValue()},
 			},
 		},
 		{
@@ -62,17 +108,7 @@ func TestCollectors(t *testing.T) {
 			collector: movementsensor.NewPositionCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data: &datasyncpb.SensorData_Struct{Struct: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						"coordinate": structpb.NewStructValue(&structpb.Struct{
-							Fields: map[string]*structpb.Value{
-								"latitude":  structpb.NewNumberValue(1.0),
-								"longitude": structpb.NewNumberValue(2.0),
-							},
-						}),
-						"altitude_m": structpb.NewNumberValue(3.0),
-					},
-				}},
+				Data:     &datasyncpb.SensorData_Struct{Struct: expected2Struct.GetStructValue()},
 			},
 		},
 		{
@@ -80,17 +116,7 @@ func TestCollectors(t *testing.T) {
 			collector: movementsensor.NewAngularVelocityCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data: &datasyncpb.SensorData_Struct{Struct: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						"angular_velocity": structpb.NewStructValue(&structpb.Struct{
-							Fields: map[string]*structpb.Value{
-								"x": structpb.NewNumberValue(1.0),
-								"y": structpb.NewNumberValue(2.0),
-								"z": structpb.NewNumberValue(3.0),
-							},
-						}),
-					},
-				}},
+				Data:     &datasyncpb.SensorData_Struct{Struct: expected3Struct.GetStructValue()},
 			},
 		},
 		{
@@ -98,11 +124,7 @@ func TestCollectors(t *testing.T) {
 			collector: movementsensor.NewCompassHeadingCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data: &datasyncpb.SensorData_Struct{Struct: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						"value": structpb.NewNumberValue(1.0),
-					},
-				}},
+				Data:     &datasyncpb.SensorData_Struct{Struct: expected4Struct.GetStructValue()},
 			},
 		},
 		{
@@ -110,17 +132,7 @@ func TestCollectors(t *testing.T) {
 			collector: movementsensor.NewLinearAccelerationCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data: &datasyncpb.SensorData_Struct{Struct: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						"linear_acceleration": structpb.NewStructValue(&structpb.Struct{
-							Fields: map[string]*structpb.Value{
-								"x": structpb.NewNumberValue(1.0),
-								"y": structpb.NewNumberValue(2.0),
-								"z": structpb.NewNumberValue(3.0),
-							},
-						}),
-					},
-				}},
+				Data:     &datasyncpb.SensorData_Struct{Struct: expected5Struct.GetStructValue()},
 			},
 		},
 		{
@@ -128,18 +140,7 @@ func TestCollectors(t *testing.T) {
 			collector: movementsensor.NewOrientationCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data: &datasyncpb.SensorData_Struct{Struct: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						"orientation": structpb.NewStructValue(&structpb.Struct{
-							Fields: map[string]*structpb.Value{
-								"o_x":   structpb.NewNumberValue(0),
-								"o_y":   structpb.NewNumberValue(0),
-								"o_z":   structpb.NewNumberValue(1),
-								"theta": structpb.NewNumberValue(0),
-							},
-						}),
-					},
-				}},
+				Data:     &datasyncpb.SensorData_Struct{Struct: expected6Struct.GetStructValue()},
 			},
 		},
 		{
@@ -147,16 +148,7 @@ func TestCollectors(t *testing.T) {
 			collector: movementsensor.NewReadingsCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data: &datasyncpb.SensorData_Struct{Struct: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						"readings": structpb.NewStructValue(&structpb.Struct{
-							Fields: map[string]*structpb.Value{
-								"reading1": structpb.NewBoolValue(false),
-								"reading2": structpb.NewStringValue("test"),
-							},
-						}),
-					},
-				}},
+				Data:     &datasyncpb.SensorData_Struct{Struct: expected7Struct.GetStructValue()},
 			},
 		},
 	}

@@ -23,6 +23,17 @@ const (
 )
 
 func TestCollectors(t *testing.T) {
+	expected1Struct, err := structpb.NewValue(map[string]any{
+		"position": 1.0,
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	expected2Struct, err := structpb.NewValue(map[string]any{
+		"is_on":     false,
+		"power_pct": 0.5,
+	})
+	test.That(t, err, test.ShouldBeNil)
+
 	tests := []struct {
 		name      string
 		collector data.CollectorConstructor
@@ -33,11 +44,7 @@ func TestCollectors(t *testing.T) {
 			collector: motor.NewPositionCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data: &datasyncpb.SensorData_Struct{Struct: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						"position": structpb.NewNumberValue(1.0),
-					},
-				}},
+				Data:     &datasyncpb.SensorData_Struct{Struct: expected1Struct.GetStructValue()},
 			},
 		},
 		{
@@ -45,12 +52,7 @@ func TestCollectors(t *testing.T) {
 			collector: motor.NewIsPoweredCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data: &datasyncpb.SensorData_Struct{Struct: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						"is_on":     structpb.NewBoolValue(false),
-						"power_pct": structpb.NewNumberValue(0.5),
-					},
-				}},
+				Data:     &datasyncpb.SensorData_Struct{Struct: expected2Struct.GetStructValue()},
 			},
 		},
 	}

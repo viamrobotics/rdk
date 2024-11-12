@@ -27,6 +27,19 @@ const (
 )
 
 func TestCollectors(t *testing.T) {
+	expected1Struct, err := structpb.NewValue(map[string]any{
+		"value":     1,
+		"min_range": 0,
+		"max_range": 10,
+		"step_size": float64(float32(0.1)),
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	expected2Struct, err := structpb.NewValue(map[string]any{
+		"high": true,
+	})
+	test.That(t, err, test.ShouldBeNil)
+
 	tests := []struct {
 		name      string
 		params    data.CollectorParams
@@ -47,14 +60,7 @@ func TestCollectors(t *testing.T) {
 			collector: board.NewAnalogCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data: &datasyncpb.SensorData_Struct{Struct: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						"value":     structpb.NewNumberValue(1),
-						"min_range": structpb.NewNumberValue(0),
-						"max_range": structpb.NewNumberValue(10),
-						"step_size": structpb.NewNumberValue(float64(float32(0.1))),
-					},
-				}},
+				Data:     &datasyncpb.SensorData_Struct{Struct: expected1Struct.GetStructValue()},
 			},
 		},
 		{
@@ -71,11 +77,7 @@ func TestCollectors(t *testing.T) {
 			collector: board.NewGPIOCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data: &datasyncpb.SensorData_Struct{Struct: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						"high": structpb.NewBoolValue(true),
-					},
-				}},
+				Data:     &datasyncpb.SensorData_Struct{Struct: expected2Struct.GetStructValue()},
 			},
 		},
 	}
