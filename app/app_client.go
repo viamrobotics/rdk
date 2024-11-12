@@ -162,11 +162,15 @@ func (c *AppClient) ListOrganizationMembers(ctx context.Context, orgId string) (
 }
 
 // CreateOrganizaitonInvite creates an organization invite to an organization.
-func (c *AppClient) CreateOrganizationInvite(ctx context.Context, orgId, email string, authorizations []*pb.Authorization, sendEmailInvite *bool) (*OrganizationInvite, error) {
+func (c *AppClient) CreateOrganizationInvite(ctx context.Context, orgId, email string, authorizations []*Authorization, sendEmailInvite *bool) (*OrganizationInvite, error) {
+	var pbAuthorizations []*pb.Authorization
+	for _, authorization := range(authorizations) {
+		pbAuthorizations = append(pbAuthorizations, AuthorizationToProto(authorization))
+	}
 	resp, err := c.client.CreateOrganizationInvite(ctx, &pb.CreateOrganizationInviteRequest{
 		OrganizationId:  orgId,
 		Email:           email,
-		Authorizations:  authorizations,
+		Authorizations:  pbAuthorizations,
 		SendEmailInvite: sendEmailInvite,
 	})
 	if err != nil {
@@ -176,12 +180,20 @@ func (c *AppClient) CreateOrganizationInvite(ctx context.Context, orgId, email s
 }
 
 // UpdateOrganizationInviteAuthorizations updates the authorizations attached to an organization invite.
-func (c *AppClient) UpdateOrganizationInviteAuthorizations(ctx context.Context, orgId, email string, addAuthorizations, removeAuthorizations []*pb.Authorization) (*OrganizationInvite, error) {
+func (c *AppClient) UpdateOrganizationInviteAuthorizations(ctx context.Context, orgId, email string, addAuthorizations, removeAuthorizations []*Authorization) (*OrganizationInvite, error) {
+	var pbAddAuthorizations []*pb.Authorization
+	for _, authorization := range(addAuthorizations) {
+		pbAddAuthorizations = append(pbAddAuthorizations, AuthorizationToProto(authorization))
+	}
+	var pbRemoveAuthorizations []*pb.Authorization
+	for _, authorization := range(removeAuthorizations) {
+		pbRemoveAuthorizations = append(pbRemoveAuthorizations, AuthorizationToProto(authorization))
+	}
 	resp, err := c.client.UpdateOrganizationInviteAuthorizations(ctx, &pb.UpdateOrganizationInviteAuthorizationsRequest{
 		OrganizationId:       orgId,
 		Email:                email,
-		AddAuthorizations:    addAuthorizations,
-		RemoveAuthorizations: removeAuthorizations,
+		AddAuthorizations:    pbAddAuthorizations,
+		RemoveAuthorizations: pbRemoveAuthorizations,
 	})
 	if err != nil {
 		return nil, err
@@ -817,7 +829,7 @@ func (c *AppClient) ChangeRole(ctx context.Context, oldOrgId, oldIdentityId, old
 }
 
 // listAuthorizations returns all authorization roles for any given resources. If no resources are given, all resources within the organization will be included.
-func (c *AppClient) ListAuthorizations(ctx context.Context, orgId string, resourceIds []string) ([]*pb.Authorization, error) {
+func (c *AppClient) ListAuthorizations(ctx context.Context, orgId string, resourceIds []string) ([]*Authorization, error) {
 	resp, err := c.client.ListAuthorizations(ctx, &pb.ListAuthorizationsRequest{
 		OrganizationId: orgId,
 		ResourceIds:    resourceIds,
@@ -825,7 +837,11 @@ func (c *AppClient) ListAuthorizations(ctx context.Context, orgId string, resour
 	if err != nil {
 		return nil, err
 	}
-	return resp.Authorizations, nil
+	var authorizations []*Authorization
+	for _, authorization := range(resp.Authorizations) {
+		authorizations = append(authorizations, ProtoToAuthorization(authorization))
+	}
+	return authorizations, nil
 }
 
 // CheckPermissions checks the validity of a list of permissions.
