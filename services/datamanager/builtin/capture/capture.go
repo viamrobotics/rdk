@@ -336,6 +336,7 @@ func (c *Capture) initializeOrUpdateCollector(
 	queueSize := defaultIfZeroVal(collectorConfig.CaptureQueueSize, defaultCaptureQueueSize)
 	bufferSize := defaultIfZeroVal(collectorConfig.CaptureBufferSize, defaultCaptureBufferSize)
 	collector, err := collectorConstructor(res, data.CollectorParams{
+		DataType:        data.GetDataType(collectorConfig.Method),
 		MongoCollection: collection,
 		ComponentName:   collectorConfig.Name.ShortName(),
 		ComponentType:   collectorConfig.Name.API.String(),

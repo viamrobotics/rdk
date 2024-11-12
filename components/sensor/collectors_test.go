@@ -1,4 +1,4 @@
-package encoder_test
+package sensor_test
 
 import (
 	"context"
@@ -7,11 +7,10 @@ import (
 
 	"github.com/benbjohnson/clock"
 	datasyncpb "go.viam.com/api/app/datasync/v1"
-	pb "go.viam.com/api/component/encoder/v1"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"go.viam.com/rdk/components/encoder"
+	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 	tu "go.viam.com/rdk/testutils"
@@ -22,6 +21,8 @@ const (
 	captureInterval = time.Millisecond
 )
 
+var readingMap = map[string]any{"reading1": false, "reading2": "test"}
+
 func TestCollectors(t *testing.T) {
 	start := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -29,15 +30,15 @@ func TestCollectors(t *testing.T) {
 	buf := tu.NewMockBuffer(ctx)
 	params := data.CollectorParams{
 		DataType:      data.CaptureTypeTabular,
-		ComponentName: "encoder",
+		ComponentName: "sensor",
 		Interval:      captureInterval,
 		Logger:        logging.NewTestLogger(t),
 		Target:        buf,
 		Clock:         clock.New(),
 	}
 
-	enc := newEncoder()
-	col, err := encoder.NewTicksCountCollector(enc, params)
+	sens := newSensor()
+	col, err := sensor.NewReadingsCollector(sens, params)
 	test.That(t, err, test.ShouldBeNil)
 
 	defer col.Close()
@@ -47,20 +48,21 @@ func TestCollectors(t *testing.T) {
 		Metadata: &datasyncpb.SensorMetadata{},
 		Data: &datasyncpb.SensorData_Struct{Struct: &structpb.Struct{
 			Fields: map[string]*structpb.Value{
-				"value":         structpb.NewNumberValue(1.0),
-				"position_type": structpb.NewNumberValue(float64(pb.PositionType_POSITION_TYPE_TICKS_COUNT)),
+				"readings": structpb.NewStructValue(&structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"reading1": structpb.NewBoolValue(false),
+						"reading2": structpb.NewStringValue("test"),
+					},
+				}),
 			},
 		}},
 	})
 }
 
-func newEncoder() encoder.Encoder {
-	e := &inject.Encoder{}
-	e.PositionFunc = func(ctx context.Context,
-		positionType encoder.PositionType,
-		extra map[string]interface{},
-	) (float64, encoder.PositionType, error) {
-		return 1.0, encoder.PositionTypeTicks, nil
+func newSensor() sensor.Sensor {
+	s := &inject.Sensor{}
+	s.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+		return readingMap, nil
 	}
-	return e
+	return s
 }

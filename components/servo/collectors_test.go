@@ -5,9 +5,10 @@ import (
 	"testing"
 	"time"
 
-	clk "github.com/benbjohnson/clock"
-	pb "go.viam.com/api/component/servo/v1"
+	"github.com/benbjohnson/clock"
+	datasyncpb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/data"
@@ -17,19 +18,21 @@ import (
 )
 
 const (
-	captureInterval = time.Second
-	numRetries      = 5
+	captureInterval = time.Millisecond
 )
 
-func TestServoCollector(t *testing.T) {
-	mockClock := clk.NewMock()
-	buf := tu.MockBuffer{}
+func TestCollectors(t *testing.T) {
+	start := time.Now()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	buf := tu.NewMockBuffer(ctx)
 	params := data.CollectorParams{
+		DataType:      data.CaptureTypeTabular,
 		ComponentName: "servo",
 		Interval:      captureInterval,
 		Logger:        logging.NewTestLogger(t),
-		Target:        &buf,
-		Clock:         mockClock,
+		Target:        buf,
+		Clock:         clock.New(),
 	}
 
 	serv := newServo()
@@ -38,16 +41,15 @@ func TestServoCollector(t *testing.T) {
 
 	defer col.Close()
 	col.Collect()
-	mockClock.Add(captureInterval)
 
-	tu.Retry(func() bool {
-		return buf.Length() != 0
-	}, numRetries)
-	test.That(t, buf.Length(), test.ShouldBeGreaterThan, 0)
-	test.That(t, buf.Writes[0].GetStruct().AsMap(), test.ShouldResemble,
-		tu.ToProtoMapIgnoreOmitEmpty(pb.GetPositionResponse{
-			PositionDeg: 1.0,
-		}))
+	tu.CheckMockBufferWrites(t, ctx, start, buf.Writes, &datasyncpb.SensorData{
+		Metadata: &datasyncpb.SensorMetadata{},
+		Data: &datasyncpb.SensorData_Struct{Struct: &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"position_deg": structpb.NewNumberValue(1.0),
+			},
+		}},
+	})
 }
 
 func newServo() servo.Servo {
