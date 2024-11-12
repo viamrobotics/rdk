@@ -8,10 +8,9 @@ import (
 
 	packages "go.viam.com/api/app/packages/v1"
 	pb "go.viam.com/api/app/v1"
-	common "go.viam.com/api/common/v1"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -374,51 +373,67 @@ func (c *AppClient) DeleteLocationSecret(ctx context.Context, locationId, secret
 }
 
 // GetRobot gets a specific robot by ID.
-func (c *AppClient) GetRobot(ctx context.Context, id string) (*pb.Robot, error) {
+func (c *AppClient) GetRobot(ctx context.Context, id string) (*Robot, error) {
 	resp, err := c.client.GetRobot(ctx, &pb.GetRobotRequest{
 		Id: id,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Robot, nil
+	return ProtoToRobot(resp.Robot), nil
 }
 
 // GetRoverRentalRobots gets rover rental robots within an organization.
-func (c *AppClient) GetRoverRentalRobots(ctx context.Context, orgId string) ([]*pb.RoverRentalRobot, error) {
+func (c *AppClient) GetRoverRentalRobots(ctx context.Context, orgId string) ([]*RoverRentalRobot, error) {
 	resp, err := c.client.GetRoverRentalRobots(ctx, &pb.GetRoverRentalRobotsRequest{
 		OrgId: orgId,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Robots, nil
+	var robots []*RoverRentalRobot
+	for _, robot := range(resp.Robots) {
+		robots = append(robots, ProtoToRoverRentalRobot(robot))
+	}
+	return robots, nil
 }
 
 // GetRobotParts gets a list of all the parts under a specific machine.
-func (c *AppClient) GetRobotParts(ctx context.Context, robotId string) ([]*pb.RobotPart, error) {
+func (c *AppClient) GetRobotParts(ctx context.Context, robotId string) ([]*RobotPart, error) {
 	resp, err := c.client.GetRobotParts(ctx, &pb.GetRobotPartsRequest{
 		RobotId: robotId,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Parts, nil
+	var parts []*RobotPart
+	for _, part := range(resp.Parts) {
+		p, err := ProtoToRobotPart(part)
+		if err != nil {
+			return nil, err
+		}
+		parts = append(parts, p)
+	}
+	return parts, nil
 }
 
 // GetRobotPart gets a specific robot part and its config by ID.
-func (c *AppClient) GetRobotPart(ctx context.Context, id string) (*pb.RobotPart, string, error) {
+func (c *AppClient) GetRobotPart(ctx context.Context, id string) (*RobotPart, string, error) {
 	resp, err := c.client.GetRobotPart(ctx, &pb.GetRobotPartRequest{
 		Id: id,
 	})
 	if err != nil {
 		return nil, "", err
 	}
-	return resp.Part, resp.ConfigJson, nil
+	part, err := ProtoToRobotPart(resp.Part)
+	if err != nil {
+		return nil, "", err
+	}
+	return part, resp.ConfigJson, nil
 }
 
 // GetRobotPartLogs gets the logs associated with a robot part from a page, defaulting to the most recent page if pageToken is empty. Logs of all levels are returned when levels is empty.
-func (c *AppClient) GetRobotPartLogs(ctx context.Context, id string, filter, pageToken *string, levels []string, start, end *timestamppb.Timestamp, limit *int64, source *string) ([]*common.LogEntry, string, error) {
+func (c *AppClient) GetRobotPartLogs(ctx context.Context, id string, filter, pageToken *string, levels []string, start, end *timestamppb.Timestamp, limit *int64, source *string) ([]*LogEntry, string, error) {
 	resp, err := c.client.GetRobotPartLogs(ctx, &pb.GetRobotPartLogsRequest{
 		Id:        id,
 		Filter:    filter,
@@ -432,11 +447,19 @@ func (c *AppClient) GetRobotPartLogs(ctx context.Context, id string, filter, pag
 	if err != nil {
 		return nil, "", err
 	}
-	return resp.Logs, resp.NextPageToken, nil
+	var logs []*LogEntry
+	for _, log := range(resp.Logs){
+		l, err := ProtoToLogEntry(log)
+		if err != nil {
+			return nil, "", err
+		}
+		logs = append(logs, l)
+	}
+	return logs, resp.NextPageToken, nil
 }
 
 // TailRobotPartLogs gets a stream of log entries for a specific robot part. Logs are ordered by newest first.
-func (c *AppClient) TailRobotPartLogs(ctx context.Context, id string, errorsOnly bool, filter *string, ch chan []*common.LogEntry) error {
+func (c *AppClient) TailRobotPartLogs(ctx context.Context, id string, errorsOnly bool, filter *string, ch chan []*LogEntry) error {
 	stream := &logStream {client: c}
 
 	err := stream.startStream(ctx, id, errorsOnly, filter, ch)
@@ -450,27 +473,43 @@ func (c *AppClient) TailRobotPartLogs(ctx context.Context, id string, errorsOnly
 }
 
 // GetRobotPartHistory gets a specific robot part history by ID.
-func (c *AppClient) GetRobotPartHistory(ctx context.Context, id string) ([]*pb.RobotPartHistoryEntry, error) {
+func (c *AppClient) GetRobotPartHistory(ctx context.Context, id string) ([]*RobotPartHistoryEntry, error) {
 	resp, err := c.client.GetRobotPartHistory(ctx, &pb.GetRobotPartHistoryRequest{
 		Id: id,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.History, nil
+	var history []*RobotPartHistoryEntry
+	for _, entry := range(resp.History){
+		e, err := ProtoToRobotPartHistoryEntry(entry)
+		if err != nil {
+			return nil, err
+		}
+		history = append(history, e)
+	}
+	return history, nil
 }
 
 // UpdaetRobotPart updates a robot part.
-func (c *AppClient) UpdateRobotPart(ctx context.Context, id, name string, robotConfig *structpb.Struct) (*pb.RobotPart, error) {
+func (c *AppClient) UpdateRobotPart(ctx context.Context, id, name string, robotConfig interface{}) (*RobotPart, error) {
+	config, err := protoutils.StructToStructPb(robotConfig)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := c.client.UpdateRobotPart(ctx, &pb.UpdateRobotPartRequest{
 		Id:          id,
 		Name:        name,
-		RobotConfig: robotConfig,
+		RobotConfig: config,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Part, nil
+	part, err := ProtoToRobotPart(resp.Part)
+	if err != nil {
+		return nil, err
+	}
+	return part, nil
 }
 
 // NewRobotPart creates a new robot part.
@@ -497,14 +536,18 @@ func (c *AppClient) DeleteRobotPart(ctx context.Context, partId string) error {
 }
 
 // GetRobotAPIKeys gets the robot API keys for the robot.
-func (c *AppClient) GetRobotAPIKeys(ctx context.Context, robotId string) ([]*pb.APIKeyWithAuthorizations, error) {
+func (c *AppClient) GetRobotAPIKeys(ctx context.Context, robotId string) ([]*APIKeyWithAuthorizations, error) {
 	resp, err := c.client.GetRobotAPIKeys(ctx, &pb.GetRobotAPIKeysRequest{
 		RobotId: robotId,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.ApiKeys, nil
+	var keys []*APIKeyWithAuthorizations
+	for _, key := range(resp.ApiKeys) {
+		keys = append(keys, ProtoToAPIKeyWithAuthorizations(key))
+	}
+	return keys, nil
 }
 
 // MarkPartAsMain marks the given part as the main part, and all the others as not.
@@ -530,14 +573,18 @@ func (c *AppClient) MarkPartForRestart(ctx context.Context, partId string) error
 }
 
 // CreateRobotPartSecret creates a new generated secret in the robot part. Succeeds if there are no more than 2 active secrets after creation.
-func (c *AppClient) CreateRobotPartSecret(ctx context.Context, partId string) (*pb.RobotPart, error) {
+func (c *AppClient) CreateRobotPartSecret(ctx context.Context, partId string) (*RobotPart, error) {
 	resp, err := c.client.CreateRobotPartSecret(ctx, &pb.CreateRobotPartSecretRequest{
 		PartId: partId,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Part, nil
+	part, err := ProtoToRobotPart(resp.Part)
+	if err != nil {
+		return nil, err
+	}
+	return part, nil
 }
 
 // DeleteRobotPartSecret deletes a secret from the robot part.
@@ -553,14 +600,18 @@ func (c *AppClient) DeleteRobotPartSecret(ctx context.Context, partId, secretId 
 }
 
 // ListRobots gets a list of robots under a location.
-func (c *AppClient) ListRobots(ctx context.Context, locationId string) ([]*pb.Robot, error) {
+func (c *AppClient) ListRobots(ctx context.Context, locationId string) ([]*Robot, error) {
 	resp, err := c.client.ListRobots(ctx, &pb.ListRobotsRequest{
 		LocationId: locationId,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Robots, nil
+	var robots []*Robot
+	for _, robot := range(resp.Robots) {
+		robots = append(robots, ProtoToRobot(robot))
+	}
+	return robots, nil
 }
 
 // NewRobot creates a new robot.
@@ -576,7 +627,7 @@ func (c *AppClient) NewRobot(ctx context.Context, name, location string) (string
 }
 
 // UpdateRobot updates a robot.
-func (c *AppClient) UpdateRobot(ctx context.Context, id, name, location string) (*pb.Robot, error) {
+func (c *AppClient) UpdateRobot(ctx context.Context, id, name, location string) (*Robot, error) {
 	resp, err := c.client.UpdateRobot(ctx, &pb.UpdateRobotRequest{
 		Id:       id,
 		Name:     name,
@@ -585,7 +636,7 @@ func (c *AppClient) UpdateRobot(ctx context.Context, id, name, location string) 
 	if err != nil {
 		return nil, err
 	}
-	return resp.Robot, nil
+	return ProtoToRobot(resp.Robot), nil
 }
 
 // DeleteRobot deletes a robot.
@@ -624,10 +675,14 @@ func (c *AppClient) GetFragment(ctx context.Context, id string) (*pb.Fragment, e
 }
 
 // CreateFragment creates a fragment.
-func (c *AppClient) CreateFragment(ctx context.Context, name string, config *structpb.Struct, orgId string, visibility *pb.FragmentVisibility) (*pb.Fragment, error) {
+func (c *AppClient) CreateFragment(ctx context.Context, name string, config interface{}, orgId string, visibility *pb.FragmentVisibility) (*pb.Fragment, error) {
+	cfg, err := protoutils.StructToStructPb(config)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := c.client.CreateFragment(ctx, &pb.CreateFragmentRequest{
 		Name:           name,
-		Config:         config,
+		Config:         cfg,
 		OrganizationId: orgId,
 		Visibility:     visibility,
 	})
@@ -638,11 +693,15 @@ func (c *AppClient) CreateFragment(ctx context.Context, name string, config *str
 }
 
 // UpdateFragment updates a fragment.
-func (c *AppClient) UpdateFragment(ctx context.Context, id, name string, config *structpb.Struct, public *bool, visibility *pb.FragmentVisibility) (*pb.Fragment, error) {
+func (c *AppClient) UpdateFragment(ctx context.Context, id, name string, config interface{}, public *bool, visibility *pb.FragmentVisibility) (*pb.Fragment, error) {
+	cfg, err := protoutils.StructToStructPb(config)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := c.client.UpdateFragment(ctx, &pb.UpdateFragmentRequest{
 		Id:         id,
 		Name:       name,
-		Config:     config,
+		Config:     cfg,
 		Public:     public,
 		Visibility: visibility,
 	})

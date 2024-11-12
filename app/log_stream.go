@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	pb "go.viam.com/api/app/v1"
-	common "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 )
 
@@ -18,7 +17,7 @@ type logStream struct {
 }
 
 
-func (s *logStream) startStream(ctx context.Context, id string, errorsOnly bool, filter *string, ch chan []*common.LogEntry) error {
+func (s *logStream) startStream(ctx context.Context, id string, errorsOnly bool, filter *string, ch chan []*LogEntry) error {
 	s.streamMu.Lock()
 	defer s.streamMu.Unlock()
 
@@ -61,7 +60,7 @@ func (s *logStream) startStream(ctx context.Context, id string, errorsOnly bool,
 	return nil
 }
 
-func (s *logStream) receiveFromStream(ctx context.Context, stream pb.AppService_TailRobotPartLogsClient, ch chan []*common.LogEntry) {
+func (s *logStream) receiveFromStream(ctx context.Context, stream pb.AppService_TailRobotPartLogsClient, ch chan []*LogEntry) {
 	defer s.streamCancel()
 
 	// repeatly receive from the stream
@@ -79,6 +78,15 @@ func (s *logStream) receiveFromStream(ctx context.Context, stream pb.AppService_
 			return
 		}
 		// If there is a response, send to the logs channel.
-		ch <- streamResp.Logs
+		var logs []*LogEntry
+		for _, log := range(streamResp.Logs) {
+			l, err := ProtoToLogEntry(log)
+			if err != nil {
+				s.client.logger.Debug(err)
+				return
+			}
+			logs = append(logs, l)
+		}
+		ch <- logs
 	}
 }
