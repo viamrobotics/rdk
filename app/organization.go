@@ -103,23 +103,65 @@ type OrganizationInvite struct {
 	OrganizationId string
 	Email string
 	CreatedOn *timestamppb.Timestamp
-	Authorizations []*pb.Authorization
+	Authorizations []*Authorization
 }
 
 func ProtoToOrganizationInvite(organizationInvite *pb.OrganizationInvite) *OrganizationInvite {
+	var authorizations []*Authorization
+	for _, authorization := range(organizationInvite.Authorizations) {
+		authorizations = append(authorizations, ProtoToAuthorization(authorization))
+	}
 	return &OrganizationInvite{
 		OrganizationId: organizationInvite.OrganizationId,
 		Email: organizationInvite.Email,
 		CreatedOn: organizationInvite.CreatedOn,
-		Authorizations: organizationInvite.Authorizations,
+		Authorizations: authorizations,
 	}
 }
 
 func OrganizationInviteToProto(organizationInvite *OrganizationInvite) (*pb.OrganizationInvite, error) {
+	var authorizations []*pb.Authorization
+	for _, authorization := range(organizationInvite.Authorizations) {
+		authorizations = append(authorizations, AuthorizationToProto(authorization))
+	}
 	return &pb.OrganizationInvite{
 		OrganizationId: organizationInvite.OrganizationId,
 		Email: organizationInvite.Email,
 		CreatedOn: organizationInvite.CreatedOn,
-		Authorizations: organizationInvite.Authorizations,
+		Authorizations: authorizations,
 	}, nil
+}
+
+type Authorization struct {
+	AuthorizationType string
+	AuthorizationId string
+	ResourceType string
+	ResourceId string
+	IdentityId string
+	OrganizationId string
+	IdentityType string
+}
+
+func ProtoToAuthorization(authorization *pb.Authorization) *Authorization {
+	return &Authorization{
+		AuthorizationType: authorization.AuthorizationType,
+		AuthorizationId: authorization.AuthorizationId,
+		ResourceType: authorization.ResourceType,
+		ResourceId: authorization.ResourceId,
+		IdentityId: authorization.IdentityId,
+		OrganizationId: authorization.OrganizationId,
+		IdentityType: authorization.IdentityType,
+	}
+}
+
+func AuthorizationToProto(authorization *Authorization) *pb.Authorization {
+	return &pb.Authorization{
+		AuthorizationType: authorization.AuthorizationType,
+		AuthorizationId: authorization.AuthorizationId,
+		ResourceType: authorization.ResourceType,
+		ResourceId: authorization.ResourceId,
+		IdentityId: authorization.IdentityId,
+		OrganizationId: authorization.OrganizationId,
+		IdentityType: authorization.IdentityType,
+	}
 }
