@@ -39,7 +39,8 @@ func TestCollectors(t *testing.T) {
 			"x": 1.0,
 			"y": 2.0,
 			"z": 3.0,
-		}})
+		},
+	})
 	test.That(t, err, test.ShouldBeNil)
 
 	expected2Struct, err := structpb.NewValue(map[string]any{
@@ -87,7 +88,8 @@ func TestCollectors(t *testing.T) {
 		"readings": map[string]any{
 			"reading1": false,
 			"reading2": "test",
-		}})
+		},
+	})
 	test.That(t, err, test.ShouldBeNil)
 
 	tests := []struct {
