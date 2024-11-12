@@ -10,7 +10,7 @@ import (
 )
 
 type logStream struct {
-	*client
+	client *AppClient
 	streamCancel context.CancelFunc
 	streamMu     sync.Mutex
 
@@ -43,7 +43,7 @@ func (s *logStream) startStream(ctx context.Context, id string, errorsOnly bool,
 
 	// This call won't return any errors it had until the client tries to receive.
 	//nolint:errcheck
-	stream, _ := s.client.client.StreamTicks(ctx, req)
+	stream, _ := s.client.client.TailRobotPartLogs(ctx, req)
 	_, err := stream.Recv()
 	if err != nil {
 		s.client.logger.CError(ctx, err)
