@@ -75,8 +75,6 @@ type NamedImage struct {
 // ImageMetadata contains useful information about returned image bytes such as its mimetype.
 type ImageMetadata struct {
 	MimeType string
-	Width    int
-	Height   int
 }
 
 // A Camera is a resource that can capture frames.
@@ -159,6 +157,21 @@ type VideoSource interface {
 // ReadImage reads an image from the given source that is immediately available.
 func ReadImage(ctx context.Context, src gostream.VideoSource) (image.Image, func(), error) {
 	return gostream.ReadImage(ctx, src)
+}
+
+// ReadImageBytes wraps ReadImage given a mimetype to encode the image as bytes data, returning
+// supplementary metadata for downstream processing.
+func ReadImageBytes(ctx context.Context, src gostream.VideoSource, mimeType string) ([]byte, ImageMetadata, error) {
+	img, release, err := ReadImage(ctx, src)
+	if err != nil {
+		return nil, ImageMetadata{}, err
+	}
+	defer release()
+	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
+	if err != nil {
+		return nil, ImageMetadata{}, err
+	}
+	return imgBytes, ImageMetadata{MimeType: mimeType}, nil
 }
 
 // GetGoImage retrieves image bytes from a camera source and decodes it into an image.Image type.

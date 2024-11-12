@@ -74,7 +74,7 @@ func (c *Camera) Image(ctx context.Context, mimeType string, extra map[string]in
 	if c.Camera != nil {
 		return c.Camera.Image(ctx, mimeType, extra)
 	}
-	return nil, camera.ImageMetadata{}, errors.Wrap(ctx.Err(), "no GetImage function available")
+	return nil, camera.ImageMetadata{}, errors.Wrap(ctx.Err(), "no Image function available")
 }
 
 // Properties calls the injected Properties or the real version.
