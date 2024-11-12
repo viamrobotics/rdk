@@ -893,14 +893,24 @@ func (c *AppClient) ListAuthorizations(ctx context.Context, orgId string, resour
 }
 
 // CheckPermissions checks the validity of a list of permissions.
-func (c *AppClient) CheckPermissions(ctx context.Context, permissions []*pb.AuthorizedPermissions) ([]*pb.AuthorizedPermissions, error) {
+func (c *AppClient) CheckPermissions(ctx context.Context, permissions []*AuthorizedPermissions) ([]*AuthorizedPermissions, error) {
+	var pbPermissions []*pb.AuthorizedPermissions
+	for _, permission := range(permissions){
+		pbPermissions = append(pbPermissions, AuthorizedPermissionsToProto(permission))
+	}
+	
 	resp, err := c.client.CheckPermissions(ctx, &pb.CheckPermissionsRequest{
-		Permissions: permissions,
+		Permissions: pbPermissions,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.AuthorizedPermissions, nil
+
+	var authorizedPermissions []*AuthorizedPermissions
+	for _, permission := range(resp.AuthorizedPermissions){
+		authorizedPermissions = append(authorizedPermissions, ProtoToAuthorizedPermissions(permission))
+	}
+	return authorizedPermissions, nil
 }
 
 // GetRegistryItem gets a registry item.

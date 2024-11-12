@@ -165,3 +165,25 @@ func AuthorizationToProto(authorization *Authorization) *pb.Authorization {
 		IdentityType: authorization.IdentityType,
 	}
 }
+
+type AuthorizedPermissions struct {
+	ResourceType string
+	ResourceId string
+	Permissions []string
+}
+
+func ProtoToAuthorizedPermissions(permissions *pb.AuthorizedPermissions) *AuthorizedPermissions {
+	return &AuthorizedPermissions{
+		ResourceType: permissions.ResourceType,
+		ResourceId: permissions.ResourceId,
+		Permissions: permissions.Permissions,
+	}
+}
+
+func AuthorizedPermissionsToProto(permissions *AuthorizedPermissions) *pb.AuthorizedPermissions {
+	return &pb.AuthorizedPermissions{
+		ResourceType: permissions.ResourceType,
+		ResourceId: permissions.ResourceId,
+		Permissions: permissions.Permissions,
+	}
+}
