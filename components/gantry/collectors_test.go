@@ -8,7 +8,6 @@ import (
 	"github.com/benbjohnson/clock"
 	datasyncpb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/data"
@@ -26,16 +25,6 @@ const (
 var floatList = []float64{1000, 2000, 3000}
 
 func TestCollectors(t *testing.T) {
-	expected1Struct, err := structpb.NewValue(map[string]any{
-		"lengths_mm": []any{1000, 2000, 3000},
-	})
-	test.That(t, err, test.ShouldBeNil)
-
-	expected2Struct, err := structpb.NewValue(map[string]any{
-		"positions_mm": []any{1000, 2000, 3000},
-	})
-	test.That(t, err, test.ShouldBeNil)
-
 	tests := []struct {
 		name      string
 		collector data.CollectorConstructor
@@ -46,7 +35,9 @@ func TestCollectors(t *testing.T) {
 			collector: gantry.NewLengthsCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data:     &datasyncpb.SensorData_Struct{Struct: expected1Struct.GetStructValue()},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"lengths_mm": []any{1000, 2000, 3000},
+				})},
 			},
 		},
 		{
@@ -54,7 +45,9 @@ func TestCollectors(t *testing.T) {
 			collector: gantry.NewPositionCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data:     &datasyncpb.SensorData_Struct{Struct: expected2Struct.GetStructValue()},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"positions_mm": []any{1000, 2000, 3000},
+				})},
 			},
 		},
 	}

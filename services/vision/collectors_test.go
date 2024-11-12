@@ -15,7 +15,6 @@ import (
 	"go.viam.com/test"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"go.viam.com/rdk/data"
@@ -152,92 +151,6 @@ func TestCollectors(t *testing.T) {
 	test.That(t, img.Bounds().Dx(), test.ShouldEqual, 32)
 	test.That(t, img.Bounds().Dy(), test.ShouldEqual, 32)
 
-	expected1Struct, err := structpb.NewValue(map[string]any{
-		"image": map[string]any{
-			"source_name": "camera-1",
-			"format":      3,
-			"image":       viamLogoJpegAsInts,
-		},
-		"classifications": []any{
-			map[string]any{
-				"confidence": 0.85,
-				"class_name": "cat",
-			},
-		},
-		"detections": []any{
-			map[string]any{
-				"confidence": 0.95,
-				"class_name": "cat",
-				"x_min":      10,
-				"y_min":      20,
-				"x_max":      110,
-				"y_max":      120,
-			},
-		},
-		"objects": []any{},
-		"extra": map[string]any{
-			"fields": map[string]any{
-				"Height": map[string]any{
-					"Kind": map[string]any{
-						"NumberValue": 32,
-					},
-				},
-				"Width": map[string]any{
-					"Kind": map[string]any{
-						"NumberValue": 32,
-					},
-				},
-				"MimeType": map[string]any{
-					"Kind": map[string]any{
-						"StringValue": utils.MimeTypeJPEG,
-					},
-				},
-			},
-		},
-	})
-
-	test.That(t, err, test.ShouldBeNil)
-	expected1 := &datasyncpb.SensorData{
-		Metadata: &datasyncpb.SensorMetadata{},
-		Data:     &datasyncpb.SensorData_Struct{Struct: expected1Struct.GetStructValue()},
-	}
-
-	expected2Struct, err := structpb.NewValue(map[string]any{
-		"image": map[string]any{
-			"source_name": "camera-1",
-			"format":      3,
-			"image":       viamLogoJpegAsInts,
-		},
-		"classifications": []any{},
-		"detections":      []any{},
-		"objects":         []any{},
-		"extra": map[string]any{
-			"fields": map[string]any{
-				"Height": map[string]any{
-					"Kind": map[string]any{
-						"NumberValue": 32,
-					},
-				},
-				"Width": map[string]any{
-					"Kind": map[string]any{
-						"NumberValue": 32,
-					},
-				},
-				"MimeType": map[string]any{
-					"Kind": map[string]any{
-						"StringValue": utils.MimeTypeJPEG,
-					},
-				},
-			},
-		},
-	})
-
-	test.That(t, err, test.ShouldBeNil)
-	expected2 := &datasyncpb.SensorData{
-		Metadata: &datasyncpb.SensorMetadata{},
-		Data:     &datasyncpb.SensorData_Struct{Struct: expected2Struct.GetStructValue()},
-	}
-
 	tests := []struct {
 		name      string
 		collector data.CollectorConstructor
@@ -247,14 +160,90 @@ func TestCollectors(t *testing.T) {
 		{
 			name:      "CaptureAllFromCameraCollector returns non-empty CaptureAllFromCameraResp",
 			collector: visionservice.NewCaptureAllFromCameraCollector,
-			expected:  expected1,
-			vision:    newVisionService(img),
+			expected: &datasyncpb.SensorData{
+				Metadata: &datasyncpb.SensorMetadata{},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"image": map[string]any{
+						"source_name": "camera-1",
+						"format":      3,
+						"image":       viamLogoJpegAsInts,
+					},
+					"classifications": []any{
+						map[string]any{
+							"confidence": 0.85,
+							"class_name": "cat",
+						},
+					},
+					"detections": []any{
+						map[string]any{
+							"confidence": 0.95,
+							"class_name": "cat",
+							"x_min":      10,
+							"y_min":      20,
+							"x_max":      110,
+							"y_max":      120,
+						},
+					},
+					"objects": []any{},
+					"extra": map[string]any{
+						"fields": map[string]any{
+							"Height": map[string]any{
+								"Kind": map[string]any{
+									"NumberValue": 32,
+								},
+							},
+							"Width": map[string]any{
+								"Kind": map[string]any{
+									"NumberValue": 32,
+								},
+							},
+							"MimeType": map[string]any{
+								"Kind": map[string]any{
+									"StringValue": utils.MimeTypeJPEG,
+								},
+							},
+						},
+					},
+				})},
+			},
+			vision: newVisionService(img),
 		},
 		{
 			name:      "CaptureAllFromCameraCollector w/ Classifications & Detections < 0.5 returns empty CaptureAllFromCameraResp",
 			collector: visionservice.NewCaptureAllFromCameraCollector,
-			expected:  expected2,
-			vision:    newVisionService2(img),
+			expected: &datasyncpb.SensorData{
+				Metadata: &datasyncpb.SensorMetadata{},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"image": map[string]any{
+						"source_name": "camera-1",
+						"format":      3,
+						"image":       viamLogoJpegAsInts,
+					},
+					"classifications": []any{},
+					"detections":      []any{},
+					"objects":         []any{},
+					"extra": map[string]any{
+						"fields": map[string]any{
+							"Height": map[string]any{
+								"Kind": map[string]any{
+									"NumberValue": 32,
+								},
+							},
+							"Width": map[string]any{
+								"Kind": map[string]any{
+									"NumberValue": 32,
+								},
+							},
+							"MimeType": map[string]any{
+								"Kind": map[string]any{
+									"StringValue": utils.MimeTypeJPEG,
+								},
+							},
+						},
+					},
+				})},
+			},
+			vision: newVisionService2(img),
 		},
 	}
 

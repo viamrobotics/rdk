@@ -8,7 +8,6 @@ import (
 	"github.com/benbjohnson/clock"
 	datasyncpb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/data"
@@ -23,17 +22,6 @@ const (
 )
 
 func TestCollectors(t *testing.T) {
-	expected1Struct, err := structpb.NewValue(map[string]any{
-		"position": 1.0,
-	})
-	test.That(t, err, test.ShouldBeNil)
-
-	expected2Struct, err := structpb.NewValue(map[string]any{
-		"is_on":     false,
-		"power_pct": 0.5,
-	})
-	test.That(t, err, test.ShouldBeNil)
-
 	tests := []struct {
 		name      string
 		collector data.CollectorConstructor
@@ -44,7 +32,9 @@ func TestCollectors(t *testing.T) {
 			collector: motor.NewPositionCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data:     &datasyncpb.SensorData_Struct{Struct: expected1Struct.GetStructValue()},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"position": 1.0,
+				})},
 			},
 		},
 		{
@@ -52,7 +42,10 @@ func TestCollectors(t *testing.T) {
 			collector: motor.NewIsPoweredCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data:     &datasyncpb.SensorData_Struct{Struct: expected2Struct.GetStructValue()},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"is_on":     false,
+					"power_pct": 0.5,
+				})},
 			},
 		},
 	}

@@ -8,7 +8,6 @@ import (
 	"github.com/benbjohnson/clock"
 	datasyncpb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/components/powersensor"
 	"go.viam.com/rdk/data"
@@ -25,31 +24,6 @@ const (
 var readingMap = map[string]any{"reading1": false, "reading2": "test"}
 
 func TestCollectors(t *testing.T) {
-	expected1Struct, err := structpb.NewValue(map[string]any{
-		"volts": 1.0,
-		"is_ac": false,
-	})
-	test.That(t, err, test.ShouldBeNil)
-
-	expected2Struct, err := structpb.NewValue(map[string]any{
-		"amperes": 1.0,
-		"is_ac":   false,
-	})
-	test.That(t, err, test.ShouldBeNil)
-
-	expected3Struct, err := structpb.NewValue(map[string]any{
-		"watts": 1.0,
-	})
-	test.That(t, err, test.ShouldBeNil)
-
-	expected4Struct, err := structpb.NewValue(map[string]any{
-		"readings": map[string]any{
-			"reading1": false,
-			"reading2": "test",
-		},
-	})
-	test.That(t, err, test.ShouldBeNil)
-
 	tests := []struct {
 		name      string
 		collector data.CollectorConstructor
@@ -60,7 +34,10 @@ func TestCollectors(t *testing.T) {
 			collector: powersensor.NewVoltageCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data:     &datasyncpb.SensorData_Struct{Struct: expected1Struct.GetStructValue()},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"volts": 1.0,
+					"is_ac": false,
+				})},
 			},
 		},
 		{
@@ -68,7 +45,10 @@ func TestCollectors(t *testing.T) {
 			collector: powersensor.NewCurrentCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data:     &datasyncpb.SensorData_Struct{Struct: expected2Struct.GetStructValue()},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"amperes": 1.0,
+					"is_ac":   false,
+				})},
 			},
 		},
 		{
@@ -76,7 +56,9 @@ func TestCollectors(t *testing.T) {
 			collector: powersensor.NewPowerCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data:     &datasyncpb.SensorData_Struct{Struct: expected3Struct.GetStructValue()},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"watts": 1.0,
+				})},
 			},
 		},
 		{
@@ -84,7 +66,12 @@ func TestCollectors(t *testing.T) {
 			collector: powersensor.NewReadingsCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data:     &datasyncpb.SensorData_Struct{Struct: expected4Struct.GetStructValue()},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"readings": map[string]any{
+						"reading1": false,
+						"reading2": "test",
+					},
+				})},
 			},
 		},
 	}

@@ -10,7 +10,6 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	datasyncpb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/data"
@@ -34,64 +33,6 @@ var vec = r3.Vector{
 var readingMap = map[string]any{"reading1": false, "reading2": "test"}
 
 func TestCollectors(t *testing.T) {
-	expected1Struct, err := structpb.NewValue(map[string]any{
-		"linear_velocity": map[string]any{
-			"x": 1.0,
-			"y": 2.0,
-			"z": 3.0,
-		},
-	})
-	test.That(t, err, test.ShouldBeNil)
-
-	expected2Struct, err := structpb.NewValue(map[string]any{
-		"coordinate": map[string]any{
-			"latitude":  1.0,
-			"longitude": 2.0,
-		},
-		"altitude_m": 3.0,
-	})
-	test.That(t, err, test.ShouldBeNil)
-
-	expected3Struct, err := structpb.NewValue(map[string]any{
-		"angular_velocity": map[string]any{
-			"x": 1.0,
-			"y": 2.0,
-			"z": 3.0,
-		},
-	},
-	)
-	test.That(t, err, test.ShouldBeNil)
-
-	expected4Struct, err := structpb.NewValue(map[string]any{"value": 1.0})
-	test.That(t, err, test.ShouldBeNil)
-
-	expected5Struct, err := structpb.NewValue(map[string]any{
-		"linear_acceleration": map[string]any{
-			"x": 1.0,
-			"y": 2.0,
-			"z": 3.0,
-		},
-	})
-	test.That(t, err, test.ShouldBeNil)
-
-	expected6Struct, err := structpb.NewValue(map[string]any{
-		"orientation": map[string]any{
-			"o_x":   0,
-			"o_y":   0,
-			"o_z":   1,
-			"theta": 0,
-		},
-	})
-	test.That(t, err, test.ShouldBeNil)
-
-	expected7Struct, err := structpb.NewValue(map[string]any{
-		"readings": map[string]any{
-			"reading1": false,
-			"reading2": "test",
-		},
-	})
-	test.That(t, err, test.ShouldBeNil)
-
 	tests := []struct {
 		name      string
 		collector data.CollectorConstructor
@@ -102,7 +43,13 @@ func TestCollectors(t *testing.T) {
 			collector: movementsensor.NewLinearVelocityCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data:     &datasyncpb.SensorData_Struct{Struct: expected1Struct.GetStructValue()},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"linear_velocity": map[string]any{
+						"x": 1.0,
+						"y": 2.0,
+						"z": 3.0,
+					},
+				})},
 			},
 		},
 		{
@@ -110,7 +57,13 @@ func TestCollectors(t *testing.T) {
 			collector: movementsensor.NewPositionCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data:     &datasyncpb.SensorData_Struct{Struct: expected2Struct.GetStructValue()},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"coordinate": map[string]any{
+						"latitude":  1.0,
+						"longitude": 2.0,
+					},
+					"altitude_m": 3.0,
+				})},
 			},
 		},
 		{
@@ -118,7 +71,13 @@ func TestCollectors(t *testing.T) {
 			collector: movementsensor.NewAngularVelocityCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data:     &datasyncpb.SensorData_Struct{Struct: expected3Struct.GetStructValue()},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"angular_velocity": map[string]any{
+						"x": 1.0,
+						"y": 2.0,
+						"z": 3.0,
+					},
+				})},
 			},
 		},
 		{
@@ -126,7 +85,9 @@ func TestCollectors(t *testing.T) {
 			collector: movementsensor.NewCompassHeadingCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data:     &datasyncpb.SensorData_Struct{Struct: expected4Struct.GetStructValue()},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"value": 1.0,
+				})},
 			},
 		},
 		{
@@ -134,7 +95,13 @@ func TestCollectors(t *testing.T) {
 			collector: movementsensor.NewLinearAccelerationCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data:     &datasyncpb.SensorData_Struct{Struct: expected5Struct.GetStructValue()},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"linear_acceleration": map[string]any{
+						"x": 1.0,
+						"y": 2.0,
+						"z": 3.0,
+					},
+				})},
 			},
 		},
 		{
@@ -142,7 +109,14 @@ func TestCollectors(t *testing.T) {
 			collector: movementsensor.NewOrientationCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data:     &datasyncpb.SensorData_Struct{Struct: expected6Struct.GetStructValue()},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"orientation": map[string]any{
+						"o_x":   0,
+						"o_y":   0,
+						"o_z":   1,
+						"theta": 0,
+					},
+				})},
 			},
 		},
 		{
@@ -150,7 +124,12 @@ func TestCollectors(t *testing.T) {
 			collector: movementsensor.NewReadingsCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data:     &datasyncpb.SensorData_Struct{Struct: expected7Struct.GetStructValue()},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"readings": map[string]any{
+						"reading1": false,
+						"reading2": "test",
+					},
+				})},
 			},
 		},
 	}

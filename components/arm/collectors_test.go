@@ -10,7 +10,6 @@ import (
 	datasyncpb "go.viam.com/api/app/datasync/v1"
 	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/data"
@@ -29,26 +28,6 @@ const (
 var floatList = &pb.JointPositions{Values: []float64{1.0, 2.0, 3.0}}
 
 func TestCollectors(t *testing.T) {
-	expected1Struct, err := structpb.NewValue(map[string]any{
-		"pose": map[string]any{
-			"o_x":   0,
-			"o_y":   0,
-			"o_z":   1,
-			"theta": 0,
-			"x":     1,
-			"y":     2,
-			"z":     3,
-		},
-	})
-	test.That(t, err, test.ShouldBeNil)
-
-	expected2Struct, err := structpb.NewValue(map[string]any{
-		"positions": map[string]any{
-			"values": []any{1.0, 2.0, 3.0},
-		},
-	})
-	test.That(t, err, test.ShouldBeNil)
-
 	tests := []struct {
 		name      string
 		collector data.CollectorConstructor
@@ -59,7 +38,17 @@ func TestCollectors(t *testing.T) {
 			collector: arm.NewEndPositionCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data:     &datasyncpb.SensorData_Struct{Struct: expected1Struct.GetStructValue()},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"pose": map[string]any{
+						"o_x":   0,
+						"o_y":   0,
+						"o_z":   1,
+						"theta": 0,
+						"x":     1,
+						"y":     2,
+						"z":     3,
+					},
+				})},
 			},
 		},
 		{
@@ -67,7 +56,11 @@ func TestCollectors(t *testing.T) {
 			collector: arm.NewJointPositionsCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data:     &datasyncpb.SensorData_Struct{Struct: expected2Struct.GetStructValue()},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"positions": map[string]any{
+						"values": []any{1.0, 2.0, 3.0},
+					},
+				})},
 			},
 		},
 	}

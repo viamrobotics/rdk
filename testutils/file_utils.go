@@ -13,6 +13,7 @@ import (
 
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/utils"
 )
@@ -112,6 +113,12 @@ func NewMockBuffer(ctx context.Context) *MockBuffer {
 		ctx:    ctx,
 		Writes: make(chan *v1.SensorData, 1),
 	}
+}
+
+func ToStructPBStruct(t *testing.T, v any) *structpb.Struct {
+	s, err := structpb.NewValue(v)
+	test.That(t, err, test.ShouldBeNil)
+	return s.GetStructValue()
 }
 
 // CheckMockBufferWrites checks that the Write

@@ -12,7 +12,6 @@ import (
 	"go.viam.com/test"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/data"
@@ -27,18 +26,6 @@ const (
 )
 
 func TestCollectors(t *testing.T) {
-	expected1Struct, err := structpb.NewValue(map[string]any{
-		"value":     1,
-		"min_range": 0,
-		"max_range": 10,
-		"step_size": float64(float32(0.1)),
-	})
-	test.That(t, err, test.ShouldBeNil)
-
-	expected2Struct, err := structpb.NewValue(map[string]any{
-		"high": true,
-	})
-	test.That(t, err, test.ShouldBeNil)
 
 	tests := []struct {
 		name      string
@@ -60,7 +47,12 @@ func TestCollectors(t *testing.T) {
 			collector: board.NewAnalogCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data:     &datasyncpb.SensorData_Struct{Struct: expected1Struct.GetStructValue()},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"value":     1,
+					"min_range": 0,
+					"max_range": 10,
+					"step_size": float64(float32(0.1)),
+				})},
 			},
 		},
 		{
@@ -77,7 +69,9 @@ func TestCollectors(t *testing.T) {
 			collector: board.NewGPIOCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data:     &datasyncpb.SensorData_Struct{Struct: expected2Struct.GetStructValue()},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"high": true,
+				})},
 			},
 		},
 	}
