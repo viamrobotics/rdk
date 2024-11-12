@@ -2,8 +2,6 @@ package app
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"sync"
 
 	packages "go.viam.com/api/app/packages/v1"
@@ -807,25 +805,6 @@ func (c *AppClient) GetFragmentHistory(ctx context.Context, id string, pageToken
 	return history, resp.NextPageToken, nil
 }
 
-func createAuthorization(orgId, identityId, identityType, role, resourceType, resourceId string) (*pb.Authorization, error) {
-	if role != "owner" && role != "operator" {
-		return nil, errors.New("role string must be 'owner' or 'operator'")
-	}
-	if resourceType != "organization" && resourceType != "location" && resourceType != "robot" {
-		return nil, errors.New("resourceType must be 'organization', 'location', or 'robot'")
-	}
-
-	return &pb.Authorization{
-		AuthorizationType: role,
-		AuthorizationId:   fmt.Sprintf("%s_%s", resourceType, role),
-		ResourceType:      resourceType,
-		ResourceId:        resourceId,
-		IdentityId:        identityId,
-		OrganizationId:    orgId,
-		IdentityType:      identityType,
-	}, nil
-}
-
 // AddRole creates an identity authorization.
 func (c *AppClient) AddRole(ctx context.Context, orgId, identityId, role, resourceType, resourceId string) error {
 	authorization, err := createAuthorization(orgId, identityId, "", role, resourceType, resourceId)
@@ -914,22 +893,30 @@ func (c *AppClient) CheckPermissions(ctx context.Context, permissions []*Authori
 }
 
 // GetRegistryItem gets a registry item.
-func (c *AppClient) GetRegistryItem(ctx context.Context, itemId string) (*pb.RegistryItem, error) {
+func (c *AppClient) GetRegistryItem(ctx context.Context, itemId string) (*RegistryItem, error) {
 	resp, err := c.client.GetRegistryItem(ctx, &pb.GetRegistryItemRequest{
 		ItemId: itemId,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Item, nil
+	item, err := ProtoToRegistryItem(resp.Item)
+	if err != nil {
+		return nil, err
+	}
+	return item, nil
 }
 
 // CreateRegistryItem creates a registry item.
-func (c *AppClient) CreateRegistryItem(ctx context.Context, orgId, name string, packageType packages.PackageType) error {
-	_, err := c.client.CreateRegistryItem(ctx, &pb.CreateRegistryItemRequest{
+func (c *AppClient) CreateRegistryItem(ctx context.Context, orgId, name string, packageType PackageType) error {
+	pbPackageType, err := PackageTypeToProto(packageType)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.CreateRegistryItem(ctx, &pb.CreateRegistryItemRequest{
 		OrganizationId: orgId,
 		Name:           name,
-		Type:           packageType,
+		Type:           pbPackageType,
 	})
 	if err != nil {
 		return err
@@ -938,12 +925,20 @@ func (c *AppClient) CreateRegistryItem(ctx context.Context, orgId, name string, 
 }
 
 // UpdateRegistryItem updates a registry item.
-func (c *AppClient) UpdateRegistryItem(ctx context.Context, itemId string, packageType packages.PackageType, description string, visibility pb.Visibility, url *string) error {
-	_, err := c.client.UpdateRegistryItem(ctx, &pb.UpdateRegistryItemRequest{
+func (c *AppClient) UpdateRegistryItem(ctx context.Context, itemId string, packageType PackageType, description string, visibility Visibility, url *string) error {
+	pbPackageType, err := PackageTypeToProto(packageType)
+	if err != nil {
+		return err
+	}
+	pbVisibility, err := VisibilityToProto(visibility)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.UpdateRegistryItem(ctx, &pb.UpdateRegistryItemRequest{
 		ItemId:      itemId,
-		Type:        packageType,
+		Type:        pbPackageType,
 		Description: description,
-		Visibility:  visibility,
+		Visibility:  pbVisibility,
 		Url:         url,
 	})
 	if err != nil {
@@ -953,13 +948,37 @@ func (c *AppClient) UpdateRegistryItem(ctx context.Context, itemId string, packa
 }
 
 // ListRegistryItems lists the registry items in an organization.
-func (c *AppClient) ListRegistryItems(ctx context.Context, orgId *string, types []packages.PackageType, visibilities []pb.Visibility, platforms []string, statuses []pb.RegistryItemStatus, searchTerm, pageToken *string, publicNamespaces []string) ([]*pb.RegistryItem, error) {
+func (c *AppClient) ListRegistryItems(ctx context.Context, orgId *string, types []PackageType, visibilities []Visibility, platforms []string, statuses []RegistryItemStatus, searchTerm, pageToken *string, publicNamespaces []string) ([]*RegistryItem, error) {
+	var pbTypes []packages.PackageType
+	for _, packageType := range(types){
+		t, err := PackageTypeToProto(packageType)
+		if err != nil {
+			return nil, err
+		}
+		pbTypes = append(pbTypes, t)
+	}
+	var pbVisibilities []pb.Visibility
+	for _, visibility := range(visibilities){
+		v, err := VisibilityToProto(visibility)
+		if err != nil {
+			return nil, err
+		}
+		pbVisibilities = append(pbVisibilities, v)
+	}
+	var pbStatuses []pb.RegistryItemStatus
+	for _, status := range(statuses){
+		s, err := RegistryItemStatusToProto(status)
+		if err != nil {
+			return nil, err
+		}
+		pbStatuses = append(pbStatuses, s)
+	}
 	resp, err := c.client.ListRegistryItems(ctx, &pb.ListRegistryItemsRequest{
 		OrganizationId:   orgId,
-		Types:            types,
-		Visibilities:     visibilities,
+		Types:            pbTypes,
+		Visibilities:     pbVisibilities,
 		Platforms:        platforms,
-		Statuses:         statuses,
+		Statuses:         pbStatuses,
 		SearchTerm:       searchTerm,
 		PageToken:        pageToken,
 		PublicNamespaces: publicNamespaces,
@@ -967,7 +986,15 @@ func (c *AppClient) ListRegistryItems(ctx context.Context, orgId *string, types 
 	if err != nil {
 		return nil, err
 	}
-	return resp.Items, nil
+	var items []*RegistryItem
+	for _, item := range(resp.Items){
+		i, err := ProtoToRegistryItem(item)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	return items, nil
 }
 
 // DeleteRegistryItem deletes a registry item given an ID that is formatted as `prefix:name“ where `prefix“ is the owner's organization ID or namespace.
@@ -1006,13 +1033,21 @@ func (c *AppClient) CreateModule(ctx context.Context, orgId, name string) (strin
 }
 
 // UpdateModule updates the documentation URL, description, models, entrypoint, and/or the visibility of a module. A path to a setup script can be added that is run before a newly downloaded module starts.
-func (c *AppClient) UpdateModule(ctx context.Context, moduleId string, visibility pb.Visibility, url, description string, models []*pb.Model, entrypoint string, firstRun *string) (string, error) {
+func (c *AppClient) UpdateModule(ctx context.Context, moduleId string, visibility Visibility, url, description string, models []*Model, entrypoint string, firstRun *string) (string, error) {
+	pbVisibility, err := VisibilityToProto(visibility)
+	if err != nil {
+		return "", err
+	}
+	var pbModels []*pb.Model
+	for _, model := range(models) {
+		pbModels = append(pbModels, ModelToProto(model)) 
+	}
 	resp, err := c.client.UpdateModule(ctx, &pb.UpdateModuleRequest{
 		ModuleId:    moduleId,
-		Visibility:  visibility,
+		Visibility:  pbVisibility,
 		Url:         url,
 		Description: description,
-		Models:      models,
+		Models:      pbModels,
 		Entrypoint:  entrypoint,
 		FirstRun:    firstRun,
 	})
@@ -1074,34 +1109,37 @@ func (c *AppClient) UpdateModule(ctx context.Context, moduleId string, visibilit
 // }
 
 // GetModule gets a module.
-func (c *AppClient) GetModule(ctx context.Context, moduleId string) (*pb.Module, error) {
+func (c *AppClient) GetModule(ctx context.Context, moduleId string) (*Module, error) {
 	resp, err := c.client.GetModule(ctx, &pb.GetModuleRequest{
 		ModuleId: moduleId,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Module, nil
+	module, err := ProtoToModule(resp.Module)
+	if err != nil {
+		return nil, err
+	}
+	return module, nil
 }
 
 // ListModules lists the modules in the organization.
-func (c *AppClient) ListModules(ctx context.Context, orgId *string) ([]*pb.Module, error) {
+func (c *AppClient) ListModules(ctx context.Context, orgId *string) ([]*Module, error) {
 	resp, err := c.client.ListModules(ctx, &pb.ListModulesRequest{
 		OrganizationId: orgId,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Modules, nil
-}
-
-// APIKeyAuthorization is a struct with the necessary authorization data to create an API key.
-type APIKeyAuthorization struct {
-	// `role`` must be "owner" or "operator"
-	role string
-	// `resourceType` must be "organization", "location", or "robot"
-	resourceType string
-	resourceId   string
+	var modules []*Module
+	for _, module := range(resp.Modules){
+		m, err := ProtoToModule(module)
+		if err != nil {
+			return nil, err
+		}
+		modules = append(modules, m)
+	}
+	return modules, nil
 }
 
 // CreateKey creates a new API key associated with a list of authorizations.
@@ -1137,14 +1175,18 @@ func (c *AppClient) DeleteKey(ctx context.Context, id string) error {
 }
 
 // ListKeys lists all the keys for the organization.
-func (c *AppClient) ListKeys(ctx context.Context, orgId string) ([]*pb.APIKeyWithAuthorizations, error) {
+func (c *AppClient) ListKeys(ctx context.Context, orgId string) ([]APIKeyWithAuthorizations, error) {
 	resp, err := c.client.ListKeys(ctx, &pb.ListKeysRequest{
 		OrgId: orgId,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.ApiKeys, nil
+	var apiKeys []APIKeyWithAuthorizations
+	for _, key := range(resp.ApiKeys){
+		apiKeys = append(apiKeys, *ProtoToAPIKeyWithAuthorizations(key))
+	}
+	return apiKeys, nil
 }
 
 // RenameKey renames an API key.
