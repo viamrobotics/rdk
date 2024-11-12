@@ -389,13 +389,13 @@ func (server *Server) SetStreamOptions(
 	if req.Resolution.Width <= 0 || req.Resolution.Height <= 0 {
 		return nil, errors.New("invalid resolution, width and height must be greater than 0")
 	}
+	server.mu.Lock()
+	defer server.mu.Unlock()
 	err := server.resizeVideoSource(req.Name, int(req.Resolution.Width), int(req.Resolution.Height))
 	if err != nil {
 		return nil, fmt.Errorf("failed to resize video source: %w", err)
 	}
-	server.mu.RLock()
 	streamState, ok := server.nameToStreamState[req.Name]
-	server.mu.RUnlock()
 	if !ok {
 		return nil, fmt.Errorf("stream %q not found", req.Name)
 	}
@@ -408,8 +408,6 @@ func (server *Server) SetStreamOptions(
 
 // ResizeVideoSource resizes the video source with the given name.
 func (server *Server) resizeVideoSource(name string, width, height int) error {
-	server.mu.Lock()
-	defer server.mu.Unlock()
 	existing, ok := server.videoSources[name]
 	if !ok {
 		return fmt.Errorf("video source %q not found", name)
