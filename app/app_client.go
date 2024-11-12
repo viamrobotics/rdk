@@ -663,32 +663,56 @@ func (c *AppClient) DeleteRobot(ctx context.Context, id string) error {
 }
 
 // ListFragments gets a list of fragments.
-func (c *AppClient) ListFragments(ctx context.Context, orgId string, showPublic bool, fragmentVisibility []pb.FragmentVisibility) ([]*pb.Fragment, error) {
+func (c *AppClient) ListFragments(ctx context.Context, orgId string, showPublic bool, fragmentVisibility []FragmentVisibility) ([]*Fragment, error) {
+	var visibilities []pb.FragmentVisibility
+	for _, visibility := range(fragmentVisibility) {
+		v, err := FragmentVisibilityToProto(visibility)
+		if err != nil {
+			return nil, err
+		}
+		visibilities = append(visibilities, v)
+	}
 	resp, err := c.client.ListFragments(ctx, &pb.ListFragmentsRequest{
 		OrganizationId:     orgId,
 		ShowPublic:         showPublic,
-		FragmentVisibility: fragmentVisibility,
+		FragmentVisibility: visibilities,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Fragments, nil
+	var fragments []*Fragment
+	for _, fragment := range(resp.Fragments) {
+		f, err := ProtoToFragment(fragment)
+		if err != nil {
+			return nil, err
+		}
+		fragments = append(fragments, f)
+	}
+	return fragments, nil
 }
 
 // GetFragment gets a single fragment.
-func (c *AppClient) GetFragment(ctx context.Context, id string) (*pb.Fragment, error) {
+func (c *AppClient) GetFragment(ctx context.Context, id string) (*Fragment, error) {
 	resp, err := c.client.GetFragment(ctx, &pb.GetFragmentRequest{
 		Id: id,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Fragment, nil
+	fragment, err := ProtoToFragment(resp.Fragment)
+	if err != nil {
+		return nil, err
+	}
+	return fragment, nil
 }
 
 // CreateFragment creates a fragment.
-func (c *AppClient) CreateFragment(ctx context.Context, name string, config interface{}, orgId string, visibility *pb.FragmentVisibility) (*pb.Fragment, error) {
+func (c *AppClient) CreateFragment(ctx context.Context, name string, config interface{}, orgId string, visibility *FragmentVisibility) (*Fragment, error) {
 	cfg, err := protoutils.StructToStructPb(config)
+	if err != nil {
+		return nil, err
+	}
+	v, err := FragmentVisibilityToProto(*visibility)
 	if err != nil {
 		return nil, err
 	}
@@ -696,16 +720,20 @@ func (c *AppClient) CreateFragment(ctx context.Context, name string, config inte
 		Name:           name,
 		Config:         cfg,
 		OrganizationId: orgId,
-		Visibility:     visibility,
+		Visibility:     &v,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Fragment, nil
+	fragment, err := ProtoToFragment(resp.Fragment)
+	if err != nil {
+		return nil, err
+	}
+	return fragment, nil
 }
 
 // UpdateFragment updates a fragment.
-func (c *AppClient) UpdateFragment(ctx context.Context, id, name string, config interface{}, public *bool, visibility *pb.FragmentVisibility) (*pb.Fragment, error) {
+func (c *AppClient) UpdateFragment(ctx context.Context, id, name string, config interface{}, public *bool, visibility *pb.FragmentVisibility) (*Fragment, error) {
 	cfg, err := protoutils.StructToStructPb(config)
 	if err != nil {
 		return nil, err
@@ -720,7 +748,11 @@ func (c *AppClient) UpdateFragment(ctx context.Context, id, name string, config 
 	if err != nil {
 		return nil, err
 	}
-	return resp.Fragment, nil
+	fragment, err := ProtoToFragment(resp.Fragment)
+	if err != nil {
+		return nil, err
+	}
+	return fragment, nil
 }
 
 // DeleteFragment deletes a fragment.
@@ -735,7 +767,7 @@ func (c *AppClient) DeleteFragment(ctx context.Context, id string) error {
 }
 
 // ListMachineFragments gets top level and nested fragments for a amchine, as well as any other fragments specified by IDs. Additional fragments are useful when needing to view fragments that will be provisionally added to the machine alongside existing fragments.
-func (c *AppClient) ListMachineFragments(ctx context.Context, machineId string, additionalFragmentIds []string) ([]*pb.Fragment, error) {
+func (c *AppClient) ListMachineFragments(ctx context.Context, machineId string, additionalFragmentIds []string) ([]*Fragment, error) {
 	resp, err := c.client.ListMachineFragments(ctx, &pb.ListMachineFragmentsRequest{
 		MachineId:             machineId,
 		AdditionalFragmentIds: additionalFragmentIds,
@@ -743,11 +775,19 @@ func (c *AppClient) ListMachineFragments(ctx context.Context, machineId string, 
 	if err != nil {
 		return nil, err
 	}
-	return resp.Fragments, nil
+	var fragments []*Fragment
+	for _, fragment := range(resp.Fragments) {
+		f, err := ProtoToFragment(fragment)
+		if err != nil {
+			return nil, err
+		}
+		fragments = append(fragments, f)
+	}
+	return fragments, nil
 }
 
 // GetFragmentHistory gets the fragment's history.
-func (c *AppClient) GetFragmentHistory(ctx context.Context, id string, pageToken *string, pageLimit *int64) ([]*pb.FragmentHistoryEntry, string, error) {
+func (c *AppClient) GetFragmentHistory(ctx context.Context, id string, pageToken *string, pageLimit *int64) ([]*FragmentHistoryEntry, string, error) {
 	resp, err := c.client.GetFragmentHistory(ctx, &pb.GetFragmentHistoryRequest{
 		Id:        id,
 		PageToken: pageToken,
@@ -756,7 +796,15 @@ func (c *AppClient) GetFragmentHistory(ctx context.Context, id string, pageToken
 	if err != nil {
 		return nil, "", err
 	}
-	return resp.History, resp.NextPageToken, nil
+	var history []*FragmentHistoryEntry
+	for _, entry := range(resp.History) {
+		e, err := ProtoToFragmentHistoryEntry(entry)
+		if err != nil {
+			return nil, "", err
+		}
+		history = append(history, e)
+	}
+	return history, resp.NextPageToken, nil
 }
 
 func createAuthorization(orgId, identityId, identityType, role, resourceType, resourceId string) (*pb.Authorization, error) {
