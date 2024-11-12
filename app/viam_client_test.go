@@ -104,11 +104,7 @@ func TestCreateViamClientWithAPIKeyTests(t *testing.T) {
 	}
 	for _, tt := range apiKeyTests {
 		t.Run(tt.name, func(t *testing.T) {
-			options := APIKeyOptions{
-				apiKey:   tt.apiKey,
-				apiKeyID: tt.apiKeyID,
-			}
-			client, err := CreateViamClientWithAPIKey(context.Background(), options, logger)
+			client, err := CreateViamClientWithAPIKey(context.Background(), Options{}, tt.apiKey, tt.apiKeyID, logger)
 			if (err != nil) != tt.expectErr {
 				t.Errorf("Expected error: %v, got: %v", tt.expectErr, err)
 			}
