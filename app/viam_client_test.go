@@ -56,6 +56,7 @@ func TestCreateViamClientWithOptions(t *testing.T) {
 		{"Default URL", defaultURL, "", "", true},
 		{"Default URL", defaultURL, "", testAPIKey, true},
 		{"Default URL", defaultURL, testAPIKeyID, "", true},
+		{name: "No URL", entity: testAPIKey, payload: testAPIKey, expectErr: false},
 		{"Empty URL", "", testAPIKeyID, testAPIKey, false},
 		{"Valid URL", "https://test.com", testAPIKeyID, testAPIKey, false},
 		{"Invalid URL", "test", testAPIKey, testAPIKey, true},
