@@ -102,6 +102,10 @@ func NewMotor(b board.Board, mc Config, name resource.Name, logger logging.Logge
 		m.EnablePinLow = enablePinLow
 	}
 
+	if m.maxRPM == 0 {
+		m.maxRPM = 100
+	}
+
 	return m, nil
 }
 
