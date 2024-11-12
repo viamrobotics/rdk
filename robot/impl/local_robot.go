@@ -210,7 +210,7 @@ func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[st
 
 	var errs error
 	for k, v := range resourceErrs {
-		multierr.Combine(errs, errors.Errorf("failed to stop component named %s with error %v", k, v))
+		errs = multierr.Combine(errs, errors.Errorf("failed to stop component named %s with error %v", k, v))
 	}
 	return errs
 }
