@@ -114,9 +114,8 @@ func NewMockBuffer(ctx context.Context) *MockBuffer {
 	}
 }
 
-// CheckMockBufferWrites checks that the writes to either
-// MockBuffer.BinaryWrites or MockBuffer.TabularWrites
-// are match the expected data & metadata (timestamps).
+// CheckMockBufferWrites checks that the Write
+// match the expected data & metadata (timestamps).
 func CheckMockBufferWrites(
 	t *testing.T,
 	ctx context.Context,
