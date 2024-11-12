@@ -15,7 +15,7 @@ type Location struct {
 	Organizations []*LocationOrganization
 	CreatedOn *timestamppb.Timestamp
 	RobotCount int32
-	Config *pb.StorageConfig
+	Config *StorageConfig
 }
 
 func ProtoToLocation(location *pb.Location) (*Location, error) {
@@ -35,7 +35,7 @@ func ProtoToLocation(location *pb.Location) (*Location, error) {
 		Organizations: organizations,
 		CreatedOn: location.CreatedOn,
 		RobotCount: location.RobotCount,
-		Config: location.Config,
+		Config: ProtoToStorageConfig(location.Config),
 	}, nil
 }
 
@@ -56,7 +56,7 @@ func LocationToProto(location *Location) (*pb.Location, error) {
 		Organizations: organizations,
 		CreatedOn: location.CreatedOn,
 		RobotCount: location.RobotCount,
-		Config: location.Config,
+		Config: StorageConfigToProto(location.Config),
 	}, nil
 }
 
@@ -77,6 +77,18 @@ func LocationOrganizationToProto(locationOrganization *LocationOrganization) *pb
 		OrganizationId: locationOrganization.OrganizationId,
 		Primary: locationOrganization.Primary,
 	}
+}
+
+type StorageConfig struct {
+	Region string
+}
+
+func ProtoToStorageConfig(config *pb.StorageConfig) *StorageConfig {
+	return &StorageConfig{Region: config.Region}
+}
+
+func StorageConfigToProto(config *StorageConfig) *pb.StorageConfig {
+	return &pb.StorageConfig{Region: config.Region}
 }
 
 type LocationAuth struct {
@@ -152,8 +164,8 @@ const (
 	SharedSecret_STATE_DISABLED SharedSecret_State = 2
 )
 
-func ProtoToSharedSecretState(sharedSecretState pb.SharedSecret_State) (SharedSecret_State, error) {
-	switch sharedSecretState{
+func ProtoToSharedSecretState(state pb.SharedSecret_State) (SharedSecret_State, error) {
+	switch state{
 	case pb.SharedSecret_STATE_UNSPECIFIED:
 		return SharedSecret_STATE_UNSPECIFIED, nil
 	case pb.SharedSecret_STATE_ENABLED:
@@ -161,12 +173,12 @@ func ProtoToSharedSecretState(sharedSecretState pb.SharedSecret_State) (SharedSe
 	case pb.SharedSecret_STATE_DISABLED:
 		return SharedSecret_STATE_DISABLED, nil
 	default:
-		return 0, fmt.Errorf("uknown secret state: %v", sharedSecretState)
+		return 0, fmt.Errorf("uknown secret state: %v", state)
 	}
 }
 
-func SharedSecretStateToProto(sharedSecretState SharedSecret_State) (pb.SharedSecret_State, error) {
-	switch sharedSecretState{
+func SharedSecretStateToProto(state SharedSecret_State) (pb.SharedSecret_State, error) {
+	switch state{
 	case SharedSecret_STATE_UNSPECIFIED:
 		return pb.SharedSecret_STATE_UNSPECIFIED, nil
 	case SharedSecret_STATE_ENABLED:
@@ -174,6 +186,6 @@ func SharedSecretStateToProto(sharedSecretState SharedSecret_State) (pb.SharedSe
 	case SharedSecret_STATE_DISABLED:
 		return pb.SharedSecret_STATE_DISABLED, nil
 	default:
-		return 0, fmt.Errorf("unknown secret state: %v", sharedSecretState)
+		return 0, fmt.Errorf("unknown secret state: %v", state)
 	}
 }

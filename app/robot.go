@@ -68,9 +68,9 @@ type RobotPart struct {
 	Secret string
 	Robot string
 	LocationId string
-	RobotConfig map[string]interface{}
+	RobotConfig *map[string]interface{}
 	LastAccess *timestamppb.Timestamp
-	UserSuppliedInfo map[string]interface{}
+	UserSuppliedInfo *map[string]interface{}
 	MainPart bool
 	Fqdn string
 	LocalFqdn string
@@ -88,6 +88,8 @@ func ProtoToRobotPart(robotPart *pb.RobotPart) (*RobotPart, error) {
 		}
 		secrets = append(secrets, s)
 	}
+	cfg := robotPart.RobotConfig.AsMap()
+	info := robotPart.UserSuppliedInfo.AsMap()
 	return &RobotPart{
 		Id: robotPart.Id,
 		Name: robotPart.Name,
@@ -95,9 +97,9 @@ func ProtoToRobotPart(robotPart *pb.RobotPart) (*RobotPart, error) {
 		Secret: robotPart.Secret,
 		Robot: robotPart.DnsName,
 		LocationId: robotPart.LocationId,
-		RobotConfig: robotPart.RobotConfig.AsMap(),
+		RobotConfig: &cfg,
 		LastAccess: robotPart.LastAccess,
-		UserSuppliedInfo: robotPart.UserSuppliedInfo.AsMap(),
+		UserSuppliedInfo: &info,
 		MainPart: robotPart.MainPart,
 		Fqdn: robotPart.Fqdn,
 		LocalFqdn: robotPart.LocalFqdn,
@@ -223,7 +225,7 @@ func ProtoToAuthenticationType(authenticationType pb.AuthenticationType) (Authen
 	case pb.AuthenticationType_AUTHENTICATION_TYPE_LOCATION_SECRET:
 		return AuthenticationType_AUTHENTICATION_TYPE_LOCATION_SECRET, nil
 	default:
-		return 0, fmt.Errorf("uknown secret state: %v", authenticationType)
+		return 0, fmt.Errorf("uknown authentication type: %v", authenticationType)
 	}
 }
 
@@ -240,7 +242,7 @@ func AuthenticationTypeToProto(authenticationType AuthenticationType) (pb.Authen
 	case AuthenticationType_AUTHENTICATION_TYPE_LOCATION_SECRET:
 		return pb.AuthenticationType_AUTHENTICATION_TYPE_LOCATION_SECRET, nil
 	default:
-		return 0, fmt.Errorf("unknown secret state: %v", authenticationType)
+		return 0, fmt.Errorf("unknown authentication type: %v", authenticationType)
 	}
 }
 
