@@ -12,9 +12,7 @@ import (
 
 	"github.com/benbjohnson/clock"
 	datasyncpb "go.viam.com/api/app/datasync/v1"
-	pb "go.viam.com/api/service/vision/v1"
 	"go.viam.com/test"
-	"go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -27,7 +25,6 @@ import (
 	tu "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
 	"go.viam.com/rdk/vision/objectdetection"
 	"go.viam.com/rdk/vision/viscapture"
@@ -35,12 +32,6 @@ import (
 
 //nolint:lll
 var viamLogoJpegB64 = []byte("/9j/4QD4RXhpZgAATU0AKgAAAAgABwESAAMAAAABAAEAAAEaAAUAAAABAAAAYgEbAAUAAAABAAAAagEoAAMAAAABAAIAAAExAAIAAAAhAAAAcgITAAMAAAABAAEAAIdpAAQAAAABAAAAlAAAAAAAAABIAAAAAQAAAEgAAAABQWRvYmUgUGhvdG9zaG9wIDIzLjQgKE1hY2ludG9zaCkAAAAHkAAABwAAAAQwMjIxkQEABwAAAAQBAgMAoAAABwAAAAQwMTAwoAEAAwAAAAEAAQAAoAIABAAAAAEAAAAgoAMABAAAAAEAAAAgpAYAAwAAAAEAAAAAAAAAAAAA/9sAhAAcHBwcHBwwHBwwRDAwMERcRERERFx0XFxcXFx0jHR0dHR0dIyMjIyMjIyMqKioqKioxMTExMTc3Nzc3Nzc3NzcASIkJDg0OGA0NGDmnICc5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ub/3QAEAAL/wAARCAAgACADASIAAhEBAxEB/8QBogAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoLEAACAQMDAgQDBQUEBAAAAX0BAgMABBEFEiExQQYTUWEHInEUMoGRoQgjQrHBFVLR8CQzYnKCCQoWFxgZGiUmJygpKjQ1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4eLj5OXm5+jp6vHy8/T19vf4+foBAAMBAQEBAQEBAQEAAAAAAAABAgMEBQYHCAkKCxEAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDm6K0dNu1tZsSgGNuDx0961NX09WT7ZbgcD5gPT1oA5qiul0fT1VPtlwByPlB7D1rL1K7W5mxEAI04GBjPvQB//9Dm66TRr/I+xTf8A/wrm6ASpBXgjpQB0ms34UfYof8AgWP5VzdBJY5PJNFAH//Z")
-
-type extraFields struct {
-	Height   int
-	Width    int
-	MimeType string
-}
 
 type fakeDetection struct {
 	boundingBox *image.Rectangle
@@ -94,12 +85,6 @@ var fakeClassifications2 = []classification.Classification{
 	},
 }
 
-var fakeObjects = []*vision.Object{}
-
-var extra = extraFields{}
-
-var fakeExtraFields, _ = protoutils.StructToStructPb(extra)
-
 func (fc *fakeClassification) Score() float64 {
 	return fc.score
 }
@@ -118,42 +103,6 @@ func (fd *fakeDetection) Score() float64 {
 
 func (fd *fakeDetection) Label() string {
 	return fd.label
-}
-
-func clasToProto(classifications classification.Classifications) []*pb.Classification {
-	protoCs := make([]*pb.Classification, 0, len(classifications))
-	for _, c := range classifications {
-		cc := &pb.Classification{
-			ClassName:  c.Label(),
-			Confidence: c.Score(),
-		}
-		protoCs = append(protoCs, cc)
-	}
-	return protoCs
-}
-
-func detsToProto(detections []objectdetection.Detection) []*pb.Detection {
-	protoDets := make([]*pb.Detection, 0, len(detections))
-	for _, det := range detections {
-		box := det.BoundingBox()
-		if box == nil {
-			return nil
-		}
-		xMin := int64(box.Min.X)
-		yMin := int64(box.Min.Y)
-		xMax := int64(box.Max.X)
-		yMax := int64(box.Max.Y)
-		d := &pb.Detection{
-			XMin:       &xMin,
-			YMin:       &yMin,
-			XMax:       &xMax,
-			YMax:       &yMax,
-			Confidence: det.Score(),
-			ClassName:  det.Label(),
-		}
-		protoDets = append(protoDets, d)
-	}
-	return protoDets
 }
 
 func convertStringMapToAnyPBMap(params map[string]string) (map[string]*anypb.Any, error) {
@@ -188,15 +137,9 @@ func convertStringToAnyPB(str string) (*anypb.Any, error) {
 	return anyVal, nil
 }
 
-var methodParams, _ = convertStringMapToAnyPBMap(map[string]string{"camera_name": "camera-1", "mime_type": "image/jpeg"})
-
-func toProto(t *testing.T, r interface{}) *structpb.Struct {
-	msg, err := protoutils.StructToStructPb(r)
-	test.That(t, err, test.ShouldBeNil)
-	return msg
-}
-
 func TestCollectors(t *testing.T) {
+	methodParams, err := convertStringMapToAnyPBMap(map[string]string{"camera_name": "camera-1", "mime_type": "image/jpeg"})
+	test.That(t, err, test.ShouldBeNil)
 	viamLogoJpeg, err := io.ReadAll(base64.NewDecoder(base64.StdEncoding, bytes.NewReader(viamLogoJpegB64)))
 	test.That(t, err, test.ShouldBeNil)
 	viamLogoJpegAsInts := []any{}
@@ -250,7 +193,8 @@ func TestCollectors(t *testing.T) {
 					},
 				},
 			},
-		}})
+		},
+	})
 
 	test.That(t, err, test.ShouldBeNil)
 	expected1 := &datasyncpb.SensorData{
@@ -285,7 +229,8 @@ func TestCollectors(t *testing.T) {
 					},
 				},
 			},
-		}})
+		},
+	})
 
 	test.That(t, err, test.ShouldBeNil)
 	expected2 := &datasyncpb.SensorData{

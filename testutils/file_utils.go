@@ -143,7 +143,7 @@ func CheckMockBufferWrites(
 	}
 }
 
-// Write adds the item to the channel
+// Write adds the item to the channel.
 func (m *MockBuffer) Write(item *v1.SensorData) error {
 	if err := m.ctx.Err(); err != nil {
 		return err
