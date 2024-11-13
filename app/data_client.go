@@ -720,8 +720,7 @@ func (d *Client) UpdateBoundingBox(ctx context.Context,
 	return nil
 }
 
-// GetDatabaseConnection gets a connection to access a MongoDB Atlas Data Federation instance. It
-// returns the hostname of the federated database.
+// GetDatabaseConnection gets a connection to access a MongoDB Atlas Data Federation instance.
 func (d *Client) GetDatabaseConnection(ctx context.Context, organizationID string) (string, error) {
 	resp, err := d.client.GetDatabaseConnection(ctx, &pb.GetDatabaseConnectionRequest{
 		OrganizationId: organizationID,
@@ -732,8 +731,7 @@ func (d *Client) GetDatabaseConnection(ctx context.Context, organizationID strin
 	return resp.Hostname, nil
 }
 
-// ConfigureDatabaseUser configures a database user for the Viam organization's MongoDB Atlas Data
-// Federation instance. It can also be used to reset the password of the existing database user.
+// ConfigureDatabaseUser configures a database user for the Viam organization's MongoDB Atlas Data Federation instance.
 func (d *Client) ConfigureDatabaseUser(
 	ctx context.Context,
 	organizationID string,
