@@ -209,7 +209,7 @@ func createNewMotor(
 		if err != nil {
 			return nil, err
 		}
-		if resp[directionAttached].(bool) {
+		if resp != nil && resp[directionAttached].(bool) {
 			logger.CInfo(ctx, "direction attached to single encoder from encoded motor")
 		}
 
