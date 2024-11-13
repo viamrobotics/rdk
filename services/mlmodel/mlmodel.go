@@ -46,7 +46,7 @@ func init() {
 //		"image": tensor.New(
 //			tensor.Of(tensor.Uint8),
 //			tensor.WithShape(1, 384, 384, 3),
-//		    tensor.WithBacking(make([]uint8, 1*384*384*3)),
+//		        tensor.WithBacking(make([]uint8, 1*384*384*3)),
 //		),
 //	}
 //
