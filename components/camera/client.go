@@ -197,8 +197,7 @@ func (c *client) Image(ctx context.Context, mimeType string, extra map[string]in
 		resp.MimeType = mimeType
 	}
 
-	resp.MimeType = utils.WithLazyMIMEType(resp.MimeType)
-	return resp.Image, ImageMetadata{MimeType: resp.MimeType}, nil
+	return resp.Image, ImageMetadata{MimeType: utils.WithLazyMIMEType(resp.MimeType)}, nil
 }
 
 func (c *client) Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error) {
