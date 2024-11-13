@@ -190,19 +190,6 @@ func (m *MockBuffer) Write(item *v1.SensorData) error {
 	return nil
 }
 
-// WriteTabular adds tabular readings to the array.
-func (m *MockBuffer) WriteTabular(item *v1.SensorData) error {
-	if err := m.ctx.Err(); err != nil {
-		return err
-	}
-
-	select {
-	case m.Writes <- item:
-	case <-m.ctx.Done():
-	}
-	return nil
-}
-
 // Flush does nothing in this implementation as all data will be stored in memory.
 func (m *MockBuffer) Flush() error {
 	return nil

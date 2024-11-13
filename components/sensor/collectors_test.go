@@ -26,7 +26,6 @@ func TestCollectors(t *testing.T) {
 	start := time.Now()
 	buf := tu.NewMockBuffer()
 	params := data.CollectorParams{
-		DataType:      data.CaptureTypeTabular,
 		ComponentName: "sensor",
 		Interval:      captureInterval,
 		Logger:        logging.NewTestLogger(t),

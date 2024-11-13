@@ -22,7 +22,6 @@ type CollectorParams struct {
 	MongoCollection *mongo.Collection
 	ComponentName   string
 	ComponentType   string
-	DataType        CaptureType
 	MethodName      string
 	Interval        time.Duration
 	MethodParams    map[string]*anypb.Any

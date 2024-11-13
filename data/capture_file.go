@@ -217,14 +217,14 @@ func BuildCaptureMetadata(
 	methodParams map[string]*anypb.Any,
 	tags []string,
 ) *v1.DataCaptureMetadata {
-	dataType := GetDataType(method)
+	dataType := getDataType(method)
 	return &v1.DataCaptureMetadata{
 		ComponentType:    compAPI.String(),
 		ComponentName:    compName,
 		MethodName:       method,
-		Type:             dataType.ToProto(),
+		Type:             dataType,
 		MethodParameters: methodParams,
-		FileExtension:    GetFileExt(dataType.ToProto(), method, additionalParams),
+		FileExtension:    GetFileExt(dataType, method, additionalParams),
 		Tags:             tags,
 	}
 }
@@ -240,39 +240,13 @@ func getFileTimestampName() string {
 	return time.Now().Format(time.RFC3339Nano)
 }
 
-// CaptureType represents captured tabular or binary data.
-type CaptureType int
-
-const (
-	// CaptureTypeUnspecified represents that the data type of the captured data was not specified.
-	CaptureTypeUnspecified CaptureType = iota
-	// CaptureTypeTabular represents that the data type of the captured data is tabular.
-	CaptureTypeTabular
-	// CaptureTypeBinary represents that the data type of the captured data is binary.
-	CaptureTypeBinary
-)
-
-// ToProto converts a DataType into a v1.DataType.
-func (dt CaptureType) ToProto() v1.DataType {
-	switch dt {
-	case CaptureTypeTabular:
-		return v1.DataType_DATA_TYPE_TABULAR_SENSOR
-	case CaptureTypeBinary:
-		return v1.DataType_DATA_TYPE_BINARY_SENSOR
-	case CaptureTypeUnspecified:
-		return v1.DataType_DATA_TYPE_UNSPECIFIED
-	default:
-		return v1.DataType_DATA_TYPE_UNSPECIFIED
-	}
-}
-
-// GetDataType returns the DataType of the method.
-func GetDataType(methodName string) CaptureType {
+// TODO DATA-246: Implement this in some more robust, programmatic way.
+func getDataType(methodName string) v1.DataType {
 	switch methodName {
 	case nextPointCloud, readImage, pointCloudMap, GetImages:
-		return CaptureTypeBinary
+		return v1.DataType_DATA_TYPE_BINARY_SENSOR
 	default:
-		return CaptureTypeTabular
+		return v1.DataType_DATA_TYPE_TABULAR_SENSOR
 	}
 }
 

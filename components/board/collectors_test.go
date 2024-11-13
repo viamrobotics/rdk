@@ -35,7 +35,6 @@ func TestCollectors(t *testing.T) {
 		{
 			name: "Board analog collector should write an analog response",
 			params: data.CollectorParams{
-				DataType:      data.CaptureTypeTabular,
 				ComponentName: componentName,
 				Interval:      captureInterval,
 				Logger:        logging.NewTestLogger(t),
@@ -57,7 +56,6 @@ func TestCollectors(t *testing.T) {
 		{
 			name: "Board gpio collector should write a gpio response",
 			params: data.CollectorParams{
-				DataType:      data.CaptureTypeTabular,
 				ComponentName: componentName,
 				Interval:      captureInterval,
 				Logger:        logging.NewTestLogger(t),
