@@ -36,8 +36,7 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-// NewNextPointCloudCollector creates a collector for camera.NextPointCloud.
-func NewNextPointCloudCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newNextPointCloudCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	camera, err := assertCamera(resource)
 	if err != nil {
 		return nil, err
@@ -73,8 +72,7 @@ func NewNextPointCloudCollector(resource interface{}, params data.CollectorParam
 	return data.NewCollector(cFunc, params)
 }
 
-// NewReadImageCollector creates a collector for camera.GetImage.
-func NewReadImageCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newReadImageCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	camera, err := assertCamera(resource)
 	if err != nil {
 		return nil, err
@@ -126,8 +124,7 @@ func NewReadImageCollector(resource interface{}, params data.CollectorParams) (d
 	return data.NewCollector(cFunc, params)
 }
 
-// NewGetImagesCollector creates a collector for camera.GetImages.
-func NewGetImagesCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newGetImagesCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	camera, err := assertCamera(resource)
 	if err != nil {
 		return nil, err
