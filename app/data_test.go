@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -45,8 +46,8 @@ var (
 	BboxLabels       = []string{bboxLabel}
 	methodParameters = map[string]string{}
 	tags             = []string{tag}
-	startTime        = time.Now().UTC()
-	endTime          = time.Now().UTC()
+	startTime        = time.Now().UTC().Round(time.Millisecond)
+	endTime          = time.Now().UTC().Round(time.Millisecond)
 	data             = map[string]interface{}{
 		"key": "value",
 	}
@@ -94,25 +95,6 @@ var (
 	}
 	binaryIds = []BinaryID{binaryId}
 )
-
-// converts a slice of maps (representing MongoDB-like documents) into BSON byte arrays
-func marshalToBSON(myBson []map[string]interface{}) [][]byte {
-	// create BSON documents for mongodb queries
-	var byteArray [][]byte
-	for _, item := range myBson {
-		input := bson.M(item)
-		bytes, _ := bson.Marshal(input)
-		byteArray = append(byteArray, bytes)
-	}
-	// matchStage := bson.M{"$match": bson.M{"organization_id": "e76d1b3b-0468-4efd-bb7f-fb1d2b352fcb"}}
-	// limitStage := bson.M{"$limit": 1}
-	// convert to BSON byte arrays
-	// matchBytes, _ := bson.Marshal(matchStage)
-	// limitBytes, _ := bson.Marshal(limitStage)
-	// mqlbinary := [][]byte{matchBytes, limitBytes}
-	// return mqlbinary
-	return byteArray
-}
 
 // set up gRPC client??
 func createGrpclient() datapb.DataServiceClient {
@@ -227,6 +209,7 @@ func TestDataClient(t *testing.T) {
 	t.Run("TabularDataBySQL", func(t *testing.T) {
 		expectedOrgId := organizationId
 		expectedSqlQuery := sqlQuery
+
 		expectedRawData := []map[string]interface{}{
 			{
 				"key1": startTime,
@@ -237,7 +220,15 @@ func TestDataClient(t *testing.T) {
 				},
 			},
 		}
-		expectedRawDataPb := marshalToBSON(expectedRawData)
+		//convert rawData to BSON
+		var expectedRawDataPb [][]byte
+		for _, byte := range expectedRawData {
+			bsonByte, err := bson.Marshal(byte)
+			if err != nil {
+				t.Fatalf("Failed to marshal expectedRawData: %v", err)
+			}
+			expectedRawDataPb = append(expectedRawDataPb, bsonByte)
+		}
 		grpcClient.TabularDataBySQLFunc = func(ctx context.Context, in *datapb.TabularDataBySQLRequest, opts ...grpc.CallOption) (*datapb.TabularDataBySQLResponse, error) {
 			test.That(t, in.OrganizationId, test.ShouldEqual, expectedOrgId) //to proto
 			test.That(t, in.SqlQuery, test.ShouldResemble, expectedSqlQuery) //to proto
@@ -251,33 +242,85 @@ func TestDataClient(t *testing.T) {
 		test.That(t, response, test.ShouldResemble, expectedRawData)
 
 	})
+	//I want my response to look like expectedRawData --> good!!
+	//I want my input to TabularDataByMQLRespone to be what expectedRawData would look like in [][]byte form!!!!!
+	/*
 
+		need to convert expectedRawData to BSON and then encode it as [][]byte to use it in your gRPC resp
+
+		Convert expectedRawData to [][]byte --> expectedRawData to BSON.
+		Define TabularDataByMQLFunc ---> use the bson expectedRawData in TabularDataByMQLFunc
+
+
+		// Serialize expectedRawData to BSON and convert to [][]byte
+		var expectedRawDataPb [][]byte
+		for _, doc := range expectedRawData {
+			bsonDoc, err := bson.Marshal(doc)
+			if err != nil {
+				t.Fatalf("Failed to marshal expectedRawData: %v", err)
+			}
+			expectedRawDataPb = append(expectedRawDataPb, bsonDoc)
+		}
+
+	*/
 	t.Run("TabularDataByMQL", func(t *testing.T) {
 		expectedOrgId := organizationId
-		expectedMqlBinary := marshalToBSON(mqlQuery) //this is [][]byte type
+		//create expected mqlBinary
+		matchStage := bson.M{"$match": bson.M{"organization_id": "e76d1b3b-0468-4efd-bb7f-fb1d2b352fcb"}}
+		limitStage := bson.M{"$limit": 1}
+		// convert to BSON byte arrays
+		matchBytes, _ := bson.Marshal(matchStage)
+		limitBytes, _ := bson.Marshal(limitStage)
+		mqlbinary := [][]byte{matchBytes, limitBytes}
+		expectedMqlBinary := mqlbinary
+
+		// expectedMqlBinary := marshalToBSON(mqlQuery) //this is [][]byte type
 		//this is the format we want to get back...
-		expectedRawData := []map[string]interface{}{
+
+		//add a bool
+		expectedRawData := []map[string]any{
 			{
 				"key1": startTime,
 				"key2": "2",
-				"key3": []int{1, 2, 3},
-				"key4": map[string]interface{}{
+				"key3": []any{1, 2, 3}, //slice of integers
+				"key4": map[string]any{ // map and rep of JSON object
 					"key4sub1": endTime,
+				},
+				"key5": 4.05,
+				"key6": []any{true, false, true}, //array of bools
+				"key7": []map[string]any{ // slice of maps
+					{
+						"nestedKey1": "simpleValue",
+					}, {
+						"nestedKey2": startTime,
+					},
 				},
 			},
 		}
-		//this is the rawData in protobuf type that we will expect to pass to the response
-		expectedRawDataPb := marshalToBSON(expectedRawData)
+		//convert rawData to BSON
+		var expectedRawDataPb [][]byte
+		for _, byte := range expectedRawData {
+			bsonByte, err := bson.Marshal(byte)
+			if err != nil {
+				t.Fatalf("Failed to marshal expectedRawData: %v", err)
+			}
+			expectedRawDataPb = append(expectedRawDataPb, bsonByte)
+		}
+
+		fmt.Printf("this is expectedBinaryDataPb type: %T, value: %+v\n", expectedRawDataPb, expectedRawDataPb)
 
 		grpcClient.TabularDataByMQLFunc = func(ctx context.Context, in *datapb.TabularDataByMQLRequest, opts ...grpc.CallOption) (*datapb.TabularDataByMQLResponse, error) {
 			test.That(t, in.OrganizationId, test.ShouldEqual, expectedOrgId)   //to proto
-			test.That(t, in.MqlBinary, test.ShouldResemble, expectedMqlBinary) //to proto
+			test.That(t, in.MqlBinary, test.ShouldResemble, expectedMqlBinary) //to proto //we also want this to just be [][]byte ...?
 			return &datapb.TabularDataByMQLResponse{
-				RawData: expectedRawDataPb,
+				RawData: expectedRawDataPb, //we want this to be expectedRawData but in proto form (so [][]byte)
 			}, nil
 		}
 		response, _ := client.TabularDataByMQL(context.Background(), expectedOrgId, expectedMqlBinary)
-		test.That(t, response, test.ShouldResemble, expectedRawData)
+		// fmt.Printf("this is actual type: %T, value: %+v\n", response, response)
+		// fmt.Printf("this is expected type: %T, value: %+v\n", expectedRawData, expectedRawData)
+		test.That(t, response, test.ShouldResemble, expectedRawData) //we want this to be expectedRawData
+
 	})
 	t.Run("BinaryDataByFilter", func(t *testing.T) {
 		includeBinary := true

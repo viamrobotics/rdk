@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	pb "go.viam.com/api/app/data/v1"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
@@ -37,8 +38,8 @@ type CaptureMetadata struct {
 	ComponentName    string
 	MethodName       string
 	MethodParameters map[string]string
-	Tags []string
-	MimeType string
+	Tags             []string
+	MimeType         string
 }
 type BinaryID struct {
 	FileId         string
@@ -63,7 +64,7 @@ type Annotations struct {
 	bboxes []BoundingBox
 }
 type TabularData struct {
-	Data map[string]interface{}
+	Data          map[string]interface{}
 	MetadataIndex uint32
 	Metadata      CaptureMetadata
 	TimeRequested time.Time
@@ -75,7 +76,7 @@ type BinaryData struct {
 }
 
 type BinaryMetadata struct {
-	ID string
+	ID              string
 	CaptureMetadata CaptureMetadata
 	TimeRequested   time.Time
 	TimeReceived    time.Time
@@ -83,7 +84,7 @@ type BinaryMetadata struct {
 	FileExt         string
 	URI             string
 	Annotations     Annotations
-	DatasetIDs []string
+	DatasetIDs      []string
 }
 type Filter struct {
 	ComponentName   string
@@ -284,19 +285,244 @@ func DataRequestToProto(dataRequest DataRequest) (*pb.DataRequest, error) {
 	}, nil
 
 }
+
+// func convertBsonToNative(data interface{}) interface{} {
+// 	switch v := data.(type) {
+// 	case primitive.DateTime:
+// 		// Convert BSON DateTime to Go time.Time
+// 		return v.Time().UTC()
+// 	// case primitive.ObjectID:
+// 	// 	// Convert BSON ObjectId to string (or another suitable representation)
+// 	// 	return v.Hex()
+// 	case int32, int64, float32, float64, bool, string:
+// 		return v
+
+// 	case bson.A:
+// 		// If it's a BSON array, convert each item inside it
+// 		nativeArray := make([]interface{}, len(v))
+// 		for i, item := range v {
+// 			nativeArray[i] = convertArrayToNative([]interface{}(item))
+// 		}
+// 		// return nativeArray
+// 		// return convertArrayToNative([]interface{}(data))
+
+// 	case bson.M:
+// 		convertedMap := make(map[string]interface{})
+// 		for key, value := range v {
+// 			convertedMap[key] = convertBsonToNative(value)
+// 		}
+// 		return convertedMap
+
+// 	// case map[string]interface{}:
+// 	// 	// If it's a BSON document (map), convert each value recursively
+// 	// 	for k, val := range v {
+// 	// 		v[k] = convertBsonToNative(val)
+// 	// 	}
+// 	// 	return v
+
+// 	default:
+// 		// For all other types, return the value as is
+// 		return v
+// 	}
+
+// }
+//RINMITVE.A W SLICE OF INTERFctx
+//PRIMIVEDATAA WITH DTEIMTc
+//dont do better than usinug any/interface for the containers of slices and maps
+
+func convertBsonToNative(data any) any {
+	// Check if the input is a slice (list) or a map, and process accordingly
+	fmt.Printf("this is data at the TOP %T, value: %+v\n", data, data)
+	switch v := data.(type) {
+	case primitive.DateTime:
+		return v.Time().UTC()
+	case primitive.A: //arrays/slices
+		nativeArray := make([]any, len(v))
+		for i, item := range v {
+			nativeArray[i] = convertBsonToNative(item)
+		}
+		return nativeArray
+	case bson.M: //maps 
+		convertedMap := make(map[string]any)
+		for key, value := range v {
+			convertedMap[key] = convertBsonToNative(value)
+		}
+		return convertedMap
+	case map[string]any:
+		for key, value := range v {
+			v[key] = convertBsonToNative(value)
+		}
+		return v
+	case int32:
+		return int(v)
+	case int64:
+		return int(v)
+	default:
+		return v
+	}
+	
+}
+
+// case []map[string]interface{}:
+// 	convertedArray := make([]map[string]interface{}, len(data))
+// 	for i, item := range data {
+// 		fmt.Printf("this is value inside new []map[string]interface{}: %T, value: %+v\n", item, item)
+// 		convertedArray[i] = convertBsonToNative(item).(map[string]interface{})
+// 	}
+// 	return convertedArray
+// case []interface{}:
+// 	if len(data) > 0 {
+// 		if _, ok := data[0].(map[string]interface{}); ok {
+// 			// It’s a slice of maps: process accordingly
+// 			convertedArray := make([]map[string]interface{}, len(data))
+// 			for i, item := range data {
+// 				convertedArray[i] = convertBsonToNative(item).(map[string]interface{})
+// 			}
+// 			return convertedArray
+// 		}
+// 	}
+// 	fmt.Printf("this is data inside []interface{}: %T, value: %+v\n", data, data)
+// 	return convertArrayToNative(data)
+// case bson.A: // this is the same as []interface{}
+// 	fmt.Printf("this is inside bson.A: %T, value: %+v\n", data, data)
+// 	if len(data) > 0 {
+// 		if _, ok := data[0].(map[string]interface{}); ok {
+// 			// It’s a slice of maps: process accordingly
+// 			convertedArray := make([]map[string]interface{}, len(data))
+// 			for i, item := range data {
+// 				convertedArray[i] = convertBsonToNative(item).(map[string]interface{})
+// 			}
+// 			return convertedArray
+// 		}
+// 	}
+// 	return convertArrayToNative([]interface{}(data))
+// case map[string]interface{}:
+// 	convertedMap := make(map[string]interface{})
+// 	for key, value := range data {
+// 		fmt.Printf("this is value inside converted map inside map[string]interface{}: %T, value: %+v\n", value, value)
+// 		convertedMap[key] = convertBsonToNative(value)
+// 	}
+// 	fmt.Printf("this is converted map inside map[string]interface{}: %T, value: %+v\n", convertedMap, convertedMap)
+// 	return convertedMap
+
+// case bson.M:
+// 	convertedMap := make(map[string]interface{})
+// 	for key, value := range data {
+// 		convertedMap[key] = convertBsonToNative(value)
+// 	}
+// 	fmt.Printf("this is converted map inside bson.M: %T, value: %+v\n", convertedMap, convertedMap)
+// 	return convertedMap
+// default:
+// 	return convertSingleValue(data)
+// }
+// }
+
+// Helper function to handle homogeneous arrays
+// func convertArrayToNative(array []interface{}) interface{} {
+// 	if len(array) == 0 {
+// 		return array
+// 	}
+// 	// check if all elements are of type int
+// 	allInts := true
+// 	for _, item := range array {
+// 		if _, ok := item.(int32); !ok {
+// 			allInts = false
+// 			break
+// 		}
+// 	}
+// 	// convert to []int if all elements are integers
+// 	if allInts {
+// 		intArray := make([]int, len(array))
+// 		for i, item := range array {
+// 			intArray[i] = int(item.(int32)) // assuming BSON uses int32 for integers
+// 		}
+// 		return intArray
+// 	}
+// 	// if not all integers then return []interface{} with recursive conversion
+// 	nativeArray := make([]interface{}, len(array))
+// 	for i, item := range array {
+// 		nativeArray[i] = convertBsonToNative(item)
+// 	}
+// 	return nativeArray
+// }
+
+// // helper function to handle single BSON or primitive values
+// func convertSingleValue(data interface{}) interface{} {
+// 	switch v := data.(type) {
+// 	case primitive.DateTime:
+// 		return v.Time().UTC()
+// 	case primitive.ObjectID:
+// 		return v.Hex()
+// 	case int32, int64, float32, float64, bool, string:
+// 		return v
+// 	default:
+// 		return v
+// 	}
+// }
+
+// func convertBsonToNative(data interface{}) interface{} {
+// 	// Check if the input is a slice (list) or a map, and process accordingly
+// 	fmt.Printf("this is data type: %T, value: %+v\n", data, data)
+
+// 	switch data := data.(type) {
+// 	case []interface{}: // If data is a generic list
+// 		nativeArray := make([]interface{}, len(data))
+// 		for i, item := range data {
+// 			nativeArray[i] = convertBsonToNative(item) // Recursively convert each item
+// 		}
+// 		fmt.Printf("this is nativeArray in interface{}: %T, value: %+v\n", nativeArray, nativeArray)
+// 		return nativeArray
+
+// 	case bson.A: // If data is a BSON array
+// 	//**we would need to change interface{} to be []int if we wanted that to work for us. and then our convertToBsonNative type would also have to not be data interface{}
+// 		nativeArray := make([]interface{}, len(data))
+// 		for i, item := range data {
+// 			nativeArray[i] = convertBsonToNative(item) // Recursively convert each item
+// 		}
+// 		fmt.Printf("this is nativeArray in bsonA: %T, value: %+v\n", nativeArray, nativeArray)
+// 		return nativeArray
+
+// 	case map[string]interface{}: // If data is a generic map
+// 		convertedMap := make(map[string]interface{})
+// 		for key, value := range data {
+// 			convertedMap[key] = convertBsonToNative(value) // Recursively convert each value
+// 		}
+// 		return convertedMap
+
+// 	case bson.M: // If data is a BSON map
+// 		convertedMap := make(map[string]interface{})
+// 		for key, value := range data {
+// 			convertedMap[key] = convertBsonToNative(value) // Recursively convert each value
+// 		}
+// 		return convertedMap
+
+// 	default:
+// 		// If data is not a list or map, handle BSON specific types and primitives
+// 		return convertSingleValue(data)
+// 	}
+// }
+
 func TabularDataBsonHelper(rawData [][]byte) ([]map[string]interface{}, error) {
 	dataObjects := []map[string]interface{}{}
+	// fmt.Printf("this is rawData type: %T, value: %+v\n", rawData, rawData)
 	for _, byteSlice := range rawData {
-		fmt.Printf("the byteslice is: %+v\n", byteSlice)
+		// fmt.Printf("the byteslice is: %+v\n", byteSlice)
 		obj := map[string]interface{}{}
-		bson.Unmarshal(byteSlice, &obj)
-		for key, value := range obj {
-			if v, ok := value.(int32); ok {
-				obj[key] = int(v)
-			}
+		// bson.Unmarshal(byteSlice, &obj) //we are getting mongodb datetime objects, and al monogdb types
+		if err := bson.Unmarshal(byteSlice, &obj); err != nil {
+			return nil, err
 		}
-		dataObjects = append(dataObjects, obj)
+		// for key, value := range obj {
+		// 	if v, ok := value.(int32); ok {
+		// 		obj[key] = int(v)
+		// 	}
+		// }
+		fmt.Printf("this is the object before conversion: %T, value: %+v\n", obj, obj)
+		convertedObj := convertBsonToNative(obj).(map[string]interface{})
+		// fmt.Printf("this is object type: %T, value: %+v\n", convertedObj, convertedObj)
+		dataObjects = append(dataObjects, convertedObj)
 	}
+	fmt.Printf("this is dataObjectd type: %T, value: %+v\n", dataObjects, dataObjects)
 	return dataObjects, nil
 }
 
@@ -329,7 +555,7 @@ func FilterToProto(filter Filter) *pb.Filter {
 		OrganizationIds: filter.OrganizationIds,
 		MimeType:        filter.MimeType,
 		Interval:        CaptureIntervalToProto(filter.Interval),
-		TagsFilter:      TagsFilterToProto(filter.TagsFilter), 
+		TagsFilter:      TagsFilterToProto(filter.TagsFilter),
 		BboxLabels:      filter.BboxLabels,
 		DatasetId:       filter.DatasetId,
 	}
@@ -684,3 +910,47 @@ func (d *DataClient) RemoveBinaryDataFromDatasetByIDs(ctx context.Context, binar
 	}
 	return nil
 }
+
+//NOTES:
+// func convertBsonTypes(obj map[string]interface{}) map[string]interface{} {
+// 	for key, value := range obj {
+// 		switch v := value.(type) {
+// 		case string:
+// 			//no conversion needed
+// 			return value
+// 		case float64, int32, int64:
+// 			//no conversion needed
+// 			return v
+// 		case bool:
+// 			//no conversion needed
+// 			return v
+// 		case nil:
+// 			// Null - Represent as nil in Go
+// 			return nil
+// 		case bson.A: // BSON array
+// 			result := []interface{}{}
+// 			for _, item := range v {
+// 				result = append(result, convertBsonTypes(item))
+// 			}
+// 			return result
+// 		case bson.M: // BSON object (map)
+// 			result := map[string]interface{}{}
+// 			for key, val := range v {
+// 				result[key] = convertBsonTypes(val)
+// 			}
+// 			return result
+// 		case time.Time:
+// 			// Datetime - Convert BSON datetime to Go time.Time
+// 			return v
+// 		default:
+// 			// Return other types as-is
+// 			return v
+
+//			// 	obj[key] = convertBsonTypes(v)
+//			case map[string]interface{}:
+//				// recursively convert nested maps
+//				obj[key] = convertBsonTypes(v)
+//			}
+//		}
+//		return obj
+//	}
