@@ -60,7 +60,7 @@ func init() {
 }
 
 // getProperties is a helper func for webcam discovery that returns the Media properties of a specific driver.
-// It is NOT serving the camera Properties proto API.
+// It is NOT related to the GetProperties camera proto API.
 func getProperties(d driver.Driver) (_ []prop.Media, err error) {
 	// Need to open driver to get properties
 	if d.Status() == driver.StateClosed {
@@ -162,7 +162,7 @@ func (c WebcamConfig) Validate(path string) ([]string, error) {
 	return []string{}, nil
 }
 
-// needsDriverReinit is a helper to check for config diffs and returns true if the driver needs to be reinitialized.
+// needsDriverReinit is a helper to check for config diffs and returns true iff the driver needs to be reinitialized.
 func (c WebcamConfig) needsDriverReinit(other WebcamConfig) bool {
 	return !(c.Format == other.Format &&
 		c.Path == other.Path &&
@@ -310,7 +310,7 @@ func findAndMakeVideoSource(
 	return source, path, nil
 }
 
-// webcam is a video driver camera wrapper that ensures its underlying camera stays connected.
+// webcam is a video driver wrapper camera that ensures its underlying source stays connected.
 type webcam struct {
 	resource.Named
 	mu                      sync.RWMutex
@@ -358,7 +358,7 @@ func NewWebcam(
 	return cam, nil
 }
 
-// noopCloser fulfills the projector interface during Reconfigure.
+// noopCloser overwrites the actual close method so that the real close method isn't called on Reconfigure.
 type noopCloser struct {
 	gostream.VideoSource
 }
