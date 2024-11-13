@@ -197,6 +197,22 @@ func (vs *videoSource) Stream(ctx context.Context, errHandlers ...gostream.Error
 	return vs.videoSource.Stream(ctx, errHandlers...)
 }
 
+// ReadImageBytes wraps ReadImage given a mimetype to encode the image as bytes data, returning
+// supplementary metadata for downstream processing.
+// TODO(hexbabe): make function private or remove altogether once the usages are limited to this file.
+func ReadImageBytes(ctx context.Context, src gostream.VideoSource, mimeType string) ([]byte, ImageMetadata, error) {
+	img, release, err := ReadImage(ctx, src)
+	if err != nil {
+		return nil, ImageMetadata{}, err
+	}
+	defer release()
+	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
+	if err != nil {
+		return nil, ImageMetadata{}, err
+	}
+	return imgBytes, ImageMetadata{MimeType: mimeType}, nil
+}
+
 func (vs *videoSource) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, ImageMetadata, error) {
 	return ReadImageBytes(ctx, vs.videoSource, mimeType)
 }

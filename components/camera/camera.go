@@ -159,21 +159,6 @@ func ReadImage(ctx context.Context, src gostream.VideoSource) (image.Image, func
 	return gostream.ReadImage(ctx, src)
 }
 
-// ReadImageBytes wraps ReadImage given a mimetype to encode the image as bytes data, returning
-// supplementary metadata for downstream processing.
-func ReadImageBytes(ctx context.Context, src gostream.VideoSource, mimeType string) ([]byte, ImageMetadata, error) {
-	img, release, err := ReadImage(ctx, src)
-	if err != nil {
-		return nil, ImageMetadata{}, err
-	}
-	defer release()
-	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
-	if err != nil {
-		return nil, ImageMetadata{}, err
-	}
-	return imgBytes, ImageMetadata{MimeType: mimeType}, nil
-}
-
 // GetGoImage retrieves image bytes from a camera source and decodes it into an image.Image type.
 func GetGoImage(ctx context.Context, mimeType string, extra map[string]interface{}, cam VideoSource) (image.Image, error) {
 	resBytes, resMetadata, err := cam.Image(context.Background(), mimeType, nil)
