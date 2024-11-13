@@ -1,3 +1,6 @@
+// Package app defines the interfaces that manage a machine fleet with code instead of with the graphical interface of the Viam App.
+//
+// [fleet management docs]: https://docs.viam.com/appendix/apis/fleet/
 package app
 
 import (
@@ -414,7 +417,6 @@ func (c *AppClient) GetRoverRentalRobots(ctx context.Context, orgID string) ([]*
 }
 
 // GetRobotParts gets a list of all the parts under a specific machine.
-func (c *AppClient) GetRobotParts(ctx context.Context, robotId string) ([]*RobotPart, error) {
 func (c *AppClient) GetRobotParts(ctx context.Context, robotID string) ([]*RobotPart, error) {
 	resp, err := c.client.GetRobotParts(ctx, &pb.GetRobotPartsRequest{
 		RobotId: robotID,
@@ -540,9 +542,8 @@ func (c *AppClient) UpdateRobotPart(ctx context.Context, id, name string, robotC
 }
 
 // NewRobotPart creates a new robot part.
-func (c *AppClient) NewRobotPart(ctx context.Context, robotId, partName string) (string, error) {
+func (c *AppClient) NewRobotPart(ctx context.Context, robotID, partName string) (string, error) {
 	resp, err := c.client.NewRobotPart(ctx, &pb.NewRobotPartRequest{
-		RobotId:  robotId,
 		RobotId:  robotID,
 		PartName: partName,
 	})
@@ -553,7 +554,7 @@ func (c *AppClient) NewRobotPart(ctx context.Context, robotId, partName string) 
 }
 
 // DeleteRobotPart deletes a robot part.
-func (c *AppClient) DeleteRobotPart(ctx context.Context, partId string) error {
+func (c *AppClient) DeleteRobotPart(ctx context.Context, partID string) error {
 	_, err := c.client.DeleteRobotPart(ctx, &pb.DeleteRobotPartRequest{
 		PartId: partID,
 	})
