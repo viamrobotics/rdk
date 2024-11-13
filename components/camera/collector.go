@@ -89,16 +89,17 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 		}
 	}
 
+	mimeStr := new(wrapperspb.StringValue)
+	if err := mimeType.UnmarshalTo(mimeStr); err != nil {
+		return nil, err
+	}
+
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::ReadImage")
 		defer span.End()
 
 		ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
 
-		mimeStr := new(wrapperspb.StringValue)
-		if err := mimeType.UnmarshalTo(mimeStr); err != nil {
-			return nil, err
-		}
 		img, _, err := camera.Image(ctx, mimeStr.Value, nil)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
