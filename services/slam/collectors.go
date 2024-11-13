@@ -27,7 +27,7 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-func newPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func NewPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	slam, err := assertSLAM(resource)
 	if err != nil {
 		return nil, err
@@ -43,7 +43,8 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 	return data.NewCollector(cFunc, params)
 }
 
-func newPointCloudMapCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+// NewPointCloudMapCollector.
+func NewPointCloudMapCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	slam, err := assertSLAM(resource)
 	if err != nil {
 		return nil, err
