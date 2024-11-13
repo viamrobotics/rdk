@@ -9,13 +9,12 @@ import (
 )
 
 type logStream struct {
-	client *AppClient
+	client       *AppClient
 	streamCancel context.CancelFunc
 	streamMu     sync.Mutex
 
 	activeBackgroundWorkers sync.WaitGroup
 }
-
 
 func (s *logStream) startStream(ctx context.Context, id string, errorsOnly bool, filter *string, ch chan []*LogEntry) error {
 	s.streamMu.Lock()
@@ -35,9 +34,9 @@ func (s *logStream) startStream(ctx context.Context, id string, errorsOnly bool,
 	}
 
 	req := &pb.TailRobotPartLogsRequest{
-		Id: id,
+		Id:         id,
 		ErrorsOnly: errorsOnly,
-		Filter: filter,
+		Filter:     filter,
 	}
 
 	// This call won't return any errors it had until the client tries to receive.
@@ -79,7 +78,7 @@ func (s *logStream) receiveFromStream(ctx context.Context, stream pb.AppService_
 		}
 		// If there is a response, send to the logs channel.
 		var logs []*LogEntry
-		for _, log := range(streamResp.Logs) {
+		for _, log := range streamResp.Logs {
 			l, err := ProtoToLogEntry(log)
 			if err != nil {
 				s.client.logger.Debug(err)
