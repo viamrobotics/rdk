@@ -843,52 +843,52 @@ func TestStreamState(t *testing.T) {
 		test.That(t, unsubscribeCount.Load(), test.ShouldEqual, 0)
 		test.That(t, writeRTPCalledCtx.Err(), test.ShouldBeNil)
 
-		logger.Info("the first Increment() eventually call calls SubscribeRTP()")
-		test.That(t, s.Increment(), test.ShouldBeNil)
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 1)
-			test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 0)
-		})
-		// WriteRTP is called
-		<-writeRTPCalledCtx.Done()
-
-		// Call Resize to simulate a resize event. This should stop rtp_passthrough and start gostream.
-		logger.Info("calling Resize() should stop rtp_passthrough and start gostream")
-		test.That(t, s.Resize(), test.ShouldBeNil)
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 1)
-			test.That(tb, startCount.Load(), test.ShouldEqual, 1)
-			test.That(tb, stopCount.Load(), test.ShouldEqual, 0)
+		t.Run("Increment should call SubscribeRTP", func(t *testing.T) {
+			test.That(t, s.Increment(), test.ShouldBeNil)
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 1)
+				test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 0)
+			})
+			// WriteRTP is called
+			<-writeRTPCalledCtx.Done()
 		})
 
-		// Make sure that Decrement() calls Stop() as gostream is the data source
-		logger.Info("calling Decrement() should call Stop() as gostream is the data source")
-		test.That(t, s.Decrement(), test.ShouldBeNil)
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 1)
-			test.That(tb, startCount.Load(), test.ShouldEqual, 1)
-			test.That(tb, stopCount.Load(), test.ShouldEqual, 1)
+		t.Run("Resize should stop rtp_passthrough and start gostream", func(t *testing.T) {
+			test.That(t, s.Resize(), test.ShouldBeNil)
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 1)
+				test.That(tb, startCount.Load(), test.ShouldEqual, 1)
+				test.That(tb, stopCount.Load(), test.ShouldEqual, 0)
+			})
 		})
 
-		// Call increment again and make sure that gostream is started
-		// and rtppassthrough is not called
-		logger.Info("calling Increment() should call Start() as gostream is the data source")
-		test.That(t, s.Increment(), test.ShouldBeNil)
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 1)
-			test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 1)
-			test.That(tb, startCount.Load(), test.ShouldEqual, 2)
-			test.That(tb, stopCount.Load(), test.ShouldEqual, 1)
+		t.Run("Decrement should call Stop as gostream is the data source", func(t *testing.T) {
+			test.That(t, s.Decrement(), test.ShouldBeNil)
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 1)
+				test.That(tb, startCount.Load(), test.ShouldEqual, 1)
+				test.That(tb, stopCount.Load(), test.ShouldEqual, 1)
+			})
 		})
 
-		// Call decrement again and make sure that gostream is stopped.
-		logger.Info("calling Decrement() should call Stop() as gostream is the data source")
-		test.That(t, s.Decrement(), test.ShouldBeNil)
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 1)
-			test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 1)
-			test.That(tb, startCount.Load(), test.ShouldEqual, 2)
-			test.That(tb, stopCount.Load(), test.ShouldEqual, 2)
+		t.Run("Increment should call Start as gostream is the data source", func(t *testing.T) {
+			test.That(t, s.Increment(), test.ShouldBeNil)
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 1)
+				test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 1)
+				test.That(tb, startCount.Load(), test.ShouldEqual, 2)
+				test.That(tb, stopCount.Load(), test.ShouldEqual, 1)
+			})
+		})
+
+		t.Run("Decrement should call Stop as gostream is the data source", func(t *testing.T) {
+			test.That(t, s.Decrement(), test.ShouldBeNil)
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 1)
+				test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 1)
+				test.That(tb, startCount.Load(), test.ShouldEqual, 2)
+				test.That(tb, stopCount.Load(), test.ShouldEqual, 2)
+			})
 		})
 	})
 }
