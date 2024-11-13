@@ -1,5 +1,3 @@
-//go:build !no_cgo
-
 package app
 
 import (
@@ -18,17 +16,9 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-//protobuf to type or type to protobuf (poseinframe to proto or proto to pose in frame)
-//define the structs publically and a private function that does the conversion
-//come back to "dest" path later to see if we wanna write to a file or not
-
-// viamClient.dataClient.
-
-// i want to wrap NewDataServiceClient define a new dataclient struct and call the wrappers of the functions
-// // i want the user to call my dataClient struct w my wrappers and not the proto functions
-
 type DataClient struct {
 	client pb.DataServiceClient
+	logger logging.Logger
 }
 
 // Order specifies the order in which data is returned.
@@ -146,15 +136,16 @@ type Annotations struct {
 	Bboxes []BoundingBox
 }
 
-// NewDataClient constructs a new DataClient from connection passed in.
+// NewDataClient constructs a new DataClient using the connection passed in by the viamClient and the provided logger.
 func NewDataClient(
 	ctx context.Context,
-	channel rpc.ClientConn, //this should just take a channel that the viamClient passes in
+	channel rpc.ClientConn,
 	logger logging.Logger,
 ) (*DataClient, error) {
 	d := pb.NewDataServiceClient(channel)
 	return &DataClient{
 		client: d,
+		logger: logger,
 	}, nil
 }
 
@@ -173,7 +164,6 @@ func AnnotationsFromProto(proto *pb.Annotations) Annotations {
 	if proto == nil {
 		return Annotations{}
 	}
-	// Convert each BoundingBox from proto to native type
 	bboxes := make([]BoundingBox, len(proto.Bboxes))
 	for i, bboxProto := range proto.Bboxes {
 		bboxes[i] = BoundingBoxFromProto(bboxProto)
@@ -397,9 +387,8 @@ func OrderToProto(sortOrder Order) pb.Order {
 	}
 }
 
-// convertBsonToNative recursively converts BSON types (e.g., DateTime, arrays, maps)
-// into their native Go equivalents. This ensures all BSON data types are converted
-// to the appropriate Go types like time.Time, slices, and maps.
+// convertBsonToNative recursively converts BSON datetime objects to Go DateTime and BSON arrays to slices of interface{}.
+// For slices and maps of specific types, the best we can do is use interface{} as the container type.
 func convertBsonToNative(data any) any {
 	switch v := data.(type) {
 	case primitive.DateTime:
