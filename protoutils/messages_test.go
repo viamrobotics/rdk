@@ -7,6 +7,8 @@ import (
 
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/wrapperspb"
+
+	"go.viam.com/rdk/resource"
 )
 
 func TestStringToAnyPB(t *testing.T) {
@@ -39,4 +41,19 @@ func TestStringToAnyPB(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	wrappedVal4 := wrapperspb.String("abcd")
 	test.That(t, anyVal.MessageIs(wrappedVal4), test.ShouldBeTrue)
+}
+
+func TestResourceNameToProto(t *testing.T) {
+	resourceName := resource.Name{
+		Name:   "totallyLegitResource",
+		Remote: "remote1:remote2:remote3",
+		API:    resource.NewAPI("space", "fake", "fakeFake"),
+	}
+	resourceNameProto := ResourceNameToProto(resourceName)
+	finalResource := ResourceNameFromProto(resourceNameProto)
+
+	test.That(t, resourceNameProto.LocalName, test.ShouldEqual, "totallyLegitResource")
+	test.That(t, resourceNameProto.RemotePath, test.ShouldResemble, []string{"remote1", "remote2", "remote3"})
+	test.That(t, resourceNameProto.Name, test.ShouldEqual, "remote1:remote2:remote3:totallyLegitResource")
+	test.That(t, finalResource, test.ShouldResemble, resourceName)
 }
