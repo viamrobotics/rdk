@@ -210,13 +210,23 @@ func TestDataClient(t *testing.T) {
 		expectedOrgId := organizationId
 		expectedSqlQuery := sqlQuery
 
-		expectedRawData := []map[string]interface{}{
+		expectedRawData := []map[string]any{
 			{
 				"key1": startTime,
 				"key2": "2",
-				"key3": []int{1, 2, 3},
-				"key4": map[string]interface{}{
+				"key3": []any{1, 2, 3}, //slice of integers
+				"key4": map[string]any{ // map and rep of JSON object
 					"key4sub1": endTime,
+				},
+				"key5": 4.05,
+				"key6": []any{true, false, true}, //array of bools
+				"key7": []any{ // slice of maps
+					map[string]any{
+						"nestedKey1": "simpleValue",
+					},
+					map[string]any{
+						"nestedKey2": startTime,
+					},
 				},
 			},
 		}
@@ -288,10 +298,11 @@ func TestDataClient(t *testing.T) {
 				},
 				"key5": 4.05,
 				"key6": []any{true, false, true}, //array of bools
-				"key7": []map[string]any{ // slice of maps
-					{
+				"key7": []any{ // slice of maps
+					map[string]any{
 						"nestedKey1": "simpleValue",
-					}, {
+					},
+					map[string]any{
 						"nestedKey2": startTime,
 					},
 				},
