@@ -33,8 +33,10 @@ const (
 	Ascending   Order = 2
 )
 
-// DataRequest encapsulates the filter for the data, a limit on the maximum results returned,
+// DataRequest encapsulates the filter for the data, a limit on the max results returned,
 // a last string associated with the last returned document, and the sorting order by time.
+
+//nolint:revive // stutter: Ignore the "stuttering" warning for this type name
 type DataRequest struct {
 	Filter    Filter
 	Limit     uint64
