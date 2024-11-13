@@ -359,6 +359,7 @@ func NewWebcam(
 }
 
 // noopCloser overwrites the actual close method so that the real close method isn't called on Reconfigure.
+// TODO(hexbabe): https://viam.atlassian.net/browse/RSDK-9264
 type noopCloser struct {
 	gostream.VideoSource
 }
