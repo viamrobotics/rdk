@@ -52,7 +52,9 @@ func CreateViamClientWithOptions(ctx context.Context, options Options, logger lo
 }
 
 // CreateViamClientWithAPIKey creates a ViamClient with an API key.
-func CreateViamClientWithAPIKey(ctx context.Context, options Options, apiKey string, apiKeyID string, logger logging.Logger) (*ViamClient, error) {
+func CreateViamClientWithAPIKey(
+	ctx context.Context, options Options, apiKey, apiKeyID string, logger logging.Logger,
+) (*ViamClient, error) {
 	if !validateAPIKeyFormat(apiKey) {
 		return nil, errors.New("API key should be a 32-char all-lowercase alphanumeric string")
 	}

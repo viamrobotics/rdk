@@ -21,10 +21,6 @@ var (
 
 type MockConn struct{}
 
-func (m *MockConn) Invoke(ctx context.Context, method string, args, reply any, opts ...grpc.CallOption) error {
-	return nil
-}
-
 func (m *MockConn) NewStream(
 	ctx context.Context,
 	desc *grpc.StreamDesc,
@@ -32,6 +28,10 @@ func (m *MockConn) NewStream(
 	opts ...grpc.CallOption,
 ) (grpc.ClientStream, error) {
 	return nil, nil
+}
+
+func (m *MockConn) Invoke(ctx context.Context, method string, args, reply any, opts ...grpc.CallOption) error {
+	return nil
 }
 func (m *MockConn) PeerConn() *webrtc.PeerConnection { return nil }
 func (m *MockConn) Close() error                     { return nil }
