@@ -381,27 +381,30 @@ func (server *Server) SetStreamOptions(
 	req *streampb.SetStreamOptionsRequest,
 ) (*streampb.SetStreamOptionsResponse, error) {
 	if req.Name == "" {
-		return nil, errors.New("stream name is required")
+		return nil, errors.New("stream name is required in request")
 	}
 	if req.Resolution == nil {
-		return nil, errors.New("resolution is required")
+		return nil, fmt.Errorf("resolution is required to resize stream %q", req.Name)
 	}
 	if req.Resolution.Width <= 0 || req.Resolution.Height <= 0 {
-		return nil, errors.New("invalid resolution, width and height must be greater than 0")
+		return nil, fmt.Errorf(
+			"invalid resolution to resize stream %q: width (%d) and height (%d) must be greater than 0",
+			req.Name, req.Resolution.Width, req.Resolution.Height,
+		)
 	}
 	server.mu.Lock()
 	defer server.mu.Unlock()
 	err := server.resizeVideoSource(req.Name, int(req.Resolution.Width), int(req.Resolution.Height))
 	if err != nil {
-		return nil, fmt.Errorf("failed to resize video source: %w", err)
+		return nil, fmt.Errorf("failed to resize video source for stream %q: %w", req.Name, err)
 	}
 	streamState, ok := server.nameToStreamState[req.Name]
 	if !ok {
-		return nil, fmt.Errorf("stream %q not found", req.Name)
+		return nil, fmt.Errorf("stream state not found with name %q", req.Name)
 	}
 	err = streamState.Resize()
 	if err != nil {
-		return nil, fmt.Errorf("failed to resize stream: %w", err)
+		return nil, fmt.Errorf("failed to resize stream %q: %w", req.Name, err)
 	}
 	return &streampb.SetStreamOptionsResponse{}, nil
 }
