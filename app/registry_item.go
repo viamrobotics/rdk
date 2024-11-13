@@ -9,6 +9,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+// RegistryItem has the information of an item in the registry.
 type RegistryItem struct {
 	ItemID                         string
 	OrganizationID                 string
@@ -27,12 +28,12 @@ type RegistryItem struct {
 	UpdatedAt                      *timestamppb.Timestamp
 }
 
-func ProtoToRegistryItem(item *pb.RegistryItem) (*RegistryItem, error) {
-	packageType, err := ProtoToPackageType(item.Type)
+func registryItemFromProto(item *pb.RegistryItem) (*RegistryItem, error) {
+	packageType, err := packageTypeFromProto(item.Type)
 	if err != nil {
 		return nil, err
 	}
-	visibility, err := ProtoToVisibility(item.Visibility)
+	visibility, err := visibilityFromProto(item.Visibility)
 	if err != nil {
 		return nil, err
 	}
@@ -40,19 +41,16 @@ func ProtoToRegistryItem(item *pb.RegistryItem) (*RegistryItem, error) {
 	var metadata isRegistryItemMetadata
 	switch pbMetadata := item.Metadata.(type) {
 	case *pb.RegistryItem_ModuleMetadata:
-		md, err := ProtoToModuleMetadata(pbMetadata.ModuleMetadata)
-		if err != nil {
-			return nil, err
-		}
+		md := moduleMetadataFromProto(pbMetadata.ModuleMetadata)
 		metadata = &RegistryItemModuleMetadata{ModuleMetadata: md}
 	case *pb.RegistryItem_MlModelMetadata:
-		md, err := ProtoToMLModelMetadata(pbMetadata.MlModelMetadata)
+		md, err := mlModelMetadataFromProto(pbMetadata.MlModelMetadata)
 		if err != nil {
 			return nil, err
 		}
 		metadata = &RegistryItemMLModelMetadata{MlModelMetadata: md}
 	case *pb.RegistryItem_MlTrainingMetadata:
-		md, err := ProtoToMLTrainingMetadata(pbMetadata.MlTrainingMetadata)
+		md, err := mlTrainingMetadataFromProto(pbMetadata.MlTrainingMetadata)
 		if err != nil {
 			return nil, err
 		}
@@ -80,110 +78,19 @@ func ProtoToRegistryItem(item *pb.RegistryItem) (*RegistryItem, error) {
 	}, nil
 }
 
-func RegistryItemToProto(item *RegistryItem) (*pb.RegistryItem, error) {
-	packageType, err := PackageTypeToProto(item.Type)
-	if err != nil {
-		return nil, err
-	}
-	visibility, err := VisibilityToProto(item.Visibility)
-	if err != nil {
-		return nil, err
-	}
-
-	switch md := item.Metadata.(type) {
-	case *RegistryItemModuleMetadata:
-		protoMetadata, err := ModuleMetadataToProto(md.ModuleMetadata)
-		if err != nil {
-			return nil, err
-		}
-		return &pb.RegistryItem{
-			ItemId:                         item.ItemID,
-			OrganizationId:                 item.OrganizationID,
-			PublicNamespace:                item.PublicNamespace,
-			Name:                           item.Name,
-			Type:                           packageType,
-			Visibility:                     visibility,
-			Url:                            item.URL,
-			Description:                    item.Description,
-			TotalRobotUsage:                item.TotalRobotUsage,
-			TotalExternalRobotUsage:        item.TotalExternalRobotUsage,
-			TotalOrganizationUsage:         item.TotalOrganizationUsage,
-			TotalExternalOrganizationUsage: item.TotalExternalOrganizationUsage,
-			Metadata:                       &pb.RegistryItem_ModuleMetadata{ModuleMetadata: protoMetadata},
-			CreatedAt:                      item.CreatedAt,
-			UpdatedAt:                      item.UpdatedAt,
-		}, nil
-	case *RegistryItemMLModelMetadata:
-		protoMetadata, err := MLModelMetadataToProto(md.MlModelMetadata)
-		if err != nil {
-			return nil, err
-		}
-		return &pb.RegistryItem{
-			ItemId:                         item.ItemID,
-			OrganizationId:                 item.OrganizationID,
-			PublicNamespace:                item.PublicNamespace,
-			Name:                           item.Name,
-			Type:                           packageType,
-			Visibility:                     visibility,
-			Url:                            item.URL,
-			Description:                    item.Description,
-			TotalRobotUsage:                item.TotalRobotUsage,
-			TotalExternalRobotUsage:        item.TotalExternalRobotUsage,
-			TotalOrganizationUsage:         item.TotalOrganizationUsage,
-			TotalExternalOrganizationUsage: item.TotalExternalOrganizationUsage,
-			Metadata:                       &pb.RegistryItem_MlModelMetadata{MlModelMetadata: protoMetadata},
-			CreatedAt:                      item.CreatedAt,
-			UpdatedAt:                      item.UpdatedAt,
-		}, nil
-	case *RegistryItemMLTrainingMetadata:
-		protoMetadata, err := MLTrainingMetadataToProto(md.MlTrainingMetadata)
-		if err != nil {
-			return nil, err
-		}
-		return &pb.RegistryItem{
-			ItemId:                         item.ItemID,
-			OrganizationId:                 item.OrganizationID,
-			PublicNamespace:                item.PublicNamespace,
-			Name:                           item.Name,
-			Type:                           packageType,
-			Visibility:                     visibility,
-			Url:                            item.URL,
-			Description:                    item.Description,
-			TotalRobotUsage:                item.TotalRobotUsage,
-			TotalExternalRobotUsage:        item.TotalExternalRobotUsage,
-			TotalOrganizationUsage:         item.TotalOrganizationUsage,
-			TotalExternalOrganizationUsage: item.TotalExternalOrganizationUsage,
-			Metadata:                       &pb.RegistryItem_MlTrainingMetadata{MlTrainingMetadata: protoMetadata},
-			CreatedAt:                      item.CreatedAt,
-			UpdatedAt:                      item.UpdatedAt,
-		}, nil
-	default:
-		return nil, fmt.Errorf("unknown registry item metadata type: %T", item.Metadata)
-	}
-}
-
+// RegistryItemStatus specifies if a registry item is published or in development.
 type RegistryItemStatus int32
 
 const (
-	RegistryItemStatusUnspecified   RegistryItemStatus = 0
-	RegistryItemStatusPublished     RegistryItemStatus = 1
+	// RegistryItemStatusUnspecified is an unspecified registry item status.
+	RegistryItemStatusUnspecified RegistryItemStatus = 0
+	// RegistryItemStatusPublished represents a published registry item.
+	RegistryItemStatusPublished RegistryItemStatus = 1
+	// RegistryItemStatusInDevelopment represents a registry item still in development.
 	RegistryItemStatusInDevelopment RegistryItemStatus = 2
 )
 
-func ProtoToRegistryItemStatus(status pb.RegistryItemStatus) (RegistryItemStatus, error) {
-	switch status {
-	case pb.RegistryItemStatus_REGISTRY_ITEM_STATUS_UNSPECIFIED:
-		return RegistryItemStatusUnspecified, nil
-	case pb.RegistryItemStatus_REGISTRY_ITEM_STATUS_PUBLISHED:
-		return RegistryItemStatusPublished, nil
-	case pb.RegistryItemStatus_REGISTRY_ITEM_STATUS_IN_DEVELOPMENT:
-		return RegistryItemStatusInDevelopment, nil
-	default:
-		return 0, fmt.Errorf("unknown registry item status: %v", status)
-	}
-}
-
-func RegistryItemStatusToProto(status RegistryItemStatus) (pb.RegistryItemStatus, error) {
+func registryItemStatusToProto(status RegistryItemStatus) (pb.RegistryItemStatus, error) {
 	switch status {
 	case RegistryItemStatusUnspecified:
 		return pb.RegistryItemStatus_REGISTRY_ITEM_STATUS_UNSPECIFIED, nil
@@ -196,18 +103,25 @@ func RegistryItemStatusToProto(status RegistryItemStatus) (pb.RegistryItemStatus
 	}
 }
 
+// PackageType is the type of package being used.
 type PackageType int32
 
 const (
+	// PackageTypeUnspecified represents an unspecified package type.
 	PackageTypeUnspecified PackageType = 0
-	PackageTypeArchive     PackageType = 1
-	PackageTypeMLModel     PackageType = 2
-	PackageTypeModule      PackageType = 3
-	PackageTypeSLAMMap     PackageType = 4
-	PackageTypeMLTraining  PackageType = 5
+	// PackageTypeArchive represents an archive package type.
+	PackageTypeArchive PackageType = 1
+	// PackageTypeMLModel represents a ML model package type.
+	PackageTypeMLModel PackageType = 2
+	// PackageTypeModule represents a module package type.
+	PackageTypeModule PackageType = 3
+	// PackageTypeSLAMMap represents a SLAM map package type.
+	PackageTypeSLAMMap PackageType = 4
+	// PackageTypeMLTraining represents a ML training package type.
+	PackageTypeMLTraining PackageType = 5
 )
 
-func ProtoToPackageType(packageType packages.PackageType) (PackageType, error) {
+func packageTypeFromProto(packageType packages.PackageType) (PackageType, error) {
 	switch packageType {
 	case packages.PackageType_PACKAGE_TYPE_UNSPECIFIED:
 		return PackageTypeUnspecified, nil
@@ -226,7 +140,7 @@ func ProtoToPackageType(packageType packages.PackageType) (PackageType, error) {
 	}
 }
 
-func PackageTypeToProto(packageType PackageType) (packages.PackageType, error) {
+func packageTypeToProto(packageType PackageType) (packages.PackageType, error) {
 	switch packageType {
 	case PackageTypeUnspecified:
 		return packages.PackageType_PACKAGE_TYPE_UNSPECIFIED, nil
@@ -245,16 +159,21 @@ func PackageTypeToProto(packageType PackageType) (packages.PackageType, error) {
 	}
 }
 
+// Visibility specifies the type of visibility of a registry item.
 type Visibility int32
 
 const (
-	VisibilityUnspecified    Visibility = 0
-	VisibilityPrivate        Visibility = 1
-	VisibilityPublic         Visibility = 2
+	// VisibilityUnspecified represents an unspecified visibility.
+	VisibilityUnspecified Visibility = 0
+	// VisibilityPrivate are for registry items visible only within the owning org.
+	VisibilityPrivate Visibility = 1
+	// VisibilityPublic are for registry items that are visible to everyone.
+	VisibilityPublic Visibility = 2
+	// VisibilityPublicUnlisted are for registry items usable in everyone's robot but are hidden from the registry page as if they are private.
 	VisibilityPublicUnlisted Visibility = 3
 )
 
-func ProtoToVisibility(visibility pb.Visibility) (Visibility, error) {
+func visibilityFromProto(visibility pb.Visibility) (Visibility, error) {
 	switch visibility {
 	case pb.Visibility_VISIBILITY_UNSPECIFIED:
 		return VisibilityUnspecified, nil
@@ -269,7 +188,7 @@ func ProtoToVisibility(visibility pb.Visibility) (Visibility, error) {
 	}
 }
 
-func VisibilityToProto(visibility Visibility) (pb.Visibility, error) {
+func visibilityToProto(visibility Visibility) (pb.Visibility, error) {
 	switch visibility {
 	case VisibilityUnspecified:
 		return pb.Visibility_VISIBILITY_UNSPECIFIED, nil
@@ -288,14 +207,17 @@ type isRegistryItemMetadata interface {
 	isRegistryItemMetadata()
 }
 
+// RegistryItemModuleMetadata is a registry item's module metadata.
 type RegistryItemModuleMetadata struct {
 	ModuleMetadata *ModuleMetadata
 }
 
+// RegistryItemMLModelMetadata is a registry item's ML model metadata.
 type RegistryItemMLModelMetadata struct {
 	MlModelMetadata *MLModelMetadata
 }
 
+// RegistryItemMLTrainingMetadata is a registry item's ML Training metadata.
 type RegistryItemMLTrainingMetadata struct {
 	MlTrainingMetadata *MLTrainingMetadata
 }
@@ -306,6 +228,7 @@ func (*RegistryItemMLModelMetadata) isRegistryItemMetadata() {}
 
 func (*RegistryItemMLTrainingMetadata) isRegistryItemMetadata() {}
 
+// ModuleMetadata holds the metadata of a module.
 type ModuleMetadata struct {
 	Models     []*Model
 	Versions   []*ModuleVersion
@@ -313,59 +236,44 @@ type ModuleMetadata struct {
 	FirstRun   *string
 }
 
-func ProtoToModuleMetadata(md *pb.ModuleMetadata) (*ModuleMetadata, error) {
+func moduleMetadataFromProto(md *pb.ModuleMetadata) *ModuleMetadata {
 	var models []*Model
 	for _, version := range md.Models {
-		models = append(models, ProtoToModel(version))
+		models = append(models, modelFromProto(version))
 	}
 	var versions []*ModuleVersion
 	for _, version := range md.Versions {
-		versions = append(versions, ProtoToModuleVersion(version))
+		versions = append(versions, moduleVersionFromProto(version))
 	}
 	return &ModuleMetadata{
 		Models:     models,
 		Versions:   versions,
 		Entrypoint: md.Entrypoint,
 		FirstRun:   md.FirstRun,
-	}, nil
+	}
 }
 
-func ModuleMetadataToProto(md *ModuleMetadata) (*pb.ModuleMetadata, error) {
-	var models []*pb.Model
-	for _, version := range md.Models {
-		models = append(models, ModelToProto(version))
-	}
-	var versions []*pb.ModuleVersion
-	for _, version := range md.Versions {
-		versions = append(versions, ModuleVersionToProto(version))
-	}
-	return &pb.ModuleMetadata{
-		Models:     models,
-		Versions:   versions,
-		Entrypoint: md.Entrypoint,
-		FirstRun:   md.FirstRun,
-	}, nil
-}
-
+// Model has the API and model of a model.
 type Model struct {
 	API   string
 	Model string
 }
 
-func ProtoToModel(model *pb.Model) *Model {
+func modelFromProto(model *pb.Model) *Model {
 	return &Model{
 		API:   model.Api,
 		Model: model.Model,
 	}
 }
 
-func ModelToProto(model *Model) *pb.Model {
+func modelToProto(model *Model) *pb.Model {
 	return &pb.Model{
 		Api:   model.API,
 		Model: model.Model,
 	}
 }
 
+// ModuleVersion holds the information of a module version.
 type ModuleVersion struct {
 	Version    string
 	Files      []*Uploads
@@ -374,14 +282,14 @@ type ModuleVersion struct {
 	FirstRun   *string
 }
 
-func ProtoToModuleVersion(version *pb.ModuleVersion) *ModuleVersion {
+func moduleVersionFromProto(version *pb.ModuleVersion) *ModuleVersion {
 	var files []*Uploads
 	for _, file := range version.Files {
-		files = append(files, ProtoToUploads(file))
+		files = append(files, uploadsFromProto(file))
 	}
 	var models []*Model
 	for _, model := range version.Models {
-		models = append(models, ProtoToModel(model))
+		models = append(models, modelFromProto(model))
 	}
 	return &ModuleVersion{
 		Version:    version.Version,
@@ -392,55 +300,32 @@ func ProtoToModuleVersion(version *pb.ModuleVersion) *ModuleVersion {
 	}
 }
 
-func ModuleVersionToProto(version *ModuleVersion) *pb.ModuleVersion {
-	var files []*pb.Uploads
-	for _, file := range version.Files {
-		files = append(files, UploadsToProto(file))
-	}
-	var models []*pb.Model
-	for _, model := range version.Models {
-		models = append(models, ModelToProto(model))
-	}
-	return &pb.ModuleVersion{
-		Version:    version.Version,
-		Files:      files,
-		Models:     models,
-		Entrypoint: version.Entrypoint,
-		FirstRun:   version.FirstRun,
-	}
-}
-
+// Uploads holds the time the file was uploaded and the OS and architecture a module is built to run on.
 type Uploads struct {
 	Platform   string
 	UploadedAt *timestamppb.Timestamp
 }
 
-func ProtoToUploads(uploads *pb.Uploads) *Uploads {
+func uploadsFromProto(uploads *pb.Uploads) *Uploads {
 	return &Uploads{
 		Platform:   uploads.Platform,
 		UploadedAt: uploads.UploadedAt,
 	}
 }
 
-func UploadsToProto(uploads *Uploads) *pb.Uploads {
-	return &pb.Uploads{
-		Platform:   uploads.Platform,
-		UploadedAt: uploads.UploadedAt,
-	}
-}
-
+// MLModelMetadata holds the metadata for a ML model.
 type MLModelMetadata struct {
 	Versions       []string
 	ModelType      ModelType
 	ModelFramework ModelFramework
 }
 
-func ProtoToMLModelMetadata(md *pb.MLModelMetadata) (*MLModelMetadata, error) {
-	modelType, err := ProtoToModelType(md.ModelType)
+func mlModelMetadataFromProto(md *pb.MLModelMetadata) (*MLModelMetadata, error) {
+	modelType, err := modelTypeFromProto(md.ModelType)
 	if err != nil {
 		return nil, err
 	}
-	modelFramework, err := ProtoToModelFramework(md.ModelFramework)
+	modelFramework, err := modelFrameworkFromProto(md.ModelFramework)
 	if err != nil {
 		return nil, err
 	}
@@ -451,32 +336,21 @@ func ProtoToMLModelMetadata(md *pb.MLModelMetadata) (*MLModelMetadata, error) {
 	}, nil
 }
 
-func MLModelMetadataToProto(md *MLModelMetadata) (*pb.MLModelMetadata, error) {
-	modelType, err := ModelTypeToProto(md.ModelType)
-	if err != nil {
-		return nil, err
-	}
-	modelFramework, err := ModelFrameworkToProto(md.ModelFramework)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.MLModelMetadata{
-		Versions:       md.Versions,
-		ModelType:      modelType,
-		ModelFramework: modelFramework,
-	}, nil
-}
-
+// ModelType specifies the type of model used for classification or detection.
 type ModelType int32
 
 const (
-	ModelTypeUnspecified               ModelType = 0
+	// ModelTypeUnspecified represents an unspecified model.
+	ModelTypeUnspecified ModelType = 0
+	// ModelTypeSingleLabelClassification represents a single-label classification model.
 	ModelTypeSingleLabelClassification ModelType = 1
-	ModelTypeMultiLabelClassification  ModelType = 2
-	ModelTypeObjectDetection           ModelType = 3
+	// ModelTypeMultiLabelClassification represents a multi-label classification model.
+	ModelTypeMultiLabelClassification ModelType = 2
+	// ModelTypeObjectDetection represents an object detection model.
+	ModelTypeObjectDetection ModelType = 3
 )
 
-func ProtoToModelType(modelType mlTraining.ModelType) (ModelType, error) {
+func modelTypeFromProto(modelType mlTraining.ModelType) (ModelType, error) {
 	switch modelType {
 	case mlTraining.ModelType_MODEL_TYPE_UNSPECIFIED:
 		return ModelTypeUnspecified, nil
@@ -491,32 +365,23 @@ func ProtoToModelType(modelType mlTraining.ModelType) (ModelType, error) {
 	}
 }
 
-func ModelTypeToProto(modelType ModelType) (mlTraining.ModelType, error) {
-	switch modelType {
-	case ModelTypeUnspecified:
-		return mlTraining.ModelType_MODEL_TYPE_UNSPECIFIED, nil
-	case ModelTypeSingleLabelClassification:
-		return mlTraining.ModelType_MODEL_TYPE_SINGLE_LABEL_CLASSIFICATION, nil
-	case ModelTypeMultiLabelClassification:
-		return mlTraining.ModelType_MODEL_TYPE_MULTI_LABEL_CLASSIFICATION, nil
-	case ModelTypeObjectDetection:
-		return mlTraining.ModelType_MODEL_TYPE_OBJECT_DETECTION, nil
-	default:
-		return 0, fmt.Errorf("unknown model type: %v", modelType)
-	}
-}
-
+// ModelFramework is the framework type of a model.
 type ModelFramework int32
 
 const (
+	// ModelFrameworkUnspecified is an unspecified model framework.
 	ModelFrameworkUnspecified ModelFramework = 0
-	ModelFrameworkTFLite      ModelFramework = 1
-	ModelFrameworkTensorFlow  ModelFramework = 2
-	ModelFrameworkPyTorch     ModelFramework = 3
-	ModelFrameworkONNX        ModelFramework = 4
+	// ModelFrameworkTFLite specifies a TFLite model framework.
+	ModelFrameworkTFLite ModelFramework = 1
+	// ModelFrameworkTensorFlow specifies a TensorFlow model framework.
+	ModelFrameworkTensorFlow ModelFramework = 2
+	// ModelFrameworkPyTorch specifies a PyTorch model framework.
+	ModelFrameworkPyTorch ModelFramework = 3
+	// ModelFrameworkONNX specifies a ONNX model framework.
+	ModelFrameworkONNX ModelFramework = 4
 )
 
-func ProtoToModelFramework(framework mlTraining.ModelFramework) (ModelFramework, error) {
+func modelFrameworkFromProto(framework mlTraining.ModelFramework) (ModelFramework, error) {
 	switch framework {
 	case mlTraining.ModelFramework_MODEL_FRAMEWORK_UNSPECIFIED:
 		return ModelFrameworkUnspecified, nil
@@ -533,23 +398,7 @@ func ProtoToModelFramework(framework mlTraining.ModelFramework) (ModelFramework,
 	}
 }
 
-func ModelFrameworkToProto(framework ModelFramework) (mlTraining.ModelFramework, error) {
-	switch framework {
-	case ModelFrameworkUnspecified:
-		return mlTraining.ModelFramework_MODEL_FRAMEWORK_UNSPECIFIED, nil
-	case ModelFrameworkTFLite:
-		return mlTraining.ModelFramework_MODEL_FRAMEWORK_TFLITE, nil
-	case ModelFrameworkTensorFlow:
-		return mlTraining.ModelFramework_MODEL_FRAMEWORK_TENSORFLOW, nil
-	case ModelFrameworkPyTorch:
-		return mlTraining.ModelFramework_MODEL_FRAMEWORK_PYTORCH, nil
-	case ModelFrameworkONNX:
-		return mlTraining.ModelFramework_MODEL_FRAMEWORK_ONNX, nil
-	default:
-		return 0, fmt.Errorf("unknown model framework: %v", framework)
-	}
-}
-
+// MLTrainingMetadata is the metadata of an ML Training.
 type MLTrainingMetadata struct {
 	Versions       []*MLTrainingVersion
 	ModelType      ModelType
@@ -557,16 +406,16 @@ type MLTrainingMetadata struct {
 	Draft          bool
 }
 
-func ProtoToMLTrainingMetadata(md *pb.MLTrainingMetadata) (*MLTrainingMetadata, error) {
+func mlTrainingMetadataFromProto(md *pb.MLTrainingMetadata) (*MLTrainingMetadata, error) {
 	var versions []*MLTrainingVersion
 	for _, version := range md.Versions {
-		versions = append(versions, ProtoToMLTrainingVersion(version))
+		versions = append(versions, mlTrainingVersionFromProto(version))
 	}
-	modelType, err := ProtoToModelType(md.ModelType)
+	modelType, err := modelTypeFromProto(md.ModelType)
 	if err != nil {
 		return nil, err
 	}
-	modelFramework, err := ProtoToModelFramework(md.ModelFramework)
+	modelFramework, err := modelFrameworkFromProto(md.ModelFramework)
 	if err != nil {
 		return nil, err
 	}
@@ -578,46 +427,20 @@ func ProtoToMLTrainingMetadata(md *pb.MLTrainingMetadata) (*MLTrainingMetadata, 
 	}, nil
 }
 
-func MLTrainingMetadataToProto(md *MLTrainingMetadata) (*pb.MLTrainingMetadata, error) {
-	var versions []*pb.MLTrainingVersion
-	for _, version := range md.Versions {
-		versions = append(versions, MLTrainingVersionToProto(version))
-	}
-	modelType, err := ModelTypeToProto(md.ModelType)
-	if err != nil {
-		return nil, err
-	}
-	modelFramework, err := ModelFrameworkToProto(md.ModelFramework)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.MLTrainingMetadata{
-		Versions:       versions,
-		ModelType:      modelType,
-		ModelFramework: modelFramework,
-		Draft:          md.Draft,
-	}, nil
-}
-
+// MLTrainingVersion is the version of ML Training.
 type MLTrainingVersion struct {
 	Version   string
 	CreatedOn *timestamppb.Timestamp
 }
 
-func ProtoToMLTrainingVersion(version *pb.MLTrainingVersion) *MLTrainingVersion {
+func mlTrainingVersionFromProto(version *pb.MLTrainingVersion) *MLTrainingVersion {
 	return &MLTrainingVersion{
 		Version:   version.Version,
 		CreatedOn: version.CreatedOn,
 	}
 }
 
-func MLTrainingVersionToProto(version *MLTrainingVersion) *pb.MLTrainingVersion {
-	return &pb.MLTrainingVersion{
-		Version:   version.Version,
-		CreatedOn: version.CreatedOn,
-	}
-}
-
+// Module holds the information of a module.
 type Module struct {
 	ModuleID               string
 	Name                   string
@@ -634,18 +457,18 @@ type Module struct {
 	FirstRun               *string
 }
 
-func ProtoToModule(module *pb.Module) (*Module, error) {
-	visibility, err := ProtoToVisibility(module.Visibility)
+func moduleFromProto(module *pb.Module) (*Module, error) {
+	visibility, err := visibilityFromProto(module.Visibility)
 	if err != nil {
 		return nil, err
 	}
 	var versions []*VersionHistory
 	for _, version := range module.Versions {
-		versions = append(versions, ProtoToVersionHistory(version))
+		versions = append(versions, versionHistoryFromProto(version))
 	}
 	var models []*Model
 	for _, model := range module.Models {
-		models = append(models, ProtoToModel(model))
+		models = append(models, modelFromProto(model))
 	}
 	return &Module{
 		ModuleID:               module.ModuleId,
@@ -664,36 +487,7 @@ func ProtoToModule(module *pb.Module) (*Module, error) {
 	}, nil
 }
 
-func ModuleToProto(module *Module) (*pb.Module, error) {
-	visibility, err := VisibilityToProto(module.Visibility)
-	if err != nil {
-		return nil, err
-	}
-	var versions []*pb.VersionHistory
-	for _, version := range module.Versions {
-		versions = append(versions, VersionHistoryToProto(version))
-	}
-	var models []*pb.Model
-	for _, model := range module.Models {
-		models = append(models, ModelToProto(model))
-	}
-	return &pb.Module{
-		ModuleId:               module.ModuleID,
-		Name:                   module.Name,
-		Visibility:             visibility,
-		Versions:               versions,
-		Url:                    module.URL,
-		Description:            module.Description,
-		Models:                 models,
-		TotalRobotUsage:        module.TotalRobotUsage,
-		TotalOrganizationUsage: module.TotalOrganizationUsage,
-		OrganizationId:         module.OrganizationID,
-		Entrypoint:             module.Entrypoint,
-		PublicNamespace:        module.PublicNamespace,
-		FirstRun:               module.FirstRun,
-	}, nil
-}
-
+// VersionHistory holds the history of a version.
 type VersionHistory struct {
 	Version    string
 	Files      []*Uploads
@@ -702,34 +496,16 @@ type VersionHistory struct {
 	FirstRun   *string
 }
 
-func ProtoToVersionHistory(history *pb.VersionHistory) *VersionHistory {
+func versionHistoryFromProto(history *pb.VersionHistory) *VersionHistory {
 	var files []*Uploads
 	for _, file := range history.Files {
-		files = append(files, ProtoToUploads(file))
+		files = append(files, uploadsFromProto(file))
 	}
 	var models []*Model
 	for _, model := range history.Models {
-		models = append(models, ProtoToModel(model))
+		models = append(models, modelFromProto(model))
 	}
 	return &VersionHistory{
-		Version:    history.Version,
-		Files:      files,
-		Models:     models,
-		Entrypoint: history.Entrypoint,
-		FirstRun:   history.FirstRun,
-	}
-}
-
-func VersionHistoryToProto(history *VersionHistory) *pb.VersionHistory {
-	var files []*pb.Uploads
-	for _, file := range history.Files {
-		files = append(files, UploadsToProto(file))
-	}
-	var models []*pb.Model
-	for _, model := range history.Models {
-		models = append(models, ModelToProto(model))
-	}
-	return &pb.VersionHistory{
 		Version:    history.Version,
 		Files:      files,
 		Models:     models,

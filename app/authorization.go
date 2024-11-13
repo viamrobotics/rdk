@@ -8,6 +8,73 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+// Authorization has the information about a specific authorization.
+type Authorization struct {
+	AuthorizationType string
+	AuthorizationID   string
+	ResourceType      string
+	ResourceID        string
+	IdentityID        string
+	OrganizationID    string
+	IdentityType      string
+}
+
+func authorizationFromProto(authorization *pb.Authorization) *Authorization {
+	return &Authorization{
+		AuthorizationType: authorization.AuthorizationType,
+		AuthorizationID:   authorization.AuthorizationId,
+		ResourceType:      authorization.ResourceType,
+		ResourceID:        authorization.ResourceId,
+		IdentityID:        authorization.IdentityId,
+		OrganizationID:    authorization.OrganizationId,
+		IdentityType:      authorization.IdentityType,
+	}
+}
+
+func authorizationToProto(authorization *Authorization) *pb.Authorization {
+	return &pb.Authorization{
+		AuthorizationType: authorization.AuthorizationType,
+		AuthorizationId:   authorization.AuthorizationID,
+		ResourceType:      authorization.ResourceType,
+		ResourceId:        authorization.ResourceID,
+		IdentityId:        authorization.IdentityID,
+		OrganizationId:    authorization.OrganizationID,
+		IdentityType:      authorization.IdentityType,
+	}
+}
+
+// AuthorizedPermissions is authorized permissions.
+type AuthorizedPermissions struct {
+	ResourceType string
+	ResourceID   string
+	Permissions  []string
+}
+
+func authorizedPermissionsFromProto(permissions *pb.AuthorizedPermissions) *AuthorizedPermissions {
+	return &AuthorizedPermissions{
+		ResourceType: permissions.ResourceType,
+		ResourceID:   permissions.ResourceId,
+		Permissions:  permissions.Permissions,
+	}
+}
+
+func authorizedPermissionsToProto(permissions *AuthorizedPermissions) *pb.AuthorizedPermissions {
+	return &pb.AuthorizedPermissions{
+		ResourceType: permissions.ResourceType,
+		ResourceId:   permissions.ResourceID,
+		Permissions:  permissions.Permissions,
+	}
+}
+
+// APIKeyAuthorization is a struct with the necessary authorization data to create an API key.
+type APIKeyAuthorization struct {
+	// `role`` must be "owner" or "operator"
+	role string
+	// `resourceType` must be "organization", "location", or "robot"
+	resourceType string
+	resourceID   string
+}
+
 func createAuthorization(orgID, identityID, identityType, role, resourceType, resourceID string) (*pb.Authorization, error) {
 	if role != "owner" && role != "operator" {
 		return nil, errors.New("role string must be 'owner' or 'operator'")
@@ -27,14 +94,59 @@ func createAuthorization(orgID, identityID, identityType, role, resourceType, re
 	}, nil
 }
 
+// SharedSecret is a secret used for LocationAuth and RobotParts.
+type SharedSecret struct {
+	ID        string
+	CreatedOn *timestamppb.Timestamp
+	State     SharedSecretState
+}
+
+func sharedSecretFromProto(sharedSecret *pb.SharedSecret) (*SharedSecret, error) {
+	state, err := sharedSecretStateFromProto(sharedSecret.State)
+	if err != nil {
+		return nil, err
+	}
+	return &SharedSecret{
+		ID:        sharedSecret.Id,
+		CreatedOn: sharedSecret.CreatedOn,
+		State:     state,
+	}, nil
+}
+
+// SharedSecretState specifies if the secret is enabled, disabled, or unspecified.
+type SharedSecretState int32
+
+const (
+	// SharedSecretUnspecified represents an unspecified shared secret state.
+	SharedSecretUnspecified SharedSecretState = 0
+	// SharedSecretEnabled represents an enabled secret that can be used in authentication.
+	SharedSecretEnabled SharedSecretState = 1
+	// SharedSecretDisabled represents a disabled secret that must not be used to authenticate to rpc.
+	SharedSecretDisabled SharedSecretState = 2
+)
+
+func sharedSecretStateFromProto(state pb.SharedSecret_State) (SharedSecretState, error) {
+	switch state {
+	case pb.SharedSecret_STATE_UNSPECIFIED:
+		return SharedSecretUnspecified, nil
+	case pb.SharedSecret_STATE_ENABLED:
+		return SharedSecretEnabled, nil
+	case pb.SharedSecret_STATE_DISABLED:
+		return SharedSecretDisabled, nil
+	default:
+		return 0, fmt.Errorf("uknown secret state: %v", state)
+	}
+}
+
+// AuthenticatorInfo holds the information of an authenticator.
 type AuthenticatorInfo struct {
 	Type          AuthenticationType
 	Value         string
 	IsDeactivated bool
 }
 
-func ProtoToAuthenticatorInfo(info *pb.AuthenticatorInfo) (*AuthenticatorInfo, error) {
-	authenticationType, err := ProtoToAuthenticationType(info.Type)
+func authenticatorInfoFromProto(info *pb.AuthenticatorInfo) (*AuthenticatorInfo, error) {
+	authenticationType, err := authenticationTypeFromProto(info.Type)
 	if err != nil {
 		return nil, err
 	}
@@ -45,29 +157,23 @@ func ProtoToAuthenticatorInfo(info *pb.AuthenticatorInfo) (*AuthenticatorInfo, e
 	}, nil
 }
 
-func AuthenticatorInfoToProto(info *AuthenticatorInfo) (*pb.AuthenticatorInfo, error) {
-	authenticationType, err := AuthenticationTypeToProto(info.Type)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.AuthenticatorInfo{
-		Type:          authenticationType,
-		Value:         info.Value,
-		IsDeactivated: info.IsDeactivated,
-	}, nil
-}
-
+// AuthenticationType specifies the type of authentication.
 type AuthenticationType int32
 
 const (
-	AuthenticationTypeUnspecified     AuthenticationType = 0
-	AuthenticationTypeWebOAuth        AuthenticationType = 1
-	AuthenticationTypeAPIKey          AuthenticationType = 2
+	// AuthenticationTypeUnspecified represents an unspecified authentication.
+	AuthenticationTypeUnspecified AuthenticationType = 0
+	// AuthenticationTypeWebOAuth represents authentication using Web OAuth.
+	AuthenticationTypeWebOAuth AuthenticationType = 1
+	// AuthenticationTypeAPIKey represents authentication using an API key.
+	AuthenticationTypeAPIKey AuthenticationType = 2
+	// AuthenticationTypeRobotPartSecret represents authentication using a robot part secret.
 	AuthenticationTypeRobotPartSecret AuthenticationType = 3
-	AuthenticationTypeLocationSecret  AuthenticationType = 4
+	// AuthenticationTypeLocationSecret represents authentication using a location secret.
+	AuthenticationTypeLocationSecret AuthenticationType = 4
 )
 
-func ProtoToAuthenticationType(authenticationType pb.AuthenticationType) (AuthenticationType, error) {
+func authenticationTypeFromProto(authenticationType pb.AuthenticationType) (AuthenticationType, error) {
 	switch authenticationType {
 	case pb.AuthenticationType_AUTHENTICATION_TYPE_UNSPECIFIED:
 		return AuthenticationTypeUnspecified, nil
@@ -84,50 +190,24 @@ func ProtoToAuthenticationType(authenticationType pb.AuthenticationType) (Authen
 	}
 }
 
-func AuthenticationTypeToProto(authenticationType AuthenticationType) (pb.AuthenticationType, error) {
-	switch authenticationType {
-	case AuthenticationTypeUnspecified:
-		return pb.AuthenticationType_AUTHENTICATION_TYPE_UNSPECIFIED, nil
-	case AuthenticationTypeWebOAuth:
-		return pb.AuthenticationType_AUTHENTICATION_TYPE_WEB_OAUTH, nil
-	case AuthenticationTypeAPIKey:
-		return pb.AuthenticationType_AUTHENTICATION_TYPE_API_KEY, nil
-	case AuthenticationTypeRobotPartSecret:
-		return pb.AuthenticationType_AUTHENTICATION_TYPE_ROBOT_PART_SECRET, nil
-	case AuthenticationTypeLocationSecret:
-		return pb.AuthenticationType_AUTHENTICATION_TYPE_LOCATION_SECRET, nil
-	default:
-		return 0, fmt.Errorf("unknown authentication type: %v", authenticationType)
-	}
-}
-
+// APIKeyWithAuthorizations is an API Key with its authorizations.
 type APIKeyWithAuthorizations struct {
 	APIKey         *APIKey
 	Authorizations []*AuthorizationDetails
 }
 
-func ProtoToAPIKeyWithAuthorizations(key *pb.APIKeyWithAuthorizations) *APIKeyWithAuthorizations {
+func apiKeyWithAuthorizationsFromProto(key *pb.APIKeyWithAuthorizations) *APIKeyWithAuthorizations {
 	var details []*AuthorizationDetails
 	for _, detail := range key.Authorizations {
-		details = append(details, ProtoToAuthorizationDetails(detail))
+		details = append(details, authorizationDetailsFromProto(detail))
 	}
 	return &APIKeyWithAuthorizations{
-		APIKey:         ProtoToAPIKey(key.ApiKey),
+		APIKey:         apiKeyFromProto(key.ApiKey),
 		Authorizations: details,
 	}
 }
 
-func APIKeyWithAuthorizationsToProto(key *APIKeyWithAuthorizations) *pb.APIKeyWithAuthorizations {
-	var details []*pb.AuthorizationDetails
-	for _, detail := range key.Authorizations {
-		details = append(details, AuthorizationDetailsToProto(detail))
-	}
-	return &pb.APIKeyWithAuthorizations{
-		ApiKey:         APIKeyToProto(key.APIKey),
-		Authorizations: details,
-	}
-}
-
+// APIKey is a API key to make a request to an API.
 type APIKey struct {
 	ID        string
 	Key       string
@@ -135,7 +215,7 @@ type APIKey struct {
 	CreatedOn *timestamppb.Timestamp
 }
 
-func ProtoToAPIKey(key *pb.APIKey) *APIKey {
+func apiKeyFromProto(key *pb.APIKey) *APIKey {
 	return &APIKey{
 		ID:        key.Id,
 		Key:       key.Key,
@@ -144,15 +224,7 @@ func ProtoToAPIKey(key *pb.APIKey) *APIKey {
 	}
 }
 
-func APIKeyToProto(key *APIKey) *pb.APIKey {
-	return &pb.APIKey{
-		Id:        key.ID,
-		Key:       key.Key,
-		Name:      key.Name,
-		CreatedOn: key.CreatedOn,
-	}
-}
-
+// AuthorizationDetails has the details for an authorization.
 type AuthorizationDetails struct {
 	AuthorizationType string
 	AuthorizationID   string
@@ -161,7 +233,7 @@ type AuthorizationDetails struct {
 	OrgID             string
 }
 
-func ProtoToAuthorizationDetails(details *pb.AuthorizationDetails) *AuthorizationDetails {
+func authorizationDetailsFromProto(details *pb.AuthorizationDetails) *AuthorizationDetails {
 	return &AuthorizationDetails{
 		AuthorizationType: details.AuthorizationType,
 		AuthorizationID:   details.AuthorizationId,
@@ -169,24 +241,4 @@ func ProtoToAuthorizationDetails(details *pb.AuthorizationDetails) *Authorizatio
 		ResourceID:        details.ResourceId,
 		OrgID:             details.OrgId,
 	}
-}
-
-// AuthorizationDetailsToProto converts a AuthorizationDetails struct to protobuf.
-func AuthorizationDetailsToProto(details *AuthorizationDetails) *pb.AuthorizationDetails {
-	return &pb.AuthorizationDetails{
-		AuthorizationType: details.AuthorizationType,
-		AuthorizationId:   details.AuthorizationID,
-		ResourceType:      details.ResourceType,
-		ResourceId:        details.ResourceID,
-		OrgId:             details.OrgID,
-	}
-}
-
-// APIKeyAuthorization is a struct with the necessary authorization data to create an API key.
-type APIKeyAuthorization struct {
-	// `role`` must be "owner" or "operator"
-	role string
-	// `resourceType` must be "organization", "location", or "robot"
-	resourceType string
-	resourceID   string
 }

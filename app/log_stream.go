@@ -9,7 +9,7 @@ import (
 )
 
 type logStream struct {
-	client       *AppClient
+	client       *Client
 	streamCancel context.CancelFunc
 	streamMu     sync.Mutex
 
@@ -79,12 +79,7 @@ func (s *logStream) receiveFromStream(ctx context.Context, stream pb.AppService_
 		// If there is a response, send to the logs channel.
 		var logs []*LogEntry
 		for _, log := range streamResp.Logs {
-			l, err := ProtoToLogEntry(log)
-			if err != nil {
-				s.client.logger.Debug(err)
-				return
-			}
-			logs = append(logs, l)
+			logs = append(logs, logEntryFromProto(log))
 		}
 		ch <- logs
 	}

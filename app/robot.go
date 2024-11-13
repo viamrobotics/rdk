@@ -2,10 +2,10 @@ package app
 
 import (
 	pb "go.viam.com/api/app/v1"
-	"go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+// Robot holds the information of a machine.
 type Robot struct {
 	ID         string
 	Name       string
@@ -14,7 +14,7 @@ type Robot struct {
 	CreatedOn  *timestamppb.Timestamp
 }
 
-func ProtoToRobot(robot *pb.Robot) *Robot {
+func robotFromProto(robot *pb.Robot) *Robot {
 	return &Robot{
 		ID:         robot.Id,
 		Name:       robot.Name,
@@ -24,16 +24,7 @@ func ProtoToRobot(robot *pb.Robot) *Robot {
 	}
 }
 
-func RobotToProto(robot *Robot) *pb.Robot {
-	return &pb.Robot{
-		Id:         robot.ID,
-		Name:       robot.Name,
-		Location:   robot.Location,
-		LastAccess: robot.LastAccess,
-		CreatedOn:  robot.CreatedOn,
-	}
-}
-
+// RoverRentalRobot holds the information of a rover rental robot.
 type RoverRentalRobot struct {
 	RobotID         string
 	LocationID      string
@@ -41,7 +32,7 @@ type RoverRentalRobot struct {
 	RobotMainPartID string
 }
 
-func ProtoToRoverRentalRobot(rrRobot *pb.RoverRentalRobot) *RoverRentalRobot {
+func roverRentalRobotFromProto(rrRobot *pb.RoverRentalRobot) *RoverRentalRobot {
 	return &RoverRentalRobot{
 		RobotID:         rrRobot.RobotId,
 		LocationID:      rrRobot.LocationId,
@@ -50,15 +41,7 @@ func ProtoToRoverRentalRobot(rrRobot *pb.RoverRentalRobot) *RoverRentalRobot {
 	}
 }
 
-func RoverRentalRobotToProto(rrRobot *RoverRentalRobot) *pb.RoverRentalRobot {
-	return &pb.RoverRentalRobot{
-		RobotId:         rrRobot.RobotID,
-		LocationId:      rrRobot.LocationID,
-		RobotName:       rrRobot.RobotName,
-		RobotMainPartId: rrRobot.RobotMainPartID,
-	}
-}
-
+// RobotPart is a specific machine part.
 type RobotPart struct {
 	ID               string
 	Name             string
@@ -77,10 +60,10 @@ type RobotPart struct {
 	LastUpdated      *timestamppb.Timestamp
 }
 
-func ProtoToRobotPart(robotPart *pb.RobotPart) (*RobotPart, error) {
+func robotPartFromProto(robotPart *pb.RobotPart) (*RobotPart, error) {
 	var secrets []*SharedSecret
 	for _, secret := range robotPart.Secrets {
-		s, err := ProtoToSharedSecret(secret)
+		s, err := sharedSecretFromProto(secret)
 		if err != nil {
 			return nil, err
 		}
@@ -107,42 +90,7 @@ func ProtoToRobotPart(robotPart *pb.RobotPart) (*RobotPart, error) {
 	}, nil
 }
 
-func RobotPartToProto(robotPart *RobotPart) (*pb.RobotPart, error) {
-	var secrets []*pb.SharedSecret
-	for _, secret := range robotPart.Secrets {
-		s, err := SharedSecretToProto(secret)
-		if err != nil {
-			return nil, err
-		}
-		secrets = append(secrets, s)
-	}
-	robotConfig, err := protoutils.StructToStructPb(robotPart.RobotConfig)
-	if err != nil {
-		return nil, err
-	}
-	userSuppliedInfo, err := protoutils.StructToStructPb(robotPart.UserSuppliedInfo)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.RobotPart{
-		Id:               robotPart.ID,
-		Name:             robotPart.Name,
-		DnsName:          robotPart.DNSName,
-		Secret:           robotPart.Secret,
-		Robot:            robotPart.DNSName,
-		LocationId:       robotPart.LocationID,
-		RobotConfig:      robotConfig,
-		LastAccess:       robotPart.LastAccess,
-		UserSuppliedInfo: userSuppliedInfo,
-		MainPart:         robotPart.MainPart,
-		Fqdn:             robotPart.Fqdn,
-		LocalFqdn:        robotPart.LocalFqdn,
-		CreatedOn:        robotPart.CreatedOn,
-		Secrets:          secrets,
-		LastUpdated:      robotPart.LastUpdated,
-	}, nil
-}
-
+// RobotPartHistoryEntry is a history entry of a robot part.
 type RobotPartHistoryEntry struct {
 	Part     string
 	Robot    string
@@ -151,12 +99,12 @@ type RobotPartHistoryEntry struct {
 	EditedBy *AuthenticatorInfo
 }
 
-func ProtoToRobotPartHistoryEntry(entry *pb.RobotPartHistoryEntry) (*RobotPartHistoryEntry, error) {
-	old, err := ProtoToRobotPart(entry.Old)
+func robotPartHistoryEntryFromProto(entry *pb.RobotPartHistoryEntry) (*RobotPartHistoryEntry, error) {
+	old, err := robotPartFromProto(entry.Old)
 	if err != nil {
 		return nil, err
 	}
-	info, err := ProtoToAuthenticatorInfo(entry.EditedBy)
+	info, err := authenticatorInfoFromProto(entry.EditedBy)
 	if err != nil {
 		return nil, err
 	}
