@@ -6,6 +6,7 @@ package robotimpl
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1107,7 +1108,7 @@ func (r *localRobot) DiscoverComponents(ctx context.Context, qs []resource.Disco
 		if reg.Discover != nil {
 			discovered, err := reg.Discover(ctx, r.logger.Sublogger("discovery"), q.Extra)
 			if err != nil {
-				return nil, &resource.DiscoverError{Query: q}
+				return nil, &resource.DiscoverError{Query: q, Cause: err}
 			}
 			discoveries = append(discoveries, resource.Discovery{Query: q, Results: discovered})
 		}
@@ -1257,10 +1258,16 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		return
 	}
 
-	// Run the setup phase for all modules in new config modules before proceeding with reconfiguration.
-	for _, mod := range newConfig.Modules {
+	// Run the setup phase for new and modified modules in new config modules before proceeding with reconfiguration.
+	diffMods, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
+	if err != nil {
+		r.logger.CErrorw(ctx, "error diffing module configs before first run", "error", err)
+		return
+	}
+	mods := slices.Concat[[]config.Module](diffMods.Added.Modules, diffMods.Modified.Modules)
+	for _, mod := range mods {
 		if err := r.manager.moduleManager.FirstRun(ctx, mod); err != nil {
-			r.logger.CErrorw(ctx, "error executing setup phase", "module", mod.Name, "error", err)
+			r.logger.CErrorw(ctx, "error executing first run", "module", mod.Name, "error", err)
 			return
 		}
 	}

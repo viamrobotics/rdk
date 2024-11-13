@@ -53,7 +53,7 @@ jobs:
         BUILD_CHANNEL: ${{ inputs.release_type }}
       run: make server-android
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: viam-server-android
         path: ${{ env.TARGET }}
