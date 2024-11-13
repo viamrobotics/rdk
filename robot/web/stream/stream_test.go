@@ -394,96 +394,106 @@ func TestSetStreamOptions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(listResp.Names), test.ShouldEqual, 2)
 
-	getStreamOptionsResp, err := livestreamClient.GetStreamOptions(ctx, &streampb.GetStreamOptionsRequest{
-		Name: "fake-cam-0-0",
+	t.Run("GetStreamOptions", func(t *testing.T) {
+		getStreamOptionsResp, err := livestreamClient.GetStreamOptions(ctx, &streampb.GetStreamOptionsRequest{
+			Name: "fake-cam-0-0",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, getStreamOptionsResp, test.ShouldNotBeNil)
+		test.That(t, len(getStreamOptionsResp.Resolutions), test.ShouldEqual, 5)
 	})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, getStreamOptionsResp, test.ShouldNotBeNil)
-	test.That(t, len(getStreamOptionsResp.Resolutions), test.ShouldEqual, 5)
 
-	// Test setting stream options with invalid name
-	setStreamOptionsResp, err := livestreamClient.SetStreamOptions(ctx, &streampb.SetStreamOptionsRequest{
-		Name:       "invalid-name",
-		Resolution: &streampb.Resolution{Width: 320, Height: 240},
+	t.Run("SetStreamOptions with invalid stream name", func(t *testing.T) {
+		setStreamOptionsResp, err := livestreamClient.SetStreamOptions(ctx, &streampb.SetStreamOptionsRequest{
+			Name:       "invalid-name",
+			Resolution: &streampb.Resolution{Width: 320, Height: 240},
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, setStreamOptionsResp, test.ShouldBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 	})
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, setStreamOptionsResp, test.ShouldBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
-	// Test setting stream options without Name
-	setStreamOptionsResp, err = livestreamClient.SetStreamOptions(ctx, &streampb.SetStreamOptionsRequest{})
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, setStreamOptionsResp, test.ShouldBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "name")
+	t.Run("SetStreamOptions without name", func(t *testing.T) {
+		setStreamOptionsResp, err := livestreamClient.SetStreamOptions(ctx, &streampb.SetStreamOptionsRequest{})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, setStreamOptionsResp, test.ShouldBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "name")
+	})
 
 	// Test setting stream options with invalid resolution (0x0)
-	setStreamOptionsResp, err = livestreamClient.SetStreamOptions(ctx, &streampb.SetStreamOptionsRequest{
-		Name:       "fake-cam-0-0",
-		Resolution: &streampb.Resolution{Width: 0, Height: 0},
+	t.Run("SetStreamOptions with invalid resolution", func(t *testing.T) {
+		setStreamOptionsResp, err := livestreamClient.SetStreamOptions(ctx, &streampb.SetStreamOptionsRequest{
+			Name:       "fake-cam-0-0",
+			Resolution: &streampb.Resolution{Width: 0, Height: 0},
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, setStreamOptionsResp, test.ShouldBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid resolution")
 	})
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, setStreamOptionsResp, test.ShouldBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid resolution")
 
-	// Add stream. We want to make sure that we can hot swap with
-	// SetStreamOptions with a live stream.
-	res, err := livestreamClient.AddStream(ctx, &streampb.AddStreamRequest{
-		Name: "fake-cam-0-0",
+	t.Run("AddStream creates video track", func(t *testing.T) {
+		res, err := livestreamClient.AddStream(ctx, &streampb.AddStreamRequest{
+			Name: "fake-cam-0-0",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, res, test.ShouldNotBeNil)
+		logger.Info("Checking video track is created")
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			logger.Info(conn.PeerConn().CurrentLocalDescription().SDP)
+			videoCnt := strings.Count(conn.PeerConn().CurrentLocalDescription().SDP, "m=video")
+			test.That(tb, videoCnt, test.ShouldEqual, 1)
+		})
 	})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, res, test.ShouldNotBeNil)
-	logger.Info("Checking video track is created")
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		logger.Info(conn.PeerConn().CurrentLocalDescription().SDP)
+
+	t.Run("SetStreamOptions with valid resolution", func(t *testing.T) {
+		setStreamOptionsResp, err := livestreamClient.SetStreamOptions(ctx, &streampb.SetStreamOptionsRequest{
+			Name:       "fake-cam-0-0",
+			Resolution: &streampb.Resolution{Width: 320, Height: 240},
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, setStreamOptionsResp, test.ShouldNotBeNil)
+
+		// Make sure that video strack is still alive through the peer connection
 		videoCnt := strings.Count(conn.PeerConn().CurrentLocalDescription().SDP, "m=video")
-		test.That(tb, videoCnt, test.ShouldEqual, 1)
+		test.That(t, videoCnt, test.ShouldEqual, 1)
 	})
 
-	// Test setting the stream optoins with a valid resolution
-	setStreamOptionsResp, err = livestreamClient.SetStreamOptions(ctx, &streampb.SetStreamOptionsRequest{
-		Name:       "fake-cam-0-0",
-		Resolution: &streampb.Resolution{Width: 320, Height: 240},
-	})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, setStreamOptionsResp, test.ShouldNotBeNil)
-
-	// Make sure that video strack is still alive through the peer connection
-	videoCnt := strings.Count(conn.PeerConn().CurrentLocalDescription().SDP, "m=video")
-	test.That(t, videoCnt, test.ShouldEqual, 1)
-
-	// Add another stream that has RTPPassthrough enabled
-	res, err = livestreamClient.AddStream(ctx, &streampb.AddStreamRequest{
-		Name: "fake-cam-0-1",
-	})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, res, test.ShouldNotBeNil)
-	logger.Info(conn.PeerConn().CurrentLocalDescription().SDP)
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		videoCnt = strings.Count(conn.PeerConn().CurrentLocalDescription().SDP, "m=video")
-		test.That(tb, videoCnt, test.ShouldEqual, 2)
+	t.Run("AddStream with RTPPassthrough enabled", func(t *testing.T) {
+		res, err := livestreamClient.AddStream(ctx, &streampb.AddStreamRequest{
+			Name: "fake-cam-0-1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, res, test.ShouldNotBeNil)
+		logger.Info(conn.PeerConn().CurrentLocalDescription().SDP)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			videoCnt := strings.Count(conn.PeerConn().CurrentLocalDescription().SDP, "m=video")
+			test.That(tb, videoCnt, test.ShouldEqual, 2)
+		})
 	})
 
-	// Try setting stream options with RTPPassthrough enabled
-	setStreamOptionsResp, err = livestreamClient.SetStreamOptions(ctx, &streampb.SetStreamOptionsRequest{
-		Name:       "fake-cam-0-1",
-		Resolution: &streampb.Resolution{Width: 320, Height: 240},
-	})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, setStreamOptionsResp, test.ShouldNotBeNil)
+	t.Run("SetStreamOptions with RTPPassthrough enabled", func(t *testing.T) {
+		setStreamOptionsResp, err := livestreamClient.SetStreamOptions(ctx, &streampb.SetStreamOptionsRequest{
+			Name:       "fake-cam-0-1",
+			Resolution: &streampb.Resolution{Width: 320, Height: 240},
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, setStreamOptionsResp, test.ShouldNotBeNil)
 
-	// Make sure that video strack is still alive through the peer connection
-	videoCnt = strings.Count(conn.PeerConn().CurrentLocalDescription().SDP, "m=video")
-	test.That(t, videoCnt, test.ShouldEqual, 2)
+		// Make sure that video strack is still alive through the peer connection
+		videoCnt := strings.Count(conn.PeerConn().CurrentLocalDescription().SDP, "m=video")
+		test.That(t, videoCnt, test.ShouldEqual, 2)
+	})
 
-	// Make sure there are no problems removing streams
-	removeRes, err := livestreamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{
-		Name: "fake-cam-0-0",
+	t.Run("RemoveStream", func(t *testing.T) {
+		removeRes, err := livestreamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{
+			Name: "fake-cam-0-0",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, removeRes, test.ShouldNotBeNil)
+		removeRes, err = livestreamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{
+			Name: "fake-cam-0-1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, removeRes, test.ShouldNotBeNil)
 	})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, removeRes, test.ShouldNotBeNil)
-	removeRes, err = livestreamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{
-		Name: "fake-cam-0-1",
-	})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, removeRes, test.ShouldNotBeNil)
 }
