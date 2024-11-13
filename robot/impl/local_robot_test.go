@@ -20,6 +20,7 @@ import (
 	"github.com/golang/geo/r3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -93,7 +94,7 @@ func TestConfig1(t *testing.T) {
 	c1, err := camera.FromRobot(r, "c1")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, c1.Name(), test.ShouldResemble, camera.Named("c1"))
-	pic, err := camera.GetGoImage(context.Background(), rutils.MimeTypeJPEG, nil, c1)
+	pic, err := camera.ImageFromVideoSource(context.Background(), rutils.MimeTypeJPEG, nil, c1)
 	test.That(t, err, test.ShouldBeNil)
 
 	bounds := pic.Bounds()

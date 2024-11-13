@@ -175,7 +175,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		camera1Client, err := camera.NewClientFromConn(context.Background(), conn, "", camera.Named(testCameraName), logger)
 		test.That(t, err, test.ShouldBeNil)
-		frame, err := camera.GetGoImage(context.Background(), rutils.MimeTypeRawRGBA, nil, camera1Client)
+		frame, err := camera.ImageFromVideoSource(context.Background(), rutils.MimeTypeRawRGBA, nil, camera1Client)
 		test.That(t, err, test.ShouldBeNil)
 		compVal, _, err := rimage.CompareImages(img, frame)
 		test.That(t, err, test.ShouldBeNil)
@@ -222,7 +222,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		ctx := context.Background()
-		frame, err := camera.GetGoImage(ctx, rutils.WithLazyMIMEType(rutils.MimeTypePNG), nil, client)
+		frame, err := camera.ImageFromVideoSource(ctx, rutils.WithLazyMIMEType(rutils.MimeTypePNG), nil, client)
 		test.That(t, err, test.ShouldBeNil)
 		dm, err := rimage.ConvertImageToDepthMap(context.Background(), frame)
 		test.That(t, err, test.ShouldBeNil)
@@ -463,7 +463,7 @@ func TestClientLazyImage(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
-	frame, err := camera.GetGoImage(ctx, rutils.MimeTypePNG, nil, camera1Client)
+	frame, err := camera.ImageFromVideoSource(ctx, rutils.MimeTypePNG, nil, camera1Client)
 	test.That(t, err, test.ShouldBeNil)
 	// Should always lazily decode
 	test.That(t, frame, test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
@@ -471,7 +471,7 @@ func TestClientLazyImage(t *testing.T) {
 	test.That(t, frameLazy.RawData(), test.ShouldResemble, imgBuf.Bytes())
 
 	ctx = context.Background()
-	frame, err = camera.GetGoImage(ctx, rutils.WithLazyMIMEType(rutils.MimeTypePNG), nil, camera1Client)
+	frame, err = camera.ImageFromVideoSource(ctx, rutils.WithLazyMIMEType(rutils.MimeTypePNG), nil, camera1Client)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, frame, test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
 	frameLazy = frame.(*rimage.LazyEncodedImage)

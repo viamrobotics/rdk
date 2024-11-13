@@ -94,7 +94,7 @@ func TestRTPPassthrough(t *testing.T) {
 		cam, err := NewCamera(context.Background(), nil, cfg, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		img, err := camera.GetGoImage(context.Background(), utils.MimeTypeRawRGBA, nil, cam)
+		img, err := camera.ImageFromVideoSource(context.Background(), utils.MimeTypeRawRGBA, nil, cam)
 		test.That(t, err, test.ShouldBeNil)
 		// GetImage returns the world jpeg
 		test.That(t, img.Bounds(), test.ShouldResemble, image.Rectangle{Max: image.Point{X: 480, Y: 270}})
