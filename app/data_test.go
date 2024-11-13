@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
@@ -15,7 +14,6 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// ccamel case in go!!!!
 const (
 	componentName  = "component_name"
 	componentType  = "component_type"
@@ -43,7 +41,7 @@ var (
 	locationIds      = []string{locationId}
 	orgIds           = []string{organizationId}
 	mimeTypes        = []string{mimeType}
-	BboxLabels       = []string{bboxLabel}
+	bboxLabels       = []string{bboxLabel}
 	methodParameters = map[string]string{}
 	tags             = []string{tag}
 	startTime        = time.Now().UTC().Round(time.Millisecond)
@@ -51,58 +49,62 @@ var (
 	data             = map[string]interface{}{
 		"key": "value",
 	}
-	binaryDataByte = []byte("BYTE")
-	// expectedRawData = []map[string]interface{}{
-	//     {
-	//         "key1": startTime,
-	//         "key2": "2",
-	//         "key3": []int{1, 2, 3},
-	//         "key4": map[string]interface{}{
-	//             "key4sub1": endTime,
-	//         },
-	//     },
-	// }
-	mqlQuery = []map[string]interface{}{
-		{"$match": map[string]interface{}{"organization_id": "e76d1b3b-0468-4efd-bb7f-fb1d2b352fcb"}},
-		{"$limit": 1},
-	}
-	sqlQuery    = "SELECT * FROM readings WHERE organization_id='e76d1b3b-0468-4efd-bb7f-fb1d2b352fcb' LIMIT 1"
-	datasetIds  = []string{datasetId}
-	annotations = Annotations{
-		bboxes: []BoundingBox{
-			{
-				id:             "bbox1",
-				label:          "label1",
-				xMinNormalized: 0.1,
-				yMinNormalized: 0.2,
-				xMaxNormalized: 0.8,
-				yMaxNormalized: 0.9,
-			},
-			{
-				id:             "bbox2",
-				label:          "label2",
-				xMinNormalized: 0.15,
-				yMinNormalized: 0.25,
-				xMaxNormalized: 0.75,
-				yMaxNormalized: 0.85,
-			},
-		},
-	}
 	binaryId = BinaryID{
 		FileId:         "file1",
 		OrganizationId: organizationId,
 		LocationId:     locationId,
 	}
-	binaryIds = []BinaryID{binaryId}
+	binaryIds      = []BinaryID{binaryId}
+	binaryDataByte = []byte("BYTE")
+	sqlQuery       = "SELECT * FROM readings WHERE organization_id='e76d1b3b-0468-4efd-bb7f-fb1d2b352fcb' LIMIT 1"
+	rawData        = []map[string]any{
+		{
+			"key1": startTime,
+			"key2": "2",
+			"key3": []any{1, 2, 3},
+			"key4": map[string]any{
+				"key4sub1": endTime,
+			},
+			"key5": 4.05,
+			"key6": []any{true, false, true},
+			"key7": []any{
+				map[string]any{
+					"nestedKey1": "simpleValue",
+				},
+				map[string]any{
+					"nestedKey2": startTime,
+				},
+			},
+		},
+	}
+	datasetIds  = []string{datasetId}
+	annotations = Annotations{
+		Bboxes: []BoundingBox{
+			{
+				Id:             "bbox1",
+				Label:          "label1",
+				XMinNormalized: 0.1,
+				YMinNormalized: 0.2,
+				XMaxNormalized: 0.8,
+				YMaxNormalized: 0.9,
+			},
+			{
+				Id:             "bbox2",
+				Label:          "label2",
+				XMinNormalized: 0.15,
+				YMinNormalized: 0.25,
+				XMaxNormalized: 0.75,
+				YMaxNormalized: 0.85,
+			},
+		},
+	}
 )
 
-// set up gRPC client??
-func createGrpclient() datapb.DataServiceClient {
+func createGrpcClient() *inject.DataServiceClient {
 	return &inject.DataServiceClient{}
 }
-
 func TestDataClient(t *testing.T) {
-	grpcClient := &inject.DataServiceClient{}
+	grpcClient := createGrpcClient()
 	client := DataClient{client: grpcClient}
 
 	captureInterval := CaptureInterval{
@@ -110,7 +112,7 @@ func TestDataClient(t *testing.T) {
 		End:   time.Now(),
 	}
 	tagsFilter := TagsFilter{
-		Type: 2,
+		Type: TagsFilterTypeUnspecified,
 		Tags: []string{"tag1", "tag2"},
 	}
 
@@ -127,7 +129,7 @@ func TestDataClient(t *testing.T) {
 		MimeType:        mimeTypes,
 		Interval:        captureInterval,
 		TagsFilter:      tagsFilter, //asterix or no??
-		BboxLabels:      BboxLabels,
+		BboxLabels:      bboxLabels,
 		DatasetId:       datasetId,
 	}
 	tabularMetadata := CaptureMetadata{
@@ -156,10 +158,8 @@ func TestDataClient(t *testing.T) {
 		DatasetIDs:      datasetIds,
 	}
 	t.Run("TabularDataByFilter", func(t *testing.T) {
-		//flags
 		countOnly := true
 		includeInternalData := true
-
 		dataRequest := DataRequest{
 			Filter:    filter,
 			Limit:     5,
@@ -169,7 +169,7 @@ func TestDataClient(t *testing.T) {
 		expectedTabularData := TabularData{
 			Data:          data,
 			MetadataIndex: 0,
-			Metadata:      tabularMetadata, //not sure if i need to pass this
+			Metadata:      tabularMetadata,
 			TimeRequested: startTime,
 			TimeReceived:  endTime,
 		}
@@ -187,7 +187,7 @@ func TestDataClient(t *testing.T) {
 
 		grpcClient.TabularDataByFilterFunc = func(ctx context.Context, in *datapb.TabularDataByFilterRequest, opts ...grpc.CallOption) (*datapb.TabularDataByFilterResponse, error) {
 			expectedDataReqProto, _ := DataRequestToProto(dataRequest)
-			test.That(t, in.DataRequest, test.ShouldResemble, expectedDataReqProto) //toPRoto on myDataReq (bc a request only ever gets converted to proto!!)
+			test.That(t, in.DataRequest, test.ShouldResemble, expectedDataReqProto)
 			test.That(t, in.CountOnly, test.ShouldBeTrue)
 			test.That(t, in.IncludeInternalData, test.ShouldBeTrue)
 			return &datapb.TabularDataByFilterResponse{
@@ -195,11 +195,7 @@ func TestDataClient(t *testing.T) {
 				Count:    expectedCount,
 				Last:     expectedLast,
 				Metadata: []*datapb.CaptureMetadata{CaptureMetadataToProto(tabularMetadata)}}, nil
-			//bc we only ever see tabularData in a response, we dont need toProto, we need fromProto!!
-
-			//the only returns we care about are TabularData, int coint, and str last rewturned pg id
 		}
-
 		respTabularData, respCount, respLast, _ := client.TabularDataByFilter(context.Background(), filter, expectedLimit, expectedLast, dataRequest.SortOrder, countOnly, includeInternalData)
 		test.That(t, respTabularData[0], test.ShouldResemble, expectedTabularData)
 		test.That(t, respCount, test.ShouldEqual, expectedCount)
@@ -209,27 +205,8 @@ func TestDataClient(t *testing.T) {
 	t.Run("TabularDataBySQL", func(t *testing.T) {
 		expectedOrgId := organizationId
 		expectedSqlQuery := sqlQuery
+		expectedRawData := rawData
 
-		expectedRawData := []map[string]any{
-			{
-				"key1": startTime,
-				"key2": "2",
-				"key3": []any{1, 2, 3}, //slice of integers
-				"key4": map[string]any{ // map and rep of JSON object
-					"key4sub1": endTime,
-				},
-				"key5": 4.05,
-				"key6": []any{true, false, true}, //array of bools
-				"key7": []any{ // slice of maps
-					map[string]any{
-						"nestedKey1": "simpleValue",
-					},
-					map[string]any{
-						"nestedKey2": startTime,
-					},
-				},
-			},
-		}
 		//convert rawData to BSON
 		var expectedRawDataPb [][]byte
 		for _, byte := range expectedRawData {
@@ -240,74 +217,28 @@ func TestDataClient(t *testing.T) {
 			expectedRawDataPb = append(expectedRawDataPb, bsonByte)
 		}
 		grpcClient.TabularDataBySQLFunc = func(ctx context.Context, in *datapb.TabularDataBySQLRequest, opts ...grpc.CallOption) (*datapb.TabularDataBySQLResponse, error) {
-			test.That(t, in.OrganizationId, test.ShouldEqual, expectedOrgId) //to proto
-			test.That(t, in.SqlQuery, test.ShouldResemble, expectedSqlQuery) //to proto
+			test.That(t, in.OrganizationId, test.ShouldEqual, expectedOrgId)
+			test.That(t, in.SqlQuery, test.ShouldResemble, expectedSqlQuery)
 			return &datapb.TabularDataBySQLResponse{
 				RawData: expectedRawDataPb,
 			}, nil
 		}
 		response, _ := client.TabularDataBySQL(context.Background(), expectedOrgId, expectedSqlQuery)
-		// // fmt.Printf("expected type: %T, value: %+v\n", expected, expected)
-		// // fmt.Printf("actual type: %T, value: %+v\n", response, response)
 		test.That(t, response, test.ShouldResemble, expectedRawData)
-
 	})
-	//I want my response to look like expectedRawData --> good!!
-	//I want my input to TabularDataByMQLRespone to be what expectedRawData would look like in [][]byte form!!!!!
-	/*
 
-		need to convert expectedRawData to BSON and then encode it as [][]byte to use it in your gRPC resp
-
-		Convert expectedRawData to [][]byte --> expectedRawData to BSON.
-		Define TabularDataByMQLFunc ---> use the bson expectedRawData in TabularDataByMQLFunc
-
-
-		// Serialize expectedRawData to BSON and convert to [][]byte
-		var expectedRawDataPb [][]byte
-		for _, doc := range expectedRawData {
-			bsonDoc, err := bson.Marshal(doc)
-			if err != nil {
-				t.Fatalf("Failed to marshal expectedRawData: %v", err)
-			}
-			expectedRawDataPb = append(expectedRawDataPb, bsonDoc)
-		}
-
-	*/
 	t.Run("TabularDataByMQL", func(t *testing.T) {
 		expectedOrgId := organizationId
-		//create expected mqlBinary
 		matchStage := bson.M{"$match": bson.M{"organization_id": "e76d1b3b-0468-4efd-bb7f-fb1d2b352fcb"}}
 		limitStage := bson.M{"$limit": 1}
+
 		// convert to BSON byte arrays
 		matchBytes, _ := bson.Marshal(matchStage)
 		limitBytes, _ := bson.Marshal(limitStage)
 		mqlbinary := [][]byte{matchBytes, limitBytes}
 		expectedMqlBinary := mqlbinary
+		expectedRawData := rawData
 
-		// expectedMqlBinary := marshalToBSON(mqlQuery) //this is [][]byte type
-		//this is the format we want to get back...
-
-		//add a bool
-		expectedRawData := []map[string]any{
-			{
-				"key1": startTime,
-				"key2": "2",
-				"key3": []any{1, 2, 3}, //slice of integers
-				"key4": map[string]any{ // map and rep of JSON object
-					"key4sub1": endTime,
-				},
-				"key5": 4.05,
-				"key6": []any{true, false, true}, //array of bools
-				"key7": []any{ // slice of maps
-					map[string]any{
-						"nestedKey1": "simpleValue",
-					},
-					map[string]any{
-						"nestedKey2": startTime,
-					},
-				},
-			},
-		}
 		//convert rawData to BSON
 		var expectedRawDataPb [][]byte
 		for _, byte := range expectedRawData {
@@ -317,34 +248,27 @@ func TestDataClient(t *testing.T) {
 			}
 			expectedRawDataPb = append(expectedRawDataPb, bsonByte)
 		}
-
-		fmt.Printf("this is expectedBinaryDataPb type: %T, value: %+v\n", expectedRawDataPb, expectedRawDataPb)
-
 		grpcClient.TabularDataByMQLFunc = func(ctx context.Context, in *datapb.TabularDataByMQLRequest, opts ...grpc.CallOption) (*datapb.TabularDataByMQLResponse, error) {
-			test.That(t, in.OrganizationId, test.ShouldEqual, expectedOrgId)   //to proto
-			test.That(t, in.MqlBinary, test.ShouldResemble, expectedMqlBinary) //to proto //we also want this to just be [][]byte ...?
+			test.That(t, in.OrganizationId, test.ShouldEqual, expectedOrgId)
+			test.That(t, in.MqlBinary, test.ShouldResemble, expectedMqlBinary)
 			return &datapb.TabularDataByMQLResponse{
-				RawData: expectedRawDataPb, //we want this to be expectedRawData but in proto form (so [][]byte)
+				RawData: expectedRawDataPb,
 			}, nil
 		}
 		response, _ := client.TabularDataByMQL(context.Background(), expectedOrgId, expectedMqlBinary)
-		// fmt.Printf("this is actual type: %T, value: %+v\n", response, response)
-		// fmt.Printf("this is expected type: %T, value: %+v\n", expectedRawData, expectedRawData)
-		test.That(t, response, test.ShouldResemble, expectedRawData) //we want this to be expectedRawData
-
+		test.That(t, response, test.ShouldResemble, expectedRawData)
 	})
+
 	t.Run("BinaryDataByFilter", func(t *testing.T) {
 		includeBinary := true
 		countOnly := true
 		includeInternalData := true
-
 		dataRequest := DataRequest{
 			Filter:    filter,
 			Limit:     5,
 			Last:      "last",
 			SortOrder: Unspecified,
 		}
-
 		expectedCount := uint64(5)
 		expectedLast := "last"
 		expectedBinaryData := BinaryData{
@@ -355,7 +279,7 @@ func TestDataClient(t *testing.T) {
 
 		grpcClient.BinaryDataByFilterFunc = func(ctx context.Context, in *datapb.BinaryDataByFilterRequest, opts ...grpc.CallOption) (*datapb.BinaryDataByFilterResponse, error) {
 			expectedDataReq, _ := DataRequestToProto(dataRequest)
-			test.That(t, in.DataRequest, test.ShouldResemble, expectedDataReq) //toPRoto on myDataReq (bc a request only ever gets converted to proto!!)
+			test.That(t, in.DataRequest, test.ShouldResemble, expectedDataReq)
 			test.That(t, in.IncludeBinary, test.ShouldBeTrue)
 			test.That(t, in.CountOnly, test.ShouldBeTrue)
 			test.That(t, in.IncludeInternalData, test.ShouldBeTrue)
@@ -364,14 +288,8 @@ func TestDataClient(t *testing.T) {
 				Count: expectedCount,
 				Last:  expectedLast,
 			}, nil
-			//bc we only ever see tabularData in a response, we dont need toProto, we need fromProto!!
-			//the only returns we care about are TabularData, int coint, and str last rewturned pg id
 		}
-
-		// fmt.Printf("this is includeBinary type: %T, value: %+v\n", includeBinary, includeBinary)
-
 		respBinaryData, respCount, respLast, _ := client.BinaryDataByFilter(context.Background(), filter, expectedCount, dataRequest.SortOrder, expectedLast, includeBinary, countOnly, includeInternalData)
-		// fmt.Printf("this is respBinaryData[0] type: %T, value: %+v\n", respBinaryData[0], respBinaryData[0])
 		test.That(t, respBinaryData[0], test.ShouldResemble, expectedBinaryData)
 		test.That(t, respCount, test.ShouldEqual, expectedCount)
 		test.That(t, respLast, test.ShouldEqual, expectedLast)
@@ -385,7 +303,6 @@ func TestDataClient(t *testing.T) {
 		grpcClient.BinaryDataByIDsFunc = func(ctx context.Context, in *datapb.BinaryDataByIDsRequest, opts ...grpc.CallOption) (*datapb.BinaryDataByIDsResponse, error) {
 			test.That(t, in.IncludeBinary, test.ShouldBeTrue)
 			test.That(t, in.BinaryIds, test.ShouldResemble, BinaryIdsToProto(binaryIds))
-			//convert []binaryData to proto
 			expectedBinaryDataList := []*datapb.BinaryData{BinaryDataToProto(expectedBinaryData)}
 
 			return &datapb.BinaryDataByIDsResponse{Data: expectedBinaryDataList, Count: uint64(len(expectedBinaryDataList))}, nil
@@ -393,9 +310,9 @@ func TestDataClient(t *testing.T) {
 		respBinaryData, _ := client.BinaryDataByIDs(context.Background(), binaryIds)
 		test.That(t, respBinaryData[0], test.ShouldResemble, expectedBinaryData)
 	})
+
 	t.Run("DeleteTabularData", func(t *testing.T) {
 		deleteOlderThanDays := uint32(1)
-
 		expectedOrgId := organizationId
 		expectedDeleteOlderThanDays := deleteOlderThanDays
 		expectedDeletedCount := uint64(5)
@@ -411,6 +328,7 @@ func TestDataClient(t *testing.T) {
 		resp, _ := client.DeleteTabularData(context.Background(), organizationId, deleteOlderThanDays)
 		test.That(t, resp, test.ShouldEqual, expectedDeletedCount)
 	})
+
 	t.Run("DeleteBinaryDataByFilter", func(t *testing.T) {
 		expectedFilterPb := FilterToProto(filter)
 		expectedDeletedCount := uint64(5)
@@ -425,6 +343,7 @@ func TestDataClient(t *testing.T) {
 		resp, _ := client.DeleteBinaryDataByFilter(context.Background(), filter)
 		test.That(t, resp, test.ShouldEqual, expectedDeletedCount)
 	})
+
 	t.Run("DeleteBinaryDataByIDs", func(t *testing.T) {
 		expectedDeletedCount := uint64(5)
 		expectedBinaryIds := BinaryIdsToProto(binaryIds)
@@ -437,6 +356,7 @@ func TestDataClient(t *testing.T) {
 		resp, _ := client.DeleteBinaryDataByIDs(context.Background(), binaryIds)
 		test.That(t, resp, test.ShouldEqual, expectedDeletedCount)
 	})
+
 	t.Run("AddTagsToBinaryDataByIDs", func(t *testing.T) {
 		expectedTags := tags
 		expectedBinaryIds := BinaryIdsToProto(binaryIds)
@@ -448,6 +368,7 @@ func TestDataClient(t *testing.T) {
 		client.AddTagsToBinaryDataByIDs(context.Background(), tags, binaryIds)
 
 	})
+
 	t.Run("AddTagsToBinaryDataByFilter", func(t *testing.T) {
 		expectedTags := tags
 		expectedFilterPb := FilterToProto(filter)
@@ -458,6 +379,7 @@ func TestDataClient(t *testing.T) {
 		}
 		client.AddTagsToBinaryDataByFilter(context.Background(), tags, filter)
 	})
+
 	t.Run("RemoveTagsFromBinaryDataByIDs", func(t *testing.T) {
 		expectedTags := tags
 		expectedBinaryIds := BinaryIdsToProto(binaryIds)
@@ -472,6 +394,7 @@ func TestDataClient(t *testing.T) {
 		resp, _ := client.RemoveTagsFromBinaryDataByIDs(context.Background(), tags, binaryIds)
 		test.That(t, resp, test.ShouldEqual, expectedDeletedCount)
 	})
+
 	t.Run("RemoveTagsFromBinaryDataByFilter", func(t *testing.T) {
 		expectedTags := tags
 		expectedFilterPb := FilterToProto(filter)
@@ -487,6 +410,7 @@ func TestDataClient(t *testing.T) {
 		resp, _ := client.RemoveTagsFromBinaryDataByFilter(context.Background(), tags, filter)
 		test.That(t, resp, test.ShouldEqual, expectedDeletedCount)
 	})
+
 	t.Run("TagsByFilter", func(t *testing.T) {
 		expectedTags := tags
 		expectedFilterPb := FilterToProto(filter)
@@ -500,14 +424,15 @@ func TestDataClient(t *testing.T) {
 		resp, _ := client.TagsByFilter(context.Background(), filter)
 		test.That(t, resp, test.ShouldResemble, expectedTags)
 	})
+
 	t.Run("AddBoundingBoxToImageByID", func(t *testing.T) {
 		expectedBinaryIdPb := BinaryIdToProto(binaryId)
 		expectedLabel := bboxLabel
-		expectedXMin := annotations.bboxes[0].xMinNormalized
-		expectedYMin := annotations.bboxes[0].yMinNormalized
-		expectedXMax := annotations.bboxes[0].xMaxNormalized
-		expectedYMax := annotations.bboxes[0].yMaxNormalized
-		expectedBBoxId := annotations.bboxes[0].id
+		expectedXMin := annotations.Bboxes[0].XMinNormalized
+		expectedYMin := annotations.Bboxes[0].YMinNormalized
+		expectedXMax := annotations.Bboxes[0].XMaxNormalized
+		expectedYMax := annotations.Bboxes[0].YMaxNormalized
+		expectedBBoxId := annotations.Bboxes[0].Id
 
 		grpcClient.AddBoundingBoxToImageByIDFunc = func(ctx context.Context, in *datapb.AddBoundingBoxToImageByIDRequest, opts ...grpc.CallOption) (*datapb.AddBoundingBoxToImageByIDResponse, error) {
 			test.That(t, in.BinaryId, test.ShouldResemble, expectedBinaryIdPb)
@@ -527,7 +452,7 @@ func TestDataClient(t *testing.T) {
 
 	t.Run("RemoveBoundingBoxFromImageByID", func(t *testing.T) {
 		expectedBinaryIdPb := BinaryIdToProto(binaryId)
-		expectedBBoxId := annotations.bboxes[0].id
+		expectedBBoxId := annotations.Bboxes[0].Id
 
 		grpcClient.RemoveBoundingBoxFromImageByIDFunc = func(ctx context.Context, in *datapb.RemoveBoundingBoxFromImageByIDRequest, opts ...grpc.CallOption) (*datapb.RemoveBoundingBoxFromImageByIDResponse, error) {
 			test.That(t, in.BinaryId, test.ShouldResemble, expectedBinaryIdPb)
@@ -538,14 +463,13 @@ func TestDataClient(t *testing.T) {
 		client.RemoveBoundingBoxFromImageByID(context.Background(), expectedBBoxId, binaryId)
 
 	})
+
 	t.Run("BoundingBoxLabelsByFilter", func(t *testing.T) {
 		expectedFilterPb := FilterToProto(filter)
-
 		expectedBBoxLabels := []string{
-			annotations.bboxes[0].label,
-			annotations.bboxes[1].label,
+			annotations.Bboxes[0].Label,
+			annotations.Bboxes[1].Label,
 		}
-		//we probs don't need to do this work below...but i like the explicity of it
 		annotationsPb := AnnotationsToProto(annotations)
 		expectedBBoxLabelsPb := []string{
 			annotationsPb.Bboxes[0].Label,
@@ -562,7 +486,7 @@ func TestDataClient(t *testing.T) {
 		test.That(t, resp, test.ShouldResemble, expectedBBoxLabels)
 	})
 	t.Run("UpdateBoundingBox", func(t *testing.T) {
-		bBoxId := annotations.bboxes[0].id
+		bBoxId := annotations.Bboxes[0].Id
 		expectedBinaryIdPb := BinaryIdToProto(binaryId)
 
 		annotationsPb := AnnotationsToProto(annotations)
@@ -581,11 +505,9 @@ func TestDataClient(t *testing.T) {
 			test.That(t, *in.YMinNormalized, test.ShouldEqual, expectedYMin)
 			test.That(t, *in.XMaxNormalized, test.ShouldEqual, expectedXMax)
 			test.That(t, *in.YMaxNormalized, test.ShouldEqual, expectedYMax)
-
 			return &datapb.UpdateBoundingBoxResponse{}, nil
 		}
-		client.UpdateBoundingBox(context.Background(), binaryId, bBoxId, expectedLabel, expectedXMin, expectedYMin, expectedXMax, expectedYMax)
-
+		client.UpdateBoundingBox(context.Background(), binaryId, bBoxId, &expectedLabel, &expectedXMin, &expectedYMin, &expectedXMax, &expectedYMax)
 	})
 
 	t.Run("GetDatabaseConnection", func(t *testing.T) {
@@ -604,7 +526,6 @@ func TestDataClient(t *testing.T) {
 		}
 		resp, _ := client.GetDatabaseConnection(context.Background(), organizationId)
 		test.That(t, resp, test.ShouldResemble, expectedHostName)
-
 	})
 
 	t.Run("ConfigureDatabaseUser", func(t *testing.T) {
@@ -629,7 +550,6 @@ func TestDataClient(t *testing.T) {
 			return &datapb.AddBinaryDataToDatasetByIDsResponse{}, nil
 		}
 		client.AddBinaryDataToDatasetByIDs(context.Background(), binaryIds, datasetId)
-
 	})
 
 	t.Run("RemoveBinaryDataFromDatasetByIDs", func(t *testing.T) {
@@ -639,129 +559,8 @@ func TestDataClient(t *testing.T) {
 		grpcClient.RemoveBinaryDataFromDatasetByIDsFunc = func(ctx context.Context, in *datapb.RemoveBinaryDataFromDatasetByIDsRequest, opts ...grpc.CallOption) (*datapb.RemoveBinaryDataFromDatasetByIDsResponse, error) {
 			test.That(t, in.BinaryIds, test.ShouldResemble, expectedBinaryIds)
 			test.That(t, in.DatasetId, test.ShouldResemble, expectedDataSetId)
-
 			return &datapb.RemoveBinaryDataFromDatasetByIDsResponse{}, nil
 		}
 		client.RemoveBinaryDataFromDatasetByIDs(context.Background(), binaryIds, datasetId)
-
 	})
-
 }
-
-// func TestTabularDataByFilter(t *testing.T) {
-// 	// Set up test logger
-// 	logger := logging.NewTestLogger(t)
-// 	// need this listener probs
-// 	listener, err := net.Listen("tcp", "localhost:0")
-// 	test.That(t, err, test.ShouldBeNil)
-// 	client, conn, err := createGrpclient(t, logger, listener) // create client conn w helper
-// 	test.That(t, err, test.ShouldBeNil)
-
-// 	dataRequest := &datapb.DataRequest{} //this doesn't seem right???
-
-// 	//grpc requeset??
-// 	req := &datapb.TabularDataByFilterRequest{
-// 		DataRequest:         dataRequest, //this doesn't seem right???
-// 		CountOnly:           true,
-// 		IncludeInternalData: true,
-// 	}
-
-// 	// call the real method
-// 	resp, err := client.TabularDataByFilter(context.Background(), req)
-// 	test.That(t, err, test.ShouldBeNil)
-// 	// check that the parameters being passed match the expected data??
-// 	test.That(t, req.DataRequest, test.ShouldResemble, dataRequest)
-
-// 	// check that the response matches expected data
-// 	expectedData := &datapb.TabularDataByFilterResponse{
-// 		Data:    resp.Data,    //idk if it makes sense to be passing the resp.Data??
-// 		RawData: resp.RawData, //bc what are we actually testing?
-// 	}
-// 	// test.That(t, expectedData, test.ShouldResembleProto, &datapb.TabularDataByMQLResponse{})
-// 	test.That(t, expectedData, test.ShouldResemble, resp)
-// 	// Close the connection
-// 	require.NoError(t, conn.Close())
-
-// }
-
-// func TestTabularDataBySQL(t *testing.T) {}
-// func TestTabularDataByMQL(t *testing.T) {
-// 	client := createGrpclient()
-
-// 	return
-// 	// Set up test logger
-// 	logger := logging.NewTestLogger(t)
-// 	// need this listener probs
-// 	listener, err := net.Listen("tcp", "localhost:0")
-// 	test.That(t, err, test.ShouldBeNil)
-// 	client, conn, err := createGrpclient(t, logger, listener) // create client conn w helper
-// 	test.That(t, err, test.ShouldBeNil)
-
-// 	//call helper
-// 	mqlbinary := createMQLBSON()
-// 	// orgId := "e76d1b3b-0468-4efd-bb7f-fb1d2b352fcb"
-// 	// make the actual call to the grpc dataserive function??
-// 	req := &datapb.TabularDataByMQLRequest{
-// 		OrganizationId: orgId,
-// 		MqlBinary:      mqlbinary,
-// 	}
-// 	// call the real method
-// 	resp, err := client.TabularDataByMQL(context.Background(), req)
-// 	test.That(t, err, test.ShouldBeNil)
-// 	// check that the parameters being passed match the expected data??
-// 	test.That(t, req.OrganizationId, test.ShouldResemble, orgId)
-
-// 	// check that the response matches expected data
-// 	expectedData := &datapb.TabularDataByMQLResponse{
-// 		Data:    resp.Data,    //idk if it makes sense to be passing the resp.Data??
-// 		RawData: resp.RawData, //bc what are we actually testing?
-// 	}
-// 	// test.That(t, expectedData, test.ShouldResembleProto, &datapb.TabularDataByMQLResponse{})
-// 	test.That(t, expectedData, test.ShouldResemble, resp)
-// 	// Close the connection
-// 	require.NoError(t, conn.Close())
-// }
-
-// func TestBinaryDataByFilter(t *testing.T)               {}
-// func TestBinaryDataByIDs(t *testing.T)                  {}
-// func TestDeleteTabularData(t *testing.T)                {}
-// func TestDeleteBinaryDataByFilter(t *testing.T)         {}
-// func TestDeleteBinaryDataByIDs(t *testing.T)            {}
-// func TestAddTagsToBinaryDataByIDs(t *testing.T)         {}
-// func TestAddTagsToBinaryDataByFilter(t *testing.T)      {}
-// func TestRemoveTagsFromBinaryDataByIDs(t *testing.T)    {}
-// func TestRemoveTagsFromBinaryDataByFilter(t *testing.T) {}
-// func TestTagsByFilter(t *testing.T)                     {}
-
-//notes:
-// Set up gRPC server (should it be grpc.NewServer()??)
-// logger := logging.NewTestLogger(t)
-// listener, err := net.Listen("tcp", "localhost:0")
-// test.That(t, err, test.ShouldBeNil)
-// rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
-// test.That(t, err, test.ShouldBeNil)
-
-//****need to somehow register the DataService server here??
-// datapb.RegisterDataServiceHandlerFromEndpoint(context.Background(),runtime.NewServeMux(),)
-// datapb.RegisterDataServiceServer(rpcServer,)
-//  datapb.RegisterDataServiceServer(rpcServer, &datapb.UnimplementedDataServiceServer{})
-// data = datapb.DataServiceServer{}
-
-// Start serving requests??
-// go rpcServer.Serve(listener)
-// defer rpcServer.Stop()
-
-// Make client connection
-// conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
-// test.That(t, err, test.ShouldBeNil)
-// client := datapb.NewDataServiceClient(conn)
-
-//notes on the param chekcing stuff
-// var request *datapb.TabularDataByMQLRequest
-
-// grpcClient.TabularDataByMQLFunc = func(ctx context.Context, in *datapb.TabularDataByMQLRequest, opts ...grpc.CallOption) (*datapb.TabularDataByMQLResponse, error) {
-// 	request = in
-// 	return &datapb.TabularDataByMQLResponse{RawData: mql_binary}, nil //MQlResponse is created with BSON data
-// }
-
-// assert request.org
