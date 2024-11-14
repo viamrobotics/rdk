@@ -93,8 +93,6 @@ type tpspaceOptions struct {
 	// For a bidirectional solve, this means trying to connect the two trees directly
 	attemptSolveEvery int
 
-	goalMetricConstructor func(spatialmath.Pose) ik.StateMetric
-
 	// Cached functions for calculating TP-space distances for each PTG
 	distOptions map[tpspace.PTG]*plannerOptions
 }
@@ -451,7 +449,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	var successNode node
 
 	var solution *ik.Solution
-	var targetFunc ik.StateMetric
+	var err error
 	if nearest == nil {
 		// Get nearest neighbor to rand config in tree using this PTG
 		nearest = nm.nearestNeighbor(ctx, ptgDistOpt, randPosNode, rrt)
@@ -470,17 +468,13 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 			mp.logger.Error("nearest neighbor ik.Solution type conversion failed")
 			return nil, errNoNeighbors
 		}
-
-		relPose := spatialmath.PoseBetween(nearest.Pose(), randPosNode.Pose())
-		targetFunc = mp.algOpts.goalMetricConstructor(relPose)
 	} else {
-		ptgSolution, ptgTargetFunc, err := mp.ptgSolutionAndMetric(curPtg, nearest.Pose(), randPosNode.Pose())
-		if err != nil || ptgSolution == nil {
+		solution, err = mp.ptgSolution(curPtg, nearest.Pose(), randPosNode.Pose())
+		if err != nil || solution == nil {
 			return nil, err
 		}
-		solution = ptgSolution
-		targetFunc = ptgTargetFunc
 	}
+	targetFunc := defaultGoalMetricConstructor(spatialmath.PoseBetween(nearest.Pose(), randPosNode.Pose()))
 	// TODO: We could potentially improve solving by first getting the rough distance to the randPosNode to any point in the rrt tree,
 	// then dynamically expanding or contracting the limits of IK to be some fraction of that distance.
 
@@ -490,7 +484,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	arcPose := spatialmath.NewZeroPose() // This will be the relative pose that is the delta from one end of the combined traj to the other.
 	// We may produce more than one consecutive arc. Reduce the one configuration to several 2dof arcs
 	for i := 0; i < len(solution.Configuration); i += 2 {
-		subNode := newConfigurationNode(solution.Configuration[i : i+2])
+		subNode := newConfigurationNode(referenceframe.FloatsToInputs(solution.Configuration[i : i+2]))
 
 		// Check collisions along this traj and get the longest distance viable
 		trajK, err := curPtg.Trajectory(subNode.Q()[0].Value, 0, subNode.Q()[1].Value, mp.planOpts.Resolution)
@@ -785,18 +779,16 @@ func (mp *tpSpaceRRTMotionPlanner) setupTPSpaceOptions() {
 		identicalNodeDistance: defaultIdenticalNodeDistance,
 
 		distOptions: map[tpspace.PTG]*plannerOptions{},
-
-		goalMetricConstructor: defaultGoalMetricConstructor,
 	}
 
 	mp.algOpts = tpOpt
 }
 
-func (mp *tpSpaceRRTMotionPlanner) ptgSolutionAndMetric(ptg tpspace.PTGSolver,
+func (mp *tpSpaceRRTMotionPlanner) ptgSolution(ptg tpspace.PTGSolver,
 	nearestPose, randPosNodePose spatialmath.Pose,
-) (*ik.Solution, ik.StateMetric, error) {
+) (*ik.Solution, error) {
 	relPose := spatialmath.PoseBetween(nearestPose, randPosNodePose)
-	targetFunc := mp.algOpts.goalMetricConstructor(relPose)
+	targetFunc := defaultGoalMetricConstructor(relPose)
 	seedDist := relPose.Point().Norm()
 	seed := tpspace.PTGIKSeed(ptg)
 	dof := ptg.DoF()
@@ -807,16 +799,9 @@ func (mp *tpSpaceRRTMotionPlanner) ptgSolutionAndMetric(ptg tpspace.PTGSolver,
 		seed[0].Value *= -1
 	}
 
-	solutionChan := make(chan *ik.Solution, 1)
-	err := ptg.Solve(context.Background(), solutionChan, seed, targetFunc, 0)
+	solution, err := ptg.Solve(context.Background(), seed, targetFunc)
 
-	var solution *ik.Solution
-	select {
-	case solution = <-solutionChan:
-	default:
-	}
-
-	return solution, targetFunc, err
+	return solution, err
 }
 
 // make2DTPSpaceDistanceOptions will create a plannerOptions object with a custom DistanceFunc constructed such that
@@ -832,7 +817,7 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGS
 		if seg.StartPosition == nil || seg.EndPosition == nil {
 			return math.Inf(1)
 		}
-		solution, _, err := mp.ptgSolutionAndMetric(ptg, seg.EndPosition, seg.StartPosition)
+		solution, err := mp.ptgSolution(ptg, seg.EndPosition, seg.StartPosition)
 
 		if err != nil || solution == nil {
 			return math.Inf(1)

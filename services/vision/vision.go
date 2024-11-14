@@ -1,5 +1,8 @@
 // Package vision is the service that allows you to access various computer vision algorithms
 // (like detection, segmentation, tracking, etc) that usually only require a camera or image input.
+// For more information, see the [vision service docs].
+//
+// [vision service docs]: https://docs.viam.com/services/vision/
 package vision
 
 import (
@@ -34,94 +37,134 @@ func init() {
 	}, newCaptureAllFromCameraCollector)
 }
 
-// A Service that implements various computer vision algorithms like detection and segmentation.
+// A Service implements various computer vision algorithms like detection and segmentation.
+// For more information, see the [vision service docs].
 //
 // DetectionsFromCamera example:
 //
-//	// Get detections from the camera output
-//	detections, err := visService.DetectionsFromCamera(context.Background(), myCam, nil)
+//	myDetectorService, err := vision.FromRobot(machine, "my_detector")
 //	if err != nil {
-//			logger.Fatalf("Could not get detections: %v", err)
+//		logger.Error(err)
+//		return
+//	}
+//
+//	// Get detections from the camera output
+//	detections, err := myDetectorService.DetectionsFromCamera(context.Background(), "my_camera", nil)
+//	if err != nil {
+//		logger.Fatalf("Could not get detections: %v", err)
 //	}
 //	if len(detections) > 0 {
-//			logger.Info(detections[0])
+//		logger.Info(detections[0])
 //	}
 //
 // Detections example:
 //
+//	myCam, err := camera.FromRobot(machine, "my_camera")
+//	if err != nil {
+//		logger.Error(err)
+//		return
+//	}
 //	// Get the stream from a camera
 //	camStream, err := myCam.Stream(context.Background())
-//
 //	// Get an image from the camera stream
 //	img, release, err := camStream.Next(context.Background())
 //	defer release()
 //
-//	// Get the detections from the image
-//	detections, err := visService.Detections(context.Background(), img, nil)
+//	myDetectorService, err := vision.FromRobot(machine, "my_detector")
 //	if err != nil {
-//			logger.Fatalf("Could not get detections: %v", err)
+//		logger.Error(err)
+//		return
+//	}
+//	// Get the detections from the image
+//	detections, err := myDetectorService.Detections(context.Background(), img, nil)
+//	if err != nil {
+//		logger.Fatalf("Could not get detections: %v", err)
 //	}
 //	if len(detections) > 0 {
-//			logger.Info(detections[0])
+//		logger.Info(detections[0])
 //	}
 //
 // ClassificationsFromCamera example:
 //
-//	// Get the 2 classifications with the highest confidence scores from the camera output
-//	classifications, err := visService.ClassificationsFromCamera(context.Background(), myCam, 2, nil)
+//	myClassifierService, err := vision.FromRobot(machine, "my_classifier")
 //	if err != nil {
-//			logger.Fatalf("Could not get classifications: %v", err)
+//		logger.Error(err)
+//		return
+//	}
+//	// Get the 2 classifications with the highest confidence scores from the camera output
+//	classifications, err := myClassifierService.ClassificationsFromCamera(context.Background(), "my_camera", 2, nil)
+//	if err != nil {
+//		logger.Fatalf("Could not get classifications: %v", err)
 //	}
 //	if len(classifications) > 0 {
-//			logger.Info(classifications[0])
+//		logger.Info(classifications[0])
 //	}
 //
 // Classifications example:
 //
+//	myCam, err := camera.FromRobot(machine, "my_camera")
+//	if err != nil {
+//		logger.Error(err)
+//		return
+//	}
 //	// Get the stream from a camera
 //	camStream, err := myCam.Stream(context.Background())
 //	if err!=nil {
 //			logger.Error(err)
 //			return
 //	}
-//
 //	// Get an image from the camera stream
 //	img, release, err := camStream.Next(context.Background())
 //	defer release()
 //
-//	// Get the 2 classifications with the highest confidence scores from the image
-//	classifications, err := visService.Classifications(context.Background(), img, 2, nil)
+//	myClassifierService, err := vision.FromRobot(machine, "my_classifier")
 //	if err != nil {
-//			logger.Fatalf("Could not get classifications: %v", err)
+//		logger.Error(err)
+//		return
+//	}
+//	// Get the 2 classifications with the highest confidence scores from the image
+//	classifications, err := myClassifierService.Classifications(context.Background(), img, 2, nil)
+//	if err != nil {
+//		logger.Fatalf("Could not get classifications: %v", err)
 //	}
 //	if len(classifications) > 0 {
-//			logger.Info(classifications[0])
+//		logger.Info(classifications[0])
 //	}
 //
 // GetObjectPointClouds example:
 //
-//	// Get the objects from the camera output
-//	objects, err := visService.GetObjectPointClouds(context.Background(), "cam1", nil)
+//	mySegmenterService, err := vision.FromRobot(machine, "my_segmenter")
 //	if err != nil {
-//			logger.Fatalf("Could not get point clouds: %v", err)
+//		logger.Error(err)
+//		return
+//	}
+//	// Get the objects from the camera output
+//	objects, err := mySegmenterService.GetObjectPointClouds(context.Background(), "my_camera", nil)
+//	if err != nil {
+//		logger.Fatalf("Could not get point clouds: %v", err)
 //	}
 //	if len(objects) > 0 {
-//			logger.Info(objects[0])
+//		logger.Info(objects[0])
 //	}
 //
 // CaptureAllFromCamera example:
 //
 //	// The data to capture and return from the camera
-//	captOpts := viscapture.CaptureOptions{}
+//	captOpts := viscapture.CaptureOptions{
+//		ReturnImage: true,
+//		ReturnDetections: true,
+//	}
 //	// Get the captured data for a camera
-//	capture, err := visService.CaptureAllFromCamera(context.Background(), "cam1", captOpts, nil)
+//	capture, err := visService.CaptureAllFromCamera(context.Background(), "my_camera", captOpts, nil)
 //	if err != nil {
-//			logger.Fatalf("Could not get capture data from vision service: %v", err)
+//		logger.Fatalf("Could not get capture data from vision service: %v", err)
 //	}
 //	image := capture.Image
 //	detections := capture.Detections
 //	classifications := capture.Classifications
 //	objects := capture.Objects
+//
+// [vision service docs]: https://docs.viam.com/services/vision/
 type Service interface {
 	resource.Resource
 	// DetectionsFromCamera returns a list of detections from the next image from a specified camera using a configured detector.

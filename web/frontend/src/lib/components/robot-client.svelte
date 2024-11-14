@@ -1,27 +1,32 @@
 <script lang="ts">
 /* eslint-disable require-atomic-updates */
-import { grpc } from '@improbable-eng/grpc-web';
-import { Duration } from 'google-protobuf/google/protobuf/duration_pb';
-import { onMount, onDestroy, createEventDispatcher } from 'svelte';
-import { type Credentials, ConnectionClosedError } from '@viamrobotics/rpc';
-import {
-  Client,
-  robotApi,
-  commonApi,
-  type ServiceError,
-} from '@viamrobotics/sdk';
-import { notify } from '@viamrobotics/prime';
-import { StreamManager } from '@/lib/stream-manager';
 import { getOperations, getResourceNames, getSessions } from '@/api/robot';
 import { getSensors } from '@/api/sensors';
 import { useRobotClient } from '@/hooks/robot-client';
+import { filterSubtype, resourceNameToString } from '@/lib/resource';
 import { setAsyncInterval } from '@/lib/schedule';
-import { resourceNameToString, filterSubtype } from '@/lib/resource';
+import { StreamManager } from '@/lib/stream-manager';
+import { notify } from '@viamrobotics/prime';
+import {
+  Client,
+  Code,
+  ConnectError,
+  ConnectionClosedError,
+  Duration,
+  ResourceName,
+  robotApi,
+  type Credential,
+  type CredentialType,
+} from '@viamrobotics/sdk';
+import { createEventDispatcher, onDestroy, onMount } from 'svelte';
 
 export let webrtcEnabled: boolean;
 export let host: string;
 export let signalingAddress: string;
-export let bakedAuth: { authEntity?: string; creds?: Credentials } = {};
+export let bakedAuth: {
+  authEntity?: string;
+  creds?: Credential;
+} = {};
 export let supportedAuthTypes: string[] = [];
 
 const {
@@ -33,6 +38,7 @@ const {
   sensorNames,
   statuses,
   statusStream,
+  statusStreamAbort,
   streamManager,
   rtt,
   connectionStatus,
@@ -170,7 +176,7 @@ const loadCurrentOps = async () => {
   for (const op of list) {
     ops.push({
       op,
-      elapsed: op.started ? Date.now() - op.started.seconds * 1000 : -1,
+      elapsed: op.started ? Date.now() - Number(op.started.seconds) * 1000 : -1,
     });
   }
 
@@ -195,19 +201,17 @@ const fetchCurrentSessions = async () => {
     list.sort((sess1, sess2) => (sess1.id < sess2.id ? -1 : 1));
     return list;
   } catch (error) {
-    const serviceError = error as ServiceError;
-    if (serviceError.code === grpc.Code.Unimplemented) {
+    if (error instanceof ConnectError && error.code === Code.Unimplemented) {
       $sessionsSupported = false;
     }
-
     return [];
   }
 };
 
 const updateStatus = (grpcStatuses: robotApi.Status[]) => {
   for (const grpcStatus of grpcStatuses) {
-    const nameObj = grpcStatus.getName()!.toObject();
-    const status = grpcStatus.getStatus()!.toJavaScript();
+    const nameObj = grpcStatus.name!;
+    const status = grpcStatus.status!.toJson();
     const name = resourceNameToString(nameObj);
 
     $statuses[name] = status;
@@ -215,12 +219,13 @@ const updateStatus = (grpcStatuses: robotApi.Status[]) => {
 };
 
 const restartStatusStream = () => {
-  if ($statusStream) {
-    $statusStream.cancel();
+  if ($statusStreamAbort) {
+    $statusStreamAbort.abort();
+    $statusStreamAbort = null;
     $statusStream = null;
   }
 
-  let newResources: commonApi.ResourceName.AsObject[] = [];
+  let newResources: ResourceName[] = [];
 
   // get all relevant resources
   for (const subtype of relevantSubtypesForStatus) {
@@ -228,38 +233,43 @@ const restartStatusStream = () => {
   }
 
   const names = newResources.map((name) => {
-    const resourceName = new commonApi.ResourceName();
-    resourceName.setNamespace(name.namespace);
-    resourceName.setType(name.type);
-    resourceName.setSubtype(name.subtype);
-    resourceName.setName(name.name);
-    return resourceName;
+    return new ResourceName({
+      namespace: name.namespace,
+      type: name.type,
+      subtype: name.subtype,
+      name: name.name,
+    });
   });
 
-  const streamReq = new robotApi.StreamStatusRequest();
-  streamReq.setResourceNamesList(names);
-  streamReq.setEvery(new Duration().setNanos(500_000_000));
+  const streamReq = new robotApi.StreamStatusRequest({
+    resourceNames: names,
+    every: new Duration({
+      nanos: 500_000_000,
+    }),
+  });
 
-  $statusStream = $robotClient.robotService.streamStatus(streamReq);
-  $statusStream.on(
-    'data',
-    (response: { getStatusList(): robotApi.Status[] }) => {
-      updateStatus(response.getStatusList());
-      lastStatusTS = Date.now();
-    }
-  );
-  $statusStream.on('status', (newStatus?: { details: unknown }) => {
-    if (!ConnectionClosedError.isError(newStatus!.details)) {
+  $statusStreamAbort = new AbortController();
+  $statusStream = $robotClient.robotService.streamStatus(streamReq, {
+    signal: $statusStreamAbort.signal,
+  });
+
+  (async () => {
+    try {
+      for await (const resp of $statusStream) {
+        updateStatus(resp.status);
+        lastStatusTS = Date.now();
+      }
       // eslint-disable-next-line no-console
-      console.error('error streaming robot status', newStatus);
+      console.error('done streaming robot status');
+    } catch (error) {
+      if (!ConnectionClosedError.isError(error)) {
+        // eslint-disable-next-line no-console
+        console.error('error streaming robot status', error);
+      }
+    } finally {
+      $statusStream = null;
     }
-    $statusStream = null;
-  });
-  $statusStream.on('end', () => {
-    // eslint-disable-next-line no-console
-    console.error('done streaming robot status');
-    $statusStream = null;
-  });
+  })();
 };
 
 // query metadata service every 0.5s
@@ -398,8 +408,9 @@ const tick = async () => {
     console.debug('reconnecting');
 
     // reset status/stream state
-    if ($statusStream) {
-      $statusStream.cancel();
+    if ($statusStreamAbort) {
+      $statusStreamAbort.abort();
+      $statusStreamAbort = null;
       $statusStream = null;
     }
     resourcesOnce = false;
@@ -427,7 +438,8 @@ const tick = async () => {
 
 const stop = () => {
   cancelTick?.();
-  $statusStream?.cancel();
+  $statusStreamAbort?.abort();
+  $statusStreamAbort = null;
   $statusStream = null;
 };
 
@@ -438,12 +450,21 @@ const start = () => {
   cancelTick = setAsyncInterval(tick, 500);
 };
 
-const connect = async (creds?: Credentials, authEntity?: string) => {
+const connect = async (creds?: Credential) => {
   $connectionStatus = 'connecting';
 
+  let sdkCreds = undefined;
+  const c = creds ?? bakedAuth.creds;
+  if (c) {
+    sdkCreds = {
+      type: c.type as CredentialType,
+      payload: c.payload,
+      authEntity: c.authEntity ?? bakedAuth.authEntity,
+    } satisfies Credential;
+  }
+
   await $robotClient.connect({
-    authEntity: authEntity ?? bakedAuth.authEntity,
-    creds: creds ?? bakedAuth.creds,
+    creds: sdkCreds,
     priority: 1,
   });
 
@@ -452,11 +473,14 @@ const connect = async (creds?: Credentials, authEntity?: string) => {
 };
 
 const login = async (authType: string) => {
-  const creds = { type: authType, payload: passwordByAuthType[authType] ?? '' };
+  const creds = {
+    type: authType as CredentialType,
+    payload: passwordByAuthType[authType] ?? '',
+    authEntity: authType === apiKeyAuthType ? apiKeyEntity : '',
+  };
 
-  const authEntity = authType === apiKeyAuthType ? apiKeyEntity : undefined;
   try {
-    await connect(creds, authEntity);
+    await connect(creds);
   } catch (error) {
     notify.danger(`failed to connect: ${error as string}`);
     $connectionStatus = 'idle';

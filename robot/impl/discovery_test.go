@@ -28,20 +28,20 @@ func setupLocalRobotWithFakeConfig(t *testing.T) robot.LocalRobot {
 var (
 	workingAPI   = resource.APINamespace("acme").WithComponentType("working-discovery")
 	workingModel = resource.DefaultModelFamily.WithModel("workingModel")
-	workingQ     = resource.NewDiscoveryQuery(workingAPI, workingModel)
+	workingQ     = resource.NewDiscoveryQuery(workingAPI, workingModel, nil)
 
 	failAPI   = resource.APINamespace("acme").WithComponentType("failing-discovery")
 	failModel = resource.DefaultModelFamily.WithModel("failModel")
-	failQ     = resource.NewDiscoveryQuery(failAPI, failModel)
+	failQ     = resource.NewDiscoveryQuery(failAPI, failModel, nil)
 
 	noDiscoverModel = resource.DefaultModelFamily.WithModel("nodiscoverModel")
-	noDiscoverQ     = resource.DiscoveryQuery{failAPI, noDiscoverModel}
+	noDiscoverQ     = resource.DiscoveryQuery{failAPI, noDiscoverModel, nil}
 
 	modManagerAPI   = resource.NewAPI("rdk-internal", "service", "module-manager")
 	modManagerModel = resource.NewModel("rdk-internal", "builtin", "module-manager")
-	modManagerQ     = resource.NewDiscoveryQuery(modManagerAPI, modManagerModel)
+	modManagerQ     = resource.NewDiscoveryQuery(modManagerAPI, modManagerModel, nil)
 
-	missingQ = resource.NewDiscoveryQuery(failAPI, resource.DefaultModelFamily.WithModel("missing"))
+	missingQ = resource.NewDiscoveryQuery(failAPI, resource.DefaultModelFamily.WithModel("missing"), nil)
 
 	workingDiscovery = map[string]interface{}{"position": "up"}
 	errFailed        = errors.New("can't get discovery")
@@ -54,7 +54,7 @@ func init() {
 		) (resource.Resource, error) {
 			return nil, errors.New("no")
 		},
-		Discover: func(ctx context.Context, logger logging.Logger) (interface{}, error) {
+		Discover: func(ctx context.Context, logger logging.Logger, extra map[string]any) (interface{}, error) {
 			return workingDiscovery, nil
 		},
 	})
@@ -65,7 +65,7 @@ func init() {
 		) (resource.Resource, error) {
 			return nil, errors.New("no")
 		},
-		Discover: func(ctx context.Context, logger logging.Logger) (interface{}, error) {
+		Discover: func(ctx context.Context, logger logging.Logger, extra map[string]interface{}) (interface{}, error) {
 			return nil, errFailed
 		},
 	})
@@ -90,7 +90,7 @@ func TestDiscovery(t *testing.T) {
 	t.Run("failing Discover", func(t *testing.T) {
 		r := setupLocalRobotWithFakeConfig(t)
 		_, err := r.DiscoverComponents(context.Background(), []resource.DiscoveryQuery{failQ})
-		test.That(t, err, test.ShouldBeError, &resource.DiscoverError{failQ})
+		test.That(t, err, test.ShouldBeError, &resource.DiscoverError{Query: failQ, Cause: errFailed})
 	})
 
 	t.Run("working Discover", func(t *testing.T) {

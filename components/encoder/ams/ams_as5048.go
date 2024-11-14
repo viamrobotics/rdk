@@ -17,7 +17,6 @@ import (
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -113,7 +112,7 @@ type Encoder struct {
 	i2cBus         buses.I2C
 	i2cAddr        byte
 	i2cBusName     string // This is nessesary to check whether we need to create a new i2cBus during reconfigure.
-	workers        rdkutils.StoppableWorkers
+	workers        *utils.StoppableWorkers
 }
 
 func newAS5048Encoder(
@@ -152,7 +151,7 @@ func makeAS5048Encoder(
 	if err := res.ResetPosition(ctx, map[string]interface{}{}); err != nil {
 		return nil, err
 	}
-	res.workers = rdkutils.NewStoppableWorkers(res.positionLoop)
+	res.workers = utils.NewBackgroundStoppableWorkers(res.positionLoop)
 	return res, nil
 }
 

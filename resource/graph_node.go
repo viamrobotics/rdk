@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"go.viam.com/rdk/ftdc"
 	"go.viam.com/rdk/logging"
 )
 
@@ -79,6 +80,10 @@ type GraphNode struct {
 	// stored the on the revision field.
 	pendingRevision string
 	revision        string
+
+	// unreachable is an informational field that indicates if a resource on a remote
+	// machine is disconnected.
+	unreachable bool
 }
 
 var (
@@ -108,7 +113,7 @@ func NewConfiguredGraphNode(config Config, res Resource, resModel Model) *GraphN
 	node := NewUninitializedNode()
 	node.SetNewConfig(config, nil)
 	node.setDependenciesResolved()
-	node.SwapResource(res, resModel)
+	node.SwapResource(res, resModel, nil)
 	return node
 }
 
@@ -169,9 +174,8 @@ func (w *GraphNode) TransitionedAt() time.Time {
 }
 
 // InitializeLogger initializes the logger object associated with this resource node.
-func (w *GraphNode) InitializeLogger(parent logging.Logger, subname string, level logging.Level) {
+func (w *GraphNode) InitializeLogger(parent logging.Logger, subname string) {
 	logger := parent.Sublogger(subname)
-	logger.SetLevel(level)
 	w.logger = logger
 }
 
@@ -179,15 +183,6 @@ func (w *GraphNode) InitializeLogger(parent logging.Logger, subname string, leve
 // passed into the `Constructor` when registering resources.
 func (w *GraphNode) Logger() logging.Logger {
 	return w.logger
-}
-
-// SetLogLevel changes the log level of the logger (if available). Processing configs is the main
-// entry point for changing log levels. Which will affect whether models making log calls are
-// suppressed or not.
-func (w *GraphNode) SetLogLevel(level logging.Level) {
-	if w.logger != nil {
-		w.logger.SetLevel(level)
-	}
 }
 
 // UnsafeResource always returns the underlying resource, if
@@ -239,7 +234,11 @@ func (w *GraphNode) UnsetResource() {
 // and indicate it no longer needs reconfiguration. SwapResource also
 // increments the graphLogicalClock and sets updatedAt for this GraphNode
 // to the new value.
-func (w *GraphNode) SwapResource(newRes Resource, newModel Model) {
+//
+// The `ftdc` input may be nil (e.g: testing). If present, this will also updates FTDC to
+// communicate that the `Stats` method may return different values. As we'll now be calling `Stats`
+// on a potentially different underlying `Model`.
+func (w *GraphNode) SwapResource(newRes Resource, newModel Model, ftdc *ftdc.FTDC) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.current = newRes
@@ -257,6 +256,15 @@ func (w *GraphNode) SwapResource(newRes Resource, newModel Model) {
 	}
 	now := time.Now()
 	w.lastReconfigured = &now
+
+	// Calling `Stats` acquires the `GraphNode.mu` (via the `Resource` method). This allows us to
+	// safely Remove->Add in one step instead of needing to Remove->SwapResource->Add.
+	if ftdc != nil {
+		// We call `Remove` followed by `Add` instead of only calling `Add`. Only calling `Add`
+		// would result in a warning that we're overriding an existing ftdc "system".
+		ftdc.Remove(newRes.Name().String())
+		ftdc.Add(newRes.Name().String(), w)
+	}
 }
 
 // MarkForRemoval marks this node for removal at a later time.
@@ -280,7 +288,7 @@ func (w *GraphNode) MarkedForRemoval() bool {
 // The additional `args` should come in key/value pairs for structured logging.
 func (w *GraphNode) LogAndSetLastError(err error, args ...any) {
 	w.mu.Lock()
-	w.lastErr = errors.Join(w.lastErr, err)
+	w.lastErr = err
 	w.transitionTo(NodeStateUnhealthy)
 	w.mu.Unlock()
 
@@ -353,6 +361,13 @@ func (w *GraphNode) UpdateRevision(revision string) {
 		w.pendingRevision = revision
 		w.revision = revision
 	}
+}
+
+func (w *GraphNode) markReachability(reachable bool) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	w.unreachable = !reachable
 }
 
 // SetNewConfig is used to inform the node that it has been modified
@@ -523,6 +538,14 @@ func (w *GraphNode) transitionTo(state NodeState) {
 		return
 	}
 
+	// if state of a node is [NodeStateRemoving] it cannot transition to [NodeStateUnhealthy] until it is removed.
+	// currently this is the only hard blocked transition
+	// note this does not block SwapResource from transitioning a removing resource to ready
+	if w.state == NodeStateRemoving && state == NodeStateUnhealthy {
+		w.logger.Debug("node cannot transition from [NodeStateRemoving] to [NodeStateUnhealthy], blocking transition")
+		return
+	}
+
 	if !w.canTransitionTo(state) && w.logger != nil {
 		w.logger.Warnw("unexpected resource state transition", "from", w.state.String(), "to", state.String())
 	}
@@ -539,15 +562,6 @@ func (w *GraphNode) ResourceStatus() Status {
 	return w.resourceStatus()
 }
 
-func (w *GraphNode) getLoggerOrGlobal() logging.Logger {
-	if w.logger == nil {
-		// This node has not yet been configured with a logger - use the global logger as
-		// a fall-back.
-		return logging.Global()
-	}
-	return w.logger
-}
-
 func (w *GraphNode) resourceStatus() Status {
 	var resName Name
 	if w.current == nil {
@@ -557,7 +571,7 @@ func (w *GraphNode) resourceStatus() Status {
 	}
 
 	err := w.lastErr
-	logger := w.getLoggerOrGlobal()
+	logger := w.Logger()
 
 	// check invariants between state and error
 	switch {
@@ -576,6 +590,36 @@ func (w *GraphNode) resourceStatus() Status {
 		Revision:    w.revision,
 		Error:       err,
 	}
+}
+
+type graphNodeStats struct {
+	State    int
+	ResStats any
+}
+
+// Stats satisfies the FTDC Statser interface.
+func (w *GraphNode) Stats() any {
+	ret := graphNodeStats{}
+
+	res, err := w.Resource()
+	//nolint:errorlint
+	switch err {
+	case nil:
+		ret.State = 0
+	case errNotInitalized:
+		ret.State = 1
+	case errPendingRemoval:
+		ret.State = 2
+	default:
+		// `w.lastErr != nil`
+		ret.State = 3
+	}
+
+	if statser, isStatser := res.(ftdc.Statser); isStatser && err == nil {
+		ret.ResStats = statser.Stats()
+	}
+
+	return ret
 }
 
 // Status encapsulates a resource name along with state transition metadata.

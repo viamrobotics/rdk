@@ -54,6 +54,95 @@ func newPlanManager(
 	return &planManager{planner: p, frame: frame, useTPspace: len(frame.PTGSolvers()) > 0}, nil
 }
 
+// PlanMultiWaypoint plans a motion through multiple waypoints, using identical constraints for each
+// Unlike PlanSingleWaypoint, this does not break up individual.
+func (pm *planManager) PlanMultiWaypoint(ctx context.Context, request *PlanRequest, goals []spatialmath.Pose) (Plan, error) {
+	if pm.useTPspace {
+		return nil, errors.New("TPspace does not support multi-waypoint planning")
+	}
+
+	if request.StartPose != nil {
+		request.Logger.Warn("plan request passed a start pose, but non-relative plans will use the pose from transforming StartConfiguration")
+	}
+	seed, err := pm.frame.mapToSlice(request.StartConfiguration)
+	if err != nil {
+		return nil, err
+	}
+	startPose, err := pm.frame.Transform(seed)
+	if err != nil {
+		return nil, err
+	}
+
+	var cancel func()
+
+	request.Logger.CInfof(ctx,
+		"planning motion for frame %s\nGoal: %v\nStarting seed map %v\n, startPose %v\n, worldstate: %v\n",
+		request.Frame.Name(),
+		referenceframe.PoseInFrameToProtobuf(request.Goal),
+		request.StartConfiguration,
+		spatialmath.PoseToProtobuf(startPose),
+		request.WorldState.String(),
+	)
+
+	// set timeout for entire planning process if specified
+	if timeout, ok := request.Options["timeout"].(float64); ok {
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout*float64(time.Second)))
+	}
+	if cancel != nil {
+		defer cancel()
+	}
+
+	goalPos := request.Goal.Pose()
+	// If we are world rooted, translate the goal pose into the world frame
+	if pm.frame.worldRooted {
+		tf, err := pm.frame.fss.Transform(request.StartConfiguration, request.Goal, referenceframe.World)
+		if err != nil {
+			return nil, err
+		}
+		goalPos = tf.(*referenceframe.PoseInFrame).Pose()
+	}
+	goals = append(goals, goalPos)
+
+	planners := make([]motionPlanner, len(goals))
+	for i, goal := range goals {
+		opt, err := pm.plannerSetupFromMoveRequest(
+			startPose,
+			goal,
+			request.StartConfiguration,
+			request.WorldState,
+			request.BoundingRegions,
+			request.Constraints,
+			request.Options,
+		)
+		if err != nil {
+			return nil, err
+		}
+		opt.SetGoal(goal)
+
+		//nolint: gosec
+		pathPlanner, err := opt.PlannerConstructor(
+			pm.frame,
+			rand.New(rand.NewSource(int64(pm.randseed.Int()))),
+			pm.logger,
+			opt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		planners[i] = pathPlanner
+
+		startPose = goal // Update startPose for the next iteration
+	}
+
+	plan, err := pm.planAtomicWaypoints(ctx, goals, seed, planners, nil)
+	pm.activeBackgroundWorkers.Wait()
+	if err != nil {
+		return nil, fmt.Errorf("failed to plan path for valid goals: %w", err)
+	}
+
+	return plan, nil
+}
+
 // PlanSingleWaypoint will solve the solver frame to one individual pose. If you have multiple waypoints to hit, call this multiple times.
 // Any constraints, etc, will be held for the entire motion.
 func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequest, seedPlan Plan) (Plan, error) {
@@ -223,6 +312,7 @@ func (pm *planManager) planAtomicWaypoints(
 
 	// try to solve each goal, one at a time
 	for i, goal := range goals {
+		pm.logger.Debug("start planning for ", spatialmath.PoseToProtobuf(goal))
 		// Check if ctx is done between each waypoint
 		select {
 		case <-ctx.Done():
@@ -250,11 +340,12 @@ func (pm *planManager) planAtomicWaypoints(
 
 	// All goals have been submitted for solving. Reconstruct in order
 	resultSlices := []node{}
-	for _, future := range resultPromises {
+	for i, future := range resultPromises {
 		steps, err := future.result()
 		if err != nil {
 			return nil, err
 		}
+		pm.logger.Debug("completed planning for ", spatialmath.PoseToProtobuf(goals[i]))
 		resultSlices = append(resultSlices, steps...)
 	}
 

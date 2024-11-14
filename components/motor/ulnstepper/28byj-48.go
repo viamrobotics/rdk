@@ -25,13 +25,13 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/utils"
 )
 
 var (
@@ -165,7 +165,7 @@ type uln28byj struct {
 	motorName          string
 
 	// state
-	workers   utils.StoppableWorkers
+	workers   *utils.StoppableWorkers
 	lock      sync.Mutex
 	opMgr     *operation.SingleOperationManager
 	doRunDone func()
@@ -185,7 +185,7 @@ func (m *uln28byj) doRun() {
 	// start a new doRun
 	var doRunCtx context.Context
 	doRunCtx, m.doRunDone = context.WithCancel(context.Background())
-	m.workers = utils.NewStoppableWorkers(func(ctx context.Context) {
+	m.workers = utils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
 		for {
 			select {
 			case <-doRunCtx.Done():
@@ -293,8 +293,13 @@ func (m *uln28byj) GoFor(ctx context.Context, rpm, revolutions float64, extra ma
 		m.logger.CWarn(ctx, warning)
 		if err != nil {
 			m.logger.CError(ctx, err)
+			// only stop if we receive a zero RPM error
+			return m.Stop(ctx, extra)
 		}
-		return m.Stop(ctx, extra)
+		// we do not get the zeroRPM error, but still want
+		// the motor to move at the maximum rpm
+		m.logger.CWarnf(ctx, "can only move at maxRPM of %v", maxRPM)
+		rpm = maxRPM * motor.GetSign(rpm)
 	}
 
 	targetStepPosition, stepperDelay := m.goMath(rpm, revolutions)
@@ -372,12 +377,15 @@ func (m *uln28byj) SetRPM(ctx context.Context, rpm float64, extra map[string]int
 
 // Set the current position (+/- offset) to be the new zero (home) position.
 func (m *uln28byj) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
+	newPosition := int64(-1 * offset * float64(m.ticksPerRotation))
+	// use Stop to set the target position to the current position again
 	if err := m.Stop(ctx, extra); err != nil {
 		return err
 	}
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	m.stepPosition = int64(-1 * offset * float64(m.ticksPerRotation))
+	m.stepPosition = newPosition
+	m.targetStepPosition = newPosition
 	return nil
 }
 
@@ -391,13 +399,16 @@ func (m *uln28byj) SetPower(ctx context.Context, powerPct float64, extra map[str
 		m.logger.CWarn(ctx, warning)
 		if err != nil {
 			m.logger.CError(ctx, err)
+			// only stop if we receive a zero RPM error
+			return m.Stop(ctx, extra)
 		}
-		return m.Stop(ctx, extra)
 	}
 
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	m.targetStepPosition = int64(math.Inf(int(powerPct)))
+	direction := motor.GetSign(powerPct) // get the direction to set target to -ve/+ve Inf
+	m.targetStepPosition = int64(math.Inf(int(direction)))
+	powerPct = motor.ClampPower(powerPct) // ensure 1.0 max and -1.0 min
 	m.stepperDelay = m.calcStepperDelay(powerPct * maxRPM)
 
 	m.doRun()
@@ -432,6 +443,9 @@ func (m *uln28byj) Stop(ctx context.Context, extra map[string]interface{}) error
 	if m.doRunDone != nil {
 		m.doRunDone()
 	}
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	m.targetStepPosition = m.stepPosition
 	return nil
 }
 

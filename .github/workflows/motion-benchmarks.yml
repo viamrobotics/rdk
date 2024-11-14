@@ -35,30 +35,30 @@ jobs:
 
     - name: Run motion quality tests on main branch
       shell: bash
-      env: 
+      env:
         URL: ${{ github.event.pull_request.base.repo.html_url }}
         SHA: ${{ github.event.pull_request.base.sha }}
       run: |
         cd motion-testing
         go mod edit -replace go.viam.com/rdk=${URL#"https://"}@$SHA
         sudo -Hu testbot bash -lc "go mod tidy && go test ./... -v -run TestDefault --name=$BASELINE"
-        
+
     - name: Run motion quality tests on PR branch
       shell: bash
-      env: 
+      env:
         URL: ${{ github.event.pull_request.head.repo.html_url }}
         SHA: ${{ github.event.pull_request.head.sha }}
       run: |
         cd motion-testing
         go mod edit -replace go.viam.com/rdk=${URL#"https://"}@$SHA
         sudo -Hu testbot bash -lc "go mod tidy && go test ./... -v -run TestDefault --name=$MODIFIED"
-        
+
     - name: Print results
       run: |
         cd motion-testing
         sudo -Hu testbot bash -lc "go test ./... -v -run TestScores --baselineDir=$BASELINE --modifiedDir=$MODIFIED"
         cat results/motion-benchmarks.md
- 
+
     # Now that RDK is public, can't directly comment without token having full read/write access
     # motion-benchmarks-comment.yml will trigger seperately and post the actual comments
 
@@ -67,7 +67,7 @@ jobs:
         echo "PR_NUMBER=${{ github.event.pull_request.number }}" >> pr.env
 
     - name: Upload results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: pr-motion-benchmark
         path: |

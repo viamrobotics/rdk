@@ -17,6 +17,7 @@ import (
 	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 	"go.viam.com/utils/jwks"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
@@ -167,13 +168,13 @@ func TestConfigWithLogDeclarations(t *testing.T) {
 	// log configure for builtin fake motors would apply for a log level of `warn`. This "overlayed"
 	// log level is not applied at config parsing time.
 	test.That(t, cfg.Components[2].Name, test.ShouldEqual, "right_motor")
-	test.That(t, cfg.Components[2].LogConfiguration.Level, test.ShouldEqual, logging.INFO)
+	test.That(t, cfg.Components[2].LogConfiguration, test.ShouldBeNil)
 
 	// The wheeled base is also left unconfigured. The global log configuration for things
 	// implementing the `base` API is `error`. This "overlayed" log level is not applied at config
 	// parsing time.
 	test.That(t, cfg.Components[3].Name, test.ShouldEqual, "wheeley")
-	test.That(t, cfg.Components[3].LogConfiguration.Level, test.ShouldEqual, logging.INFO)
+	test.That(t, cfg.Components[3].LogConfiguration, test.ShouldBeNil)
 
 	test.That(t, len(cfg.Services), test.ShouldEqual, 2)
 	// The slam service has a log level of `WARN`. Note the upper case.
@@ -182,7 +183,7 @@ func TestConfigWithLogDeclarations(t *testing.T) {
 
 	// The data manager service is left unconfigured.
 	test.That(t, cfg.Services[1].Name, test.ShouldEqual, "dm")
-	test.That(t, cfg.Services[1].LogConfiguration.Level, test.ShouldEqual, logging.INFO)
+	test.That(t, cfg.Services[1].LogConfiguration, test.ShouldBeNil)
 }
 
 func TestConfigEnsure(t *testing.T) {
@@ -390,7 +391,8 @@ func TestConfigEnsure(t *testing.T) {
 	validAPIKeyHandler := config.AuthHandlerConfig{
 		Type: rpc.CredentialsTypeAPIKey,
 		Config: rutils.AttributeMap{
-			"key": "foo",
+			"key":  "foo",
+			"keys": []string{"key"},
 		},
 	}
 
@@ -429,7 +431,7 @@ func TestConfigEnsure(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `auth.handlers.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `required`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `key`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `keys`)
 
 	validAPIKeyHandler.Config = rutils.AttributeMap{
 		"keys": []string{"one", "two"},
@@ -609,7 +611,8 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 	validAPIKeyHandler := config.AuthHandlerConfig{
 		Type: rpc.CredentialsTypeAPIKey,
 		Config: rutils.AttributeMap{
-			"key": "foo",
+			"key":  "foo",
+			"keys": []string{"key"},
 		},
 	}
 
@@ -648,7 +651,7 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `auth.handlers.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `required`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `key`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `keys`)
 
 	validAPIKeyHandler.Config = rutils.AttributeMap{
 		"keys": []string{"one", "two"},
@@ -725,29 +728,8 @@ func TestCopyOnlyPublicFields(t *testing.T) {
 	})
 }
 
-func TestNewTLSConfig(t *testing.T) {
-	for _, tc := range []struct {
-		TestName     string
-		Config       *config.Config
-		HasTLSConfig bool
-	}{
-		{TestName: "no cloud", Config: &config.Config{}, HasTLSConfig: false},
-		{TestName: "cloud but no cert", Config: &config.Config{Cloud: &config.Cloud{TLSCertificate: ""}}, HasTLSConfig: false},
-		{TestName: "cloud and cert", Config: &config.Config{Cloud: &config.Cloud{TLSCertificate: "abc"}}, HasTLSConfig: true},
-	} {
-		t.Run(tc.TestName, func(t *testing.T) {
-			observed := config.NewTLSConfig(tc.Config)
-			if tc.HasTLSConfig {
-				test.That(t, observed.MinVersion, test.ShouldEqual, tls.VersionTLS12)
-			} else {
-				test.That(t, observed, test.ShouldResemble, &config.TLSConfig{})
-			}
-		})
-	}
-}
-
-func TestUpdateCert(t *testing.T) {
-	t.Run("cert update", func(t *testing.T) {
+func TestCreateTLSWithCert(t *testing.T) {
+	t.Run("create TLS cert", func(t *testing.T) {
 		cfg := &config.Config{
 			Cloud: &config.Cloud{
 				TLSCertificate: `-----BEGIN CERTIFICATE-----
@@ -773,8 +755,7 @@ ph2C/7IgjA==
 		cert, err := tls.X509KeyPair([]byte(cfg.Cloud.TLSCertificate), []byte(cfg.Cloud.TLSPrivateKey))
 		test.That(t, err, test.ShouldBeNil)
 
-		tlsCfg := config.NewTLSConfig(cfg)
-		err = tlsCfg.UpdateCert(cfg)
+		tlsCfg, err := config.CreateTLSWithCert(cfg)
 		test.That(t, err, test.ShouldBeNil)
 
 		observed, err := tlsCfg.GetCertificate(&tls.ClientHelloInfo{})
@@ -783,8 +764,7 @@ ph2C/7IgjA==
 	})
 	t.Run("cert error", func(t *testing.T) {
 		cfg := &config.Config{Cloud: &config.Cloud{TLSCertificate: "abcd", TLSPrivateKey: "abcd"}}
-		tlsCfg := &config.TLSConfig{}
-		err := tlsCfg.UpdateCert(cfg)
+		_, err := config.CreateTLSWithCert(cfg)
 		test.That(t, err, test.ShouldBeError, errors.New("tls: failed to find any PEM data in certificate input"))
 	})
 }
@@ -860,15 +840,14 @@ ph2C/7IgjA==
 	expectedRemoteDiffManagerNoCloud := remoteDiffManager
 	expectedRemoteDiffManagerNoCloud.Auth = expectedRemoteAuthNoCloud
 
-	tlsCfg := &config.TLSConfig{}
-	err := tlsCfg.UpdateCert(cloudWTLSCfg)
+	tlsCfg, err := config.CreateTLSWithCert(cloudWTLSCfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	expectedCloudWTLSCfg := &config.Config{Cloud: cloudWTLS, Remotes: []config.Remote{}}
-	expectedCloudWTLSCfg.Network.TLSConfig = tlsCfg.Config
+	expectedCloudWTLSCfg.Network.TLSConfig = tlsCfg
 
 	expectedRemotesCloudWTLSCfg := &config.Config{Cloud: cloudWTLS, Remotes: []config.Remote{expectedRemoteCloud, remoteDiffManager}}
-	expectedRemotesCloudWTLSCfg.Network.TLSConfig = tlsCfg.Config
+	expectedRemotesCloudWTLSCfg.Network.TLSConfig = tlsCfg
 
 	for _, tc := range []struct {
 		TestName string
@@ -891,15 +870,26 @@ ph2C/7IgjA==
 		{TestName: "remotes cloud and cert", Config: remotesCloudWTLSCfg, Expected: expectedRemotesCloudWTLSCfg},
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
-			observed, err := config.ProcessConfig(tc.Config, &config.TLSConfig{})
+			observed, err := config.ProcessConfig(tc.Config)
 			test.That(t, err, test.ShouldBeNil)
+			// TLSConfig holds funcs, which do not resemble each other so check separately and nil them out after.
+			if tc.Expected.Network.TLSConfig != nil {
+				obsCert, err := observed.Network.TLSConfig.GetCertificate(nil)
+				test.That(t, err, test.ShouldBeNil)
+				expCert, err := tc.Expected.Network.TLSConfig.GetCertificate(nil)
+				test.That(t, err, test.ShouldBeNil)
+
+				test.That(t, obsCert, test.ShouldResemble, expCert)
+				tc.Expected.Network.TLSConfig = nil
+				observed.Network.TLSConfig = nil
+			}
 			test.That(t, observed, test.ShouldResemble, tc.Expected)
 		})
 	}
 
 	t.Run("cert error", func(t *testing.T) {
 		cfg := &config.Config{Cloud: &config.Cloud{TLSCertificate: "abcd", TLSPrivateKey: "abcd"}}
-		_, err := config.ProcessConfig(cfg, &config.TLSConfig{})
+		_, err := config.ProcessConfig(cfg)
 		test.That(t, err, test.ShouldBeError, errors.New("tls: failed to find any PEM data in certificate input"))
 	})
 }
@@ -928,8 +918,11 @@ func TestAuthConfigEnsure(t *testing.T) {
 			Auth: config.AuthConfig{
 				Handlers: []config.AuthHandlerConfig{
 					{
-						Type:   rpc.CredentialsTypeAPIKey,
-						Config: rutils.AttributeMap{"key": "abc123"},
+						Type: rpc.CredentialsTypeAPIKey,
+						Config: rutils.AttributeMap{
+							"abc123": "abc123",
+							"keys":   []string{"abc123"},
+						},
 					},
 				},
 			},
@@ -1226,4 +1219,72 @@ func TestConfigRobotRevision(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, cfg.Revision, test.ShouldEqual, "rev1")
+}
+
+func TestConfigJSONMarshalRoundtrip(t *testing.T) {
+	type testcase struct {
+		name     string
+		c        config.Config
+		expected config.Config
+	}
+
+	for _, tc := range []testcase{
+		{
+			name: "maintenance config",
+			c: config.Config{
+				MaintenanceConfig: &config.MaintenanceConfig{
+					SensorName:            "SensorName",
+					MaintenanceAllowedKey: "Key",
+				},
+			},
+			expected: config.Config{
+				MaintenanceConfig: &config.MaintenanceConfig{
+					SensorName:            "SensorName",
+					MaintenanceAllowedKey: "Key",
+				},
+			},
+		},
+		{
+			name: "module",
+			c: config.Config{
+				Modules: []config.Module{
+					{
+						Name:            "ModuleName",
+						ExePath:         "ExecutablePath",
+						LogLevel:        "WARN",
+						Type:            config.ModuleTypeLocal,
+						ModuleID:        "ModuleID",
+						Environment:     map[string]string{"KEY": "VAL"},
+						FirstRunTimeout: utils.Duration(5 * time.Minute),
+						Status:          &config.AppValidationStatus{Error: "durrr"},
+					},
+				},
+			},
+			expected: config.Config{
+				Modules: []config.Module{
+					{
+						Name:            "ModuleName",
+						ExePath:         "ExecutablePath",
+						LogLevel:        "WARN",
+						Type:            config.ModuleTypeLocal,
+						ModuleID:        "ModuleID",
+						FirstRunTimeout: utils.Duration(5 * time.Minute),
+						Environment:     map[string]string{"KEY": "VAL"},
+						Status:          &config.AppValidationStatus{Error: "durrr"},
+					},
+				},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := tc.c
+
+			data, err := c.MarshalJSON()
+			test.That(t, err, test.ShouldBeNil)
+
+			err = c.UnmarshalJSON(data)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, c, test.ShouldResemble, tc.expected)
+		})
+	}
 }

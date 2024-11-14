@@ -1,15 +1,15 @@
 <script lang="ts">
-import { onDestroy, onMount } from 'svelte';
-import { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
-import { ConnectionClosedError } from '@viamrobotics/rpc';
-import {
-  inputControllerApi as InputController,
-  type ServiceError,
-} from '@viamrobotics/sdk';
-import { notify } from '@viamrobotics/prime';
-import { rcLogConditionally } from '@/lib/log';
-import Collapse from '@/lib/components/collapse.svelte';
 import { useRobotClient } from '@/hooks/robot-client';
+import Collapse from '@/lib/components/collapse.svelte';
+import { rcLogConditionally } from '@/lib/log';
+import { notify } from '@viamrobotics/prime';
+import {
+  ConnectError,
+  ConnectionClosedError,
+  inputControllerApi as InputController,
+  Timestamp,
+} from '@viamrobotics/sdk';
+import { onDestroy, onMount } from 'svelte';
 
 export let name: string;
 
@@ -49,42 +49,36 @@ const sendEvent = (newEvent: InputController.Event) => {
   if (!enabled) {
     return;
   }
-  const req = new InputController.TriggerEventRequest();
-  req.setController(name);
-  req.setEvent(newEvent);
+  const req = new InputController.TriggerEventRequest({
+    controller: name,
+    event: newEvent,
+  });
   rcLogConditionally(req);
-  $robotClient.inputControllerService.triggerEvent(
-    req,
-    (error: ServiceError | null) => {
-      if (error) {
-        if (ConnectionClosedError.isError(error)) {
-          return;
-        }
-        const now = Date.now();
-        if (now - lastError > 1000) {
-          lastError = now;
-          notify.danger(error.message);
-        }
+  $robotClient.inputControllerService.triggerEvent(req).catch((error) => {
+    if (error instanceof ConnectionClosedError) {
+      return;
+    }
+    if (error instanceof ConnectError) {
+      const now = Date.now();
+      if (now - lastError > 1000) {
+        lastError = now;
+        notify.danger(error.message);
       }
     }
-  );
+  });
 };
 
 let lastTS = Timestamp.fromDate(new Date());
 const nextTS = () => {
   let nowTS = Timestamp.fromDate(new Date());
   if (
-    lastTS.getSeconds() > nowTS.getSeconds() ||
-    (lastTS.getSeconds() === nowTS.getSeconds() &&
-      lastTS.getNanos() > nowTS.getNanos())
+    lastTS.seconds > nowTS.seconds ||
+    (lastTS.seconds === nowTS.seconds && lastTS.nanos > nowTS.nanos)
   ) {
     nowTS = lastTS;
   }
-  if (
-    nowTS.getSeconds() === lastTS.getSeconds() &&
-    nowTS.getNanos() === lastTS.getNanos()
-  ) {
-    nowTS.setNanos(nowTS.getNanos() + 1);
+  if (nowTS.seconds === lastTS.seconds && nowTS.nanos === lastTS.nanos) {
+    nowTS.nanos += 1;
   }
   lastTS = nowTS;
   return nowTS;
@@ -105,17 +99,16 @@ const connectEvent = (con: boolean) => {
   const nowTS = nextTS();
   try {
     for (const ctrl of Object.keys(curStates)) {
-      const newEvent = new InputController.Event();
-      nowTS.setNanos(nowTS.getNanos() + 1);
-      newEvent.setTime(nowTS);
-      newEvent.setEvent(con ? 'Connect' : 'Disconnect');
-      newEvent.setValue(0);
+      nowTS.nanos += 1;
+      const newEvent = new InputController.Event({
+        time: nowTS,
+        event: con ? 'Connect' : 'Disconnect',
+        value: 0,
+      });
 
-      if (/X|Y|Z$/u.test(ctrl)) {
-        newEvent.setControl(`Absolute${ctrl}`);
-      } else {
-        newEvent.setControl(`Button${ctrl}`);
-      }
+      newEvent.control = /X|Y|Z$/u.test(ctrl)
+        ? `Absolute${ctrl}`
+        : `Button${ctrl}`;
 
       sendEvent(newEvent);
     }
@@ -151,21 +144,21 @@ const processEvents = (connected: boolean) => {
         continue;
       }
       const newEvent = new InputController.Event();
-      nowTS.setNanos(nowTS.getNanos() + 1);
-      newEvent.setTime(nowTS);
+      nowTS.nanos += 1;
+      newEvent.time = nowTS;
       if (/X|Y|Z$/u.test(key)) {
-        newEvent.setControl(`Absolute${key}`);
-        newEvent.setEvent('PositionChangeAbs');
+        newEvent.control = `Absolute${key}`;
+        newEvent.event = 'PositionChangeAbs';
       } else {
-        newEvent.setControl(`Button${key}`);
-        newEvent.setEvent(value ? 'ButtonPress' : 'ButtonRelease');
+        newEvent.control = `Button${key}`;
+        newEvent.event = value ? 'ButtonPress' : 'ButtonRelease';
       }
 
       if (Number.isNaN(value)) {
-        newEvent.setEvent('Disconnect');
-        newEvent.setValue(0);
+        newEvent.event = 'Disconnect';
+        newEvent.value = 0;
       } else {
-        newEvent.setValue(value);
+        newEvent.value = value;
       }
       sendEvent(newEvent);
     }

@@ -11,9 +11,6 @@ TAG_VERSION?=$(shell git tag --points-at | sort -Vr | head -n1)
 DATE_COMPILED?=$(shell date +'%Y-%m-%d')
 COMMON_LDFLAGS = -s -w -X 'go.viam.com/rdk/config.Version=${TAG_VERSION}' -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}' -X 'go.viam.com/rdk/config.DateCompiled=${DATE_COMPILED}'
 LDFLAGS = -ldflags "-extld=$(shell pwd)/etc/ld_wrapper.sh $(COMMON_LDFLAGS)"
-ifeq ($(shell command -v dpkg >/dev/null && dpkg --print-architecture),armhf)
-GOFLAGS += -tags=no_tflite
-endif
 
 default: build lint server
 
@@ -92,11 +89,6 @@ test-go-no-race: tool-install
 
 test-web:
 	npm run test:unit --prefix web/frontend
-
-# test.short skips tests requiring external hardware (motors/servos)
-test-pi:
-	go test -c -o $(BIN_OUTPUT_PATH)/test-pi go.viam.com/rdk/components/board/pi/impl
-	sudo $(BIN_OUTPUT_PATH)/test-pi -test.short -test.v
 
 test-e2e:
 	go build $(LDFLAGS) -o bin/test-e2e/server web/cmd/server/main.go

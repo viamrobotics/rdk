@@ -27,9 +27,14 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 	// If an orientation movement sensor or controls are not configured, we cannot use this Spin method.
 	// Instead we need to use the Spin method of the base that the sensorBase wraps.
 	// If there is no valid velocity sensor, there won't be a controlLoopConfig.
-	if len(sb.controlLoopConfig.Blocks) == 0 {
+	if sb.controlLoopConfig == nil {
 		sb.logger.CWarnf(ctx, "control parameters not configured, using %v's Spin method", sb.controlledBase.Name().ShortName())
 		return sb.controlledBase.Spin(ctx, angleDeg, degsPerSec, extra)
+	}
+
+	// check tuning status
+	if err := sb.checkTuningStatus(); err != nil {
+		return err
 	}
 
 	prevAngle, hasOrientation, err := sb.headingFunc(ctx)
@@ -82,9 +87,10 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 
 		select {
 		case <-ctx.Done():
-			// do not return context canceled errors, just log them
+			// context.cancelled can happen due to UI being closed during Spin.
+			// Do not return context canceled errors, just log them
 			if errors.Is(ctx.Err(), context.Canceled) {
-				sb.logger.Error(ctx.Err())
+				sb.logger.Warn("Context cancelled during Spin ", ctx.Err())
 				return nil
 			}
 			return err

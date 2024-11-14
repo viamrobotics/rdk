@@ -1,4 +1,7 @@
 // Package input provides human input, such as buttons, switches, knobs, gamepads, joysticks, keyboards, mice, etc.
+// For more information, see the [input controller component docs].
+//
+// [input controller component docs]: https://docs.viam.com/components/input-controller/
 package input
 
 import (
@@ -33,15 +36,20 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
-// Controller is a logical "container" more than an actual device
-// Could be a single gamepad, or a collection of digitalInterrupts and analogReaders, a keyboard, etc.
+// Controller is a logical "container" more than an actual device.
+// It could be a single gamepad, or a collection of digitalInterrupts and analogReaders, a keyboard, etc.
+// For more information, see the [input controller component docs].
 //
 // Controls example:
+//
+//	myController, err := input.FromRobot(machine, "my_input_controller")
 //
 //	// Get the list of Controls provided by the controller.
 //	controls, err := myController.Controls(context.Background(), nil)
 //
 // Events example:
+//
+//	myController, err := input.FromRobot(machine, "my_input_controller")
 //
 //	// Get the most recent Event for each Control.
 //	recent_events, err := myController.Events(context.Background(), nil)
@@ -53,17 +61,23 @@ func Named(name string) resource.Name {
 //	    logger.Info("Start Menu Button was pressed at this time: %v", event.Time)
 //	}
 //
+//	myController, err := input.FromRobot(machine, "my_input_controller")
+//
 //	// Define the EventType "ButtonPress" to serve as the trigger for printStartTime.
 //	triggers := []input.EventType{input.ButtonPress}
 //
 //	// Get the controller's Controls.
-//	controls, err := controller.Controls(ctx, nil)
+//	controls, err := myController.Controls(context.Background(), nil)
 //
-//	// If the "ButtonStart" Control is found, trigger printStartTime when "ButtonStart" the event "ButtonPress" occurs.
+//	// If the "ButtonStart" Control is found, trigger printStartTime when on "ButtonStart" the event "ButtonPress" occurs.
 //	if !slices.Contains(controls, input.ButtonStart) {
-//	    return errors.New("button `ButtonStart` not found; controller may be disconnected")
+//	    logger.Error("button 'ButtonStart' not found; controller may be disconnected")
+//	    return
 //	}
-//	Mycontroller.RegisterControlCallback(context.Background(), input.ButtonStart, triggers, printStartTime, nil)
+//
+//	myController.RegisterControlCallback(context.Background(), input.ButtonStart, triggers, printStartTime, nil)
+//
+// [input controller component docs]: https://docs.viam.com/components/input-controller/
 type Controller interface {
 	resource.Resource
 

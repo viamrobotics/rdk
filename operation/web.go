@@ -56,7 +56,16 @@ func (m *Manager) UnaryServerInterceptor(
 	ctx, done := m.CreateFromIncomingContext(ctx, info.FullMethod)
 	defer done()
 	if op := Get(ctx); op != nil && op.ID.String() != "" {
-		utils.UncheckedError(grpc.SetHeader(ctx, metadata.MD{opidMetadataKey: []string{op.ID.String()}}))
+		// SetHeader will occasionally error because of a data race if the request has been cancelled from client side.
+		// The cancel signal (RST_STREAM) is processed on a separate goroutine and will close the existing gRPC stream,
+		// which will end up writing headers and returning a message to the server. If headers were sent before SetHeader
+		// is called here, SetHeader will error.
+		// Since the behavior is expected and part of the gRPC stream closing, only log the error if it is unexpected
+		// (the context error is nil, meaning request wasn't cancelled).
+		if err := grpc.SetHeader(ctx, metadata.MD{opidMetadataKey: []string{op.ID.String()}}); err != nil &&
+			ctx.Err() == nil {
+			m.logger.CDebugw(ctx, "error while setting header", "err", err)
+		}
 	}
 	return handler(ctx, req)
 }

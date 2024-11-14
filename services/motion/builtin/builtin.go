@@ -3,13 +3,16 @@ package builtin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
 
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	pb "go.viam.com/api/service/motion/v1"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
@@ -23,12 +26,7 @@ import (
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
-	rdkutils "go.viam.com/rdk/utils"
-)
-
-var (
-	stateTTL              = time.Hour * 24
-	stateTTLCheckInterval = time.Minute
+	"go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -46,6 +44,12 @@ func init() {
 	)
 }
 
+// export keys to be used with DoCommand so they can be referenced by clients.
+const (
+	DoPlan    = "plan"
+	DoExecute = "execute"
+)
+
 const (
 	builtinOpLabel                     = "motion-service"
 	maxTravelDistanceMM                = 5e6 // this is equivalent to 5km
@@ -62,12 +66,17 @@ var (
 	defaultObstaclePollingHz = 1.
 )
 
+var (
+	stateTTL              = time.Hour * 24
+	stateTTLCheckInterval = time.Minute
+)
+
 // inputEnabledActuator is an actuator that interacts with the frame system.
 // This allows us to figure out where the actuator currently is and then
 // move it. Input units are always in meters or radians.
 type inputEnabledActuator interface {
 	resource.Actuator
-	referenceframe.InputEnabled
+	framesystem.InputEnabled
 }
 
 // Config describes how to configure the service; currently only used for specifying dependency on framesystem service.
@@ -109,7 +118,7 @@ func (ms *builtIn) Reconfigure(
 		return err
 	}
 	if config.LogFilePath != "" {
-		logger, err := rdkutils.NewFilePathDebugLogger(config.LogFilePath, "motion")
+		logger, err := utils.NewFilePathDebugLogger(config.LogFilePath, "motion")
 		if err != nil {
 			return err
 		}
@@ -170,84 +179,17 @@ func (ms *builtIn) Close(ctx context.Context) error {
 	return nil
 }
 
-// Move takes a goal location and will plan and execute a movement to move a component specified by its name to that destination.
-func (ms *builtIn) Move(
-	ctx context.Context,
-	componentName resource.Name,
-	destination *referenceframe.PoseInFrame,
-	worldState *referenceframe.WorldState,
-	constraints *motionplan.Constraints,
-	extra map[string]interface{},
-) (bool, error) {
+func (ms *builtIn) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
-	// get goal frame
-	goalFrameName := destination.Parent()
-	ms.logger.CDebugf(ctx, "goal given in frame of %q", goalFrameName)
-
-	frameSys, err := ms.fsService.FrameSystem(ctx, worldState.Transforms())
+	plan, err := ms.plan(ctx, req)
 	if err != nil {
 		return false, err
 	}
-
-	// build maps of relevant components and inputs from initial inputs
-	fsInputs, resources, err := ms.fsService.CurrentInputs(ctx)
-	if err != nil {
-		return false, err
-	}
-
-	movingFrame := frameSys.Frame(componentName.ShortName())
-
-	ms.logger.CDebugf(ctx, "frame system inputs: %v", fsInputs)
-	if movingFrame == nil {
-		return false, fmt.Errorf("component named %s not found in robot frame system", componentName.ShortName())
-	}
-
-	// re-evaluate goalPose to be in the frame of World
-	solvingFrame := referenceframe.World // TODO(erh): this should really be the parent of rootName
-	tf, err := frameSys.Transform(fsInputs, destination, solvingFrame)
-	if err != nil {
-		return false, err
-	}
-	goalPose, _ := tf.(*referenceframe.PoseInFrame)
-
-	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
-	plan, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
-		Logger:             ms.logger,
-		Goal:               goalPose,
-		Frame:              movingFrame,
-		StartConfiguration: fsInputs,
-		FrameSystem:        frameSys,
-		WorldState:         worldState,
-		Constraints:        constraints,
-		Options:            extra,
-	})
-	if err != nil {
-		return false, err
-	}
-
-	// move all the components
-	for _, step := range plan.Trajectory() {
-		for name, inputs := range step {
-			if len(inputs) == 0 {
-				continue
-			}
-			r := resources[name]
-			if err := r.GoToInputs(ctx, inputs); err != nil {
-				// If there is an error on GoToInputs, stop the component if possible before returning the error
-				if actuator, ok := r.(inputEnabledActuator); ok {
-					if stopErr := actuator.Stop(ctx, nil); stopErr != nil {
-						return false, errors.Wrap(err, stopErr.Error())
-					}
-				}
-				return false, err
-			}
-		}
-	}
-	return true, nil
+	err = ms.execute(ctx, plan.Trajectory())
+	return err == nil, err
 }
 
 func (ms *builtIn) MoveOnMap(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
@@ -391,4 +333,182 @@ func (ms *builtIn) PlanHistory(
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 	return ms.state.PlanHistory(req)
+}
+
+// DoCommand supports two commands which are specified through the command map
+//   - DoPlan generates and returns a Trajectory for a given motionpb.MoveRequest without executing it
+//     required key: DoPlan
+//     input value: a motionpb.MoveRequest which will be used to create a Trajectory
+//     output value: a motionplan.Trajectory specified as a map (the mapstructure.Decode function is useful for decoding this)
+//   - DoExecute takes a Trajectory and executes it
+//     required key: DoExecute
+//     input value: a motionplan.Trajectory
+//     output value: a bool
+func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
+
+	resp := make(map[string]interface{}, 0)
+	if req, ok := cmd[DoPlan]; ok {
+		bytes, err := json.Marshal(req)
+		if err != nil {
+			return nil, err
+		}
+		var moveReqProto pb.MoveRequest
+		err = json.Unmarshal(bytes, &moveReqProto)
+		if err != nil {
+			return nil, err
+		}
+		moveReq, err := motion.MoveReqFromProto(&moveReqProto)
+		if err != nil {
+			return nil, err
+		}
+		plan, err := ms.plan(ctx, moveReq)
+		if err != nil {
+			return nil, err
+		}
+		resp[DoPlan] = plan.Trajectory()
+	}
+	if req, ok := cmd[DoExecute]; ok {
+		var trajectory motionplan.Trajectory
+		if err := mapstructure.Decode(req, &trajectory); err != nil {
+			return nil, err
+		}
+		if err := ms.execute(ctx, trajectory); err != nil {
+			return nil, err
+		}
+		resp[DoExecute] = true
+	}
+	return resp, nil
+}
+
+func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq) (motionplan.Plan, error) {
+	if req.Destination == nil {
+		return nil, errors.New("cannot specify a nil destination in motion.MoveReq")
+	}
+
+	frameSys, err := ms.fsService.FrameSystem(ctx, req.WorldState.Transforms())
+	if err != nil {
+		return nil, err
+	}
+
+	// build maps of relevant components and inputs from initial inputs
+	fsInputs, _, err := ms.fsService.CurrentInputs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ms.logger.CDebugf(ctx, "frame system inputs: %v", fsInputs)
+
+	movingFrame := frameSys.Frame(req.ComponentName.ShortName())
+	if movingFrame == nil {
+		return nil, fmt.Errorf("component named %s not found in robot frame system", req.ComponentName.ShortName())
+	}
+
+	// re-evaluate goalPose to be in the frame of World
+	solvingFrame := referenceframe.World // TODO(erh): this should really be the parent of rootName
+	tf, err := frameSys.Transform(fsInputs, req.Destination, solvingFrame)
+	if err != nil {
+		return nil, err
+	}
+	goalPose, _ := tf.(*referenceframe.PoseInFrame)
+
+	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
+	return motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
+		Logger:             ms.logger,
+		Goal:               goalPose,
+		Frame:              movingFrame,
+		StartConfiguration: fsInputs,
+		FrameSystem:        frameSys,
+		WorldState:         req.WorldState,
+		Constraints:        req.Constraints,
+		Options:            req.Extra,
+	})
+}
+
+func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory) error {
+	// build maps of relevant components from initial inputs
+	_, resources, err := ms.fsService.CurrentInputs(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Batch GoToInputs calls if possible; components may want to blend between inputs
+	combinedSteps := []map[string][][]referenceframe.Input{}
+	currStep := map[string][][]referenceframe.Input{}
+	for i, step := range trajectory {
+		if i == 0 {
+			for name, inputs := range step {
+				if len(inputs) == 0 {
+					continue
+				}
+				currStep[name] = append(currStep[name], inputs)
+			}
+			continue
+		}
+		changed := ""
+		if len(currStep) > 0 {
+			reset := false
+			// Check if the current step moves only the same components as the previous step
+			// If so, batch the inputs
+			for name, inputs := range step {
+				if len(inputs) == 0 {
+					continue
+				}
+				if priorInputs, ok := currStep[name]; ok {
+					for i, input := range inputs {
+						if input != priorInputs[len(priorInputs)-1][i] {
+							if changed == "" {
+								changed = name
+							}
+							if changed != "" && changed != name {
+								// If the current step moves different components than the previous step, reset the batch
+								reset = true
+								break
+							}
+						}
+					}
+				} else {
+					// Previously moved components are no longer moving
+					reset = true
+				}
+				if reset {
+					break
+				}
+			}
+			if reset {
+				combinedSteps = append(combinedSteps, currStep)
+				currStep = map[string][][]referenceframe.Input{}
+			}
+			for name, inputs := range step {
+				if len(inputs) == 0 {
+					continue
+				}
+				currStep[name] = append(currStep[name], inputs)
+			}
+		}
+	}
+	combinedSteps = append(combinedSteps, currStep)
+
+	for _, step := range combinedSteps {
+		for name, inputs := range step {
+			if len(inputs) == 0 {
+				continue
+			}
+			r, ok := resources[name]
+			if !ok {
+				return fmt.Errorf("plan had step for resource %s but no resource with that name found in framesystem", name)
+			}
+			if err := r.GoToInputs(ctx, inputs...); err != nil {
+				// If there is an error on GoToInputs, stop the component if possible before returning the error
+				if actuator, ok := r.(inputEnabledActuator); ok {
+					if stopErr := actuator.Stop(ctx, nil); stopErr != nil {
+						return errors.Wrap(err, stopErr.Error())
+					}
+				}
+				return err
+			}
+		}
+	}
+	return nil
 }

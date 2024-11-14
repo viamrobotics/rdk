@@ -1,28 +1,13 @@
-import { type Client, servoApi } from '@viamrobotics/sdk';
 import { rcLogConditionally } from '@/lib/log';
+import { ServoClient, type Client } from '@viamrobotics/sdk';
 
 export const move = async (
   robotClient: Client,
   name: string,
   angle: number
 ) => {
-  const request = new servoApi.MoveRequest();
-  request.setName(name);
-  request.setAngleDeg(angle);
-
-  rcLogConditionally(request);
-
-  const response = await new Promise<servoApi.MoveResponse | null>(
-    (resolve, reject) => {
-      robotClient.servoService.move(request, (error, res) => {
-        if (error) {
-          reject(error);
-        } else {
-          resolve(res);
-        }
-      });
-    }
-  );
-
-  return response?.toObject();
+  const client = new ServoClient(robotClient, name, {
+    requestLogger: rcLogConditionally,
+  });
+  return client.move(angle);
 };

@@ -16,7 +16,7 @@ import (
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
-var defaultMinStepCount = 3
+var defaultMinStepCount = 2
 
 // Given a constraint input with only frames and input positions, calculates the corresponding poses as needed.
 func resolveSegmentsToPositions(segment *ik.Segment) error {
@@ -600,7 +600,7 @@ func NewConstraints(
 // ConstraintsFromProtobuf converts a protobuf object to a Constraints object.
 func ConstraintsFromProtobuf(pbConstraint *motionpb.Constraints) *Constraints {
 	if pbConstraint == nil {
-		return nil
+		return NewEmptyConstraints()
 	}
 
 	// iterate through all motionpb.LinearConstraint and convert to RDK form

@@ -10,7 +10,7 @@ import (
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/components/camera/videosource"
+	"go.viam.com/rdk/components/camera/fake"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -38,7 +38,7 @@ var undistortTestBC = &transform.BrownConrady{
 func TestUndistortSetup(t *testing.T) {
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1_small.png"))
 	test.That(t, err, test.ShouldBeNil)
-	source := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
+	source := gostream.NewVideoSource(&fake.StaticSource{ColorImg: img}, prop.Video{})
 
 	// no camera parameters
 	am := utils.AttributeMap{}
@@ -48,7 +48,7 @@ func TestUndistortSetup(t *testing.T) {
 	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 
 	// bad stream type
-	source = gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
+	source = gostream.NewVideoSource(&fake.StaticSource{ColorImg: img}, prop.Video{})
 	am = utils.AttributeMap{"intrinsic_parameters": undistortTestParams, "distortion_parameters": undistortTestBC}
 	us, _, err := newUndistortTransform(context.Background(), source, camera.ImageType("fake"), am)
 	test.That(t, err, test.ShouldBeNil)
@@ -71,7 +71,7 @@ func TestUndistortSetup(t *testing.T) {
 func TestUndistortImage(t *testing.T) {
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1_small.png"))
 	test.That(t, err, test.ShouldBeNil)
-	source := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
+	source := gostream.NewVideoSource(&fake.StaticSource{ColorImg: img}, prop.Video{})
 
 	// success
 	am := utils.AttributeMap{"intrinsic_parameters": undistortTestParams, "distortion_parameters": undistortTestBC}
@@ -92,7 +92,7 @@ func TestUndistortImage(t *testing.T) {
 	test.That(t, result, test.ShouldResemble, expected)
 
 	// bad source
-	source = gostream.NewVideoSource(&videosource.StaticSource{ColorImg: rimage.NewImage(10, 10)}, prop.Video{})
+	source = gostream.NewVideoSource(&fake.StaticSource{ColorImg: rimage.NewImage(10, 10)}, prop.Video{})
 	us, stream, err = newUndistortTransform(context.Background(), source, camera.ColorStream, am)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
@@ -105,7 +105,7 @@ func TestUndistortDepthMap(t *testing.T) {
 	img, err := rimage.NewDepthMapFromFile(
 		context.Background(), artifact.MustPath("rimage/board1_gray_small.png"))
 	test.That(t, err, test.ShouldBeNil)
-	source := gostream.NewVideoSource(&videosource.StaticSource{DepthImg: img}, prop.Video{})
+	source := gostream.NewVideoSource(&fake.StaticSource{DepthImg: img}, prop.Video{})
 
 	// success
 	am := utils.AttributeMap{"intrinsic_parameters": undistortTestParams, "distortion_parameters": undistortTestBC}
@@ -126,7 +126,7 @@ func TestUndistortDepthMap(t *testing.T) {
 	test.That(t, result, test.ShouldResemble, expected)
 
 	// bad source
-	source = gostream.NewVideoSource(&videosource.StaticSource{DepthImg: rimage.NewEmptyDepthMap(10, 10)}, prop.Video{})
+	source = gostream.NewVideoSource(&fake.StaticSource{DepthImg: rimage.NewEmptyDepthMap(10, 10)}, prop.Video{})
 	us, stream, err = newUndistortTransform(context.Background(), source, camera.DepthStream, am)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.DepthStream)
@@ -135,7 +135,7 @@ func TestUndistortDepthMap(t *testing.T) {
 	test.That(t, us.Close(context.Background()), test.ShouldBeNil)
 
 	// can't convert image to depth map
-	source = gostream.NewVideoSource(&videosource.StaticSource{ColorImg: rimage.NewImage(10, 10)}, prop.Video{})
+	source = gostream.NewVideoSource(&fake.StaticSource{ColorImg: rimage.NewImage(10, 10)}, prop.Video{})
 	us, stream, err = newUndistortTransform(context.Background(), source, camera.DepthStream, am)
 	test.That(t, stream, test.ShouldEqual, camera.DepthStream)
 	test.That(t, err, test.ShouldBeNil)

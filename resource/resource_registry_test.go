@@ -241,10 +241,10 @@ func TestResourceAPIRegistryWithAssociation(t *testing.T) {
 }
 
 func TestDiscoveryFunctions(t *testing.T) {
-	df := func(ctx context.Context, logger logging.Logger) (interface{}, error) {
+	df := func(ctx context.Context, logger logging.Logger, extra map[string]interface{}) (interface{}, error) {
 		return []resource.Discovery{}, nil
 	}
-	validAPIQuery := resource.NewDiscoveryQuery(acme.API, resource.Model{Name: "some model"})
+	validAPIQuery := resource.NewDiscoveryQuery(acme.API, resource.Model{Name: "some model"}, nil)
 	_, ok := resource.LookupRegistration(validAPIQuery.API, validAPIQuery.Model)
 	test.That(t, ok, test.ShouldBeFalse)
 

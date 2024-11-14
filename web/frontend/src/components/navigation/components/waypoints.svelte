@@ -1,10 +1,10 @@
 <script lang="ts">
-import type { MapMouseEvent } from 'maplibre-gl';
-import type { ServiceError } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
-import { useMapLibre, MapLibreMarker } from '@viamrobotics/prime-blocks';
-import { tab } from '../stores';
+import { MapLibreMarker, useMapLibre } from '@viamrobotics/prime-blocks';
+import { ConnectError } from '@viamrobotics/sdk';
+import type { MapMouseEvent } from 'maplibre-gl';
 import { useWaypoints } from '../hooks/use-waypoints';
+import { tab } from '../stores';
 
 export let name: string;
 
@@ -19,7 +19,7 @@ const handleAddMarker = async (event: MapMouseEvent) => {
   try {
     await addWaypoint(event.lngLat);
   } catch (error_) {
-    notify.danger((error_ as ServiceError).message);
+    notify.danger((error_ as ConnectError).message);
   }
 };
 

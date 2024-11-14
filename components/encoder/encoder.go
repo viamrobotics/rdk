@@ -1,4 +1,7 @@
-// Package encoder implements the encoder component
+// Package encoder implements the encoder component.
+// For more information, see the [encoder component docs].
+//
+// [encoder component docs]: https://docs.viam.com/components/encoder/
 package encoder
 
 import (
@@ -58,6 +61,7 @@ func (t PositionType) String() string {
 }
 
 // A Encoder turns a position into a signal.
+// For more information, see the [encoder component docs].
 //
 // Position example:
 //
@@ -84,6 +88,8 @@ func (t PositionType) String() string {
 //
 //	// Get whether the encoder returns position in ticks or degrees.
 //	properties, err := myEncoder.Properties(context.Background(), nil)
+//
+// [encoder component docs]: https://docs.viam.com/components/encoder/
 type Encoder interface {
 	resource.Resource
 

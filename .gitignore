@@ -89,3 +89,6 @@ web/cmd/server/*.core
 # gomobile / android
 *.aar
 *.jar
+
+# direnv (optional dev tool)
+.envrc

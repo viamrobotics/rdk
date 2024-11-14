@@ -17,7 +17,6 @@ import (
 	"github.com/pkg/errors"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
-	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/sys/cpu"
 
@@ -34,15 +33,16 @@ var (
 )
 
 const (
-	initialReadTimeout = 1 * time.Second
-	readTimeout        = 5 * time.Second
+	initialReadTimeout     = 1 * time.Second
+	readTimeout            = 5 * time.Second
+	readTimeoutBehindProxy = 15 * time.Second
 	// PackagesDirName is where packages go underneath viamDotDir.
 	PackagesDirName = "packages"
 	// LocalPackagesSuffix is used by the local package manager.
 	LocalPackagesSuffix = "-local"
 )
 
-func getAgentInfo() (*apppb.AgentInfo, error) {
+func getAgentInfo(logger logging.Logger) (*apppb.AgentInfo, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, err
@@ -70,12 +70,13 @@ func getAgentInfo() (*apppb.AgentInfo, error) {
 	platform := fmt.Sprintf("%s/%s", runtime.GOOS, arch)
 
 	return &apppb.AgentInfo{
-		Host:        hostname,
-		Ips:         ips,
-		Os:          runtime.GOOS,
-		Version:     Version,
-		GitRevision: GitRevision,
-		Platform:    &platform,
+		Host:         hostname,
+		Ips:          ips,
+		Os:           runtime.GOOS,
+		Version:      Version,
+		GitRevision:  GitRevision,
+		Platform:     &platform,
+		PlatformTags: readExtendedPlatformTags(logger, true),
 	}, nil
 }
 
@@ -112,22 +113,6 @@ func readFromCache(id string) (*Config, error) {
 		return nil, errors.Wrap(err, "cannot parse the cached config as json")
 	}
 	return unprocessedConfig, nil
-}
-
-func storeToCache(id string, cfg *Config) error {
-	if err := os.MkdirAll(ViamDotDir, 0o700); err != nil {
-		return err
-	}
-
-	md, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		return err
-	}
-	reader := bytes.NewReader(md)
-
-	path := getCloudCacheFilePath(id)
-
-	return artifact.AtomicStore(path, reader, id)
 }
 
 func clearCache(id string) {
@@ -198,6 +183,11 @@ func isLocationSecretsEqual(prevCloud, cloud *Cloud) bool {
 
 func getTimeoutCtx(ctx context.Context, shouldReadFromCache bool, id string) (context.Context, func()) {
 	timeout := readTimeout
+	// When environment indicates we are behind a proxy, bump timeout. Network
+	// operations tend to take longer when behind a proxy.
+	if proxyAddr := os.Getenv(rpc.SocksProxyEnvVar); proxyAddr != "" {
+		timeout = readTimeoutBehindProxy
+	}
 
 	// use shouldReadFromCache to determine whether this is part of initial read or not, but only shorten timeout
 	// if cached config exists
@@ -318,10 +308,9 @@ func readFromCloud(
 	unprocessedConfig.Cloud.TLSCertificate = tls.certificate
 	unprocessedConfig.Cloud.TLSPrivateKey = tls.privateKey
 
-	if err := storeToCache(cloudCfg.ID, unprocessedConfig); err != nil {
-		logger.Errorw("failed to cache config", "error", err)
+	if err := cfg.SetToCache(unprocessedConfig); err != nil {
+		logger.Errorw("failed to set toCache on config", "error", err)
 	}
-
 	return cfg, nil
 }
 
@@ -610,43 +599,12 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 		}
 	}
 
-	// pattern match configurations and resource log level configurations are both necessary for the logger registry
-	// to identify the appropriate level for each newly registered logger. We want logger configurations applied to
-	// resources to have priority over pattern matching configurations in the case of conflicts, so we append
-	// the resource configurations to the end. This works because we process the entire log config in top-down order,
-	// so the pattern lowest in the config that matches a given logger name will set the level for the logger.
-	appendedLogCfg := combineLogConfigs(cfg.LogConfig, cfg.Services, cfg.Components)
-	if err := logging.RegisterConfig(appendedLogCfg); err != nil {
-		return nil, err
-	}
-
 	// now that the attribute maps are converted, validate configs and get implicit dependencies for builtin resource models
 	if err := cfg.Ensure(fromCloud, logger); err != nil {
 		return nil, err
 	}
 
 	return cfg, nil
-}
-
-// combines the pattern and resource configs into a single array of LoggerPatternConfig objects.
-func combineLogConfigs(patternCfg []logging.LoggerPatternConfig, serviceCfg, componentCfg []resource.Config) []logging.LoggerPatternConfig {
-	appendedLogCfg := make([]logging.LoggerPatternConfig, 0, len(patternCfg)+len(serviceCfg)+len(componentCfg))
-	appendedLogCfg = append(appendedLogCfg, patternCfg...)
-	for _, serv := range serviceCfg {
-		resLogCfg := logging.LoggerPatternConfig{
-			Pattern: "rdk." + serv.ResourceName().String(),
-			Level:   serv.LogConfiguration.Level.String(),
-		}
-		appendedLogCfg = append(appendedLogCfg, resLogCfg)
-	}
-	for _, comp := range componentCfg {
-		resLogCfg := logging.LoggerPatternConfig{
-			Pattern: "rdk." + comp.ResourceName().String(),
-			Level:   comp.LogConfiguration.Level.String(),
-		}
-		appendedLogCfg = append(appendedLogCfg, resLogCfg)
-	}
-	return appendedLogCfg
 }
 
 // getFromCloudOrCache returns the config from the gRPC endpoint. If failures during cloud lookup fallback to the
@@ -697,7 +655,7 @@ func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger logging.Logge
 	}
 	defer utils.UncheckedErrorFunc(conn.Close)
 
-	agentInfo, err := getAgentInfo()
+	agentInfo, err := getAgentInfo(logger)
 	if err != nil {
 		return nil, shouldCheckCacheOnFailure, err
 	}
@@ -739,7 +697,7 @@ func CreateNewGRPCClient(ctx context.Context, cloudCfg *Cloud, logger logging.Lo
 		dialOpts = append(dialOpts, rpc.WithInsecure())
 	}
 
-	return rpc.DialDirectGRPC(ctx, u.Host, logging.GetOrNewLogger("rdk.networking"), dialOpts...)
+	return rpc.DialDirectGRPC(ctx, u.Host, logger.Sublogger("networking"), dialOpts...)
 }
 
 // CreateNewGRPCClientWithAPIKey creates a new grpc cloud configured to communicate with the robot service
@@ -765,5 +723,5 @@ func CreateNewGRPCClientWithAPIKey(ctx context.Context, cloudCfg *Cloud,
 		dialOpts = append(dialOpts, rpc.WithInsecure())
 	}
 
-	return rpc.DialDirectGRPC(ctx, u.Host, logging.GetOrNewLogger("rdk.networking"), dialOpts...)
+	return rpc.DialDirectGRPC(ctx, u.Host, logger.Sublogger("networking"), dialOpts...)
 }

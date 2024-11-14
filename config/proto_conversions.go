@@ -9,12 +9,14 @@ import (
 	"github.com/pkg/errors"
 	packagespb "go.viam.com/api/app/packages/v1"
 	pb "go.viam.com/api/app/v1"
+	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"go.viam.com/rdk/logging"
+	protoRdkUtils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	spatial "go.viam.com/rdk/spatialmath"
@@ -96,6 +98,14 @@ func FromProto(proto *pb.RobotConfig, logger logging.Logger) (*Config, error) {
 
 	logAnyFragmentOverwriteErrors(logger, proto.OverwriteFragmentStatus)
 
+	if proto.Maintenance != nil {
+		maintenanceConfig, err := MaintenanceConfigFromProto(proto.Maintenance)
+		if err != nil {
+			return nil, errors.Wrap(err, "error converting maintenance config from proto")
+		}
+		cfg.MaintenanceConfig = maintenanceConfig
+	}
+
 	return &cfg, nil
 }
 
@@ -114,6 +124,11 @@ func ComponentConfigToProto(conf *resource.Config) (*pb.ComponentConfig, error) 
 		return nil, errors.Wrap(err, "failed to convert service configs")
 	}
 
+	var logConfig *pb.LogConfiguration
+	if conf.LogConfiguration != nil {
+		logConfig = &pb.LogConfiguration{Level: strings.ToLower(conf.LogConfiguration.Level.String())}
+	}
+
 	protoConf := pb.ComponentConfig{
 		Name:             conf.Name,
 		Namespace:        string(conf.API.Type.Namespace),
@@ -123,7 +138,7 @@ func ComponentConfigToProto(conf *resource.Config) (*pb.ComponentConfig, error) 
 		DependsOn:        conf.DependsOn,
 		ServiceConfigs:   serviceConfigs,
 		Attributes:       attributes,
-		LogConfiguration: &pb.LogConfiguration{Level: strings.ToLower(conf.LogConfiguration.Level.String())},
+		LogConfiguration: logConfig,
 	}
 
 	if conf.Frame != nil {
@@ -164,15 +179,18 @@ func ComponentConfigFromProto(protoConf *pb.ComponentConfig) (*resource.Config, 
 		return nil, err
 	}
 
-	level := logging.INFO
+	var logConfig *resource.LogConfig
 	if protoConf.GetLogConfiguration() != nil {
-		if level, err = logging.LevelFromString(protoConf.GetLogConfiguration().Level); err != nil {
+		level, err := logging.LevelFromString(protoConf.GetLogConfiguration().Level)
+		if err != nil {
 			// Don't fail configuration due to a malformed log level.
 			level = logging.INFO
 			logging.Global().Warnw(
 				"Invalid log level.", "name", protoConf.GetName(), "log_level", protoConf.GetLogConfiguration().Level, "error", err)
 		}
+		logConfig = &resource.LogConfig{Level: level}
 	}
+
 	componentConf := resource.Config{
 		Name:                      protoConf.GetName(),
 		API:                       api,
@@ -180,7 +198,7 @@ func ComponentConfigFromProto(protoConf *pb.ComponentConfig) (*resource.Config, 
 		Attributes:                attrs,
 		DependsOn:                 protoConf.GetDependsOn(),
 		AssociatedResourceConfigs: serviceConfigs,
-		LogConfiguration:          resource.LogConfig{Level: level},
+		LogConfiguration:          logConfig,
 	}
 
 	if protoConf.GetFrame() != nil {
@@ -209,6 +227,11 @@ func ServiceConfigToProto(conf *resource.Config) (*pb.ServiceConfig, error) {
 		return nil, errors.Wrap(err, "failed to convert service configs")
 	}
 
+	var logConfig *pb.LogConfiguration
+	if conf.LogConfiguration != nil {
+		logConfig = &pb.LogConfiguration{Level: strings.ToLower(conf.LogConfiguration.Level.String())}
+	}
+
 	protoConf := pb.ServiceConfig{
 		Name:             conf.Name,
 		Namespace:        string(conf.API.Type.Namespace),
@@ -218,7 +241,7 @@ func ServiceConfigToProto(conf *resource.Config) (*pb.ServiceConfig, error) {
 		Attributes:       attributes,
 		DependsOn:        conf.DependsOn,
 		ServiceConfigs:   serviceConfigs,
-		LogConfiguration: &pb.LogConfiguration{Level: strings.ToLower(conf.LogConfiguration.Level.String())},
+		LogConfiguration: logConfig,
 	}
 
 	return &protoConf, nil
@@ -247,14 +270,16 @@ func ServiceConfigFromProto(protoConf *pb.ServiceConfig) (*resource.Config, erro
 		return nil, err
 	}
 
-	level := logging.INFO
+	var logConfig *resource.LogConfig
 	if protoConf.GetLogConfiguration() != nil {
-		if level, err = logging.LevelFromString(protoConf.GetLogConfiguration().Level); err != nil {
+		level, err := logging.LevelFromString(protoConf.GetLogConfiguration().Level)
+		if err != nil {
 			// Don't fail configuration due to a malformed log level.
 			level = logging.INFO
 			logging.Global().Warnw(
 				"Invalid log level.", "name", protoConf.GetName(), "log_level", protoConf.GetLogConfiguration().Level, "error", err)
 		}
+		logConfig = &resource.LogConfig{Level: level}
 	}
 
 	conf := resource.Config{
@@ -264,7 +289,7 @@ func ServiceConfigFromProto(protoConf *pb.ServiceConfig) (*resource.Config, erro
 		Attributes:                attrs,
 		DependsOn:                 protoConf.GetDependsOn(),
 		AssociatedResourceConfigs: serviceConfigs,
-		LogConfiguration:          resource.LogConfig{Level: level},
+		LogConfiguration:          logConfig,
 	}
 
 	return &conf, nil
@@ -278,13 +303,14 @@ func ModuleConfigToProto(module *Module) (*pb.ModuleConfig, error) {
 	}
 
 	proto := pb.ModuleConfig{
-		Name:     module.Name,
-		Path:     module.ExePath,
-		LogLevel: module.LogLevel,
-		Type:     string(module.Type),
-		ModuleId: module.ModuleID,
-		Env:      module.Environment,
-		Status:   status,
+		Name:            module.Name,
+		Path:            module.ExePath,
+		LogLevel:        module.LogLevel,
+		Type:            string(module.Type),
+		ModuleId:        module.ModuleID,
+		Env:             module.Environment,
+		Status:          status,
+		FirstRunTimeout: durationpb.New(module.FirstRunTimeout.Unwrap()),
 	}
 
 	return &proto, nil
@@ -298,13 +324,14 @@ func ModuleConfigFromProto(proto *pb.ModuleConfig) (*Module, error) {
 	}
 
 	module := Module{
-		Name:        proto.GetName(),
-		ExePath:     proto.GetPath(),
-		LogLevel:    proto.GetLogLevel(),
-		Type:        ModuleType(proto.GetType()),
-		ModuleID:    proto.GetModuleId(),
-		Environment: proto.GetEnv(),
-		Status:      status,
+		Name:            proto.GetName(),
+		ExePath:         proto.GetPath(),
+		LogLevel:        proto.GetLogLevel(),
+		Type:            ModuleType(proto.GetType()),
+		ModuleID:        proto.GetModuleId(),
+		Environment:     proto.GetEnv(),
+		Status:          status,
+		FirstRunTimeout: utils.Duration(proto.GetFirstRunTimeout().AsDuration()),
 	}
 	return &module, nil
 }
@@ -317,6 +344,7 @@ func ProcessConfigToProto(process *pexec.ProcessConfig) (*pb.ProcessConfig, erro
 		Args:        process.Args,
 		Cwd:         process.CWD,
 		OneShot:     process.OneShot,
+		Username:    process.Username,
 		Env:         process.Environment,
 		Log:         process.Log,
 		StopSignal:  int32(process.StopSignal),
@@ -331,8 +359,9 @@ func ProcessConfigFromProto(proto *pb.ProcessConfig) (*pexec.ProcessConfig, erro
 		Name:        proto.Name,
 		Args:        proto.Args,
 		CWD:         proto.Cwd,
-		Environment: proto.Env,
 		OneShot:     proto.OneShot,
+		Username:    proto.Username,
+		Environment: proto.Env,
 		Log:         proto.Log,
 		StopSignal:  syscall.Signal(proto.StopSignal),
 		StopTimeout: proto.StopTimeout.AsDuration(),
@@ -618,6 +647,22 @@ func NetworkConfigToProto(network *NetworkConfig) (*pb.NetworkConfig, error) {
 	return &proto, nil
 }
 
+// MaintenanceConfigToProto converts MaintenanceConfig from the proto equivalent.
+func MaintenanceConfigToProto(maintenanceConfig *MaintenanceConfig) (*pb.MaintenanceConfig, error) {
+	// convert from string to resource name
+	name, err := resource.NewFromString(maintenanceConfig.SensorName)
+	if err != nil {
+		return nil, err
+	}
+
+	proto := pb.MaintenanceConfig{
+		SensorName:            protoRdkUtils.ResourceNameToProto(name),
+		MaintenanceAllowedKey: maintenanceConfig.MaintenanceAllowedKey,
+	}
+
+	return &proto, nil
+}
+
 // NetworkConfigFromProto creates NetworkConfig from the proto equivalent.
 func NetworkConfigFromProto(proto *pb.NetworkConfig) (*NetworkConfig, error) {
 	network := NetworkConfig{
@@ -631,6 +676,15 @@ func NetworkConfigFromProto(proto *pb.NetworkConfig) (*NetworkConfig, error) {
 	}
 
 	return &network, nil
+}
+
+// MaintenanceConfigFromProto creates a MaintenanceConfig from the proto equivalent.
+func MaintenanceConfigFromProto(proto *pb.MaintenanceConfig) (*MaintenanceConfig, error) {
+	MaintenanceConfig := MaintenanceConfig{
+		SensorName:            protoRdkUtils.ResourceNameFromProto(proto.SensorName).String(),
+		MaintenanceAllowedKey: proto.GetMaintenanceAllowedKey(),
+	}
+	return &MaintenanceConfig, nil
 }
 
 // AuthConfigToProto converts AuthConfig to the proto equivalent.

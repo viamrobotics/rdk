@@ -37,7 +37,7 @@ func MLSubmitCustomTrainingJob(c *cli.Context) error {
 
 	trainingJobID, err := client.mlSubmitCustomTrainingJob(
 		c.String(datasetFlagDatasetID), c.String(mlTrainingFlagName), c.String(mlTrainingFlagVersion), c.String(generalFlagOrgID),
-		c.String(trainFlagModelName), c.String(trainFlagModelVersion))
+		c.String(trainFlagModelName), c.String(trainFlagModelVersion), c.StringSlice(mlTrainingFlagArgs))
 	if err != nil {
 		return err
 	}
@@ -70,7 +70,7 @@ func MLSubmitCustomTrainingJobWithUpload(c *cli.Context) error {
 		registryItemID)
 	trainingJobID, err := client.mlSubmitCustomTrainingJob(
 		c.String(datasetFlagDatasetID), registryItemID, resp.Version, c.String(trainFlagModelOrgID),
-		c.String(trainFlagModelName), c.String(trainFlagModelVersion))
+		c.String(trainFlagModelName), c.String(trainFlagModelVersion), c.StringSlice(mlTrainingFlagArgs))
 	if err != nil {
 		return err
 	}
@@ -125,7 +125,7 @@ func (c *viamClient) mlSubmitTrainingJob(datasetID, orgID, modelName, modelVersi
 
 // mlSubmitCustomTrainingJob trains on data with the specified dataset and registry item.
 func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, registryItemVersion, orgID, modelName,
-	modelVersion string,
+	modelVersion string, args []string,
 ) (string, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return "", err
@@ -140,15 +140,28 @@ func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, regist
 		modelVersion = time.Now().Format("2006-01-02T15-04-05")
 	}
 
-	resp, err := c.mlTrainingClient.SubmitCustomTrainingJob(context.Background(),
-		&mltrainingpb.SubmitCustomTrainingJobRequest{
-			DatasetId:           datasetID,
-			RegistryItemId:      registryItemID,
-			RegistryItemVersion: registryItemVersion,
-			OrganizationId:      orgID,
-			ModelName:           modelName,
-			ModelVersion:        modelVersion,
-		})
+	req := &mltrainingpb.SubmitCustomTrainingJobRequest{
+		DatasetId:           datasetID,
+		RegistryItemId:      registryItemID,
+		RegistryItemVersion: registryItemVersion,
+		OrganizationId:      orgID,
+		ModelName:           modelName,
+		ModelVersion:        modelVersion,
+	}
+
+	if len(args) > 0 {
+		argMap := make(map[string]string)
+		for _, optionVal := range args {
+			splitOptionVal := strings.Split(optionVal, "=")
+			if len(splitOptionVal) != 2 {
+				return "", errors.Errorf("invalid format for command line arguments, passed: %s", args)
+			}
+			argMap[splitOptionVal[0]] = splitOptionVal[1]
+		}
+		req.Arguments = argMap
+	}
+
+	resp, err := c.mlTrainingClient.SubmitCustomTrainingJob(context.Background(), req)
 	if err != nil {
 		return "", errors.Wrapf(err, "received error from server")
 	}
@@ -179,6 +192,51 @@ func (c *viamClient) dataGetTrainingJob(trainingJobID string) (*mltrainingpb.Tra
 		return nil, err
 	}
 	return resp.Metadata, nil
+}
+
+// MLGetTrainingJobLogs is the corresponding action for 'data train logs'.
+func MLGetTrainingJobLogs(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	logs, err := client.mlGetTrainingJobLogs(c.String(trainFlagJobID))
+	if err != nil {
+		return err
+	}
+
+	if len(logs) == 0 {
+		printf(c.App.Writer, "No logs found for job %s", trainFlagJobID)
+	}
+	for _, log := range logs {
+		printf(c.App.Writer, "{\"Timestamp\": \"%s\", \"Level\": \"%s\", \"Message\": \"%s\"}", log.Time.AsTime(), log.Level, log.Message)
+	}
+	return nil
+}
+
+// mlGetTrainingJobLogs gets the training job logs with the given ID.
+func (c *viamClient) mlGetTrainingJobLogs(trainingJobID string) ([]*mltrainingpb.TrainingJobLogEntry, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+	var allLogs []*mltrainingpb.TrainingJobLogEntry
+	var page string
+
+	// Loop to fetch and accumulate results
+	for {
+		resp, err := c.mlTrainingClient.GetTrainingJobLogs(context.Background(),
+			&mltrainingpb.GetTrainingJobLogsRequest{Id: trainingJobID, PageToken: &page})
+		if err != nil {
+			return nil, err
+		}
+		allLogs = append(allLogs, resp.GetLogs()...)
+
+		if resp.GetNextPageToken() == "" {
+			break
+		}
+		page = resp.GetNextPageToken()
+	}
+	return allLogs, nil
 }
 
 // DataCancelTrainingJob is the corresponding action for 'data train cancel'.
@@ -258,6 +316,10 @@ func allTrainingStatusValues() string {
 
 	slices.Sort(formattedStatuses)
 	return "[" + strings.Join(formattedStatuses, ", ") + "]"
+}
+
+func defaultTrainingStatus() string {
+	return strings.ToLower(strings.TrimPrefix(mltrainingpb.TrainingStatus_TRAINING_STATUS_UNSPECIFIED.String(), trainingStatusPrefix))
 }
 
 // MLTrainingUploadAction uploads a new custom training script.

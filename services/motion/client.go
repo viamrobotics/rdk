@@ -9,7 +9,6 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -43,30 +42,12 @@ func NewClientFromConn(
 	return c, nil
 }
 
-func (c *client) Move(
-	ctx context.Context,
-	componentName resource.Name,
-	destination *referenceframe.PoseInFrame,
-	worldState *referenceframe.WorldState,
-	constraints *motionplan.Constraints,
-	extra map[string]interface{},
-) (bool, error) {
-	ext, err := vprotoutils.StructToStructPb(extra)
+func (c *client) Move(ctx context.Context, req MoveReq) (bool, error) {
+	protoReq, err := req.ToProto(c.name)
 	if err != nil {
 		return false, err
 	}
-	worldStateMsg, err := worldState.ToProtobuf()
-	if err != nil {
-		return false, err
-	}
-	resp, err := c.client.Move(ctx, &pb.MoveRequest{
-		Name:          c.name,
-		ComponentName: protoutils.ResourceNameToProto(componentName),
-		Destination:   referenceframe.PoseInFrameToProtobuf(destination),
-		WorldState:    worldStateMsg,
-		Constraints:   constraints.ToProtobuf(),
-		Extra:         ext,
-	})
+	resp, err := c.client.Move(ctx, protoReq)
 	if err != nil {
 		return false, err
 	}

@@ -12,7 +12,7 @@ import (
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/components/camera/videosource"
+	"go.viam.com/rdk/components/camera/fake"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage"
@@ -25,7 +25,7 @@ func TestDepthSource(t *testing.T) {
 	img, err := rimage.NewDepthMapFromFile(
 		context.Background(), artifact.MustPath("rimage/board1_gray_small.png"))
 	test.That(t, err, test.ShouldBeNil)
-	source := &videosource.StaticSource{DepthImg: img}
+	source := &fake.StaticSource{DepthImg: img}
 	am := utils.AttributeMap{
 		"high_threshold": 0.85,
 		"low_threshold":  0.40,
@@ -57,7 +57,7 @@ func (h *depthSourceTestHelper) Process(
 	pCtx.GotDebugImage(dm.ToPrettyPicture(0, rimage.MaxDepth), "aligned-depth")
 
 	// create edge map
-	source := &videosource.StaticSource{DepthImg: dm}
+	source := &fake.StaticSource{DepthImg: dm}
 	am := utils.AttributeMap{
 		"high_threshold": 0.85,
 		"low_threshold":  0.40,
@@ -78,7 +78,7 @@ func (h *depthSourceTestHelper) Process(
 	pCtx.GotDebugPointCloud(fixedPointCloud, "aligned-pointcloud")
 
 	// preprocess depth map
-	source = &videosource.StaticSource{DepthImg: dm}
+	source = &fake.StaticSource{DepthImg: dm}
 	rs, stream, err := newDepthPreprocessTransform(context.Background(), gostream.NewVideoSource(source, prop.Video{}))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.DepthStream)
@@ -94,7 +94,7 @@ func (h *depthSourceTestHelper) Process(
 	test.That(t, preprocessedPointCloud.MetaData().HasColor, test.ShouldBeFalse)
 	pCtx.GotDebugPointCloud(preprocessedPointCloud, "preprocessed-aligned-pointcloud")
 
-	source = &videosource.StaticSource{DepthImg: preprocessed}
+	source = &fake.StaticSource{DepthImg: preprocessed}
 	ds, stream, err = newDepthEdgesTransform(context.Background(), gostream.NewVideoSource(source, prop.Video{}), am)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.DepthStream)

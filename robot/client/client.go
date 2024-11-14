@@ -99,6 +99,12 @@ type RobotClient struct {
 	heartbeatWorkers   sync.WaitGroup
 	heartbeatCtx       context.Context
 	heartbeatCtxCancel func()
+
+	// If we ever connect to a server using webrtc, we want all subsequent connections to force
+	// webrtc. Some operations such as video streaming are much more performant when using
+	// webrtc. We don't want a network disconnect to result in reconnecting over tcp such that
+	// performance would be impacted.
+	serverIsWebrtcEnabled bool
 }
 
 // RemoteTypeName is the type name used for a remote. This is for internal use.
@@ -256,7 +262,7 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		rpc.WithStreamClientInterceptor(streamClientInterceptor()),
 	)
 
-	if err := rc.connect(ctx); err != nil {
+	if err := rc.Connect(ctx); err != nil {
 		return nil, err
 	}
 
@@ -331,7 +337,8 @@ func (rc *RobotClient) Changed() <-chan bool {
 	return rc.changeChan
 }
 
-func (rc *RobotClient) connect(ctx context.Context) error {
+// Connect will close any existing connection and try to reconnect to the remote.
+func (rc *RobotClient) Connect(ctx context.Context) error {
 	if err := rc.connectWithLock(ctx); err != nil {
 		return err
 	}
@@ -351,14 +358,46 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 		return err
 	}
 
-	var dialLogger logging.Logger
-	if l, ok := logging.LoggerNamed("rdk.networking"); ok {
-		dialLogger = l
-	} else {
-		dialLogger = rc.logger.Sublogger("networking")
-	}
+	// Try forcing a webrtc connection.
+	dialOptionsWebRTCOnly := make([]rpc.DialOption, len(rc.dialOptions)+1)
+	// Put our "disable GRPC" option in front and the user input values at the end. This ensures
+	// user inputs take precedence.
+	copy(dialOptionsWebRTCOnly[1:], rc.dialOptions)
+	dialOptionsWebRTCOnly[0] = rpc.WithDisableDirectGRPC()
 
-	conn, err := grpc.Dial(ctx, rc.address, dialLogger, rc.dialOptions...)
+	dialLogger := rc.logger.Sublogger("networking")
+	conn, err := grpc.Dial(ctx, rc.address, dialLogger, dialOptionsWebRTCOnly...)
+	if err == nil {
+		// If we succeed with a webrtc connection, flip the `serverIsWebrtcEnabled` to force all future
+		// connections to use webrtc.
+		if !rc.serverIsWebrtcEnabled {
+			rc.logger.Info("A WebRTC connection was made to the robot. ",
+				"Reconnects will disallow direct gRPC connections.")
+			rc.serverIsWebrtcEnabled = true
+		}
+	} else if !rc.serverIsWebrtcEnabled {
+		// If we failed to connect via webrtc and* we've never previously connected over webrtc, try
+		// to connect with a grpc over a tcp connection.
+		//
+		// Put our "force GRPC" option in front and the user input values at the end. This ensures
+		// user inputs take precedence.
+		dialOptionsGRPCOnly := make([]rpc.DialOption, len(rc.dialOptions)+2)
+		copy(dialOptionsGRPCOnly[2:], rc.dialOptions)
+		dialOptionsGRPCOnly[0] = rpc.WithForceDirectGRPC()
+
+		// Using `WithForceDirectGRPC` disables mdns lookups. This is not the same behavior as a
+		// webrtc dial which will* fallback to a direct grpc connection with* the mdns address. So
+		// we add this flag to partially override the above override.
+		dialOptionsGRPCOnly[1] = rpc.WithDialMulticastDNSOptions(rpc.DialMulticastDNSOptions{Disable: false})
+
+		grpcConn, grpcErr := grpc.Dial(ctx, rc.address, dialLogger, dialOptionsGRPCOnly...)
+		if grpcErr == nil {
+			conn = grpcConn
+			err = nil
+		} else {
+			err = multierr.Combine(err, grpcErr)
+		}
+	}
 	if err != nil {
 		return err
 	}
@@ -393,6 +432,7 @@ func (rc *RobotClient) updateResourceClients(ctx context.Context) error {
 	for resourceName, client := range rc.resourceClients {
 		// check if no longer an active resource
 		if !activeResources[resourceName] {
+			rc.logger.Infow("Removing resource from remote client", "resourceName", resourceName)
 			if err := client.Close(ctx); err != nil {
 				rc.Logger().CError(ctx, err)
 				continue
@@ -423,7 +463,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 		}
 		if !rc.connected.Load() {
 			rc.Logger().CInfow(ctx, "trying to reconnect to remote at address", "address", rc.address)
-			if err := rc.connect(ctx); err != nil {
+			if err := rc.Connect(ctx); err != nil {
 				rc.Logger().CErrorw(ctx, "failed to reconnect remote", "error", err, "address", rc.address)
 				continue
 			}
@@ -574,7 +614,8 @@ func (rc *RobotClient) createClient(name resource.Name) (resource.Resource, erro
 	if !ok || apiInfo.RPCClient == nil {
 		return grpc.NewForeignResource(name, &rc.conn), nil
 	}
-	return apiInfo.RPCClient(rc.backgroundCtx, &rc.conn, rc.remoteName, name, rc.Logger())
+	logger := rc.Logger().Sublogger(resource.RemoveRemoteName(name).ShortName())
+	return apiInfo.RPCClient(rc.backgroundCtx, &rc.conn, rc.remoteName, name, logger)
 }
 
 func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resource.RPCAPI, error) {
@@ -657,7 +698,7 @@ func (rc *RobotClient) updateResources(ctx context.Context) error {
 
 	names, rpcAPIs, err := rc.resources(ctx)
 	if err != nil && status.Code(err) != codes.Unimplemented {
-		return err
+		return fmt.Errorf("error updating resources: %w", err)
 	}
 
 	rc.resourceNames = make([]resource.Name, 0, len(names))
@@ -771,9 +812,17 @@ func (rc *RobotClient) Logger() logging.Logger {
 func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error) {
 	pbQueries := make([]*pb.DiscoveryQuery, 0, len(qs))
 	for _, q := range qs {
+		extra, err := structpb.NewStruct(q.Extra)
+		if err != nil {
+			return nil, err
+		}
 		pbQueries = append(
 			pbQueries,
-			&pb.DiscoveryQuery{Subtype: q.API.String(), Model: q.Model.String()},
+			&pb.DiscoveryQuery{
+				Subtype: q.API.String(),
+				Model:   q.Model.String(),
+				Extra:   extra,
+			},
 		)
 	}
 
@@ -795,6 +844,7 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.Dis
 		q := resource.DiscoveryQuery{
 			API:   s,
 			Model: m,
+			Extra: disc.Query.Extra.AsMap(),
 		}
 		discoveries = append(
 			discoveries, resource.Discovery{

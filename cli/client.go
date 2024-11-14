@@ -768,10 +768,10 @@ func parseBaseURL(baseURL string, verifyConnection bool) (*url.URL, []rpc.DialOp
 
 	if verifyConnection {
 		// Check if URL is even valid with a TCP dial.
-		conn, err := net.DialTimeout("tcp", baseURLParsed.Host, 3*time.Second)
+		conn, err := net.DialTimeout("tcp", baseURLParsed.Host, 10*time.Second)
 		if err != nil {
-			return nil, nil, fmt.Errorf("base URL %q (needed for auth) is currently unreachable. "+
-				"Ensure URL is valid and you are connected to internet", baseURLParsed.Host)
+			return nil, nil, fmt.Errorf("base URL %q (needed for auth) is currently unreachable (%v). "+
+				"Ensure URL is valid and you are connected to internet", err.Error(), baseURLParsed.Host)
 		}
 		utils.UncheckedError(conn.Close())
 	}
@@ -1514,10 +1514,10 @@ func (c *viamClient) startRobotPartShell(
 			case outputData, ok := <-output:
 				if ok {
 					if outputData.Output != "" {
-						fmt.Fprint(c.c.App.Writer, outputData.Output) // no newline
+						fmt.Fprint(c.c.App.Writer, outputData.Output) //nolint:errcheck // no newline
 					}
 					if outputData.Error != "" {
-						fmt.Fprint(c.c.App.ErrWriter, outputData.Error) // no newline
+						fmt.Fprint(c.c.App.ErrWriter, outputData.Error) //nolint:errcheck // no newline
 					}
 					if outputData.EOF {
 						return

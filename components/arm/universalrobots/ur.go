@@ -19,7 +19,6 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	pb "go.viam.com/api/component/arm/v1"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
@@ -332,7 +331,7 @@ func (ua *urArm) getState() (robotState, error) {
 }
 
 // JointPositions gets the current joint positions of the UR arm.
-func (ua *urArm) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+func (ua *urArm) JointPositions(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
 	radians := []float64{}
 	state, err := ua.getState()
 	if err != nil {
@@ -341,7 +340,7 @@ func (ua *urArm) JointPositions(ctx context.Context, extra map[string]interface{
 	for _, j := range state.Joints {
 		radians = append(radians, j.Qactual)
 	}
-	return referenceframe.JointPositionsFromRadians(radians), nil
+	return referenceframe.FloatsToInputs(radians), nil
 }
 
 // EndPosition computes and returns the current cartesian position.
@@ -376,13 +375,31 @@ func (ua *urArm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra
 }
 
 // MoveToJointPositions moves the UR arm to the specified joint positions.
-func (ua *urArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions, extra map[string]interface{}) error {
+func (ua *urArm) MoveToJointPositions(ctx context.Context, joints []referenceframe.Input, extra map[string]interface{}) error {
 	// check that joint positions are not out of bounds
-	inputs := ua.ModelFrame().InputFromProtobuf(joints)
-	if err := arm.CheckDesiredJointPositions(ctx, ua, inputs); err != nil {
+	if err := arm.CheckDesiredJointPositions(ctx, ua, joints); err != nil {
 		return err
 	}
-	return ua.moveToJointPositionRadians(ctx, referenceframe.JointPositionsToRadians(joints))
+	return ua.moveToJointPositionRadians(ctx, referenceframe.InputsToFloats(joints))
+}
+
+func (ua *urArm) MoveThroughJointPositions(
+	ctx context.Context,
+	positions [][]referenceframe.Input,
+	_ *arm.MoveOptions,
+	_ map[string]interface{},
+) error {
+	for _, goal := range positions {
+		// check that joint positions are not out of bounds
+		if err := arm.CheckDesiredJointPositions(ctx, ua, goal); err != nil {
+			return err
+		}
+		err := ua.MoveToJointPositions(ctx, goal, nil)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Stop stops the arm with some deceleration.
@@ -494,26 +511,12 @@ func (ua *urArm) moveToJointPositionRadians(ctx context.Context, radians []float
 
 // CurrentInputs returns the current Inputs of the UR arm.
 func (ua *urArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := ua.JointPositions(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	return ua.model.InputFromProtobuf(res), nil
+	return ua.JointPositions(ctx, nil)
 }
 
 // GoToInputs moves the UR arm to the Inputs specified.
 func (ua *urArm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
-	for _, goal := range inputSteps {
-		// check that joint positions are not out of bounds
-		if err := arm.CheckDesiredJointPositions(ctx, ua, goal); err != nil {
-			return err
-		}
-		err := ua.MoveToJointPositions(ctx, ua.model.ProtobufFromInput(goal), nil)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return ua.MoveThroughJointPositions(ctx, inputSteps, nil, nil)
 }
 
 // Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their

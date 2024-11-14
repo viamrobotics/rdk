@@ -88,8 +88,8 @@ func newEncodedMotor(
 	}
 
 	if em.rampRate == 0 || em.rampRate > 0.5 {
-		em.rampRate = 0.05 // Use a conservative value by default.
 		em.logger.Warnf("setting ramp rate to default value of 0.05 instead of %v", em.rampRate)
+		em.rampRate = 0.05 // Use a conservative value by default.
 	}
 
 	if em.maxPowerPct < 0 || em.maxPowerPct > 1 {
@@ -173,14 +173,20 @@ func (m *EncodedMotor) makeAdjustments(ctx context.Context, goalRPM, goalPos, di
 		var currentRPM float64
 		if deltaTime == 0.0 {
 			currentRPM = 0
+			zeroRPMTracker++
+			m.logger.Debug("zero time delta calculated between motor power adjustments")
 		} else {
 			currentRPM = deltaPos / deltaTime
 			if currentRPM == 0 {
 				zeroRPMTracker++
 			}
 		}
-		if zeroRPMTracker > 10 {
-			m.logger.Errorf("error running motor %v, desired rpm is too low for stable motion: %v", m.Name().Name, goalRPM)
+		if zeroRPMTracker > 20 {
+			m.logger.Warnf(
+				"%v motor running at too low an rpm [%v] for stable motion:"+
+					"trying to run at %v rpm, check if stalled or try increasing the motor's rpm",
+				m.Name().Name, currentRPM, goalRPM)
+			zeroRPMTracker = 0
 		}
 
 		newPower, err := m.calcNewPowerPct(ctx, currentRPM, goalRPM, lastPowerPct, direction)
@@ -240,7 +246,6 @@ func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map
 // can be assigned negative values to move in a backwards direction. Note: if both are
 // negative the motor will spin in the forward direction.
 // If revolutions != 0, this will block until the number of revolutions has been completed or another operation comes in.
-// Deprecated: If revolutions is 0, this will run the motor at rpm indefinitely.
 func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
@@ -260,15 +265,14 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 		return err
 	}
 
+	if err := motor.CheckRevolutions(revolutions); err != nil {
+		return err
+	}
+
 	goalPos, goalRPM, direction := encodedGoForMath(rpm, revolutions, currentTicks, m.ticksPerRotation)
 
 	if err := m.goForInternal(goalRPM, goalPos, direction); err != nil {
 		return err
-	}
-
-	if revolutions == 0 {
-		m.logger.Warn("Deprecated: setting revolutions == 0 will spin the motor indefinitely at the specified RPM")
-		return nil
 	}
 
 	positionReached := func(ctx context.Context) (bool, error) {
@@ -295,7 +299,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 	return nil
 }
 
-func (m *EncodedMotor) goForInternal(rpm, goalPos, direction float64) error {
+func (m *EncodedMotor) goForInternal(rpm, goalPos, direction float64) error { //nolint:unparam
 	// cancel makeAdjustments if it already exists
 	if m.makeAdjustmentsDone != nil {
 		m.makeAdjustmentsDone()

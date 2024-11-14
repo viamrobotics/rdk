@@ -111,6 +111,10 @@ func (lF *LinkInFrame) ToStaticFrame(name string) (Frame, error) {
 
 // PoseInFrameToProtobuf converts a PoseInFrame struct to a PoseInFrame protobuf message.
 func PoseInFrameToProtobuf(framedPose *PoseInFrame) *commonpb.PoseInFrame {
+	if framedPose == nil {
+		return &commonpb.PoseInFrame{}
+	}
+
 	poseProto := &commonpb.Pose{}
 	if framedPose.pose != nil {
 		poseProto = spatialmath.PoseToProtobuf(framedPose.pose)

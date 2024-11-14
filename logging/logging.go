@@ -65,11 +65,28 @@ func NewLogger(name string) Logger {
 		name:       name,
 		level:      NewAtomicLevelAt(INFO),
 		appenders:  []Appender{NewStdoutAppender()},
+		registry:   newRegistry(),
 		testHelper: func() {},
 	}
 
-	RegisterLogger(name, logger)
+	logger.registry.registerLogger(name, logger)
 	return logger
+}
+
+// NewLoggerWithRegistry is the same as NewLogger but also returns the
+// associated Registry.
+func NewLoggerWithRegistry(name string) (Logger, *Registry) {
+	reg := newRegistry()
+	logger := &impl{
+		name:       name,
+		level:      NewAtomicLevelAt(INFO),
+		appenders:  []Appender{NewStdoutAppender()},
+		registry:   reg,
+		testHelper: func() {},
+	}
+
+	logger.registry.registerLogger(name, logger)
+	return logger, reg
 }
 
 // NewDebugLogger returns a new logger that outputs Debug+ logs to stdout in UTC.
@@ -78,10 +95,11 @@ func NewDebugLogger(name string) Logger {
 		name:       name,
 		level:      NewAtomicLevelAt(DEBUG),
 		appenders:  []Appender{NewStdoutAppender()},
+		registry:   newRegistry(),
 		testHelper: func() {},
 	}
 
-	RegisterLogger(name, logger)
+	logger.registry.registerLogger(name, logger)
 	return logger
 }
 
@@ -92,10 +110,11 @@ func NewBlankLogger(name string) Logger {
 		name:       name,
 		level:      NewAtomicLevelAt(DEBUG),
 		appenders:  []Appender{},
+		registry:   newRegistry(),
 		testHelper: func() {},
 	}
 
-	RegisterLogger(name, logger)
+	logger.registry.registerLogger(name, logger)
 	return logger
 }
 
@@ -115,10 +134,30 @@ func NewObservedTestLogger(tb testing.TB) (Logger, *observer.ObservedLogs) {
 			NewTestAppender(tb),
 			observerCore,
 		},
+		registry:   newRegistry(),
 		testHelper: tb.Helper,
 	}
 
 	return logger, observedLogs
+}
+
+// NewObservedTestLoggerWithRegistry is like NewObservedTestLogger but also returns the
+// associated registry. It also takes a name for the logger.
+func NewObservedTestLoggerWithRegistry(tb testing.TB, name string) (Logger, *observer.ObservedLogs, *Registry) {
+	observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
+	registry := newRegistry()
+	logger := &impl{
+		name:  name,
+		level: NewAtomicLevelAt(DEBUG),
+		appenders: []Appender{
+			NewTestAppender(tb),
+			observerCore,
+		},
+		registry:   registry,
+		testHelper: tb.Helper,
+	}
+
+	return logger, observedLogs, registry
 }
 
 // MemLogger stores test logs in memory. And can write them on request with `OutputLogs`.
@@ -148,6 +187,7 @@ func NewInMemoryLogger(tb testing.TB) *MemLogger {
 		appenders: []Appender{
 			observerCore,
 		},
+		registry:   newRegistry(),
 		testHelper: tb.Helper,
 	}
 

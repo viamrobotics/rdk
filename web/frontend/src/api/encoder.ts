@@ -1,87 +1,36 @@
-import { type Client, encoderApi } from '@viamrobotics/sdk';
 import { rcLogConditionally } from '@/lib/log';
+import {
+  EncoderClient,
+  EncoderPositionType,
+  type Client,
+} from '@viamrobotics/sdk';
 
 export const getProperties = async (robotClient: Client, name: string) => {
-  const request = new encoderApi.GetPropertiesRequest();
-  request.setName(name);
-
-  rcLogConditionally(request);
-
-  const response = await new Promise<encoderApi.GetPropertiesResponse | null>(
-    (resolve, reject) => {
-      robotClient.encoderService.getProperties(request, (error, res) => {
-        if (error) {
-          reject(error);
-        } else {
-          resolve(res);
-        }
-      });
-    }
-  );
-
-  return response?.toObject();
+  const client = new EncoderClient(robotClient, name, {
+    requestLogger: rcLogConditionally,
+  });
+  return client.getProperties();
 };
 
 export const getPosition = async (robotClient: Client, name: string) => {
-  const request = new encoderApi.GetPositionRequest();
-  request.setName(name);
-
-  rcLogConditionally(request);
-
-  const response = await new Promise<encoderApi.GetPositionResponse | null>(
-    (resolve, reject) => {
-      robotClient.encoderService.getPosition(request, (error, res) => {
-        if (error) {
-          reject(error);
-        } else {
-          resolve(res);
-        }
-      });
-    }
-  );
-
-  return response?.toObject().value;
+  const client = new EncoderClient(robotClient, name, {
+    requestLogger: rcLogConditionally,
+  });
+  const resp = await client.getPosition();
+  return resp[0];
 };
 
 export const getPositionDegrees = async (robotClient: Client, name: string) => {
-  const request = new encoderApi.GetPositionRequest();
-  request.setName(name);
-  request.setPositionType(2);
-
-  rcLogConditionally(request);
-
-  const response = await new Promise<encoderApi.GetPositionResponse | null>(
-    (resolve, reject) => {
-      robotClient.encoderService.getPosition(request, (error, res) => {
-        if (error) {
-          reject(error);
-        } else {
-          resolve(res);
-        }
-      });
-    }
-  );
-
-  return response?.toObject().value;
+  const client = new EncoderClient(robotClient, name, {
+    requestLogger: rcLogConditionally,
+  });
+  const resp = await client.getPosition(EncoderPositionType.ANGLE_DEGREES);
+  return resp[0];
 };
 
 export const reset = async (robotClient: Client, name: string) => {
-  const request = new encoderApi.ResetPositionRequest();
-  request.setName(name);
-
-  rcLogConditionally(request);
-
-  const response = await new Promise<encoderApi.ResetPositionResponse | null>(
-    (resolve, reject) => {
-      robotClient.encoderService.resetPosition(request, (error, res) => {
-        if (error) {
-          reject(error);
-        } else {
-          resolve(res);
-        }
-      });
-    }
-  );
-
-  return response?.toObject();
+  const client = new EncoderClient(robotClient, name, {
+    requestLogger: rcLogConditionally,
+  });
+  return client.resetPosition();
 };

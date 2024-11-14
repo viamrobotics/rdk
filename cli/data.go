@@ -68,7 +68,8 @@ func (c *viamClient) dataExportAction(cCtx *cli.Context) error {
 
 	switch cCtx.String(dataFlagDataType) {
 	case dataTypeBinary:
-		if err := c.binaryData(cCtx.Path(dataFlagDestination), filter, cCtx.Uint(dataFlagParallelDownloads)); err != nil {
+		if err := c.binaryData(cCtx.Path(dataFlagDestination), filter, cCtx.Uint(dataFlagParallelDownloads),
+			cCtx.Uint(dataFlagTimeout)); err != nil {
 			return err
 		}
 	case dataTypeTabular:
@@ -110,7 +111,7 @@ func DataTagActionByFilter(c *cli.Context) error {
 }
 
 // DataTagActionByIds is the corresponding action for 'data tag'.
-func DataTagActionByIds(c *cli.Context) error {
+func DataTagActionByIds(c *cli.Context) error { //nolint:var-naming,revive
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -264,14 +265,14 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 }
 
 // BinaryData downloads binary data matching filter to dst.
-func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownloads uint) error {
+func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownloads, timeout uint) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
 
 	return c.performActionOnBinaryDataFromFilter(
 		func(id *datapb.BinaryID) error {
-			return downloadBinary(c.c.Context, c.dataClient, dst, id, c.authFlow.httpClient, c.conf.Auth)
+			return c.downloadBinary(dst, id, timeout)
 		},
 		filter, parallelDownloads,
 		func(i int32) {
@@ -295,17 +296,12 @@ func (c *viamClient) performActionOnBinaryDataFromFilter(actionOnBinaryData func
 	defer cancel()
 	var wg sync.WaitGroup
 
-	// In one routine, get all IDs matching the filter and pass them into ids.
+	// In one routine, get all IDs matching the filter and pass them into the ids channel.
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		// If limit is too high the request can time out, so limit each call to a maximum value of 100.
-		var limit uint
-		if parallelActions > maxLimit {
-			limit = maxLimit
-		} else {
-			limit = parallelActions
-		}
+		limit := min(parallelActions, maxLimit)
 		if err := getMatchingBinaryIDs(ctx, c.dataClient, filter, ids, limit); err != nil {
 			errs <- err
 			cancel()
@@ -372,7 +368,7 @@ func (c *viamClient) performActionOnBinaryDataFromFilter(actionOnBinaryData func
 	return nil
 }
 
-// getMatchingIDs queries client for all BinaryData matching filter, and passes each of their ids into ids.
+// getMatchingBinaryIDs queries client for all BinaryData matching filter, and passes each of their ids into ids.
 func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, filter *datapb.Filter,
 	ids chan *datapb.BinaryID, limit uint,
 ) error {
@@ -412,35 +408,39 @@ func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, 
 	}
 }
 
-func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst string, id *datapb.BinaryID,
-	httpClient *http.Client, auth authMethod,
-) error {
+func (c *viamClient) downloadBinary(dst string, id *datapb.BinaryID, timeout uint) error {
+	debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Attempting to download binary file %s", id.FileId)
+
 	var resp *datapb.BinaryDataByIDsResponse
 	var err error
 	largeFile := false
 	// To begin, we assume the file is small and downloadable, so we try getting the binary directly
 	for count := 0; count < maxRetryCount; count++ {
-		resp, err = client.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
+		resp, err = c.dataClient.BinaryDataByIDs(c.c.Context, &datapb.BinaryDataByIDsRequest{
 			BinaryIds:     []*datapb.BinaryID{id},
 			IncludeBinary: !largeFile,
 		})
 		// If the file is too large, we break and try a different pathway for downloading
 		if err == nil || status.Code(err) == codes.ResourceExhausted {
+			debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Small file download file %s: attempt %d/%d succeeded", id.FileId, count+1, maxRetryCount)
 			break
 		}
+		debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Small file download for file %s: attempt %d/%d failed", id.FileId, count+1, maxRetryCount)
 	}
 	// For large files, we get the metadata but not the binary itself
 	// Resource exhausted is returned when the message we're receiving exceeds the GRPC maximum limit
 	if err != nil && status.Code(err) == codes.ResourceExhausted {
 		largeFile = true
 		for count := 0; count < maxRetryCount; count++ {
-			resp, err = client.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
+			resp, err = c.dataClient.BinaryDataByIDs(c.c.Context, &datapb.BinaryDataByIDsRequest{
 				BinaryIds:     []*datapb.BinaryID{id},
 				IncludeBinary: !largeFile,
 			})
 			if err == nil {
+				debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Metadata fetch for file %s: attempt %d/%d succeeded", id.FileId, count+1, maxRetryCount)
 				break
 			}
+			debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Metadata fetch for file %s: attempt %d/%d failed", id.FileId, count+1, maxRetryCount)
 		}
 	}
 	if err != nil {
@@ -475,48 +475,59 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 		return err
 	}
 
-	var bin []byte
+	var r io.ReadCloser
 	if largeFile {
+		debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Attempting file %s as a large file download", id.FileId)
 		// Make request to the URI for large files since we exceed the message limit for gRPC
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, datum.GetMetadata().GetUri(), nil)
+		req, err := http.NewRequestWithContext(c.c.Context, http.MethodGet, datum.GetMetadata().GetUri(), nil)
 		if err != nil {
 			return errors.Wrapf(err, serverErrorMessage)
 		}
 
 		// Set the headers so HTTP requests that are not gRPC calls can still be authenticated in app
 		// We can authenticate via token or API key, so we try both.
-		token, ok := auth.(*token)
+		token, ok := c.conf.Auth.(*token)
 		if ok {
 			req.Header.Add(rpc.MetadataFieldAuthorization, rpc.AuthorizationValuePrefixBearer+token.AccessToken)
 		}
-		apiKey, ok := auth.(*apiKey)
+		apiKey, ok := c.conf.Auth.(*apiKey)
 		if ok {
 			req.Header.Add("key_id", apiKey.KeyID)
 			req.Header.Add("key", apiKey.KeyCrypto)
 		}
 
-		res, err := httpClient.Do(req)
+		httpClient := &http.Client{Timeout: time.Duration(timeout) * time.Second}
+
+		var res *http.Response
+		for count := 0; count < maxRetryCount; count++ {
+			res, err = httpClient.Do(req)
+
+			if err == nil && res.StatusCode == http.StatusOK {
+				debugf(c.c.App.Writer, c.c.Bool(debugFlag),
+					"Large file download for file %s: attempt %d/%d succeeded", id.FileId, count+1, maxRetryCount)
+				break
+			}
+			debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Large file download for file %s: attempt %d/%d failed", id.FileId, count+1, maxRetryCount)
+		}
+
 		if err != nil {
+			debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Failed downloading large file %s: %s", id.FileId, err)
 			return errors.Wrapf(err, serverErrorMessage)
 		}
 		if res.StatusCode != http.StatusOK {
+			debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Failed downloading large file %s: Server returned %d response", id.FileId, res.StatusCode)
 			return errors.New(serverErrorMessage)
 		}
 		defer func() {
 			utils.UncheckedError(res.Body.Close())
 		}()
 
-		bin, err = io.ReadAll(res.Body)
-		if err != nil {
-			return errors.Wrapf(err, serverErrorMessage)
-		}
+		r = res.Body
 	} else {
 		// If the binary has not already been populated as large file download,
 		// get the binary data from the response.
-		bin = datum.GetBinary()
+		r = io.NopCloser(bytes.NewReader(datum.GetBinary()))
 	}
-
-	r := io.NopCloser(bytes.NewReader(bin))
 
 	dataPath := filepath.Join(dst, dataDir, fileName)
 	ext := datum.GetMetadata().GetFileExt()
@@ -525,6 +536,7 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 	if ext == gzFileExt {
 		r, err = gzip.NewReader(r)
 		if err != nil {
+			debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Failed unzipping file %s: %s", id.FileId, err)
 			return err
 		}
 	} else if filepath.Ext(dataPath) != ext {
@@ -534,18 +546,22 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 	}
 
 	if err := os.MkdirAll(filepath.Dir(dataPath), 0o700); err != nil {
+		debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Failed creating data directory %s: %s", dataPath, err)
 		return errors.Wrapf(err, "could not create data directory %s", filepath.Dir(dataPath))
 	}
 	//nolint:gosec
 	dataFile, err := os.Create(dataPath)
 	if err != nil {
-		return errors.Wrapf(err, fmt.Sprintf("could not create file for datum %s", datum.GetMetadata().GetId()))
+		debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Failed creating file %s: %s", id.FileId, err)
+		return errors.Wrapf(err, fmt.Sprintf("could not create file for datum %s", datum.GetMetadata().GetId())) //nolint:govet
 	}
 	//nolint:gosec
 	if _, err := io.Copy(dataFile, r); err != nil {
+		debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Failed writing data to file %s: %s", id.FileId, err)
 		return err
 	}
 	if err := r.Close(); err != nil {
+		debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Failed closing file %s: %s", id.FileId, err)
 		return err
 	}
 	return nil
@@ -603,7 +619,7 @@ func (c *viamClient) tabularData(dst string, filter *datapb.Filter, limit uint) 
 	}
 	w := bufio.NewWriter(dataFile)
 
-	fmt.Fprintf(c.c.App.Writer, "Downloading..") // no newline
+	fmt.Fprintf(c.c.App.Writer, "Downloading..") //nolint:errcheck // no newline
 	var last string
 	mdIndexes := make(map[string]int)
 	mdIndex := 0
@@ -617,7 +633,7 @@ func (c *viamClient) tabularData(dst string, filter *datapb.Filter, limit uint) 
 				},
 				CountOnly: false,
 			})
-			fmt.Fprintf(c.c.App.Writer, ".") // no newline
+			fmt.Fprintf(c.c.App.Writer, ".") //nolint:errcheck // no newline
 			if err == nil {
 				break
 			}
@@ -649,7 +665,7 @@ func (c *viamClient) tabularData(dst string, filter *datapb.Filter, limit uint) 
 			//nolint:gosec
 			mdFile, err := os.Create(filepath.Join(dst, metadataDir, strconv.Itoa(mdIndex)+".json"))
 			if err != nil {
-				return errors.Wrapf(err, fmt.Sprintf("could not create metadata file for metadata index %d", mdIndex))
+				return errors.Wrapf(err, fmt.Sprintf("could not create metadata file for metadata index %d", mdIndex)) //nolint:govet
 			}
 			if _, err := mdFile.Write(mdJSONBytes); err != nil {
 				return errors.Wrapf(err, "could not write to metadata file %s", mdFile.Name())

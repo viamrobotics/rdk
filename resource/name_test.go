@@ -163,3 +163,49 @@ func TestSDPTrackNameToShortName(t *testing.T) {
 		test.That(t, SDPTrackNameToShortName(tc.input), test.ShouldResemble, tc.output)
 	}
 }
+
+func TestNamesToStrings(t *testing.T) {
+	type testCase struct {
+		input  []Name
+		output []string
+	}
+
+	camAPI := API{Type: APIType{Namespace: APINamespace("rdk"), Name: "component"}, SubtypeName: "camera"}
+	test.That(t, camAPI, test.ShouldResemble, APINamespaceRDK.WithComponentType("camera"))
+
+	tcs := []testCase{
+		{
+			input:  []Name{},
+			output: []string{},
+		},
+		{
+			input:  []Name{{API: camAPI, Remote: "", Name: "cam1"}},
+			output: []string{"rdk:component:camera/cam1"},
+		},
+		{
+			input:  []Name{{API: camAPI, Remote: "", Name: "cam1"}, {API: camAPI, Remote: "abc", Name: "cam1"}},
+			output: []string{"rdk:component:camera/cam1", "rdk:component:camera/abc:cam1"},
+		},
+	}
+	for _, tc := range tcs {
+		test.That(t, NamesToStrings(tc.input), test.ShouldResemble, tc.output)
+	}
+}
+
+func TestRemoteNameToRemoteArray(t *testing.T) {
+	t.Run("name with multiple remote returns array of remotes", func(t *testing.T) {
+		nameTest := Name{
+			Remote: "foo:bar:wow",
+		}
+		remoteArray := nameTest.RemoteNameToRemoteArray()
+		test.That(t, remoteArray, test.ShouldResemble, []string{"foo", "bar", "wow"})
+	})
+
+	t.Run("name with empty remotes should return empty string array", func(t *testing.T) {
+		nameTest := Name{
+			Remote: "",
+		}
+		remoteArray := nameTest.RemoteNameToRemoteArray()
+		test.That(t, remoteArray, test.ShouldResemble, []string{})
+	})
+}

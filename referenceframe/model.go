@@ -21,6 +21,7 @@ import (
 type Model interface {
 	Frame
 	ModelConfig() *ModelConfig
+	ModelPieceFrames([]Input) (map[string]Frame, error)
 }
 
 // ModelFramer has a method that returns the kinematics information needed to build a dynamic referenceframe.
@@ -189,13 +190,27 @@ func (m *SimpleModel) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m.modelConfig)
 }
 
+// ModelPieceFrames takes a list of inputs and returns a map of frame names to their corresponding static frames,
+// effectively breaking the model into its kinematic pieces.
+func (m *SimpleModel) ModelPieceFrames(inputs []Input) (map[string]Frame, error) {
+	poses, err := m.inputsToFrames(inputs, true)
+	if err != nil {
+		return nil, err
+	}
+	frameMap := map[string]Frame{}
+	for _, sFrame := range poses {
+		frameMap[sFrame.Name()] = sFrame
+	}
+	return frameMap, nil
+}
+
 // TODO(rb) better comment
 // takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of each of the links up to and including the end effector. This is useful for when conversions
 // between quaternions and OV are not needed.
 func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*staticFrame, error) {
 	if len(m.DoF()) != len(inputs) {
-		return nil, NewIncorrectInputLengthError(len(inputs), len(m.DoF()))
+		return nil, NewIncorrectDoFError(len(inputs), len(m.DoF()))
 	}
 	var err error
 	poses := make([]*staticFrame, 0, len(m.OrdTransforms))

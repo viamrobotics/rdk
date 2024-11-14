@@ -17,13 +17,14 @@ import (
 const (
 	defaultZeroDist  = 1e-3 // Sometimes nlopt will minimize trajectories to zero. Ensure min total traj dist is at least this
 	defaultMinPTGlen = 10.
+	defaultNloptSeed = 10.
 )
 
 type ptgIK struct {
 	PTG
 	refDist         float64
 	ptgFrame        referenceframe.Frame
-	fastGradDescent *ik.NloptIK
+	fastGradDescent ik.Solver
 
 	gridSim PTGSolver
 
@@ -57,7 +58,7 @@ func NewPTGIK(simPTG PTG, logger logging.Logger, refDistLong, refDistShort float
 
 	ptgFrame := newPTGIKFrame(simPTG, limits)
 
-	nlopt, err := ik.CreateNloptIKSolver(ptgFrame, logger, 1, false, false)
+	nlopt, err := ik.CreateNloptSolver(ptgFrame.DoF(), logger, 1, false, false)
 	if err != nil {
 		return nil, err
 	}
@@ -83,11 +84,9 @@ func NewPTGIK(simPTG PTG, logger logging.Logger, refDistLong, refDistShort float
 
 func (ptg *ptgIK) Solve(
 	ctx context.Context,
-	solutionChan chan<- *ik.Solution,
 	seed []referenceframe.Input,
 	solveMetric ik.StateMetric,
-	nloptSeed int,
-) error {
+) (*ik.Solution, error) {
 	internalSolutionGen := make(chan *ik.Solution, 1)
 	defer close(internalSolutionGen)
 	var solved *ik.Solution
@@ -96,7 +95,13 @@ func (ptg *ptgIK) Solve(
 	}
 
 	// Spawn the IK solver to generate a solution
-	err := ptg.fastGradDescent.Solve(ctx, internalSolutionGen, seed, solveMetric, nloptSeed)
+	err := ptg.fastGradDescent.Solve(
+		ctx,
+		internalSolutionGen,
+		referenceframe.InputsToFloats(seed),
+		ptg.ptgMetricIkFunc(solveMetric),
+		defaultNloptSeed,
+	)
 	// We should have zero or one solutions
 	select {
 	case solved = <-internalSolutionGen:
@@ -108,19 +113,18 @@ func (ptg *ptgIK) Solve(
 		// If nlopt failed to gradient descend, it will return the seed. If the seed is what was returned, we want to use our precomputed
 		// grid check instead.
 		for i, v := range solved.Configuration {
-			if v.Value != seed[i].Value {
+			if v != seed[i].Value {
 				seedOutput = false
 				break
 			}
 		}
 	}
-	if err != nil || solved == nil || ptg.arcDist(solved.Configuration) < defaultZeroDist || seedOutput {
+	if err != nil || solved == nil || ptg.arcDist(referenceframe.FloatsToInputs(solved.Configuration)) < defaultZeroDist || seedOutput {
 		// nlopt did not return a valid solution or otherwise errored. Fall back fully to the grid check.
-		return ptg.gridSim.Solve(ctx, solutionChan, seed, solveMetric, nloptSeed)
+		return ptg.gridSim.Solve(ctx, seed, solveMetric)
 	}
 
-	solutionChan <- solved
-	return nil
+	return solved, nil
 }
 
 func (ptg *ptgIK) MaxDistance() float64 {
@@ -231,4 +235,14 @@ func (ptg *ptgIK) arcDist(inputs []referenceframe.Input) float64 {
 		dist += (inputs[i].Value - defaultMinPTGlen)
 	}
 	return dist
+}
+
+func (ptg *ptgIK) ptgMetricIkFunc(distMetric ik.StateMetric) func([]float64) float64 {
+	return func(vals []float64) float64 {
+		queryPose, err := ptg.Transform(referenceframe.FloatsToInputs(vals))
+		if err != nil {
+			return math.Inf(1)
+		}
+		return distMetric(&ik.State{Position: queryPose})
+	}
 }

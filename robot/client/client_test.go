@@ -495,7 +495,7 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
-	err = arm1.MoveToJointPositions(context.Background(), &armpb.JointPositions{Values: []float64{1}}, nil)
+	err = arm1.MoveToJointPositions(context.Background(), []referenceframe.Input{}, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
@@ -563,7 +563,7 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
-	err = resource1.(arm.Arm).MoveToJointPositions(context.Background(), &armpb.JointPositions{Values: []float64{1}}, nil)
+	err = resource1.(arm.Arm).MoveToJointPositions(context.Background(), []referenceframe.Input{}, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
@@ -1293,7 +1293,11 @@ func TestClientDiscovery(t *testing.T) {
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		return finalResources
 	}
-	q := resource.DiscoveryQuery{movementsensor.Named("foo").API, resource.DefaultModelFamily.WithModel("something")}
+	q := resource.DiscoveryQuery{
+		API:   movementsensor.Named("foo").API,
+		Model: resource.DefaultModelFamily.WithModel("bar"),
+		Extra: map[string]interface{}{},
+	}
 	injectRobot.DiscoverComponentsFunc = func(ctx context.Context, keys []resource.DiscoveryQuery) ([]resource.Discovery, error) {
 		return []resource.Discovery{{
 			Query:   q,

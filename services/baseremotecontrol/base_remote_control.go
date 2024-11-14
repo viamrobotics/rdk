@@ -1,4 +1,7 @@
 // Package baseremotecontrol implements a remote control for a base.
+// For more information, see the [base remote control service docs].
+//
+// [base remote control service docs]: https://docs.viam.com/services/base-rc/
 package baseremotecontrol
 
 import (
@@ -30,6 +33,7 @@ func init() {
 }
 
 // A Service is the basis for the base remote control.
+// For more information, see the [base remote control service docs].
 //
 // Close example:
 //
@@ -40,6 +44,8 @@ func init() {
 //
 //	// Get the list of inputs from the controller that are being monitored for that control mode.
 //	inputs := baseRCService.ControllerInputs()
+//
+// [base remote control service docs]: https://docs.viam.com/services/base-rc/
 type Service interface {
 	resource.Resource
 	// Close out of all remote control related systems.

@@ -1,18 +1,18 @@
 <script lang="ts">
-import Collapse from '@/lib/components/collapse.svelte';
 import { useRobotClient } from '@/hooks/robot-client';
+import Collapse from '@/lib/components/collapse.svelte';
+import { displayError } from '@/lib/error';
 import { components } from '@/stores/resources';
 import {
   CameraClient,
+  ConnectError,
   VisionClient,
   type Classification,
   type Detection,
-  type ServiceError,
 } from '@viamrobotics/sdk';
-import { rcLogConditionally } from '../../lib/log';
-import { displayError } from '@/lib/error';
-import { filterSubtype } from '../../lib/resource';
 import get from 'lodash-es/get';
+import { rcLogConditionally } from '../../lib/log';
+import { filterSubtype } from '../../lib/resource';
 
 export let names: string[];
 let [serviceName] = names;
@@ -106,28 +106,32 @@ const run = async () => {
       );
 
       for (const det of detections) {
+        const xMax = Number(det.xMax ?? 0);
+        const xMin = Number(det.xMin ?? 0);
+        const yMax = Number(det.yMax ?? 0);
+        const yMin = Number(det.yMin ?? 0);
         canvasCtx.save();
         canvasCtx.beginPath();
         canvasCtx.strokeStyle = 'red';
         canvasCtx.fillStyle = 'red';
-        const width = det.xMax - det.xMin;
-        const height = det.yMax - det.yMin;
-        canvasCtx.rect(det.xMin, det.yMin, width, height);
+        const width = xMax - xMin;
+        const height = yMax - yMin;
+        canvasCtx.rect(xMin, yMin, width, height);
         canvasCtx.stroke();
         canvasCtx.font = `12px monospace`;
         canvasCtx.textAlign = 'left';
         canvasCtx.textBaseline = 'top';
         canvasCtx.fillText(
           `${det.className} (${det.confidence})`,
-          det.xMin,
-          det.yMin,
+          xMin,
+          yMin,
           width
         );
         canvasCtx.restore();
       }
     } catch (detError) {
       if (!isNotADetectorError(detError)) {
-        displayError(detError as ServiceError);
+        displayError(detError as ConnectError);
         return;
       }
 
@@ -151,7 +155,7 @@ const run = async () => {
           y += 15;
         }
       } catch (clasError) {
-        displayError(clasError as ServiceError);
+        displayError(clasError as ConnectError);
       }
     }
   });
@@ -224,7 +228,9 @@ const onRefreshKeyPress = async (event: KeyboardEvent) => {
                 ({det.xMin}, {det.yMin})
               </td>
               <td class="border border-medium p-2">
-                {det.xMax - det.xMin}x{det.yMax - det.yMin}
+                {Number(det.xMax ?? 0) - Number(det.xMin ?? 0)}x{Number(
+                  det.yMax ?? 0
+                ) - Number(det.yMin ?? 0)}
               </td>
               <td class="border border-medium p-2">
                 {det.className}

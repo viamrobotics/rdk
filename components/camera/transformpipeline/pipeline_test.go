@@ -9,7 +9,7 @@ import (
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/components/camera/videosource"
+	"go.viam.com/rdk/components/camera/fake"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -32,7 +32,7 @@ func TestTransformPipelineColor(t *testing.T) {
 
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1_small.png"))
 	test.That(t, err, test.ShouldBeNil)
-	source := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
+	source := gostream.NewVideoSource(&fake.StaticSource{ColorImg: img}, prop.Video{})
 	src, err := camera.WrapVideoSourceWithProjector(context.Background(), source, nil, camera.ColorStream)
 	test.That(t, err, test.ShouldBeNil)
 	inImg, _, err := camera.ReadImage(context.Background(), src)
@@ -78,7 +78,7 @@ func TestTransformPipelineDepth(t *testing.T) {
 
 	dm, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("rimage/board1_gray_small.png"))
 	test.That(t, err, test.ShouldBeNil)
-	source := gostream.NewVideoSource(&videosource.StaticSource{DepthImg: dm}, prop.Video{})
+	source := gostream.NewVideoSource(&fake.StaticSource{DepthImg: dm}, prop.Video{})
 	src, err := camera.WrapVideoSourceWithProjector(context.Background(), source, nil, camera.DepthStream)
 	test.That(t, err, test.ShouldBeNil)
 	inImg, _, err := camera.ReadImage(context.Background(), src)
@@ -130,7 +130,7 @@ func TestTransformPipelineDepth2(t *testing.T) {
 	dm, err := rimage.NewDepthMapFromFile(
 		context.Background(), artifact.MustPath("rimage/board1_gray_small.png"))
 	test.That(t, err, test.ShouldBeNil)
-	source := gostream.NewVideoSource(&videosource.StaticSource{DepthImg: dm}, prop.Video{})
+	source := gostream.NewVideoSource(&fake.StaticSource{DepthImg: dm}, prop.Video{})
 	// first depth transform
 	depth1, err := newTransformPipeline(context.Background(), source, transform1, r, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -160,7 +160,7 @@ func TestNullPipeline(t *testing.T) {
 
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1_small.png"))
 	test.That(t, err, test.ShouldBeNil)
-	source := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
+	source := gostream.NewVideoSource(&fake.StaticSource{ColorImg: img}, prop.Video{})
 	_, err = newTransformPipeline(context.Background(), source, transform1, r, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "pipeline has no transforms")
@@ -185,7 +185,7 @@ func TestPipeIntoPipe(t *testing.T) {
 
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1_small.png"))
 	test.That(t, err, test.ShouldBeNil)
-	source := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
+	source := gostream.NewVideoSource(&fake.StaticSource{ColorImg: img}, prop.Video{})
 
 	intrinsics1 := &transform.PinholeCameraIntrinsics{Width: 128, Height: 72}
 	transform1 := &transformConfig{

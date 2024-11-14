@@ -24,8 +24,6 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
-	jetsoncamera "go.viam.com/rdk/components/camera/platforms/jetson"
-	debugLogger "go.viam.com/rdk/components/camera/videosource/logging"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
@@ -47,7 +45,7 @@ func init() {
 		ModelWebcam,
 		resource.Registration[camera.Camera, *WebcamConfig]{
 			Constructor: NewWebcam,
-			Discover: func(ctx context.Context, logger logging.Logger) (interface{}, error) {
+			Discover: func(ctx context.Context, logger logging.Logger, extra map[string]interface{}) (interface{}, error) {
 				return Discover(ctx, getVideoDrivers, logger)
 			},
 		})
@@ -121,31 +119,7 @@ func Discover(ctx context.Context, getDrivers func() []driver.Driver, logger log
 		webcams = append(webcams, wc)
 	}
 
-	if err := debugLogger.GLoggerCamComp.Log("discovery service", webcamsToMap(webcams)); err != nil {
-		logger.Debug(err)
-	}
 	return &pb.Webcams{Webcams: webcams}, nil
-}
-
-func webcamsToMap(webcams []*pb.Webcam) debugLogger.InfoMap {
-	info := make(debugLogger.InfoMap)
-	for _, w := range webcams {
-		k := w.Name
-		v := fmt.Sprintf("ID: %s\n", w.Id)
-		v += fmt.Sprintf("Status: %s\n", w.Status)
-		v += fmt.Sprintf("Label: %s\n", w.Label)
-		v += "Properties:"
-		for _, p := range w.Properties {
-			v += fmt.Sprintf(" :%s=%-4d | %s=%-4d | %s=%-5s | %s=%-4.2f\n",
-				"width_px", p.GetWidthPx(),
-				"height_px", p.GetHeightPx(),
-				"frame_format", p.GetFrameFormat(),
-				"frame_rate", p.GetFrameRate(),
-			)
-		}
-		info[k] = v
-	}
-	return info
 }
 
 func getProperties(d driver.Driver) (_ []prop.Media, err error) {
@@ -182,6 +156,11 @@ func (c WebcamConfig) Validate(path string) ([]string, error) {
 		return nil, fmt.Errorf(
 			"got illegal negative dimensions for width_px and height_px (%d, %d) fields set for webcam camera",
 			c.Height, c.Width)
+	}
+	if c.FrameRate < 0 {
+		return nil, fmt.Errorf(
+			"got illegal non-positive dimension for frame rate (%.2f) field set for webcam camera",
+			c.FrameRate)
 	}
 
 	return []string{}, nil
@@ -302,25 +281,11 @@ func NewWebcam(
 
 	s, err := cam.Stream(ctx)
 	if err != nil {
-		if err := debugLogger.GLoggerCamComp.Log("camera test results",
-			debugLogger.InfoMap{
-				"name":  cam.Name().Name,
-				"error": fmt.Sprint(err),
-			},
-		); err != nil {
-			logger.Debug(err)
-		}
-		return cam, nil
+		logger.Debug(err)
 	}
 
-	img, _, err := s.Next(ctx)
-	if err := debugLogger.GLoggerCamComp.Log("camera test results",
-		debugLogger.InfoMap{
-			"camera name":        cam.Name().Name,
-			"has non-nil image?": fmt.Sprintf("%t", img != nil),
-			"error:":             fmt.Sprintf("%s", err),
-		},
-	); err != nil {
+	_, _, err = s.Next(ctx)
+	if err != nil {
 		logger.Debug(err)
 	}
 
@@ -497,14 +462,6 @@ func (c *monitoredWebcam) reconnectCamera(conf *WebcamConfig) error {
 
 	newSrc, foundLabel, err := findAndMakeVideoSource(c.cancelCtx, conf, c.targetPath, c.logger)
 	if err != nil {
-		// If we are on a Jetson Orin AGX, we need to validate hardware/software setup.
-		// If not, simply pass through the error.
-		err = jetsoncamera.ValidateSetup(
-			jetsoncamera.OrinAGX,
-			jetsoncamera.ECAM,
-			jetsoncamera.AR0234,
-			err,
-		)
 		return errors.Wrap(err, "failed to find camera")
 	}
 
@@ -567,7 +524,7 @@ func (c *monitoredWebcam) Monitor() {
 						defer c.mu.Unlock()
 
 						if err := c.reconnectCamera(&c.conf); err != nil {
-							c.logger.Errorw("failed to reconnect camera", "error", err)
+							c.logger.Debugw("failed to reconnect camera", "error", err)
 							return true
 						}
 						c.logger.Infow("camera reconnected")
@@ -687,6 +644,10 @@ func (c *monitoredWebcam) Properties(ctx context.Context) (camera.Properties, er
 			c.hasLoggedIntrinsicsInfo = true
 		}
 		props.IntrinsicParams = &cameraIntrinsics
+
+		if c.conf.FrameRate > 0 {
+			props.FrameRate = c.conf.FrameRate
+		}
 	}
 	return props, nil
 }

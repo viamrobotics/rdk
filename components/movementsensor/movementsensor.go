@@ -1,4 +1,7 @@
-// Package movementsensor defines the interfaces of a MovementSensor
+// Package movementsensor defines the interfaces of a MovementSensor.
+// For more information, see the [movement sensor component docs].
+//
+// [movement sensor component docs]: https://docs.viam.com/components/movement-sensor/
 package movementsensor
 
 import (
@@ -65,6 +68,7 @@ func Named(name string) resource.Name {
 }
 
 // A MovementSensor reports information about the robot's direction, position and speed.
+// For more information, see the [movement sensor component docs].
 //
 // Position example:
 //
@@ -87,7 +91,7 @@ func Named(name string) resource.Name {
 // LinearAcceleration example:
 //
 //	// Get the current linear acceleration of the movement sensor.
-//	linVel, err := myMovementSensor.LinearVelocity(context.Background(), nil)
+//	linAcc, err := myMovementSensor.LinearAcceleration(context.Background(), nil)
 //
 // CompassHeading example:
 //
@@ -103,9 +107,9 @@ func Named(name string) resource.Name {
 //	orientation := sensorOrientation.OrientationVectorDegrees()
 //
 //	// Print out the orientation vector.
-//	logger.Info("The x component of the orientation vector: ", orientation.0X)
-//	logger.Info("The y component of the orientation vector: ", orientation.0Y)
-//	logger.Info("The z component of the orientation vector: ", orientation.0Z)
+//	logger.Info("The x component of the orientation vector: ", orientation.OX)
+//	logger.Info("The y component of the orientation vector: ", orientation.OY)
+//	logger.Info("The z component of the orientation vector: ", orientation.OZ)
 //	logger.Info("The number of degrees that the movement sensor is rotated about the vector: ", orientation.Theta)
 //
 // Properties example:
@@ -117,6 +121,8 @@ func Named(name string) resource.Name {
 //
 //	// Get the accuracy of the movement sensor.
 //	accuracy, err := myMovementSensor.Accuracy(context.Background(), nil)
+//
+// [movement sensor component docs]: https://docs.viam.com/components/movement-sensor/
 type MovementSensor interface {
 	resource.Sensor
 	resource.Resource

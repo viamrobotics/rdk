@@ -4,9 +4,11 @@ import (
 	"cmp"
 	"context"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/kylelemons/godebug/pretty"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/resource"
@@ -57,11 +59,35 @@ func newSortedResourceNames(resourceNames []resource.Name) []resource.Name {
 }
 
 // VerifySameResourceNames asserts that two slices of resource.Names contain the same
-// resources.Names without considering order.
+// resources.Names without considering order. To make debugging failures easier, this
+// function prints out differing [resource.Name] elements both as structs and
+// strings.
 func VerifySameResourceNames(tb testing.TB, actual, expected []resource.Name) {
 	tb.Helper()
 
-	test.That(tb, newSortedResourceNames(actual), test.ShouldResemble, newSortedResourceNames(expected))
+	actualSorted := newSortedResourceNames(actual)
+	expectedSorted := newSortedResourceNames(expected)
+
+	// This deferred function provides more concise output for debugging on failure
+	defer func() {
+		if !tb.Failed() {
+			return
+		}
+		var sb strings.Builder
+		expectedNames := make([]string, len(expectedSorted))
+		actualNames := make([]string, len(actualSorted))
+		for i, exp := range expectedSorted {
+			expectedNames[i] = exp.String()
+		}
+		for i, act := range actualSorted {
+			actualNames[i] = act.String()
+		}
+		sb.WriteString("Resource names do not match - see diff below: (-expected +actual)\n")
+		sb.WriteString(pretty.Compare(expectedNames, actualNames))
+		tb.Log(sb.String())
+	}()
+
+	test.That(tb, actualSorted, test.ShouldResemble, expectedSorted)
 }
 
 // VerifySameResourceStatuses asserts that two slices of [resource.Status] contain the
@@ -81,6 +107,20 @@ func VerifySameResourceStatuses(tb testing.TB, actual, expected []resource.Statu
 	}
 
 	test.That(tb, sortedActual, test.ShouldResemble, sortedExpected)
+}
+
+// FilterByStatus takes a slice of [resource.Status] and a [resource.NodeState] and
+// returns a slice of [resource.Status] that are in the given [resource.NodeState].
+func FilterByStatus(tb testing.TB, resourceStatuses []resource.Status, state resource.NodeState) []resource.Status {
+	tb.Helper()
+
+	var result []resource.Status
+	for _, rs := range resourceStatuses {
+		if rs.State == state {
+			result = append(result, rs)
+		}
+	}
+	return result
 }
 
 func newSortedResourceStatuses(resourceStatuses []resource.Status) []resource.Status {

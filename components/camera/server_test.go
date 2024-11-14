@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"image"
+	"image/jpeg"
 	"image/png"
 	"sync"
 	"testing"
@@ -59,11 +60,12 @@ func TestServer(t *testing.T) {
 	test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
 	var imgBufJpeg bytes.Buffer
 
-	test.That(t, rimage.EncodeJPEG(&imgBufJpeg, img), test.ShouldBeNil)
+	test.That(t, jpeg.Encode(&imgBufJpeg, img, &jpeg.Options{Quality: 75}), test.ShouldBeNil)
 
 	imgPng, err := png.Decode(bytes.NewReader(imgBuf.Bytes()))
 	test.That(t, err, test.ShouldBeNil)
-	imgJpeg, err := rimage.DecodeJPEG(bytes.NewReader(imgBufJpeg.Bytes()))
+
+	imgJpeg, err := jpeg.Decode(bytes.NewReader(imgBufJpeg.Bytes()))
 
 	test.That(t, err, test.ShouldBeNil)
 
@@ -91,6 +93,7 @@ func TestServer(t *testing.T) {
 			SupportsPCD:     true,
 			IntrinsicParams: intrinsics,
 			MimeTypes:       []string{utils.MimeTypeJPEG, utils.MimeTypePNG, utils.MimeTypeH264},
+			FrameRate:       float32(10.0),
 		}, nil
 	}
 	injectCamera.ImagesFunc = func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
@@ -141,6 +144,7 @@ func TestServer(t *testing.T) {
 	injectCameraDepth.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
+	// no frame rate camera
 	injectCameraDepth.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{
 			SupportsPCD:     true,
@@ -172,6 +176,7 @@ func TestServer(t *testing.T) {
 	injectCamera2.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 		return nil, errStreamFailed
 	}
+
 	// does a depth camera transfer its depth image properly
 	t.Run("GetImage", func(t *testing.T) {
 		_, err := cameraServer.GetImage(context.Background(), &pb.GetImageRequest{Name: missingCameraName})
@@ -420,6 +425,13 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.MimeTypes, test.ShouldContain, utils.MimeTypeJPEG)
 		test.That(t, resp.MimeTypes, test.ShouldContain, utils.MimeTypePNG)
 		test.That(t, resp.MimeTypes, test.ShouldContain, utils.MimeTypeH264)
+		test.That(t, resp.FrameRate, test.ShouldNotBeNil)
+		test.That(t, *resp.FrameRate, test.ShouldEqual, 10.0)
+
+		// test property when we don't set frame rate
+		resp2, err := cameraServer.GetProperties(context.Background(), &pb.GetPropertiesRequest{Name: depthCameraName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp2.FrameRate, test.ShouldBeNil)
 	})
 
 	t.Run("GetImage with extra", func(t *testing.T) {
@@ -503,4 +515,18 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errStreamFailed.Error())
 	})
+}
+
+//nolint
+func TestCameraClientIsReadImager(t *testing.T) {
+	// RSDK-8663: Enforce that a camera client always satisfies the optimized `ReadImager`
+	// interface.
+	cameraClient, err := camera.NewClientFromConn(nil, nil, "", resource.Name{}, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	if _, isReadImager := cameraClient.(camera.ReadImager); isReadImager {
+		// Success
+	} else {
+		t.Fatalf("Camera client is expected to be a `ReadImager`. Client type: %T", cameraClient)
+	}
 }

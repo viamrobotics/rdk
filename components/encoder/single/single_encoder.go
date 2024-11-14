@@ -33,9 +33,14 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
+	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	rdkutils "go.viam.com/rdk/utils"
+)
+
+const (
+	isSingle          = "single"
+	directionAttached = "direction"
 )
 
 var singleModel = resource.DefaultModelFamily.WithModel("single")
@@ -70,7 +75,7 @@ type Encoder struct {
 	positionType encoder.PositionType
 	logger       logging.Logger
 
-	workers rdkutils.StoppableWorkers
+	workers *utils.StoppableWorkers
 }
 
 // Pin describes the configuration of Pins for a Single encoder.
@@ -169,14 +174,14 @@ func (e *Encoder) Reconfigure(
 	if e.workers != nil {
 		e.workers.Stop() // Shut down the old interrupt stream
 	}
-	e.start(ctx, board) // Start up the new interrupt stream
+	e.start(board) // Start up the new interrupt stream
 	return nil
 }
 
 // start starts the Encoder background thread. It should only be called when the encoder's
 // background workers have been stopped (or never started).
-func (e *Encoder) start(ctx context.Context, b board.Board) {
-	e.workers = rdkutils.NewStoppableWorkers()
+func (e *Encoder) start(b board.Board) {
+	e.workers = utils.NewBackgroundStoppableWorkers()
 
 	encoderChannel := make(chan board.Tick)
 	err := b.StreamTicks(e.workers.Context(), []board.DigitalInterrupt{e.I}, encoderChannel, nil)
@@ -185,7 +190,7 @@ func (e *Encoder) start(ctx context.Context, b board.Board) {
 		return
 	}
 
-	e.workers.AddWorkers(func(cancelCtx context.Context) {
+	e.workers.Add(func(cancelCtx context.Context) {
 		for {
 			select {
 			case <-cancelCtx.Done():
@@ -208,7 +213,9 @@ func (e *Encoder) start(ctx context.Context, b board.Board) {
 					atomic.AddInt64(&e.position, dir)
 				}
 			} else {
-				e.logger.CDebug(ctx, "received tick for encoder that isn't connected to a motor; ignoring")
+				// if no motor is attached to the encoder, increase in positive direction.
+				e.logger.Debug("no motor is attached to the encoder, increasing ticks count in the positive direction only")
+				atomic.AddInt64(&e.position, 1)
 			}
 		}
 	})
@@ -258,4 +265,16 @@ func (e *Encoder) Close(ctx context.Context) error {
 		e.workers.Stop() // This also shuts down the interrupt stream.
 	}
 	return nil
+}
+
+// DoCommand uses a map string to run custom functionality of a single encoder.
+func (e *Encoder) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	resp := make(map[string]interface{})
+
+	if m, ok := cmd[isSingle].(motor.Motor); ok {
+		e.AttachDirectionalAwareness(m.(DirectionAware))
+		resp[directionAttached] = true
+	}
+
+	return resp, nil
 }

@@ -24,7 +24,7 @@ var ErrNoIntrinsics = errors.New("camera intrinsic parameters are not available"
 
 // NewNoIntrinsicsError is used when the intriniscs are not defined.
 func NewNoIntrinsicsError(msg string) error {
-	return errors.Wrapf(ErrNoIntrinsics, msg)
+	return errors.Wrapf(ErrNoIntrinsics, msg) //nolint:govet
 }
 
 // PinholeCameraModel is the model of a pinhole camera.

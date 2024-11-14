@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
-	componentpb "go.viam.com/api/component/arm/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
@@ -32,19 +31,21 @@ func TestClient(t *testing.T) {
 
 	var (
 		capArmPos      spatialmath.Pose
-		capArmJointPos *componentpb.JointPositions
+		capArmJointPos []referenceframe.Input
+		moveOptions    arm.MoveOptions
 		extraOptions   map[string]interface{}
 	)
 
 	pos1 := spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})
-	jointPos1 := &componentpb.JointPositions{Values: []float64{1.0, 2.0, 3.0}}
+	jointPos1 := []referenceframe.Input{{1.}, {2.}, {3.}}
 	expectedGeometries := []spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{1, 2, 3}, "")}
+	expectedMoveOptions := arm.MoveOptions{MaxVelRads: 1, MaxAccRads: 2}
 	injectArm := &inject.Arm{}
 	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		extraOptions = extra
 		return pos1, nil
 	}
-	injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*componentpb.JointPositions, error) {
+	injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
 		extraOptions = extra
 		return jointPos1, nil
 	}
@@ -53,9 +54,19 @@ func TestClient(t *testing.T) {
 		extraOptions = extra
 		return nil
 	}
-
-	injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp *componentpb.JointPositions, extra map[string]interface{}) error {
+	injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp []referenceframe.Input, extra map[string]interface{}) error {
 		capArmJointPos = jp
+		extraOptions = extra
+		return nil
+	}
+	injectArm.MoveThroughJointPositionsFunc = func(
+		ctx context.Context,
+		positions [][]referenceframe.Input,
+		options *arm.MoveOptions,
+		extra map[string]interface{},
+	) error {
+		capArmJointPos = positions[len(positions)-1]
+		moveOptions = *options
 		extraOptions = extra
 		return nil
 	}
@@ -64,30 +75,26 @@ func TestClient(t *testing.T) {
 		return errStopUnimplemented
 	}
 	injectArm.ModelFrameFunc = func() referenceframe.Model {
-		data := []byte("{\"links\": [{\"parent\": \"world\"}]}")
-		model, err := referenceframe.UnmarshalModelJSON(data, "")
-		test.That(t, err, test.ShouldBeNil)
-		return model
+		return nil
 	}
 	injectArm.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
 		return expectedGeometries, nil
 	}
 
 	pos2 := spatialmath.NewPoseFromPoint(r3.Vector{X: 4, Y: 5, Z: 6})
-	jointPos2 := &componentpb.JointPositions{Values: []float64{4.0, 5.0, 6.0}}
+	jointPos2 := []referenceframe.Input{{4.}, {5.}, {6.}}
 	injectArm2 := &inject.Arm{}
 	injectArm2.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		return pos2, nil
 	}
-	injectArm2.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*componentpb.JointPositions, error) {
+	injectArm2.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
 		return jointPos2, nil
 	}
 	injectArm2.MoveToPositionFunc = func(ctx context.Context, ap spatialmath.Pose, extra map[string]interface{}) error {
 		capArmPos = ap
 		return nil
 	}
-
-	injectArm2.MoveToJointPositionsFunc = func(ctx context.Context, jp *componentpb.JointPositions, extra map[string]interface{}) error {
+	injectArm2.MoveToJointPositionsFunc = func(ctx context.Context, jp []referenceframe.Input, extra map[string]interface{}) error {
 		capArmJointPos = jp
 		return nil
 	}
@@ -95,17 +102,13 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 	injectArm2.ModelFrameFunc = func() referenceframe.Model {
-		data := []byte("{\"links\": [{\"parent\": \"world\"}]}")
-		model, err := referenceframe.UnmarshalModelJSON(data, "")
-		test.That(t, err, test.ShouldBeNil)
-		return model
+		return nil
 	}
 
-	armSvc, err := resource.NewAPIResourceCollection(
-		arm.API, map[resource.Name]arm.Arm{
-			arm.Named(testArmName):  injectArm,
-			arm.Named(testArmName2): injectArm2,
-		})
+	armSvc, err := resource.NewAPIResourceCollection(arm.API, map[resource.Name]arm.Arm{
+		arm.Named(testArmName):  injectArm,
+		arm.Named(testArmName2): injectArm2,
+	})
 	test.That(t, err, test.ShouldBeNil)
 	resourceAPI, ok, err := resource.LookupAPIRegistration[arm.Arm](arm.API)
 	test.That(t, err, test.ShouldBeNil)
@@ -157,7 +160,7 @@ func TestClient(t *testing.T) {
 
 		jointPos, err := arm1Client.JointPositions(context.Background(), map[string]interface{}{"foo": "JointPositions"})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, jointPos.String(), test.ShouldResemble, jointPos1.String())
+		test.That(t, jointPos, test.ShouldResemble, jointPos1)
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "JointPositions"})
 
 		err = arm1Client.MoveToPosition(context.Background(), pos2, map[string]interface{}{"foo": "MoveToPosition"})
@@ -168,8 +171,19 @@ func TestClient(t *testing.T) {
 
 		err = arm1Client.MoveToJointPositions(context.Background(), jointPos2, map[string]interface{}{"foo": "MoveToJointPositions"})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArmJointPos.String(), test.ShouldResemble, jointPos2.String())
+		test.That(t, capArmJointPos, test.ShouldResemble, jointPos2)
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "MoveToJointPositions"})
+
+		err = arm1Client.MoveThroughJointPositions(
+			context.Background(),
+			[][]referenceframe.Input{jointPos2, jointPos1},
+			&expectedMoveOptions,
+			map[string]interface{}{"foo": "MoveThroughJointPositions"},
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capArmJointPos, test.ShouldResemble, jointPos1)
+		test.That(t, moveOptions, test.ShouldResemble, expectedMoveOptions)
+		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "MoveThroughJointPositions"})
 
 		err = arm1Client.Stop(context.Background(), map[string]interface{}{"foo": "Stop"})
 		test.That(t, err, test.ShouldNotBeNil)

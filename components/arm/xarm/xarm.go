@@ -37,9 +37,12 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 const (
-	defaultSpeed  = 20. // degrees per second
+	defaultSpeed  = 50.  // degrees per second
+	defaultAccel  = 100. // degrees per second per second
 	defaultPort   = "502"
 	defaultMoveHz = 100. // Don't change this
+
+	interwaypointAccel = 600. // degrees per second per second. All xarms max out at 1145
 )
 
 type xArm struct {
@@ -53,9 +56,10 @@ type xArm struct {
 	opMgr    *operation.SingleOperationManager
 	logger   logging.Logger
 
-	mu    sync.RWMutex
-	conn  net.Conn
-	speed float32 // speed=max joint radians per second
+	mu           sync.RWMutex
+	conn         net.Conn
+	speed        float64 // speed=max joint radians per second
+	acceleration float64 // acceleration= joint radians per second increase per second
 }
 
 //go:embed xarm6_kinematics.json
@@ -144,8 +148,13 @@ func (x *xArm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf
 	if speed == 0 {
 		speed = defaultSpeed
 	}
-	if speed < 0 {
-		return fmt.Errorf("given speed %f cannot be negative", speed)
+
+	acceleration := newConf.Acceleration
+	if acceleration == 0 {
+		acceleration = defaultAccel
+	}
+	if acceleration < 0 {
+		return fmt.Errorf("given acceleration %f cannot be negative", acceleration)
 	}
 
 	port := fmt.Sprintf("%d", newConf.Port)
@@ -176,30 +185,17 @@ func (x *xArm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf
 		}
 	}
 
-	x.speed = float32(utils.DegToRad(float64(speed)))
+	x.acceleration = utils.DegToRad(float64(acceleration))
+	x.speed = utils.DegToRad(float64(speed))
 	return nil
 }
 
 func (x *xArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := x.JointPositions(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	return x.model.InputFromProtobuf(res), nil
+	return x.JointPositions(ctx, nil)
 }
 
 func (x *xArm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
-	for _, goal := range inputSteps {
-		// check that joint positions are not out of bounds
-		if err := arm.CheckDesiredJointPositions(ctx, x, goal); err != nil {
-			return err
-		}
-		err := x.MoveToJointPositions(ctx, x.model.ProtobufFromInput(goal), nil)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return x.MoveThroughJointPositions(ctx, inputSteps, nil, nil)
 }
 
 func (x *xArm) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
@@ -217,4 +213,68 @@ func (x *xArm) Geometries(ctx context.Context, extra map[string]interface{}) ([]
 // ModelFrame returns all the information necessary for including the arm in a FrameSystem.
 func (x *xArm) ModelFrame() referenceframe.Model {
 	return x.model
+}
+
+func (x *xArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	resp := map[string]interface{}{}
+	validCommand := false
+
+	if _, ok := cmd["setup_gripper"]; ok {
+		if err := x.enableGripper(ctx); err != nil {
+			return nil, err
+		}
+		if err := x.setGripperMode(ctx, false); err != nil {
+			return nil, err
+		}
+		validCommand = true
+	}
+	if val, ok := cmd["move_gripper"]; ok {
+		position, ok := val.(float64)
+		if !ok || position < -10 || position > 850 {
+			return nil, fmt.Errorf("must move gripper to an int between 0 and 840 %v", val)
+		}
+		if err := x.setGripperPosition(ctx, uint32(position)); err != nil {
+			return nil, err
+		}
+		validCommand = true
+	}
+	if _, ok := cmd["load"]; ok {
+		loadInformation, err := x.getLoad(ctx)
+		if err != nil {
+			return nil, err
+		}
+		loadInformationInterface, ok := loadInformation["loads"]
+		if !ok {
+			return nil, errors.New("could not read loadInformation")
+		}
+		resp["load"] = loadInformationInterface
+		validCommand = true
+	}
+	if val, ok := cmd["set_speed"]; ok {
+		speed, err := utils.AssertType[float64](val)
+		if err != nil {
+			return nil, err
+		}
+		if speed <= 0 {
+			return nil, errors.New("speed cannot be less than or equal to zero")
+		}
+		x.speed = utils.DegToRad(speed)
+		validCommand = true
+	}
+	if val, ok := cmd["set_acceleration"]; ok {
+		acceleration, err := utils.AssertType[float64](val)
+		if err != nil {
+			return nil, err
+		}
+		if acceleration <= 0 {
+			return nil, errors.New("acceleration cannot be less than or equal to zero")
+		}
+		x.acceleration = utils.DegToRad(acceleration)
+		validCommand = true
+	}
+
+	if !validCommand {
+		return nil, errors.New("command not found")
+	}
+	return resp, nil
 }

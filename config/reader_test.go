@@ -2,7 +2,6 @@ package config
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -11,13 +10,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 	pb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/config/testutils"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/shell"
 )
 
 func TestFromReader(t *testing.T) {
@@ -69,7 +67,6 @@ func TestFromReader(t *testing.T) {
 		appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
 		cfgText := fmt.Sprintf(`{"cloud":{"id":%q,"app_address":%q,"secret":%q}}`, robotPartID, appAddress, secret)
 		gotCfg, err := FromReader(ctx, "", strings.NewReader(cfgText), logger)
-		defer clearCache(robotPartID)
 		test.That(t, err, test.ShouldBeNil)
 
 		expectedCloud := *cloudResponse
@@ -79,6 +76,8 @@ func TestFromReader(t *testing.T) {
 		expectedCloud.RefreshInterval = time.Duration(10000000000)
 		test.That(t, gotCfg.Cloud, test.ShouldResemble, &expectedCloud)
 
+		test.That(t, gotCfg.StoreToCache(), test.ShouldBeNil)
+		defer clearCache(robotPartID)
 		cachedCfg, err := readFromCache(robotPartID)
 		test.That(t, err, test.ShouldBeNil)
 		expectedCloud.AppAddress = ""
@@ -102,7 +101,10 @@ func TestFromReader(t *testing.T) {
 			MachineID:        "the-machine",
 		}
 		cachedConf := &Config{Cloud: cachedCloud}
-		err := storeToCache(robotPartID, cachedConf)
+
+		cfgToCache := &Config{Cloud: &Cloud{ID: robotPartID}}
+		cfgToCache.SetToCache(cachedConf)
+		err := cfgToCache.StoreToCache()
 		test.That(t, err, test.ShouldBeNil)
 		defer clearCache(robotPartID)
 
@@ -153,7 +155,6 @@ func TestFromReader(t *testing.T) {
 		appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
 		cfgText := fmt.Sprintf(`{"cloud":{"id":%q,"app_address":%q,"secret":%q}}`, robotPartID, appAddress, secret)
 		gotCfg, err := FromReader(ctx, "", strings.NewReader(cfgText), logger)
-		defer clearCache(robotPartID)
 		test.That(t, err, test.ShouldBeNil)
 
 		expectedCloud := *cloudResponse
@@ -161,6 +162,9 @@ func TestFromReader(t *testing.T) {
 		expectedCloud.RefreshInterval = time.Duration(10000000000)
 		test.That(t, gotCfg.Cloud, test.ShouldResemble, &expectedCloud)
 
+		err = gotCfg.StoreToCache()
+		defer clearCache(robotPartID)
+		test.That(t, err, test.ShouldBeNil)
 		cachedCfg, err := readFromCache(robotPartID)
 		test.That(t, err, test.ShouldBeNil)
 		expectedCloud.AppAddress = ""
@@ -191,13 +195,20 @@ func TestStoreToCache(t *testing.T) {
 	}
 	cfg.Cloud = cloud
 
-	// store our config to the cloud
-	err = storeToCache(cfg.Cloud.ID, cfg)
+	// errors if no unprocessed config to cache
+	cfgToCache := &Config{Cloud: &Cloud{ID: "forCachingTest"}}
+	err = cfgToCache.StoreToCache()
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no unprocessed config to cache")
+
+	// store our config to the cache
+	cfgToCache.SetToCache(cfg)
+	err = cfgToCache.StoreToCache()
 	test.That(t, err, test.ShouldBeNil)
 
 	// read config from cloud, confirm consistency
 	cloudCfg, err := readFromCloud(ctx, cfg, nil, true, false, logger)
 	test.That(t, err, test.ShouldBeNil)
+	cloudCfg.toCache = nil
 	test.That(t, cloudCfg, test.ShouldResemble, cfg)
 
 	// Modify our config
@@ -207,10 +218,12 @@ func TestStoreToCache(t *testing.T) {
 	// read config from cloud again, confirm that the cached config differs from cfg
 	cloudCfg2, err := readFromCloud(ctx, cfg, nil, true, false, logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, cloudCfg2, test.ShouldNotResemble, cfg)
+	cloudCfg2.toCache = nil
+	test.That(t, cloudCfg2, test.ShouldNotResemble, cfgToCache)
 
 	// store the updated config to the cloud
-	err = storeToCache(cfg.Cloud.ID, cfg)
+	cfgToCache.SetToCache(cfg)
+	err = cfgToCache.StoreToCache()
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, cfg.Ensure(true, logger), test.ShouldBeNil)
@@ -218,6 +231,7 @@ func TestStoreToCache(t *testing.T) {
 	// read updated cloud config, confirm that it now matches our updated cfg
 	cloudCfg3, err := readFromCloud(ctx, cfg, nil, true, false, logger)
 	test.That(t, err, test.ShouldBeNil)
+	cloudCfg3.toCache = nil
 	test.That(t, cloudCfg3, test.ShouldResemble, cfg)
 }
 
@@ -304,7 +318,9 @@ func TestReadTLSFromCache(t *testing.T) {
 		defer clearCache(robotPartID)
 		cfg.Cloud = nil
 
-		err = storeToCache(robotPartID, cfg)
+		cfgToCache := &Config{Cloud: &Cloud{ID: robotPartID}}
+		cfgToCache.SetToCache(cfg)
+		err = cfgToCache.StoreToCache()
 		test.That(t, err, test.ShouldBeNil)
 
 		tls := tlsConfig{}
@@ -315,11 +331,14 @@ func TestReadTLSFromCache(t *testing.T) {
 	t.Run("invalid cached TLS", func(t *testing.T) {
 		defer clearCache(robotPartID)
 		cloud := &Cloud{
+			ID:            robotPartID,
 			TLSPrivateKey: "key",
 		}
 		cfg.Cloud = cloud
 
-		err = storeToCache(robotPartID, cfg)
+		cfgToCache := &Config{Cloud: &Cloud{ID: robotPartID}}
+		cfgToCache.SetToCache(cfg)
+		err = cfgToCache.StoreToCache()
 		test.That(t, err, test.ShouldBeNil)
 
 		tls := tlsConfig{}
@@ -333,12 +352,15 @@ func TestReadTLSFromCache(t *testing.T) {
 	t.Run("invalid cached TLS but insecure signaling", func(t *testing.T) {
 		defer clearCache(robotPartID)
 		cloud := &Cloud{
+			ID:                robotPartID,
 			TLSPrivateKey:     "key",
 			SignalingInsecure: true,
 		}
 		cfg.Cloud = cloud
 
-		err = storeToCache(robotPartID, cfg)
+		cfgToCache := &Config{Cloud: &Cloud{ID: robotPartID}}
+		cfgToCache.SetToCache(cfg)
+		err = cfgToCache.StoreToCache()
 		test.That(t, err, test.ShouldBeNil)
 
 		tls := tlsConfig{}
@@ -352,12 +374,15 @@ func TestReadTLSFromCache(t *testing.T) {
 	t.Run("valid cached TLS", func(t *testing.T) {
 		defer clearCache(robotPartID)
 		cloud := &Cloud{
+			ID:             robotPartID,
 			TLSCertificate: "cert",
 			TLSPrivateKey:  "key",
 		}
 		cfg.Cloud = cloud
 
-		err = storeToCache(robotPartID, cfg)
+		cfgToCache := &Config{Cloud: &Cloud{ID: robotPartID}}
+		cfgToCache.SetToCache(cfg)
+		err = cfgToCache.StoreToCache()
 		test.That(t, err, test.ShouldBeNil)
 
 		// the config is missing several fields required to start the robot, but this
@@ -368,105 +393,4 @@ func TestReadTLSFromCache(t *testing.T) {
 		err = tls.readFromCache(robotPartID, logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
-}
-
-func TestProcessConfigRegistersLogConfig(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	unprocessedConfig := Config{
-		ConfigFilePath: "path",
-		LogConfig:      []logging.LoggerPatternConfig{},
-		Services: []resource.Config{
-			{
-				Name:  "shell1",
-				API:   shell.API,
-				Model: resource.DefaultServiceModel,
-				LogConfiguration: resource.LogConfig{
-					Level: logging.WARN,
-				},
-			},
-		},
-		Components: []resource.Config{
-			{
-				Name:  "helper1",
-				API:   shell.API,
-				Model: resource.NewModel("rdk", "test", "helper"),
-				LogConfiguration: resource.LogConfig{
-					Level: logging.DEBUG,
-				},
-			},
-		},
-	}
-	serviceLoggerName := "rdk." + unprocessedConfig.Services[0].ResourceName().String()
-	componentLoggerName := "rdk." + unprocessedConfig.Components[0].ResourceName().String()
-
-	logging.RegisterLogger(serviceLoggerName, logging.NewLogger(serviceLoggerName))
-	logging.RegisterLogger(componentLoggerName, logging.NewLogger(componentLoggerName))
-
-	// create a conflict between pattern matching configurations and resource configurations
-	unprocessedConfig.LogConfig = append(unprocessedConfig.LogConfig,
-		logging.LoggerPatternConfig{
-			Pattern: serviceLoggerName,
-			Level:   "ERROR",
-		},
-		logging.LoggerPatternConfig{
-			Pattern: componentLoggerName,
-			Level:   "ERROR",
-		},
-	)
-
-	expectedRegisteredCfg := []logging.LoggerPatternConfig{
-		unprocessedConfig.LogConfig[0],
-		unprocessedConfig.LogConfig[1],
-		{
-			Pattern: serviceLoggerName,
-			Level:   "Warn",
-		},
-		{
-			Pattern: componentLoggerName,
-			Level:   "Debug",
-		},
-	}
-
-	_, err := processConfig(&unprocessedConfig, true, logger)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, expectedRegisteredCfg, test.ShouldResemble, logging.GetCurrentConfig())
-
-	// the resource log level configurations should be prioritized
-	logger, ok := logging.LoggerNamed(serviceLoggerName)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Warn")
-
-	logger, ok = logging.LoggerNamed(componentLoggerName)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Debug")
-
-	// remove resource patterns
-	unprocessedConfig.Components = nil
-	unprocessedConfig.Services = nil
-	_, err = processConfig(&unprocessedConfig, true, logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	logger, ok = logging.LoggerNamed(serviceLoggerName)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Error")
-
-	logger, ok = logging.LoggerNamed(componentLoggerName)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Error")
-
-	// remove log patterns
-	unprocessedConfig.LogConfig = nil
-	_, err = processConfig(&unprocessedConfig, true, logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	logger, ok = logging.LoggerNamed(serviceLoggerName)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Info")
-
-	logger, ok = logging.LoggerNamed(componentLoggerName)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Info")
-
-	test.That(t, logging.DeregisterLogger(serviceLoggerName), test.ShouldBeTrue)
-	test.That(t, logging.DeregisterLogger(componentLoggerName), test.ShouldBeTrue)
 }

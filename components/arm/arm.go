@@ -1,6 +1,9 @@
 //go:build !no_cgo
 
 // Package arm defines the arm that a robot uses to manipulate objects.
+// For more information, see the [arm component docs].
+//
+// [arm component docs]: https://docs.viam.com/components/arm/
 package arm
 
 import (
@@ -14,7 +17,9 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -48,6 +53,7 @@ func Named(name string) resource.Name {
 }
 
 // An Arm represents a physical robotic arm that exists in three-dimensional space.
+// For more information, see the [arm component docs].
 //
 // EndPosition example:
 //
@@ -61,7 +67,7 @@ func Named(name string) resource.Name {
 //	// Create a Pose for the arm.
 //	examplePose := spatialmath.NewPose(
 //	        r3.Vector{X: 5, Y: 5, Z: 5},
-//	        &spatialmath.OrientationVectorDegrees{0X: 5, 0Y: 5, Theta: 20}
+//	        &spatialmath.OrientationVectorDegrees{OX: 5, OY: 5, Theta: 20},
 //	)
 //
 //	// Move your arm to the Pose.
@@ -69,17 +75,26 @@ func Named(name string) resource.Name {
 //
 // MoveToJointPositions example:
 //
-//	// Assumes you have imported "go.viam.com/api/component/arm/v1" as `componentpb`
 //	myArm, err := arm.FromRobot(machine, "my_arm")
 //
-//	// Declare an array of values with your desired rotational value for each joint on the arm.
-//	degrees := []float64{4.0, 5.0, 6.0}
+//	// Declare an array of values with your desired rotational value (in radians) for each joint on the arm.
+//	inputs := referenceframe.FloatsToInputs([]float64{0, math.Pi/2, math.Pi})
 //
-//	// Declare a new JointPositions with these values.
-//	jointPos := &componentpb.JointPositions{Values: degrees}
+//	// Move each joint of the arm to the positions specified in the above slice
+//	err = myArm.MoveToJointPositions(context.Background(), inputs, nil)
 //
-//	// Move each joint of the arm to the position these values specify.
-//	err = myArm.MoveToJointPositions(context.Background(), jointPos, nil)
+// MoveToJointPositions example:
+//
+//	myArm, err := arm.FromRobot(machine, "my_arm")
+//
+//	// Declare a 2D array of values with your desired rotational value (in radians) for each joint on the arm.
+//	inputs := [][]referenceframe.Input{
+//		referenceframe.FloatsToInputs([]float64{0, math.Pi/2, math.Pi})
+//		referenceframe.FloatsToInputs([]float64{0, 0, 0})
+//	}
+//
+//	// Move each joint of the arm through the positions in the slice defined above
+//	err = myArm.MoveThroughJointPositions(context.Background(), inputs, nil, nil)
 //
 // JointPositions example:
 //
@@ -87,12 +102,14 @@ func Named(name string) resource.Name {
 //
 //	// Get the current position of each joint on the arm as JointPositions.
 //	pos, err := myArm.JointPositions(context.Background(), nil)
+//
+// [arm component docs]: https://docs.viam.com/components/arm/
 type Arm interface {
 	resource.Resource
 	referenceframe.ModelFramer
 	resource.Shaped
 	resource.Actuator
-	referenceframe.InputEnabled
+	framesystem.InputEnabled
 
 	// EndPosition returns the current position of the arm.
 	EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error)
@@ -103,10 +120,14 @@ type Arm interface {
 
 	// MoveToJointPositions moves the arm's joints to the given positions.
 	// This will block until done or a new operation cancels this one.
-	MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions, extra map[string]interface{}) error
+	MoveToJointPositions(ctx context.Context, positions []referenceframe.Input, extra map[string]interface{}) error
+
+	// MoveThroughJointPositions moves the arm's joints through the given positions in the order they are specified.
+	// This will block until done or a new operation cancels this one.
+	MoveThroughJointPositions(ctx context.Context, positions [][]referenceframe.Input, options *MoveOptions, extra map[string]any) error
 
 	// JointPositions returns the current joint positions of the arm.
-	JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error)
+	JointPositions(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error)
 }
 
 // FromDependencies is a helper for getting the named arm from a collection of
@@ -128,19 +149,20 @@ func NamesFromRobot(r robot.Robot) []string {
 // CreateStatus creates a status from the arm. This will report calculated end effector positions even if the given
 // arm is perceived to be out of bounds.
 func CreateStatus(ctx context.Context, a Arm) (*pb.Status, error) {
-	var jointPositions *pb.JointPositions
+	model := a.ModelFrame()
 	joints, err := a.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	jointPositions = joints
 
 	var endPosition *v1.Pose
-	model := a.ModelFrame()
-	if model != nil && joints != nil {
-		if endPose, err := referenceframe.ComputeOOBPosition(model, model.InputFromProtobuf(jointPositions)); err == nil {
-			endPosition = spatialmath.PoseToProtobuf(endPose)
-		}
+	if endPose, err := referenceframe.ComputeOOBPosition(model, joints); err == nil {
+		endPosition = spatialmath.PoseToProtobuf(endPose)
+	}
+
+	var jointPositions *pb.JointPositions
+	if jp, err := referenceframe.JointPositionsFromInputs(model, joints); err == nil {
+		jointPositions = jp
 	}
 
 	isMoving, err := a.IsMoving(ctx)
@@ -148,22 +170,6 @@ func CreateStatus(ctx context.Context, a Arm) (*pb.Status, error) {
 		return nil, err
 	}
 	return &pb.Status{EndPosition: endPosition, JointPositions: jointPositions, IsMoving: isMoving}, nil
-}
-
-// GoToWaypoints will visit in turn each of the joint position waypoints generated by a motion planner.
-func GoToWaypoints(ctx context.Context, a Arm, waypoints [][]referenceframe.Input) error {
-	for _, waypoint := range waypoints {
-		err := ctx.Err() // make sure we haven't been cancelled
-		if err != nil {
-			return err
-		}
-
-		err = a.GoToInputs(ctx, waypoint)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // CheckDesiredJointPositions validates that the desired joint positions either bring the joint back
@@ -174,22 +180,24 @@ func CheckDesiredJointPositions(ctx context.Context, a Arm, desiredInputs []refe
 		return err
 	}
 	model := a.ModelFrame()
-	checkPositions := model.InputFromProtobuf(currentJointPos)
 	limits := model.DoF()
 	for i, val := range desiredInputs {
 		max := limits[i].Max
 		min := limits[i].Min
-		currPosition := checkPositions[i]
-		// to make sure that val is a valid input
-		// it must either bring the joint more
-		// inbounds or keep the joint inbounds.
+		currPosition := currentJointPos[i]
+		// to make sure that val is a valid input it must either bring the joint closer inbounds or keep the joint inbounds.
 		if currPosition.Value > limits[i].Max {
 			max = currPosition.Value
 		} else if currPosition.Value < limits[i].Min {
 			min = currPosition.Value
 		}
 		if val.Value > max || val.Value < min {
-			return fmt.Errorf("joint %v needs to be within range [%v, %v] and cannot be moved to %v", i, min, max, val.Value)
+			return fmt.Errorf("joint %v needs to be within range [%v, %v] and cannot be moved to %v",
+				i,
+				utils.RadToDeg(min),
+				utils.RadToDeg(max),
+				utils.RadToDeg(val.Value),
+			)
 		}
 	}
 	return nil

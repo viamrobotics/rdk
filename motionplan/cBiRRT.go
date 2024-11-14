@@ -56,7 +56,7 @@ func newCbirrtOptions(planOpts *plannerOptions) (*cbirrtOptions, error) {
 // https://ieeexplore.ieee.org/document/5152399/
 type cBiRRTMotionPlanner struct {
 	*planner
-	fastGradDescent *ik.NloptIK
+	fastGradDescent ik.Solver
 	algOpts         *cbirrtOptions
 }
 
@@ -75,7 +75,7 @@ func newCBiRRTMotionPlanner(
 		return nil, err
 	}
 	// nlopt should try only once
-	nlopt, err := ik.CreateNloptIKSolver(frame, logger, 1, true, true)
+	nlopt, err := ik.CreateNloptSolver(frame.DoF(), logger, 1, true, true)
 	if err != nil {
 		return nil, err
 	}
@@ -168,6 +168,9 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 			rrt.solutionChan <- &rrtSolution{err: fmt.Errorf("cbirrt timeout %w", ctx.Err()), maps: rrt.maps}
 			return
 		default:
+		}
+		if i > 0 && i%100 == 0 {
+			mp.logger.CDebugf(ctx, "CBiRRT planner iteration %d", i)
 		}
 
 		tryExtend := func(target node) (node, node, error) {
@@ -369,7 +372,16 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 		solutionGen := make(chan *ik.Solution, 1)
 		// Spawn the IK solver to generate solutions until done
-		err = mp.fastGradDescent.Solve(ctx, solutionGen, target, mp.planOpts.pathMetric, randseed.Int())
+		err = ik.SolveMetric(
+			ctx,
+			mp.fastGradDescent,
+			mp.frame,
+			solutionGen,
+			target,
+			mp.planOpts.pathMetric,
+			randseed.Int(),
+			mp.logger,
+		)
 		// We should have zero or one solutions
 		var solved *ik.Solution
 		select {
@@ -382,11 +394,15 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 
 		ok, failpos := mp.planOpts.CheckSegmentAndStateValidity(
-			&ik.Segment{StartConfiguration: seedInputs, EndConfiguration: solved.Configuration, Frame: mp.frame},
+			&ik.Segment{
+				StartConfiguration: seedInputs,
+				EndConfiguration:   referenceframe.FloatsToInputs(solved.Configuration),
+				Frame:              mp.frame,
+			},
 			mp.planOpts.Resolution,
 		)
 		if ok {
-			return solved.Configuration
+			return referenceframe.FloatsToInputs(solved.Configuration)
 		}
 		if failpos != nil {
 			dist := mp.planOpts.DistanceFunc(&ik.Segment{StartConfiguration: target, EndConfiguration: failpos.EndConfiguration})

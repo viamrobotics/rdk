@@ -1,5 +1,8 @@
 // Package mlmodel defines the client and server for a service that can take in a map of
 // input tensors/arrays, pass them through an inference engine, and then return a map output tensors/arrays.
+// For more information, see the [ML model service docs].
+//
+// [ML model service docs]: https://docs.viam.com/services/ml/deploy/
 package mlmodel
 
 import (
@@ -28,6 +31,7 @@ func init() {
 // Service defines the ML Model interface, which takes a map of inputs, runs it through
 // an inference engine, and creates a map of outputs. Metadata is necessary in order to build
 // the struct that will decode that map[string]interface{} correctly.
+// For more information, see the [ML model service docs].
 //
 // Infer example:
 //
@@ -38,6 +42,8 @@ func init() {
 // Metadata example:
 //
 //	metadata, err := myMLModel.Metadata(context.Background())
+//
+// [ML model service docs]: https://docs.viam.com/services/ml/deploy/
 type Service interface {
 	resource.Resource
 	// Infer returns an output tensor map after running an input tensor map through an interface model.

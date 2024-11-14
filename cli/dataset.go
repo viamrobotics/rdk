@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -164,14 +165,15 @@ func DatasetDownloadAction(c *cli.Context) error {
 		return err
 	}
 	if err := client.downloadDataset(c.Path(dataFlagDestination), c.String(datasetFlagDatasetID),
-		c.Bool(datasetFlagIncludeJSONLines), c.Uint(dataFlagParallelDownloads)); err != nil {
+		c.Bool(datasetFlagIncludeJSONLines), c.Uint(dataFlagParallelDownloads),
+		c.Uint(dataFlagTimeout)); err != nil {
 		return err
 	}
 	return nil
 }
 
 // downloadDataset downloads a dataset with the specified ID.
-func (c *viamClient) downloadDataset(dst, datasetID string, includeJSONLines bool, parallelDownloads uint) error {
+func (c *viamClient) downloadDataset(dst, datasetID string, includeJSONLines bool, parallelDownloads, timeout uint) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -194,10 +196,18 @@ func (c *viamClient) downloadDataset(dst, datasetID string, includeJSONLines boo
 			}
 		}()
 	}
+	resp, err := c.datasetClient.ListDatasetsByIDs(context.Background(),
+		&datasetpb.ListDatasetsByIDsRequest{Ids: []string{datasetID}})
+	if err != nil {
+		return errors.Wrapf(err, "error getting dataset ID")
+	}
+	if len(resp.GetDatasets()) == 0 {
+		return fmt.Errorf("%s does not match any dataset IDs", datasetID)
+	}
 
 	return c.performActionOnBinaryDataFromFilter(
 		func(id *datapb.BinaryID) error {
-			downloadErr := downloadBinary(c.c.Context, c.dataClient, dst, id, c.authFlow.httpClient, c.conf.Auth)
+			downloadErr := c.downloadBinary(dst, id, timeout)
 			var datasetErr error
 			if includeJSONLines {
 				datasetErr = binaryDataToJSONLines(c.c.Context, c.dataClient, dst, datasetFile, id)

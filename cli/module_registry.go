@@ -12,7 +12,10 @@ import (
 	"math"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
+	"runtime"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -25,22 +28,36 @@ import (
 
 	modconfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/module/modmanager"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
 
 // moduleUploadChunkSize sets the number of bytes included in each chunk of the upload stream.
-var moduleUploadChunkSize = 32 * 1024
+var (
+	moduleUploadChunkSize = 32 * 1024
+	rdkAPITypes           = []string{resource.APITypeServiceName, resource.APITypeComponentName}
+)
 
 // moduleVisibility determines whether modules are public or private.
 type moduleVisibility string
 
 // Permissions enumeration.
 const (
-	moduleVisibilityPrivate moduleVisibility = "private"
-	moduleVisibilityPublic  moduleVisibility = "public"
+	moduleVisibilityPrivate        moduleVisibility = "private"
+	moduleVisibilityPublic         moduleVisibility = "public"
+	moduleVisibilityPublicUnlisted moduleVisibility = "public_unlisted"
 )
+
+type unknownRdkAPITypeError struct {
+	APIType string
+}
+
+func (err unknownRdkAPITypeError) Error() string {
+	return fmt.Sprintf("API with unknown type '%s', expected one of %s", err.APIType, strings.Join(rdkAPITypes, ", "))
+}
 
 // ModuleComponent represents an api - model pair.
 type ModuleComponent struct {
@@ -56,10 +73,11 @@ type moduleID struct {
 
 // manifestBuildInfo is the "build" section of meta.json.
 type manifestBuildInfo struct {
-	Build string   `json:"build"`
-	Setup string   `json:"setup"`
-	Path  string   `json:"path"`
-	Arch  []string `json:"arch"`
+	Build      string   `json:"build"`
+	Setup      string   `json:"setup"`
+	Path       string   `json:"path"`
+	Arch       []string `json:"arch"`
+	DarwinDeps []string `json:"darwin_deps,omitempty"`
 }
 
 // defaultBuildInfo has defaults for unset fields in "build".
@@ -70,6 +88,7 @@ var defaultBuildInfo = manifestBuildInfo{
 }
 
 // moduleManifest is used to create & parse manifest.json.
+// Detailed user-facing docs for this are in module.schema.json.
 type moduleManifest struct {
 	Schema      string            `json:"$schema"`
 	ModuleID    string            `json:"module_id"`
@@ -195,6 +214,8 @@ func UpdateModuleAction(c *cli.Context) error {
 		return err
 	}
 
+	validateModels(c.App.ErrWriter, &manifest)
+
 	response, err := client.updateModule(moduleID, manifest)
 	if err != nil {
 		return err
@@ -227,6 +248,7 @@ func UploadModuleAction(c *cli.Context) error {
 	versionArg := c.String(moduleFlagVersion)
 	platformArg := c.String(moduleFlagPlatform)
 	forceUploadArg := c.Bool(moduleFlagForce)
+	constraints := c.String(moduleFlagTags)
 	moduleUploadPath := c.Args().First()
 	if c.Args().Len() > 1 {
 		return errors.New("too many arguments passed to upload command. " +
@@ -279,6 +301,8 @@ func UploadModuleAction(c *cli.Context) error {
 			return err
 		}
 
+		validateModels(c.App.ErrWriter, &manifest)
+
 		_, err = client.updateModule(moduleID, manifest)
 		if err != nil {
 			return errors.Wrap(err, "Module update failed. Please correct the following issues in your meta.json")
@@ -302,13 +326,41 @@ func UploadModuleAction(c *cli.Context) error {
 		}
 	}
 
-	response, err := client.uploadModuleFile(moduleID, versionArg, platformArg, tarballPath)
+	var constraintsList []string
+	if constraints != "" {
+		constraintsList = strings.Split(constraints, ",")
+	}
+	response, err := client.uploadModuleFile(moduleID, versionArg, platformArg, constraintsList, tarballPath)
 	if err != nil {
 		return err
 	}
 
 	printf(c.App.Writer, "Version successfully uploaded! you can view your changes online here: %s", response.GetUrl())
 
+	return nil
+}
+
+// call validateModelAPI on all models in manifest and warn if violations.
+func validateModels(errWriter io.Writer, manifest *moduleManifest) {
+	for _, model := range manifest.Models {
+		if err := validateModelAPI(model.API); err != nil {
+			warningf(errWriter, "error validating API string %s: %s", model.API, err)
+		}
+	}
+}
+
+// return a useful error if the model string looks wrong.
+func validateModelAPI(modelAPI string) error {
+	api, err := resource.ParseAPIString(modelAPI)
+	if err != nil {
+		return errors.Wrap(err, "unparseable model string")
+	}
+	if err := api.Validate(); err != nil {
+		return errors.Wrap(err, "failed to validate API")
+	}
+	if !slices.Contains(rdkAPITypes, api.Type.Name) {
+		return unknownRdkAPITypeError{APIType: api.Type.Name}
+	}
 	return nil
 }
 
@@ -374,6 +426,9 @@ func (c *viamClient) updateModule(moduleID moduleID, manifest moduleManifest) (*
 		Models:      models,
 		Entrypoint:  manifest.Entrypoint,
 	}
+	if manifest.FirstRun != "" {
+		req.FirstRun = &manifest.FirstRun
+	}
 	return c.client.UpdateModule(c.c.Context, &req)
 }
 
@@ -381,6 +436,7 @@ func (c *viamClient) uploadModuleFile(
 	moduleID moduleID,
 	version,
 	platform string,
+	constraints []string,
 	tarballPath string,
 ) (*apppb.UploadModuleFileResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
@@ -399,9 +455,10 @@ func (c *viamClient) uploadModuleFile(
 		return nil, err
 	}
 	moduleFileInfo := apppb.ModuleFileInfo{
-		ModuleId: moduleID.String(),
-		Version:  version,
-		Platform: platform,
+		ModuleId:     moduleID.String(),
+		Version:      version,
+		Platform:     platform,
+		PlatformTags: constraints,
 	}
 	req := &apppb.UploadModuleFileRequest{
 		ModuleFile: &apppb.UploadModuleFileRequest_ModuleFileInfo{ModuleFileInfo: &moduleFileInfo},
@@ -540,9 +597,12 @@ func visibilityToProto(visibility moduleVisibility) (apppb.Visibility, error) {
 		return apppb.Visibility_VISIBILITY_PRIVATE, nil
 	case moduleVisibilityPublic:
 		return apppb.Visibility_VISIBILITY_PUBLIC, nil
+	case moduleVisibilityPublicUnlisted:
+		return apppb.Visibility_VISIBILITY_PUBLIC_UNLISTED, nil
 	default:
 		return apppb.Visibility_VISIBILITY_UNSPECIFIED,
-			errors.Errorf("invalid module visibility. must be either %q or %q", moduleVisibilityPublic, moduleVisibilityPrivate)
+			errors.Errorf("invalid module visibility. must be either %q, %q, or %q",
+				moduleVisibilityPublic, moduleVisibilityPrivate, moduleVisibilityPublicUnlisted)
 	}
 }
 
@@ -742,11 +802,11 @@ func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 	parentAddr := tmpdir + "/parent.sock"
 
 	// allows a module to start without connecting to a parent
-	if err := os.Setenv("VIAM_NO_MODULE_PARENT", "true"); err != nil {
+	if err := os.Setenv(module.NoModuleParentEnvVar, "true"); err != nil {
 		return nil, err
 	}
 	//nolint:errcheck
-	defer os.Unsetenv("VIAM_NO_MODULE_PARENT")
+	defer os.Unsetenv(module.NoModuleParentEnvVar)
 
 	cfg := modconfig.Module{
 		Name:    "xxxx",
@@ -856,7 +916,7 @@ func sendUploadRequests(ctx context.Context, moduleStream apppb.AppService_Uploa
 
 		// Simple progress reading until we have a proper tui library
 		uploadPercent := int(math.Ceil(100 * float64(uploadedBytes) / float64(fileSize)))
-		fmt.Fprintf(stdout, "\rUploading... %d%% (%d/%d bytes)", uploadPercent, uploadedBytes, fileSize) // no newline
+		fmt.Fprintf(stdout, "\rUploading... %d%% (%d/%d bytes)", uploadPercent, uploadedBytes, fileSize) //nolint:errcheck // no newline
 	}
 }
 
@@ -875,4 +935,77 @@ func getNextModuleUploadRequest(file *os.File) (*apppb.UploadModuleFileRequest, 
 			File: byteArr,
 		},
 	}, nil
+}
+
+// DownloadModuleAction downloads a module.
+func DownloadModuleAction(c *cli.Context) error {
+	moduleID := c.String(moduleFlagID)
+	if moduleID == "" {
+		manifest, err := loadManifest(defaultManifestFilename)
+		if err != nil {
+			return errors.Wrap(err, "trying to get package ID from meta.json")
+		}
+		moduleID = manifest.ModuleID
+	}
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	if err := client.ensureLoggedIn(); err != nil {
+		return err
+	}
+	req := &apppb.GetModuleRequest{ModuleId: moduleID}
+	res, err := client.client.GetModule(c.Context, req)
+	if err != nil {
+		return err
+	}
+	if len(res.Module.Versions) == 0 {
+		return errors.New("module has 0 uploaded versions, nothing to download")
+	}
+	requestedVersion := c.String(packageFlagVersion)
+	var ver *apppb.VersionHistory
+	if requestedVersion == "latest" {
+		ver = res.Module.Versions[len(res.Module.Versions)-1]
+	} else {
+		for _, iVer := range res.Module.Versions {
+			if iVer.Version == requestedVersion {
+				ver = iVer
+				break
+			}
+		}
+		if ver == nil {
+			return fmt.Errorf("version %s not found in versions for module", requestedVersion)
+		}
+	}
+	infof(c.App.ErrWriter, "found version %s", ver.Version)
+	if len(ver.Files) == 0 {
+		return fmt.Errorf("version %s has 0 files uploaded", ver.Version)
+	}
+	platform := c.String(moduleFlagPlatform)
+	if platform == "" {
+		platform = fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
+		infof(c.App.ErrWriter, "using default platform %s", platform)
+	}
+	if !slices.ContainsFunc(ver.Files, func(file *apppb.Uploads) bool { return file.Platform == platform }) {
+		return fmt.Errorf("platform %s not present for version %s", platform, ver.Version)
+	}
+	include := true
+	packageType := packagespb.PackageType_PACKAGE_TYPE_MODULE
+	// note: this is working around a GetPackage quirk where platform messes with version
+	fullVersion := fmt.Sprintf("%s-%s", ver.Version, strings.ReplaceAll(platform, "/", "-"))
+	pkg, err := client.packageClient.GetPackage(c.Context, &packagespb.GetPackageRequest{
+		Id:         strings.ReplaceAll(moduleID, ":", "/"),
+		Version:    fullVersion,
+		IncludeUrl: &include,
+		Type:       &packageType,
+	})
+	if err != nil {
+		return err
+	}
+	destName := strings.ReplaceAll(moduleID, ":", "-")
+	infof(c.App.ErrWriter, "saving to %s", path.Join(c.String(packageFlagDestination), fullVersion, destName+".tar.gz"))
+	return downloadPackageFromURL(c.Context, client.authFlow.httpClient,
+		c.String(packageFlagDestination), destName,
+		fullVersion, pkg.Package.Url, client.conf.Auth,
+	)
 }

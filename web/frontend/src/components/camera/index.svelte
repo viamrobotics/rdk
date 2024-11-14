@@ -1,11 +1,11 @@
 <script lang="ts">
-import type { commonApi } from '@viamrobotics/sdk';
-import Camera from './camera.svelte';
-import PCD from '../pcd/index.svelte';
-import Collapse from '@/lib/components/collapse.svelte';
 import { selectedMap } from '@/lib/camera-state';
+import Collapse from '@/lib/components/collapse.svelte';
+import type { ResourceName } from '@viamrobotics/sdk';
+import PCD from '../pcd/index.svelte';
+import Camera from './camera.svelte';
 
-export let resources: commonApi.ResourceName.AsObject[];
+export let resources: ResourceName[];
 
 const openCameras: Record<string, boolean | undefined> = {};
 const refreshFrequency: Record<string, string | undefined> = {};

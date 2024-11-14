@@ -23,7 +23,7 @@ type MCP3008AnalogReader struct {
 // MCP3008AnalogConfig describes the configuration of a MCP3008 analog reader on a board.
 type MCP3008AnalogConfig struct {
 	Name              string `json:"name"`
-	Pin               string `json:"pin"`         // analog input pin on the ADC itself
+	Channel           string `json:"channel"`     // analog input pin on the ADC itself
 	SPIBus            string `json:"spi_bus"`     // name of the SPI bus (which is configured elsewhere in the config file)
 	ChipSelect        string `json:"chip_select"` // the CS line for the ADC chip, typically a pin number on the board
 	AverageOverMillis int    `json:"average_over_ms,omitempty"`

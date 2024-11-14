@@ -37,13 +37,10 @@ const (
 // DiscoverComponents example:
 //
 //	// Define a new discovery query.
-//	q := resource.NewDiscoveryQuery(acme.API, resource.Model{Name: "some model"})
+//	q := resource.NewDiscoveryQuery(camera.API, resource.Model{Name: "webcam", Family: resource.DefaultModelFamily})
 //
-//	// Define a list of discovery queries.
-//	qs := []resource.DiscoverQuery{q}
-//
-//	// Get component configurations with these queries.
-//	component_configs, err := machine.DiscoverComponents(ctx.Background(), qs)
+//	// Define a list of discovery queries and get potential component configurations with these queries.
+//	out, err := machine.DiscoverComponents(context.Background(), []resource.DiscoveryQuery{q})
 //
 // ResourceNames example:
 //
@@ -52,7 +49,7 @@ const (
 // FrameSystemConfig example:
 //
 //	// Print the frame system configuration
-//	frameSystem, err := machine.FrameSystemConfig(context.Background(), nil)
+//	frameSystem, err := machine.FrameSystemConfig(context.Background())
 //	fmt.Println(frameSystem)
 //
 // TransformPose example:
@@ -63,36 +60,37 @@ const (
 //	)
 //
 //	baseOrigin := referenceframe.NewPoseInFrame("test-base", spatialmath.NewZeroPose())
-//	movementSensorToBase, err := machine.TransformPose(ctx, baseOrigin, "my-movement-sensor", nil)
+//	movementSensorToBase, err := machine.TransformPose(context.Background(), baseOrigin, "my-movement-sensor", nil)
 //
 // Status example:
 //
-//	status, err := machine.Status(ctx)
+//	status, err := machine.Status(context.Background(), nil)
 //
 // CloudMetadata example:
 //
-//	metadata, err := machine.CloudMetadata()
-//	machine_id = metadata.MachineID
-//	machine_part_id = metadata.MachinePartID
-//	primary_org_id = metadata.PrimaryOrgID
-//	location_id = metadata.LocationID
+//	metadata, err := machine.CloudMetadata(context.Background())
+//	primary_org_id := metadata.PrimaryOrgID
+//	location_id := metadata.LocationID
+//	machine_id := metadata.MachineID
+//	machine_part_id := metadata.MachinePartID
 //
 // Close example:
 //
 //	// Cleanly close the underlying connections and stop any periodic tasks,
-//	err := machine.Close(ctx)
+//	err := machine.Close(context.Background())
 //
 // StopAll example:
 //
 //	// Cancel all current and outstanding operations for the machine and stop all actuators and movement.
-//	err := machine.StopAll(ctx)
+//	err := machine.StopAll(context.Background(), nil)
 //
 // Shutdown example:
 //
 //	// Shut down the robot.
-//	err := machine.Shutdown()
+//	err := machine.Shutdown(context.Background())
 type Robot interface {
-	// DiscoverComponents returns discovered component configurations.
+	// DiscoverComponents returns discovered potential component configurations.
+	// Only implemented for webcam cameras in builtin components.
 	DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error)
 
 	// RemoteByName returns a remote robot by name.
@@ -258,8 +256,8 @@ func TypeAndMethodDescFromMethod(r Robot, method string) (*resource.RPCAPI, *des
 	if len(methodParts) != 3 {
 		return nil, nil, grpc.UnimplementedError
 	}
-	protoSvc := methodParts[1]
-	protoMethod := methodParts[2]
+	protoSvc := methodParts[1]    // e.g. viam.component.arm.v1.ArmService
+	protoMethod := methodParts[2] // e.g. DoCommand
 
 	var foundType *resource.RPCAPI
 	for _, resAPI := range r.ResourceRPCAPIs() {

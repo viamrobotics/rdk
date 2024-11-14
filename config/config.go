@@ -2,6 +2,7 @@
 package config
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -11,10 +12,10 @@ import (
 	"reflect"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/pkg/errors"
+	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/jwks"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
@@ -27,17 +28,18 @@ import (
 
 // A Config describes the configuration of a robot.
 type Config struct {
-	Cloud      *Cloud
-	Modules    []Module
-	Remotes    []Remote
-	Components []resource.Config
-	Processes  []pexec.ProcessConfig
-	Services   []resource.Config
-	Packages   []PackageConfig
-	Network    NetworkConfig
-	Auth       AuthConfig
-	Debug      bool
-	LogConfig  []logging.LoggerPatternConfig
+	Cloud             *Cloud
+	Modules           []Module
+	Remotes           []Remote
+	Components        []resource.Config
+	Processes         []pexec.ProcessConfig
+	Services          []resource.Config
+	Packages          []PackageConfig
+	Network           NetworkConfig
+	Auth              AuthConfig
+	Debug             bool
+	LogConfig         []logging.LoggerPatternConfig
+	MaintenanceConfig *MaintenanceConfig
 
 	ConfigFilePath string
 
@@ -68,6 +70,18 @@ type Config struct {
 
 	// Revision contains the current revision of the config.
 	Revision string
+
+	// toCache stores the JSON marshalled version of the config to be cached. It should be a copy of
+	// the config pulled from cloud with minor changes.
+	// This version is kept because the config is changed as it moves through the system.
+	toCache []byte
+}
+
+// MaintenanceConfig specifies a sensor that the machine will check to determine if the machine should reconfigure.
+// This Config is not validated during config processing but it will be validated during reconfiguration.
+type MaintenanceConfig struct {
+	SensorName            string `json:"sensor_name"`
+	MaintenanceAllowedKey string `json:"maintenance_allowed_key"`
 }
 
 // NOTE: This data must be maintained with what is in Config.
@@ -86,6 +100,7 @@ type configData struct {
 	EnableWebProfile    bool                          `json:"enable_web_profile"`
 	LogConfig           []logging.LoggerPatternConfig `json:"log,omitempty"`
 	Revision            string                        `json:"revision,omitempty"`
+	MaintenanceConfig   *MaintenanceConfig            `json:"maintenance,omitempty"`
 }
 
 // AppValidationStatus refers to the.
@@ -238,6 +253,29 @@ func (c Config) FindComponent(name string) *resource.Config {
 	return nil
 }
 
+// SetToCache sets toCache with a marshalled copy of the config passed in.
+func (c *Config) SetToCache(cfg *Config) error {
+	md, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	c.toCache = md
+	return nil
+}
+
+// StoreToCache caches the toCache.
+func (c *Config) StoreToCache() error {
+	if c.toCache == nil {
+		return errors.New("no unprocessed config to cache")
+	}
+	if err := os.MkdirAll(ViamDotDir, 0o700); err != nil {
+		return err
+	}
+	reader := bytes.NewReader(c.toCache)
+	path := getCloudCacheFilePath(c.Cloud.ID)
+	return artifact.AtomicStore(path, reader, c.Cloud.ID)
+}
+
 // UnmarshalJSON unmarshals JSON into the config and adjusts some
 // names if they are not fully filled in.
 func (c *Config) UnmarshalJSON(data []byte) error {
@@ -269,6 +307,7 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	c.EnableWebProfile = conf.EnableWebProfile
 	c.LogConfig = conf.LogConfig
 	c.Revision = conf.Revision
+	c.MaintenanceConfig = conf.MaintenanceConfig
 
 	return nil
 }
@@ -300,6 +339,7 @@ func (c Config) MarshalJSON() ([]byte, error) {
 		EnableWebProfile:    c.EnableWebProfile,
 		LogConfig:           c.LogConfig,
 		Revision:            c.Revision,
+		MaintenanceConfig:   c.MaintenanceConfig,
 	})
 }
 
@@ -869,7 +909,7 @@ type AuthHandlerConfig struct {
 //					}
 //				}
 //			],
-//		"external_auth_config": {}
+//		    "external_auth_config": {}
 //	}
 func (config *AuthConfig) Validate(path string) error {
 	seenTypes := make(map[string]struct{}, len(config.Handlers))
@@ -898,8 +938,8 @@ func (config *AuthHandlerConfig) Validate(path string) error {
 	}
 	switch config.Type {
 	case rpc.CredentialsTypeAPIKey:
-		if config.Config.String("key") == "" && len(config.Config.StringSlice("keys")) == 0 {
-			return resource.NewConfigValidationError(fmt.Sprintf("%s.config", path), errors.New("key or keys is required"))
+		if len(config.Config.StringSlice("keys")) == 0 {
+			return resource.NewConfigValidationError(fmt.Sprintf("%s.config", path), errors.New("keys is required"))
 		}
 	case rpc.CredentialsTypeExternal:
 		return errors.New("robot cannot issue external auth tokens")
@@ -909,63 +949,41 @@ func (config *AuthHandlerConfig) Validate(path string) error {
 	return nil
 }
 
-// TLSConfig stores the TLS config for the robot.
-type TLSConfig struct {
-	*tls.Config
-	certMu  sync.Mutex
-	tlsCert *tls.Certificate
-}
-
-// NewTLSConfig creates a new tls config.
-func NewTLSConfig(cfg *Config) *TLSConfig {
-	tlsCfg := &TLSConfig{}
-	var tlsConfig *tls.Config
-	if cfg.Cloud != nil && cfg.Cloud.TLSCertificate != "" {
-		tlsConfig = &tls.Config{
-			MinVersion: tls.VersionTLS12,
-			GetCertificate: func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
-				// always return same cert
-				tlsCfg.certMu.Lock()
-				defer tlsCfg.certMu.Unlock()
-				return tlsCfg.tlsCert, nil
-			},
-			GetClientCertificate: func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-				// always return same cert
-				tlsCfg.certMu.Lock()
-				defer tlsCfg.certMu.Unlock()
-				return tlsCfg.tlsCert, nil
-			},
-		}
-	}
-	tlsCfg.Config = tlsConfig
-	return tlsCfg
-}
-
-// UpdateCert updates the TLS certificate to be returned.
-func (t *TLSConfig) UpdateCert(cfg *Config) error {
+// CreateTLSWithCert creates a tls.Config with the TLS certificate to be returned.
+func CreateTLSWithCert(cfg *Config) (*tls.Config, error) {
 	cert, err := tls.X509KeyPair([]byte(cfg.Cloud.TLSCertificate), []byte(cfg.Cloud.TLSPrivateKey))
 	if err != nil {
-		return err
+		return nil, err
 	}
-	t.certMu.Lock()
-	t.tlsCert = &cert
-	t.certMu.Unlock()
-	return nil
+	return &tls.Config{
+		MinVersion: tls.VersionTLS12,
+		GetCertificate: func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			// always return same cert
+			return &cert, nil
+		},
+		GetClientCertificate: func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			// always return same cert
+			return &cert, nil
+		},
+	}, nil
 }
 
 // ProcessConfig processes robot configs.
-func ProcessConfig(in *Config, tlsCfg *TLSConfig) (*Config, error) {
+func ProcessConfig(in *Config) (*Config, error) {
 	out := *in
 	var selfCreds *rpc.Credentials
 	if in.Cloud != nil {
+		// We expect a cloud config from app to always contain a non-empty `TLSCertificate` field.
+		// We do this empty string check just to cope with unexpected input, such as cached configs
+		// that are hand altered to have their `TLSCertificate` removed.
 		if in.Cloud.TLSCertificate != "" {
-			if err := tlsCfg.UpdateCert(in); err != nil {
+			tlsConfig, err := CreateTLSWithCert(in)
+			if err != nil {
 				return nil, err
 			}
+			out.Network.TLSConfig = tlsConfig
 		}
-
 		selfCreds = &rpc.Credentials{rutils.CredentialsTypeRobotSecret, in.Cloud.Secret}
-		out.Network.TLSConfig = tlsCfg.Config // override
 	}
 
 	out.Remotes = make([]Remote, len(in.Remotes))
@@ -1107,4 +1125,37 @@ func (p *PackageConfig) sanitizedVersion() string {
 type Revision struct {
 	Revision    string
 	LastUpdated time.Time
+}
+
+// UpdateLoggerRegistryFromConfig will update the passed in registry with all log patterns in
+// `cfg.LogConfig` and each resource's `LogConfiguration` field if present.
+func UpdateLoggerRegistryFromConfig(registry *logging.Registry, cfg *Config, warnLogger logging.Logger) {
+	var combinedLogCfg []logging.LoggerPatternConfig
+	if cfg.LogConfig != nil {
+		combinedLogCfg = append(combinedLogCfg, cfg.LogConfig...)
+	}
+
+	for _, serv := range cfg.Services {
+		if serv.LogConfiguration != nil {
+			resLogCfg := logging.LoggerPatternConfig{
+				Pattern: "rdk.resource_manager." + serv.ResourceName().String(),
+				Level:   serv.LogConfiguration.Level.String(),
+			}
+			combinedLogCfg = append(combinedLogCfg, resLogCfg)
+		}
+	}
+	for _, comp := range cfg.Components {
+		if comp.LogConfiguration != nil {
+			resLogCfg := logging.LoggerPatternConfig{
+				Pattern: "rdk.resource_manager." + comp.ResourceName().String(),
+				Level:   comp.LogConfiguration.Level.String(),
+			}
+			combinedLogCfg = append(combinedLogCfg, resLogCfg)
+		}
+	}
+
+	if err := registry.Update(combinedLogCfg, warnLogger); err != nil {
+		warnLogger.Warnw("Error processing log patterns",
+			"error", err)
+	}
 }

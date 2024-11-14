@@ -6,7 +6,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -75,7 +77,21 @@ func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context) error {
 	}
 
 	gitRef := cCtx.String(moduleBuildFlagRef)
-	res, err := c.startBuild(manifest.URL, gitRef, manifest.ModuleID, platforms, version)
+	token := cCtx.String(moduleBuildFlagToken)
+	workdir := cCtx.String(moduleBuildFlagWorkdir)
+	req := buildpb.StartBuildRequest{
+		Repo:          manifest.URL,
+		Ref:           &gitRef,
+		Platforms:     platforms,
+		ModuleId:      manifest.ModuleID,
+		ModuleVersion: version,
+		Token:         &token,
+		Workdir:       &workdir,
+	}
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	res, err := c.buildClient.StartBuild(c.c.Context, &req)
 	if err != nil {
 		return err
 	}
@@ -167,9 +183,9 @@ func (c *viamClient) moduleBuildListAction(cCtx *cli.Context) error {
 	// minwidth, tabwidth, padding int, padchar byte, flags uint
 	w := tabwriter.NewWriter(cCtx.App.Writer, 5, 4, 1, ' ', 0)
 	tableFormat := "%s\t%s\t%s\t%s\t%s\n"
-	fmt.Fprintf(w, tableFormat, "ID", "PLATFORM", "STATUS", "VERSION", "TIME")
+	fmt.Fprintf(w, tableFormat, "ID", "PLATFORM", "STATUS", "VERSION", "TIME") //nolint:errcheck
 	for _, job := range jobs.Jobs {
-		fmt.Fprintf(w,
+		fmt.Fprintf(w, //nolint:errcheck
 			tableFormat,
 			job.BuildId,
 			job.Platform,
@@ -255,18 +271,62 @@ func ModuleBuildLogsAction(c *cli.Context) error {
 	return nil
 }
 
-func (c *viamClient) startBuild(repo, ref, moduleID string, platforms []string, version string) (*buildpb.StartBuildResponse, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
+// ModuleBuildLinkRepoAction links a github repo to your module.
+func ModuleBuildLinkRepoAction(c *cli.Context) error {
+	linkID := c.String(moduleBuildFlagOAuthLink)
+	moduleID := c.String(moduleFlagPath)
+	repo := c.String(moduleBuildFlagRepo)
+
+	if moduleID == "" {
+		manifest, err := loadManifestOrNil(defaultManifestFilename)
+		if err != nil {
+			return fmt.Errorf("this command needs a module ID from either %s flag or valid %s", moduleFlagPath, defaultManifestFilename)
+		}
+		moduleID = manifest.ModuleID
+		infof(c.App.ErrWriter, "using module ID %s from %s", moduleID, defaultManifestFilename)
 	}
-	req := buildpb.StartBuildRequest{
-		Repo:          repo,
-		Ref:           &ref,
-		Platforms:     platforms,
-		ModuleId:      moduleID,
-		ModuleVersion: version,
+
+	if repo == "" {
+		remoteURL, err := exec.Command("git", "config", "--get", "remote.origin.url").Output()
+		if err != nil {
+			return fmt.Errorf("no %s provided and unable to get git remote from current directory", moduleBuildFlagRepo)
+		}
+		parsed, err := url.Parse(strings.Trim(string(remoteURL), "\n "))
+		if err != nil {
+			return errors.Wrapf(err, "couldn't parse git remote %s; fix or use %s flag", remoteURL, moduleBuildFlagRepo)
+		}
+		if parsed.Host != "github.com" {
+			return fmt.Errorf("can't use non-github git remote %s. To force this, use the %s flag", parsed.Host, moduleBuildFlagRepo)
+		}
+		repo = strings.Trim(parsed.Path, "/")
+		infof(c.App.ErrWriter, "using repo %s from current folder", repo)
 	}
-	return c.buildClient.StartBuild(c.c.Context, &req)
+
+	req := buildpb.LinkRepoRequest{
+		Link: &buildpb.RepoLink{
+			OauthAppLinkId: linkID,
+			Repo:           repo,
+		},
+	}
+	var found bool
+	req.Link.OrgId, req.Link.ModuleName, found = strings.Cut(moduleID, ":")
+	if !found {
+		return fmt.Errorf("the given module ID '%s' isn't of the form org:name", moduleID)
+	}
+
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	if err := client.ensureLoggedIn(); err != nil {
+		return err
+	}
+	res, err := client.buildClient.LinkRepo(c.Context, &req)
+	if err != nil {
+		return err
+	}
+	infof(c.App.Writer, "Successfully created link with ID %s", res.RepoLinkId)
+	return nil
 }
 
 func (c *viamClient) printModuleBuildLogs(buildID, platform string) error {
@@ -299,7 +359,7 @@ func (c *viamClient) printModuleBuildLogs(buildID, platform string) error {
 			infof(c.c.App.Writer, log.BuildStep)
 			lastBuildStep = log.BuildStep
 		}
-		fmt.Fprint(c.c.App.Writer, log.Data) // data is already formatted with newlines
+		fmt.Fprint(c.c.App.Writer, log.Data) //nolint:errcheck // data is already formatted with newlines
 	}
 
 	return nil

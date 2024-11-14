@@ -7,13 +7,17 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
-	"go.viam.com/rdk/components/encoder/single"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
 var model = resource.DefaultModelFamily.WithModel("gpio")
+
+const (
+	isSingle          = "single"
+	directionAttached = "direction"
+)
 
 // MotorType represents the three accepted pin configuration settings
 // supported by a gpio motor.
@@ -149,7 +153,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	return deps, nil
 }
 
-// init registers a pi motor based on pigpio.
+// init registers a motor controlled by settign pwm and gpio pins on the underlying board.
 func init() {
 	resource.RegisterComponent(motor.API, model, resource.Registration[motor.Motor, *Config]{
 		Constructor: createNewMotor,
@@ -185,7 +189,6 @@ func createNewMotor(
 	}
 
 	if motorConfig.Encoder != "" {
-		basic := m.(*Motor)
 		e, err := encoder.FromDependencies(deps, motorConfig.Encoder)
 		if err != nil {
 			return nil, err
@@ -200,9 +203,13 @@ func createNewMotor(
 				encoder.NewEncodedMotorPositionTypeUnsupportedError(props)
 		}
 
-		single, isSingle := e.(*single.Encoder)
-		if isSingle {
-			single.AttachDirectionalAwareness(basic)
+		cmd := make(map[string]interface{})
+		cmd[isSingle] = m
+		resp, err := e.DoCommand(ctx, cmd)
+		if err != nil {
+			return nil, err
+		}
+		if resp != nil && resp[directionAttached].(bool) {
 			logger.CInfo(ctx, "direction attached to single encoder from encoded motor")
 		}
 
@@ -213,7 +220,7 @@ func createNewMotor(
 				return nil, err
 			}
 		default:
-			m, err = setupMotorWithControls(ctx, basic, e, cfg, logger)
+			m, err = setupMotorWithControls(ctx, m, e, cfg, logger)
 			if err != nil {
 				return nil, err
 			}

@@ -2,10 +2,12 @@ package data
 
 import (
 	"fmt"
+	"maps"
 	"time"
 
 	"github.com/benbjohnson/clock"
 	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/mongo"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"go.viam.com/rdk/logging"
@@ -17,14 +19,17 @@ type CollectorConstructor func(resource interface{}, params CollectorParams) (Co
 
 // CollectorParams contain the parameters needed to construct a Collector.
 type CollectorParams struct {
-	ComponentName string
-	Interval      time.Duration
-	MethodParams  map[string]*anypb.Any
-	Target        CaptureBufferedWriter
-	QueueSize     int
-	BufferSize    int
-	Logger        logging.Logger
-	Clock         clock.Clock
+	MongoCollection *mongo.Collection
+	ComponentName   string
+	ComponentType   string
+	MethodName      string
+	Interval        time.Duration
+	MethodParams    map[string]*anypb.Any
+	Target          CaptureBufferedWriter
+	QueueSize       int
+	BufferSize      int
+	Logger          logging.Logger
+	Clock           clock.Clock
 }
 
 // Validate validates that p contains all required parameters.
@@ -69,4 +74,10 @@ func RegisterCollector(method MethodMetadata, c CollectorConstructor) {
 // there is None.
 func CollectorLookup(method MethodMetadata) CollectorConstructor {
 	return collectorRegistry[method]
+}
+
+// DumpRegisteredCollectors returns all registered collectores
+// this is only intended for services/datamanager/builtin/builtin_test.go.
+func DumpRegisteredCollectors() map[MethodMetadata]CollectorConstructor {
+	return maps.Clone(collectorRegistry)
 }

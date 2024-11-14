@@ -5,7 +5,7 @@ import "go.viam.com/rdk/resource"
 // SPIConfig enumerates a specific, shareable SPI bus.
 type SPIConfig struct {
 	Name      string `json:"name"`
-	BusSelect string `json:"bus_select"` // "0" or "1" for main/aux in libpigpio
+	BusSelect string `json:"bus_select"` // "0" or "1" are common on single board computers
 }
 
 // Validate ensures all parts of the config are valid.

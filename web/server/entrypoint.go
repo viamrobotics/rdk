@@ -22,7 +22,6 @@ import (
 	"go.viam.com/utils/perf"
 	"go.viam.com/utils/rpc"
 
-	vlogging "go.viam.com/rdk/components/camera/videosource/logging"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -40,7 +39,6 @@ type Arguments struct {
 	ConfigFile                 string `flag:"config,usage=robot config file"`
 	CPUProfile                 string `flag:"cpuprofile,usage=write cpu profile to file"`
 	Debug                      bool   `flag:"debug"`
-	Logging                    bool   `flag:"logging,default=false,usage=emit periodic resource status information to Viam's hidden folder"`
 	SharedDir                  string `flag:"shareddir,usage=web resource directory"`
 	Version                    bool   `flag:"version,usage=print version"`
 	WebProfile                 bool   `flag:"webprofile,usage=include profiler in http server"`
@@ -50,11 +48,28 @@ type Arguments struct {
 	OutputTelemetry            bool   `flag:"output-telemetry,usage=print out telemetry data (metrics and spans)"`
 	DisableMulticastDNS        bool   `flag:"disable-mdns,usage=disable server discovery through multicast DNS"`
 	DumpResourcesPath          string `flag:"dump-resources,usage=dump all resource registrations as json to the provided file path"`
+	EnableFTDC                 bool   `flag:"ftdc,usage=enable fulltime data capture for diagnostics [beta feature]"`
 }
 
 type robotServer struct {
-	args   Arguments
-	logger logging.Logger
+	args     Arguments
+	logger   logging.Logger
+	registry *logging.Registry
+}
+
+func logVersion(logger logging.Logger) {
+	var versionFields []interface{}
+	if config.Version != "" {
+		versionFields = append(versionFields, "version", config.Version)
+	}
+	if config.GitRevision != "" {
+		versionFields = append(versionFields, "git_rev", config.GitRevision)
+	}
+	if len(versionFields) != 0 {
+		logger.Infow("Viam RDK", versionFields...)
+	} else {
+		logger.Info("Viam RDK built from source; version unknown")
+	}
 }
 
 // RunServer is an entry point to starting the web server that can be called by main in a code
@@ -74,36 +89,24 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		return dumpResourceRegistrations(argsParsed.DumpResourcesPath)
 	}
 
-	// Replace logger with logger based on flags.
-	logger := logging.NewLogger("")
+	logger, registry := logging.NewLoggerWithRegistry("rdk")
 	logging.ReplaceGlobal(logger)
-	logger = logger.Sublogger("rdk")
-
-	// create logging logger here for access later
-	logger.Sublogger("logging")
-
-	// create networking logger here for access later
-	logger.Sublogger("networking")
-
 	config.InitLoggingSettings(logger, argsParsed.Debug)
 
-	// Always log the version, return early if the '-version' flag was provided
-	// fmt.Println would be better but fails linting. Good enough.
-	var versionFields []interface{}
-	if config.Version != "" {
-		versionFields = append(versionFields, "version", config.Version)
-	}
-	if config.GitRevision != "" {
-		versionFields = append(versionFields, "git_rev", config.GitRevision)
-	}
-	if len(versionFields) != 0 {
-		logger.Infow("Viam RDK", versionFields...)
-	} else {
-		logger.Info("Viam RDK built from source; version unknown")
-	}
 	if argsParsed.Version {
+		// log version here and return if version flag.
+		logVersion(logger)
 		return
 	}
+
+	// log version locally if server fails and exits while attempting to start up
+	var versionLogged bool
+	defer func() {
+		if !versionLogged {
+			logger.CInfo(ctx, "error starting viam-server, logging version and exiting")
+			logVersion(logger)
+		}
+	}()
 
 	if argsParsed.ConfigFile == "" {
 		logger.Error("please specify a config file through the -config parameter.")
@@ -120,12 +123,6 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 			return err
 		}
 		defer pprof.StopCPUProfile()
-	}
-
-	if argsParsed.Logging {
-		if err := vlogging.GLoggerCamComp.Start(ctx); err != nil {
-			logger.Debug(err)
-		}
 	}
 
 	// Read the config from disk and use it to initialize the remote logger.
@@ -154,19 +151,23 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 				ID:         cfgFromDisk.Cloud.ID,
 				Secret:     cfgFromDisk.Cloud.Secret,
 			},
-			nil, false,
+			nil, false, logger.Sublogger("networking").Sublogger("netlogger"),
 		)
 		if err != nil {
 			return err
 		}
 		defer netAppender.Close()
 
-		logger.AddAppender(netAppender)
+		registry.AddAppenderToAll(netAppender)
 	}
+	// log version after netlogger is initialized so it's captured in cloud machine logs.
+	logVersion(logger)
+	versionLogged = true
 
 	server := robotServer{
-		logger: logger,
-		args:   argsParsed,
+		logger:   logger,
+		args:     argsParsed,
+		registry: registry,
 	}
 
 	// Run the server with remote logging enabled.
@@ -206,7 +207,7 @@ func (s *robotServer) createWebOptions(cfg *config.Config) (weboptions.Options, 
 	options.Pprof = s.args.WebProfile || cfg.EnableWebProfile
 	options.SharedDir = s.args.SharedDir
 	options.Debug = s.args.Debug || cfg.Debug
-	options.WebRTC = s.args.WebRTC
+	options.PreferWebRTC = s.args.WebRTC
 	options.DisableMulticastDNS = s.args.DisableMulticastDNS
 	if cfg.Cloud != nil && s.args.AllowInsecureCreds {
 		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
@@ -300,8 +301,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	ctx = rpc.ContextWithDialer(ctx, rpcDialer)
 
 	processConfig := func(in *config.Config) (*config.Config, error) {
-		tlsCfg := config.NewTLSConfig(cfg)
-		out, err := config.ProcessConfig(in, tlsCfg)
+		out, err := config.ProcessConfig(in)
 		if err != nil {
 			return nil, err
 		}
@@ -318,6 +318,13 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	if err != nil {
 		return err
 	}
+
+	// Update logger registry as soon as we have fully processed config. Further
+	// updates to the registry will be handled by the config watcher goroutine.
+	//
+	// This functionality is tested in `TestLogPropagation` in `local_robot_test.go`.
+	config.UpdateLoggerRegistryFromConfig(s.registry, processedConfig, s.logger)
+
 	if processedConfig.Cloud != nil {
 		cloudRestartCheckerActive = make(chan struct{})
 		utils.PanicCapturingGo(func() {
@@ -363,6 +370,10 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	})
 	robotOptions = append(robotOptions, shutdownCallbackOpt)
 
+	if s.args.EnableFTDC {
+		robotOptions = append(robotOptions, robotimpl.WithFTDC())
+	}
+
 	myRobot, err := robotimpl.New(ctx, processedConfig, s.logger, robotOptions...)
 	if err != nil {
 		cancel()
@@ -373,7 +384,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	}()
 
 	// watch for and deliver changes to the robot
-	watcher, err := config.NewWatcher(ctx, cfg, logging.GetOrNewLogger("rdk.config"))
+	watcher, err := config.NewWatcher(ctx, cfg, s.logger.Sublogger("config"))
 	if err != nil {
 		cancel()
 		return err
@@ -416,6 +427,14 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 						s.logger.Errorw("reconfiguration aborted: error creating weboptions", "error", err)
 						continue
 					}
+				}
+
+				// Update logger registry if log patterns may have changed.
+				//
+				// This functionality is tested in `TestLogPropagation` in `local_robot_test.go`.
+				if !diff.LogEqual {
+					s.logger.Debug("Detected potential changes to log patterns; updating logger levels")
+					config.UpdateLoggerRegistryFromConfig(s.registry, processedConfig, s.logger)
 				}
 
 				myRobot.Reconfigure(ctx, processedConfig)

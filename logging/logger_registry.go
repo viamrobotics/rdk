@@ -6,70 +6,35 @@ import (
 	"sync"
 )
 
-type loggerRegistry struct {
+// Registry is a registry of loggers. It is stored on a logger, and holds a map
+// of known subloggers (`loggers`) and a slice of configuration objects
+// (`logConfig`).
+type Registry struct {
 	mu        sync.RWMutex
 	loggers   map[string]Logger
 	logConfig []LoggerPatternConfig
 }
 
-// TODO(RSDK-8250): convert loggerManager from global variable to variable on local robot.
-var globalLoggerRegistry = newLoggerRegistry()
-
-func newLoggerRegistry() *loggerRegistry {
-	return &loggerRegistry{
+func newRegistry() *Registry {
+	return &Registry{
 		loggers: make(map[string]Logger),
 	}
 }
 
-func (lr *loggerRegistry) registerLogger(name string, logger Logger) {
+func (lr *Registry) registerLogger(name string, logger Logger) {
 	lr.mu.Lock()
 	defer lr.mu.Unlock()
 	lr.loggers[name] = logger
 }
 
-func (lr *loggerRegistry) deregisterLogger(name string) bool {
-	lr.mu.Lock()
-	defer lr.mu.Unlock()
-	_, ok := lr.loggers[name]
-	if ok {
-		delete(lr.loggers, name)
-	}
-	return ok
-}
-
-func (lr *loggerRegistry) loggerNamed(name string) (logger Logger, ok bool) {
+func (lr *Registry) loggerNamed(name string) (logger Logger, ok bool) {
 	lr.mu.RLock()
 	defer lr.mu.RUnlock()
 	logger, ok = lr.loggers[name]
 	return
 }
 
-func (lr *loggerRegistry) updateLoggerLevelWithCfg(name string) error {
-	lr.mu.RLock()
-	defer lr.mu.RUnlock()
-
-	for _, lpc := range lr.logConfig {
-		r, err := regexp.Compile(buildRegexFromPattern(lpc.Pattern))
-		if err != nil {
-			return err
-		}
-		if r.MatchString(name) {
-			logger, ok := lr.loggers[name]
-			if !ok {
-				return fmt.Errorf("logger named %s not recognized", name)
-			}
-			level, err := LevelFromString(lpc.Level)
-			if err != nil {
-				return err
-			}
-			logger.SetLevel(level)
-		}
-	}
-
-	return nil
-}
-
-func (lr *loggerRegistry) updateLoggerLevel(name string, level Level) error {
+func (lr *Registry) updateLoggerLevel(name string, level Level) error {
 	lr.mu.RLock()
 	defer lr.mu.RUnlock()
 	logger, ok := lr.loggers[name]
@@ -80,12 +45,17 @@ func (lr *loggerRegistry) updateLoggerLevel(name string, level Level) error {
 	return nil
 }
 
-func (lr *loggerRegistry) updateLoggerRegistry(logConfig []LoggerPatternConfig) error {
+// Update updates the logger registry with the passed in `logConfig`. Invalid patterns
+// are warn-logged through the warnLogger.
+func (lr *Registry) Update(logConfig []LoggerPatternConfig, warnLogger Logger) error {
+	lr.mu.Lock()
+	lr.logConfig = logConfig
+	lr.mu.Unlock()
+
 	appliedConfigs := make(map[string]Level)
 	for _, lpc := range logConfig {
 		if !validatePattern(lpc.Pattern) {
-			logger := GetOrNewLogger("rdk.logging")
-			logger.Info("failed to validate a pattern", "pattern", lpc.Pattern)
+			warnLogger.Warnw("failed to validate a pattern", "pattern", lpc.Pattern)
 			continue
 		}
 
@@ -108,7 +78,11 @@ func (lr *loggerRegistry) updateLoggerRegistry(logConfig []LoggerPatternConfig) 
 	for _, name := range lr.getRegisteredLoggerNames() {
 		level, ok := appliedConfigs[name]
 		if !ok {
-			level = INFO
+			// If no config was applied; return logger to level of passed in
+			// warnLogger. Idea being that if _no_ config applies to logger
+			// anymore, warnLogger should be the logger from entrypoint and
+			// therefore the highest in the tree of loggers.
+			level = warnLogger.GetLevel()
 		}
 		err := lr.updateLoggerLevel(name, level)
 		if err != nil {
@@ -119,87 +93,66 @@ func (lr *loggerRegistry) updateLoggerRegistry(logConfig []LoggerPatternConfig) 
 	return nil
 }
 
-func (lr *loggerRegistry) getRegisteredLoggerNames() []string {
+func (lr *Registry) getRegisteredLoggerNames() []string {
 	lr.mu.RLock()
 	defer lr.mu.RUnlock()
-	registeredNames := make([]string, 0, len(globalLoggerRegistry.loggers))
+	registeredNames := make([]string, 0, len(lr.loggers))
 	for name := range lr.loggers {
 		registeredNames = append(registeredNames, name)
 	}
 	return registeredNames
 }
 
-func (lr *loggerRegistry) registerConfig(logConfig []LoggerPatternConfig) error {
-	lr.mu.Lock()
-	lr.logConfig = logConfig
-	lr.mu.Unlock()
-	return lr.updateLoggerRegistry(logConfig)
-}
-
-func (lr *loggerRegistry) getCurrentConfig() []LoggerPatternConfig {
+// GetCurrentConfig gets the current config.
+func (lr *Registry) GetCurrentConfig() []LoggerPatternConfig {
 	lr.mu.RLock()
 	defer lr.mu.RUnlock()
 	return lr.logConfig
 }
 
-// Exported Functions specifically for use on global logger manager.
-
-// RegisterLogger registers a new logger with a given name.
-func RegisterLogger(name string, logger Logger) {
-	globalLoggerRegistry.registerLogger(name, logger)
+// AddAppenderToAll adds the specified appender to all loggers in the registry.
+func (lr *Registry) AddAppenderToAll(appender Appender) {
+	lr.mu.RLock()
+	defer lr.mu.RUnlock()
+	for _, logger := range lr.loggers {
+		logger.AddAppender(appender)
+	}
 }
 
-// DeregisterLogger attempts to remove a logger from the registry and returns a boolean denoting whether it succeeded.
-func DeregisterLogger(name string) bool {
-	return globalLoggerRegistry.deregisterLogger(name)
-}
+// getOrRegister will either:
+//   - return an existing logger for the input logger `name` or
+//   - register the input `logger` for the given logger `name` and configure it based on the
+//     existing patterns.
+//
+// Such that if concurrent callers try registering the same logger, the "winner"s logger will be
+// registered and all losers will return the winning logger.
+//
+// It is expected in racing scenarios that all callers are trying to register behavioral equivalent
+// `logger` objects.
+func (lr *Registry) getOrRegister(name string, logger Logger) Logger {
+	lr.mu.Lock()
+	defer lr.mu.Unlock()
+	if existingLogger, ok := lr.loggers[name]; ok {
+		return existingLogger
+	}
 
-// LoggerNamed returns logger with specified name if exists.
-func LoggerNamed(name string) (logger Logger, ok bool) {
-	return globalLoggerRegistry.loggerNamed(name)
-}
-
-// UpdateLoggerLevel assigns level to appropriate logger in the registry.
-func UpdateLoggerLevel(name string, level Level) error {
-	return globalLoggerRegistry.updateLoggerLevel(name, level)
-}
-
-// GetRegisteredLoggerNames returns the names of all loggers in the registry.
-func GetRegisteredLoggerNames() []string {
-	return globalLoggerRegistry.getRegisteredLoggerNames()
-}
-
-// RegisterConfig atomically stores the current known logger config in the registry, and updates all registered loggers.
-func RegisterConfig(logConfig []LoggerPatternConfig) error {
-	return globalLoggerRegistry.registerConfig(logConfig)
-}
-
-// UpdateLoggerLevelWithCfg matches the desired logger to all patterns in the registry and updates its level.
-func UpdateLoggerLevelWithCfg(name string) error {
-	return globalLoggerRegistry.updateLoggerLevelWithCfg(name)
-}
-
-// GetCurrentConfig returns the logger config currently being used by the registry.
-func GetCurrentConfig() []LoggerPatternConfig {
-	return globalLoggerRegistry.getCurrentConfig()
-}
-
-// GetOrNewLogger returns a logger with the specified name if it exists, otherwise it
-// creates and registers one with the same name.
-// Consider removing this as a part of or after RSDK-8291 (https://viam.atlassian.net/browse/RSDK-8291)
-// which may consolidate various calls to the rdk.networking logger into one.
-func GetOrNewLogger(name string) (logger Logger) {
-	globalLoggerRegistry.mu.Lock()
-	defer globalLoggerRegistry.mu.Unlock()
-	logger, ok := globalLoggerRegistry.loggers[name]
-	if !ok {
-		logger = &impl{
-			name:       name,
-			level:      NewAtomicLevelAt(INFO),
-			appenders:  []Appender{NewStdoutAppender()},
-			testHelper: func() {},
+	lr.loggers[name] = logger
+	for _, lpc := range lr.logConfig {
+		r, err := regexp.Compile(buildRegexFromPattern(lpc.Pattern))
+		if err != nil {
+			// Can ignore error here; invalid pattern will already have been
+			// warn-logged as part of config reading.
+			continue
 		}
-		globalLoggerRegistry.loggers[name] = logger
+		if r.MatchString(name) {
+			level, err := LevelFromString(lpc.Level)
+			if err != nil {
+				// Can ignore error here; invalid level will already have been
+				// warn-logged as part of config reading.
+				continue
+			}
+			logger.SetLevel(level)
+		}
 	}
 	return logger
 }

@@ -141,6 +141,14 @@ func (n Name) String() string {
 	return name
 }
 
+// RemoteNameToRemoteArray returns an ordered array of all of remotes in a resource name.
+func (n Name) RemoteNameToRemoteArray() []string {
+	if n.Remote == "" {
+		return []string{}
+	}
+	return strings.Split(n.Remote, ":")
+}
+
 // SDPTrackName returns a valid SDP video/audio track name as defined in RFC 4566 (https://www.rfc-editor.org/rfc/rfc4566)
 // where track names should not include colons.
 func (n Name) SDPTrackName() string {
@@ -150,4 +158,13 @@ func (n Name) SDPTrackName() string {
 // SDPTrackNameToShortName takes the output of SDPTrackName() and returns the resource ShortName.
 func SDPTrackNameToShortName(name string) string {
 	return strings.ReplaceAll(name, "+", ":")
+}
+
+// NamesToStrings is a utility that takes a list of resource names and returns a list of fully qualified names.
+func NamesToStrings(lst []Name) []string {
+	rNames := make([]string, 0, len(lst))
+	for _, rName := range lst {
+		rNames = append(rNames, rName.String())
+	}
+	return rNames
 }

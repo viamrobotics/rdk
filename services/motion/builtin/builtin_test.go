@@ -8,11 +8,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/arm"
 	armFake "go.viam.com/rdk/components/arm/fake"
@@ -129,8 +131,13 @@ func TestMoveFailures(t *testing.T) {
 	defer teardown()
 	ctx := context.Background()
 	t.Run("fail on not finding gripper", func(t *testing.T) {
-		grabPose := referenceframe.NewPoseInFrame("fakeCamera", spatialmath.NewPoseFromPoint(r3.Vector{X: 10.0, Y: 10.0, Z: 10.0}))
-		_, err = ms.Move(ctx, camera.Named("fake"), grabPose, nil, nil, nil)
+		grabPose := referenceframe.NewPoseInFrame("fakeGripper", spatialmath.NewPoseFromPoint(r3.Vector{X: 10.0, Y: 10.0, Z: 10.0}))
+		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: gripper.Named("fake"), Destination: grabPose})
+		test.That(t, err, test.ShouldNotBeNil)
+	})
+
+	t.Run("fail on nil destination", func(t *testing.T) {
+		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: arm.Named("arm1")})
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -145,7 +152,7 @@ func TestMoveFailures(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(nil, transforms)
 		test.That(t, err, test.ShouldBeNil)
 		poseInFrame := referenceframe.NewPoseInFrame("frame2", spatialmath.NewZeroPose())
-		_, err = ms.Move(ctx, arm.Named("arm1"), poseInFrame, worldState, nil, nil)
+		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: arm.Named("arm1"), Destination: poseInFrame, WorldState: worldState})
 		test.That(t, err, test.ShouldBeError, referenceframe.NewParentFrameMissingError("frame2", "noParent"))
 	})
 }
@@ -158,7 +165,7 @@ func TestMove(t *testing.T) {
 		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		defer teardown()
 		grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -30, Z: -50}))
-		_, err = ms.Move(ctx, gripper.Named("pieceGripper"), grabPose, nil, nil, nil)
+		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: gripper.Named("pieceGripper"), Destination: grabPose})
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -166,7 +173,7 @@ func TestMove(t *testing.T) {
 		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		defer teardown()
 		grabPose := referenceframe.NewPoseInFrame("pieceArm", spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -30, Z: -50}))
-		_, err = ms.Move(ctx, arm.Named("pieceArm"), grabPose, nil, nil, map[string]interface{}{})
+		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: arm.Named("pieceArm"), Destination: grabPose})
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -174,7 +181,7 @@ func TestMove(t *testing.T) {
 		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		defer teardown()
 		grabPose := referenceframe.NewPoseInFrame("pieceGripper", spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -30, Z: -50}))
-		_, err = ms.Move(ctx, gripper.Named("pieceGripper"), grabPose, nil, nil, map[string]interface{}{})
+		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: gripper.Named("pieceGripper"), Destination: grabPose})
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -194,7 +201,8 @@ func TestMove(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(nil, transforms)
 		test.That(t, err, test.ShouldBeNil)
 		grabPose := referenceframe.NewPoseInFrame("testFrame2", spatialmath.NewPoseFromPoint(r3.Vector{X: -20, Y: -130, Z: -40}))
-		_, err = ms.Move(context.Background(), gripper.Named("pieceGripper"), grabPose, worldState, nil, nil)
+		moveReq := motion.MoveReq{ComponentName: gripper.Named("pieceGripper"), Destination: grabPose, WorldState: worldState}
+		_, err = ms.Move(context.Background(), moveReq)
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
@@ -242,7 +250,10 @@ func TestMoveWithObstacles(t *testing.T) {
 		}
 		worldState, err := referenceframe.WorldStateFromProtobuf(&commonpb.WorldState{Obstacles: obsMsgs})
 		test.That(t, err, test.ShouldBeNil)
-		_, err = ms.Move(context.Background(), gripper.Named("pieceArm"), grabPose, worldState, nil, nil)
+		_, err = ms.Move(
+			context.Background(),
+			motion.MoveReq{ComponentName: gripper.Named("pieceArm"), Destination: grabPose, WorldState: worldState},
+		)
 		// This fails due to a large obstacle being in the way
 		test.That(t, err, test.ShouldNotBeNil)
 	})
@@ -416,7 +427,7 @@ func TestMultiplePieces(t *testing.T) {
 	ms, teardown := setupMotionServiceFromConfig(t, "../data/fake_tomato.json")
 	defer teardown()
 	grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{X: -0, Y: -30, Z: -50}))
-	_, err = ms.Move(context.Background(), gripper.Named("gr"), grabPose, nil, nil, nil)
+	_, err = ms.Move(context.Background(), motion.MoveReq{ComponentName: gripper.Named("gr"), Destination: grabPose})
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -568,7 +579,7 @@ func TestStoppableMoveFunctions(t *testing.T) {
 
 		t.Run("stop during Move(...) call", func(t *testing.T) {
 			calledStopFunc = false
-			success, err := ms.Move(ctx, injectArmName, goal, nil, nil, extra)
+			success, err := ms.Move(ctx, motion.MoveReq{ComponentName: injectArmName, Destination: goal, Extra: extra})
 			testIfStoppable(t, success, err, failToReachGoalError)
 		})
 	})
@@ -1231,5 +1242,61 @@ func TestCheckPlan(t *testing.T) {
 
 		err = motionplan.CheckPlan(wrapperFrame, updatedExecutionState, worldState, mr.localizingFS, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
+	})
+}
+
+func TestDoCommand(t *testing.T) {
+	ctx := context.Background()
+	moveReq := motion.MoveReq{
+		ComponentName: gripper.Named("pieceGripper"),
+		Destination:   referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -30, Z: -50})),
+	}
+
+	// need to simulate what happens when the DoCommand message is serialized/deserialized into proto
+	doOverWire := func(ms motion.Service, cmd map[string]interface{}) map[string]interface{} {
+		command, err := protoutils.StructToStructPb(cmd)
+		test.That(t, err, test.ShouldBeNil)
+		resp, err := ms.DoCommand(ctx, command.AsMap())
+		test.That(t, err, test.ShouldBeNil)
+		respProto, err := protoutils.StructToStructPb(resp)
+		test.That(t, err, test.ShouldBeNil)
+		return respProto.AsMap()
+	}
+
+	t.Run("DoPlan", func(t *testing.T) {
+		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
+		defer teardown()
+
+		// format the command to send DoCommand
+		proto, err := moveReq.ToProto(ms.Name().Name)
+		test.That(t, err, test.ShouldBeNil)
+		cmd := map[string]interface{}{DoPlan: proto}
+
+		// simulate going over the wire
+		resp, ok := doOverWire(ms, cmd)[DoPlan]
+		test.That(t, ok, test.ShouldBeTrue)
+
+		// the client will need to decode the response still
+		var trajectory motionplan.Trajectory
+		err = mapstructure.Decode(resp, &trajectory)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(trajectory), test.ShouldEqual, 2)
+	})
+	t.Run("DoExectute", func(t *testing.T) {
+		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
+		defer teardown()
+
+		plan, err := ms.(*builtIn).plan(ctx, moveReq)
+		test.That(t, err, test.ShouldBeNil)
+
+		// format the command to sent DoCommand
+		cmd := map[string]interface{}{DoExecute: plan.Trajectory()}
+
+		// simulate going over the wire
+		resp, ok := doOverWire(ms, cmd)[DoExecute]
+		test.That(t, ok, test.ShouldBeTrue)
+
+		// the client will need to decode the response still
+		test.That(t, resp, test.ShouldBeTrue)
 	})
 }
