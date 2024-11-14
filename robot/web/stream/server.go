@@ -378,22 +378,15 @@ func (server *Server) SetStreamOptions(
 	ctx context.Context,
 	req *streampb.SetStreamOptionsRequest,
 ) (*streampb.SetStreamOptionsResponse, error) {
-	if err := validateSetStreamOptionsRequest(req); err != nil {
+	err := validateSetStreamOptionsRequest(req)
+	if err != nil {
 		return nil, err
 	}
 	server.mu.Lock()
 	defer server.mu.Unlock()
-	err := server.resizeVideoSource(req.Name, int(req.Resolution.Width), int(req.Resolution.Height))
+	err = server.resizeVideoSource(req.Name, int(req.Resolution.Width), int(req.Resolution.Height))
 	if err != nil {
 		return nil, fmt.Errorf("failed to resize video source for stream %q: %w", req.Name, err)
-	}
-	streamState, ok := server.nameToStreamState[req.Name]
-	if !ok {
-		return nil, fmt.Errorf("stream state not found with name %q", req.Name)
-	}
-	err = streamState.Resize()
-	if err != nil {
-		return nil, fmt.Errorf("failed to resize stream %q: %w", req.Name, err)
 	}
 	return &streampb.SetStreamOptionsResponse{}, nil
 }
@@ -409,9 +402,17 @@ func (server *Server) resizeVideoSource(name string, width, height int) error {
 		server.logger.Errorf("error getting camera %q from robot", name)
 		return err
 	}
+	streamState, ok := server.nameToStreamState[name]
+	if !ok {
+		return fmt.Errorf("stream state not found with name %q", name)
+	}
 	resizer := gostream.NewResizeVideoSource(cam, width, height)
-	server.logger.Debug("resizing video source with swap")
+	server.logger.Debug("resizing video source with a hot swap")
 	existing.Swap(resizer)
+	err = streamState.Resize()
+	if err != nil {
+		return fmt.Errorf("failed to resize stream %q: %w", name, err)
+	}
 	return nil
 }
 
