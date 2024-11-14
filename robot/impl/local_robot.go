@@ -193,25 +193,26 @@ func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[st
 	}
 
 	// Stop all stoppable resources
-	resourceErrs := []string{}
+	resourceErrs := make(map[string]error)
 	for _, name := range r.ResourceNames() {
 		res, err := r.ResourceByName(name)
 		if err != nil {
-			resourceErrs = append(resourceErrs, name.Name)
+			resourceErrs[name.Name] = err
 			continue
 		}
 
 		if actuator, ok := res.(resource.Actuator); ok {
 			if err := actuator.Stop(ctx, extra[name]); err != nil {
-				resourceErrs = append(resourceErrs, name.Name)
+				resourceErrs[name.Name] = err
 			}
 		}
 	}
 
-	if len(resourceErrs) > 0 {
-		return errors.Errorf("failed to stop components named %s", strings.Join(resourceErrs, ","))
+	var errs error
+	for k, v := range resourceErrs {
+		errs = multierr.Combine(errs, errors.Errorf("failed to stop component named %s with error %v", k, v))
 	}
-	return nil
+	return errs
 }
 
 // Config returns a config representing the current state of the robot.

@@ -193,7 +193,7 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 	switch m.motorType {
 	case ABPwm, DirectionPwm:
 		if math.Abs(powerPct) <= 0.001 {
-			return m.turnOff(ctx, extra)
+			return m.turnOff(context.Background(), extra)
 		}
 		pwmPin = m.PWM
 	case AB:
@@ -310,7 +310,7 @@ func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.opMgr.CancelRunning(ctx)
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.setPWM(ctx, 0, extra)
+	return m.setPWM(context.Background(), 0, extra)
 }
 
 // IsMoving returns if the motor is currently on or off.
