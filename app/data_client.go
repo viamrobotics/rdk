@@ -188,23 +188,6 @@ func annotationsFromProto(proto *pb.Annotations) Annotations {
 	}
 }
 
-func annotationsToProto(annotations Annotations) *pb.Annotations {
-	var protoBboxes []*pb.BoundingBox
-	for _, bbox := range annotations.Bboxes {
-		protoBboxes = append(protoBboxes, &pb.BoundingBox{
-			Id:             bbox.ID,
-			Label:          bbox.Label,
-			XMinNormalized: bbox.XMinNormalized,
-			YMinNormalized: bbox.YMinNormalized,
-			XMaxNormalized: bbox.XMaxNormalized,
-			YMaxNormalized: bbox.YMaxNormalized,
-		})
-	}
-	return &pb.Annotations{
-		Bboxes: protoBboxes,
-	}
-}
-
 func methodParamsFromProto(proto map[string]*anypb.Any) map[string]string {
 	methodParameters := make(map[string]string)
 	for key, value := range proto {
@@ -265,13 +248,6 @@ func binaryDataFromProto(proto *pb.BinaryData) BinaryData {
 	}
 }
 
-func binaryDataToProto(binaryData BinaryData) *pb.BinaryData {
-	return &pb.BinaryData{
-		Binary:   binaryData.Binary,
-		Metadata: binaryMetadataToProto(binaryData.Metadata),
-	}
-}
-
 func binaryMetadataFromProto(proto *pb.BinaryMetadata) BinaryMetadata {
 	return BinaryMetadata{
 		ID:              proto.Id,
@@ -286,20 +262,6 @@ func binaryMetadataFromProto(proto *pb.BinaryMetadata) BinaryMetadata {
 	}
 }
 
-func binaryMetadataToProto(binaryMetadata BinaryMetadata) *pb.BinaryMetadata {
-	return &pb.BinaryMetadata{
-		Id:              binaryMetadata.ID,
-		CaptureMetadata: captureMetadataToProto(binaryMetadata.CaptureMetadata),
-		TimeRequested:   timestamppb.New(binaryMetadata.TimeRequested),
-		TimeReceived:    timestamppb.New(binaryMetadata.TimeReceived),
-		FileName:        binaryMetadata.FileName,
-		FileExt:         binaryMetadata.FileExt,
-		Uri:             binaryMetadata.URI,
-		Annotations:     annotationsToProto(binaryMetadata.Annotations),
-		DatasetIds:      binaryMetadata.DatasetIDs,
-	}
-}
-
 func tabularDataFromProto(proto *pb.TabularData, metadata *pb.CaptureMetadata) TabularData {
 	return TabularData{
 		Data:          proto.Data.AsMap(),
@@ -307,15 +269,6 @@ func tabularDataFromProto(proto *pb.TabularData, metadata *pb.CaptureMetadata) T
 		Metadata:      captureMetadataFromProto(metadata),
 		TimeRequested: proto.TimeRequested.AsTime(),
 		TimeReceived:  proto.TimeReceived.AsTime(),
-	}
-}
-
-func dataRequestToProto(dataRequest DataRequest) *pb.DataRequest {
-	return &pb.DataRequest{
-		Filter:    filterToProto(dataRequest.Filter),
-		Limit:     dataRequest.Limit,
-		Last:      dataRequest.Last,
-		SortOrder: orderToProto(dataRequest.SortOrder),
 	}
 }
 
