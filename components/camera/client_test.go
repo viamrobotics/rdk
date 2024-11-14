@@ -97,6 +97,9 @@ func TestClient(t *testing.T) {
 		return images, resource.ResponseMetadata{CapturedAt: ts}, nil
 	}
 	injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
+		if val, ok := extra["empty"].(bool); ok && val {
+			return []byte{}, camera.ImageMetadata{}, nil
+		}
 		resBytes, err := rimage.EncodeImage(ctx, imgPng, mimeType)
 		test.That(t, err, test.ShouldBeNil)
 		return resBytes, camera.ImageMetadata{MimeType: mimeType}, nil
@@ -180,6 +183,9 @@ func TestClient(t *testing.T) {
 		compVal, _, err := rimage.CompareImages(img, frame)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
+		_, err = camera.ImageFromVideoSource(context.Background(), rutils.MimeTypeRawRGBA, map[string]interface{}{"empty": true}, camera1Client)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "received empty bytes from Image method")
 
 		pcB, err := camera1Client.NextPointCloud(context.Background())
 		test.That(t, err, test.ShouldBeNil)

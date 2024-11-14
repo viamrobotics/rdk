@@ -108,6 +108,7 @@ func TestServer(t *testing.T) {
 		return projA, nil
 	}
 	wooMIME := "image/woohoo"
+	emptyMIME := "image/empty"
 	injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
 		if mimeType == "" {
 			mimeType = utils.MimeTypeRawRGBA
@@ -122,8 +123,10 @@ func TestServer(t *testing.T) {
 			respImg = imgPng
 		case utils.MimeTypeJPEG:
 			respImg = imgJpeg
-		case "image/woohoo":
+		case wooMIME:
 			respImg = rimage.NewLazyEncodedImage([]byte{1, 2, 3}, mimeType)
+		case emptyMIME:
+			return []byte{}, camera.ImageMetadata{}, nil
 		default:
 			return nil, camera.ImageMetadata{}, errInvalidMimeType
 		}
@@ -259,6 +262,15 @@ func TestServer(t *testing.T) {
 		_, err = cameraServer.GetImage(context.Background(), &pb.GetImageRequest{Name: failCameraName, MimeType: utils.MimeTypeRawRGBA})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
+	})
+
+	t.Run("GetImage response was empty", func(t *testing.T) {
+		_, err := cameraServer.GetImage(context.Background(), &pb.GetImageRequest{
+			Name:     testCameraName,
+			MimeType: emptyMIME,
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "received empty bytes from Image method")
 	})
 
 	t.Run("GetImage with lazy", func(t *testing.T) {

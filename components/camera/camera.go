@@ -161,11 +161,14 @@ func ReadImage(ctx context.Context, src gostream.VideoSource) (image.Image, func
 
 // ImageFromVideoSource retrieves image bytes from a camera source and decodes it into an image.Image type.
 func ImageFromVideoSource(ctx context.Context, mimeType string, extra map[string]interface{}, cam VideoSource) (image.Image, error) {
-	resBytes, resMetadata, err := cam.Image(context.Background(), mimeType, nil)
+	resBytes, resMetadata, err := cam.Image(ctx, mimeType, extra)
 	if err != nil {
 		return nil, fmt.Errorf("could not get image bytes from camera: %w", err)
 	}
-	img, err := rimage.DecodeImage(context.Background(), resBytes, resMetadata.MimeType)
+	if len(resBytes) == 0 {
+		return nil, errors.New("received empty bytes from camera")
+	}
+	img, err := rimage.DecodeImage(ctx, resBytes, resMetadata.MimeType)
 	if err != nil {
 		return nil, fmt.Errorf("could not decode into image.Image: %w", err)
 	}
