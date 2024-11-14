@@ -96,7 +96,7 @@ type Camera interface {
 // Or try to directly decode into an image.Image:
 //
 //	myCamera, err := camera.FromRobot(machine, "my_camera")
-//	img, err = camera.ImageFromVideoSource(context.Background(), utils.MimeTypeJPEG, nil, myCamera)
+//	img, err = camera.DecodeImageFromCamera(context.Background(), utils.MimeTypeJPEG, nil, myCamera)
 //
 // Images example:
 //
@@ -159,8 +159,8 @@ func ReadImage(ctx context.Context, src gostream.VideoSource) (image.Image, func
 	return gostream.ReadImage(ctx, src)
 }
 
-// GoImageFromCamera retrieves image bytes from a camera resource and serializes it as an image.Image.
-func GoImageFromCamera(ctx context.Context, mimeType string, extra map[string]interface{}, cam Camera) (image.Image, error) {
+// DecodeImageFromCamera retrieves image bytes from a camera resource and serializes it as an image.Image.
+func DecodeImageFromCamera(ctx context.Context, mimeType string, extra map[string]interface{}, cam Camera) (image.Image, error) {
 	resBytes, resMetadata, err := cam.Image(ctx, mimeType, extra)
 	if err != nil {
 		return nil, fmt.Errorf("could not get image bytes from camera: %w", err)

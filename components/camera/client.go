@@ -146,7 +146,7 @@ func (c *client) Stream(
 				return
 			}
 
-			img, err := GoImageFromCamera(streamCtx, mimeTypeFromCtx, nil, c)
+			img, err := DecodeImageFromCamera(streamCtx, mimeTypeFromCtx, nil, c)
 			if err != nil {
 				for _, handler := range errHandlers {
 					handler(streamCtx, err)

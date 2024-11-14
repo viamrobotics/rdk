@@ -93,7 +93,7 @@ func TestConfig1(t *testing.T) {
 	c1, err := camera.FromRobot(r, "c1")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, c1.Name(), test.ShouldResemble, camera.Named("c1"))
-	pic, err := camera.GoImageFromCamera(context.Background(), rutils.MimeTypeJPEG, nil, c1)
+	pic, err := camera.DecodeImageFromCamera(context.Background(), rutils.MimeTypeJPEG, nil, c1)
 	test.That(t, err, test.ShouldBeNil)
 
 	bounds := pic.Bounds()

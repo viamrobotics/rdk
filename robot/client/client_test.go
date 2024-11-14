@@ -332,9 +332,7 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
 
 	injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
-		resBytes, err := rimage.EncodeImage(ctx, img, mimeType)
-		test.That(t, err, test.ShouldBeNil)
-		return resBytes, camera.ImageMetadata{MimeType: mimeType}, nil
+		return imgBuf.Bytes(), camera.ImageMetadata{MimeType: rutils.MimeTypePNG}, nil
 	}
 
 	injectInputDev := &inject.InputController{}
@@ -510,7 +508,7 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 	test.That(t, imgBytes, test.ShouldBeNil)
-	test.That(t, metadata, test.ShouldEqual, camera.ImageMetadata{})
+	test.That(t, metadata, test.ShouldResemble, camera.ImageMetadata{})
 
 	gripper1, err := gripper.FromRobot(client, "gripper1")
 	test.That(t, err, test.ShouldBeNil)
@@ -586,7 +584,7 @@ func TestStatusClient(t *testing.T) {
 
 	camera1, err = camera.FromRobot(client, "camera1")
 	test.That(t, err, test.ShouldBeNil)
-	frame, err := camera.GoImageFromCamera(context.Background(), rutils.MimeTypeRawRGBA, nil, camera1)
+	frame, err := camera.DecodeImageFromCamera(context.Background(), rutils.MimeTypeRawRGBA, nil, camera1)
 	test.That(t, err, test.ShouldBeNil)
 	compVal, _, err := rimage.CompareImages(img, frame)
 	test.That(t, err, test.ShouldBeNil)

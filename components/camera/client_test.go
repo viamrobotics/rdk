@@ -178,12 +178,12 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		camera1Client, err := camera.NewClientFromConn(context.Background(), conn, "", camera.Named(testCameraName), logger)
 		test.That(t, err, test.ShouldBeNil)
-		frame, err := camera.GoImageFromCamera(context.Background(), rutils.MimeTypeRawRGBA, nil, camera1Client)
+		frame, err := camera.DecodeImageFromCamera(context.Background(), rutils.MimeTypeRawRGBA, nil, camera1Client)
 		test.That(t, err, test.ShouldBeNil)
 		compVal, _, err := rimage.CompareImages(img, frame)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
-		_, err = camera.GoImageFromCamera(context.Background(), rutils.MimeTypeRawRGBA, map[string]interface{}{"empty": true}, camera1Client)
+		_, err = camera.DecodeImageFromCamera(context.Background(), rutils.MimeTypeRawRGBA, map[string]interface{}{"empty": true}, camera1Client)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "received empty bytes from Image method")
 
@@ -228,7 +228,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		ctx := context.Background()
-		frame, err := camera.GoImageFromCamera(ctx, rutils.WithLazyMIMEType(rutils.MimeTypePNG), nil, client)
+		frame, err := camera.DecodeImageFromCamera(ctx, rutils.WithLazyMIMEType(rutils.MimeTypePNG), nil, client)
 		test.That(t, err, test.ShouldBeNil)
 		dm, err := rimage.ConvertImageToDepthMap(context.Background(), frame)
 		test.That(t, err, test.ShouldBeNil)
@@ -469,7 +469,7 @@ func TestClientLazyImage(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
-	frame, err := camera.GoImageFromCamera(ctx, rutils.MimeTypePNG, nil, camera1Client)
+	frame, err := camera.DecodeImageFromCamera(ctx, rutils.MimeTypePNG, nil, camera1Client)
 	test.That(t, err, test.ShouldBeNil)
 	// Should always lazily decode
 	test.That(t, frame, test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
@@ -477,7 +477,7 @@ func TestClientLazyImage(t *testing.T) {
 	test.That(t, frameLazy.RawData(), test.ShouldResemble, imgBuf.Bytes())
 
 	ctx = context.Background()
-	frame, err = camera.GoImageFromCamera(ctx, rutils.WithLazyMIMEType(rutils.MimeTypePNG), nil, camera1Client)
+	frame, err = camera.DecodeImageFromCamera(ctx, rutils.WithLazyMIMEType(rutils.MimeTypePNG), nil, camera1Client)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, frame, test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
 	frameLazy = frame.(*rimage.LazyEncodedImage)
