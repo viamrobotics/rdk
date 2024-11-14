@@ -187,6 +187,9 @@ func (c *client) Image(ctx context.Context, mimeType string, extra map[string]in
 		MimeType: expectedType,
 		Extra:    convertedExtra,
 	})
+	if len(resp.Image) == 0 {
+		return nil, ImageMetadata{}, errors.New("received empty bytes from client GetImage")
+	}
 	if err != nil {
 		return nil, ImageMetadata{}, err
 	}

@@ -3,6 +3,7 @@ package camera
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"image"
 
 	"github.com/pkg/errors"
@@ -73,6 +74,9 @@ func (s *serviceServer) GetImage(
 	resBytes, resMetadata, err := cam.Image(ctx, req.MimeType, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
+	}
+	if len(resBytes) == 0 {
+		return nil, fmt.Errorf("received empty bytes from Image method of %s", req.Name)
 	}
 	actualMIME, _ := utils.CheckLazyMIMEType(resMetadata.MimeType)
 	return &pb.GetImageResponse{MimeType: actualMIME, Image: resBytes}, nil
