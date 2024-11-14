@@ -506,9 +506,11 @@ func TestStatusClient(t *testing.T) {
 
 	camera1, err := camera.FromRobot(client, "camera1")
 	test.That(t, err, test.ShouldBeNil)
-	_, _, err = camera1.Image(context.Background(), rutils.MimeTypeJPEG, nil)
+	imgBytes, metadata, err := camera1.Image(context.Background(), rutils.MimeTypeJPEG, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	test.That(t, imgBytes, test.ShouldBeNil)
+	test.That(t, metadata, test.ShouldEqual, camera.ImageMetadata{})
 
 	gripper1, err := gripper.FromRobot(client, "gripper1")
 	test.That(t, err, test.ShouldBeNil)
