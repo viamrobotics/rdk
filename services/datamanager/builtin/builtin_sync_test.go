@@ -38,7 +38,7 @@ const (
 	waitTime         = syncInterval * 4
 )
 
-// TODO DATA-849: Add a test that validates that sync interval is accurately respected.
+// TODO DATA-849: Add a test that validates that the sync interval is accurately respected.
 func TestSyncEnabled(t *testing.T) {
 	tests := []struct {
 		name                 string
