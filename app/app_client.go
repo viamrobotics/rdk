@@ -245,6 +245,65 @@ func (c *Client) ResendOrganizationInvite(ctx context.Context, orgID, email stri
 	return organizationInviteFromProto(resp.Invite), nil
 }
 
+// EnableBillingService enables a billing service to an address in an organization.
+func (c *Client) EnableBillingService(ctx context.Context, orgID string, billingAddress *BillingAddress) error {
+	_, err := c.client.EnableBillingService(ctx, &pb.EnableBillingServiceRequest{
+		OrgId: orgID,
+		BillingAddress: billingAddressToProto(billingAddress),
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// DisableBillingService disables the billing service for an organization.
+func (c *Client) DisableBillingService(ctx context.Context, orgID string) error {
+	_, err := c.client.DisableBillingService(ctx, &pb.DisableBillingServiceRequest{
+		OrgId: orgID,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// UpdateBillingService updates the billing service of an organization.
+func (c *Client) UpdateBillingService(ctx context.Context, orgID string, billingAddress *BillingAddress, billingSupportEmail string) error {
+	_, err := c.client.UpdateBillingService(ctx, &pb.UpdateBillingServiceRequest{
+		OrgId: orgID,
+		BillingAddress: billingAddressToProto(billingAddress),
+		BillingSupportEmail: billingSupportEmail,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// OrganizationSetSupportEmail sets an organization's support email.
+func (c *Client) OrganizationSetSupportEmail(ctx context.Context, orgID, email string) error {
+	_, err := c.client.OrganizationSetSupportEmail(ctx, &pb.OrganizationSetSupportEmailRequest{
+		OrgId: orgID,
+		Email: email,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// OrganizationGetSupportEmail gets an organization's support email.
+func (c *Client) OrganizationGetSupportEmail(ctx context.Context, orgID string) (string, error) {
+	resp, err := c.client.OrganizationGetSupportEmail(ctx, &pb.OrganizationGetSupportEmailRequest{
+		OrgId: orgID,
+	})
+	if err != nil {
+		return "", err
+	}
+	return resp.Email, nil
+}	
+
 // CreateLocation creates a location.
 func (c *Client) CreateLocation(ctx context.Context, orgID, name string, parentLocationID *string) (*Location, error) {
 	resp, err := c.client.CreateLocation(ctx, &pb.CreateLocationRequest{
