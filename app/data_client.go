@@ -154,7 +154,6 @@ type Annotations struct {
 
 // NewDataClient constructs a new DataClient using the connection passed in by the viamClient and the provided logger.
 func NewDataClient(
-	ctx context.Context,
 	channel rpc.ClientConn,
 	logger logging.Logger,
 ) (*Client, error) {
