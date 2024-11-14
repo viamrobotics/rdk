@@ -5,13 +5,12 @@ import (
 	"testing"
 	"time"
 
-	clk "github.com/benbjohnson/clock"
-	pb "go.viam.com/api/component/powersensor/v1"
+	"github.com/benbjohnson/clock"
+	datasyncpb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/powersensor"
 	"go.viam.com/rdk/data"
-	du "go.viam.com/rdk/data/testutils"
 	"go.viam.com/rdk/logging"
 	tu "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -19,58 +18,74 @@ import (
 
 const (
 	componentName   = "powersensor"
-	captureInterval = time.Second
-	numRetries      = 5
+	captureInterval = time.Millisecond
 )
 
 var readingMap = map[string]any{"reading1": false, "reading2": "test"}
 
-func TestPowerSensorCollectors(t *testing.T) {
+func TestCollectors(t *testing.T) {
 	tests := []struct {
 		name      string
 		collector data.CollectorConstructor
-		expected  map[string]any
+		expected  *datasyncpb.SensorData
 	}{
 		{
 			name:      "Power sensor voltage collector should write a voltage response",
 			collector: powersensor.NewVoltageCollector,
-			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetVoltageResponse{
-				Volts: 1.0,
-				IsAc:  false,
-			}),
+			expected: &datasyncpb.SensorData{
+				Metadata: &datasyncpb.SensorMetadata{},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"volts": 1.0,
+					"is_ac": false,
+				})},
+			},
 		},
 		{
 			name:      "Power sensor current collector should write a current response",
 			collector: powersensor.NewCurrentCollector,
-			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetCurrentResponse{
-				Amperes: 1.0,
-				IsAc:    false,
-			}),
+			expected: &datasyncpb.SensorData{
+				Metadata: &datasyncpb.SensorMetadata{},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"amperes": 1.0,
+					"is_ac":   false,
+				})},
+			},
 		},
 		{
 			name:      "Power sensor power collector should write a power response",
 			collector: powersensor.NewPowerCollector,
-			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetPowerResponse{
-				Watts: 1.0,
-			}),
+			expected: &datasyncpb.SensorData{
+				Metadata: &datasyncpb.SensorMetadata{},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"watts": 1.0,
+				})},
+			},
 		},
 		{
 			name:      "Power sensor readings collector should write a readings response",
 			collector: powersensor.NewReadingsCollector,
-			expected:  tu.ToProtoMapIgnoreOmitEmpty(du.GetExpectedReadingsStruct(readingMap).AsMap()),
+			expected: &datasyncpb.SensorData{
+				Metadata: &datasyncpb.SensorMetadata{},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"readings": map[string]any{
+						"reading1": false,
+						"reading2": "test",
+					},
+				})},
+			},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mockClock := clk.NewMock()
-			buf := tu.MockBuffer{}
+			start := time.Now()
+			buf := tu.NewMockBuffer()
 			params := data.CollectorParams{
 				ComponentName: componentName,
 				Interval:      captureInterval,
 				Logger:        logging.NewTestLogger(t),
-				Clock:         mockClock,
-				Target:        &buf,
+				Clock:         clock.New(),
+				Target:        buf,
 			}
 
 			pwrSens := newPowerSensor()
@@ -79,13 +94,11 @@ func TestPowerSensorCollectors(t *testing.T) {
 
 			defer col.Close()
 			col.Collect()
-			mockClock.Add(captureInterval)
 
-			tu.Retry(func() bool {
-				return buf.Length() != 0
-			}, numRetries)
-			test.That(t, buf.Length(), test.ShouldBeGreaterThan, 0)
-			test.That(t, buf.Writes[0].GetStruct().AsMap(), test.ShouldResemble, tc.expected)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			tu.CheckMockBufferWrites(t, ctx, start, buf.Writes, tc.expected)
+			buf.Close()
 		})
 	}
 }
