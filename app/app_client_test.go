@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	pb "go.viam.com/api/app/v1"
@@ -23,6 +24,9 @@ const (
 	resourceID = "resource_id"
 	identityID = "identity_id"
 	identityType = "identity_type"
+	secretID = "secret_ids"
+	primary = true
+	robotCount = 1
 )
 
 var (
@@ -109,8 +113,74 @@ var (
 		City: address.City,
 		State: address.State,
 	}
+	parentLocationID = "parent_location_id"
+	secret = SharedSecret{
+		ID: secretID,
+		CreatedOn: &createdOn,
+		State: SharedSecretStateEnabled,
+	}
+	pbSharedSecretState, _ = sharedSecretStateToProto(secret.State)
+	pbSecret = pb.SharedSecret{
+		Id: secret.ID,
+		CreatedOn: secret.CreatedOn,
+		State: pbSharedSecretState,
+	}
+	locationAuth = LocationAuth{
+		LocationID: locationID,
+		Secrets: []*SharedSecret{&secret},
+	}
+	pbLocationAuth = pb.LocationAuth{
+		LocationId: locationAuth.LocationID,
+		Secrets: []*pb.SharedSecret{&pbSecret},
+	}
+	locationOrg = LocationOrganization{
+		OrganizationID: organizationID,
+		Primary: primary,
+	}
+	pbLocationOrg = pb.LocationOrganization{
+		OrganizationId: locationOrg.OrganizationID,
+		Primary: locationOrg.Primary,
+	}
+	storageConfig = StorageConfig{
+		Region: region,
+	}
+	pbStorageConfig = pb.StorageConfig{
+		Region: storageConfig.Region,
+	}
+	location = Location{
+		ID: locationID,
+		Name: name,
+		ParentLocationID: parentLocationID,
+		Auth: &locationAuth,
+		Organizations: []*LocationOrganization{&locationOrg},
+		CreatedOn: &createdOn,
+		RobotCount: robotCount,
+		Config: &storageConfig,
+	}
+	pbLocation = pb.Location{
+		Id: location.ID,
+		Name: location.Name,
+		ParentLocationId: location.ParentLocationID,
+		Auth: &pbLocationAuth,
+		Organizations: []*pb.LocationOrganization{&pbLocationOrg},
+		CreatedOn: location.CreatedOn,
+		RobotCount: location.RobotCount,
+		Config: &pbStorageConfig,
+	}
 )
 
+func sharedSecretStateToProto(state SharedSecretState) (pb.SharedSecret_State, error) {
+	switch state {
+	case SharedSecretStateUnspecified:
+		return pb.SharedSecret_STATE_UNSPECIFIED, nil
+	case SharedSecretStateEnabled:
+		return pb.SharedSecret_STATE_ENABLED, nil
+	case SharedSecretStateDisabled:
+		return pb.SharedSecret_STATE_DISABLED, nil
+	default:
+		return 0, fmt.Errorf("uknown secret state: %v", state)
+	}
+}
 
 func createGrpcClient() *inject.AppServiceClient {
 	return &inject.AppServiceClient{}
@@ -389,5 +459,140 @@ func TestAppClient(t *testing.T) {
 		resp, _ := client.OrganizationGetSupportEmail(context.Background(), organizationID)
 		test.That(t, resp, test.ShouldEqual, email)
 	})
+
+	t.Run("CreateLocation", func(t *testing.T) {
+		grpcClient.CreateLocationFunc = func(ctx context.Context, in *pb.CreateLocationRequest, opts ...grpc.CallOption) (*pb.CreateLocationResponse, error) {
+			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
+			test.That(t, in.Name, test.ShouldEqual, name)
+			test.That(t, in.ParentLocationId, test.ShouldEqual, &parentLocationID)
+			return &pb.CreateLocationResponse{
+				Location: &pbLocation,
+			}, nil
+		}
+		resp, _ := client.CreateLocation(context.Background(), organizationID, name, &parentLocationID)
+		test.That(t, resp.ID, test.ShouldEqual, location.ID)
+		test.That(t, resp.Name, test.ShouldEqual, location.Name)
+		test.That(t, resp.ParentLocationID, test.ShouldEqual, location.ParentLocationID)
+		test.That(t, resp.Auth, test.ShouldResemble, location.Auth)
+		test.That(t, resp.Organizations, test.ShouldResemble, location.Organizations)
+		test.That(t, resp.CreatedOn, test.ShouldEqual, location.CreatedOn)
+		test.That(t, resp.RobotCount, test.ShouldEqual, location.RobotCount)
+		test.That(t, resp.Config, test.ShouldResemble, location.Config)
+	})
+
+	t.Run("GetLocation", func(t *testing.T) {
+		grpcClient.GetLocationFunc = func(ctx context.Context, in *pb.GetLocationRequest, opts ...grpc.CallOption) (*pb.GetLocationResponse, error) {
+			test.That(t, in.LocationId, test.ShouldEqual, locationID)
+			return &pb.GetLocationResponse{
+				Location: &pbLocation,
+			}, nil
+		}
+		resp, _ := client.GetLocation(context.Background(), locationID)
+		test.That(t, resp.ID, test.ShouldEqual, location.ID)
+		test.That(t, resp.Name, test.ShouldEqual, location.Name)
+		test.That(t, resp.ParentLocationID, test.ShouldEqual, location.ParentLocationID)
+		test.That(t, resp.Auth, test.ShouldResemble, location.Auth)
+		test.That(t, resp.Organizations, test.ShouldResemble, location.Organizations)
+		test.That(t, resp.CreatedOn, test.ShouldEqual, location.CreatedOn)
+		test.That(t, resp.RobotCount, test.ShouldEqual, location.RobotCount)
+		test.That(t, resp.Config, test.ShouldResemble, location.Config)
+	})
+
+	t.Run("UpdateLocation", func(t *testing.T) {
+		grpcClient.UpdateLocationFunc = func(ctx context.Context, in *pb.UpdateLocationRequest, opts ...grpc.CallOption) (*pb.UpdateLocationResponse, error) {
+			test.That(t, in.LocationId, test.ShouldEqual, locationID)
+			test.That(t, in.Name, test.ShouldEqual, &name)
+			test.That(t, in.ParentLocationId, test.ShouldEqual, &parentLocationID)
+			test.That(t, in.Region, test.ShouldEqual, &region)
+			return &pb.UpdateLocationResponse{
+				Location: &pbLocation,
+			}, nil
+		}
+		resp, _ := client.UpdateLocation(context.Background(), locationID, &name, &parentLocationID, &region)
+		test.That(t, resp.ID, test.ShouldEqual, location.ID)
+		test.That(t, resp.Name, test.ShouldEqual, location.Name)
+		test.That(t, resp.ParentLocationID, test.ShouldEqual, location.ParentLocationID)
+		test.That(t, resp.Auth, test.ShouldResemble, location.Auth)
+		test.That(t, resp.Organizations, test.ShouldResemble, location.Organizations)
+		test.That(t, resp.CreatedOn, test.ShouldEqual, location.CreatedOn)
+		test.That(t, resp.RobotCount, test.ShouldEqual, location.RobotCount)
+		test.That(t, resp.Config, test.ShouldResemble, location.Config)
+	})
+
+	t.Run("DeleteLocation", func(t *testing.T) {
+		grpcClient.DeleteLocationFunc = func(ctx context.Context, in *pb.DeleteLocationRequest, opts ...grpc.CallOption) (*pb.DeleteLocationResponse, error) {
+			test.That(t, in.LocationId, test.ShouldEqual, locationID)
+			return &pb.DeleteLocationResponse{}, nil
+		}
+		client.DeleteLocation(context.Background(), locationID)
+	})
+
+	t.Run("ListLocations", func(t *testing.T) {
+		expectedLocations := []Location{location}
+		grpcClient.ListLocationsFunc = func(ctx context.Context, in *pb.ListLocationsRequest, opts ...grpc.CallOption) (*pb.ListLocationsResponse, error) {
+			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
+			return &pb.ListLocationsResponse{
+				Locations: []*pb.Location{&pbLocation},
+			}, nil
+		}
+		resp, _ := client.ListLocations(context.Background(), organizationID)
+		test.That(t, len(resp), test.ShouldEqual, len(expectedLocations))
+		test.That(t, resp[0].ID, test.ShouldEqual, expectedLocations[0].ID)
+		test.That(t, resp[0].Name, test.ShouldEqual, expectedLocations[0].Name)
+		test.That(t, resp[0].ParentLocationID, test.ShouldEqual, expectedLocations[0].ParentLocationID)
+		test.That(t, resp[0].Auth, test.ShouldResemble, expectedLocations[0].Auth)
+		test.That(t, resp[0].Organizations, test.ShouldResemble, expectedLocations[0].Organizations)
+		test.That(t, resp[0].CreatedOn, test.ShouldEqual, expectedLocations[0].CreatedOn)
+		test.That(t, resp[0].RobotCount, test.ShouldEqual, expectedLocations[0].RobotCount)
+		test.That(t, resp[0].Config, test.ShouldResemble, expectedLocations[0].Config)
+	})
+
+	t.Run("ShareLocation", func(t *testing.T) {
+		grpcClient.ShareLocationFunc = func(ctx context.Context, in *pb.ShareLocationRequest, opts ...grpc.CallOption) (*pb.ShareLocationResponse, error) {
+			test.That(t, in.LocationId, test.ShouldEqual, locationID)
+			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
+			return &pb.ShareLocationResponse{}, nil
+		}
+		client.ShareLocation(context.Background(), locationID, organizationID)
+	})
+
+	t.Run("UnshareLocation", func(t *testing.T) {
+		grpcClient.UnshareLocationFunc = func(ctx context.Context, in *pb.UnshareLocationRequest, opts ...grpc.CallOption) (*pb.UnshareLocationResponse, error) {
+			test.That(t, in.LocationId, test.ShouldEqual, locationID)
+			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
+			return &pb.UnshareLocationResponse{}, nil
+		}
+		client.UnshareLocation(context.Background(), locationID, organizationID)
+	})
+
+	t.Run("LocationAuth", func(t *testing.T) {
+		grpcClient.LocationAuthFunc = func(ctx context.Context, in *pb.LocationAuthRequest, opts ...grpc.CallOption) (*pb.LocationAuthResponse, error) {
+			test.That(t, in.LocationId, test.ShouldEqual, locationID)
+			return &pb.LocationAuthResponse{
+				Auth: &pbLocationAuth,
+			}, nil
+		}
+		resp, _ := client.LocationAuth(context.Background(), locationID)
+		test.That(t, resp, test.ShouldResemble, &locationAuth)
+	})
+
+	t.Run("CreateLocationSecret", func(t *testing.T) {
+		grpcClient.CreateLocationSecretFunc = func(ctx context.Context, in *pb.CreateLocationSecretRequest, opts ...grpc.CallOption) (*pb.CreateLocationSecretResponse, error) {
+			test.That(t, in.LocationId, test.ShouldEqual, locationID)
+			return &pb.CreateLocationSecretResponse{
+				Auth: &pbLocationAuth,
+			}, nil
+		}
+		resp, _ := client.CreateLocationSecret(context.Background(), locationID)
+		test.That(t, resp, test.ShouldResemble, &locationAuth)
+	})
+
+	t.Run("DeleteLocationSecret", func(t *testing.T) {
+		grpcClient.DeleteLocationSecretFunc = func(ctx context.Context, in *pb.DeleteLocationSecretRequest, opts ...grpc.CallOption) (*pb.DeleteLocationSecretResponse, error) {
+			test.That(t, in.LocationId, test.ShouldEqual, locationID)
+			test.That(t, in.SecretId, test.ShouldEqual, secretID)
+			return &pb.DeleteLocationSecretResponse{}, nil
+		}
+		client.DeleteLocationSecret(context.Background(), locationID, secretID)
 	})
 }

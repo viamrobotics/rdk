@@ -118,21 +118,21 @@ type SharedSecretState int32
 
 const (
 	// SharedSecretUnspecified represents an unspecified shared secret state.
-	SharedSecretUnspecified SharedSecretState = 0
+	SharedSecretStateUnspecified SharedSecretState = 0
 	// SharedSecretEnabled represents an enabled secret that can be used in authentication.
-	SharedSecretEnabled SharedSecretState = 1
+	SharedSecretStateEnabled SharedSecretState = 1
 	// SharedSecretDisabled represents a disabled secret that must not be used to authenticate to rpc.
-	SharedSecretDisabled SharedSecretState = 2
+	SharedSecretStateDisabled SharedSecretState = 2
 )
 
 func sharedSecretStateFromProto(state pb.SharedSecret_State) (SharedSecretState, error) {
 	switch state {
 	case pb.SharedSecret_STATE_UNSPECIFIED:
-		return SharedSecretUnspecified, nil
+		return SharedSecretStateUnspecified, nil
 	case pb.SharedSecret_STATE_ENABLED:
-		return SharedSecretEnabled, nil
+		return SharedSecretStateEnabled, nil
 	case pb.SharedSecret_STATE_DISABLED:
-		return SharedSecretDisabled, nil
+		return SharedSecretStateDisabled, nil
 	default:
 		return 0, fmt.Errorf("uknown secret state: %v", state)
 	}
