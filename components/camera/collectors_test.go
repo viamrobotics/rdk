@@ -185,11 +185,11 @@ func newCamera(
 ) camera.Camera {
 	v := &inject.Camera{}
 	v.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
-		resBytes, err := rimage.EncodeImage(ctx, left, mimeType)
+		viamLogoJpegBytes, err := io.ReadAll(base64.NewDecoder(base64.StdEncoding, bytes.NewReader(viamLogoJpegB64)))
 		if err != nil {
 			return nil, camera.ImageMetadata{}, err
 		}
-		return resBytes, camera.ImageMetadata{MimeType: mimeType}, nil
+		return viamLogoJpegBytes, camera.ImageMetadata{MimeType: mimeType}, nil
 	}
 
 	v.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {

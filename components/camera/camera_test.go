@@ -10,6 +10,7 @@ import (
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -167,6 +168,7 @@ func (cs *cloudSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 }
 
 func TestCameraWithNoProjector(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	videoSrc := &simpleSource{"rimage/board1"}
 	noProj, err := camera.NewVideoSourceFromReader(context.Background(), videoSrc, nil, camera.DepthStream)
 	test.That(t, err, test.ShouldBeNil)
@@ -174,15 +176,16 @@ func TestCameraWithNoProjector(t *testing.T) {
 	test.That(t, errors.Is(err, transform.ErrNoIntrinsics), test.ShouldBeTrue)
 
 	// make a camera with a NextPointCloudFunction
-	videoSrc2 := &cloudSource{Named: camera.Named("foo").AsNamed(), simpleSource: videoSrc}
-	noProj2, err := camera.NewVideoSourceFromReader(context.Background(), videoSrc2, nil, camera.DepthStream)
+	cloudSrc2 := &cloudSource{Named: camera.Named("foo").AsNamed(), simpleSource: videoSrc}
+	videoSrc2, err := camera.NewVideoSourceFromReader(context.Background(), cloudSrc2, nil, camera.DepthStream)
+	noProj2 := camera.FromVideoSource(resource.NewName(camera.API, "bar"), videoSrc2, logger)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err := noProj2.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	_, got := pc.At(0, 0, 0)
 	test.That(t, got, test.ShouldBeTrue)
 
-	img, err := camera.ImageFromVideoSource(context.Background(), rutils.WithLazyMIMEType(rutils.MimeTypePNG), nil, noProj2)
+	img, err := camera.GoImageFromCamera(context.Background(), rutils.WithLazyMIMEType(rutils.MimeTypePNG), nil, noProj2)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, img.Bounds().Dx(), test.ShouldEqual, 1280)
@@ -192,6 +195,7 @@ func TestCameraWithNoProjector(t *testing.T) {
 }
 
 func TestCameraWithProjector(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	videoSrc := &simpleSource{"rimage/board1"}
 	params1 := &transform.PinholeCameraIntrinsics{ // not the real camera parameters -- fake for test
 		Width:  1280,
@@ -214,34 +218,35 @@ func TestCameraWithProjector(t *testing.T) {
 	test.That(t, src.Close(context.Background()), test.ShouldBeNil)
 
 	// camera with a point cloud function
-	videoSrc2 := &cloudSource{Named: camera.Named("foo").AsNamed(), simpleSource: videoSrc}
+	cloudSrc2 := &cloudSource{Named: camera.Named("foo").AsNamed(), simpleSource: videoSrc}
 	props, err := src.Properties(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	cam2, err := camera.NewVideoSourceFromReader(
+	videoSrc2, err := camera.NewVideoSourceFromReader(
 		context.Background(),
-		videoSrc2,
+		cloudSrc2,
 		&transform.PinholeCameraModel{PinholeCameraIntrinsics: props.IntrinsicParams},
 		camera.DepthStream,
 	)
+	cam2 := camera.FromVideoSource(resource.NewName(camera.API, "bar"), videoSrc2, logger)
 	test.That(t, err, test.ShouldBeNil)
-	pc, err = cam2.NextPointCloud(context.Background())
+	pc, err = videoSrc2.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	_, got := pc.At(0, 0, 0)
 	test.That(t, got, test.ShouldBeTrue)
 
-	img, err := camera.ImageFromVideoSource(context.Background(), rutils.MimeTypePNG, nil, cam2)
+	img, err := camera.GoImageFromCamera(context.Background(), rutils.MimeTypePNG, nil, cam2)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, img.Bounds().Dx(), test.ShouldEqual, 1280)
 	test.That(t, img.Bounds().Dy(), test.ShouldEqual, 720)
 	// cam2 should implement a default GetImages, that just returns the one image
-	images, _, err := cam2.Images(context.Background())
+	images, _, err := videoSrc2.Images(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(images), test.ShouldEqual, 1)
 	test.That(t, images[0].Image, test.ShouldHaveSameTypeAs, &rimage.DepthMap{})
 	test.That(t, images[0].Image.Bounds().Dx(), test.ShouldEqual, 1280)
 	test.That(t, images[0].Image.Bounds().Dy(), test.ShouldEqual, 720)
 
-	test.That(t, cam2.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, videoSrc2.Close(context.Background()), test.ShouldBeNil)
 }

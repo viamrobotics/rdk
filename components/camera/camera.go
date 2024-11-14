@@ -159,8 +159,8 @@ func ReadImage(ctx context.Context, src gostream.VideoSource) (image.Image, func
 	return gostream.ReadImage(ctx, src)
 }
 
-// ImageFromVideoSource retrieves image bytes from a camera source and decodes it into an image.Image type.
-func ImageFromVideoSource(ctx context.Context, mimeType string, extra map[string]interface{}, cam VideoSource) (image.Image, error) {
+// GoImageFromCamera retrieves image bytes from a camera resource and serializes it as an image.Image.
+func GoImageFromCamera(ctx context.Context, mimeType string, extra map[string]interface{}, cam Camera) (image.Image, error) {
 	resBytes, resMetadata, err := cam.Image(ctx, mimeType, extra)
 	if err != nil {
 		return nil, fmt.Errorf("could not get image bytes from camera: %w", err)

@@ -102,7 +102,7 @@ func TestColorOddResolution(t *testing.T) {
 	cam, err := newCamera(ctx, resource.Name{API: camera.API}, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	strmImg, err := camera.ImageFromVideoSource(ctx, utils.MimeTypeRawRGBA, nil, cam)
+	strmImg, err := camera.GoImageFromCamera(ctx, utils.MimeTypeRawRGBA, nil, cam)
 	test.That(t, err, test.ShouldBeNil)
 
 	expectedBounds := image.Rect(0, 0, img.Bounds().Dx()-1, img.Bounds().Dy()-1)
