@@ -96,7 +96,7 @@ type Camera interface {
 // Or try to directly decode into an image.Image:
 //
 //	myCamera, err := camera.FromRobot(machine, "my_camera")
-//	img, err = camera.GetGoImage(context.Background(), utils.MimeTypeJPEG, nil, myCamera)
+//	img, err = camera.ImageFromVideoSource(context.Background(), utils.MimeTypeJPEG, nil, myCamera)
 //
 // Images example:
 //

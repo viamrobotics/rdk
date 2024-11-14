@@ -159,11 +159,7 @@ func TestSyncEnabled(t *testing.T) {
 						mimeType string,
 						extra map[string]interface{},
 					) ([]byte, camera.ImageMetadata, error) {
-						outBytes, err := rimage.EncodeImage(ctx, imgPng, mimeType)
-						if err != nil {
-							return nil, camera.ImageMetadata{}, err
-						}
-						return outBytes, camera.ImageMetadata{MimeType: mimeType}, nil
+						return newImageBytesResp(ctx, imgPng, mimeType)
 					},
 				},
 			})
@@ -366,11 +362,7 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 								mimeType string,
 								extra map[string]interface{},
 							) ([]byte, camera.ImageMetadata, error) {
-								outBytes, err := rimage.EncodeImage(ctx, imgPng, mimeType)
-								if err != nil {
-									return nil, camera.ImageMetadata{}, err
-								}
-								return outBytes, camera.ImageMetadata{MimeType: mimeType}, nil
+								return newImageBytesResp(ctx, imgPng, mimeType)
 							},
 						},
 					})
@@ -773,11 +765,7 @@ func TestStreamingDCUpload(t *testing.T) {
 						mimeType string,
 						extra map[string]interface{},
 					) ([]byte, camera.ImageMetadata, error) {
-						outBytes, err := rimage.EncodeImage(ctx, imgPng, mimeType)
-						if err != nil {
-							return nil, camera.ImageMetadata{}, err
-						}
-						return outBytes, camera.ImageMetadata{MimeType: mimeType}, nil
+						return newImageBytesResp(ctx, imgPng, mimeType)
 					},
 				},
 			})
@@ -1018,11 +1006,7 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 						mimeType string,
 						extra map[string]interface{},
 					) ([]byte, camera.ImageMetadata, error) {
-						outBytes, err := rimage.EncodeImage(ctx, imgPng, mimeType)
-						if err != nil {
-							return nil, camera.ImageMetadata{}, err
-						}
-						return outBytes, camera.ImageMetadata{MimeType: mimeType}, nil
+						return newImageBytesResp(ctx, imgPng, mimeType)
 					},
 				},
 			})
@@ -1174,6 +1158,14 @@ func populateFileContents(fileContents []byte) []byte {
 	}
 
 	return fileContents
+}
+
+func newImageBytesResp(ctx context.Context, img image.Image, mimeType string) ([]byte, camera.ImageMetadata, error) {
+	outBytes, err := rimage.EncodeImage(ctx, img, mimeType)
+	if err != nil {
+		return nil, camera.ImageMetadata{}, err
+	}
+	return outBytes, camera.ImageMetadata{MimeType: mimeType}, nil
 }
 
 func newImgPng(t *testing.T) image.Image {

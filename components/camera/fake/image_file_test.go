@@ -85,13 +85,13 @@ func TestColorOddResolution(t *testing.T) {
 	imgFile, err := os.Create(imgFilePath)
 	test.That(t, err, test.ShouldBeNil)
 
-	img := image.NewNRGBA(image.Rect(0, 0, 3, 3))
+	img := image.NewRGBA(image.Rect(0, 0, 3, 3))
 	for x := 0; x < img.Bounds().Dx(); x++ {
 		for y := 0; y < img.Bounds().Dy(); y++ {
 			img.Set(x, y, color.White)
 		}
 	}
-	err = jpeg.Encode(imgFile, img, &jpeg.Options{Quality: 75})
+	err = jpeg.Encode(imgFile, img, nil)
 	test.That(t, err, test.ShouldBeNil)
 	err = imgFile.Close()
 	test.That(t, err, test.ShouldBeNil)
@@ -109,7 +109,7 @@ func TestColorOddResolution(t *testing.T) {
 	test.That(t, strmImg.Bounds(), test.ShouldResemble, expectedBounds)
 	val, _, err := rimage.CompareImages(strmImg, img.SubImage(expectedBounds))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, val, test.ShouldBeLessThanOrEqualTo, 0)
+	test.That(t, val, test.ShouldEqual, 0)
 
 	err = cam.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)

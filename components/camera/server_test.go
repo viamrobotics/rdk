@@ -264,7 +264,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
 	})
 
-	t.Run("GetImage response was empty", func(t *testing.T) {
+	t.Run("GetImage response image bytes empty", func(t *testing.T) {
 		_, err := cameraServer.GetImage(context.Background(), &pb.GetImageRequest{
 			Name:     testCameraName,
 			MimeType: emptyMIME,
