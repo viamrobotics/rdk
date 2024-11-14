@@ -378,17 +378,8 @@ func (server *Server) SetStreamOptions(
 	ctx context.Context,
 	req *streampb.SetStreamOptionsRequest,
 ) (*streampb.SetStreamOptionsResponse, error) {
-	if req.Name == "" {
-		return nil, errors.New("stream name is required in request")
-	}
-	if req.Resolution == nil {
-		return nil, fmt.Errorf("resolution is required to resize stream %q", req.Name)
-	}
-	if req.Resolution.Width <= 0 || req.Resolution.Height <= 0 {
-		return nil, fmt.Errorf(
-			"invalid resolution to resize stream %q: width (%d) and height (%d) must be greater than 0",
-			req.Name, req.Resolution.Width, req.Resolution.Height,
-		)
+	if err := validateSetStreamOptionsRequest(req); err != nil {
+		return nil, err
 	}
 	server.mu.Lock()
 	defer server.mu.Unlock()
@@ -728,4 +719,20 @@ retryLoop:
 		return 0, 0, fmt.Errorf("failed to get frame after 5 attempts: %w", err)
 	}
 	return frame.Bounds().Dx(), frame.Bounds().Dy(), nil
+}
+
+func validateSetStreamOptionsRequest(req *streampb.SetStreamOptionsRequest) error {
+	if req.Name == "" {
+		return errors.New("stream name is required in request")
+	}
+	if req.Resolution == nil {
+		return fmt.Errorf("resolution is required to resize stream %q", req.Name)
+	}
+	if req.Resolution.Width <= 0 || req.Resolution.Height <= 0 {
+		return fmt.Errorf(
+			"invalid resolution to resize stream %q: width (%d) and height (%d) must be greater than 0",
+			req.Name, req.Resolution.Width, req.Resolution.Height,
+		)
+	}
+	return nil
 }
