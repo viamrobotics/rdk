@@ -110,7 +110,7 @@ type MockBuffer struct {
 
 // NewMockBuffer returns a mock buffer.
 // This needs to be closed before the collector, otherwise the
-// collector's Close method will block
+// collector's Close method will block.
 func NewMockBuffer() *MockBuffer {
 	c, cancel := context.WithCancel(context.Background())
 	return &MockBuffer{
