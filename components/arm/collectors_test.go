@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	clk "github.com/benbjohnson/clock"
+	"github.com/benbjohnson/clock"
 	"github.com/golang/geo/r3"
-	v1 "go.viam.com/api/common/v1"
+	datasyncpb "go.viam.com/api/app/datasync/v1"
 	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
 
@@ -22,8 +22,7 @@ import (
 
 const (
 	componentName   = "arm"
-	captureInterval = time.Second
-	numRetries      = 5
+	captureInterval = time.Millisecond
 )
 
 var floatList = &pb.JointPositions{Values: []float64{1.0, 2.0, 3.0}}
@@ -32,40 +31,50 @@ func TestCollectors(t *testing.T) {
 	tests := []struct {
 		name      string
 		collector data.CollectorConstructor
-		expected  map[string]any
+		expected  *datasyncpb.SensorData
 	}{
 		{
 			name:      "End position collector should write a pose",
 			collector: arm.NewEndPositionCollector,
-			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetEndPositionResponse{
-				Pose: &v1.Pose{
-					OX:    0,
-					OY:    0,
-					OZ:    1,
-					Theta: 0,
-					X:     1,
-					Y:     2,
-					Z:     3,
-				},
-			}),
+			expected: &datasyncpb.SensorData{
+				Metadata: &datasyncpb.SensorMetadata{},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"pose": map[string]any{
+						"o_x":   0,
+						"o_y":   0,
+						"o_z":   1,
+						"theta": 0,
+						"x":     1,
+						"y":     2,
+						"z":     3,
+					},
+				})},
+			},
 		},
 		{
 			name:      "Joint positions collector should write a list of positions",
 			collector: arm.NewJointPositionsCollector,
-			expected:  tu.ToProtoMapIgnoreOmitEmpty(pb.GetJointPositionsResponse{Positions: floatList}),
+			expected: &datasyncpb.SensorData{
+				Metadata: &datasyncpb.SensorMetadata{},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"positions": map[string]any{
+						"values": []any{1.0, 2.0, 3.0},
+					},
+				})},
+			},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mockClock := clk.NewMock()
-			buf := tu.MockBuffer{}
+			start := time.Now()
+			buf := tu.NewMockBuffer()
 			params := data.CollectorParams{
 				ComponentName: componentName,
 				Interval:      captureInterval,
 				Logger:        logging.NewTestLogger(t),
-				Clock:         mockClock,
-				Target:        &buf,
+				Clock:         clock.New(),
+				Target:        buf,
 			}
 
 			arm := newArm()
@@ -74,13 +83,11 @@ func TestCollectors(t *testing.T) {
 
 			defer col.Close()
 			col.Collect()
-			mockClock.Add(captureInterval)
 
-			tu.Retry(func() bool {
-				return buf.Length() != 0
-			}, numRetries)
-			test.That(t, buf.Length(), test.ShouldBeGreaterThan, 0)
-			test.That(t, buf.Writes[0].GetStruct().AsMap(), test.ShouldResemble, tc.expected)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			tu.CheckMockBufferWrites(t, ctx, start, buf.Writes, tc.expected)
+			buf.Close()
 		})
 	}
 }
