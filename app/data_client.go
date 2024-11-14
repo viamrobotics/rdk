@@ -28,9 +28,9 @@ type Order int32
 
 // Order constants define the possible ordering options.
 const (
-	Unspecified Order = 0
-	Descending  Order = 1
-	Ascending   Order = 2
+	Unspecified Order = iota
+	Descending
+	Ascending
 )
 
 // DataRequest encapsulates the filter for the data, a limit on the max results returned,
@@ -67,10 +67,10 @@ type TagsFilterType int32
 
 // TagsFilterType constants define the ways data can be filtered based on tag matching criteria.
 const (
-	TagsFilterTypeUnspecified TagsFilterType = 0
-	TagsFilterTypeMatchByOr   TagsFilterType = 1
-	TagsFilterTypeTagged      TagsFilterType = 2
-	TagsFilterTypeUntagged    TagsFilterType = 3
+	TagsFilterTypeUnspecified TagsFilterType = iota
+	TagsFilterTypeMatchByOr
+	TagsFilterTypeTagged
+	TagsFilterTypeUntagged
 )
 
 // TagsFilter defines the type of filtering and, if applicable, over which tags to perform a logical OR.
@@ -327,8 +327,6 @@ func orderToProto(sortOrder Order) pb.Order {
 		return pb.Order_ORDER_ASCENDING
 	case Descending:
 		return pb.Order_ORDER_DESCENDING
-	case Unspecified:
-		return pb.Order_ORDER_UNSPECIFIED
 	default:
 		return pb.Order_ORDER_UNSPECIFIED
 	}
@@ -336,23 +334,23 @@ func orderToProto(sortOrder Order) pb.Order {
 
 // convertBsonToNative recursively converts BSON datetime objects to Go DateTime and BSON arrays to slices of interface{}.
 // For slices and maps of specific types, the best we can do is use interface{} as the container type.
-func convertBsonToNative(data any) any {
+func convertBsonToNative(data interface{}) interface{} {
 	switch v := data.(type) {
 	case primitive.DateTime:
 		return v.Time().UTC()
 	case primitive.A: // Handle BSON arrays/slices
-		nativeArray := make([]any, len(v))
+		nativeArray := make([]interface{}, len(v))
 		for i, item := range v {
 			nativeArray[i] = convertBsonToNative(item)
 		}
 		return nativeArray
 	case bson.M: // Handle BSON maps
-		convertedMap := make(map[string]any)
+		convertedMap := make(map[string]interface{})
 		for key, value := range v {
 			convertedMap[key] = convertBsonToNative(value)
 		}
 		return convertedMap
-	case map[string]any: // Handle Go maps
+	case map[string]interface{}: // Handle Go maps
 		for key, value := range v {
 			v[key] = convertBsonToNative(value)
 		}
@@ -368,16 +366,16 @@ func convertBsonToNative(data any) any {
 
 // BsonToGo converts raw BSON data (as [][]byte) into native Go types and interfaces.
 // Returns a slice of maps representing the data objects.
-func BsonToGo(rawData [][]byte) ([]map[string]any, error) {
-	dataObjects := []map[string]any{}
+func BsonToGo(rawData [][]byte) ([]map[string]interface{}, error) {
+	dataObjects := []map[string]interface{}{}
 	for _, byteSlice := range rawData {
 		// Unmarshal each BSON byte slice into a Go map
-		obj := map[string]any{}
+		obj := map[string]interface{}{}
 		if err := bson.Unmarshal(byteSlice, &obj); err != nil {
 			return nil, err
 		}
 		// Convert the unmarshalled map to native Go types
-		convertedObj := convertBsonToNative(obj).(map[string]any)
+		convertedObj := convertBsonToNative(obj).(map[string]interface{})
 		dataObjects = append(dataObjects, convertedObj)
 	}
 	return dataObjects, nil
@@ -420,7 +418,7 @@ func (d *Client) TabularDataByFilter(
 }
 
 // TabularDataBySQL queries tabular data with a SQL query.
-func (d *Client) TabularDataBySQL(ctx context.Context, organizationID, sqlQuery string) ([]map[string]interface{}, error) {
+func (d *Client) TabularDataBySQL(ctx context.Context, organizationID string, sqlQuery string) ([]map[string]interface{}, error) {
 	resp, err := d.client.TabularDataBySQL(ctx, &pb.TabularDataBySQLRequest{
 		OrganizationId: organizationID,
 		SqlQuery:       sqlQuery,
@@ -541,10 +539,7 @@ func (d *Client) AddTagsToBinaryDataByIDs(ctx context.Context, tags []string, bi
 		BinaryIds: binaryIDsToProto(binaryIDs),
 		Tags:      tags,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // AddTagsToBinaryDataByFilter adds string tags, unless the tags are already present, to binary data based on the given filter.
@@ -553,10 +548,7 @@ func (d *Client) AddTagsToBinaryDataByFilter(ctx context.Context, tags []string,
 		Filter: filterToProto(filter),
 		Tags:   tags,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // RemoveTagsFromBinaryDataByIDs removes string tags from binary data based on given IDs.
@@ -632,10 +624,7 @@ func (d *Client) RemoveBoundingBoxFromImageByID(
 		BinaryId: binaryIDToProto(binaryID),
 		BboxId:   bboxID,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // BoundingBoxLabelsByFilter gets all string labels for bounding boxes from data based on given filter.
@@ -668,10 +657,7 @@ func (d *Client) UpdateBoundingBox(ctx context.Context,
 		XMaxNormalized: xMaxNormalized,
 		YMaxNormalized: yMaxNormalized,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // GetDatabaseConnection gets a connection to access a MongoDB Atlas Data Federation instance.
@@ -695,10 +681,7 @@ func (d *Client) ConfigureDatabaseUser(
 		OrganizationId: organizationID,
 		Password:       password,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // AddBinaryDataToDatasetByIDs adds the binary data with the given binary IDs to the dataset.
@@ -711,10 +694,7 @@ func (d *Client) AddBinaryDataToDatasetByIDs(
 		BinaryIds: binaryIDsToProto(binaryIDs),
 		DatasetId: datasetID,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // RemoveBinaryDataFromDatasetByIDs removes the binary data with the given binary IDs from the dataset.
@@ -727,8 +707,5 @@ func (d *Client) RemoveBinaryDataFromDatasetByIDs(
 		BinaryIds: binaryIDsToProto(binaryIDs),
 		DatasetId: datasetID,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
