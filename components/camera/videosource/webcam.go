@@ -331,7 +331,6 @@ type webcam struct {
 	disconnected            bool
 	activeBackgroundWorkers sync.WaitGroup
 	logger                  logging.Logger
-	originalLogger          logging.Logger
 }
 
 // NewWebcam returns the webcam discovered based on the given config as the Camera interface type.
@@ -344,11 +343,10 @@ func NewWebcam(
 	cancelCtx, cancel := context.WithCancel(context.Background())
 
 	cam := &webcam{
-		Named:          conf.ResourceName().AsNamed(),
-		logger:         logger.WithFields("camera_name", conf.ResourceName().ShortName()),
-		originalLogger: logger,
-		cancelCtx:      cancelCtx,
-		cancel:         cancel,
+		Named:     conf.ResourceName().AsNamed(),
+		logger:    logger.WithFields("camera_name", conf.ResourceName().ShortName()),
+		cancelCtx: cancelCtx,
+		cancel:    cancel,
 	}
 	if err := cam.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
@@ -475,7 +473,7 @@ func (c *webcam) reconnectCamera(conf *WebcamConfig) error {
 		c.targetPath = foundLabel
 	}
 
-	c.logger = c.originalLogger.WithFields("camera_label", c.targetPath)
+	c.logger = c.logger.WithFields("camera_label", c.targetPath)
 
 	return nil
 }
