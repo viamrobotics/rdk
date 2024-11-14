@@ -136,12 +136,12 @@ func TestCollectors(t *testing.T) {
 					},
 					"images": []any{
 						map[string]any{
-							"source_name": "color",
+							"source_name": "left",
 							"format":      int(camerapb.Format_FORMAT_JPEG),
 							"image":       viamLogoJpegAsInts,
 						},
 						map[string]any{
-							"source_name": "depth",
+							"source_name": "right",
 							"format":      int(camerapb.Format_FORMAT_JPEG),
 							"image":       viamLogoJpegAsInts,
 						},
@@ -180,14 +180,14 @@ func TestCollectors(t *testing.T) {
 }
 
 func newCamera(
-	colorImage, depthImage image.Image,
+	left, right image.Image,
 	capturedAt time.Time,
 	pcd pointcloud.PointCloud,
 ) camera.Camera {
 	v := &inject.Camera{}
 	v.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-			return colorImage, func() {}, nil
+			return left, func() {}, nil
 		})), nil
 	}
 
@@ -197,8 +197,8 @@ func newCamera(
 
 	v.ImagesFunc = func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 		return []camera.NamedImage{
-				{Image: colorImage, SourceName: "color"},
-				{Image: depthImage, SourceName: "depth"},
+				{Image: left, SourceName: "left"},
+				{Image: right, SourceName: "right"},
 			},
 			resource.ResponseMetadata{CapturedAt: capturedAt},
 			nil

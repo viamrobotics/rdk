@@ -109,6 +109,8 @@ type MockBuffer struct {
 }
 
 // NewMockBuffer returns a mock buffer.
+// This needs to be closed before the collector, otherwise the
+// collector's Close method will block
 func NewMockBuffer() *MockBuffer {
 	c, cancel := context.WithCancel(context.Background())
 	return &MockBuffer{
@@ -158,7 +160,6 @@ func CheckMockBufferWrites(
 		requestedAt := write.Metadata.TimeRequested.AsTime()
 		receivedAt := write.Metadata.TimeReceived.AsTime()
 		test.That(t, start, test.ShouldHappenOnOrBefore, requestedAt)
-		test.That(t, requestedAt, test.ShouldHappenOnOrBefore, receivedAt)
 		test.That(t, requestedAt, test.ShouldHappenOnOrBefore, receivedAt)
 		test.That(t, receivedAt, test.ShouldHappenOnOrBefore, end)
 		// nil out to make comparable
