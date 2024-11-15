@@ -14,7 +14,6 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/protoutils"
 )
 
 // Client implements the DataServiceClient interface.
@@ -90,7 +89,7 @@ type CaptureMetadata struct {
 	ComponentType    string
 	ComponentName    string
 	MethodName       string
-	MethodParameters map[string]string
+	MethodParameters map[string]interface{}
 	Tags             []string
 	MimeType         string
 }
@@ -215,8 +214,8 @@ func annotationsFromProto(proto *pb.Annotations) Annotations {
 	}
 }
 
-func methodParamsFromProto(proto map[string]*anypb.Any) map[string]string {
-	methodParameters := make(map[string]string)
+func methodParamsFromProto(proto map[string]*anypb.Any) map[string]interface{} {
+	methodParameters := make(map[string]interface{})
 	for key, value := range proto {
 		structValue := &structpb.Value{}
 		if err := value.UnmarshalTo(structValue); err != nil {
@@ -247,8 +246,25 @@ func captureMetadataFromProto(proto *pb.CaptureMetadata) CaptureMetadata {
 	}
 }
 
+func convertMapToProtoAny(input map[string]interface{}) (map[string]*anypb.Any, error) {
+	protoMap := make(map[string]*anypb.Any)
+	for key, value := range input {
+		structValue, err := structpb.NewValue(value)
+		if err != nil {
+			return nil, err
+		}
+		anyValue, err := anypb.New(structValue)
+		if err != nil {
+			return nil, err
+		}
+		protoMap[key] = anyValue
+	}
+	return protoMap, nil
+}
+
 func captureMetadataToProto(metadata CaptureMetadata) *pb.CaptureMetadata {
-	methodParms, err := protoutils.ConvertStringMapToAnyPBMap(metadata.MethodParameters)
+	// methodParms, err := protoutils.ConvertStringMapToAnyPBMap(metadata.MethodParameters)
+	methodParms, err := convertMapToProtoAny(metadata.MethodParameters)
 	if err != nil {
 		return nil
 	}

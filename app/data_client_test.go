@@ -44,7 +44,7 @@ var (
 	orgIDs              = []string{organizationID}
 	mimeTypes           = []string{mimeType}
 	bboxLabels          = []string{bboxLabel}
-	methodParameters    = map[string]string{}
+	methodParameters    = map[string]interface{}{}
 	tags                = []string{tag}
 	startTime           = time.Now().UTC().Round(time.Millisecond)
 	endTime             = time.Now().UTC().Round(time.Millisecond)
@@ -63,21 +63,21 @@ var (
 	binaryIDs      = []BinaryID{binaryID}
 	binaryDataByte = []byte("BYTE")
 	sqlQuery       = "SELECT * FROM readings WHERE organization_id='e76d1b3b-0468-4efd-bb7f-fb1d2b352fcb' LIMIT 1"
-	rawData        = []map[string]any{
+	rawData        = []map[string]interface{}{
 		{
 			"key1": startTime,
 			"key2": "2",
-			"key3": []any{1, 2, 3},
-			"key4": map[string]any{
+			"key3": []interface{}{1, 2, 3},
+			"key4": map[string]interface{}{
 				"key4sub1": endTime,
 			},
 			"key5": 4.05,
-			"key6": []any{true, false, true},
-			"key7": []any{
-				map[string]any{
+			"key6": []interface{}{true, false, true},
+			"key7": []interface{}{
+				map[string]interface{}{
 					"nestedKey1": "simpleValue",
 				},
-				map[string]any{
+				map[string]interface{}{
 					"nestedKey2": startTime,
 				},
 			},
