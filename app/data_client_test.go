@@ -254,12 +254,12 @@ func TestDataClient(t *testing.T) {
 				Metadata: []*pb.CaptureMetadata{captureMetadataToProto(tabularMetadata)},
 			}, nil
 		}
-		respTabularData, respCount, respLast, _ := client.TabularDataByFilter(
+		resp, _ := client.TabularDataByFilter(
 			context.Background(), filter, limit, last,
 			dataRequest.SortOrder, countOnly, includeInternalData)
-		test.That(t, respTabularData[0], test.ShouldResemble, tabularData)
-		test.That(t, respCount, test.ShouldEqual, count)
-		test.That(t, respLast, test.ShouldEqual, last)
+		test.That(t, resp.TabularData[0], test.ShouldResemble, tabularData)
+		test.That(t, resp.Count, test.ShouldEqual, count)
+		test.That(t, resp.Last, test.ShouldEqual, last)
 	})
 
 	t.Run("TabularDataBySQL", func(t *testing.T) {
@@ -329,12 +329,12 @@ func TestDataClient(t *testing.T) {
 				Last:  last,
 			}, nil
 		}
-		respBinaryData, respCount, respLast, _ := client.BinaryDataByFilter(
+		resp, _ := client.BinaryDataByFilter(
 			context.Background(), filter, count, dataRequest.SortOrder,
 			last, includeBinary, countOnly, includeInternalData)
-		test.That(t, respBinaryData[0], test.ShouldResemble, binaryData)
-		test.That(t, respCount, test.ShouldEqual, count)
-		test.That(t, respLast, test.ShouldEqual, last)
+		test.That(t, resp.BinaryData[0], test.ShouldResemble, binaryData)
+		test.That(t, resp.Count, test.ShouldEqual, count)
+		test.That(t, resp.Last, test.ShouldEqual, last)
 	})
 	t.Run("BinaryDataByIDs", func(t *testing.T) {
 		grpcClient.BinaryDataByIDsFunc = func(ctx context.Context, in *pb.BinaryDataByIDsRequest,

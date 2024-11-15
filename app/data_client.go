@@ -152,6 +152,24 @@ type Annotations struct {
 	Bboxes []BoundingBox
 }
 
+// TabularDataReturn represents the result of a TabularDataByFilter query.
+// It contains the retrieved tabular data and associated metadata,
+// the total number of entries retrieved (Count), and the ID of the last returned page (Last).
+type TabularDataReturn struct {
+	TabularData []TabularData
+	Count       uint64
+	Last        string
+}
+
+// BinaryDataReturn represents the result of a BinaryDataByFilter query.
+// It contains the retrieved binary data and associated metadata,
+// the total number of entries retrieved (Count), and the ID of the last returned page (Last).
+type BinaryDataReturn struct {
+	BinaryData []BinaryData
+	Count      uint64
+	Last       string
+}
+
 // NewDataClient constructs a new DataClient using the connection passed in by the viamClient and the provided logger.
 func NewDataClient(
 	channel rpc.ClientConn,
@@ -327,9 +345,10 @@ func orderToProto(sortOrder Order) pb.Order {
 		return pb.Order_ORDER_ASCENDING
 	case Descending:
 		return pb.Order_ORDER_DESCENDING
-	default:
+	case Unspecified:
 		return pb.Order_ORDER_UNSPECIFIED
 	}
+	return pb.Order_ORDER_UNSPECIFIED
 }
 
 // convertBsonToNative recursively converts BSON datetime objects to Go DateTime and BSON arrays to slices of interface{}.
@@ -390,7 +409,7 @@ func (d *Client) TabularDataByFilter(
 	sortOrder Order,
 	countOnly bool,
 	includeInternalData bool,
-) ([]TabularData, uint64, string, error) {
+) (TabularDataReturn, error) {
 	resp, err := d.client.TabularDataByFilter(ctx, &pb.TabularDataByFilterRequest{
 		DataRequest: &pb.DataRequest{
 			Filter:    filterToProto(filter),
@@ -402,23 +421,30 @@ func (d *Client) TabularDataByFilter(
 		IncludeInternalData: includeInternalData,
 	})
 	if err != nil {
-		return nil, 0, "", err
+		return TabularDataReturn{}, err
 	}
+	// TabularData contains tabular data and associated metadata
 	dataArray := []TabularData{}
 	var metadata *pb.CaptureMetadata
 	for _, data := range resp.Data {
-		if len(resp.Metadata) != 0 && int(data.MetadataIndex) >= len(resp.Metadata) {
-			metadata = &pb.CaptureMetadata{}
-		} else {
+		if len(resp.Metadata) > 0 && int(data.MetadataIndex) < len(resp.Metadata) {
 			metadata = resp.Metadata[data.MetadataIndex]
+		} else {
+			// Use an empty CaptureMetadata as a fallback
+			metadata = &pb.CaptureMetadata{}
 		}
 		dataArray = append(dataArray, tabularDataFromProto(data, metadata))
 	}
-	return dataArray, resp.Count, resp.Last, nil
+
+	return TabularDataReturn{
+		TabularData: dataArray,
+		Count:       resp.Count,
+		Last:        resp.Last,
+	}, nil
 }
 
 // TabularDataBySQL queries tabular data with a SQL query.
-func (d *Client) TabularDataBySQL(ctx context.Context, organizationID string, sqlQuery string) ([]map[string]interface{}, error) {
+func (d *Client) TabularDataBySQL(ctx context.Context, organizationID, sqlQuery string) ([]map[string]interface{}, error) {
 	resp, err := d.client.TabularDataBySQL(ctx, &pb.TabularDataBySQLRequest{
 		OrganizationId: organizationID,
 		SqlQuery:       sqlQuery,
@@ -460,7 +486,7 @@ func (d *Client) BinaryDataByFilter(
 	includeBinary bool,
 	countOnly bool,
 	includeInternalData bool,
-) ([]BinaryData, uint64, string, error) {
+) (BinaryDataReturn, error) {
 	resp, err := d.client.BinaryDataByFilter(ctx, &pb.BinaryDataByFilterRequest{
 		DataRequest: &pb.DataRequest{
 			Filter:    filterToProto(filter),
@@ -473,13 +499,17 @@ func (d *Client) BinaryDataByFilter(
 		IncludeInternalData: includeInternalData,
 	})
 	if err != nil {
-		return nil, 0, "", err
+		return BinaryDataReturn{}, err
 	}
 	data := make([]BinaryData, len(resp.Data))
 	for i, protoData := range resp.Data {
 		data[i] = binaryDataFromProto(protoData)
 	}
-	return data, resp.Count, resp.Last, nil
+	return BinaryDataReturn{
+		BinaryData: data,
+		Count:      resp.Count,
+		Last:       resp.Last,
+	}, nil
 }
 
 // BinaryDataByIDs queries binary data and metadata based on given IDs.
@@ -499,6 +529,7 @@ func (d *Client) BinaryDataByIDs(ctx context.Context, binaryIDs []BinaryID) ([]B
 }
 
 // DeleteTabularData deletes tabular data older than a number of days, based on the given organization ID.
+// It returns the number of tabular datapoints deleted.
 func (d *Client) DeleteTabularData(ctx context.Context, organizationID string, deleteOlderThanDays uint32) (uint64, error) {
 	resp, err := d.client.DeleteTabularData(ctx, &pb.DeleteTabularDataRequest{
 		OrganizationId:      organizationID,
@@ -511,6 +542,7 @@ func (d *Client) DeleteTabularData(ctx context.Context, organizationID string, d
 }
 
 // DeleteBinaryDataByFilter deletes binary data based on given filters.
+// It returns the number of binary datapoints deleted.
 func (d *Client) DeleteBinaryDataByFilter(ctx context.Context, filter Filter) (uint64, error) {
 	resp, err := d.client.DeleteBinaryDataByFilter(ctx, &pb.DeleteBinaryDataByFilterRequest{
 		Filter:              filterToProto(filter),
@@ -523,6 +555,7 @@ func (d *Client) DeleteBinaryDataByFilter(ctx context.Context, filter Filter) (u
 }
 
 // DeleteBinaryDataByIDs deletes binary data based on given IDs.
+// It returns the number of binary datapoints deleted.
 func (d *Client) DeleteBinaryDataByIDs(ctx context.Context, binaryIDs []BinaryID) (uint64, error) {
 	resp, err := d.client.DeleteBinaryDataByIDs(ctx, &pb.DeleteBinaryDataByIDsRequest{
 		BinaryIds: binaryIDsToProto(binaryIDs),
@@ -552,6 +585,7 @@ func (d *Client) AddTagsToBinaryDataByFilter(ctx context.Context, tags []string,
 }
 
 // RemoveTagsFromBinaryDataByIDs removes string tags from binary data based on given IDs.
+// It returns the number of binary files which had tags removed.
 func (d *Client) RemoveTagsFromBinaryDataByIDs(ctx context.Context,
 	tags []string, binaryIDs []BinaryID,
 ) (uint64, error) {
@@ -565,7 +599,8 @@ func (d *Client) RemoveTagsFromBinaryDataByIDs(ctx context.Context,
 	return resp.DeletedCount, nil
 }
 
-// RemoveTagsFromBinaryDataByFilter removes string tags from binary data based on the given filter.
+// RemoveTagsFromBinaryDataByFilter removes the specified string tags from binary data that match the given filter.
+// It returns the number of binary files from which tags were removed.
 func (d *Client) RemoveTagsFromBinaryDataByFilter(ctx context.Context,
 	tags []string, filter Filter,
 ) (uint64, error) {
@@ -579,7 +614,8 @@ func (d *Client) RemoveTagsFromBinaryDataByFilter(ctx context.Context,
 	return resp.DeletedCount, nil
 }
 
-// TagsByFilter gets all unique tags from data based on given filter.
+// TagsByFilter retrieves all unique tags associated with the data that match the specified filter.
+// It returns the list of these unique tags.
 func (d *Client) TagsByFilter(ctx context.Context, filter Filter) ([]string, error) {
 	resp, err := d.client.TagsByFilter(ctx, &pb.TagsByFilterRequest{
 		Filter: filterToProto(filter),
@@ -590,7 +626,9 @@ func (d *Client) TagsByFilter(ctx context.Context, filter Filter) ([]string, err
 	return resp.Tags, nil
 }
 
-// AddBoundingBoxToImageByID adds a bounding box to an image with the given ID.
+// AddBoundingBoxToImageByID adds a bounding box to an image with the specified ID,
+// using the provided label and position in normalized coordinates.
+// All normalized coordinates (xMin, yMin, xMax, yMax) must be float values in the range [0, 1].
 func (d *Client) AddBoundingBoxToImageByID(
 	ctx context.Context,
 	binaryID BinaryID,
@@ -627,7 +665,8 @@ func (d *Client) RemoveBoundingBoxFromImageByID(
 	return err
 }
 
-// BoundingBoxLabelsByFilter gets all string labels for bounding boxes from data based on given filter.
+// BoundingBoxLabelsByFilter retrieves all unique string labels for bounding boxes that match the specified filter.
+// It returns a list of these labels.
 func (d *Client) BoundingBoxLabelsByFilter(ctx context.Context, filter Filter) ([]string, error) {
 	resp, err := d.client.BoundingBoxLabelsByFilter(ctx, &pb.BoundingBoxLabelsByFilterRequest{
 		Filter: filterToProto(filter),
@@ -661,6 +700,7 @@ func (d *Client) UpdateBoundingBox(ctx context.Context,
 }
 
 // GetDatabaseConnection gets a connection to access a MongoDB Atlas Data Federation instance.
+// It returns the database connection hostname endpoint.
 func (d *Client) GetDatabaseConnection(ctx context.Context, organizationID string) (string, error) {
 	resp, err := d.client.GetDatabaseConnection(ctx, &pb.GetDatabaseConnectionRequest{
 		OrganizationId: organizationID,
