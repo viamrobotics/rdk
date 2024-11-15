@@ -198,14 +198,18 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequ
 	}
 
 	// Transform goal pose into world frame if needed
-	// TODO: This is a useful optimization that was granted by 
-	//~ if request.Frame.WorldRooted() {
-		//~ tf, err := pm.fss.Transform(request.StartConfiguration, request.Goal, referenceframe.World)
-		//~ if err != nil {
-			//~ return nil, err
-		//~ }
-		//~ goalPos = tf.(*referenceframe.PoseInFrame).Pose()
-	//~ }
+	alteredGoals := PathStep{}
+	for _, chain := range opt.motionChains {
+		if chain.worldRooted {
+			tf, err := pm.fss.Transform(request.StartConfiguration, request.Goal, referenceframe.World)
+			if err != nil {
+				return nil, err
+			}
+			alteredGoals[chain.solveFrameName] = tf.(*referenceframe.PoseInFrame)
+		} else {
+			alteredGoals[chain.solveFrameName] = request.allGoals[chain.solveFrameName]
+		}
+	}
 
 	var goals []PathStep
 	var opts []*plannerOptions
@@ -259,9 +263,9 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequ
 		//~ startPose = from
 	//~ }
 	pm.planOpts = opt
-	opt.setGoal(request.allGoals)
+	opt.setGoal(alteredGoals)
 	opts = append(opts, opt)
-	goals = append(goals, request.allGoals)
+	goals = append(goals, alteredGoals)
 
 	planners := make([]motionPlanner, 0, len(opts))
 	// Set up planners for later execution
@@ -669,8 +673,6 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	name, constraint := range fsCollisionConstraints {
 		opt.AddStateFSConstraint(name, constraint)
 	}
-	
-	
 
 	// error handling around extracting motion_profile information from map[string]interface{}
 	var motionProfile string

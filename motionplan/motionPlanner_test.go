@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/rand"
 	"testing"
+	"fmt"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -617,6 +618,7 @@ func TestReachOverArm(t *testing.T) {
 	fs.AddFrame(ur5, fs.World())
 
 	// the plan should no longer be able to interpolate, but it should still be able to get there
+	// Problem: now solving 12dof rather than 6dof
 	opts = map[string]interface{}{"timeout": 150.0, "smooth_iter": 5}
 	plan, err = PlanMotion(context.Background(), &PlanRequest{
 		Logger:             logger,
@@ -628,6 +630,7 @@ func TestReachOverArm(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan.Trajectory()), test.ShouldBeGreaterThan, 2)
+	fmt.Println("")
 }
 
 func TestPlanMapMotion(t *testing.T) {

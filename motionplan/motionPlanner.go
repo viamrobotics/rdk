@@ -282,6 +282,7 @@ func (mp *planner) checkPath(seedInputs, target map[string][]frame.Input) bool {
 		},
 		mp.planOpts.Resolution,
 	)
+	fmt.Println("check path", ok)
 	return ok
 }
 
@@ -421,6 +422,7 @@ IK:
 
 		select {
 		case stepSolution := <-solutionGen:
+			fmt.Println("stepSolution.Configuration", stepSolution.Configuration)
 			step, err := mp.lfs.sliceToMap(stepSolution.Configuration)
 			if err != nil {
 				return nil, err
@@ -516,6 +518,7 @@ func (mp *planner) linearizeFSmetric(metric ik.StateFSMetric) func([]float64) fl
 		if err != nil {
 			return math.Inf(1)
 		}
-		return metric(&ik.StateFS{Configuration: inputs, FS: mp.fss})
+		val := metric(&ik.StateFS{Configuration: inputs, FS: mp.fss})
+		return val
 	}
 }

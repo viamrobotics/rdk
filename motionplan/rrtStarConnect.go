@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"math/rand"
 	"time"
+	"fmt"
 
 	"go.viam.com/utils"
 
@@ -106,6 +107,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 	seed map[string][]referenceframe.Input,
 	rrt *rrtParallelPlannerShared,
 ) {
+	fmt.Println("Starting RRT*")
 	mp.logger.CDebug(ctx, "Starting RRT*")
 	defer close(rrt.solutionChan)
 

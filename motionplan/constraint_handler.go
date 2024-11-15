@@ -137,6 +137,10 @@ func interpolateSegmentFS(ci *ik.SegmentFS, resolution float64) ([]map[string][]
 	// Find the frame with the most steps by calculating steps for each frame
 	maxSteps := defaultMinStepCount
 	for frameName, startConfig := range ci.StartConfiguration {
+		if len(startConfig) == 0 {
+			// No need to interpolate 0dof frames
+			continue
+		}
 		endConfig, exists := ci.EndConfiguration[frameName]
 		if !exists {
 			return nil, fmt.Errorf("frame %s exists in start config but not in end config", frameName)

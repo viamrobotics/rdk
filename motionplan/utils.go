@@ -150,8 +150,6 @@ func motionChainFromGoal(fs referenceframe.FrameSystem, moveFrame string, goal *
 	if len(solveFrameList) == 0 {
 		return nil, errors.New("solveFrameList was empty")
 	}
-	fmt.Println("moveFrame", moveFrame)
-	fmt.Println("solveFrame", goal.Parent())
 
 	movingFS := func(frameList []referenceframe.Frame) (referenceframe.FrameSystem, error) {
 		// Find first moving frame
@@ -176,9 +174,7 @@ func motionChainFromGoal(fs referenceframe.FrameSystem, moveFrame string, goal *
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("pivotFrame.Name()", pivotFrame.Name())
 	if pivotFrame.Name() == referenceframe.World {
-		fmt.Println("WORLD PIVOT")
 		frames = uniqInPlaceSlice(append(solveFrameList, goalFrameList...))
 		moving, err = movingFS(solveFrameList)
 		if err != nil {
@@ -237,8 +233,6 @@ func motionChainFromGoal(fs referenceframe.FrameSystem, moveFrame string, goal *
 			}
 		}
 	}
-	fmt.Println("worldRooted", worldRooted)
-	fmt.Println("frames", frames)
 
 	return &motionChain{
 		movingFS:       moving,
