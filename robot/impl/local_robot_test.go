@@ -93,6 +93,15 @@ func TestConfig1(t *testing.T) {
 	c1, err := camera.FromRobot(r, "c1")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, c1.Name(), test.ShouldResemble, camera.Named("c1"))
+
+	// TODO(hexbabe): remove below test when Stream/ReadImage pattern is refactored
+	t.Run("ReadImage from camera", func(t *testing.T) {
+		pic, _, err := camera.ReadImage(context.Background(), c1)
+		test.That(t, err, test.ShouldBeNil)
+		bounds := pic.Bounds()
+		test.That(t, bounds.Max.X, test.ShouldBeGreaterThanOrEqualTo, 32)
+	})
+
 	pic, err := camera.DecodeImageFromCamera(context.Background(), rutils.MimeTypeJPEG, nil, c1)
 	test.That(t, err, test.ShouldBeNil)
 

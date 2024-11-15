@@ -178,6 +178,17 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		camera1Client, err := camera.NewClientFromConn(context.Background(), conn, "", camera.Named(testCameraName), logger)
 		test.That(t, err, test.ShouldBeNil)
+		// TODO(hexbabe): remove below test when Stream/ReadImage pattern is refactored
+		t.Run("ReadImage from camera client 1", func(t *testing.T) {
+			ctx := gostream.WithMIMETypeHint(context.Background(), rutils.MimeTypeRawRGBA)
+			stream, err := camera1Client.Stream(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			frame, _, err := stream.Next(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			compVal, _, err := rimage.CompareImages(img, frame)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
+		})
 		frame, err := camera.DecodeImageFromCamera(context.Background(), rutils.MimeTypeRawRGBA, nil, camera1Client)
 		test.That(t, err, test.ShouldBeNil)
 		compVal, _, err := rimage.CompareImages(img, frame)
@@ -227,6 +238,17 @@ func TestClient(t *testing.T) {
 		client, err := resourceAPI.RPCClient(context.Background(), conn, "", camera.Named(depthCameraName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
+		// TODO(hexbabe): remove below test when Stream/ReadImage pattern is refactored
+		t.Run("ReadImage from camera depth", func(t *testing.T) {
+			ctx := gostream.WithMIMETypeHint(
+				context.Background(), rutils.WithLazyMIMEType(rutils.MimeTypePNG))
+			frame, _, err := camera.ReadImage(ctx, client)
+			test.That(t, err, test.ShouldBeNil)
+			dm, err := rimage.ConvertImageToDepthMap(context.Background(), frame)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, dm, test.ShouldResemble, depthImg)
+		})
+
 		ctx := context.Background()
 		frame, err := camera.DecodeImageFromCamera(ctx, rutils.WithLazyMIMEType(rutils.MimeTypePNG), nil, client)
 		test.That(t, err, test.ShouldBeNil)
@@ -271,6 +293,12 @@ func TestClient(t *testing.T) {
 		}
 
 		ctx := context.Background()
+		// TODO(hexbabe): remove below test when Stream/ReadImage pattern is refactored
+		t.Run("ReadImage test failure", func(t *testing.T) {
+			_, _, err = camera.ReadImage(ctx, camClient)
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
+		})
 		_, _, err = camClient.Image(ctx, "", nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
@@ -468,6 +496,17 @@ func TestClientLazyImage(t *testing.T) {
 	camera1Client, err := camera.NewClientFromConn(context.Background(), conn, "", camera.Named(testCameraName), logger)
 	test.That(t, err, test.ShouldBeNil)
 
+	// TODO(hexbabe): remove below test when Stream/ReadImage pattern is refactored
+	t.Run("lazily decode from ReadImage without lazy suffix", func(t *testing.T) {
+		ctx := gostream.WithMIMETypeHint(context.Background(), rutils.MimeTypePNG)
+		frame, _, err := camera.ReadImage(ctx, camera1Client)
+		test.That(t, err, test.ShouldBeNil)
+		// Should always lazily decode
+		test.That(t, frame, test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
+		frameLazy := frame.(*rimage.LazyEncodedImage)
+		test.That(t, frameLazy.RawData(), test.ShouldResemble, imgBuf.Bytes())
+	})
+
 	ctx := context.Background()
 	frame, err := camera.DecodeImageFromCamera(ctx, rutils.MimeTypePNG, nil, camera1Client)
 	test.That(t, err, test.ShouldBeNil)
@@ -475,6 +514,15 @@ func TestClientLazyImage(t *testing.T) {
 	test.That(t, frame, test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
 	frameLazy := frame.(*rimage.LazyEncodedImage)
 	test.That(t, frameLazy.RawData(), test.ShouldResemble, imgBuf.Bytes())
+
+	// TODO(hexbabe): remove below test when Stream/ReadImage pattern is refactored
+	t.Run("lazily decode from ReadImage", func(t *testing.T) {
+		ctx = gostream.WithMIMETypeHint(context.Background(), rutils.WithLazyMIMEType(rutils.MimeTypePNG))
+		frame, _, err = camera.ReadImage(ctx, camera1Client)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, frame, test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
+		frameLazy = frame.(*rimage.LazyEncodedImage)
+	})
 
 	ctx = context.Background()
 	frame, err = camera.DecodeImageFromCamera(ctx, rutils.WithLazyMIMEType(rutils.MimeTypePNG), nil, camera1Client)
