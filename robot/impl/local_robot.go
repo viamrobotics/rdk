@@ -1528,6 +1528,9 @@ func (r *localRobot) reconfigureAllowed(ctx context.Context, cfg *config.Config,
 		return true
 	}
 	canReconfigure, err := r.checkMaintenanceSensorReadings(ctx, cfg.MaintenanceConfig.MaintenanceAllowedKey, sensorComponent)
+	// The boolean return value of checkMaintenanceSensorReadings
+	// (canReconfigure) is meaningful even when an error is also returned. Check
+	// it first.
 	if !canReconfigure {
 		if err != nil {
 			logger.CErrorw(ctx, "error reading maintenance sensor", "error", err)
