@@ -17,21 +17,11 @@ func TestNearestNeighbor(t *testing.T) {
 	nm := &neighborManager{nCPU: 2, parallelNeighbors: 1000}
 	rrtMap := map[node]node{}
 
-	j := &basicNode{
-		q:      map[string][]referenceframe.Input{"": {{0.0}}},
-		cost:   math.NaN(),
-		poses:  PathStep{},
-		corner: false,
-	}
+	j := &basicNode{q: map[string][]referenceframe.Input{"": {{0.0}}}}
 	// We add ~110 nodes to the set of candidates. This is smaller than the configured
 	// `parallelNeighbors` or 1000 meaning the `nearestNeighbor` call will be evaluated in series.
 	for i := 1.0; i < 110.0; i++ {
-		iSol := &basicNode{
-			q:      map[string][]referenceframe.Input{"": {{i}}},
-			cost:   math.NaN(),
-			poses:  PathStep{},
-			corner: false,
-		}
+		iSol := &basicNode{q:  map[string][]referenceframe.Input{"": {{i}}}}
 		rrtMap[iSol] = j
 		j = iSol
 	}
@@ -39,32 +29,17 @@ func TestNearestNeighbor(t *testing.T) {
 
 	seed := map[string][]referenceframe.Input{"": {{23.1}}}
 	opt := newBasicPlannerOptions()
-	nn := nm.nearestNeighbor(ctx, opt, &basicNode{
-		q:      seed,
-		cost:   math.NaN(),
-		poses:  PathStep{},
-		corner: false,
-	}, rrtMap)
+	nn := nm.nearestNeighbor(ctx, opt, &basicNode{q: seed}, rrtMap)
 	test.That(t, nn.Q()[""][0].Value, test.ShouldAlmostEqual, 23.0)
 
 	// We add more nodes to trip the 1000 threshold. The `nearestNeighbor` call will use `nCPU` (2)
 	// goroutines for evaluation.
 	for i := 120.0; i < 1100.0; i++ {
-		iSol := &basicNode{
-			q:      map[string][]referenceframe.Input{"": {{i}}},
-			cost:   math.NaN(),
-			poses:  PathStep{},
-			corner: false,
-		}
+		iSol := &basicNode{q: map[string][]referenceframe.Input{"": {{i}}}}
 		rrtMap[iSol] = j
 		j = iSol
 	}
 	seed = map[string][]referenceframe.Input{"": {{723.6}}}
-	nn = nm.nearestNeighbor(ctx, opt, &basicNode{
-		q:      seed,
-		cost:   math.NaN(),
-		poses:  PathStep{},
-		corner: false,
-	}, rrtMap)
+	nn = nm.nearestNeighbor(ctx, opt, &basicNode{q: seed}, rrtMap)
 	test.That(t, nn.Q()[""][0].Value, test.ShouldAlmostEqual, 724.0)
 }
