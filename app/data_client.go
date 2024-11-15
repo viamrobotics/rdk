@@ -170,6 +170,15 @@ type BinaryDataReturn struct {
 	Last       string
 }
 
+// DatabaseConnReturn represents the response returned by GetDatabaseConnection.
+// It contains the hostname endpoint, a URI for connecting to the MongoDB Atlas Data Federation instance,
+// and a flag indicating whether a database user is configured for the Viam organization.
+type DatabaseConnReturn struct {
+	Hostname        string
+	MongodbURI      string
+	HasDatabaseUser bool
+}
+
 // NewDataClient constructs a new DataClient using the connection passed in by the viamClient and the provided logger.
 func NewDataClient(
 	channel rpc.ClientConn,
@@ -699,16 +708,21 @@ func (d *Client) UpdateBoundingBox(ctx context.Context,
 	return err
 }
 
-// GetDatabaseConnection gets a connection to access a MongoDB Atlas Data Federation instance.
-// It returns the database connection hostname endpoint.
-func (d *Client) GetDatabaseConnection(ctx context.Context, organizationID string) (string, error) {
+// GetDatabaseConnection establishes a connection to a MongoDB Atlas Data Federation instance.
+// It returns the hostname endpoint, a URI for connecting to the database via MongoDB clients,
+// and a flag indicating whether a database user is configured for the Viam organization.
+func (d *Client) GetDatabaseConnection(ctx context.Context, organizationID string) (DatabaseConnReturn, error) {
 	resp, err := d.client.GetDatabaseConnection(ctx, &pb.GetDatabaseConnectionRequest{
 		OrganizationId: organizationID,
 	})
 	if err != nil {
-		return "", err
+		return DatabaseConnReturn{}, err
 	}
-	return resp.Hostname, nil
+	return DatabaseConnReturn{
+		Hostname:        resp.Hostname,
+		MongodbURI:      resp.MongodbUri,
+		HasDatabaseUser: resp.HasDatabaseUser,
+	}, nil
 }
 
 // ConfigureDatabaseUser configures a database user for the Viam organization's MongoDB Atlas Data Federation instance.

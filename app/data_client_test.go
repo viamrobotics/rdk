@@ -541,7 +541,9 @@ func TestDataClient(t *testing.T) {
 			}, nil
 		}
 		resp, _ := client.GetDatabaseConnection(context.Background(), organizationID)
-		test.That(t, resp, test.ShouldResemble, hostName)
+		test.That(t, resp.Hostname, test.ShouldResemble, hostName)
+		test.That(t, resp.MongodbURI, test.ShouldResemble, mongodbURI)
+		test.That(t, resp.HasDatabaseUser, test.ShouldBeTrue)
 	})
 
 	t.Run("ConfigureDatabaseUser", func(t *testing.T) {
