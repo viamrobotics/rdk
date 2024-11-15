@@ -101,16 +101,12 @@ type SharedSecret struct {
 	State     SharedSecretState
 }
 
-func sharedSecretFromProto(sharedSecret *pb.SharedSecret) (*SharedSecret, error) {
-	state, err := sharedSecretStateFromProto(sharedSecret.State)
-	if err != nil {
-		return nil, err
-	}
+func sharedSecretFromProto(sharedSecret *pb.SharedSecret) *SharedSecret {
 	return &SharedSecret{
 		ID:        sharedSecret.Id,
 		CreatedOn: sharedSecret.CreatedOn,
-		State:     state,
-	}, nil
+		State:     sharedSecretStateFromProto(sharedSecret.State),
+	}
 }
 
 // SharedSecretState specifies if the secret is enabled, disabled, or unspecified.
@@ -125,16 +121,14 @@ const (
 	SharedSecretStateDisabled SharedSecretState = 2
 )
 
-func sharedSecretStateFromProto(state pb.SharedSecret_State) (SharedSecretState, error) {
+func sharedSecretStateFromProto(state pb.SharedSecret_State) SharedSecretState {
 	switch state {
-	case pb.SharedSecret_STATE_UNSPECIFIED:
-		return SharedSecretStateUnspecified, nil
 	case pb.SharedSecret_STATE_ENABLED:
-		return SharedSecretStateEnabled, nil
+		return SharedSecretStateEnabled
 	case pb.SharedSecret_STATE_DISABLED:
-		return SharedSecretStateDisabled, nil
+		return SharedSecretStateDisabled
 	default:
-		return 0, fmt.Errorf("uknown secret state: %v", state)
+		return SharedSecretStateUnspecified
 	}
 }
 
@@ -145,16 +139,12 @@ type AuthenticatorInfo struct {
 	IsDeactivated bool
 }
 
-func authenticatorInfoFromProto(info *pb.AuthenticatorInfo) (*AuthenticatorInfo, error) {
-	authenticationType, err := authenticationTypeFromProto(info.Type)
-	if err != nil {
-		return nil, err
-	}
+func authenticatorInfoFromProto(info *pb.AuthenticatorInfo) *AuthenticatorInfo {
 	return &AuthenticatorInfo{
-		Type:          authenticationType,
+		Type:          authenticationTypeFromProto(info.Type),
 		Value:         info.Value,
 		IsDeactivated: info.IsDeactivated,
-	}, nil
+	}
 }
 
 // AuthenticationType specifies the type of authentication.
@@ -173,20 +163,18 @@ const (
 	AuthenticationTypeLocationSecret AuthenticationType = 4
 )
 
-func authenticationTypeFromProto(authenticationType pb.AuthenticationType) (AuthenticationType, error) {
+func authenticationTypeFromProto(authenticationType pb.AuthenticationType) AuthenticationType {
 	switch authenticationType {
-	case pb.AuthenticationType_AUTHENTICATION_TYPE_UNSPECIFIED:
-		return AuthenticationTypeUnspecified, nil
 	case pb.AuthenticationType_AUTHENTICATION_TYPE_WEB_OAUTH:
-		return AuthenticationTypeWebOAuth, nil
+		return AuthenticationTypeWebOAuth
 	case pb.AuthenticationType_AUTHENTICATION_TYPE_API_KEY:
-		return AuthenticationTypeAPIKey, nil
+		return AuthenticationTypeAPIKey
 	case pb.AuthenticationType_AUTHENTICATION_TYPE_ROBOT_PART_SECRET:
-		return AuthenticationTypeRobotPartSecret, nil
+		return AuthenticationTypeRobotPartSecret
 	case pb.AuthenticationType_AUTHENTICATION_TYPE_LOCATION_SECRET:
-		return AuthenticationTypeLocationSecret, nil
+		return AuthenticationTypeLocationSecret
 	default:
-		return 0, fmt.Errorf("uknown authentication type: %v", authenticationType)
+		return AuthenticationTypeUnspecified
 	}
 }
 

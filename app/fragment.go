@@ -1,8 +1,6 @@
 package app
 
 import (
-	"fmt"
-
 	pb "go.viam.com/api/app/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -23,12 +21,8 @@ type Fragment struct {
 	LastUpdated       *timestamppb.Timestamp
 }
 
-func fragmentFromProto(fragment *pb.Fragment) (*Fragment, error) {
+func fragmentFromProto(fragment *pb.Fragment) (*Fragment) {
 	f := fragment.Fragment.AsMap()
-	visibility, err := fragmentVisibilityFromProto(fragment.Visibility)
-	if err != nil {
-		return nil, err
-	}
 	return &Fragment{
 		ID:                fragment.Id,
 		Name:              fragment.Name,
@@ -40,9 +34,9 @@ func fragmentFromProto(fragment *pb.Fragment) (*Fragment, error) {
 		RobotPartCount:    fragment.RobotPartCount,
 		OrganizationCount: fragment.OrganizationCount,
 		OnlyUsedByOwner:   fragment.OnlyUsedByOwner,
-		Visibility:        visibility,
+		Visibility:        fragmentVisibilityFromProto(fragment.Visibility),
 		LastUpdated:       fragment.LastUpdated,
-	}, nil
+	}
 }
 
 // FragmentVisibility specifies the kind of visibility a fragment has.
@@ -59,33 +53,29 @@ const (
 	FragmentVisibilityPublicUnlisted FragmentVisibility = 3
 )
 
-func fragmentVisibilityFromProto(visibility pb.FragmentVisibility) (FragmentVisibility, error) {
+func fragmentVisibilityFromProto(visibility pb.FragmentVisibility) FragmentVisibility {
 	switch visibility {
-	case pb.FragmentVisibility_FRAGMENT_VISIBILITY_UNSPECIFIED:
-		return FragmentVisibilityUnspecified, nil
 	case pb.FragmentVisibility_FRAGMENT_VISIBILITY_PRIVATE:
-		return FragmentVisibilityPrivate, nil
+		return FragmentVisibilityPrivate
 	case pb.FragmentVisibility_FRAGMENT_VISIBILITY_PUBLIC:
-		return FragmentVisibilityPublic, nil
+		return FragmentVisibilityPublic
 	case pb.FragmentVisibility_FRAGMENT_VISIBILITY_PUBLIC_UNLISTED:
-		return FragmentVisibilityPublicUnlisted, nil
+		return FragmentVisibilityPublicUnlisted
 	default:
-		return 0, fmt.Errorf("uknown fragment visibililty: %v", visibility)
+		return FragmentVisibilityUnspecified
 	}
 }
 
-func fragmentVisibilityToProto(visibility FragmentVisibility) (pb.FragmentVisibility, error) {
+func fragmentVisibilityToProto(visibility FragmentVisibility) (pb.FragmentVisibility) {
 	switch visibility {
-	case FragmentVisibilityUnspecified:
-		return pb.FragmentVisibility_FRAGMENT_VISIBILITY_UNSPECIFIED, nil
 	case FragmentVisibilityPrivate:
-		return pb.FragmentVisibility_FRAGMENT_VISIBILITY_PRIVATE, nil
+		return pb.FragmentVisibility_FRAGMENT_VISIBILITY_PRIVATE
 	case FragmentVisibilityPublic:
-		return pb.FragmentVisibility_FRAGMENT_VISIBILITY_PUBLIC, nil
+		return pb.FragmentVisibility_FRAGMENT_VISIBILITY_PUBLIC
 	case FragmentVisibilityPublicUnlisted:
-		return pb.FragmentVisibility_FRAGMENT_VISIBILITY_PUBLIC_UNLISTED, nil
+		return pb.FragmentVisibility_FRAGMENT_VISIBILITY_PUBLIC_UNLISTED
 	default:
-		return 0, fmt.Errorf("unknown fragment visibility: %v", visibility)
+		return pb.FragmentVisibility_FRAGMENT_VISIBILITY_UNSPECIFIED
 	}
 }
 
@@ -97,19 +87,11 @@ type FragmentHistoryEntry struct {
 	EditedBy *AuthenticatorInfo
 }
 
-func fragmentHistoryEntryFromProto(entry *pb.FragmentHistoryEntry) (*FragmentHistoryEntry, error) {
-	old, err := fragmentFromProto(entry.Old)
-	if err != nil {
-		return nil, err
-	}
-	editedBy, err := authenticatorInfoFromProto(entry.EditedBy)
-	if err != nil {
-		return nil, err
-	}
+func fragmentHistoryEntryFromProto(entry *pb.FragmentHistoryEntry) (*FragmentHistoryEntry) {
 	return &FragmentHistoryEntry{
 		Fragment: entry.Fragment,
 		EditedOn: entry.EditedOn,
-		Old:      old,
-		EditedBy: editedBy,
-	}, nil
+		Old:      fragmentFromProto(entry.Old),
+		EditedBy: authenticatorInfoFromProto(entry.EditedBy),
+	}
 }

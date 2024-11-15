@@ -53,21 +53,17 @@ type RobotPart struct {
 	LastAccess       *timestamppb.Timestamp
 	UserSuppliedInfo *map[string]interface{}
 	MainPart         bool
-	Fqdn             string
-	LocalFqdn        string
+	FQDN             string
+	LocalFQDN        string
 	CreatedOn        *timestamppb.Timestamp
 	Secrets          []*SharedSecret
 	LastUpdated      *timestamppb.Timestamp
 }
 
-func robotPartFromProto(robotPart *pb.RobotPart) (*RobotPart, error) {
+func robotPartFromProto(robotPart *pb.RobotPart) *RobotPart {
 	var secrets []*SharedSecret
 	for _, secret := range robotPart.Secrets {
-		s, err := sharedSecretFromProto(secret)
-		if err != nil {
-			return nil, err
-		}
-		secrets = append(secrets, s)
+		secrets = append(secrets, sharedSecretFromProto(secret))
 	}
 	cfg := robotPart.RobotConfig.AsMap()
 	info := robotPart.UserSuppliedInfo.AsMap()
@@ -76,18 +72,18 @@ func robotPartFromProto(robotPart *pb.RobotPart) (*RobotPart, error) {
 		Name:             robotPart.Name,
 		DNSName:          robotPart.DnsName,
 		Secret:           robotPart.Secret,
-		Robot:            robotPart.DnsName,
+		Robot:            robotPart.Robot,
 		LocationID:       robotPart.LocationId,
 		RobotConfig:      &cfg,
 		LastAccess:       robotPart.LastAccess,
 		UserSuppliedInfo: &info,
 		MainPart:         robotPart.MainPart,
-		Fqdn:             robotPart.Fqdn,
-		LocalFqdn:        robotPart.LocalFqdn,
+		FQDN:             robotPart.Fqdn,
+		LocalFQDN:        robotPart.LocalFqdn,
 		CreatedOn:        robotPart.CreatedOn,
 		Secrets:          secrets,
 		LastUpdated:      robotPart.LastUpdated,
-	}, nil
+	}
 }
 
 // RobotPartHistoryEntry is a history entry of a robot part.
@@ -99,20 +95,12 @@ type RobotPartHistoryEntry struct {
 	EditedBy *AuthenticatorInfo
 }
 
-func robotPartHistoryEntryFromProto(entry *pb.RobotPartHistoryEntry) (*RobotPartHistoryEntry, error) {
-	old, err := robotPartFromProto(entry.Old)
-	if err != nil {
-		return nil, err
-	}
-	info, err := authenticatorInfoFromProto(entry.EditedBy)
-	if err != nil {
-		return nil, err
-	}
+func robotPartHistoryEntryFromProto(entry *pb.RobotPartHistoryEntry) *RobotPartHistoryEntry {
 	return &RobotPartHistoryEntry{
 		Part:     entry.Part,
 		Robot:    entry.Robot,
 		When:     entry.When,
-		Old:      old,
-		EditedBy: info,
-	}, nil
+		Old:      robotPartFromProto(entry.Old),
+		EditedBy: authenticatorInfoFromProto(entry.EditedBy),
+	}
 }

@@ -2,13 +2,15 @@ package app
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	pb "go.viam.com/api/app/v1"
+	common "go.viam.com/api/common/v1"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/test"
+	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -27,6 +29,24 @@ const (
 	secretID = "secret_ids"
 	primary = true
 	robotCount = 1
+	robotID = "robot_id"
+	robotLocation = "robot_location"
+	partID = "part_id"
+	dnsName = "dns_name"
+	secret = "secret"
+	mainPart = false
+	fqdn = "fqdn"
+	localFQDN = "local_fqdn"
+	configJSON = "configJson"
+	host = "host"
+	level = "level"
+	loggerName = "logger_name"
+	message = "message"
+	stack = "stack"
+	value = "value"
+	isDeactivated = false
+	keyID = "key_id"
+	key = "key"
 )
 
 var (
@@ -114,24 +134,25 @@ var (
 		State: address.State,
 	}
 	parentLocationID = "parent_location_id"
-	secret = SharedSecret{
+	sharedSecret = SharedSecret{
 		ID: secretID,
 		CreatedOn: &createdOn,
 		State: SharedSecretStateEnabled,
 	}
-	pbSharedSecretState, _ = sharedSecretStateToProto(secret.State)
+	sharedSecrets = []*SharedSecret{&sharedSecret}
 	pbSecret = pb.SharedSecret{
-		Id: secret.ID,
-		CreatedOn: secret.CreatedOn,
-		State: pbSharedSecretState,
+		Id: sharedSecret.ID,
+		CreatedOn: sharedSecret.CreatedOn,
+		State: sharedSecretStateToProto(sharedSecret.State),
 	}
+	pbSecrets = []*pb.SharedSecret{&pbSecret}
 	locationAuth = LocationAuth{
 		LocationID: locationID,
-		Secrets: []*SharedSecret{&secret},
+		Secrets: sharedSecrets,
 	}
 	pbLocationAuth = pb.LocationAuth{
 		LocationId: locationAuth.LocationID,
-		Secrets: []*pb.SharedSecret{&pbSecret},
+		Secrets: pbSecrets,
 	}
 	locationOrg = LocationOrganization{
 		OrganizationID: organizationID,
@@ -167,18 +188,169 @@ var (
 		RobotCount: location.RobotCount,
 		Config: &pbStorageConfig,
 	}
+	lastAccess = timestamppb.Timestamp{Seconds: 0, Nanos: 110}
+	robot = Robot{
+		ID: robotID,
+		Name: name,
+		Location: robotLocation,
+		LastAccess: &lastAccess,
+		CreatedOn: &createdOn,
+	}
+	pbRobot = pb.Robot{
+		Id: robot.ID,
+		Name: robot.Name,
+		Location: robot.Location,
+		LastAccess: robot.LastAccess,
+		CreatedOn: robot.CreatedOn,
+	}
+	roverRentalRobot = RoverRentalRobot{
+		RobotID: robotID,
+		LocationID: locationID,
+		RobotName: name,
+		RobotMainPartID: partID,
+	}
+	lastUpdated = timestamppb.Timestamp{Seconds: 0, Nanos: 130}
+	robotConfig = map[string]interface{}{"name": name, "ID": robotID}
+	pbRobotConfig, _ = protoutils.StructToStructPb(*robotPart.RobotConfig)
+	pbUserSuppliedInfo, _ = protoutils.StructToStructPb(*robotPart.UserSuppliedInfo)
+	userSuppliedInfo = map[string]interface{}{"userID": userID}
+	robotPart = RobotPart{
+		ID: partID,
+		Name: name,
+		DNSName: dnsName,
+		Secret: secret,
+		Robot: robotID,
+		LocationID: locationID,
+		RobotConfig: &robotConfig,
+		LastAccess: &lastAccess,
+		UserSuppliedInfo: &userSuppliedInfo,
+		MainPart: mainPart,
+		FQDN: fqdn,
+		LocalFQDN: localFQDN,
+		CreatedOn: &createdOn,
+		Secrets: sharedSecrets,
+		LastUpdated: &lastUpdated,
+	}
+	pbRobotPart = pb.RobotPart{
+		Id: robotPart.ID,
+		Name: robotPart.Name,
+		DnsName: robotPart.DNSName,
+		Secret: robotPart.Secret,
+		Robot: robotPart.Robot,
+		LocationId: robotPart.LocationID,
+		RobotConfig: pbRobotConfig,
+		LastAccess: robotPart.LastAccess,
+		UserSuppliedInfo: pbUserSuppliedInfo,
+		MainPart: robotPart.MainPart,
+		Fqdn: robotPart.FQDN,
+		LocalFqdn: robotPart.LocalFQDN,
+		CreatedOn: robotPart.CreatedOn,
+		Secrets: pbSecrets,
+		LastUpdated: robotPart.LastUpdated,
+	}
+	pageToken = "page_token"
+	levels = []string{level}
+	start = timestamppb.Timestamp{Seconds: 92, Nanos: 0}
+	end = timestamppb.Timestamp{Seconds: 99, Nanos: 999}
+	limit int64 = 2
+	source = "source"
+	filter = "filter"
+	time = timestamppb.Timestamp{Seconds: 11, Nanos: 15}
+	caller = map[string]interface{}{"name": name}
+	pbCaller, _ = protoutils.StructToStructPb(*logEntry.Caller)
+	field = map[string]interface{}{"key": "value"}
+	pbField, _ = protoutils.StructToStructPb(field)
+	logEntry = LogEntry{
+		Host: host,
+		Level: level,
+		Time: &time,
+		LoggerName: loggerName,
+		Message: message,
+		Caller: &caller,
+		Stack: stack,
+		Fields: []*map[string]interface{}{&field},
+	}
+	pbLogEntry = common.LogEntry{
+		Host: logEntry.Host,
+		Level: logEntry.Level,
+		Time: logEntry.Time,
+		LoggerName: logEntry.LoggerName,
+		Message: logEntry.Message,
+		Caller: pbCaller,
+		Stack: logEntry.Stack,
+		Fields: []*structpb.Struct{pbField},
+	}
+	authenticatorInfo = AuthenticatorInfo{
+		Type: AuthenticationTypeAPIKey,
+		Value: value,
+		IsDeactivated: isDeactivated,
+	}
+	robotPartHistoryEntry = RobotPartHistoryEntry{
+		Part: partID,
+		Robot: robotID,
+		When: &time,
+		Old: &robotPart,
+		EditedBy: &authenticatorInfo,
+	}
+	apiKey = APIKey{
+		ID: keyID,
+		Key: key,
+		Name: name,
+		CreatedOn: &createdOn,
+	}
+	authorizationDetails = AuthorizationDetails{
+		AuthorizationType: authorizationType,
+		AuthorizationID: authorizationID,
+		ResourceType: resourceType,
+		ResourceID: resourceID,
+		OrgID: organizationID,
+	}
+	apiKeyWithAuthorizations = APIKeyWithAuthorizations{
+		APIKey: &apiKey,
+		Authorizations: []*AuthorizationDetails{&authorizationDetails},
+	}
+	pbAPIKeyWithAuthorizations = pb.APIKeyWithAuthorizations{
+		ApiKey: &pb.APIKey{
+			Id: apiKey.ID,
+			Key: apiKey.Key,
+			Name: apiKey.Name,
+			CreatedOn: apiKey.CreatedOn,
+		},
+		Authorizations: []*pb.AuthorizationDetails{
+			&pb.AuthorizationDetails{
+				AuthorizationType: authorizationDetails.AuthorizationType,
+				AuthorizationId: authorizationDetails.AuthorizationID,
+				ResourceType: authorizationDetails.ResourceType,
+				ResourceId: authorizationDetails.ResourceID,
+				OrgId: authorizationDetails.OrgID,
+			},
+		},
+	}
 )
 
-func sharedSecretStateToProto(state SharedSecretState) (pb.SharedSecret_State, error) {
+func sharedSecretStateToProto(state SharedSecretState) pb.SharedSecret_State {
 	switch state {
-	case SharedSecretStateUnspecified:
-		return pb.SharedSecret_STATE_UNSPECIFIED, nil
 	case SharedSecretStateEnabled:
-		return pb.SharedSecret_STATE_ENABLED, nil
+		return pb.SharedSecret_STATE_ENABLED
 	case SharedSecretStateDisabled:
-		return pb.SharedSecret_STATE_DISABLED, nil
+		return pb.SharedSecret_STATE_DISABLED
 	default:
-		return 0, fmt.Errorf("uknown secret state: %v", state)
+		return pb.SharedSecret_STATE_UNSPECIFIED
+	}
+}
+
+func authenticationTypeToProto(authType AuthenticationType) pb.AuthenticationType {
+	switch authType {
+	case AuthenticationTypeWebOAuth:
+		return pb.AuthenticationType_AUTHENTICATION_TYPE_WEB_OAUTH
+	case AuthenticationTypeAPIKey:
+		return pb.AuthenticationType_AUTHENTICATION_TYPE_API_KEY
+	case AuthenticationTypeRobotPartSecret:
+		return pb.AuthenticationType_AUTHENTICATION_TYPE_ROBOT_PART_SECRET
+	case AuthenticationTypeLocationSecret:
+		return pb.AuthenticationType_AUTHENTICATION_TYPE_LOCATION_SECRET
+	default:
+		return pb.AuthenticationType_AUTHENTICATION_TYPE_UNSPECIFIED
 	}
 }
 
@@ -594,5 +766,292 @@ func TestAppClient(t *testing.T) {
 			return &pb.DeleteLocationSecretResponse{}, nil
 		}
 		client.DeleteLocationSecret(context.Background(), locationID, secretID)
+	})
+
+	t.Run("GetRobot", func(t *testing.T) {
+		grpcClient.GetRobotFunc = func(ctx context.Context, in *pb.GetRobotRequest, opts ...grpc.CallOption) (*pb.GetRobotResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, robotID)
+			return &pb.GetRobotResponse{
+				Robot: &pbRobot,
+			}, nil
+		}
+		resp, _ := client.GetRobot(context.Background(), robotID)
+		test.That(t, resp, test.ShouldResemble, &robot)
+	})
+
+	t.Run("GetRoverRentalRobots", func(t *testing.T) {
+		expectedRobots := []RoverRentalRobot{roverRentalRobot}
+		pbRobot := pb.RoverRentalRobot{
+			RobotId: roverRentalRobot.RobotID,
+			LocationId: roverRentalRobot.LocationID,
+			RobotName: roverRentalRobot.RobotName,
+			RobotMainPartId: partID,
+		}
+		grpcClient.GetRoverRentalRobotsFunc = func(ctx context.Context, in *pb.GetRoverRentalRobotsRequest, opts ...grpc.CallOption) (*pb.GetRoverRentalRobotsResponse, error) {
+			test.That(t, in.OrgId, test.ShouldEqual, organizationID)
+			return &pb.GetRoverRentalRobotsResponse{
+				Robots: []*pb.RoverRentalRobot{&pbRobot},
+			}, nil
+		}
+		resp, _ := client.GetRoverRentalRobots(context.Background(), organizationID)
+		test.That(t, len(resp), test.ShouldEqual, len(expectedRobots))
+		test.That(t, resp[0], test.ShouldResemble, &expectedRobots[0])
+	})
+
+	t.Run("GetRobotParts", func(t *testing.T) {
+		expectedRobotParts := []RobotPart{robotPart}
+		grpcClient.GetRobotPartsFunc = func(ctx context.Context, in *pb.GetRobotPartsRequest, opts ...grpc.CallOption) (*pb.GetRobotPartsResponse, error) {
+			test.That(t, in.RobotId, test.ShouldEqual, robotID)
+			return &pb.GetRobotPartsResponse{
+				Parts: []*pb.RobotPart{&pbRobotPart},
+			}, nil
+		}
+		resp, _ := client.GetRobotParts(context.Background(), robotID)
+		test.That(t, len(resp), test.ShouldEqual, len(expectedRobotParts))
+		test.That(t, resp[0].ID, test.ShouldEqual, expectedRobotParts[0].ID)
+		test.That(t, resp[0].Name, test.ShouldEqual, expectedRobotParts[0].Name)
+		test.That(t, resp[0].DNSName, test.ShouldEqual, expectedRobotParts[0].DNSName)
+		test.That(t, resp[0].Secret, test.ShouldEqual, expectedRobotParts[0].Secret)
+		test.That(t, resp[0].Robot, test.ShouldEqual, expectedRobotParts[0].Robot)
+		test.That(t, resp[0].LocationID, test.ShouldEqual, expectedRobotParts[0].LocationID)
+		test.That(t, resp[0].RobotConfig, test.ShouldResemble, expectedRobotParts[0].RobotConfig)
+		test.That(t, resp[0].LastAccess, test.ShouldEqual, expectedRobotParts[0].LastAccess)
+		test.That(t, resp[0].UserSuppliedInfo, test.ShouldResemble, expectedRobotParts[0].UserSuppliedInfo)
+		test.That(t, resp[0].MainPart, test.ShouldEqual, expectedRobotParts[0].MainPart)
+		test.That(t, resp[0].FQDN, test.ShouldEqual, expectedRobotParts[0].FQDN)
+		test.That(t, resp[0].LocalFQDN, test.ShouldEqual, expectedRobotParts[0].LocalFQDN)
+	})
+
+	t.Run("GetRobotPart", func(t *testing.T) {
+		grpcClient.GetRobotPartFunc = func(ctx context.Context, in *pb.GetRobotPartRequest, opts ...grpc.CallOption) (*pb.GetRobotPartResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, partID)
+			return &pb.GetRobotPartResponse{
+				Part: &pbRobotPart,
+				ConfigJson: configJSON,
+			}, nil
+		}
+		part, json, _ := client.GetRobotPart(context.Background(), partID)
+		test.That(t, json, test.ShouldEqual, configJSON)
+		test.That(t, part.Name, test.ShouldEqual, robotPart.Name)
+		test.That(t, part.DNSName, test.ShouldEqual, robotPart.DNSName)
+		test.That(t, part.Secret, test.ShouldEqual, robotPart.Secret)
+		test.That(t, part.Robot, test.ShouldEqual, robotPart.Robot)
+		test.That(t, part.LocationID, test.ShouldEqual, robotPart.LocationID)
+		test.That(t, part.RobotConfig, test.ShouldResemble, robotPart.RobotConfig)
+		test.That(t, part.LastAccess, test.ShouldEqual, robotPart.LastAccess)
+		test.That(t, part.UserSuppliedInfo, test.ShouldResemble, robotPart.UserSuppliedInfo)
+		test.That(t, part.MainPart, test.ShouldEqual, robotPart.MainPart)
+		test.That(t, part.FQDN, test.ShouldEqual, robotPart.FQDN)
+		test.That(t, part.LocalFQDN, test.ShouldEqual, robotPart.LocalFQDN)
+	})
+	
+	t.Run("GetRobotPartLogs", func(t *testing.T) {
+		expectedLogs := []*LogEntry{&logEntry}
+		grpcClient.GetRobotPartLogsFunc = func(ctx context.Context, in *pb.GetRobotPartLogsRequest, opts ...grpc.CallOption) (*pb.GetRobotPartLogsResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, partID)
+			test.That(t, in.Filter, test.ShouldEqual, &filter)
+			test.That(t, in.PageToken, test.ShouldEqual, &pageToken)
+			test.That(t, in.Levels, test.ShouldResemble, levels)
+			test.That(t, in.Start, test.ShouldEqual, &start)
+			test.That(t, in.End, test.ShouldEqual, &end)
+			test.That(t, in.Limit, test.ShouldEqual, &limit)
+			test.That(t, in.Source, test.ShouldEqual, &source)
+			return &pb.GetRobotPartLogsResponse{
+				Logs: []*common.LogEntry{&pbLogEntry},
+				NextPageToken: pageToken,
+			}, nil
+		}
+		logs, token, _ := client.GetRobotPartLogs(context.Background(), partID, &filter, &pageToken, levels, &start, &end, &limit, &source)
+		test.That(t, token, test.ShouldEqual, pageToken)
+		test.That(t, len(logs), test.ShouldEqual, len(expectedLogs))
+		test.That(t, logs[0].Host, test.ShouldEqual, expectedLogs[0].Host)
+		test.That(t, logs[0].Level, test.ShouldEqual, expectedLogs[0].Level)
+		test.That(t, logs[0].Time, test.ShouldEqual, expectedLogs[0].Time)
+		test.That(t, logs[0].LoggerName, test.ShouldEqual, expectedLogs[0].LoggerName)
+		test.That(t, logs[0].Message, test.ShouldEqual, expectedLogs[0].Message)
+		test.That(t, logs[0].Caller, test.ShouldResemble, expectedLogs[0].Caller)
+		test.That(t, logs[0].Stack, test.ShouldEqual, expectedLogs[0].Stack)
+		test.That(t, len(logs[0].Fields), test.ShouldEqual, len(expectedLogs[0].Fields))
+		test.That(t, logs[0].Fields[0], test.ShouldResemble, expectedLogs[0].Fields[0])
+	})
+
+	t.Run("GetRobotPartHistory", func(t *testing.T) {
+		expectedEntries := []*RobotPartHistoryEntry{&robotPartHistoryEntry}
+		pbAuthenticatorInfo := pb.AuthenticatorInfo{
+			Type: authenticationTypeToProto(authenticatorInfo.Type),
+			Value: authenticatorInfo.Value,
+			IsDeactivated: authenticatorInfo.IsDeactivated,
+		}
+		pbRobotPartHistoryEntry := pb.RobotPartHistoryEntry{
+			Part: robotPartHistoryEntry.Part,
+			Robot: robotPartHistoryEntry.Robot,
+			When: robotPartHistoryEntry.When,
+			Old: &pbRobotPart,
+			EditedBy: &pbAuthenticatorInfo,
+		}
+		grpcClient.GetRobotPartHistoryFunc = func(ctx context.Context, in *pb.GetRobotPartHistoryRequest, opts ...grpc.CallOption) (*pb.GetRobotPartHistoryResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, partID)
+			return &pb.GetRobotPartHistoryResponse{
+				History: []*pb.RobotPartHistoryEntry{&pbRobotPartHistoryEntry},
+			}, nil
+		}
+		resp, _ := client.GetRobotPartHistory(context.Background(), partID)
+		test.That(t, resp[0].Part, test.ShouldEqual, expectedEntries[0].Part)
+		test.That(t, resp[0].Robot, test.ShouldEqual, expectedEntries[0].Robot)
+		test.That(t, resp[0].When	, test.ShouldEqual, expectedEntries[0].When)
+		test.That(t, resp[0].Old.Name, test.ShouldEqual, expectedEntries[0].Old.Name)
+		test.That(t, resp[0].Old.DNSName, test.ShouldEqual, expectedEntries[0].Old.DNSName)
+		test.That(t, resp[0].Old.Secret, test.ShouldEqual, expectedEntries[0].Old.Secret)
+		test.That(t, resp[0].Old.Robot, test.ShouldEqual, expectedEntries[0].Old.Robot)
+		test.That(t, resp[0].Old.LocationID, test.ShouldEqual, expectedEntries[0].Old.LocationID)
+		test.That(t, resp[0].Old.RobotConfig, test.ShouldResemble, expectedEntries[0].Old.RobotConfig)
+		test.That(t, resp[0].Old.LastAccess, test.ShouldEqual, expectedEntries[0].Old.LastAccess)
+		test.That(t, resp[0].Old.UserSuppliedInfo, test.ShouldResemble, expectedEntries[0].Old.UserSuppliedInfo)
+		test.That(t, resp[0].Old.MainPart, test.ShouldEqual, expectedEntries[0].Old.MainPart)
+		test.That(t, resp[0].Old.FQDN, test.ShouldEqual, expectedEntries[0].Old.FQDN)
+		test.That(t, resp[0].Old.LocalFQDN, test.ShouldEqual, expectedEntries[0].Old.LocalFQDN)
+		test.That(t, resp[0].Old.Name, test.ShouldEqual, expectedEntries[0].Old.Name)
+		test.That(t, resp[0].Old.Name, test.ShouldEqual, expectedEntries[0].Old.Name)
+		test.That(t, resp[0].Old.Name, test.ShouldEqual, expectedEntries[0].Old.Name)
+		test.That(t, resp[0].EditedBy, test.ShouldResemble, expectedEntries[0].EditedBy)
+	})
+
+	t.Run("UpdateRobotPart", func(t *testing.T) {
+		grpcClient.UpdateRobotPartFunc = func(ctx context.Context, in *pb.UpdateRobotPartRequest, opts ...grpc.CallOption) (*pb.UpdateRobotPartResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, partID)
+			test.That(t, in.Name, test.ShouldEqual, name)
+			test.That(t, in.RobotConfig, test.ShouldResemble, pbRobotConfig)
+			return &pb.UpdateRobotPartResponse{
+				Part: &pbRobotPart,
+			}, nil
+		}
+		part, _ := client.UpdateRobotPart(context.Background(), partID, name, robotConfig)
+		test.That(t, part.Name, test.ShouldEqual, robotPart.Name)
+		test.That(t, part.DNSName, test.ShouldEqual, robotPart.DNSName)
+		test.That(t, part.Secret, test.ShouldEqual, robotPart.Secret)
+		test.That(t, part.Robot, test.ShouldEqual, robotPart.Robot)
+		test.That(t, part.LocationID, test.ShouldEqual, robotPart.LocationID)
+		test.That(t, part.RobotConfig, test.ShouldResemble, robotPart.RobotConfig)
+		test.That(t, part.LastAccess, test.ShouldEqual, robotPart.LastAccess)
+		test.That(t, part.UserSuppliedInfo, test.ShouldResemble, robotPart.UserSuppliedInfo)
+		test.That(t, part.MainPart, test.ShouldEqual, robotPart.MainPart)
+		test.That(t, part.FQDN, test.ShouldEqual, robotPart.FQDN)
+		test.That(t, part.LocalFQDN, test.ShouldEqual, robotPart.LocalFQDN)
+	})
+
+	t.Run("NewRobotPart", func(t *testing.T) {
+		grpcClient.NewRobotPartFunc = func(ctx context.Context, in *pb.NewRobotPartRequest, opts ...grpc.CallOption) (*pb.NewRobotPartResponse, error) {
+			test.That(t, in.RobotId, test.ShouldEqual, robotID)
+			test.That(t, in.PartName, test.ShouldEqual, name)
+			return &pb.NewRobotPartResponse{}, nil
+		}
+		client.NewRobotPart(context.Background(), robotID, name)
+	})
+
+	t.Run("DeleteRobotPart", func(t *testing.T) {
+		grpcClient.DeleteRobotPartFunc = func(ctx context.Context, in *pb.DeleteRobotPartRequest, opts ...grpc.CallOption) (*pb.DeleteRobotPartResponse, error) {
+			test.That(t, in.PartId, test.ShouldEqual, partID)
+			return &pb.DeleteRobotPartResponse{}, nil
+		}
+		client.DeleteRobotPart(context.Background(), partID)
+	})
+
+	t.Run("GetRobotAPIKeys", func(t *testing.T) {
+		expectedAPIKeyWithAuthorizations := []APIKeyWithAuthorizations{apiKeyWithAuthorizations}
+		grpcClient.GetRobotAPIKeysFunc = func(ctx context.Context, in *pb.GetRobotAPIKeysRequest, opts ...grpc.CallOption) (*pb.GetRobotAPIKeysResponse, error) {
+			test.That(t, in.RobotId, test.ShouldEqual, robotID)
+			return &pb.GetRobotAPIKeysResponse{
+				ApiKeys: []*pb.APIKeyWithAuthorizations{&pbAPIKeyWithAuthorizations},
+			}, nil
+		}
+		resp, _ := client.GetRobotAPIKeys(context.Background(), robotID)
+		test.That(t, len(resp), test.ShouldEqual, len(expectedAPIKeyWithAuthorizations))
+		test.That(t, resp[0].APIKey, test.ShouldResemble, expectedAPIKeyWithAuthorizations[0].APIKey)
+		test.That(t, resp[0].Authorizations, test.ShouldResemble, expectedAPIKeyWithAuthorizations[0].Authorizations)
+	})
+
+	t.Run("MarkPartForRestart", func(t *testing.T) {
+		grpcClient.MarkPartForRestartFunc = func(ctx context.Context, in *pb.MarkPartForRestartRequest, opts ...grpc.CallOption) (*pb.MarkPartForRestartResponse, error) {
+			test.That(t, in.PartId, test.ShouldEqual, partID)
+			return &pb.MarkPartForRestartResponse{}, nil
+		}
+		client.MarkPartForRestart(context.Background(), partID)
+	})
+
+	t.Run("CreateRobotPartSecret", func(t *testing.T) {
+		grpcClient.CreateRobotPartSecretFunc = func(ctx context.Context, in *pb.CreateRobotPartSecretRequest, opts ...grpc.CallOption) (*pb.CreateRobotPartSecretResponse, error) {
+			test.That(t, in.PartId, test.ShouldEqual, partID)
+			return &pb.CreateRobotPartSecretResponse{
+				Part: &pbRobotPart,
+			}, nil
+		}
+		part, _ := client.CreateRobotPartSecret(context.Background(), partID)
+		test.That(t, part.Name, test.ShouldEqual, robotPart.Name)
+		test.That(t, part.DNSName, test.ShouldEqual, robotPart.DNSName)
+		test.That(t, part.Secret, test.ShouldEqual, robotPart.Secret)
+		test.That(t, part.Robot, test.ShouldEqual, robotPart.Robot)
+		test.That(t, part.LocationID, test.ShouldEqual, robotPart.LocationID)
+		test.That(t, part.RobotConfig, test.ShouldResemble, robotPart.RobotConfig)
+		test.That(t, part.LastAccess, test.ShouldEqual, robotPart.LastAccess)
+		test.That(t, part.UserSuppliedInfo, test.ShouldResemble, robotPart.UserSuppliedInfo)
+		test.That(t, part.MainPart, test.ShouldEqual, robotPart.MainPart)
+		test.That(t, part.FQDN, test.ShouldEqual, robotPart.FQDN)
+		test.That(t, part.LocalFQDN, test.ShouldEqual, robotPart.LocalFQDN)
+	})
+
+	t.Run("DeleteRobotPartSecret", func(t *testing.T) {
+		grpcClient.DeleteRobotPartSecretFunc = func(ctx context.Context, in *pb.DeleteRobotPartSecretRequest, opts ...grpc.CallOption) (*pb.DeleteRobotPartSecretResponse, error) {
+			test.That(t, in.PartId, test.ShouldEqual, partID)
+			test.That(t, in.SecretId, test.ShouldEqual, secretID)
+			return &pb.DeleteRobotPartSecretResponse{}, nil
+		}
+		client.DeleteRobotPartSecret(context.Background(), partID, secretID)
+	})
+
+	t.Run("ListRobots", func(t *testing.T) {
+		expectedRobots := []*Robot{&robot}
+		grpcClient.ListRobotsFunc = func(ctx context.Context, in *pb.ListRobotsRequest, opts ...grpc.CallOption) (*pb.ListRobotsResponse, error) {
+			test.That(t, in.LocationId, test.ShouldEqual, locationID)
+			return &pb.ListRobotsResponse{
+				Robots: []*pb.Robot{&pbRobot},
+			}, nil
+		}
+		resp, _ := client.ListRobots(context.Background(), locationID)
+		test.That(t, len(resp), test.ShouldEqual, len(expectedRobots))
+		test.That(t, resp[0], test.ShouldResemble, expectedRobots[0])
+	})
+
+	t.Run("NewRobot", func(t *testing.T) {
+		grpcClient.NewRobotFunc = func(ctx context.Context, in *pb.NewRobotRequest, opts ...grpc.CallOption) (*pb.NewRobotResponse, error) {
+			test.That(t, in.Name, test.ShouldEqual, name)
+			test.That(t, in.Location, test.ShouldEqual, locationID)
+			return &pb.NewRobotResponse{
+				Id: robotID,
+			}, nil
+		}
+		resp, _ := client.NewRobot(context.Background(), name, locationID)
+		test.That(t, resp, test.ShouldResemble, robotID)
+	})
+
+
+	t.Run("UpdateRobot", func(t *testing.T) {
+		grpcClient.UpdateRobotFunc = func(ctx context.Context, in *pb.UpdateRobotRequest, opts ...grpc.CallOption) (*pb.UpdateRobotResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, robotID)
+			test.That(t, in.Name, test.ShouldEqual, name)
+			test.That(t, in.Location, test.ShouldEqual, locationID)
+			return &pb.UpdateRobotResponse{
+				Robot: &pbRobot,
+			}, nil
+		}
+		resp, _ := client.UpdateRobot(context.Background(), robotID, name, locationID)
+		test.That(t, resp, test.ShouldResemble, &robot)
+	})
+
+	t.Run("DeleteRobot", func(t *testing.T) {
+		grpcClient.DeleteRobotFunc = func(ctx context.Context, in *pb.DeleteRobotRequest, opts ...grpc.CallOption) (*pb.DeleteRobotResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, robotID)
+			return &pb.DeleteRobotResponse{}, nil
+		}
+		client.DeleteRobot(context.Background(), robotID)
 	})
 }

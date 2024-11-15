@@ -314,11 +314,7 @@ func (c *Client) CreateLocation(ctx context.Context, orgID, name string, parentL
 	if err != nil {
 		return nil, err
 	}
-	location, err := locationFromProto(resp.Location)
-	if err != nil {
-		return nil, err
-	}
-	return location, nil
+	return locationFromProto(resp.Location), nil
 }
 
 // GetLocation gets a location.
@@ -329,11 +325,7 @@ func (c *Client) GetLocation(ctx context.Context, locationID string) (*Location,
 	if err != nil {
 		return nil, err
 	}
-	location, err := locationFromProto(resp.Location)
-	if err != nil {
-		return nil, err
-	}
-	return location, nil
+	return locationFromProto(resp.Location), nil
 }
 
 // UpdateLocation updates a location.
@@ -347,11 +339,7 @@ func (c *Client) UpdateLocation(ctx context.Context, locationID string, name, pa
 	if err != nil {
 		return nil, err
 	}
-	location, err := locationFromProto(resp.Location)
-	if err != nil {
-		return nil, err
-	}
-	return location, nil
+	return locationFromProto(resp.Location), nil
 }
 
 // DeleteLocation deletes a location.
@@ -376,11 +364,7 @@ func (c *Client) ListLocations(ctx context.Context, orgID string) ([]*Location, 
 
 	var locations []*Location
 	for _, location := range resp.Locations {
-		l, err := locationFromProto(location)
-		if err != nil {
-			return nil, err
-		}
-		locations = append(locations, l)
+		locations = append(locations, locationFromProto(location))
 	}
 	return locations, nil
 }
@@ -417,11 +401,7 @@ func (c *Client) LocationAuth(ctx context.Context, locationID string) (*Location
 	if err != nil {
 		return nil, err
 	}
-	auth, err := locationAuthFromProto(resp.Auth)
-	if err != nil {
-		return nil, err
-	}
-	return auth, nil
+	return locationAuthFromProto(resp.Auth), nil
 }
 
 // CreateLocationSecret creates a new generated secret in the location. Succeeds if there are no more than 2 active secrets after creation.
@@ -432,11 +412,7 @@ func (c *Client) CreateLocationSecret(ctx context.Context, locationID string) (*
 	if err != nil {
 		return nil, err
 	}
-	auth, err := locationAuthFromProto(resp.Auth)
-	if err != nil {
-		return nil, err
-	}
-	return auth, nil
+	return locationAuthFromProto(resp.Auth), nil
 }
 
 // DeleteLocationSecret deletes a secret from the location.
@@ -487,11 +463,7 @@ func (c *Client) GetRobotParts(ctx context.Context, robotID string) ([]*RobotPar
 	}
 	var parts []*RobotPart
 	for _, part := range resp.Parts {
-		p, err := robotPartFromProto(part)
-		if err != nil {
-			return nil, err
-		}
-		parts = append(parts, p)
+		parts = append(parts, robotPartFromProto(part))
 	}
 	return parts, nil
 }
@@ -504,11 +476,7 @@ func (c *Client) GetRobotPart(ctx context.Context, id string) (*RobotPart, strin
 	if err != nil {
 		return nil, "", err
 	}
-	part, err := robotPartFromProto(resp.Part)
-	if err != nil {
-		return nil, "", err
-	}
-	return part, resp.ConfigJson, nil
+	return robotPartFromProto(resp.Part), resp.ConfigJson, nil
 }
 
 // GetRobotPartLogs gets the logs associated with a robot part from a page, defaulting to the most recent page if pageToken is empty.
@@ -568,11 +536,7 @@ func (c *Client) GetRobotPartHistory(ctx context.Context, id string) ([]*RobotPa
 	}
 	var history []*RobotPartHistoryEntry
 	for _, entry := range resp.History {
-		e, err := robotPartHistoryEntryFromProto(entry)
-		if err != nil {
-			return nil, err
-		}
-		history = append(history, e)
+		history = append(history, robotPartHistoryEntryFromProto(entry))
 	}
 	return history, nil
 }
@@ -591,11 +555,7 @@ func (c *Client) UpdateRobotPart(ctx context.Context, id, name string, robotConf
 	if err != nil {
 		return nil, err
 	}
-	part, err := robotPartFromProto(resp.Part)
-	if err != nil {
-		return nil, err
-	}
-	return part, nil
+	return robotPartFromProto(resp.Part), nil
 }
 
 // NewRobotPart creates a new robot part.
@@ -669,11 +629,7 @@ func (c *Client) CreateRobotPartSecret(ctx context.Context, partID string) (*Rob
 	if err != nil {
 		return nil, err
 	}
-	part, err := robotPartFromProto(resp.Part)
-	if err != nil {
-		return nil, err
-	}
-	return part, nil
+	return robotPartFromProto(resp.Part), nil
 }
 
 // DeleteRobotPartSecret deletes a secret from the robot part.
@@ -745,11 +701,8 @@ func (c *Client) ListFragments(
 ) ([]*Fragment, error) {
 	var visibilities []pb.FragmentVisibility
 	for _, visibility := range fragmentVisibility {
-		v, err := fragmentVisibilityToProto(visibility)
-		if err != nil {
-			return nil, err
-		}
-		visibilities = append(visibilities, v)
+		pbFragmentVisibility := fragmentVisibilityToProto(visibility)
+		visibilities = append(visibilities, pbFragmentVisibility)
 	}
 	resp, err := c.client.ListFragments(ctx, &pb.ListFragmentsRequest{
 		OrganizationId:     orgID,
@@ -761,11 +714,7 @@ func (c *Client) ListFragments(
 	}
 	var fragments []*Fragment
 	for _, fragment := range resp.Fragments {
-		f, err := fragmentFromProto(fragment)
-		if err != nil {
-			return nil, err
-		}
-		fragments = append(fragments, f)
+		fragments = append(fragments, fragmentFromProto(fragment))
 	}
 	return fragments, nil
 }
@@ -778,11 +727,7 @@ func (c *Client) GetFragment(ctx context.Context, id string) (*Fragment, error) 
 	if err != nil {
 		return nil, err
 	}
-	fragment, err := fragmentFromProto(resp.Fragment)
-	if err != nil {
-		return nil, err
-	}
-	return fragment, nil
+	return fragmentFromProto(resp.Fragment), nil
 }
 
 // CreateFragment creates a fragment.
@@ -793,24 +738,17 @@ func (c *Client) CreateFragment(
 	if err != nil {
 		return nil, err
 	}
-	v, err := fragmentVisibilityToProto(*visibility)
-	if err != nil {
-		return nil, err
-	}
+	pbFragmentVisibility := fragmentVisibilityToProto(*visibility)
 	resp, err := c.client.CreateFragment(ctx, &pb.CreateFragmentRequest{
 		Name:           name,
 		Config:         cfg,
 		OrganizationId: orgID,
-		Visibility:     &v,
+		Visibility:     &pbFragmentVisibility,
 	})
 	if err != nil {
 		return nil, err
 	}
-	fragment, err := fragmentFromProto(resp.Fragment)
-	if err != nil {
-		return nil, err
-	}
-	return fragment, nil
+	return fragmentFromProto(resp.Fragment), nil
 }
 
 // UpdateFragment updates a fragment.
@@ -831,11 +769,7 @@ func (c *Client) UpdateFragment(
 	if err != nil {
 		return nil, err
 	}
-	fragment, err := fragmentFromProto(resp.Fragment)
-	if err != nil {
-		return nil, err
-	}
-	return fragment, nil
+	return fragmentFromProto(resp.Fragment), nil
 }
 
 // DeleteFragment deletes a fragment.
@@ -861,11 +795,7 @@ func (c *Client) ListMachineFragments(ctx context.Context, machineID string, add
 	}
 	var fragments []*Fragment
 	for _, fragment := range resp.Fragments {
-		f, err := fragmentFromProto(fragment)
-		if err != nil {
-			return nil, err
-		}
-		fragments = append(fragments, f)
+		fragments = append(fragments, fragmentFromProto(fragment))
 	}
 	return fragments, nil
 }
@@ -884,11 +814,7 @@ func (c *Client) GetFragmentHistory(
 	}
 	var history []*FragmentHistoryEntry
 	for _, entry := range resp.History {
-		e, err := fragmentHistoryEntryFromProto(entry)
-		if err != nil {
-			return nil, "", err
-		}
-		history = append(history, e)
+		history = append(history, fragmentHistoryEntryFromProto(entry))
 	}
 	return history, resp.NextPageToken, nil
 }

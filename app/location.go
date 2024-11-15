@@ -17,25 +17,21 @@ type Location struct {
 	Config           *StorageConfig
 }
 
-func locationFromProto(location *pb.Location) (*Location, error) {
+func locationFromProto(location *pb.Location) *Location {
 	var organizations []*LocationOrganization
 	for _, organization := range location.Organizations {
 		organizations = append(organizations, locationOrganizationFromProto(organization))
-	}
-	auth, err := locationAuthFromProto(location.Auth)
-	if err != nil {
-		return nil, err
 	}
 	return &Location{
 		ID:               location.Id,
 		Name:             location.Name,
 		ParentLocationID: location.ParentLocationId,
-		Auth:             auth,
+		Auth:             locationAuthFromProto(location.Auth),
 		Organizations:    organizations,
 		CreatedOn:        location.CreatedOn,
 		RobotCount:       location.RobotCount,
 		Config:           storageConfigFromProto(location.Config),
-	}, nil
+	}
 }
 
 // LocationOrganization holds information of an organization the location is shared with.
@@ -66,17 +62,13 @@ type LocationAuth struct {
 	Secrets    []*SharedSecret
 }
 
-func locationAuthFromProto(locationAuth *pb.LocationAuth) (*LocationAuth, error) {
+func locationAuthFromProto(locationAuth *pb.LocationAuth) *LocationAuth {
 	var secrets []*SharedSecret
 	for _, secret := range locationAuth.Secrets {
-		s, err := sharedSecretFromProto(secret)
-		if err != nil {
-			return nil, err
-		}
-		secrets = append(secrets, s)
+		secrets = append(secrets, sharedSecretFromProto(secret))
 	}
 	return &LocationAuth{
 		LocationID: locationAuth.LocationId,
 		Secrets:    secrets,
-	}, nil
+	}
 }
