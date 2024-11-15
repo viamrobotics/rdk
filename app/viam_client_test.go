@@ -99,8 +99,6 @@ func TestCreateViamClientWithAPIKeyTests(t *testing.T) {
 		{"Valid API Key", testAPIKey, testAPIKeyID, false},
 		{"Empty API Key", "", testAPIKeyID, true},
 		{"Empty API Key ID", testAPIKey, "", true},
-		{"Invalid API Key", "fake", testAPIKeyID, true},
-		{"Invalid API Key ID", testAPIKey, "fake", true},
 	}
 	for _, tt := range apiKeyTests {
 		t.Run(tt.name, func(t *testing.T) {

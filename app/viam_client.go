@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"net/url"
-	"regexp"
 	"strings"
 
 	"go.viam.com/utils/rpc"
@@ -55,13 +54,6 @@ func CreateViamClientWithOptions(ctx context.Context, options Options, logger lo
 func CreateViamClientWithAPIKey(
 	ctx context.Context, options Options, apiKey, apiKeyID string, logger logging.Logger,
 ) (*ViamClient, error) {
-	if !validateAPIKeyFormat(apiKey) {
-		return nil, errors.New("API key should be a 32-char all-lowercase alphanumeric string")
-	}
-	if !validateAPIKeyIDFormat(apiKeyID) {
-		return nil, errors.New("API key ID should be an all-lowercase alphanumeric string with this format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx")
-	}
-
 	options.entity = apiKeyID
 	options.credentials = rpc.Credentials{
 		Type:    rpc.CredentialsTypeAPIKey,
@@ -73,14 +65,4 @@ func CreateViamClientWithAPIKey(
 // Close closes the gRPC connection.
 func (c *ViamClient) Close() error {
 	return c.conn.Close()
-}
-
-func validateAPIKeyFormat(apiKey string) bool {
-	regex := regexp.MustCompile("^[a-z0-9]{32}$")
-	return regex.MatchString(apiKey)
-}
-
-func validateAPIKeyIDFormat(apiKeyID string) bool {
-	regex := regexp.MustCompile("^[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}")
-	return regex.MatchString(apiKeyID)
 }
