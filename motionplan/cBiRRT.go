@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/spatialmath"
 )
 
 const (
@@ -95,7 +94,7 @@ func newCBiRRTMotionPlanner(
 }
 
 func (mp *cBiRRTMotionPlanner) plan(ctx context.Context, goal PathStep, seed map[string][]referenceframe.Input) ([]node, error) {
-	mp.planOpts.SetGoal(goal)
+	mp.planOpts.setGoal(goal)
 	solutionChan := make(chan *rrtSolution, 1)
 	utils.PanicCapturingGo(func() {
 		mp.rrtBackgroundRunner(ctx, seed, &rrtParallelPlannerShared{nil, nil, solutionChan})
@@ -220,7 +219,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 			return
 		}
 
-		reachedDelta := mp.planOpts.DistanceFunc(&ik.SegmentFS{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
+		reachedDelta := mp.planOpts.confDistanceFunc(&ik.SegmentFS{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
 
 		// Second iteration; extend maps 1 and 2 towards the halfway point between where they reached
 		if reachedDelta > mp.planOpts.InputIdentDist {
@@ -235,7 +234,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 				rrt.solutionChan <- &rrtSolution{err: err, maps: rrt.maps}
 				return
 			}
-			reachedDelta = mp.planOpts.DistanceFunc(&ik.SegmentFS{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
+			reachedDelta = mp.planOpts.confDistanceFunc(&ik.SegmentFS{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
 		}
 
 		// Solved!
@@ -295,8 +294,8 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 		default:
 		}
 
-		dist := mp.planOpts.DistanceFunc(&ik.SegmentFS{StartConfiguration: near.Q(), EndConfiguration: target.Q()})
-		oldDist := mp.planOpts.DistanceFunc(&ik.SegmentFS{StartConfiguration: oldNear.Q(), EndConfiguration: target.Q()})
+		dist := mp.planOpts.confDistanceFunc(&ik.SegmentFS{StartConfiguration: near.Q(), EndConfiguration: target.Q()})
+		oldDist := mp.planOpts.confDistanceFunc(&ik.SegmentFS{StartConfiguration: oldNear.Q(), EndConfiguration: target.Q()})
 		switch {
 		case dist < mp.planOpts.InputIdentDist:
 			mchan <- near
@@ -313,7 +312,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 		newNear = mp.constrainNear(ctx, randseed, oldNear.Q(), newNear)
 
 		if newNear != nil {
-			nearDist := mp.planOpts.DistanceFunc(&ik.SegmentFS{StartConfiguration: oldNear.Q(), EndConfiguration: newNear})
+			nearDist := mp.planOpts.confDistanceFunc(&ik.SegmentFS{StartConfiguration: oldNear.Q(), EndConfiguration: newNear})
 			if nearDist < math.Pow(mp.planOpts.InputIdentDist, 3) {
 				if !doubled {
 					doubled = true
@@ -374,17 +373,13 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			return target
 		}
 		solutionGen := make(chan *ik.Solution, 1)
+		linearSeed, err := mp.lfs.mapToSlice(target)
+		if err != nil {
+			return nil
+		}
+		
 		// Spawn the IK solver to generate solutions until done
-		err := ik.SolveFSMetric(
-			ctx,
-			mp.fastGradDescent,
-			mp.fss,
-			solutionGen,
-			target,
-			mp.planOpts.pathMetric,
-			randseed.Int(),
-			mp.logger,
-		)
+		err = mp.fastGradDescent.Solve(ctx, solutionGen, linearSeed, mp.linearizeFSmetric(mp.planOpts.pathMetric), randseed.Int())
 		// We should have zero or one solutions
 		var solved *ik.Solution
 		select {
@@ -412,7 +407,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			return solutionMap
 		}
 		if failpos != nil {
-			dist := mp.planOpts.DistanceFunc(&ik.SegmentFS{StartConfiguration: target, EndConfiguration: failpos.EndConfiguration})
+			dist := mp.planOpts.confDistanceFunc(&ik.SegmentFS{StartConfiguration: target, EndConfiguration: failpos.EndConfiguration})
 			if dist > mp.planOpts.InputIdentDist {
 				// If we have a first failing position, and that target is updating (no infinite loop), then recurse
 				seedInputs = failpos.StartConfiguration
@@ -470,7 +465,7 @@ func (mp *cBiRRTMotionPlanner) smoothPath(ctx context.Context, inputSteps []node
 			// Note this could technically replace paths with "longer" paths i.e. with more waypoints.
 			// However, smoothed paths are invariably more intuitive and smooth, and lend themselves to future shortening,
 			// so we allow elongation here.
-			dist := mp.planOpts.DistanceFunc(&ik.SegmentFS{StartConfiguration: inputSteps[i].Q(), EndConfiguration: reached.Q()})
+			dist := mp.planOpts.confDistanceFunc(&ik.SegmentFS{StartConfiguration: inputSteps[i].Q(), EndConfiguration: reached.Q()})
 			if dist < mp.planOpts.InputIdentDist {
 				for _, hitCorner := range hitCorners {
 					hitCorner.SetCorner(false)

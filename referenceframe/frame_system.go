@@ -481,13 +481,13 @@ func StartPositions(fs FrameSystem) map[string][]Input {
 	return positions
 }
 
-// InterpolateFS interpolates 
+// InterpolateFS interpolates
 func InterpolateFS(fs FrameSystem, from, to map[string][]Input, by float64) (map[string][]Input, error) {
-	if len(from) != len(to) {
-		return nil, errors.New("from and to maps must have identical lengths to interpolate FS inputs")
-	}
 	interp := make(map[string][]Input)
 	for fn, fromInputs := range from {
+		if len(fromInputs) == 0 {
+			continue
+		}
 		frame := fs.Frame(fn)
 		if frame == nil {
 			return nil, NewFrameMissingError(fn)

@@ -19,8 +19,8 @@ const (
 	// The maximum percent of a joints range of motion to allow per step.
 	defaultFrameStep = 0.015
 
-	// If the dot product between two sets of joint angles is less than this, consider them identical.
-	defaultJointSolveDist = 0.0001
+	// If the dot product between two sets of configurations is less than this, consider them identical.
+	defaultInputIdentDist = 0.0001
 
 	// Number of iterations to run before beginning to accept randomly seeded locations.
 	defaultIterBeforeRand = 50
@@ -51,7 +51,7 @@ type rrtMaps struct {
 	optNode  node // The highest quality IK solution
 }
 
-func (maps *rrtMaps) fillPosOnlyGoal(goal spatialmath.Pose, posSeeds, dof int) error {
+func (maps *rrtMaps) fillPosOnlyGoal(goal PathStep, posSeeds int) error {
 	thetaStep := 360. / float64(posSeeds)
 	if maps == nil {
 		return errors.New("cannot call method fillPosOnlyGoal on nil maps")
@@ -60,9 +60,17 @@ func (maps *rrtMaps) fillPosOnlyGoal(goal spatialmath.Pose, posSeeds, dof int) e
 		maps.goalMap = map[node]node{}
 	}
 	for i := 0; i < posSeeds; i++ {
+		newMap := PathStep{}
+		for frame, goal := range goal {
+			newMap[frame] = referenceframe.NewPoseInFrame(
+				frame,
+				spatialmath.NewPose(goal.Pose().Point(), &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: float64(i) * thetaStep}),
+			)
+		}
+		
 		goalNode := &basicNode{
-			q:    make(map[string][]referenceframe.Input),
-			pose: spatialmath.NewPose(goal.Point(), &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: float64(i) * thetaStep}),
+			q:     make(map[string][]referenceframe.Input),
+			poses: newMap,
 		}
 		maps.goalMap[goalNode] = nil
 	}
@@ -89,7 +97,7 @@ func initRRTSolutions(ctx context.Context, mp motionPlanner, seed map[string][]r
 	}
 
 	// the smallest interpolated distance between the start and end input represents a lower bound on cost
-	optimalCost := mp.opt().DistanceFunc(&ik.SegmentFS{StartConfiguration: seed, EndConfiguration: solutions[0].Q()})
+	optimalCost := mp.opt().confDistanceFunc(&ik.SegmentFS{StartConfiguration: seed, EndConfiguration: solutions[0].Q()})
 	rrt.maps.optNode = &basicNode{q: solutions[0].Q(), cost: optimalCost}
 
 	// Check for direct interpolation for the subset of IK solutions within some multiple of optimal
@@ -98,7 +106,7 @@ func initRRTSolutions(ctx context.Context, mp motionPlanner, seed map[string][]r
 	// initialize maps and check whether direct interpolation is an option
 	for _, solution := range solutions {
 		if canInterp {
-			cost := mp.opt().DistanceFunc(&ik.SegmentFS{StartConfiguration: seed, EndConfiguration: solution.Q()})
+			cost := mp.opt().confDistanceFunc(&ik.SegmentFS{StartConfiguration: seed, EndConfiguration: solution.Q()})
 			if cost < optimalCost*defaultOptimalityMultiple {
 				if mp.checkPath(seed, solution.Q()) {
 					rrt.steps = []node{seedNode, solution}
@@ -161,7 +169,7 @@ type node interface {
 	Q() map[string][]referenceframe.Input
 	Cost() float64
 	SetCost(float64)
-	//~ Pose() spatialmath.Pose
+	Poses() PathStep
 	Corner() bool
 	SetCorner(bool)
 }
@@ -169,7 +177,7 @@ type node interface {
 type basicNode struct {
 	q      map[string][]referenceframe.Input
 	cost   float64
-	pose   spatialmath.Pose
+	poses   PathStep
 	corner bool
 }
 
@@ -194,8 +202,8 @@ func (n *basicNode) SetCost(cost float64) {
 	n.cost = cost
 }
 
-func (n *basicNode) Pose() spatialmath.Pose {
-	return n.pose
+func (n *basicNode) Poses() PathStep {
+	return n.poses
 }
 
 func (n *basicNode) Corner() bool {
@@ -274,7 +282,7 @@ type rrtPlan struct {
 	nodes []node
 }
 
-func newRRTPlan(solution []node, fss referenceframe.FrameSystem, relative bool) (Plan, error) {
+func newRRTPlan(solution []node, fss referenceframe.FrameSystem, relative bool, offsetPose spatialmath.Pose) (Plan, error) {
 	if len(solution) < 2 {
 		if len(solution) == 1 {
 			// Started at the goal, nothing to do
@@ -283,8 +291,8 @@ func newRRTPlan(solution []node, fss referenceframe.FrameSystem, relative bool) 
 			return nil, errors.New("cannot construct a Plan using fewer than two nodes")
 		}
 	}
-	traj := sf.nodesToTrajectory(solution)
-	path, err := newPath(solution, sf)
+	traj := nodesToTrajectory(solution)
+	path, err := newPath(solution, fss)
 	if err != nil {
 		return nil, err
 	}
@@ -297,7 +305,8 @@ func newRRTPlan(solution []node, fss referenceframe.FrameSystem, relative bool) 
 	var plan Plan
 	plan = &rrtPlan{SimplePlan: *NewSimplePlan(path, traj), nodes: solution}
 	if relative {
-		plan = OffsetPlan(plan, solution[0].Pose())
+		// TODO: This works currently because relative plans can only have one 
+		plan = OffsetPlan(plan, offsetPose)
 	}
 	return plan, nil
 }

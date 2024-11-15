@@ -25,6 +25,9 @@ var (
 	errHighReplanCost = errors.New("unable to create a new plan within replanCostFactor from the original")
 
 	errBadPlanImpl = errors.New("rrtPlan is the only supported implementation of Plan by this function")
+
+	// TODO: This should eventually be possible
+	errMixedFrameTypes = errors.New("unable to plan for PTG and non-PTG frames simultaneously")
 )
 
 func genIKConstraintErr(failures map[string]int, constraintFailCnt int) error {

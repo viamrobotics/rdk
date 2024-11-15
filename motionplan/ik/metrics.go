@@ -70,11 +70,28 @@ func NewZeroMetric() StateMetric {
 	return func(from *State) float64 { return 0 }
 }
 
+// NewZeroMetric always returns zero as the distance between two points.
+func NewZeroFSMetric() StateFSMetric {
+	return func(from *StateFS) float64 { return 0 }
+}
+
 type combinableStateMetric struct {
 	metrics []StateMetric
 }
 
+type combinableStateFSMetric struct {
+	metrics []StateFSMetric
+}
+
 func (m *combinableStateMetric) combinedDist(input *State) float64 {
+	dist := 0.
+	for _, metric := range m.metrics {
+		dist += metric(input)
+	}
+	return dist
+}
+
+func (m *combinableStateFSMetric) combinedDist(input *StateFS) float64 {
 	dist := 0.
 	for _, metric := range m.metrics {
 		dist += metric(input)
@@ -86,6 +103,13 @@ func (m *combinableStateMetric) combinedDist(input *State) float64 {
 // their distances.
 func CombineMetrics(metrics ...StateMetric) StateMetric {
 	cm := &combinableStateMetric{metrics: metrics}
+	return cm.combinedDist
+}
+
+// CombineFSMetrics will take a variable number of StateFSMetrics and return a new StateFSMetric which will combine all given metrics into 
+// one, summing their distances.
+func CombineFSMetrics(metrics ...StateFSMetric) StateFSMetric {
+	cm := &combinableStateFSMetric{metrics: metrics}
 	return cm.combinedDist
 }
 
@@ -140,14 +164,7 @@ func NewScaledSquaredNormMetric(goal spatial.Pose, orientationDistanceScale floa
 // TODO: RSDK-6053 this should probably be done more flexibly.
 func NewPosWeightSquaredNormMetric(goal spatial.Pose) StateMetric {
 	weightedSqNormDist := func(query *State) float64 {
-		// Increase weight for orientation since it's a small number
-		orientDelta := spatial.QuatToR3AA(spatial.OrientationBetween(
-			goal.Orientation(),
-			query.Position.Orientation(),
-		).Quaternion()).Mul(orientationDistanceScaling).Norm2()
-		// Also, we multiply delta.Point() by 0.1, effectively measuring in cm rather than mm.
-		ptDelta := goal.Point().Mul(0.1).Sub(query.Position.Point().Mul(0.1)).Norm2()
-		return ptDelta + orientDelta
+		return WeightedSquaredNormSegmentMetric(&Segment{StartPosition: query.Position, EndPosition: goal})
 	}
 	return weightedSqNormDist
 }
@@ -202,9 +219,43 @@ func NewSquaredNormSegmentMetric(orientationScaleFactor float64) SegmentMetric {
 // SquaredNormNoOrientSegmentMetric is a metric which will return the cartesian distance between the two positions.
 func SquaredNormNoOrientSegmentMetric(segment *Segment) float64 {
 	delta := spatial.PoseDelta(segment.StartPosition, segment.EndPosition)
-	// Increase weight for orientation since it's a small number
 	return delta.Point().Norm2()
+}
+
+func WeightedSquaredNormSegmentMetric(segment *Segment) float64{
+	// Increase weight for orientation since it's a small number
+	orientDelta := spatial.QuatToR3AA(spatial.OrientationBetween(
+		segment.EndPosition.Orientation(),
+		segment.StartPosition.Orientation(),
+	).Quaternion()).Mul(orientationDistanceScaling).Norm2()
+	// Also, we multiply delta.Point() by 0.1, effectively measuring in cm rather than mm.
+	ptDelta := segment.EndPosition.Point().Mul(0.1).Sub(segment.StartPosition.Point().Mul(0.1)).Norm2()
+	return ptDelta + orientDelta
 }
 
 // TODO(RSDK-2557): Writing a PenetrationDepthMetric will allow cbirrt to path along the sides of obstacles rather than terminating
 // the RRT tree when an obstacle is hit
+
+// JointMetric is a metric which will sum the squared differences in each input from start to end.
+func FSConfigurationDistance(segment *SegmentFS) float64 {
+	score := 0.
+	for frame, cfg := range segment.StartConfiguration {
+		if endCfg, ok := segment.EndConfiguration[frame]; ok && len(cfg) == len(endCfg) {
+			for i, val := range cfg {
+				score += math.Abs(val.Value - endCfg[i].Value)
+			}
+		}
+	}
+	return score
+}
+
+// JointMetric is a metric which will sum the squared differences in each input from start to end.
+func FSConfigurationL2Distance(segment *SegmentFS) float64 {
+	score := 0.
+	for frame, cfg := range segment.StartConfiguration {
+		if endCfg, ok := segment.EndConfiguration[frame]; ok && len(cfg) == len(endCfg) {
+			score += referenceframe.InputsL2Distance(cfg, endCfg)
+		}
+	}
+	return score
+}

@@ -4,9 +4,10 @@ package motionplan
 
 import (
 	"fmt"
+	"errors"
 	"math"
 
-	"go.viam.com/rdk/motionplan/tpspace"
+	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -124,15 +125,13 @@ type motionChain struct {
 	// TODO(pl): explore allowing this to be frames other than world
 	worldRooted bool
 	origSeed    map[string][]referenceframe.Input // stores starting locations of all frames in fss that are NOT in `frames`
-
-	ptgs []tpspace.PTGSolver
 }
 
 func motionChainFromGoal(fs referenceframe.FrameSystem, moveFrame string, goal *referenceframe.PoseInFrame) (*motionChain, error) {
 	// get goal frame
 	goalFrame := fs.Frame(goal.Parent())
 	if goalFrame == nil {
-		return nil, frame.NewFrameMissingError(goalFrameName)
+		return nil, referenceframe.NewFrameMissingError(goal.Parent())
 	}
 	goalFrameList, err := fs.TracebackFrame(goalFrame)
 	if err != nil {
@@ -140,9 +139,9 @@ func motionChainFromGoal(fs referenceframe.FrameSystem, moveFrame string, goal *
 	}
 
 	// get solve frame
-	solveFrame := fs.Frame(solveFrameName)
+	solveFrame := fs.Frame(moveFrame)
 	if solveFrame == nil {
-		return nil, frame.NewFrameMissingError(solveFrameName)
+		return nil, referenceframe.NewFrameMissingError(moveFrame)
 	}
 	solveFrameList, err := fs.TracebackFrame(solveFrame)
 	if err != nil {
@@ -151,10 +150,12 @@ func motionChainFromGoal(fs referenceframe.FrameSystem, moveFrame string, goal *
 	if len(solveFrameList) == 0 {
 		return nil, errors.New("solveFrameList was empty")
 	}
+	fmt.Println("moveFrame", moveFrame)
+	fmt.Println("solveFrame", goal.Parent())
 
-	movingFS := func(frameList []frame.Frame) (frame.FrameSystem, error) {
+	movingFS := func(frameList []referenceframe.Frame) (referenceframe.FrameSystem, error) {
 		// Find first moving frame
-		var moveF frame.Frame
+		var moveF referenceframe.Frame
 		for i := len(frameList) - 1; i >= 0; i-- {
 			if len(frameList[i].DoF()) != 0 {
 				moveF = frameList[i]
@@ -162,20 +163,22 @@ func motionChainFromGoal(fs referenceframe.FrameSystem, moveFrame string, goal *
 			}
 		}
 		if moveF == nil {
-			return frame.NewEmptyFrameSystem(""), nil
+			return referenceframe.NewEmptyFrameSystem(""), nil
 		}
 		return fs.FrameSystemSubset(moveF)
 	}
 
 	// find pivot frame between goal and solve frames
-	var moving frame.FrameSystem
-	var frames []frame.Frame
+	var moving referenceframe.FrameSystem
+	var frames []referenceframe.Frame
 	worldRooted := false
 	pivotFrame, err := findPivotFrame(solveFrameList, goalFrameList)
 	if err != nil {
 		return nil, err
 	}
-	if pivotFrame.Name() == frame.World {
+	fmt.Println("pivotFrame.Name()", pivotFrame.Name())
+	if pivotFrame.Name() == referenceframe.World {
+		fmt.Println("WORLD PIVOT")
 		frames = uniqInPlaceSlice(append(solveFrameList, goalFrameList...))
 		moving, err = movingFS(solveFrameList)
 		if err != nil {
@@ -190,8 +193,8 @@ func motionChainFromGoal(fs referenceframe.FrameSystem, moveFrame string, goal *
 		}
 	} else {
 		dof := 0
-		var solveMovingList []frame.Frame
-		var goalMovingList []frame.Frame
+		var solveMovingList []referenceframe.Frame
+		var goalMovingList []referenceframe.Frame
 
 		// Get minimal set of frames from solve frame to goal frame
 		for _, frame := range solveFrameList {
@@ -234,36 +237,61 @@ func motionChainFromGoal(fs referenceframe.FrameSystem, moveFrame string, goal *
 			}
 		}
 	}
-
-	origSeed := map[string][]frame.Input{}
-	// deep copy of seed map
-	for k, v := range seedMap {
-		origSeed[k] = v
-	}
-	for _, frame := range frames {
-		delete(origSeed, frame.Name())
-	}
-
-	var ptgs []tpspace.PTGSolver
-	anyPTG := false // Whether PTG frames have been observed
-	for _, movingFrame := range frames {
-		if ptgFrame, isPTGframe := movingFrame.(tpspace.PTGProvider); isPTGframe {
-			if anyPTG {
-				return nil, errors.New("only one PTG frame can be planned for at a time")
-			}
-			anyPTG = true
-			ptgs = ptgFrame.PTGSolvers()
-		}
-	}
+	fmt.Println("worldRooted", worldRooted)
+	fmt.Println("frames", frames)
 
 	return &motionChain{
-		fss:            fs,
 		movingFS:       moving,
 		frames:         frames,
 		solveFrameName: solveFrame.Name(),
 		goalFrameName:  goalFrame.Name(),
 		worldRooted:    worldRooted,
-		origSeed:       origSeed,
-		ptgs:           ptgs,
 	}, nil
+}
+
+// findPivotFrame finds the first common frame in two ordered lists of frames.
+func findPivotFrame(frameList1, frameList2 []referenceframe.Frame) (referenceframe.Frame, error) {
+	// find shorter list
+	shortList := frameList1
+	longList := frameList2
+	if len(frameList1) > len(frameList2) {
+		shortList = frameList2
+		longList = frameList1
+	}
+
+	// cache names seen in shorter list
+	nameSet := make(map[string]struct{}, len(shortList))
+	for _, frame := range shortList {
+		nameSet[frame.Name()] = struct{}{}
+	}
+
+	// look for already seen names in longer list
+	for _, frame := range longList {
+		if _, ok := nameSet[frame.Name()]; ok {
+			return frame, nil
+		}
+	}
+	return nil, errors.New("no path from solve frame to goal frame")
+}
+
+// uniqInPlaceSlice will deduplicate the values in a slice using in-place replacement on the slice. This is faster than
+// a solution using append().
+// This function does not remove anything from the input slice, but it does rearrange the elements.
+func uniqInPlaceSlice(s []referenceframe.Frame) []referenceframe.Frame {
+	seen := make(map[referenceframe.Frame]struct{}, len(s))
+	j := 0
+	for _, v := range s {
+		if _, ok := seen[v]; ok {
+			continue
+		}
+		seen[v] = struct{}{}
+		s[j] = v
+		j++
+	}
+	return s[:j]
+}
+
+
+func nodeConfigurationDistanceFunc(node1, node2 node) float64 {
+	return ik.FSConfigurationL2Distance(&ik.SegmentFS{StartConfiguration: node1.Q(), EndConfiguration: node2.Q()})
 }

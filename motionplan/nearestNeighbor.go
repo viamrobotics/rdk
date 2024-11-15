@@ -8,8 +8,6 @@ import (
 	"sort"
 
 	"go.viam.com/utils"
-
-	"go.viam.com/rdk/motionplan/ik"
 )
 
 const defaultNeighborsBeforeParallelization = 1000
@@ -35,10 +33,7 @@ func kNearestNeighbors(planOpts *plannerOptions, tree rrtMap, target node, neigh
 
 	allCosts := make([]*neighbor, 0)
 	for rrtnode := range tree {
-		dist := planOpts.DistanceFunc(&ik.SegmentFS{
-			StartConfiguration: target.Q(),
-			EndConfiguration:   rrtnode.Q(),
-		})
+		dist := planOpts.nodeDistanceFunc(target, rrtnode)
 		allCosts = append(allCosts, &neighbor{dist: dist, node: rrtnode})
 	}
 	// sort neighbors by their distance to target first so that first nearest neighbor isn't always the start node of tree
@@ -82,11 +77,7 @@ func (nm *neighborManager) nearestNeighbor(
 	bestDist := math.Inf(1)
 	var best node
 	for k := range tree {
-		seg := &ik.SegmentFS{
-			StartConfiguration: seed.Q(),
-			EndConfiguration:   k.Q(),
-		}
-		dist := planOpts.DistanceFunc(seg)
+		dist := planOpts.nodeDistanceFunc(seed, k)
 		if dist < bestDist {
 			bestDist = dist
 			best = k
@@ -155,11 +146,7 @@ func (nm *neighborManager) nnWorker(ctx context.Context, planOpts *plannerOption
 		default:
 		}
 
-		seg := &ik.SegmentFS{
-			StartConfiguration: nm.seedPos.Q(),
-			EndConfiguration:   candidate.Q(),
-		}
-		dist := planOpts.DistanceFunc(seg)
+		dist := planOpts.nodeDistanceFunc(nm.seedPos, candidate)
 		if dist < bestDist {
 			bestDist = dist
 			best = candidate

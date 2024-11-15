@@ -5,15 +5,14 @@ package motionplan
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"math"
 	"math/rand"
 	"sort"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
-	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
@@ -216,8 +215,8 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 	}
 
 	if replanCostFactor > 0 && currentPlan != nil {
-		initialPlanCost := currentPlan.Trajectory().EvaluateCost(sfPlanner.opt().ScoreFunc)
-		finalPlanCost := newPlan.Trajectory().EvaluateCost(sfPlanner.opt().ScoreFunc)
+		initialPlanCost := currentPlan.Trajectory().EvaluateCost(sfPlanner.opt().scoreFunc)
+		finalPlanCost := newPlan.Trajectory().EvaluateCost(sfPlanner.opt().scoreFunc)
 		request.Logger.CDebugf(ctx,
 			"initialPlanCost %f adjusted with cost factor to %f, replan cost %f",
 			initialPlanCost, initialPlanCost*replanCostFactor, finalPlanCost,
@@ -232,6 +231,7 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 }
 
 type planner struct {
+	motionChains []*motionChain
 	fss      frame.FrameSystem
 	lfs      *linearizedFrameSystem
 	solver   ik.Solver
@@ -390,11 +390,18 @@ func (mp *planner) getSolutions(ctx context.Context, seed map[string][]frame.Inp
 	var activeSolvers sync.WaitGroup
 	defer activeSolvers.Wait()
 	activeSolvers.Add(1)
+	
+	linearSeed, err := mp.lfs.mapToSlice(seed)
+	if err != nil {
+		return nil, err
+	}
+	
+	minFunc := mp.linearizeFSmetric(mp.planOpts.goalMetric)
 	// Spawn the IK solver to generate solutions until done
 	utils.PanicCapturingGo(func() {
 		defer close(ikErr)
 		defer activeSolvers.Done()
-		ikErr <- ik.SolveFSMetric(ctxWithCancel, mp.solver, mp.fss, solutionGen, seed, mp.planOpts.goalMetric, mp.randseed.Int(), mp.logger)
+		ikErr <- mp.solver.Solve(ctxWithCancel, solutionGen, linearSeed, minFunc, mp.randseed.Int())
 	})
 
 	solutions := map[float64]map[string][]frame.Input{}
@@ -433,7 +440,7 @@ IK:
 				arcPass, failName := mp.planOpts.CheckSegmentFSConstraints(stepArc)
 
 				if arcPass {
-					score := mp.planOpts.goalArcScore(stepArc)
+					score := mp.planOpts.confDistanceFunc(stepArc)
 					if score < mp.planOpts.MinScore && mp.planOpts.MinScore > 0 {
 						solutions = map[float64]map[string][]frame.Input{}
 						solutions[score] = step
@@ -500,4 +507,15 @@ IK:
 		orderedSolutions = append(orderedSolutions, &basicNode{q: solutions[key], cost: key})
 	}
 	return orderedSolutions, nil
+}
+
+// linearize the goal metric for use with solvers.
+func (mp *planner) linearizeFSmetric(metric ik.StateFSMetric) func([]float64) float64 {
+	return func(query []float64) float64 {
+		inputs, err := mp.lfs.sliceToMap(query)
+		if err != nil {
+			return math.Inf(1)
+		}
+		return metric(&ik.StateFS{Configuration: inputs, FS: mp.fss})
+	}
 }
