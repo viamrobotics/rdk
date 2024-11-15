@@ -32,6 +32,12 @@ const (
 	retryDelay            = 50 * time.Millisecond
 )
 
+const (
+	optionsCommandResize = iota
+	optionsCommandReset
+	optionsCommandUnknown
+)
+
 type peerState struct {
 	streamState *state.StreamState
 	senders     []*webrtc.RTPSender
@@ -378,20 +384,30 @@ func (server *Server) SetStreamOptions(
 	ctx context.Context,
 	req *streampb.SetStreamOptionsRequest,
 ) (*streampb.SetStreamOptionsResponse, error) {
-	err := validateSetStreamOptionsRequest(req)
+	cmd, err := validateSetStreamOptionsRequest(req)
 	if err != nil {
 		return nil, err
 	}
 	server.mu.Lock()
 	defer server.mu.Unlock()
-	err = server.resizeVideoSource(req.Name, int(req.Resolution.Width), int(req.Resolution.Height))
-	if err != nil {
-		return nil, fmt.Errorf("failed to resize video source for stream %q: %w", req.Name, err)
+	switch cmd {
+	case optionsCommandResize:
+		err = server.resizeVideoSource(req.Name, int(req.Resolution.Width), int(req.Resolution.Height))
+		if err != nil {
+			return nil, fmt.Errorf("failed to resize video source for stream %q: %w", req.Name, err)
+		}
+	case optionsCommandReset:
+		err = server.resetVideoSource(req.Name)
+		if err != nil {
+			return nil, fmt.Errorf("failed to reset video source for stream %q: %w", req.Name, err)
+		}
+	default:
+		return nil, fmt.Errorf("unknown command type %v", cmd)
 	}
 	return &streampb.SetStreamOptionsResponse{}, nil
 }
 
-// ResizeVideoSource resizes the video source with the given name.
+// resizeVideoSource resizes the video source with the given name.
 func (server *Server) resizeVideoSource(name string, width, height int) error {
 	existing, ok := server.videoSources[name]
 	if !ok {
@@ -412,6 +428,30 @@ func (server *Server) resizeVideoSource(name string, width, height int) error {
 	err = streamState.Resize()
 	if err != nil {
 		return fmt.Errorf("failed to resize stream %q: %w", name, err)
+	}
+	return nil
+}
+
+// resetVideoSource resets the video source with the given name to the source resolution.
+func (server *Server) resetVideoSource(name string) error {
+	existing, ok := server.videoSources[name]
+	if !ok {
+		return fmt.Errorf("video source %q not found", name)
+	}
+	cam, err := camera.FromRobot(server.robot, name)
+	if err != nil {
+		server.logger.Errorf("error getting camera %q from robot", name)
+	}
+	streamState, ok := server.nameToStreamState[name]
+	if !ok {
+		return fmt.Errorf("stream state not found with name %q", name)
+	}
+	newSwapper := gostream.NewHotSwappableVideoSource(cam)
+	server.logger.Debug("resetting video source")
+	existing.Swap(newSwapper)
+	err = streamState.Reset()
+	if err != nil {
+		return fmt.Errorf("failed to reset stream %q: %w", name, err)
 	}
 	return nil
 }
@@ -722,18 +762,20 @@ retryLoop:
 	return frame.Bounds().Dx(), frame.Bounds().Dy(), nil
 }
 
-func validateSetStreamOptionsRequest(req *streampb.SetStreamOptionsRequest) error {
+// validateSetStreamOptionsRequest validates the request to set the stream options.
+func validateSetStreamOptionsRequest(req *streampb.SetStreamOptionsRequest) (int, error) {
 	if req.Name == "" {
-		return errors.New("stream name is required in request")
+		return optionsCommandUnknown, errors.New("stream name is required in request")
 	}
 	if req.Resolution == nil {
-		return fmt.Errorf("resolution is required to resize stream %q", req.Name)
+		return optionsCommandReset, nil
 	}
 	if req.Resolution.Width <= 0 || req.Resolution.Height <= 0 {
-		return fmt.Errorf(
-			"invalid resolution to resize stream %q: width (%d) and height (%d) must be greater than 0",
-			req.Name, req.Resolution.Width, req.Resolution.Height,
-		)
+		return optionsCommandUnknown,
+			fmt.Errorf(
+				"invalid resolution to resize stream %q: width (%d) and height (%d) must be greater than 0",
+				req.Name, req.Resolution.Width, req.Resolution.Height,
+			)
 	}
-	return nil
+	return optionsCommandResize, nil
 }

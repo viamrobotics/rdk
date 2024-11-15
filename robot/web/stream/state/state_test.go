@@ -890,5 +890,36 @@ func TestStreamState(t *testing.T) {
 				test.That(tb, stopCount.Load(), test.ShouldEqual, 2)
 			})
 		})
+
+		t.Run("Increment should call Start as gostream is the data source", func(t *testing.T) {
+			test.That(t, s.Increment(), test.ShouldBeNil)
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 1)
+				test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 1)
+				test.That(tb, startCount.Load(), test.ShouldEqual, 3)
+				test.That(tb, stopCount.Load(), test.ShouldEqual, 2)
+			})
+		})
+
+		t.Run("Reset should call Stop as gostream is the current data source and then "+
+			"Subscribe as rtp_passthrough is the new data source", func(t *testing.T) {
+			test.That(t, s.Reset(), test.ShouldBeNil)
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 2)
+				test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 1)
+				test.That(tb, startCount.Load(), test.ShouldEqual, 3)
+				test.That(tb, stopCount.Load(), test.ShouldEqual, 3)
+			})
+		})
+
+		t.Run("Decrement should call unsubscribe as rtp_passthrough is the data source", func(t *testing.T) {
+			test.That(t, s.Decrement(), test.ShouldBeNil)
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 2)
+				test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 2)
+				test.That(tb, startCount.Load(), test.ShouldEqual, 3)
+				test.That(tb, stopCount.Load(), test.ShouldEqual, 3)
+			})
+		})
 	})
 }

@@ -94,12 +94,22 @@ func (state *StreamState) Decrement() error {
 	return state.send(msgTypeDecrement)
 }
 
-// Resize notifies the StreamState that the stream has been resized.
+// Resize notifies that the gostream source has been resized. This will stop and prevent
+// the use of the passthrough stream if it is supported.
 func (state *StreamState) Resize() error {
 	if err := state.closedCtx.Err(); err != nil {
 		return multierr.Combine(ErrClosed, err)
 	}
 	return state.send(msgTypeResize)
+}
+
+// Reset notifies that the gostream source has been reset to the original resolution.
+// This will restart the passthrough stream if it is supported.
+func (state *StreamState) Reset() error {
+	if err := state.closedCtx.Err(); err != nil {
+		return multierr.Combine(ErrClosed, err)
+	}
+	return state.send(msgTypeReset)
 }
 
 // Close closes the StreamState.
@@ -142,6 +152,7 @@ const (
 	msgTypeIncrement
 	msgTypeDecrement
 	msgTypeResize
+	msgTypeReset
 )
 
 func (mt msgType) String() string {
@@ -152,6 +163,8 @@ func (mt msgType) String() string {
 		return "Decrement"
 	case msgTypeResize:
 		return "Resize"
+	case msgTypeReset:
+		return "Reset"
 	case msgTypeUnknown:
 		fallthrough
 	default:
@@ -203,6 +216,10 @@ func (state *StreamState) sourceEventHandler() {
 		case msgTypeResize:
 			state.logger.Debug("resize event received")
 			state.isResized = true
+			state.tick()
+		case msgTypeReset:
+			state.logger.Debug("reset event received")
+			state.isResized = false
 			state.tick()
 		case msgTypeUnknown:
 			fallthrough
