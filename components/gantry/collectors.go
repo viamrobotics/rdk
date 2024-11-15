@@ -3,6 +3,7 @@ package gantry
 import (
 	"context"
 	"errors"
+	"time"
 
 	pb "go.viam.com/api/component/gantry/v1"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -35,19 +36,21 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
+		timeRequested := time.Now()
+		var res data.CaptureResult
 		v, err := gantry.Position(ctx, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
 			if errors.Is(err, data.ErrNoCaptureToStore) {
-				return nil, err
+				return res, err
 			}
-			return nil, data.FailedToReadErr(params.ComponentName, position.String(), err)
+			return res, data.FailedToReadErr(params.ComponentName, position.String(), err)
 		}
-		return pb.GetPositionResponse{
+		return data.NewTabularCaptureResult(timeRequested, pb.GetPositionResponse{
 			PositionsMm: v,
-		}, nil
+		})
 	})
 	return data.NewCollector(cFunc, params)
 }
@@ -60,19 +63,21 @@ func newLengthsCollector(resource interface{}, params data.CollectorParams) (dat
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
+		timeRequested := time.Now()
+		var res data.CaptureResult
 		v, err := gantry.Lengths(ctx, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
 			if errors.Is(err, data.ErrNoCaptureToStore) {
-				return nil, err
+				return res, err
 			}
-			return nil, data.FailedToReadErr(params.ComponentName, lengths.String(), err)
+			return res, data.FailedToReadErr(params.ComponentName, lengths.String(), err)
 		}
-		return pb.GetLengthsResponse{
+		return data.NewTabularCaptureResult(timeRequested, pb.GetLengthsResponse{
 			LengthsMm: v,
-		}, nil
+		})
 	})
 	return data.NewCollector(cFunc, params)
 }
