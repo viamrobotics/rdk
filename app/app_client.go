@@ -753,18 +753,19 @@ func (c *Client) CreateFragment(
 
 // UpdateFragment updates a fragment.
 func (c *Client) UpdateFragment(
-	ctx context.Context, id, name string, config interface{}, public *bool, visibility *pb.FragmentVisibility,
+	ctx context.Context, id, name string, config map[string]interface{}, public *bool, visibility *FragmentVisibility,
 ) (*Fragment, error) {
 	cfg, err := protoutils.StructToStructPb(config)
 	if err != nil {
 		return nil, err
 	}
+	pbVisibility := fragmentVisibilityToProto(*visibility)
 	resp, err := c.client.UpdateFragment(ctx, &pb.UpdateFragmentRequest{
 		Id:         id,
 		Name:       name,
 		Config:     cfg,
 		Public:     public,
-		Visibility: visibility,
+		Visibility: &pbVisibility,
 	})
 	if err != nil {
 		return nil, err

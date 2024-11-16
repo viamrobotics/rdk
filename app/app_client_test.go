@@ -48,6 +48,11 @@ const (
 	isDeactivated     = false
 	keyID             = "key_id"
 	key               = "key"
+	fragmentID        = "fragment_id"
+	organizationOwner = "organization_owner"
+	robotPartCount    = 5
+	onlyUsedByOwner   = false
+	organizationCount = 2
 )
 
 var (
@@ -275,6 +280,11 @@ var (
 		Value:         value,
 		IsDeactivated: isDeactivated,
 	}
+	pbAuthenticatorInfo = pb.AuthenticatorInfo{
+		Type:          authenticationTypeToProto(authenticatorInfo.Type),
+		Value:         authenticatorInfo.Value,
+		IsDeactivated: authenticatorInfo.IsDeactivated,
+	}
 	robotPartHistoryEntry = RobotPartHistoryEntry{
 		Part:     partID,
 		Robot:    robotID,
@@ -314,6 +324,46 @@ var (
 				OrgId:             authorizationDetails.OrgID,
 			},
 		},
+	}
+	public             = true
+	fragmentVisibility = FragmentVisibilityPublic
+	f                  = map[string]interface{}{"name": name, "id": fragmentID}
+	pbF, _             = protoutils.StructToStructPb(f)
+	fragment           = Fragment{
+		ID:                fragmentID,
+		Name:              name,
+		Fragment:          &f,
+		OrganizationOwner: organizationOwner,
+		Public:            public,
+		CreatedOn:         &createdOn,
+		OrganizationName:  name,
+		RobotPartCount:    robotPartCount,
+		OrganizationCount: organizationCount,
+		OnlyUsedByOwner:   onlyUsedByOwner,
+		Visibility:        fragmentVisibility,
+		LastUpdated:       &lastUpdated,
+	}
+	pbFragment = pb.Fragment{
+		Id:                fragment.ID,
+		Name:              fragment.Name,
+		Fragment:          pbF,
+		OrganizationOwner: fragment.OrganizationOwner,
+		Public:            fragment.Public,
+		CreatedOn:         fragment.CreatedOn,
+		OrganizationName:  fragment.OrganizationName,
+		RobotPartCount:    fragment.RobotPartCount,
+		OrganizationCount: fragment.OrganizationCount,
+		OnlyUsedByOwner:   fragment.OnlyUsedByOwner,
+		Visibility:        fragmentVisibilityToProto(fragment.Visibility),
+		LastUpdated:       fragment.LastUpdated,
+	}
+	fragmentConfig       = map[string]interface{}{"organizationCount": 4}
+	editedOn             = timestamppb.Timestamp{Seconds: 8, Nanos: 278}
+	fragmentHistoryEntry = FragmentHistoryEntry{
+		Fragment: fragmentID,
+		EditedOn: &editedOn,
+		Old:      &fragment,
+		EditedBy: &authenticatorInfo,
 	}
 )
 
@@ -921,11 +971,6 @@ func TestAppClient(t *testing.T) {
 
 	t.Run("GetRobotPartHistory", func(t *testing.T) {
 		expectedEntries := []*RobotPartHistoryEntry{&robotPartHistoryEntry}
-		pbAuthenticatorInfo := pb.AuthenticatorInfo{
-			Type:          authenticationTypeToProto(authenticatorInfo.Type),
-			Value:         authenticatorInfo.Value,
-			IsDeactivated: authenticatorInfo.IsDeactivated,
-		}
 		pbRobotPartHistoryEntry := pb.RobotPartHistoryEntry{
 			Part:     robotPartHistoryEntry.Part,
 			Robot:    robotPartHistoryEntry.Robot,
@@ -1087,5 +1132,89 @@ func TestAppClient(t *testing.T) {
 			return &pb.DeleteRobotResponse{}, nil
 		}
 		client.DeleteRobot(context.Background(), robotID)
+	})
+
+	t.Run("GetFragment", func(t *testing.T) {
+		grpcClient.GetFragmentFunc = func(
+			ctx context.Context, in *pb.GetFragmentRequest, opts ...grpc.CallOption,
+		) (*pb.GetFragmentResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, fragmentID)
+			return &pb.GetFragmentResponse{
+				Fragment: &pbFragment,
+			}, nil
+		}
+		resp, _ := client.GetFragment(context.Background(), fragmentID)
+		test.That(t, resp, test.ShouldResemble, &fragment)
+	})
+
+	t.Run("UpdateFragment", func(t *testing.T) {
+		pbFragmentConfig, _ := protoutils.StructToStructPb(fragmentConfig)
+		pbFragmentVisibility := fragmentVisibilityToProto(fragmentVisibility)
+		grpcClient.UpdateFragmentFunc = func(
+			ctx context.Context, in *pb.UpdateFragmentRequest, opts ...grpc.CallOption,
+		) (*pb.UpdateFragmentResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, fragmentID)
+			test.That(t, in.Name, test.ShouldEqual, name)
+			test.That(t, in.Config, test.ShouldResemble, pbFragmentConfig)
+			test.That(t, in.Public, test.ShouldEqual, &public)
+			test.That(t, in.Visibility, test.ShouldResemble, &pbFragmentVisibility)
+			return &pb.UpdateFragmentResponse{
+				Fragment: &pbFragment,
+			}, nil
+		}
+		resp, _ := client.UpdateFragment(context.Background(), fragmentID, name, fragmentConfig, &public, &fragmentVisibility)
+		test.That(t, resp, test.ShouldResemble, &fragment)
+	})
+
+	t.Run("DeleteFragment", func(t *testing.T) {
+		grpcClient.DeleteFragmentFunc = func(
+			ctx context.Context, in *pb.DeleteFragmentRequest, opts ...grpc.CallOption,
+		) (*pb.DeleteFragmentResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, fragmentID)
+			return &pb.DeleteFragmentResponse{}, nil
+		}
+		client.DeleteFragment(context.Background(), fragmentID)
+	})
+
+	t.Run("ListMachineFragments", func(t *testing.T) {
+		expectedFragments := []Fragment{fragment}
+		additionalFragmentIDs := []string{fragmentID}
+		grpcClient.ListMachineFragmentsFunc = func(
+			ctx context.Context, in *pb.ListMachineFragmentsRequest, opts ...grpc.CallOption,
+		) (*pb.ListMachineFragmentsResponse, error) {
+			test.That(t, in.MachineId, test.ShouldEqual, robotID)
+			test.That(t, in.AdditionalFragmentIds, test.ShouldResemble, additionalFragmentIDs)
+			return &pb.ListMachineFragmentsResponse{
+				Fragments: []*pb.Fragment{&pbFragment},
+			}, nil
+		}
+		resp, _ := client.ListMachineFragments(context.Background(), robotID, additionalFragmentIDs)
+		test.That(t, len(resp), test.ShouldEqual, len(expectedFragments))
+		test.That(t, resp[0], test.ShouldResemble, &expectedFragments[0])
+	})
+
+	t.Run("GetFragmentHistory", func(t *testing.T) {
+		expectedHistory := []FragmentHistoryEntry{fragmentHistoryEntry}
+		pbFragmentHistoryEntry := pb.FragmentHistoryEntry{
+			Fragment: fragmentHistoryEntry.Fragment,
+			EditedOn: fragmentHistoryEntry.EditedOn,
+			Old:      &pbFragment,
+			EditedBy: &pbAuthenticatorInfo,
+		}
+		grpcClient.GetFragmentHistoryFunc = func(
+			ctx context.Context, in *pb.GetFragmentHistoryRequest, opts ...grpc.CallOption,
+		) (*pb.GetFragmentHistoryResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, fragmentID)
+			test.That(t, in.PageToken, test.ShouldResemble, &pageToken)
+			test.That(t, in.PageLimit, test.ShouldResemble, &limit)
+			return &pb.GetFragmentHistoryResponse{
+				History:       []*pb.FragmentHistoryEntry{&pbFragmentHistoryEntry},
+				NextPageToken: pageToken,
+			}, nil
+		}
+		resp, token, _ := client.GetFragmentHistory(context.Background(), fragmentID, &pageToken, &limit)
+		test.That(t, token, test.ShouldEqual, pageToken)
+		test.That(t, len(resp), test.ShouldEqual, len(expectedHistory))
+		test.That(t, resp[0], test.ShouldResemble, &expectedHistory[0])
 	})
 }
