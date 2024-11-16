@@ -113,16 +113,18 @@ func sharedSecretFromProto(sharedSecret *pb.SharedSecret) *SharedSecret {
 type SharedSecretState int32
 
 const (
-	// SharedSecretUnspecified represents an unspecified shared secret state.
+	// SharedSecretStateUnspecified represents an unspecified shared secret state.
 	SharedSecretStateUnspecified SharedSecretState = 0
-	// SharedSecretEnabled represents an enabled secret that can be used in authentication.
+	// SharedSecretStateEnabled represents an enabled secret that can be used in authentication.
 	SharedSecretStateEnabled SharedSecretState = 1
-	// SharedSecretDisabled represents a disabled secret that must not be used to authenticate to rpc.
+	// SharedSecretStateDisabled represents a disabled secret that must not be used to authenticate to rpc.
 	SharedSecretStateDisabled SharedSecretState = 2
 )
 
 func sharedSecretStateFromProto(state pb.SharedSecret_State) SharedSecretState {
 	switch state {
+	case pb.SharedSecret_STATE_UNSPECIFIED:
+		return SharedSecretStateUnspecified
 	case pb.SharedSecret_STATE_ENABLED:
 		return SharedSecretStateEnabled
 	case pb.SharedSecret_STATE_DISABLED:
@@ -165,6 +167,8 @@ const (
 
 func authenticationTypeFromProto(authenticationType pb.AuthenticationType) AuthenticationType {
 	switch authenticationType {
+	case pb.AuthenticationType_AUTHENTICATION_TYPE_UNSPECIFIED:
+		return AuthenticationTypeUnspecified
 	case pb.AuthenticationType_AUTHENTICATION_TYPE_WEB_OAUTH:
 		return AuthenticationTypeWebOAuth
 	case pb.AuthenticationType_AUTHENTICATION_TYPE_API_KEY:

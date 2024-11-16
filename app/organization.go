@@ -92,17 +92,17 @@ func organizationInviteFromProto(organizationInvite *pb.OrganizationInvite) *Org
 
 // BillingAddress contains billing address details.
 type BillingAddress struct {
-	AddressLine_1 string 
-	AddressLine_2 *string
-	City          string 
-	State         string 
+	AddressLine1 string
+	AddressLine2 *string
+	City         string
+	State        string
 }
 
 func billingAddressToProto(addr *BillingAddress) *pb.BillingAddress {
 	return &pb.BillingAddress{
-		AddressLine_1: addr.AddressLine_1,
-		AddressLine_2: addr.AddressLine_2,
-		City: addr.City,
-		State: addr.State,
+		AddressLine_1: addr.AddressLine1,
+		AddressLine_2: addr.AddressLine2,
+		City:          addr.City,
+		State:         addr.State,
 	}
 }

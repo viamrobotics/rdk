@@ -21,7 +21,7 @@ type Fragment struct {
 	LastUpdated       *timestamppb.Timestamp
 }
 
-func fragmentFromProto(fragment *pb.Fragment) (*Fragment) {
+func fragmentFromProto(fragment *pb.Fragment) *Fragment {
 	f := fragment.Fragment.AsMap()
 	return &Fragment{
 		ID:                fragment.Id,
@@ -55,6 +55,8 @@ const (
 
 func fragmentVisibilityFromProto(visibility pb.FragmentVisibility) FragmentVisibility {
 	switch visibility {
+	case pb.FragmentVisibility_FRAGMENT_VISIBILITY_UNSPECIFIED:
+		return FragmentVisibilityUnspecified
 	case pb.FragmentVisibility_FRAGMENT_VISIBILITY_PRIVATE:
 		return FragmentVisibilityPrivate
 	case pb.FragmentVisibility_FRAGMENT_VISIBILITY_PUBLIC:
@@ -66,8 +68,10 @@ func fragmentVisibilityFromProto(visibility pb.FragmentVisibility) FragmentVisib
 	}
 }
 
-func fragmentVisibilityToProto(visibility FragmentVisibility) (pb.FragmentVisibility) {
+func fragmentVisibilityToProto(visibility FragmentVisibility) pb.FragmentVisibility {
 	switch visibility {
+	case FragmentVisibilityUnspecified:
+		return pb.FragmentVisibility_FRAGMENT_VISIBILITY_UNSPECIFIED
 	case FragmentVisibilityPrivate:
 		return pb.FragmentVisibility_FRAGMENT_VISIBILITY_PRIVATE
 	case FragmentVisibilityPublic:
@@ -87,7 +91,7 @@ type FragmentHistoryEntry struct {
 	EditedBy *AuthenticatorInfo
 }
 
-func fragmentHistoryEntryFromProto(entry *pb.FragmentHistoryEntry) (*FragmentHistoryEntry) {
+func fragmentHistoryEntryFromProto(entry *pb.FragmentHistoryEntry) *FragmentHistoryEntry {
 	return &FragmentHistoryEntry{
 		Fragment: entry.Fragment,
 		EditedOn: entry.EditedOn,

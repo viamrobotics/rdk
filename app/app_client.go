@@ -248,7 +248,7 @@ func (c *Client) ResendOrganizationInvite(ctx context.Context, orgID, email stri
 // EnableBillingService enables a billing service to an address in an organization.
 func (c *Client) EnableBillingService(ctx context.Context, orgID string, billingAddress *BillingAddress) error {
 	_, err := c.client.EnableBillingService(ctx, &pb.EnableBillingServiceRequest{
-		OrgId: orgID,
+		OrgId:          orgID,
 		BillingAddress: billingAddressToProto(billingAddress),
 	})
 	if err != nil {
@@ -271,8 +271,8 @@ func (c *Client) DisableBillingService(ctx context.Context, orgID string) error 
 // UpdateBillingService updates the billing service of an organization.
 func (c *Client) UpdateBillingService(ctx context.Context, orgID string, billingAddress *BillingAddress, billingSupportEmail string) error {
 	_, err := c.client.UpdateBillingService(ctx, &pb.UpdateBillingServiceRequest{
-		OrgId: orgID,
-		BillingAddress: billingAddressToProto(billingAddress),
+		OrgId:               orgID,
+		BillingAddress:      billingAddressToProto(billingAddress),
 		BillingSupportEmail: billingSupportEmail,
 	})
 	if err != nil {
@@ -302,7 +302,7 @@ func (c *Client) OrganizationGetSupportEmail(ctx context.Context, orgID string) 
 		return "", err
 	}
 	return resp.Email, nil
-}	
+}
 
 // CreateLocation creates a location.
 func (c *Client) CreateLocation(ctx context.Context, orgID, name string, parentLocationID *string) (*Location, error) {

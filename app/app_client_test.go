@@ -6,62 +6,63 @@ import (
 
 	pb "go.viam.com/api/app/v1"
 	common "go.viam.com/api/common/v1"
-	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"go.viam.com/rdk/testutils/inject"
 )
 
 const (
-	organizationID = "organization_id"
-	email = "email"
-	userID = "user_id"
-	locationID = "location_id"
-	available = true
+	organizationID    = "organization_id"
+	email             = "email"
+	userID            = "user_id"
+	locationID        = "location_id"
+	available         = true
 	authorizationType = "authorization_type"
-	authorizationID = "authorization_id"
-	resourceType = "resource_type"
-	resourceID = "resource_id"
-	identityID = "identity_id"
-	identityType = "identity_type"
-	secretID = "secret_ids"
-	primary = true
-	robotCount = 1
-	robotID = "robot_id"
-	robotLocation = "robot_location"
-	partID = "part_id"
-	dnsName = "dns_name"
-	secret = "secret"
-	mainPart = false
-	fqdn = "fqdn"
-	localFQDN = "local_fqdn"
-	configJSON = "configJson"
-	host = "host"
-	level = "level"
-	loggerName = "logger_name"
-	message = "message"
-	stack = "stack"
-	value = "value"
-	isDeactivated = false
-	keyID = "key_id"
-	key = "key"
+	authorizationID   = "authorization_id"
+	resourceType      = "resource_type"
+	resourceID        = "resource_id"
+	identityID        = "identity_id"
+	identityType      = "identity_type"
+	secretID          = "secret_ids"
+	primary           = true
+	robotCount        = 1
+	robotID           = "robot_id"
+	robotLocation     = "robot_location"
+	partID            = "part_id"
+	dnsName           = "dns_name"
+	secret            = "secret"
+	mainPart          = false
+	fqdn              = "fqdn"
+	localFQDN         = "local_fqdn"
+	configJSON        = "configJson"
+	host              = "host"
+	level             = "level"
+	loggerName        = "logger_name"
+	message           = "message"
+	stack             = "stack"
+	value             = "value"
+	isDeactivated     = false
+	keyID             = "key_id"
+	key               = "key"
 )
 
 var (
-	name = "name"
-	region = "region"
-	namespace = "public_namespace"
-	cid = "cid"
-	dateAdded = timestamppb.Timestamp{Seconds: 0, Nanos: 50}
+	name         = "name"
+	region       = "region"
+	namespace    = "public_namespace"
+	cid          = "cid"
+	dateAdded    = timestamppb.Timestamp{Seconds: 0, Nanos: 50}
 	organization = Organization{
-		ID: organizationID,
-		Name: name,
-		CreatedOn: &dateAdded,
+		ID:              organizationID,
+		Name:            name,
+		CreatedOn:       &dateAdded,
 		PublicNamespace: namespace,
-		DefaultRegion: region,
-		Cid: &cid,
+		DefaultRegion:   region,
+		Cid:             &cid,
 	}
 	pbOrganization = pb.Organization{
 		Id:              organization.ID,
@@ -72,95 +73,95 @@ var (
 		Cid:             organization.Cid,
 	}
 	organizationIdentity = OrganizationIdentity{
-		ID: organizationID,
+		ID:   organizationID,
 		Name: name,
 	}
 	orgDetails = OrgDetails{
-		OrgID: organizationID,
+		OrgID:   organizationID,
 		OrgName: name,
 	}
-	lastLogin = timestamppb.Timestamp{Seconds: 0, Nanos: 100}
-	createdOn = timestamppb.Timestamp{Seconds: 0, Nanos: 0}
+	lastLogin     = timestamppb.Timestamp{Seconds: 0, Nanos: 100}
+	createdOn     = timestamppb.Timestamp{Seconds: 0, Nanos: 0}
 	authorization = Authorization{
 		AuthorizationType: authorizationType,
-		AuthorizationID: authorizationID,
-		ResourceType: resourceType,
-		ResourceID: resourceID,
-		IdentityID: identityID,
-		OrganizationID: organizationID,
-		IdentityType: identityType,
+		AuthorizationID:   authorizationID,
+		ResourceType:      resourceType,
+		ResourceID:        resourceID,
+		IdentityID:        identityID,
+		OrganizationID:    organizationID,
+		IdentityType:      identityType,
 	}
 	pbAuthorization = pb.Authorization{
 		AuthorizationType: authorization.AuthorizationType,
-		AuthorizationId: authorization.AuthorizationID,
-		ResourceType: authorization.ResourceType,
-		ResourceId: authorization.ResourceID,
-		IdentityId: authorization.IdentityID,
-		OrganizationId: authorization.OrganizationID,
-		IdentityType: authorization.IdentityType,
+		AuthorizationId:   authorization.AuthorizationID,
+		ResourceType:      authorization.ResourceType,
+		ResourceId:        authorization.ResourceID,
+		IdentityId:        authorization.IdentityID,
+		OrganizationId:    authorization.OrganizationID,
+		IdentityType:      authorization.IdentityType,
 	}
-	authorizations = []*Authorization{&authorization}
+	authorizations   = []*Authorization{&authorization}
 	pbAuthorizations = []*pb.Authorization{&pbAuthorization}
-	member = OrganizationMember{
-		UserID: userID,
-		Emails: []string{email},
+	member           = OrganizationMember{
+		UserID:    userID,
+		Emails:    []string{email},
 		DateAdded: &dateAdded,
 		LastLogin: &lastLogin,
 	}
 	invite = OrganizationInvite{
 		OrganizationID: organizationID,
-		Email: email,
-		CreatedOn: &createdOn,
+		Email:          email,
+		CreatedOn:      &createdOn,
 		Authorizations: authorizations,
 	}
 	pbInvite = pb.OrganizationInvite{
 		OrganizationId: invite.OrganizationID,
-		Email: invite.Email,
-		CreatedOn: invite.CreatedOn,
+		Email:          invite.Email,
+		CreatedOn:      invite.CreatedOn,
 		Authorizations: pbAuthorizations,
 	}
 	sendEmailInvite = true
-	addressLine2 = "address_line_2"
-	address = BillingAddress{
-		AddressLine_1: "address_line_1",
-		AddressLine_2: &addressLine2,
-		City: "city",
-		State: "state",
+	addressLine2    = "address_line_2"
+	address         = BillingAddress{
+		AddressLine1: "address_line_1",
+		AddressLine2: &addressLine2,
+		City:         "city",
+		State:        "state",
 	}
 	pbAddress = pb.BillingAddress{
-		AddressLine_1: address.AddressLine_1,
-		AddressLine_2: address.AddressLine_2,
-		City: address.City,
-		State: address.State,
+		AddressLine_1: address.AddressLine1,
+		AddressLine_2: address.AddressLine2,
+		City:          address.City,
+		State:         address.State,
 	}
 	parentLocationID = "parent_location_id"
-	sharedSecret = SharedSecret{
-		ID: secretID,
+	sharedSecret     = SharedSecret{
+		ID:        secretID,
 		CreatedOn: &createdOn,
-		State: SharedSecretStateEnabled,
+		State:     SharedSecretStateEnabled,
 	}
 	sharedSecrets = []*SharedSecret{&sharedSecret}
-	pbSecret = pb.SharedSecret{
-		Id: sharedSecret.ID,
+	pbSecret      = pb.SharedSecret{
+		Id:        sharedSecret.ID,
 		CreatedOn: sharedSecret.CreatedOn,
-		State: sharedSecretStateToProto(sharedSecret.State),
+		State:     sharedSecretStateToProto(sharedSecret.State),
 	}
-	pbSecrets = []*pb.SharedSecret{&pbSecret}
+	pbSecrets    = []*pb.SharedSecret{&pbSecret}
 	locationAuth = LocationAuth{
 		LocationID: locationID,
-		Secrets: sharedSecrets,
+		Secrets:    sharedSecrets,
 	}
 	pbLocationAuth = pb.LocationAuth{
 		LocationId: locationAuth.LocationID,
-		Secrets: pbSecrets,
+		Secrets:    pbSecrets,
 	}
 	locationOrg = LocationOrganization{
 		OrganizationID: organizationID,
-		Primary: primary,
+		Primary:        primary,
 	}
 	pbLocationOrg = pb.LocationOrganization{
 		OrganizationId: locationOrg.OrganizationID,
-		Primary: locationOrg.Primary,
+		Primary:        locationOrg.Primary,
 	}
 	storageConfig = StorageConfig{
 		Region: region,
@@ -169,160 +170,160 @@ var (
 		Region: storageConfig.Region,
 	}
 	location = Location{
-		ID: locationID,
-		Name: name,
+		ID:               locationID,
+		Name:             name,
 		ParentLocationID: parentLocationID,
-		Auth: &locationAuth,
-		Organizations: []*LocationOrganization{&locationOrg},
-		CreatedOn: &createdOn,
-		RobotCount: robotCount,
-		Config: &storageConfig,
+		Auth:             &locationAuth,
+		Organizations:    []*LocationOrganization{&locationOrg},
+		CreatedOn:        &createdOn,
+		RobotCount:       robotCount,
+		Config:           &storageConfig,
 	}
 	pbLocation = pb.Location{
-		Id: location.ID,
-		Name: location.Name,
+		Id:               location.ID,
+		Name:             location.Name,
 		ParentLocationId: location.ParentLocationID,
-		Auth: &pbLocationAuth,
-		Organizations: []*pb.LocationOrganization{&pbLocationOrg},
-		CreatedOn: location.CreatedOn,
-		RobotCount: location.RobotCount,
-		Config: &pbStorageConfig,
+		Auth:             &pbLocationAuth,
+		Organizations:    []*pb.LocationOrganization{&pbLocationOrg},
+		CreatedOn:        location.CreatedOn,
+		RobotCount:       location.RobotCount,
+		Config:           &pbStorageConfig,
 	}
 	lastAccess = timestamppb.Timestamp{Seconds: 0, Nanos: 110}
-	robot = Robot{
-		ID: robotID,
-		Name: name,
-		Location: robotLocation,
+	robot      = Robot{
+		ID:         robotID,
+		Name:       name,
+		Location:   robotLocation,
 		LastAccess: &lastAccess,
-		CreatedOn: &createdOn,
+		CreatedOn:  &createdOn,
 	}
 	pbRobot = pb.Robot{
-		Id: robot.ID,
-		Name: robot.Name,
-		Location: robot.Location,
+		Id:         robot.ID,
+		Name:       robot.Name,
+		Location:   robot.Location,
 		LastAccess: robot.LastAccess,
-		CreatedOn: robot.CreatedOn,
+		CreatedOn:  robot.CreatedOn,
 	}
 	roverRentalRobot = RoverRentalRobot{
-		RobotID: robotID,
-		LocationID: locationID,
-		RobotName: name,
+		RobotID:         robotID,
+		LocationID:      locationID,
+		RobotName:       name,
 		RobotMainPartID: partID,
 	}
-	lastUpdated = timestamppb.Timestamp{Seconds: 0, Nanos: 130}
-	robotConfig = map[string]interface{}{"name": name, "ID": robotID}
-	pbRobotConfig, _ = protoutils.StructToStructPb(*robotPart.RobotConfig)
+	lastUpdated           = timestamppb.Timestamp{Seconds: 0, Nanos: 130}
+	robotConfig           = map[string]interface{}{"name": name, "ID": robotID}
+	pbRobotConfig, _      = protoutils.StructToStructPb(*robotPart.RobotConfig)
 	pbUserSuppliedInfo, _ = protoutils.StructToStructPb(*robotPart.UserSuppliedInfo)
-	userSuppliedInfo = map[string]interface{}{"userID": userID}
-	robotPart = RobotPart{
-		ID: partID,
-		Name: name,
-		DNSName: dnsName,
-		Secret: secret,
-		Robot: robotID,
-		LocationID: locationID,
-		RobotConfig: &robotConfig,
-		LastAccess: &lastAccess,
+	userSuppliedInfo      = map[string]interface{}{"userID": userID}
+	robotPart             = RobotPart{
+		ID:               partID,
+		Name:             name,
+		DNSName:          dnsName,
+		Secret:           secret,
+		Robot:            robotID,
+		LocationID:       locationID,
+		RobotConfig:      &robotConfig,
+		LastAccess:       &lastAccess,
 		UserSuppliedInfo: &userSuppliedInfo,
-		MainPart: mainPart,
-		FQDN: fqdn,
-		LocalFQDN: localFQDN,
-		CreatedOn: &createdOn,
-		Secrets: sharedSecrets,
-		LastUpdated: &lastUpdated,
+		MainPart:         mainPart,
+		FQDN:             fqdn,
+		LocalFQDN:        localFQDN,
+		CreatedOn:        &createdOn,
+		Secrets:          sharedSecrets,
+		LastUpdated:      &lastUpdated,
 	}
 	pbRobotPart = pb.RobotPart{
-		Id: robotPart.ID,
-		Name: robotPart.Name,
-		DnsName: robotPart.DNSName,
-		Secret: robotPart.Secret,
-		Robot: robotPart.Robot,
-		LocationId: robotPart.LocationID,
-		RobotConfig: pbRobotConfig,
-		LastAccess: robotPart.LastAccess,
+		Id:               robotPart.ID,
+		Name:             robotPart.Name,
+		DnsName:          robotPart.DNSName,
+		Secret:           robotPart.Secret,
+		Robot:            robotPart.Robot,
+		LocationId:       robotPart.LocationID,
+		RobotConfig:      pbRobotConfig,
+		LastAccess:       robotPart.LastAccess,
 		UserSuppliedInfo: pbUserSuppliedInfo,
-		MainPart: robotPart.MainPart,
-		Fqdn: robotPart.FQDN,
-		LocalFqdn: robotPart.LocalFQDN,
-		CreatedOn: robotPart.CreatedOn,
-		Secrets: pbSecrets,
-		LastUpdated: robotPart.LastUpdated,
+		MainPart:         robotPart.MainPart,
+		Fqdn:             robotPart.FQDN,
+		LocalFqdn:        robotPart.LocalFQDN,
+		CreatedOn:        robotPart.CreatedOn,
+		Secrets:          pbSecrets,
+		LastUpdated:      robotPart.LastUpdated,
 	}
-	pageToken = "page_token"
-	levels = []string{level}
-	start = timestamppb.Timestamp{Seconds: 92, Nanos: 0}
-	end = timestamppb.Timestamp{Seconds: 99, Nanos: 999}
-	limit int64 = 2
-	source = "source"
-	filter = "filter"
-	time = timestamppb.Timestamp{Seconds: 11, Nanos: 15}
-	caller = map[string]interface{}{"name": name}
-	pbCaller, _ = protoutils.StructToStructPb(*logEntry.Caller)
-	field = map[string]interface{}{"key": "value"}
-	pbField, _ = protoutils.StructToStructPb(field)
-	logEntry = LogEntry{
-		Host: host,
-		Level: level,
-		Time: &time,
+	pageToken         = "page_token"
+	levels            = []string{level}
+	start             = timestamppb.Timestamp{Seconds: 92, Nanos: 0}
+	end               = timestamppb.Timestamp{Seconds: 99, Nanos: 999}
+	limit       int64 = 2
+	source            = "source"
+	filter            = "filter"
+	time              = timestamppb.Timestamp{Seconds: 11, Nanos: 15}
+	caller            = map[string]interface{}{"name": name}
+	pbCaller, _       = protoutils.StructToStructPb(*logEntry.Caller)
+	field             = map[string]interface{}{"key": "value"}
+	pbField, _        = protoutils.StructToStructPb(field)
+	logEntry          = LogEntry{
+		Host:       host,
+		Level:      level,
+		Time:       &time,
 		LoggerName: loggerName,
-		Message: message,
-		Caller: &caller,
-		Stack: stack,
-		Fields: []*map[string]interface{}{&field},
+		Message:    message,
+		Caller:     &caller,
+		Stack:      stack,
+		Fields:     []*map[string]interface{}{&field},
 	}
 	pbLogEntry = common.LogEntry{
-		Host: logEntry.Host,
-		Level: logEntry.Level,
-		Time: logEntry.Time,
+		Host:       logEntry.Host,
+		Level:      logEntry.Level,
+		Time:       logEntry.Time,
 		LoggerName: logEntry.LoggerName,
-		Message: logEntry.Message,
-		Caller: pbCaller,
-		Stack: logEntry.Stack,
-		Fields: []*structpb.Struct{pbField},
+		Message:    logEntry.Message,
+		Caller:     pbCaller,
+		Stack:      logEntry.Stack,
+		Fields:     []*structpb.Struct{pbField},
 	}
 	authenticatorInfo = AuthenticatorInfo{
-		Type: AuthenticationTypeAPIKey,
-		Value: value,
+		Type:          AuthenticationTypeAPIKey,
+		Value:         value,
 		IsDeactivated: isDeactivated,
 	}
 	robotPartHistoryEntry = RobotPartHistoryEntry{
-		Part: partID,
-		Robot: robotID,
-		When: &time,
-		Old: &robotPart,
+		Part:     partID,
+		Robot:    robotID,
+		When:     &time,
+		Old:      &robotPart,
 		EditedBy: &authenticatorInfo,
 	}
 	apiKey = APIKey{
-		ID: keyID,
-		Key: key,
-		Name: name,
+		ID:        keyID,
+		Key:       key,
+		Name:      name,
 		CreatedOn: &createdOn,
 	}
 	authorizationDetails = AuthorizationDetails{
 		AuthorizationType: authorizationType,
-		AuthorizationID: authorizationID,
-		ResourceType: resourceType,
-		ResourceID: resourceID,
-		OrgID: organizationID,
+		AuthorizationID:   authorizationID,
+		ResourceType:      resourceType,
+		ResourceID:        resourceID,
+		OrgID:             organizationID,
 	}
 	apiKeyWithAuthorizations = APIKeyWithAuthorizations{
-		APIKey: &apiKey,
+		APIKey:         &apiKey,
 		Authorizations: []*AuthorizationDetails{&authorizationDetails},
 	}
 	pbAPIKeyWithAuthorizations = pb.APIKeyWithAuthorizations{
 		ApiKey: &pb.APIKey{
-			Id: apiKey.ID,
-			Key: apiKey.Key,
-			Name: apiKey.Name,
+			Id:        apiKey.ID,
+			Key:       apiKey.Key,
+			Name:      apiKey.Name,
 			CreatedOn: apiKey.CreatedOn,
 		},
 		Authorizations: []*pb.AuthorizationDetails{
-			&pb.AuthorizationDetails{
+			{
 				AuthorizationType: authorizationDetails.AuthorizationType,
-				AuthorizationId: authorizationDetails.AuthorizationID,
-				ResourceType: authorizationDetails.ResourceType,
-				ResourceId: authorizationDetails.ResourceID,
-				OrgId: authorizationDetails.OrgID,
+				AuthorizationId:   authorizationDetails.AuthorizationID,
+				ResourceType:      authorizationDetails.ResourceType,
+				ResourceId:        authorizationDetails.ResourceID,
+				OrgId:             authorizationDetails.OrgID,
 			},
 		},
 	}
@@ -354,6 +355,14 @@ func authenticationTypeToProto(authType AuthenticationType) pb.AuthenticationTyp
 	}
 }
 
+func testOrganizationResponse(t *testing.T, actualOrg, expectedOrg *Organization) {
+	test.That(t, actualOrg.ID, test.ShouldEqual, expectedOrg.ID)
+	test.That(t, actualOrg.Name, test.ShouldEqual, expectedOrg.Name)
+	test.That(t, actualOrg.PublicNamespace, test.ShouldEqual, expectedOrg.PublicNamespace)
+	test.That(t, actualOrg.DefaultRegion, test.ShouldEqual, expectedOrg.DefaultRegion)
+	test.That(t, actualOrg.Cid, test.ShouldEqual, expectedOrg.Cid)
+}
+
 func createGrpcClient() *inject.AppServiceClient {
 	return &inject.AppServiceClient{}
 }
@@ -363,7 +372,9 @@ func TestAppClient(t *testing.T) {
 	client := Client{client: grpcClient}
 
 	t.Run("GetUserIDByEmail", func(t *testing.T) {
-		grpcClient.GetUserIDByEmailFunc = func(ctx context.Context, in *pb.GetUserIDByEmailRequest, opts ...grpc.CallOption) (*pb.GetUserIDByEmailResponse, error) {
+		grpcClient.GetUserIDByEmailFunc = func(
+			ctx context.Context, in *pb.GetUserIDByEmailRequest, opts ...grpc.CallOption,
+		) (*pb.GetUserIDByEmailResponse, error) {
 			test.That(t, in.Email, test.ShouldEqual, email)
 			return &pb.GetUserIDByEmailResponse{
 				UserId: userID,
@@ -374,42 +385,40 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("CreateOrganization", func(t *testing.T) {
-		grpcClient.CreateOrganizationFunc = func(ctx context.Context, in *pb.CreateOrganizationRequest, opts ...grpc.CallOption) (*pb.CreateOrganizationResponse, error) {
+		grpcClient.CreateOrganizationFunc = func(
+			ctx context.Context, in *pb.CreateOrganizationRequest, opts ...grpc.CallOption,
+		) (*pb.CreateOrganizationResponse, error) {
 			test.That(t, in.Name, test.ShouldEqual, name)
 			return &pb.CreateOrganizationResponse{
 				Organization: &pbOrganization,
 			}, nil
 		}
 		resp, _ := client.CreateOrganization(context.Background(), name)
-		test.That(t, resp.ID, test.ShouldEqual, organization.ID)
-		test.That(t, resp.Name, test.ShouldEqual, organization.Name)
-		test.That(t, resp.PublicNamespace, test.ShouldEqual, organization.PublicNamespace)
-		test.That(t, resp.DefaultRegion, test.ShouldEqual, organization.DefaultRegion)
-		test.That(t, resp.Cid, test.ShouldEqual, organization.Cid)
+		testOrganizationResponse(t, resp, &organization)
 	})
 
 	t.Run("ListOrganizations", func(t *testing.T) {
-		organizations := []Organization{organization}
-		grpcClient.ListOrganizationsFunc = func(ctx context.Context, in *pb.ListOrganizationsRequest, opts ...grpc.CallOption) (*pb.ListOrganizationsResponse, error) {
+		expectedOrganizations := []Organization{organization}
+		grpcClient.ListOrganizationsFunc = func(
+			ctx context.Context, in *pb.ListOrganizationsRequest, opts ...grpc.CallOption,
+		) (*pb.ListOrganizationsResponse, error) {
 			return &pb.ListOrganizationsResponse{
 				Organizations: []*pb.Organization{&pbOrganization},
 			}, nil
 		}
 		resp, _ := client.ListOrganizations(context.Background())
-		test.That(t, len(resp), test.ShouldEqual, 1)
-		test.That(t, resp[0].ID, test.ShouldEqual, organizations[0].ID)
-		test.That(t, resp[0].Name, test.ShouldEqual, organizations[0].Name)
-		test.That(t, resp[0].PublicNamespace, test.ShouldEqual, organizations[0].PublicNamespace)
-		test.That(t, resp[0].DefaultRegion, test.ShouldEqual, organizations[0].DefaultRegion)
-		test.That(t, resp[0].Cid, test.ShouldEqual, organizations[0].Cid)
+		test.That(t, len(resp), test.ShouldEqual, len(expectedOrganizations))
+		testOrganizationResponse(t, resp[0], &expectedOrganizations[0])
 	})
 
 	t.Run("GetOrganizationsWithAccessToLocation", func(t *testing.T) {
 		pbOrganizationIdentity := pb.OrganizationIdentity{
-			Id: organizationIdentity.ID,
+			Id:   organizationIdentity.ID,
 			Name: organizationIdentity.Name,
 		}
-		grpcClient.GetOrganizationsWithAccessToLocationFunc = func(ctx context.Context, in *pb.GetOrganizationsWithAccessToLocationRequest, opts ...grpc.CallOption) (*pb.GetOrganizationsWithAccessToLocationResponse, error) {
+		grpcClient.GetOrganizationsWithAccessToLocationFunc = func(
+			ctx context.Context, in *pb.GetOrganizationsWithAccessToLocationRequest, opts ...grpc.CallOption,
+		) (*pb.GetOrganizationsWithAccessToLocationResponse, error) {
 			test.That(t, in.LocationId, test.ShouldEqual, locationID)
 			return &pb.GetOrganizationsWithAccessToLocationResponse{
 				OrganizationIdentities: []*pb.OrganizationIdentity{&pbOrganizationIdentity},
@@ -424,10 +433,12 @@ func TestAppClient(t *testing.T) {
 	t.Run("ListOrganizationsByUser", func(t *testing.T) {
 		orgDetailsList := []OrgDetails{orgDetails}
 		pbOrgDetails := pb.OrgDetails{
-			OrgId: orgDetails.OrgID,
+			OrgId:   orgDetails.OrgID,
 			OrgName: orgDetails.OrgName,
 		}
-		grpcClient.ListOrganizationsByUserFunc = func(ctx context.Context, in *pb.ListOrganizationsByUserRequest, opts ...grpc.CallOption) (*pb.ListOrganizationsByUserResponse, error) {
+		grpcClient.ListOrganizationsByUserFunc = func(
+			ctx context.Context, in *pb.ListOrganizationsByUserRequest, opts ...grpc.CallOption,
+		) (*pb.ListOrganizationsByUserResponse, error) {
 			test.That(t, in.UserId, test.ShouldEqual, userID)
 			return &pb.ListOrganizationsByUserResponse{
 				Orgs: []*pb.OrgDetails{&pbOrgDetails},
@@ -440,22 +451,22 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("GetOrganization", func(t *testing.T) {
-		grpcClient.GetOrganizationFunc = func(ctx context.Context, in *pb.GetOrganizationRequest, opts ...grpc.CallOption) (*pb.GetOrganizationResponse, error) {
+		grpcClient.GetOrganizationFunc = func(
+			ctx context.Context, in *pb.GetOrganizationRequest, opts ...grpc.CallOption,
+		) (*pb.GetOrganizationResponse, error) {
 			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
 			return &pb.GetOrganizationResponse{
 				Organization: &pbOrganization,
 			}, nil
 		}
 		resp, _ := client.GetOrganization(context.Background(), organizationID)
-		test.That(t, resp.ID, test.ShouldEqual, organization.ID)
-		test.That(t, resp.Name, test.ShouldEqual, organization.Name)
-		test.That(t, resp.PublicNamespace, test.ShouldEqual, organization.PublicNamespace)
-		test.That(t, resp.DefaultRegion, test.ShouldEqual, organization.DefaultRegion)
-		test.That(t, resp.Cid, test.ShouldEqual, organization.Cid)
+		testOrganizationResponse(t, resp, &organization)
 	})
 
 	t.Run("GetOrganizationNamespaceAvailability", func(t *testing.T) {
-		grpcClient.GetOrganizationNamespaceAvailabilityFunc = func(ctx context.Context, in *pb.GetOrganizationNamespaceAvailabilityRequest, opts ...grpc.CallOption) (*pb.GetOrganizationNamespaceAvailabilityResponse, error) {
+		grpcClient.GetOrganizationNamespaceAvailabilityFunc = func(
+			ctx context.Context, in *pb.GetOrganizationNamespaceAvailabilityRequest, opts ...grpc.CallOption,
+		) (*pb.GetOrganizationNamespaceAvailabilityResponse, error) {
 			test.That(t, in.PublicNamespace, test.ShouldEqual, namespace)
 			return &pb.GetOrganizationNamespaceAvailabilityResponse{
 				Available: available,
@@ -466,22 +477,22 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("UpdateOrganization", func(t *testing.T) {
-		grpcClient.UpdateOrganizationFunc = func(ctx context.Context, in *pb.UpdateOrganizationRequest, opts ...grpc.CallOption) (*pb.UpdateOrganizationResponse, error) {
+		grpcClient.UpdateOrganizationFunc = func(
+			ctx context.Context, in *pb.UpdateOrganizationRequest, opts ...grpc.CallOption,
+		) (*pb.UpdateOrganizationResponse, error) {
 			test.That(t, in.PublicNamespace, test.ShouldEqual, &namespace)
 			return &pb.UpdateOrganizationResponse{
 				Organization: &pbOrganization,
 			}, nil
 		}
 		resp, _ := client.UpdateOrganization(context.Background(), organizationID, &name, &namespace, &region, &cid)
-		test.That(t, resp.ID, test.ShouldEqual, organization.ID)
-		test.That(t, resp.Name, test.ShouldEqual, organization.Name)
-		test.That(t, resp.PublicNamespace, test.ShouldEqual, organization.PublicNamespace)
-		test.That(t, resp.DefaultRegion, test.ShouldEqual, organization.DefaultRegion)
-		test.That(t, resp.Cid, test.ShouldEqual, organization.Cid)
+		testOrganizationResponse(t, resp, &organization)
 	})
 
 	t.Run("DeleteOrganization", func(t *testing.T) {
-		grpcClient.DeleteOrganizationFunc = func(ctx context.Context, in *pb.DeleteOrganizationRequest, opts ...grpc.CallOption) (*pb.DeleteOrganizationResponse, error) {
+		grpcClient.DeleteOrganizationFunc = func(
+			ctx context.Context, in *pb.DeleteOrganizationRequest, opts ...grpc.CallOption,
+		) (*pb.DeleteOrganizationResponse, error) {
 			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
 			return &pb.DeleteOrganizationResponse{}, nil
 		}
@@ -491,13 +502,15 @@ func TestAppClient(t *testing.T) {
 	t.Run("ListOrganizationMembers", func(t *testing.T) {
 		expectedMembers := []OrganizationMember{member}
 		pbMember := pb.OrganizationMember{
-			UserId: member.UserID,
-			Emails: member.Emails,
+			UserId:    member.UserID,
+			Emails:    member.Emails,
 			DateAdded: member.DateAdded,
 			LastLogin: member.LastLogin,
 		}
 		expectedInvites := []OrganizationInvite{invite}
-		grpcClient.ListOrganizationMembersFunc = func(ctx context.Context, in *pb.ListOrganizationMembersRequest, opts ...grpc.CallOption) (*pb.ListOrganizationMembersResponse, error) {
+		grpcClient.ListOrganizationMembersFunc = func(
+			ctx context.Context, in *pb.ListOrganizationMembersRequest, opts ...grpc.CallOption,
+		) (*pb.ListOrganizationMembersResponse, error) {
 			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
 			return &pb.ListOrganizationMembersResponse{
 				Members: []*pb.OrganizationMember{&pbMember},
@@ -519,7 +532,9 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("CreateOrganizationInvite", func(t *testing.T) {
-		grpcClient.CreateOrganizationInviteFunc = func(ctx context.Context, in *pb.CreateOrganizationInviteRequest, opts ...grpc.CallOption) (*pb.CreateOrganizationInviteResponse, error) {
+		grpcClient.CreateOrganizationInviteFunc = func(
+			ctx context.Context, in *pb.CreateOrganizationInviteRequest, opts ...grpc.CallOption,
+		) (*pb.CreateOrganizationInviteResponse, error) {
 			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
 			test.That(t, in.Email, test.ShouldEqual, email)
 			test.That(t, in.Authorizations, test.ShouldResemble, pbAuthorizations)
@@ -537,7 +552,9 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("UpdateOrganizationInviteAuthorizations", func(t *testing.T) {
-		grpcClient.UpdateOrganizationInviteAuthorizationsFunc = func(ctx context.Context, in *pb.UpdateOrganizationInviteAuthorizationsRequest, opts ...grpc.CallOption) (*pb.UpdateOrganizationInviteAuthorizationsResponse, error) {
+		grpcClient.UpdateOrganizationInviteAuthorizationsFunc = func(
+			ctx context.Context, in *pb.UpdateOrganizationInviteAuthorizationsRequest, opts ...grpc.CallOption,
+		) (*pb.UpdateOrganizationInviteAuthorizationsResponse, error) {
 			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
 			return &pb.UpdateOrganizationInviteAuthorizationsResponse{
 				Invite: &pbInvite,
@@ -552,7 +569,9 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("DeleteOrganizationMember", func(t *testing.T) {
-		grpcClient.DeleteOrganizationMemberFunc = func(ctx context.Context, in *pb.DeleteOrganizationMemberRequest, opts ...grpc.CallOption) (*pb.DeleteOrganizationMemberResponse, error) {
+		grpcClient.DeleteOrganizationMemberFunc = func(
+			ctx context.Context, in *pb.DeleteOrganizationMemberRequest, opts ...grpc.CallOption,
+		) (*pb.DeleteOrganizationMemberResponse, error) {
 			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
 			test.That(t, in.UserId, test.ShouldEqual, userID)
 			return &pb.DeleteOrganizationMemberResponse{}, nil
@@ -561,7 +580,9 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("DeleteOrganizationInvite", func(t *testing.T) {
-		grpcClient.DeleteOrganizationInviteFunc = func(ctx context.Context, in *pb.DeleteOrganizationInviteRequest, opts ...grpc.CallOption) (*pb.DeleteOrganizationInviteResponse, error) {
+		grpcClient.DeleteOrganizationInviteFunc = func(
+			ctx context.Context, in *pb.DeleteOrganizationInviteRequest, opts ...grpc.CallOption,
+		) (*pb.DeleteOrganizationInviteResponse, error) {
 			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
 			test.That(t, in.Email, test.ShouldEqual, email)
 			return &pb.DeleteOrganizationInviteResponse{}, nil
@@ -570,7 +591,9 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("ResendOrganizationInvite", func(t *testing.T) {
-		grpcClient.ResendOrganizationInviteFunc = func(ctx context.Context, in *pb.ResendOrganizationInviteRequest, opts ...grpc.CallOption) (*pb.ResendOrganizationInviteResponse, error) {
+		grpcClient.ResendOrganizationInviteFunc = func(
+			ctx context.Context, in *pb.ResendOrganizationInviteRequest, opts ...grpc.CallOption,
+		) (*pb.ResendOrganizationInviteResponse, error) {
 			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
 			test.That(t, in.Email, test.ShouldEqual, email)
 			return &pb.ResendOrganizationInviteResponse{
@@ -586,7 +609,9 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("EnableBillingService", func(t *testing.T) {
-		grpcClient.EnableBillingServiceFunc = func(ctx context.Context, in *pb.EnableBillingServiceRequest, opts ...grpc.CallOption) (*pb.EnableBillingServiceResponse, error) {
+		grpcClient.EnableBillingServiceFunc = func(
+			ctx context.Context, in *pb.EnableBillingServiceRequest, opts ...grpc.CallOption,
+		) (*pb.EnableBillingServiceResponse, error) {
 			test.That(t, in.OrgId, test.ShouldEqual, organizationID)
 			test.That(t, in.BillingAddress, test.ShouldResemble, &pbAddress)
 			return &pb.EnableBillingServiceResponse{}, nil
@@ -595,7 +620,9 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("DisableBillingService", func(t *testing.T) {
-		grpcClient.DisableBillingServiceFunc = func(ctx context.Context, in *pb.DisableBillingServiceRequest, opts ...grpc.CallOption) (*pb.DisableBillingServiceResponse, error) {
+		grpcClient.DisableBillingServiceFunc = func(
+			ctx context.Context, in *pb.DisableBillingServiceRequest, opts ...grpc.CallOption,
+		) (*pb.DisableBillingServiceResponse, error) {
 			test.That(t, in.OrgId, test.ShouldEqual, organizationID)
 			return &pb.DisableBillingServiceResponse{}, nil
 		}
@@ -603,7 +630,9 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("UpdateBillingService", func(t *testing.T) {
-		grpcClient.UpdateBillingServiceFunc = func(ctx context.Context, in *pb.UpdateBillingServiceRequest, opts ...grpc.CallOption) (*pb.UpdateBillingServiceResponse, error) {
+		grpcClient.UpdateBillingServiceFunc = func(
+			ctx context.Context, in *pb.UpdateBillingServiceRequest, opts ...grpc.CallOption,
+		) (*pb.UpdateBillingServiceResponse, error) {
 			test.That(t, in.OrgId, test.ShouldEqual, organizationID)
 			test.That(t, in.BillingAddress, test.ShouldResemble, &pbAddress)
 			test.That(t, in.BillingSupportEmail, test.ShouldResemble, email)
@@ -613,7 +642,9 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("OrganizationSetSupportEmail", func(t *testing.T) {
-		grpcClient.OrganizationSetSupportEmailFunc = func(ctx context.Context, in *pb.OrganizationSetSupportEmailRequest, opts ...grpc.CallOption) (*pb.OrganizationSetSupportEmailResponse, error) {
+		grpcClient.OrganizationSetSupportEmailFunc = func(
+			ctx context.Context, in *pb.OrganizationSetSupportEmailRequest, opts ...grpc.CallOption,
+		) (*pb.OrganizationSetSupportEmailResponse, error) {
 			test.That(t, in.OrgId, test.ShouldEqual, organizationID)
 			test.That(t, in.Email, test.ShouldResemble, email)
 			return &pb.OrganizationSetSupportEmailResponse{}, nil
@@ -622,7 +653,9 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("OrganizationGetSupportEmail", func(t *testing.T) {
-		grpcClient.OrganizationGetSupportEmailFunc = func(ctx context.Context, in *pb.OrganizationGetSupportEmailRequest, opts ...grpc.CallOption) (*pb.OrganizationGetSupportEmailResponse, error) {
+		grpcClient.OrganizationGetSupportEmailFunc = func(
+			ctx context.Context, in *pb.OrganizationGetSupportEmailRequest, opts ...grpc.CallOption,
+		) (*pb.OrganizationGetSupportEmailResponse, error) {
 			test.That(t, in.OrgId, test.ShouldEqual, organizationID)
 			return &pb.OrganizationGetSupportEmailResponse{
 				Email: email,
@@ -633,7 +666,9 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("CreateLocation", func(t *testing.T) {
-		grpcClient.CreateLocationFunc = func(ctx context.Context, in *pb.CreateLocationRequest, opts ...grpc.CallOption) (*pb.CreateLocationResponse, error) {
+		grpcClient.CreateLocationFunc = func(
+			ctx context.Context, in *pb.CreateLocationRequest, opts ...grpc.CallOption,
+		) (*pb.CreateLocationResponse, error) {
 			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
 			test.That(t, in.Name, test.ShouldEqual, name)
 			test.That(t, in.ParentLocationId, test.ShouldEqual, &parentLocationID)
@@ -653,7 +688,9 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("GetLocation", func(t *testing.T) {
-		grpcClient.GetLocationFunc = func(ctx context.Context, in *pb.GetLocationRequest, opts ...grpc.CallOption) (*pb.GetLocationResponse, error) {
+		grpcClient.GetLocationFunc = func(
+			ctx context.Context, in *pb.GetLocationRequest, opts ...grpc.CallOption,
+		) (*pb.GetLocationResponse, error) {
 			test.That(t, in.LocationId, test.ShouldEqual, locationID)
 			return &pb.GetLocationResponse{
 				Location: &pbLocation,
@@ -671,7 +708,9 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("UpdateLocation", func(t *testing.T) {
-		grpcClient.UpdateLocationFunc = func(ctx context.Context, in *pb.UpdateLocationRequest, opts ...grpc.CallOption) (*pb.UpdateLocationResponse, error) {
+		grpcClient.UpdateLocationFunc = func(
+			ctx context.Context, in *pb.UpdateLocationRequest, opts ...grpc.CallOption,
+		) (*pb.UpdateLocationResponse, error) {
 			test.That(t, in.LocationId, test.ShouldEqual, locationID)
 			test.That(t, in.Name, test.ShouldEqual, &name)
 			test.That(t, in.ParentLocationId, test.ShouldEqual, &parentLocationID)
@@ -692,7 +731,9 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("DeleteLocation", func(t *testing.T) {
-		grpcClient.DeleteLocationFunc = func(ctx context.Context, in *pb.DeleteLocationRequest, opts ...grpc.CallOption) (*pb.DeleteLocationResponse, error) {
+		grpcClient.DeleteLocationFunc = func(
+			ctx context.Context, in *pb.DeleteLocationRequest, opts ...grpc.CallOption,
+		) (*pb.DeleteLocationResponse, error) {
 			test.That(t, in.LocationId, test.ShouldEqual, locationID)
 			return &pb.DeleteLocationResponse{}, nil
 		}
@@ -701,7 +742,9 @@ func TestAppClient(t *testing.T) {
 
 	t.Run("ListLocations", func(t *testing.T) {
 		expectedLocations := []Location{location}
-		grpcClient.ListLocationsFunc = func(ctx context.Context, in *pb.ListLocationsRequest, opts ...grpc.CallOption) (*pb.ListLocationsResponse, error) {
+		grpcClient.ListLocationsFunc = func(
+			ctx context.Context, in *pb.ListLocationsRequest, opts ...grpc.CallOption,
+		) (*pb.ListLocationsResponse, error) {
 			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
 			return &pb.ListLocationsResponse{
 				Locations: []*pb.Location{&pbLocation},
@@ -720,7 +763,9 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("ShareLocation", func(t *testing.T) {
-		grpcClient.ShareLocationFunc = func(ctx context.Context, in *pb.ShareLocationRequest, opts ...grpc.CallOption) (*pb.ShareLocationResponse, error) {
+		grpcClient.ShareLocationFunc = func(
+			ctx context.Context, in *pb.ShareLocationRequest, opts ...grpc.CallOption,
+		) (*pb.ShareLocationResponse, error) {
 			test.That(t, in.LocationId, test.ShouldEqual, locationID)
 			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
 			return &pb.ShareLocationResponse{}, nil
@@ -729,7 +774,9 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("UnshareLocation", func(t *testing.T) {
-		grpcClient.UnshareLocationFunc = func(ctx context.Context, in *pb.UnshareLocationRequest, opts ...grpc.CallOption) (*pb.UnshareLocationResponse, error) {
+		grpcClient.UnshareLocationFunc = func(
+			ctx context.Context, in *pb.UnshareLocationRequest, opts ...grpc.CallOption,
+		) (*pb.UnshareLocationResponse, error) {
 			test.That(t, in.LocationId, test.ShouldEqual, locationID)
 			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
 			return &pb.UnshareLocationResponse{}, nil
@@ -738,7 +785,9 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("LocationAuth", func(t *testing.T) {
-		grpcClient.LocationAuthFunc = func(ctx context.Context, in *pb.LocationAuthRequest, opts ...grpc.CallOption) (*pb.LocationAuthResponse, error) {
+		grpcClient.LocationAuthFunc = func(
+			ctx context.Context, in *pb.LocationAuthRequest, opts ...grpc.CallOption,
+		) (*pb.LocationAuthResponse, error) {
 			test.That(t, in.LocationId, test.ShouldEqual, locationID)
 			return &pb.LocationAuthResponse{
 				Auth: &pbLocationAuth,
@@ -749,7 +798,9 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("CreateLocationSecret", func(t *testing.T) {
-		grpcClient.CreateLocationSecretFunc = func(ctx context.Context, in *pb.CreateLocationSecretRequest, opts ...grpc.CallOption) (*pb.CreateLocationSecretResponse, error) {
+		grpcClient.CreateLocationSecretFunc = func(
+			ctx context.Context, in *pb.CreateLocationSecretRequest, opts ...grpc.CallOption,
+		) (*pb.CreateLocationSecretResponse, error) {
 			test.That(t, in.LocationId, test.ShouldEqual, locationID)
 			return &pb.CreateLocationSecretResponse{
 				Auth: &pbLocationAuth,
@@ -760,7 +811,9 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("DeleteLocationSecret", func(t *testing.T) {
-		grpcClient.DeleteLocationSecretFunc = func(ctx context.Context, in *pb.DeleteLocationSecretRequest, opts ...grpc.CallOption) (*pb.DeleteLocationSecretResponse, error) {
+		grpcClient.DeleteLocationSecretFunc = func(
+			ctx context.Context, in *pb.DeleteLocationSecretRequest, opts ...grpc.CallOption,
+		) (*pb.DeleteLocationSecretResponse, error) {
 			test.That(t, in.LocationId, test.ShouldEqual, locationID)
 			test.That(t, in.SecretId, test.ShouldEqual, secretID)
 			return &pb.DeleteLocationSecretResponse{}, nil
@@ -769,7 +822,9 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("GetRobot", func(t *testing.T) {
-		grpcClient.GetRobotFunc = func(ctx context.Context, in *pb.GetRobotRequest, opts ...grpc.CallOption) (*pb.GetRobotResponse, error) {
+		grpcClient.GetRobotFunc = func(
+			ctx context.Context, in *pb.GetRobotRequest, opts ...grpc.CallOption,
+		) (*pb.GetRobotResponse, error) {
 			test.That(t, in.Id, test.ShouldEqual, robotID)
 			return &pb.GetRobotResponse{
 				Robot: &pbRobot,
@@ -782,12 +837,14 @@ func TestAppClient(t *testing.T) {
 	t.Run("GetRoverRentalRobots", func(t *testing.T) {
 		expectedRobots := []RoverRentalRobot{roverRentalRobot}
 		pbRobot := pb.RoverRentalRobot{
-			RobotId: roverRentalRobot.RobotID,
-			LocationId: roverRentalRobot.LocationID,
-			RobotName: roverRentalRobot.RobotName,
+			RobotId:         roverRentalRobot.RobotID,
+			LocationId:      roverRentalRobot.LocationID,
+			RobotName:       roverRentalRobot.RobotName,
 			RobotMainPartId: partID,
 		}
-		grpcClient.GetRoverRentalRobotsFunc = func(ctx context.Context, in *pb.GetRoverRentalRobotsRequest, opts ...grpc.CallOption) (*pb.GetRoverRentalRobotsResponse, error) {
+		grpcClient.GetRoverRentalRobotsFunc = func(
+			ctx context.Context, in *pb.GetRoverRentalRobotsRequest, opts ...grpc.CallOption,
+		) (*pb.GetRoverRentalRobotsResponse, error) {
 			test.That(t, in.OrgId, test.ShouldEqual, organizationID)
 			return &pb.GetRoverRentalRobotsResponse{
 				Robots: []*pb.RoverRentalRobot{&pbRobot},
@@ -800,7 +857,9 @@ func TestAppClient(t *testing.T) {
 
 	t.Run("GetRobotParts", func(t *testing.T) {
 		expectedRobotParts := []RobotPart{robotPart}
-		grpcClient.GetRobotPartsFunc = func(ctx context.Context, in *pb.GetRobotPartsRequest, opts ...grpc.CallOption) (*pb.GetRobotPartsResponse, error) {
+		grpcClient.GetRobotPartsFunc = func(
+			ctx context.Context, in *pb.GetRobotPartsRequest, opts ...grpc.CallOption,
+		) (*pb.GetRobotPartsResponse, error) {
 			test.That(t, in.RobotId, test.ShouldEqual, robotID)
 			return &pb.GetRobotPartsResponse{
 				Parts: []*pb.RobotPart{&pbRobotPart},
@@ -823,10 +882,12 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("GetRobotPart", func(t *testing.T) {
-		grpcClient.GetRobotPartFunc = func(ctx context.Context, in *pb.GetRobotPartRequest, opts ...grpc.CallOption) (*pb.GetRobotPartResponse, error) {
+		grpcClient.GetRobotPartFunc = func(
+			ctx context.Context, in *pb.GetRobotPartRequest, opts ...grpc.CallOption,
+		) (*pb.GetRobotPartResponse, error) {
 			test.That(t, in.Id, test.ShouldEqual, partID)
 			return &pb.GetRobotPartResponse{
-				Part: &pbRobotPart,
+				Part:       &pbRobotPart,
 				ConfigJson: configJSON,
 			}, nil
 		}
@@ -844,10 +905,12 @@ func TestAppClient(t *testing.T) {
 		test.That(t, part.FQDN, test.ShouldEqual, robotPart.FQDN)
 		test.That(t, part.LocalFQDN, test.ShouldEqual, robotPart.LocalFQDN)
 	})
-	
+
 	t.Run("GetRobotPartLogs", func(t *testing.T) {
 		expectedLogs := []*LogEntry{&logEntry}
-		grpcClient.GetRobotPartLogsFunc = func(ctx context.Context, in *pb.GetRobotPartLogsRequest, opts ...grpc.CallOption) (*pb.GetRobotPartLogsResponse, error) {
+		grpcClient.GetRobotPartLogsFunc = func(
+			ctx context.Context, in *pb.GetRobotPartLogsRequest, opts ...grpc.CallOption,
+		) (*pb.GetRobotPartLogsResponse, error) {
 			test.That(t, in.Id, test.ShouldEqual, partID)
 			test.That(t, in.Filter, test.ShouldEqual, &filter)
 			test.That(t, in.PageToken, test.ShouldEqual, &pageToken)
@@ -857,7 +920,7 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.Limit, test.ShouldEqual, &limit)
 			test.That(t, in.Source, test.ShouldEqual, &source)
 			return &pb.GetRobotPartLogsResponse{
-				Logs: []*common.LogEntry{&pbLogEntry},
+				Logs:          []*common.LogEntry{&pbLogEntry},
 				NextPageToken: pageToken,
 			}, nil
 		}
@@ -878,18 +941,20 @@ func TestAppClient(t *testing.T) {
 	t.Run("GetRobotPartHistory", func(t *testing.T) {
 		expectedEntries := []*RobotPartHistoryEntry{&robotPartHistoryEntry}
 		pbAuthenticatorInfo := pb.AuthenticatorInfo{
-			Type: authenticationTypeToProto(authenticatorInfo.Type),
-			Value: authenticatorInfo.Value,
+			Type:          authenticationTypeToProto(authenticatorInfo.Type),
+			Value:         authenticatorInfo.Value,
 			IsDeactivated: authenticatorInfo.IsDeactivated,
 		}
 		pbRobotPartHistoryEntry := pb.RobotPartHistoryEntry{
-			Part: robotPartHistoryEntry.Part,
-			Robot: robotPartHistoryEntry.Robot,
-			When: robotPartHistoryEntry.When,
-			Old: &pbRobotPart,
+			Part:     robotPartHistoryEntry.Part,
+			Robot:    robotPartHistoryEntry.Robot,
+			When:     robotPartHistoryEntry.When,
+			Old:      &pbRobotPart,
 			EditedBy: &pbAuthenticatorInfo,
 		}
-		grpcClient.GetRobotPartHistoryFunc = func(ctx context.Context, in *pb.GetRobotPartHistoryRequest, opts ...grpc.CallOption) (*pb.GetRobotPartHistoryResponse, error) {
+		grpcClient.GetRobotPartHistoryFunc = func(
+			ctx context.Context, in *pb.GetRobotPartHistoryRequest, opts ...grpc.CallOption,
+		) (*pb.GetRobotPartHistoryResponse, error) {
 			test.That(t, in.Id, test.ShouldEqual, partID)
 			return &pb.GetRobotPartHistoryResponse{
 				History: []*pb.RobotPartHistoryEntry{&pbRobotPartHistoryEntry},
@@ -898,7 +963,7 @@ func TestAppClient(t *testing.T) {
 		resp, _ := client.GetRobotPartHistory(context.Background(), partID)
 		test.That(t, resp[0].Part, test.ShouldEqual, expectedEntries[0].Part)
 		test.That(t, resp[0].Robot, test.ShouldEqual, expectedEntries[0].Robot)
-		test.That(t, resp[0].When	, test.ShouldEqual, expectedEntries[0].When)
+		test.That(t, resp[0].When, test.ShouldEqual, expectedEntries[0].When)
 		test.That(t, resp[0].Old.Name, test.ShouldEqual, expectedEntries[0].Old.Name)
 		test.That(t, resp[0].Old.DNSName, test.ShouldEqual, expectedEntries[0].Old.DNSName)
 		test.That(t, resp[0].Old.Secret, test.ShouldEqual, expectedEntries[0].Old.Secret)
@@ -917,7 +982,9 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("UpdateRobotPart", func(t *testing.T) {
-		grpcClient.UpdateRobotPartFunc = func(ctx context.Context, in *pb.UpdateRobotPartRequest, opts ...grpc.CallOption) (*pb.UpdateRobotPartResponse, error) {
+		grpcClient.UpdateRobotPartFunc = func(
+			ctx context.Context, in *pb.UpdateRobotPartRequest, opts ...grpc.CallOption,
+		) (*pb.UpdateRobotPartResponse, error) {
 			test.That(t, in.Id, test.ShouldEqual, partID)
 			test.That(t, in.Name, test.ShouldEqual, name)
 			test.That(t, in.RobotConfig, test.ShouldResemble, pbRobotConfig)
@@ -940,7 +1007,9 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("NewRobotPart", func(t *testing.T) {
-		grpcClient.NewRobotPartFunc = func(ctx context.Context, in *pb.NewRobotPartRequest, opts ...grpc.CallOption) (*pb.NewRobotPartResponse, error) {
+		grpcClient.NewRobotPartFunc = func(
+			ctx context.Context, in *pb.NewRobotPartRequest, opts ...grpc.CallOption,
+		) (*pb.NewRobotPartResponse, error) {
 			test.That(t, in.RobotId, test.ShouldEqual, robotID)
 			test.That(t, in.PartName, test.ShouldEqual, name)
 			return &pb.NewRobotPartResponse{}, nil
@@ -949,7 +1018,9 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("DeleteRobotPart", func(t *testing.T) {
-		grpcClient.DeleteRobotPartFunc = func(ctx context.Context, in *pb.DeleteRobotPartRequest, opts ...grpc.CallOption) (*pb.DeleteRobotPartResponse, error) {
+		grpcClient.DeleteRobotPartFunc = func(
+			ctx context.Context, in *pb.DeleteRobotPartRequest, opts ...grpc.CallOption,
+		) (*pb.DeleteRobotPartResponse, error) {
 			test.That(t, in.PartId, test.ShouldEqual, partID)
 			return &pb.DeleteRobotPartResponse{}, nil
 		}
@@ -958,7 +1029,9 @@ func TestAppClient(t *testing.T) {
 
 	t.Run("GetRobotAPIKeys", func(t *testing.T) {
 		expectedAPIKeyWithAuthorizations := []APIKeyWithAuthorizations{apiKeyWithAuthorizations}
-		grpcClient.GetRobotAPIKeysFunc = func(ctx context.Context, in *pb.GetRobotAPIKeysRequest, opts ...grpc.CallOption) (*pb.GetRobotAPIKeysResponse, error) {
+		grpcClient.GetRobotAPIKeysFunc = func(
+			ctx context.Context, in *pb.GetRobotAPIKeysRequest, opts ...grpc.CallOption,
+		) (*pb.GetRobotAPIKeysResponse, error) {
 			test.That(t, in.RobotId, test.ShouldEqual, robotID)
 			return &pb.GetRobotAPIKeysResponse{
 				ApiKeys: []*pb.APIKeyWithAuthorizations{&pbAPIKeyWithAuthorizations},
@@ -971,7 +1044,9 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("MarkPartForRestart", func(t *testing.T) {
-		grpcClient.MarkPartForRestartFunc = func(ctx context.Context, in *pb.MarkPartForRestartRequest, opts ...grpc.CallOption) (*pb.MarkPartForRestartResponse, error) {
+		grpcClient.MarkPartForRestartFunc = func(
+			ctx context.Context, in *pb.MarkPartForRestartRequest, opts ...grpc.CallOption,
+		) (*pb.MarkPartForRestartResponse, error) {
 			test.That(t, in.PartId, test.ShouldEqual, partID)
 			return &pb.MarkPartForRestartResponse{}, nil
 		}
@@ -979,7 +1054,9 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("CreateRobotPartSecret", func(t *testing.T) {
-		grpcClient.CreateRobotPartSecretFunc = func(ctx context.Context, in *pb.CreateRobotPartSecretRequest, opts ...grpc.CallOption) (*pb.CreateRobotPartSecretResponse, error) {
+		grpcClient.CreateRobotPartSecretFunc = func(
+			ctx context.Context, in *pb.CreateRobotPartSecretRequest, opts ...grpc.CallOption,
+		) (*pb.CreateRobotPartSecretResponse, error) {
 			test.That(t, in.PartId, test.ShouldEqual, partID)
 			return &pb.CreateRobotPartSecretResponse{
 				Part: &pbRobotPart,
@@ -1000,7 +1077,9 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("DeleteRobotPartSecret", func(t *testing.T) {
-		grpcClient.DeleteRobotPartSecretFunc = func(ctx context.Context, in *pb.DeleteRobotPartSecretRequest, opts ...grpc.CallOption) (*pb.DeleteRobotPartSecretResponse, error) {
+		grpcClient.DeleteRobotPartSecretFunc = func(
+			ctx context.Context, in *pb.DeleteRobotPartSecretRequest, opts ...grpc.CallOption,
+		) (*pb.DeleteRobotPartSecretResponse, error) {
 			test.That(t, in.PartId, test.ShouldEqual, partID)
 			test.That(t, in.SecretId, test.ShouldEqual, secretID)
 			return &pb.DeleteRobotPartSecretResponse{}, nil
@@ -1010,7 +1089,9 @@ func TestAppClient(t *testing.T) {
 
 	t.Run("ListRobots", func(t *testing.T) {
 		expectedRobots := []*Robot{&robot}
-		grpcClient.ListRobotsFunc = func(ctx context.Context, in *pb.ListRobotsRequest, opts ...grpc.CallOption) (*pb.ListRobotsResponse, error) {
+		grpcClient.ListRobotsFunc = func(
+			ctx context.Context, in *pb.ListRobotsRequest, opts ...grpc.CallOption,
+		) (*pb.ListRobotsResponse, error) {
 			test.That(t, in.LocationId, test.ShouldEqual, locationID)
 			return &pb.ListRobotsResponse{
 				Robots: []*pb.Robot{&pbRobot},
@@ -1022,7 +1103,9 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("NewRobot", func(t *testing.T) {
-		grpcClient.NewRobotFunc = func(ctx context.Context, in *pb.NewRobotRequest, opts ...grpc.CallOption) (*pb.NewRobotResponse, error) {
+		grpcClient.NewRobotFunc = func(
+			ctx context.Context, in *pb.NewRobotRequest, opts ...grpc.CallOption,
+		) (*pb.NewRobotResponse, error) {
 			test.That(t, in.Name, test.ShouldEqual, name)
 			test.That(t, in.Location, test.ShouldEqual, locationID)
 			return &pb.NewRobotResponse{
@@ -1033,9 +1116,10 @@ func TestAppClient(t *testing.T) {
 		test.That(t, resp, test.ShouldResemble, robotID)
 	})
 
-
 	t.Run("UpdateRobot", func(t *testing.T) {
-		grpcClient.UpdateRobotFunc = func(ctx context.Context, in *pb.UpdateRobotRequest, opts ...grpc.CallOption) (*pb.UpdateRobotResponse, error) {
+		grpcClient.UpdateRobotFunc = func(
+			ctx context.Context, in *pb.UpdateRobotRequest, opts ...grpc.CallOption,
+		) (*pb.UpdateRobotResponse, error) {
 			test.That(t, in.Id, test.ShouldEqual, robotID)
 			test.That(t, in.Name, test.ShouldEqual, name)
 			test.That(t, in.Location, test.ShouldEqual, locationID)
@@ -1048,7 +1132,9 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("DeleteRobot", func(t *testing.T) {
-		grpcClient.DeleteRobotFunc = func(ctx context.Context, in *pb.DeleteRobotRequest, opts ...grpc.CallOption) (*pb.DeleteRobotResponse, error) {
+		grpcClient.DeleteRobotFunc = func(
+			ctx context.Context, in *pb.DeleteRobotRequest, opts ...grpc.CallOption,
+		) (*pb.DeleteRobotResponse, error) {
 			test.That(t, in.Id, test.ShouldEqual, robotID)
 			return &pb.DeleteRobotResponse{}, nil
 		}
