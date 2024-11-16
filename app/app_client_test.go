@@ -91,18 +91,19 @@ var (
 		OrganizationID:    organizationID,
 		IdentityType:      identityType,
 	}
-	pbAuthorization = pb.Authorization{
-		AuthorizationType: authorization.AuthorizationType,
-		AuthorizationId:   authorization.AuthorizationID,
-		ResourceType:      authorization.ResourceType,
-		ResourceId:        authorization.ResourceID,
-		IdentityId:        authorization.IdentityID,
-		OrganizationId:    authorization.OrganizationID,
-		IdentityType:      authorization.IdentityType,
-	}
 	authorizations   = []*Authorization{&authorization}
-	pbAuthorizations = []*pb.Authorization{&pbAuthorization}
-	member           = OrganizationMember{
+	pbAuthorizations = []*pb.Authorization{
+		{
+			AuthorizationType: authorization.AuthorizationType,
+			AuthorizationId:   authorization.AuthorizationID,
+			ResourceType:      authorization.ResourceType,
+			ResourceId:        authorization.ResourceID,
+			IdentityId:        authorization.IdentityID,
+			OrganizationId:    authorization.OrganizationID,
+			IdentityType:      authorization.IdentityType,
+		},
+	}
+	member = OrganizationMember{
 		UserID:    userID,
 		Emails:    []string{email},
 		DateAdded: &dateAdded,
@@ -159,15 +160,8 @@ var (
 		OrganizationID: organizationID,
 		Primary:        primary,
 	}
-	pbLocationOrg = pb.LocationOrganization{
-		OrganizationId: locationOrg.OrganizationID,
-		Primary:        locationOrg.Primary,
-	}
 	storageConfig = StorageConfig{
 		Region: region,
-	}
-	pbStorageConfig = pb.StorageConfig{
-		Region: storageConfig.Region,
 	}
 	location = Location{
 		ID:               locationID,
@@ -184,10 +178,17 @@ var (
 		Name:             location.Name,
 		ParentLocationId: location.ParentLocationID,
 		Auth:             &pbLocationAuth,
-		Organizations:    []*pb.LocationOrganization{&pbLocationOrg},
-		CreatedOn:        location.CreatedOn,
-		RobotCount:       location.RobotCount,
-		Config:           &pbStorageConfig,
+		Organizations: []*pb.LocationOrganization{
+			{
+				OrganizationId: locationOrg.OrganizationID,
+				Primary:        locationOrg.Primary,
+			},
+		},
+		CreatedOn:  location.CreatedOn,
+		RobotCount: location.RobotCount,
+		Config: &pb.StorageConfig{
+			Region: storageConfig.Region,
+		},
 	}
 	lastAccess = timestamppb.Timestamp{Seconds: 0, Nanos: 110}
 	robot      = Robot{
@@ -249,19 +250,17 @@ var (
 		Secrets:          pbSecrets,
 		LastUpdated:      robotPart.LastUpdated,
 	}
-	pageToken         = "page_token"
-	levels            = []string{level}
-	start             = timestamppb.Timestamp{Seconds: 92, Nanos: 0}
-	end               = timestamppb.Timestamp{Seconds: 99, Nanos: 999}
-	limit       int64 = 2
-	source            = "source"
-	filter            = "filter"
-	time              = timestamppb.Timestamp{Seconds: 11, Nanos: 15}
-	caller            = map[string]interface{}{"name": name}
-	pbCaller, _       = protoutils.StructToStructPb(*logEntry.Caller)
-	field             = map[string]interface{}{"key": "value"}
-	pbField, _        = protoutils.StructToStructPb(field)
-	logEntry          = LogEntry{
+	pageToken       = "page_token"
+	levels          = []string{level}
+	start           = timestamppb.Timestamp{Seconds: 92, Nanos: 0}
+	end             = timestamppb.Timestamp{Seconds: 99, Nanos: 999}
+	limit     int64 = 2
+	source          = "source"
+	filter          = "filter"
+	time            = timestamppb.Timestamp{Seconds: 11, Nanos: 15}
+	caller          = map[string]interface{}{"name": name}
+	field           = map[string]interface{}{"key": "value"}
+	logEntry        = LogEntry{
 		Host:       host,
 		Level:      level,
 		Time:       &time,
@@ -270,16 +269,6 @@ var (
 		Caller:     &caller,
 		Stack:      stack,
 		Fields:     []*map[string]interface{}{&field},
-	}
-	pbLogEntry = common.LogEntry{
-		Host:       logEntry.Host,
-		Level:      logEntry.Level,
-		Time:       logEntry.Time,
-		LoggerName: logEntry.LoggerName,
-		Message:    logEntry.Message,
-		Caller:     pbCaller,
-		Stack:      logEntry.Stack,
-		Fields:     []*structpb.Struct{pbField},
 	}
 	authenticatorInfo = AuthenticatorInfo{
 		Type:          AuthenticationTypeAPIKey,
@@ -293,12 +282,6 @@ var (
 		Old:      &robotPart,
 		EditedBy: &authenticatorInfo,
 	}
-	apiKey = APIKey{
-		ID:        keyID,
-		Key:       key,
-		Name:      name,
-		CreatedOn: &createdOn,
-	}
 	authorizationDetails = AuthorizationDetails{
 		AuthorizationType: authorizationType,
 		AuthorizationID:   authorizationID,
@@ -307,15 +290,20 @@ var (
 		OrgID:             organizationID,
 	}
 	apiKeyWithAuthorizations = APIKeyWithAuthorizations{
-		APIKey:         &apiKey,
+		APIKey: &APIKey{
+			ID:        keyID,
+			Key:       key,
+			Name:      name,
+			CreatedOn: &createdOn,
+		},
 		Authorizations: []*AuthorizationDetails{&authorizationDetails},
 	}
 	pbAPIKeyWithAuthorizations = pb.APIKeyWithAuthorizations{
 		ApiKey: &pb.APIKey{
-			Id:        apiKey.ID,
-			Key:       apiKey.Key,
-			Name:      apiKey.Name,
-			CreatedOn: apiKey.CreatedOn,
+			Id:        apiKeyWithAuthorizations.APIKey.ID,
+			Key:       apiKeyWithAuthorizations.APIKey.Key,
+			Name:      apiKeyWithAuthorizations.APIKey.Name,
+			CreatedOn: apiKeyWithAuthorizations.APIKey.CreatedOn,
 		},
 		Authorizations: []*pb.AuthorizationDetails{
 			{
@@ -361,6 +349,36 @@ func testOrganizationResponse(t *testing.T, actualOrg, expectedOrg *Organization
 	test.That(t, actualOrg.PublicNamespace, test.ShouldEqual, expectedOrg.PublicNamespace)
 	test.That(t, actualOrg.DefaultRegion, test.ShouldEqual, expectedOrg.DefaultRegion)
 	test.That(t, actualOrg.Cid, test.ShouldEqual, expectedOrg.Cid)
+}
+
+func testLocationResponse(t *testing.T, actualLocation, expectedLocation *Location) {
+	test.That(t, actualLocation.ID, test.ShouldEqual, expectedLocation.ID)
+	test.That(t, actualLocation.Name, test.ShouldEqual, expectedLocation.Name)
+	test.That(t, actualLocation.ParentLocationID, test.ShouldEqual, expectedLocation.ParentLocationID)
+	test.That(t, actualLocation.Auth, test.ShouldResemble, expectedLocation.Auth)
+	test.That(t, actualLocation.Organizations, test.ShouldResemble, expectedLocation.Organizations)
+	test.That(t, actualLocation.CreatedOn, test.ShouldEqual, expectedLocation.CreatedOn)
+	test.That(t, actualLocation.RobotCount, test.ShouldEqual, expectedLocation.RobotCount)
+	test.That(t, actualLocation.Config, test.ShouldResemble, expectedLocation.Config)
+}
+
+func testRobotPartResponse(t *testing.T, actualRobotPart, expectedRobotPart *RobotPart) {
+	test.That(t, actualRobotPart.ID, test.ShouldEqual, expectedRobotPart.ID)
+	test.That(t, actualRobotPart.Name, test.ShouldEqual, expectedRobotPart.Name)
+	test.That(t, actualRobotPart.DNSName, test.ShouldEqual, expectedRobotPart.DNSName)
+	test.That(t, actualRobotPart.Secret, test.ShouldEqual, expectedRobotPart.Secret)
+	test.That(t, actualRobotPart.Robot, test.ShouldEqual, expectedRobotPart.Robot)
+	test.That(t, actualRobotPart.LocationID, test.ShouldEqual, expectedRobotPart.LocationID)
+	test.That(t, actualRobotPart.RobotConfig, test.ShouldResemble, expectedRobotPart.RobotConfig)
+	test.That(t, actualRobotPart.LastAccess, test.ShouldEqual, expectedRobotPart.LastAccess)
+	test.That(t, actualRobotPart.UserSuppliedInfo, test.ShouldResemble, expectedRobotPart.UserSuppliedInfo)
+	test.That(t, actualRobotPart.MainPart, test.ShouldEqual, expectedRobotPart.MainPart)
+	test.That(t, actualRobotPart.FQDN, test.ShouldEqual, expectedRobotPart.FQDN)
+	test.That(t, actualRobotPart.LocalFQDN, test.ShouldEqual, expectedRobotPart.LocalFQDN)
+	test.That(t, actualRobotPart.CreatedOn, test.ShouldEqual, expectedRobotPart.CreatedOn)
+	test.That(t, len(actualRobotPart.Secrets), test.ShouldEqual, len(expectedRobotPart.Secrets))
+	test.That(t, actualRobotPart.Secrets[0], test.ShouldResemble, expectedRobotPart.Secrets[0])
+	test.That(t, actualRobotPart.LastUpdated, test.ShouldEqual, expectedRobotPart.LastUpdated)
 }
 
 func createGrpcClient() *inject.AppServiceClient {
@@ -677,14 +695,7 @@ func TestAppClient(t *testing.T) {
 			}, nil
 		}
 		resp, _ := client.CreateLocation(context.Background(), organizationID, name, &parentLocationID)
-		test.That(t, resp.ID, test.ShouldEqual, location.ID)
-		test.That(t, resp.Name, test.ShouldEqual, location.Name)
-		test.That(t, resp.ParentLocationID, test.ShouldEqual, location.ParentLocationID)
-		test.That(t, resp.Auth, test.ShouldResemble, location.Auth)
-		test.That(t, resp.Organizations, test.ShouldResemble, location.Organizations)
-		test.That(t, resp.CreatedOn, test.ShouldEqual, location.CreatedOn)
-		test.That(t, resp.RobotCount, test.ShouldEqual, location.RobotCount)
-		test.That(t, resp.Config, test.ShouldResemble, location.Config)
+		testLocationResponse(t, resp, &location)
 	})
 
 	t.Run("GetLocation", func(t *testing.T) {
@@ -697,14 +708,7 @@ func TestAppClient(t *testing.T) {
 			}, nil
 		}
 		resp, _ := client.GetLocation(context.Background(), locationID)
-		test.That(t, resp.ID, test.ShouldEqual, location.ID)
-		test.That(t, resp.Name, test.ShouldEqual, location.Name)
-		test.That(t, resp.ParentLocationID, test.ShouldEqual, location.ParentLocationID)
-		test.That(t, resp.Auth, test.ShouldResemble, location.Auth)
-		test.That(t, resp.Organizations, test.ShouldResemble, location.Organizations)
-		test.That(t, resp.CreatedOn, test.ShouldEqual, location.CreatedOn)
-		test.That(t, resp.RobotCount, test.ShouldEqual, location.RobotCount)
-		test.That(t, resp.Config, test.ShouldResemble, location.Config)
+		testLocationResponse(t, resp, &location)
 	})
 
 	t.Run("UpdateLocation", func(t *testing.T) {
@@ -720,14 +724,7 @@ func TestAppClient(t *testing.T) {
 			}, nil
 		}
 		resp, _ := client.UpdateLocation(context.Background(), locationID, &name, &parentLocationID, &region)
-		test.That(t, resp.ID, test.ShouldEqual, location.ID)
-		test.That(t, resp.Name, test.ShouldEqual, location.Name)
-		test.That(t, resp.ParentLocationID, test.ShouldEqual, location.ParentLocationID)
-		test.That(t, resp.Auth, test.ShouldResemble, location.Auth)
-		test.That(t, resp.Organizations, test.ShouldResemble, location.Organizations)
-		test.That(t, resp.CreatedOn, test.ShouldEqual, location.CreatedOn)
-		test.That(t, resp.RobotCount, test.ShouldEqual, location.RobotCount)
-		test.That(t, resp.Config, test.ShouldResemble, location.Config)
+		testLocationResponse(t, resp, &location)
 	})
 
 	t.Run("DeleteLocation", func(t *testing.T) {
@@ -752,14 +749,7 @@ func TestAppClient(t *testing.T) {
 		}
 		resp, _ := client.ListLocations(context.Background(), organizationID)
 		test.That(t, len(resp), test.ShouldEqual, len(expectedLocations))
-		test.That(t, resp[0].ID, test.ShouldEqual, expectedLocations[0].ID)
-		test.That(t, resp[0].Name, test.ShouldEqual, expectedLocations[0].Name)
-		test.That(t, resp[0].ParentLocationID, test.ShouldEqual, expectedLocations[0].ParentLocationID)
-		test.That(t, resp[0].Auth, test.ShouldResemble, expectedLocations[0].Auth)
-		test.That(t, resp[0].Organizations, test.ShouldResemble, expectedLocations[0].Organizations)
-		test.That(t, resp[0].CreatedOn, test.ShouldEqual, expectedLocations[0].CreatedOn)
-		test.That(t, resp[0].RobotCount, test.ShouldEqual, expectedLocations[0].RobotCount)
-		test.That(t, resp[0].Config, test.ShouldResemble, expectedLocations[0].Config)
+		testLocationResponse(t, resp[0], &expectedLocations[0])
 	})
 
 	t.Run("ShareLocation", func(t *testing.T) {
@@ -867,18 +857,7 @@ func TestAppClient(t *testing.T) {
 		}
 		resp, _ := client.GetRobotParts(context.Background(), robotID)
 		test.That(t, len(resp), test.ShouldEqual, len(expectedRobotParts))
-		test.That(t, resp[0].ID, test.ShouldEqual, expectedRobotParts[0].ID)
-		test.That(t, resp[0].Name, test.ShouldEqual, expectedRobotParts[0].Name)
-		test.That(t, resp[0].DNSName, test.ShouldEqual, expectedRobotParts[0].DNSName)
-		test.That(t, resp[0].Secret, test.ShouldEqual, expectedRobotParts[0].Secret)
-		test.That(t, resp[0].Robot, test.ShouldEqual, expectedRobotParts[0].Robot)
-		test.That(t, resp[0].LocationID, test.ShouldEqual, expectedRobotParts[0].LocationID)
-		test.That(t, resp[0].RobotConfig, test.ShouldResemble, expectedRobotParts[0].RobotConfig)
-		test.That(t, resp[0].LastAccess, test.ShouldEqual, expectedRobotParts[0].LastAccess)
-		test.That(t, resp[0].UserSuppliedInfo, test.ShouldResemble, expectedRobotParts[0].UserSuppliedInfo)
-		test.That(t, resp[0].MainPart, test.ShouldEqual, expectedRobotParts[0].MainPart)
-		test.That(t, resp[0].FQDN, test.ShouldEqual, expectedRobotParts[0].FQDN)
-		test.That(t, resp[0].LocalFQDN, test.ShouldEqual, expectedRobotParts[0].LocalFQDN)
+		testRobotPartResponse(t, resp[0], &expectedRobotParts[0])
 	})
 
 	t.Run("GetRobotPart", func(t *testing.T) {
@@ -893,21 +872,23 @@ func TestAppClient(t *testing.T) {
 		}
 		part, json, _ := client.GetRobotPart(context.Background(), partID)
 		test.That(t, json, test.ShouldEqual, configJSON)
-		test.That(t, part.Name, test.ShouldEqual, robotPart.Name)
-		test.That(t, part.DNSName, test.ShouldEqual, robotPart.DNSName)
-		test.That(t, part.Secret, test.ShouldEqual, robotPart.Secret)
-		test.That(t, part.Robot, test.ShouldEqual, robotPart.Robot)
-		test.That(t, part.LocationID, test.ShouldEqual, robotPart.LocationID)
-		test.That(t, part.RobotConfig, test.ShouldResemble, robotPart.RobotConfig)
-		test.That(t, part.LastAccess, test.ShouldEqual, robotPart.LastAccess)
-		test.That(t, part.UserSuppliedInfo, test.ShouldResemble, robotPart.UserSuppliedInfo)
-		test.That(t, part.MainPart, test.ShouldEqual, robotPart.MainPart)
-		test.That(t, part.FQDN, test.ShouldEqual, robotPart.FQDN)
-		test.That(t, part.LocalFQDN, test.ShouldEqual, robotPart.LocalFQDN)
+		testRobotPartResponse(t, part, &robotPart)
 	})
 
 	t.Run("GetRobotPartLogs", func(t *testing.T) {
 		expectedLogs := []*LogEntry{&logEntry}
+		pbCaller, _ := protoutils.StructToStructPb(*logEntry.Caller)
+		pbField, _ := protoutils.StructToStructPb(field)
+		pbLogEntry := common.LogEntry{
+			Host:       logEntry.Host,
+			Level:      logEntry.Level,
+			Time:       logEntry.Time,
+			LoggerName: logEntry.LoggerName,
+			Message:    logEntry.Message,
+			Caller:     pbCaller,
+			Stack:      logEntry.Stack,
+			Fields:     []*structpb.Struct{pbField},
+		}
 		grpcClient.GetRobotPartLogsFunc = func(
 			ctx context.Context, in *pb.GetRobotPartLogsRequest, opts ...grpc.CallOption,
 		) (*pb.GetRobotPartLogsResponse, error) {
@@ -964,20 +945,7 @@ func TestAppClient(t *testing.T) {
 		test.That(t, resp[0].Part, test.ShouldEqual, expectedEntries[0].Part)
 		test.That(t, resp[0].Robot, test.ShouldEqual, expectedEntries[0].Robot)
 		test.That(t, resp[0].When, test.ShouldEqual, expectedEntries[0].When)
-		test.That(t, resp[0].Old.Name, test.ShouldEqual, expectedEntries[0].Old.Name)
-		test.That(t, resp[0].Old.DNSName, test.ShouldEqual, expectedEntries[0].Old.DNSName)
-		test.That(t, resp[0].Old.Secret, test.ShouldEqual, expectedEntries[0].Old.Secret)
-		test.That(t, resp[0].Old.Robot, test.ShouldEqual, expectedEntries[0].Old.Robot)
-		test.That(t, resp[0].Old.LocationID, test.ShouldEqual, expectedEntries[0].Old.LocationID)
-		test.That(t, resp[0].Old.RobotConfig, test.ShouldResemble, expectedEntries[0].Old.RobotConfig)
-		test.That(t, resp[0].Old.LastAccess, test.ShouldEqual, expectedEntries[0].Old.LastAccess)
-		test.That(t, resp[0].Old.UserSuppliedInfo, test.ShouldResemble, expectedEntries[0].Old.UserSuppliedInfo)
-		test.That(t, resp[0].Old.MainPart, test.ShouldEqual, expectedEntries[0].Old.MainPart)
-		test.That(t, resp[0].Old.FQDN, test.ShouldEqual, expectedEntries[0].Old.FQDN)
-		test.That(t, resp[0].Old.LocalFQDN, test.ShouldEqual, expectedEntries[0].Old.LocalFQDN)
-		test.That(t, resp[0].Old.Name, test.ShouldEqual, expectedEntries[0].Old.Name)
-		test.That(t, resp[0].Old.Name, test.ShouldEqual, expectedEntries[0].Old.Name)
-		test.That(t, resp[0].Old.Name, test.ShouldEqual, expectedEntries[0].Old.Name)
+		testRobotPartResponse(t, resp[0].Old, expectedEntries[0].Old)
 		test.That(t, resp[0].EditedBy, test.ShouldResemble, expectedEntries[0].EditedBy)
 	})
 
@@ -992,18 +960,8 @@ func TestAppClient(t *testing.T) {
 				Part: &pbRobotPart,
 			}, nil
 		}
-		part, _ := client.UpdateRobotPart(context.Background(), partID, name, robotConfig)
-		test.That(t, part.Name, test.ShouldEqual, robotPart.Name)
-		test.That(t, part.DNSName, test.ShouldEqual, robotPart.DNSName)
-		test.That(t, part.Secret, test.ShouldEqual, robotPart.Secret)
-		test.That(t, part.Robot, test.ShouldEqual, robotPart.Robot)
-		test.That(t, part.LocationID, test.ShouldEqual, robotPart.LocationID)
-		test.That(t, part.RobotConfig, test.ShouldResemble, robotPart.RobotConfig)
-		test.That(t, part.LastAccess, test.ShouldEqual, robotPart.LastAccess)
-		test.That(t, part.UserSuppliedInfo, test.ShouldResemble, robotPart.UserSuppliedInfo)
-		test.That(t, part.MainPart, test.ShouldEqual, robotPart.MainPart)
-		test.That(t, part.FQDN, test.ShouldEqual, robotPart.FQDN)
-		test.That(t, part.LocalFQDN, test.ShouldEqual, robotPart.LocalFQDN)
+		resp, _ := client.UpdateRobotPart(context.Background(), partID, name, robotConfig)
+		testRobotPartResponse(t, resp, &robotPart)
 	})
 
 	t.Run("NewRobotPart", func(t *testing.T) {
@@ -1062,18 +1020,8 @@ func TestAppClient(t *testing.T) {
 				Part: &pbRobotPart,
 			}, nil
 		}
-		part, _ := client.CreateRobotPartSecret(context.Background(), partID)
-		test.That(t, part.Name, test.ShouldEqual, robotPart.Name)
-		test.That(t, part.DNSName, test.ShouldEqual, robotPart.DNSName)
-		test.That(t, part.Secret, test.ShouldEqual, robotPart.Secret)
-		test.That(t, part.Robot, test.ShouldEqual, robotPart.Robot)
-		test.That(t, part.LocationID, test.ShouldEqual, robotPart.LocationID)
-		test.That(t, part.RobotConfig, test.ShouldResemble, robotPart.RobotConfig)
-		test.That(t, part.LastAccess, test.ShouldEqual, robotPart.LastAccess)
-		test.That(t, part.UserSuppliedInfo, test.ShouldResemble, robotPart.UserSuppliedInfo)
-		test.That(t, part.MainPart, test.ShouldEqual, robotPart.MainPart)
-		test.That(t, part.FQDN, test.ShouldEqual, robotPart.FQDN)
-		test.That(t, part.LocalFQDN, test.ShouldEqual, robotPart.LocalFQDN)
+		resp, _ := client.CreateRobotPartSecret(context.Background(), partID)
+		testRobotPartResponse(t, resp, &robotPart)
 	})
 
 	t.Run("DeleteRobotPartSecret", func(t *testing.T) {
