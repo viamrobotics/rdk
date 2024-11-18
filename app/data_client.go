@@ -8,12 +8,12 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	pb "go.viam.com/api/app/data/v1"
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-
-	"go.viam.com/rdk/logging"
 )
 
 // DataClient implements the DataServiceClient interface.
@@ -246,24 +246,8 @@ func captureMetadataFromProto(proto *pb.CaptureMetadata) CaptureMetadata {
 	}
 }
 
-func convertMapToProtoAny(input map[string]interface{}) (map[string]*anypb.Any, error) {
-	protoMap := make(map[string]*anypb.Any)
-	for key, value := range input {
-		structValue, err := structpb.NewValue(value)
-		if err != nil {
-			return nil, err
-		}
-		anyValue, err := anypb.New(structValue)
-		if err != nil {
-			return nil, err
-		}
-		protoMap[key] = anyValue
-	}
-	return protoMap, nil
-}
-
 func captureMetadataToProto(metadata CaptureMetadata) *pb.CaptureMetadata {
-	methodParams, err := convertMapToProtoAny(metadata.MethodParameters)
+	methodParams, err := protoutils.ConvertMapToProtoAny(metadata.MethodParameters)
 	if err != nil {
 		return nil
 	}
