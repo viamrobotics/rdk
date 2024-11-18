@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/viamrobotics/webrtc/v3"
@@ -133,13 +134,19 @@ func TestNewDataClient(t *testing.T) {
 	}
 	client, err := CreateViamClientWithOptions(context.Background(), opts, logger)
 	test.That(t, err, test.ShouldBeNil)
+	fmt.Println("client is", client)
 	defer client.Close()
 
-	dataClient, err := client.DataClient()
+	dataClient1, err := client.DataClient()
 	if err != nil {
 		t.Fatalf("Failed to create DataClient: %v", err)
 	}
-	test.That(t, dataClient, test.ShouldNotBeNil)
-	test.That(t, dataClient, test.ShouldHaveSameTypeAs, &DataClient{})
-	test.That(t, dataClient.client, test.ShouldImplement, (*pb.DataServiceClient)(nil))
+	test.That(t, dataClient1, test.ShouldNotBeNil)
+	test.That(t, dataClient1, test.ShouldHaveSameTypeAs, &DataClient{})
+	test.That(t, dataClient1.client, test.ShouldImplement, (*pb.DataServiceClient)(nil))
+
+	// Testing that a second call to DataClient() returns the same instance
+	dataClient2, err := client.DataClient()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, dataClient1, test.ShouldResemble, dataClient2)
 }
