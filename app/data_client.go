@@ -295,26 +295,26 @@ func captureMetadataFromProto(proto *pb.CaptureMetadata) CaptureMetadata {
 	}
 }
 
-func captureMetadataToProto(metadata CaptureMetadata) *pb.CaptureMetadata {
-	methodParams, err := protoutils.ConvertMapToProtoAny(metadata.MethodParameters)
-	if err != nil {
-		return nil
-	}
-	return &pb.CaptureMetadata{
-		OrganizationId:   metadata.OrganizationID,
-		LocationId:       metadata.LocationID,
-		RobotName:        metadata.RobotName,
-		RobotId:          metadata.RobotID,
-		PartName:         metadata.PartName,
-		PartId:           metadata.PartID,
-		ComponentType:    metadata.ComponentType,
-		ComponentName:    metadata.ComponentName,
-		MethodName:       metadata.MethodName,
-		MethodParameters: methodParams,
-		Tags:             metadata.Tags,
-		MimeType:         metadata.MimeType,
-	}
-}
+// func captureMetadataToProto(metadata CaptureMetadata) *pb.CaptureMetadata {
+// 	methodParams, err := protoutils.ConvertMapToProtoAny(metadata.MethodParameters)
+// 	if err != nil {
+// 		return nil
+// 	}
+// 	return &pb.CaptureMetadata{
+// 		OrganizationId:   metadata.OrganizationID,
+// 		LocationId:       metadata.LocationID,
+// 		RobotName:        metadata.RobotName,
+// 		RobotId:          metadata.RobotID,
+// 		PartName:         metadata.PartName,
+// 		PartId:           metadata.PartID,
+// 		ComponentType:    metadata.ComponentType,
+// 		ComponentName:    metadata.ComponentName,
+// 		MethodName:       metadata.MethodName,
+// 		MethodParameters: methodParams,
+// 		Tags:             metadata.Tags,
+// 		MimeType:         metadata.MimeType,
+// 	}
+// }
 
 func binaryDataFromProto(proto *pb.BinaryData) BinaryData {
 	return BinaryData{
@@ -847,7 +847,7 @@ func sensorDataToProto(sensorData SensorData) *syncPb.SensorData {
 	protoSensorData := &syncPb.SensorData{
 		Metadata: sensorMetadataToProto(sensorData.Metadata),
 	}
-	if sensorData.SDBinary != nil && len(sensorData.SDBinary) > 0 {
+	if len(sensorData.SDBinary) > 0 {
 		protoSensorData.Data = &syncPb.SensorData_Binary{
 			Binary: sensorData.SDBinary,
 		}

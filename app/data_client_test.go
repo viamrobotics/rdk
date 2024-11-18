@@ -7,11 +7,14 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	pb "go.viam.com/api/app/data/v1"
+	syncPb "go.viam.com/api/app/datasync/v1"
+
 	"go.viam.com/test"
 	utils "go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -130,6 +133,27 @@ func binaryDataToProto(binaryData BinaryData) *pb.BinaryData {
 	}
 }
 
+func captureMetadataToProto(metadata CaptureMetadata) *pb.CaptureMetadata {
+	methodParams, err := protoutils.ConvertMapToProtoAny(metadata.MethodParameters)
+	if err != nil {
+		return nil
+	}
+	return &pb.CaptureMetadata{
+		OrganizationId:   metadata.OrganizationID,
+		LocationId:       metadata.LocationID,
+		RobotName:        metadata.RobotName,
+		RobotId:          metadata.RobotID,
+		PartName:         metadata.PartName,
+		PartId:           metadata.PartID,
+		ComponentType:    metadata.ComponentType,
+		ComponentName:    metadata.ComponentName,
+		MethodName:       metadata.MethodName,
+		MethodParameters: methodParams,
+		Tags:             metadata.Tags,
+		MimeType:         metadata.MimeType,
+	}
+}
+
 func binaryMetadataToProto(binaryMetadata BinaryMetadata) *pb.BinaryMetadata {
 	return &pb.BinaryMetadata{
 		Id:              binaryMetadata.ID,
@@ -156,7 +180,9 @@ func dataRequestToProto(dataRequest DataRequest) *pb.DataRequest {
 func createGrpcClient() *inject.DataServiceClient {
 	return &inject.DataServiceClient{}
 }
-
+func createGrpcDataSyncClient() *inject.DataSyncServiceClient {
+	return &inject.DataSyncServiceClient{}
+}
 func TestDataClient(t *testing.T) {
 	grpcClient := createGrpcClient()
 	client := DataClient{client: grpcClient}
@@ -578,4 +604,25 @@ func TestDataClient(t *testing.T) {
 		}
 		client.RemoveBinaryDataFromDatasetByIDs(context.Background(), binaryIDs, datasetID)
 	})
+}
+
+// ***********Added this below for new dataSync !!!******
+func TestDataSyncClient(t *testing.T) {
+	grpcClient := createGrpcDataSyncClient()
+	client := DataClient{dataSyncClient: grpcClient}
+
+	t.Run("DataCaptureUpload", func(t *testing.T) {
+		grpcClient.DataCaptureUploadFunc = func(ctx context.Context, in *syncPb.DataCaptureUploadRequest,
+			opts ...grpc.CallOption,
+		) (*syncPb.DataCaptureUploadResponse, error) {
+			//test.That(t, in._, test.ShouldResemble, toProto(something)) //toProto
+			return &syncPb.DataCaptureUploadResponse{
+				//fill all variables w prototype-types
+
+			}, nil
+		}
+		resp, _ := client.DataCaptureUpload(context.Background()) //not proto-types, regular types u expect to recieve in the function
+		//test.That(t, resp._, test.ShouldResemble, fromProto(something if needed)) //compare response with regular expected types
+	})
+
 }
