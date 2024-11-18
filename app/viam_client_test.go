@@ -135,7 +135,7 @@ func TestNewDataClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer client.Close()
 
-	dataClient, err := client.DataClient()
+	dataClient := client.DataClient()
 	if err != nil {
 		t.Fatalf("Failed to create DataClient: %v", err)
 	}
@@ -144,7 +144,7 @@ func TestNewDataClient(t *testing.T) {
 	test.That(t, dataClient.client, test.ShouldImplement, (*pb.DataServiceClient)(nil))
 
 	// Testing that a second call to DataClient() returns the same instance
-	dataClient2, err := client.DataClient()
-	test.That(t, err, test.ShouldBeNil)
+	dataClient2 := client.DataClient()
+	test.That(t, dataClient2, test.ShouldNotBeNil)
 	test.That(t, dataClient, test.ShouldResemble, dataClient2)
 }

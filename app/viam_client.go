@@ -65,16 +65,12 @@ func CreateViamClientWithAPIKey(
 
 // DataClient initializes and returns a DataClient instance used to make data method calls.
 // To use DataClient, you must first instantiate a ViamClient.
-func (c *ViamClient) DataClient() (*DataClient, error) {
-	var err error
+func (c *ViamClient) DataClient() *DataClient {
 	if c.dataClient != nil {
-		return c.dataClient, nil
+		return c.dataClient
 	}
-	c.dataClient, err = NewDataClient(c.conn)
-	if err != nil {
-		return nil, err
-	}
-	return c.dataClient, nil
+	c.dataClient = NewDataClient(c.conn)
+	return c.dataClient
 }
 
 // Close closes the gRPC connection.

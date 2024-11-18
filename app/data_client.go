@@ -177,14 +177,14 @@ type DatabaseConnReturn struct {
 	HasDatabaseUser bool
 }
 
-// NewDataClient constructs a new DataClient using the connection passed in by the viamClient and the provided logger.
+// NewDataClient constructs a new DataClient using the connection passed in by the viamClient.
 func NewDataClient(
-	channel rpc.ClientConn,
-) (*DataClient, error) {
-	d := pb.NewDataServiceClient(channel)
+	conn rpc.ClientConn,
+) *DataClient {
+	d := pb.NewDataServiceClient(conn)
 	return &DataClient{
 		client: d,
-	}, nil
+	}
 }
 
 func boundingBoxFromProto(proto *pb.BoundingBox) BoundingBox {
