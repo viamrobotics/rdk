@@ -15,70 +15,7 @@ import (
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rimage/transform"
 )
-
-//nolint:dupl
-func TestFakeCameraHighResolution(t *testing.T) {
-	model, width, height := fakeModel(1280, 720)
-	cancelCtx, cancelFn := context.WithCancel(context.Background())
-	camOri := &Camera{
-		ctx: cancelCtx, cancelFn: cancelFn,
-		Named: camera.Named("test_high").AsNamed(), Model: model, Width: width, Height: height,
-	}
-	src, err := camera.NewVideoSourceFromReader(context.Background(), camOri, model, camera.ColorStream)
-	test.That(t, err, test.ShouldBeNil)
-	cameraTest(t, src, 1280, 720, 921600, model.PinholeCameraIntrinsics, model.Distortion)
-	// (0,0) entry defaults to (1280, 720)
-	model, width, height = fakeModel(0, 0)
-	cancelCtx2, cancelFn2 := context.WithCancel(context.Background())
-	camOri = &Camera{
-		ctx: cancelCtx2, cancelFn: cancelFn2,
-		Named: camera.Named("test_high_zero").AsNamed(), Model: model, Width: width, Height: height,
-	}
-	src, err = camera.NewVideoSourceFromReader(context.Background(), camOri, model, camera.ColorStream)
-	test.That(t, err, test.ShouldBeNil)
-	cameraTest(t, src, 1280, 720, 921600, model.PinholeCameraIntrinsics, model.Distortion)
-}
-
-func TestFakeCameraMedResolution(t *testing.T) {
-	model, width, height := fakeModel(640, 360)
-	cancelCtx, cancelFn := context.WithCancel(context.Background())
-	camOri := &Camera{
-		ctx: cancelCtx, cancelFn: cancelFn,
-		Named: camera.Named("test_high").AsNamed(), Model: model, Width: width, Height: height,
-	}
-	src, err := camera.NewVideoSourceFromReader(context.Background(), camOri, model, camera.ColorStream)
-	test.That(t, err, test.ShouldBeNil)
-	cameraTest(t, src, 640, 360, 230400, model.PinholeCameraIntrinsics, model.Distortion)
-	err = src.Close(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-}
-
-//nolint:dupl
-func TestFakeCameraUnspecified(t *testing.T) {
-	// one unspecified side should keep 16:9 aspect ratio
-	// (320, 0) -> (320, 180)
-	model, width, height := fakeModel(320, 0)
-	cancelCtx, cancelFn := context.WithCancel(context.Background())
-	camOri := &Camera{
-		ctx: cancelCtx, cancelFn: cancelFn,
-		Named: camera.Named("test_320").AsNamed(), Model: model, Width: width, Height: height,
-	}
-	src, err := camera.NewVideoSourceFromReader(context.Background(), camOri, model, camera.ColorStream)
-	test.That(t, err, test.ShouldBeNil)
-	cameraTest(t, src, 320, 180, 57600, model.PinholeCameraIntrinsics, model.Distortion)
-	// (0, 180) -> (320, 180)
-	model, width, height = fakeModel(0, 180)
-	cancelCtx2, cancelFn2 := context.WithCancel(context.Background())
-	camOri = &Camera{
-		ctx: cancelCtx2, cancelFn: cancelFn2,
-		Named: camera.Named("test_180").AsNamed(), Model: model, Width: width, Height: height,
-	}
-	src, err = camera.NewVideoSourceFromReader(context.Background(), camOri, model, camera.ColorStream)
-	test.That(t, err, test.ShouldBeNil)
-	cameraTest(t, src, 320, 180, 57600, model.PinholeCameraIntrinsics, model.Distortion)
-}
 
 func TestFakeCameraParams(t *testing.T) {
 	// test odd width and height
@@ -94,35 +31,6 @@ func TestFakeCameraParams(t *testing.T) {
 	}
 	_, err = cfg.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
-}
-
-func cameraTest(
-	t *testing.T,
-	cam camera.VideoSource,
-	width, height, points int,
-	intrinsics *transform.PinholeCameraIntrinsics,
-	distortion transform.Distorter,
-) {
-	t.Helper()
-	stream, err := cam.Stream(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	img, _, err := stream.Next(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, img.Bounds().Dx(), test.ShouldEqual, width)
-	test.That(t, img.Bounds().Dy(), test.ShouldEqual, height)
-	pc, err := cam.NextPointCloud(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pc.Size(), test.ShouldEqual, points)
-	prop, err := cam.Properties(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, prop.IntrinsicParams, test.ShouldResemble, intrinsics)
-	if distortion == nil {
-		test.That(t, prop.DistortionParams, test.ShouldBeNil)
-	} else {
-		test.That(t, prop.DistortionParams, test.ShouldResemble, distortion)
-	}
-	err = cam.Close(context.Background())
-	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestCameraValidationAndCreation(t *testing.T) {
@@ -250,4 +158,45 @@ func TestRTPPassthrough(t *testing.T) {
 		test.That(t, cam.Unsubscribe(context.Background(), uuid.New()), test.ShouldBeError, ErrRTPPassthroughNotEnabled)
 		test.That(t, camera.Close(context.Background()), test.ShouldBeNil)
 	})
+}
+
+func TestPropertiesToggle(t *testing.T) {
+	// Test fake camera without setting model
+	// IntrinsicParams and DistortionParams Properties should be nil
+	ctx := context.Background()
+	cfg1 := resource.Config{
+		Name:                "test1",
+		API:                 camera.API,
+		Model:               Model,
+		ConvertedAttributes: &Config{},
+	}
+	cam1, err := NewCamera(ctx, nil, cfg1, logging.NewTestLogger(t))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, cam1, test.ShouldNotBeNil)
+	propsRes1, err := cam1.Properties(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, propsRes1, test.ShouldNotBeNil)
+	test.That(t, propsRes1.IntrinsicParams, test.ShouldBeNil)
+	test.That(t, propsRes1.DistortionParams, test.ShouldBeNil)
+	test.That(t, cam1.Close(ctx), test.ShouldBeNil)
+
+	// Test fake camera with model set to true
+	// IntrinsicParams and DistortionParams Properties should be set
+	cfg2 := resource.Config{
+		Name:  "test2",
+		API:   camera.API,
+		Model: Model,
+		ConvertedAttributes: &Config{
+			Model: true,
+		},
+	}
+	cam2, err := NewCamera(ctx, nil, cfg2, logging.NewTestLogger(t))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, cam2, test.ShouldNotBeNil)
+	propsRes2, err := cam2.Properties(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, propsRes2, test.ShouldNotBeNil)
+	test.That(t, propsRes2.IntrinsicParams, test.ShouldNotBeNil)
+	test.That(t, propsRes2.DistortionParams, test.ShouldNotBeNil)
+	test.That(t, cam2.Close(ctx), test.ShouldBeNil)
 }

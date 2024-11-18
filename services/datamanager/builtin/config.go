@@ -39,9 +39,10 @@ type Config struct {
 	CaptureDir string   `json:"capture_dir"`
 	Tags       []string `json:"tags"`
 	// Capture
-	CaptureDisabled             bool  `json:"capture_disabled"`
-	DeleteEveryNthWhenDiskFull  int   `json:"delete_every_nth_when_disk_full"`
-	MaximumCaptureFileSizeBytes int64 `json:"maximum_capture_file_size_bytes"`
+	CaptureDisabled             bool                 `json:"capture_disabled"`
+	DeleteEveryNthWhenDiskFull  int                  `json:"delete_every_nth_when_disk_full"`
+	MaximumCaptureFileSizeBytes int64                `json:"maximum_capture_file_size_bytes"`
+	MongoCaptureConfig          *capture.MongoConfig `json:"mongo_capture_config"`
 	// Sync
 	AdditionalSyncPaths    []string `json:"additional_sync_paths"`
 	FileLastModifiedMillis int      `json:"file_last_modified_millis"`
@@ -89,6 +90,7 @@ func (c *Config) captureConfig() capture.Config {
 		CaptureDir:                  c.getCaptureDir(),
 		Tags:                        c.Tags,
 		MaximumCaptureFileSizeBytes: maximumCaptureFileSizeBytes,
+		MongoConfig:                 c.MongoCaptureConfig,
 	}
 }
 

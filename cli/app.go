@@ -42,6 +42,7 @@ const (
 	apiKeyCreateFlagName = "name"
 
 	moduleFlagName            = "name"
+	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
 	moduleFlagPath            = "module"
 	moduleFlagVersion         = "version"
@@ -110,6 +111,9 @@ const (
 	packageFlagType        = "type"
 	packageFlagDestination = "destination"
 	packageFlagPath        = "path"
+	packageFlagFramework   = "model-framework"
+
+	packageMetadataFlagFramework = "model_framework"
 
 	authApplicationFlagName          = "application-name"
 	authApplicationFlagApplicationID = "application-id"
@@ -1497,6 +1501,11 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Usage: "generate a new modular resource via prompts",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
+							Name:  moduleFlagLanguage,
+							Usage: "language to use for module",
+							Value: "python",
+						},
+						&cli.StringFlag{
 							Name:  moduleFlagResourceType,
 							Usage: "resource type to use in module",
 						},
@@ -1906,6 +1915,12 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Name:     packageFlagType,
 							Required: true,
 							Usage:    "type of the requested package, can be: " + strings.Join(packageTypes, ", "),
+						},
+						&cli.StringFlag{
+							Name:     packageFlagFramework,
+							Required: false,
+							Usage: "framework for an ml_model being uploaded, can be: " +
+								strings.Join(modelFrameworks, ", ") + ", Required if packages if of type `ml_model`",
 						},
 					},
 					Action: PackageUploadAction,

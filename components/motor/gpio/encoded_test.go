@@ -56,6 +56,9 @@ func injectEncoder(vals *injectedState) encoder.Encoder {
 	enc.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (encoder.Properties, error) {
 		return encoder.Properties{TicksCountSupported: true}, nil
 	}
+	enc.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+		return nil, nil
+	}
 	return enc
 }
 

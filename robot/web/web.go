@@ -3,6 +3,7 @@ package web
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
@@ -858,6 +859,9 @@ func (svc *webService) initMux(options weboptions.Options) (*goji.Mux, error) {
 	// TODO: accept params to display different formats
 	mux.HandleFunc(pat.New("/debug/graph"), svc.handleVisualizeResourceGraph)
 
+	// serve restart status
+	mux.HandleFunc(pat.New("/restart_status"), svc.handleRestartStatus)
+
 	prefix := "/viam"
 	addPrefix := func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1066,4 +1070,27 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 		}
 		return stream.SendMsg(invokeResp)
 	}
+}
+
+// RestartStatusResponse is the JSON response of the `restart_status` HTTP
+// endpoint.
+type RestartStatusResponse struct {
+	// RestartAllowed represents whether this instance of the viam-server can be
+	// safely restarted.
+	RestartAllowed bool `json:"restart_allowed"`
+}
+
+// Handles the `/restart_status` endpoint.
+func (svc *webService) handleRestartStatus(w http.ResponseWriter, r *http.Request) {
+	localRobot, isLocal := svc.r.(robot.LocalRobot)
+	if !isLocal {
+		return
+	}
+
+	response := RestartStatusResponse{RestartAllowed: localRobot.RestartAllowed()}
+
+	w.Header().Set("Content-Type", "application/json")
+	// Only log errors from encoding here. A failure to encode should never
+	// happen.
+	utils.UncheckedError(json.NewEncoder(w).Encode(response))
 }

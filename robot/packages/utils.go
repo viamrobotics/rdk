@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
@@ -110,7 +109,7 @@ func installPackage(
 }
 
 func cleanup(packagesDir string, p config.PackageConfig) error {
-	return multierr.Combine(
+	return errors.Join(
 		os.RemoveAll(p.LocalDataDirectory(packagesDir)),
 		os.Remove(p.LocalDownloadPath(packagesDir)),
 	)
@@ -236,7 +235,7 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 }
 
 // commonCleanup is a helper for the various ManagerSyncer.Cleanup functions.
-func commonCleanup(logger logging.Logger, expectedPackageDirectories map[string]bool, packagesDataDir string) error {
+func commonCleanup(logger logging.Logger, expectedPackageEntries map[string]bool, packagesDataDir string) error {
 	topLevelFiles, err := os.ReadDir(packagesDataDir)
 	if err != nil {
 		return err
@@ -248,47 +247,67 @@ func commonCleanup(logger logging.Logger, expectedPackageDirectories map[string]
 	for _, packageTypeDir := range topLevelFiles {
 		packageTypeDirName, err := rutils.SafeJoinDir(packagesDataDir, packageTypeDir.Name())
 		if err != nil {
-			allErrors = multierr.Append(allErrors, err)
+			allErrors = errors.Join(allErrors, err)
 			continue
 		}
 
-		// There should be no non-dir files in the packages/data dir
-		// except .status.json and .first_run_succeeded. Delete any that exist
+		// Delete any non-directory files in the packages/data dir except for those with suffixes:
+		//
+		// `.status.json` - these files contain download status infomration.
+		// `.first_run_succeeded` - these mark successful setup phase runs.
 		if packageTypeDir.Type()&os.ModeDir != os.ModeDir && !strings.HasSuffix(packageTypeDirName, statusFileExt) {
-			allErrors = multierr.Append(allErrors, os.Remove(packageTypeDirName))
+			allErrors = errors.Join(allErrors, os.Remove(packageTypeDirName))
 			continue
 		}
-		// read all of the packages in the directory and delete those that aren't in expectedPackageDirectories
+		// read all of the packages in the directory and delete those that aren't in expectedPackageEntries
 		packageDirs, err := os.ReadDir(packageTypeDirName)
 		if err != nil {
-			allErrors = multierr.Append(allErrors, err)
+			allErrors = errors.Join(allErrors, err)
 			continue
 		}
-		for _, packageDir := range packageDirs {
-			packageDirName, err := rutils.SafeJoinDir(packageTypeDirName, packageDir.Name())
+		for _, entry := range packageDirs {
+			entryPath, err := rutils.SafeJoinDir(packageTypeDirName, entry.Name())
 			if err != nil {
-				allErrors = multierr.Append(allErrors, err)
+				allErrors = errors.Join(allErrors, err)
 				continue
 			}
-			_, expectedToExist := expectedPackageDirectories[packageDirName]
-			_, expectedStatusFileToExist := expectedPackageDirectories[strings.TrimSuffix(packageDirName, statusFileExt)]
-			_, expectedFirstRunSuccessFileToExist := expectedPackageDirectories[strings.TrimSuffix(packageDirName, config.FirstRunSuccessSuffix)]
-			if !expectedToExist && !expectedStatusFileToExist && !expectedFirstRunSuccessFileToExist {
-				logger.Debugf("Removing old package file(s) %s", packageDirName)
-				allErrors = multierr.Append(allErrors, os.RemoveAll(packageDirName))
+			if deletePackageEntry(expectedPackageEntries, entryPath) {
+				logger.Debugf("Removing old package file(s) %s", entryPath)
+				allErrors = errors.Join(allErrors, os.RemoveAll(entryPath))
 			}
 		}
 		// re-read the directory, if there is nothing left in it, delete the directory
 		packageDirs, err = os.ReadDir(packageTypeDirName)
 		if err != nil {
-			allErrors = multierr.Append(allErrors, err)
+			allErrors = errors.Join(allErrors, err)
 			continue
 		}
 		if len(packageDirs) == 0 {
-			allErrors = multierr.Append(allErrors, os.RemoveAll(packageTypeDirName))
+			allErrors = errors.Join(allErrors, os.RemoveAll(packageTypeDirName))
 		}
 	}
 	return allErrors
+}
+
+// deletePackageEntry checks if a file or directory in the modules data directory should be deleted or not.
+func deletePackageEntry(expectedPackageEntries map[string]bool, entryPath string) bool {
+	// check if directory corresponds to a module version that is still managed by the package
+	// manager - if so DO NOT delete it.
+	if _, ok := expectedPackageEntries[entryPath]; ok {
+		return false
+	}
+	// check if directory corresponds to a module version download status file - if so DO NOT delete it.
+	if _, ok := expectedPackageEntries[strings.TrimSuffix(entryPath, statusFileExt)]; ok {
+		return false
+	}
+	// check if directory corresponds to a first run success marker file - if so DO NOT delete it.
+	if _, ok := expectedPackageEntries[strings.TrimSuffix(entryPath, config.FirstRunSuccessSuffix)]; ok {
+		return false
+	}
+
+	// if we reached this point then this directory or file does not correspond to an actively-managed
+	// module version, and it can safely be deleted.
+	return true
 }
 
 type syncStatus string

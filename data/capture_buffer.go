@@ -6,6 +6,8 @@ import (
 	v1 "go.viam.com/api/app/datasync/v1"
 )
 
+const captureAllFromCamera = "CaptureAllFromCamera"
+
 // CaptureBufferedWriter is a buffered, persistent queue of SensorData.
 type CaptureBufferedWriter interface {
 	Write(item *v1.SensorData) error
@@ -63,7 +65,7 @@ func (b *CaptureBuffer) Write(item *v1.SensorData) error {
 		// We want to special case on "CaptureAllFromCamera" because it is sensor data that contains images
 		// and their corresponding annotations. We want each image and its annotations to be stored in a
 		// separate file.
-	} else if b.nextFile.Size() > b.maxCaptureFileSize || b.MetaData.MethodName == "CaptureAllFromCamera" {
+	} else if b.nextFile.Size() > b.maxCaptureFileSize || b.MetaData.MethodName == captureAllFromCamera {
 		if err := b.nextFile.Close(); err != nil {
 			return err
 		}

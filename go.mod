@@ -77,14 +77,14 @@ require (
 	github.com/viamrobotics/webrtc/v3 v3.99.10
 	github.com/xfmoulet/qoi v0.2.0
 	go-hep.org/x/hep v0.32.1
-	go.mongodb.org/mongo-driver v1.11.6
+	go.mongodb.org/mongo-driver v1.12.2
 	go.opencensus.io v0.24.0
 	go.uber.org/atomic v1.11.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
-	go.viam.com/api v0.1.350
-	go.viam.com/test v1.1.1-0.20220913152726-5da9916c08a2
-	go.viam.com/utils v0.1.110
+	go.viam.com/api v0.1.357
+	go.viam.com/test v1.2.3
+	go.viam.com/utils v0.1.112
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.19.0
 	golang.org/x/mobile v0.0.0-20240112133503-c713f31d574b
@@ -188,6 +188,7 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/denis-tingaikin/go-header v0.5.0 // indirect
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
+	github.com/dgottlieb/smarty-assertions v1.2.5 // indirect
 	github.com/dnephin/pflag v1.0.7 // indirect
 	github.com/docker/cli v24.0.2+incompatible // indirect
 	github.com/docker/distribution v2.8.2+incompatible // indirect
@@ -227,7 +228,6 @@ require (
 	github.com/go-toolsmith/strparse v1.1.0 // indirect
 	github.com/go-toolsmith/typep v1.1.0 // indirect
 	github.com/go-xmlfmt/xmlfmt v1.1.2 // indirect
-	github.com/goburrow/serial v0.1.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/gofrs/flock v0.12.1 // indirect
@@ -364,7 +364,6 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/sivchari/containedctx v1.0.3 // indirect
 	github.com/sivchari/tenv v1.10.0 // indirect
-	github.com/smartystreets/assertions v1.13.0 // indirect
 	github.com/sonatard/noctx v0.0.2 // indirect
 	github.com/sourcegraph/go-diff v0.7.0 // indirect
 	github.com/spf13/afero v1.11.0 // indirect
@@ -438,7 +437,6 @@ require (
 
 require (
 	github.com/erikstmartin/go-testdb v0.0.0-20160219214506-8d10e4a1bae5 // indirect
-	github.com/goburrow/modbus v0.1.0
 	github.com/kylelemons/go-gypsy v1.0.0 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/ziutek/mymysql v1.5.4 // indirect

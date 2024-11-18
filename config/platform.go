@@ -16,14 +16,13 @@ import (
 var (
 	cudaRegex            = regexp.MustCompile(`Cuda compilation tools, release (\d+)\.`)
 	aptCacheVersionRegex = regexp.MustCompile(`\nVersion: (\d+)\D`)
+	piModelRegex         = regexp.MustCompile(`Raspberry Pi\s?(Compute Module)?\s?(\d\w*)?\s?(\w+)?\s?(Model (.+))? Rev`)
+	darwinVersionRegex   = regexp.MustCompile(`(\d+)\.`)
 	savedPlatformTags    []string
 )
 
 // helper to read platform tags for GPU-related system libraries.
-func readGPUTags(logger logging.Logger, tags []string) []string {
-	// this timeout is for all steps in this function.
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
+func readGPUTags(ctx context.Context, logger logging.Logger, tags []string) []string {
 	if _, err := exec.LookPath("nvcc"); err == nil {
 		out, err := exec.CommandContext(ctx, "nvcc", "--version").Output()
 		if err != nil {
@@ -32,7 +31,7 @@ func readGPUTags(logger logging.Logger, tags []string) []string {
 		if match := cudaRegex.FindSubmatch(out); match != nil {
 			tags = append(tags, "cuda:true", "cuda_version:"+string(match[1]))
 		} else {
-			logger.Errorw("error parsing `nvcc --version` output. Cuda-specific modules may not load")
+			logger.Error("error parsing `nvcc --version` output. Cuda-specific modules may not load")
 		}
 	}
 	if _, err := exec.LookPath("apt-cache"); err == nil {
@@ -43,6 +42,59 @@ func readGPUTags(logger logging.Logger, tags []string) []string {
 				tags = append(tags, "jetpack:"+string(match[1]))
 			}
 		}
+	}
+	return tags
+}
+
+type piModel struct {
+	version     string
+	longVersion string
+}
+
+// inner logic for pi version parsing.
+func parsePi(logger logging.Logger, raw []byte) *piModel {
+	if match := piModelRegex.FindSubmatch(raw); match != nil {
+		litePlus := string(match[3])
+		cm := string(match[1])
+		model := strings.Replace(string(match[5]), " Plus", "p", 1)
+		ret := &piModel{
+			version: string(match[2]),
+		}
+		if cm != "" {
+			ret.longVersion = "cm"
+		}
+		if ret.version == "" {
+			ret.version = "1"
+		}
+		ret.longVersion += ret.version
+		ret.version = ret.version[:1] // contract 3E to 3 now that it's been copied to longVersion
+		switch litePlus {
+		case "Lite":
+			ret.longVersion += "l"
+		case "Plus":
+			ret.longVersion += "p"
+		case "":
+		default:
+			logger.Warnw("Lite/Plus token has unexpected value; `pifull` platform tag may be wrong", "value", litePlus)
+		}
+		ret.longVersion += model
+		return ret
+	}
+	return nil
+}
+
+// helper to add raspberry pi tags to the list.
+func readPiTags(logger logging.Logger, tags []string) []string {
+	body, err := os.ReadFile("/proc/device-tree/model")
+	if err != nil {
+		if !os.IsNotExist(err) {
+			logger.Errorw("can't open /proc/device-tree/model, modules may not load correctly", "err", err)
+		}
+		return tags
+	}
+	if model := parsePi(logger, body); model != nil {
+		tags = append(tags, "pi:"+model.version)
+		tags = append(tags, "pifull:"+model.longVersion)
 	}
 	return tags
 }
@@ -85,19 +137,43 @@ func readLinuxTags(logger logging.Logger, tags []string) []string {
 	return tags
 }
 
+func readDarwinTags(ctx context.Context, logger logging.Logger, tags []string) []string {
+	if _, err := exec.LookPath("sw_vers"); err == nil {
+		out, err := exec.CommandContext(ctx, "sw_vers", "--productVersion").Output()
+		if err != nil {
+			logger.Errorw("error getting darwin version from sw_vers. Mac-specific modules may not load", "err", err)
+		}
+		if match := darwinVersionRegex.FindSubmatch(out); match != nil {
+			tags = append(tags, "os_version:"+string(match[1]))
+		} else {
+			logger.Errorw("error parsing sw_vers version output. Mac-specific modules may not load", "input", string(out))
+		}
+	}
+	return tags
+}
+
 // This reads the granular platform constraints (os version, distro, etc).
 // This further constrains the basic runtime.GOOS/GOARCH stuff in getAgentInfo
 // so module authors can publish builds with ABI or SDK dependencies. The
 // list of tags returned by this function is expected to grow.
 func readExtendedPlatformTags(logger logging.Logger, cache bool) []string {
-	// TODO(APP-6696): CI in multiple environments (alpine + mac), darwin support.
 	if cache && savedPlatformTags != nil {
 		return savedPlatformTags
 	}
+
+	// this timeout is for all steps in this function.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
 	tags := make([]string, 0, 3)
-	if runtime.GOOS == "linux" {
+
+	switch runtime.GOOS {
+	case "linux":
 		tags = readLinuxTags(logger, tags)
-		tags = readGPUTags(logger, tags)
+		tags = readGPUTags(ctx, logger, tags)
+		tags = readPiTags(logger, tags)
+	case "darwin":
+		tags = readDarwinTags(ctx, logger, tags)
 	}
 	if cache {
 		savedPlatformTags = tags

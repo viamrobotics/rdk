@@ -78,82 +78,11 @@ jobs:
 
       - name: Upload test.json
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: test-${{ matrix.platform_name }}.json
           path: json.log
           retention-days: 30
-
-  test_coverage:
-    name: Go Coverage Tests
-    if: false # toggle this off, delete after 3/1/24 if nobody misses it
-    # note: we split 'test_go' and 'test_coverage' steps because running race-detection + covprofile simultaneously is slow enough to cause flakes
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: ubuntu-large
-            image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
-            platform: linux/amd64
-            platform_name: linux-amd64
-          - arch: ubuntu-large-arm
-            image: ghcr.io/viamrobotics/rdk-devenv:arm64-cache
-            platform: linux/arm64
-            platform_name: linux-arm64
-    runs-on: ${{ matrix.arch }}
-    container:
-      image: ${{ matrix.image }}
-      options: --platform ${{ matrix.platform }}
-    timeout-minutes: 30
-
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.event.ref }}
-          fetch-depth: ${{ github.event_name == 'pull_request_target' && '0' || '1' }} # 0 aka full history, so we can analyze history for coverage
-
-      - name: Set main env vars
-        if: github.event_name != 'pull_request_target'
-        run: |
-          echo "GITHUB_X_HEAD_SHA=${GITHUB_SHA}" >> $GITHUB_ENV
-          echo "GITHUB_X_HEAD_REF=${GITHUB_REF_NAME}" >> $GITHUB_ENV
-
-      - name: Set PR env vars
-        if: github.event_name == 'pull_request_target'
-        env:
-          GITHUB_HEAD_REF_SAN: ${{ github.event.pull_request.head.label }}
-        run: |
-          echo "GITHUB_X_HEAD_SHA=${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
-          echo "GITHUB_X_HEAD_REF=${GITHUB_HEAD_REF_SAN}" >> $GITHUB_ENV
-          echo "GITHUB_X_PR_BASE_SHA=${{ github.event.pull_request.base.sha }}" >> $GITHUB_ENV
-          echo "GITHUB_X_PR_BASE_REF=${{ github.event.pull_request.base.ref }}" >> $GITHUB_ENV
-
-      - name: chown
-        run: chown -R testbot:testbot .
-
-      - name: Verify no uncommitted changes from "make build-go lint-go generate-go"
-        run: |
-          sudo -Hu testbot bash -lc 'git init && git add . && make build-go lint-go generate-go'
-          GEN_DIFF=$(git status -s)
-
-          if [ -n "$GEN_DIFF" ]; then
-              echo '"make build-go lint-go generate-go" resulted in changes not in git' 1>&2
-              git status
-              exit 1
-          fi
-
-      - name: Run go coverage tests
-        run: |
-          sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -Hu testbot bash -lc 'make cover-only'
-
-      - name: Upload code coverage
-        uses: actions/upload-artifact@v3
-        with:
-          name: pr-code-coverage
-          path: |
-            pr.env
-            code-coverage-results.md
-          retention-days: 1
 
   test32:
     name: Go 32-bit Unit Tests
@@ -202,43 +131,9 @@ jobs:
           pip install -r cli/test-requirements.txt
           check-jsonschema --schemafile ./cli/module.schema.json meta2.json
 
-  test_web_e2e:
-    name: Test End-to-End and Web
-    runs-on: ubuntu-latest
-    container: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
-
-      - name: Chown
-        run: chown -R testbot:testbot .
-
-      - name: Verify no uncommitted changes from "make build-web lint-web"
-        run: |
-          sudo -Hu testbot bash -lc 'git init && git add . && make build-web lint-web'
-          GEN_DIFF=$(git status -s)
-
-          if [ -n "$GEN_DIFF" ]; then
-              echo '"make build-web lint-web" resulted in changes not in git' 1>&2
-              git status
-              exit 1
-          fi
-
-      - name: Install dependencies
-        run: |
-          apt-get update && apt-get -qy install libgtk2.0-0 libgtk-3-0 libgbm-dev libnotify-dev libgconf-2-4 libnss3 libxss1 libasound2 libxtst6 xauth xvfb netcat-openbsd lsof
-
-      - name: Run web tests
-        run: sudo -Hu testbot bash -lc 'make test-web'
-
-      - name: Run e2e tests
-        run: sudo -Hu testbot bash -lc 'make test-e2e E2E_ARGS="-k"'
-
   test_passing:
     name: All Tests Passing
-    needs: [test_go, test_web_e2e, test32, motion_tests]
+    needs: [test_go, test32, motion_tests]
     runs-on: [ubuntu-latest]
     if: always()
     steps:
@@ -246,11 +141,9 @@ jobs:
         run: |
           echo Go Unit Tests: ${{ needs.test_go.result }}
           echo Go 32-bit Tests: ${{ needs.test32.result }}
-          echo Web/E2E Tests: ${{ needs.test_web_e2e.result }}
           echo Motion Tests: ${{ needs.motion_tests.result }}
           [ "${{ needs.test_go.result }}" == "success" ] && \
           [ "${{ needs.test32.result }}" == "success" ] && \
-          [ "${{ needs.test_web_e2e.result }}" == "success" ] && \
           [ "${{ needs.motion_tests.result }}" == "success" ]
 
       # Now that RDK is public, can't directly comment without token having full read/write access
