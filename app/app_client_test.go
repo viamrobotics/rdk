@@ -1520,4 +1520,103 @@ func TestAppClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, permissions)
 	})
+
+	t.Run("GetRegistryItem", func(t *testing.T) {
+		grpcClient.GetRegistryItemFunc = func(
+			ctx context.Context, in *pb.GetRegistryItemRequest, opts ...grpc.CallOption,
+		) (*pb.GetRegistryItemResponse, error) {
+			test.That(t, in.ItemId, test.ShouldResemble, itemID)
+			return &pb.GetRegistryItemResponse{
+				Item: pbRegistryItem,
+			}, nil
+		}
+		resp, err := client.GetRegistryItem(context.Background(), itemID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldResemble, &registryItem)
+	})
+
+	t.Run("CreateRegistryItem", func(t *testing.T) {
+		grpcClient.CreateRegistryItemFunc = func(
+			ctx context.Context, in *pb.CreateRegistryItemRequest, opts ...grpc.CallOption,
+		) (*pb.CreateRegistryItemResponse, error) {
+			test.That(t, in.OrganizationId, test.ShouldResemble, registryItem.OrganizationID)
+			test.That(t, in.Name, test.ShouldResemble, registryItem.Name)
+			test.That(t, in.Type, test.ShouldResemble, pbRegistryItem.Type)
+			return &pb.CreateRegistryItemResponse{}, nil
+		}
+		err := client.CreateRegistryItem(context.Background(), registryItem.OrganizationID, registryItem.Name, registryItem.Type)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("UpdateRegistryItem", func(t *testing.T) {
+		grpcClient.UpdateRegistryItemFunc = func(
+			ctx context.Context, in *pb.UpdateRegistryItemRequest, opts ...grpc.CallOption,
+		) (*pb.UpdateRegistryItemResponse, error) {
+			test.That(t, in.ItemId, test.ShouldResemble, itemID)
+			test.That(t, in.Type, test.ShouldResemble, packageTypeToProto(packageType))
+			test.That(t, in.Description, test.ShouldResemble, description)
+			test.That(t, in.Visibility, test.ShouldResemble, visibilityToProto(visibility))
+			test.That(t, in.Url, test.ShouldResemble, &siteURL)
+			return &pb.UpdateRegistryItemResponse{}, nil
+		}
+		err := client.UpdateRegistryItem(context.Background(), registryItem.ItemID, packageType, description, visibility, &siteURL)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("ListRegistryItems", func(t *testing.T) {
+		platforms := []string{platform}
+		namespaces := []string{namespace}
+		expectedRegistryItems := []*RegistryItem{&registryItem}
+		grpcClient.ListRegistryItemsFunc = func(
+			ctx context.Context, in *pb.ListRegistryItemsRequest, opts ...grpc.CallOption,
+		) (*pb.ListRegistryItemsResponse, error) {
+			test.That(t, in.OrganizationId, test.ShouldResemble, &organizationID)
+			test.That(t, in.Types, test.ShouldResemble, []packages.PackageType{packageTypeToProto(packageType)})
+			test.That(t, in.Visibilities, test.ShouldResemble, []pb.Visibility{visibilityToProto(visibility)})
+			test.That(t, in.Platforms, test.ShouldResemble, platforms)
+			test.That(t, in.Statuses, test.ShouldResemble, []pb.RegistryItemStatus{pb.RegistryItemStatus(registryItemStatus)})
+			test.That(t, in.SearchTerm, test.ShouldResemble, &searchTerm)
+			test.That(t, in.PageToken, test.ShouldResemble, &pageToken)
+			test.That(t, in.PublicNamespaces, test.ShouldResemble, namespaces)
+			return &pb.ListRegistryItemsResponse{
+				Items: []*pb.RegistryItem{pbRegistryItem},
+			}, nil
+		}
+		resp, err := client.ListRegistryItems(
+			context.Background(),
+			&organizationID,
+			[]PackageType{packageType},
+			[]Visibility{visibility},
+			platforms,
+			[]RegistryItemStatus{registryItemStatus},
+			&searchTerm,
+			&pageToken,
+			namespaces,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldResemble, expectedRegistryItems)
+	})
+
+	t.Run("DeleteRegistryItem", func(t *testing.T) {
+		grpcClient.DeleteRegistryItemFunc = func(
+			ctx context.Context, in *pb.DeleteRegistryItemRequest, opts ...grpc.CallOption,
+		) (*pb.DeleteRegistryItemResponse, error) {
+			test.That(t, in.ItemId, test.ShouldResemble, itemID)
+			return &pb.DeleteRegistryItemResponse{}, nil
+		}
+		err := client.DeleteRegistryItem(context.Background(), registryItem.ItemID)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("TransferRegistryItem", func(t *testing.T) {
+		grpcClient.TransferRegistryItemFunc = func(
+			ctx context.Context, in *pb.TransferRegistryItemRequest, opts ...grpc.CallOption,
+		) (*pb.TransferRegistryItemResponse, error) {
+			test.That(t, in.ItemId, test.ShouldResemble, itemID)
+			test.That(t, in.NewPublicNamespace, test.ShouldResemble, namespace)
+			return &pb.TransferRegistryItemResponse{}, nil
+		}
+		err := client.TransferRegistryItem(context.Background(), registryItem.ItemID, namespace)
+		test.That(t, err, test.ShouldBeNil)
+	})
 }
