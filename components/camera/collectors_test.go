@@ -1,4 +1,4 @@
-package vision_test
+package camera_test
 
 import (
 	"bytes"
@@ -14,96 +14,31 @@ import (
 	datasyncpb "go.viam.com/api/app/datasync/v1"
 	camerapb "go.viam.com/api/component/camera/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
-	visionservice "go.viam.com/rdk/services/vision"
 	tu "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/rdk/vision/classification"
-	"go.viam.com/rdk/vision/objectdetection"
-	"go.viam.com/rdk/vision/viscapture"
 )
 
 //nolint:lll
 var viamLogoJpegB64 = []byte("/9j/4QD4RXhpZgAATU0AKgAAAAgABwESAAMAAAABAAEAAAEaAAUAAAABAAAAYgEbAAUAAAABAAAAagEoAAMAAAABAAIAAAExAAIAAAAhAAAAcgITAAMAAAABAAEAAIdpAAQAAAABAAAAlAAAAAAAAABIAAAAAQAAAEgAAAABQWRvYmUgUGhvdG9zaG9wIDIzLjQgKE1hY2ludG9zaCkAAAAHkAAABwAAAAQwMjIxkQEABwAAAAQBAgMAoAAABwAAAAQwMTAwoAEAAwAAAAEAAQAAoAIABAAAAAEAAAAgoAMABAAAAAEAAAAgpAYAAwAAAAEAAAAAAAAAAAAA/9sAhAAcHBwcHBwwHBwwRDAwMERcRERERFx0XFxcXFx0jHR0dHR0dIyMjIyMjIyMqKioqKioxMTExMTc3Nzc3Nzc3NzcASIkJDg0OGA0NGDmnICc5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ub/3QAEAAL/wAARCAAgACADASIAAhEBAxEB/8QBogAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoLEAACAQMDAgQDBQUEBAAAAX0BAgMABBEFEiExQQYTUWEHInEUMoGRoQgjQrHBFVLR8CQzYnKCCQoWFxgZGiUmJygpKjQ1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4eLj5OXm5+jp6vHy8/T19vf4+foBAAMBAQEBAQEBAQEAAAAAAAABAgMEBQYHCAkKCxEAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDm6K0dNu1tZsSgGNuDx0961NX09WT7ZbgcD5gPT1oA5qiul0fT1VPtlwByPlB7D1rL1K7W5mxEAI04GBjPvQB//9Dm66TRr/I+xTf8A/wrm6ASpBXgjpQB0ms34UfYof8AgWP5VzdBJY5PJNFAH//Z")
 
-type fakeDetection struct {
-	boundingBox *image.Rectangle
-	score       float64
-	label       string
-}
-
-type fakeClassification struct {
-	score float64
-	label string
-}
-
 const (
-	serviceName     = "vision"
+	serviceName     = "camera"
 	captureInterval = time.Millisecond
 )
-
-var fakeDetections = []objectdetection.Detection{
-	&fakeDetection{
-		boundingBox: &image.Rectangle{
-			Min: image.Point{X: 10, Y: 20},
-			Max: image.Point{X: 110, Y: 120},
-		},
-		score: 0.95,
-		label: "cat",
-	},
-}
-
-var fakeDetections2 = []objectdetection.Detection{
-	&fakeDetection{
-		boundingBox: &image.Rectangle{
-			Min: image.Point{X: 10, Y: 20},
-			Max: image.Point{X: 110, Y: 120},
-		},
-		score: 0.3,
-		label: "cat",
-	},
-}
-
-var fakeClassifications = []classification.Classification{
-	&fakeClassification{
-		score: 0.85,
-		label: "cat",
-	},
-}
-
-var fakeClassifications2 = []classification.Classification{
-	&fakeClassification{
-		score: 0.49,
-		label: "cat",
-	},
-}
-
-func (fc *fakeClassification) Score() float64 {
-	return fc.score
-}
-
-func (fc *fakeClassification) Label() string {
-	return fc.label
-}
-
-func (fd *fakeDetection) BoundingBox() *image.Rectangle {
-	return fd.boundingBox
-}
-
-func (fd *fakeDetection) Score() float64 {
-	return fd.score
-}
-
-func (fd *fakeDetection) Label() string {
-	return fd.label
-}
 
 func convertStringMapToAnyPBMap(params map[string]string) (map[string]*anypb.Any, error) {
 	methodParams := map[string]*anypb.Any{}
@@ -138,6 +73,7 @@ func convertStringToAnyPB(str string) (*anypb.Any, error) {
 }
 
 func TestCollectors(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	methodParams, err := convertStringMapToAnyPBMap(map[string]string{"camera_name": "camera-1", "mime_type": "image/jpeg"})
 	test.That(t, err, test.ShouldBeNil)
 	viamLogoJpeg, err := io.ReadAll(base64.NewDecoder(base64.StdEncoding, bytes.NewReader(viamLogoJpegB64)))
@@ -152,99 +88,67 @@ func TestCollectors(t *testing.T) {
 	test.That(t, img.Bounds().Dx(), test.ShouldEqual, 32)
 	test.That(t, img.Bounds().Dy(), test.ShouldEqual, 32)
 
+	pcd, err := pointcloud.NewFromFile(artifact.MustPath("pointcloud/test.las"), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	var pcdBuf bytes.Buffer
+	test.That(t, pointcloud.ToPCD(pcd, &pcdBuf, pointcloud.PCDBinary), test.ShouldBeNil)
+
+	now := time.Now()
+	nowPB := timestamppb.New(now)
+	cam := newCamera(img, img, now, pcd)
+
 	tests := []struct {
 		name      string
 		collector data.CollectorConstructor
 		expected  *datasyncpb.SensorData
-		vision    visionservice.Service
+		camera    camera.Camera
 	}{
 		{
-			name:      "CaptureAllFromCameraCollector returns non-empty CaptureAllFromCameraResp",
-			collector: visionservice.NewCaptureAllFromCameraCollector,
+			name:      "ReadImage returns a non nil binary response",
+			collector: camera.NewReadImageCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
-				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
-					"image": map[string]any{
-						"source_name": "camera-1",
-						"format":      int(camerapb.Format_FORMAT_JPEG),
-						"image":       viamLogoJpegAsInts,
-					},
-					"classifications": []any{
-						map[string]any{
-							"confidence": 0.85,
-							"class_name": "cat",
-						},
-					},
-					"detections": []any{
-						map[string]any{
-							"confidence": 0.95,
-							"class_name": "cat",
-							"x_min":      10,
-							"y_min":      20,
-							"x_max":      110,
-							"y_max":      120,
-						},
-					},
-					"objects": []any{},
-					"extra": map[string]any{
-						"fields": map[string]any{
-							"Height": map[string]any{
-								"Kind": map[string]any{
-									"NumberValue": 32,
-								},
-							},
-							"Width": map[string]any{
-								"Kind": map[string]any{
-									"NumberValue": 32,
-								},
-							},
-							"MimeType": map[string]any{
-								"Kind": map[string]any{
-									"StringValue": utils.MimeTypeJPEG,
-								},
-							},
-						},
-					},
-				})},
+				Data:     &datasyncpb.SensorData_Binary{Binary: viamLogoJpeg},
 			},
-			vision: newVisionService(img),
+			camera: cam,
 		},
 		{
-			name:      "CaptureAllFromCameraCollector w/ Classifications & Detections < 0.5 returns empty CaptureAllFromCameraResp",
-			collector: visionservice.NewCaptureAllFromCameraCollector,
+			name:      "NextPointCloud returns a non nil binary response",
+			collector: camera.NewNextPointCloudCollector,
+			expected: &datasyncpb.SensorData{
+				Metadata: &datasyncpb.SensorMetadata{},
+				Data:     &datasyncpb.SensorData_Binary{Binary: pcdBuf.Bytes()},
+			},
+			camera: cam,
+		},
+		{
+			name:      "GetImages returns a non nil tabular response",
+			collector: camera.NewGetImagesCollector,
 			expected: &datasyncpb.SensorData{
 				Metadata: &datasyncpb.SensorMetadata{},
 				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
-					"image": map[string]any{
-						"source_name": "camera-1",
-						"format":      3,
-						"image":       viamLogoJpegAsInts,
+					"response_metadata": map[string]any{
+						"captured_at": map[string]any{
+							"seconds": nowPB.Seconds,
+							"nanos":   nowPB.Nanos,
+						},
 					},
-					"classifications": []any{},
-					"detections":      []any{},
-					"objects":         []any{},
-					"extra": map[string]any{
-						"fields": map[string]any{
-							"Height": map[string]any{
-								"Kind": map[string]any{
-									"NumberValue": 32,
-								},
-							},
-							"Width": map[string]any{
-								"Kind": map[string]any{
-									"NumberValue": 32,
-								},
-							},
-							"MimeType": map[string]any{
-								"Kind": map[string]any{
-									"StringValue": utils.MimeTypeJPEG,
-								},
-							},
+					"images": []any{
+						map[string]any{
+							"source_name": "left",
+							"format":      int(camerapb.Format_FORMAT_JPEG),
+							"image":       viamLogoJpegAsInts,
+						},
+						map[string]any{
+							"source_name": "right",
+							"format":      int(camerapb.Format_FORMAT_JPEG),
+							"image":       viamLogoJpegAsInts,
 						},
 					},
 				})},
 			},
-			vision: newVisionService2(img),
+			camera: cam,
 		},
 	}
 
@@ -261,7 +165,7 @@ func TestCollectors(t *testing.T) {
 				MethodParams:  methodParams,
 			}
 
-			col, err := tc.collector(tc.vision, params)
+			col, err := tc.collector(tc.camera, params)
 			test.That(t, err, test.ShouldBeNil)
 
 			defer col.Close()
@@ -275,31 +179,29 @@ func TestCollectors(t *testing.T) {
 	}
 }
 
-func newVisionService(img image.Image) visionservice.Service {
-	v := &inject.VisionService{}
-	v.CaptureAllFromCameraFunc = func(ctx context.Context, cameraName string, opts viscapture.CaptureOptions,
-		extra map[string]interface{},
-	) (viscapture.VisCapture, error) {
-		return viscapture.VisCapture{
-			Image:           img,
-			Detections:      fakeDetections,
-			Classifications: fakeClassifications,
-		}, nil
+func newCamera(
+	left, right image.Image,
+	capturedAt time.Time,
+	pcd pointcloud.PointCloud,
+) camera.Camera {
+	v := &inject.Camera{}
+	v.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+			return left, func() {}, nil
+		})), nil
 	}
 
-	return v
-}
+	v.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+		return pcd, nil
+	}
 
-func newVisionService2(img image.Image) visionservice.Service {
-	v := &inject.VisionService{}
-	v.CaptureAllFromCameraFunc = func(ctx context.Context, cameraName string, opts viscapture.CaptureOptions,
-		extra map[string]interface{},
-	) (viscapture.VisCapture, error) {
-		return viscapture.VisCapture{
-			Image:           img,
-			Detections:      fakeDetections2,
-			Classifications: fakeClassifications2,
-		}, nil
+	v.ImagesFunc = func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+		return []camera.NamedImage{
+				{Image: left, SourceName: "left"},
+				{Image: right, SourceName: "right"},
+			},
+			resource.ResponseMetadata{CapturedAt: capturedAt},
+			nil
 	}
 
 	return v

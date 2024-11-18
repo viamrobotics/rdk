@@ -41,14 +41,14 @@ func Named(name string) resource.Name {
 //
 // Open example:
 //
-//	myGripper, err := gripper.FromRobot(machine, "my-gripper")
+//	myGripper, err := gripper.FromRobot(machine, "my_gripper")
 //
 //	// Open the gripper.
 //	err := myGripper.Open(context.Background(), nil)
 //
 // Grab example:
 //
-//	myGripper, err := gripper.FromRobot(machine, "my-gripper")
+//	myGripper, err := gripper.FromRobot(machine, "my_gripper")
 //
 //	// Grab with the gripper.
 //	grabbed, err := myGripper.Grab(context.Background(), nil)

@@ -5,7 +5,6 @@ import (
 	// Load all movementsensors.
 	_ "go.viam.com/rdk/components/movementsensor/adxl345"
 	_ "go.viam.com/rdk/components/movementsensor/fake"
-	_ "go.viam.com/rdk/components/movementsensor/imuvectornav"
 	_ "go.viam.com/rdk/components/movementsensor/imuwit"
 	_ "go.viam.com/rdk/components/movementsensor/merged"
 	_ "go.viam.com/rdk/components/movementsensor/mpu6050"

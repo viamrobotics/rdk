@@ -23,10 +23,12 @@ import (
 // ResourceNameToProto converts a resource.Name to its proto counterpart.
 func ResourceNameToProto(name resource.Name) *commonpb.ResourceName {
 	return &commonpb.ResourceName{
-		Namespace: string(name.API.Type.Namespace),
-		Type:      name.API.Type.Name,
-		Subtype:   name.API.SubtypeName,
-		Name:      name.ShortName(),
+		Namespace:  string(name.API.Type.Namespace),
+		Type:       name.API.Type.Name,
+		Subtype:    name.API.SubtypeName,
+		Name:       name.ShortName(),
+		RemotePath: name.RemoteNameToRemoteArray(),
+		LocalName:  name.Name,
 	}
 }
 
