@@ -1111,16 +1111,16 @@ func (c *Client) DeleteKey(ctx context.Context, id string) error {
 }
 
 // ListKeys lists all the keys for the organization.
-func (c *Client) ListKeys(ctx context.Context, orgID string) ([]APIKeyWithAuthorizations, error) {
+func (c *Client) ListKeys(ctx context.Context, orgID string) ([]*APIKeyWithAuthorizations, error) {
 	resp, err := c.client.ListKeys(ctx, &pb.ListKeysRequest{
 		OrgId: orgID,
 	})
 	if err != nil {
 		return nil, err
 	}
-	var apiKeys []APIKeyWithAuthorizations
+	var apiKeys []*APIKeyWithAuthorizations
 	for _, key := range resp.ApiKeys {
-		apiKeys = append(apiKeys, *apiKeyWithAuthorizationsFromProto(key))
+		apiKeys = append(apiKeys, apiKeyWithAuthorizationsFromProto(key))
 	}
 	return apiKeys, nil
 }

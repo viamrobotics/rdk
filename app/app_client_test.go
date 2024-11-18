@@ -76,10 +76,10 @@ const (
 	draft                          = false
 	platform                       = "platform"
 	registryItemStatus             = RegistryItemStatusPublished
-	moduleID = "module_id"
-	api = "api"
-	modelString = "model_string"
-	entryPoint = "entry_point"
+	moduleID                       = "module_id"
+	api                            = "api"
+	modelString                    = "model_string"
+	entryPoint                     = "entry_point"
 )
 
 var (
@@ -372,11 +372,12 @@ var (
 			},
 		},
 	}
-	public             = true
-	fragmentVisibility = FragmentVisibilityPublic
-	f                  = map[string]interface{}{"name": name, "id": fragmentID}
-	pbF, _             = protoutils.StructToStructPb(f)
-	fragment           = Fragment{
+	pbAPIKeysWithAuthorizations = []*pb.APIKeyWithAuthorizations{&pbAPIKeyWithAuthorizations}
+	public                      = true
+	fragmentVisibility          = FragmentVisibilityPublic
+	f                           = map[string]interface{}{"name": name, "id": fragmentID}
+	pbF, _                      = protoutils.StructToStructPb(f)
+	fragment                    = Fragment{
 		ID:                fragmentID,
 		Name:              name,
 		Fragment:          &f,
@@ -451,76 +452,82 @@ var (
 		CreatedAt:                      &createdOn,
 		UpdatedAt:                      &lastUpdated,
 	}
-	pbVisibility = visibilityToProto(visibility)
+	pbVisibility      = visibilityToProto(visibility)
 	pbRegistryItem, _ = registryItemToProto(&registryItem)
 	searchTerm        = "search_term"
-	model = Model{
-		API: api,
+	model             = Model{
+		API:   api,
 		Model: modelString,
 	}
-	models = []*Model{&model}
+	models   = []*Model{&model}
 	pbModels = []*pb.Model{
 		{
-			Api: model.API,
+			Api:   model.API,
 			Model: modelString,
 		},
 	}
-	firstRun = "first_run"
+	firstRun   = "first_run"
 	uploadedAt = timestamppb.Timestamp{Seconds: 3, Nanos: 211}
-	uploads = Uploads{
-		Platform: platform,
+	uploads    = Uploads{
+		Platform:   platform,
 		UploadedAt: &uploadedAt,
 	}
 	pbUploads = pb.Uploads{
-		Platform: uploads.Platform,
+		Platform:   uploads.Platform,
 		UploadedAt: uploads.UploadedAt,
 	}
 	versionHistory = VersionHistory{
-			Version: version,
-			Files: []*Uploads{&uploads},
-			Models: models,
-			Entrypoint: entryPoint,
-			FirstRun: &firstRun,
-		}
-	pbVersionHistory = pb.VersionHistory{
-		Version: versionHistory.Version,
-		Files: []*pb.Uploads{&pbUploads},
-		Models: pbModels,
-		Entrypoint: versionHistory.Entrypoint,
-		FirstRun: versionHistory.FirstRun,
-	}
-	versionHistories = []*VersionHistory{&versionHistory}
-	pbVersionHistories = []*pb.VersionHistory{&pbVersionHistory}
-	module = Module{
-		ModuleID: moduleID,
-		Name: name,
-		Visibility: visibility,
-		Versions: versionHistories,
-		URL: siteURL,
-		Description: description,
-		Models: models,
-		TotalRobotUsage: totalRobotUsage,
-		TotalOrganizationUsage: totalOrganizationUsage,
-		OrganizationID: organizationID,
+		Version:    version,
+		Files:      []*Uploads{&uploads},
+		Models:     models,
 		Entrypoint: entryPoint,
-		PublicNamespace: namespace,
-		FirstRun: &firstRun,
+		FirstRun:   &firstRun,
+	}
+	pbVersionHistory = pb.VersionHistory{
+		Version:    versionHistory.Version,
+		Files:      []*pb.Uploads{&pbUploads},
+		Models:     pbModels,
+		Entrypoint: versionHistory.Entrypoint,
+		FirstRun:   versionHistory.FirstRun,
+	}
+	versionHistories   = []*VersionHistory{&versionHistory}
+	pbVersionHistories = []*pb.VersionHistory{&pbVersionHistory}
+	module             = Module{
+		ModuleID:               moduleID,
+		Name:                   name,
+		Visibility:             visibility,
+		Versions:               versionHistories,
+		URL:                    siteURL,
+		Description:            description,
+		Models:                 models,
+		TotalRobotUsage:        totalRobotUsage,
+		TotalOrganizationUsage: totalOrganizationUsage,
+		OrganizationID:         organizationID,
+		Entrypoint:             entryPoint,
+		PublicNamespace:        namespace,
+		FirstRun:               &firstRun,
 	}
 	pbModule = pb.Module{
-		ModuleId: module.ModuleID,
-		Name: module.Name,
-		Visibility: pbVisibility,
-		Versions: pbVersionHistories,
-		Url: module.URL,
-		Description: module.Description,
-		Models: pbModels,
-		TotalRobotUsage: module.TotalRobotUsage,
+		ModuleId:               module.ModuleID,
+		Name:                   module.Name,
+		Visibility:             pbVisibility,
+		Versions:               pbVersionHistories,
+		Url:                    module.URL,
+		Description:            module.Description,
+		Models:                 pbModels,
+		TotalRobotUsage:        module.TotalRobotUsage,
 		TotalOrganizationUsage: module.TotalOrganizationUsage,
-		OrganizationId: module.OrganizationID,
-		Entrypoint: module.Entrypoint,
-		PublicNamespace: module.PublicNamespace,
-		FirstRun: module.FirstRun,
+		OrganizationId:         module.OrganizationID,
+		Entrypoint:             module.Entrypoint,
+		PublicNamespace:        module.PublicNamespace,
+		FirstRun:               module.FirstRun,
 	}
+	apiKeyAuthorization = APIKeyAuthorization{
+		role:         authorizationType,
+		resourceType: resourceType,
+		resourceID:   resourceID,
+	}
+	apiKeyAuthorizations = []APIKeyAuthorization{apiKeyAuthorization}
 )
 
 func sharedSecretStateToProto(state SharedSecretState) pb.SharedSecret_State {
@@ -1275,7 +1282,7 @@ func TestAppClient(t *testing.T) {
 		) (*pb.GetRobotAPIKeysResponse, error) {
 			test.That(t, in.RobotId, test.ShouldEqual, robotID)
 			return &pb.GetRobotAPIKeysResponse{
-				ApiKeys: []*pb.APIKeyWithAuthorizations{&pbAPIKeyWithAuthorizations},
+				ApiKeys: pbAPIKeysWithAuthorizations,
 			}, nil
 		}
 		resp, err := client.GetRobotAPIKeys(context.Background(), robotID)
@@ -1739,5 +1746,108 @@ func TestAppClient(t *testing.T) {
 		resp, err := client.ListModules(context.Background(), &organizationID)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, expectedModules)
+	})
+
+	t.Run("CreateKey", func(t *testing.T) {
+		pbAPIKeyAuthorizations := []*pb.Authorization{
+			{
+				AuthorizationType: apiKeyAuthorization.role,
+				AuthorizationId:   fmt.Sprintf("%s_%s", apiKeyAuthorization.resourceType, apiKeyAuthorization.role),
+				ResourceType:      apiKeyAuthorization.resourceType,
+				ResourceId:        apiKeyAuthorization.resourceID,
+				IdentityId:        "",
+				OrganizationId:    organizationID,
+				IdentityType:      "api-key",
+			},
+		}
+		grpcClient.CreateKeyFunc = func(
+			ctx context.Context, in *pb.CreateKeyRequest, opts ...grpc.CallOption,
+		) (*pb.CreateKeyResponse, error) {
+			test.That(t, in.Authorizations, test.ShouldResemble, pbAPIKeyAuthorizations)
+			test.That(t, in.Name, test.ShouldResemble, name)
+			return &pb.CreateKeyResponse{
+				Key: key,
+				Id:  keyID,
+			}, nil
+		}
+		key, id, err := client.CreateKey(context.Background(), organizationID, apiKeyAuthorizations, name)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, key, test.ShouldResemble, key)
+		test.That(t, id, test.ShouldResemble, keyID)
+	})
+
+	t.Run("DeleteKey", func(t *testing.T) {
+		grpcClient.DeleteKeyFunc = func(
+			ctx context.Context, in *pb.DeleteKeyRequest, opts ...grpc.CallOption,
+		) (*pb.DeleteKeyResponse, error) {
+			test.That(t, in.Id, test.ShouldResemble, keyID)
+			return &pb.DeleteKeyResponse{}, nil
+		}
+		err := client.DeleteKey(context.Background(), keyID)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("ListKeys", func(t *testing.T) {
+		expectedAPIKeyWithAuthorizations := []*APIKeyWithAuthorizations{&apiKeyWithAuthorizations}
+		grpcClient.ListKeysFunc = func(
+			ctx context.Context, in *pb.ListKeysRequest, opts ...grpc.CallOption,
+		) (*pb.ListKeysResponse, error) {
+			test.That(t, in.OrgId, test.ShouldResemble, organizationID)
+			return &pb.ListKeysResponse{
+				ApiKeys: pbAPIKeysWithAuthorizations,
+			}, nil
+		}
+		resp, err := client.ListKeys(context.Background(), organizationID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldResemble, expectedAPIKeyWithAuthorizations)
+	})
+
+	t.Run("RenameKey", func(t *testing.T) {
+		grpcClient.RenameKeyFunc = func(
+			ctx context.Context, in *pb.RenameKeyRequest, opts ...grpc.CallOption,
+		) (*pb.RenameKeyResponse, error) {
+			test.That(t, in.Id, test.ShouldResemble, keyID)
+			test.That(t, in.Name, test.ShouldResemble, name)
+			return &pb.RenameKeyResponse{
+				Id:   keyID,
+				Name: name,
+			}, nil
+		}
+		id, name, err := client.RenameKey(context.Background(), keyID, name)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, id, test.ShouldResemble, keyID)
+		test.That(t, name, test.ShouldEqual, name)
+	})
+
+	t.Run("RotateKey", func(t *testing.T) {
+		grpcClient.RotateKeyFunc = func(
+			ctx context.Context, in *pb.RotateKeyRequest, opts ...grpc.CallOption,
+		) (*pb.RotateKeyResponse, error) {
+			test.That(t, in.Id, test.ShouldResemble, keyID)
+			return &pb.RotateKeyResponse{
+				Id:  keyID,
+				Key: key,
+			}, nil
+		}
+		id, key, err := client.RotateKey(context.Background(), keyID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, id, test.ShouldResemble, keyID)
+		test.That(t, key, test.ShouldEqual, key)
+	})
+
+	t.Run("CreateKeyFromExistingKeyAuthorizations", func(t *testing.T) {
+		grpcClient.CreateKeyFromExistingKeyAuthorizationsFunc = func(
+			ctx context.Context, in *pb.CreateKeyFromExistingKeyAuthorizationsRequest, opts ...grpc.CallOption,
+		) (*pb.CreateKeyFromExistingKeyAuthorizationsResponse, error) {
+			test.That(t, in.Id, test.ShouldResemble, keyID)
+			return &pb.CreateKeyFromExistingKeyAuthorizationsResponse{
+				Id:  keyID,
+				Key: key,
+			}, nil
+		}
+		id, key, err := client.CreateKeyFromExistingKeyAuthorizations(context.Background(), keyID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, id, test.ShouldResemble, keyID)
+		test.That(t, key, test.ShouldEqual, key)
 	})
 }
