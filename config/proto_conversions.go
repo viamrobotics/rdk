@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	packagespb "go.viam.com/api/app/packages/v1"
 	pb "go.viam.com/api/app/v1"
+	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
@@ -309,7 +310,7 @@ func ModuleConfigToProto(module *Module) (*pb.ModuleConfig, error) {
 		ModuleId:        module.ModuleID,
 		Env:             module.Environment,
 		Status:          status,
-		FirstRunTimeout: durationpb.New(module.FirstRunTimeout),
+		FirstRunTimeout: durationpb.New(module.FirstRunTimeout.Unwrap()),
 	}
 
 	return &proto, nil
@@ -330,7 +331,7 @@ func ModuleConfigFromProto(proto *pb.ModuleConfig) (*Module, error) {
 		ModuleID:        proto.GetModuleId(),
 		Environment:     proto.GetEnv(),
 		Status:          status,
-		FirstRunTimeout: proto.GetFirstRunTimeout().AsDuration(),
+		FirstRunTimeout: utils.Duration(proto.GetFirstRunTimeout().AsDuration()),
 	}
 	return &module, nil
 }
@@ -343,6 +344,7 @@ func ProcessConfigToProto(process *pexec.ProcessConfig) (*pb.ProcessConfig, erro
 		Args:        process.Args,
 		Cwd:         process.CWD,
 		OneShot:     process.OneShot,
+		Username:    process.Username,
 		Env:         process.Environment,
 		Log:         process.Log,
 		StopSignal:  int32(process.StopSignal),
@@ -357,8 +359,9 @@ func ProcessConfigFromProto(proto *pb.ProcessConfig) (*pexec.ProcessConfig, erro
 		Name:        proto.Name,
 		Args:        proto.Args,
 		CWD:         proto.Cwd,
-		Environment: proto.Env,
 		OneShot:     proto.OneShot,
+		Username:    proto.Username,
+		Environment: proto.Env,
 		Log:         proto.Log,
 		StopSignal:  syscall.Signal(proto.StopSignal),
 		StopTimeout: proto.StopTimeout.AsDuration(),

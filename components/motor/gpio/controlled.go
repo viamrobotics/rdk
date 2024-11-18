@@ -101,7 +101,7 @@ func (cm *controlledMotor) startControlLoop() error {
 
 func setupMotorWithControls(
 	_ context.Context,
-	m *Motor,
+	m motor.Motor,
 	enc encoder.Encoder,
 	cfg resource.Config,
 	logger logging.Logger,
@@ -116,12 +116,18 @@ func setupMotorWithControls(
 		tpr = 1.0
 	}
 
+	maxRPM := float64(conf.MaxRPM)
+	if maxRPM == 0 {
+		maxRPM = 100
+	}
+
 	cm := &controlledMotor{
 		Named:            cfg.ResourceName().AsNamed(),
 		logger:           logger,
 		opMgr:            operation.NewSingleOperationManager(),
 		tunedVals:        &[]control.PIDConfig{{}},
 		ticksPerRotation: tpr,
+		maxRPM:           maxRPM,
 		real:             m,
 		enc:              enc,
 	}
@@ -146,9 +152,10 @@ type controlledMotor struct {
 
 	offsetInTicks    float64
 	ticksPerRotation float64
+	maxRPM           float64
 
 	mu   sync.RWMutex
-	real *Motor
+	real motor.Motor
 	enc  encoder.Encoder
 
 	controlLoopConfig control.Config
@@ -191,7 +198,7 @@ func (cm *controlledMotor) Stop(ctx context.Context, extra map[string]interface{
 		if err != nil {
 			return err
 		}
-		if err := cm.updateControlBlock(ctx, currentTicks+cm.offsetInTicks, cm.real.maxRPM*cm.ticksPerRotation/60); err != nil {
+		if err := cm.updateControlBlock(ctx, currentTicks+cm.offsetInTicks, cm.maxRPM*cm.ticksPerRotation/60); err != nil {
 			return err
 		}
 	}
@@ -279,7 +286,7 @@ func (cm *controlledMotor) SetRPM(ctx context.Context, rpm float64, extra map[st
 	ctx, done := cm.opMgr.New(ctx)
 	defer done()
 
-	warning, err := motor.CheckSpeed(rpm, cm.real.maxRPM)
+	warning, err := motor.CheckSpeed(rpm, cm.maxRPM)
 	if warning != "" {
 		cm.logger.CWarn(ctx, warning)
 	}
@@ -320,7 +327,7 @@ func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, 
 	ctx, done := cm.opMgr.New(ctx)
 	defer done()
 
-	warning, err := motor.CheckSpeed(rpm, cm.real.maxRPM)
+	warning, err := motor.CheckSpeed(rpm, cm.maxRPM)
 	if warning != "" {
 		cm.logger.CWarn(ctx, warning)
 	}

@@ -177,6 +177,24 @@ func (e *eva) MoveToJointPositions(ctx context.Context, newPositions []reference
 	return e.doMoveJoints(ctx, radians)
 }
 
+func (e *eva) MoveThroughJointPositions(
+	ctx context.Context,
+	positions [][]referenceframe.Input,
+	_ *arm.MoveOptions,
+	_ map[string]interface{},
+) error {
+	for _, goal := range positions {
+		if err := arm.CheckDesiredJointPositions(ctx, e, goal); err != nil {
+			return err
+		}
+		err := e.MoveToJointPositions(ctx, goal, nil)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (e *eva) doMoveJoints(ctx context.Context, joints []float64) error {
 	if err := e.apiLock(ctx); err != nil {
 		return err
@@ -384,16 +402,7 @@ func (e *eva) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 }
 
 func (e *eva) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
-	for _, goal := range inputSteps {
-		if err := arm.CheckDesiredJointPositions(ctx, e, goal); err != nil {
-			return err
-		}
-		err := e.MoveToJointPositions(ctx, goal, nil)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return e.MoveThroughJointPositions(ctx, inputSteps, nil, nil)
 }
 
 func (e *eva) Close(ctx context.Context) error {

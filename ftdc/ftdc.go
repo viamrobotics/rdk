@@ -1,12 +1,12 @@
 package ftdc
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"slices"
 	"sync"
 	"time"
@@ -53,6 +53,7 @@ import (
 // without context of a metric name is a simply a "value". Those terms are more relevant to the FTDC
 // file format.
 type datum struct {
+	// Time in nanoseconds since the epoch.
 	Time int64
 	Data map[string]any
 
@@ -103,14 +104,16 @@ type FTDC struct {
 	outputWorkerDone chan struct{}
 
 	// Fields used to manage where serialized FTDC bytes are written.
-	//
-	// When debug is true, the `outputWriter` will "tee" data to both the `currOutputFile` and
-	// `inmemBuffer`. Otherwise `outputWriter` will just refer to the `currOutputFile`.
-	debug          bool
-	outputWriter   io.Writer
-	currOutputFile *os.File
-	// inmemBuffer will remain nil when `debug` is false.
-	inmemBuffer *bytes.Buffer
+	outputWriter io.Writer
+	// bytesWrittenCounter will count bytes that are written to the `outputWriter`. We use an
+	// `io.Writer` implementer for this, as opposed to just counting by hand, primarily as a
+	// convenience for working with `json.NewEncoder(writer).Encode(...)`. This counter is folded
+	// into the above `outputWriter`.
+	bytesWrittenCounter countingWriter
+	currOutputFile      *os.File
+	maxFileSizeBytes    int64
+	// ftdcDir controls where FTDC data files will be written.
+	ftdcDir string
 
 	logger logging.Logger
 }
@@ -128,6 +131,7 @@ func NewWithWriter(writer io.Writer, logger logging.Logger) *FTDC {
 		outputWorkerDone: make(chan struct{}),
 		logger:           logger,
 		outputWriter:     writer,
+		maxFileSizeBytes: 1_000_000,
 	}
 }
 
@@ -174,7 +178,8 @@ func (ftdc *FTDC) Remove(name string) {
 		"name", name, "generationId", ftdc.inputGenerationID)
 }
 
-// Start spins off the background goroutine for collecting/writing FTDC data.
+// Start spins off the background goroutine for collecting + writing FTDC data. It's normal for tests
+// to _not_ call `Start`. Tests can simulate the same functionality by calling `constructDatum` and `writeDatum`.
 func (ftdc *FTDC) Start() {
 	ftdc.readStatsWorker = utils.NewStoppableWorkerWithTicker(time.Second, ftdc.statsReader)
 	utils.PanicCapturingGo(ftdc.statsWriter)
@@ -224,6 +229,7 @@ func (ftdc *FTDC) statsWriter() {
 			return
 		}
 
+		// FSync the ftdc data once every 30 iterations (roughly every 30 seconds).
 		datumsWritten++
 		if datumsWritten%30 == 0 && ftdc.currOutputFile != nil {
 			utils.UncheckedError(ftdc.currOutputFile.Sync())
@@ -232,7 +238,9 @@ func (ftdc *FTDC) statsWriter() {
 }
 
 // StopAndJoin stops the background worker started by `Start`. It is only legal to call this after
-// `Start` returns.
+// `Start` returns. It's normal for tests to _not_ call `StopAndJoin`. Tests that have spun up the
+// `statsWriter` by hand, without the `statsReader` can `close(ftdc.datumCh)` followed by
+// `<-ftdc.outputWorkerDone` to stop+wait for the `statsWriter`.
 func (ftdc *FTDC) StopAndJoin(ctx context.Context) {
 	ftdc.readStatsWorker.Stop()
 	close(ftdc.datumCh)
@@ -279,7 +287,7 @@ func (ftdc *FTDC) conditionalRemoveStatser(name string, generationID int) {
 // constructDatum walks all of the registered `statser`s to construct a `datum`.
 func (ftdc *FTDC) constructDatum() datum {
 	datum := datum{
-		Time: time.Now().Unix(),
+		Time: time.Now().UnixNano(),
 		Data: map[string]any{},
 	}
 
@@ -353,25 +361,89 @@ func (ftdc *FTDC) writeDatum(datum datum) error {
 }
 
 // getWriter returns an io.Writer xor error for writing schema/data information. `getWriter` is only
-// expected to be called by `newDatum`.
+// expected to be called by `writeDatum`.
 func (ftdc *FTDC) getWriter() (io.Writer, error) {
-	if ftdc.outputWriter != nil {
+	// If we have an `outputWriter` without a `currOutputFile`, it means ftdc was constructed with
+	// an explicit writer. We will use the passed in writer for all operations. No file will ever be
+	// created.
+	if ftdc.outputWriter != nil && ftdc.currOutputFile == nil {
 		return ftdc.outputWriter, nil
 	}
 
+	// Note to readers, until this function starts mutating `outputWriter` and `currOutputFile`, you
+	// can safely assume:
+	//
+	//   `outputWriter == nil if and only if currOutputFile == nil`.
+	//
+	// In case that helps reading the following logic.
+
+	// If we have an active outputWriter and we have not exceeded our FTDC file rotation quota, we
+	// can just return.
+	if ftdc.outputWriter != nil && ftdc.bytesWrittenCounter.count < ftdc.maxFileSizeBytes {
+		return ftdc.outputWriter, nil
+	}
+
+	// If we're in the logic branch where we have exceeded our FTDC file rotation quota, we first
+	// close the `currOutputFile`.
+	if ftdc.currOutputFile != nil {
+		// Dan: An error closing a file (any resource for that matter) is not an error. I will die
+		// on that hill.
+		utils.UncheckedError(ftdc.currOutputFile.Close())
+	}
+
 	var err error
-	ftdc.currOutputFile, err = os.Create("./viam-server.ftdc")
-	if err != nil {
+	// It's unclear in what circumstance we'd expect creating a new file to fail. Try 5 times for no
+	// good reason before giving up entirely and shutting down FTDC.
+	for numTries := 0; numTries < 5; numTries++ {
+		now := time.Now().UTC()
+		// lint wants 0o600 file permissions. We don't expect the unix user someone is ssh'ed in as
+		// to be on the same unix user as is running the viam-server process. Thus the file needs to
+		// be accessible by anyone.
+		//
+		//nolint:gosec
+		ftdc.currOutputFile, err = os.OpenFile(path.Join(ftdc.ftdcDir,
+			// Filename example: viam-server-2024-10-04T18-42-02.ftdc
+			fmt.Sprintf("viam-server-%d-%02d-%02dT%02d-%02d-%02dZ.ftdc",
+				now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second())),
+			// Create a new file in read+write mode. `O_EXCL` is used to guarantee a new file is
+			// created. If the filename already exists, that flag changes the `os.OpenFile` behavior
+			// to return an error.
+			os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o644)
+		if err == nil {
+			break
+		}
 		ftdc.logger.Warnw("FTDC failed to open file", "err", err)
+
+		// If the error is some unexpected filename collision, wait a second to change the filename.
+		time.Sleep(time.Second)
+	}
+	if err != nil {
 		return nil, err
 	}
 
-	if ftdc.debug {
-		ftdc.inmemBuffer = bytes.NewBuffer(nil)
-		ftdc.outputWriter = io.MultiWriter(ftdc.currOutputFile, ftdc.inmemBuffer)
-	} else {
-		ftdc.outputWriter = ftdc.currOutputFile
-	}
+	// New file, reset the bytes written counter.
+	ftdc.bytesWrittenCounter.count = 0
+
+	// When we create a new file, we must rewrite the schema. If we do not, a file may be useless
+	// without its "ancestors".
+	//
+	// As a hack, we decrement the `outputGenerationID` to force a new schema to be written.
+	ftdc.outputGenerationID--
+
+	// Assign the `outputWriter`. The `outputWriter` is an abstraction for where FTDC formatted
+	// bytes go. Testing often prefers to just write bytes into memory (and consequently construct
+	// an FTDC with `NewWithWriter`). While in production we obviously want to persist bytes on
+	// disk.
+	ftdc.outputWriter = io.MultiWriter(&ftdc.bytesWrittenCounter, ftdc.currOutputFile)
 
 	return ftdc.outputWriter, nil
+}
+
+type countingWriter struct {
+	count int64
+}
+
+func (cw *countingWriter) Write(p []byte) (int, error) {
+	cw.count += int64(len(p))
+	return len(p), nil
 }

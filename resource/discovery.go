@@ -31,11 +31,12 @@ type (
 	// DiscoverError indicates that a Discover function has returned an error.
 	DiscoverError struct {
 		Query DiscoveryQuery
+		Cause error
 	}
 )
 
 func (e *DiscoverError) Error() string {
-	return fmt.Sprintf("failed to get discovery for api %q and model %q", e.Query.API, e.Query.Model)
+	return fmt.Sprintf("failed to get discovery for api %q and model %q error: %v", e.Query.API, e.Query.Model, e.Cause)
 }
 
 // NewDiscoveryQuery returns a discovery query for a given API and model.
