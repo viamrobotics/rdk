@@ -3,11 +3,14 @@ package app
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	pb "go.viam.com/api/app/data/v1"
+	syncPb "go.viam.com/api/app/datasync/v1"
+
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -18,7 +21,8 @@ import (
 
 // DataClient implements the DataServiceClient interface.
 type DataClient struct {
-	client pb.DataServiceClient
+	client         pb.DataServiceClient
+	dataSyncClient syncPb.DataSyncServiceClient
 }
 
 // Order specifies the order in which data is returned.
@@ -177,13 +181,61 @@ type DatabaseConnReturn struct {
 	HasDatabaseUser bool
 }
 
+// :::::******NEW struct/variable ADDITIONS FOR DATASYNC START HERE!!!!****************
+type SensorMetadata struct {
+	// figure out if mimetype and annotations should be included or not
+	TimeRequested time.Time
+	TimeReceived  time.Time
+	// MimeType      MimeType
+	//annotations lives in the data client file...so maybe make a shared situation later on??
+	// Annotations Annotations
+}
+type SensorData struct {
+	//this is what can be filled by either tabular or binary data!!
+	Metadata SensorMetadata
+	//its one of, either binary or tabular ==> this needs help
+	SDStruct map[string]interface{} //or should it be TabularData.data ??
+	SDBinary []byte
+}
+type DataType int32
+
+const (
+	DataTypeUnspecified DataType = iota
+	DataTypeBinarySensor
+	DataTypeTabularSensor
+	DataTypeFile
+)
+
+type MimeType int32
+
+const (
+	MimeTypeUnspecified MimeType = iota
+	MimeTypeJPEG                 //can i name things this???
+	MimeTypePNG
+	MimeTypePCD
+)
+
+type UploadMetadata struct {
+	PartID           string
+	ComponentType    string
+	ComponentName    string
+	MethodName       string
+	Type             DataType
+	FileName         string
+	MethodParameters map[string]interface{} //or map[string]string??
+	FileExtension    string
+	Tags             []string
+}
+
+//:::::******NEW struct/variable ADDITIONS FOR DATASYNC END HERE!!!!****************
+
 // NewDataClient constructs a new DataClient using the connection passed in by the viamClient.
-func NewDataClient(
-	conn rpc.ClientConn,
-) *DataClient {
+func NewDataClient(conn rpc.ClientConn) *DataClient {
 	d := pb.NewDataServiceClient(conn)
+	s := syncPb.NewDataSyncServiceClient(conn)
 	return &DataClient{
-		client: d,
+		client:         d,
+		dataSyncClient: s,
 	}
 }
 
@@ -760,4 +812,199 @@ func (d *DataClient) RemoveBinaryDataFromDatasetByIDs(
 		DatasetId: datasetID,
 	})
 	return err
+}
+
+// !!!!!!!!!! ******** ALL NEW ADDED FOR DATASYNC CLIENT
+
+func uploadMetadataToProto(metadata UploadMetadata) *syncPb.UploadMetadata {
+	// methodParms, err := protoutils.ConvertStringMapToAnyPBMap(metadata.MethodParameters)
+	methodParams, err := protoutils.ConvertMapToProtoAny(metadata.MethodParameters)
+
+	if err != nil {
+		return nil
+	}
+	return &syncPb.UploadMetadata{
+		PartId:           metadata.PartID,
+		ComponentType:    metadata.ComponentType,
+		ComponentName:    metadata.ComponentName,
+		MethodName:       metadata.MethodName,
+		Type:             syncPb.DataType(metadata.Type),
+		MethodParameters: methodParams,
+		FileExtension:    metadata.FileExtension,
+		Tags:             metadata.Tags,
+	}
+}
+
+// why doesnt this protoype have mime type and annotations with it??
+func sensorMetadataToProto(metadata SensorMetadata) *syncPb.SensorMetadata {
+	return &syncPb.SensorMetadata{
+		TimeRequested: timestamppb.New(metadata.TimeRequested),
+		TimeReceived:  timestamppb.New(metadata.TimeReceived),
+	}
+}
+
+func sensorDataToProto(sensorData SensorData) *syncPb.SensorData {
+	protoSensorData := &syncPb.SensorData{
+		Metadata: sensorMetadataToProto(sensorData.Metadata),
+	}
+	if sensorData.SDBinary != nil && len(sensorData.SDBinary) > 0 {
+		protoSensorData.Data = &syncPb.SensorData_Binary{
+			Binary: sensorData.SDBinary,
+		}
+	} else if sensorData.SDStruct != nil {
+		pbStruct, _ := structpb.NewStruct(sensorData.SDStruct)
+		protoSensorData.Data = &syncPb.SensorData_Struct{
+			Struct: pbStruct,
+		}
+	} else {
+		return nil //should an error message be set instead??
+	}
+	return protoSensorData
+}
+func sensorContentsToProto(sensorContents []SensorData) []*syncPb.SensorData {
+	var protoSensorContents []*syncPb.SensorData
+	for _, item := range sensorContents {
+		protoSensorContents = append(protoSensorContents, sensorDataToProto(item))
+	}
+	return protoSensorContents
+}
+
+func (d *DataClient) BinaryDataCaptureUpload(
+	ctx context.Context,
+	binaryData []byte,
+	partID string,
+	componentType string,
+	componentName string,
+	methodName string,
+	fileExtension string,
+	methodParameters map[string]interface{},
+	tags []string,
+	dataRequestTimes [2]time.Time, // Assuming two time values, [0] is timeRequested, [1] is timeReceived
+) (string, error) {
+	// Validate file extension
+	if fileExtension != "" && fileExtension[0] != '.' {
+		fileExtension = "." + fileExtension
+	}
+	// Create SensorMetadata based on the provided times
+	var sensorMetadata SensorMetadata
+	if len(dataRequestTimes) == 2 { //can i have a better check here? like if dataRequestTimes != [2]time.Time{}
+		sensorMetadata = SensorMetadata{
+			TimeRequested: dataRequestTimes[0],
+			TimeReceived:  dataRequestTimes[1],
+		}
+	}
+	// Create SensorData
+	sensorData := SensorData{
+		Metadata: sensorMetadata,
+		SDStruct: nil,        // Assuming no struct is needed for binary data
+		SDBinary: binaryData, // Attach the binary data
+	}
+	// Create UploadMetadata
+	metadata := UploadMetadata{
+		PartID:           partID,
+		ComponentType:    componentType,
+		ComponentName:    componentName,
+		MethodName:       methodName,
+		Type:             DataTypeBinarySensor, // assuming this is the correct type??
+		MethodParameters: methodParameters,
+		Tags:             tags,
+	}
+	response, err := d.DataCaptureUpload(ctx, metadata, []SensorData{sensorData})
+	if err != nil {
+		return "", err
+	}
+	return response, nil
+}
+
+func (d *DataClient) tabularDataCaptureUpload(
+	ctx context.Context,
+	tabularData []map[string]interface{},
+	partID string,
+	componentType string,
+	componentName string,
+	methodName string,
+	dataRequestTimes [][2]time.Time, // Assuming two time values, [0] is timeRequested, [1] is timeReceived
+	// fileExtension string,
+	methodParameters map[string]interface{},
+	tags []string,
+) (string, error) {
+	if len(dataRequestTimes) != len(tabularData) {
+		errors.New("dataRequestTimes and tabularData lengths must be equal")
+	}
+	var sensorContents []SensorData
+	// Iterate through the tabular data
+	for i, tabData := range tabularData {
+		sensorMetadata := SensorMetadata{}
+		dates := dataRequestTimes[i]
+		if len(dates) == 2 {
+			sensorMetadata.TimeRequested = dates[0]
+			sensorMetadata.TimeReceived = dates[1]
+		}
+		// Create SensorData
+		sensorData := SensorData{
+			Metadata: sensorMetadata,
+			SDStruct: tabData,
+			SDBinary: nil,
+		}
+		sensorContents = append(sensorContents, sensorData)
+	}
+
+	// Create UploadMetadata
+	metadata := UploadMetadata{
+		PartID:           partID,
+		ComponentType:    componentType,
+		ComponentName:    componentName,
+		MethodName:       methodName,
+		Type:             DataTypeTabularSensor, // assuming this is the correct type??
+		MethodParameters: methodParameters,
+		Tags:             tags,
+	}
+	response, err := d.DataCaptureUpload(ctx, metadata, sensorContents)
+	if err != nil {
+		return "", err
+	}
+	return response, nil
+}
+
+// DataCaptureUpload uploads the metadata and contents for either tabular or binary data,
+// and returns the file ID associated with the uploaded data and metadata.
+func (d *DataClient) DataCaptureUpload(ctx context.Context, metadata UploadMetadata, sensorContents []SensorData) (string, error) {
+	resp, err := d.dataSyncClient.DataCaptureUpload(ctx, &syncPb.DataCaptureUploadRequest{
+		Metadata:       uploadMetadataToProto(metadata), //should be in proto form !!
+		SensorContents: sensorContentsToProto(sensorContents),
+	})
+	if err != nil {
+		return "", err
+	}
+	return resp.FileId, nil
+}
+
+// FileUpload uploads the contents and metadata for binary (image + file) data,
+// where the first packet must be the UploadMetadata.
+func (d *DataClient) FileUpload(ctx context.Context) error {
+	// resp, err := d.dataSyncClient.FileUpload(ctx, &pb.FileUploadRequest{})
+	// if err != nil {
+	// 	return err
+	// }
+	return nil
+}
+
+// FileUpload uploads the contents and metadata for binary (image + file) data,
+// where the first packet must be the UploadMetadata.
+func (d *DataClient) FileUploadFromPath(ctx context.Context) error {
+	// resp, err := d.client.FileUpload(ctx, &pb.FileUploadRequest{})
+	// if err != nil {
+	// 	return err
+	// }
+	return nil
+}
+
+// StreamingDataCaptureUpload uploads the streaming contents and metadata for streaming binary (image + file) data,
+// where the first packet must be the UploadMetadata.
+func (d *DataClient) StreamingDataCaptureUpload(ctx context.Context) error {
+	// resp, err := d.dataSyncClient.StreamingDataCaptureUpload(ctx, &pb.StreamingDataCaptureUploadRequest{})
+	// if err != nil {
+	// 	return err
+	// }
+	return nil
 }
