@@ -131,12 +131,10 @@ func TestNewDataClient(t *testing.T) {
 			Payload: testAPIKeyID,
 		},
 	}
-
 	client, err := CreateViamClientWithOptions(context.Background(), opts, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer client.Close()
 
-	// Test the DataClient initialization
 	dataClient, err := client.DataClient()
 	if err != nil {
 		t.Fatalf("Failed to create DataClient: %v", err)
