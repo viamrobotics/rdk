@@ -1060,11 +1060,7 @@ func (c *Client) GetModule(ctx context.Context, moduleID string) (*Module, error
 	if err != nil {
 		return nil, err
 	}
-	module, err := moduleFromProto(resp.Module)
-	if err != nil {
-		return nil, err
-	}
-	return module, nil
+	return moduleFromProto(resp.Module), nil
 }
 
 // ListModules lists the modules in the organization.
@@ -1077,11 +1073,7 @@ func (c *Client) ListModules(ctx context.Context, orgID *string) ([]*Module, err
 	}
 	var modules []*Module
 	for _, module := range resp.Modules {
-		m, err := moduleFromProto(module)
-		if err != nil {
-			return nil, err
-		}
-		modules = append(modules, m)
+		modules = append(modules, moduleFromProto(module))
 	}
 	return modules, nil
 }

@@ -393,7 +393,6 @@ func authenticationTypeToProto(authType AuthenticationType) pb.AuthenticationTyp
 		return pb.AuthenticationType_AUTHENTICATION_TYPE_LOCATION_SECRET
 	}
 	return pb.AuthenticationType_AUTHENTICATION_TYPE_UNSPECIFIED
-
 }
 
 func testOrganizationResponse(t *testing.T, actualOrg, expectedOrg *Organization) {

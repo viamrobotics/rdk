@@ -72,7 +72,7 @@ const (
 	RegistryItemStatusInDevelopment
 )
 
-func registryItemStatusToProto(status RegistryItemStatus) (pb.RegistryItemStatus) {
+func registryItemStatusToProto(status RegistryItemStatus) pb.RegistryItemStatus {
 	switch status {
 	case RegistryItemStatusUnspecified:
 		return pb.RegistryItemStatus_REGISTRY_ITEM_STATUS_UNSPECIFIED
@@ -102,7 +102,7 @@ const (
 	PackageTypeMLTraining
 )
 
-func packageTypeFromProto(packageType packages.PackageType) (PackageType) {
+func packageTypeFromProto(packageType packages.PackageType) PackageType {
 	switch packageType {
 	case packages.PackageType_PACKAGE_TYPE_UNSPECIFIED:
 		return PackageTypeUnspecified
@@ -120,7 +120,7 @@ func packageTypeFromProto(packageType packages.PackageType) (PackageType) {
 	return PackageTypeUnspecified
 }
 
-func packageTypeToProto(packageType PackageType) (packages.PackageType) {
+func packageTypeToProto(packageType PackageType) packages.PackageType {
 	switch packageType {
 	case PackageTypeUnspecified:
 		return packages.PackageType_PACKAGE_TYPE_UNSPECIFIED
@@ -166,7 +166,7 @@ func visibilityFromProto(visibility pb.Visibility) Visibility {
 	return VisibilityUnspecified
 }
 
-func visibilityToProto(visibility Visibility) (pb.Visibility) {
+func visibilityToProto(visibility Visibility) pb.Visibility {
 	switch visibility {
 	case VisibilityUnspecified:
 		return pb.Visibility_VISIBILITY_UNSPECIFIED
@@ -297,7 +297,7 @@ type MLModelMetadata struct {
 	ModelFramework ModelFramework
 }
 
-func mlModelMetadataFromProto(md *pb.MLModelMetadata) (*MLModelMetadata) {
+func mlModelMetadataFromProto(md *pb.MLModelMetadata) *MLModelMetadata {
 	return &MLModelMetadata{
 		Versions:       md.Versions,
 		ModelType:      modelTypeFromProto(md.ModelType),
@@ -319,7 +319,7 @@ const (
 	ModelTypeObjectDetection
 )
 
-func modelTypeFromProto(modelType mlTraining.ModelType) (ModelType) {
+func modelTypeFromProto(modelType mlTraining.ModelType) ModelType {
 	switch modelType {
 	case mlTraining.ModelType_MODEL_TYPE_UNSPECIFIED:
 		return ModelTypeUnspecified
@@ -349,7 +349,7 @@ const (
 	ModelFrameworkONNX
 )
 
-func modelFrameworkFromProto(framework mlTraining.ModelFramework) (ModelFramework) {
+func modelFrameworkFromProto(framework mlTraining.ModelFramework) ModelFramework {
 	switch framework {
 	case mlTraining.ModelFramework_MODEL_FRAMEWORK_UNSPECIFIED:
 		return ModelFrameworkUnspecified
@@ -373,7 +373,7 @@ type MLTrainingMetadata struct {
 	Draft          bool
 }
 
-func mlTrainingMetadataFromProto(md *pb.MLTrainingMetadata) (*MLTrainingMetadata) {
+func mlTrainingMetadataFromProto(md *pb.MLTrainingMetadata) *MLTrainingMetadata {
 	var versions []*MLTrainingVersion
 	for _, version := range md.Versions {
 		versions = append(versions, mlTrainingVersionFromProto(version))
@@ -416,7 +416,7 @@ type Module struct {
 	FirstRun               *string
 }
 
-func moduleFromProto(module *pb.Module) (*Module, error) {
+func moduleFromProto(module *pb.Module) *Module {
 	var versions []*VersionHistory
 	for _, version := range module.Versions {
 		versions = append(versions, versionHistoryFromProto(version))
@@ -439,7 +439,7 @@ func moduleFromProto(module *pb.Module) (*Module, error) {
 		Entrypoint:             module.Entrypoint,
 		PublicNamespace:        module.PublicNamespace,
 		FirstRun:               module.FirstRun,
-	}, nil
+	}
 }
 
 // VersionHistory holds the history of a version.
