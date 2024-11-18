@@ -1,5 +1,5 @@
-// Package dataset contains a gRPC based dataset client.
-package dataset
+// Package datasync contains a gRPC based datasync client.
+package datasync
 
 import (
 	"context"
