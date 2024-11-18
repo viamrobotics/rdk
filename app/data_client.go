@@ -685,7 +685,9 @@ func (d *DataClient) BoundingBoxLabelsByFilter(ctx context.Context, filter Filte
 	return resp.Labels, nil
 }
 
-// UpdateBoundingBox updates the bounding box associated with a given binary ID and bounding box ID.
+// UpdateBoundingBox updates the bounding box for a given bbox ID for the file represented by the binary ID,
+// modifying its label and position using optional normalized coordinates (xMin, yMin, xMax, yMax),
+// where all coordinates must be in the range [0, 1].
 func (d *DataClient) UpdateBoundingBox(ctx context.Context,
 	binaryID BinaryID,
 	bboxID string,
