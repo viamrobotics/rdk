@@ -55,7 +55,7 @@ require (
 	github.com/lucasb-eyer/go-colorful v1.2.0
 	github.com/matttproud/golang_protobuf_extensions v1.0.4
 	github.com/mkch/gpio v0.0.0-20190919032813-8327cd97d95e
-	github.com/montanaflynn/stats v0.7.0
+	github.com/montanaflynn/stats v0.7.1
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
 	github.com/muesli/kmeans v0.3.1
 	github.com/nathan-fiscaletti/consolesize-go v0.0.0-20220204101620-317176b6684d
@@ -73,7 +73,7 @@ require (
 	github.com/viamrobotics/webrtc/v3 v3.99.10
 	github.com/xfmoulet/qoi v0.2.0
 	go-hep.org/x/hep v0.32.1
-	go.mongodb.org/mongo-driver v1.12.2
+	go.mongodb.org/mongo-driver v1.17.1
 	go.opencensus.io v0.24.0
 	go.uber.org/atomic v1.11.0
 	go.uber.org/multierr v1.11.0
@@ -394,7 +394,7 @@ require (
 	github.com/yagipy/maintidx v1.0.0 // indirect
 	github.com/yeya24/promlinter v0.3.0 // indirect
 	github.com/ykadowak/zerologlint v0.1.5 // indirect
-	github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a // indirect
+	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78 // indirect
 	github.com/zitadel/oidc v1.13.4 // indirect
 	gitlab.com/bosi/decorder v0.4.2 // indirect
 	go-simpler.org/musttag v0.12.2 // indirect
