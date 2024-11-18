@@ -102,6 +102,7 @@ type FTDC struct {
 	readStatsWorker  *utils.StoppableWorkers
 	datumCh          chan datum
 	outputWorkerDone chan struct{}
+	stopOnce         sync.Once
 
 	// Fields used to manage where serialized FTDC bytes are written.
 	outputWriter io.Writer
@@ -183,6 +184,10 @@ func (ftdc *FTDC) Remove(name string) {
 func (ftdc *FTDC) Start() {
 	ftdc.readStatsWorker = utils.NewStoppableWorkerWithTicker(time.Second, ftdc.statsReader)
 	utils.PanicCapturingGo(ftdc.statsWriter)
+	utils.PanicCapturingGoWithCallback(ftdc.fileDeleter, func(err any) {
+		ftdc.logger.Warnw("File deleter errored, stopping FTDC", "err", err)
+		ftdc.StopAndJoin(context.Background())
+	})
 }
 
 func (ftdc *FTDC) statsReader(ctx context.Context) {
@@ -242,8 +247,12 @@ func (ftdc *FTDC) statsWriter() {
 // `statsWriter` by hand, without the `statsReader` can `close(ftdc.datumCh)` followed by
 // `<-ftdc.outputWorkerDone` to stop+wait for the `statsWriter`.
 func (ftdc *FTDC) StopAndJoin(ctx context.Context) {
-	ftdc.readStatsWorker.Stop()
-	close(ftdc.datumCh)
+	ftdc.stopOnce.Do(func() {
+		// Only one caller should close the datum channel. And it should be the caller that called
+		// stop on the worker writing to the channel.
+		ftdc.readStatsWorker.Stop()
+		close(ftdc.datumCh)
+	})
 
 	// Closing the `statsCh` signals to the `outputWorker` to complete and exit. We use a timeout to
 	// limit how long we're willing to wait for the `outputWorker` to drain.
@@ -437,6 +446,10 @@ func (ftdc *FTDC) getWriter() (io.Writer, error) {
 	ftdc.outputWriter = io.MultiWriter(&ftdc.bytesWrittenCounter, ftdc.currOutputFile)
 
 	return ftdc.outputWriter, nil
+}
+
+func (ftdc *FTDC) fileDeleter() {
+	panic("foo")
 }
 
 type countingWriter struct {
