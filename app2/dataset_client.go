@@ -104,7 +104,7 @@ func NewDataSyncClient(
 }
 
 // ConvertMapToProtobufAny converts a map[string]interface{} to a map[string]*anypb.Any
-func ConvertMapToProtoAny(input map[string]interface{}) (map[string]*anypb.Any, error) {
+func convertMapToProtoAny(input map[string]interface{}) (map[string]*anypb.Any, error) {
 	protoMap := make(map[string]*anypb.Any)
 	for key, value := range input {
 		// Convert the value to a protobuf Struct-compatible type
@@ -125,7 +125,7 @@ func ConvertMapToProtoAny(input map[string]interface{}) (map[string]*anypb.Any, 
 
 func uploadMetadataToProto(metadata UploadMetadata) *pb.UploadMetadata {
 	// methodParms, err := protoutils.ConvertStringMapToAnyPBMap(metadata.MethodParameters)
-	methodParams, err := ConvertMapToProtoAny(metadata.MethodParameters)
+	methodParams, err := convertMapToProtoAny(metadata.MethodParameters)
 
 	if err != nil {
 		return nil
