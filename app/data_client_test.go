@@ -1,4 +1,4 @@
-package data
+package app
 
 import (
 	"context"
@@ -159,7 +159,7 @@ func createGrpcClient() *inject.DataServiceClient {
 
 func TestDataClient(t *testing.T) {
 	grpcClient := createGrpcClient()
-	client := Client{client: grpcClient}
+	client := DataClient{client: grpcClient}
 
 	captureInterval := CaptureInterval{
 		Start: time.Now(),

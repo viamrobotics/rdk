@@ -14,7 +14,8 @@ import (
 
 // ViamClient is a gRPC client for method calls to Viam app.
 type ViamClient struct {
-	conn rpc.ClientConn
+	conn       rpc.ClientConn
+	dataClient *DataClient
 }
 
 // Options has the options necessary to connect through gRPC.
@@ -60,6 +61,17 @@ func CreateViamClientWithAPIKey(
 		Payload: apiKey,
 	}
 	return CreateViamClientWithOptions(ctx, options, logger)
+}
+
+// DataClient initializes and returns the DataClient instance.
+func (c *ViamClient) DataClient() (*DataClient, error) {
+	var err error
+	var logger logging.Logger
+	c.dataClient, err = NewDataClient(c.conn, logger)
+	if err != nil {
+		return nil, err
+	}
+	return c.dataClient, nil
 }
 
 // Close closes the gRPC connection.
