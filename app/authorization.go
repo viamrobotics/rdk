@@ -177,9 +177,8 @@ func authenticationTypeFromProto(authenticationType pb.AuthenticationType) Authe
 		return AuthenticationTypeRobotPartSecret
 	case pb.AuthenticationType_AUTHENTICATION_TYPE_LOCATION_SECRET:
 		return AuthenticationTypeLocationSecret
-	default:
-		return AuthenticationTypeUnspecified
 	}
+	return AuthenticationTypeUnspecified
 }
 
 // APIKeyWithAuthorizations is an API Key with its authorizations.

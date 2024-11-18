@@ -139,10 +139,7 @@ func (c *Client) DeleteOrganization(ctx context.Context, orgID string) error {
 	_, err := c.client.DeleteOrganization(ctx, &pb.DeleteOrganizationRequest{
 		OrganizationId: orgID,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // ListOrganizationMembers lists all members of an organization and all invited members to the organization.
@@ -215,10 +212,7 @@ func (c *Client) DeleteOrganizationMember(ctx context.Context, orgID, userID str
 		OrganizationId: orgID,
 		UserId:         userID,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // DeleteOrganizationInvite deletes an organization invite.
@@ -227,10 +221,7 @@ func (c *Client) DeleteOrganizationInvite(ctx context.Context, orgID, email stri
 		OrganizationId: orgID,
 		Email:          email,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // ResendOrganizationInvite resends an organization invite.
@@ -251,10 +242,7 @@ func (c *Client) EnableBillingService(ctx context.Context, orgID string, billing
 		OrgId:          orgID,
 		BillingAddress: billingAddressToProto(billingAddress),
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // DisableBillingService disables the billing service for an organization.
@@ -262,10 +250,7 @@ func (c *Client) DisableBillingService(ctx context.Context, orgID string) error 
 	_, err := c.client.DisableBillingService(ctx, &pb.DisableBillingServiceRequest{
 		OrgId: orgID,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // UpdateBillingService updates the billing service of an organization.
@@ -275,10 +260,7 @@ func (c *Client) UpdateBillingService(ctx context.Context, orgID string, billing
 		BillingAddress:      billingAddressToProto(billingAddress),
 		BillingSupportEmail: billingSupportEmail,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // OrganizationSetSupportEmail sets an organization's support email.
@@ -287,10 +269,7 @@ func (c *Client) OrganizationSetSupportEmail(ctx context.Context, orgID, email s
 		OrgId: orgID,
 		Email: email,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // OrganizationGetSupportEmail gets an organization's support email.
@@ -347,10 +326,7 @@ func (c *Client) DeleteLocation(ctx context.Context, locationID string) error {
 	_, err := c.client.DeleteLocation(ctx, &pb.DeleteLocationRequest{
 		LocationId: locationID,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // ListLocations gets a list of locations under the specified organization.
@@ -375,10 +351,7 @@ func (c *Client) ShareLocation(ctx context.Context, locationID, orgID string) er
 		LocationId:     locationID,
 		OrganizationId: orgID,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // UnshareLocation stops sharing a location with an organization.
@@ -387,10 +360,7 @@ func (c *Client) UnshareLocation(ctx context.Context, locationID, orgID string) 
 		LocationId:     locationID,
 		OrganizationId: orgID,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // LocationAuth gets a location's authorization secrets.
@@ -421,10 +391,7 @@ func (c *Client) DeleteLocationSecret(ctx context.Context, locationID, secretID 
 		LocationId: locationID,
 		SecretId:   secretID,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // GetRobot gets a specific robot by ID.
@@ -575,10 +542,7 @@ func (c *Client) DeleteRobotPart(ctx context.Context, partID string) error {
 	_, err := c.client.DeleteRobotPart(ctx, &pb.DeleteRobotPartRequest{
 		PartId: partID,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // GetRobotAPIKeys gets the robot API keys for the robot.
@@ -601,10 +565,7 @@ func (c *Client) MarkPartAsMain(ctx context.Context, partID string) error {
 	_, err := c.client.MarkPartAsMain(ctx, &pb.MarkPartAsMainRequest{
 		PartId: partID,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // MarkPartForRestart marks the given part for restart.
@@ -614,10 +575,7 @@ func (c *Client) MarkPartForRestart(ctx context.Context, partID string) error {
 	_, err := c.client.MarkPartForRestart(ctx, &pb.MarkPartForRestartRequest{
 		PartId: partID,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // CreateRobotPartSecret creates a new generated secret in the robot part.
@@ -638,10 +596,7 @@ func (c *Client) DeleteRobotPartSecret(ctx context.Context, partID, secretID str
 		PartId:   partID,
 		SecretId: secretID,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // ListRobots gets a list of robots under a location.
@@ -689,10 +644,7 @@ func (c *Client) DeleteRobot(ctx context.Context, id string) error {
 	_, err := c.client.DeleteRobot(ctx, &pb.DeleteRobotRequest{
 		Id: id,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // ListFragments gets a list of fragments.
@@ -778,10 +730,7 @@ func (c *Client) DeleteFragment(ctx context.Context, id string) error {
 	_, err := c.client.DeleteFragment(ctx, &pb.DeleteFragmentRequest{
 		Id: id,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // ListMachineFragments gets top level and nested fragments for a amchine, as well as any other fragments specified by IDs. Additional
@@ -829,10 +778,7 @@ func (c *Client) AddRole(ctx context.Context, orgID, identityID, role, resourceT
 	_, err = c.client.AddRole(ctx, &pb.AddRoleRequest{
 		Authorization: authorization,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // RemoveRole deletes an identity authorization.
@@ -844,10 +790,7 @@ func (c *Client) RemoveRole(ctx context.Context, orgID, identityID, role, resour
 	_, err = c.client.RemoveRole(ctx, &pb.RemoveRoleRequest{
 		Authorization: authorization,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // ChangeRole changes an identity authorization to a new identity authorization.
@@ -876,10 +819,7 @@ func (c *Client) ChangeRole(
 		OldAuthorization: oldAuthorization,
 		NewAuthorization: newAuthorization,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // ListAuthorizations returns all authorization roles for any given resources.
@@ -937,44 +877,26 @@ func (c *Client) GetRegistryItem(ctx context.Context, itemID string) (*RegistryI
 
 // CreateRegistryItem creates a registry item.
 func (c *Client) CreateRegistryItem(ctx context.Context, orgID, name string, packageType PackageType) error {
-	pbPackageType, err := packageTypeToProto(packageType)
-	if err != nil {
-		return err
-	}
-	_, err = c.client.CreateRegistryItem(ctx, &pb.CreateRegistryItemRequest{
+	_, err := c.client.CreateRegistryItem(ctx, &pb.CreateRegistryItemRequest{
 		OrganizationId: orgID,
 		Name:           name,
-		Type:           pbPackageType,
+		Type:           packageTypeToProto(packageType),
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // UpdateRegistryItem updates a registry item.
 func (c *Client) UpdateRegistryItem(
 	ctx context.Context, itemID string, packageType PackageType, description string, visibility Visibility, url *string,
 ) error {
-	pbPackageType, err := packageTypeToProto(packageType)
-	if err != nil {
-		return err
-	}
-	pbVisibility, err := visibilityToProto(visibility)
-	if err != nil {
-		return err
-	}
-	_, err = c.client.UpdateRegistryItem(ctx, &pb.UpdateRegistryItemRequest{
+	_, err := c.client.UpdateRegistryItem(ctx, &pb.UpdateRegistryItemRequest{
 		ItemId:      itemID,
-		Type:        pbPackageType,
+		Type:        packageTypeToProto(packageType),
 		Description: description,
-		Visibility:  pbVisibility,
+		Visibility:  visibilityToProto(visibility),
 		Url:         url,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // ListRegistryItems lists the registry items in an organization.
@@ -991,27 +913,15 @@ func (c *Client) ListRegistryItems(
 ) ([]*RegistryItem, error) {
 	var pbTypes []packages.PackageType
 	for _, packageType := range types {
-		t, err := packageTypeToProto(packageType)
-		if err != nil {
-			return nil, err
-		}
-		pbTypes = append(pbTypes, t)
+		pbTypes = append(pbTypes, packageTypeToProto(packageType))
 	}
 	var pbVisibilities []pb.Visibility
 	for _, visibility := range visibilities {
-		v, err := visibilityToProto(visibility)
-		if err != nil {
-			return nil, err
-		}
-		pbVisibilities = append(pbVisibilities, v)
+		pbVisibilities = append(pbVisibilities, visibilityToProto(visibility))
 	}
 	var pbStatuses []pb.RegistryItemStatus
 	for _, status := range statuses {
-		s, err := registryItemStatusToProto(status)
-		if err != nil {
-			return nil, err
-		}
-		pbStatuses = append(pbStatuses, s)
+		pbStatuses = append(pbStatuses, registryItemStatusToProto(status))
 	}
 	resp, err := c.client.ListRegistryItems(ctx, &pb.ListRegistryItemsRequest{
 		OrganizationId:   orgID,
@@ -1043,10 +953,7 @@ func (c *Client) DeleteRegistryItem(ctx context.Context, itemID string) error {
 	_, err := c.client.DeleteRegistryItem(ctx, &pb.DeleteRegistryItemRequest{
 		ItemId: itemID,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // TransferRegistryItem transfers a registry item to a namespace.
@@ -1055,10 +962,7 @@ func (c *Client) TransferRegistryItem(ctx context.Context, itemID, newPublicName
 		ItemId:             itemID,
 		NewPublicNamespace: newPublicNamespace,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // CreateModule creates a module.
@@ -1078,17 +982,13 @@ func (c *Client) CreateModule(ctx context.Context, orgID, name string) (string, 
 func (c *Client) UpdateModule(
 	ctx context.Context, moduleID string, visibility Visibility, url, description string, models []*Model, entrypoint string, firstRun *string,
 ) (string, error) {
-	pbVisibility, err := visibilityToProto(visibility)
-	if err != nil {
-		return "", err
-	}
 	var pbModels []*pb.Model
 	for _, model := range models {
 		pbModels = append(pbModels, modelToProto(model))
 	}
 	resp, err := c.client.UpdateModule(ctx, &pb.UpdateModuleRequest{
 		ModuleId:    moduleID,
-		Visibility:  pbVisibility,
+		Visibility:  visibilityToProto(visibility),
 		Url:         url,
 		Description: description,
 		Models:      pbModels,
@@ -1215,10 +1115,7 @@ func (c *Client) DeleteKey(ctx context.Context, id string) error {
 	_, err := c.client.DeleteKey(ctx, &pb.DeleteKeyRequest{
 		Id: id,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // ListKeys lists all the keys for the organization.

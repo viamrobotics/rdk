@@ -369,17 +369,20 @@ var (
 
 func sharedSecretStateToProto(state SharedSecretState) pb.SharedSecret_State {
 	switch state {
+	case SharedSecretStateUnspecified:
+		return pb.SharedSecret_STATE_UNSPECIFIED
 	case SharedSecretStateEnabled:
 		return pb.SharedSecret_STATE_ENABLED
 	case SharedSecretStateDisabled:
 		return pb.SharedSecret_STATE_DISABLED
-	default:
-		return pb.SharedSecret_STATE_UNSPECIFIED
 	}
+	return pb.SharedSecret_STATE_UNSPECIFIED
 }
 
 func authenticationTypeToProto(authType AuthenticationType) pb.AuthenticationType {
 	switch authType {
+	case AuthenticationTypeUnspecified:
+		return pb.AuthenticationType_AUTHENTICATION_TYPE_UNSPECIFIED
 	case AuthenticationTypeWebOAuth:
 		return pb.AuthenticationType_AUTHENTICATION_TYPE_WEB_OAUTH
 	case AuthenticationTypeAPIKey:
@@ -388,9 +391,9 @@ func authenticationTypeToProto(authType AuthenticationType) pb.AuthenticationTyp
 		return pb.AuthenticationType_AUTHENTICATION_TYPE_ROBOT_PART_SECRET
 	case AuthenticationTypeLocationSecret:
 		return pb.AuthenticationType_AUTHENTICATION_TYPE_LOCATION_SECRET
-	default:
-		return pb.AuthenticationType_AUTHENTICATION_TYPE_UNSPECIFIED
 	}
+	return pb.AuthenticationType_AUTHENTICATION_TYPE_UNSPECIFIED
+
 }
 
 func testOrganizationResponse(t *testing.T, actualOrg, expectedOrg *Organization) {

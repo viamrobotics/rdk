@@ -63,9 +63,8 @@ func fragmentVisibilityFromProto(visibility pb.FragmentVisibility) FragmentVisib
 		return FragmentVisibilityPublic
 	case pb.FragmentVisibility_FRAGMENT_VISIBILITY_PUBLIC_UNLISTED:
 		return FragmentVisibilityPublicUnlisted
-	default:
-		return FragmentVisibilityUnspecified
 	}
+	return FragmentVisibilityUnspecified
 }
 
 func fragmentVisibilityToProto(visibility FragmentVisibility) pb.FragmentVisibility {
@@ -78,9 +77,8 @@ func fragmentVisibilityToProto(visibility FragmentVisibility) pb.FragmentVisibil
 		return pb.FragmentVisibility_FRAGMENT_VISIBILITY_PUBLIC
 	case FragmentVisibilityPublicUnlisted:
 		return pb.FragmentVisibility_FRAGMENT_VISIBILITY_PUBLIC_UNLISTED
-	default:
-		return pb.FragmentVisibility_FRAGMENT_VISIBILITY_UNSPECIFIED
 	}
+	return pb.FragmentVisibility_FRAGMENT_VISIBILITY_UNSPECIFIED
 }
 
 // FragmentHistoryEntry is an entry of a fragment's history.

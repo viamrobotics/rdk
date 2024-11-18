@@ -29,32 +29,14 @@ type RegistryItem struct {
 }
 
 func registryItemFromProto(item *pb.RegistryItem) (*RegistryItem, error) {
-	packageType, err := packageTypeFromProto(item.Type)
-	if err != nil {
-		return nil, err
-	}
-	visibility, err := visibilityFromProto(item.Visibility)
-	if err != nil {
-		return nil, err
-	}
-
 	var metadata isRegistryItemMetadata
 	switch pbMetadata := item.Metadata.(type) {
 	case *pb.RegistryItem_ModuleMetadata:
-		md := moduleMetadataFromProto(pbMetadata.ModuleMetadata)
-		metadata = &RegistryItemModuleMetadata{ModuleMetadata: md}
+		metadata = &RegistryItemModuleMetadata{ModuleMetadata: moduleMetadataFromProto(pbMetadata.ModuleMetadata)}
 	case *pb.RegistryItem_MlModelMetadata:
-		md, err := mlModelMetadataFromProto(pbMetadata.MlModelMetadata)
-		if err != nil {
-			return nil, err
-		}
-		metadata = &RegistryItemMLModelMetadata{MlModelMetadata: md}
+		metadata = &RegistryItemMLModelMetadata{MlModelMetadata: mlModelMetadataFromProto(pbMetadata.MlModelMetadata)}
 	case *pb.RegistryItem_MlTrainingMetadata:
-		md, err := mlTrainingMetadataFromProto(pbMetadata.MlTrainingMetadata)
-		if err != nil {
-			return nil, err
-		}
-		metadata = &RegistryItemMLTrainingMetadata{MlTrainingMetadata: md}
+		metadata = &RegistryItemMLTrainingMetadata{MlTrainingMetadata: mlTrainingMetadataFromProto(pbMetadata.MlTrainingMetadata)}
 	default:
 		return nil, fmt.Errorf("unknown registry item metadata type: %T", item.Metadata)
 	}
@@ -64,8 +46,8 @@ func registryItemFromProto(item *pb.RegistryItem) (*RegistryItem, error) {
 		OrganizationID:                 item.OrganizationId,
 		PublicNamespace:                item.PublicNamespace,
 		Name:                           item.Name,
-		Type:                           packageType,
-		Visibility:                     visibility,
+		Type:                           packageTypeFromProto(item.Type),
+		Visibility:                     visibilityFromProto(item.Visibility),
 		URL:                            item.Url,
 		Description:                    item.Description,
 		TotalRobotUsage:                item.TotalRobotUsage,
@@ -90,17 +72,16 @@ const (
 	RegistryItemStatusInDevelopment
 )
 
-func registryItemStatusToProto(status RegistryItemStatus) (pb.RegistryItemStatus, error) {
+func registryItemStatusToProto(status RegistryItemStatus) (pb.RegistryItemStatus) {
 	switch status {
 	case RegistryItemStatusUnspecified:
-		return pb.RegistryItemStatus_REGISTRY_ITEM_STATUS_UNSPECIFIED, nil
+		return pb.RegistryItemStatus_REGISTRY_ITEM_STATUS_UNSPECIFIED
 	case RegistryItemStatusPublished:
-		return pb.RegistryItemStatus_REGISTRY_ITEM_STATUS_PUBLISHED, nil
+		return pb.RegistryItemStatus_REGISTRY_ITEM_STATUS_PUBLISHED
 	case RegistryItemStatusInDevelopment:
-		return pb.RegistryItemStatus_REGISTRY_ITEM_STATUS_IN_DEVELOPMENT, nil
-	default:
-		return 0, fmt.Errorf("unknown registry item status: %v", status)
+		return pb.RegistryItemStatus_REGISTRY_ITEM_STATUS_IN_DEVELOPMENT
 	}
+	return pb.RegistryItemStatus_REGISTRY_ITEM_STATUS_UNSPECIFIED
 }
 
 // PackageType is the type of package being used.
@@ -121,42 +102,40 @@ const (
 	PackageTypeMLTraining
 )
 
-func packageTypeFromProto(packageType packages.PackageType) (PackageType, error) {
+func packageTypeFromProto(packageType packages.PackageType) (PackageType) {
 	switch packageType {
 	case packages.PackageType_PACKAGE_TYPE_UNSPECIFIED:
-		return PackageTypeUnspecified, nil
+		return PackageTypeUnspecified
 	case packages.PackageType_PACKAGE_TYPE_ARCHIVE:
-		return PackageTypeArchive, nil
+		return PackageTypeArchive
 	case packages.PackageType_PACKAGE_TYPE_ML_MODEL:
-		return PackageTypeMLModel, nil
+		return PackageTypeMLModel
 	case packages.PackageType_PACKAGE_TYPE_MODULE:
-		return PackageTypeModule, nil
+		return PackageTypeModule
 	case packages.PackageType_PACKAGE_TYPE_SLAM_MAP:
-		return PackageTypeSLAMMap, nil
+		return PackageTypeSLAMMap
 	case packages.PackageType_PACKAGE_TYPE_ML_TRAINING:
-		return PackageTypeMLTraining, nil
-	default:
-		return 0, fmt.Errorf("unknown fragment visibility: %v", packageType)
+		return PackageTypeMLTraining
 	}
+	return PackageTypeUnspecified
 }
 
-func packageTypeToProto(packageType PackageType) (packages.PackageType, error) {
+func packageTypeToProto(packageType PackageType) (packages.PackageType) {
 	switch packageType {
 	case PackageTypeUnspecified:
-		return packages.PackageType_PACKAGE_TYPE_UNSPECIFIED, nil
+		return packages.PackageType_PACKAGE_TYPE_UNSPECIFIED
 	case PackageTypeArchive:
-		return packages.PackageType_PACKAGE_TYPE_ARCHIVE, nil
+		return packages.PackageType_PACKAGE_TYPE_ARCHIVE
 	case PackageTypeMLModel:
-		return packages.PackageType_PACKAGE_TYPE_ML_MODEL, nil
+		return packages.PackageType_PACKAGE_TYPE_ML_MODEL
 	case PackageTypeModule:
-		return packages.PackageType_PACKAGE_TYPE_MODULE, nil
+		return packages.PackageType_PACKAGE_TYPE_MODULE
 	case PackageTypeSLAMMap:
-		return packages.PackageType_PACKAGE_TYPE_SLAM_MAP, nil
+		return packages.PackageType_PACKAGE_TYPE_SLAM_MAP
 	case PackageTypeMLTraining:
-		return packages.PackageType_PACKAGE_TYPE_ML_TRAINING, nil
-	default:
-		return 0, fmt.Errorf("unknown fragment visibility: %v", packageType)
+		return packages.PackageType_PACKAGE_TYPE_ML_TRAINING
 	}
+	return packages.PackageType_PACKAGE_TYPE_UNSPECIFIED
 }
 
 // Visibility specifies the type of visibility of a registry item.
@@ -173,34 +152,32 @@ const (
 	VisibilityPublicUnlisted
 )
 
-func visibilityFromProto(visibility pb.Visibility) (Visibility, error) {
+func visibilityFromProto(visibility pb.Visibility) Visibility {
 	switch visibility {
 	case pb.Visibility_VISIBILITY_UNSPECIFIED:
-		return VisibilityUnspecified, nil
+		return VisibilityUnspecified
 	case pb.Visibility_VISIBILITY_PRIVATE:
-		return VisibilityPrivate, nil
+		return VisibilityPrivate
 	case pb.Visibility_VISIBILITY_PUBLIC:
-		return VisibilityPublic, nil
+		return VisibilityPublic
 	case pb.Visibility_VISIBILITY_PUBLIC_UNLISTED:
-		return VisibilityPublicUnlisted, nil
-	default:
-		return 0, fmt.Errorf("unknown fragment visibility: %v", visibility)
+		return VisibilityPublicUnlisted
 	}
+	return VisibilityUnspecified
 }
 
-func visibilityToProto(visibility Visibility) (pb.Visibility, error) {
+func visibilityToProto(visibility Visibility) (pb.Visibility) {
 	switch visibility {
 	case VisibilityUnspecified:
-		return pb.Visibility_VISIBILITY_UNSPECIFIED, nil
+		return pb.Visibility_VISIBILITY_UNSPECIFIED
 	case VisibilityPrivate:
-		return pb.Visibility_VISIBILITY_PRIVATE, nil
+		return pb.Visibility_VISIBILITY_PRIVATE
 	case VisibilityPublic:
-		return pb.Visibility_VISIBILITY_PUBLIC, nil
+		return pb.Visibility_VISIBILITY_PUBLIC
 	case VisibilityPublicUnlisted:
-		return pb.Visibility_VISIBILITY_PUBLIC_UNLISTED, nil
-	default:
-		return 0, fmt.Errorf("unknown fragment visibility: %v", visibility)
+		return pb.Visibility_VISIBILITY_PUBLIC_UNLISTED
 	}
+	return pb.Visibility_VISIBILITY_UNSPECIFIED
 }
 
 type isRegistryItemMetadata interface {
@@ -320,20 +297,12 @@ type MLModelMetadata struct {
 	ModelFramework ModelFramework
 }
 
-func mlModelMetadataFromProto(md *pb.MLModelMetadata) (*MLModelMetadata, error) {
-	modelType, err := modelTypeFromProto(md.ModelType)
-	if err != nil {
-		return nil, err
-	}
-	modelFramework, err := modelFrameworkFromProto(md.ModelFramework)
-	if err != nil {
-		return nil, err
-	}
+func mlModelMetadataFromProto(md *pb.MLModelMetadata) (*MLModelMetadata) {
 	return &MLModelMetadata{
 		Versions:       md.Versions,
-		ModelType:      modelType,
-		ModelFramework: modelFramework,
-	}, nil
+		ModelType:      modelTypeFromProto(md.ModelType),
+		ModelFramework: modelFrameworkFromProto(md.ModelFramework),
+	}
 }
 
 // ModelType specifies the type of model used for classification or detection.
@@ -350,19 +319,18 @@ const (
 	ModelTypeObjectDetection
 )
 
-func modelTypeFromProto(modelType mlTraining.ModelType) (ModelType, error) {
+func modelTypeFromProto(modelType mlTraining.ModelType) (ModelType) {
 	switch modelType {
 	case mlTraining.ModelType_MODEL_TYPE_UNSPECIFIED:
-		return ModelTypeUnspecified, nil
+		return ModelTypeUnspecified
 	case mlTraining.ModelType_MODEL_TYPE_SINGLE_LABEL_CLASSIFICATION:
-		return ModelTypeSingleLabelClassification, nil
+		return ModelTypeSingleLabelClassification
 	case mlTraining.ModelType_MODEL_TYPE_MULTI_LABEL_CLASSIFICATION:
-		return ModelTypeMultiLabelClassification, nil
+		return ModelTypeMultiLabelClassification
 	case mlTraining.ModelType_MODEL_TYPE_OBJECT_DETECTION:
-		return ModelTypeObjectDetection, nil
-	default:
-		return 0, fmt.Errorf("unknown model type: %v", modelType)
+		return ModelTypeObjectDetection
 	}
+	return ModelTypeUnspecified
 }
 
 // ModelFramework is the framework type of a model.
@@ -381,21 +349,20 @@ const (
 	ModelFrameworkONNX
 )
 
-func modelFrameworkFromProto(framework mlTraining.ModelFramework) (ModelFramework, error) {
+func modelFrameworkFromProto(framework mlTraining.ModelFramework) (ModelFramework) {
 	switch framework {
 	case mlTraining.ModelFramework_MODEL_FRAMEWORK_UNSPECIFIED:
-		return ModelFrameworkUnspecified, nil
+		return ModelFrameworkUnspecified
 	case mlTraining.ModelFramework_MODEL_FRAMEWORK_TFLITE:
-		return ModelFrameworkTFLite, nil
+		return ModelFrameworkTFLite
 	case mlTraining.ModelFramework_MODEL_FRAMEWORK_TENSORFLOW:
-		return ModelFrameworkTensorFlow, nil
+		return ModelFrameworkTensorFlow
 	case mlTraining.ModelFramework_MODEL_FRAMEWORK_PYTORCH:
-		return ModelFrameworkPyTorch, nil
+		return ModelFrameworkPyTorch
 	case mlTraining.ModelFramework_MODEL_FRAMEWORK_ONNX:
-		return ModelFrameworkONNX, nil
-	default:
-		return 0, fmt.Errorf("unknown model framework: %v", framework)
+		return ModelFrameworkONNX
 	}
+	return ModelFrameworkUnspecified
 }
 
 // MLTrainingMetadata is the metadata of an ML Training.
@@ -406,25 +373,17 @@ type MLTrainingMetadata struct {
 	Draft          bool
 }
 
-func mlTrainingMetadataFromProto(md *pb.MLTrainingMetadata) (*MLTrainingMetadata, error) {
+func mlTrainingMetadataFromProto(md *pb.MLTrainingMetadata) (*MLTrainingMetadata) {
 	var versions []*MLTrainingVersion
 	for _, version := range md.Versions {
 		versions = append(versions, mlTrainingVersionFromProto(version))
 	}
-	modelType, err := modelTypeFromProto(md.ModelType)
-	if err != nil {
-		return nil, err
-	}
-	modelFramework, err := modelFrameworkFromProto(md.ModelFramework)
-	if err != nil {
-		return nil, err
-	}
 	return &MLTrainingMetadata{
 		Versions:       versions,
-		ModelType:      modelType,
-		ModelFramework: modelFramework,
+		ModelType:      modelTypeFromProto(md.ModelType),
+		ModelFramework: modelFrameworkFromProto(md.ModelFramework),
 		Draft:          md.Draft,
-	}, nil
+	}
 }
 
 // MLTrainingVersion is the version of ML Training.
@@ -458,10 +417,6 @@ type Module struct {
 }
 
 func moduleFromProto(module *pb.Module) (*Module, error) {
-	visibility, err := visibilityFromProto(module.Visibility)
-	if err != nil {
-		return nil, err
-	}
 	var versions []*VersionHistory
 	for _, version := range module.Versions {
 		versions = append(versions, versionHistoryFromProto(version))
@@ -473,7 +428,7 @@ func moduleFromProto(module *pb.Module) (*Module, error) {
 	return &Module{
 		ModuleID:               module.ModuleId,
 		Name:                   module.Name,
-		Visibility:             visibility,
+		Visibility:             visibilityFromProto(module.Visibility),
 		Versions:               versions,
 		URL:                    module.Url,
 		Description:            module.Description,
