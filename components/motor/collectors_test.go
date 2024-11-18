@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	clk "github.com/benbjohnson/clock"
-	pb "go.viam.com/api/component/motor/v1"
+	"github.com/benbjohnson/clock"
+	datasyncpb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/motor"
@@ -18,43 +18,48 @@ import (
 
 const (
 	componentName   = "motor"
-	captureInterval = time.Second
-	numRetries      = 5
+	captureInterval = time.Millisecond
 )
 
-func TestMotorCollectors(t *testing.T) {
+func TestCollectors(t *testing.T) {
 	tests := []struct {
 		name      string
 		collector data.CollectorConstructor
-		expected  map[string]any
+		expected  *datasyncpb.SensorData
 	}{
 		{
 			name:      "Motor position collector should write a position response",
 			collector: motor.NewPositionCollector,
-			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetPositionResponse{
-				Position: 1.0,
-			}),
+			expected: &datasyncpb.SensorData{
+				Metadata: &datasyncpb.SensorMetadata{},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"position": 1.0,
+				})},
+			},
 		},
 		{
 			name:      "Motor isPowered collector should write an isPowered response",
 			collector: motor.NewIsPoweredCollector,
-			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.IsPoweredResponse{
-				IsOn:     false,
-				PowerPct: .5,
-			}),
+			expected: &datasyncpb.SensorData{
+				Metadata: &datasyncpb.SensorMetadata{},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"is_on":     false,
+					"power_pct": 0.5,
+				})},
+			},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mockClock := clk.NewMock()
-			buf := tu.MockBuffer{}
+			start := time.Now()
+			buf := tu.NewMockBuffer()
 			params := data.CollectorParams{
 				ComponentName: componentName,
 				Interval:      captureInterval,
 				Logger:        logging.NewTestLogger(t),
-				Clock:         mockClock,
-				Target:        &buf,
+				Clock:         clock.New(),
+				Target:        buf,
 			}
 
 			motor := newMotor()
@@ -63,13 +68,11 @@ func TestMotorCollectors(t *testing.T) {
 
 			defer col.Close()
 			col.Collect()
-			mockClock.Add(captureInterval)
 
-			tu.Retry(func() bool {
-				return buf.Length() != 0
-			}, numRetries)
-			test.That(t, buf.Length(), test.ShouldBeGreaterThan, 0)
-			test.That(t, buf.Writes[0].GetStruct().AsMap(), test.ShouldResemble, tc.expected)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			tu.CheckMockBufferWrites(t, ctx, start, buf.Writes, tc.expected)
+			buf.Close()
 		})
 	}
 }

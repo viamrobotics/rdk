@@ -383,6 +383,25 @@ func (ua *urArm) MoveToJointPositions(ctx context.Context, joints []referencefra
 	return ua.moveToJointPositionRadians(ctx, referenceframe.InputsToFloats(joints))
 }
 
+func (ua *urArm) MoveThroughJointPositions(
+	ctx context.Context,
+	positions [][]referenceframe.Input,
+	_ *arm.MoveOptions,
+	_ map[string]interface{},
+) error {
+	for _, goal := range positions {
+		// check that joint positions are not out of bounds
+		if err := arm.CheckDesiredJointPositions(ctx, ua, goal); err != nil {
+			return err
+		}
+		err := ua.MoveToJointPositions(ctx, goal, nil)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Stop stops the arm with some deceleration.
 func (ua *urArm) Stop(ctx context.Context, extra map[string]interface{}) error {
 	if !ua.inRemoteMode {
@@ -497,17 +516,7 @@ func (ua *urArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 
 // GoToInputs moves the UR arm to the Inputs specified.
 func (ua *urArm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
-	for _, goal := range inputSteps {
-		// check that joint positions are not out of bounds
-		if err := arm.CheckDesiredJointPositions(ctx, ua, goal); err != nil {
-			return err
-		}
-		err := ua.MoveToJointPositions(ctx, goal, nil)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return ua.MoveThroughJointPositions(ctx, inputSteps, nil, nil)
 }
 
 // Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -183,13 +184,25 @@ func PackageUploadAction(c *cli.Context) error {
 		return err
 	}
 
+	if err := validatePackageUploadRequest(c); err != nil {
+		return err
+	}
+
 	resp, err := client.uploadPackage(
 		c.String(generalFlagOrgID),
 		c.String(packageFlagName),
 		c.String(packageFlagVersion),
 		c.String(packageFlagType),
 		c.Path(packageFlagPath),
-		nil,
+		&structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				packageMetadataFlagFramework: {
+					Kind: &structpb.Value_StringValue{
+						StringValue: c.String(packageFlagFramework),
+					},
+				},
+			},
+		},
 	)
 	if err != nil {
 		return err
@@ -273,4 +286,20 @@ func getNextPackageUploadRequest(file *os.File) (*packagespb.CreatePackageReques
 
 func (m *moduleID) ToDetailURL(baseURL string, packageType PackageType) string {
 	return fmt.Sprintf("https://%s/%s/%s/%s", baseURL, strings.ReplaceAll(string(packageType), "_", "-"), m.prefix, m.name)
+}
+
+func validatePackageUploadRequest(c *cli.Context) error {
+	packageType := c.String(packageFlagType)
+
+	if packageType == "ml_model" {
+		if c.String(packageFlagFramework) == "" {
+			return errors.New("must pass in a model-framework if package is of type `ml_model`")
+		}
+
+		if !slices.Contains(modelFrameworks, c.String(packageFlagFramework)) {
+			return errors.New("framework must be of type " + strings.Join(modelFrameworks, ", "))
+		}
+	}
+
+	return nil
 }

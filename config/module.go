@@ -1,23 +1,31 @@
 package config
 
 import (
+	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
+	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
 
-const reservedModuleName = "parent"
+const (
+	reservedModuleName     = "parent"
+	defaultFirstRunTimeout = 1 * time.Hour
+)
 
 // Module represents an external resource module, with a path to the binary module file.
 type Module struct {
@@ -42,7 +50,12 @@ type Module struct {
 	Environment map[string]string `json:"env,omitempty"`
 
 	// FirstRunTimeout is the timeout duration for the first run script.
-	FirstRunTimeout time.Duration `json:"first_run_timeout,omitempty"`
+	// This field will only be applied if it is a positive value. Supplying a
+	// non-positive will set the first run timeout to the default value of 1 hour,
+	// which is equivalent to leaving this field unset. If you wish to set an
+	// immediate timeout you should set this field to a very small positive value
+	// such as "1ns".
+	FirstRunTimeout goutils.Duration `json:"first_run_timeout,omitempty"`
 
 	// Status refers to the validations done in the APP to make sure a module is configured correctly
 	Status           *AppValidationStatus `json:"status"`
@@ -221,7 +234,7 @@ func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 }
 
 // FirstRunSuccessSuffix is the suffix of the file whose existence
-// denotes that the setup phase for a module ran successfully.
+// denotes that the first run script for a module ran successfully.
 //
 // Note that we create a new file instead of writing to `.status.json`,
 // which contains various package/module state tracking information.
@@ -229,56 +242,162 @@ func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 // could break or uncoordinate package sync.
 const FirstRunSuccessSuffix = ".first_run_succeeded"
 
-// EvaluateFirstRunPath returns absolute FirstRunPath from one of two sources (in order of precedence):
-// 1. if there is a meta.json in the exe dir, use that, except in local non-tarball case.
-// 2. if this is a local tarball and there's a meta.json next to the tarball, use that.
-// Note: the working directory must be the unpacked tarball directory or local exec directory.
-//
-// On success (i.e. if the returned error is nil), this function also returns a function that creates
-// a marker file indicating that the setup phase has run successfully.
-func (m Module) EvaluateFirstRunPath(packagesDir string, logger logging.Logger) (
-	string,
-	func() error,
-	error,
-) {
-	noop := func() error { return nil }
-	unpackedModDir, err := m.exeDir(packagesDir)
-	if err != nil {
-		return "", noop, err
-	}
+// FirstRun executes a module-specific setup script.
+func (m *Module) FirstRun(
+	ctx context.Context,
+	localPackagesDir,
+	dataDir string,
+	env map[string]string,
+	logger logging.Logger,
+) error {
+	logger = logger.Sublogger("first_run").WithFields("module", m.Name)
 
-	firstRunSuccessPath := unpackedModDir + FirstRunSuccessSuffix
-	if _, err := os.Stat(firstRunSuccessPath); !errors.Is(err, os.ErrNotExist) {
-		logger.Info("first run already ran")
-		return "", noop, errors.New("first run already ran")
-	}
-	markFirstRunSuccess := func() error {
-		//nolint:gosec // safe
-		_, err := os.Create(firstRunSuccessPath)
+	unpackedModDir, err := m.exeDir(localPackagesDir)
+	if err != nil {
 		return err
 	}
 
+	// check if FirstRun already ran successfully for this module version by
+	// checking if a success marker file exists on disk.
+	firstRunSuccessPath := unpackedModDir + FirstRunSuccessSuffix
+	if _, err := os.Stat(firstRunSuccessPath); !errors.Is(err, os.ErrNotExist) {
+		logger.Info("first run already ran")
+		return nil
+	}
+
+	// Load the module's meta.json. If it doesn't exist DEBUG log and exit quietly.
+	// For all other errors WARN log and exit.
+	meta, err := m.getJSONManifest(unpackedModDir)
+	var pathErr *os.PathError
+	switch {
+	case errors.As(err, &pathErr):
+		logger.Debugw("meta.json not found, skipping first run", "error", err)
+		return nil
+	case err != nil:
+		logger.Warn("failed to parse meta.json, skipping first run", "error", err)
+		return nil
+	}
+
+	if meta.FirstRun == "" {
+		logger.Debug("no first run script specified, skipping first run")
+		return nil
+	}
+	relFirstRunPath, err := utils.SafeJoinDir(unpackedModDir, meta.FirstRun)
+	if err != nil {
+		logger.Errorw("failed to build path to first run script, skipping first run", "error", err)
+		return nil
+	}
+	firstRunPath, err := filepath.Abs(relFirstRunPath)
+	if err != nil {
+		logger.Errorw("failed to build absolute path to first run script, skipping first run", "path", relFirstRunPath, "error", err)
+		return nil
+	}
+
+	logger = logger.WithFields("module", m.Name, "path", firstRunPath)
+	logger.Infow("executing first run script")
+
+	timeout := defaultFirstRunTimeout
+	if m.FirstRunTimeout > 0 {
+		timeout = m.FirstRunTimeout.Unwrap()
+	}
+	cmdCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	//nolint:gosec // Yes, we are deliberating executing arbitrary user code here.
+	cmd := exec.CommandContext(cmdCtx, firstRunPath)
+
+	cmd.Env = os.Environ()
+	for key, val := range env {
+		cmd.Env = append(cmd.Env, key+"="+val)
+	}
+
+	stdOut, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+	stdErr, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+
+	scanOut := bufio.NewScanner(stdOut)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+
+		for scanOut.Scan() {
+			logger.Infow("got stdio", "output", scanOut.Text())
+		}
+		// This scanner keeps trying to read stdio until the command terminates,
+		// at which point the stdio pipe handle is no longer available. This sometimes
+		// results in an `os.ErrClosed`, which we discard.
+		if err := scanOut.Err(); err != nil && !errors.Is(err, os.ErrClosed) {
+			logger.Errorw("error scanning stdio", "error", err)
+		}
+	}()
+	scanErr := bufio.NewScanner(stdErr)
+	go func() {
+		defer wg.Done()
+
+		for scanErr.Scan() {
+			logger.Warnw("got stderr", "output", scanErr.Text())
+		}
+		// This scanner keeps trying to read stderr until the command terminates,
+		// at which point the stderr pipe handle is no longer available. This sometimes
+		// results in an `os.ErrClosed`, which we discard.
+		if err := scanErr.Err(); err != nil && !errors.Is(err, os.ErrClosed) {
+			logger.Errorw("error scanning stderr", "error", err)
+		}
+	}()
+	if err := cmd.Start(); err != nil {
+		logger.Errorw("failed to start first run script", "error", err)
+		return err
+	}
+	if err := cmd.Wait(); err != nil {
+		logger.Errorw("first run script failed", "error", err)
+		return err
+	}
+	wg.Wait()
+	logger.Info("first run script succeeded")
+
+	// Mark success by writing a marker file to disk. This is a best
+	// effort; if writing to disk fails the first run script will run again
+	// for this module and version and we are okay with that.
+	//nolint:gosec // safe
+	markerFile, err := os.Create(firstRunSuccessPath)
+	if err != nil {
+		logger.Errorw("failed to mark success", "error", err)
+		return nil
+	}
+	if err = markerFile.Close(); err != nil {
+		logger.Errorw("failed to close marker file", "error", err)
+		return nil
+	}
+	return nil
+}
+
+// getJSONManifest returns a loaded meta.json from one of two sources (in order of precedence):
+// 1. if there is a meta.json in the exe dir, use that, except in local non-tarball case.
+// 2. if this is a local tarball and there's a meta.json next to the tarball, use that.
+// Note: the working directory must be the unpacked tarball directory or local exec directory.
+func (m Module) getJSONManifest(unpackedModDir string) (*JSONManifest, error) {
 	// note: we don't look at internal meta.json in local non-tarball case because user has explicitly requested a binary.
 	localNonTarball := m.Type == ModuleTypeLocal && !m.NeedsSyntheticPackage()
 	if !localNonTarball {
 		// this is case 1, meta.json in exe folder.
 		metaPath, err := utils.SafeJoinDir(unpackedModDir, "meta.json")
 		if err != nil {
-			return "", noop, err
+			return nil, err
 		}
 		_, err = os.Stat(metaPath)
 		if err == nil {
 			// this is case 1, meta.json in exe dir
 			meta, err := parseJSONFile[JSONManifest](metaPath)
 			if err != nil {
-				return "", noop, err
+				return nil, err
 			}
-			firstRun, err := utils.SafeJoinDir(unpackedModDir, meta.FirstRun)
-			if err != nil {
-				return "", noop, err
-			}
-			firstRunPath, err := filepath.Abs(firstRun)
-			return firstRunPath, markFirstRunSuccess, err
+			return meta, nil
 		}
 	}
 	if m.NeedsSyntheticPackage() {
@@ -286,19 +405,14 @@ func (m Module) EvaluateFirstRunPath(packagesDir string, logger logging.Logger) 
 		// TODO(RSDK-7848): remove this case once java sdk supports internal meta.json.
 		metaPath, err := utils.SafeJoinDir(filepath.Dir(m.ExePath), "meta.json")
 		if err != nil {
-			return "", noop, err
+			return nil, err
 		}
 		meta, err := parseJSONFile[JSONManifest](metaPath)
 		if err != nil {
 			// note: this error deprecates the side-by-side case because the side-by-side case is deprecated.
-			return "", noop, errors.Wrapf(err, "couldn't find meta.json inside tarball %s (or next to it)", m.ExePath)
+			return nil, errors.Wrapf(err, "couldn't find meta.json inside tarball %s (or next to it)", m.ExePath)
 		}
-		firstRun, err := utils.SafeJoinDir(unpackedModDir, meta.FirstRun)
-		if err != nil {
-			return "", noop, err
-		}
-		firstRunPath, err := filepath.Abs(firstRun)
-		return firstRunPath, markFirstRunSuccess, err
+		return meta, err
 	}
-	return "", noop, errors.New("no first run script")
+	return nil, errors.New("failed to find meta.json")
 }

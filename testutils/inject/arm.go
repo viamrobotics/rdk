@@ -12,19 +12,25 @@ import (
 // Arm is an injected arm.
 type Arm struct {
 	arm.Arm
-	name                     resource.Name
-	DoFunc                   func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	EndPositionFunc          func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error)
-	MoveToPositionFunc       func(ctx context.Context, to spatialmath.Pose, extra map[string]interface{}) error
-	MoveToJointPositionsFunc func(ctx context.Context, positions []referenceframe.Input, extra map[string]interface{}) error
-	JointPositionsFunc       func(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error)
-	StopFunc                 func(ctx context.Context, extra map[string]interface{}) error
-	IsMovingFunc             func(context.Context) (bool, error)
-	CloseFunc                func(ctx context.Context) error
-	ModelFrameFunc           func() referenceframe.Model
-	CurrentInputsFunc        func(ctx context.Context) ([]referenceframe.Input, error)
-	GoToInputsFunc           func(ctx context.Context, inputSteps ...[]referenceframe.Input) error
-	GeometriesFunc           func(ctx context.Context) ([]spatialmath.Geometry, error)
+	name                          resource.Name
+	DoFunc                        func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	EndPositionFunc               func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error)
+	MoveToPositionFunc            func(ctx context.Context, to spatialmath.Pose, extra map[string]interface{}) error
+	MoveToJointPositionsFunc      func(ctx context.Context, positions []referenceframe.Input, extra map[string]interface{}) error
+	MoveThroughJointPositionsFunc func(
+		ctx context.Context,
+		positions [][]referenceframe.Input,
+		options *arm.MoveOptions,
+		extra map[string]interface{},
+	) error
+	JointPositionsFunc func(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error)
+	StopFunc           func(ctx context.Context, extra map[string]interface{}) error
+	IsMovingFunc       func(context.Context) (bool, error)
+	CloseFunc          func(ctx context.Context) error
+	ModelFrameFunc     func() referenceframe.Model
+	CurrentInputsFunc  func(ctx context.Context) ([]referenceframe.Input, error)
+	GoToInputsFunc     func(ctx context.Context, inputSteps ...[]referenceframe.Input) error
+	GeometriesFunc     func(ctx context.Context) ([]spatialmath.Geometry, error)
 }
 
 // NewArm returns a new injected arm.
@@ -59,6 +65,19 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, positions []referencefra
 		return a.Arm.MoveToJointPositions(ctx, positions, extra)
 	}
 	return a.MoveToJointPositionsFunc(ctx, positions, extra)
+}
+
+// MoveThroughJointPositions calls the injected MoveThroughJointPositions or the real version.
+func (a *Arm) MoveThroughJointPositions(
+	ctx context.Context,
+	positions [][]referenceframe.Input,
+	options *arm.MoveOptions,
+	extra map[string]interface{},
+) error {
+	if a.MoveToJointPositionsFunc == nil {
+		return a.Arm.MoveThroughJointPositions(ctx, positions, options, extra)
+	}
+	return a.MoveThroughJointPositionsFunc(ctx, positions, options, extra)
 }
 
 // JointPositions calls the injected JointPositions or the real version.

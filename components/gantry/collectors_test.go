@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	clk "github.com/benbjohnson/clock"
-	pb "go.viam.com/api/component/gantry/v1"
+	"github.com/benbjohnson/clock"
+	datasyncpb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/gantry"
@@ -18,45 +18,50 @@ import (
 
 const (
 	componentName   = "gantry"
-	captureInterval = time.Second
-	numRetries      = 5
+	captureInterval = time.Millisecond
 )
 
 // floatList is a lit of floats in units of millimeters.
 var floatList = []float64{1000, 2000, 3000}
 
-func TestGantryCollectors(t *testing.T) {
+func TestCollectors(t *testing.T) {
 	tests := []struct {
 		name      string
 		collector data.CollectorConstructor
-		expected  map[string]any
+		expected  *datasyncpb.SensorData
 	}{
 		{
 			name:      "Length collector should write a lengths response",
 			collector: gantry.NewLengthsCollector,
-			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetLengthsResponse{
-				LengthsMm: floatList,
-			}),
+			expected: &datasyncpb.SensorData{
+				Metadata: &datasyncpb.SensorMetadata{},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"lengths_mm": []any{1000, 2000, 3000},
+				})},
+			},
 		},
 		{
 			name:      "Position collector should write a list of positions",
 			collector: gantry.NewPositionCollector,
-			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetPositionResponse{
-				PositionsMm: floatList,
-			}),
+			expected: &datasyncpb.SensorData{
+				Metadata: &datasyncpb.SensorMetadata{},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"positions_mm": []any{1000, 2000, 3000},
+				})},
+			},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mockClock := clk.NewMock()
-			buf := tu.MockBuffer{}
+			start := time.Now()
+			buf := tu.NewMockBuffer()
 			params := data.CollectorParams{
 				ComponentName: componentName,
 				Interval:      captureInterval,
 				Logger:        logging.NewTestLogger(t),
-				Clock:         mockClock,
-				Target:        &buf,
+				Clock:         clock.New(),
+				Target:        buf,
 			}
 
 			gantry := newGantry()
@@ -65,13 +70,11 @@ func TestGantryCollectors(t *testing.T) {
 
 			defer col.Close()
 			col.Collect()
-			mockClock.Add(captureInterval)
 
-			tu.Retry(func() bool {
-				return buf.Length() != 0
-			}, numRetries)
-			test.That(t, buf.Length(), test.ShouldBeGreaterThan, 0)
-			test.That(t, buf.Writes[0].GetStruct().AsMap(), test.ShouldResemble, tc.expected)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			tu.CheckMockBufferWrites(t, ctx, start, buf.Writes, tc.expected)
+			buf.Close()
 		})
 	}
 }

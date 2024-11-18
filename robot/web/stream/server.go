@@ -3,6 +3,7 @@ package webstream
 import (
 	"context"
 	"fmt"
+	"image"
 	"runtime"
 	"sync"
 	"time"
@@ -26,7 +27,10 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-var monitorCameraInterval = time.Second
+const (
+	monitorCameraInterval = time.Second
+	retryDelay            = 50 * time.Millisecond
+)
 
 type peerState struct {
 	streamState *state.StreamState
@@ -50,6 +54,12 @@ type Server struct {
 	streamConfig gostream.StreamConfig
 	videoSources map[string]gostream.HotSwappableVideoSource
 	audioSources map[string]gostream.HotSwappableAudioSource
+}
+
+// Resolution holds the width and height of a video stream.
+// We use int32 to match the resolution type in the proto.
+type Resolution struct {
+	Width, Height int32
 }
 
 // NewServer returns a server that will run on the given port and initially starts with the given
@@ -319,6 +329,49 @@ func (server *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStre
 	return &streampb.RemoveStreamResponse{}, nil
 }
 
+// GetStreamOptions implements part of the StreamServiceServer. It returns the available dynamic resolutions
+// for a given stream name. The resolutions are scaled down from the original resolution in the camera
+// properties.
+func (server *Server) GetStreamOptions(
+	ctx context.Context,
+	req *streampb.GetStreamOptionsRequest,
+) (*streampb.GetStreamOptionsResponse, error) {
+	if req.Name == "" {
+		return nil, errors.New("stream name is required")
+	}
+	cam, err := camera.FromRobot(server.robot, req.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get camera from robot: %w", err)
+	}
+	// If the camera properties do not have intrinsic parameters,
+	// we need to sample a frame to get the width and height.
+	var width, height int
+	camProps, err := cam.Properties(ctx)
+	if err != nil {
+		server.logger.Debug("failed to get camera properties:", err)
+	}
+	if err != nil || camProps.IntrinsicParams == nil || camProps.IntrinsicParams.Width == 0 || camProps.IntrinsicParams.Height == 0 {
+		server.logger.Debug("width and height not found in camera properties")
+		width, height, err = sampleFrameSize(ctx, cam, server.logger)
+		if err != nil {
+			return nil, fmt.Errorf("failed to sample frame size: %w", err)
+		}
+	} else {
+		width, height = camProps.IntrinsicParams.Width, camProps.IntrinsicParams.Height
+	}
+	scaledResolutions := GenerateResolutions(int32(width), int32(height), server.logger)
+	resolutions := make([]*streampb.Resolution, 0, len(scaledResolutions))
+	for _, res := range scaledResolutions {
+		resolutions = append(resolutions, &streampb.Resolution{
+			Height: res.Height,
+			Width:  res.Width,
+		})
+	}
+	return &streampb.GetStreamOptionsResponse{
+		Resolutions: resolutions,
+	}, nil
+}
+
 // AddNewStreams adds new video and audio streams to the server using the updated set of video and
 // audio sources. It refreshes the sources, checks for a valid stream configuration, and starts
 // the streams if applicable.
@@ -337,7 +390,6 @@ func (server *Server) AddNewStreams(ctx context.Context) error {
 		return nil
 	}
 
-	server.logger.Info("starting video and audio streams")
 	for name := range server.videoSources {
 		if runtime.GOOS == "windows" {
 			// TODO(RSDK-1771): support video on windows
@@ -561,4 +613,67 @@ func (server *Server) startAudioStream(ctx context.Context, source gostream.Audi
 		streamAudioCtx, _ := utils.MergeContext(server.closedCtx, ctx)
 		return streamAudioSource(streamAudioCtx, source, stream, opts, server.logger)
 	})
+}
+
+// GenerateResolutions takes the original width and height of an image and returns
+// a list of the original resolution with 4 smaller width/height options that maintain
+// the same aspect ratio.
+func GenerateResolutions(width, height int32, logger logging.Logger) []Resolution {
+	resolutions := []Resolution{
+		{Width: width, Height: height},
+	}
+	// We use integer division to get the scaled width and height. Fractions are truncated
+	// to the nearest integer. This means that the scaled width and height may not match the
+	// original aspect ratio exactly if source dimensions are odd.
+	for i := 0; i < 4; i++ {
+		// Break if the next scaled resolution would be too small.
+		if width <= 1 || height <= 1 {
+			break
+		}
+		width /= 2
+		height /= 2
+		resolutions = append(resolutions, Resolution{Width: width, Height: height})
+		logger.Debugf("scaled resolution %d: %dx%d", i, width, height)
+	}
+	return resolutions
+}
+
+// sampleFrameSize takes in a camera.Camera, starts a stream, attempts to
+// pull a frame using Stream.Next, and returns the width and height.
+func sampleFrameSize(ctx context.Context, cam camera.Camera, logger logging.Logger) (int, int, error) {
+	logger.Debug("sampling frame size")
+	stream, err := cam.Stream(ctx)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer func() {
+		if cerr := stream.Close(ctx); cerr != nil {
+			logger.Error("failed to close stream:", cerr)
+		}
+	}()
+	// Attempt to get a frame from the stream with a maximum of 5 retries.
+	// This is useful if cameras have a warm-up period before they can start streaming.
+	var frame image.Image
+	var release func()
+retryLoop:
+	for i := 0; i < 5; i++ {
+		select {
+		case <-ctx.Done():
+			return 0, 0, ctx.Err()
+		default:
+			frame, release, err = stream.Next(ctx)
+			if err == nil {
+				break retryLoop // Break out of the for loop, not just the select.
+			}
+			logger.Debugf("failed to get frame, retrying... (%d/5)", i+1)
+			time.Sleep(retryDelay)
+		}
+	}
+	if release != nil {
+		defer release()
+	}
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to get frame after 5 attempts: %w", err)
+	}
+	return frame.Bounds().Dx(), frame.Bounds().Dy(), nil
 }

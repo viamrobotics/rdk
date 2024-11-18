@@ -50,6 +50,7 @@ func TestServer(t *testing.T) {
 	var (
 		capArmPos      spatialmath.Pose
 		capArmJointPos []referenceframe.Input
+		moveOptions    arm.MoveOptions
 		extraOptions   map[string]interface{}
 	)
 
@@ -68,9 +69,19 @@ func TestServer(t *testing.T) {
 		extraOptions = extra
 		return nil
 	}
-
 	injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp []referenceframe.Input, extra map[string]interface{}) error {
 		capArmJointPos = jp
+		extraOptions = extra
+		return nil
+	}
+	injectArm.MoveThroughJointPositionsFunc = func(
+		ctx context.Context,
+		positions [][]referenceframe.Input,
+		options *arm.MoveOptions,
+		extra map[string]interface{},
+	) error {
+		capArmJointPos = positions[len(positions)-1]
+		moveOptions = *options
 		extraOptions = extra
 		return nil
 	}
@@ -208,6 +219,25 @@ func TestServer(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errMoveToJointPositionFailed.Error())
+	})
+
+	t.Run("move through joint positions", func(t *testing.T) {
+		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "MoveThroughJointPositions"})
+		test.That(t, err, test.ShouldBeNil)
+		positionDegs3 := &pb.JointPositions{Values: []float64{1.0, 5.0, 6.0, 1.0, 5.0, 6.0}}
+		positions := []*pb.JointPositions{positionDegs2, positionDegs3}
+		positionRads3, err := referenceframe.InputsFromJointPositions(nil, positionDegs3)
+		test.That(t, err, test.ShouldBeNil)
+		expectedVelocity := 180.
+		expectedMoveOptions := &pb.MoveOptions{MaxVelDegsPerSec: &expectedVelocity}
+		_, err = armServer.MoveThroughJointPositions(
+			context.Background(),
+			&pb.MoveThroughJointPositionsRequest{Name: testArmName, Positions: positions, Options: expectedMoveOptions, Extra: ext},
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capArmJointPos, test.ShouldResemble, positionRads3)
+		test.That(t, moveOptions, test.ShouldResemble, arm.MoveOptions{MaxVelRads: utils.DegToRad(expectedVelocity)})
+		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "MoveThroughJointPositions"})
 	})
 
 	t.Run("get kinematics", func(t *testing.T) {

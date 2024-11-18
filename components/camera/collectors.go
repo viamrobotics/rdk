@@ -36,8 +36,6 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-// TODO: add tests for this file.
-
 func newNextPointCloudCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	camera, err := assertCamera(resource)
 	if err != nil {
