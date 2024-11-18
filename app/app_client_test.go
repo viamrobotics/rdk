@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"testing"
 
+	mlTraining "go.viam.com/api/app/mltraining/v1"
+	packages "go.viam.com/api/app/packages/v1"
 	pb "go.viam.com/api/app/v1"
 	common "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -17,59 +19,73 @@ import (
 )
 
 const (
-	organizationID       = "organization_id"
-	organizationID2      = "organization_id_2"
-	email                = "email"
-	userID               = "user_id"
-	locationID           = "location_id"
-	available            = true
-	authorizationType    = "owner"
-	authorizationType2   = "operator"
-	badAuthorizationType = "authorization_type"
-	resourceType         = "organization"
-	resourceType2        = "location"
-	badResourceType      = "resource_type"
-	resourceID           = "resource_id"
-	resourceID2          = "resource_id_2"
-	identityID           = "identity_id"
-	identityID2          = "identity_id_2"
-	identityType         = ""
-	secretID             = "secret_ids"
-	primary              = true
-	robotCount           = 1
-	robotID              = "robot_id"
-	robotLocation        = "robot_location"
-	partID               = "part_id"
-	dnsName              = "dns_name"
-	secret               = "secret"
-	mainPart             = false
-	fqdn                 = "fqdn"
-	localFQDN            = "local_fqdn"
-	configJSON           = "configJson"
-	host                 = "host"
-	level                = "level"
-	loggerName           = "logger_name"
-	message              = "message"
-	stack                = "stack"
-	value                = "value"
-	isDeactivated        = false
-	keyID                = "key_id"
-	key                  = "key"
-	fragmentID           = "fragment_id"
-	organizationOwner    = "organization_owner"
-	robotPartCount       = 5
-	onlyUsedByOwner      = false
-	organizationCount    = 2
-	permission           = "permission"
+	organizationID2                = "organization_id_2"
+	email                          = "email"
+	userID                         = "user_id"
+	locationID                     = "location_id"
+	available                      = true
+	authorizationType              = "owner"
+	authorizationType2             = "operator"
+	badAuthorizationType           = "authorization_type"
+	resourceType                   = "organization"
+	resourceType2                  = "location"
+	badResourceType                = "resource_type"
+	resourceID                     = "resource_id"
+	resourceID2                    = "resource_id_2"
+	identityID                     = "identity_id"
+	identityID2                    = "identity_id_2"
+	identityType                   = ""
+	secretID                       = "secret_ids"
+	primary                        = true
+	robotCount                     = 1
+	robotID                        = "robot_id"
+	robotLocation                  = "robot_location"
+	partID                         = "part_id"
+	dnsName                        = "dns_name"
+	secret                         = "secret"
+	mainPart                       = false
+	fqdn                           = "fqdn"
+	localFQDN                      = "local_fqdn"
+	configJSON                     = "configJson"
+	host                           = "host"
+	level                          = "level"
+	loggerName                     = "logger_name"
+	message                        = "message"
+	stack                          = "stack"
+	value                          = "value"
+	isDeactivated                  = false
+	keyID                          = "key_id"
+	key                            = "key"
+	fragmentID                     = "fragment_id"
+	organizationOwner              = "organization_owner"
+	robotPartCount                 = 5
+	onlyUsedByOwner                = false
+	organizationCount              = 2
+	permission                     = "permission"
+	itemID                         = "item_id"
+	description                    = "description"
+	packageType                    = PackageTypeMLTraining
+	visibility                     = VisibilityPublic
+	totalRobotUsage                = 4
+	totalExternalRobotUsage        = 2
+	totalOrganizationUsage         = 40
+	totalExternalOrganizationUsage = 52
+	version                        = "version"
+	modelType                      = ModelTypeObjectDetection
+	modelFramework                 = ModelFrameworkPyTorch
+	draft                          = false
+	platform                       = "platform"
+	registryItemStatus             = RegistryItemStatusPublished
 )
 
 var (
-	name         = "name"
-	region       = "region"
-	namespace    = "public_namespace"
-	cid          = "cid"
-	dateAdded    = timestamppb.Timestamp{Seconds: 0, Nanos: 50}
-	organization = Organization{
+	organizationID = "organization_id"
+	name           = "name"
+	region         = "region"
+	namespace      = "public_namespace"
+	cid            = "cid"
+	dateAdded      = timestamppb.Timestamp{Seconds: 0, Nanos: 50}
+	organization   = Organization{
 		ID:              organizationID,
 		Name:            name,
 		CreatedOn:       &dateAdded,
@@ -400,6 +416,39 @@ var (
 			Permissions:  []string{permission},
 		},
 	}
+	siteURL  = "url"
+	metadata = RegistryItemMLTrainingMetadata{
+		MlTrainingMetadata: &MLTrainingMetadata{
+			Versions: []*MLTrainingVersion{
+				{
+					Version:   version,
+					CreatedOn: &createdOn,
+				},
+			},
+			ModelType:      modelType,
+			ModelFramework: modelFramework,
+			Draft:          draft,
+		},
+	}
+	registryItem = RegistryItem{
+		ItemID:                         itemID,
+		OrganizationID:                 organizationID,
+		PublicNamespace:                namespace,
+		Name:                           name,
+		Type:                           packageType,
+		Visibility:                     visibility,
+		URL:                            siteURL,
+		Description:                    description,
+		TotalRobotUsage:                totalRobotUsage,
+		TotalExternalRobotUsage:        totalExternalRobotUsage,
+		TotalOrganizationUsage:         totalOrganizationUsage,
+		TotalExternalOrganizationUsage: totalExternalOrganizationUsage,
+		Metadata:                       &metadata,
+		CreatedAt:                      &createdOn,
+		UpdatedAt:                      &lastUpdated,
+	}
+	pbRegistryItem, _ = registryItemToProto(&registryItem)
+	searchTerm        = "search_term"
 )
 
 func sharedSecretStateToProto(state SharedSecretState) pb.SharedSecret_State {
@@ -430,42 +479,116 @@ func authenticationTypeToProto(authType AuthenticationType) pb.AuthenticationTyp
 	return pb.AuthenticationType_AUTHENTICATION_TYPE_UNSPECIFIED
 }
 
-func testOrganizationResponse(t *testing.T, actualOrg, expectedOrg *Organization) {
-	test.That(t, actualOrg.ID, test.ShouldEqual, expectedOrg.ID)
-	test.That(t, actualOrg.Name, test.ShouldEqual, expectedOrg.Name)
-	test.That(t, actualOrg.PublicNamespace, test.ShouldEqual, expectedOrg.PublicNamespace)
-	test.That(t, actualOrg.DefaultRegion, test.ShouldEqual, expectedOrg.DefaultRegion)
-	test.That(t, actualOrg.Cid, test.ShouldEqual, expectedOrg.Cid)
+func modelTypeToProto(modelType ModelType) mlTraining.ModelType {
+	switch modelType {
+	case ModelTypeUnspecified:
+		return mlTraining.ModelType_MODEL_TYPE_UNSPECIFIED
+	case ModelTypeSingleLabelClassification:
+		return mlTraining.ModelType_MODEL_TYPE_SINGLE_LABEL_CLASSIFICATION
+	case ModelTypeMultiLabelClassification:
+		return mlTraining.ModelType_MODEL_TYPE_MULTI_LABEL_CLASSIFICATION
+	case ModelTypeObjectDetection:
+		return mlTraining.ModelType_MODEL_TYPE_OBJECT_DETECTION
+	}
+	return mlTraining.ModelType_MODEL_TYPE_UNSPECIFIED
 }
 
-func testLocationResponse(t *testing.T, actualLocation, expectedLocation *Location) {
-	test.That(t, actualLocation.ID, test.ShouldEqual, expectedLocation.ID)
-	test.That(t, actualLocation.Name, test.ShouldEqual, expectedLocation.Name)
-	test.That(t, actualLocation.ParentLocationID, test.ShouldEqual, expectedLocation.ParentLocationID)
-	test.That(t, actualLocation.Auth, test.ShouldResemble, expectedLocation.Auth)
-	test.That(t, actualLocation.Organizations, test.ShouldResemble, expectedLocation.Organizations)
-	test.That(t, actualLocation.CreatedOn, test.ShouldEqual, expectedLocation.CreatedOn)
-	test.That(t, actualLocation.RobotCount, test.ShouldEqual, expectedLocation.RobotCount)
-	test.That(t, actualLocation.Config, test.ShouldResemble, expectedLocation.Config)
+func modelFrameworkToProto(framework ModelFramework) mlTraining.ModelFramework {
+	switch framework {
+	case ModelFrameworkUnspecified:
+		return mlTraining.ModelFramework_MODEL_FRAMEWORK_UNSPECIFIED
+	case ModelFrameworkTFLite:
+		return mlTraining.ModelFramework_MODEL_FRAMEWORK_TFLITE
+	case ModelFrameworkTensorFlow:
+		return mlTraining.ModelFramework_MODEL_FRAMEWORK_TENSORFLOW
+	case ModelFrameworkPyTorch:
+		return mlTraining.ModelFramework_MODEL_FRAMEWORK_PYTORCH
+	case ModelFrameworkONNX:
+		return mlTraining.ModelFramework_MODEL_FRAMEWORK_ONNX
+	}
+	return mlTraining.ModelFramework_MODEL_FRAMEWORK_UNSPECIFIED
 }
 
-func testRobotPartResponse(t *testing.T, actualRobotPart, expectedRobotPart *RobotPart) {
-	test.That(t, actualRobotPart.ID, test.ShouldEqual, expectedRobotPart.ID)
-	test.That(t, actualRobotPart.Name, test.ShouldEqual, expectedRobotPart.Name)
-	test.That(t, actualRobotPart.DNSName, test.ShouldEqual, expectedRobotPart.DNSName)
-	test.That(t, actualRobotPart.Secret, test.ShouldEqual, expectedRobotPart.Secret)
-	test.That(t, actualRobotPart.Robot, test.ShouldEqual, expectedRobotPart.Robot)
-	test.That(t, actualRobotPart.LocationID, test.ShouldEqual, expectedRobotPart.LocationID)
-	test.That(t, actualRobotPart.RobotConfig, test.ShouldResemble, expectedRobotPart.RobotConfig)
-	test.That(t, actualRobotPart.LastAccess, test.ShouldEqual, expectedRobotPart.LastAccess)
-	test.That(t, actualRobotPart.UserSuppliedInfo, test.ShouldResemble, expectedRobotPart.UserSuppliedInfo)
-	test.That(t, actualRobotPart.MainPart, test.ShouldEqual, expectedRobotPart.MainPart)
-	test.That(t, actualRobotPart.FQDN, test.ShouldEqual, expectedRobotPart.FQDN)
-	test.That(t, actualRobotPart.LocalFQDN, test.ShouldEqual, expectedRobotPart.LocalFQDN)
-	test.That(t, actualRobotPart.CreatedOn, test.ShouldEqual, expectedRobotPart.CreatedOn)
-	test.That(t, len(actualRobotPart.Secrets), test.ShouldEqual, len(expectedRobotPart.Secrets))
-	test.That(t, actualRobotPart.Secrets[0], test.ShouldResemble, expectedRobotPart.Secrets[0])
-	test.That(t, actualRobotPart.LastUpdated, test.ShouldEqual, expectedRobotPart.LastUpdated)
+func mlTrainingVersionToProto(version *MLTrainingVersion) *pb.MLTrainingVersion {
+	return &pb.MLTrainingVersion{
+		Version:   version.Version,
+		CreatedOn: version.CreatedOn,
+	}
+}
+
+func mlTrainingMetadataToProto(md MLTrainingMetadata) *pb.MLTrainingMetadata {
+	var versions []*pb.MLTrainingVersion
+	for _, version := range md.Versions {
+		versions = append(versions, mlTrainingVersionToProto(version))
+	}
+	return &pb.MLTrainingMetadata{
+		Versions:       versions,
+		ModelType:      modelTypeToProto(md.ModelType),
+		ModelFramework: modelFrameworkToProto(md.ModelFramework),
+		Draft:          md.Draft,
+	}
+}
+
+func registryItemToProto(item *RegistryItem) (*pb.RegistryItem, error) {
+	switch metadata := item.Metadata.(type) {
+	case *RegistryItemModuleMetadata:
+		return &pb.RegistryItem{
+			ItemId:                         item.ItemID,
+			OrganizationId:                 item.OrganizationID,
+			PublicNamespace:                item.PublicNamespace,
+			Name:                           item.Name,
+			Type:                           packageTypeToProto(item.Type),
+			Visibility:                     visibilityToProto(item.Visibility),
+			Url:                            item.URL,
+			Description:                    item.Description,
+			TotalRobotUsage:                item.TotalRobotUsage,
+			TotalExternalRobotUsage:        item.TotalExternalRobotUsage,
+			TotalOrganizationUsage:         item.TotalOrganizationUsage,
+			TotalExternalOrganizationUsage: item.TotalExternalOrganizationUsage,
+			Metadata:                       &pb.RegistryItem_ModuleMetadata{ModuleMetadata: &pb.ModuleMetadata{}},
+			CreatedAt:                      item.CreatedAt,
+			UpdatedAt:                      item.UpdatedAt,
+		}, nil
+	case *RegistryItemMLModelMetadata:
+		return &pb.RegistryItem{
+			ItemId:                         item.ItemID,
+			OrganizationId:                 item.OrganizationID,
+			PublicNamespace:                item.PublicNamespace,
+			Name:                           item.Name,
+			Type:                           packageTypeToProto(item.Type),
+			Visibility:                     visibilityToProto(item.Visibility),
+			Url:                            item.URL,
+			Description:                    item.Description,
+			TotalRobotUsage:                item.TotalRobotUsage,
+			TotalExternalRobotUsage:        item.TotalExternalRobotUsage,
+			TotalOrganizationUsage:         item.TotalOrganizationUsage,
+			TotalExternalOrganizationUsage: item.TotalExternalOrganizationUsage,
+			Metadata:                       &pb.RegistryItem_ModuleMetadata{ModuleMetadata: &pb.ModuleMetadata{}},
+			CreatedAt:                      item.CreatedAt,
+			UpdatedAt:                      item.UpdatedAt,
+		}, nil
+	case *RegistryItemMLTrainingMetadata:
+		protoMetadata := mlTrainingMetadataToProto(*metadata.MlTrainingMetadata)
+		return &pb.RegistryItem{
+			ItemId:                         item.ItemID,
+			OrganizationId:                 item.OrganizationID,
+			PublicNamespace:                item.PublicNamespace,
+			Name:                           item.Name,
+			Type:                           packageTypeToProto(item.Type),
+			Visibility:                     visibilityToProto(item.Visibility),
+			Url:                            item.URL,
+			Description:                    item.Description,
+			TotalRobotUsage:                item.TotalRobotUsage,
+			TotalExternalRobotUsage:        item.TotalExternalRobotUsage,
+			TotalOrganizationUsage:         item.TotalOrganizationUsage,
+			TotalExternalOrganizationUsage: item.TotalExternalOrganizationUsage,
+			Metadata:                       &pb.RegistryItem_MlTrainingMetadata{MlTrainingMetadata: protoMetadata},
+			CreatedAt:                      item.CreatedAt,
+			UpdatedAt:                      item.UpdatedAt,
+		}, nil
+	default:
+		return nil, fmt.Errorf("unknown registry item metadata type: %T", item.Metadata)
+	}
 }
 
 func createGrpcClient() *inject.AppServiceClient {
@@ -501,11 +624,11 @@ func TestAppClient(t *testing.T) {
 		}
 		resp, err := client.CreateOrganization(context.Background(), name)
 		test.That(t, err, test.ShouldBeNil)
-		testOrganizationResponse(t, resp, &organization)
+		test.That(t, resp, test.ShouldResemble, &organization)
 	})
 
 	t.Run("ListOrganizations", func(t *testing.T) {
-		expectedOrganizations := []Organization{organization}
+		expectedOrganizations := []*Organization{&organization}
 		grpcClient.ListOrganizationsFunc = func(
 			ctx context.Context, in *pb.ListOrganizationsRequest, opts ...grpc.CallOption,
 		) (*pb.ListOrganizationsResponse, error) {
@@ -515,49 +638,47 @@ func TestAppClient(t *testing.T) {
 		}
 		resp, err := client.ListOrganizations(context.Background())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resp), test.ShouldEqual, len(expectedOrganizations))
-		testOrganizationResponse(t, resp[0], &expectedOrganizations[0])
+		test.That(t, resp, test.ShouldResemble, expectedOrganizations)
 	})
 
 	t.Run("GetOrganizationsWithAccessToLocation", func(t *testing.T) {
-		pbOrganizationIdentity := pb.OrganizationIdentity{
-			Id:   organizationIdentity.ID,
-			Name: organizationIdentity.Name,
-		}
+		expectedOrganizationIdentities := []*OrganizationIdentity{&organizationIdentity}
 		grpcClient.GetOrganizationsWithAccessToLocationFunc = func(
 			ctx context.Context, in *pb.GetOrganizationsWithAccessToLocationRequest, opts ...grpc.CallOption,
 		) (*pb.GetOrganizationsWithAccessToLocationResponse, error) {
 			test.That(t, in.LocationId, test.ShouldEqual, locationID)
 			return &pb.GetOrganizationsWithAccessToLocationResponse{
-				OrganizationIdentities: []*pb.OrganizationIdentity{&pbOrganizationIdentity},
+				OrganizationIdentities: []*pb.OrganizationIdentity{
+					{
+						Id:   organizationIdentity.ID,
+						Name: organizationIdentity.Name,
+					},
+				},
 			}, nil
 		}
 		resp, err := client.GetOrganizationsWithAccessToLocation(context.Background(), locationID)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resp), test.ShouldEqual, 1)
-		test.That(t, resp[0].ID, test.ShouldEqual, organizationIdentity.ID)
-		test.That(t, resp[0].Name, test.ShouldEqual, organizationIdentity.Name)
+		test.That(t, resp, test.ShouldResemble, expectedOrganizationIdentities)
 	})
 
 	t.Run("ListOrganizationsByUser", func(t *testing.T) {
-		orgDetailsList := []OrgDetails{orgDetails}
-		pbOrgDetails := pb.OrgDetails{
-			OrgId:   orgDetails.OrgID,
-			OrgName: orgDetails.OrgName,
-		}
+		expectedOrgDetailsList := []*OrgDetails{&orgDetails}
 		grpcClient.ListOrganizationsByUserFunc = func(
 			ctx context.Context, in *pb.ListOrganizationsByUserRequest, opts ...grpc.CallOption,
 		) (*pb.ListOrganizationsByUserResponse, error) {
 			test.That(t, in.UserId, test.ShouldEqual, userID)
 			return &pb.ListOrganizationsByUserResponse{
-				Orgs: []*pb.OrgDetails{&pbOrgDetails},
+				Orgs: []*pb.OrgDetails{
+					{
+						OrgId:   orgDetails.OrgID,
+						OrgName: orgDetails.OrgName,
+					},
+				},
 			}, nil
 		}
 		resp, err := client.ListOrganizationsByUser(context.Background(), userID)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resp), test.ShouldEqual, len(orgDetailsList))
-		test.That(t, resp[0].OrgID, test.ShouldEqual, orgDetailsList[0].OrgID)
-		test.That(t, resp[0].OrgName, test.ShouldEqual, orgDetailsList[0].OrgName)
+		test.That(t, resp, test.ShouldResemble, expectedOrgDetailsList)
 	})
 
 	t.Run("GetOrganization", func(t *testing.T) {
@@ -571,7 +692,7 @@ func TestAppClient(t *testing.T) {
 		}
 		resp, err := client.GetOrganization(context.Background(), organizationID)
 		test.That(t, err, test.ShouldBeNil)
-		testOrganizationResponse(t, resp, &organization)
+		test.That(t, resp, test.ShouldResemble, &organization)
 	})
 
 	t.Run("GetOrganizationNamespaceAvailability", func(t *testing.T) {
@@ -599,7 +720,7 @@ func TestAppClient(t *testing.T) {
 		}
 		resp, err := client.UpdateOrganization(context.Background(), organizationID, &name, &namespace, &region, &cid)
 		test.That(t, err, test.ShouldBeNil)
-		testOrganizationResponse(t, resp, &organization)
+		test.That(t, resp, test.ShouldResemble, &organization)
 	})
 
 	t.Run("DeleteOrganization", func(t *testing.T) {
@@ -609,39 +730,33 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
 			return &pb.DeleteOrganizationResponse{}, nil
 		}
-		client.DeleteOrganization(context.Background(), organizationID)
+		err := client.DeleteOrganization(context.Background(), organizationID)
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("ListOrganizationMembers", func(t *testing.T) {
-		expectedMembers := []OrganizationMember{member}
-		pbMember := pb.OrganizationMember{
-			UserId:    member.UserID,
-			Emails:    member.Emails,
-			DateAdded: member.DateAdded,
-			LastLogin: member.LastLogin,
-		}
-		expectedInvites := []OrganizationInvite{invite}
+		expectedMembers := []*OrganizationMember{&member}
+		expectedInvites := []*OrganizationInvite{&invite}
 		grpcClient.ListOrganizationMembersFunc = func(
 			ctx context.Context, in *pb.ListOrganizationMembersRequest, opts ...grpc.CallOption,
 		) (*pb.ListOrganizationMembersResponse, error) {
 			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
 			return &pb.ListOrganizationMembersResponse{
-				Members: []*pb.OrganizationMember{&pbMember},
+				Members: []*pb.OrganizationMember{
+					{
+						UserId:    member.UserID,
+						Emails:    member.Emails,
+						DateAdded: member.DateAdded,
+						LastLogin: member.LastLogin,
+					},
+				},
 				Invites: []*pb.OrganizationInvite{&pbInvite},
 			}, nil
 		}
 		members, invites, err := client.ListOrganizationMembers(context.Background(), organizationID)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(members), test.ShouldEqual, len(expectedMembers))
-		test.That(t, members[0].UserID, test.ShouldEqual, expectedMembers[0].UserID)
-		test.That(t, members[0].Emails, test.ShouldResemble, expectedMembers[0].Emails)
-		test.That(t, members[0].DateAdded, test.ShouldEqual, expectedMembers[0].DateAdded)
-		test.That(t, members[0].LastLogin, test.ShouldEqual, expectedMembers[0].LastLogin)
-		test.That(t, len(invites), test.ShouldEqual, len(expectedInvites))
-		test.That(t, invites[0].OrganizationID, test.ShouldEqual, expectedInvites[0].OrganizationID)
-		test.That(t, invites[0].Email, test.ShouldResemble, expectedInvites[0].Email)
-		test.That(t, invites[0].CreatedOn, test.ShouldEqual, expectedInvites[0].CreatedOn)
-		test.That(t, invites[0].Authorizations[0], test.ShouldResemble, expectedInvites[0].Authorizations[0])
+		test.That(t, members, test.ShouldResemble, expectedMembers)
+		test.That(t, invites, test.ShouldResemble, expectedInvites)
 	})
 
 	t.Run("CreateOrganizationInvite", func(t *testing.T) {
@@ -658,11 +773,7 @@ func TestAppClient(t *testing.T) {
 		}
 		resp, err := client.CreateOrganizationInvite(context.Background(), organizationID, email, authorizations, &sendEmailInvite)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.OrganizationID, test.ShouldEqual, invite.OrganizationID)
-		test.That(t, resp.Email, test.ShouldResemble, invite.Email)
-		test.That(t, resp.CreatedOn, test.ShouldEqual, invite.CreatedOn)
-		test.That(t, len(resp.Authorizations), test.ShouldEqual, len(invite.Authorizations))
-		test.That(t, resp.Authorizations[0], test.ShouldResemble, invite.Authorizations[0])
+		test.That(t, resp, test.ShouldResemble, &invite)
 	})
 
 	t.Run("UpdateOrganizationInviteAuthorizations", func(t *testing.T) {
@@ -676,11 +787,7 @@ func TestAppClient(t *testing.T) {
 		}
 		resp, err := client.UpdateOrganizationInviteAuthorizations(context.Background(), organizationID, email, authorizations, authorizations)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.OrganizationID, test.ShouldEqual, invite.OrganizationID)
-		test.That(t, resp.Email, test.ShouldResemble, invite.Email)
-		test.That(t, resp.CreatedOn, test.ShouldEqual, invite.CreatedOn)
-		test.That(t, len(resp.Authorizations), test.ShouldResemble, len(invite.Authorizations))
-		test.That(t, resp.Authorizations[0], test.ShouldResemble, invite.Authorizations[0])
+		test.That(t, resp, test.ShouldResemble, &invite)
 	})
 
 	t.Run("DeleteOrganizationMember", func(t *testing.T) {
@@ -691,7 +798,8 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.UserId, test.ShouldEqual, userID)
 			return &pb.DeleteOrganizationMemberResponse{}, nil
 		}
-		client.DeleteOrganizationMember(context.Background(), organizationID, userID)
+		err := client.DeleteOrganizationMember(context.Background(), organizationID, userID)
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("DeleteOrganizationInvite", func(t *testing.T) {
@@ -702,7 +810,8 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.Email, test.ShouldEqual, email)
 			return &pb.DeleteOrganizationInviteResponse{}, nil
 		}
-		client.DeleteOrganizationInvite(context.Background(), organizationID, email)
+		err := client.DeleteOrganizationInvite(context.Background(), organizationID, email)
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("ResendOrganizationInvite", func(t *testing.T) {
@@ -717,11 +826,7 @@ func TestAppClient(t *testing.T) {
 		}
 		resp, err := client.ResendOrganizationInvite(context.Background(), organizationID, email)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.OrganizationID, test.ShouldEqual, invite.OrganizationID)
-		test.That(t, resp.Email, test.ShouldResemble, invite.Email)
-		test.That(t, resp.CreatedOn, test.ShouldEqual, invite.CreatedOn)
-		test.That(t, len(resp.Authorizations), test.ShouldEqual, len(invite.Authorizations))
-		test.That(t, resp.Authorizations[0], test.ShouldResemble, invite.Authorizations[0])
+		test.That(t, resp, test.ShouldResemble, &invite)
 	})
 
 	t.Run("EnableBillingService", func(t *testing.T) {
@@ -732,7 +837,8 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.BillingAddress, test.ShouldResemble, &pbAddress)
 			return &pb.EnableBillingServiceResponse{}, nil
 		}
-		client.EnableBillingService(context.Background(), organizationID, &address)
+		err := client.EnableBillingService(context.Background(), organizationID, &address)
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("DisableBillingService", func(t *testing.T) {
@@ -742,7 +848,8 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.OrgId, test.ShouldEqual, organizationID)
 			return &pb.DisableBillingServiceResponse{}, nil
 		}
-		client.DisableBillingService(context.Background(), organizationID)
+		err := client.DisableBillingService(context.Background(), organizationID)
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("UpdateBillingService", func(t *testing.T) {
@@ -754,7 +861,8 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.BillingSupportEmail, test.ShouldResemble, email)
 			return &pb.UpdateBillingServiceResponse{}, nil
 		}
-		client.UpdateBillingService(context.Background(), organizationID, &address, email)
+		err := client.UpdateBillingService(context.Background(), organizationID, &address, email)
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("OrganizationSetSupportEmail", func(t *testing.T) {
@@ -765,7 +873,8 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.Email, test.ShouldResemble, email)
 			return &pb.OrganizationSetSupportEmailResponse{}, nil
 		}
-		client.OrganizationSetSupportEmail(context.Background(), organizationID, email)
+		err := client.OrganizationSetSupportEmail(context.Background(), organizationID, email)
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("OrganizationGetSupportEmail", func(t *testing.T) {
@@ -795,7 +904,7 @@ func TestAppClient(t *testing.T) {
 		}
 		resp, err := client.CreateLocation(context.Background(), organizationID, name, &parentLocationID)
 		test.That(t, err, test.ShouldBeNil)
-		testLocationResponse(t, resp, &location)
+		test.That(t, resp, test.ShouldResemble, &location)
 	})
 
 	t.Run("GetLocation", func(t *testing.T) {
@@ -809,7 +918,7 @@ func TestAppClient(t *testing.T) {
 		}
 		resp, err := client.GetLocation(context.Background(), locationID)
 		test.That(t, err, test.ShouldBeNil)
-		testLocationResponse(t, resp, &location)
+		test.That(t, resp, test.ShouldResemble, &location)
 	})
 
 	t.Run("UpdateLocation", func(t *testing.T) {
@@ -826,7 +935,7 @@ func TestAppClient(t *testing.T) {
 		}
 		resp, err := client.UpdateLocation(context.Background(), locationID, &name, &parentLocationID, &region)
 		test.That(t, err, test.ShouldBeNil)
-		testLocationResponse(t, resp, &location)
+		test.That(t, resp, test.ShouldResemble, &location)
 	})
 
 	t.Run("DeleteLocation", func(t *testing.T) {
@@ -836,11 +945,12 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.LocationId, test.ShouldEqual, locationID)
 			return &pb.DeleteLocationResponse{}, nil
 		}
-		client.DeleteLocation(context.Background(), locationID)
+		err := client.DeleteLocation(context.Background(), locationID)
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("ListLocations", func(t *testing.T) {
-		expectedLocations := []Location{location}
+		expectedLocations := []*Location{&location}
 		grpcClient.ListLocationsFunc = func(
 			ctx context.Context, in *pb.ListLocationsRequest, opts ...grpc.CallOption,
 		) (*pb.ListLocationsResponse, error) {
@@ -851,8 +961,7 @@ func TestAppClient(t *testing.T) {
 		}
 		resp, err := client.ListLocations(context.Background(), organizationID)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resp), test.ShouldEqual, len(expectedLocations))
-		testLocationResponse(t, resp[0], &expectedLocations[0])
+		test.That(t, resp, test.ShouldResemble, expectedLocations)
 	})
 
 	t.Run("ShareLocation", func(t *testing.T) {
@@ -863,7 +972,8 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
 			return &pb.ShareLocationResponse{}, nil
 		}
-		client.ShareLocation(context.Background(), locationID, organizationID)
+		err := client.ShareLocation(context.Background(), locationID, organizationID)
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("UnshareLocation", func(t *testing.T) {
@@ -874,7 +984,8 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
 			return &pb.UnshareLocationResponse{}, nil
 		}
-		client.UnshareLocation(context.Background(), locationID, organizationID)
+		err := client.UnshareLocation(context.Background(), locationID, organizationID)
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("LocationAuth", func(t *testing.T) {
@@ -913,7 +1024,8 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.SecretId, test.ShouldEqual, secretID)
 			return &pb.DeleteLocationSecretResponse{}, nil
 		}
-		client.DeleteLocationSecret(context.Background(), locationID, secretID)
+		err := client.DeleteLocationSecret(context.Background(), locationID, secretID)
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("GetRobot", func(t *testing.T) {
@@ -931,29 +1043,29 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("GetRoverRentalRobots", func(t *testing.T) {
-		expectedRobots := []RoverRentalRobot{roverRentalRobot}
-		pbRobot := pb.RoverRentalRobot{
-			RobotId:         roverRentalRobot.RobotID,
-			LocationId:      roverRentalRobot.LocationID,
-			RobotName:       roverRentalRobot.RobotName,
-			RobotMainPartId: partID,
-		}
+		expectedRobots := []*RoverRentalRobot{&roverRentalRobot}
 		grpcClient.GetRoverRentalRobotsFunc = func(
 			ctx context.Context, in *pb.GetRoverRentalRobotsRequest, opts ...grpc.CallOption,
 		) (*pb.GetRoverRentalRobotsResponse, error) {
 			test.That(t, in.OrgId, test.ShouldEqual, organizationID)
 			return &pb.GetRoverRentalRobotsResponse{
-				Robots: []*pb.RoverRentalRobot{&pbRobot},
+				Robots: []*pb.RoverRentalRobot{
+					{
+						RobotId:         roverRentalRobot.RobotID,
+						LocationId:      roverRentalRobot.LocationID,
+						RobotName:       roverRentalRobot.RobotName,
+						RobotMainPartId: partID,
+					},
+				},
 			}, nil
 		}
 		resp, err := client.GetRoverRentalRobots(context.Background(), organizationID)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resp), test.ShouldEqual, len(expectedRobots))
-		test.That(t, resp[0], test.ShouldResemble, &expectedRobots[0])
+		test.That(t, resp, test.ShouldResemble, expectedRobots)
 	})
 
 	t.Run("GetRobotParts", func(t *testing.T) {
-		expectedRobotParts := []RobotPart{robotPart}
+		expectedRobotParts := []*RobotPart{&robotPart}
 		grpcClient.GetRobotPartsFunc = func(
 			ctx context.Context, in *pb.GetRobotPartsRequest, opts ...grpc.CallOption,
 		) (*pb.GetRobotPartsResponse, error) {
@@ -964,8 +1076,7 @@ func TestAppClient(t *testing.T) {
 		}
 		resp, err := client.GetRobotParts(context.Background(), robotID)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resp), test.ShouldEqual, len(expectedRobotParts))
-		testRobotPartResponse(t, resp[0], &expectedRobotParts[0])
+		test.That(t, resp, test.ShouldResemble, expectedRobotParts)
 	})
 
 	t.Run("GetRobotPart", func(t *testing.T) {
@@ -981,7 +1092,7 @@ func TestAppClient(t *testing.T) {
 		part, json, err := client.GetRobotPart(context.Background(), partID)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, json, test.ShouldEqual, configJSON)
-		testRobotPartResponse(t, part, &robotPart)
+		test.That(t, part, test.ShouldResemble, &robotPart)
 	})
 
 	t.Run("GetRobotPartLogs", func(t *testing.T) {
@@ -1017,42 +1128,30 @@ func TestAppClient(t *testing.T) {
 		logs, token, err := client.GetRobotPartLogs(context.Background(), partID, &filter, &pageToken, levels, &start, &end, &limit, &source)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, token, test.ShouldEqual, pageToken)
-		test.That(t, len(logs), test.ShouldEqual, len(expectedLogs))
-		test.That(t, logs[0].Host, test.ShouldEqual, expectedLogs[0].Host)
-		test.That(t, logs[0].Level, test.ShouldEqual, expectedLogs[0].Level)
-		test.That(t, logs[0].Time, test.ShouldEqual, expectedLogs[0].Time)
-		test.That(t, logs[0].LoggerName, test.ShouldEqual, expectedLogs[0].LoggerName)
-		test.That(t, logs[0].Message, test.ShouldEqual, expectedLogs[0].Message)
-		test.That(t, logs[0].Caller, test.ShouldResemble, expectedLogs[0].Caller)
-		test.That(t, logs[0].Stack, test.ShouldEqual, expectedLogs[0].Stack)
-		test.That(t, len(logs[0].Fields), test.ShouldEqual, len(expectedLogs[0].Fields))
-		test.That(t, logs[0].Fields[0], test.ShouldResemble, expectedLogs[0].Fields[0])
+		test.That(t, logs, test.ShouldResemble, expectedLogs)
 	})
 
 	t.Run("GetRobotPartHistory", func(t *testing.T) {
 		expectedEntries := []*RobotPartHistoryEntry{&robotPartHistoryEntry}
-		pbRobotPartHistoryEntry := pb.RobotPartHistoryEntry{
-			Part:     robotPartHistoryEntry.Part,
-			Robot:    robotPartHistoryEntry.Robot,
-			When:     robotPartHistoryEntry.When,
-			Old:      &pbRobotPart,
-			EditedBy: &pbAuthenticatorInfo,
-		}
 		grpcClient.GetRobotPartHistoryFunc = func(
 			ctx context.Context, in *pb.GetRobotPartHistoryRequest, opts ...grpc.CallOption,
 		) (*pb.GetRobotPartHistoryResponse, error) {
 			test.That(t, in.Id, test.ShouldEqual, partID)
 			return &pb.GetRobotPartHistoryResponse{
-				History: []*pb.RobotPartHistoryEntry{&pbRobotPartHistoryEntry},
+				History: []*pb.RobotPartHistoryEntry{
+					{
+						Part:     robotPartHistoryEntry.Part,
+						Robot:    robotPartHistoryEntry.Robot,
+						When:     robotPartHistoryEntry.When,
+						Old:      &pbRobotPart,
+						EditedBy: &pbAuthenticatorInfo,
+					},
+				},
 			}, nil
 		}
 		resp, err := client.GetRobotPartHistory(context.Background(), partID)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp[0].Part, test.ShouldEqual, expectedEntries[0].Part)
-		test.That(t, resp[0].Robot, test.ShouldEqual, expectedEntries[0].Robot)
-		test.That(t, resp[0].When, test.ShouldEqual, expectedEntries[0].When)
-		testRobotPartResponse(t, resp[0].Old, expectedEntries[0].Old)
-		test.That(t, resp[0].EditedBy, test.ShouldResemble, expectedEntries[0].EditedBy)
+		test.That(t, resp, test.ShouldResemble, expectedEntries)
 	})
 
 	t.Run("UpdateRobotPart", func(t *testing.T) {
@@ -1068,7 +1167,7 @@ func TestAppClient(t *testing.T) {
 		}
 		resp, err := client.UpdateRobotPart(context.Background(), partID, name, robotConfig)
 		test.That(t, err, test.ShouldBeNil)
-		testRobotPartResponse(t, resp, &robotPart)
+		test.That(t, resp, test.ShouldResemble, &robotPart)
 	})
 
 	t.Run("NewRobotPart", func(t *testing.T) {
@@ -1077,9 +1176,13 @@ func TestAppClient(t *testing.T) {
 		) (*pb.NewRobotPartResponse, error) {
 			test.That(t, in.RobotId, test.ShouldEqual, robotID)
 			test.That(t, in.PartName, test.ShouldEqual, name)
-			return &pb.NewRobotPartResponse{}, nil
+			return &pb.NewRobotPartResponse{
+				PartId: partID,
+			}, nil
 		}
-		client.NewRobotPart(context.Background(), robotID, name)
+		resp, err := client.NewRobotPart(context.Background(), robotID, name)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldEqual, partID)
 	})
 
 	t.Run("DeleteRobotPart", func(t *testing.T) {
@@ -1089,11 +1192,12 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.PartId, test.ShouldEqual, partID)
 			return &pb.DeleteRobotPartResponse{}, nil
 		}
-		client.DeleteRobotPart(context.Background(), partID)
+		err := client.DeleteRobotPart(context.Background(), partID)
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("GetRobotAPIKeys", func(t *testing.T) {
-		expectedAPIKeyWithAuthorizations := []APIKeyWithAuthorizations{apiKeyWithAuthorizations}
+		expectedAPIKeyWithAuthorizations := []*APIKeyWithAuthorizations{&apiKeyWithAuthorizations}
 		grpcClient.GetRobotAPIKeysFunc = func(
 			ctx context.Context, in *pb.GetRobotAPIKeysRequest, opts ...grpc.CallOption,
 		) (*pb.GetRobotAPIKeysResponse, error) {
@@ -1104,9 +1208,7 @@ func TestAppClient(t *testing.T) {
 		}
 		resp, err := client.GetRobotAPIKeys(context.Background(), robotID)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resp), test.ShouldEqual, len(expectedAPIKeyWithAuthorizations))
-		test.That(t, resp[0].APIKey, test.ShouldResemble, expectedAPIKeyWithAuthorizations[0].APIKey)
-		test.That(t, resp[0].Authorizations, test.ShouldResemble, expectedAPIKeyWithAuthorizations[0].Authorizations)
+		test.That(t, resp, test.ShouldResemble, expectedAPIKeyWithAuthorizations)
 	})
 
 	t.Run("MarkPartForRestart", func(t *testing.T) {
@@ -1116,7 +1218,8 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.PartId, test.ShouldEqual, partID)
 			return &pb.MarkPartForRestartResponse{}, nil
 		}
-		client.MarkPartForRestart(context.Background(), partID)
+		err := client.MarkPartForRestart(context.Background(), partID)
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("CreateRobotPartSecret", func(t *testing.T) {
@@ -1130,7 +1233,7 @@ func TestAppClient(t *testing.T) {
 		}
 		resp, err := client.CreateRobotPartSecret(context.Background(), partID)
 		test.That(t, err, test.ShouldBeNil)
-		testRobotPartResponse(t, resp, &robotPart)
+		test.That(t, resp, test.ShouldResemble, &robotPart)
 	})
 
 	t.Run("DeleteRobotPartSecret", func(t *testing.T) {
@@ -1141,7 +1244,8 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.SecretId, test.ShouldEqual, secretID)
 			return &pb.DeleteRobotPartSecretResponse{}, nil
 		}
-		client.DeleteRobotPartSecret(context.Background(), partID, secretID)
+		err := client.DeleteRobotPartSecret(context.Background(), partID, secretID)
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("ListRobots", func(t *testing.T) {
@@ -1156,8 +1260,7 @@ func TestAppClient(t *testing.T) {
 		}
 		resp, err := client.ListRobots(context.Background(), locationID)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resp), test.ShouldEqual, len(expectedRobots))
-		test.That(t, resp[0], test.ShouldResemble, expectedRobots[0])
+		test.That(t, resp, test.ShouldResemble, expectedRobots)
 	})
 
 	t.Run("NewRobot", func(t *testing.T) {
@@ -1172,7 +1275,7 @@ func TestAppClient(t *testing.T) {
 		}
 		resp, err := client.NewRobot(context.Background(), name, locationID)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp, test.ShouldResemble, robotID)
+		test.That(t, resp, test.ShouldEqual, robotID)
 	})
 
 	t.Run("UpdateRobot", func(t *testing.T) {
@@ -1198,7 +1301,8 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.Id, test.ShouldEqual, robotID)
 			return &pb.DeleteRobotResponse{}, nil
 		}
-		client.DeleteRobot(context.Background(), robotID)
+		err := client.DeleteRobot(context.Background(), robotID)
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("GetFragment", func(t *testing.T) {
@@ -1242,11 +1346,12 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.Id, test.ShouldEqual, fragmentID)
 			return &pb.DeleteFragmentResponse{}, nil
 		}
-		client.DeleteFragment(context.Background(), fragmentID)
+		err := client.DeleteFragment(context.Background(), fragmentID)
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("ListMachineFragments", func(t *testing.T) {
-		expectedFragments := []Fragment{fragment}
+		expectedFragments := []*Fragment{&fragment}
 		additionalFragmentIDs := []string{fragmentID}
 		grpcClient.ListMachineFragmentsFunc = func(
 			ctx context.Context, in *pb.ListMachineFragmentsRequest, opts ...grpc.CallOption,
@@ -1259,18 +1364,11 @@ func TestAppClient(t *testing.T) {
 		}
 		resp, err := client.ListMachineFragments(context.Background(), robotID, additionalFragmentIDs)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resp), test.ShouldEqual, len(expectedFragments))
-		test.That(t, resp[0], test.ShouldResemble, &expectedFragments[0])
+		test.That(t, resp, test.ShouldResemble, expectedFragments)
 	})
 
 	t.Run("GetFragmentHistory", func(t *testing.T) {
-		expectedHistory := []FragmentHistoryEntry{fragmentHistoryEntry}
-		pbFragmentHistoryEntry := pb.FragmentHistoryEntry{
-			Fragment: fragmentHistoryEntry.Fragment,
-			EditedOn: fragmentHistoryEntry.EditedOn,
-			Old:      &pbFragment,
-			EditedBy: &pbAuthenticatorInfo,
-		}
+		expectedHistory := []*FragmentHistoryEntry{&fragmentHistoryEntry}
 		grpcClient.GetFragmentHistoryFunc = func(
 			ctx context.Context, in *pb.GetFragmentHistoryRequest, opts ...grpc.CallOption,
 		) (*pb.GetFragmentHistoryResponse, error) {
@@ -1278,15 +1376,21 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.PageToken, test.ShouldResemble, &pageToken)
 			test.That(t, in.PageLimit, test.ShouldResemble, &limit)
 			return &pb.GetFragmentHistoryResponse{
-				History:       []*pb.FragmentHistoryEntry{&pbFragmentHistoryEntry},
+				History: []*pb.FragmentHistoryEntry{
+					{
+						Fragment: fragmentHistoryEntry.Fragment,
+						EditedOn: fragmentHistoryEntry.EditedOn,
+						Old:      &pbFragment,
+						EditedBy: &pbAuthenticatorInfo,
+					},
+				},
 				NextPageToken: pageToken,
 			}, nil
 		}
 		resp, token, err := client.GetFragmentHistory(context.Background(), fragmentID, &pageToken, &limit)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, token, test.ShouldEqual, pageToken)
-		test.That(t, len(resp), test.ShouldEqual, len(expectedHistory))
-		test.That(t, resp[0], test.ShouldResemble, &expectedHistory[0])
+		test.That(t, resp, test.ShouldResemble, expectedHistory)
 	})
 
 	t.Run("createAuthorization", func(t *testing.T) {
@@ -1328,7 +1432,7 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.Authorization, test.ShouldResemble, &pbAuthorization)
 			return &pb.AddRoleResponse{}, nil
 		}
-		client.AddRole(
+		err := client.AddRole(
 			context.Background(),
 			authorization.OrganizationID,
 			authorization.IdentityID,
@@ -1336,6 +1440,7 @@ func TestAppClient(t *testing.T) {
 			authorization.ResourceType,
 			authorization.ResourceID,
 		)
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("RemoveRole", func(t *testing.T) {
@@ -1345,7 +1450,7 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.Authorization, test.ShouldResemble, &pbAuthorization)
 			return &pb.RemoveRoleResponse{}, nil
 		}
-		client.RemoveRole(
+		err := client.RemoveRole(
 			context.Background(),
 			authorization.OrganizationID,
 			authorization.IdentityID,
@@ -1353,6 +1458,7 @@ func TestAppClient(t *testing.T) {
 			authorization.ResourceType,
 			authorization.ResourceID,
 		)
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("ChangeRole", func(t *testing.T) {
@@ -1363,7 +1469,7 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.NewAuthorization, test.ShouldResemble, &pbAuthorization2)
 			return &pb.ChangeRoleResponse{}, nil
 		}
-		client.ChangeRole(
+		err := client.ChangeRole(
 			context.Background(),
 			authorization.OrganizationID,
 			authorization.IdentityID,
@@ -1376,6 +1482,7 @@ func TestAppClient(t *testing.T) {
 			authorization2.ResourceType,
 			authorization2.ResourceID,
 		)
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("ListAuthorizations", func(t *testing.T) {
