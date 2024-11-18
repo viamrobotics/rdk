@@ -2,14 +2,18 @@
 package logging
 
 import (
+	"os"
 	"sync"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 	"go.viam.com/utils"
 )
+
+const dedupNoisyLogsEnvVar = "VIAM_DEDUP_LOGS"
 
 var (
 	globalMu     sync.RWMutex
@@ -18,7 +22,18 @@ var (
 	// GlobalLogLevel should be used whenever a zap logger is created that wants to obey the debug
 	// flag from the CLI or robot config.
 	GlobalLogLevel = zap.NewAtomicLevelAt(zap.InfoLevel)
+
+	// Whether to de-duplicate noisy logs; obtained from value of
+	// `dedupNoisyLogsEnvVar` and defaults to true. Export env var to "false" to
+	// turn off de-duplicating logic.
+	dedupNoisyLogs = false
 )
+
+func init() {
+	if dedupNoisyLogEnvVal := os.Getenv(dedupNoisyLogsEnvVar); dedupNoisyLogEnvVal == "false" {
+		dedupNoisyLogs = false
+	}
+}
 
 // ReplaceGlobal replaces the global loggers.
 func ReplaceGlobal(logger Logger) {
@@ -62,11 +77,15 @@ func NewZapLoggerConfig() zap.Config {
 // NewLogger returns a new logger that outputs Info+ logs to stdout in UTC.
 func NewLogger(name string) Logger {
 	logger := &impl{
-		name:       name,
-		level:      NewAtomicLevelAt(INFO),
-		appenders:  []Appender{NewStdoutAppender()},
-		registry:   newRegistry(),
-		testHelper: func() {},
+		name:                     name,
+		level:                    NewAtomicLevelAt(INFO),
+		appenders:                []Appender{NewStdoutAppender()},
+		registry:                 newRegistry(),
+		testHelper:               func() {},
+		dedupNoisyLogs:           dedupNoisyLogs,
+		recentMessageCounts:      make(map[string]int),
+		recentMessageEntries:     make(map[string]LogEntry),
+		recentMessageWindowStart: time.Now(),
 	}
 
 	logger.registry.registerLogger(name, logger)
@@ -78,11 +97,15 @@ func NewLogger(name string) Logger {
 func NewLoggerWithRegistry(name string) (Logger, *Registry) {
 	reg := newRegistry()
 	logger := &impl{
-		name:       name,
-		level:      NewAtomicLevelAt(INFO),
-		appenders:  []Appender{NewStdoutAppender()},
-		registry:   reg,
-		testHelper: func() {},
+		name:                     name,
+		level:                    NewAtomicLevelAt(INFO),
+		appenders:                []Appender{NewStdoutAppender()},
+		registry:                 reg,
+		testHelper:               func() {},
+		dedupNoisyLogs:           dedupNoisyLogs,
+		recentMessageCounts:      make(map[string]int),
+		recentMessageEntries:     make(map[string]LogEntry),
+		recentMessageWindowStart: time.Now(),
 	}
 
 	logger.registry.registerLogger(name, logger)
@@ -92,11 +115,15 @@ func NewLoggerWithRegistry(name string) (Logger, *Registry) {
 // NewDebugLogger returns a new logger that outputs Debug+ logs to stdout in UTC.
 func NewDebugLogger(name string) Logger {
 	logger := &impl{
-		name:       name,
-		level:      NewAtomicLevelAt(DEBUG),
-		appenders:  []Appender{NewStdoutAppender()},
-		registry:   newRegistry(),
-		testHelper: func() {},
+		name:                     name,
+		level:                    NewAtomicLevelAt(DEBUG),
+		appenders:                []Appender{NewStdoutAppender()},
+		registry:                 newRegistry(),
+		testHelper:               func() {},
+		dedupNoisyLogs:           dedupNoisyLogs,
+		recentMessageCounts:      make(map[string]int),
+		recentMessageEntries:     make(map[string]LogEntry),
+		recentMessageWindowStart: time.Now(),
 	}
 
 	logger.registry.registerLogger(name, logger)
@@ -107,11 +134,15 @@ func NewDebugLogger(name string) Logger {
 // pre-existing appenders/outputs.
 func NewBlankLogger(name string) Logger {
 	logger := &impl{
-		name:       name,
-		level:      NewAtomicLevelAt(DEBUG),
-		appenders:  []Appender{},
-		registry:   newRegistry(),
-		testHelper: func() {},
+		name:                     name,
+		level:                    NewAtomicLevelAt(DEBUG),
+		appenders:                []Appender{},
+		registry:                 newRegistry(),
+		testHelper:               func() {},
+		dedupNoisyLogs:           dedupNoisyLogs,
+		recentMessageCounts:      make(map[string]int),
+		recentMessageEntries:     make(map[string]LogEntry),
+		recentMessageWindowStart: time.Now(),
 	}
 
 	logger.registry.registerLogger(name, logger)
@@ -136,6 +167,8 @@ func NewObservedTestLogger(tb testing.TB) (Logger, *observer.ObservedLogs) {
 		},
 		registry:   newRegistry(),
 		testHelper: tb.Helper,
+		// Only prod loggers should de-duplicate noisy logs.
+		dedupNoisyLogs: false,
 	}
 
 	return logger, observedLogs
@@ -155,6 +188,8 @@ func NewObservedTestLoggerWithRegistry(tb testing.TB, name string) (Logger, *obs
 		},
 		registry:   registry,
 		testHelper: tb.Helper,
+		// Only prod loggers should de-duplicate noisy logs.
+		dedupNoisyLogs: false,
 	}
 
 	return logger, observedLogs, registry
@@ -189,6 +224,8 @@ func NewInMemoryLogger(tb testing.TB) *MemLogger {
 		},
 		registry:   newRegistry(),
 		testHelper: tb.Helper,
+		// Only prod loggers should de-duplicate noisy logs.
+		dedupNoisyLogs: false,
 	}
 
 	memLogger := &MemLogger{logger, tb, observedLogs}
