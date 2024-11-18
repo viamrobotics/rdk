@@ -24,6 +24,7 @@ import (
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/web"
+	webstream "go.viam.com/rdk/robot/web/stream"
 	"go.viam.com/rdk/testutils/robottestutils"
 )
 
@@ -194,4 +195,164 @@ func TestAudioTrackIsNotCreatedForVideoStream(t *testing.T) {
 	// Until we support sending a camera's video and audio data, sending an `AddStreamRequest` for a
 	// camera should only create a video track. Assert the audio track does not exist.
 	test.That(t, conn.PeerConn().CurrentLocalDescription().SDP, test.ShouldNotContainSubstring, "m=audio")
+}
+
+func TestGetStreamOptions(t *testing.T) {
+	logger := logging.NewTestLogger(t).Sublogger("TestWebReconfigure")
+	// Create a robot with several fake cameras of common resolutions.
+	// Fake cameras with a Model attribute will use Properties to
+	// determine source resolution. Fake cameras without a Model
+	// attribute will sample a frame to determine source resolution.
+	origCfg := &config.Config{Components: []resource.Config{
+		// 480p
+		{
+			Name:  "fake-cam-0-0",
+			API:   resource.NewAPI("rdk", "component", "camera"),
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			ConvertedAttributes: &fake.Config{
+				Width:  640,
+				Height: 480,
+			},
+		},
+		{
+			Name:  "fake-cam-0-1",
+			API:   resource.NewAPI("rdk", "component", "camera"),
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			ConvertedAttributes: &fake.Config{
+				Width:  640,
+				Height: 480,
+				Model:  true,
+			},
+		},
+		// 720p
+		{
+			Name:  "fake-cam-1-0",
+			API:   resource.NewAPI("rdk", "component", "camera"),
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			ConvertedAttributes: &fake.Config{
+				Width:  1280,
+				Height: 720,
+			},
+		},
+		{
+			Name:  "fake-cam-1-1",
+			API:   resource.NewAPI("rdk", "component", "camera"),
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			ConvertedAttributes: &fake.Config{
+				Width:  1280,
+				Height: 720,
+				Model:  true,
+			},
+		},
+		// 1080p
+		{
+			Name:  "fake-cam-2-0",
+			API:   resource.NewAPI("rdk", "component", "camera"),
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			ConvertedAttributes: &fake.Config{
+				Animated: true,
+				Width:    1920,
+				Height:   1080,
+			},
+		},
+		{
+			Name:  "fake-cam-2-1",
+			API:   resource.NewAPI("rdk", "component", "camera"),
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			ConvertedAttributes: &fake.Config{
+				Animated: true,
+				Width:    1920,
+				Height:   1080,
+				Model:    true,
+			},
+		},
+		// Really small resolution
+		{
+			Name:  "fake-cam-3-0",
+			API:   resource.NewAPI("rdk", "component", "camera"),
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			ConvertedAttributes: &fake.Config{
+				Width:  2,
+				Height: 2,
+			},
+		},
+		{
+			Name:  "fake-cam-3-1",
+			API:   resource.NewAPI("rdk", "component", "camera"),
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			ConvertedAttributes: &fake.Config{
+				Width:  2,
+				Height: 2,
+				Model:  true,
+			},
+		},
+	}}
+
+	ctx, robot, addr, webSvc := setupRealRobot(t, origCfg, logger)
+	defer robot.Close(ctx)
+	defer webSvc.Close(ctx)
+	conn, err := rgrpc.Dial(context.Background(), addr, logger.Sublogger("TestDial"), rpc.WithDisableDirectGRPC())
+	test.That(t, err, test.ShouldBeNil)
+	defer conn.Close()
+
+	livestreamClient := streampb.NewStreamServiceClient(conn)
+	listResp, err := livestreamClient.ListStreams(ctx, &streampb.ListStreamsRequest{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(listResp.Names), test.ShouldEqual, 8)
+
+	streamOptionsResp, err := livestreamClient.GetStreamOptions(ctx, &streampb.GetStreamOptionsRequest{})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, streamOptionsResp, test.ShouldBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "name")
+
+	streamOptionsResp, err = livestreamClient.GetStreamOptions(ctx, &streampb.GetStreamOptionsRequest{
+		Name: "invalid-name",
+	})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, streamOptionsResp, test.ShouldBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+
+	// Sanity check that we get valid stream options for both properties and sampling.
+	streamOptionsResp, err = livestreamClient.GetStreamOptions(ctx, &streampb.GetStreamOptionsRequest{
+		Name: "fake-cam-1-0",
+	})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, streamOptionsResp, test.ShouldNotBeNil)
+	test.That(t, len(streamOptionsResp.Resolutions), test.ShouldEqual, 5)
+	streamOptionsResp, err = livestreamClient.GetStreamOptions(ctx, &streampb.GetStreamOptionsRequest{
+		Name: "fake-cam-1-1",
+	})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, streamOptionsResp, test.ShouldNotBeNil)
+	test.That(t, len(streamOptionsResp.Resolutions), test.ShouldEqual, 5)
+
+	testGetStreamOptions := func(name string, expectedResolutions []webstream.Resolution) {
+		streamOptionsResp, err := livestreamClient.GetStreamOptions(ctx, &streampb.GetStreamOptionsRequest{
+			Name: name,
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, streamOptionsResp, test.ShouldNotBeNil)
+		test.That(t, len(streamOptionsResp.Resolutions), test.ShouldEqual, len(expectedResolutions))
+		for i, expected := range expectedResolutions {
+			test.That(t, streamOptionsResp.Resolutions[i].Width, test.ShouldEqual, expected.Width)
+			test.That(t, streamOptionsResp.Resolutions[i].Height, test.ShouldEqual, expected.Height)
+		}
+	}
+
+	// Define expected resolutions based on camera resolutions
+	resolutionsMap := map[string][]webstream.Resolution{
+		"fake-cam-0-0": webstream.GenerateResolutions(640, 480, logger),
+		"fake-cam-0-1": webstream.GenerateResolutions(640, 480, logger),
+		"fake-cam-1-0": webstream.GenerateResolutions(1280, 720, logger),
+		"fake-cam-1-1": webstream.GenerateResolutions(1280, 720, logger),
+		"fake-cam-2-0": webstream.GenerateResolutions(1920, 1080, logger),
+		"fake-cam-2-1": webstream.GenerateResolutions(1920, 1080, logger),
+		"fake-cam-3-0": webstream.GenerateResolutions(2, 2, logger),
+		"fake-cam-3-1": webstream.GenerateResolutions(2, 2, logger),
+	}
+
+	// Test each camera
+	for name, expectedResolutions := range resolutionsMap {
+		testGetStreamOptions(name, expectedResolutions)
+	}
 }

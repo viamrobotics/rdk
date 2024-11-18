@@ -135,6 +135,26 @@ func (wrapper *Arm) MoveToJointPositions(ctx context.Context, joints []reference
 	return wrapper.actual.MoveToJointPositions(ctx, joints, extra)
 }
 
+// MoveThroughJointPositions moves the arm sequentially through the given joints.
+func (wrapper *Arm) MoveThroughJointPositions(
+	ctx context.Context,
+	positions [][]referenceframe.Input,
+	_ *arm.MoveOptions,
+	_ map[string]interface{},
+) error {
+	for _, goal := range positions {
+		// check that joint positions are not out of bounds
+		if err := arm.CheckDesiredJointPositions(ctx, wrapper, goal); err != nil {
+			return err
+		}
+		err := wrapper.MoveToJointPositions(ctx, goal, nil)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // JointPositions returns the set joints.
 func (wrapper *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
 	wrapper.mu.RLock()
@@ -164,24 +184,12 @@ func (wrapper *Arm) IsMoving(ctx context.Context) (bool, error) {
 
 // CurrentInputs returns the current inputs of the arm.
 func (wrapper *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	wrapper.mu.RLock()
-	defer wrapper.mu.RUnlock()
 	return wrapper.actual.JointPositions(ctx, nil)
 }
 
 // GoToInputs moves the arm to the specified goal inputs.
 func (wrapper *Arm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
-	for _, goal := range inputSteps {
-		// check that joint positions are not out of bounds
-		if err := arm.CheckDesiredJointPositions(ctx, wrapper, goal); err != nil {
-			return err
-		}
-		err := wrapper.MoveToJointPositions(ctx, goal, nil)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return wrapper.MoveThroughJointPositions(ctx, inputSteps, nil, nil)
 }
 
 // Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their

@@ -17,6 +17,7 @@ import (
 	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 	"go.viam.com/utils/jwks"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
@@ -1220,22 +1221,70 @@ func TestConfigRobotRevision(t *testing.T) {
 	test.That(t, cfg.Revision, test.ShouldEqual, "rev1")
 }
 
-func TestConfigMarshalUnMarshal(t *testing.T) {
-	c := config.Config{
-		MaintenanceConfig: &config.MaintenanceConfig{
-			SensorName:            "SensorName",
-			MaintenanceAllowedKey: "Key",
-		},
+func TestConfigJSONMarshalRoundtrip(t *testing.T) {
+	type testcase struct {
+		name     string
+		c        config.Config
+		expected config.Config
 	}
-	expectedVal := config.Config{
-		MaintenanceConfig: &config.MaintenanceConfig{
-			SensorName:            "SensorName",
-			MaintenanceAllowedKey: "Key",
-		},
-	}
-	val, err := c.MarshalJSON()
-	test.That(t, err, test.ShouldBeNil)
 
-	c.UnmarshalJSON(val)
-	test.That(t, c, test.ShouldResemble, expectedVal)
+	for _, tc := range []testcase{
+		{
+			name: "maintenance config",
+			c: config.Config{
+				MaintenanceConfig: &config.MaintenanceConfig{
+					SensorName:            "SensorName",
+					MaintenanceAllowedKey: "Key",
+				},
+			},
+			expected: config.Config{
+				MaintenanceConfig: &config.MaintenanceConfig{
+					SensorName:            "SensorName",
+					MaintenanceAllowedKey: "Key",
+				},
+			},
+		},
+		{
+			name: "module",
+			c: config.Config{
+				Modules: []config.Module{
+					{
+						Name:            "ModuleName",
+						ExePath:         "ExecutablePath",
+						LogLevel:        "WARN",
+						Type:            config.ModuleTypeLocal,
+						ModuleID:        "ModuleID",
+						Environment:     map[string]string{"KEY": "VAL"},
+						FirstRunTimeout: utils.Duration(5 * time.Minute),
+						Status:          &config.AppValidationStatus{Error: "durrr"},
+					},
+				},
+			},
+			expected: config.Config{
+				Modules: []config.Module{
+					{
+						Name:            "ModuleName",
+						ExePath:         "ExecutablePath",
+						LogLevel:        "WARN",
+						Type:            config.ModuleTypeLocal,
+						ModuleID:        "ModuleID",
+						FirstRunTimeout: utils.Duration(5 * time.Minute),
+						Environment:     map[string]string{"KEY": "VAL"},
+						Status:          &config.AppValidationStatus{Error: "durrr"},
+					},
+				},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := tc.c
+
+			data, err := c.MarshalJSON()
+			test.That(t, err, test.ShouldBeNil)
+
+			err = c.UnmarshalJSON(data)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, c, test.ShouldResemble, tc.expected)
+		})
+	}
 }
