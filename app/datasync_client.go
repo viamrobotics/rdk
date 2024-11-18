@@ -186,44 +186,56 @@ func (d *Client) BinaryDataCaptureUpload(
 	fileExtension string,
 	methodParameters map[string]interface{}, //or map[string]interface{}???
 	tags []string,
-	timeRequested time.Time,
-	TimeReceived time.Time,
-	// dataRequestTimes *[2]time.Time, //check the type on this!!!
+	// timeRequested time.Time,
+	// TimeReceived time.Time,
+	dataRequestTimes [2]time.Time, // Assuming two time values, [0] is timeRequested, [1] is timeReceived
 ) (string, error) {
 	// Validate file extension
 	if fileExtension != "" && fileExtension[0] != '.' {
 		fileExtension = "." + fileExtension
 	}
-	//create sensor metadata
-	sensorMetadata := SensorMetadata{
-		TimeRequested: timeRequested,
-		TimeReceived:  TimeReceived,
+
+	// Create SensorMetadata based on the provided times
+	/*
+
+			if len(dataRequestTimes) == 0 {
+		    // No times provided ??
+		}
+	*/
+	var sensorMetadata SensorMetadata
+	if dataRequestTimes != [2]time.Time{} { // Check if times are provided
+		sensorMetadata = SensorMetadata{
+			TimeRequested: dataRequestTimes[0], // Convert time to timestamp???
+			TimeReceived:  dataRequestTimes[1], // Convert time to timestamp???
+		}
 	}
+
 	// Create SensorData
 	sensorData := SensorData{
 		Metadata: sensorMetadata,
-		SDStruct: nil,
-		SDBinary: binaryData,
+		SDStruct: nil,        // Assuming no struct is needed for binary data
+		SDBinary: binaryData, // Attach the binary data
 	}
-	//create metadata
+
+	// Create UploadMetadata
 	metadata := UploadMetadata{
 		PartID:           partID,
 		ComponentType:    componentType,
 		ComponentName:    componentName,
 		MethodName:       methodName,
-		Type:             DataTypeBinarySensor, //is this right??
-		FileName:         "",                   //not given
+		Type:             DataTypeBinarySensor, // assuming this is the correct type??
 		MethodParameters: methodParameters,
-		FileExtension:    fileExtension,
 		Tags:             tags,
 	}
-	sensorContents := []SensorData{sensorData}
-	// Call the upload method
-	response, err := d.DataCaptureUpload(ctx, metadata, sensorContents)
+
+	// Upload the data (assuming DataCaptureUpload is your method for uploading)
+	response, err := d.DataCaptureUpload(ctx, metadata, []SensorData{sensorData})
 	if err != nil {
 		return "", err
 	}
+
 	return response, nil
+
 }
 
 func tabularDataCaptureUpload() {}
