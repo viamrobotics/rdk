@@ -1,5 +1,5 @@
-// Package datasync contains a gRPC based datasync client.
-package datasync
+// Package app contains a gRPC based datasync client.
+package app
 
 import (
 	"context"
