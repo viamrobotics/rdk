@@ -13,14 +13,12 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 )
 
 // DataClient implements the DataServiceClient interface.
 type DataClient struct {
 	client pb.DataServiceClient
-	logger logging.Logger
 }
 
 // Order specifies the order in which data is returned.
@@ -182,12 +180,10 @@ type DatabaseConnReturn struct {
 // NewDataClient constructs a new DataClient using the connection passed in by the viamClient and the provided logger.
 func NewDataClient(
 	channel rpc.ClientConn,
-	logger logging.Logger,
 ) (*DataClient, error) {
 	d := pb.NewDataServiceClient(channel)
 	return &DataClient{
 		client: d,
-		logger: logger,
 	}, nil
 }
 

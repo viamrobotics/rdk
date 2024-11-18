@@ -67,8 +67,7 @@ func CreateViamClientWithAPIKey(
 // To use DataClient, you must first instantiate a ViamClient.
 func (c *ViamClient) DataClient() (*DataClient, error) {
 	var err error
-	var logger logging.Logger
-	c.dataClient, err = NewDataClient(c.conn, logger)
+	c.dataClient, err = NewDataClient(c.conn)
 	if err != nil {
 		return nil, err
 	}
