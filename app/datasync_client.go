@@ -3,6 +3,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	pb "go.viam.com/api/app/datasync/v1"
@@ -184,39 +185,28 @@ func (d *Client) BinaryDataCaptureUpload(
 	componentName string,
 	methodName string,
 	fileExtension string,
-	methodParameters map[string]interface{}, //or map[string]interface{}???
+	methodParameters map[string]interface{},
 	tags []string,
-	// timeRequested time.Time,
-	// TimeReceived time.Time,
 	dataRequestTimes [2]time.Time, // Assuming two time values, [0] is timeRequested, [1] is timeReceived
 ) (string, error) {
 	// Validate file extension
 	if fileExtension != "" && fileExtension[0] != '.' {
 		fileExtension = "." + fileExtension
 	}
-
 	// Create SensorMetadata based on the provided times
-	/*
-
-			if len(dataRequestTimes) == 0 {
-		    // No times provided ??
-		}
-	*/
 	var sensorMetadata SensorMetadata
-	if dataRequestTimes != [2]time.Time{} { // Check if times are provided
+	if len(dataRequestTimes) == 2 { //can i have a better check here? like if dataRequestTimes != [2]time.Time{}
 		sensorMetadata = SensorMetadata{
-			TimeRequested: dataRequestTimes[0], // Convert time to timestamp???
-			TimeReceived:  dataRequestTimes[1], // Convert time to timestamp???
+			TimeRequested: dataRequestTimes[0],
+			TimeReceived:  dataRequestTimes[1],
 		}
 	}
-
 	// Create SensorData
 	sensorData := SensorData{
 		Metadata: sensorMetadata,
 		SDStruct: nil,        // Assuming no struct is needed for binary data
 		SDBinary: binaryData, // Attach the binary data
 	}
-
 	// Create UploadMetadata
 	metadata := UploadMetadata{
 		PartID:           partID,
@@ -227,18 +217,62 @@ func (d *Client) BinaryDataCaptureUpload(
 		MethodParameters: methodParameters,
 		Tags:             tags,
 	}
-
-	// Upload the data (assuming DataCaptureUpload is your method for uploading)
 	response, err := d.DataCaptureUpload(ctx, metadata, []SensorData{sensorData})
 	if err != nil {
 		return "", err
 	}
-
 	return response, nil
-
 }
 
-func tabularDataCaptureUpload() {}
+func (d *Client) tabularDataCaptureUpload(
+	ctx context.Context,
+	tabularData []map[string]interface{},
+	partID string,
+	componentType string,
+	componentName string,
+	methodName string,
+	dataRequestTimes [][2]time.Time, // Assuming two time values, [0] is timeRequested, [1] is timeReceived
+	// fileExtension string,
+	methodParameters map[string]interface{},
+	tags []string,
+) (string, error) {
+	if len(dataRequestTimes) != len(tabularData) {
+		errors.New("dataRequestTimes and tabularData lengths must be equal")
+	}
+	var sensorContents []SensorData
+	// Iterate through the tabular data
+	for i, tabData := range tabularData {
+		sensorMetadata := SensorMetadata{}
+		dates := dataRequestTimes[i]
+		if len(dates) == 2 {
+			sensorMetadata.TimeRequested = dates[0]
+			sensorMetadata.TimeReceived = dates[1]
+		}
+		// Create SensorData
+		sensorData := SensorData{
+			Metadata: sensorMetadata,
+			SDStruct: tabData,
+			SDBinary: nil,
+		}
+		sensorContents = append(sensorContents, sensorData)
+	}
+
+	// Create UploadMetadata
+	metadata := UploadMetadata{
+		PartID:           partID,
+		ComponentType:    componentType,
+		ComponentName:    componentName,
+		MethodName:       methodName,
+		Type:             DataTypeTabularSensor, // assuming this is the correct type??
+		MethodParameters: methodParameters,
+		Tags:             tags,
+	}
+	response, err := d.DataCaptureUpload(ctx, metadata, sensorContents)
+	if err != nil {
+		return "", err
+	}
+	return response, nil
+}
 
 // DataCaptureUpload uploads the metadata and contents for either tabular or binary data,
 // and returns the file ID associated with the uploaded data and metadata.
