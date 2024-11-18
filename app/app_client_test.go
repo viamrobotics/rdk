@@ -76,6 +76,10 @@ const (
 	draft                          = false
 	platform                       = "platform"
 	registryItemStatus             = RegistryItemStatusPublished
+	moduleID = "module_id"
+	api = "api"
+	modelString = "model_string"
+	entryPoint = "entry_point"
 )
 
 var (
@@ -447,8 +451,76 @@ var (
 		CreatedAt:                      &createdOn,
 		UpdatedAt:                      &lastUpdated,
 	}
+	pbVisibility = visibilityToProto(visibility)
 	pbRegistryItem, _ = registryItemToProto(&registryItem)
 	searchTerm        = "search_term"
+	model = Model{
+		API: api,
+		Model: modelString,
+	}
+	models = []*Model{&model}
+	pbModels = []*pb.Model{
+		{
+			Api: model.API,
+			Model: modelString,
+		},
+	}
+	firstRun = "first_run"
+	uploadedAt = timestamppb.Timestamp{Seconds: 3, Nanos: 211}
+	uploads = Uploads{
+		Platform: platform,
+		UploadedAt: &uploadedAt,
+	}
+	pbUploads = pb.Uploads{
+		Platform: uploads.Platform,
+		UploadedAt: uploads.UploadedAt,
+	}
+	versionHistory = VersionHistory{
+			Version: version,
+			Files: []*Uploads{&uploads},
+			Models: models,
+			Entrypoint: entryPoint,
+			FirstRun: &firstRun,
+		}
+	pbVersionHistory = pb.VersionHistory{
+		Version: versionHistory.Version,
+		Files: []*pb.Uploads{&pbUploads},
+		Models: pbModels,
+		Entrypoint: versionHistory.Entrypoint,
+		FirstRun: versionHistory.FirstRun,
+	}
+	versionHistories = []*VersionHistory{&versionHistory}
+	pbVersionHistories = []*pb.VersionHistory{&pbVersionHistory}
+	module = Module{
+		ModuleID: moduleID,
+		Name: name,
+		Visibility: visibility,
+		Versions: versionHistories,
+		URL: siteURL,
+		Description: description,
+		Models: models,
+		TotalRobotUsage: totalRobotUsage,
+		TotalOrganizationUsage: totalOrganizationUsage,
+		OrganizationID: organizationID,
+		Entrypoint: entryPoint,
+		PublicNamespace: namespace,
+		FirstRun: &firstRun,
+	}
+	pbModule = pb.Module{
+		ModuleId: module.ModuleID,
+		Name: module.Name,
+		Visibility: pbVisibility,
+		Versions: pbVersionHistories,
+		Url: module.URL,
+		Description: module.Description,
+		Models: pbModels,
+		TotalRobotUsage: module.TotalRobotUsage,
+		TotalOrganizationUsage: module.TotalOrganizationUsage,
+		OrganizationId: module.OrganizationID,
+		Entrypoint: module.Entrypoint,
+		PublicNamespace: module.PublicNamespace,
+		FirstRun: module.FirstRun,
+	}
 )
 
 func sharedSecretStateToProto(state SharedSecretState) pb.SharedSecret_State {
@@ -1555,7 +1627,7 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.ItemId, test.ShouldResemble, itemID)
 			test.That(t, in.Type, test.ShouldResemble, packageTypeToProto(packageType))
 			test.That(t, in.Description, test.ShouldResemble, description)
-			test.That(t, in.Visibility, test.ShouldResemble, visibilityToProto(visibility))
+			test.That(t, in.Visibility, test.ShouldResemble, pbVisibility)
 			test.That(t, in.Url, test.ShouldResemble, &siteURL)
 			return &pb.UpdateRegistryItemResponse{}, nil
 		}
@@ -1572,7 +1644,7 @@ func TestAppClient(t *testing.T) {
 		) (*pb.ListRegistryItemsResponse, error) {
 			test.That(t, in.OrganizationId, test.ShouldResemble, &organizationID)
 			test.That(t, in.Types, test.ShouldResemble, []packages.PackageType{packageTypeToProto(packageType)})
-			test.That(t, in.Visibilities, test.ShouldResemble, []pb.Visibility{visibilityToProto(visibility)})
+			test.That(t, in.Visibilities, test.ShouldResemble, []pb.Visibility{pbVisibility})
 			test.That(t, in.Platforms, test.ShouldResemble, platforms)
 			test.That(t, in.Statuses, test.ShouldResemble, []pb.RegistryItemStatus{pb.RegistryItemStatus(registryItemStatus)})
 			test.That(t, in.SearchTerm, test.ShouldResemble, &searchTerm)
@@ -1618,5 +1690,54 @@ func TestAppClient(t *testing.T) {
 		}
 		err := client.TransferRegistryItem(context.Background(), registryItem.ItemID, namespace)
 		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("UpdateModule", func(t *testing.T) {
+		grpcClient.UpdateModuleFunc = func(
+			ctx context.Context, in *pb.UpdateModuleRequest, opts ...grpc.CallOption,
+		) (*pb.UpdateModuleResponse, error) {
+			test.That(t, in.ModuleId, test.ShouldResemble, moduleID)
+			test.That(t, in.Visibility, test.ShouldResemble, pbVisibility)
+			test.That(t, in.Url, test.ShouldResemble, siteURL)
+			test.That(t, in.Description, test.ShouldResemble, description)
+			test.That(t, in.Models, test.ShouldResemble, pbModels)
+			test.That(t, in.Entrypoint, test.ShouldResemble, entryPoint)
+			test.That(t, in.FirstRun, test.ShouldResemble, &firstRun)
+			return &pb.UpdateModuleResponse{
+				Url: siteURL,
+			}, nil
+		}
+		resp, err := client.UpdateModule(context.Background(), moduleID, visibility, siteURL, description, models, entryPoint, &firstRun)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldEqual, siteURL)
+	})
+
+	t.Run("GetModule", func(t *testing.T) {
+		grpcClient.GetModuleFunc = func(
+			ctx context.Context, in *pb.GetModuleRequest, opts ...grpc.CallOption,
+		) (*pb.GetModuleResponse, error) {
+			test.That(t, in.ModuleId, test.ShouldResemble, moduleID)
+			return &pb.GetModuleResponse{
+				Module: &pbModule,
+			}, nil
+		}
+		resp, err := client.GetModule(context.Background(), moduleID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldResemble, &module)
+	})
+
+	t.Run("ListModules", func(t *testing.T) {
+		expectedModules := []*Module{&module}
+		grpcClient.ListModulesFunc = func(
+			ctx context.Context, in *pb.ListModulesRequest, opts ...grpc.CallOption,
+		) (*pb.ListModulesResponse, error) {
+			test.That(t, in.OrganizationId, test.ShouldResemble, &organizationID)
+			return &pb.ListModulesResponse{
+				Modules: []*pb.Module{&pbModule},
+			}, nil
+		}
+		resp, err := client.ListModules(context.Background(), &organizationID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldResemble, expectedModules)
 	})
 }
