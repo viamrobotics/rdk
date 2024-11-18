@@ -13,6 +13,9 @@ import (
 	"go.viam.com/utils"
 )
 
+// Environment variable to control whether noisy logs are de-deduplicated. Set
+// to "false" to turn off de-duplicating logic; de-duplication logic is enabled
+// by default.
 const dedupNoisyLogsEnvVar = "VIAM_DEDUP_LOGS"
 
 var (
@@ -26,7 +29,7 @@ var (
 	// Whether to de-duplicate noisy logs; obtained from value of
 	// `dedupNoisyLogsEnvVar` and defaults to true. Export env var to "false" to
 	// turn off de-duplicating logic.
-	dedupNoisyLogs = false
+	dedupNoisyLogs = true
 )
 
 func init() {
