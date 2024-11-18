@@ -136,9 +136,6 @@ func TestNewDataClient(t *testing.T) {
 	defer client.Close()
 
 	dataClient := client.DataClient()
-	if err != nil {
-		t.Fatalf("Failed to create DataClient: %v", err)
-	}
 	test.That(t, dataClient, test.ShouldNotBeNil)
 	test.That(t, dataClient, test.ShouldHaveSameTypeAs, &DataClient{})
 	test.That(t, dataClient.client, test.ShouldImplement, (*pb.DataServiceClient)(nil))
