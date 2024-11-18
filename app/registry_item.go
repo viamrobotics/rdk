@@ -83,11 +83,11 @@ type RegistryItemStatus int32
 
 const (
 	// RegistryItemStatusUnspecified is an unspecified registry item status.
-	RegistryItemStatusUnspecified RegistryItemStatus = 0
+	RegistryItemStatusUnspecified RegistryItemStatus = iota
 	// RegistryItemStatusPublished represents a published registry item.
-	RegistryItemStatusPublished RegistryItemStatus = 1
+	RegistryItemStatusPublished
 	// RegistryItemStatusInDevelopment represents a registry item still in development.
-	RegistryItemStatusInDevelopment RegistryItemStatus = 2
+	RegistryItemStatusInDevelopment
 )
 
 func registryItemStatusToProto(status RegistryItemStatus) (pb.RegistryItemStatus, error) {
@@ -108,17 +108,17 @@ type PackageType int32
 
 const (
 	// PackageTypeUnspecified represents an unspecified package type.
-	PackageTypeUnspecified PackageType = 0
+	PackageTypeUnspecified PackageType = iota
 	// PackageTypeArchive represents an archive package type.
-	PackageTypeArchive PackageType = 1
+	PackageTypeArchive
 	// PackageTypeMLModel represents a ML model package type.
-	PackageTypeMLModel PackageType = 2
+	PackageTypeMLModel
 	// PackageTypeModule represents a module package type.
-	PackageTypeModule PackageType = 3
+	PackageTypeModule
 	// PackageTypeSLAMMap represents a SLAM map package type.
-	PackageTypeSLAMMap PackageType = 4
+	PackageTypeSLAMMap
 	// PackageTypeMLTraining represents a ML training package type.
-	PackageTypeMLTraining PackageType = 5
+	PackageTypeMLTraining
 )
 
 func packageTypeFromProto(packageType packages.PackageType) (PackageType, error) {
@@ -164,13 +164,13 @@ type Visibility int32
 
 const (
 	// VisibilityUnspecified represents an unspecified visibility.
-	VisibilityUnspecified Visibility = 0
+	VisibilityUnspecified Visibility = iota
 	// VisibilityPrivate are for registry items visible only within the owning org.
-	VisibilityPrivate Visibility = 1
+	VisibilityPrivate
 	// VisibilityPublic are for registry items that are visible to everyone.
-	VisibilityPublic Visibility = 2
+	VisibilityPublic
 	// VisibilityPublicUnlisted are for registry items usable in everyone's robot but are hidden from the registry page as if they are private.
-	VisibilityPublicUnlisted Visibility = 3
+	VisibilityPublicUnlisted
 )
 
 func visibilityFromProto(visibility pb.Visibility) (Visibility, error) {
@@ -341,13 +341,13 @@ type ModelType int32
 
 const (
 	// ModelTypeUnspecified represents an unspecified model.
-	ModelTypeUnspecified ModelType = 0
+	ModelTypeUnspecified ModelType = iota
 	// ModelTypeSingleLabelClassification represents a single-label classification model.
-	ModelTypeSingleLabelClassification ModelType = 1
+	ModelTypeSingleLabelClassification
 	// ModelTypeMultiLabelClassification represents a multi-label classification model.
-	ModelTypeMultiLabelClassification ModelType = 2
+	ModelTypeMultiLabelClassification
 	// ModelTypeObjectDetection represents an object detection model.
-	ModelTypeObjectDetection ModelType = 3
+	ModelTypeObjectDetection
 )
 
 func modelTypeFromProto(modelType mlTraining.ModelType) (ModelType, error) {
@@ -370,15 +370,15 @@ type ModelFramework int32
 
 const (
 	// ModelFrameworkUnspecified is an unspecified model framework.
-	ModelFrameworkUnspecified ModelFramework = 0
+	ModelFrameworkUnspecified ModelFramework = iota
 	// ModelFrameworkTFLite specifies a TFLite model framework.
-	ModelFrameworkTFLite ModelFramework = 1
+	ModelFrameworkTFLite
 	// ModelFrameworkTensorFlow specifies a TensorFlow model framework.
-	ModelFrameworkTensorFlow ModelFramework = 2
+	ModelFrameworkTensorFlow
 	// ModelFrameworkPyTorch specifies a PyTorch model framework.
-	ModelFrameworkPyTorch ModelFramework = 3
+	ModelFrameworkPyTorch
 	// ModelFrameworkONNX specifies a ONNX model framework.
-	ModelFrameworkONNX ModelFramework = 4
+	ModelFrameworkONNX
 )
 
 func modelFrameworkFromProto(framework mlTraining.ModelFramework) (ModelFramework, error) {

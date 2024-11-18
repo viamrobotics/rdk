@@ -44,13 +44,13 @@ type FragmentVisibility int32
 
 const (
 	// FragmentVisibilityUnspecified is an unspecified visibility.
-	FragmentVisibilityUnspecified FragmentVisibility = 0
+	FragmentVisibilityUnspecified FragmentVisibility = iota
 	// FragmentVisibilityPrivate restricts access to a fragment to its organization.
-	FragmentVisibilityPrivate FragmentVisibility = 1
+	FragmentVisibilityPrivate
 	// FragmentVisibilityPublic allows the fragment to be accessible to everyone.
-	FragmentVisibilityPublic FragmentVisibility = 2
+	FragmentVisibilityPublic
 	// FragmentVisibilityPublicUnlisted allows the fragment to be accessible to everyone but is hidden from public listings like it is private.
-	FragmentVisibilityPublicUnlisted FragmentVisibility = 3
+	FragmentVisibilityPublicUnlisted
 )
 
 func fragmentVisibilityFromProto(visibility pb.FragmentVisibility) FragmentVisibility {

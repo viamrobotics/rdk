@@ -114,11 +114,11 @@ type SharedSecretState int32
 
 const (
 	// SharedSecretStateUnspecified represents an unspecified shared secret state.
-	SharedSecretStateUnspecified SharedSecretState = 0
+	SharedSecretStateUnspecified SharedSecretState = iota
 	// SharedSecretStateEnabled represents an enabled secret that can be used in authentication.
-	SharedSecretStateEnabled SharedSecretState = 1
+	SharedSecretStateEnabled
 	// SharedSecretStateDisabled represents a disabled secret that must not be used to authenticate to rpc.
-	SharedSecretStateDisabled SharedSecretState = 2
+	SharedSecretStateDisabled
 )
 
 func sharedSecretStateFromProto(state pb.SharedSecret_State) SharedSecretState {
@@ -154,15 +154,15 @@ type AuthenticationType int32
 
 const (
 	// AuthenticationTypeUnspecified represents an unspecified authentication.
-	AuthenticationTypeUnspecified AuthenticationType = 0
+	AuthenticationTypeUnspecified AuthenticationType = iota
 	// AuthenticationTypeWebOAuth represents authentication using Web OAuth.
-	AuthenticationTypeWebOAuth AuthenticationType = 1
+	AuthenticationTypeWebOAuth
 	// AuthenticationTypeAPIKey represents authentication using an API key.
-	AuthenticationTypeAPIKey AuthenticationType = 2
+	AuthenticationTypeAPIKey
 	// AuthenticationTypeRobotPartSecret represents authentication using a robot part secret.
-	AuthenticationTypeRobotPartSecret AuthenticationType = 3
+	AuthenticationTypeRobotPartSecret
 	// AuthenticationTypeLocationSecret represents authentication using a location secret.
-	AuthenticationTypeLocationSecret AuthenticationType = 4
+	AuthenticationTypeLocationSecret
 )
 
 func authenticationTypeFromProto(authenticationType pb.AuthenticationType) AuthenticationType {
