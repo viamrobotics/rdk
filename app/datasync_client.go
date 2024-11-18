@@ -93,15 +93,11 @@ type SensorData struct {
 }
 
 // NewDataClient constructs a new DataClient using the connection passed in by the viamClient and the provided logger.
-func NewDataSyncClient(
-	channel rpc.ClientConn,
-	logger logging.Logger,
-) (*Client, error) {
-	d := pb.NewDataSyncServiceClient(channel)
+func NewDataSyncClient(conn rpc.ClientConn) *Client {
+	d := pb.NewDataSyncServiceClient(conn)
 	return &Client{
 		client: d,
-		logger: logger,
-	}, nil
+	}
 }
 
 // ConvertMapToProtobufAny converts a map[string]interface{} to a map[string]*anypb.Any
@@ -295,6 +291,16 @@ func (d *Client) FileUpload(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+// FileUpload uploads the contents and metadata for binary (image + file) data,
+// where the first packet must be the UploadMetadata.
+func (d *Client) FileUploadFromPath(ctx context.Context) error {
+	// resp, err := d.client.FileUpload(ctx, &pb.FileUploadRequest{})
+	// if err != nil {
+	// 	return err
+	// }
 	return nil
 }
 
