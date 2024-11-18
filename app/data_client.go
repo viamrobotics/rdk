@@ -8,12 +8,13 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	pb "go.viam.com/api/app/data/v1"
-	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/protoutils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/protoutils"
 )
 
 // DataClient implements the DataServiceClient interface.

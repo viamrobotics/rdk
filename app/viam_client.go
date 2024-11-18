@@ -63,7 +63,8 @@ func CreateViamClientWithAPIKey(
 	return CreateViamClientWithOptions(ctx, options, logger)
 }
 
-// DataClient initializes and returns the DataClient instance.
+// DataClient initializes and returns a DataClient instance used to make data method calls.
+// To use DataClient, you must first instantiate a ViamClient.
 func (c *ViamClient) DataClient() (*DataClient, error) {
 	var err error
 	var logger logging.Logger
