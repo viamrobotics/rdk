@@ -111,7 +111,6 @@ func billingAddressToProto(addr *BillingAddress) *pb.BillingAddress {
 	}
 }
 
-
 // Location holds the information of a specific location.
 type Location struct {
 	ID               string
@@ -403,7 +402,6 @@ func fragmentHistoryEntryFromProto(entry *pb.FragmentHistoryEntry) *FragmentHist
 		EditedBy: authenticatorInfoFromProto(entry.EditedBy),
 	}
 }
-
 
 // Authorization has the information about a specific authorization.
 type Authorization struct {

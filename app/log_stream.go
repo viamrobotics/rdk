@@ -9,7 +9,7 @@ import (
 )
 
 type logStream struct {
-	client       *Client
+	client       *AppClient
 	streamCancel context.CancelFunc
 	streamMu     sync.Mutex
 

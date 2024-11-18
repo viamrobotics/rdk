@@ -16,21 +16,23 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
-// Client is a gRPC client for method calls to the App API.
-type Client struct {
+// AppClient is a gRPC client for method calls to the App API.
+//
+//nolint:revive // stutter: Ignore the "stuttering" warning for this type name
+type AppClient struct {
 	client pb.AppServiceClient
 	logger logging.Logger
 
 	mu sync.Mutex
 }
 
-// NewClientFromConn uses a connection to create a new AppClient.
-func NewClientFromConn(conn rpc.ClientConn, logger logging.Logger) Client {
-	return Client{client: pb.NewAppServiceClient(conn), logger: logger}
+// NewAppClient constructs a new AppClient using the connection passed in by the viamClient and the provided logger.
+func NewAppClient(conn rpc.ClientConn, logger logging.Logger) *AppClient {
+	return &AppClient{client: pb.NewAppServiceClient(conn), logger: logger}
 }
 
 // GetUserIDByEmail gets the ID of the user with the given email.
-func (c *Client) GetUserIDByEmail(ctx context.Context, email string) (string, error) {
+func (c *AppClient) GetUserIDByEmail(ctx context.Context, email string) (string, error) {
 	resp, err := c.client.GetUserIDByEmail(ctx, &pb.GetUserIDByEmailRequest{
 		Email: email,
 	})
@@ -41,7 +43,7 @@ func (c *Client) GetUserIDByEmail(ctx context.Context, email string) (string, er
 }
 
 // CreateOrganization creates a new organization.
-func (c *Client) CreateOrganization(ctx context.Context, name string) (*Organization, error) {
+func (c *AppClient) CreateOrganization(ctx context.Context, name string) (*Organization, error) {
 	resp, err := c.client.CreateOrganization(ctx, &pb.CreateOrganizationRequest{
 		Name: name,
 	})
@@ -52,7 +54,7 @@ func (c *Client) CreateOrganization(ctx context.Context, name string) (*Organiza
 }
 
 // ListOrganizations lists all the organizations.
-func (c *Client) ListOrganizations(ctx context.Context) ([]*Organization, error) {
+func (c *AppClient) ListOrganizations(ctx context.Context) ([]*Organization, error) {
 	resp, err := c.client.ListOrganizations(ctx, &pb.ListOrganizationsRequest{})
 	if err != nil {
 		return nil, err
@@ -66,7 +68,7 @@ func (c *Client) ListOrganizations(ctx context.Context) ([]*Organization, error)
 }
 
 // GetOrganizationsWithAccessToLocation gets all the organizations that have access to a location.
-func (c *Client) GetOrganizationsWithAccessToLocation(ctx context.Context, locationID string) ([]*OrganizationIdentity, error) {
+func (c *AppClient) GetOrganizationsWithAccessToLocation(ctx context.Context, locationID string) ([]*OrganizationIdentity, error) {
 	resp, err := c.client.GetOrganizationsWithAccessToLocation(ctx, &pb.GetOrganizationsWithAccessToLocationRequest{
 		LocationId: locationID,
 	})
@@ -82,7 +84,7 @@ func (c *Client) GetOrganizationsWithAccessToLocation(ctx context.Context, locat
 }
 
 // ListOrganizationsByUser lists all the organizations that a user belongs to.
-func (c *Client) ListOrganizationsByUser(ctx context.Context, userID string) ([]*OrgDetails, error) {
+func (c *AppClient) ListOrganizationsByUser(ctx context.Context, userID string) ([]*OrgDetails, error) {
 	resp, err := c.client.ListOrganizationsByUser(ctx, &pb.ListOrganizationsByUserRequest{
 		UserId: userID,
 	})
@@ -98,7 +100,7 @@ func (c *Client) ListOrganizationsByUser(ctx context.Context, userID string) ([]
 }
 
 // GetOrganization gets an organization.
-func (c *Client) GetOrganization(ctx context.Context, orgID string) (*Organization, error) {
+func (c *AppClient) GetOrganization(ctx context.Context, orgID string) (*Organization, error) {
 	resp, err := c.client.GetOrganization(ctx, &pb.GetOrganizationRequest{
 		OrganizationId: orgID,
 	})
@@ -109,7 +111,7 @@ func (c *Client) GetOrganization(ctx context.Context, orgID string) (*Organizati
 }
 
 // GetOrganizationNamespaceAvailability checks for namespace availability throughout all organizations.
-func (c *Client) GetOrganizationNamespaceAvailability(ctx context.Context, namespace string) (bool, error) {
+func (c *AppClient) GetOrganizationNamespaceAvailability(ctx context.Context, namespace string) (bool, error) {
 	resp, err := c.client.GetOrganizationNamespaceAvailability(ctx, &pb.GetOrganizationNamespaceAvailabilityRequest{
 		PublicNamespace: namespace,
 	})
@@ -120,7 +122,7 @@ func (c *Client) GetOrganizationNamespaceAvailability(ctx context.Context, names
 }
 
 // UpdateOrganization updates an organization.
-func (c *Client) UpdateOrganization(ctx context.Context, orgID string, name, namespace, region, cid *string) (*Organization, error) {
+func (c *AppClient) UpdateOrganization(ctx context.Context, orgID string, name, namespace, region, cid *string) (*Organization, error) {
 	resp, err := c.client.UpdateOrganization(ctx, &pb.UpdateOrganizationRequest{
 		OrganizationId:  orgID,
 		Name:            name,
@@ -135,7 +137,7 @@ func (c *Client) UpdateOrganization(ctx context.Context, orgID string, name, nam
 }
 
 // DeleteOrganization deletes an organization.
-func (c *Client) DeleteOrganization(ctx context.Context, orgID string) error {
+func (c *AppClient) DeleteOrganization(ctx context.Context, orgID string) error {
 	_, err := c.client.DeleteOrganization(ctx, &pb.DeleteOrganizationRequest{
 		OrganizationId: orgID,
 	})
@@ -143,7 +145,7 @@ func (c *Client) DeleteOrganization(ctx context.Context, orgID string) error {
 }
 
 // ListOrganizationMembers lists all members of an organization and all invited members to the organization.
-func (c *Client) ListOrganizationMembers(ctx context.Context, orgID string) ([]*OrganizationMember, []*OrganizationInvite, error) {
+func (c *AppClient) ListOrganizationMembers(ctx context.Context, orgID string) ([]*OrganizationMember, []*OrganizationInvite, error) {
 	resp, err := c.client.ListOrganizationMembers(ctx, &pb.ListOrganizationMembersRequest{
 		OrganizationId: orgID,
 	})
@@ -163,7 +165,7 @@ func (c *Client) ListOrganizationMembers(ctx context.Context, orgID string) ([]*
 }
 
 // CreateOrganizationInvite creates an organization invite to an organization.
-func (c *Client) CreateOrganizationInvite(
+func (c *AppClient) CreateOrganizationInvite(
 	ctx context.Context, orgID, email string, authorizations []*Authorization, sendEmailInvite *bool,
 ) (*OrganizationInvite, error) {
 	var pbAuthorizations []*pb.Authorization
@@ -183,7 +185,7 @@ func (c *Client) CreateOrganizationInvite(
 }
 
 // UpdateOrganizationInviteAuthorizations updates the authorizations attached to an organization invite.
-func (c *Client) UpdateOrganizationInviteAuthorizations(
+func (c *AppClient) UpdateOrganizationInviteAuthorizations(
 	ctx context.Context, orgID, email string, addAuthorizations, removeAuthorizations []*Authorization,
 ) (*OrganizationInvite, error) {
 	var pbAddAuthorizations []*pb.Authorization
@@ -207,7 +209,7 @@ func (c *Client) UpdateOrganizationInviteAuthorizations(
 }
 
 // DeleteOrganizationMember deletes an organization member from an organization.
-func (c *Client) DeleteOrganizationMember(ctx context.Context, orgID, userID string) error {
+func (c *AppClient) DeleteOrganizationMember(ctx context.Context, orgID, userID string) error {
 	_, err := c.client.DeleteOrganizationMember(ctx, &pb.DeleteOrganizationMemberRequest{
 		OrganizationId: orgID,
 		UserId:         userID,
@@ -216,7 +218,7 @@ func (c *Client) DeleteOrganizationMember(ctx context.Context, orgID, userID str
 }
 
 // DeleteOrganizationInvite deletes an organization invite.
-func (c *Client) DeleteOrganizationInvite(ctx context.Context, orgID, email string) error {
+func (c *AppClient) DeleteOrganizationInvite(ctx context.Context, orgID, email string) error {
 	_, err := c.client.DeleteOrganizationInvite(ctx, &pb.DeleteOrganizationInviteRequest{
 		OrganizationId: orgID,
 		Email:          email,
@@ -225,7 +227,7 @@ func (c *Client) DeleteOrganizationInvite(ctx context.Context, orgID, email stri
 }
 
 // ResendOrganizationInvite resends an organization invite.
-func (c *Client) ResendOrganizationInvite(ctx context.Context, orgID, email string) (*OrganizationInvite, error) {
+func (c *AppClient) ResendOrganizationInvite(ctx context.Context, orgID, email string) (*OrganizationInvite, error) {
 	resp, err := c.client.ResendOrganizationInvite(ctx, &pb.ResendOrganizationInviteRequest{
 		OrganizationId: orgID,
 		Email:          email,
@@ -237,7 +239,7 @@ func (c *Client) ResendOrganizationInvite(ctx context.Context, orgID, email stri
 }
 
 // EnableBillingService enables a billing service to an address in an organization.
-func (c *Client) EnableBillingService(ctx context.Context, orgID string, billingAddress *BillingAddress) error {
+func (c *AppClient) EnableBillingService(ctx context.Context, orgID string, billingAddress *BillingAddress) error {
 	_, err := c.client.EnableBillingService(ctx, &pb.EnableBillingServiceRequest{
 		OrgId:          orgID,
 		BillingAddress: billingAddressToProto(billingAddress),
@@ -246,7 +248,7 @@ func (c *Client) EnableBillingService(ctx context.Context, orgID string, billing
 }
 
 // DisableBillingService disables the billing service for an organization.
-func (c *Client) DisableBillingService(ctx context.Context, orgID string) error {
+func (c *AppClient) DisableBillingService(ctx context.Context, orgID string) error {
 	_, err := c.client.DisableBillingService(ctx, &pb.DisableBillingServiceRequest{
 		OrgId: orgID,
 	})
@@ -254,7 +256,9 @@ func (c *Client) DisableBillingService(ctx context.Context, orgID string) error 
 }
 
 // UpdateBillingService updates the billing service of an organization.
-func (c *Client) UpdateBillingService(ctx context.Context, orgID string, billingAddress *BillingAddress, billingSupportEmail string) error {
+func (c *AppClient) UpdateBillingService(
+	ctx context.Context, orgID string, billingAddress *BillingAddress, billingSupportEmail string,
+) error {
 	_, err := c.client.UpdateBillingService(ctx, &pb.UpdateBillingServiceRequest{
 		OrgId:               orgID,
 		BillingAddress:      billingAddressToProto(billingAddress),
@@ -264,7 +268,7 @@ func (c *Client) UpdateBillingService(ctx context.Context, orgID string, billing
 }
 
 // OrganizationSetSupportEmail sets an organization's support email.
-func (c *Client) OrganizationSetSupportEmail(ctx context.Context, orgID, email string) error {
+func (c *AppClient) OrganizationSetSupportEmail(ctx context.Context, orgID, email string) error {
 	_, err := c.client.OrganizationSetSupportEmail(ctx, &pb.OrganizationSetSupportEmailRequest{
 		OrgId: orgID,
 		Email: email,
@@ -273,7 +277,7 @@ func (c *Client) OrganizationSetSupportEmail(ctx context.Context, orgID, email s
 }
 
 // OrganizationGetSupportEmail gets an organization's support email.
-func (c *Client) OrganizationGetSupportEmail(ctx context.Context, orgID string) (string, error) {
+func (c *AppClient) OrganizationGetSupportEmail(ctx context.Context, orgID string) (string, error) {
 	resp, err := c.client.OrganizationGetSupportEmail(ctx, &pb.OrganizationGetSupportEmailRequest{
 		OrgId: orgID,
 	})
@@ -284,7 +288,7 @@ func (c *Client) OrganizationGetSupportEmail(ctx context.Context, orgID string) 
 }
 
 // CreateLocation creates a location.
-func (c *Client) CreateLocation(ctx context.Context, orgID, name string, parentLocationID *string) (*Location, error) {
+func (c *AppClient) CreateLocation(ctx context.Context, orgID, name string, parentLocationID *string) (*Location, error) {
 	resp, err := c.client.CreateLocation(ctx, &pb.CreateLocationRequest{
 		OrganizationId:   orgID,
 		Name:             name,
@@ -297,7 +301,7 @@ func (c *Client) CreateLocation(ctx context.Context, orgID, name string, parentL
 }
 
 // GetLocation gets a location.
-func (c *Client) GetLocation(ctx context.Context, locationID string) (*Location, error) {
+func (c *AppClient) GetLocation(ctx context.Context, locationID string) (*Location, error) {
 	resp, err := c.client.GetLocation(ctx, &pb.GetLocationRequest{
 		LocationId: locationID,
 	})
@@ -308,7 +312,7 @@ func (c *Client) GetLocation(ctx context.Context, locationID string) (*Location,
 }
 
 // UpdateLocation updates a location.
-func (c *Client) UpdateLocation(ctx context.Context, locationID string, name, parentLocationID, region *string) (*Location, error) {
+func (c *AppClient) UpdateLocation(ctx context.Context, locationID string, name, parentLocationID, region *string) (*Location, error) {
 	resp, err := c.client.UpdateLocation(ctx, &pb.UpdateLocationRequest{
 		LocationId:       locationID,
 		Name:             name,
@@ -322,7 +326,7 @@ func (c *Client) UpdateLocation(ctx context.Context, locationID string, name, pa
 }
 
 // DeleteLocation deletes a location.
-func (c *Client) DeleteLocation(ctx context.Context, locationID string) error {
+func (c *AppClient) DeleteLocation(ctx context.Context, locationID string) error {
 	_, err := c.client.DeleteLocation(ctx, &pb.DeleteLocationRequest{
 		LocationId: locationID,
 	})
@@ -330,7 +334,7 @@ func (c *Client) DeleteLocation(ctx context.Context, locationID string) error {
 }
 
 // ListLocations gets a list of locations under the specified organization.
-func (c *Client) ListLocations(ctx context.Context, orgID string) ([]*Location, error) {
+func (c *AppClient) ListLocations(ctx context.Context, orgID string) ([]*Location, error) {
 	resp, err := c.client.ListLocations(ctx, &pb.ListLocationsRequest{
 		OrganizationId: orgID,
 	})
@@ -346,7 +350,7 @@ func (c *Client) ListLocations(ctx context.Context, orgID string) ([]*Location, 
 }
 
 // ShareLocation shares a location with an organization.
-func (c *Client) ShareLocation(ctx context.Context, locationID, orgID string) error {
+func (c *AppClient) ShareLocation(ctx context.Context, locationID, orgID string) error {
 	_, err := c.client.ShareLocation(ctx, &pb.ShareLocationRequest{
 		LocationId:     locationID,
 		OrganizationId: orgID,
@@ -355,7 +359,7 @@ func (c *Client) ShareLocation(ctx context.Context, locationID, orgID string) er
 }
 
 // UnshareLocation stops sharing a location with an organization.
-func (c *Client) UnshareLocation(ctx context.Context, locationID, orgID string) error {
+func (c *AppClient) UnshareLocation(ctx context.Context, locationID, orgID string) error {
 	_, err := c.client.UnshareLocation(ctx, &pb.UnshareLocationRequest{
 		LocationId:     locationID,
 		OrganizationId: orgID,
@@ -364,7 +368,7 @@ func (c *Client) UnshareLocation(ctx context.Context, locationID, orgID string) 
 }
 
 // LocationAuth gets a location's authorization secrets.
-func (c *Client) LocationAuth(ctx context.Context, locationID string) (*LocationAuth, error) {
+func (c *AppClient) LocationAuth(ctx context.Context, locationID string) (*LocationAuth, error) {
 	resp, err := c.client.LocationAuth(ctx, &pb.LocationAuthRequest{
 		LocationId: locationID,
 	})
@@ -375,7 +379,7 @@ func (c *Client) LocationAuth(ctx context.Context, locationID string) (*Location
 }
 
 // CreateLocationSecret creates a new generated secret in the location. Succeeds if there are no more than 2 active secrets after creation.
-func (c *Client) CreateLocationSecret(ctx context.Context, locationID string) (*LocationAuth, error) {
+func (c *AppClient) CreateLocationSecret(ctx context.Context, locationID string) (*LocationAuth, error) {
 	resp, err := c.client.CreateLocationSecret(ctx, &pb.CreateLocationSecretRequest{
 		LocationId: locationID,
 	})
@@ -386,7 +390,7 @@ func (c *Client) CreateLocationSecret(ctx context.Context, locationID string) (*
 }
 
 // DeleteLocationSecret deletes a secret from the location.
-func (c *Client) DeleteLocationSecret(ctx context.Context, locationID, secretID string) error {
+func (c *AppClient) DeleteLocationSecret(ctx context.Context, locationID, secretID string) error {
 	_, err := c.client.DeleteLocationSecret(ctx, &pb.DeleteLocationSecretRequest{
 		LocationId: locationID,
 		SecretId:   secretID,
@@ -395,7 +399,7 @@ func (c *Client) DeleteLocationSecret(ctx context.Context, locationID, secretID 
 }
 
 // GetRobot gets a specific robot by ID.
-func (c *Client) GetRobot(ctx context.Context, id string) (*Robot, error) {
+func (c *AppClient) GetRobot(ctx context.Context, id string) (*Robot, error) {
 	resp, err := c.client.GetRobot(ctx, &pb.GetRobotRequest{
 		Id: id,
 	})
@@ -406,7 +410,7 @@ func (c *Client) GetRobot(ctx context.Context, id string) (*Robot, error) {
 }
 
 // GetRoverRentalRobots gets rover rental robots within an organization.
-func (c *Client) GetRoverRentalRobots(ctx context.Context, orgID string) ([]*RoverRentalRobot, error) {
+func (c *AppClient) GetRoverRentalRobots(ctx context.Context, orgID string) ([]*RoverRentalRobot, error) {
 	resp, err := c.client.GetRoverRentalRobots(ctx, &pb.GetRoverRentalRobotsRequest{
 		OrgId: orgID,
 	})
@@ -421,7 +425,7 @@ func (c *Client) GetRoverRentalRobots(ctx context.Context, orgID string) ([]*Rov
 }
 
 // GetRobotParts gets a list of all the parts under a specific machine.
-func (c *Client) GetRobotParts(ctx context.Context, robotID string) ([]*RobotPart, error) {
+func (c *AppClient) GetRobotParts(ctx context.Context, robotID string) ([]*RobotPart, error) {
 	resp, err := c.client.GetRobotParts(ctx, &pb.GetRobotPartsRequest{
 		RobotId: robotID,
 	})
@@ -436,7 +440,7 @@ func (c *Client) GetRobotParts(ctx context.Context, robotID string) ([]*RobotPar
 }
 
 // GetRobotPart gets a specific robot part and its config by ID.
-func (c *Client) GetRobotPart(ctx context.Context, id string) (*RobotPart, string, error) {
+func (c *AppClient) GetRobotPart(ctx context.Context, id string) (*RobotPart, string, error) {
 	resp, err := c.client.GetRobotPart(ctx, &pb.GetRobotPartRequest{
 		Id: id,
 	})
@@ -448,7 +452,7 @@ func (c *Client) GetRobotPart(ctx context.Context, id string) (*RobotPart, strin
 
 // GetRobotPartLogs gets the logs associated with a robot part from a page, defaulting to the most recent page if pageToken is empty.
 // Logs of all levels are returned when levels is empty.
-func (c *Client) GetRobotPartLogs(
+func (c *AppClient) GetRobotPartLogs(
 	ctx context.Context,
 	id string,
 	filter,
@@ -480,7 +484,7 @@ func (c *Client) GetRobotPartLogs(
 }
 
 // TailRobotPartLogs gets a stream of log entries for a specific robot part. Logs are ordered by newest first.
-func (c *Client) TailRobotPartLogs(ctx context.Context, id string, errorsOnly bool, filter *string, ch chan []*LogEntry) error {
+func (c *AppClient) TailRobotPartLogs(ctx context.Context, id string, errorsOnly bool, filter *string, ch chan []*LogEntry) error {
 	stream := &logStream{client: c}
 
 	err := stream.startStream(ctx, id, errorsOnly, filter, ch)
@@ -494,7 +498,7 @@ func (c *Client) TailRobotPartLogs(ctx context.Context, id string, errorsOnly bo
 }
 
 // GetRobotPartHistory gets a specific robot part history by ID.
-func (c *Client) GetRobotPartHistory(ctx context.Context, id string) ([]*RobotPartHistoryEntry, error) {
+func (c *AppClient) GetRobotPartHistory(ctx context.Context, id string) ([]*RobotPartHistoryEntry, error) {
 	resp, err := c.client.GetRobotPartHistory(ctx, &pb.GetRobotPartHistoryRequest{
 		Id: id,
 	})
@@ -509,7 +513,7 @@ func (c *Client) GetRobotPartHistory(ctx context.Context, id string) ([]*RobotPa
 }
 
 // UpdateRobotPart updates a robot part.
-func (c *Client) UpdateRobotPart(ctx context.Context, id, name string, robotConfig interface{}) (*RobotPart, error) {
+func (c *AppClient) UpdateRobotPart(ctx context.Context, id, name string, robotConfig interface{}) (*RobotPart, error) {
 	config, err := protoutils.StructToStructPb(robotConfig)
 	if err != nil {
 		return nil, err
@@ -526,7 +530,7 @@ func (c *Client) UpdateRobotPart(ctx context.Context, id, name string, robotConf
 }
 
 // NewRobotPart creates a new robot part.
-func (c *Client) NewRobotPart(ctx context.Context, robotID, partName string) (string, error) {
+func (c *AppClient) NewRobotPart(ctx context.Context, robotID, partName string) (string, error) {
 	resp, err := c.client.NewRobotPart(ctx, &pb.NewRobotPartRequest{
 		RobotId:  robotID,
 		PartName: partName,
@@ -538,7 +542,7 @@ func (c *Client) NewRobotPart(ctx context.Context, robotID, partName string) (st
 }
 
 // DeleteRobotPart deletes a robot part.
-func (c *Client) DeleteRobotPart(ctx context.Context, partID string) error {
+func (c *AppClient) DeleteRobotPart(ctx context.Context, partID string) error {
 	_, err := c.client.DeleteRobotPart(ctx, &pb.DeleteRobotPartRequest{
 		PartId: partID,
 	})
@@ -546,7 +550,7 @@ func (c *Client) DeleteRobotPart(ctx context.Context, partID string) error {
 }
 
 // GetRobotAPIKeys gets the robot API keys for the robot.
-func (c *Client) GetRobotAPIKeys(ctx context.Context, robotID string) ([]*APIKeyWithAuthorizations, error) {
+func (c *AppClient) GetRobotAPIKeys(ctx context.Context, robotID string) ([]*APIKeyWithAuthorizations, error) {
 	resp, err := c.client.GetRobotAPIKeys(ctx, &pb.GetRobotAPIKeysRequest{
 		RobotId: robotID,
 	})
@@ -561,7 +565,7 @@ func (c *Client) GetRobotAPIKeys(ctx context.Context, robotID string) ([]*APIKey
 }
 
 // MarkPartAsMain marks the given part as the main part, and all the others as not.
-func (c *Client) MarkPartAsMain(ctx context.Context, partID string) error {
+func (c *AppClient) MarkPartAsMain(ctx context.Context, partID string) error {
 	_, err := c.client.MarkPartAsMain(ctx, &pb.MarkPartAsMainRequest{
 		PartId: partID,
 	})
@@ -571,7 +575,7 @@ func (c *Client) MarkPartAsMain(ctx context.Context, partID string) error {
 // MarkPartForRestart marks the given part for restart.
 // Once the robot part checks-in with the app the flag is reset on the robot part.
 // Calling this multiple times before a robot part checks-in has no effect.
-func (c *Client) MarkPartForRestart(ctx context.Context, partID string) error {
+func (c *AppClient) MarkPartForRestart(ctx context.Context, partID string) error {
 	_, err := c.client.MarkPartForRestart(ctx, &pb.MarkPartForRestartRequest{
 		PartId: partID,
 	})
@@ -580,7 +584,7 @@ func (c *Client) MarkPartForRestart(ctx context.Context, partID string) error {
 
 // CreateRobotPartSecret creates a new generated secret in the robot part.
 // Succeeds if there are no more than 2 active secrets after creation.
-func (c *Client) CreateRobotPartSecret(ctx context.Context, partID string) (*RobotPart, error) {
+func (c *AppClient) CreateRobotPartSecret(ctx context.Context, partID string) (*RobotPart, error) {
 	resp, err := c.client.CreateRobotPartSecret(ctx, &pb.CreateRobotPartSecretRequest{
 		PartId: partID,
 	})
@@ -591,7 +595,7 @@ func (c *Client) CreateRobotPartSecret(ctx context.Context, partID string) (*Rob
 }
 
 // DeleteRobotPartSecret deletes a secret from the robot part.
-func (c *Client) DeleteRobotPartSecret(ctx context.Context, partID, secretID string) error {
+func (c *AppClient) DeleteRobotPartSecret(ctx context.Context, partID, secretID string) error {
 	_, err := c.client.DeleteRobotPartSecret(ctx, &pb.DeleteRobotPartSecretRequest{
 		PartId:   partID,
 		SecretId: secretID,
@@ -600,7 +604,7 @@ func (c *Client) DeleteRobotPartSecret(ctx context.Context, partID, secretID str
 }
 
 // ListRobots gets a list of robots under a location.
-func (c *Client) ListRobots(ctx context.Context, locationID string) ([]*Robot, error) {
+func (c *AppClient) ListRobots(ctx context.Context, locationID string) ([]*Robot, error) {
 	resp, err := c.client.ListRobots(ctx, &pb.ListRobotsRequest{
 		LocationId: locationID,
 	})
@@ -615,7 +619,7 @@ func (c *Client) ListRobots(ctx context.Context, locationID string) ([]*Robot, e
 }
 
 // NewRobot creates a new robot.
-func (c *Client) NewRobot(ctx context.Context, name, location string) (string, error) {
+func (c *AppClient) NewRobot(ctx context.Context, name, location string) (string, error) {
 	resp, err := c.client.NewRobot(ctx, &pb.NewRobotRequest{
 		Name:     name,
 		Location: location,
@@ -627,7 +631,7 @@ func (c *Client) NewRobot(ctx context.Context, name, location string) (string, e
 }
 
 // UpdateRobot updates a robot.
-func (c *Client) UpdateRobot(ctx context.Context, id, name, location string) (*Robot, error) {
+func (c *AppClient) UpdateRobot(ctx context.Context, id, name, location string) (*Robot, error) {
 	resp, err := c.client.UpdateRobot(ctx, &pb.UpdateRobotRequest{
 		Id:       id,
 		Name:     name,
@@ -640,7 +644,7 @@ func (c *Client) UpdateRobot(ctx context.Context, id, name, location string) (*R
 }
 
 // DeleteRobot deletes a robot.
-func (c *Client) DeleteRobot(ctx context.Context, id string) error {
+func (c *AppClient) DeleteRobot(ctx context.Context, id string) error {
 	_, err := c.client.DeleteRobot(ctx, &pb.DeleteRobotRequest{
 		Id: id,
 	})
@@ -648,7 +652,7 @@ func (c *Client) DeleteRobot(ctx context.Context, id string) error {
 }
 
 // ListFragments gets a list of fragments.
-func (c *Client) ListFragments(
+func (c *AppClient) ListFragments(
 	ctx context.Context, orgID string, showPublic bool, fragmentVisibility []FragmentVisibility,
 ) ([]*Fragment, error) {
 	var visibilities []pb.FragmentVisibility
@@ -672,7 +676,7 @@ func (c *Client) ListFragments(
 }
 
 // GetFragment gets a single fragment.
-func (c *Client) GetFragment(ctx context.Context, id string) (*Fragment, error) {
+func (c *AppClient) GetFragment(ctx context.Context, id string) (*Fragment, error) {
 	resp, err := c.client.GetFragment(ctx, &pb.GetFragmentRequest{
 		Id: id,
 	})
@@ -683,7 +687,7 @@ func (c *Client) GetFragment(ctx context.Context, id string) (*Fragment, error) 
 }
 
 // CreateFragment creates a fragment.
-func (c *Client) CreateFragment(
+func (c *AppClient) CreateFragment(
 	ctx context.Context, name string, config interface{}, orgID string, visibility *FragmentVisibility,
 ) (*Fragment, error) {
 	cfg, err := protoutils.StructToStructPb(config)
@@ -704,7 +708,7 @@ func (c *Client) CreateFragment(
 }
 
 // UpdateFragment updates a fragment.
-func (c *Client) UpdateFragment(
+func (c *AppClient) UpdateFragment(
 	ctx context.Context, id, name string, config map[string]interface{}, public *bool, visibility *FragmentVisibility,
 ) (*Fragment, error) {
 	cfg, err := protoutils.StructToStructPb(config)
@@ -726,7 +730,7 @@ func (c *Client) UpdateFragment(
 }
 
 // DeleteFragment deletes a fragment.
-func (c *Client) DeleteFragment(ctx context.Context, id string) error {
+func (c *AppClient) DeleteFragment(ctx context.Context, id string) error {
 	_, err := c.client.DeleteFragment(ctx, &pb.DeleteFragmentRequest{
 		Id: id,
 	})
@@ -735,7 +739,7 @@ func (c *Client) DeleteFragment(ctx context.Context, id string) error {
 
 // ListMachineFragments gets top level and nested fragments for a amchine, as well as any other fragments specified by IDs. Additional
 // fragments are useful when needing to view fragments that will be provisionally added to the machine alongside existing fragments.
-func (c *Client) ListMachineFragments(ctx context.Context, machineID string, additionalFragmentIDs []string) ([]*Fragment, error) {
+func (c *AppClient) ListMachineFragments(ctx context.Context, machineID string, additionalFragmentIDs []string) ([]*Fragment, error) {
 	resp, err := c.client.ListMachineFragments(ctx, &pb.ListMachineFragmentsRequest{
 		MachineId:             machineID,
 		AdditionalFragmentIds: additionalFragmentIDs,
@@ -751,7 +755,7 @@ func (c *Client) ListMachineFragments(ctx context.Context, machineID string, add
 }
 
 // GetFragmentHistory gets the fragment's history.
-func (c *Client) GetFragmentHistory(
+func (c *AppClient) GetFragmentHistory(
 	ctx context.Context, id string, pageToken *string, pageLimit *int64,
 ) ([]*FragmentHistoryEntry, string, error) {
 	resp, err := c.client.GetFragmentHistory(ctx, &pb.GetFragmentHistoryRequest{
@@ -770,7 +774,7 @@ func (c *Client) GetFragmentHistory(
 }
 
 // AddRole creates an identity authorization.
-func (c *Client) AddRole(ctx context.Context, orgID, identityID, role, resourceType, resourceID string) error {
+func (c *AppClient) AddRole(ctx context.Context, orgID, identityID, role, resourceType, resourceID string) error {
 	authorization, err := createAuthorization(orgID, identityID, "", role, resourceType, resourceID)
 	if err != nil {
 		return err
@@ -782,7 +786,7 @@ func (c *Client) AddRole(ctx context.Context, orgID, identityID, role, resourceT
 }
 
 // RemoveRole deletes an identity authorization.
-func (c *Client) RemoveRole(ctx context.Context, orgID, identityID, role, resourceType, resourceID string) error {
+func (c *AppClient) RemoveRole(ctx context.Context, orgID, identityID, role, resourceType, resourceID string) error {
 	authorization, err := createAuthorization(orgID, identityID, "", role, resourceType, resourceID)
 	if err != nil {
 		return err
@@ -794,7 +798,7 @@ func (c *Client) RemoveRole(ctx context.Context, orgID, identityID, role, resour
 }
 
 // ChangeRole changes an identity authorization to a new identity authorization.
-func (c *Client) ChangeRole(
+func (c *AppClient) ChangeRole(
 	ctx context.Context,
 	oldOrgID,
 	oldIdentityID,
@@ -824,7 +828,7 @@ func (c *Client) ChangeRole(
 
 // ListAuthorizations returns all authorization roles for any given resources.
 // If no resources are given, all resources within the organization will be included.
-func (c *Client) ListAuthorizations(ctx context.Context, orgID string, resourceIDs []string) ([]*Authorization, error) {
+func (c *AppClient) ListAuthorizations(ctx context.Context, orgID string, resourceIDs []string) ([]*Authorization, error) {
 	resp, err := c.client.ListAuthorizations(ctx, &pb.ListAuthorizationsRequest{
 		OrganizationId: orgID,
 		ResourceIds:    resourceIDs,
@@ -840,7 +844,7 @@ func (c *Client) ListAuthorizations(ctx context.Context, orgID string, resourceI
 }
 
 // CheckPermissions checks the validity of a list of permissions.
-func (c *Client) CheckPermissions(ctx context.Context, permissions []*AuthorizedPermissions) ([]*AuthorizedPermissions, error) {
+func (c *AppClient) CheckPermissions(ctx context.Context, permissions []*AuthorizedPermissions) ([]*AuthorizedPermissions, error) {
 	var pbPermissions []*pb.AuthorizedPermissions
 	for _, permission := range permissions {
 		pbPermissions = append(pbPermissions, authorizedPermissionsToProto(permission))
@@ -861,7 +865,7 @@ func (c *Client) CheckPermissions(ctx context.Context, permissions []*Authorized
 }
 
 // GetRegistryItem gets a registry item.
-func (c *Client) GetRegistryItem(ctx context.Context, itemID string) (*RegistryItem, error) {
+func (c *AppClient) GetRegistryItem(ctx context.Context, itemID string) (*RegistryItem, error) {
 	resp, err := c.client.GetRegistryItem(ctx, &pb.GetRegistryItemRequest{
 		ItemId: itemID,
 	})
@@ -876,7 +880,7 @@ func (c *Client) GetRegistryItem(ctx context.Context, itemID string) (*RegistryI
 }
 
 // CreateRegistryItem creates a registry item.
-func (c *Client) CreateRegistryItem(ctx context.Context, orgID, name string, packageType PackageType) error {
+func (c *AppClient) CreateRegistryItem(ctx context.Context, orgID, name string, packageType PackageType) error {
 	_, err := c.client.CreateRegistryItem(ctx, &pb.CreateRegistryItemRequest{
 		OrganizationId: orgID,
 		Name:           name,
@@ -886,7 +890,7 @@ func (c *Client) CreateRegistryItem(ctx context.Context, orgID, name string, pac
 }
 
 // UpdateRegistryItem updates a registry item.
-func (c *Client) UpdateRegistryItem(
+func (c *AppClient) UpdateRegistryItem(
 	ctx context.Context, itemID string, packageType PackageType, description string, visibility Visibility, url *string,
 ) error {
 	_, err := c.client.UpdateRegistryItem(ctx, &pb.UpdateRegistryItemRequest{
@@ -900,7 +904,7 @@ func (c *Client) UpdateRegistryItem(
 }
 
 // ListRegistryItems lists the registry items in an organization.
-func (c *Client) ListRegistryItems(
+func (c *AppClient) ListRegistryItems(
 	ctx context.Context,
 	orgID *string,
 	types []PackageType,
@@ -949,7 +953,7 @@ func (c *Client) ListRegistryItems(
 
 // DeleteRegistryItem deletes a registry item given an ID that is formatted as `prefix:name“
 // where `prefix“ is the owner's organization ID or namespace.
-func (c *Client) DeleteRegistryItem(ctx context.Context, itemID string) error {
+func (c *AppClient) DeleteRegistryItem(ctx context.Context, itemID string) error {
 	_, err := c.client.DeleteRegistryItem(ctx, &pb.DeleteRegistryItemRequest{
 		ItemId: itemID,
 	})
@@ -957,7 +961,7 @@ func (c *Client) DeleteRegistryItem(ctx context.Context, itemID string) error {
 }
 
 // TransferRegistryItem transfers a registry item to a namespace.
-func (c *Client) TransferRegistryItem(ctx context.Context, itemID, newPublicNamespace string) error {
+func (c *AppClient) TransferRegistryItem(ctx context.Context, itemID, newPublicNamespace string) error {
 	_, err := c.client.TransferRegistryItem(ctx, &pb.TransferRegistryItemRequest{
 		ItemId:             itemID,
 		NewPublicNamespace: newPublicNamespace,
@@ -966,7 +970,7 @@ func (c *Client) TransferRegistryItem(ctx context.Context, itemID, newPublicName
 }
 
 // CreateModule creates a module.
-func (c *Client) CreateModule(ctx context.Context, orgID, name string) (string, string, error) {
+func (c *AppClient) CreateModule(ctx context.Context, orgID, name string) (string, string, error) {
 	resp, err := c.client.CreateModule(ctx, &pb.CreateModuleRequest{
 		OrganizationId: orgID,
 		Name:           name,
@@ -979,7 +983,7 @@ func (c *Client) CreateModule(ctx context.Context, orgID, name string) (string, 
 
 // UpdateModule updates the documentation URL, description, models, entrypoint, and/or the visibility of a module.
 // A path to a setup script can be added that is run before a newly downloaded module starts.
-func (c *Client) UpdateModule(
+func (c *AppClient) UpdateModule(
 	ctx context.Context, moduleID string, visibility Visibility, url, description string, models []*Model, entrypoint string, firstRun *string,
 ) (string, error) {
 	var pbModels []*pb.Model
@@ -1053,7 +1057,7 @@ func (c *Client) UpdateModule(
 // }
 
 // GetModule gets a module.
-func (c *Client) GetModule(ctx context.Context, moduleID string) (*Module, error) {
+func (c *AppClient) GetModule(ctx context.Context, moduleID string) (*Module, error) {
 	resp, err := c.client.GetModule(ctx, &pb.GetModuleRequest{
 		ModuleId: moduleID,
 	})
@@ -1064,7 +1068,7 @@ func (c *Client) GetModule(ctx context.Context, moduleID string) (*Module, error
 }
 
 // ListModules lists the modules in the organization.
-func (c *Client) ListModules(ctx context.Context, orgID *string) ([]*Module, error) {
+func (c *AppClient) ListModules(ctx context.Context, orgID *string) ([]*Module, error) {
 	resp, err := c.client.ListModules(ctx, &pb.ListModulesRequest{
 		OrganizationId: orgID,
 	})
@@ -1079,7 +1083,7 @@ func (c *Client) ListModules(ctx context.Context, orgID *string) ([]*Module, err
 }
 
 // CreateKey creates a new API key associated with a list of authorizations.
-func (c *Client) CreateKey(
+func (c *AppClient) CreateKey(
 	ctx context.Context, orgID string, keyAuthorizations []APIKeyAuthorization, name string,
 ) (string, string, error) {
 	var authorizations []*pb.Authorization
@@ -1103,7 +1107,7 @@ func (c *Client) CreateKey(
 }
 
 // DeleteKey deletes an API key.
-func (c *Client) DeleteKey(ctx context.Context, id string) error {
+func (c *AppClient) DeleteKey(ctx context.Context, id string) error {
 	_, err := c.client.DeleteKey(ctx, &pb.DeleteKeyRequest{
 		Id: id,
 	})
@@ -1111,7 +1115,7 @@ func (c *Client) DeleteKey(ctx context.Context, id string) error {
 }
 
 // ListKeys lists all the keys for the organization.
-func (c *Client) ListKeys(ctx context.Context, orgID string) ([]*APIKeyWithAuthorizations, error) {
+func (c *AppClient) ListKeys(ctx context.Context, orgID string) ([]*APIKeyWithAuthorizations, error) {
 	resp, err := c.client.ListKeys(ctx, &pb.ListKeysRequest{
 		OrgId: orgID,
 	})
@@ -1126,7 +1130,7 @@ func (c *Client) ListKeys(ctx context.Context, orgID string) ([]*APIKeyWithAutho
 }
 
 // RenameKey renames an API key.
-func (c *Client) RenameKey(ctx context.Context, id, name string) (string, string, error) {
+func (c *AppClient) RenameKey(ctx context.Context, id, name string) (string, string, error) {
 	resp, err := c.client.RenameKey(ctx, &pb.RenameKeyRequest{
 		Id:   id,
 		Name: name,
@@ -1138,7 +1142,7 @@ func (c *Client) RenameKey(ctx context.Context, id, name string) (string, string
 }
 
 // RotateKey rotates an API key.
-func (c *Client) RotateKey(ctx context.Context, id string) (string, string, error) {
+func (c *AppClient) RotateKey(ctx context.Context, id string) (string, string, error) {
 	resp, err := c.client.RotateKey(ctx, &pb.RotateKeyRequest{
 		Id: id,
 	})
@@ -1149,7 +1153,7 @@ func (c *Client) RotateKey(ctx context.Context, id string) (string, string, erro
 }
 
 // CreateKeyFromExistingKeyAuthorizations creates a new API key with an existing key's authorizations.
-func (c *Client) CreateKeyFromExistingKeyAuthorizations(ctx context.Context, id string) (string, string, error) {
+func (c *AppClient) CreateKeyFromExistingKeyAuthorizations(ctx context.Context, id string) (string, string, error) {
 	resp, err := c.client.CreateKeyFromExistingKeyAuthorizations(ctx, &pb.CreateKeyFromExistingKeyAuthorizationsRequest{
 		Id: id,
 	})

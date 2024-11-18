@@ -676,7 +676,7 @@ func createGrpcClient() *inject.AppServiceClient {
 
 func TestAppClient(t *testing.T) {
 	grpcClient := createGrpcClient()
-	client := Client{client: grpcClient}
+	client := AppClient{client: grpcClient}
 
 	t.Run("GetUserIDByEmail", func(t *testing.T) {
 		grpcClient.GetUserIDByEmailFunc = func(
