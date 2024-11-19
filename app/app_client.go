@@ -1008,16 +1008,6 @@ func (c *AppClient) UpdateModule(
 // UploadModuleFile uploads a module file and returns the URL of the uploaded file.
 func (c *AppClient) UploadModuleFile(ctx context.Context, fileInfo ModuleFileInfo, file []byte) (string, error) {
 	stream := &uploadModuleFileStream{client: c}
-	// reqModuleFileInfo := uploadModuleFileRequest{
-	// 	ModuleFile: &uploadModuleFileRequestModuleFileInfo{
-	// 		ModuleFileInfo: &fileInfo,
-	// 	},
-	// }
-	// reqFile := uploadModuleFileRequest{
-	// 	ModuleFile: &uploadModuleFileRequestFile{
-	// 		File: file,
-	// 	},
-	// }
 	url, err := stream.startStream(ctx, &fileInfo, file)
 	if err != nil {
 		return "", err
