@@ -871,6 +871,14 @@ func sensorContentsToProto(sensorContents []SensorData) []*syncPb.SensorData {
 	return protoSensorContents
 }
 
+// Helper function to format the file extension.
+func formatFileExtension(fileExt string) string {
+	if len(fileExt) > 0 && fileExt[0] != '.' {
+		return "." + fileExt
+	}
+	return fileExt
+}
+
 func (d *DataClient) BinaryDataCaptureUpload(
 	ctx context.Context,
 	binaryData []byte,
@@ -878,16 +886,15 @@ func (d *DataClient) BinaryDataCaptureUpload(
 	componentType string,
 	componentName string,
 	methodName string,
-	fileExtension string,
+	fileName string, //not in python
 	methodParameters map[string]interface{},
-	tags []string,
+	fileExtension string,
+	tags []string, //this is the last thing apart of uploadmetadata
 	dataRequestTimes [2]time.Time, // Assuming two time values, [0] is timeRequested, [1] is timeReceived
 ) (string, error) {
 	// Validate file extension
 	//**need to look into this!
-	if fileExtension != "" && fileExtension[0] != '.' {
-		fileExtension = "." + fileExtension
-	}
+	fileExtension = formatFileExtension(fileExtension)
 	// Create SensorMetadata based on the provided times
 	var sensorMetadata SensorMetadata
 	if len(dataRequestTimes) == 2 { //can i have a better check here? like if dataRequestTimes != [2]time.Time{}
@@ -909,7 +916,9 @@ func (d *DataClient) BinaryDataCaptureUpload(
 		ComponentName:    componentName,
 		MethodName:       methodName,
 		Type:             DataTypeBinarySensor, // assuming this is the correct type??
+		FileName:         fileName,
 		MethodParameters: methodParameters,
+		FileExtension:    fileExtension,
 		Tags:             tags,
 	}
 	response, err := d.DataCaptureUpload(ctx, metadata, []SensorData{sensorData})
@@ -926,11 +935,13 @@ func (d *DataClient) tabularDataCaptureUpload(
 	componentType string,
 	componentName string,
 	methodName string,
-	dataRequestTimes [][2]time.Time, // Assuming two time values, [0] is timeRequested, [1] is timeReceived
-	// fileExtension string,
+	fileName string,
 	methodParameters map[string]interface{},
+	fileExtension string,
 	tags []string,
+	dataRequestTimes [][2]time.Time, // Assuming two time values, [0] is timeRequested, [1] is timeReceived
 ) (string, error) {
+	fileExtension = formatFileExtension(fileExtension)
 	if len(dataRequestTimes) != len(tabularData) {
 		errors.New("dataRequestTimes and tabularData lengths must be equal")
 	}
@@ -959,7 +970,9 @@ func (d *DataClient) tabularDataCaptureUpload(
 		ComponentName:    componentName,
 		MethodName:       methodName,
 		Type:             DataTypeTabularSensor, // assuming this is the correct type??
+		FileName:         fileName,
 		MethodParameters: methodParameters,
+		FileExtension:    fileExtension,
 		Tags:             tags,
 	}
 	response, err := d.DataCaptureUpload(ctx, metadata, sensorContents)
@@ -1002,90 +1015,92 @@ func (d *DataClient) FileUploadFromPath(ctx context.Context) error {
 	return nil
 }
 
-// StreamingDataCaptureUpload uploads the streaming contents and metadata for streaming binary (image + file) data,
-// where the first packet must be the UploadMetadata.
+// StreamingDataCaptureUpload uploads metadata and streaming binary data in chunks.
 func (d *DataClient) StreamingDataCaptureUpload(
 	ctx context.Context,
-	data []byte, //data in bytes (so similar to binarydataCap)...the rest below are for dataCaptureUploadMetadata
-	partID string, //uploadmetadata
-	componentType string, //uploadmetadata
-	componentName string, //uploadmetadata
-	methodName string, //uploadmetadata
-	dataType DataType, //uploadmetadata
-	fileName string, //uploadmetadata
-	methodParameters map[string]interface{}, //uploadmetadata
-	fileExt string, //uploadmetadata
-	tags []string, //uploadmetadata
-	dataRequestTimes [2]time.Time, //sensorMetadata
-	//mimeType and annotations?? //sensorMetadata?
+	data []byte,
+	partID string,
+	fileExt string,
+	componentType string,
+	componentName string,
+	methodName string,
+	methodParameters map[string]interface{},
+	dataRequestTimes [2]time.Time,
+	tags []string,
 ) (string, error) {
-	// Prepare UploadMetadata
-	metadata := UploadMetadata{
-		PartID:           partID,
+	UploadChunkSize := 64 * 1024
+	// create metadata for the upload.
+	methodParams, _ := protoutils.ConvertMapToProtoAny(methodParameters)
+	uploadMetadataPb := &syncPb.UploadMetadata{
+		PartId:           partID,
 		ComponentType:    componentType,
 		ComponentName:    componentName,
 		MethodName:       methodName,
-		Type:             DataTypeBinarySensor, // assuming this is the correct type??
-		MethodParameters: methodParameters,
+		FileExtension:    formatFileExtension(fileExt),
+		Type:             syncPb.DataType_DATA_TYPE_BINARY_SENSOR,
+		MethodParameters: methodParams,
 		Tags:             tags,
 	}
-	//create uploadMetadata
-	uploadMetadatapb := uploadMetadataToProto(metadata)
 
-	//create sensorMetadata
-	// Create SensorMetadata based on the provided times
-	var sensorMetadata SensorMetadata
-	if len(dataRequestTimes) == 2 { //can i have a better check here? like if dataRequestTimes != [2]time.Time{}
-		sensorMetadata = SensorMetadata{
-			TimeRequested: dataRequestTimes[0],
-			TimeReceived:  dataRequestTimes[1],
+	// handle data request times.
+	var sensorMetadataPb *syncPb.SensorMetadata
+	if len(dataRequestTimes) == 2 {
+		sensorMetadataPb = &syncPb.SensorMetadata{
+			TimeRequested: timestamppb.New(dataRequestTimes[0]),
+			TimeReceived:  timestamppb.New(dataRequestTimes[1]),
 		}
 	}
-	// create SensorData
-	sensorData := SensorData{
-		Metadata: sensorMetadata,
-		SDStruct: nil,  // assuming no struct is needed for binary data
-		SDBinary: data, // attach the binary data because our data is given in []bytes!
-	}
-	sensorDataPb := sensorContentsToProto([]SensorData{sensorData})
 
-	//create DataCaptureUploadMetadata (aka create the metadata for the first request)
-	dataCaptureUploadMetadataPb := &syncPb.DataCaptureUploadMetadata{
-		UploadMetadata: uploadMetadatapb,
-		SensorMetadata: sensorDataPb[0].Metadata,
-	}
-	//this method either uses dataCaptureUploadMetadata OR data...?
-
-	//create the first request w/ metadata
-	metadataRequest := &syncPb.StreamingDataCaptureUploadRequest{
-		UploadPacket: dataCaptureUploadMetadataPb, //StreamingDataCaptureUploadRequest_Metadata ...this should be metadata??
+	// create the DataCaptureUploadMetadata.
+	metadata := &syncPb.DataCaptureUploadMetadata{
+		UploadMetadata: uploadMetadataPb,
+		SensorMetadata: sensorMetadataPb,
 	}
 
-	// establish the streaming client
+	// establish a streaming connection.
 	stream, err := d.dataSyncClient.StreamingDataCaptureUpload(ctx)
 	if err != nil {
-		return "", fmt.Errorf("failed to create streaming client: %w", err)
+		return "", fmt.Errorf("failed to establish streaming connection: %w", err)
 	}
-	defer stream.CloseSend()
 
-	// send metadata request
-	if err := stream.Send(metadataRequest); err != nil {
+	// send the metadata as the first packet.
+	metaReq := &syncPb.StreamingDataCaptureUploadRequest{
+		UploadPacket: &syncPb.StreamingDataCaptureUploadRequest_Metadata{
+			Metadata: metadata,
+		},
+	}
+	if err := stream.Send(metaReq); err != nil {
 		return "", fmt.Errorf("failed to send metadata: %w", err)
 	}
 
-	// send another request, this time the data request
-	dataRequest := &syncPb.StreamingDataCaptureUploadRequest{
-		UploadPacket: data, //*StreamingDataCaptureUploadRequest_Data ....this should be binaryData from above
+	// send the binary data in chunks.
+	for start := 0; start < len(data); start += UploadChunkSize {
+		end := start + UploadChunkSize
+		if end > len(data) {
+			end = len(data)
+		}
+
+		chunk := data[start:end]
+		dataReq := &syncPb.StreamingDataCaptureUploadRequest{
+			UploadPacket: &syncPb.StreamingDataCaptureUploadRequest_Data{
+				Data: chunk,
+			},
+		}
+
+		if err := stream.Send(dataReq); err != nil {
+			return "", fmt.Errorf("failed to send data chunk: %w", err)
+		}
 	}
-	if err := stream.Send(dataRequest); err != nil {
-		return "", fmt.Errorf("failed to send data: %w", err)
-	}
-	// close the stream and receive the response
-	response, err := stream.Recv()
+
+	// close the stream and get the response.
+	resp, err := stream.CloseAndRecv()
 	if err != nil {
 		return "", fmt.Errorf("failed to receive response: %w", err)
 	}
 
-	// return the file ID
-	return response.GetFileId(), nil
+	// return the file ID from the response.
+	if resp == nil || resp.FileId == "" {
+		return "", fmt.Errorf("response is empty or invalid")
+	}
+	return resp.FileId, nil
 }

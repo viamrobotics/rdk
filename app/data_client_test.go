@@ -44,8 +44,8 @@ const (
 )
 
 var (
-	binaryDataType = DataTypeBinarySensor
-	// tabularDataType     = DataTypeTabularSensor
+	binaryDataType      = DataTypeBinarySensor
+	tabularDataType     = DataTypeTabularSensor
 	locationIDs         = []string{locationID}
 	orgIDs              = []string{organizationID}
 	mimeTypes           = []string{mimeType}
@@ -54,12 +54,34 @@ var (
 	tags                = []string{tag}
 	startTime           = time.Now().UTC().Round(time.Millisecond)
 	endTime             = time.Now().UTC().Round(time.Millisecond)
+	dataRequestTimes    = [2]time.Time{startTime, endTime}
 	count               = uint64(5)
 	limit               = uint64(5)
 	countOnly           = true
 	includeInternalData = true
 	data                = map[string]interface{}{
 		"key": "value",
+	}
+	tabularMetadata = CaptureMetadata{
+		OrganizationID:   organizationID,
+		LocationID:       locationID,
+		RobotName:        robotName,
+		RobotID:          robotID,
+		PartName:         partName,
+		PartID:           partID,
+		ComponentType:    componentType,
+		ComponentName:    componentName,
+		MethodName:       method,
+		MethodParameters: methodParameters,
+		Tags:             tags,
+		MimeType:         mimeType,
+	}
+	tabularData = TabularData{
+		Data:          data,
+		MetadataIndex: 0,
+		Metadata:      tabularMetadata,
+		TimeRequested: startTime,
+		TimeReceived:  endTime,
 	}
 	binaryID = BinaryID{
 		FileID:         "file1",
@@ -186,6 +208,10 @@ func createGrpcClient() *inject.DataServiceClient {
 func createGrpcDataSyncClient() *inject.DataSyncServiceClient {
 	return &inject.DataSyncServiceClient{}
 }
+
+//	func createMockStreamingDataCaptureUploadClient() *inject.MockStreamingDataCaptureUploadClient {
+//		return &inject.MockStreamingDataCaptureUploadClient{}
+//	}
 func TestDataClient(t *testing.T) {
 	grpcClient := createGrpcClient()
 	client := DataClient{client: grpcClient}
@@ -216,21 +242,6 @@ func TestDataClient(t *testing.T) {
 		DatasetID:       datasetID,
 	}
 
-	tabularMetadata := CaptureMetadata{
-		OrganizationID:   organizationID,
-		LocationID:       locationID,
-		RobotName:        robotName,
-		RobotID:          robotID,
-		PartName:         partName,
-		PartID:           partID,
-		ComponentType:    componentType,
-		ComponentName:    componentName,
-		MethodName:       method,
-		MethodParameters: methodParameters,
-		Tags:             tags,
-		MimeType:         mimeType,
-	}
-
 	binaryMetadata := BinaryMetadata{
 		ID:              binaryMetaID,
 		CaptureMetadata: tabularMetadata,
@@ -256,13 +267,6 @@ func TestDataClient(t *testing.T) {
 	}
 
 	t.Run("TabularDataByFilter", func(t *testing.T) {
-		tabularData := TabularData{
-			Data:          data,
-			MetadataIndex: 0,
-			Metadata:      tabularMetadata,
-			TimeRequested: startTime,
-			TimeReceived:  endTime,
-		}
 		dataStruct, _ := utils.StructToStructPb(data)
 		tabularDataPb := &pb.TabularData{
 			Data:          dataStruct,
@@ -614,17 +618,8 @@ func TestDataSyncClient(t *testing.T) {
 	grpcClient := createGrpcDataSyncClient()
 	client := DataClient{dataSyncClient: grpcClient}
 
-	uploadMetadata := UploadMetadata{
-		PartID:           partID,
-		ComponentType:    componentType,
-		ComponentName:    componentName,
-		MethodName:       method,
-		Type:             DataTypeBinarySensor,
-		FileName:         fileName,
-		MethodParameters: methodParameters, //or map[string]string??
-		FileExtension:    fileExt,
-		Tags:             tags,
-	}
+	// mockStream := createMockStreamingDataCaptureUploadClient()
+
 	metadata := SensorMetadata{
 		TimeRequested: startTime,
 		TimeReceived:  endTime,
@@ -635,7 +630,24 @@ func TestDataSyncClient(t *testing.T) {
 		SDBinary: binaryDataByte,
 	}
 
+	tabularSensorData := SensorData{
+		Metadata: metadata,
+		SDStruct: tabularData.Data,
+		SDBinary: nil,
+	}
+
 	t.Run("BinaryDataCaptureUpload", func(t *testing.T) {
+		uploadMetadata := UploadMetadata{
+			PartID:           partID,
+			ComponentType:    componentType,
+			ComponentName:    componentName,
+			MethodName:       method,
+			Type:             DataTypeBinarySensor,
+			FileName:         fileName,
+			MethodParameters: methodParameters,
+			FileExtension:    fileExt,
+			Tags:             tags,
+		}
 		grpcClient.DataCaptureUploadFunc = func(ctx context.Context, in *syncPb.DataCaptureUploadRequest,
 			opts ...grpc.CallOption,
 		) (*syncPb.DataCaptureUploadResponse, error) {
@@ -667,18 +679,103 @@ func TestDataSyncClient(t *testing.T) {
 		test.That(t, resp, test.ShouldResemble, fileID)                                                           //compare response with regular expected types (fromProto if needed)
 	})
 
-	// t.Run("TabularDataCaptureUpload", func(t *testing.T) {
-	// 	grpcClient.DataCaptureUploadFunc = func(ctx context.Context, in *syncPb.DataCaptureUploadRequest,
-	// 		opts ...grpc.CallOption,
-	// 	) (*syncPb.DataCaptureUploadResponse, error) {
-	// 		//test.That(t, in._, test.ShouldResemble, toProto(something)) //toProto
-	// 		return &syncPb.DataCaptureUploadResponse{
-	// 			//fill all variables w prototype-types
+	t.Run("TabularDataCaptureUpload", func(t *testing.T) {
+		uploadMetadata := UploadMetadata{
+			PartID:           partID,
+			ComponentType:    componentType,
+			ComponentName:    componentName,
+			MethodName:       method,
+			Type:             DataTypeTabularSensor,
+			FileName:         fileName,
+			MethodParameters: methodParameters,
+			FileExtension:    fileExt,
+			Tags:             tags,
+		}
+		dataStruct, _ := utils.StructToStructPb(data)
+		tabularDataPb := &pb.TabularData{
+			Data:          dataStruct,
+			MetadataIndex: 0,
+			TimeRequested: timestamppb.New(startTime),
+			TimeReceived:  timestamppb.New(endTime),
+		}
+		grpcClient.DataCaptureUploadFunc = func(ctx context.Context, in *syncPb.DataCaptureUploadRequest,
+			opts ...grpc.CallOption,
+		) (*syncPb.DataCaptureUploadResponse, error) {
+			methodParams, _ := protoutils.ConvertMapToProtoAny(methodParameters)
 
-	// 		}, nil
+			test.That(t, in.Metadata.PartId, test.ShouldEqual, partID)
+			test.That(t, in.Metadata.ComponentType, test.ShouldEqual, componentType)
+			test.That(t, in.Metadata.ComponentName, test.ShouldEqual, componentName)
+			test.That(t, in.Metadata.MethodName, test.ShouldEqual, method)
+			test.That(t, in.Metadata.Type, test.ShouldEqual, tabularDataType)
+			test.That(t, in.Metadata.FileName, test.ShouldEqual, fileName)
+			test.That(t, in.Metadata.MethodParameters, test.ShouldResemble, methodParams)
+			test.That(t, in.Metadata.FileExtension, test.ShouldEqual, fileExt)
+			test.That(t, in.Metadata.Tags, test.ShouldResemble, tags)
+
+			test.That(t, in.SensorContents[0].Metadata.TimeRequested, test.ShouldResemble, timestamppb.New(startTime))
+			test.That(t, in.SensorContents[0].Metadata.TimeReceived, test.ShouldResemble, timestamppb.New(endTime))
+			// Extract and validate SensorContents[0].Data
+			dataField, ok := in.SensorContents[0].Data.(*syncPb.SensorData_Struct)
+			test.That(t, ok, test.ShouldBeTrue) // Ensure the type is correct
+			test.That(t, dataField.Struct, test.ShouldResemble, tabularDataPb.Data)
+			return &syncPb.DataCaptureUploadResponse{
+				FileId: fileID,
+			}, nil
+		}
+		resp, _ := client.DataCaptureUpload(context.Background(), uploadMetadata, []SensorData{tabularSensorData})
+		test.That(t, resp, test.ShouldResemble, fileID)
+	})
+
+	// t.Run("StreamingDataCaptureUpload", func(t *testing.T) {
+	// 	// Mock implementation of the streaming client.
+	// 	mockStream := &inject.MockStreamingDataCaptureUploadClient{
+	// 		SendFunc: func(req *syncPb.StreamingDataCaptureUploadRequest) error {
+	// 			switch packet := req.UploadPacket.(type) {
+	// 			case *syncPb.StreamingDataCaptureUploadRequest_Metadata:
+	// 				// Validate metadata packet.
+	// 				meta := packet.Metadata
+	// 				test.That(t, meta.UploadMetadata.PartId, test.ShouldEqual, partID)
+	// 				test.That(t, meta.UploadMetadata.FileExtension, test.ShouldEqual, "."+fileExt)
+	// 				test.That(t, meta.UploadMetadata.ComponentType, test.ShouldEqual, componentType)
+	// 				test.That(t, meta.UploadMetadata.ComponentName, test.ShouldEqual, componentName)
+	// 				test.That(t, meta.UploadMetadata.MethodName, test.ShouldEqual, method)
+	// 				test.That(t, meta.UploadMetadata.Tags, test.ShouldResemble, tags)
+	// 				test.That(t, meta.SensorMetadata.TimeRequested, test.ShouldResemble, timestamppb.New(startTime))
+	// 				test.That(t, meta.SensorMetadata.TimeReceived, test.ShouldResemble, timestamppb.New(endTime))
+
+	// 			case *syncPb.StreamingDataCaptureUploadRequest_Data:
+	// 				// Validate data chunks.
+	// 				var chunkIndex int
+	// 				UploadChunkSize := 64 * 1024
+	// 				chunk := packet.Data
+	// 				expectedChunk := binaryDataByte[chunkIndex*UploadChunkSize : min((chunkIndex+1)*UploadChunkSize, len(data))]
+	// 				test.That(t, chunk, test.ShouldResemble, expectedChunk)
+	// 				chunkIndex++
+
+	// 			default:
+	// 				t.Errorf("unexpected packet type: %T", packet)
+	// 			}
+	// 			return nil
+	// 		},
+	// 		CloseAndRecvFunc: func() (*syncPb.StreamingDataCaptureUploadResponse, error) {
+	// 			// Validate the final response.
+	// 			return &syncPb.StreamingDataCaptureUploadResponse{
+	// 				FileId: fileID,
+	// 			}, nil
+	// 		},
 	// 	}
-	// 	resp, _ := client.DataCaptureUpload(context.Background()) //not proto-types, regular types u expect to recieve in the function
-	// 	//test.That(t, resp._, test.ShouldResemble, fromProto(something if needed)) //compare response with regular expected types
+
+	// 	// Replace the gRPC client with the mock.
+	// 	grpcClient.StreamingDataCaptureUploadFunc = func(ctx context.Context,
+	// 		opts ...grpc.CallOption,
+	// 	) (syncPb.DataSyncService_StreamingDataCaptureUploadClient, error) {
+	// 		return mockStream, nil
+	// 	}
+	// 	// Call the function being tested.
+	// 	resp, err := client.StreamingDataCaptureUpload(context.Background(), binaryDataByte, partID, fileExt, componentType, componentName, method, methodParameters, dataRequestTimes, tags)
+	// 	test.That(t, err, test.ShouldBeNil)
+	// 	test.That(t, resp, test.ShouldEqual, fileID)
 	// })
 
 }
