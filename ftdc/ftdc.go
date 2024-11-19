@@ -5,9 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path"
+	"path/filepath"
+	"regexp"
 	"slices"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -113,6 +118,7 @@ type FTDC struct {
 	bytesWrittenCounter countingWriter
 	currOutputFile      *os.File
 	maxFileSizeBytes    int64
+	maxNumFiles         int
 	// ftdcDir controls where FTDC data files will be written.
 	ftdcDir string
 
@@ -133,6 +139,7 @@ func NewWithWriter(writer io.Writer, logger logging.Logger) *FTDC {
 		logger:           logger,
 		outputWriter:     writer,
 		maxFileSizeBytes: 1_000_000,
+		maxNumFiles:      10,
 	}
 }
 
@@ -184,6 +191,10 @@ func (ftdc *FTDC) Remove(name string) {
 func (ftdc *FTDC) Start() {
 	ftdc.readStatsWorker = utils.NewStoppableWorkerWithTicker(time.Second, ftdc.statsReader)
 	utils.PanicCapturingGo(ftdc.statsWriter)
+
+	// The `fileDeleter` goroutine mostly aligns with the "stoppable worker with ticker"
+	// pattern. But it has the additional desire that if file deletion exits with a panic, all of
+	// FTDC should stop.
 	utils.PanicCapturingGoWithCallback(ftdc.fileDeleter, func(err any) {
 		ftdc.logger.Warnw("File deleter errored, stopping FTDC", "err", err)
 		ftdc.StopAndJoin(context.Background())
@@ -449,7 +460,98 @@ func (ftdc *FTDC) getWriter() (io.Writer, error) {
 }
 
 func (ftdc *FTDC) fileDeleter() {
-	panic("foo")
+	for {
+		select {
+		// The fileDeleter's goroutine lifetime should match the robot/FTDC lifetime. Borrow the
+		// `readStatsWorker`s context to track that.
+		case <-ftdc.readStatsWorker.Context().Done():
+			return
+		case <-time.After(time.Second):
+		}
+
+		ftdc.checkAndDeleteOldFiles()
+	}
+}
+
+// fileTime pairs a file with a time value.
+type fileTime struct {
+	name string
+	time time.Time
+}
+
+func (ftdc *FTDC) checkAndDeleteOldFiles() error {
+	ftdc.logger.Debug("Checking files.")
+
+	var files []fileTime
+	err := filepath.Walk(ftdc.ftdcDir, filepath.WalkFunc(func(path string, info fs.FileInfo, walkErr error) error {
+		if !strings.HasSuffix(path, ".ftdc") {
+			return nil
+		}
+
+		if walkErr != nil {
+			ftdc.logger.Info("Unexpected walk error. Continuing under the assumption any actual* problem will",
+				"be caught by the assertions. WalkErr:", walkErr)
+			return nil
+		}
+
+		parsedTime, err := parseTimeFromFilename(path)
+		if err == nil {
+			files = append(files, fileTime{path, parsedTime})
+		}
+		return nil
+	}))
+	if err != nil {
+		return err
+	}
+
+	if len(files) <= ftdc.maxNumFiles {
+		// We have yet to hit our file limit. Keep all of the files.
+		return nil
+	}
+
+	slices.SortFunc(files, func(left, right fileTime) int {
+		// Sort in descening order. Such that files indexed first are safe. This eases walking the
+		// slice of files.
+		return right.time.Compare(left.time)
+	})
+
+	// If we, for example, have 30 files and we want to keep the newest 10, we delete the trailing
+	// 20 files.
+	for _, file := range files[ftdc.maxNumFiles:] {
+		if err := os.Remove(file.name); err != nil {
+			ftdc.logger.Warnw("Error removing FTDC file", "filename", file.name)
+		}
+	}
+
+	return nil
+}
+
+// filenameTimeRe matches the files produced by ftdc. Filename <-> regex parity is exercised by file
+// deletion testing. Filename generation uses padding such that we can rely on there before 2/4
+// digits for every numeric value.
+var filenameTimeRe *regexp.Regexp = regexp.MustCompile("viam-server-(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2})-(\\d{2})-(\\d{2})Z.ftdc")
+
+func parseTimeFromFilename(path string) (time.Time, error) {
+	allMatches := filenameTimeRe.FindAllStringSubmatch(path, -1)
+	if len(allMatches) != 1 || len(allMatches[0]) != 7 {
+		return time.Time{}, errors.New("filename did not match pattern")
+	}
+
+	// There's exactly one match and 7 groups. The first "group" is the whole string. We only care
+	// about the numbers.
+	matches := allMatches[0][1:]
+
+	var numVals [6]int
+	for idx := 0; idx < 6; idx++ {
+		val, err := strconv.Atoi(matches[idx])
+		if err != nil {
+			return time.Time{}, err
+		}
+
+		numVals[idx] = val
+	}
+
+	return time.Date(numVals[0], time.Month(numVals[1]), numVals[2], numVals[3], numVals[4], numVals[5], 0, time.UTC), nil
 }
 
 type countingWriter struct {
