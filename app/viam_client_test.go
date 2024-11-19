@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/viamrobotics/webrtc/v3"
+	pb "go.viam.com/api/app/data/v1"
+	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
@@ -115,4 +117,31 @@ func TestCreateViamClientWithAPIKeyTests(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNewDataClient(t *testing.T) {
+	originalDialDirectGRPC := dialDirectGRPC
+	dialDirectGRPC = mockDialDirectGRPC
+	defer func() { dialDirectGRPC = originalDialDirectGRPC }()
+	opts := Options{
+		baseURL: defaultURL,
+		entity:  testAPIKey,
+		credentials: rpc.Credentials{
+			Type:    rpc.CredentialsTypeAPIKey,
+			Payload: testAPIKeyID,
+		},
+	}
+	client, err := CreateViamClientWithOptions(context.Background(), opts, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer client.Close()
+
+	dataClient := client.DataClient()
+	test.That(t, dataClient, test.ShouldNotBeNil)
+	test.That(t, dataClient, test.ShouldHaveSameTypeAs, &DataClient{})
+	test.That(t, dataClient.client, test.ShouldImplement, (*pb.DataServiceClient)(nil))
+
+	// Testing that a second call to DataClient() returns the same instance
+	dataClient2 := client.DataClient()
+	test.That(t, dataClient2, test.ShouldNotBeNil)
+	test.That(t, dataClient, test.ShouldResemble, dataClient2)
 }
