@@ -743,7 +743,7 @@ func TestDataSyncClient(t *testing.T) {
 					test.That(t, meta.UploadMetadata.Tags, test.ShouldResemble, tags)
 					test.That(t, meta.SensorMetadata.TimeRequested, test.ShouldResemble, timestamppb.New(startTime))
 					test.That(t, meta.SensorMetadata.TimeReceived, test.ShouldResemble, timestamppb.New(endTime))
-
+					
 				case *syncPb.StreamingDataCaptureUploadRequest_Data:
 					// Validate data chunks.
 					var chunkIndex int
