@@ -727,55 +727,55 @@ func TestDataSyncClient(t *testing.T) {
 		test.That(t, resp, test.ShouldResemble, fileID)
 	})
 
-	// t.Run("StreamingDataCaptureUpload", func(t *testing.T) {
-	// 	// Mock implementation of the streaming client.
-	// 	mockStream := &inject.MockStreamingDataCaptureUploadClient{
-	// 		SendFunc: func(req *syncPb.StreamingDataCaptureUploadRequest) error {
-	// 			switch packet := req.UploadPacket.(type) {
-	// 			case *syncPb.StreamingDataCaptureUploadRequest_Metadata:
-	// 				// Validate metadata packet.
-	// 				meta := packet.Metadata
-	// 				test.That(t, meta.UploadMetadata.PartId, test.ShouldEqual, partID)
-	// 				test.That(t, meta.UploadMetadata.FileExtension, test.ShouldEqual, "."+fileExt)
-	// 				test.That(t, meta.UploadMetadata.ComponentType, test.ShouldEqual, componentType)
-	// 				test.That(t, meta.UploadMetadata.ComponentName, test.ShouldEqual, componentName)
-	// 				test.That(t, meta.UploadMetadata.MethodName, test.ShouldEqual, method)
-	// 				test.That(t, meta.UploadMetadata.Tags, test.ShouldResemble, tags)
-	// 				test.That(t, meta.SensorMetadata.TimeRequested, test.ShouldResemble, timestamppb.New(startTime))
-	// 				test.That(t, meta.SensorMetadata.TimeReceived, test.ShouldResemble, timestamppb.New(endTime))
+	t.Run("StreamingDataCaptureUpload", func(t *testing.T) {
+		// Mock implementation of the streaming client.
+		mockStream := &inject.DataSyncService_StreamingDataCaptureUploadClient{
+			SendFunc: func(req *syncPb.StreamingDataCaptureUploadRequest) error {
+				switch packet := req.UploadPacket.(type) {
+				case *syncPb.StreamingDataCaptureUploadRequest_Metadata:
+					// Validate metadata packet.
+					meta := packet.Metadata
+					test.That(t, meta.UploadMetadata.PartId, test.ShouldEqual, partID)
+					test.That(t, meta.UploadMetadata.FileExtension, test.ShouldEqual, "."+fileExt)
+					test.That(t, meta.UploadMetadata.ComponentType, test.ShouldEqual, componentType)
+					test.That(t, meta.UploadMetadata.ComponentName, test.ShouldEqual, componentName)
+					test.That(t, meta.UploadMetadata.MethodName, test.ShouldEqual, method)
+					test.That(t, meta.UploadMetadata.Tags, test.ShouldResemble, tags)
+					test.That(t, meta.SensorMetadata.TimeRequested, test.ShouldResemble, timestamppb.New(startTime))
+					test.That(t, meta.SensorMetadata.TimeReceived, test.ShouldResemble, timestamppb.New(endTime))
 
-	// 			case *syncPb.StreamingDataCaptureUploadRequest_Data:
-	// 				// Validate data chunks.
-	// 				var chunkIndex int
-	// 				UploadChunkSize := 64 * 1024
-	// 				chunk := packet.Data
-	// 				expectedChunk := binaryDataByte[chunkIndex*UploadChunkSize : min((chunkIndex+1)*UploadChunkSize, len(data))]
-	// 				test.That(t, chunk, test.ShouldResemble, expectedChunk)
-	// 				chunkIndex++
+				case *syncPb.StreamingDataCaptureUploadRequest_Data:
+					// Validate data chunks.
+					var chunkIndex int
+					UploadChunkSize := 64 * 1024
+					chunk := packet.Data
+					expectedChunk := binaryDataByte[chunkIndex*UploadChunkSize : min((chunkIndex+1)*UploadChunkSize, len(data))]
+					test.That(t, chunk, test.ShouldResemble, expectedChunk)
+					chunkIndex++
 
-	// 			default:
-	// 				t.Errorf("unexpected packet type: %T", packet)
-	// 			}
-	// 			return nil
-	// 		},
-	// 		CloseAndRecvFunc: func() (*syncPb.StreamingDataCaptureUploadResponse, error) {
-	// 			// Validate the final response.
-	// 			return &syncPb.StreamingDataCaptureUploadResponse{
-	// 				FileId: fileID,
-	// 			}, nil
-	// 		},
-	// 	}
+				default:
+					t.Errorf("unexpected packet type: %T", packet)
+				}
+				return nil
+			},
+			CloseAndRecvFunc: func() (*syncPb.StreamingDataCaptureUploadResponse, error) {
+				// Validate the final response.
+				return &syncPb.StreamingDataCaptureUploadResponse{
+					FileId: fileID,
+				}, nil
+			},
+		}
 
-	// 	// Replace the gRPC client with the mock.
-	// 	grpcClient.StreamingDataCaptureUploadFunc = func(ctx context.Context,
-	// 		opts ...grpc.CallOption,
-	// 	) (syncPb.DataSyncService_StreamingDataCaptureUploadClient, error) {
-	// 		return mockStream, nil
-	// 	}
-	// 	// Call the function being tested.
-	// 	resp, err := client.StreamingDataCaptureUpload(context.Background(), binaryDataByte, partID, fileExt, componentType, componentName, method, methodParameters, dataRequestTimes, tags)
-	// 	test.That(t, err, test.ShouldBeNil)
-	// 	test.That(t, resp, test.ShouldEqual, fileID)
-	// })
+		// Replace the gRPC client with the mock.
+		grpcClient.StreamingDataCaptureUploadFunc = func(ctx context.Context,
+			opts ...grpc.CallOption,
+		) (syncPb.DataSyncService_StreamingDataCaptureUploadClient, error) {
+			return mockStream, nil
+		}
+		// Call the function being tested.
+		resp, err := client.StreamingDataCaptureUpload(context.Background(), binaryDataByte, partID, fileExt, componentType, componentName, method, methodParameters, dataRequestTimes, tags)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldEqual, fileID)
+	})
 
 }
