@@ -32,11 +32,11 @@ func registryItemFromProto(item *pb.RegistryItem) (*RegistryItem, error) {
 	var metadata isRegistryItemMetadata
 	switch pbMetadata := item.Metadata.(type) {
 	case *pb.RegistryItem_ModuleMetadata:
-		metadata = &RegistryItemModuleMetadata{ModuleMetadata: moduleMetadataFromProto(pbMetadata.ModuleMetadata)}
+		metadata = &registryItemModuleMetadata{ModuleMetadata: moduleMetadataFromProto(pbMetadata.ModuleMetadata)}
 	case *pb.RegistryItem_MlModelMetadata:
-		metadata = &RegistryItemMLModelMetadata{MlModelMetadata: mlModelMetadataFromProto(pbMetadata.MlModelMetadata)}
+		metadata = &registryItemMLModelMetadata{MlModelMetadata: mlModelMetadataFromProto(pbMetadata.MlModelMetadata)}
 	case *pb.RegistryItem_MlTrainingMetadata:
-		metadata = &RegistryItemMLTrainingMetadata{MlTrainingMetadata: mlTrainingMetadataFromProto(pbMetadata.MlTrainingMetadata)}
+		metadata = &registryItemMLTrainingMetadata{MlTrainingMetadata: mlTrainingMetadataFromProto(pbMetadata.MlTrainingMetadata)}
 	default:
 		return nil, fmt.Errorf("unknown registry item metadata type: %T", item.Metadata)
 	}
@@ -184,26 +184,23 @@ type isRegistryItemMetadata interface {
 	isRegistryItemMetadata()
 }
 
-// RegistryItemModuleMetadata is a registry item's module metadata.
-type RegistryItemModuleMetadata struct {
+type registryItemModuleMetadata struct {
 	ModuleMetadata *ModuleMetadata
 }
 
-// RegistryItemMLModelMetadata is a registry item's ML model metadata.
-type RegistryItemMLModelMetadata struct {
+type registryItemMLModelMetadata struct {
 	MlModelMetadata *MLModelMetadata
 }
 
-// RegistryItemMLTrainingMetadata is a registry item's ML Training metadata.
-type RegistryItemMLTrainingMetadata struct {
+type registryItemMLTrainingMetadata struct {
 	MlTrainingMetadata *MLTrainingMetadata
 }
 
-func (*RegistryItemModuleMetadata) isRegistryItemMetadata() {}
+func (*registryItemModuleMetadata) isRegistryItemMetadata() {}
 
-func (*RegistryItemMLModelMetadata) isRegistryItemMetadata() {}
+func (*registryItemMLModelMetadata) isRegistryItemMetadata() {}
 
-func (*RegistryItemMLTrainingMetadata) isRegistryItemMetadata() {}
+func (*registryItemMLTrainingMetadata) isRegistryItemMetadata() {}
 
 // ModuleMetadata holds the metadata of a module.
 type ModuleMetadata struct {

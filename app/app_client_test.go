@@ -437,7 +437,7 @@ var (
 		},
 	}
 	siteURL  = "url"
-	metadata = RegistryItemMLTrainingMetadata{
+	metadata = registryItemMLTrainingMetadata{
 		MlTrainingMetadata: &MLTrainingMetadata{
 			Versions: []*MLTrainingVersion{
 				{
@@ -633,7 +633,7 @@ func mlTrainingMetadataToProto(md MLTrainingMetadata) *pb.MLTrainingMetadata {
 
 func registryItemToProto(item *RegistryItem) (*pb.RegistryItem, error) {
 	switch metadata := item.Metadata.(type) {
-	case *RegistryItemModuleMetadata:
+	case *registryItemModuleMetadata:
 		return &pb.RegistryItem{
 			ItemId:                         item.ItemID,
 			OrganizationId:                 item.OrganizationID,
@@ -651,7 +651,7 @@ func registryItemToProto(item *RegistryItem) (*pb.RegistryItem, error) {
 			CreatedAt:                      item.CreatedAt,
 			UpdatedAt:                      item.UpdatedAt,
 		}, nil
-	case *RegistryItemMLModelMetadata:
+	case *registryItemMLModelMetadata:
 		return &pb.RegistryItem{
 			ItemId:                         item.ItemID,
 			OrganizationId:                 item.OrganizationID,
@@ -669,7 +669,7 @@ func registryItemToProto(item *RegistryItem) (*pb.RegistryItem, error) {
 			CreatedAt:                      item.CreatedAt,
 			UpdatedAt:                      item.UpdatedAt,
 		}, nil
-	case *RegistryItemMLTrainingMetadata:
+	case *registryItemMLTrainingMetadata:
 		protoMetadata := mlTrainingMetadataToProto(*metadata.MlTrainingMetadata)
 		return &pb.RegistryItem{
 			ItemId:                         item.ItemID,
