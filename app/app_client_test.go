@@ -23,7 +23,6 @@ const (
 	organizationID2                = "organization_id_2"
 	email                          = "email"
 	userID                         = "user_id"
-	locationID                     = "location_id"
 	available                      = true
 	authorizationType              = "owner"
 	authorizationType2             = "operator"
@@ -39,9 +38,7 @@ const (
 	secretID                       = "secret_ids"
 	primary                        = true
 	robotCount                     = 1
-	robotID                        = "robot_id"
 	robotLocation                  = "robot_location"
-	partID                         = "part_id"
 	dnsName                        = "dns_name"
 	secret                         = "secret"
 	mainPart                       = false
@@ -302,20 +299,20 @@ var (
 		Secrets:          pbSecrets,
 		LastUpdated:      robotPart.LastUpdated,
 	}
-	pageToken       = "page_token"
-	levels          = []string{level}
-	start           = timestamppb.Timestamp{Seconds: 92, Nanos: 0}
-	end             = timestamppb.Timestamp{Seconds: 99, Nanos: 999}
-	limit     int64 = 2
-	source          = "source"
-	filter          = "filter"
-	time            = timestamppb.Timestamp{Seconds: 11, Nanos: 15}
-	caller          = map[string]interface{}{"name": name}
-	field           = map[string]interface{}{"key": "value"}
-	logEntry        = LogEntry{
+	pageToken        = "page_token"
+	levels           = []string{level}
+	start            = timestamppb.Timestamp{Seconds: 92, Nanos: 0}
+	end              = timestamppb.Timestamp{Seconds: 99, Nanos: 999}
+	int64Limit int64 = 2
+	source           = "source"
+	filter           = "filter"
+	timestamp        = timestamppb.Timestamp{Seconds: 11, Nanos: 15}
+	caller           = map[string]interface{}{"name": name}
+	field            = map[string]interface{}{"key": "value"}
+	logEntry         = LogEntry{
 		Host:       host,
 		Level:      level,
-		Time:       &time,
+		Time:       &timestamp,
 		LoggerName: loggerName,
 		Message:    message,
 		Caller:     &caller,
@@ -348,7 +345,7 @@ var (
 	robotPartHistoryEntry = RobotPartHistoryEntry{
 		Part:     partID,
 		Robot:    robotID,
-		When:     &time,
+		When:     &timestamp,
 		Old:      &robotPart,
 		EditedBy: &authenticatorInfo,
 	}
@@ -693,7 +690,7 @@ func registryItemToProto(item *RegistryItem) (*pb.RegistryItem, error) {
 	}
 }
 
-func createGrpcClient() *inject.AppServiceClient {
+func createAppGrpcClient() *inject.AppServiceClient {
 	return &inject.AppServiceClient{}
 }
 
@@ -726,7 +723,7 @@ func (c *mockUploadModuleFileClient) CloseAndRecv() (*pb.UploadModuleFileRespons
 }
 
 func TestAppClient(t *testing.T) {
-	grpcClient := createGrpcClient()
+	grpcClient := createAppGrpcClient()
 	client := AppClient{client: grpcClient}
 
 	t.Run("GetUserIDByEmail", func(t *testing.T) {
@@ -1242,7 +1239,7 @@ func TestAppClient(t *testing.T) {
 				NextPageToken: pageToken,
 			}, nil
 		}
-		logs, token, err := client.GetRobotPartLogs(context.Background(), partID, &filter, &pageToken, levels, &start, &end, &limit, &source)
+		logs, token, err := client.GetRobotPartLogs(context.Background(), partID, &filter, &pageToken, levels, &start, &end, &int64Limit, &source)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, token, test.ShouldEqual, pageToken)
 		test.That(t, logs, test.ShouldResemble, logEntries)
@@ -1528,7 +1525,7 @@ func TestAppClient(t *testing.T) {
 				NextPageToken: pageToken,
 			}, nil
 		}
-		resp, token, err := client.GetFragmentHistory(context.Background(), fragmentID, &pageToken, &limit)
+		resp, token, err := client.GetFragmentHistory(context.Background(), fragmentID, &pageToken, &int64Limit)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, token, test.ShouldEqual, pageToken)
 		test.That(t, resp, test.ShouldResemble, expectedHistory)

@@ -14,10 +14,10 @@ import (
 
 // ViamClient is a gRPC client for method calls to Viam app.
 type ViamClient struct {
-	conn      rpc.ClientConn
-	logger    logging.Logger
+	conn       rpc.ClientConn
+	logger     logging.Logger
 	dataClient *DataClient
-  appClient *AppClient
+	appClient  *AppClient
 }
 
 // Options has the options necessary to connect through gRPC.

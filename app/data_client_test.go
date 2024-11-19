@@ -16,27 +16,26 @@ import (
 )
 
 const (
-	componentName  = "component_name"
-	componentType  = "component_type"
-	method         = "method"
-	robotName      = "robot_name"
-	robotID        = "robot_id"
-	partName       = "part_name"
-	partID         = "part_id"
-	locationID     = "location_id"
-	organizationID = "organization_id"
-	password       = "password"
-	mimeType       = "mime_type"
-	uri            = "some.robot.uri"
-	bboxLabel      = "bbox_label"
-	tag            = "tag"
-	fileName       = "file_name"
-	fileExt        = "file_ext.ext"
-	datasetID      = "dataset_id"
-	binaryMetaID   = "binary_id"
-	mongodbURI     = "mongo_uri"
-	hostName       = "host_name"
-	last           = "last"
+	componentName = "component_name"
+	componentType = "component_type"
+	method        = "method"
+	robotName     = "robot_name"
+	robotID       = "robot_id"
+	partName      = "part_name"
+	partID        = "part_id"
+	locationID    = "location_id"
+	password      = "password"
+	mimeType      = "mime_type"
+	uri           = "some.robot.uri"
+	bboxLabel     = "bbox_label"
+	tag           = "tag"
+	fileName      = "file_name"
+	fileExt       = "file_ext.ext"
+	datasetID     = "dataset_id"
+	binaryMetaID  = "binary_id"
+	mongodbURI    = "mongo_uri"
+	hostName      = "host_name"
+	last          = "last"
 )
 
 var (
@@ -153,12 +152,12 @@ func dataRequestToProto(dataRequest DataRequest) *pb.DataRequest {
 	}
 }
 
-func createGrpcClient() *inject.DataServiceClient {
+func createDataGrpcClient() *inject.DataServiceClient {
 	return &inject.DataServiceClient{}
 }
 
 func TestDataClient(t *testing.T) {
-	grpcClient := createGrpcClient()
+	grpcClient := createDataGrpcClient()
 	client := DataClient{client: grpcClient}
 
 	captureInterval := CaptureInterval{
