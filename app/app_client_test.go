@@ -1232,7 +1232,7 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.Levels, test.ShouldResemble, levels)
 			test.That(t, in.Start, test.ShouldEqual, &start)
 			test.That(t, in.End, test.ShouldEqual, &end)
-			test.That(t, in.Limit, test.ShouldEqual, &limit)
+			test.That(t, in.Limit, test.ShouldEqual, &int64Limit)
 			test.That(t, in.Source, test.ShouldEqual, &source)
 			return &pb.GetRobotPartLogsResponse{
 				Logs:          []*common.LogEntry{&pbLogEntry},
@@ -1512,7 +1512,7 @@ func TestAppClient(t *testing.T) {
 		) (*pb.GetFragmentHistoryResponse, error) {
 			test.That(t, in.Id, test.ShouldEqual, fragmentID)
 			test.That(t, in.PageToken, test.ShouldResemble, &pageToken)
-			test.That(t, in.PageLimit, test.ShouldResemble, &limit)
+			test.That(t, in.PageLimit, test.ShouldResemble, &int64Limit)
 			return &pb.GetFragmentHistoryResponse{
 				History: []*pb.FragmentHistoryEntry{
 					{
