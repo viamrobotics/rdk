@@ -535,7 +535,7 @@ func (ftdc *FTDC) checkAndDeleteOldFiles() error {
 // filenameTimeRe matches the files produced by ftdc. Filename <-> regex parity is exercised by file
 // deletion testing. Filename generation uses padding such that we can rely on there before 2/4
 // digits for every numeric value.
-var filenameTimeRe = regexp.MustCompile("viam-server-(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2})-(\\d{2})-(\\d{2})Z.ftdc")
+var filenameTimeRe = regexp.MustCompile(`viam-server-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})Z.ftdc`)
 
 func parseTimeFromFilename(path string) (time.Time, error) {
 	allMatches := filenameTimeRe.FindAllStringSubmatch(path, -1)
