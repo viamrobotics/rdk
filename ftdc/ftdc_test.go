@@ -460,8 +460,9 @@ func TestFileDeletion(t *testing.T) {
 		}
 	}
 
+	// We created FTDC files by hand without the background deleter goroutine running. Assert that
+	// we have more than the max allowed. Otherwise the test will trivially "pass".
 	origFiles := getFTDCFiles(t, ftdc.ftdcDir, logger)
-
 	test.That(t, len(origFiles), test.ShouldBeGreaterThan, ftdc.maxNumFiles)
 	slices.SortFunc(origFiles, func(left, right fs.FileInfo) int {
 		// Sort in descending order. After deletion, the "leftmost" files should remain. The
@@ -473,6 +474,7 @@ func TestFileDeletion(t *testing.T) {
 		logger.Info("  ", f.Name(), " ModTime: ", f.ModTime())
 	}
 
+	// Delete excess FTDC files. Check that we now have exactly the max number of allowed files.
 	ftdc.checkAndDeleteOldFiles()
 	leftoverFiles := getFTDCFiles(t, ftdc.ftdcDir, logger)
 	test.That(t, len(leftoverFiles), test.ShouldEqual, ftdc.maxNumFiles)
@@ -486,10 +488,13 @@ func TestFileDeletion(t *testing.T) {
 		logger.Info("  ", f.Name(), " ModTime: ", f.ModTime())
 	}
 
+	// We've sorted both files in descending timestamp order as per their filename. Assert that the
+	// "newest original" files are still remaining.
 	for idx := 0; idx < len(leftoverFiles); idx++ {
 		test.That(t, leftoverFiles[idx].Name(), test.ShouldEqual, origFiles[idx].Name())
 	}
 
+	// And assert the "oldest original" files are no longer found.
 	for idx := len(leftoverFiles); idx < len(origFiles); idx++ {
 		// The `fs.FileInfo` returned by `os.Lstat` does not include the directory as part of its
 		// file name. Reconstitute the relative path before testing.

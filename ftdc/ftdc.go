@@ -480,23 +480,25 @@ type fileTime struct {
 }
 
 func (ftdc *FTDC) checkAndDeleteOldFiles() error {
-	ftdc.logger.Debug("Checking files.")
-
 	var files []fileTime
+
+	// Walk the `ftdcDir` and gather all of the found files into the captured `files` variable.
 	err := filepath.Walk(ftdc.ftdcDir, filepath.WalkFunc(func(path string, info fs.FileInfo, walkErr error) error {
 		if !strings.HasSuffix(path, ".ftdc") {
 			return nil
 		}
 
 		if walkErr != nil {
-			ftdc.logger.Info("Unexpected walk error. Continuing under the assumption any actual* problem will",
-				"be caught by the assertions. WalkErr:", walkErr)
+			ftdc.logger.Warnw("Unexpected walk error. Continuing under the assumption any actual* problem will",
+				"be caught by the assertions.", "err", walkErr)
 			return nil
 		}
 
 		parsedTime, err := parseTimeFromFilename(path)
 		if err == nil {
 			files = append(files, fileTime{path, parsedTime})
+		} else {
+			ftdc.logger.Warnw("Error parsing time from FTDC file", "filename", path)
 		}
 		return nil
 	}))
@@ -506,6 +508,7 @@ func (ftdc *FTDC) checkAndDeleteOldFiles() error {
 
 	if len(files) <= ftdc.maxNumFiles {
 		// We have yet to hit our file limit. Keep all of the files.
+		ftdc.logger.Debugw("Inside the budget for ftdc files", "numFiles", len(files), "maxNumFiles", ftdc.maxNumFiles)
 		return nil
 	}
 
@@ -518,6 +521,7 @@ func (ftdc *FTDC) checkAndDeleteOldFiles() error {
 	// If we, for example, have 30 files and we want to keep the newest 10, we delete the trailing
 	// 20 files.
 	for _, file := range files[ftdc.maxNumFiles:] {
+		ftdc.logger.Debugw("Deleting aged out FTDC file", "filename", file.name)
 		if err := os.Remove(file.name); err != nil {
 			ftdc.logger.Warnw("Error removing FTDC file", "filename", file.name)
 		}
