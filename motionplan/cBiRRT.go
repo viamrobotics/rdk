@@ -113,7 +113,6 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	seed map[string][]referenceframe.Input,
 	rrt *rrtParallelPlannerShared,
 ) {
-	fmt.Println("starting CBiRRT")
 	defer close(rrt.solutionChan)
 
 	// setup planner options

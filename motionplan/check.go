@@ -4,6 +4,8 @@
 package motionplan
 
 import (
+	"fmt"
+
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/logging"
@@ -144,14 +146,14 @@ func checkPlanRelative(
 	errorState := spatialmath.PoseBetween(expectedCurrentPose, currentPoseInWorld.Pose())
 	currentArcEndPose := spatialmath.Compose(expectedArcEndInWorld.Pose(), errorState)
 
-	segments := make([]*ik.SegmentFS, 0, len(plan.Path())-wayPointIdx)
+	segments := make([]*ik.Segment, 0, len(plan.Path())-wayPointIdx)
 	// pre-pend to segments so we can connect to the input we have not finished actuating yet
-	segments = append(segments, &ik.SegmentFS{
-		//~ StartPosition:      currentPoseInWorld.Pose(),
-		//~ EndPosition:        currentArcEndPose,
-		StartConfiguration: currentInputs,
-		EndConfiguration:   plan.Trajectory()[wayPointIdx],
-		FS:              sfPlanner.fss,
+	segments = append(segments, &ik.Segment{
+		StartPosition:      currentPoseInWorld.Pose(),
+		EndPosition:        currentArcEndPose,
+		StartConfiguration: frameCurrentInputs,
+		EndConfiguration:   plan.Trajectory()[wayPointIdx][checkFrame.Name()],
+		Frame:              checkFrame,
 	})
 
 	lastArcEndPose := currentArcEndPose
@@ -163,12 +165,12 @@ func checkPlanRelative(
 			return err
 		}
 		thisArcEndPose := spatialmath.Compose(thisArcEndPoseInWorld.Pose(), errorState)
-		segment := &ik.SegmentFS{
-			//~ StartPosition:      lastArcEndPose,
-			//~ EndPosition:        thisArcEndPose,
-			StartConfiguration: plan.Trajectory()[i-1],
-			EndConfiguration:   plan.Trajectory()[i],
-			FS:              sfPlanner.fss,
+		segment := &ik.Segment{
+			StartPosition:      lastArcEndPose,
+			EndPosition:        thisArcEndPose,
+			StartConfiguration: plan.Trajectory()[i-1][checkFrame.Name()],
+			EndConfiguration:   plan.Trajectory()[i][checkFrame.Name()],
+			Frame:              checkFrame,
 		}
 		lastArcEndPose = thisArcEndPose
 		segments = append(segments, segment)
@@ -176,7 +178,7 @@ func checkPlanRelative(
 	// TODO: remove when poses are fixed
 	_ = lastArcEndPose
 
-	return checkSegments(sfPlanner, segments, lookAheadDistanceMM)
+	return checkSegments(sfPlanner, segments, lookAheadDistanceMM, checkFrame)
 }
 
 func checkPlanAbsolute(
@@ -241,51 +243,113 @@ func checkPlanAbsolute(
 		segments = append(segments, segment)
 	}
 
-	return checkSegments(sfPlanner, segments, lookAheadDistanceMM)
+	return checkSegmentsFS(sfPlanner, segments, lookAheadDistanceMM)
 }
 
-func checkSegments(sfPlanner *planManager, segments []*ik.SegmentFS, lookAheadDistanceMM float64) error {
+func checkSegmentsFS(sfPlanner *planManager, segments []*ik.SegmentFS, lookAheadDistanceMM float64) error {
 	// go through segments and check that we satisfy constraints
 	// TODO(RSDK-5007): If we can make interpolate a method on Frame the need to write this out will be lessened and we should be
 	// able to call CheckStateConstraintsAcrossSegment directly.
-	//~ var totalTravelDistanceMM float64
-	//~ for _, segment := range segments {
-		//~ interpolatedConfigurations, err := interpolateSegmentFS(segment, sfPlanner.planOpts.Resolution)
-		//~ if err != nil {
-			//~ return err
-		//~ }
-		//~ for _, interpConfig := range interpolatedConfigurations {
-			//~ poseInPath, err := sfPlanner.frame.Transform(interpConfig)
-			//~ if err != nil {
-				//~ return err
-			//~ }
+	var totalTravelDistanceMM float64
+	for _, segment := range segments {
+		interpolatedConfigurations, err := interpolateSegmentFS(segment, sfPlanner.planOpts.Resolution)
+		if err != nil {
+			return err
+		}
 
-			//~ // Check if look ahead distance has been reached
-			//~ currentTravelDistanceMM := totalTravelDistanceMM + poseInPath.Point().Distance(segment.StartPosition.Point())
-			//~ if currentTravelDistanceMM > lookAheadDistanceMM {
-				//~ return nil
-			//~ }
+		for _, interpConfig := range interpolatedConfigurations {
+			poseInPath, err := sfPlanner.fss.Transform(
+				interpConfig,
+				referenceframe.NewZeroPoseInFrame(checkFrame.Name()),
+				parent.Name(),
+			)
+			if err != nil {
+				return err
+			}
 
-			//~ // define State which only houses inputs, pose information not needed since we cannot get arcs from
-			//~ // an interpolating poses, this would only yield a straight line.
-			//~ interpolatedState := &ik.StateFS{
-				//~ FS:         sfPlanner.fss,
-				//~ Configuration: interpConfig,
-			//~ }
+			// Check if look ahead distance has been reached
+			currentTravelDistanceMM := totalTravelDistanceMM + poseInPath.Point().Distance(segment.StartPosition.Point())
+			if currentTravelDistanceMM > lookAheadDistanceMM {
+				return nil
+			}
 
-			//~ // Checks for collision along the interpolated route and returns a the first interpolated pose where a collision is detected.
-			//~ if isValid, err := sfPlanner.planOpts.CheckStateConstraints(interpolatedState); !isValid {
-				//~ return fmt.Errorf("found constraint violation or collision in segment between %v and %v at %v: %s",
-					//~ segment.StartPosition.Point(),
-					//~ segment.EndPosition.Point(),
-					//~ poseInPath.Point(),
-					//~ err,
-				//~ )
-			//~ }
-		//~ }
+			// define State which only houses inputs, pose information not needed since we cannot get arcs from
+			// an interpolating poses, this would only yield a straight line.
+			interpolatedState := &ik.State{
+				Frame:         sfPlanner.fss.Frame(checkFrame),
+				Configuration: interpConfig[checkFrame],
+				Position: poseInPath.Pose(),
+			}
 
-		//~ // Update total traveled distance after segment has been checked
-		//~ totalTravelDistanceMM += segment.EndPosition.Point().Distance(segment.StartPosition.Point())
-	//~ }
+			// Checks for collision along the interpolated route and returns a the first interpolated pose where a collision is detected.
+			if isValid, err := sfPlanner.planOpts.CheckStateConstraints(interpolatedState); !isValid {
+				return fmt.Errorf("found constraint violation or collision in segment between %v and %v at %v: %s",
+					segment.StartPosition.Point(),
+					segment.EndPosition.Point(),
+					poseInPath.Point(),
+					err,
+				)
+			}
+		}
+
+		// Update total traveled distance after segment has been checked
+		totalTravelDistanceMM += segment.EndPosition.Point().Distance(segment.StartPosition.Point())
+	}
+	return nil
+}
+
+// TODO: Remove this function
+func checkSegments(sfPlanner *planManager, segments []*ik.Segment, lookAheadDistanceMM float64, checkFrame referenceframe.Frame) error {
+	// go through segments and check that we satisfy constraints
+	// TODO(RSDK-5007): If we can make interpolate a method on Frame the need to write this out will be lessened and we should be
+	// able to call CheckStateConstraintsAcrossSegment directly.
+	var totalTravelDistanceMM float64
+	for _, segment := range segments {
+		interpolatedConfigurations, err := interpolateSegmentFS(segment, sfPlanner.planOpts.Resolution)
+		if err != nil {
+			return err
+		}
+		parent, err := sfPlanner.fss.Parent(checkFrame)
+		if err != nil {
+			return err
+		}
+		for _, interpConfig := range interpolatedConfigurations {
+			poseInPath, err := sfPlanner.fss.Transform(
+				interpConfig,
+				referenceframe.NewZeroPoseInFrame(checkFrame.Name()),
+				parent.Name(),
+			)
+			if err != nil {
+				return err
+			}
+
+			// Check if look ahead distance has been reached
+			currentTravelDistanceMM := totalTravelDistanceMM + poseInPath.Point().Distance(segment.StartPosition.Point())
+			if currentTravelDistanceMM > lookAheadDistanceMM {
+				return nil
+			}
+
+			// define State which only houses inputs, pose information not needed since we cannot get arcs from
+			// an interpolating poses, this would only yield a straight line.
+			interpolatedState := &ik.State{
+				Frame:         sfPlanner.fss.Frame(checkFrame),
+				Configuration: interpConfig[checkFrame],
+				Position: poseInPath.Pose(),
+			}
+
+			// Checks for collision along the interpolated route and returns a the first interpolated pose where a collision is detected.
+			if isValid, err := sfPlanner.planOpts.CheckStateConstraints(interpolatedState); !isValid {
+				return fmt.Errorf("found constraint violation or collision in segment between %v and %v at %v: %s",
+					segment.StartPosition.Point(),
+					segment.EndPosition.Point(),
+					poseInPath.Point(),
+					err,
+				)
+			}
+		}
+
+		// Update total traveled distance after segment has been checked
+		totalTravelDistanceMM += segment.EndPosition.Point().Distance(segment.StartPosition.Point())
+	}
 	return nil
 }

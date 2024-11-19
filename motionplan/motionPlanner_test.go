@@ -140,10 +140,18 @@ func constrainedXArmMotion() (*planConfig, error) {
 	opt.goalMetricConstructor = orientMetric
 	opt.SetPathMetric(oFuncMet)
 	opt.AddStateConstraint("orientation", orientConstraint)
+	
+	start := map[string][]frame.Input{model.Name(): home7}
+	goal := PathStep{model.Name(): frame.NewPoseInFrame(frame.World, pos)}
+	startPose, err := fs.Transform(start, frame.NewZeroPoseInFrame(model.Name()), goal[model.Name()].Parent())
+	if err != nil {
+		return nil, err
+	}
+	opt.fillMotionChains(fs, PathStep{model.Name(): startPose.(*frame.PoseInFrame)}, goal)
 
 	return &planConfig{
-		Start:   map[string][]frame.Input{model.Name(): home7},
-		Goal:    PathStep{model.Name(): frame.NewPoseInFrame(frame.World, pos)},
+		Start:   start,
+		Goal:    goal,
 		FS:      fs,
 		Options: opt,
 	}, nil
@@ -271,6 +279,11 @@ func simple2DMap() (*planConfig, error) {
 	for name, constraint := range collisionConstraints {
 		opt.AddStateConstraint(name, constraint)
 	}
+	startPose, err := fs.Transform(startInput, frame.NewZeroPoseInFrame(model.Name()), goal[model.Name()].Parent())
+	if err != nil {
+		return nil, err
+	}
+	opt.fillMotionChains(fs, PathStep{model.Name(): startPose.(*frame.PoseInFrame)}, goal)	
 
 	return &planConfig{
 		Start:   startInput,
@@ -336,9 +349,15 @@ func simpleXArmMotion() (*planConfig, error) {
 	for name, constraint := range fsCollisionConstraints {
 		opt.AddStateFSConstraint(name, constraint)
 	}
+	start := map[string][]frame.Input{xarm.Name(): home7}
+	startPose, err := fs.Transform(start, frame.NewZeroPoseInFrame(xarm.Name()), goal[xarm.Name()].Parent())
+	if err != nil {
+		return nil, err
+	}
+	opt.fillMotionChains(fs, PathStep{xarm.Name(): startPose.(*frame.PoseInFrame)}, goal)
 
 	return &planConfig{
-		Start:   map[string][]frame.Input{xarm.Name(): home7},
+		Start:   start,
 		Goal:    goal,
 		FS:      fs,
 		Options: opt,
@@ -400,9 +419,15 @@ func simpleUR5eMotion() (*planConfig, error) {
 	for name, constraint := range fsCollisionConstraints {
 		opt.AddStateFSConstraint(name, constraint)
 	}
+	start := map[string][]frame.Input{ur5e.Name(): home6}
+	startPose, err := fs.Transform(start, frame.NewZeroPoseInFrame(ur5e.Name()), goal[ur5e.Name()].Parent())
+	if err != nil {
+		return nil, err
+	}
+	opt.fillMotionChains(fs, PathStep{ur5e.Name(): startPose.(*frame.PoseInFrame)}, goal)
 
 	return &planConfig{
-		Start:   map[string][]frame.Input{ur5e.Name(): home6},
+		Start:   start,
 		Goal:    goal,
 		FS:      fs,
 		Options: opt,

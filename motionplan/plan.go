@@ -98,16 +98,17 @@ func (traj Trajectory) String() string {
 // EvaluateCost calculates a cost to a trajectory as measured by the given distFunc Metric.
 func (traj Trajectory) EvaluateCost(distFunc ik.SegmentFSMetric) float64 {
 	var totalCost float64
-
+	last := map[string][]referenceframe.Input{}
 	for i, step := range traj {
-		if i == 0 {
-			continue
-
+		if i != 0 {
 			cost := distFunc(&ik.SegmentFS{
-				StartConfiguration: traj[i-1],
+				StartConfiguration: last,
 				EndConfiguration:   step,
 			})
 			totalCost += cost
+		}
+		for k, v := range step {
+			last[k] = v
 		}
 	}
 	return totalCost

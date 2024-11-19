@@ -426,13 +426,11 @@ IK:
 			if err != nil {
 				return nil, err
 			}
-			fmt.Println("stepSolution.Configuration", step)
-			step = mp.nonchainMinimize(seed, step)
-			fmt.Println("minimized", step)
-			if step == nil {
-				continue IK
+			alteredStep := mp.nonchainMinimize(seed, step)
+			if alteredStep != nil {
+				// if nil, step is guaranteed to fail the below check, but we want to do it anyway to capture the failure reason
+				step = alteredStep
 			}
-			fmt.Println("minimized nonnil", step)
 			// Ensure the end state is a valid one
 			statePass, failName := mp.planOpts.CheckStateFSConstraints(&ik.StateFS{
 				Configuration: step,
@@ -447,7 +445,6 @@ IK:
 				arcPass, failName := mp.planOpts.CheckSegmentFSConstraints(stepArc)
 
 				if arcPass {
-					fmt.Println("PASS")
 					score := mp.planOpts.confDistanceFunc(stepArc)
 					if score < mp.planOpts.MinScore && mp.planOpts.MinScore > 0 {
 						solutions = map[float64]map[string][]referenceframe.Input{}
@@ -557,12 +554,10 @@ func (mp *planner) nonchainMinimize(seed, step map[string][]referenceframe.Input
 	for _, frame := range nonmoving {
 		alteredStep[frame] = seed[frame]
 	}
-	fmt.Println("alteredStep", alteredStep)
 	if mp.checkInputs(alteredStep) {
 		return alteredStep
 	}
 	if mp.checkInputs(step) {
-		fmt.Println("STEP OK")
 	}
 	// Failing constraints with nonmoving frames at seed. Find the closest passing configuration to seed.
 	

@@ -43,10 +43,9 @@ func TestEvaluateTrajectory(t *testing.T) {
 	score = plan.EvaluateCost(ik.FSConfigurationL2Distance)
 	test.That(t, score, test.ShouldAlmostEqual, math.Sqrt(27)*2+3)
 
-	// Evaluated with the tp-space metric, should be the sum of the distance values (third input) ignoring the first input set for each
-	// named input set
-	score = plan.EvaluateCost(tpspace.NewPTGDistanceMetric(""))
-	test.That(t, score, test.ShouldAlmostEqual, 18)
+	// Evaluated with the tp-space metric, should be the sum of the distance values (third input) ignoring the first input step
+	score = plan.EvaluateCost(tpspace.NewPTGDistanceMetric([]string{"", "test"}))
+	test.That(t, score, test.ShouldAlmostEqual, 22)
 }
 
 func TestPlanStep(t *testing.T) {

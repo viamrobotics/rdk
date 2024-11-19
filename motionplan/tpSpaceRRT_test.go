@@ -50,7 +50,7 @@ func TestPtgRrtBidirectional(t *testing.T) {
 
 	opt := newBasicPlannerOptions()
 	opt.poseDistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
-	opt.scoreFunc = tpspace.NewPTGDistanceMetric(ackermanFrame.Name())
+	opt.scoreFunc = tpspace.NewPTGDistanceMetric([]string{ackermanFrame.Name()})
 	opt.PlannerConstructor = newTPSpaceMotionPlanner
 	opt.relativeInputs = true
 	opt.startPoses = PathStep{
@@ -140,7 +140,7 @@ func TestPtgWithObstacle(t *testing.T) {
 	opt.relativeInputs = true
 	opt.startPoses = startMap
 	opt.setGoal(goalMap)
-	opt.scoreFunc = tpspace.NewPTGDistanceMetric(ackermanFrame.Name())
+	opt.scoreFunc = tpspace.NewPTGDistanceMetric([]string{ackermanFrame.Name()})
 	opt.fillMotionChains(fs, startMap, goalMap)
 
 	// Create collision constraints
@@ -229,7 +229,7 @@ func TestTPsmoothing(t *testing.T) {
 	// Initialize planner options
 	opt := newBasicPlannerOptions()
 	opt.poseDistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
-	opt.scoreFunc = tpspace.NewPTGDistanceMetric(ackermanFrame.Name())
+	opt.scoreFunc = tpspace.NewPTGDistanceMetric([]string{ackermanFrame.Name()})
 	opt.PlannerConstructor = newTPSpaceMotionPlanner
 	opt.relativeInputs = true
 	

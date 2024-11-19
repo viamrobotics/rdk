@@ -473,9 +473,6 @@ func (pm *planManager) planParallelRRTMotion(
 
 	select {
 	case finalSteps := <-plannerChan:
-		fmt.Println("finalSteps steps", finalSteps.steps)
-		fmt.Println("finalSteps err", finalSteps.err)
-		fmt.Println("finalSteps", finalSteps)
 		// We didn't get a solution preview (possible error), so we get and process the full step set and error.
 
 		mapSeed := finalSteps.maps
@@ -605,18 +602,19 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	// create motion chains for each goal, and error check for PTG frames
 	// TODO: currently, if any motion chain has a PTG frame, that must be the only motion chain and that frame must be the only
 	// frame in the chain with nonzero DoF
+	pm.useTPspace = false
 	for _, chain := range opt.motionChains {
 		for _, movingFrame := range chain.frames {
 			if _, isPTGframe := movingFrame.(tpspace.PTGProvider); isPTGframe {
 				if pm.useTPspace {
 					return nil, errors.New("only one PTG frame can be planned for at a time")
 				}
-				if len(opt.motionChains) > 0 {
+				if len(opt.motionChains) > 1 {
 					return nil, errMixedFrameTypes
 				}
 				pm.useTPspace = true
 				pm.ptgFrameName = movingFrame.Name()
-			} else {
+			} else if len(movingFrame.DoF()) > 0{
 				if pm.useTPspace {
 					return nil, errMixedFrameTypes
 				}
@@ -642,7 +640,12 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 			}
 		}
 		if !moving {
-			staticRobotGeometries = append(staticRobotGeometries, geometries.Geometries()...)
+			// Non-motion-chain frames with nonzero DoF can still move out of the way
+			if len(pm.fss.Frame(name).DoF()) > 0 {
+				movingRobotGeometries = append(movingRobotGeometries, geometries.Geometries()...)
+			} else {
+				staticRobotGeometries = append(staticRobotGeometries, geometries.Geometries()...)
+			}
 		}
 	}
 
@@ -782,7 +785,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		opt.poseDistanceFunc = ik.NewSquaredNormSegmentMetric(defaultTPspaceOrientationScale)
 		// If we have PTGs, then we calculate distances using the PTG-specific distance function.
 		// Otherwise we just use squared norm on inputs.
-		opt.scoreFunc = tpspace.NewPTGDistanceMetric(pm.ptgFrameName)
+		opt.scoreFunc = tpspace.NewPTGDistanceMetric([]string{pm.ptgFrameName})
 
 		planAlg = "tpspace"
 		opt.relativeInputs = true
@@ -802,7 +805,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 				return nil, err
 			}
 
-			try1Opt.Fallback = nil
+			try1Opt.Fallback = opt
 			opt = try1Opt
 		}
 	}
