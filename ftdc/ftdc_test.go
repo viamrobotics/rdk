@@ -519,11 +519,6 @@ func getFTDCFiles(t *testing.T, dir string, logger logging.Logger) []fs.FileInfo
 			return nil
 		}
 
-		info, lStatErr := os.Lstat(path)
-		if lStatErr != nil {
-			return lStatErr
-		}
-
 		ret = append(ret, info)
 		return nil
 	}))
