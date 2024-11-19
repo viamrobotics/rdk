@@ -167,3 +167,4 @@ func DoFromResourceServer(
 	}
 	return &commonpb.DoCommandResponse{Result: pbRes}, nil
 }
+

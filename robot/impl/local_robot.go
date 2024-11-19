@@ -1482,13 +1482,27 @@ func (r *localRobot) Shutdown(ctx context.Context) error {
 func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
 	var result robot.MachineStatus
 
-	result.Resources = append(result.Resources, r.manager.resources.Status()...)
+	remoteMachineStatus:=r.manager.getRemoteMachineStatus(ctx)
+
+	result.Resources = append(result.Resources,remoteMachineStatus...)
+	result.Resources = append(result.Resources, r.createLocalStatus(ctx)...)
 
 	r.configRevisionMu.RLock()
 	result.Config = r.configRevision
 	r.configRevisionMu.RUnlock()
 
 	return result, nil
+}
+
+func (r *localRobot) createLocalStatus(ctx context.Context)[]resource.Status {
+	var returnStatuses []resource.Status
+	localMetaData, _ :=r.CloudMetadata(ctx)
+	for _,resourceStatus:= range r.manager.resources.Status(){
+		if resourceStatus.Name.Remote==""{
+			returnStatuses = append(returnStatuses, resource.Status{NodeStatus:resourceStatus, CloudMetadata:localMetaData})
+	}
+	}
+	return returnStatuses
 }
 
 // Version returns version information about the robot.

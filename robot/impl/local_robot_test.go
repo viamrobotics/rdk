@@ -20,6 +20,7 @@ import (
 	"github.com/golang/geo/r3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -3373,8 +3374,8 @@ func (m *mockResource) Reconfigure(
 
 // getExpectedDefaultStatuses returns a slice of default [resource.Status] with a given
 // revision set for motion and sensor services.
-func getExpectedDefaultStatuses(revision string) []resource.Status {
-	return []resource.Status{
+func getExpectedDefaultStatuses(revision string) []resource.NodeStatus {
+	return []resource.NodeStatus{
 		{
 			Name: resource.Name{
 				API:  resource.APINamespaceRDKInternal.WithServiceType("framesystem"),
@@ -3451,7 +3452,7 @@ func TestMachineStatus(t *testing.T) {
 		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev2)
 		expectedStatuses := rtestutils.ConcatResourceStatuses(
 			getExpectedDefaultStatuses(rev2),
-			[]resource.Status{
+			[]resource.NodeStatus{
 				{
 					Name:     mockNamed("m"),
 					State:    resource.NodeStateReady,

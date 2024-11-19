@@ -1097,9 +1097,12 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 	mStatus.Resources = make([]resource.Status, 0, len(resp.Resources))
 	for _, pbResStatus := range resp.Resources {
 		resStatus := resource.Status{
+			NodeStatus: resource.NodeStatus{
 			Name:        rprotoutils.ResourceNameFromProto(pbResStatus.Name),
 			LastUpdated: pbResStatus.LastUpdated.AsTime(),
 			Revision:    pbResStatus.Revision,
+			},
+			CloudMetadata: cloud.CloudMetadataFromProto(pbResStatus.CloudMetadata),
 		}
 
 		switch pbResStatus.State {

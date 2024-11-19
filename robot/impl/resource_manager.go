@@ -1445,3 +1445,33 @@ func remoteDialOptions(config config.Remote, opts resourceManagerOptions) []rpc.
 	}
 	return dialOpts
 }
+
+func (manager *resourceManager) getRemoteMachineStatus(ctx context.Context) []resource.Status {
+	var machineStatusArray []resource.Status
+	for _, resName := range manager.resources.FindNodesByAPI(client.RemoteAPI) {
+		gNode, _ := manager.resources.Node(resName)
+		switch resName.API {
+		case client.RemoteAPI:
+			res, err:= gNode.Resource()
+			if err !=nil{
+				manager.logger.Error("error getting underlying remote:%s resource", resName.Name)
+				continue
+			}
+			remote:= res.(internalRemoteRobot)
+			machineStatus, err:=remote.MachineStatus(ctx)
+			if err!=nil {
+				manager.logger.Errorf("error getting remote:%s machineStatus",resName.Name)
+				continue
+			}
+			// Resources come back with the wrong remote name since they are grabbed from the remote themselves
+			// We need to add that information back
+			for _,resource:= range machineStatus.Resources{
+				resource.Name.Remote = resource.Name.Remote+":"+res.Name().Name
+			}
+			machineStatusArray=append(machineStatusArray, machineStatus.Resources...)
+		default:
+			manager.logger.Error("config is not a remote config")
+		}
+	}
+	return machineStatusArray
+}

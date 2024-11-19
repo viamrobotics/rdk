@@ -695,11 +695,11 @@ func (g *Graph) MarkReachability(node Name, reachable bool) error {
 }
 
 // Status returns a slice of all graph node statuses.
-func (g *Graph) Status() []Status {
+func (g *Graph) Status() []NodeStatus {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
-	var result []Status
+	var result []NodeStatus
 	for _, node := range g.nodes {
 		result = append(result, node.ResourceStatus())
 	}

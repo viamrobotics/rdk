@@ -24,6 +24,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
@@ -508,12 +509,11 @@ func (s *Server) Shutdown(ctx context.Context, _ *pb.ShutdownRequest) (*pb.Shutd
 // GetMachineStatus returns the current status of the robot.
 func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusRequest) (*pb.GetMachineStatusResponse, error) {
 	var result pb.GetMachineStatusResponse
-
+	
 	mStatus, err := s.robot.MachineStatus(ctx)
 	if err != nil {
 		return nil, err
 	}
-
 	result.Config = &pb.ConfigStatus{
 		Revision:    mStatus.Config.Revision,
 		LastUpdated: timestamppb.New(mStatus.Config.LastUpdated),
@@ -524,6 +524,7 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 			Name:        protoutils.ResourceNameToProto(resStatus.Name),
 			LastUpdated: timestamppb.New(resStatus.LastUpdated),
 			Revision:    resStatus.Revision,
+			CloudMetadata: cloud.CloudMetadataToProto(resStatus.CloudMetadata),
 		}
 
 		switch resStatus.State {
@@ -564,3 +565,28 @@ func (s *Server) GetVersion(ctx context.Context, _ *pb.GetVersionRequest) (*pb.G
 		ApiVersion: result.APIVersion,
 	}, nil
 }
+
+func (s *Server) convertToGetCloudMetadataResponse(ctx context.Context, remoteMetaData *map[string]cloud.Metadata) map[string]*pb.GetCloudMetadataResponse{
+	returnMetaData:= make(map[string]*pb.GetCloudMetadataResponse)
+	localMetaData, _:=s.robot.CloudMetadata(ctx)
+	returnMetaData[""] = &pb.GetCloudMetadataResponse{
+		MachinePartId: localMetaData.MachinePartID,
+		MachineId: localMetaData.MachineID,
+		PrimaryOrgId: localMetaData.PrimaryOrgID,
+		LocationId: localMetaData.LocationID,
+	}
+
+	for remoteName,remoteVal:= range *remoteMetaData {
+		s.robot.Logger().Error(remoteName)
+		s.robot.Logger().Error(remoteVal)
+		returnMetaData[remoteName] = &pb.GetCloudMetadataResponse{
+			MachinePartId: remoteVal.MachinePartID,
+			MachineId: remoteVal.MachineID,
+			PrimaryOrgId: remoteVal.PrimaryOrgID,
+			LocationId: remoteVal.LocationID,
+		}
+	}
+	
+	return returnMetaData
+}
+
