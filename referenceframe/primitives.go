@@ -79,7 +79,7 @@ func GetFrameInputs(frame Frame, inputMap map[string][]Input) ([]Input, error) {
 	return input, nil
 }
 
-// InputsL2Distance returns the square of the two-norm (the sqrt of the sum of the squares) between two Input sets
+// InputsL2Distance returns the square of the two-norm (the sqrt of the sum of the squares) between two Input sets.
 func InputsL2Distance(from, to []Input) float64 {
 	if len(from) != len(to) {
 		return math.Inf(1)

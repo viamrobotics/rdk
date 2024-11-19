@@ -29,7 +29,7 @@ const (
 type cbirrtOptions struct {
 	// Number of IK solutions with which to seed the goal side of the bidirectional tree.
 	SolutionsToSeed int `json:"solutions_to_seed"`
-	
+
 	// This is how far cbirrt will try to extend the map towards a goal per-step. Determined from FrameStep
 	qstep map[string][]float64
 }
@@ -151,13 +151,13 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	defer close(m1chan)
 	defer close(m2chan)
 
-	//~ seedPos, err := mp.frame.Transform(seed)
+	// ~ seedPos, err := mp.frame.Transform(seed)
 	//~ if err != nil {
 	//~ rrt.solutionChan <- &rrtSolution{err: err}
 	//~ return
 	//~ }
 
-	//~ mp.logger.CDebugf(ctx,
+	// ~ mp.logger.CDebugf(ctx,
 	//~ "running CBiRRT from start pose %v with start map of size %d and goal map of size %d",
 	//~ spatialmath.PoseToProtobuf(seedPos),
 	//~ len(rrt.maps.startMap),
@@ -377,7 +377,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		if err != nil {
 			return nil
 		}
-		
+
 		// Spawn the IK solver to generate solutions until done
 		err = mp.fastGradDescent.Solve(ctx, solutionGen, linearSeed, mp.linearizeFSmetric(mp.planOpts.pathMetric), randseed.Int())
 		// We should have zero or one solutions

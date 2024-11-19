@@ -481,7 +481,7 @@ func StartPositions(fs FrameSystem) map[string][]Input {
 	return positions
 }
 
-// InterpolateFS interpolates
+// InterpolateFS interpolates.
 func InterpolateFS(fs FrameSystem, from, to map[string][]Input, by float64) (map[string][]Input, error) {
 	interp := make(map[string][]Input)
 	for fn, fromInputs := range from {

@@ -2,10 +2,10 @@ package motionplan
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"math/rand"
 	"testing"
-	"fmt"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -111,7 +111,6 @@ func constrainedXArmMotion() (*planConfig, error) {
 
 	oFunc := ik.OrientDistToRegion(pos.Orientation(), 0.1)
 	oFuncMet := func(from *ik.StateFS) float64 {
-
 		if err != nil {
 			return math.Inf(1)
 		}
@@ -140,7 +139,7 @@ func constrainedXArmMotion() (*planConfig, error) {
 	opt.goalMetricConstructor = orientMetric
 	opt.SetPathMetric(oFuncMet)
 	opt.AddStateConstraint("orientation", orientConstraint)
-	
+
 	start := map[string][]frame.Input{model.Name(): home7}
 	goal := PathStep{model.Name(): frame.NewPoseInFrame(frame.World, pos)}
 	startPose, err := fs.Transform(start, frame.NewZeroPoseInFrame(model.Name()), goal[model.Name()].Parent())
@@ -283,7 +282,7 @@ func simple2DMap() (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	opt.fillMotionChains(fs, PathStep{model.Name(): startPose.(*frame.PoseInFrame)}, goal)	
+	opt.fillMotionChains(fs, PathStep{model.Name(): startPose.(*frame.PoseInFrame)}, goal)
 
 	return &planConfig{
 		Start:   startInput,

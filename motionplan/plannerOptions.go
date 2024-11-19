@@ -122,10 +122,10 @@ func newBasicPlannerOptions() *plannerOptions {
 // plannerOptions are a set of options to be passed to a planner which will specify how to solve a motion planning problem.
 type plannerOptions struct {
 	ConstraintHandler
-	motionChains []*motionChain
+	motionChains          []*motionChain
 	goalMetricConstructor func(spatialmath.Pose) ik.StateMetric
-	goalMetric            ik.StateFSMetric // Distance function which converges to the final goal position
-	pathMetric            ik.StateFSMetric // Distance function which converges on the valid manifold of intermediate path states
+	goalMetric            ik.StateFSMetric         // Distance function which converges to the final goal position
+	pathMetric            ik.StateFSMetric         // Distance function which converges on the valid manifold of intermediate path states
 	nodeDistanceFunc      func(node, node) float64 // Node distance function used for nearest neighbor
 
 	extra map[string]interface{}
@@ -208,9 +208,9 @@ func (p *plannerOptions) setGoal(goal PathStep) {
 				score += math.Inf(1)
 			}
 			score += goalMetric(&ik.State{
-				Position: currPose.(*referenceframe.PoseInFrame).Pose(),
+				Position:      currPose.(*referenceframe.PoseInFrame).Pose(),
 				Configuration: state.Configuration[frame],
-				Frame: state.FS.Frame(frame),
+				Frame:         state.FS.Frame(frame),
 			})
 		}
 		return score
@@ -241,7 +241,6 @@ func (p *plannerOptions) addPbTopoConstraints(
 	from, to PathStep,
 	constraints *Constraints,
 ) (bool, error) {
-	
 	topoConstraints := false
 	for _, linearConstraint := range constraints.GetLinearConstraint() {
 		topoConstraints = true
@@ -309,9 +308,9 @@ func (p *plannerOptions) addOrientationConstraints(
 	return nil
 }
 
-func (p *plannerOptions) fillMotionChains(fs referenceframe.FrameSystem, from, to PathStep) (error) {
+func (p *plannerOptions) fillMotionChains(fs referenceframe.FrameSystem, from, to PathStep) error {
 	motionChains := make([]*motionChain, 0, len(to))
-	
+
 	for frame, goal := range to {
 		chain, err := motionChainFromGoal(fs, frame, goal)
 		if err != nil {

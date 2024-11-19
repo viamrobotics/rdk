@@ -323,7 +323,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	var randPosNode node = midptNode
 
 	for iter := 0; iter < mp.planOpts.PlanIter; iter++ {
-	//~ for iter := 0; iter < 2; iter++ {
+		//~ for iter := 0; iter < 2; iter++ {
 		if pathdebug {
 			randPose := mp.pathStepToPose(randPosNode.Poses())
 			mp.logger.Debugf("$RRTGOAL,%f,%f", randPose.Point().X, randPose.Point().Y)
@@ -723,9 +723,9 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 			// Reached the goal position, or otherwise failed to fully extend to the end of a trajectory
 			return &nodeAndError{endNode, nil}
 		}
-		//~ if i == 0 {
-			//~ // TP-space distance is NOT the same thing as cartesian distance, but they track sufficiently well that this is valid to do.
-			//~ maxReseeds = int(math.Min(float64(defaultMaxReseeds), math.Ceil(distToGoal/(distTravelledByCandidate/4))+2))
+		// ~ if i == 0 {
+		//~ // TP-space distance is NOT the same thing as cartesian distance, but they track sufficiently well that this is valid to do.
+		//~ maxReseeds = int(math.Min(float64(defaultMaxReseeds), math.Ceil(distToGoal/(distTravelledByCandidate/4))+2))
 		//~ }
 		// If our most recent traj was not a full-length extension, try to extend one more time and then return our best node.
 		// This helps prevent the planner from doing a 15-point turn to adjust orientation, which is very difficult to accurately execute.
@@ -810,11 +810,11 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 			if sinceLastNode > mp.algOpts.addNodeEvery {
 				// add the last node in trajectory
 				addedNode = &basicNode{
-					q:      map[string][]referenceframe.Input{
+					q: map[string][]referenceframe.Input{
 						mp.tpFrame.Name(): referenceframe.FloatsToInputs([]float64{float64(ptgNum), randAlpha, 0, trajPt.Dist}),
 					},
 					cost:   trajPt.Dist,
-					poses:   mp.poseToPathStep(trajState.Position),
+					poses:  mp.poseToPathStep(trajState.Position),
 					corner: false,
 				}
 				rrt[addedNode] = treeNode
@@ -896,7 +896,7 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGS
 	opts.nodeDistanceFunc = func(node1, node2 node) float64 {
 		return segMetric(&ik.Segment{
 			StartPosition: mp.pathStepToPose(node1.Poses()),
-			EndPosition: mp.pathStepToPose(node2.Poses()),
+			EndPosition:   mp.pathStepToPose(node2.Poses()),
 		})
 	}
 	return opts, &m
@@ -1079,7 +1079,7 @@ func rectifyTPspacePath(path []node, frame referenceframe.Frame, startPose spati
 	correctedPath := []node{}
 	runningPose := startPose
 	for _, wp := range path {
-		wpPose, err := frame.Transform(wp.Q()[frame.Name()] )
+		wpPose, err := frame.Transform(wp.Q()[frame.Name()])
 		if err != nil {
 			return nil, err
 		}
@@ -1115,7 +1115,7 @@ func extractTPspacePath(fName string, startMap, goalMap map[node]node, pair *nod
 						fName: {{0}, {0}, {0}, {0}},
 					},
 					cost:   startReached.Cost(),
-					poses:   startReached.Poses(),
+					poses:  startReached.Poses(),
 					corner: startReached.Corner(),
 				})
 		} else {
@@ -1140,7 +1140,7 @@ func extractTPspacePath(fName string, startMap, goalMap map[node]node, pair *nod
 					fName: {{0}, {0}, {0}, {0}},
 				},
 				cost:   goalReached.Cost(),
-				poses:   PathStep{fName: referenceframe.NewPoseInFrame(goalPiF.Parent(), spatialmath.Compose(goalPiF.Pose(), flipPose))},
+				poses:  PathStep{fName: referenceframe.NewPoseInFrame(goalPiF.Parent(), spatialmath.Compose(goalPiF.Pose(), flipPose))},
 				corner: goalReached.Corner(),
 			}
 		} else {
@@ -1154,7 +1154,7 @@ func extractTPspacePath(fName string, startMap, goalMap map[node]node, pair *nod
 					},
 				},
 				cost:   goalReached.Cost(),
-				poses:   PathStep{fName: referenceframe.NewPoseInFrame(goalPiF.Parent(), spatialmath.Compose(goalPiF.Pose(), flipPose))},
+				poses:  PathStep{fName: referenceframe.NewPoseInFrame(goalPiF.Parent(), spatialmath.Compose(goalPiF.Pose(), flipPose))},
 				corner: goalReached.Corner(),
 			}
 		}
@@ -1171,7 +1171,7 @@ func flipNodePoses(n node) node {
 	for f, pif := range n.Poses() {
 		flippedPoses[f] = referenceframe.NewPoseInFrame(pif.Parent(), spatialmath.Compose(pif.Pose(), flipPose))
 	}
-	
+
 	return &basicNode{
 		q:      n.Q(),
 		cost:   n.Cost(),

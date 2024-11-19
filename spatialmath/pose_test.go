@@ -175,6 +175,7 @@ func BenchmarkPoseBetween(b *testing.B) {
 }
 
 var result Pose
+
 func BenchmarkCompose(b *testing.B) {
 	r := rand.New(rand.NewSource(517))
 	var x Pose

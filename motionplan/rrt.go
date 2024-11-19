@@ -67,7 +67,7 @@ func (maps *rrtMaps) fillPosOnlyGoal(goal PathStep, posSeeds int) error {
 				spatialmath.NewPose(goal.Pose().Point(), &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: float64(i) * thetaStep}),
 			)
 		}
-		
+
 		goalNode := &basicNode{
 			q:     make(map[string][]referenceframe.Input),
 			poses: newMap,
@@ -177,7 +177,7 @@ type node interface {
 type basicNode struct {
 	q      map[string][]referenceframe.Input
 	cost   float64
-	poses   PathStep
+	poses  PathStep
 	corner bool
 }
 
@@ -305,7 +305,7 @@ func newRRTPlan(solution []node, fss referenceframe.FrameSystem, relative bool, 
 	var plan Plan
 	plan = &rrtPlan{SimplePlan: *NewSimplePlan(path, traj), nodes: solution}
 	if relative {
-		// TODO: This works currently because relative plans can only have one 
+		// TODO: This works currently because relative plans can only have one
 		plan = OffsetPlan(plan, offsetPose)
 	}
 	return plan, nil

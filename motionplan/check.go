@@ -216,7 +216,6 @@ func checkPlanAbsolute(
 	// get plan poses for checkFrame
 	poses := offsetPlan.Path()
 
-
 	// setup the planOpts
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
 		executionState.CurrentPoses(),
@@ -238,7 +237,7 @@ func checkPlanAbsolute(
 		segment := &ik.SegmentFS{
 			StartConfiguration: offsetPlan.Trajectory()[i],
 			EndConfiguration:   offsetPlan.Trajectory()[i+1],
-			FS:              sfPlanner.fss,
+			FS:                 sfPlanner.fss,
 		}
 		segments = append(segments, segment)
 	}
@@ -250,62 +249,69 @@ func checkSegmentsFS(sfPlanner *planManager, segments []*ik.SegmentFS, lookAhead
 	// go through segments and check that we satisfy constraints
 	// TODO(RSDK-5007): If we can make interpolate a method on Frame the need to write this out will be lessened and we should be
 	// able to call CheckStateConstraintsAcrossSegment directly.
-	var totalTravelDistanceMM float64
+	moving, _ := sfPlanner.frameLists()
+	dists := map[string]float64{}
 	for _, segment := range segments {
-		interpolatedConfigurations, err := interpolateSegmentFS(segment, sfPlanner.planOpts.Resolution)
-		if err != nil {
-			return err
+		ok, lastValid := sfPlanner.planOpts.CheckSegmentAndStateValidityFS(segment, sfPlanner.planOpts.Resolution)
+		if !ok {
+			checkConf := segment.StartConfiguration
+			if lastValid != nil {
+				checkConf = lastValid.EndConfiguration
+			}
+			ok, reason := sfPlanner.planOpts.CheckStateFSConstraints(&ik.StateFS{Configuration: checkConf, FS: sfPlanner.fss})
+			if !ok {
+				reason = " reason: " + reason
+			} else {
+				reason = ""
+			}
+			return fmt.Errorf("found constraint violation or collision in segment between %v and %v at %v %s",
+				segment.StartConfiguration,
+				segment.EndConfiguration,
+				checkConf,
+				reason,
+			)
 		}
 
-		for _, interpConfig := range interpolatedConfigurations {
-			poseInPath, err := sfPlanner.fss.Transform(
-				interpConfig,
-				referenceframe.NewZeroPoseInFrame(checkFrame.Name()),
-				parent.Name(),
+		for _, checkFrame := range moving {
+			poseInPathStart, err := sfPlanner.fss.Transform(
+				segment.EndConfiguration,
+				referenceframe.NewZeroPoseInFrame(checkFrame),
+				referenceframe.World,
+			)
+			if err != nil {
+				return err
+			}
+			poseInPathEnd, err := sfPlanner.fss.Transform(
+				segment.StartConfiguration,
+				referenceframe.NewZeroPoseInFrame(checkFrame),
+				referenceframe.World,
 			)
 			if err != nil {
 				return err
 			}
 
+			currDist := poseInPathEnd.(*referenceframe.PoseInFrame).Pose().Point().Distance(
+				poseInPathStart.(*referenceframe.PoseInFrame).Pose().Point(),
+			)
 			// Check if look ahead distance has been reached
-			currentTravelDistanceMM := totalTravelDistanceMM + poseInPath.Point().Distance(segment.StartPosition.Point())
+			currentTravelDistanceMM := dists[checkFrame] + currDist
 			if currentTravelDistanceMM > lookAheadDistanceMM {
 				return nil
 			}
-
-			// define State which only houses inputs, pose information not needed since we cannot get arcs from
-			// an interpolating poses, this would only yield a straight line.
-			interpolatedState := &ik.State{
-				Frame:         sfPlanner.fss.Frame(checkFrame),
-				Configuration: interpConfig[checkFrame],
-				Position: poseInPath.Pose(),
-			}
-
-			// Checks for collision along the interpolated route and returns a the first interpolated pose where a collision is detected.
-			if isValid, err := sfPlanner.planOpts.CheckStateConstraints(interpolatedState); !isValid {
-				return fmt.Errorf("found constraint violation or collision in segment between %v and %v at %v: %s",
-					segment.StartPosition.Point(),
-					segment.EndPosition.Point(),
-					poseInPath.Point(),
-					err,
-				)
-			}
+			dists[checkFrame] = currentTravelDistanceMM
 		}
-
-		// Update total traveled distance after segment has been checked
-		totalTravelDistanceMM += segment.EndPosition.Point().Distance(segment.StartPosition.Point())
 	}
 	return nil
 }
 
-// TODO: Remove this function
+// TODO: Remove this function.
 func checkSegments(sfPlanner *planManager, segments []*ik.Segment, lookAheadDistanceMM float64, checkFrame referenceframe.Frame) error {
 	// go through segments and check that we satisfy constraints
 	// TODO(RSDK-5007): If we can make interpolate a method on Frame the need to write this out will be lessened and we should be
 	// able to call CheckStateConstraintsAcrossSegment directly.
 	var totalTravelDistanceMM float64
 	for _, segment := range segments {
-		interpolatedConfigurations, err := interpolateSegmentFS(segment, sfPlanner.planOpts.Resolution)
+		interpolatedConfigurations, err := interpolateSegment(segment, sfPlanner.planOpts.Resolution)
 		if err != nil {
 			return err
 		}
@@ -314,14 +320,15 @@ func checkSegments(sfPlanner *planManager, segments []*ik.Segment, lookAheadDist
 			return err
 		}
 		for _, interpConfig := range interpolatedConfigurations {
-			poseInPath, err := sfPlanner.fss.Transform(
-				interpConfig,
+			poseInPathTf, err := sfPlanner.fss.Transform(
+				map[string][]referenceframe.Input{checkFrame.Name(): interpConfig},
 				referenceframe.NewZeroPoseInFrame(checkFrame.Name()),
 				parent.Name(),
 			)
 			if err != nil {
 				return err
 			}
+			poseInPath := poseInPathTf.(*referenceframe.PoseInFrame).Pose()
 
 			// Check if look ahead distance has been reached
 			currentTravelDistanceMM := totalTravelDistanceMM + poseInPath.Point().Distance(segment.StartPosition.Point())
@@ -332,9 +339,9 @@ func checkSegments(sfPlanner *planManager, segments []*ik.Segment, lookAheadDist
 			// define State which only houses inputs, pose information not needed since we cannot get arcs from
 			// an interpolating poses, this would only yield a straight line.
 			interpolatedState := &ik.State{
-				Frame:         sfPlanner.fss.Frame(checkFrame),
-				Configuration: interpConfig[checkFrame],
-				Position: poseInPath.Pose(),
+				Frame:         checkFrame,
+				Configuration: interpConfig,
+				Position:      poseInPath,
 			}
 
 			// Checks for collision along the interpolated route and returns a the first interpolated pose where a collision is detected.

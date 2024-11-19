@@ -232,7 +232,7 @@ func TestTPsmoothing(t *testing.T) {
 	opt.scoreFunc = tpspace.NewPTGDistanceMetric([]string{ackermanFrame.Name()})
 	opt.PlannerConstructor = newTPSpaceMotionPlanner
 	opt.relativeInputs = true
-	
+
 	// Needed to determine motion chains
 	startPose := spatialmath.NewPoseFromPoint(r3.Vector{0, -1000, 0})
 	goalPos := spatialmath.NewPoseFromPoint(r3.Vector{X: 6500, Y: 0, Z: 0})
@@ -243,7 +243,6 @@ func TestTPsmoothing(t *testing.T) {
 		ackermanFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, goalPos),
 	}
 
-	
 	opt.fillMotionChains(fs, startMap, goalMap)
 
 	// Create and initialize planner

@@ -26,7 +26,7 @@ var (
 
 	errBadPlanImpl = errors.New("rrtPlan is the only supported implementation of Plan by this function")
 
-	// TODO: This should eventually be possible
+	// TODO: This should eventually be possible.
 	errMixedFrameTypes = errors.New("unable to plan for PTG and non-PTG frames simultaneously")
 )
 

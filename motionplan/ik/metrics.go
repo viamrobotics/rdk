@@ -106,7 +106,7 @@ func CombineMetrics(metrics ...StateMetric) StateMetric {
 	return cm.combinedDist
 }
 
-// CombineFSMetrics will take a variable number of StateFSMetrics and return a new StateFSMetric which will combine all given metrics into 
+// CombineFSMetrics will take a variable number of StateFSMetrics and return a new StateFSMetric which will combine all given metrics into
 // one, summing their distances.
 func CombineFSMetrics(metrics ...StateFSMetric) StateFSMetric {
 	cm := &combinableStateFSMetric{metrics: metrics}
@@ -222,7 +222,7 @@ func SquaredNormNoOrientSegmentMetric(segment *Segment) float64 {
 	return delta.Point().Norm2()
 }
 
-func WeightedSquaredNormSegmentMetric(segment *Segment) float64{
+func WeightedSquaredNormSegmentMetric(segment *Segment) float64 {
 	// Increase weight for orientation since it's a small number
 	orientDelta := spatial.QuatToR3AA(spatial.OrientationBetween(
 		segment.EndPosition.Orientation(),

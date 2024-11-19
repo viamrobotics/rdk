@@ -21,7 +21,7 @@ func TestNearestNeighbor(t *testing.T) {
 	// We add ~110 nodes to the set of candidates. This is smaller than the configured
 	// `parallelNeighbors` or 1000 meaning the `nearestNeighbor` call will be evaluated in series.
 	for i := 1.0; i < 110.0; i++ {
-		iSol := &basicNode{q:  map[string][]referenceframe.Input{"": {{i}}}}
+		iSol := &basicNode{q: map[string][]referenceframe.Input{"": {{i}}}}
 		rrtMap[iSol] = j
 		j = iSol
 	}

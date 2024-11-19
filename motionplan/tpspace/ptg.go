@@ -180,7 +180,7 @@ func NewPTGDistanceMetric(ptgFrames []string) ik.SegmentFSMetric {
 	return func(segment *ik.SegmentFS) float64 {
 		score := 0.
 		for _, ptgFrame := range ptgFrames {
-			if frameCfg, ok := segment.EndConfiguration[ptgFrame]; ok{
+			if frameCfg, ok := segment.EndConfiguration[ptgFrame]; ok {
 				score += frameCfg[len(frameCfg)-1].Value
 			}
 		}

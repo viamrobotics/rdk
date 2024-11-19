@@ -3,8 +3,9 @@
 package motionplan
 
 import (
-	"fmt"
 	"errors"
+	"errors"
+	"fmt"
 	"math"
 
 	"go.viam.com/rdk/motionplan/ik"
@@ -112,7 +113,7 @@ func (lfs *linearizedFrameSystem) sliceToMap(floatSlice []float64) (map[string][
 }
 
 // motionChain structs are meant to be ephemerally created for each individual goal in a motion request, and calculates the shortest
-// path between components in the framesystem allowing knowledge of which frames may move
+// path between components in the framesystem allowing knowledge of which frames may move.
 type motionChain struct {
 	// List of names of all frames that could move, used for collision detection
 	// As an example a gripper attached to an arm which is moving relative to World, would not be in frames below but in this object
@@ -283,7 +284,6 @@ func uniqInPlaceSlice(s []referenceframe.Frame) []referenceframe.Frame {
 	}
 	return s[:j]
 }
-
 
 func nodeConfigurationDistanceFunc(node1, node2 node) float64 {
 	return ik.FSConfigurationL2Distance(&ik.SegmentFS{StartConfiguration: node1.Q(), EndConfiguration: node2.Q()})

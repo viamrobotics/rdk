@@ -847,7 +847,6 @@ func CreateLineConstraintFS(
 				})
 			}
 		}
-		fmt.Println("score", score)
 		return score
 	}
 
@@ -856,7 +855,6 @@ func CreateLineConstraintFS(
 			if constraint, ok := constraintMap[frame]; ok {
 				currPose, err := fs.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), goal.Parent())
 				if err != nil {
-					fmt.Println("err!!!", err)
 					return false
 				}
 				pass := constraint(&ik.State{

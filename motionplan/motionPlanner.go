@@ -120,7 +120,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 	} else if ok && frameDOF != len(seedMap) {
 		return referenceframe.NewIncorrectInputLengthError(len(seedMap), len(req.Frame.DoF()))
 	}
-	
+
 	req.allGoals = map[string]*referenceframe.PoseInFrame{req.Frame.Name(): req.Goal}
 
 	return nil
@@ -182,31 +182,31 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 	}
 	// Check if the PlanRequest's options specify "complex"
 	// This is a list of poses in the same frame as the goal through which the robot must pass
-	//~ if complexOption, ok := request.Options["complex"]; ok {
-		//~ if complexPosesList, ok := complexOption.([]interface{}); ok {
-			//~ // If "complex" is specified and is a list of PoseInFrame, use it for planning.
-			//~ requestCopy := *request
-			//~ delete(requestCopy.Options, "complex")
-			//~ complexPoses := make([]spatialmath.Pose, 0, len(complexPosesList))
-			//~ for _, iface := range complexPosesList {
-				//~ complexPoseJSON, err := json.Marshal(iface)
-				//~ if err != nil {
-					//~ return nil, err
-				//~ }
-				//~ complexPosePb := &commonpb.Pose{}
-				//~ err = json.Unmarshal(complexPoseJSON, complexPosePb)
-				//~ if err != nil {
-					//~ return nil, err
-				//~ }
-				//~ complexPoses = append(complexPoses, spatialmath.NewPoseFromProtobuf(complexPosePb))
-			//~ }
-			//~ multiGoalPlan, err := sfPlanner.PlanMultiWaypoint(ctx, &requestCopy, complexPoses)
-			//~ if err != nil {
-				//~ return nil, err
-			//~ }
-			//~ return multiGoalPlan, nil
-		//~ }
-		//~ return nil, errors.New("Invalid 'complex' option type. Expected a list of protobuf poses")
+	// ~ if complexOption, ok := request.Options["complex"]; ok {
+	//~ if complexPosesList, ok := complexOption.([]interface{}); ok {
+	//~ // If "complex" is specified and is a list of PoseInFrame, use it for planning.
+	//~ requestCopy := *request
+	//~ delete(requestCopy.Options, "complex")
+	//~ complexPoses := make([]spatialmath.Pose, 0, len(complexPosesList))
+	//~ for _, iface := range complexPosesList {
+	//~ complexPoseJSON, err := json.Marshal(iface)
+	//~ if err != nil {
+	//~ return nil, err
+	//~ }
+	//~ complexPosePb := &commonpb.Pose{}
+	//~ err = json.Unmarshal(complexPoseJSON, complexPosePb)
+	//~ if err != nil {
+	//~ return nil, err
+	//~ }
+	//~ complexPoses = append(complexPoses, spatialmath.NewPoseFromProtobuf(complexPosePb))
+	//~ }
+	//~ multiGoalPlan, err := sfPlanner.PlanMultiWaypoint(ctx, &requestCopy, complexPoses)
+	//~ if err != nil {
+	//~ return nil, err
+	//~ }
+	//~ return multiGoalPlan, nil
+	//~ }
+	//~ return nil, errors.New("Invalid 'complex' option type. Expected a list of protobuf poses")
 	//~ }
 
 	newPlan, err := sfPlanner.PlanSingleWaypoint(ctx, request, currentPlan)
@@ -231,7 +231,7 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 }
 
 type planner struct {
-	//~ motionChains []*motionChain
+	// ~ motionChains []*motionChain
 	fss      referenceframe.FrameSystem
 	lfs      *linearizedFrameSystem
 	solver   ik.Solver
@@ -249,7 +249,7 @@ func newPlanner(fss referenceframe.FrameSystem, seed *rand.Rand, logger logging.
 	if opt == nil {
 		opt = newBasicPlannerOptions()
 	}
-	
+
 	solver, err := ik.CreateCombinedIKSolver(lfs.dof, logger, opt.NumThreads, opt.GoalThreshold)
 	if err != nil {
 		return nil, err
@@ -390,12 +390,12 @@ func (mp *planner) getSolutions(ctx context.Context, seed map[string][]reference
 	var activeSolvers sync.WaitGroup
 	defer activeSolvers.Wait()
 	activeSolvers.Add(1)
-	
+
 	linearSeed, err := mp.lfs.mapToSlice(seed)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	minFunc := mp.linearizeFSmetric(mp.planOpts.goalMetric)
 	// Spawn the IK solver to generate solutions until done
 	utils.PanicCapturingGo(func() {
@@ -421,7 +421,7 @@ IK:
 
 		select {
 		case stepSolution := <-solutionGen:
-			
+
 			step, err := mp.lfs.sliceToMap(stepSolution.Configuration)
 			if err != nil {
 				return nil, err
@@ -434,13 +434,13 @@ IK:
 			// Ensure the end state is a valid one
 			statePass, failName := mp.planOpts.CheckStateFSConstraints(&ik.StateFS{
 				Configuration: step,
-				FS:   mp.fss,
+				FS:            mp.fss,
 			})
 			if statePass {
 				stepArc := &ik.SegmentFS{
 					StartConfiguration: seed,
 					EndConfiguration:   step,
-					FS:        mp.fss,
+					FS:                 mp.fss,
 				}
 				arcPass, failName := mp.planOpts.CheckSegmentFSConstraints(stepArc)
 
@@ -560,12 +560,12 @@ func (mp *planner) nonchainMinimize(seed, step map[string][]referenceframe.Input
 	if mp.checkInputs(step) {
 	}
 	// Failing constraints with nonmoving frames at seed. Find the closest passing configuration to seed.
-	
+
 	_, lastGood := mp.planOpts.CheckStateConstraintsAcrossSegmentFS(
 		&ik.SegmentFS{
 			StartConfiguration: step,
-			EndConfiguration: alteredStep,
-			FS: mp.fss,
+			EndConfiguration:   alteredStep,
+			FS:                 mp.fss,
 		}, mp.planOpts.Resolution,
 	)
 	if lastGood != nil {
