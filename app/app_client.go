@@ -485,7 +485,7 @@ func (c *AppClient) GetRobotPartLogs(
 
 // TailRobotPartLogs gets a stream of log entries for a specific robot part. Logs are ordered by newest first.
 func (c *AppClient) TailRobotPartLogs(ctx context.Context, id string, errorsOnly bool, filter *string, ch chan []*LogEntry) error {
-	stream := &logStream{client: c}
+	stream := &robotPartLogStream{client: c}
 
 	err := stream.startStream(ctx, id, errorsOnly, filter, ch)
 	if err != nil {
@@ -1005,56 +1005,28 @@ func (c *AppClient) UpdateModule(
 	return resp.Url, nil
 }
 
-// type isModuleFile interface {
-// 	isUploadModuleFileRequest_ModuleFile()
-// }
+// UploadModuleFile uploads a module file and returns the URL of the uploaded file.
+func (c *AppClient) UploadModuleFile(ctx context.Context, fileInfo ModuleFileInfo, file []byte) (string, error) {
+	stream := &uploadModuleFileStream{client: c}
+	// reqModuleFileInfo := uploadModuleFileRequest{
+	// 	ModuleFile: &uploadModuleFileRequestModuleFileInfo{
+	// 		ModuleFileInfo: &fileInfo,
+	// 	},
+	// }
+	// reqFile := uploadModuleFileRequest{
+	// 	ModuleFile: &uploadModuleFileRequestFile{
+	// 		File: file,
+	// 	},
+	// }
+	url, err := stream.startStream(ctx, &fileInfo, file)
+	if err != nil {
+		return "", err
+	}
 
-// type UploadModuleFileRequest_ModuleFileInfo struct {
-// 	*pb.UploadModuleFileRequest_ModuleFileInfo
-// }
-
-// func (UploadModuleFileRequest_ModuleFileInfo) isUploadModuleFileRequest_ModuleFile() {}
-
-// type UploadModuleFileRequest_File struct {
-// 	*pb.UploadModuleFileRequest_File
-// }
-
-// func (UploadModuleFileRequest_File) isUploadModuleFileRequest_ModuleFile() {}
-
-// type uploadStream struct {
-// 	gostream.
-// }
-
-// func (c *AppClient) UploadModuleFile(ctx context.Context, moduleFile isModuleFile, ch ) (string, error) {
-// 	c.mu.Lock()
-// 	streamCtx, stream,
-
-// stream := &uploadStream{client: c}
-
-// err = stream.startStream(ctx, moduleFile, ch)
-
-// var req *pb.UploadModuleFileRequest
-// switch moduleFileInfo := moduleFile.(type) {
-// case UploadModuleFileRequest_ModuleFileInfo:
-// 	req = &pb.UploadModuleFileRequest{
-// 		ModuleFile: &pb.UploadModuleFileRequest_ModuleFileInfo{
-// 			ModuleFileInfo: moduleFileInfo.ModuleFileInfo,
-// 		},
-// 	}
-// case UploadModuleFileRequest_File:
-// 	req = &pb.UploadModuleFileRequest{
-// 		ModuleFile: &pb.UploadModuleFileRequest_File{
-// 			File: moduleFileInfo.File,
-// 		},
-// 	}
-// }
-
-// resp, err := c.client.UploadModuleFile(ctx, req)
-// if err != nil {
-// 	return "", err
-// }
-// return resp.Url, nil
-// }
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return url, nil
+}
 
 // GetModule gets a module.
 func (c *AppClient) GetModule(ctx context.Context, moduleID string) (*Module, error) {

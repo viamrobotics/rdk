@@ -442,6 +442,23 @@ func moduleFromProto(module *pb.Module) *Module {
 	}
 }
 
+// ModuleFileInfo holds the information of a module file.
+type ModuleFileInfo struct {
+	ModuleID     string
+	Version      string
+	Platform     string
+	PlatformTags []string
+}
+
+func moduleFileInfoToProto(info *ModuleFileInfo) *pb.ModuleFileInfo {
+	return &pb.ModuleFileInfo{
+		ModuleId:     info.ModuleID,
+		Version:      info.Version,
+		Platform:     info.Platform,
+		PlatformTags: info.PlatformTags,
+	}
+}
+
 // VersionHistory holds the history of a version.
 type VersionHistory struct {
 	Version    string
