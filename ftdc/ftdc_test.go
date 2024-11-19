@@ -499,7 +499,8 @@ func TestFileDeletion(t *testing.T) {
 		// The `fs.FileInfo` returned by `os.Lstat` does not include the directory as part of its
 		// file name. Reconstitute the relative path before testing.
 		_, err := os.Lstat(filepath.Join(ftdc.ftdcDir, origFiles[idx].Name()))
-		if _, isPathError := err.(*os.PathError); err == nil || !isPathError {
+		var pathErr *fs.PathError
+		if !errors.As(err, &pathErr) {
 			t.Fatalf("File should be deleted. Lstat error? %v", err)
 		}
 	}
@@ -518,12 +519,13 @@ func getFTDCFiles(t *testing.T, dir string, logger logging.Logger) []fs.FileInfo
 			return nil
 		}
 
-		if info, err := os.Lstat(path); err != nil {
-			return err
-		} else {
-			ret = append(ret, info)
-			return nil
+		info, lStatErr := os.Lstat(path)
+		if lStatErr != nil {
+			return lStatErr
 		}
+
+		ret = append(ret, info)
+		return nil
 	}))
 	test.That(t, err, test.ShouldBeNil)
 
