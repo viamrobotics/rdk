@@ -124,7 +124,6 @@ type motionChain struct {
 	// This is useful when e.g. moving a gripper relative to a point seen by a camera built into that gripper
 	// TODO(pl): explore allowing this to be frames other than world
 	worldRooted bool
-	origSeed    map[string][]referenceframe.Input // stores starting locations of all frames in fss that are NOT in `frames`
 }
 
 func motionChainFromGoal(fs referenceframe.FrameSystem, moveFrame string, goal *referenceframe.PoseInFrame) (*motionChain, error) {

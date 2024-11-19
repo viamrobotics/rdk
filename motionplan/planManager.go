@@ -473,6 +473,9 @@ func (pm *planManager) planParallelRRTMotion(
 
 	select {
 	case finalSteps := <-plannerChan:
+		fmt.Println("finalSteps steps", finalSteps.steps)
+		fmt.Println("finalSteps err", finalSteps.err)
+		fmt.Println("finalSteps", finalSteps)
 		// We didn't get a solution preview (possible error), so we get and process the full step set and error.
 
 		mapSeed := finalSteps.maps
@@ -596,6 +599,9 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	}
 
 	opt.fillMotionChains(pm.fss, from, to)
+	if len(opt.motionChains) < 1 {
+		return nil, errors.New("must have at least one motion chain")
+	}
 	// create motion chains for each goal, and error check for PTG frames
 	// TODO: currently, if any motion chain has a PTG frame, that must be the only motion chain and that frame must be the only
 	// frame in the chain with nonzero DoF
@@ -796,7 +802,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 				return nil, err
 			}
 
-			try1Opt.Fallback = opt
+			try1Opt.Fallback = nil
 			opt = try1Opt
 		}
 	}
