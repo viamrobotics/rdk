@@ -4,6 +4,7 @@ package app
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -829,6 +830,7 @@ func uploadMetadataToProto(metadata UploadMetadata) *syncPb.UploadMetadata {
 		ComponentName:    metadata.ComponentName,
 		MethodName:       metadata.MethodName,
 		Type:             syncPb.DataType(metadata.Type),
+		FileName:         metadata.FileName,
 		MethodParameters: methodParams,
 		FileExtension:    metadata.FileExtension,
 		Tags:             metadata.Tags,
@@ -882,6 +884,7 @@ func (d *DataClient) BinaryDataCaptureUpload(
 	dataRequestTimes [2]time.Time, // Assuming two time values, [0] is timeRequested, [1] is timeReceived
 ) (string, error) {
 	// Validate file extension
+	//**need to look into this!
 	if fileExtension != "" && fileExtension[0] != '.' {
 		fileExtension = "." + fileExtension
 	}
@@ -1001,10 +1004,88 @@ func (d *DataClient) FileUploadFromPath(ctx context.Context) error {
 
 // StreamingDataCaptureUpload uploads the streaming contents and metadata for streaming binary (image + file) data,
 // where the first packet must be the UploadMetadata.
-func (d *DataClient) StreamingDataCaptureUpload(ctx context.Context) error {
-	// resp, err := d.dataSyncClient.StreamingDataCaptureUpload(ctx, &pb.StreamingDataCaptureUploadRequest{})
-	// if err != nil {
-	// 	return err
-	// }
-	return nil
+func (d *DataClient) StreamingDataCaptureUpload(
+	ctx context.Context,
+	data []byte, //data in bytes (so similar to binarydataCap)...the rest below are for dataCaptureUploadMetadata
+	partID string, //uploadmetadata
+	componentType string, //uploadmetadata
+	componentName string, //uploadmetadata
+	methodName string, //uploadmetadata
+	dataType DataType, //uploadmetadata
+	fileName string, //uploadmetadata
+	methodParameters map[string]interface{}, //uploadmetadata
+	fileExt string, //uploadmetadata
+	tags []string, //uploadmetadata
+	dataRequestTimes [2]time.Time, //sensorMetadata
+	//mimeType and annotations?? //sensorMetadata?
+) (string, error) {
+	// Prepare UploadMetadata
+	metadata := UploadMetadata{
+		PartID:           partID,
+		ComponentType:    componentType,
+		ComponentName:    componentName,
+		MethodName:       methodName,
+		Type:             DataTypeBinarySensor, // assuming this is the correct type??
+		MethodParameters: methodParameters,
+		Tags:             tags,
+	}
+	//create uploadMetadata
+	uploadMetadatapb := uploadMetadataToProto(metadata)
+
+	//create sensorMetadata
+	// Create SensorMetadata based on the provided times
+	var sensorMetadata SensorMetadata
+	if len(dataRequestTimes) == 2 { //can i have a better check here? like if dataRequestTimes != [2]time.Time{}
+		sensorMetadata = SensorMetadata{
+			TimeRequested: dataRequestTimes[0],
+			TimeReceived:  dataRequestTimes[1],
+		}
+	}
+	// create SensorData
+	sensorData := SensorData{
+		Metadata: sensorMetadata,
+		SDStruct: nil,  // assuming no struct is needed for binary data
+		SDBinary: data, // attach the binary data because our data is given in []bytes!
+	}
+	sensorDataPb := sensorContentsToProto([]SensorData{sensorData})
+
+	//create DataCaptureUploadMetadata (aka create the metadata for the first request)
+	dataCaptureUploadMetadataPb := &syncPb.DataCaptureUploadMetadata{
+		UploadMetadata: uploadMetadatapb,
+		SensorMetadata: sensorDataPb[0].Metadata,
+	}
+	//this method either uses dataCaptureUploadMetadata OR data...?
+
+	//create the first request w/ metadata
+	metadataRequest := &syncPb.StreamingDataCaptureUploadRequest{
+		UploadPacket: dataCaptureUploadMetadataPb, //StreamingDataCaptureUploadRequest_Metadata ...this should be metadata??
+	}
+
+	// establish the streaming client
+	stream, err := d.dataSyncClient.StreamingDataCaptureUpload(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to create streaming client: %w", err)
+	}
+	defer stream.CloseSend()
+
+	// send metadata request
+	if err := stream.Send(metadataRequest); err != nil {
+		return "", fmt.Errorf("failed to send metadata: %w", err)
+	}
+
+	// send another request, this time the data request
+	dataRequest := &syncPb.StreamingDataCaptureUploadRequest{
+		UploadPacket: data, //*StreamingDataCaptureUploadRequest_Data ....this should be binaryData from above
+	}
+	if err := stream.Send(dataRequest); err != nil {
+		return "", fmt.Errorf("failed to send data: %w", err)
+	}
+	// close the stream and receive the response
+	response, err := stream.Recv()
+	if err != nil {
+		return "", fmt.Errorf("failed to receive response: %w", err)
+	}
+
+	// return the file ID
+	return response.GetFileId(), nil
 }

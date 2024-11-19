@@ -40,9 +40,12 @@ const (
 	mongodbURI     = "mongo_uri"
 	hostName       = "host_name"
 	last           = "last"
+	fileID         = "file_id"
 )
 
 var (
+	binaryDataType = DataTypeBinarySensor
+	// tabularDataType     = DataTypeTabularSensor
 	locationIDs         = []string{locationID}
 	orgIDs              = []string{organizationID}
 	mimeTypes           = []string{mimeType}
@@ -611,18 +614,71 @@ func TestDataSyncClient(t *testing.T) {
 	grpcClient := createGrpcDataSyncClient()
 	client := DataClient{dataSyncClient: grpcClient}
 
-	t.Run("DataCaptureUpload", func(t *testing.T) {
+	uploadMetadata := UploadMetadata{
+		PartID:           partID,
+		ComponentType:    componentType,
+		ComponentName:    componentName,
+		MethodName:       method,
+		Type:             DataTypeBinarySensor,
+		FileName:         fileName,
+		MethodParameters: methodParameters, //or map[string]string??
+		FileExtension:    fileExt,
+		Tags:             tags,
+	}
+	metadata := SensorMetadata{
+		TimeRequested: startTime,
+		TimeReceived:  endTime,
+	}
+	binarySensorData := SensorData{
+		Metadata: metadata,
+		SDStruct: nil,
+		SDBinary: binaryDataByte,
+	}
+
+	t.Run("BinaryDataCaptureUpload", func(t *testing.T) {
 		grpcClient.DataCaptureUploadFunc = func(ctx context.Context, in *syncPb.DataCaptureUploadRequest,
 			opts ...grpc.CallOption,
 		) (*syncPb.DataCaptureUploadResponse, error) {
-			//test.That(t, in._, test.ShouldResemble, toProto(something)) //toProto
-			return &syncPb.DataCaptureUploadResponse{
-				//fill all variables w prototype-types
+			// expectedBinaryData := binaryDataByte --> just a note for myself for now
+			methodParams, _ := protoutils.ConvertMapToProtoAny(methodParameters)
 
+			test.That(t, in.Metadata.PartId, test.ShouldEqual, partID)
+			test.That(t, in.Metadata.ComponentType, test.ShouldEqual, componentType)
+			test.That(t, in.Metadata.ComponentName, test.ShouldEqual, componentName)
+			test.That(t, in.Metadata.MethodName, test.ShouldEqual, method)
+			test.That(t, in.Metadata.Type, test.ShouldEqual, binaryDataType)
+			test.That(t, in.Metadata.FileName, test.ShouldEqual, fileName)
+			test.That(t, in.Metadata.MethodParameters, test.ShouldResemble, methodParams)
+			test.That(t, in.Metadata.FileExtension, test.ShouldEqual, fileExt)
+			test.That(t, in.Metadata.Tags, test.ShouldResemble, tags)
+
+			test.That(t, in.SensorContents[0].Metadata.TimeRequested, test.ShouldResemble, timestamppb.New(startTime))
+			test.That(t, in.SensorContents[0].Metadata.TimeReceived, test.ShouldResemble, timestamppb.New(endTime))
+			// Extract and validate SensorContents[0].Data
+			dataField, ok := in.SensorContents[0].Data.(*syncPb.SensorData_Binary)
+			test.That(t, ok, test.ShouldBeTrue) // Ensure the type is correct
+			test.That(t, dataField.Binary, test.ShouldResemble, binaryDataByte)
+			// test.That(t, in., test.ShouldResemble, toProto(something)) //toProto
+			return &syncPb.DataCaptureUploadResponse{
+				FileId: fileID,
 			}, nil
 		}
-		resp, _ := client.DataCaptureUpload(context.Background()) //not proto-types, regular types u expect to recieve in the function
-		//test.That(t, resp._, test.ShouldResemble, fromProto(something if needed)) //compare response with regular expected types
+		resp, _ := client.DataCaptureUpload(context.Background(), uploadMetadata, []SensorData{binarySensorData}) //not proto-types, regular types u expect to recieve in the function
+		test.That(t, resp, test.ShouldResemble, fileID)                                                           //compare response with regular expected types (fromProto if needed)
 	})
+
+	// t.Run("TabularDataCaptureUpload", func(t *testing.T) {
+	// 	grpcClient.DataCaptureUploadFunc = func(ctx context.Context, in *syncPb.DataCaptureUploadRequest,
+	// 		opts ...grpc.CallOption,
+	// 	) (*syncPb.DataCaptureUploadResponse, error) {
+	// 		//test.That(t, in._, test.ShouldResemble, toProto(something)) //toProto
+	// 		return &syncPb.DataCaptureUploadResponse{
+	// 			//fill all variables w prototype-types
+
+	// 		}, nil
+	// 	}
+	// 	resp, _ := client.DataCaptureUpload(context.Background()) //not proto-types, regular types u expect to recieve in the function
+	// 	//test.That(t, resp._, test.ShouldResemble, fromProto(something if needed)) //compare response with regular expected types
+	// })
 
 }
