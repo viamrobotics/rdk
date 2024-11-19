@@ -515,7 +515,7 @@ func (ftdc *FTDC) checkAndDeleteOldFiles() error {
 	}
 
 	slices.SortFunc(files, func(left, right fileTime) int {
-		// Sort in descening order. Such that files indexed first are safe. This eases walking the
+		// Sort in descending order. Such that files indexed first are safe. This eases walking the
 		// slice of files.
 		return right.time.Compare(left.time)
 	})
@@ -535,6 +535,8 @@ func (ftdc *FTDC) checkAndDeleteOldFiles() error {
 // filenameTimeRe matches the files produced by ftdc. Filename <-> regex parity is exercised by file
 // deletion testing. Filename generation uses padding such that we can rely on there before 2/4
 // digits for every numeric value.
+//
+// Example filename: countingBytesTest1228324349/viam-server-2024-11-18T20-37-01Z.ftdc
 var filenameTimeRe = regexp.MustCompile(`viam-server-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})Z.ftdc`)
 
 func parseTimeFromFilename(path string) (time.Time, error) {

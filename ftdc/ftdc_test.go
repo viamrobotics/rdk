@@ -415,7 +415,7 @@ func TestParseTimeFromFile(t *testing.T) {
 
 func TestFileDeletion(t *testing.T) {
 	// This test takes ~10 seconds due to file naming limitations. This test creates FTDC files on
-	// disk whos names include the timestamp with seconds resolution. In this case FTDC has to wait
+	// disk whose names include the timestamp with seconds resolution. In this case FTDC has to wait
 	// a second before being able to create the next file.
 	logger := logging.NewTestLogger(t)
 
@@ -423,7 +423,7 @@ func TestFileDeletion(t *testing.T) {
 	// file rotation.
 	ftdc := New(logger.Sublogger("ftdc"))
 
-	ftdcFileDir, err := os.MkdirTemp("./", "countingBytesTest")
+	ftdcFileDir, err := os.MkdirTemp("./", "fileDeletionTest")
 	test.That(t, err, test.ShouldBeNil)
 	defer os.RemoveAll(ftdcFileDir)
 
@@ -501,7 +501,7 @@ func TestFileDeletion(t *testing.T) {
 		_, err := os.Lstat(filepath.Join(ftdc.ftdcDir, origFiles[idx].Name()))
 		var pathErr *fs.PathError
 		if !errors.As(err, &pathErr) {
-			t.Fatalf("File should be deleted. Lstat error? %v", err)
+			t.Fatalf("File should be deleted. Lstat error: %v", err)
 		}
 	}
 }
