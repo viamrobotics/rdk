@@ -81,7 +81,7 @@ type AppServiceClient struct {
 	GetRobotPartLogsFunc func(ctx context.Context, in *apppb.GetRobotPartLogsRequest,
 		opts ...grpc.CallOption) (*apppb.GetRobotPartLogsResponse, error)
 	TailRobotPartLogsFunc func(ctx context.Context, in *apppb.TailRobotPartLogsRequest,
-		opts ...grpc.CallOption) (*apppb.TailRobotPartLogsRequest, error)
+		opts ...grpc.CallOption) (apppb.AppService_TailRobotPartLogsClient, error)
 	GetRobotPartHistoryFunc func(ctx context.Context, in *apppb.GetRobotPartHistoryRequest,
 		opts ...grpc.CallOption) (*apppb.GetRobotPartHistoryResponse, error)
 	UpdateRobotPartFunc func(ctx context.Context, in *apppb.UpdateRobotPartRequest,
@@ -148,9 +148,8 @@ type AppServiceClient struct {
 		opts ...grpc.CallOption) (*apppb.CreateModuleResponse, error)
 	UpdateModuleFunc func(ctx context.Context, in *apppb.UpdateModuleRequest,
 		opts ...grpc.CallOption) (*apppb.UpdateModuleResponse, error)
-	UploadModuleFileFunc func(ctx context.Context, in *apppb.UploadModuleFileRequest,
-		opts ...grpc.CallOption) (*apppb.UploadModuleFileRequest, error)
-	GetModuleFunc func(ctx context.Context, in *apppb.GetModuleRequest,
+	UploadModuleFileFunc func(ctx context.Context, opts ...grpc.CallOption) (apppb.AppService_UploadModuleFileClient, error)
+	GetModuleFunc        func(ctx context.Context, in *apppb.GetModuleRequest,
 		opts ...grpc.CallOption) (*apppb.GetModuleResponse, error)
 	ListModulesFunc func(ctx context.Context, in *apppb.ListModulesRequest,
 		opts ...grpc.CallOption) (*apppb.ListModulesResponse, error)
@@ -518,14 +517,15 @@ func (asc *AppServiceClient) GetRobotPartLogs(
 	return asc.GetRobotPartLogsFunc(ctx, in, opts...)
 }
 
-// // TailRobotPartLogs calls the injected TailRobotPartLogsFunc or the real version.
-// func (asc *AppServiceClient) TailRobotPartLogs(ctx context.Context, in *apppb.TailRobotPartLogsRequest// 	opts ...grpc.CallOption,
-// ) (*apppb.TailRobotPartLogsResponse, error) {
-// 	if asc.TailRobotPartLogsFunc == nil {
-// 		return asc.AppServiceClient.TailRobotPartLogs(ctx, in, opts...)
-// 	}
-// 	return asc.TailRobotPartLogsFunc(ctx, in, opts...)
-// }
+// TailRobotPartLogs calls the injected TailRobotPartLogsFunc or the real version.
+func (asc *AppServiceClient) TailRobotPartLogs(
+	ctx context.Context, in *apppb.TailRobotPartLogsRequest, opts ...grpc.CallOption,
+) (apppb.AppService_TailRobotPartLogsClient, error) {
+	if asc.TailRobotPartLogsFunc == nil {
+		return asc.AppServiceClient.TailRobotPartLogs(ctx, in, opts...)
+	}
+	return asc.TailRobotPartLogsFunc(ctx, in, opts...)
+}
 
 // GetRobotPartHistory calls the injected GetRobotPartHistoryFunc or the real version.
 func (asc *AppServiceClient) GetRobotPartHistory(
@@ -857,15 +857,15 @@ func (asc *AppServiceClient) UpdateModule(
 	return asc.UpdateModuleFunc(ctx, in, opts...)
 }
 
-// // UploadModuleFile calls the injected UploadModuleFileFunc or the real version.
-// func (asc *AppServiceClient) UploadModuleFile(
-//   ctx context.Context, in *apppb.UploadModuleFileRequest, opts ...grpc.CallOption,
-// ) (*apppb.UploadModuleFileResponse, error) {
-// 	if asc.UploadModuleFileFunc == nil {
-// 		return asc.AppServiceClient.UploadModuleFile(ctx, in, opts...)
-// 	}
-// 	return asc.UploadModuleFileFunc(ctx, in, opts...)
-// }
+// UploadModuleFile calls the injected UploadModuleFileFunc or the real version.
+func (asc *AppServiceClient) UploadModuleFile(
+	ctx context.Context, opts ...grpc.CallOption,
+) (apppb.AppService_UploadModuleFileClient, error) {
+	if asc.UploadModuleFileFunc == nil {
+		return asc.AppServiceClient.UploadModuleFile(ctx, opts...)
+	}
+	return asc.UploadModuleFileFunc(ctx, opts...)
+}
 
 // GetModule calls the injected GetModuleFunc or the real version.
 func (asc *AppServiceClient) GetModule(

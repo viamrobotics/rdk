@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -80,6 +81,7 @@ const (
 	api                            = "api"
 	modelString                    = "model_string"
 	entryPoint                     = "entry_point"
+	errorsOnly                     = true
 )
 
 var (
@@ -320,6 +322,19 @@ var (
 		Stack:      stack,
 		Fields:     []*map[string]interface{}{&field},
 	}
+	pbCaller, _ = protoutils.StructToStructPb(*logEntry.Caller)
+	pbField, _  = protoutils.StructToStructPb(field)
+	pbLogEntry  = common.LogEntry{
+		Host:       logEntry.Host,
+		Level:      logEntry.Level,
+		Time:       logEntry.Time,
+		LoggerName: logEntry.LoggerName,
+		Message:    logEntry.Message,
+		Caller:     pbCaller,
+		Stack:      logEntry.Stack,
+		Fields:     []*structpb.Struct{pbField},
+	}
+	logEntries        = []*LogEntry{&logEntry}
 	authenticatorInfo = AuthenticatorInfo{
 		Type:          AuthenticationTypeAPIKey,
 		Value:         value,
@@ -528,6 +543,14 @@ var (
 		resourceID:   resourceID,
 	}
 	apiKeyAuthorizations = []APIKeyAuthorization{apiKeyAuthorization}
+	platformTags         = []string{"platform", "tags"}
+	fileInfo             = ModuleFileInfo{
+		ModuleID:     moduleID,
+		Version:      version,
+		Platform:     platform,
+		PlatformTags: platformTags,
+	}
+	file = []byte{1, 9}
 )
 
 func sharedSecretStateToProto(state SharedSecretState) pb.SharedSecret_State {
@@ -672,6 +695,34 @@ func registryItemToProto(item *RegistryItem) (*pb.RegistryItem, error) {
 
 func createGrpcClient() *inject.AppServiceClient {
 	return &inject.AppServiceClient{}
+}
+
+type mockTailRobotPartLogsClient struct {
+	grpc.ClientStream
+	responses []*pb.TailRobotPartLogsResponse
+	count     int
+}
+
+func (c *mockTailRobotPartLogsClient) Recv() (*pb.TailRobotPartLogsResponse, error) {
+	if c.count >= len(c.responses) {
+		return nil, errors.New("end of reponses")
+	}
+	resp := c.responses[c.count]
+	c.count++
+	return resp, nil
+}
+
+type mockUploadModuleFileClient struct {
+	grpc.ClientStream
+	response *pb.UploadModuleFileResponse
+}
+
+func (c *mockUploadModuleFileClient) Send(*pb.UploadModuleFileRequest) error {
+	return nil
+}
+
+func (c *mockUploadModuleFileClient) CloseAndRecv() (*pb.UploadModuleFileResponse, error) {
+	return c.response, nil
 }
 
 func TestAppClient(t *testing.T) {
@@ -1175,19 +1226,6 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("GetRobotPartLogs", func(t *testing.T) {
-		expectedLogs := []*LogEntry{&logEntry}
-		pbCaller, _ := protoutils.StructToStructPb(*logEntry.Caller)
-		pbField, _ := protoutils.StructToStructPb(field)
-		pbLogEntry := common.LogEntry{
-			Host:       logEntry.Host,
-			Level:      logEntry.Level,
-			Time:       logEntry.Time,
-			LoggerName: logEntry.LoggerName,
-			Message:    logEntry.Message,
-			Caller:     pbCaller,
-			Stack:      logEntry.Stack,
-			Fields:     []*structpb.Struct{pbField},
-		}
 		grpcClient.GetRobotPartLogsFunc = func(
 			ctx context.Context, in *pb.GetRobotPartLogsRequest, opts ...grpc.CallOption,
 		) (*pb.GetRobotPartLogsResponse, error) {
@@ -1207,7 +1245,31 @@ func TestAppClient(t *testing.T) {
 		logs, token, err := client.GetRobotPartLogs(context.Background(), partID, &filter, &pageToken, levels, &start, &end, &limit, &source)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, token, test.ShouldEqual, pageToken)
-		test.That(t, logs, test.ShouldResemble, expectedLogs)
+		test.That(t, logs, test.ShouldResemble, logEntries)
+	})
+
+	t.Run("TailRobotPartLogs", func(t *testing.T) {
+		ch := make(chan []*LogEntry)
+		grpcClient.TailRobotPartLogsFunc = func(
+			ctx context.Context, in *pb.TailRobotPartLogsRequest, opts ...grpc.CallOption,
+		) (pb.AppService_TailRobotPartLogsClient, error) {
+			test.That(t, in.Id, test.ShouldEqual, partID)
+			test.That(t, in.ErrorsOnly, test.ShouldEqual, errorsOnly)
+			test.That(t, in.Filter, test.ShouldEqual, &filter)
+			return &mockTailRobotPartLogsClient{
+				responses: []*pb.TailRobotPartLogsResponse{
+					{Logs: []*common.LogEntry{&pbLogEntry}},
+				},
+			}, nil
+		}
+		err := client.TailRobotPartLogs(context.Background(), partID, errorsOnly, &filter, ch)
+		test.That(t, err, test.ShouldBeNil)
+
+		// var resp [][]*LogEntry
+		// for entries := range ch {
+		// 	resp = append(resp, entries)
+		// }
+		// test.That(t, resp, test.ShouldResemble, logEntries)
 	})
 
 	t.Run("GetRobotPartHistory", func(t *testing.T) {
@@ -1715,6 +1777,19 @@ func TestAppClient(t *testing.T) {
 			}, nil
 		}
 		resp, err := client.UpdateModule(context.Background(), moduleID, visibility, siteURL, description, models, entryPoint, &firstRun)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldEqual, siteURL)
+	})
+
+	t.Run("UploadModuleFile", func(t *testing.T) {
+		grpcClient.UploadModuleFileFunc = func(ctx context.Context, opts ...grpc.CallOption) (pb.AppService_UploadModuleFileClient, error) {
+			return &mockUploadModuleFileClient{
+				response: &pb.UploadModuleFileResponse{
+					Url: siteURL,
+				},
+			}, nil
+		}
+		resp, err := client.UploadModuleFile(context.Background(), fileInfo, file)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldEqual, siteURL)
 	})
