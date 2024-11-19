@@ -17,7 +17,7 @@ import (
 
 const (
 	// Window duration over which to consider log messages "noisy."
-	noisyMessageWindowDuration = 5 * time.Second
+	noisyMessageWindowDuration = 10 * time.Second
 	// Count threshold within `noisyMessageWindowDuration` after which to
 	// consider log messages "noisy."
 	noisyMessageCountThreshold = 3
