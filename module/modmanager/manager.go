@@ -1245,13 +1245,14 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger log
 							m.logger.Errorf("error in modular DiscoverComponents: %s", err)
 							return nil, err
 						}
-						if len(res.Discovery) > 1 {
+						switch len(res.Discovery) {
+						case 0:
+							return nil, errors.New("modular DiscoverComponents response did not contain any discoveries")
+						case 1:
+							return res.Discovery[0].Results.AsMap(), nil
+						default:
 							return nil, errors.New("modular DiscoverComponents response contains more than one discovery")
 						}
-						if len(res.Discovery) == 0 {
-							return nil, errors.New("modular DiscoverComponents response did not contain any discoveries")
-						}
-						return res.Discovery[0].Results.AsMap(), nil
 					},
 				})
 			}
