@@ -151,19 +151,6 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	defer close(m1chan)
 	defer close(m2chan)
 
-	// ~ seedPos, err := mp.frame.Transform(seed)
-	// ~ if err != nil {
-	// ~ rrt.solutionChan <- &rrtSolution{err: err}
-	//~ return
-	//~ }
-
-	// ~ mp.logger.CDebugf(ctx,
-	// ~ "running CBiRRT from start pose %v with start map of size %d and goal map of size %d",
-	// ~ spatialmath.PoseToProtobuf(seedPos),
-	//~ len(rrt.maps.startMap),
-	//~ len(rrt.maps.goalMap),
-	//~ )
-
 	for i := 0; i < mp.planOpts.PlanIter; i++ {
 		select {
 		case <-ctx.Done():

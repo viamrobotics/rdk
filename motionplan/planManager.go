@@ -65,7 +65,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequ
 			"plan request passed a start pose, but non-relative plans will use the pose from transforming StartConfiguration",
 		)
 	}
-	startPoses := map[string]*referenceframe.PoseInFrame{}
+	startPoses := PathStep{}
 
 	// Use frame system to get configuration and transform
 	for frame, goal := range request.allGoals {
@@ -133,7 +133,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequ
 	// TODO: This is a necessary optimization for linear motion to be performant
 	subWaypoints := false
 
-	 // linear motion profile has known intermediate points, so solving can be broken up and sped up
+	// linear motion profile has known intermediate points, so solving can be broken up and sped up
 	if profile, ok := request.Options["motion_profile"]; ok && profile == LinearMotionProfile {
 		subWaypoints = true
 	}
@@ -142,17 +142,17 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequ
 		subWaypoints = true
 	}
 
-	 // If we are seeding off of a pre-existing plan, we don't need the speedup of subwaypoints
+	// If we are seeding off of a pre-existing plan, we don't need the speedup of subwaypoints
 	if seedPlan != nil {
 		subWaypoints = false
 	}
-	
+
 	if subWaypoints {
 		pathStepSize, ok := request.Options["path_step_size"].(float64)
 		if !ok {
 			pathStepSize = defaultPathStepSize
 		}
-		
+
 		numSteps := 0
 		for frame, pif := range alteredGoals {
 			// Calculate steps needed for this frame
@@ -171,7 +171,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequ
 				to[frame] = referenceframe.NewPoseInFrame(pif.Parent(), toPose)
 			}
 			goals = append(goals, to)
-			opt, err := pm.plannerSetupFromMoveRequest(
+			wpOpt, err := pm.plannerSetupFromMoveRequest(
 				from,
 				to,
 				request.StartConfiguration,
@@ -183,12 +183,24 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequ
 			if err != nil {
 				return nil, err
 			}
-			opt.setGoal(to)
-			opts = append(opts, opt)
+			wpOpt.setGoal(to)
+			opts = append(opts, wpOpt)
 
 			from = to
 		}
-		startPoses = from
+		// Update opt to be just the last step
+		opt, err = pm.plannerSetupFromMoveRequest(
+			from,
+			request.allGoals,
+			request.StartConfiguration,
+			request.WorldState,
+			request.BoundingRegions,
+			request.Constraints,
+			request.Options,
+		)
+		if err != nil {
+			return nil, err
+		}
 	}
 	pm.planOpts = opt
 	opt.setGoal(alteredGoals)
@@ -760,13 +772,6 @@ func (pm *planManager) goodPlan(pr *rrtSolution, opt *plannerOptions) (bool, flo
 }
 
 func (pm *planManager) planToRRTGoalMap(plan Plan, goal PathStep) (*rrtMaps, error) {
-	// TODO: make this work with any implementation of Plan
-	// ~ rrt, ok := plan.(*rrtPlan)
-	// ~ if !ok {
-	// ~ return nil, errBadPlanImpl
-	//~ }
-	//~ planNodes := rrt.nodes
-
 	traj := plan.Trajectory()
 	path := plan.Path()
 	if len(traj) != len(path) {
