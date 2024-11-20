@@ -423,7 +423,10 @@ func (server *Server) resizeVideoSource(name string, width, height int) error {
 		return fmt.Errorf("stream state not found with name %q", name)
 	}
 	resizer := gostream.NewResizeVideoSource(cam, width, height)
-	server.logger.Debug("resizing video source with a hot swap")
+	server.logger.Debugf(
+		"resizing video source to width %d and height %d",
+		width, height,
+	)
 	existing.Swap(resizer)
 	err = streamState.Resize()
 	if err != nil {
@@ -446,9 +449,8 @@ func (server *Server) resetVideoSource(name string) error {
 	if !ok {
 		return fmt.Errorf("stream state not found with name %q", name)
 	}
-	newSwapper := gostream.NewHotSwappableVideoSource(cam)
 	server.logger.Debug("resetting video source")
-	existing.Swap(newSwapper)
+	existing.Swap(cam)
 	err = streamState.Reset()
 	if err != nil {
 		return fmt.Errorf("failed to reset stream %q: %w", name, err)
