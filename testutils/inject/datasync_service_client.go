@@ -46,25 +46,42 @@ func (client *DataSyncServiceClient) StreamingDataCaptureUpload(ctx context.Cont
 	if client.StreamingDataCaptureUploadFunc == nil {
 		return client.DataSyncServiceClient.StreamingDataCaptureUpload(ctx, opts...)
 	}
-	return client.StreamingDataCaptureUpload(ctx, opts...)
+	return client.StreamingDataCaptureUploadFunc(ctx, opts...)
 }
 
 type DataSyncService_StreamingDataCaptureUploadClient struct {
+	datapb.DataSyncService_StreamingDataCaptureUploadClient
 	SendFunc         func(*datapb.StreamingDataCaptureUploadRequest) error
 	CloseAndRecvFunc func() (*datapb.StreamingDataCaptureUploadResponse, error)
-	grpc.ClientStream
+	// grpc.ClientStream
 }
 
 func (c *DataSyncService_StreamingDataCaptureUploadClient) Send(req *datapb.StreamingDataCaptureUploadRequest) error {
-	if c.SendFunc != nil {
-		return c.SendFunc(req)
+	if c.SendFunc == nil {
+		return c.DataSyncService_StreamingDataCaptureUploadClient.Send(req)
 	}
-	return nil
+	//test that the data we send is equal to what we expect
+	return c.SendFunc(req)
 }
 
 func (c *DataSyncService_StreamingDataCaptureUploadClient) CloseAndRecv() (*datapb.StreamingDataCaptureUploadResponse, error) {
-	if c.CloseAndRecvFunc != nil {
-		return c.CloseAndRecvFunc()
+	if c.CloseAndRecvFunc == nil {
+		return c.DataSyncService_StreamingDataCaptureUploadClient.CloseAndRecv()
 	}
-	return nil, nil
+	return c.CloseAndRecvFunc()
+
 }
+
+//	func (c *DataSyncService_StreamingDataCaptureUploadClient) Send(req *datapb.StreamingDataCaptureUploadRequest) error {
+//		if c.SendFunc != nil {
+//			return c.SendFunc(req)
+//		}
+//		return nil
+//	}
+
+//	func (c *DataSyncService_StreamingDataCaptureUploadClient) CloseAndRecv() (*datapb.StreamingDataCaptureUploadResponse, error) {
+//		if c.CloseAndRecvFunc != nil {
+//			return c.CloseAndRecvFunc()
+//		}
+//		return nil, nil
+//	}

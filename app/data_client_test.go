@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -34,7 +35,7 @@ const (
 	bboxLabel      = "bbox_label"
 	tag            = "tag"
 	fileName       = "file_name"
-	fileExt        = "file_ext.ext"
+	fileExt        = ".ext"
 	datasetID      = "dataset_id"
 	binaryMetaID   = "binary_id"
 	mongodbURI     = "mongo_uri"
@@ -630,11 +631,11 @@ func TestDataSyncClient(t *testing.T) {
 		SDBinary: binaryDataByte,
 	}
 
-	tabularSensorData := SensorData{
-		Metadata: metadata,
-		SDStruct: tabularData.Data,
-		SDBinary: nil,
-	}
+	// tabularSensorData := SensorData{
+	// 	Metadata: metadata,
+	// 	SDStruct: tabularData.Data,
+	// 	SDBinary: nil,
+	// }
 
 	t.Run("BinaryDataCaptureUpload", func(t *testing.T) {
 		uploadMetadata := UploadMetadata{
@@ -675,8 +676,9 @@ func TestDataSyncClient(t *testing.T) {
 				FileId: fileID,
 			}, nil
 		}
-		resp, _ := client.DataCaptureUpload(context.Background(), uploadMetadata, []SensorData{binarySensorData}) //not proto-types, regular types u expect to recieve in the function
-		test.That(t, resp, test.ShouldResemble, fileID)                                                           //compare response with regular expected types (fromProto if needed)
+		// resp, _ := client.DataCaptureUpload(context.Background(), uploadMetadata, []SensorData{binarySensorData}) //not proto-types, regular types u expect to recieve in the function
+		resp, _ := client.BinaryDataCaptureUpload(context.Background(), &uploadMetadata, binaryDataByte, dataRequestTimes)
+		test.That(t, resp, test.ShouldResemble, fileID) //compare response with regular expected types (fromProto if needed)
 	})
 
 	t.Run("TabularDataCaptureUpload", func(t *testing.T) {
@@ -723,36 +725,50 @@ func TestDataSyncClient(t *testing.T) {
 				FileId: fileID,
 			}, nil
 		}
-		resp, _ := client.DataCaptureUpload(context.Background(), uploadMetadata, []SensorData{tabularSensorData})
+		// Convert `tabularDataPb.Data` to the expected input format for `tabularDataCaptureUpload`
+		tabularData := []map[string]interface{}{data}
+		// Provide corresponding request times
+		dataRequestTimes := [][2]time.Time{
+			{startTime, endTime},
+		}
+
+		// resp, _ := client.DataCaptureUpload(context.Background(), uploadMetadata, []SensorData{tabularSensorData})
+		resp, _ := client.tabularDataCaptureUpload(context.Background(), &uploadMetadata, tabularData, dataRequestTimes)
 		test.That(t, resp, test.ShouldResemble, fileID)
 	})
 
 	t.Run("StreamingDataCaptureUpload", func(t *testing.T) {
+		uploadMetadata := UploadMetadata{
+			PartID:           partID,
+			ComponentType:    componentType,
+			ComponentName:    componentName,
+			MethodName:       method,
+			Type:             DataTypeBinarySensor,
+			FileName:         fileName,
+			MethodParameters: methodParameters,
+			FileExtension:    fileExt,
+			Tags:             tags,
+		}
+
 		// Mock implementation of the streaming client.
 		mockStream := &inject.DataSyncService_StreamingDataCaptureUploadClient{
 			SendFunc: func(req *syncPb.StreamingDataCaptureUploadRequest) error {
+				fmt.Printf("Received packet type: %T\n", req.UploadPacket)
 				switch packet := req.UploadPacket.(type) {
 				case *syncPb.StreamingDataCaptureUploadRequest_Metadata:
 					// Validate metadata packet.
 					meta := packet.Metadata
 					test.That(t, meta.UploadMetadata.PartId, test.ShouldEqual, partID)
-					test.That(t, meta.UploadMetadata.FileExtension, test.ShouldEqual, "."+fileExt)
+					test.That(t, meta.UploadMetadata.FileExtension, test.ShouldEqual, fileExt)
 					test.That(t, meta.UploadMetadata.ComponentType, test.ShouldEqual, componentType)
 					test.That(t, meta.UploadMetadata.ComponentName, test.ShouldEqual, componentName)
 					test.That(t, meta.UploadMetadata.MethodName, test.ShouldEqual, method)
 					test.That(t, meta.UploadMetadata.Tags, test.ShouldResemble, tags)
 					test.That(t, meta.SensorMetadata.TimeRequested, test.ShouldResemble, timestamppb.New(startTime))
 					test.That(t, meta.SensorMetadata.TimeReceived, test.ShouldResemble, timestamppb.New(endTime))
-					
 				case *syncPb.StreamingDataCaptureUploadRequest_Data:
-					// Validate data chunks.
-					var chunkIndex int
-					UploadChunkSize := 64 * 1024
-					chunk := packet.Data
-					expectedChunk := binaryDataByte[chunkIndex*UploadChunkSize : min((chunkIndex+1)*UploadChunkSize, len(data))]
-					test.That(t, chunk, test.ShouldResemble, expectedChunk)
-					chunkIndex++
-
+					// Validate data packet.
+					test.That(t, packet.Data, test.ShouldResemble, binaryDataByte)
 				default:
 					t.Errorf("unexpected packet type: %T", packet)
 				}
@@ -773,7 +789,8 @@ func TestDataSyncClient(t *testing.T) {
 			return mockStream, nil
 		}
 		// Call the function being tested.
-		resp, err := client.StreamingDataCaptureUpload(context.Background(), binaryDataByte, partID, fileExt, componentType, componentName, method, methodParameters, dataRequestTimes, tags)
+		// resp, err := client.StreamingDataCaptureUpload(context.Background(), binaryDataByte, partID, fileExt, componentType, componentName, method, methodParameters, dataRequestTimes, tags)
+		resp, err := client.StreamingDataCaptureUpload(context.Background(), &uploadMetadata, &binarySensorData)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldEqual, fileID)
 	})
