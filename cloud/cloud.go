@@ -11,22 +11,22 @@ type Metadata struct {
 	MachinePartID string
 }
 
-// ResourceNameToProto converts a resource.Name to its proto counterpart.
-func CloudMetadataToProto(metadata Metadata) *pb.GetCloudMetadataResponse {
+// MetadataToProto converts a Metadata its proto counterpart.
+func MetadataToProto(metadata Metadata) *pb.GetCloudMetadataResponse {
 	return &pb.GetCloudMetadataResponse{
 		MachinePartId: metadata.MachinePartID,
-			MachineId: metadata.MachineID,
-			PrimaryOrgId: metadata.PrimaryOrgID,
-			LocationId: metadata.LocationID,
+		MachineId:     metadata.MachineID,
+		PrimaryOrgId:  metadata.PrimaryOrgID,
+		LocationId:    metadata.LocationID,
 	}
 }
 
-// ResourceNameFromProto converts a proto ResourceName to its rdk counterpart.
-func CloudMetadataFromProto(pbMetadata *pb.GetCloudMetadataResponse) Metadata {
+// MetadataFromProto converts a proto GetCloudMetadataResponse to Metadata.
+func MetadataFromProto(pbMetadata *pb.GetCloudMetadataResponse) Metadata {
 	return Metadata{
 		MachinePartID: pbMetadata.MachinePartId,
-			MachineID: pbMetadata.MachineId,
-			PrimaryOrgID: pbMetadata.PrimaryOrgId,
-			LocationID: pbMetadata.LocationId,
+		MachineID:     pbMetadata.MachineId,
+		PrimaryOrgID:  pbMetadata.PrimaryOrgId,
+		LocationID:    pbMetadata.LocationId,
 	}
 }

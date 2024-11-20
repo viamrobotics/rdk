@@ -622,7 +622,7 @@ func (w *GraphNode) Stats() any {
 	return ret
 }
 
-// Status encapsulates a resource name along with state transition metadata.
+// NodeStatus encapsulates a resource name along with state transition metadata.
 type NodeStatus struct {
 	Name        Name
 	State       NodeState

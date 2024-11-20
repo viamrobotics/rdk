@@ -306,6 +306,7 @@ func (r *closeOnlyResource) Close(ctx context.Context) error {
 	return r.closeFunc(ctx)
 }
 
+// Status is a combination of a resources node status and the cloudMetadata associated with that resource.
 type Status struct {
 	NodeStatus
 	CloudMetadata cloud.Metadata

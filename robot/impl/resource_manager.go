@@ -1452,35 +1452,35 @@ func (manager *resourceManager) getRemoteMachineStatus(ctx context.Context) []re
 		gNode, _ := manager.resources.Node(resName)
 		switch resName.API {
 		case client.RemoteAPI:
-			res, err:= gNode.Resource()
-			if err !=nil{
+			res, err := gNode.Resource()
+			if err != nil {
 				manager.logger.Error("error getting underlying remote:%s resource", resName.Name)
 				continue
 			}
-			remote:= res.(internalRemoteRobot)
-			machineStatus, err:=remote.MachineStatus(ctx)
-			if err!=nil {
-				manager.logger.Errorf("error getting remote:%s machineStatus",resName.Name)
+			remote := res.(internalRemoteRobot)
+			machineStatus, err := remote.MachineStatus(ctx)
+			if err != nil {
+				manager.logger.Errorf("error getting remote:%s machineStatus", resName.Name)
 				continue
 			}
-			// Resources come back with the wrong remote name since they are grabbed 
+			// Resources come back with the wrong remote name since they are grabbed
 			// from the remote themselves We need to add that information back
 			// A copy of []resource.Status is made so we do not modify the slice in a for loop
 			var returnStatusArray []resource.Status
-			for _,remoteResource:= range machineStatus.Resources{
+			for _, remoteResource := range machineStatus.Resources {
 				returnStatusArray = append(returnStatusArray, resource.Status{
 					NodeStatus: resource.NodeStatus{
-						Name: remoteResource.Name.PrependRemote(resName.Name),
-						State: remoteResource.State,
+						Name:        remoteResource.Name.PrependRemote(resName.Name),
+						State:       remoteResource.State,
 						LastUpdated: remoteResource.LastUpdated,
-						Revision: remoteResource.Revision,
-						Error: remoteResource.Error,
+						Revision:    remoteResource.Revision,
+						Error:       remoteResource.Error,
 					},
 					CloudMetadata: remoteResource.CloudMetadata,
 				})
 			}
-			machineStatusArray=append(machineStatusArray, returnStatusArray...)
-			
+			machineStatusArray = append(machineStatusArray, returnStatusArray...)
+
 		default:
 			manager.logger.Error("config is not a remote config")
 		}

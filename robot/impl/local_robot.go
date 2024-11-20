@@ -1482,10 +1482,13 @@ func (r *localRobot) Shutdown(ctx context.Context) error {
 func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
 	var result robot.MachineStatus
 
-	remoteMachineStatus:=r.manager.getRemoteMachineStatus(ctx)
-
-	result.Resources = append(result.Resources,remoteMachineStatus...)
-	result.Resources = append(result.Resources, r.createLocalStatus(ctx)...)
+	remoteMachineStatus := r.manager.getRemoteMachineStatus(ctx)
+	localMachineStatus, err := r.createLocalStatus(ctx)
+	if err != nil {
+		return result, err
+	}
+	result.Resources = append(result.Resources, remoteMachineStatus...)
+	result.Resources = append(result.Resources, localMachineStatus...)
 
 	r.configRevisionMu.RLock()
 	result.Config = r.configRevision
@@ -1494,15 +1497,18 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 	return result, nil
 }
 
-func (r *localRobot) createLocalStatus(ctx context.Context)[]resource.Status {
+func (r *localRobot) createLocalStatus(ctx context.Context) ([]resource.Status, error) {
 	var returnStatuses []resource.Status
-	localMetaData, _ :=r.CloudMetadata(ctx)
-	for _,resourceStatus:= range r.manager.resources.Status(){
-		if resourceStatus.Name.Remote==""{
-			returnStatuses = append(returnStatuses, resource.Status{NodeStatus:resourceStatus, CloudMetadata:localMetaData})
+	localMetaData, err := r.CloudMetadata(ctx)
+	if err != nil {
+		return nil, errors.New("error getting cloudMetadata from this machine")
 	}
+	for _, resourceStatus := range r.manager.resources.Status() {
+		if resourceStatus.Name.Remote == "" {
+			returnStatuses = append(returnStatuses, resource.Status{NodeStatus: resourceStatus, CloudMetadata: localMetaData})
+		}
 	}
-	return returnStatuses
+	return returnStatuses, nil
 }
 
 // Version returns version information about the robot.

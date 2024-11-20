@@ -20,7 +20,6 @@ import (
 	"github.com/golang/geo/r3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
-
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -3374,43 +3373,53 @@ func (m *mockResource) Reconfigure(
 
 // getExpectedDefaultStatuses returns a slice of default [resource.Status] with a given
 // revision set for motion and sensor services.
-func getExpectedDefaultStatuses(revision string) []resource.NodeStatus {
-	return []resource.NodeStatus{
+func getExpectedDefaultStatuses(revision string) []resource.Status {
+	return []resource.Status{
 		{
-			Name: resource.Name{
-				API:  resource.APINamespaceRDKInternal.WithServiceType("framesystem"),
-				Name: "builtin",
+			NodeStatus: resource.NodeStatus{
+				Name: resource.Name{
+					API:  resource.APINamespaceRDKInternal.WithServiceType("framesystem"),
+					Name: "builtin",
+				},
+				State: resource.NodeStateReady,
 			},
-			State: resource.NodeStateReady,
 		},
 		{
-			Name: resource.Name{
-				API:  resource.APINamespaceRDKInternal.WithServiceType("cloud_connection"),
-				Name: "builtin",
+			NodeStatus: resource.NodeStatus{
+				Name: resource.Name{
+					API:  resource.APINamespaceRDKInternal.WithServiceType("cloud_connection"),
+					Name: "builtin",
+				},
+				State: resource.NodeStateReady,
 			},
-			State: resource.NodeStateReady,
 		},
 		{
-			Name: resource.Name{
-				API:  resource.APINamespaceRDKInternal.WithServiceType("packagemanager"),
-				Name: "builtin",
+			NodeStatus: resource.NodeStatus{
+				Name: resource.Name{
+					API:  resource.APINamespaceRDKInternal.WithServiceType("packagemanager"),
+					Name: "builtin",
+				},
+				State: resource.NodeStateReady,
 			},
-			State: resource.NodeStateReady,
 		},
 		{
-			Name: resource.Name{
-				API:  resource.APINamespaceRDKInternal.WithServiceType("web"),
-				Name: "builtin",
+			NodeStatus: resource.NodeStatus{
+				Name: resource.Name{
+					API:  resource.APINamespaceRDKInternal.WithServiceType("web"),
+					Name: "builtin",
+				},
+				State: resource.NodeStateReady,
 			},
-			State: resource.NodeStateReady,
 		},
 		{
-			Name: resource.Name{
-				API:  resource.APINamespaceRDK.WithServiceType("motion"),
-				Name: "builtin",
+			NodeStatus: resource.NodeStatus{
+				Name: resource.Name{
+					API:  resource.APINamespaceRDK.WithServiceType("motion"),
+					Name: "builtin",
+				},
+				State:    resource.NodeStateReady,
+				Revision: revision,
 			},
-			State:    resource.NodeStateReady,
-			Revision: revision,
 		},
 	}
 }
@@ -3452,11 +3461,13 @@ func TestMachineStatus(t *testing.T) {
 		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev2)
 		expectedStatuses := rtestutils.ConcatResourceStatuses(
 			getExpectedDefaultStatuses(rev2),
-			[]resource.NodeStatus{
+			[]resource.Status{
 				{
-					Name:     mockNamed("m"),
-					State:    resource.NodeStateReady,
-					Revision: rev2,
+					NodeStatus: resource.NodeStatus{
+						Name:     mockNamed("m"),
+						State:    resource.NodeStateReady,
+						Revision: rev2,
+					},
 				},
 			},
 		)
@@ -3477,10 +3488,12 @@ func TestMachineStatus(t *testing.T) {
 			getExpectedDefaultStatuses(rev3),
 			[]resource.Status{
 				{
-					Name:     mockNamed("m"),
-					State:    resource.NodeStateUnhealthy,
-					Revision: rev2,
-					Error:    expectedConfigError,
+					NodeStatus: resource.NodeStatus{
+						Name:     mockNamed("m"),
+						State:    resource.NodeStateUnhealthy,
+						Revision: rev2,
+						Error:    expectedConfigError,
+					},
 				},
 			},
 		)
@@ -3499,9 +3512,11 @@ func TestMachineStatus(t *testing.T) {
 			getExpectedDefaultStatuses(rev4),
 			[]resource.Status{
 				{
-					Name:     mockNamed("m"),
-					State:    resource.NodeStateReady,
-					Revision: rev4,
+					NodeStatus: resource.NodeStatus{
+						Name:     mockNamed("m"),
+						State:    resource.NodeStateReady,
+						Revision: rev4,
+					},
 				},
 			},
 		)
@@ -3541,9 +3556,11 @@ func TestMachineStatus(t *testing.T) {
 		filterConfiguring := rtestutils.FilterByStatus(t, mStatus.Resources, resource.NodeStateConfiguring)
 		expectedConfiguring := []resource.Status{
 			{
-				Name:     mockNamed("m"),
-				State:    resource.NodeStateConfiguring,
-				Revision: rev1,
+				NodeStatus: resource.NodeStatus{
+					Name:     mockNamed("m"),
+					State:    resource.NodeStateConfiguring,
+					Revision: rev1,
+				},
 			},
 		}
 		rtestutils.VerifySameResourceStatuses(t, filterConfiguring, expectedConfiguring)
@@ -3567,9 +3584,11 @@ func TestMachineStatus(t *testing.T) {
 			getExpectedDefaultStatuses(rev2),
 			[]resource.Status{
 				{
-					Name:     mockNamed("m"),
-					State:    resource.NodeStateReady,
-					Revision: rev2,
+					NodeStatus: resource.NodeStatus{
+						Name:     mockNamed("m"),
+						State:    resource.NodeStateReady,
+						Revision: rev2,
+					},
 				},
 			},
 		)

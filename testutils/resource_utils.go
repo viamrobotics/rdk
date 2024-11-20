@@ -199,8 +199,8 @@ func ConcatResourceNames(values ...[]resource.Name) []resource.Name {
 // ConcatResourceStatuses takes a slice of slices of resource.Status objects and returns
 // a concatenated slice of resource.Status for the purposes of comparison in automated
 // tests.
-func ConcatResourceStatuses(values ...[]resource.NodeStatus) []resource.NodeStatus {
-	var rs []resource.NodeStatus
+func ConcatResourceStatuses(values ...[]resource.Status) []resource.Status {
+	var rs []resource.Status
 	for _, v := range values {
 		rs = append(rs, v...)
 	}
