@@ -225,6 +225,9 @@ type UploadMetadata struct {
 	FileExtension    string
 	Tags             []string
 }
+type FileData struct {
+	Data []byte
+}
 
 //:::::******NEW struct/variable ADDITIONS FOR DATASYNC END HERE!!!!****************
 
@@ -1115,7 +1118,7 @@ func (d *DataClient) StreamingDataCaptureUpload(
 
 // FileUpload uploads the contents and metadata for binary (image + file) data,
 // where the first packet must be the UploadMetadata.
-func (d *DataClient) FileUpload(ctx context.Context) error {
+func (d *DataClient) FileUploadByFileName(ctx context.Context) error {
 	// resp, err := d.dataSyncClient.FileUpload(ctx, &pb.FileUploadRequest{})
 	// if err != nil {
 	// 	return err
@@ -1125,10 +1128,127 @@ func (d *DataClient) FileUpload(ctx context.Context) error {
 
 // FileUpload uploads the contents and metadata for binary (image + file) data,
 // where the first packet must be the UploadMetadata.
-func (d *DataClient) FileUploadFromPath(ctx context.Context) error {
+func (d *DataClient) FileUploadByPath(ctx context.Context) error {
 	// resp, err := d.client.FileUpload(ctx, &pb.FileUploadRequest{})
 	// if err != nil {
 	// 	return err
 	// }
 	return nil
 }
+
+// FileUpload uploads the contents and metadata for binary (image + file) data,
+// where the first packet must be the UploadMetadata.
+func (d *DataClient) FileUpload(ctx context.Context, metadata UploadMetadata, fileContents FileData) (string, error) {
+
+	UploadChunkSize := 64 * 1024 //64 KB in bytes
+	// Prepare UploadMetadata
+	uploadMetadata := UploadMetadata{
+		// PartID:           partID,
+		// ComponentType:    options.ComponentType,
+		// ComponentName:    options.ComponentName,
+		// MethodName:       options.MethodName,
+		// Type:             DataTypeBinarySensor, // assuming this is the correct type??
+		// FileName:         options.FileName,
+		// MethodParameters: options.MethodParameters,
+		// FileExtension:    fileExt,
+		// Tags:             options.Tags,
+	}
+	uploadMetadataPb := uploadMetadataToProto(uploadMetadata) //derefernce the pointer to pass the value instead
+
+	//prepare FileData file_contents
+
+	// establish a streaming connection.
+	stream, err := d.dataSyncClient.FileUpload(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to establish streaming connection: %w", err)
+	}
+	// send the metadata as the first packet.
+	metaReq := &syncPb.FileUploadRequest{
+		UploadPacket: &syncPb.FileUploadRequest_Metadata{
+			Metadata: uploadMetadataPb,
+		},
+	}
+	if err := stream.Send(metaReq); err != nil {
+		return "", fmt.Errorf("failed to send metadata: %w", err)
+	}
+
+	// send the binary file data in chunks.
+	for start := 0; start < len(fileContents.Data); start += UploadChunkSize {
+		//loop thry the data array starting at index 0, in each iteration start index increases by UploadChunkSize
+		//the loop  continues until start reaches or exceeds the length of the data array
+		end := start + UploadChunkSize
+		//this calculates the end index for the chunk, it is simply the start index plys the upload chunk size
+		if end > len(fileContents.Data) {
+			end = len(fileContents.Data)
+		}
+
+		chunk := fileContents.Data[start:end]
+		dataReq := &syncPb.FileUploadRequest{
+			UploadPacket: &syncPb.FileUploadRequest_FileContents{
+				FileContents: chunk,
+			},
+		}
+
+		if err := stream.Send(dataReq); err != nil {
+			return "", fmt.Errorf("failed to send data chunk: %w", err)
+		}
+	}
+
+	// close the stream and get the response.
+	resp, err := stream.CloseAndRecv()
+	if err != nil {
+		return "", fmt.Errorf("failed to receive response: %w", err)
+	}
+
+	// return the file ID from the response.
+	if resp == nil || resp.FileId == "" {
+		return "", fmt.Errorf("response is empty or invalid")
+	}
+	return resp.FileId, nil
+
+}
+
+// fileUpload handles the streaming upload of metadata and file contents.
+// func (d *DataClient) FileUpload(
+// 	ctx context.Context,
+// 	metadata *syncPb.UploadMetadata,
+// 	fileContents *syncPb.FileData,
+// ) (string, error) {
+// 	// Establish a streaming connection
+// 	stream, err := d.dataSyncClient.FileUpload(ctx)
+// 	if err != nil {
+// 		return "", fmt.Errorf("failed to establish streaming connection: %w", err)
+// 	}
+
+// 	// Send the metadata as the first packet
+// 	metaReq := &syncPb.FileUploadRequest{
+// 		Request: &syncPb.FileUploadRequest_Metadata{
+// 			Metadata: metadata,
+// 		},
+// 	}
+// 	if err := stream.Send(metaReq); err != nil {
+// 		return "", fmt.Errorf("failed to send metadata: %w", err)
+// 	}
+
+// 	// Send the file data as the second packet
+// 	dataReq := &syncPb.FileUploadRequest{
+// 		Request: &syncPb.FileUploadRequest_FileContents{
+// 			FileContents: fileContents,
+// 		},
+// 	}
+// 	if err := stream.Send(dataReq); err != nil {
+// 		return "", fmt.Errorf("failed to send file data: %w", err)
+// 	}
+
+// 	// Close the stream and receive the response
+// 	resp, err := stream.CloseAndRecv()
+// 	if err != nil {
+// 		return "", fmt.Errorf("failed to receive response: %w", err)
+// 	}
+
+// 	// Validate and return the response
+// 	if resp == nil || resp.FileId == "" {
+// 		return "", fmt.Errorf("response is empty or invalid")
+// 	}
+// 	return resp.FileId, nil
+// }
