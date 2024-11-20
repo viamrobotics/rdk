@@ -2,7 +2,6 @@ package motionplan
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"math/rand"
 	"testing"
@@ -142,11 +141,7 @@ func constrainedXArmMotion() (*planConfig, error) {
 
 	start := map[string][]frame.Input{model.Name(): home7}
 	goal := PathStep{model.Name(): frame.NewPoseInFrame(frame.World, pos)}
-	startPose, err := fs.Transform(start, frame.NewZeroPoseInFrame(model.Name()), goal[model.Name()].Parent())
-	if err != nil {
-		return nil, err
-	}
-	opt.fillMotionChains(fs, PathStep{model.Name(): startPose.(*frame.PoseInFrame)}, goal)
+	opt.fillMotionChains(fs, goal)
 
 	return &planConfig{
 		Start:   start,
@@ -278,11 +273,7 @@ func simple2DMap() (*planConfig, error) {
 	for name, constraint := range collisionConstraints {
 		opt.AddStateConstraint(name, constraint)
 	}
-	startPose, err := fs.Transform(startInput, frame.NewZeroPoseInFrame(model.Name()), goal[model.Name()].Parent())
-	if err != nil {
-		return nil, err
-	}
-	opt.fillMotionChains(fs, PathStep{model.Name(): startPose.(*frame.PoseInFrame)}, goal)
+	opt.fillMotionChains(fs, goal)
 
 	return &planConfig{
 		Start:   startInput,
@@ -305,7 +296,9 @@ func simpleXArmMotion() (*planConfig, error) {
 		return nil, err
 	}
 
-	goal := PathStep{xarm.Name(): frame.NewPoseInFrame(frame.World, spatialmath.NewPoseFromProtobuf(&commonpb.Pose{X: 206, Y: 100, Z: 120, OZ: -1}))}
+	goal := PathStep{
+		xarm.Name(): frame.NewPoseInFrame(frame.World, spatialmath.NewPoseFromProtobuf(&commonpb.Pose{X: 206, Y: 100, Z: 120, OZ: -1})),
+	}
 
 	// setup planner options
 	opt := newBasicPlannerOptions()
@@ -349,11 +342,7 @@ func simpleXArmMotion() (*planConfig, error) {
 		opt.AddStateFSConstraint(name, constraint)
 	}
 	start := map[string][]frame.Input{xarm.Name(): home7}
-	startPose, err := fs.Transform(start, frame.NewZeroPoseInFrame(xarm.Name()), goal[xarm.Name()].Parent())
-	if err != nil {
-		return nil, err
-	}
-	opt.fillMotionChains(fs, PathStep{xarm.Name(): startPose.(*frame.PoseInFrame)}, goal)
+	opt.fillMotionChains(fs, goal)
 
 	return &planConfig{
 		Start:   start,
@@ -375,7 +364,9 @@ func simpleUR5eMotion() (*planConfig, error) {
 		return nil, err
 	}
 
-	goal := PathStep{ur5e.Name(): frame.NewPoseInFrame(frame.World, spatialmath.NewPoseFromProtobuf(&commonpb.Pose{X: -750, Y: -250, Z: 200, OX: -1}))}
+	goal := PathStep{
+		ur5e.Name(): frame.NewPoseInFrame(frame.World, spatialmath.NewPoseFromProtobuf(&commonpb.Pose{X: -750, Y: -250, Z: 200, OX: -1})),
+	}
 
 	// setup planner options
 	opt := newBasicPlannerOptions()
@@ -419,11 +410,7 @@ func simpleUR5eMotion() (*planConfig, error) {
 		opt.AddStateFSConstraint(name, constraint)
 	}
 	start := map[string][]frame.Input{ur5e.Name(): home6}
-	startPose, err := fs.Transform(start, frame.NewZeroPoseInFrame(ur5e.Name()), goal[ur5e.Name()].Parent())
-	if err != nil {
-		return nil, err
-	}
-	opt.fillMotionChains(fs, PathStep{ur5e.Name(): startPose.(*frame.PoseInFrame)}, goal)
+	opt.fillMotionChains(fs, goal)
 
 	return &planConfig{
 		Start:   start,
@@ -653,7 +640,6 @@ func TestReachOverArm(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan.Trajectory()), test.ShouldBeGreaterThan, 2)
-	fmt.Println("")
 }
 
 func TestPlanMapMotion(t *testing.T) {
@@ -1038,7 +1024,11 @@ func TestPtgPosOnlyBidirectional(t *testing.T) {
 	// If bidirectional planning worked properly, this plan should wind up at the goal with an orientation of Theta = 180 degrees
 	bidirectionalPlan, err := planToTpspaceRec(bidirectionalPlanRaw, kinematicFrame)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, spatialmath.PoseAlmostCoincidentEps(goal, bidirectionalPlan[len(bidirectionalPlan)-1].Poses()[kinematicFrame.Name()].Pose(), 5), test.ShouldBeTrue)
+	test.That(t, spatialmath.PoseAlmostCoincidentEps(
+		goal,
+		bidirectionalPlan[len(bidirectionalPlan)-1].Poses()[kinematicFrame.Name()].Pose(),
+		5,
+	), test.ShouldBeTrue)
 }
 
 func TestValidatePlanRequest(t *testing.T) {

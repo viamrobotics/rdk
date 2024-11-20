@@ -308,7 +308,7 @@ func (p *plannerOptions) addOrientationConstraints(
 	return nil
 }
 
-func (p *plannerOptions) fillMotionChains(fs referenceframe.FrameSystem, from, to PathStep) error {
+func (p *plannerOptions) fillMotionChains(fs referenceframe.FrameSystem, to PathStep) error {
 	motionChains := make([]*motionChain, 0, len(to))
 
 	for frame, goal := range to {

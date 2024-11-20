@@ -304,10 +304,10 @@ func (c *ConstraintHandler) SegmentFSConstraints() []string {
 	return names
 }
 
-// CheckStateConstraintsAcrossSegmentFS will interpolate the given input from the StartInput to the EndInput, and ensure that all intermediate
-// states as well as both endpoints satisfy all state constraints. If all constraints are satisfied, then this will return `true, nil`.
-// If any constraints fail, this will return false, and an SegmentFS representing the valid portion of the segment, if any. If no
-// part of the segment is valid, then `false, nil` is returned.
+// CheckStateConstraintsAcrossSegmentFS will interpolate the given input from the StartConfiguration to the EndConfiguration, and ensure
+// that all intermediate states as well as both endpoints satisfy all state constraints. If all constraints are satisfied, then this will
+// return `true, nil`. If any constraints fail, this will return false, and an SegmentFS representing the valid portion of the segment,
+// if any. If no part of the segment is valid, then `false, nil` is returned.
 func (c *ConstraintHandler) CheckStateConstraintsAcrossSegmentFS(ci *ik.SegmentFS, resolution float64) (bool, *ik.SegmentFS) {
 	interpolatedConfigurations, err := interpolateSegmentFS(ci, resolution)
 	if err != nil {

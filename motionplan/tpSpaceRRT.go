@@ -323,7 +323,6 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	var randPosNode node = midptNode
 
 	for iter := 0; iter < mp.planOpts.PlanIter; iter++ {
-		//~ for iter := 0; iter < 2; iter++ {
 		if pathdebug {
 			randPose := mp.pathStepToPose(randPosNode.Poses())
 			mp.logger.Debugf("$RRTGOAL,%f,%f", randPose.Point().X, randPose.Point().Y)
@@ -723,10 +722,10 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 			// Reached the goal position, or otherwise failed to fully extend to the end of a trajectory
 			return &nodeAndError{endNode, nil}
 		}
-		// ~ if i == 0 {
-		//~ // TP-space distance is NOT the same thing as cartesian distance, but they track sufficiently well that this is valid to do.
-		//~ maxReseeds = int(math.Min(float64(defaultMaxReseeds), math.Ceil(distToGoal/(distTravelledByCandidate/4))+2))
-		//~ }
+		if i == 0 {
+			// TP-space distance is NOT the same thing as cartesian distance, but they track sufficiently well that this is valid to do.
+			maxReseeds = int(math.Min(float64(defaultMaxReseeds), math.Ceil(distToGoal/(distTravelledByCandidate/4))+2))
+		}
 		// If our most recent traj was not a full-length extension, try to extend one more time and then return our best node.
 		// This helps prevent the planner from doing a 15-point turn to adjust orientation, which is very difficult to accurately execute.
 		if distToGoal < distTravelledByCandidate/4 {
@@ -899,6 +898,7 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGS
 			EndPosition:   mp.pathStepToPose(node2.Poses()),
 		})
 	}
+	opts.Resolution = defaultPTGCollisionResolution
 	return opts, &m
 }
 

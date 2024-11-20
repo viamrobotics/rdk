@@ -13,7 +13,6 @@ import (
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
-	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
@@ -265,7 +264,7 @@ func NewCollisionConstraintFS(
 	// create constraint from reference collision graph
 	constraint := func(state *ik.StateFS) bool {
 		// Use FrameSystemGeometries to get all geometries in the frame system
-		internalGeometries, err := frame.FrameSystemGeometries(state.FS, state.Configuration)
+		internalGeometries, err := referenceframe.FrameSystemGeometries(state.FS, state.Configuration)
 		if err != nil {
 			return false
 		}

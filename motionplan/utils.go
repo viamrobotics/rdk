@@ -4,7 +4,6 @@ package motionplan
 
 import (
 	"errors"
-	"errors"
 	"fmt"
 	"math"
 

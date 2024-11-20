@@ -127,7 +127,7 @@ func (ik *nloptIK) Solve(ctx context.Context,
 			// if statement is faster.
 			for i := range gradient {
 				// ~ fmt.Println("jump", jump)
-				//~ fmt.Println("gradient", gradient)
+				// ~ fmt.Println("gradient", gradient)
 				jumpVal = jump[i]
 				flip := false
 				checkVals[i] += jumpVal

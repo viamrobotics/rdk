@@ -22,6 +22,8 @@ type Segment struct {
 	Frame              referenceframe.Frame
 }
 
+// SegmentFS is a referenceframe.FrameSystem-specific contains all the information a constraint needs to determine validity for a movement.
+// It contains the starting inputs, the ending inputs, and the framesystem it refers to.
 type SegmentFS struct {
 	StartConfiguration map[string][]referenceframe.Input
 	EndConfiguration   map[string][]referenceframe.Input
@@ -39,15 +41,18 @@ func (s *Segment) String() string {
 	)
 }
 
-// State contains all the information a constraint needs to determine validity for a movement.
-// It contains the starting inputs, the ending inputs, corresponding poses, and the frame it refers to.
-// Pose fields may be empty, and may be filled in by a constraint that needs them.
+// State contains all the information a constraint needs to determine validity for a particular state or configuration.
+// It contains inputs, the corresponding poses, and the frame it refers to.
+// Pose field may be empty, and may be filled in by a constraint that needs it.
 type State struct {
 	Position      spatial.Pose
 	Configuration []referenceframe.Input
 	Frame         referenceframe.Frame
 }
 
+// StateFS contains all the information a constraint needs to determine validity for a particular state or configuration of an entire
+// framesystem. It contains inputs, the corresponding poses, and the frame it refers to.
+// Pose field may be empty, and may be filled in by a constraint that needs it.
 type StateFS struct {
 	Configuration map[string][]referenceframe.Input
 	FS            referenceframe.FrameSystem
@@ -57,20 +62,24 @@ type StateFS struct {
 // This is used for gradient descent to converge upon a goal pose, for example.
 type StateMetric func(*State) float64
 
+// StateFSMetric are functions which, given a StateFS, produces some score. Lower is better.
+// This is used for gradient descent to converge upon a goal pose, for example.
 type StateFSMetric func(*StateFS) float64
 
 // SegmentMetric are functions which produce some score given an Segment. Lower is better.
 // This is used to sort produced IK solutions by goodness, for example.
 type SegmentMetric func(*Segment) float64
 
+// SegmentFSMetric are functions which produce some score given an SegmentFS. Lower is better.
+// This is used to sort produced IK solutions by goodness, for example.
 type SegmentFSMetric func(*SegmentFS) float64
 
-// NewZeroMetric always returns zero as the distance between two points.
+// NewZeroMetric always returns zero as the distance.
 func NewZeroMetric() StateMetric {
 	return func(from *State) float64 { return 0 }
 }
 
-// NewZeroMetric always returns zero as the distance between two points.
+// NewZeroFSMetric always returns zero as the distance.
 func NewZeroFSMetric() StateFSMetric {
 	return func(from *StateFS) float64 { return 0 }
 }
@@ -222,6 +231,9 @@ func SquaredNormNoOrientSegmentMetric(segment *Segment) float64 {
 	return delta.Point().Norm2()
 }
 
+// WeightedSquaredNormSegmentMetric is a distance function between two poses to be used for gradient descent.
+// This changes the magnitude of the position delta used to be smaller and avoid numeric instability issues that happens with large floats.
+// It also scales the orientation distance to give more weight to it.
 func WeightedSquaredNormSegmentMetric(segment *Segment) float64 {
 	// Increase weight for orientation since it's a small number
 	orientDelta := spatial.QuatToR3AA(spatial.OrientationBetween(
@@ -236,7 +248,7 @@ func WeightedSquaredNormSegmentMetric(segment *Segment) float64 {
 // TODO(RSDK-2557): Writing a PenetrationDepthMetric will allow cbirrt to path along the sides of obstacles rather than terminating
 // the RRT tree when an obstacle is hit
 
-// JointMetric is a metric which will sum the squared differences in each input from start to end.
+// FSConfigurationDistance is a fs metric which will sum the abs differences in each input from start to end.
 func FSConfigurationDistance(segment *SegmentFS) float64 {
 	score := 0.
 	for frame, cfg := range segment.StartConfiguration {
@@ -249,7 +261,7 @@ func FSConfigurationDistance(segment *SegmentFS) float64 {
 	return score
 }
 
-// JointMetric is a metric which will sum the squared differences in each input from start to end.
+// FSConfigurationL2Distance is a fs metric which will sum the L2 norm differences in each input from start to end.
 func FSConfigurationL2Distance(segment *SegmentFS) float64 {
 	score := 0.
 	for frame, cfg := range segment.StartConfiguration {
