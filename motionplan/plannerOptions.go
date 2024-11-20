@@ -251,6 +251,13 @@ func (p *plannerOptions) addPbTopoConstraints(
 			return false, err
 		}
 	}
+	for _, pseudolinearConstraint := range constraints.GetPseudolinearConstraint() {
+		// pseudolinear constraints
+		err := p.addPseudolinearConstraints(fs, startCfg, from, to, pseudolinearConstraint)
+		if err != nil {
+			return false, err
+		}
+	}
 	for _, orientationConstraint := range constraints.GetOrientationConstraint() {
 		topoConstraints = true
 		// TODO RSDK-9224: Our proto for constraints does not allow the specification of which frames should be constrainted relative to
@@ -284,6 +291,33 @@ func (p *plannerOptions) addLinearConstraints(
 		return err
 	}
 	p.AddStateFSConstraint(defaultLinearConstraintDesc, constraint)
+
+	p.pathMetric = ik.CombineFSMetrics(p.pathMetric, pathDist)
+	return nil
+}
+
+func (p *plannerOptions) addPseudolinearConstraints(
+	fs referenceframe.FrameSystem,
+	startCfg map[string][]referenceframe.Input,
+	from, to PathStep,
+	plinConstraint PseudolinearConstraint,
+) error {
+	// Linear constraints
+	linTol := plinConstraint.LineToleranceFactor
+	if linTol == 0 {
+		// Default
+		linTol = defaultPseudolinearTolerance
+	}
+	orientTol := plinConstraint.OrientationToleranceFactor
+	if orientTol == 0 {
+		orientTol = defaultPseudolinearTolerance
+	}
+	// ~ constraint, pathDist, err := CreateAbsoluteLinearInterpolatingConstraintFS(fs, startCfg, from, to, linTol, orientTol)
+	constraint, pathDist, err := CreateProportionalLinearInterpolatingConstraintFS(fs, startCfg, from, to, linTol, orientTol)
+	if err != nil {
+		return err
+	}
+	p.AddStateFSConstraint(defaultPseudolinearConstraintDesc, constraint)
 
 	p.pathMetric = ik.CombineFSMetrics(p.pathMetric, pathDist)
 	return nil

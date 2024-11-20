@@ -515,6 +515,9 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	constraints *Constraints,
 	planningOpts map[string]interface{},
 ) (*plannerOptions, error) {
+	if constraints == nil {
+		constraints = &Constraints{}
+	}
 	planAlg := ""
 
 	// Start with normal options
@@ -653,7 +656,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 			// Default
 			orientTol = defaultOrientationDeviation
 		}
-		constraints.LinearConstraint = append(constraints.LinearConstraint, LinearConstraint{linTol, orientTol})
+		constraints.AddLinearConstraint(LinearConstraint{linTol, orientTol})
 	case PseudolinearMotionProfile:
 		opt.profile = PseudolinearMotionProfile
 		tolerance, ok := planningOpts["tolerance"].(float64)
@@ -661,7 +664,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 			// Default
 			tolerance = defaultPseudolinearTolerance
 		}
-		constraints.PseudolinearConstraint = append(constraints.PseudolinearConstraint, PseudolinearConstraint{tolerance, tolerance})
+		constraints.AddPseudolinearConstraint(PseudolinearConstraint{tolerance, tolerance})
 	case OrientationMotionProfile:
 		opt.profile = OrientationMotionProfile
 		tolerance, ok := planningOpts["tolerance"].(float64)
@@ -669,7 +672,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 			// Default
 			tolerance = defaultOrientationDeviation
 		}
-		constraints.OrientationConstraint = append(constraints.OrientationConstraint, OrientationConstraint{tolerance})
+		constraints.AddOrientationConstraint(OrientationConstraint{tolerance})
 	case PositionOnlyMotionProfile:
 		opt.profile = PositionOnlyMotionProfile
 		if !pm.useTPspace || opt.PositionSeeds <= 0 {

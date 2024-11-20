@@ -69,7 +69,7 @@ func TestConstraintPath(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	// Test interpolating
-	constraint, _ := NewProportionalLinearInterpolatingConstraint(ci.StartPosition, ci.EndPosition, 0.01)
+	constraint, _ := NewProportionalLinearInterpolatingConstraint(ci.StartPosition, ci.EndPosition, 0.01, 0.01)
 	handler.AddStateConstraint("interp", constraint)
 	ok, failCI = handler.CheckSegmentAndStateValidity(ci, 0.5)
 	test.That(t, failCI, test.ShouldBeNil)
@@ -188,7 +188,7 @@ func TestLineFollow(t *testing.T) {
 	stateCheck.Configuration = map[string][]frame.Input{m.Name(): m.InputFromProtobuf(mpFail)}
 	pass, failName := opt.CheckStateFSConstraints(stateCheck)
 	test.That(t, pass, test.ShouldBeFalse)
-	test.That(t, failName, test.ShouldEqual, "whiteboard")
+	test.That(t, failName, test.ShouldStartWith, "whiteboard")
 }
 
 func TestCollisionConstraints(t *testing.T) {
@@ -260,7 +260,7 @@ func TestCollisionConstraints(t *testing.T) {
 		t.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
 			response, failName := handler.CheckStateConstraints(&ik.State{Configuration: c.input, Frame: model})
 			test.That(t, response, test.ShouldEqual, c.expected)
-			test.That(t, failName, test.ShouldEqual, c.failName)
+			test.That(t, failName, test.ShouldStartWith, c.failName)
 		})
 	}
 }

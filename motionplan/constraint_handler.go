@@ -218,6 +218,7 @@ func (c *ConstraintHandler) AddStateConstraint(name string, cons StateConstraint
 	if c.stateConstraints == nil {
 		c.stateConstraints = map[string]StateConstraint{}
 	}
+	name = name + "_" + fmt.Sprintf("%p", cons)
 	c.stateConstraints[name] = cons
 }
 
@@ -241,6 +242,8 @@ func (c *ConstraintHandler) AddSegmentConstraint(name string, cons SegmentConstr
 	if c.segmentConstraints == nil {
 		c.segmentConstraints = map[string]SegmentConstraint{}
 	}
+	// Add function address to name to prevent collisions
+	name = name + "_" + fmt.Sprintf("%p", cons)
 	c.segmentConstraints[name] = cons
 }
 
@@ -264,6 +267,7 @@ func (c *ConstraintHandler) AddStateFSConstraint(name string, cons StateFSConstr
 	if c.stateFSConstraints == nil {
 		c.stateFSConstraints = map[string]StateFSConstraint{}
 	}
+	name = name + "_" + fmt.Sprintf("%p", cons)
 	c.stateFSConstraints[name] = cons
 }
 
@@ -287,6 +291,7 @@ func (c *ConstraintHandler) AddSegmentFSConstraint(name string, cons SegmentFSCo
 	if c.segmentFSConstraints == nil {
 		c.segmentFSConstraints = map[string]SegmentFSConstraint{}
 	}
+	name = name + "_" + fmt.Sprintf("%p", cons)
 	c.segmentFSConstraints[name] = cons
 }
 

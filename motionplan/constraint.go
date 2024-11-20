@@ -358,11 +358,66 @@ func CreateAbsoluteLinearInterpolatingConstraintFS(
 
 // NewProportionalLinearInterpolatingConstraint will provide the same metric and constraint as NewAbsoluteLinearInterpolatingConstraint,
 // except that allowable linear and orientation deviation is scaled based on the distance from start to goal.
-func NewProportionalLinearInterpolatingConstraint(from, to spatial.Pose, epsilon float64) (StateConstraint, ik.StateMetric) {
-	orientTol := epsilon * ik.OrientDist(from.Orientation(), to.Orientation())
-	linTol := epsilon * from.Point().Distance(to.Point())
+func NewProportionalLinearInterpolatingConstraint(
+	from, to spatial.Pose,
+	linEpsilon, orientEpsilon float64,
+) (StateConstraint, ik.StateMetric) {
+	orientTol := orientEpsilon * ik.OrientDist(from.Orientation(), to.Orientation())
+	linTol := linEpsilon * from.Point().Distance(to.Point())
 
 	return NewAbsoluteLinearInterpolatingConstraint(from, to, linTol, orientTol)
+}
+
+// CreateProportionalLinearInterpolatingConstraintFS will provide the same metric and constraint as
+// CreateAbsoluteLinearInterpolatingConstraintFS, except that allowable linear and orientation deviation is scaled based on the distance
+// from start to goal.
+func CreateProportionalLinearInterpolatingConstraintFS(
+	fs referenceframe.FrameSystem,
+	startCfg map[string][]referenceframe.Input,
+	from, to PathStep,
+	linTol, orientTol float64,
+) (StateFSConstraint, ik.StateFSMetric, error) {
+	// Create a pseudolinear constraint for each goal
+	metricMap := map[string]ik.StateMetric{}
+	constraintMap := map[string]StateConstraint{}
+
+	for frame, goal := range to {
+		startPiF, ok := from[frame]
+		if !ok {
+			startPiFTf, err := fs.Transform(startCfg, referenceframe.NewZeroPoseInFrame(frame), goal.Parent())
+			if err != nil {
+				return nil, nil, err
+			}
+			startPiF = startPiFTf.(*referenceframe.PoseInFrame)
+		}
+		constraint, metric := NewProportionalLinearInterpolatingConstraint(startPiF.Pose(), goal.Pose(), linTol, orientTol)
+
+		metricMap[frame] = metric
+		constraintMap[frame] = constraint
+	}
+
+	allMetric := func(state *ik.StateFS) float64 {
+		score := 0.
+		for frame, cfg := range state.Configuration {
+			if metric, ok := metricMap[frame]; ok {
+				score += metric(&ik.State{Configuration: cfg, Frame: fs.Frame(frame)})
+			}
+		}
+		return score
+	}
+
+	allConstraint := func(state *ik.StateFS) bool {
+		for frame, cfg := range state.Configuration {
+			if constraint, ok := constraintMap[frame]; ok {
+				pass := constraint(&ik.State{Configuration: cfg, Frame: fs.Frame(frame)})
+				if !pass {
+					return false
+				}
+			}
+		}
+		return true
+	}
+	return allConstraint, allMetric, nil
 }
 
 // NewSlerpOrientationConstraint will measure the orientation difference between the orientation of two poses, and return a constraint that
@@ -705,6 +760,19 @@ func (c *Constraints) AddLinearConstraint(linConstraint LinearConstraint) {
 func (c *Constraints) GetLinearConstraint() []LinearConstraint {
 	if c != nil {
 		return c.LinearConstraint
+	}
+	return nil
+}
+
+// AddPseudolinearConstraint appends a PseudolinearConstraint to a Constraints object.
+func (c *Constraints) AddPseudolinearConstraint(plinConstraint PseudolinearConstraint) {
+	c.PseudolinearConstraint = append(c.PseudolinearConstraint, plinConstraint)
+}
+
+// GetPseudolinearConstraint checks if the Constraints object is nil and if not then returns its PseudolinearConstraint field.
+func (c *Constraints) GetPseudolinearConstraint() []PseudolinearConstraint {
+	if c != nil {
+		return c.PseudolinearConstraint
 	}
 	return nil
 }
