@@ -68,7 +68,7 @@ func TestConstraintPath(t *testing.T) {
 	test.That(t, failCI, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	// Test interpolating
+	// Test interpolating with a proportional constraint, should pass
 	constraint, _ := NewProportionalLinearInterpolatingConstraint(ci.StartPosition, ci.EndPosition, 0.01, 0.01)
 	handler.AddStateConstraint("interp", constraint)
 	ok, failCI = handler.CheckSegmentAndStateValidity(ci, 0.5)
@@ -171,14 +171,11 @@ func TestLineFollow(t *testing.T) {
 			EndConfiguration:   map[string][]frame.Input{m.Name(): m.InputFromProtobuf(mp2)},
 			FS:                 fs,
 		},
-		1,
+		0.001,
 	)
 	test.That(t, ok, test.ShouldBeFalse)
 	test.That(t, lastGood, test.ShouldNotBeNil)
-	test.That(t, lastGood, test.ShouldBeNil)
-	fmt.Println("ok, last", ok, lastGood, lastGood == nil, lastGood != nil)
-	fmt.Printf("struct: %p", lastGood)
-	fmt.Printf("\nstruct type: %T\n", lastGood)
+	test.That(t, lastGood == nil, test.ShouldBeFalse)
 	// lastGood.StartConfiguration and EndConfiguration should pass constraints
 	stateCheck := &ik.StateFS{Configuration: lastGood.StartConfiguration, FS: fs}
 	pass, _ := opt.CheckStateFSConstraints(stateCheck)

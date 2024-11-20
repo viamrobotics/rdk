@@ -97,7 +97,7 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *ik.Segment, r
 				// fail on start pos
 				return false, nil
 			}
-			return false, &ik.Segment{StartConfiguration: ci.StartConfiguration, EndConfiguration: lastGood}
+			return false, &ik.Segment{StartConfiguration: ci.StartConfiguration, EndConfiguration: lastGood, Frame: ci.Frame}
 		}
 		lastGood = interpC.Configuration
 	}
@@ -323,9 +323,8 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossSegmentFS(ci *ik.SegmentF
 		interpC := &ik.StateFS{FS: ci.FS, Configuration: interpConfig}
 		pass, _ := c.CheckStateFSConstraints(interpC)
 		if !pass {
-			if i < 2 {
-				// fail on start pos or the first interp config
-				// Do not return the start configuration as a partial
+			if i == 0 {
+				// fail on start pos
 				return false, nil
 			}
 			return false, &ik.SegmentFS{StartConfiguration: ci.StartConfiguration, EndConfiguration: lastGood, FS: ci.FS}

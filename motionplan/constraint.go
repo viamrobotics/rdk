@@ -287,6 +287,14 @@ func NewCollisionConstraintFS(
 // shortest straight-line path between the start and the goal. linTol is the allowed linear deviation in mm, orientTol is the allowed
 // orientation deviation measured by norm of the R3AA orientation difference to the slerp path between start/goal orientations.
 func NewAbsoluteLinearInterpolatingConstraint(from, to spatial.Pose, linTol, orientTol float64) (StateConstraint, ik.StateMetric) {
+	// Account for float error
+	if linTol < defaultEpsilon {
+		linTol = defaultEpsilon
+	}
+	if orientTol < defaultEpsilon {
+		orientTol = defaultEpsilon
+	}
+
 	orientConstraint, orientMetric := NewSlerpOrientationConstraint(from, to, orientTol)
 	lineConstraint, lineMetric := NewLineConstraint(from.Point(), to.Point(), linTol)
 	interpMetric := ik.CombineMetrics(orientMetric, lineMetric)
