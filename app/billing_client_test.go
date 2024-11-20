@@ -1,0 +1,264 @@
+package app
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	pb "go.viam.com/api/app/v1"
+	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/timestamppb"
+)
+
+const (
+	subtotal = 37
+	sourceType = SourceTypeOrg
+	usageCostType = UsageCostTypeCloudStorage
+	cost float64 = 20
+	discount float64 = 9
+	totalWithDiscount = cost - discount
+	totalWithoutDiscount float64 = cost
+	email = "email"
+	paymentMethodType = PaymentMethodtypeCard
+	brand = "brand"
+	digits = "1234"
+	invoiceID = "invoice_id"
+	invoiceAmount float64 = 100.12
+	status = "status"
+	balance float64 = 73.21
+	billingOwnerOrgID = "billing_owner_organization_id"
+)
+
+var (
+	start            = timestamppb.Timestamp{Seconds: 92, Nanos: 0}
+	end              = timestamppb.Timestamp{Seconds: 99, Nanos: 999}
+	tier = "tier"
+	getCurrentMonthUsageResponse = GetCurrentMonthUsageResponse{
+		StartDate: &start,
+		EndDate: &end,
+		ResourceUsageCostsBySource: []*ResourceUsageCostsBySource{
+			{
+				SourceType: sourceType,
+				ResourceUsageCosts: &ResourceUsageCosts{
+					UsageCosts: []*UsageCost{
+						{
+							ResourceType: usageCostType,
+							Cost: cost,
+						},
+					},
+					Discount: discount,
+					TotalWithDiscount: totalWithDiscount,
+					TotalWithoutDiscount: totalWithoutDiscount,
+				},
+				TierName: tier,
+			},
+		},
+		Subtotal: subtotal,
+	}
+	getOrgBillingInformationResponse = GetOrgBillingInformationResponse{
+		Type: paymentMethodType,
+		BillingEmail: email,
+		Method: &PaymentMethodCard{
+			Brand: brand,
+			LastFourDigits: digits,
+		},
+		BillingTier: &tier,
+	}
+	invoiceDate = timestamppb.Timestamp{Seconds: 287, Nanos: 0}
+	dueDate = timestamppb.Timestamp{Seconds: 1241, Nanos: 40}
+	paidDate = timestamppb.Timestamp{Seconds: 827, Nanos: 62}
+	invoiceSummary = InvoiceSummary{
+		ID: invoiceID,
+		InvoiceDate: &invoiceDate,
+		InvoiceAmount: invoiceAmount,
+		Status: status,
+		DueDate: &dueDate,
+		PaidDate: &paidDate,
+	}
+	chunk = []byte{4, 8}
+)
+
+func sourceTypeToProto(sourceType SourceType) pb.SourceType {
+	switch sourceType {
+	case SourceTypeUnspecified:
+		return pb.SourceType_SOURCE_TYPE_UNSPECIFIED
+	case SourceTypeOrg:
+		return pb.SourceType_SOURCE_TYPE_ORG
+	case SourceTypeFragment:
+		return pb.SourceType_SOURCE_TYPE_FRAGMENT
+	default:
+		return pb.SourceType_SOURCE_TYPE_UNSPECIFIED
+	}
+}
+
+func usageCostTypeToProto(costType UsageCostType) pb.UsageCostType {
+	switch costType {
+	case UsageCostTypeUnspecified:
+		return pb.UsageCostType_USAGE_COST_TYPE_UNSPECIFIED
+	case UsageCostTypeDataUpload:
+		return pb.UsageCostType_USAGE_COST_TYPE_DATA_UPLOAD
+	case UsageCostTypeDataEgress:
+		return pb.UsageCostType_USAGE_COST_TYPE_DATA_EGRESS
+	case UsageCostTypeRemoteControl:
+		return pb.UsageCostType_USAGE_COST_TYPE_REMOTE_CONTROL
+	case UsageCostTypeStandardCompute:
+		return pb.UsageCostType_USAGE_COST_TYPE_STANDARD_COMPUTE
+	case UsageCostTypeCloudStorage:
+		return pb.UsageCostType_USAGE_COST_TYPE_CLOUD_STORAGE
+	case UsageCostTypeBinaryDataCloudStorage:
+		return pb.UsageCostType_USAGE_COST_TYPE_BINARY_DATA_CLOUD_STORAGE
+	case UsageCostTypeOtherCloudStorage:
+		return pb.UsageCostType_USAGE_COST_TYPE_OTHER_CLOUD_STORAGE
+	case UsageCostTypePerMachine:
+		return pb.UsageCostType_USAGE_COST_TYPE_PER_MACHINE
+	default:
+		return pb.UsageCostType_USAGE_COST_TYPE_UNSPECIFIED
+	}
+}
+
+func paymentMethodTypeToProto(methodType PaymentMethodType) pb.PaymentMethodType {
+	switch methodType {
+	case PaymentMethodTypeUnspecified:
+		return pb.PaymentMethodType_PAYMENT_METHOD_TYPE_UNSPECIFIED
+	case PaymentMethodtypeCard:
+		return pb.PaymentMethodType_PAYMENT_METHOD_TYPE_CARD
+	default:
+		return pb.PaymentMethodType_PAYMENT_METHOD_TYPE_UNSPECIFIED
+	}
+}
+
+func createBillingGrpcClient() *inject.BillingServiceClient {
+	return &inject.BillingServiceClient{}
+}
+
+type mockInvoiceStreamClient struct {
+	grpc.ClientStream
+	responses []*pb.GetInvoicePdfResponse
+	count int
+}
+
+func (c *mockInvoiceStreamClient) Recv() (*pb.GetInvoicePdfResponse, error) {
+	if c.count >= len(c.responses) {
+		return nil, errors.New("end of reponses")
+	}
+	resp := c.responses[c.count]
+	c.count++
+	return resp, nil
+}
+
+func TestBillingClient(t *testing.T) {
+	grpcClient := createBillingGrpcClient()
+	client := BillingClient{client: grpcClient}
+
+	t.Run("GetCurrentMonthUsage", func(t *testing.T) {
+		pbResponse := pb.GetCurrentMonthUsageResponse{
+			StartDate: getCurrentMonthUsageResponse.StartDate,
+			EndDate: getCurrentMonthUsageResponse.EndDate,
+			ResourceUsageCostsBySource: []*pb.ResourceUsageCostsBySource{
+				{
+					SourceType: sourceTypeToProto(sourceType),
+					ResourceUsageCosts: &pb.ResourceUsageCosts{
+						UsageCosts: []*pb.UsageCost{
+							{
+								ResourceType: usageCostTypeToProto(usageCostType),
+								Cost: cost,
+							},
+						},
+						Discount: discount,
+						TotalWithDiscount: totalWithDiscount,
+						TotalWithoutDiscount: totalWithoutDiscount,
+					},
+					TierName: tier,
+				},
+			},
+			Subtotal: getCurrentMonthUsageResponse.Subtotal,
+		}
+		grpcClient.GetCurrentMonthUsageFunc = func(
+			ctx context.Context, in *pb.GetCurrentMonthUsageRequest, opts ...grpc.CallOption,
+		) (*pb.GetCurrentMonthUsageResponse, error) {
+			test.That(t, in.OrgId, test.ShouldEqual, organizationID)
+			return &pbResponse, nil
+		}
+		resp, err := client.GetCurrentMonthUsage(context.Background(), organizationID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldResemble, &getCurrentMonthUsageResponse)
+	})
+
+	t.Run("GetOrgBillingInformation", func(t *testing.T) {
+		pbResponse := pb.GetOrgBillingInformationResponse{
+			Type: paymentMethodTypeToProto(getOrgBillingInformationResponse.Type),
+			BillingEmail: getOrgBillingInformationResponse.BillingEmail,
+			Method: &pb.PaymentMethodCard{
+				Brand: getOrgBillingInformationResponse.Method.Brand,
+				LastFourDigits: getOrgBillingInformationResponse.Method.LastFourDigits,
+			},
+			BillingTier: getOrgBillingInformationResponse.BillingTier,
+		}
+		grpcClient.GetOrgBillingInformationFunc = func(
+			ctx context.Context, in *pb.GetOrgBillingInformationRequest, opts ...grpc.CallOption,
+		) (*pb.GetOrgBillingInformationResponse, error) {
+			test.That(t, in.OrgId, test.ShouldEqual, organizationID)
+			return &pbResponse, nil
+		}
+		resp, err := client.GetOrgBillingInformation(context.Background(), organizationID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldResemble, &getOrgBillingInformationResponse)
+	})
+
+	t.Run("GetInvoicesSummary", func(t *testing.T) {
+		expectedInvoices := []*InvoiceSummary{&invoiceSummary}
+		grpcClient.GetInvoicesSummaryFunc = func(
+			ctx context.Context, in *pb.GetInvoicesSummaryRequest, opts ...grpc.CallOption,
+		) (*pb.GetInvoicesSummaryResponse, error) {
+			test.That(t, in.OrgId, test.ShouldEqual, organizationID)
+			return &pb.GetInvoicesSummaryResponse{
+				OutstandingBalance: balance,
+				Invoices: []*pb.InvoiceSummary{
+					{
+						Id: invoiceSummary.ID,
+						InvoiceDate: invoiceSummary.InvoiceDate,
+						InvoiceAmount: invoiceSummary.InvoiceAmount,
+						Status: invoiceSummary.Status,
+						DueDate: invoiceSummary.DueDate,
+						PaidDate: invoiceSummary.PaidDate,
+					},
+				},
+			}, nil
+		}
+		outstandingBalance, invoices, err := client.GetInvoicesSummary(context.Background(), organizationID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, outstandingBalance, test.ShouldResemble, balance)
+		test.That(t, invoices, test.ShouldResemble, expectedInvoices)
+	})
+
+	t.Run("GetInvoicePDF", func(t *testing.T) {
+		ch := make(chan []byte)
+		grpcClient.GetInvoicePdfFunc = func(
+			ctx context.Context, in *pb.GetInvoicePdfRequest, opts ...grpc.CallOption,
+		) (pb.BillingService_GetInvoicePdfClient, error) {
+			test.That(t, in.Id, test.ShouldEqual, invoiceID)
+			test.That(t, in.OrgId, test.ShouldEqual, organizationID)
+			return &mockInvoiceStreamClient{
+				responses: []*pb.GetInvoicePdfResponse{
+					{Chunk: chunk},
+				},
+			}, nil
+		}
+		err := client.GetInvoicePDF(context.Background(), invoiceID, organizationID, ch)
+		test.That(t, err, test.ShouldBeNil)
+	})
+	
+	t.Run("SendPaymentRequiredEmail", func(t *testing.T) {
+		grpcClient.SendPaymentRequiredEmailFunc = func(
+			ctx context.Context, in *pb.SendPaymentRequiredEmailRequest, opts ...grpc.CallOption,
+		) (*pb.SendPaymentRequiredEmailResponse, error) {
+			test.That(t, in.CustomerOrgId, test.ShouldEqual, organizationID)
+			test.That(t, in.BillingOwnerOrgId, test.ShouldEqual, billingOwnerOrgID)
+			return &pb.SendPaymentRequiredEmailResponse{}, nil
+		}
+		err := client.SendPaymentRequiredEmail(context.Background(), organizationID, billingOwnerOrgID)
+		test.That(t, err, test.ShouldBeNil)
+	})
+}
