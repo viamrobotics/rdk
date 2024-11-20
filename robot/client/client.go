@@ -5,8 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -130,13 +128,6 @@ func skipConnectionCheck(method string) bool {
 	return exemptFromConnectionCheck[method]
 }
 
-func isClosedPipeError(err error) bool {
-	if err == nil {
-		return false
-	}
-	return strings.Contains(err.Error(), io.ErrClosedPipe.Error())
-}
-
 func (rc *RobotClient) notConnectedToRemoteError() error {
 	return fmt.Errorf("not connected to remote robot at %s", rc.address)
 }
@@ -161,7 +152,7 @@ func (rc *RobotClient) handleUnaryDisconnect(
 	err := invoker(ctx, method, req, reply, cc, opts...)
 	// we might lose connection before our background check detects it - in this case we
 	// should still surface a helpful error message.
-	if isClosedPipeError(err) {
+	if errors.Is(err, rpc.ErrDisconnected) {
 		return status.Error(codes.Unavailable, rc.notConnectedToRemoteError().Error())
 	}
 	return err
@@ -180,7 +171,7 @@ func (cs *handleDisconnectClientStream) RecvMsg(m interface{}) error {
 	// we might lose connection before our background check detects it - in this case we
 	// should still surface a helpful error message.
 	err := cs.ClientStream.RecvMsg(m)
-	if isClosedPipeError(err) {
+	if errors.Is(err, rpc.ErrDisconnected) {
 		return status.Error(codes.Unavailable, cs.RobotClient.notConnectedToRemoteError().Error())
 	}
 
@@ -207,7 +198,7 @@ func (rc *RobotClient) handleStreamDisconnect(
 	cs, err := streamer(ctx, desc, cc, method, opts...)
 	// we might lose connection before our background check detects it - in this case we
 	// should still surface a helpful error message.
-	if isClosedPipeError(err) {
+	if errors.Is(err, rpc.ErrDisconnected) {
 		return nil, status.Error(codes.Unavailable, rc.notConnectedToRemoteError().Error())
 	}
 	return &handleDisconnectClientStream{cs, rc}, err
@@ -485,8 +476,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 				err := check()
 				if err != nil {
 					outerError = err
-					// if pipe is closed, we know for sure we lost connection
-					if isClosedPipeError(err) {
+					if errors.Is(err, rpc.ErrDisconnected) {
 						break
 					}
 					// otherwise retry
