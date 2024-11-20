@@ -78,6 +78,8 @@ type collector struct {
 	captureFunc      CaptureFunc
 	target           CaptureBufferedWriter
 	lastLoggedErrors map[string]int64
+
+	lastCaptureTime time.Time
 }
 
 // Close closes the channels backing the Collector. It should always be called before disposing of a Collector to avoid
@@ -195,6 +197,18 @@ func (c *collector) getAndPushNextReading() {
 		c.captureErrors <- errors.Wrap(err, "error while capturing data")
 		return
 	}
+
+	// debug freq calculation
+	if !c.lastCaptureTime.IsZero() {
+		elapsed := timeReceived.AsTime().Sub(c.lastCaptureTime).Seconds()
+		if elapsed > 0 {
+			frequency := 1.0 / elapsed
+			c.logger.Infow("capture frequency", "frequency_hz", frequency)
+		} else {
+			panic("oh no")
+		}
+	}
+	c.lastCaptureTime = timeReceived.AsTime()
 
 	var msg v1.SensorData
 	switch v := reading.(type) {

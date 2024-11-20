@@ -1,0 +1,51 @@
+diff --git a/data/collector.go b/data/collector.go
+index 707014114..a7a2544ec 100644
+--- a/data/collector.go
++++ b/data/collector.go
+@@ -78,6 +78,12 @@ type collector struct {
+ 	captureFunc      CaptureFunc
+ 	target           CaptureBufferedWriter
+ 	lastLoggedErrors map[string]int64
++
++	lastCaptureTime time.Time
++	captureCount    int64
++	captureMutex    sync.Mutex
++	runningFrequency float64
++	alpha            float64
+ }
+ 
+ // Close closes the channels backing the Collector. It should always be called before disposing of a Collector to avoid
+@@ -196,6 +202,25 @@ func (c *collector) getAndPushNextReading() {
+ 		return
+ 	}
+ 
++	// debug freq calculation
++	c.captureMutex.Lock()
++	defer c.captureMutex.Unlock()
++
++	if !c.lastCaptureTime.IsZero() {
++		elapsed := timeReceived.AsTime().Sub(c.lastCaptureTime).Seconds()
++		if elapsed > 0 {
++			frequency := 1.0 / elapsed
++			if c.runningFrequency == 0 {
++				c.runningFrequency = frequency
++			} else {
++				c.runningFrequency = c.alpha*frequency + (1-c.alpha)*c.runningFrequency
++			}
++			c.logger.Infow("capture frequency", "frequency_hz", frequency, "running_average_hz", c.runningFrequency)
++		}
++	}
++	c.lastCaptureTime = timeReceived.AsTime()
++	c.captureCount++
++
+ 	var msg v1.SensorData
+ 	switch v := reading.(type) {
+ 	case []byte:
+@@ -279,6 +304,7 @@ func NewCollector(captureFunc CaptureFunc, params CollectorParams) (Collector, e
+ 		target:           params.Target,
+ 		clock:            c,
+ 		lastLoggedErrors: make(map[string]int64, 0),
++		alpha: 0.1,
+ 	}, nil
+ }
+ 
