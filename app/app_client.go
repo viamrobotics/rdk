@@ -450,8 +450,8 @@ func (c *AppClient) GetRobotPart(ctx context.Context, id string) (*RobotPart, st
 	return robotPartFromProto(resp.Part), resp.ConfigJson, nil
 }
 
-// GetRobotPartLogs gets the logs associated with a robot part from a page, defaulting to the most recent page if pageToken is empty.
-// Logs of all levels are returned when levels is empty.
+// GetRobotPartLogs gets the logs associated with a robot part and the next page token,
+// defaulting to the most recent page if pageToken is empty. Logs of all levels are returned when levels is empty.
 func (c *AppClient) GetRobotPartLogs(
 	ctx context.Context,
 	id string,
@@ -529,7 +529,7 @@ func (c *AppClient) UpdateRobotPart(ctx context.Context, id, name string, robotC
 	return robotPartFromProto(resp.Part), nil
 }
 
-// NewRobotPart creates a new robot part.
+// NewRobotPart creates a new robot part and returns its ID.
 func (c *AppClient) NewRobotPart(ctx context.Context, robotID, partName string) (string, error) {
 	resp, err := c.client.NewRobotPart(ctx, &pb.NewRobotPartRequest{
 		RobotId:  robotID,
@@ -618,7 +618,7 @@ func (c *AppClient) ListRobots(ctx context.Context, locationID string) ([]*Robot
 	return robots, nil
 }
 
-// NewRobot creates a new robot.
+// NewRobot creates a new robot and returns its ID.
 func (c *AppClient) NewRobot(ctx context.Context, name, location string) (string, error) {
 	resp, err := c.client.NewRobot(ctx, &pb.NewRobotRequest{
 		Name:     name,
@@ -754,7 +754,7 @@ func (c *AppClient) ListMachineFragments(ctx context.Context, machineID string, 
 	return fragments, nil
 }
 
-// GetFragmentHistory gets the fragment's history.
+// GetFragmentHistory gets the fragment's history and the next page token.
 func (c *AppClient) GetFragmentHistory(
 	ctx context.Context, id string, pageToken *string, pageLimit *int64,
 ) ([]*FragmentHistoryEntry, string, error) {
@@ -969,7 +969,7 @@ func (c *AppClient) TransferRegistryItem(ctx context.Context, itemID, newPublicN
 	return err
 }
 
-// CreateModule creates a module.
+// CreateModule creates a module and returns its ID and URL.
 func (c *AppClient) CreateModule(ctx context.Context, orgID, name string) (string, string, error) {
 	resp, err := c.client.CreateModule(ctx, &pb.CreateModuleRequest{
 		OrganizationId: orgID,
@@ -981,7 +981,7 @@ func (c *AppClient) CreateModule(ctx context.Context, orgID, name string) (strin
 	return resp.ModuleId, resp.Url, nil
 }
 
-// UpdateModule updates the documentation URL, description, models, entrypoint, and/or the visibility of a module.
+// UpdateModule updates the documentation URL, description, models, entrypoint, and/or the visibility of a module and returns its URL.
 // A path to a setup script can be added that is run before a newly downloaded module starts.
 func (c *AppClient) UpdateModule(
 	ctx context.Context, moduleID string, visibility Visibility, url, description string, models []*Model, entrypoint string, firstRun *string,
@@ -1044,7 +1044,7 @@ func (c *AppClient) ListModules(ctx context.Context, orgID *string) ([]*Module, 
 	return modules, nil
 }
 
-// CreateKey creates a new API key associated with a list of authorizations.
+// CreateKey creates a new API key associated with a list of authorizations and returns its key and ID.
 func (c *AppClient) CreateKey(
 	ctx context.Context, orgID string, keyAuthorizations []APIKeyAuthorization, name string,
 ) (string, string, error) {
@@ -1091,7 +1091,7 @@ func (c *AppClient) ListKeys(ctx context.Context, orgID string) ([]*APIKeyWithAu
 	return apiKeys, nil
 }
 
-// RenameKey renames an API key.
+// RenameKey renames an API key and returns its ID and name.
 func (c *AppClient) RenameKey(ctx context.Context, id, name string) (string, string, error) {
 	resp, err := c.client.RenameKey(ctx, &pb.RenameKeyRequest{
 		Id:   id,
@@ -1103,7 +1103,7 @@ func (c *AppClient) RenameKey(ctx context.Context, id, name string) (string, str
 	return resp.Id, resp.Name, nil
 }
 
-// RotateKey rotates an API key.
+// RotateKey rotates an API key and returns its ID and key.
 func (c *AppClient) RotateKey(ctx context.Context, id string) (string, string, error) {
 	resp, err := c.client.RotateKey(ctx, &pb.RotateKeyRequest{
 		Id: id,
@@ -1114,7 +1114,7 @@ func (c *AppClient) RotateKey(ctx context.Context, id string) (string, string, e
 	return resp.Id, resp.Key, nil
 }
 
-// CreateKeyFromExistingKeyAuthorizations creates a new API key with an existing key's authorizations.
+// CreateKeyFromExistingKeyAuthorizations creates a new API key with an existing key's authorizations and returns its ID and key.
 func (c *AppClient) CreateKeyFromExistingKeyAuthorizations(ctx context.Context, id string) (string, string, error) {
 	resp, err := c.client.CreateKeyFromExistingKeyAuthorizations(ctx, &pb.CreateKeyFromExistingKeyAuthorizationsRequest{
 		Id: id,
