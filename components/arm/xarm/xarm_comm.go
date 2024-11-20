@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"go.uber.org/multierr"
-	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
@@ -353,10 +353,33 @@ func (x *xArm) Close(ctx context.Context) error {
 }
 
 // MoveToJointPositions moves the arm to the requested joint positions.
-func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions, extra map[string]interface{}) error {
+func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions []referenceframe.Input, extra map[string]interface{}) error {
 	ctx, done := x.opMgr.New(ctx)
 	defer done()
-	return x.GoToInputs(ctx, x.model.InputFromProtobuf(newPositions))
+	return x.GoToInputs(ctx, newPositions)
+}
+
+func (x *xArm) MoveThroughJointPositions(
+	ctx context.Context,
+	positions [][]referenceframe.Input,
+	_ *arm.MoveOptions,
+	_ map[string]interface{},
+) error {
+	for _, goal := range positions {
+		// check that joint positions are not out of bounds
+		if err := arm.CheckDesiredJointPositions(ctx, x, goal); err != nil {
+			return err
+		}
+	}
+	curPos, err := x.JointPositions(ctx, nil)
+	if err != nil {
+		return err
+	}
+	armRawSteps, err := x.createRawJointSteps(curPos, positions)
+	if err != nil {
+		return err
+	}
+	return x.executeInputs(ctx, armRawSteps)
 }
 
 // Using the configured moveHz, joint speed, and joint acceleration, create the series of joint positions for the arm to follow,
@@ -553,20 +576,19 @@ func (x *xArm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra m
 }
 
 // JointPositions returns the current positions of all joints.
-func (x *xArm) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+func (x *xArm) JointPositions(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
 	c := x.newCmd(regMap["JointPos"])
 
 	jData, err := x.send(ctx, c, true)
 	if err != nil {
-		return &pb.JointPositions{}, err
+		return nil, err
 	}
 	var radians []float64
 	for i := 0; i < x.dof; i++ {
 		idx := i*4 + 1
 		radians = append(radians, float64(rutils.Float32FromBytesLE((jData.params[idx : idx+4]))))
 	}
-
-	return referenceframe.JointPositionsFromRadians(radians), nil
+	return referenceframe.FloatsToInputs(radians), nil
 }
 
 // Stop stops the xArm but also reinitializes the arm so it can take commands again.

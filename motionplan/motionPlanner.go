@@ -115,10 +115,10 @@ func (req *PlanRequest) validatePlanRequest() error {
 			return errors.Errorf("%s does not have a start configuration", req.Frame.Name())
 		}
 		if frameDOF != len(seedMap) {
-			return referenceframe.NewIncorrectInputLengthError(len(seedMap), len(req.Frame.DoF()))
+			return referenceframe.NewIncorrectDoFError(len(seedMap), len(req.Frame.DoF()))
 		}
 	} else if ok && frameDOF != len(seedMap) {
-		return referenceframe.NewIncorrectInputLengthError(len(seedMap), len(req.Frame.DoF()))
+		return referenceframe.NewIncorrectDoFError(len(seedMap), len(req.Frame.DoF()))
 	}
 
 	req.allGoals = map[string]*referenceframe.PoseInFrame{req.Frame.Name(): req.Goal}

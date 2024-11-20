@@ -210,7 +210,7 @@ func (m *SimpleModel) ModelPieceFrames(inputs []Input) (map[string]Frame, error)
 // between quaternions and OV are not needed.
 func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*staticFrame, error) {
 	if len(m.DoF()) != len(inputs) {
-		return nil, NewIncorrectInputLengthError(len(inputs), len(m.DoF()))
+		return nil, NewIncorrectDoFError(len(inputs), len(m.DoF()))
 	}
 	var err error
 	poses := make([]*staticFrame, 0, len(m.OrdTransforms))

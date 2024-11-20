@@ -6,6 +6,7 @@ package robotimpl
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -88,6 +89,9 @@ type localRobot struct {
 	// when a local tarball is updated.
 	localModuleVersions map[string]semver.Version
 	ftdc                *ftdc.FTDC
+
+	// whether the robot is actively reconfiguring
+	reconfiguring atomic.Bool
 }
 
 // ExportResourcesAsDot exports the resource graph as a DOT representation for
@@ -192,25 +196,26 @@ func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[st
 	}
 
 	// Stop all stoppable resources
-	resourceErrs := []string{}
+	resourceErrs := make(map[string]error)
 	for _, name := range r.ResourceNames() {
 		res, err := r.ResourceByName(name)
 		if err != nil {
-			resourceErrs = append(resourceErrs, name.Name)
+			resourceErrs[name.Name] = err
 			continue
 		}
 
 		if actuator, ok := res.(resource.Actuator); ok {
 			if err := actuator.Stop(ctx, extra[name]); err != nil {
-				resourceErrs = append(resourceErrs, name.Name)
+				resourceErrs[name.Name] = err
 			}
 		}
 	}
 
-	if len(resourceErrs) > 0 {
-		return errors.Errorf("failed to stop components named %s", strings.Join(resourceErrs, ","))
+	var errs error
+	for k, v := range resourceErrs {
+		errs = multierr.Combine(errs, errors.Errorf("failed to stop component named %s with error %v", k, v))
 	}
-	return nil
+	return errs
 }
 
 // Config returns a config representing the current state of the robot.
@@ -1107,7 +1112,7 @@ func (r *localRobot) DiscoverComponents(ctx context.Context, qs []resource.Disco
 		if reg.Discover != nil {
 			discovered, err := reg.Discover(ctx, r.logger.Sublogger("discovery"), q.Extra)
 			if err != nil {
-				return nil, &resource.DiscoverError{Query: q}
+				return nil, &resource.DiscoverError{Query: q, Cause: err}
 			}
 			discoveries = append(discoveries, resource.Discovery{Query: q, Results: discovered})
 		}
@@ -1189,43 +1194,16 @@ func (r *localRobot) applyLocalModuleVersions(cfg *config.Config) {
 }
 
 func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, forceSync bool) {
-	// Maintenance config can be configured to block reconfigure based off of a sensor reading
-	// These sensors can be configured on the main robot, or a remote
-	// In situations where there are conflicting sensor names the following behavior happens
-	// Main robot and remote share sensor name -> main robot sensor is chosen
-	// Only remote has the sensor name -> remote sensor is read
-	// Multiple remotes share a senor name -> conflict error is returned and reconfigure happens
-	// To specify a specific remote sensor use the name format remoteName:sensorName to specify a remote sensor
-	if newConfig.MaintenanceConfig != nil {
-		name, err := resource.NewFromString(newConfig.MaintenanceConfig.SensorName)
-		if err != nil {
-			r.logger.Warnf("sensor_name %s in maintenance config is not in a supported format", newConfig.MaintenanceConfig.SensorName)
-		} else {
-			sensorComponent, err := robot.ResourceFromRobot[sensor.Sensor](r, name)
-			if err != nil {
-				r.logger.Warnf("%s, Starting reconfiguration", err.Error())
-			} else {
-				canReconfigure, err := r.checkMaintenanceSensorReadings(ctx, newConfig.MaintenanceConfig.MaintenanceAllowedKey, sensorComponent)
-				if !canReconfigure {
-					r.logger.Info("maintenance_allowed_key found from readings on maintenance sensor. Skipping reconfiguration.")
-					diff, err := config.DiffConfigs(*r.Config(), *newConfig, false)
-					if err != nil {
-						r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
-					}
-					// NetworkEqual checks if Cloud/Auth/Network are equal between configs
-					if diff != nil && !diff.NetworkEqual {
-						r.logger.Info("Machine reconfiguration skipped but Cloud/Auth/Network config section contain changes and will be applied.")
-					}
-					return
-				}
-				if err != nil {
-					r.logger.Warn(err.Error() + ". Starting reconfiguration")
-				} else {
-					r.logger.Info("maintenance_allowed_key found from readings on maintenance sensor. Starting reconfiguration")
-				}
-			}
-		}
+	if !r.reconfigureAllowed(ctx, newConfig, true) {
+		return
 	}
+
+	// If reconfigure is allowed, assume we are reconfiguring until this function
+	// returns.
+	r.reconfiguring.Store(true)
+	defer func() {
+		r.reconfiguring.Store(false)
+	}()
 
 	r.configRevisionMu.Lock()
 	r.configRevision = config.Revision{
@@ -1257,10 +1235,16 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		return
 	}
 
-	// Run the setup phase for all modules in new config modules before proceeding with reconfiguration.
-	for _, mod := range newConfig.Modules {
+	// Run the setup phase for new and modified modules in new config modules before proceeding with reconfiguration.
+	diffMods, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
+	if err != nil {
+		r.logger.CErrorw(ctx, "error diffing module configs before first run", "error", err)
+		return
+	}
+	mods := slices.Concat[[]config.Module](diffMods.Added.Modules, diffMods.Modified.Modules)
+	for _, mod := range mods {
 		if err := r.manager.moduleManager.FirstRun(ctx, mod); err != nil {
-			r.logger.CErrorw(ctx, "error executing setup phase", "module", mod.Name, "error", err)
+			r.logger.CErrorw(ctx, "error executing first run", "module", mod.Name, "error", err)
 			return
 		}
 	}
@@ -1274,47 +1258,62 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 
 	// Add default services and process their dependencies. Dependencies may
 	// already come from config validation so we check that here.
-	seen := make(map[resource.API]int)
+	seen := make(map[resource.API][]int)
 	for idx, val := range newConfig.Services {
-		seen[val.API] = idx
+		seen[val.API] = append(seen[val.API], idx)
 	}
 	for _, name := range resource.DefaultServices() {
-		existingConfIdx, hasExistingConf := seen[name.API]
-		var svcCfg resource.Config
-		if hasExistingConf {
-			svcCfg = newConfig.Services[existingConfIdx]
-		} else {
-			svcCfg = resource.Config{
-				Name:  name.Name,
-				Model: resource.DefaultServiceModel,
-				API:   name.API,
-			}
+		existingConfIdxs, hasExistingConf := seen[name.API]
+		svcCfgs := []resource.Config{}
+
+		defaultSvcCfg := resource.Config{
+			Name:  name.Name,
+			Model: resource.DefaultServiceModel,
+			API:   name.API,
 		}
 
-		if svcCfg.ConvertedAttributes != nil || svcCfg.Attributes != nil {
-			// previously processed
-			continue
+		overwritesBuiltin := false
+		if hasExistingConf {
+			for _, existingConfIdx := range existingConfIdxs {
+				// Overwrite the builtin service if the configured service uses the same name.
+				// Otherwise, allow both to coexist.
+				if defaultSvcCfg.Name == newConfig.Services[existingConfIdx].Name {
+					overwritesBuiltin = true
+				}
+				svcCfgs = append(svcCfgs, newConfig.Services[existingConfIdx])
+			}
+		}
+		if !overwritesBuiltin {
+			svcCfgs = append(svcCfgs, defaultSvcCfg)
 		}
 
-		// we find dependencies through configs, so we must try to validate even a default config
-		if reg, ok := resource.LookupRegistration(svcCfg.API, svcCfg.Model); ok && reg.AttributeMapConverter != nil {
-			converted, err := reg.AttributeMapConverter(utils.AttributeMap{})
-			if err != nil {
-				allErrs = multierr.Combine(allErrs, errors.Wrapf(err, "error converting attributes for %s", svcCfg.API))
+		for i, svcCfg := range svcCfgs {
+			if svcCfg.ConvertedAttributes != nil || svcCfg.Attributes != nil {
+				// previously processed
 				continue
 			}
-			svcCfg.ConvertedAttributes = converted
-			deps, err := converted.Validate("")
-			if err != nil {
-				allErrs = multierr.Combine(allErrs, errors.Wrapf(err, "error getting default service dependencies for %s", svcCfg.API))
-				continue
+
+			// we find dependencies through configs, so we must try to validate even a default config
+			if reg, ok := resource.LookupRegistration(svcCfg.API, svcCfg.Model); ok && reg.AttributeMapConverter != nil {
+				converted, err := reg.AttributeMapConverter(utils.AttributeMap{})
+				if err != nil {
+					allErrs = multierr.Combine(allErrs, errors.Wrapf(err, "error converting attributes for %s", svcCfg.API))
+					continue
+				}
+				svcCfg.ConvertedAttributes = converted
+				deps, err := converted.Validate("")
+				if err != nil {
+					allErrs = multierr.Combine(allErrs, errors.Wrapf(err, "error getting default service dependencies for %s", svcCfg.API))
+					continue
+				}
+				svcCfg.ImplicitDependsOn = deps
 			}
-			svcCfg.ImplicitDependsOn = deps
-		}
-		if hasExistingConf {
-			newConfig.Services[existingConfIdx] = svcCfg
-		} else {
-			newConfig.Services = append(newConfig.Services, svcCfg)
+			// Update existing service configs, and the final config will be the default service, if not overridden
+			if i < len(existingConfIdxs) {
+				newConfig.Services[existingConfIdxs[i]] = svcCfg
+			} else {
+				newConfig.Services = append(newConfig.Services, svcCfg)
+			}
 		}
 	}
 
@@ -1497,6 +1496,63 @@ func (r *localRobot) Version(ctx context.Context) (robot.VersionResponse, error)
 	return robot.Version()
 }
 
+// reconfigureAllowed returns whether the local robot can reconfigure.
+func (r *localRobot) reconfigureAllowed(ctx context.Context, cfg *config.Config, log bool) bool {
+	// Hack: if we should not log (allowance of reconfiguration is being checked
+	// from the `/restart_status` endpoint), then use a no-op logger. Otherwise
+	// use robot's logger.
+	logger := r.logger
+	if !log {
+		logger = logging.NewBlankLogger("")
+	}
+
+	// Reconfigure is always allowed in the absence of a MaintenanceConfig.
+	if cfg.MaintenanceConfig == nil {
+		return true
+	}
+
+	// Maintenance config can be configured to block reconfigure based off of a sensor reading
+	// These sensors can be configured on the main robot, or a remote
+	// In situations where there are conflicting sensor names the following behavior happens
+	// Main robot and remote share sensor name -> main robot sensor is chosen
+	// Only remote has the sensor name -> remote sensor is read
+	// Multiple remotes share a senor name -> conflict error is returned and reconfigure happens
+	// To specify a specific remote sensor use the name format remoteName:sensorName to specify a remote sensor
+	name, err := resource.NewFromString(cfg.MaintenanceConfig.SensorName)
+	if err != nil {
+		logger.Warnf("sensor_name %s in maintenance config is not in a supported format", cfg.MaintenanceConfig.SensorName)
+		return true
+	}
+	sensorComponent, err := robot.ResourceFromRobot[sensor.Sensor](r, name)
+	if err != nil {
+		logger.Warnf("%s, Starting reconfiguration", err.Error())
+		return true
+	}
+	canReconfigure, err := r.checkMaintenanceSensorReadings(ctx, cfg.MaintenanceConfig.MaintenanceAllowedKey, sensorComponent)
+	// The boolean return value of checkMaintenanceSensorReadings
+	// (canReconfigure) is meaningful even when an error is also returned. Check
+	// it first.
+	if !canReconfigure {
+		if err != nil {
+			logger.CErrorw(ctx, "error reading maintenance sensor", "error", err)
+		} else {
+			logger.Info("maintenance_allowed_key found from readings on maintenance sensor. Skipping reconfiguration.")
+		}
+		diff, err := config.DiffConfigs(*r.Config(), *cfg, false)
+		if err != nil {
+			logger.CErrorw(ctx, "error diffing the configs", "error", err)
+		}
+		// NetworkEqual checks if Cloud/Auth/Network are equal between configs
+		if diff != nil && !diff.NetworkEqual {
+			logger.Info("Machine reconfiguration skipped but Cloud/Auth/Network config section contain changes and will be applied.")
+		}
+		return false
+	}
+	logger.Info("maintenance_allowed_key found from readings on maintenance sensor. Starting reconfiguration")
+
+	return true
+}
+
 // checkMaintenanceSensorReadings ensures that errors from reading a sensor are handled properly.
 func (r *localRobot) checkMaintenanceSensorReadings(ctx context.Context,
 	maintenanceAllowedKey string, sensor resource.Sensor,
@@ -1513,11 +1569,23 @@ func (r *localRobot) checkMaintenanceSensorReadings(ctx context.Context,
 	}
 	readingVal, ok := readings[maintenanceAllowedKey]
 	if !ok {
-		return true, errors.Errorf("error getting maintenance_allowed_key %s from sensor reading", maintenanceAllowedKey)
+		return false, errors.Errorf("error getting maintenance_allowed_key %s from sensor reading", maintenanceAllowedKey)
 	}
 	canReconfigure, ok := readingVal.(bool)
 	if !ok {
-		return true, errors.Errorf("maintenance_allowed_key %s is not a bool value", maintenanceAllowedKey)
+		return false, errors.Errorf("maintenance_allowed_key %s is not a bool value", maintenanceAllowedKey)
 	}
 	return canReconfigure, nil
+}
+
+// RestartAllowed returns whether the robot can safely be restarted. The robot
+// can be safely restarted if the robot is not in the middle of a reconfigure,
+// and a reconfigure would be allowed.
+func (r *localRobot) RestartAllowed() bool {
+	ctx := context.Background()
+
+	if !r.reconfiguring.Load() && r.reconfigureAllowed(ctx, r.Config(), false) {
+		return true
+	}
+	return false
 }

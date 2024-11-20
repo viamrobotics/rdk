@@ -191,30 +191,11 @@ func (x *xArm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf
 }
 
 func (x *xArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := x.JointPositions(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	return x.model.InputFromProtobuf(res), nil
+	return x.JointPositions(ctx, nil)
 }
 
 func (x *xArm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
-	for _, goal := range inputSteps {
-		// check that joint positions are not out of bounds
-		if err := arm.CheckDesiredJointPositions(ctx, x, goal); err != nil {
-			return err
-		}
-	}
-	curPos, err := x.JointPositions(ctx, nil)
-	if err != nil {
-		return err
-	}
-	from := x.model.InputFromProtobuf(curPos)
-	armRawSteps, err := x.createRawJointSteps(from, inputSteps)
-	if err != nil {
-		return err
-	}
-	return x.executeInputs(ctx, armRawSteps)
+	return x.MoveThroughJointPositions(ctx, inputSteps, nil, nil)
 }
 
 func (x *xArm) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {

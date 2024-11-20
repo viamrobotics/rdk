@@ -1112,7 +1112,7 @@ func TestValidatePlanRequest(t *testing.T) {
 					"frame1": frame.FloatsToInputs([]float64{0}),
 				},
 			},
-			expectedErr: errors.New("number of inputs does not match frame DoF, expected 0 but got 1"),
+			expectedErr: frame.NewIncorrectDoFError(1, 0),
 		},
 		{
 			name: "incorrect length StartConfiguration - fail",
@@ -1135,7 +1135,7 @@ func TestValidatePlanRequest(t *testing.T) {
 					"frame2": frame.FloatsToInputs([]float64{0, 0, 0, 0, 0}),
 				},
 			},
-			expectedErr: errors.New("number of inputs does not match frame DoF, expected 1 but got 5"),
+			expectedErr: frame.NewIncorrectDoFError(5, 1),
 		},
 		{
 			name: "well formed PlanRequest",

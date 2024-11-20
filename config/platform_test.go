@@ -25,7 +25,7 @@ func TestAppendPairIfNonempty(t *testing.T) {
 	test.That(t, arr, test.ShouldResemble, []string{"x:y"})
 }
 
-func TestCudaRegexes(t *testing.T) {
+func TestRegexes(t *testing.T) {
 	t.Run("cuda", func(t *testing.T) {
 		output := `nvcc: NVIDIA (R) Cuda compiler driver
 Copyright (c) 2005-2021 NVIDIA Corporation
@@ -65,5 +65,42 @@ Section: metapackages`
 		match = aptCacheVersionRegex.FindSubmatch([]byte(jp6))
 		test.That(t, match, test.ShouldNotBeNil)
 		test.That(t, string(match[1]), test.ShouldResemble, "6")
+	})
+
+	t.Run("pi", func(t *testing.T) {
+		type Pair struct {
+			a string
+			b *piModel
+		}
+		// these strings come from running `strings start*.elf` in here:
+		// https://github.com/raspberrypi/firmware/tree/master/boot
+		pairs := []Pair{
+			{"Raspberry Pi Compute Module Rev", &piModel{version: "1", longVersion: "cm1"}},
+			{"Raspberry Pi Compute Module 2 Rev", &piModel{version: "2", longVersion: "cm2"}},
+			{"Raspberry Pi Compute Module 3 Rev", &piModel{version: "3", longVersion: "cm3"}},
+			{"Raspberry Pi Compute Module 3 Plus Rev", &piModel{version: "3", longVersion: "cm3p"}},
+			{"Raspberry Pi Compute Module 4 Rev", &piModel{version: "4", longVersion: "cm4"}},
+			{"Raspberry Pi Compute Module 4S Rev", &piModel{version: "4", longVersion: "cm4S"}},
+			{"Raspberry Pi Compute Module 3E Rev", &piModel{version: "3", longVersion: "cm3E"}},
+			{"Raspberry Pi Compute Module 5 Rev", &piModel{version: "5", longVersion: "cm5"}},
+			{"Raspberry Pi Compute Module 5 Lite Rev", &piModel{version: "5", longVersion: "cm5l"}},
+
+			{"Raspberry Pi Model A Plus Rev", &piModel{version: "1", longVersion: "1Ap"}},
+			{"Raspberry Pi Model B Plus Rev", &piModel{version: "1", longVersion: "1Bp"}},
+			{"Raspberry Pi 2 Model B Rev", &piModel{version: "2", longVersion: "2B"}},
+			{"Raspberry Pi 3 Model B Rev", &piModel{version: "3", longVersion: "3B"}},
+			{"Raspberry Pi 3 Model B Plus Rev", &piModel{version: "3", longVersion: "3Bp"}},
+			{"Raspberry Pi 3 Model A Plus Rev", &piModel{version: "3", longVersion: "3Ap"}},
+			{"Raspberry Pi 4 Model B Rev", &piModel{version: "4", longVersion: "4B"}},
+			{"Raspberry Pi 5 Model B Rev", &piModel{version: "5", longVersion: "5B"}},
+			{"Raspberry Pi Model A Rev", &piModel{version: "1", longVersion: "1A"}},
+			{"Raspberry Pi Model B Rev", &piModel{version: "1", longVersion: "1B"}},
+		}
+
+		logger := logging.NewTestLogger(t)
+		for _, pair := range pairs {
+			parsed := parsePi(logger, []byte(pair.a))
+			test.That(t, parsed, test.ShouldResemble, pair.b)
+		}
 	})
 }

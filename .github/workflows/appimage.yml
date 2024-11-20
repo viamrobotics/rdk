@@ -124,7 +124,7 @@ jobs:
     # note: we do this because uname sees the arm64 kernel underneath the armhf container
     - name: fix platform detection
       run: mv bin/`uname -s`-`uname -m` bin/`uname -s`-armv7l
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: appimage-static-32bit
         path: |
@@ -140,7 +140,7 @@ jobs:
     - uses: actions/checkout@v4
       with:
         ref: ${{ github.event == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with:
         name: appimage-static-32bit
         path: bin/
@@ -157,7 +157,7 @@ jobs:
         DPKG_ARCH: armhf
         APPIMAGE_ARCH: armhf
       run: make appimage-arch
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: appimage-armhf
         path: etc/packaging/appimages/deploy
@@ -240,7 +240,7 @@ jobs:
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v1
 
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with:
         name: appimage-armhf
         path: etc/packaging/appimages/deploy
