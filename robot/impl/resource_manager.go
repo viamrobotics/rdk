@@ -1463,12 +1463,24 @@ func (manager *resourceManager) getRemoteMachineStatus(ctx context.Context) []re
 				manager.logger.Errorf("error getting remote:%s machineStatus",resName.Name)
 				continue
 			}
-			// Resources come back with the wrong remote name since they are grabbed from the remote themselves
-			// We need to add that information back
-			for _,resource:= range machineStatus.Resources{
-				resource.Name.Remote = resource.Name.Remote+":"+res.Name().Name
+			// Resources come back with the wrong remote name since they are grabbed 
+			// from the remote themselves We need to add that information back
+			// A copy of []resource.Status is made so we do not modify the slice in a for loop
+			var returnStatusArray []resource.Status
+			for _,remoteResource:= range machineStatus.Resources{
+				returnStatusArray = append(returnStatusArray, resource.Status{
+					NodeStatus: resource.NodeStatus{
+						Name: remoteResource.Name.PrependRemote(resName.Name),
+						State: remoteResource.State,
+						LastUpdated: remoteResource.LastUpdated,
+						Revision: remoteResource.Revision,
+						Error: remoteResource.Error,
+					},
+					CloudMetadata: remoteResource.CloudMetadata,
+				})
 			}
-			machineStatusArray=append(machineStatusArray, machineStatus.Resources...)
+			machineStatusArray=append(machineStatusArray, returnStatusArray...)
+			
 		default:
 			manager.logger.Error("config is not a remote config")
 		}
