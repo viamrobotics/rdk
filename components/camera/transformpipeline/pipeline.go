@@ -88,11 +88,11 @@ func (cfg *transformConfig) Validate(path string) ([]string, error) {
 
 func newTransformPipeline(
 	ctx context.Context,
-	source camera.VideoSource,
+	source camera.Camera,
 	cfg *transformConfig,
 	r robot.Robot,
 	logger logging.Logger,
-) (camera.VideoSource, error) {
+) (camera.Camera, error) {
 	if source == nil {
 		return nil, errors.New("no source camera for transform pipeline")
 	}
@@ -116,7 +116,7 @@ func newTransformPipeline(
 		release()
 	}
 	// loop through the pipeline and create the image flow
-	pipeline := make([]camera.VideoSource, 0, len(cfg.Pipeline))
+	pipeline := make([]camera.Camera, 0, len(cfg.Pipeline))
 	lastSource := source
 	for _, tr := range cfg.Pipeline {
 		src, newStreamType, err := buildTransform(ctx, r, lastSource, streamType, tr, cfg.Source)
@@ -137,8 +137,8 @@ func newTransformPipeline(
 }
 
 type transformPipeline struct {
-	pipeline            []camera.VideoSource
-	src                 camera.VideoSource
+	pipeline            []camera.Camera
+	src                 camera.Camera
 	intrinsicParameters *transform.PinholeCameraIntrinsics
 	logger              logging.Logger
 }

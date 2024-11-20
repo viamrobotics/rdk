@@ -37,7 +37,7 @@ func (dsc *DetectionSegmenterConfig) ConvertAttributes(am utils.AttributeMap) er
 
 func cameraToProjector(
 	ctx context.Context,
-	source camera.VideoSource,
+	source camera.Camera,
 ) (transform.Projector, error) {
 	if source == nil {
 		return nil, errors.New("cannot have a nil source")
@@ -76,7 +76,7 @@ func DetectionSegmenter(detector objectdetection.Detector, meanK int, sigma, con
 		}
 	}
 	// return the segmenter
-	seg := func(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
+	seg := func(ctx context.Context, src camera.Camera) ([]*vision.Object, error) {
 		proj, err := cameraToProjector(ctx, src)
 		if err != nil {
 			return nil, err

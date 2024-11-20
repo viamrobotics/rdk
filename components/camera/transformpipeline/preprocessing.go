@@ -14,11 +14,11 @@ import (
 
 // preprocessDepthTransform applies pre-processing functions to depth maps in order to smooth edges and fill holes.
 type preprocessDepthTransform struct {
-	src camera.VideoSource
+	src camera.Camera
 }
 
-func newDepthPreprocessTransform(ctx context.Context, source camera.VideoSource,
-) (camera.VideoSource, camera.ImageType, error) {
+func newDepthPreprocessTransform(ctx context.Context, source camera.Camera,
+) (camera.Camera, camera.ImageType, error) {
 	reader := &preprocessDepthTransform{source}
 
 	props, err := propsFromVideoSource(ctx, source)

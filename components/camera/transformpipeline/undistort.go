@@ -22,14 +22,14 @@ type undistortConfig struct {
 // undistortSource will undistort the original image according to the Distortion parameters
 // within the intrinsic parameters.
 type undistortSource struct {
-	originalSource camera.VideoSource
+	originalSource camera.Camera
 	stream         camera.ImageType
 	cameraParams   *transform.PinholeCameraModel
 }
 
 func newUndistortTransform(
-	ctx context.Context, source camera.VideoSource, stream camera.ImageType, am utils.AttributeMap,
-) (camera.VideoSource, camera.ImageType, error) {
+	ctx context.Context, source camera.Camera, stream camera.ImageType, am utils.AttributeMap,
+) (camera.Camera, camera.ImageType, error) {
 	conf, err := resource.TransformAttributeMap[*undistortConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err

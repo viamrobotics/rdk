@@ -23,23 +23,22 @@ import (
 // Note: this strips away Reconfiguration and DoCommand abilities.
 // If needed, implement the Camera another way. For example, a webcam
 // implements a Camera manually so that it can atomically reconfigure itself.
-func FromVideoSource(name resource.Name, src VideoSource, logger logging.Logger) Camera {
+func FromVideoSource(name resource.Name, src Camera, logger logging.Logger) Camera {
 	var rtpPassthroughSource rtppassthrough.Source
 	if ps, ok := src.(rtppassthrough.Source); ok {
 		rtpPassthroughSource = ps
 	}
 	return &sourceBasedCamera{
 		rtpPassthroughSource: rtpPassthroughSource,
-		Named:                name.AsNamed(),
-		VideoSource:          src,
+		Camera:               src,
+		name:                 name,
 		Logger:               logger,
 	}
 }
 
 type sourceBasedCamera struct {
-	resource.Named
-	resource.AlwaysRebuild
-	VideoSource
+	Camera
+	name                 resource.Name
 	rtpPassthroughSource rtppassthrough.Source
 	logging.Logger
 }
@@ -104,7 +103,7 @@ func NewVideoSourceFromReader(
 	ctx context.Context,
 	reader gostream.VideoReader,
 	syst *transform.PinholeCameraModel, imageType ImageType,
-) (VideoSource, error) {
+) (Camera, error) {
 	if reader == nil {
 		return nil, errors.New("cannot have a nil reader")
 	}
@@ -116,7 +115,7 @@ func NewVideoSourceFromReader(
 	vs := gostream.NewVideoSource(reader, prop.Video{})
 	actualSystem := syst
 	if actualSystem == nil {
-		srcCam, ok := reader.(VideoSource)
+		srcCam, ok := reader.(Camera)
 		if ok {
 			props, err := srcCam.Properties(ctx)
 			if err != nil {
@@ -150,7 +149,7 @@ func WrapVideoSourceWithProjector(
 	ctx context.Context,
 	source gostream.VideoSource,
 	syst *transform.PinholeCameraModel, imageType ImageType,
-) (VideoSource, error) {
+) (Camera, error) {
 	if source == nil {
 		return nil, errors.New("cannot have a nil source")
 	}
@@ -185,6 +184,7 @@ func WrapVideoSourceWithProjector(
 
 // videoSource implements a Camera with a gostream.VideoSource.
 type videoSource struct {
+	resource.TriviallyReconfigurable
 	rtpPassthroughSource rtppassthrough.Source
 	videoSource          gostream.VideoSource
 	videoStream          gostream.VideoStream
@@ -268,6 +268,13 @@ func (vs *videoSource) DoCommand(ctx context.Context, cmd map[string]interface{}
 	return nil, resource.ErrDoUnimplemented
 }
 
+func (vs *videoSource) Name() resource.Name {
+	if namedResource, ok := vs.actualSource.(resource.Named); ok {
+		return namedResource.Name()
+	}
+	return resource.Name{}
+}
+
 func (vs *videoSource) Properties(ctx context.Context) (Properties, error) {
 	_, supportsPCD := vs.actualSource.(PointCloudSource)
 	result := Properties{
@@ -290,5 +297,8 @@ func (vs *videoSource) Properties(ctx context.Context) (Properties, error) {
 }
 
 func (vs *videoSource) Close(ctx context.Context) error {
+	if res, ok := vs.actualSource.(resource.Resource); ok {
+		return multierr.Combine(vs.videoStream.Close(ctx), vs.videoSource.Close(ctx), res.Close(ctx))
+	}
 	return multierr.Combine(vs.videoStream.Close(ctx), vs.videoSource.Close(ctx))
 }

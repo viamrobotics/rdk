@@ -80,56 +80,6 @@ type ImageMetadata struct {
 // A Camera is a resource that can capture frames.
 type Camera interface {
 	resource.Resource
-	VideoSource
-}
-
-// VideoSource represents anything that can capture frames.
-// For more information, see the [camera component docs].
-//
-// Image example:
-//
-//	myCamera, err := camera.FromRobot(machine, "my_camera")
-//
-//	// gets an image from the camera
-//	imageBytes, mimeType, err := myCamera.Image(context.Background(), utils.MimeTypeJPEG, nil)
-//
-// Or try to directly decode into an image.Image:
-//
-//	myCamera, err := camera.FromRobot(machine, "my_camera")
-//	img, err = camera.DecodeImageFromCamera(context.Background(), utils.MimeTypeJPEG, nil, myCamera)
-//
-// Images example:
-//
-//	myCamera, err := camera.FromRobot(machine, "my_camera")
-//
-//	images, metadata, err := myCamera.Images(context.Background())
-//
-// Stream example:
-//
-//	myCamera, err := camera.FromRobot(machine, "my_camera")
-//
-//	// gets the stream from a camera
-//	stream, err := myCamera.Stream(context.Background())
-//
-//	// gets an image from the camera stream
-//	img, release, err := stream.Next(context.Background())
-//	defer release()
-//
-// NextPointCloud example:
-//
-//	myCamera, err := camera.FromRobot(machine, "my_camera")
-//
-//	// gets the next point cloud from a camera
-//	pointCloud, err := myCamera.NextPointCloud(context.Background())
-//
-// Close example:
-//
-//	myCamera, err := camera.FromRobot(machine, "my_camera")
-//
-//	err = myCamera.Close(context.Background())
-//
-// [camera component docs]: https://docs.viam.com/components/camera/
-type VideoSource interface {
 	// Image returns a byte slice representing an image that tries to adhere to the MIME type hint.
 	// Image also may return a string representing the mime type hint or empty string if not.
 	Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, ImageMetadata, error)
