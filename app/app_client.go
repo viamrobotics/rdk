@@ -26,7 +26,7 @@ type AppClient struct {
 	mu sync.Mutex
 }
 
-// NewAppClient constructs a new AppClient using the connection passed in by the viamClient and the provided logger.
+// NewAppClient constructs a new AppClient using the connection passed in by the Viam client.
 func NewAppClient(conn rpc.ClientConn, logger logging.Logger) *AppClient {
 	return &AppClient{client: pb.NewAppServiceClient(conn), logger: logger}
 }
