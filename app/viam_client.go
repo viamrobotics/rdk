@@ -75,8 +75,8 @@ func (c *ViamClient) DataClient() *DataClient {
 	return c.dataClient
 }
 
-// AppClient initializes and returns a DataClient instance used to make data method calls.
-// To use DataClient, you must first instantiate a ViamClient.
+// AppClient initializes and returns an AppClient instance used to make app method calls.
+// To use AppClient, you must first instantiate a ViamClient.
 func (c *ViamClient) AppClient() *AppClient {
 	if c.appClient != nil {
 		return c.appClient
