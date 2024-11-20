@@ -23,7 +23,7 @@ var logger = logging.NewDebugLogger("entrypoint")
 
 func main() {
 	go func() {
-		log.Println(http.ListenAndServe("localhost:6061", nil))
+		log.Println(http.ListenAndServe("0.0.0.0:6061", nil))
 	}()
 	utils.ContextualMain(server.RunServer, logger)
 }
