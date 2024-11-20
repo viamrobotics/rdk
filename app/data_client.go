@@ -880,20 +880,30 @@ func formatFileExtension(fileExt string) string {
 	return "." + fileExt
 }
 
+type BinaryOptions struct {
+	Type             DataType
+	FileName         string
+	MethodParameters map[string]interface{}
+	Tags             []string
+	DataRequestTimes [2]time.Time
+}
+
 func (d *DataClient) BinaryDataCaptureUpload(
 	ctx context.Context,
-	mdOptions *UploadMetadata,
 	binaryData []byte,
-	dataRequestTimes [2]time.Time,
+	partID string,
+	componentType string,
+	componentName string,
+	methodName string,
+	fileExtension string,
+	options *BinaryOptions,
 ) (string, error) {
-	// Validate file extension
-	mdOptions.FileExtension = formatFileExtension(mdOptions.FileExtension)
 	// Create SensorMetadata based on the provided times
 	var sensorMetadata SensorMetadata
-	if len(dataRequestTimes) == 2 {
+	if len(options.DataRequestTimes) == 2 {
 		sensorMetadata = SensorMetadata{
-			TimeRequested: dataRequestTimes[0],
-			TimeReceived:  dataRequestTimes[1],
+			TimeRequested: options.DataRequestTimes[0],
+			TimeReceived:  options.DataRequestTimes[1],
 		}
 	}
 	// Create SensorData
@@ -902,20 +912,44 @@ func (d *DataClient) BinaryDataCaptureUpload(
 		SDStruct: nil,        // Assuming no struct is needed for binary data
 		SDBinary: binaryData, // Attach the binary data
 	}
-	response, err := d.DataCaptureUpload(ctx, *mdOptions, []SensorData{sensorData})
+	// Create UploadMetadata
+	metadata := UploadMetadata{
+		PartID:           partID,
+		ComponentType:    componentType,
+		ComponentName:    componentName,
+		MethodName:       methodName,
+		Type:             DataTypeBinarySensor,
+		FileName:         options.FileName,
+		MethodParameters: options.MethodParameters,
+		FileExtension:    formatFileExtension(fileExtension), // Validate file extension
+		Tags:             options.Tags,
+	}
+	response, err := d.DataCaptureUpload(ctx, metadata, []SensorData{sensorData})
 	if err != nil {
 		return "", err
 	}
 	return response, nil
 }
 
+type TabularOptions struct {
+	Type             DataType
+	FileName         string
+	MethodParameters map[string]interface{}
+	FileExtension    string
+	Tags             []string
+}
+
 func (d *DataClient) tabularDataCaptureUpload(
 	ctx context.Context,
-	mdOptions *UploadMetadata,
 	tabularData []map[string]interface{},
-	dataRequestTimes [][2]time.Time,
+	partID string,
+	componentType string,
+	componentName string,
+	methodName string,
+	dataRequestTimes [][2]time.Time, //part of sensorData
+	options *TabularOptions,
 ) (string, error) {
-	mdOptions.FileExtension = formatFileExtension(mdOptions.FileExtension)
+	// options.FileExtension = formatFileExtension(options.FileExtension)
 	if len(dataRequestTimes) != len(tabularData) {
 		return "", fmt.Errorf("dataRequestTimes and tabularData lengths must be equal")
 	}
@@ -936,7 +970,19 @@ func (d *DataClient) tabularDataCaptureUpload(
 		}
 		sensorContents = append(sensorContents, sensorData)
 	}
-	response, err := d.DataCaptureUpload(ctx, *mdOptions, sensorContents)
+	// Create UploadMetadata
+	metadata := UploadMetadata{
+		PartID:           partID,
+		ComponentType:    componentType,
+		ComponentName:    componentName,
+		MethodName:       methodName,
+		Type:             DataTypeTabularSensor, // assuming this is the correct type??
+		FileName:         options.FileName,
+		MethodParameters: options.MethodParameters,
+		FileExtension:    formatFileExtension(options.FileExtension),
+		Tags:             options.Tags,
+	}
+	response, err := d.DataCaptureUpload(ctx, metadata, sensorContents)
 	if err != nil {
 		return "", err
 	}
@@ -962,16 +1008,56 @@ func (d *DataClient) DataCaptureUpload(ctx context.Context, metadata UploadMetad
 //zero value of all arraays is nil --> so we can just have it stay nil and be okay??
 //strings ,arrays, maps we can just assume they r passing nil if its not filled and pass that too --> pass that along
 
+// func (d *DataClient) DoThing(ctx, nonOptional Foo, nonOptional2 Bar, optional DoThingOptionsStruct) ==> DO THIS
+// func (d *DataClient) DoThing2(ctx, nonOptional Foo, nonOptional2 Bar, metadata MetadataOptions, md2 Metadata2Options) ==> DO NOT DO THIS!
+/*
+
+ */
+
+// optional parameters for the StreamingDataCaptureUpload function
+type StreamingOptions struct {
+	ComponentType    string
+	ComponentName    string
+	MethodName       string
+	Type             DataType
+	FileName         string
+	MethodParameters map[string]interface{}
+	Tags             []string
+	DataRequestTimes [2]time.Time
+}
+
 func (d *DataClient) StreamingDataCaptureUpload(
 	ctx context.Context,
-	mdOptions *UploadMetadata,
-	sdOptions *SensorData,
+	data []byte, //data in bytes (so similar to binarydataCap)...the rest below are for dataCaptureUploadMetadata
+	partID string, //uploadmetadata
+	fileExt string, //uploadmetadata
+	options *StreamingOptions,
 ) (string, error) {
-	UploadChunkSize := 64 * 1024                          //64 KB in bytes
-	uploadMetadataPb := uploadMetadataToProto(*mdOptions) //derefernce the pointer to pass the value instead
-	uploadMetadataPb.Type = syncPb.DataType_DATA_TYPE_BINARY_SENSOR
+	UploadChunkSize := 64 * 1024 //64 KB in bytes
+	// Prepare UploadMetadata
+	uploadMetadata := UploadMetadata{
+		PartID:           partID,
+		ComponentType:    options.ComponentType,
+		ComponentName:    options.ComponentName,
+		MethodName:       options.MethodName,
+		Type:             DataTypeBinarySensor, // assuming this is the correct type??
+		FileName:         options.FileName,
+		MethodParameters: options.MethodParameters,
+		FileExtension:    fileExt,
+		Tags:             options.Tags,
+	}
+	uploadMetadataPb := uploadMetadataToProto(uploadMetadata) //derefernce the pointer to pass the value instead
+	// uploadMetadataPb.Type = syncPb.DataType_DATA_TYPE_BINARY_SENSOR
 	// handle data request times w sensormetadata.
-	sensorMetadataPb := sensorMetadataToProto(sdOptions.Metadata)
+	// Create SensorMetadata based on the provided times
+	var sensorMetadata SensorMetadata
+	if len(options.DataRequestTimes) == 2 { //can i have a better check here? like if dataRequestTimes != [2]time.Time{}
+		sensorMetadata = SensorMetadata{
+			TimeRequested: options.DataRequestTimes[0],
+			TimeReceived:  options.DataRequestTimes[1],
+		}
+	}
+	sensorMetadataPb := sensorMetadataToProto(sensorMetadata)
 	// create the DataCaptureUploadMetadata.
 	metadata := &syncPb.DataCaptureUploadMetadata{
 		UploadMetadata: uploadMetadataPb,
@@ -993,16 +1079,16 @@ func (d *DataClient) StreamingDataCaptureUpload(
 	}
 
 	// send the binary data in chunks.
-	for start := 0; start < len(sdOptions.SDBinary); start += UploadChunkSize {
+	for start := 0; start < len(data); start += UploadChunkSize {
 		//loop thry the data array starting at index 0, in each iteration start index increases by UploadChunkSize
 		//the loop  continues until start reaches or exceeds the length of the data array
 		end := start + UploadChunkSize
 		//this calculates the end index for the chunk, it is simply the start index plys the upload chunk size
-		if end > len(sdOptions.SDBinary) {
-			end = len(sdOptions.SDBinary)
+		if end > len(data) {
+			end = len(data)
 		}
 
-		chunk := sdOptions.SDBinary[start:end]
+		chunk := data[start:end]
 		dataReq := &syncPb.StreamingDataCaptureUploadRequest{
 			UploadPacket: &syncPb.StreamingDataCaptureUploadRequest_Data{
 				Data: chunk,

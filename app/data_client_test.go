@@ -617,19 +617,26 @@ func TestDataSyncClient(t *testing.T) {
 	client := DataClient{dataSyncClient: grpcClient}
 
 	uploadMetadata := UploadMetadata{
-			PartID:           partID,
-			ComponentType:    componentType,
-			ComponentName:    componentName,
-			MethodName:       method,
-			Type:             DataTypeBinarySensor,
-			FileName:         fileName,
-			MethodParameters: methodParameters,
-			FileExtension:    fileExt,
-			Tags:             tags,
-		}
+		PartID:           partID,
+		ComponentType:    componentType,
+		ComponentName:    componentName,
+		MethodName:       method,
+		Type:             DataTypeBinarySensor,
+		FileName:         fileName,
+		MethodParameters: methodParameters,
+		FileExtension:    fileExt,
+		Tags:             tags,
+	}
 
 	t.Run("BinaryDataCaptureUpload", func(t *testing.T) {
 		uploadMetadata.Type = DataTypeBinarySensor
+		options := BinaryOptions{
+			Type:             binaryDataType,
+			FileName:         fileName,
+			MethodParameters: methodParameters,
+			Tags:             tags,
+			DataRequestTimes: dataRequestTimes,
+		}
 		grpcClient.DataCaptureUploadFunc = func(ctx context.Context, in *syncPb.DataCaptureUploadRequest,
 			opts ...grpc.CallOption,
 		) (*syncPb.DataCaptureUploadResponse, error) {
@@ -656,7 +663,7 @@ func TestDataSyncClient(t *testing.T) {
 				FileId: fileID,
 			}, nil
 		}
-		resp, _ := client.BinaryDataCaptureUpload(context.Background(), &uploadMetadata, binaryDataByte, dataRequestTimes)
+		resp, _ := client.BinaryDataCaptureUpload(context.Background(), binaryDataByte, partID, componentType, componentName, method, fileExt, &options)
 		test.That(t, resp, test.ShouldResemble, fileID) //compare response with regular expected types (fromProto if needed)
 	})
 
@@ -668,6 +675,13 @@ func TestDataSyncClient(t *testing.T) {
 			MetadataIndex: 0,
 			TimeRequested: timestamppb.New(startTime),
 			TimeReceived:  timestamppb.New(endTime),
+		}
+		options := TabularOptions{
+			Type:             binaryDataType,
+			FileName:         fileName,
+			MethodParameters: methodParameters,
+			FileExtension:    fileExt,
+			Tags:             tags,
 		}
 		grpcClient.DataCaptureUploadFunc = func(ctx context.Context, in *syncPb.DataCaptureUploadRequest,
 			opts ...grpc.CallOption,
@@ -700,21 +714,31 @@ func TestDataSyncClient(t *testing.T) {
 		dataRequestTimes := [][2]time.Time{
 			{startTime, endTime},
 		}
-		resp, _ := client.tabularDataCaptureUpload(context.Background(), &uploadMetadata, tabularData, dataRequestTimes)
+		resp, _ := client.tabularDataCaptureUpload(context.Background(), tabularData, partID, componentType, componentName, method, dataRequestTimes, &options)
 		test.That(t, resp, test.ShouldResemble, fileID)
 	})
 
 	t.Run("StreamingDataCaptureUpload", func(t *testing.T) {
-		metadata := SensorMetadata{
-			TimeRequested: startTime,
-			TimeReceived:  endTime,
+		// metadata := SensorMetadata{
+		// 	TimeRequested: startTime,
+		// 	TimeReceived:  endTime,
+		// }
+		// binarySensorData := SensorData{
+		// 	Metadata: metadata,
+		// 	SDStruct: nil,
+		// 	SDBinary: binaryDataByte,
+		// }
+
+		options := StreamingOptions{
+			ComponentType:    componentType,
+			ComponentName:    componentName,
+			MethodName:       method,
+			Type:             binaryDataType,
+			FileName:         fileName,
+			MethodParameters: methodParameters,
+			Tags:             tags,
+			DataRequestTimes: dataRequestTimes,
 		}
-		binarySensorData := SensorData{
-			Metadata: metadata,
-			SDStruct: nil,
-			SDBinary: binaryDataByte,
-		}
-		
 		// Mock implementation of the streaming client.
 		mockStream := &inject.DataSyncService_StreamingDataCaptureUploadClient{
 			SendFunc: func(req *syncPb.StreamingDataCaptureUploadRequest) error {
@@ -753,7 +777,7 @@ func TestDataSyncClient(t *testing.T) {
 			return mockStream, nil
 		}
 		// Call the function being tested.
-		resp, err := client.StreamingDataCaptureUpload(context.Background(), &uploadMetadata, &binarySensorData)
+		resp, err := client.StreamingDataCaptureUpload(context.Background(), binaryDataByte, partID, fileExt, &options)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldEqual, fileID)
 	})
