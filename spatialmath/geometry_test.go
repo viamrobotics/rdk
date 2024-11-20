@@ -822,3 +822,10 @@ func TestNewGeometryFromProto(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, viamGeom, test.ShouldResemble, sphereGeom)
 }
+
+func TestThing(t *testing.T) {
+	p1 := r3.Vector{230.0000717924143,  -416.0000238040742,  600.000050160638}
+	p2 := r3.Vector{200, -424.5, 595}
+	query1 := r3.Vector{201.89182618318011,-424.06039617605563,595.3869319487545}
+	fmt.Println(DistToLineSegment(p1, p2, query1))
+}

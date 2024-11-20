@@ -17,7 +17,7 @@ const (
 	defaultPlanIter = 3000
 
 	// The maximum percent of a joints range of motion to allow per step.
-	defaultFrameStep = 0.015
+	defaultFrameStep = 0.01
 
 	// If the dot product between two sets of configurations is less than this, consider them identical.
 	defaultInputIdentDist = 0.0001

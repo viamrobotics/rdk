@@ -175,6 +175,10 @@ func TestLineFollow(t *testing.T) {
 	)
 	test.That(t, ok, test.ShouldBeFalse)
 	test.That(t, lastGood, test.ShouldNotBeNil)
+	test.That(t, lastGood, test.ShouldBeNil)
+	fmt.Println("ok, last", ok, lastGood, lastGood == nil, lastGood != nil)
+	fmt.Printf("struct: %p", lastGood)
+	fmt.Printf("\nstruct type: %T\n", lastGood)
 	// lastGood.StartConfiguration and EndConfiguration should pass constraints
 	stateCheck := &ik.StateFS{Configuration: lastGood.StartConfiguration, FS: fs}
 	pass, _ := opt.CheckStateFSConstraints(stateCheck)

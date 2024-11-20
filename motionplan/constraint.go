@@ -320,32 +320,34 @@ func CreateAbsoluteLinearInterpolatingConstraintFS(
 			}
 			startPiF = startPiFTf.(*referenceframe.PoseInFrame)
 		}
-		orientConstraint, orientMetric := NewSlerpOrientationConstraint(startPiF.Pose(), goal.Pose(), orientTol)
-		lineConstraint, lineMetric := NewLineConstraint(startPiF.Pose().Point(), goal.Pose().Point(), linTol)
-		combinedMetric := ik.CombineMetrics(orientMetric, lineMetric)
+		constraint, metric := NewAbsoluteLinearInterpolatingConstraint(startPiF.Pose(), goal.Pose(), linTol, orientTol)
 
-		combinedConstraint := func(state *ik.State) bool {
-			return orientConstraint(state) && lineConstraint(state)
-		}
-
-		metricMap[frame] = combinedMetric
-		constraintMap[frame] = combinedConstraint
+		metricMap[frame] = metric
+		constraintMap[frame] = constraint
 	}
 
 	allMetric := func(state *ik.StateFS) float64 {
 		score := 0.
-		for frame, cfg := range state.Configuration {
+		for frame, goal := range to {
 			if metric, ok := metricMap[frame]; ok {
-				score += metric(&ik.State{Configuration: cfg, Frame: fs.Frame(frame)})
+				pif, err := fs.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), goal.Parent())
+				if err != nil {
+					score += math.Inf(1)
+				}
+				score += metric(&ik.State{Position: pif.(*referenceframe.PoseInFrame).Pose()})
 			}
 		}
 		return score
 	}
 
 	allConstraint := func(state *ik.StateFS) bool {
-		for frame, cfg := range state.Configuration {
+		for frame, goal := range to {
 			if constraint, ok := constraintMap[frame]; ok {
-				pass := constraint(&ik.State{Configuration: cfg, Frame: fs.Frame(frame)})
+				pif, err := fs.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), goal.Parent())
+				if err != nil {
+					return false
+				}
+				pass := constraint(&ik.State{Position: pif.(*referenceframe.PoseInFrame).Pose()})
 				if !pass {
 					return false
 				}
@@ -492,10 +494,6 @@ func NewPlaneConstraint(pNorm, pt r3.Vector, writingAngle, epsilon float64) (Sta
 // which will bring a pose into the valid constraint space.
 // tolerance refers to the closeness to the line necessary to be a valid pose in mm.
 func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (StateConstraint, ik.StateMetric) {
-	if pt1.Distance(pt2) < defaultEpsilon {
-		tolerance = defaultEpsilon
-	}
-
 	gradFunc := func(state *ik.State) float64 {
 		return math.Max(spatial.DistToLineSegment(pt1, pt2, state.Position.Point())-tolerance, 0)
 	}

@@ -126,8 +126,6 @@ func (ik *nloptIK) Solve(ctx context.Context,
 			// Yes, the for loop below is logically equivalent to not having this if statement. But CPU branch prediction means having the
 			// if statement is faster.
 			for i := range gradient {
-				// ~ fmt.Println("jump", jump)
-				// ~ fmt.Println("gradient", gradient)
 				jumpVal = jump[i]
 				flip := false
 				checkVals[i] += jumpVal

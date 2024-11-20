@@ -147,7 +147,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequ
 		subWaypoints = false
 	}
 
-	if subWaypoints {
+	if subWaypoints && false {
 		pathStepSize, ok := request.Options["path_step_size"].(float64)
 		if !ok {
 			pathStepSize = defaultPathStepSize
