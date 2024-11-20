@@ -193,7 +193,6 @@ type SensorMetadata struct {
 type SensorData struct {
 	//this is what can be filled by either tabular or binary data!!
 	Metadata SensorMetadata
-	//its one of, either binary or tabular ==> this needs help
 	SDStruct map[string]interface{} //or should it be TabularData.data ??
 	SDBinary []byte
 }
@@ -210,7 +209,7 @@ type MimeType int32
 
 const (
 	MimeTypeUnspecified MimeType = iota
-	MimeTypeJPEG                 //can i name things this???
+	MimeTypeJPEG
 	MimeTypePNG
 	MimeTypePCD
 )
@@ -222,7 +221,7 @@ type UploadMetadata struct {
 	MethodName       string
 	Type             DataType
 	FileName         string
-	MethodParameters map[string]interface{} //or map[string]string??
+	MethodParameters map[string]interface{}
 	FileExtension    string
 	Tags             []string
 }
@@ -873,12 +872,12 @@ func sensorContentsToProto(sensorContents []SensorData) []*syncPb.SensorData {
 // Helper function to format the file extension.
 func formatFileExtension(fileExt string) string {
 	if fileExt == "" {
-		return fileExt // Return as-is if empty
+		return fileExt
 	}
 	if fileExt[0] == '.' {
-		return fileExt // Return as-is if already starts with a dot
+		return fileExt
 	}
-	return "." + fileExt // Prepend a dot otherwise
+	return "." + fileExt
 }
 
 func (d *DataClient) BinaryDataCaptureUpload(
@@ -968,7 +967,7 @@ func (d *DataClient) StreamingDataCaptureUpload(
 	mdOptions *UploadMetadata,
 	sdOptions *SensorData,
 ) (string, error) {
-	UploadChunkSize := 64 * 1024 //64 KB in bytes
+	UploadChunkSize := 64 * 1024                          //64 KB in bytes
 	uploadMetadataPb := uploadMetadataToProto(*mdOptions) //derefernce the pointer to pass the value instead
 	uploadMetadataPb.Type = syncPb.DataType_DATA_TYPE_BINARY_SENSOR
 	// handle data request times w sensormetadata.
