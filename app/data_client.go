@@ -871,13 +871,6 @@ func sensorContentsToProto(sensorContents []SensorData) []*syncPb.SensorData {
 }
 
 // Helper function to format the file extension.
-//
-//	func formatFileExtension(fileExt string) string {
-//		if len(fileExt) > 0 && fileExt[0] != '.' {
-//			return "." + fileExt
-//		}
-//		return fileExt
-//	}
 func formatFileExtension(fileExt string) string {
 	if fileExt == "" {
 		return fileExt // Return as-is if empty
@@ -891,28 +884,25 @@ func formatFileExtension(fileExt string) string {
 func (d *DataClient) BinaryDataCaptureUpload(
 	ctx context.Context,
 	mdOptions *UploadMetadata,
-	// smdOptions *SensorMetadata, //this is just the dataRequest times....??? should they be passing in something else instead...?
 	binaryData []byte,
-	dataRequestTimes [2]time.Time, // Assuming two time values, [0] is timeRequested, [1] is timeReceived
+	dataRequestTimes [2]time.Time,
 ) (string, error) {
 	// Validate file extension
 	mdOptions.FileExtension = formatFileExtension(mdOptions.FileExtension)
 	// Create SensorMetadata based on the provided times
 	var sensorMetadata SensorMetadata
-	if len(dataRequestTimes) == 2 { //can i have a better check here? like if dataRequestTimes != [2]time.Time{}
+	if len(dataRequestTimes) == 2 {
 		sensorMetadata = SensorMetadata{
 			TimeRequested: dataRequestTimes[0],
 			TimeReceived:  dataRequestTimes[1],
 		}
 	}
-
 	// Create SensorData
 	sensorData := SensorData{
 		Metadata: sensorMetadata,
 		SDStruct: nil,        // Assuming no struct is needed for binary data
 		SDBinary: binaryData, // Attach the binary data
 	}
-
 	response, err := d.DataCaptureUpload(ctx, *mdOptions, []SensorData{sensorData})
 	if err != nil {
 		return "", err
@@ -923,13 +913,11 @@ func (d *DataClient) BinaryDataCaptureUpload(
 func (d *DataClient) tabularDataCaptureUpload(
 	ctx context.Context,
 	mdOptions *UploadMetadata,
-	// smdOptions *SensorMetadata,
 	tabularData []map[string]interface{},
-	dataRequestTimes [][2]time.Time, // Assuming two time values, [0] is timeRequested, [1] is timeReceived
+	dataRequestTimes [][2]time.Time,
 ) (string, error) {
 	mdOptions.FileExtension = formatFileExtension(mdOptions.FileExtension)
 	if len(dataRequestTimes) != len(tabularData) {
-		// errors.New("dataRequestTimes and tabularData lengths must be equal")
 		return "", fmt.Errorf("dataRequestTimes and tabularData lengths must be equal")
 	}
 	var sensorContents []SensorData
@@ -949,7 +937,6 @@ func (d *DataClient) tabularDataCaptureUpload(
 		}
 		sensorContents = append(sensorContents, sensorData)
 	}
-
 	response, err := d.DataCaptureUpload(ctx, *mdOptions, sensorContents)
 	if err != nil {
 		return "", err
@@ -970,26 +957,6 @@ func (d *DataClient) DataCaptureUpload(ctx context.Context, metadata UploadMetad
 	return resp.FileId, nil
 }
 
-// FileUpload uploads the contents and metadata for binary (image + file) data,
-// where the first packet must be the UploadMetadata.
-func (d *DataClient) FileUpload(ctx context.Context) error {
-	// resp, err := d.dataSyncClient.FileUpload(ctx, &pb.FileUploadRequest{})
-	// if err != nil {
-	// 	return err
-	// }
-	return nil
-}
-
-// FileUpload uploads the contents and metadata for binary (image + file) data,
-// where the first packet must be the UploadMetadata.
-func (d *DataClient) FileUploadFromPath(ctx context.Context) error {
-	// resp, err := d.client.FileUpload(ctx, &pb.FileUploadRequest{})
-	// if err != nil {
-	// 	return err
-	// }
-	return nil
-}
-
 // StreamingDataCaptureUpload uploads metadata and streaming binary data in chunks.
 //pass in a pointer to a struct
 //pointer to dataTime array  -->alr a pointer
@@ -1002,7 +969,6 @@ func (d *DataClient) StreamingDataCaptureUpload(
 	sdOptions *SensorData,
 ) (string, error) {
 	UploadChunkSize := 64 * 1024 //64 KB in bytes
-	// create metadata for the upload.
 	uploadMetadataPb := uploadMetadataToProto(*mdOptions) //derefernce the pointer to pass the value instead
 	uploadMetadataPb.Type = syncPb.DataType_DATA_TYPE_BINARY_SENSOR
 	// handle data request times w sensormetadata.
@@ -1060,4 +1026,24 @@ func (d *DataClient) StreamingDataCaptureUpload(
 		return "", fmt.Errorf("response is empty or invalid")
 	}
 	return resp.FileId, nil
+}
+
+// FileUpload uploads the contents and metadata for binary (image + file) data,
+// where the first packet must be the UploadMetadata.
+func (d *DataClient) FileUpload(ctx context.Context) error {
+	// resp, err := d.dataSyncClient.FileUpload(ctx, &pb.FileUploadRequest{})
+	// if err != nil {
+	// 	return err
+	// }
+	return nil
+}
+
+// FileUpload uploads the contents and metadata for binary (image + file) data,
+// where the first packet must be the UploadMetadata.
+func (d *DataClient) FileUploadFromPath(ctx context.Context) error {
+	// resp, err := d.client.FileUpload(ctx, &pb.FileUploadRequest{})
+	// if err != nil {
+	// 	return err
+	// }
+	return nil
 }

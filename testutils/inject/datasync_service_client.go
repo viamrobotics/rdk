@@ -71,17 +71,3 @@ func (c *DataSyncService_StreamingDataCaptureUploadClient) CloseAndRecv() (*data
 	return c.CloseAndRecvFunc()
 
 }
-
-//	func (c *DataSyncService_StreamingDataCaptureUploadClient) Send(req *datapb.StreamingDataCaptureUploadRequest) error {
-//		if c.SendFunc != nil {
-//			return c.SendFunc(req)
-//		}
-//		return nil
-//	}
-
-//	func (c *DataSyncService_StreamingDataCaptureUploadClient) CloseAndRecv() (*datapb.StreamingDataCaptureUploadResponse, error) {
-//		if c.CloseAndRecvFunc != nil {
-//			return c.CloseAndRecvFunc()
-//		}
-//		return nil, nil
-//	}
