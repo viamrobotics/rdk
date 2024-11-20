@@ -555,14 +555,14 @@ func (w *GraphNode) transitionTo(state NodeState) {
 }
 
 // ResourceStatus returns the current [Status].
-func (w *GraphNode) ResourceStatus() Status {
+func (w *GraphNode) ResourceStatus() NodeStatus {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
 	return w.resourceStatus()
 }
 
-func (w *GraphNode) resourceStatus() Status {
+func (w *GraphNode) resourceStatus() NodeStatus {
 	var resName Name
 	if w.current == nil {
 		resName = w.config.ResourceName()
@@ -583,7 +583,7 @@ func (w *GraphNode) resourceStatus() Status {
 		err = nil
 	}
 
-	return Status{
+	return NodeStatus{
 		Name:        resName,
 		State:       w.state,
 		LastUpdated: w.transitionedAt,
@@ -622,8 +622,8 @@ func (w *GraphNode) Stats() any {
 	return ret
 }
 
-// Status encapsulates a resource name along with state transition metadata.
-type Status struct {
+// NodeStatus encapsulates a resource name along with state transition metadata.
+type NodeStatus struct {
 	Name        Name
 	State       NodeState
 	LastUpdated time.Time

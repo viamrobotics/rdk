@@ -103,8 +103,10 @@ func TestServer(t *testing.T) {
 					Config: config.Revision{Revision: "rev1"},
 					Resources: []resource.Status{
 						{
-							Name:     arm.Named("badArm"),
-							Revision: "rev0",
+							NodeStatus: resource.NodeStatus{
+								Name:     arm.Named("badArm"),
+								Revision: "rev0",
+							},
 						},
 					},
 				},
@@ -124,9 +126,11 @@ func TestServer(t *testing.T) {
 					Config: config.Revision{Revision: "rev1"},
 					Resources: []resource.Status{
 						{
-							Name:     arm.Named("goodArm"),
-							State:    resource.NodeStateConfiguring,
-							Revision: "rev1",
+							NodeStatus: resource.NodeStatus{
+								Name:     arm.Named("goodArm"),
+								State:    resource.NodeStateConfiguring,
+								Revision: "rev1",
+							},
 						},
 					},
 				},
@@ -146,17 +150,23 @@ func TestServer(t *testing.T) {
 					Config: config.Revision{Revision: "rev1"},
 					Resources: []resource.Status{
 						{
-							Name:     arm.Named("goodArm"),
-							State:    resource.NodeStateConfiguring,
-							Revision: "rev1",
+							NodeStatus: resource.NodeStatus{
+								Name:     arm.Named("goodArm"),
+								State:    resource.NodeStateConfiguring,
+								Revision: "rev1",
+							},
 						},
 						{
-							Name:     arm.Named("badArm"),
-							Revision: "rev0",
+							NodeStatus: resource.NodeStatus{
+								Name:     arm.Named("badArm"),
+								Revision: "rev0",
+							},
 						},
 						{
-							Name:     arm.Named("anotherBadArm"),
-							Revision: "rev-1",
+							NodeStatus: resource.NodeStatus{
+								Name:     arm.Named("anotherBadArm"),
+								Revision: "rev-1",
+							},
 						},
 					},
 				},
@@ -186,10 +196,12 @@ func TestServer(t *testing.T) {
 					Config: config.Revision{Revision: "rev1"},
 					Resources: []resource.Status{
 						{
-							Name:     arm.Named("brokenArm"),
-							Revision: "rev1",
-							State:    resource.NodeStateUnhealthy,
-							Error:    errors.New("bad configuration"),
+							NodeStatus: resource.NodeStatus{
+								Name:     arm.Named("brokenArm"),
+								Revision: "rev1",
+								State:    resource.NodeStateUnhealthy,
+								Error:    errors.New("bad configuration"),
+							},
 						},
 					},
 				},

@@ -24,6 +24,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
@@ -513,7 +514,6 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 	if err != nil {
 		return nil, err
 	}
-
 	result.Config = &pb.ConfigStatus{
 		Revision:    mStatus.Config.Revision,
 		LastUpdated: timestamppb.New(mStatus.Config.LastUpdated),
@@ -521,9 +521,10 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 	result.Resources = make([]*pb.ResourceStatus, 0, len(mStatus.Resources))
 	for _, resStatus := range mStatus.Resources {
 		pbResStatus := &pb.ResourceStatus{
-			Name:        protoutils.ResourceNameToProto(resStatus.Name),
-			LastUpdated: timestamppb.New(resStatus.LastUpdated),
-			Revision:    resStatus.Revision,
+			Name:          protoutils.ResourceNameToProto(resStatus.Name),
+			LastUpdated:   timestamppb.New(resStatus.LastUpdated),
+			Revision:      resStatus.Revision,
+			CloudMetadata: cloud.MetadataToProto(resStatus.CloudMetadata),
 		}
 
 		switch resStatus.State {
