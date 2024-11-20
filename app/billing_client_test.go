@@ -6,38 +6,39 @@ import (
 	"testing"
 
 	pb "go.viam.com/api/app/v1"
-	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"go.viam.com/rdk/testutils/inject"
 )
 
 const (
-	subtotal = 37
-	sourceType = SourceTypeOrg
-	usageCostType = UsageCostTypeCloudStorage
-	cost float64 = 20
-	discount float64 = 9
-	totalWithDiscount = cost - discount
+	subtotal                     = 37
+	sourceType                   = SourceTypeOrg
+	usageCostType                = UsageCostTypeCloudStorage
+	cost                 float64 = 20
+	discount             float64 = 9
+	totalWithDiscount            = cost - discount
 	totalWithoutDiscount float64 = cost
-	email = "email"
-	paymentMethodType = PaymentMethodtypeCard
-	brand = "brand"
-	digits = "1234"
-	invoiceID = "invoice_id"
-	invoiceAmount float64 = 100.12
-	status = "status"
-	balance float64 = 73.21
-	billingOwnerOrgID = "billing_owner_organization_id"
+	email                        = "email"
+	paymentMethodType            = PaymentMethodtypeCard
+	brand                        = "brand"
+	digits                       = "1234"
+	invoiceID                    = "invoice_id"
+	invoiceAmount        float64 = 100.12
+	status                       = "status"
+	balance              float64 = 73.21
+	billingOwnerOrgID            = "billing_owner_organization_id"
 )
 
 var (
-	start            = timestamppb.Timestamp{Seconds: 92, Nanos: 0}
-	end              = timestamppb.Timestamp{Seconds: 99, Nanos: 999}
-	tier = "tier"
+	start                        = timestamppb.Timestamp{Seconds: 92, Nanos: 0}
+	end                          = timestamppb.Timestamp{Seconds: 99, Nanos: 999}
+	tier                         = "tier"
 	getCurrentMonthUsageResponse = GetCurrentMonthUsageResponse{
 		StartDate: &start,
-		EndDate: &end,
+		EndDate:   &end,
 		ResourceUsageCostsBySource: []*ResourceUsageCostsBySource{
 			{
 				SourceType: sourceType,
@@ -45,11 +46,11 @@ var (
 					UsageCosts: []*UsageCost{
 						{
 							ResourceType: usageCostType,
-							Cost: cost,
+							Cost:         cost,
 						},
 					},
-					Discount: discount,
-					TotalWithDiscount: totalWithDiscount,
+					Discount:             discount,
+					TotalWithDiscount:    totalWithDiscount,
 					TotalWithoutDiscount: totalWithoutDiscount,
 				},
 				TierName: tier,
@@ -58,24 +59,24 @@ var (
 		Subtotal: subtotal,
 	}
 	getOrgBillingInformationResponse = GetOrgBillingInformationResponse{
-		Type: paymentMethodType,
+		Type:         paymentMethodType,
 		BillingEmail: email,
 		Method: &PaymentMethodCard{
-			Brand: brand,
+			Brand:          brand,
 			LastFourDigits: digits,
 		},
 		BillingTier: &tier,
 	}
-	invoiceDate = timestamppb.Timestamp{Seconds: 287, Nanos: 0}
-	dueDate = timestamppb.Timestamp{Seconds: 1241, Nanos: 40}
-	paidDate = timestamppb.Timestamp{Seconds: 827, Nanos: 62}
+	invoiceDate    = timestamppb.Timestamp{Seconds: 287, Nanos: 0}
+	dueDate        = timestamppb.Timestamp{Seconds: 1241, Nanos: 40}
+	paidDate       = timestamppb.Timestamp{Seconds: 827, Nanos: 62}
 	invoiceSummary = InvoiceSummary{
-		ID: invoiceID,
-		InvoiceDate: &invoiceDate,
+		ID:            invoiceID,
+		InvoiceDate:   &invoiceDate,
 		InvoiceAmount: invoiceAmount,
-		Status: status,
-		DueDate: &dueDate,
-		PaidDate: &paidDate,
+		Status:        status,
+		DueDate:       &dueDate,
+		PaidDate:      &paidDate,
 	}
 	chunk = []byte{4, 8}
 )
@@ -136,7 +137,7 @@ func createBillingGrpcClient() *inject.BillingServiceClient {
 type mockInvoiceStreamClient struct {
 	grpc.ClientStream
 	responses []*pb.GetInvoicePdfResponse
-	count int
+	count     int
 }
 
 func (c *mockInvoiceStreamClient) Recv() (*pb.GetInvoicePdfResponse, error) {
@@ -155,7 +156,7 @@ func TestBillingClient(t *testing.T) {
 	t.Run("GetCurrentMonthUsage", func(t *testing.T) {
 		pbResponse := pb.GetCurrentMonthUsageResponse{
 			StartDate: getCurrentMonthUsageResponse.StartDate,
-			EndDate: getCurrentMonthUsageResponse.EndDate,
+			EndDate:   getCurrentMonthUsageResponse.EndDate,
 			ResourceUsageCostsBySource: []*pb.ResourceUsageCostsBySource{
 				{
 					SourceType: sourceTypeToProto(sourceType),
@@ -163,11 +164,11 @@ func TestBillingClient(t *testing.T) {
 						UsageCosts: []*pb.UsageCost{
 							{
 								ResourceType: usageCostTypeToProto(usageCostType),
-								Cost: cost,
+								Cost:         cost,
 							},
 						},
-						Discount: discount,
-						TotalWithDiscount: totalWithDiscount,
+						Discount:             discount,
+						TotalWithDiscount:    totalWithDiscount,
 						TotalWithoutDiscount: totalWithoutDiscount,
 					},
 					TierName: tier,
@@ -188,10 +189,10 @@ func TestBillingClient(t *testing.T) {
 
 	t.Run("GetOrgBillingInformation", func(t *testing.T) {
 		pbResponse := pb.GetOrgBillingInformationResponse{
-			Type: paymentMethodTypeToProto(getOrgBillingInformationResponse.Type),
+			Type:         paymentMethodTypeToProto(getOrgBillingInformationResponse.Type),
 			BillingEmail: getOrgBillingInformationResponse.BillingEmail,
 			Method: &pb.PaymentMethodCard{
-				Brand: getOrgBillingInformationResponse.Method.Brand,
+				Brand:          getOrgBillingInformationResponse.Method.Brand,
 				LastFourDigits: getOrgBillingInformationResponse.Method.LastFourDigits,
 			},
 			BillingTier: getOrgBillingInformationResponse.BillingTier,
@@ -217,12 +218,12 @@ func TestBillingClient(t *testing.T) {
 				OutstandingBalance: balance,
 				Invoices: []*pb.InvoiceSummary{
 					{
-						Id: invoiceSummary.ID,
-						InvoiceDate: invoiceSummary.InvoiceDate,
+						Id:            invoiceSummary.ID,
+						InvoiceDate:   invoiceSummary.InvoiceDate,
 						InvoiceAmount: invoiceSummary.InvoiceAmount,
-						Status: invoiceSummary.Status,
-						DueDate: invoiceSummary.DueDate,
-						PaidDate: invoiceSummary.PaidDate,
+						Status:        invoiceSummary.Status,
+						DueDate:       invoiceSummary.DueDate,
+						PaidDate:      invoiceSummary.PaidDate,
 					},
 				},
 			}, nil
@@ -249,7 +250,7 @@ func TestBillingClient(t *testing.T) {
 		err := client.GetInvoicePDF(context.Background(), invoiceID, organizationID, ch)
 		test.That(t, err, test.ShouldBeNil)
 	})
-	
+
 	t.Run("SendPaymentRequiredEmail", func(t *testing.T) {
 		grpcClient.SendPaymentRequiredEmailFunc = func(
 			ctx context.Context, in *pb.SendPaymentRequiredEmailRequest, opts ...grpc.CallOption,

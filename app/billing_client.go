@@ -5,10 +5,11 @@ import (
 	"sync"
 
 	pb "go.viam.com/api/app/v1"
-	"go.viam.com/rdk/logging"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"go.viam.com/rdk/logging"
 )
 
 // UsageCostType specifies the type of usage cost.
@@ -63,33 +64,33 @@ func usageCostTypeFromProto(costType pb.UsageCostType) UsageCostType {
 // UsageCost contains the cost and cost type.
 type UsageCost struct {
 	ResourceType UsageCostType
-	Cost float64
+	Cost         float64
 }
 
 func usageCostFromProto(cost *pb.UsageCost) *UsageCost {
 	return &UsageCost{
 		ResourceType: usageCostTypeFromProto(cost.ResourceType),
-		Cost: cost.Cost,
+		Cost:         cost.Cost,
 	}
 }
 
 // ResourceUsageCosts holds the usage costs with discount information.
 type ResourceUsageCosts struct {
-	UsageCosts []*UsageCost
-	Discount float64
-	TotalWithDiscount float64
+	UsageCosts           []*UsageCost
+	Discount             float64
+	TotalWithDiscount    float64
 	TotalWithoutDiscount float64
 }
 
 func resourceUsageCostsFromProto(costs *pb.ResourceUsageCosts) *ResourceUsageCosts {
 	var usageCosts []*UsageCost
-	for _, cost := range(costs.UsageCosts) {
+	for _, cost := range costs.UsageCosts {
 		usageCosts = append(usageCosts, usageCostFromProto(cost))
 	}
 	return &ResourceUsageCosts{
-		UsageCosts: usageCosts,
-		Discount: costs.Discount,
-		TotalWithDiscount: costs.TotalWithDiscount,
+		UsageCosts:           usageCosts,
+		Discount:             costs.Discount,
+		TotalWithDiscount:    costs.TotalWithDiscount,
 		TotalWithoutDiscount: costs.TotalWithoutDiscount,
 	}
 }
@@ -121,37 +122,37 @@ func sourceTypeFromProto(sourceType pb.SourceType) SourceType {
 
 // ResourceUsageCostsBySource contains the resource usage costs of a source type.
 type ResourceUsageCostsBySource struct {
-	SourceType SourceType
+	SourceType         SourceType
 	ResourceUsageCosts *ResourceUsageCosts
-	TierName string
+	TierName           string
 }
 
 func resourceUsageCostsBySourceFromProto(costs *pb.ResourceUsageCostsBySource) *ResourceUsageCostsBySource {
 	return &ResourceUsageCostsBySource{
-		SourceType: sourceTypeFromProto(costs.SourceType),
+		SourceType:         sourceTypeFromProto(costs.SourceType),
 		ResourceUsageCosts: resourceUsageCostsFromProto(costs.ResourceUsageCosts),
-		TierName: costs.TierName,
+		TierName:           costs.TierName,
 	}
 }
 
 // GetCurrentMonthUsageResponse contains the current month usage information.
 type GetCurrentMonthUsageResponse struct {
-	StartDate *timestamppb.Timestamp
-	EndDate *timestamppb.Timestamp
+	StartDate                  *timestamppb.Timestamp
+	EndDate                    *timestamppb.Timestamp
 	ResourceUsageCostsBySource []*ResourceUsageCostsBySource
-	Subtotal float64
+	Subtotal                   float64
 }
 
 func getCurrentMonthUsageResponseFromProto(response *pb.GetCurrentMonthUsageResponse) *GetCurrentMonthUsageResponse {
 	var costs []*ResourceUsageCostsBySource
-	for _, cost := range(response.ResourceUsageCostsBySource) {
+	for _, cost := range response.ResourceUsageCostsBySource {
 		costs = append(costs, resourceUsageCostsBySourceFromProto(cost))
 	}
 	return &GetCurrentMonthUsageResponse{
-		StartDate: response.StartDate,
-		EndDate: response.EndDate,
+		StartDate:                  response.StartDate,
+		EndDate:                    response.EndDate,
 		ResourceUsageCostsBySource: costs,
-		Subtotal: response.Subtotal,
+		Subtotal:                   response.Subtotal,
 	}
 }
 
@@ -178,20 +179,20 @@ func paymentMethodTypeFromProto(methodType pb.PaymentMethodType) PaymentMethodTy
 
 // PaymentMethodCard holds the information of a card used for payment.
 type PaymentMethodCard struct {
-	Brand string
+	Brand          string
 	LastFourDigits string
 }
 
 func paymentMethodCardFromProto(card *pb.PaymentMethodCard) *PaymentMethodCard {
 	return &PaymentMethodCard{
-		Brand: card.Brand,
+		Brand:          card.Brand,
 		LastFourDigits: card.LastFourDigits,
 	}
 }
 
 // GetOrgBillingInformationResponse contains the information of an organization's billing information.
 type GetOrgBillingInformationResponse struct {
-	Type PaymentMethodType
+	Type         PaymentMethodType
 	BillingEmail string
 	// defined if type is PaymentMethodTypeCard
 	Method *PaymentMethodCard
@@ -201,38 +202,38 @@ type GetOrgBillingInformationResponse struct {
 
 func getOrgBillingInformationResponseFromProto(resp *pb.GetOrgBillingInformationResponse) *GetOrgBillingInformationResponse {
 	return &GetOrgBillingInformationResponse{
-		Type: paymentMethodTypeFromProto(resp.Type),
+		Type:         paymentMethodTypeFromProto(resp.Type),
 		BillingEmail: resp.BillingEmail,
-		Method: paymentMethodCardFromProto(resp.Method),
-		BillingTier: resp.BillingTier,
+		Method:       paymentMethodCardFromProto(resp.Method),
+		BillingTier:  resp.BillingTier,
 	}
 }
 
 // InvoiceSummary holds the information of an invoice summary.
 type InvoiceSummary struct {
-	ID string
-	InvoiceDate *timestamppb.Timestamp
+	ID            string
+	InvoiceDate   *timestamppb.Timestamp
 	InvoiceAmount float64
-	Status string
-	DueDate *timestamppb.Timestamp
-	PaidDate *timestamppb.Timestamp
+	Status        string
+	DueDate       *timestamppb.Timestamp
+	PaidDate      *timestamppb.Timestamp
 }
 
 func invoiceSummaryFromProto(summary *pb.InvoiceSummary) *InvoiceSummary {
 	return &InvoiceSummary{
-		ID: summary.Id,
-		InvoiceDate: summary.InvoiceDate,
+		ID:            summary.Id,
+		InvoiceDate:   summary.InvoiceDate,
 		InvoiceAmount: summary.InvoiceAmount,
-		Status: summary.Status,
-		DueDate: summary.DueDate,
-		PaidDate: summary.PaidDate,
+		Status:        summary.Status,
+		DueDate:       summary.DueDate,
+		PaidDate:      summary.PaidDate,
 	}
 }
 
 type invoiceStream struct {
-	client *BillingClient
+	client       *BillingClient
 	streamCancel context.CancelFunc
-	streamMu sync.Mutex
+	streamMu     sync.Mutex
 
 	activeBackgroundWorkers sync.WaitGroup
 }
@@ -249,7 +250,7 @@ func (s *invoiceStream) startStream(ctx context.Context, id, orgID string, ch ch
 	s.streamCancel = cancel
 
 	select {
-	case <- ctx.Done():
+	case <-ctx.Done():
 		return ctx.Err()
 	default:
 	}
@@ -257,7 +258,7 @@ func (s *invoiceStream) startStream(ctx context.Context, id, orgID string, ch ch
 	// This call won't return any errors it had until the client tries to receive.
 	//nolint:errcheck
 	stream, _ := s.client.client.GetInvoicePdf(ctx, &pb.GetInvoicePdfRequest{
-		Id:         id,
+		Id:    id,
 		OrgId: orgID,
 	})
 	_, err := stream.Recv()
@@ -296,9 +297,7 @@ func (s *invoiceStream) receiveFromStream(ctx context.Context, stream pb.Billing
 		}
 		// If there is a response, send to the channel.
 		var pdf []byte
-		for _, data := range streamResp.Chunk {
-			pdf = append(pdf, data)
-		}
+		pdf = append(pdf, streamResp.Chunk...)
 		ch <- pdf
 	}
 }
@@ -347,14 +346,14 @@ func (c *BillingClient) GetInvoicesSummary(ctx context.Context, orgID string) (f
 		return 0, nil, err
 	}
 	var invoices []*InvoiceSummary
-	for _, invoice := range(resp.Invoices) {
+	for _, invoice := range resp.Invoices {
 		invoices = append(invoices, invoiceSummaryFromProto(invoice))
 	}
 	return resp.OutstandingBalance, invoices, nil
 }
 
 // GetInvoicePDF gets the invoice PDF data.
-func (c *BillingClient) GetInvoicePDF(ctx context.Context, id, orgID string, ch chan []byte) (error) {
+func (c *BillingClient) GetInvoicePDF(ctx context.Context, id, orgID string, ch chan []byte) error {
 	stream := &invoiceStream{client: c}
 
 	err := stream.startStream(ctx, id, orgID, ch)
@@ -370,7 +369,7 @@ func (c *BillingClient) GetInvoicePDF(ctx context.Context, id, orgID string, ch 
 // SendPaymentRequiredEmail sends an email about payment requirement.
 func (c *BillingClient) SendPaymentRequiredEmail(ctx context.Context, customerOrgID, billingOwnerOrgID string) error {
 	_, err := c.client.SendPaymentRequiredEmail(ctx, &pb.SendPaymentRequiredEmailRequest{
-		CustomerOrgId: customerOrgID,
+		CustomerOrgId:     customerOrgID,
 		BillingOwnerOrgId: billingOwnerOrgID,
 	})
 	return err

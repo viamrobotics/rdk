@@ -22,8 +22,7 @@ type BillingServiceClient struct {
 		opts ...grpc.CallOption) (*pb.SendPaymentRequiredEmailResponse, error)
 }
 
-
-// GetCurrentMonthUsage calls the injected GetCurrentMonthUsageFunc or the real verison.
+// GetCurrentMonthUsage calls the injected GetCurrentMonthUsageFunc or the real version.
 func (bsc *BillingServiceClient) GetCurrentMonthUsage(ctx context.Context, in *pb.GetCurrentMonthUsageRequest,
 	opts ...grpc.CallOption,
 ) (*pb.GetCurrentMonthUsageResponse, error) {
@@ -33,7 +32,7 @@ func (bsc *BillingServiceClient) GetCurrentMonthUsage(ctx context.Context, in *p
 	return bsc.GetCurrentMonthUsageFunc(ctx, in, opts...)
 }
 
-// 	GetOrgBillingInformation calls the injected GetOrgBillingInformationFunc or the real verison.
+// GetOrgBillingInformation calls the injected GetOrgBillingInformationFunc or the real version.
 func (bsc *BillingServiceClient) GetOrgBillingInformation(ctx context.Context, in *pb.GetOrgBillingInformationRequest,
 	opts ...grpc.CallOption,
 ) (*pb.GetOrgBillingInformationResponse, error) {
@@ -43,7 +42,7 @@ func (bsc *BillingServiceClient) GetOrgBillingInformation(ctx context.Context, i
 	return bsc.GetOrgBillingInformationFunc(ctx, in, opts...)
 }
 
-// 	GetInvoicesSummary calls the injected GetInvoicesSummaryFunc or the real verison.
+// GetInvoicesSummary calls the injected GetInvoicesSummaryFunc or the real version.
 func (bsc *BillingServiceClient) GetInvoicesSummary(ctx context.Context, in *pb.GetInvoicesSummaryRequest,
 	opts ...grpc.CallOption,
 ) (*pb.GetInvoicesSummaryResponse, error) {
@@ -53,7 +52,7 @@ func (bsc *BillingServiceClient) GetInvoicesSummary(ctx context.Context, in *pb.
 	return bsc.GetInvoicesSummaryFunc(ctx, in, opts...)
 }
 
-// 	GetInvoicePdf calls the injected GetInvoicePdfFunc or the real verison.
+// GetInvoicePdf calls the injected GetInvoicePdfFunc or the real version.
 func (bsc *BillingServiceClient) GetInvoicePdf(ctx context.Context, in *pb.GetInvoicePdfRequest,
 	opts ...grpc.CallOption,
 ) (pb.BillingService_GetInvoicePdfClient, error) {
@@ -63,7 +62,7 @@ func (bsc *BillingServiceClient) GetInvoicePdf(ctx context.Context, in *pb.GetIn
 	return bsc.GetInvoicePdfFunc(ctx, in, opts...)
 }
 
-// 	SendPaymentRequiredEmail calls the injected SendPaymentRequiredEmailFunc or the real verison.
+// SendPaymentRequiredEmail calls the injected SendPaymentRequiredEmailFunc or the real version.
 func (bsc *BillingServiceClient) SendPaymentRequiredEmail(ctx context.Context, in *pb.SendPaymentRequiredEmailRequest,
 	opts ...grpc.CallOption,
 ) (*pb.SendPaymentRequiredEmailResponse, error) {
