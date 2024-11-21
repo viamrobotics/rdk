@@ -1236,11 +1236,11 @@ func TestAppClient(t *testing.T) {
 		err := client.TailRobotPartLogs(context.Background(), partID, errorsOnly, &filter, ch)
 		test.That(t, err, test.ShouldBeNil)
 
-		// var resp [][]*LogEntry
+		// var resp []*LogEntry
 		// for entries := range ch {
-		// 	resp = append(resp, entries)
+		// 	resp = append(resp, entries...)
 		// }
-		// test.That(t, resp, test.ShouldResemble, [][]*LogEntry{logEntries})
+		// test.That(t, resp, test.ShouldResemble, logEntries)
 	})
 
 	t.Run("GetRobotPartHistory", func(t *testing.T) {
