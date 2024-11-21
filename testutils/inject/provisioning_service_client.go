@@ -29,7 +29,8 @@ func (psc *ProvisioningServiceClient) GetSmartMachineStatus(ctx context.Context,
 	}
 	return psc.GetSmartMachineStatusFunc(ctx, in, opts...)
 }
-// SetNetworkCredentials calls the injected SetNetworkCredentialsFunc or the real version.	
+
+// SetNetworkCredentials calls the injected SetNetworkCredentialsFunc or the real version.
 func (psc *ProvisioningServiceClient) SetNetworkCredentials(ctx context.Context, in *provisioningPb.SetNetworkCredentialsRequest,
 	opts ...grpc.CallOption,
 ) (*provisioningPb.SetNetworkCredentialsResponse, error) {
@@ -38,7 +39,8 @@ func (psc *ProvisioningServiceClient) SetNetworkCredentials(ctx context.Context,
 	}
 	return psc.SetNetworkCredentialsFunc(ctx, in, opts...)
 }
-// SetSmartMachineCredentials calls the injected SetSmartMachineCredentialsFunc or the real version.	
+
+// SetSmartMachineCredentials calls the injected SetSmartMachineCredentialsFunc or the real version.
 func (psc *ProvisioningServiceClient) SetSmartMachineCredentials(ctx context.Context, in *provisioningPb.SetSmartMachineCredentialsRequest,
 	opts ...grpc.CallOption,
 ) (*provisioningPb.SetSmartMachineCredentialsResponse, error) {
@@ -47,7 +49,8 @@ func (psc *ProvisioningServiceClient) SetSmartMachineCredentials(ctx context.Con
 	}
 	return psc.SetSmartMachineCredentialsFunc(ctx, in, opts...)
 }
-// GetNetworkList calls the injected GetNetworkListFunc or the real version.	
+
+// GetNetworkList calls the injected GetNetworkListFunc or the real version.
 func (psc *ProvisioningServiceClient) GetNetworkList(ctx context.Context, in *provisioningPb.GetNetworkListRequest,
 	opts ...grpc.CallOption,
 ) (*provisioningPb.GetNetworkListResponse, error) {

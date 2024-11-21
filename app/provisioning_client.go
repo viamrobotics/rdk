@@ -7,77 +7,82 @@ import (
 	"go.viam.com/utils/rpc"
 )
 
+// ProvisioningInfo holds provisioning info.
 type ProvisioningInfo struct {
-	FragmentID string
-	Model string
+	FragmentID   string
+	Model        string
 	Manufacturer string
 }
 
 func provisioningInfoFromProto(info *pb.ProvisioningInfo) *ProvisioningInfo {
 	return &ProvisioningInfo{
-		FragmentID: info.FragmentId,
-		Model: info.Model,
+		FragmentID:   info.FragmentId,
+		Model:        info.Model,
 		Manufacturer: info.Manufacturer,
 	}
 }
 
+// NetworkInfo holds network information.
 type NetworkInfo struct {
-	Type string
-	SSID string
-	Security string
-	Signal int32
+	Type      string
+	SSID      string
+	Security  string
+	Signal    int32
 	Connected bool
 	LastError string
 }
 
 func networkInfoFromProto(info *pb.NetworkInfo) *NetworkInfo {
 	return &NetworkInfo{
-		Type: info.Type,
-		SSID: info.Ssid,
-		Security: info.Security,
-		Signal: info.Signal,
+		Type:      info.Type,
+		SSID:      info.Ssid,
+		Security:  info.Security,
+		Signal:    info.Signal,
 		Connected: info.Connected,
 		LastError: info.LastError,
 	}
 }
 
+// GetSmartMachineStatusResponse contains smart machine status information.
 type GetSmartMachineStatusResponse struct {
-	ProvisioningInfo *ProvisioningInfo
+	ProvisioningInfo           *ProvisioningInfo
 	HasSmartMachineCredentials bool
-	IsOnline bool
-	LastestConnectionAttempt *NetworkInfo
-	Errors []string
+	IsOnline                   bool
+	LastestConnectionAttempt   *NetworkInfo
+	Errors                     []string
 }
 
 func getSmartMachineStatusResponseFromProto(resp *pb.GetSmartMachineStatusResponse) *GetSmartMachineStatusResponse {
 	return &GetSmartMachineStatusResponse{
-		ProvisioningInfo: provisioningInfoFromProto(resp.ProvisioningInfo),
+		ProvisioningInfo:           provisioningInfoFromProto(resp.ProvisioningInfo),
 		HasSmartMachineCredentials: resp.HasSmartMachineCredentials,
-		IsOnline: resp.IsOnline,
-		LastestConnectionAttempt: networkInfoFromProto(resp.LatestConnectionAttempt),
-		Errors: resp.Errors,
+		IsOnline:                   resp.IsOnline,
+		LastestConnectionAttempt:   networkInfoFromProto(resp.LatestConnectionAttempt),
+		Errors:                     resp.Errors,
 	}
 }
 
 // CloudConfig is the minimal config to create a /etc/viam.json, containing the smart machine's part ID and secret.
 type CloudConfig struct {
-	ID string
-	Secret string
+	ID         string
+	Secret     string
 	AppAddress string
 }
 
 func cloudConfigToProto(config *CloudConfig) *pb.CloudConfig {
 	return &pb.CloudConfig{
-		Id: config.ID,
-		Secret: config.Secret,
+		Id:         config.ID,
+		Secret:     config.Secret,
 		AppAddress: config.AppAddress,
 	}
 }
 
+// ProvisioningClient is a gRPC client for method calls to the Provisioning API.
 type ProvisioningClient struct {
 	client pb.ProvisioningServiceClient
 }
 
+// NewProvisioningClient constructs a new ProvisioningClient using the connection passed in by the Viam client.
 func NewProvisioningClient(conn rpc.ClientConn) *ProvisioningClient {
 	return &ProvisioningClient{client: pb.NewProvisioningServiceClient(conn)}
 }
@@ -96,7 +101,7 @@ func (c *ProvisioningClient) SetNetworkCredentials(ctx context.Context, credenti
 	_, err := c.client.SetNetworkCredentials(ctx, &pb.SetNetworkCredentialsRequest{
 		Type: credentialsType,
 		Ssid: ssid,
-		Psk: psk,
+		Psk:  psk,
 	})
 	return err
 }
@@ -116,7 +121,7 @@ func (c *ProvisioningClient) GetNetworkList(ctx context.Context) ([]*NetworkInfo
 		return nil, err
 	}
 	var networks []*NetworkInfo
-	for _, network := range(resp.Networks) {
+	for _, network := range resp.Networks {
 		networks = append(networks, networkInfoFromProto(network))
 	}
 	return networks, nil

@@ -5,65 +5,66 @@ import (
 	"testing"
 
 	pb "go.viam.com/api/provisioning/v1"
-	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
+
+	"go.viam.com/rdk/testutils/inject"
 )
 
 const (
-	hasSmartMachineCredentials = true
-	isOnline = true
-	errorString = "error"
-	fragmentID = "fragment_id"
-	model = "model"
-	manufacturer = "manufacturer"
-	networkType = "network_type"
-	ssid = "ssid"
-	security = "security"
-	signal int32 = 4
-	connected = true
-	credentialsType = "credentials_type"
-	psk = "psk"
-	secret = "secret"
+	hasSmartMachineCredentials       = true
+	isOnline                         = true
+	errorString                      = "error"
+	fragmentID                       = "fragment_id"
+	model                            = "model"
+	manufacturer                     = "manufacturer"
+	networkType                      = "network_type"
+	ssid                             = "ssid"
+	security                         = "security"
+	signal                     int32 = 4
+	connected                        = true
+	credentialsType                  = "credentials_type"
+	psk                              = "psk"
+	secret                           = "secret"
 )
 
 var (
 	provisioningInfo = ProvisioningInfo{
-		FragmentID: fragmentID,
-		Model: model,
+		FragmentID:   fragmentID,
+		Model:        model,
 		Manufacturer: manufacturer,
 	}
 	networkInfo = NetworkInfo{
-		Type: networkType,
-		SSID: ssid,
-		Security: security,
-		Signal: signal,
+		Type:      networkType,
+		SSID:      ssid,
+		Security:  security,
+		Signal:    signal,
 		Connected: connected,
 		LastError: errorString,
 	}
 	pbNetworkInfo = pb.NetworkInfo{
-		Type: getSmartMachineStatusResponse.LastestConnectionAttempt.Type,
-		Ssid: getSmartMachineStatusResponse.LastestConnectionAttempt.SSID,
-		Security: getSmartMachineStatusResponse.LastestConnectionAttempt.Security,
-		Signal: getSmartMachineStatusResponse.LastestConnectionAttempt.Signal,
+		Type:      getSmartMachineStatusResponse.LastestConnectionAttempt.Type,
+		Ssid:      getSmartMachineStatusResponse.LastestConnectionAttempt.SSID,
+		Security:  getSmartMachineStatusResponse.LastestConnectionAttempt.Security,
+		Signal:    getSmartMachineStatusResponse.LastestConnectionAttempt.Signal,
 		Connected: getSmartMachineStatusResponse.LastestConnectionAttempt.Connected,
 		LastError: getSmartMachineStatusResponse.LastestConnectionAttempt.LastError,
 	}
-	errorList = []string{errorString}
+	errorList                     = []string{errorString}
 	getSmartMachineStatusResponse = GetSmartMachineStatusResponse{
-		ProvisioningInfo: &provisioningInfo,
+		ProvisioningInfo:           &provisioningInfo,
 		HasSmartMachineCredentials: hasSmartMachineCredentials,
-		IsOnline: isOnline,
-		LastestConnectionAttempt: &networkInfo,
-		Errors: errorList,
+		IsOnline:                   isOnline,
+		LastestConnectionAttempt:   &networkInfo,
+		Errors:                     errorList,
 	}
 	cloudConfig = CloudConfig{
-		ID: partID,
+		ID:     partID,
 		Secret: secret,
 	}
 )
 
-func createProvisioningGrpcClient() *inject.ProvisioningServiceClient{
+func createProvisioningGrpcClient() *inject.ProvisioningServiceClient {
 	return &inject.ProvisioningServiceClient{}
 }
 
@@ -74,14 +75,14 @@ func TestProvisioningClient(t *testing.T) {
 	t.Run("GetSmartMachineStatus", func(t *testing.T) {
 		pbResponse := pb.GetSmartMachineStatusResponse{
 			ProvisioningInfo: &pb.ProvisioningInfo{
-				FragmentId: getSmartMachineStatusResponse.ProvisioningInfo.FragmentID,
-				Model: getSmartMachineStatusResponse.ProvisioningInfo.Model,
+				FragmentId:   getSmartMachineStatusResponse.ProvisioningInfo.FragmentID,
+				Model:        getSmartMachineStatusResponse.ProvisioningInfo.Model,
 				Manufacturer: getSmartMachineStatusResponse.ProvisioningInfo.Manufacturer,
 			},
 			HasSmartMachineCredentials: getSmartMachineStatusResponse.HasSmartMachineCredentials,
-			IsOnline: getSmartMachineStatusResponse.IsOnline,
-			LatestConnectionAttempt: &pbNetworkInfo,
-			Errors: getSmartMachineStatusResponse.Errors,
+			IsOnline:                   getSmartMachineStatusResponse.IsOnline,
+			LatestConnectionAttempt:    &pbNetworkInfo,
+			Errors:                     getSmartMachineStatusResponse.Errors,
 		}
 		grpcClient.GetSmartMachineStatusFunc = func(
 			ctx context.Context, in *pb.GetSmartMachineStatusRequest, opts ...grpc.CallOption,
