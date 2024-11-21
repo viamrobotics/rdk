@@ -139,7 +139,7 @@ func TestLineFollow(t *testing.T) {
 
 	fs := frame.NewEmptyFrameSystem("test")
 
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("services/motion/data/xarm7_kinematics_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	err = fs.AddFrame(m, fs.World())

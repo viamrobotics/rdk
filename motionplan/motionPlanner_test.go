@@ -1225,7 +1225,7 @@ func TestArmGantryCheckPlan(t *testing.T) {
 	err = fs.AddFrame(gantryX, gantryOffset)
 	test.That(t, err, test.ShouldBeNil)
 
-	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
+	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("services/motion/data/xarm6_kinematics_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(modelXarm, gantryX)
 	test.That(t, err, test.ShouldBeNil)
