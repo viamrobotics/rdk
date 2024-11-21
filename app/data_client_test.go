@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -611,8 +610,6 @@ func TestDataClient(t *testing.T) {
 		client.RemoveBinaryDataFromDatasetByIDs(context.Background(), binaryIDs, datasetID)
 	})
 }
-
-// ***********Added this below for new dataSync !!!******
 func TestDataSyncClient(t *testing.T) {
 	grpcClient := createGrpcDataSyncClient()
 	client := DataClient{dataSyncClient: grpcClient}
@@ -655,17 +652,15 @@ func TestDataSyncClient(t *testing.T) {
 
 			test.That(t, in.SensorContents[0].Metadata.TimeRequested, test.ShouldResemble, timestamppb.New(startTime))
 			test.That(t, in.SensorContents[0].Metadata.TimeReceived, test.ShouldResemble, timestamppb.New(endTime))
-			// Extract and validate SensorContents[0].Data
 			dataField, ok := in.SensorContents[0].Data.(*syncPb.SensorData_Binary)
-			test.That(t, ok, test.ShouldBeTrue) // Ensure the type is correct
+			test.That(t, ok, test.ShouldBeTrue)
 			test.That(t, dataField.Binary, test.ShouldResemble, binaryDataByte)
-			// test.That(t, in., test.ShouldResemble, toProto(something)) //toProto
 			return &syncPb.DataCaptureUploadResponse{
 				FileId: fileID,
 			}, nil
 		}
 		resp, _ := client.BinaryDataCaptureUpload(context.Background(), binaryDataByte, partID, componentType, componentName, method, fileExt, &options)
-		test.That(t, resp, test.ShouldResemble, fileID) //compare response with regular expected types (fromProto if needed)
+		test.That(t, resp, test.ShouldResemble, fileID)
 	})
 
 	t.Run("TabularDataCaptureUpload", func(t *testing.T) {
@@ -701,17 +696,14 @@ func TestDataSyncClient(t *testing.T) {
 
 			test.That(t, in.SensorContents[0].Metadata.TimeRequested, test.ShouldResemble, timestamppb.New(startTime))
 			test.That(t, in.SensorContents[0].Metadata.TimeReceived, test.ShouldResemble, timestamppb.New(endTime))
-			// Extract and validate SensorContents[0].Data
 			dataField, ok := in.SensorContents[0].Data.(*syncPb.SensorData_Struct)
-			test.That(t, ok, test.ShouldBeTrue) // Ensure the type is correct
+			test.That(t, ok, test.ShouldBeTrue)
 			test.That(t, dataField.Struct, test.ShouldResemble, tabularDataPb.Data)
 			return &syncPb.DataCaptureUploadResponse{
 				FileId: fileID,
 			}, nil
 		}
-		// Convert `tabularDataPb.Data` to the expected input format for `tabularDataCaptureUpload`
 		tabularData := []map[string]interface{}{data}
-		// Provide corresponding request times
 		dataRequestTimes := [][2]time.Time{
 			{startTime, endTime},
 		}
@@ -720,16 +712,6 @@ func TestDataSyncClient(t *testing.T) {
 	})
 
 	t.Run("StreamingDataCaptureUpload", func(t *testing.T) {
-		// metadata := SensorMetadata{
-		// 	TimeRequested: startTime,
-		// 	TimeReceived:  endTime,
-		// }
-		// binarySensorData := SensorData{
-		// 	Metadata: metadata,
-		// 	SDStruct: nil,
-		// 	SDBinary: binaryDataByte,
-		// }
-
 		options := StreamingOptions{
 			ComponentType:    componentType,
 			ComponentName:    componentName,
@@ -743,10 +725,8 @@ func TestDataSyncClient(t *testing.T) {
 		// Mock implementation of the streaming client.
 		mockStream := &inject.DataSyncService_StreamingDataCaptureUploadClient{
 			SendFunc: func(req *syncPb.StreamingDataCaptureUploadRequest) error {
-				fmt.Printf("Received packet type: %T\n", req.UploadPacket)
 				switch packet := req.UploadPacket.(type) {
 				case *syncPb.StreamingDataCaptureUploadRequest_Metadata:
-					// Validate metadata packet.
 					meta := packet.Metadata
 					test.That(t, meta.UploadMetadata.PartId, test.ShouldEqual, partID)
 					test.That(t, meta.UploadMetadata.FileExtension, test.ShouldEqual, fileExt)
@@ -757,7 +737,6 @@ func TestDataSyncClient(t *testing.T) {
 					test.That(t, meta.SensorMetadata.TimeRequested, test.ShouldResemble, timestamppb.New(startTime))
 					test.That(t, meta.SensorMetadata.TimeReceived, test.ShouldResemble, timestamppb.New(endTime))
 				case *syncPb.StreamingDataCaptureUploadRequest_Data:
-					// Validate data packet.
 					test.That(t, packet.Data, test.ShouldResemble, binaryDataByte)
 				default:
 					t.Errorf("unexpected packet type: %T", packet)
@@ -765,19 +744,16 @@ func TestDataSyncClient(t *testing.T) {
 				return nil
 			},
 			CloseAndRecvFunc: func() (*syncPb.StreamingDataCaptureUploadResponse, error) {
-				// Validate the final response.
 				return &syncPb.StreamingDataCaptureUploadResponse{
 					FileId: fileID,
 				}, nil
 			},
 		}
-		// Replace the gRPC client with the mock.
 		grpcClient.StreamingDataCaptureUploadFunc = func(ctx context.Context,
 			opts ...grpc.CallOption,
 		) (syncPb.DataSyncService_StreamingDataCaptureUploadClient, error) {
 			return mockStream, nil
 		}
-		// Call the function being tested.
 		resp, err := client.StreamingDataCaptureUpload(context.Background(), binaryDataByte, partID, fileExt, &options)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldEqual, fileID)
@@ -795,10 +771,8 @@ func TestDataSyncClient(t *testing.T) {
 		// Mock implementation of the streaming client.
 		mockStream := &inject.DataSyncService_FileUploadClient{
 			SendFunc: func(req *syncPb.FileUploadRequest) error {
-				fmt.Printf("Received packet type: %T\n", req.UploadPacket)
 				switch packet := req.UploadPacket.(type) {
 				case *syncPb.FileUploadRequest_Metadata:
-					// Validate metadata packet.
 					methodParams, _ := protoutils.ConvertMapToProtoAny(methodParameters)
 					meta := packet.Metadata
 					test.That(t, meta.PartId, test.ShouldEqual, partID)
@@ -811,7 +785,6 @@ func TestDataSyncClient(t *testing.T) {
 					test.That(t, meta.FileExtension, test.ShouldEqual, fileExt)
 					test.That(t, meta.Tags, test.ShouldResemble, tags)
 				case *syncPb.FileUploadRequest_FileContents:
-					// Validate data packet.
 					test.That(t, packet.FileContents.Data, test.ShouldResemble, binaryDataByte)
 				default:
 					t.Errorf("unexpected packet type: %T", packet)
@@ -819,20 +792,16 @@ func TestDataSyncClient(t *testing.T) {
 				return nil
 			},
 			CloseAndRecvFunc: func() (*syncPb.FileUploadResponse, error) {
-				// Validate the final response.
-				//this is either the file_id of the uploaded data, or the fileid of the new file
 				return &syncPb.FileUploadResponse{
 					FileId: fileID,
 				}, nil
 			},
 		}
-		// Replace the gRPC client with the mock.
 		grpcClient.FileUploadFunc = func(ctx context.Context,
 			opts ...grpc.CallOption,
 		) (syncPb.DataSyncService_FileUploadClient, error) {
 			return mockStream, nil
 		}
-		// Call the function being tested.
 		resp, err := client.FileUploadFromBytes(context.Background(), partID, binaryDataByte, &options)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldEqual, fileID)
@@ -857,7 +826,6 @@ func TestDataSyncClient(t *testing.T) {
 		// Mock implementation of the streaming client.
 		mockStream := &inject.DataSyncService_FileUploadClient{
 			SendFunc: func(req *syncPb.FileUploadRequest) error {
-				fmt.Printf("Received packet type: %T\n", req.UploadPacket)
 				switch packet := req.UploadPacket.(type) {
 				case *syncPb.FileUploadRequest_Metadata:
 					// Validate metadata packet.
