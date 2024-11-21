@@ -249,8 +249,6 @@ func checkPlanAbsolute(
 
 func checkSegmentsFS(sfPlanner *planManager, segments []*ik.SegmentFS, lookAheadDistanceMM float64) error {
 	// go through segments and check that we satisfy constraints
-	// TODO(RSDK-5007): If we can make interpolate a method on Frame the need to write this out will be lessened and we should be
-	// able to call CheckStateConstraintsAcrossSegment directly.
 	moving, _ := sfPlanner.frameLists()
 	dists := map[string]float64{}
 	for _, segment := range segments {
