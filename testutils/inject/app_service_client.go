@@ -527,7 +527,7 @@ func (asc *AppServiceClient) TailRobotPartLogs(
 	return asc.TailRobotPartLogsFunc(ctx, in, opts...)
 }
 
-// AppServiceTailRobotPartLogsClient represents a fake instance of a pb.AppService_TailRobotPartLogsClient.
+// AppServiceTailRobotPartLogsClient represents a fake instance of a proto AppService_TailRobotPartLogsClient.
 type AppServiceTailRobotPartLogsClient struct {
 	apppb.AppService_TailRobotPartLogsClient
 	RecvFunc func() (*apppb.TailRobotPartLogsResponse, error)
@@ -881,7 +881,7 @@ func (asc *AppServiceClient) UploadModuleFile(
 	return asc.UploadModuleFileFunc(ctx, opts...)
 }
 
-// AppServiceUploadModuleFileClient represents a fake instance of a pb.AppService_UploadModuleFileClient.
+// AppServiceUploadModuleFileClient represents a fake instance of a proto AppService_UploadModuleFileClient.
 type AppServiceUploadModuleFileClient struct {
 	apppb.AppService_UploadModuleFileClient
 	SendFunc         func(*apppb.UploadModuleFileRequest) error
