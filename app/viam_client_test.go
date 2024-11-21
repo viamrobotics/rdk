@@ -5,7 +5,8 @@ import (
 	"testing"
 
 	"github.com/viamrobotics/webrtc/v3"
-	pb "go.viam.com/api/app/data/v1"
+	datapb "go.viam.com/api/app/data/v1"
+	provisioningpb "go.viam.com/api/provisioning/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -119,7 +120,7 @@ func TestCreateViamClientWithAPIKeyTests(t *testing.T) {
 	}
 }
 
-func TestNewDataClient(t *testing.T) {
+func TestNewAppClients(t *testing.T) {
 	originalDialDirectGRPC := dialDirectGRPC
 	dialDirectGRPC = mockDialDirectGRPC
 	defer func() { dialDirectGRPC = originalDialDirectGRPC }()
@@ -138,10 +139,20 @@ func TestNewDataClient(t *testing.T) {
 	dataClient := client.DataClient()
 	test.That(t, dataClient, test.ShouldNotBeNil)
 	test.That(t, dataClient, test.ShouldHaveSameTypeAs, &DataClient{})
-	test.That(t, dataClient.client, test.ShouldImplement, (*pb.DataServiceClient)(nil))
+	test.That(t, dataClient.client, test.ShouldImplement, (*datapb.DataServiceClient)(nil))
 
 	// Testing that a second call to DataClient() returns the same instance
 	dataClient2 := client.DataClient()
 	test.That(t, dataClient2, test.ShouldNotBeNil)
-	test.That(t, dataClient, test.ShouldResemble, dataClient2)
+	test.That(t, dataClient, test.ShouldEqual, dataClient2)
+
+	provisioningClient := client.ProvisioningClient()
+	test.That(t, provisioningClient, test.ShouldNotBeNil)
+	test.That(t, provisioningClient, test.ShouldHaveSameTypeAs, &ProvisioningClient{})
+	test.That(t, provisioningClient.client, test.ShouldImplement, (*provisioningpb.ProvisioningServiceClient)(nil))
+
+	// Testing that a second call to ProvisioningClient() returns the same instance
+	provisioningClient2 := client.ProvisioningClient()
+	test.That(t, provisioningClient2, test.ShouldNotBeNil)
+	test.That(t, provisioningClient, test.ShouldEqual, provisioningClient2)
 }
