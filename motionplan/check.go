@@ -145,14 +145,19 @@ func checkPlanRelative(
 	expectedCurrentPose := spatialmath.PoseBetweenInverse(remainingArcPose, expectedArcEndInWorld.Pose())
 	errorState := spatialmath.PoseBetween(expectedCurrentPose, currentPoseInWorld.Pose())
 	currentArcEndPose := spatialmath.Compose(expectedArcEndInWorld.Pose(), errorState)
+	frameTrajectory, err := plan.Trajectory().GetFrameInputs(checkFrame.Name())
+	if err != nil {
+		return err
+	}
 
 	segments := make([]*ik.Segment, 0, len(plan.Path())-wayPointIdx)
 	// pre-pend to segments so we can connect to the input we have not finished actuating yet
+
 	segments = append(segments, &ik.Segment{
 		StartPosition:      currentPoseInWorld.Pose(),
 		EndPosition:        currentArcEndPose,
 		StartConfiguration: frameCurrentInputs,
-		EndConfiguration:   plan.Trajectory()[wayPointIdx][checkFrame.Name()],
+		EndConfiguration:   frameTrajectory[wayPointIdx],
 		Frame:              checkFrame,
 	})
 
@@ -165,10 +170,6 @@ func checkPlanRelative(
 			return err
 		}
 		thisArcEndPose := spatialmath.Compose(thisArcEndPoseInWorld.Pose(), errorState)
-		frameTrajectory, err := plan.Trajectory().GetFrameInputs(checkFrame.Name())
-		if err != nil {
-			return err
-		}
 		segment := &ik.Segment{
 			StartPosition:      lastArcEndPose,
 			EndPosition:        thisArcEndPose,
