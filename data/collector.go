@@ -184,6 +184,8 @@ func (c *collector) getAndPushNextReading() {
 	timeRequested := timestamppb.New(c.clock.Now().UTC())
 	reading, err := c.captureFunc(c.cancelCtx, c.params)
 	timeReceived := timestamppb.New(c.clock.Now().UTC())
+	latency := timeReceived.AsTime().Sub(timeRequested.AsTime())
+	elapsed := timeReceived.AsTime().Sub(c.lastCaptureTime).Seconds()
 
 	if c.cancelCtx.Err() != nil {
 		return
@@ -198,17 +200,20 @@ func (c *collector) getAndPushNextReading() {
 		return
 	}
 
-		// debug freq calculation
-		if !c.lastCaptureTime.IsZero() {
-			elapsed := timeReceived.AsTime().Sub(c.lastCaptureTime).Seconds()
-			if elapsed > 0 {
-				frequency := 1.0 / elapsed
-				c.logger.Infow("capture frequency", "frequency_hz", frequency)
-			} else {
-				panic("oh no")
-			}
+	// debug on success
+	if !c.lastCaptureTime.IsZero() {
+		if elapsed > 0 {
+			frequency := 1.0 / elapsed
+			c.logger.Infow("capture metrics", 
+				"frequency_hz", frequency,
+				"latency_ms", latency.Milliseconds(),
+				"time_received", timeReceived.AsTime(),
+			)
+		} else {
+			panic("oh no")
 		}
-		c.lastCaptureTime = timeReceived.AsTime()
+	}
+	c.lastCaptureTime = timeReceived.AsTime()
 
 	var msg v1.SensorData
 	switch v := reading.(type) {
