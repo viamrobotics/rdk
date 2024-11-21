@@ -15,7 +15,6 @@ import (
 // ViamClient is a gRPC client for method calls to Viam app.
 type ViamClient struct {
 	conn       rpc.ClientConn
-	logger     logging.Logger
 	appClient  *AppClient
 	dataClient *DataClient
 }
@@ -50,7 +49,7 @@ func CreateViamClientWithOptions(ctx context.Context, options Options, logger lo
 	if err != nil {
 		return nil, err
 	}
-	return &ViamClient{conn: conn, logger: logger}, nil
+	return &ViamClient{conn: conn}, nil
 }
 
 // CreateViamClientWithAPIKey creates a ViamClient with an API key.
