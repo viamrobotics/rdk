@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -128,6 +130,35 @@ func skipConnectionCheck(method string) bool {
 	return exemptFromConnectionCheck[method]
 }
 
+// TODO(RSDK-9333): Better account for possible gRPC interaction errors
+// and transform them appropriately.
+//
+// NOTE(benjirewis): I believe gRPC interactions can fail in
+// three broad ways, each with one to three error paths:
+//
+//  1. Creation of stream
+//     a. `rpc.ErrDisconnected` returned due to underlying channel closure
+//  2. Sending of headers/message representing request
+//     a. Proto marshal failure
+//     b. `io.ErrClosedPipe` due to write to a closed socket
+//     c. Possible SCTP errors `ErrStreamClosed` and `ErrOutboundPacketTooLarge`
+//  3. Receiving of response
+//     a. Proto unmarshal failure
+//     b. `io.EOF` due to reading from a closed socket
+//     c. Context deadline exceeded due to timeout
+//     d. Context canceled due to client cancelation
+//
+// Ideally, these paths would all be represented in a single error type that a
+// Golang SDK user could treat as one error, and we could examine the message
+// of the error to see _where_ exactly the failure was in the interaction.
+func isDisconnectedError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return errors.Is(err, rpc.ErrDisconnected) ||
+		strings.Contains(err.Error(), io.ErrClosedPipe.Error())
+}
+
 func (rc *RobotClient) notConnectedToRemoteError() error {
 	return fmt.Errorf("not connected to remote robot at %s", rc.address)
 }
@@ -152,7 +183,7 @@ func (rc *RobotClient) handleUnaryDisconnect(
 	err := invoker(ctx, method, req, reply, cc, opts...)
 	// we might lose connection before our background check detects it - in this case we
 	// should still surface a helpful error message.
-	if errors.Is(err, rpc.ErrDisconnected) {
+	if isDisconnectedError(err) {
 		return status.Error(codes.Unavailable, rc.notConnectedToRemoteError().Error())
 	}
 	return err
@@ -171,7 +202,7 @@ func (cs *handleDisconnectClientStream) RecvMsg(m interface{}) error {
 	// we might lose connection before our background check detects it - in this case we
 	// should still surface a helpful error message.
 	err := cs.ClientStream.RecvMsg(m)
-	if errors.Is(err, rpc.ErrDisconnected) {
+	if isDisconnectedError(err) {
 		return status.Error(codes.Unavailable, cs.RobotClient.notConnectedToRemoteError().Error())
 	}
 
@@ -198,7 +229,7 @@ func (rc *RobotClient) handleStreamDisconnect(
 	cs, err := streamer(ctx, desc, cc, method, opts...)
 	// we might lose connection before our background check detects it - in this case we
 	// should still surface a helpful error message.
-	if errors.Is(err, rpc.ErrDisconnected) {
+	if isDisconnectedError(err) {
 		return nil, status.Error(codes.Unavailable, rc.notConnectedToRemoteError().Error())
 	}
 	return &handleDisconnectClientStream{cs, rc}, err
@@ -476,7 +507,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 				err := check()
 				if err != nil {
 					outerError = err
-					if errors.Is(err, rpc.ErrDisconnected) {
+					if isDisconnectedError(err) {
 						break
 					}
 					// otherwise retry
