@@ -5,7 +5,8 @@ import (
 	"testing"
 
 	"github.com/viamrobotics/webrtc/v3"
-	pb "go.viam.com/api/app/data/v1"
+	datapb "go.viam.com/api/app/data/v1"
+	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -138,17 +139,17 @@ func TestNewAppClients(t *testing.T) {
 	billingClient := client.Billingclient()
 	test.That(t, billingClient, test.ShouldNotBeNil)
 	test.That(t, billingClient, test.ShouldHaveSameTypeAs, &BillingClient{})
-	test.That(t, billingClient.client, test.ShouldImplement, (*pb.DataServiceClient)(nil))
+	test.That(t, billingClient.client, test.ShouldImplement, (*apppb.BillingServiceClient)(nil))
 
 	// Testing that a second call to Billingclient() returns the same instance
 	billingClient2 := client.Billingclient()
 	test.That(t, billingClient2, test.ShouldNotBeNil)
-	test.That(t, billingClient, test.ShouldResemble, billingClient2)
+	test.That(t, billingClient, test.ShouldEqual, billingClient2)
 
 	dataClient := client.DataClient()
 	test.That(t, dataClient, test.ShouldNotBeNil)
 	test.That(t, dataClient, test.ShouldHaveSameTypeAs, &DataClient{})
-	test.That(t, dataClient.client, test.ShouldImplement, (*pb.DataServiceClient)(nil))
+	test.That(t, dataClient.client, test.ShouldImplement, (*datapb.DataServiceClient)(nil))
 
 	// Testing that a second call to DataClient() returns the same instance
 	dataClient2 := client.DataClient()
