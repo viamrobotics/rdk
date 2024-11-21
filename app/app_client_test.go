@@ -386,6 +386,8 @@ var (
 	pbAPIKeysWithAuthorizations = []*pb.APIKeyWithAuthorizations{&pbAPIKeyWithAuthorizations}
 	public                      = true
 	fragmentVisibility          = FragmentVisibilityPublic
+	pbFragmentConfig, _         = protoutils.StructToStructPb(fragmentConfig)
+	pbFragmentVisibility        = fragmentVisibilityToProto(fragmentVisibility)
 	f                           = map[string]interface{}{"name": name, "id": fragmentID}
 	pbF, _                      = protoutils.StructToStructPb(f)
 	fragment                    = Fragment{
@@ -413,7 +415,7 @@ var (
 		RobotPartCount:    fragment.RobotPartCount,
 		OrganizationCount: fragment.OrganizationCount,
 		OnlyUsedByOwner:   fragment.OnlyUsedByOwner,
-		Visibility:        fragmentVisibilityToProto(fragment.Visibility),
+		Visibility:        pbFragmentVisibility,
 		LastUpdated:       fragment.LastUpdated,
 	}
 	fragmentConfig       = map[string]interface{}{"organizationCount": 4}
@@ -811,12 +813,18 @@ func TestAppClient(t *testing.T) {
 		grpcClient.UpdateOrganizationFunc = func(
 			ctx context.Context, in *pb.UpdateOrganizationRequest, opts ...grpc.CallOption,
 		) (*pb.UpdateOrganizationResponse, error) {
+			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
+			test.That(t, in.Name, test.ShouldEqual, &name)
 			test.That(t, in.PublicNamespace, test.ShouldEqual, &namespace)
+			test.That(t, in.Region, test.ShouldEqual, &region)
+			test.That(t, in.Cid, test.ShouldEqual, &cid)
 			return &pb.UpdateOrganizationResponse{
 				Organization: &pbOrganization,
 			}, nil
 		}
-		resp, err := client.UpdateOrganization(context.Background(), organizationID, &name, &namespace, &region, &cid)
+		resp, err := client.UpdateOrganization(context.Background(), organizationID, UpdateOrganizationOptions{
+			&name, &namespace, &region, &cid,
+		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, &organization)
 	})
@@ -869,7 +877,9 @@ func TestAppClient(t *testing.T) {
 				Invite: &pbInvite,
 			}, nil
 		}
-		resp, err := client.CreateOrganizationInvite(context.Background(), organizationID, email, authorizations, &sendEmailInvite)
+		resp, err := client.CreateOrganizationInvite(context.Background(), organizationID, email, authorizations, CreateOrganizationInviteOptions{
+			&sendEmailInvite,
+		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, &invite)
 	})
@@ -1000,7 +1010,7 @@ func TestAppClient(t *testing.T) {
 				Location: &pbLocation,
 			}, nil
 		}
-		resp, err := client.CreateLocation(context.Background(), organizationID, name, &parentLocationID)
+		resp, err := client.CreateLocation(context.Background(), organizationID, name, CreateLocationOptions{&parentLocationID})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, &location)
 	})
@@ -1031,7 +1041,7 @@ func TestAppClient(t *testing.T) {
 				Location: &pbLocation,
 			}, nil
 		}
-		resp, err := client.UpdateLocation(context.Background(), locationID, &name, &parentLocationID, &region)
+		resp, err := client.UpdateLocation(context.Background(), locationID, UpdateLocationOptions{&name, &parentLocationID, &region})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, &location)
 	})
@@ -1210,7 +1220,9 @@ func TestAppClient(t *testing.T) {
 				NextPageToken: pageToken,
 			}, nil
 		}
-		logs, token, err := client.GetRobotPartLogs(context.Background(), partID, &filter, &pageToken, levels, &start, &end, &int64Limit, &source)
+		logs, token, err := client.GetRobotPartLogs(context.Background(), partID, GetRobotPartLogsOptions{
+			&filter, &pageToken, levels, &start, &end, &int64Limit, &source,
+		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, token, test.ShouldEqual, pageToken)
 		test.That(t, logs, test.ShouldResemble, logEntries)
@@ -1233,7 +1245,7 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.Filter, test.ShouldEqual, &filter)
 			return mockStream, nil
 		}
-		err := client.TailRobotPartLogs(context.Background(), partID, errorsOnly, &filter, ch)
+		err := client.TailRobotPartLogs(context.Background(), partID, errorsOnly, ch, TailRobotPartLogsOptions{&filter})
 		test.That(t, err, test.ShouldBeNil)
 
 		// var resp []*LogEntry
@@ -1431,9 +1443,23 @@ func TestAppClient(t *testing.T) {
 		test.That(t, resp, test.ShouldResemble, &fragment)
 	})
 
+	t.Run("CreateFragment", func(t *testing.T) {
+		grpcClient.CreateFragmentFunc = func(
+			ctx context.Context, in *pb.CreateFragmentRequest, opts ...grpc.CallOption,
+		) (*pb.CreateFragmentResponse, error) {
+			test.That(t, in.Name, test.ShouldEqual, name)
+			test.That(t, in.Config, test.ShouldResemble, pbFragmentConfig)
+			test.That(t, in.Visibility, test.ShouldResemble, &pbFragmentVisibility)
+			return &pb.CreateFragmentResponse{
+				Fragment: &pbFragment,
+			}, nil
+		}
+		resp, err := client.CreateFragment(context.Background(), organizationID, name, fragmentConfig, CreateFragmentOptions{&fragmentVisibility})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldResemble, &fragment)
+	})
+
 	t.Run("UpdateFragment", func(t *testing.T) {
-		pbFragmentConfig, _ := protoutils.StructToStructPb(fragmentConfig)
-		pbFragmentVisibility := fragmentVisibilityToProto(fragmentVisibility)
 		grpcClient.UpdateFragmentFunc = func(
 			ctx context.Context, in *pb.UpdateFragmentRequest, opts ...grpc.CallOption,
 		) (*pb.UpdateFragmentResponse, error) {
@@ -1446,7 +1472,9 @@ func TestAppClient(t *testing.T) {
 				Fragment: &pbFragment,
 			}, nil
 		}
-		resp, err := client.UpdateFragment(context.Background(), fragmentID, name, fragmentConfig, &public, &fragmentVisibility)
+		resp, err := client.UpdateFragment(
+			context.Background(), fragmentID, name, fragmentConfig, UpdateFragmentOptions{&public, &fragmentVisibility},
+		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, &fragment)
 	})
@@ -1474,7 +1502,7 @@ func TestAppClient(t *testing.T) {
 				Fragments: []*pb.Fragment{&pbFragment},
 			}, nil
 		}
-		resp, err := client.ListMachineFragments(context.Background(), robotID, additionalFragmentIDs)
+		resp, err := client.ListMachineFragments(context.Background(), robotID, ListMachineFragmentsOptions{additionalFragmentIDs})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, expectedFragments)
 	})
@@ -1499,7 +1527,7 @@ func TestAppClient(t *testing.T) {
 				NextPageToken: pageToken,
 			}, nil
 		}
-		resp, token, err := client.GetFragmentHistory(context.Background(), fragmentID, &pageToken, &int64Limit)
+		resp, token, err := client.GetFragmentHistory(context.Background(), fragmentID, GetFragmentHistoryOptions{&pageToken, &int64Limit})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, token, test.ShouldEqual, pageToken)
 		test.That(t, resp, test.ShouldResemble, expectedHistory)
@@ -1562,14 +1590,7 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.Authorization, test.ShouldResemble, &pbAuthorization)
 			return &pb.RemoveRoleResponse{}, nil
 		}
-		err := client.RemoveRole(
-			context.Background(),
-			authorization.OrganizationID,
-			authorization.IdentityID,
-			authorization.AuthorizationType,
-			authorization.ResourceType,
-			authorization.ResourceID,
-		)
+		err := client.RemoveRole(context.Background(), &authorization)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -1583,11 +1604,7 @@ func TestAppClient(t *testing.T) {
 		}
 		err := client.ChangeRole(
 			context.Background(),
-			authorization.OrganizationID,
-			authorization.IdentityID,
-			authorization.AuthorizationType,
-			authorization.ResourceType,
-			authorization.ResourceID,
+			&authorization,
 			authorization2.OrganizationID,
 			authorization2.IdentityID,
 			authorization2.AuthorizationType,
@@ -1607,7 +1624,7 @@ func TestAppClient(t *testing.T) {
 				Authorizations: pbAuthorizations,
 			}, nil
 		}
-		resp, err := client.ListAuthorizations(context.Background(), organizationID, resourceIDs)
+		resp, err := client.ListAuthorizations(context.Background(), organizationID, ListAuthorizationsOptions{resourceIDs})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, authorizations)
 	})
@@ -1671,7 +1688,9 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.Url, test.ShouldResemble, &siteURL)
 			return &pb.UpdateRegistryItemResponse{}, nil
 		}
-		err := client.UpdateRegistryItem(context.Background(), registryItem.ItemID, packageType, description, visibility, &siteURL)
+		err := client.UpdateRegistryItem(
+			context.Background(), registryItem.ItemID, packageType, description, visibility, UpdateRegistryItemOptions{&siteURL},
+		)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -1694,9 +1713,7 @@ func TestAppClient(t *testing.T) {
 				Items: []*pb.RegistryItem{pbRegistryItem},
 			}, nil
 		}
-		resp, err := client.ListRegistryItems(
-			context.Background(),
-			&organizationID,
+		resp, err := client.ListRegistryItems(context.Background(), &organizationID, ListRegistryItemsOptions{
 			[]PackageType{packageType},
 			[]Visibility{visibility},
 			platforms,
@@ -1704,7 +1721,7 @@ func TestAppClient(t *testing.T) {
 			&searchTerm,
 			&pageToken,
 			namespaces,
-		)
+		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, expectedRegistryItems)
 	})
@@ -1747,7 +1764,9 @@ func TestAppClient(t *testing.T) {
 				Url: siteURL,
 			}, nil
 		}
-		resp, err := client.UpdateModule(context.Background(), moduleID, visibility, siteURL, description, models, entryPoint, &firstRun)
+		resp, err := client.UpdateModule(
+			context.Background(), moduleID, visibility, siteURL, description, models, entryPoint, UpdateModuleOptions{&firstRun},
+		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldEqual, siteURL)
 	})
@@ -1803,7 +1822,7 @@ func TestAppClient(t *testing.T) {
 				Modules: []*pb.Module{&pbModule},
 			}, nil
 		}
-		resp, err := client.ListModules(context.Background(), &organizationID)
+		resp, err := client.ListModules(context.Background(), ListModulesOptions{&organizationID})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, expectedModules)
 	})
