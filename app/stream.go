@@ -140,21 +140,30 @@ func (s *uploadModuleFileStream) sendToStream(
 ) {
 	defer s.streamCancel()
 
-	select {
-	case <-ctx.Done():
-		s.client.logger.Debug(ctx.Err())
-		return
-	default:
-	}
+	uploadChunkSize := 64 * 1024 //64 kB in bytes
+	for start := 0; start < len(file); start += uploadChunkSize {
+		select {
+		case <- ctx.Done():
+			s.client.logger.Debug(ctx.Err())
+			return
+		default:
+		}
 
-	err := stream.Send(&pb.UploadModuleFileRequest{
-		ModuleFile: &pb.UploadModuleFileRequest_File{
-			File: file,
-		},
-	})
-	if err != nil {
-		// only debug log the context canceled error
+		end := start + uploadChunkSize
+		if end > len(file) {
+			end = len(file)
+		}
+
+		chunk := file[start:end]
+		err := stream.Send(&pb.UploadModuleFileRequest{
+			ModuleFile: &pb.UploadModuleFileRequest_File{
+				File: chunk,
+			},
+		})
+		if err != nil {
+			// only debug log the context canceled error
 		s.client.logger.Debug(err)
 		return
+		}
 	}
 }
