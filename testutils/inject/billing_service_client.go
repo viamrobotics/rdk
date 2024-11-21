@@ -68,6 +68,7 @@ type BillingServiceGetInvoicePdfClient struct {
 	RecvFunc func() (*billingpb.GetInvoicePdfResponse, error)
 }
 
+// Recv calls the injected RecvFunc or the real version.
 func (c *BillingServiceGetInvoicePdfClient) Recv() (*billingpb.GetInvoicePdfResponse, error) {
 	if c.RecvFunc == nil {
 		return c.BillingService_GetInvoicePdfClient.Recv()
