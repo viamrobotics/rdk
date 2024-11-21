@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"testing"
@@ -224,10 +225,7 @@ func TestBillingClient(t *testing.T) {
 	})
 
 	t.Run("GetInvoicePDF", func(t *testing.T) {
-		var expectedData []byte
-		expectedData = append(expectedData, chunk1...)
-		expectedData = append(expectedData, chunk2...)
-		expectedData = append(expectedData, chunk3...)
+		expectedData := bytes.Join(chunks, nil)
 		var count int
 		mockStream := &inject.BillingServiceGetInvoicePdfClient{
 			RecvFunc: func() (*pb.GetInvoicePdfResponse, error) {
