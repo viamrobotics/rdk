@@ -16,6 +16,7 @@ import (
 type ViamClient struct {
 	conn       rpc.ClientConn
 	dataClient *DataClient
+	provisioningClient *ProvisioningClient
 }
 
 // Options has the options necessary to connect through gRPC.
@@ -71,6 +72,16 @@ func (c *ViamClient) DataClient() *DataClient {
 	}
 	c.dataClient = NewDataClient(c.conn)
 	return c.dataClient
+}
+
+// ProvisioningClient initializes and returns a ProvisioningClient instance used to make provisioning method calls.
+// To use ProvisioningClient, you must first instantiate a ViamClient.
+func (c *ViamClient) ProvisioningClient() *ProvisioningClient {
+	if c.provisioningClient != nil {
+		return c.provisioningClient
+	}
+	c.provisioningClient = NewProvisioningClient(c.conn)
+	return c.provisioningClient
 }
 
 // Close closes the gRPC connection.
