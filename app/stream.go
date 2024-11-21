@@ -140,10 +140,10 @@ func (s *uploadModuleFileStream) sendToStream(
 ) {
 	defer s.streamCancel()
 
-	uploadChunkSize := 64 * 1024 //64 kB in bytes
+	uploadChunkSize := 64 * 1024 // 64 kB in bytes
 	for start := 0; start < len(file); start += uploadChunkSize {
 		select {
-		case <- ctx.Done():
+		case <-ctx.Done():
 			s.client.logger.Debug(ctx.Err())
 			return
 		default:
@@ -162,8 +162,8 @@ func (s *uploadModuleFileStream) sendToStream(
 		})
 		if err != nil {
 			// only debug log the context canceled error
-		s.client.logger.Debug(err)
-		return
+			s.client.logger.Debug(err)
+			return
 		}
 	}
 }
