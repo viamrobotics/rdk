@@ -56,18 +56,40 @@ type DataSyncService_StreamingDataCaptureUploadClient struct {
 	// grpc.ClientStream
 }
 
-func (c *DataSyncService_StreamingDataCaptureUploadClient) Send(req *datapb.StreamingDataCaptureUploadRequest) error {
-	if c.SendFunc == nil {
-		return c.DataSyncService_StreamingDataCaptureUploadClient.Send(req)
+func (client *DataSyncService_StreamingDataCaptureUploadClient) Send(req *datapb.StreamingDataCaptureUploadRequest) error {
+	if client.SendFunc == nil {
+		return client.DataSyncService_StreamingDataCaptureUploadClient.Send(req)
 	}
 	//test that the data we send is equal to what we expect
-	return c.SendFunc(req)
+	return client.SendFunc(req)
 }
 
-func (c *DataSyncService_StreamingDataCaptureUploadClient) CloseAndRecv() (*datapb.StreamingDataCaptureUploadResponse, error) {
-	if c.CloseAndRecvFunc == nil {
-		return c.DataSyncService_StreamingDataCaptureUploadClient.CloseAndRecv()
+func (client *DataSyncService_StreamingDataCaptureUploadClient) CloseAndRecv() (*datapb.StreamingDataCaptureUploadResponse, error) {
+	if client.CloseAndRecvFunc == nil {
+		return client.DataSyncService_StreamingDataCaptureUploadClient.CloseAndRecv()
 	}
-	return c.CloseAndRecvFunc()
+	return client.CloseAndRecvFunc()
+
+}
+
+type DataSyncService_FileUploadClient struct{
+	datapb.DataSyncService_FileUploadClient
+	SendFunc func(*datapb.FileUploadRequest) error
+    CloseAndRecvFunc func() (*datapb.FileUploadResponse, error)
+    // grpc.ClientStream
+}
+func (client *DataSyncService_FileUploadClient) Send(req *datapb.FileUploadRequest) error {
+	if client.SendFunc == nil {
+		return client.DataSyncService_FileUploadClient.Send(req)
+	}
+	//test that the data we send is equal to what we expect
+	return client.SendFunc(req)
+}
+
+func (client *DataSyncService_FileUploadClient) CloseAndRecv() (*datapb.FileUploadResponse, error) {
+	if client.CloseAndRecvFunc == nil {
+		return client.DataSyncService_FileUploadClient.CloseAndRecv()
+	}
+	return client.CloseAndRecvFunc()
 
 }

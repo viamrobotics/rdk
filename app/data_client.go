@@ -4,6 +4,8 @@ package app
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -1029,6 +1031,7 @@ type StreamingOptions struct {
 	DataRequestTimes [2]time.Time
 }
 
+// uploads the metadata and contents of streaming binary data
 func (d *DataClient) StreamingDataCaptureUpload(
 	ctx context.Context,
 	data []byte, //data in bytes (so similar to binarydataCap)...the rest below are for dataCaptureUploadMetadata
@@ -1116,139 +1119,141 @@ func (d *DataClient) StreamingDataCaptureUpload(
 	return resp.FileId, nil
 }
 
-// FileUpload uploads the contents and metadata for binary (image + file) data,
-// where the first packet must be the UploadMetadata.
-func (d *DataClient) FileUploadByFileName(ctx context.Context) error {
-	// resp, err := d.dataSyncClient.FileUpload(ctx, &pb.FileUploadRequest{})
-	// if err != nil {
-	// 	return err
-	// }
-	return nil
+type FileUploadOptions struct {
+	ComponentType    string
+	ComponentName    string
+	MethodName       string
+	FileName         string
+	MethodParameters map[string]interface{}
+	FileExtension    string
+	Tags             []string
 }
 
 // FileUpload uploads the contents and metadata for binary (image + file) data,
 // where the first packet must be the UploadMetadata.
-func (d *DataClient) FileUploadByPath(ctx context.Context) error {
-	// resp, err := d.client.FileUpload(ctx, &pb.FileUploadRequest{})
-	// if err != nil {
-	// 	return err
-	// }
-	return nil
-}
-
-// FileUpload uploads the contents and metadata for binary (image + file) data,
-// where the first packet must be the UploadMetadata.
-func (d *DataClient) FileUpload(ctx context.Context, metadata UploadMetadata, fileContents FileData) (string, error) {
-
-	UploadChunkSize := 64 * 1024 //64 KB in bytes
-	// Prepare UploadMetadata
-	uploadMetadata := UploadMetadata{
-		// PartID:           partID,
-		// ComponentType:    options.ComponentType,
-		// ComponentName:    options.ComponentName,
-		// MethodName:       options.MethodName,
-		// Type:             DataTypeBinarySensor, // assuming this is the correct type??
-		// FileName:         options.FileName,
-		// MethodParameters: options.MethodParameters,
-		// FileExtension:    fileExt,
-		// Tags:             options.Tags,
+// check does this cover upload by file name and by path??
+func (d *DataClient) FileUploadFromBytes(
+	ctx context.Context,
+	partID string,
+	data []byte, //you either pass in enooded image bytes as data
+	opts *FileUploadOptions,
+) (string, error) {
+	// Prepare metadata
+	methodParams, _ := protoutils.ConvertMapToProtoAny(opts.MethodParameters)
+	metadata := &syncPb.UploadMetadata{
+		PartId:           partID,
+		ComponentType:    opts.ComponentType,
+		ComponentName:    opts.ComponentName,
+		MethodName:       opts.MethodName,
+		Type:             syncPb.DataType_DATA_TYPE_FILE, //check this!!!
+		MethodParameters: methodParams,
+		Tags:             opts.Tags,
 	}
-	uploadMetadataPb := uploadMetadataToProto(uploadMetadata) //derefernce the pointer to pass the value instead
 
-	//prepare FileData file_contents
+	// Handle filename and extension
+	if opts.FileName == "" {
+		// Use timestamp if no filename provided
+		metadata.FileName = time.Now().String()
+	} else {
+		metadata.FileName = opts.FileName
+		metadata.FileExtension = opts.FileExtension
+	}
+	return d.fileUploadStreamResp(metadata, data)
 
-	// establish a streaming connection.
-	stream, err := d.dataSyncClient.FileUpload(ctx)
+}
+
+func (d *DataClient) FileUploadFromPath(
+	ctx context.Context,
+	partID string,
+	FilePath string, //or you pass in a filepath and then we create data from reading that file
+	opts *FileUploadOptions,
+) (string, error) {
+	// Prepare metadata
+	methodParams, _ := protoutils.ConvertMapToProtoAny(opts.MethodParameters)
+	metadata := &syncPb.UploadMetadata{
+		PartId:           partID,
+		ComponentType:    opts.ComponentType,
+		ComponentName:    opts.ComponentName,
+		MethodName:       opts.MethodName,
+		Type:             syncPb.DataType_DATA_TYPE_FILE,
+		MethodParameters: methodParams,
+		Tags:             opts.Tags,
+	}
+	//make data optional...and if data is passed in then you will use those bytes representing the file data to upload
+	//and
+
+	// Handle filename and extension
+	if opts.FileName == "" {
+		if FilePath != "" {
+			// Extract from file path
+			metadata.FileName = filepath.Base(FilePath)
+			metadata.FileExtension = filepath.Ext(FilePath)
+		} else {
+			// Use timestamp if no filename provided
+			metadata.FileName = time.Now().String()
+		}
+	} else {
+		metadata.FileName = opts.FileName
+		metadata.FileExtension = opts.FileExtension
+	}
+
+	var data []byte
+	// Prepare file data
+	if FilePath != "" {
+		// Read from file path if provided
+		fileData, err := os.ReadFile(FilePath)
+		if err != nil {
+			return "", err
+		}
+		data = fileData
+	}
+
+	return d.fileUploadStreamResp(metadata, data)
+
+}
+func (d *DataClient) fileUploadStreamResp(metadata *syncPb.UploadMetadata, data []byte) (string, error) {
+	// Create streaming client for upload
+	stream, err := d.dataSyncClient.FileUpload(context.Background())
 	if err != nil {
-		return "", fmt.Errorf("failed to establish streaming connection: %w", err)
+		return "", err
 	}
-	// send the metadata as the first packet.
-	metaReq := &syncPb.FileUploadRequest{
+
+	// Send metadata
+	if err := stream.Send(&syncPb.FileUploadRequest{
 		UploadPacket: &syncPb.FileUploadRequest_Metadata{
-			Metadata: uploadMetadataPb,
+			Metadata: metadata,
 		},
-	}
-	if err := stream.Send(metaReq); err != nil {
-		return "", fmt.Errorf("failed to send metadata: %w", err)
+	}); err != nil {
+		return "", err
 	}
 
-	// send the binary file data in chunks.
-	for start := 0; start < len(fileContents.Data); start += UploadChunkSize {
-		//loop thry the data array starting at index 0, in each iteration start index increases by UploadChunkSize
-		//the loop  continues until start reaches or exceeds the length of the data array
-		end := start + UploadChunkSize
-		//this calculates the end index for the chunk, it is simply the start index plys the upload chunk size
-		if end > len(fileContents.Data) {
-			end = len(fileContents.Data)
+	// Send file contents in chunks
+	const maxChunkSize = 2 * 1024 * 1024 // 2MB
+	for len(data) > 0 {
+		chunkSize := maxChunkSize
+		if len(data) < chunkSize {
+			chunkSize = len(data)
 		}
 
-		chunk := fileContents.Data[start:end]
-		dataReq := &syncPb.FileUploadRequest{
+		if err := stream.Send(&syncPb.FileUploadRequest{
 			UploadPacket: &syncPb.FileUploadRequest_FileContents{
-				FileContents: chunk,
+				FileContents: &syncPb.FileData{
+					Data: data[:chunkSize],
+				},
 			},
+		}); err != nil {
+			return "", err
 		}
 
-		if err := stream.Send(dataReq); err != nil {
-			return "", fmt.Errorf("failed to send data chunk: %w", err)
-		}
+		data = data[chunkSize:]
 	}
 
-	// close the stream and get the response.
+	// Close stream and get response
 	resp, err := stream.CloseAndRecv()
 	if err != nil {
-		return "", fmt.Errorf("failed to receive response: %w", err)
+		return "", err
 	}
 
-	// return the file ID from the response.
-	if resp == nil || resp.FileId == "" {
-		return "", fmt.Errorf("response is empty or invalid")
-	}
 	return resp.FileId, nil
 
 }
-
-// fileUpload handles the streaming upload of metadata and file contents.
-// func (d *DataClient) FileUpload(
-// 	ctx context.Context,
-// 	metadata *syncPb.UploadMetadata,
-// 	fileContents *syncPb.FileData,
-// ) (string, error) {
-// 	// Establish a streaming connection
-// 	stream, err := d.dataSyncClient.FileUpload(ctx)
-// 	if err != nil {
-// 		return "", fmt.Errorf("failed to establish streaming connection: %w", err)
-// 	}
-
-// 	// Send the metadata as the first packet
-// 	metaReq := &syncPb.FileUploadRequest{
-// 		Request: &syncPb.FileUploadRequest_Metadata{
-// 			Metadata: metadata,
-// 		},
-// 	}
-// 	if err := stream.Send(metaReq); err != nil {
-// 		return "", fmt.Errorf("failed to send metadata: %w", err)
-// 	}
-
-// 	// Send the file data as the second packet
-// 	dataReq := &syncPb.FileUploadRequest{
-// 		Request: &syncPb.FileUploadRequest_FileContents{
-// 			FileContents: fileContents,
-// 		},
-// 	}
-// 	if err := stream.Send(dataReq); err != nil {
-// 		return "", fmt.Errorf("failed to send file data: %w", err)
-// 	}
-
-// 	// Close the stream and receive the response
-// 	resp, err := stream.CloseAndRecv()
-// 	if err != nil {
-// 		return "", fmt.Errorf("failed to receive response: %w", err)
-// 	}
-
-// 	// Validate and return the response
-// 	if resp == nil || resp.FileId == "" {
-// 		return "", fmt.Errorf("response is empty or invalid")
-// 	}
-// 	return resp.FileId, nil
-// }
