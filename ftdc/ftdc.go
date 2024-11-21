@@ -142,8 +142,10 @@ func NewWithWriter(writer io.Writer, logger logging.Logger) *FTDC {
 	return ret
 }
 
-func DefaultDirectory(viamHome, partId string) string {
-	return filepath.Join(viamHome, "diagnostics.data", partId)
+// DefaultDirectory returns a directory to write FTDC data files in. Each unique "part" running on a
+// single computer will get its own directory.
+func DefaultDirectory(viamHome, partID string) string {
+	return filepath.Join(viamHome, "diagnostics.data", partID)
 }
 
 func newFTDC(logger logging.Logger) *FTDC {
