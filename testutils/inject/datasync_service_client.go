@@ -7,7 +7,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-// DataServiceClient represents a fake instance of a data service client.
+// DataSyncServiceClient represents a fake instance of a data sync service client.
 type DataSyncServiceClient struct {
 	datapb.DataSyncServiceClient
 	DataCaptureUploadFunc func(ctx context.Context, in *datapb.DataCaptureUploadRequest,
@@ -39,7 +39,7 @@ func (client *DataSyncServiceClient) FileUpload(ctx context.Context,
 	return client.FileUploadFunc(ctx, opts...)
 }
 
-// DataCaptureUpload uploads the contents and metadata for tabular data.
+// StreamingDataCaptureUpload uploads the contents and metadata for streaming binary data.
 func (client *DataSyncServiceClient) StreamingDataCaptureUpload(ctx context.Context,
 	opts ...grpc.CallOption,
 ) (datapb.DataSyncService_StreamingDataCaptureUploadClient, error) {
@@ -49,47 +49,49 @@ func (client *DataSyncServiceClient) StreamingDataCaptureUpload(ctx context.Cont
 	return client.StreamingDataCaptureUploadFunc(ctx, opts...)
 }
 
-type DataSyncService_StreamingDataCaptureUploadClient struct {
+// DataSyncServiceStreamingDataCaptureUploadClient represents a fake instance of
+// a StreamingDataCaptureUpload client.
+type DataSyncServiceStreamingDataCaptureUploadClient struct {
 	datapb.DataSyncService_StreamingDataCaptureUploadClient
 	SendFunc         func(*datapb.StreamingDataCaptureUploadRequest) error
 	CloseAndRecvFunc func() (*datapb.StreamingDataCaptureUploadResponse, error)
-	// grpc.ClientStream
 }
 
-func (client *DataSyncService_StreamingDataCaptureUploadClient) Send(req *datapb.StreamingDataCaptureUploadRequest) error {
+// Send sends a StreamingDataCaptureUploadRequest using the mock or actual client.
+func (client *DataSyncServiceStreamingDataCaptureUploadClient) Send(req *datapb.StreamingDataCaptureUploadRequest) error {
 	if client.SendFunc == nil {
 		return client.DataSyncService_StreamingDataCaptureUploadClient.Send(req)
 	}
-	//test that the data we send is equal to what we expect
 	return client.SendFunc(req)
 }
 
-func (client *DataSyncService_StreamingDataCaptureUploadClient) CloseAndRecv() (*datapb.StreamingDataCaptureUploadResponse, error) {
+// CloseAndRecv closes the stream and receives a StreamingDataCaptureUploadResponse using the mock or actual client.
+func (client *DataSyncServiceStreamingDataCaptureUploadClient) CloseAndRecv() (*datapb.StreamingDataCaptureUploadResponse, error) {
 	if client.CloseAndRecvFunc == nil {
 		return client.DataSyncService_StreamingDataCaptureUploadClient.CloseAndRecv()
 	}
 	return client.CloseAndRecvFunc()
-
 }
 
-type DataSyncService_FileUploadClient struct{
+// DataSyncServiceFileUploadClient represents a fake instance of a FileUpload client.
+type DataSyncServiceFileUploadClient struct {
 	datapb.DataSyncService_FileUploadClient
-	SendFunc func(*datapb.FileUploadRequest) error
-    CloseAndRecvFunc func() (*datapb.FileUploadResponse, error)
-    // grpc.ClientStream
+	SendFunc         func(*datapb.FileUploadRequest) error
+	CloseAndRecvFunc func() (*datapb.FileUploadResponse, error)
 }
-func (client *DataSyncService_FileUploadClient) Send(req *datapb.FileUploadRequest) error {
+
+// Send sends a FileUploadRequest using the mock or actual client.
+func (client *DataSyncServiceFileUploadClient) Send(req *datapb.FileUploadRequest) error {
 	if client.SendFunc == nil {
 		return client.DataSyncService_FileUploadClient.Send(req)
 	}
-	//test that the data we send is equal to what we expect
 	return client.SendFunc(req)
 }
 
-func (client *DataSyncService_FileUploadClient) CloseAndRecv() (*datapb.FileUploadResponse, error) {
+// CloseAndRecv closes the stream and receives a FileUploadResponse using the mock or actual client.
+func (client *DataSyncServiceFileUploadClient) CloseAndRecv() (*datapb.FileUploadResponse, error) {
 	if client.CloseAndRecvFunc == nil {
 		return client.DataSyncService_FileUploadClient.CloseAndRecv()
 	}
 	return client.CloseAndRecvFunc()
-
 }
