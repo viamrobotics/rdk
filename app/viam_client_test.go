@@ -119,7 +119,7 @@ func TestCreateViamClientWithAPIKeyTests(t *testing.T) {
 	}
 }
 
-func TestNewDataClient(t *testing.T) {
+func TestNewAppClients(t *testing.T) {
 	originalDialDirectGRPC := dialDirectGRPC
 	dialDirectGRPC = mockDialDirectGRPC
 	defer func() { dialDirectGRPC = originalDialDirectGRPC }()
@@ -134,6 +134,16 @@ func TestNewDataClient(t *testing.T) {
 	client, err := CreateViamClientWithOptions(context.Background(), opts, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer client.Close()
+
+	billingClient := client.Billingclient()
+	test.That(t, billingClient, test.ShouldNotBeNil)
+	test.That(t, billingClient, test.ShouldHaveSameTypeAs, &BillingClient{})
+	test.That(t, billingClient.client, test.ShouldImplement, (*pb.DataServiceClient)(nil))
+
+	// Testing that a second call to Billingclient() returns the same instance
+	billingClient2 := client.Billingclient()
+	test.That(t, billingClient2, test.ShouldNotBeNil)
+	test.That(t, billingClient, test.ShouldResemble, billingClient2)
 
 	dataClient := client.DataClient()
 	test.That(t, dataClient, test.ShouldNotBeNil)
