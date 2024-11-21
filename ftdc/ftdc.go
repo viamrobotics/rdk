@@ -142,7 +142,7 @@ func NewWithWriter(writer io.Writer, logger logging.Logger) *FTDC {
 	return ret
 }
 
-func DefaultDirectory(viamHome string, partId string) string {
+func DefaultDirectory(viamHome, partId string) string {
 	return filepath.Join(viamHome, "diagnostics.data", partId)
 }
 
@@ -427,6 +427,10 @@ func (ftdc *FTDC) getWriter() (io.Writer, error) {
 	// It's unclear in what circumstance we'd expect creating a new file to fail. Try 5 times for no
 	// good reason before giving up entirely and shutting down FTDC.
 	for numTries := 0; numTries < 5; numTries++ {
+		// The viam process is expected to be run as root. The FTDC directory must be readable by
+		// "other" users.
+		//
+		//nolint:gosec
 		if err = os.MkdirAll(ftdc.ftdcDir, 0o755); err != nil {
 			ftdc.logger.Warnw("Failed to create FTDC directory", "dir", ftdc.ftdcDir, "err", err)
 			return nil, err
