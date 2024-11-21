@@ -175,8 +175,6 @@ func checkPlanRelative(
 		lastArcEndPose = thisArcEndPose
 		segments = append(segments, segment)
 	}
-	// TODO: remove when poses are fixed
-	_ = lastArcEndPose
 
 	return checkSegments(sfPlanner, segments, lookAheadDistanceMM, checkFrame)
 }

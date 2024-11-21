@@ -573,22 +573,22 @@ func NewBoundingRegionConstraint(robotGeoms, boundingRegions []spatial.Geometry,
 	}
 }
 
-// LinearConstraint specifies that the component being moved should move linearly relative to its goal.
-// It does not constrain the motion of components other than the `component_name` specified in motion.Move.
+// LinearConstraint specifies that the components being moved should move linearly relative to their goals.
 type LinearConstraint struct {
 	LineToleranceMm          float64 // Max linear deviation from straight-line between start and goal, in mm.
 	OrientationToleranceDegs float64
 }
 
-// PseudolinearConstraint specifies that the component being moved should move linearly relative to its goal.
-// It does not constrain the motion of components other than the `component_name` specified in motion.Move.
+// PseudolinearConstraint specifies that the component being moved should not deviate from the straight-line path to their goal by
+// more than a factor proportional to the distance from start to goal.
+// For example, if a component is moving 100mm, then a LineToleranceFactor of 1.0 means that the component will remain within a 100mm
+// radius of the straight-line start-goal path.
 type PseudolinearConstraint struct {
-	LineToleranceFactor        float64 // Max linear deviation from straight-line between start and goal, in mm.
+	LineToleranceFactor        float64
 	OrientationToleranceFactor float64
 }
 
-// OrientationConstraint specifies that the component being moved will not deviate its orientation beyond some threshold relative
-// to the goal. It does not constrain the motion of components other than the `component_name` specified in motion.Move.
+// OrientationConstraint specifies that the components being moved will not deviate orientation beyond some threshold.
 type OrientationConstraint struct {
 	OrientationToleranceDegs float64
 }

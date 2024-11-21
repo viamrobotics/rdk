@@ -305,7 +305,6 @@ func newRRTPlan(solution []node, fss referenceframe.FrameSystem, relative bool, 
 	var plan Plan
 	plan = &rrtPlan{SimplePlan: *NewSimplePlan(path, traj), nodes: solution}
 	if relative {
-		// TODO: This works currently because relative plans can only have one
 		plan = OffsetPlan(plan, offsetPose)
 	}
 	return plan, nil

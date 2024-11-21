@@ -113,7 +113,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequ
 		defer cancel()
 	}
 
-	// Transform goal pose into world frame if needed
+	// Transform goal poses into world frame if needed
 	alteredGoals := PathStep{}
 	for _, chain := range opt.motionChains {
 		if chain.worldRooted {
@@ -516,6 +516,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	planningOpts map[string]interface{},
 ) (*plannerOptions, error) {
 	if constraints == nil {
+		// Constraints may be nil, but if a motion profile is set in planningOpts we need it to be a valid pointer to an empty struct.
 		constraints = &Constraints{}
 	}
 	planAlg := ""
@@ -546,7 +547,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	}
 	// create motion chains for each goal, and error check for PTG frames
 	// TODO: currently, if any motion chain has a PTG frame, that must be the only motion chain and that frame must be the only
-	// frame in the chain with nonzero DoF
+	// frame in the chain with nonzero DoF. Eventually this need not be the case.
 	pm.useTPspace = false
 	for _, chain := range opt.motionChains {
 		for _, movingFrame := range chain.frames {
@@ -726,7 +727,6 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		opt.PlannerConstructor = newTPSpaceMotionPlanner
 
 		// Distances are computed in cartesian space rather than configuration space.
-		// Distances are computed, for now, between
 		opt.poseDistanceFunc = ik.NewSquaredNormSegmentMetric(defaultTPspaceOrientationScale)
 		// If we have PTGs, then we calculate distances using the PTG-specific distance function.
 		// Otherwise we just use squared norm on inputs.

@@ -121,6 +121,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 		return referenceframe.NewIncorrectDoFError(len(seedMap), len(req.Frame.DoF()))
 	}
 
+	// TODO: This should replace Frame and Goal
 	req.allGoals = map[string]*referenceframe.PoseInFrame{req.Frame.Name(): req.Goal}
 
 	return nil
@@ -515,6 +516,12 @@ func (mp *planner) frameLists() (moving, nonmoving []string) {
 	return moving, nonmoving
 }
 
+// The purpose of this function is to allow solves that require the movement of components not in a motion chain, while preventing wild or
+// random motion of these components unnecessarily. A classic example would be a scene with two arms. One arm is given a goal in World
+// which it could reach, but the other arm is in the way. Randomly seeded IK will produce a valid configuration for the moving arm, and a
+// random configuration for the other. This function attempts to replace that random configuration with the seed configuration, if valid,
+// and if invalid will interpolate the solved random configuration towards the seed and set its configuration to the closest valid
+// configuration to the seed.
 func (mp *planner) nonchainMinimize(seed, step map[string][]referenceframe.Input) map[string][]referenceframe.Input {
 	moving, nonmoving := mp.frameLists()
 	// Create a map with nonmoving configurations replaced with their seed values
