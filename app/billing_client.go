@@ -118,7 +118,7 @@ func sourceTypeFromProto(sourceType pb.SourceType) SourceType {
 	}
 }
 
-// ResourceUsageCostsBySource contains the resource usage costs of a source type.
+// ResourceUsageCostsBySource contains the resource usage costs of a source.
 type ResourceUsageCostsBySource struct {
 	SourceType         SourceType
 	ResourceUsageCosts *ResourceUsageCosts
