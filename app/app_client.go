@@ -5,15 +5,12 @@ package app
 
 import (
 	"context"
-	"sync"
 
 	packages "go.viam.com/api/app/packages/v1"
 	pb "go.viam.com/api/app/v1"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
-
-	"go.viam.com/rdk/logging"
 )
 
 // AppClient is a gRPC client for method calls to the App API.
@@ -21,14 +18,11 @@ import (
 //nolint:revive // stutter: Ignore the "stuttering" warning for this type name
 type AppClient struct {
 	client pb.AppServiceClient
-	logger logging.Logger
-
-	mu sync.Mutex
 }
 
 // NewAppClient constructs a new AppClient using the connection passed in by the Viam client.
-func NewAppClient(conn rpc.ClientConn, logger logging.Logger) *AppClient {
-	return &AppClient{client: pb.NewAppServiceClient(conn), logger: logger}
+func NewAppClient(conn rpc.ClientConn) *AppClient {
+	return &AppClient{client: pb.NewAppServiceClient(conn)}
 }
 
 // GetUserIDByEmail gets the ID of the user with the given email.
@@ -509,6 +503,25 @@ func (c *AppClient) GetRobotPartLogs(ctx context.Context, id string, opts GetRob
 	return logs, resp.NextPageToken, nil
 }
 
+// RobotPartLogStream is a stream with robot part logs.
+type RobotPartLogStream struct {
+	stream pb.AppService_TailRobotPartLogsClient
+}
+
+// Next gets the next robot part log entry.
+func (s *RobotPartLogStream) Next() ([]*LogEntry, error) {
+	streamResp, err := s.stream.Recv()
+	if err != nil {
+		return nil, err
+	}
+
+	var logs []*LogEntry
+	for _, log := range streamResp.Logs {
+		logs = append(logs, logEntryFromProto(log))
+	}
+	return logs, nil
+}
+
 // TailRobotPartLogsOptions contains optional parameters for TailRobotPartLogs.
 type TailRobotPartLogsOptions struct {
 	Filter *string
@@ -516,18 +529,17 @@ type TailRobotPartLogsOptions struct {
 
 // TailRobotPartLogs gets a stream of log entries for a specific robot part. Logs are ordered by newest first.
 func (c *AppClient) TailRobotPartLogs(
-	ctx context.Context, id string, errorsOnly bool, ch chan []*LogEntry, opts TailRobotPartLogsOptions,
-) error {
-	stream := &robotPartLogStream{client: c}
-
-	err := stream.startStream(ctx, id, errorsOnly, opts.Filter, ch)
+	ctx context.Context, id string, errorsOnly bool, opts TailRobotPartLogsOptions,
+) (*RobotPartLogStream, error) {
+	stream, err := c.client.TailRobotPartLogs(ctx, &pb.TailRobotPartLogsRequest{
+		Id:         id,
+		ErrorsOnly: errorsOnly,
+		Filter:     opts.Filter,
+	})
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return nil
+	return &RobotPartLogStream{stream: stream}, nil
 }
 
 // GetRobotPartHistory gets a specific robot part history by ID.
@@ -1073,15 +1085,47 @@ func (c *AppClient) UpdateModule(
 
 // UploadModuleFile uploads a module file and returns the URL of the uploaded file.
 func (c *AppClient) UploadModuleFile(ctx context.Context, fileInfo ModuleFileInfo, file []byte) (string, error) {
-	stream := &uploadModuleFileStream{client: c}
-	url, err := stream.startStream(ctx, &fileInfo, file)
+	stream, err := c.client.UploadModuleFile(ctx)
 	if err != nil {
 		return "", err
 	}
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return url, nil
+	err = stream.Send(&pb.UploadModuleFileRequest{
+		ModuleFile: &pb.UploadModuleFileRequest_ModuleFileInfo{
+			ModuleFileInfo: moduleFileInfoToProto(&fileInfo),
+		},
+	})
+	if err != nil {
+		return "", err
+	}
+
+	uploadChunkSize := 64 * 1024 // 64 kB in bytes
+	for start := 0; start < len(file); start += uploadChunkSize {
+		if ctx.Err() != nil {
+			return "", ctx.Err()
+		}
+
+		end := start + uploadChunkSize
+		if end > len(file) {
+			end = len(file)
+		}
+
+		chunk := file[start:end]
+		err := stream.Send(&pb.UploadModuleFileRequest{
+			ModuleFile: &pb.UploadModuleFileRequest_File{
+				File: chunk,
+			},
+		})
+		if err != nil {
+			return "", err
+		}
+	}
+
+	resp, err := stream.CloseAndRecv()
+	if err != nil {
+		return "", err
+	}
+	return resp.Url, err
 }
 
 // GetModule gets a module.

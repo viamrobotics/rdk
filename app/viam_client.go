@@ -71,7 +71,7 @@ func (c *ViamClient) AppClient() *AppClient {
 	if c.appClient != nil {
 		return c.appClient
 	}
-	c.appClient = NewAppClient(c.conn, c.logger)
+	c.appClient = NewAppClient(c.conn)
 	return c.appClient
 }
 

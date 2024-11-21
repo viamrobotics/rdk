@@ -1236,7 +1236,6 @@ func TestAppClient(t *testing.T) {
 				}, nil
 			},
 		}
-		ch := make(chan []*LogEntry)
 		grpcClient.TailRobotPartLogsFunc = func(
 			ctx context.Context, in *pb.TailRobotPartLogsRequest, opts ...grpc.CallOption,
 		) (pb.AppService_TailRobotPartLogsClient, error) {
@@ -1245,14 +1244,11 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.Filter, test.ShouldEqual, &filter)
 			return mockStream, nil
 		}
-		err := client.TailRobotPartLogs(context.Background(), partID, errorsOnly, ch, TailRobotPartLogsOptions{&filter})
+		stream, err := client.TailRobotPartLogs(context.Background(), partID, errorsOnly, TailRobotPartLogsOptions{&filter})
 		test.That(t, err, test.ShouldBeNil)
-
-		// var resp []*LogEntry
-		// for entries := range ch {
-		// 	resp = append(resp, entries...)
-		// }
-		// test.That(t, resp, test.ShouldResemble, logEntries)
+		resp, err := stream.Next()
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldResemble, []*LogEntry{&logEntry})
 	})
 
 	t.Run("GetRobotPartHistory", func(t *testing.T) {
