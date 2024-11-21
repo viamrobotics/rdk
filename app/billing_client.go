@@ -2,14 +2,12 @@ package app
 
 import (
 	"context"
-	"sync"
+	"errors"
+	"io"
 
 	pb "go.viam.com/api/app/v1"
-	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
-
-	"go.viam.com/rdk/logging"
 )
 
 // UsageCostType specifies the type of usage cost.
@@ -230,89 +228,14 @@ func invoiceSummaryFromProto(summary *pb.InvoiceSummary) *InvoiceSummary {
 	}
 }
 
-type invoiceStream struct {
-	client       *BillingClient
-	streamCancel context.CancelFunc
-	streamMu     sync.Mutex
-
-	activeBackgroundWorkers sync.WaitGroup
-}
-
-func (s *invoiceStream) startStream(ctx context.Context, id, orgID string, ch chan []byte) error {
-	s.streamMu.Lock()
-	defer s.streamMu.Unlock()
-
-	if ctx.Err() != nil {
-		return ctx.Err()
-	}
-
-	ctx, cancel := context.WithCancel(ctx)
-	s.streamCancel = cancel
-
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	default:
-	}
-
-	// This call won't return any errors it had until the client tries to receive.
-	//nolint:errcheck
-	stream, _ := s.client.client.GetInvoicePdf(ctx, &pb.GetInvoicePdfRequest{
-		Id:    id,
-		OrgId: orgID,
-	})
-	_, err := stream.Recv()
-	if err != nil {
-		s.client.logger.CError(ctx, err)
-		return err
-	}
-
-	// Create a background go routine to receive from the server stream.
-	// We rely on calling the Done function here rather than in close stream
-	// since managed go calls that function when the routine exits.
-	s.activeBackgroundWorkers.Add(1)
-	utils.ManagedGo(func() {
-		s.receiveFromStream(ctx, stream, ch)
-	},
-		s.activeBackgroundWorkers.Done)
-	return nil
-}
-
-func (s *invoiceStream) receiveFromStream(ctx context.Context, stream pb.BillingService_GetInvoicePdfClient, ch chan []byte) {
-	defer s.streamCancel()
-
-	// repeatedly receive from the stream
-	for {
-		select {
-		case <-ctx.Done():
-			s.client.logger.Debug(ctx.Err())
-			return
-		default:
-		}
-		streamResp, err := stream.Recv()
-		if err != nil {
-			// only debug log the context canceled error
-			s.client.logger.Debug(err)
-			return
-		}
-		// If there is a response, send to the channel.
-		var pdf []byte
-		pdf = append(pdf, streamResp.Chunk...)
-		ch <- pdf
-	}
-}
-
 // BillingClient is a gRPC client for method calls to the Billing API.
 type BillingClient struct {
 	client pb.BillingServiceClient
-	logger logging.Logger
-
-	mu sync.Mutex
 }
 
 // NewBillingClient constructs a new BillingClient using the connection passed in by the Viam client.
-func NewBillingClient(conn rpc.ClientConn, logger logging.Logger) *BillingClient {
-	return &BillingClient{client: pb.NewBillingServiceClient(conn), logger: logger}
+func NewBillingClient(conn rpc.ClientConn) *BillingClient {
+	return &BillingClient{client: pb.NewBillingServiceClient(conn)}
 }
 
 // GetCurrentMonthUsage gets the data usage information for the current month for an organization.
@@ -353,17 +276,28 @@ func (c *BillingClient) GetInvoicesSummary(ctx context.Context, orgID string) (f
 }
 
 // GetInvoicePDF gets the invoice PDF data.
-func (c *BillingClient) GetInvoicePDF(ctx context.Context, id, orgID string, ch chan []byte) error {
-	stream := &invoiceStream{client: c}
-
-	err := stream.startStream(ctx, id, orgID, ch)
+func (c *BillingClient) GetInvoicePDF(ctx context.Context, id, orgID string) ([]byte, error) {
+	stream, err := c.client.GetInvoicePdf(ctx, &pb.GetInvoicePdfRequest{
+		Id:    id,
+		OrgId: orgID,
+	})
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return nil
+	var data []byte
+	for {
+		resp, err := stream.Recv()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return data, err
+		}
+		data = append(data, resp.Chunk...)
+	}
+
+	return data, nil
 }
 
 // SendPaymentRequiredEmail sends an email about payment requirement.

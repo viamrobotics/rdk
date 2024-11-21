@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"io"
 	"testing"
 
 	pb "go.viam.com/api/app/v1"
@@ -77,7 +78,11 @@ var (
 		DueDate:       &dueDate,
 		PaidDate:      &paidDate,
 	}
-	chunk = []byte{4, 8}
+	chunk1     = []byte{4, 8}
+	chunk2     = []byte("chunk1")
+	chunk3     = []byte("chunk2")
+	chunks     = [][]byte{chunk1, chunk2, chunk3}
+	chunkCount = len(chunks)
 )
 
 func sourceTypeToProto(sourceType SourceType) pb.SourceType {
@@ -219,14 +224,23 @@ func TestBillingClient(t *testing.T) {
 	})
 
 	t.Run("GetInvoicePDF", func(t *testing.T) {
+		var expectedData []byte
+		expectedData = append(expectedData, chunk1...)
+		expectedData = append(expectedData, chunk2...)
+		expectedData = append(expectedData, chunk3...)
+		var count int
 		mockStream := &inject.BillingServiceGetInvoicePdfClient{
 			RecvFunc: func() (*pb.GetInvoicePdfResponse, error) {
+				if count >= chunkCount {
+					return nil, io.EOF
+				}
+				chunk := chunks[count]
+				count++
 				return &pb.GetInvoicePdfResponse{
 					Chunk: chunk,
 				}, nil
 			},
 		}
-		ch := make(chan []byte)
 		grpcClient.GetInvoicePdfFunc = func(
 			ctx context.Context, in *pb.GetInvoicePdfRequest, opts ...grpc.CallOption,
 		) (pb.BillingService_GetInvoicePdfClient, error) {
@@ -234,13 +248,9 @@ func TestBillingClient(t *testing.T) {
 			test.That(t, in.OrgId, test.ShouldEqual, organizationID)
 			return mockStream, nil
 		}
-		err := client.GetInvoicePDF(context.Background(), invoiceID, organizationID, ch)
+		data, err := client.GetInvoicePDF(context.Background(), invoiceID, organizationID)
 		test.That(t, err, test.ShouldBeNil)
-		// var resp []byte
-		// for chunkByte := range ch {
-		// 	resp = append(resp, chunkByte...)
-		// }
-		// test.That(t, resp, test.ShouldResemble, chunk)
+		test.That(t, data, test.ShouldResemble, expectedData)
 	})
 
 	t.Run("SendPaymentRequiredEmail", func(t *testing.T) {
