@@ -40,9 +40,6 @@ func CheckPlan(
 		return errors.New("wayPointIdx outside of plan bounds")
 	}
 
-	// construct solverFrame
-	// Note that this requires all frames which move as part of the plan, to have an
-	// entry in the very first plan waypoint
 	// construct planager
 	sfPlanner, err := newPlanManager(fs, logger, defaultRandomSeed)
 	if err != nil {
@@ -50,7 +47,6 @@ func CheckPlan(
 	}
 	// This should be done for any plan whose configurations are specified in relative terms rather than absolute ones.
 	// Currently this is only TP-space, so we check if the PTG length is >0.
-	// The solver frame will have had its PTGs filled in the newPlanManager() call, if applicable.
 	if sfPlanner.useTPspace {
 		return checkPlanRelative(checkFrame, executionState, worldState, fs, lookAheadDistanceMM, sfPlanner)
 	}
