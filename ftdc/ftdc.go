@@ -125,21 +125,33 @@ type FTDC struct {
 	logger logging.Logger
 }
 
-// New creates a new *FTDC.
-func New(logger logging.Logger) *FTDC {
-	return NewWithWriter(nil, logger)
+// New creates a new *FTDC. This FTDC object will write FTDC formatted files into the input
+// `ftdcDirectory`.
+func New(ftdcDirectory string, logger logging.Logger) *FTDC {
+	ret := newFTDC(logger)
+	ret.maxFileSizeBytes = 1_000_000
+	ret.maxNumFiles = 10
+	ret.ftdcDir = ftdcDirectory
+	return ret
 }
 
 // NewWithWriter creates a new *FTDC that outputs bytes to the specified writer.
 func NewWithWriter(writer io.Writer, logger logging.Logger) *FTDC {
+	ret := newFTDC(logger)
+	ret.outputWriter = writer
+	return ret
+}
+
+func DefaultDirectory(viamHome string, partId string) string {
+	return filepath.Join(viamHome, "diagnostics.data", partId)
+}
+
+func newFTDC(logger logging.Logger) *FTDC {
 	return &FTDC{
 		// Allow for some wiggle before blocking producers.
 		datumCh:          make(chan datum, 20),
 		outputWorkerDone: make(chan struct{}),
 		logger:           logger,
-		outputWriter:     writer,
-		maxFileSizeBytes: 1_000_000,
-		maxNumFiles:      10,
 	}
 }
 
@@ -415,6 +427,11 @@ func (ftdc *FTDC) getWriter() (io.Writer, error) {
 	// It's unclear in what circumstance we'd expect creating a new file to fail. Try 5 times for no
 	// good reason before giving up entirely and shutting down FTDC.
 	for numTries := 0; numTries < 5; numTries++ {
+		if err = os.MkdirAll(ftdc.ftdcDir, 0o755); err != nil {
+			ftdc.logger.Warnw("Failed to create FTDC directory", "dir", ftdc.ftdcDir, "err", err)
+			return nil, err
+		}
+
 		now := time.Now().UTC()
 		// lint wants 0o600 file permissions. We don't expect the unix user someone is ssh'ed in as
 		// to be on the same unix user as is running the viam-server process. Thus the file needs to
@@ -536,7 +553,7 @@ func (ftdc *FTDC) checkAndDeleteOldFiles() error {
 // deletion testing. Filename generation uses padding such that we can rely on there before 2/4
 // digits for every numeric value.
 //
-//nolint
+// nolint
 // Example filename: countingBytesTest1228324349/viam-server-2024-11-18T20-37-01Z.ftdc
 var filenameTimeRe = regexp.MustCompile(`viam-server-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})Z.ftdc`)
 

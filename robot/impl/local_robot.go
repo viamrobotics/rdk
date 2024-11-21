@@ -416,7 +416,8 @@ func newWithResources(
 
 	var ftdcWorker *ftdc.FTDC
 	if rOpts.enableFTDC {
-		ftdcWorker = ftdc.New(logger.Sublogger("ftdc"))
+		// CloudID is also known as the robot part id.
+		ftdcWorker = ftdc.New(ftdc.DefaultDirectory(config.ViamDotDir, cfg.Cloud.ID), logger.Sublogger("ftdc"))
 		ftdcWorker.Start()
 	}
 

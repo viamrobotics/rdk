@@ -294,18 +294,16 @@ func TestStatsWriterContinuesOnSchemaError(t *testing.T) {
 func TestCountingBytes(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
-	// We must not use `NewWithWriter`. Forcing a writer for FTDC data is not compatible with FTDC
-	// file rotation.
-	ftdc := New(logger.Sublogger("ftdc"))
-	// Expect a log rotation after 1,000 bytes. For a changing `foo` object, this is ~60 datums.
-	ftdc.maxFileSizeBytes = 1000
-
+	// Isolate all of the files we're going to create to a single, fresh directory.
 	ftdcFileDir, err := os.MkdirTemp("./", "countingBytesTest")
 	test.That(t, err, test.ShouldBeNil)
 	defer os.RemoveAll(ftdcFileDir)
 
-	// Isolate all of the files we're going to create to a single, fresh directory.
-	ftdc.ftdcDir = ftdcFileDir
+	// We must not use `NewWithWriter`. Forcing a writer for FTDC data is not compatible with FTDC
+	// file rotation.
+	ftdc := New(ftdcFileDir, logger.Sublogger("ftdc"))
+	// Expect a log rotation after 1,000 bytes. For a changing `foo` object, this is ~60 datums.
+	ftdc.maxFileSizeBytes = 1000
 
 	timesRolledOver := 0
 	foo := &foo{}
@@ -419,16 +417,15 @@ func TestFileDeletion(t *testing.T) {
 	// a second before being able to create the next file.
 	logger := logging.NewTestLogger(t)
 
-	// We must not use `NewWithWriter`. Forcing a writer for FTDC data is not compatible with FTDC
-	// file rotation.
-	ftdc := New(logger.Sublogger("ftdc"))
-
+	// Isolate all of the files we're going to create to a single, fresh directory.
 	ftdcFileDir, err := os.MkdirTemp("./", "fileDeletionTest")
 	test.That(t, err, test.ShouldBeNil)
 	defer os.RemoveAll(ftdcFileDir)
 
-	// Isolate all of the files we're going to create to a single, fresh directory.
-	ftdc.ftdcDir = ftdcFileDir
+	// We must not use `NewWithWriter`. Forcing a writer for FTDC data is not compatible with FTDC
+	// file rotation.
+	ftdc := New(ftdcFileDir, logger.Sublogger("ftdc"))
+
 	// Expect a log rotation after 1,000 bytes. For a changing `foo` object, this is ~60 datums.
 	ftdc.maxFileSizeBytes = 1000
 	ftdc.maxNumFiles = 3
