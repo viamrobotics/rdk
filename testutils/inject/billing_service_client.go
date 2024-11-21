@@ -3,29 +3,29 @@ package inject
 import (
 	"context"
 
-	pb "go.viam.com/api/app/v1"
+	billingpb "go.viam.com/api/app/v1"
 	"google.golang.org/grpc"
 )
 
 // BillingServiceClient represents a fake instance of a billing service client.
 type BillingServiceClient struct {
-	pb.BillingServiceClient
-	GetCurrentMonthUsageFunc func(ctx context.Context, in *pb.GetCurrentMonthUsageRequest,
-		opts ...grpc.CallOption) (*pb.GetCurrentMonthUsageResponse, error)
-	GetOrgBillingInformationFunc func(ctx context.Context, in *pb.GetOrgBillingInformationRequest,
-		opts ...grpc.CallOption) (*pb.GetOrgBillingInformationResponse, error)
-	GetInvoicesSummaryFunc func(ctx context.Context, in *pb.GetInvoicesSummaryRequest,
-		opts ...grpc.CallOption) (*pb.GetInvoicesSummaryResponse, error)
-	GetInvoicePdfFunc func(ctx context.Context, in *pb.GetInvoicePdfRequest,
-		opts ...grpc.CallOption) (pb.BillingService_GetInvoicePdfClient, error)
-	SendPaymentRequiredEmailFunc func(ctx context.Context, in *pb.SendPaymentRequiredEmailRequest,
-		opts ...grpc.CallOption) (*pb.SendPaymentRequiredEmailResponse, error)
+	billingpb.BillingServiceClient
+	GetCurrentMonthUsageFunc func(ctx context.Context, in *billingpb.GetCurrentMonthUsageRequest,
+		opts ...grpc.CallOption) (*billingpb.GetCurrentMonthUsageResponse, error)
+	GetOrgBillingInformationFunc func(ctx context.Context, in *billingpb.GetOrgBillingInformationRequest,
+		opts ...grpc.CallOption) (*billingpb.GetOrgBillingInformationResponse, error)
+	GetInvoicesSummaryFunc func(ctx context.Context, in *billingpb.GetInvoicesSummaryRequest,
+		opts ...grpc.CallOption) (*billingpb.GetInvoicesSummaryResponse, error)
+	GetInvoicePdfFunc func(ctx context.Context, in *billingpb.GetInvoicePdfRequest,
+		opts ...grpc.CallOption) (billingpb.BillingService_GetInvoicePdfClient, error)
+	SendPaymentRequiredEmailFunc func(ctx context.Context, in *billingpb.SendPaymentRequiredEmailRequest,
+		opts ...grpc.CallOption) (*billingpb.SendPaymentRequiredEmailResponse, error)
 }
 
 // GetCurrentMonthUsage calls the injected GetCurrentMonthUsageFunc or the real version.
-func (bsc *BillingServiceClient) GetCurrentMonthUsage(ctx context.Context, in *pb.GetCurrentMonthUsageRequest,
+func (bsc *BillingServiceClient) GetCurrentMonthUsage(ctx context.Context, in *billingpb.GetCurrentMonthUsageRequest,
 	opts ...grpc.CallOption,
-) (*pb.GetCurrentMonthUsageResponse, error) {
+) (*billingpb.GetCurrentMonthUsageResponse, error) {
 	if bsc.GetCurrentMonthUsageFunc == nil {
 		return bsc.BillingServiceClient.GetCurrentMonthUsage(ctx, in, opts...)
 	}
@@ -33,9 +33,9 @@ func (bsc *BillingServiceClient) GetCurrentMonthUsage(ctx context.Context, in *p
 }
 
 // GetOrgBillingInformation calls the injected GetOrgBillingInformationFunc or the real version.
-func (bsc *BillingServiceClient) GetOrgBillingInformation(ctx context.Context, in *pb.GetOrgBillingInformationRequest,
+func (bsc *BillingServiceClient) GetOrgBillingInformation(ctx context.Context, in *billingpb.GetOrgBillingInformationRequest,
 	opts ...grpc.CallOption,
-) (*pb.GetOrgBillingInformationResponse, error) {
+) (*billingpb.GetOrgBillingInformationResponse, error) {
 	if bsc.GetOrgBillingInformationFunc == nil {
 		return bsc.BillingServiceClient.GetOrgBillingInformation(ctx, in, opts...)
 	}
@@ -43,9 +43,9 @@ func (bsc *BillingServiceClient) GetOrgBillingInformation(ctx context.Context, i
 }
 
 // GetInvoicesSummary calls the injected GetInvoicesSummaryFunc or the real version.
-func (bsc *BillingServiceClient) GetInvoicesSummary(ctx context.Context, in *pb.GetInvoicesSummaryRequest,
+func (bsc *BillingServiceClient) GetInvoicesSummary(ctx context.Context, in *billingpb.GetInvoicesSummaryRequest,
 	opts ...grpc.CallOption,
-) (*pb.GetInvoicesSummaryResponse, error) {
+) (*billingpb.GetInvoicesSummaryResponse, error) {
 	if bsc.GetInvoicesSummaryFunc == nil {
 		return bsc.BillingServiceClient.GetInvoicesSummary(ctx, in, opts...)
 	}
@@ -53,9 +53,9 @@ func (bsc *BillingServiceClient) GetInvoicesSummary(ctx context.Context, in *pb.
 }
 
 // GetInvoicePdf calls the injected GetInvoicePdfFunc or the real version.
-func (bsc *BillingServiceClient) GetInvoicePdf(ctx context.Context, in *pb.GetInvoicePdfRequest,
+func (bsc *BillingServiceClient) GetInvoicePdf(ctx context.Context, in *billingpb.GetInvoicePdfRequest,
 	opts ...grpc.CallOption,
-) (pb.BillingService_GetInvoicePdfClient, error) {
+) (billingpb.BillingService_GetInvoicePdfClient, error) {
 	if bsc.GetInvoicePdfFunc == nil {
 		return bsc.BillingServiceClient.GetInvoicePdf(ctx, in, opts...)
 	}
@@ -63,9 +63,9 @@ func (bsc *BillingServiceClient) GetInvoicePdf(ctx context.Context, in *pb.GetIn
 }
 
 // SendPaymentRequiredEmail calls the injected SendPaymentRequiredEmailFunc or the real version.
-func (bsc *BillingServiceClient) SendPaymentRequiredEmail(ctx context.Context, in *pb.SendPaymentRequiredEmailRequest,
+func (bsc *BillingServiceClient) SendPaymentRequiredEmail(ctx context.Context, in *billingpb.SendPaymentRequiredEmailRequest,
 	opts ...grpc.CallOption,
-) (*pb.SendPaymentRequiredEmailResponse, error) {
+) (*billingpb.SendPaymentRequiredEmailResponse, error) {
 	if bsc.SendPaymentRequiredEmailFunc == nil {
 		return bsc.BillingServiceClient.SendPaymentRequiredEmail(ctx, in, opts...)
 	}
