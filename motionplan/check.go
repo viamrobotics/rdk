@@ -165,11 +165,15 @@ func checkPlanRelative(
 			return err
 		}
 		thisArcEndPose := spatialmath.Compose(thisArcEndPoseInWorld.Pose(), errorState)
+		frameTrajectory, err := plan.Trajectory().GetFrameInputs(checkFrame.Name())
+		if err != nil {
+			return err
+		}
 		segment := &ik.Segment{
 			StartPosition:      lastArcEndPose,
 			EndPosition:        thisArcEndPose,
-			StartConfiguration: plan.Trajectory()[i-1][checkFrame.Name()],
-			EndConfiguration:   plan.Trajectory()[i][checkFrame.Name()],
+			StartConfiguration: frameTrajectory[i-1],
+			EndConfiguration:   frameTrajectory[i],
 			Frame:              checkFrame,
 		}
 		lastArcEndPose = thisArcEndPose
@@ -339,7 +343,6 @@ func checkSegments(sfPlanner *planManager, segments []*ik.Segment, lookAheadDist
 			interpolatedState := &ik.State{
 				Frame:         checkFrame,
 				Configuration: interpConfig,
-				Position:      poseInPath,
 			}
 
 			// Checks for collision along the interpolated route and returns a the first interpolated pose where a collision is detected.
