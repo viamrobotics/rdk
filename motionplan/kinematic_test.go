@@ -17,7 +17,7 @@ import (
 )
 
 func BenchmarkFK(b *testing.B) {
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("services/motion/data/xarm7_kinematics_test.json"), "")
 	test.That(b, err, test.ShouldBeNil)
 	for n := 0; n < b.N; n++ {
 		_, err := m.Transform(frame.FloatsToInputs(make([]float64, 7)))
@@ -41,7 +41,7 @@ func TestForwardKinematics(t *testing.T) {
 	test.That(t, spatial.PoseAlmostEqual(expect, pos), test.ShouldBeTrue)
 
 	// Test the 6dof xarm we actually have
-	m, err = frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
+	m, err = frame.ParseModelJSONFile(utils.ResolveFile("services/motion/data/xarm6_kinematics_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Confirm end effector starts at 207, 0, 112
@@ -159,7 +159,7 @@ func TestDeriv(t *testing.T) {
 func TestDynamicFrameSystemXArm(t *testing.T) {
 	fs := frame.NewEmptyFrameSystem("test")
 
-	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
+	model, err := frame.ParseModelJSONFile(utils.ResolveFile("services/motion/data/xarm6_kinematics_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(model, fs.World())
 
@@ -212,7 +212,7 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 	fs.AddFrame(gantryY, gantryX)
 
 	// xarm on gantry
-	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
+	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("services/motion/data/xarm6_kinematics_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(modelXarm, gantryY)
 
@@ -316,7 +316,7 @@ func TestKinematicsJSONvsURDF(t *testing.T) {
 }
 
 func TestComputeOOBPosition(t *testing.T) {
-	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "foo")
+	model, err := frame.ParseModelJSONFile(utils.ResolveFile("services/motion/data/xarm6_kinematics_test.json"), "foo")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, model.Name(), test.ShouldEqual, "foo")
 

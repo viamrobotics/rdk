@@ -15,8 +15,8 @@ import (
 func TestParseJSONFile(t *testing.T) {
 	goodFiles := []string{
 		"components/arm/eva/eva_kinematics.json",
-		"components/arm/xarm/xarm6_kinematics.json",
-		"components/arm/xarm/xarm7_kinematics.json",
+		"services/motion/data/xarm6_kinematics_test.json",
+		"services/motion/data/xarm7_kinematics_test.json",
 		"referenceframe/testjson/ur5eDH.json",
 		"components/arm/universalrobots/ur5e.json",
 		"components/arm/fake/dofbot.json",
