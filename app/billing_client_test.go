@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	pb "go.viam.com/api/app/v1"
@@ -134,21 +133,6 @@ func createBillingGrpcClient() *inject.BillingServiceClient {
 	return &inject.BillingServiceClient{}
 }
 
-type mockInvoiceStreamClient struct {
-	grpc.ClientStream
-	responses []*pb.GetInvoicePdfResponse
-	count     int
-}
-
-func (c *mockInvoiceStreamClient) Recv() (*pb.GetInvoicePdfResponse, error) {
-	if c.count >= len(c.responses) {
-		return nil, errors.New("end of reponses")
-	}
-	resp := c.responses[c.count]
-	c.count++
-	return resp, nil
-}
-
 func TestBillingClient(t *testing.T) {
 	grpcClient := createBillingGrpcClient()
 	client := BillingClient{client: grpcClient}
@@ -235,20 +219,28 @@ func TestBillingClient(t *testing.T) {
 	})
 
 	t.Run("GetInvoicePDF", func(t *testing.T) {
+		mockStream := &inject.BillingServiceGetInvoicePdfClient{
+			RecvFunc: func() (*pb.GetInvoicePdfResponse, error) {
+				return &pb.GetInvoicePdfResponse{
+					Chunk: chunk,
+				}, nil
+			},
+		}
 		ch := make(chan []byte)
 		grpcClient.GetInvoicePdfFunc = func(
 			ctx context.Context, in *pb.GetInvoicePdfRequest, opts ...grpc.CallOption,
 		) (pb.BillingService_GetInvoicePdfClient, error) {
 			test.That(t, in.Id, test.ShouldEqual, invoiceID)
 			test.That(t, in.OrgId, test.ShouldEqual, organizationID)
-			return &mockInvoiceStreamClient{
-				responses: []*pb.GetInvoicePdfResponse{
-					{Chunk: chunk},
-				},
-			}, nil
+			return mockStream, nil
 		}
 		err := client.GetInvoicePDF(context.Background(), invoiceID, organizationID, ch)
 		test.That(t, err, test.ShouldBeNil)
+		// var resp []byte
+		// for chunkByte := range ch {
+		// 	resp = append(resp, chunkByte...)
+		// }
+		// test.That(t, resp, test.ShouldResemble, chunk)
 	})
 
 	t.Run("SendPaymentRequiredEmail", func(t *testing.T) {

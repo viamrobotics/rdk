@@ -62,6 +62,19 @@ func (bsc *BillingServiceClient) GetInvoicePdf(ctx context.Context, in *billingp
 	return bsc.GetInvoicePdfFunc(ctx, in, opts...)
 }
 
+// BillingServiceGetInvoicePdfClient represents a fake instance of a proto BillingService_GetInvoicePdfClient.
+type BillingServiceGetInvoicePdfClient struct {
+	billingpb.BillingService_GetInvoicePdfClient
+	RecvFunc func() (*billingpb.GetInvoicePdfResponse, error)
+}
+
+func (c *BillingServiceGetInvoicePdfClient) Recv() (*billingpb.GetInvoicePdfResponse, error) {
+	if c.RecvFunc == nil {
+		return c.BillingService_GetInvoicePdfClient.Recv()
+	}
+	return c.RecvFunc()
+}
+
 // SendPaymentRequiredEmail calls the injected SendPaymentRequiredEmailFunc or the real version.
 func (bsc *BillingServiceClient) SendPaymentRequiredEmail(ctx context.Context, in *billingpb.SendPaymentRequiredEmailRequest,
 	opts ...grpc.CallOption,
