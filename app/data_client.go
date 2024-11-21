@@ -867,10 +867,29 @@ func uploadMetadataToProto(metadata UploadMetadata) *syncPb.UploadMetadata {
 	}
 }
 
+func annotationsToProto(annotations Annotations) *pb.Annotations {
+	var protoBboxes []*pb.BoundingBox
+	for _, bbox := range annotations.Bboxes {
+		protoBboxes = append(protoBboxes, &pb.BoundingBox{
+			Id:             bbox.ID,
+			Label:          bbox.Label,
+			XMinNormalized: bbox.XMinNormalized,
+			YMinNormalized: bbox.YMinNormalized,
+			XMaxNormalized: bbox.XMaxNormalized,
+			YMaxNormalized: bbox.YMaxNormalized,
+		})
+	}
+	return &pb.Annotations{
+		Bboxes: protoBboxes,
+	}
+}
+
 func sensorMetadataToProto(metadata SensorMetadata) *syncPb.SensorMetadata {
 	return &syncPb.SensorMetadata{
 		TimeRequested: timestamppb.New(metadata.TimeRequested),
 		TimeReceived:  timestamppb.New(metadata.TimeReceived),
+		MimeType:      syncPb.MimeType(metadata.MimeType),
+		Annotations:   annotationsToProto(metadata.Annotations),
 	}
 }
 

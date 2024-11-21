@@ -134,23 +134,6 @@ var (
 	}
 )
 
-func annotationsToProto(annotations Annotations) *pb.Annotations {
-	var protoBboxes []*pb.BoundingBox
-	for _, bbox := range annotations.Bboxes {
-		protoBboxes = append(protoBboxes, &pb.BoundingBox{
-			Id:             bbox.ID,
-			Label:          bbox.Label,
-			XMinNormalized: bbox.XMinNormalized,
-			YMinNormalized: bbox.YMinNormalized,
-			XMaxNormalized: bbox.XMaxNormalized,
-			YMaxNormalized: bbox.YMaxNormalized,
-		})
-	}
-	return &pb.Annotations{
-		Bboxes: protoBboxes,
-	}
-}
-
 func binaryDataToProto(binaryData BinaryData) *pb.BinaryData {
 	return &pb.BinaryData{
 		Binary:   binaryData.Binary,
