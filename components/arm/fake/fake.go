@@ -9,10 +9,10 @@ import (
 
 	"github.com/pkg/errors"
 
+	xarm "github.com/viam-modules/viam-ufactory-xarm/arm"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/eva"
 	ur "go.viam.com/rdk/components/arm/universalrobots"
-	"go.viam.com/rdk/components/arm/xarm"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
