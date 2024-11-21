@@ -3,18 +3,21 @@ package main
 
 import (
 	"bufio"
+	"cmp"
 	"errors"
 	"fmt"
 	"io"
 	"math"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 	"time"
 
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/ftdc"
+	"go.viam.com/rdk/logging"
 )
 
 // gnuplotWriter organizes all of the output for `gnuplot` to create a graph from FTDC
@@ -34,6 +37,31 @@ type gnuplotWriter struct {
 	tempdir string
 
 	options graphOptions
+}
+
+type KVPair[K, V any] struct {
+	Key K
+	Val V
+}
+
+func sorted[K cmp.Ordered, V any](mp map[K]V) []KVPair[K, V] {
+	ret := make([]KVPair[K, V], 0, len(mp))
+	for key, val := range mp {
+		ret = append(ret, KVPair[K, V]{key, val})
+	}
+
+	slices.SortFunc(ret, func(left, right KVPair[K, V]) int {
+		if left.Key < right.Key {
+			return -1
+		}
+		if right.Key < left.Key {
+			return 1
+		}
+
+		return 0
+	})
+
+	return ret
 }
 
 type graphOptions struct {
@@ -155,7 +183,8 @@ func (gpw *gnuplotWriter) CompileAndClose() string {
 	// per-graph setting rather than a global.
 	writeln(gnuFile, "set yrange [0:*]")
 
-	for metricName, file := range gpw.metricFiles {
+	for _, nameFilePair := range sorted(gpw.metricFiles) {
+		metricName, file := nameFilePair.Key, nameFilePair.Val
 		writelnf(gnuFile, "plot '%v' using 1:2 with lines linestyle 7 lw 4 title '%v'", file.Name(), strings.ReplaceAll(metricName, "_", "\\_"))
 		utils.UncheckedErrorFunc(file.Close)
 	}
@@ -165,25 +194,20 @@ func (gpw *gnuplotWriter) CompileAndClose() string {
 
 func main() {
 	if len(os.Args) < 2 {
-		// We are a CLI, it's appropriate to write to stdout.
-		//
-
 		nolintPrintln("Expected an FTDC filename. E.g: go run parser.go <path-to>/viam-server.ftdc")
 		return
 	}
 
 	ftdcFile, err := os.Open(os.Args[1])
 	if err != nil {
-		// We are a CLI, it's appropriate to write to stdout.
-		//
-
 		nolintPrintln("Error opening file. File:", os.Args[1], "Err:", err)
-
 		nolintPrintln("Expected an FTDC filename. E.g: go run parser.go <path-to>/viam-server.ftdc")
 		return
 	}
 
-	data, err := ftdc.Parse(ftdcFile)
+	logger := logging.NewDebugLogger("parser")
+	logger.SetLevel(logging.WARN)
+	data, err := ftdc.ParseWithLogger(ftdcFile, logger)
 	if err != nil {
 		panic(err)
 	}
