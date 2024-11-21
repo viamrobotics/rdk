@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"testing"
 
@@ -694,34 +693,6 @@ func createAppGrpcClient() *inject.AppServiceClient {
 	return &inject.AppServiceClient{}
 }
 
-type mockTailRobotPartLogsClient struct {
-	grpc.ClientStream
-	responses []*pb.TailRobotPartLogsResponse
-	count     int
-}
-
-func (c *mockTailRobotPartLogsClient) Recv() (*pb.TailRobotPartLogsResponse, error) {
-	if c.count >= len(c.responses) {
-		return nil, errors.New("end of reponses")
-	}
-	resp := c.responses[c.count]
-	c.count++
-	return resp, nil
-}
-
-type mockUploadModuleFileClient struct {
-	grpc.ClientStream
-	response *pb.UploadModuleFileResponse
-}
-
-func (c *mockUploadModuleFileClient) Send(*pb.UploadModuleFileRequest) error {
-	return nil
-}
-
-func (c *mockUploadModuleFileClient) CloseAndRecv() (*pb.UploadModuleFileResponse, error) {
-	return c.response, nil
-}
-
 func TestAppClient(t *testing.T) {
 	grpcClient := createAppGrpcClient()
 	client := AppClient{client: grpcClient}
@@ -1246,6 +1217,13 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("TailRobotPartLogs", func(t *testing.T) {
+		mockStream := &inject.AppServiceTailRobotPartLogsClient{
+			RecvFunc: func() (*pb.TailRobotPartLogsResponse, error) {
+				return &pb.TailRobotPartLogsResponse{
+					Logs: []*common.LogEntry{&pbLogEntry},
+				}, nil
+			},
+		}
 		ch := make(chan []*LogEntry)
 		grpcClient.TailRobotPartLogsFunc = func(
 			ctx context.Context, in *pb.TailRobotPartLogsRequest, opts ...grpc.CallOption,
@@ -1253,11 +1231,7 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.Id, test.ShouldEqual, partID)
 			test.That(t, in.ErrorsOnly, test.ShouldEqual, errorsOnly)
 			test.That(t, in.Filter, test.ShouldEqual, &filter)
-			return &mockTailRobotPartLogsClient{
-				responses: []*pb.TailRobotPartLogsResponse{
-					{Logs: []*common.LogEntry{&pbLogEntry}},
-				},
-			}, nil
+			return mockStream, nil
 		}
 		err := client.TailRobotPartLogs(context.Background(), partID, errorsOnly, &filter, ch)
 		test.That(t, err, test.ShouldBeNil)
@@ -1266,7 +1240,7 @@ func TestAppClient(t *testing.T) {
 		// for entries := range ch {
 		// 	resp = append(resp, entries)
 		// }
-		// test.That(t, resp, test.ShouldResemble, logEntries)
+		// test.That(t, resp, test.ShouldResemble, [][]*LogEntry{logEntries})
 	})
 
 	t.Run("GetRobotPartHistory", func(t *testing.T) {
@@ -1779,12 +1753,26 @@ func TestAppClient(t *testing.T) {
 	})
 
 	t.Run("UploadModuleFile", func(t *testing.T) {
-		grpcClient.UploadModuleFileFunc = func(ctx context.Context, opts ...grpc.CallOption) (pb.AppService_UploadModuleFileClient, error) {
-			return &mockUploadModuleFileClient{
-				response: &pb.UploadModuleFileResponse{
+		mockStream := &inject.AppServiceUploadModuleFileClient{
+			SendFunc: func(req *pb.UploadModuleFileRequest) error {
+				switch moduleFile := req.ModuleFile.(type) {
+				case *pb.UploadModuleFileRequest_ModuleFileInfo:
+					test.That(t, moduleFile.ModuleFileInfo, test.ShouldResemble, moduleFileInfoToProto(&fileInfo))
+				case *pb.UploadModuleFileRequest_File:
+					test.That(t, moduleFile.File, test.ShouldResemble, file)
+				default:
+					t.Error("unexpected module file type")
+				}
+				return nil
+			},
+			CloseAndRecvFunc: func() (*pb.UploadModuleFileResponse, error) {
+				return &pb.UploadModuleFileResponse{
 					Url: siteURL,
-				},
-			}, nil
+				}, nil
+			},
+		}
+		grpcClient.UploadModuleFileFunc = func(ctx context.Context, opts ...grpc.CallOption) (pb.AppService_UploadModuleFileClient, error) {
+			return mockStream, nil
 		}
 		resp, err := client.UploadModuleFile(context.Background(), fileInfo, file)
 		test.That(t, err, test.ShouldBeNil)

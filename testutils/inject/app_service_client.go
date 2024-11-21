@@ -527,6 +527,20 @@ func (asc *AppServiceClient) TailRobotPartLogs(
 	return asc.TailRobotPartLogsFunc(ctx, in, opts...)
 }
 
+// AppServiceTailRobotPartLogsClient represents a fake instance of a pb.AppService_TailRobotPartLogsClient.
+type AppServiceTailRobotPartLogsClient struct {
+	apppb.AppService_TailRobotPartLogsClient
+	RecvFunc func() (*apppb.TailRobotPartLogsResponse, error)
+}
+
+// Recv calls the injected RecvFunc or the real version.
+func (c *AppServiceTailRobotPartLogsClient) Recv() (*apppb.TailRobotPartLogsResponse, error) {
+	if c.RecvFunc == nil {
+		return c.AppService_TailRobotPartLogsClient.Recv()
+	}
+	return c.RecvFunc()
+}
+
 // GetRobotPartHistory calls the injected GetRobotPartHistoryFunc or the real version.
 func (asc *AppServiceClient) GetRobotPartHistory(
 	ctx context.Context, in *apppb.GetRobotPartHistoryRequest, opts ...grpc.CallOption,
@@ -865,6 +879,29 @@ func (asc *AppServiceClient) UploadModuleFile(
 		return asc.AppServiceClient.UploadModuleFile(ctx, opts...)
 	}
 	return asc.UploadModuleFileFunc(ctx, opts...)
+}
+
+// AppServiceUploadModuleFileClient represents a fake instance of a pb.AppService_UploadModuleFileClient.
+type AppServiceUploadModuleFileClient struct {
+	apppb.AppService_UploadModuleFileClient
+	SendFunc         func(*apppb.UploadModuleFileRequest) error
+	CloseAndRecvFunc func() (*apppb.UploadModuleFileResponse, error)
+}
+
+// Send calls the injected SendFunc or the real version.
+func (c *AppServiceUploadModuleFileClient) Send(req *apppb.UploadModuleFileRequest) error {
+	if c.SendFunc == nil {
+		return c.AppService_UploadModuleFileClient.Send(req)
+	}
+	return c.SendFunc(req)
+}
+
+// CloseAndRecv calls the injected CloseAndRecvFunc or the real version.
+func (c *AppServiceUploadModuleFileClient) CloseAndRecv() (*apppb.UploadModuleFileResponse, error) {
+	if c.CloseAndRecvFunc == nil {
+		return c.AppService_UploadModuleFileClient.CloseAndRecv()
+	}
+	return c.CloseAndRecvFunc()
 }
 
 // GetModule calls the injected GetModuleFunc or the real version.
