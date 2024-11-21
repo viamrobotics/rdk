@@ -59,7 +59,7 @@ type webService struct {
 
 func (svc *webService) Stats() any {
 	return struct {
-		RpcServer any
+		RPCServer any
 	}{svc.rpcServer.Stats()}
 }
 
