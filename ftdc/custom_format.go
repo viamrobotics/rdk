@@ -656,6 +656,8 @@ func (schema *schema) Zip(data []float32) []Reading {
 	return ret
 }
 
+// FieldNamesForIndexes maps the integers to their string form as defined in the schema. This is
+// useful for creating human consumable output.
 func (schema *schema) FieldNamesForIndexes(fieldIdxs []int) []string {
 	ret := make([]string, len(fieldIdxs))
 	for idx, fieldIdx := range fieldIdxs {

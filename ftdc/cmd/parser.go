@@ -39,18 +39,18 @@ type gnuplotWriter struct {
 	options graphOptions
 }
 
-type KVPair[K, V any] struct {
+type kvPair[K, V any] struct {
 	Key K
 	Val V
 }
 
-func sorted[K cmp.Ordered, V any](mp map[K]V) []KVPair[K, V] {
-	ret := make([]KVPair[K, V], 0, len(mp))
+func sorted[K cmp.Ordered, V any](mp map[K]V) []kvPair[K, V] {
+	ret := make([]kvPair[K, V], 0, len(mp))
 	for key, val := range mp {
-		ret = append(ret, KVPair[K, V]{key, val})
+		ret = append(ret, kvPair[K, V]{key, val})
 	}
 
-	slices.SortFunc(ret, func(left, right KVPair[K, V]) int {
+	slices.SortFunc(ret, func(left, right kvPair[K, V]) int {
 		if left.Key < right.Key {
 			return -1
 		}
@@ -205,8 +205,7 @@ func main() {
 		return
 	}
 
-	logger := logging.NewDebugLogger("parser")
-	logger.SetLevel(logging.WARN)
+	logger := logging.NewLogger("parser")
 	data, err := ftdc.ParseWithLogger(ftdcFile, logger)
 	if err != nil {
 		panic(err)
