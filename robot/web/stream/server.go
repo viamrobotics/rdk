@@ -407,6 +407,24 @@ func (server *Server) SetStreamOptions(
 	return &streampb.SetStreamOptionsResponse{}, nil
 }
 
+// validateSetStreamOptionsRequest validates the request to set the stream options.
+func validateSetStreamOptionsRequest(req *streampb.SetStreamOptionsRequest) (int, error) {
+	if req.Name == "" {
+		return optionsCommandUnknown, errors.New("stream name is required in request")
+	}
+	if req.Resolution == nil {
+		return optionsCommandReset, nil
+	}
+	if req.Resolution.Width <= 0 || req.Resolution.Height <= 0 {
+		return optionsCommandUnknown,
+			fmt.Errorf(
+				"invalid resolution to resize stream %q: width (%d) and height (%d) must be greater than 0",
+				req.Name, req.Resolution.Width, req.Resolution.Height,
+			)
+	}
+	return optionsCommandResize, nil
+}
+
 // resizeVideoSource resizes the video source with the given name.
 func (server *Server) resizeVideoSource(name string, width, height int) error {
 	existing, ok := server.videoSources[name]
@@ -762,22 +780,4 @@ retryLoop:
 		return 0, 0, fmt.Errorf("failed to get frame after 5 attempts: %w", err)
 	}
 	return frame.Bounds().Dx(), frame.Bounds().Dy(), nil
-}
-
-// validateSetStreamOptionsRequest validates the request to set the stream options.
-func validateSetStreamOptionsRequest(req *streampb.SetStreamOptionsRequest) (int, error) {
-	if req.Name == "" {
-		return optionsCommandUnknown, errors.New("stream name is required in request")
-	}
-	if req.Resolution == nil {
-		return optionsCommandReset, nil
-	}
-	if req.Resolution.Width <= 0 || req.Resolution.Height <= 0 {
-		return optionsCommandUnknown,
-			fmt.Errorf(
-				"invalid resolution to resize stream %q: width (%d) and height (%d) must be greater than 0",
-				req.Name, req.Resolution.Width, req.Resolution.Height,
-			)
-	}
-	return optionsCommandResize, nil
 }

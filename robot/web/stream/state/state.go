@@ -285,7 +285,7 @@ func (state *StreamState) tick() {
 		state.stopInputStream()
 	// If streamSource is unknown and resized is true, we do not want to attempt passthrough.
 	case state.streamSource == streamSourceUnknown && state.isResized:
-		state.logger.Debug("in a resized state, using gostream")
+		state.logger.Debug("in a resized state and stream source is unknown, defaulting to GoStream")
 		state.Stream.Start()
 		state.streamSource = streamSourceGoStream
 	case state.streamSource == streamSourceUnknown: // && state.activeClients > 0
