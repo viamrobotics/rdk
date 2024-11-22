@@ -946,7 +946,7 @@ type downloadModuleFlags struct {
 	Platform    string
 }
 
-func DownloadModuleAction(flags downloadModuleFlags, c *cli.Context) error {
+func DownloadModuleAction(c *cli.Context, flags downloadModuleFlags) error {
 	moduleID := flags.ID
 	if moduleID == "" {
 		manifest, err := loadManifest(defaultManifestFilename)

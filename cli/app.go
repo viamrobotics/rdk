@@ -251,7 +251,7 @@ func getValFromContext(name string, ctx *cli.Context) interface{} {
 	return ctx.Value(camelFormattedName)
 }
 
-func createCommandWithT[T interface{}](f func(T, *cli.Context) error) cli.ActionFunc {
+func createCommandWithT[T interface{}](f func(*cli.Context, T) error) cli.ActionFunc {
 	return func(ctx *cli.Context) error {
 		var t T
 		tValue := reflect.ValueOf(&t).Elem()
@@ -262,7 +262,7 @@ func createCommandWithT[T interface{}](f func(T, *cli.Context) error) cli.Action
 			tValue.Field(i).Set(reflect.ValueOf(value))
 
 		}
-		return f(t, ctx)
+		return f(ctx, t)
 	}
 }
 
@@ -271,7 +271,7 @@ type foo struct {
 	Bar    int
 }
 
-func doFoo(foo foo, ctx *cli.Context) error {
+func doFoo(ctx *cli.Context, foo foo) error {
 	fmt.Printf("FooFoo is %s and Bar is %v.", foo.FooFoo, foo.Bar)
 	return nil
 }
