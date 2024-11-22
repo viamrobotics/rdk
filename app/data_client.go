@@ -23,7 +23,6 @@ import (
 
 // DataClient implements the DataServiceClient interface.
 type DataClient struct {
-	
 	dataClient     pb.DataServiceClient
 	dataSyncClient syncPb.DataSyncServiceClient
 }
