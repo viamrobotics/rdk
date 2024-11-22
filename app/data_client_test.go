@@ -62,7 +62,12 @@ var (
 	data                = map[string]interface{}{
 		"key": "value",
 	}
-	tabularMetadata = CaptureMetadata{
+	fileNamePtr      = fileName
+	fileExtPtr       = fileExt
+	componentTypePtr = componentType
+	componentNamePtr = componentName
+	methodNamePtr    = method
+	tabularMetadata  = CaptureMetadata{
 		OrganizationID:   organizationID,
 		LocationID:       locationID,
 		RobotName:        robotName,
@@ -613,11 +618,11 @@ func TestDataSyncClient(t *testing.T) {
 	t.Run("BinaryDataCaptureUpload", func(t *testing.T) {
 		uploadMetadata.Type = DataTypeBinarySensor
 		options := BinaryOptions{
-			Type:             binaryDataType,
-			FileName:         fileName,
+			Type:             &binaryDataType,
+			FileName:         &fileNamePtr,
 			MethodParameters: methodParameters,
 			Tags:             tags,
-			DataRequestTimes: dataRequestTimes,
+			DataRequestTimes: &dataRequestTimes,
 		}
 		grpcClient.DataCaptureUploadFunc = func(ctx context.Context, in *syncPb.DataCaptureUploadRequest,
 			opts ...grpc.CallOption,
@@ -659,10 +664,10 @@ func TestDataSyncClient(t *testing.T) {
 			TimeReceived:  timestamppb.New(endTime),
 		}
 		options := TabularOptions{
-			Type:             binaryDataType,
-			FileName:         fileName,
+			Type:             &binaryDataType,
+			FileName:         &fileNamePtr,
 			MethodParameters: methodParameters,
-			FileExtension:    fileExt,
+			FileExtension:    &fileExtPtr,
 			Tags:             tags,
 		}
 		grpcClient.DataCaptureUploadFunc = func(ctx context.Context, in *syncPb.DataCaptureUploadRequest,
@@ -693,7 +698,7 @@ func TestDataSyncClient(t *testing.T) {
 		dataRequestTimes := [][2]time.Time{
 			{startTime, endTime},
 		}
-		resp, _ := client.tabularDataCaptureUpload(context.Background(),
+		resp, _ := client.TabularDataCaptureUpload(context.Background(),
 			tabularData, partID, componentType, componentName, method,
 			dataRequestTimes, &options)
 		test.That(t, resp, test.ShouldResemble, fileID)
@@ -701,14 +706,14 @@ func TestDataSyncClient(t *testing.T) {
 
 	t.Run("StreamingDataCaptureUpload", func(t *testing.T) {
 		options := StreamingOptions{
-			ComponentType:    componentType,
-			ComponentName:    componentName,
-			MethodName:       method,
-			Type:             binaryDataType,
-			FileName:         fileName,
+			ComponentType:    &componentTypePtr,
+			ComponentName:    &componentNamePtr,
+			MethodName:       &methodNamePtr,
+			Type:             &binaryDataType,
+			FileName:         &fileNamePtr,
 			MethodParameters: methodParameters,
 			Tags:             tags,
-			DataRequestTimes: dataRequestTimes,
+			DataRequestTimes: &dataRequestTimes,
 		}
 		// Mock implementation of the streaming client.
 		mockStream := &inject.DataSyncServiceStreamingDataCaptureUploadClient{
@@ -748,12 +753,12 @@ func TestDataSyncClient(t *testing.T) {
 	})
 	t.Run("FileUploadFromBytes", func(t *testing.T) {
 		options := FileUploadOptions{
-			ComponentType:    componentType,
-			ComponentName:    componentName,
-			MethodName:       method,
-			FileName:         fileName,
+			ComponentType:    &componentTypePtr,
+			ComponentName:    &componentNamePtr,
+			MethodName:       &methodNamePtr,
+			FileName:         &fileNamePtr,
 			MethodParameters: methodParameters,
-			FileExtension:    fileExt,
+			FileExtension:    &fileExtPtr,
 			Tags:             tags,
 		}
 		// Mock implementation of the streaming client.
@@ -798,12 +803,12 @@ func TestDataSyncClient(t *testing.T) {
 
 	t.Run("FileUploadFromPath", func(t *testing.T) {
 		options := FileUploadOptions{
-			ComponentType:    componentType,
-			ComponentName:    componentName,
-			MethodName:       method,
-			FileName:         fileName,
+			ComponentType:    &componentTypePtr,
+			ComponentName:    &componentNamePtr,
+			MethodName:       &methodNamePtr,
+			FileName:         &fileNamePtr,
 			MethodParameters: methodParameters,
-			FileExtension:    fileExt,
+			FileExtension:    &fileExtPtr,
 			Tags:             tags,
 		}
 		// Create a temporary file for testing

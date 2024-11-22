@@ -18,7 +18,7 @@ type DataSyncServiceClient struct {
 		opts ...grpc.CallOption) (datapb.DataSyncService_StreamingDataCaptureUploadClient, error)
 }
 
-// DataCaptureUpload uploads the contents and metadata for tabular data.
+// DataCaptureUpload calls the injected DataCaptureUpload or the real version.
 func (client *DataSyncServiceClient) DataCaptureUpload(ctx context.Context, in *datapb.DataCaptureUploadRequest,
 	opts ...grpc.CallOption,
 ) (*datapb.DataCaptureUploadResponse, error) {
@@ -28,8 +28,7 @@ func (client *DataSyncServiceClient) DataCaptureUpload(ctx context.Context, in *
 	return client.DataCaptureUploadFunc(ctx, in, opts...)
 }
 
-// FileUpload uploads the contents and metadata for binary (image + file) data,
-// where the first packet must be the UploadMetadata.
+// FileUpload calls the injected FileUpload or the real version.
 func (client *DataSyncServiceClient) FileUpload(ctx context.Context,
 	opts ...grpc.CallOption,
 ) (datapb.DataSyncService_FileUploadClient, error) {
@@ -39,7 +38,7 @@ func (client *DataSyncServiceClient) FileUpload(ctx context.Context,
 	return client.FileUploadFunc(ctx, opts...)
 }
 
-// StreamingDataCaptureUpload uploads the contents and metadata for streaming binary data.
+// StreamingDataCaptureUpload calls the injected StreamingDataCaptureUpload or the real version.
 func (client *DataSyncServiceClient) StreamingDataCaptureUpload(ctx context.Context,
 	opts ...grpc.CallOption,
 ) (datapb.DataSyncService_StreamingDataCaptureUploadClient, error) {
@@ -57,7 +56,7 @@ type DataSyncServiceStreamingDataCaptureUploadClient struct {
 	CloseAndRecvFunc func() (*datapb.StreamingDataCaptureUploadResponse, error)
 }
 
-// Send sends a StreamingDataCaptureUploadRequest using the mock or actual client.
+// Send calls the injected Send or the real version.
 func (client *DataSyncServiceStreamingDataCaptureUploadClient) Send(req *datapb.StreamingDataCaptureUploadRequest) error {
 	if client.SendFunc == nil {
 		return client.DataSyncService_StreamingDataCaptureUploadClient.Send(req)
@@ -65,7 +64,7 @@ func (client *DataSyncServiceStreamingDataCaptureUploadClient) Send(req *datapb.
 	return client.SendFunc(req)
 }
 
-// CloseAndRecv closes the stream and receives a StreamingDataCaptureUploadResponse using the mock or actual client.
+// CloseAndRecv calls the injected CloseAndRecv or the real version.
 func (client *DataSyncServiceStreamingDataCaptureUploadClient) CloseAndRecv() (*datapb.StreamingDataCaptureUploadResponse, error) {
 	if client.CloseAndRecvFunc == nil {
 		return client.DataSyncService_StreamingDataCaptureUploadClient.CloseAndRecv()
@@ -80,7 +79,7 @@ type DataSyncServiceFileUploadClient struct {
 	CloseAndRecvFunc func() (*datapb.FileUploadResponse, error)
 }
 
-// Send sends a FileUploadRequest using the mock or actual client.
+// Send calls the injected Send or the real version.
 func (client *DataSyncServiceFileUploadClient) Send(req *datapb.FileUploadRequest) error {
 	if client.SendFunc == nil {
 		return client.DataSyncService_FileUploadClient.Send(req)
@@ -88,7 +87,7 @@ func (client *DataSyncServiceFileUploadClient) Send(req *datapb.FileUploadReques
 	return client.SendFunc(req)
 }
 
-// CloseAndRecv closes the stream and receives a FileUploadResponse using the mock or actual client.
+// CloseAndRecv calls the injected CloseAndRecv or the real version.
 func (client *DataSyncServiceFileUploadClient) CloseAndRecv() (*datapb.FileUploadResponse, error) {
 	if client.CloseAndRecvFunc == nil {
 		return client.DataSyncService_FileUploadClient.CloseAndRecv()

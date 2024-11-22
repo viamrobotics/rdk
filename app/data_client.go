@@ -246,42 +246,42 @@ type FileData struct {
 
 // BinaryOptions represents optional parameters for the BinaryDataCaptureUpload method.
 type BinaryOptions struct {
-	Type             DataType
-	FileName         string
+	Type             *DataType
+	FileName         *string
 	MethodParameters map[string]interface{}
 	Tags             []string
-	DataRequestTimes [2]time.Time
+	DataRequestTimes *[2]time.Time
 }
 
 // TabularOptions represents optional parameters for the TabularDataCaptureUpload method.
 type TabularOptions struct {
-	Type             DataType
-	FileName         string
+	Type             *DataType
+	FileName         *string
 	MethodParameters map[string]interface{}
-	FileExtension    string
+	FileExtension    *string
 	Tags             []string
 }
 
 // StreamingOptions represents optional parameters for the StreamingDataCaptureUpload method.
 type StreamingOptions struct {
-	ComponentType    string
-	ComponentName    string
-	MethodName       string
-	Type             DataType
-	FileName         string
+	ComponentType    *string
+	ComponentName    *string
+	MethodName       *string
+	Type             *DataType
+	FileName         *string
 	MethodParameters map[string]interface{}
 	Tags             []string
-	DataRequestTimes [2]time.Time
+	DataRequestTimes *[2]time.Time
 }
 
 // FileUploadOptions represents optional parameters for the FileUploadFromPath & FileUploadFromBytes methods.
 type FileUploadOptions struct {
-	ComponentType    string
-	ComponentName    string
-	MethodName       string
-	FileName         string
+	ComponentType    *string
+	ComponentName    *string
+	MethodName       *string
+	FileName         *string
 	MethodParameters map[string]interface{}
-	FileExtension    string
+	FileExtension    *string
 	Tags             []string
 }
 
@@ -850,9 +850,13 @@ func (d *DataClient) RemoveBinaryDataFromDatasetByIDs(
 }
 
 func uploadMetadataToProto(metadata UploadMetadata) *syncPb.UploadMetadata {
-	methodParams, err := protoutils.ConvertMapToProtoAny(metadata.MethodParameters)
-	if err != nil {
-		return nil
+	var methodParams map[string]*anypb.Any
+	if metadata.MethodParameters != nil {
+		var err error
+		methodParams, err = protoutils.ConvertMapToProtoAny(metadata.MethodParameters)
+		if err != nil {
+			return nil
+		}
 	}
 	return &syncPb.UploadMetadata{
 		PartId:           metadata.PartID,
@@ -946,7 +950,7 @@ func (d *DataClient) BinaryDataCaptureUpload(
 	options *BinaryOptions,
 ) (string, error) {
 	var sensorMetadata SensorMetadata
-	if len(options.DataRequestTimes) == 2 {
+	if options.DataRequestTimes != nil && len(options.DataRequestTimes) == 2 {
 		sensorMetadata = SensorMetadata{
 			TimeRequested: options.DataRequestTimes[0],
 			TimeReceived:  options.DataRequestTimes[1],
@@ -958,16 +962,23 @@ func (d *DataClient) BinaryDataCaptureUpload(
 		SDBinary: binaryData,
 	}
 	metadata := UploadMetadata{
-		PartID:           partID,
-		ComponentType:    componentType,
-		ComponentName:    componentName,
-		MethodName:       methodName,
-		Type:             DataTypeBinarySensor,
-		FileName:         options.FileName,
-		MethodParameters: options.MethodParameters,
-		FileExtension:    formatFileExtension(fileExtension),
-		Tags:             options.Tags,
+		PartID:        partID,
+		ComponentType: componentType,
+		ComponentName: componentName,
+		MethodName:    methodName,
+		Type:          DataTypeBinarySensor,
+		FileExtension: formatFileExtension(fileExtension),
 	}
+	if options.FileName != nil {
+		metadata.FileName = *options.FileName
+	}
+	if options.MethodParameters != nil {
+		metadata.MethodParameters = options.MethodParameters
+	}
+	if options.Tags != nil {
+		metadata.Tags = options.Tags
+	}
+
 	response, err := d.DataCaptureUpload(ctx, metadata, []SensorData{sensorData})
 	if err != nil {
 		return "", err
@@ -976,7 +987,7 @@ func (d *DataClient) BinaryDataCaptureUpload(
 }
 
 // TabularDataCaptureUpload uploads the contents and metadata for tabular data.
-func (d *DataClient) tabularDataCaptureUpload(
+func (d *DataClient) TabularDataCaptureUpload(
 	ctx context.Context,
 	tabularData []map[string]interface{},
 	partID string,
@@ -1005,15 +1016,24 @@ func (d *DataClient) tabularDataCaptureUpload(
 		sensorContents = append(sensorContents, sensorData)
 	}
 	metadata := UploadMetadata{
-		PartID:           partID,
-		ComponentType:    componentType,
-		ComponentName:    componentName,
-		MethodName:       methodName,
-		Type:             DataTypeTabularSensor,
-		FileName:         options.FileName,
-		MethodParameters: options.MethodParameters,
-		FileExtension:    formatFileExtension(options.FileExtension),
-		Tags:             options.Tags,
+		PartID:        partID,
+		ComponentType: componentType,
+		ComponentName: componentName,
+		MethodName:    methodName,
+		Type:          DataTypeTabularSensor,
+	}
+
+	if options.FileName != nil {
+		metadata.FileName = *options.FileName
+	}
+	if options.MethodParameters != nil {
+		metadata.MethodParameters = options.MethodParameters
+	}
+	if options.FileExtension != nil {
+		metadata.FileExtension = formatFileExtension(*options.FileExtension)
+	}
+	if options.Tags != nil {
+		metadata.Tags = options.Tags
 	}
 	response, err := d.DataCaptureUpload(ctx, metadata, sensorContents)
 	if err != nil {
@@ -1044,19 +1064,31 @@ func (d *DataClient) StreamingDataCaptureUpload(
 	options *StreamingOptions,
 ) (string, error) {
 	uploadMetadata := UploadMetadata{
-		PartID:           partID,
-		ComponentType:    options.ComponentType,
-		ComponentName:    options.ComponentName,
-		MethodName:       options.MethodName,
-		Type:             DataTypeBinarySensor,
-		FileName:         options.FileName,
-		MethodParameters: options.MethodParameters,
-		FileExtension:    fileExt,
-		Tags:             options.Tags,
+		PartID:        partID,
+		Type:          DataTypeBinarySensor,
+		FileExtension: fileExt,
+	}
+	if options.ComponentType != nil {
+		uploadMetadata.ComponentType = *options.ComponentType
+	}
+	if options.ComponentName != nil {
+		uploadMetadata.ComponentName = *options.ComponentName
+	}
+	if options.MethodName != nil {
+		uploadMetadata.MethodName = *options.MethodName
+	}
+	if options.FileName != nil {
+		uploadMetadata.FileName = *options.FileName
+	}
+	if options.MethodParameters != nil {
+		uploadMetadata.MethodParameters = options.MethodParameters
+	}
+	if options.Tags != nil {
+		uploadMetadata.Tags = options.Tags
 	}
 	uploadMetadataPb := uploadMetadataToProto(uploadMetadata)
 	var sensorMetadata SensorMetadata
-	if len(options.DataRequestTimes) == 2 {
+	if options.DataRequestTimes != nil && len(options.DataRequestTimes) == 2 {
 		sensorMetadata = SensorMetadata{
 			TimeRequested: options.DataRequestTimes[0],
 			TimeReceived:  options.DataRequestTimes[1],
@@ -1105,67 +1137,87 @@ func (d *DataClient) StreamingDataCaptureUpload(
 	return resp.FileId, nil
 }
 
-// FileUploadFromBytes uploads the contents and metadata for binary data such as encoded images or other data represented by bytes.
+// FileUploadFromBytes uploads the contents and metadata for binary data such as encoded images or other data represented by bytes
+// and returns the file id of the uploaded data.
 func (d *DataClient) FileUploadFromBytes(
 	ctx context.Context,
 	partID string,
 	data []byte,
 	opts *FileUploadOptions,
 ) (string, error) {
-	methodParams, err := protoutils.ConvertMapToProtoAny(opts.MethodParameters)
-	if err != nil {
-		return "", err
-	}
 	metadata := &syncPb.UploadMetadata{
-		PartId:           partID,
-		ComponentType:    opts.ComponentType,
-		ComponentName:    opts.ComponentName,
-		MethodName:       opts.MethodName,
-		Type:             syncPb.DataType_DATA_TYPE_FILE,
-		MethodParameters: methodParams,
-		Tags:             opts.Tags,
+		PartId: partID,
+		Type:   syncPb.DataType_DATA_TYPE_FILE,
 	}
-
-	if opts.FileName == "" {
-		metadata.FileName = time.Now().String()
-	} else {
-		metadata.FileName = opts.FileName
-		metadata.FileExtension = opts.FileExtension
+	if opts.MethodParameters != nil {
+		methodParams, err := protoutils.ConvertMapToProtoAny(opts.MethodParameters)
+		if err != nil {
+			return "", err
+		}
+		metadata.MethodParameters = methodParams
+	}
+	if opts.ComponentType != nil {
+		metadata.ComponentType = *opts.ComponentType
+	}
+	if opts.ComponentName != nil {
+		metadata.ComponentName = *opts.ComponentName
+	}
+	if opts.MethodName != nil {
+		metadata.MethodName = *opts.MethodName
+	}
+	if opts.FileName != nil {
+		metadata.FileName = *opts.FileName
+	}
+	if opts.FileExtension != nil {
+		metadata.FileExtension = formatFileExtension(*opts.FileExtension)
+	}
+	if opts.Tags != nil {
+		metadata.Tags = opts.Tags
 	}
 	return d.fileUploadStreamResp(metadata, data)
 }
 
-// FileUploadFromPath uploads the contents and metadata for binary data created from a filepath.
+// FileUploadFromPath uploads the contents and metadata for binary data created from a filepath
+// and returns the file id of the uploaded data.
 func (d *DataClient) FileUploadFromPath(
 	ctx context.Context,
 	partID string,
 	filePath string,
 	opts *FileUploadOptions,
 ) (string, error) {
-	methodParams, err := protoutils.ConvertMapToProtoAny(opts.MethodParameters)
-	if err != nil {
-		return "", err
-	}
 	metadata := &syncPb.UploadMetadata{
-		PartId:           partID,
-		ComponentType:    opts.ComponentType,
-		ComponentName:    opts.ComponentName,
-		MethodName:       opts.MethodName,
-		Type:             syncPb.DataType_DATA_TYPE_FILE,
-		MethodParameters: methodParams,
-		Tags:             opts.Tags,
+		PartId: partID,
+		Type:   syncPb.DataType_DATA_TYPE_FILE,
 	}
-	if opts.FileName == "" {
-		if filePath != "" {
-			metadata.FileName = filepath.Base(filePath)
-			metadata.FileExtension = filepath.Ext(filePath)
-		} else {
-			metadata.FileName = time.Now().String()
+	if opts.MethodParameters != nil {
+		methodParams, err := protoutils.ConvertMapToProtoAny(opts.MethodParameters)
+		if err != nil {
+			return "", err
 		}
-	} else {
-		metadata.FileName = opts.FileName
-		metadata.FileExtension = opts.FileExtension
+		metadata.MethodParameters = methodParams
 	}
+	if opts.ComponentType != nil {
+		metadata.ComponentType = *opts.ComponentType
+	}
+	if opts.ComponentName != nil {
+		metadata.ComponentName = *opts.ComponentName
+	}
+	if opts.MethodName != nil {
+		metadata.MethodName = *opts.MethodName
+	}
+	if opts.FileExtension != nil {
+		metadata.FileExtension = formatFileExtension(*opts.FileExtension)
+	}
+	if opts.Tags != nil {
+		metadata.Tags = opts.Tags
+	}
+	if opts.FileName != nil {
+		metadata.FileName = *opts.FileName
+	} else if filePath != "" {
+		metadata.FileName = filepath.Base(filePath)
+		metadata.FileExtension = filepath.Ext(filePath)
+	}
+
 	var data []byte
 	// Prepare file data from filepath
 	if filePath != "" {
@@ -1216,6 +1268,5 @@ func (d *DataClient) fileUploadStreamResp(metadata *syncPb.UploadMetadata, data 
 	if err != nil {
 		return "", err
 	}
-
 	return resp.FileId, nil
 }
