@@ -23,7 +23,7 @@ import (
 
 // DataClient implements the DataServiceClient interface.
 type DataClient struct {
-	//nolint:revive // stutter: Ignore the "stuttering" warning for this type name
+	
 	dataClient     pb.DataServiceClient
 	dataSyncClient syncPb.DataSyncServiceClient
 }
@@ -897,7 +897,7 @@ func sensorMetadataToProto(metadata SensorMetadata) *syncPb.SensorMetadata {
 	}
 }
 
-// Ensure only one of SDStruct or SDBinary is set
+// Ensure only one of SDStruct or SDBinary is set.
 func validateSensorData(sensorData SensorData) error {
 	if sensorData.SDStruct != nil && len(sensorData.SDBinary) > 0 {
 		return errors.New("sensorData cannot have both SDStruct and SDBinary set")

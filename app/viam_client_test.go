@@ -148,5 +148,4 @@ func TestNewDataClient(t *testing.T) {
 
 	// Add test for dataSyncClient
 	test.That(t, dataClient.dataSyncClient, test.ShouldImplement, (*syncPb.DataSyncServiceClient)(nil))
-
 }
