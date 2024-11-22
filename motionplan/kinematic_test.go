@@ -316,7 +316,7 @@ func TestKinematicsJSONvsURDF(t *testing.T) {
 }
 
 func TestComputeOOBPosition(t *testing.T) {
-	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/xarm6_kinematics_test.json"), "")
+	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/xarm6_kinematics_test.json"), "foo")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, model.Name(), test.ShouldEqual, "foo")
 
