@@ -177,7 +177,7 @@ type DatabaseConnReturn struct {
 	HasDatabaseUser bool
 }
 
-// NewDataClient constructs a new DataClient using the connection passed in by the Viam client.
+// NewDataClient constructs a new DataClient using the connection passed in by the ViamClient.
 func NewDataClient(
 	conn rpc.ClientConn,
 ) *DataClient {
