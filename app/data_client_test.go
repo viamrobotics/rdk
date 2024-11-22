@@ -39,7 +39,7 @@ const (
 	mongodbURI    = "mongo_uri"
 	hostName      = "host_name"
 	last          = "last"
-  fileID         = "file_id"
+	fileID        = "file_id"
 )
 
 var (
@@ -198,7 +198,7 @@ func createGrpcDataSyncClient() *inject.DataSyncServiceClient {
 }
 
 func TestDataClient(t *testing.T) {
-	grpcClient := createGrpcClient()
+	grpcClient := createDataGrpcClient()
 	client := DataClient{dataClient: grpcClient}
 
 	captureInterval := CaptureInterval{

@@ -353,13 +353,10 @@ func (c *AppClient) DisableBillingService(ctx context.Context, orgID string) err
 }
 
 // UpdateBillingService updates the billing service of an organization.
-func (c *AppClient) UpdateBillingService(
-	ctx context.Context, orgID string, billingAddress *BillingAddress, billingSupportEmail string,
-) error {
+func (c *AppClient) UpdateBillingService(ctx context.Context, orgID string, billingAddress *BillingAddress) error {
 	_, err := c.client.UpdateBillingService(ctx, &pb.UpdateBillingServiceRequest{
-		OrgId:               orgID,
-		BillingAddress:      billingAddressToProto(billingAddress),
-		BillingSupportEmail: billingSupportEmail,
+		OrgId:          orgID,
+		BillingAddress: billingAddressToProto(billingAddress),
 	})
 	return err
 }

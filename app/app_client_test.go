@@ -964,10 +964,9 @@ func TestAppClient(t *testing.T) {
 		) (*pb.UpdateBillingServiceResponse, error) {
 			test.That(t, in.OrgId, test.ShouldEqual, organizationID)
 			test.That(t, in.BillingAddress, test.ShouldResemble, &pbAddress)
-			test.That(t, in.BillingSupportEmail, test.ShouldResemble, email)
 			return &pb.UpdateBillingServiceResponse{}, nil
 		}
-		err := client.UpdateBillingService(context.Background(), organizationID, &address, email)
+		err := client.UpdateBillingService(context.Background(), organizationID, &address)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
