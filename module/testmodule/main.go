@@ -57,7 +57,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 				if !ok {
 					return nil, errors.New("'extra' value must be a string")
 				}
-				return map[string]string{
+				return map[string]interface{}{
 					"extra": extraValStr,
 				}, nil
 			},
