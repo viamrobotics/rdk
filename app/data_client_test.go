@@ -200,7 +200,7 @@ func createGrpcDataSyncClient() *inject.DataSyncServiceClient {
 
 func TestDataClient(t *testing.T) {
 	grpcClient := createGrpcClient()
-	client := DataClient{client: grpcClient}
+	client := DataClient{dataClient: grpcClient}
 
 	captureInterval := CaptureInterval{
 		Start: time.Now(),

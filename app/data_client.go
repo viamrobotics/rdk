@@ -22,8 +22,10 @@ import (
 )
 
 // DataClient implements the DataServiceClient interface.
+//nolint:revive // stutter: Ignore the "stuttering" warning for this type name
+
 type DataClient struct {
-	client         pb.DataServiceClient
+	dataClient     pb.DataServiceClient
 	dataSyncClient syncPb.DataSyncServiceClient
 }
 
@@ -290,7 +292,7 @@ func NewDataClient(conn rpc.ClientConn) *DataClient {
 	d := pb.NewDataServiceClient(conn)
 	s := syncPb.NewDataSyncServiceClient(conn)
 	return &DataClient{
-		client:         d,
+		dataClient:     d,
 		dataSyncClient: s,
 	}
 }
@@ -502,7 +504,7 @@ func (d *DataClient) TabularDataByFilter(
 	countOnly bool,
 	includeInternalData bool,
 ) (TabularDataReturn, error) {
-	resp, err := d.client.TabularDataByFilter(ctx, &pb.TabularDataByFilterRequest{
+	resp, err := d.dataClient.TabularDataByFilter(ctx, &pb.TabularDataByFilterRequest{
 		DataRequest: &pb.DataRequest{
 			Filter:    filterToProto(filter),
 			Limit:     limit,
@@ -534,7 +536,7 @@ func (d *DataClient) TabularDataByFilter(
 
 // TabularDataBySQL queries tabular data with a SQL query.
 func (d *DataClient) TabularDataBySQL(ctx context.Context, organizationID, sqlQuery string) ([]map[string]interface{}, error) {
-	resp, err := d.client.TabularDataBySQL(ctx, &pb.TabularDataBySQLRequest{
+	resp, err := d.dataClient.TabularDataBySQL(ctx, &pb.TabularDataBySQLRequest{
 		OrganizationId: organizationID,
 		SqlQuery:       sqlQuery,
 	})
@@ -550,7 +552,7 @@ func (d *DataClient) TabularDataBySQL(ctx context.Context, organizationID, sqlQu
 
 // TabularDataByMQL queries tabular data with an MQL (MongoDB Query Language) query.
 func (d *DataClient) TabularDataByMQL(ctx context.Context, organizationID string, mqlbinary [][]byte) ([]map[string]interface{}, error) {
-	resp, err := d.client.TabularDataByMQL(ctx, &pb.TabularDataByMQLRequest{
+	resp, err := d.dataClient.TabularDataByMQL(ctx, &pb.TabularDataByMQLRequest{
 		OrganizationId: organizationID,
 		MqlBinary:      mqlbinary,
 	})
@@ -576,7 +578,7 @@ func (d *DataClient) BinaryDataByFilter(
 	countOnly bool,
 	includeInternalData bool,
 ) (BinaryDataReturn, error) {
-	resp, err := d.client.BinaryDataByFilter(ctx, &pb.BinaryDataByFilterRequest{
+	resp, err := d.dataClient.BinaryDataByFilter(ctx, &pb.BinaryDataByFilterRequest{
 		DataRequest: &pb.DataRequest{
 			Filter:    filterToProto(filter),
 			Limit:     limit,
@@ -603,7 +605,7 @@ func (d *DataClient) BinaryDataByFilter(
 
 // BinaryDataByIDs queries binary data and metadata based on given IDs.
 func (d *DataClient) BinaryDataByIDs(ctx context.Context, binaryIDs []BinaryID) ([]BinaryData, error) {
-	resp, err := d.client.BinaryDataByIDs(ctx, &pb.BinaryDataByIDsRequest{
+	resp, err := d.dataClient.BinaryDataByIDs(ctx, &pb.BinaryDataByIDsRequest{
 		IncludeBinary: true,
 		BinaryIds:     binaryIDsToProto(binaryIDs),
 	})
@@ -620,7 +622,7 @@ func (d *DataClient) BinaryDataByIDs(ctx context.Context, binaryIDs []BinaryID) 
 // DeleteTabularData deletes tabular data older than a number of days, based on the given organization ID.
 // It returns the number of tabular datapoints deleted.
 func (d *DataClient) DeleteTabularData(ctx context.Context, organizationID string, deleteOlderThanDays uint32) (uint64, error) {
-	resp, err := d.client.DeleteTabularData(ctx, &pb.DeleteTabularDataRequest{
+	resp, err := d.dataClient.DeleteTabularData(ctx, &pb.DeleteTabularDataRequest{
 		OrganizationId:      organizationID,
 		DeleteOlderThanDays: deleteOlderThanDays,
 	})
@@ -633,7 +635,7 @@ func (d *DataClient) DeleteTabularData(ctx context.Context, organizationID strin
 // DeleteBinaryDataByFilter deletes binary data based on given filters.
 // It returns the number of binary datapoints deleted.
 func (d *DataClient) DeleteBinaryDataByFilter(ctx context.Context, filter Filter) (uint64, error) {
-	resp, err := d.client.DeleteBinaryDataByFilter(ctx, &pb.DeleteBinaryDataByFilterRequest{
+	resp, err := d.dataClient.DeleteBinaryDataByFilter(ctx, &pb.DeleteBinaryDataByFilterRequest{
 		Filter:              filterToProto(filter),
 		IncludeInternalData: true,
 	})
@@ -646,7 +648,7 @@ func (d *DataClient) DeleteBinaryDataByFilter(ctx context.Context, filter Filter
 // DeleteBinaryDataByIDs deletes binary data based on given IDs.
 // It returns the number of binary datapoints deleted.
 func (d *DataClient) DeleteBinaryDataByIDs(ctx context.Context, binaryIDs []BinaryID) (uint64, error) {
-	resp, err := d.client.DeleteBinaryDataByIDs(ctx, &pb.DeleteBinaryDataByIDsRequest{
+	resp, err := d.dataClient.DeleteBinaryDataByIDs(ctx, &pb.DeleteBinaryDataByIDsRequest{
 		BinaryIds: binaryIDsToProto(binaryIDs),
 	})
 	if err != nil {
@@ -657,7 +659,7 @@ func (d *DataClient) DeleteBinaryDataByIDs(ctx context.Context, binaryIDs []Bina
 
 // AddTagsToBinaryDataByIDs adds string tags, unless the tags are already present, to binary data based on given IDs.
 func (d *DataClient) AddTagsToBinaryDataByIDs(ctx context.Context, tags []string, binaryIDs []BinaryID) error {
-	_, err := d.client.AddTagsToBinaryDataByIDs(ctx, &pb.AddTagsToBinaryDataByIDsRequest{
+	_, err := d.dataClient.AddTagsToBinaryDataByIDs(ctx, &pb.AddTagsToBinaryDataByIDsRequest{
 		BinaryIds: binaryIDsToProto(binaryIDs),
 		Tags:      tags,
 	})
@@ -666,7 +668,7 @@ func (d *DataClient) AddTagsToBinaryDataByIDs(ctx context.Context, tags []string
 
 // AddTagsToBinaryDataByFilter adds string tags, unless the tags are already present, to binary data based on the given filter.
 func (d *DataClient) AddTagsToBinaryDataByFilter(ctx context.Context, tags []string, filter Filter) error {
-	_, err := d.client.AddTagsToBinaryDataByFilter(ctx, &pb.AddTagsToBinaryDataByFilterRequest{
+	_, err := d.dataClient.AddTagsToBinaryDataByFilter(ctx, &pb.AddTagsToBinaryDataByFilterRequest{
 		Filter: filterToProto(filter),
 		Tags:   tags,
 	})
@@ -678,7 +680,7 @@ func (d *DataClient) AddTagsToBinaryDataByFilter(ctx context.Context, tags []str
 func (d *DataClient) RemoveTagsFromBinaryDataByIDs(ctx context.Context,
 	tags []string, binaryIDs []BinaryID,
 ) (uint64, error) {
-	resp, err := d.client.RemoveTagsFromBinaryDataByIDs(ctx, &pb.RemoveTagsFromBinaryDataByIDsRequest{
+	resp, err := d.dataClient.RemoveTagsFromBinaryDataByIDs(ctx, &pb.RemoveTagsFromBinaryDataByIDsRequest{
 		BinaryIds: binaryIDsToProto(binaryIDs),
 		Tags:      tags,
 	})
@@ -693,7 +695,7 @@ func (d *DataClient) RemoveTagsFromBinaryDataByIDs(ctx context.Context,
 func (d *DataClient) RemoveTagsFromBinaryDataByFilter(ctx context.Context,
 	tags []string, filter Filter,
 ) (uint64, error) {
-	resp, err := d.client.RemoveTagsFromBinaryDataByFilter(ctx, &pb.RemoveTagsFromBinaryDataByFilterRequest{
+	resp, err := d.dataClient.RemoveTagsFromBinaryDataByFilter(ctx, &pb.RemoveTagsFromBinaryDataByFilterRequest{
 		Filter: filterToProto(filter),
 		Tags:   tags,
 	})
@@ -706,7 +708,7 @@ func (d *DataClient) RemoveTagsFromBinaryDataByFilter(ctx context.Context,
 // TagsByFilter retrieves all unique tags associated with the data that match the specified filter.
 // It returns the list of these unique tags.
 func (d *DataClient) TagsByFilter(ctx context.Context, filter Filter) ([]string, error) {
-	resp, err := d.client.TagsByFilter(ctx, &pb.TagsByFilterRequest{
+	resp, err := d.dataClient.TagsByFilter(ctx, &pb.TagsByFilterRequest{
 		Filter: filterToProto(filter),
 	})
 	if err != nil {
@@ -727,7 +729,7 @@ func (d *DataClient) AddBoundingBoxToImageByID(
 	xMaxNormalized float64,
 	yMaxNormalized float64,
 ) (string, error) {
-	resp, err := d.client.AddBoundingBoxToImageByID(ctx, &pb.AddBoundingBoxToImageByIDRequest{
+	resp, err := d.dataClient.AddBoundingBoxToImageByID(ctx, &pb.AddBoundingBoxToImageByIDRequest{
 		BinaryId:       binaryIDToProto(binaryID),
 		Label:          label,
 		XMinNormalized: xMinNormalized,
@@ -747,7 +749,7 @@ func (d *DataClient) RemoveBoundingBoxFromImageByID(
 	bboxID string,
 	binaryID BinaryID,
 ) error {
-	_, err := d.client.RemoveBoundingBoxFromImageByID(ctx, &pb.RemoveBoundingBoxFromImageByIDRequest{
+	_, err := d.dataClient.RemoveBoundingBoxFromImageByID(ctx, &pb.RemoveBoundingBoxFromImageByIDRequest{
 		BinaryId: binaryIDToProto(binaryID),
 		BboxId:   bboxID,
 	})
@@ -757,7 +759,7 @@ func (d *DataClient) RemoveBoundingBoxFromImageByID(
 // BoundingBoxLabelsByFilter retrieves all unique string labels for bounding boxes that match the specified filter.
 // It returns a list of these labels.
 func (d *DataClient) BoundingBoxLabelsByFilter(ctx context.Context, filter Filter) ([]string, error) {
-	resp, err := d.client.BoundingBoxLabelsByFilter(ctx, &pb.BoundingBoxLabelsByFilterRequest{
+	resp, err := d.dataClient.BoundingBoxLabelsByFilter(ctx, &pb.BoundingBoxLabelsByFilterRequest{
 		Filter: filterToProto(filter),
 	})
 	if err != nil {
@@ -778,7 +780,7 @@ func (d *DataClient) UpdateBoundingBox(ctx context.Context,
 	xMaxNormalized *float64, // optional
 	yMaxNormalized *float64, // optional
 ) error {
-	_, err := d.client.UpdateBoundingBox(ctx, &pb.UpdateBoundingBoxRequest{
+	_, err := d.dataClient.UpdateBoundingBox(ctx, &pb.UpdateBoundingBoxRequest{
 		BinaryId:       binaryIDToProto(binaryID),
 		BboxId:         bboxID,
 		Label:          label,
@@ -794,7 +796,7 @@ func (d *DataClient) UpdateBoundingBox(ctx context.Context,
 // It returns the hostname endpoint, a URI for connecting to the database via MongoDB clients,
 // and a flag indicating whether a database user is configured for the Viam organization.
 func (d *DataClient) GetDatabaseConnection(ctx context.Context, organizationID string) (DatabaseConnReturn, error) {
-	resp, err := d.client.GetDatabaseConnection(ctx, &pb.GetDatabaseConnectionRequest{
+	resp, err := d.dataClient.GetDatabaseConnection(ctx, &pb.GetDatabaseConnectionRequest{
 		OrganizationId: organizationID,
 	})
 	if err != nil {
@@ -813,7 +815,7 @@ func (d *DataClient) ConfigureDatabaseUser(
 	organizationID string,
 	password string,
 ) error {
-	_, err := d.client.ConfigureDatabaseUser(ctx, &pb.ConfigureDatabaseUserRequest{
+	_, err := d.dataClient.ConfigureDatabaseUser(ctx, &pb.ConfigureDatabaseUserRequest{
 		OrganizationId: organizationID,
 		Password:       password,
 	})
@@ -826,7 +828,7 @@ func (d *DataClient) AddBinaryDataToDatasetByIDs(
 	binaryIDs []BinaryID,
 	datasetID string,
 ) error {
-	_, err := d.client.AddBinaryDataToDatasetByIDs(ctx, &pb.AddBinaryDataToDatasetByIDsRequest{
+	_, err := d.dataClient.AddBinaryDataToDatasetByIDs(ctx, &pb.AddBinaryDataToDatasetByIDsRequest{
 		BinaryIds: binaryIDsToProto(binaryIDs),
 		DatasetId: datasetID,
 	})
@@ -839,7 +841,7 @@ func (d *DataClient) RemoveBinaryDataFromDatasetByIDs(
 	binaryIDs []BinaryID,
 	datasetID string,
 ) error {
-	_, err := d.client.RemoveBinaryDataFromDatasetByIDs(ctx, &pb.RemoveBinaryDataFromDatasetByIDsRequest{
+	_, err := d.dataClient.RemoveBinaryDataFromDatasetByIDs(ctx, &pb.RemoveBinaryDataFromDatasetByIDsRequest{
 		BinaryIds: binaryIDsToProto(binaryIDs),
 		DatasetId: datasetID,
 	})
