@@ -160,8 +160,6 @@ require (
 	github.com/bufbuild/protoyaml-go v0.1.8 // indirect
 	github.com/butuzov/ireturn v0.3.0 // indirect
 	github.com/butuzov/mirror v1.2.0 // indirect
-	github.com/bytedance/sonic v1.12.2 // indirect
-	github.com/bytedance/sonic/loader v0.2.1 // indirect
 	github.com/campoy/embedmd v1.0.0 // indirect
 	github.com/catenacyber/perfsprint v0.7.1 // indirect
 	github.com/catppuccin/go v0.2.0 // indirect
