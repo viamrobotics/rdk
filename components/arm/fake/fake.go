@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-	// xarm "github.com/viam-modules/viam-ufactory-xarm/arm"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/eva"
