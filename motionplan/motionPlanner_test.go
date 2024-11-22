@@ -450,7 +450,7 @@ func makeTestFS(t *testing.T) frame.FrameSystem {
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(gantryY, gantryX)
 
-	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fakexarm6_kinematics_test.json"), "")
+	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/xarm6_kinematics_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(modelXarm, gantryY)
 
@@ -584,7 +584,7 @@ func TestMultiArmSolve(t *testing.T) {
 
 func TestReachOverArm(t *testing.T) {
 	// setup frame system with an xarm
-	xarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fakexarm6_kinematics_test.json"), "")
+	xarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/xarm6_kinematics_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	offset, err := frame.NewStaticFrame("offset", spatialmath.NewPoseFromPoint(r3.Vector{X: -500, Y: 200}))
 	test.That(t, err, test.ShouldBeNil)
