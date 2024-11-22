@@ -519,12 +519,14 @@ func (d *DataClient) TabularDataByFilter(
 	}
 	// TabularData contains tabular data and associated metadata
 	dataArray := []TabularData{}
+	var metadata *pb.CaptureMetadata
 	for _, data := range resp.Data {
-		metadata := pb.CaptureMetadata{}
 		if int(data.MetadataIndex) < len(resp.Metadata) {
-			metadata = *resp.Metadata[data.MetadataIndex]
+			metadata = resp.Metadata[data.MetadataIndex]
+		} else {
+			metadata = &pb.CaptureMetadata{}
 		}
-		dataArray = append(dataArray, tabularDataFromProto(data, &metadata))
+		dataArray = append(dataArray, tabularDataFromProto(data, metadata))
 	}
 
 	return TabularDataReturn{
