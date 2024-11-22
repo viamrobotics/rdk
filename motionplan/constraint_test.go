@@ -52,7 +52,7 @@ func TestConstraintPath(t *testing.T) {
 	homePos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
 	toPos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 1})
 
-	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("services/motion/data/xarm6_kinematics_test.json"), "")
+	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/xarm6_kinematics_test.json"), "")
 
 	test.That(t, err, test.ShouldBeNil)
 	ci := &ik.Segment{StartConfiguration: homePos, EndConfiguration: toPos, Frame: modelXarm}
@@ -139,7 +139,7 @@ func TestLineFollow(t *testing.T) {
 
 	fs := frame.NewEmptyFrameSystem("test")
 
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("services/motion/data/xarm7_kinematics_test.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/xarm7_kinematics_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	err = fs.AddFrame(m, fs.World())
@@ -210,7 +210,7 @@ func TestCollisionConstraints(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// setup zero position as reference CollisionGraph and use it in handler
-	model, err := frame.ParseModelJSONFile(utils.ResolveFile("services/motion/data/xarm6_kinematics_test.json"), "")
+	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/xarm6_kinematics_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs := frame.NewEmptyFrameSystem("test")
 	err = fs.AddFrame(model, fs.Frame(frame.World))
@@ -278,7 +278,7 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	test.That(b, err, test.ShouldBeNil)
 
 	// setup zero position as reference CollisionGraph and use it in handler
-	model, err := frame.ParseModelJSONFile(utils.ResolveFile("services/motion/data/xarm6_kinematics_test.json"), "")
+	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/xarm6_kinematics_test.json"), "")
 	test.That(b, err, test.ShouldBeNil)
 	fs := frame.NewEmptyFrameSystem("test")
 	err = fs.AddFrame(model, fs.Frame(frame.World))

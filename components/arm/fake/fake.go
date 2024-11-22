@@ -4,11 +4,12 @@ package fake
 import (
 	"context"
 	_ "embed"
+	"fmt"
 	"strings"
 	"sync"
 
 	"github.com/pkg/errors"
-	xarm "github.com/viam-modules/viam-ufactory-xarm/arm"
+	// xarm "github.com/viam-modules/viam-ufactory-xarm/arm"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/eva"
@@ -34,6 +35,21 @@ var fakejson []byte
 
 //go:embed dofbot.json
 var dofbotjson []byte
+
+//go:embed xarm6_kinematics_test.json
+var xArm6modeljson []byte
+
+//go:embed xarm7_kinematics_test.json
+var xArm7modeljson []byte
+
+//go:embed lite6_kinematics_test.json
+var lite6modeljson []byte
+
+const (
+	xArmModelName6DOF = "xArm6"
+	xArmModelName7DOF = "xArm7"
+	xArmModelNameLite = "lite6"
+)
 
 // Config is used for converting config attributes.
 type Config struct {
@@ -256,8 +272,8 @@ func (a *Arm) Geometries(ctx context.Context, extra map[string]interface{}) ([]s
 
 func modelFromName(model, name string) (referenceframe.Model, error) {
 	switch model {
-	case xarm.ModelName6DOF, xarm.ModelName7DOF, xarm.ModelNameLite:
-		return xarm.MakeModelFrame(name, model)
+	case xArmModelName6DOF, xArmModelName7DOF, xArmModelNameLite:
+		return xArmMakeModelFrame(name, model)
 	case ur.Model.Name:
 		return ur.MakeModelFrame(name)
 	case eva.Model.Name:
@@ -279,5 +295,19 @@ func modelFromPath(modelPath, name string) (referenceframe.Model, error) {
 		return referenceframe.ParseModelJSONFile(modelPath, name)
 	default:
 		return nil, errors.New("only files with .json and .urdf file extensions are supported")
+	}
+}
+
+// xArmMakeModelFrame returns the kinematics model of the xarm arm, which has all Frame information.
+func xArmMakeModelFrame(name, modelName string) (referenceframe.Model, error) {
+	switch modelName {
+	case xArmModelName6DOF:
+		return referenceframe.UnmarshalModelJSON(xArm6modeljson, name)
+	case xArmModelNameLite:
+		return referenceframe.UnmarshalModelJSON(lite6modeljson, name)
+	case xArmModelName7DOF:
+		return referenceframe.UnmarshalModelJSON(xArm7modeljson, name)
+	default:
+		return nil, fmt.Errorf("no kinematics information for xarm of model %s", modelName)
 	}
 }
