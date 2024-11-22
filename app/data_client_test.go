@@ -33,7 +33,7 @@ const (
 	bboxLabel     = "bbox_label"
 	tag           = "tag"
 	fileName      = "file_name"
-	fileExt       = "file_ext.ext"
+	fileExt       = ".file_ext.ext"
 	datasetID     = "dataset_id"
 	binaryMetaID  = "binary_id"
 	mongodbURI    = "mongo_uri"
