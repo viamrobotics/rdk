@@ -5,8 +5,6 @@ import (
 	"context"
 	"fmt"
 	"image"
-	"sync"
-	"time"
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -28,12 +26,6 @@ type serviceServer struct {
 	coll     resource.APIResourceCollection[Camera]
 	imgTypes map[string]ImageType
 	logger   logging.Logger
-
-	lastImageTime     map[string]time.Time
-	imageCount        map[string]int64
-	imageMutex        sync.RWMutex
-	runningFrequency  map[string]float64
-	alpha             float64
 }
 
 // NewRPCServiceServer constructs an camera gRPC service server.
@@ -41,7 +33,11 @@ type serviceServer struct {
 func NewRPCServiceServer(coll resource.APIResourceCollection[Camera]) interface{} {
 	logger := logging.NewLogger("camserver")
 	imgTypes := make(map[string]ImageType)
-	return &serviceServer{coll: coll, logger: logger, imgTypes: imgTypes, lastImageTime: make(map[string]time.Time), imageCount: make(map[string]int64), runningFrequency: make(map[string]float64), alpha: 0.1}
+	return &serviceServer{
+		coll:     coll,
+		logger:   logger,
+		imgTypes: imgTypes,
+	}
 }
 
 // GetImage returns an image from a camera of the underlying robot. If a specific MIME type
@@ -86,29 +82,6 @@ func (s *serviceServer) GetImage(
 	if len(resBytes) == 0 {
 		return nil, fmt.Errorf("received empty bytes from Image method of %s", req.Name)
 	}
-
-	// Calculate and update frequency statistics
-	s.imageMutex.Lock()
-	now := time.Now()
-	if !s.lastImageTime[req.Name].IsZero() {
-		elapsed := now.Sub(s.lastImageTime[req.Name]).Seconds()
-		if elapsed > 0 {
-			frequency := 1.0 / elapsed
-			if s.runningFrequency[req.Name] == 0 {
-				s.runningFrequency[req.Name] = frequency
-			} else {
-				s.runningFrequency[req.Name] = s.alpha*frequency + (1-s.alpha)*s.runningFrequency[req.Name]
-			}
-			s.logger.Infow("image capture frequency", 
-				"camera", req.Name,
-				"frequency_hz", frequency, 
-				"running_average_hz", s.runningFrequency[req.Name],
-				"total_images", s.imageCount[req.Name])
-		}
-	}
-	s.lastImageTime[req.Name] = now
-	s.imageCount[req.Name]++
-	s.imageMutex.Unlock()
 
 	actualMIME, _ := utils.CheckLazyMIMEType(resMetadata.MimeType)
 	return &pb.GetImageResponse{MimeType: actualMIME, Image: resBytes}, nil
