@@ -348,7 +348,7 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 
 	// create the module's data directory
 	if mod.dataDir != "" {
-		mgr.logger.Infof("Creating data directory %q for module %q", mod.dataDir, mod.cfg.Name)
+		mgr.logger.Debugf("Creating data directory %q for module %q", mod.dataDir, mod.cfg.Name)
 		if err := os.MkdirAll(mod.dataDir, 0o750); err != nil {
 			return errors.WithMessage(err, "error while creating data directory for module "+mod.cfg.Name)
 		}
@@ -1121,7 +1121,7 @@ func (m *module) startProcess(
 	moduleWorkingDirectory, ok := moduleEnvironment["VIAM_MODULE_ROOT"]
 	if !ok {
 		moduleWorkingDirectory = filepath.Dir(absoluteExePath)
-		logger.CWarnw(ctx, "VIAM_MODULE_ROOT was not passed to module. Defaulting to module's working directory",
+		logger.CDebugw(ctx, "VIAM_MODULE_ROOT was not passed to module. Defaulting to module's working directory",
 			"module", m.cfg.Name, "dir", moduleWorkingDirectory)
 	} else {
 		logger.CInfow(ctx, "Starting module in working directory", "module", m.cfg.Name, "dir", moduleWorkingDirectory)

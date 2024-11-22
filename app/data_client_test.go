@@ -2,16 +2,19 @@ package app
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	pb "go.viam.com/api/app/data/v1"
+	syncPb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
 	utils "go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -31,15 +34,18 @@ const (
 	bboxLabel      = "bbox_label"
 	tag            = "tag"
 	fileName       = "file_name"
-	fileExt        = "file_ext.ext"
+	fileExt        = ".ext"
 	datasetID      = "dataset_id"
 	binaryMetaID   = "binary_id"
 	mongodbURI     = "mongo_uri"
 	hostName       = "host_name"
 	last           = "last"
+	fileID         = "file_id"
 )
 
 var (
+	binaryDataType      = DataTypeBinarySensor
+	tabularDataType     = DataTypeTabularSensor
 	locationIDs         = []string{locationID}
 	orgIDs              = []string{organizationID}
 	mimeTypes           = []string{mimeType}
@@ -48,12 +54,39 @@ var (
 	tags                = []string{tag}
 	startTime           = time.Now().UTC().Round(time.Millisecond)
 	endTime             = time.Now().UTC().Round(time.Millisecond)
+	dataRequestTimes    = [2]time.Time{startTime, endTime}
 	count               = uint64(5)
 	limit               = uint64(5)
 	countOnly           = true
 	includeInternalData = true
 	data                = map[string]interface{}{
 		"key": "value",
+	}
+	fileNamePtr      = fileName
+	fileExtPtr       = fileExt
+	componentTypePtr = componentType
+	componentNamePtr = componentName
+	methodNamePtr    = method
+	tabularMetadata  = CaptureMetadata{
+		OrganizationID:   organizationID,
+		LocationID:       locationID,
+		RobotName:        robotName,
+		RobotID:          robotID,
+		PartName:         partName,
+		PartID:           partID,
+		ComponentType:    componentType,
+		ComponentName:    componentName,
+		MethodName:       method,
+		MethodParameters: methodParameters,
+		Tags:             tags,
+		MimeType:         mimeType,
+	}
+	tabularData = TabularData{
+		Data:          data,
+		MetadataIndex: 0,
+		Metadata:      tabularMetadata,
+		TimeRequested: startTime,
+		TimeReceived:  endTime,
 	}
 	binaryID = BinaryID{
 		FileID:         "file1",
@@ -106,27 +139,31 @@ var (
 	}
 )
 
-func annotationsToProto(annotations Annotations) *pb.Annotations {
-	var protoBboxes []*pb.BoundingBox
-	for _, bbox := range annotations.Bboxes {
-		protoBboxes = append(protoBboxes, &pb.BoundingBox{
-			Id:             bbox.ID,
-			Label:          bbox.Label,
-			XMinNormalized: bbox.XMinNormalized,
-			YMinNormalized: bbox.YMinNormalized,
-			XMaxNormalized: bbox.XMaxNormalized,
-			YMaxNormalized: bbox.YMaxNormalized,
-		})
-	}
-	return &pb.Annotations{
-		Bboxes: protoBboxes,
-	}
-}
-
 func binaryDataToProto(binaryData BinaryData) *pb.BinaryData {
 	return &pb.BinaryData{
 		Binary:   binaryData.Binary,
 		Metadata: binaryMetadataToProto(binaryData.Metadata),
+	}
+}
+
+func captureMetadataToProto(metadata CaptureMetadata) *pb.CaptureMetadata {
+	methodParams, err := protoutils.ConvertMapToProtoAny(metadata.MethodParameters)
+	if err != nil {
+		return nil
+	}
+	return &pb.CaptureMetadata{
+		OrganizationId:   metadata.OrganizationID,
+		LocationId:       metadata.LocationID,
+		RobotName:        metadata.RobotName,
+		RobotId:          metadata.RobotID,
+		PartName:         metadata.PartName,
+		PartId:           metadata.PartID,
+		ComponentType:    metadata.ComponentType,
+		ComponentName:    metadata.ComponentName,
+		MethodName:       metadata.MethodName,
+		MethodParameters: methodParams,
+		Tags:             metadata.Tags,
+		MimeType:         metadata.MimeType,
 	}
 }
 
@@ -157,9 +194,13 @@ func createGrpcClient() *inject.DataServiceClient {
 	return &inject.DataServiceClient{}
 }
 
+func createGrpcDataSyncClient() *inject.DataSyncServiceClient {
+	return &inject.DataSyncServiceClient{}
+}
+
 func TestDataClient(t *testing.T) {
 	grpcClient := createGrpcClient()
-	client := DataClient{client: grpcClient}
+	client := DataClient{dataClient: grpcClient}
 
 	captureInterval := CaptureInterval{
 		Start: time.Now(),
@@ -187,21 +228,6 @@ func TestDataClient(t *testing.T) {
 		DatasetID:       datasetID,
 	}
 
-	tabularMetadata := CaptureMetadata{
-		OrganizationID:   organizationID,
-		LocationID:       locationID,
-		RobotName:        robotName,
-		RobotID:          robotID,
-		PartName:         partName,
-		PartID:           partID,
-		ComponentType:    componentType,
-		ComponentName:    componentName,
-		MethodName:       method,
-		MethodParameters: methodParameters,
-		Tags:             tags,
-		MimeType:         mimeType,
-	}
-
 	binaryMetadata := BinaryMetadata{
 		ID:              binaryMetaID,
 		CaptureMetadata: tabularMetadata,
@@ -227,13 +253,6 @@ func TestDataClient(t *testing.T) {
 	}
 
 	t.Run("TabularDataByFilter", func(t *testing.T) {
-		tabularData := TabularData{
-			Data:          data,
-			MetadataIndex: 0,
-			Metadata:      tabularMetadata,
-			TimeRequested: startTime,
-			TimeReceived:  endTime,
-		}
 		dataStruct, _ := utils.StructToStructPb(data)
 		tabularDataPb := &pb.TabularData{
 			Data:          dataStruct,
@@ -577,5 +596,263 @@ func TestDataClient(t *testing.T) {
 			return &pb.RemoveBinaryDataFromDatasetByIDsResponse{}, nil
 		}
 		client.RemoveBinaryDataFromDatasetByIDs(context.Background(), binaryIDs, datasetID)
+	})
+}
+
+func TestDataSyncClient(t *testing.T) {
+	grpcClient := createGrpcDataSyncClient()
+	client := DataClient{dataSyncClient: grpcClient}
+
+	uploadMetadata := UploadMetadata{
+		PartID:           partID,
+		ComponentType:    componentType,
+		ComponentName:    componentName,
+		MethodName:       method,
+		Type:             DataTypeBinarySensor,
+		FileName:         fileName,
+		MethodParameters: methodParameters,
+		FileExtension:    fileExt,
+		Tags:             tags,
+	}
+
+	t.Run("BinaryDataCaptureUpload", func(t *testing.T) {
+		uploadMetadata.Type = DataTypeBinarySensor
+		options := BinaryOptions{
+			Type:             &binaryDataType,
+			FileName:         &fileNamePtr,
+			MethodParameters: methodParameters,
+			Tags:             tags,
+			DataRequestTimes: &dataRequestTimes,
+		}
+		grpcClient.DataCaptureUploadFunc = func(ctx context.Context, in *syncPb.DataCaptureUploadRequest,
+			opts ...grpc.CallOption,
+		) (*syncPb.DataCaptureUploadResponse, error) {
+			methodParams, _ := protoutils.ConvertMapToProtoAny(methodParameters)
+
+			test.That(t, in.Metadata.PartId, test.ShouldEqual, partID)
+			test.That(t, in.Metadata.ComponentType, test.ShouldEqual, componentType)
+			test.That(t, in.Metadata.ComponentName, test.ShouldEqual, componentName)
+			test.That(t, in.Metadata.MethodName, test.ShouldEqual, method)
+			test.That(t, in.Metadata.Type, test.ShouldEqual, binaryDataType)
+			test.That(t, in.Metadata.FileName, test.ShouldEqual, fileName)
+			test.That(t, in.Metadata.MethodParameters, test.ShouldResemble, methodParams)
+			test.That(t, in.Metadata.FileExtension, test.ShouldEqual, fileExt)
+			test.That(t, in.Metadata.Tags, test.ShouldResemble, tags)
+
+			test.That(t, in.SensorContents[0].Metadata.TimeRequested, test.ShouldResemble, timestamppb.New(startTime))
+			test.That(t, in.SensorContents[0].Metadata.TimeReceived, test.ShouldResemble, timestamppb.New(endTime))
+			dataField, ok := in.SensorContents[0].Data.(*syncPb.SensorData_Binary)
+			test.That(t, ok, test.ShouldBeTrue)
+			test.That(t, dataField.Binary, test.ShouldResemble, binaryDataByte)
+			return &syncPb.DataCaptureUploadResponse{
+				FileId: fileID,
+			}, nil
+		}
+		resp, _ := client.BinaryDataCaptureUpload(context.Background(),
+			binaryDataByte, partID, componentType, componentName,
+			method, fileExt, &options)
+		test.That(t, resp, test.ShouldResemble, fileID)
+	})
+
+	t.Run("TabularDataCaptureUpload", func(t *testing.T) {
+		uploadMetadata.Type = DataTypeTabularSensor
+		dataStruct, _ := utils.StructToStructPb(data)
+		tabularDataPb := &pb.TabularData{
+			Data:          dataStruct,
+			MetadataIndex: 0,
+			TimeRequested: timestamppb.New(startTime),
+			TimeReceived:  timestamppb.New(endTime),
+		}
+		options := TabularOptions{
+			Type:             &binaryDataType,
+			FileName:         &fileNamePtr,
+			MethodParameters: methodParameters,
+			FileExtension:    &fileExtPtr,
+			Tags:             tags,
+		}
+		grpcClient.DataCaptureUploadFunc = func(ctx context.Context, in *syncPb.DataCaptureUploadRequest,
+			opts ...grpc.CallOption,
+		) (*syncPb.DataCaptureUploadResponse, error) {
+			methodParams, _ := protoutils.ConvertMapToProtoAny(methodParameters)
+
+			test.That(t, in.Metadata.PartId, test.ShouldEqual, partID)
+			test.That(t, in.Metadata.ComponentType, test.ShouldEqual, componentType)
+			test.That(t, in.Metadata.ComponentName, test.ShouldEqual, componentName)
+			test.That(t, in.Metadata.MethodName, test.ShouldEqual, method)
+			test.That(t, in.Metadata.Type, test.ShouldEqual, tabularDataType)
+			test.That(t, in.Metadata.FileName, test.ShouldEqual, fileName)
+			test.That(t, in.Metadata.MethodParameters, test.ShouldResemble, methodParams)
+			test.That(t, in.Metadata.FileExtension, test.ShouldEqual, fileExt)
+			test.That(t, in.Metadata.Tags, test.ShouldResemble, tags)
+
+			test.That(t, in.SensorContents[0].Metadata.TimeRequested, test.ShouldResemble, timestamppb.New(startTime))
+			test.That(t, in.SensorContents[0].Metadata.TimeReceived, test.ShouldResemble, timestamppb.New(endTime))
+			dataField, ok := in.SensorContents[0].Data.(*syncPb.SensorData_Struct)
+			test.That(t, ok, test.ShouldBeTrue)
+			test.That(t, dataField.Struct, test.ShouldResemble, tabularDataPb.Data)
+			return &syncPb.DataCaptureUploadResponse{
+				FileId: fileID,
+			}, nil
+		}
+		tabularData := []map[string]interface{}{data}
+		dataRequestTimes := [][2]time.Time{
+			{startTime, endTime},
+		}
+		resp, _ := client.TabularDataCaptureUpload(context.Background(),
+			tabularData, partID, componentType, componentName, method,
+			dataRequestTimes, &options)
+		test.That(t, resp, test.ShouldResemble, fileID)
+	})
+
+	t.Run("StreamingDataCaptureUpload", func(t *testing.T) {
+		options := StreamingOptions{
+			ComponentType:    &componentTypePtr,
+			ComponentName:    &componentNamePtr,
+			MethodName:       &methodNamePtr,
+			Type:             &binaryDataType,
+			FileName:         &fileNamePtr,
+			MethodParameters: methodParameters,
+			Tags:             tags,
+			DataRequestTimes: &dataRequestTimes,
+		}
+		// Mock implementation of the streaming client.
+		mockStream := &inject.DataSyncServiceStreamingDataCaptureUploadClient{
+			SendFunc: func(req *syncPb.StreamingDataCaptureUploadRequest) error {
+				switch packet := req.UploadPacket.(type) {
+				case *syncPb.StreamingDataCaptureUploadRequest_Metadata:
+					meta := packet.Metadata
+					test.That(t, meta.UploadMetadata.PartId, test.ShouldEqual, partID)
+					test.That(t, meta.UploadMetadata.FileExtension, test.ShouldEqual, fileExt)
+					test.That(t, meta.UploadMetadata.ComponentType, test.ShouldEqual, componentType)
+					test.That(t, meta.UploadMetadata.ComponentName, test.ShouldEqual, componentName)
+					test.That(t, meta.UploadMetadata.MethodName, test.ShouldEqual, method)
+					test.That(t, meta.UploadMetadata.Tags, test.ShouldResemble, tags)
+					test.That(t, meta.SensorMetadata.TimeRequested, test.ShouldResemble, timestamppb.New(startTime))
+					test.That(t, meta.SensorMetadata.TimeReceived, test.ShouldResemble, timestamppb.New(endTime))
+				case *syncPb.StreamingDataCaptureUploadRequest_Data:
+					test.That(t, packet.Data, test.ShouldResemble, binaryDataByte)
+				default:
+					t.Errorf("unexpected packet type: %T", packet)
+				}
+				return nil
+			},
+			CloseAndRecvFunc: func() (*syncPb.StreamingDataCaptureUploadResponse, error) {
+				return &syncPb.StreamingDataCaptureUploadResponse{
+					FileId: fileID,
+				}, nil
+			},
+		}
+		grpcClient.StreamingDataCaptureUploadFunc = func(ctx context.Context,
+			opts ...grpc.CallOption,
+		) (syncPb.DataSyncService_StreamingDataCaptureUploadClient, error) {
+			return mockStream, nil
+		}
+		resp, err := client.StreamingDataCaptureUpload(context.Background(), binaryDataByte, partID, fileExt, &options)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldEqual, fileID)
+	})
+	t.Run("FileUploadFromBytes", func(t *testing.T) {
+		options := FileUploadOptions{
+			ComponentType:    &componentTypePtr,
+			ComponentName:    &componentNamePtr,
+			MethodName:       &methodNamePtr,
+			FileName:         &fileNamePtr,
+			MethodParameters: methodParameters,
+			FileExtension:    &fileExtPtr,
+			Tags:             tags,
+		}
+		// Mock implementation of the streaming client.
+		//nolint:dupl
+		mockStream := &inject.DataSyncServiceFileUploadClient{
+			SendFunc: func(req *syncPb.FileUploadRequest) error {
+				switch packet := req.UploadPacket.(type) {
+				case *syncPb.FileUploadRequest_Metadata:
+					methodParams, _ := protoutils.ConvertMapToProtoAny(methodParameters)
+					meta := packet.Metadata
+					test.That(t, meta.PartId, test.ShouldEqual, partID)
+					test.That(t, meta.ComponentType, test.ShouldEqual, componentType)
+					test.That(t, meta.ComponentName, test.ShouldEqual, componentName)
+					test.That(t, meta.MethodName, test.ShouldEqual, method)
+					test.That(t, meta.Type, test.ShouldEqual, DataTypeFile)
+					test.That(t, meta.FileName, test.ShouldEqual, fileName)
+					test.That(t, meta.MethodParameters, test.ShouldResemble, methodParams)
+					test.That(t, meta.FileExtension, test.ShouldEqual, fileExt)
+					test.That(t, meta.Tags, test.ShouldResemble, tags)
+				case *syncPb.FileUploadRequest_FileContents:
+					test.That(t, packet.FileContents.Data, test.ShouldResemble, binaryDataByte)
+				default:
+					t.Errorf("unexpected packet type: %T", packet)
+				}
+				return nil
+			},
+			CloseAndRecvFunc: func() (*syncPb.FileUploadResponse, error) {
+				return &syncPb.FileUploadResponse{
+					FileId: fileID,
+				}, nil
+			},
+		}
+		grpcClient.FileUploadFunc = func(ctx context.Context,
+			opts ...grpc.CallOption,
+		) (syncPb.DataSyncService_FileUploadClient, error) {
+			return mockStream, nil
+		}
+		resp, err := client.FileUploadFromBytes(context.Background(), partID, binaryDataByte, &options)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldEqual, fileID)
+	})
+
+	t.Run("FileUploadFromPath", func(t *testing.T) {
+		options := FileUploadOptions{
+			ComponentType:    &componentTypePtr,
+			ComponentName:    &componentNamePtr,
+			MethodName:       &methodNamePtr,
+			FileName:         &fileNamePtr,
+			MethodParameters: methodParameters,
+			FileExtension:    &fileExtPtr,
+			Tags:             tags,
+		}
+		// Create a temporary file for testing
+		tempContent := []byte("test file content")
+		tempFile, err := os.CreateTemp("", "test-upload-*.txt")
+		test.That(t, err, test.ShouldBeNil)
+		defer os.Remove(tempFile.Name())
+		// Mock implementation of the streaming client.
+		//nolint:dupl
+		mockStream := &inject.DataSyncServiceFileUploadClient{
+			SendFunc: func(req *syncPb.FileUploadRequest) error {
+				switch packet := req.UploadPacket.(type) {
+				case *syncPb.FileUploadRequest_Metadata:
+					methodParams, _ := protoutils.ConvertMapToProtoAny(methodParameters)
+					meta := packet.Metadata
+					test.That(t, meta.PartId, test.ShouldEqual, partID)
+					test.That(t, meta.ComponentType, test.ShouldEqual, componentType)
+					test.That(t, meta.ComponentName, test.ShouldEqual, componentName)
+					test.That(t, meta.MethodName, test.ShouldEqual, method)
+					test.That(t, meta.Type, test.ShouldEqual, DataTypeFile)
+					test.That(t, meta.FileName, test.ShouldEqual, fileName)
+					test.That(t, meta.MethodParameters, test.ShouldResemble, methodParams)
+					test.That(t, meta.FileExtension, test.ShouldEqual, fileExt)
+					test.That(t, meta.Tags, test.ShouldResemble, tags)
+				case *syncPb.FileUploadRequest_FileContents:
+					test.That(t, packet.FileContents.Data, test.ShouldResemble, tempContent)
+				default:
+					t.Errorf("unexpected packet type: %T", packet)
+				}
+				return nil
+			},
+			CloseAndRecvFunc: func() (*syncPb.FileUploadResponse, error) {
+				return &syncPb.FileUploadResponse{
+					FileId: fileID,
+				}, nil
+			},
+		}
+		grpcClient.FileUploadFunc = func(ctx context.Context,
+			opts ...grpc.CallOption,
+		) (syncPb.DataSyncService_FileUploadClient, error) {
+			return mockStream, nil
+		}
+		resp, err := client.FileUploadFromPath(context.Background(), partID, tempFile.Name(), &options)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldEqual, fileID)
 	})
 }

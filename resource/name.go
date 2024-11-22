@@ -141,14 +141,6 @@ func (n Name) String() string {
 	return name
 }
 
-// RemoteNameToRemoteArray returns an ordered array of all of remotes in a resource name.
-func (n Name) RemoteNameToRemoteArray() []string {
-	if n.Remote == "" {
-		return []string{}
-	}
-	return strings.Split(n.Remote, ":")
-}
-
 // SDPTrackName returns a valid SDP video/audio track name as defined in RFC 4566 (https://www.rfc-editor.org/rfc/rfc4566)
 // where track names should not include colons.
 func (n Name) SDPTrackName() string {
