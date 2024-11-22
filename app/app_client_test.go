@@ -231,7 +231,7 @@ var (
 			},
 		},
 		CreatedOn:  location.CreatedOn,
-		RobotCount: location.RobotCount,
+		RobotCount: int32(location.RobotCount),
 		Config: &pb.StorageConfig{
 			Region: storageConfig.Region,
 		},
@@ -296,17 +296,17 @@ var (
 		Secrets:          pbSecrets,
 		LastUpdated:      robotPart.LastUpdated,
 	}
-	pageToken        = "page_token"
-	levels           = []string{level}
-	start            = timestamppb.Timestamp{Seconds: 92, Nanos: 0}
-	end              = timestamppb.Timestamp{Seconds: 99, Nanos: 999}
-	int64Limit int64 = 2
-	source           = "source"
-	filter           = "filter"
-	timestamp        = timestamppb.Timestamp{Seconds: 11, Nanos: 15}
-	caller           = map[string]interface{}{"name": name}
-	field            = map[string]interface{}{"key": "value"}
-	logEntry         = LogEntry{
+	pageToken  = "page_token"
+	levels     = []string{level}
+	start      = timestamppb.Timestamp{Seconds: 92, Nanos: 0}
+	end        = timestamppb.Timestamp{Seconds: 99, Nanos: 999}
+	int64Limit = 2
+	source     = "source"
+	filter     = "filter"
+	timestamp  = timestamppb.Timestamp{Seconds: 11, Nanos: 15}
+	caller     = map[string]interface{}{"name": name}
+	field      = map[string]interface{}{"key": "value"}
+	logEntry   = LogEntry{
 		Host:       host,
 		Level:      level,
 		Time:       &timestamp,
@@ -410,8 +410,8 @@ var (
 		Public:            fragment.Public,
 		CreatedOn:         fragment.CreatedOn,
 		OrganizationName:  fragment.OrganizationName,
-		RobotPartCount:    fragment.RobotPartCount,
-		OrganizationCount: fragment.OrganizationCount,
+		RobotPartCount:    int32(fragment.RobotPartCount),
+		OrganizationCount: int32(fragment.OrganizationCount),
 		OnlyUsedByOwner:   fragment.OnlyUsedByOwner,
 		Visibility:        pbFragmentVisibility,
 		LastUpdated:       fragment.LastUpdated,
@@ -526,8 +526,8 @@ var (
 		Url:                    module.URL,
 		Description:            module.Description,
 		Models:                 pbModels,
-		TotalRobotUsage:        module.TotalRobotUsage,
-		TotalOrganizationUsage: module.TotalOrganizationUsage,
+		TotalRobotUsage:        int64(module.TotalRobotUsage),
+		TotalOrganizationUsage: int64(module.TotalOrganizationUsage),
 		OrganizationId:         module.OrganizationID,
 		Entrypoint:             module.Entrypoint,
 		PublicNamespace:        module.PublicNamespace,
@@ -639,10 +639,10 @@ func registryItemToProto(item *RegistryItem) (*pb.RegistryItem, error) {
 			Visibility:                     visibilityToProto(item.Visibility),
 			Url:                            item.URL,
 			Description:                    item.Description,
-			TotalRobotUsage:                item.TotalRobotUsage,
-			TotalExternalRobotUsage:        item.TotalExternalRobotUsage,
-			TotalOrganizationUsage:         item.TotalOrganizationUsage,
-			TotalExternalOrganizationUsage: item.TotalExternalOrganizationUsage,
+			TotalRobotUsage:                int64(item.TotalRobotUsage),
+			TotalExternalRobotUsage:        int64(item.TotalExternalRobotUsage),
+			TotalOrganizationUsage:         int64(item.TotalOrganizationUsage),
+			TotalExternalOrganizationUsage: int64(item.TotalExternalOrganizationUsage),
 			Metadata:                       &pb.RegistryItem_ModuleMetadata{ModuleMetadata: &pb.ModuleMetadata{}},
 			CreatedAt:                      item.CreatedAt,
 			UpdatedAt:                      item.UpdatedAt,
@@ -657,10 +657,10 @@ func registryItemToProto(item *RegistryItem) (*pb.RegistryItem, error) {
 			Visibility:                     visibilityToProto(item.Visibility),
 			Url:                            item.URL,
 			Description:                    item.Description,
-			TotalRobotUsage:                item.TotalRobotUsage,
-			TotalExternalRobotUsage:        item.TotalExternalRobotUsage,
-			TotalOrganizationUsage:         item.TotalOrganizationUsage,
-			TotalExternalOrganizationUsage: item.TotalExternalOrganizationUsage,
+			TotalRobotUsage:                int64(item.TotalRobotUsage),
+			TotalExternalRobotUsage:        int64(item.TotalExternalRobotUsage),
+			TotalOrganizationUsage:         int64(item.TotalOrganizationUsage),
+			TotalExternalOrganizationUsage: int64(item.TotalExternalOrganizationUsage),
 			Metadata:                       &pb.RegistryItem_ModuleMetadata{ModuleMetadata: &pb.ModuleMetadata{}},
 			CreatedAt:                      item.CreatedAt,
 			UpdatedAt:                      item.UpdatedAt,
@@ -676,10 +676,10 @@ func registryItemToProto(item *RegistryItem) (*pb.RegistryItem, error) {
 			Visibility:                     visibilityToProto(item.Visibility),
 			Url:                            item.URL,
 			Description:                    item.Description,
-			TotalRobotUsage:                item.TotalRobotUsage,
-			TotalExternalRobotUsage:        item.TotalExternalRobotUsage,
-			TotalOrganizationUsage:         item.TotalOrganizationUsage,
-			TotalExternalOrganizationUsage: item.TotalExternalOrganizationUsage,
+			TotalRobotUsage:                int64(item.TotalRobotUsage),
+			TotalExternalRobotUsage:        int64(item.TotalExternalRobotUsage),
+			TotalOrganizationUsage:         int64(item.TotalOrganizationUsage),
+			TotalExternalOrganizationUsage: int64(item.TotalExternalOrganizationUsage),
 			Metadata:                       &pb.RegistryItem_MlTrainingMetadata{MlTrainingMetadata: protoMetadata},
 			CreatedAt:                      item.CreatedAt,
 			UpdatedAt:                      item.UpdatedAt,
@@ -1211,7 +1211,7 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.Levels, test.ShouldResemble, levels)
 			test.That(t, in.Start, test.ShouldEqual, &start)
 			test.That(t, in.End, test.ShouldEqual, &end)
-			test.That(t, in.Limit, test.ShouldEqual, &int64Limit)
+			test.That(t, int(*in.Limit), test.ShouldEqual, int64Limit)
 			test.That(t, in.Source, test.ShouldEqual, &source)
 			return &pb.GetRobotPartLogsResponse{
 				Logs:          []*common.LogEntry{&pbLogEntry},
@@ -1510,7 +1510,7 @@ func TestAppClient(t *testing.T) {
 		) (*pb.GetFragmentHistoryResponse, error) {
 			test.That(t, in.Id, test.ShouldEqual, fragmentID)
 			test.That(t, in.PageToken, test.ShouldResemble, &pageToken)
-			test.That(t, in.PageLimit, test.ShouldResemble, &int64Limit)
+			test.That(t, int(*in.PageLimit), test.ShouldResemble, int64Limit)
 			return &pb.GetFragmentHistoryResponse{
 				History: []*pb.FragmentHistoryEntry{
 					{

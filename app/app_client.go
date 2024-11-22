@@ -54,7 +54,7 @@ type GetRobotPartLogsOptions struct {
 	Levels []string
 	Start  *timestamppb.Timestamp
 	End    *timestamppb.Timestamp
-	Limit  *int64
+	Limit  *int
 	Source *string
 }
 
@@ -84,7 +84,7 @@ type ListMachineFragmentsOptions struct {
 // GetFragmentHistoryOptions contains optional parameters for GetFragmentHistory.
 type GetFragmentHistoryOptions struct {
 	PageToken *string
-	PageLimit *int64
+	PageLimit *int
 }
 
 // UpdateRegistryItemOptions contains optional parameters for UpdateRegistryItem.
@@ -549,6 +549,7 @@ func (c *AppClient) GetRobotPart(ctx context.Context, id string) (*RobotPart, st
 
 // GetRobotPartLogs gets the logs associated with a robot part and the next page token.
 func (c *AppClient) GetRobotPartLogs(ctx context.Context, id string, opts *GetRobotPartLogsOptions) ([]*LogEntry, string, error) {
+	limit := int64(*opts.Limit)
 	resp, err := c.client.GetRobotPartLogs(ctx, &pb.GetRobotPartLogsRequest{
 		Id:        id,
 		Filter:    opts.Filter,
@@ -556,7 +557,7 @@ func (c *AppClient) GetRobotPartLogs(ctx context.Context, id string, opts *GetRo
 		Levels:    opts.Levels,
 		Start:     opts.Start,
 		End:       opts.End,
-		Limit:     opts.Limit,
+		Limit:     &limit,
 		Source:    opts.Source,
 	})
 	if err != nil {
@@ -863,10 +864,11 @@ func (c *AppClient) ListMachineFragments(ctx context.Context, machineID string, 
 func (c *AppClient) GetFragmentHistory(
 	ctx context.Context, id string, opts *GetFragmentHistoryOptions,
 ) ([]*FragmentHistoryEntry, string, error) {
+	limit := int64(*opts.PageLimit)
 	resp, err := c.client.GetFragmentHistory(ctx, &pb.GetFragmentHistoryRequest{
 		Id:        id,
 		PageToken: opts.PageToken,
-		PageLimit: opts.PageLimit,
+		PageLimit: &limit,
 	})
 	if err != nil {
 		return nil, "", err

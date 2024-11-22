@@ -19,10 +19,10 @@ type RegistryItem struct {
 	Visibility                     Visibility
 	URL                            string
 	Description                    string
-	TotalRobotUsage                int64
-	TotalExternalRobotUsage        int64
-	TotalOrganizationUsage         int64
-	TotalExternalOrganizationUsage int64
+	TotalRobotUsage                int
+	TotalExternalRobotUsage        int
+	TotalOrganizationUsage         int
+	TotalExternalOrganizationUsage int
 	Metadata                       isRegistryItemMetadata
 	CreatedAt                      *timestamppb.Timestamp
 	UpdatedAt                      *timestamppb.Timestamp
@@ -50,10 +50,10 @@ func registryItemFromProto(item *pb.RegistryItem) (*RegistryItem, error) {
 		Visibility:                     visibilityFromProto(item.Visibility),
 		URL:                            item.Url,
 		Description:                    item.Description,
-		TotalRobotUsage:                item.TotalRobotUsage,
-		TotalExternalRobotUsage:        item.TotalExternalRobotUsage,
-		TotalOrganizationUsage:         item.TotalOrganizationUsage,
-		TotalExternalOrganizationUsage: item.TotalExternalOrganizationUsage,
+		TotalRobotUsage:                int(item.TotalRobotUsage),
+		TotalExternalRobotUsage:        int(item.TotalExternalRobotUsage),
+		TotalOrganizationUsage:         int(item.TotalOrganizationUsage),
+		TotalExternalOrganizationUsage: int(item.TotalExternalOrganizationUsage),
 		Metadata:                       metadata,
 		CreatedAt:                      item.CreatedAt,
 		UpdatedAt:                      item.UpdatedAt,
@@ -61,7 +61,7 @@ func registryItemFromProto(item *pb.RegistryItem) (*RegistryItem, error) {
 }
 
 // RegistryItemStatus specifies if a registry item is published or in development.
-type RegistryItemStatus int32
+type RegistryItemStatus int
 
 const (
 	// RegistryItemStatusUnspecified is an unspecified registry item status.
@@ -85,7 +85,7 @@ func registryItemStatusToProto(status RegistryItemStatus) pb.RegistryItemStatus 
 }
 
 // PackageType is the type of package being used.
-type PackageType int32
+type PackageType int
 
 const (
 	// PackageTypeUnspecified represents an unspecified package type.
@@ -139,7 +139,7 @@ func packageTypeToProto(packageType PackageType) packages.PackageType {
 }
 
 // Visibility specifies the type of visibility of a registry item.
-type Visibility int32
+type Visibility int
 
 const (
 	// VisibilityUnspecified represents an unspecified visibility.
@@ -303,7 +303,7 @@ func mlModelMetadataFromProto(md *pb.MLModelMetadata) *MLModelMetadata {
 }
 
 // ModelType specifies the type of model used for classification or detection.
-type ModelType int32
+type ModelType int
 
 const (
 	// ModelTypeUnspecified represents an unspecified model.
@@ -331,7 +331,7 @@ func modelTypeFromProto(modelType mlTraining.ModelType) ModelType {
 }
 
 // ModelFramework is the framework type of a model.
-type ModelFramework int32
+type ModelFramework int
 
 const (
 	// ModelFrameworkUnspecified is an unspecified model framework.
@@ -405,8 +405,8 @@ type Module struct {
 	URL                    string
 	Description            string
 	Models                 []*Model
-	TotalRobotUsage        int64
-	TotalOrganizationUsage int64
+	TotalRobotUsage        int
+	TotalOrganizationUsage int
 	OrganizationID         string
 	Entrypoint             string
 	PublicNamespace        string
@@ -430,8 +430,8 @@ func moduleFromProto(module *pb.Module) *Module {
 		URL:                    module.Url,
 		Description:            module.Description,
 		Models:                 models,
-		TotalRobotUsage:        module.TotalRobotUsage,
-		TotalOrganizationUsage: module.TotalOrganizationUsage,
+		TotalRobotUsage:        int(module.TotalRobotUsage),
+		TotalOrganizationUsage: int(module.TotalOrganizationUsage),
 		OrganizationID:         module.OrganizationId,
 		Entrypoint:             module.Entrypoint,
 		PublicNamespace:        module.PublicNamespace,

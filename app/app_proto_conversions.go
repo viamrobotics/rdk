@@ -134,7 +134,7 @@ func locationFromProto(location *pb.Location) *Location {
 		Auth:             locationAuthFromProto(location.Auth),
 		Organizations:    organizations,
 		CreatedOn:        location.CreatedOn,
-		RobotCount:       location.RobotCount,
+		RobotCount:       int(location.RobotCount),
 		Config:           storageConfigFromProto(location.Config),
 	}
 }
@@ -318,8 +318,8 @@ type Fragment struct {
 	Public            bool
 	CreatedOn         *timestamppb.Timestamp
 	OrganizationName  string
-	RobotPartCount    int32
-	OrganizationCount int32
+	RobotPartCount    int
+	OrganizationCount int
 	OnlyUsedByOwner   bool
 	Visibility        FragmentVisibility
 	LastUpdated       *timestamppb.Timestamp
@@ -327,6 +327,7 @@ type Fragment struct {
 
 func fragmentFromProto(fragment *pb.Fragment) *Fragment {
 	f := fragment.Fragment.AsMap()
+
 	return &Fragment{
 		ID:                fragment.Id,
 		Name:              fragment.Name,
@@ -335,8 +336,8 @@ func fragmentFromProto(fragment *pb.Fragment) *Fragment {
 		Public:            fragment.Public,
 		CreatedOn:         fragment.CreatedOn,
 		OrganizationName:  fragment.OrganizationName,
-		RobotPartCount:    fragment.RobotPartCount,
-		OrganizationCount: fragment.OrganizationCount,
+		RobotPartCount:    int(fragment.RobotPartCount),
+		OrganizationCount: int(fragment.OrganizationCount),
 		OnlyUsedByOwner:   fragment.OnlyUsedByOwner,
 		Visibility:        fragmentVisibilityFromProto(fragment.Visibility),
 		LastUpdated:       fragment.LastUpdated,
@@ -344,7 +345,7 @@ func fragmentFromProto(fragment *pb.Fragment) *Fragment {
 }
 
 // FragmentVisibility specifies the kind of visibility a fragment has.
-type FragmentVisibility int32
+type FragmentVisibility int
 
 const (
 	// FragmentVisibilityUnspecified is an unspecified visibility.
@@ -559,7 +560,7 @@ func authenticatorInfoFromProto(info *pb.AuthenticatorInfo) *AuthenticatorInfo {
 }
 
 // AuthenticationType specifies the type of authentication.
-type AuthenticationType int32
+type AuthenticationType int
 
 const (
 	// AuthenticationTypeUnspecified represents an unspecified authentication.
