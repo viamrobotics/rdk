@@ -25,6 +25,8 @@ const (
 	missingArmName = "arm4"
 )
 
+var pose = spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})
+
 func TestXArm6Locations(t *testing.T) {
 	// check the exact values/locations of arm geometries at a couple different poses
 	logger := logging.NewTestLogger(t)
