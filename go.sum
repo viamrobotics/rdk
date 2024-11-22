@@ -218,7 +218,6 @@ github.com/butuzov/mirror v1.2.0 h1:9YVK1qIjNspaqWutSv8gsge2e/Xpq1eqEkslEUHy5cs=
 github.com/butuzov/mirror v1.2.0/go.mod h1:DqZZDtzm42wIAIyHXeN8W/qb1EPlb9Qn/if9icBOpdQ=
 github.com/bytedance/sonic v1.12.2 h1:oaMFuRTpMHYLpCntGca65YWt5ny+wAceDERTkT2L9lg=
 github.com/bytedance/sonic v1.12.2/go.mod h1:B8Gt/XvtZ3Fqj+iSKMypzymZxw/FVwgIGKzMzT9r/rk=
-github.com/bytedance/sonic/loader v0.1.1/go.mod h1:ncP89zfokxS5LZrJxl5z0UJcsk4M4yY2JpfqGeCtNLU=
 github.com/bytedance/sonic/loader v0.2.1 h1:1GgorWTqf12TA8mma4DDSbaQigE2wOgQo7iCjjJv3+E=
 github.com/bytedance/sonic/loader v0.2.1/go.mod h1:ncP89zfokxS5LZrJxl5z0UJcsk4M4yY2JpfqGeCtNLU=
 github.com/campoy/embedmd v1.0.0 h1:V4kI2qTJJLf4J29RzI/MAt2c3Bl4dQSYPuflzwFH2hY=
@@ -1427,8 +1426,6 @@ github.com/valyala/quicktemplate v1.6.3/go.mod h1:fwPzK2fHuYEODzJ9pkw0ipCPNHZ2tD
 github.com/valyala/tcplisten v0.0.0-20161114210144-ceec8f93295a/go.mod h1:v3UYOV9WzVtRmSR+PDvWpU/qWl4Wa5LApYYX4ZtKbio=
 github.com/vbatts/tar-split v0.11.5 h1:3bHCTIheBm1qFTcgh9oPu+nNBtX+XJIupG/vacinCts=
 github.com/vbatts/tar-split v0.11.5/go.mod h1:yZbwRsSeGjusneWgA781EKej9HF8vme8okylkAeNKLk=
-github.com/viam-modules/viam-ufactory-xarm v0.0.0-20241121162723-0285e0118688 h1:bzAd7S6+Ln0qyD2H69oVYLhA6oCNHYiyvX2+m12SU6w=
-github.com/viam-modules/viam-ufactory-xarm v0.0.0-20241121162723-0285e0118688/go.mod h1:nd/mMK59zmB2tNAGreT9ge68MQYB+FU0xYmo+YBvpGg=
 github.com/viamrobotics/evdev v0.1.3 h1:mR4HFafvbc5Wx4Vp1AUJp6/aITfVx9AKyXWx+rWjpfc=
 github.com/viamrobotics/evdev v0.1.3/go.mod h1:N6nuZmPz7HEIpM7esNWwLxbYzqWqLSZkfI/1Sccckqk=
 github.com/viamrobotics/webrtc/v3 v3.99.10 h1:ykE14wm+HkqMD5Ozq4rvhzzfvnXAu14ak/HzA1OCzfY=
