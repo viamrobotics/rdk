@@ -22,9 +22,8 @@ import (
 )
 
 // DataClient implements the DataServiceClient interface.
-//nolint:revive // stutter: Ignore the "stuttering" warning for this type name
-
 type DataClient struct {
+	//nolint:revive // stutter: Ignore the "stuttering" warning for this type name
 	dataClient     pb.DataServiceClient
 	dataSyncClient syncPb.DataSyncServiceClient
 }
