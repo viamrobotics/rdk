@@ -11,7 +11,7 @@ import (
 )
 
 // UsageCostType specifies the type of usage cost.
-type UsageCostType int32
+type UsageCostType int
 
 const (
 	// UsageCostTypeUnspecified is an unspecified usage cost type.
@@ -275,7 +275,7 @@ func (c *BillingClient) GetInvoicesSummary(ctx context.Context, orgID string) (f
 	return resp.OutstandingBalance, invoices, nil
 }
 
-// GetInvoicePDF gets the invoice PDF data.
+// GetInvoicePDF returns raw byte slices representing the invoice PDF data.
 func (c *BillingClient) GetInvoicePDF(ctx context.Context, id, orgID string) ([]byte, error) {
 	stream, err := c.client.GetInvoicePdf(ctx, &pb.GetInvoicePdfRequest{
 		Id:    id,

@@ -64,9 +64,9 @@ func CreateViamClientWithAPIKey(
 	return CreateViamClientWithOptions(ctx, options, logger)
 }
 
-// Billingclient initializes and returns a Billingclient instance used to make app method calls.
-// To use Billingclient, you must first instantiate a ViamClient.
-func (c *ViamClient) Billingclient() *BillingClient {
+// BillingClient initializes and returns a BillingClient instance used to make app method calls.
+// To use BillingClient, you must first instantiate a ViamClient.
+func (c *ViamClient) BillingClient() *BillingClient {
 	if c.billingClient != nil {
 		return c.billingClient
 	}
