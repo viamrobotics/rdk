@@ -7,7 +7,7 @@ import (
 	"github.com/viamrobotics/webrtc/v3"
 	datapb "go.viam.com/api/app/data/v1"
 	syncPb "go.viam.com/api/app/datasync/v1"
-  apppb "go.viam.com/api/app/v1"
+	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
