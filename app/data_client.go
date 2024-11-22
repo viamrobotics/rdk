@@ -518,14 +518,11 @@ func (d *DataClient) TabularDataByFilter(
 	// TabularData contains tabular data and associated metadata
 	dataArray := []TabularData{}
 	for _, data := range resp.Data {
-		var metadata *pb.CaptureMetadata
-		switch {
-		case len(resp.Metadata) > 0 && int(data.MetadataIndex) < len(resp.Metadata):
-			metadata = resp.Metadata[data.MetadataIndex]
-		default:
-			metadata = &pb.CaptureMetadata{}
+		metadata := pb.CaptureMetadata{}
+		if int(data.MetadataIndex) < len(resp.Metadata) {
+			metadata = *resp.Metadata[data.MetadataIndex]
 		}
-		dataArray = append(dataArray, tabularDataFromProto(data, metadata))
+		dataArray = append(dataArray, tabularDataFromProto(data, &metadata))
 	}
 
 	return TabularDataReturn{
@@ -897,35 +894,52 @@ func sensorMetadataToProto(metadata SensorMetadata) *syncPb.SensorMetadata {
 	}
 }
 
-func sensorDataToProto(sensorData SensorData) *syncPb.SensorData {
-	protoSensorData := &syncPb.SensorData{
-		Metadata: sensorMetadataToProto(sensorData.Metadata),
+// Ensure only one of SDStruct or SDBinary is set
+func validateSensorData(sensorData SensorData) error {
+	if sensorData.SDStruct != nil && len(sensorData.SDBinary) > 0 {
+		return errors.New("sensorData cannot have both SDStruct and SDBinary set")
+	}
+	return nil
+}
+
+func sensorDataToProto(sensorData SensorData) (*syncPb.SensorData, error) {
+	if err := validateSensorData(sensorData); err != nil {
+		return nil, err
 	}
 	switch {
 	case len(sensorData.SDBinary) > 0:
-		protoSensorData.Data = &syncPb.SensorData_Binary{
-			Binary: sensorData.SDBinary,
-		}
+		return &syncPb.SensorData{
+			Metadata: sensorMetadataToProto(sensorData.Metadata),
+			Data: &syncPb.SensorData_Binary{
+				Binary: sensorData.SDBinary,
+			},
+		}, nil
 	case sensorData.SDStruct != nil:
 		pbStruct, err := structpb.NewStruct(sensorData.SDStruct)
 		if err != nil {
-			return nil
+			return nil, err
 		}
-		protoSensorData.Data = &syncPb.SensorData_Struct{
-			Struct: pbStruct,
-		}
+		return &syncPb.SensorData{
+			Metadata: sensorMetadataToProto(sensorData.Metadata),
+			Data: &syncPb.SensorData_Struct{
+				Struct: pbStruct,
+			},
+		}, nil
 	default:
-		return nil
+		return nil, errors.New("sensorData must have either SDStruct or SDBinary set")
 	}
-	return protoSensorData
 }
 
-func sensorContentsToProto(sensorContents []SensorData) []*syncPb.SensorData {
+func sensorContentsToProto(sensorContents []SensorData) ([]*syncPb.SensorData, error) {
 	var protoSensorContents []*syncPb.SensorData
 	for _, item := range sensorContents {
-		protoSensorContents = append(protoSensorContents, sensorDataToProto(item))
+		protoItem, err := sensorDataToProto(item)
+		if err != nil {
+			return nil, err // Propagate the error
+		}
+		protoSensorContents = append(protoSensorContents, protoItem)
 	}
-	return protoSensorContents
+	return protoSensorContents, nil
 }
 
 func formatFileExtension(fileExt string) string {
@@ -979,7 +993,7 @@ func (d *DataClient) BinaryDataCaptureUpload(
 		metadata.Tags = options.Tags
 	}
 
-	response, err := d.DataCaptureUpload(ctx, metadata, []SensorData{sensorData})
+	response, err := d.dataCaptureUpload(ctx, metadata, []SensorData{sensorData})
 	if err != nil {
 		return "", err
 	}
@@ -1035,19 +1049,23 @@ func (d *DataClient) TabularDataCaptureUpload(
 	if options.Tags != nil {
 		metadata.Tags = options.Tags
 	}
-	response, err := d.DataCaptureUpload(ctx, metadata, sensorContents)
+	response, err := d.dataCaptureUpload(ctx, metadata, sensorContents)
 	if err != nil {
 		return "", err
 	}
 	return response, nil
 }
 
-// DataCaptureUpload uploads the metadata and contents for either tabular or binary data,
+// dataCaptureUpload uploads the metadata and contents for either tabular or binary data,
 // and returns the file ID associated with the uploaded data and metadata.
-func (d *DataClient) DataCaptureUpload(ctx context.Context, metadata UploadMetadata, sensorContents []SensorData) (string, error) {
+func (d *DataClient) dataCaptureUpload(ctx context.Context, metadata UploadMetadata, sensorContents []SensorData) (string, error) {
+	sensorContentsPb, err := sensorContentsToProto(sensorContents)
+	if err != nil {
+		return "", err
+	}
 	resp, err := d.dataSyncClient.DataCaptureUpload(ctx, &syncPb.DataCaptureUploadRequest{
 		Metadata:       uploadMetadataToProto(metadata),
-		SensorContents: sensorContentsToProto(sensorContents),
+		SensorContents: sensorContentsPb,
 	})
 	if err != nil {
 		return "", err
