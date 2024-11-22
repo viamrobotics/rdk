@@ -13,6 +13,109 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+// UpdateOrganizationOptions contains optional parameters for UpdateOrganization.
+type UpdateOrganizationOptions struct {
+	Name      *string
+	Namespace *string
+	// Region is the new GCS region to associate the org with.
+	Region *string
+	CID    *string
+}
+
+// CreateOrganizationInviteOptions contains optional parameters for CreateOrganizationInvite.
+type CreateOrganizationInviteOptions struct {
+	// SendEmailInvite defaults to true to send an email to the receipient of the invite.
+	// The user must accept the email to be added to the associated authorizations.
+	// If false, the user receives the associated authorization on the next login of the user with the associated email address.
+	SendEmailInvite *bool
+}
+
+// CreateLocationOptions contains optional parameters for CreateLocation.
+type CreateLocationOptions struct {
+	// ParentLocationID is the parent location to move the location under.
+	ParentLocationID *string
+}
+
+// UpdateLocationOptions contains optional parameters for UpdateLocation.
+type UpdateLocationOptions struct {
+	Name *string
+	// PArentLocationID is the new parent location to move the location under.
+	ParentLocationID *string
+	// Region is the GCS region to associate the location with.
+	Region *string
+}
+
+// GetRobotPartLogsOptions contains optional parameters for GetRobotPartLogs.
+type GetRobotPartLogsOptions struct {
+	Filter *string
+	// PageToken represents the page to receive logs from. The function defaults to the most recent page if PageToken is empty.
+	PageToken *string
+	// Levels represents the levels of the logs requested. Logs of all levels are returned when levels is empty.
+	Levels []string
+	Start  *timestamppb.Timestamp
+	End    *timestamppb.Timestamp
+	Limit  *int64
+	Source *string
+}
+
+// TailRobotPartLogsOptions contains optional parameters for TailRobotPartLogs.
+type TailRobotPartLogsOptions struct {
+	Filter *string
+}
+
+// CreateFragmentOptions contains optional parameters for CreateFragment.
+type CreateFragmentOptions struct {
+	Visibility *FragmentVisibility
+}
+
+// UpdateFragmentOptions contains optional parameters for UpdateFragment.
+type UpdateFragmentOptions struct {
+	public     *bool
+	visibility *FragmentVisibility
+}
+
+// ListMachineFragmentsOptions contains optional parameters for ListMachineFragments.
+type ListMachineFragmentsOptions struct {
+	// AdditionalFragmentIDs are additional fragments requested.
+	// These are useful to view fragments that will be provisionally added to the machine alongside existing fragments.
+	AdditionalFragmentIDs []string
+}
+
+// GetFragmentHistoryOptions contains optional parameters for GetFragmentHistory.
+type GetFragmentHistoryOptions struct {
+	PageToken *string
+	PageLimit *int64
+}
+
+// UpdateRegistryItemOptions contains optional parameters for UpdateRegistryItem.
+type UpdateRegistryItemOptions struct {
+	URL *string
+}
+
+// ListRegistryItemsOptions contains optional parameters for ListRegistryItems.
+type ListRegistryItemsOptions struct {
+	Types        []PackageType
+	Visibilities []Visibility
+	Platforms    []string
+	Statuses     []RegistryItemStatus
+	SearchTerm   *string
+	PageToken    *string
+	// PublicNamespaces are the namespaces to return results for.
+	PublicNamespaces []string
+}
+
+// UpdateModuleOptions contains optional parameters for UpdateModule.
+type UpdateModuleOptions struct {
+	// The path to a setup script that is run before a newly downloaded module starts.
+	FirstRun *string
+}
+
+// ListModulesOptions contains optional parameters for ListModules.
+type ListModulesOptions struct {
+	// OrgID is the organization to return private modules for.
+	OrgID *string
+}
+
 // AppClient is a gRPC client for method calls to the App API.
 //
 //nolint:revive // stutter: Ignore the "stuttering" warning for this type name
@@ -20,7 +123,7 @@ type AppClient struct {
 	client pb.AppServiceClient
 }
 
-// NewAppClient constructs a new AppClient using the connection passed in by the Viam client.
+// NewAppClient constructs a new AppClient using the connection passed in by the ViamClient.
 func NewAppClient(conn rpc.ClientConn) *AppClient {
 	return &AppClient{client: pb.NewAppServiceClient(conn)}
 }
@@ -115,16 +218,8 @@ func (c *AppClient) GetOrganizationNamespaceAvailability(ctx context.Context, na
 	return resp.Available, nil
 }
 
-// UpdateOrganizationOptions contains optional parameters for UpdateOrganization.
-type UpdateOrganizationOptions struct {
-	Name      *string
-	Namespace *string
-	Region    *string
-	CID       *string
-}
-
 // UpdateOrganization updates an organization.
-func (c *AppClient) UpdateOrganization(ctx context.Context, orgID string, opts UpdateOrganizationOptions) (*Organization, error) {
+func (c *AppClient) UpdateOrganization(ctx context.Context, orgID string, opts *UpdateOrganizationOptions) (*Organization, error) {
 	resp, err := c.client.UpdateOrganization(ctx, &pb.UpdateOrganizationRequest{
 		OrganizationId:  orgID,
 		Name:            opts.Name,
@@ -166,14 +261,9 @@ func (c *AppClient) ListOrganizationMembers(ctx context.Context, orgID string) (
 	return members, invites, nil
 }
 
-// CreateOrganizationInviteOptions contains optional parameters for CreateOrganizationInvite.
-type CreateOrganizationInviteOptions struct {
-	SendEmailInvite *bool
-}
-
 // CreateOrganizationInvite creates an organization invite to an organization.
 func (c *AppClient) CreateOrganizationInvite(
-	ctx context.Context, orgID, email string, authorizations []*Authorization, opts CreateOrganizationInviteOptions,
+	ctx context.Context, orgID, email string, authorizations []*Authorization, opts *CreateOrganizationInviteOptions,
 ) (*OrganizationInvite, error) {
 	var pbAuthorizations []*pb.Authorization
 	for _, authorization := range authorizations {
@@ -294,13 +384,8 @@ func (c *AppClient) OrganizationGetSupportEmail(ctx context.Context, orgID strin
 	return resp.Email, nil
 }
 
-// CreateLocationOptions contains optional parameters for CreateLocation.
-type CreateLocationOptions struct {
-	ParentLocationID *string
-}
-
-// CreateLocation creates a location.
-func (c *AppClient) CreateLocation(ctx context.Context, orgID, name string, opts CreateLocationOptions) (*Location, error) {
+// CreateLocation creates a location with the given name under the given organization.
+func (c *AppClient) CreateLocation(ctx context.Context, orgID, name string, opts *CreateLocationOptions) (*Location, error) {
 	resp, err := c.client.CreateLocation(ctx, &pb.CreateLocationRequest{
 		OrganizationId:   orgID,
 		Name:             name,
@@ -323,15 +408,8 @@ func (c *AppClient) GetLocation(ctx context.Context, locationID string) (*Locati
 	return locationFromProto(resp.Location), nil
 }
 
-// UpdateLocationOptions contains optional parameters for UpdateLocation.
-type UpdateLocationOptions struct {
-	Name             *string
-	ParentLocationID *string
-	Region           *string
-}
-
 // UpdateLocation updates a location.
-func (c *AppClient) UpdateLocation(ctx context.Context, locationID string, opts UpdateLocationOptions) (*Location, error) {
+func (c *AppClient) UpdateLocation(ctx context.Context, locationID string, opts *UpdateLocationOptions) (*Location, error) {
 	resp, err := c.client.UpdateLocation(ctx, &pb.UpdateLocationRequest{
 		LocationId:       locationID,
 		Name:             opts.Name,
@@ -469,20 +547,8 @@ func (c *AppClient) GetRobotPart(ctx context.Context, id string) (*RobotPart, st
 	return robotPartFromProto(resp.Part), resp.ConfigJson, nil
 }
 
-// GetRobotPartLogsOptions contains optional parameters for GetRobotPartLogs.
-type GetRobotPartLogsOptions struct {
-	Filter    *string
-	PageToken *string
-	Levels    []string
-	Start     *timestamppb.Timestamp
-	End       *timestamppb.Timestamp
-	Limit     *int64
-	Source    *string
-}
-
-// GetRobotPartLogs gets the logs associated with a robot part and the next page token,
-// defaulting to the most recent page if pageToken is empty. Logs of all levels are returned when levels is empty.
-func (c *AppClient) GetRobotPartLogs(ctx context.Context, id string, opts GetRobotPartLogsOptions) ([]*LogEntry, string, error) {
+// GetRobotPartLogs gets the logs associated with a robot part and the next page token.
+func (c *AppClient) GetRobotPartLogs(ctx context.Context, id string, opts *GetRobotPartLogsOptions) ([]*LogEntry, string, error) {
 	resp, err := c.client.GetRobotPartLogs(ctx, &pb.GetRobotPartLogsRequest{
 		Id:        id,
 		Filter:    opts.Filter,
@@ -508,7 +574,7 @@ type RobotPartLogStream struct {
 	stream pb.AppService_TailRobotPartLogsClient
 }
 
-// Next gets the next robot part log entry.
+// Next gets the next slice of robot part log entries.
 func (s *RobotPartLogStream) Next() ([]*LogEntry, error) {
 	streamResp, err := s.stream.Recv()
 	if err != nil {
@@ -522,14 +588,9 @@ func (s *RobotPartLogStream) Next() ([]*LogEntry, error) {
 	return logs, nil
 }
 
-// TailRobotPartLogsOptions contains optional parameters for TailRobotPartLogs.
-type TailRobotPartLogsOptions struct {
-	Filter *string
-}
-
 // TailRobotPartLogs gets a stream of log entries for a specific robot part. Logs are ordered by newest first.
 func (c *AppClient) TailRobotPartLogs(
-	ctx context.Context, id string, errorsOnly bool, opts TailRobotPartLogsOptions,
+	ctx context.Context, id string, errorsOnly bool, opts *TailRobotPartLogsOptions,
 ) (*RobotPartLogStream, error) {
 	stream, err := c.client.TailRobotPartLogs(ctx, &pb.TailRobotPartLogsRequest{
 		Id:         id,
@@ -731,14 +792,9 @@ func (c *AppClient) GetFragment(ctx context.Context, id string) (*Fragment, erro
 	return fragmentFromProto(resp.Fragment), nil
 }
 
-// CreateFragmentOptions contains optional parameters for CreateFragment.
-type CreateFragmentOptions struct {
-	Visibility *FragmentVisibility
-}
-
 // CreateFragment creates a fragment.
 func (c *AppClient) CreateFragment(
-	ctx context.Context, orgID, name string, config map[string]interface{}, opts CreateFragmentOptions,
+	ctx context.Context, orgID, name string, config map[string]interface{}, opts *CreateFragmentOptions,
 ) (*Fragment, error) {
 	pbConfig, err := protoutils.StructToStructPb(config)
 	if err != nil {
@@ -757,15 +813,9 @@ func (c *AppClient) CreateFragment(
 	return fragmentFromProto(resp.Fragment), nil
 }
 
-// UpdateFragmentOptions contains optional parameters for UpdateFragment.
-type UpdateFragmentOptions struct {
-	public     *bool
-	visibility *FragmentVisibility
-}
-
 // UpdateFragment updates a fragment.
 func (c *AppClient) UpdateFragment(
-	ctx context.Context, id, name string, config map[string]interface{}, opts UpdateFragmentOptions,
+	ctx context.Context, id, name string, config map[string]interface{}, opts *UpdateFragmentOptions,
 ) (*Fragment, error) {
 	cfg, err := protoutils.StructToStructPb(config)
 	if err != nil {
@@ -793,14 +843,8 @@ func (c *AppClient) DeleteFragment(ctx context.Context, id string) error {
 	return err
 }
 
-// ListMachineFragmentsOptions contains optional parameters for ListMachineFragments.
-type ListMachineFragmentsOptions struct {
-	AdditionalFragmentIDs []string
-}
-
-// ListMachineFragments gets top level and nested fragments for a amchine, as well as any other fragments specified by IDs. Additional
-// fragments are useful when needing to view fragments that will be provisionally added to the machine alongside existing fragments.
-func (c *AppClient) ListMachineFragments(ctx context.Context, machineID string, opts ListMachineFragmentsOptions) ([]*Fragment, error) {
+// ListMachineFragments gets top level and nested fragments for a amchine, as well as any other fragments specified by IDs.
+func (c *AppClient) ListMachineFragments(ctx context.Context, machineID string, opts *ListMachineFragmentsOptions) ([]*Fragment, error) {
 	resp, err := c.client.ListMachineFragments(ctx, &pb.ListMachineFragmentsRequest{
 		MachineId:             machineID,
 		AdditionalFragmentIds: opts.AdditionalFragmentIDs,
@@ -815,15 +859,9 @@ func (c *AppClient) ListMachineFragments(ctx context.Context, machineID string, 
 	return fragments, nil
 }
 
-// GetFragmentHistoryOptions contains optional parameters for GetFragmentHistory.
-type GetFragmentHistoryOptions struct {
-	PageToken *string
-	PageLimit *int64
-}
-
 // GetFragmentHistory gets the fragment's history and the next page token.
 func (c *AppClient) GetFragmentHistory(
-	ctx context.Context, id string, opts GetFragmentHistoryOptions,
+	ctx context.Context, id string, opts *GetFragmentHistoryOptions,
 ) ([]*FragmentHistoryEntry, string, error) {
 	resp, err := c.client.GetFragmentHistory(ctx, &pb.GetFragmentHistoryRequest{
 		Id:        id,
@@ -841,12 +879,11 @@ func (c *AppClient) GetFragmentHistory(
 }
 
 // AddRole creates an identity authorization.
-func (c *AppClient) AddRole(ctx context.Context, orgID, identityID, role, resourceType, resourceID string) error {
-	authorization, err := createAuthorization(orgID, identityID, "", role, resourceType, resourceID)
-	if err != nil {
-		return err
-	}
-	_, err = c.client.AddRole(ctx, &pb.AddRoleRequest{
+func (c *AppClient) AddRole(
+	ctx context.Context, orgID, identityID string, role AuthRole, resourceType AuthResourceType, resourceID string,
+) error {
+	authorization := createAuthorization(orgID, identityID, "", role, resourceType, resourceID)
+	_, err := c.client.AddRole(ctx, &pb.AddRoleRequest{
 		Authorization: authorization,
 	})
 	return err
@@ -865,33 +902,25 @@ func (c *AppClient) ChangeRole(
 	ctx context.Context,
 	oldAuthorization *Authorization,
 	newOrgID,
-	newIdentityID,
-	newRole,
-	newResourceType,
+	newIdentityID string,
+	newRole AuthRole,
+	newResourceType AuthResourceType,
 	newResourceID string,
 ) error {
-	newAuthorization, err := createAuthorization(newOrgID, newIdentityID, "", newRole, newResourceType, newResourceID)
-	if err != nil {
-		return err
-	}
-	_, err = c.client.ChangeRole(ctx, &pb.ChangeRoleRequest{
+	newAuthorization := createAuthorization(newOrgID, newIdentityID, "", newRole, newResourceType, newResourceID)
+	_, err := c.client.ChangeRole(ctx, &pb.ChangeRoleRequest{
 		OldAuthorization: authorizationToProto(oldAuthorization),
 		NewAuthorization: newAuthorization,
 	})
 	return err
 }
 
-// ListAuthorizationsOptions contains optional parameters for ListAuthorizations.
-type ListAuthorizationsOptions struct {
-	ResourceIDs []string
-}
-
 // ListAuthorizations returns all authorization roles for any given resources.
 // If no resources are given, all resources within the organization will be included.
-func (c *AppClient) ListAuthorizations(ctx context.Context, orgID string, opts ListAuthorizationsOptions) ([]*Authorization, error) {
+func (c *AppClient) ListAuthorizations(ctx context.Context, orgID string, resourceIDs []string) ([]*Authorization, error) {
 	resp, err := c.client.ListAuthorizations(ctx, &pb.ListAuthorizationsRequest{
 		OrganizationId: orgID,
-		ResourceIds:    opts.ResourceIDs,
+		ResourceIds:    resourceIDs,
 	})
 	if err != nil {
 		return nil, err
@@ -949,14 +978,9 @@ func (c *AppClient) CreateRegistryItem(ctx context.Context, orgID, name string, 
 	return err
 }
 
-// UpdateRegistryItemOptions contains optional parameters for UpdateRegistryItem.
-type UpdateRegistryItemOptions struct {
-	URL *string
-}
-
 // UpdateRegistryItem updates a registry item.
 func (c *AppClient) UpdateRegistryItem(
-	ctx context.Context, itemID string, packageType PackageType, description string, visibility Visibility, opts UpdateRegistryItemOptions,
+	ctx context.Context, itemID string, packageType PackageType, description string, visibility Visibility, opts *UpdateRegistryItemOptions,
 ) error {
 	_, err := c.client.UpdateRegistryItem(ctx, &pb.UpdateRegistryItemRequest{
 		ItemId:      itemID,
@@ -968,19 +992,8 @@ func (c *AppClient) UpdateRegistryItem(
 	return err
 }
 
-// ListRegistryItemsOptions contains optional parameters for ListRegistryItems.
-type ListRegistryItemsOptions struct {
-	Types            []PackageType
-	Visibilities     []Visibility
-	Platforms        []string
-	Statuses         []RegistryItemStatus
-	SearchTerm       *string
-	PageToken        *string
-	PublicNamespaces []string
-}
-
 // ListRegistryItems lists the registry items in an organization.
-func (c *AppClient) ListRegistryItems(ctx context.Context, orgID *string, opts ListRegistryItemsOptions) ([]*RegistryItem, error) {
+func (c *AppClient) ListRegistryItems(ctx context.Context, orgID *string, opts *ListRegistryItemsOptions) ([]*RegistryItem, error) {
 	var pbTypes []packages.PackageType
 	for _, packageType := range opts.Types {
 		pbTypes = append(pbTypes, packageTypeToProto(packageType))
@@ -1047,11 +1060,6 @@ func (c *AppClient) CreateModule(ctx context.Context, orgID, name string) (strin
 	return resp.ModuleId, resp.Url, nil
 }
 
-// UpdateModuleOptions contains optional parameters for UpdateModule.
-type UpdateModuleOptions struct {
-	firstRun *string
-}
-
 // UpdateModule updates the documentation URL, description, models, entrypoint, and/or the visibility of a module and returns its URL.
 // A path to a setup script can be added that is run before a newly downloaded module starts.
 func (c *AppClient) UpdateModule(
@@ -1062,7 +1070,7 @@ func (c *AppClient) UpdateModule(
 	description string,
 	models []*Model,
 	entrypoint string,
-	opts UpdateModuleOptions,
+	opts *UpdateModuleOptions,
 ) (string, error) {
 	var pbModels []*pb.Model
 	for _, model := range models {
@@ -1075,7 +1083,7 @@ func (c *AppClient) UpdateModule(
 		Description: description,
 		Models:      pbModels,
 		Entrypoint:  entrypoint,
-		FirstRun:    opts.firstRun,
+		FirstRun:    opts.FirstRun,
 	})
 	if err != nil {
 		return "", err
@@ -1139,15 +1147,10 @@ func (c *AppClient) GetModule(ctx context.Context, moduleID string) (*Module, er
 	return moduleFromProto(resp.Module), nil
 }
 
-// ListModulesOptions contains optional parameters for ListModules.
-type ListModulesOptions struct {
-	orgID *string
-}
-
 // ListModules lists the modules in the organization.
-func (c *AppClient) ListModules(ctx context.Context, opts ListModulesOptions) ([]*Module, error) {
+func (c *AppClient) ListModules(ctx context.Context, opts *ListModulesOptions) ([]*Module, error) {
 	resp, err := c.client.ListModules(ctx, &pb.ListModulesRequest{
-		OrganizationId: opts.orgID,
+		OrganizationId: opts.OrgID,
 	})
 	if err != nil {
 		return nil, err
@@ -1165,11 +1168,8 @@ func (c *AppClient) CreateKey(
 ) (string, string, error) {
 	var authorizations []*pb.Authorization
 	for _, keyAuthorization := range keyAuthorizations {
-		authorization, err := createAuthorization(
+		authorization := createAuthorization(
 			orgID, "", "api-key", keyAuthorization.role, keyAuthorization.resourceType, keyAuthorization.resourceID)
-		if err != nil {
-			return "", "", err
-		}
 		authorizations = append(authorizations, authorization)
 	}
 

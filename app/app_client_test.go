@@ -23,12 +23,10 @@ const (
 	email                          = "email"
 	userID                         = "user_id"
 	available                      = true
-	authorizationType              = "owner"
-	authorizationType2             = "operator"
-	badAuthorizationType           = "authorization_type"
-	resourceType                   = "organization"
-	resourceType2                  = "location"
-	badResourceType                = "resource_type"
+	authorizationType              = AuthRoleOwner
+	authorizationType2             = AuthRoleOperator
+	resourceType                   = AuthResourceTypeOrganization
+	resourceType2                  = AuthResourceTypeLocation
 	resourceID                     = "resource_id"
 	resourceID2                    = "resource_id_2"
 	identityID                     = "identity_id"
@@ -114,7 +112,7 @@ var (
 	lastLogin     = timestamppb.Timestamp{Seconds: 0, Nanos: 100}
 	createdOn     = timestamppb.Timestamp{Seconds: 0, Nanos: 0}
 	authorization = Authorization{
-		AuthorizationType: authorizationType,
+		AuthorizationType: string(authorizationType),
 		AuthorizationID:   authorizationID,
 		ResourceType:      resourceType,
 		ResourceID:        resourceID,
@@ -132,7 +130,7 @@ var (
 		IdentityType:      authorization.IdentityType,
 	}
 	authorization2 = Authorization{
-		AuthorizationType: authorizationType2,
+		AuthorizationType: string(authorizationType2),
 		AuthorizationID:   authorizationID2,
 		ResourceType:      resourceType2,
 		ResourceID:        resourceID2,
@@ -351,7 +349,7 @@ var (
 	authorizationID      = fmt.Sprintf("%s_%s", resourceType, authorizationType)
 	authorizationID2     = fmt.Sprintf("%s_%s", resourceType2, authorizationType2)
 	authorizationDetails = AuthorizationDetails{
-		AuthorizationType: authorizationType,
+		AuthorizationType: string(authorizationType),
 		AuthorizationID:   authorizationID,
 		ResourceType:      resourceType,
 		ResourceID:        resourceID,
@@ -822,7 +820,7 @@ func TestAppClient(t *testing.T) {
 				Organization: &pbOrganization,
 			}, nil
 		}
-		resp, err := client.UpdateOrganization(context.Background(), organizationID, UpdateOrganizationOptions{
+		resp, err := client.UpdateOrganization(context.Background(), organizationID, &UpdateOrganizationOptions{
 			&name, &namespace, &region, &cid,
 		})
 		test.That(t, err, test.ShouldBeNil)
@@ -877,9 +875,9 @@ func TestAppClient(t *testing.T) {
 				Invite: &pbInvite,
 			}, nil
 		}
-		resp, err := client.CreateOrganizationInvite(context.Background(), organizationID, email, authorizations, CreateOrganizationInviteOptions{
-			&sendEmailInvite,
-		})
+		resp, err := client.CreateOrganizationInvite(
+			context.Background(), organizationID, email, authorizations, &CreateOrganizationInviteOptions{&sendEmailInvite},
+		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, &invite)
 	})
@@ -1010,7 +1008,7 @@ func TestAppClient(t *testing.T) {
 				Location: &pbLocation,
 			}, nil
 		}
-		resp, err := client.CreateLocation(context.Background(), organizationID, name, CreateLocationOptions{&parentLocationID})
+		resp, err := client.CreateLocation(context.Background(), organizationID, name, &CreateLocationOptions{&parentLocationID})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, &location)
 	})
@@ -1041,7 +1039,7 @@ func TestAppClient(t *testing.T) {
 				Location: &pbLocation,
 			}, nil
 		}
-		resp, err := client.UpdateLocation(context.Background(), locationID, UpdateLocationOptions{&name, &parentLocationID, &region})
+		resp, err := client.UpdateLocation(context.Background(), locationID, &UpdateLocationOptions{&name, &parentLocationID, &region})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, &location)
 	})
@@ -1220,7 +1218,7 @@ func TestAppClient(t *testing.T) {
 				NextPageToken: pageToken,
 			}, nil
 		}
-		logs, token, err := client.GetRobotPartLogs(context.Background(), partID, GetRobotPartLogsOptions{
+		logs, token, err := client.GetRobotPartLogs(context.Background(), partID, &GetRobotPartLogsOptions{
 			&filter, &pageToken, levels, &start, &end, &int64Limit, &source,
 		})
 		test.That(t, err, test.ShouldBeNil)
@@ -1244,7 +1242,7 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.Filter, test.ShouldEqual, &filter)
 			return mockStream, nil
 		}
-		stream, err := client.TailRobotPartLogs(context.Background(), partID, errorsOnly, TailRobotPartLogsOptions{&filter})
+		stream, err := client.TailRobotPartLogs(context.Background(), partID, errorsOnly, &TailRobotPartLogsOptions{&filter})
 		test.That(t, err, test.ShouldBeNil)
 		resp, err := stream.Next()
 		test.That(t, err, test.ShouldBeNil)
@@ -1450,7 +1448,9 @@ func TestAppClient(t *testing.T) {
 				Fragment: &pbFragment,
 			}, nil
 		}
-		resp, err := client.CreateFragment(context.Background(), organizationID, name, fragmentConfig, CreateFragmentOptions{&fragmentVisibility})
+		resp, err := client.CreateFragment(
+			context.Background(), organizationID, name, fragmentConfig, &CreateFragmentOptions{&fragmentVisibility},
+		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, &fragment)
 	})
@@ -1469,7 +1469,7 @@ func TestAppClient(t *testing.T) {
 			}, nil
 		}
 		resp, err := client.UpdateFragment(
-			context.Background(), fragmentID, name, fragmentConfig, UpdateFragmentOptions{&public, &fragmentVisibility},
+			context.Background(), fragmentID, name, fragmentConfig, &UpdateFragmentOptions{&public, &fragmentVisibility},
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, &fragment)
@@ -1498,7 +1498,7 @@ func TestAppClient(t *testing.T) {
 				Fragments: []*pb.Fragment{&pbFragment},
 			}, nil
 		}
-		resp, err := client.ListMachineFragments(context.Background(), robotID, ListMachineFragmentsOptions{additionalFragmentIDs})
+		resp, err := client.ListMachineFragments(context.Background(), robotID, &ListMachineFragmentsOptions{additionalFragmentIDs})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, expectedFragments)
 	})
@@ -1523,42 +1523,21 @@ func TestAppClient(t *testing.T) {
 				NextPageToken: pageToken,
 			}, nil
 		}
-		resp, token, err := client.GetFragmentHistory(context.Background(), fragmentID, GetFragmentHistoryOptions{&pageToken, &int64Limit})
+		resp, token, err := client.GetFragmentHistory(context.Background(), fragmentID, &GetFragmentHistoryOptions{&pageToken, &int64Limit})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, token, test.ShouldEqual, pageToken)
 		test.That(t, resp, test.ShouldResemble, expectedHistory)
 	})
 
 	t.Run("createAuthorization", func(t *testing.T) {
-		resp, err := createAuthorization(authorization.OrganizationID,
+		resp := createAuthorization(authorization.OrganizationID,
 			authorization.IdentityID,
 			authorization.IdentityType,
-			authorization.AuthorizationType,
-			authorization.ResourceType,
+			AuthRole(authorization.AuthorizationType),
+			AuthResourceType(authorization.ResourceType),
 			authorization.ResourceID,
 		)
 		test.That(t, resp, test.ShouldResemble, &pbAuthorization)
-		test.That(t, err, test.ShouldBeNil)
-		resp, err = createAuthorization(
-			authorization.OrganizationID,
-			authorization.IdentityID,
-			authorization.IdentityType,
-			badAuthorizationType,
-			authorization.ResourceType,
-			authorization.ResourceID,
-		)
-		test.That(t, resp, test.ShouldBeNil)
-		test.That(t, err.Error(), test.ShouldEqual, "role string must be 'owner' or 'operator'")
-		resp, err = createAuthorization(
-			authorization.OrganizationID,
-			authorization.IdentityID,
-			authorization.IdentityType,
-			authorization.AuthorizationType,
-			badResourceType,
-			authorization.ResourceID,
-		)
-		test.That(t, resp, test.ShouldBeNil)
-		test.That(t, err.Error(), test.ShouldEqual, "resourceType must be 'organization', 'location', or 'robot'")
 	})
 
 	t.Run("AddRole", func(t *testing.T) {
@@ -1572,8 +1551,8 @@ func TestAppClient(t *testing.T) {
 			context.Background(),
 			authorization.OrganizationID,
 			authorization.IdentityID,
-			authorization.AuthorizationType,
-			authorization.ResourceType,
+			AuthRole(authorization.AuthorizationType),
+			AuthResourceType(authorization.ResourceType),
 			authorization.ResourceID,
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -1603,8 +1582,8 @@ func TestAppClient(t *testing.T) {
 			&authorization,
 			authorization2.OrganizationID,
 			authorization2.IdentityID,
-			authorization2.AuthorizationType,
-			authorization2.ResourceType,
+			AuthRole(authorization2.AuthorizationType),
+			AuthResourceType(authorization2.ResourceType),
 			authorization2.ResourceID,
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -1620,7 +1599,7 @@ func TestAppClient(t *testing.T) {
 				Authorizations: pbAuthorizations,
 			}, nil
 		}
-		resp, err := client.ListAuthorizations(context.Background(), organizationID, ListAuthorizationsOptions{resourceIDs})
+		resp, err := client.ListAuthorizations(context.Background(), organizationID, resourceIDs)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, authorizations)
 	})
@@ -1685,7 +1664,7 @@ func TestAppClient(t *testing.T) {
 			return &pb.UpdateRegistryItemResponse{}, nil
 		}
 		err := client.UpdateRegistryItem(
-			context.Background(), registryItem.ItemID, packageType, description, visibility, UpdateRegistryItemOptions{&siteURL},
+			context.Background(), registryItem.ItemID, packageType, description, visibility, &UpdateRegistryItemOptions{&siteURL},
 		)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -1709,7 +1688,7 @@ func TestAppClient(t *testing.T) {
 				Items: []*pb.RegistryItem{pbRegistryItem},
 			}, nil
 		}
-		resp, err := client.ListRegistryItems(context.Background(), &organizationID, ListRegistryItemsOptions{
+		resp, err := client.ListRegistryItems(context.Background(), &organizationID, &ListRegistryItemsOptions{
 			[]PackageType{packageType},
 			[]Visibility{visibility},
 			platforms,
@@ -1761,7 +1740,7 @@ func TestAppClient(t *testing.T) {
 			}, nil
 		}
 		resp, err := client.UpdateModule(
-			context.Background(), moduleID, visibility, siteURL, description, models, entryPoint, UpdateModuleOptions{&firstRun},
+			context.Background(), moduleID, visibility, siteURL, description, models, entryPoint, &UpdateModuleOptions{&firstRun},
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldEqual, siteURL)
@@ -1818,7 +1797,7 @@ func TestAppClient(t *testing.T) {
 				Modules: []*pb.Module{&pbModule},
 			}, nil
 		}
-		resp, err := client.ListModules(context.Background(), ListModulesOptions{&organizationID})
+		resp, err := client.ListModules(context.Background(), &ListModulesOptions{&organizationID})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, expectedModules)
 	})
@@ -1826,9 +1805,9 @@ func TestAppClient(t *testing.T) {
 	t.Run("CreateKey", func(t *testing.T) {
 		pbAPIKeyAuthorizations := []*pb.Authorization{
 			{
-				AuthorizationType: apiKeyAuthorization.role,
+				AuthorizationType: string(apiKeyAuthorization.role),
 				AuthorizationId:   fmt.Sprintf("%s_%s", apiKeyAuthorization.resourceType, apiKeyAuthorization.role),
-				ResourceType:      apiKeyAuthorization.resourceType,
+				ResourceType:      string(apiKeyAuthorization.resourceType),
 				ResourceId:        apiKeyAuthorization.resourceID,
 				IdentityId:        "",
 				OrganizationId:    organizationID,

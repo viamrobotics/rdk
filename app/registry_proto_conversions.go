@@ -227,7 +227,7 @@ func moduleMetadataFromProto(md *pb.ModuleMetadata) *ModuleMetadata {
 	}
 }
 
-// Model has the API and model of a model.
+// Model holds the colon-delimited-triplet of the model and the API implemented by the model.
 type Model struct {
 	API   string
 	Model string

@@ -1,7 +1,6 @@
 package app
 
 import (
-	"errors"
 	"fmt"
 
 	pb "go.viam.com/api/app/v1"
@@ -119,7 +118,7 @@ type Location struct {
 	Auth             *LocationAuth
 	Organizations    []*LocationOrganization
 	CreatedOn        *timestamppb.Timestamp
-	RobotCount       int32
+	RobotCount       int
 	Config           *StorageConfig
 }
 
@@ -461,32 +460,47 @@ func authorizedPermissionsToProto(permissions *AuthorizedPermissions) *pb.Author
 	}
 }
 
+// AuthRole represents the valid authorizaiton types for an Authorization.
+type AuthRole string
+
+const (
+	// AuthRoleOwner represents an owner authorization type.
+	AuthRoleOwner AuthRole = "owner"
+	// AuthRoleOperator represents an operator authorization type.
+	AuthRoleOperator AuthRole = "operator"
+)
+
+// AuthResourceType represents the valid authorization resource type for an Authorization.
+type AuthResourceType string
+
+const (
+	// AuthResourceTypeOrganization represents an organization authorization type.
+	AuthResourceTypeOrganization = "organization"
+	// AuthResourceTypeLocation represents a location authorization type.
+	AuthResourceTypeLocation = "location"
+	// AuthResourceTypeRobot represents a robot authorization type.
+	AuthResourceTypeRobot = "robot"
+)
+
 // APIKeyAuthorization is a struct with the necessary authorization data to create an API key.
 type APIKeyAuthorization struct {
-	// `role`` must be "owner" or "operator"
-	role string
-	// `resourceType` must be "organization", "location", or "robot"
-	resourceType string
+	role         AuthRole
+	resourceType AuthResourceType
 	resourceID   string
 }
 
-func createAuthorization(orgID, identityID, identityType, role, resourceType, resourceID string) (*pb.Authorization, error) {
-	if role != "owner" && role != "operator" {
-		return nil, errors.New("role string must be 'owner' or 'operator'")
-	}
-	if resourceType != "organization" && resourceType != "location" && resourceType != "robot" {
-		return nil, errors.New("resourceType must be 'organization', 'location', or 'robot'")
-	}
-
+func createAuthorization(
+	orgID, identityID, identityType string, role AuthRole, resourceType AuthResourceType, resourceID string,
+) *pb.Authorization {
 	return &pb.Authorization{
-		AuthorizationType: role,
+		AuthorizationType: string(role),
 		AuthorizationId:   fmt.Sprintf("%s_%s", resourceType, role),
-		ResourceType:      resourceType,
+		ResourceType:      string(resourceType),
 		ResourceId:        resourceID,
 		IdentityId:        identityID,
 		OrganizationId:    orgID,
 		IdentityType:      identityType,
-	}, nil
+	}
 }
 
 // SharedSecret is a secret used for LocationAuth and RobotParts.
@@ -505,7 +519,7 @@ func sharedSecretFromProto(sharedSecret *pb.SharedSecret) *SharedSecret {
 }
 
 // SharedSecretState specifies if the secret is enabled, disabled, or unspecified.
-type SharedSecretState int32
+type SharedSecretState int
 
 const (
 	// SharedSecretStateUnspecified represents an unspecified shared secret state.
