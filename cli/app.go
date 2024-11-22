@@ -252,7 +252,7 @@ func getValFromContext(name string, ctx *cli.Context) interface{} {
 }
 
 func createCommandWithT[T interface{}](f func(T, *cli.Context) error) cli.ActionFunc {
-	f2 := func(ctx *cli.Context) error {
+	return func(ctx *cli.Context) error {
 		var t T
 		tValue := reflect.ValueOf(&t).Elem()
 		tType := tValue.Type()
@@ -264,8 +264,6 @@ func createCommandWithT[T interface{}](f func(T, *cli.Context) error) cli.Action
 		}
 		return f(t, ctx)
 	}
-
-	return f2
 }
 
 type foo struct {
