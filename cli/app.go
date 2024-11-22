@@ -3,6 +3,8 @@ package cli
 import (
 	"fmt"
 	"io"
+	"reflect"
+	"regexp"
 	"strings"
 
 	"github.com/urfave/cli/v2"
@@ -127,6 +129,11 @@ const (
 	organizationFlagSupportEmail = "support-email"
 )
 
+var (
+	matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
+	matchAllCap   = regexp.MustCompile("([a-z0-9])([A-Z])")
+)
+
 var commonFilterFlags = []cli.Flag{
 	&cli.StringSliceFlag{
 		Name:  dataFlagOrgIDs,
@@ -226,6 +233,51 @@ var dataTagByFilterFlags = append([]cli.Flag{
 },
 	commonFilterFlags...)
 
+func getValFromContext(name string, ctx *cli.Context) interface{} {
+	// some fuzzy searching is required here, because flags are typically in kebab case, but
+	// params are typically in snake or camel case
+	replacer := strings.NewReplacer("_", "-")
+	dashFormattedName := replacer.Replace(strings.ToLower(name))
+
+	value := ctx.Value(dashFormattedName)
+	if value != nil {
+		return value
+	}
+
+	camelFormattedName := matchFirstCap.ReplaceAllString(name, "${1}-${2}")
+	camelFormattedName = matchAllCap.ReplaceAllString(camelFormattedName, "${1}-${2}")
+	camelFormattedName = strings.ToLower(camelFormattedName)
+
+	return ctx.Value(camelFormattedName)
+}
+
+func createCommandWithT[T interface{}](f func(T, *cli.Context) error) cli.ActionFunc {
+	f2 := func(ctx *cli.Context) error {
+		var t T
+		tValue := reflect.ValueOf(&t).Elem()
+		tType := tValue.Type()
+		for i := 0; i < tType.NumField(); i++ {
+			field := tType.Field(i)
+			value := getValFromContext(field.Name, ctx)
+			tValue.Field(i).Set(reflect.ValueOf(value))
+
+		}
+		return f(t, ctx)
+	}
+
+	return f2
+}
+
+type foo struct {
+	FooFoo string
+	Bar    int
+}
+
+func doFoo(foo foo, ctx *cli.Context) error {
+	fmt.Printf("FooFoo is %s and Bar is %v.", foo.FooFoo, foo.Bar)
+	return nil
+}
+
 // createUsageText is a helper for formatting UsageTexts. The created UsageText
 // contains "viam", the command, requiredFlags, [other options] if otherOptions
 // is true, and all passed-in arguments in that order.
@@ -269,6 +321,17 @@ var app = &cli.App{
 		},
 	},
 	Commands: []*cli.Command{
+		{Name: "foo",
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name: "foo-foo",
+				},
+				&cli.IntFlag{
+					Name: "bar",
+				},
+			},
+			Action: createCommandWithT[foo](doFoo),
+		},
 		{
 			Name: "login",
 			// NOTE(benjirewis): maintain `auth` as an alias for backward compatibility.
@@ -1898,7 +1961,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage: "platform like 'linux/amd64'. if missing, will use platform of the CLI binary",
 						},
 					},
-					Action: DownloadModuleAction,
+					Action: createCommandWithT[downloadModuleFlags](DownloadModuleAction),
 				},
 			},
 		},

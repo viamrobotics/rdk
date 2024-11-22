@@ -938,8 +938,16 @@ func getNextModuleUploadRequest(file *os.File) (*apppb.UploadModuleFileRequest, 
 }
 
 // DownloadModuleAction downloads a module.
-func DownloadModuleAction(c *cli.Context) error {
-	moduleID := c.String(moduleFlagID)
+
+type downloadModuleFlags struct {
+	Destination string
+	ID          string
+	Version     string
+	Platform    string
+}
+
+func DownloadModuleAction(flags downloadModuleFlags, c *cli.Context) error {
+	moduleID := flags.ID
 	if moduleID == "" {
 		manifest, err := loadManifest(defaultManifestFilename)
 		if err != nil {
@@ -962,7 +970,7 @@ func DownloadModuleAction(c *cli.Context) error {
 	if len(res.Module.Versions) == 0 {
 		return errors.New("module has 0 uploaded versions, nothing to download")
 	}
-	requestedVersion := c.String(packageFlagVersion)
+	requestedVersion := flags.Version
 	var ver *apppb.VersionHistory
 	if requestedVersion == "latest" {
 		ver = res.Module.Versions[len(res.Module.Versions)-1]
@@ -981,7 +989,7 @@ func DownloadModuleAction(c *cli.Context) error {
 	if len(ver.Files) == 0 {
 		return fmt.Errorf("version %s has 0 files uploaded", ver.Version)
 	}
-	platform := c.String(moduleFlagPlatform)
+	platform := flags.Platform
 	if platform == "" {
 		platform = fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
 		infof(c.App.ErrWriter, "using default platform %s", platform)
@@ -1003,9 +1011,9 @@ func DownloadModuleAction(c *cli.Context) error {
 		return err
 	}
 	destName := strings.ReplaceAll(moduleID, ":", "-")
-	infof(c.App.ErrWriter, "saving to %s", path.Join(c.String(packageFlagDestination), fullVersion, destName+".tar.gz"))
+	infof(c.App.ErrWriter, "saving to %s", path.Join(flags.Destination, fullVersion, destName+".tar.gz"))
 	return downloadPackageFromURL(c.Context, client.authFlow.httpClient,
-		c.String(packageFlagDestination), destName,
+		flags.Destination, destName,
 		fullVersion, pkg.Package.Url, client.conf.Auth,
 	)
 }
