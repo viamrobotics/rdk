@@ -334,7 +334,7 @@ func TestDataClient(t *testing.T) {
 			}, nil
 		}
 		resp, _ := client.BinaryDataByFilter(
-			context.Background(), filter, count, dataRequest.SortOrder,
+			context.Background(), filter, limit, dataRequest.SortOrder,
 			last, includeBinary, countOnly, includeInternalData)
 		test.That(t, resp.BinaryData[0], test.ShouldResemble, binaryData)
 		test.That(t, resp.Count, test.ShouldEqual, count)
