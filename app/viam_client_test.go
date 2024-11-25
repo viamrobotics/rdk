@@ -6,6 +6,7 @@ import (
 
 	"github.com/viamrobotics/webrtc/v3"
 	datapb "go.viam.com/api/app/data/v1"
+	setPb "go.viam.com/api/app/dataset/v1"
 	syncPb "go.viam.com/api/app/datasync/v1"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
@@ -137,19 +138,6 @@ func TestNewAppClients(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer client.Close()
 
-	dataClient := client.DataClient()
-	test.That(t, dataClient, test.ShouldNotBeNil)
-	test.That(t, dataClient, test.ShouldHaveSameTypeAs, &DataClient{})
-	test.That(t, dataClient.dataClient, test.ShouldImplement, (*datapb.DataServiceClient)(nil))
-
-	// Testing that a second call to DataClient() returns the same instance
-	dataClient2 := client.DataClient()
-	test.That(t, dataClient2, test.ShouldNotBeNil)
-	test.That(t, dataClient, test.ShouldEqual, dataClient2)
-
-	// Add test for dataSyncClient
-	test.That(t, dataClient.dataSyncClient, test.ShouldImplement, (*syncPb.DataSyncServiceClient)(nil))
-
 	appClient := client.AppClient()
 	test.That(t, appClient, test.ShouldNotBeNil)
 	test.That(t, appClient, test.ShouldHaveSameTypeAs, &AppClient{})
@@ -159,4 +147,16 @@ func TestNewAppClients(t *testing.T) {
 	appClient2 := client.AppClient()
 	test.That(t, appClient2, test.ShouldNotBeNil)
 	test.That(t, appClient, test.ShouldEqual, appClient2)
+
+	dataClient := client.DataClient()
+	test.That(t, dataClient, test.ShouldNotBeNil)
+	test.That(t, dataClient, test.ShouldHaveSameTypeAs, &DataClient{})
+	test.That(t, dataClient.dataClient, test.ShouldImplement, (*datapb.DataServiceClient)(nil))
+	test.That(t, dataClient.dataSyncClient, test.ShouldImplement, (*syncPb.DataSyncServiceClient)(nil))
+	test.That(t, dataClient.datasetClient, test.ShouldImplement, (*setPb.DatasetServiceClient)(nil))
+
+	// Testing that a second call to DataClient() returns the same instance
+	dataClient2 := client.DataClient()
+	test.That(t, dataClient2, test.ShouldNotBeNil)
+	test.That(t, dataClient, test.ShouldEqual, dataClient2)
 }

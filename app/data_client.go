@@ -12,6 +12,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	pb "go.viam.com/api/app/data/v1"
+	setPb "go.viam.com/api/app/dataset/v1"
 	syncPb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -25,6 +26,7 @@ import (
 type DataClient struct {
 	dataClient     pb.DataServiceClient
 	dataSyncClient syncPb.DataSyncServiceClient
+	datasetClient  setPb.DatasetServiceClient
 }
 
 // Order specifies the order in which data is returned.
@@ -281,13 +283,22 @@ type FileUploadOptions struct {
 	Tags             []string
 }
 
+type Dataset struct {
+	ID             string
+	Name           string
+	OrganizationID string
+	TimeCreated    *time.Time
+}
+
 // NewDataClient constructs a new DataClient using the connection passed in by the ViamClient.
 func NewDataClient(conn rpc.ClientConn) *DataClient {
-	d := pb.NewDataServiceClient(conn)
-	s := syncPb.NewDataSyncServiceClient(conn)
+	dataClient := pb.NewDataServiceClient(conn)
+	syncClient := syncPb.NewDataSyncServiceClient(conn)
+	setClient := setPb.NewDatasetServiceClient(conn)
 	return &DataClient{
-		dataClient:     d,
-		dataSyncClient: s,
+		dataClient:     dataClient,
+		dataSyncClient: syncClient,
+		datasetClient:  setClient,
 	}
 }
 
@@ -468,6 +479,16 @@ func convertBsonToNative(data interface{}) interface{} {
 		return int(v)
 	default:
 		return v
+	}
+}
+
+func datasetFromProto(dataset *setPb.Dataset) *Dataset {
+	timeCreated := dataset.TimeCreated.AsTime()
+	return &Dataset{
+		ID:             dataset.Id,
+		Name:           dataset.Name,
+		OrganizationID: dataset.OrganizationId,
+		TimeCreated:    &timeCreated,
 	}
 }
 
@@ -1285,4 +1306,58 @@ func (d *DataClient) fileUploadStreamResp(metadata *syncPb.UploadMetadata, data 
 		return "", err
 	}
 	return resp.FileId, nil
+}
+
+func (d *DataClient) CreateDataset(ctx context.Context, name, organizationID string) (string, error) {
+	resp, err := d.datasetClient.CreateDataset(ctx, &setPb.CreateDatasetRequest{
+		Name:           name,
+		OrganizationId: organizationID,
+	})
+	if err != nil {
+		return "", err
+	}
+	return resp.Id, nil
+}
+
+func (d *DataClient) DeleteDataset(ctx context.Context, id string) error {
+	_, err := d.datasetClient.DeleteDataset(ctx, &setPb.DeleteDatasetRequest{
+		Id: id,
+	})
+	return err
+}
+
+func (d *DataClient) RenameDataset(ctx context.Context, id, name string) error {
+	_, err := d.datasetClient.RenameDataset(ctx, &setPb.RenameDatasetRequest{
+		Id:   id,
+		Name: name,
+	})
+	return err
+}
+
+func (d *DataClient) ListDatasetsByOrganizationID(ctx context.Context, organizationID string) ([]*Dataset, error) {
+	resp, err := d.datasetClient.ListDatasetsByOrganizationID(ctx, &setPb.ListDatasetsByOrganizationIDRequest{
+		OrganizationId: organizationID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	var datasets []*Dataset
+	for _, dataset := range resp.Datasets {
+		datasets = append(datasets, datasetFromProto(dataset))
+	}
+	return datasets, nil
+}
+
+func (d *DataClient) ListDatasetsByIDs(ctx context.Context, ids []string) ([]*Dataset, error) {
+	resp, err := d.datasetClient.ListDatasetsByIDs(ctx, &setPb.ListDatasetsByIDsRequest{
+		Ids: ids,
+	})
+	if err != nil {
+		return nil, err
+	}
+	var datasets []*Dataset
+	for _, dataset := range resp.Datasets {
+		datasets = append(datasets, datasetFromProto(dataset))
+	}
+	return datasets, nil
 }
