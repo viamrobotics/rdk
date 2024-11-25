@@ -1492,7 +1492,7 @@ func TestAppClient(t *testing.T) {
 				Fragments: []*pb.Fragment{&pbFragment},
 			}, nil
 		}
-		resp, err := client.ListMachineFragments(context.Background(), robotID, &ListMachineFragmentsOptions{additionalFragmentIDs})
+		resp, err := client.ListMachineFragments(context.Background(), robotID, additionalFragmentIDs)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, expectedFragments)
 	})
@@ -1682,15 +1682,15 @@ func TestAppClient(t *testing.T) {
 				Items: []*pb.RegistryItem{pbRegistryItem},
 			}, nil
 		}
-		resp, err := client.ListRegistryItems(context.Background(), &organizationID, &ListRegistryItemsOptions{
+		resp, err := client.ListRegistryItems(
+			context.Background(),
+			&organizationID,
 			[]PackageType{packageType},
 			[]Visibility{visibility},
 			platforms,
 			[]RegistryItemStatus{registryItemStatus},
-			&searchTerm,
-			&pageToken,
-			namespaces,
-		})
+			&ListRegistryItemsOptions{&searchTerm, &pageToken, namespaces},
+		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, expectedRegistryItems)
 	})

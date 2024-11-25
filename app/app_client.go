@@ -88,8 +88,8 @@ type UpdateRegistryItemOptions struct {
 
 // ListRegistryItemsOptions contains optional parameters for ListRegistryItems.
 type ListRegistryItemsOptions struct {
-	SearchTerm   *string
-	PageToken    *string
+	SearchTerm *string
+	PageToken  *string
 	// PublicNamespaces are the namespaces to return results for.
 	PublicNamespaces []string
 }
@@ -384,7 +384,7 @@ func (c *AppClient) CreateLocation(ctx context.Context, orgID, name string, opts
 	var parentID *string
 	if opts != nil {
 		parentID = opts.ParentLocationID
-	}	
+	}
 	resp, err := c.client.CreateLocation(ctx, &pb.CreateLocationRequest{
 		OrganizationId:   orgID,
 		Name:             name,
@@ -560,10 +560,10 @@ func (c *AppClient) GetRobotPartLogs(ctx context.Context, id string, opts *GetRo
 		filter, token, source = opts.Filter, opts.PageToken, opts.Source
 		levels = opts.Levels
 		if opts.Start != nil {
-			timestamppb.New(*opts.Start)
+			start = timestamppb.New(*opts.Start)
 		}
 		if opts.End != nil {
-			timestamppb.New(*opts.End)
+			end = timestamppb.New(*opts.End)
 		}
 		if opts.Limit != nil {
 			limit = int64(*opts.Limit)
@@ -1041,7 +1041,13 @@ func (c *AppClient) UpdateRegistryItem(
 
 // ListRegistryItems lists the registry items in an organization.
 func (c *AppClient) ListRegistryItems(
-	ctx context.Context, orgID *string, types []PackageType, visibilities []Visibility, platforms []string, statuses []RegistryItemStatus, opts *ListRegistryItemsOptions,
+	ctx context.Context,
+	orgID *string,
+	types []PackageType,
+	visibilities []Visibility,
+	platforms []string,
+	statuses []RegistryItemStatus,
+	opts *ListRegistryItemsOptions,
 ) ([]*RegistryItem, error) {
 	var pbTypes []packages.PackageType
 	for _, packageType := range types {
