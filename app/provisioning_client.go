@@ -87,7 +87,7 @@ func NewProvisioningClient(conn rpc.ClientConn) *ProvisioningClient {
 	return &ProvisioningClient{client: pb.NewProvisioningServiceClient(conn)}
 }
 
-// GetSmartMachineStatus is for retrieving the status of the smart machine including networking.
+// GetSmartMachineStatus gets the status of the smart machine including networking.
 func (c *ProvisioningClient) GetSmartMachineStatus(ctx context.Context) (*GetSmartMachineStatusResponse, error) {
 	resp, err := c.client.GetSmartMachineStatus(ctx, &pb.GetSmartMachineStatusRequest{})
 	if err != nil {
@@ -114,7 +114,7 @@ func (c *ProvisioningClient) SetSmartMachineCredentials(ctx context.Context, clo
 	return err
 }
 
-// GetNetworkList is to retrieve the list of networks that are visible to the smart machine.
+// GetNetworkList gets the list of networks that are visible to the smart machine.
 func (c *ProvisioningClient) GetNetworkList(ctx context.Context) ([]*NetworkInfo, error) {
 	resp, err := c.client.GetNetworkList(ctx, &pb.GetNetworkListRequest{})
 	if err != nil {
