@@ -40,7 +40,7 @@ func init() {
 //		"gorgonia.org/tensor"
 //	 )
 //
-//	myMLModel, err := mlmodel.FromRobot(machine, "mlmodel-1")
+//	myMLModel, err := mlmodel.FromRobot(machine, "my_mlmodel")
 //
 //	input_tensors := ml.Tensors{
 //		"image": tensor.New(
@@ -54,7 +54,7 @@ func init() {
 //
 // Metadata example:
 //
-//	myMLModel, err := mlmodel.FromRobot(machine, "mlmodel-1")
+//	myMLModel, err := mlmodel.FromRobot(machine, "my_mlmodel")
 //	metadata, err := myMLModel.Metadata(context.Background())
 //
 // [ML model service docs]: https://docs.viam.com/services/ml/deploy/
