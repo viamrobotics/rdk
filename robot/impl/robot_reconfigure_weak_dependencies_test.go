@@ -24,7 +24,8 @@ import (
 type someTypeWithWeakAndStrongDeps struct {
 	resource.Named
 	resource.TriviallyCloseable
-	resources resource.Dependencies
+	resources     resource.Dependencies
+	reconfigCount int
 }
 
 func (s *someTypeWithWeakAndStrongDeps) Reconfigure(
@@ -33,6 +34,7 @@ func (s *someTypeWithWeakAndStrongDeps) Reconfigure(
 	conf resource.Config,
 ) error {
 	s.resources = deps
+	s.reconfigCount++
 	ourConf, err := resource.NativeConfig[*someTypeWithWeakAndStrongDepsConfig](conf)
 	if err != nil {
 		return err
@@ -149,6 +151,7 @@ func TestUpdateWeakDependents(t *testing.T) {
 	// Assert that the weak dependency was tracked.
 	test.That(t, weak1.resources, test.ShouldHaveLength, 1)
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, 1)
 
 	// Reconfigure again with a new third `arm` component.
 	arm1Name := arm.Named("arm1")
@@ -183,6 +186,7 @@ func TestUpdateWeakDependents(t *testing.T) {
 	test.That(t, weak1.resources, test.ShouldHaveLength, 2)
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
 	test.That(t, weak1.resources, test.ShouldContainKey, arm1Name)
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, 2)
 
 	base2Name := base.Named("base2")
 	weakCfg5 := config.Config{
@@ -217,6 +221,8 @@ func TestUpdateWeakDependents(t *testing.T) {
 	_, err = robot.ResourceByName(weak1Name)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not initialized")
+	// reconfigCount will not increment as the error happens before Reconfigure is called on the resource.
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, 2)
 
 	weakCfg6 := config.Config{
 		Components: []resource.Config{
@@ -250,6 +256,8 @@ func TestUpdateWeakDependents(t *testing.T) {
 	test.That(t, weak1.resources, test.ShouldHaveLength, 2)
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
 	test.That(t, weak1.resources, test.ShouldContainKey, base2Name)
+	// reconfigCount will reset as the resource was destroyed after the previous configuration failure.
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, 1)
 
 	weakCfg7 := config.Config{
 		Components: []resource.Config{
@@ -285,4 +293,159 @@ func TestUpdateWeakDependents(t *testing.T) {
 	test.That(t, weak1.resources, test.ShouldHaveLength, 2)
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
 	test.That(t, weak1.resources, test.ShouldContainKey, base2Name)
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, 3)
+}
+
+func TestWeakDependentsInfiniteLoop(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	var emptyCfg config.Config
+	test.That(t, emptyCfg.Ensure(false, logger), test.ShouldBeNil)
+
+	robot := setupLocalRobot(t, context.Background(), &emptyCfg, logger)
+
+	// Register a `Resource` that generates weak dependencies. Specifically instance of
+	// this resource will depend on every `component` resource. See the definition of
+	// `internal.ComponentDependencyWildcardMatcher`.
+	weakAPI := resource.NewAPI(uuid.NewString(), "component", "weaktype2")
+	weakModel := resource.NewModel(uuid.NewString(), "soweak", "weak2000")
+	weak1Name := resource.NewName(weakAPI, "weak1")
+	resource.Register(
+		weakAPI,
+		weakModel,
+		resource.Registration[*someTypeWithWeakAndStrongDeps, *someTypeWithWeakAndStrongDepsConfig]{
+			Constructor: func(
+				ctx context.Context,
+				deps resource.Dependencies,
+				conf resource.Config,
+				logger logging.Logger,
+			) (*someTypeWithWeakAndStrongDeps, error) {
+				return &someTypeWithWeakAndStrongDeps{
+					Named:     conf.ResourceName().AsNamed(),
+					resources: deps,
+				}, nil
+			},
+			WeakDependencies: []resource.Matcher{resource.TypeMatcher{Type: resource.APITypeComponentName}},
+		})
+	defer func() {
+		resource.Deregister(weakAPI, weakModel)
+	}()
+
+	// Reconfigure robot with one component and one resource with weak dependencies (that also has an implicit dependency on the component).
+	base1Name := base.Named("base1")
+	weakCfg1 := config.Config{
+		Components: []resource.Config{
+			{
+				Name:  weak1Name.Name,
+				API:   weakAPI,
+				Model: weakModel,
+				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{
+					deps: []resource.Name{base1Name},
+				},
+			},
+			{
+				Name:  base1Name.Name,
+				API:   base.API,
+				Model: fake.Model,
+			},
+		},
+	}
+	test.That(t, weakCfg1.Ensure(false, logger), test.ShouldBeNil)
+	robot.Reconfigure(context.Background(), &weakCfg1)
+
+	res, err := robot.ResourceByName(weak1Name)
+	// The resource was found and all dependencies were properly resolved.
+	test.That(t, err, test.ShouldBeNil)
+	weak1, err := resource.AsType[*someTypeWithWeakAndStrongDeps](res)
+	test.That(t, err, test.ShouldBeNil)
+	// Assert that the weak dependency was tracked.
+	test.That(t, weak1.resources, test.ShouldHaveLength, 1)
+	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, 1)
+
+	// Reconfigure the base and check that weak1 was only reconfigured once more.
+	weakCfg2 := config.Config{
+		Components: []resource.Config{
+			{
+				Name:  weak1Name.Name,
+				API:   weakAPI,
+				Model: weakModel,
+				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{
+					deps: []resource.Name{base1Name},
+				},
+			},
+			{
+				Name:  base1Name.Name,
+				API:   base.API,
+				Model: fake.Model,
+				// We need the following `robot.Reconfigure` to call `Reconfigure` on this `weak1`
+				// component. We change the `Attributes` field from the previous (nil) value to
+				// accomplish that.
+				Attributes: rutils.AttributeMap{"version": 1},
+			},
+		},
+	}
+	test.That(t, weakCfg2.Ensure(false, logger), test.ShouldBeNil)
+	robot.Reconfigure(context.Background(), &weakCfg2)
+
+	res, err = robot.ResourceByName(weak1Name)
+	test.That(t, err, test.ShouldBeNil)
+	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](res)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, 2)
+
+	// check that getting dependencies for either resource does not increase reconfigCount
+	lRobot := robot.(*localRobot)
+	node, ok := lRobot.manager.resources.Node(weak1Name)
+	test.That(t, ok, test.ShouldBeTrue)
+	lRobot.getDependencies(context.Background(), weak1Name, node)
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, 2)
+
+	node, ok = lRobot.manager.resources.Node(base1Name)
+	test.That(t, ok, test.ShouldBeTrue)
+	lRobot.getDependencies(context.Background(), base1Name, node)
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, 2)
+
+	// Reconfigure the base to make it depend on weak1 and check that weak1 was reconfigured three more times.
+	// Once during the reconfiguration for weak1, once during the getDependencies phase for base1, and once more
+	// at the end of robot reconfiguration.
+	weakCfg3 := config.Config{
+		Components: []resource.Config{
+			{
+				Name:  weak1Name.Name,
+				API:   weakAPI,
+				Model: weakModel,
+				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{
+					deps: []resource.Name{},
+				},
+				DependsOn: []string{},
+			},
+			{
+				Name:      base1Name.Name,
+				API:       base.API,
+				Model:     fake.Model,
+				DependsOn: []string{weak1Name.String()},
+			},
+		},
+	}
+	test.That(t, weakCfg3.Ensure(false, logger), test.ShouldBeNil)
+	robot.Reconfigure(context.Background(), &weakCfg3)
+
+	res, err = robot.ResourceByName(weak1Name)
+	test.That(t, err, test.ShouldBeNil)
+	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](res)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, 5)
+
+	// check that getting dependencies for either resource does not increase reconfigCount
+	node, ok = lRobot.manager.resources.Node(weak1Name)
+	test.That(t, ok, test.ShouldBeTrue)
+	lRobot.getDependencies(context.Background(), weak1Name, node)
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, 5)
+
+	node, ok = lRobot.manager.resources.Node(base1Name)
+	test.That(t, ok, test.ShouldBeTrue)
+	lRobot.getDependencies(context.Background(), base1Name, node)
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, 5)
+
 }
