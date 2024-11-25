@@ -23,7 +23,6 @@ const (
 	discount             float64 = 9
 	totalWithDiscount            = cost - discount
 	totalWithoutDiscount float64 = cost
-	email                        = "email"
 	paymentMethodType            = PaymentMethodtypeCard
 	brand                        = "brand"
 	digits                       = "1234"
@@ -35,8 +34,6 @@ const (
 )
 
 var (
-	start                        = time.Now()
-	end                          = time.Now()
 	tier                         = "tier"
 	getCurrentMonthUsageResponse = GetCurrentMonthUsageResponse{
 		StartDate: &start,
