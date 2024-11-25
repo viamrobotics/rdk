@@ -15,6 +15,7 @@ import (
 // ViamClient is a gRPC client for method calls to Viam app.
 type ViamClient struct {
 	conn       rpc.ClientConn
+	appClient  *AppClient
 	dataClient *DataClient
 }
 
@@ -61,6 +62,16 @@ func CreateViamClientWithAPIKey(
 		Payload: apiKey,
 	}
 	return CreateViamClientWithOptions(ctx, options, logger)
+}
+
+// AppClient initializes and returns an AppClient instance used to make app method calls.
+// To use AppClient, you must first instantiate a ViamClient.
+func (c *ViamClient) AppClient() *AppClient {
+	if c.appClient != nil {
+		return c.appClient
+	}
+	c.appClient = NewAppClient(c.conn)
+	return c.appClient
 }
 
 // DataClient initializes and returns a DataClient instance used to make data method calls.
