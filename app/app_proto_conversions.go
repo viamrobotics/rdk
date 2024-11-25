@@ -2,27 +2,28 @@ package app
 
 import (
 	"fmt"
+	"time"
 
 	pb "go.viam.com/api/app/v1"
 	common "go.viam.com/api/common/v1"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // Organization holds the information of an organization.
 type Organization struct {
 	ID              string
 	Name            string
-	CreatedOn       *timestamppb.Timestamp
+	CreatedOn       *time.Time
 	PublicNamespace string
 	DefaultRegion   string
 	Cid             *string
 }
 
 func organizationFromProto(organization *pb.Organization) *Organization {
+	createdOn := organization.CreatedOn.AsTime()
 	return &Organization{
 		ID:              organization.Id,
 		Name:            organization.Name,
-		CreatedOn:       organization.CreatedOn,
+		CreatedOn:       &createdOn,
 		PublicNamespace: organization.PublicNamespace,
 		DefaultRegion:   organization.DefaultRegion,
 		Cid:             organization.Cid,
@@ -59,16 +60,18 @@ func orgDetailsFromProto(orgDetails *pb.OrgDetails) *OrgDetails {
 type OrganizationMember struct {
 	UserID    string
 	Emails    []string
-	DateAdded *timestamppb.Timestamp
-	LastLogin *timestamppb.Timestamp
+	DateAdded *time.Time
+	LastLogin *time.Time
 }
 
 func organizationMemberFromProto(organizationMemOrganizationMember *pb.OrganizationMember) *OrganizationMember {
+	dateAdded := organizationMemOrganizationMember.DateAdded.AsTime()
+	lastLogin := organizationMemOrganizationMember.LastLogin.AsTime()
 	return &OrganizationMember{
 		UserID:    organizationMemOrganizationMember.UserId,
 		Emails:    organizationMemOrganizationMember.Emails,
-		DateAdded: organizationMemOrganizationMember.DateAdded,
-		LastLogin: organizationMemOrganizationMember.LastLogin,
+		DateAdded: &dateAdded,
+		LastLogin: &lastLogin,
 	}
 }
 
@@ -76,7 +79,7 @@ func organizationMemberFromProto(organizationMemOrganizationMember *pb.Organizat
 type OrganizationInvite struct {
 	OrganizationID string
 	Email          string
-	CreatedOn      *timestamppb.Timestamp
+	CreatedOn      *time.Time
 	Authorizations []*Authorization
 }
 
@@ -85,10 +88,11 @@ func organizationInviteFromProto(organizationInvite *pb.OrganizationInvite) *Org
 	for _, authorization := range organizationInvite.Authorizations {
 		authorizations = append(authorizations, authorizationFromProto(authorization))
 	}
+	createdOn := organizationInvite.CreatedOn.AsTime()
 	return &OrganizationInvite{
 		OrganizationID: organizationInvite.OrganizationId,
 		Email:          organizationInvite.Email,
-		CreatedOn:      organizationInvite.CreatedOn,
+		CreatedOn:      &createdOn,
 		Authorizations: authorizations,
 	}
 }
@@ -117,7 +121,7 @@ type Location struct {
 	ParentLocationID string
 	Auth             *LocationAuth
 	Organizations    []*LocationOrganization
-	CreatedOn        *timestamppb.Timestamp
+	CreatedOn        *time.Time
 	RobotCount       int
 	Config           *StorageConfig
 }
@@ -127,13 +131,14 @@ func locationFromProto(location *pb.Location) *Location {
 	for _, organization := range location.Organizations {
 		organizations = append(organizations, locationOrganizationFromProto(organization))
 	}
+	createdOn := location.CreatedOn.AsTime()
 	return &Location{
 		ID:               location.Id,
 		Name:             location.Name,
 		ParentLocationID: location.ParentLocationId,
 		Auth:             locationAuthFromProto(location.Auth),
 		Organizations:    organizations,
-		CreatedOn:        location.CreatedOn,
+		CreatedOn:        &createdOn,
 		RobotCount:       int(location.RobotCount),
 		Config:           storageConfigFromProto(location.Config),
 	}
@@ -183,17 +188,19 @@ type Robot struct {
 	ID         string
 	Name       string
 	Location   string
-	LastAccess *timestamppb.Timestamp
-	CreatedOn  *timestamppb.Timestamp
+	LastAccess *time.Time
+	CreatedOn  *time.Time
 }
 
 func robotFromProto(robot *pb.Robot) *Robot {
+	lastAccess := robot.LastAccess.AsTime()
+	createdOn := robot.CreatedOn.AsTime()
 	return &Robot{
 		ID:         robot.Id,
 		Name:       robot.Name,
 		Location:   robot.Location,
-		LastAccess: robot.LastAccess,
-		CreatedOn:  robot.CreatedOn,
+		LastAccess: &lastAccess,
+		CreatedOn:  &createdOn,
 	}
 }
 
@@ -223,14 +230,14 @@ type RobotPart struct {
 	Robot            string
 	LocationID       string
 	RobotConfig      *map[string]interface{}
-	LastAccess       *timestamppb.Timestamp
+	LastAccess       *time.Time
 	UserSuppliedInfo *map[string]interface{}
 	MainPart         bool
 	FQDN             string
 	LocalFQDN        string
-	CreatedOn        *timestamppb.Timestamp
+	CreatedOn        *time.Time
 	Secrets          []*SharedSecret
-	LastUpdated      *timestamppb.Timestamp
+	LastUpdated      *time.Time
 }
 
 func robotPartFromProto(robotPart *pb.RobotPart) *RobotPart {
@@ -239,7 +246,10 @@ func robotPartFromProto(robotPart *pb.RobotPart) *RobotPart {
 		secrets = append(secrets, sharedSecretFromProto(secret))
 	}
 	cfg := robotPart.RobotConfig.AsMap()
+	lastAccess := robotPart.LastAccess.AsTime()
 	info := robotPart.UserSuppliedInfo.AsMap()
+	createdOn := robotPart.CreatedOn.AsTime()
+	lastUpdated := robotPart.LastUpdated.AsTime()
 	return &RobotPart{
 		ID:               robotPart.Id,
 		Name:             robotPart.Name,
@@ -248,14 +258,14 @@ func robotPartFromProto(robotPart *pb.RobotPart) *RobotPart {
 		Robot:            robotPart.Robot,
 		LocationID:       robotPart.LocationId,
 		RobotConfig:      &cfg,
-		LastAccess:       robotPart.LastAccess,
+		LastAccess:       &lastAccess,
 		UserSuppliedInfo: &info,
 		MainPart:         robotPart.MainPart,
 		FQDN:             robotPart.Fqdn,
 		LocalFQDN:        robotPart.LocalFqdn,
-		CreatedOn:        robotPart.CreatedOn,
+		CreatedOn:        &createdOn,
 		Secrets:          secrets,
-		LastUpdated:      robotPart.LastUpdated,
+		LastUpdated:      &lastUpdated,
 	}
 }
 
@@ -263,16 +273,17 @@ func robotPartFromProto(robotPart *pb.RobotPart) *RobotPart {
 type RobotPartHistoryEntry struct {
 	Part     string
 	Robot    string
-	When     *timestamppb.Timestamp
+	When     *time.Time
 	Old      *RobotPart
 	EditedBy *AuthenticatorInfo
 }
 
 func robotPartHistoryEntryFromProto(entry *pb.RobotPartHistoryEntry) *RobotPartHistoryEntry {
+	when := entry.When.AsTime()
 	return &RobotPartHistoryEntry{
 		Part:     entry.Part,
 		Robot:    entry.Robot,
-		When:     entry.When,
+		When:     &when,
 		Old:      robotPartFromProto(entry.Old),
 		EditedBy: authenticatorInfoFromProto(entry.EditedBy),
 	}
@@ -282,7 +293,7 @@ func robotPartHistoryEntryFromProto(entry *pb.RobotPartHistoryEntry) *RobotPartH
 type LogEntry struct {
 	Host       string
 	Level      string
-	Time       *timestamppb.Timestamp
+	Time       *time.Time
 	LoggerName string
 	Message    string
 	Caller     *map[string]interface{}
@@ -291,16 +302,17 @@ type LogEntry struct {
 }
 
 func logEntryFromProto(logEntry *common.LogEntry) *LogEntry {
+	entryTime := logEntry.Time.AsTime()
+	caller := logEntry.Caller.AsMap()
 	var fields []*map[string]interface{}
 	for _, field := range logEntry.Fields {
 		f := field.AsMap()
 		fields = append(fields, &f)
 	}
-	caller := logEntry.Caller.AsMap()
 	return &LogEntry{
 		Host:       logEntry.Host,
 		Level:      logEntry.Level,
-		Time:       logEntry.Time,
+		Time:       &entryTime,
 		LoggerName: logEntry.LoggerName,
 		Message:    logEntry.Message,
 		Caller:     &caller,
@@ -316,31 +328,32 @@ type Fragment struct {
 	Fragment          *map[string]interface{}
 	OrganizationOwner string
 	Public            bool
-	CreatedOn         *timestamppb.Timestamp
+	CreatedOn         *time.Time
 	OrganizationName  string
 	RobotPartCount    int
 	OrganizationCount int
 	OnlyUsedByOwner   bool
 	Visibility        FragmentVisibility
-	LastUpdated       *timestamppb.Timestamp
+	LastUpdated       *time.Time
 }
 
 func fragmentFromProto(fragment *pb.Fragment) *Fragment {
 	f := fragment.Fragment.AsMap()
-
+	createdOn := fragment.CreatedOn.AsTime()
+	lastUpdated := fragment.LastUpdated.AsTime()
 	return &Fragment{
 		ID:                fragment.Id,
 		Name:              fragment.Name,
 		Fragment:          &f,
 		OrganizationOwner: fragment.OrganizationOwner,
 		Public:            fragment.Public,
-		CreatedOn:         fragment.CreatedOn,
+		CreatedOn:         &createdOn,
 		OrganizationName:  fragment.OrganizationName,
 		RobotPartCount:    int(fragment.RobotPartCount),
 		OrganizationCount: int(fragment.OrganizationCount),
 		OnlyUsedByOwner:   fragment.OnlyUsedByOwner,
 		Visibility:        fragmentVisibilityFromProto(fragment.Visibility),
-		LastUpdated:       fragment.LastUpdated,
+		LastUpdated:       &lastUpdated,
 	}
 }
 
@@ -389,15 +402,16 @@ func fragmentVisibilityToProto(visibility FragmentVisibility) pb.FragmentVisibil
 // FragmentHistoryEntry is an entry of a fragment's history.
 type FragmentHistoryEntry struct {
 	Fragment string
-	EditedOn *timestamppb.Timestamp
+	EditedOn *time.Time
 	Old      *Fragment
 	EditedBy *AuthenticatorInfo
 }
 
 func fragmentHistoryEntryFromProto(entry *pb.FragmentHistoryEntry) *FragmentHistoryEntry {
+	editedOn := entry.EditedOn.AsTime()
 	return &FragmentHistoryEntry{
 		Fragment: entry.Fragment,
-		EditedOn: entry.EditedOn,
+		EditedOn: &editedOn,
 		Old:      fragmentFromProto(entry.Old),
 		EditedBy: authenticatorInfoFromProto(entry.EditedBy),
 	}
@@ -507,14 +521,15 @@ func createAuthorization(
 // SharedSecret is a secret used for LocationAuth and RobotParts.
 type SharedSecret struct {
 	ID        string
-	CreatedOn *timestamppb.Timestamp
+	CreatedOn *time.Time
 	State     SharedSecretState
 }
 
 func sharedSecretFromProto(sharedSecret *pb.SharedSecret) *SharedSecret {
+	createdOn := sharedSecret.CreatedOn.AsTime()
 	return &SharedSecret{
 		ID:        sharedSecret.Id,
-		CreatedOn: sharedSecret.CreatedOn,
+		CreatedOn: &createdOn,
 		State:     sharedSecretStateFromProto(sharedSecret.State),
 	}
 }
@@ -613,15 +628,16 @@ type APIKey struct {
 	ID        string
 	Key       string
 	Name      string
-	CreatedOn *timestamppb.Timestamp
+	CreatedOn *time.Time
 }
 
 func apiKeyFromProto(key *pb.APIKey) *APIKey {
+	createdOn := key.CreatedOn.AsTime()
 	return &APIKey{
 		ID:        key.Id,
 		Key:       key.Key,
 		Name:      key.Name,
-		CreatedOn: key.CreatedOn,
+		CreatedOn: &createdOn,
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	mlTraining "go.viam.com/api/app/mltraining/v1"
 	packages "go.viam.com/api/app/packages/v1"
@@ -32,7 +33,7 @@ const (
 	identityID                     = "identity_id"
 	identityID2                    = "identity_id_2"
 	identityType                   = ""
-	secretID                       = "secret_ids"
+	secretID                       = "secret_id"
 	primary                        = true
 	robotCount                     = 1
 	robotLocation                  = "robot_location"
@@ -42,7 +43,6 @@ const (
 	fqdn                           = "fqdn"
 	localFQDN                      = "local_fqdn"
 	configJSON                     = "configJson"
-	host                           = "host"
 	level                          = "level"
 	loggerName                     = "logger_name"
 	message                        = "message"
@@ -79,16 +79,15 @@ const (
 )
 
 var (
-	organizationID = "organization_id"
-	name           = "name"
-	region         = "region"
-	namespace      = "public_namespace"
-	cid            = "cid"
-	dateAdded      = timestamppb.Timestamp{Seconds: 0, Nanos: 50}
-	organization   = Organization{
+	name         = "name"
+	region       = "region"
+	namespace    = "public_namespace"
+	cid          = "cid"
+	dateAdded    = time.Now().UTC().Round(time.Millisecond)
+	organization = Organization{
 		ID:              organizationID,
 		Name:            name,
-		CreatedOn:       &dateAdded,
+		CreatedOn:       &createdOn,
 		PublicNamespace: namespace,
 		DefaultRegion:   region,
 		Cid:             &cid,
@@ -96,7 +95,7 @@ var (
 	pbOrganization = pb.Organization{
 		Id:              organization.ID,
 		Name:            organization.Name,
-		CreatedOn:       organization.CreatedOn,
+		CreatedOn:       timestamppb.New(*organization.CreatedOn),
 		PublicNamespace: organization.PublicNamespace,
 		DefaultRegion:   organization.DefaultRegion,
 		Cid:             organization.Cid,
@@ -109,8 +108,8 @@ var (
 		OrgID:   organizationID,
 		OrgName: name,
 	}
-	lastLogin     = timestamppb.Timestamp{Seconds: 0, Nanos: 100}
-	createdOn     = timestamppb.Timestamp{Seconds: 0, Nanos: 0}
+	lastLogin     = time.Now().UTC().Round(time.Millisecond)
+	createdOn     = time.Now().UTC().Round(time.Millisecond)
 	authorization = Authorization{
 		AuthorizationType: string(authorizationType),
 		AuthorizationID:   authorizationID,
@@ -164,7 +163,7 @@ var (
 	pbInvite = pb.OrganizationInvite{
 		OrganizationId: invite.OrganizationID,
 		Email:          invite.Email,
-		CreatedOn:      invite.CreatedOn,
+		CreatedOn:      timestamppb.New(*invite.CreatedOn),
 		Authorizations: pbAuthorizations,
 	}
 	sendEmailInvite = true
@@ -190,7 +189,7 @@ var (
 	sharedSecrets = []*SharedSecret{&sharedSecret}
 	pbSecret      = pb.SharedSecret{
 		Id:        sharedSecret.ID,
-		CreatedOn: sharedSecret.CreatedOn,
+		CreatedOn: timestamppb.New(*sharedSecret.CreatedOn),
 		State:     sharedSecretStateToProto(sharedSecret.State),
 	}
 	pbSecrets    = []*pb.SharedSecret{&pbSecret}
@@ -230,16 +229,16 @@ var (
 				Primary:        locationOrg.Primary,
 			},
 		},
-		CreatedOn:  location.CreatedOn,
+		CreatedOn:  timestamppb.New(*location.CreatedOn),
 		RobotCount: int32(location.RobotCount),
 		Config: &pb.StorageConfig{
 			Region: storageConfig.Region,
 		},
 	}
-	lastAccess = timestamppb.Timestamp{Seconds: 0, Nanos: 110}
+	lastAccess = time.Now().UTC().Round(time.Millisecond)
 	robot      = Robot{
 		ID:         robotID,
-		Name:       name,
+		Name:       robotName,
 		Location:   robotLocation,
 		LastAccess: &lastAccess,
 		CreatedOn:  &createdOn,
@@ -248,23 +247,23 @@ var (
 		Id:         robot.ID,
 		Name:       robot.Name,
 		Location:   robot.Location,
-		LastAccess: robot.LastAccess,
-		CreatedOn:  robot.CreatedOn,
+		LastAccess: timestamppb.New(*robot.LastAccess),
+		CreatedOn:  timestamppb.New(*robot.CreatedOn),
 	}
 	roverRentalRobot = RoverRentalRobot{
 		RobotID:         robotID,
 		LocationID:      locationID,
-		RobotName:       name,
+		RobotName:       robotName,
 		RobotMainPartID: partID,
 	}
-	lastUpdated           = timestamppb.Timestamp{Seconds: 0, Nanos: 130}
+	lastUpdated           = time.Now().UTC().Round(time.Millisecond)
 	robotConfig           = map[string]interface{}{"name": name, "ID": robotID}
 	pbRobotConfig, _      = protoutils.StructToStructPb(*robotPart.RobotConfig)
 	pbUserSuppliedInfo, _ = protoutils.StructToStructPb(*robotPart.UserSuppliedInfo)
 	userSuppliedInfo      = map[string]interface{}{"userID": userID}
 	robotPart             = RobotPart{
 		ID:               partID,
-		Name:             name,
+		Name:             partName,
 		DNSName:          dnsName,
 		Secret:           secret,
 		Robot:            robotID,
@@ -287,26 +286,23 @@ var (
 		Robot:            robotPart.Robot,
 		LocationId:       robotPart.LocationID,
 		RobotConfig:      pbRobotConfig,
-		LastAccess:       robotPart.LastAccess,
+		LastAccess:       timestamppb.New(*robotPart.LastAccess),
 		UserSuppliedInfo: pbUserSuppliedInfo,
 		MainPart:         robotPart.MainPart,
 		Fqdn:             robotPart.FQDN,
 		LocalFqdn:        robotPart.LocalFQDN,
-		CreatedOn:        robotPart.CreatedOn,
+		CreatedOn:        timestamppb.New(*robotPart.CreatedOn),
 		Secrets:          pbSecrets,
-		LastUpdated:      robotPart.LastUpdated,
+		LastUpdated:      timestamppb.New(*robotPart.LastUpdated),
 	}
-	pageToken  = "page_token"
-	levels     = []string{level}
-	start      = timestamppb.Timestamp{Seconds: 92, Nanos: 0}
-	end        = timestamppb.Timestamp{Seconds: 99, Nanos: 999}
-	int64Limit = 2
-	source     = "source"
-	filter     = "filter"
-	timestamp  = timestamppb.Timestamp{Seconds: 11, Nanos: 15}
-	caller     = map[string]interface{}{"name": name}
-	field      = map[string]interface{}{"key": "value"}
-	logEntry   = LogEntry{
+	pageToken = "page_token"
+	levels    = []string{level}
+	source    = "source"
+	filter    = "filter"
+	timestamp = time.Now().UTC().Round(time.Millisecond)
+	caller    = map[string]interface{}{"name": name}
+	field     = map[string]interface{}{"key": "value"}
+	logEntry  = LogEntry{
 		Host:       host,
 		Level:      level,
 		Time:       &timestamp,
@@ -321,7 +317,7 @@ var (
 	pbLogEntry  = common.LogEntry{
 		Host:       logEntry.Host,
 		Level:      logEntry.Level,
-		Time:       logEntry.Time,
+		Time:       timestamppb.New(*logEntry.Time),
 		LoggerName: logEntry.LoggerName,
 		Message:    logEntry.Message,
 		Caller:     pbCaller,
@@ -369,7 +365,7 @@ var (
 			Id:        apiKeyWithAuthorizations.APIKey.ID,
 			Key:       apiKeyWithAuthorizations.APIKey.Key,
 			Name:      apiKeyWithAuthorizations.APIKey.Name,
-			CreatedOn: apiKeyWithAuthorizations.APIKey.CreatedOn,
+			CreatedOn: timestamppb.New(*apiKeyWithAuthorizations.APIKey.CreatedOn),
 		},
 		Authorizations: []*pb.AuthorizationDetails{
 			{
@@ -408,16 +404,16 @@ var (
 		Fragment:          pbF,
 		OrganizationOwner: fragment.OrganizationOwner,
 		Public:            fragment.Public,
-		CreatedOn:         fragment.CreatedOn,
+		CreatedOn:         timestamppb.New(*fragment.CreatedOn),
 		OrganizationName:  fragment.OrganizationName,
 		RobotPartCount:    int32(fragment.RobotPartCount),
 		OrganizationCount: int32(fragment.OrganizationCount),
 		OnlyUsedByOwner:   fragment.OnlyUsedByOwner,
 		Visibility:        pbFragmentVisibility,
-		LastUpdated:       fragment.LastUpdated,
+		LastUpdated:       timestamppb.New(*fragment.LastUpdated),
 	}
 	fragmentConfig       = map[string]interface{}{"organizationCount": 4}
-	editedOn             = timestamppb.Timestamp{Seconds: 8, Nanos: 278}
+	editedOn             = time.Now().UTC().Round(time.Millisecond)
 	fragmentHistoryEntry = FragmentHistoryEntry{
 		Fragment: fragmentID,
 		EditedOn: &editedOn,
@@ -432,7 +428,7 @@ var (
 			Permissions:  []string{permission},
 		},
 	}
-	siteURL  = "url"
+	siteURL  = "url.test.com"
 	metadata = registryItemMLTrainingMetadata{
 		MlTrainingMetadata: &MLTrainingMetadata{
 			Versions: []*MLTrainingVersion{
@@ -478,14 +474,14 @@ var (
 		},
 	}
 	firstRun   = "first_run"
-	uploadedAt = timestamppb.Timestamp{Seconds: 3, Nanos: 211}
+	uploadedAt = time.Now().UTC().Round(time.Millisecond)
 	uploads    = Uploads{
 		Platform:   platform,
 		UploadedAt: &uploadedAt,
 	}
 	pbUploads = pb.Uploads{
 		Platform:   uploads.Platform,
-		UploadedAt: uploads.UploadedAt,
+		UploadedAt: timestamppb.New(*uploads.UploadedAt),
 	}
 	versionHistory = VersionHistory{
 		Version:    version,
@@ -539,12 +535,11 @@ var (
 		resourceID:   resourceID,
 	}
 	apiKeyAuthorizations = []APIKeyAuthorization{apiKeyAuthorization}
-	platformTags         = []string{"platform", "tags"}
 	fileInfo             = ModuleFileInfo{
 		ModuleID:     moduleID,
 		Version:      version,
 		Platform:     platform,
-		PlatformTags: platformTags,
+		PlatformTags: tags,
 	}
 	file = []byte{1, 9}
 )
@@ -610,7 +605,7 @@ func modelFrameworkToProto(framework ModelFramework) mlTraining.ModelFramework {
 func mlTrainingVersionToProto(version *MLTrainingVersion) *pb.MLTrainingVersion {
 	return &pb.MLTrainingVersion{
 		Version:   version.Version,
-		CreatedOn: version.CreatedOn,
+		CreatedOn: timestamppb.New(*version.CreatedOn),
 	}
 }
 
@@ -644,8 +639,8 @@ func registryItemToProto(item *RegistryItem) (*pb.RegistryItem, error) {
 			TotalOrganizationUsage:         int64(item.TotalOrganizationUsage),
 			TotalExternalOrganizationUsage: int64(item.TotalExternalOrganizationUsage),
 			Metadata:                       &pb.RegistryItem_ModuleMetadata{ModuleMetadata: &pb.ModuleMetadata{}},
-			CreatedAt:                      item.CreatedAt,
-			UpdatedAt:                      item.UpdatedAt,
+			CreatedAt:                      timestamppb.New(*item.CreatedAt),
+			UpdatedAt:                      timestamppb.New(*item.UpdatedAt),
 		}, nil
 	case *registryItemMLModelMetadata:
 		return &pb.RegistryItem{
@@ -662,8 +657,8 @@ func registryItemToProto(item *RegistryItem) (*pb.RegistryItem, error) {
 			TotalOrganizationUsage:         int64(item.TotalOrganizationUsage),
 			TotalExternalOrganizationUsage: int64(item.TotalExternalOrganizationUsage),
 			Metadata:                       &pb.RegistryItem_ModuleMetadata{ModuleMetadata: &pb.ModuleMetadata{}},
-			CreatedAt:                      item.CreatedAt,
-			UpdatedAt:                      item.UpdatedAt,
+			CreatedAt:                      timestamppb.New(*item.CreatedAt),
+			UpdatedAt:                      timestamppb.New(*item.UpdatedAt),
 		}, nil
 	case *registryItemMLTrainingMetadata:
 		protoMetadata := mlTrainingMetadataToProto(*metadata.MlTrainingMetadata)
@@ -681,8 +676,8 @@ func registryItemToProto(item *RegistryItem) (*pb.RegistryItem, error) {
 			TotalOrganizationUsage:         int64(item.TotalOrganizationUsage),
 			TotalExternalOrganizationUsage: int64(item.TotalExternalOrganizationUsage),
 			Metadata:                       &pb.RegistryItem_MlTrainingMetadata{MlTrainingMetadata: protoMetadata},
-			CreatedAt:                      item.CreatedAt,
-			UpdatedAt:                      item.UpdatedAt,
+			CreatedAt:                      timestamppb.New(*item.CreatedAt),
+			UpdatedAt:                      timestamppb.New(*item.UpdatedAt),
 		}, nil
 	default:
 		return nil, fmt.Errorf("unknown registry item metadata type: %T", item.Metadata)
@@ -850,8 +845,8 @@ func TestAppClient(t *testing.T) {
 					{
 						UserId:    member.UserID,
 						Emails:    member.Emails,
-						DateAdded: member.DateAdded,
-						LastLogin: member.LastLogin,
+						DateAdded: timestamppb.New(*member.DateAdded),
+						LastLogin: timestamppb.New(*member.LastLogin),
 					},
 				},
 				Invites: []*pb.OrganizationInvite{&pbInvite},
@@ -1208,9 +1203,9 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.Filter, test.ShouldEqual, &filter)
 			test.That(t, in.PageToken, test.ShouldEqual, &pageToken)
 			test.That(t, in.Levels, test.ShouldResemble, levels)
-			test.That(t, in.Start, test.ShouldEqual, &start)
-			test.That(t, in.End, test.ShouldEqual, &end)
-			test.That(t, int(*in.Limit), test.ShouldEqual, int64Limit)
+			test.That(t, in.Start, test.ShouldResemble, timestamppb.New(start))
+			test.That(t, in.End, test.ShouldResemble, timestamppb.New(end))
+			test.That(t, *in.Limit, test.ShouldEqual, pbLimit)
 			test.That(t, in.Source, test.ShouldEqual, &source)
 			return &pb.GetRobotPartLogsResponse{
 				Logs:          []*common.LogEntry{&pbLogEntry},
@@ -1218,7 +1213,7 @@ func TestAppClient(t *testing.T) {
 			}, nil
 		}
 		logs, token, err := client.GetRobotPartLogs(context.Background(), partID, &GetRobotPartLogsOptions{
-			&filter, &pageToken, levels, &start, &end, &int64Limit, &source,
+			&filter, &pageToken, levels, &start, &end, &limit, &source,
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, token, test.ShouldEqual, pageToken)
@@ -1259,7 +1254,7 @@ func TestAppClient(t *testing.T) {
 					{
 						Part:     robotPartHistoryEntry.Part,
 						Robot:    robotPartHistoryEntry.Robot,
-						When:     robotPartHistoryEntry.When,
+						When:     timestamppb.New(*robotPartHistoryEntry.When),
 						Old:      &pbRobotPart,
 						EditedBy: &pbAuthenticatorInfo,
 					},
@@ -1509,12 +1504,12 @@ func TestAppClient(t *testing.T) {
 		) (*pb.GetFragmentHistoryResponse, error) {
 			test.That(t, in.Id, test.ShouldEqual, fragmentID)
 			test.That(t, in.PageToken, test.ShouldResemble, &pageToken)
-			test.That(t, int(*in.PageLimit), test.ShouldResemble, int64Limit)
+			test.That(t, *in.PageLimit, test.ShouldEqual, pbLimit)
 			return &pb.GetFragmentHistoryResponse{
 				History: []*pb.FragmentHistoryEntry{
 					{
 						Fragment: fragmentHistoryEntry.Fragment,
-						EditedOn: fragmentHistoryEntry.EditedOn,
+						EditedOn: timestamppb.New(*fragmentHistoryEntry.EditedOn),
 						Old:      &pbFragment,
 						EditedBy: &pbAuthenticatorInfo,
 					},
@@ -1522,7 +1517,7 @@ func TestAppClient(t *testing.T) {
 				NextPageToken: pageToken,
 			}, nil
 		}
-		resp, token, err := client.GetFragmentHistory(context.Background(), fragmentID, &GetFragmentHistoryOptions{&pageToken, &int64Limit})
+		resp, token, err := client.GetFragmentHistory(context.Background(), fragmentID, &GetFragmentHistoryOptions{&pageToken, &limit})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, token, test.ShouldEqual, pageToken)
 		test.That(t, resp, test.ShouldResemble, expectedHistory)

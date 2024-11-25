@@ -27,10 +27,6 @@ type DataClient struct {
 	dataSyncClient syncPb.DataSyncServiceClient
 }
 
-const (
-	UploadChunkSize = 64 * 1024 // UploadChunkSize is 64 KB
-)
-
 // Order specifies the order in which data is returned.
 type Order int32
 
@@ -47,7 +43,7 @@ const (
 //nolint:revive // stutter: Ignore the "stuttering" warning for this type name
 type DataRequest struct {
 	Filter    Filter
-	Limit     uint64
+	Limit     int
 	Last      string
 	SortOrder Order
 }
@@ -112,7 +108,7 @@ type CaptureInterval struct {
 // TabularData contains data and metadata associated with tabular data.
 type TabularData struct {
 	Data          map[string]interface{}
-	MetadataIndex uint32
+	MetadataIndex int
 	Metadata      CaptureMetadata
 	TimeRequested time.Time
 	TimeReceived  time.Time
@@ -165,7 +161,7 @@ type Annotations struct {
 // the total number of entries retrieved (Count), and the ID of the last returned page (Last).
 type TabularDataReturn struct {
 	TabularData []TabularData
-	Count       uint64
+	Count       int
 	Last        string
 }
 
@@ -174,7 +170,7 @@ type TabularDataReturn struct {
 // the total number of entries retrieved (Count), and the ID of the last returned page (Last).
 type BinaryDataReturn struct {
 	BinaryData []BinaryData
-	Count      uint64
+	Count      int
 	Last       string
 }
 
@@ -375,7 +371,7 @@ func binaryMetadataFromProto(proto *pb.BinaryMetadata) BinaryMetadata {
 func tabularDataFromProto(proto *pb.TabularData, metadata *pb.CaptureMetadata) TabularData {
 	return TabularData{
 		Data:          proto.Data.AsMap(),
-		MetadataIndex: proto.MetadataIndex,
+		MetadataIndex: int(proto.MetadataIndex),
 		Metadata:      captureMetadataFromProto(metadata),
 		TimeRequested: proto.TimeRequested.AsTime(),
 		TimeReceived:  proto.TimeReceived.AsTime(),
@@ -496,7 +492,7 @@ func BsonToGo(rawData [][]byte) ([]map[string]interface{}, error) {
 func (d *DataClient) TabularDataByFilter(
 	ctx context.Context,
 	filter Filter,
-	limit uint64,
+	limit int,
 	last string,
 	sortOrder Order,
 	countOnly bool,
@@ -505,7 +501,7 @@ func (d *DataClient) TabularDataByFilter(
 	resp, err := d.dataClient.TabularDataByFilter(ctx, &pb.TabularDataByFilterRequest{
 		DataRequest: &pb.DataRequest{
 			Filter:    filterToProto(filter),
-			Limit:     limit,
+			Limit:     uint64(limit),
 			Last:      last,
 			SortOrder: orderToProto(sortOrder),
 		},
@@ -529,7 +525,7 @@ func (d *DataClient) TabularDataByFilter(
 
 	return TabularDataReturn{
 		TabularData: dataArray,
-		Count:       resp.Count,
+		Count:       int(resp.Count),
 		Last:        resp.Last,
 	}, nil
 }
@@ -571,7 +567,7 @@ func (d *DataClient) TabularDataByMQL(ctx context.Context, organizationID string
 func (d *DataClient) BinaryDataByFilter(
 	ctx context.Context,
 	filter Filter,
-	limit uint64,
+	limit int,
 	sortOrder Order,
 	last string,
 	includeBinary bool,
@@ -581,7 +577,7 @@ func (d *DataClient) BinaryDataByFilter(
 	resp, err := d.dataClient.BinaryDataByFilter(ctx, &pb.BinaryDataByFilterRequest{
 		DataRequest: &pb.DataRequest{
 			Filter:    filterToProto(filter),
-			Limit:     limit,
+			Limit:     uint64(limit),
 			Last:      last,
 			SortOrder: orderToProto(sortOrder),
 		},
@@ -598,7 +594,7 @@ func (d *DataClient) BinaryDataByFilter(
 	}
 	return BinaryDataReturn{
 		BinaryData: data,
-		Count:      resp.Count,
+		Count:      int(resp.Count),
 		Last:       resp.Last,
 	}, nil
 }
@@ -621,20 +617,20 @@ func (d *DataClient) BinaryDataByIDs(ctx context.Context, binaryIDs []BinaryID) 
 
 // DeleteTabularData deletes tabular data older than a number of days, based on the given organization ID.
 // It returns the number of tabular datapoints deleted.
-func (d *DataClient) DeleteTabularData(ctx context.Context, organizationID string, deleteOlderThanDays uint32) (uint64, error) {
+func (d *DataClient) DeleteTabularData(ctx context.Context, organizationID string, deleteOlderThanDays int) (int, error) {
 	resp, err := d.dataClient.DeleteTabularData(ctx, &pb.DeleteTabularDataRequest{
 		OrganizationId:      organizationID,
-		DeleteOlderThanDays: deleteOlderThanDays,
+		DeleteOlderThanDays: uint32(deleteOlderThanDays),
 	})
 	if err != nil {
 		return 0, err
 	}
-	return resp.DeletedCount, nil
+	return int(resp.DeletedCount), nil
 }
 
 // DeleteBinaryDataByFilter deletes binary data based on given filters.
 // It returns the number of binary datapoints deleted.
-func (d *DataClient) DeleteBinaryDataByFilter(ctx context.Context, filter Filter) (uint64, error) {
+func (d *DataClient) DeleteBinaryDataByFilter(ctx context.Context, filter Filter) (int, error) {
 	resp, err := d.dataClient.DeleteBinaryDataByFilter(ctx, &pb.DeleteBinaryDataByFilterRequest{
 		Filter:              filterToProto(filter),
 		IncludeInternalData: true,
@@ -642,19 +638,19 @@ func (d *DataClient) DeleteBinaryDataByFilter(ctx context.Context, filter Filter
 	if err != nil {
 		return 0, err
 	}
-	return resp.DeletedCount, nil
+	return int(resp.DeletedCount), nil
 }
 
 // DeleteBinaryDataByIDs deletes binary data based on given IDs.
 // It returns the number of binary datapoints deleted.
-func (d *DataClient) DeleteBinaryDataByIDs(ctx context.Context, binaryIDs []BinaryID) (uint64, error) {
+func (d *DataClient) DeleteBinaryDataByIDs(ctx context.Context, binaryIDs []BinaryID) (int, error) {
 	resp, err := d.dataClient.DeleteBinaryDataByIDs(ctx, &pb.DeleteBinaryDataByIDsRequest{
 		BinaryIds: binaryIDsToProto(binaryIDs),
 	})
 	if err != nil {
 		return 0, err
 	}
-	return resp.DeletedCount, nil
+	return int(resp.DeletedCount), nil
 }
 
 // AddTagsToBinaryDataByIDs adds string tags, unless the tags are already present, to binary data based on given IDs.
@@ -679,7 +675,7 @@ func (d *DataClient) AddTagsToBinaryDataByFilter(ctx context.Context, tags []str
 // It returns the number of binary files which had tags removed.
 func (d *DataClient) RemoveTagsFromBinaryDataByIDs(ctx context.Context,
 	tags []string, binaryIDs []BinaryID,
-) (uint64, error) {
+) (int, error) {
 	resp, err := d.dataClient.RemoveTagsFromBinaryDataByIDs(ctx, &pb.RemoveTagsFromBinaryDataByIDsRequest{
 		BinaryIds: binaryIDsToProto(binaryIDs),
 		Tags:      tags,
@@ -687,14 +683,14 @@ func (d *DataClient) RemoveTagsFromBinaryDataByIDs(ctx context.Context,
 	if err != nil {
 		return 0, err
 	}
-	return resp.DeletedCount, nil
+	return int(resp.DeletedCount), nil
 }
 
 // RemoveTagsFromBinaryDataByFilter removes the specified string tags from binary data that match the given filter.
 // It returns the number of binary files from which tags were removed.
 func (d *DataClient) RemoveTagsFromBinaryDataByFilter(ctx context.Context,
 	tags []string, filter Filter,
-) (uint64, error) {
+) (int, error) {
 	resp, err := d.dataClient.RemoveTagsFromBinaryDataByFilter(ctx, &pb.RemoveTagsFromBinaryDataByFilterRequest{
 		Filter: filterToProto(filter),
 		Tags:   tags,
@@ -702,7 +698,7 @@ func (d *DataClient) RemoveTagsFromBinaryDataByFilter(ctx context.Context,
 	if err != nil {
 		return 0, err
 	}
-	return resp.DeletedCount, nil
+	return int(resp.DeletedCount), nil
 }
 
 // TagsByFilter retrieves all unique tags associated with the data that match the specified filter.

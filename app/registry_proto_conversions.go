@@ -2,11 +2,11 @@ package app
 
 import (
 	"fmt"
+	"time"
 
 	mlTraining "go.viam.com/api/app/mltraining/v1"
 	packages "go.viam.com/api/app/packages/v1"
 	pb "go.viam.com/api/app/v1"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // RegistryItem has the information of an item in the registry.
@@ -24,8 +24,8 @@ type RegistryItem struct {
 	TotalOrganizationUsage         int
 	TotalExternalOrganizationUsage int
 	Metadata                       isRegistryItemMetadata
-	CreatedAt                      *timestamppb.Timestamp
-	UpdatedAt                      *timestamppb.Timestamp
+	CreatedAt                      *time.Time
+	UpdatedAt                      *time.Time
 }
 
 func registryItemFromProto(item *pb.RegistryItem) (*RegistryItem, error) {
@@ -40,7 +40,8 @@ func registryItemFromProto(item *pb.RegistryItem) (*RegistryItem, error) {
 	default:
 		return nil, fmt.Errorf("unknown registry item metadata type: %T", item.Metadata)
 	}
-
+	createdAt := item.CreatedAt.AsTime()
+	updatedAt := item.UpdatedAt.AsTime()
 	return &RegistryItem{
 		ItemID:                         item.ItemId,
 		OrganizationID:                 item.OrganizationId,
@@ -55,8 +56,8 @@ func registryItemFromProto(item *pb.RegistryItem) (*RegistryItem, error) {
 		TotalOrganizationUsage:         int(item.TotalOrganizationUsage),
 		TotalExternalOrganizationUsage: int(item.TotalExternalOrganizationUsage),
 		Metadata:                       metadata,
-		CreatedAt:                      item.CreatedAt,
-		UpdatedAt:                      item.UpdatedAt,
+		CreatedAt:                      &createdAt,
+		UpdatedAt:                      &updatedAt,
 	}, nil
 }
 
@@ -277,13 +278,14 @@ func moduleVersionFromProto(version *pb.ModuleVersion) *ModuleVersion {
 // Uploads holds the time the file was uploaded and the OS and architecture a module is built to run on.
 type Uploads struct {
 	Platform   string
-	UploadedAt *timestamppb.Timestamp
+	UploadedAt *time.Time
 }
 
 func uploadsFromProto(uploads *pb.Uploads) *Uploads {
+	uploadedAt := uploads.UploadedAt.AsTime()
 	return &Uploads{
 		Platform:   uploads.Platform,
-		UploadedAt: uploads.UploadedAt,
+		UploadedAt: &uploadedAt,
 	}
 }
 
@@ -386,13 +388,14 @@ func mlTrainingMetadataFromProto(md *pb.MLTrainingMetadata) *MLTrainingMetadata 
 // MLTrainingVersion is the version of ML Training.
 type MLTrainingVersion struct {
 	Version   string
-	CreatedOn *timestamppb.Timestamp
+	CreatedOn *time.Time
 }
 
 func mlTrainingVersionFromProto(version *pb.MLTrainingVersion) *MLTrainingVersion {
+	createdOn := version.CreatedOn.AsTime()
 	return &MLTrainingVersion{
 		Version:   version.Version,
-		CreatedOn: version.CreatedOn,
+		CreatedOn: &createdOn,
 	}
 }
 

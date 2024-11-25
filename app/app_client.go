@@ -5,6 +5,7 @@ package app
 
 import (
 	"context"
+	"time"
 
 	packages "go.viam.com/api/app/packages/v1"
 	pb "go.viam.com/api/app/v1"
@@ -52,8 +53,8 @@ type GetRobotPartLogsOptions struct {
 	PageToken *string
 	// Levels represents the levels of the logs requested. Logs of all levels are returned when levels is empty.
 	Levels []string
-	Start  *timestamppb.Timestamp
-	End    *timestamppb.Timestamp
+	Start  *time.Time
+	End    *time.Time
 	Limit  *int
 	Source *string
 }
@@ -552,8 +553,8 @@ func (c *AppClient) GetRobotPartLogs(ctx context.Context, id string, opts *GetRo
 		Filter:    opts.Filter,
 		PageToken: opts.PageToken,
 		Levels:    opts.Levels,
-		Start:     opts.Start,
-		End:       opts.End,
+		Start:     timestamppb.New(*opts.Start),
+		End:       timestamppb.New(*opts.End),
 		Limit:     &limit,
 		Source:    opts.Source,
 	})
@@ -1106,13 +1107,12 @@ func (c *AppClient) UploadModuleFile(ctx context.Context, fileInfo ModuleFileInf
 		return "", err
 	}
 
-	uploadChunkSize := 64 * 1024 // 64 kB in bytes
-	for start := 0; start < len(file); start += uploadChunkSize {
+	for start := 0; start < len(file); start += UploadChunkSize {
 		if ctx.Err() != nil {
 			return "", ctx.Err()
 		}
 
-		end := start + uploadChunkSize
+		end := start + UploadChunkSize
 		if end > len(file) {
 			end = len(file)
 		}

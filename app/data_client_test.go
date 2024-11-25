@@ -19,27 +19,15 @@ import (
 )
 
 const (
-	componentName = "component_name"
-	componentType = "component_type"
-	method        = "method"
-	robotName     = "robot_name"
-	robotID       = "robot_id"
-	partName      = "part_name"
-	partID        = "part_id"
-	locationID    = "location_id"
-	password      = "password"
-	mimeType      = "mime_type"
-	uri           = "some.robot.uri"
-	bboxLabel     = "bbox_label"
-	tag           = "tag"
-	fileName      = "file_name"
-	fileExt       = ".file_ext.ext"
-	datasetID     = "dataset_id"
-	binaryMetaID  = "binary_id"
-	mongodbURI    = "mongo_uri"
-	hostName      = "host_name"
-	last          = "last"
-	fileID        = "file_id"
+	password     = "password"
+	mimeType     = "mime_type"
+	uri          = "some.robot.uri"
+	bboxLabel    = "bbox_label"
+	datasetID    = "dataset_id"
+	binaryMetaID = "binary_id"
+	mongodbURI   = "mongo_uri"
+	last         = "last"
+	fileID       = "file_id"
 )
 
 var (
@@ -50,23 +38,19 @@ var (
 	mimeTypes           = []string{mimeType}
 	bboxLabels          = []string{bboxLabel}
 	methodParameters    = map[string]interface{}{}
-	tags                = []string{tag}
-	startTime           = time.Now().UTC().Round(time.Millisecond)
-	endTime             = time.Now().UTC().Round(time.Millisecond)
-	dataRequestTimes    = [2]time.Time{startTime, endTime}
-	count               = uint64(5)
-	limit               = uint64(5)
+	dataRequestTimes    = [2]time.Time{start, end}
+	count               = 5
 	countOnly           = true
 	includeInternalData = true
 	data                = map[string]interface{}{
 		"key": "value",
 	}
-	fileNamePtr      = fileName
-	fileExtPtr       = fileExt
-	componentTypePtr = componentType
-	componentNamePtr = componentName
-	methodNamePtr    = method
-	tabularMetadata  = CaptureMetadata{
+	fileName        = "file_name"
+	fileExt         = ".file_ext.ext"
+	componentName   = "component_name"
+	componentType   = "component_type"
+	method          = "method"
+	tabularMetadata = CaptureMetadata{
 		OrganizationID:   organizationID,
 		LocationID:       locationID,
 		RobotName:        robotName,
@@ -84,8 +68,8 @@ var (
 		Data:          data,
 		MetadataIndex: 0,
 		Metadata:      tabularMetadata,
-		TimeRequested: startTime,
-		TimeReceived:  endTime,
+		TimeRequested: start,
+		TimeReceived:  end,
 	}
 	binaryID = BinaryID{
 		FileID:         "file1",
@@ -97,11 +81,11 @@ var (
 	sqlQuery       = "SELECT * FROM readings WHERE organization_id='e76d1b3b-0468-4efd-bb7f-fb1d2b352fcb' LIMIT 1"
 	rawData        = []map[string]interface{}{
 		{
-			"key1": startTime,
+			"key1": start,
 			"key2": "2",
 			"key3": []interface{}{1, 2, 3},
 			"key4": map[string]interface{}{
-				"key4sub1": endTime,
+				"key4sub1": end,
 			},
 			"key5": 4.05,
 			"key6": []interface{}{true, false, true},
@@ -110,7 +94,7 @@ var (
 					"nestedKey1": "simpleValue",
 				},
 				map[string]interface{}{
-					"nestedKey2": startTime,
+					"nestedKey2": start,
 				},
 			},
 		},
@@ -183,7 +167,7 @@ func binaryMetadataToProto(binaryMetadata BinaryMetadata) *pb.BinaryMetadata {
 func dataRequestToProto(dataRequest DataRequest) *pb.DataRequest {
 	return &pb.DataRequest{
 		Filter:    filterToProto(dataRequest.Filter),
-		Limit:     dataRequest.Limit,
+		Limit:     uint64(dataRequest.Limit),
 		Last:      dataRequest.Last,
 		SortOrder: orderToProto(dataRequest.SortOrder),
 	}
@@ -230,8 +214,8 @@ func TestDataClient(t *testing.T) {
 	binaryMetadata := BinaryMetadata{
 		ID:              binaryMetaID,
 		CaptureMetadata: tabularMetadata,
-		TimeRequested:   startTime,
-		TimeReceived:    endTime,
+		TimeRequested:   start,
+		TimeReceived:    end,
 		FileName:        fileName,
 		FileExt:         fileExt,
 		URI:             uri,
@@ -241,10 +225,12 @@ func TestDataClient(t *testing.T) {
 
 	dataRequest := DataRequest{
 		Filter:    filter,
-		Limit:     count,
+		Limit:     limit,
 		Last:      last,
 		SortOrder: Unspecified,
 	}
+
+	pbCount := uint64(count)
 
 	binaryData := BinaryData{
 		Binary:   binaryDataByte,
@@ -256,8 +242,8 @@ func TestDataClient(t *testing.T) {
 		tabularDataPb := &pb.TabularData{
 			Data:          dataStruct,
 			MetadataIndex: 0,
-			TimeRequested: timestamppb.New(startTime),
-			TimeReceived:  timestamppb.New(endTime),
+			TimeRequested: timestamppb.New(start),
+			TimeReceived:  timestamppb.New(end),
 		}
 		grpcClient.TabularDataByFilterFunc = func(ctx context.Context, in *pb.TabularDataByFilterRequest,
 			opts ...grpc.CallOption,
@@ -267,7 +253,7 @@ func TestDataClient(t *testing.T) {
 			test.That(t, in.IncludeInternalData, test.ShouldBeTrue)
 			return &pb.TabularDataByFilterResponse{
 				Data:     []*pb.TabularData{tabularDataPb},
-				Count:    count,
+				Count:    pbCount,
 				Last:     last,
 				Metadata: []*pb.CaptureMetadata{captureMetadataToProto(tabularMetadata)},
 			}, nil
@@ -343,7 +329,7 @@ func TestDataClient(t *testing.T) {
 			test.That(t, in.IncludeInternalData, test.ShouldBeTrue)
 			return &pb.BinaryDataByFilterResponse{
 				Data:  []*pb.BinaryData{binaryDataToProto(binaryData)},
-				Count: count,
+				Count: pbLimit,
 				Last:  last,
 			}, nil
 		}
@@ -369,15 +355,16 @@ func TestDataClient(t *testing.T) {
 	})
 
 	t.Run("DeleteTabularData", func(t *testing.T) {
-		deleteOlderThanDays := uint32(1)
+		deleteOlderThanDays := 1
+		pbDeleteOlderThanDays := uint32(deleteOlderThanDays)
 		grpcClient.DeleteTabularDataFunc = func(ctx context.Context, in *pb.DeleteTabularDataRequest,
 			opts ...grpc.CallOption,
 		) (*pb.DeleteTabularDataResponse, error) {
 			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
-			test.That(t, in.DeleteOlderThanDays, test.ShouldEqual, deleteOlderThanDays)
+			test.That(t, in.DeleteOlderThanDays, test.ShouldEqual, pbDeleteOlderThanDays)
 
 			return &pb.DeleteTabularDataResponse{
-				DeletedCount: count,
+				DeletedCount: pbCount,
 			}, nil
 		}
 		resp, _ := client.DeleteTabularData(context.Background(), organizationID, deleteOlderThanDays)
@@ -391,7 +378,7 @@ func TestDataClient(t *testing.T) {
 			test.That(t, in.Filter, test.ShouldResemble, filterToProto(filter))
 			test.That(t, in.IncludeInternalData, test.ShouldBeTrue)
 			return &pb.DeleteBinaryDataByFilterResponse{
-				DeletedCount: count,
+				DeletedCount: pbCount,
 			}, nil
 		}
 		resp, _ := client.DeleteBinaryDataByFilter(context.Background(), filter)
@@ -404,7 +391,7 @@ func TestDataClient(t *testing.T) {
 		) (*pb.DeleteBinaryDataByIDsResponse, error) {
 			test.That(t, in.BinaryIds, test.ShouldResemble, binaryIDsToProto(binaryIDs))
 			return &pb.DeleteBinaryDataByIDsResponse{
-				DeletedCount: count,
+				DeletedCount: pbCount,
 			}, nil
 		}
 		resp, _ := client.DeleteBinaryDataByIDs(context.Background(), binaryIDs)
@@ -440,7 +427,7 @@ func TestDataClient(t *testing.T) {
 			test.That(t, in.BinaryIds, test.ShouldResemble, binaryIDsToProto(binaryIDs))
 			test.That(t, in.Tags, test.ShouldResemble, tags)
 			return &pb.RemoveTagsFromBinaryDataByIDsResponse{
-				DeletedCount: count,
+				DeletedCount: pbCount,
 			}, nil
 		}
 		resp, _ := client.RemoveTagsFromBinaryDataByIDs(context.Background(), tags, binaryIDs)
@@ -454,7 +441,7 @@ func TestDataClient(t *testing.T) {
 			test.That(t, in.Filter, test.ShouldResemble, filterToProto(filter))
 			test.That(t, in.Tags, test.ShouldResemble, tags)
 			return &pb.RemoveTagsFromBinaryDataByFilterResponse{
-				DeletedCount: count,
+				DeletedCount: pbCount,
 			}, nil
 		}
 		resp, _ := client.RemoveTagsFromBinaryDataByFilter(context.Background(), tags, filter)
@@ -553,13 +540,13 @@ func TestDataClient(t *testing.T) {
 		) (*pb.GetDatabaseConnectionResponse, error) {
 			test.That(t, in.OrganizationId, test.ShouldResemble, organizationID)
 			return &pb.GetDatabaseConnectionResponse{
-				Hostname:        hostName,
+				Hostname:        host,
 				MongodbUri:      mongodbURI,
 				HasDatabaseUser: true,
 			}, nil
 		}
 		resp, _ := client.GetDatabaseConnection(context.Background(), organizationID)
-		test.That(t, resp.Hostname, test.ShouldResemble, hostName)
+		test.That(t, resp.Hostname, test.ShouldResemble, host)
 		test.That(t, resp.MongodbURI, test.ShouldResemble, mongodbURI)
 		test.That(t, resp.HasDatabaseUser, test.ShouldBeTrue)
 	})
@@ -618,7 +605,7 @@ func TestDataSyncClient(t *testing.T) {
 		uploadMetadata.Type = DataTypeBinarySensor
 		options := BinaryOptions{
 			Type:             &binaryDataType,
-			FileName:         &fileNamePtr,
+			FileName:         &fileName,
 			MethodParameters: methodParameters,
 			Tags:             tags,
 			DataRequestTimes: &dataRequestTimes,
@@ -638,8 +625,8 @@ func TestDataSyncClient(t *testing.T) {
 			test.That(t, in.Metadata.FileExtension, test.ShouldEqual, fileExt)
 			test.That(t, in.Metadata.Tags, test.ShouldResemble, tags)
 
-			test.That(t, in.SensorContents[0].Metadata.TimeRequested, test.ShouldResemble, timestamppb.New(startTime))
-			test.That(t, in.SensorContents[0].Metadata.TimeReceived, test.ShouldResemble, timestamppb.New(endTime))
+			test.That(t, in.SensorContents[0].Metadata.TimeRequested, test.ShouldResemble, timestamppb.New(start))
+			test.That(t, in.SensorContents[0].Metadata.TimeReceived, test.ShouldResemble, timestamppb.New(end))
 			dataField, ok := in.SensorContents[0].Data.(*syncPb.SensorData_Binary)
 			test.That(t, ok, test.ShouldBeTrue)
 			test.That(t, dataField.Binary, test.ShouldResemble, binaryDataByte)
@@ -659,14 +646,14 @@ func TestDataSyncClient(t *testing.T) {
 		tabularDataPb := &pb.TabularData{
 			Data:          dataStruct,
 			MetadataIndex: 0,
-			TimeRequested: timestamppb.New(startTime),
-			TimeReceived:  timestamppb.New(endTime),
+			TimeRequested: timestamppb.New(start),
+			TimeReceived:  timestamppb.New(end),
 		}
 		options := TabularOptions{
 			Type:             &binaryDataType,
-			FileName:         &fileNamePtr,
+			FileName:         &fileName,
 			MethodParameters: methodParameters,
-			FileExtension:    &fileExtPtr,
+			FileExtension:    &fileExt,
 			Tags:             tags,
 		}
 		grpcClient.DataCaptureUploadFunc = func(ctx context.Context, in *syncPb.DataCaptureUploadRequest,
@@ -684,8 +671,8 @@ func TestDataSyncClient(t *testing.T) {
 			test.That(t, in.Metadata.FileExtension, test.ShouldEqual, fileExt)
 			test.That(t, in.Metadata.Tags, test.ShouldResemble, tags)
 
-			test.That(t, in.SensorContents[0].Metadata.TimeRequested, test.ShouldResemble, timestamppb.New(startTime))
-			test.That(t, in.SensorContents[0].Metadata.TimeReceived, test.ShouldResemble, timestamppb.New(endTime))
+			test.That(t, in.SensorContents[0].Metadata.TimeRequested, test.ShouldResemble, timestamppb.New(start))
+			test.That(t, in.SensorContents[0].Metadata.TimeReceived, test.ShouldResemble, timestamppb.New(end))
 			dataField, ok := in.SensorContents[0].Data.(*syncPb.SensorData_Struct)
 			test.That(t, ok, test.ShouldBeTrue)
 			test.That(t, dataField.Struct, test.ShouldResemble, tabularDataPb.Data)
@@ -695,7 +682,7 @@ func TestDataSyncClient(t *testing.T) {
 		}
 		tabularData := []map[string]interface{}{data}
 		dataRequestTimes := [][2]time.Time{
-			{startTime, endTime},
+			{start, end},
 		}
 		resp, _ := client.TabularDataCaptureUpload(context.Background(),
 			tabularData, partID, componentType, componentName, method,
@@ -705,11 +692,11 @@ func TestDataSyncClient(t *testing.T) {
 
 	t.Run("StreamingDataCaptureUpload", func(t *testing.T) {
 		options := StreamingOptions{
-			ComponentType:    &componentTypePtr,
-			ComponentName:    &componentNamePtr,
-			MethodName:       &methodNamePtr,
+			ComponentType:    &componentType,
+			ComponentName:    &componentName,
+			MethodName:       &method,
 			Type:             &binaryDataType,
-			FileName:         &fileNamePtr,
+			FileName:         &fileName,
 			MethodParameters: methodParameters,
 			Tags:             tags,
 			DataRequestTimes: &dataRequestTimes,
@@ -726,8 +713,8 @@ func TestDataSyncClient(t *testing.T) {
 					test.That(t, meta.UploadMetadata.ComponentName, test.ShouldEqual, componentName)
 					test.That(t, meta.UploadMetadata.MethodName, test.ShouldEqual, method)
 					test.That(t, meta.UploadMetadata.Tags, test.ShouldResemble, tags)
-					test.That(t, meta.SensorMetadata.TimeRequested, test.ShouldResemble, timestamppb.New(startTime))
-					test.That(t, meta.SensorMetadata.TimeReceived, test.ShouldResemble, timestamppb.New(endTime))
+					test.That(t, meta.SensorMetadata.TimeRequested, test.ShouldResemble, timestamppb.New(start))
+					test.That(t, meta.SensorMetadata.TimeReceived, test.ShouldResemble, timestamppb.New(end))
 				case *syncPb.StreamingDataCaptureUploadRequest_Data:
 					test.That(t, packet.Data, test.ShouldResemble, binaryDataByte)
 				default:
@@ -752,12 +739,12 @@ func TestDataSyncClient(t *testing.T) {
 	})
 	t.Run("FileUploadFromBytes", func(t *testing.T) {
 		options := FileUploadOptions{
-			ComponentType:    &componentTypePtr,
-			ComponentName:    &componentNamePtr,
-			MethodName:       &methodNamePtr,
-			FileName:         &fileNamePtr,
+			ComponentType:    &componentType,
+			ComponentName:    &componentName,
+			MethodName:       &method,
+			FileName:         &fileName,
 			MethodParameters: methodParameters,
-			FileExtension:    &fileExtPtr,
+			FileExtension:    &fileExt,
 			Tags:             tags,
 		}
 		// Mock implementation of the streaming client.
@@ -802,12 +789,12 @@ func TestDataSyncClient(t *testing.T) {
 
 	t.Run("FileUploadFromPath", func(t *testing.T) {
 		options := FileUploadOptions{
-			ComponentType:    &componentTypePtr,
-			ComponentName:    &componentNamePtr,
-			MethodName:       &methodNamePtr,
-			FileName:         &fileNamePtr,
+			ComponentType:    &componentType,
+			ComponentName:    &componentName,
+			MethodName:       &method,
+			FileName:         &fileName,
 			MethodParameters: methodParameters,
-			FileExtension:    &fileExtPtr,
+			FileExtension:    &fileExt,
 			Tags:             tags,
 		}
 		// Create a temporary file for testing
