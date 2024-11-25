@@ -99,6 +99,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.ServeHTTP(w, r)
 }
 
+// Stats is unsupported.
+func (s *Server) Stats() any {
+	return nil
+}
+
 type httpHandler struct{}
 
 // ServeHTTP returns only an error message.
