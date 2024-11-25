@@ -194,7 +194,9 @@ func newCropTransform(
 		if conf.XMin <= 1. && conf.YMin <= 1. && conf.XMax <= 1. && conf.YMax <= 1. {
 			cropRel = []float64{conf.XMin, conf.YMin, conf.XMax, conf.YMax}
 		} else {
-			return nil, camera.UnspecifiedStream, errors.New("if using relative bounds between 0 and 1 for cropping, all parameter attributes must be between 0 and 1")
+			return nil,
+				camera.UnspecifiedStream,
+				errors.New("if using relative bounds between 0 and 1 for cropping, all parameter attributes must be between 0 and 1")
 		}
 	} else {
 		cropRect = image.Rect(int(conf.XMin), int(conf.YMin), int(conf.XMax), int(conf.YMax))
@@ -208,7 +210,7 @@ func newCropTransform(
 	return src, stream, err
 }
 
-func (cs *cropSource) relToAbsCrop(ctx context.Context, img image.Image) image.Rectangle {
+func (cs *cropSource) relToAbsCrop(img image.Image) image.Rectangle {
 	xMin, yMin, xMax, yMax := cs.cropRel[0], cs.cropRel[1], cs.cropRel[2], cs.cropRel[3]
 	// Get image bounds
 	bounds := img.Bounds()
@@ -235,7 +237,7 @@ func (cs *cropSource) Read(ctx context.Context) (image.Image, func(), error) {
 		return nil, nil, err
 	}
 	if cs.cropWindow.Empty() && len(cs.cropRel) != 0 {
-		cs.cropWindow = cs.relToAbsCrop(ctx, orig)
+		cs.cropWindow = cs.relToAbsCrop(orig)
 	}
 	switch cs.imgType {
 	case camera.ColorStream, camera.UnspecifiedStream:
