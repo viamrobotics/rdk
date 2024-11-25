@@ -155,8 +155,18 @@ func TestNewAppClients(t *testing.T) {
 	// Testing that a second call to DataClient() returns the same instance
 	dataClient2 := client.DataClient()
 	test.That(t, dataClient2, test.ShouldNotBeNil)
-	test.That(t, dataClient, test.ShouldResemble, dataClient2)
+	test.That(t, dataClient, test.ShouldEqual, dataClient2)
 
 	// Add test for dataSyncClient
 	test.That(t, dataClient.dataSyncClient, test.ShouldImplement, (*syncPb.DataSyncServiceClient)(nil))
+
+	appClient := client.AppClient()
+	test.That(t, appClient, test.ShouldNotBeNil)
+	test.That(t, appClient, test.ShouldHaveSameTypeAs, &AppClient{})
+	test.That(t, appClient.client, test.ShouldImplement, (*apppb.AppServiceClient)(nil))
+
+	// Testing that a second call to AppClient() returns the same instance
+	appClient2 := client.AppClient()
+	test.That(t, appClient2, test.ShouldNotBeNil)
+	test.That(t, appClient, test.ShouldEqual, appClient2)
 }
