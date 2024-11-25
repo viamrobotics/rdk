@@ -66,9 +66,9 @@ var (
 		},
 		BillingTier: &tier,
 	}
-	invoiceDate    = time.Now()
-	dueDate        = time.Now()
-	paidDate       = time.Now()
+	invoiceDate    = time.Now().UTC().Round(time.Millisecond).UTC()
+	dueDate        = time.Now().UTC().Round(time.Millisecond).UTC()
+	paidDate       = time.Now().UTC().Round(time.Millisecond).UTC()
 	invoiceSummary = InvoiceSummary{
 		ID:            invoiceID,
 		InvoiceDate:   &invoiceDate,
