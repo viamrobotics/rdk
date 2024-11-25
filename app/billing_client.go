@@ -94,7 +94,7 @@ func resourceUsageCostsFromProto(costs *pb.ResourceUsageCosts) *ResourceUsageCos
 }
 
 // SourceType is the type of source from which a cost is coming from.
-type SourceType int32
+type SourceType int
 
 const (
 	// SourceTypeUnspecified represents an unspecified source type.
@@ -155,7 +155,7 @@ func getCurrentMonthUsageResponseFromProto(response *pb.GetCurrentMonthUsageResp
 }
 
 // PaymentMethodType is the type of payment method.
-type PaymentMethodType int32
+type PaymentMethodType int
 
 const (
 	// PaymentMethodTypeUnspecified represents an unspecified payment method.
