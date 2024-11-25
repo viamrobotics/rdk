@@ -12,6 +12,8 @@ const (
 	robotName       = "robot_name"
 	partName        = "part_name"
 	host            = "host_name"
+	secret          = "secret"
+	fragmentID      = "fragment_id"
 )
 
 // Variables used throughout app testing.

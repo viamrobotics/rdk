@@ -7,9 +7,8 @@ import (
 	"github.com/viamrobotics/webrtc/v3"
 	datapb "go.viam.com/api/app/data/v1"
 	syncPb "go.viam.com/api/app/datasync/v1"
-	syncPb "go.viam.com/api/app/datasync/v1"
-	provisioningpb "go.viam.com/api/provisioning/v1"
 	apppb "go.viam.com/api/app/v1"
+	provisioningpb "go.viam.com/api/provisioning/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -138,8 +137,8 @@ func TestNewAppClients(t *testing.T) {
 	client, err := CreateViamClientWithOptions(context.Background(), opts, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer client.Close()
-  
-  appClient := client.AppClient()
+
+	appClient := client.AppClient()
 	test.That(t, appClient, test.ShouldNotBeNil)
 	test.That(t, appClient, test.ShouldHaveSameTypeAs, &AppClient{})
 	test.That(t, appClient.client, test.ShouldImplement, (*apppb.AppServiceClient)(nil))

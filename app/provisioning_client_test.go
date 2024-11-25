@@ -15,8 +15,7 @@ const (
 	hasSmartMachineCredentials       = true
 	isOnline                         = true
 	errorString                      = "error"
-	fragmentID                       = "fragment_id"
-	model                            = "model"
+	modelStr                         = "model"
 	manufacturer                     = "manufacturer"
 	networkType                      = "network_type"
 	ssid                             = "ssid"
@@ -25,13 +24,12 @@ const (
 	connected                        = true
 	credentialsType                  = "credentials_type"
 	psk                              = "psk"
-	secret                           = "secret"
 )
 
 var (
 	provisioningInfo = ProvisioningInfo{
 		FragmentID:   fragmentID,
-		Model:        model,
+		Model:        modelStr,
 		Manufacturer: manufacturer,
 	}
 	networkInfo = NetworkInfo{
