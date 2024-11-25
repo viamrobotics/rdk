@@ -619,6 +619,20 @@ func (r *localRobot) removeOrphanedResources(ctx context.Context,
 	r.updateWeakDependents(ctx)
 }
 
+// resourceHasWeakDependencies will return whether a given resource has weak dependencies.
+// Internal services that depends on other resources are also included in the check.
+func (r *localRobot) resourceHasWeakDependencies(rName resource.Name, node *resource.GraphNode) bool {
+	if len(r.getWeakDependencyMatchers(node.Config().API, node.Config().Model)) > 0 {
+		return true
+	}
+
+	// also return true for internal services that depends on other resources (web, framesystem).
+	if rName == web.InternalServiceName || rName == framesystem.InternalServiceName {
+		return true
+	}
+	return false
+}
+
 // getDependencies derives a collection of dependencies from a robot for a given
 // component's name. We don't use the resource manager for this information since
 // it is not be constructed at this point.
@@ -631,26 +645,15 @@ func (r *localRobot) getDependencies(
 		return nil, errors.Errorf("resource has unresolved dependencies: %v", deps)
 	}
 	allDeps := make(resource.Dependencies)
-	var hasDepWithWeakDep, needUpdate bool
+
+	var hasDepWithWeakDep bool
 	for _, dep := range r.manager.resources.GetAllParentsOf(rName) {
-		// If any of the dependencies of this resource has an updatedAt value that
-		// is "later" than the last value at which we ran updateWeakDependents and this resource
-		// has dependencies with weak dependencies, we should update resources with weak dependencies so that
-		// they are up-to-date.
-		//
-		// If none of the dependencies of this resource has dependencies with weak dependencies, then it is
-		// unnecessary to update resources with weak dependencies at this time. updateWeakDependents is called at the end of every reconfiguration
-		// cycle.
 		if node, ok := r.manager.resources.Node(dep); ok {
-			if len(r.getWeakDependencyMatchers(node.Config().API, node.Config().Model)) > 0 {
+			if r.resourceHasWeakDependencies(dep, node) {
 				hasDepWithWeakDep = true
 			}
-
-			if hasDepWithWeakDep && r.lastWeakDependentsRound.Load() < node.UpdatedAt() {
-			if r.lastWeakDependentsRound.Load() <= node.UpdatedAt() {
-				needUpdate = true
-			}
 		}
+
 		// Specifically call ResourceByName and not directly to the manager since this
 		// will only return fully configured and available resources (not marked for removal
 		// and no last error).
@@ -668,7 +671,15 @@ func (r *localRobot) getDependencies(
 		allDeps[weakDepName] = weakDepRes
 	}
 
-	if needUpdate {
+	// If this resource has any dependency with weak dependencies, and if we have updated
+	// the resource graph since the last time we ran updateWeakDependents, we should update
+	// resources with weak dependencies so that they are up-to-date before calling Reconfigure
+	// using them as dependencies.
+	//
+	// If none of the dependencies of this resource have weak dependencies, it is unnecessary to
+	// update resources with weak dependencies at this time. updateWeakDependents is called at the
+	// end of every reconfiguration cycle anyway.
+	if hasDepWithWeakDep && r.lastWeakDependentsRound.Load() < r.manager.resources.CurrLogicalClockValue() {
 		r.updateWeakDependents(ctx)
 	}
 
