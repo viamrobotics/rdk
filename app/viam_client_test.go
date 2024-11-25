@@ -6,8 +6,9 @@ import (
 
 	"github.com/viamrobotics/webrtc/v3"
 	datapb "go.viam.com/api/app/data/v1"
-	provisioningpb "go.viam.com/api/provisioning/v1"
 	syncPb "go.viam.com/api/app/datasync/v1"
+	syncPb "go.viam.com/api/app/datasync/v1"
+	provisioningpb "go.viam.com/api/provisioning/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -141,13 +142,13 @@ func TestNewAppClients(t *testing.T) {
 	test.That(t, dataClient, test.ShouldNotBeNil)
 	test.That(t, dataClient, test.ShouldHaveSameTypeAs, &DataClient{})
 	test.That(t, dataClient.dataClient, test.ShouldImplement, (*datapb.DataServiceClient)(nil))
-  test.That(t, dataClient.dataSyncClient, test.ShouldImplement, (*syncPb.DataSyncServiceClient)(nil))
+	test.That(t, dataClient.dataSyncClient, test.ShouldImplement, (*syncPb.DataSyncServiceClient)(nil))
 
 	// Testing that a second call to DataClient() returns the same instance
 	dataClient2 := client.DataClient()
 	test.That(t, dataClient2, test.ShouldNotBeNil)
 	test.That(t, dataClient, test.ShouldEqual, dataClient2)
- 
+
 	provisioningClient := client.ProvisioningClient()
 	test.That(t, provisioningClient, test.ShouldNotBeNil)
 	test.That(t, provisioningClient, test.ShouldHaveSameTypeAs, &ProvisioningClient{})
