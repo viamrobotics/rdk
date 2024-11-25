@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"io"
+	"time"
 
 	pb "go.viam.com/api/app/v1"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // UsageCostType specifies the type of usage cost.
@@ -135,20 +135,22 @@ func resourceUsageCostsBySourceFromProto(costs *pb.ResourceUsageCostsBySource) *
 
 // GetCurrentMonthUsageResponse contains the current month usage information.
 type GetCurrentMonthUsageResponse struct {
-	StartDate                  *timestamppb.Timestamp
-	EndDate                    *timestamppb.Timestamp
+	StartDate                  *time.Time
+	EndDate                    *time.Time
 	ResourceUsageCostsBySource []*ResourceUsageCostsBySource
 	Subtotal                   float64
 }
 
 func getCurrentMonthUsageResponseFromProto(response *pb.GetCurrentMonthUsageResponse) *GetCurrentMonthUsageResponse {
+	startDate := response.StartDate.AsTime()
+	endDate := response.EndDate.AsTime()
 	var costs []*ResourceUsageCostsBySource
 	for _, cost := range response.ResourceUsageCostsBySource {
 		costs = append(costs, resourceUsageCostsBySourceFromProto(cost))
 	}
 	return &GetCurrentMonthUsageResponse{
-		StartDate:                  response.StartDate,
-		EndDate:                    response.EndDate,
+		StartDate:                  &startDate,
+		EndDate:                    &endDate,
 		ResourceUsageCostsBySource: costs,
 		Subtotal:                   response.Subtotal,
 	}
@@ -210,21 +212,24 @@ func getOrgBillingInformationResponseFromProto(resp *pb.GetOrgBillingInformation
 // InvoiceSummary holds the information of an invoice summary.
 type InvoiceSummary struct {
 	ID            string
-	InvoiceDate   *timestamppb.Timestamp
+	InvoiceDate   *time.Time
 	InvoiceAmount float64
 	Status        string
-	DueDate       *timestamppb.Timestamp
-	PaidDate      *timestamppb.Timestamp
+	DueDate       *time.Time
+	PaidDate      *time.Time
 }
 
 func invoiceSummaryFromProto(summary *pb.InvoiceSummary) *InvoiceSummary {
+	invoiceDate := summary.InvoiceDate.AsTime()
+	dueDate := summary.DueDate.AsTime()
+	paidDate := summary.PaidDate.AsTime()
 	return &InvoiceSummary{
 		ID:            summary.Id,
-		InvoiceDate:   summary.InvoiceDate,
+		InvoiceDate:   &invoiceDate,
 		InvoiceAmount: summary.InvoiceAmount,
 		Status:        summary.Status,
-		DueDate:       summary.DueDate,
-		PaidDate:      summary.PaidDate,
+		DueDate:       &dueDate,
+		PaidDate:      &paidDate,
 	}
 }
 

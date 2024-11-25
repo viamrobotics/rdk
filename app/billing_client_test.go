@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"testing"
+	"time"
 
 	pb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
@@ -34,8 +35,8 @@ const (
 )
 
 var (
-	start                        = timestamppb.Timestamp{Seconds: 92, Nanos: 0}
-	end                          = timestamppb.Timestamp{Seconds: 99, Nanos: 999}
+	start                        = time.Now()
+	end                          = time.Now()
 	tier                         = "tier"
 	getCurrentMonthUsageResponse = GetCurrentMonthUsageResponse{
 		StartDate: &start,
@@ -68,9 +69,9 @@ var (
 		},
 		BillingTier: &tier,
 	}
-	invoiceDate    = timestamppb.Timestamp{Seconds: 287, Nanos: 0}
-	dueDate        = timestamppb.Timestamp{Seconds: 1241, Nanos: 40}
-	paidDate       = timestamppb.Timestamp{Seconds: 827, Nanos: 62}
+	invoiceDate    = time.Now()
+	dueDate        = time.Now()
+	paidDate       = time.Now()
 	invoiceSummary = InvoiceSummary{
 		ID:            invoiceID,
 		InvoiceDate:   &invoiceDate,
@@ -145,8 +146,8 @@ func TestBillingClient(t *testing.T) {
 
 	t.Run("GetCurrentMonthUsage", func(t *testing.T) {
 		pbResponse := pb.GetCurrentMonthUsageResponse{
-			StartDate: getCurrentMonthUsageResponse.StartDate,
-			EndDate:   getCurrentMonthUsageResponse.EndDate,
+			StartDate: timestamppb.New(*getCurrentMonthUsageResponse.StartDate),
+			EndDate:   timestamppb.New(*getCurrentMonthUsageResponse.EndDate),
 			ResourceUsageCostsBySource: []*pb.ResourceUsageCostsBySource{
 				{
 					SourceType: sourceTypeToProto(sourceType),
@@ -209,11 +210,11 @@ func TestBillingClient(t *testing.T) {
 				Invoices: []*pb.InvoiceSummary{
 					{
 						Id:            invoiceSummary.ID,
-						InvoiceDate:   invoiceSummary.InvoiceDate,
+						InvoiceDate:   timestamppb.New(*invoiceSummary.InvoiceDate),
 						InvoiceAmount: invoiceSummary.InvoiceAmount,
 						Status:        invoiceSummary.Status,
-						DueDate:       invoiceSummary.DueDate,
-						PaidDate:      invoiceSummary.PaidDate,
+						DueDate:       timestamppb.New(*invoiceSummary.DueDate),
+						PaidDate:      timestamppb.New(*invoiceSummary.PaidDate),
 					},
 				},
 			}, nil
