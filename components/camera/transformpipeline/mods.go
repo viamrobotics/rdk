@@ -2,6 +2,7 @@ package transformpipeline
 
 import (
 	"context"
+	"fmt"
 	"image"
 	"image/color"
 
@@ -16,6 +17,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/vision/objectdetection"
 )
 
 // rotateConfig are the attributes for a rotate transform.
@@ -158,16 +160,20 @@ func (rs *resizeSource) Close(ctx context.Context) error {
 
 // cropConfig are the attributes for a crop transform.
 type cropConfig struct {
-	XMin int `json:"x_min_px"`
-	YMin int `json:"y_min_px"`
-	XMax int `json:"x_max_px"`
-	YMax int `json:"y_max_px"`
+	XMin        float64 `json:"x_min_px"`
+	YMin        float64 `json:"y_min_px"`
+	XMax        float64 `json:"x_max_px"`
+	YMax        float64 `json:"y_max_px"`
+	ShowCropBox bool    `json:"overlay_crop_box"`
 }
 
 type cropSource struct {
 	originalStream gostream.VideoStream
 	imgType        camera.ImageType
 	cropWindow     image.Rectangle
+	cropRel        []float64
+	showCropBox    bool
+	imgBounds      image.Rectangle
 }
 
 // newCropTransform creates a new crop transform.
@@ -187,14 +193,55 @@ func newCropTransform(
 	if conf.YMin >= conf.YMax {
 		return nil, camera.UnspecifiedStream, errors.New("cannot crop image to 0 height (y_min is >= y_max)")
 	}
-	cropRect := image.Rect(conf.XMin, conf.YMin, conf.XMax, conf.YMax)
+	cropRect := image.Rectangle{}
+	cropRel := []float64{}
+	switch {
+	case conf.XMax == 1.0 && conf.YMax == 1.0 && conf.XMin == 0.0 && conf.YMin == 0.0:
+		// interpreting this to mean cropping to the upper left pixel
+		// you wouldn't use crop if you weren't gonna crop your image
+		cropRect = image.Rect(0, 0, 1, 1)
+	case conf.XMax > 1.0 || conf.YMax > 1.0:
+		// you're not using relative boundaries if either max value is greater than 1
+		cropRect = image.Rect(int(conf.XMin), int(conf.YMin), int(conf.XMax), int(conf.YMax))
+	default:
+		// everything else assumes relative boundaries
+		if conf.XMin > 1.0 || conf.YMin > 1.0 { // but rel values cannot be greater than 1.0
+			return nil, camera.UnspecifiedStream,
+				errors.New("if using relative bounds between 0 and 1 for cropping, all crop attributes must be between 0 and 1")
+		}
+		cropRel = []float64{conf.XMin, conf.YMin, conf.XMax, conf.YMax}
+	}
 
-	reader := &cropSource{gostream.NewEmbeddedVideoStream(source), stream, cropRect}
+	reader := &cropSource{
+		originalStream: gostream.NewEmbeddedVideoStream(source),
+		imgType:        stream,
+		cropWindow:     cropRect,
+		cropRel:        cropRel,
+		showCropBox:    conf.ShowCropBox,
+	}
 	src, err := camera.NewVideoSourceFromReader(ctx, reader, nil, stream)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
 	return src, stream, err
+}
+
+func (cs *cropSource) relToAbsCrop(img image.Image) image.Rectangle {
+	xMin, yMin, xMax, yMax := cs.cropRel[0], cs.cropRel[1], cs.cropRel[2], cs.cropRel[3]
+	// Get image bounds
+	bounds := img.Bounds()
+	width := bounds.Dx()
+	height := bounds.Dy()
+
+	// Convert relative coordinates to absolute pixels
+	x1 := bounds.Min.X + int(xMin*float64(width))
+	y1 := bounds.Min.Y + int(yMin*float64(height))
+	x2 := bounds.Min.X + int(xMax*float64(width))
+	y2 := bounds.Min.Y + int(yMax*float64(height))
+
+	// Create cropping rectangle
+	rect := image.Rect(x1, y1, x2, y2)
+	return rect
 }
 
 // Read crops the 2D image depending on the crop window.
@@ -205,14 +252,37 @@ func (cs *cropSource) Read(ctx context.Context) (image.Image, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	if cs.imgBounds.Empty() {
+		cs.imgBounds = orig.Bounds()
+	}
+	// check to see if the image size changed, and if the relative crop needs to be redone
+	if cs.imgBounds != orig.Bounds() && len(cs.cropRel) != 0 {
+		cs.cropWindow = image.Rectangle{} // reset the crop box
+	}
+	if cs.cropWindow.Empty() && len(cs.cropRel) != 0 {
+		cs.cropWindow = cs.relToAbsCrop(orig)
+	}
 	switch cs.imgType {
 	case camera.ColorStream, camera.UnspecifiedStream:
-		newImg := imaging.Crop(orig, cs.cropWindow)
-		if newImg.Bounds().Empty() {
-			return nil, nil, errors.New("crop transform cropped image to 0 pixels")
+		if cs.showCropBox {
+			newDet := objectdetection.NewDetection(cs.cropWindow, 1.0, "crop")
+			dets := []objectdetection.Detection{newDet}
+			newImg, err := objectdetection.Overlay(orig, dets)
+			if err != nil {
+				return nil, nil, fmt.Errorf("could not overlay crop box: %w", err)
+			}
+			return newImg, release, nil
+		} else {
+			newImg := imaging.Crop(orig, cs.cropWindow)
+			if newImg.Bounds().Empty() {
+				return nil, nil, errors.New("crop transform cropped image to 0 pixels")
+			}
+			return newImg, release, nil
 		}
-		return newImg, release, nil
 	case camera.DepthStream:
+		if cs.showCropBox {
+			return nil, nil, errors.New("crop box overlay not supported for depth images")
+		}
 		dm, err := rimage.ConvertImageToDepthMap(ctx, orig)
 		if err != nil {
 			return nil, nil, err
