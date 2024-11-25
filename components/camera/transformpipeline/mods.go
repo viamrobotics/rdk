@@ -173,6 +173,7 @@ type cropSource struct {
 	cropWindow     image.Rectangle
 	cropRel        []float64
 	showCropBox    bool
+	imgBounds      image.Rectangle
 }
 
 // newCropTransform creates a new crop transform.
@@ -212,11 +213,11 @@ func newCropTransform(
 	}
 
 	reader := &cropSource{
-		gostream.NewEmbeddedVideoStream(source),
-		stream,
-		cropRect,
-		cropRel,
-		conf.ShowCropBox,
+		originalStream: gostream.NewEmbeddedVideoStream(source),
+		imgType:        stream,
+		cropWindow:     cropRect,
+		cropRel:        cropRel,
+		showCropBox:    conf.ShowCropBox,
 	}
 	src, err := camera.NewVideoSourceFromReader(ctx, reader, nil, stream)
 	if err != nil {
@@ -251,14 +252,21 @@ func (cs *cropSource) Read(ctx context.Context) (image.Image, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	if cs.imgBounds.Empty() {
+		cs.imgBounds = orig.Bounds()
+	}
+	// check to see if the image size changed, and if the relative crop needs to be redone
+	if cs.imgBounds != orig.Bounds() && len(cs.cropRel) != 0 {
+		cs.cropWindow = image.Rectangle{} // reset the crop box
+	}
 	if cs.cropWindow.Empty() && len(cs.cropRel) != 0 {
 		cs.cropWindow = cs.relToAbsCrop(orig)
 	}
-	newDet := objectdetection.NewDetection(cs.cropWindow, 1.0, "crop")
-	dets := []objectdetection.Detection{newDet}
 	switch cs.imgType {
 	case camera.ColorStream, camera.UnspecifiedStream:
 		if cs.showCropBox {
+			newDet := objectdetection.NewDetection(cs.cropWindow, 1.0, "crop")
+			dets := []objectdetection.Detection{newDet}
 			newImg, err := objectdetection.Overlay(orig, dets)
 			if err != nil {
 				return nil, nil, fmt.Errorf("could not overlay crop box: %w", err)
