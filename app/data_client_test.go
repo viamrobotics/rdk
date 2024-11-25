@@ -329,7 +329,7 @@ func TestDataClient(t *testing.T) {
 			test.That(t, in.IncludeInternalData, test.ShouldBeTrue)
 			return &pb.BinaryDataByFilterResponse{
 				Data:  []*pb.BinaryData{binaryDataToProto(binaryData)},
-				Count: pbLimit,
+				Count: pbCount,
 				Last:  last,
 			}, nil
 		}
