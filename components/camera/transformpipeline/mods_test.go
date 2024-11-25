@@ -94,6 +94,40 @@ func TestCrop(t *testing.T) {
 	test.That(t, out, test.ShouldHaveSameTypeAs, &image.NRGBA{})
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 
+	// the edge case of cropping to one pixel
+	am = utils.AttributeMap{
+		"x_min_px": 0.0,
+		"x_max_px": 1.0,
+		"y_min_px": 0.0,
+		"y_max_px": 1.0,
+	}
+	rs, stream, err = newCropTransform(context.Background(), source, camera.ColorStream, am)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
+	out, _, err = camera.ReadImage(context.Background(), rs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 1)
+	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 1)
+	test.That(t, out, test.ShouldHaveSameTypeAs, &image.NRGBA{})
+	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
+
+	// quadrant cropping
+	am = utils.AttributeMap{
+		"x_min_px": 0.5,
+		"x_max_px": 1.0,
+		"y_min_px": 0.5,
+		"y_max_px": 1.0,
+	}
+	rs, stream, err = newCropTransform(context.Background(), source, camera.ColorStream, am)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
+	out, _, err = camera.ReadImage(context.Background(), rs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 50)
+	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 50)
+	test.That(t, out, test.ShouldHaveSameTypeAs, &image.NRGBA{})
+	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
+
 	// relative crop but you just overlay the box
 	am = utils.AttributeMap{
 		"x_min_px":         0.2,

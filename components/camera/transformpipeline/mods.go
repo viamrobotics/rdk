@@ -194,16 +194,21 @@ func newCropTransform(
 	}
 	cropRect := image.Rectangle{}
 	cropRel := []float64{}
-	if conf.XMax < 1. || conf.YMax < 1. {
-		if conf.XMin <= 1. && conf.YMin <= 1. && conf.XMax <= 1. && conf.YMax <= 1. {
-			cropRel = []float64{conf.XMin, conf.YMin, conf.XMax, conf.YMax}
-		} else {
-			return nil,
-				camera.UnspecifiedStream,
-				errors.New("if using relative bounds between 0 and 1 for cropping, all parameter attributes must be between 0 and 1")
-		}
-	} else {
+	switch {
+	case conf.XMax == 1.0 && conf.YMax == 1.0 && conf.XMin == 0.0 && conf.YMin == 0.0:
+		// interpreting this to mean cropping to the upper left pixel
+		// you wouldn't use crop if you weren't gonna crop your image
+		cropRect = image.Rect(0, 0, 1, 1)
+	case conf.XMax > 1.0 || conf.YMax > 1.0:
+		// you're not using relative boundaries if either max value is greater than 1
 		cropRect = image.Rect(int(conf.XMin), int(conf.YMin), int(conf.XMax), int(conf.YMax))
+	default:
+		// everything else assumes relative boundaries
+		if conf.XMin > 1.0 || conf.YMin > 1.0 { // but rel values cannot be greater than 1.0
+			return nil, camera.UnspecifiedStream,
+				errors.New("if using relative bounds between 0 and 1 for cropping, all crop attributes must be between 0 and 1")
+		}
+		cropRel = []float64{conf.XMin, conf.YMin, conf.XMax, conf.YMax}
 	}
 
 	reader := &cropSource{
