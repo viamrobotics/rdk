@@ -283,6 +283,7 @@ type FileUploadOptions struct {
 	Tags             []string
 }
 
+// Dataset contains the information of a dataset.
 type Dataset struct {
 	ID             string
 	Name           string
@@ -1308,6 +1309,7 @@ func (d *DataClient) fileUploadStreamResp(metadata *syncPb.UploadMetadata, data 
 	return resp.FileId, nil
 }
 
+// CreateDataset makes a new dataset.
 func (d *DataClient) CreateDataset(ctx context.Context, name, organizationID string) (string, error) {
 	resp, err := d.datasetClient.CreateDataset(ctx, &setPb.CreateDatasetRequest{
 		Name:           name,
@@ -1319,6 +1321,7 @@ func (d *DataClient) CreateDataset(ctx context.Context, name, organizationID str
 	return resp.Id, nil
 }
 
+// DeleteDataset deletes an existing dataset.
 func (d *DataClient) DeleteDataset(ctx context.Context, id string) error {
 	_, err := d.datasetClient.DeleteDataset(ctx, &setPb.DeleteDatasetRequest{
 		Id: id,
@@ -1326,6 +1329,7 @@ func (d *DataClient) DeleteDataset(ctx context.Context, id string) error {
 	return err
 }
 
+// RenameDataset modifies the name of an existing dataset.
 func (d *DataClient) RenameDataset(ctx context.Context, id, name string) error {
 	_, err := d.datasetClient.RenameDataset(ctx, &setPb.RenameDatasetRequest{
 		Id:   id,
@@ -1334,6 +1338,7 @@ func (d *DataClient) RenameDataset(ctx context.Context, id, name string) error {
 	return err
 }
 
+// ListDatasetsByOrganizationID lists all of the datasets for an organization.
 func (d *DataClient) ListDatasetsByOrganizationID(ctx context.Context, organizationID string) ([]*Dataset, error) {
 	resp, err := d.datasetClient.ListDatasetsByOrganizationID(ctx, &setPb.ListDatasetsByOrganizationIDRequest{
 		OrganizationId: organizationID,
@@ -1348,6 +1353,7 @@ func (d *DataClient) ListDatasetsByOrganizationID(ctx context.Context, organizat
 	return datasets, nil
 }
 
+// ListDatasetsByIDs lists all of the datasets specified by the given dataset IDs.
 func (d *DataClient) ListDatasetsByIDs(ctx context.Context, ids []string) ([]*Dataset, error) {
 	resp, err := d.datasetClient.ListDatasetsByIDs(ctx, &setPb.ListDatasetsByIDsRequest{
 		Ids: ids,

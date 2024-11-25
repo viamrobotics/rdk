@@ -7,6 +7,7 @@ import (
 	"google.golang.org/grpc"
 )
 
+// DatasetServiceClient represents a fake instance of a dataset service client.
 type DatasetServiceClient struct {
 	datasetpb.DatasetServiceClient
 	CreateDatasetFunc func(ctx context.Context, in *datasetpb.CreateDatasetRequest,
