@@ -95,7 +95,7 @@ var (
 	pbOrganization = pb.Organization{
 		Id:              organization.ID,
 		Name:            organization.Name,
-		CreatedOn:       timestamppb.New(*organization.CreatedOn),
+		CreatedOn:       pbCreatedOn,
 		PublicNamespace: organization.PublicNamespace,
 		DefaultRegion:   organization.DefaultRegion,
 		Cid:             organization.Cid,
@@ -109,7 +109,6 @@ var (
 		OrgName: name,
 	}
 	lastLogin     = time.Now().UTC().Round(time.Millisecond)
-	createdOn     = time.Now().UTC().Round(time.Millisecond)
 	authorization = Authorization{
 		AuthorizationType: authorizationType,
 		AuthorizationID:   authorizationID,
