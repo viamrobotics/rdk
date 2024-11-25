@@ -38,9 +38,15 @@ func FromVideoSource(name resource.Name, src Camera, logger logging.Logger) Came
 
 type sourceBasedCamera struct {
 	Camera
+	resource.AlwaysRebuild
 	name                 resource.Name
 	rtpPassthroughSource rtppassthrough.Source
 	logging.Logger
+}
+
+// Explicitly define Reconfigure to resolve ambiguity.
+func (vs *sourceBasedCamera) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	return vs.AlwaysRebuild.Reconfigure(ctx, deps, conf)
 }
 
 func (vs *sourceBasedCamera) SubscribeRTP(
@@ -184,7 +190,7 @@ func WrapVideoSourceWithProjector(
 
 // videoSource implements a Camera with a gostream.VideoSource.
 type videoSource struct {
-	resource.TriviallyReconfigurable
+	resource.AlwaysRebuild
 	rtpPassthroughSource rtppassthrough.Source
 	videoSource          gostream.VideoSource
 	videoStream          gostream.VideoStream
@@ -197,8 +203,8 @@ func (vs *videoSource) Stream(ctx context.Context, errHandlers ...gostream.Error
 	return vs.videoSource.Stream(ctx, errHandlers...)
 }
 
-// ReadImageBytes wraps ReadImage given a mimetype to encode the image as bytes data, returning
-// supplementary metadata for downstream processing.
+// ReadImageBytes wraps ReadImage given a mimetype to encode the image as bytes data,
+// returning supplementary metadata for downstream processing.
 // TODO(hexbabe): make function private or remove altogether once the usages are limited to this file.
 func ReadImageBytes(ctx context.Context, src gostream.VideoSource, mimeType string) ([]byte, ImageMetadata, error) {
 	img, release, err := ReadImage(ctx, src)
