@@ -158,16 +158,17 @@ func (rs *resizeSource) Close(ctx context.Context) error {
 
 // cropConfig are the attributes for a crop transform.
 type cropConfig struct {
-	XMin int `json:"x_min_px"`
-	YMin int `json:"y_min_px"`
-	XMax int `json:"x_max_px"`
-	YMax int `json:"y_max_px"`
+	XMin float64 `json:"x_min_px"`
+	YMin float64 `json:"y_min_px"`
+	XMax float64 `json:"x_max_px"`
+	YMax float64 `json:"y_max_px"`
 }
 
 type cropSource struct {
 	originalStream gostream.VideoStream
 	imgType        camera.ImageType
 	cropWindow     image.Rectangle
+	cropRel        []float64
 }
 
 // newCropTransform creates a new crop transform.
@@ -187,14 +188,42 @@ func newCropTransform(
 	if conf.YMin >= conf.YMax {
 		return nil, camera.UnspecifiedStream, errors.New("cannot crop image to 0 height (y_min is >= y_max)")
 	}
-	cropRect := image.Rect(conf.XMin, conf.YMin, conf.XMax, conf.YMax)
+	cropRect := image.Rectangle{}
+	cropRel := []float64{}
+	if conf.XMax < 1. || conf.YMax < 1. {
+		if conf.XMin <= 1. && conf.YMin <= 1. && conf.XMax <= 1. && conf.YMax <= 1. {
+			cropRel = []float64{conf.XMin, conf.YMin, conf.XMax, conf.YMax}
+		} else {
+			return nil, camera.UnspecifiedStream, errors.New("if using relative bounds between 0 and 1 for cropping, all parameter attributes must be between 0 and 1")
+		}
+	} else {
+		cropRect = image.Rect(int(conf.XMin), int(conf.YMin), int(conf.XMax), int(conf.YMax))
+	}
 
-	reader := &cropSource{gostream.NewEmbeddedVideoStream(source), stream, cropRect}
+	reader := &cropSource{gostream.NewEmbeddedVideoStream(source), stream, cropRect, cropRel}
 	src, err := camera.NewVideoSourceFromReader(ctx, reader, nil, stream)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
 	return src, stream, err
+}
+
+func (cs *cropSource) relToAbsCrop(ctx context.Context, img image.Image) image.Rectangle {
+	xMin, yMin, xMax, yMax := cs.cropRel[0], cs.cropRel[1], cs.cropRel[2], cs.cropRel[3]
+	// Get image bounds
+	bounds := img.Bounds()
+	width := bounds.Dx()
+	height := bounds.Dy()
+
+	// Convert relative coordinates to absolute pixels
+	x1 := bounds.Min.X + int(xMin*float64(width))
+	y1 := bounds.Min.Y + int(yMin*float64(height))
+	x2 := bounds.Min.X + int(xMax*float64(width))
+	y2 := bounds.Min.Y + int(yMax*float64(height))
+
+	// Create cropping rectangle
+	rect := image.Rect(x1, y1, x2, y2)
+	return rect
 }
 
 // Read crops the 2D image depending on the crop window.
@@ -204,6 +233,9 @@ func (cs *cropSource) Read(ctx context.Context) (image.Image, func(), error) {
 	orig, release, err := cs.originalStream.Next(ctx)
 	if err != nil {
 		return nil, nil, err
+	}
+	if cs.cropWindow.Empty() && len(cs.cropRel) != 0 {
+		cs.cropWindow = cs.relToAbsCrop(ctx, orig)
 	}
 	switch cs.imgType {
 	case camera.ColorStream, camera.UnspecifiedStream:

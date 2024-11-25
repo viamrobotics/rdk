@@ -64,6 +64,7 @@ func TestCrop(t *testing.T) {
 	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 10)
 	test.That(t, out, test.ShouldHaveSameTypeAs, &image.NRGBA{})
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
+
 	// crop has limits bigger than the image dimensions, but just takes the window
 	am = utils.AttributeMap{"x_min_px": 127, "x_max_px": 150, "y_min_px": 71, "y_max_px": 110}
 	rs, stream, err = newCropTransform(context.Background(), source, camera.ColorStream, am)
@@ -73,6 +74,24 @@ func TestCrop(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 1)
 	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 1)
+	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
+
+	// relative crop
+	dummyImg := image.NewRGBA(image.Rect(0, 0, 100, 100))
+	source = gostream.NewVideoSource(&fake.StaticSource{ColorImg: dummyImg}, prop.Video{})
+	out, _, err = camera.ReadImage(context.Background(), source)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 100)
+	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 100)
+	am = utils.AttributeMap{"x_min_px": 0.2, "x_max_px": 0.4, "y_min_px": 0.3, "y_max_px": 0.99}
+	rs, stream, err = newCropTransform(context.Background(), source, camera.ColorStream, am)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
+	out, _, err = camera.ReadImage(context.Background(), rs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 20)
+	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 69)
+	test.That(t, out, test.ShouldHaveSameTypeAs, &image.NRGBA{})
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 
 	//  error - crop limits are outside of original image
