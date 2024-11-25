@@ -419,9 +419,9 @@ func fragmentHistoryEntryFromProto(entry *pb.FragmentHistoryEntry) *FragmentHist
 
 // Authorization has the information about a specific authorization.
 type Authorization struct {
-	AuthorizationType string
+	AuthorizationType AuthRole
 	AuthorizationID   string
-	ResourceType      string
+	ResourceType      AuthResourceType
 	ResourceID        string
 	IdentityID        string
 	OrganizationID    string
@@ -430,9 +430,9 @@ type Authorization struct {
 
 func authorizationFromProto(authorization *pb.Authorization) *Authorization {
 	return &Authorization{
-		AuthorizationType: authorization.AuthorizationType,
+		AuthorizationType: AuthRole(authorization.AuthorizationType),
 		AuthorizationID:   authorization.AuthorizationId,
-		ResourceType:      authorization.ResourceType,
+		ResourceType:      AuthResourceType(authorization.ResourceType),
 		ResourceID:        authorization.ResourceId,
 		IdentityID:        authorization.IdentityId,
 		OrganizationID:    authorization.OrganizationId,
@@ -442,9 +442,9 @@ func authorizationFromProto(authorization *pb.Authorization) *Authorization {
 
 func authorizationToProto(authorization *Authorization) *pb.Authorization {
 	return &pb.Authorization{
-		AuthorizationType: authorization.AuthorizationType,
+		AuthorizationType: string(authorization.AuthorizationType),
 		AuthorizationId:   authorization.AuthorizationID,
-		ResourceType:      authorization.ResourceType,
+		ResourceType:      string(authorization.ResourceType),
 		ResourceId:        authorization.ResourceID,
 		IdentityId:        authorization.IdentityID,
 		OrganizationId:    authorization.OrganizationID,

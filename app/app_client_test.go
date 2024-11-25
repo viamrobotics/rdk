@@ -111,7 +111,7 @@ var (
 	lastLogin     = time.Now().UTC().Round(time.Millisecond)
 	createdOn     = time.Now().UTC().Round(time.Millisecond)
 	authorization = Authorization{
-		AuthorizationType: string(authorizationType),
+		AuthorizationType: authorizationType,
 		AuthorizationID:   authorizationID,
 		ResourceType:      resourceType,
 		ResourceID:        resourceID,
@@ -120,16 +120,16 @@ var (
 		IdentityType:      identityType,
 	}
 	pbAuthorization = pb.Authorization{
-		AuthorizationType: authorization.AuthorizationType,
+		AuthorizationType: string(authorization.AuthorizationType),
 		AuthorizationId:   authorization.AuthorizationID,
-		ResourceType:      authorization.ResourceType,
+		ResourceType:      string(authorization.ResourceType),
 		ResourceId:        authorization.ResourceID,
 		IdentityId:        authorization.IdentityID,
 		OrganizationId:    authorization.OrganizationID,
 		IdentityType:      authorization.IdentityType,
 	}
 	authorization2 = Authorization{
-		AuthorizationType: string(authorizationType2),
+		AuthorizationType: authorizationType2,
 		AuthorizationID:   authorizationID2,
 		ResourceType:      resourceType2,
 		ResourceID:        resourceID2,
@@ -138,9 +138,9 @@ var (
 		IdentityType:      identityType,
 	}
 	pbAuthorization2 = pb.Authorization{
-		AuthorizationType: authorization2.AuthorizationType,
+		AuthorizationType: string(authorization2.AuthorizationType),
 		AuthorizationId:   authorization2.AuthorizationID,
-		ResourceType:      authorization2.ResourceType,
+		ResourceType:      string(authorization2.ResourceType),
 		ResourceId:        authorization2.ResourceID,
 		IdentityId:        authorization2.IdentityID,
 		OrganizationId:    authorization2.OrganizationID,
@@ -1527,8 +1527,8 @@ func TestAppClient(t *testing.T) {
 		resp := createAuthorization(authorization.OrganizationID,
 			authorization.IdentityID,
 			authorization.IdentityType,
-			AuthRole(authorization.AuthorizationType),
-			AuthResourceType(authorization.ResourceType),
+			authorization.AuthorizationType,
+			authorization.ResourceType,
 			authorization.ResourceID,
 		)
 		test.That(t, resp, test.ShouldResemble, &pbAuthorization)
@@ -1545,8 +1545,8 @@ func TestAppClient(t *testing.T) {
 			context.Background(),
 			authorization.OrganizationID,
 			authorization.IdentityID,
-			AuthRole(authorization.AuthorizationType),
-			AuthResourceType(authorization.ResourceType),
+			authorization.AuthorizationType,
+			authorization.ResourceType,
 			authorization.ResourceID,
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -1576,8 +1576,8 @@ func TestAppClient(t *testing.T) {
 			&authorization,
 			authorization2.OrganizationID,
 			authorization2.IdentityID,
-			AuthRole(authorization2.AuthorizationType),
-			AuthResourceType(authorization2.ResourceType),
+			authorization2.AuthorizationType,
+			authorization2.ResourceType,
 			authorization2.ResourceID,
 		)
 		test.That(t, err, test.ShouldBeNil)
