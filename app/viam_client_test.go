@@ -9,6 +9,7 @@ import (
 	syncPb "go.viam.com/api/app/datasync/v1"
 	syncPb "go.viam.com/api/app/datasync/v1"
 	provisioningpb "go.viam.com/api/provisioning/v1"
+	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -137,6 +138,16 @@ func TestNewAppClients(t *testing.T) {
 	client, err := CreateViamClientWithOptions(context.Background(), opts, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer client.Close()
+  
+  appClient := client.AppClient()
+	test.That(t, appClient, test.ShouldNotBeNil)
+	test.That(t, appClient, test.ShouldHaveSameTypeAs, &AppClient{})
+	test.That(t, appClient.client, test.ShouldImplement, (*apppb.AppServiceClient)(nil))
+
+	// Testing that a second call to AppClient() returns the same instance
+	appClient2 := client.AppClient()
+	test.That(t, appClient2, test.ShouldNotBeNil)
+	test.That(t, appClient, test.ShouldEqual, appClient2)
 
 	dataClient := client.DataClient()
 	test.That(t, dataClient, test.ShouldNotBeNil)
