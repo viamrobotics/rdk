@@ -96,7 +96,7 @@ func (c *ProvisioningClient) GetSmartMachineStatus(ctx context.Context) (*GetSma
 	return getSmartMachineStatusResponseFromProto(resp), nil
 }
 
-// SetNetworkCredentials is to set the wifi credentials.
+// SetNetworkCredentials sets the wifi credentials.
 func (c *ProvisioningClient) SetNetworkCredentials(ctx context.Context, credentialsType, ssid, psk string) error {
 	_, err := c.client.SetNetworkCredentials(ctx, &pb.SetNetworkCredentialsRequest{
 		Type: credentialsType,
@@ -106,7 +106,7 @@ func (c *ProvisioningClient) SetNetworkCredentials(ctx context.Context, credenti
 	return err
 }
 
-// SetSmartMachineCredentials is to set the smart machine credentials.
+// SetSmartMachineCredentials sets the smart machine credentials.
 func (c *ProvisioningClient) SetSmartMachineCredentials(ctx context.Context, cloud *CloudConfig) error {
 	_, err := c.client.SetSmartMachineCredentials(ctx, &pb.SetSmartMachineCredentialsRequest{
 		Cloud: cloudConfigToProto(cloud),
