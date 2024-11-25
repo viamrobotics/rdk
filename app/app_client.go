@@ -71,15 +71,8 @@ type CreateFragmentOptions struct {
 
 // UpdateFragmentOptions contains optional parameters for UpdateFragment.
 type UpdateFragmentOptions struct {
-	public     *bool
-	visibility *FragmentVisibility
-}
-
-// ListMachineFragmentsOptions contains optional parameters for ListMachineFragments.
-type ListMachineFragmentsOptions struct {
-	// AdditionalFragmentIDs are additional fragments requested.
-	// These are useful to view fragments that will be provisionally added to the machine alongside existing fragments.
-	AdditionalFragmentIDs []string
+	Public     *bool
+	Visibility *FragmentVisibility
 }
 
 // GetFragmentHistoryOptions contains optional parameters for GetFragmentHistory.
@@ -95,10 +88,6 @@ type UpdateRegistryItemOptions struct {
 
 // ListRegistryItemsOptions contains optional parameters for ListRegistryItems.
 type ListRegistryItemsOptions struct {
-	Types        []PackageType
-	Visibilities []Visibility
-	Platforms    []string
-	Statuses     []RegistryItemStatus
 	SearchTerm   *string
 	PageToken    *string
 	// PublicNamespaces are the namespaces to return results for.
@@ -221,12 +210,16 @@ func (c *AppClient) GetOrganizationNamespaceAvailability(ctx context.Context, na
 
 // UpdateOrganization updates an organization.
 func (c *AppClient) UpdateOrganization(ctx context.Context, orgID string, opts *UpdateOrganizationOptions) (*Organization, error) {
+	var name, namespace, region, cid *string
+	if opts != nil {
+		name, namespace, region, cid = opts.Name, opts.Namespace, opts.Region, opts.CID
+	}
 	resp, err := c.client.UpdateOrganization(ctx, &pb.UpdateOrganizationRequest{
 		OrganizationId:  orgID,
-		Name:            opts.Name,
-		PublicNamespace: opts.Namespace,
-		Region:          opts.Region,
-		Cid:             opts.CID,
+		Name:            name,
+		PublicNamespace: namespace,
+		Region:          region,
+		Cid:             cid,
 	})
 	if err != nil {
 		return nil, err
@@ -270,11 +263,15 @@ func (c *AppClient) CreateOrganizationInvite(
 	for _, authorization := range authorizations {
 		pbAuthorizations = append(pbAuthorizations, authorizationToProto(authorization))
 	}
+	var send *bool
+	if opts != nil {
+		send = opts.SendEmailInvite
+	}
 	resp, err := c.client.CreateOrganizationInvite(ctx, &pb.CreateOrganizationInviteRequest{
 		OrganizationId:  orgID,
 		Email:           email,
 		Authorizations:  pbAuthorizations,
-		SendEmailInvite: opts.SendEmailInvite,
+		SendEmailInvite: send,
 	})
 	if err != nil {
 		return nil, err
@@ -384,10 +381,14 @@ func (c *AppClient) OrganizationGetSupportEmail(ctx context.Context, orgID strin
 
 // CreateLocation creates a location with the given name under the given organization.
 func (c *AppClient) CreateLocation(ctx context.Context, orgID, name string, opts *CreateLocationOptions) (*Location, error) {
+	var parentID *string
+	if opts != nil {
+		parentID = opts.ParentLocationID
+	}	
 	resp, err := c.client.CreateLocation(ctx, &pb.CreateLocationRequest{
 		OrganizationId:   orgID,
 		Name:             name,
-		ParentLocationId: opts.ParentLocationID,
+		ParentLocationId: parentID,
 	})
 	if err != nil {
 		return nil, err
@@ -408,11 +409,15 @@ func (c *AppClient) GetLocation(ctx context.Context, locationID string) (*Locati
 
 // UpdateLocation updates a location.
 func (c *AppClient) UpdateLocation(ctx context.Context, locationID string, opts *UpdateLocationOptions) (*Location, error) {
+	var name, parentID, region *string
+	if opts != nil {
+		name, parentID, region = opts.Name, opts.ParentLocationID, opts.Region
+	}
 	resp, err := c.client.UpdateLocation(ctx, &pb.UpdateLocationRequest{
 		LocationId:       locationID,
-		Name:             opts.Name,
-		ParentLocationId: opts.ParentLocationID,
-		Region:           opts.Region,
+		Name:             name,
+		ParentLocationId: parentID,
+		Region:           region,
 	})
 	if err != nil {
 		return nil, err
@@ -547,16 +552,32 @@ func (c *AppClient) GetRobotPart(ctx context.Context, id string) (*RobotPart, st
 
 // GetRobotPartLogs gets the logs associated with a robot part and the next page token.
 func (c *AppClient) GetRobotPartLogs(ctx context.Context, id string, opts *GetRobotPartLogsOptions) ([]*LogEntry, string, error) {
-	limit := int64(*opts.Limit)
+	var filter, token, source *string
+	var levels []string
+	var start, end *timestamppb.Timestamp
+	var limit int64
+	if opts != nil {
+		filter, token, source = opts.Filter, opts.PageToken, opts.Source
+		levels = opts.Levels
+		if opts.Start != nil {
+			timestamppb.New(*opts.Start)
+		}
+		if opts.End != nil {
+			timestamppb.New(*opts.End)
+		}
+		if opts.Limit != nil {
+			limit = int64(*opts.Limit)
+		}
+	}
 	resp, err := c.client.GetRobotPartLogs(ctx, &pb.GetRobotPartLogsRequest{
 		Id:        id,
-		Filter:    opts.Filter,
-		PageToken: opts.PageToken,
-		Levels:    opts.Levels,
-		Start:     timestamppb.New(*opts.Start),
-		End:       timestamppb.New(*opts.End),
+		Filter:    filter,
+		PageToken: token,
+		Levels:    levels,
+		Start:     start,
+		End:       end,
 		Limit:     &limit,
-		Source:    opts.Source,
+		Source:    source,
 	})
 	if err != nil {
 		return nil, "", err
@@ -591,10 +612,14 @@ func (s *RobotPartLogStream) Next() ([]*LogEntry, error) {
 func (c *AppClient) TailRobotPartLogs(
 	ctx context.Context, id string, errorsOnly bool, opts *TailRobotPartLogsOptions,
 ) (*RobotPartLogStream, error) {
+	var filter *string
+	if opts != nil {
+		filter = opts.Filter
+	}
 	stream, err := c.client.TailRobotPartLogs(ctx, &pb.TailRobotPartLogsRequest{
 		Id:         id,
 		ErrorsOnly: errorsOnly,
-		Filter:     opts.Filter,
+		Filter:     filter,
 	})
 	if err != nil {
 		return nil, err
@@ -799,12 +824,15 @@ func (c *AppClient) CreateFragment(
 	if err != nil {
 		return nil, err
 	}
-	pbFragmentVisibility := fragmentVisibilityToProto(*opts.Visibility)
+	var visibility pb.FragmentVisibility
+	if opts != nil && opts.Visibility != nil {
+		visibility = fragmentVisibilityToProto(*opts.Visibility)
+	}
 	resp, err := c.client.CreateFragment(ctx, &pb.CreateFragmentRequest{
 		Name:           name,
 		Config:         pbConfig,
 		OrganizationId: orgID,
-		Visibility:     &pbFragmentVisibility,
+		Visibility:     &visibility,
 	})
 	if err != nil {
 		return nil, err
@@ -820,13 +848,20 @@ func (c *AppClient) UpdateFragment(
 	if err != nil {
 		return nil, err
 	}
-	pbVisibility := fragmentVisibilityToProto(*opts.visibility)
+	var public *bool
+	var visibility pb.FragmentVisibility
+	if opts != nil {
+		public = opts.Public
+		if opts.Visibility != nil {
+			visibility = fragmentVisibilityToProto(*opts.Visibility)
+		}
+	}
 	resp, err := c.client.UpdateFragment(ctx, &pb.UpdateFragmentRequest{
 		Id:         id,
 		Name:       name,
 		Config:     cfg,
-		Public:     opts.public,
-		Visibility: &pbVisibility,
+		Public:     public,
+		Visibility: &visibility,
 	})
 	if err != nil {
 		return nil, err
@@ -843,10 +878,11 @@ func (c *AppClient) DeleteFragment(ctx context.Context, id string) error {
 }
 
 // ListMachineFragments gets top level and nested fragments for a amchine, as well as any other fragments specified by IDs.
-func (c *AppClient) ListMachineFragments(ctx context.Context, machineID string, opts *ListMachineFragmentsOptions) ([]*Fragment, error) {
+// Additional fragments are useful to view fragments that will be provisionally added to the machine alongside existing fragments.
+func (c *AppClient) ListMachineFragments(ctx context.Context, machineID string, additionalIDs []string) ([]*Fragment, error) {
 	resp, err := c.client.ListMachineFragments(ctx, &pb.ListMachineFragmentsRequest{
 		MachineId:             machineID,
-		AdditionalFragmentIds: opts.AdditionalFragmentIDs,
+		AdditionalFragmentIds: additionalIDs,
 	})
 	if err != nil {
 		return nil, err
@@ -862,10 +898,17 @@ func (c *AppClient) ListMachineFragments(ctx context.Context, machineID string, 
 func (c *AppClient) GetFragmentHistory(
 	ctx context.Context, id string, opts *GetFragmentHistoryOptions,
 ) ([]*FragmentHistoryEntry, string, error) {
-	limit := int64(*opts.PageLimit)
+	var token *string
+	var limit int64
+	if opts != nil {
+		token = opts.PageToken
+		if opts.PageLimit != nil {
+			limit = int64(*opts.PageLimit)
+		}
+	}
 	resp, err := c.client.GetFragmentHistory(ctx, &pb.GetFragmentHistoryRequest{
 		Id:        id,
-		PageToken: opts.PageToken,
+		PageToken: token,
 		PageLimit: &limit,
 	})
 	if err != nil {
@@ -982,39 +1025,52 @@ func (c *AppClient) CreateRegistryItem(ctx context.Context, orgID, name string, 
 func (c *AppClient) UpdateRegistryItem(
 	ctx context.Context, itemID string, packageType PackageType, description string, visibility Visibility, opts *UpdateRegistryItemOptions,
 ) error {
+	var siteURL *string
+	if opts != nil {
+		siteURL = opts.URL
+	}
 	_, err := c.client.UpdateRegistryItem(ctx, &pb.UpdateRegistryItemRequest{
 		ItemId:      itemID,
 		Type:        packageTypeToProto(packageType),
 		Description: description,
 		Visibility:  visibilityToProto(visibility),
-		Url:         opts.URL,
+		Url:         siteURL,
 	})
 	return err
 }
 
 // ListRegistryItems lists the registry items in an organization.
-func (c *AppClient) ListRegistryItems(ctx context.Context, orgID *string, opts *ListRegistryItemsOptions) ([]*RegistryItem, error) {
+func (c *AppClient) ListRegistryItems(
+	ctx context.Context, orgID *string, types []PackageType, visibilities []Visibility, platforms []string, statuses []RegistryItemStatus, opts *ListRegistryItemsOptions,
+) ([]*RegistryItem, error) {
 	var pbTypes []packages.PackageType
-	for _, packageType := range opts.Types {
+	for _, packageType := range types {
 		pbTypes = append(pbTypes, packageTypeToProto(packageType))
 	}
 	var pbVisibilities []pb.Visibility
-	for _, visibility := range opts.Visibilities {
+	for _, visibility := range visibilities {
 		pbVisibilities = append(pbVisibilities, visibilityToProto(visibility))
 	}
 	var pbStatuses []pb.RegistryItemStatus
-	for _, status := range opts.Statuses {
+	for _, status := range statuses {
 		pbStatuses = append(pbStatuses, registryItemStatusToProto(status))
+	}
+
+	var term, token *string
+	var namespaces []string
+	if opts != nil {
+		term, token = opts.SearchTerm, opts.PageToken
+		namespaces = opts.PublicNamespaces
 	}
 	resp, err := c.client.ListRegistryItems(ctx, &pb.ListRegistryItemsRequest{
 		OrganizationId:   orgID,
 		Types:            pbTypes,
 		Visibilities:     pbVisibilities,
-		Platforms:        opts.Platforms,
+		Platforms:        platforms,
 		Statuses:         pbStatuses,
-		SearchTerm:       opts.SearchTerm,
-		PageToken:        opts.PageToken,
-		PublicNamespaces: opts.PublicNamespaces,
+		SearchTerm:       term,
+		PageToken:        token,
+		PublicNamespaces: namespaces,
 	})
 	if err != nil {
 		return nil, err
@@ -1076,6 +1132,10 @@ func (c *AppClient) UpdateModule(
 	for _, model := range models {
 		pbModels = append(pbModels, modelToProto(model))
 	}
+	var firstRun *string
+	if opts != nil {
+		firstRun = opts.FirstRun
+	}
 	resp, err := c.client.UpdateModule(ctx, &pb.UpdateModuleRequest{
 		ModuleId:    moduleID,
 		Visibility:  visibilityToProto(visibility),
@@ -1083,7 +1143,7 @@ func (c *AppClient) UpdateModule(
 		Description: description,
 		Models:      pbModels,
 		Entrypoint:  entrypoint,
-		FirstRun:    opts.FirstRun,
+		FirstRun:    firstRun,
 	})
 	if err != nil {
 		return "", err
@@ -1148,8 +1208,12 @@ func (c *AppClient) GetModule(ctx context.Context, moduleID string) (*Module, er
 
 // ListModules lists the modules in the organization.
 func (c *AppClient) ListModules(ctx context.Context, opts *ListModulesOptions) ([]*Module, error) {
+	var orgID *string
+	if opts != nil {
+		orgID = opts.OrgID
+	}
 	resp, err := c.client.ListModules(ctx, &pb.ListModulesRequest{
-		OrganizationId: opts.OrgID,
+		OrganizationId: orgID,
 	})
 	if err != nil {
 		return nil, err
