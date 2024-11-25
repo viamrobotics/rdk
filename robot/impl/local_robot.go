@@ -673,8 +673,8 @@ func (r *localRobot) getDependencies(
 
 	// If this resource has any dependency with weak dependencies, and if we have updated
 	// the resource graph since the last time we ran updateWeakDependents, we should update
-	// resources with weak dependencies so that they are up-to-date before calling Reconfigure
-	// using them as dependencies.
+	// resources with weak dependencies so that they are up-to-date before Reconfigure
+	// uses them as dependencies.
 	//
 	// If none of the dependencies of this resource have weak dependencies, it is unnecessary to
 	// update resources with weak dependencies at this time. updateWeakDependents is called at the
