@@ -631,12 +631,22 @@ func (r *localRobot) getDependencies(
 		return nil, errors.Errorf("resource has unresolved dependencies: %v", deps)
 	}
 	allDeps := make(resource.Dependencies)
-	var needUpdate bool
+	var hasDepWithWeakDep, needUpdate bool
 	for _, dep := range r.manager.resources.GetAllParentsOf(rName) {
 		// If any of the dependencies of this resource has an updatedAt value that
-		// is "later" than the last value at which we ran updateWeakDependents,
-		// ensure that we run updateWeakDependents later in this method.
+		// is "later" than the last value at which we ran updateWeakDependents and this resource
+		// has dependencies with weak dependencies, we should update resources with weak dependencies so that
+		// they are up-to-date.
+		//
+		// If none of the dependencies of this resource has dependencies with weak dependencies, then it is
+		// unnecessary to update resources with weak dependencies at this time. updateWeakDependents is called at the end of every reconfiguration
+		// cycle.
 		if node, ok := r.manager.resources.Node(dep); ok {
+			if len(r.getWeakDependencyMatchers(node.Config().API, node.Config().Model)) > 0 {
+				hasDepWithWeakDep = true
+			}
+
+			if hasDepWithWeakDep && r.lastWeakDependentsRound.Load() < node.UpdatedAt() {
 			if r.lastWeakDependentsRound.Load() <= node.UpdatedAt() {
 				needUpdate = true
 			}
