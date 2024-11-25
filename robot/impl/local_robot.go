@@ -15,6 +15,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"go.uber.org/zap/zapcore"
 	packagespb "go.viam.com/api/app/packages/v1"
 	modulepb "go.viam.com/api/module/v1"
 	goutils "go.viam.com/utils"
@@ -74,6 +75,7 @@ type localRobot struct {
 
 	// lastWeakDependentsRound stores the value of the resource graph's
 	// logical clock when updateWeakDependents was called.
+	lastWeakDependentsMu    sync.Mutex
 	lastWeakDependentsRound atomic.Int64
 
 	// configRevision stores the revision of the latest config ingested during
@@ -754,7 +756,23 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 	// Track the current value of the resource graph's logical clock. This will
 	// later be used to determine if updateWeakDependents should be called during
 	// getDependencies.
-	r.lastWeakDependentsRound.Store(r.manager.resources.CurrLogicalClockValue())
+	r.lastWeakDependentsMu.Lock()
+	logicalNow := r.manager.resources.CurrLogicalClockValue()
+	if r.lastWeakDependentsRound.Load() < logicalNow {
+		// RSDK-8904: This method can be called concurrently such that resources are `Reconfigure`d
+		// in parallel. This logical clock existed for the purpose of avoiding double-reconfigure
+		// inside `updateWeakDependents` for the same robot `Reconfigure` call.
+		//
+		// Dan: Using the clock in this way will early return the "loser" goroutine. The "loser"
+		// goroutine will proceed despite weak dependents not yet having their `Reconfigure`
+		// called. I expect this is actually safe despite being a surprising lack of guarantee. I'm
+		// concerned about blocking here because I also* expect this logical clock atomic integer
+		// was introduced to avoid blocking.
+		r.lastWeakDependentsMu.Unlock()
+		return
+	}
+	r.lastWeakDependentsRound.Store(logicalNow)
+	r.lastWeakDependentsMu.Unlock()
 
 	allResources := map[resource.Name]resource.Resource{}
 	internalResources := map[resource.Name]resource.Resource{}
@@ -856,8 +874,14 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		if len(r.getWeakDependencyMatchers(conf.API, conf.Model)) == 0 {
 			return
 		}
-		r.Logger().CDebugw(ctx, "handling weak update for resource", "resource", resName)
 		deps, err := r.getDependencies(ctx, resName, resNode)
+		if r.Logger().Level() == zapcore.DebugLevel {
+			var depNames []string
+			for name, _ := range deps {
+				depNames = append(depNames, name.String())
+			}
+			r.Logger().CDebugw(ctx, "handling weak update for resource", "resource", resName, "deps", depNames, "err", err)
+		}
 		if err != nil {
 			r.Logger().CErrorw(ctx, "failed to get dependencies during weak dependencies update; skipping", "resource", resName, "error", err)
 			return
@@ -893,6 +917,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 				resChan <- struct{}{}
 				r.reconfigureWorkers.Done()
 			}()
+
 			updateResourceWeakDependents(ctxWithTimeout, conf)
 		})
 		select {
