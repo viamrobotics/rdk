@@ -88,8 +88,8 @@ func newEncodedMotor(
 	}
 
 	if em.rampRate == 0 || em.rampRate > 0.5 {
-		em.rampRate = 0.05 // Use a conservative value by default.
 		em.logger.Warnf("setting ramp rate to default value of 0.05 instead of %v", em.rampRate)
+		em.rampRate = 0.05 // Use a conservative value by default.
 	}
 
 	if em.maxPowerPct < 0 || em.maxPowerPct > 1 {

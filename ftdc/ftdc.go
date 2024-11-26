@@ -1,13 +1,18 @@
 package ftdc
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
+	"path"
+	"path/filepath"
+	"regexp"
 	"slices"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -102,33 +107,53 @@ type FTDC struct {
 	readStatsWorker  *utils.StoppableWorkers
 	datumCh          chan datum
 	outputWorkerDone chan struct{}
+	stopOnce         sync.Once
 
 	// Fields used to manage where serialized FTDC bytes are written.
-	//
-	// When debug is true, the `outputWriter` will "tee" data to both the `currOutputFile` and
-	// `inmemBuffer`. Otherwise `outputWriter` will just refer to the `currOutputFile`.
-	debug          bool
-	outputWriter   io.Writer
-	currOutputFile *os.File
-	// inmemBuffer will remain nil when `debug` is false.
-	inmemBuffer *bytes.Buffer
+	outputWriter io.Writer
+	// bytesWrittenCounter will count bytes that are written to the `outputWriter`. We use an
+	// `io.Writer` implementer for this, as opposed to just counting by hand, primarily as a
+	// convenience for working with `json.NewEncoder(writer).Encode(...)`. This counter is folded
+	// into the above `outputWriter`.
+	bytesWrittenCounter countingWriter
+	currOutputFile      *os.File
+	maxFileSizeBytes    int64
+	maxNumFiles         int
+	// ftdcDir controls where FTDC data files will be written.
+	ftdcDir string
 
 	logger logging.Logger
 }
 
-// New creates a new *FTDC.
-func New(logger logging.Logger) *FTDC {
-	return NewWithWriter(nil, logger)
+// New creates a new *FTDC. This FTDC object will write FTDC formatted files into the input
+// `ftdcDirectory`.
+func New(ftdcDirectory string, logger logging.Logger) *FTDC {
+	ret := newFTDC(logger)
+	ret.maxFileSizeBytes = 1_000_000
+	ret.maxNumFiles = 10
+	ret.ftdcDir = ftdcDirectory
+	return ret
 }
 
 // NewWithWriter creates a new *FTDC that outputs bytes to the specified writer.
 func NewWithWriter(writer io.Writer, logger logging.Logger) *FTDC {
+	ret := newFTDC(logger)
+	ret.outputWriter = writer
+	return ret
+}
+
+// DefaultDirectory returns a directory to write FTDC data files in. Each unique "part" running on a
+// single computer will get its own directory.
+func DefaultDirectory(viamHome, partID string) string {
+	return filepath.Join(viamHome, "diagnostics.data", partID)
+}
+
+func newFTDC(logger logging.Logger) *FTDC {
 	return &FTDC{
 		// Allow for some wiggle before blocking producers.
 		datumCh:          make(chan datum, 20),
 		outputWorkerDone: make(chan struct{}),
 		logger:           logger,
-		outputWriter:     writer,
 	}
 }
 
@@ -175,10 +200,19 @@ func (ftdc *FTDC) Remove(name string) {
 		"name", name, "generationId", ftdc.inputGenerationID)
 }
 
-// Start spins off the background goroutine for collecting/writing FTDC data.
+// Start spins off the background goroutine for collecting + writing FTDC data. It's normal for tests
+// to _not_ call `Start`. Tests can simulate the same functionality by calling `constructDatum` and `writeDatum`.
 func (ftdc *FTDC) Start() {
 	ftdc.readStatsWorker = utils.NewStoppableWorkerWithTicker(time.Second, ftdc.statsReader)
 	utils.PanicCapturingGo(ftdc.statsWriter)
+
+	// The `fileDeleter` goroutine mostly aligns with the "stoppable worker with ticker"
+	// pattern. But it has the additional desire that if file deletion exits with a panic, all of
+	// FTDC should stop.
+	utils.PanicCapturingGoWithCallback(ftdc.fileDeleter, func(err any) {
+		ftdc.logger.Warnw("File deleter errored, stopping FTDC", "err", err)
+		ftdc.StopAndJoin(context.Background())
+	})
 }
 
 func (ftdc *FTDC) statsReader(ctx context.Context) {
@@ -225,6 +259,7 @@ func (ftdc *FTDC) statsWriter() {
 			return
 		}
 
+		// FSync the ftdc data once every 30 iterations (roughly every 30 seconds).
 		datumsWritten++
 		if datumsWritten%30 == 0 && ftdc.currOutputFile != nil {
 			utils.UncheckedError(ftdc.currOutputFile.Sync())
@@ -233,10 +268,16 @@ func (ftdc *FTDC) statsWriter() {
 }
 
 // StopAndJoin stops the background worker started by `Start`. It is only legal to call this after
-// `Start` returns.
+// `Start` returns. It's normal for tests to _not_ call `StopAndJoin`. Tests that have spun up the
+// `statsWriter` by hand, without the `statsReader` can `close(ftdc.datumCh)` followed by
+// `<-ftdc.outputWorkerDone` to stop+wait for the `statsWriter`.
 func (ftdc *FTDC) StopAndJoin(ctx context.Context) {
-	ftdc.readStatsWorker.Stop()
-	close(ftdc.datumCh)
+	ftdc.stopOnce.Do(func() {
+		// Only one caller should close the datum channel. And it should be the caller that called
+		// stop on the worker writing to the channel.
+		ftdc.readStatsWorker.Stop()
+		close(ftdc.datumCh)
+	})
 
 	// Closing the `statsCh` signals to the `outputWorker` to complete and exit. We use a timeout to
 	// limit how long we're willing to wait for the `outputWorker` to drain.
@@ -354,25 +395,202 @@ func (ftdc *FTDC) writeDatum(datum datum) error {
 }
 
 // getWriter returns an io.Writer xor error for writing schema/data information. `getWriter` is only
-// expected to be called by `newDatum`.
+// expected to be called by `writeDatum`.
 func (ftdc *FTDC) getWriter() (io.Writer, error) {
-	if ftdc.outputWriter != nil {
+	// If we have an `outputWriter` without a `currOutputFile`, it means ftdc was constructed with
+	// an explicit writer. We will use the passed in writer for all operations. No file will ever be
+	// created.
+	if ftdc.outputWriter != nil && ftdc.currOutputFile == nil {
 		return ftdc.outputWriter, nil
 	}
 
+	// Note to readers, until this function starts mutating `outputWriter` and `currOutputFile`, you
+	// can safely assume:
+	//
+	//   `outputWriter == nil if and only if currOutputFile == nil`.
+	//
+	// In case that helps reading the following logic.
+
+	// If we have an active outputWriter and we have not exceeded our FTDC file rotation quota, we
+	// can just return.
+	if ftdc.outputWriter != nil && ftdc.bytesWrittenCounter.count < ftdc.maxFileSizeBytes {
+		return ftdc.outputWriter, nil
+	}
+
+	// If we're in the logic branch where we have exceeded our FTDC file rotation quota, we first
+	// close the `currOutputFile`.
+	if ftdc.currOutputFile != nil {
+		// Dan: An error closing a file (any resource for that matter) is not an error. I will die
+		// on that hill.
+		utils.UncheckedError(ftdc.currOutputFile.Close())
+	}
+
 	var err error
-	ftdc.currOutputFile, err = os.Create("./viam-server.ftdc")
-	if err != nil {
+	// It's unclear in what circumstance we'd expect creating a new file to fail. Try 5 times for no
+	// good reason before giving up entirely and shutting down FTDC.
+	for numTries := 0; numTries < 5; numTries++ {
+		// The viam process is expected to be run as root. The FTDC directory must be readable by
+		// "other" users.
+		//
+		//nolint:gosec
+		if err = os.MkdirAll(ftdc.ftdcDir, 0o755); err != nil {
+			ftdc.logger.Warnw("Failed to create FTDC directory", "dir", ftdc.ftdcDir, "err", err)
+			return nil, err
+		}
+
+		now := time.Now().UTC()
+		// lint wants 0o600 file permissions. We don't expect the unix user someone is ssh'ed in as
+		// to be on the same unix user as is running the viam-server process. Thus the file needs to
+		// be accessible by anyone.
+		//
+		//nolint:gosec
+		ftdc.currOutputFile, err = os.OpenFile(path.Join(ftdc.ftdcDir,
+			// Filename example: viam-server-2024-10-04T18-42-02.ftdc
+			fmt.Sprintf("viam-server-%d-%02d-%02dT%02d-%02d-%02dZ.ftdc",
+				now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second())),
+			// Create a new file in read+write mode. `O_EXCL` is used to guarantee a new file is
+			// created. If the filename already exists, that flag changes the `os.OpenFile` behavior
+			// to return an error.
+			os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o644)
+		if err == nil {
+			break
+		}
 		ftdc.logger.Warnw("FTDC failed to open file", "err", err)
+
+		// If the error is some unexpected filename collision, wait a second to change the filename.
+		time.Sleep(time.Second)
+	}
+	if err != nil {
 		return nil, err
 	}
 
-	if ftdc.debug {
-		ftdc.inmemBuffer = bytes.NewBuffer(nil)
-		ftdc.outputWriter = io.MultiWriter(ftdc.currOutputFile, ftdc.inmemBuffer)
-	} else {
-		ftdc.outputWriter = ftdc.currOutputFile
-	}
+	// New file, reset the bytes written counter.
+	ftdc.bytesWrittenCounter.count = 0
+
+	// When we create a new file, we must rewrite the schema. If we do not, a file may be useless
+	// without its "ancestors".
+	//
+	// As a hack, we decrement the `outputGenerationID` to force a new schema to be written.
+	ftdc.outputGenerationID--
+
+	// Assign the `outputWriter`. The `outputWriter` is an abstraction for where FTDC formatted
+	// bytes go. Testing often prefers to just write bytes into memory (and consequently construct
+	// an FTDC with `NewWithWriter`). While in production we obviously want to persist bytes on
+	// disk.
+	ftdc.outputWriter = io.MultiWriter(&ftdc.bytesWrittenCounter, ftdc.currOutputFile)
 
 	return ftdc.outputWriter, nil
+}
+
+func (ftdc *FTDC) fileDeleter() {
+	for {
+		select {
+		// The fileDeleter's goroutine lifetime should match the robot/FTDC lifetime. Borrow the
+		// `readStatsWorker`s context to track that.
+		case <-ftdc.readStatsWorker.Context().Done():
+			return
+		case <-time.After(time.Second):
+		}
+
+		if err := ftdc.checkAndDeleteOldFiles(); err != nil {
+			ftdc.logger.Warnw("Error checking FTDC files", "err", err)
+		}
+	}
+}
+
+// fileTime pairs a file with a time value.
+type fileTime struct {
+	name string
+	time time.Time
+}
+
+func (ftdc *FTDC) checkAndDeleteOldFiles() error {
+	var files []fileTime
+
+	// Walk the `ftdcDir` and gather all of the found files into the captured `files` variable.
+	err := filepath.Walk(ftdc.ftdcDir, filepath.WalkFunc(func(path string, info fs.FileInfo, walkErr error) error {
+		if !strings.HasSuffix(path, ".ftdc") {
+			return nil
+		}
+
+		if walkErr != nil {
+			ftdc.logger.Warnw("Unexpected walk error. Continuing under the assumption any actual* problem will",
+				"be caught by the assertions.", "err", walkErr)
+			return nil
+		}
+
+		parsedTime, err := parseTimeFromFilename(path)
+		if err == nil {
+			files = append(files, fileTime{path, parsedTime})
+		} else {
+			ftdc.logger.Warnw("Error parsing time from FTDC file", "filename", path)
+		}
+		return nil
+	}))
+	if err != nil {
+		return err
+	}
+
+	if len(files) <= ftdc.maxNumFiles {
+		// We have yet to hit our file limit. Keep all of the files.
+		ftdc.logger.Debugw("Inside the budget for ftdc files", "numFiles", len(files), "maxNumFiles", ftdc.maxNumFiles)
+		return nil
+	}
+
+	slices.SortFunc(files, func(left, right fileTime) int {
+		// Sort in descending order. Such that files indexed first are safe. This eases walking the
+		// slice of files.
+		return right.time.Compare(left.time)
+	})
+
+	// If we, for example, have 30 files and we want to keep the newest 10, we delete the trailing
+	// 20 files.
+	for _, file := range files[ftdc.maxNumFiles:] {
+		ftdc.logger.Debugw("Deleting aged out FTDC file", "filename", file.name)
+		if err := os.Remove(file.name); err != nil {
+			ftdc.logger.Warnw("Error removing FTDC file", "filename", file.name)
+		}
+	}
+
+	return nil
+}
+
+// filenameTimeRe matches the files produced by ftdc. Filename <-> regex parity is exercised by file
+// deletion testing. Filename generation uses padding such that we can rely on there before 2/4
+// digits for every numeric value.
+//
+//nolint
+// Example filename: countingBytesTest1228324349/viam-server-2024-11-18T20-37-01Z.ftdc
+var filenameTimeRe = regexp.MustCompile(`viam-server-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})Z.ftdc`)
+
+func parseTimeFromFilename(path string) (time.Time, error) {
+	allMatches := filenameTimeRe.FindAllStringSubmatch(path, -1)
+	if len(allMatches) != 1 || len(allMatches[0]) != 7 {
+		return time.Time{}, errors.New("filename did not match pattern")
+	}
+
+	// There's exactly one match and 7 groups. The first "group" is the whole string. We only care
+	// about the numbers.
+	matches := allMatches[0][1:]
+
+	var numVals [6]int
+	for idx := 0; idx < 6; idx++ {
+		val, err := strconv.Atoi(matches[idx])
+		if err != nil {
+			return time.Time{}, err
+		}
+
+		numVals[idx] = val
+	}
+
+	return time.Date(numVals[0], time.Month(numVals[1]), numVals[2], numVals[3], numVals[4], numVals[5], 0, time.UTC), nil
+}
+
+type countingWriter struct {
+	count int64
+}
+
+func (cw *countingWriter) Write(p []byte) (int, error) {
+	cw.count += int64(len(p))
+	return len(p), nil
 }

@@ -36,19 +36,7 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-type testDiscoveryResult struct {
-	Discovery []testDiscoveryItem `json:"discovery"`
-}
-
-type testDiscoveryItem struct {
-	Query   testDiscoveryQuery `json:"query"`
-	Results map[string]string  `json:"results"`
-}
-
-type testDiscoveryQuery struct {
-	Subtype string `json:"subtype"`
-	Model   string `json:"model"`
-}
+type testDiscoveryResult map[string]interface{}
 
 func setupSocketWithRobot(t *testing.T) string {
 	t.Helper()
@@ -1369,7 +1357,7 @@ func TestBadModuleFailsFast(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "module test-module exited too quickly after attempted startup")
 }
 
-func TestModularDiscovery(t *testing.T) {
+func TestModularDiscoverFunc(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
@@ -1425,11 +1413,10 @@ func TestModularDiscovery(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			t.Logf("Casted struct: %+v", discoveryResult)
 
-			test.That(t, len(discoveryResult.Discovery), test.ShouldEqual, 1)
-			discovery := discoveryResult.Discovery[0]
-			test.That(t, discovery.Query.Subtype, test.ShouldEqual, "rdk:component:generic")
-			test.That(t, discovery.Query.Model, test.ShouldEqual, "rdk:test:helper")
-			test.That(t, discovery.Results["extra"], test.ShouldEqual, tc.expectedExtra)
+			test.That(t, len(discoveryResult), test.ShouldEqual, 1)
+			extraStr, ok := discoveryResult["extra"].(string)
+			test.That(t, ok, test.ShouldBeTrue)
+			test.That(t, extraStr, test.ShouldEqual, tc.expectedExtra)
 		})
 	}
 }

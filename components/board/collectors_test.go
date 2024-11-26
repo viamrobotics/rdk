@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	clk "github.com/benbjohnson/clock"
+	"github.com/benbjohnson/clock"
 	"github.com/golang/protobuf/ptypes/wrappers"
-	pb "go.viam.com/api/component/board/v1"
+	datasyncpb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -22,18 +22,15 @@ import (
 
 const (
 	componentName   = "board"
-	captureInterval = time.Second
-	numRetries      = 5
+	captureInterval = time.Millisecond
 )
 
 func TestCollectors(t *testing.T) {
 	tests := []struct {
-		name          string
-		params        data.CollectorParams
-		collector     data.CollectorConstructor
-		expected      map[string]any
-		shouldError   bool
-		expectedError error
+		name      string
+		params    data.CollectorParams
+		collector data.CollectorConstructor
+		expected  *datasyncpb.SensorData
 	}{
 		{
 			name: "Board analog collector should write an analog response",
@@ -46,13 +43,15 @@ func TestCollectors(t *testing.T) {
 				},
 			},
 			collector: board.NewAnalogCollector,
-			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.ReadAnalogReaderResponse{
-				Value:    1,
-				MinRange: 0,
-				MaxRange: 10,
-				StepSize: 0.1,
-			}),
-			shouldError: false,
+			expected: &datasyncpb.SensorData{
+				Metadata: &datasyncpb.SensorMetadata{},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"value":     1,
+					"min_range": 0,
+					"max_range": 10,
+					"step_size": float64(float32(0.1)),
+				})},
+			},
 		},
 		{
 			name: "Board gpio collector should write a gpio response",
@@ -65,19 +64,21 @@ func TestCollectors(t *testing.T) {
 				},
 			},
 			collector: board.NewGPIOCollector,
-			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetGPIOResponse{
-				High: true,
-			}),
-			shouldError: false,
+			expected: &datasyncpb.SensorData{
+				Metadata: &datasyncpb.SensorMetadata{},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"high": true,
+				})},
+			},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mockClock := clk.NewMock()
-			buf := tu.MockBuffer{}
-			tc.params.Clock = mockClock
-			tc.params.Target = &buf
+			start := time.Now()
+			buf := tu.NewMockBuffer()
+			tc.params.Clock = clock.New()
+			tc.params.Target = buf
 
 			board := newBoard()
 			col, err := tc.collector(board, tc.params)
@@ -85,13 +86,11 @@ func TestCollectors(t *testing.T) {
 
 			defer col.Close()
 			col.Collect()
-			mockClock.Add(captureInterval)
 
-			tu.Retry(func() bool {
-				return buf.Length() != 0
-			}, numRetries)
-			test.That(t, buf.Length(), test.ShouldBeGreaterThan, 0)
-			test.That(t, buf.Writes[0].GetStruct().AsMap(), test.ShouldResemble, tc.expected)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			tu.CheckMockBufferWrites(t, ctx, start, buf.Writes, tc.expected)
+			buf.Close()
 		})
 	}
 }

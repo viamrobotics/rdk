@@ -5,16 +5,14 @@ import (
 	"testing"
 	"time"
 
-	clk "github.com/benbjohnson/clock"
+	"github.com/benbjohnson/clock"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
-	v1 "go.viam.com/api/common/v1"
-	pb "go.viam.com/api/component/movementsensor/v1"
+	datasyncpb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/data"
-	du "go.viam.com/rdk/data/testutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/spatialmath"
 	tu "go.viam.com/rdk/testutils"
@@ -23,8 +21,7 @@ import (
 
 const (
 	componentName   = "movementsensor"
-	captureInterval = time.Second
-	numRetries      = 5
+	captureInterval = time.Millisecond
 )
 
 var vec = r3.Vector{
@@ -35,75 +32,118 @@ var vec = r3.Vector{
 
 var readingMap = map[string]any{"reading1": false, "reading2": "test"}
 
-func TestMovementSensorCollectors(t *testing.T) {
+func TestCollectors(t *testing.T) {
 	tests := []struct {
 		name      string
 		collector data.CollectorConstructor
-		expected  map[string]any
+		expected  *datasyncpb.SensorData
 	}{
 		{
 			name:      "Movement sensor linear velocity collector should write a velocity response",
 			collector: movementsensor.NewLinearVelocityCollector,
-			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetLinearVelocityResponse{
-				LinearVelocity: r3VectorToV1Vector(vec),
-			}),
+			expected: &datasyncpb.SensorData{
+				Metadata: &datasyncpb.SensorMetadata{},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"linear_velocity": map[string]any{
+						"x": 1.0,
+						"y": 2.0,
+						"z": 3.0,
+					},
+				})},
+			},
 		},
 		{
 			name:      "Movement sensor position collector should write a position response",
 			collector: movementsensor.NewPositionCollector,
-			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetPositionResponse{
-				Coordinate: &v1.GeoPoint{
-					Latitude:  1.0,
-					Longitude: 2.0,
-				},
-				AltitudeM: 3.0,
-			}),
+			expected: &datasyncpb.SensorData{
+				Metadata: &datasyncpb.SensorMetadata{},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"coordinate": map[string]any{
+						"latitude":  1.0,
+						"longitude": 2.0,
+					},
+					"altitude_m": 3.0,
+				})},
+			},
 		},
 		{
 			name:      "Movement sensor angular velocity collector should write a velocity response",
 			collector: movementsensor.NewAngularVelocityCollector,
-			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetAngularVelocityResponse{
-				AngularVelocity: r3VectorToV1Vector(vec),
-			}),
+			expected: &datasyncpb.SensorData{
+				Metadata: &datasyncpb.SensorMetadata{},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"angular_velocity": map[string]any{
+						"x": 1.0,
+						"y": 2.0,
+						"z": 3.0,
+					},
+				})},
+			},
 		},
 		{
 			name:      "Movement sensor compass heading collector should write a heading response",
 			collector: movementsensor.NewCompassHeadingCollector,
-			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetCompassHeadingResponse{
-				Value: 1.0,
-			}),
+			expected: &datasyncpb.SensorData{
+				Metadata: &datasyncpb.SensorMetadata{},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"value": 1.0,
+				})},
+			},
 		},
 		{
 			name:      "Movement sensor linear acceleration collector should write an acceleration response",
 			collector: movementsensor.NewLinearAccelerationCollector,
-			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetLinearAccelerationResponse{
-				LinearAcceleration: r3VectorToV1Vector(vec),
-			}),
+			expected: &datasyncpb.SensorData{
+				Metadata: &datasyncpb.SensorMetadata{},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"linear_acceleration": map[string]any{
+						"x": 1.0,
+						"y": 2.0,
+						"z": 3.0,
+					},
+				})},
+			},
 		},
 		{
 			name:      "Movement sensor orientation collector should write an orientation response",
 			collector: movementsensor.NewOrientationCollector,
-			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetOrientationResponse{
-				Orientation: getExpectedOrientation(),
-			}),
+			expected: &datasyncpb.SensorData{
+				Metadata: &datasyncpb.SensorMetadata{},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"orientation": map[string]any{
+						"o_x":   0,
+						"o_y":   0,
+						"o_z":   1,
+						"theta": 0,
+					},
+				})},
+			},
 		},
 		{
 			name:      "Movement sensor readings collector should write a readings response",
 			collector: movementsensor.NewReadingsCollector,
-			expected:  tu.ToProtoMapIgnoreOmitEmpty(du.GetExpectedReadingsStruct(readingMap).AsMap()),
+			expected: &datasyncpb.SensorData{
+				Metadata: &datasyncpb.SensorMetadata{},
+				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+					"readings": map[string]any{
+						"reading1": false,
+						"reading2": "test",
+					},
+				})},
+			},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mockClock := clk.NewMock()
-			buf := tu.MockBuffer{}
+			start := time.Now()
+			buf := tu.NewMockBuffer()
 			params := data.CollectorParams{
 				ComponentName: componentName,
 				Interval:      captureInterval,
 				Logger:        logging.NewTestLogger(t),
-				Clock:         mockClock,
-				Target:        &buf,
+				Clock:         clock.New(),
+				Target:        buf,
 			}
 
 			movSens := newMovementSensor()
@@ -112,13 +152,11 @@ func TestMovementSensorCollectors(t *testing.T) {
 
 			defer col.Close()
 			col.Collect()
-			mockClock.Add(captureInterval)
 
-			tu.Retry(func() bool {
-				return buf.Length() != 0
-			}, numRetries)
-			test.That(t, buf.Length(), test.ShouldBeGreaterThan, 0)
-			test.That(t, buf.Writes[0].GetStruct().AsMap(), test.ShouldResemble, tc.expected)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			tu.CheckMockBufferWrites(t, ctx, start, buf.Writes, tc.expected)
+			buf.Close()
 		})
 	}
 }
@@ -151,22 +189,4 @@ func newMovementSensor() movementsensor.MovementSensor {
 		return readingMap, nil
 	}
 	return m
-}
-
-func r3VectorToV1Vector(vec r3.Vector) *v1.Vector3 {
-	return &v1.Vector3{
-		X: vec.X,
-		Y: vec.Y,
-		Z: vec.Z,
-	}
-}
-
-func getExpectedOrientation() *v1.Orientation {
-	convertedAngles := spatialmath.NewZeroOrientation().AxisAngles()
-	return &v1.Orientation{
-		OX:    convertedAngles.RX,
-		OY:    convertedAngles.RY,
-		OZ:    convertedAngles.RZ,
-		Theta: convertedAngles.Theta,
-	}
 }

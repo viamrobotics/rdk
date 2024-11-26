@@ -45,8 +45,6 @@ jobs:
       with:
         go-version-file: go.mod
 
-    - name: build js
-      run: make build-web
     - name: build go
       shell: bash
       run: |

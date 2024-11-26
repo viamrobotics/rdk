@@ -17,14 +17,12 @@ var (
 	cudaRegex            = regexp.MustCompile(`Cuda compilation tools, release (\d+)\.`)
 	aptCacheVersionRegex = regexp.MustCompile(`\nVersion: (\d+)\D`)
 	piModelRegex         = regexp.MustCompile(`Raspberry Pi\s?(Compute Module)?\s?(\d\w*)?\s?(\w+)?\s?(Model (.+))? Rev`)
+	darwinVersionRegex   = regexp.MustCompile(`(\d+)\.`)
 	savedPlatformTags    []string
 )
 
 // helper to read platform tags for GPU-related system libraries.
-func readGPUTags(logger logging.Logger, tags []string) []string {
-	// this timeout is for all steps in this function.
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
+func readGPUTags(ctx context.Context, logger logging.Logger, tags []string) []string {
 	if _, err := exec.LookPath("nvcc"); err == nil {
 		out, err := exec.CommandContext(ctx, "nvcc", "--version").Output()
 		if err != nil {
@@ -33,7 +31,7 @@ func readGPUTags(logger logging.Logger, tags []string) []string {
 		if match := cudaRegex.FindSubmatch(out); match != nil {
 			tags = append(tags, "cuda:true", "cuda_version:"+string(match[1]))
 		} else {
-			logger.Errorw("error parsing `nvcc --version` output. Cuda-specific modules may not load")
+			logger.Error("error parsing `nvcc --version` output. Cuda-specific modules may not load")
 		}
 	}
 	if _, err := exec.LookPath("apt-cache"); err == nil {
@@ -139,20 +137,43 @@ func readLinuxTags(logger logging.Logger, tags []string) []string {
 	return tags
 }
 
+func readDarwinTags(ctx context.Context, logger logging.Logger, tags []string) []string {
+	if _, err := exec.LookPath("sw_vers"); err == nil {
+		out, err := exec.CommandContext(ctx, "sw_vers", "--productVersion").Output()
+		if err != nil {
+			logger.Errorw("error getting darwin version from sw_vers. Mac-specific modules may not load", "err", err)
+		}
+		if match := darwinVersionRegex.FindSubmatch(out); match != nil {
+			tags = append(tags, "os_version:"+string(match[1]))
+		} else {
+			logger.Errorw("error parsing sw_vers version output. Mac-specific modules may not load", "input", string(out))
+		}
+	}
+	return tags
+}
+
 // This reads the granular platform constraints (os version, distro, etc).
 // This further constrains the basic runtime.GOOS/GOARCH stuff in getAgentInfo
 // so module authors can publish builds with ABI or SDK dependencies. The
 // list of tags returned by this function is expected to grow.
 func readExtendedPlatformTags(logger logging.Logger, cache bool) []string {
-	// TODO(APP-6696): CI in multiple environments (alpine + mac), darwin support.
 	if cache && savedPlatformTags != nil {
 		return savedPlatformTags
 	}
+
+	// this timeout is for all steps in this function.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
 	tags := make([]string, 0, 3)
-	if runtime.GOOS == "linux" {
+
+	switch runtime.GOOS {
+	case "linux":
 		tags = readLinuxTags(logger, tags)
-		tags = readGPUTags(logger, tags)
+		tags = readGPUTags(ctx, logger, tags)
 		tags = readPiTags(logger, tags)
+	case "darwin":
+		tags = readDarwinTags(ctx, logger, tags)
 	}
 	if cache {
 		savedPlatformTags = tags
