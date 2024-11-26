@@ -217,6 +217,9 @@ func usageCostTypeFromProto(costType pb.UsageCostType) UsageCostType {
 }
 
 func usageCostFromProto(cost *pb.UsageCost) *UsageCost {
+	if cost == nil {
+		return nil
+	}
 	return &UsageCost{
 		ResourceType: usageCostTypeFromProto(cost.ResourceType),
 		Cost:         cost.Cost,
@@ -224,6 +227,9 @@ func usageCostFromProto(cost *pb.UsageCost) *UsageCost {
 }
 
 func resourceUsageCostsFromProto(costs *pb.ResourceUsageCosts) *ResourceUsageCosts {
+	if costs == nil {
+		return nil
+	}
 	var usageCosts []*UsageCost
 	for _, cost := range costs.UsageCosts {
 		usageCosts = append(usageCosts, usageCostFromProto(cost))
@@ -250,6 +256,9 @@ func sourceTypeFromProto(sourceType pb.SourceType) SourceType {
 }
 
 func resourceUsageCostsBySourceFromProto(costs *pb.ResourceUsageCostsBySource) *ResourceUsageCostsBySource {
+	if costs == nil {
+		return nil
+	}
 	var usageCosts *ResourceUsageCosts
 	if costs.ResourceUsageCosts != nil {
 		usageCosts = resourceUsageCostsFromProto(costs.ResourceUsageCosts)
@@ -262,6 +271,9 @@ func resourceUsageCostsBySourceFromProto(costs *pb.ResourceUsageCostsBySource) *
 }
 
 func getCurrentMonthUsageResponseFromProto(response *pb.GetCurrentMonthUsageResponse) *GetCurrentMonthUsageResponse {
+	if response == nil {
+		return nil
+	}
 	var startDate, endDate *time.Time
 	if response.StartDate != nil {
 		t := response.StartDate.AsTime()
@@ -305,6 +317,9 @@ func paymentMethodCardFromProto(card *pb.PaymentMethodCard) *PaymentMethodCard {
 }
 
 func getOrgBillingInformationResponseFromProto(resp *pb.GetOrgBillingInformationResponse) *GetOrgBillingInformationResponse {
+	if resp == nil {
+		return nil
+	}
 	return &GetOrgBillingInformationResponse{
 		Type:         paymentMethodTypeFromProto(resp.Type),
 		BillingEmail: resp.BillingEmail,
@@ -314,6 +329,9 @@ func getOrgBillingInformationResponseFromProto(resp *pb.GetOrgBillingInformation
 }
 
 func invoiceSummaryFromProto(summary *pb.InvoiceSummary) *InvoiceSummary {
+	if summary == nil {
+		return nil
+	}
 	var invoiceDate, dueDate, paidDate *time.Time
 	if summary.InvoiceDate != nil {
 		t := summary.InvoiceDate.AsTime()

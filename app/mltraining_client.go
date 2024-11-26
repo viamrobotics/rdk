@@ -82,46 +82,6 @@ type MLTrainingClient struct {
 	client pb.MLTrainingServiceClient
 }
 
-func trainingStatusFromProto(status pb.TrainingStatus) TrainingStatus {
-	switch status {
-	case pb.TrainingStatus_TRAINING_STATUS_UNSPECIFIED:
-		return TrainingStatusUnspecified
-	case pb.TrainingStatus_TRAINING_STATUS_PENDING:
-		return TrainingStatusPending
-	case pb.TrainingStatus_TRAINING_STATUS_IN_PROGRESS:
-		return TrainingStatusInProgress
-	case pb.TrainingStatus_TRAINING_STATUS_COMPLETED:
-		return TrainingStatusCompleted
-	case pb.TrainingStatus_TRAINING_STATUS_FAILED:
-		return TrainingStatusFailed
-	case pb.TrainingStatus_TRAINING_STATUS_CANCELED:
-		return TrainingStatusCanceled
-	case pb.TrainingStatus_TRAINING_STATUS_CANCELING:
-		return TrainingStatusCanceling
-	}
-	return TrainingStatusUnspecified
-}
-
-func trainingStatusToProto(status TrainingStatus) pb.TrainingStatus {
-	switch status {
-	case TrainingStatusUnspecified:
-		return pb.TrainingStatus_TRAINING_STATUS_UNSPECIFIED
-	case TrainingStatusPending:
-		return pb.TrainingStatus_TRAINING_STATUS_PENDING
-	case TrainingStatusInProgress:
-		return pb.TrainingStatus_TRAINING_STATUS_IN_PROGRESS
-	case TrainingStatusCompleted:
-		return pb.TrainingStatus_TRAINING_STATUS_COMPLETED
-	case TrainingStatusFailed:
-		return pb.TrainingStatus_TRAINING_STATUS_FAILED
-	case TrainingStatusCanceled:
-		return pb.TrainingStatus_TRAINING_STATUS_CANCELED
-	case TrainingStatusCanceling:
-		return pb.TrainingStatus_TRAINING_STATUS_CANCELING
-	}
-	return pb.TrainingStatus_TRAINING_STATUS_UNSPECIFIED
-}
-
 func newMLTrainingClient(conn rpc.ClientConn) *MLTrainingClient {
 	return &MLTrainingClient{client: pb.NewMLTrainingServiceClient(conn)}
 }
@@ -239,6 +199,9 @@ func (c *MLTrainingClient) GetTrainingJobLogs(
 }
 
 func trainingJobLogEntryFromProto(log *pb.TrainingJobLogEntry) *TrainingJobLogEntry {
+	if log == nil {
+		return nil
+	}
 	var time *time.Time
 	if log.Time != nil {
 		t := log.Time.AsTime()
@@ -252,6 +215,9 @@ func trainingJobLogEntryFromProto(log *pb.TrainingJobLogEntry) *TrainingJobLogEn
 }
 
 func detailsFromProto(detail *anypb.Any) *ErrorDetail {
+	if detail == nil {
+		return nil
+	}
 	return &ErrorDetail{
 		TypeURL: detail.TypeUrl,
 		Value:   detail.Value,
@@ -259,6 +225,9 @@ func detailsFromProto(detail *anypb.Any) *ErrorDetail {
 }
 
 func errorStatusFromProto(status *errorstatus.Status) *ErrorStatus {
+	if status == nil {
+		return nil
+	}
 	var details []*ErrorDetail
 	for _, detail := range status.Details {
 		details = append(details, detailsFromProto(detail))
@@ -271,6 +240,9 @@ func errorStatusFromProto(status *errorstatus.Status) *ErrorStatus {
 }
 
 func trainingJobMetadataFromProto(metadata *pb.TrainingJobMetadata) *TrainingJobMetadata {
+	if metadata == nil {
+		return nil
+	}
 	var createdOn, lastModified, started, ended *time.Time
 	if metadata.CreatedOn != nil {
 		t := metadata.CreatedOn.AsTime()
@@ -288,10 +260,6 @@ func trainingJobMetadataFromProto(metadata *pb.TrainingJobMetadata) *TrainingJob
 		t := metadata.TrainingEnded.AsTime()
 		ended = &t
 	}
-	var errorStatus *ErrorStatus
-	if metadata.ErrorStatus != nil {
-		errorStatus = errorStatusFromProto(metadata.ErrorStatus)
-	}
 	return &TrainingJobMetadata{
 		ID:                  metadata.Id,
 		DatasetID:           metadata.DatasetId,
@@ -304,7 +272,7 @@ func trainingJobMetadataFromProto(metadata *pb.TrainingJobMetadata) *TrainingJob
 		RegistryItemID:      metadata.RegistryItemId,
 		RegistryItemVersion: metadata.RegistryItemVersion,
 		Status:              trainingStatusFromProto(metadata.Status),
-		ErrorStatus:         errorStatus,
+		ErrorStatus:         errorStatusFromProto(metadata.ErrorStatus),
 		CreatedOn:           createdOn,
 		LastModified:        lastModified,
 		TrainingStarted:     started,
@@ -312,4 +280,44 @@ func trainingJobMetadataFromProto(metadata *pb.TrainingJobMetadata) *TrainingJob
 		SyncedModelID:       metadata.SyncedModelId,
 		Tags:                metadata.Tags,
 	}
+}
+
+func trainingStatusFromProto(status pb.TrainingStatus) TrainingStatus {
+	switch status {
+	case pb.TrainingStatus_TRAINING_STATUS_UNSPECIFIED:
+		return TrainingStatusUnspecified
+	case pb.TrainingStatus_TRAINING_STATUS_PENDING:
+		return TrainingStatusPending
+	case pb.TrainingStatus_TRAINING_STATUS_IN_PROGRESS:
+		return TrainingStatusInProgress
+	case pb.TrainingStatus_TRAINING_STATUS_COMPLETED:
+		return TrainingStatusCompleted
+	case pb.TrainingStatus_TRAINING_STATUS_FAILED:
+		return TrainingStatusFailed
+	case pb.TrainingStatus_TRAINING_STATUS_CANCELED:
+		return TrainingStatusCanceled
+	case pb.TrainingStatus_TRAINING_STATUS_CANCELING:
+		return TrainingStatusCanceling
+	}
+	return TrainingStatusUnspecified
+}
+
+func trainingStatusToProto(status TrainingStatus) pb.TrainingStatus {
+	switch status {
+	case TrainingStatusUnspecified:
+		return pb.TrainingStatus_TRAINING_STATUS_UNSPECIFIED
+	case TrainingStatusPending:
+		return pb.TrainingStatus_TRAINING_STATUS_PENDING
+	case TrainingStatusInProgress:
+		return pb.TrainingStatus_TRAINING_STATUS_IN_PROGRESS
+	case TrainingStatusCompleted:
+		return pb.TrainingStatus_TRAINING_STATUS_COMPLETED
+	case TrainingStatusFailed:
+		return pb.TrainingStatus_TRAINING_STATUS_FAILED
+	case TrainingStatusCanceled:
+		return pb.TrainingStatus_TRAINING_STATUS_CANCELED
+	case TrainingStatusCanceling:
+		return pb.TrainingStatus_TRAINING_STATUS_CANCELING
+	}
+	return pb.TrainingStatus_TRAINING_STATUS_UNSPECIFIED
 }
