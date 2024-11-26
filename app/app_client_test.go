@@ -87,7 +87,7 @@ var (
 	pbOrganization = pb.Organization{
 		Id:              organization.ID,
 		Name:            organization.Name,
-		CreatedOn:       timestamppb.New(*organization.CreatedOn),
+		CreatedOn:       pbCreatedOn,
 		PublicNamespace: organization.PublicNamespace,
 		DefaultRegion:   organization.DefaultRegion,
 		Cid:             organization.Cid,

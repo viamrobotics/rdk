@@ -12,6 +12,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	pb "go.viam.com/api/app/data/v1"
+	setPb "go.viam.com/api/app/dataset/v1"
 	syncPb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -20,12 +21,6 @@ import (
 
 	"go.viam.com/rdk/protoutils"
 )
-
-// DataClient implements the DataServiceClient interface.
-type DataClient struct {
-	dataClient     pb.DataServiceClient
-	dataSyncClient syncPb.DataSyncServiceClient
-}
 
 // Order specifies the order in which data is returned.
 type Order int32
@@ -281,193 +276,30 @@ type FileUploadOptions struct {
 	Tags             []string
 }
 
+// Dataset contains the information of a dataset.
+type Dataset struct {
+	ID             string
+	Name           string
+	OrganizationID string
+	TimeCreated    *time.Time
+}
+
+// DataClient implements the DataServiceClient interface.
+type DataClient struct {
+	dataClient     pb.DataServiceClient
+	dataSyncClient syncPb.DataSyncServiceClient
+	datasetClient  setPb.DatasetServiceClient
+}
+
 // NewDataClient constructs a new DataClient using the connection passed in by the ViamClient.
 func NewDataClient(conn rpc.ClientConn) *DataClient {
-	d := pb.NewDataServiceClient(conn)
-	s := syncPb.NewDataSyncServiceClient(conn)
+	dataClient := pb.NewDataServiceClient(conn)
+	syncClient := syncPb.NewDataSyncServiceClient(conn)
+	setClient := setPb.NewDatasetServiceClient(conn)
 	return &DataClient{
-		dataClient:     d,
-		dataSyncClient: s,
-	}
-}
-
-func boundingBoxFromProto(proto *pb.BoundingBox) BoundingBox {
-	return BoundingBox{
-		ID:             proto.Id,
-		Label:          proto.Label,
-		XMinNormalized: proto.XMinNormalized,
-		YMinNormalized: proto.YMinNormalized,
-		XMaxNormalized: proto.XMaxNormalized,
-		YMaxNormalized: proto.YMaxNormalized,
-	}
-}
-
-func annotationsFromProto(proto *pb.Annotations) Annotations {
-	if proto == nil {
-		return Annotations{}
-	}
-	bboxes := make([]BoundingBox, len(proto.Bboxes))
-	for i, bboxProto := range proto.Bboxes {
-		bboxes[i] = boundingBoxFromProto(bboxProto)
-	}
-	return Annotations{
-		Bboxes: bboxes,
-	}
-}
-
-func methodParamsFromProto(proto map[string]*anypb.Any) map[string]interface{} {
-	methodParameters := make(map[string]interface{})
-	for key, value := range proto {
-		structValue := &structpb.Value{}
-		if err := value.UnmarshalTo(structValue); err != nil {
-			return nil
-		}
-		methodParameters[key] = structValue.String()
-	}
-	return methodParameters
-}
-
-func captureMetadataFromProto(proto *pb.CaptureMetadata) CaptureMetadata {
-	if proto == nil {
-		return CaptureMetadata{}
-	}
-	return CaptureMetadata{
-		OrganizationID:   proto.OrganizationId,
-		LocationID:       proto.LocationId,
-		RobotName:        proto.RobotName,
-		RobotID:          proto.RobotId,
-		PartName:         proto.PartName,
-		PartID:           proto.PartId,
-		ComponentType:    proto.ComponentType,
-		ComponentName:    proto.ComponentName,
-		MethodName:       proto.MethodName,
-		MethodParameters: methodParamsFromProto(proto.MethodParameters),
-		Tags:             proto.Tags,
-		MimeType:         proto.MimeType,
-	}
-}
-
-func binaryDataFromProto(proto *pb.BinaryData) BinaryData {
-	return BinaryData{
-		Binary:   proto.Binary,
-		Metadata: binaryMetadataFromProto(proto.Metadata),
-	}
-}
-
-func binaryMetadataFromProto(proto *pb.BinaryMetadata) BinaryMetadata {
-	return BinaryMetadata{
-		ID:              proto.Id,
-		CaptureMetadata: captureMetadataFromProto(proto.CaptureMetadata),
-		TimeRequested:   proto.TimeRequested.AsTime(),
-		TimeReceived:    proto.TimeReceived.AsTime(),
-		FileName:        proto.FileName,
-		FileExt:         proto.FileExt,
-		URI:             proto.Uri,
-		Annotations:     annotationsFromProto(proto.Annotations),
-		DatasetIDs:      proto.DatasetIds,
-	}
-}
-
-func tabularDataFromProto(proto *pb.TabularData, metadata *pb.CaptureMetadata) TabularData {
-	return TabularData{
-		Data:          proto.Data.AsMap(),
-		MetadataIndex: int(proto.MetadataIndex),
-		Metadata:      captureMetadataFromProto(metadata),
-		TimeRequested: proto.TimeRequested.AsTime(),
-		TimeReceived:  proto.TimeReceived.AsTime(),
-	}
-}
-
-func binaryIDToProto(binaryID BinaryID) *pb.BinaryID {
-	return &pb.BinaryID{
-		FileId:         binaryID.FileID,
-		OrganizationId: binaryID.OrganizationID,
-		LocationId:     binaryID.LocationID,
-	}
-}
-
-func binaryIDsToProto(binaryIDs []BinaryID) []*pb.BinaryID {
-	var protoBinaryIDs []*pb.BinaryID
-	for _, binaryID := range binaryIDs {
-		protoBinaryIDs = append(protoBinaryIDs, binaryIDToProto(binaryID))
-	}
-	return protoBinaryIDs
-}
-
-func filterToProto(filter Filter) *pb.Filter {
-	return &pb.Filter{
-		ComponentName:   filter.ComponentName,
-		ComponentType:   filter.ComponentType,
-		Method:          filter.Method,
-		RobotName:       filter.RobotName,
-		RobotId:         filter.RobotID,
-		PartName:        filter.PartName,
-		PartId:          filter.PartID,
-		LocationIds:     filter.LocationIDs,
-		OrganizationIds: filter.OrganizationIDs,
-		MimeType:        filter.MimeType,
-		Interval:        captureIntervalToProto(filter.Interval),
-		TagsFilter:      tagsFilterToProto(filter.TagsFilter),
-		BboxLabels:      filter.BboxLabels,
-		DatasetId:       filter.DatasetID,
-	}
-}
-
-func captureIntervalToProto(interval CaptureInterval) *pb.CaptureInterval {
-	return &pb.CaptureInterval{
-		Start: timestamppb.New(interval.Start),
-		End:   timestamppb.New(interval.End),
-	}
-}
-
-func tagsFilterToProto(tagsFilter TagsFilter) *pb.TagsFilter {
-	return &pb.TagsFilter{
-		Type: pb.TagsFilterType(tagsFilter.Type),
-		Tags: tagsFilter.Tags,
-	}
-}
-
-func orderToProto(sortOrder Order) pb.Order {
-	switch sortOrder {
-	case Ascending:
-		return pb.Order_ORDER_ASCENDING
-	case Descending:
-		return pb.Order_ORDER_DESCENDING
-	case Unspecified:
-		return pb.Order_ORDER_UNSPECIFIED
-	}
-	return pb.Order_ORDER_UNSPECIFIED
-}
-
-// convertBsonToNative recursively converts BSON datetime objects to Go DateTime and BSON arrays to slices of interface{}.
-// For slices and maps of specific types, the best we can do is use interface{} as the container type.
-func convertBsonToNative(data interface{}) interface{} {
-	switch v := data.(type) {
-	case primitive.DateTime:
-		return v.Time().UTC()
-	case primitive.A: // Handle BSON arrays/slices
-		nativeArray := make([]interface{}, len(v))
-		for i, item := range v {
-			nativeArray[i] = convertBsonToNative(item)
-		}
-		return nativeArray
-	case bson.M: // Handle BSON maps
-		convertedMap := make(map[string]interface{})
-		for key, value := range v {
-			convertedMap[key] = convertBsonToNative(value)
-		}
-		return convertedMap
-	case map[string]interface{}: // Handle Go maps
-		for key, value := range v {
-			v[key] = convertBsonToNative(value)
-		}
-		return v
-	case int32:
-		return int(v)
-	case int64:
-		return int(v)
-	default:
-		return v
+		dataClient:     dataClient,
+		dataSyncClient: syncClient,
+		datasetClient:  setClient,
 	}
 }
 
@@ -844,112 +676,6 @@ func (d *DataClient) RemoveBinaryDataFromDatasetByIDs(
 	return err
 }
 
-func uploadMetadataToProto(metadata UploadMetadata) *syncPb.UploadMetadata {
-	var methodParams map[string]*anypb.Any
-	if metadata.MethodParameters != nil {
-		var err error
-		methodParams, err = protoutils.ConvertMapToProtoAny(metadata.MethodParameters)
-		if err != nil {
-			return nil
-		}
-	}
-	return &syncPb.UploadMetadata{
-		PartId:           metadata.PartID,
-		ComponentType:    metadata.ComponentType,
-		ComponentName:    metadata.ComponentName,
-		MethodName:       metadata.MethodName,
-		Type:             syncPb.DataType(metadata.Type),
-		FileName:         metadata.FileName,
-		MethodParameters: methodParams,
-		FileExtension:    metadata.FileExtension,
-		Tags:             metadata.Tags,
-	}
-}
-
-func annotationsToProto(annotations Annotations) *pb.Annotations {
-	var protoBboxes []*pb.BoundingBox
-	for _, bbox := range annotations.Bboxes {
-		protoBboxes = append(protoBboxes, &pb.BoundingBox{
-			Id:             bbox.ID,
-			Label:          bbox.Label,
-			XMinNormalized: bbox.XMinNormalized,
-			YMinNormalized: bbox.YMinNormalized,
-			XMaxNormalized: bbox.XMaxNormalized,
-			YMaxNormalized: bbox.YMaxNormalized,
-		})
-	}
-	return &pb.Annotations{
-		Bboxes: protoBboxes,
-	}
-}
-
-func sensorMetadataToProto(metadata SensorMetadata) *syncPb.SensorMetadata {
-	return &syncPb.SensorMetadata{
-		TimeRequested: timestamppb.New(metadata.TimeRequested),
-		TimeReceived:  timestamppb.New(metadata.TimeReceived),
-		MimeType:      syncPb.MimeType(metadata.MimeType),
-		Annotations:   annotationsToProto(metadata.Annotations),
-	}
-}
-
-// Ensure only one of SDStruct or SDBinary is set.
-func validateSensorData(sensorData SensorData) error {
-	if sensorData.SDStruct != nil && len(sensorData.SDBinary) > 0 {
-		return errors.New("sensorData cannot have both SDStruct and SDBinary set")
-	}
-	return nil
-}
-
-func sensorDataToProto(sensorData SensorData) (*syncPb.SensorData, error) {
-	if err := validateSensorData(sensorData); err != nil {
-		return nil, err
-	}
-	switch {
-	case len(sensorData.SDBinary) > 0:
-		return &syncPb.SensorData{
-			Metadata: sensorMetadataToProto(sensorData.Metadata),
-			Data: &syncPb.SensorData_Binary{
-				Binary: sensorData.SDBinary,
-			},
-		}, nil
-	case sensorData.SDStruct != nil:
-		pbStruct, err := structpb.NewStruct(sensorData.SDStruct)
-		if err != nil {
-			return nil, err
-		}
-		return &syncPb.SensorData{
-			Metadata: sensorMetadataToProto(sensorData.Metadata),
-			Data: &syncPb.SensorData_Struct{
-				Struct: pbStruct,
-			},
-		}, nil
-	default:
-		return nil, errors.New("sensorData must have either SDStruct or SDBinary set")
-	}
-}
-
-func sensorContentsToProto(sensorContents []SensorData) ([]*syncPb.SensorData, error) {
-	var protoSensorContents []*syncPb.SensorData
-	for _, item := range sensorContents {
-		protoItem, err := sensorDataToProto(item)
-		if err != nil {
-			return nil, err // Propagate the error
-		}
-		protoSensorContents = append(protoSensorContents, protoItem)
-	}
-	return protoSensorContents, nil
-}
-
-func formatFileExtension(fileExt string) string {
-	if fileExt == "" {
-		return fileExt
-	}
-	if fileExt[0] == '.' {
-		return fileExt
-	}
-	return "." + fileExt
-}
-
 // BinaryDataCaptureUpload uploads the contents and metadata for binary data.
 func (d *DataClient) BinaryDataCaptureUpload(
 	ctx context.Context,
@@ -1295,4 +1021,363 @@ func (d *DataClient) fileUploadStreamResp(metadata *syncPb.UploadMetadata, data 
 		return "", err
 	}
 	return resp.FileId, nil
+}
+
+// CreateDataset makes a new dataset.
+func (d *DataClient) CreateDataset(ctx context.Context, name, organizationID string) (string, error) {
+	resp, err := d.datasetClient.CreateDataset(ctx, &setPb.CreateDatasetRequest{
+		Name:           name,
+		OrganizationId: organizationID,
+	})
+	if err != nil {
+		return "", err
+	}
+	return resp.Id, nil
+}
+
+// DeleteDataset deletes an existing dataset.
+func (d *DataClient) DeleteDataset(ctx context.Context, id string) error {
+	_, err := d.datasetClient.DeleteDataset(ctx, &setPb.DeleteDatasetRequest{
+		Id: id,
+	})
+	return err
+}
+
+// RenameDataset modifies the name of an existing dataset.
+func (d *DataClient) RenameDataset(ctx context.Context, id, name string) error {
+	_, err := d.datasetClient.RenameDataset(ctx, &setPb.RenameDatasetRequest{
+		Id:   id,
+		Name: name,
+	})
+	return err
+}
+
+// ListDatasetsByOrganizationID lists all of the datasets for an organization.
+func (d *DataClient) ListDatasetsByOrganizationID(ctx context.Context, organizationID string) ([]*Dataset, error) {
+	resp, err := d.datasetClient.ListDatasetsByOrganizationID(ctx, &setPb.ListDatasetsByOrganizationIDRequest{
+		OrganizationId: organizationID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	var datasets []*Dataset
+	for _, dataset := range resp.Datasets {
+		datasets = append(datasets, datasetFromProto(dataset))
+	}
+	return datasets, nil
+}
+
+// ListDatasetsByIDs lists all of the datasets specified by the given dataset IDs.
+func (d *DataClient) ListDatasetsByIDs(ctx context.Context, ids []string) ([]*Dataset, error) {
+	resp, err := d.datasetClient.ListDatasetsByIDs(ctx, &setPb.ListDatasetsByIDsRequest{
+		Ids: ids,
+	})
+	if err != nil {
+		return nil, err
+	}
+	var datasets []*Dataset
+	for _, dataset := range resp.Datasets {
+		datasets = append(datasets, datasetFromProto(dataset))
+	}
+	return datasets, nil
+}
+
+func boundingBoxFromProto(proto *pb.BoundingBox) BoundingBox {
+	return BoundingBox{
+		ID:             proto.Id,
+		Label:          proto.Label,
+		XMinNormalized: proto.XMinNormalized,
+		YMinNormalized: proto.YMinNormalized,
+		XMaxNormalized: proto.XMaxNormalized,
+		YMaxNormalized: proto.YMaxNormalized,
+	}
+}
+
+func annotationsFromProto(proto *pb.Annotations) Annotations {
+	if proto == nil {
+		return Annotations{}
+	}
+	bboxes := make([]BoundingBox, len(proto.Bboxes))
+	for i, bboxProto := range proto.Bboxes {
+		bboxes[i] = boundingBoxFromProto(bboxProto)
+	}
+	return Annotations{
+		Bboxes: bboxes,
+	}
+}
+
+func methodParamsFromProto(proto map[string]*anypb.Any) map[string]interface{} {
+	methodParameters := make(map[string]interface{})
+	for key, value := range proto {
+		structValue := &structpb.Value{}
+		if err := value.UnmarshalTo(structValue); err != nil {
+			return nil
+		}
+		methodParameters[key] = structValue.String()
+	}
+	return methodParameters
+}
+
+func captureMetadataFromProto(proto *pb.CaptureMetadata) CaptureMetadata {
+	if proto == nil {
+		return CaptureMetadata{}
+	}
+	return CaptureMetadata{
+		OrganizationID:   proto.OrganizationId,
+		LocationID:       proto.LocationId,
+		RobotName:        proto.RobotName,
+		RobotID:          proto.RobotId,
+		PartName:         proto.PartName,
+		PartID:           proto.PartId,
+		ComponentType:    proto.ComponentType,
+		ComponentName:    proto.ComponentName,
+		MethodName:       proto.MethodName,
+		MethodParameters: methodParamsFromProto(proto.MethodParameters),
+		Tags:             proto.Tags,
+		MimeType:         proto.MimeType,
+	}
+}
+
+func binaryDataFromProto(proto *pb.BinaryData) BinaryData {
+	return BinaryData{
+		Binary:   proto.Binary,
+		Metadata: binaryMetadataFromProto(proto.Metadata),
+	}
+}
+
+func binaryMetadataFromProto(proto *pb.BinaryMetadata) BinaryMetadata {
+	return BinaryMetadata{
+		ID:              proto.Id,
+		CaptureMetadata: captureMetadataFromProto(proto.CaptureMetadata),
+		TimeRequested:   proto.TimeRequested.AsTime(),
+		TimeReceived:    proto.TimeReceived.AsTime(),
+		FileName:        proto.FileName,
+		FileExt:         proto.FileExt,
+		URI:             proto.Uri,
+		Annotations:     annotationsFromProto(proto.Annotations),
+		DatasetIDs:      proto.DatasetIds,
+	}
+}
+
+func tabularDataFromProto(proto *pb.TabularData, metadata *pb.CaptureMetadata) TabularData {
+	return TabularData{
+		Data:          proto.Data.AsMap(),
+		MetadataIndex: int(proto.MetadataIndex),
+		Metadata:      captureMetadataFromProto(metadata),
+		TimeRequested: proto.TimeRequested.AsTime(),
+		TimeReceived:  proto.TimeReceived.AsTime(),
+	}
+}
+
+func binaryIDToProto(binaryID BinaryID) *pb.BinaryID {
+	return &pb.BinaryID{
+		FileId:         binaryID.FileID,
+		OrganizationId: binaryID.OrganizationID,
+		LocationId:     binaryID.LocationID,
+	}
+}
+
+func binaryIDsToProto(binaryIDs []BinaryID) []*pb.BinaryID {
+	var protoBinaryIDs []*pb.BinaryID
+	for _, binaryID := range binaryIDs {
+		protoBinaryIDs = append(protoBinaryIDs, binaryIDToProto(binaryID))
+	}
+	return protoBinaryIDs
+}
+
+func filterToProto(filter Filter) *pb.Filter {
+	return &pb.Filter{
+		ComponentName:   filter.ComponentName,
+		ComponentType:   filter.ComponentType,
+		Method:          filter.Method,
+		RobotName:       filter.RobotName,
+		RobotId:         filter.RobotID,
+		PartName:        filter.PartName,
+		PartId:          filter.PartID,
+		LocationIds:     filter.LocationIDs,
+		OrganizationIds: filter.OrganizationIDs,
+		MimeType:        filter.MimeType,
+		Interval:        captureIntervalToProto(filter.Interval),
+		TagsFilter:      tagsFilterToProto(filter.TagsFilter),
+		BboxLabels:      filter.BboxLabels,
+		DatasetId:       filter.DatasetID,
+	}
+}
+
+func captureIntervalToProto(interval CaptureInterval) *pb.CaptureInterval {
+	return &pb.CaptureInterval{
+		Start: timestamppb.New(interval.Start),
+		End:   timestamppb.New(interval.End),
+	}
+}
+
+func tagsFilterToProto(tagsFilter TagsFilter) *pb.TagsFilter {
+	return &pb.TagsFilter{
+		Type: pb.TagsFilterType(tagsFilter.Type),
+		Tags: tagsFilter.Tags,
+	}
+}
+
+func orderToProto(sortOrder Order) pb.Order {
+	switch sortOrder {
+	case Ascending:
+		return pb.Order_ORDER_ASCENDING
+	case Descending:
+		return pb.Order_ORDER_DESCENDING
+	case Unspecified:
+		return pb.Order_ORDER_UNSPECIFIED
+	}
+	return pb.Order_ORDER_UNSPECIFIED
+}
+
+// convertBsonToNative recursively converts BSON datetime objects to Go DateTime and BSON arrays to slices of interface{}.
+// For slices and maps of specific types, the best we can do is use interface{} as the container type.
+func convertBsonToNative(data interface{}) interface{} {
+	switch v := data.(type) {
+	case primitive.DateTime:
+		return v.Time().UTC()
+	case primitive.A: // Handle BSON arrays/slices
+		nativeArray := make([]interface{}, len(v))
+		for i, item := range v {
+			nativeArray[i] = convertBsonToNative(item)
+		}
+		return nativeArray
+	case bson.M: // Handle BSON maps
+		convertedMap := make(map[string]interface{})
+		for key, value := range v {
+			convertedMap[key] = convertBsonToNative(value)
+		}
+		return convertedMap
+	case map[string]interface{}: // Handle Go maps
+		for key, value := range v {
+			v[key] = convertBsonToNative(value)
+		}
+		return v
+	case int32:
+		return int(v)
+	case int64:
+		return int(v)
+	default:
+		return v
+	}
+}
+
+func datasetFromProto(dataset *setPb.Dataset) *Dataset {
+	var timeCreated *time.Time
+	if dataset.TimeCreated != nil {
+		t := dataset.TimeCreated.AsTime()
+		timeCreated = &t
+	}
+	return &Dataset{
+		ID:             dataset.Id,
+		Name:           dataset.Name,
+		OrganizationID: dataset.OrganizationId,
+		TimeCreated:    timeCreated,
+	}
+}
+
+func uploadMetadataToProto(metadata UploadMetadata) *syncPb.UploadMetadata {
+	var methodParams map[string]*anypb.Any
+	if metadata.MethodParameters != nil {
+		var err error
+		methodParams, err = protoutils.ConvertMapToProtoAny(metadata.MethodParameters)
+		if err != nil {
+			return nil
+		}
+	}
+	return &syncPb.UploadMetadata{
+		PartId:           metadata.PartID,
+		ComponentType:    metadata.ComponentType,
+		ComponentName:    metadata.ComponentName,
+		MethodName:       metadata.MethodName,
+		Type:             syncPb.DataType(metadata.Type),
+		FileName:         metadata.FileName,
+		MethodParameters: methodParams,
+		FileExtension:    metadata.FileExtension,
+		Tags:             metadata.Tags,
+	}
+}
+
+func annotationsToProto(annotations Annotations) *pb.Annotations {
+	var protoBboxes []*pb.BoundingBox
+	for _, bbox := range annotations.Bboxes {
+		protoBboxes = append(protoBboxes, &pb.BoundingBox{
+			Id:             bbox.ID,
+			Label:          bbox.Label,
+			XMinNormalized: bbox.XMinNormalized,
+			YMinNormalized: bbox.YMinNormalized,
+			XMaxNormalized: bbox.XMaxNormalized,
+			YMaxNormalized: bbox.YMaxNormalized,
+		})
+	}
+	return &pb.Annotations{
+		Bboxes: protoBboxes,
+	}
+}
+
+func sensorMetadataToProto(metadata SensorMetadata) *syncPb.SensorMetadata {
+	return &syncPb.SensorMetadata{
+		TimeRequested: timestamppb.New(metadata.TimeRequested),
+		TimeReceived:  timestamppb.New(metadata.TimeReceived),
+		MimeType:      syncPb.MimeType(metadata.MimeType),
+		Annotations:   annotationsToProto(metadata.Annotations),
+	}
+}
+
+// Ensure only one of SDStruct or SDBinary is set.
+func validateSensorData(sensorData SensorData) error {
+	if sensorData.SDStruct != nil && len(sensorData.SDBinary) > 0 {
+		return errors.New("sensorData cannot have both SDStruct and SDBinary set")
+	}
+	return nil
+}
+
+func sensorDataToProto(sensorData SensorData) (*syncPb.SensorData, error) {
+	if err := validateSensorData(sensorData); err != nil {
+		return nil, err
+	}
+	switch {
+	case len(sensorData.SDBinary) > 0:
+		return &syncPb.SensorData{
+			Metadata: sensorMetadataToProto(sensorData.Metadata),
+			Data: &syncPb.SensorData_Binary{
+				Binary: sensorData.SDBinary,
+			},
+		}, nil
+	case sensorData.SDStruct != nil:
+		pbStruct, err := structpb.NewStruct(sensorData.SDStruct)
+		if err != nil {
+			return nil, err
+		}
+		return &syncPb.SensorData{
+			Metadata: sensorMetadataToProto(sensorData.Metadata),
+			Data: &syncPb.SensorData_Struct{
+				Struct: pbStruct,
+			},
+		}, nil
+	default:
+		return nil, errors.New("sensorData must have either SDStruct or SDBinary set")
+	}
+}
+
+func sensorContentsToProto(sensorContents []SensorData) ([]*syncPb.SensorData, error) {
+	var protoSensorContents []*syncPb.SensorData
+	for _, item := range sensorContents {
+		protoItem, err := sensorDataToProto(item)
+		if err != nil {
+			return nil, err // Propagate the error
+		}
+		protoSensorContents = append(protoSensorContents, protoItem)
+	}
+	return protoSensorContents, nil
+}
+
+func formatFileExtension(fileExt string) string {
+	if fileExt == "" {
+		return fileExt
+	}
+	if fileExt[0] == '.' {
+		return fileExt
+	}
+	return "." + fileExt
 }

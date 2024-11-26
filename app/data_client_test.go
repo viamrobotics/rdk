@@ -8,6 +8,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	pb "go.viam.com/api/app/data/v1"
+	setPb "go.viam.com/api/app/dataset/v1"
 	syncPb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
 	utils "go.viam.com/utils/protoutils"
@@ -98,7 +99,22 @@ var (
 			},
 		},
 	}
-	datasetIDs  = []string{datasetID}
+	datasetIDs = []string{datasetID}
+	dataset    = Dataset{
+		ID:             datasetID,
+		Name:           name,
+		OrganizationID: organizationID,
+		TimeCreated:    &createdOn,
+	}
+	datasets   = []*Dataset{&dataset}
+	pbDatasets = []*setPb.Dataset{
+		{
+			Id:             dataset.ID,
+			Name:           dataset.Name,
+			OrganizationId: dataset.OrganizationID,
+			TimeCreated:    pbCreatedOn,
+		},
+	}
 	annotations = Annotations{
 		Bboxes: []BoundingBox{
 			{
@@ -176,8 +192,12 @@ func createDataGrpcClient() *inject.DataServiceClient {
 	return &inject.DataServiceClient{}
 }
 
-func createGrpcDataSyncClient() *inject.DataSyncServiceClient {
+func createDataSyncGrpcClient() *inject.DataSyncServiceClient {
 	return &inject.DataSyncServiceClient{}
+}
+
+func createDatasetGrpcClient() *inject.DatasetServiceClient {
+	return &inject.DatasetServiceClient{}
 }
 
 func TestDataClient(t *testing.T) {
@@ -585,7 +605,7 @@ func TestDataClient(t *testing.T) {
 }
 
 func TestDataSyncClient(t *testing.T) {
-	grpcClient := createGrpcDataSyncClient()
+	grpcClient := createDataSyncGrpcClient()
 	client := DataClient{dataSyncClient: grpcClient}
 
 	uploadMetadata := UploadMetadata{
@@ -839,5 +859,76 @@ func TestDataSyncClient(t *testing.T) {
 		resp, err := client.FileUploadFromPath(context.Background(), partID, tempFile.Name(), &options)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldEqual, fileID)
+	})
+}
+
+func TestDatasetClient(t *testing.T) {
+	grpcClient := createDatasetGrpcClient()
+	client := DataClient{datasetClient: grpcClient}
+
+	t.Run("CreateDataset", func(t *testing.T) {
+		grpcClient.CreateDatasetFunc = func(
+			ctx context.Context, in *setPb.CreateDatasetRequest, opts ...grpc.CallOption,
+		) (*setPb.CreateDatasetResponse, error) {
+			test.That(t, in.Name, test.ShouldEqual, name)
+			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
+			return &setPb.CreateDatasetResponse{
+				Id: datasetID,
+			}, nil
+		}
+		resp, err := client.CreateDataset(context.Background(), name, organizationID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldEqual, datasetID)
+	})
+
+	t.Run("DeleteDataset", func(t *testing.T) {
+		grpcClient.DeleteDatasetFunc = func(
+			ctx context.Context, in *setPb.DeleteDatasetRequest, opts ...grpc.CallOption,
+		) (*setPb.DeleteDatasetResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, datasetID)
+			return &setPb.DeleteDatasetResponse{}, nil
+		}
+		err := client.DeleteDataset(context.Background(), datasetID)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("RenameDataset", func(t *testing.T) {
+		grpcClient.RenameDatasetFunc = func(
+			ctx context.Context, in *setPb.RenameDatasetRequest, opts ...grpc.CallOption,
+		) (*setPb.RenameDatasetResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, datasetID)
+			test.That(t, in.Name, test.ShouldEqual, name)
+			return &setPb.RenameDatasetResponse{}, nil
+		}
+		err := client.RenameDataset(context.Background(), datasetID, name)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("ListDatasetsByOrganizationID", func(t *testing.T) {
+		grpcClient.ListDatasetsByOrganizationIDFunc = func(
+			ctx context.Context, in *setPb.ListDatasetsByOrganizationIDRequest, opts ...grpc.CallOption,
+		) (*setPb.ListDatasetsByOrganizationIDResponse, error) {
+			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
+			return &setPb.ListDatasetsByOrganizationIDResponse{
+				Datasets: pbDatasets,
+			}, nil
+		}
+		resp, err := client.ListDatasetsByOrganizationID(context.Background(), organizationID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, &resp, test.ShouldResemble, &datasets)
+	})
+
+	t.Run("ListDatasetsByIDs", func(t *testing.T) {
+		grpcClient.ListDatasetsByIDsFunc = func(
+			ctx context.Context, in *setPb.ListDatasetsByIDsRequest, opts ...grpc.CallOption,
+		) (*setPb.ListDatasetsByIDsResponse, error) {
+			test.That(t, in.Ids, test.ShouldResemble, datasetIDs)
+			return &setPb.ListDatasetsByIDsResponse{
+				Datasets: pbDatasets,
+			}, nil
+		}
+		resp, err := client.ListDatasetsByIDs(context.Background(), datasetIDs)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, &resp, test.ShouldResemble, &datasets)
 	})
 }
