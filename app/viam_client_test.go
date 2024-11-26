@@ -137,8 +137,8 @@ func TestNewAppClients(t *testing.T) {
 	client, err := CreateViamClientWithOptions(context.Background(), opts, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer client.Close()
-  
-  appClient := client.AppClient()
+
+	appClient := client.AppClient()
 	test.That(t, appClient, test.ShouldNotBeNil)
 	test.That(t, appClient, test.ShouldHaveSameTypeAs, &AppClient{})
 	test.That(t, appClient.client, test.ShouldImplement, (*apppb.AppServiceClient)(nil))
