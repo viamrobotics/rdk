@@ -18,33 +18,33 @@ const (
 	partName        = "part_name"
 	host            = "host_name"
 	email           = "email"
-	datasetID    = "dataset_id"
-	version                        = "version"
-	modelType                      = ModelTypeObjectDetection
-	itemID                         = "item_id"
-	modelFramework                 = ModelFrameworkPyTorch
-	level                          = "level"
+	datasetID       = "dataset_id"
+	version         = "version"
+	modelType       = ModelTypeObjectDetection
+	itemID          = "item_id"
+	modelFramework  = ModelFrameworkPyTorch
+	level           = "level"
 )
 
 // Variables used throughout app.
 var (
 	organizationID = "organization_id"
 	start          = time.Now().UTC().Round(time.Millisecond)
-	pbStart = timestamppb.New(start)
+	pbStart        = timestamppb.New(start)
 	end            = time.Now().UTC().Round(time.Millisecond)
-	pbEnd = timestamppb.New(end)
+	pbEnd          = timestamppb.New(end)
 	tags           = []string{tag}
 	limit          = 2
 	pbLimit        = uint64(limit)
-	pbModelType = modelTypeToProto(modelType)
-	message                        = "message"
-	siteURL  = "url.test.com"
-	createdOn     = time.Now().UTC().Round(time.Millisecond)
-	pbCreatedOn = timestamppb.New(createdOn)
-	lastUpdated           = time.Now().UTC().Round(time.Millisecond)
-	byteData     = []byte{4, 8}
-	pageToken = "page_token"
-	timestamp = time.Now().UTC().Round(time.Millisecond)
+	pbModelType    = modelTypeToProto(modelType)
+	message        = "message"
+	siteURL        = "url.test.com"
+	createdOn      = time.Now().UTC().Round(time.Millisecond)
+	pbCreatedOn    = timestamppb.New(createdOn)
+	lastUpdated    = time.Now().UTC().Round(time.Millisecond)
+	byteData       = []byte{4, 8}
+	pageToken      = "page_token"
+	timestamp      = time.Now().UTC().Round(time.Millisecond)
 )
 
 // Types used throughout app.

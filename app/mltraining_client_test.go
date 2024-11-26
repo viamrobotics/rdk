@@ -5,85 +5,86 @@ import (
 	"testing"
 
 	pb "go.viam.com/api/app/mltraining/v1"
-	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/test"
 	statuspb "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"go.viam.com/rdk/testutils/inject"
 )
 
 const (
-	jobID = "job_id"
-	isCustomJob = true
+	jobID          = "job_id"
+	isCustomJob    = true
 	trainingStatus = TrainingStatusCompleted
-	modelID = "model_id"
-	code = 0
+	modelID        = "model_id"
+	code           = 0
 )
 
 var (
-	arguments = map[string]string{"arg1": "one", "arg2": "two"}
+	arguments   = map[string]string{"arg1": "one", "arg2": "two"}
 	jobMetadata = TrainingJobMetadata{
-		ID: jobID,
-		DatasetID: datasetID,
-		OrganizationID: organizationID,
-		ModelName: name,
-		ModelVersion: version,
-		ModelType: modelType,
-		ModelFramework: modelFramework,
-		IsCustomJob: isCustomJob,
-		RegistryItemID: itemID,
+		ID:                  jobID,
+		DatasetID:           datasetID,
+		OrganizationID:      organizationID,
+		ModelName:           name,
+		ModelVersion:        version,
+		ModelType:           modelType,
+		ModelFramework:      modelFramework,
+		IsCustomJob:         isCustomJob,
+		RegistryItemID:      itemID,
 		RegistryItemVersion: version,
-		Status: trainingStatus,
+		Status:              trainingStatus,
 		ErrorStatus: &ErrorStatus{
-			Code: code,
+			Code:    code,
 			Message: message,
 			Details: []*ErrorDetail{
 				{
 					TypeURL: siteURL,
-					Value: byteData,
+					Value:   byteData,
 				},
 			},
 		},
-		CreatedOn: &createdOn,
-		LastModified: &lastUpdated,
+		CreatedOn:       &createdOn,
+		LastModified:    &lastUpdated,
 		TrainingStarted: &start,
-		TrainingEnded: &end,
-		SyncedModelID: modelID,
-		Tags: tags,
+		TrainingEnded:   &end,
+		SyncedModelID:   modelID,
+		Tags:            tags,
 	}
 	pbJobMetadata = &pb.TrainingJobMetadata{
-		Id: jobMetadata.ID,
-		DatasetId: jobMetadata.DatasetID,
-		OrganizationId: jobMetadata.OrganizationID,
-		ModelName: jobMetadata.ModelName,
-		ModelVersion: jobMetadata.ModelVersion,
-		ModelType: modelTypeToProto(jobMetadata.ModelType),
-		ModelFramework: modelFrameworkToProto(jobMetadata.ModelFramework),
-		IsCustomJob: jobMetadata.IsCustomJob,
-		RegistryItemId: jobMetadata.RegistryItemID,
+		Id:                  jobMetadata.ID,
+		DatasetId:           jobMetadata.DatasetID,
+		OrganizationId:      jobMetadata.OrganizationID,
+		ModelName:           jobMetadata.ModelName,
+		ModelVersion:        jobMetadata.ModelVersion,
+		ModelType:           modelTypeToProto(jobMetadata.ModelType),
+		ModelFramework:      modelFrameworkToProto(jobMetadata.ModelFramework),
+		IsCustomJob:         jobMetadata.IsCustomJob,
+		RegistryItemId:      jobMetadata.RegistryItemID,
 		RegistryItemVersion: jobMetadata.RegistryItemVersion,
-		Status: trainingStatusToProto(jobMetadata.Status),
+		Status:              trainingStatusToProto(jobMetadata.Status),
 		ErrorStatus: &statuspb.Status{
-			Code: int32(jobMetadata.ErrorStatus.Code),
+			Code:    int32(jobMetadata.ErrorStatus.Code),
 			Message: jobMetadata.ErrorStatus.Message,
 			Details: []*anypb.Any{
 				{
 					TypeUrl: jobMetadata.ErrorStatus.Details[0].TypeURL,
-					Value: jobMetadata.ErrorStatus.Details[0].Value,
+					Value:   jobMetadata.ErrorStatus.Details[0].Value,
 				},
 			},
 		},
-		CreatedOn: pbCreatedOn,
-		LastModified: timestamppb.New(lastUpdated),
+		CreatedOn:       pbCreatedOn,
+		LastModified:    timestamppb.New(lastUpdated),
 		TrainingStarted: pbStart,
-		TrainingEnded: pbEnd,
-		SyncedModelId: jobMetadata.SyncedModelID,
-		Tags: jobMetadata.Tags,
+		TrainingEnded:   pbEnd,
+		SyncedModelId:   jobMetadata.SyncedModelID,
+		Tags:            jobMetadata.Tags,
 	}
 	trainingLogEntry = TrainingJobLogEntry{
-		Level: level,
-		Time: &timestamp,
+		Level:   level,
+		Time:    &timestamp,
 		Message: message,
 	}
 )
@@ -197,8 +198,8 @@ func TestMLTrainingClient(t *testing.T) {
 			return &pb.GetTrainingJobLogsResponse{
 				Logs: []*pb.TrainingJobLogEntry{
 					{
-						Level: trainingLogEntry.Level,
-						Time: timestamppb.New(*trainingLogEntry.Time),
+						Level:   trainingLogEntry.Level,
+						Time:    timestamppb.New(*trainingLogEntry.Time),
 						Message: trainingLogEntry.Message,
 					},
 				},

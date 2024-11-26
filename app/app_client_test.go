@@ -285,12 +285,12 @@ var (
 		Secrets:          pbSecrets,
 		LastUpdated:      timestamppb.New(*robotPart.LastUpdated),
 	}
-	levels    = []string{level}
-	source    = "source"
-	filter    = "filter"
-	caller    = map[string]interface{}{"name": name}
-	field     = map[string]interface{}{"key": "value"}
-	logEntry  = LogEntry{
+	levels   = []string{level}
+	source   = "source"
+	filter   = "filter"
+	caller   = map[string]interface{}{"name": name}
+	field    = map[string]interface{}{"key": "value"}
+	logEntry = LogEntry{
 		Host:       host,
 		Level:      level,
 		Time:       &timestamp,

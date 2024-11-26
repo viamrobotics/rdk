@@ -33,12 +33,12 @@ const (
 // ErrorDetail contains an arbitrary serialized protocol buffer message along with a URL that describes the type of serialized message.
 type ErrorDetail struct {
 	TypeURL string
-	Value []byte
+	Value   []byte
 }
 
 // ErrorStatus contains an error's code, message, and details.
 type ErrorStatus struct {
-	Code int
+	Code    int
 	Message string
 	Details []*ErrorDetail
 }
@@ -250,7 +250,7 @@ func trainingJobLogEntryFromProto(log *pb.TrainingJobLogEntry) *TrainingJobLogEn
 func detailsFromProto(detail *anypb.Any) *ErrorDetail {
 	return &ErrorDetail{
 		TypeURL: detail.TypeUrl,
-		Value: detail.Value,
+		Value:   detail.Value,
 	}
 }
 
@@ -259,11 +259,11 @@ func errorStatusFromProto(status *errorstatus.Status) *ErrorStatus {
 		return nil
 	}
 	var details []*ErrorDetail
-	for _, detail := range(status.Details) {
+	for _, detail := range status.Details {
 		details = append(details, detailsFromProto(detail))
 	}
 	return &ErrorStatus{
-		Code: int(status.Code),
+		Code:    int(status.Code),
 		Message: status.Message,
 		Details: details,
 	}
