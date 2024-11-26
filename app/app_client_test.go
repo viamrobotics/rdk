@@ -21,7 +21,6 @@ import (
 
 const (
 	organizationID2                = "organization_id_2"
-	email                          = "email"
 	userID                         = "user_id"
 	available                      = true
 	authorizationType              = AuthRoleOwner

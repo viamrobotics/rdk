@@ -12,7 +12,8 @@ const (
 	robotName       = "robot_name"
 	partName        = "part_name"
 	host            = "host_name"
-	secret          = "secret"
+	email           = "email"
+  secret          = "secret"
 	fragmentID      = "fragment_id"
 )
 

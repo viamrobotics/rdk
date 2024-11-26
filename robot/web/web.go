@@ -69,6 +69,8 @@ type Service interface {
 
 	// Returns the unix socket path the module server listens on.
 	ModuleAddress() string
+
+	Stats() any
 }
 
 var internalWebServiceName = resource.NewName(

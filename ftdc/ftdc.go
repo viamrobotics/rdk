@@ -125,21 +125,35 @@ type FTDC struct {
 	logger logging.Logger
 }
 
-// New creates a new *FTDC.
-func New(logger logging.Logger) *FTDC {
-	return NewWithWriter(nil, logger)
+// New creates a new *FTDC. This FTDC object will write FTDC formatted files into the input
+// `ftdcDirectory`.
+func New(ftdcDirectory string, logger logging.Logger) *FTDC {
+	ret := newFTDC(logger)
+	ret.maxFileSizeBytes = 1_000_000
+	ret.maxNumFiles = 10
+	ret.ftdcDir = ftdcDirectory
+	return ret
 }
 
 // NewWithWriter creates a new *FTDC that outputs bytes to the specified writer.
 func NewWithWriter(writer io.Writer, logger logging.Logger) *FTDC {
+	ret := newFTDC(logger)
+	ret.outputWriter = writer
+	return ret
+}
+
+// DefaultDirectory returns a directory to write FTDC data files in. Each unique "part" running on a
+// single computer will get its own directory.
+func DefaultDirectory(viamHome, partID string) string {
+	return filepath.Join(viamHome, "diagnostics.data", partID)
+}
+
+func newFTDC(logger logging.Logger) *FTDC {
 	return &FTDC{
 		// Allow for some wiggle before blocking producers.
 		datumCh:          make(chan datum, 20),
 		outputWorkerDone: make(chan struct{}),
 		logger:           logger,
-		outputWriter:     writer,
-		maxFileSizeBytes: 1_000_000,
-		maxNumFiles:      10,
 	}
 }
 
@@ -415,6 +429,15 @@ func (ftdc *FTDC) getWriter() (io.Writer, error) {
 	// It's unclear in what circumstance we'd expect creating a new file to fail. Try 5 times for no
 	// good reason before giving up entirely and shutting down FTDC.
 	for numTries := 0; numTries < 5; numTries++ {
+		// The viam process is expected to be run as root. The FTDC directory must be readable by
+		// "other" users.
+		//
+		//nolint:gosec
+		if err = os.MkdirAll(ftdc.ftdcDir, 0o755); err != nil {
+			ftdc.logger.Warnw("Failed to create FTDC directory", "dir", ftdc.ftdcDir, "err", err)
+			return nil, err
+		}
+
 		now := time.Now().UTC()
 		// lint wants 0o600 file permissions. We don't expect the unix user someone is ssh'ed in as
 		// to be on the same unix user as is running the viam-server process. Thus the file needs to
