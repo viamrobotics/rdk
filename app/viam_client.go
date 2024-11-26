@@ -18,6 +18,7 @@ type ViamClient struct {
 	appClient     *AppClient
 	billingClient *BillingClient
 	dataClient    *DataClient
+	mlTrainingClient *MLTrainingClient
 }
 
 // Options has the options necessary to connect through gRPC.
@@ -93,6 +94,14 @@ func (c *ViamClient) DataClient() *DataClient {
 	}
 	c.dataClient = NewDataClient(c.conn)
 	return c.dataClient
+}
+
+func (c *ViamClient) MLTrainingClient() *MLTrainingClient {
+	if c.mlTrainingClient != nil {
+		return c.mlTrainingClient
+	}
+	c.mlTrainingClient = NewMLTrainingClient(c.conn)
+	return c.mlTrainingClient
 }
 
 // Close closes the gRPC connection.
