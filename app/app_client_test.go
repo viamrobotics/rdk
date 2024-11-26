@@ -571,20 +571,6 @@ func authenticationTypeToProto(authType AuthenticationType) pb.AuthenticationTyp
 	return pb.AuthenticationType_AUTHENTICATION_TYPE_UNSPECIFIED
 }
 
-func modelTypeToProto(modelType ModelType) mlTraining.ModelType {
-	switch modelType {
-	case ModelTypeUnspecified:
-		return mlTraining.ModelType_MODEL_TYPE_UNSPECIFIED
-	case ModelTypeSingleLabelClassification:
-		return mlTraining.ModelType_MODEL_TYPE_SINGLE_LABEL_CLASSIFICATION
-	case ModelTypeMultiLabelClassification:
-		return mlTraining.ModelType_MODEL_TYPE_MULTI_LABEL_CLASSIFICATION
-	case ModelTypeObjectDetection:
-		return mlTraining.ModelType_MODEL_TYPE_OBJECT_DETECTION
-	}
-	return mlTraining.ModelType_MODEL_TYPE_UNSPECIFIED
-}
-
 func modelFrameworkToProto(framework ModelFramework) mlTraining.ModelFramework {
 	switch framework {
 	case ModelFrameworkUnspecified:
