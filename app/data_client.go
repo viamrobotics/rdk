@@ -276,15 +276,6 @@ type FileUploadOptions struct {
 	Tags             []string
 }
 
-func newDataClient(conn rpc.ClientConn) *DataClient {
-	d := pb.NewDataServiceClient(conn)
-	s := syncPb.NewDataSyncServiceClient(conn)
-	return &DataClient{
-		dataClient:     d,
-		dataSyncClient: s,
-	}
-}
-
 // Dataset contains the information of a dataset.
 type Dataset struct {
 	ID             string
@@ -300,8 +291,7 @@ type DataClient struct {
 	datasetClient  setPb.DatasetServiceClient
 }
 
-// NewDataClient constructs a new DataClient using the connection passed in by the ViamClient.
-func NewDataClient(conn rpc.ClientConn) *DataClient {
+func newDataClient(conn rpc.ClientConn) *DataClient {
 	dataClient := pb.NewDataServiceClient(conn)
 	syncClient := syncPb.NewDataSyncServiceClient(conn)
 	setClient := setPb.NewDatasetServiceClient(conn)
