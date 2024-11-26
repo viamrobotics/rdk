@@ -576,7 +576,7 @@ func (d *DataClient) TabularDataByMQL(ctx context.Context, organizationID string
 func (d *DataClient) GetLatestTabularData(ctx context.Context, partID, resourceName, resourceSubtype, methodName string) (
 	LatestTabularDataReturn, error,
 ) {
-	resp, err := d.client.GetLatestTabularData(ctx, &pb.GetLatestTabularDataRequest{
+	resp, err := d.dataClient.GetLatestTabularData(ctx, &pb.GetLatestTabularDataRequest{
 		PartId:          partID,
 		ResourceName:    resourceName,
 		ResourceSubtype: resourceSubtype,
