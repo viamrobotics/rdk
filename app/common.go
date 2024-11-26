@@ -36,13 +36,11 @@ var (
 	tags           = []string{tag}
 	limit          = 2
 	pbLimit        = uint64(limit)
-  createdOn      = time.Now().UTC().Round(time.Millisecond)
+	createdOn      = time.Now().UTC().Round(time.Millisecond)
 	pbCreatedOn    = timestamppb.New(createdOn)
 	pbModelType    = modelTypeToProto(modelType)
 	message        = "message"
 	siteURL        = "url.test.com"
-	createdOn      = time.Now().UTC().Round(time.Millisecond)
-	pbCreatedOn    = timestamppb.New(createdOn)
 	lastUpdated    = time.Now().UTC().Round(time.Millisecond)
 	byteData       = []byte{4, 8}
 	pageToken      = "page_token"
