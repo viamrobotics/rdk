@@ -191,9 +191,6 @@ func (mgr *Manager) Close(ctx context.Context) error {
 
 // Handles returns all the models for each module registered.
 func (mgr *Manager) Handles() map[string]modlib.HandlerMap {
-	mgr.mu.Lock()
-	defer mgr.mu.Unlock()
-
 	res := map[string]modlib.HandlerMap{}
 
 	mgr.modules.Range(func(n string, m *module) bool {
@@ -540,8 +537,6 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 
 // ReconfigureResource updates/reconfigures a modular component with a new configuration.
 func (mgr *Manager) ReconfigureResource(ctx context.Context, conf resource.Config, deps []string) error {
-	mgr.mu.RLock()
-	defer mgr.mu.RUnlock()
 	mod, ok := mgr.getModule(conf)
 	if !ok {
 		return errors.Errorf("no module registered to serve resource api %s and model %s", conf.API, conf.Model)
@@ -557,6 +552,7 @@ func (mgr *Manager) ReconfigureResource(ctx context.Context, conf resource.Confi
 	if err != nil {
 		return err
 	}
+
 	mod.resourcesMu.Lock()
 	defer mod.resourcesMu.Unlock()
 	mod.resources[conf.ResourceName()] = &addedResource{conf, deps}
@@ -567,8 +563,6 @@ func (mgr *Manager) ReconfigureResource(ctx context.Context, conf resource.Confi
 // Configs returns a slice of config.Module representing the currently managed
 // modules.
 func (mgr *Manager) Configs() []config.Module {
-	mgr.mu.RLock()
-	defer mgr.mu.RUnlock()
 	var configs []config.Module
 	mgr.modules.Range(func(_ string, mod *module) bool {
 		configs = append(configs, mod.cfg)
@@ -579,16 +573,12 @@ func (mgr *Manager) Configs() []config.Module {
 
 // Provides returns true if a component/service config WOULD be handled by a module.
 func (mgr *Manager) Provides(conf resource.Config) bool {
-	mgr.mu.RLock()
-	defer mgr.mu.RUnlock()
 	_, ok := mgr.getModule(conf)
 	return ok
 }
 
 // IsModularResource returns true if an existing resource IS handled by a module.
 func (mgr *Manager) IsModularResource(name resource.Name) bool {
-	mgr.mu.RLock()
-	defer mgr.mu.RUnlock()
 	_, ok := mgr.rMap.Load(name)
 	return ok
 }
@@ -621,8 +611,6 @@ func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) erro
 // ValidateConfig determines whether the given config is valid and returns its implicit
 // dependencies.
 func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([]string, error) {
-	mgr.mu.RLock()
-	defer mgr.mu.RUnlock()
 	mod, ok := mgr.getModule(conf)
 	if !ok {
 		return nil,
@@ -656,8 +644,6 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 // and modified resources. It also puts modular resources whose module has been modified or added in conf.Added if
 // they are not already there since the resources themselves are not necessarily new.
 func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error {
-	mgr.mu.RLock()
-	defer mgr.mu.RUnlock()
 	// NOTE(benji): We could simplify some of the following `continue`
 	// conditional clauses to a single clause, but we split them for readability.
 	for _, c := range conf.Right.Components {
