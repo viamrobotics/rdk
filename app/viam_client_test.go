@@ -137,6 +137,16 @@ func TestNewAppClients(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer client.Close()
 
+	billingClient := client.BillingClient()
+	test.That(t, billingClient, test.ShouldNotBeNil)
+	test.That(t, billingClient, test.ShouldHaveSameTypeAs, &BillingClient{})
+	test.That(t, billingClient.client, test.ShouldImplement, (*apppb.BillingServiceClient)(nil))
+
+	// Testing that a second call to Billingclient() returns the same instance
+	billingClient2 := client.BillingClient()
+	test.That(t, billingClient2, test.ShouldNotBeNil)
+	test.That(t, billingClient, test.ShouldEqual, billingClient2)
+
 	dataClient := client.DataClient()
 	test.That(t, dataClient, test.ShouldNotBeNil)
 	test.That(t, dataClient, test.ShouldHaveSameTypeAs, &DataClient{})
