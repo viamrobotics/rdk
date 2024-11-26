@@ -5,6 +5,7 @@ on:
     inputs:
       release_type:
         required: true
+        default: latest
         type: string
       no-upload:
         type: boolean
