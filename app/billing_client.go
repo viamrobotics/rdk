@@ -265,7 +265,7 @@ func resourceUsageCostsBySourceFromProto(costs *pb.ResourceUsageCostsBySource) *
 func getCurrentMonthUsageResponseFromProto(response *pb.GetCurrentMonthUsageResponse) *GetCurrentMonthUsageResponse {
 	var startDate, endDate *time.Time
 	if response.StartDate != nil {
-		startDate = &response.StartDate.AsTime()
+		t := response.StartDate.AsTime()
 		startDate = &t
 	}
 	if response.EndDate != nil {
