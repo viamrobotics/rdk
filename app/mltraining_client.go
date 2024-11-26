@@ -108,8 +108,7 @@ func trainingStatusToProto(status TrainingStatus) pb.TrainingStatus {
 	return pb.TrainingStatus_TRAINING_STATUS_UNSPECIFIED
 }
 
-// NewMLTrainingClient constructs a new MLTrainingClient using the connection passed in by the ViamClient.
-func NewMLTrainingClient(conn rpc.ClientConn) *MLTrainingClient {
+func newMLTrainingClient(conn rpc.ClientConn) *MLTrainingClient {
 	return &MLTrainingClient{client: pb.NewMLTrainingServiceClient(conn)}
 }
 

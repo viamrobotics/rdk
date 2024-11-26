@@ -100,7 +100,7 @@ func (c *ViamClient) MLTrainingClient() *MLTrainingClient {
 	if c.mlTrainingClient != nil {
 		return c.mlTrainingClient
 	}
-	c.mlTrainingClient = NewMLTrainingClient(c.conn)
+	c.mlTrainingClient = newMLTrainingClient(c.conn)
 	return c.mlTrainingClient
 }
 
