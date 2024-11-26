@@ -1757,57 +1757,90 @@ func (c *AppClient) CreateKeyFromExistingKeyAuthorizations(ctx context.Context, 
 }
 
 func organizationFromProto(organization *pb.Organization) *Organization {
-	createdOn := organization.CreatedOn.AsTime()
+	if organization == nil {
+		return nil
+	}
+	var createdOn *time.Time
+	if organization.CreatedOn != nil {
+		t := organization.CreatedOn.AsTime()
+		createdOn = &t
+	}
 	return &Organization{
 		ID:              organization.Id,
 		Name:            organization.Name,
-		CreatedOn:       &createdOn,
+		CreatedOn:       createdOn,
 		PublicNamespace: organization.PublicNamespace,
 		DefaultRegion:   organization.DefaultRegion,
 		Cid:             organization.Cid,
 	}
 }
 
-func organizationIdentityFromProto(organizationIdentity *pb.OrganizationIdentity) *OrganizationIdentity {
+func organizationIdentityFromProto(identity *pb.OrganizationIdentity) *OrganizationIdentity {
+	if identity == nil {
+		return nil
+	}
 	return &OrganizationIdentity{
-		ID:   organizationIdentity.Id,
-		Name: organizationIdentity.Name,
+		ID:   identity.Id,
+		Name: identity.Name,
 	}
 }
 
 func orgDetailsFromProto(orgDetails *pb.OrgDetails) *OrgDetails {
+	if orgDetails == nil {
+		return nil
+	}
 	return &OrgDetails{
 		OrgID:   orgDetails.OrgId,
 		OrgName: orgDetails.OrgName,
 	}
 }
 
-func organizationMemberFromProto(organizationMemOrganizationMember *pb.OrganizationMember) *OrganizationMember {
-	dateAdded := organizationMemOrganizationMember.DateAdded.AsTime()
-	lastLogin := organizationMemOrganizationMember.LastLogin.AsTime()
+func organizationMemberFromProto(member *pb.OrganizationMember) *OrganizationMember {
+	if member == nil {
+		return nil
+	}
+	var dateAdded, lastLogin *time.Time
+	if member.DateAdded != nil {
+		t := member.DateAdded.AsTime()
+		dateAdded = &t
+	}
+	if member.LastLogin != nil {
+		t := member.LastLogin.AsTime()
+		lastLogin = &t
+	}
 	return &OrganizationMember{
-		UserID:    organizationMemOrganizationMember.UserId,
-		Emails:    organizationMemOrganizationMember.Emails,
-		DateAdded: &dateAdded,
-		LastLogin: &lastLogin,
+		UserID:    member.UserId,
+		Emails:    member.Emails,
+		DateAdded: dateAdded,
+		LastLogin: lastLogin,
 	}
 }
 
-func organizationInviteFromProto(organizationInvite *pb.OrganizationInvite) *OrganizationInvite {
+func organizationInviteFromProto(invite *pb.OrganizationInvite) *OrganizationInvite {
+	if invite == nil {
+		return nil
+	}
+	var createdOn *time.Time
+	if invite.CreatedOn != nil {
+		t := invite.CreatedOn.AsTime()
+		createdOn = &t
+	}
 	var authorizations []*Authorization
-	for _, authorization := range organizationInvite.Authorizations {
+	for _, authorization := range invite.Authorizations {
 		authorizations = append(authorizations, authorizationFromProto(authorization))
 	}
-	createdOn := organizationInvite.CreatedOn.AsTime()
 	return &OrganizationInvite{
-		OrganizationID: organizationInvite.OrganizationId,
-		Email:          organizationInvite.Email,
-		CreatedOn:      &createdOn,
+		OrganizationID: invite.OrganizationId,
+		Email:          invite.Email,
+		CreatedOn:      createdOn,
 		Authorizations: authorizations,
 	}
 }
 
 func billingAddressToProto(addr *BillingAddress) *pb.BillingAddress {
+	if addr == nil {
+		return nil
+	}
 	return &pb.BillingAddress{
 		AddressLine_1: addr.AddressLine1,
 		AddressLine_2: addr.AddressLine2,
@@ -1817,143 +1850,224 @@ func billingAddressToProto(addr *BillingAddress) *pb.BillingAddress {
 }
 
 func locationFromProto(location *pb.Location) *Location {
+	if location == nil {
+		return nil
+	}
+	var createdOn *time.Time
+	if location.CreatedOn != nil {
+		t := location.CreatedOn.AsTime()
+		createdOn = &t
+	}
 	var organizations []*LocationOrganization
 	for _, organization := range location.Organizations {
 		organizations = append(organizations, locationOrganizationFromProto(organization))
 	}
-	createdOn := location.CreatedOn.AsTime()
 	return &Location{
 		ID:               location.Id,
 		Name:             location.Name,
 		ParentLocationID: location.ParentLocationId,
 		Auth:             locationAuthFromProto(location.Auth),
 		Organizations:    organizations,
-		CreatedOn:        &createdOn,
+		CreatedOn:        createdOn,
 		RobotCount:       int(location.RobotCount),
 		Config:           storageConfigFromProto(location.Config),
 	}
 }
 
-func locationOrganizationFromProto(locationOrganization *pb.LocationOrganization) *LocationOrganization {
+func locationOrganizationFromProto(locationOrg *pb.LocationOrganization) *LocationOrganization {
+	if locationOrg == nil {
+		return nil
+	}
 	return &LocationOrganization{
-		OrganizationID: locationOrganization.OrganizationId,
-		Primary:        locationOrganization.Primary,
+		OrganizationID: locationOrg.OrganizationId,
+		Primary:        locationOrg.Primary,
 	}
 }
 
 func storageConfigFromProto(config *pb.StorageConfig) *StorageConfig {
+	if config == nil {
+		return nil
+	}
 	return &StorageConfig{Region: config.Region}
 }
 
-func locationAuthFromProto(locationAuth *pb.LocationAuth) *LocationAuth {
+func locationAuthFromProto(auth *pb.LocationAuth) *LocationAuth {
+	if auth == nil {
+		return nil
+	}
 	var secrets []*SharedSecret
-	for _, secret := range locationAuth.Secrets {
+	for _, secret := range auth.Secrets {
 		secrets = append(secrets, sharedSecretFromProto(secret))
 	}
 	return &LocationAuth{
-		LocationID: locationAuth.LocationId,
+		LocationID: auth.LocationId,
 		Secrets:    secrets,
 	}
 }
 
 func robotFromProto(robot *pb.Robot) *Robot {
-	lastAccess := robot.LastAccess.AsTime()
-	createdOn := robot.CreatedOn.AsTime()
+	if robot == nil {
+		return nil
+	}
+	var createdOn, lastAccess *time.Time
+	if robot.CreatedOn != nil {
+		t := robot.CreatedOn.AsTime()
+		createdOn = &t
+	}
+	if robot.LastAccess != nil {
+		t := robot.LastAccess.AsTime()
+		lastAccess = &t
+	}
 	return &Robot{
 		ID:         robot.Id,
 		Name:       robot.Name,
 		Location:   robot.Location,
-		LastAccess: &lastAccess,
-		CreatedOn:  &createdOn,
+		LastAccess: lastAccess,
+		CreatedOn:  createdOn,
 	}
 }
 
-func roverRentalRobotFromProto(rrRobot *pb.RoverRentalRobot) *RoverRentalRobot {
+func roverRentalRobotFromProto(robot *pb.RoverRentalRobot) *RoverRentalRobot {
+	if robot == nil {
+		return nil
+	}
 	return &RoverRentalRobot{
-		RobotID:         rrRobot.RobotId,
-		LocationID:      rrRobot.LocationId,
-		RobotName:       rrRobot.RobotName,
-		RobotMainPartID: rrRobot.RobotMainPartId,
+		RobotID:         robot.RobotId,
+		LocationID:      robot.LocationId,
+		RobotName:       robot.RobotName,
+		RobotMainPartID: robot.RobotMainPartId,
 	}
 }
 
-func robotPartFromProto(robotPart *pb.RobotPart) *RobotPart {
+func robotPartFromProto(part *pb.RobotPart) *RobotPart {
+	if part == nil {
+		return nil
+	}
+	var createdOn, lastAccess *time.Time
+	if part.CreatedOn != nil {
+		t := part.CreatedOn.AsTime()
+		createdOn = &t
+	}
+	if part.LastAccess != nil {
+		t := part.LastAccess.AsTime()
+		lastAccess = &t
+	}
 	var secrets []*SharedSecret
-	for _, secret := range robotPart.Secrets {
+	for _, secret := range part.Secrets {
 		secrets = append(secrets, sharedSecretFromProto(secret))
 	}
-	cfg := robotPart.RobotConfig.AsMap()
-	lastAccess := robotPart.LastAccess.AsTime()
-	info := robotPart.UserSuppliedInfo.AsMap()
-	createdOn := robotPart.CreatedOn.AsTime()
-	lastUpdated := robotPart.LastUpdated.AsTime()
+	var cfg, info *map[string]interface{}
+	if part.RobotConfig != nil {
+		m := part.RobotConfig.AsMap()
+		cfg = &m
+	}
+	if part.UserSuppliedInfo != nil {
+		m := part.UserSuppliedInfo.AsMap()
+		info = &m
+	}
+	lastUpdated := part.LastUpdated.AsTime()
 	return &RobotPart{
-		ID:               robotPart.Id,
-		Name:             robotPart.Name,
-		DNSName:          robotPart.DnsName,
-		Secret:           robotPart.Secret,
-		Robot:            robotPart.Robot,
-		LocationID:       robotPart.LocationId,
-		RobotConfig:      &cfg,
-		LastAccess:       &lastAccess,
-		UserSuppliedInfo: &info,
-		MainPart:         robotPart.MainPart,
-		FQDN:             robotPart.Fqdn,
-		LocalFQDN:        robotPart.LocalFqdn,
-		CreatedOn:        &createdOn,
+		ID:               part.Id,
+		Name:             part.Name,
+		DNSName:          part.DnsName,
+		Secret:           part.Secret,
+		Robot:            part.Robot,
+		LocationID:       part.LocationId,
+		RobotConfig:      cfg,
+		LastAccess:       lastAccess,
+		UserSuppliedInfo: info,
+		MainPart:         part.MainPart,
+		FQDN:             part.Fqdn,
+		LocalFQDN:        part.LocalFqdn,
+		CreatedOn:        createdOn,
 		Secrets:          secrets,
 		LastUpdated:      &lastUpdated,
 	}
 }
 
 func robotPartHistoryEntryFromProto(entry *pb.RobotPartHistoryEntry) *RobotPartHistoryEntry {
-	when := entry.When.AsTime()
+	if entry == nil {
+		return nil
+	}
+	var when *time.Time
+	if entry.When != nil {
+		t := entry.When.AsTime()
+		when = &t
+	}
 	return &RobotPartHistoryEntry{
 		Part:     entry.Part,
 		Robot:    entry.Robot,
-		When:     &when,
+		When:     when,
 		Old:      robotPartFromProto(entry.Old),
 		EditedBy: authenticatorInfoFromProto(entry.EditedBy),
 	}
 }
 
-func logEntryFromProto(logEntry *common.LogEntry) *LogEntry {
-	entryTime := logEntry.Time.AsTime()
-	caller := logEntry.Caller.AsMap()
+func logEntryFromProto(log *common.LogEntry) *LogEntry {
+	if log == nil {
+		return nil
+	}
+	var entryTime *time.Time
+	if log.Time != nil {
+		t := log.Time.AsTime()
+		entryTime = &t
+	}
+	var caller *map[string]interface{}
+	if log.Caller != nil {
+		m := log.Caller.AsMap()
+		caller = &m
+	}
 	var fields []*map[string]interface{}
-	for _, field := range logEntry.Fields {
+	for _, field := range log.Fields {
+		if field == nil {
+			continue
+		}
 		f := field.AsMap()
 		fields = append(fields, &f)
 	}
 	return &LogEntry{
-		Host:       logEntry.Host,
-		Level:      logEntry.Level,
-		Time:       &entryTime,
-		LoggerName: logEntry.LoggerName,
-		Message:    logEntry.Message,
-		Caller:     &caller,
-		Stack:      logEntry.Stack,
+		Host:       log.Host,
+		Level:      log.Level,
+		Time:       entryTime,
+		LoggerName: log.LoggerName,
+		Message:    log.Message,
+		Caller:     caller,
+		Stack:      log.Stack,
 		Fields:     fields,
 	}
 }
 
 func fragmentFromProto(fragment *pb.Fragment) *Fragment {
-	f := fragment.Fragment.AsMap()
-	createdOn := fragment.CreatedOn.AsTime()
-	lastUpdated := fragment.LastUpdated.AsTime()
+	if fragment == nil {
+		return nil
+	}
+	var frag *map[string]interface{}
+	if fragment.Fragment != nil {
+		f := fragment.Fragment.AsMap()
+		frag = &f
+	}
+	var createdOn, lastUpdated *time.Time
+	if fragment.CreatedOn != nil {
+		t := fragment.CreatedOn.AsTime()
+		createdOn = &t
+	}
+	if fragment.LastUpdated != nil {
+		t := fragment.LastUpdated.AsTime()
+		lastUpdated = &t
+	}
 	return &Fragment{
 		ID:                fragment.Id,
 		Name:              fragment.Name,
-		Fragment:          &f,
+		Fragment:          frag,
 		OrganizationOwner: fragment.OrganizationOwner,
 		Public:            fragment.Public,
-		CreatedOn:         &createdOn,
+		CreatedOn:         createdOn,
 		OrganizationName:  fragment.OrganizationName,
 		RobotPartCount:    int(fragment.RobotPartCount),
 		OrganizationCount: int(fragment.OrganizationCount),
 		OnlyUsedByOwner:   fragment.OnlyUsedByOwner,
 		Visibility:        fragmentVisibilityFromProto(fragment.Visibility),
-		LastUpdated:       &lastUpdated,
+		LastUpdated:       lastUpdated,
 	}
 }
 
@@ -1986,16 +2100,26 @@ func fragmentVisibilityToProto(visibility FragmentVisibility) pb.FragmentVisibil
 }
 
 func fragmentHistoryEntryFromProto(entry *pb.FragmentHistoryEntry) *FragmentHistoryEntry {
-	editedOn := entry.EditedOn.AsTime()
+	if entry == nil {
+		return nil
+	}
+	var editedOn *time.Time
+	if entry.EditedOn != nil {
+		t := entry.EditedOn.AsTime()
+		editedOn = &t
+	}
 	return &FragmentHistoryEntry{
 		Fragment: entry.Fragment,
-		EditedOn: &editedOn,
+		EditedOn: editedOn,
 		Old:      fragmentFromProto(entry.Old),
 		EditedBy: authenticatorInfoFromProto(entry.EditedBy),
 	}
 }
 
 func authorizationFromProto(authorization *pb.Authorization) *Authorization {
+	if authorization == nil {
+		return nil
+	}
 	return &Authorization{
 		AuthorizationType: AuthRole(authorization.AuthorizationType),
 		AuthorizationID:   authorization.AuthorizationId,
@@ -2008,6 +2132,9 @@ func authorizationFromProto(authorization *pb.Authorization) *Authorization {
 }
 
 func authorizationToProto(authorization *Authorization) *pb.Authorization {
+	if authorization == nil {
+		return nil
+	}
 	return &pb.Authorization{
 		AuthorizationType: string(authorization.AuthorizationType),
 		AuthorizationId:   authorization.AuthorizationID,
@@ -2020,6 +2147,9 @@ func authorizationToProto(authorization *Authorization) *pb.Authorization {
 }
 
 func authorizedPermissionsFromProto(permissions *pb.AuthorizedPermissions) *AuthorizedPermissions {
+	if permissions == nil {
+		return nil
+	}
 	return &AuthorizedPermissions{
 		ResourceType: permissions.ResourceType,
 		ResourceID:   permissions.ResourceId,
@@ -2028,6 +2158,9 @@ func authorizedPermissionsFromProto(permissions *pb.AuthorizedPermissions) *Auth
 }
 
 func authorizedPermissionsToProto(permissions *AuthorizedPermissions) *pb.AuthorizedPermissions {
+	if permissions == nil {
+		return nil
+	}
 	return &pb.AuthorizedPermissions{
 		ResourceType: permissions.ResourceType,
 		ResourceId:   permissions.ResourceID,
@@ -2049,12 +2182,19 @@ func createAuthorization(
 	}
 }
 
-func sharedSecretFromProto(sharedSecret *pb.SharedSecret) *SharedSecret {
-	createdOn := sharedSecret.CreatedOn.AsTime()
+func sharedSecretFromProto(secret *pb.SharedSecret) *SharedSecret {
+	if secret == nil {
+		return nil
+	}
+	var createdOn *time.Time
+	if secret.CreatedOn != nil {
+		t := secret.CreatedOn.AsTime()
+		createdOn = &t
+	}
 	return &SharedSecret{
-		ID:        sharedSecret.Id,
-		CreatedOn: &createdOn,
-		State:     sharedSecretStateFromProto(sharedSecret.State),
+		ID:        secret.Id,
+		CreatedOn: createdOn,
+		State:     sharedSecretStateFromProto(secret.State),
 	}
 }
 
@@ -2072,6 +2212,9 @@ func sharedSecretStateFromProto(state pb.SharedSecret_State) SharedSecretState {
 }
 
 func authenticatorInfoFromProto(info *pb.AuthenticatorInfo) *AuthenticatorInfo {
+	if info == nil {
+		return nil
+	}
 	return &AuthenticatorInfo{
 		Type:          authenticationTypeFromProto(info.Type),
 		Value:         info.Value,
@@ -2079,8 +2222,8 @@ func authenticatorInfoFromProto(info *pb.AuthenticatorInfo) *AuthenticatorInfo {
 	}
 }
 
-func authenticationTypeFromProto(authenticationType pb.AuthenticationType) AuthenticationType {
-	switch authenticationType {
+func authenticationTypeFromProto(authType pb.AuthenticationType) AuthenticationType {
+	switch authType {
 	case pb.AuthenticationType_AUTHENTICATION_TYPE_UNSPECIFIED:
 		return AuthenticationTypeUnspecified
 	case pb.AuthenticationType_AUTHENTICATION_TYPE_WEB_OAUTH:
@@ -2096,6 +2239,9 @@ func authenticationTypeFromProto(authenticationType pb.AuthenticationType) Authe
 }
 
 func apiKeyWithAuthorizationsFromProto(key *pb.APIKeyWithAuthorizations) *APIKeyWithAuthorizations {
+	if key == nil {
+		return nil
+	}
 	var details []*AuthorizationDetails
 	for _, detail := range key.Authorizations {
 		details = append(details, authorizationDetailsFromProto(detail))
@@ -2107,6 +2253,9 @@ func apiKeyWithAuthorizationsFromProto(key *pb.APIKeyWithAuthorizations) *APIKey
 }
 
 func apiKeyFromProto(key *pb.APIKey) *APIKey {
+	if key == nil {
+		return nil
+	}
 	createdOn := key.CreatedOn.AsTime()
 	return &APIKey{
 		ID:        key.Id,
@@ -2117,6 +2266,9 @@ func apiKeyFromProto(key *pb.APIKey) *APIKey {
 }
 
 func authorizationDetailsFromProto(details *pb.AuthorizationDetails) *AuthorizationDetails {
+	if details == nil {
+		return nil
+	}
 	return &AuthorizationDetails{
 		AuthorizationType: details.AuthorizationType,
 		AuthorizationID:   details.AuthorizationId,
@@ -2127,6 +2279,9 @@ func authorizationDetailsFromProto(details *pb.AuthorizationDetails) *Authorizat
 }
 
 func registryItemFromProto(item *pb.RegistryItem) (*RegistryItem, error) {
+	if item == nil {
+		return nil, nil
+	}
 	var metadata isRegistryItemMetadata
 	switch pbMetadata := item.Metadata.(type) {
 	case *pb.RegistryItem_ModuleMetadata:
@@ -2138,8 +2293,15 @@ func registryItemFromProto(item *pb.RegistryItem) (*RegistryItem, error) {
 	default:
 		return nil, fmt.Errorf("unknown registry item metadata type: %T", item.Metadata)
 	}
-	createdAt := item.CreatedAt.AsTime()
-	updatedAt := item.UpdatedAt.AsTime()
+	var createdAt, updatedAt *time.Time
+	if item.CreatedAt != nil {
+		t := item.CreatedAt.AsTime()
+		createdAt = &t
+	}
+	if item.UpdatedAt != nil {
+		t := item.UpdatedAt.AsTime()
+		updatedAt = &t
+	}
 	return &RegistryItem{
 		ItemID:                         item.ItemId,
 		OrganizationID:                 item.OrganizationId,
@@ -2154,8 +2316,8 @@ func registryItemFromProto(item *pb.RegistryItem) (*RegistryItem, error) {
 		TotalOrganizationUsage:         int(item.TotalOrganizationUsage),
 		TotalExternalOrganizationUsage: int(item.TotalExternalOrganizationUsage),
 		Metadata:                       metadata,
-		CreatedAt:                      &createdAt,
-		UpdatedAt:                      &updatedAt,
+		CreatedAt:                      createdAt,
+		UpdatedAt:                      updatedAt,
 	}, nil
 }
 
@@ -2242,6 +2404,9 @@ func (*registryItemMLModelMetadata) isRegistryItemMetadata() {}
 func (*registryItemMLTrainingMetadata) isRegistryItemMetadata() {}
 
 func moduleMetadataFromProto(md *pb.ModuleMetadata) *ModuleMetadata {
+	if md == nil {
+		return nil
+	}
 	var models []*Model
 	for _, version := range md.Models {
 		models = append(models, modelFromProto(version))
@@ -2259,6 +2424,9 @@ func moduleMetadataFromProto(md *pb.ModuleMetadata) *ModuleMetadata {
 }
 
 func modelFromProto(model *pb.Model) *Model {
+	if model == nil {
+		return nil
+	}
 	return &Model{
 		API:   model.Api,
 		Model: model.Model,
@@ -2266,6 +2434,9 @@ func modelFromProto(model *pb.Model) *Model {
 }
 
 func modelToProto(model *Model) *pb.Model {
+	if model == nil {
+		return nil
+	}
 	return &pb.Model{
 		Api:   model.API,
 		Model: model.Model,
@@ -2273,6 +2444,9 @@ func modelToProto(model *Model) *pb.Model {
 }
 
 func moduleVersionFromProto(version *pb.ModuleVersion) *ModuleVersion {
+	if version == nil {
+		return nil
+	}
 	var files []*Uploads
 	for _, file := range version.Files {
 		files = append(files, uploadsFromProto(file))
@@ -2291,14 +2465,24 @@ func moduleVersionFromProto(version *pb.ModuleVersion) *ModuleVersion {
 }
 
 func uploadsFromProto(uploads *pb.Uploads) *Uploads {
-	uploadedAt := uploads.UploadedAt.AsTime()
+	if uploads == nil {
+		return nil
+	}
+	var uploadedAt *time.Time
+	if uploads.UploadedAt != nil {
+		t := uploads.UploadedAt.AsTime()
+		uploadedAt = &t
+	}
 	return &Uploads{
 		Platform:   uploads.Platform,
-		UploadedAt: &uploadedAt,
+		UploadedAt: uploadedAt,
 	}
 }
 
 func mlModelMetadataFromProto(md *pb.MLModelMetadata) *MLModelMetadata {
+	if md == nil {
+		return nil
+	}
 	return &MLModelMetadata{
 		Versions:       md.Versions,
 		ModelType:      modelTypeFromProto(md.ModelType),
@@ -2307,6 +2491,9 @@ func mlModelMetadataFromProto(md *pb.MLModelMetadata) *MLModelMetadata {
 }
 
 func mlTrainingMetadataFromProto(md *pb.MLTrainingMetadata) *MLTrainingMetadata {
+	if md == nil {
+		return nil
+	}
 	var versions []*MLTrainingVersion
 	for _, version := range md.Versions {
 		versions = append(versions, mlTrainingVersionFromProto(version))
@@ -2320,14 +2507,24 @@ func mlTrainingMetadataFromProto(md *pb.MLTrainingMetadata) *MLTrainingMetadata 
 }
 
 func mlTrainingVersionFromProto(version *pb.MLTrainingVersion) *MLTrainingVersion {
-	createdOn := version.CreatedOn.AsTime()
+	if version == nil {
+		return nil
+	}
+	var createdOn *time.Time
+	if version.CreatedOn != nil {
+		t := version.CreatedOn.AsTime()
+		createdOn = &t
+	}
 	return &MLTrainingVersion{
 		Version:   version.Version,
-		CreatedOn: &createdOn,
+		CreatedOn: createdOn,
 	}
 }
 
 func moduleFromProto(module *pb.Module) *Module {
+	if module == nil {
+		return nil
+	}
 	var versions []*VersionHistory
 	for _, version := range module.Versions {
 		versions = append(versions, versionHistoryFromProto(version))
@@ -2354,6 +2551,9 @@ func moduleFromProto(module *pb.Module) *Module {
 }
 
 func moduleFileInfoToProto(info *ModuleFileInfo) *pb.ModuleFileInfo {
+	if info == nil {
+		return nil
+	}
 	return &pb.ModuleFileInfo{
 		ModuleId:     info.ModuleID,
 		Version:      info.Version,
@@ -2363,6 +2563,9 @@ func moduleFileInfoToProto(info *ModuleFileInfo) *pb.ModuleFileInfo {
 }
 
 func versionHistoryFromProto(history *pb.VersionHistory) *VersionHistory {
+	if history == nil {
+		return nil
+	}
 	var files []*Uploads
 	for _, file := range history.Files {
 		files = append(files, uploadsFromProto(file))
