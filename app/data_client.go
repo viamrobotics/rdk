@@ -484,12 +484,16 @@ func convertBsonToNative(data interface{}) interface{} {
 }
 
 func datasetFromProto(dataset *setPb.Dataset) *Dataset {
-	timeCreated := dataset.TimeCreated.AsTime()
+	var timeCreated *time.Time
+	if dataset.TimeCreated != nil {
+		t := dataset.TimeCreated.AsTime()
+		timeCreated = &t
+	}
 	return &Dataset{
 		ID:             dataset.Id,
 		Name:           dataset.Name,
 		OrganizationID: dataset.OrganizationId,
-		TimeCreated:    &timeCreated,
+		TimeCreated:    timeCreated,
 	}
 }
 
