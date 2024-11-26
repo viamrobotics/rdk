@@ -34,42 +34,10 @@ const (
 	UsageCostTypePerMachine
 )
 
-func usageCostTypeFromProto(costType pb.UsageCostType) UsageCostType {
-	switch costType {
-	case pb.UsageCostType_USAGE_COST_TYPE_UNSPECIFIED:
-		return UsageCostTypeUnspecified
-	case pb.UsageCostType_USAGE_COST_TYPE_DATA_UPLOAD:
-		return UsageCostTypeDataUpload
-	case pb.UsageCostType_USAGE_COST_TYPE_DATA_EGRESS:
-		return UsageCostTypeDataEgress
-	case pb.UsageCostType_USAGE_COST_TYPE_REMOTE_CONTROL:
-		return UsageCostTypeRemoteControl
-	case pb.UsageCostType_USAGE_COST_TYPE_STANDARD_COMPUTE:
-		return UsageCostTypeStandardCompute
-	case pb.UsageCostType_USAGE_COST_TYPE_CLOUD_STORAGE:
-		return UsageCostTypeCloudStorage
-	case pb.UsageCostType_USAGE_COST_TYPE_BINARY_DATA_CLOUD_STORAGE:
-		return UsageCostTypeBinaryDataCloudStorage
-	case pb.UsageCostType_USAGE_COST_TYPE_OTHER_CLOUD_STORAGE:
-		return UsageCostTypeOtherCloudStorage
-	case pb.UsageCostType_USAGE_COST_TYPE_PER_MACHINE:
-		return UsageCostTypePerMachine
-	default:
-		return UsageCostTypeUnspecified
-	}
-}
-
 // UsageCost contains the cost and cost type.
 type UsageCost struct {
 	ResourceType UsageCostType
 	Cost         float64
-}
-
-func usageCostFromProto(cost *pb.UsageCost) *UsageCost {
-	return &UsageCost{
-		ResourceType: usageCostTypeFromProto(cost.ResourceType),
-		Cost:         cost.Cost,
-	}
 }
 
 // ResourceUsageCosts holds the usage costs with discount information.
@@ -78,19 +46,6 @@ type ResourceUsageCosts struct {
 	Discount             float64
 	TotalWithDiscount    float64
 	TotalWithoutDiscount float64
-}
-
-func resourceUsageCostsFromProto(costs *pb.ResourceUsageCosts) *ResourceUsageCosts {
-	var usageCosts []*UsageCost
-	for _, cost := range costs.UsageCosts {
-		usageCosts = append(usageCosts, usageCostFromProto(cost))
-	}
-	return &ResourceUsageCosts{
-		UsageCosts:           usageCosts,
-		Discount:             costs.Discount,
-		TotalWithDiscount:    costs.TotalWithDiscount,
-		TotalWithoutDiscount: costs.TotalWithoutDiscount,
-	}
 }
 
 // SourceType is the type of source from which a cost is coming from.
@@ -105,32 +60,11 @@ const (
 	SourceTypeFragment
 )
 
-func sourceTypeFromProto(sourceType pb.SourceType) SourceType {
-	switch sourceType {
-	case pb.SourceType_SOURCE_TYPE_UNSPECIFIED:
-		return SourceTypeUnspecified
-	case pb.SourceType_SOURCE_TYPE_ORG:
-		return SourceTypeOrg
-	case pb.SourceType_SOURCE_TYPE_FRAGMENT:
-		return SourceTypeFragment
-	default:
-		return SourceTypeUnspecified
-	}
-}
-
 // ResourceUsageCostsBySource contains the resource usage costs of a source.
 type ResourceUsageCostsBySource struct {
 	SourceType         SourceType
 	ResourceUsageCosts *ResourceUsageCosts
 	TierName           string
-}
-
-func resourceUsageCostsBySourceFromProto(costs *pb.ResourceUsageCostsBySource) *ResourceUsageCostsBySource {
-	return &ResourceUsageCostsBySource{
-		SourceType:         sourceTypeFromProto(costs.SourceType),
-		ResourceUsageCosts: resourceUsageCostsFromProto(costs.ResourceUsageCosts),
-		TierName:           costs.TierName,
-	}
 }
 
 // GetCurrentMonthUsageResponse contains the current month usage information.
@@ -139,21 +73,6 @@ type GetCurrentMonthUsageResponse struct {
 	EndDate                    *time.Time
 	ResourceUsageCostsBySource []*ResourceUsageCostsBySource
 	Subtotal                   float64
-}
-
-func getCurrentMonthUsageResponseFromProto(response *pb.GetCurrentMonthUsageResponse) *GetCurrentMonthUsageResponse {
-	startDate := response.StartDate.AsTime()
-	endDate := response.EndDate.AsTime()
-	var costs []*ResourceUsageCostsBySource
-	for _, cost := range response.ResourceUsageCostsBySource {
-		costs = append(costs, resourceUsageCostsBySourceFromProto(cost))
-	}
-	return &GetCurrentMonthUsageResponse{
-		StartDate:                  &startDate,
-		EndDate:                    &endDate,
-		ResourceUsageCostsBySource: costs,
-		Subtotal:                   response.Subtotal,
-	}
 }
 
 // PaymentMethodType is the type of payment method.
@@ -166,28 +85,10 @@ const (
 	PaymentMethodtypeCard
 )
 
-func paymentMethodTypeFromProto(methodType pb.PaymentMethodType) PaymentMethodType {
-	switch methodType {
-	case pb.PaymentMethodType_PAYMENT_METHOD_TYPE_UNSPECIFIED:
-		return PaymentMethodTypeUnspecified
-	case pb.PaymentMethodType_PAYMENT_METHOD_TYPE_CARD:
-		return PaymentMethodtypeCard
-	default:
-		return PaymentMethodTypeUnspecified
-	}
-}
-
 // PaymentMethodCard holds the information of a card used for payment.
 type PaymentMethodCard struct {
 	Brand          string
 	LastFourDigits string
-}
-
-func paymentMethodCardFromProto(card *pb.PaymentMethodCard) *PaymentMethodCard {
-	return &PaymentMethodCard{
-		Brand:          card.Brand,
-		LastFourDigits: card.LastFourDigits,
-	}
 }
 
 // GetOrgBillingInformationResponse contains the information of an organization's billing information.
@@ -200,15 +101,6 @@ type GetOrgBillingInformationResponse struct {
 	BillingTier *string
 }
 
-func getOrgBillingInformationResponseFromProto(resp *pb.GetOrgBillingInformationResponse) *GetOrgBillingInformationResponse {
-	return &GetOrgBillingInformationResponse{
-		Type:         paymentMethodTypeFromProto(resp.Type),
-		BillingEmail: resp.BillingEmail,
-		Method:       paymentMethodCardFromProto(resp.Method),
-		BillingTier:  resp.BillingTier,
-	}
-}
-
 // InvoiceSummary holds the information of an invoice summary.
 type InvoiceSummary struct {
 	ID            string
@@ -217,20 +109,6 @@ type InvoiceSummary struct {
 	Status        string
 	DueDate       *time.Time
 	PaidDate      *time.Time
-}
-
-func invoiceSummaryFromProto(summary *pb.InvoiceSummary) *InvoiceSummary {
-	invoiceDate := summary.InvoiceDate.AsTime()
-	dueDate := summary.DueDate.AsTime()
-	paidDate := summary.PaidDate.AsTime()
-	return &InvoiceSummary{
-		ID:            summary.Id,
-		InvoiceDate:   &invoiceDate,
-		InvoiceAmount: summary.InvoiceAmount,
-		Status:        summary.Status,
-		DueDate:       &dueDate,
-		PaidDate:      &paidDate,
-	}
 }
 
 // BillingClient is a gRPC client for method calls to the Billing API.
@@ -313,3 +191,126 @@ func (c *BillingClient) SendPaymentRequiredEmail(ctx context.Context, customerOr
 	})
 	return err
 }
+
+func usageCostTypeFromProto(costType pb.UsageCostType) UsageCostType {
+	switch costType {
+	case pb.UsageCostType_USAGE_COST_TYPE_UNSPECIFIED:
+		return UsageCostTypeUnspecified
+	case pb.UsageCostType_USAGE_COST_TYPE_DATA_UPLOAD:
+		return UsageCostTypeDataUpload
+	case pb.UsageCostType_USAGE_COST_TYPE_DATA_EGRESS:
+		return UsageCostTypeDataEgress
+	case pb.UsageCostType_USAGE_COST_TYPE_REMOTE_CONTROL:
+		return UsageCostTypeRemoteControl
+	case pb.UsageCostType_USAGE_COST_TYPE_STANDARD_COMPUTE:
+		return UsageCostTypeStandardCompute
+	case pb.UsageCostType_USAGE_COST_TYPE_CLOUD_STORAGE:
+		return UsageCostTypeCloudStorage
+	case pb.UsageCostType_USAGE_COST_TYPE_BINARY_DATA_CLOUD_STORAGE:
+		return UsageCostTypeBinaryDataCloudStorage
+	case pb.UsageCostType_USAGE_COST_TYPE_OTHER_CLOUD_STORAGE:
+		return UsageCostTypeOtherCloudStorage
+	case pb.UsageCostType_USAGE_COST_TYPE_PER_MACHINE:
+		return UsageCostTypePerMachine
+	default:
+		return UsageCostTypeUnspecified
+	}
+}
+
+func usageCostFromProto(cost *pb.UsageCost) *UsageCost {
+	return &UsageCost{
+		ResourceType: usageCostTypeFromProto(cost.ResourceType),
+		Cost:         cost.Cost,
+	}
+}
+
+func resourceUsageCostsFromProto(costs *pb.ResourceUsageCosts) *ResourceUsageCosts {
+	var usageCosts []*UsageCost
+	for _, cost := range costs.UsageCosts {
+		usageCosts = append(usageCosts, usageCostFromProto(cost))
+	}
+	return &ResourceUsageCosts{
+		UsageCosts:           usageCosts,
+		Discount:             costs.Discount,
+		TotalWithDiscount:    costs.TotalWithDiscount,
+		TotalWithoutDiscount: costs.TotalWithoutDiscount,
+	}
+}
+
+func sourceTypeFromProto(sourceType pb.SourceType) SourceType {
+	switch sourceType {
+	case pb.SourceType_SOURCE_TYPE_UNSPECIFIED:
+		return SourceTypeUnspecified
+	case pb.SourceType_SOURCE_TYPE_ORG:
+		return SourceTypeOrg
+	case pb.SourceType_SOURCE_TYPE_FRAGMENT:
+		return SourceTypeFragment
+	default:
+		return SourceTypeUnspecified
+	}
+}
+
+func resourceUsageCostsBySourceFromProto(costs *pb.ResourceUsageCostsBySource) *ResourceUsageCostsBySource {
+	return &ResourceUsageCostsBySource{
+		SourceType:         sourceTypeFromProto(costs.SourceType),
+		ResourceUsageCosts: resourceUsageCostsFromProto(costs.ResourceUsageCosts),
+		TierName:           costs.TierName,
+	}
+}
+
+func getCurrentMonthUsageResponseFromProto(response *pb.GetCurrentMonthUsageResponse) *GetCurrentMonthUsageResponse {
+	startDate := response.StartDate.AsTime()
+	endDate := response.EndDate.AsTime()
+	var costs []*ResourceUsageCostsBySource
+	for _, cost := range response.ResourceUsageCostsBySource {
+		costs = append(costs, resourceUsageCostsBySourceFromProto(cost))
+	}
+	return &GetCurrentMonthUsageResponse{
+		StartDate:                  &startDate,
+		EndDate:                    &endDate,
+		ResourceUsageCostsBySource: costs,
+		Subtotal:                   response.Subtotal,
+	}
+}
+
+func paymentMethodTypeFromProto(methodType pb.PaymentMethodType) PaymentMethodType {
+	switch methodType {
+	case pb.PaymentMethodType_PAYMENT_METHOD_TYPE_UNSPECIFIED:
+		return PaymentMethodTypeUnspecified
+	case pb.PaymentMethodType_PAYMENT_METHOD_TYPE_CARD:
+		return PaymentMethodtypeCard
+	default:
+		return PaymentMethodTypeUnspecified
+	}
+}
+
+func paymentMethodCardFromProto(card *pb.PaymentMethodCard) *PaymentMethodCard {
+	return &PaymentMethodCard{
+		Brand:          card.Brand,
+		LastFourDigits: card.LastFourDigits,
+	}
+}
+
+func getOrgBillingInformationResponseFromProto(resp *pb.GetOrgBillingInformationResponse) *GetOrgBillingInformationResponse {
+	return &GetOrgBillingInformationResponse{
+		Type:         paymentMethodTypeFromProto(resp.Type),
+		BillingEmail: resp.BillingEmail,
+		Method:       paymentMethodCardFromProto(resp.Method),
+		BillingTier:  resp.BillingTier,
+	}
+}
+
+func invoiceSummaryFromProto(summary *pb.InvoiceSummary) *InvoiceSummary {
+	invoiceDate := summary.InvoiceDate.AsTime()
+	dueDate := summary.DueDate.AsTime()
+	paidDate := summary.PaidDate.AsTime()
+	return &InvoiceSummary{
+		ID:            summary.Id,
+		InvoiceDate:   &invoiceDate,
+		InvoiceAmount: summary.InvoiceAmount,
+		Status:        summary.Status,
+		DueDate:       &dueDate,
+		PaidDate:      &paidDate,
+	}
+}
+
