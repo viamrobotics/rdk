@@ -16,6 +16,7 @@ const (
 	robotName       = "robot_name"
 	partName        = "part_name"
 	host            = "host_name"
+	email           = "email"
 )
 
 // Variables used throughout app testing.
