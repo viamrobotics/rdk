@@ -62,7 +62,7 @@ jobs:
       # note: the antique image intentionally has an old ubuntu with old GLIBC; github's node requires a newer one.
       # actions require this /__e/node20/bin/node file, so we override it.
       run: |
-        mkdir -p __e/node20/bin/
+        mkdir -p /__e/node20/bin/
         ln --force --symbolic $(which node) /__e/node20/bin/node
         /__e/node20/bin/node --version
 
