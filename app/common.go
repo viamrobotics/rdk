@@ -13,7 +13,7 @@ const (
 	partName        = "part_name"
 	host            = "host_name"
 	email           = "email"
-  secret          = "secret"
+	secret          = "secret"
 	fragmentID      = "fragment_id"
 )
 
