@@ -4,6 +4,7 @@ import (
 	"time"
 
 	mltrainingpb "go.viam.com/api/app/mltraining/v1"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // Constants used throughout app.
@@ -17,16 +18,33 @@ const (
 	partName        = "part_name"
 	host            = "host_name"
 	email           = "email"
+	datasetID    = "dataset_id"
+	version                        = "version"
+	modelType                      = ModelTypeObjectDetection
+	itemID                         = "item_id"
+	modelFramework                 = ModelFrameworkPyTorch
+	level                          = "level"
 )
 
 // Variables used throughout app.
 var (
 	organizationID = "organization_id"
 	start          = time.Now().UTC().Round(time.Millisecond)
+	pbStart = timestamppb.New(start)
 	end            = time.Now().UTC().Round(time.Millisecond)
+	pbEnd = timestamppb.New(end)
 	tags           = []string{tag}
 	limit          = 2
 	pbLimit        = uint64(limit)
+	pbModelType = modelTypeToProto(modelType)
+	message                        = "message"
+	siteURL  = "url.test.com"
+	createdOn     = time.Now().UTC().Round(time.Millisecond)
+	pbCreatedOn = timestamppb.New(createdOn)
+	lastUpdated           = time.Now().UTC().Round(time.Millisecond)
+	byteData     = []byte{4, 8}
+	pageToken = "page_token"
+	timestamp = time.Now().UTC().Round(time.Millisecond)
 )
 
 // Types used throughout app.
@@ -103,4 +121,20 @@ func modelFrameworkFromProto(framework mltrainingpb.ModelFramework) ModelFramewo
 		return ModelFrameworkONNX
 	}
 	return ModelFrameworkUnspecified
+}
+
+func modelFrameworkToProto(framework ModelFramework) mltrainingpb.ModelFramework {
+	switch framework {
+	case ModelFrameworkUnspecified:
+		return mltrainingpb.ModelFramework_MODEL_FRAMEWORK_UNSPECIFIED
+	case ModelFrameworkTFLite:
+		return mltrainingpb.ModelFramework_MODEL_FRAMEWORK_TFLITE
+	case ModelFrameworkTensorFlow:
+		return mltrainingpb.ModelFramework_MODEL_FRAMEWORK_TENSORFLOW
+	case ModelFrameworkPyTorch:
+		return mltrainingpb.ModelFramework_MODEL_FRAMEWORK_PYTORCH
+	case ModelFrameworkONNX:
+		return mltrainingpb.ModelFramework_MODEL_FRAMEWORK_ONNX
+	}
+	return mltrainingpb.ModelFramework_MODEL_FRAMEWORK_UNSPECIFIED
 }

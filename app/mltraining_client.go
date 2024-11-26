@@ -6,7 +6,8 @@ import (
 
 	pb "go.viam.com/api/app/mltraining/v1"
 	"go.viam.com/utils/rpc"
-	rpcstatus "google.golang.org/genproto/googleapis/rpc/status"
+	errorstatus "google.golang.org/genproto/googleapis/rpc/status"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // TrainingStatus respresents the status of a training job.
@@ -29,6 +30,19 @@ const (
 	TrainingStatusCanceling
 )
 
+// ErrorDetail contains an arbitrary serialized protocol buffer message along with a URL that describes the type of serialized message.
+type ErrorDetail struct {
+	TypeURL string
+	Value []byte
+}
+
+// ErrorStatus contains an error's code, message, and details.
+type ErrorStatus struct {
+	Code int
+	Message string
+	Details []*ErrorDetail
+}
+
 // TrainingJobMetadata contains the metadata for a training job.
 type TrainingJobMetadata struct {
 	ID                  string
@@ -42,7 +56,7 @@ type TrainingJobMetadata struct {
 	RegistryItemID      string
 	RegistryItemVersion string
 	Status              TrainingStatus
-	ErrorStatus         *rpcstatus.Status
+	ErrorStatus         *ErrorStatus
 	CreatedOn           *time.Time
 	LastModified        *time.Time
 	TrainingStarted     *time.Time
@@ -233,6 +247,28 @@ func trainingJobLogEntryFromProto(log *pb.TrainingJobLogEntry) *TrainingJobLogEn
 	}
 }
 
+func detailsFromProto(detail *anypb.Any) *ErrorDetail {
+	return &ErrorDetail{
+		TypeURL: detail.TypeUrl,
+		Value: detail.Value,
+	}
+}
+
+func errorStatusFromProto(status *errorstatus.Status) *ErrorStatus {
+	if status == nil {
+		return nil
+	}
+	var details []*ErrorDetail
+	for _, detail := range(status.Details) {
+		details = append(details, detailsFromProto(detail))
+	}
+	return &ErrorStatus{
+		Code: int(status.Code),
+		Message: status.Message,
+		Details: details,
+	}
+}
+
 func trainingJobMetadataFromProto(metadata *pb.TrainingJobMetadata) *TrainingJobMetadata {
 	createdOn := metadata.CreatedOn.AsTime()
 	lastModified := metadata.LastModified.AsTime()
@@ -248,9 +284,9 @@ func trainingJobMetadataFromProto(metadata *pb.TrainingJobMetadata) *TrainingJob
 		ModelFramework:      modelFrameworkFromProto(metadata.ModelFramework),
 		IsCustomJob:         metadata.IsCustomJob,
 		RegistryItemID:      metadata.RegistryItemId,
-		RegistryItemVersion: metadata.Id,
+		RegistryItemVersion: metadata.RegistryItemVersion,
 		Status:              trainingStatusFromProto(metadata.Status),
-		ErrorStatus:         metadata.ErrorStatus,
+		ErrorStatus:         errorStatusFromProto(metadata.ErrorStatus),
 		CreatedOn:           &createdOn,
 		LastModified:        &lastModified,
 		TrainingStarted:     &started,

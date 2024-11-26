@@ -23,7 +23,6 @@ const (
 	mimeType     = "mime_type"
 	uri          = "some.robot.uri"
 	bboxLabel    = "bbox_label"
-	datasetID    = "dataset_id"
 	binaryMetaID = "binary_id"
 	mongodbURI   = "mongo_uri"
 	last         = "last"
