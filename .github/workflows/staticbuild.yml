@@ -6,6 +6,9 @@ on:
       release_type:
         required: true
         type: string
+      no-upload:
+        type: boolean
+        description: if present, don't upload
   workflow_call:
     inputs:
       release_type:
@@ -110,7 +113,7 @@ jobs:
       run: echo "date=`date +%F`" >> $GITHUB_OUTPUT
 
     - name: Upload Files (Testing)
-      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' && !inputs.no-upload
       uses: google-github-actions/upload-cloud-storage@v0.10.4
       with:
         headers: "cache-control: no-cache"
@@ -121,7 +124,7 @@ jobs:
         gzip: false
 
     - name: Upload Manifest (Testing)
-      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' && !inputs.no-upload
       uses: google-github-actions/upload-cloud-storage@v0.10.4
       with:
         headers: "cache-control: no-cache"
@@ -147,7 +150,7 @@ jobs:
 
   static_test:
     name: Static Test
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' && !inputs.no-upload
     strategy:
       fail-fast: false
       matrix:
@@ -194,6 +197,7 @@ jobs:
   static_deploy:
     name: Static Deploy
     needs: static_test
+    if: !inputs.no-upload
     runs-on: ubuntu-latest
 
     steps:
