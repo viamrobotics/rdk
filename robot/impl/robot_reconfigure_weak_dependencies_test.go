@@ -447,5 +447,4 @@ func TestWeakDependentsInfiniteLoop(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	lRobot.getDependencies(context.Background(), base1Name, node)
 	test.That(t, weak1.reconfigCount, test.ShouldEqual, 5)
-
 }
