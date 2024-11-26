@@ -9,6 +9,7 @@ import (
 	setPb "go.viam.com/api/app/dataset/v1"
 	syncPb "go.viam.com/api/app/datasync/v1"
 	apppb "go.viam.com/api/app/v1"
+	provisioningpb "go.viam.com/api/provisioning/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -169,4 +170,14 @@ func TestNewAppClients(t *testing.T) {
 	dataClient2 := client.DataClient()
 	test.That(t, dataClient2, test.ShouldNotBeNil)
 	test.That(t, dataClient, test.ShouldEqual, dataClient2)
+
+	provisioningClient := client.ProvisioningClient()
+	test.That(t, provisioningClient, test.ShouldNotBeNil)
+	test.That(t, provisioningClient, test.ShouldHaveSameTypeAs, &ProvisioningClient{})
+	test.That(t, provisioningClient.client, test.ShouldImplement, (*provisioningpb.ProvisioningServiceClient)(nil))
+
+	// Testing that a second call to ProvisioningClient() returns the same instance
+	provisioningClient2 := client.ProvisioningClient()
+	test.That(t, provisioningClient2, test.ShouldNotBeNil)
+	test.That(t, provisioningClient, test.ShouldEqual, provisioningClient2)
 }

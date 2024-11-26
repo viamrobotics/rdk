@@ -17,6 +17,8 @@ const (
 	partName        = "part_name"
 	host            = "host_name"
 	email           = "email"
+	secret          = "secret"
+	fragmentID      = "fragment_id"
 )
 
 // Variables used throughout app testing.

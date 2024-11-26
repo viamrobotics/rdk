@@ -255,8 +255,7 @@ type BillingClient struct {
 	client pb.BillingServiceClient
 }
 
-// NewBillingClient constructs a new BillingClient using the connection passed in by the ViamClient.
-func NewBillingClient(conn rpc.ClientConn) *BillingClient {
+func newBillingClient(conn rpc.ClientConn) *BillingClient {
 	return &BillingClient{client: pb.NewBillingServiceClient(conn)}
 }
 

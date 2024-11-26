@@ -37,7 +37,6 @@ const (
 	robotCount                     = 1
 	robotLocation                  = "robot_location"
 	dnsName                        = "dns_name"
-	secret                         = "secret"
 	mainPart                       = false
 	fqdn                           = "fqdn"
 	localFQDN                      = "local_fqdn"
@@ -50,7 +49,6 @@ const (
 	isDeactivated                  = false
 	keyID                          = "key_id"
 	key                            = "key"
-	fragmentID                     = "fragment_id"
 	organizationOwner              = "organization_owner"
 	robotPartCount                 = 5
 	onlyUsedByOwner                = false
