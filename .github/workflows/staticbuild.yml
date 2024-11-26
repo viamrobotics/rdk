@@ -54,13 +54,10 @@ jobs:
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: 'true'
 
     steps:
-    - name: nodejs overrides
-      run: |
-        which node
-        ls -ls /usr/bin/node
-        /usr/bin/node --version
-        ls -ls /__e/node20/bin
-        /__e/node20/bin/node -version
+    - name: override nodejs
+      # note: the antique image intentionally has an old ubuntu with old GLIBC; github's node requires a newer one.
+      # we do this hack so actions can run.
+      run: ln --force --symbolic $(which node) /__e/node20/node
 
     - name: Check out code
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
