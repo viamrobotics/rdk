@@ -43,6 +43,9 @@ type StreamState struct {
 	streamSource  streamSource
 	// streamSourceSub is only non nil if streamSource == streamSourcePassthrough
 	streamSourceSub rtppassthrough.Subscription
+	// isResized indicates whether the stream has been resized by the stream server.
+	// When set to true, it signals that the passthrough stream should not be restarted.
+	isResized bool
 }
 
 // New returns a new *StreamState.
@@ -61,6 +64,7 @@ func New(
 		robot:     r,
 		msgChan:   make(chan msg),
 		tickChan:  make(chan struct{}),
+		isResized: false,
 		logger:    logger,
 	}
 
@@ -88,6 +92,24 @@ func (state *StreamState) Decrement() error {
 		return multierr.Combine(ErrClosed, err)
 	}
 	return state.send(msgTypeDecrement)
+}
+
+// Resize notifies that the gostream source has been resized. This will stop and prevent
+// the use of the passthrough stream if it is supported.
+func (state *StreamState) Resize() error {
+	if err := state.closedCtx.Err(); err != nil {
+		return multierr.Combine(ErrClosed, err)
+	}
+	return state.send(msgTypeResize)
+}
+
+// Reset notifies that the gostream source has been reset to the original resolution.
+// This will restart the passthrough stream if it is supported.
+func (state *StreamState) Reset() error {
+	if err := state.closedCtx.Err(); err != nil {
+		return multierr.Combine(ErrClosed, err)
+	}
+	return state.send(msgTypeReset)
 }
 
 // Close closes the StreamState.
@@ -129,6 +151,8 @@ const (
 	msgTypeUnknown msgType = iota
 	msgTypeIncrement
 	msgTypeDecrement
+	msgTypeResize
+	msgTypeReset
 )
 
 func (mt msgType) String() string {
@@ -137,6 +161,10 @@ func (mt msgType) String() string {
 		return "Increment"
 	case msgTypeDecrement:
 		return "Decrement"
+	case msgTypeResize:
+		return "Resize"
+	case msgTypeReset:
+		return "Reset"
 	case msgTypeUnknown:
 		fallthrough
 	default:
@@ -185,6 +213,14 @@ func (state *StreamState) sourceEventHandler() {
 			if state.activeClients == 0 {
 				state.tick()
 			}
+		case msgTypeResize:
+			state.logger.Debug("resize event received")
+			state.isResized = true
+			state.tick()
+		case msgTypeReset:
+			state.logger.Debug("reset event received")
+			state.isResized = false
+			state.tick()
 		case msgTypeUnknown:
 			fallthrough
 		default:
@@ -247,6 +283,11 @@ func (state *StreamState) tick() {
 		// stop stream if there are no active clients
 		// noop if there is no stream source
 		state.stopInputStream()
+	// If streamSource is unknown and resized is true, we do not want to attempt passthrough.
+	case state.streamSource == streamSourceUnknown && state.isResized:
+		state.logger.Debug("in a resized state and stream source is unknown, defaulting to GoStream")
+		state.Stream.Start()
+		state.streamSource = streamSourceGoStream
 	case state.streamSource == streamSourceUnknown: // && state.activeClients > 0
 		// this is the first subscription, attempt passthrough
 		state.logger.Info("attempting to subscribe to rtp_passthrough")
@@ -257,6 +298,13 @@ func (state *StreamState) tick() {
 			state.Stream.Start()
 			state.streamSource = streamSourceGoStream
 		}
+	// If we are currently using passthrough, and the stream state changes to resized
+	// we need to stop the passthrough stream and restart it through gostream.
+	case state.streamSource == streamSourcePassthrough && state.isResized:
+		state.logger.Info("stream resized, stopping passthrough stream")
+		state.stopInputStream()
+		state.Stream.Start()
+		state.streamSource = streamSourceGoStream
 	case state.streamSource == streamSourcePassthrough && state.streamSourceSub.Terminated.Err() != nil:
 		// restart stream if there we were using passthrough but the sub is terminated
 		state.logger.Info("previous subscription terminated attempting to subscribe to rtp_passthrough")
@@ -271,7 +319,7 @@ func (state *StreamState) tick() {
 	case state.streamSource == streamSourcePassthrough:
 		// no op if we are using passthrough & are healthy
 		state.logger.Debug("still healthy and using h264 passthrough")
-	case state.streamSource == streamSourceGoStream:
+	case state.streamSource == streamSourceGoStream && !state.isResized:
 		// Try to upgrade to passthrough if we are using gostream. We leave logs these as debugs as
 		// we expect some components to not implement rtp passthrough.
 		state.logger.Debugw("currently using gostream, trying upgrade to rtp_passthrough")

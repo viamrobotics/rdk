@@ -3,11 +3,16 @@ package app
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	pb "go.viam.com/api/app/data/v1"
+	syncPb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -18,7 +23,8 @@ import (
 
 // DataClient implements the DataServiceClient interface.
 type DataClient struct {
-	client pb.DataServiceClient
+	dataClient     pb.DataServiceClient
+	dataSyncClient syncPb.DataSyncServiceClient
 }
 
 // Order specifies the order in which data is returned.
@@ -37,7 +43,7 @@ const (
 //nolint:revive // stutter: Ignore the "stuttering" warning for this type name
 type DataRequest struct {
 	Filter    Filter
-	Limit     uint64
+	Limit     int
 	Last      string
 	SortOrder Order
 }
@@ -102,7 +108,7 @@ type CaptureInterval struct {
 // TabularData contains data and metadata associated with tabular data.
 type TabularData struct {
 	Data          map[string]interface{}
-	MetadataIndex uint32
+	MetadataIndex int
 	Metadata      CaptureMetadata
 	TimeRequested time.Time
 	TimeReceived  time.Time
@@ -155,7 +161,7 @@ type Annotations struct {
 // the total number of entries retrieved (Count), and the ID of the last returned page (Last).
 type TabularDataReturn struct {
 	TabularData []TabularData
-	Count       uint64
+	Count       int
 	Last        string
 }
 
@@ -164,7 +170,7 @@ type TabularDataReturn struct {
 // the total number of entries retrieved (Count), and the ID of the last returned page (Last).
 type BinaryDataReturn struct {
 	BinaryData []BinaryData
-	Count      uint64
+	Count      int
 	Last       string
 }
 
@@ -185,13 +191,111 @@ type LatestTabularDataReturn struct {
 	Payload      *structpb.Struct
 }
 
-// NewDataClient constructs a new DataClient using the connection passed in by the viamClient.
-func NewDataClient(
-	conn rpc.ClientConn,
-) *DataClient {
+// DataSyncClient structs
+
+// SensorMetadata contains the time the sensor data was requested and was received.
+type SensorMetadata struct {
+	TimeRequested time.Time
+	TimeReceived  time.Time
+	MimeType      MimeType
+	Annotations   Annotations
+}
+
+// SensorData contains the contents and metadata for tabular data.
+type SensorData struct {
+	Metadata SensorMetadata
+	SDStruct map[string]interface{}
+	SDBinary []byte
+}
+
+// DataType specifies the type of data uploaded.
+type DataType int32
+
+// DataType constants define the possible DataType options.
+const (
+	DataTypeUnspecified DataType = iota
+	DataTypeBinarySensor
+	DataTypeTabularSensor
+	DataTypeFile
+)
+
+// MimeType specifies the format of a file being uploaded.
+type MimeType int32
+
+// MimeType constants define the possible MimeType options.
+const (
+	MimeTypeUnspecified MimeType = iota
+	MimeTypeJPEG
+	MimeTypePNG
+	MimeTypePCD
+)
+
+// UploadMetadata contains the metadata for binary (image + file) data.
+type UploadMetadata struct {
+	PartID           string
+	ComponentType    string
+	ComponentName    string
+	MethodName       string
+	Type             DataType
+	FileName         string
+	MethodParameters map[string]interface{}
+	FileExtension    string
+	Tags             []string
+}
+
+// FileData contains the contents of binary (image + file) data.
+type FileData struct {
+	Data []byte
+}
+
+// BinaryOptions represents optional parameters for the BinaryDataCaptureUpload method.
+type BinaryOptions struct {
+	Type             *DataType
+	FileName         *string
+	MethodParameters map[string]interface{}
+	Tags             []string
+	DataRequestTimes *[2]time.Time
+}
+
+// TabularOptions represents optional parameters for the TabularDataCaptureUpload method.
+type TabularOptions struct {
+	Type             *DataType
+	FileName         *string
+	MethodParameters map[string]interface{}
+	FileExtension    *string
+	Tags             []string
+}
+
+// StreamingOptions represents optional parameters for the StreamingDataCaptureUpload method.
+type StreamingOptions struct {
+	ComponentType    *string
+	ComponentName    *string
+	MethodName       *string
+	Type             *DataType
+	FileName         *string
+	MethodParameters map[string]interface{}
+	Tags             []string
+	DataRequestTimes *[2]time.Time
+}
+
+// FileUploadOptions represents optional parameters for the FileUploadFromPath & FileUploadFromBytes methods.
+type FileUploadOptions struct {
+	ComponentType    *string
+	ComponentName    *string
+	MethodName       *string
+	FileName         *string
+	MethodParameters map[string]interface{}
+	FileExtension    *string
+	Tags             []string
+}
+
+// NewDataClient constructs a new DataClient using the connection passed in by the ViamClient.
+func NewDataClient(conn rpc.ClientConn) *DataClient {
 	d := pb.NewDataServiceClient(conn)
+	s := syncPb.NewDataSyncServiceClient(conn)
 	return &DataClient{
-		client: d,
+		dataClient:     d,
+		dataSyncClient: s,
 	}
 }
 
@@ -251,27 +355,6 @@ func captureMetadataFromProto(proto *pb.CaptureMetadata) CaptureMetadata {
 	}
 }
 
-func captureMetadataToProto(metadata CaptureMetadata) *pb.CaptureMetadata {
-	methodParams, err := protoutils.ConvertMapToProtoAny(metadata.MethodParameters)
-	if err != nil {
-		return nil
-	}
-	return &pb.CaptureMetadata{
-		OrganizationId:   metadata.OrganizationID,
-		LocationId:       metadata.LocationID,
-		RobotName:        metadata.RobotName,
-		RobotId:          metadata.RobotID,
-		PartName:         metadata.PartName,
-		PartId:           metadata.PartID,
-		ComponentType:    metadata.ComponentType,
-		ComponentName:    metadata.ComponentName,
-		MethodName:       metadata.MethodName,
-		MethodParameters: methodParams,
-		Tags:             metadata.Tags,
-		MimeType:         metadata.MimeType,
-	}
-}
-
 func binaryDataFromProto(proto *pb.BinaryData) BinaryData {
 	return BinaryData{
 		Binary:   proto.Binary,
@@ -296,7 +379,7 @@ func binaryMetadataFromProto(proto *pb.BinaryMetadata) BinaryMetadata {
 func tabularDataFromProto(proto *pb.TabularData, metadata *pb.CaptureMetadata) TabularData {
 	return TabularData{
 		Data:          proto.Data.AsMap(),
-		MetadataIndex: proto.MetadataIndex,
+		MetadataIndex: int(proto.MetadataIndex),
 		Metadata:      captureMetadataFromProto(metadata),
 		TimeRequested: proto.TimeRequested.AsTime(),
 		TimeReceived:  proto.TimeReceived.AsTime(),
@@ -417,16 +500,16 @@ func BsonToGo(rawData [][]byte) ([]map[string]interface{}, error) {
 func (d *DataClient) TabularDataByFilter(
 	ctx context.Context,
 	filter Filter,
-	limit uint64,
+	limit int,
 	last string,
 	sortOrder Order,
 	countOnly bool,
 	includeInternalData bool,
 ) (TabularDataReturn, error) {
-	resp, err := d.client.TabularDataByFilter(ctx, &pb.TabularDataByFilterRequest{
+	resp, err := d.dataClient.TabularDataByFilter(ctx, &pb.TabularDataByFilterRequest{
 		DataRequest: &pb.DataRequest{
 			Filter:    filterToProto(filter),
-			Limit:     limit,
+			Limit:     uint64(limit),
 			Last:      last,
 			SortOrder: orderToProto(sortOrder),
 		},
@@ -440,10 +523,9 @@ func (d *DataClient) TabularDataByFilter(
 	dataArray := []TabularData{}
 	var metadata *pb.CaptureMetadata
 	for _, data := range resp.Data {
-		if len(resp.Metadata) > 0 && int(data.MetadataIndex) < len(resp.Metadata) {
+		if int(data.MetadataIndex) < len(resp.Metadata) {
 			metadata = resp.Metadata[data.MetadataIndex]
 		} else {
-			// Use an empty CaptureMetadata as a fallback
 			metadata = &pb.CaptureMetadata{}
 		}
 		dataArray = append(dataArray, tabularDataFromProto(data, metadata))
@@ -451,14 +533,14 @@ func (d *DataClient) TabularDataByFilter(
 
 	return TabularDataReturn{
 		TabularData: dataArray,
-		Count:       resp.Count,
+		Count:       int(resp.Count),
 		Last:        resp.Last,
 	}, nil
 }
 
 // TabularDataBySQL queries tabular data with a SQL query.
 func (d *DataClient) TabularDataBySQL(ctx context.Context, organizationID, sqlQuery string) ([]map[string]interface{}, error) {
-	resp, err := d.client.TabularDataBySQL(ctx, &pb.TabularDataBySQLRequest{
+	resp, err := d.dataClient.TabularDataBySQL(ctx, &pb.TabularDataBySQLRequest{
 		OrganizationId: organizationID,
 		SqlQuery:       sqlQuery,
 	})
@@ -474,7 +556,7 @@ func (d *DataClient) TabularDataBySQL(ctx context.Context, organizationID, sqlQu
 
 // TabularDataByMQL queries tabular data with an MQL (MongoDB Query Language) query.
 func (d *DataClient) TabularDataByMQL(ctx context.Context, organizationID string, mqlbinary [][]byte) ([]map[string]interface{}, error) {
-	resp, err := d.client.TabularDataByMQL(ctx, &pb.TabularDataByMQLRequest{
+	resp, err := d.dataClient.TabularDataByMQL(ctx, &pb.TabularDataByMQLRequest{
 		OrganizationId: organizationID,
 		MqlBinary:      mqlbinary,
 	})
@@ -515,17 +597,17 @@ func (d *DataClient) GetLatestTabularData(ctx context.Context, partID, resourceN
 func (d *DataClient) BinaryDataByFilter(
 	ctx context.Context,
 	filter Filter,
-	limit uint64,
+	limit int,
 	sortOrder Order,
 	last string,
 	includeBinary bool,
 	countOnly bool,
 	includeInternalData bool,
 ) (BinaryDataReturn, error) {
-	resp, err := d.client.BinaryDataByFilter(ctx, &pb.BinaryDataByFilterRequest{
+	resp, err := d.dataClient.BinaryDataByFilter(ctx, &pb.BinaryDataByFilterRequest{
 		DataRequest: &pb.DataRequest{
 			Filter:    filterToProto(filter),
-			Limit:     limit,
+			Limit:     uint64(limit),
 			Last:      last,
 			SortOrder: orderToProto(sortOrder),
 		},
@@ -542,14 +624,14 @@ func (d *DataClient) BinaryDataByFilter(
 	}
 	return BinaryDataReturn{
 		BinaryData: data,
-		Count:      resp.Count,
+		Count:      int(resp.Count),
 		Last:       resp.Last,
 	}, nil
 }
 
 // BinaryDataByIDs queries binary data and metadata based on given IDs.
 func (d *DataClient) BinaryDataByIDs(ctx context.Context, binaryIDs []BinaryID) ([]BinaryData, error) {
-	resp, err := d.client.BinaryDataByIDs(ctx, &pb.BinaryDataByIDsRequest{
+	resp, err := d.dataClient.BinaryDataByIDs(ctx, &pb.BinaryDataByIDsRequest{
 		IncludeBinary: true,
 		BinaryIds:     binaryIDsToProto(binaryIDs),
 	})
@@ -565,45 +647,45 @@ func (d *DataClient) BinaryDataByIDs(ctx context.Context, binaryIDs []BinaryID) 
 
 // DeleteTabularData deletes tabular data older than a number of days, based on the given organization ID.
 // It returns the number of tabular datapoints deleted.
-func (d *DataClient) DeleteTabularData(ctx context.Context, organizationID string, deleteOlderThanDays uint32) (uint64, error) {
-	resp, err := d.client.DeleteTabularData(ctx, &pb.DeleteTabularDataRequest{
+func (d *DataClient) DeleteTabularData(ctx context.Context, organizationID string, deleteOlderThanDays int) (int, error) {
+	resp, err := d.dataClient.DeleteTabularData(ctx, &pb.DeleteTabularDataRequest{
 		OrganizationId:      organizationID,
-		DeleteOlderThanDays: deleteOlderThanDays,
+		DeleteOlderThanDays: uint32(deleteOlderThanDays),
 	})
 	if err != nil {
 		return 0, err
 	}
-	return resp.DeletedCount, nil
+	return int(resp.DeletedCount), nil
 }
 
 // DeleteBinaryDataByFilter deletes binary data based on given filters.
 // It returns the number of binary datapoints deleted.
-func (d *DataClient) DeleteBinaryDataByFilter(ctx context.Context, filter Filter) (uint64, error) {
-	resp, err := d.client.DeleteBinaryDataByFilter(ctx, &pb.DeleteBinaryDataByFilterRequest{
+func (d *DataClient) DeleteBinaryDataByFilter(ctx context.Context, filter Filter) (int, error) {
+	resp, err := d.dataClient.DeleteBinaryDataByFilter(ctx, &pb.DeleteBinaryDataByFilterRequest{
 		Filter:              filterToProto(filter),
 		IncludeInternalData: true,
 	})
 	if err != nil {
 		return 0, err
 	}
-	return resp.DeletedCount, nil
+	return int(resp.DeletedCount), nil
 }
 
 // DeleteBinaryDataByIDs deletes binary data based on given IDs.
 // It returns the number of binary datapoints deleted.
-func (d *DataClient) DeleteBinaryDataByIDs(ctx context.Context, binaryIDs []BinaryID) (uint64, error) {
-	resp, err := d.client.DeleteBinaryDataByIDs(ctx, &pb.DeleteBinaryDataByIDsRequest{
+func (d *DataClient) DeleteBinaryDataByIDs(ctx context.Context, binaryIDs []BinaryID) (int, error) {
+	resp, err := d.dataClient.DeleteBinaryDataByIDs(ctx, &pb.DeleteBinaryDataByIDsRequest{
 		BinaryIds: binaryIDsToProto(binaryIDs),
 	})
 	if err != nil {
 		return 0, err
 	}
-	return resp.DeletedCount, nil
+	return int(resp.DeletedCount), nil
 }
 
 // AddTagsToBinaryDataByIDs adds string tags, unless the tags are already present, to binary data based on given IDs.
 func (d *DataClient) AddTagsToBinaryDataByIDs(ctx context.Context, tags []string, binaryIDs []BinaryID) error {
-	_, err := d.client.AddTagsToBinaryDataByIDs(ctx, &pb.AddTagsToBinaryDataByIDsRequest{
+	_, err := d.dataClient.AddTagsToBinaryDataByIDs(ctx, &pb.AddTagsToBinaryDataByIDsRequest{
 		BinaryIds: binaryIDsToProto(binaryIDs),
 		Tags:      tags,
 	})
@@ -612,7 +694,7 @@ func (d *DataClient) AddTagsToBinaryDataByIDs(ctx context.Context, tags []string
 
 // AddTagsToBinaryDataByFilter adds string tags, unless the tags are already present, to binary data based on the given filter.
 func (d *DataClient) AddTagsToBinaryDataByFilter(ctx context.Context, tags []string, filter Filter) error {
-	_, err := d.client.AddTagsToBinaryDataByFilter(ctx, &pb.AddTagsToBinaryDataByFilterRequest{
+	_, err := d.dataClient.AddTagsToBinaryDataByFilter(ctx, &pb.AddTagsToBinaryDataByFilterRequest{
 		Filter: filterToProto(filter),
 		Tags:   tags,
 	})
@@ -623,36 +705,36 @@ func (d *DataClient) AddTagsToBinaryDataByFilter(ctx context.Context, tags []str
 // It returns the number of binary files which had tags removed.
 func (d *DataClient) RemoveTagsFromBinaryDataByIDs(ctx context.Context,
 	tags []string, binaryIDs []BinaryID,
-) (uint64, error) {
-	resp, err := d.client.RemoveTagsFromBinaryDataByIDs(ctx, &pb.RemoveTagsFromBinaryDataByIDsRequest{
+) (int, error) {
+	resp, err := d.dataClient.RemoveTagsFromBinaryDataByIDs(ctx, &pb.RemoveTagsFromBinaryDataByIDsRequest{
 		BinaryIds: binaryIDsToProto(binaryIDs),
 		Tags:      tags,
 	})
 	if err != nil {
 		return 0, err
 	}
-	return resp.DeletedCount, nil
+	return int(resp.DeletedCount), nil
 }
 
 // RemoveTagsFromBinaryDataByFilter removes the specified string tags from binary data that match the given filter.
 // It returns the number of binary files from which tags were removed.
 func (d *DataClient) RemoveTagsFromBinaryDataByFilter(ctx context.Context,
 	tags []string, filter Filter,
-) (uint64, error) {
-	resp, err := d.client.RemoveTagsFromBinaryDataByFilter(ctx, &pb.RemoveTagsFromBinaryDataByFilterRequest{
+) (int, error) {
+	resp, err := d.dataClient.RemoveTagsFromBinaryDataByFilter(ctx, &pb.RemoveTagsFromBinaryDataByFilterRequest{
 		Filter: filterToProto(filter),
 		Tags:   tags,
 	})
 	if err != nil {
 		return 0, err
 	}
-	return resp.DeletedCount, nil
+	return int(resp.DeletedCount), nil
 }
 
 // TagsByFilter retrieves all unique tags associated with the data that match the specified filter.
 // It returns the list of these unique tags.
 func (d *DataClient) TagsByFilter(ctx context.Context, filter Filter) ([]string, error) {
-	resp, err := d.client.TagsByFilter(ctx, &pb.TagsByFilterRequest{
+	resp, err := d.dataClient.TagsByFilter(ctx, &pb.TagsByFilterRequest{
 		Filter: filterToProto(filter),
 	})
 	if err != nil {
@@ -673,7 +755,7 @@ func (d *DataClient) AddBoundingBoxToImageByID(
 	xMaxNormalized float64,
 	yMaxNormalized float64,
 ) (string, error) {
-	resp, err := d.client.AddBoundingBoxToImageByID(ctx, &pb.AddBoundingBoxToImageByIDRequest{
+	resp, err := d.dataClient.AddBoundingBoxToImageByID(ctx, &pb.AddBoundingBoxToImageByIDRequest{
 		BinaryId:       binaryIDToProto(binaryID),
 		Label:          label,
 		XMinNormalized: xMinNormalized,
@@ -693,7 +775,7 @@ func (d *DataClient) RemoveBoundingBoxFromImageByID(
 	bboxID string,
 	binaryID BinaryID,
 ) error {
-	_, err := d.client.RemoveBoundingBoxFromImageByID(ctx, &pb.RemoveBoundingBoxFromImageByIDRequest{
+	_, err := d.dataClient.RemoveBoundingBoxFromImageByID(ctx, &pb.RemoveBoundingBoxFromImageByIDRequest{
 		BinaryId: binaryIDToProto(binaryID),
 		BboxId:   bboxID,
 	})
@@ -703,7 +785,7 @@ func (d *DataClient) RemoveBoundingBoxFromImageByID(
 // BoundingBoxLabelsByFilter retrieves all unique string labels for bounding boxes that match the specified filter.
 // It returns a list of these labels.
 func (d *DataClient) BoundingBoxLabelsByFilter(ctx context.Context, filter Filter) ([]string, error) {
-	resp, err := d.client.BoundingBoxLabelsByFilter(ctx, &pb.BoundingBoxLabelsByFilterRequest{
+	resp, err := d.dataClient.BoundingBoxLabelsByFilter(ctx, &pb.BoundingBoxLabelsByFilterRequest{
 		Filter: filterToProto(filter),
 	})
 	if err != nil {
@@ -724,7 +806,7 @@ func (d *DataClient) UpdateBoundingBox(ctx context.Context,
 	xMaxNormalized *float64, // optional
 	yMaxNormalized *float64, // optional
 ) error {
-	_, err := d.client.UpdateBoundingBox(ctx, &pb.UpdateBoundingBoxRequest{
+	_, err := d.dataClient.UpdateBoundingBox(ctx, &pb.UpdateBoundingBoxRequest{
 		BinaryId:       binaryIDToProto(binaryID),
 		BboxId:         bboxID,
 		Label:          label,
@@ -740,7 +822,7 @@ func (d *DataClient) UpdateBoundingBox(ctx context.Context,
 // It returns the hostname endpoint, a URI for connecting to the database via MongoDB clients,
 // and a flag indicating whether a database user is configured for the Viam organization.
 func (d *DataClient) GetDatabaseConnection(ctx context.Context, organizationID string) (DatabaseConnReturn, error) {
-	resp, err := d.client.GetDatabaseConnection(ctx, &pb.GetDatabaseConnectionRequest{
+	resp, err := d.dataClient.GetDatabaseConnection(ctx, &pb.GetDatabaseConnectionRequest{
 		OrganizationId: organizationID,
 	})
 	if err != nil {
@@ -759,7 +841,7 @@ func (d *DataClient) ConfigureDatabaseUser(
 	organizationID string,
 	password string,
 ) error {
-	_, err := d.client.ConfigureDatabaseUser(ctx, &pb.ConfigureDatabaseUserRequest{
+	_, err := d.dataClient.ConfigureDatabaseUser(ctx, &pb.ConfigureDatabaseUserRequest{
 		OrganizationId: organizationID,
 		Password:       password,
 	})
@@ -772,7 +854,7 @@ func (d *DataClient) AddBinaryDataToDatasetByIDs(
 	binaryIDs []BinaryID,
 	datasetID string,
 ) error {
-	_, err := d.client.AddBinaryDataToDatasetByIDs(ctx, &pb.AddBinaryDataToDatasetByIDsRequest{
+	_, err := d.dataClient.AddBinaryDataToDatasetByIDs(ctx, &pb.AddBinaryDataToDatasetByIDsRequest{
 		BinaryIds: binaryIDsToProto(binaryIDs),
 		DatasetId: datasetID,
 	})
@@ -785,9 +867,452 @@ func (d *DataClient) RemoveBinaryDataFromDatasetByIDs(
 	binaryIDs []BinaryID,
 	datasetID string,
 ) error {
-	_, err := d.client.RemoveBinaryDataFromDatasetByIDs(ctx, &pb.RemoveBinaryDataFromDatasetByIDsRequest{
+	_, err := d.dataClient.RemoveBinaryDataFromDatasetByIDs(ctx, &pb.RemoveBinaryDataFromDatasetByIDsRequest{
 		BinaryIds: binaryIDsToProto(binaryIDs),
 		DatasetId: datasetID,
 	})
 	return err
+}
+
+func uploadMetadataToProto(metadata UploadMetadata) *syncPb.UploadMetadata {
+	var methodParams map[string]*anypb.Any
+	if metadata.MethodParameters != nil {
+		var err error
+		methodParams, err = protoutils.ConvertMapToProtoAny(metadata.MethodParameters)
+		if err != nil {
+			return nil
+		}
+	}
+	return &syncPb.UploadMetadata{
+		PartId:           metadata.PartID,
+		ComponentType:    metadata.ComponentType,
+		ComponentName:    metadata.ComponentName,
+		MethodName:       metadata.MethodName,
+		Type:             syncPb.DataType(metadata.Type),
+		FileName:         metadata.FileName,
+		MethodParameters: methodParams,
+		FileExtension:    metadata.FileExtension,
+		Tags:             metadata.Tags,
+	}
+}
+
+func annotationsToProto(annotations Annotations) *pb.Annotations {
+	var protoBboxes []*pb.BoundingBox
+	for _, bbox := range annotations.Bboxes {
+		protoBboxes = append(protoBboxes, &pb.BoundingBox{
+			Id:             bbox.ID,
+			Label:          bbox.Label,
+			XMinNormalized: bbox.XMinNormalized,
+			YMinNormalized: bbox.YMinNormalized,
+			XMaxNormalized: bbox.XMaxNormalized,
+			YMaxNormalized: bbox.YMaxNormalized,
+		})
+	}
+	return &pb.Annotations{
+		Bboxes: protoBboxes,
+	}
+}
+
+func sensorMetadataToProto(metadata SensorMetadata) *syncPb.SensorMetadata {
+	return &syncPb.SensorMetadata{
+		TimeRequested: timestamppb.New(metadata.TimeRequested),
+		TimeReceived:  timestamppb.New(metadata.TimeReceived),
+		MimeType:      syncPb.MimeType(metadata.MimeType),
+		Annotations:   annotationsToProto(metadata.Annotations),
+	}
+}
+
+// Ensure only one of SDStruct or SDBinary is set.
+func validateSensorData(sensorData SensorData) error {
+	if sensorData.SDStruct != nil && len(sensorData.SDBinary) > 0 {
+		return errors.New("sensorData cannot have both SDStruct and SDBinary set")
+	}
+	return nil
+}
+
+func sensorDataToProto(sensorData SensorData) (*syncPb.SensorData, error) {
+	if err := validateSensorData(sensorData); err != nil {
+		return nil, err
+	}
+	switch {
+	case len(sensorData.SDBinary) > 0:
+		return &syncPb.SensorData{
+			Metadata: sensorMetadataToProto(sensorData.Metadata),
+			Data: &syncPb.SensorData_Binary{
+				Binary: sensorData.SDBinary,
+			},
+		}, nil
+	case sensorData.SDStruct != nil:
+		pbStruct, err := structpb.NewStruct(sensorData.SDStruct)
+		if err != nil {
+			return nil, err
+		}
+		return &syncPb.SensorData{
+			Metadata: sensorMetadataToProto(sensorData.Metadata),
+			Data: &syncPb.SensorData_Struct{
+				Struct: pbStruct,
+			},
+		}, nil
+	default:
+		return nil, errors.New("sensorData must have either SDStruct or SDBinary set")
+	}
+}
+
+func sensorContentsToProto(sensorContents []SensorData) ([]*syncPb.SensorData, error) {
+	var protoSensorContents []*syncPb.SensorData
+	for _, item := range sensorContents {
+		protoItem, err := sensorDataToProto(item)
+		if err != nil {
+			return nil, err // Propagate the error
+		}
+		protoSensorContents = append(protoSensorContents, protoItem)
+	}
+	return protoSensorContents, nil
+}
+
+func formatFileExtension(fileExt string) string {
+	if fileExt == "" {
+		return fileExt
+	}
+	if fileExt[0] == '.' {
+		return fileExt
+	}
+	return "." + fileExt
+}
+
+// BinaryDataCaptureUpload uploads the contents and metadata for binary data.
+func (d *DataClient) BinaryDataCaptureUpload(
+	ctx context.Context,
+	binaryData []byte,
+	partID string,
+	componentType string,
+	componentName string,
+	methodName string,
+	fileExtension string,
+	options *BinaryOptions,
+) (string, error) {
+	var sensorMetadata SensorMetadata
+	if options.DataRequestTimes != nil && len(options.DataRequestTimes) == 2 {
+		sensorMetadata = SensorMetadata{
+			TimeRequested: options.DataRequestTimes[0],
+			TimeReceived:  options.DataRequestTimes[1],
+		}
+	}
+	sensorData := SensorData{
+		Metadata: sensorMetadata,
+		SDStruct: nil,
+		SDBinary: binaryData,
+	}
+	metadata := UploadMetadata{
+		PartID:        partID,
+		ComponentType: componentType,
+		ComponentName: componentName,
+		MethodName:    methodName,
+		Type:          DataTypeBinarySensor,
+		FileExtension: formatFileExtension(fileExtension),
+	}
+	if options.FileName != nil {
+		metadata.FileName = *options.FileName
+	}
+	if options.MethodParameters != nil {
+		metadata.MethodParameters = options.MethodParameters
+	}
+	if options.Tags != nil {
+		metadata.Tags = options.Tags
+	}
+
+	response, err := d.dataCaptureUpload(ctx, metadata, []SensorData{sensorData})
+	if err != nil {
+		return "", err
+	}
+	return response, nil
+}
+
+// TabularDataCaptureUpload uploads the contents and metadata for tabular data.
+func (d *DataClient) TabularDataCaptureUpload(
+	ctx context.Context,
+	tabularData []map[string]interface{},
+	partID string,
+	componentType string,
+	componentName string,
+	methodName string,
+	dataRequestTimes [][2]time.Time,
+	options *TabularOptions,
+) (string, error) {
+	if len(dataRequestTimes) != len(tabularData) {
+		return "", errors.New("dataRequestTimes and tabularData lengths must be equal")
+	}
+	var sensorContents []SensorData
+	for i, tabData := range tabularData {
+		sensorMetadata := SensorMetadata{}
+		dates := dataRequestTimes[i]
+		if len(dates) == 2 {
+			sensorMetadata.TimeRequested = dates[0]
+			sensorMetadata.TimeReceived = dates[1]
+		}
+		sensorData := SensorData{
+			Metadata: sensorMetadata,
+			SDStruct: tabData,
+			SDBinary: nil,
+		}
+		sensorContents = append(sensorContents, sensorData)
+	}
+	metadata := UploadMetadata{
+		PartID:        partID,
+		ComponentType: componentType,
+		ComponentName: componentName,
+		MethodName:    methodName,
+		Type:          DataTypeTabularSensor,
+	}
+
+	if options.FileName != nil {
+		metadata.FileName = *options.FileName
+	}
+	if options.MethodParameters != nil {
+		metadata.MethodParameters = options.MethodParameters
+	}
+	if options.FileExtension != nil {
+		metadata.FileExtension = formatFileExtension(*options.FileExtension)
+	}
+	if options.Tags != nil {
+		metadata.Tags = options.Tags
+	}
+	response, err := d.dataCaptureUpload(ctx, metadata, sensorContents)
+	if err != nil {
+		return "", err
+	}
+	return response, nil
+}
+
+// dataCaptureUpload uploads the metadata and contents for either tabular or binary data,
+// and returns the file ID associated with the uploaded data and metadata.
+func (d *DataClient) dataCaptureUpload(ctx context.Context, metadata UploadMetadata, sensorContents []SensorData) (string, error) {
+	sensorContentsPb, err := sensorContentsToProto(sensorContents)
+	if err != nil {
+		return "", err
+	}
+	resp, err := d.dataSyncClient.DataCaptureUpload(ctx, &syncPb.DataCaptureUploadRequest{
+		Metadata:       uploadMetadataToProto(metadata),
+		SensorContents: sensorContentsPb,
+	})
+	if err != nil {
+		return "", err
+	}
+	return resp.FileId, nil
+}
+
+// StreamingDataCaptureUpload uploads metadata and streaming binary data in chunks.
+func (d *DataClient) StreamingDataCaptureUpload(
+	ctx context.Context,
+	data []byte,
+	partID string,
+	fileExt string,
+	options *StreamingOptions,
+) (string, error) {
+	uploadMetadata := UploadMetadata{
+		PartID:        partID,
+		Type:          DataTypeBinarySensor,
+		FileExtension: fileExt,
+	}
+	if options.ComponentType != nil {
+		uploadMetadata.ComponentType = *options.ComponentType
+	}
+	if options.ComponentName != nil {
+		uploadMetadata.ComponentName = *options.ComponentName
+	}
+	if options.MethodName != nil {
+		uploadMetadata.MethodName = *options.MethodName
+	}
+	if options.FileName != nil {
+		uploadMetadata.FileName = *options.FileName
+	}
+	if options.MethodParameters != nil {
+		uploadMetadata.MethodParameters = options.MethodParameters
+	}
+	if options.Tags != nil {
+		uploadMetadata.Tags = options.Tags
+	}
+	uploadMetadataPb := uploadMetadataToProto(uploadMetadata)
+	var sensorMetadata SensorMetadata
+	if options.DataRequestTimes != nil && len(options.DataRequestTimes) == 2 {
+		sensorMetadata = SensorMetadata{
+			TimeRequested: options.DataRequestTimes[0],
+			TimeReceived:  options.DataRequestTimes[1],
+		}
+	}
+	sensorMetadataPb := sensorMetadataToProto(sensorMetadata)
+	metadata := &syncPb.DataCaptureUploadMetadata{
+		UploadMetadata: uploadMetadataPb,
+		SensorMetadata: sensorMetadataPb,
+	}
+	// establish a streaming connection.
+	stream, err := d.dataSyncClient.StreamingDataCaptureUpload(ctx)
+	if err != nil {
+		return "", err
+	}
+	// send the metadata as the first packet.
+	metaReq := &syncPb.StreamingDataCaptureUploadRequest{
+		UploadPacket: &syncPb.StreamingDataCaptureUploadRequest_Metadata{
+			Metadata: metadata,
+		},
+	}
+	if err := stream.Send(metaReq); err != nil {
+		return "", err
+	}
+
+	// send the binary data in chunks.
+	for start := 0; start < len(data); start += UploadChunkSize {
+		end := start + UploadChunkSize
+		if end > len(data) {
+			end = len(data)
+		}
+		dataReq := &syncPb.StreamingDataCaptureUploadRequest{
+			UploadPacket: &syncPb.StreamingDataCaptureUploadRequest_Data{
+				Data: data[start:end],
+			},
+		}
+		if err := stream.Send(dataReq); err != nil {
+			return "", err
+		}
+	}
+	// close the stream and get the response.
+	resp, err := stream.CloseAndRecv()
+	if err != nil {
+		return "", err
+	}
+	return resp.FileId, nil
+}
+
+// FileUploadFromBytes uploads the contents and metadata for binary data such as encoded images or other data represented by bytes
+// and returns the file id of the uploaded data.
+func (d *DataClient) FileUploadFromBytes(
+	ctx context.Context,
+	partID string,
+	data []byte,
+	opts *FileUploadOptions,
+) (string, error) {
+	metadata := &syncPb.UploadMetadata{
+		PartId: partID,
+		Type:   syncPb.DataType_DATA_TYPE_FILE,
+	}
+	if opts.MethodParameters != nil {
+		methodParams, err := protoutils.ConvertMapToProtoAny(opts.MethodParameters)
+		if err != nil {
+			return "", err
+		}
+		metadata.MethodParameters = methodParams
+	}
+	if opts.ComponentType != nil {
+		metadata.ComponentType = *opts.ComponentType
+	}
+	if opts.ComponentName != nil {
+		metadata.ComponentName = *opts.ComponentName
+	}
+	if opts.MethodName != nil {
+		metadata.MethodName = *opts.MethodName
+	}
+	if opts.FileName != nil {
+		metadata.FileName = *opts.FileName
+	}
+	if opts.FileExtension != nil {
+		metadata.FileExtension = formatFileExtension(*opts.FileExtension)
+	}
+	if opts.Tags != nil {
+		metadata.Tags = opts.Tags
+	}
+	return d.fileUploadStreamResp(metadata, data)
+}
+
+// FileUploadFromPath uploads the contents and metadata for binary data created from a filepath
+// and returns the file id of the uploaded data.
+func (d *DataClient) FileUploadFromPath(
+	ctx context.Context,
+	partID string,
+	filePath string,
+	opts *FileUploadOptions,
+) (string, error) {
+	metadata := &syncPb.UploadMetadata{
+		PartId: partID,
+		Type:   syncPb.DataType_DATA_TYPE_FILE,
+	}
+	if opts.MethodParameters != nil {
+		methodParams, err := protoutils.ConvertMapToProtoAny(opts.MethodParameters)
+		if err != nil {
+			return "", err
+		}
+		metadata.MethodParameters = methodParams
+	}
+	if opts.ComponentType != nil {
+		metadata.ComponentType = *opts.ComponentType
+	}
+	if opts.ComponentName != nil {
+		metadata.ComponentName = *opts.ComponentName
+	}
+	if opts.MethodName != nil {
+		metadata.MethodName = *opts.MethodName
+	}
+	if opts.FileExtension != nil {
+		metadata.FileExtension = formatFileExtension(*opts.FileExtension)
+	}
+	if opts.Tags != nil {
+		metadata.Tags = opts.Tags
+	}
+	if opts.FileName != nil {
+		metadata.FileName = *opts.FileName
+	} else if filePath != "" {
+		metadata.FileName = filepath.Base(filePath)
+		metadata.FileExtension = filepath.Ext(filePath)
+	}
+
+	var data []byte
+	// Prepare file data from filepath
+	if filePath != "" {
+		//nolint:gosec
+		fileData, err := os.ReadFile(filePath)
+		if err != nil {
+			return "", err
+		}
+		data = fileData
+	}
+	return d.fileUploadStreamResp(metadata, data)
+}
+
+func (d *DataClient) fileUploadStreamResp(metadata *syncPb.UploadMetadata, data []byte) (string, error) {
+	// establish a streaming connection.
+	stream, err := d.dataSyncClient.FileUpload(context.Background())
+	if err != nil {
+		return "", err
+	}
+	// send the metadata as the first packet.
+	metaReq := &syncPb.FileUploadRequest{
+		UploadPacket: &syncPb.FileUploadRequest_Metadata{
+			Metadata: metadata,
+		},
+	}
+	if err := stream.Send(metaReq); err != nil {
+		return "", fmt.Errorf("failed to send metadata: %w", err)
+	}
+	// send file contents in chunks
+	for start := 0; start < len(data); start += UploadChunkSize {
+		end := start + UploadChunkSize
+		if end > len(data) {
+			end = len(data)
+		}
+		dataReq := &syncPb.FileUploadRequest{
+			UploadPacket: &syncPb.FileUploadRequest_FileContents{
+				FileContents: &syncPb.FileData{
+					Data: data[start:end],
+				},
+			},
+		}
+		if err := stream.Send(dataReq); err != nil {
+			return "", err
+		}
+	}
+	// close stream and get response
+	resp, err := stream.CloseAndRecv()
+	if err != nil {
+		return "", err
+	}
+	return resp.FileId, nil
 }

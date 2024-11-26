@@ -17,7 +17,7 @@ default: build lint server
 setup:
 	bash etc/setup.sh
 
-build: build-web build-go
+build: build-go
 
 build-go:
 	go build ./...
@@ -37,14 +37,6 @@ cli-ci: bin/$(GOOS)-$(GOARCH)/viam-cli
 		cp $< bin/deploy-ci/viam-cli-$(CI_RELEASE)-$(GOOS)-$(GOARCH)$(EXE_SUFFIX); \
 	fi
 
-build-web: web/runtime-shared/static/control.js
-
-# only generate static files when source has changed.
-web/runtime-shared/static/control.js: web/frontend/src/*/* web/frontend/src/*/*/* web/frontend/src/*.* web/frontend/scripts/* web/frontend/*.*
-	rm -rf web/runtime-shared/static
-	npm ci --audit=false --prefix web/frontend
-	npm run build-prod --prefix web/frontend
-
 tool-install:
 	GOBIN=`pwd`/$(TOOL_BIN) go install \
 		github.com/edaniels/golinters/cmd/combined \
@@ -55,7 +47,7 @@ tool-install:
 		github.com/rhysd/actionlint/cmd/actionlint \
 		golang.org/x/tools/cmd/stringer
 
-lint: lint-go lint-web
+lint: lint-go
 	PATH=$(PATH_WITH_TOOLS) actionlint
 
 generate-go: tool-install
@@ -66,20 +58,10 @@ lint-go: tool-install
 	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v /proto/`" && echo "$$pkgs" | xargs go vet -vettool=$(TOOL_BIN)/combined
 	GOGC=50 $(TOOL_BIN)/golangci-lint run -v --fix --config=./etc/.golangci.yaml
 
-lint-web: check-web
-	npm run lint --prefix web/frontend
-
-check-web: build-web
-	npm run check --prefix web/frontend
-
 cover-only: tool-install
 	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh cover
 
 cover: test-go cover-only
-
-test: test-go test-web
-
-test-no-race: test-go-no-race test-web
 
 test-go: tool-install
 	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh race
@@ -87,26 +69,15 @@ test-go: tool-install
 test-go-no-race: tool-install
 	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh
 
-test-web:
-	npm run test:unit --prefix web/frontend
-
-test-e2e:
-	go build $(LDFLAGS) -o bin/test-e2e/server web/cmd/server/main.go
-	./etc/e2e.sh -o 'run' $(E2E_ARGS)
-
-open-cypress-ui:
-	go build $(LDFLAGS) -o bin/test-e2e/server web/cmd/server/main.go
-	./etc/e2e.sh -o 'open'
-
-server: build-web
+server:
 	rm -f $(BIN_OUTPUT_PATH)/viam-server
 	go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/main.go
 
-server-static: build-web
+server-static:
 	rm -f $(BIN_OUTPUT_PATH)/viam-server
 	VIAM_STATIC_BUILD=1 GOFLAGS=$(GOFLAGS) go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/main.go
 
-full-static: build-web
+full-static:
 	mkdir -p bin/static
 	go build -tags no_cgo,osusergo,netgo -ldflags="-extldflags=-static $(COMMON_LDFLAGS)" -o bin/static/viam-server-$(shell go env GOARCH) ./web/cmd/server
 
@@ -117,7 +88,7 @@ clean-all:
 	git clean -fxd
 
 license-check:
-	license_finder --npm-options='--prefix web/frontend'
+	license_finder
 
 FFMPEG_ROOT ?= etc/FFmpeg
 $(FFMPEG_ROOT):
