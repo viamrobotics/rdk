@@ -10,6 +10,7 @@ import (
 	syncPb "go.viam.com/api/app/datasync/v1"
 	mltrainingpb "go.viam.com/api/app/mltraining/v1"
 	apppb "go.viam.com/api/app/v1"
+	provisioningpb "go.viam.com/api/provisioning/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -180,4 +181,14 @@ func TestNewAppClients(t *testing.T) {
 	mlTrainingClient2 := client.MLTrainingClient()
 	test.That(t, mlTrainingClient2, test.ShouldNotBeNil)
 	test.That(t, mlTrainingClient, test.ShouldEqual, mlTrainingClient2)
+
+	provisioningClient := client.ProvisioningClient()
+	test.That(t, provisioningClient, test.ShouldNotBeNil)
+	test.That(t, provisioningClient, test.ShouldHaveSameTypeAs, &ProvisioningClient{})
+	test.That(t, provisioningClient.client, test.ShouldImplement, (*provisioningpb.ProvisioningServiceClient)(nil))
+
+	// Testing that a second call to ProvisioningClient() returns the same instance
+	provisioningClient2 := client.ProvisioningClient()
+	test.That(t, provisioningClient2, test.ShouldNotBeNil)
+	test.That(t, provisioningClient, test.ShouldEqual, provisioningClient2)
 }

@@ -24,6 +24,8 @@ const (
 	itemID          = "item_id"
 	modelFramework  = ModelFrameworkPyTorch
 	level           = "level"
+	secret          = "secret"
+	fragmentID      = "fragment_id"
 )
 
 // Variables used throughout app.
