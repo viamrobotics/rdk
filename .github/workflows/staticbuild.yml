@@ -48,6 +48,9 @@ jobs:
     container:
       image: ${{ matrix.image }}
       options: --platform ${{ matrix.platform }}
+      volumes:
+      # otherwise we get a 'read-only filesystem' error when symlinking over this
+      - /tmp/node20:/__e/node20
     timeout-minutes: 15
     outputs:
       date: ${{ steps.build_date.outputs.date }}
