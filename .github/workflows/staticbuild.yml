@@ -57,7 +57,10 @@ jobs:
     - name: override nodejs
       # note: the antique image intentionally has an old ubuntu with old GLIBC; github's node requires a newer one.
       # we do this hack so actions can run.
-      run: ln --force --symbolic $(which node) /__e/node20/node
+      run: |
+        mount
+        df -h
+        sudo ln --force --symbolic $(which node) /__e/node20/node
 
     - name: Check out code
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
