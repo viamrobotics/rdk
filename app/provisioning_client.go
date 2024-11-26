@@ -45,8 +45,7 @@ type ProvisioningClient struct {
 	client pb.ProvisioningServiceClient
 }
 
-// NewProvisioningClient constructs a new ProvisioningClient using the connection passed in by the ViamClient.
-func NewProvisioningClient(conn rpc.ClientConn) *ProvisioningClient {
+func newProvisioningClient(conn rpc.ClientConn) *ProvisioningClient {
 	return &ProvisioningClient{client: pb.NewProvisioningServiceClient(conn)}
 }
 

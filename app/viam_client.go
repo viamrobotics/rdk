@@ -72,7 +72,7 @@ func (c *ViamClient) AppClient() *AppClient {
 	if c.appClient != nil {
 		return c.appClient
 	}
-	c.appClient = NewAppClient(c.conn)
+	c.appClient = newAppClient(c.conn)
 	return c.appClient
 }
 
@@ -82,7 +82,7 @@ func (c *ViamClient) BillingClient() *BillingClient {
 	if c.billingClient != nil {
 		return c.billingClient
 	}
-	c.billingClient = NewBillingClient(c.conn)
+	c.billingClient = newBillingClient(c.conn)
 	return c.billingClient
 }
 
@@ -92,7 +92,7 @@ func (c *ViamClient) DataClient() *DataClient {
 	if c.dataClient != nil {
 		return c.dataClient
 	}
-	c.dataClient = NewDataClient(c.conn)
+	c.dataClient = newDataClient(c.conn)
 	return c.dataClient
 }
 
@@ -102,7 +102,7 @@ func (c *ViamClient) ProvisioningClient() *ProvisioningClient {
 	if c.provisioningClient != nil {
 		return c.provisioningClient
 	}
-	c.provisioningClient = NewProvisioningClient(c.conn)
+	c.provisioningClient = newProvisioningClient(c.conn)
 	return c.provisioningClient
 }
 

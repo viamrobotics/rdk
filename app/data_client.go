@@ -281,8 +281,7 @@ type FileUploadOptions struct {
 	Tags             []string
 }
 
-// NewDataClient constructs a new DataClient using the connection passed in by the ViamClient.
-func NewDataClient(conn rpc.ClientConn) *DataClient {
+func newDataClient(conn rpc.ClientConn) *DataClient {
 	d := pb.NewDataServiceClient(conn)
 	s := syncPb.NewDataSyncServiceClient(conn)
 	return &DataClient{
