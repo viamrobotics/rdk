@@ -12,18 +12,18 @@ import (
 )
 
 const (
-	hasSmartMachineCredentials       = true
-	isOnline                         = true
-	errorString                      = "error"
-	modelStr                         = "model"
-	manufacturer                     = "manufacturer"
-	networkType                      = "network_type"
-	ssid                             = "ssid"
-	security                         = "security"
-	signal                     int32 = 4
-	connected                        = true
-	credentialsType                  = "credentials_type"
-	psk                              = "psk"
+	hasSmartMachineCredentials = true
+	isOnline                   = true
+	errorString                = "error"
+	modelStr                   = "model"
+	manufacturer               = "manufacturer"
+	networkType                = "network_type"
+	ssid                       = "ssid"
+	security                   = "security"
+	signal                     = 4
+	connected                  = true
+	credentialsType            = "credentials_type"
+	psk                        = "psk"
 )
 
 var (
@@ -41,12 +41,12 @@ var (
 		LastError: errorString,
 	}
 	pbNetworkInfo = pb.NetworkInfo{
-		Type:      getSmartMachineStatusResponse.LastestConnectionAttempt.Type,
-		Ssid:      getSmartMachineStatusResponse.LastestConnectionAttempt.SSID,
-		Security:  getSmartMachineStatusResponse.LastestConnectionAttempt.Security,
-		Signal:    getSmartMachineStatusResponse.LastestConnectionAttempt.Signal,
-		Connected: getSmartMachineStatusResponse.LastestConnectionAttempt.Connected,
-		LastError: getSmartMachineStatusResponse.LastestConnectionAttempt.LastError,
+		Type:      networkInfo.Type,
+		Ssid:      networkInfo.SSID,
+		Security:  networkInfo.Security,
+		Signal:    int32(networkInfo.Signal),
+		Connected: networkInfo.Connected,
+		LastError: networkInfo.LastError,
 	}
 	errorList                     = []string{errorString}
 	getSmartMachineStatusResponse = GetSmartMachineStatusResponse{

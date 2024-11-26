@@ -14,33 +14,14 @@ type ProvisioningInfo struct {
 	Manufacturer string
 }
 
-func provisioningInfoFromProto(info *pb.ProvisioningInfo) *ProvisioningInfo {
-	return &ProvisioningInfo{
-		FragmentID:   info.FragmentId,
-		Model:        info.Model,
-		Manufacturer: info.Manufacturer,
-	}
-}
-
 // NetworkInfo holds network information.
 type NetworkInfo struct {
 	Type      string
 	SSID      string
 	Security  string
-	Signal    int32
+	Signal    int
 	Connected bool
 	LastError string
-}
-
-func networkInfoFromProto(info *pb.NetworkInfo) *NetworkInfo {
-	return &NetworkInfo{
-		Type:      info.Type,
-		SSID:      info.Ssid,
-		Security:  info.Security,
-		Signal:    info.Signal,
-		Connected: info.Connected,
-		LastError: info.LastError,
-	}
 }
 
 // GetSmartMachineStatusResponse contains smart machine status information.
@@ -52,29 +33,11 @@ type GetSmartMachineStatusResponse struct {
 	Errors                     []string
 }
 
-func getSmartMachineStatusResponseFromProto(resp *pb.GetSmartMachineStatusResponse) *GetSmartMachineStatusResponse {
-	return &GetSmartMachineStatusResponse{
-		ProvisioningInfo:           provisioningInfoFromProto(resp.ProvisioningInfo),
-		HasSmartMachineCredentials: resp.HasSmartMachineCredentials,
-		IsOnline:                   resp.IsOnline,
-		LastestConnectionAttempt:   networkInfoFromProto(resp.LatestConnectionAttempt),
-		Errors:                     resp.Errors,
-	}
-}
-
 // CloudConfig is the minimal config to create a /etc/viam.json, containing the smart machine's part ID and secret.
 type CloudConfig struct {
 	ID         string
 	Secret     string
 	AppAddress string
-}
-
-func cloudConfigToProto(config *CloudConfig) *pb.CloudConfig {
-	return &pb.CloudConfig{
-		Id:         config.ID,
-		Secret:     config.Secret,
-		AppAddress: config.AppAddress,
-	}
 }
 
 // ProvisioningClient is a gRPC client for method calls to the Provisioning API.
@@ -125,4 +88,41 @@ func (c *ProvisioningClient) GetNetworkList(ctx context.Context) ([]*NetworkInfo
 		networks = append(networks, networkInfoFromProto(network))
 	}
 	return networks, nil
+}
+
+func provisioningInfoFromProto(info *pb.ProvisioningInfo) *ProvisioningInfo {
+	return &ProvisioningInfo{
+		FragmentID:   info.FragmentId,
+		Model:        info.Model,
+		Manufacturer: info.Manufacturer,
+	}
+}
+
+func networkInfoFromProto(info *pb.NetworkInfo) *NetworkInfo {
+	return &NetworkInfo{
+		Type:      info.Type,
+		SSID:      info.Ssid,
+		Security:  info.Security,
+		Signal:    int(info.Signal),
+		Connected: info.Connected,
+		LastError: info.LastError,
+	}
+}
+
+func getSmartMachineStatusResponseFromProto(resp *pb.GetSmartMachineStatusResponse) *GetSmartMachineStatusResponse {
+	return &GetSmartMachineStatusResponse{
+		ProvisioningInfo:           provisioningInfoFromProto(resp.ProvisioningInfo),
+		HasSmartMachineCredentials: resp.HasSmartMachineCredentials,
+		IsOnline:                   resp.IsOnline,
+		LastestConnectionAttempt:   networkInfoFromProto(resp.LatestConnectionAttempt),
+		Errors:                     resp.Errors,
+	}
+}
+
+func cloudConfigToProto(config *CloudConfig) *pb.CloudConfig {
+	return &pb.CloudConfig{
+		Id:         config.ID,
+		Secret:     config.Secret,
+		AppAddress: config.AppAddress,
+	}
 }
