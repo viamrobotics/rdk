@@ -142,15 +142,22 @@ type GetCurrentMonthUsageResponse struct {
 }
 
 func getCurrentMonthUsageResponseFromProto(response *pb.GetCurrentMonthUsageResponse) *GetCurrentMonthUsageResponse {
-	startDate := response.StartDate.AsTime()
-	endDate := response.EndDate.AsTime()
+	var startDate, endDate *time.Time
+	if response.StartDate != nil {
+		d := response.StartDate.AsTime()
+		startDate = &d
+	}
+	if response.EndDate != nil {
+		d := response.EndDate.AsTime()
+		endDate = &d
+	}
 	var costs []*ResourceUsageCostsBySource
 	for _, cost := range response.ResourceUsageCostsBySource {
 		costs = append(costs, resourceUsageCostsBySourceFromProto(cost))
 	}
 	return &GetCurrentMonthUsageResponse{
-		StartDate:                  &startDate,
-		EndDate:                    &endDate,
+		StartDate:                  startDate,
+		EndDate:                    endDate,
 		ResourceUsageCostsBySource: costs,
 		Subtotal:                   response.Subtotal,
 	}
@@ -220,16 +227,26 @@ type InvoiceSummary struct {
 }
 
 func invoiceSummaryFromProto(summary *pb.InvoiceSummary) *InvoiceSummary {
-	invoiceDate := summary.InvoiceDate.AsTime()
-	dueDate := summary.DueDate.AsTime()
-	paidDate := summary.PaidDate.AsTime()
+	var invoiceDate, dueDate, paidDate *time.Time
+	if summary.InvoiceDate != nil {
+		d := summary.InvoiceDate.AsTime()
+		invoiceDate = &d
+	}
+	if summary.DueDate != nil {
+		d := summary.DueDate.AsTime()
+		dueDate = &d
+	}
+	if summary.PaidDate != nil {
+		d := summary.PaidDate.AsTime()
+		paidDate = &d
+	}
 	return &InvoiceSummary{
 		ID:            summary.Id,
-		InvoiceDate:   &invoiceDate,
+		InvoiceDate:   invoiceDate,
 		InvoiceAmount: summary.InvoiceAmount,
 		Status:        summary.Status,
-		DueDate:       &dueDate,
-		PaidDate:      &paidDate,
+		DueDate:       dueDate,
+		PaidDate:      paidDate,
 	}
 }
 

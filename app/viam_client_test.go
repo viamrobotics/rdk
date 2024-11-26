@@ -6,6 +6,7 @@ import (
 
 	"github.com/viamrobotics/webrtc/v3"
 	datapb "go.viam.com/api/app/data/v1"
+	setPb "go.viam.com/api/app/dataset/v1"
 	syncPb "go.viam.com/api/app/datasync/v1"
 	apppb "go.viam.com/api/app/v1"
 	provisioningpb "go.viam.com/api/provisioning/v1"
@@ -163,6 +164,7 @@ func TestNewAppClients(t *testing.T) {
 	test.That(t, dataClient, test.ShouldHaveSameTypeAs, &DataClient{})
 	test.That(t, dataClient.dataClient, test.ShouldImplement, (*datapb.DataServiceClient)(nil))
 	test.That(t, dataClient.dataSyncClient, test.ShouldImplement, (*syncPb.DataSyncServiceClient)(nil))
+	test.That(t, dataClient.datasetClient, test.ShouldImplement, (*setPb.DatasetServiceClient)(nil))
 
 	// Testing that a second call to DataClient() returns the same instance
 	dataClient2 := client.DataClient()

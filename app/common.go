@@ -1,6 +1,10 @@
 package app
 
-import "time"
+import (
+	"time"
+
+	"google.golang.org/protobuf/types/known/timestamppb"
+)
 
 // Constants used throughout app.
 const (
@@ -25,4 +29,6 @@ var (
 	tags           = []string{tag}
 	limit          = 2
 	pbLimit        = uint64(limit)
+	createdOn      = time.Now().UTC().Round(time.Millisecond)
+	pbCreatedOn    = timestamppb.New(createdOn)
 )
