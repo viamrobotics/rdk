@@ -177,6 +177,14 @@ type DatabaseConnReturn struct {
 	HasDatabaseUser bool
 }
 
+// LatestTabularDataReturn represents the response returned by GetLatestTabularData. It contains the most recently captured data
+// payload, the time it was captured, and the time it was synced.
+type LatestTabularDataReturn struct {
+	TimeCaptured time.Time
+	TimeSynced   time.Time
+	Payload      *structpb.Struct
+}
+
 // NewDataClient constructs a new DataClient using the connection passed in by the viamClient.
 func NewDataClient(
 	conn rpc.ClientConn,
@@ -479,6 +487,28 @@ func (d *DataClient) TabularDataByMQL(ctx context.Context, organizationID string
 		return nil, err
 	}
 	return result, nil
+}
+
+// GetLatestTabularData gets the most recent tabular data captured from the specified data source, as well as the time that it was captured
+// and synced. If no data was synced to the data source within the last year, LatestTabularDataReturn will be empty.
+func (d *DataClient) GetLatestTabularData(ctx context.Context, partID, resourceName, resourceSubtype, methodName string) (
+	LatestTabularDataReturn, error,
+) {
+	resp, err := d.client.GetLatestTabularData(ctx, &pb.GetLatestTabularDataRequest{
+		PartId:          partID,
+		ResourceName:    resourceName,
+		ResourceSubtype: resourceSubtype,
+		MethodName:      methodName,
+	})
+	if err != nil {
+		return LatestTabularDataReturn{}, err
+	}
+
+	return LatestTabularDataReturn{
+		TimeCaptured: resp.TimeCaptured.AsTime(),
+		TimeSynced:   resp.TimeSynced.AsTime(),
+		Payload:      resp.Payload,
+	}, nil
 }
 
 // BinaryDataByFilter queries binary data and metadata based on given filters.
