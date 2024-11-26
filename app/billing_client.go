@@ -251,23 +251,34 @@ func sourceTypeFromProto(sourceType pb.SourceType) SourceType {
 }
 
 func resourceUsageCostsBySourceFromProto(costs *pb.ResourceUsageCostsBySource) *ResourceUsageCostsBySource {
+	var usageCosts *ResourceUsageCosts
+	if costs.ResourceUsageCosts != nil {
+		usageCosts = resourceUsageCostsFromProto(costs.ResourceUsageCosts)
+	}
 	return &ResourceUsageCostsBySource{
 		SourceType:         sourceTypeFromProto(costs.SourceType),
-		ResourceUsageCosts: resourceUsageCostsFromProto(costs.ResourceUsageCosts),
+		ResourceUsageCosts: usageCosts,
 		TierName:           costs.TierName,
 	}
 }
 
 func getCurrentMonthUsageResponseFromProto(response *pb.GetCurrentMonthUsageResponse) *GetCurrentMonthUsageResponse {
-	startDate := response.StartDate.AsTime()
-	endDate := response.EndDate.AsTime()
+	var startDate, endDate *time.Time
+	if response.StartDate != nil {
+		startDate = &response.StartDate.AsTime()
+		startDate = &t
+	}
+	if response.EndDate != nil {
+		t := response.EndDate.AsTime()
+		endDate = &t
+	}
 	var costs []*ResourceUsageCostsBySource
 	for _, cost := range response.ResourceUsageCostsBySource {
 		costs = append(costs, resourceUsageCostsBySourceFromProto(cost))
 	}
 	return &GetCurrentMonthUsageResponse{
-		StartDate:                  &startDate,
-		EndDate:                    &endDate,
+		StartDate:                  startDate,
+		EndDate:                    endDate,
 		ResourceUsageCostsBySource: costs,
 		Subtotal:                   response.Subtotal,
 	}
@@ -285,6 +296,9 @@ func paymentMethodTypeFromProto(methodType pb.PaymentMethodType) PaymentMethodTy
 }
 
 func paymentMethodCardFromProto(card *pb.PaymentMethodCard) *PaymentMethodCard {
+	if card == nil {
+		return nil
+	}
 	return &PaymentMethodCard{
 		Brand:          card.Brand,
 		LastFourDigits: card.LastFourDigits,
@@ -301,15 +315,25 @@ func getOrgBillingInformationResponseFromProto(resp *pb.GetOrgBillingInformation
 }
 
 func invoiceSummaryFromProto(summary *pb.InvoiceSummary) *InvoiceSummary {
-	invoiceDate := summary.InvoiceDate.AsTime()
-	dueDate := summary.DueDate.AsTime()
-	paidDate := summary.PaidDate.AsTime()
+	var invoiceDate, dueDate, paidDate *time.Time
+	if summary.InvoiceDate != nil {
+		t := summary.InvoiceDate.AsTime()
+		invoiceDate = &t
+	}
+	if summary.DueDate != nil {
+		t := summary.DueDate.AsTime()
+		dueDate = &t
+	}
+	if summary.PaidDate != nil {
+		t := summary.PaidDate.AsTime()
+		paidDate = &t
+	}
 	return &InvoiceSummary{
 		ID:            summary.Id,
-		InvoiceDate:   &invoiceDate,
+		InvoiceDate:   invoiceDate,
 		InvoiceAmount: summary.InvoiceAmount,
 		Status:        summary.Status,
-		DueDate:       &dueDate,
-		PaidDate:      &paidDate,
+		DueDate:       dueDate,
+		PaidDate:      paidDate,
 	}
 }

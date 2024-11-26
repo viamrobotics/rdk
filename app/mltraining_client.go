@@ -239,10 +239,14 @@ func (c *MLTrainingClient) GetTrainingJobLogs(
 }
 
 func trainingJobLogEntryFromProto(log *pb.TrainingJobLogEntry) *TrainingJobLogEntry {
-	time := log.Time.AsTime()
+	var time *time.Time
+	if log.Time != nil {
+		t := log.Time.AsTime()
+		time = &t
+	}
 	return &TrainingJobLogEntry{
 		Level:   log.Level,
-		Time:    &time,
+		Time:    time,
 		Message: log.Message,
 	}
 }
@@ -255,9 +259,6 @@ func detailsFromProto(detail *anypb.Any) *ErrorDetail {
 }
 
 func errorStatusFromProto(status *errorstatus.Status) *ErrorStatus {
-	if status == nil {
-		return nil
-	}
 	var details []*ErrorDetail
 	for _, detail := range status.Details {
 		details = append(details, detailsFromProto(detail))
@@ -270,10 +271,27 @@ func errorStatusFromProto(status *errorstatus.Status) *ErrorStatus {
 }
 
 func trainingJobMetadataFromProto(metadata *pb.TrainingJobMetadata) *TrainingJobMetadata {
-	createdOn := metadata.CreatedOn.AsTime()
-	lastModified := metadata.LastModified.AsTime()
-	started := metadata.TrainingStarted.AsTime()
-	ended := metadata.TrainingEnded.AsTime()
+	var createdOn, lastModified, started, ended *time.Time
+	if metadata.CreatedOn != nil {
+		t := metadata.CreatedOn.AsTime()
+		createdOn = &t
+	}
+	if metadata.LastModified != nil {
+		t := metadata.LastModified.AsTime()
+		lastModified = &t
+	}
+	if metadata.TrainingStarted != nil {
+		t := metadata.TrainingStarted.AsTime()
+		started = &t
+	}
+	if metadata.TrainingEnded != nil {
+		t := metadata.TrainingEnded.AsTime()
+		ended = &t
+	}
+	var errorStatus *ErrorStatus
+	if metadata.ErrorStatus != nil {
+		errorStatus = errorStatusFromProto(metadata.ErrorStatus)
+	}
 	return &TrainingJobMetadata{
 		ID:                  metadata.Id,
 		DatasetID:           metadata.DatasetId,
@@ -286,11 +304,11 @@ func trainingJobMetadataFromProto(metadata *pb.TrainingJobMetadata) *TrainingJob
 		RegistryItemID:      metadata.RegistryItemId,
 		RegistryItemVersion: metadata.RegistryItemVersion,
 		Status:              trainingStatusFromProto(metadata.Status),
-		ErrorStatus:         errorStatusFromProto(metadata.ErrorStatus),
-		CreatedOn:           &createdOn,
-		LastModified:        &lastModified,
-		TrainingStarted:     &started,
-		TrainingEnded:       &ended,
+		ErrorStatus:         errorStatus,
+		CreatedOn:           createdOn,
+		LastModified:        lastModified,
+		TrainingStarted:     started,
+		TrainingEnded:       ended,
 		SyncedModelID:       metadata.SyncedModelId,
 		Tags:                metadata.Tags,
 	}
