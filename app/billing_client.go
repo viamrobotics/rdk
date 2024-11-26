@@ -313,4 +313,3 @@ func invoiceSummaryFromProto(summary *pb.InvoiceSummary) *InvoiceSummary {
 		PaidDate:      &paidDate,
 	}
 }
-

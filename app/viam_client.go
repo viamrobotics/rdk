@@ -14,10 +14,10 @@ import (
 
 // ViamClient is a gRPC client for method calls to Viam app.
 type ViamClient struct {
-	conn          rpc.ClientConn
-	appClient     *AppClient
-	billingClient *BillingClient
-	dataClient    *DataClient
+	conn             rpc.ClientConn
+	appClient        *AppClient
+	billingClient    *BillingClient
+	dataClient       *DataClient
 	mlTrainingClient *MLTrainingClient
 }
 
@@ -96,6 +96,8 @@ func (c *ViamClient) DataClient() *DataClient {
 	return c.dataClient
 }
 
+// MLTrainingClient initializes and returns a MLTrainingClient instance used to make ML training method calls.
+// To use MLTrainingClient, you must first instantiate a ViamClient.
 func (c *ViamClient) MLTrainingClient() *MLTrainingClient {
 	if c.mlTrainingClient != nil {
 		return c.mlTrainingClient

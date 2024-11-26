@@ -70,7 +70,7 @@ func modelTypeToProto(modelType ModelType) mltrainingpb.ModelType {
 	case ModelTypeObjectDetection:
 		return mltrainingpb.ModelType_MODEL_TYPE_OBJECT_DETECTION
 	}
-	return  mltrainingpb.ModelType_MODEL_TYPE_UNSPECIFIED
+	return mltrainingpb.ModelType_MODEL_TYPE_UNSPECIFIED
 }
 
 // ModelFramework is the framework type of a model.
