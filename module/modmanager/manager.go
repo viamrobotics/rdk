@@ -153,7 +153,14 @@ func (rmap *resourceModuleMap) Range(f func(name resource.Name, mod *module) boo
 
 // Manager is the root structure for the module system.
 type Manager struct {
-	mu           sync.RWMutex
+	// mu (mostly) coordinates API methods that modify the `modules` map. Specifically,
+	// `AddResource` can be called concurrently during a reconfigure. But `RemoveResource` or
+	// resources being restarted after a module crash are given exclusive access.
+	//
+	// mu additionally is used for exclusive access when `Add`ing modules (as opposed to resources),
+	// `Reconfigure`ing modules, `Remove`ing modules and `Close`ing the `Manager`.
+	mu sync.RWMutex
+
 	logger       logging.Logger
 	modules      moduleMap
 	parentAddr   string
