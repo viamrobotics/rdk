@@ -646,13 +646,7 @@ func (r *localRobot) getDependencies(
 	}
 	allDeps := make(resource.Dependencies)
 
-	var hasDepWithWeakDep bool
 	for _, dep := range r.manager.resources.GetAllParentsOf(rName) {
-		if node, ok := r.manager.resources.Node(dep); ok {
-			if r.resourceHasWeakDependencies(dep, node) {
-				hasDepWithWeakDep = true
-			}
-		}
 
 		// Specifically call ResourceByName and not directly to the manager since this
 		// will only return fully configured and available resources (not marked for removal
@@ -669,18 +663,6 @@ func (r *localRobot) getDependencies(
 			continue
 		}
 		allDeps[weakDepName] = weakDepRes
-	}
-
-	// If this resource has any dependency with weak dependencies, and if we have updated
-	// the resource graph since the last time we ran updateWeakDependents, we should update
-	// resources with weak dependencies so that they are up-to-date before Reconfigure
-	// uses them as dependencies.
-	//
-	// If none of the dependencies of this resource have weak dependencies, it is unnecessary to
-	// update resources with weak dependencies at this time. updateWeakDependents is called at the
-	// end of every reconfiguration cycle anyway.
-	if hasDepWithWeakDep && r.lastWeakDependentsRound.Load() < r.manager.resources.CurrLogicalClockValue() {
-		r.updateWeakDependents(ctx)
 	}
 
 	return allDeps, nil
@@ -774,7 +756,7 @@ func (r *localRobot) newResource(
 func (r *localRobot) updateWeakDependents(ctx context.Context) {
 	// Track the current value of the resource graph's logical clock. This will
 	// later be used to determine if updateWeakDependents should be called during
-	// getDependencies.
+	// completeConfig.
 	r.lastWeakDependentsRound.Store(r.manager.resources.CurrLogicalClockValue())
 
 	allResources := map[resource.Name]resource.Resource{}

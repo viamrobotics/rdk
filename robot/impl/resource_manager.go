@@ -629,6 +629,41 @@ func (manager *resourceManager) completeConfig(
 	levels := manager.resources.ReverseTopologicalSortInLevels()
 	timeout := rutils.GetResourceConfigurationTimeout(manager.logger)
 	for _, resourceNames := range levels {
+		// if any resources in the level needs reconfiguration and depends on weak dependents,
+		// and the resource graph has updated since the last time weak dependents were updated,
+		// update weak dependents.
+		//
+		// resources that depend on weak dependents should expect that the weak dependents at time
+		// of reconfiguration will only have been reconfigured with all resources constructed before
+		// their level.
+		var weakDependenciesUpdated bool
+		for _, resName := range resourceNames {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+			gNode, ok := manager.resources.Node(resName)
+			if !ok || !gNode.NeedsReconfigure() {
+				continue
+			}
+			if !(resName.API.IsComponent() || resName.API.IsService()) {
+				continue
+			}
+
+			for _, dep := range manager.resources.GetAllParentsOf(resName) {
+				if node, ok := manager.resources.Node(dep); ok {
+					if lr.resourceHasWeakDependencies(dep, node) && lr.lastWeakDependentsRound.Load() < manager.resources.CurrLogicalClockValue() {
+						lr.updateWeakDependents(ctx)
+						weakDependenciesUpdated = true
+						break
+					}
+				}
+			}
+			if weakDependenciesUpdated {
+				break
+			}
+		}
 		// we use an errgroup here instead of a normal waitgroup to conveniently bubble
 		// up errors in resource processing goroutinues that warrant an early exit.
 		var levelErrG errgroup.Group
@@ -638,8 +673,6 @@ func (manager *resourceManager) completeConfig(
 				return
 			default:
 			}
-
-			resName := resName
 			// processResource is intended to be run concurrently for each resource
 			// within a topological sort level. if any processResource function returns a
 			// non-nil error then the entire `completeConfig` function will exit early.
