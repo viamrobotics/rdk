@@ -772,7 +772,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		return
 	}
 	r.lastWeakDependentsRound.Store(logicalNow)
-	r.lastWeakDependentsMu.Unlock()
+	defer r.lastWeakDependentsMu.Unlock()
 
 	allResources := map[resource.Name]resource.Resource{}
 	internalResources := map[resource.Name]resource.Resource{}
@@ -877,7 +877,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		deps, err := r.getDependencies(ctx, resName, resNode)
 		if r.Logger().Level() == zapcore.DebugLevel {
 			var depNames []string
-			for name, _ := range deps {
+			for name := range deps {
 				depNames = append(depNames, name.String())
 			}
 			r.Logger().CDebugw(ctx, "handling weak update for resource", "resource", resName, "deps", depNames, "err", err)
