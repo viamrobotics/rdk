@@ -5,12 +5,13 @@ import (
 	"errors"
 	"testing"
 
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/test"
 )
 
 func TestPinConfigMotorType(t *testing.T) {
@@ -144,8 +145,11 @@ func TestCreateNewMotor(t *testing.T) {
 		wantErrText string
 	}{
 		{
-			name:   "valid motor without encoder",
-			config: resource.Config{Name: "test_motor", ConvertedAttributes: &Config{BoardName: "test_board", Pins: PinConfig{A: "pin1", B: "pin2", PWM: "pwm1"}, MaxRPM: 100, PWMFreq: 4000}},
+			name: "valid motor without encoder",
+			config: resource.Config{
+				Name:                "test_motor",
+				ConvertedAttributes: &Config{BoardName: "test_board", Pins: PinConfig{A: "pin1", B: "pin2", PWM: "pwm1"}, MaxRPM: 100, PWMFreq: 4000},
+			},
 			setupMocks: func() resource.Dependencies {
 				deps := resource.Dependencies{}
 				b := inject.NewBoard("test_board")
@@ -162,8 +166,14 @@ func TestCreateNewMotor(t *testing.T) {
 			wantErrText: "",
 		},
 		{
-			name:   "valid motor with encoder",
-			config: resource.Config{Name: "test_motor", ConvertedAttributes: &Config{BoardName: "test_board", Pins: PinConfig{A: "pin1", B: "pin2", PWM: "pwm1"}, Encoder: "test_encoder", TicksPerRotation: 100, MaxRPM: 100, PWMFreq: 4000}},
+			name: "valid motor with encoder",
+			config: resource.Config{
+				Name: "test_motor",
+				ConvertedAttributes: &Config{
+					BoardName: "test_board",
+					Pins:      PinConfig{A: "pin1", B: "pin2", PWM: "pwm1"}, Encoder: "test_encoder", TicksPerRotation: 100, MaxRPM: 100, PWMFreq: 4000,
+				},
+			},
 			setupMocks: func() resource.Dependencies {
 				deps := resource.Dependencies{}
 				b := inject.NewBoard("test_board")

@@ -210,7 +210,7 @@ func createNewMotor(
 			logger.Debug("DoCommand Errored, likely not a single encoder")
 		}
 
-		// the three criterea for knowing we're attached to a single encoder 
+		// the three criterea for knowing we're attached to a single encoder
 		if resp != nil && resp[directionAttached].(bool) && err == nil {
 			logger.CInfo(ctx, "direction attached to single encoder from encoded motor")
 		}
