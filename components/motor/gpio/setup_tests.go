@@ -2,6 +2,7 @@ package gpio
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"go.viam.com/rdk/components/board"
@@ -143,74 +144,40 @@ func TestCreateNewMotor(t *testing.T) {
 		wantErrText string
 	}{
 		{
-			name: "valid motor without encoder",
-			config: resource.Config{
-				Name: "test_motor",
-				ConvertedAttributes: &Config{
-					BoardName: "test_board",
-					Pins: PinConfig{
-						A:   "pin1",
-						B:   "pin2",
-						PWM: "pwm1",
-					},
-					MaxRPM:  100,
-					PWMFreq: 4000,
-				},
-			},
+			name:   "valid motor without encoder",
+			config: resource.Config{Name: "test_motor", ConvertedAttributes: &Config{BoardName: "test_board", Pins: PinConfig{A: "pin1", B: "pin2", PWM: "pwm1"}, MaxRPM: 100, PWMFreq: 4000}},
 			setupMocks: func() resource.Dependencies {
-				deps := testutils.NewMockDependencies(t)
-				b := &inject.Board{
-					GPIOPins: map[string]*inject.GPIOPin{
-						"pin1": {},
-						"pin2": {},
-						"pwm1": {},
-					},
+				deps := resource.Dependencies{}
+				b := inject.NewBoard("test_board")
+				b.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
+					return &inject.GPIOPin{}, nil
 				}
-				deps.Register("test_board", b)
+
+				deps[resource.NewName(board.API, "test_board")] = b
+
 				return deps
 			},
+			wantErrText: "",
 		},
 		{
-			name: "valid motor with encoder",
-			config: resource.Config{
-				Name: "test_motor",
-				ConvertedAttributes: &Config{
-					BoardName: "test_board",
-					Pins: PinConfig{
-						A:   "pin1",
-						B:   "pin2",
-						PWM: "pwm1",
-					},
-					Encoder:          "test_encoder",
-					TicksPerRotation: 100,
-					MaxRPM:           100,
-					PWMFreq:          4000,
-				},
-			},
+			name:   "valid motor with encoder",
+			config: resource.Config{Name: "test_motor", ConvertedAttributes: &Config{BoardName: "test_board", Pins: PinConfig{A: "pin1", B: "pin2", PWM: "pwm1"}, Encoder: "test_encoder", TicksPerRotation: 100, MaxRPM: 100, PWMFreq: 4000}},
 			setupMocks: func() resource.Dependencies {
-				deps := testutils.NewMockDependencies(t)
-
-				// Setup board
-				b := &fakeboard.Board{
-					GPIOPins: map[string]*fakeboard.GPIOPin{
-						"pin1": {},
-						"pin2": {},
-						"pwm1": {},
-					},
+				deps := resource.Dependencies{}
+				b := inject.NewBoard("test_board")
+				b.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
+					return &inject.GPIOPin{}, nil
 				}
-				deps.Register("test_board", b)
-
-				// Setup encoder
-				mockEncoder := &fakeencoder.Encoder{
-					PropertiesFunc: func(context.Context, map[string]interface{}) (encoder.Properties, error) {
-						return encoder.Properties{
-							TicksCountSupported: true,
-						}, nil
-					},
+				mockEncoder := inject.NewEncoder("test_encoder")
+				mockEncoder.PropertiesFunc = func(context.Context, map[string]interface{}) (encoder.Properties, error) {
+					return encoder.Properties{TicksCountSupported: true}, nil
 				}
-				deps.Register("test_encoder", mockEncoder)
+
+				deps[resource.NewName(board.API, "test_board")] = b
+				deps[resource.NewName(encoder.API, "test_encoder")] = mockEncoder
 				return deps
 			},
+			wantErrText: "",
 		},
 		{
 			name: "invalid board configuration",
@@ -226,7 +193,7 @@ func TestCreateNewMotor(t *testing.T) {
 				},
 			},
 			setupMocks: func() resource.Dependencies {
-				return testutils.NewMockDependencies(t)
+				return resource.Dependencies{}
 			},
 			wantErrText: "board is required",
 		},
@@ -255,7 +222,6 @@ func TestCreateNewMotor(t *testing.T) {
 						return inject.GPIOPin{}.GPIOPin, nil
 					},
 				}
-				deps[resource.Name{"test_board"}] = b
 
 				// Setup encoder without ticks count support
 				mockEncoder := &inject.Encoder{
@@ -264,8 +230,12 @@ func TestCreateNewMotor(t *testing.T) {
 							TicksCountSupported: false,
 						}, nil
 					},
+					DoFunc: func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+						return nil, errors.ErrUnsupported
+					},
 				}
-				deps.Register("test_encoder", mockEncoder)
+				deps[resource.NewName(board.API, "test_board")] = b
+				deps[resource.NewName(encoder.API, "test_encoder")] = mockEncoder
 				return deps
 			},
 			wantErrText: "encoder does not support ticks count",
