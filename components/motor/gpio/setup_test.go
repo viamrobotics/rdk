@@ -105,7 +105,7 @@ func TestConfigValidate(t *testing.T) {
 					PWM: "pwm1",
 				},
 			},
-			wantErrText: "board is required",
+			wantErrText: resource.NewConfigValidationFieldRequiredError("test/path", "board").Error(),
 		},
 		{
 			name: "invalid pin config",
@@ -150,7 +150,9 @@ func TestCreateNewMotor(t *testing.T) {
 				deps := resource.Dependencies{}
 				b := inject.NewBoard("test_board")
 				b.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
-					return &inject.GPIOPin{}, nil
+					return &inject.GPIOPin{
+						SetFunc: func(ctx context.Context, high bool, extra map[string]interface{}) error { return nil },
+					}, nil
 				}
 
 				deps[resource.NewName(board.API, "test_board")] = b
@@ -166,11 +168,17 @@ func TestCreateNewMotor(t *testing.T) {
 				deps := resource.Dependencies{}
 				b := inject.NewBoard("test_board")
 				b.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
-					return &inject.GPIOPin{}, nil
+					return &inject.GPIOPin{
+						SetFunc:    func(ctx context.Context, high bool, extra map[string]interface{}) error { return nil },
+						SetPWMFunc: func(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error { return nil },
+					}, nil
 				}
 				mockEncoder := inject.NewEncoder("test_encoder")
 				mockEncoder.PropertiesFunc = func(context.Context, map[string]interface{}) (encoder.Properties, error) {
 					return encoder.Properties{TicksCountSupported: true}, nil
+				}
+				mockEncoder.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+					return nil, errors.ErrUnsupported
 				}
 
 				deps[resource.NewName(board.API, "test_board")] = b
@@ -195,7 +203,7 @@ func TestCreateNewMotor(t *testing.T) {
 			setupMocks: func() resource.Dependencies {
 				return resource.Dependencies{}
 			},
-			wantErrText: "board is required",
+			wantErrText: "expected board name in config for motor",
 		},
 		{
 			name: "encoder without ticks count support",
@@ -238,7 +246,7 @@ func TestCreateNewMotor(t *testing.T) {
 				deps[resource.NewName(encoder.API, "test_encoder")] = mockEncoder
 				return deps
 			},
-			wantErrText: "encoder does not support ticks count",
+			wantErrText: "need an encoder that supports Ticks",
 		},
 	}
 
