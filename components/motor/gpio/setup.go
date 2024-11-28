@@ -208,9 +208,8 @@ func createNewMotor(
 		resp, err := e.DoCommand(ctx, cmd)
 		if err != nil {
 			if !errors.Is(err, resource.ErrDoUnimplemented) {
-				return nil, err
+				logger.Infof("DoCommand Errored, likely not a single encoder, err = %w", err)
 			}
-			logger.Infof("DoCommand Errored, likely not a single encoder, err = %w", err)
 		}
 
 		// the three criterea for knowing we're attached to a single encoder

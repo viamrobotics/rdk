@@ -75,8 +75,8 @@ func TestPinConfigMotorType(t *testing.T) {
 			wantErrText: "motor pin config has PWM pin but needs either a direction pin, or A and B pins",
 		},
 		{
-			name: "invalid no pins",
-			config: PinConfig{},
+			name:        "invalid no pins",
+			config:      PinConfig{},
 			wantErrText: "motor pin config devoid of pin definitions (A, B, Direction, PWM are all missing)",
 		},
 	}
@@ -146,9 +146,9 @@ func TestConfigValidate(t *testing.T) {
 					B:   "pin2",
 					PWM: "pwm1",
 				},
-				Encoder:          "encoder1",
+				Encoder: "encoder1",
 			},
-			wantErrText: resource.NewConfigValidationError("test/path", errors.New("ticks_per_rotation should be positive or zero").Error(),
+			wantErrText: resource.NewConfigValidationError("test/path", errors.New("ticks_per_rotation should be positive or zero")).Error(),
 		},
 	}
 
