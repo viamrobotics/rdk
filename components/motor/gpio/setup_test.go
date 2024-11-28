@@ -60,6 +60,25 @@ func TestPinConfigMotorType(t *testing.T) {
 			},
 			wantErrText: "motor pin config has specified pin B but not pin A",
 		},
+		{
+			name: "invalid dir without PWM",
+			config: PinConfig{
+				Direction: "dir1",
+			},
+			wantErrText: "motor pin config has direction pin but needs PWM pin",
+		},
+		{
+			name: "invalid PWM without dir",
+			config: PinConfig{
+				PWM: "pwm1",
+			},
+			wantErrText: "motor pin config has PWM pin but needs either a direction pin, or A and B pins",
+		},
+		{
+			name: "invalid no pins",
+			config: PinConfig{},
+			wantErrText: "motor pin config devoid of pin definitions (A, B, Direction, PWM are all missing)",
+		},
 	}
 
 	for _, tt := range tests {
