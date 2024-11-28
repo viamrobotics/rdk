@@ -137,6 +137,19 @@ func TestConfigValidate(t *testing.T) {
 			},
 			wantErrText: "motor pin config has specified pin A but not pin B",
 		},
+		{
+			name: "missing ticks per rotation",
+			config: Config{
+				BoardName: "board1",
+				Pins: PinConfig{
+					A:   "pin1",
+					B:   "pin2",
+					PWM: "pwm1",
+				},
+				Encoder:          "encoder1",
+			},
+			wantErrText: resource.NewConfigValidationError("test/path", errors.New("ticks_per_rotation should be positive or zero").Error(),
+		},
 	}
 
 	for _, tt := range tests {
