@@ -180,6 +180,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		// TODO(hexbabe): remove below test when Stream/ReadImage pattern is refactored
 		t.Run("ReadImage from camera client 1", func(t *testing.T) {
+			// Test Stream and Next
 			ctx := gostream.WithMIMETypeHint(context.Background(), rutils.MimeTypeRawRGBA)
 			stream, err := camera1Client.Stream(ctx)
 			test.That(t, err, test.ShouldBeNil)
@@ -188,6 +189,13 @@ func TestClient(t *testing.T) {
 			compVal, _, err := rimage.CompareImages(img, frame)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
+
+			// Test ReadImage
+			frame, _, err = camera.ReadImage(ctx, camera1Client)
+			test.That(t, err, test.ShouldBeNil)
+			compVal, _, err = rimage.CompareImages(img, frame)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, compVal, test.ShouldEqual, 0) 
 		})
 		frame, err := camera.DecodeImageFromCamera(context.Background(), rutils.MimeTypeRawRGBA, nil, camera1Client)
 		test.That(t, err, test.ShouldBeNil)
@@ -265,6 +273,10 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		client2, err := resourceAPI.RPCClient(context.Background(), conn, "", camera.Named(failCameraName), logger)
 		test.That(t, err, test.ShouldBeNil)
+
+		_, _, err = camera.ReadImage(context.Background(), client2)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
 
 		_, _, err = client2.Image(context.Background(), "", nil)
 		test.That(t, err, test.ShouldNotBeNil)
