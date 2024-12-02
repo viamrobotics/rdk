@@ -637,7 +637,6 @@ func (r *localRobot) resourceHasWeakDependencies(rName resource.Name, node *reso
 // component's name. We don't use the resource manager for this information since
 // it is not be constructed at this point.
 func (r *localRobot) getDependencies(
-	ctx context.Context,
 	rName resource.Name,
 	gNode *resource.GraphNode,
 ) (resource.Dependencies, error) {
@@ -647,7 +646,6 @@ func (r *localRobot) getDependencies(
 	allDeps := make(resource.Dependencies)
 
 	for _, dep := range r.manager.resources.GetAllParentsOf(rName) {
-
 		// Specifically call ResourceByName and not directly to the manager since this
 		// will only return fully configured and available resources (not marked for removal
 		// and no last error).
@@ -717,7 +715,7 @@ func (r *localRobot) newResource(
 		return nil, errors.Errorf("unknown resource type: API %q with model %q not registered", resName.API, conf.Model)
 	}
 
-	deps, err := r.getDependencies(ctx, resName, gNode)
+	deps, err := r.getDependencies(resName, gNode)
 	if err != nil {
 		return nil, err
 	}
@@ -860,7 +858,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 			return
 		}
 		r.Logger().CDebugw(ctx, "handling weak update for resource", "resource", resName)
-		deps, err := r.getDependencies(ctx, resName, resNode)
+		deps, err := r.getDependencies(resName, resNode)
 		if err != nil {
 			r.Logger().CErrorw(ctx, "failed to get dependencies during weak dependencies update; skipping", "resource", resName, "error", err)
 			return

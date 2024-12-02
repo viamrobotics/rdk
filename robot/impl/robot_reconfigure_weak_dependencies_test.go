@@ -464,12 +464,12 @@ func TestWeakDependentsExplicitDependency(t *testing.T) {
 	lRobot := robot.(*localRobot)
 	node, ok := lRobot.manager.resources.Node(weak1Name)
 	test.That(t, ok, test.ShouldBeTrue)
-	lRobot.getDependencies(context.Background(), weak1Name, node)
+	lRobot.getDependencies(weak1Name, node)
 	test.That(t, weak1.reconfigCount, test.ShouldEqual, 3)
 
 	node, ok = lRobot.manager.resources.Node(base1Name)
 	test.That(t, ok, test.ShouldBeTrue)
-	lRobot.getDependencies(context.Background(), base1Name, node)
+	lRobot.getDependencies(base1Name, node)
 	test.That(t, weak1.reconfigCount, test.ShouldEqual, 3)
 }
 
@@ -646,11 +646,11 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 	lRobot := robot.(*localRobot)
 	node, ok := lRobot.manager.resources.Node(weak1Name)
 	test.That(t, ok, test.ShouldBeTrue)
-	lRobot.getDependencies(context.Background(), weak1Name, node)
+	lRobot.getDependencies(weak1Name, node)
 	test.That(t, weak1.reconfigCount, test.ShouldEqual, 4)
 
 	node, ok = lRobot.manager.resources.Node(base1Name)
 	test.That(t, ok, test.ShouldBeTrue)
-	lRobot.getDependencies(context.Background(), base1Name, node)
+	lRobot.getDependencies(base1Name, node)
 	test.That(t, weak1.reconfigCount, test.ShouldEqual, 4)
 }
