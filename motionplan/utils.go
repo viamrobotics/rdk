@@ -49,16 +49,16 @@ func (r *resultPromise) result() ([]node, error) {
 // linearizedFrameSystem wraps a framesystem, allowing conversion in a known order between a map[string][]inputs and a flat array of floats,
 // useful for being able to call IK solvers against framesystems.
 type linearizedFrameSystem struct {
-	fss    referenceframe.FrameSystem
+	fs     referenceframe.FrameSystem
 	frames []referenceframe.Frame // cached ordering of frames. Order is unimportant but cannot change once set.
 	dof    []referenceframe.Limit
 }
 
-func newLinearizedFrameSystem(fss referenceframe.FrameSystem) (*linearizedFrameSystem, error) {
+func newLinearizedFrameSystem(fs referenceframe.FrameSystem) (*linearizedFrameSystem, error) {
 	frames := []referenceframe.Frame{}
 	dof := []referenceframe.Limit{}
-	for _, fName := range fss.FrameNames() {
-		frame := fss.Frame(fName)
+	for _, fName := range fs.FrameNames() {
+		frame := fs.Frame(fName)
 		if frame == nil {
 			return nil, fmt.Errorf("frame %s was returned in list of frame names, but was not found in frame system", fName)
 		}
@@ -66,7 +66,7 @@ func newLinearizedFrameSystem(fss referenceframe.FrameSystem) (*linearizedFrameS
 		dof = append(dof, frame.DoF()...)
 	}
 	return &linearizedFrameSystem{
-		fss:    fss,
+		fs:     fs,
 		frames: frames,
 		dof:    dof,
 	}, nil

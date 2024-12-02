@@ -236,7 +236,7 @@ func checkPlanAbsolute(
 		segment := &ik.SegmentFS{
 			StartConfiguration: offsetPlan.Trajectory()[i],
 			EndConfiguration:   offsetPlan.Trajectory()[i+1],
-			FS:                 sfPlanner.fss,
+			FS:                 sfPlanner.fs,
 		}
 		segments = append(segments, segment)
 	}
@@ -255,7 +255,7 @@ func checkSegmentsFS(sfPlanner *planManager, segments []*ik.SegmentFS, lookAhead
 			if lastValid != nil {
 				checkConf = lastValid.EndConfiguration
 			}
-			ok, reason := sfPlanner.planOpts.CheckStateFSConstraints(&ik.StateFS{Configuration: checkConf, FS: sfPlanner.fss})
+			ok, reason := sfPlanner.planOpts.CheckStateFSConstraints(&ik.StateFS{Configuration: checkConf, FS: sfPlanner.fs})
 			if !ok {
 				reason = " reason: " + reason
 			} else {
@@ -270,7 +270,7 @@ func checkSegmentsFS(sfPlanner *planManager, segments []*ik.SegmentFS, lookAhead
 		}
 
 		for _, checkFrame := range moving {
-			poseInPathStart, err := sfPlanner.fss.Transform(
+			poseInPathStart, err := sfPlanner.fs.Transform(
 				segment.EndConfiguration,
 				referenceframe.NewZeroPoseInFrame(checkFrame),
 				referenceframe.World,
@@ -278,7 +278,7 @@ func checkSegmentsFS(sfPlanner *planManager, segments []*ik.SegmentFS, lookAhead
 			if err != nil {
 				return err
 			}
-			poseInPathEnd, err := sfPlanner.fss.Transform(
+			poseInPathEnd, err := sfPlanner.fs.Transform(
 				segment.StartConfiguration,
 				referenceframe.NewZeroPoseInFrame(checkFrame),
 				referenceframe.World,
@@ -310,12 +310,12 @@ func checkSegments(sfPlanner *planManager, segments []*ik.Segment, lookAheadDist
 		if err != nil {
 			return err
 		}
-		parent, err := sfPlanner.fss.Parent(checkFrame)
+		parent, err := sfPlanner.fs.Parent(checkFrame)
 		if err != nil {
 			return err
 		}
 		for _, interpConfig := range interpolatedConfigurations {
-			poseInPathTf, err := sfPlanner.fss.Transform(
+			poseInPathTf, err := sfPlanner.fs.Transform(
 				map[string][]referenceframe.Input{checkFrame.Name(): interpConfig},
 				referenceframe.NewZeroPoseInFrame(checkFrame.Name()),
 				parent.Name(),

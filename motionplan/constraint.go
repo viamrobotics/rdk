@@ -131,6 +131,7 @@ func createAllCollisionConstraints(
 		if err != nil {
 			return nil, nil, err
 		}
+		// TODO: TPspace currently still uses the non-FS constraint, this should be removed once TPspace is fully migrated to frame systems
 		constraintMap[defaultObstacleConstraintDesc] = obstacleConstraint
 		constraintFSMap[defaultObstacleConstraintDesc] = obstacleConstraintFS
 	}
@@ -305,67 +306,6 @@ func NewAbsoluteLinearInterpolatingConstraint(from, to spatial.Pose, linTol, ori
 	return f, interpMetric
 }
 
-// CreateAbsoluteLinearInterpolatingConstraintFS provides a Constraint whose valid manifold allows a specified amount of deviation from the
-// shortest straight-line path between the start and the goal. linTol is the allowed linear deviation in mm, orientTol is the allowed
-// orientation deviation measured by norm of the R3AA orientation difference to the slerp path between start/goal orientations.
-func CreateAbsoluteLinearInterpolatingConstraintFS(
-	fs referenceframe.FrameSystem,
-	startCfg map[string][]referenceframe.Input,
-	from, to PathStep,
-	linTol, orientTol float64,
-) (StateFSConstraint, ik.StateFSMetric, error) {
-	// Create a linear constraint for each goal
-
-	metricMap := map[string]ik.StateMetric{}
-	constraintMap := map[string]StateConstraint{}
-
-	for frame, goal := range to {
-		startPiF, ok := from[frame]
-		if !ok {
-			startPiFTf, err := fs.Transform(startCfg, referenceframe.NewZeroPoseInFrame(frame), goal.Parent())
-			if err != nil {
-				return nil, nil, err
-			}
-			startPiF = startPiFTf.(*referenceframe.PoseInFrame)
-		}
-		constraint, metric := NewAbsoluteLinearInterpolatingConstraint(startPiF.Pose(), goal.Pose(), linTol, orientTol)
-
-		metricMap[frame] = metric
-		constraintMap[frame] = constraint
-	}
-
-	allMetric := func(state *ik.StateFS) float64 {
-		score := 0.
-		for frame, goal := range to {
-			if metric, ok := metricMap[frame]; ok {
-				pif, err := fs.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), goal.Parent())
-				if err != nil {
-					score += math.Inf(1)
-				}
-				score += metric(&ik.State{Position: pif.(*referenceframe.PoseInFrame).Pose()})
-			}
-		}
-		return score
-	}
-
-	allConstraint := func(state *ik.StateFS) bool {
-		for frame, goal := range to {
-			if constraint, ok := constraintMap[frame]; ok {
-				pif, err := fs.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), goal.Parent())
-				if err != nil {
-					return false
-				}
-				pass := constraint(&ik.State{Position: pif.(*referenceframe.PoseInFrame).Pose()})
-				if !pass {
-					return false
-				}
-			}
-		}
-		return true
-	}
-	return allConstraint, allMetric, nil
-}
-
 // NewProportionalLinearInterpolatingConstraint will provide the same metric and constraint as NewAbsoluteLinearInterpolatingConstraint,
 // except that allowable linear and orientation deviation is scaled based on the distance from start to goal.
 func NewProportionalLinearInterpolatingConstraint(
@@ -376,58 +316,6 @@ func NewProportionalLinearInterpolatingConstraint(
 	linTol := linEpsilon * from.Point().Distance(to.Point())
 
 	return NewAbsoluteLinearInterpolatingConstraint(from, to, linTol, orientTol)
-}
-
-// CreateProportionalLinearInterpolatingConstraintFS will provide the same metric and constraint as
-// CreateAbsoluteLinearInterpolatingConstraintFS, except that allowable linear and orientation deviation is scaled based on the distance
-// from start to goal.
-func CreateProportionalLinearInterpolatingConstraintFS(
-	fs referenceframe.FrameSystem,
-	startCfg map[string][]referenceframe.Input,
-	from, to PathStep,
-	linTol, orientTol float64,
-) (StateFSConstraint, ik.StateFSMetric, error) {
-	// Create a pseudolinear constraint for each goal
-	metricMap := map[string]ik.StateMetric{}
-	constraintMap := map[string]StateConstraint{}
-
-	for frame, goal := range to {
-		startPiF, ok := from[frame]
-		if !ok {
-			startPiFTf, err := fs.Transform(startCfg, referenceframe.NewZeroPoseInFrame(frame), goal.Parent())
-			if err != nil {
-				return nil, nil, err
-			}
-			startPiF = startPiFTf.(*referenceframe.PoseInFrame)
-		}
-		constraint, metric := NewProportionalLinearInterpolatingConstraint(startPiF.Pose(), goal.Pose(), linTol, orientTol)
-
-		metricMap[frame] = metric
-		constraintMap[frame] = constraint
-	}
-
-	allMetric := func(state *ik.StateFS) float64 {
-		score := 0.
-		for frame, cfg := range state.Configuration {
-			if metric, ok := metricMap[frame]; ok {
-				score += metric(&ik.State{Configuration: cfg, Frame: fs.Frame(frame)})
-			}
-		}
-		return score
-	}
-
-	allConstraint := func(state *ik.StateFS) bool {
-		for frame, cfg := range state.Configuration {
-			if constraint, ok := constraintMap[frame]; ok {
-				pass := constraint(&ik.State{Configuration: cfg, Frame: fs.Frame(frame)})
-				if !pass {
-					return false
-				}
-			}
-		}
-		return true
-	}
-	return allConstraint, allMetric, nil
 }
 
 // NewSlerpOrientationConstraint will measure the orientation difference between the orientation of two poses, and return a constraint that
@@ -517,7 +405,7 @@ func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (StateConstraint, 
 	return validFunc, gradFunc
 }
 
-// NewOctreeCollisionConstraint takes an octree and will return a constraint that checks whether any of the geometries in the solver frame
+// NewOctreeCollisionConstraint takes an octree and will return a constraint that checks whether any geometries
 // intersect with points in the octree. Threshold sets the confidence level required for a point to be considered, and buffer is the
 // distance to a point that is considered a collision in mm.
 func NewOctreeCollisionConstraint(octree *pointcloud.BasicOctree, threshold int, buffer, collisionBufferMM float64) StateConstraint {
@@ -809,6 +697,116 @@ func (c *Constraints) GetCollisionSpecification() []CollisionSpecification {
 	return nil
 }
 
+type fsPathConstraint struct {
+	metricMap     map[string]ik.StateMetric
+	constraintMap map[string]StateConstraint
+	goalMap       PathStep
+	fs            referenceframe.FrameSystem
+}
+
+func (fpc *fsPathConstraint) constraint(state *ik.StateFS) bool {
+	for frame, goal := range fpc.goalMap {
+		if constraint, ok := fpc.constraintMap[frame]; ok {
+			currPose, err := fpc.fs.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), goal.Parent())
+			if err != nil {
+				return false
+			}
+			pass := constraint(&ik.State{
+				Configuration: state.Configuration[frame],
+				Position:      currPose.(*referenceframe.PoseInFrame).Pose(),
+				Frame:         fpc.fs.Frame(frame),
+			})
+			if !pass {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (fpc *fsPathConstraint) metric(state *ik.StateFS) float64 {
+	score := 0.
+	for frame, goal := range fpc.goalMap {
+		if metric, ok := fpc.metricMap[frame]; ok {
+			currPose, err := fpc.fs.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), goal.Parent())
+			if err != nil {
+				score = math.Inf(1)
+				break
+			}
+			score += metric(&ik.State{
+				Configuration: state.Configuration[frame],
+				Position:      currPose.(*referenceframe.PoseInFrame).Pose(),
+				Frame:         fpc.fs.Frame(frame),
+			})
+		}
+	}
+	return score
+}
+
+func newFsPathConstraintSeparatedLinOrientTol(
+	fs referenceframe.FrameSystem,
+	startCfg map[string][]referenceframe.Input,
+	from, to PathStep,
+	constructor func(spatial.Pose, spatial.Pose, float64, float64) (StateConstraint, ik.StateMetric),
+	linTol, orientTol float64,
+) (*fsPathConstraint, error) {
+	metricMap := map[string]ik.StateMetric{}
+	constraintMap := map[string]StateConstraint{}
+
+	for frame, goal := range to {
+		startPiF, ok := from[frame]
+		if !ok {
+			startPiFTf, err := fs.Transform(startCfg, referenceframe.NewZeroPoseInFrame(frame), goal.Parent())
+			if err != nil {
+				return nil, err
+			}
+			startPiF = startPiFTf.(*referenceframe.PoseInFrame)
+		}
+		constraint, metric := constructor(startPiF.Pose(), goal.Pose(), linTol, orientTol)
+
+		metricMap[frame] = metric
+		constraintMap[frame] = constraint
+	}
+	return &fsPathConstraint{
+		metricMap:     metricMap,
+		constraintMap: constraintMap,
+		goalMap:       to,
+		fs:            fs,
+	}, nil
+}
+
+func newFsPathConstraintTol(
+	fs referenceframe.FrameSystem,
+	startCfg map[string][]referenceframe.Input,
+	from, to PathStep,
+	constructor func(spatial.Pose, spatial.Pose, float64) (StateConstraint, ik.StateMetric),
+	tolerance float64,
+) (*fsPathConstraint, error) {
+	metricMap := map[string]ik.StateMetric{}
+	constraintMap := map[string]StateConstraint{}
+
+	for frame, goal := range to {
+		startPiF, ok := from[frame]
+		if !ok {
+			startPiFTf, err := fs.Transform(startCfg, referenceframe.NewZeroPoseInFrame(frame), goal.Parent())
+			if err != nil {
+				return nil, err
+			}
+			startPiF = startPiFTf.(*referenceframe.PoseInFrame)
+		}
+		constraint, metric := constructor(startPiF.Pose(), goal.Pose(), tolerance)
+
+		metricMap[frame] = metric
+		constraintMap[frame] = constraint
+	}
+	return &fsPathConstraint{
+		metricMap:     metricMap,
+		constraintMap: constraintMap,
+		goalMap:       to,
+		fs:            fs,
+	}, nil
+}
+
 // CreateSlerpOrientationConstraintFS will measure the orientation difference between the orientation of two poses across a frame system,
 // and return a constraint that returns whether given orientations are within a given tolerance distance of the shortest segment between
 // their respective orientations, as well as a metric which returns the distance to that valid region.
@@ -818,63 +816,11 @@ func CreateSlerpOrientationConstraintFS(
 	from, to PathStep,
 	tolerance float64,
 ) (StateFSConstraint, ik.StateFSMetric, error) {
-	metricMap := map[string]ik.StateMetric{}
-	constraintMap := map[string]StateConstraint{}
-
-	for frame, goal := range to {
-		startPiF, ok := from[frame]
-		if !ok {
-			startPiFTf, err := fs.Transform(startCfg, referenceframe.NewZeroPoseInFrame(frame), goal.Parent())
-			if err != nil {
-				return nil, nil, err
-			}
-			startPiF = startPiFTf.(*referenceframe.PoseInFrame)
-		}
-		orientConstraint, orientMetric := NewSlerpOrientationConstraint(startPiF.Pose(), goal.Pose(), tolerance)
-
-		metricMap[frame] = orientMetric
-		constraintMap[frame] = orientConstraint
+	constraintInternal, err := newFsPathConstraintTol(fs, startCfg, from, to, NewSlerpOrientationConstraint, tolerance)
+	if err != nil {
+		return nil, nil, err
 	}
-
-	allMetric := func(state *ik.StateFS) float64 {
-		score := 0.
-		for frame, goal := range to {
-			if metric, ok := metricMap[frame]; ok {
-				currPose, err := fs.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), goal.Parent())
-				if err != nil {
-					score = math.Inf(1)
-					break
-				}
-				score += metric(&ik.State{
-					Configuration: state.Configuration[frame],
-					Position:      currPose.(*referenceframe.PoseInFrame).Pose(),
-					Frame:         fs.Frame(frame),
-				})
-			}
-		}
-		return score
-	}
-
-	allConstraint := func(state *ik.StateFS) bool {
-		for frame, goal := range to {
-			if constraint, ok := constraintMap[frame]; ok {
-				currPose, err := fs.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), goal.Parent())
-				if err != nil {
-					return false
-				}
-				pass := constraint(&ik.State{
-					Configuration: state.Configuration[frame],
-					Position:      currPose.(*referenceframe.PoseInFrame).Pose(),
-					Frame:         fs.Frame(frame),
-				})
-				if !pass {
-					return false
-				}
-			}
-		}
-		return true
-	}
-	return allConstraint, allMetric, nil
+	return constraintInternal.constraint, constraintInternal.metric, nil
 }
 
 // CreateLineConstraintFS will measure the linear distance between the positions of two poses across a frame system,
@@ -886,61 +832,61 @@ func CreateLineConstraintFS(
 	from, to PathStep,
 	tolerance float64,
 ) (StateFSConstraint, ik.StateFSMetric, error) {
-	metricMap := map[string]ik.StateMetric{}
-	constraintMap := map[string]StateConstraint{}
-
-	for frame, goal := range to {
-		startPiF, ok := from[frame]
-		if !ok {
-			startPiFTf, err := fs.Transform(startCfg, referenceframe.NewZeroPoseInFrame(frame), goal.Parent())
-			if err != nil {
-				return nil, nil, err
-			}
-			startPiF = startPiFTf.(*referenceframe.PoseInFrame)
-		}
-		lineConstraint, lineMetric := NewLineConstraint(startPiF.Pose().Point(), goal.Pose().Point(), tolerance)
-
-		metricMap[frame] = lineMetric
-		constraintMap[frame] = lineConstraint
+	// Need to define a constructor here since NewLineConstraint takes r3.Vectors, not poses
+	constructor := func(fromPose, toPose spatial.Pose, tolerance float64) (StateConstraint, ik.StateMetric) {
+		return NewLineConstraint(fromPose.Point(), toPose.Point(), tolerance)
 	}
-
-	allMetric := func(state *ik.StateFS) float64 {
-		score := 0.
-		for frame, goal := range to {
-			if metric, ok := metricMap[frame]; ok {
-				currPose, err := fs.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), goal.Parent())
-				if err != nil {
-					score = math.Inf(1)
-					break
-				}
-				score += metric(&ik.State{
-					Configuration: state.Configuration[frame],
-					Position:      currPose.(*referenceframe.PoseInFrame).Pose(),
-					Frame:         fs.Frame(frame),
-				})
-			}
-		}
-		return score
+	constraintInternal, err := newFsPathConstraintTol(fs, startCfg, from, to, constructor, tolerance)
+	if err != nil {
+		return nil, nil, err
 	}
+	return constraintInternal.constraint, constraintInternal.metric, nil
+}
 
-	allConstraint := func(state *ik.StateFS) bool {
-		for frame, goal := range to {
-			if constraint, ok := constraintMap[frame]; ok {
-				currPose, err := fs.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), goal.Parent())
-				if err != nil {
-					return false
-				}
-				pass := constraint(&ik.State{
-					Configuration: state.Configuration[frame],
-					Position:      currPose.(*referenceframe.PoseInFrame).Pose(),
-					Frame:         fs.Frame(frame),
-				})
-				if !pass {
-					return false
-				}
-			}
-		}
-		return true
+// CreateAbsoluteLinearInterpolatingConstraintFS provides a Constraint whose valid manifold allows a specified amount of deviation from the
+// shortest straight-line path between the start and the goal. linTol is the allowed linear deviation in mm, orientTol is the allowed
+// orientation deviation measured by norm of the R3AA orientation difference to the slerp path between start/goal orientations.
+func CreateAbsoluteLinearInterpolatingConstraintFS(
+	fs referenceframe.FrameSystem,
+	startCfg map[string][]referenceframe.Input,
+	from, to PathStep,
+	linTol, orientTol float64,
+) (StateFSConstraint, ik.StateFSMetric, error) {
+	constraintInternal, err := newFsPathConstraintSeparatedLinOrientTol(
+		fs,
+		startCfg,
+		from,
+		to,
+		NewAbsoluteLinearInterpolatingConstraint,
+		linTol,
+		orientTol,
+	)
+	if err != nil {
+		return nil, nil, err
 	}
-	return allConstraint, allMetric, nil
+	return constraintInternal.constraint, constraintInternal.metric, nil
+}
+
+// CreateProportionalLinearInterpolatingConstraintFS will provide the same metric and constraint as
+// CreateAbsoluteLinearInterpolatingConstraintFS, except that allowable linear and orientation deviation is scaled based on the distance
+// from start to goal.
+func CreateProportionalLinearInterpolatingConstraintFS(
+	fs referenceframe.FrameSystem,
+	startCfg map[string][]referenceframe.Input,
+	from, to PathStep,
+	linTol, orientTol float64,
+) (StateFSConstraint, ik.StateFSMetric, error) {
+	constraintInternal, err := newFsPathConstraintSeparatedLinOrientTol(
+		fs,
+		startCfg,
+		from,
+		to,
+		NewProportionalLinearInterpolatingConstraint,
+		linTol,
+		orientTol,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	return constraintInternal.constraint, constraintInternal.metric, nil
 }

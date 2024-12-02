@@ -86,7 +86,7 @@ const (
 func newBasicPlannerOptions() *plannerOptions {
 	opt := &plannerOptions{}
 	opt.goalMetricConstructor = ik.NewSquaredNormMetric
-	opt.confDistanceFunc = ik.FSConfigurationL2Distance
+	opt.configurationDistanceFunc = ik.FSConfigurationL2Distance
 	opt.poseDistanceFunc = ik.WeightedSquaredNormSegmentMetric
 	opt.nodeDistanceFunc = nodeConfigurationDistanceFunc
 	opt.scoreFunc = ik.FSConfigurationL2Distance
@@ -175,8 +175,8 @@ type plannerOptions struct {
 	// poseDistanceFunc is the function that the planner will use to measure the degree of "closeness" between two poses
 	poseDistanceFunc ik.SegmentMetric
 
-	// confDistanceFunc is the function that the planner will use to measure the degree of "closeness" between two states of the robot
-	confDistanceFunc ik.SegmentFSMetric
+	// configurationDistanceFunc is the function that the planner will use to measure the degree of "closeness" between two states of the robot
+	configurationDistanceFunc ik.SegmentFSMetric
 
 	// scoreFunc is the function that the planner will use to evaluate a plan for final cost comparisons.
 	scoreFunc ik.SegmentFSMetric

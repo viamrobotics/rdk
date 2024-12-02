@@ -224,7 +224,7 @@ func TestCollisionConstraints(t *testing.T) {
 
 	// create robot collision entities
 	movingGeometriesInFrame, err := model.Geometries(seedMap[model.Name()])
-	movingRobotGeometries := movingGeometriesInFrame.Geometries() // solver frame returns geoms in frame World
+	movingRobotGeometries := movingGeometriesInFrame.Geometries()
 	test.That(t, err, test.ShouldBeNil)
 
 	// find all geometries that are not moving but are in the frame system
@@ -288,7 +288,7 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 
 	// create robot collision entities
 	movingGeometriesInFrame, err := model.Geometries(seedMap[model.Name()])
-	movingRobotGeometries := movingGeometriesInFrame.Geometries() // solver frame returns geoms in frame World
+	movingRobotGeometries := movingGeometriesInFrame.Geometries()
 	test.That(b, err, test.ShouldBeNil)
 
 	// find all geometries that are not moving but are in the frame system

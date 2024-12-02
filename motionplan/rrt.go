@@ -97,7 +97,7 @@ func initRRTSolutions(ctx context.Context, mp motionPlanner, seed map[string][]r
 	}
 
 	// the smallest interpolated distance between the start and end input represents a lower bound on cost
-	optimalCost := mp.opt().confDistanceFunc(&ik.SegmentFS{StartConfiguration: seed, EndConfiguration: solutions[0].Q()})
+	optimalCost := mp.opt().configurationDistanceFunc(&ik.SegmentFS{StartConfiguration: seed, EndConfiguration: solutions[0].Q()})
 	rrt.maps.optNode = &basicNode{q: solutions[0].Q(), cost: optimalCost}
 
 	// Check for direct interpolation for the subset of IK solutions within some multiple of optimal
@@ -106,7 +106,7 @@ func initRRTSolutions(ctx context.Context, mp motionPlanner, seed map[string][]r
 	// initialize maps and check whether direct interpolation is an option
 	for _, solution := range solutions {
 		if canInterp {
-			cost := mp.opt().confDistanceFunc(&ik.SegmentFS{StartConfiguration: seed, EndConfiguration: solution.Q()})
+			cost := mp.opt().configurationDistanceFunc(&ik.SegmentFS{StartConfiguration: seed, EndConfiguration: solution.Q()})
 			if cost < optimalCost*defaultOptimalityMultiple {
 				if mp.checkPath(seed, solution.Q()) {
 					rrt.steps = []node{seedNode, solution}
@@ -143,6 +143,7 @@ func fixedStepInterpolation(start, target node, qstep map[string][]float64) map[
 
 	// Iterate through each frame's inputs
 	for frameName, startInputs := range start.Q() {
+		// As this is constructed in-algorithm from already-near nodes, this is guaranteed to always exist
 		targetInputs := target.Q()[frameName]
 		frameSteps := make([]referenceframe.Input, len(startInputs))
 
@@ -282,7 +283,7 @@ type rrtPlan struct {
 	nodes []node
 }
 
-func newRRTPlan(solution []node, fss referenceframe.FrameSystem, relative bool, offsetPose spatialmath.Pose) (Plan, error) {
+func newRRTPlan(solution []node, fs referenceframe.FrameSystem, relative bool, offsetPose spatialmath.Pose) (Plan, error) {
 	if len(solution) < 2 {
 		if len(solution) == 1 {
 			// Started at the goal, nothing to do
@@ -292,7 +293,7 @@ func newRRTPlan(solution []node, fss referenceframe.FrameSystem, relative bool, 
 		}
 	}
 	traj := nodesToTrajectory(solution)
-	path, err := newPath(solution, fss)
+	path, err := newPath(solution, fs)
 	if err != nil {
 		return nil, err
 	}

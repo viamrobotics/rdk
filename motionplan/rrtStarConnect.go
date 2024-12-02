@@ -64,7 +64,7 @@ type rrtStarConnectMotionPlanner struct {
 
 // NewRRTStarConnectMotionPlannerWithSeed creates a rrtStarConnectMotionPlanner object with a user specified random seed.
 func newRRTStarConnectMotionPlanner(
-	fss referenceframe.FrameSystem,
+	fs referenceframe.FrameSystem,
 	seed *rand.Rand,
 	logger logging.Logger,
 	opt *plannerOptions,
@@ -72,7 +72,7 @@ func newRRTStarConnectMotionPlanner(
 	if opt == nil {
 		return nil, errNoPlannerOptions
 	}
-	mp, err := newPlanner(fss, seed, logger, opt)
+	mp, err := newPlanner(fs, seed, logger, opt)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +125,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 		}
 		rrt.maps = planSeed.maps
 	}
-	targetConf, err := referenceframe.InterpolateFS(mp.fss, seed, rrt.maps.optNode.Q(), 0.5)
+	targetConf, err := referenceframe.InterpolateFS(mp.fs, seed, rrt.maps.optNode.Q(), 0.5)
 	if err != nil {
 		rrt.solutionChan <- &rrtSolution{err: err}
 		return
@@ -185,11 +185,14 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 			return
 		}
 
-		reachedDelta := mp.planOpts.confDistanceFunc(&ik.SegmentFS{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
+		reachedDelta := mp.planOpts.configurationDistanceFunc(&ik.SegmentFS{
+			StartConfiguration: map1reached.Q(),
+			EndConfiguration:   map2reached.Q(),
+		})
 
 		// Second iteration; extend maps 1 and 2 towards the halfway point between where they reached
 		if reachedDelta > mp.planOpts.InputIdentDist {
-			targetConf, err = referenceframe.InterpolateFS(mp.fss, map1reached.Q(), map2reached.Q(), 0.5)
+			targetConf, err = referenceframe.InterpolateFS(mp.fs, map1reached.Q(), map2reached.Q(), 0.5)
 			if err != nil {
 				rrt.solutionChan <- &rrtSolution{err: err, maps: rrt.maps}
 				return
@@ -200,7 +203,10 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 				rrt.solutionChan <- &rrtSolution{err: err, maps: rrt.maps}
 				return
 			}
-			reachedDelta = mp.planOpts.confDistanceFunc(&ik.SegmentFS{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
+			reachedDelta = mp.planOpts.configurationDistanceFunc(&ik.SegmentFS{
+				StartConfiguration: map1reached.Q(),
+				EndConfiguration:   map2reached.Q(),
+			})
 		}
 
 		// Solved
@@ -258,7 +264,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 		default:
 		}
 
-		dist := mp.planOpts.confDistanceFunc(&ik.SegmentFS{StartConfiguration: near.Q(), EndConfiguration: target.Q()})
+		dist := mp.planOpts.configurationDistanceFunc(&ik.SegmentFS{StartConfiguration: near.Q(), EndConfiguration: target.Q()})
 		if dist < mp.planOpts.InputIdentDist {
 			mchan <- near
 			return
@@ -271,7 +277,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 			break
 		}
 
-		extendCost := mp.planOpts.confDistanceFunc(&ik.SegmentFS{
+		extendCost := mp.planOpts.configurationDistanceFunc(&ik.SegmentFS{
 			StartConfiguration: oldNear.Q(),
 			EndConfiguration:   near.Q(),
 		})
@@ -287,7 +293,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 			}
 
 			// check to see if a shortcut is possible, and rewire the node if it is
-			connectionCost := mp.planOpts.confDistanceFunc(&ik.SegmentFS{
+			connectionCost := mp.planOpts.configurationDistanceFunc(&ik.SegmentFS{
 				StartConfiguration: thisNeighbor.node.Q(),
 				EndConfiguration:   near.Q(),
 			})

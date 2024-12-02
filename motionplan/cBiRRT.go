@@ -65,7 +65,7 @@ type cBiRRTMotionPlanner struct {
 
 // newCBiRRTMotionPlannerWithSeed creates a cBiRRTMotionPlanner object with a user specified random seed.
 func newCBiRRTMotionPlanner(
-	fss referenceframe.FrameSystem,
+	fs referenceframe.FrameSystem,
 	seed *rand.Rand,
 	logger logging.Logger,
 	opt *plannerOptions,
@@ -73,7 +73,7 @@ func newCBiRRTMotionPlanner(
 	if opt == nil {
 		return nil, errNoPlannerOptions
 	}
-	mp, err := newPlanner(fss, seed, logger, opt)
+	mp, err := newPlanner(fs, seed, logger, opt)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +137,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		rrt.maps = planSeed.maps
 	}
 	mp.logger.CInfof(ctx, "goal node: %v\n", rrt.maps.optNode.Q())
-	interpConfig, err := referenceframe.InterpolateFS(mp.fss, seed, rrt.maps.optNode.Q(), 0.5)
+	interpConfig, err := referenceframe.InterpolateFS(mp.fs, seed, rrt.maps.optNode.Q(), 0.5)
 	if err != nil {
 		rrt.solutionChan <- &rrtSolution{err: err}
 		return
@@ -206,11 +206,14 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 			return
 		}
 
-		reachedDelta := mp.planOpts.confDistanceFunc(&ik.SegmentFS{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
+		reachedDelta := mp.planOpts.configurationDistanceFunc(&ik.SegmentFS{
+			StartConfiguration: map1reached.Q(),
+			EndConfiguration:   map2reached.Q(),
+		})
 
 		// Second iteration; extend maps 1 and 2 towards the halfway point between where they reached
 		if reachedDelta > mp.planOpts.InputIdentDist {
-			targetConf, err := referenceframe.InterpolateFS(mp.fss, map1reached.Q(), map2reached.Q(), 0.5)
+			targetConf, err := referenceframe.InterpolateFS(mp.fs, map1reached.Q(), map2reached.Q(), 0.5)
 			if err != nil {
 				rrt.solutionChan <- &rrtSolution{err: err, maps: rrt.maps}
 				return
@@ -221,7 +224,10 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 				rrt.solutionChan <- &rrtSolution{err: err, maps: rrt.maps}
 				return
 			}
-			reachedDelta = mp.planOpts.confDistanceFunc(&ik.SegmentFS{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
+			reachedDelta = mp.planOpts.configurationDistanceFunc(&ik.SegmentFS{
+				StartConfiguration: map1reached.Q(),
+				EndConfiguration:   map2reached.Q(),
+			})
 		}
 
 		// Solved!
@@ -281,8 +287,8 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 		default:
 		}
 
-		dist := mp.planOpts.confDistanceFunc(&ik.SegmentFS{StartConfiguration: near.Q(), EndConfiguration: target.Q()})
-		oldDist := mp.planOpts.confDistanceFunc(&ik.SegmentFS{StartConfiguration: oldNear.Q(), EndConfiguration: target.Q()})
+		dist := mp.planOpts.configurationDistanceFunc(&ik.SegmentFS{StartConfiguration: near.Q(), EndConfiguration: target.Q()})
+		oldDist := mp.planOpts.configurationDistanceFunc(&ik.SegmentFS{StartConfiguration: oldNear.Q(), EndConfiguration: target.Q()})
 		switch {
 		case dist < mp.planOpts.InputIdentDist:
 			mchan <- near
@@ -299,7 +305,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 		newNear = mp.constrainNear(ctx, randseed, oldNear.Q(), newNear)
 
 		if newNear != nil {
-			nearDist := mp.planOpts.confDistanceFunc(&ik.SegmentFS{StartConfiguration: oldNear.Q(), EndConfiguration: newNear})
+			nearDist := mp.planOpts.configurationDistanceFunc(&ik.SegmentFS{StartConfiguration: oldNear.Q(), EndConfiguration: newNear})
 			if nearDist < math.Pow(mp.planOpts.InputIdentDist, 3) {
 				if !doubled {
 					doubled = true
@@ -351,7 +357,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		newArc := &ik.SegmentFS{
 			StartConfiguration: seedInputs,
 			EndConfiguration:   target,
-			FS:                 mp.fss,
+			FS:                 mp.fs,
 		}
 
 		// Check if the arc of "seedInputs" to "target" is valid
@@ -386,7 +392,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			&ik.SegmentFS{
 				StartConfiguration: seedInputs,
 				EndConfiguration:   solutionMap,
-				FS:                 mp.fss,
+				FS:                 mp.fs,
 			},
 			mp.planOpts.Resolution,
 		)
@@ -394,7 +400,10 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			return solutionMap
 		}
 		if failpos != nil {
-			dist := mp.planOpts.confDistanceFunc(&ik.SegmentFS{StartConfiguration: target, EndConfiguration: failpos.EndConfiguration})
+			dist := mp.planOpts.configurationDistanceFunc(&ik.SegmentFS{
+				StartConfiguration: target,
+				EndConfiguration:   failpos.EndConfiguration,
+			})
 			if dist > mp.planOpts.InputIdentDist {
 				// If we have a first failing position, and that target is updating (no infinite loop), then recurse
 				seedInputs = failpos.StartConfiguration
@@ -452,7 +461,10 @@ func (mp *cBiRRTMotionPlanner) smoothPath(ctx context.Context, inputSteps []node
 			// Note this could technically replace paths with "longer" paths i.e. with more waypoints.
 			// However, smoothed paths are invariably more intuitive and smooth, and lend themselves to future shortening,
 			// so we allow elongation here.
-			dist := mp.planOpts.confDistanceFunc(&ik.SegmentFS{StartConfiguration: inputSteps[i].Q(), EndConfiguration: reached.Q()})
+			dist := mp.planOpts.configurationDistanceFunc(&ik.SegmentFS{
+				StartConfiguration: inputSteps[i].Q(),
+				EndConfiguration:   reached.Q(),
+			})
 			if dist < mp.planOpts.InputIdentDist {
 				for _, hitCorner := range hitCorners {
 					hitCorner.SetCorner(false)

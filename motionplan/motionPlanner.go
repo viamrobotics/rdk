@@ -204,7 +204,7 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 }
 
 type planner struct {
-	fss      referenceframe.FrameSystem
+	fs       referenceframe.FrameSystem
 	lfs      *linearizedFrameSystem
 	solver   ik.Solver
 	logger   logging.Logger
@@ -213,8 +213,8 @@ type planner struct {
 	planOpts *plannerOptions
 }
 
-func newPlanner(fss referenceframe.FrameSystem, seed *rand.Rand, logger logging.Logger, opt *plannerOptions) (*planner, error) {
-	lfs, err := newLinearizedFrameSystem(fss)
+func newPlanner(fs referenceframe.FrameSystem, seed *rand.Rand, logger logging.Logger, opt *plannerOptions) (*planner, error) {
+	lfs, err := newLinearizedFrameSystem(fs)
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +228,7 @@ func newPlanner(fss referenceframe.FrameSystem, seed *rand.Rand, logger logging.
 	}
 	mp := &planner{
 		solver:   solver,
-		fss:      fss,
+		fs:       fs,
 		lfs:      lfs,
 		logger:   logger,
 		randseed: seed,
@@ -240,7 +240,7 @@ func newPlanner(fss referenceframe.FrameSystem, seed *rand.Rand, logger logging.
 func (mp *planner) checkInputs(inputs map[string][]referenceframe.Input) bool {
 	ok, _ := mp.planOpts.CheckStateFSConstraints(&ik.StateFS{
 		Configuration: inputs,
-		FS:            mp.fss,
+		FS:            mp.fs,
 	})
 	return ok
 }
@@ -250,7 +250,7 @@ func (mp *planner) checkPath(seedInputs, target map[string][]referenceframe.Inpu
 		&ik.SegmentFS{
 			StartConfiguration: seedInputs,
 			EndConfiguration:   target,
-			FS:                 mp.fss,
+			FS:                 mp.fs,
 		},
 		mp.planOpts.Resolution,
 	)
@@ -259,11 +259,11 @@ func (mp *planner) checkPath(seedInputs, target map[string][]referenceframe.Inpu
 
 func (mp *planner) sample(rSeed node, sampleNum int) (node, error) {
 	// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
-	// The 2 at a time is to ensure random seeds are added onto both the seed and goal maps.
+	// The 2 at a time is to ensure random seeds are added onto both the seed and gofsal maps.
 	if sampleNum >= mp.planOpts.IterBeforeRand && sampleNum%4 >= 2 {
 		randomInputs := make(map[string][]referenceframe.Input)
-		for _, name := range mp.fss.FrameNames() {
-			f := mp.fss.Frame(name)
+		for _, name := range mp.fs.FrameNames() {
+			f := mp.fs.Frame(name)
 			if f != nil && len(f.DoF()) > 0 {
 				randomInputs[name] = referenceframe.RandomFrameInputs(f, mp.randseed)
 			}
@@ -274,7 +274,7 @@ func (mp *planner) sample(rSeed node, sampleNum int) (node, error) {
 	// Seeding nearby to valid points results in much faster convergence in less constrained space
 	newInputs := make(map[string][]referenceframe.Input)
 	for name, inputs := range rSeed.Q() {
-		f := mp.fss.Frame(name)
+		f := mp.fs.Frame(name)
 		if f != nil && len(f.DoF()) > 0 {
 			q, err := referenceframe.RestrictedRandomFrameInputs(f, mp.randseed, 0.1, inputs)
 			if err != nil {
@@ -319,11 +319,11 @@ func (mp *planner) smoothPath(ctx context.Context, path []node) []node {
 		secondEdge := firstEdge + 1 + mp.randseed.Intn((len(path)-2)-firstEdge)
 
 		// Use the frame system to interpolate between configurations
-		wayPoint1, err := referenceframe.InterpolateFS(mp.fss, path[firstEdge].Q(), path[firstEdge+1].Q(), waypoints[mp.randseed.Intn(3)])
+		wayPoint1, err := referenceframe.InterpolateFS(mp.fs, path[firstEdge].Q(), path[firstEdge+1].Q(), waypoints[mp.randseed.Intn(3)])
 		if err != nil {
 			return path
 		}
-		wayPoint2, err := referenceframe.InterpolateFS(mp.fss, path[secondEdge].Q(), path[secondEdge+1].Q(), waypoints[mp.randseed.Intn(3)])
+		wayPoint2, err := referenceframe.InterpolateFS(mp.fs, path[secondEdge].Q(), path[secondEdge+1].Q(), waypoints[mp.randseed.Intn(3)])
 		if err != nil {
 			return path
 		}
@@ -406,18 +406,18 @@ IK:
 			// Ensure the end state is a valid one
 			statePass, failName := mp.planOpts.CheckStateFSConstraints(&ik.StateFS{
 				Configuration: step,
-				FS:            mp.fss,
+				FS:            mp.fs,
 			})
 			if statePass {
 				stepArc := &ik.SegmentFS{
 					StartConfiguration: seed,
 					EndConfiguration:   step,
-					FS:                 mp.fss,
+					FS:                 mp.fs,
 				}
 				arcPass, failName := mp.planOpts.CheckSegmentFSConstraints(stepArc)
 
 				if arcPass {
-					score := mp.planOpts.confDistanceFunc(stepArc)
+					score := mp.planOpts.configurationDistanceFunc(stepArc)
 					if score < mp.planOpts.MinScore && mp.planOpts.MinScore > 0 {
 						solutions = map[float64]map[string][]referenceframe.Input{}
 						solutions[score] = step
@@ -487,14 +487,15 @@ IK:
 }
 
 // linearize the goal metric for use with solvers.
+// Since our solvers operate on arrays of floats, there needs to be a way to map bidirectionally between the framesystem configuration
+// of map[string][]Input and the []float64 that the solver expects. This is that mapping.
 func (mp *planner) linearizeFSmetric(metric ik.StateFSMetric) func([]float64) float64 {
 	return func(query []float64) float64 {
 		inputs, err := mp.lfs.sliceToMap(query)
 		if err != nil {
 			return math.Inf(1)
 		}
-		val := metric(&ik.StateFS{Configuration: inputs, FS: mp.fss})
-		return val
+		return metric(&ik.StateFS{Configuration: inputs, FS: mp.fs})
 	}
 }
 
@@ -506,7 +507,8 @@ func (mp *planner) frameLists() (moving, nonmoving []string) {
 		}
 	}
 
-	for _, frameName := range mp.fss.FrameNames() {
+	// Here we account for anything in the framesystem that is not part of a motion chain
+	for _, frameName := range mp.fs.FrameNames() {
 		if _, ok := movingMap[frameName]; ok {
 			moving = append(moving, frameName)
 		} else {
@@ -541,7 +543,7 @@ func (mp *planner) nonchainMinimize(seed, step map[string][]referenceframe.Input
 		&ik.SegmentFS{
 			StartConfiguration: step,
 			EndConfiguration:   alteredStep,
-			FS:                 mp.fss,
+			FS:                 mp.fs,
 		}, mp.planOpts.Resolution,
 	)
 	if lastGood != nil {

@@ -235,7 +235,7 @@ func simple2DMap() (*planConfig, error) {
 	seedMap := frame.StartPositions(fs)
 	// create robot collision entities
 	movingGeometriesInFrame, err := model.Geometries(seedMap[model.Name()])
-	movingRobotGeometries := movingGeometriesInFrame.Geometries() // solver frame returns geoms in frame World
+	movingRobotGeometries := movingGeometriesInFrame.Geometries()
 	if err != nil {
 		return nil, err
 	}

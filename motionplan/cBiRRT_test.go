@@ -83,7 +83,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 		cbirrt.constrainedExtend(ctx, cbirrt.randseed, goalMap, near2, seedReached, m1chan)
 	})
 	goalReached := <-m1chan
-	dist := opt.confDistanceFunc(&ik.SegmentFS{StartConfiguration: seedReached.Q(), EndConfiguration: goalReached.Q()})
+	dist := opt.configurationDistanceFunc(&ik.SegmentFS{StartConfiguration: seedReached.Q(), EndConfiguration: goalReached.Q()})
 	test.That(t, dist < cbirrt.planOpts.InputIdentDist, test.ShouldBeTrue)
 
 	seedReached.SetCorner(true)

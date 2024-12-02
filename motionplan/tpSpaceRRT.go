@@ -124,7 +124,7 @@ type tpSpaceRRTMotionPlanner struct {
 
 // newTPSpaceMotionPlanner creates a newTPSpaceMotionPlanner object with a user specified random seed.
 func newTPSpaceMotionPlanner(
-	fss referenceframe.FrameSystem,
+	fs referenceframe.FrameSystem,
 	seed *rand.Rand,
 	logger logging.Logger,
 	opt *plannerOptions,
@@ -133,14 +133,14 @@ func newTPSpaceMotionPlanner(
 		return nil, errNoPlannerOptions
 	}
 
-	mp, err := newPlanner(fss, seed, logger, opt)
+	mp, err := newPlanner(fs, seed, logger, opt)
 	if err != nil {
 		return nil, err
 	}
 	tpPlanner := &tpSpaceRRTMotionPlanner{
 		planner: mp,
 	}
-	// TODO: Only one motion chain allowed if tpspace
+	// TODO: Only one motion chain allowed if tpspace for now. Eventually this may not be a restriction.
 	if len(opt.motionChains) != 1 {
 		return nil, fmt.Errorf("exactly one motion chain permitted for tpspace, but planner option had %d", len(opt.motionChains))
 	}
@@ -907,7 +907,7 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGS
 func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) []node {
 	toIter := int(math.Min(float64(len(path)*len(path))/2, float64(mp.planOpts.SmoothIter)))
 	currCost := sumCosts(path)
-	smoothPlannerMP, err := newTPSpaceMotionPlanner(mp.fss, mp.randseed, mp.logger, mp.planOpts)
+	smoothPlannerMP, err := newTPSpaceMotionPlanner(mp.fs, mp.randseed, mp.logger, mp.planOpts)
 	if err != nil {
 		return path
 	}
