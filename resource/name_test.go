@@ -191,21 +191,3 @@ func TestNamesToStrings(t *testing.T) {
 		test.That(t, NamesToStrings(tc.input), test.ShouldResemble, tc.output)
 	}
 }
-
-func TestRemoteNameToRemoteArray(t *testing.T) {
-	t.Run("name with multiple remote returns array of remotes", func(t *testing.T) {
-		nameTest := Name{
-			Remote: "foo:bar:wow",
-		}
-		remoteArray := nameTest.RemoteNameToRemoteArray()
-		test.That(t, remoteArray, test.ShouldResemble, []string{"foo", "bar", "wow"})
-	})
-
-	t.Run("name with empty remotes should return empty string array", func(t *testing.T) {
-		nameTest := Name{
-			Remote: "",
-		}
-		remoteArray := nameTest.RemoteNameToRemoteArray()
-		test.That(t, remoteArray, test.ShouldResemble, []string{})
-	})
-}

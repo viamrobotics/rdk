@@ -191,6 +191,9 @@ type LocalRobot interface {
 	// visualization.
 	// DOT reference: https://graphviz.org/doc/info/lang.html
 	ExportResourcesAsDot(index int) (resource.GetSnapshotInfo, error)
+
+	// RestartAllowed returns whether the robot can safely be restarted.
+	RestartAllowed() bool
 }
 
 // A RemoteRobot is a Robot that was created through a connection.

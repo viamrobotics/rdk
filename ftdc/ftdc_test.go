@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -293,18 +294,16 @@ func TestStatsWriterContinuesOnSchemaError(t *testing.T) {
 func TestCountingBytes(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
-	// We must not use `NewWithWriter`. Forcing a writer for FTDC data is not compatible with FTDC
-	// file rotation.
-	ftdc := New(logger.Sublogger("ftdc"))
-	// Expect a log rotation after 1,000 bytes. For a changing `foo` object, this is ~60 datums.
-	ftdc.maxFileSizeBytes = 1000
-
+	// Isolate all of the files we're going to create to a single, fresh directory.
 	ftdcFileDir, err := os.MkdirTemp("./", "countingBytesTest")
 	test.That(t, err, test.ShouldBeNil)
 	defer os.RemoveAll(ftdcFileDir)
 
-	// Isolate all of the files we're going to create to a single, fresh directory.
-	ftdc.ftdcDir = ftdcFileDir
+	// We must not use `NewWithWriter`. Forcing a writer for FTDC data is not compatible with FTDC
+	// file rotation.
+	ftdc := New(ftdcFileDir, logger.Sublogger("ftdc"))
+	// Expect a log rotation after 1,000 bytes. For a changing `foo` object, this is ~60 datums.
+	ftdc.maxFileSizeBytes = 1000
 
 	timesRolledOver := 0
 	foo := &foo{}
@@ -399,4 +398,128 @@ func TestCountingBytes(t *testing.T) {
 	// There will be 1 FTDC file per `timesRolledOver`. And an additional file for first call to
 	// `writeDatum`. Thus the subtraction of `1` to get the right equation.
 	test.That(t, timesRolledOver, test.ShouldEqual, numFTDCFiles-1)
+}
+
+func TestParseTimeFromFile(t *testing.T) {
+	timeVal, err := parseTimeFromFilename("countingBytesTest1228324349/viam-server-2024-11-18T20-37-01Z.ftdc")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, timeVal.Year(), test.ShouldEqual, 2024)
+	test.That(t, timeVal.Month(), test.ShouldEqual, time.Month(11))
+	test.That(t, timeVal.Day(), test.ShouldEqual, 18)
+	test.That(t, timeVal.Hour(), test.ShouldEqual, 20)
+	test.That(t, timeVal.Minute(), test.ShouldEqual, 37)
+	test.That(t, timeVal.Second(), test.ShouldEqual, 1)
+}
+
+func TestFileDeletion(t *testing.T) {
+	// This test takes ~10 seconds due to file naming limitations. This test creates FTDC files on
+	// disk whose names include the timestamp with seconds resolution. In this case FTDC has to wait
+	// a second before being able to create the next file.
+	logger := logging.NewTestLogger(t)
+
+	// Isolate all of the files we're going to create to a single, fresh directory.
+	ftdcFileDir, err := os.MkdirTemp("./", "fileDeletionTest")
+	test.That(t, err, test.ShouldBeNil)
+	defer os.RemoveAll(ftdcFileDir)
+
+	// We must not use `NewWithWriter`. Forcing a writer for FTDC data is not compatible with FTDC
+	// file rotation.
+	ftdc := New(ftdcFileDir, logger.Sublogger("ftdc"))
+
+	// Expect a log rotation after 1,000 bytes. For a changing `foo` object, this is ~60 datums.
+	ftdc.maxFileSizeBytes = 1000
+	ftdc.maxNumFiles = 3
+
+	timesRolledOver := 0
+	foo := &foo{}
+	ftdc.Add("foo", foo)
+
+	// These settings should result in ~8 rollovers -> ~9 total files.
+	for cnt := 0; cnt < 500; cnt++ {
+		foo.x = cnt
+		foo.y = 2 * cnt
+
+		datum := ftdc.constructDatum()
+		datum.Time = int64(cnt)
+		err := ftdc.writeDatum(datum)
+		test.That(t, err, test.ShouldBeNil)
+
+		// If writing a datum takes the bytes written to larger than configured max file size, an
+		// explicit call to `getWriter` should create a new file and reset the count.
+		if ftdc.bytesWrittenCounter.count >= ftdc.maxFileSizeBytes {
+			// We're about to write a new ftdc file. The ftdc file names are a function of
+			// "now". Given the test runs fast, the generated name will collide (names only use
+			// seconds resolution). We accept this slowdown for this test.
+			_, err = ftdc.getWriter()
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, ftdc.bytesWrittenCounter.count, test.ShouldBeLessThan, 1000)
+			timesRolledOver++
+		}
+	}
+
+	// We created FTDC files by hand without the background deleter goroutine running. Assert that
+	// we have more than the max allowed. Otherwise the test will trivially "pass".
+	origFiles := getFTDCFiles(t, ftdc.ftdcDir, logger)
+	test.That(t, len(origFiles), test.ShouldBeGreaterThan, ftdc.maxNumFiles)
+	slices.SortFunc(origFiles, func(left, right fs.FileInfo) int {
+		// Sort in descending order. After deletion, the "leftmost" files should remain. The
+		// "rightmost" should be removed.
+		return right.ModTime().Compare(left.ModTime())
+	})
+	logger.Info("Orig files:")
+	for _, f := range origFiles {
+		logger.Info("  ", f.Name(), " ModTime: ", f.ModTime())
+	}
+
+	// Delete excess FTDC files. Check that we now have exactly the max number of allowed files.
+	ftdc.checkAndDeleteOldFiles()
+	leftoverFiles := getFTDCFiles(t, ftdc.ftdcDir, logger)
+	test.That(t, len(leftoverFiles), test.ShouldEqual, ftdc.maxNumFiles)
+	slices.SortFunc(leftoverFiles, func(left, right fs.FileInfo) int {
+		// Sort in descending order.
+		return right.ModTime().Compare(left.ModTime())
+	})
+
+	logger.Info("Leftover files:")
+	for _, f := range leftoverFiles {
+		logger.Info("  ", f.Name(), " ModTime: ", f.ModTime())
+	}
+
+	// We've sorted both files in descending timestamp order as per their filename. Assert that the
+	// "newest original" files are still remaining.
+	for idx := 0; idx < len(leftoverFiles); idx++ {
+		test.That(t, leftoverFiles[idx].Name(), test.ShouldEqual, origFiles[idx].Name())
+	}
+
+	// And assert the "oldest original" files are no longer found.
+	for idx := len(leftoverFiles); idx < len(origFiles); idx++ {
+		// The `fs.FileInfo` returned by `os.Lstat` does not include the directory as part of its
+		// file name. Reconstitute the relative path before testing.
+		_, err := os.Lstat(filepath.Join(ftdc.ftdcDir, origFiles[idx].Name()))
+		var pathErr *fs.PathError
+		if !errors.As(err, &pathErr) {
+			t.Fatalf("File should be deleted. Lstat error: %v", err)
+		}
+	}
+}
+
+func getFTDCFiles(t *testing.T, dir string, logger logging.Logger) []fs.FileInfo {
+	var ret []fs.FileInfo
+	err := filepath.Walk(dir, filepath.WalkFunc(func(path string, info fs.FileInfo, walkErr error) error {
+		if !strings.HasSuffix(path, ".ftdc") {
+			return nil
+		}
+
+		if walkErr != nil {
+			logger.Info("Unexpected walk error. Continuing under the assumption any actual* problem will",
+				"be caught by the assertions. WalkErr:", walkErr)
+			return nil
+		}
+
+		ret = append(ret, info)
+		return nil
+	}))
+	test.That(t, err, test.ShouldBeNil)
+
+	return ret
 }

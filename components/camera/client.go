@@ -397,7 +397,7 @@ func (c *client) SubscribeRTP(
 		return sub, err
 	}
 	g := utils.NewGuard(func() {
-		c.logger.CInfo(ctx, "Error subscribing to RTP. Closing passthrough buffer.")
+		c.logger.CDebug(ctx, "Error subscribing to RTP. Closing passthrough buffer.")
 		rtpPacketBuffer.Close()
 	})
 	defer g.OnFail()
