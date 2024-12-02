@@ -620,7 +620,7 @@ func (r *localRobot) removeOrphanedResources(ctx context.Context,
 }
 
 // resourceHasWeakDependencies will return whether a given resource has weak dependencies.
-// Internal services that depends on other resources are also included in the check.
+// Internal services that depend on other resources are also included in the check.
 func (r *localRobot) resourceHasWeakDependencies(rName resource.Name, node *resource.GraphNode) bool {
 	if len(r.getWeakDependencyMatchers(node.Config().API, node.Config().Model)) > 0 {
 		return true
