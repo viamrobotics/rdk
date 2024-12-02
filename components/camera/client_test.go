@@ -195,7 +195,7 @@ func TestClient(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			compVal, _, err = rimage.CompareImages(img, frame)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, compVal, test.ShouldEqual, 0) 
+			test.That(t, compVal, test.ShouldEqual, 0)
 		})
 		frame, err := camera.DecodeImageFromCamera(context.Background(), rutils.MimeTypeRawRGBA, nil, camera1Client)
 		test.That(t, err, test.ShouldBeNil)

@@ -96,8 +96,7 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::ReadImage")
 		defer span.End()
 
-
-		img, _, err := camera.Image(ctx, mimeStr.Value, nil)
+		img, _, err := camera.Image(ctx, mimeStr.Value, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
