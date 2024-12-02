@@ -534,6 +534,11 @@ func TestClientLazyImage(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, frame, test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
 		frameLazy = frame.(*rimage.LazyEncodedImage)
+		test.That(t, frameLazy.RawData(), test.ShouldResemble, imgBuf.Bytes())
+		test.That(t, frameLazy.MIMEType(), test.ShouldEqual, rutils.MimeTypePNG)
+		compVal, _, err := rimage.CompareImages(img, frame)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
 	})
 
 	ctx = context.Background()
