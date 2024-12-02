@@ -185,11 +185,9 @@ func TestDataClient(t *testing.T) {
 	grpcClient := createDataGrpcClient()
 	client := DataClient{dataClient: grpcClient}
 
-	timeNow := time.Now()
-
 	captureInterval := CaptureInterval{
-		Start: timeNow,
-		End:   timeNow,
+		Start: time.Now(),
+		End:   time.Now(),
 	}
 	tagsFilter := TagsFilter{
 		Type: TagsFilterTypeUnspecified,
@@ -322,8 +320,8 @@ func TestDataClient(t *testing.T) {
 	t.Run("GetLatestTabularData", func(t *testing.T) {
 		dataStruct, _ := utils.StructToStructPb(data)
 		latestTabularData := LatestTabularDataReturn{
-			TimeCaptured: timeNow,
-			TimeSynced:   timeNow,
+			TimeCaptured: start,
+			TimeSynced:   end,
 			Payload:      dataStruct,
 		}
 
@@ -335,8 +333,8 @@ func TestDataClient(t *testing.T) {
 			test.That(t, in.ResourceSubtype, test.ShouldEqual, componentType)
 			test.That(t, in.MethodName, test.ShouldResemble, method)
 			return &pb.GetLatestTabularDataResponse{
-				TimeCaptured: timestamppb.New(timeNow),
-				TimeSynced:   timestamppb.New(timeNow),
+				TimeCaptured: timestamppb.New(start),
+				TimeSynced:   timestamppb.New(end),
 				Payload:      dataStruct,
 			}, nil
 		}
