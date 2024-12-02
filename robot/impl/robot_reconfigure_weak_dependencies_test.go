@@ -75,8 +75,7 @@ func TestUpdateWeakDependents(t *testing.T) {
 	robot := setupLocalRobot(t, context.Background(), &emptyCfg, logger)
 
 	// Register a `Resource` that generates weak dependencies. Specifically instance of
-	// this resource will depend on every `component` resource. See the definition of
-	// `internal.ComponentDependencyWildcardMatcher`.
+	// this resource will depend on every `component` resource.
 	weakAPI := resource.NewAPI(uuid.NewString(), "component", "weak")
 	weakModel := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(5))
 	weak1Name := resource.NewName(weakAPI, "weak1")
@@ -303,8 +302,7 @@ func TestWeakDependentsExplicitDependency(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	// Register a `Resource` that generates weak dependencies. Specifically instance of
-	// this resource will depend on every `component` resource. See the definition of
-	// `internal.ComponentDependencyWildcardMatcher`.
+	// this resource will depend on every `component` resource.
 	weakAPI := resource.NewAPI(uuid.NewString(), "component", "weak")
 	weakModel := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(5))
 	weak1Name := resource.NewName(weakAPI, "weak1")
@@ -328,7 +326,7 @@ func TestWeakDependentsExplicitDependency(t *testing.T) {
 	defer resource.Deregister(weakAPI, weakModel)
 
 	// Start robot with two components and one resource with weak dependencies
-	// (that also has an implicit dependency on one of the components).
+	// (that also has an explicit dependency on one of the components).
 	// The following scenario is expected:
 	// 1) The two bases will configure first in parallel (which will each bump the logical clock).
 	// 2) The completeConfig loop will check to see if there is a need to updateWeakDependents by
@@ -481,9 +479,8 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 	//   * weak1: a weak component that depends on all components.
 	logger := logging.NewTestLogger(t)
 
-	// Register a `Resource` that generates weak dependencies. Specifically instance of
-	// this resource will depend on every `component` resource. See the definition of
-	// `internal.ComponentDependencyWildcardMatcher`.
+	// Register a `Resource` that generates weak dependencies. Specifically, instances of
+	// this resource will depend on every `component` resource.
 	weakAPI := resource.NewAPI(uuid.NewString(), "component", "weak")
 	weakModel := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(5))
 	weak1Name := resource.NewName(weakAPI, "weak1")
@@ -507,7 +504,7 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 	defer resource.Deregister(weakAPI, weakModel)
 
 	// Start robot with two components (one of which has an explicit dependency on weak dependents)
-	// and one resource with weak dependencies
+	// and one resource with weak dependencies.
 	// The following scenario is expected:
 	// 1) base2 and weak1 will configure first in parallel (which will each bump the logical clock).
 	// 2) The completeConfig loop will check to see if there is a need to updateWeakDependents by
