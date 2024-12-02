@@ -96,7 +96,6 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::ReadImage")
 		defer span.End()
 
-		ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
 
 		img, _, err := camera.Image(ctx, mimeStr.Value, nil)
 		if err != nil {
