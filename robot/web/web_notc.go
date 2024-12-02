@@ -66,10 +66,21 @@ func (svc *webService) initStreamServer(ctx context.Context) error {
 	return nil
 }
 
+type stats struct {
+	RPCServer any
+}
+
 func (svc *webService) Stats() any {
-	return struct {
-		RPCServer any
-	}{svc.rpcServer.Stats()}
+	if haveLock := svc.mu.TryLock(); !haveLock {
+		return stats{nil}
+	}
+	defer svc.mu.Unlock()
+
+	if svc.rpcServer == nil {
+		return stats{nil}
+	}
+
+	return stats{svc.rpcServer.Stats()}
 }
 
 // stub for missing gostream
