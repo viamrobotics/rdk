@@ -130,8 +130,10 @@ const (
 )
 
 var (
-	matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
-	matchAllCap   = regexp.MustCompile("([a-z0-9])([A-Z])")
+	// matches all uppercase characters that follow lowercase chars and aren't at the [0] index of a string.
+	// This is useful for converting camel case into kabob case when getting values out of a CLI Context
+	// based on a flag name, and putting them into a struct with a camel cased field name.
+	matchAllCap = regexp.MustCompile("([a-z0-9])([A-Z])")
 )
 
 var commonFilterFlags = []cli.Flag{
@@ -233,7 +235,7 @@ var dataTagByFilterFlags = append([]cli.Flag{
 },
 	commonFilterFlags...)
 
-func getValFromContext(name string, ctx *cli.Context) interface{} {
+func getValFromContext(name string, ctx *cli.Context) any {
 	// some fuzzy searching is required here, because flags are typically in kebab case, but
 	// params are typically in snake or camel case
 	replacer := strings.NewReplacer("_", "-")
@@ -244,14 +246,13 @@ func getValFromContext(name string, ctx *cli.Context) interface{} {
 		return value
 	}
 
-	camelFormattedName := matchFirstCap.ReplaceAllString(name, "${1}-${2}")
-	camelFormattedName = matchAllCap.ReplaceAllString(camelFormattedName, "${1}-${2}")
+	camelFormattedName := matchAllCap.ReplaceAllString(name, "${1}-${2}")
 	camelFormattedName = strings.ToLower(camelFormattedName)
 
 	return ctx.Value(camelFormattedName)
 }
 
-func createCommandWithT[T interface{}](f func(*cli.Context, T) error) cli.ActionFunc {
+func createCommandWithT[T any](f func(*cli.Context, T) error) cli.ActionFunc {
 	return func(ctx *cli.Context) error {
 		var t T
 		tValue := reflect.ValueOf(&t).Elem()
