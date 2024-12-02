@@ -320,6 +320,7 @@ func BsonToGo(rawData [][]byte) ([]map[string]interface{}, error) {
 }
 
 // TabularDataByFilter queries tabular data and metadata based on given filters.
+// Deprecated: This endpoint will be removed in a future version.
 func (d *DataClient) TabularDataByFilter(
 	ctx context.Context,
 	filter Filter,
@@ -329,6 +330,7 @@ func (d *DataClient) TabularDataByFilter(
 	countOnly bool,
 	includeInternalData bool,
 ) (TabularDataReturn, error) {
+	//nolint:deprecated,staticcheck
 	resp, err := d.dataClient.TabularDataByFilter(ctx, &pb.TabularDataByFilterRequest{
 		DataRequest: &pb.DataRequest{
 			Filter:    filterToProto(filter),
@@ -1148,6 +1150,7 @@ func binaryMetadataFromProto(proto *pb.BinaryMetadata) BinaryMetadata {
 	}
 }
 
+//nolint:deprecated,staticcheck
 func tabularDataFromProto(proto *pb.TabularData, metadata *pb.CaptureMetadata) TabularData {
 	return TabularData{
 		Data:          proto.Data.AsMap(),
