@@ -167,12 +167,12 @@ type cropConfig struct {
 }
 
 type cropSource struct {
-	src camera.VideoSource
-	imgType        camera.ImageType
-	cropWindow     image.Rectangle
-	cropRel        []float64
-	showCropBox    bool
-	imgBounds      image.Rectangle
+	src         camera.VideoSource
+	imgType     camera.ImageType
+	cropWindow  image.Rectangle
+	cropRel     []float64
+	showCropBox bool
+	imgBounds   image.Rectangle
 }
 
 // newCropTransform creates a new crop transform.
@@ -212,11 +212,11 @@ func newCropTransform(
 	}
 
 	reader := &cropSource{
-		src: source,
-		imgType:        stream,
-		cropWindow:     cropRect,
-		cropRel:        cropRel,
-		showCropBox:    conf.ShowCropBox,
+		src:         source,
+		imgType:     stream,
+		cropWindow:  cropRect,
+		cropRel:     cropRel,
+		showCropBox: conf.ShowCropBox,
 	}
 	src, err := camera.NewVideoSourceFromReader(ctx, reader, nil, stream)
 	if err != nil {
