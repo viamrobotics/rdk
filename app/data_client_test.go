@@ -322,7 +322,7 @@ func TestDataClient(t *testing.T) {
 		latestTabularData := LatestTabularDataReturn{
 			TimeCaptured: start,
 			TimeSynced:   end,
-			Payload:      dataStruct,
+			Payload:      dataStruct.AsMap(),
 		}
 
 		grpcClient.GetLatestTabularDataFunc = func(ctx context.Context, in *pb.GetLatestTabularDataRequest,

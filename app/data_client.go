@@ -188,7 +188,7 @@ type DatabaseConnReturn struct {
 type LatestTabularDataReturn struct {
 	TimeCaptured time.Time
 	TimeSynced   time.Time
-	Payload      *structpb.Struct
+	Payload      map[string]interface{}
 }
 
 // DataSyncClient structs
@@ -589,7 +589,7 @@ func (d *DataClient) GetLatestTabularData(ctx context.Context, partID, resourceN
 	return LatestTabularDataReturn{
 		TimeCaptured: resp.TimeCaptured.AsTime(),
 		TimeSynced:   resp.TimeSynced.AsTime(),
-		Payload:      resp.Payload,
+		Payload:      resp.Payload.AsMap(),
 	}, nil
 }
 
