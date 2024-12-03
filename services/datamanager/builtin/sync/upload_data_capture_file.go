@@ -254,7 +254,6 @@ func uploadMultipleBinarySensorData(
 	// we only go down this path if the capture method returned multiple binary
 	// responses, which at time of writing, only includes camera.GetImages data.
 	for i, sd := range sensorData {
-		// Otherwise use the unary endpoint
 		logger.Debugf("attempting to upload small binary file using DataCaptureUpload, sensor data index: %d, ext: %s, file: %s", i, path)
 		// we clone as the uploadMD may be changed for each sensor data
 		// and I'm not confident that it is safe to reuse grpc request structs
@@ -377,9 +376,9 @@ func sendStreamingDCRequests(
 func getFileExtFromImageFormat(t cameraPB.Format) string {
 	switch t {
 	case cameraPB.Format_FORMAT_JPEG:
-		return ".jpeg"
+		return data.ExtJpeg
 	case cameraPB.Format_FORMAT_PNG:
-		return ".png"
+		return data.ExtPng
 	case cameraPB.Format_FORMAT_RAW_DEPTH:
 		return ".dep"
 	case cameraPB.Format_FORMAT_RAW_RGBA:
@@ -387,21 +386,21 @@ func getFileExtFromImageFormat(t cameraPB.Format) string {
 	case cameraPB.Format_FORMAT_UNSPECIFIED:
 		fallthrough
 	default:
-		return ""
+		return data.ExtDefault
 	}
 }
 
 func getFileExtFromMimeType(t datasyncPB.MimeType) string {
 	switch t {
 	case datasyncPB.MimeType_MIME_TYPE_IMAGE_JPEG:
-		return ".jpeg"
+		return data.ExtJpeg
 	case datasyncPB.MimeType_MIME_TYPE_IMAGE_PNG:
-		return ".png"
+		return data.ExtPng
 	case datasyncPB.MimeType_MIME_TYPE_APPLICATION_PCD:
-		return ".pcd"
+		return data.ExtPcd
 	case datasyncPB.MimeType_MIME_TYPE_UNSPECIFIED:
 		fallthrough
 	default:
-		return ""
+		return data.ExtDefault
 	}
 }
