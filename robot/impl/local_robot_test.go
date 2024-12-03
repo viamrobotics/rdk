@@ -1746,8 +1746,10 @@ func TestConfigMethod(t *testing.T) {
 	actualCfg := r.Config()
 	defaultSvcs := removeDefaultServices(actualCfg)
 	test.That(t, len(defaultSvcs), test.ShouldEqual, 1)
+	fmt.Print("~~~~~~~~~~~~~~~~~~~~~", defaultSvcs)
 	for _, svc := range defaultSvcs {
-		test.That(t, svc.API.SubtypeName, test.ShouldBeIn,
+		fmt.Print("~~~~~~~~~~~~~~~~~~~~~~", svc.API.SubtypeName)
+		test.That(t, svc.API.SubtypeName, test.ShouldEqual,
 			motion.API.SubtypeName)
 	}
 	test.That(t, actualCfg, test.ShouldResemble, &config.Config{})

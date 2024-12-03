@@ -42,10 +42,17 @@ func TestClient(t *testing.T) {
 	injectSensor2.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 		return nil, errReadingsFailed
 	}
+
+	sensorSvc, err := resource.NewAPIResourceCollection(
+		sensor.API,
+		map[resource.Name]sensor.Sensor{sensor.Named(testSensorName): injectSensor, sensor.Named(failSensorName): injectSensor2},
+	)
+
 	test.That(t, err, test.ShouldBeNil)
 	resourceAPI, ok, err := resource.LookupAPIRegistration[sensor.Sensor](sensor.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, sensorSvc), test.ShouldBeNil)
 
 	injectSensor.DoFunc = testutils.EchoFunc
 
