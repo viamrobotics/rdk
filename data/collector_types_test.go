@@ -336,12 +336,12 @@ func TestMimeTypeToProto(t *testing.T) {
 	test.That(t, MimeTypeUnspecified.ToProto(), test.ShouldEqual, datasyncPB.MimeType_MIME_TYPE_UNSPECIFIED)
 }
 
-func TestGetDataType(t *testing.T) {
-	test.That(t, GetDataType(nextPointCloud), test.ShouldEqual, CaptureTypeBinary)
-	test.That(t, GetDataType(readImage), test.ShouldEqual, CaptureTypeBinary)
-	test.That(t, GetDataType(pointCloudMap), test.ShouldEqual, CaptureTypeBinary)
-	test.That(t, GetDataType(GetImages), test.ShouldEqual, CaptureTypeBinary)
-	test.That(t, GetDataType("anything else"), test.ShouldEqual, CaptureTypeTabular)
+func TestMethodToCaptureType(t *testing.T) {
+	test.That(t, MethodToCaptureType(nextPointCloud), test.ShouldEqual, CaptureTypeBinary)
+	test.That(t, MethodToCaptureType(readImage), test.ShouldEqual, CaptureTypeBinary)
+	test.That(t, MethodToCaptureType(pointCloudMap), test.ShouldEqual, CaptureTypeBinary)
+	test.That(t, MethodToCaptureType(GetImages), test.ShouldEqual, CaptureTypeBinary)
+	test.That(t, MethodToCaptureType("anything else"), test.ShouldEqual, CaptureTypeTabular)
 }
 
 func TestMimeTypeFromProto(t *testing.T) {
