@@ -287,36 +287,36 @@ func (s *Server) TransformPCD(ctx context.Context, req *pb.TransformPCDRequest) 
 	return &pb.TransformPCDResponse{PointCloudPcd: buf.Bytes()}, err
 }
 
-// GetStatus takes a list of resource names and returns their corresponding statuses. If no names are passed in, return all statuses.
-func (s *Server) GetStatus(ctx context.Context, req *pb.GetStatusRequest) (*pb.GetStatusResponse, error) {
-	resourceNames := make([]resource.Name, 0, len(req.ResourceNames))
-	for _, name := range req.ResourceNames {
-		resourceNames = append(resourceNames, protoutils.ResourceNameFromProto(name))
-	}
+// // GetStatus takes a list of resource names and returns their corresponding statuses. If no names are passed in, return all statuses.
+// func (s *Server) GetStatus(ctx context.Context, req *pb.GetStatusRequest) (*pb.GetStatusResponse, error) {
+// 	resourceNames := make([]resource.Name, 0, len(req.ResourceNames))
+// 	for _, name := range req.ResourceNames {
+// 		resourceNames = append(resourceNames, protoutils.ResourceNameFromProto(name))
+// 	}
 
-	statuses, err := s.robot.Status(ctx, resourceNames)
-	if err != nil {
-		return nil, err
-	}
+// 	statuses, err := s.robot.Status(ctx, resourceNames)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	statusesP := make([]*pb.Status, 0, len(statuses))
-	for _, status := range statuses {
-		statusP, err := vprotoutils.StructToStructPb(status.Status)
-		if err != nil {
-			return nil, err
-		}
-		statusesP = append(
-			statusesP,
-			&pb.Status{
-				Name:             protoutils.ResourceNameToProto(status.Name),
-				LastReconfigured: timestamppb.New(status.LastReconfigured),
-				Status:           statusP,
-			},
-		)
-	}
+// 	statusesP := make([]*pb.Status, 0, len(statuses))
+// 	for _, status := range statuses {
+// 		statusP, err := vprotoutils.StructToStructPb(status.Status)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		statusesP = append(
+// 			statusesP,
+// 			&pb.Status{
+// 				Name:             protoutils.ResourceNameToProto(status.Name),
+// 				LastReconfigured: timestamppb.New(status.LastReconfigured),
+// 				Status:           statusP,
+// 			},
+// 		)
+// 	}
 
-	return &pb.GetStatusResponse{Status: statusesP}, nil
-}
+// 	return &pb.GetStatusResponse{Status: statusesP}, nil
+// }
 
 const defaultStreamInterval = 1 * time.Second
 

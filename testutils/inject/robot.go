@@ -267,14 +267,14 @@ func (r *Robot) TransformPointCloud(ctx context.Context, srcpc pointcloud.PointC
 }
 
 // Status call the injected Status or the real one.
-func (r *Robot) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-	r.Mu.RLock()
-	defer r.Mu.RUnlock()
-	if r.StatusFunc == nil {
-		return r.LocalRobot.Status(ctx, resourceNames)
-	}
-	return r.StatusFunc(ctx, resourceNames)
-}
+// func (r *Robot) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+// 	r.Mu.RLock()
+// 	defer r.Mu.RUnlock()
+// 	if r.StatusFunc == nil {
+// 		return r.LocalRobot.Status(ctx, resourceNames)
+// 	}
+// 	return r.StatusFunc(ctx, resourceNames)
+// }
 
 // ModuleAddress calls the injected ModuleAddress or the real one.
 func (r *Robot) ModuleAddress() (string, error) {

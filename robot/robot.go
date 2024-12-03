@@ -140,7 +140,7 @@ type Robot interface {
 	TransformPointCloud(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
 
 	// Status takes a list of resource names and returns their corresponding statuses. If no names are passed in, return all statuses.
-	Status(ctx context.Context, resourceNames []resource.Name) ([]Status, error)
+	// Status(ctx context.Context, resourceNames []resource.Name) ([]Status, error)
 
 	// CloudMetadata returns app-related information about the robot.
 	CloudMetadata(ctx context.Context) (cloud.Metadata, error)
