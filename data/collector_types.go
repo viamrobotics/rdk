@@ -205,7 +205,7 @@ type Timestamps struct {
 type MimeType int
 
 // This follows the mime types supported in
-// https://github.com/viamrobotics/api/pull/571/files#diff-b77927298d8d5d5228beeea47bd0860d9b322b4f3ef45e129bc238ec17704826R75
+// https://github.com/viamrobotics/api/blob/d7436a969cbc03bf7e84bb456b6dbfeb51f664d7/proto/viam/app/datasync/v1/data_sync.proto#L69
 const (
 	// MimeTypeUnspecified means that the mime type was not specified.
 	MimeTypeUnspecified MimeType = iota
