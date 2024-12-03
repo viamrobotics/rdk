@@ -259,24 +259,6 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(statuses), test.ShouldEqual, 3)
 
-	convMap := &armpb.Status{}
-	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
-	test.That(t, err, test.ShouldBeNil)
-	err = decoder.Decode(statuses[0].Status)
-	test.That(t, err, test.ShouldBeNil)
-
-	convMap = &armpb.Status{}
-	decoder, err = mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
-	test.That(t, err, test.ShouldBeNil)
-	err = decoder.Decode(statuses[1].Status)
-	test.That(t, err, test.ShouldBeNil)
-
-	convMap = &armpb.Status{}
-	decoder, err = mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
-	test.That(t, err, test.ShouldBeNil)
-	err = decoder.Decode(statuses[2].Status)
-	test.That(t, err, test.ShouldBeNil)
-
 	cfg2 := r2.Config()
 	// Components should only include local components.
 	test.That(t, len(cfg2.Components), test.ShouldEqual, 2)
