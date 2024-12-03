@@ -20,6 +20,7 @@ import (
 	"github.com/golang/geo/r3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -72,7 +73,6 @@ import (
 	motionBuiltin "go.viam.com/rdk/services/motion/builtin"
 	"go.viam.com/rdk/services/navigation"
 	_ "go.viam.com/rdk/services/register"
-	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 	rtestutils "go.viam.com/rdk/testutils"
@@ -1748,7 +1748,7 @@ func TestConfigMethod(t *testing.T) {
 	test.That(t, len(defaultSvcs), test.ShouldEqual, 1)
 	for _, svc := range defaultSvcs {
 		test.That(t, svc.API.SubtypeName, test.ShouldBeIn,
-			motion.API.SubtypeName, sensors.API.SubtypeName)
+			motion.API.SubtypeName)
 	}
 	test.That(t, actualCfg, test.ShouldResemble, &config.Config{})
 
@@ -1852,8 +1852,7 @@ func TestConfigMethod(t *testing.T) {
 	defaultSvcs = removeDefaultServices(actualCfg)
 	test.That(t, len(defaultSvcs), test.ShouldEqual, 1)
 	for _, svc := range defaultSvcs {
-		test.That(t, svc.API.SubtypeName, test.ShouldBeIn, motion.API.SubtypeName,
-			sensors.API.SubtypeName)
+		test.That(t, svc.API.SubtypeName, test.ShouldBeIn, motion.API.SubtypeName)
 	}
 
 	// Manually inspect remaining service resources as ordering of config is
