@@ -80,10 +80,10 @@ type TrainingJobLogEntry struct {
 
 // SubmitTrainingJobArgs contains the necessary training job information to submit the job.
 type SubmitTrainingJobArgs struct {
-	DatasetID string
+	DatasetID      string
 	OrganizationID string
-	ModelName string
-	ModelVersion string
+	ModelName      string
+	ModelVersion   string
 }
 
 // MLTrainingClient is a gRPC client for method calls to the ML Training API.
@@ -101,7 +101,7 @@ func (c *MLTrainingClient) SubmitTrainingJob(
 ) (string, error) {
 	err := args.isValid()
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	resp, err := c.client.SubmitTrainingJob(ctx, &pb.SubmitTrainingJobRequest{
 		DatasetId:      args.DatasetID,

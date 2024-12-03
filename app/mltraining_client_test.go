@@ -111,7 +111,9 @@ func TestMLTrainingClient(t *testing.T) {
 				Id: jobID,
 			}, nil
 		}
-		resp, err := client.SubmitTrainingJob(context.Background(), datasetID, organizationID, name, version, modelType, tags)
+		resp, err := client.SubmitTrainingJob(
+			context.Background(), SubmitTrainingJobArgs{datasetID, organizationID, name, version}, modelType, tags,
+		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldEqual, jobID)
 	})
@@ -131,7 +133,9 @@ func TestMLTrainingClient(t *testing.T) {
 				Id: jobID,
 			}, nil
 		}
-		resp, err := client.SubmitCustomTrainingJob(context.Background(), datasetID, itemID, version, organizationID, name, version, arguments)
+		resp, err := client.SubmitCustomTrainingJob(
+			context.Background(), SubmitTrainingJobArgs{datasetID, organizationID, name, version}, itemID, version, arguments,
+		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldEqual, jobID)
 	})
