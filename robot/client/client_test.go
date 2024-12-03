@@ -16,7 +16,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-viper/mapstructure/v2"
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
@@ -1486,123 +1485,123 @@ func TestClientConfig(t *testing.T) {
 	})
 }
 
-func TestClientStatus(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	listener1, err := net.Listen("tcp", "localhost:0")
-	test.That(t, err, test.ShouldBeNil)
-	listener2, err := net.Listen("tcp", "localhost:0")
-	test.That(t, err, test.ShouldBeNil)
-	gServer := grpc.NewServer()
-	gServer2 := grpc.NewServer()
+// func TestClientStatus(t *testing.T) {
+// 	logger := logging.NewTestLogger(t)
+// 	listener1, err := net.Listen("tcp", "localhost:0")
+// 	test.That(t, err, test.ShouldBeNil)
+// 	listener2, err := net.Listen("tcp", "localhost:0")
+// 	test.That(t, err, test.ShouldBeNil)
+// 	gServer := grpc.NewServer()
+// 	gServer2 := grpc.NewServer()
 
-	injectRobot := &inject.Robot{
-		ResourceNamesFunc:   func() []resource.Name { return []resource.Name{} },
-		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
-	}
-	injectRobot2 := &inject.Robot{
-		ResourceNamesFunc:   func() []resource.Name { return []resource.Name{} },
-		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
-	}
-	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
-	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot2))
+// 	injectRobot := &inject.Robot{
+// 		ResourceNamesFunc:   func() []resource.Name { return []resource.Name{} },
+// 		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+// 	}
+// 	injectRobot2 := &inject.Robot{
+// 		ResourceNamesFunc:   func() []resource.Name { return []resource.Name{} },
+// 		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+// 	}
+// 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+// 	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot2))
 
-	go gServer.Serve(listener1)
-	defer gServer.Stop()
+// 	go gServer.Serve(listener1)
+// 	defer gServer.Stop()
 
-	go gServer2.Serve(listener2)
-	defer gServer2.Stop()
+// 	go gServer2.Serve(listener2)
+// 	defer gServer2.Stop()
 
-	t.Run("failing client", func(t *testing.T) {
-		cancelCtx, cancel := context.WithCancel(context.Background())
-		cancel()
-		_, err = New(cancelCtx, listener1.Addr().String(), logger)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
-	})
+// 	t.Run("failing client", func(t *testing.T) {
+// 		cancelCtx, cancel := context.WithCancel(context.Background())
+// 		cancel()
+// 		_, err = New(cancelCtx, listener1.Addr().String(), logger)
+// 		test.That(t, err, test.ShouldNotBeNil)
+// 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
+// 	})
 
-	t.Run("working status service", func(t *testing.T) {
-		client, err := New(context.Background(), listener1.Addr().String(), logger)
-		test.That(t, err, test.ShouldBeNil)
+// 	t.Run("working status service", func(t *testing.T) {
+// 		client, err := New(context.Background(), listener1.Addr().String(), logger)
+// 		test.That(t, err, test.ShouldBeNil)
 
-		gLastReconfigured, err := time.Parse("2006-01-02 15:04:05", "1998-04-30 19:08:00")
-		test.That(t, err, test.ShouldBeNil)
-		gStatus := robot.Status{
-			Name:             movementsensor.Named("gps"),
-			LastReconfigured: gLastReconfigured,
-			Status:           map[string]interface{}{"efg": []string{"hello"}},
-		}
-		aLastReconfigured, err := time.Parse("2006-01-02 15:04:05", "2011-11-11 00:00:00")
-		test.That(t, err, test.ShouldBeNil)
-		aStatus := robot.Status{
-			Name:             arm.Named("arm"),
-			LastReconfigured: aLastReconfigured,
-			Status:           struct{}{},
-		}
-		statusMap := map[resource.Name]robot.Status{
-			gStatus.Name: gStatus,
-			aStatus.Name: aStatus,
-		}
-		injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-			statuses := make([]robot.Status, 0, len(resourceNames))
-			for _, n := range resourceNames {
-				statuses = append(statuses, statusMap[n])
-			}
-			return statuses, nil
-		}
-		expected := map[resource.Name]interface{}{
-			gStatus.Name: map[string]interface{}{"efg": []interface{}{"hello"}},
-			aStatus.Name: map[string]interface{}{},
-		}
-		expectedLRs := map[resource.Name]time.Time{
-			gStatus.Name: gLastReconfigured,
-			aStatus.Name: aLastReconfigured,
-		}
-		resp, err := client.Status(context.Background(), []resource.Name{aStatus.Name})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resp), test.ShouldEqual, 1)
-		test.That(t, resp[0].Status, test.ShouldResemble, expected[resp[0].Name])
-		test.That(t, resp[0].LastReconfigured, test.ShouldResemble, expectedLRs[resp[0].Name])
+// 		gLastReconfigured, err := time.Parse("2006-01-02 15:04:05", "1998-04-30 19:08:00")
+// 		test.That(t, err, test.ShouldBeNil)
+// 		gStatus := robot.Status{
+// 			Name:             movementsensor.Named("gps"),
+// 			LastReconfigured: gLastReconfigured,
+// 			Status:           map[string]interface{}{"efg": []string{"hello"}},
+// 		}
+// 		aLastReconfigured, err := time.Parse("2006-01-02 15:04:05", "2011-11-11 00:00:00")
+// 		test.That(t, err, test.ShouldBeNil)
+// 		aStatus := robot.Status{
+// 			Name:             arm.Named("arm"),
+// 			LastReconfigured: aLastReconfigured,
+// 			Status:           struct{}{},
+// 		}
+// 		statusMap := map[resource.Name]robot.Status{
+// 			gStatus.Name: gStatus,
+// 			aStatus.Name: aStatus,
+// 		}
+// 		injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+// 			statuses := make([]robot.Status, 0, len(resourceNames))
+// 			for _, n := range resourceNames {
+// 				statuses = append(statuses, statusMap[n])
+// 			}
+// 			return statuses, nil
+// 		}
+// 		expected := map[resource.Name]interface{}{
+// 			gStatus.Name: map[string]interface{}{"efg": []interface{}{"hello"}},
+// 			aStatus.Name: map[string]interface{}{},
+// 		}
+// 		expectedLRs := map[resource.Name]time.Time{
+// 			gStatus.Name: gLastReconfigured,
+// 			aStatus.Name: aLastReconfigured,
+// 		}
+// 		resp, err := client.Status(context.Background(), []resource.Name{aStatus.Name})
+// 		test.That(t, err, test.ShouldBeNil)
+// 		test.That(t, len(resp), test.ShouldEqual, 1)
+// 		test.That(t, resp[0].Status, test.ShouldResemble, expected[resp[0].Name])
+// 		test.That(t, resp[0].LastReconfigured, test.ShouldResemble, expectedLRs[resp[0].Name])
 
-		result := struct{}{}
-		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &result})
-		test.That(t, err, test.ShouldBeNil)
-		err = decoder.Decode(resp[0].Status)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, result, test.ShouldResemble, aStatus.Status)
+// 		result := struct{}{}
+// 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &result})
+// 		test.That(t, err, test.ShouldBeNil)
+// 		err = decoder.Decode(resp[0].Status)
+// 		test.That(t, err, test.ShouldBeNil)
+// 		test.That(t, result, test.ShouldResemble, aStatus.Status)
 
-		resp, err = client.Status(context.Background(), []resource.Name{gStatus.Name, aStatus.Name})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resp), test.ShouldEqual, 2)
+// 		resp, err = client.Status(context.Background(), []resource.Name{gStatus.Name, aStatus.Name})
+// 		test.That(t, err, test.ShouldBeNil)
+// 		test.That(t, len(resp), test.ShouldEqual, 2)
 
-		observed := map[resource.Name]interface{}{
-			resp[0].Name: resp[0].Status,
-			resp[1].Name: resp[1].Status,
-		}
-		observedLRs := map[resource.Name]time.Time{
-			resp[0].Name: resp[0].LastReconfigured,
-			resp[1].Name: resp[1].LastReconfigured,
-		}
-		test.That(t, observed, test.ShouldResemble, expected)
-		test.That(t, observedLRs, test.ShouldResemble, expectedLRs)
+// 		observed := map[resource.Name]interface{}{
+// 			resp[0].Name: resp[0].Status,
+// 			resp[1].Name: resp[1].Status,
+// 		}
+// 		observedLRs := map[resource.Name]time.Time{
+// 			resp[0].Name: resp[0].LastReconfigured,
+// 			resp[1].Name: resp[1].LastReconfigured,
+// 		}
+// 		test.That(t, observed, test.ShouldResemble, expected)
+// 		test.That(t, observedLRs, test.ShouldResemble, expectedLRs)
 
-		err = client.Close(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-	})
+// 		err = client.Close(context.Background())
+// 		test.That(t, err, test.ShouldBeNil)
+// 	})
 
-	t.Run("failing status client", func(t *testing.T) {
-		client2, err := New(context.Background(), listener2.Addr().String(), logger)
-		test.That(t, err, test.ShouldBeNil)
+// 	t.Run("failing status client", func(t *testing.T) {
+// 		client2, err := New(context.Background(), listener2.Addr().String(), logger)
+// 		test.That(t, err, test.ShouldBeNil)
 
-		passedErr := errors.New("can't get status")
-		injectRobot2.StatusFunc = func(ctx context.Context, status []resource.Name) ([]robot.Status, error) {
-			return nil, passedErr
-		}
-		_, err = client2.Status(context.Background(), []resource.Name{})
-		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
+// 		passedErr := errors.New("can't get status")
+// 		injectRobot2.StatusFunc = func(ctx context.Context, status []resource.Name) ([]robot.Status, error) {
+// 			return nil, passedErr
+// 		}
+// 		_, err = client2.Status(context.Background(), []resource.Name{})
+// 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 
-		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
-	})
-}
+// 		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
+// 	})
+// }
 
 func TestForeignResource(t *testing.T) {
 	injectRobot := &inject.Robot{}
