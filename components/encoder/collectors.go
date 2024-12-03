@@ -44,7 +44,8 @@ func newTicksCountCollector(resource interface{}, params data.CollectorParams) (
 			}
 			return res, data.FailedToReadErr(params.ComponentName, ticksCount.String(), err)
 		}
-		return data.NewTabularCaptureResult(timeRequested, pb.GetPositionResponse{
+		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return data.NewTabularCaptureResult(ts, pb.GetPositionResponse{
 			Value:        float32(v),
 			PositionType: pb.PositionType(positionType),
 		})

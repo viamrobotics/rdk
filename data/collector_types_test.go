@@ -231,7 +231,8 @@ func TestNewTabularCaptureResultReadings(t *testing.T) {
 
 	for i, tc := range tcs {
 		t.Logf("index: %d", i)
-		res, err := NewTabularCaptureResultReadings(now, tc.input)
+		ts := Timestamps{TimeRequested: now, TimeReceived: time.Now()}
+		res, err := NewTabularCaptureResultReadings(ts, tc.input)
 		if tc.err != nil {
 			test.That(t, err, test.ShouldBeError, tc.err)
 			continue
@@ -282,7 +283,8 @@ func TestNewTabularCaptureResult(t *testing.T) {
 
 	for i, tc := range tcs {
 		t.Logf("index: %d", i)
-		res, err := NewTabularCaptureResult(now, tc.input)
+		ts := Timestamps{TimeRequested: now, TimeReceived: time.Now()}
+		res, err := NewTabularCaptureResult(ts, tc.input)
 		if tc.err != nil {
 			test.That(t, err, test.ShouldBeError, tc.err)
 			continue

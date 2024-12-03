@@ -44,7 +44,8 @@ func newReadingsCollector(resource interface{}, params data.CollectorParams) (da
 			return res, data.FailedToReadErr(params.ComponentName, readings.String(), err)
 		}
 
-		return data.NewTabularCaptureResultReadings(timeRequested, values)
+		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return data.NewTabularCaptureResultReadings(ts, values)
 	})
 	return data.NewCollector(cFunc, params)
 }

@@ -48,7 +48,8 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 			}
 			return res, data.FailedToReadErr(params.ComponentName, position.String(), err)
 		}
-		return data.NewTabularCaptureResult(timeRequested, pb.GetPositionResponse{
+		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return data.NewTabularCaptureResult(ts, pb.GetPositionResponse{
 			Position: v,
 		})
 	})
@@ -75,7 +76,8 @@ func newIsPoweredCollector(resource interface{}, params data.CollectorParams) (d
 			}
 			return res, data.FailedToReadErr(params.ComponentName, isPowered.String(), err)
 		}
-		return data.NewTabularCaptureResult(timeRequested, pb.IsPoweredResponse{
+		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return data.NewTabularCaptureResult(ts, pb.IsPoweredResponse{
 			IsOn:     v,
 			PowerPct: powerPct,
 		})

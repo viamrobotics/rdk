@@ -44,6 +44,8 @@ func assertPowerSensor(resource interface{}) (PowerSensor, error) {
 
 // newVoltageCollector returns a collector to register a voltage method. If one is already registered
 // with the same MethodMetadata it will panic.
+//
+//nolint:dupl
 func newVoltageCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ps, err := assertPowerSensor(resource)
 	if err != nil {
@@ -63,7 +65,8 @@ func newVoltageCollector(resource interface{}, params data.CollectorParams) (dat
 			return res, data.FailedToReadErr(params.ComponentName, voltage.String(), err)
 		}
 
-		return data.NewTabularCaptureResult(timeRequested, pb.GetVoltageResponse{
+		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return data.NewTabularCaptureResult(ts, pb.GetVoltageResponse{
 			Volts: volts,
 			IsAc:  isAc,
 		})
@@ -73,6 +76,8 @@ func newVoltageCollector(resource interface{}, params data.CollectorParams) (dat
 
 // newCurrentCollector returns a collector to register a current method. If one is already registered
 // with the same MethodMetadata it will panic.
+//
+//nolint:dupl
 func newCurrentCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ps, err := assertPowerSensor(resource)
 	if err != nil {
@@ -91,7 +96,8 @@ func newCurrentCollector(resource interface{}, params data.CollectorParams) (dat
 			}
 			return res, data.FailedToReadErr(params.ComponentName, current.String(), err)
 		}
-		return data.NewTabularCaptureResult(timeRequested, pb.GetCurrentResponse{
+		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return data.NewTabularCaptureResult(ts, pb.GetCurrentResponse{
 			Amperes: curr,
 			IsAc:    isAc,
 		})
@@ -119,7 +125,8 @@ func newPowerCollector(resource interface{}, params data.CollectorParams) (data.
 			}
 			return res, data.FailedToReadErr(params.ComponentName, power.String(), err)
 		}
-		return data.NewTabularCaptureResult(timeRequested, pb.GetPowerResponse{
+		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return data.NewTabularCaptureResult(ts, pb.GetPowerResponse{
 			Watts: pwr,
 		})
 	})
@@ -146,7 +153,8 @@ func newReadingsCollector(resource interface{}, params data.CollectorParams) (da
 			}
 			return res, data.FailedToReadErr(params.ComponentName, readings.String(), err)
 		}
-		return data.NewTabularCaptureResultReadings(timeRequested, values)
+		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return data.NewTabularCaptureResultReadings(ts, values)
 	})
 	return data.NewCollector(cFunc, params)
 }

@@ -72,7 +72,8 @@ func newLinearVelocityCollector(resource interface{}, params data.CollectorParam
 			}
 			return res, data.FailedToReadErr(params.ComponentName, position.String(), err)
 		}
-		return data.NewTabularCaptureResult(timeRequested, pb.GetLinearVelocityResponse{
+		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return data.NewTabularCaptureResult(ts, pb.GetLinearVelocityResponse{
 			LinearVelocity: &v1.Vector3{
 				X: vec.X,
 				Y: vec.Y,
@@ -106,7 +107,8 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 			lat = pos.Lat()
 			lng = pos.Lng()
 		}
-		return data.NewTabularCaptureResult(timeRequested, pb.GetPositionResponse{
+		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return data.NewTabularCaptureResult(ts, pb.GetPositionResponse{
 			Coordinate: &v1.GeoPoint{
 				Latitude:  lat,
 				Longitude: lng,
@@ -136,7 +138,8 @@ func newAngularVelocityCollector(resource interface{}, params data.CollectorPara
 			}
 			return res, data.FailedToReadErr(params.ComponentName, angularVelocity.String(), err)
 		}
-		return data.NewTabularCaptureResult(timeRequested, pb.GetAngularVelocityResponse{
+		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return data.NewTabularCaptureResult(ts, pb.GetAngularVelocityResponse{
 			AngularVelocity: &v1.Vector3{
 				X: vel.X,
 				Y: vel.Y,
@@ -165,7 +168,8 @@ func newCompassHeadingCollector(resource interface{}, params data.CollectorParam
 			}
 			return res, data.FailedToReadErr(params.ComponentName, compassHeading.String(), err)
 		}
-		return data.NewTabularCaptureResult(timeRequested, pb.GetCompassHeadingResponse{
+		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return data.NewTabularCaptureResult(ts, pb.GetCompassHeadingResponse{
 			Value: heading,
 		})
 	})
@@ -191,7 +195,8 @@ func newLinearAccelerationCollector(resource interface{}, params data.CollectorP
 			}
 			return res, data.FailedToReadErr(params.ComponentName, linearAcceleration.String(), err)
 		}
-		return data.NewTabularCaptureResult(timeRequested, pb.GetLinearAccelerationResponse{
+		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return data.NewTabularCaptureResult(ts, pb.GetLinearAccelerationResponse{
 			LinearAcceleration: &v1.Vector3{
 				X: accel.X,
 				Y: accel.Y,
@@ -224,7 +229,8 @@ func newOrientationCollector(resource interface{}, params data.CollectorParams) 
 		if orient != nil {
 			orientVector = orient.OrientationVectorDegrees()
 		}
-		return data.NewTabularCaptureResult(timeRequested, pb.GetOrientationResponse{
+		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return data.NewTabularCaptureResult(ts, pb.GetOrientationResponse{
 			Orientation: &v1.Orientation{
 				OX:    orientVector.OX,
 				OY:    orientVector.OY,
@@ -257,7 +263,8 @@ func newReadingsCollector(resource interface{}, params data.CollectorParams) (da
 			return res, data.FailedToReadErr(params.ComponentName, readings.String(), err)
 		}
 
-		return data.NewTabularCaptureResultReadings(timeRequested, values)
+		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return data.NewTabularCaptureResultReadings(ts, values)
 	})
 	return data.NewCollector(cFunc, params)
 }

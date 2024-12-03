@@ -56,50 +56,52 @@ func TestUploadDataCaptureFile(t *testing.T) {
 	partID := "my-part-id"
 
 	now := time.Now()
-	sensorReadingResult, err := data.NewTabularCaptureResultReadings(now, map[string]interface{}{"a": 1})
+	ts := data.Timestamps{TimeRequested: now, TimeReceived: time.Now()}
+	sensorReadingResult, err := data.NewTabularCaptureResultReadings(ts, map[string]interface{}{"a": 1})
 	test.That(t, err, test.ShouldBeNil)
 
-	tabularResult, err := data.NewTabularCaptureResult(now, &powersensorPB.GetPowerResponse{Watts: 0.5})
+	ts1 := data.Timestamps{TimeRequested: now, TimeReceived: time.Now()}
+	tabularResult, err := data.NewTabularCaptureResult(ts1, &powersensorPB.GetPowerResponse{Watts: 0.5})
 	test.That(t, err, test.ShouldBeNil)
 
-	ts := data.Timestamps{TimeRequested: now, TimeReceived: now.Add(time.Second)}
-	smallBinaryJpegResult := data.NewBinaryCaptureResult(ts, []data.Binary{
+	ts2 := data.Timestamps{TimeRequested: now, TimeReceived: now.Add(time.Second)}
+	smallBinaryJpegResult := data.NewBinaryCaptureResult(ts2, []data.Binary{
 		{Payload: []byte("I'm a small binary result"), MimeType: data.MimeTypeImageJpeg},
 	})
 	test.That(t, err, test.ShouldBeNil)
 
-	smallBinaryPngResult := data.NewBinaryCaptureResult(ts, []data.Binary{
+	smallBinaryPngResult := data.NewBinaryCaptureResult(ts2, []data.Binary{
 		{Payload: []byte("I'm a small binary result"), MimeType: data.MimeTypeImagePng},
 	})
 	test.That(t, err, test.ShouldBeNil)
 
-	smallBinaryNoMimeTypeResult := data.NewBinaryCaptureResult(ts, []data.Binary{
+	smallBinaryNoMimeTypeResult := data.NewBinaryCaptureResult(ts2, []data.Binary{
 		{Payload: []byte("I'm a small binary result")},
 	})
 	test.That(t, err, test.ShouldBeNil)
 
 	largeBinaryPayload := slices.Repeat([]byte{1, 2}, units.MB)
-	largeBinaryResult := data.NewBinaryCaptureResult(ts, []data.Binary{
+	largeBinaryResult := data.NewBinaryCaptureResult(ts2, []data.Binary{
 		{Payload: largeBinaryPayload, MimeType: data.MimeTypeImagePng},
 	})
 	test.That(t, err, test.ShouldBeNil)
 
-	largeBinaryNoMimeTypeResult := data.NewBinaryCaptureResult(ts, []data.Binary{
+	largeBinaryNoMimeTypeResult := data.NewBinaryCaptureResult(ts2, []data.Binary{
 		{Payload: largeBinaryPayload},
 	})
 	test.That(t, err, test.ShouldBeNil)
 
-	smallGetImagesResult := data.NewBinaryCaptureResult(ts, []data.Binary{
+	smallGetImagesResult := data.NewBinaryCaptureResult(ts2, []data.Binary{
 		{Payload: []byte("I'm a small binary jpeg result"), MimeType: data.MimeTypeImageJpeg},
 		{Payload: []byte("I'm a small binary png result"), MimeType: data.MimeTypeImagePng},
 	})
 
-	largeGetImagesResult := data.NewBinaryCaptureResult(ts, []data.Binary{
+	largeGetImagesResult := data.NewBinaryCaptureResult(ts2, []data.Binary{
 		{Payload: largeBinaryPayload, MimeType: data.MimeTypeImageJpeg},
 		{Payload: largeBinaryPayload, MimeType: data.MimeTypeImagePng},
 	})
 	conf := 0.888
-	smallVisionCaptureAllFromCamera := data.NewBinaryCaptureResult(ts, []data.Binary{
+	smallVisionCaptureAllFromCamera := data.NewBinaryCaptureResult(ts2, []data.Binary{
 		{
 			Payload:  []byte("I'm a small binary jpeg result"),
 			MimeType: data.MimeTypeImageJpeg,
@@ -129,7 +131,7 @@ func TestUploadDataCaptureFile(t *testing.T) {
 		},
 	})
 
-	largeVisionCaptureAllFromCamera := data.NewBinaryCaptureResult(ts, []data.Binary{
+	largeVisionCaptureAllFromCamera := data.NewBinaryCaptureResult(ts2, []data.Binary{
 		{
 			Payload:  largeBinaryPayload,
 			MimeType: data.MimeTypeImagePng,

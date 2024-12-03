@@ -53,7 +53,8 @@ func newEndPositionCollector(resource interface{}, params data.CollectorParams) 
 			return res, data.FailedToReadErr(params.ComponentName, endPosition.String(), err)
 		}
 		o := v.Orientation().OrientationVectorDegrees()
-		return data.NewTabularCaptureResult(timeRequested, pb.GetEndPositionResponse{
+		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return data.NewTabularCaptureResult(ts, pb.GetEndPositionResponse{
 			Pose: &v1.Pose{
 				X:     v.Point().X,
 				Y:     v.Point().Y,
@@ -92,7 +93,8 @@ func newJointPositionsCollector(resource interface{}, params data.CollectorParam
 		if err != nil {
 			return res, data.FailedToReadErr(params.ComponentName, jointPositions.String(), err)
 		}
-		return data.NewTabularCaptureResult(timeRequested, pb.GetJointPositionsResponse{Positions: jp})
+		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return data.NewTabularCaptureResult(ts, pb.GetJointPositionsResponse{Positions: jp})
 	})
 	return data.NewCollector(cFunc, params)
 }

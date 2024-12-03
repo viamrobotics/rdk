@@ -60,7 +60,8 @@ func newAnalogCollector(resource interface{}, params data.CollectorParams) (data
 			}
 		}
 
-		return data.NewTabularCaptureResult(timeRequested, pb.ReadAnalogReaderResponse{
+		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return data.NewTabularCaptureResult(ts, pb.ReadAnalogReaderResponse{
 			Value:    int32(analogValue.Value),
 			MinRange: analogValue.Min,
 			MaxRange: analogValue.Max,
@@ -97,7 +98,8 @@ func newGPIOCollector(resource interface{}, params data.CollectorParams) (data.C
 				return res, data.FailedToReadErr(params.ComponentName, gpios.String(), err)
 			}
 		}
-		return data.NewTabularCaptureResult(timeRequested, pb.GetGPIOResponse{
+		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return data.NewTabularCaptureResult(ts, pb.GetGPIOResponse{
 			High: value,
 		})
 	})
