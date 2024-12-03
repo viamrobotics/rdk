@@ -92,7 +92,9 @@ const (
 	dataFlagAliasRobotName                 = "robot-name"
 	dataFlagPartName                       = "part-name"
 	dataFlagComponentType                  = "component-type"
+	dataFlagResourceSubtype                = "resource-subtype"
 	dataFlagComponentName                  = "component-name"
+	dataFlagResourceName                   = "resource-name"
 	dataFlagMethod                         = "method"
 	dataFlagMimeTypes                      = "mime-types"
 	dataFlagStart                          = "start"
@@ -428,11 +430,6 @@ var app = &cli.App{
 									Name:  dataFlagTags,
 									Usage: "tags filter. accepts tagged for all tagged data, untagged for all untagged data, or a list of tags",
 								},
-								&cli.UintFlag{
-									Name:  dataFlagTimeout,
-									Usage: "number of seconds to wait for large file downloads",
-									Value: 30,
-								},
 							}, commonFilterFlags...),
 							Action: DataExportBinaryAction,
 						},
@@ -452,14 +449,19 @@ var app = &cli.App{
 									Usage:    "part id",
 								},
 								&cli.StringFlag{
-									Name:     "component-name",
+									Name:     "resource-name",
 									Required: true,
-									Usage:    "component name",
+									Usage:    "resource name (sometimes called 'component name')",
 								},
 								&cli.StringFlag{
-									Name:     "method",
+									Name:     "resource-subtype",
 									Required: true,
-									Usage:    "method",
+									Usage:    "resource subtype (sometimes called 'component type')",
+								},
+								&cli.StringFlag{
+									Name:     dataFlagMethod,
+									Required: true,
+									Usage:    "method name",
 								},
 								&cli.StringFlag{
 									Name:  "start",
