@@ -5,13 +5,11 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -76,12 +74,12 @@ func DataExportTabularAction(c *cli.Context) error {
 		return err
 	}
 
-	filter, err := createDataFilter(c)
+	request, err := createExportTabularRequest(c)
 	if err != nil {
 		return err
 	}
 
-	if err := client.tabularData(c.Path(dataFlagDestination), filter, c.Uint(dataFlagChunkLimit)); err != nil {
+	if err := client.tabularData(c.Path(dataFlagDestination), request, c.Uint(dataFlagChunkLimit)); err != nil {
 		return err
 	}
 
@@ -268,6 +266,49 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 		}
 	}
 	return filter, nil
+}
+
+func createExportTabularRequest(c *cli.Context) (*datapb.ExportTabularDataRequest, error) {
+	request := &datapb.ExportTabularDataRequest{}
+
+	if c.String(dataFlagPartID) != "" {
+		request.PartId = c.String(dataFlagPartID)
+	}
+	if c.String(dataFlagResourceName) != "" {
+		request.ResourceName = c.String(dataFlagResourceName)
+	}
+	if c.String(dataFlagResourceSubtype) != "" {
+		request.ResourceSubtype = c.String(dataFlagResourceSubtype)
+	}
+	if c.String(dataFlagMethod) != "" {
+		request.MethodName = c.String(dataFlagMethod)
+	}
+
+	var start *timestamppb.Timestamp
+	var end *timestamppb.Timestamp
+	timeLayout := time.RFC3339
+	if c.String(dataFlagStart) != "" {
+		t, err := time.Parse(timeLayout, c.String(dataFlagStart))
+		if err != nil {
+			return nil, errors.Wrap(err, "could not parse start flag")
+		}
+		start = timestamppb.New(t)
+	}
+	if c.String(dataFlagEnd) != "" {
+		t, err := time.Parse(timeLayout, c.String(dataFlagEnd))
+		if err != nil {
+			return nil, errors.Wrap(err, "could not parse end flag")
+		}
+		end = timestamppb.New(t)
+	}
+	if start != nil || end != nil {
+		request.Interval = &datapb.CaptureInterval{
+			Start: start,
+			End:   end,
+		}
+	}
+
+	return request, nil
 }
 
 // BinaryData downloads binary data matching filter to dst.
@@ -605,8 +646,8 @@ func filenameForDownload(meta *datapb.BinaryMetadata) string {
 	return fileName
 }
 
-// tabularData downloads binary data matching filter to dst.
-func (c *viamClient) tabularData(dst string, filter *datapb.Filter, limit uint) error {
+// tabularData downloads unified tabular data and metadata for the requested data source and interval to the specified destination.
+func (c *viamClient) tabularData(dst string, request *datapb.ExportTabularDataRequest, limit uint) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -615,101 +656,67 @@ func (c *viamClient) tabularData(dst string, filter *datapb.Filter, limit uint) 
 		return errors.Wrapf(err, "could not create destination directories")
 	}
 
-	var err error
-	var resp *datapb.TabularDataByFilterResponse
-	// TODO(DATA-640): Support export in additional formats.
-	//nolint:gosec
 	dataFile, err := os.Create(filepath.Join(dst, dataDir, "data.ndjson"))
 	if err != nil {
 		return errors.Wrapf(err, "could not create data file")
 	}
-	w := bufio.NewWriter(dataFile)
+	defer dataFile.Close()
 
-	fmt.Fprintf(c.c.App.Writer, "Downloading..") //nolint:errcheck // no newline
-	var last string
-	mdIndexes := make(map[string]int)
-	mdIndex := 0
-	for {
-		for count := 0; count < maxRetryCount; count++ {
-			resp, err = c.dataClient.TabularDataByFilter(context.Background(), &datapb.TabularDataByFilterRequest{
-				DataRequest: &datapb.DataRequest{
-					Filter: filter,
-					Limit:  uint64(limit),
-					Last:   last,
-				},
-				CountOnly: false,
-			})
-			fmt.Fprintf(c.c.App.Writer, ".") //nolint:errcheck // no newline
-			if err == nil {
-				break
+	w := bufio.NewWriter(dataFile)
+	defer w.Flush()
+
+	rowChan := make(chan []byte)
+	errChan := make(chan error, 1)
+
+	go func() {
+		defer close(rowChan)
+		for {
+			for count := 0; count < maxRetryCount; count++ {
+				stream, err := c.dataClient.ExportTabularData(context.Background(), request)
+				if err == nil {
+					defer stream.CloseSend()
+					for {
+						resp, err := stream.Recv()
+						if err == io.EOF {
+							return
+						}
+						if err != nil {
+							errChan <- err
+							return
+						}
+						json, err := protojson.Marshal(resp)
+						if err != nil {
+							break
+						}
+						rowChan <- json
+					}
+				}
+			}
+			if err != nil {
+				errChan <- err
+				return
 			}
 		}
-		if err != nil {
+	}()
+
+	for {
+		select {
+		case row, ok := <-rowChan:
+			if !ok {
+				return nil
+			}
+			_, err = w.Write(row)
+			if err != nil {
+				return err
+			}
+			err = w.WriteByte('\n')
+			if err != nil {
+				return err
+			}
+		case err := <-errChan:
 			return err
 		}
-
-		last = resp.GetLast()
-		mds := resp.GetMetadata()
-		if len(mds) == 0 {
-			break
-		}
-		// Map the current response's metadata indexes to those combined across all responses.
-		localToGlobalMDIndex := make(map[int]int)
-		for i, md := range mds {
-			currMDIndex, ok := mdIndexes[md.String()]
-			if ok {
-				localToGlobalMDIndex[i] = currMDIndex
-				continue // Already have this metadata file, so skip creating it again.
-			}
-			mdIndexes[md.String()] = mdIndex
-			localToGlobalMDIndex[i] = mdIndex
-
-			mdJSONBytes, err := protojson.Marshal(md)
-			if err != nil {
-				return errors.Wrap(err, "could not marshal metadata")
-			}
-			//nolint:gosec
-			mdFile, err := os.Create(filepath.Join(dst, metadataDir, strconv.Itoa(mdIndex)+".json"))
-			if err != nil {
-				return errors.Wrapf(err, fmt.Sprintf("could not create metadata file for metadata index %d", mdIndex)) //nolint:govet
-			}
-			if _, err := mdFile.Write(mdJSONBytes); err != nil {
-				return errors.Wrapf(err, "could not write to metadata file %s", mdFile.Name())
-			}
-			if err := mdFile.Close(); err != nil {
-				return errors.Wrapf(err, "could not close metadata file %s", mdFile.Name())
-			}
-			mdIndex++
-		}
-
-		data := resp.GetData()
-		for _, datum := range data {
-			// Write everything as json for now.
-			d := datum.GetData()
-			if d == nil {
-				continue
-			}
-			m := d.AsMap()
-			m["TimeRequested"] = datum.GetTimeRequested()
-			m["TimeReceived"] = datum.GetTimeReceived()
-			m["MetadataIndex"] = localToGlobalMDIndex[int(datum.GetMetadataIndex())]
-			j, err := json.Marshal(m)
-			if err != nil {
-				return errors.Wrap(err, "could not marshal JSON response")
-			}
-			_, err = w.Write(append(j, []byte("\n")...))
-			if err != nil {
-				return errors.Wrapf(err, "could not write to file %s", dataFile.Name())
-			}
-		}
 	}
-
-	printf(c.c.App.Writer, "") // newline
-	if err := w.Flush(); err != nil {
-		return errors.Wrapf(err, "could not flush writer for %s", dataFile.Name())
-	}
-
-	return nil
 }
 
 func makeDestinationDirs(dst string) error {
