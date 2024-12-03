@@ -82,7 +82,6 @@ func (s *serviceServer) GetImage(
 	if len(resBytes) == 0 {
 		return nil, fmt.Errorf("received empty bytes from Image method of %s", req.Name)
 	}
-
 	actualMIME, _ := utils.CheckLazyMIMEType(resMetadata.MimeType)
 	return &pb.GetImageResponse{MimeType: actualMIME, Image: resBytes}, nil
 }

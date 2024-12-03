@@ -178,7 +178,6 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		camera1Client, err := camera.NewClientFromConn(context.Background(), conn, "", camera.Named(testCameraName), logger)
 		test.That(t, err, test.ShouldBeNil)
-
 		frame, err := camera.DecodeImageFromCamera(context.Background(), rutils.MimeTypeRawRGBA, nil, camera1Client)
 		test.That(t, err, test.ShouldBeNil)
 		compVal, _, err := rimage.CompareImages(img, frame)
@@ -307,7 +306,8 @@ func TestClient(t *testing.T) {
 		}
 
 		// merge values from data and camera
-		ext = map[string]interface{}{"hello": "world", data.FromDMString: true}
+		ext = data.FromDMExtraMap
+		ext["hello"] = "world"
 		ctx = context.Background()
 		_, _, err = camClient.Image(ctx, "", ext)
 		test.That(t, err, test.ShouldNotBeNil)

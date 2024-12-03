@@ -217,7 +217,7 @@ func (vs *videoSource) Image(ctx context.Context, mimeType string, extra map[str
 	}
 	defer release()
 	if mimeType == "" {
-		mimeType = utils.MimeTypePNG
+		mimeType = utils.MimeTypePNG // default to lossless mimetype such as PNG
 	}
 	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
 	if err != nil {

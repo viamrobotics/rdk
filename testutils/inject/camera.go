@@ -63,6 +63,17 @@ func (c *Camera) Image(ctx context.Context, mimeType string, extra map[string]in
 	return nil, camera.ImageMetadata{}, errors.Wrap(ctx.Err(), "no Image function available")
 }
 
+// Image calls the injected Image or the real version.
+func (c *Camera) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
+	if c.ImageFunc != nil {
+		return c.ImageFunc(ctx, mimeType, extra)
+	}
+	if c.Camera != nil {
+		return c.Camera.Image(ctx, mimeType, extra)
+	}
+	return nil, camera.ImageMetadata{}, errors.Wrap(ctx.Err(), "no Image function available")
+}
+
 // Properties calls the injected Properties or the real version.
 func (c *Camera) Properties(ctx context.Context) (camera.Properties, error) {
 	if c.PropertiesFunc == nil {

@@ -25,6 +25,8 @@ func TestFFMPEGCamera(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		_, _, err = cam.Image(ctx, utils.MimeTypeJPEG, nil)
 		test.That(t, err, test.ShouldBeNil)
+		_, _, err = cam.Image(ctx, utils.MimeTypeJPEG, nil)
+		test.That(t, err, test.ShouldBeNil)
 	}
 	test.That(t, cam.Close(context.Background()), test.ShouldBeNil)
 }
