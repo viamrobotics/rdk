@@ -37,9 +37,6 @@ const (
 	logEveryN     = 100
 	maxLimit      = 100
 
-	dataTypeBinary  = "binary"
-	dataTypeTabular = "tabular"
-
 	dataCommandAdd    = "add"
 	dataCommandRemove = "remove"
 
@@ -52,35 +49,42 @@ const (
 	noExistingADFErrCode = "NotFound"
 )
 
-// DataExportAction is the corresponding action for 'data export'.
-func DataExportAction(c *cli.Context) error {
+// DataExportAction is the corresponding action for 'data export binary'.
+func DataExportBinaryAction(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
 
-	return client.dataExportAction(c)
-}
-
-func (c *viamClient) dataExportAction(cCtx *cli.Context) error {
-	filter, err := createDataFilter(cCtx)
+	filter, err := createDataFilter(c)
 	if err != nil {
 		return err
 	}
 
-	switch cCtx.String(dataFlagDataType) {
-	case dataTypeBinary:
-		if err := c.binaryData(cCtx.Path(dataFlagDestination), filter, cCtx.Uint(dataFlagParallelDownloads),
-			cCtx.Uint(dataFlagTimeout)); err != nil {
-			return err
-		}
-	case dataTypeTabular:
-		if err := c.tabularData(cCtx.Path(dataFlagDestination), filter, cCtx.Uint(dataFlagChunkLimit)); err != nil {
-			return err
-		}
-	default:
-		return errors.Errorf("%s must be binary or tabular, got %q", dataFlagDataType, cCtx.String(dataFlagDataType))
+	if err := client.binaryData(c.Path(dataFlagDestination), filter, c.Uint(dataFlagParallelDownloads),
+		c.Uint(dataFlagTimeout)); err != nil {
+		return err
 	}
+
+	return nil
+}
+
+// DataExportAction is the corresponding action for 'data export tabular'.
+func DataExportTabularAction(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	filter, err := createDataFilter(c)
+	if err != nil {
+		return err
+	}
+
+	if err := client.tabularData(c.Path(dataFlagDestination), filter, c.Uint(dataFlagChunkLimit)); err != nil {
+		return err
+	}
+
 	return nil
 }
 
