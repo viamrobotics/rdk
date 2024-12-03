@@ -1,52 +1,12 @@
 package app
 
 import (
-	"time"
-
 	mltrainingpb "go.viam.com/api/app/mltraining/v1"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // Constants used throughout app.
 const (
 	UploadChunkSize = 64 * 1024 // UploadChunkSize is 64 KB
-	locationID      = "location_id"
-	tag             = "tag"
-	robotID         = "robot_id"
-	partID          = "part_id"
-	robotName       = "robot_name"
-	partName        = "part_name"
-	host            = "host_name"
-	email           = "email"
-	datasetID       = "dataset_id"
-	version         = "version"
-	modelType       = ModelTypeObjectDetection
-	itemID          = "item_id"
-	modelFramework  = ModelFrameworkPyTorch
-	level           = "level"
-	secret          = "secret"
-	fragmentID      = "fragment_id"
-)
-
-// Variables used throughout app.
-var (
-	organizationID = "organization_id"
-	start          = time.Now().UTC().Round(time.Millisecond)
-	pbStart        = timestamppb.New(start)
-	end            = time.Now().UTC().Round(time.Millisecond)
-	pbEnd          = timestamppb.New(end)
-	tags           = []string{tag}
-	limit          = 2
-	pbLimit        = uint64(limit)
-	createdOn      = time.Now().UTC().Round(time.Millisecond)
-	pbCreatedOn    = timestamppb.New(createdOn)
-	pbModelType    = modelTypeToProto(modelType)
-	message        = "message"
-	siteURL        = "url.test.com"
-	lastUpdated    = time.Now().UTC().Round(time.Millisecond)
-	byteData       = []byte{4, 8}
-	pageToken      = "page_token"
-	timestamp      = time.Now().UTC().Round(time.Millisecond)
 )
 
 // Types used throughout app.
@@ -63,6 +23,22 @@ const (
 	ModelTypeMultiLabelClassification
 	// ModelTypeObjectDetection represents an object detection model.
 	ModelTypeObjectDetection
+)
+
+// ModelFramework is the framework type of a model.
+type ModelFramework int
+
+const (
+	// ModelFrameworkUnspecified is an unspecified model framework.
+	ModelFrameworkUnspecified ModelFramework = iota
+	// ModelFrameworkTFLite specifies a TFLite model framework.
+	ModelFrameworkTFLite
+	// ModelFrameworkTensorFlow specifies a TensorFlow model framework.
+	ModelFrameworkTensorFlow
+	// ModelFrameworkPyTorch specifies a PyTorch model framework.
+	ModelFrameworkPyTorch
+	// ModelFrameworkONNX specifies a ONNX model framework.
+	ModelFrameworkONNX
 )
 
 func modelTypeFromProto(modelType mltrainingpb.ModelType) ModelType {
@@ -92,22 +68,6 @@ func modelTypeToProto(modelType ModelType) mltrainingpb.ModelType {
 	}
 	return mltrainingpb.ModelType_MODEL_TYPE_UNSPECIFIED
 }
-
-// ModelFramework is the framework type of a model.
-type ModelFramework int
-
-const (
-	// ModelFrameworkUnspecified is an unspecified model framework.
-	ModelFrameworkUnspecified ModelFramework = iota
-	// ModelFrameworkTFLite specifies a TFLite model framework.
-	ModelFrameworkTFLite
-	// ModelFrameworkTensorFlow specifies a TensorFlow model framework.
-	ModelFrameworkTensorFlow
-	// ModelFrameworkPyTorch specifies a PyTorch model framework.
-	ModelFrameworkPyTorch
-	// ModelFrameworkONNX specifies a ONNX model framework.
-	ModelFrameworkONNX
-)
 
 func modelFrameworkFromProto(framework mltrainingpb.ModelFramework) ModelFramework {
 	switch framework {
