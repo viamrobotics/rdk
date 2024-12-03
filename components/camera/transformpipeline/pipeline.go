@@ -13,7 +13,6 @@ import (
 	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
@@ -89,7 +88,7 @@ func (cfg *transformConfig) Validate(path string) ([]string, error) {
 
 func newTransformPipeline(
 	ctx context.Context,
-	source gostream.VideoSource,
+	source camera.VideoSource,
 	cfg *transformConfig,
 	r robot.Robot,
 	logger logging.Logger,
@@ -117,7 +116,7 @@ func newTransformPipeline(
 		release()
 	}
 	// loop through the pipeline and create the image flow
-	pipeline := make([]gostream.VideoSource, 0, len(cfg.Pipeline))
+	pipeline := make([]camera.VideoSource, 0, len(cfg.Pipeline))
 	lastSource := source
 	for _, tr := range cfg.Pipeline {
 		src, newStreamType, err := buildTransform(ctx, r, lastSource, streamType, tr, cfg.Source)
@@ -128,19 +127,18 @@ func newTransformPipeline(
 		lastSource = src
 		streamType = newStreamType
 	}
-	lastSourceStream := gostream.NewEmbeddedVideoStream(lastSource)
 	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(cfg.CameraParameters, cfg.DistortionParameters)
 	return camera.NewVideoSourceFromReader(
 		ctx,
-		transformPipeline{pipeline, lastSourceStream, cfg.CameraParameters, logger},
+		transformPipeline{pipeline, lastSource, cfg.CameraParameters, logger},
 		&cameraModel,
 		streamType,
 	)
 }
 
 type transformPipeline struct {
-	pipeline            []gostream.VideoSource
-	stream              gostream.VideoStream
+	pipeline            []camera.VideoSource
+	src                 camera.VideoSource
 	intrinsicParameters *transform.PinholeCameraIntrinsics
 	logger              logging.Logger
 }
@@ -148,7 +146,7 @@ type transformPipeline struct {
 func (tp transformPipeline) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::Read")
 	defer span.End()
-	return tp.stream.Next(ctx)
+	return camera.ReadImage(ctx, tp.src)
 }
 
 func (tp transformPipeline) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
@@ -176,5 +174,5 @@ func (tp transformPipeline) Close(ctx context.Context) error {
 			return src.Close(ctx)
 		}())
 	}
-	return multierr.Combine(tp.stream.Close(ctx), errs)
+	return multierr.Combine(tp.src.Close(ctx), errs)
 }
