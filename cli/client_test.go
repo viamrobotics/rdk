@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"io/fs"
 	"maps"
 	"os"
@@ -103,7 +104,6 @@ func setup(
 
 	if dataClient != nil {
 		// these flags are only relevant when testing a dataClient
-		flags.String(dataFlagDataType, dataTypeTabular, "")
 		flags.String(dataFlagDestination, utils.ResolveFile(""), "")
 	}
 
@@ -202,46 +202,64 @@ func TestListOrganizationsAction(t *testing.T) {
 	test.That(t, out.messages[2], test.ShouldContainSubstring, "mandalorians")
 }
 
-func TestTabularDataByFilterAction(t *testing.T) {
+type mockDataServiceClient struct {
+	grpc.ClientStream
+	responses []*datapb.ExportTabularDataResponse
+	index     int
+}
+
+func (m *mockDataServiceClient) Recv() (*datapb.ExportTabularDataResponse, error) {
+	if m.index >= len(m.responses) {
+		return nil, io.EOF
+	}
+	resp := m.responses[m.index]
+	m.index++
+	return resp, nil
+}
+
+func (m *mockDataServiceClient) CloseSend() error {
+	if m.ClientStream != nil {
+		return m.ClientStream.CloseSend()
+	}
+	return nil
+}
+
+func newMockStream(responses []*datapb.ExportTabularDataResponse) *mockDataServiceClient {
+	return &mockDataServiceClient{
+		responses: responses,
+	}
+}
+
+func TestExportTabularData(t *testing.T) {
 	pbStruct, err := protoutils.StructToStructPb(map[string]interface{}{"bool": true, "string": "true", "float": float64(1)})
 	test.That(t, err, test.ShouldBeNil)
 
-	// calls to `TabularDataByFilter` will repeat so long as data continue to be returned,
-	// so we need a way of telling our injected method when data has already been sent so we
-	// can send an empty response
-	var dataRequested bool
-	tabularDataByFilterFunc := func(ctx context.Context, in *datapb.TabularDataByFilterRequest, opts ...grpc.CallOption,
-	) (*datapb.TabularDataByFilterResponse, error) {
-		if dataRequested {
-			return &datapb.TabularDataByFilterResponse{}, nil
-		}
-		dataRequested = true
-		return &datapb.TabularDataByFilterResponse{
-			Data:     []*datapb.TabularData{{Data: pbStruct}},
-			Metadata: []*datapb.CaptureMetadata{{LocationId: "loc-id"}},
-		}, nil
+	exportTabularDataFunc := func(ctx context.Context, in *datapb.ExportTabularDataRequest, opts ...grpc.CallOption,
+	) (datapb.DataService_ExportTabularDataClient, error) {
+		return newMockStream([]*datapb.ExportTabularDataResponse{
+			{Payload: pbStruct},
+		}), nil
 	}
 
 	dsc := &inject.DataServiceClient{
-		TabularDataByFilterFunc: tabularDataByFilterFunc,
+		ExportTabularDataFunc: exportTabularDataFunc,
 	}
 
 	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil, nil, nil, "token")
 
-	test.That(t, ac.dataExportAction(cCtx), test.ShouldBeNil)
+	test.That(t, ac.dataExportTabularAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
-	test.That(t, len(out.messages), test.ShouldEqual, 4)
+	test.That(t, len(out.messages), test.ShouldEqual, 3)
 	test.That(t, out.messages[0], test.ShouldEqual, "Downloading..")
 	test.That(t, out.messages[1], test.ShouldEqual, ".")
-	test.That(t, out.messages[2], test.ShouldEqual, ".")
-	test.That(t, out.messages[3], test.ShouldEqual, "\n")
+	test.That(t, out.messages[2], test.ShouldEqual, "\n")
 
 	// expectedDataSize is the expected string length of the data returned by the injected call
 	expectedDataSize := 98
 	b := make([]byte, expectedDataSize)
 
 	// `data.ndjson` is the standardized name of the file data is written to in the `tabularData` call
-	filePath := utils.ResolveFile("data/data.ndjson")
+	filePath := utils.ResolveFile("data.ndjson")
 	file, err := os.Open(filePath)
 	test.That(t, err, test.ShouldBeNil)
 

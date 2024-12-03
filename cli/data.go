@@ -677,6 +677,8 @@ func (c *viamClient) tabularData(dst string, request *datapb.ExportTabularDataRe
 	errChan := make(chan error, 1)
 	done := make(chan struct{})
 
+	fmt.Fprintf(c.c.App.Writer, "Downloading..") //nolint:errcheck // no newline
+
 	go func() {
 		defer close(rowChan)
 		defer close(done)
@@ -684,6 +686,7 @@ func (c *viamClient) tabularData(dst string, request *datapb.ExportTabularDataRe
 			for count := 0; count < maxRetryCount; count++ {
 				fmt.Println("EXPORTING???")
 				stream, err := c.dataClient.ExportTabularData(context.Background(), request)
+				fmt.Fprintf(c.c.App.Writer, ".") //nolint:errcheck // no newline
 				if err == nil {
 					defer stream.CloseSend()
 					for {
@@ -716,6 +719,7 @@ func (c *viamClient) tabularData(dst string, request *datapb.ExportTabularDataRe
 			if !ok {
 				if !ok {
 					<-done
+					printf(c.c.App.Writer, "") // newline
 					err = w.Flush()
 					if err != nil {
 						return err
