@@ -363,11 +363,16 @@ func (mt Annotations) ToProto() *dataPB.Annotations {
 }
 
 const (
+	// ExtDefault is the default file extension
 	ExtDefault = ""
-	ExtDat     = ".dat"
-	ExtPcd     = ".pcd"
-	ExtJpeg    = ".jpeg"
-	ExtPng     = ".png"
+	// ExtDat is the file extension for tabular data
+	ExtDat = ".dat"
+	// ExtPcd is the file extension for pcd files
+	ExtPcd = ".pcd"
+	// ExtJpeg is the file extension for jpeg files
+	ExtJpeg = ".jpeg"
+	// ExtPng is the file extension for png files
+	ExtPng = ".png"
 )
 
 // getFileExt gets the file extension for a capture file.
