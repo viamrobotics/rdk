@@ -93,33 +93,33 @@ type ImageMetadata struct {
 //
 // Images example:
 //
-//     myCamera, err := camera.FromRobot(machine, "my_camera")
+//	myCamera, err := camera.FromRobot(machine, "my_camera")
 //
-//     images, metadata, err := myCamera.Images(context.Background())
+//	images, metadata, err := myCamera.Images(context.Background())
 //
 // Stream example:
 //
-//     myCamera, err := camera.FromRobot(machine, "my_camera")
+//	myCamera, err := camera.FromRobot(machine, "my_camera")
 //
-//     // gets the stream from a camera
-//     stream, err := myCamera.Stream(context.Background())
+//	// gets the stream from a camera
+//	stream, err := myCamera.Stream(context.Background())
 //
-//     // gets an image from the camera stream
-//     img, release, err := stream.Next(context.Background())
-//     defer release()
+//	// gets an image from the camera stream
+//	img, release, err := stream.Next(context.Background())
+//	defer release()
 //
 // NextPointCloud example:
 //
-//     myCamera, err := camera.FromRobot(machine, "my_camera")
+//	myCamera, err := camera.FromRobot(machine, "my_camera")
 //
-//     // gets the next point cloud from a camera
-//     pointCloud, err := myCamera.NextPointCloud(context.Background())
+//	// gets the next point cloud from a camera
+//	pointCloud, err := myCamera.NextPointCloud(context.Background())
 //
 // Close example:
 //
-//     myCamera, err := camera.FromRobot(machine, "my_camera")
+//	myCamera, err := camera.FromRobot(machine, "my_camera")
 //
-//     err = myCamera.Close(context.Background())
+//	err = myCamera.Close(context.Background())
 //
 // [camera component docs]: https://docs.viam.com/components/camera/
 type Camera interface {
