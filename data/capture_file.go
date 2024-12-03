@@ -217,7 +217,7 @@ func BuildCaptureMetadata(
 	methodParams map[string]*anypb.Any,
 	tags []string,
 ) (*v1.DataCaptureMetadata, CaptureType) {
-	dataType := GetDataType(method)
+	dataType := MethodToCaptureType(method)
 	return &v1.DataCaptureMetadata{
 		ComponentType:    api.String(),
 		ComponentName:    name,

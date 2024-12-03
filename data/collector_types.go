@@ -183,8 +183,8 @@ func (dt CaptureType) ToProto() datasyncPB.DataType {
 	}
 }
 
-// GetDataType returns the DataType of the method.
-func GetDataType(methodName string) CaptureType {
+// MethodToCaptureType returns the DataType of the method.
+func MethodToCaptureType(methodName string) CaptureType {
 	switch methodName {
 	case nextPointCloud, readImage, pointCloudMap, GetImages, captureAllFromCamera:
 		return CaptureTypeBinary
