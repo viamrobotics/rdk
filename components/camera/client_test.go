@@ -334,7 +334,7 @@ func TestClient(t *testing.T) {
 			return nil, camera.ImageMetadata{}, errGetImageFailed
 		}
 
-		_, _, err = camClient.Image(context.Background(), "", data.FromDMExtraMap)
+		_, _, err = camClient.Image(context.Background(), "", map[string]interface{}{data.FromDMString: true})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
 
@@ -345,8 +345,11 @@ func TestClient(t *testing.T) {
 			return nil, camera.ImageMetadata{}, errGetImageFailed
 		}
 
+		// merge values from data and camera
+		ext = data.FromDMExtraMap
+		ext["hello"] = "world"
 		ctx = context.Background()
-		_, _, err = camClient.Image(ctx, "", data.FromDMExtraMap)
+		_, _, err = camClient.Image(ctx, "", ext)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
 
