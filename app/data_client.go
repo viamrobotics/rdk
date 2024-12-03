@@ -345,28 +345,22 @@ func BsonToGo(rawData [][]byte) ([]map[string]interface{}, error) {
 
 // TabularDataByFilter queries tabular data and metadata based on given filters.
 func (d *DataClient) TabularDataByFilter(ctx context.Context, opts *DataByFilterOptions) (TabularDataReturn, error) {
-	var filter *pb.Filter
-	var limit uint64
-	var last string
-	var order pb.Order
+	dataReq := pb.DataRequest{}
 	var countOnly, includeInternalData bool
 	if opts != nil {
-		limit = uint64(opts.Limit)
-		last = opts.Last
-		order = orderToProto(opts.SortOrder)
+		dataReq.Filter = filterToProto(opts.Filter)
+		if opts.Limit != 0 {
+			dataReq.Limit = uint64(opts.Limit)
+		}
+		if opts.Last != "" {
+			dataReq.Last = opts.Last
+		}
+		dataReq.SortOrder = orderToProto(opts.SortOrder)
 		countOnly = opts.CountOnly
 		includeInternalData = opts.IncludeInternalData
-		if opts.Filter != nil {
-			filter = filterToProto(opts.Filter)
-		}
 	}
 	resp, err := d.dataClient.TabularDataByFilter(ctx, &pb.TabularDataByFilterRequest{
-		DataRequest: &pb.DataRequest{
-			Filter:    filter,
-			Limit:     limit,
-			Last:      last,
-			SortOrder: order,
-		},
+		DataRequest:         &dataReq,
 		CountOnly:           countOnly,
 		IncludeInternalData: includeInternalData,
 	})
@@ -429,28 +423,22 @@ func (d *DataClient) TabularDataByMQL(ctx context.Context, organizationID string
 func (d *DataClient) BinaryDataByFilter(
 	ctx context.Context, includeBinary bool, opts *DataByFilterOptions,
 ) (BinaryDataReturn, error) {
-	var filter *pb.Filter
-	var limit uint64
-	var last string
-	var order pb.Order
+	dataReq := pb.DataRequest{}
 	var countOnly, includeInternalData bool
 	if opts != nil {
-		limit = uint64(opts.Limit)
-		last = opts.Last
-		order = orderToProto(opts.SortOrder)
+		dataReq.Filter = filterToProto(opts.Filter)
+		if opts.Limit != 0 {
+			dataReq.Limit = uint64(opts.Limit)
+		}
+		if opts.Last != "" {
+			dataReq.Last = opts.Last
+		}
+		dataReq.SortOrder = orderToProto(opts.SortOrder)
 		countOnly = opts.CountOnly
 		includeInternalData = opts.IncludeInternalData
-		if opts.Filter != nil {
-			filter = filterToProto(opts.Filter)
-		}
 	}
 	resp, err := d.dataClient.BinaryDataByFilter(ctx, &pb.BinaryDataByFilterRequest{
-		DataRequest: &pb.DataRequest{
-			Filter:    filter,
-			Limit:     limit,
-			Last:      last,
-			SortOrder: order,
-		},
+		DataRequest:         &dataReq,
 		IncludeBinary:       includeBinary,
 		CountOnly:           countOnly,
 		IncludeInternalData: includeInternalData,
@@ -1218,6 +1206,9 @@ func binaryIDsToProto(binaryIDs []*BinaryID) []*pb.BinaryID {
 }
 
 func filterToProto(filter *Filter) *pb.Filter {
+	if filter == nil {
+		return nil
+	}
 	return &pb.Filter{
 		ComponentName:   filter.ComponentName,
 		ComponentType:   filter.ComponentType,
