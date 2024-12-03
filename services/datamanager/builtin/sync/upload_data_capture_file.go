@@ -22,7 +22,9 @@ var (
 	errMultipleReadingTypes                   = errors.New("sensor readings contain multiple types")
 	errSensorDataTypesDontMatchUploadMetadata = errors.New("sensor readings types don't match upload metadata")
 	errInvalidCaptureFileType                 = errors.New("invalid capture file type")
-	terminalCaptureFileErrs                   = []error{
+	// terminalCaptureFileErrs is the set of errors that will result in exponential retries stoping to retry
+	// uploading a data capture file and instead move it to a failed directory.
+	terminalCaptureFileErrs = []error{
 		errMultipleReadingTypes,
 		errSensorDataTypesDontMatchUploadMetadata,
 		errInvalidCaptureFileType,

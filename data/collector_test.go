@@ -327,7 +327,6 @@ func TestLogErrorsOnlyOnce(t *testing.T) {
 	c.Collect()
 	mockClock.Add(interval * 5)
 
-	// close(wrote)
 	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 1)
 	mockClock.Add(3 * time.Second)
 	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 2)
