@@ -158,6 +158,8 @@ func newAngularVelocityCollector(resource interface{}, params data.CollectorPara
 	return data.NewCollector(cFunc, params)
 }
 
+// newCompassHeadingCollector returns a collector to register a compass heading method. If one is already registered
+// with the same MethodMetadata it will panic.
 func newCompassHeadingCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ms, err := assertMovementSensor(resource)
 	if err != nil {
