@@ -118,12 +118,11 @@ func (cr *CaptureResult) ToProto() []*datasyncPB.SensorData {
 
 // Validate returns an error if the *CaptureResult is invalid.
 func (cr *CaptureResult) Validate() error {
-	var ts Timestamps
-	if cr.Timestamps.TimeRequested == ts.TimeRequested {
+	if cr.Timestamps.TimeRequested.IsZero() {
 		return errors.New("Timestamps.TimeRequested must be set")
 	}
 
-	if cr.Timestamps.TimeReceived == ts.TimeReceived {
+	if cr.Timestamps.TimeReceived.IsZero() {
 		return errors.New("Timestamps.TimeRequested must be set")
 	}
 
@@ -260,8 +259,10 @@ func CameraFormatToMimeType(f camerapb.Format) MimeType {
 	case camerapb.Format_FORMAT_PNG:
 		return MimeTypeImagePng
 	case camerapb.Format_FORMAT_RAW_RGBA:
+		// TODO: https://viam.atlassian.net/browse/DATA-3497
 		fallthrough
 	case camerapb.Format_FORMAT_RAW_DEPTH:
+		// TODO: https://viam.atlassian.net/browse/DATA-3497
 		fallthrough
 	default:
 		return MimeTypeUnspecified
