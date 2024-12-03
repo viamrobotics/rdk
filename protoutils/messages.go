@@ -9,6 +9,7 @@ import (
 	//nolint:staticcheck
 	protov1 "github.com/golang/protobuf/proto"
 	commonpb "go.viam.com/api/common/v1"
+	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
@@ -17,9 +18,32 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
+	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
+
+// MetadataFromProto converts a proto GetCloudMetadataResponse to Metadata.
+func MetadataFromProto(pbMetadata *robotpb.GetCloudMetadataResponse) cloud.Metadata {
+	return cloud.Metadata{
+		MachinePartID: pbMetadata.MachinePartId,
+		MachineID:     pbMetadata.MachineId,
+		PrimaryOrgID:  pbMetadata.PrimaryOrgId,
+		LocationID:    pbMetadata.LocationId,
+	}
+}
+
+// MetadataToProto converts a Metadata its proto counterpart.
+func MetadataToProto(metadata cloud.Metadata) *robotpb.GetCloudMetadataResponse {
+	return &robotpb.GetCloudMetadataResponse{
+		// TODO: RSDK-7181 remove RobotPartId
+		RobotPartId:   metadata.MachinePartID, // Deprecated: Duplicates MachinePartId,
+		MachinePartId: metadata.MachinePartID,
+		MachineId:     metadata.MachineID,
+		PrimaryOrgId:  metadata.PrimaryOrgID,
+		LocationId:    metadata.LocationID,
+	}
+}
 
 // ResourceNameToProto converts a resource.Name to its proto counterpart.
 func ResourceNameToProto(name resource.Name) *commonpb.ResourceName {

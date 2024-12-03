@@ -24,7 +24,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
@@ -474,14 +473,7 @@ func (s *Server) GetCloudMetadata(ctx context.Context, _ *pb.GetCloudMetadataReq
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetCloudMetadataResponse{
-		// TODO: RSDK-7181 remove RobotPartId
-		RobotPartId:   md.MachinePartID, // Deprecated: Duplicates MachinePartId
-		PrimaryOrgId:  md.PrimaryOrgID,
-		LocationId:    md.LocationID,
-		MachineId:     md.MachineID,
-		MachinePartId: md.MachinePartID,
-	}, nil
+	return protoutils.MetadataToProto(md), nil
 }
 
 // RestartModule restarts a module by name or ID.
@@ -524,7 +516,7 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 			Name:          protoutils.ResourceNameToProto(resStatus.Name),
 			LastUpdated:   timestamppb.New(resStatus.LastUpdated),
 			Revision:      resStatus.Revision,
-			CloudMetadata: cloud.MetadataToProto(resStatus.CloudMetadata),
+			CloudMetadata: protoutils.MetadataToProto(resStatus.CloudMetadata),
 		}
 
 		switch resStatus.State {
