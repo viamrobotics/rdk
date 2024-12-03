@@ -356,33 +356,40 @@ func (mt Annotations) ToProto() *dataPB.Annotations {
 	}
 }
 
+const (
+	extDefault = ""
+	extDat     = ".dat"
+	extPcd     = ".pcd"
+	extJpeg    = ".jpeg"
+	extPng     = ".png"
+)
+
 // getFileExt gets the file extension for a capture file.
 func getFileExt(dataType CaptureType, methodName string, parameters map[string]string) string {
-	defaultFileExt := ""
 	switch dataType {
 	case CaptureTypeTabular:
-		return ".dat"
+		return extDat
 	case CaptureTypeBinary:
 		if methodName == nextPointCloud {
-			return ".pcd"
+			return extPcd
 		}
 		if methodName == readImage {
 			// TODO: Add explicit file extensions for all mime types.
 			switch parameters["mime_type"] {
 			case rutils.MimeTypeJPEG:
-				return ".jpeg"
+				return extJpeg
 			case rutils.MimeTypePNG:
-				return ".png"
+				return extPng
 			case rutils.MimeTypePCD:
-				return ".pcd"
+				return extPcd
 			default:
-				return defaultFileExt
+				return extDefault
 			}
 		}
 	case CaptureTypeUnspecified:
-		return defaultFileExt
+		return extDefault
 	default:
-		return defaultFileExt
+		return extDefault
 	}
-	return defaultFileExt
+	return extDefault
 }
