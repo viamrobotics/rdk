@@ -48,42 +48,23 @@ const (
 )
 
 // DataExportAction is the corresponding action for 'data export binary'.
-func DataExportBinaryAction(c *cli.Context) error {
-	client, err := newViamClient(c)
+func DataExportBinaryAction(cCtx *cli.Context) error {
+	client, err := newViamClient(cCtx)
 	if err != nil {
 		return err
 	}
 
-	filter, err := createDataFilter(c)
-	if err != nil {
-		return err
-	}
-
-	if err := client.binaryData(c.Path(dataFlagDestination), filter, c.Uint(dataFlagParallelDownloads),
-		c.Uint(dataFlagTimeout)); err != nil {
-		return err
-	}
-
-	return nil
+	return client.dataExportBinaryAction(cCtx)
 }
 
 // DataExportAction is the corresponding action for 'data export tabular'.
-func DataExportTabularAction(c *cli.Context) error {
-	client, err := newViamClient(c)
+func DataExportTabularAction(cCtx *cli.Context) error {
+	client, err := newViamClient(cCtx)
 	if err != nil {
 		return err
 	}
 
-	request, err := createExportTabularRequest(c)
-	if err != nil {
-		return err
-	}
-
-	if err := client.tabularData(c.Path(dataFlagDestination), request, c.Uint(dataFlagChunkLimit)); err != nil {
-		return err
-	}
-
-	return nil
+	return client.dataExportTabularAction(cCtx)
 }
 
 // DataTagActionByFilter is the corresponding action for 'data tag filter'.
@@ -309,6 +290,33 @@ func createExportTabularRequest(c *cli.Context) (*datapb.ExportTabularDataReques
 	}
 
 	return request, nil
+}
+
+func (client *viamClient) dataExportBinaryAction(cCtx *cli.Context) error {
+	filter, err := createDataFilter(cCtx)
+	if err != nil {
+		return err
+	}
+
+	if err := client.binaryData(cCtx.Path(dataFlagDestination), filter, cCtx.Uint(dataFlagParallelDownloads),
+		cCtx.Uint(dataFlagTimeout)); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (client *viamClient) dataExportTabularAction(cCtx *cli.Context) error {
+	request, err := createExportTabularRequest(cCtx)
+	if err != nil {
+		return err
+	}
+
+	if err := client.tabularData(cCtx.Path(dataFlagDestination), request, cCtx.Uint(dataFlagChunkLimit)); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // BinaryData downloads binary data matching filter to dst.
@@ -674,6 +682,7 @@ func (c *viamClient) tabularData(dst string, request *datapb.ExportTabularDataRe
 		defer close(done)
 		for {
 			for count := 0; count < maxRetryCount; count++ {
+				fmt.Println("EXPORTING???")
 				stream, err := c.dataClient.ExportTabularData(context.Background(), request)
 				if err == nil {
 					defer stream.CloseSend()
