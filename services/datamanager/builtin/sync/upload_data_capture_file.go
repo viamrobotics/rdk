@@ -20,7 +20,7 @@ var (
 	// StreamingDataCaptureUpload.
 	MaxUnaryFileSize                          = int64(units.MB)
 	errMultipleReadingTypes                   = errors.New("sensor readings contain multiple types")
-	errSensorDataTypesDontMatchUploadMetadata = errors.New("sensor reaings types don't match upload metadata")
+	errSensorDataTypesDontMatchUploadMetadata = errors.New("sensor readings types don't match upload metadata")
 	errInvalidCaptureFileType                 = errors.New("invalid capture file type")
 	terminalCaptureFileErrs                   = []error{
 		errMultipleReadingTypes,
