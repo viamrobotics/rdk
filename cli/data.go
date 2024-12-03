@@ -48,6 +48,8 @@ const (
 	serverErrorMessage = "received error from server"
 
 	viamCaptureDotSubdir = "/.viam/capture/"
+
+	noExistingADFErrCode = "NotFound"
 )
 
 // DataExportAction is the corresponding action for 'data export'.
@@ -929,11 +931,13 @@ func DataConfigureDatabaseUserConfirmation(c *cli.Context) error {
 	}
 
 	res, err := client.dataGetDatabaseConnection(c.String(generalFlagOrgID))
-	if err != nil {
+	// if the error is adf doesn't exist for org yet, continue and skip HasDatabaseUser check
+	if err != nil && !strings.Contains(err.Error(), noExistingADFErrCode) {
 		return err
 	}
 
-	if res.HasDatabaseUser {
+	// skip this check if we don't have an existing ADF instance
+	if err == nil && res.HasDatabaseUser {
 		yellow := "\033[1;33m%s\033[0m"
 		printf(c.App.Writer, yellow, "WARNING!!\n")
 		printf(c.App.Writer, yellow, "You or someone else in your organization have already created a user.\n")
