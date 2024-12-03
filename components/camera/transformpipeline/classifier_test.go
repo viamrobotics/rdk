@@ -82,7 +82,6 @@ func buildRobotWithClassifier(logger logging.Logger) (robot.Robot, error) {
 	return r, nil
 }
 
-//nolint:dupl
 func TestClassifierSource(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -99,7 +98,9 @@ func TestClassifierSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer classifier.Close(ctx)
 
-	resImg, _, err := camera.ReadImage(ctx, classifier)
+	streamClassifier, ok := classifier.(camera.StreamCamera)
+	test.That(t, ok, test.ShouldBeTrue)
+	resImg, _, err := camera.ReadImage(ctx, streamClassifier)
 	test.That(t, err, test.ShouldBeNil)
 	ovImg := rimage.ConvertImage(resImg)
 

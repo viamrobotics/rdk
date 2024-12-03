@@ -63,22 +63,23 @@ func TestComposed(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pc.Size(), test.ShouldEqual, 1)
 
-	myOverlay, stream, err := newOverlayTransform(context.Background(), cloudSource, camera.ColorStream, am)
+	streamedCloudSource := streamCameraFromCamera(context.Background(), cloudSource)
+	myOverlay, stream, err := newOverlayTransform(context.Background(), streamedCloudSource, camera.ColorStream, am)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
 	pic, _, err := camera.ReadImage(context.Background(), myOverlay)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pic.Bounds(), test.ShouldResemble, image.Rect(0, 0, 1280, 720))
 
-	myPipeline, err := newTransformPipeline(context.Background(), cloudSource, conf, robot, logger)
+	myPipeline, err := newTransformPipeline(context.Background(), streamedCloudSource, conf, robot, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer myPipeline.Close(context.Background())
-	pic, _, err = camera.ReadImage(context.Background(), myPipeline)
+	pic, err = camera.DecodeImageFromCamera(context.Background(), utils.MimeTypeJPEG, nil, myPipeline)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pic.Bounds(), test.ShouldResemble, image.Rect(0, 0, 1280, 720))
 
 	// wrong result with bad config
-	_, _, err = newOverlayTransform(context.Background(), cloudSource, camera.ColorStream, utils.AttributeMap{})
+	_, _, err = newOverlayTransform(context.Background(), streamedCloudSource, camera.ColorStream, utils.AttributeMap{})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldWrap, transform.ErrNoIntrinsics)
 	// wrong config, still no intrinsics
@@ -88,7 +89,7 @@ func TestComposed(t *testing.T) {
 			Height: 720,
 		},
 	}
-	_, _, err = newOverlayTransform(context.Background(), cloudSource, camera.ColorStream, am)
+	_, _, err = newOverlayTransform(context.Background(), streamedCloudSource, camera.ColorStream, am)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldWrap, transform.ErrNoIntrinsics)
 	// wrong config, no attributes
@@ -99,7 +100,7 @@ func TestComposed(t *testing.T) {
 			},
 		},
 	}
-	_, err = newTransformPipeline(context.Background(), cloudSource, conf, robot, logger)
+	_, err = newTransformPipeline(context.Background(), streamedCloudSource, conf, robot, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldWrap, transform.ErrNoIntrinsics)
 }

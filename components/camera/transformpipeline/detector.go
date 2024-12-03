@@ -26,7 +26,7 @@ type detectorConfig struct {
 
 // detectorSource takes an image from the camera, and overlays the detections from the detector.
 type detectorSource struct {
-	src          camera.Camera
+	src          camera.StreamCamera
 	detectorName string
 	labelFilter  objectdetection.Postprocessor // must build from ValidLabels
 	confFilter   objectdetection.Postprocessor
@@ -35,10 +35,10 @@ type detectorSource struct {
 
 func newDetectionsTransform(
 	ctx context.Context,
-	source camera.Camera,
+	source camera.StreamCamera,
 	r robot.Robot,
 	am utils.AttributeMap,
-) (camera.Camera, camera.ImageType, error) {
+) (camera.StreamCamera, camera.ImageType, error) {
 	conf, err := resource.TransformAttributeMap[*detectorConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err

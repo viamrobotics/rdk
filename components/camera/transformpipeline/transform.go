@@ -136,11 +136,11 @@ func (Transformation) JSONSchema() *jsonschema.Schema {
 func buildTransform(
 	ctx context.Context,
 	r robot.Robot,
-	source camera.Camera,
+	source camera.StreamCamera,
 	stream camera.ImageType,
 	tr Transformation,
 	sourceString string,
-) (camera.Camera, camera.ImageType, error) {
+) (camera.StreamCamera, camera.ImageType, error) {
 	switch transformType(tr.Type) {
 	case transformTypeUnspecified, transformTypeIdentity:
 		return source, stream, nil

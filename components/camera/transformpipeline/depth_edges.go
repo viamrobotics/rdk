@@ -22,13 +22,13 @@ type depthEdgesConfig struct {
 
 // depthEdgesSource applies a Canny Edge Detector to the depth map.
 type depthEdgesSource struct {
-	src        camera.Camera
+	src        camera.StreamCamera
 	detector   *rimage.CannyEdgeDetector
 	blurRadius float64
 }
 
-func newDepthEdgesTransform(ctx context.Context, source camera.Camera, am utils.AttributeMap,
-) (camera.Camera, camera.ImageType, error) {
+func newDepthEdgesTransform(ctx context.Context, source camera.StreamCamera, am utils.AttributeMap,
+) (camera.StreamCamera, camera.ImageType, error) {
 	conf, err := resource.TransformAttributeMap[*depthEdgesConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err

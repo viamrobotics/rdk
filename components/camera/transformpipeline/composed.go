@@ -18,7 +18,7 @@ import (
 // depthToPretty takes a depth image and turns into a colorful image, with blue being
 // farther away, and red being closest. Actual depth information is lost in the transform.
 type depthToPretty struct {
-	src         camera.Camera
+	src         camera.StreamCamera
 	cameraModel *transform.PinholeCameraModel
 }
 
@@ -34,9 +34,9 @@ func propsFromVideoSource(ctx context.Context, source camera.Camera) (camera.Pro
 
 func newDepthToPrettyTransform(
 	ctx context.Context,
-	source camera.Camera,
+	source camera.StreamCamera,
 	stream camera.ImageType,
-) (camera.Camera, camera.ImageType, error) {
+) (camera.StreamCamera, camera.ImageType, error) {
 	if stream != camera.DepthStream {
 		return nil, camera.UnspecifiedStream,
 			errors.Errorf("source has stream type %s, depth_to_pretty only supports depth stream inputs", stream)
@@ -106,16 +106,16 @@ type overlayConfig struct {
 
 // overlaySource overlays the depth and color 2D images in order to debug the alignment of the two images.
 type overlaySource struct {
-	src         camera.Camera
+	src         camera.StreamCamera
 	cameraModel *transform.PinholeCameraModel
 }
 
 func newOverlayTransform(
 	ctx context.Context,
-	src camera.Camera,
+	src camera.StreamCamera,
 	stream camera.ImageType,
 	am utils.AttributeMap,
-) (camera.Camera, camera.ImageType, error) {
+) (camera.StreamCamera, camera.ImageType, error) {
 	conf, err := resource.TransformAttributeMap[*overlayConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err

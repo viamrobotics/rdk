@@ -23,7 +23,7 @@ type segmenterConfig struct {
 
 // segmenterSource takes a pointcloud from the camera and applies a segmenter to it.
 type segmenterSource struct {
-	src           camera.Camera
+	src           camera.StreamCamera
 	cameraName    string
 	segmenterName string
 	r             robot.Robot
@@ -31,11 +31,11 @@ type segmenterSource struct {
 
 func newSegmentationsTransform(
 	ctx context.Context,
-	source camera.Camera,
+	source camera.StreamCamera,
 	r robot.Robot,
 	am utils.AttributeMap,
 	sourceString string,
-) (camera.Camera, camera.ImageType, error) {
+) (camera.StreamCamera, camera.ImageType, error) {
 	conf, err := resource.TransformAttributeMap[*segmenterConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err

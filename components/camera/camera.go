@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"image"
 
+	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/camera/v1"
 
@@ -88,10 +89,6 @@ type Camera interface {
 	// along with associated metadata (just timestamp for now). It's not for getting a time series of images from the same imager.
 	Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error)
 
-	// Stream returns a stream that makes a best effort to return consecutive images
-	// that may have a MIME type hint dictated in the context via gostream.WithMIMETypeHint.
-	Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error)
-
 	// NextPointCloud returns the next immediately available point cloud, not necessarily one
 	// a part of a sequence. In the future, there could be streaming of point clouds.
 	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
@@ -99,9 +96,14 @@ type Camera interface {
 	// Properties returns properties that are intrinsic to the particular
 	// implementation of a camera.
 	Properties(ctx context.Context) (Properties, error)
+}
 
-	// Close shuts down the resource and prevents further use.
-	Close(ctx context.Context) error
+// StreamCamera is a camera that has `Stream` embedded to directly integrate with gostream.
+// It's primarily used in the transform camera and the stream server. Generally an anti-pattern to avoid
+// when writing camera components from scratch.
+type StreamCamera interface {
+	Camera
+	Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error)
 }
 
 // ReadImage reads an image from the given source that is immediately available.
@@ -123,6 +125,25 @@ func DecodeImageFromCamera(ctx context.Context, mimeType string, extra map[strin
 		return nil, fmt.Errorf("could not decode into image.Image: %w", err)
 	}
 	return img, nil
+}
+
+// VideoSourceFromCamera converts a camera resource into a gostream VideoSource.
+func VideoSourceFromCamera(ctx context.Context, cam Camera) gostream.VideoSource {
+	reader := gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+		img, err := DecodeImageFromCamera(ctx, "", nil, cam)
+		if err != nil {
+			return nil, func() {}, err
+		}
+		return img, func() {}, nil
+	})
+	camProps, err := cam.Properties(ctx)
+	if err != nil {
+		camProps = Properties{}
+	}
+	if camProps.IntrinsicParams == nil {
+		return gostream.NewVideoSource(reader, prop.Video{Width: 0, Height: 0})
+	}
+	return gostream.NewVideoSource(reader, prop.Video{Width: camProps.IntrinsicParams.Width, Height: camProps.IntrinsicParams.Height})
 }
 
 // A PointCloudSource is a source that can generate pointclouds.

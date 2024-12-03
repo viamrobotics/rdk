@@ -608,7 +608,8 @@ func BenchmarkColorRotate(b *testing.B) {
 	am := utils.AttributeMap{
 		"angle_degs": 180,
 	}
-	rs, stream, err := newRotateTransform(context.Background(), src, camera.ColorStream, am)
+	streamSrc := streamCameraFromCamera(context.Background(), src)
+	rs, stream, err := newRotateTransform(context.Background(), streamSrc, camera.ColorStream, am)
 	test.That(b, err, test.ShouldBeNil)
 	test.That(b, stream, test.ShouldEqual, camera.ColorStream)
 
@@ -633,7 +634,8 @@ func BenchmarkDepthRotate(b *testing.B) {
 	am := utils.AttributeMap{
 		"angle_degs": 180,
 	}
-	rs, stream, err := newRotateTransform(context.Background(), src, camera.DepthStream, am)
+	streamSrc := streamCameraFromCamera(context.Background(), src)
+	rs, stream, err := newRotateTransform(context.Background(), streamSrc, camera.DepthStream, am)
 	test.That(b, err, test.ShouldBeNil)
 	test.That(b, stream, test.ShouldEqual, camera.DepthStream)
 

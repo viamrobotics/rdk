@@ -117,13 +117,12 @@ func (o *obsDepth) buildObsDepth(logger logging.Logger) func(
 
 // buildObsDepthNoIntrinsics will return the median depth in the depth map as a Geometry point.
 func (o *obsDepth) obsDepthNoIntrinsics(ctx context.Context, src camera.Camera) ([]*vision.Object, error) {
-	pic, release, err := camera.ReadImage(ctx, src)
+	img, err := camera.DecodeImageFromCamera(ctx, "", nil, src)
 	if err != nil {
 		return nil, errors.Errorf("could not get image from %s", src)
 	}
-	defer release()
 
-	dm, err := rimage.ConvertImageToDepthMap(ctx, pic)
+	dm, err := rimage.ConvertImageToDepthMap(ctx, img)
 	if err != nil {
 		return nil, errors.New("could not convert image to depth map")
 	}
@@ -149,12 +148,11 @@ func (o *obsDepth) obsDepthWithIntrinsics(ctx context.Context, src camera.Camera
 	if o.intrinsics == nil {
 		return nil, errors.New("tried to build obstacles depth with intrinsics but no instrinsics found")
 	}
-	pic, release, err := camera.ReadImage(ctx, src)
+	img, err := camera.DecodeImageFromCamera(ctx, "", nil, src)
 	if err != nil {
 		return nil, errors.Errorf("could not get image from %s", src)
 	}
-	defer release()
-	dm, err := rimage.ConvertImageToDepthMap(ctx, pic)
+	dm, err := rimage.ConvertImageToDepthMap(ctx, img)
 	if err != nil {
 		return nil, errors.New("could not convert image to depth map")
 	}
