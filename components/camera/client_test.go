@@ -345,8 +345,6 @@ func TestClient(t *testing.T) {
 			return nil, camera.ImageMetadata{}, errGetImageFailed
 		}
 
-		// merge values from data and camera
-		ext = map[string]interface{}{"hello": "world", data.FromDMString: true}
 		ctx = context.Background()
 		_, _, err = camClient.Image(ctx, "", data.FromDMExtraMap)
 		test.That(t, err, test.ShouldNotBeNil)
