@@ -53,6 +53,9 @@ func assertMovementSensor(resource interface{}) (MovementSensor, error) {
 	return ms, nil
 }
 
+// newLinearVelocityCollector returns a collector to register a linear velocity method. If one is already registered
+// with the same MethodMetadata it will panic.
+//
 //nolint:dupl
 func newLinearVelocityCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ms, err := assertMovementSensor(resource)
@@ -84,6 +87,8 @@ func newLinearVelocityCollector(resource interface{}, params data.CollectorParam
 	return data.NewCollector(cFunc, params)
 }
 
+// newPositionCollector returns a collector to register a position method. If one is already registered
+// with the same MethodMetadata it will panic.
 func newPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ms, err := assertMovementSensor(resource)
 	if err != nil {
@@ -119,6 +124,9 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 	return data.NewCollector(cFunc, params)
 }
 
+// newAngularVelocityCollector returns a collector to register an angular velocity method. If one is already registered
+// with the same MethodMetadata it will panic.
+//
 //nolint:dupl
 func newAngularVelocityCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ms, err := assertMovementSensor(resource)
@@ -176,6 +184,9 @@ func newCompassHeadingCollector(resource interface{}, params data.CollectorParam
 	return data.NewCollector(cFunc, params)
 }
 
+// newLinearAccelerationCollector returns a collector to register a linear acceleration method. If one is already registered
+// with the same MethodMetadata it will panic.
+//
 //nolint:dupl
 func newLinearAccelerationCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ms, err := assertMovementSensor(resource)
@@ -207,6 +218,8 @@ func newLinearAccelerationCollector(resource interface{}, params data.CollectorP
 	return data.NewCollector(cFunc, params)
 }
 
+// newOrientationCollector returns a collector to register an orientation method. If one is already registered
+// with the same MethodMetadata it will panic.
 func newOrientationCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ms, err := assertMovementSensor(resource)
 	if err != nil {
