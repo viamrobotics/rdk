@@ -106,6 +106,7 @@ func (c *DataServiceExportTabularDataClient) Recv() (*datapb.ExportTabularDataRe
 	return c.RecvFunc()
 }
 
+// ExportTabularData calls the injected ExportTabularData or the real version.
 func (client *DataServiceClient) ExportTabularData(ctx context.Context, in *datapb.ExportTabularDataRequest,
 	opts ...grpc.CallOption,
 ) (datapb.DataService_ExportTabularDataClient, error) {

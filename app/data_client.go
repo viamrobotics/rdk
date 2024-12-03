@@ -109,12 +109,13 @@ type TabularData struct {
 	TimeReceived  time.Time
 }
 
+// ExportTabularDataReturn represents the result of an ExportTabularData API call.
 type ExportTabularDataReturn struct {
-	OrganizationId   string
-	LocationId       string
-	RobotId          string
+	OrganizationID   string
+	LocationID       string
+	RobotID          string
 	RobotName        string
-	PartId           string
+	PartID           string
 	PartName         string
 	ComponentName    string
 	ComponentType    string
@@ -124,10 +125,13 @@ type ExportTabularDataReturn struct {
 	Tags             []string
 	Payload          *structpb.Struct
 }
+
+// ExportTabularDataStream is a stream that returns ExportTabularDataReturns.
 type ExportTabularDataStream struct {
 	Stream pb.DataService_ExportTabularDataClient
 }
 
+// Next gets the next ExportTabularDataReturn.
 func (e *ExportTabularDataStream) Next() (ExportTabularDataReturn, error) {
 	streamResp, err := e.Stream.Recv()
 	if err != nil {
@@ -682,14 +686,14 @@ func (d *DataClient) ConfigureDatabaseUser(
 // The interval is optional. A blank interval will be interpretted as a request for all data.
 func (d *DataClient) ExportTabularData(
 	ctx context.Context,
-	partId,
+	partID,
 	resourceName,
 	resourceSubtype,
 	methodName string,
 	interval CaptureInterval,
 ) (*ExportTabularDataStream, error) {
 	stream, err := d.dataClient.ExportTabularData(ctx, &pb.ExportTabularDataRequest{
-		PartId:          partId,
+		PartId:          partID,
 		ResourceName:    resourceName,
 		ResourceSubtype: resourceSubtype,
 		MethodName:      methodName,
@@ -1215,11 +1219,11 @@ func tabularDataFromProto(proto *pb.TabularData, metadata *pb.CaptureMetadata) T
 
 func exportTabularDataFromProto(proto *pb.ExportTabularDataResponse) ExportTabularDataReturn {
 	return ExportTabularDataReturn{
-		OrganizationId:   proto.OrganizationId,
-		LocationId:       proto.LocationId,
-		RobotId:          proto.RobotId,
+		OrganizationID:   proto.OrganizationId,
+		LocationID:       proto.LocationId,
+		RobotID:          proto.RobotId,
 		RobotName:        proto.RobotName,
-		PartId:           proto.PartId,
+		PartID:           proto.PartId,
 		PartName:         proto.PartName,
 		ComponentName:    proto.ComponentName,
 		ComponentType:    proto.ComponentType,

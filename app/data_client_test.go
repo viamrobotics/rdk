@@ -366,7 +366,8 @@ func TestDataClient(t *testing.T) {
 			},
 		}
 		grpcClient.ExportTabularDataFunc = func(ctx context.Context, in *pb.ExportTabularDataRequest,
-			opts ...grpc.CallOption) (pb.DataService_ExportTabularDataClient, error) {
+			opts ...grpc.CallOption,
+		) (pb.DataService_ExportTabularDataClient, error) {
 			test.That(t, in.PartId, test.ShouldEqual, partID)
 			test.That(t, in.ResourceName, test.ShouldEqual, componentName)
 			test.That(t, in.ResourceSubtype, test.ShouldEqual, componentType)
@@ -379,7 +380,6 @@ func TestDataClient(t *testing.T) {
 		resp, err := stream.Next()
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, exportTabularDataFromProto(exportTabularResponse))
-
 	})
 
 	t.Run("BinaryDataByFilter", func(t *testing.T) {
