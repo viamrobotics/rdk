@@ -118,7 +118,7 @@ func TestCollectors(t *testing.T) {
 			camera: cam,
 		},
 		{
-			name:      "GetImages returns a non nil tabular response",
+			name:      "GetImages returns a non nil binary response",
 			collector: camera.NewGetImagesCollector,
 			expected: []*datasyncpb.SensorData{
 				{
