@@ -151,14 +151,15 @@ type Annotations struct {
 	Bboxes []BoundingBox
 }
 
-// TabularDataByFilterOptions contains optional parameters for TabularDataByFilter.
-type TabularDataByFilterOptions struct {
-	// No Filter implies all tabular data.
+// DataByFilterOptions contains optional parameters for TabularDataByFilter and BinaryDataByFilter.
+type DataByFilterOptions struct {
+	// No Filter implies all data.
 	Filter *Filter
 	// Limit defaults to 50 if unspecified.
 	Limit int
-	// Last indicates the object identifier of the Last-returned data. This is returned by calls to TabularDataByFilter as the `Last` value.
-	// If provided, the server will return the next data entries after the Last object identifier.
+	// Last indicates the object identifier of the Last-returned data.
+	// This is returned by calls to TabularDataByFilter and BinaryDataByFilter as the `Last` value.
+	// If provided, the server will return the next data entries after the last object identifier.
 	Last                string
 	SortOrder           Order
 	CountOnly           bool
@@ -334,7 +335,7 @@ func BsonToGo(rawData [][]byte) ([]map[string]interface{}, error) {
 }
 
 // TabularDataByFilter queries tabular data and metadata based on given filters.
-func (d *DataClient) TabularDataByFilter(ctx context.Context, opts *TabularDataByFilterOptions) (TabularDataReturn, error) {
+func (d *DataClient) TabularDataByFilter(ctx context.Context, opts *DataByFilterOptions) (TabularDataReturn, error) {
 	var filter *pb.Filter
 	var limit uint64
 	var last string
@@ -417,21 +418,29 @@ func (d *DataClient) TabularDataByMQL(ctx context.Context, organizationID string
 
 // BinaryDataByFilter queries binary data and metadata based on given filters.
 func (d *DataClient) BinaryDataByFilter(
-	ctx context.Context,
-	filter *Filter,
-	limit int,
-	sortOrder Order,
-	last string,
-	includeBinary bool,
-	countOnly bool,
-	includeInternalData bool,
+	ctx context.Context, includeBinary bool, opts *DataByFilterOptions,
 ) (BinaryDataReturn, error) {
+	var filter *pb.Filter
+	var limit uint64
+	var last string
+	var order pb.Order
+	var countOnly, includeInternalData bool
+	if opts != nil {
+		limit = uint64(opts.Limit)
+		last = opts.Last
+		order = orderToProto(opts.SortOrder)
+		countOnly = opts.CountOnly
+		includeInternalData = opts.IncludeInternalData
+		if opts.Filter != nil {
+			filter = filterToProto(opts.Filter)
+		}
+	}
 	resp, err := d.dataClient.BinaryDataByFilter(ctx, &pb.BinaryDataByFilterRequest{
 		DataRequest: &pb.DataRequest{
-			Filter:    filterToProto(filter),
-			Limit:     uint64(limit),
+			Filter:    filter,
+			Limit:     limit,
 			Last:      last,
-			SortOrder: orderToProto(sortOrder),
+			SortOrder: order,
 		},
 		IncludeBinary:       includeBinary,
 		CountOnly:           countOnly,

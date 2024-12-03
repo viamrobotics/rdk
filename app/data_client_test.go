@@ -279,7 +279,7 @@ func TestDataClient(t *testing.T) {
 				Metadata: []*pb.CaptureMetadata{captureMetadataToProto(tabularMetadata)},
 			}, nil
 		}
-		resp, _ := client.TabularDataByFilter(context.Background(), &TabularDataByFilterOptions{
+		resp, _ := client.TabularDataByFilter(context.Background(), &DataByFilterOptions{
 			&filter, limit, last, dataRequest.SortOrder, countOnly, includeInternalData,
 		})
 		test.That(t, resp.TabularData[0], test.ShouldResemble, tabularData)
@@ -355,8 +355,9 @@ func TestDataClient(t *testing.T) {
 			}, nil
 		}
 		resp, _ := client.BinaryDataByFilter(
-			context.Background(), &filter, limit, dataRequest.SortOrder,
-			last, includeBinary, countOnly, includeInternalData)
+			context.Background(), includeBinary, &DataByFilterOptions{
+				&filter, limit, last, dataRequest.SortOrder, countOnly, includeInternalData,
+			})
 		test.That(t, resp.BinaryData[0], test.ShouldResemble, binaryData)
 		test.That(t, resp.Count, test.ShouldEqual, count)
 		test.That(t, resp.Last, test.ShouldEqual, last)
