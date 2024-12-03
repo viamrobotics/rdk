@@ -293,7 +293,7 @@ type FileUploadOptions struct {
 
 // UpdateBoundingBoxOptions contains optional parameters for UpdateBoundingBox.
 type UpdateBoundingBoxOptions struct {
-	Label          *string
+	Label *string
 
 	// Normalized coordinates where all coordinates must be in the range [0, 1].
 	XMinNormalized *float64
