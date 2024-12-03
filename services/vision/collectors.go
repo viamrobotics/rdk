@@ -83,7 +83,7 @@ func newCaptureAllFromCameraCollector(resource interface{}, params data.Collecto
 
 		filteredBoundingBoxes := []data.BoundingBox{}
 		for _, d := range visCapture.Detections {
-			if score := d.Score(); score >= minConfidenceScore {
+			if d.Score() >= minConfidenceScore {
 				filteredBoundingBoxes = append(filteredBoundingBoxes, toDataBoundingBox(d, width, height))
 			}
 		}
