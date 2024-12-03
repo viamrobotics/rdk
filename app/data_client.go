@@ -151,6 +151,20 @@ type Annotations struct {
 	Bboxes []BoundingBox
 }
 
+// TabularDataByFilterOptions contains optional parameters for TabularDataByFilter.
+type TabularDataByFilterOptions struct {
+	// No Filter implies all tabular data.
+	Filter *Filter
+	// Limit defaults to 50 if unspecified.
+	Limit int
+	// Last indicates the object identifier of the Last-returned data. This is returned by calls to TabularDataByFilter as the `Last` value.
+	// If provided, the server will return the next data entries after the Last object identifier.
+	Last                string
+	SortOrder           Order
+	CountOnly           bool
+	IncludeInternalData bool
+}
+
 // TabularDataReturn represents the result of a TabularDataByFilter query.
 // It contains the retrieved tabular data and associated metadata,
 // the total number of entries retrieved (Count), and the ID of the last returned page (Last).
@@ -320,21 +334,28 @@ func BsonToGo(rawData [][]byte) ([]map[string]interface{}, error) {
 }
 
 // TabularDataByFilter queries tabular data and metadata based on given filters.
-func (d *DataClient) TabularDataByFilter(
-	ctx context.Context,
-	filter Filter,
-	limit int,
-	last string,
-	sortOrder Order,
-	countOnly bool,
-	includeInternalData bool,
-) (TabularDataReturn, error) {
+func (d *DataClient) TabularDataByFilter(ctx context.Context, opts *TabularDataByFilterOptions) (TabularDataReturn, error) {
+	var filter *pb.Filter
+	var limit uint64
+	var last string
+	var order pb.Order
+	var countOnly, includeInternalData bool
+	if opts != nil {
+		limit = uint64(opts.Limit)
+		last = opts.Last
+		order = orderToProto(opts.SortOrder)
+		countOnly = opts.CountOnly
+		includeInternalData = opts.IncludeInternalData
+		if opts.Filter != nil {
+			filter = filterToProto(opts.Filter)
+		}
+	}
 	resp, err := d.dataClient.TabularDataByFilter(ctx, &pb.TabularDataByFilterRequest{
 		DataRequest: &pb.DataRequest{
-			Filter:    filterToProto(filter),
-			Limit:     uint64(limit),
+			Filter:    filter,
+			Limit:     limit,
 			Last:      last,
-			SortOrder: orderToProto(sortOrder),
+			SortOrder: order,
 		},
 		CountOnly:           countOnly,
 		IncludeInternalData: includeInternalData,
@@ -397,7 +418,7 @@ func (d *DataClient) TabularDataByMQL(ctx context.Context, organizationID string
 // BinaryDataByFilter queries binary data and metadata based on given filters.
 func (d *DataClient) BinaryDataByFilter(
 	ctx context.Context,
-	filter Filter,
+	filter *Filter,
 	limit int,
 	sortOrder Order,
 	last string,
@@ -461,7 +482,7 @@ func (d *DataClient) DeleteTabularData(ctx context.Context, organizationID strin
 
 // DeleteBinaryDataByFilter deletes binary data based on given filters.
 // It returns the number of binary datapoints deleted.
-func (d *DataClient) DeleteBinaryDataByFilter(ctx context.Context, filter Filter) (int, error) {
+func (d *DataClient) DeleteBinaryDataByFilter(ctx context.Context, filter *Filter) (int, error) {
 	resp, err := d.dataClient.DeleteBinaryDataByFilter(ctx, &pb.DeleteBinaryDataByFilterRequest{
 		Filter:              filterToProto(filter),
 		IncludeInternalData: true,
@@ -494,7 +515,7 @@ func (d *DataClient) AddTagsToBinaryDataByIDs(ctx context.Context, tags []string
 }
 
 // AddTagsToBinaryDataByFilter adds string tags, unless the tags are already present, to binary data based on the given filter.
-func (d *DataClient) AddTagsToBinaryDataByFilter(ctx context.Context, tags []string, filter Filter) error {
+func (d *DataClient) AddTagsToBinaryDataByFilter(ctx context.Context, tags []string, filter *Filter) error {
 	_, err := d.dataClient.AddTagsToBinaryDataByFilter(ctx, &pb.AddTagsToBinaryDataByFilterRequest{
 		Filter: filterToProto(filter),
 		Tags:   tags,
@@ -520,7 +541,7 @@ func (d *DataClient) RemoveTagsFromBinaryDataByIDs(ctx context.Context,
 // RemoveTagsFromBinaryDataByFilter removes the specified string tags from binary data that match the given filter.
 // It returns the number of binary files from which tags were removed.
 func (d *DataClient) RemoveTagsFromBinaryDataByFilter(ctx context.Context,
-	tags []string, filter Filter,
+	tags []string, filter *Filter,
 ) (int, error) {
 	resp, err := d.dataClient.RemoveTagsFromBinaryDataByFilter(ctx, &pb.RemoveTagsFromBinaryDataByFilterRequest{
 		Filter: filterToProto(filter),
@@ -534,7 +555,7 @@ func (d *DataClient) RemoveTagsFromBinaryDataByFilter(ctx context.Context,
 
 // TagsByFilter retrieves all unique tags associated with the data that match the specified filter.
 // It returns the list of these unique tags.
-func (d *DataClient) TagsByFilter(ctx context.Context, filter Filter) ([]string, error) {
+func (d *DataClient) TagsByFilter(ctx context.Context, filter *Filter) ([]string, error) {
 	resp, err := d.dataClient.TagsByFilter(ctx, &pb.TagsByFilterRequest{
 		Filter: filterToProto(filter),
 	})
@@ -585,7 +606,7 @@ func (d *DataClient) RemoveBoundingBoxFromImageByID(
 
 // BoundingBoxLabelsByFilter retrieves all unique string labels for bounding boxes that match the specified filter.
 // It returns a list of these labels.
-func (d *DataClient) BoundingBoxLabelsByFilter(ctx context.Context, filter Filter) ([]string, error) {
+func (d *DataClient) BoundingBoxLabelsByFilter(ctx context.Context, filter *Filter) ([]string, error) {
 	resp, err := d.dataClient.BoundingBoxLabelsByFilter(ctx, &pb.BoundingBoxLabelsByFilterRequest{
 		Filter: filterToProto(filter),
 	})
@@ -1174,7 +1195,7 @@ func binaryIDsToProto(binaryIDs []BinaryID) []*pb.BinaryID {
 	return protoBinaryIDs
 }
 
-func filterToProto(filter Filter) *pb.Filter {
+func filterToProto(filter *Filter) *pb.Filter {
 	return &pb.Filter{
 		ComponentName:   filter.ComponentName,
 		ComponentType:   filter.ComponentType,

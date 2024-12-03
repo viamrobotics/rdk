@@ -182,7 +182,7 @@ func binaryMetadataToProto(binaryMetadata BinaryMetadata) *pb.BinaryMetadata {
 
 func dataRequestToProto(dataRequest DataRequest) *pb.DataRequest {
 	return &pb.DataRequest{
-		Filter:    filterToProto(dataRequest.Filter),
+		Filter:    filterToProto(&dataRequest.Filter),
 		Limit:     uint64(dataRequest.Limit),
 		Last:      dataRequest.Last,
 		SortOrder: orderToProto(dataRequest.SortOrder),
@@ -230,6 +230,7 @@ func TestDataClient(t *testing.T) {
 		BboxLabels:      bboxLabels,
 		DatasetID:       datasetID,
 	}
+	pbFilter := filterToProto(&filter)
 
 	binaryMetadata := BinaryMetadata{
 		ID:              binaryMetaID,
@@ -278,9 +279,9 @@ func TestDataClient(t *testing.T) {
 				Metadata: []*pb.CaptureMetadata{captureMetadataToProto(tabularMetadata)},
 			}, nil
 		}
-		resp, _ := client.TabularDataByFilter(
-			context.Background(), filter, limit, last,
-			dataRequest.SortOrder, countOnly, includeInternalData)
+		resp, _ := client.TabularDataByFilter(context.Background(), &TabularDataByFilterOptions{
+			&filter, limit, last, dataRequest.SortOrder, countOnly, includeInternalData,
+		})
 		test.That(t, resp.TabularData[0], test.ShouldResemble, tabularData)
 		test.That(t, resp.Count, test.ShouldEqual, count)
 		test.That(t, resp.Last, test.ShouldEqual, last)
@@ -354,7 +355,7 @@ func TestDataClient(t *testing.T) {
 			}, nil
 		}
 		resp, _ := client.BinaryDataByFilter(
-			context.Background(), filter, limit, dataRequest.SortOrder,
+			context.Background(), &filter, limit, dataRequest.SortOrder,
 			last, includeBinary, countOnly, includeInternalData)
 		test.That(t, resp.BinaryData[0], test.ShouldResemble, binaryData)
 		test.That(t, resp.Count, test.ShouldEqual, count)
@@ -395,13 +396,13 @@ func TestDataClient(t *testing.T) {
 		grpcClient.DeleteBinaryDataByFilterFunc = func(ctx context.Context, in *pb.DeleteBinaryDataByFilterRequest,
 			opts ...grpc.CallOption,
 		) (*pb.DeleteBinaryDataByFilterResponse, error) {
-			test.That(t, in.Filter, test.ShouldResemble, filterToProto(filter))
+			test.That(t, in.Filter, test.ShouldResemble, pbFilter)
 			test.That(t, in.IncludeInternalData, test.ShouldBeTrue)
 			return &pb.DeleteBinaryDataByFilterResponse{
 				DeletedCount: pbCount,
 			}, nil
 		}
-		resp, _ := client.DeleteBinaryDataByFilter(context.Background(), filter)
+		resp, _ := client.DeleteBinaryDataByFilter(context.Background(), &filter)
 		test.That(t, resp, test.ShouldEqual, count)
 	})
 
@@ -433,11 +434,11 @@ func TestDataClient(t *testing.T) {
 		grpcClient.AddTagsToBinaryDataByFilterFunc = func(ctx context.Context, in *pb.AddTagsToBinaryDataByFilterRequest,
 			opts ...grpc.CallOption,
 		) (*pb.AddTagsToBinaryDataByFilterResponse, error) {
-			test.That(t, in.Filter, test.ShouldResemble, filterToProto(filter))
+			test.That(t, in.Filter, test.ShouldResemble, pbFilter)
 			test.That(t, in.Tags, test.ShouldResemble, tags)
 			return &pb.AddTagsToBinaryDataByFilterResponse{}, nil
 		}
-		client.AddTagsToBinaryDataByFilter(context.Background(), tags, filter)
+		client.AddTagsToBinaryDataByFilter(context.Background(), tags, &filter)
 	})
 
 	t.Run("RemoveTagsFromBinaryDataByIDs", func(t *testing.T) {
@@ -458,13 +459,13 @@ func TestDataClient(t *testing.T) {
 		grpcClient.RemoveTagsFromBinaryDataByFilterFunc = func(ctx context.Context, in *pb.RemoveTagsFromBinaryDataByFilterRequest,
 			opts ...grpc.CallOption,
 		) (*pb.RemoveTagsFromBinaryDataByFilterResponse, error) {
-			test.That(t, in.Filter, test.ShouldResemble, filterToProto(filter))
+			test.That(t, in.Filter, test.ShouldResemble, pbFilter)
 			test.That(t, in.Tags, test.ShouldResemble, tags)
 			return &pb.RemoveTagsFromBinaryDataByFilterResponse{
 				DeletedCount: pbCount,
 			}, nil
 		}
-		resp, _ := client.RemoveTagsFromBinaryDataByFilter(context.Background(), tags, filter)
+		resp, _ := client.RemoveTagsFromBinaryDataByFilter(context.Background(), tags, &filter)
 		test.That(t, resp, test.ShouldEqual, count)
 	})
 
@@ -472,12 +473,12 @@ func TestDataClient(t *testing.T) {
 		grpcClient.TagsByFilterFunc = func(ctx context.Context, in *pb.TagsByFilterRequest,
 			opts ...grpc.CallOption,
 		) (*pb.TagsByFilterResponse, error) {
-			test.That(t, in.Filter, test.ShouldResemble, filterToProto(filter))
+			test.That(t, in.Filter, test.ShouldResemble, pbFilter)
 			return &pb.TagsByFilterResponse{
 				Tags: tags,
 			}, nil
 		}
-		resp, _ := client.TagsByFilter(context.Background(), filter)
+		resp, _ := client.TagsByFilter(context.Background(), &filter)
 		test.That(t, resp, test.ShouldResemble, tags)
 	})
 
@@ -527,12 +528,12 @@ func TestDataClient(t *testing.T) {
 		grpcClient.BoundingBoxLabelsByFilterFunc = func(ctx context.Context, in *pb.BoundingBoxLabelsByFilterRequest,
 			opts ...grpc.CallOption,
 		) (*pb.BoundingBoxLabelsByFilterResponse, error) {
-			test.That(t, in.Filter, test.ShouldResemble, filterToProto(filter))
+			test.That(t, in.Filter, test.ShouldResemble, pbFilter)
 			return &pb.BoundingBoxLabelsByFilterResponse{
 				Labels: expectedBBoxLabelsPb,
 			}, nil
 		}
-		resp, _ := client.BoundingBoxLabelsByFilter(context.Background(), filter)
+		resp, _ := client.BoundingBoxLabelsByFilter(context.Background(), &filter)
 		test.That(t, resp, test.ShouldResemble, expectedBBoxLabels)
 	})
 	t.Run("UpdateBoundingBox", func(t *testing.T) {
