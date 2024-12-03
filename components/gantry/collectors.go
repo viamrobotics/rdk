@@ -30,6 +30,8 @@ func (m method) String() string {
 
 // newPositionCollector returns a collector to register a position method. If one is already registered
 // with the same MethodMetadata it will panic.
+//
+//nolint:dupl
 func newPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	gantry, err := assertGantry(resource)
 	if err != nil {
@@ -48,7 +50,8 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 			}
 			return res, data.FailedToReadErr(params.ComponentName, position.String(), err)
 		}
-		return data.NewTabularCaptureResult(timeRequested, pb.GetPositionResponse{
+		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return data.NewTabularCaptureResult(ts, pb.GetPositionResponse{
 			PositionsMm: v,
 		})
 	})
@@ -57,6 +60,8 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 
 // newLengthsCollector returns a collector to register a lengths method. If one is already registered
 // with the same MethodMetadata it will panic.
+//
+//nolint:dupl
 func newLengthsCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	gantry, err := assertGantry(resource)
 	if err != nil {
@@ -75,7 +80,8 @@ func newLengthsCollector(resource interface{}, params data.CollectorParams) (dat
 			}
 			return res, data.FailedToReadErr(params.ComponentName, lengths.String(), err)
 		}
-		return data.NewTabularCaptureResult(timeRequested, pb.GetLengthsResponse{
+		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return data.NewTabularCaptureResult(ts, pb.GetLengthsResponse{
 			LengthsMm: v,
 		})
 	})

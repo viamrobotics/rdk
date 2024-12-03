@@ -45,7 +45,7 @@ func NewBinaryCaptureResult(ts Timestamps, binaries []Binary) CaptureResult {
 }
 
 // NewTabularCaptureResultReadings returns a tabular readings result.
-func NewTabularCaptureResultReadings(reqT time.Time, readings map[string]interface{}) (CaptureResult, error) {
+func NewTabularCaptureResultReadings(ts Timestamps, readings map[string]interface{}) (CaptureResult, error) {
 	var res CaptureResult
 	values, err := rprotoutils.ReadingGoToProto(readings)
 	if err != nil {
@@ -53,11 +53,8 @@ func NewTabularCaptureResultReadings(reqT time.Time, readings map[string]interfa
 	}
 
 	return CaptureResult{
-		Timestamps: Timestamps{
-			TimeRequested: reqT,
-			TimeReceived:  time.Now(),
-		},
-		Type: CaptureTypeTabular,
+		Timestamps: ts,
+		Type:       CaptureTypeTabular,
 		TabularData: TabularData{
 			Payload: &structpb.Struct{
 				Fields: map[string]*structpb.Value{
@@ -69,7 +66,7 @@ func NewTabularCaptureResultReadings(reqT time.Time, readings map[string]interfa
 }
 
 // NewTabularCaptureResult returns a tabular result.
-func NewTabularCaptureResult(reqT time.Time, i interface{}) (CaptureResult, error) {
+func NewTabularCaptureResult(ts Timestamps, i interface{}) (CaptureResult, error) {
 	var res CaptureResult
 	readings, err := protoutils.StructToStructPbIgnoreOmitEmpty(i)
 	if err != nil {
@@ -77,11 +74,8 @@ func NewTabularCaptureResult(reqT time.Time, i interface{}) (CaptureResult, erro
 	}
 
 	return CaptureResult{
-		Timestamps: Timestamps{
-			TimeRequested: reqT,
-			TimeReceived:  time.Now(),
-		},
-		Type: CaptureTypeTabular,
+		Timestamps: ts,
+		Type:       CaptureTypeTabular,
 		TabularData: TabularData{
 			Payload: readings,
 		},

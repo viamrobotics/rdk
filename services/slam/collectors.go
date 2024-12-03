@@ -41,7 +41,8 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 		if err != nil {
 			return res, data.FailedToReadErr(params.ComponentName, position.String(), err)
 		}
-		return data.NewTabularCaptureResult(timeRequested, &pb.GetPositionResponse{Pose: spatialmath.PoseToProtobuf(pose)})
+		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return data.NewTabularCaptureResult(ts, &pb.GetPositionResponse{Pose: spatialmath.PoseToProtobuf(pose)})
 	})
 	return data.NewCollector(cFunc, params)
 }
