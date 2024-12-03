@@ -239,7 +239,7 @@ type FileData struct {
 type DataByFilterOptions struct {
 	// No Filter implies all data.
 	Filter *Filter
-	// Limit defaults to 50 if unspecified.
+	// Limit is the maximum number of entries to include in a page. Limit defaults to 50 if unspecified.
 	Limit int
 	// Last indicates the object identifier of the Last-returned data.
 	// This is returned by calls to TabularDataByFilter and BinaryDataByFilter as the `Last` value.
