@@ -10,6 +10,8 @@ import (
 // DataServiceClient represents a fake instance of a data service client.
 type DataServiceClient struct {
 	datapb.DataServiceClient
+	ExportTabularDataFunc func(ctx context.Context, in *datapb.ExportTabularDataRequest,
+		opts ...grpc.CallOption) (datapb.DataService_ExportTabularDataClient, error)
 	//nolint:deprecated,staticcheck
 	TabularDataByFilterFunc func(ctx context.Context, in *datapb.TabularDataByFilterRequest,
 		//nolint:deprecated,staticcheck
@@ -54,6 +56,16 @@ type DataServiceClient struct {
 		opts ...grpc.CallOption) (*datapb.AddBinaryDataToDatasetByIDsResponse, error)
 	RemoveBinaryDataFromDatasetByIDsFunc func(ctx context.Context, in *datapb.RemoveBinaryDataFromDatasetByIDsRequest,
 		opts ...grpc.CallOption) (*datapb.RemoveBinaryDataFromDatasetByIDsResponse, error)
+}
+
+// ExportTabularData calls the injected ExportTabularData or the real version.
+func (client *DataServiceClient) ExportTabularData(ctx context.Context, in *datapb.ExportTabularDataRequest,
+	opts ...grpc.CallOption,
+) (datapb.DataService_ExportTabularDataClient, error) {
+	if client.ExportTabularDataFunc == nil {
+		return client.DataServiceClient.ExportTabularData(ctx, in, opts...)
+	}
+	return client.ExportTabularDataFunc(ctx, in, opts...)
 }
 
 // TabularDataByFilter calls the injected TabularDataByFilter or the real version.
