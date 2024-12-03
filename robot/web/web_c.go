@@ -57,23 +57,6 @@ type webService struct {
 	modWorkers   sync.WaitGroup
 }
 
-type stats struct {
-	RPCServer any
-}
-
-func (svc *webService) Stats() any {
-	if haveLock := svc.mu.TryLock(); !haveLock {
-		return stats{nil}
-	}
-	defer svc.mu.Unlock()
-
-	if svc.rpcServer == nil {
-		return stats{nil}
-	}
-
-	return stats{svc.rpcServer.Stats()}
-}
-
 // Reconfigure pulls resources and updates the stream server audio and video streams with the new resources.
 func (svc *webService) Reconfigure(ctx context.Context, deps resource.Dependencies, _ resource.Config) error {
 	svc.mu.Lock()
