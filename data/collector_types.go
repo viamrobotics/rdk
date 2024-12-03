@@ -87,33 +87,38 @@ func NewTabularCaptureResult(ts Timestamps, i interface{}) (CaptureResult, error
 // ToProto converts a CaptureResult into a []*datasyncPB.SensorData{}.
 func (cr *CaptureResult) ToProto() []*datasyncPB.SensorData {
 	ts := cr.Timestamps
-	if td := cr.TabularData.Payload; td != nil {
+	if cr.Type == CaptureTypeTabular {
 		return []*datasyncPB.SensorData{{
 			Metadata: &datasyncPB.SensorMetadata{
 				TimeRequested: timestamppb.New(ts.TimeRequested.UTC()),
 				TimeReceived:  timestamppb.New(ts.TimeReceived.UTC()),
 			},
 			Data: &datasyncPB.SensorData_Struct{
-				Struct: td,
+				Struct: cr.TabularData.Payload,
 			},
 		}}
 	}
 
-	var sd []*datasyncPB.SensorData
-	for _, b := range cr.Binaries {
-		sd = append(sd, &datasyncPB.SensorData{
-			Metadata: &datasyncPB.SensorMetadata{
-				TimeRequested: timestamppb.New(ts.TimeRequested.UTC()),
-				TimeReceived:  timestamppb.New(ts.TimeReceived.UTC()),
-				MimeType:      b.MimeType.ToProto(),
-				Annotations:   b.Annotations.ToProto(),
-			},
-			Data: &datasyncPB.SensorData_Binary{
-				Binary: b.Payload,
-			},
-		})
+	if cr.Type == CaptureTypeBinary {
+		var sd []*datasyncPB.SensorData
+		for _, b := range cr.Binaries {
+			sd = append(sd, &datasyncPB.SensorData{
+				Metadata: &datasyncPB.SensorMetadata{
+					TimeRequested: timestamppb.New(ts.TimeRequested.UTC()),
+					TimeReceived:  timestamppb.New(ts.TimeReceived.UTC()),
+					MimeType:      b.MimeType.ToProto(),
+					Annotations:   b.Annotations.ToProto(),
+				},
+				Data: &datasyncPB.SensorData_Binary{
+					Binary: b.Payload,
+				},
+			})
+		}
+		return sd
 	}
-	return sd
+
+	// This should never happen
+	return nil
 }
 
 // Validate returns an error if the *CaptureResult is invalid.
