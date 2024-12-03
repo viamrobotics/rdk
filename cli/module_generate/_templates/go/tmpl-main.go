@@ -15,7 +15,7 @@ func main() {
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) error {
-	{{.ModuleCamel}}, err := module.NewModuleFromArgs(ctx, logger)
+	{{.ModuleCamel}}, err := module.NewModuleFromArgs(ctx)
 	if err != nil {
 		return err
 	}

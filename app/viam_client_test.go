@@ -6,8 +6,10 @@ import (
 
 	"github.com/viamrobotics/webrtc/v3"
 	datapb "go.viam.com/api/app/data/v1"
+	setPb "go.viam.com/api/app/dataset/v1"
 	syncPb "go.viam.com/api/app/datasync/v1"
 	apppb "go.viam.com/api/app/v1"
+	provisioningpb "go.viam.com/api/provisioning/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -137,6 +139,16 @@ func TestNewAppClients(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer client.Close()
 
+	appClient := client.AppClient()
+	test.That(t, appClient, test.ShouldNotBeNil)
+	test.That(t, appClient, test.ShouldHaveSameTypeAs, &AppClient{})
+	test.That(t, appClient.client, test.ShouldImplement, (*apppb.AppServiceClient)(nil))
+
+	// Testing that a second call to AppClient() returns the same instance
+	appClient2 := client.AppClient()
+	test.That(t, appClient2, test.ShouldNotBeNil)
+	test.That(t, appClient, test.ShouldEqual, appClient2)
+
 	billingClient := client.BillingClient()
 	test.That(t, billingClient, test.ShouldNotBeNil)
 	test.That(t, billingClient, test.ShouldHaveSameTypeAs, &BillingClient{})
@@ -151,22 +163,21 @@ func TestNewAppClients(t *testing.T) {
 	test.That(t, dataClient, test.ShouldNotBeNil)
 	test.That(t, dataClient, test.ShouldHaveSameTypeAs, &DataClient{})
 	test.That(t, dataClient.dataClient, test.ShouldImplement, (*datapb.DataServiceClient)(nil))
+	test.That(t, dataClient.dataSyncClient, test.ShouldImplement, (*syncPb.DataSyncServiceClient)(nil))
+	test.That(t, dataClient.datasetClient, test.ShouldImplement, (*setPb.DatasetServiceClient)(nil))
 
 	// Testing that a second call to DataClient() returns the same instance
 	dataClient2 := client.DataClient()
 	test.That(t, dataClient2, test.ShouldNotBeNil)
 	test.That(t, dataClient, test.ShouldEqual, dataClient2)
 
-	// Add test for dataSyncClient
-	test.That(t, dataClient.dataSyncClient, test.ShouldImplement, (*syncPb.DataSyncServiceClient)(nil))
+	provisioningClient := client.ProvisioningClient()
+	test.That(t, provisioningClient, test.ShouldNotBeNil)
+	test.That(t, provisioningClient, test.ShouldHaveSameTypeAs, &ProvisioningClient{})
+	test.That(t, provisioningClient.client, test.ShouldImplement, (*provisioningpb.ProvisioningServiceClient)(nil))
 
-	appClient := client.AppClient()
-	test.That(t, appClient, test.ShouldNotBeNil)
-	test.That(t, appClient, test.ShouldHaveSameTypeAs, &AppClient{})
-	test.That(t, appClient.client, test.ShouldImplement, (*apppb.AppServiceClient)(nil))
-
-	// Testing that a second call to AppClient() returns the same instance
-	appClient2 := client.AppClient()
-	test.That(t, appClient2, test.ShouldNotBeNil)
-	test.That(t, appClient, test.ShouldEqual, appClient2)
+	// Testing that a second call to ProvisioningClient() returns the same instance
+	provisioningClient2 := client.ProvisioningClient()
+	test.That(t, provisioningClient2, test.ShouldNotBeNil)
+	test.That(t, provisioningClient, test.ShouldEqual, provisioningClient2)
 }

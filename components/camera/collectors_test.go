@@ -22,7 +22,6 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
-	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
@@ -185,10 +184,12 @@ func newCamera(
 	pcd pointcloud.PointCloud,
 ) camera.Camera {
 	v := &inject.Camera{}
-	v.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
-		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-			return left, func() {}, nil
-		})), nil
+	v.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
+		viamLogoJpegBytes, err := io.ReadAll(base64.NewDecoder(base64.StdEncoding, bytes.NewReader(viamLogoJpegB64)))
+		if err != nil {
+			return nil, camera.ImageMetadata{}, err
+		}
+		return viamLogoJpegBytes, camera.ImageMetadata{MimeType: mimeType}, nil
 	}
 
 	v.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {

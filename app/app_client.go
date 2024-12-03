@@ -113,8 +113,7 @@ type AppClient struct {
 	client pb.AppServiceClient
 }
 
-// NewAppClient constructs a new AppClient using the connection passed in by the ViamClient.
-func NewAppClient(conn rpc.ClientConn) *AppClient {
+func newAppClient(conn rpc.ClientConn) *AppClient {
 	return &AppClient{client: pb.NewAppServiceClient(conn)}
 }
 

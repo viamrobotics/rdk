@@ -1,6 +1,10 @@
 package app
 
-import "time"
+import (
+	"time"
+
+	"google.golang.org/protobuf/types/known/timestamppb"
+)
 
 // Constants used throughout app.
 const (
@@ -13,6 +17,8 @@ const (
 	partName        = "part_name"
 	host            = "host_name"
 	email           = "email"
+	secret          = "secret"
+	fragmentID      = "fragment_id"
 )
 
 // Variables used throughout app testing.
@@ -23,4 +29,6 @@ var (
 	tags           = []string{tag}
 	limit          = 2
 	pbLimit        = uint64(limit)
+	createdOn      = time.Now().UTC().Round(time.Millisecond)
+	pbCreatedOn    = timestamppb.New(createdOn)
 )
