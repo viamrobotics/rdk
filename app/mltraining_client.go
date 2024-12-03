@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	pb "go.viam.com/api/app/mltraining/v1"
@@ -77,6 +78,14 @@ type TrainingJobLogEntry struct {
 	Message string
 }
 
+// SubmitTrainingJobArgs contains the necessary training job information to submit the job.
+type SubmitTrainingJobArgs struct {
+	DatasetID string
+	OrganizationID string
+	ModelName string
+	ModelVersion string
+}
+
 // MLTrainingClient is a gRPC client for method calls to the ML Training API.
 type MLTrainingClient struct {
 	client pb.MLTrainingServiceClient
@@ -88,13 +97,17 @@ func newMLTrainingClient(conn rpc.ClientConn) *MLTrainingClient {
 
 // SubmitTrainingJob submits a training job request and returns its ID.
 func (c *MLTrainingClient) SubmitTrainingJob(
-	ctx context.Context, datasetID, organizationID, modelName, modelVersion string, modelType ModelType, tags []string,
+	ctx context.Context, args SubmitTrainingJobArgs, modelType ModelType, tags []string,
 ) (string, error) {
+	err := args.isValid()
+	if err != nil {
+		return "", nil
+	}
 	resp, err := c.client.SubmitTrainingJob(ctx, &pb.SubmitTrainingJobRequest{
-		DatasetId:      datasetID,
-		OrganizationId: organizationID,
-		ModelName:      modelName,
-		ModelVersion:   modelVersion,
+		DatasetId:      args.DatasetID,
+		OrganizationId: args.OrganizationID,
+		ModelName:      args.ModelName,
+		ModelVersion:   args.ModelVersion,
 		ModelType:      modelTypeToProto(modelType),
 		Tags:           tags,
 	})
@@ -106,22 +119,19 @@ func (c *MLTrainingClient) SubmitTrainingJob(
 
 // SubmitCustomTrainingJob submits a custom training job request and returns its ID.
 func (c *MLTrainingClient) SubmitCustomTrainingJob(
-	ctx context.Context,
-	datasetID,
-	registryItemID,
-	registryItemVersion,
-	organizationID,
-	modelName,
-	modelVersion string,
-	arguments map[string]string,
+	ctx context.Context, args SubmitTrainingJobArgs, registryItemID, registryItemVersion string, arguments map[string]string,
 ) (string, error) {
+	err := args.isValid()
+	if err != nil {
+		return "", err
+	}
 	resp, err := c.client.SubmitCustomTrainingJob(ctx, &pb.SubmitCustomTrainingJobRequest{
-		DatasetId:           datasetID,
+		DatasetId:           args.DatasetID,
 		RegistryItemId:      registryItemID,
 		RegistryItemVersion: registryItemVersion,
-		OrganizationId:      organizationID,
-		ModelName:           modelName,
-		ModelVersion:        modelVersion,
+		OrganizationId:      args.OrganizationID,
+		ModelName:           args.ModelName,
+		ModelVersion:        args.ModelVersion,
 		Arguments:           arguments,
 	})
 	if err != nil {
@@ -196,6 +206,22 @@ func (c *MLTrainingClient) GetTrainingJobLogs(
 		logs = append(logs, trainingJobLogEntryFromProto(log))
 	}
 	return logs, resp.NextPageToken, nil
+}
+
+func (s *SubmitTrainingJobArgs) isValid() error {
+	if s.DatasetID == "" {
+		return errors.New("DatasetID should not be empty")
+	}
+	if s.OrganizationID == "" {
+		return errors.New("OrganizationID should not be empty")
+	}
+	if s.ModelName == "" {
+		return errors.New("ModelName should not be empty")
+	}
+	if s.ModelVersion == "" {
+		return errors.New("ModelVersion should not be empty")
+	}
+	return nil
 }
 
 func trainingJobLogEntryFromProto(log *pb.TrainingJobLogEntry) *TrainingJobLogEntry {
