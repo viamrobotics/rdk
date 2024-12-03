@@ -5,7 +5,11 @@ on:
     inputs:
       release_type:
         required: true
+        default: latest
         type: string
+      no-upload:
+        type: boolean
+        description: "no-upload: if checked, don't upload"
   workflow_call:
     inputs:
       release_type:
@@ -44,6 +48,9 @@ jobs:
     container:
       image: ${{ matrix.image }}
       options: --platform ${{ matrix.platform }}
+      volumes:
+      # otherwise we get a 'read-only filesystem' error when symlinking over this
+      - /tmp/node20:/__e/node20
     timeout-minutes: 15
     outputs:
       date: ${{ steps.build_date.outputs.date }}
@@ -51,6 +58,14 @@ jobs:
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: 'true'
 
     steps:
+    - name: override nodejs
+      # note: the antique image intentionally has an old ubuntu with old GLIBC; github's node requires a newer one.
+      # actions require this /__e/node20/bin/node file, so we override it.
+      run: |
+        mkdir -p /__e/node20/bin/
+        ln --force --symbolic $(which node) /__e/node20/bin/node
+        /__e/node20/bin/node --version
+
     - name: Check out code
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
       uses: actions/checkout@v3
@@ -102,7 +117,7 @@ jobs:
       run: echo "date=`date +%F`" >> $GITHUB_OUTPUT
 
     - name: Upload Files (Testing)
-      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+      if: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && !inputs.no-upload }}
       uses: google-github-actions/upload-cloud-storage@v0.10.4
       with:
         headers: "cache-control: no-cache"
@@ -113,7 +128,7 @@ jobs:
         gzip: false
 
     - name: Upload Manifest (Testing)
-      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+      if: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && !inputs.no-upload }}
       uses: google-github-actions/upload-cloud-storage@v0.10.4
       with:
         headers: "cache-control: no-cache"
@@ -139,7 +154,7 @@ jobs:
 
   static_test:
     name: Static Test
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    if: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && !inputs.no-upload }}
     strategy:
       fail-fast: false
       matrix:
@@ -186,6 +201,7 @@ jobs:
   static_deploy:
     name: Static Deploy
     needs: static_test
+    if: ${{ !inputs.no-upload }}
     runs-on: ubuntu-latest
 
     steps:

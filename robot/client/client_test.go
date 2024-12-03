@@ -332,15 +332,8 @@ func TestStatusClient(t *testing.T) {
 	var imgBuf bytes.Buffer
 	test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
 
-	var imageReleased bool
-	var imageReleasedMu sync.Mutex
-	injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
-		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-			imageReleasedMu.Lock()
-			imageReleased = true
-			imageReleasedMu.Unlock()
-			return img, func() {}, nil
-		})), nil
+	injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
+		return imgBuf.Bytes(), camera.ImageMetadata{MimeType: rutils.MimeTypePNG}, nil
 	}
 
 	injectInputDev := &inject.InputController{}
@@ -512,9 +505,17 @@ func TestStatusClient(t *testing.T) {
 
 	camera1, err := camera.FromRobot(client, "camera1")
 	test.That(t, err, test.ShouldBeNil)
-	_, _, err = camera.ReadImage(context.Background(), camera1)
+	// TODO(hexbabe): remove below test when Stream/ReadImage pattern is refactored
+	t.Run("ReadImage on missing camera", func(t *testing.T) {
+		_, _, err = camera.ReadImage(context.Background(), camera1)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	})
+	imgBytes, metadata, err := camera1.Image(context.Background(), rutils.MimeTypeJPEG, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	test.That(t, imgBytes, test.ShouldBeNil)
+	test.That(t, metadata, test.ShouldResemble, camera.ImageMetadata{})
 
 	gripper1, err := gripper.FromRobot(client, "gripper1")
 	test.That(t, err, test.ShouldBeNil)
@@ -590,15 +591,22 @@ func TestStatusClient(t *testing.T) {
 
 	camera1, err = camera.FromRobot(client, "camera1")
 	test.That(t, err, test.ShouldBeNil)
-	ctx := gostream.WithMIMETypeHint(context.Background(), rutils.MimeTypeRawRGBA)
-	frame, _, err := camera.ReadImage(ctx, camera1)
+
+	// TODO(hexbabe): remove below test when Stream/ReadImage pattern is refactored
+	t.Run("ReadImage on camera with valid response", func(t *testing.T) {
+		ctx := gostream.WithMIMETypeHint(context.Background(), rutils.MimeTypeRawRGBA)
+		frame, _, err := camera.ReadImage(ctx, camera1)
+		test.That(t, err, test.ShouldBeNil)
+		compVal, _, err := rimage.CompareImages(img, frame)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
+	})
+
+	frame, err := camera.DecodeImageFromCamera(context.Background(), rutils.MimeTypeRawRGBA, nil, camera1)
 	test.That(t, err, test.ShouldBeNil)
 	compVal, _, err := rimage.CompareImages(img, frame)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
-	imageReleasedMu.Lock()
-	test.That(t, imageReleased, test.ShouldBeTrue)
-	imageReleasedMu.Unlock()
 
 	gripper1, err = gripper.FromRobot(client, "gripper1")
 	test.That(t, err, test.ShouldBeNil)
