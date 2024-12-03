@@ -334,7 +334,7 @@ func TestClient(t *testing.T) {
 			return nil, camera.ImageMetadata{}, errGetImageFailed
 		}
 
-		_, _, err = camClient.Image(context.Background(), "", map[string]interface{}{data.FromDMString: true})
+		_, _, err = camClient.Image(context.Background(), "", data.FromDMExtraMap)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
 
