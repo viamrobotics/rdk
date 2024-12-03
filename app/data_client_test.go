@@ -77,7 +77,8 @@ var (
 		OrganizationID: organizationID,
 		LocationID:     locationID,
 	}
-	binaryIDs      = []BinaryID{binaryID}
+	pbBinaryID     = binaryIDToProto(&binaryID)
+	binaryIDs      = []*BinaryID{&binaryID}
 	binaryDataByte = []byte("BYTE")
 	sqlQuery       = "SELECT * FROM readings WHERE organization_id='e76d1b3b-0468-4efd-bb7f-fb1d2b352fcb' LIMIT 1"
 	rawData        = []map[string]interface{}{
@@ -488,7 +489,7 @@ func TestDataClient(t *testing.T) {
 			in *pb.AddBoundingBoxToImageByIDRequest,
 			opts ...grpc.CallOption,
 		) (*pb.AddBoundingBoxToImageByIDResponse, error) {
-			test.That(t, in.BinaryId, test.ShouldResemble, binaryIDToProto(binaryID))
+			test.That(t, in.BinaryId, test.ShouldResemble, pbBinaryID)
 			test.That(t, in.Label, test.ShouldEqual, bboxLabel)
 			test.That(t, in.XMinNormalized, test.ShouldEqual, annotations.Bboxes[0].XMinNormalized)
 			test.That(t, in.YMinNormalized, test.ShouldEqual, annotations.Bboxes[0].YMinNormalized)
@@ -500,7 +501,7 @@ func TestDataClient(t *testing.T) {
 			}, nil
 		}
 		resp, _ := client.AddBoundingBoxToImageByID(
-			context.Background(), binaryID, bboxLabel, annotations.Bboxes[0].XMinNormalized,
+			context.Background(), &binaryID, bboxLabel, annotations.Bboxes[0].XMinNormalized,
 			annotations.Bboxes[0].YMinNormalized, annotations.Bboxes[0].XMaxNormalized, annotations.Bboxes[0].YMaxNormalized)
 		test.That(t, resp, test.ShouldResemble, annotations.Bboxes[0].ID)
 	})
@@ -509,12 +510,12 @@ func TestDataClient(t *testing.T) {
 		grpcClient.RemoveBoundingBoxFromImageByIDFunc = func(ctx context.Context, in *pb.RemoveBoundingBoxFromImageByIDRequest,
 			opts ...grpc.CallOption,
 		) (*pb.RemoveBoundingBoxFromImageByIDResponse, error) {
-			test.That(t, in.BinaryId, test.ShouldResemble, binaryIDToProto(binaryID))
+			test.That(t, in.BinaryId, test.ShouldResemble, pbBinaryID)
 			test.That(t, in.BboxId, test.ShouldEqual, annotations.Bboxes[0].ID)
 
 			return &pb.RemoveBoundingBoxFromImageByIDResponse{}, nil
 		}
-		client.RemoveBoundingBoxFromImageByID(context.Background(), annotations.Bboxes[0].ID, binaryID)
+		client.RemoveBoundingBoxFromImageByID(context.Background(), annotations.Bboxes[0].ID, &binaryID)
 	})
 
 	t.Run("BoundingBoxLabelsByFilter", func(t *testing.T) {
@@ -542,7 +543,7 @@ func TestDataClient(t *testing.T) {
 		grpcClient.UpdateBoundingBoxFunc = func(ctx context.Context, in *pb.UpdateBoundingBoxRequest,
 			opts ...grpc.CallOption,
 		) (*pb.UpdateBoundingBoxResponse, error) {
-			test.That(t, in.BinaryId, test.ShouldResemble, binaryIDToProto(binaryID))
+			test.That(t, in.BinaryId, test.ShouldResemble, pbBinaryID)
 			test.That(t, in.BboxId, test.ShouldResemble, annotationsPb.Bboxes[0].Id)
 			test.That(t, *in.Label, test.ShouldEqual, annotationsPb.Bboxes[0].Label)
 			test.That(t, *in.XMinNormalized, test.ShouldEqual, annotationsPb.Bboxes[0].XMinNormalized)
@@ -551,9 +552,13 @@ func TestDataClient(t *testing.T) {
 			test.That(t, *in.YMaxNormalized, test.ShouldEqual, annotationsPb.Bboxes[0].YMaxNormalized)
 			return &pb.UpdateBoundingBoxResponse{}, nil
 		}
-		client.UpdateBoundingBox(context.Background(), binaryID, annotations.Bboxes[0].ID, &annotationsPb.Bboxes[0].Label,
-			&annotationsPb.Bboxes[0].XMinNormalized, &annotationsPb.Bboxes[0].YMinNormalized,
-			&annotationsPb.Bboxes[0].XMaxNormalized, &annotationsPb.Bboxes[0].YMaxNormalized)
+		client.UpdateBoundingBox(context.Background(), &binaryID, annotations.Bboxes[0].ID, &UpdateBoundingBoxOptions{
+			&annotationsPb.Bboxes[0].Label,
+			&annotationsPb.Bboxes[0].XMinNormalized,
+			&annotationsPb.Bboxes[0].YMinNormalized,
+			&annotationsPb.Bboxes[0].XMaxNormalized,
+			&annotationsPb.Bboxes[0].YMaxNormalized,
+		})
 	})
 
 	t.Run("GetDatabaseConnection", func(t *testing.T) {
@@ -625,7 +630,7 @@ func TestDataSyncClient(t *testing.T) {
 
 	t.Run("BinaryDataCaptureUpload", func(t *testing.T) {
 		uploadMetadata.Type = DataTypeBinarySensor
-		options := BinaryOptions{
+		options := BinaryDataCaptureUploadOptions{
 			Type:             &binaryDataType,
 			FileName:         &fileName,
 			MethodParameters: methodParameters,
@@ -671,7 +676,7 @@ func TestDataSyncClient(t *testing.T) {
 			TimeRequested: timestamppb.New(start),
 			TimeReceived:  timestamppb.New(end),
 		}
-		options := TabularOptions{
+		options := TabularDataCaptureUploadOptions{
 			Type:             &binaryDataType,
 			FileName:         &fileName,
 			MethodParameters: methodParameters,
@@ -713,7 +718,7 @@ func TestDataSyncClient(t *testing.T) {
 	})
 
 	t.Run("StreamingDataCaptureUpload", func(t *testing.T) {
-		options := StreamingOptions{
+		options := StreamingDataCaptureUploadOptions{
 			ComponentType:    &componentType,
 			ComponentName:    &componentName,
 			MethodName:       &method,
