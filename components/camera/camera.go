@@ -89,11 +89,9 @@ type Camera interface {
 // Image example:
 //
 //	myCamera, err := camera.FromRobot(machine, "my_camera")
-//
-//	// gets an image from the camera
 //	imageBytes, mimeType, err := myCamera.Image(context.Background(), utils.MimeTypeJPEG, nil)
 //
-// Or try to directly decode into an image.Image:
+// Or try to directly decode as an image.Image:
 //
 //	myCamera, err := camera.FromRobot(machine, "my_camera")
 //	img, err = camera.DecodeImageFromCamera(context.Background(), utils.MimeTypeJPEG, nil, myCamera)
@@ -131,7 +129,7 @@ type Camera interface {
 // [camera component docs]: https://docs.viam.com/components/camera/
 type VideoSource interface {
 	// Image returns a byte slice representing an image that tries to adhere to the MIME type hint.
-	// Image also may return a string representing the mime type hint or empty string if not.
+	// Image also may return metadata about the frame.
 	Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, ImageMetadata, error)
 
 	// Images is used for getting simultaneous images from different imagers,
