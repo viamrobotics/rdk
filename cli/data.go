@@ -597,13 +597,13 @@ func (c *viamClient) downloadBinary(dst string, id *datapb.BinaryID, timeout uin
 		return errors.Wrapf(err, "could not create data directory %s", filepath.Dir(dataPath))
 	}
 	//nolint:gosec
-	dataFile, err := os.Create(dataPath)
+	tmpFile, err := os.Create(dataPath)
 	if err != nil {
 		debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Failed creating file %s: %s", id.FileId, err)
 		return errors.Wrapf(err, fmt.Sprintf("could not create file for datum %s", datum.GetMetadata().GetId())) //nolint:govet
 	}
 	//nolint:gosec
-	if _, err := io.Copy(dataFile, r); err != nil {
+	if _, err := io.Copy(tmpFile, r); err != nil {
 		debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Failed writing data to file %s: %s", id.FileId, err)
 		return err
 	}
@@ -656,20 +656,22 @@ func (c *viamClient) tabularData(dst string, request *datapb.ExportTabularDataRe
 		return errors.Wrapf(err, "could not create destination directories")
 	}
 
-	dataFile, err := os.Create(filepath.Join(dst, dataDir, "data.ndjson"))
+	// Write to a temporary file to avoid duplicate data points and incomplete data in the final file.
+	tmpFile, err := os.CreateTemp(dst, "data.*.ndjson")
 	if err != nil {
-		return errors.Wrapf(err, "could not create data file")
+		return errors.Wrapf(err, "could not create temp file")
 	}
-	defer dataFile.Close()
+	defer os.Remove(tmpFile.Name())
 
-	w := bufio.NewWriter(dataFile)
-	defer w.Flush()
+	w := bufio.NewWriter(tmpFile)
 
 	rowChan := make(chan []byte)
 	errChan := make(chan error, 1)
+	done := make(chan struct{})
 
 	go func() {
 		defer close(rowChan)
+		defer close(done)
 		for {
 			for count := 0; count < maxRetryCount; count++ {
 				stream, err := c.dataClient.ExportTabularData(context.Background(), request)
@@ -703,12 +705,25 @@ func (c *viamClient) tabularData(dst string, request *datapb.ExportTabularDataRe
 		select {
 		case row, ok := <-rowChan:
 			if !ok {
-				return nil
+				if !ok {
+					<-done
+					err = w.Flush()
+					if err != nil {
+						return err
+					}
+					err = os.Rename(tmpFile.Name(), filepath.Join(dst, "data.ndjson"))
+					if err != nil {
+						return err
+					}
+					return nil
+				}
 			}
+
 			_, err = w.Write(row)
 			if err != nil {
 				return err
 			}
+
 			err = w.WriteByte('\n')
 			if err != nil {
 				return err
@@ -720,10 +735,7 @@ func (c *viamClient) tabularData(dst string, request *datapb.ExportTabularDataRe
 }
 
 func makeDestinationDirs(dst string) error {
-	if err := os.MkdirAll(filepath.Join(dst, dataDir), 0o700); err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Join(dst, metadataDir), 0o700); err != nil {
+	if err := os.MkdirAll(dst, 0o700); err != nil {
 		return err
 	}
 	return nil
