@@ -109,6 +109,33 @@ type TabularData struct {
 	TimeReceived  time.Time
 }
 
+type ExportTabularDataReturn struct {
+	OrganizationId   string
+	LocationId       string
+	RobotId          string
+	RobotName        string
+	PartId           string
+	PartName         string
+	ComponentName    string
+	ComponentType    string
+	MethodName       string
+	TimeCaptured     *timestamppb.Timestamp
+	MethodParameters map[string]*anypb.Any
+	Tags             []string
+	Payload          *structpb.Struct
+}
+type ExportTabularDataStream struct {
+	Stream pb.DataService_ExportTabularDataClient
+}
+
+func (e *ExportTabularDataStream) Next() (ExportTabularDataReturn, error) {
+	streamResp, err := e.Stream.Recv()
+	if err != nil {
+		return ExportTabularDataReturn{}, err
+	}
+	return exportTabularDataFromProto(streamResp), nil
+}
+
 // BinaryData contains data and metadata associated with binary data.
 type BinaryData struct {
 	Binary   []byte
@@ -651,6 +678,31 @@ func (d *DataClient) ConfigureDatabaseUser(
 	return err
 }
 
+// ExportTabularData returns a stream of tabular data for a given part id, resource type, and method name combination.
+// The interval is optional. A blank interval will be interpretted as a request for all data.
+func (d *DataClient) ExportTabularData(
+	ctx context.Context,
+	partId,
+	resourceName,
+	resourceSubtype,
+	methodName string,
+	interval CaptureInterval,
+) (*ExportTabularDataStream, error) {
+	stream, err := d.dataClient.ExportTabularData(ctx, &pb.ExportTabularDataRequest{
+		PartId:          partId,
+		ResourceName:    resourceName,
+		ResourceSubtype: resourceSubtype,
+		MethodName:      methodName,
+		Interval:        captureIntervalToProto(interval),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &ExportTabularDataStream{
+		Stream: stream,
+	}, nil
+}
+
 // AddBinaryDataToDatasetByIDs adds the binary data with the given binary IDs to the dataset.
 func (d *DataClient) AddBinaryDataToDatasetByIDs(
 	ctx context.Context,
@@ -1158,6 +1210,24 @@ func tabularDataFromProto(proto *pb.TabularData, metadata *pb.CaptureMetadata) T
 		Metadata:      captureMetadataFromProto(metadata),
 		TimeRequested: proto.TimeRequested.AsTime(),
 		TimeReceived:  proto.TimeReceived.AsTime(),
+	}
+}
+
+func exportTabularDataFromProto(proto *pb.ExportTabularDataResponse) ExportTabularDataReturn {
+	return ExportTabularDataReturn{
+		OrganizationId:   proto.OrganizationId,
+		LocationId:       proto.LocationId,
+		RobotId:          proto.RobotId,
+		RobotName:        proto.RobotName,
+		PartId:           proto.PartId,
+		PartName:         proto.PartName,
+		ComponentName:    proto.ComponentName,
+		ComponentType:    proto.ComponentType,
+		MethodName:       proto.MethodName,
+		TimeCaptured:     proto.TimeCaptured,
+		MethodParameters: proto.MethodParameters,
+		Tags:             proto.Tags,
+		Payload:          proto.Payload,
 	}
 }
 
