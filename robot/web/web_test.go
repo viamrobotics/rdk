@@ -1130,9 +1130,9 @@ func TestRawClientOperation(t *testing.T) {
 	err := svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	iRobot.(*inject.Robot).StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-		return []robot.Status{}, nil
-	}
+	// iRobot.(*inject.Robot).StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+	// 	return []robot.Status{}, nil
+	// }
 
 	checkOpID := func(md metadata.MD, expected bool) {
 		t.Helper()

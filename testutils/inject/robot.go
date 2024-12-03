@@ -46,7 +46,7 @@ type Robot struct {
 		additionalTransforms []*referenceframe.LinkInFrame,
 	) (*referenceframe.PoseInFrame, error)
 	TransformPointCloudFunc func(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
-	StatusFunc              func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error)
+	// StatusFunc              func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error)
 	ModuleAddressFunc       func() (string, error)
 	CloudMetadataFunc       func(ctx context.Context) (cloud.Metadata, error)
 	MachineStatusFunc       func(ctx context.Context) (robot.MachineStatus, error)
