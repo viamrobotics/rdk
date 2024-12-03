@@ -1446,7 +1446,7 @@ func remoteDialOptions(config config.Remote, opts resourceManagerOptions) []rpc.
 	return dialOpts
 }
 
-func (manager *resourceManager) getRemoteMachineStatus(ctx context.Context) []resource.Status {
+func (manager *resourceManager) getRemoteResourceStatuses(ctx context.Context) []resource.Status {
 	var machineStatusArray []resource.Status
 	for _, resName := range manager.resources.FindNodesByAPI(client.RemoteAPI) {
 		gNode, _ := manager.resources.Node(resName)
