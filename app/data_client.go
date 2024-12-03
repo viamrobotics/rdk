@@ -294,6 +294,8 @@ type FileUploadOptions struct {
 // UpdateBoundingBoxOptions contains optional parameters for UpdateBoundingBox.
 type UpdateBoundingBoxOptions struct {
 	Label          *string
+
+	// Normalized coordinates where all coordinates must be in the range [0, 1].
 	XMinNormalized *float64
 	YMinNormalized *float64
 	XMaxNormalized *float64
@@ -624,9 +626,7 @@ func (d *DataClient) BoundingBoxLabelsByFilter(ctx context.Context, filter *Filt
 	return resp.Labels, nil
 }
 
-// UpdateBoundingBox updates the bounding box for a given bbox ID for the file represented by the binary ID,
-// modifying its label and position using optional normalized coordinates (xMin, yMin, xMax, yMax),
-// where all coordinates must be in the range [0, 1].
+// UpdateBoundingBox updates the bounding box for a given bbox ID for the file represented by the binary ID.
 func (d *DataClient) UpdateBoundingBox(ctx context.Context, binaryID *BinaryID, bboxID string, opts *UpdateBoundingBoxOptions) error {
 	var label *string
 	var xMinNormalized, yMinNormalized, xMaxNormalized, yMaxNormalized *float64
@@ -1190,6 +1190,9 @@ func tabularDataFromProto(proto *pb.TabularData, metadata *pb.CaptureMetadata) T
 }
 
 func binaryIDToProto(binaryID *BinaryID) *pb.BinaryID {
+	if binaryID == nil {
+		return nil
+	}
 	return &pb.BinaryID{
 		FileId:         binaryID.FileID,
 		OrganizationId: binaryID.OrganizationID,
