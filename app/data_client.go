@@ -121,7 +121,7 @@ type ExportTabularDataReturn struct {
 	ComponentType    string
 	MethodName       string
 	TimeCaptured     time.Time
-	MethodParameters map[string]any
+	MethodParameters map[string]GenericProtoMessage
 	Tags             []string
 	Payload          map[string]interface{}
 }
@@ -1236,6 +1236,14 @@ func methodParamsFromProto(proto map[string]*anypb.Any) map[string]interface{} {
 	return methodParameters
 }
 
+func genericMethodParamsFromProto(proto map[string]*anypb.Any) map[string]GenericProtoMessage {
+	methodParam := make(map[string]GenericProtoMessage)
+	for key, val := range proto {
+		methodParam[key] = *genericProtoMessageFromProto(val)
+	}
+	return methodParam
+}
+
 func captureMetadataFromProto(proto *pb.CaptureMetadata) CaptureMetadata {
 	if proto == nil {
 		return CaptureMetadata{}
@@ -1300,7 +1308,7 @@ func exportTabularDataReturnFromProto(proto *pb.ExportTabularDataResponse) *Expo
 		ComponentType:    proto.ComponentType,
 		MethodName:       proto.MethodName,
 		TimeCaptured:     proto.TimeCaptured.AsTime(),
-		MethodParameters: methodParamsFromProto(proto.MethodParameters),
+		MethodParameters: genericMethodParamsFromProto(proto.MethodParameters),
 		Tags:             proto.Tags,
 		Payload:          proto.Payload.AsMap(),
 	}
