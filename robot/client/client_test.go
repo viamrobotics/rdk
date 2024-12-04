@@ -1824,8 +1824,6 @@ func TestLoggingInterceptor(t *testing.T) {
 		// Needed for client connect. Not important to the test.
 		ResourceNamesFunc:   func() []resource.Name { return []resource.Name{arm.Named("myArm")} },
 		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
-
-
 		// Hijack the `StatusFunc` for testing the reception of debug metadata via the
 		// logging/distributed tracing interceptor.
 		// StatusFunc: func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
