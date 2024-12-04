@@ -1402,16 +1402,18 @@ func (r *localRobot) checkMaxInstance(api resource.API, max int) error {
 	return nil
 }
 
+var errNoCloudMetadata = errors.New("cloud metadata not available")
+
 // CloudMetadata returns app-related information about the robot.
 func (r *localRobot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) {
 	md := cloud.Metadata{}
 	cfg := r.Config()
 	if cfg == nil {
-		return md, errors.New("no config available")
+		return md, errNoCloudMetadata
 	}
 	cloud := cfg.Cloud
 	if cloud == nil {
-		return md, errors.New("cloud metadata not available")
+		return md, errNoCloudMetadata
 	}
 	md.PrimaryOrgID = cloud.PrimaryOrgID
 	md.LocationID = cloud.LocationID
@@ -1487,28 +1489,33 @@ func (r *localRobot) Shutdown(ctx context.Context) error {
 func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
 	var result robot.MachineStatus
 
-	result.Resources = append(result.Resources, r.getLocalResourceStatuses(ctx)...)
-	result.Resources = append(result.Resources, r.manager.getRemoteResourceStatuses(ctx)...)
+	remoteStatusMap := r.manager.getRemoteResourceStatuses(ctx)
+
+	// we can safely ignore errors from `r.CloudMetadata`. If there is an error, that means
+	// that this robot does not have CloudMetadata to attach to resources.
+	md, _ := r.CloudMetadata(ctx) //nolint:errcheck
+	for _, resourceStatus := range r.manager.resources.Status() {
+		// if the resource is local, we can safely use the status as is and attach the cloud metadata of this robot.
+		if !resourceStatus.Name.ContainsRemoteNames() {
+			result.Resources = append(result.Resources, resource.Status{NodeStatus: resourceStatus, CloudMetadata: md})
+			continue
+		}
+
+		// Otherwise, the resource is remote. If the corresponding status exists in remoteStatusMap, use that.
+		if status, ok := remoteStatusMap[resourceStatus.Name]; ok {
+			result.Resources = append(result.Resources, status)
+			continue
+		}
+
+		// At this point, the resource is remote and does not have a corresponding status in remoteStatusMap.
+		// Use the status in the resource graph and attach no cloud metadata.
+		result.Resources = append(result.Resources, resource.Status{NodeStatus: resourceStatus, CloudMetadata: cloud.Metadata{}})
+	}
 	r.configRevisionMu.RLock()
 	result.Config = r.configRevision
 	r.configRevisionMu.RUnlock()
 
 	return result, nil
-}
-
-func (r *localRobot) getLocalResourceStatuses(ctx context.Context) []resource.Status {
-	var returnStatuses []resource.Status
-
-	// we can safely ignore errors from `r.CloudMetadata`. If there is an error, that means
-	// that the robot does not have CloudMetadata to attach to resources.
-	md, _ := r.CloudMetadata(ctx) //nolint:errcheck
-	for _, resourceStatus := range r.manager.resources.Status() {
-		if resourceStatus.Name.ContainsRemoteNames() {
-			continue
-		}
-		returnStatuses = append(returnStatuses, resource.Status{NodeStatus: resourceStatus, CloudMetadata: md})
-	}
-	return returnStatuses
 }
 
 // Version returns version information about the robot.

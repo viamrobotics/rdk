@@ -30,6 +30,7 @@ import (
 	"go.viam.com/rdk/robot/web"
 	"go.viam.com/rdk/services/shell"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils/contextutils"
 )
 
 func init() {
@@ -1446,44 +1447,42 @@ func remoteDialOptions(config config.Remote, opts resourceManagerOptions) []rpc.
 	return dialOpts
 }
 
-func (manager *resourceManager) getRemoteResourceStatuses(ctx context.Context) []resource.Status {
-	var machineStatusArray []resource.Status
+// defaultRemoteMachineStatusTimeout is the default timeout for getting resource statuses from remotes. This prevents
+// remote cycles from preventing this call from finishing.
+var defaultRemoteMachineStatusTimeout = time.Minute
+
+func (manager *resourceManager) getRemoteResourceStatuses(ctx context.Context) map[resource.Name]resource.Status {
+	resourceStatusMap := make(map[resource.Name]resource.Status)
 	for _, resName := range manager.resources.FindNodesByAPI(client.RemoteAPI) {
 		gNode, _ := manager.resources.Node(resName)
-		switch resName.API {
-		case client.RemoteAPI:
-			res, err := gNode.Resource()
-			if err != nil {
-				manager.logger.Error("error getting underlying remote:%s resource", resName.Name)
-				continue
+		res, err := gNode.Resource()
+		if err != nil {
+			manager.logger.Debugw("error getting remote resource status", "remote", resName.Name, "err", err)
+			continue
+		}
+		ctx, cancel := contextutils.ContextWithTimeoutIfNoDeadline(ctx, defaultRemoteMachineStatusTimeout)
+		defer cancel()
+		remote := res.(internalRemoteRobot)
+		machineStatus, err := remote.MachineStatus(ctx)
+		if err != nil {
+			manager.logger.Debugw("error getting remote resource status", "remote", resName.Name, "err", err)
+			continue
+		}
+		// Resources come back without their remote name since they are grabbed
+		// from the remote themselves. We need to add that information back.
+		for _, remoteResource := range machineStatus.Resources {
+			nameWithRemote := remoteResource.Name.PrependRemote(resName.Name)
+			resourceStatusMap[nameWithRemote] = resource.Status{
+				NodeStatus: resource.NodeStatus{
+					Name:        nameWithRemote,
+					State:       remoteResource.State,
+					LastUpdated: remoteResource.LastUpdated,
+					Revision:    remoteResource.Revision,
+					Error:       remoteResource.Error,
+				},
+				CloudMetadata: remoteResource.CloudMetadata,
 			}
-			remote := res.(internalRemoteRobot)
-			machineStatus, err := remote.MachineStatus(ctx)
-			if err != nil {
-				manager.logger.Errorf("error getting remote:%s machineStatus", resName.Name)
-				continue
-			}
-			// Resources come back with the wrong remote name since they are grabbed
-			// from the remote themselves We need to add that information back
-			// A copy of []resource.Status is made so we do not modify the slice in a for loop
-			var returnStatusArray []resource.Status
-			for _, remoteResource := range machineStatus.Resources {
-				returnStatusArray = append(returnStatusArray, resource.Status{
-					NodeStatus: resource.NodeStatus{
-						Name:        remoteResource.Name.PrependRemote(resName.Name),
-						State:       remoteResource.State,
-						LastUpdated: remoteResource.LastUpdated,
-						Revision:    remoteResource.Revision,
-						Error:       remoteResource.Error,
-					},
-					CloudMetadata: remoteResource.CloudMetadata,
-				})
-			}
-			machineStatusArray = append(machineStatusArray, returnStatusArray...)
-
-		default:
-			manager.logger.Error("config is not a remote config")
 		}
 	}
-	return machineStatusArray
+	return resourceStatusMap
 }
