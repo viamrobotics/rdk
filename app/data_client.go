@@ -386,16 +386,6 @@ func BsonToGo(rawData [][]byte) ([]map[string]interface{}, error) {
 
 // TabularDataByFilter queries tabular data and metadata based on given filters.
 // Deprecated: This endpoint will be removed in a future version.
-func (d *DataClient) TabularDataByFilter(
-	ctx context.Context,
-	filter Filter,
-	limit int,
-	last string,
-	sortOrder Order,
-	countOnly bool,
-	includeInternalData bool,
-) (TabularDataReturn, error) {
-	//nolint:deprecated,staticcheck
 func (d *DataClient) TabularDataByFilter(ctx context.Context, opts *DataByFilterOptions) (TabularDataReturn, error) {
 	dataReq := pb.DataRequest{}
 	var countOnly, includeInternalData bool
@@ -411,6 +401,7 @@ func (d *DataClient) TabularDataByFilter(ctx context.Context, opts *DataByFilter
 		countOnly = opts.CountOnly
 		includeInternalData = opts.IncludeInternalData
 	}
+	//nolint:deprecated,staticcheck
 	resp, err := d.dataClient.TabularDataByFilter(ctx, &pb.TabularDataByFilterRequest{
 		DataRequest:         &dataReq,
 		CountOnly:           countOnly,
