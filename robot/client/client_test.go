@@ -38,7 +38,6 @@ import (
 	"gonum.org/v1/gonum/num/quat"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 
@@ -881,9 +880,6 @@ func TestClientUnaryDisconnectHandler(t *testing.T) {
 	gServer := grpc.NewServer(justOneUnaryStatusCall)
 
 	injectRobot := &inject.Robot{}
-	injectRobot. = func(ctx context.Context, rs []resource.Name) ([]robot.Status, error) {
-		return []robot.Status{}, nil
-	}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 
 	go gServer.Serve(listener)
@@ -902,7 +898,7 @@ func TestClientUnaryDisconnectHandler(t *testing.T) {
 		t.Helper()
 
 		client.connected.Store(false)
-		_, err = client.Status(context.Background(), []resource.Name{})
+		_, err = client.DoCommand(context.Background(), nil)
 		test.That(t, status.Code(err), test.ShouldEqual, codes.Unavailable)
 		test.That(t, err.Error(), test.ShouldContainSubstring, fmt.Sprintf("not connected to remote robot at %s", listener.Addr().String()))
 		test.That(t, unaryStatusCallReceived, test.ShouldBeFalse)
@@ -955,8 +951,8 @@ func TestClientStreamDisconnectHandler(t *testing.T) {
 	injectRobot := &inject.Robot{}
 	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return nil }
-	injectRobot.StatusFunc = func(ctx context.Context, rs []resource.Name) ([]robot.Status, error) {
-		return []robot.Status{}, nil
+	injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
+		return robot.MachineStatus{}, nil
 	}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 

@@ -18,8 +18,6 @@ import (
 	"go.viam.com/utils"
 	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc/codes"
-	grpcstatus "google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -318,35 +316,35 @@ func (s *Server) TransformPCD(ctx context.Context, req *pb.TransformPCDRequest) 
 // 	return &pb.GetStatusResponse{Status: statusesP}, nil
 // }
 
-const defaultStreamInterval = 1 * time.Second
+// const defaultStreamInterval = 1 * time.Second
 
-// StreamStatus periodically sends the status of all statuses requested. An empty request signifies all resources.
-func (s *Server) StreamStatus(req *pb.StreamStatusRequest, streamServer pb.RobotService_StreamStatusServer) error {
-	every := defaultStreamInterval
-	if reqEvery := req.Every.AsDuration(); reqEvery != time.Duration(0) {
-		every = reqEvery
-	}
-	ticker := time.NewTicker(every)
-	defer ticker.Stop()
-	for {
-		if !utils.SelectContextOrWaitChan(streamServer.Context(), ticker.C) {
-			return streamServer.Context().Err()
-		}
+// // StreamStatus periodically sends the status of all statuses requested. An empty request signifies all resources.
+// func (s *Server) StreamStatus(req *pb.StreamStatusRequest, streamServer pb.RobotService_StreamStatusServer) error {
+// 	every := defaultStreamInterval
+// 	if reqEvery := req.Every.AsDuration(); reqEvery != time.Duration(0) {
+// 		every = reqEvery
+// 	}
+// 	ticker := time.NewTicker(every)
+// 	defer ticker.Stop()
+// 	for {
+// 		if !utils.SelectContextOrWaitChan(streamServer.Context(), ticker.C) {
+// 			return streamServer.Context().Err()
+// 		}
 
-		status, err := s.GetStatus(streamServer.Context(), &pb.GetStatusRequest{ResourceNames: req.ResourceNames})
-		switch {
-		case err == nil:
-		case grpcstatus.Code(err) == codes.Unimplemented:
-			return nil
-		default:
-			return err
-		}
+// 		status, err := s.GetStatus(streamServer.Context(), &pb.GetStatusRequest{ResourceNames: req.ResourceNames})
+// 		switch {
+// 		case err == nil:
+// 		case grpcstatus.Code(err) == codes.Unimplemented:
+// 			return nil
+// 		default:
+// 			return err
+// 		}
 
-		if err := streamServer.Send(&pb.StreamStatusResponse{Status: status.Status}); err != nil {
-			return err
-		}
-	}
-}
+// 		if err := streamServer.Send(&pb.StreamStatusResponse{Status: status.Status}); err != nil {
+// 			return err
+// 		}
+// 	}
+// }
 
 // StopAll will stop all current and outstanding operations for the robot and stops all actuators and movement.
 func (s *Server) StopAll(ctx context.Context, req *pb.StopAllRequest) (*pb.StopAllResponse, error) {
