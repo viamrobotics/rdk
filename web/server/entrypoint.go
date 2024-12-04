@@ -69,7 +69,7 @@ func logViamEnvVariables(logger logging.Logger) {
 		viamEnvVariables = append(viamEnvVariables, "VIAM_MODULE_STARTUP_TIMEOUT: ", value)
 	}
 	if len(viamEnvVariables) != 0 {
-		logger.Infow("Viam Env variables", viamEnvVariables...)
+		logger.Infow("Viam env variables", viamEnvVariables...)
 	}
 }
 
