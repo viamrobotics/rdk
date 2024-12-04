@@ -47,8 +47,6 @@ var _ = robot.LocalRobot(&localRobot{})
 // localRobot satisfies robot.LocalRobot and defers most
 // logic to its manager.
 type localRobot struct {
-	// statusLock guards calls to the Status method.
-	// statusLock    sync.Mutex
 	manager       *resourceManager
 	mostRecentCfg atomic.Value // config.Config
 
