@@ -58,14 +58,18 @@ type robotServer struct {
 }
 
 func logViamEnvVariables(logger logging.Logger) {
+	var viamEnvVariables []interface{}
 	if value, exists := os.LookupEnv("VIAM_MODULE_ROOT"); exists {
-		logger.Info("VIAM_MODULE_ROOT is set to: ", value)
+		viamEnvVariables = append(viamEnvVariables, "VIAM_MODULE_ROOT: ", value)
 	}
 	if value, exists := os.LookupEnv("VIAM_RESOURCE_CONFIGURATION_TIMEOUT"); exists {
-		logger.Info("VIAM_RESOURCE_CONFIGURATION_TIMEOUT is set to: ", value)
+		viamEnvVariables = append(viamEnvVariables, "VIAM_RESOURCE_CONFIGURATION_TIMEOUT: ", value)
 	}
 	if value, exists := os.LookupEnv("VIAM_MODULE_STARTUP_TIMEOUT"); exists {
-		logger.Info("VIAM_MODULE_STARTUP_TIMEOUT is set to: ", value)
+		viamEnvVariables = append(viamEnvVariables, "VIAM_MODULE_STARTUP_TIMEOUT: ", value)
+	}
+	if len(viamEnvVariables) != 0 {
+		logger.Infow("Viam Env variables", viamEnvVariables...)
 	}
 }
 
@@ -82,7 +86,6 @@ func logVersion(logger logging.Logger) {
 	} else {
 		logger.Info("Viam RDK built from source; version unknown")
 	}
-	logViamEnvVariables(logger)
 }
 
 // RunServer is an entry point to starting the web server that can be called by main in a code
@@ -111,6 +114,8 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		logVersion(logger)
 		return
 	}
+
+	logViamEnvVariables(logger)
 
 	// log version locally if server fails and exits while attempting to start up
 	var versionLogged bool
