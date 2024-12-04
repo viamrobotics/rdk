@@ -261,6 +261,10 @@ func NewCollisionConstraintFS(
 	if err != nil {
 		return nil, err
 	}
+	movingMap := map[string]spatial.Geometry{}
+	for _, geom := range moving {
+		movingMap[geom.Label()] = geom
+	}
 
 	// create constraint from reference collision graph
 	constraint := func(state *ik.StateFS) bool {
@@ -270,9 +274,14 @@ func NewCollisionConstraintFS(
 			return false
 		}
 
+		// We only want to compare *moving* geometries, so we filter what we get from the framesystem against what we were passed.
 		var internalGeoms []spatial.Geometry
 		for _, geosInFrame := range internalGeometries {
-			internalGeoms = append(internalGeoms, geosInFrame.Geometries()...)
+			if len(geosInFrame.Geometries()) > 0 {
+				if _, ok := movingMap[geosInFrame.Geometries()[0].Label()]; ok {
+					internalGeoms = append(internalGeoms, geosInFrame.Geometries()...)
+				}
+			}
 		}
 
 		cg, err := newCollisionGraph(internalGeoms, static, zeroCG, reportDistances, collisionBufferMM)
