@@ -123,7 +123,7 @@ type ExportTabularDataReturn struct {
 	TimeCaptured     time.Time
 	MethodParameters map[string]any
 	Tags             []string
-	Payload          map[string]any
+	Payload          map[string]interface{}
 }
 
 // ExportTabularDataStream is a stream that returns ExportTabularDataReturns.
@@ -132,10 +132,10 @@ type ExportTabularDataStream struct {
 }
 
 // Next gets the next ExportTabularDataReturn.
-func (e *ExportTabularDataStream) Next() (ExportTabularDataReturn, error) {
+func (e *ExportTabularDataStream) Next() (*ExportTabularDataReturn, error) {
 	streamResp, err := e.Stream.Recv()
 	if err != nil {
-		return ExportTabularDataReturn{}, err
+		return nil, err
 	}
 	return exportTabularDataReturnFromProto(streamResp), nil
 }
@@ -1247,8 +1247,8 @@ func tabularDataFromProto(proto *pb.TabularData, metadata *pb.CaptureMetadata) T
 	}
 }
 
-func exportTabularDataReturnFromProto(proto *pb.ExportTabularDataResponse) ExportTabularDataReturn {
-	return ExportTabularDataReturn{
+func exportTabularDataReturnFromProto(proto *pb.ExportTabularDataResponse) *ExportTabularDataReturn {
+	return &ExportTabularDataReturn{
 		OrganizationID:   proto.OrganizationId,
 		LocationID:       proto.LocationId,
 		RobotID:          proto.RobotId,
