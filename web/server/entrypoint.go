@@ -59,13 +59,13 @@ type robotServer struct {
 
 func logViamEnvVariables(logger logging.Logger) {
 	if value, exists := os.LookupEnv("VIAM_MODULE_ROOT"); exists {
-		logger.Info("VIAM_MODULE_ROOT set : ", value)
+		logger.Info("VIAM_MODULE_ROOT is set to: ", value)
 	}
 	if value, exists := os.LookupEnv("VIAM_RESOURCE_CONFIGURATION_TIMEOUT"); exists {
-		logger.Info("VIAM_RESOURCE_CONFIGURATION_TIMEOUT set :", value)
+		logger.Info("VIAM_RESOURCE_CONFIGURATION_TIMEOUT is set to: ", value)
 	}
 	if value, exists := os.LookupEnv("VIAM_MODULE_STARTUP_TIMEOUT"); exists {
-		logger.Info("VIAM_MODULE_STARTUP_TIMEOUT is set to:", value)
+		logger.Info("VIAM_MODULE_STARTUP_TIMEOUT is set to: ", value)
 	}
 }
 
