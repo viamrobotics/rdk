@@ -244,7 +244,11 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 
 	ctx, getPcdSpan := trace.StartSpan(ctx, "camera::client::NextPointCloud::GetPointCloud")
 
-	ext, err := data.GetExtraFromContext(ctx)
+	extra := make(map[string]interface{})
+	if ctx.Value(data.FromDMContextKey{}) == true {
+		extra[data.FromDMString] = true
+	}
+	extraStruct, err := goprotoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +256,7 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 	resp, err := c.client.GetPointCloud(ctx, &pb.GetPointCloudRequest{
 		Name:     c.name,
 		MimeType: utils.MimeTypePCD,
-		Extra:    ext,
+		Extra:    extraStruct,
 	})
 	getPcdSpan.End()
 	if err != nil {
