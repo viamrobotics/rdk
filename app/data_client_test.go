@@ -337,6 +337,32 @@ func TestDataClient(t *testing.T) {
 		test.That(t, response, test.ShouldResemble, rawData)
 	})
 
+	t.Run("GetLatestTabularData", func(t *testing.T) {
+		dataStruct, _ := utils.StructToStructPb(data)
+		latestTabularData := LatestTabularDataReturn{
+			TimeCaptured: start,
+			TimeSynced:   end,
+			Payload:      dataStruct.AsMap(),
+		}
+
+		grpcClient.GetLatestTabularDataFunc = func(ctx context.Context, in *pb.GetLatestTabularDataRequest,
+			opts ...grpc.CallOption,
+		) (*pb.GetLatestTabularDataResponse, error) {
+			test.That(t, in.PartId, test.ShouldEqual, partID)
+			test.That(t, in.ResourceName, test.ShouldEqual, componentName)
+			test.That(t, in.ResourceSubtype, test.ShouldEqual, componentType)
+			test.That(t, in.MethodName, test.ShouldResemble, method)
+			return &pb.GetLatestTabularDataResponse{
+				TimeCaptured: timestamppb.New(start),
+				TimeSynced:   timestamppb.New(end),
+				Payload:      dataStruct,
+			}, nil
+		}
+
+		resp, _ := client.GetLatestTabularData(context.Background(), partID, componentName, componentType, method)
+		test.That(t, resp, test.ShouldResemble, latestTabularData)
+	})
+
 	t.Run("BinaryDataByFilter", func(t *testing.T) {
 		includeBinary := true
 		grpcClient.BinaryDataByFilterFunc = func(ctx context.Context, in *pb.BinaryDataByFilterRequest,
