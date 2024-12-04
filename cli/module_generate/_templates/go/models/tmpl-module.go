@@ -21,16 +21,16 @@ type Config struct {
 	/*
 	Put config attributes here. There should be public/exported fields
 	with a `json` parameter at the end of each attribute.
-
-	If your model does not need a config, replace *Config in the init 
-	function with resource.NoNativeConfig
-
+	
 	Example config struct:
 		type Config struct {
 			Pin   string `json:"pin"`
 			Board string `json:"board"`
 			MinDeg *float64 `json:"min_angle_deg,omitempty"`
 		}
+
+	If your model does not need a config, replace *Config in the init 
+	function with resource.NoNativeConfig
 	*/
 
 	/* Uncomment this if your model does not need to be validated
