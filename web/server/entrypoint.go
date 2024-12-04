@@ -57,6 +57,18 @@ type robotServer struct {
 	registry *logging.Registry
 }
 
+func logViamEnvVariables(logger logging.Logger) {
+	if value, exists := os.LookupEnv("VIAM_MODULE_ROOT"); exists {
+		logger.Info("VIAM_MODULE_ROOT set : ", value)
+	}
+	if value, exists := os.LookupEnv("VIAM_RESOURCE_CONFIGURATION_TIMEOUT"); exists {
+		logger.Info("VIAM_RESOURCE_CONFIGURATION_TIMEOUT set :", value)
+	}
+	if value, exists := os.LookupEnv("VIAM_MODULE_STARTUP_TIMEOUT"); exists {
+		logger.Info("VIAM_MODULE_STARTUP_TIMEOUT is set to:", value)
+	}
+}
+
 func logVersion(logger logging.Logger) {
 	var versionFields []interface{}
 	if config.Version != "" {
@@ -70,6 +82,7 @@ func logVersion(logger logging.Logger) {
 	} else {
 		logger.Info("Viam RDK built from source; version unknown")
 	}
+	logViamEnvVariables(logger)
 }
 
 // RunServer is an entry point to starting the web server that can be called by main in a code
