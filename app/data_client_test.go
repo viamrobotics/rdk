@@ -405,7 +405,7 @@ func TestDataClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		resp, err := stream.Next()
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp, test.ShouldResemble, exportTabularDataFromProto(exportTabularResponse))
+		test.That(t, resp, test.ShouldResemble, exportTabularDataReturnFromProto(exportTabularResponse))
 	})
 
 	t.Run("BinaryDataByFilter", func(t *testing.T) {

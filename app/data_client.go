@@ -120,10 +120,10 @@ type ExportTabularDataReturn struct {
 	ComponentName    string
 	ComponentType    string
 	MethodName       string
-	TimeCaptured     *timestamppb.Timestamp
-	MethodParameters map[string]*anypb.Any
+	TimeCaptured     time.Time
+	MethodParameters map[string]any
 	Tags             []string
-	Payload          *structpb.Struct
+	Payload          map[string]any
 }
 
 // ExportTabularDataStream is a stream that returns ExportTabularDataReturns.
@@ -137,7 +137,7 @@ func (e *ExportTabularDataStream) Next() (ExportTabularDataReturn, error) {
 	if err != nil {
 		return ExportTabularDataReturn{}, err
 	}
-	return exportTabularDataFromProto(streamResp), nil
+	return exportTabularDataReturnFromProto(streamResp), nil
 }
 
 // BinaryData contains data and metadata associated with binary data.
@@ -1247,7 +1247,7 @@ func tabularDataFromProto(proto *pb.TabularData, metadata *pb.CaptureMetadata) T
 	}
 }
 
-func exportTabularDataFromProto(proto *pb.ExportTabularDataResponse) ExportTabularDataReturn {
+func exportTabularDataReturnFromProto(proto *pb.ExportTabularDataResponse) ExportTabularDataReturn {
 	return ExportTabularDataReturn{
 		OrganizationID:   proto.OrganizationId,
 		LocationID:       proto.LocationId,
@@ -1258,10 +1258,10 @@ func exportTabularDataFromProto(proto *pb.ExportTabularDataResponse) ExportTabul
 		ComponentName:    proto.ComponentName,
 		ComponentType:    proto.ComponentType,
 		MethodName:       proto.MethodName,
-		TimeCaptured:     proto.TimeCaptured,
-		MethodParameters: proto.MethodParameters,
+		TimeCaptured:     proto.TimeCaptured.AsTime(),
+		MethodParameters: methodParamsFromProto(proto.MethodParameters),
 		Tags:             proto.Tags,
-		Payload:          proto.Payload,
+		Payload:          proto.Payload.AsMap(),
 	}
 }
 
