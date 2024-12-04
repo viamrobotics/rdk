@@ -572,6 +572,10 @@ func (c *webcam) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandle
 	return c.exposedSwapper.Stream(ctx, errHandlers...)
 }
 
+func (c *webcam) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
+	return camera.ReadImageBytes(ctx, c.underlyingSource, mimeType)
+}
+
 func (c *webcam) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
