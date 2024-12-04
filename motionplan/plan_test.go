@@ -25,28 +25,27 @@ func TestEvaluateTrajectory(t *testing.T) {
 		map[string][]referenceframe.Input{"": {{1.}, {2.}, {3.}}},
 	}
 	// Test no change
-	score := plan.EvaluateCost(ik.L2InputMetric)
+	score := plan.EvaluateCost(ik.FSConfigurationL2Distance)
 	test.That(t, score, test.ShouldAlmostEqual, 0)
 
 	// Test L2 for "", and nothing for plan with only one entry
 	plan = append(plan, map[string][]referenceframe.Input{"": {{4.}, {5.}, {6.}}, "test": {{2.}, {3.}, {4.}}})
-	score = plan.EvaluateCost(ik.L2InputMetric)
+	score = plan.EvaluateCost(ik.FSConfigurationL2Distance)
 	test.That(t, score, test.ShouldAlmostEqual, math.Sqrt(27))
 
 	// Test cumulative L2 after returning to original inputs
 	plan = append(plan, map[string][]referenceframe.Input{"": {{1.}, {2.}, {3.}}})
-	score = plan.EvaluateCost(ik.L2InputMetric)
+	score = plan.EvaluateCost(ik.FSConfigurationL2Distance)
 	test.That(t, score, test.ShouldAlmostEqual, math.Sqrt(27)*2)
 
 	// Test that the "test" inputs are properly evaluated after skipping a step
 	plan = append(plan, map[string][]referenceframe.Input{"test": {{3.}, {5.}, {6.}}})
-	score = plan.EvaluateCost(ik.L2InputMetric)
+	score = plan.EvaluateCost(ik.FSConfigurationL2Distance)
 	test.That(t, score, test.ShouldAlmostEqual, math.Sqrt(27)*2+3)
 
-	// Evaluated with the tp-space metric, should be the sum of the distance values (third input) ignoring the first input set for each
-	// named input set
-	score = plan.EvaluateCost(tpspace.PTGSegmentMetric)
-	test.That(t, score, test.ShouldAlmostEqual, 18)
+	// Evaluated with the tp-space metric, should be the sum of the distance values (third input) ignoring the first input step
+	score = plan.EvaluateCost(tpspace.NewPTGDistanceMetric([]string{"", "test"}))
+	test.That(t, score, test.ShouldAlmostEqual, 22)
 }
 
 func TestPlanStep(t *testing.T) {

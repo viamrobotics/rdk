@@ -18,6 +18,7 @@ type ViamClient struct {
 	appClient          *AppClient
 	billingClient      *BillingClient
 	dataClient         *DataClient
+	mlTrainingClient   *MLTrainingClient
 	provisioningClient *ProvisioningClient
 }
 
@@ -94,6 +95,16 @@ func (c *ViamClient) DataClient() *DataClient {
 	}
 	c.dataClient = newDataClient(c.conn)
 	return c.dataClient
+}
+
+// MLTrainingClient initializes and returns a MLTrainingClient instance used to make ML training method calls.
+// To use MLTrainingClient, you must first instantiate a ViamClient.
+func (c *ViamClient) MLTrainingClient() *MLTrainingClient {
+	if c.mlTrainingClient != nil {
+		return c.mlTrainingClient
+	}
+	c.mlTrainingClient = newMLTrainingClient(c.conn)
+	return c.mlTrainingClient
 }
 
 // ProvisioningClient initializes and returns a ProvisioningClient instance used to make provisioning method calls.

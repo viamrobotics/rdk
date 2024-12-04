@@ -77,10 +77,9 @@ var (
 		DueDate:       &dueDate,
 		PaidDate:      &paidDate,
 	}
-	chunk1     = []byte{4, 8}
 	chunk2     = []byte("chunk1")
 	chunk3     = []byte("chunk2")
-	chunks     = [][]byte{chunk1, chunk2, chunk3}
+	chunks     = [][]byte{byteData, chunk2, chunk3}
 	chunkCount = len(chunks)
 )
 

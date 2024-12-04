@@ -17,10 +17,10 @@ const (
 	defaultPlanIter = 3000
 
 	// The maximum percent of a joints range of motion to allow per step.
-	defaultFrameStep = 0.015
+	defaultFrameStep = 0.01
 
-	// If the dot product between two sets of joint angles is less than this, consider them identical.
-	defaultJointSolveDist = 0.0001
+	// If the dot product between two sets of configurations is less than this, consider them identical.
+	defaultInputIdentDist = 0.0001
 
 	// Number of iterations to run before beginning to accept randomly seeded locations.
 	defaultIterBeforeRand = 50
@@ -28,7 +28,7 @@ const (
 
 type rrtParallelPlanner interface {
 	motionPlanner
-	rrtBackgroundRunner(context.Context, []referenceframe.Input, *rrtParallelPlannerShared)
+	rrtBackgroundRunner(context.Context, map[string][]referenceframe.Input, *rrtParallelPlannerShared)
 }
 
 type rrtParallelPlannerShared struct {
@@ -51,7 +51,7 @@ type rrtMaps struct {
 	optNode  node // The highest quality IK solution
 }
 
-func (maps *rrtMaps) fillPosOnlyGoal(goal spatialmath.Pose, posSeeds, dof int) error {
+func (maps *rrtMaps) fillPosOnlyGoal(goal PathStep, posSeeds int) error {
 	thetaStep := 360. / float64(posSeeds)
 	if maps == nil {
 		return errors.New("cannot call method fillPosOnlyGoal on nil maps")
@@ -60,9 +60,17 @@ func (maps *rrtMaps) fillPosOnlyGoal(goal spatialmath.Pose, posSeeds, dof int) e
 		maps.goalMap = map[node]node{}
 	}
 	for i := 0; i < posSeeds; i++ {
+		newMap := PathStep{}
+		for frame, goal := range goal {
+			newMap[frame] = referenceframe.NewPoseInFrame(
+				frame,
+				spatialmath.NewPose(goal.Pose().Point(), &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: float64(i) * thetaStep}),
+			)
+		}
+
 		goalNode := &basicNode{
-			q:    make([]referenceframe.Input, dof),
-			pose: spatialmath.NewPose(goal.Point(), &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: float64(i) * thetaStep}),
+			q:     make(map[string][]referenceframe.Input),
+			poses: newMap,
 		}
 		maps.goalMap[goalNode] = nil
 	}
@@ -71,7 +79,7 @@ func (maps *rrtMaps) fillPosOnlyGoal(goal spatialmath.Pose, posSeeds, dof int) e
 
 // initRRTsolutions will create the maps to be used by a RRT-based algorithm. It will generate IK solutions to pre-populate the goal
 // map, and will check if any of those goals are able to be directly interpolated to.
-func initRRTSolutions(ctx context.Context, mp motionPlanner, seed []referenceframe.Input) *rrtSolution {
+func initRRTSolutions(ctx context.Context, mp motionPlanner, seed map[string][]referenceframe.Input) *rrtSolution {
 	rrt := &rrtSolution{
 		maps: &rrtMaps{
 			startMap: map[node]node{},
@@ -89,7 +97,7 @@ func initRRTSolutions(ctx context.Context, mp motionPlanner, seed []referencefra
 	}
 
 	// the smallest interpolated distance between the start and end input represents a lower bound on cost
-	optimalCost := mp.opt().DistanceFunc(&ik.Segment{StartConfiguration: seed, EndConfiguration: solutions[0].Q()})
+	optimalCost := mp.opt().configurationDistanceFunc(&ik.SegmentFS{StartConfiguration: seed, EndConfiguration: solutions[0].Q()})
 	rrt.maps.optNode = &basicNode{q: solutions[0].Q(), cost: optimalCost}
 
 	// Check for direct interpolation for the subset of IK solutions within some multiple of optimal
@@ -98,7 +106,7 @@ func initRRTSolutions(ctx context.Context, mp motionPlanner, seed []referencefra
 	// initialize maps and check whether direct interpolation is an option
 	for _, solution := range solutions {
 		if canInterp {
-			cost := mp.opt().DistanceFunc(&ik.Segment{StartConfiguration: seed, EndConfiguration: solution.Q()})
+			cost := mp.opt().configurationDistanceFunc(&ik.SegmentFS{StartConfiguration: seed, EndConfiguration: solution.Q()})
 			if cost < optimalCost*defaultOptimalityMultiple {
 				if mp.checkPath(seed, solution.Q()) {
 					rrt.steps = []node{seedNode, solution}
@@ -130,18 +138,27 @@ func shortestPath(maps *rrtMaps, nodePairs []*nodePair) *rrtSolution {
 
 // fixedStepInterpolation returns inputs at qstep distance along the path from start to target
 // if start and target have the same Input value, then no step increment is made.
-func fixedStepInterpolation(start, target node, qstep []float64) []referenceframe.Input {
-	newNear := make([]referenceframe.Input, 0, len(start.Q()))
-	for j, nearInput := range start.Q() {
-		if nearInput.Value == target.Q()[j].Value {
-			newNear = append(newNear, nearInput)
-		} else {
-			v1, v2 := nearInput.Value, target.Q()[j].Value
-			newVal := math.Min(qstep[j], math.Abs(v2-v1))
-			// get correct sign
-			newVal *= (v2 - v1) / math.Abs(v2-v1)
-			newNear = append(newNear, referenceframe.Input{nearInput.Value + newVal})
+func fixedStepInterpolation(start, target node, qstep map[string][]float64) map[string][]referenceframe.Input {
+	newNear := make(map[string][]referenceframe.Input)
+
+	// Iterate through each frame's inputs
+	for frameName, startInputs := range start.Q() {
+		// As this is constructed in-algorithm from already-near nodes, this is guaranteed to always exist
+		targetInputs := target.Q()[frameName]
+		frameSteps := make([]referenceframe.Input, len(startInputs))
+
+		for j, nearInput := range startInputs {
+			if nearInput.Value == targetInputs[j].Value {
+				frameSteps[j] = nearInput
+			} else {
+				v1, v2 := nearInput.Value, targetInputs[j].Value
+				newVal := math.Min(qstep[frameName][j], math.Abs(v2-v1))
+				// get correct sign
+				newVal *= (v2 - v1) / math.Abs(v2-v1)
+				frameSteps[j] = referenceframe.Input{Value: nearInput.Value + newVal}
+			}
 		}
+		newNear[frameName] = frameSteps
 	}
 	return newNear
 }
@@ -150,23 +167,23 @@ func fixedStepInterpolation(start, target node, qstep []float64) []referencefram
 // TODO: This is somewhat redundant with a State.
 type node interface {
 	// return the configuration associated with the node
-	Q() []referenceframe.Input
+	Q() map[string][]referenceframe.Input
 	Cost() float64
 	SetCost(float64)
-	Pose() spatialmath.Pose
+	Poses() PathStep
 	Corner() bool
 	SetCorner(bool)
 }
 
 type basicNode struct {
-	q      []referenceframe.Input
+	q      map[string][]referenceframe.Input
 	cost   float64
-	pose   spatialmath.Pose
+	poses  PathStep
 	corner bool
 }
 
 // Special case constructors for nodes without costs to return NaN.
-func newConfigurationNode(q []referenceframe.Input) node {
+func newConfigurationNode(q map[string][]referenceframe.Input) node {
 	return &basicNode{
 		q:      q,
 		cost:   math.NaN(),
@@ -174,7 +191,7 @@ func newConfigurationNode(q []referenceframe.Input) node {
 	}
 }
 
-func (n *basicNode) Q() []referenceframe.Input {
+func (n *basicNode) Q() map[string][]referenceframe.Input {
 	return n.q
 }
 
@@ -186,8 +203,8 @@ func (n *basicNode) SetCost(cost float64) {
 	n.cost = cost
 }
 
-func (n *basicNode) Pose() spatialmath.Pose {
-	return n.pose
+func (n *basicNode) Poses() PathStep {
+	return n.poses
 }
 
 func (n *basicNode) Corner() bool {
@@ -266,7 +283,7 @@ type rrtPlan struct {
 	nodes []node
 }
 
-func newRRTPlan(solution []node, sf *solverFrame, relative bool) (Plan, error) {
+func newRRTPlan(solution []node, fs referenceframe.FrameSystem, relative bool, offsetPose spatialmath.Pose) (Plan, error) {
 	if len(solution) < 2 {
 		if len(solution) == 1 {
 			// Started at the goal, nothing to do
@@ -275,8 +292,8 @@ func newRRTPlan(solution []node, sf *solverFrame, relative bool) (Plan, error) {
 			return nil, errors.New("cannot construct a Plan using fewer than two nodes")
 		}
 	}
-	traj := sf.nodesToTrajectory(solution)
-	path, err := newPath(solution, sf)
+	traj := nodesToTrajectory(solution)
+	path, err := newPath(solution, fs)
 	if err != nil {
 		return nil, err
 	}
@@ -289,7 +306,7 @@ func newRRTPlan(solution []node, sf *solverFrame, relative bool) (Plan, error) {
 	var plan Plan
 	plan = &rrtPlan{SimplePlan: *NewSimplePlan(path, traj), nodes: solution}
 	if relative {
-		plan = OffsetPlan(plan, solution[0].Pose())
+		plan = OffsetPlan(plan, offsetPose)
 	}
 	return plan, nil
 }

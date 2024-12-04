@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/spatialmath"
 )
 
 const (
@@ -30,11 +29,14 @@ const (
 type cbirrtOptions struct {
 	// Number of IK solutions with which to seed the goal side of the bidirectional tree.
 	SolutionsToSeed int `json:"solutions_to_seed"`
+
+	// This is how far cbirrt will try to extend the map towards a goal per-step. Determined from FrameStep
+	qstep map[string][]float64
 }
 
 // newCbirrtOptions creates a struct controlling the running of a single invocation of cbirrt. All values are pre-set to reasonable
 // defaults, but can be tweaked if needed.
-func newCbirrtOptions(planOpts *plannerOptions) (*cbirrtOptions, error) {
+func newCbirrtOptions(planOpts *plannerOptions, lfs *linearizedFrameSystem) (*cbirrtOptions, error) {
 	algOpts := &cbirrtOptions{
 		SolutionsToSeed: defaultSolutionsToSeed,
 	}
@@ -47,6 +49,7 @@ func newCbirrtOptions(planOpts *plannerOptions) (*cbirrtOptions, error) {
 	if err != nil {
 		return nil, err
 	}
+	algOpts.qstep = getFrameSteps(lfs, defaultFrameStep)
 
 	return algOpts, nil
 }
@@ -62,7 +65,7 @@ type cBiRRTMotionPlanner struct {
 
 // newCBiRRTMotionPlannerWithSeed creates a cBiRRTMotionPlanner object with a user specified random seed.
 func newCBiRRTMotionPlanner(
-	frame referenceframe.Frame,
+	fs referenceframe.FrameSystem,
 	seed *rand.Rand,
 	logger logging.Logger,
 	opt *plannerOptions,
@@ -70,16 +73,16 @@ func newCBiRRTMotionPlanner(
 	if opt == nil {
 		return nil, errNoPlannerOptions
 	}
-	mp, err := newPlanner(frame, seed, logger, opt)
+	mp, err := newPlanner(fs, seed, logger, opt)
 	if err != nil {
 		return nil, err
 	}
 	// nlopt should try only once
-	nlopt, err := ik.CreateNloptSolver(frame.DoF(), logger, 1, true, true)
+	nlopt, err := ik.CreateNloptSolver(mp.lfs.dof, logger, 1, true, true)
 	if err != nil {
 		return nil, err
 	}
-	algOpts, err := newCbirrtOptions(opt)
+	algOpts, err := newCbirrtOptions(opt, mp.lfs)
 	if err != nil {
 		return nil, err
 	}
@@ -90,8 +93,8 @@ func newCBiRRTMotionPlanner(
 	}, nil
 }
 
-func (mp *cBiRRTMotionPlanner) plan(ctx context.Context, goal spatialmath.Pose, seed []referenceframe.Input) ([]node, error) {
-	mp.planOpts.SetGoal(goal)
+func (mp *cBiRRTMotionPlanner) plan(ctx context.Context, goal PathStep, seed map[string][]referenceframe.Input) ([]node, error) {
+	mp.planOpts.setGoal(goal)
 	solutionChan := make(chan *rrtSolution, 1)
 	utils.PanicCapturingGo(func() {
 		mp.rrtBackgroundRunner(ctx, seed, &rrtParallelPlannerShared{nil, nil, solutionChan})
@@ -107,7 +110,7 @@ func (mp *cBiRRTMotionPlanner) plan(ctx context.Context, goal spatialmath.Pose, 
 // Separating this allows other things to call rrtBackgroundRunner in parallel allowing the thread-agnostic Plan to be accessible.
 func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	ctx context.Context,
-	seed []referenceframe.Input,
+	seed map[string][]referenceframe.Input,
 	rrt *rrtParallelPlannerShared,
 ) {
 	defer close(rrt.solutionChan)
@@ -134,7 +137,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		rrt.maps = planSeed.maps
 	}
 	mp.logger.CInfof(ctx, "goal node: %v\n", rrt.maps.optNode.Q())
-	interpConfig, err := mp.frame.Interpolate(seed, rrt.maps.optNode.Q(), 0.5)
+	interpConfig, err := referenceframe.InterpolateFS(mp.fs, seed, rrt.maps.optNode.Q(), 0.5)
 	if err != nil {
 		rrt.solutionChan <- &rrtSolution{err: err}
 		return
@@ -147,19 +150,6 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	m2chan := make(chan node, 1)
 	defer close(m1chan)
 	defer close(m2chan)
-
-	seedPos, err := mp.frame.Transform(seed)
-	if err != nil {
-		rrt.solutionChan <- &rrtSolution{err: err}
-		return
-	}
-
-	mp.logger.CDebugf(ctx,
-		"running CBiRRT from start pose %v with start map of size %d and goal map of size %d",
-		spatialmath.PoseToProtobuf(seedPos),
-		len(rrt.maps.startMap),
-		len(rrt.maps.goalMap),
-	)
 
 	for i := 0; i < mp.planOpts.PlanIter; i++ {
 		select {
@@ -216,11 +206,14 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 			return
 		}
 
-		reachedDelta := mp.planOpts.DistanceFunc(&ik.Segment{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
+		reachedDelta := mp.planOpts.configurationDistanceFunc(&ik.SegmentFS{
+			StartConfiguration: map1reached.Q(),
+			EndConfiguration:   map2reached.Q(),
+		})
 
 		// Second iteration; extend maps 1 and 2 towards the halfway point between where they reached
-		if reachedDelta > mp.planOpts.JointSolveDist {
-			targetConf, err := mp.frame.Interpolate(map1reached.Q(), map2reached.Q(), 0.5)
+		if reachedDelta > mp.planOpts.InputIdentDist {
+			targetConf, err := referenceframe.InterpolateFS(mp.fs, map1reached.Q(), map2reached.Q(), 0.5)
 			if err != nil {
 				rrt.solutionChan <- &rrtSolution{err: err, maps: rrt.maps}
 				return
@@ -231,11 +224,14 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 				rrt.solutionChan <- &rrtSolution{err: err, maps: rrt.maps}
 				return
 			}
-			reachedDelta = mp.planOpts.DistanceFunc(&ik.Segment{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
+			reachedDelta = mp.planOpts.configurationDistanceFunc(&ik.SegmentFS{
+				StartConfiguration: map1reached.Q(),
+				EndConfiguration:   map2reached.Q(),
+			})
 		}
 
 		// Solved!
-		if reachedDelta <= mp.planOpts.JointSolveDist {
+		if reachedDelta <= mp.planOpts.InputIdentDist {
 			mp.logger.CDebugf(ctx, "CBiRRT found solution after %d iterations", i)
 			cancel()
 			path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{map1reached, map2reached}, true)
@@ -264,8 +260,16 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 	mchan chan node,
 ) {
 	// Allow qstep to be doubled as a means to escape from configurations which gradient descend to their seed
-	qstep := make([]float64, len(mp.planOpts.qstep))
-	copy(qstep, mp.planOpts.qstep)
+	deepCopyQstep := func() map[string][]float64 {
+		qstep := map[string][]float64{}
+		for fName, fStep := range mp.algOpts.qstep {
+			newStep := make([]float64, len(fStep))
+			copy(newStep, fStep)
+			qstep[fName] = newStep
+		}
+		return qstep
+	}
+	qstep := deepCopyQstep()
 	doubled := false
 
 	oldNear := near
@@ -283,10 +287,10 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 		default:
 		}
 
-		dist := mp.planOpts.DistanceFunc(&ik.Segment{StartConfiguration: near.Q(), EndConfiguration: target.Q()})
-		oldDist := mp.planOpts.DistanceFunc(&ik.Segment{StartConfiguration: oldNear.Q(), EndConfiguration: target.Q()})
+		dist := mp.planOpts.configurationDistanceFunc(&ik.SegmentFS{StartConfiguration: near.Q(), EndConfiguration: target.Q()})
+		oldDist := mp.planOpts.configurationDistanceFunc(&ik.SegmentFS{StartConfiguration: oldNear.Q(), EndConfiguration: target.Q()})
 		switch {
-		case dist < mp.planOpts.JointSolveDist:
+		case dist < mp.planOpts.InputIdentDist:
 			mchan <- near
 			return
 		case dist > oldDist:
@@ -296,20 +300,22 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 
 		oldNear = near
 
-		newNear := fixedStepInterpolation(near, target, mp.planOpts.qstep)
+		newNear := fixedStepInterpolation(near, target, mp.algOpts.qstep)
 		// Check whether newNear meets constraints, and if not, update it to a configuration that does meet constraints (or nil)
 		newNear = mp.constrainNear(ctx, randseed, oldNear.Q(), newNear)
 
 		if newNear != nil {
-			nearDist := mp.planOpts.DistanceFunc(&ik.Segment{StartConfiguration: oldNear.Q(), EndConfiguration: newNear})
-			if nearDist < math.Pow(mp.planOpts.JointSolveDist, 3) {
+			nearDist := mp.planOpts.configurationDistanceFunc(&ik.SegmentFS{StartConfiguration: oldNear.Q(), EndConfiguration: newNear})
+			if nearDist < math.Pow(mp.planOpts.InputIdentDist, 3) {
 				if !doubled {
 					doubled = true
 					// Check if doubling qstep will allow escape from the identical configuration
 					// If not, we terminate and return.
 					// If so, qstep will be reset to its original value after the rescue.
-					for i, q := range qstep {
-						qstep[i] = q * 2.0
+					for f, frameQ := range qstep {
+						for i, q := range frameQ {
+							qstep[f][i] = q * 2.0
+						}
 					}
 					continue
 				}
@@ -319,7 +325,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 				return
 			}
 			if doubled {
-				copy(qstep, mp.planOpts.qstep)
+				qstep = deepCopyQstep()
 				doubled = false
 			}
 			// constrainNear will ensure path between oldNear and newNear satisfies constraints along the way
@@ -339,8 +345,8 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 	ctx context.Context,
 	randseed *rand.Rand,
 	seedInputs,
-	target []referenceframe.Input,
-) []referenceframe.Input {
+	target map[string][]referenceframe.Input,
+) map[string][]referenceframe.Input {
 	for i := 0; i < maxNearIter; i++ {
 		select {
 		case <-ctx.Done():
@@ -348,40 +354,25 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		default:
 		}
 
-		seedPos, err := mp.frame.Transform(seedInputs)
-		if err != nil {
-			return nil
-		}
-		goalPos, err := mp.frame.Transform(target)
-		if err != nil {
-			return nil
-		}
-
-		newArc := &ik.Segment{
-			StartPosition:      seedPos,
-			EndPosition:        goalPos,
+		newArc := &ik.SegmentFS{
 			StartConfiguration: seedInputs,
 			EndConfiguration:   target,
-			Frame:              mp.frame,
+			FS:                 mp.fs,
 		}
 
 		// Check if the arc of "seedInputs" to "target" is valid
-		ok, _ := mp.planOpts.CheckSegmentAndStateValidity(newArc, mp.planOpts.Resolution)
+		ok, _ := mp.planOpts.CheckSegmentAndStateValidityFS(newArc, mp.planOpts.Resolution)
 		if ok {
 			return target
 		}
 		solutionGen := make(chan *ik.Solution, 1)
+		linearSeed, err := mp.lfs.mapToSlice(target)
+		if err != nil {
+			return nil
+		}
+
 		// Spawn the IK solver to generate solutions until done
-		err = ik.SolveMetric(
-			ctx,
-			mp.fastGradDescent,
-			mp.frame,
-			solutionGen,
-			target,
-			mp.planOpts.pathMetric,
-			randseed.Int(),
-			mp.logger,
-		)
+		err = mp.fastGradDescent.Solve(ctx, solutionGen, linearSeed, mp.linearizeFSmetric(mp.planOpts.pathMetric), randseed.Int())
 		// We should have zero or one solutions
 		var solved *ik.Solution
 		select {
@@ -392,21 +383,28 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		if err != nil || solved == nil {
 			return nil
 		}
+		solutionMap, err := mp.lfs.sliceToMap(solved.Configuration)
+		if err != nil {
+			return nil
+		}
 
-		ok, failpos := mp.planOpts.CheckSegmentAndStateValidity(
-			&ik.Segment{
+		ok, failpos := mp.planOpts.CheckSegmentAndStateValidityFS(
+			&ik.SegmentFS{
 				StartConfiguration: seedInputs,
-				EndConfiguration:   referenceframe.FloatsToInputs(solved.Configuration),
-				Frame:              mp.frame,
+				EndConfiguration:   solutionMap,
+				FS:                 mp.fs,
 			},
 			mp.planOpts.Resolution,
 		)
 		if ok {
-			return referenceframe.FloatsToInputs(solved.Configuration)
+			return solutionMap
 		}
 		if failpos != nil {
-			dist := mp.planOpts.DistanceFunc(&ik.Segment{StartConfiguration: target, EndConfiguration: failpos.EndConfiguration})
-			if dist > mp.planOpts.JointSolveDist {
+			dist := mp.planOpts.configurationDistanceFunc(&ik.SegmentFS{
+				StartConfiguration: target,
+				EndConfiguration:   failpos.EndConfiguration,
+			})
+			if dist > mp.planOpts.InputIdentDist {
 				// If we have a first failing position, and that target is updating (no infinite loop), then recurse
 				seedInputs = failpos.StartConfiguration
 				target = failpos.EndConfiguration
@@ -463,8 +461,11 @@ func (mp *cBiRRTMotionPlanner) smoothPath(ctx context.Context, inputSteps []node
 			// Note this could technically replace paths with "longer" paths i.e. with more waypoints.
 			// However, smoothed paths are invariably more intuitive and smooth, and lend themselves to future shortening,
 			// so we allow elongation here.
-			dist := mp.planOpts.DistanceFunc(&ik.Segment{StartConfiguration: inputSteps[i].Q(), EndConfiguration: reached.Q()})
-			if dist < mp.planOpts.JointSolveDist {
+			dist := mp.planOpts.configurationDistanceFunc(&ik.SegmentFS{
+				StartConfiguration: inputSteps[i].Q(),
+				EndConfiguration:   reached.Q(),
+			})
+			if dist < mp.planOpts.InputIdentDist {
 				for _, hitCorner := range hitCorners {
 					hitCorner.SetCorner(false)
 				}
@@ -486,22 +487,26 @@ func (mp *cBiRRTMotionPlanner) smoothPath(ctx context.Context, inputSteps []node
 
 // getFrameSteps will return a slice of positive values representing the largest amount a particular DOF of a frame should
 // move in any given step. The second argument is a float describing the percentage of the total movement.
-func getFrameSteps(f referenceframe.Frame, percentTotalMovement float64) []float64 {
-	dof := f.DoF()
-	pos := make([]float64, len(dof))
-	for i, lim := range dof {
-		l, u := lim.Min, lim.Max
+func getFrameSteps(lfs *linearizedFrameSystem, percentTotalMovement float64) map[string][]float64 {
+	frameQstep := map[string][]float64{}
+	for _, f := range lfs.frames {
+		dof := f.DoF()
+		pos := make([]float64, len(dof))
+		for i, lim := range dof {
+			l, u := lim.Min, lim.Max
 
-		// Default to [-999,999] as range if limits are infinite
-		if l == math.Inf(-1) {
-			l = -999
-		}
-		if u == math.Inf(1) {
-			u = 999
-		}
+			// Default to [-999,999] as range if limits are infinite
+			if l == math.Inf(-1) {
+				l = -999
+			}
+			if u == math.Inf(1) {
+				u = 999
+			}
 
-		jRange := math.Abs(u - l)
-		pos[i] = jRange * percentTotalMovement
+			jRange := math.Abs(u - l)
+			pos[i] = jRange * percentTotalMovement
+		}
+		frameQstep[f.Name()] = pos
 	}
-	return pos
+	return frameQstep
 }
