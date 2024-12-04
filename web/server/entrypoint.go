@@ -118,8 +118,6 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		return
 	}
 
-	logViamEnvVariables(logger)
-
 	// log version locally if server fails and exits while attempting to start up
 	var versionLogged bool
 	defer func() {
@@ -184,6 +182,8 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	// log version after netlogger is initialized so it's captured in cloud machine logs.
 	logVersion(logger)
 	versionLogged = true
+
+	logViamEnvVariables(logger)
 
 	server := robotServer{
 		logger:   logger,
