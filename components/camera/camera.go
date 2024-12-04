@@ -131,8 +131,7 @@ type Camera interface {
 }
 
 // StreamCamera is a camera that has `Stream` embedded to directly integrate with gostream.
-// It's primarily used in the transform camera and the stream server. Generally an anti-pattern to avoid
-// when writing camera components from scratch.
+// Note that generally, when writing camera components from scratch, embedding `Stream` is an anti-pattern.
 type StreamCamera interface {
 	Camera
 	Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error)

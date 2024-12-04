@@ -20,7 +20,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// FromVideoSource is DEPRECATED! Please implement cameras according to the camera.Camera interface.
+// FromVideoSource is DEPRECATED!!! Please implement cameras according to the camera.Camera interface.
 // FromVideoSource creates a Camera resource from a VideoSource.
 // Note: this strips away Reconfiguration and DoCommand abilities.
 // If needed, implement the Camera another way. For example, a webcam
@@ -87,7 +87,7 @@ func (vs *videoSource) Unsubscribe(ctx context.Context, id rtppassthrough.Subscr
 	return errors.New("Unsubscribe unimplemented")
 }
 
-// NewPinholeModelWithBrownConradyDistortion is DEPRECATED! Please implement cameras according to the camera.Camera interface.
+// NewPinholeModelWithBrownConradyDistortion is DEPRECATED!!! Please implement cameras according to the camera.Camera interface.
 // NewPinholeModelWithBrownConradyDistortion creates a transform.PinholeCameraModel from
 // a *transform.PinholeCameraIntrinsics and a *transform.BrownConrady.
 // If *transform.BrownConrady is `nil`, transform.PinholeCameraModel.Distortion
@@ -104,7 +104,7 @@ func NewPinholeModelWithBrownConradyDistortion(pinholeCameraIntrinsics *transfor
 	return cameraModel
 }
 
-// NewVideoSourceFromReader is DEPRECATED! Please implement cameras according to the camera.Camera interface.
+// NewVideoSourceFromReader is DEPRECATED!!! Please implement cameras according to the camera.Camera interface.
 // NewVideoSourceFromReader creates a VideoSource either with or without a projector. The stream type
 // argument is for detecting whether or not the resulting camera supports return
 // of pointcloud data in the absence of an implemented NextPointCloud function.
@@ -151,7 +151,7 @@ func NewVideoSourceFromReader(
 	}, nil
 }
 
-// WrapVideoSourceWithProjector is DEPRECATED! Please implement cameras according to the camera.Camera interface.
+// WrapVideoSourceWithProjector is DEPRECATED!!! Please implement cameras according to the camera.Camera interface.
 // WrapVideoSourceWithProjector creates a Camera either with or without a projector. The stream type
 // argument is for detecting whether or not the resulting camera supports return
 // of pointcloud data in the absence of an implemented NextPointCloud function.

@@ -22,7 +22,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	streamCameraUtils "go.viam.com/rdk/robot/web/stream/camera"
+	cameraStreamUtils "go.viam.com/rdk/robot/web/stream/camera"
 	"go.viam.com/rdk/robot/web/stream/state"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -170,7 +170,7 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 	}
 
 	// return error if resource is neither a camera nor audioinput
-	_, isCamErr := streamCameraUtils.Camera(server.robot, streamStateToAdd.Stream)
+	_, isCamErr := cameraStreamUtils.Camera(server.robot, streamStateToAdd.Stream)
 	_, isAudioErr := audioinput.FromRobot(server.robot, resource.SDPTrackNameToShortName(streamStateToAdd.Stream.Name()))
 	if isCamErr != nil && isAudioErr != nil {
 		return nil, errors.Errorf("stream is neither a camera nor audioinput. streamName: %v", streamStateToAdd.Stream)
@@ -307,7 +307,7 @@ func (server *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStre
 
 	shortName := resource.SDPTrackNameToShortName(streamToRemove.Stream.Name())
 	_, isAudioResourceErr := audioinput.FromRobot(server.robot, shortName)
-	_, isCameraResourceErr := streamCameraUtils.Camera(server.robot, streamToRemove.Stream)
+	_, isCameraResourceErr := cameraStreamUtils.Camera(server.robot, streamToRemove.Stream)
 
 	if isAudioResourceErr != nil && isCameraResourceErr != nil {
 		return &streampb.RemoveStreamResponse{}, nil
