@@ -8,7 +8,6 @@ import (
 	pb "go.viam.com/api/app/mltraining/v1"
 	"go.viam.com/utils/rpc"
 	errorstatus "google.golang.org/genproto/googleapis/rpc/status"
-	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // TrainingStatus respresents the status of a training job.
@@ -31,17 +30,11 @@ const (
 	TrainingStatusCanceling
 )
 
-// ErrorDetail contains an arbitrary serialized protocol buffer message along with a URL that describes the type of serialized message.
-type ErrorDetail struct {
-	TypeURL string
-	Value   []byte
-}
-
 // ErrorStatus contains an error's code, message, and details.
 type ErrorStatus struct {
 	Code    int
 	Message string
-	Details []*ErrorDetail
+	Details []*Any
 }
 
 // TrainingJobMetadata contains the metadata for a training job.
@@ -240,23 +233,13 @@ func trainingJobLogEntryFromProto(log *pb.TrainingJobLogEntry) *TrainingJobLogEn
 	}
 }
 
-func detailsFromProto(detail *anypb.Any) *ErrorDetail {
-	if detail == nil {
-		return nil
-	}
-	return &ErrorDetail{
-		TypeURL: detail.TypeUrl,
-		Value:   detail.Value,
-	}
-}
-
 func errorStatusFromProto(status *errorstatus.Status) *ErrorStatus {
 	if status == nil {
 		return nil
 	}
-	var details []*ErrorDetail
+	var details []*Any
 	for _, detail := range status.Details {
-		details = append(details, detailsFromProto(detail))
+		details = append(details, anyFromProto(detail))
 	}
 	return &ErrorStatus{
 		Code:    int(status.Code),

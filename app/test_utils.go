@@ -3,6 +3,7 @@ package app
 import (
 	"time"
 
+	mltrainingpb "go.viam.com/api/app/mltraining/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -46,3 +47,19 @@ var (
 	pageToken      = "page_token"
 	timestamp      = time.Now().UTC().Round(time.Millisecond)
 )
+
+func modelFrameworkToProto(framework ModelFramework) mltrainingpb.ModelFramework {
+	switch framework {
+	case ModelFrameworkUnspecified:
+		return mltrainingpb.ModelFramework_MODEL_FRAMEWORK_UNSPECIFIED
+	case ModelFrameworkTFLite:
+		return mltrainingpb.ModelFramework_MODEL_FRAMEWORK_TFLITE
+	case ModelFrameworkTensorFlow:
+		return mltrainingpb.ModelFramework_MODEL_FRAMEWORK_TENSORFLOW
+	case ModelFrameworkPyTorch:
+		return mltrainingpb.ModelFramework_MODEL_FRAMEWORK_PYTORCH
+	case ModelFrameworkONNX:
+		return mltrainingpb.ModelFramework_MODEL_FRAMEWORK_ONNX
+	}
+	return mltrainingpb.ModelFramework_MODEL_FRAMEWORK_UNSPECIFIED
+}

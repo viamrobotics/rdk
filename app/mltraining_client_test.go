@@ -39,7 +39,7 @@ var (
 		ErrorStatus: &ErrorStatus{
 			Code:    code,
 			Message: message,
-			Details: []*ErrorDetail{
+			Details: []*Any{
 				{
 					TypeURL: siteURL,
 					Value:   byteData,
