@@ -72,7 +72,7 @@ func logViamEnvVariables(logger logging.Logger) {
 		viamEnvVariables = append(viamEnvVariables, "HOME", rutils.PlatformHomeDir())
 	}
 	if len(viamEnvVariables) != 0 {
-		logger.Infow("Viam env variables", viamEnvVariables...)
+		logger.Infow("Starting viam-server with following environment variables", viamEnvVariables...)
 	}
 }
 
