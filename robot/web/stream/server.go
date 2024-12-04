@@ -744,7 +744,7 @@ func GenerateResolutions(width, height int32, logger logging.Logger) []Resolutio
 }
 
 // sampleFrameSize takes in a camera.Camera, starts a stream, attempts to
-// pull a frame using Stream.Next, and returns the width and height.
+// pull a frame, and returns the width and height.
 func sampleFrameSize(ctx context.Context, cam camera.Camera, logger logging.Logger) (int, int, error) {
 	logger.Debug("sampling frame size")
 	// Attempt to get a frame from the stream with a maximum of 5 retries.

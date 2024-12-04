@@ -50,7 +50,7 @@ func init() {
 					return nil, fmt.Errorf("no source camera for transform pipeline (%s): %w", sourceName, err)
 				}
 				streamCamera := streamCameraFromCamera(ctx, source)
-				src, err := newTransformPipeline(ctx, streamCamera, newConf, actualR, logger)
+				src, err := newTransformPipeline(ctx, streamCamera, conf.ResourceName().AsNamed(), newConf, actualR, logger)
 				if err != nil {
 					return nil, err
 				}
@@ -113,6 +113,7 @@ func streamCameraFromCamera(ctx context.Context, cam camera.Camera) camera.Strea
 func newTransformPipeline(
 	ctx context.Context,
 	source camera.StreamCamera,
+	named resource.Named,
 	cfg *transformConfig,
 	r robot.Robot,
 	logger logging.Logger,
@@ -152,13 +153,14 @@ func newTransformPipeline(
 	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(cfg.CameraParameters, cfg.DistortionParameters)
 	return camera.NewVideoSourceFromReader(
 		ctx,
-		transformPipeline{pipeline, lastSource, cfg.CameraParameters, logger},
+		transformPipeline{named, pipeline, lastSource, cfg.CameraParameters, logger},
 		&cameraModel,
 		streamType,
 	)
 }
 
 type transformPipeline struct {
+	resource.Named
 	pipeline            []camera.StreamCamera
 	src                 camera.Camera
 	intrinsicParameters *transform.PinholeCameraIntrinsics

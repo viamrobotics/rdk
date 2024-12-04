@@ -30,6 +30,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/utils"
 )
 
 // ModelWebcam is the name of the webcam component.
@@ -579,6 +580,10 @@ func (c *webcam) Image(ctx context.Context, mimeType string, extra map[string]in
 		return nil, camera.ImageMetadata{}, err
 	}
 	defer release()
+
+	if mimeType == "" {
+		mimeType = utils.MimeTypeJPEG
+	}
 	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
 	if err != nil {
 		return nil, camera.ImageMetadata{}, err

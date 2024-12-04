@@ -97,17 +97,6 @@ type ImageMetadata struct {
 //
 //	images, metadata, err := myCamera.Images(context.Background())
 //
-// Stream example:
-//
-//	myCamera, err := camera.FromRobot(machine, "my_camera")
-//
-//	// gets the stream from a camera
-//	stream, err := myCamera.Stream(context.Background())
-//
-//	// gets an image from the camera stream
-//	img, release, err := stream.Next(context.Background())
-//	defer release()
-//
 // NextPointCloud example:
 //
 //	myCamera, err := camera.FromRobot(machine, "my_camera")

@@ -64,7 +64,7 @@ func TestTransformSegmenterProps(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	streamCamera := streamCameraFromCamera(context.Background(), cam)
-	_, err = newTransformPipeline(context.Background(), streamCamera, transformConf, r, logger)
+	_, err = newTransformPipeline(context.Background(), streamCamera, nil, transformConf, r, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	transformConf = &transformConfig{
@@ -153,7 +153,7 @@ func TestTransformSegmenterFunctionality(t *testing.T) {
 	}
 
 	streamCamera := streamCameraFromCamera(context.Background(), cam)
-	pipeline, err := newTransformPipeline(context.Background(), streamCamera, transformConf, r, logger)
+	pipeline, err := newTransformPipeline(context.Background(), streamCamera, nil, transformConf, r, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	pc, err := pipeline.NextPointCloud(context.Background())

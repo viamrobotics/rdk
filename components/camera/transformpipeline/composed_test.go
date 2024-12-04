@@ -71,7 +71,7 @@ func TestComposed(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pic.Bounds(), test.ShouldResemble, image.Rect(0, 0, 1280, 720))
 
-	myPipeline, err := newTransformPipeline(context.Background(), streamedCloudSource, conf, robot, logger)
+	myPipeline, err := newTransformPipeline(context.Background(), streamedCloudSource, nil, conf, robot, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer myPipeline.Close(context.Background())
 	pic, err = camera.DecodeImageFromCamera(context.Background(), utils.MimeTypeJPEG, nil, myPipeline)
@@ -100,7 +100,7 @@ func TestComposed(t *testing.T) {
 			},
 		},
 	}
-	_, err = newTransformPipeline(context.Background(), streamedCloudSource, conf, robot, logger)
+	_, err = newTransformPipeline(context.Background(), streamedCloudSource, nil, conf, robot, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldWrap, transform.ErrNoIntrinsics)
 }
