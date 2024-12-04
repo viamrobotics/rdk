@@ -480,7 +480,7 @@ func makeGenericAPIRegistration[ResourceT Resource](
 			return genericSubypeCollection[ResourceT]{NewEmptyAPIResourceCollection[ResourceT](api)}
 		},
 	}
-	
+
 	if typed.RPCServiceServerConstructor != nil {
 		reg.RPCServiceServerConstructor = func(
 			coll APIResourceCollection[Resource],
