@@ -880,6 +880,9 @@ func TestClientUnaryDisconnectHandler(t *testing.T) {
 	gServer := grpc.NewServer(justOneUnaryStatusCall)
 
 	injectRobot := &inject.Robot{}
+	injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
+		return robot.MachineStatus{}, nil
+	}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 
 	go gServer.Serve(listener)

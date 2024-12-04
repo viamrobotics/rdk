@@ -223,42 +223,13 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatialmath.PoseAlmostCoincident(pos1, pos2), test.ShouldBeTrue)
 
-	// statuses, err := r2.Status(
-	// 	context.Background(),
-	// 	[]resource.Name{
-	// 		movementsensor.Named("squee:movement_sensor1"),
-	// 		movementsensor.Named("foo:movement_sensor1"),
-	// 		movementsensor.Named("bar:movement_sensor1"),
-	// 	},
-	// )
+	cfg2 := r2.Config()
+	// Components should only include local components.
+	test.That(t, len(cfg2.Components), test.ShouldEqual, 2)
+
+	fsConfig, err := r2.FrameSystemConfig(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-
-	// expectedStatusLength := 3
-	// test.That(t, len(statuses), test.ShouldEqual, expectedStatusLength)
-
-	// for idx := 0; idx < expectedStatusLength; idx++ {
-	// 	test.That(t, statuses[idx].Status, test.ShouldResemble, map[string]interface{}{})
-	// 	// Assert that last reconfigured values are within last hour (remote
-	// 	// recently configured all three resources).
-	// 	lr := statuses[idx].LastReconfigured
-	// 	test.That(t, lr, test.ShouldHappenBetween,
-	// 		time.Now().Add(-1*time.Hour), time.Now())
-	// }
-
-	// statuses, err = r2.Status(
-	// 	context.Background(),
-	// 	[]resource.Name{arm.Named("squee:pieceArm"), arm.Named("foo:pieceArm"), arm.Named("bar:pieceArm")},
-	// )
-	// test.That(t, err, test.ShouldBeNil)
-	// test.That(t, len(statuses), test.ShouldEqual, 3)
-
-	// cfg2 := r2.Config()
-	// // Components should only include local components.
-	// test.That(t, len(cfg2.Components), test.ShouldEqual, 2)
-
-	// fsConfig, err := r2.FrameSystemConfig(context.Background())
-	// test.That(t, err, test.ShouldBeNil)
-	// test.That(t, fsConfig.Parts, test.ShouldHaveLength, 12)
+	test.That(t, fsConfig.Parts, test.ShouldHaveLength, 12)
 }
 
 func TestConfigRemoteWithAuth(t *testing.T) {
@@ -414,32 +385,6 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			expectedRemotes := []string{"bar", "foo"}
 
 			rtestutils.VerifySameElements(t, remotes2, expectedRemotes)
-
-			// statuses, err := r2.Status(
-			// 	context.Background(), []resource.Name{movementsensor.Named("bar:movement_sensor1"), movementsensor.Named("foo:movement_sensor1")},
-			// )
-			// test.That(t, err, test.ShouldBeNil)
-			// test.That(t, len(statuses), test.ShouldEqual, 2)
-			// test.That(t, statuses[0].Status, test.ShouldResemble, map[string]interface{}{})
-			// test.That(t, statuses[1].Status, test.ShouldResemble, map[string]interface{}{})
-
-			// statuses, err = r2.Status(
-			// 	context.Background(), []resource.Name{arm.Named("bar:pieceArm"), arm.Named("foo:pieceArm")},
-			// )
-			// test.That(t, err, test.ShouldBeNil)
-			// test.That(t, len(statuses), test.ShouldEqual, 2)
-
-			// 	convMap := &armpb.Status{}
-			// 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
-			// 	test.That(t, err, test.ShouldBeNil)
-			// 	err = decoder.Decode(statuses[0].Status)
-			// 	test.That(t, err, test.ShouldBeNil)
-
-			// 	convMap = &armpb.Status{}
-			// 	decoder, err = mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
-			// 	test.That(t, err, test.ShouldBeNil)
-			// 	err = decoder.Decode(statuses[1].Status)
-			// 	test.That(t, err, test.ShouldBeNil)
 		})
 	}
 }
