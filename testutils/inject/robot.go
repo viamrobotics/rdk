@@ -46,11 +46,10 @@ type Robot struct {
 		additionalTransforms []*referenceframe.LinkInFrame,
 	) (*referenceframe.PoseInFrame, error)
 	TransformPointCloudFunc func(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
-	// StatusFunc              func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error)
-	ModuleAddressFunc func() (string, error)
-	CloudMetadataFunc func(ctx context.Context) (cloud.Metadata, error)
-	MachineStatusFunc func(ctx context.Context) (robot.MachineStatus, error)
-	ShutdownFunc      func(ctx context.Context) error
+	ModuleAddressFunc       func() (string, error)
+	CloudMetadataFunc       func(ctx context.Context) (cloud.Metadata, error)
+	MachineStatusFunc       func(ctx context.Context) (robot.MachineStatus, error)
+	ShutdownFunc            func(ctx context.Context) error
 
 	ops        *operation.Manager
 	SessMgr    session.Manager
@@ -265,16 +264,6 @@ func (r *Robot) TransformPointCloud(ctx context.Context, srcpc pointcloud.PointC
 	}
 	return r.TransformPointCloudFunc(ctx, srcpc, srcName, dstName)
 }
-
-// Status call the injected Status or the real one.
-// func (r *Robot) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-// 	r.Mu.RLock()
-// 	defer r.Mu.RUnlock()
-// 	if r.StatusFunc == nil {
-// 		return r.LocalRobot.Status(ctx, resourceNames)
-// 	}
-// 	return r.StatusFunc(ctx, resourceNames)
-// }
 
 // ModuleAddress calls the injected ModuleAddress or the real one.
 func (r *Robot) ModuleAddress() (string, error) {
