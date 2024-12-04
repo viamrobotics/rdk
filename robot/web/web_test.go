@@ -1155,7 +1155,6 @@ func TestRawClientOperation(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	checkOpID(hdr, true)
 
-	
 	// streamClient, err := client.StreamStatus(ctx, &robotpb.StreamStatusRequest{})
 	// test.That(t, err, test.ShouldBeNil)
 	// md, err := streamClient.Header()
