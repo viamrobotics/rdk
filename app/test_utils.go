@@ -48,6 +48,8 @@ var (
 	timestamp      = time.Now().UTC().Round(time.Millisecond)
 )
 
+// Functions used throughout testing in app.
+
 func modelFrameworkToProto(framework ModelFramework) mltrainingpb.ModelFramework {
 	switch framework {
 	case ModelFrameworkUnspecified:
