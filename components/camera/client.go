@@ -248,7 +248,7 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 	if ctx.Value(data.FromDMContextKey{}) == true {
 		extra[data.FromDMString] = true
 	}
-	extraStruct, err := goprotoutils.StructToStructPb(extra)
+	extraStructPb, err := goprotoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
 	}
@@ -256,7 +256,7 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 	resp, err := c.client.GetPointCloud(ctx, &pb.GetPointCloudRequest{
 		Name:     c.name,
 		MimeType: utils.MimeTypePCD,
-		Extra:    extraStruct,
+		Extra:    extraStructPb,
 	})
 	getPcdSpan.End()
 	if err != nil {
