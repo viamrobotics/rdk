@@ -39,7 +39,7 @@ var (
 		ErrorStatus: &ErrorStatus{
 			Code:    code,
 			Message: message,
-			Details: []*Any{
+			Details: []*GenericProtoMessage{
 				{
 					TypeURL: siteURL,
 					Value:   byteData,

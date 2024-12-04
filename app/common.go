@@ -42,8 +42,9 @@ const (
 	ModelFrameworkONNX
 )
 
-// Any contains an arbitrary serialized protocol buffer message along with a URL that describes the type of serialized message.
-type Any struct {
+// GenericProtoMessage contains an arbitrary serialized protocol buffer message
+// along with a URL that describes the type of serialized message.
+type GenericProtoMessage struct {
 	TypeURL string
 	Value   []byte
 }
@@ -92,11 +93,11 @@ func modelFrameworkFromProto(framework mltrainingpb.ModelFramework) ModelFramewo
 	return ModelFrameworkUnspecified
 }
 
-func anyFromProto(message *anypb.Any) *Any {
+func genericProtoMessageFromProto(message *anypb.Any) *GenericProtoMessage {
 	if message == nil {
 		return nil
 	}
-	return &Any{
+	return &GenericProtoMessage{
 		TypeURL: message.TypeUrl,
 		Value:   message.Value,
 	}

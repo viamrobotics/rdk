@@ -34,7 +34,7 @@ const (
 type ErrorStatus struct {
 	Code    int
 	Message string
-	Details []*Any
+	Details []*GenericProtoMessage
 }
 
 // TrainingJobMetadata contains the metadata for a training job.
@@ -237,9 +237,9 @@ func errorStatusFromProto(status *errorstatus.Status) *ErrorStatus {
 	if status == nil {
 		return nil
 	}
-	var details []*Any
+	var details []*GenericProtoMessage
 	for _, detail := range status.Details {
-		details = append(details, anyFromProto(detail))
+		details = append(details, genericProtoMessageFromProto(detail))
 	}
 	return &ErrorStatus{
 		Code:    int(status.Code),
