@@ -60,13 +60,16 @@ type robotServer struct {
 func logViamEnvVariables(logger logging.Logger) {
 	var viamEnvVariables []interface{}
 	if value, exists := os.LookupEnv("VIAM_MODULE_ROOT"); exists {
-		viamEnvVariables = append(viamEnvVariables, "VIAM_MODULE_ROOT: ", value)
+		viamEnvVariables = append(viamEnvVariables, "VIAM_MODULE_ROOT", value)
 	}
 	if value, exists := os.LookupEnv("VIAM_RESOURCE_CONFIGURATION_TIMEOUT"); exists {
-		viamEnvVariables = append(viamEnvVariables, "VIAM_RESOURCE_CONFIGURATION_TIMEOUT: ", value)
+		viamEnvVariables = append(viamEnvVariables, "VIAM_RESOURCE_CONFIGURATION_TIMEOUT", value)
 	}
 	if value, exists := os.LookupEnv("VIAM_MODULE_STARTUP_TIMEOUT"); exists {
-		viamEnvVariables = append(viamEnvVariables, "VIAM_MODULE_STARTUP_TIMEOUT: ", value)
+		viamEnvVariables = append(viamEnvVariables, "VIAM_MODULE_STARTUP_TIMEOUT", value)
+	}
+	if rutils.PlatformHomeDir() != "" {
+		viamEnvVariables = append(viamEnvVariables, "HOME", rutils.PlatformHomeDir())
 	}
 	if len(viamEnvVariables) != 0 {
 		logger.Infow("Viam env variables", viamEnvVariables...)
