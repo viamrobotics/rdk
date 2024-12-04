@@ -157,7 +157,7 @@ func TestMoveFailures(t *testing.T) {
 	})
 }
 
-func TestMove(t *testing.T) {
+func TestArmMove(t *testing.T) {
 	var err error
 	ctx := context.Background()
 
@@ -207,11 +207,10 @@ func TestMove(t *testing.T) {
 	})
 }
 
-func TestMoveWithObstacles(t *testing.T) {
-	ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
-	defer teardown()
-
+func TestArmMoveWithObstacles(t *testing.T) {
 	t.Run("check a movement that should not succeed due to obstacles", func(t *testing.T) {
+		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
+		defer teardown()
 		testPose1 := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 370})
 		testPose2 := spatialmath.NewPoseFromPoint(r3.Vector{X: 300, Y: 300, Z: -3500})
 		_ = testPose2
