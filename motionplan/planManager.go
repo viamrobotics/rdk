@@ -681,7 +681,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		}
 	}
 
-	hasTopoConstraint, err := opt.addPbTopoConstraints(pm.fs, seedMap, from, to, constraints)
+	hasTopoConstraint, err := opt.addTopoConstraints(pm.fs, seedMap, from, to, constraints)
 	if err != nil {
 		return nil, err
 	}

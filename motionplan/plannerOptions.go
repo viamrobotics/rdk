@@ -233,9 +233,9 @@ func (p *plannerOptions) SetMinScore(minScore float64) {
 	p.MinScore = minScore
 }
 
-// addPbConstraints will add all constraints from the protobuf constraint specification. This will deal with only the topological
+// addPbConstraints will add all constraints from the passed Constraint struct. This will deal with only the topological
 // constraints. It will return a bool indicating whether there are any to add.
-func (p *plannerOptions) addPbTopoConstraints(
+func (p *plannerOptions) addTopoConstraints(
 	fs referenceframe.FrameSystem,
 	startCfg map[string][]referenceframe.Input,
 	from, to PathStep,
@@ -312,7 +312,6 @@ func (p *plannerOptions) addPseudolinearConstraints(
 	if orientTol == 0 {
 		orientTol = defaultPseudolinearTolerance
 	}
-	// ~ constraint, pathDist, err := CreateAbsoluteLinearInterpolatingConstraintFS(fs, startCfg, from, to, linTol, orientTol)
 	constraint, pathDist, err := CreateProportionalLinearInterpolatingConstraintFS(fs, startCfg, from, to, linTol, orientTol)
 	if err != nil {
 		return err
