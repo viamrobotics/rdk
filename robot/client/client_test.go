@@ -38,6 +38,7 @@ import (
 	"gonum.org/v1/gonum/num/quat"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 
@@ -867,7 +868,7 @@ func TestClientUnaryDisconnectHandler(t *testing.T) {
 			info *grpc.UnaryServerInfo,
 			handler grpc.UnaryHandler,
 		) (interface{}, error) {
-			if strings.HasSuffix(info.FullMethod, "RobotService/GetStatus") {
+			if strings.HasSuffix(info.FullMethod, "RobotService/GetMachineStatus") {
 				if unaryStatusCallReceived {
 					return nil, status.Error(codes.Unknown, io.ErrClosedPipe.Error())
 				}
@@ -1758,18 +1759,18 @@ func TestClientOperationIntercept(t *testing.T) {
 	client, err := New(ctx, listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	// injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-	// 	meta, ok := metadata.FromIncomingContext(ctx)
-	// 	test.That(t, ok, test.ShouldBeTrue)
-	// 	receivedOpID, err := operation.GetOrCreateFromMetadata(meta)
-	// 	test.That(t, err, test.ShouldBeNil)
-	// 	test.That(t, receivedOpID.String(), test.ShouldEqual, fakeOp.ID.String())
-	// 	return []robot.Status{}, nil
-	// }
+	injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
+		meta, ok := metadata.FromIncomingContext(ctx)
+		test.That(t, ok, test.ShouldBeTrue)
+		receivedOpID, err := operation.GetOrCreateFromMetadata(meta)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, receivedOpID.String(), test.ShouldEqual, fakeOp.ID.String())
+		return robot.MachineStatus{}, nil
+	}
 
-	// resp, err := client.Status(ctx, []resource.Name{})
-	// test.That(t, err, test.ShouldBeNil)
-	// test.That(t, len(resp), test.ShouldEqual, 0)
+	resp, err := client.MachineStatus(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
 
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -1823,6 +1824,7 @@ func TestLoggingInterceptor(t *testing.T) {
 		// Needed for client connect. Not important to the test.
 		ResourceNamesFunc:   func() []resource.Name { return []resource.Name{arm.Named("myArm")} },
 		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+
 
 		// Hijack the `StatusFunc` for testing the reception of debug metadata via the
 		// logging/distributed tracing interceptor.
