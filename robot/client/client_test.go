@@ -908,14 +908,14 @@ func TestClientUnaryDisconnectHandler(t *testing.T) {
 	t.Run("unary call to disconnected remote", func(t *testing.T) {
 		t.Helper()
 
-		_, err = client.Status(context.Background(), []resource.Name{})
+		_, err = client.MachineStatus(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, unaryStatusCallReceived, test.ShouldBeTrue)
 	})
 
 	t.Run("unary call to undetected disconnected remote", func(t *testing.T) {
 		test.That(t, unaryStatusCallReceived, test.ShouldBeTrue)
-		_, err = client.Status(context.Background(), []resource.Name{})
+		_, err = client.MachineStatus(context.Background())
 		test.That(t, status.Code(err), test.ShouldEqual, codes.Unavailable)
 		test.That(t, err.Error(), test.ShouldContainSubstring, fmt.Sprintf("not connected to remote robot at %s", listener.Addr().String()))
 	})
