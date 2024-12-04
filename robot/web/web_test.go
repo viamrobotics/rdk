@@ -1130,9 +1130,9 @@ func TestRawClientOperation(t *testing.T) {
 	err := svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	// iRobot.(*inject.Robot).StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-	// 	return []robot.Status{}, nil
-	// }
+	iRobot.(*inject.Robot).MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
+		return robot.MachineStatus{}, nil
+	}
 
 	checkOpID := func(md metadata.MD, expected bool) {
 		t.Helper()
@@ -1150,18 +1150,17 @@ func TestRawClientOperation(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	client := robotpb.NewRobotServiceClient(conn)
 
-	// var hdr metadata.MD
-	// //nolint:staticcheck // the status API is deprecated
-	// _, err = client.GetStatus(ctx, &robotpb.GetStatusRequest{}, grpc.Header(&hdr))
-	// test.That(t, err, test.ShouldBeNil)
-	// checkOpID(hdr, true)
+	var hdr metadata.MD
+	_, err = client.GetMachineStatus(ctx, &robotpb.GetMachineStatusRequest{}, grpc.Header(&hdr))
+	test.That(t, err, test.ShouldBeNil)
+	checkOpID(hdr, true)
 
-	//nolint:staticcheck // the status API is deprecated
-	streamClient, err := client.StreamStatus(ctx, &robotpb.StreamStatusRequest{})
-	test.That(t, err, test.ShouldBeNil)
-	md, err := streamClient.Header()
-	test.That(t, err, test.ShouldBeNil)
-	checkOpID(md, false) // StreamStatus is in the filtered method list, so doesn't get an opID
+	
+	// streamClient, err := client.StreamStatus(ctx, &robotpb.StreamStatusRequest{})
+	// test.That(t, err, test.ShouldBeNil)
+	// md, err := streamClient.Header()
+	// test.That(t, err, test.ShouldBeNil)
+	// checkOpID(md, false) // StreamStatus is in the filtered method list, so doesn't get an opID
 	test.That(t, conn.Close(), test.ShouldBeNil)
 
 	// test with a simple echo proto as well
@@ -1169,7 +1168,7 @@ func TestRawClientOperation(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	echoclient := echopb.NewTestEchoServiceClient(conn)
 
-	hdr := metadata.MD{}
+	hdr = metadata.MD{}
 	trailers := metadata.MD{} // won't do anything but helps test goutils
 	_, err = echoclient.Echo(ctx, &echopb.EchoRequest{}, grpc.Header(&hdr), grpc.Trailer(&trailers))
 	test.That(t, err, test.ShouldBeNil)
@@ -1177,7 +1176,7 @@ func TestRawClientOperation(t *testing.T) {
 
 	echoStreamClient, err := echoclient.EchoMultiple(ctx, &echopb.EchoMultipleRequest{})
 	test.That(t, err, test.ShouldBeNil)
-	md, err = echoStreamClient.Header()
+	md, err := echoStreamClient.Header()
 	test.That(t, err, test.ShouldBeNil)
 	checkOpID(md, true) // EchoMultiple is NOT filtered, so should have an opID
 	test.That(t, conn.Close(), test.ShouldBeNil)
@@ -1218,7 +1217,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 			// client := robotpb.NewRobotServiceClient(conn)
 
 			// Use GetStatus to call injected status function.
-			
+
 			// _, err = client.GetStatus(ctx, &robotpb.GetStatusRequest{})
 			// test.That(t, err, test.ShouldBeNil)
 
@@ -1290,7 +1289,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 			// client := robotpb.NewRobotServiceClient(conn)
 
 			// Use GetStatus to call injected status function.
-			
+
 			// _, err = client.GetStatus(ctx, &robotpb.GetStatusRequest{})
 			// test.That(t, err, test.ShouldBeNil)
 

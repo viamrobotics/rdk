@@ -898,7 +898,7 @@ func TestClientUnaryDisconnectHandler(t *testing.T) {
 		t.Helper()
 
 		client.connected.Store(false)
-		_, err = client.DoCommand(context.Background(), nil)
+		_, err = client.MachineStatus(context.Background())
 		test.That(t, status.Code(err), test.ShouldEqual, codes.Unavailable)
 		test.That(t, err.Error(), test.ShouldContainSubstring, fmt.Sprintf("not connected to remote robot at %s", listener.Addr().String()))
 		test.That(t, unaryStatusCallReceived, test.ShouldBeFalse)
