@@ -91,6 +91,11 @@ func logVersion(logger logging.Logger) {
 	}
 }
 
+func logStartupInfo(logger logging.Logger) {
+	logVersion(logger)
+	logViamEnvVariables(logger)
+}
+
 // RunServer is an entry point to starting the web server that can be called by main in a code
 // sample or otherwise be used to initialize the server.
 func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error) {
@@ -113,17 +118,17 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	config.InitLoggingSettings(logger, argsParsed.Debug)
 
 	if argsParsed.Version {
-		// log version here and return if version flag.
-		logVersion(logger)
+		// log startup info here and return if version flag.
+		logStartupInfo(logger)
 		return
 	}
 
-	// log version locally if server fails and exits while attempting to start up
-	var versionLogged bool
+	// log startup info locally if server fails and exits while attempting to start up
+	var startupInfoLogged bool
 	defer func() {
-		if !versionLogged {
+		if !startupInfoLogged {
 			logger.CInfo(ctx, "error starting viam-server, logging version and exiting")
-			logVersion(logger)
+			logStartupInfo(logger)
 		}
 	}()
 
@@ -179,11 +184,9 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 
 		registry.AddAppenderToAll(netAppender)
 	}
-	// log version after netlogger is initialized so it's captured in cloud machine logs.
-	logVersion(logger)
-	versionLogged = true
-
-	logViamEnvVariables(logger)
+	// log startup info after netlogger is initialized so it's captured in cloud machine logs.
+	logStartupInfo(logger)
+	startupInfoLogged = true
 
 	server := robotServer{
 		logger:   logger,
