@@ -1155,11 +1155,6 @@ func TestRawClientOperation(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	checkOpID(hdr, true)
 
-	// streamClient, err := client.StreamStatus(ctx, &robotpb.StreamStatusRequest{})
-	// test.That(t, err, test.ShouldBeNil)
-	// md, err := streamClient.Header()
-	// test.That(t, err, test.ShouldBeNil)
-	// checkOpID(md, false) // StreamStatus is in the filtered method list, so doesn't get an opID
 	test.That(t, conn.Close(), test.ShouldBeNil)
 
 	// test with a simple echo proto as well
