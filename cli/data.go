@@ -684,7 +684,6 @@ func (c *viamClient) tabularData(dst string, request *datapb.ExportTabularDataRe
 		defer close(done)
 		for {
 			for count := 0; count < maxRetryCount; count++ {
-				fmt.Println("EXPORTING???")
 				stream, err := c.dataClient.ExportTabularData(context.Background(), request)
 				fmt.Fprintf(c.c.App.Writer, ".") //nolint:errcheck // no newline
 				if err == nil {
