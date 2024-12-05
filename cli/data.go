@@ -9,12 +9,10 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
@@ -314,7 +312,7 @@ func (client *viamClient) dataExportTabularAction(cCtx *cli.Context) error {
 		return err
 	}
 
-	if err := client.tabularData(cCtx.Path(dataFlagDestination), request, cCtx.Uint(dataFlagChunkLimit)); err != nil {
+	if err := client.tabularData(cCtx.Path(dataFlagDestination), request); err != nil {
 		return err
 	}
 
@@ -657,7 +655,7 @@ func filenameForDownload(meta *datapb.BinaryMetadata) string {
 }
 
 // tabularData downloads unified tabular data and metadata for the requested data source and interval to the specified destination.
-func (c *viamClient) tabularData(dst string, request *datapb.ExportTabularDataRequest, limit uint) error {
+func (c *viamClient) tabularData(dst string, request *datapb.ExportTabularDataRequest) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -670,78 +668,78 @@ func (c *viamClient) tabularData(dst string, request *datapb.ExportTabularDataRe
 	if err != nil {
 		return errors.Wrapf(err, "could not create data file")
 	}
+	defer dataFile.Close()
 
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	writer := bufio.NewWriter(dataFile)
+	defer writer.Flush()
 
-	go func() {
-		<-sigChan
-		os.Remove(dataFile.Name())
-		os.Exit(1)
-	}()
-
-	w := bufio.NewWriter(dataFile)
-
-	rowChan := make(chan []byte)
+	dataRowChan := make(chan []byte)
 	errChan := make(chan error, 1)
-	done := make(chan struct{})
 
-	fmt.Fprintf(c.c.App.Writer, "Downloading..") //nolint:errcheck // no newline
+	fmt.Fprintf(c.c.App.Writer, "Downloading..")
 
+	c.processTabularRequest(request, dataRowChan, errChan)
+
+	err = c.writeTabularResponse(writer, dataRowChan, errChan)
+	fmt.Fprintf(c.c.App.Writer, "\n")
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// processTabularRequest calls ExportTabularData method and adds received data to the dataRowChan.
+func (c *viamClient) processTabularRequest(request *datapb.ExportTabularDataRequest, dataRowChan chan []byte, errChan chan error) {
 	go func() {
-		defer close(rowChan)
-		defer close(done)
-		for {
-			for count := 0; count < maxRetryCount; count++ {
-				stream, err := c.dataClient.ExportTabularData(context.Background(), request)
-				fmt.Fprintf(c.c.App.Writer, ".") //nolint:errcheck // no newline
-				if err == nil {
-					defer stream.CloseSend()
-					for {
-						resp, err := stream.Recv()
-						if err == io.EOF {
-							return
-						}
-						if err != nil {
-							errChan <- err
-							return
-						}
-						json, err := protojson.Marshal(resp)
-						if err != nil {
-							break
-						}
-						rowChan <- json
+		defer close(dataRowChan)
+		for count := 0; count < maxRetryCount; count++ {
+			stream, err := c.dataClient.ExportTabularData(context.Background(), request)
+
+			fmt.Fprintf(c.c.App.Writer, ".")
+
+			if err == nil {
+				defer stream.CloseSend()
+				for {
+					resp, err := stream.Recv()
+					if err == io.EOF {
+						return
 					}
+					if err != nil {
+						errChan <- err
+						break
+					}
+
+					json, err := protojson.Marshal(resp)
+					if err != nil {
+						errChan <- err
+						break
+					}
+
+					dataRowChan <- json
 				}
-			}
-			if err != nil {
-				errChan <- err
-				return
 			}
 		}
-	}()
 
+		errChan <- fmt.Errorf("max retries exceeded")
+	}()
+}
+
+// writeTabularResponse writes tabular data to the data.ndjson file
+func (c *viamClient) writeTabularResponse(writer *bufio.Writer, dataRowChan chan []byte, errChan chan error) error {
 	for {
 		select {
-		case row, ok := <-rowChan:
+		case row, ok := <-dataRowChan:
 			if !ok {
-				if !ok {
-					<-done
-					printf(c.c.App.Writer, "") // newline
-					err = w.Flush()
-					if err != nil {
-						return err
-					}
-					return nil
-				}
+				return nil
 			}
 
-			_, err = w.Write(row)
+			_, err := writer.Write(row)
 			if err != nil {
 				return err
 			}
 
-			err = w.WriteByte('\n')
+			err = writer.WriteByte('\n')
 			if err != nil {
 				return err
 			}

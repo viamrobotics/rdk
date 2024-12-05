@@ -243,6 +243,10 @@ type mockDataServiceClient struct {
 	index     int
 }
 
+func (m *mockDataServiceClient) CloseSend() error {
+	return nil
+}
+
 func (m *mockDataServiceClient) Recv() (*datapb.ExportTabularDataResponse, error) {
 	if m.index >= len(m.responses) {
 		return nil, io.EOF
