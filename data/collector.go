@@ -285,7 +285,13 @@ func (c *collector) writeCaptureResults() {
 
 			switch msg.Type {
 			case CaptureTypeTabular:
-				if err := c.target.WriteTabular(proto); err != nil {
+				if len(proto) != 1 {
+					// This is impossible and could only happen if a future code change breaks CaptureResult.ToProto()
+					err := errors.New("tabular CaptureResult returned more than one tabular result")
+					c.logger.Error(errors.Wrap(err, fmt.Sprintf("failed to write tabular data to prog file %s", c.target.Path())).Error())
+					return
+				}
+				if err := c.target.WriteTabular(proto[0]); err != nil {
 					c.logger.Error(errors.Wrap(err, fmt.Sprintf("failed to write tabular data to prog file %s", c.target.Path())).Error())
 					return
 				}

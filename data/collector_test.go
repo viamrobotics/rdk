@@ -387,8 +387,8 @@ func (b *signalingBuffer) WriteBinary(items []*v1.SensorData) error {
 	return ret
 }
 
-func (b *signalingBuffer) WriteTabular(items []*v1.SensorData) error {
-	ret := b.bw.WriteTabular(items)
+func (b *signalingBuffer) WriteTabular(item *v1.SensorData) error {
+	ret := b.bw.WriteTabular(item)
 	select {
 	case b.wrote <- struct{}{}:
 	case <-b.ctx.Done():
