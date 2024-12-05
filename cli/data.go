@@ -681,7 +681,7 @@ func (c *viamClient) tabularData(dst string, request *datapb.ExportTabularDataRe
 	c.processTabularRequest(request, dataRowChan, errChan)
 
 	err = c.writeTabularResponse(writer, dataRowChan, errChan)
-	fmt.Fprintf(c.c.App.Writer, "\n")
+	fmt.Fprintf(c.c.App.Writer, "\n") // newline
 	if err != nil {
 		return err
 	}
@@ -699,7 +699,6 @@ func (c *viamClient) processTabularRequest(request *datapb.ExportTabularDataRequ
 			fmt.Fprintf(c.c.App.Writer, ".")
 
 			if err == nil {
-				defer stream.CloseSend()
 				for {
 					resp, err := stream.Recv()
 					if err == io.EOF {
