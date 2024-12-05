@@ -58,6 +58,18 @@ func NewTabularCaptureResultReadings(ts Timestamps, readings map[string]interfac
 		TabularData: TabularData{
 			Payload: &structpb.Struct{
 				Fields: map[string]*structpb.Value{
+					// In previous versions of the code, we decided to special-case the
+					// GetReadingsResponse because it already contains
+					// structpb.Values in it, and the StructToStructPb logic at the time
+					// didnt't handle that cleanly.
+					// With the clarity of hindsight, this decision was a mistake as
+					// it would actually have been easy to convert the
+					// readings map[string]interface{} into a structpb.Struct (removing the
+					// need for a top level "readings" key for all future readings responses).
+					// We didn't know that at the time.
+					// Unfortunately this top level key needs to be maintained for backwards
+					// compatibility.
+					// C'est la vie.
 					"readings": structpb.NewStructValue(&structpb.Struct{Fields: values}),
 				},
 			},

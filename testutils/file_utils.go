@@ -205,18 +205,16 @@ func (m *MockBuffer) WriteBinary(items []*v1.SensorData) error {
 }
 
 // WriteTabular writes tabular sensor data to the Writes channel.
-func (m *MockBuffer) WriteTabular(items []*v1.SensorData) error {
+func (m *MockBuffer) WriteTabular(item *v1.SensorData) error {
 	if err := m.ctx.Err(); err != nil {
 		return err
 	}
-	for i, item := range items {
-		if isBinary(item) {
-			m.t.Errorf("MockBuffer.WriteTabular called with binary data. index: %d, items: %#v\n", i, items)
-			m.t.FailNow()
-		}
+	if isBinary(item) {
+		m.t.Errorf("MockBuffer.WriteTabular called with binary data. item: %#v\n", item)
+		m.t.FailNow()
 	}
 	select {
-	case m.Writes <- items:
+	case m.Writes <- []*v1.SensorData{item}:
 	case <-m.ctx.Done():
 	}
 	return nil

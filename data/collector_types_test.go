@@ -23,7 +23,7 @@ func TestNewBinaryCaptureResult(t *testing.T) {
 	timeReceived := time.Now()
 	ts := Timestamps{TimeRequested: timeRequested, TimeReceived: timeReceived}
 	type testCase struct {
-		input       CaptureResult
+		input       []Binary
 		output      CaptureResult
 		validateErr error
 	}
@@ -61,15 +61,6 @@ func TestNewBinaryCaptureResult(t *testing.T) {
 						YMinNormalized: 7,
 						YMaxNormalized: 8,
 					},
-				},
-			},
-		},
-		{
-			Payload:  []byte("hi too am here here"),
-			MimeType: MimeTypeImageJpeg,
-			Annotations: Annotations{
-				Classifications: []Classification{
-					{Label: "something completely different"},
 				},
 			},
 		},
@@ -115,12 +106,12 @@ func TestNewBinaryCaptureResult(t *testing.T) {
 	}
 	tcs := []testCase{
 		{
-			input:       NewBinaryCaptureResult(ts, nil),
+			input:       nil,
 			output:      CaptureResult{Type: CaptureTypeBinary, Timestamps: ts},
 			validateErr: errors.New("binary result must have non empty binary data"),
 		},
 		{
-			input: NewBinaryCaptureResult(ts, emptyBinaries),
+			input: emptyBinaries,
 			output: CaptureResult{
 				Type:       CaptureTypeBinary,
 				Timestamps: ts,
@@ -129,7 +120,7 @@ func TestNewBinaryCaptureResult(t *testing.T) {
 			validateErr: errors.New("binary result must have non empty binary data"),
 		},
 		{
-			input: NewBinaryCaptureResult(ts, singleSimpleBinaries),
+			input: singleSimpleBinaries,
 			output: CaptureResult{
 				Type:       CaptureTypeBinary,
 				Timestamps: ts,
@@ -137,7 +128,7 @@ func TestNewBinaryCaptureResult(t *testing.T) {
 			},
 		},
 		{
-			input: NewBinaryCaptureResult(ts, singleSimpleBinariesWithMimeType),
+			input: singleSimpleBinariesWithMimeType,
 			output: CaptureResult{
 				Type:       CaptureTypeBinary,
 				Timestamps: ts,
@@ -145,7 +136,7 @@ func TestNewBinaryCaptureResult(t *testing.T) {
 			},
 		},
 		{
-			input: NewBinaryCaptureResult(ts, singleComplexBinaries),
+			input: singleComplexBinaries,
 			output: CaptureResult{
 				Type:       CaptureTypeBinary,
 				Timestamps: ts,
@@ -153,7 +144,7 @@ func TestNewBinaryCaptureResult(t *testing.T) {
 			},
 		},
 		{
-			input: NewBinaryCaptureResult(ts, multipleComplexBinaries),
+			input: multipleComplexBinaries,
 			output: CaptureResult{
 				Type:       CaptureTypeBinary,
 				Timestamps: ts,
@@ -164,29 +155,30 @@ func TestNewBinaryCaptureResult(t *testing.T) {
 	for i, tc := range tcs {
 		t.Logf("index: %d", i)
 
-		// confirm input resembles output
-		test.That(t, tc.input, test.ShouldResemble, tc.output)
+		// confirm response resembles output
+		res := NewBinaryCaptureResult(ts, tc.input)
+		test.That(t, res, test.ShouldResemble, tc.output)
 
-		// confirm input conforms to validation expectations
+		// confirm response conforms to validation expectations
 		if tc.validateErr != nil {
-			test.That(t, tc.input.Validate(), test.ShouldBeError, tc.validateErr)
+			test.That(t, res.Validate(), test.ShouldBeError, tc.validateErr)
 			continue
 		}
-		test.That(t, tc.input.Validate(), test.ShouldBeNil)
+		test.That(t, res.Validate(), test.ShouldBeNil)
 
-		// confirm input conforms to ToProto expectations
-		proto := tc.input.ToProto()
-		test.That(t, len(proto), test.ShouldEqual, len(tc.input.Binaries))
-		for j := range tc.input.Binaries {
+		// confirm response conforms to ToProto expectations
+		proto := res.ToProto()
+		test.That(t, len(proto), test.ShouldEqual, len(res.Binaries))
+		for j := range res.Binaries {
 			test.That(t, proto[j].Metadata, test.ShouldResemble, &datasyncPB.SensorMetadata{
 				TimeRequested: timestamppb.New(timeRequested.UTC()),
 				TimeReceived:  timestamppb.New(timeReceived.UTC()),
-				MimeType:      tc.input.Binaries[j].MimeType.ToProto(),
-				Annotations:   tc.input.Binaries[j].Annotations.ToProto(),
+				MimeType:      res.Binaries[j].MimeType.ToProto(),
+				Annotations:   res.Binaries[j].Annotations.ToProto(),
 			})
 
 			test.That(t, proto[j].Data, test.ShouldResemble, &datasyncPB.SensorData_Binary{
-				Binary: tc.input.Binaries[j].Payload,
+				Binary: res.Binaries[j].Payload,
 			})
 		}
 	}

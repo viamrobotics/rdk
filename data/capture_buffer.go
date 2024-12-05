@@ -10,7 +10,7 @@ import (
 // CaptureBufferedWriter is a buffered, persistent queue of SensorData.
 type CaptureBufferedWriter interface {
 	WriteBinary(items []*v1.SensorData) error
-	WriteTabular(items []*v1.SensorData) error
+	WriteTabular(items *v1.SensorData) error
 	Flush() error
 	Path() string
 }
@@ -76,14 +76,12 @@ func (b *CaptureBuffer) WriteBinary(items []*v1.SensorData) error {
 // '.prog'.
 // Files that have finished being written to are indicated by
 // '.capture'.
-func (b *CaptureBuffer) WriteTabular(items []*v1.SensorData) error {
+func (b *CaptureBuffer) WriteTabular(item *v1.SensorData) error {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
-	for _, item := range items {
-		if IsBinary(item) {
-			return errInvalidTabularSensorData
-		}
+	if IsBinary(item) {
+		return errInvalidTabularSensorData
 	}
 
 	if b.nextFile == nil {
@@ -103,10 +101,8 @@ func (b *CaptureBuffer) WriteTabular(items []*v1.SensorData) error {
 		b.nextFile = nextFile
 	}
 
-	for _, item := range items {
-		if err := b.nextFile.WriteNext(item); err != nil {
-			return err
-		}
+	if err := b.nextFile.WriteNext(item); err != nil {
+		return err
 	}
 
 	return nil

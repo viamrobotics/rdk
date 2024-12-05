@@ -91,7 +91,7 @@ func TestCaptureQueue(t *testing.T) {
 					err := sut.WriteBinary([]*v1.SensorData{binarySensorData})
 					test.That(t, err, test.ShouldBeNil)
 				case tc.dataType == CaptureTypeTabular.ToProto():
-					err := sut.WriteTabular([]*v1.SensorData{structSensorData})
+					err := sut.WriteTabular(structSensorData)
 					test.That(t, err, test.ShouldBeNil)
 				default:
 					t.Error("unknown data type")
@@ -250,7 +250,7 @@ func TestCaptureBufferReader(t *testing.T) {
 				now := time.Now()
 				timeRequested := timestamppb.New(now.UTC())
 				timeReceived := timestamppb.New(now.Add(time.Millisecond).UTC())
-				msg := []*v1.SensorData{{
+				msg := &v1.SensorData{
 					Metadata: &v1.SensorMetadata{
 						TimeRequested: timeRequested,
 						TimeReceived:  timeReceived,
@@ -258,7 +258,7 @@ func TestCaptureBufferReader(t *testing.T) {
 					Data: &v1.SensorData_Struct{
 						Struct: tc.readings[0],
 					},
-				}}
+				}
 				test.That(t, b.WriteTabular(msg), test.ShouldBeNil)
 				test.That(t, b.Flush(), test.ShouldBeNil)
 				dirEntries, err := os.ReadDir(b.Path())
@@ -275,7 +275,7 @@ func TestCaptureBufferReader(t *testing.T) {
 
 				sd, err := cf.ReadNext()
 				test.That(t, err, test.ShouldBeNil)
-				test.That(t, sd, test.ShouldResemble, msg[0])
+				test.That(t, sd, test.ShouldResemble, msg)
 
 				_, err = cf.ReadNext()
 				test.That(t, err, test.ShouldBeError, io.EOF)
@@ -283,7 +283,7 @@ func TestCaptureBufferReader(t *testing.T) {
 				now = time.Now()
 				timeRequested = timestamppb.New(now.UTC())
 				timeReceived = timestamppb.New(now.Add(time.Millisecond).UTC())
-				msg2 := []*v1.SensorData{{
+				msg2 := &v1.SensorData{
 					Metadata: &v1.SensorMetadata{
 						TimeRequested: timeRequested,
 						TimeReceived:  timeReceived,
@@ -291,13 +291,13 @@ func TestCaptureBufferReader(t *testing.T) {
 					Data: &v1.SensorData_Struct{
 						Struct: tc.readings[1],
 					},
-				}}
+				}
 				test.That(t, b.WriteTabular(msg2), test.ShouldBeNil)
 
 				now = time.Now()
 				timeRequested = timestamppb.New(now.UTC())
 				timeReceived = timestamppb.New(now.Add(time.Millisecond).UTC())
-				msg3 := []*v1.SensorData{{
+				msg3 := &v1.SensorData{
 					Metadata: &v1.SensorMetadata{
 						TimeRequested: timeRequested,
 						TimeReceived:  timeReceived,
@@ -305,7 +305,7 @@ func TestCaptureBufferReader(t *testing.T) {
 					Data: &v1.SensorData_Struct{
 						Struct: tc.readings[2],
 					},
-				}}
+				}
 				test.That(t, b.WriteTabular(msg3), test.ShouldBeNil)
 
 				dirEntries2, err := os.ReadDir(b.Path())
@@ -343,11 +343,11 @@ func TestCaptureBufferReader(t *testing.T) {
 
 				sd2, err := cf2.ReadNext()
 				test.That(t, err, test.ShouldBeNil)
-				test.That(t, sd2, test.ShouldResemble, msg2[0])
+				test.That(t, sd2, test.ShouldResemble, msg2)
 
 				sd3, err := cf2.ReadNext()
 				test.That(t, err, test.ShouldBeNil)
-				test.That(t, sd3, test.ShouldResemble, msg3[0])
+				test.That(t, sd3, test.ShouldResemble, msg3)
 
 				_, err = cf2.ReadNext()
 				test.That(t, err, test.ShouldBeError, io.EOF)
@@ -391,7 +391,7 @@ func TestCaptureBufferReader(t *testing.T) {
 			now := time.Now()
 			timeRequested := timestamppb.New(now.UTC())
 			timeReceived := timestamppb.New(now.Add(time.Millisecond).UTC())
-			msg := []*v1.SensorData{{
+			msg := &v1.SensorData{
 				Metadata: &v1.SensorMetadata{
 					TimeRequested: timeRequested,
 					TimeReceived:  timeReceived,
@@ -399,7 +399,7 @@ func TestCaptureBufferReader(t *testing.T) {
 				Data: &v1.SensorData_Binary{
 					Binary: []byte("this is a fake image"),
 				},
-			}}
+			}
 			test.That(t, b.WriteTabular(msg), test.ShouldBeError, errInvalidTabularSensorData)
 			test.That(t, b.Flush(), test.ShouldBeNil)
 			dirEntries, err := os.ReadDir(b.Path())
