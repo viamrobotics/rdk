@@ -198,7 +198,7 @@ func TestXArm6Locations(t *testing.T) {
 		Name:  arm.API.String(),
 		Model: resource.DefaultModelFamily.WithModel("fake"),
 		ConvertedAttributes: &fake.Config{
-			ArmModel: "xArm6",
+			ModelFilePath: "example_kinematics/xarm6_kinematics_test.json",
 		},
 	}
 
