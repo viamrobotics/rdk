@@ -9,10 +9,12 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
@@ -664,14 +666,21 @@ func (c *viamClient) tabularData(dst string, request *datapb.ExportTabularDataRe
 		return errors.Wrapf(err, "could not create destination directories")
 	}
 
-	// Write to a temporary file to avoid duplicate data points and incomplete data in the final file.
-	tmpFile, err := os.CreateTemp(dst, "data.*.ndjson")
+	dataFile, err := os.Create(filepath.Join(dst, "data.ndjson"))
 	if err != nil {
-		return errors.Wrapf(err, "could not create temp file")
+		return errors.Wrapf(err, "could not create data file")
 	}
-	defer os.Remove(tmpFile.Name())
 
-	w := bufio.NewWriter(tmpFile)
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		<-sigChan
+		os.Remove(dataFile.Name())
+		os.Exit(1)
+	}()
+
+	w := bufio.NewWriter(dataFile)
 
 	rowChan := make(chan []byte)
 	errChan := make(chan error, 1)
@@ -720,10 +729,6 @@ func (c *viamClient) tabularData(dst string, request *datapb.ExportTabularDataRe
 					<-done
 					printf(c.c.App.Writer, "") // newline
 					err = w.Flush()
-					if err != nil {
-						return err
-					}
-					err = os.Rename(tmpFile.Name(), filepath.Join(dst, "data.ndjson"))
 					if err != nil {
 						return err
 					}
