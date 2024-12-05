@@ -202,34 +202,6 @@ func TestListOrganizationsAction(t *testing.T) {
 	test.That(t, out.messages[2], test.ShouldContainSubstring, "mandalorians")
 }
 
-type mockDataServiceClient struct {
-	grpc.ClientStream
-	responses []*datapb.ExportTabularDataResponse
-	index     int
-}
-
-func (m *mockDataServiceClient) Recv() (*datapb.ExportTabularDataResponse, error) {
-	if m.index >= len(m.responses) {
-		return nil, io.EOF
-	}
-	resp := m.responses[m.index]
-	m.index++
-	return resp, nil
-}
-
-func (m *mockDataServiceClient) CloseSend() error {
-	if m.ClientStream != nil {
-		return m.ClientStream.CloseSend()
-	}
-	return nil
-}
-
-func newMockStream(responses []*datapb.ExportTabularDataResponse) *mockDataServiceClient {
-	return &mockDataServiceClient{
-		responses: responses,
-	}
-}
-
 func TestSetSupportEmailAction(t *testing.T) {
 	setSupportEmailFunc := func(ctx context.Context, in *apppb.OrganizationSetSupportEmailRequest,
 		opts ...grpc.CallOption,
@@ -265,14 +237,35 @@ func TestGetSupportEmailAction(t *testing.T) {
 	test.That(t, out.messages[0], test.ShouldContainSubstring, "test-email")
 }
 
+type mockDataServiceClient struct {
+	grpc.ClientStream
+	responses []*datapb.ExportTabularDataResponse
+	index     int
+}
+
+func (m *mockDataServiceClient) Recv() (*datapb.ExportTabularDataResponse, error) {
+	if m.index >= len(m.responses) {
+		return nil, io.EOF
+	}
+	resp := m.responses[m.index]
+	m.index++
+	return resp, nil
+}
+
+func newMockStream(responses []*datapb.ExportTabularDataResponse) *mockDataServiceClient {
+	return &mockDataServiceClient{
+		responses: responses,
+	}
+}
+
 func TestExportTabularDataAction(t *testing.T) {
-	pbStruct, err := protoutils.StructToStructPb(map[string]interface{}{"bool": true, "string": "true", "float": float64(1)})
+	pbStructPayload, err := protoutils.StructToStructPb(map[string]interface{}{"bool": true, "string": "true", "float": float64(1)})
 	test.That(t, err, test.ShouldBeNil)
 
 	exportTabularDataFunc := func(ctx context.Context, in *datapb.ExportTabularDataRequest, opts ...grpc.CallOption,
 	) (datapb.DataService_ExportTabularDataClient, error) {
 		return newMockStream([]*datapb.ExportTabularDataResponse{
-			{Payload: pbStruct},
+			{LocationId: "loc-id", Payload: pbStructPayload},
 		}), nil
 	}
 
@@ -290,7 +283,7 @@ func TestExportTabularDataAction(t *testing.T) {
 	test.That(t, out.messages[2], test.ShouldEqual, "\n")
 
 	// expectedDataSize is the expected string length of the data returned by the injected call
-	expectedDataSize := 98
+	expectedDataSize := 76
 	b := make([]byte, expectedDataSize)
 
 	// `data.ndjson` is the standardized name of the file data is written to in the `tabularData` call
@@ -303,23 +296,8 @@ func TestExportTabularDataAction(t *testing.T) {
 	test.That(t, dataSize, test.ShouldEqual, expectedDataSize)
 
 	savedData := string(b)
-	expectedData := "{\"MetadataIndex\":0,\"TimeReceived\":null,\"TimeRequested\":null,\"bool\":true,\"float\":1,\"string\":\"true\"}"
+	expectedData := "{\"locationId\":\"loc-id\", \"payload\":{\"bool\":true, \"float\":1, \"string\":\"true\"}}"
 	test.That(t, savedData, test.ShouldEqual, expectedData)
-
-	expectedMetadataSize := 23
-	b = make([]byte, expectedMetadataSize)
-
-	// metadata is named `0.json` based on its index in the metadata array
-	filePath = utils.ResolveFile("metadata/0.json")
-	file, err = os.Open(filePath)
-	test.That(t, err, test.ShouldBeNil)
-
-	metadataSize, err := file.Read(b)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, metadataSize, test.ShouldEqual, expectedMetadataSize)
-
-	savedMetadata := string(b)
-	test.That(t, savedMetadata, test.ShouldEqual, "{\"locationId\":\"loc-id\"}")
 }
 
 func TestBaseURLParsing(t *testing.T) {
