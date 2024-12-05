@@ -8,7 +8,6 @@ import (
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -19,13 +18,13 @@ import (
 // depthToPretty takes a depth image and turns into a colorful image, with blue being
 // farther away, and red being closest. Actual depth information is lost in the transform.
 type depthToPretty struct {
-	originalStream gostream.VideoStream
-	cameraModel    *transform.PinholeCameraModel
+	src         camera.VideoSource
+	cameraModel *transform.PinholeCameraModel
 }
 
-func propsFromVideoSource(ctx context.Context, source gostream.VideoSource) (camera.Properties, error) {
+func propsFromVideoSource(ctx context.Context, source camera.VideoSource) (camera.Properties, error) {
 	var camProps camera.Properties
-	//nolint:staticcheck
+
 	if cameraSrc, ok := source.(camera.Camera); ok {
 		props, err := cameraSrc.Properties(ctx)
 		if err != nil {
@@ -38,9 +37,9 @@ func propsFromVideoSource(ctx context.Context, source gostream.VideoSource) (cam
 
 func newDepthToPrettyTransform(
 	ctx context.Context,
-	source gostream.VideoSource,
+	source camera.VideoSource,
 	stream camera.ImageType,
-) (gostream.VideoSource, camera.ImageType, error) {
+) (camera.VideoSource, camera.ImageType, error) {
 	if stream != camera.DepthStream {
 		return nil, camera.UnspecifiedStream,
 			errors.Errorf("source has stream type %s, depth_to_pretty only supports depth stream inputs", stream)
@@ -55,10 +54,9 @@ func newDepthToPrettyTransform(
 	if props.DistortionParams != nil {
 		cameraModel.Distortion = props.DistortionParams
 	}
-	depthStream := gostream.NewEmbeddedVideoStream(source)
 	reader := &depthToPretty{
-		originalStream: depthStream,
-		cameraModel:    &cameraModel,
+		src:         source,
+		cameraModel: &cameraModel,
 	}
 	src, err := camera.NewVideoSourceFromReader(ctx, reader, &cameraModel, camera.ColorStream)
 	if err != nil {
@@ -70,7 +68,7 @@ func newDepthToPrettyTransform(
 func (dtp *depthToPretty) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::depthToPretty::Read")
 	defer span.End()
-	i, release, err := dtp.originalStream.Next(ctx)
+	i, release, err := camera.ReadImage(ctx, dtp.src)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -82,7 +80,7 @@ func (dtp *depthToPretty) Read(ctx context.Context) (image.Image, func(), error)
 }
 
 func (dtp *depthToPretty) Close(ctx context.Context) error {
-	return dtp.originalStream.Close(ctx)
+	return dtp.src.Close(ctx)
 }
 
 func (dtp *depthToPretty) PointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
@@ -91,7 +89,7 @@ func (dtp *depthToPretty) PointCloud(ctx context.Context) (pointcloud.PointCloud
 	if dtp.cameraModel == nil || dtp.cameraModel.PinholeCameraIntrinsics == nil {
 		return nil, errors.Wrapf(transform.ErrNoIntrinsics, "depthToPretty transform cannot project to pointcloud")
 	}
-	i, release, err := dtp.originalStream.Next(ctx)
+	i, release, err := camera.ReadImage(ctx, dtp.src)
 	if err != nil {
 		return nil, err
 	}
@@ -111,16 +109,16 @@ type overlayConfig struct {
 
 // overlaySource overlays the depth and color 2D images in order to debug the alignment of the two images.
 type overlaySource struct {
-	src         gostream.VideoSource
+	src         camera.VideoSource
 	cameraModel *transform.PinholeCameraModel
 }
 
 func newOverlayTransform(
 	ctx context.Context,
-	src gostream.VideoSource,
+	src camera.VideoSource,
 	stream camera.ImageType,
 	am utils.AttributeMap,
-) (gostream.VideoSource, camera.ImageType, error) {
+) (camera.VideoSource, camera.ImageType, error) {
 	conf, err := resource.TransformAttributeMap[*overlayConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err

@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/utils"
 )
 
 func TestFakeCameraParams(t *testing.T) {
@@ -90,24 +91,36 @@ func TestRTPPassthrough(t *testing.T) {
 		_, err := cfg.Validate("", camera.API.SubtypeName)
 		test.That(t, err, test.ShouldBeNil)
 
-		camera, err := NewCamera(context.Background(), nil, cfg, logger)
+		cam, err := NewCamera(context.Background(), nil, cfg, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		stream, err := camera.Stream(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-		img, _, err := stream.Next(context.Background())
+		// TODO(hexbabe): remove below test when Stream/ReadImage pattern is refactored
+		t.Run("test Stream and Next", func(t *testing.T) {
+			camera, err := NewCamera(context.Background(), nil, cfg, logger)
+			test.That(t, err, test.ShouldBeNil)
+
+			stream, err := camera.Stream(context.Background())
+			test.That(t, err, test.ShouldBeNil)
+			img, _, err := stream.Next(context.Background())
+			test.That(t, err, test.ShouldBeNil)
+			// GetImage returns the world jpeg
+			test.That(t, img.Bounds(), test.ShouldResemble, image.Rectangle{Max: image.Point{X: 480, Y: 270}})
+			test.That(t, camera, test.ShouldNotBeNil)
+		})
+
+		img, err := camera.DecodeImageFromCamera(context.Background(), utils.MimeTypeRawRGBA, nil, cam)
 		test.That(t, err, test.ShouldBeNil)
 		// GetImage returns the world jpeg
 		test.That(t, img.Bounds(), test.ShouldResemble, image.Rectangle{Max: image.Point{X: 480, Y: 270}})
-		test.That(t, camera, test.ShouldNotBeNil)
+		test.That(t, cam, test.ShouldNotBeNil)
 
 		// implements rtppassthrough.Source
-		cam, ok := camera.(rtppassthrough.Source)
+		passthroughCam, ok := cam.(rtppassthrough.Source)
 		test.That(t, ok, test.ShouldBeTrue)
 		var called atomic.Bool
 		pktChan := make(chan []*rtp.Packet)
 		// SubscribeRTP succeeds
-		sub, err := cam.SubscribeRTP(context.Background(), 512, func(pkts []*rtp.Packet) {
+		sub, err := passthroughCam.SubscribeRTP(context.Background(), 512, func(pkts []*rtp.Packet) {
 			if called.Load() {
 				return
 			}
@@ -119,19 +132,19 @@ func TestRTPPassthrough(t *testing.T) {
 		test.That(t, len(pkts), test.ShouldEqual, 4)
 
 		// Unsubscribe fails when provided an ID for which there is no subscription
-		test.That(t, cam.Unsubscribe(context.Background(), uuid.New()), test.ShouldBeError, errors.New("id not found"))
+		test.That(t, passthroughCam.Unsubscribe(context.Background(), uuid.New()), test.ShouldBeError, errors.New("id not found"))
 
 		test.That(t, sub.Terminated.Err(), test.ShouldBeNil)
 		// Unsubscribe succeeds when provided an ID for which there is a subscription
-		test.That(t, cam.Unsubscribe(context.Background(), sub.ID), test.ShouldBeNil)
+		test.That(t, passthroughCam.Unsubscribe(context.Background(), sub.ID), test.ShouldBeNil)
 		// Unsubscribe cancels the subscription
 		test.That(t, sub.Terminated.Err(), test.ShouldBeError, context.Canceled)
 
 		// subscriptions are cleaned up after Close is called
-		sub2, err := cam.SubscribeRTP(context.Background(), 512, func(pkts []*rtp.Packet) {})
+		sub2, err := passthroughCam.SubscribeRTP(context.Background(), 512, func(pkts []*rtp.Packet) {})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, sub2.Terminated.Err(), test.ShouldBeNil)
-		test.That(t, camera.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, cam.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, sub2.Terminated.Err(), test.ShouldBeError, context.Canceled)
 	})
 

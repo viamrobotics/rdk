@@ -31,6 +31,14 @@ func NewPoseInFrame(frame string, pose spatialmath.Pose) *PoseInFrame {
 	}
 }
 
+// NewZeroPoseInFrame is a convenience method that creates a PoseInFrame with the specified Frame and a zero pose.
+func NewZeroPoseInFrame(frame string) *PoseInFrame {
+	return &PoseInFrame{
+		parent: frame,
+		pose:   spatialmath.NewZeroPose(),
+	}
+}
+
 // Parent returns the name of the frame in which the pose was observed. Needed for Transformable interface.
 func (pF *PoseInFrame) Parent() string {
 	return pF.parent

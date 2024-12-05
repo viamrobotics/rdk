@@ -28,12 +28,12 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
-	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/internal/cloud"
 	cloudinject "go.viam.com/rdk/internal/testutils/inject"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/builtin/capture"
 	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
@@ -449,11 +449,16 @@ func TestSync(t *testing.T) {
 			if tc.dataType == v1.DataType_DATA_TYPE_BINARY_SENSOR {
 				r = setupRobot(tc.cloudConnectionErr, map[resource.Name]resource.Resource{
 					camera.Named("c1"): &inject.Camera{
-						StreamFunc: func(
+						ImageFunc: func(
 							ctx context.Context,
-							errHandlers ...gostream.ErrorHandler,
-						) (gostream.VideoStream, error) {
-							return newVideoStream(imgPng), nil
+							mimeType string,
+							extra map[string]interface{},
+						) ([]byte, camera.ImageMetadata, error) {
+							outBytes, err := rimage.EncodeImage(ctx, imgPng, mimeType)
+							if err != nil {
+								return nil, camera.ImageMetadata{}, err
+							}
+							return outBytes, camera.ImageMetadata{MimeType: mimeType}, nil
 						},
 					},
 				})

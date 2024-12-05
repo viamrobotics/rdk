@@ -8,7 +8,6 @@ import (
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -24,7 +23,7 @@ type segmenterConfig struct {
 
 // segmenterSource takes a pointcloud from the camera and applies a segmenter to it.
 type segmenterSource struct {
-	stream        gostream.VideoStream
+	src           camera.VideoSource
 	cameraName    string
 	segmenterName string
 	r             robot.Robot
@@ -32,11 +31,11 @@ type segmenterSource struct {
 
 func newSegmentationsTransform(
 	ctx context.Context,
-	source gostream.VideoSource,
+	source camera.VideoSource,
 	r robot.Robot,
 	am utils.AttributeMap,
 	sourceString string,
-) (gostream.VideoSource, camera.ImageType, error) {
+) (camera.VideoSource, camera.ImageType, error) {
 	conf, err := resource.TransformAttributeMap[*segmenterConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
@@ -48,7 +47,7 @@ func newSegmentationsTransform(
 	}
 
 	segmenter := &segmenterSource{
-		gostream.NewEmbeddedVideoStream(source),
+		source,
 		sourceString,
 		conf.SegmenterName,
 		r,
@@ -108,7 +107,7 @@ func (ss *segmenterSource) NextPointCloud(ctx context.Context) (pointcloud.Point
 
 // Read returns the image if the stream is valid, else error.
 func (ss *segmenterSource) Read(ctx context.Context) (image.Image, func(), error) {
-	img, release, err := ss.stream.Next(ctx)
+	img, release, err := camera.ReadImage(ctx, ss.src)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not get next source image: %w", err)
 	}
@@ -117,5 +116,5 @@ func (ss *segmenterSource) Read(ctx context.Context) (image.Image, func(), error
 
 // Close closes the underlying stream.
 func (ss *segmenterSource) Close(ctx context.Context) error {
-	return ss.stream.Close(ctx)
+	return ss.src.Close(ctx)
 }
