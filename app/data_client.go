@@ -121,17 +121,17 @@ type ExportTabularDataResponse struct {
 	ComponentType    string
 	MethodName       string
 	TimeCaptured     time.Time
-	MethodParameters map[string]*GenericProtoMessage
+	MethodParameters map[string]interface{}
 	Tags             []string
 	Payload          map[string]interface{}
 }
 
-// ExportTabularDataStream is a stream that returns ExportTabularDataReturns.
+// ExportTabularDataStream is a stream that returns ExportTabularDataResponses.
 type ExportTabularDataStream struct {
 	Stream pb.DataService_ExportTabularDataClient
 }
 
-// Next gets the next ExportTabularDataReturn.
+// Next gets the next ExportTabularDataResponse.
 func (e *ExportTabularDataStream) Next() (*ExportTabularDataResponse, error) {
 	streamResp, err := e.Stream.Recv()
 	if err != nil {
@@ -1308,7 +1308,7 @@ func exportTabularDataReturnFromProto(proto *pb.ExportTabularDataResponse) *Expo
 		ComponentType:    proto.ComponentType,
 		MethodName:       proto.MethodName,
 		TimeCaptured:     proto.TimeCaptured.AsTime(),
-		MethodParameters: genericMethodParamsFromProto(proto.MethodParameters),
+		MethodParameters: methodParamsFromProto(proto.MethodParameters),
 		Tags:             proto.Tags,
 		Payload:          proto.Payload.AsMap(),
 	}
