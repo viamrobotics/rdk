@@ -312,9 +312,12 @@ func TestDataClient(t *testing.T) {
 
 	t.Run("TabularDataByMQL", func(t *testing.T) {
 		// convert to BSON byte arrays
-		matchBytes, _ := bson.Marshal(bson.M{"$match": bson.M{"organization_id": "e76d1b3b-0468-4efd-bb7f-fb1d2b352fcb"}})
-		limitBytes, _ := bson.Marshal(bson.M{"$limit": 1})
-		mqlbinary := [][]byte{matchBytes, limitBytes}
+		matchQuery := bson.M{"$match": bson.M{"organization_id": "e76d1b3b-0468-4efd-bb7f-fb1d2b352fcb"}}
+		matchBytes, _ := bson.Marshal(matchQuery)
+		limitQuery := bson.M{"$limit": 1}
+		limitBytes, _ := bson.Marshal(limitQuery)
+		mqlQueries := []map[string]interface{}{matchQuery, limitQuery}
+		mqlBinary := [][]byte{matchBytes, limitBytes}
 
 		// convert rawData to BSON
 		var expectedRawDataPb [][]byte
@@ -329,12 +332,12 @@ func TestDataClient(t *testing.T) {
 			opts ...grpc.CallOption,
 		) (*pb.TabularDataByMQLResponse, error) {
 			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
-			test.That(t, in.MqlBinary, test.ShouldResemble, mqlbinary)
+			test.That(t, in.MqlBinary, test.ShouldResemble, mqlBinary)
 			return &pb.TabularDataByMQLResponse{
 				RawData: expectedRawDataPb,
 			}, nil
 		}
-		response, _ := client.TabularDataByMQL(context.Background(), organizationID, mqlbinary)
+		response, _ := client.TabularDataByMQL(context.Background(), organizationID, mqlQueries)
 		test.That(t, response, test.ShouldResemble, rawData)
 	})
 
