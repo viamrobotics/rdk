@@ -437,7 +437,7 @@ func newWithResources(
 		// As per the FTDC.Statser interface documentation, the return value of `webSvc.Stats` must
 		// always have the same schema. Otherwise we risk the ftdc "schema" getting out of sync with
 		// the data being written. Having `webSvc.Stats` conform to the API requirements is
-		// challenging when we want to include stats from the `rpcServer` to include.
+		// challenging when we want to include stats from the `rpcServer`.
 		//
 		// RSDK-9369 can be reverted, having the FTDC worker getting started here, when we either:
 		// - Relax the requirement that successive calls to `Stats` have the same schema or
