@@ -1236,14 +1236,6 @@ func methodParamsFromProto(proto map[string]*anypb.Any) map[string]interface{} {
 	return methodParameters
 }
 
-func genericMethodParamsFromProto(proto map[string]*anypb.Any) map[string]*GenericProtoMessage {
-	methodParam := make(map[string]*GenericProtoMessage)
-	for key, val := range proto {
-		methodParam[key] = genericProtoMessageFromProto(val)
-	}
-	return methodParam
-}
-
 func captureMetadataFromProto(proto *pb.CaptureMetadata) CaptureMetadata {
 	if proto == nil {
 		return CaptureMetadata{}
