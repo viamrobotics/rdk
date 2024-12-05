@@ -245,7 +245,6 @@ func (r *localRobot) Logger() logging.Logger {
 
 // StartWeb starts the web server, will return an error if server is already up.
 func (r *localRobot) StartWeb(ctx context.Context, o weboptions.Options) (err error) {
-	time.Sleep(time.Second)
 	ret := r.webSvc.Start(ctx, o)
 	r.startFtdcOnce.Do(func() {
 		if r.ftdc != nil {
