@@ -39,12 +39,7 @@ var (
 		ErrorStatus: &ErrorStatus{
 			Code:    code,
 			Message: message,
-			Details: []*GenericProtoMessage{
-				{
-					TypeURL: siteURL,
-					Value:   byteData,
-				},
-			},
+			Details: []*interface{}(nil),
 		},
 		CreatedOn:       &createdOn,
 		LastModified:    &lastUpdated,
@@ -68,12 +63,7 @@ var (
 		ErrorStatus: &statuspb.Status{
 			Code:    int32(jobMetadata.ErrorStatus.Code),
 			Message: jobMetadata.ErrorStatus.Message,
-			Details: []*anypb.Any{
-				{
-					TypeUrl: jobMetadata.ErrorStatus.Details[0].TypeURL,
-					Value:   jobMetadata.ErrorStatus.Details[0].Value,
-				},
-			},
+			Details: []*anypb.Any{},
 		},
 		CreatedOn:       pbCreatedOn,
 		LastModified:    timestamppb.New(lastUpdated),

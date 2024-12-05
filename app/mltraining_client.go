@@ -8,6 +8,7 @@ import (
 	pb "go.viam.com/api/app/mltraining/v1"
 	"go.viam.com/utils/rpc"
 	errorstatus "google.golang.org/genproto/googleapis/rpc/status"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // TrainingStatus respresents the status of a training job.
@@ -34,7 +35,7 @@ const (
 type ErrorStatus struct {
 	Code    int
 	Message string
-	Details []*GenericProtoMessage
+	Details []*interface{}
 }
 
 // TrainingJobMetadata contains the metadata for a training job.
@@ -141,7 +142,11 @@ func (c *MLTrainingClient) GetTrainingJob(ctx context.Context, id string) (*Trai
 	if err != nil {
 		return nil, err
 	}
-	return trainingJobMetadataFromProto(resp.Metadata), nil
+	metadata, err := trainingJobMetadataFromProto(resp.Metadata)
+	if err != nil{
+		return nil, err
+	}
+	return metadata, nil
 }
 
 // ListTrainingJobs lists training jobs for a given organization ID and training status.
@@ -157,7 +162,11 @@ func (c *MLTrainingClient) ListTrainingJobs(
 	}
 	var jobs []*TrainingJobMetadata
 	for _, job := range resp.Jobs {
-		jobs = append(jobs, trainingJobMetadataFromProto(job))
+		metadata, err := trainingJobMetadataFromProto(job)
+		if err != nil {
+			return nil, err
+		}
+		jobs = append(jobs, metadata)
 	}
 	return jobs, nil
 }
@@ -233,24 +242,29 @@ func trainingJobLogEntryFromProto(log *pb.TrainingJobLogEntry) *TrainingJobLogEn
 	}
 }
 
-func errorStatusFromProto(status *errorstatus.Status) *ErrorStatus {
+func errorStatusFromProto(status *errorstatus.Status) (*ErrorStatus, error) {
 	if status == nil {
-		return nil
+		return nil, nil
 	}
-	var details []*GenericProtoMessage
-	for _, detail := range status.Details {
-		details = append(details, genericProtoMessageFromProto(detail))
-	}
+	var details []*interface{}
+	for _, pbDetail := range status.Details {
+		structValue := &structpb.Value{}
+		if err := pbDetail.UnmarshalTo(structValue); err != nil {
+			return nil, err
+		}
+		detail := structValue.AsInterface()
+		details = append(details, &detail)
+	}	
 	return &ErrorStatus{
 		Code:    int(status.Code),
 		Message: status.Message,
 		Details: details,
-	}
+	}, nil
 }
 
-func trainingJobMetadataFromProto(metadata *pb.TrainingJobMetadata) *TrainingJobMetadata {
+func trainingJobMetadataFromProto(metadata *pb.TrainingJobMetadata) (*TrainingJobMetadata, error) {
 	if metadata == nil {
-		return nil
+		return nil, nil
 	}
 	var createdOn, lastModified, started, ended *time.Time
 	if metadata.CreatedOn != nil {
@@ -269,6 +283,10 @@ func trainingJobMetadataFromProto(metadata *pb.TrainingJobMetadata) *TrainingJob
 		t := metadata.TrainingEnded.AsTime()
 		ended = &t
 	}
+	errorStatus, err := errorStatusFromProto(metadata.ErrorStatus)
+	if err != nil {
+		return nil, err
+	}
 	return &TrainingJobMetadata{
 		ID:                  metadata.Id,
 		DatasetID:           metadata.DatasetId,
@@ -281,14 +299,14 @@ func trainingJobMetadataFromProto(metadata *pb.TrainingJobMetadata) *TrainingJob
 		RegistryItemID:      metadata.RegistryItemId,
 		RegistryItemVersion: metadata.RegistryItemVersion,
 		Status:              trainingStatusFromProto(metadata.Status),
-		ErrorStatus:         errorStatusFromProto(metadata.ErrorStatus),
+		ErrorStatus:         errorStatus,
 		CreatedOn:           createdOn,
 		LastModified:        lastModified,
 		TrainingStarted:     started,
 		TrainingEnded:       ended,
 		SyncedModelID:       metadata.SyncedModelId,
 		Tags:                metadata.Tags,
-	}
+	}, nil
 }
 
 func trainingStatusFromProto(status pb.TrainingStatus) TrainingStatus {
