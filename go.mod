@@ -16,8 +16,6 @@ require (
 	github.com/charmbracelet/huh v0.6.0
 	github.com/charmbracelet/huh/spinner v0.0.0-20240917123815-c9b2c9cdb7b6
 	github.com/creack/pty v1.1.19-0.20220421211855-0d412c9fbeb1
-	github.com/d2r2/go-i2c v0.0.0-20191123181816-73a8a799d6bc
-	github.com/d2r2/go-logger v0.0.0-20210606094344-60e9d1233e22
 	github.com/disintegration/imaging v1.6.2
 	github.com/docker/go-units v0.5.0
 	github.com/edaniels/gobag v1.0.7-0.20220607183102-4242cd9e2848

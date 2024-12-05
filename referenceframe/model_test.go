@@ -13,7 +13,7 @@ import (
 )
 
 func TestModelLoading(t *testing.T) {
-	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
+	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.Name(), test.ShouldEqual, "xArm6")
 	simpleM, ok := m.(*SimpleModel)
@@ -33,13 +33,13 @@ func TestModelLoading(t *testing.T) {
 	randpos := GenerateRandomConfiguration(m, rand.New(rand.NewSource(1)))
 	test.That(t, simpleM.validInputs(FloatsToInputs(randpos)), test.ShouldBeNil)
 
-	m, err = ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "foo")
+	m, err = ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "foo")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.Name(), test.ShouldEqual, "foo")
 }
 
 func TestTransform(t *testing.T) {
-	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
+	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	simpleM, ok := m.(*SimpleModel)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -68,7 +68,7 @@ func TestTransform(t *testing.T) {
 }
 
 func TestIncorrectInputs(t *testing.T) {
-	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
+	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	dof := len(m.DoF())
 

@@ -688,6 +688,30 @@ func TestAppClient(t *testing.T) {
 		test.That(t, resp, test.ShouldResemble, expectedOrganizations)
 	})
 
+	t.Run("SetSupportEmail", func(t *testing.T) {
+		grpcClient.OrganizationSetSupportEmailFunc = func(
+			ctx context.Context, in *pb.OrganizationSetSupportEmailRequest, opts ...grpc.CallOption,
+		) (*pb.OrganizationSetSupportEmailResponse, error) {
+			test.That(t, in.OrgId, test.ShouldEqual, organizationID)
+			return &pb.OrganizationSetSupportEmailResponse{}, nil
+		}
+
+		err := client.OrganizationSetSupportEmail(context.Background(), organizationID, "test-email")
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("GetSupportEmail", func(t *testing.T) {
+		grpcClient.OrganizationGetSupportEmailFunc = func(
+			ctx context.Context, in *pb.OrganizationGetSupportEmailRequest, opts ...grpc.CallOption,
+		) (*pb.OrganizationGetSupportEmailResponse, error) {
+			test.That(t, in.OrgId, test.ShouldEqual, organizationID)
+			return &pb.OrganizationGetSupportEmailResponse{Email: "test-email"}, nil
+		}
+		resp, err := client.OrganizationGetSupportEmail(context.Background(), organizationID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldEqual, "test-email")
+	})
+
 	t.Run("GetOrganizationsWithAccessToLocation", func(t *testing.T) {
 		expectedOrganizationIdentities := []*OrganizationIdentity{&organizationIdentity}
 		grpcClient.GetOrganizationsWithAccessToLocationFunc = func(
