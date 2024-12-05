@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
+	v1 "go.viam.com/api/app/data/v1"
 	datasyncpb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
@@ -123,13 +124,15 @@ func TestCollectors(t *testing.T) {
 			expected: []*datasyncpb.SensorData{
 				{
 					Metadata: &datasyncpb.SensorMetadata{
-						MimeType: datasyncpb.MimeType_MIME_TYPE_IMAGE_JPEG,
+						MimeType:    datasyncpb.MimeType_MIME_TYPE_IMAGE_JPEG,
+						Annotations: &v1.Annotations{Classifications: []*v1.Classification{{Label: "left"}}},
 					},
 					Data: &datasyncpb.SensorData_Binary{Binary: viamLogoJpeg},
 				},
 				{
 					Metadata: &datasyncpb.SensorMetadata{
-						MimeType: datasyncpb.MimeType_MIME_TYPE_IMAGE_JPEG,
+						MimeType:    datasyncpb.MimeType_MIME_TYPE_IMAGE_JPEG,
+						Annotations: &v1.Annotations{Classifications: []*v1.Classification{{Label: "right"}}},
 					},
 					Data: &datasyncpb.SensorData_Binary{Binary: viamLogoJpeg},
 				},
