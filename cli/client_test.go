@@ -230,7 +230,42 @@ func newMockStream(responses []*datapb.ExportTabularDataResponse) *mockDataServi
 	}
 }
 
-func TestExportTabularData(t *testing.T) {
+func TestSetSupportEmailAction(t *testing.T) {
+	setSupportEmailFunc := func(ctx context.Context, in *apppb.OrganizationSetSupportEmailRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.OrganizationSetSupportEmailResponse, error) {
+		return &apppb.OrganizationSetSupportEmailResponse{}, nil
+	}
+	asc := &inject.AppServiceClient{
+		OrganizationSetSupportEmailFunc: setSupportEmailFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+
+	test.That(t, ac.organizationsSupportEmailSetAction(cCtx, "test-org", "test-email"), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+}
+
+func TestGetSupportEmailAction(t *testing.T) {
+	getSupportEmailFunc := func(ctx context.Context, in *apppb.OrganizationGetSupportEmailRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.OrganizationGetSupportEmailResponse, error) {
+		return &apppb.OrganizationGetSupportEmailResponse{Email: "test-email"}, nil
+	}
+	asc := &inject.AppServiceClient{
+		OrganizationGetSupportEmailFunc: getSupportEmailFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+
+	test.That(t, ac.organizationsSupportEmailGetAction(cCtx, "test-org"), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "test-email")
+}
+
+func TestExportTabularDataAction(t *testing.T) {
 	pbStruct, err := protoutils.StructToStructPb(map[string]interface{}{"bool": true, "string": "true", "float": float64(1)})
 	test.That(t, err, test.ShouldBeNil)
 
