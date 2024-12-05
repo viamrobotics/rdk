@@ -248,7 +248,9 @@ func (r *localRobot) StartWeb(ctx context.Context, o weboptions.Options) (err er
 	time.Sleep(time.Second)
 	ret := r.webSvc.Start(ctx, o)
 	r.startFtdcOnce.Do(func() {
-		r.ftdc.Start()
+		if r.ftdc != nil {
+			r.ftdc.Start()
+		}
 	})
 	return ret
 }
