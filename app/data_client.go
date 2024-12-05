@@ -109,8 +109,8 @@ type TabularData struct {
 	TimeReceived  time.Time
 }
 
-// ExportTabularDataReturn represents the result of an ExportTabularData API call.
-type ExportTabularDataReturn struct {
+// ExportTabularDataResponse represents the result of an ExportTabularData API call.
+type ExportTabularDataResponse struct {
 	OrganizationID   string
 	LocationID       string
 	RobotID          string
@@ -132,7 +132,7 @@ type ExportTabularDataStream struct {
 }
 
 // Next gets the next ExportTabularDataReturn.
-func (e *ExportTabularDataStream) Next() (*ExportTabularDataReturn, error) {
+func (e *ExportTabularDataStream) Next() (*ExportTabularDataResponse, error) {
 	streamResp, err := e.Stream.Recv()
 	if err != nil {
 		return nil, err
@@ -1296,8 +1296,8 @@ func tabularDataFromProto(proto *pb.TabularData, metadata *pb.CaptureMetadata) T
 	}
 }
 
-func exportTabularDataReturnFromProto(proto *pb.ExportTabularDataResponse) *ExportTabularDataReturn {
-	return &ExportTabularDataReturn{
+func exportTabularDataReturnFromProto(proto *pb.ExportTabularDataResponse) *ExportTabularDataResponse {
+	return &ExportTabularDataResponse{
 		OrganizationID:   proto.OrganizationId,
 		LocationID:       proto.LocationId,
 		RobotID:          proto.RobotId,
