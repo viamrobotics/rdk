@@ -347,7 +347,7 @@ var app = &cli.App{
 								&cli.StringFlag{
 									Name:     organizationFlagSupportEmail,
 									Required: true,
-									Usage:    "the org to set the support email for",
+									Usage:    "the support email to set for the organization",
 								},
 							},
 							Action: OrganizationsSupportEmailSetAction,
