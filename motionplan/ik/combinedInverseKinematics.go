@@ -21,17 +21,17 @@ type combinedIK struct {
 	limits  []referenceframe.Limit
 }
 
-// CreateCombinedIKFrameSolver creates a combined parallel IK solver that operates on a frame with a number of nlopt solvers equal to the
+// CreateCombinedIKSolver creates a combined parallel IK solver that operates on a frame with a number of nlopt solvers equal to the
 // nCPU passed in. Each will be given a different random seed. When asked to solve, all solvers will be run in parallel
 // and the first valid found solution will be returned.
-func CreateCombinedIKFrameSolver(
-	model referenceframe.Frame,
+func CreateCombinedIKSolver(
+	limits []referenceframe.Limit,
 	logger logging.Logger,
 	nCPU int,
 	goalThreshold float64,
 ) (Solver, error) {
 	ik := &combinedIK{}
-	ik.limits = model.DoF()
+	ik.limits = limits
 	if nCPU == 0 {
 		nCPU = 1
 	}

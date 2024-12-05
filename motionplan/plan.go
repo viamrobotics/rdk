@@ -96,18 +96,19 @@ func (traj Trajectory) String() string {
 }
 
 // EvaluateCost calculates a cost to a trajectory as measured by the given distFunc Metric.
-func (traj Trajectory) EvaluateCost(distFunc ik.SegmentMetric) float64 {
+func (traj Trajectory) EvaluateCost(distFunc ik.SegmentFSMetric) float64 {
 	var totalCost float64
 	last := map[string][]referenceframe.Input{}
-	for _, step := range traj {
-		for frame, inputs := range step {
-			if len(inputs) > 0 {
-				if lastInputs, ok := last[frame]; ok {
-					cost := distFunc(&ik.Segment{StartConfiguration: lastInputs, EndConfiguration: inputs})
-					totalCost += cost
-				}
-				last[frame] = inputs
-			}
+	for i, step := range traj {
+		if i != 0 {
+			cost := distFunc(&ik.SegmentFS{
+				StartConfiguration: last,
+				EndConfiguration:   step,
+			})
+			totalCost += cost
+		}
+		for k, v := range step {
+			last[k] = v
 		}
 	}
 	return totalCost
@@ -117,13 +118,12 @@ func (traj Trajectory) EvaluateCost(distFunc ik.SegmentMetric) float64 {
 // The pose of the PathStep is the pose at the end of the corresponding set of inputs in the Trajectory.
 type Path []PathStep
 
-func newPath(solution []node, sf *solverFrame) (Path, error) {
+func newPath(solution []node, fs referenceframe.FrameSystem) (Path, error) {
 	path := make(Path, 0, len(solution))
-	for _, step := range solution {
-		inputMap := sf.sliceToMap(step.Q())
+	for _, inputNode := range solution {
 		poseMap := make(map[string]*referenceframe.PoseInFrame)
-		for frame := range inputMap {
-			tf, err := sf.fss.Transform(inputMap, referenceframe.NewPoseInFrame(frame, spatialmath.NewZeroPose()), referenceframe.World)
+		for frame := range inputNode.Q() {
+			tf, err := fs.Transform(inputNode.Q(), referenceframe.NewPoseInFrame(frame, spatialmath.NewZeroPose()), referenceframe.World)
 			if err != nil {
 				return nil, err
 			}

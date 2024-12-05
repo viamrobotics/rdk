@@ -9,6 +9,7 @@ import (
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/utils"
 )
 
 func TestFFMPEGCamera(t *testing.T) {
@@ -17,10 +18,13 @@ func TestFFMPEGCamera(t *testing.T) {
 	path := artifact.MustPath("components/camera/ffmpeg/testsrc.mpg")
 	cam, err := NewFFMPEGCamera(ctx, &Config{VideoPath: path}, logger)
 	test.That(t, err, test.ShouldBeNil)
+	// TODO(hexbabe): remove below test when Stream/ReadImage pattern is refactored
 	stream, err := cam.Stream(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	for i := 0; i < 5; i++ {
 		_, _, err := stream.Next(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		_, _, err = cam.Image(ctx, utils.MimeTypeJPEG, nil)
 		test.That(t, err, test.ShouldBeNil)
 	}
 	test.That(t, stream.Close(context.Background()), test.ShouldBeNil)

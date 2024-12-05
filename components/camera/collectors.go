@@ -12,7 +12,6 @@ import (
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
 )
 
@@ -88,13 +87,16 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 		}
 	}
 
+	mimeStr := new(wrapperspb.StringValue)
+	if err := mimeType.UnmarshalTo(mimeStr); err != nil {
+		return nil, err
+	}
+
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::ReadImage")
 		defer span.End()
 
-		ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
-
-		img, release, err := ReadImage(ctx, camera)
+		img, _, err := camera.Image(ctx, mimeStr.Value, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
@@ -104,22 +106,8 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 
 			return nil, data.FailedToReadErr(params.ComponentName, readImage.String(), err)
 		}
-		defer func() {
-			if release != nil {
-				release()
-			}
-		}()
 
-		mimeStr := new(wrapperspb.StringValue)
-		if err := mimeType.UnmarshalTo(mimeStr); err != nil {
-			return nil, err
-		}
-
-		outBytes, err := rimage.EncodeImage(ctx, img, mimeStr.Value)
-		if err != nil {
-			return nil, err
-		}
-		return outBytes, nil
+		return img, nil
 	})
 	return data.NewCollector(cFunc, params)
 }

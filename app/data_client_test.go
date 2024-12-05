@@ -8,6 +8,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	pb "go.viam.com/api/app/data/v1"
+	setPb "go.viam.com/api/app/dataset/v1"
 	syncPb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
 	utils "go.viam.com/utils/protoutils"
@@ -23,7 +24,6 @@ const (
 	mimeType     = "mime_type"
 	uri          = "some.robot.uri"
 	bboxLabel    = "bbox_label"
-	datasetID    = "dataset_id"
 	binaryMetaID = "binary_id"
 	mongodbURI   = "mongo_uri"
 	last         = "last"
@@ -76,7 +76,8 @@ var (
 		OrganizationID: organizationID,
 		LocationID:     locationID,
 	}
-	binaryIDs      = []BinaryID{binaryID}
+	pbBinaryID     = binaryIDToProto(&binaryID)
+	binaryIDs      = []*BinaryID{&binaryID}
 	binaryDataByte = []byte("BYTE")
 	sqlQuery       = "SELECT * FROM readings WHERE organization_id='e76d1b3b-0468-4efd-bb7f-fb1d2b352fcb' LIMIT 1"
 	rawData        = []map[string]interface{}{
@@ -99,7 +100,22 @@ var (
 			},
 		},
 	}
-	datasetIDs  = []string{datasetID}
+	datasetIDs = []string{datasetID}
+	dataset    = Dataset{
+		ID:             datasetID,
+		Name:           name,
+		OrganizationID: organizationID,
+		TimeCreated:    &createdOn,
+	}
+	datasets   = []*Dataset{&dataset}
+	pbDatasets = []*setPb.Dataset{
+		{
+			Id:             dataset.ID,
+			Name:           dataset.Name,
+			OrganizationId: dataset.OrganizationID,
+			TimeCreated:    pbCreatedOn,
+		},
+	}
 	annotations = Annotations{
 		Bboxes: []BoundingBox{
 			{
@@ -166,7 +182,7 @@ func binaryMetadataToProto(binaryMetadata BinaryMetadata) *pb.BinaryMetadata {
 
 func dataRequestToProto(dataRequest DataRequest) *pb.DataRequest {
 	return &pb.DataRequest{
-		Filter:    filterToProto(dataRequest.Filter),
+		Filter:    filterToProto(&dataRequest.Filter),
 		Limit:     uint64(dataRequest.Limit),
 		Last:      dataRequest.Last,
 		SortOrder: orderToProto(dataRequest.SortOrder),
@@ -177,8 +193,12 @@ func createDataGrpcClient() *inject.DataServiceClient {
 	return &inject.DataServiceClient{}
 }
 
-func createGrpcDataSyncClient() *inject.DataSyncServiceClient {
+func createDataSyncGrpcClient() *inject.DataSyncServiceClient {
 	return &inject.DataSyncServiceClient{}
+}
+
+func createDatasetGrpcClient() *inject.DatasetServiceClient {
+	return &inject.DatasetServiceClient{}
 }
 
 func TestDataClient(t *testing.T) {
@@ -210,6 +230,7 @@ func TestDataClient(t *testing.T) {
 		BboxLabels:      bboxLabels,
 		DatasetID:       datasetID,
 	}
+	pbFilter := filterToProto(&filter)
 
 	binaryMetadata := BinaryMetadata{
 		ID:              binaryMetaID,
@@ -258,9 +279,9 @@ func TestDataClient(t *testing.T) {
 				Metadata: []*pb.CaptureMetadata{captureMetadataToProto(tabularMetadata)},
 			}, nil
 		}
-		resp, _ := client.TabularDataByFilter(
-			context.Background(), filter, limit, last,
-			dataRequest.SortOrder, countOnly, includeInternalData)
+		resp, _ := client.TabularDataByFilter(context.Background(), &DataByFilterOptions{
+			&filter, limit, last, dataRequest.SortOrder, countOnly, includeInternalData,
+		})
 		test.That(t, resp.TabularData[0], test.ShouldResemble, tabularData)
 		test.That(t, resp.Count, test.ShouldEqual, count)
 		test.That(t, resp.Last, test.ShouldEqual, last)
@@ -317,6 +338,32 @@ func TestDataClient(t *testing.T) {
 		test.That(t, response, test.ShouldResemble, rawData)
 	})
 
+	t.Run("GetLatestTabularData", func(t *testing.T) {
+		dataStruct, _ := utils.StructToStructPb(data)
+		latestTabularData := LatestTabularDataReturn{
+			TimeCaptured: start,
+			TimeSynced:   end,
+			Payload:      dataStruct.AsMap(),
+		}
+
+		grpcClient.GetLatestTabularDataFunc = func(ctx context.Context, in *pb.GetLatestTabularDataRequest,
+			opts ...grpc.CallOption,
+		) (*pb.GetLatestTabularDataResponse, error) {
+			test.That(t, in.PartId, test.ShouldEqual, partID)
+			test.That(t, in.ResourceName, test.ShouldEqual, componentName)
+			test.That(t, in.ResourceSubtype, test.ShouldEqual, componentType)
+			test.That(t, in.MethodName, test.ShouldResemble, method)
+			return &pb.GetLatestTabularDataResponse{
+				TimeCaptured: timestamppb.New(start),
+				TimeSynced:   timestamppb.New(end),
+				Payload:      dataStruct,
+			}, nil
+		}
+
+		resp, _ := client.GetLatestTabularData(context.Background(), partID, componentName, componentType, method)
+		test.That(t, resp, test.ShouldResemble, latestTabularData)
+	})
+
 	t.Run("BinaryDataByFilter", func(t *testing.T) {
 		includeBinary := true
 		grpcClient.BinaryDataByFilterFunc = func(ctx context.Context, in *pb.BinaryDataByFilterRequest,
@@ -334,8 +381,9 @@ func TestDataClient(t *testing.T) {
 			}, nil
 		}
 		resp, _ := client.BinaryDataByFilter(
-			context.Background(), filter, limit, dataRequest.SortOrder,
-			last, includeBinary, countOnly, includeInternalData)
+			context.Background(), includeBinary, &DataByFilterOptions{
+				&filter, limit, last, dataRequest.SortOrder, countOnly, includeInternalData,
+			})
 		test.That(t, resp.BinaryData[0], test.ShouldResemble, binaryData)
 		test.That(t, resp.Count, test.ShouldEqual, count)
 		test.That(t, resp.Last, test.ShouldEqual, last)
@@ -375,13 +423,13 @@ func TestDataClient(t *testing.T) {
 		grpcClient.DeleteBinaryDataByFilterFunc = func(ctx context.Context, in *pb.DeleteBinaryDataByFilterRequest,
 			opts ...grpc.CallOption,
 		) (*pb.DeleteBinaryDataByFilterResponse, error) {
-			test.That(t, in.Filter, test.ShouldResemble, filterToProto(filter))
+			test.That(t, in.Filter, test.ShouldResemble, pbFilter)
 			test.That(t, in.IncludeInternalData, test.ShouldBeTrue)
 			return &pb.DeleteBinaryDataByFilterResponse{
 				DeletedCount: pbCount,
 			}, nil
 		}
-		resp, _ := client.DeleteBinaryDataByFilter(context.Background(), filter)
+		resp, _ := client.DeleteBinaryDataByFilter(context.Background(), &filter)
 		test.That(t, resp, test.ShouldEqual, count)
 	})
 
@@ -413,11 +461,11 @@ func TestDataClient(t *testing.T) {
 		grpcClient.AddTagsToBinaryDataByFilterFunc = func(ctx context.Context, in *pb.AddTagsToBinaryDataByFilterRequest,
 			opts ...grpc.CallOption,
 		) (*pb.AddTagsToBinaryDataByFilterResponse, error) {
-			test.That(t, in.Filter, test.ShouldResemble, filterToProto(filter))
+			test.That(t, in.Filter, test.ShouldResemble, pbFilter)
 			test.That(t, in.Tags, test.ShouldResemble, tags)
 			return &pb.AddTagsToBinaryDataByFilterResponse{}, nil
 		}
-		client.AddTagsToBinaryDataByFilter(context.Background(), tags, filter)
+		client.AddTagsToBinaryDataByFilter(context.Background(), tags, &filter)
 	})
 
 	t.Run("RemoveTagsFromBinaryDataByIDs", func(t *testing.T) {
@@ -438,13 +486,13 @@ func TestDataClient(t *testing.T) {
 		grpcClient.RemoveTagsFromBinaryDataByFilterFunc = func(ctx context.Context, in *pb.RemoveTagsFromBinaryDataByFilterRequest,
 			opts ...grpc.CallOption,
 		) (*pb.RemoveTagsFromBinaryDataByFilterResponse, error) {
-			test.That(t, in.Filter, test.ShouldResemble, filterToProto(filter))
+			test.That(t, in.Filter, test.ShouldResemble, pbFilter)
 			test.That(t, in.Tags, test.ShouldResemble, tags)
 			return &pb.RemoveTagsFromBinaryDataByFilterResponse{
 				DeletedCount: pbCount,
 			}, nil
 		}
-		resp, _ := client.RemoveTagsFromBinaryDataByFilter(context.Background(), tags, filter)
+		resp, _ := client.RemoveTagsFromBinaryDataByFilter(context.Background(), tags, &filter)
 		test.That(t, resp, test.ShouldEqual, count)
 	})
 
@@ -452,12 +500,12 @@ func TestDataClient(t *testing.T) {
 		grpcClient.TagsByFilterFunc = func(ctx context.Context, in *pb.TagsByFilterRequest,
 			opts ...grpc.CallOption,
 		) (*pb.TagsByFilterResponse, error) {
-			test.That(t, in.Filter, test.ShouldResemble, filterToProto(filter))
+			test.That(t, in.Filter, test.ShouldResemble, pbFilter)
 			return &pb.TagsByFilterResponse{
 				Tags: tags,
 			}, nil
 		}
-		resp, _ := client.TagsByFilter(context.Background(), filter)
+		resp, _ := client.TagsByFilter(context.Background(), &filter)
 		test.That(t, resp, test.ShouldResemble, tags)
 	})
 
@@ -466,7 +514,7 @@ func TestDataClient(t *testing.T) {
 			in *pb.AddBoundingBoxToImageByIDRequest,
 			opts ...grpc.CallOption,
 		) (*pb.AddBoundingBoxToImageByIDResponse, error) {
-			test.That(t, in.BinaryId, test.ShouldResemble, binaryIDToProto(binaryID))
+			test.That(t, in.BinaryId, test.ShouldResemble, pbBinaryID)
 			test.That(t, in.Label, test.ShouldEqual, bboxLabel)
 			test.That(t, in.XMinNormalized, test.ShouldEqual, annotations.Bboxes[0].XMinNormalized)
 			test.That(t, in.YMinNormalized, test.ShouldEqual, annotations.Bboxes[0].YMinNormalized)
@@ -478,7 +526,7 @@ func TestDataClient(t *testing.T) {
 			}, nil
 		}
 		resp, _ := client.AddBoundingBoxToImageByID(
-			context.Background(), binaryID, bboxLabel, annotations.Bboxes[0].XMinNormalized,
+			context.Background(), &binaryID, bboxLabel, annotations.Bboxes[0].XMinNormalized,
 			annotations.Bboxes[0].YMinNormalized, annotations.Bboxes[0].XMaxNormalized, annotations.Bboxes[0].YMaxNormalized)
 		test.That(t, resp, test.ShouldResemble, annotations.Bboxes[0].ID)
 	})
@@ -487,12 +535,12 @@ func TestDataClient(t *testing.T) {
 		grpcClient.RemoveBoundingBoxFromImageByIDFunc = func(ctx context.Context, in *pb.RemoveBoundingBoxFromImageByIDRequest,
 			opts ...grpc.CallOption,
 		) (*pb.RemoveBoundingBoxFromImageByIDResponse, error) {
-			test.That(t, in.BinaryId, test.ShouldResemble, binaryIDToProto(binaryID))
+			test.That(t, in.BinaryId, test.ShouldResemble, pbBinaryID)
 			test.That(t, in.BboxId, test.ShouldEqual, annotations.Bboxes[0].ID)
 
 			return &pb.RemoveBoundingBoxFromImageByIDResponse{}, nil
 		}
-		client.RemoveBoundingBoxFromImageByID(context.Background(), annotations.Bboxes[0].ID, binaryID)
+		client.RemoveBoundingBoxFromImageByID(context.Background(), annotations.Bboxes[0].ID, &binaryID)
 	})
 
 	t.Run("BoundingBoxLabelsByFilter", func(t *testing.T) {
@@ -507,12 +555,12 @@ func TestDataClient(t *testing.T) {
 		grpcClient.BoundingBoxLabelsByFilterFunc = func(ctx context.Context, in *pb.BoundingBoxLabelsByFilterRequest,
 			opts ...grpc.CallOption,
 		) (*pb.BoundingBoxLabelsByFilterResponse, error) {
-			test.That(t, in.Filter, test.ShouldResemble, filterToProto(filter))
+			test.That(t, in.Filter, test.ShouldResemble, pbFilter)
 			return &pb.BoundingBoxLabelsByFilterResponse{
 				Labels: expectedBBoxLabelsPb,
 			}, nil
 		}
-		resp, _ := client.BoundingBoxLabelsByFilter(context.Background(), filter)
+		resp, _ := client.BoundingBoxLabelsByFilter(context.Background(), &filter)
 		test.That(t, resp, test.ShouldResemble, expectedBBoxLabels)
 	})
 	t.Run("UpdateBoundingBox", func(t *testing.T) {
@@ -520,7 +568,7 @@ func TestDataClient(t *testing.T) {
 		grpcClient.UpdateBoundingBoxFunc = func(ctx context.Context, in *pb.UpdateBoundingBoxRequest,
 			opts ...grpc.CallOption,
 		) (*pb.UpdateBoundingBoxResponse, error) {
-			test.That(t, in.BinaryId, test.ShouldResemble, binaryIDToProto(binaryID))
+			test.That(t, in.BinaryId, test.ShouldResemble, pbBinaryID)
 			test.That(t, in.BboxId, test.ShouldResemble, annotationsPb.Bboxes[0].Id)
 			test.That(t, *in.Label, test.ShouldEqual, annotationsPb.Bboxes[0].Label)
 			test.That(t, *in.XMinNormalized, test.ShouldEqual, annotationsPb.Bboxes[0].XMinNormalized)
@@ -529,9 +577,13 @@ func TestDataClient(t *testing.T) {
 			test.That(t, *in.YMaxNormalized, test.ShouldEqual, annotationsPb.Bboxes[0].YMaxNormalized)
 			return &pb.UpdateBoundingBoxResponse{}, nil
 		}
-		client.UpdateBoundingBox(context.Background(), binaryID, annotations.Bboxes[0].ID, &annotationsPb.Bboxes[0].Label,
-			&annotationsPb.Bboxes[0].XMinNormalized, &annotationsPb.Bboxes[0].YMinNormalized,
-			&annotationsPb.Bboxes[0].XMaxNormalized, &annotationsPb.Bboxes[0].YMaxNormalized)
+		client.UpdateBoundingBox(context.Background(), &binaryID, annotations.Bboxes[0].ID, &UpdateBoundingBoxOptions{
+			&annotationsPb.Bboxes[0].Label,
+			&annotationsPb.Bboxes[0].XMinNormalized,
+			&annotationsPb.Bboxes[0].YMinNormalized,
+			&annotationsPb.Bboxes[0].XMaxNormalized,
+			&annotationsPb.Bboxes[0].YMaxNormalized,
+		})
 	})
 
 	t.Run("GetDatabaseConnection", func(t *testing.T) {
@@ -586,7 +638,7 @@ func TestDataClient(t *testing.T) {
 }
 
 func TestDataSyncClient(t *testing.T) {
-	grpcClient := createGrpcDataSyncClient()
+	grpcClient := createDataSyncGrpcClient()
 	client := DataClient{dataSyncClient: grpcClient}
 
 	uploadMetadata := UploadMetadata{
@@ -603,7 +655,7 @@ func TestDataSyncClient(t *testing.T) {
 
 	t.Run("BinaryDataCaptureUpload", func(t *testing.T) {
 		uploadMetadata.Type = DataTypeBinarySensor
-		options := BinaryOptions{
+		options := BinaryDataCaptureUploadOptions{
 			Type:             &binaryDataType,
 			FileName:         &fileName,
 			MethodParameters: methodParameters,
@@ -649,7 +701,7 @@ func TestDataSyncClient(t *testing.T) {
 			TimeRequested: timestamppb.New(start),
 			TimeReceived:  timestamppb.New(end),
 		}
-		options := TabularOptions{
+		options := TabularDataCaptureUploadOptions{
 			Type:             &binaryDataType,
 			FileName:         &fileName,
 			MethodParameters: methodParameters,
@@ -691,7 +743,7 @@ func TestDataSyncClient(t *testing.T) {
 	})
 
 	t.Run("StreamingDataCaptureUpload", func(t *testing.T) {
-		options := StreamingOptions{
+		options := StreamingDataCaptureUploadOptions{
 			ComponentType:    &componentType,
 			ComponentName:    &componentName,
 			MethodName:       &method,
@@ -840,5 +892,76 @@ func TestDataSyncClient(t *testing.T) {
 		resp, err := client.FileUploadFromPath(context.Background(), partID, tempFile.Name(), &options)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldEqual, fileID)
+	})
+}
+
+func TestDatasetClient(t *testing.T) {
+	grpcClient := createDatasetGrpcClient()
+	client := DataClient{datasetClient: grpcClient}
+
+	t.Run("CreateDataset", func(t *testing.T) {
+		grpcClient.CreateDatasetFunc = func(
+			ctx context.Context, in *setPb.CreateDatasetRequest, opts ...grpc.CallOption,
+		) (*setPb.CreateDatasetResponse, error) {
+			test.That(t, in.Name, test.ShouldEqual, name)
+			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
+			return &setPb.CreateDatasetResponse{
+				Id: datasetID,
+			}, nil
+		}
+		resp, err := client.CreateDataset(context.Background(), name, organizationID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldEqual, datasetID)
+	})
+
+	t.Run("DeleteDataset", func(t *testing.T) {
+		grpcClient.DeleteDatasetFunc = func(
+			ctx context.Context, in *setPb.DeleteDatasetRequest, opts ...grpc.CallOption,
+		) (*setPb.DeleteDatasetResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, datasetID)
+			return &setPb.DeleteDatasetResponse{}, nil
+		}
+		err := client.DeleteDataset(context.Background(), datasetID)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("RenameDataset", func(t *testing.T) {
+		grpcClient.RenameDatasetFunc = func(
+			ctx context.Context, in *setPb.RenameDatasetRequest, opts ...grpc.CallOption,
+		) (*setPb.RenameDatasetResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, datasetID)
+			test.That(t, in.Name, test.ShouldEqual, name)
+			return &setPb.RenameDatasetResponse{}, nil
+		}
+		err := client.RenameDataset(context.Background(), datasetID, name)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("ListDatasetsByOrganizationID", func(t *testing.T) {
+		grpcClient.ListDatasetsByOrganizationIDFunc = func(
+			ctx context.Context, in *setPb.ListDatasetsByOrganizationIDRequest, opts ...grpc.CallOption,
+		) (*setPb.ListDatasetsByOrganizationIDResponse, error) {
+			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
+			return &setPb.ListDatasetsByOrganizationIDResponse{
+				Datasets: pbDatasets,
+			}, nil
+		}
+		resp, err := client.ListDatasetsByOrganizationID(context.Background(), organizationID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, &resp, test.ShouldResemble, &datasets)
+	})
+
+	t.Run("ListDatasetsByIDs", func(t *testing.T) {
+		grpcClient.ListDatasetsByIDsFunc = func(
+			ctx context.Context, in *setPb.ListDatasetsByIDsRequest, opts ...grpc.CallOption,
+		) (*setPb.ListDatasetsByIDsResponse, error) {
+			test.That(t, in.Ids, test.ShouldResemble, datasetIDs)
+			return &setPb.ListDatasetsByIDsResponse{
+				Datasets: pbDatasets,
+			}, nil
+		}
+		resp, err := client.ListDatasetsByIDs(context.Background(), datasetIDs)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, &resp, test.ShouldResemble, &datasets)
 	})
 }
