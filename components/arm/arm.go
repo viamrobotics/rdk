@@ -10,7 +10,6 @@ import (
 	"context"
 	"fmt"
 
-	v1 "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 
 	"go.viam.com/rdk/data"
@@ -24,7 +23,6 @@ import (
 
 func init() {
 	resource.RegisterAPI(API, resource.APIRegistration[Arm]{
-		Status:                      resource.StatusFunc(CreateStatus),
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterArmServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.ArmService_ServiceDesc,
@@ -144,32 +142,6 @@ func FromRobot(r robot.Robot, name string) (Arm, error) {
 // NamesFromRobot is a helper for getting all arm names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
-}
-
-// CreateStatus creates a status from the arm. This will report calculated end effector positions even if the given
-// arm is perceived to be out of bounds.
-func CreateStatus(ctx context.Context, a Arm) (*pb.Status, error) {
-	model := a.ModelFrame()
-	joints, err := a.JointPositions(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	var endPosition *v1.Pose
-	if endPose, err := referenceframe.ComputeOOBPosition(model, joints); err == nil {
-		endPosition = spatialmath.PoseToProtobuf(endPose)
-	}
-
-	var jointPositions *pb.JointPositions
-	if jp, err := referenceframe.JointPositionsFromInputs(model, joints); err == nil {
-		jointPositions = jp
-	}
-
-	isMoving, err := a.IsMoving(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.Status{EndPosition: endPosition, JointPositions: jointPositions, IsMoving: isMoving}, nil
 }
 
 // CheckDesiredJointPositions validates that the desired joint positions either bring the joint back
