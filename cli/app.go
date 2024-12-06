@@ -296,7 +296,9 @@ func parseStructFromCtx[T any](ctx *cli.Context) T {
 				case cli.Float64Slice:
 					tValue.Field(i).Set(reflect.ValueOf(v.Value()))
 				default:
-					warningf(ctx.App.Writer, "Attempted to set flag with unsupported slice type %s, this value may not be set correctly. consider filing a ticket to add support", reflectVal.Type().Name())
+					warningf(ctx.App.Writer,
+						"Attempted to set flag with unsupported slice type %s, this value may not be set correctly. consider filing a ticket to add support",
+						reflectVal.Type().Name())
 				}
 			} else {
 				tValue.Field(i).Set(reflect.ValueOf(value))
@@ -492,7 +494,7 @@ var app = &cli.App{
 									Usage: "the name of the key (defaults to your login info with the current time)",
 								},
 							},
-							Action: createCommandWithT[organizationsApiKeyCreateArgs](OrganizationsAPIKeyCreateAction),
+							Action: createCommandWithT[organizationsAPIKeyCreateArgs](OrganizationsAPIKeyCreateAction),
 						},
 					},
 				},

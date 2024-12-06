@@ -293,13 +293,13 @@ func (c *viamClient) generateDefaultKeyName() string {
 	return fmt.Sprintf("%s-%s", c.conf.Auth, time.Now().Format(time.RFC3339))
 }
 
-type organizationsApiKeyCreateArgs struct {
+type organizationsAPIKeyCreateArgs struct {
 	OrgID string
 	Name  string
 }
 
 // OrganizationsAPIKeyCreateAction corresponds to `organizations api-key create`.
-func OrganizationsAPIKeyCreateAction(cCtx *cli.Context, args organizationsApiKeyCreateArgs) error {
+func OrganizationsAPIKeyCreateAction(cCtx *cli.Context, args organizationsAPIKeyCreateArgs) error {
 	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
@@ -307,7 +307,7 @@ func OrganizationsAPIKeyCreateAction(cCtx *cli.Context, args organizationsApiKey
 	return c.organizationsAPIKeyCreateAction(cCtx, args)
 }
 
-func (c *viamClient) organizationsAPIKeyCreateAction(cCtx *cli.Context, args organizationsApiKeyCreateArgs) error {
+func (c *viamClient) organizationsAPIKeyCreateAction(cCtx *cli.Context, args organizationsAPIKeyCreateArgs) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}

@@ -299,7 +299,7 @@ func (m *moduleID) ToDetailURL(baseURL string, packageType PackageType) string {
 	return fmt.Sprintf("https://%s/%s/%s/%s", baseURL, strings.ReplaceAll(string(packageType), "_", "-"), m.prefix, m.name)
 }
 
-func validatePackageUploadRequest(c *cli.Context, args packageUploadArgs) error {
+func validatePackageUploadRequest(_ *cli.Context, args packageUploadArgs) error {
 	packageType := args.Type
 
 	if packageType == "ml_model" {

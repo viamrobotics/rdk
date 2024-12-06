@@ -966,8 +966,6 @@ func getNextModuleUploadRequest(file *os.File) (*apppb.UploadModuleFileRequest, 
 	}, nil
 }
 
-// DownloadModuleAction downloads a module.
-
 type downloadModuleFlags struct {
 	Destination string
 	ID          string
@@ -975,6 +973,7 @@ type downloadModuleFlags struct {
 	Platform    string
 }
 
+// DownloadModuleAction downloads a module.
 func DownloadModuleAction(c *cli.Context, flags downloadModuleFlags) error {
 	moduleID := flags.ID
 	if moduleID == "" {

@@ -623,23 +623,31 @@ func TestShellFileCopy(t *testing.T) {
 
 	t.Run("no arguments or files", func(t *testing.T) {
 		cCtx, viamClient, _, _ := setup(asc, nil, nil, nil, partFlags, "token")
-		test.That(t, machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx)), test.ShouldEqual, errNoFiles)
+		test.That(t,
+			machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx)),
+			test.ShouldEqual, errNoFiles)
 	})
 
 	t.Run("one file path is insufficient", func(t *testing.T) {
 		args := []string{"machine:path"}
 		cCtx, viamClient, _, _ := setup(asc, nil, nil, nil, partFlags, "token", args...)
-		test.That(t, machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx)), test.ShouldEqual, errLastArgOfFromMissing)
+		test.That(t,
+			machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx)),
+			test.ShouldEqual, errLastArgOfFromMissing)
 
 		args = []string{"path"}
 		cCtx, viamClient, _, _ = setup(asc, nil, nil, nil, partFlags, "token", args...)
-		test.That(t, machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx)), test.ShouldEqual, errLastArgOfToMissing)
+		test.That(t,
+			machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx)),
+			test.ShouldEqual, errLastArgOfToMissing)
 	})
 
 	t.Run("from has wrong path prefixes", func(t *testing.T) {
 		args := []string{"machine:path", "path2", "machine:path3", "destination"}
 		cCtx, viamClient, _, _ := setup(asc, nil, nil, nil, partFlags, "token", args...)
-		test.That(t, machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx)), test.ShouldHaveSameTypeAs, copyFromPathInvalidError{})
+		test.That(t,
+			machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx)),
+			test.ShouldHaveSameTypeAs, copyFromPathInvalidError{})
 	})
 
 	tfs := shelltestutils.SetupTestFileSystem(t)
