@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-viper/mapstructure/v2"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
@@ -1246,56 +1245,32 @@ func TestCheckPlan(t *testing.T) {
 
 func TestDoCommand(t *testing.T) {
 	ctx := context.Background()
-	moveReq := motion.MoveReq{
-		ComponentName: gripper.Named("pieceGripper"),
-		Destination:   referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -30, Z: -50})),
-	}
+	ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
+	defer teardown()
 
-	// need to simulate what happens when the DoCommand message is serialized/deserialized into proto
-	doOverWire := func(ms motion.Service, cmd map[string]interface{}) map[string]interface{} {
+	// need to simulate what happens when the DoCommand message is serialized/deserialized into proto so wrap service with inject
+	// service that mirrors the transformations to/from proto that will happen with a client/server
+	ims := inject.NewMotionService("x")
+	ims.DoCommandFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 		command, err := protoutils.StructToStructPb(cmd)
 		test.That(t, err, test.ShouldBeNil)
 		resp, err := ms.DoCommand(ctx, command.AsMap())
 		test.That(t, err, test.ShouldBeNil)
 		respProto, err := protoutils.StructToStructPb(resp)
 		test.That(t, err, test.ShouldBeNil)
-		return respProto.AsMap()
+		return respProto.AsMap(), nil
 	}
 
-	t.Run("DoPlan", func(t *testing.T) {
-		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
-		defer teardown()
+	moveReq := motion.MoveReq{
+		ComponentName: gripper.Named("pieceGripper"),
+		Destination:   referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -30, Z: -50})),
+	}
 
-		// format the command to send DoCommand
-		proto, err := moveReq.ToProto(ms.Name().Name)
-		test.That(t, err, test.ShouldBeNil)
-		cmd := map[string]interface{}{DoPlan: proto}
+	// test DoPlan
+	traj, err := DoPlan(ctx, ims, moveReq)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(traj), test.ShouldEqual, 2)
 
-		// simulate going over the wire
-		resp, ok := doOverWire(ms, cmd)[DoPlan]
-		test.That(t, ok, test.ShouldBeTrue)
-
-		// the client will need to decode the response still
-		var trajectory motionplan.Trajectory
-		err = mapstructure.Decode(resp, &trajectory)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(trajectory), test.ShouldEqual, 2)
-	})
-	t.Run("DoExectute", func(t *testing.T) {
-		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
-		defer teardown()
-
-		plan, err := ms.(*builtIn).plan(ctx, moveReq)
-		test.That(t, err, test.ShouldBeNil)
-
-		// format the command to sent DoCommand
-		cmd := map[string]interface{}{DoExecute: plan.Trajectory()}
-
-		// simulate going over the wire
-		resp, ok := doOverWire(ms, cmd)[DoExecute]
-		test.That(t, ok, test.ShouldBeTrue)
-
-		// the client will need to decode the response still
-		test.That(t, resp, test.ShouldBeTrue)
-	})
+	// test DoExecute
+	test.That(t, DoExecute(ctx, ims, traj), test.ShouldBeNil)
 }
