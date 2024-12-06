@@ -280,12 +280,11 @@ func (m *Module) Start(ctx context.Context) error {
 	defer m.mu.Unlock()
 
 	var lis net.Listener
-	isTcp := tcpRegex.MatchString(m.addr)
+	isTCP := tcpRegex.MatchString(m.addr)
 	prot := "unix"
-	if isTcp {
+	if isTCP {
 		prot = "tcp"
 	}
-	println("prot is", prot)
 	if err := MakeSelfOwnedFilesFunc(func() error {
 		var err error
 		lis, err = net.Listen(prot, m.addr)
@@ -416,7 +415,6 @@ func (m *Module) PeerConnect(encodedOffer string) (string, error) {
 func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResponse, error) {
 	resp := &pb.ReadyResponse{}
 
-	println("Ready top, PeerConnect")
 	encodedAnswer, err := m.PeerConnect(req.WebrtcOffer)
 	if err == nil {
 		resp.WebrtcAnswer = encodedAnswer

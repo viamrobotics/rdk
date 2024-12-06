@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -991,7 +992,6 @@ var tcpRegex = regexp.MustCompile(`:\d+$`)
 func (m *module) dial() error {
 	// TODO(PRODUCT-343): session support probably means interceptors here
 	var err error
-	println("about to dial", m.addr)
 	addrToDial := m.addr
 	if !tcpRegex.MatchString(addrToDial) {
 		addrToDial = "unix://" + m.addr
@@ -1113,14 +1113,10 @@ func (m *module) startProcess(
 		filepath.Dir(parentAddr), fmt.Sprintf("%s-%s", m.cfg.Name, utils.RandomAlphaString(5))); err != nil {
 		return err
 	}
-	if true { // } runtime.GOOS == "windows" {
-		// note: this is because parseTarget in grpc clientconn.go uses url.Parse, which chokes on the backslashes produced by filepath.Join on windows.
-		// todo: figure out where to move this *or* fix upstream.
-		// m.addr = strings.ReplaceAll(m.addr, "\\", "/")
-		// println("replaced string is", m.addr)
+	// todo: also do this when VIAM_TCP_SOCKETS var is set; factor this to a util.
+	if runtime.GOOS == "windows" {
 		m.addr = "127.0.0.1:" + strconv.Itoa(nextPort)
-		nextPort += 1 // todo: atomic
-		println("fun windows port", m.addr)
+		nextPort++ // todo: atomic, and reclaim ports.
 	}
 
 	// We evaluate the Module's ExePath absolutely in the viam-server process so that
