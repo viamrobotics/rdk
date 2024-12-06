@@ -373,8 +373,15 @@ var app = &cli.App{
 					UsageText: createUsageText("organizations billing-service", []string{generalFlagOrgID}, false),
 					Subcommands: []*cli.Command{
 						{
-							Name:   "get-config",
-							Usage:  "get the billing service config for an organization",
+							Name:  "get-config",
+							Usage: "get the billing service config for an organization",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "the org to get the billing config for",
+								},
+							},
 							Action: GetBillingConfigAction,
 						},
 						{
