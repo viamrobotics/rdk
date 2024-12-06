@@ -91,3 +91,29 @@ func StatisticalOutlierFilter(meanK int, stdDevThresh float64) (func(PointCloud)
 	}
 	return filterFunc, nil
 }
+
+// ToBasicOctree takes a pointcloud object and converts it into a basic octree.
+func ToBasicOctree(cloud PointCloud) (*BasicOctree, error) {
+	if basicOctree, ok := cloud.(*BasicOctree); ok {
+		return basicOctree, nil
+	}
+
+	center := getCenterFromPcMetaData(cloud.MetaData())
+	maxSideLength := getMaxSideLengthFromPcMetaData(cloud.MetaData())
+	basicOctree, err := NewBasicOctree(center, maxSideLength)
+	if err != nil {
+		return nil, err
+	}
+	var iterateError error
+	cloud.Iterate(0, 0, func(p r3.Vector, d Data) bool {
+		if err = basicOctree.Set(p, d); err != nil {
+			iterateError = err
+			return false
+		}
+		return true
+	})
+	if iterateError != nil {
+		return nil, err
+	}
+	return basicOctree, nil
+}
