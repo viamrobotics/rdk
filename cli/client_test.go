@@ -263,19 +263,19 @@ func TestGetBillingConfigAction(t *testing.T) {
 	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
 	test.That(t, ac.getBillingConfig(cCtx, "test-org"), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
-	test.That(t, len(out.messages), test.ShouldEqual, 11)
+	test.That(t, len(out.messages), test.ShouldEqual, 12)
 
 	test.That(t, out.messages[0], test.ShouldContainSubstring, "Billing config for organization")
 	test.That(t, out.messages[1], test.ShouldContainSubstring, "Support Email: test-email@mail.com")
 	test.That(t, out.messages[2], test.ShouldContainSubstring, "Billing Dashboard URL: https://app.viam.dev/my-dashboard")
 	test.That(t, out.messages[3], test.ShouldContainSubstring, "Logo URL: https://logo.com")
-	test.That(t, out.messages[4], test.ShouldContainSubstring, "--- Billing Address --- ")
-	test.That(t, out.messages[5], test.ShouldContainSubstring, "1234 Main St")
-	test.That(t, out.messages[6], test.ShouldContainSubstring, "Apt 123")
-	test.That(t, out.messages[7], test.ShouldContainSubstring, "San Francisco")
-	test.That(t, out.messages[8], test.ShouldContainSubstring, "CA")
-	test.That(t, out.messages[9], test.ShouldContainSubstring, "94105")
-	test.That(t, out.messages[10], test.ShouldContainSubstring, "USA")
+	test.That(t, out.messages[5], test.ShouldContainSubstring, "--- Billing Address --- ")
+	test.That(t, out.messages[6], test.ShouldContainSubstring, "1234 Main St")
+	test.That(t, out.messages[7], test.ShouldContainSubstring, "Apt 123")
+	test.That(t, out.messages[8], test.ShouldContainSubstring, "San Francisco")
+	test.That(t, out.messages[9], test.ShouldContainSubstring, "CA")
+	test.That(t, out.messages[10], test.ShouldContainSubstring, "94105")
+	test.That(t, out.messages[11], test.ShouldContainSubstring, "USA")
 }
 
 func TestTabularDataByFilterAction(t *testing.T) {
