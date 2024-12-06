@@ -82,19 +82,7 @@ func TestToOctree(t *testing.T) {
 		return true
 	})
 
-	basicTree, err := createNewOctree(r3.Vector{0, 0, 0}, 2)
-	test.That(t, err, test.ShouldBeNil)
-	pointsAndData := []PointAndData{
-		{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: NewValueData(2)},
-		{P: r3.Vector{X: .5, Y: 0, Z: 0}, D: NewValueData(3)},
-		{P: r3.Vector{X: .5, Y: 0, Z: .5}, D: NewValueData(10)},
-		{P: r3.Vector{X: .5, Y: .5, Z: 0}, D: NewValueData(1)},
-		{P: r3.Vector{X: .55, Y: .55, Z: 0}, D: NewValueData(4)},
-		{P: r3.Vector{X: -.55, Y: -.55, Z: 0}, D: NewValueData(5)},
-		{P: r3.Vector{X: .755, Y: .755, Z: 0}, D: NewValueData(6)},
-	}
-
-	err = addPoints(basicTree, pointsAndData)
+	basicTree, err := createPopulatedOctree(1)
 	test.That(t, err, test.ShouldBeNil)
 	tree, err = ToBasicOctree(basicTree)
 	test.That(t, err, test.ShouldBeNil)
