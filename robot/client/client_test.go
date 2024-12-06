@@ -1824,28 +1824,22 @@ func TestLoggingInterceptor(t *testing.T) {
 		// Needed for client connect. Not important to the test.
 		ResourceNamesFunc:   func() []resource.Name { return []resource.Name{arm.Named("myArm")} },
 		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
-		// Hijack the `StatusFunc` for testing the reception of debug metadata via the
-		// logging/distributed tracing interceptor.
-		// StatusFunc: func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-		// 	switch len(resourceNames) {
-		// 	case 0:
-		// 		// The status call with a nil `resourceNames` signals there should be no debug
-		// 		// information on the context.
-		// 		if logging.IsDebugMode(ctx) || logging.GetName(ctx) != "" {
-		// 			return nil, fmt.Errorf("Bad context. DebugMode? %v Name: %v", logging.IsDebugMode(ctx), logging.GetName(ctx))
-		// 		}
-		// 	case 1:
-		// 		// The status call with a `resourceNames` of length 1 signals there should be debug
-		// 		// information with `oliver`.
-		// 		if !logging.IsDebugMode(ctx) || logging.GetName(ctx) != "oliver" {
-		// 			return nil, fmt.Errorf("Bad context. DebugMode? %v Name: %v", logging.IsDebugMode(ctx), logging.GetName(ctx))
-		// 		}
-		// 	default:
-		// 		return nil, fmt.Errorf("Bad resource names: %v", resourceNames)
-		// 	}
 
-		// 	return nil, nil
-		// },
+		// Hijack the `MachineStatusFunc` for testing the reception of debug metadata via the
+		// logging/distributed tracing interceptor.
+		MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
+			// If there is no debug information with the context, return no revision
+			if !logging.IsDebugMode(ctx) && logging.GetName(ctx) == "" {
+				return robot.MachineStatus{}, nil
+			}
+
+			// If there is debug information with `oliver` with the context, return a revision of `oliver`
+			if logging.IsDebugMode(ctx) && logging.GetName(ctx) == "oliver" {
+				return robot.MachineStatus{Config: config.Revision{Revision: "oliver"}}, nil
+			}
+
+			return robot.MachineStatus{}, errors.New("shouldn't happen")
+		},
 	}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 
@@ -1858,15 +1852,15 @@ func TestLoggingInterceptor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer client.Close(context.Background())
 
-	// The status call with a nil `resourceNames` signals there should be no debug information on
-	// the context.
-	// _, err = client.Status(context.Background(), []resource.Name{})
-	// test.That(t, err, test.ShouldBeNil)
+	// The machine status call with no debug information on the context should return no resource statuses.
+	status, err := client.MachineStatus(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, status.Config.Revision, test.ShouldEqual, "")
 
-	// The status call with a `resourceNames` of length 1 signals there should be debug information
-	// with `oliver`.
-	// _, err = client.Status(logging.EnableDebugModeWithKey(context.Background(), "oliver"), []resource.Name{{}})
-	// test.That(t, err, test.ShouldBeNil)
+	// The machine status call with debug information of `oliver` should return one resource status.
+	status, err = client.MachineStatus(logging.EnableDebugModeWithKey(context.Background(), "oliver"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, status.Config.Revision, test.ShouldEqual, "oliver")
 }
 
 func TestCloudMetadata(t *testing.T) {
