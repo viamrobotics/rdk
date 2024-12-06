@@ -102,7 +102,7 @@ func ToBasicOctree(cloud PointCloud) (*BasicOctree, error) {
 	maxSideLength := getMaxSideLengthFromPcMetaData(cloud.MetaData())
 	basicOctree, err := NewBasicOctree(center, maxSideLength)
 	if err != nil {
-		return &BasicOctree{}, err
+		return nil, err
 	}
 	var iterateError error
 	cloud.Iterate(0, 0, func(p r3.Vector, d Data) bool {
@@ -113,7 +113,7 @@ func ToBasicOctree(cloud PointCloud) (*BasicOctree, error) {
 		return true
 	})
 	if iterateError != nil {
-		return &BasicOctree{}, iterateError
+		return nil, err
 	}
 	return basicOctree, nil
 }
