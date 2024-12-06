@@ -104,7 +104,7 @@ type CaptureInterval struct {
 type TabularData struct {
 	Data          map[string]interface{}
 	MetadataIndex int
-	Metadata      CaptureMetadata
+	Metadata      *CaptureMetadata
 	TimeRequested time.Time
 	TimeReceived  time.Time
 }
@@ -124,7 +124,7 @@ type BinaryMetadata struct {
 	FileName        string
 	FileExt         string
 	URI             string
-	Annotations     Annotations
+	Annotations     *Annotations
 	DatasetIDs      []string
 }
 
@@ -148,7 +148,7 @@ type BoundingBox struct {
 
 // Annotations are data annotations used for machine learning.
 type Annotations struct {
-	Bboxes []BoundingBox
+	Bboxes []*BoundingBox
 }
 
 // TabularDataByFilterResponse represents the result of a TabularDataByFilter query.
@@ -193,7 +193,7 @@ type SensorMetadata struct {
 	TimeRequested time.Time
 	TimeReceived  time.Time
 	MimeType      MimeType
-	Annotations   Annotations
+	Annotations   *Annotations
 }
 
 // SensorData contains the contents and metadata for tabular data.
@@ -380,13 +380,17 @@ func (d *DataClient) TabularDataByFilter(ctx context.Context, opts *DataByFilter
 	// TabularData contains tabular data and associated metadata
 	dataArray := []*TabularData{}
 	var metadata *pb.CaptureMetadata
-	for _, data := range resp.Data {
-		if int(data.MetadataIndex) < len(resp.Metadata) {
-			metadata = resp.Metadata[data.MetadataIndex]
+	for _, tabData := range resp.Data {
+		if int(tabData.MetadataIndex) < len(resp.Metadata) {
+			metadata = resp.Metadata[tabData.MetadataIndex]
 		} else {
 			metadata = &pb.CaptureMetadata{}
 		}
-		dataArray = append(dataArray, tabularDataFromProto(data, metadata))
+		data, err := tabularDataFromProto(tabData, metadata)
+		if err != nil {
+			return nil, err
+		}
+		dataArray = append(dataArray, data)
 	}
 
 	return &TabularDataByFilterResponse{
@@ -491,7 +495,11 @@ func (d *DataClient) BinaryDataByFilter(
 	}
 	data := make([]*BinaryData, len(resp.Data))
 	for i, protoData := range resp.Data {
-		data[i] = binaryDataFromProto(protoData)
+		binData, err := binaryDataFromProto(protoData)
+		if err != nil {
+			return nil, err
+		}
+		data[i] = binData
 	}
 	return &BinaryDataByFilterResponse{
 		BinaryData: data,
@@ -511,7 +519,11 @@ func (d *DataClient) BinaryDataByIDs(ctx context.Context, binaryIDs []*BinaryID)
 	}
 	data := make([]*BinaryData, len(resp.Data))
 	for i, protoData := range resp.Data {
-		data[i] = binaryDataFromProto(protoData)
+		binData, err := binaryDataFromProto(protoData)
+		if err != nil {
+			return nil, err
+		}
+		data[i] = binData
 	}
 	return data, nil
 }
@@ -1153,8 +1165,11 @@ func (d *DataClient) ListDatasetsByIDs(ctx context.Context, ids []string) ([]*Da
 	return datasets, nil
 }
 
-func boundingBoxFromProto(proto *pb.BoundingBox) BoundingBox {
-	return BoundingBox{
+func boundingBoxFromProto(proto *pb.BoundingBox) *BoundingBox {
+	if proto == nil {
+		return nil
+	}
+	return &BoundingBox{
 		ID:             proto.Id,
 		Label:          proto.Label,
 		XMinNormalized: proto.XMinNormalized,
@@ -1164,36 +1179,43 @@ func boundingBoxFromProto(proto *pb.BoundingBox) BoundingBox {
 	}
 }
 
-func annotationsFromProto(proto *pb.Annotations) Annotations {
+func annotationsFromProto(proto *pb.Annotations) *Annotations {
 	if proto == nil {
-		return Annotations{}
+		return nil
 	}
-	bboxes := make([]BoundingBox, len(proto.Bboxes))
+	bboxes := make([]*BoundingBox, len(proto.Bboxes))
 	for i, bboxProto := range proto.Bboxes {
 		bboxes[i] = boundingBoxFromProto(bboxProto)
 	}
-	return Annotations{
+	return &Annotations{
 		Bboxes: bboxes,
 	}
 }
 
-func methodParamsFromProto(proto map[string]*anypb.Any) map[string]interface{} {
+func methodParamsFromProto(proto map[string]*anypb.Any) (map[string]interface{}, error) {
 	methodParameters := make(map[string]interface{})
 	for key, value := range proto {
+		if value == nil {
+			methodParameters[key] = nil
+		}
 		structValue := &structpb.Value{}
 		if err := value.UnmarshalTo(structValue); err != nil {
-			return nil
+			return nil, err
 		}
 		methodParameters[key] = structValue.String()
 	}
-	return methodParameters
+	return methodParameters, nil
 }
 
-func captureMetadataFromProto(proto *pb.CaptureMetadata) CaptureMetadata {
+func captureMetadataFromProto(proto *pb.CaptureMetadata) (*CaptureMetadata, error) {
 	if proto == nil {
-		return CaptureMetadata{}
+		return nil, nil
 	}
-	return CaptureMetadata{
+	params, err := methodParamsFromProto(proto.MethodParameters)
+	if err != nil {
+		return nil, err
+	}
+	return &CaptureMetadata{
 		OrganizationID:   proto.OrganizationId,
 		LocationID:       proto.LocationId,
 		RobotName:        proto.RobotName,
@@ -1203,29 +1225,37 @@ func captureMetadataFromProto(proto *pb.CaptureMetadata) CaptureMetadata {
 		ComponentType:    proto.ComponentType,
 		ComponentName:    proto.ComponentName,
 		MethodName:       proto.MethodName,
-		MethodParameters: methodParamsFromProto(proto.MethodParameters),
+		MethodParameters: params,
 		Tags:             proto.Tags,
 		MimeType:         proto.MimeType,
-	}
+	}, nil
 }
 
-func binaryDataFromProto(proto *pb.BinaryData) *BinaryData {
+func binaryDataFromProto(proto *pb.BinaryData) (*BinaryData, error) {
 	if proto == nil {
-		return nil
+		return nil, nil
+	}
+	metadata, err := binaryMetadataFromProto(proto.Metadata)
+	if err != nil {
+		return nil, err
 	}
 	return &BinaryData{
 		Binary:   proto.Binary,
-		Metadata: binaryMetadataFromProto(proto.Metadata),
-	}
+		Metadata: metadata,
+	}, nil
 }
 
-func binaryMetadataFromProto(proto *pb.BinaryMetadata) *BinaryMetadata {
+func binaryMetadataFromProto(proto *pb.BinaryMetadata) (*BinaryMetadata, error) {
 	if proto == nil {
-		return nil
+		return nil, nil
+	}
+	captureMetadata, err := captureMetadataFromProto(proto.CaptureMetadata)
+	if err != nil {
+		return nil, err
 	}
 	return &BinaryMetadata{
 		ID:              proto.Id,
-		CaptureMetadata: captureMetadataFromProto(proto.CaptureMetadata),
+		CaptureMetadata: *captureMetadata,
 		TimeRequested:   proto.TimeRequested.AsTime(),
 		TimeReceived:    proto.TimeReceived.AsTime(),
 		FileName:        proto.FileName,
@@ -1233,20 +1263,24 @@ func binaryMetadataFromProto(proto *pb.BinaryMetadata) *BinaryMetadata {
 		URI:             proto.Uri,
 		Annotations:     annotationsFromProto(proto.Annotations),
 		DatasetIDs:      proto.DatasetIds,
-	}
+	}, nil
 }
 
-func tabularDataFromProto(proto *pb.TabularData, metadata *pb.CaptureMetadata) *TabularData {
+func tabularDataFromProto(proto *pb.TabularData, metadata *pb.CaptureMetadata) (*TabularData, error) {
 	if proto == nil {
-		return nil
+		return nil, nil
+	}
+	md, err := captureMetadataFromProto(metadata)
+	if err != nil {
+		return nil, err
 	}
 	return &TabularData{
 		Data:          proto.Data.AsMap(),
 		MetadataIndex: int(proto.MetadataIndex),
-		Metadata:      captureMetadataFromProto(metadata),
+		Metadata:      md,
 		TimeRequested: proto.TimeRequested.AsTime(),
 		TimeReceived:  proto.TimeReceived.AsTime(),
-	}
+	}, nil
 }
 
 func binaryIDToProto(binaryID *BinaryID) *pb.BinaryID {
@@ -1349,6 +1383,9 @@ func convertBsonToNative(data interface{}) interface{} {
 }
 
 func datasetFromProto(dataset *setPb.Dataset) *Dataset {
+	if dataset == nil {
+		return nil
+	}
 	var timeCreated *time.Time
 	if dataset.TimeCreated != nil {
 		t := dataset.TimeCreated.AsTime()
@@ -1384,7 +1421,7 @@ func uploadMetadataToProto(metadata UploadMetadata) *syncPb.UploadMetadata {
 	}
 }
 
-func annotationsToProto(annotations Annotations) *pb.Annotations {
+func annotationsToProto(annotations *Annotations) *pb.Annotations {
 	var protoBboxes []*pb.BoundingBox
 	for _, bbox := range annotations.Bboxes {
 		protoBboxes = append(protoBboxes, &pb.BoundingBox{

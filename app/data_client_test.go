@@ -67,7 +67,7 @@ var (
 	tabularData = TabularData{
 		Data:          data,
 		MetadataIndex: 0,
-		Metadata:      tabularMetadata,
+		Metadata:      &tabularMetadata,
 		TimeRequested: start,
 		TimeReceived:  end,
 	}
@@ -117,7 +117,7 @@ var (
 		},
 	}
 	annotations = Annotations{
-		Bboxes: []BoundingBox{
+		Bboxes: []*BoundingBox{
 			{
 				ID:             "bbox1",
 				Label:          "label1",
@@ -240,7 +240,7 @@ func TestDataClient(t *testing.T) {
 		FileName:        fileName,
 		FileExt:         fileExt,
 		URI:             uri,
-		Annotations:     annotations,
+		Annotations:     &annotations,
 		DatasetIDs:      datasetIDs,
 	}
 
@@ -552,8 +552,8 @@ func TestDataClient(t *testing.T) {
 			annotations.Bboxes[1].Label,
 		}
 		expectedBBoxLabelsPb := []string{
-			annotationsToProto(annotations).Bboxes[0].Label,
-			annotationsToProto(annotations).Bboxes[1].Label,
+			annotationsToProto(&annotations).Bboxes[0].Label,
+			annotationsToProto(&annotations).Bboxes[1].Label,
 		}
 		grpcClient.BoundingBoxLabelsByFilterFunc = func(ctx context.Context, in *pb.BoundingBoxLabelsByFilterRequest,
 			opts ...grpc.CallOption,
@@ -567,7 +567,7 @@ func TestDataClient(t *testing.T) {
 		test.That(t, resp, test.ShouldResemble, expectedBBoxLabels)
 	})
 	t.Run("UpdateBoundingBox", func(t *testing.T) {
-		annotationsPb := annotationsToProto(annotations)
+		annotationsPb := annotationsToProto(&annotations)
 		grpcClient.UpdateBoundingBoxFunc = func(ctx context.Context, in *pb.UpdateBoundingBoxRequest,
 			opts ...grpc.CallOption,
 		) (*pb.UpdateBoundingBoxResponse, error) {
