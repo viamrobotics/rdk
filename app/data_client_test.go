@@ -364,7 +364,7 @@ func TestDataClient(t *testing.T) {
 		}
 
 		resp, _ := client.GetLatestTabularData(context.Background(), partID, componentName, componentType, method)
-		test.That(t, resp, test.ShouldResemble, latestTabularData)
+		test.That(t, resp, test.ShouldResemble, &latestTabularData)
 	})
 
 	t.Run("BinaryDataByFilter", func(t *testing.T) {
@@ -387,7 +387,7 @@ func TestDataClient(t *testing.T) {
 			context.Background(), includeBinary, &DataByFilterOptions{
 				&filter, limit, last, dataRequest.SortOrder, countOnly, includeInternalData,
 			})
-		test.That(t, resp.BinaryData[0], test.ShouldResemble, binaryData)
+		test.That(t, resp.BinaryData[0], test.ShouldResemble, &binaryData)
 		test.That(t, resp.Count, test.ShouldEqual, count)
 		test.That(t, resp.Last, test.ShouldEqual, last)
 	})
@@ -402,7 +402,7 @@ func TestDataClient(t *testing.T) {
 			return &pb.BinaryDataByIDsResponse{Data: expectedBinaryDataList, Count: uint64(len(expectedBinaryDataList))}, nil
 		}
 		respBinaryData, _ := client.BinaryDataByIDs(context.Background(), binaryIDs)
-		test.That(t, respBinaryData[0], test.ShouldResemble, binaryData)
+		test.That(t, respBinaryData[0], test.ShouldResemble, &binaryData)
 	})
 
 	t.Run("DeleteTabularData", func(t *testing.T) {

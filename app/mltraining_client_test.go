@@ -39,7 +39,7 @@ var (
 		ErrorStatus: &ErrorStatus{
 			Code:    code,
 			Message: message,
-			Details: []*interface{}(nil),
+			Details: []interface{}(nil),
 		},
 		CreatedOn:       &createdOn,
 		LastModified:    &lastUpdated,

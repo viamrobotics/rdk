@@ -35,7 +35,7 @@ const (
 type ErrorStatus struct {
 	Code    int
 	Message string
-	Details []*interface{}
+	Details []interface{}
 }
 
 // TrainingJobMetadata contains the metadata for a training job.
@@ -246,7 +246,7 @@ func errorStatusFromProto(status *errorstatus.Status) (*ErrorStatus, error) {
 	if status == nil {
 		return nil, nil
 	}
-	var details []*interface{}
+	var details []interface{}
 	for _, pbDetail := range status.Details {
 		structValue := &structpb.Value{}
 		if err := pbDetail.UnmarshalTo(structValue); err != nil {
