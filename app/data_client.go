@@ -151,36 +151,36 @@ type Annotations struct {
 	Bboxes []BoundingBox
 }
 
-// TabularDataReturn represents the result of a TabularDataByFilter query.
+// TabularDataByFilterResponse represents the result of a TabularDataByFilter query.
 // It contains the retrieved tabular data and associated metadata,
 // the total number of entries retrieved (Count), and the ID of the last returned page (Last).
-type TabularDataReturn struct {
-	TabularData []TabularData
+type TabularDataByFilterResponse struct {
+	TabularData []*TabularData
 	Count       int
 	Last        string
 }
 
-// BinaryDataReturn represents the result of a BinaryDataByFilter query.
+// BinaryDataByFilterResponse represents the result of a BinaryDataByFilter query.
 // It contains the retrieved binary data and associated metadata,
 // the total number of entries retrieved (Count), and the ID of the last returned page (Last).
-type BinaryDataReturn struct {
+type BinaryDataByFilterResponse struct {
 	BinaryData []BinaryData
 	Count      int
 	Last       string
 }
 
-// DatabaseConnReturn represents the response returned by GetDatabaseConnection.
+// GetDatabaseConnectionResponse represents the response returned by GetDatabaseConnection.
 // It contains the hostname endpoint, a URI for connecting to the MongoDB Atlas Data Federation instance,
 // and a flag indicating whether a database user is configured for the Viam organization.
-type DatabaseConnReturn struct {
+type GetDatabaseConnectionResponse struct {
 	Hostname        string
 	MongodbURI      string
 	HasDatabaseUser bool
 }
 
-// LatestTabularDataReturn represents the response returned by GetLatestTabularData. It contains the most recently captured data
+// GetLatestTabularDataResponse represents the response returned by GetLatestTabularData. It contains the most recently captured data
 // payload, the time it was captured, and the time it was synced.
-type LatestTabularDataReturn struct {
+type GetLatestTabularDataResponse struct {
 	TimeCaptured time.Time
 	TimeSynced   time.Time
 	Payload      map[string]interface{}
@@ -354,7 +354,7 @@ func BsonToGo(rawData [][]byte) ([]map[string]interface{}, error) {
 }
 
 // TabularDataByFilter queries tabular data and metadata based on given filters.
-func (d *DataClient) TabularDataByFilter(ctx context.Context, opts *DataByFilterOptions) (TabularDataReturn, error) {
+func (d *DataClient) TabularDataByFilter(ctx context.Context, opts *DataByFilterOptions) (*TabularDataByFilterResponse, error) {
 	dataReq := pb.DataRequest{}
 	var countOnly, includeInternalData bool
 	if opts != nil {
@@ -375,10 +375,10 @@ func (d *DataClient) TabularDataByFilter(ctx context.Context, opts *DataByFilter
 		IncludeInternalData: includeInternalData,
 	})
 	if err != nil {
-		return TabularDataReturn{}, err
+		return nil, err
 	}
 	// TabularData contains tabular data and associated metadata
-	dataArray := []TabularData{}
+	dataArray := []*TabularData{}
 	var metadata *pb.CaptureMetadata
 	for _, data := range resp.Data {
 		if int(data.MetadataIndex) < len(resp.Metadata) {
@@ -389,7 +389,7 @@ func (d *DataClient) TabularDataByFilter(ctx context.Context, opts *DataByFilter
 		dataArray = append(dataArray, tabularDataFromProto(data, metadata))
 	}
 
-	return TabularDataReturn{
+	return &TabularDataByFilterResponse{
 		TabularData: dataArray,
 		Count:       int(resp.Count),
 		Last:        resp.Last,
@@ -397,7 +397,7 @@ func (d *DataClient) TabularDataByFilter(ctx context.Context, opts *DataByFilter
 }
 
 // TabularDataBySQL queries tabular data with a SQL query.
-func (d *DataClient) TabularDataBySQL(ctx context.Context, organizationID, sqlQuery string) ([]map[string]interface{}, error) {
+func (d *DataClient) TabularDataBySQL(ctx context.Context, organizationID, sqlQuery string) (*[]map[string]interface{}, error) {
 	resp, err := d.dataClient.TabularDataBySQL(ctx, &pb.TabularDataBySQLRequest{
 		OrganizationId: organizationID,
 		SqlQuery:       sqlQuery,
@@ -409,13 +409,13 @@ func (d *DataClient) TabularDataBySQL(ctx context.Context, organizationID, sqlQu
 	if err != nil {
 		return nil, err
 	}
-	return dataObjects, nil
+	return &dataObjects, nil
 }
 
 // TabularDataByMQL queries tabular data with MQL (MongoDB Query Language) queries.
 func (d *DataClient) TabularDataByMQL(
 	ctx context.Context, organizationID string, mqlQueries []map[string]interface{},
-) ([]map[string]interface{}, error) {
+) (*[]map[string]interface{}, error) {
 	mqlBinary := [][]byte{}
 	for _, query := range mqlQueries {
 		binary, err := bson.Marshal(query)
@@ -437,13 +437,13 @@ func (d *DataClient) TabularDataByMQL(
 	if err != nil {
 		return nil, err
 	}
-	return result, nil
+	return &result, nil
 }
 
 // GetLatestTabularData gets the most recent tabular data captured from the specified data source, as well as the time that it was captured
 // and synced. If no data was synced to the data source within the last year, LatestTabularDataReturn will be empty.
 func (d *DataClient) GetLatestTabularData(ctx context.Context, partID, resourceName, resourceSubtype, methodName string) (
-	LatestTabularDataReturn, error,
+	*GetLatestTabularDataResponse, error,
 ) {
 	resp, err := d.dataClient.GetLatestTabularData(ctx, &pb.GetLatestTabularDataRequest{
 		PartId:          partID,
@@ -452,10 +452,10 @@ func (d *DataClient) GetLatestTabularData(ctx context.Context, partID, resourceN
 		MethodName:      methodName,
 	})
 	if err != nil {
-		return LatestTabularDataReturn{}, err
+		return nil, err
 	}
 
-	return LatestTabularDataReturn{
+	return &GetLatestTabularDataResponse{
 		TimeCaptured: resp.TimeCaptured.AsTime(),
 		TimeSynced:   resp.TimeSynced.AsTime(),
 		Payload:      resp.Payload.AsMap(),
@@ -465,7 +465,7 @@ func (d *DataClient) GetLatestTabularData(ctx context.Context, partID, resourceN
 // BinaryDataByFilter queries binary data and metadata based on given filters.
 func (d *DataClient) BinaryDataByFilter(
 	ctx context.Context, includeBinary bool, opts *DataByFilterOptions,
-) (BinaryDataReturn, error) {
+) (*BinaryDataByFilterResponse, error) {
 	dataReq := pb.DataRequest{}
 	var countOnly, includeInternalData bool
 	if opts != nil {
@@ -487,13 +487,13 @@ func (d *DataClient) BinaryDataByFilter(
 		IncludeInternalData: includeInternalData,
 	})
 	if err != nil {
-		return BinaryDataReturn{}, err
+		return nil, err
 	}
 	data := make([]BinaryData, len(resp.Data))
 	for i, protoData := range resp.Data {
 		data[i] = binaryDataFromProto(protoData)
 	}
-	return BinaryDataReturn{
+	return &BinaryDataByFilterResponse{
 		BinaryData: data,
 		Count:      int(resp.Count),
 		Last:       resp.Last,
@@ -694,14 +694,14 @@ func (d *DataClient) UpdateBoundingBox(ctx context.Context, binaryID *BinaryID, 
 // GetDatabaseConnection establishes a connection to a MongoDB Atlas Data Federation instance.
 // It returns the hostname endpoint, a URI for connecting to the database via MongoDB clients,
 // and a flag indicating whether a database user is configured for the Viam organization.
-func (d *DataClient) GetDatabaseConnection(ctx context.Context, organizationID string) (DatabaseConnReturn, error) {
+func (d *DataClient) GetDatabaseConnection(ctx context.Context, organizationID string) (GetDatabaseConnectionResponse, error) {
 	resp, err := d.dataClient.GetDatabaseConnection(ctx, &pb.GetDatabaseConnectionRequest{
 		OrganizationId: organizationID,
 	})
 	if err != nil {
-		return DatabaseConnReturn{}, err
+		return GetDatabaseConnectionResponse{}, err
 	}
-	return DatabaseConnReturn{
+	return GetDatabaseConnectionResponse{
 		Hostname:        resp.Hostname,
 		MongodbURI:      resp.MongodbUri,
 		HasDatabaseUser: resp.HasDatabaseUser,
@@ -1230,8 +1230,8 @@ func binaryMetadataFromProto(proto *pb.BinaryMetadata) BinaryMetadata {
 	}
 }
 
-func tabularDataFromProto(proto *pb.TabularData, metadata *pb.CaptureMetadata) TabularData {
-	return TabularData{
+func tabularDataFromProto(proto *pb.TabularData, metadata *pb.CaptureMetadata) *TabularData {
+	return &TabularData{
 		Data:          proto.Data.AsMap(),
 		MetadataIndex: int(proto.MetadataIndex),
 		Metadata:      captureMetadataFromProto(metadata),

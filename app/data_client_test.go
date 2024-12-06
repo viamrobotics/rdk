@@ -282,7 +282,7 @@ func TestDataClient(t *testing.T) {
 		resp, _ := client.TabularDataByFilter(context.Background(), &DataByFilterOptions{
 			&filter, limit, last, dataRequest.SortOrder, countOnly, includeInternalData,
 		})
-		test.That(t, resp.TabularData[0], test.ShouldResemble, tabularData)
+		test.That(t, resp.TabularData[0], test.ShouldResemble, &tabularData)
 		test.That(t, resp.Count, test.ShouldEqual, count)
 		test.That(t, resp.Last, test.ShouldEqual, last)
 	})
@@ -343,7 +343,7 @@ func TestDataClient(t *testing.T) {
 
 	t.Run("GetLatestTabularData", func(t *testing.T) {
 		dataStruct, _ := utils.StructToStructPb(data)
-		latestTabularData := LatestTabularDataReturn{
+		latestTabularData := GetLatestTabularDataResponse{
 			TimeCaptured: start,
 			TimeSynced:   end,
 			Payload:      dataStruct.AsMap(),
