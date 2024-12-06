@@ -383,6 +383,18 @@ var app = &cli.App{
 							},
 							Action: GetBillingConfigAction,
 						},
+						{
+							Name:  "disable",
+							Usage: "disable the billing service for an organization",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "the org to disable the billing service for",
+								},
+							},
+							Action: OrganizationDisableBillingServiceAction,
+						},
 					},
 				},
 				{
