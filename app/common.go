@@ -2,7 +2,6 @@ package app
 
 import (
 	mltrainingpb "go.viam.com/api/app/mltraining/v1"
-	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // Constants used throughout app.
@@ -41,13 +40,6 @@ const (
 	// ModelFrameworkONNX specifies a ONNX model framework.
 	ModelFrameworkONNX
 )
-
-// GenericProtoMessage contains an arbitrary serialized protocol buffer message
-// along with a URL that describes the type of serialized message.
-type GenericProtoMessage struct {
-	TypeURL string
-	Value   []byte
-}
 
 func modelTypeFromProto(modelType mltrainingpb.ModelType) ModelType {
 	switch modelType {
@@ -93,12 +85,3 @@ func modelFrameworkFromProto(framework mltrainingpb.ModelFramework) ModelFramewo
 	return ModelFrameworkUnspecified
 }
 
-func genericProtoMessageFromProto(message *anypb.Any) *GenericProtoMessage {
-	if message == nil {
-		return nil
-	}
-	return &GenericProtoMessage{
-		TypeURL: message.TypeUrl,
-		Value:   message.Value,
-	}
-}
