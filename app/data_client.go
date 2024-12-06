@@ -397,7 +397,7 @@ func (d *DataClient) TabularDataByFilter(ctx context.Context, opts *DataByFilter
 }
 
 // TabularDataBySQL queries tabular data with a SQL query.
-func (d *DataClient) TabularDataBySQL(ctx context.Context, organizationID, sqlQuery string) (*[]map[string]interface{}, error) {
+func (d *DataClient) TabularDataBySQL(ctx context.Context, organizationID, sqlQuery string) ([]map[string]interface{}, error) {
 	resp, err := d.dataClient.TabularDataBySQL(ctx, &pb.TabularDataBySQLRequest{
 		OrganizationId: organizationID,
 		SqlQuery:       sqlQuery,
@@ -409,13 +409,13 @@ func (d *DataClient) TabularDataBySQL(ctx context.Context, organizationID, sqlQu
 	if err != nil {
 		return nil, err
 	}
-	return &dataObjects, nil
+	return dataObjects, nil
 }
 
 // TabularDataByMQL queries tabular data with MQL (MongoDB Query Language) queries.
 func (d *DataClient) TabularDataByMQL(
 	ctx context.Context, organizationID string, mqlQueries []map[string]interface{},
-) (*[]map[string]interface{}, error) {
+) ([]map[string]interface{}, error) {
 	mqlBinary := [][]byte{}
 	for _, query := range mqlQueries {
 		binary, err := bson.Marshal(query)
@@ -437,7 +437,7 @@ func (d *DataClient) TabularDataByMQL(
 	if err != nil {
 		return nil, err
 	}
-	return &result, nil
+	return result, nil
 }
 
 // GetLatestTabularData gets the most recent tabular data captured from the specified data source, as well as the time that it was captured
