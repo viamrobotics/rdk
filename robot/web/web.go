@@ -167,7 +167,7 @@ func (svc *webService) StartModule(ctx context.Context) error {
 		}
 
 		prot := "unix"
-		if true || runtime.GOOS == "windows" {
+		if runtime.GOOS == "windows" {
 			addr = "127.0.0.1:14998"
 			prot = "tcp"
 		}
