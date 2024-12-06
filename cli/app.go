@@ -652,7 +652,6 @@ var app = &cli.App{
 									Name:  dataFlagMimeTypes,
 									Usage: "mime types filter",
 								},
-								// CR erodkin: callout to reviewers that this was added, ran by Devin
 								&cli.StringSliceFlag{
 									Name: dataFlagBboxLabels,
 									Usage: "bbox labels filter. " +
@@ -933,7 +932,6 @@ var app = &cli.App{
 									Name:      "filter",
 									Usage:     "adds binary data from the specified filter to dataset",
 									UsageText: createUsageText("dataset data add filter", []string{datasetFlagDatasetID}, true),
-									// CR erodkin: flyby here, use commonFilterFlags
 									Flags: append([]cli.Flag{
 										&cli.StringFlag{
 											Name:     datasetFlagDatasetID,
@@ -1120,7 +1118,6 @@ var app = &cli.App{
 											Usage:    "path to ML training scripts for upload",
 											Required: true,
 										},
-										// CR erodkin: flag this for etai/tahiya, make sure they're happy with the changes!
 										&cli.StringFlag{
 											Name:     generalFlagOrgID,
 											Usage:    "org ID to train and save ML model in",
