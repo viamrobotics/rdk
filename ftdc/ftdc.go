@@ -10,6 +10,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -203,6 +204,11 @@ func (ftdc *FTDC) Remove(name string) {
 // Start spins off the background goroutine for collecting + writing FTDC data. It's normal for tests
 // to _not_ call `Start`. Tests can simulate the same functionality by calling `constructDatum` and `writeDatum`.
 func (ftdc *FTDC) Start() {
+	if runtime.GOOS == "windows" {
+		// note: this logs a panic on RDK start on windows.
+		ftdc.logger.Warn("FTDC not implemented on windows, not starting")
+		return
+	}
 	ftdc.readStatsWorker = utils.NewStoppableWorkerWithTicker(time.Second, ftdc.statsReader)
 	utils.PanicCapturingGo(ftdc.statsWriter)
 
@@ -272,6 +278,9 @@ func (ftdc *FTDC) statsWriter() {
 // `statsWriter` by hand, without the `statsReader` can `close(ftdc.datumCh)` followed by
 // `<-ftdc.outputWorkerDone` to stop+wait for the `statsWriter`.
 func (ftdc *FTDC) StopAndJoin(ctx context.Context) {
+	if runtime.GOOS == "windows" {
+		return
+	}
 	ftdc.stopOnce.Do(func() {
 		// Only one caller should close the datum channel. And it should be the caller that called
 		// stop on the worker writing to the channel.
