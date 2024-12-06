@@ -186,13 +186,17 @@ func (c *viamClient) organizationsSupportEmailGetAction(cCtx *cli.Context, orgID
 	return nil
 }
 
+type getBillingConfigArgs struct {
+	OrgID string
+}
+
 // GetBillingConfigAction corresponds to `organizations billing get`.
-func GetBillingConfigAction(cCtx *cli.Context) error {
+func GetBillingConfigAction(cCtx *cli.Context, args getBillingConfigArgs) error {
 	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
 	}
-	return c.getBillingConfig(cCtx, cCtx.String(generalFlagOrgID))
+	return c.getBillingConfig(cCtx, args.OrgID)
 }
 
 func (c *viamClient) getBillingConfig(cCtx *cli.Context, orgID string) error {

@@ -473,7 +473,7 @@ var app = &cli.App{
 									Usage:    "the org to get the billing config for",
 								},
 							},
-							Action: GetBillingConfigAction,
+							Action: createCommandWithT[getBillingConfigArgs](GetBillingConfigAction),
 						},
 					},
 				},
