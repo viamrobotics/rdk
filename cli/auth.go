@@ -216,7 +216,7 @@ func (c viamClient) loginWithAPIKeyAction(cCtx *cli.Context, args loginWithAPIKe
 }
 
 // PrintAccessTokenAction is the corresponding Action for 'print-access-token'.
-func PrintAccessTokenAction(cCtx *cli.Context, _ emptyArgs) error {
+func PrintAccessTokenAction(cCtx *cli.Context, args emptyArgs) error {
 	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
