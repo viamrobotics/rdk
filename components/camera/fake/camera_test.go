@@ -94,20 +94,6 @@ func TestRTPPassthrough(t *testing.T) {
 		cam, err := NewCamera(context.Background(), nil, cfg, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		// TODO(hexbabe): remove below test when Stream/ReadImage pattern is refactored
-		t.Run("test Stream and Next", func(t *testing.T) {
-			camera, err := NewCamera(context.Background(), nil, cfg, logger)
-			test.That(t, err, test.ShouldBeNil)
-
-			stream, err := camera.Stream(context.Background())
-			test.That(t, err, test.ShouldBeNil)
-			img, _, err := stream.Next(context.Background())
-			test.That(t, err, test.ShouldBeNil)
-			// GetImage returns the world jpeg
-			test.That(t, img.Bounds(), test.ShouldResemble, image.Rectangle{Max: image.Point{X: 480, Y: 270}})
-			test.That(t, camera, test.ShouldNotBeNil)
-		})
-
 		img, err := camera.DecodeImageFromCamera(context.Background(), utils.MimeTypeRawRGBA, nil, cam)
 		test.That(t, err, test.ShouldBeNil)
 		// GetImage returns the world jpeg
