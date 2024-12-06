@@ -8,7 +8,6 @@ import (
 	"gonum.org/v1/gonum/stat"
 
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/utils"
 )
 
 // BoundingBoxFromPointCloud returns a Geometry object that encompasses all the points in the given point cloud.
@@ -95,14 +94,13 @@ func StatisticalOutlierFilter(meanK int, stdDevThresh float64) (func(PointCloud)
 
 // ToBasicOctree takes a pointcloud object and converts it into a basic octree.
 func ToBasicOctree(cloud PointCloud) (*BasicOctree, error) {
-	basicOctree, err := utils.AssertType[*BasicOctree](cloud)
-	if err != nil && basicOctree != nil {
+	if basicOctree, ok := cloud.(*BasicOctree); ok {
 		return basicOctree, nil
 	}
 
 	center := getCenterFromPcMetaData(cloud.MetaData())
 	maxSideLength := getMaxSideLengthFromPcMetaData(cloud.MetaData())
-	basicOctree, err = NewBasicOctree(center, maxSideLength)
+	basicOctree, err := NewBasicOctree(center, maxSideLength)
 	if err != nil {
 		return &BasicOctree{}, err
 	}
