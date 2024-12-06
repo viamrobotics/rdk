@@ -177,6 +177,55 @@ func (c *viamClient) organizationsSupportEmailGetAction(cCtx *cli.Context, orgID
 	return nil
 }
 
+func UpdateBillingServiceAction(cCtx *cli.Context) error {
+	c, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+	orgID := cCtx.String(generalFlagOrgID)
+	if orgID == "" {
+		return errors.New("cannot update billing service without an organization ID")
+	}
+
+	address := cCtx.String(organizationBillingAddress)
+	if address != "" {
+		return errors.New("cannot update billing service to an empty address")
+	}
+
+	return c.updateBillingServiceAction(cCtx, orgID, address)
+}
+
+func (c *viamClient) updateBillingServiceAction(cCtx *cli.Context, orgID, addressAsString string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	address, err := parseBillingAddress(addressAsString)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.client.UpdateBillingService(cCtx.Context, &apppb.UpdateBillingServiceRequest{
+		OrgId:          orgID,
+		BillingAddress: address,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	printf(cCtx.App.Writer, "Successfully updated billing service for organization %q", orgID)
+	printf(cCtx.App.Writer, " --- Billing Address --- ")
+	printf(cCtx.App.Writer, "Address Line 1: %s", address.GetAddressLine_1())
+	if address.GetAddressLine_2() != "" {
+		printf(cCtx.App.Writer, "Address Line 2: %s", address.GetAddressLine_2())
+	}
+	printf(cCtx.App.Writer, "City: %s", address.GetCity())
+	printf(cCtx.App.Writer, "State: %s", address.GetState())
+	printf(cCtx.App.Writer, "Postal Code: %s", address.GetZipcode())
+	printf(cCtx.App.Writer, "Country: %s", "USA")
+	return nil
+}
+
 // GetBillingConfigAction corresponds to `organizations billing get`.
 func GetBillingConfigAction(cCtx *cli.Context) error {
 	c, err := newViamClient(cCtx)
@@ -1754,4 +1803,35 @@ func logEntryFieldsToString(fields []*structpb.Struct) (string, error) {
 		}
 	}
 	return message + "}", nil
+}
+
+func parseBillingAddress(address string) (*apppb.BillingAddress, error) {
+	if address == "" {
+		return nil, errors.New("address is empty")
+	}
+	addr := &apppb.BillingAddress{}
+	splitAddress := strings.Split(address, ",")
+	if len(splitAddress) != 4 || len(splitAddress) != 5 {
+		return nil, errors.Errorf("address: %s does not follow the format: line1, line2, city, state, zipcode", address)
+	}
+
+	currIndex := 0
+
+	addr.AddressLine_1 = splitAddress[currIndex]
+	currIndex++
+
+	if len(splitAddress) == 4 {
+		// if its only 4 lines long that means that there is no line2
+		currIndex++
+	} else {
+		addr.AddressLine_2 = &splitAddress[currIndex]
+		currIndex++
+	}
+
+	addr.City = splitAddress[currIndex]
+	currIndex++
+	addr.State = splitAddress[currIndex]
+	currIndex++
+	addr.Zipcode = splitAddress[currIndex]
+	return addr, nil
 }
