@@ -636,7 +636,7 @@ func (manager *resourceManager) completeConfig(
 		// resources that depend on weak dependents should expect that the weak dependents at time
 		// of reconfiguration will only have been reconfigured with all resources constructed before
 		// their level.
-		var weakDependenciesUpdated bool
+		var weakDependentsUpdated bool
 		for _, resName := range resourceNames {
 			select {
 			case <-ctx.Done():
@@ -655,12 +655,12 @@ func (manager *resourceManager) completeConfig(
 				if node, ok := manager.resources.Node(dep); ok {
 					if lr.resourceHasWeakDependencies(dep, node) && lr.lastWeakDependentsRound.Load() < manager.resources.CurrLogicalClockValue() {
 						lr.updateWeakDependents(ctx)
-						weakDependenciesUpdated = true
+						weakDependentsUpdated = true
 						break
 					}
 				}
 			}
-			if weakDependenciesUpdated {
+			if weakDependentsUpdated {
 				break
 			}
 		}
