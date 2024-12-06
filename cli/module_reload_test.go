@@ -23,7 +23,7 @@ func TestConfigureModule(t *testing.T) {
 			return &v1.StartBuildResponse{BuildId: "xyz123"}, nil
 		},
 	}, nil, map[string]any{moduleBuildFlagPath: manifestPath, moduleBuildFlagVersion: "1.2.3"}, "token")
-	err := ac.moduleBuildStartAction(cCtx)
+	err := ac.moduleBuildStartAction(cCtx, moduleBuildStartArgs{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.messages, test.ShouldHaveLength, 1)
 	test.That(t, out.messages[0], test.ShouldEqual, "xyz123\n")
@@ -67,7 +67,7 @@ func TestFullReloadFlow(t *testing.T) {
 		"token",
 	)
 	test.That(t, vc.loginAction(cCtx), test.ShouldBeNil)
-	err = reloadModuleAction(cCtx, vc)
+	err = reloadModuleAction(cCtx, vc, reloadModuleArgs{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, updateCount, test.ShouldEqual, 1)
 

@@ -105,14 +105,21 @@ const (
 	defaultManifestFilename = "meta.json"
 )
 
+type createModuleActionArgs struct {
+	Name            string
+	PublicNamespace string
+	OrgID           string
+	LocalOnly       bool
+}
+
 // CreateModuleAction is the corresponding Action for 'module create'. It runs
 // the command to create a module. This includes both a gRPC call to register
 // the module on app.viam.com and creating the manifest file.
-func CreateModuleAction(c *cli.Context) error {
-	moduleNameArg := c.String(moduleFlagName)
-	publicNamespaceArg := c.String(moduleFlagPublicNamespace)
-	orgIDArg := c.String(generalFlagOrgID)
-	localOnly := c.Bool(moduleCreateLocalOnly)
+func CreateModuleAction(c *cli.Context, args createModuleActionArgs) error {
+	moduleNameArg := args.Name
+	publicNamespaceArg := args.PublicNamespace
+	orgIDArg := args.OrgID
+	localOnly := args.LocalOnly
 
 	var client *viamClient
 	var err error
@@ -193,11 +200,15 @@ func CreateModuleAction(c *cli.Context) error {
 	return nil
 }
 
+type updateModuleArgs struct {
+	Module string
+}
+
 // UpdateModuleAction is the corresponding Action for 'module update'. It runs
 // the command to update a module. This includes updating the meta.json to
 // include the public namespace (if set on the org).
-func UpdateModuleAction(c *cli.Context) error {
-	manifestPath := c.String(moduleFlagPath)
+func UpdateModuleAction(c *cli.Context, args updateModuleArgs) error {
+	manifestPath := args.Module
 
 	client, err := newViamClient(c)
 	if err != nil {
@@ -239,16 +250,29 @@ func UpdateModuleAction(c *cli.Context) error {
 	return nil
 }
 
+type uploadModuleArgs struct {
+	Module          string
+	PublicNamespace string
+	OrgID           string
+	Name            string
+	Version         string
+	Platform        string
+	Tags            string
+	Force           bool
+}
+
 // UploadModuleAction is the corresponding action for 'module upload'.
-func UploadModuleAction(c *cli.Context) error {
-	manifestPath := c.String(moduleFlagPath)
-	publicNamespaceArg := c.String(moduleFlagPublicNamespace)
-	orgIDArg := c.String(generalFlagOrgID)
-	nameArg := c.String(moduleFlagName)
-	versionArg := c.String(moduleFlagVersion)
-	platformArg := c.String(moduleFlagPlatform)
-	forceUploadArg := c.Bool(moduleFlagForce)
-	constraints := c.String(moduleFlagTags)
+func UploadModuleAction(c *cli.Context, args uploadModuleArgs) error {
+	manifestPath := args.Module
+	publicNamespaceArg := args.PublicNamespace
+	orgIDArg := args.OrgID
+	nameArg := args.Name
+	versionArg := args.Version
+	platformArg := args.Platform
+	forceUploadArg := args.Force
+	constraints := args.Tags
+	// TODO(RSDK-9288) - this is brittle and inconsistent with how most data is passed.
+	// Move this to being a flag (but make sure existing workflows still work!)
 	moduleUploadPath := c.Args().First()
 	if c.Args().Len() > 1 {
 		return errors.New("too many arguments passed to upload command. " +
@@ -364,15 +388,20 @@ func validateModelAPI(modelAPI string) error {
 	return nil
 }
 
+type updateModelsArgs struct {
+	Module string
+	Binary string
+}
+
 // UpdateModelsAction figures out the models that a module supports and updates it's metadata file.
-func UpdateModelsAction(c *cli.Context) error {
+func UpdateModelsAction(c *cli.Context, args updateModelsArgs) error {
 	logger := logging.NewLogger("x")
-	newModels, err := readModels(c.String("binary"), logger)
+	newModels, err := readModels(args.Binary, logger)
 	if err != nil {
 		return err
 	}
 
-	manifest, err := loadManifest(c.String(moduleFlagPath))
+	manifest, err := loadManifest(args.Module)
 	if err != nil {
 		return err
 	}
@@ -382,7 +411,7 @@ func UpdateModelsAction(c *cli.Context) error {
 	}
 
 	manifest.Models = newModels
-	return writeManifest(c.String(moduleFlagPath), manifest)
+	return writeManifest(args.Module, manifest)
 }
 
 func (c *viamClient) createModule(moduleName, organizationID string) (*apppb.CreateModuleResponse, error) {
