@@ -1122,7 +1122,7 @@ var app = &cli.App{
 										},
 										&cli.StringFlag{
 											Name:     generalFlagOrgID,
-											Usage:    "org ID to train and save ML model in",
+											Usage:    "org ID to save the custom training script in",
 											Required: true,
 										},
 										&cli.StringFlag{

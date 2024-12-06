@@ -78,11 +78,11 @@ func MLSubmitCustomTrainingJobWithUpload(c *cli.Context, args mlSubmitCustomTrai
 	}
 
 	resp, err := client.uploadTrainingScript(true, args.ModelType, args.Framework,
-		args.URL, args.ModelOrgID, args.ScriptName, args.Version, args.Path)
+		args.URL, args.OrgID, args.ScriptName, args.Version, args.Path)
 	if err != nil {
 		return err
 	}
-	registryItemID := fmt.Sprintf("%s:%s", args.ModelOrgID, args.ScriptName)
+	registryItemID := fmt.Sprintf("%s:%s", args.OrgID, args.ScriptName)
 
 	moduleID := moduleID{
 		prefix: args.OrgID,
