@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"strings"
+
+	"github.com/pkg/errors"
+	apppb "go.viam.com/api/app/v1"
 )
 
 // samePath returns true if abs(path1) and abs(path2) are the same.
@@ -58,4 +62,35 @@ func ParseFileType(raw string) string {
 		return ""
 	}
 	return fmt.Sprintf("%s/%s", osLookup[rawOs], archLookup[rawArch])
+}
+
+func parseBillingAddress(address string) (*apppb.BillingAddress, error) {
+	if address == "" {
+		return nil, errors.New("address is empty")
+	}
+	addr := &apppb.BillingAddress{}
+	splitAddress := strings.Split(address, ",")
+	if len(splitAddress) != 4 || len(splitAddress) != 5 {
+		return nil, errors.Errorf("address: %s does not follow the format: line1, line2, city, state, zipcode", address)
+	}
+
+	currIndex := 0
+
+	addr.AddressLine_1 = splitAddress[currIndex]
+	currIndex++
+
+	if len(splitAddress) == 4 {
+		// if its only 4 lines long that means that there is no line2
+		currIndex++
+	} else {
+		addr.AddressLine_2 = &splitAddress[currIndex]
+		currIndex++
+	}
+
+	addr.City = splitAddress[currIndex]
+	currIndex++
+	addr.State = splitAddress[currIndex]
+	currIndex++
+	addr.Zipcode = splitAddress[currIndex]
+	return addr, nil
 }

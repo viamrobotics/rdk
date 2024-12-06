@@ -177,6 +177,7 @@ func (c *viamClient) organizationsSupportEmailGetAction(cCtx *cli.Context, orgID
 	return nil
 }
 
+// UpdateBillingServiceAction corresponds to `organizations billing-service update`.
 func UpdateBillingServiceAction(cCtx *cli.Context) error {
 	c, err := newViamClient(cCtx)
 	if err != nil {
@@ -208,7 +209,6 @@ func (c *viamClient) updateBillingServiceAction(cCtx *cli.Context, orgID, addres
 		OrgId:          orgID,
 		BillingAddress: address,
 	})
-
 	if err != nil {
 		return err
 	}
@@ -1803,35 +1803,4 @@ func logEntryFieldsToString(fields []*structpb.Struct) (string, error) {
 		}
 	}
 	return message + "}", nil
-}
-
-func parseBillingAddress(address string) (*apppb.BillingAddress, error) {
-	if address == "" {
-		return nil, errors.New("address is empty")
-	}
-	addr := &apppb.BillingAddress{}
-	splitAddress := strings.Split(address, ",")
-	if len(splitAddress) != 4 || len(splitAddress) != 5 {
-		return nil, errors.Errorf("address: %s does not follow the format: line1, line2, city, state, zipcode", address)
-	}
-
-	currIndex := 0
-
-	addr.AddressLine_1 = splitAddress[currIndex]
-	currIndex++
-
-	if len(splitAddress) == 4 {
-		// if its only 4 lines long that means that there is no line2
-		currIndex++
-	} else {
-		addr.AddressLine_2 = &splitAddress[currIndex]
-		currIndex++
-	}
-
-	addr.City = splitAddress[currIndex]
-	currIndex++
-	addr.State = splitAddress[currIndex]
-	currIndex++
-	addr.Zipcode = splitAddress[currIndex]
-	return addr, nil
 }
