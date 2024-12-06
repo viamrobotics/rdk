@@ -355,8 +355,12 @@ func (m *Module) connectParent(ctx context.Context) error {
 		return nil
 	}
 
-	if err := CheckSocketOwner(m.parentAddr); err != nil {
-		return err
+	fullAddr := m.parentAddr
+	if !tcpRegex.MatchString(m.parentAddr) {
+		if err := CheckSocketOwner(m.parentAddr); err != nil {
+			return err
+		}
+		fullAddr = "unix://" + m.parentAddr
 	}
 
 	// moduleLoggers may be creating the client connection below, so use a
@@ -365,7 +369,7 @@ func (m *Module) connectParent(ctx context.Context) error {
 	clientLogger := logging.NewLogger("networking.module-connection")
 	clientLogger.SetLevel(m.logger.GetLevel())
 	// TODO(PRODUCT-343): add session support to modules
-	rc, err := client.New(ctx, "unix://"+m.parentAddr, clientLogger, client.WithDisableSessions())
+	rc, err := client.New(ctx, fullAddr, clientLogger, client.WithDisableSessions())
 	if err != nil {
 		return err
 	}
@@ -412,6 +416,7 @@ func (m *Module) PeerConnect(encodedOffer string) (string, error) {
 func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResponse, error) {
 	resp := &pb.ReadyResponse{}
 
+	println("Ready top, PeerConnect")
 	encodedAnswer, err := m.PeerConnect(req.WebrtcOffer)
 	if err == nil {
 		resp.WebrtcAnswer = encodedAnswer

@@ -166,17 +166,13 @@ func (svc *webService) StartModule(ctx context.Context) error {
 			return errors.WithMessage(err, "module startup failed")
 		}
 
-		if runtime.GOOS == "windows" {
-			// on windows, we need to craft a good enough looking URL for gRPC which
-			// means we need to take out the volume which will have the current drive
-			// be used. In a client server relationship for windows dialing, this must
-			// be known. That is, if this is a multi process UDS, then for the purposes
-			// of dialing without any resolver modifications to gRPC, they must initially
-			// agree on using the same drive.
-			addr = addr[2:]
+		prot := "unix"
+		if true || runtime.GOOS == "windows" {
+			addr = "127.0.0.1:14998"
+			prot = "tcp"
 		}
 		svc.modAddr = addr
-		lis, err = net.Listen("unix", addr)
+		lis, err = net.Listen(prot, addr)
 		if err != nil {
 			return errors.WithMessage(err, "failed to listen")
 		}
