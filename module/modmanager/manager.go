@@ -7,7 +7,10 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
+	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -983,12 +986,18 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 	return nil
 }
 
+var tcpRegex = regexp.MustCompile(`:\d+$`)
+
 // dial will Dial the module and replace the underlying connection (if it exists) in m.conn.
 func (m *module) dial() error {
 	// TODO(PRODUCT-343): session support probably means interceptors here
 	var err error
+	addrToDial := m.addr
+	if !tcpRegex.MatchString(addrToDial) {
+		addrToDial = "unix://" + m.addr
+	}
 	conn, err := grpc.Dial( //nolint:staticcheck
-		"unix://"+m.addr,
+		addrToDial,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithChainUnaryInterceptor(
 			rdkgrpc.EnsureTimeoutUnaryClientInterceptor,
@@ -1087,6 +1096,8 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	return conf.FirstRun(ctx, pkgsDir, dataDir, env, mgr.logger)
 }
 
+var nextPort = 13500
+
 func (m *module) startProcess(
 	ctx context.Context,
 	parentAddr string,
@@ -1101,6 +1112,11 @@ func (m *module) startProcess(
 	if m.addr, err = modlib.CreateSocketAddress(
 		filepath.Dir(parentAddr), fmt.Sprintf("%s-%s", m.cfg.Name, utils.RandomAlphaString(5))); err != nil {
 		return err
+	}
+	// todo: also do this when VIAM_TCP_SOCKETS var is set; factor this to a util.
+	if runtime.GOOS == "windows" {
+		m.addr = "127.0.0.1:" + strconv.Itoa(nextPort)
+		nextPort++ // todo: atomic, and reclaim ports.
 	}
 
 	// We evaluate the Module's ExePath absolutely in the viam-server process so that
@@ -1164,12 +1180,14 @@ func (m *module) startProcess(
 				)
 			}
 		}
-		err = modlib.CheckSocketOwner(m.addr)
-		if errors.Is(err, fs.ErrNotExist) {
-			continue
-		}
-		if err != nil {
-			return errors.WithMessage(err, "module startup failed")
+		if !tcpRegex.MatchString(m.addr) {
+			err = modlib.CheckSocketOwner(m.addr)
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+			if err != nil {
+				return errors.WithMessage(err, "module startup failed")
+			}
 		}
 		break
 	}
