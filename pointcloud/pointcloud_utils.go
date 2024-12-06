@@ -104,16 +104,16 @@ func ToBasicOctree(cloud PointCloud) (*BasicOctree, error) {
 	if err != nil {
 		return &BasicOctree{}, err
 	}
-	// var iterateError error
+	var iterateError error
 	cloud.Iterate(0, 0, func(p r3.Vector, d Data) bool {
 		if err = basicOctree.Set(p, d); err != nil {
-			// iterateError = err
+			iterateError = err
 			return false
 		}
 		return true
 	})
-	// if iterateError != nil {
-	// 	return &BasicOctree{}, iterateError
-	// }
+	if iterateError != nil {
+		return &BasicOctree{}, iterateError
+	}
 	return basicOctree, nil
 }
