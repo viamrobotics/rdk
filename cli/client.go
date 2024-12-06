@@ -202,7 +202,7 @@ func (c *viamClient) getBillingConfig(cCtx *cli.Context, orgID string) error {
 	printf(cCtx.App.Writer, "Support Email: %s", resp.GetSupportEmail())
 	printf(cCtx.App.Writer, "Billing Dashboard URL: %s", resp.GetBillingDashboardUrl())
 	printf(cCtx.App.Writer, "Logo URL: %s", resp.GetLogoUrl())
-	println()
+	printf(cCtx.App.Writer, "")
 	printf(cCtx.App.Writer, " --- Billing Address --- ")
 	printf(cCtx.App.Writer, "Address Line 1: %s", resp.BillingAddress.GetAddressLine_1())
 	if resp.BillingAddress.GetAddressLine_2() != "" {
