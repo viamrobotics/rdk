@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -271,15 +272,23 @@ func NewModuleFromArgs(ctx context.Context) (*Module, error) {
 	return NewModule(ctx, os.Args[1], NewLoggerFromArgs(""))
 }
 
+var tcpRegex = regexp.MustCompile(`:\d+$`)
+
 // Start starts the module service and grpc server.
 func (m *Module) Start(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	var lis net.Listener
+	isTcp := tcpRegex.MatchString(m.addr)
+	prot := "unix"
+	if isTcp {
+		prot = "tcp"
+	}
+	println("prot is", prot)
 	if err := MakeSelfOwnedFilesFunc(func() error {
 		var err error
-		lis, err = net.Listen("unix", m.addr)
+		lis, err = net.Listen(prot, m.addr)
 		if err != nil {
 			return errors.WithMessage(err, "failed to listen")
 		}
