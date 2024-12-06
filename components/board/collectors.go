@@ -2,6 +2,7 @@ package board
 
 import (
 	"context"
+	"time"
 
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/board/v1"
@@ -39,10 +40,12 @@ func newAnalogCollector(resource interface{}, params data.CollectorParams) (data
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (data.CaptureResult, error) {
+		timeRequested := time.Now()
+		var res data.CaptureResult
 		var analogValue AnalogValue
 		if _, ok := arg[analogReaderNameKey]; !ok {
-			return nil, data.FailedToReadErr(params.ComponentName, analogs.String(),
+			return res, data.FailedToReadErr(params.ComponentName, analogs.String(),
 				errors.New("Must supply reader_name in additional_params for analog collector"))
 		}
 		if reader, err := board.AnalogByName(arg[analogReaderNameKey].String()); err == nil {
@@ -51,17 +54,19 @@ func newAnalogCollector(resource interface{}, params data.CollectorParams) (data
 				// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 				// is used in the datamanager to exclude readings from being captured and stored.
 				if errors.Is(err, data.ErrNoCaptureToStore) {
-					return nil, err
+					return res, err
 				}
-				return nil, data.FailedToReadErr(params.ComponentName, analogs.String(), err)
+				return res, data.FailedToReadErr(params.ComponentName, analogs.String(), err)
 			}
 		}
-		return pb.ReadAnalogReaderResponse{
+
+		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return data.NewTabularCaptureResult(ts, pb.ReadAnalogReaderResponse{
 			Value:    int32(analogValue.Value),
 			MinRange: analogValue.Min,
 			MaxRange: analogValue.Max,
 			StepSize: analogValue.StepSize,
-		}, nil
+		})
 	})
 	return data.NewCollector(cFunc, params)
 }
@@ -74,10 +79,12 @@ func newGPIOCollector(resource interface{}, params data.CollectorParams) (data.C
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (data.CaptureResult, error) {
+		timeRequested := time.Now()
+		var res data.CaptureResult
 		var value bool
 		if _, ok := arg[gpioPinNameKey]; !ok {
-			return nil, data.FailedToReadErr(params.ComponentName, gpios.String(),
+			return res, data.FailedToReadErr(params.ComponentName, gpios.String(),
 				errors.New("Must supply pin_name in additional params for gpio collector"))
 		}
 		if gpio, err := board.GPIOPinByName(arg[gpioPinNameKey].String()); err == nil {
@@ -86,14 +93,15 @@ func newGPIOCollector(resource interface{}, params data.CollectorParams) (data.C
 				// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 				// is used in the datamanager to exclude readings from being captured and stored.
 				if errors.Is(err, data.ErrNoCaptureToStore) {
-					return nil, err
+					return res, err
 				}
-				return nil, data.FailedToReadErr(params.ComponentName, gpios.String(), err)
+				return res, data.FailedToReadErr(params.ComponentName, gpios.String(), err)
 			}
 		}
-		return pb.GetGPIOResponse{
+		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return data.NewTabularCaptureResult(ts, pb.GetGPIOResponse{
 			High: value,
-		}, nil
+		})
 	})
 	return data.NewCollector(cFunc, params)
 }

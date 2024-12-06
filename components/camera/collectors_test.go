@@ -11,13 +11,12 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
+	v1 "go.viam.com/api/app/data/v1"
 	datasyncpb "go.viam.com/api/app/datasync/v1"
-	camerapb "go.viam.com/api/component/camera/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"go.viam.com/rdk/components/camera"
@@ -77,10 +76,6 @@ func TestCollectors(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	viamLogoJpeg, err := io.ReadAll(base64.NewDecoder(base64.StdEncoding, bytes.NewReader(viamLogoJpegB64)))
 	test.That(t, err, test.ShouldBeNil)
-	viamLogoJpegAsInts := []any{}
-	for _, b := range viamLogoJpeg {
-		viamLogoJpegAsInts = append(viamLogoJpegAsInts, int(b))
-	}
 
 	img := rimage.NewLazyEncodedImage(viamLogoJpeg, utils.MimeTypeJPEG)
 	// 32 x 32 image
@@ -93,59 +88,54 @@ func TestCollectors(t *testing.T) {
 	var pcdBuf bytes.Buffer
 	test.That(t, pointcloud.ToPCD(pcd, &pcdBuf, pointcloud.PCDBinary), test.ShouldBeNil)
 
-	now := time.Now()
-	nowPB := timestamppb.New(now)
-	cam := newCamera(img, img, now, pcd)
+	cam := newCamera(img, img, pcd)
 
 	tests := []struct {
 		name      string
 		collector data.CollectorConstructor
-		expected  *datasyncpb.SensorData
+		expected  []*datasyncpb.SensorData
 		camera    camera.Camera
 	}{
 		{
 			name:      "ReadImage returns a non nil binary response",
 			collector: camera.NewReadImageCollector,
-			expected: &datasyncpb.SensorData{
-				Metadata: &datasyncpb.SensorMetadata{},
-				Data:     &datasyncpb.SensorData_Binary{Binary: viamLogoJpeg},
-			},
+			expected: []*datasyncpb.SensorData{{
+				Metadata: &datasyncpb.SensorMetadata{
+					MimeType: datasyncpb.MimeType_MIME_TYPE_IMAGE_JPEG,
+				},
+				Data: &datasyncpb.SensorData_Binary{Binary: viamLogoJpeg},
+			}},
 			camera: cam,
 		},
 		{
 			name:      "NextPointCloud returns a non nil binary response",
 			collector: camera.NewNextPointCloudCollector,
-			expected: &datasyncpb.SensorData{
-				Metadata: &datasyncpb.SensorMetadata{},
-				Data:     &datasyncpb.SensorData_Binary{Binary: pcdBuf.Bytes()},
-			},
+			expected: []*datasyncpb.SensorData{{
+				Metadata: &datasyncpb.SensorMetadata{
+					MimeType: datasyncpb.MimeType_MIME_TYPE_APPLICATION_PCD,
+				},
+				Data: &datasyncpb.SensorData_Binary{Binary: pcdBuf.Bytes()},
+			}},
 			camera: cam,
 		},
 		{
-			name:      "GetImages returns a non nil tabular response",
+			name:      "GetImages returns a non nil binary response",
 			collector: camera.NewGetImagesCollector,
-			expected: &datasyncpb.SensorData{
-				Metadata: &datasyncpb.SensorMetadata{},
-				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
-					"response_metadata": map[string]any{
-						"captured_at": map[string]any{
-							"seconds": nowPB.Seconds,
-							"nanos":   nowPB.Nanos,
-						},
+			expected: []*datasyncpb.SensorData{
+				{
+					Metadata: &datasyncpb.SensorMetadata{
+						MimeType:    datasyncpb.MimeType_MIME_TYPE_IMAGE_JPEG,
+						Annotations: &v1.Annotations{Classifications: []*v1.Classification{{Label: "left"}}},
 					},
-					"images": []any{
-						map[string]any{
-							"source_name": "left",
-							"format":      int(camerapb.Format_FORMAT_JPEG),
-							"image":       viamLogoJpegAsInts,
-						},
-						map[string]any{
-							"source_name": "right",
-							"format":      int(camerapb.Format_FORMAT_JPEG),
-							"image":       viamLogoJpegAsInts,
-						},
+					Data: &datasyncpb.SensorData_Binary{Binary: viamLogoJpeg},
+				},
+				{
+					Metadata: &datasyncpb.SensorMetadata{
+						MimeType:    datasyncpb.MimeType_MIME_TYPE_IMAGE_JPEG,
+						Annotations: &v1.Annotations{Classifications: []*v1.Classification{{Label: "right"}}},
 					},
-				})},
+					Data: &datasyncpb.SensorData_Binary{Binary: viamLogoJpeg},
+				},
 			},
 			camera: cam,
 		},
@@ -154,8 +144,9 @@ func TestCollectors(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			start := time.Now()
-			buf := tu.NewMockBuffer()
+			buf := tu.NewMockBuffer(t)
 			params := data.CollectorParams{
+				DataType:      data.CaptureTypeBinary,
 				ComponentName: serviceName,
 				Interval:      captureInterval,
 				Logger:        logging.NewTestLogger(t),
@@ -180,7 +171,6 @@ func TestCollectors(t *testing.T) {
 
 func newCamera(
 	left, right image.Image,
-	capturedAt time.Time,
 	pcd pointcloud.PointCloud,
 ) camera.Camera {
 	v := &inject.Camera{}
@@ -201,7 +191,7 @@ func newCamera(
 				{Image: left, SourceName: "left"},
 				{Image: right, SourceName: "right"},
 			},
-			resource.ResponseMetadata{CapturedAt: capturedAt},
+			resource.ResponseMetadata{CapturedAt: time.Now()},
 			nil
 	}
 

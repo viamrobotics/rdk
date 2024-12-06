@@ -103,20 +103,22 @@ func BuildTempModuleWithFirstRun(tb testing.TB, modDir string) string {
 // MockBuffer is a buffered writer that just appends data to an array to read
 // without needing a real file system for testing.
 type MockBuffer struct {
+	t      *testing.T
 	ctx    context.Context
 	cancel context.CancelFunc
-	Writes chan *v1.SensorData
+	Writes chan []*v1.SensorData
 }
 
 // NewMockBuffer returns a mock buffer.
 // This needs to be closed before the collector, otherwise the
 // collector's Close method will block.
-func NewMockBuffer() *MockBuffer {
+func NewMockBuffer(t *testing.T) *MockBuffer {
 	c, cancel := context.WithCancel(context.Background())
 	return &MockBuffer{
+		t:      t,
 		ctx:    c,
 		cancel: cancel,
-		Writes: make(chan *v1.SensorData, 1),
+		Writes: make(chan []*v1.SensorData, 1),
 	}
 }
 
@@ -147,29 +149,34 @@ func CheckMockBufferWrites(
 	t *testing.T,
 	ctx context.Context,
 	start time.Time,
-	writes chan *v1.SensorData,
-	expected *v1.SensorData,
+	writes chan []*v1.SensorData,
+	expecteds []*v1.SensorData,
 ) {
 	select {
 	case <-ctx.Done():
 		t.Error("timeout")
 		t.FailNow()
-	case write := <-writes:
+	case writes := <-writes:
 		end := time.Now()
-		// nil out to make comparable
-		requestedAt := write.Metadata.TimeRequested.AsTime()
-		receivedAt := write.Metadata.TimeReceived.AsTime()
-		test.That(t, start, test.ShouldHappenOnOrBefore, requestedAt)
-		test.That(t, requestedAt, test.ShouldHappenOnOrBefore, receivedAt)
-		test.That(t, receivedAt, test.ShouldHappenOnOrBefore, end)
-		// nil out to make comparable
-		write.Metadata.TimeRequested = nil
-		write.Metadata.TimeReceived = nil
-		test.That(t, write.GetMetadata(), test.ShouldResemble, expected.GetMetadata())
-		if isBinary(write) {
-			test.That(t, write.GetBinary(), test.ShouldResemble, expected.GetBinary())
-		} else {
-			test.That(t, write.GetStruct(), test.ShouldResemble, expected.GetStruct())
+		test.That(t, len(writes), test.ShouldEqual, len(expecteds))
+		for i, expected := range expecteds {
+			write := writes[i]
+			requestedAt := write.Metadata.TimeRequested.AsTime()
+			receivedAt := write.Metadata.TimeReceived.AsTime()
+			test.That(t, start, test.ShouldHappenOnOrBefore, requestedAt)
+			test.That(t, requestedAt, test.ShouldHappenOnOrBefore, receivedAt)
+			test.That(t, receivedAt, test.ShouldHappenOnOrBefore, end)
+			test.That(t, len(expecteds), test.ShouldEqual, len(writes))
+			// nil out to make comparable
+			// nil out to make comparable
+			write.Metadata.TimeRequested = nil
+			write.Metadata.TimeReceived = nil
+			test.That(t, write.GetMetadata(), test.ShouldResemble, expected.GetMetadata())
+			if isBinary(write) {
+				test.That(t, write.GetBinary(), test.ShouldResemble, expected.GetBinary())
+			} else {
+				test.That(t, write.GetStruct(), test.ShouldResemble, expected.GetStruct())
+			}
 		}
 	}
 }
@@ -179,13 +186,35 @@ func (m *MockBuffer) Close() {
 	m.cancel()
 }
 
-// Write adds the item to the channel.
-func (m *MockBuffer) Write(item *v1.SensorData) error {
+// WriteBinary writes binary sensor data.
+func (m *MockBuffer) WriteBinary(items []*v1.SensorData) error {
 	if err := m.ctx.Err(); err != nil {
 		return err
 	}
+	for i, item := range items {
+		if !isBinary(item) {
+			m.t.Errorf("MockBuffer.WriteBinary called with non binary data. index: %d, items: %#v\n", i, items)
+			m.t.FailNow()
+		}
+	}
 	select {
-	case m.Writes <- item:
+	case m.Writes <- items:
+	case <-m.ctx.Done():
+	}
+	return nil
+}
+
+// WriteTabular writes tabular sensor data to the Writes channel.
+func (m *MockBuffer) WriteTabular(item *v1.SensorData) error {
+	if err := m.ctx.Err(); err != nil {
+		return err
+	}
+	if isBinary(item) {
+		m.t.Errorf("MockBuffer.WriteTabular called with binary data. item: %#v\n", item)
+		m.t.FailNow()
+	}
+	select {
+	case m.Writes <- []*v1.SensorData{item}:
 	case <-m.ctx.Done():
 	}
 	return nil

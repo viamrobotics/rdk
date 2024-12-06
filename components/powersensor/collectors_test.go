@@ -27,44 +27,46 @@ func TestCollectors(t *testing.T) {
 	tests := []struct {
 		name      string
 		collector data.CollectorConstructor
-		expected  *datasyncpb.SensorData
+		expected  []*datasyncpb.SensorData
 	}{
 		{
 			name:      "Power sensor voltage collector should write a voltage response",
 			collector: powersensor.NewVoltageCollector,
-			expected: &datasyncpb.SensorData{
+			expected: []*datasyncpb.SensorData{{
 				Metadata: &datasyncpb.SensorMetadata{},
 				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
 					"volts": 1.0,
 					"is_ac": false,
 				})},
-			},
+			}},
 		},
 		{
 			name:      "Power sensor current collector should write a current response",
 			collector: powersensor.NewCurrentCollector,
-			expected: &datasyncpb.SensorData{
-				Metadata: &datasyncpb.SensorMetadata{},
-				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
-					"amperes": 1.0,
-					"is_ac":   false,
-				})},
+			expected: []*datasyncpb.SensorData{
+				{
+					Metadata: &datasyncpb.SensorMetadata{},
+					Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+						"amperes": 1.0,
+						"is_ac":   false,
+					})},
+				},
 			},
 		},
 		{
 			name:      "Power sensor power collector should write a power response",
 			collector: powersensor.NewPowerCollector,
-			expected: &datasyncpb.SensorData{
+			expected: []*datasyncpb.SensorData{{
 				Metadata: &datasyncpb.SensorMetadata{},
 				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
 					"watts": 1.0,
 				})},
-			},
+			}},
 		},
 		{
 			name:      "Power sensor readings collector should write a readings response",
 			collector: powersensor.NewReadingsCollector,
-			expected: &datasyncpb.SensorData{
+			expected: []*datasyncpb.SensorData{{
 				Metadata: &datasyncpb.SensorMetadata{},
 				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
 					"readings": map[string]any{
@@ -72,15 +74,16 @@ func TestCollectors(t *testing.T) {
 						"reading2": "test",
 					},
 				})},
-			},
+			}},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			start := time.Now()
-			buf := tu.NewMockBuffer()
+			buf := tu.NewMockBuffer(t)
 			params := data.CollectorParams{
+				DataType:      data.CaptureTypeTabular,
 				ComponentName: componentName,
 				Interval:      captureInterval,
 				Logger:        logging.NewTestLogger(t),
