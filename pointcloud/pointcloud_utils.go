@@ -8,6 +8,7 @@ import (
 	"gonum.org/v1/gonum/stat"
 
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 // BoundingBoxFromPointCloud returns a Geometry object that encompasses all the points in the given point cloud.
@@ -92,21 +93,29 @@ func StatisticalOutlierFilter(meanK int, stdDevThresh float64) (func(PointCloud)
 	return filterFunc, nil
 }
 
-// PointCloudToBasicOctree takes a pointcloud object and converts it into an octree.
-func PointCloudToBasicOctree(cloud PointCloud) (*BasicOctree, error) {
+// ToBasicOctree takes a pointcloud object and converts it into a basic octree.
+func ToBasicOctree(cloud PointCloud) (*BasicOctree, error) {
+	basicOctree, err := utils.AssertType[*BasicOctree](cloud)
+	if err != nil && basicOctree != nil {
+		return basicOctree, nil
+	}
+
 	center := getCenterFromPcMetaData(cloud.MetaData())
 	maxSideLength := getMaxSideLengthFromPcMetaData(cloud.MetaData())
-
-	basicOct, err := NewBasicOctree(center, maxSideLength)
+	basicOctree, err = NewBasicOctree(center, maxSideLength)
 	if err != nil {
 		return &BasicOctree{}, err
 	}
-
+	var iterateError error
 	cloud.Iterate(0, 0, func(p r3.Vector, d Data) bool {
-		if err = basicOct.Set(p, d); err != nil {
+		if err = basicOctree.Set(p, d); err != nil {
+			iterateError = err
 			return false
 		}
 		return true
 	})
-	return basicOct, nil
+	if iterateError != nil {
+		return &BasicOctree{}, iterateError
+	}
+	return basicOctree, nil
 }

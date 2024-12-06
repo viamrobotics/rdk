@@ -70,3 +70,38 @@ func TestPrune(t *testing.T) {
 	test.That(t, len(clouds), test.ShouldEqual, 1)
 	test.That(t, clouds[0].Size(), test.ShouldEqual, 5)
 }
+
+func TestToOctree(t *testing.T) {
+	pc := newBigPC()
+	tree, err := ToBasicOctree(pc)
+	test.That(t, err, test.ShouldBeNil)
+	pc.Iterate(0, 0, func(p r3.Vector, d Data) bool {
+		treeData, b := tree.At(p.X, p.Y, p.Z)
+		test.That(t, b, test.ShouldBeTrue)
+		test.ShouldResemble(t, treeData, d)
+		return true
+	})
+
+	basicTree, err := createNewOctree(r3.Vector{0, 0, 0}, 2)
+	test.That(t, err, test.ShouldBeNil)
+	pointsAndData := []PointAndData{
+		{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: NewValueData(2)},
+		{P: r3.Vector{X: .5, Y: 0, Z: 0}, D: NewValueData(3)},
+		{P: r3.Vector{X: .5, Y: 0, Z: .5}, D: NewValueData(10)},
+		{P: r3.Vector{X: .5, Y: .5, Z: 0}, D: NewValueData(1)},
+		{P: r3.Vector{X: .55, Y: .55, Z: 0}, D: NewValueData(4)},
+		{P: r3.Vector{X: -.55, Y: -.55, Z: 0}, D: NewValueData(5)},
+		{P: r3.Vector{X: .755, Y: .755, Z: 0}, D: NewValueData(6)},
+	}
+
+	err = addPoints(basicTree, pointsAndData)
+	test.That(t, err, test.ShouldBeNil)
+	tree, err = ToBasicOctree(basicTree)
+	test.That(t, err, test.ShouldBeNil)
+	basicTree.Iterate(0, 0, func(p r3.Vector, d Data) bool {
+		treeData, b := tree.At(p.X, p.Y, p.Z)
+		test.That(t, b, test.ShouldBeTrue)
+		test.ShouldResemble(t, treeData, d)
+		return true
+	})
+}
