@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/components/arm"
@@ -24,7 +25,8 @@ import (
 type someTypeWithWeakAndStrongDeps struct {
 	resource.Named
 	resource.TriviallyCloseable
-	resources resource.Dependencies
+	resources     resource.Dependencies
+	reconfigCount int
 }
 
 func (s *someTypeWithWeakAndStrongDeps) Reconfigure(
@@ -33,6 +35,7 @@ func (s *someTypeWithWeakAndStrongDeps) Reconfigure(
 	conf resource.Config,
 ) error {
 	s.resources = deps
+	s.reconfigCount++
 	ourConf, err := resource.NativeConfig[*someTypeWithWeakAndStrongDepsConfig](conf)
 	if err != nil {
 		return err
@@ -72,10 +75,9 @@ func TestUpdateWeakDependents(t *testing.T) {
 	robot := setupLocalRobot(t, context.Background(), &emptyCfg, logger)
 
 	// Register a `Resource` that generates weak dependencies. Specifically instance of
-	// this resource will depend on every `component` resource. See the definition of
-	// `internal.ComponentDependencyWildcardMatcher`.
-	weakAPI := resource.NewAPI(uuid.NewString(), "component", "weaktype")
-	weakModel := resource.NewModel(uuid.NewString(), "soweak", "weak1000")
+	// this resource will depend on every `component` resource.
+	weakAPI := resource.NewAPI(uuid.NewString(), "component", "weak")
+	weakModel := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(5))
 	weak1Name := resource.NewName(weakAPI, "weak1")
 	resource.Register(
 		weakAPI,
@@ -94,9 +96,7 @@ func TestUpdateWeakDependents(t *testing.T) {
 			},
 			WeakDependencies: []resource.Matcher{resource.TypeMatcher{Type: resource.APITypeComponentName}},
 		})
-	defer func() {
-		resource.Deregister(weakAPI, weakModel)
-	}()
+	defer resource.Deregister(weakAPI, weakModel)
 
 	// Create a configuration with a single component that has an explicit, unresolved
 	// dependency. Reconfiguring will succeed, but getting a handle on the `weak1Name` resource fails
@@ -141,14 +141,15 @@ func TestUpdateWeakDependents(t *testing.T) {
 	test.That(t, weakCfg2.Ensure(false, logger), test.ShouldBeNil)
 	robot.Reconfigure(context.Background(), &weakCfg2)
 
-	res, err := robot.ResourceByName(weak1Name)
+	weakRes, err := robot.ResourceByName(weak1Name)
 	// The resource was found and all dependencies were properly resolved.
 	test.That(t, err, test.ShouldBeNil)
-	weak1, err := resource.AsType[*someTypeWithWeakAndStrongDeps](res)
+	weak1, err := resource.AsType[*someTypeWithWeakAndStrongDeps](weakRes)
 	test.That(t, err, test.ShouldBeNil)
 	// Assert that the weak dependency was tracked.
 	test.That(t, weak1.resources, test.ShouldHaveLength, 1)
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, 1)
 
 	// Reconfigure again with a new third `arm` component.
 	arm1Name := arm.Named("arm1")
@@ -175,14 +176,15 @@ func TestUpdateWeakDependents(t *testing.T) {
 	test.That(t, weakCfg3.Ensure(false, logger), test.ShouldBeNil)
 	robot.Reconfigure(context.Background(), &weakCfg3)
 
-	res, err = robot.ResourceByName(weak1Name)
+	weakRes, err = robot.ResourceByName(weak1Name)
 	test.That(t, err, test.ShouldBeNil)
-	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](res)
+	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](weakRes)
 	test.That(t, err, test.ShouldBeNil)
 	// With two other components, `weak1` now has two (weak) dependencies.
 	test.That(t, weak1.resources, test.ShouldHaveLength, 2)
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
 	test.That(t, weak1.resources, test.ShouldContainKey, arm1Name)
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, 2)
 
 	base2Name := base.Named("base2")
 	weakCfg5 := config.Config{
@@ -217,6 +219,8 @@ func TestUpdateWeakDependents(t *testing.T) {
 	_, err = robot.ResourceByName(weak1Name)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not initialized")
+	// reconfigCount will not increment as the error happens before Reconfigure is called on the resource.
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, 2)
 
 	weakCfg6 := config.Config{
 		Components: []resource.Config{
@@ -243,13 +247,15 @@ func TestUpdateWeakDependents(t *testing.T) {
 	}
 	test.That(t, weakCfg6.Ensure(false, logger), test.ShouldBeNil)
 	robot.Reconfigure(context.Background(), &weakCfg6)
-	res, err = robot.ResourceByName(weak1Name)
+	weakRes, err = robot.ResourceByName(weak1Name)
 	test.That(t, err, test.ShouldBeNil)
-	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](res)
+	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](weakRes)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, weak1.resources, test.ShouldHaveLength, 2)
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
 	test.That(t, weak1.resources, test.ShouldContainKey, base2Name)
+	// reconfigCount will reset as the resource was destroyed after the previous configuration failure.
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, 1)
 
 	weakCfg7 := config.Config{
 		Components: []resource.Config{
@@ -278,11 +284,289 @@ func TestUpdateWeakDependents(t *testing.T) {
 	test.That(t, weakCfg7.Ensure(false, logger), test.ShouldBeNil)
 	robot.Reconfigure(context.Background(), &weakCfg7)
 
-	res, err = robot.ResourceByName(weak1Name)
+	weakRes, err = robot.ResourceByName(weak1Name)
 	test.That(t, err, test.ShouldBeNil)
-	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](res)
+	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](weakRes)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, weak1.resources, test.ShouldHaveLength, 2)
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
 	test.That(t, weak1.resources, test.ShouldContainKey, base2Name)
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, 3)
+}
+
+func TestWeakDependentsExplicitDependency(t *testing.T) {
+	// This test tests the behavior of weak dependents that have an explicit dependency.
+	// The robot has 3 components:
+	//   * base1 and base2: two fake base components.
+	//   * weak1: a weak component that depends on all components and also has an explicit dependency on base1.
+	logger := logging.NewTestLogger(t)
+
+	// Register a `Resource` that generates weak dependencies. Specifically instance of
+	// this resource will depend on every `component` resource.
+	weakAPI := resource.NewAPI(uuid.NewString(), "component", "weak")
+	weakModel := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(5))
+	weak1Name := resource.NewName(weakAPI, "weak1")
+	resource.Register(
+		weakAPI,
+		weakModel,
+		resource.Registration[*someTypeWithWeakAndStrongDeps, *someTypeWithWeakAndStrongDepsConfig]{
+			Constructor: func(
+				ctx context.Context,
+				deps resource.Dependencies,
+				conf resource.Config,
+				logger logging.Logger,
+			) (*someTypeWithWeakAndStrongDeps, error) {
+				return &someTypeWithWeakAndStrongDeps{
+					Named:     conf.ResourceName().AsNamed(),
+					resources: deps,
+				}, nil
+			},
+			WeakDependencies: []resource.Matcher{resource.TypeMatcher{Type: resource.APITypeComponentName}},
+		})
+	defer resource.Deregister(weakAPI, weakModel)
+
+	// Start robot with two components and one resource with weak dependencies
+	// (that also has an explicit dependency on one of the components).
+	// The following scenario is expected:
+	// 1) The two bases will configure first in parallel (which will each bump the logical clock).
+	// 2) The completeConfig loop will check to see if there is a need to updateWeakDependents by
+	//    checking the logical clock and also whether there are dependencies on weak dependents in
+	//    next level of reconfiguration.
+	//    The check will fail because there is nothing that depends on weak dependents, e.g., weak1, in the next level.
+	// 3) weak1 will configure.
+	// 4) At the end of reconfiguration, weak1 will reconfigure once (to increase weak1.reconfigCount to 1)
+	//    because of updateWeakDependents and `lRobot.lastWeakDependentsRound` will be updated to 5.
+	t.Log("Robot startup")
+	base1Name := base.Named("base1")
+	base2Name := base.Named("base2")
+	weakCfg := config.Config{
+		Components: []resource.Config{
+			{
+				Name:                weak1Name.Name,
+				API:                 weakAPI,
+				Model:               weakModel,
+				DependsOn:           []string{base1Name.String()},
+				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{},
+			},
+			{
+				Name:  base1Name.Name,
+				API:   base.API,
+				Model: fake.Model,
+			},
+			{
+				Name:  base2Name.Name,
+				API:   base.API,
+				Model: fake.Model,
+			},
+		},
+	}
+	robot := setupLocalRobot(t, context.Background(), &weakCfg, logger)
+
+	weakRes, err := robot.ResourceByName(weak1Name)
+	// The resource was found and all dependencies were properly resolved.
+	test.That(t, err, test.ShouldBeNil)
+	weak1, err := resource.AsType[*someTypeWithWeakAndStrongDeps](weakRes)
+	test.That(t, err, test.ShouldBeNil)
+	// Assert that the weak dependency was tracked.
+	test.That(t, weak1.resources, test.ShouldHaveLength, 2)
+	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, 1)
+
+	lRobot := robot.(*localRobot)
+	test.That(t, lRobot.lastWeakDependentsRound.Load(), test.ShouldEqual, 4)
+
+	// Reconfigure base1
+	// The following scenario is expected:
+	// 1) The base1 will reconfigure (which will bump the logical clock).
+	// 2) The completeConfig loop will check to see if there is a need to updateWeakDependents by
+	//    checking the logical clock and also whether there are dependencies on weak dependents in
+	//    next level of reconfiguration.
+	//    The check will fail because there is nothing that depends on weak dependents, e.g., weak1, in the next level.
+	// 3) weak1 will not reconfigure, as base1 was neither newly built nor errored during reconfiguration.
+	// 4) At the end of reconfiguration, weak1 will reconfigure once (to increase weak1.reconfigCount to 2)
+	//    because of updateWeakDependents and `lRobot.lastWeakDependentsRound` will be updated to 5.
+	t.Log("Reconfigure base1")
+	weakCfg.Components[1].Attributes = rutils.AttributeMap{"version": 1}
+	robot.Reconfigure(context.Background(), &weakCfg)
+
+	weakRes, err = robot.ResourceByName(weak1Name)
+	test.That(t, err, test.ShouldBeNil)
+	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](weakRes)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, 2)
+
+	test.That(t, lRobot.lastWeakDependentsRound.Load(), test.ShouldEqual, 5)
+
+	// Reconfigure base2
+	// The following scenario is expected:
+	// 1) The base2 will reconfigure (which will bump the logical clock).
+	// 2) The completeConfig loop will check to see if there is a need to updateWeakDependents by
+	//    checking the logical clock and also whether there are dependencies on weak dependents in
+	//    next level of reconfiguration.
+	//    The check will fail because there is nothing that depends on weak dependents, e.g., weak1, in the next level.
+	// 3) weak1 will not reconfigure, as base1 was not newly built or error during reconfiguration.
+	// 4) At the end of reconfiguration, weak1 will reconfigure once (to increase weak1.reconfigCount to 3)
+	//    because of updateWeakDependents and `lRobot.lastWeakDependentsRound` will be updated to 6.
+	t.Log("Reconfigure base2")
+	weakCfg.Components[2].Attributes = rutils.AttributeMap{"version": 1}
+	robot.Reconfigure(context.Background(), &weakCfg)
+
+	weakRes, err = robot.ResourceByName(weak1Name)
+	test.That(t, err, test.ShouldBeNil)
+	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](weakRes)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, 3)
+
+	test.That(t, lRobot.lastWeakDependentsRound.Load(), test.ShouldEqual, 6)
+
+	// check that calling getDependencies for either weak1 or base1 does not change weak1.reconfigCount
+	node, ok := lRobot.manager.resources.Node(weak1Name)
+	test.That(t, ok, test.ShouldBeTrue)
+	lRobot.getDependencies(weak1Name, node)
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, 3)
+
+	node, ok = lRobot.manager.resources.Node(base1Name)
+	test.That(t, ok, test.ShouldBeTrue)
+	lRobot.getDependencies(base1Name, node)
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, 3)
+}
+
+func TestWeakDependentsDependedOn(t *testing.T) {
+	// This test tests the behavior of weak dependents that have an explicit dependency.
+	// The robot has 3 components:
+	//   * base1: a fake base component that has an explicit dependency on weak1.
+	//   * base2: a fake base component.
+	//   * weak1: a weak component that depends on all components.
+	logger := logging.NewTestLogger(t)
+
+	// Register a `Resource` that generates weak dependencies. Specifically, instances of
+	// this resource will depend on every `component` resource.
+	weakAPI := resource.NewAPI(uuid.NewString(), "component", "weak")
+	weakModel := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(5))
+	weak1Name := resource.NewName(weakAPI, "weak1")
+	resource.Register(
+		weakAPI,
+		weakModel,
+		resource.Registration[*someTypeWithWeakAndStrongDeps, *someTypeWithWeakAndStrongDepsConfig]{
+			Constructor: func(
+				ctx context.Context,
+				deps resource.Dependencies,
+				conf resource.Config,
+				logger logging.Logger,
+			) (*someTypeWithWeakAndStrongDeps, error) {
+				return &someTypeWithWeakAndStrongDeps{
+					Named:     conf.ResourceName().AsNamed(),
+					resources: deps,
+				}, nil
+			},
+			WeakDependencies: []resource.Matcher{resource.TypeMatcher{Type: resource.APITypeComponentName}},
+		})
+	defer resource.Deregister(weakAPI, weakModel)
+
+	// Start robot with two components (one of which has an explicit dependency on weak dependents)
+	// and one resource with weak dependencies.
+	// The following scenario is expected:
+	// 1) base2 and weak1 will configure first in parallel (which will each bump the logical clock).
+	// 2) The completeConfig loop will check to see if there is a need to updateWeakDependents by
+	//    checking the logical clock and also whether there are dependencies on weak dependents in
+	//    next level of reconfiguration.
+	//    The check will succeed since the logical clock has advanced and there are dependencies on
+	//    weak dependents. updateWeakDependents will be run.
+	// 3) base1 will configure as part of the next level of reconfiguration.
+	// 4) At the end of reconfiguration, weak1 will reconfigure once (to increase weak1.reconfigCount to 2)
+	//    because of updateWeakDependents and `lRobot.lastWeakDependentsRound` will be updated to 4.
+	t.Log("Robot startup")
+	base1Name := base.Named("base1")
+	base2Name := base.Named("base2")
+	weakCfg := config.Config{
+		Components: []resource.Config{
+			{
+				Name:                weak1Name.Name,
+				API:                 weakAPI,
+				Model:               weakModel,
+				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{},
+			},
+			{
+				Name:      base1Name.Name,
+				API:       base.API,
+				Model:     fake.Model,
+				DependsOn: []string{weak1Name.String()},
+			},
+			{
+				Name:  base2Name.Name,
+				API:   base.API,
+				Model: fake.Model,
+			},
+		},
+	}
+	robot := setupLocalRobot(t, context.Background(), &weakCfg, logger)
+
+	weakRes, err := robot.ResourceByName(weak1Name)
+	// The resource was found and all dependencies were properly resolved.
+	test.That(t, err, test.ShouldBeNil)
+	weak1, err := resource.AsType[*someTypeWithWeakAndStrongDeps](weakRes)
+	test.That(t, err, test.ShouldBeNil)
+	// Assert that the weak dependency was tracked.
+	test.That(t, weak1.resources, test.ShouldHaveLength, 2)
+	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, 2)
+
+	lRobot := robot.(*localRobot)
+	test.That(t, lRobot.lastWeakDependentsRound.Load(), test.ShouldEqual, 4)
+
+	// Reconfigure base1
+	// The following scenario is expected:
+	// 1) base2 and weak1 will attempt reconfigure first in parallel (but no changes were made so neither will
+	//    be reconfigured). The logical clock will not be bumped.
+	// 2) The completeConfig loop will check to see if there is a need to updateWeakDependents by
+	//    checking the logical clock on also whether there are dependencies on weak dependents.
+	//    The check will fail because the logical clock has not changed since the last round of weak dependent
+	//    updates.
+	// 3) base1 will reconfigure.
+	// 4) At the end of reconfiguration, weak1 will reconfigure once (to increase weak1.reconfigCount to 3)
+	//    because of updateWeakDependents and `lRobot.lastWeakDependentsRound` will be updated to 5.
+	t.Log("Reconfigure base1")
+	weakCfg.Components[1].Attributes = rutils.AttributeMap{"version": 1}
+	robot.Reconfigure(context.Background(), &weakCfg)
+
+	weakRes, err = robot.ResourceByName(weak1Name)
+	test.That(t, err, test.ShouldBeNil)
+	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](weakRes)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, 3)
+
+	test.That(t, lRobot.lastWeakDependentsRound.Load(), test.ShouldEqual, 5)
+
+	// Reconfigure base2
+	// The following scenario is expected:
+	// 1) base2 and weak1 will attempt reconfiguration first in parallel (base2 will be reconfigured).
+	//    The logical clock will be bumped.
+	// 2) The completeConfig loop will check to see if there is a need to updateWeakDependents by
+	//    checking the logical clock on also whether there are dependencies on weak dependents.
+	//    The check will fail because base1 does not need to be reconfigured.
+	// 3) base1 will not reconfigure, as weak1 was not newly built or error during reconfiguration.
+	// 4) At the end of reconfiguration, weak1 will reconfigure once (to increase weak1.reconfigCount to 4)
+	//    because of updateWeakDependents and `lRobot.lastWeakDependentsRound` will be updated to 6.
+	t.Log("Reconfigure base2")
+	weakCfg.Components[2].Attributes = rutils.AttributeMap{"version": 1}
+	robot.Reconfigure(context.Background(), &weakCfg)
+
+	weakRes, err = robot.ResourceByName(weak1Name)
+	test.That(t, err, test.ShouldBeNil)
+	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](weakRes)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, 4)
+
+	test.That(t, lRobot.lastWeakDependentsRound.Load(), test.ShouldEqual, 6)
+
+	// check that calling getDependencies for either weak1 or base1 does not change weak1.reconfigCount
+	node, ok := lRobot.manager.resources.Node(weak1Name)
+	test.That(t, ok, test.ShouldBeTrue)
+	lRobot.getDependencies(weak1Name, node)
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, 4)
+
+	node, ok = lRobot.manager.resources.Node(base1Name)
+	test.That(t, ok, test.ShouldBeTrue)
+	lRobot.getDependencies(base1Name, node)
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, 4)
 }
