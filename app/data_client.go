@@ -1422,6 +1422,9 @@ func uploadMetadataToProto(metadata UploadMetadata) *syncPb.UploadMetadata {
 }
 
 func annotationsToProto(annotations *Annotations) *pb.Annotations {
+	if annotations == nil {
+		return nil
+	}
 	var protoBboxes []*pb.BoundingBox
 	for _, bbox := range annotations.Bboxes {
 		protoBboxes = append(protoBboxes, &pb.BoundingBox{
