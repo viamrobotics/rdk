@@ -700,6 +700,19 @@ func TestAppClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
+	t.Run("GetBillingConfig", func(t *testing.T) {
+		grpcClient.GetBillingServiceConfigFunc = func(
+			ctx context.Context, in *pb.GetBillingServiceConfigRequest, opts ...grpc.CallOption,
+		) (*pb.GetBillingServiceConfigResponse, error) {
+			test.That(t, in.OrgId, test.ShouldEqual, organizationID)
+			return &pb.GetBillingServiceConfigResponse{}, nil
+		}
+
+		resp, err := client.GetBillingServiceConfig(context.Background(), organizationID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldResemble, &pb.GetBillingServiceConfigResponse{})
+	})
+
 	t.Run("GetSupportEmail", func(t *testing.T) {
 		grpcClient.OrganizationGetSupportEmailFunc = func(
 			ctx context.Context, in *pb.OrganizationGetSupportEmailRequest, opts ...grpc.CallOption,

@@ -177,6 +177,44 @@ func (c *viamClient) organizationsSupportEmailGetAction(cCtx *cli.Context, orgID
 	return nil
 }
 
+// GetBillingConfigAction corresponds to `organizations billing get`.
+func GetBillingConfigAction(cCtx *cli.Context) error {
+	c, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+	return c.getBillingConfig(cCtx, cCtx.String(generalFlagOrgID))
+}
+
+func (c *viamClient) getBillingConfig(cCtx *cli.Context, orgID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	resp, err := c.client.GetBillingServiceConfig(cCtx.Context, &apppb.GetBillingServiceConfigRequest{
+		OrgId: orgID,
+	})
+	if err != nil {
+		return err
+	}
+
+	printf(cCtx.App.Writer, "Billing config for organization: %s", orgID)
+	printf(cCtx.App.Writer, "Support Email: %s", resp.GetSupportEmail())
+	printf(cCtx.App.Writer, "Billing Dashboard URL: %s", resp.GetBillingDashboardUrl())
+	printf(cCtx.App.Writer, "Logo URL: %s", resp.GetLogoUrl())
+
+	printf(cCtx.App.Writer, " --- Billing Address --- ")
+	printf(cCtx.App.Writer, "Address Line 1: %s", resp.BillingAddress.GetAddressLine_1())
+	if resp.BillingAddress.GetAddressLine_2() != "" {
+		printf(cCtx.App.Writer, "Address Line 2: %s", resp.BillingAddress.GetAddressLine_2())
+	}
+	printf(cCtx.App.Writer, "City: %s", resp.BillingAddress.GetCity())
+	printf(cCtx.App.Writer, "State: %s", resp.BillingAddress.GetState())
+	printf(cCtx.App.Writer, "Postal Code: %s", resp.BillingAddress.GetZipcode())
+	printf(cCtx.App.Writer, "Country: %s", "USA")
+	return nil
+}
+
 // ListLocationsAction is the corresponding Action for 'locations list'.
 func ListLocationsAction(c *cli.Context) error {
 	client, err := newViamClient(c)

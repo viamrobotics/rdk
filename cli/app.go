@@ -367,6 +367,18 @@ var app = &cli.App{
 					},
 				},
 				{
+					Name:      "billing-service",
+					Usage:     "manage the organizations billing service",
+					UsageText: createUsageText("organizations billing-service", []string{generalFlagOrgID}, false),
+					Subcommands: []*cli.Command{
+						{
+							Name:   "get-config",
+							Usage:  "get the billing service config for an organization",
+							Action: GetBillingConfigAction,
+						},
+					},
+				},
+				{
 					Name:      "api-key",
 					Usage:     "work with an organization's api keys",
 					UsageText: createUsageText("organizations api-key", []string{generalFlagOrgID}, true),

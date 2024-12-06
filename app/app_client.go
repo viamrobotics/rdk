@@ -825,6 +825,17 @@ func (c *AppClient) OrganizationGetSupportEmail(ctx context.Context, orgID strin
 	return resp.Email, nil
 }
 
+// GetBillingServiceConfig gets the billing service configuration for an organization.
+func (c *AppClient) GetBillingServiceConfig(ctx context.Context, orgID string) (*pb.GetBillingServiceConfigResponse, error) {
+	resp, err := c.client.GetBillingServiceConfig(ctx, &pb.GetBillingServiceConfigRequest{
+		OrgId: orgID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 // CreateLocation creates a location with the given name under the given organization.
 func (c *AppClient) CreateLocation(ctx context.Context, orgID, name string, opts *CreateLocationOptions) (*Location, error) {
 	var parentID *string
