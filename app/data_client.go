@@ -112,7 +112,7 @@ type TabularData struct {
 // BinaryData contains data and metadata associated with binary data.
 type BinaryData struct {
 	Binary   []byte
-	Metadata BinaryMetadata
+	Metadata *BinaryMetadata
 }
 
 // BinaryMetadata is the metadata associated with binary data.
@@ -164,7 +164,7 @@ type TabularDataByFilterResponse struct {
 // It contains the retrieved binary data and associated metadata,
 // the total number of entries retrieved (Count), and the ID of the last returned page (Last).
 type BinaryDataByFilterResponse struct {
-	BinaryData []BinaryData
+	BinaryData []*BinaryData
 	Count      int
 	Last       string
 }
@@ -489,7 +489,7 @@ func (d *DataClient) BinaryDataByFilter(
 	if err != nil {
 		return nil, err
 	}
-	data := make([]BinaryData, len(resp.Data))
+	data := make([]*BinaryData, len(resp.Data))
 	for i, protoData := range resp.Data {
 		data[i] = binaryDataFromProto(protoData)
 	}
@@ -501,7 +501,7 @@ func (d *DataClient) BinaryDataByFilter(
 }
 
 // BinaryDataByIDs queries binary data and metadata based on given IDs.
-func (d *DataClient) BinaryDataByIDs(ctx context.Context, binaryIDs []*BinaryID) ([]BinaryData, error) {
+func (d *DataClient) BinaryDataByIDs(ctx context.Context, binaryIDs []*BinaryID) ([]*BinaryData, error) {
 	resp, err := d.dataClient.BinaryDataByIDs(ctx, &pb.BinaryDataByIDsRequest{
 		IncludeBinary: true,
 		BinaryIds:     binaryIDsToProto(binaryIDs),
@@ -509,7 +509,7 @@ func (d *DataClient) BinaryDataByIDs(ctx context.Context, binaryIDs []*BinaryID)
 	if err != nil {
 		return nil, err
 	}
-	data := make([]BinaryData, len(resp.Data))
+	data := make([]*BinaryData, len(resp.Data))
 	for i, protoData := range resp.Data {
 		data[i] = binaryDataFromProto(protoData)
 	}
@@ -694,14 +694,14 @@ func (d *DataClient) UpdateBoundingBox(ctx context.Context, binaryID *BinaryID, 
 // GetDatabaseConnection establishes a connection to a MongoDB Atlas Data Federation instance.
 // It returns the hostname endpoint, a URI for connecting to the database via MongoDB clients,
 // and a flag indicating whether a database user is configured for the Viam organization.
-func (d *DataClient) GetDatabaseConnection(ctx context.Context, organizationID string) (GetDatabaseConnectionResponse, error) {
+func (d *DataClient) GetDatabaseConnection(ctx context.Context, organizationID string) (*GetDatabaseConnectionResponse, error) {
 	resp, err := d.dataClient.GetDatabaseConnection(ctx, &pb.GetDatabaseConnectionRequest{
 		OrganizationId: organizationID,
 	})
 	if err != nil {
-		return GetDatabaseConnectionResponse{}, err
+		return nil, err
 	}
-	return GetDatabaseConnectionResponse{
+	return &GetDatabaseConnectionResponse{
 		Hostname:        resp.Hostname,
 		MongodbURI:      resp.MongodbUri,
 		HasDatabaseUser: resp.HasDatabaseUser,
@@ -1209,15 +1209,21 @@ func captureMetadataFromProto(proto *pb.CaptureMetadata) CaptureMetadata {
 	}
 }
 
-func binaryDataFromProto(proto *pb.BinaryData) BinaryData {
-	return BinaryData{
+func binaryDataFromProto(proto *pb.BinaryData) *BinaryData {
+	if proto == nil {
+		return nil
+	}
+	return &BinaryData{
 		Binary:   proto.Binary,
 		Metadata: binaryMetadataFromProto(proto.Metadata),
 	}
 }
 
-func binaryMetadataFromProto(proto *pb.BinaryMetadata) BinaryMetadata {
-	return BinaryMetadata{
+func binaryMetadataFromProto(proto *pb.BinaryMetadata) *BinaryMetadata {
+	if proto == nil {
+		return nil
+	}
+	return &BinaryMetadata{
 		ID:              proto.Id,
 		CaptureMetadata: captureMetadataFromProto(proto.CaptureMetadata),
 		TimeRequested:   proto.TimeRequested.AsTime(),
@@ -1231,6 +1237,9 @@ func binaryMetadataFromProto(proto *pb.BinaryMetadata) BinaryMetadata {
 }
 
 func tabularDataFromProto(proto *pb.TabularData, metadata *pb.CaptureMetadata) *TabularData {
+	if proto == nil {
+		return nil
+	}
 	return &TabularData{
 		Data:          proto.Data.AsMap(),
 		MetadataIndex: int(proto.MetadataIndex),

@@ -166,7 +166,7 @@ func captureMetadataToProto(metadata CaptureMetadata) *pb.CaptureMetadata {
 	}
 }
 
-func binaryMetadataToProto(binaryMetadata BinaryMetadata) *pb.BinaryMetadata {
+func binaryMetadataToProto(binaryMetadata *BinaryMetadata) *pb.BinaryMetadata {
 	return &pb.BinaryMetadata{
 		Id:              binaryMetadata.ID,
 		CaptureMetadata: captureMetadataToProto(binaryMetadata.CaptureMetadata),
@@ -255,7 +255,7 @@ func TestDataClient(t *testing.T) {
 
 	binaryData := BinaryData{
 		Binary:   binaryDataByte,
-		Metadata: binaryMetadata,
+		Metadata: &binaryMetadata,
 	}
 
 	t.Run("TabularDataByFilter", func(t *testing.T) {
