@@ -341,6 +341,8 @@ var app = &cli.App{
 			Hidden: true,
 			Usage:  "base URL of app",
 		},
+		// TODO(RSDK-9287) - this flag isn't used anywhere. Confirm that we actually need it,
+		// get rid of it if we don't.
 		&cli.StringFlag{
 			Name:    configFlag,
 			Aliases: []string{"c"},
@@ -372,7 +374,7 @@ var app = &cli.App{
 				},
 			},
 			Action: createCommandWithT[loginActionArgs](LoginAction),
-			After:  createCommandWithT[checkUpdateArgs](CheckUpdateAction),
+			After:  createCommandWithT[emptyArgs](CheckUpdateAction),
 			Subcommands: []*cli.Command{
 				{
 					Name:   "print-access-token",

@@ -788,13 +788,10 @@ func getLatestReleaseVersion() (string, error) {
 	return resp.TagName, err
 }
 
-type checkUpdateArgs struct {
-	Quiet bool
-}
-
 // CheckUpdateAction is the corresponding Action for 'check-update'.
-func CheckUpdateAction(c *cli.Context, args checkUpdateArgs) error {
-	if args.Quiet {
+func CheckUpdateAction(c *cli.Context, args emptyArgs) error {
+	globalArgs := parseStructFromCtx[globalArgs](c)
+	if globalArgs.Quiet {
 		return nil
 	}
 
