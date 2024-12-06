@@ -638,7 +638,7 @@ func createPopulatedOctree(sign int) (*BasicOctree, error) {
 	side := 2.0
 	octree, err := createNewOctree(center, side)
 	if err != nil {
-		return nil, nil
+		return nil, err
 	}
 	pointsAndData := []PointAndData{
 		{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: NewValueData(2 * sign)},
@@ -652,7 +652,7 @@ func createPopulatedOctree(sign int) (*BasicOctree, error) {
 
 	err = addPoints(octree, pointsAndData)
 	if err != nil {
-		return nil, nil
+		return nil, err
 	}
 	return octree, nil
 }
