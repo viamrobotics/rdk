@@ -442,7 +442,7 @@ var app = &cli.App{
 									Usage:    "the support email to set for the organization",
 								},
 							},
-							Action: OrganizationsSupportEmailSetAction,
+							Action: createCommandWithT[organizationsSupportEmailSetArgs](OrganizationsSupportEmailSetAction),
 						},
 						{
 							Name:  "get",
@@ -454,7 +454,7 @@ var app = &cli.App{
 									Usage:    "the org to get the support email for",
 								},
 							},
-							Action: OrganizationsSupportEmailGetAction,
+							Action: createCommandWithT[organizationsSupportEmailGetArgs](OrganizationsSupportEmailGetAction),
 						},
 					},
 				},

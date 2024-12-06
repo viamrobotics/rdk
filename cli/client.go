@@ -110,19 +110,24 @@ func (c *viamClient) listOrganizationsAction(cCtx *cli.Context) error {
 	return nil
 }
 
+type organizationsSupportEmailSetArgs struct {
+	OrgID        string
+	SupportEmail string
+}
+
 // OrganizationsSupportEmailSetAction corresponds to `organizations support-email set`.
-func OrganizationsSupportEmailSetAction(cCtx *cli.Context) error {
+func OrganizationsSupportEmailSetAction(cCtx *cli.Context, args organizationsSupportEmailSetArgs) error {
 	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
 	}
 
-	orgID := cCtx.String(generalFlagOrgID)
+	orgID := args.OrgID
 	if orgID == "" {
 		return errors.New("cannot set support email without an organization ID")
 	}
 
-	supportEmail := cCtx.String(organizationFlagSupportEmail)
+	supportEmail := args.SupportEmail
 	if supportEmail == "" {
 		return errors.New("cannot set support email to an empty string")
 	}
@@ -146,14 +151,18 @@ func (c *viamClient) organizationsSupportEmailSetAction(cCtx *cli.Context, orgID
 	return nil
 }
 
+type organizationsSupportEmailGetArgs struct {
+	OrgID string
+}
+
 // OrganizationsSupportEmailGetAction corresponds to `organizations support-email get`.
-func OrganizationsSupportEmailGetAction(cCtx *cli.Context) error {
+func OrganizationsSupportEmailGetAction(cCtx *cli.Context, args organizationsSupportEmailGetArgs) error {
 	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
 	}
 
-	orgID := cCtx.String(generalFlagOrgID)
+	orgID := args.OrgID
 	if orgID == "" {
 		return errors.New("cannot get support email without an organization ID")
 	}
