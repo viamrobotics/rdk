@@ -215,6 +215,34 @@ func (c *viamClient) getBillingConfig(cCtx *cli.Context, orgID string) error {
 	return nil
 }
 
+// OrganizationDisableBillingServiceAction corresponds to `organizations billing disable`.
+func OrganizationDisableBillingServiceAction(cCtx *cli.Context) error {
+	c, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+	orgID := cCtx.String(generalFlagOrgID)
+	if orgID == "" {
+		return errors.New("cannot disable billing service without an organization ID")
+	}
+	return c.organizationDisableBillingServiceAction(cCtx, orgID)
+}
+
+func (c *viamClient) organizationDisableBillingServiceAction(cCtx *cli.Context, orgID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	if _, err := c.client.DisableBillingService(cCtx.Context, &apppb.DisableBillingServiceRequest{
+		OrgId: orgID,
+	}); err != nil {
+		return err
+	}
+
+	printf(cCtx.App.Writer, "Successfully disabled billing service for organization: %s", orgID)
+	return nil
+}
+
 // ListLocationsAction is the corresponding Action for 'locations list'.
 func ListLocationsAction(c *cli.Context) error {
 	client, err := newViamClient(c)

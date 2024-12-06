@@ -237,6 +237,25 @@ func TestGetSupportEmailAction(t *testing.T) {
 	test.That(t, out.messages[0], test.ShouldContainSubstring, "test-email")
 }
 
+func TestBillingServiceDisableAction(t *testing.T) {
+	disableBillingFunc := func(ctx context.Context, in *apppb.DisableBillingServiceRequest, opts ...grpc.CallOption) (
+		*apppb.DisableBillingServiceResponse, error,
+	) {
+		return &apppb.DisableBillingServiceResponse{}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		DisableBillingServiceFunc: disableBillingFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+	test.That(t, ac.organizationDisableBillingServiceAction(cCtx, "test-org"), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "Successfully disabled billing service for organization: ")
+}
+
 func TestGetBillingConfigAction(t *testing.T) {
 	getConfigEmailFunc := func(ctx context.Context, in *apppb.GetBillingServiceConfigRequest, opts ...grpc.CallOption) (
 		*apppb.GetBillingServiceConfigResponse, error,
