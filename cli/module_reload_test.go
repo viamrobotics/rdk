@@ -164,7 +164,7 @@ func TestMutateModuleConfig(t *testing.T) {
 
 	c = newTestContext(t, map[string]any{})
 	t.Run("remote_insert", func(t *testing.T) {
-		modules, _, _ := mutateModuleConfig(c, []ModuleMap{}, manifest, true)
+		modules, _, _ := mutateModuleConfig(c, []ModuleMap{}, manifest, false)
 		test.That(t, modules[0]["executable_path"], test.ShouldEqual,
 			".viam/packages-local/viam-labs_test-module_from_reload-module.tar.gz")
 	})
