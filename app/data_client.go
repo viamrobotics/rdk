@@ -369,6 +369,7 @@ func (d *DataClient) TabularDataByFilter(ctx context.Context, opts *DataByFilter
 		countOnly = opts.CountOnly
 		includeInternalData = opts.IncludeInternalData
 	}
+	//nolint:deprecated,staticcheck
 	resp, err := d.dataClient.TabularDataByFilter(ctx, &pb.TabularDataByFilterRequest{
 		DataRequest:         &dataReq,
 		CountOnly:           countOnly,
@@ -1219,6 +1220,7 @@ func binaryMetadataFromProto(proto *pb.BinaryMetadata) BinaryMetadata {
 	}
 }
 
+//nolint:deprecated,staticcheck
 func tabularDataFromProto(proto *pb.TabularData, metadata *pb.CaptureMetadata) TabularData {
 	return TabularData{
 		Data:          proto.Data.AsMap(),
