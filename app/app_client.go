@@ -116,9 +116,9 @@ type RobotPart struct {
 	Secret           string
 	Robot            string
 	LocationID       string
-	RobotConfig      *map[string]interface{}
+	RobotConfig      map[string]interface{}
 	LastAccess       *time.Time
-	UserSuppliedInfo *map[string]interface{}
+	UserSuppliedInfo map[string]interface{}
 	MainPart         bool
 	FQDN             string
 	LocalFQDN        string
@@ -143,16 +143,16 @@ type LogEntry struct {
 	Time       *time.Time
 	LoggerName string
 	Message    string
-	Caller     *map[string]interface{}
+	Caller     map[string]interface{}
 	Stack      string
-	Fields     []*map[string]interface{}
+	Fields     []map[string]interface{}
 }
 
 // Fragment stores the information of a fragment.
 type Fragment struct {
 	ID                string
 	Name              string
-	Fragment          *map[string]interface{}
+	Fragment          map[string]interface{}
 	OrganizationOwner string
 	Public            bool
 	CreatedOn         *time.Time
@@ -1955,14 +1955,12 @@ func robotPartFromProto(part *pb.RobotPart) *RobotPart {
 	for _, secret := range part.Secrets {
 		secrets = append(secrets, sharedSecretFromProto(secret))
 	}
-	var cfg, info *map[string]interface{}
+	var cfg, info map[string]interface{}
 	if part.RobotConfig != nil {
-		m := part.RobotConfig.AsMap()
-		cfg = &m
+		cfg = part.RobotConfig.AsMap()
 	}
 	if part.UserSuppliedInfo != nil {
-		m := part.UserSuppliedInfo.AsMap()
-		info = &m
+		info = part.UserSuppliedInfo.AsMap()
 	}
 	lastUpdated := part.LastUpdated.AsTime()
 	return &RobotPart{
@@ -2011,18 +2009,16 @@ func logEntryFromProto(log *common.LogEntry) *LogEntry {
 		t := log.Time.AsTime()
 		entryTime = &t
 	}
-	var caller *map[string]interface{}
+	var caller map[string]interface{}
 	if log.Caller != nil {
-		m := log.Caller.AsMap()
-		caller = &m
+		caller = log.Caller.AsMap()
 	}
-	var fields []*map[string]interface{}
+	var fields []map[string]interface{}
 	for _, field := range log.Fields {
 		if field == nil {
 			continue
 		}
-		f := field.AsMap()
-		fields = append(fields, &f)
+		fields = append(fields, field.AsMap())
 	}
 	return &LogEntry{
 		Host:       log.Host,
@@ -2040,10 +2036,9 @@ func fragmentFromProto(fragment *pb.Fragment) *Fragment {
 	if fragment == nil {
 		return nil
 	}
-	var frag *map[string]interface{}
+	var frag map[string]interface{}
 	if fragment.Fragment != nil {
-		f := fragment.Fragment.AsMap()
-		frag = &f
+		frag = fragment.Fragment.AsMap()
 	}
 	var createdOn, lastUpdated *time.Time
 	if fragment.CreatedOn != nil {

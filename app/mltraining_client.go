@@ -143,7 +143,7 @@ func (c *MLTrainingClient) GetTrainingJob(ctx context.Context, id string) (*Trai
 		return nil, err
 	}
 	metadata, err := trainingJobMetadataFromProto(resp.Metadata)
-	if err != nil{
+	if err != nil {
 		return nil, err
 	}
 	return metadata, nil
@@ -254,7 +254,7 @@ func errorStatusFromProto(status *errorstatus.Status) (*ErrorStatus, error) {
 		}
 		detail := structValue.AsInterface()
 		details = append(details, &detail)
-	}	
+	}
 	return &ErrorStatus{
 		Code:    int(status.Code),
 		Message: status.Message,
