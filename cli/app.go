@@ -15,7 +15,7 @@ const (
 	baseURLFlag = "base-url"
 	configFlag  = "config"
 	debugFlag   = "debug"
-	// TODO(RSDK-9287) - replace with `org-id` and `location-id` flags
+	// TODO(RSDK-9287) - replace with `org-id` and `location-id` flags.
 	organizationFlag = "organization"
 	locationFlag     = "location"
 	machineFlag      = "machine"
@@ -131,12 +131,10 @@ const (
 	organizationFlagSupportEmail = "support-email"
 )
 
-var (
-	// matches all uppercase characters that follow lowercase chars and aren't at the [0] index of a string.
-	// This is useful for converting camel case into kabob case when getting values out of a CLI Context
-	// based on a flag name, and putting them into a struct with a camel cased field name.
-	matchAllCap = regexp.MustCompile("([a-z0-9])([A-Z])")
-)
+// matches all uppercase characters that follow lowercase chars and aren't at the [0] index of a string.
+// This is useful for converting camel case into kabob case when getting values out of a CLI Context
+// based on a flag name, and putting them into a struct with a camel cased field name.
+var matchAllCap = regexp.MustCompile("([a-z0-9])([A-Z])")
 
 var commonFilterFlags = []cli.Flag{
 	&cli.StringSliceFlag{
@@ -316,19 +314,6 @@ func createCommandWithT[T any](f func(*cli.Context, T) error) func(*cli.Context)
 	}
 }
 
-type foo struct {
-	FooFoo []string
-	Bar    int
-	Baz    uint
-	Baba   string
-	Unused int
-}
-
-func doFoo(ctx *cli.Context, foo foo) error {
-	fmt.Printf("fofoo is %s and bar is %d and baz is %d and baba is %s", foo.FooFoo, foo.Bar, foo.Baz, foo.Baba)
-	return nil
-}
-
 // createUsageText is a helper for formatting UsageTexts. The created UsageText
 // contains "viam", the command, requiredFlags, [other options] if otherOptions
 // is true, and all passed-in arguments in that order.
@@ -372,25 +357,6 @@ var app = &cli.App{
 		},
 	},
 	Commands: []*cli.Command{
-		{
-			Name: "foo",
-			Flags: []cli.Flag{
-				&cli.StringSliceFlag{
-					Name:    "foo-foo",
-					Aliases: []string{"something-else"},
-				},
-				&cli.IntFlag{
-					Name: "bar",
-				},
-				&cli.UintFlag{
-					Name: "baz",
-				},
-				&cli.PathFlag{
-					Name: "baba",
-				},
-			},
-			Action: createCommandWithT[foo](doFoo),
-		},
 		{
 			Name: "login",
 			// NOTE(benjirewis): maintain `auth` as an alias for backward compatibility.

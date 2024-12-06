@@ -194,8 +194,6 @@ func (c *viamClient) moduleBuildListAction(cCtx *cli.Context, args moduleBuildLi
 		count := int32(args.Count)
 		numberOfJobsToReturn = &count
 	}
-	println("count is", *numberOfJobsToReturn)
-	return nil
 	jobs, err := c.listModuleBuildJobs(moduleIDFilter, numberOfJobsToReturn, buildIDFilter)
 	if err != nil {
 		return err

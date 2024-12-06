@@ -1026,7 +1026,7 @@ func newViamClientInner(c *cli.Context, disableBrowserOpen bool) (*viamClient, e
 }
 
 // Creates a new viam client, defaulting to _not_ passing the `disableBrowerOpen` arg (which
-// users don't even have an option of setting for any CLI method currently except `Login`)
+// users don't even have an option of setting for any CLI method currently except `Login`).
 func newViamClient(c *cli.Context) (*viamClient, error) {
 	return newViamClientInner(c, false)
 }
