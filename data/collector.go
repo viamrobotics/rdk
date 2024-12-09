@@ -383,13 +383,3 @@ func InvalidInterfaceErr(api resource.API) error {
 func FailedToReadErr(component, method string, err error) error {
 	return errors.Errorf("failed to get reading of method %s of component %s: %v", method, component, err)
 }
-
-// GetExtraFromContext sets the extra struct with "fromDataManagement": true if the flag is true in the context.
-// Deprecated: Use camera.FromContext instead.
-func GetExtraFromContext(ctx context.Context) (*structpb.Struct, error) {
-	extra := make(map[string]interface{})
-	if ctx.Value(FromDMContextKey{}) == true {
-		extra[FromDMString] = true
-	}
-	return protoutils.StructToStructPb(extra)
-}

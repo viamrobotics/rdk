@@ -12,7 +12,6 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/eva"
 	ur "go.viam.com/rdk/components/arm/universalrobots"
-	"go.viam.com/rdk/components/arm/xarm"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
@@ -256,8 +255,6 @@ func (a *Arm) Geometries(ctx context.Context, extra map[string]interface{}) ([]s
 
 func modelFromName(model, name string) (referenceframe.Model, error) {
 	switch model {
-	case xarm.ModelName6DOF, xarm.ModelName7DOF, xarm.ModelNameLite:
-		return xarm.MakeModelFrame(name, model)
 	case ur.Model.Name:
 		return ur.MakeModelFrame(name)
 	case eva.Model.Name:

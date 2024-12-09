@@ -25,7 +25,7 @@ func TestReconfigure(t *testing.T) {
 	conf1 := resource.Config{
 		Name: "testArm",
 		ConvertedAttributes: &Config{
-			ArmModel: "xArm6",
+			ModelFilePath: "../example_kinematics/xarm6_kinematics_test.json",
 		},
 	}
 
@@ -71,7 +71,7 @@ func TestReconfigure(t *testing.T) {
 	}
 
 	test.That(t, fakeArm.Reconfigure(context.Background(), nil, conf1), test.ShouldBeNil)
-	model, err = modelFromName(conf1.ConvertedAttributes.(*Config).ArmModel, cfg.Name)
+	model, err = referenceframe.ParseModelJSONFile(conf1.ConvertedAttributes.(*Config).ModelFilePath, cfg.Name)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fakeArm.joints, test.ShouldResemble, make([]referenceframe.Input, len(model.DoF())))
 	test.That(t, fakeArm.model, test.ShouldResemble, model)

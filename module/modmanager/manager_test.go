@@ -118,16 +118,16 @@ func TestModManagerFunctions(t *testing.T) {
 		logger:  logger,
 	}
 
-	err = mod.startProcess(ctx, parentAddr, nil, logger, viamHomeTemp, filepath.Join(viamHomeTemp, "packages"))
+	err = mod.startProcess(ctx, parentAddr, nil, viamHomeTemp, filepath.Join(viamHomeTemp, "packages"))
 	test.That(t, err, test.ShouldBeNil)
 
 	err = mod.dial()
 	test.That(t, err, test.ShouldBeNil)
 
-	err = mod.checkReady(ctx, parentAddr, logger)
+	err = mod.checkReady(ctx, parentAddr)
 	test.That(t, err, test.ShouldBeNil)
 
-	mod.registerResources(mgr, logger)
+	mod.registerResources(mgr)
 	reg, ok := resource.LookupRegistration(generic.API, myCounterModel)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, reg, test.ShouldNotBeNil)
@@ -155,7 +155,7 @@ func TestModManagerFunctions(t *testing.T) {
 	oldAddr := mod.addr
 	oldClient := mod.client
 
-	utils.UncheckedError(mod.startProcess(ctx, parentAddr, nil, logger, viamHomeTemp, filepath.Join(viamHomeTemp, "packages")))
+	utils.UncheckedError(mod.startProcess(ctx, parentAddr, nil, viamHomeTemp, filepath.Join(viamHomeTemp, "packages")))
 	err = mod.dial()
 	test.That(t, err, test.ShouldBeNil)
 

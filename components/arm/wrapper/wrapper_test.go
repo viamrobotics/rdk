@@ -27,7 +27,7 @@ func TestReconfigure(t *testing.T) {
 	cfg1 := resource.Config{
 		Name: "testArm",
 		ConvertedAttributes: &Config{
-			ModelFilePath: "../xarm/xarm6_kinematics.json",
+			ModelFilePath: "../example_kinematics/xarm6_kinematics_test.json",
 			ArmName:       armName.ShortName(),
 		},
 	}
@@ -35,7 +35,7 @@ func TestReconfigure(t *testing.T) {
 	cfg1Err := resource.Config{
 		Name: "testArm",
 		ConvertedAttributes: &Config{
-			ModelFilePath: "../xarm/xarm6_kinematics.json",
+			ModelFilePath: "../example_kinematics/xarm6_kinematics_test.json",
 			ArmName:       "dne1",
 		},
 	}

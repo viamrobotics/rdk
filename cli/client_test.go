@@ -202,6 +202,82 @@ func TestListOrganizationsAction(t *testing.T) {
 	test.That(t, out.messages[2], test.ShouldContainSubstring, "mandalorians")
 }
 
+func TestSetSupportEmailAction(t *testing.T) {
+	setSupportEmailFunc := func(ctx context.Context, in *apppb.OrganizationSetSupportEmailRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.OrganizationSetSupportEmailResponse, error) {
+		return &apppb.OrganizationSetSupportEmailResponse{}, nil
+	}
+	asc := &inject.AppServiceClient{
+		OrganizationSetSupportEmailFunc: setSupportEmailFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+
+	test.That(t, ac.organizationsSupportEmailSetAction(cCtx, "test-org", "test-email"), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+}
+
+func TestGetSupportEmailAction(t *testing.T) {
+	getSupportEmailFunc := func(ctx context.Context, in *apppb.OrganizationGetSupportEmailRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.OrganizationGetSupportEmailResponse, error) {
+		return &apppb.OrganizationGetSupportEmailResponse{Email: "test-email"}, nil
+	}
+	asc := &inject.AppServiceClient{
+		OrganizationGetSupportEmailFunc: getSupportEmailFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+
+	test.That(t, ac.organizationsSupportEmailGetAction(cCtx, "test-org"), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "test-email")
+}
+
+func TestGetBillingConfigAction(t *testing.T) {
+	getConfigEmailFunc := func(ctx context.Context, in *apppb.GetBillingServiceConfigRequest, opts ...grpc.CallOption) (
+		*apppb.GetBillingServiceConfigResponse, error,
+	) {
+		address2 := "Apt 123"
+		return &apppb.GetBillingServiceConfigResponse{
+			SupportEmail: "test-email@mail.com",
+			BillingAddress: &apppb.BillingAddress{
+				AddressLine_1: "1234 Main St",
+				AddressLine_2: &address2,
+				City:          "San Francisco",
+				State:         "CA",
+				Zipcode:       "94105",
+			},
+			LogoUrl:             "https://logo.com",
+			BillingDashboardUrl: "https://app.viam.dev/my-dashboard",
+		}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		GetBillingServiceConfigFunc: getConfigEmailFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+	test.That(t, ac.getBillingConfig(cCtx, "test-org"), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 12)
+
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "Billing config for organization")
+	test.That(t, out.messages[1], test.ShouldContainSubstring, "Support Email: test-email@mail.com")
+	test.That(t, out.messages[2], test.ShouldContainSubstring, "Billing Dashboard URL: https://app.viam.dev/my-dashboard")
+	test.That(t, out.messages[3], test.ShouldContainSubstring, "Logo URL: https://logo.com")
+	test.That(t, out.messages[5], test.ShouldContainSubstring, "--- Billing Address --- ")
+	test.That(t, out.messages[6], test.ShouldContainSubstring, "1234 Main St")
+	test.That(t, out.messages[7], test.ShouldContainSubstring, "Apt 123")
+	test.That(t, out.messages[8], test.ShouldContainSubstring, "San Francisco")
+	test.That(t, out.messages[9], test.ShouldContainSubstring, "CA")
+	test.That(t, out.messages[10], test.ShouldContainSubstring, "94105")
+	test.That(t, out.messages[11], test.ShouldContainSubstring, "USA")
+}
+
 func TestTabularDataByFilterAction(t *testing.T) {
 	pbStruct, err := protoutils.StructToStructPb(map[string]interface{}{"bool": true, "string": "true", "float": float64(1)})
 	test.That(t, err, test.ShouldBeNil)

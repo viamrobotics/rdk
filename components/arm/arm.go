@@ -83,7 +83,7 @@ func Named(name string) resource.Name {
 //	// Move each joint of the arm to the positions specified in the above slice
 //	err = myArm.MoveToJointPositions(context.Background(), inputs, nil)
 //
-// MoveToJointPositions example:
+// MoveThroughJointPositions example:
 //
 //	myArm, err := arm.FromRobot(machine, "my_arm")
 //

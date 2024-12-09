@@ -925,6 +925,20 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 	}
 }
 
+type stats struct {
+	RPCServer any
+}
+
+// Stats returns ftdc data on behalf of the rpcServer and other web services.
+func (svc *webService) Stats() any {
+	// RSDK-9369: It's not ideal to block in `Stats`. But we don't today expect this to be
+	// problematic, and alternatives are more complex/expensive.
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+
+	return stats{svc.rpcServer.Stats()}
+}
+
 // RestartStatusResponse is the JSON response of the `restart_status` HTTP
 // endpoint.
 type RestartStatusResponse struct {
