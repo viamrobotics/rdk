@@ -293,6 +293,7 @@ func (c *client) CaptureAllFromCamera(
 	if err != nil {
 		return viscapture.VisCapture{}, err
 	}
+
 	var img image.Image
 	if resp.Image.Image != nil {
 		mimeType := utils.FormatToMimeType[resp.Image.GetFormat()]
@@ -307,6 +308,7 @@ func (c *client) CaptureAllFromCamera(
 		Detections:      dets,
 		Classifications: class,
 		Objects:         objPCD,
+		Extra:           resp.Extra.AsMap(),
 	}
 
 	return capt, nil
