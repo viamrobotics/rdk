@@ -99,8 +99,8 @@ func registerObstaclesDepth(
 
 // BuildObsDepth will check for intrinsics and determine how to build based on that.
 func (o *obsDepth) buildObsDepth(logger logging.Logger) func(
-	ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
-	return func(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
+	ctx context.Context, src camera.Camera) ([]*vision.Object, error) {
+	return func(ctx context.Context, src camera.Camera) ([]*vision.Object, error) {
 		props, err := src.Properties(ctx)
 		if err != nil {
 			logger.CWarnw(ctx, "could not find camera properties. obstacles depth started without camera's intrinsic parameters", "error", err)
@@ -116,14 +116,13 @@ func (o *obsDepth) buildObsDepth(logger logging.Logger) func(
 }
 
 // buildObsDepthNoIntrinsics will return the median depth in the depth map as a Geometry point.
-func (o *obsDepth) obsDepthNoIntrinsics(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
-	pic, release, err := camera.ReadImage(ctx, src)
+func (o *obsDepth) obsDepthNoIntrinsics(ctx context.Context, src camera.Camera) ([]*vision.Object, error) {
+	img, err := camera.DecodeImageFromCamera(ctx, "", nil, src)
 	if err != nil {
 		return nil, errors.Errorf("could not get image from %s", src)
 	}
-	defer release()
 
-	dm, err := rimage.ConvertImageToDepthMap(ctx, pic)
+	dm, err := rimage.ConvertImageToDepthMap(ctx, img)
 	if err != nil {
 		return nil, errors.New("could not convert image to depth map")
 	}
@@ -144,17 +143,16 @@ func (o *obsDepth) obsDepthNoIntrinsics(ctx context.Context, src camera.VideoSou
 
 // buildObsDepthWithIntrinsics will use the methodology in Manduchi et al. to find obstacle points
 // before clustering and projecting those points into 3D obstacles.
-func (o *obsDepth) obsDepthWithIntrinsics(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
+func (o *obsDepth) obsDepthWithIntrinsics(ctx context.Context, src camera.Camera) ([]*vision.Object, error) {
 	// Check if we have intrinsics here. If not, don't even try
 	if o.intrinsics == nil {
 		return nil, errors.New("tried to build obstacles depth with intrinsics but no instrinsics found")
 	}
-	pic, release, err := camera.ReadImage(ctx, src)
+	img, err := camera.DecodeImageFromCamera(ctx, "", nil, src)
 	if err != nil {
 		return nil, errors.Errorf("could not get image from %s", src)
 	}
-	defer release()
-	dm, err := rimage.ConvertImageToDepthMap(ctx, pic)
+	dm, err := rimage.ConvertImageToDepthMap(ctx, img)
 	if err != nil {
 		return nil, errors.New("could not convert image to depth map")
 	}

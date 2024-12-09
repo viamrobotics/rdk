@@ -26,14 +26,14 @@ type rotateConfig struct {
 
 // rotateSource is the source to be rotated and the kind of image type.
 type rotateSource struct {
-	src    camera.VideoSource
+	src    camera.StreamCamera
 	stream camera.ImageType
 	angle  float64
 }
 
 // newRotateTransform creates a new rotation transform.
-func newRotateTransform(ctx context.Context, source camera.VideoSource, stream camera.ImageType, am utils.AttributeMap,
-) (camera.VideoSource, camera.ImageType, error) {
+func newRotateTransform(ctx context.Context, source camera.StreamCamera, stream camera.ImageType, am utils.AttributeMap,
+) (camera.StreamCamera, camera.ImageType, error) {
 	conf, err := resource.TransformAttributeMap[*rotateConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, errors.Wrap(err, "cannot parse rotate attribute map")
@@ -97,7 +97,7 @@ type resizeConfig struct {
 }
 
 type resizeSource struct {
-	src    camera.VideoSource
+	src    camera.StreamCamera
 	stream camera.ImageType
 	height int
 	width  int
@@ -105,8 +105,8 @@ type resizeSource struct {
 
 // newResizeTransform creates a new resize transform.
 func newResizeTransform(
-	ctx context.Context, source camera.VideoSource, stream camera.ImageType, am utils.AttributeMap,
-) (camera.VideoSource, camera.ImageType, error) {
+	ctx context.Context, source camera.StreamCamera, stream camera.ImageType, am utils.AttributeMap,
+) (camera.StreamCamera, camera.ImageType, error) {
 	conf, err := resource.TransformAttributeMap[*resizeConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
@@ -167,7 +167,7 @@ type cropConfig struct {
 }
 
 type cropSource struct {
-	src         camera.VideoSource
+	src         camera.StreamCamera
 	imgType     camera.ImageType
 	cropWindow  image.Rectangle
 	cropRel     []float64
@@ -177,8 +177,8 @@ type cropSource struct {
 
 // newCropTransform creates a new crop transform.
 func newCropTransform(
-	ctx context.Context, source camera.VideoSource, stream camera.ImageType, am utils.AttributeMap,
-) (camera.VideoSource, camera.ImageType, error) {
+	ctx context.Context, source camera.StreamCamera, stream camera.ImageType, am utils.AttributeMap,
+) (camera.StreamCamera, camera.ImageType, error) {
 	conf, err := resource.TransformAttributeMap[*cropConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
