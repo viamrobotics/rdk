@@ -522,10 +522,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 
 	statuses, err := r2.MachineStatus(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, statuses, test.ShouldNotBeNil)
-
-	statuses, err = r2.MachineStatus(context.Background())
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(statuses.Resources), test.ShouldEqual, 13)
 	test.That(t, statuses, test.ShouldNotBeNil)
 }
 

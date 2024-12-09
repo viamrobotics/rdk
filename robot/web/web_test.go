@@ -1240,7 +1240,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			client := robotpb.NewRobotServiceClient(conn)
 
-			// // Use GetMachineStatus and a context with a deadline to call injected status function.
+			// Use GetMachineStatus and a context with a deadline to call injected status function.
 			overrideCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 			defer cancel()
 			_, err = client.GetMachineStatus(overrideCtx, &robotpb.GetMachineStatusRequest{})
@@ -1289,8 +1289,8 @@ func TestInboundMethodTimeout(t *testing.T) {
 			err := svc.StartModule(ctx)
 			test.That(t, err, test.ShouldBeNil)
 
-			// // Use an injected status function to check that the default deadline was not
-			// // added to the context, and the deadline passed to GetMachineStatus was used instead.
+			// Use an injected status function to check that the default deadline was not
+			// added to the context, and the deadline passed to GetMachineStatus was used instead.
 			iRobot.(*inject.Robot).MachineStatusFunc = func(ctx context.Context,
 			) (robot.MachineStatus, error) {
 				deadline, deadlineSet := ctx.Deadline()
