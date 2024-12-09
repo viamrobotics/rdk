@@ -10,7 +10,6 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/components/arm/eva"
 	ur "go.viam.com/rdk/components/arm/universalrobots"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -257,8 +256,6 @@ func modelFromName(model, name string) (referenceframe.Model, error) {
 	switch model {
 	case ur.Model.Name:
 		return ur.MakeModelFrame(name)
-	case eva.Model.Name:
-		return eva.MakeModelFrame(name)
 	case dofbotModel:
 		return referenceframe.UnmarshalModelJSON(dofbotjson, name)
 	case Model.Name:

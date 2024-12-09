@@ -4,6 +4,8 @@ package cli
 import (
 	"testing"
 
+	"github.com/pkg/errors"
+	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 )
 
@@ -34,5 +36,54 @@ func TestParseFileType(t *testing.T) {
 	}
 	for _, pair := range pairs {
 		test.That(t, ParseFileType(pair[1]), test.ShouldResemble, pair[0])
+	}
+}
+
+func TestParseBillingAddress(t *testing.T) {
+	addressLine2 := "Apt 1"
+
+	testCases := []struct {
+		input           string
+		expectedAddress *apppb.BillingAddress
+		expectedErr     error
+	}{
+		{
+			input: "123 Main St, Apt 1, San Francisco, CA, 94105",
+			expectedAddress: &apppb.BillingAddress{
+				AddressLine_1: "123 Main St",
+				AddressLine_2: &addressLine2,
+				City:          "San Francisco",
+				State:         "CA",
+				Zipcode:       "94105",
+			},
+		},
+		{
+			input: "123 Main St, San Francisco, CA, 94105",
+			expectedAddress: &apppb.BillingAddress{
+				AddressLine_1: "123 Main St",
+				City:          "San Francisco",
+				State:         "CA",
+				Zipcode:       "94105",
+			},
+		},
+		{
+			input:           "an-invalid address, city-1",
+			expectedAddress: nil,
+			expectedErr:     errors.New("address: an-invalid address, city-1 does not follow the format: line1, line2 (optional), city, state, zipcode"),
+		},
+		{
+			input:           "",
+			expectedAddress: nil,
+			expectedErr:     errors.New("address is empty"),
+		},
+	}
+
+	for _, tc := range testCases {
+		address, err := parseBillingAddress(tc.input)
+		if tc.expectedErr != nil {
+			test.That(t, err.Error(), test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, tc.expectedErr.Error())
+		}
+		test.That(t, address, test.ShouldResembleProto, tc.expectedAddress)
 	}
 }
