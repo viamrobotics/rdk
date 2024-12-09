@@ -7,7 +7,7 @@ import (
 
 	pb "go.viam.com/api/app/mltraining/v1"
 	"go.viam.com/utils/rpc"
-	errorstatus "google.golang.org/genproto/googleapis/rpc/status"
+	status "google.golang.org/genproto/googleapis/rpc/status"
 )
 
 // TrainingStatus respresents the status of a training job.
@@ -30,13 +30,6 @@ const (
 	TrainingStatusCanceling
 )
 
-// ErrorStatus contains an error's code, message, and details.
-type ErrorStatus struct {
-	Code    int
-	Message string
-	Details []*GenericProtoMessage
-}
-
 // TrainingJobMetadata contains the metadata for a training job.
 type TrainingJobMetadata struct {
 	ID                  string
@@ -50,7 +43,7 @@ type TrainingJobMetadata struct {
 	RegistryItemID      string
 	RegistryItemVersion string
 	Status              TrainingStatus
-	ErrorStatus         *ErrorStatus
+	ErrorStatus         *status.Status
 	CreatedOn           *time.Time
 	LastModified        *time.Time
 	TrainingStarted     *time.Time
@@ -233,21 +226,6 @@ func trainingJobLogEntryFromProto(log *pb.TrainingJobLogEntry) *TrainingJobLogEn
 	}
 }
 
-func errorStatusFromProto(status *errorstatus.Status) *ErrorStatus {
-	if status == nil {
-		return nil
-	}
-	var details []*GenericProtoMessage
-	for _, detail := range status.Details {
-		details = append(details, genericProtoMessageFromProto(detail))
-	}
-	return &ErrorStatus{
-		Code:    int(status.Code),
-		Message: status.Message,
-		Details: details,
-	}
-}
-
 func trainingJobMetadataFromProto(metadata *pb.TrainingJobMetadata) *TrainingJobMetadata {
 	if metadata == nil {
 		return nil
@@ -281,7 +259,7 @@ func trainingJobMetadataFromProto(metadata *pb.TrainingJobMetadata) *TrainingJob
 		RegistryItemID:      metadata.RegistryItemId,
 		RegistryItemVersion: metadata.RegistryItemVersion,
 		Status:              trainingStatusFromProto(metadata.Status),
-		ErrorStatus:         errorStatusFromProto(metadata.ErrorStatus),
+		ErrorStatus:         metadata.ErrorStatus,
 		CreatedOn:           createdOn,
 		LastModified:        lastModified,
 		TrainingStarted:     started,
