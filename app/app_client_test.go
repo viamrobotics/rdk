@@ -725,6 +725,24 @@ func TestAppClient(t *testing.T) {
 		test.That(t, resp, test.ShouldEqual, "test-email")
 	})
 
+	t.Run("UpdateBillingServiceConfig", func(t *testing.T) {
+		grpcClient.UpdateBillingServiceFunc = func(ctx context.Context,
+			in *pb.UpdateBillingServiceRequest, opts ...grpc.CallOption,
+		) (*pb.UpdateBillingServiceResponse, error) {
+			test.That(t, in.OrgId, test.ShouldEqual, organizationID)
+			return &pb.UpdateBillingServiceResponse{}, nil
+		}
+
+		err := client.UpdateBillingService(context.Background(), organizationID, &BillingAddress{
+			AddressLine1: "address_line_1",
+			AddressLine2: nil,
+			City:         "city",
+			State:        "state",
+			Zipcode:      "zip",
+		})
+		test.That(t, err, test.ShouldBeNil)
+	})
+
 	t.Run("GetOrganizationsWithAccessToLocation", func(t *testing.T) {
 		expectedOrganizationIdentities := []*OrganizationIdentity{&organizationIdentity}
 		grpcClient.GetOrganizationsWithAccessToLocationFunc = func(

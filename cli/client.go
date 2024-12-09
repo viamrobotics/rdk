@@ -177,6 +177,55 @@ func (c *viamClient) organizationsSupportEmailGetAction(cCtx *cli.Context, orgID
 	return nil
 }
 
+// UpdateBillingServiceAction corresponds to `organizations billing-service update`.
+func UpdateBillingServiceAction(cCtx *cli.Context) error {
+	c, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+	orgID := cCtx.String(generalFlagOrgID)
+	if orgID == "" {
+		return errors.New("cannot update billing service without an organization ID")
+	}
+
+	address := cCtx.String(organizationBillingAddress)
+	if address == "" {
+		return errors.New("cannot update billing service to an empty address")
+	}
+
+	return c.updateBillingServiceAction(cCtx, orgID, address)
+}
+
+func (c *viamClient) updateBillingServiceAction(cCtx *cli.Context, orgID, addressAsString string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	address, err := parseBillingAddress(addressAsString)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.client.UpdateBillingService(cCtx.Context, &apppb.UpdateBillingServiceRequest{
+		OrgId:          orgID,
+		BillingAddress: address,
+	})
+	if err != nil {
+		return err
+	}
+
+	printf(cCtx.App.Writer, "Successfully updated billing service for organization %q", orgID)
+	printf(cCtx.App.Writer, " --- Billing Address --- ")
+	printf(cCtx.App.Writer, "Address Line 1: %s", address.GetAddressLine_1())
+	if address.GetAddressLine_2() != "" {
+		printf(cCtx.App.Writer, "Address Line 2: %s", address.GetAddressLine_2())
+	}
+	printf(cCtx.App.Writer, "City: %s", address.GetCity())
+	printf(cCtx.App.Writer, "State: %s", address.GetState())
+	printf(cCtx.App.Writer, "Postal Code: %s", address.GetZipcode())
+	printf(cCtx.App.Writer, "Country: USA")
+	return nil
+}
+
 // GetBillingConfigAction corresponds to `organizations billing get`.
 func GetBillingConfigAction(cCtx *cli.Context) error {
 	c, err := newViamClient(cCtx)

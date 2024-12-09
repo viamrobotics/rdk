@@ -60,6 +60,7 @@ type BillingAddress struct {
 	AddressLine2 *string
 	City         string
 	State        string
+	Zipcode      string
 }
 
 // Location holds the information of a specific location.
@@ -1856,6 +1857,7 @@ func billingAddressToProto(addr *BillingAddress) *pb.BillingAddress {
 		AddressLine_2: addr.AddressLine2,
 		City:          addr.City,
 		State:         addr.State,
+		Zipcode:       addr.Zipcode,
 	}
 }
 
