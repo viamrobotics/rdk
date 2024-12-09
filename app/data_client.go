@@ -137,7 +137,7 @@ func (e *ExportTabularDataStream) Next() (*ExportTabularDataResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	return exportTabularDataReturnFromProto(streamResp), nil
+	return exportTabularDataResponseFromProto(streamResp), nil
 }
 
 // BinaryData contains data and metadata associated with binary data.
@@ -1288,7 +1288,7 @@ func tabularDataFromProto(proto *pb.TabularData, metadata *pb.CaptureMetadata) T
 	}
 }
 
-func exportTabularDataReturnFromProto(proto *pb.ExportTabularDataResponse) *ExportTabularDataResponse {
+func exportTabularDataResponseFromProto(proto *pb.ExportTabularDataResponse) *ExportTabularDataResponse {
 	return &ExportTabularDataResponse{
 		OrganizationID:   proto.OrganizationId,
 		LocationID:       proto.LocationId,
