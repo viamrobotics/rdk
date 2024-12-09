@@ -189,7 +189,7 @@ func UpdateBillingServiceAction(cCtx *cli.Context) error {
 	}
 
 	address := cCtx.String(organizationBillingAddress)
-	if address != "" {
+	if address == "" {
 		return errors.New("cannot update billing service to an empty address")
 	}
 
@@ -222,7 +222,7 @@ func (c *viamClient) updateBillingServiceAction(cCtx *cli.Context, orgID, addres
 	printf(cCtx.App.Writer, "City: %s", address.GetCity())
 	printf(cCtx.App.Writer, "State: %s", address.GetState())
 	printf(cCtx.App.Writer, "Postal Code: %s", address.GetZipcode())
-	printf(cCtx.App.Writer, "Country: %s", "USA")
+	printf(cCtx.App.Writer, "Country: USA")
 	return nil
 }
 

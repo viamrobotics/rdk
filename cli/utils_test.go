@@ -69,7 +69,7 @@ func TestParseBillingAddress(t *testing.T) {
 		{
 			input:           "an-invalid address, city-1",
 			expectedAddress: nil,
-			expectedErr:     errors.New("address: an-invalid address, city 1 does not follow the format: line1, line2, city, state, zipcode"),
+			expectedErr:     errors.New("address: an-invalid address, city-1 does not follow the format: line1, line2 (optional), city, state, zipcode"),
 		},
 		{
 			input:           "",
@@ -80,10 +80,10 @@ func TestParseBillingAddress(t *testing.T) {
 
 	for _, tc := range testCases {
 		address, err := parseBillingAddress(tc.input)
-		test.That(t, address, test.ShouldResemble, tc.expectedAddress)
 		if tc.expectedErr != nil {
 			test.That(t, err.Error(), test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, tc.expectedErr.Error())
 		}
+		test.That(t, address, test.ShouldResembleProto, tc.expectedAddress)
 	}
 }

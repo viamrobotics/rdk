@@ -68,29 +68,27 @@ func parseBillingAddress(address string) (*apppb.BillingAddress, error) {
 	if address == "" {
 		return nil, errors.New("address is empty")
 	}
-	addr := &apppb.BillingAddress{}
+
 	splitAddress := strings.Split(address, ",")
 	if len(splitAddress) != 4 && len(splitAddress) != 5 {
-		return nil, errors.Errorf("address: %s does not follow the format: line1, line2, city, state, zipcode", address)
+		return nil, errors.Errorf("address: %s does not follow the format: line1, line2 (optional), city, state, zipcode", address)
 	}
-
-	currIndex := 0
-
-	addr.AddressLine_1 = splitAddress[currIndex]
-	currIndex++
 
 	if len(splitAddress) == 4 {
-		// if its only 4 lines long that means that there is no line2
-		currIndex++
-	} else {
-		addr.AddressLine_2 = &splitAddress[currIndex]
-		currIndex++
+		return &apppb.BillingAddress{
+			AddressLine_1: strings.Trim(splitAddress[0], " "),
+			City:          strings.Trim(splitAddress[1], " "),
+			State:         strings.Trim(splitAddress[2], " "),
+			Zipcode:       strings.Trim(splitAddress[3], " "),
+		}, nil
 	}
 
-	addr.City = splitAddress[currIndex]
-	currIndex++
-	addr.State = splitAddress[currIndex]
-	currIndex++
-	addr.Zipcode = splitAddress[currIndex]
-	return addr, nil
+	line2 := strings.Trim(splitAddress[1], " ")
+	return &apppb.BillingAddress{
+		AddressLine_1: strings.Trim(splitAddress[0], " "),
+		AddressLine_2: &line2,
+		City:          strings.Trim(splitAddress[2], " "),
+		State:         strings.Trim(splitAddress[3], " "),
+		Zipcode:       strings.Trim(splitAddress[4], " "),
+	}, nil
 }

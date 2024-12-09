@@ -396,9 +396,10 @@ var app = &cli.App{
 								&cli.StringFlag{
 									Name:     organizationBillingAddress,
 									Required: true,
-									Usage:    "the stringified address that follows the pattern: line1, line2, city, state, zipcode",
+									Usage:    "the stringified address that follows the pattern: line1, line2 (optional), city, state, zipcode",
 								},
 							},
+							Action: UpdateBillingServiceAction,
 						},
 					},
 				},
