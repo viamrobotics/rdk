@@ -3,6 +3,7 @@ package motor
 import (
 	"context"
 	"errors"
+	"time"
 
 	pb "go.viam.com/api/component/motor/v1"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -35,19 +36,22 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
+		timeRequested := time.Now()
+		var res data.CaptureResult
 		v, err := motor.Position(ctx, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
 			if errors.Is(err, data.ErrNoCaptureToStore) {
-				return nil, err
+				return res, err
 			}
-			return nil, data.FailedToReadErr(params.ComponentName, position.String(), err)
+			return res, data.FailedToReadErr(params.ComponentName, position.String(), err)
 		}
-		return pb.GetPositionResponse{
+		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return data.NewTabularCaptureResult(ts, pb.GetPositionResponse{
 			Position: v,
-		}, nil
+		})
 	})
 	return data.NewCollector(cFunc, params)
 }
@@ -60,20 +64,23 @@ func newIsPoweredCollector(resource interface{}, params data.CollectorParams) (d
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
+		timeRequested := time.Now()
+		var res data.CaptureResult
 		v, powerPct, err := motor.IsPowered(ctx, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
 			if errors.Is(err, data.ErrNoCaptureToStore) {
-				return nil, err
+				return res, err
 			}
-			return nil, data.FailedToReadErr(params.ComponentName, isPowered.String(), err)
+			return res, data.FailedToReadErr(params.ComponentName, isPowered.String(), err)
 		}
-		return pb.IsPoweredResponse{
+		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return data.NewTabularCaptureResult(ts, pb.IsPoweredResponse{
 			IsOn:     v,
 			PowerPct: powerPct,
-		}, nil
+		})
 	})
 	return data.NewCollector(cFunc, params)
 }
