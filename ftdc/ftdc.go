@@ -70,9 +70,13 @@ type Statser interface {
 	// The Stats method must return a struct with public field members that are either:
 	// - Numbers (e.g: int, float64, byte, etc...)
 	// - A "recursive" structure that has the same properties as this return value (public field
-	//   members with numbers, or more structures). (NOT YET SUPPORTED)
+	//   members with numbers, or more structures).
 	//
-	// The return value must not be a map. This is to enforce a "schema" constraints.
+	// The return value must always have the same schema. That is, the returned value has the same
+	// set of keys/structure members. A simple structure where all the member fields are numbers
+	// satisfies this requirement.
+	//
+	// The return value may not (yet) be a `map`. Even if the returned map always has the same keys.
 	Stats() any
 }
 

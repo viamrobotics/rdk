@@ -16,7 +16,7 @@ import (
 
 func TestCreateNloptSolver(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
+	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateNloptSolver(m.DoF(), logger, -1, false, true)
 	test.That(t, err, test.ShouldBeNil)

@@ -174,6 +174,21 @@ func PTGSegmentMetric(segment *ik.Segment) float64 {
 	return segment.EndConfiguration[len(segment.EndConfiguration)-1].Value
 }
 
+// NewPTGDistanceMetric creates a metric which returns the TP-space distance traversed in a segment for a frame. Since PTG inputs are
+// relative, the distance travelled is the distance field of the ending configuration.
+func NewPTGDistanceMetric(ptgFrames []string) ik.SegmentFSMetric {
+	return func(segment *ik.SegmentFS) float64 {
+		score := 0.
+		for _, ptgFrame := range ptgFrames {
+			if frameCfg, ok := segment.EndConfiguration[ptgFrame]; ok {
+				score += frameCfg[len(frameCfg)-1].Value
+			}
+		}
+		// If there's no matching configuration in the end, then the frame does not move
+		return score
+	}
+}
+
 // PTGIKSeed will generate a consistent set of valid, in-bounds inputs to be used with a PTGSolver as a seed for gradient descent.
 func PTGIKSeed(ptg PTGSolver) []referenceframe.Input {
 	inputs := []referenceframe.Input{}

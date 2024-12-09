@@ -88,6 +88,7 @@ type localRobot struct {
 	// map keyed by Module.Name. This is necessary to get the package manager to use a new folder
 	// when a local tarball is updated.
 	localModuleVersions map[string]semver.Version
+	startFtdcOnce       sync.Once
 	ftdc                *ftdc.FTDC
 
 	// whether the robot is actively reconfiguring
@@ -244,7 +245,13 @@ func (r *localRobot) Logger() logging.Logger {
 
 // StartWeb starts the web server, will return an error if server is already up.
 func (r *localRobot) StartWeb(ctx context.Context, o weboptions.Options) (err error) {
-	return r.webSvc.Start(ctx, o)
+	ret := r.webSvc.Start(ctx, o)
+	r.startFtdcOnce.Do(func() {
+		if r.ftdc != nil {
+			r.ftdc.Start()
+		}
+	})
+	return ret
 }
 
 // StopWeb stops the web server, will be a noop if server is not up.
@@ -421,8 +428,23 @@ func newWithResources(
 			partID = cfg.Cloud.ID
 		}
 		// CloudID is also known as the robot part id.
+		//
+		// RSDK-9369: We create a new FTDC worker, but do not yet start it. This is because the
+		// `webSvc` gets registered with FTDC before we construct the underlying
+		// `webSvc.rpcServer`. Which happens when calling `localRobot.StartWeb`. We've postponed
+		// starting FTDC to when that method is called (the first time).
+		//
+		// As per the FTDC.Statser interface documentation, the return value of `webSvc.Stats` must
+		// always have the same schema. Otherwise we risk the ftdc "schema" getting out of sync with
+		// the data being written. Having `webSvc.Stats` conform to the API requirements is
+		// challenging when we want to include stats from the `rpcServer`.
+		//
+		// RSDK-9369 can be reverted, having the FTDC worker getting started here, when we either:
+		// - Relax the requirement that successive calls to `Stats` have the same schema or
+		// - Guarantee that the `rpcServer` is initialized (enough) when the web service is
+		//   constructed to get a valid copy of its stats object (for the schema's sake). Even if
+		//   the web service has not been "started".
 		ftdcWorker = ftdc.New(ftdc.DefaultDirectory(config.ViamDotDir, partID), logger.Sublogger("ftdc"))
-		ftdcWorker.Start()
 	}
 
 	closeCtx, cancel := context.WithCancel(ctx)

@@ -110,6 +110,111 @@ func (c *viamClient) listOrganizationsAction(cCtx *cli.Context) error {
 	return nil
 }
 
+// OrganizationsSupportEmailSetAction corresponds to `organizations support-email set`.
+func OrganizationsSupportEmailSetAction(cCtx *cli.Context) error {
+	c, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+
+	orgID := cCtx.String(generalFlagOrgID)
+	if orgID == "" {
+		return errors.New("cannot set support email without an organization ID")
+	}
+
+	supportEmail := cCtx.String(organizationFlagSupportEmail)
+	if supportEmail == "" {
+		return errors.New("cannot set support email to an empty string")
+	}
+
+	return c.organizationsSupportEmailSetAction(cCtx, orgID, supportEmail)
+}
+
+func (c *viamClient) organizationsSupportEmailSetAction(cCtx *cli.Context, orgID, supportEmail string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	_, err := c.client.OrganizationSetSupportEmail(c.c.Context, &apppb.OrganizationSetSupportEmailRequest{
+		OrgId: orgID,
+		Email: supportEmail,
+	})
+	if err != nil {
+		return err
+	}
+	printf(cCtx.App.Writer, "Successfully set support email for organization %q to %q", orgID, supportEmail)
+	return nil
+}
+
+// OrganizationsSupportEmailGetAction corresponds to `organizations support-email get`.
+func OrganizationsSupportEmailGetAction(cCtx *cli.Context) error {
+	c, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+
+	orgID := cCtx.String(generalFlagOrgID)
+	if orgID == "" {
+		return errors.New("cannot get support email without an organization ID")
+	}
+
+	return c.organizationsSupportEmailGetAction(cCtx, orgID)
+}
+
+func (c *viamClient) organizationsSupportEmailGetAction(cCtx *cli.Context, orgID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	resp, err := c.client.OrganizationGetSupportEmail(c.c.Context, &apppb.OrganizationGetSupportEmailRequest{
+		OrgId: orgID,
+	})
+	if err != nil {
+		return err
+	}
+
+	printf(cCtx.App.Writer, "Support email for organization %q: %q", orgID, resp.GetEmail())
+	return nil
+}
+
+// GetBillingConfigAction corresponds to `organizations billing get`.
+func GetBillingConfigAction(cCtx *cli.Context) error {
+	c, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+	return c.getBillingConfig(cCtx, cCtx.String(generalFlagOrgID))
+}
+
+func (c *viamClient) getBillingConfig(cCtx *cli.Context, orgID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	resp, err := c.client.GetBillingServiceConfig(cCtx.Context, &apppb.GetBillingServiceConfigRequest{
+		OrgId: orgID,
+	})
+	if err != nil {
+		return err
+	}
+
+	printf(cCtx.App.Writer, "Billing config for organization: %s", orgID)
+	printf(cCtx.App.Writer, "Support Email: %s", resp.GetSupportEmail())
+	printf(cCtx.App.Writer, "Billing Dashboard URL: %s", resp.GetBillingDashboardUrl())
+	printf(cCtx.App.Writer, "Logo URL: %s", resp.GetLogoUrl())
+	printf(cCtx.App.Writer, "")
+	printf(cCtx.App.Writer, " --- Billing Address --- ")
+	printf(cCtx.App.Writer, "Address Line 1: %s", resp.BillingAddress.GetAddressLine_1())
+	if resp.BillingAddress.GetAddressLine_2() != "" {
+		printf(cCtx.App.Writer, "Address Line 2: %s", resp.BillingAddress.GetAddressLine_2())
+	}
+	printf(cCtx.App.Writer, "City: %s", resp.BillingAddress.GetCity())
+	printf(cCtx.App.Writer, "State: %s", resp.BillingAddress.GetState())
+	printf(cCtx.App.Writer, "Postal Code: %s", resp.BillingAddress.GetZipcode())
+	printf(cCtx.App.Writer, "Country: %s", "USA")
+	return nil
+}
+
 // ListLocationsAction is the corresponding Action for 'locations list'.
 func ListLocationsAction(c *cli.Context) error {
 	client, err := newViamClient(c)

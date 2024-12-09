@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	mlTraining "go.viam.com/api/app/mltraining/v1"
 	packages "go.viam.com/api/app/packages/v1"
 	pb "go.viam.com/api/app/v1"
 	common "go.viam.com/api/common/v1"
@@ -41,9 +40,7 @@ const (
 	fqdn                           = "fqdn"
 	localFQDN                      = "local_fqdn"
 	configJSON                     = "configJson"
-	level                          = "level"
 	loggerName                     = "logger_name"
-	message                        = "message"
 	stack                          = "stack"
 	value                          = "value"
 	isDeactivated                  = false
@@ -54,7 +51,6 @@ const (
 	onlyUsedByOwner                = false
 	organizationCount              = 2
 	permission                     = "permission"
-	itemID                         = "item_id"
 	description                    = "description"
 	packageType                    = PackageTypeMLTraining
 	visibility                     = VisibilityPublic
@@ -62,9 +58,6 @@ const (
 	totalExternalRobotUsage        = 2
 	totalOrganizationUsage         = 40
 	totalExternalOrganizationUsage = 52
-	version                        = "version"
-	modelType                      = ModelTypeObjectDetection
-	modelFramework                 = ModelFrameworkPyTorch
 	draft                          = false
 	platform                       = "platform"
 	registryItemStatus             = RegistryItemStatusPublished
@@ -159,7 +152,7 @@ var (
 	pbInvite = pb.OrganizationInvite{
 		OrganizationId: invite.OrganizationID,
 		Email:          invite.Email,
-		CreatedOn:      timestamppb.New(*invite.CreatedOn),
+		CreatedOn:      pbCreatedOn,
 		Authorizations: pbAuthorizations,
 	}
 	sendEmailInvite = true
@@ -252,7 +245,6 @@ var (
 		RobotName:       robotName,
 		RobotMainPartID: partID,
 	}
-	lastUpdated           = time.Now().UTC().Round(time.Millisecond)
 	robotConfig           = map[string]interface{}{"name": name, "ID": robotID}
 	pbRobotConfig, _      = protoutils.StructToStructPb(*robotPart.RobotConfig)
 	pbUserSuppliedInfo, _ = protoutils.StructToStructPb(*robotPart.UserSuppliedInfo)
@@ -291,14 +283,12 @@ var (
 		Secrets:          pbSecrets,
 		LastUpdated:      timestamppb.New(*robotPart.LastUpdated),
 	}
-	pageToken = "page_token"
-	levels    = []string{level}
-	source    = "source"
-	filter    = "filter"
-	timestamp = time.Now().UTC().Round(time.Millisecond)
-	caller    = map[string]interface{}{"name": name}
-	field     = map[string]interface{}{"key": "value"}
-	logEntry  = LogEntry{
+	levels   = []string{level}
+	source   = "source"
+	filter   = "filter"
+	caller   = map[string]interface{}{"name": name}
+	field    = map[string]interface{}{"key": "value"}
+	logEntry = LogEntry{
 		Host:       host,
 		Level:      level,
 		Time:       &timestamp,
@@ -424,7 +414,6 @@ var (
 			Permissions:  []string{permission},
 		},
 	}
-	siteURL  = "url.test.com"
 	metadata = registryItemMLTrainingMetadata{
 		MlTrainingMetadata: &MLTrainingMetadata{
 			Versions: []*MLTrainingVersion{
@@ -537,7 +526,6 @@ var (
 		Platform:     platform,
 		PlatformTags: tags,
 	}
-	file = []byte{1, 9}
 )
 
 func sharedSecretStateToProto(state SharedSecretState) pb.SharedSecret_State {
@@ -568,36 +556,6 @@ func authenticationTypeToProto(authType AuthenticationType) pb.AuthenticationTyp
 	return pb.AuthenticationType_AUTHENTICATION_TYPE_UNSPECIFIED
 }
 
-func modelTypeToProto(modelType ModelType) mlTraining.ModelType {
-	switch modelType {
-	case ModelTypeUnspecified:
-		return mlTraining.ModelType_MODEL_TYPE_UNSPECIFIED
-	case ModelTypeSingleLabelClassification:
-		return mlTraining.ModelType_MODEL_TYPE_SINGLE_LABEL_CLASSIFICATION
-	case ModelTypeMultiLabelClassification:
-		return mlTraining.ModelType_MODEL_TYPE_MULTI_LABEL_CLASSIFICATION
-	case ModelTypeObjectDetection:
-		return mlTraining.ModelType_MODEL_TYPE_OBJECT_DETECTION
-	}
-	return mlTraining.ModelType_MODEL_TYPE_UNSPECIFIED
-}
-
-func modelFrameworkToProto(framework ModelFramework) mlTraining.ModelFramework {
-	switch framework {
-	case ModelFrameworkUnspecified:
-		return mlTraining.ModelFramework_MODEL_FRAMEWORK_UNSPECIFIED
-	case ModelFrameworkTFLite:
-		return mlTraining.ModelFramework_MODEL_FRAMEWORK_TFLITE
-	case ModelFrameworkTensorFlow:
-		return mlTraining.ModelFramework_MODEL_FRAMEWORK_TENSORFLOW
-	case ModelFrameworkPyTorch:
-		return mlTraining.ModelFramework_MODEL_FRAMEWORK_PYTORCH
-	case ModelFrameworkONNX:
-		return mlTraining.ModelFramework_MODEL_FRAMEWORK_ONNX
-	}
-	return mlTraining.ModelFramework_MODEL_FRAMEWORK_UNSPECIFIED
-}
-
 func mlTrainingVersionToProto(version *MLTrainingVersion) *pb.MLTrainingVersion {
 	return &pb.MLTrainingVersion{
 		Version:   version.Version,
@@ -612,7 +570,7 @@ func mlTrainingMetadataToProto(md MLTrainingMetadata) *pb.MLTrainingMetadata {
 	}
 	return &pb.MLTrainingMetadata{
 		Versions:       versions,
-		ModelType:      modelTypeToProto(md.ModelType),
+		ModelType:      pbModelType,
 		ModelFramework: modelFrameworkToProto(md.ModelFramework),
 		Draft:          md.Draft,
 	}
@@ -728,6 +686,43 @@ func TestAppClient(t *testing.T) {
 		resp, err := client.ListOrganizations(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, expectedOrganizations)
+	})
+
+	t.Run("SetSupportEmail", func(t *testing.T) {
+		grpcClient.OrganizationSetSupportEmailFunc = func(
+			ctx context.Context, in *pb.OrganizationSetSupportEmailRequest, opts ...grpc.CallOption,
+		) (*pb.OrganizationSetSupportEmailResponse, error) {
+			test.That(t, in.OrgId, test.ShouldEqual, organizationID)
+			return &pb.OrganizationSetSupportEmailResponse{}, nil
+		}
+
+		err := client.OrganizationSetSupportEmail(context.Background(), organizationID, "test-email")
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("GetBillingConfig", func(t *testing.T) {
+		grpcClient.GetBillingServiceConfigFunc = func(
+			ctx context.Context, in *pb.GetBillingServiceConfigRequest, opts ...grpc.CallOption,
+		) (*pb.GetBillingServiceConfigResponse, error) {
+			test.That(t, in.OrgId, test.ShouldEqual, organizationID)
+			return &pb.GetBillingServiceConfigResponse{}, nil
+		}
+
+		resp, err := client.GetBillingServiceConfig(context.Background(), organizationID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldResemble, &pb.GetBillingServiceConfigResponse{})
+	})
+
+	t.Run("GetSupportEmail", func(t *testing.T) {
+		grpcClient.OrganizationGetSupportEmailFunc = func(
+			ctx context.Context, in *pb.OrganizationGetSupportEmailRequest, opts ...grpc.CallOption,
+		) (*pb.OrganizationGetSupportEmailResponse, error) {
+			test.That(t, in.OrgId, test.ShouldEqual, organizationID)
+			return &pb.OrganizationGetSupportEmailResponse{Email: "test-email"}, nil
+		}
+		resp, err := client.OrganizationGetSupportEmail(context.Background(), organizationID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldEqual, "test-email")
 	})
 
 	t.Run("GetOrganizationsWithAccessToLocation", func(t *testing.T) {
@@ -1199,8 +1194,8 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.Filter, test.ShouldEqual, &filter)
 			test.That(t, in.PageToken, test.ShouldEqual, &pageToken)
 			test.That(t, in.Levels, test.ShouldResemble, levels)
-			test.That(t, in.Start, test.ShouldResemble, timestamppb.New(start))
-			test.That(t, in.End, test.ShouldResemble, timestamppb.New(end))
+			test.That(t, in.Start, test.ShouldResemble, pbStart)
+			test.That(t, in.End, test.ShouldResemble, pbEnd)
 			test.That(t, *in.Limit, test.ShouldEqual, pbLimit)
 			test.That(t, in.Source, test.ShouldEqual, &source)
 			return &pb.GetRobotPartLogsResponse{
@@ -1743,7 +1738,7 @@ func TestAppClient(t *testing.T) {
 				case *pb.UploadModuleFileRequest_ModuleFileInfo:
 					test.That(t, moduleFile.ModuleFileInfo, test.ShouldResemble, moduleFileInfoToProto(&fileInfo))
 				case *pb.UploadModuleFileRequest_File:
-					test.That(t, moduleFile.File, test.ShouldResemble, file)
+					test.That(t, moduleFile.File, test.ShouldResemble, byteData)
 				default:
 					t.Error("unexpected module file type")
 				}
@@ -1758,7 +1753,7 @@ func TestAppClient(t *testing.T) {
 		grpcClient.UploadModuleFileFunc = func(ctx context.Context, opts ...grpc.CallOption) (pb.AppService_UploadModuleFileClient, error) {
 			return mockStream, nil
 		}
-		resp, err := client.UploadModuleFile(context.Background(), fileInfo, file)
+		resp, err := client.UploadModuleFile(context.Background(), fileInfo, byteData)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldEqual, siteURL)
 	})

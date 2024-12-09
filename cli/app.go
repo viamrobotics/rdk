@@ -123,6 +123,8 @@ const (
 
 	cpFlagRecursive = "recursive"
 	cpFlagPreserve  = "preserve"
+
+	organizationFlagSupportEmail = "support-email"
 )
 
 var commonFilterFlags = []cli.Flag{
@@ -327,6 +329,61 @@ var app = &cli.App{
 					Name:   "list",
 					Usage:  "list organizations for the current user",
 					Action: ListOrganizationsAction,
+				},
+				{
+					Name:      "support-email",
+					Usage:     "manage the support email for an organization",
+					UsageText: createUsageText("organizations support-email", []string{generalFlagOrgID}, true),
+					Subcommands: []*cli.Command{
+						{
+							Name:  "set",
+							Usage: "set the support email for an organization",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "the org to set the support email for",
+								},
+								&cli.StringFlag{
+									Name:     organizationFlagSupportEmail,
+									Required: true,
+									Usage:    "the support email to set for the organization",
+								},
+							},
+							Action: OrganizationsSupportEmailSetAction,
+						},
+						{
+							Name:  "get",
+							Usage: "get the support email for an organization",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "the org to get the support email for",
+								},
+							},
+							Action: OrganizationsSupportEmailGetAction,
+						},
+					},
+				},
+				{
+					Name:      "billing-service",
+					Usage:     "manage the organizations billing service",
+					UsageText: createUsageText("organizations billing-service", []string{generalFlagOrgID}, false),
+					Subcommands: []*cli.Command{
+						{
+							Name:  "get-config",
+							Usage: "get the billing service config for an organization",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "the org to get the billing config for",
+								},
+							},
+							Action: GetBillingConfigAction,
+						},
+					},
 				},
 				{
 					Name:      "api-key",
