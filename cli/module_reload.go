@@ -28,6 +28,7 @@ type ServiceMap map[string]any
 
 // addShellService adds a shell service to the services slice if missing. Mutates part.RobotConfig.
 func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart, wait bool) error {
+	args := parseStructFromCtx[globalArgs](c)
 	partMap := part.RobotConfig.AsMap()
 	if _, ok := partMap["services"]; !ok {
 		partMap["services"] = make([]any, 0, 1)
@@ -36,7 +37,7 @@ func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart, wait
 		func(raw any) (ServiceMap, error) { return ServiceMap(raw.(map[string]any)), nil },
 	)
 	if slices.ContainsFunc(services, func(service ServiceMap) bool { return service["type"] == "shell" }) {
-		debugf(c.App.Writer, c.Bool(debugFlag), "shell service found on target machine, not installing")
+		debugf(c.App.Writer, args.Debug, "shell service found on target machine, not installing")
 		return nil
 	}
 	services = append(services, ServiceMap{"name": "shell", "type": "shell"})
@@ -58,7 +59,7 @@ func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart, wait
 	// If we don't wait, the reload command will usually fail on first run.
 	for i := 0; i < 11; i++ {
 		time.Sleep(time.Second)
-		_, closeClient, err := vc.connectToShellServiceFqdn(part.Fqdn, c.Bool(debugFlag), logging.NewLogger("shellsvc"))
+		_, closeClient, err := vc.connectToShellServiceFqdn(part.Fqdn, args.Debug, logging.NewLogger("shellsvc"))
 		if err == nil {
 			goutils.UncheckedError(closeClient(c.Context))
 			return nil
@@ -82,7 +83,7 @@ func writeBackConfig(part *apppb.RobotPart, configAsMap map[string]any) error {
 }
 
 // configureModule is the configuration step of module reloading. Returns (needsRestart, error). Mutates part.RobotConfig.
-func configureModule(c *cli.Context, vc *viamClient, manifest *moduleManifest, part *apppb.RobotPart) (bool, error) {
+func configureModule(c *cli.Context, vc *viamClient, manifest *moduleManifest, part *apppb.RobotPart, local bool) (bool, error) {
 	if manifest == nil {
 		return false, fmt.Errorf("reconfiguration requires valid manifest json passed to --%s", moduleFlagPath)
 	}
@@ -98,7 +99,7 @@ func configureModule(c *cli.Context, vc *viamClient, manifest *moduleManifest, p
 		return false, err
 	}
 
-	modules, dirty, err := mutateModuleConfig(c, modules, *manifest)
+	modules, dirty, err := mutateModuleConfig(c, modules, *manifest, local)
 	if err != nil {
 		return false, err
 	}
@@ -114,7 +115,8 @@ func configureModule(c *cli.Context, vc *viamClient, manifest *moduleManifest, p
 		return false, err
 	}
 	if dirty {
-		debugf(c.App.Writer, c.Bool(debugFlag), "writing back config changes")
+		args := parseStructFromCtx[globalArgs](c)
+		debugf(c.App.Writer, args.Debug, "writing back config changes")
 		err = vc.updateRobotPart(part, partMap)
 		if err != nil {
 			return false, err
@@ -131,7 +133,7 @@ func localizeModuleID(moduleID string) string {
 }
 
 // mutateModuleConfig edits the modules list to hot-reload with the given manifest.
-func mutateModuleConfig(c *cli.Context, modules []ModuleMap, manifest moduleManifest) ([]ModuleMap, bool, error) {
+func mutateModuleConfig(c *cli.Context, modules []ModuleMap, manifest moduleManifest, local bool) ([]ModuleMap, bool, error) {
 	var dirty bool
 	localName := localizeModuleID(manifest.ModuleID)
 	var foundMod ModuleMap
@@ -144,7 +146,7 @@ func mutateModuleConfig(c *cli.Context, modules []ModuleMap, manifest moduleMani
 
 	var absEntrypoint string
 	var err error
-	if c.Bool(moduleFlagLocal) {
+	if local {
 		absEntrypoint, err = filepath.Abs(manifest.Entrypoint)
 		if err != nil {
 			return nil, dirty, err
@@ -153,8 +155,9 @@ func mutateModuleConfig(c *cli.Context, modules []ModuleMap, manifest moduleMani
 		absEntrypoint = reloadingDestination(c, &manifest)
 	}
 
+	args := parseStructFromCtx[globalArgs](c)
 	if foundMod == nil {
-		debugf(c.App.Writer, c.Bool(debugFlag), "module not found, inserting")
+		debugf(c.App.Writer, args.Debug, "module not found, inserting")
 		dirty = true
 		newMod := ModuleMap(map[string]any{
 			"name":            localName,
@@ -164,11 +167,11 @@ func mutateModuleConfig(c *cli.Context, modules []ModuleMap, manifest moduleMani
 		modules = append(modules, newMod)
 	} else {
 		if same, err := samePath(getMapString(foundMod, "executable_path"), absEntrypoint); err != nil {
-			debugf(c.App.Writer, c.Bool(debugFlag), "ExePath is right, doing nothing")
+			debugf(c.App.Writer, args.Debug, "ExePath is right, doing nothing")
 			return nil, dirty, err
 		} else if !same {
 			dirty = true
-			debugf(c.App.Writer, c.Bool(debugFlag), "replacing entrypoint")
+			debugf(c.App.Writer, args.Debug, "replacing entrypoint")
 			if getMapString(foundMod, "type") == string(rdkConfig.ModuleTypeRegistry) {
 				// warning: there's a chance of inserting a dupe name here in odd cases
 				warningf(c.App.Writer, "You're replacing a registry module. We're converting it to a local module. "+

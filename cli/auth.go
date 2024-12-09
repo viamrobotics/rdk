@@ -117,9 +117,13 @@ type apiKey struct {
 	KeyCrypto string `json:"key_crypto"`
 }
 
+type loginActionArgs struct {
+	DisableBrowserOpen bool
+}
+
 // LoginAction is the corresponding Action for 'login'.
-func LoginAction(cCtx *cli.Context) error {
-	c, err := newViamClient(cCtx)
+func LoginAction(cCtx *cli.Context, args loginActionArgs) error {
+	c, err := newViamClientInner(cCtx, args.DisableBrowserOpen)
 	if err != nil {
 		return err
 	}
@@ -153,17 +157,18 @@ func (c *viamClient) loginAction(cCtx *cli.Context) error {
 
 	var t *token
 	var err error
+	globalArgs := parseStructFromCtx[globalArgs](c.c)
 	if currentToken != nil && currentToken.canRefresh() {
 		t, err = c.authFlow.refreshToken(c.c.Context, currentToken)
 		if err != nil {
-			debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Token refresh error: %v", err)
+			debugf(c.c.App.Writer, globalArgs.Debug, "Token refresh error: %v", err)
 			utils.UncheckedError(c.logout()) // clear cache if failed to refresh
 			return errors.New("error while refreshing token, logging out. Please log in again")
 		}
 	} else {
 		t, err = c.authFlow.loginAsUser(c.c.Context)
 		if err != nil {
-			debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Login error: %v", err)
+			debugf(c.c.App.Writer, globalArgs.Debug, "Login error: %v", err)
 
 			return errors.New("error while logging in. Please try again")
 		}
@@ -179,19 +184,24 @@ func (c *viamClient) loginAction(cCtx *cli.Context) error {
 	return nil
 }
 
+type loginWithAPIKeyArgs struct {
+	KeyID string
+	Key   string
+}
+
 // LoginWithAPIKeyAction is the corresponding Action for `login api-key`.
-func LoginWithAPIKeyAction(cCtx *cli.Context) error {
+func LoginWithAPIKeyAction(cCtx *cli.Context, args loginWithAPIKeyArgs) error {
 	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
 	}
-	return c.loginWithAPIKeyAction(cCtx)
+	return c.loginWithAPIKeyAction(cCtx, args)
 }
 
-func (c viamClient) loginWithAPIKeyAction(cCtx *cli.Context) error {
+func (c viamClient) loginWithAPIKeyAction(cCtx *cli.Context, args loginWithAPIKeyArgs) error {
 	key := apiKey{
-		KeyID:     cCtx.String(loginFlagKeyID),
-		KeyCrypto: cCtx.String(loginFlagKey),
+		KeyID:     args.KeyID,
+		KeyCrypto: args.Key,
 	}
 	c.conf.Auth = &key
 	if err := storeConfigToCache(c.conf); err != nil {
@@ -206,7 +216,7 @@ func (c viamClient) loginWithAPIKeyAction(cCtx *cli.Context) error {
 }
 
 // PrintAccessTokenAction is the corresponding Action for 'print-access-token'.
-func PrintAccessTokenAction(cCtx *cli.Context) error {
+func PrintAccessTokenAction(cCtx *cli.Context, args emptyArgs) error {
 	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
@@ -228,7 +238,7 @@ func (c *viamClient) printAccessTokenAction(cCtx *cli.Context) error {
 }
 
 // LogoutAction is the corresponding Action for 'logout'.
-func LogoutAction(cCtx *cli.Context) error {
+func LogoutAction(cCtx *cli.Context, args emptyArgs) error {
 	// Create basic viam client; no need to check base URL.
 	conf, err := ConfigFromCache()
 	if err != nil {
@@ -259,7 +269,7 @@ func (c *viamClient) logoutAction(cCtx *cli.Context) error {
 }
 
 // WhoAmIAction is the corresponding Action for 'whoami'.
-func WhoAmIAction(cCtx *cli.Context) error {
+func WhoAmIAction(cCtx *cli.Context, args emptyArgs) error {
 	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
@@ -283,21 +293,26 @@ func (c *viamClient) generateDefaultKeyName() string {
 	return fmt.Sprintf("%s-%s", c.conf.Auth, time.Now().Format(time.RFC3339))
 }
 
+type organizationsAPIKeyCreateArgs struct {
+	OrgID string
+	Name  string
+}
+
 // OrganizationsAPIKeyCreateAction corresponds to `organizations api-key create`.
-func OrganizationsAPIKeyCreateAction(cCtx *cli.Context) error {
+func OrganizationsAPIKeyCreateAction(cCtx *cli.Context, args organizationsAPIKeyCreateArgs) error {
 	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
 	}
-	return c.organizationsAPIKeyCreateAction(cCtx)
+	return c.organizationsAPIKeyCreateAction(cCtx, args)
 }
 
-func (c *viamClient) organizationsAPIKeyCreateAction(cCtx *cli.Context) error {
+func (c *viamClient) organizationsAPIKeyCreateAction(cCtx *cli.Context, args organizationsAPIKeyCreateArgs) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
-	orgID := cCtx.String(generalFlagOrgID)
-	keyName := cCtx.String(apiKeyCreateFlagName)
+	orgID := args.OrgID
+	keyName := args.Name
 	if keyName == "" {
 		keyName = c.generateDefaultKeyName()
 		infof(cCtx.App.Writer, "using default key name of %q", keyName)
@@ -335,25 +350,31 @@ func (c *viamClient) createOrganizationAPIKey(orgID, keyName string) (*apppb.Cre
 	return c.client.CreateKey(c.c.Context, req)
 }
 
+type locationAPIKeyCreateArgs struct {
+	LocationID string
+	OrgID      string
+	Name       string
+}
+
 // LocationAPIKeyCreateAction corresponds to `location api-key create`.
-func LocationAPIKeyCreateAction(cCtx *cli.Context) error {
+func LocationAPIKeyCreateAction(cCtx *cli.Context, args locationAPIKeyCreateArgs) error {
 	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
 	}
 
-	err = c.locationAPIKeyCreateAction(cCtx)
+	err = c.locationAPIKeyCreateAction(cCtx, args)
 	return err
 }
 
-func (c *viamClient) locationAPIKeyCreateAction(cCtx *cli.Context) error {
+func (c *viamClient) locationAPIKeyCreateAction(cCtx *cli.Context, args locationAPIKeyCreateArgs) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
 
-	locationID := cCtx.String(generalFlagLocationID)
-	orgID := cCtx.String(generalFlagOrgID)
-	keyName := cCtx.String(apiKeyCreateFlagName)
+	locationID := args.LocationID
+	orgID := args.OrgID
+	keyName := args.Name
 
 	if locationID == "" {
 		return errors.New("cannot create an api-key for a location without an ID")
@@ -395,24 +416,30 @@ func (c *viamClient) locationAPIKeyCreateAction(cCtx *cli.Context) error {
 	return nil
 }
 
+type robotAPIKeyCreateArgs struct {
+	MachineID string
+	Name      string
+	OrgID     string
+}
+
 // RobotAPIKeyCreateAction corresponds to `machine api-key create`.
-func RobotAPIKeyCreateAction(cCtx *cli.Context) error {
+func RobotAPIKeyCreateAction(cCtx *cli.Context, args robotAPIKeyCreateArgs) error {
 	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
 	}
-	err = c.robotAPIKeyCreateAction(cCtx)
+	err = c.robotAPIKeyCreateAction(cCtx, args)
 	return err
 }
 
-func (c *viamClient) robotAPIKeyCreateAction(cCtx *cli.Context) error {
+func (c *viamClient) robotAPIKeyCreateAction(cCtx *cli.Context, args robotAPIKeyCreateArgs) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
 
-	robotID := cCtx.String(generalFlagMachineID)
-	keyName := cCtx.String(apiKeyCreateFlagName)
-	orgID := cCtx.String(generalFlagOrgID)
+	robotID := args.MachineID
+	keyName := args.Name
+	orgID := args.OrgID
 
 	if robotID == "" {
 		return errors.New("cannot create an api-key for a machine without an ID")
@@ -477,7 +504,8 @@ func (c *viamClient) ensureLoggedIn() error {
 		// expired.
 		newToken, err := c.authFlow.refreshToken(c.c.Context, authToken)
 		if err != nil {
-			debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Token refresh error: %v", err)
+			globalArgs := parseStructFromCtx[globalArgs](c.c)
+			debugf(c.c.App.Writer, globalArgs.Debug, "Token refresh error: %v", err)
 			utils.UncheckedError(c.logout()) // clear cache if failed to refresh
 			return errors.New("error while refreshing token, logging out. Please log in again")
 		}

@@ -23,7 +23,7 @@ func TestConfigureModule(t *testing.T) {
 			return &v1.StartBuildResponse{BuildId: "xyz123"}, nil
 		},
 	}, nil, map[string]any{moduleBuildFlagPath: manifestPath, moduleBuildFlagVersion: "1.2.3"}, "token")
-	err := ac.moduleBuildStartAction(cCtx)
+	err := ac.moduleBuildStartAction(cCtx, parseStructFromCtx[moduleBuildStartArgs](cCtx))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.messages, test.ShouldHaveLength, 1)
 	test.That(t, out.messages[0], test.ShouldEqual, "xyz123\n")
@@ -67,7 +67,7 @@ func TestFullReloadFlow(t *testing.T) {
 		"token",
 	)
 	test.That(t, vc.loginAction(cCtx), test.ShouldBeNil)
-	err = reloadModuleAction(cCtx, vc)
+	err = reloadModuleAction(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, updateCount, test.ShouldEqual, 1)
 
@@ -126,7 +126,7 @@ func TestMutateModuleConfig(t *testing.T) {
 	t.Run("correct_exepath", func(t *testing.T) {
 		// correct ExePath (do nothing)
 		modules := []ModuleMap{{"module_id": manifest.ModuleID, "executable_path": manifest.Entrypoint}}
-		_, dirty, err := mutateModuleConfig(c, modules, manifest)
+		_, dirty, err := mutateModuleConfig(c, modules, manifest, true)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, dirty, test.ShouldBeFalse)
 	})
@@ -134,7 +134,7 @@ func TestMutateModuleConfig(t *testing.T) {
 	t.Run("wrong_exepath", func(t *testing.T) {
 		// wrong ExePath
 		modules := []ModuleMap{{"module_id": manifest.ModuleID, "executable_path": "WRONG"}}
-		_, dirty, err := mutateModuleConfig(c, modules, manifest)
+		_, dirty, err := mutateModuleConfig(c, modules, manifest, true)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, dirty, test.ShouldBeTrue)
 		test.That(t, modules[0]["executable_path"], test.ShouldEqual, manifest.Entrypoint)
@@ -143,14 +143,14 @@ func TestMutateModuleConfig(t *testing.T) {
 	t.Run("wrong_exepath_local", func(t *testing.T) {
 		// wrong ExePath with localName
 		modules := []ModuleMap{{"name": localizeModuleID(manifest.ModuleID)}}
-		mutateModuleConfig(c, modules, manifest)
+		mutateModuleConfig(c, modules, manifest, true)
 		test.That(t, modules[0]["executable_path"], test.ShouldEqual, manifest.Entrypoint)
 	})
 
 	t.Run("insert", func(t *testing.T) {
 		// insert case
 		modules := []ModuleMap{}
-		modules, _, _ = mutateModuleConfig(c, modules, manifest)
+		modules, _, _ = mutateModuleConfig(c, modules, manifest, true)
 		test.That(t, modules[0]["executable_path"], test.ShouldEqual, manifest.Entrypoint)
 	})
 
@@ -158,13 +158,13 @@ func TestMutateModuleConfig(t *testing.T) {
 		// registry to local
 		// todo(RSDK-6712): this goes away once we reconcile registry + local modules
 		modules := []ModuleMap{{"module_id": manifest.ModuleID, "executable_path": "WRONG", "type": string(rdkConfig.ModuleTypeRegistry)}}
-		mutateModuleConfig(c, modules, manifest)
+		mutateModuleConfig(c, modules, manifest, true)
 		test.That(t, modules[0]["name"], test.ShouldEqual, localizeModuleID(manifest.ModuleID))
 	})
 
 	c = newTestContext(t, map[string]any{})
 	t.Run("remote_insert", func(t *testing.T) {
-		modules, _, _ := mutateModuleConfig(c, []ModuleMap{}, manifest)
+		modules, _, _ := mutateModuleConfig(c, []ModuleMap{}, manifest, false)
 		test.That(t, modules[0]["executable_path"], test.ShouldEqual,
 			".viam/packages-local/viam-labs_test-module_from_reload-module.tar.gz")
 	})
