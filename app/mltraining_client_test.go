@@ -6,7 +6,8 @@ import (
 
 	pb "go.viam.com/api/app/mltraining/v1"
 	"go.viam.com/test"
-	statuspb "google.golang.org/genproto/googleapis/rpc/status"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
+	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -23,7 +24,15 @@ const (
 )
 
 var (
-	arguments   = map[string]string{"arg1": "one", "arg2": "two"}
+	arguments      = map[string]string{"arg1": "one", "arg2": "two"}
+	errorDetail, _ = anypb.New(&errdetails.ErrorInfo{
+		Reason: "API_DISABLED",
+		Domain: "googleapis.com",
+		Metadata: map[string]string{
+			"resource": "projects/123",
+			"service":  "pubsub.googleapis.com",
+		},
+	})
 	jobMetadata = TrainingJobMetadata{
 		ID:                  jobID,
 		DatasetID:           datasetID,
@@ -36,10 +45,10 @@ var (
 		RegistryItemID:      itemID,
 		RegistryItemVersion: version,
 		Status:              trainingStatus,
-		ErrorStatus: &ErrorStatus{
-			Code:    code,
+		ErrorStatus: &status.Status{
+			Code:    int32(3),
 			Message: message,
-			Details: []interface{}(nil),
+			Details: []*anypb.Any{errorDetail},
 		},
 		CreatedOn:       &createdOn,
 		LastModified:    &lastUpdated,
@@ -60,17 +69,13 @@ var (
 		RegistryItemId:      jobMetadata.RegistryItemID,
 		RegistryItemVersion: jobMetadata.RegistryItemVersion,
 		Status:              trainingStatusToProto(jobMetadata.Status),
-		ErrorStatus: &statuspb.Status{
-			Code:    int32(jobMetadata.ErrorStatus.Code),
-			Message: jobMetadata.ErrorStatus.Message,
-			Details: []*anypb.Any{},
-		},
-		CreatedOn:       pbCreatedOn,
-		LastModified:    timestamppb.New(lastUpdated),
-		TrainingStarted: pbStart,
-		TrainingEnded:   pbEnd,
-		SyncedModelId:   jobMetadata.SyncedModelID,
-		Tags:            jobMetadata.Tags,
+		ErrorStatus:         jobMetadata.ErrorStatus,
+		CreatedOn:           pbCreatedOn,
+		LastModified:        timestamppb.New(lastUpdated),
+		TrainingStarted:     pbStart,
+		TrainingEnded:       pbEnd,
+		SyncedModelId:       jobMetadata.SyncedModelID,
+		Tags:                jobMetadata.Tags,
 	}
 	trainingLogEntry = TrainingJobLogEntry{
 		Level:   level,
