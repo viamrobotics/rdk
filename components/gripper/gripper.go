@@ -7,7 +7,6 @@ package gripper
 import (
 	"context"
 
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/gripper/v1"
 
 	"go.viam.com/rdk/referenceframe"
@@ -17,7 +16,6 @@ import (
 
 func init() {
 	resource.RegisterAPI(API, resource.APIRegistration[Gripper]{
-		Status:                      resource.StatusFunc(CreateStatus),
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterGripperServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.GripperService_ServiceDesc,
@@ -78,13 +76,4 @@ func FromRobot(r robot.Robot, name string) (Gripper, error) {
 // NamesFromRobot is a helper for getting all gripper names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
-}
-
-// CreateStatus creates a status from the gripper.
-func CreateStatus(ctx context.Context, g Gripper) (*commonpb.ActuatorStatus, error) {
-	isMoving, err := g.IsMoving(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &commonpb.ActuatorStatus{IsMoving: isMoving}, nil
 }
