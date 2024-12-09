@@ -293,14 +293,14 @@ func TestUpdateBillingServiceAction(t *testing.T) {
 	test.That(t, ac.updateBillingServiceAction(cCtx, "test-org", address), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, len(out.messages), test.ShouldEqual, 8)
-	test.That(t, len(out.messages[0]), test.ShouldContainSubstring, "Successfully updated billing service for organization")
-	test.That(t, len(out.messages[1]), test.ShouldContainSubstring, " --- Billing Address --- ")
-	test.That(t, len(out.messages[2]), test.ShouldContainSubstring, "123 Main St")
-	test.That(t, len(out.messages[3]), test.ShouldContainSubstring, "Suite 100")
-	test.That(t, len(out.messages[4]), test.ShouldContainSubstring, "San Francisco")
-	test.That(t, len(out.messages[5]), test.ShouldContainSubstring, "CA")
-	test.That(t, len(out.messages[6]), test.ShouldContainSubstring, "94105")
-	test.That(t, len(out.messages[7]), test.ShouldContainSubstring, "USA")
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "Successfully updated billing service for organization")
+	test.That(t, out.messages[1], test.ShouldContainSubstring, " --- Billing Address --- ")
+	test.That(t, out.messages[2], test.ShouldContainSubstring, "123 Main St")
+	test.That(t, out.messages[3], test.ShouldContainSubstring, "Suite 100")
+	test.That(t, out.messages[4], test.ShouldContainSubstring, "San Francisco")
+	test.That(t, out.messages[5], test.ShouldContainSubstring, "CA")
+	test.That(t, out.messages[6], test.ShouldContainSubstring, "94105")
+	test.That(t, out.messages[7], test.ShouldContainSubstring, "USA")
 }
 
 func TestTabularDataByFilterAction(t *testing.T) {
