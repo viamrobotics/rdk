@@ -20,6 +20,7 @@ import (
 	"github.com/golang/geo/r3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -3381,8 +3382,8 @@ func (m *mockResource) Reconfigure(
 }
 
 // getExpectedDefaultStatuses returns a slice of default [resource.Status] with a given
-// revision set for motion and sensor services.
-func getExpectedDefaultStatuses(revision string) []resource.Status {
+// revision and cloud metadata.
+func getExpectedDefaultStatuses(revision string, md cloud.Metadata) []resource.Status {
 	return []resource.Status{
 		{
 			NodeStatus: resource.NodeStatus{
@@ -3392,6 +3393,7 @@ func getExpectedDefaultStatuses(revision string) []resource.Status {
 				},
 				State: resource.NodeStateReady,
 			},
+			CloudMetadata: md,
 		},
 		{
 			NodeStatus: resource.NodeStatus{
@@ -3401,6 +3403,7 @@ func getExpectedDefaultStatuses(revision string) []resource.Status {
 				},
 				State: resource.NodeStateReady,
 			},
+			CloudMetadata: md,
 		},
 		{
 			NodeStatus: resource.NodeStatus{
@@ -3410,6 +3413,7 @@ func getExpectedDefaultStatuses(revision string) []resource.Status {
 				},
 				State: resource.NodeStateReady,
 			},
+			CloudMetadata: md,
 		},
 		{
 			NodeStatus: resource.NodeStatus{
@@ -3419,6 +3423,7 @@ func getExpectedDefaultStatuses(revision string) []resource.Status {
 				},
 				State: resource.NodeStateReady,
 			},
+			CloudMetadata: md,
 		},
 		{
 			NodeStatus: resource.NodeStatus{
@@ -3429,6 +3434,7 @@ func getExpectedDefaultStatuses(revision string) []resource.Status {
 				State:    resource.NodeStateReady,
 				Revision: revision,
 			},
+			CloudMetadata: md,
 		},
 	}
 }
@@ -3452,7 +3458,38 @@ func TestMachineStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev1)
 
-		expectedStatuses := getExpectedDefaultStatuses(rev1)
+		expectedStatuses := getExpectedDefaultStatuses(rev1, cloud.Metadata{})
+		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
+	})
+
+	t.Run("default resources with cloud metadata", func(t *testing.T) {
+		rev1 := "rev1"
+		partId := "the-robot-part"
+		locId := "the-location"
+		orgId := "the-org"
+		machineId := "the-machine"
+		cfg := &config.Config{
+			Cloud: &config.Cloud{
+				ID:           partId,
+				LocationID:   locId,
+				PrimaryOrgID: orgId,
+				MachineID:    machineId,
+			},
+			Revision: rev1,
+		}
+		lr := setupLocalRobot(t, ctx, cfg, logger)
+
+		mStatus, err := lr.MachineStatus(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev1)
+
+		md := cloud.Metadata{
+			PrimaryOrgID:  orgId,
+			LocationID:    locId,
+			MachineID:     machineId,
+			MachinePartID: partId,
+		}
+		expectedStatuses := getExpectedDefaultStatuses(rev1, md)
 		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
 	})
 
@@ -3469,7 +3506,7 @@ func TestMachineStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev2)
 		expectedStatuses := rtestutils.ConcatResourceStatuses(
-			getExpectedDefaultStatuses(rev2),
+			getExpectedDefaultStatuses(rev2, cloud.Metadata{}),
 			[]resource.Status{
 				{
 					NodeStatus: resource.NodeStatus{
@@ -3494,7 +3531,7 @@ func TestMachineStatus(t *testing.T) {
 
 		expectedConfigError := fmt.Errorf("resource config validation error: %w", errMockValidation)
 		expectedStatuses = rtestutils.ConcatResourceStatuses(
-			getExpectedDefaultStatuses(rev3),
+			getExpectedDefaultStatuses(rev3, cloud.Metadata{}),
 			[]resource.Status{
 				{
 					NodeStatus: resource.NodeStatus{
@@ -3518,7 +3555,7 @@ func TestMachineStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev4)
 		expectedStatuses = rtestutils.ConcatResourceStatuses(
-			getExpectedDefaultStatuses(rev4),
+			getExpectedDefaultStatuses(rev4, cloud.Metadata{}),
 			[]resource.Status{
 				{
 					NodeStatus: resource.NodeStatus{
@@ -3577,7 +3614,7 @@ func TestMachineStatus(t *testing.T) {
 		// all other components should be in the "ready" state and associated with the
 		// new revision.
 		filterReady := rtestutils.FilterByStatus(t, mStatus.Resources, resource.NodeStateReady)
-		expectedReady := getExpectedDefaultStatuses(rev2)
+		expectedReady := getExpectedDefaultStatuses(rev2, cloud.Metadata{})
 		rtestutils.VerifySameResourceStatuses(t, filterReady, expectedReady)
 
 		wg.Wait()
@@ -3590,7 +3627,7 @@ func TestMachineStatus(t *testing.T) {
 		// now all components, including the one whose config changed, should all be in
 		// the "ready" state and associated with the new revision.
 		expectedStatuses := rtestutils.ConcatResourceStatuses(
-			getExpectedDefaultStatuses(rev2),
+			getExpectedDefaultStatuses(rev2, cloud.Metadata{}),
 			[]resource.Status{
 				{
 					NodeStatus: resource.NodeStatus{

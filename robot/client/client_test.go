@@ -2197,6 +2197,28 @@ func TestMachineStatus(t *testing.T) {
 			},
 			0,
 		},
+		{
+			"cloud metadata",
+			robot.MachineStatus{
+				Config: config.Revision{Revision: "rev1"},
+				Resources: []resource.Status{
+					{
+						NodeStatus: resource.NodeStatus{
+							Name:     arm.Named("arm1"),
+							State:    resource.NodeStateReady,
+							Revision: "rev1",
+						},
+						CloudMetadata: cloud.Metadata{
+							MachinePartID: "123",
+							MachineID:     "456",
+							PrimaryOrgID:  "789",
+							LocationID:    "abc",
+						},
+					},
+				},
+			},
+			0,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			logger, logs := logging.NewObservedTestLogger(t)
