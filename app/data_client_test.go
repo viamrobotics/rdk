@@ -13,7 +13,6 @@ import (
 	"go.viam.com/test"
 	utils "go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -140,8 +139,8 @@ var (
 	}
 	exportTabularResponse = &pb.ExportTabularDataResponse{
 		PartId:           partID,
-		ComponentName:    componentName,
-		ComponentType:    componentType,
+		ResourceName:     componentName,
+		ResourceSubtype:  componentType,
 		MethodName:       method,
 		TimeCaptured:     timestamppb.Now(),
 		OrganizationId:   organizationID,
@@ -149,7 +148,7 @@ var (
 		RobotName:        robotName,
 		RobotId:          robotID,
 		PartName:         partName,
-		MethodParameters: make(map[string]*anypb.Any),
+		MethodParameters: &structpb.Struct{},
 		Tags:             tags,
 		Payload:          &structpb.Struct{},
 	}

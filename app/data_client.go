@@ -117,8 +117,8 @@ type ExportTabularDataResponse struct {
 	RobotName        string
 	PartID           string
 	PartName         string
-	ComponentName    string
-	ComponentType    string
+	ResourceName     string
+	ResourceSubtype  string
 	MethodName       string
 	TimeCaptured     time.Time
 	MethodParameters map[string]interface{}
@@ -1296,11 +1296,11 @@ func exportTabularDataReturnFromProto(proto *pb.ExportTabularDataResponse) *Expo
 		RobotName:        proto.RobotName,
 		PartID:           proto.PartId,
 		PartName:         proto.PartName,
-		ComponentName:    proto.ComponentName,
-		ComponentType:    proto.ComponentType,
+		ResourceName:     proto.ResourceName,
+		ResourceSubtype:  proto.ResourceSubtype,
 		MethodName:       proto.MethodName,
 		TimeCaptured:     proto.TimeCaptured.AsTime(),
-		MethodParameters: methodParamsFromProto(proto.MethodParameters),
+		MethodParameters: proto.MethodParameters.AsMap(),
 		Tags:             proto.Tags,
 		Payload:          proto.Payload.AsMap(),
 	}
