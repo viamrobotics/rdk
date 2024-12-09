@@ -1741,7 +1741,7 @@ func TestConfigMethod(t *testing.T) {
 
 	r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
 
-	// Assert that Config method returns the two default services: motion.
+	// Assert that Config method returns the default motion service.
 	actualCfg := r.Config()
 	defaultSvcs := removeDefaultServices(actualCfg)
 	test.That(t, len(defaultSvcs), test.ShouldEqual, 1)
