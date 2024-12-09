@@ -485,6 +485,7 @@ func (replay *replayMovementSensor) updateCache(ctx context.Context, method meth
 	filter.Method = string(method)
 
 	// Retrieve data from the cloud
+	//nolint:deprecated,staticcheck
 	resp, err := replay.dataClient.TabularDataByFilter(ctx, &datapb.TabularDataByFilterRequest{
 		DataRequest: &datapb.DataRequest{
 			Filter:    filter,

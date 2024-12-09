@@ -311,12 +311,17 @@ func TestTabularDataByFilterAction(t *testing.T) {
 	// so we need a way of telling our injected method when data has already been sent so we
 	// can send an empty response
 	var dataRequested bool
+	//nolint:deprecated,staticcheck
 	tabularDataByFilterFunc := func(ctx context.Context, in *datapb.TabularDataByFilterRequest, opts ...grpc.CallOption,
-	) (*datapb.TabularDataByFilterResponse, error) {
+	) ( //nolint:deprecated,staticcheck
+		*datapb.TabularDataByFilterResponse, error,
+	) {
 		if dataRequested {
+			//nolint:deprecated,staticcheck
 			return &datapb.TabularDataByFilterResponse{}, nil
 		}
 		dataRequested = true
+		//nolint:deprecated,staticcheck
 		return &datapb.TabularDataByFilterResponse{
 			Data:     []*datapb.TabularData{{Data: pbStruct}},
 			Metadata: []*datapb.CaptureMetadata{{LocationId: "loc-id"}},
