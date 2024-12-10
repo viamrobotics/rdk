@@ -60,6 +60,9 @@ const (
 	NoModuleParentEnvVar = "VIAM_NO_MODULE_PARENT"
 )
 
+// TCPRegex tests whether a module address is TCP (vs unix sockets). See also ViamTCPSockets().
+var TCPRegex = regexp.MustCompile(`:\d+$`)
+
 // errMaxSupportedWebRTCTrackLimit is the error returned when the MaxSupportedWebRTCTRacks limit is reached.
 var errMaxSupportedWebRTCTrackLimit = fmt.Errorf("only %d WebRTC tracks are supported per peer connection", maxSupportedWebRTCTRacks)
 
@@ -272,17 +275,14 @@ func NewModuleFromArgs(ctx context.Context) (*Module, error) {
 	return NewModule(ctx, os.Args[1], NewLoggerFromArgs(""))
 }
 
-var tcpRegex = regexp.MustCompile(`:\d+$`)
-
 // Start starts the module service and grpc server.
 func (m *Module) Start(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	var lis net.Listener
-	isTCP := tcpRegex.MatchString(m.addr)
 	prot := "unix"
-	if isTCP {
+	if TCPRegex.MatchString(m.addr) {
 		prot = "tcp"
 	}
 	if err := MakeSelfOwnedFilesFunc(func() error {
@@ -355,7 +355,7 @@ func (m *Module) connectParent(ctx context.Context) error {
 	}
 
 	fullAddr := m.parentAddr
-	if !tcpRegex.MatchString(m.parentAddr) {
+	if !TCPRegex.MatchString(m.parentAddr) {
 		if err := CheckSocketOwner(m.parentAddr); err != nil {
 			return err
 		}
