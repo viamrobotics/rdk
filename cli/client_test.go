@@ -435,8 +435,8 @@ func TestDataExportTabularAction(t *testing.T) {
 		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 
 		// Test that export was retried (total of 5 tries).
-		test.That(t, len(out.messages), test.ShouldEqual, 6)
-		test.That(t, strings.Join(out.messages, ""), test.ShouldEqual, "Downloading.......")
+		test.That(t, len(out.messages), test.ShouldEqual, 7)
+		test.That(t, strings.Join(out.messages, ""), test.ShouldEqual, "Downloading.......\n")
 
 		// Test that the data.ndjson file was removed.
 		filePath := utils.ResolveFile("data.ndjson")
