@@ -2,7 +2,6 @@ package base_test
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -22,7 +21,6 @@ var (
 	errSpinFailed       = errors.New("critical failure in Spin")
 	errPropertiesFailed = errors.New("critical failure in Properties")
 	errStopFailed       = errors.New("critical failure in Stop")
-	errGeometriesNil    = fmt.Errorf("base component %v Geometries should not return nil geometries", failBaseName)
 )
 
 func newServer() (pb.BaseServiceServer, *inject.Base, *inject.Base, error) {
@@ -219,6 +217,6 @@ func TestServer(t *testing.T) {
 		req = &pbcommon.GetGeometriesRequest{Name: failBaseName}
 		resp, err = server.GetGeometries(context.Background(), req)
 		test.That(t, resp, test.ShouldBeNil)
-		test.That(t, err, test.ShouldBeError, errGeometriesNil)
+		test.That(t, err, test.ShouldBeError, base.ErrGeometriesNil(failBaseName))
 	})
 }

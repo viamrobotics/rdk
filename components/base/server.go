@@ -1,4 +1,4 @@
-// Package base contains a gRPC based arm service server.
+// Package base contains a gRPC based base service server.
 package base
 
 import (
@@ -13,6 +13,10 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
+
+var ErrGeometriesNil = func(baseName string) error {
+	return fmt.Errorf("base component %v Geometries should not return nil geometries", baseName)
+}
 
 // serviceServer implements the BaseService from base.proto.
 type serviceServer struct {
