@@ -53,8 +53,12 @@ const (
 	moduleFlagHomeDir         = "home"
 	moduleCreateLocalOnly     = "local-only"
 	moduleFlagID              = "id"
+	moduleFlagIsPublic        = "public"
 	moduleFlagResourceType    = "resource-type"
 	moduleFlagResourceSubtype = "resource-subtype"
+	moduleFlagModelName       = "model-name"
+	moduleFlagEnableCloud     = "enable-cloud"
+	moduleFlagRegister        = "register"
 	moduleFlagTags            = "tags"
 
 	moduleBuildFlagPath      = "module"
@@ -1583,9 +1587,20 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Usage: "generate a new modular resource via prompts",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
+							Name: moduleFlagName,
+							Usage: "name to use for module",
+						},
+						&cli.StringFlag{
 							Name:  moduleFlagLanguage,
 							Usage: "language to use for module",
-							Value: "python",
+						},
+						&cli.BoolFlag{
+							Name: moduleFlagIsPublic,
+							Usage: "visibility of module",
+						},
+						&cli.StringFlag{
+							Name: moduleFlagPublicNamespace,
+							Usage: "namespace or organization ID of module",
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagResourceType,
@@ -1594,6 +1609,18 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 						&cli.StringFlag{
 							Name:  moduleFlagResourceSubtype,
 							Usage: "resource subtype to use in module",
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagModelName,
+							Usage: "resource model name to use in module",
+						},
+						&cli.BoolFlag{
+							Name: moduleFlagEnableCloud,
+							Usage: "generate Github workflows to build module",
+						},
+						&cli.BoolFlag{
+							Name: moduleFlagRegister,
+							Usage: "register module with Viam and associate with your organization",
 						},
 					},
 					Action: GenerateModuleAction,
