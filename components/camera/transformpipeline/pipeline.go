@@ -61,7 +61,6 @@ func init() {
 type transformConfig struct {
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
-	Debug                bool                               `json:"debug,omitempty"`
 	Source               string                             `json:"source"`
 	Pipeline             []Transformation                   `json:"pipeline"`
 }
