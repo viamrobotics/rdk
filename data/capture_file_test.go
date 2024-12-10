@@ -125,7 +125,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			methodParams, err := protoutils.ConvertStringMapToAnyPBMap(tc.additionalParams)
 			test.That(t, err, test.ShouldEqual, nil)
 
-			actualMetadata := BuildCaptureMetadata(
+			actualMetadata, _ := BuildCaptureMetadata(
 				resource.APINamespaceRDK.WithComponentType(tc.componentType),
 				tc.componentName,
 				tc.method,

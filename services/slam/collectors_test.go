@@ -34,13 +34,15 @@ func TestCollectors(t *testing.T) {
 	tests := []struct {
 		name      string
 		collector data.CollectorConstructor
-		expected  *datasyncpb.SensorData
+		expected  []*datasyncpb.SensorData
+		datatype  data.CaptureType
 		slam      slam.Service
 	}{
 		{
 			name:      "PositionCollector returns non-empty position responses",
 			collector: slam.NewPositionCollector,
-			expected: &datasyncpb.SensorData{
+			datatype:  data.CaptureTypeTabular,
+			expected: []*datasyncpb.SensorData{{
 				Metadata: &datasyncpb.SensorMetadata{},
 				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
 					"pose": map[string]any{
@@ -53,16 +55,19 @@ func TestCollectors(t *testing.T) {
 						"z":     3,
 					},
 				})},
-			},
+			}},
 			slam: newSlamService(pcdPath),
 		},
 		{
 			name:      "PointCloudMapCollector returns non-empty pointcloud responses",
 			collector: slam.NewPointCloudMapCollector,
-			expected: &datasyncpb.SensorData{
-				Metadata: &datasyncpb.SensorMetadata{},
-				Data:     &datasyncpb.SensorData_Binary{Binary: pcd},
-			},
+			datatype:  data.CaptureTypeBinary,
+			expected: []*datasyncpb.SensorData{{
+				Metadata: &datasyncpb.SensorMetadata{
+					MimeType: datasyncpb.MimeType_MIME_TYPE_APPLICATION_PCD,
+				},
+				Data: &datasyncpb.SensorData_Binary{Binary: pcd},
+			}},
 			slam: newSlamService(pcdPath),
 		},
 	}
@@ -70,8 +75,9 @@ func TestCollectors(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			start := time.Now()
-			buf := tu.NewMockBuffer()
+			buf := tu.NewMockBuffer(t)
 			params := data.CollectorParams{
+				DataType:      tc.datatype,
 				ComponentName: serviceName,
 				Interval:      captureInterval,
 				Logger:        logging.NewTestLogger(t),
