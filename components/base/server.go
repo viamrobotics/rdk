@@ -3,6 +3,7 @@ package base
 
 import (
 	"context"
+	"fmt"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/base/v1"
@@ -161,6 +162,9 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 	geometries, err := res.Geometries(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
+	}
+	if geometries == nil {
+		return nil, fmt.Errorf("base component %v Geometries should not return nil geometries", res.Name().ShortName())
 	}
 	return &commonpb.GetGeometriesResponse{Geometries: spatialmath.NewGeometriesToProto(geometries)}, nil
 }
