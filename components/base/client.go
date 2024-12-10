@@ -162,8 +162,5 @@ func (c *client) Geometries(ctx context.Context, extra map[string]interface{}) (
 	if err != nil {
 		return nil, err
 	}
-	if resp.GetGeometries() == nil {
-		return nil, ErrGeometriesNil(c.name)
-	}
 	return spatialmath.NewGeometriesFromProto(resp.GetGeometries())
 }
