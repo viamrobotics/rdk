@@ -169,7 +169,7 @@ func (svc *webService) StartModule(ctx context.Context) error {
 			if err != nil {
 				return errors.WithMessage(err, "module startup failed")
 			}
-			lis, err = net.Listen("tcp", addr)
+			lis, err = net.Listen("unix", addr)
 		}
 		if err != nil {
 			return errors.WithMessage(err, "failed to listen")
