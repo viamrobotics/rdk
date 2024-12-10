@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"runtime/debug"
 	"strings"
-	"time"
 
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/dynamic"
@@ -61,10 +60,6 @@ const (
 //
 //	baseOrigin := referenceframe.NewPoseInFrame("test-base", spatialmath.NewZeroPose())
 //	movementSensorToBase, err := machine.TransformPose(context.Background(), baseOrigin, "my-movement-sensor", nil)
-//
-// Status example:
-//
-//	status, err := machine.Status(context.Background(), nil)
 //
 // CloudMetadata example:
 //
@@ -139,9 +134,6 @@ type Robot interface {
 	// of the transformed pointcloud because that will make the transformations inaccurate.
 	TransformPointCloud(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
 
-	// Status takes a list of resource names and returns their corresponding statuses. If no names are passed in, return all statuses.
-	Status(ctx context.Context, resourceNames []resource.Name) ([]Status, error)
-
 	// CloudMetadata returns app-related information about the robot.
 	CloudMetadata(ctx context.Context) (cloud.Metadata, error)
 
@@ -202,18 +194,6 @@ type RemoteRobot interface {
 
 	// Connected returns whether the remote is connected or not.
 	Connected() bool
-}
-
-// Status holds a resource name, the time that resource was last reconfigured
-// (or built), and its corresponding status. Status.Status is expected to be
-// comprised of string keys and values comprised of primitives, list of
-// primitives, maps with string keys (or at least can be decomposed into one),
-// or lists of the forementioned type of maps. Results with other types of data
-// are not guaranteed.
-type Status struct {
-	Name             resource.Name
-	LastReconfigured time.Time
-	Status           interface{}
 }
 
 // RestartModuleRequest is a go mirror of a proto message.

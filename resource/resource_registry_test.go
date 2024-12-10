@@ -75,9 +75,6 @@ func TestComponentRegistry(t *testing.T) {
 }
 
 func TestResourceAPIRegistry(t *testing.T) {
-	statf := func(context.Context, arm.Arm) (interface{}, error) {
-		return nil, errors.New("one")
-	}
 	var capColl resource.APIResourceCollection[arm.Arm]
 
 	sf := func(apiResColl resource.APIResourceCollection[arm.Arm]) interface{} {
@@ -90,20 +87,17 @@ func TestResourceAPIRegistry(t *testing.T) {
 
 	test.That(t, func() {
 		resource.RegisterAPI(acme.API, resource.APIRegistration[arm.Arm]{
-			Status:                      statf,
 			RPCServiceServerConstructor: sf,
 			RPCServiceDesc:              &pb.RobotService_ServiceDesc,
 		})
 	}, test.ShouldPanic)
 	test.That(t, func() {
 		resource.RegisterAPIWithAssociation(acme.API, resource.APIRegistration[arm.Arm]{
-			Status:                      statf,
 			RPCServiceServerConstructor: sf,
 			RPCServiceDesc:              &pb.RobotService_ServiceDesc,
 		}, resource.AssociatedConfigRegistration[resource.AssociatedConfig]{})
 	}, test.ShouldPanic)
 	resource.RegisterAPI(acme.API, resource.APIRegistration[arm.Arm]{
-		Status:                      statf,
 		RPCServiceServerConstructor: sf,
 		RPCServiceHandler:           pb.RegisterRobotServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.RobotService_ServiceDesc,
@@ -112,8 +106,6 @@ func TestResourceAPIRegistry(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, apiInfo, test.ShouldNotBeNil)
-	_, err = apiInfo.Status(nil, &fake.Arm{Named: arm.Named("foo").AsNamed()})
-	test.That(t, err, test.ShouldBeError, errors.New("one"))
 	coll, err := resource.NewAPIResourceCollection(arm.API, map[resource.Name]arm.Arm{
 		arm.Named("foo"): &fake.Arm{Named: arm.Named("foo").AsNamed()},
 	})
@@ -136,7 +128,6 @@ func TestResourceAPIRegistry(t *testing.T) {
 	apiInfo, ok, err = resource.LookupAPIRegistration[arm.Arm](api2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, apiInfo.Status, test.ShouldBeNil)
 	svcServer = apiInfo.RPCServiceServerConstructor(coll)
 	test.That(t, svcServer, test.ShouldNotBeNil)
 	res, err := apiInfo.RPCClient(nil, nil, "", arm.Named("foo"), nil)
@@ -211,16 +202,12 @@ func (st *mockAssociatedConfig) Link(conf *resource.Config) {
 }
 
 func TestResourceAPIRegistryWithAssociation(t *testing.T) {
-	statf := func(context.Context, arm.Arm) (interface{}, error) {
-		return nil, errors.New("one")
-	}
 	sf := func(apiResColl resource.APIResourceCollection[arm.Arm]) interface{} {
 		return nil
 	}
 
 	someName := resource.NewName(resource.APINamespace(uuid.NewString()).WithComponentType(button), "button1")
 	resource.RegisterAPIWithAssociation(someName.API, resource.APIRegistration[arm.Arm]{
-		Status:                      statf,
 		RPCServiceServerConstructor: sf,
 		RPCServiceHandler:           pb.RegisterRobotServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.RobotService_ServiceDesc,

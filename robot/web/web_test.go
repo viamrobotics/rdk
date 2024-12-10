@@ -1130,8 +1130,8 @@ func TestRawClientOperation(t *testing.T) {
 	err := svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	iRobot.(*inject.Robot).StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-		return []robot.Status{}, nil
+	iRobot.(*inject.Robot).MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
+		return robot.MachineStatus{}, nil
 	}
 
 	checkOpID := func(md metadata.MD, expected bool) {
@@ -1151,17 +1151,10 @@ func TestRawClientOperation(t *testing.T) {
 	client := robotpb.NewRobotServiceClient(conn)
 
 	var hdr metadata.MD
-	//nolint:staticcheck // the status API is deprecated
-	_, err = client.GetStatus(ctx, &robotpb.GetStatusRequest{}, grpc.Header(&hdr))
+	_, err = client.GetMachineStatus(ctx, &robotpb.GetMachineStatusRequest{}, grpc.Header(&hdr))
 	test.That(t, err, test.ShouldBeNil)
 	checkOpID(hdr, true)
 
-	//nolint:staticcheck // the status API is deprecated
-	streamClient, err := client.StreamStatus(ctx, &robotpb.StreamStatusRequest{})
-	test.That(t, err, test.ShouldBeNil)
-	md, err := streamClient.Header()
-	test.That(t, err, test.ShouldBeNil)
-	checkOpID(md, false) // StreamStatus is in the filtered method list, so doesn't get an opID
 	test.That(t, conn.Close(), test.ShouldBeNil)
 
 	// test with a simple echo proto as well
@@ -1177,7 +1170,7 @@ func TestRawClientOperation(t *testing.T) {
 
 	echoStreamClient, err := echoclient.EchoMultiple(ctx, &echopb.EchoMultipleRequest{})
 	test.That(t, err, test.ShouldBeNil)
-	md, err = echoStreamClient.Header()
+	md, err := echoStreamClient.Header()
 	test.That(t, err, test.ShouldBeNil)
 	checkOpID(md, true) // EchoMultiple is NOT filtered, so should have an opID
 	test.That(t, conn.Close(), test.ShouldBeNil)
@@ -1199,9 +1192,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 
 			// Use an injected status function to check that the default deadline was added
 			// to the context.
-			iRobot.(*inject.Robot).StatusFunc = func(ctx context.Context,
-				resourceNames []resource.Name,
-			) ([]robot.Status, error) {
+			iRobot.(*inject.Robot).MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
 				deadline, deadlineSet := ctx.Deadline()
 				test.That(t, deadlineSet, test.ShouldBeTrue)
 				// Assert that deadline is between 9 and 10 minutes from now (some time will
@@ -1209,7 +1200,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 				test.That(t, deadline, test.ShouldHappenBetween,
 					time.Now().Add(time.Minute*9), time.Now().Add(time.Minute*10))
 
-				return []robot.Status{}, nil
+				return robot.MachineStatus{}, nil
 			}
 
 			conn, err := rgrpc.Dial(context.Background(), addr, logger,
@@ -1217,9 +1208,8 @@ func TestInboundMethodTimeout(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			client := robotpb.NewRobotServiceClient(conn)
 
-			// Use GetStatus to call injected status function.
-			//nolint:staticcheck // the status API is deprecated
-			_, err = client.GetStatus(ctx, &robotpb.GetStatusRequest{})
+			// Use GetMachineStatus to call injected status function.
+			_, err = client.GetMachineStatus(ctx, &robotpb.GetMachineStatusRequest{})
 			test.That(t, err, test.ShouldBeNil)
 
 			test.That(t, conn.Close(), test.ShouldBeNil)
@@ -1233,17 +1223,16 @@ func TestInboundMethodTimeout(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			// Use an injected status function to check that the default deadline was not
-			// added to the context, and the deadline passed to GetStatus was used instead.
-			iRobot.(*inject.Robot).StatusFunc = func(ctx context.Context,
-				resourceNames []resource.Name,
-			) ([]robot.Status, error) {
+			// added to the context, and the deadline passed to GetMachineStatus was used instead.
+			iRobot.(*inject.Robot).MachineStatusFunc = func(ctx context.Context,
+			) (robot.MachineStatus, error) {
 				deadline, deadlineSet := ctx.Deadline()
 				test.That(t, deadlineSet, test.ShouldBeTrue)
 				// Assert that deadline is between 4 and 5 minutes from now (some time will
 				// have elapsed).
 				test.That(t, deadline, test.ShouldHappenBetween,
 					time.Now().Add(time.Minute*4), time.Now().Add(time.Minute*5))
-				return []robot.Status{}, nil
+				return robot.MachineStatus{}, nil
 			}
 
 			conn, err := rgrpc.Dial(context.Background(), addr, logger,
@@ -1251,11 +1240,10 @@ func TestInboundMethodTimeout(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			client := robotpb.NewRobotServiceClient(conn)
 
-			// Use GetStatus and a context with a deadline to call injected status function.
+			// Use GetMachineStatus and a context with a deadline to call injected status function.
 			overrideCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 			defer cancel()
-			//nolint:staticcheck // the status API is deprecated
-			_, err = client.GetStatus(overrideCtx, &robotpb.GetStatusRequest{})
+			_, err = client.GetMachineStatus(overrideCtx, &robotpb.GetMachineStatusRequest{})
 			test.That(t, err, test.ShouldBeNil)
 
 			test.That(t, conn.Close(), test.ShouldBeNil)
@@ -1271,9 +1259,8 @@ func TestInboundMethodTimeout(t *testing.T) {
 
 			// Use an injected status function to check that the default deadline was added
 			// to the context.
-			iRobot.(*inject.Robot).StatusFunc = func(ctx context.Context,
-				resourceNames []resource.Name,
-			) ([]robot.Status, error) {
+			iRobot.(*inject.Robot).MachineStatusFunc = func(ctx context.Context,
+			) (robot.MachineStatus, error) {
 				deadline, deadlineSet := ctx.Deadline()
 				test.That(t, deadlineSet, test.ShouldBeTrue)
 				// Assert that deadline is between 9 and 10 minutes from now (some time will
@@ -1281,7 +1268,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 				test.That(t, deadline, test.ShouldHappenBetween,
 					time.Now().Add(time.Minute*9), time.Now().Add(time.Minute*10))
 
-				return []robot.Status{}, nil
+				return robot.MachineStatus{}, nil
 			}
 
 			conn, err := rgrpc.Dial(context.Background(), "unix://"+svc.ModuleAddress(),
@@ -1289,9 +1276,8 @@ func TestInboundMethodTimeout(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			client := robotpb.NewRobotServiceClient(conn)
 
-			// Use GetStatus to call injected status function.
-			//nolint:staticcheck // the status API is deprecated
-			_, err = client.GetStatus(ctx, &robotpb.GetStatusRequest{})
+			// Use GetMachineStatus to call injected status function.
+			_, err = client.GetMachineStatus(ctx, &robotpb.GetMachineStatusRequest{})
 			test.That(t, err, test.ShouldBeNil)
 
 			test.That(t, conn.Close(), test.ShouldBeNil)
@@ -1304,17 +1290,16 @@ func TestInboundMethodTimeout(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			// Use an injected status function to check that the default deadline was not
-			// added to the context, and the deadline passed to GetStatus was used instead.
-			iRobot.(*inject.Robot).StatusFunc = func(ctx context.Context,
-				resourceNames []resource.Name,
-			) ([]robot.Status, error) {
+			// added to the context, and the deadline passed to GetMachineStatus was used instead.
+			iRobot.(*inject.Robot).MachineStatusFunc = func(ctx context.Context,
+			) (robot.MachineStatus, error) {
 				deadline, deadlineSet := ctx.Deadline()
 				test.That(t, deadlineSet, test.ShouldBeTrue)
 				// Assert that deadline is between 4 and 5 minutes from now (some time will
 				// have elapsed).
 				test.That(t, deadline, test.ShouldHappenBetween,
 					time.Now().Add(time.Minute*4), time.Now().Add(time.Minute*5))
-				return []robot.Status{}, nil
+				return robot.MachineStatus{}, nil
 			}
 
 			conn, err := rgrpc.Dial(context.Background(), "unix://"+svc.ModuleAddress(),
@@ -1322,11 +1307,10 @@ func TestInboundMethodTimeout(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			client := robotpb.NewRobotServiceClient(conn)
 
-			// Use GetStatus and a context with a deadline to call injected status function.
+			// Use GetMachineStatus and a context with a deadline to call injected status function.
 			overrideCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 			defer cancel()
-			//nolint:staticcheck // the status API is deprecated
-			_, err = client.GetStatus(overrideCtx, &robotpb.GetStatusRequest{})
+			_, err = client.GetMachineStatus(overrideCtx, &robotpb.GetMachineStatusRequest{})
 			test.That(t, err, test.ShouldBeNil)
 
 			test.That(t, conn.Close(), test.ShouldBeNil)

@@ -17,6 +17,12 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
+const (
+	testInputControllerName    = "inputController1"
+	failInputControllerName    = "inputController2"
+	missingInputControllerName = "inputController3"
+)
+
 var (
 	errControlsFailed = errors.New("can't get controls")
 	errEventsFailed   = errors.New("can't get last events")
