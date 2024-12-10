@@ -72,16 +72,6 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 			ModelName:        "my-model",
 			EnableCloudBuild: false,
 			RegisterOnApp:    false,
-			GeneratorVersion: "0.1.0",
-			GeneratedOn:      time.Now().UTC(),
-
-			ModulePascal:          "MyModule",
-			API:                   fmt.Sprintf("rdk:%s:%s", resourceType, resourceSubtype),
-			ResourceSubtypePascal: strings.ToUpper(string(resourceSubtype[0])) + resourceSubtype[1:],
-			ModelPascal:           "MyModel",
-			ModelTriple:           "my-org:my-module:my-model",
-
-			SDKVersion: "0.0.0",
 		}
 		populateAdditionalInfo(newModule)
 	} else {
