@@ -48,13 +48,32 @@ type Arguments struct {
 	OutputTelemetry            bool   `flag:"output-telemetry,usage=print out telemetry data (metrics and spans)"`
 	DisableMulticastDNS        bool   `flag:"disable-mdns,usage=disable server discovery through multicast DNS"`
 	DumpResourcesPath          string `flag:"dump-resources,usage=dump all resource registrations as json to the provided file path"`
-	EnableFTDC                 bool   `flag:"ftdc,usage=enable fulltime data capture for diagnostics [beta feature]"`
+	EnableFTDC                 bool   `flag:"ftdc,default=true,usage=enable fulltime data capture for diagnostics"`
 }
 
 type robotServer struct {
 	args     Arguments
 	logger   logging.Logger
 	registry *logging.Registry
+}
+
+func logViamEnvVariables(logger logging.Logger) {
+	var viamEnvVariables []interface{}
+	if value, exists := os.LookupEnv("VIAM_MODULE_ROOT"); exists {
+		viamEnvVariables = append(viamEnvVariables, "VIAM_MODULE_ROOT", value)
+	}
+	if value, exists := os.LookupEnv("VIAM_RESOURCE_CONFIGURATION_TIMEOUT"); exists {
+		viamEnvVariables = append(viamEnvVariables, "VIAM_RESOURCE_CONFIGURATION_TIMEOUT", value)
+	}
+	if value, exists := os.LookupEnv("VIAM_MODULE_STARTUP_TIMEOUT"); exists {
+		viamEnvVariables = append(viamEnvVariables, "VIAM_MODULE_STARTUP_TIMEOUT", value)
+	}
+	if rutils.PlatformHomeDir() != "" {
+		viamEnvVariables = append(viamEnvVariables, "HOME", rutils.PlatformHomeDir())
+	}
+	if len(viamEnvVariables) != 0 {
+		logger.Infow("Starting viam-server with following environment variables", viamEnvVariables...)
+	}
 }
 
 func logVersion(logger logging.Logger) {
@@ -70,6 +89,11 @@ func logVersion(logger logging.Logger) {
 	} else {
 		logger.Info("Viam RDK built from source; version unknown")
 	}
+}
+
+func logStartupInfo(logger logging.Logger) {
+	logVersion(logger)
+	logViamEnvVariables(logger)
 }
 
 // RunServer is an entry point to starting the web server that can be called by main in a code
@@ -94,17 +118,17 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	config.InitLoggingSettings(logger, argsParsed.Debug)
 
 	if argsParsed.Version {
-		// log version here and return if version flag.
-		logVersion(logger)
+		// log startup info here and return if version flag.
+		logStartupInfo(logger)
 		return
 	}
 
-	// log version locally if server fails and exits while attempting to start up
-	var versionLogged bool
+	// log startup info locally if server fails and exits while attempting to start up
+	var startupInfoLogged bool
 	defer func() {
-		if !versionLogged {
+		if !startupInfoLogged {
 			logger.CInfo(ctx, "error starting viam-server, logging version and exiting")
-			logVersion(logger)
+			logStartupInfo(logger)
 		}
 	}()
 
@@ -160,9 +184,9 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 
 		registry.AddAppenderToAll(netAppender)
 	}
-	// log version after netlogger is initialized so it's captured in cloud machine logs.
-	logVersion(logger)
-	versionLogged = true
+	// log startup info after netlogger is initialized so it's captured in cloud machine logs.
+	logStartupInfo(logger)
+	startupInfoLogged = true
 
 	server := robotServer{
 		logger:   logger,

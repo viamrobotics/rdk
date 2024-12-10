@@ -207,9 +207,13 @@ func createNewMotor(
 		cmd[isSingle] = m
 		resp, err := e.DoCommand(ctx, cmd)
 		if err != nil {
-			return nil, err
+			if !errors.Is(err, resource.ErrDoUnimplemented) {
+				logger.Infof("DoCommand Errored, likely not a single encoder, err = %w", err)
+			}
 		}
-		if resp != nil && resp[directionAttached].(bool) {
+
+		// the three criterea for knowing we're attached to a single encoder
+		if resp != nil && resp[directionAttached].(bool) && err == nil {
 			logger.CInfo(ctx, "direction attached to single encoder from encoded motor")
 		}
 

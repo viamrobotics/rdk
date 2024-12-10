@@ -30,7 +30,8 @@ func TestCrop(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// test depth source
-	source := gostream.NewVideoSource(&fake.StaticSource{DepthImg: dm}, prop.Video{})
+	source, err := camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{DepthImg: dm}, nil, camera.UnspecifiedStream)
+	test.That(t, err, test.ShouldBeNil)
 	out, _, err := camera.ReadImage(context.Background(), source)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 128)
@@ -48,7 +49,8 @@ func TestCrop(t *testing.T) {
 	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 
 	// test color source
-	source = gostream.NewVideoSource(&fake.StaticSource{ColorImg: img}, prop.Video{})
+	source, err = camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{ColorImg: img}, nil, camera.UnspecifiedStream)
+	test.That(t, err, test.ShouldBeNil)
 	out, _, err = camera.ReadImage(context.Background(), source)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 128)
@@ -64,6 +66,7 @@ func TestCrop(t *testing.T) {
 	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 10)
 	test.That(t, out, test.ShouldHaveSameTypeAs, &image.NRGBA{})
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
+
 	// crop has limits bigger than the image dimensions, but just takes the window
 	am = utils.AttributeMap{"x_min_px": 127, "x_max_px": 150, "y_min_px": 71, "y_max_px": 110}
 	rs, stream, err = newCropTransform(context.Background(), source, camera.ColorStream, am)
@@ -73,6 +76,77 @@ func TestCrop(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 1)
 	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 1)
+	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
+
+	// relative crop
+	dummyImg := image.NewRGBA(image.Rect(0, 0, 100, 100))
+	source, err = camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{ColorImg: dummyImg}, nil, camera.UnspecifiedStream)
+	test.That(t, err, test.ShouldBeNil)
+	out, _, err = camera.ReadImage(context.Background(), source)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 100)
+	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 100)
+	am = utils.AttributeMap{"x_min_px": 0.2, "x_max_px": 0.4, "y_min_px": 0.3, "y_max_px": 0.99}
+	rs, stream, err = newCropTransform(context.Background(), source, camera.ColorStream, am)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
+	out, _, err = camera.ReadImage(context.Background(), rs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 20)
+	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 69)
+	test.That(t, out, test.ShouldHaveSameTypeAs, &image.NRGBA{})
+	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
+
+	// the edge case of cropping to one pixel
+	am = utils.AttributeMap{
+		"x_min_px": 0.0,
+		"x_max_px": 1.0,
+		"y_min_px": 0.0,
+		"y_max_px": 1.0,
+	}
+	rs, stream, err = newCropTransform(context.Background(), source, camera.ColorStream, am)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
+	out, _, err = camera.ReadImage(context.Background(), rs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 1)
+	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 1)
+	test.That(t, out, test.ShouldHaveSameTypeAs, &image.NRGBA{})
+	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
+
+	// quadrant cropping
+	am = utils.AttributeMap{
+		"x_min_px": 0.5,
+		"x_max_px": 1.0,
+		"y_min_px": 0.5,
+		"y_max_px": 1.0,
+	}
+	rs, stream, err = newCropTransform(context.Background(), source, camera.ColorStream, am)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
+	out, _, err = camera.ReadImage(context.Background(), rs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 50)
+	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 50)
+	test.That(t, out, test.ShouldHaveSameTypeAs, &image.NRGBA{})
+	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
+
+	// relative crop but you just overlay the box
+	am = utils.AttributeMap{
+		"x_min_px":         0.2,
+		"x_max_px":         0.4,
+		"y_min_px":         0.3,
+		"y_max_px":         0.99,
+		"overlay_crop_box": true,
+	}
+	rs, stream, err = newCropTransform(context.Background(), source, camera.ColorStream, am)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
+	out, _, err = camera.ReadImage(context.Background(), rs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 100)
+	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 100)
+	test.That(t, out, test.ShouldHaveSameTypeAs, &image.NRGBA{})
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 
 	//  error - crop limits are outside of original image
@@ -107,7 +181,8 @@ func TestResizeColor(t *testing.T) {
 		"height_px": 20,
 		"width_px":  30,
 	}
-	source := gostream.NewVideoSource(&fake.StaticSource{ColorImg: img}, prop.Video{})
+	source, err := camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{ColorImg: img}, nil, camera.UnspecifiedStream)
+	test.That(t, err, test.ShouldBeNil)
 	out, _, err := camera.ReadImage(context.Background(), source)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 128)
@@ -133,7 +208,8 @@ func TestResizeDepth(t *testing.T) {
 		"height_px": 40,
 		"width_px":  60,
 	}
-	source := gostream.NewVideoSource(&fake.StaticSource{DepthImg: img}, prop.Video{})
+	source, err := camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{DepthImg: img}, nil, camera.UnspecifiedStream)
+	test.That(t, err, test.ShouldBeNil)
 	out, _, err := camera.ReadImage(context.Background(), source)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 128)
@@ -154,7 +230,8 @@ func TestRotateColorSource(t *testing.T) {
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1_small.png"))
 	test.That(t, err, test.ShouldBeNil)
 
-	source := gostream.NewVideoSource(&fake.StaticSource{ColorImg: img}, prop.Video{})
+	source, err := camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{ColorImg: img}, nil, camera.UnspecifiedStream)
+	test.That(t, err, test.ShouldBeNil)
 	am := utils.AttributeMap{
 		"angle_degs": 180,
 	}
@@ -207,7 +284,8 @@ func TestRotateColorSource(t *testing.T) {
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 
-	source = gostream.NewVideoSource(&fake.StaticSource{ColorImg: img}, prop.Video{})
+	source, err = camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{ColorImg: img}, nil, camera.UnspecifiedStream)
+	test.That(t, err, test.ShouldBeNil)
 	am = utils.AttributeMap{
 		"angle_degs": 90,
 	}
@@ -238,7 +316,8 @@ func TestRotateColorSource(t *testing.T) {
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 
-	source = gostream.NewVideoSource(&fake.StaticSource{ColorImg: img}, prop.Video{})
+	source, err = camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{ColorImg: img}, nil, camera.UnspecifiedStream)
+	test.That(t, err, test.ShouldBeNil)
 	am = utils.AttributeMap{
 		"angle_degs": -90,
 	}
@@ -269,7 +348,8 @@ func TestRotateColorSource(t *testing.T) {
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 
-	source = gostream.NewVideoSource(&fake.StaticSource{ColorImg: img}, prop.Video{})
+	source, err = camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{ColorImg: img}, nil, camera.UnspecifiedStream)
+	test.That(t, err, test.ShouldBeNil)
 	am = utils.AttributeMap{
 		"angle_degs": 270,
 	}
@@ -300,7 +380,8 @@ func TestRotateColorSource(t *testing.T) {
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 
-	source = gostream.NewVideoSource(&fake.StaticSource{ColorImg: img}, prop.Video{})
+	source, err = camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{ColorImg: img}, nil, camera.UnspecifiedStream)
+	test.That(t, err, test.ShouldBeNil)
 	am = utils.AttributeMap{
 		"angle_degs": 0, // no-op
 	}
@@ -336,7 +417,8 @@ func TestRotateDepthSource(t *testing.T) {
 		context.Background(), artifact.MustPath("rimage/board1_gray_small.png"))
 	test.That(t, err, test.ShouldBeNil)
 
-	source := gostream.NewVideoSource(&fake.StaticSource{DepthImg: pc}, prop.Video{})
+	source, err := camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{DepthImg: pc}, nil, camera.UnspecifiedStream)
+	test.That(t, err, test.ShouldBeNil)
 	am := utils.AttributeMap{
 		"angle_degs": 180,
 	}
@@ -388,7 +470,8 @@ func TestRotateDepthSource(t *testing.T) {
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 
-	source = gostream.NewVideoSource(&fake.StaticSource{DepthImg: pc}, prop.Video{})
+	source, err = camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{DepthImg: pc}, nil, camera.UnspecifiedStream)
+	test.That(t, err, test.ShouldBeNil)
 	am = utils.AttributeMap{
 		"angle_degs": 90,
 	}
@@ -419,7 +502,8 @@ func TestRotateDepthSource(t *testing.T) {
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 
-	source = gostream.NewVideoSource(&fake.StaticSource{DepthImg: pc}, prop.Video{})
+	source, err = camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{DepthImg: pc}, nil, camera.UnspecifiedStream)
+	test.That(t, err, test.ShouldBeNil)
 	am = utils.AttributeMap{
 		"angle_degs": -90,
 	}
@@ -450,7 +534,8 @@ func TestRotateDepthSource(t *testing.T) {
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 
-	source = gostream.NewVideoSource(&fake.StaticSource{DepthImg: pc}, prop.Video{})
+	source, err = camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{DepthImg: pc}, nil, camera.UnspecifiedStream)
+	test.That(t, err, test.ShouldBeNil)
 	am = utils.AttributeMap{
 		"angle_degs": 270,
 	}
@@ -481,7 +566,8 @@ func TestRotateDepthSource(t *testing.T) {
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 
-	source = gostream.NewVideoSource(&fake.StaticSource{DepthImg: pc}, prop.Video{})
+	source, err = camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{DepthImg: pc}, nil, camera.UnspecifiedStream)
+	test.That(t, err, test.ShouldBeNil)
 	am = utils.AttributeMap{
 		"angle_degs": 0, // no-op
 	}
@@ -529,7 +615,8 @@ func BenchmarkColorRotate(b *testing.B) {
 	b.ResetTimer()
 
 	for n := 0; n < b.N; n++ {
-		camera.ReadImage(context.Background(), rs)
+		_, _, err = camera.ReadImage(context.Background(), rs)
+		test.That(b, err, test.ShouldBeNil)
 	}
 	test.That(b, rs.Close(context.Background()), test.ShouldBeNil)
 	test.That(b, source.Close(context.Background()), test.ShouldBeNil)
@@ -553,7 +640,8 @@ func BenchmarkDepthRotate(b *testing.B) {
 	b.ResetTimer()
 
 	for n := 0; n < b.N; n++ {
-		camera.ReadImage(context.Background(), rs)
+		_, _, err = camera.ReadImage(context.Background(), rs)
+		test.That(b, err, test.ShouldBeNil)
 	}
 	test.That(b, rs.Close(context.Background()), test.ShouldBeNil)
 	test.That(b, source.Close(context.Background()), test.ShouldBeNil)

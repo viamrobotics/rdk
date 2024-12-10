@@ -2,74 +2,91 @@ package app
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	pb "go.viam.com/api/app/data/v1"
+	setPb "go.viam.com/api/app/dataset/v1"
+	syncPb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
 	utils "go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
 const (
-	componentName  = "component_name"
-	componentType  = "component_type"
-	method         = "method"
-	robotName      = "robot_name"
-	robotID        = "robot_id"
-	partName       = "part_name"
-	partID         = "part_id"
-	locationID     = "location_id"
-	organizationID = "organization_id"
-	password       = "password"
-	mimeType       = "mime_type"
-	uri            = "some.robot.uri"
-	bboxLabel      = "bbox_label"
-	tag            = "tag"
-	fileName       = "file_name"
-	fileExt        = "file_ext.ext"
-	datasetID      = "dataset_id"
-	binaryMetaID   = "binary_id"
-	mongodbURI     = "mongo_uri"
-	hostName       = "host_name"
-	last           = "last"
+	password     = "password"
+	mimeType     = "mime_type"
+	uri          = "some.robot.uri"
+	bboxLabel    = "bbox_label"
+	binaryMetaID = "binary_id"
+	mongodbURI   = "mongo_uri"
+	last         = "last"
+	fileID       = "file_id"
 )
 
 var (
+	binaryDataType      = DataTypeBinarySensor
+	tabularDataType     = DataTypeTabularSensor
 	locationIDs         = []string{locationID}
 	orgIDs              = []string{organizationID}
 	mimeTypes           = []string{mimeType}
 	bboxLabels          = []string{bboxLabel}
 	methodParameters    = map[string]interface{}{}
-	tags                = []string{tag}
-	startTime           = time.Now().UTC().Round(time.Millisecond)
-	endTime             = time.Now().UTC().Round(time.Millisecond)
-	count               = uint64(5)
-	limit               = uint64(5)
+	dataRequestTimes    = [2]time.Time{start, end}
+	count               = 5
 	countOnly           = true
 	includeInternalData = true
 	data                = map[string]interface{}{
 		"key": "value",
+	}
+	fileName        = "file_name"
+	fileExt         = ".file_ext.ext"
+	componentName   = "component_name"
+	componentType   = "component_type"
+	method          = "method"
+	tabularMetadata = CaptureMetadata{
+		OrganizationID:   organizationID,
+		LocationID:       locationID,
+		RobotName:        robotName,
+		RobotID:          robotID,
+		PartName:         partName,
+		PartID:           partID,
+		ComponentType:    componentType,
+		ComponentName:    componentName,
+		MethodName:       method,
+		MethodParameters: methodParameters,
+		Tags:             tags,
+		MimeType:         mimeType,
+	}
+	tabularData = TabularData{
+		Data:          data,
+		MetadataIndex: 0,
+		Metadata:      tabularMetadata,
+		TimeRequested: start,
+		TimeReceived:  end,
 	}
 	binaryID = BinaryID{
 		FileID:         "file1",
 		OrganizationID: organizationID,
 		LocationID:     locationID,
 	}
-	binaryIDs      = []BinaryID{binaryID}
+	pbBinaryID     = binaryIDToProto(&binaryID)
+	binaryIDs      = []*BinaryID{&binaryID}
 	binaryDataByte = []byte("BYTE")
 	sqlQuery       = "SELECT * FROM readings WHERE organization_id='e76d1b3b-0468-4efd-bb7f-fb1d2b352fcb' LIMIT 1"
 	rawData        = []map[string]interface{}{
 		{
-			"key1": startTime,
+			"key1": start,
 			"key2": "2",
 			"key3": []interface{}{1, 2, 3},
 			"key4": map[string]interface{}{
-				"key4sub1": endTime,
+				"key4sub1": end,
 			},
 			"key5": 4.05,
 			"key6": []interface{}{true, false, true},
@@ -78,12 +95,27 @@ var (
 					"nestedKey1": "simpleValue",
 				},
 				map[string]interface{}{
-					"nestedKey2": startTime,
+					"nestedKey2": start,
 				},
 			},
 		},
 	}
-	datasetIDs  = []string{datasetID}
+	datasetIDs = []string{datasetID}
+	dataset    = Dataset{
+		ID:             datasetID,
+		Name:           name,
+		OrganizationID: organizationID,
+		TimeCreated:    &createdOn,
+	}
+	datasets   = []*Dataset{&dataset}
+	pbDatasets = []*setPb.Dataset{
+		{
+			Id:             dataset.ID,
+			Name:           dataset.Name,
+			OrganizationId: dataset.OrganizationID,
+			TimeCreated:    pbCreatedOn,
+		},
+	}
 	annotations = Annotations{
 		Bboxes: []BoundingBox{
 			{
@@ -106,27 +138,31 @@ var (
 	}
 )
 
-func annotationsToProto(annotations Annotations) *pb.Annotations {
-	var protoBboxes []*pb.BoundingBox
-	for _, bbox := range annotations.Bboxes {
-		protoBboxes = append(protoBboxes, &pb.BoundingBox{
-			Id:             bbox.ID,
-			Label:          bbox.Label,
-			XMinNormalized: bbox.XMinNormalized,
-			YMinNormalized: bbox.YMinNormalized,
-			XMaxNormalized: bbox.XMaxNormalized,
-			YMaxNormalized: bbox.YMaxNormalized,
-		})
-	}
-	return &pb.Annotations{
-		Bboxes: protoBboxes,
-	}
-}
-
 func binaryDataToProto(binaryData BinaryData) *pb.BinaryData {
 	return &pb.BinaryData{
 		Binary:   binaryData.Binary,
 		Metadata: binaryMetadataToProto(binaryData.Metadata),
+	}
+}
+
+func captureMetadataToProto(metadata CaptureMetadata) *pb.CaptureMetadata {
+	methodParams, err := protoutils.ConvertMapToProtoAny(metadata.MethodParameters)
+	if err != nil {
+		return nil
+	}
+	return &pb.CaptureMetadata{
+		OrganizationId:   metadata.OrganizationID,
+		LocationId:       metadata.LocationID,
+		RobotName:        metadata.RobotName,
+		RobotId:          metadata.RobotID,
+		PartName:         metadata.PartName,
+		PartId:           metadata.PartID,
+		ComponentType:    metadata.ComponentType,
+		ComponentName:    metadata.ComponentName,
+		MethodName:       metadata.MethodName,
+		MethodParameters: methodParams,
+		Tags:             metadata.Tags,
+		MimeType:         metadata.MimeType,
 	}
 }
 
@@ -146,20 +182,28 @@ func binaryMetadataToProto(binaryMetadata BinaryMetadata) *pb.BinaryMetadata {
 
 func dataRequestToProto(dataRequest DataRequest) *pb.DataRequest {
 	return &pb.DataRequest{
-		Filter:    filterToProto(dataRequest.Filter),
-		Limit:     dataRequest.Limit,
+		Filter:    filterToProto(&dataRequest.Filter),
+		Limit:     uint64(dataRequest.Limit),
 		Last:      dataRequest.Last,
 		SortOrder: orderToProto(dataRequest.SortOrder),
 	}
 }
 
-func createGrpcClient() *inject.DataServiceClient {
+func createDataGrpcClient() *inject.DataServiceClient {
 	return &inject.DataServiceClient{}
 }
 
+func createDataSyncGrpcClient() *inject.DataSyncServiceClient {
+	return &inject.DataSyncServiceClient{}
+}
+
+func createDatasetGrpcClient() *inject.DatasetServiceClient {
+	return &inject.DatasetServiceClient{}
+}
+
 func TestDataClient(t *testing.T) {
-	grpcClient := createGrpcClient()
-	client := DataClient{client: grpcClient}
+	grpcClient := createDataGrpcClient()
+	client := DataClient{dataClient: grpcClient}
 
 	captureInterval := CaptureInterval{
 		Start: time.Now(),
@@ -186,27 +230,13 @@ func TestDataClient(t *testing.T) {
 		BboxLabels:      bboxLabels,
 		DatasetID:       datasetID,
 	}
-
-	tabularMetadata := CaptureMetadata{
-		OrganizationID:   organizationID,
-		LocationID:       locationID,
-		RobotName:        robotName,
-		RobotID:          robotID,
-		PartName:         partName,
-		PartID:           partID,
-		ComponentType:    componentType,
-		ComponentName:    componentName,
-		MethodName:       method,
-		MethodParameters: methodParameters,
-		Tags:             tags,
-		MimeType:         mimeType,
-	}
+	pbFilter := filterToProto(&filter)
 
 	binaryMetadata := BinaryMetadata{
 		ID:              binaryMetaID,
 		CaptureMetadata: tabularMetadata,
-		TimeRequested:   startTime,
-		TimeReceived:    endTime,
+		TimeRequested:   start,
+		TimeReceived:    end,
 		FileName:        fileName,
 		FileExt:         fileExt,
 		URI:             uri,
@@ -216,10 +246,12 @@ func TestDataClient(t *testing.T) {
 
 	dataRequest := DataRequest{
 		Filter:    filter,
-		Limit:     count,
+		Limit:     limit,
 		Last:      last,
 		SortOrder: Unspecified,
 	}
+
+	pbCount := uint64(count)
 
 	binaryData := BinaryData{
 		Binary:   binaryDataByte,
@@ -227,19 +259,12 @@ func TestDataClient(t *testing.T) {
 	}
 
 	t.Run("TabularDataByFilter", func(t *testing.T) {
-		tabularData := TabularData{
-			Data:          data,
-			MetadataIndex: 0,
-			Metadata:      tabularMetadata,
-			TimeRequested: startTime,
-			TimeReceived:  endTime,
-		}
 		dataStruct, _ := utils.StructToStructPb(data)
 		tabularDataPb := &pb.TabularData{
 			Data:          dataStruct,
 			MetadataIndex: 0,
-			TimeRequested: timestamppb.New(startTime),
-			TimeReceived:  timestamppb.New(endTime),
+			TimeRequested: timestamppb.New(start),
+			TimeReceived:  timestamppb.New(end),
 		}
 		grpcClient.TabularDataByFilterFunc = func(ctx context.Context, in *pb.TabularDataByFilterRequest,
 			opts ...grpc.CallOption,
@@ -249,14 +274,14 @@ func TestDataClient(t *testing.T) {
 			test.That(t, in.IncludeInternalData, test.ShouldBeTrue)
 			return &pb.TabularDataByFilterResponse{
 				Data:     []*pb.TabularData{tabularDataPb},
-				Count:    count,
+				Count:    pbCount,
 				Last:     last,
 				Metadata: []*pb.CaptureMetadata{captureMetadataToProto(tabularMetadata)},
 			}, nil
 		}
-		resp, _ := client.TabularDataByFilter(
-			context.Background(), filter, limit, last,
-			dataRequest.SortOrder, countOnly, includeInternalData)
+		resp, _ := client.TabularDataByFilter(context.Background(), &DataByFilterOptions{
+			&filter, limit, last, dataRequest.SortOrder, countOnly, includeInternalData,
+		})
 		test.That(t, resp.TabularData[0], test.ShouldResemble, tabularData)
 		test.That(t, resp.Count, test.ShouldEqual, count)
 		test.That(t, resp.Last, test.ShouldEqual, last)
@@ -313,6 +338,32 @@ func TestDataClient(t *testing.T) {
 		test.That(t, response, test.ShouldResemble, rawData)
 	})
 
+	t.Run("GetLatestTabularData", func(t *testing.T) {
+		dataStruct, _ := utils.StructToStructPb(data)
+		latestTabularData := LatestTabularDataReturn{
+			TimeCaptured: start,
+			TimeSynced:   end,
+			Payload:      dataStruct.AsMap(),
+		}
+
+		grpcClient.GetLatestTabularDataFunc = func(ctx context.Context, in *pb.GetLatestTabularDataRequest,
+			opts ...grpc.CallOption,
+		) (*pb.GetLatestTabularDataResponse, error) {
+			test.That(t, in.PartId, test.ShouldEqual, partID)
+			test.That(t, in.ResourceName, test.ShouldEqual, componentName)
+			test.That(t, in.ResourceSubtype, test.ShouldEqual, componentType)
+			test.That(t, in.MethodName, test.ShouldResemble, method)
+			return &pb.GetLatestTabularDataResponse{
+				TimeCaptured: timestamppb.New(start),
+				TimeSynced:   timestamppb.New(end),
+				Payload:      dataStruct,
+			}, nil
+		}
+
+		resp, _ := client.GetLatestTabularData(context.Background(), partID, componentName, componentType, method)
+		test.That(t, resp, test.ShouldResemble, latestTabularData)
+	})
+
 	t.Run("BinaryDataByFilter", func(t *testing.T) {
 		includeBinary := true
 		grpcClient.BinaryDataByFilterFunc = func(ctx context.Context, in *pb.BinaryDataByFilterRequest,
@@ -325,13 +376,14 @@ func TestDataClient(t *testing.T) {
 			test.That(t, in.IncludeInternalData, test.ShouldBeTrue)
 			return &pb.BinaryDataByFilterResponse{
 				Data:  []*pb.BinaryData{binaryDataToProto(binaryData)},
-				Count: count,
+				Count: pbCount,
 				Last:  last,
 			}, nil
 		}
 		resp, _ := client.BinaryDataByFilter(
-			context.Background(), filter, count, dataRequest.SortOrder,
-			last, includeBinary, countOnly, includeInternalData)
+			context.Background(), includeBinary, &DataByFilterOptions{
+				&filter, limit, last, dataRequest.SortOrder, countOnly, includeInternalData,
+			})
 		test.That(t, resp.BinaryData[0], test.ShouldResemble, binaryData)
 		test.That(t, resp.Count, test.ShouldEqual, count)
 		test.That(t, resp.Last, test.ShouldEqual, last)
@@ -351,15 +403,16 @@ func TestDataClient(t *testing.T) {
 	})
 
 	t.Run("DeleteTabularData", func(t *testing.T) {
-		deleteOlderThanDays := uint32(1)
+		deleteOlderThanDays := 1
+		pbDeleteOlderThanDays := uint32(deleteOlderThanDays)
 		grpcClient.DeleteTabularDataFunc = func(ctx context.Context, in *pb.DeleteTabularDataRequest,
 			opts ...grpc.CallOption,
 		) (*pb.DeleteTabularDataResponse, error) {
 			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
-			test.That(t, in.DeleteOlderThanDays, test.ShouldEqual, deleteOlderThanDays)
+			test.That(t, in.DeleteOlderThanDays, test.ShouldEqual, pbDeleteOlderThanDays)
 
 			return &pb.DeleteTabularDataResponse{
-				DeletedCount: count,
+				DeletedCount: pbCount,
 			}, nil
 		}
 		resp, _ := client.DeleteTabularData(context.Background(), organizationID, deleteOlderThanDays)
@@ -370,13 +423,13 @@ func TestDataClient(t *testing.T) {
 		grpcClient.DeleteBinaryDataByFilterFunc = func(ctx context.Context, in *pb.DeleteBinaryDataByFilterRequest,
 			opts ...grpc.CallOption,
 		) (*pb.DeleteBinaryDataByFilterResponse, error) {
-			test.That(t, in.Filter, test.ShouldResemble, filterToProto(filter))
+			test.That(t, in.Filter, test.ShouldResemble, pbFilter)
 			test.That(t, in.IncludeInternalData, test.ShouldBeTrue)
 			return &pb.DeleteBinaryDataByFilterResponse{
-				DeletedCount: count,
+				DeletedCount: pbCount,
 			}, nil
 		}
-		resp, _ := client.DeleteBinaryDataByFilter(context.Background(), filter)
+		resp, _ := client.DeleteBinaryDataByFilter(context.Background(), &filter)
 		test.That(t, resp, test.ShouldEqual, count)
 	})
 
@@ -386,7 +439,7 @@ func TestDataClient(t *testing.T) {
 		) (*pb.DeleteBinaryDataByIDsResponse, error) {
 			test.That(t, in.BinaryIds, test.ShouldResemble, binaryIDsToProto(binaryIDs))
 			return &pb.DeleteBinaryDataByIDsResponse{
-				DeletedCount: count,
+				DeletedCount: pbCount,
 			}, nil
 		}
 		resp, _ := client.DeleteBinaryDataByIDs(context.Background(), binaryIDs)
@@ -408,11 +461,11 @@ func TestDataClient(t *testing.T) {
 		grpcClient.AddTagsToBinaryDataByFilterFunc = func(ctx context.Context, in *pb.AddTagsToBinaryDataByFilterRequest,
 			opts ...grpc.CallOption,
 		) (*pb.AddTagsToBinaryDataByFilterResponse, error) {
-			test.That(t, in.Filter, test.ShouldResemble, filterToProto(filter))
+			test.That(t, in.Filter, test.ShouldResemble, pbFilter)
 			test.That(t, in.Tags, test.ShouldResemble, tags)
 			return &pb.AddTagsToBinaryDataByFilterResponse{}, nil
 		}
-		client.AddTagsToBinaryDataByFilter(context.Background(), tags, filter)
+		client.AddTagsToBinaryDataByFilter(context.Background(), tags, &filter)
 	})
 
 	t.Run("RemoveTagsFromBinaryDataByIDs", func(t *testing.T) {
@@ -422,7 +475,7 @@ func TestDataClient(t *testing.T) {
 			test.That(t, in.BinaryIds, test.ShouldResemble, binaryIDsToProto(binaryIDs))
 			test.That(t, in.Tags, test.ShouldResemble, tags)
 			return &pb.RemoveTagsFromBinaryDataByIDsResponse{
-				DeletedCount: count,
+				DeletedCount: pbCount,
 			}, nil
 		}
 		resp, _ := client.RemoveTagsFromBinaryDataByIDs(context.Background(), tags, binaryIDs)
@@ -433,13 +486,13 @@ func TestDataClient(t *testing.T) {
 		grpcClient.RemoveTagsFromBinaryDataByFilterFunc = func(ctx context.Context, in *pb.RemoveTagsFromBinaryDataByFilterRequest,
 			opts ...grpc.CallOption,
 		) (*pb.RemoveTagsFromBinaryDataByFilterResponse, error) {
-			test.That(t, in.Filter, test.ShouldResemble, filterToProto(filter))
+			test.That(t, in.Filter, test.ShouldResemble, pbFilter)
 			test.That(t, in.Tags, test.ShouldResemble, tags)
 			return &pb.RemoveTagsFromBinaryDataByFilterResponse{
-				DeletedCount: count,
+				DeletedCount: pbCount,
 			}, nil
 		}
-		resp, _ := client.RemoveTagsFromBinaryDataByFilter(context.Background(), tags, filter)
+		resp, _ := client.RemoveTagsFromBinaryDataByFilter(context.Background(), tags, &filter)
 		test.That(t, resp, test.ShouldEqual, count)
 	})
 
@@ -447,12 +500,12 @@ func TestDataClient(t *testing.T) {
 		grpcClient.TagsByFilterFunc = func(ctx context.Context, in *pb.TagsByFilterRequest,
 			opts ...grpc.CallOption,
 		) (*pb.TagsByFilterResponse, error) {
-			test.That(t, in.Filter, test.ShouldResemble, filterToProto(filter))
+			test.That(t, in.Filter, test.ShouldResemble, pbFilter)
 			return &pb.TagsByFilterResponse{
 				Tags: tags,
 			}, nil
 		}
-		resp, _ := client.TagsByFilter(context.Background(), filter)
+		resp, _ := client.TagsByFilter(context.Background(), &filter)
 		test.That(t, resp, test.ShouldResemble, tags)
 	})
 
@@ -461,7 +514,7 @@ func TestDataClient(t *testing.T) {
 			in *pb.AddBoundingBoxToImageByIDRequest,
 			opts ...grpc.CallOption,
 		) (*pb.AddBoundingBoxToImageByIDResponse, error) {
-			test.That(t, in.BinaryId, test.ShouldResemble, binaryIDToProto(binaryID))
+			test.That(t, in.BinaryId, test.ShouldResemble, pbBinaryID)
 			test.That(t, in.Label, test.ShouldEqual, bboxLabel)
 			test.That(t, in.XMinNormalized, test.ShouldEqual, annotations.Bboxes[0].XMinNormalized)
 			test.That(t, in.YMinNormalized, test.ShouldEqual, annotations.Bboxes[0].YMinNormalized)
@@ -473,7 +526,7 @@ func TestDataClient(t *testing.T) {
 			}, nil
 		}
 		resp, _ := client.AddBoundingBoxToImageByID(
-			context.Background(), binaryID, bboxLabel, annotations.Bboxes[0].XMinNormalized,
+			context.Background(), &binaryID, bboxLabel, annotations.Bboxes[0].XMinNormalized,
 			annotations.Bboxes[0].YMinNormalized, annotations.Bboxes[0].XMaxNormalized, annotations.Bboxes[0].YMaxNormalized)
 		test.That(t, resp, test.ShouldResemble, annotations.Bboxes[0].ID)
 	})
@@ -482,12 +535,12 @@ func TestDataClient(t *testing.T) {
 		grpcClient.RemoveBoundingBoxFromImageByIDFunc = func(ctx context.Context, in *pb.RemoveBoundingBoxFromImageByIDRequest,
 			opts ...grpc.CallOption,
 		) (*pb.RemoveBoundingBoxFromImageByIDResponse, error) {
-			test.That(t, in.BinaryId, test.ShouldResemble, binaryIDToProto(binaryID))
+			test.That(t, in.BinaryId, test.ShouldResemble, pbBinaryID)
 			test.That(t, in.BboxId, test.ShouldEqual, annotations.Bboxes[0].ID)
 
 			return &pb.RemoveBoundingBoxFromImageByIDResponse{}, nil
 		}
-		client.RemoveBoundingBoxFromImageByID(context.Background(), annotations.Bboxes[0].ID, binaryID)
+		client.RemoveBoundingBoxFromImageByID(context.Background(), annotations.Bboxes[0].ID, &binaryID)
 	})
 
 	t.Run("BoundingBoxLabelsByFilter", func(t *testing.T) {
@@ -502,12 +555,12 @@ func TestDataClient(t *testing.T) {
 		grpcClient.BoundingBoxLabelsByFilterFunc = func(ctx context.Context, in *pb.BoundingBoxLabelsByFilterRequest,
 			opts ...grpc.CallOption,
 		) (*pb.BoundingBoxLabelsByFilterResponse, error) {
-			test.That(t, in.Filter, test.ShouldResemble, filterToProto(filter))
+			test.That(t, in.Filter, test.ShouldResemble, pbFilter)
 			return &pb.BoundingBoxLabelsByFilterResponse{
 				Labels: expectedBBoxLabelsPb,
 			}, nil
 		}
-		resp, _ := client.BoundingBoxLabelsByFilter(context.Background(), filter)
+		resp, _ := client.BoundingBoxLabelsByFilter(context.Background(), &filter)
 		test.That(t, resp, test.ShouldResemble, expectedBBoxLabels)
 	})
 	t.Run("UpdateBoundingBox", func(t *testing.T) {
@@ -515,7 +568,7 @@ func TestDataClient(t *testing.T) {
 		grpcClient.UpdateBoundingBoxFunc = func(ctx context.Context, in *pb.UpdateBoundingBoxRequest,
 			opts ...grpc.CallOption,
 		) (*pb.UpdateBoundingBoxResponse, error) {
-			test.That(t, in.BinaryId, test.ShouldResemble, binaryIDToProto(binaryID))
+			test.That(t, in.BinaryId, test.ShouldResemble, pbBinaryID)
 			test.That(t, in.BboxId, test.ShouldResemble, annotationsPb.Bboxes[0].Id)
 			test.That(t, *in.Label, test.ShouldEqual, annotationsPb.Bboxes[0].Label)
 			test.That(t, *in.XMinNormalized, test.ShouldEqual, annotationsPb.Bboxes[0].XMinNormalized)
@@ -524,9 +577,13 @@ func TestDataClient(t *testing.T) {
 			test.That(t, *in.YMaxNormalized, test.ShouldEqual, annotationsPb.Bboxes[0].YMaxNormalized)
 			return &pb.UpdateBoundingBoxResponse{}, nil
 		}
-		client.UpdateBoundingBox(context.Background(), binaryID, annotations.Bboxes[0].ID, &annotationsPb.Bboxes[0].Label,
-			&annotationsPb.Bboxes[0].XMinNormalized, &annotationsPb.Bboxes[0].YMinNormalized,
-			&annotationsPb.Bboxes[0].XMaxNormalized, &annotationsPb.Bboxes[0].YMaxNormalized)
+		client.UpdateBoundingBox(context.Background(), &binaryID, annotations.Bboxes[0].ID, &UpdateBoundingBoxOptions{
+			&annotationsPb.Bboxes[0].Label,
+			&annotationsPb.Bboxes[0].XMinNormalized,
+			&annotationsPb.Bboxes[0].YMinNormalized,
+			&annotationsPb.Bboxes[0].XMaxNormalized,
+			&annotationsPb.Bboxes[0].YMaxNormalized,
+		})
 	})
 
 	t.Run("GetDatabaseConnection", func(t *testing.T) {
@@ -535,13 +592,13 @@ func TestDataClient(t *testing.T) {
 		) (*pb.GetDatabaseConnectionResponse, error) {
 			test.That(t, in.OrganizationId, test.ShouldResemble, organizationID)
 			return &pb.GetDatabaseConnectionResponse{
-				Hostname:        hostName,
+				Hostname:        host,
 				MongodbUri:      mongodbURI,
 				HasDatabaseUser: true,
 			}, nil
 		}
 		resp, _ := client.GetDatabaseConnection(context.Background(), organizationID)
-		test.That(t, resp.Hostname, test.ShouldResemble, hostName)
+		test.That(t, resp.Hostname, test.ShouldResemble, host)
 		test.That(t, resp.MongodbURI, test.ShouldResemble, mongodbURI)
 		test.That(t, resp.HasDatabaseUser, test.ShouldBeTrue)
 	})
@@ -577,5 +634,334 @@ func TestDataClient(t *testing.T) {
 			return &pb.RemoveBinaryDataFromDatasetByIDsResponse{}, nil
 		}
 		client.RemoveBinaryDataFromDatasetByIDs(context.Background(), binaryIDs, datasetID)
+	})
+}
+
+func TestDataSyncClient(t *testing.T) {
+	grpcClient := createDataSyncGrpcClient()
+	client := DataClient{dataSyncClient: grpcClient}
+
+	uploadMetadata := UploadMetadata{
+		PartID:           partID,
+		ComponentType:    componentType,
+		ComponentName:    componentName,
+		MethodName:       method,
+		Type:             DataTypeBinarySensor,
+		FileName:         fileName,
+		MethodParameters: methodParameters,
+		FileExtension:    fileExt,
+		Tags:             tags,
+	}
+
+	t.Run("BinaryDataCaptureUpload", func(t *testing.T) {
+		uploadMetadata.Type = DataTypeBinarySensor
+		options := BinaryDataCaptureUploadOptions{
+			Type:             &binaryDataType,
+			FileName:         &fileName,
+			MethodParameters: methodParameters,
+			Tags:             tags,
+			DataRequestTimes: &dataRequestTimes,
+		}
+		grpcClient.DataCaptureUploadFunc = func(ctx context.Context, in *syncPb.DataCaptureUploadRequest,
+			opts ...grpc.CallOption,
+		) (*syncPb.DataCaptureUploadResponse, error) {
+			methodParams, _ := protoutils.ConvertMapToProtoAny(methodParameters)
+
+			test.That(t, in.Metadata.PartId, test.ShouldEqual, partID)
+			test.That(t, in.Metadata.ComponentType, test.ShouldEqual, componentType)
+			test.That(t, in.Metadata.ComponentName, test.ShouldEqual, componentName)
+			test.That(t, in.Metadata.MethodName, test.ShouldEqual, method)
+			test.That(t, in.Metadata.Type, test.ShouldEqual, binaryDataType)
+			test.That(t, in.Metadata.FileName, test.ShouldEqual, fileName)
+			test.That(t, in.Metadata.MethodParameters, test.ShouldResemble, methodParams)
+			test.That(t, in.Metadata.FileExtension, test.ShouldEqual, fileExt)
+			test.That(t, in.Metadata.Tags, test.ShouldResemble, tags)
+
+			test.That(t, in.SensorContents[0].Metadata.TimeRequested, test.ShouldResemble, timestamppb.New(start))
+			test.That(t, in.SensorContents[0].Metadata.TimeReceived, test.ShouldResemble, timestamppb.New(end))
+			dataField, ok := in.SensorContents[0].Data.(*syncPb.SensorData_Binary)
+			test.That(t, ok, test.ShouldBeTrue)
+			test.That(t, dataField.Binary, test.ShouldResemble, binaryDataByte)
+			return &syncPb.DataCaptureUploadResponse{
+				FileId: fileID,
+			}, nil
+		}
+		resp, _ := client.BinaryDataCaptureUpload(context.Background(),
+			binaryDataByte, partID, componentType, componentName,
+			method, fileExt, &options)
+		test.That(t, resp, test.ShouldResemble, fileID)
+	})
+
+	t.Run("TabularDataCaptureUpload", func(t *testing.T) {
+		uploadMetadata.Type = DataTypeTabularSensor
+		dataStruct, _ := utils.StructToStructPb(data)
+		tabularDataPb := &pb.TabularData{
+			Data:          dataStruct,
+			MetadataIndex: 0,
+			TimeRequested: timestamppb.New(start),
+			TimeReceived:  timestamppb.New(end),
+		}
+		options := TabularDataCaptureUploadOptions{
+			Type:             &binaryDataType,
+			FileName:         &fileName,
+			MethodParameters: methodParameters,
+			FileExtension:    &fileExt,
+			Tags:             tags,
+		}
+		grpcClient.DataCaptureUploadFunc = func(ctx context.Context, in *syncPb.DataCaptureUploadRequest,
+			opts ...grpc.CallOption,
+		) (*syncPb.DataCaptureUploadResponse, error) {
+			methodParams, _ := protoutils.ConvertMapToProtoAny(methodParameters)
+
+			test.That(t, in.Metadata.PartId, test.ShouldEqual, partID)
+			test.That(t, in.Metadata.ComponentType, test.ShouldEqual, componentType)
+			test.That(t, in.Metadata.ComponentName, test.ShouldEqual, componentName)
+			test.That(t, in.Metadata.MethodName, test.ShouldEqual, method)
+			test.That(t, in.Metadata.Type, test.ShouldEqual, tabularDataType)
+			test.That(t, in.Metadata.FileName, test.ShouldEqual, fileName)
+			test.That(t, in.Metadata.MethodParameters, test.ShouldResemble, methodParams)
+			test.That(t, in.Metadata.FileExtension, test.ShouldEqual, fileExt)
+			test.That(t, in.Metadata.Tags, test.ShouldResemble, tags)
+
+			test.That(t, in.SensorContents[0].Metadata.TimeRequested, test.ShouldResemble, timestamppb.New(start))
+			test.That(t, in.SensorContents[0].Metadata.TimeReceived, test.ShouldResemble, timestamppb.New(end))
+			dataField, ok := in.SensorContents[0].Data.(*syncPb.SensorData_Struct)
+			test.That(t, ok, test.ShouldBeTrue)
+			test.That(t, dataField.Struct, test.ShouldResemble, tabularDataPb.Data)
+			return &syncPb.DataCaptureUploadResponse{
+				FileId: fileID,
+			}, nil
+		}
+		tabularData := []map[string]interface{}{data}
+		dataRequestTimes := [][2]time.Time{
+			{start, end},
+		}
+		resp, _ := client.TabularDataCaptureUpload(context.Background(),
+			tabularData, partID, componentType, componentName, method,
+			dataRequestTimes, &options)
+		test.That(t, resp, test.ShouldResemble, fileID)
+	})
+
+	t.Run("StreamingDataCaptureUpload", func(t *testing.T) {
+		options := StreamingDataCaptureUploadOptions{
+			ComponentType:    &componentType,
+			ComponentName:    &componentName,
+			MethodName:       &method,
+			Type:             &binaryDataType,
+			FileName:         &fileName,
+			MethodParameters: methodParameters,
+			Tags:             tags,
+			DataRequestTimes: &dataRequestTimes,
+		}
+		// Mock implementation of the streaming client.
+		mockStream := &inject.DataSyncServiceStreamingDataCaptureUploadClient{
+			SendFunc: func(req *syncPb.StreamingDataCaptureUploadRequest) error {
+				switch packet := req.UploadPacket.(type) {
+				case *syncPb.StreamingDataCaptureUploadRequest_Metadata:
+					meta := packet.Metadata
+					test.That(t, meta.UploadMetadata.PartId, test.ShouldEqual, partID)
+					test.That(t, meta.UploadMetadata.FileExtension, test.ShouldEqual, fileExt)
+					test.That(t, meta.UploadMetadata.ComponentType, test.ShouldEqual, componentType)
+					test.That(t, meta.UploadMetadata.ComponentName, test.ShouldEqual, componentName)
+					test.That(t, meta.UploadMetadata.MethodName, test.ShouldEqual, method)
+					test.That(t, meta.UploadMetadata.Tags, test.ShouldResemble, tags)
+					test.That(t, meta.SensorMetadata.TimeRequested, test.ShouldResemble, timestamppb.New(start))
+					test.That(t, meta.SensorMetadata.TimeReceived, test.ShouldResemble, timestamppb.New(end))
+				case *syncPb.StreamingDataCaptureUploadRequest_Data:
+					test.That(t, packet.Data, test.ShouldResemble, binaryDataByte)
+				default:
+					t.Errorf("unexpected packet type: %T", packet)
+				}
+				return nil
+			},
+			CloseAndRecvFunc: func() (*syncPb.StreamingDataCaptureUploadResponse, error) {
+				return &syncPb.StreamingDataCaptureUploadResponse{
+					FileId: fileID,
+				}, nil
+			},
+		}
+		grpcClient.StreamingDataCaptureUploadFunc = func(ctx context.Context,
+			opts ...grpc.CallOption,
+		) (syncPb.DataSyncService_StreamingDataCaptureUploadClient, error) {
+			return mockStream, nil
+		}
+		resp, err := client.StreamingDataCaptureUpload(context.Background(), binaryDataByte, partID, fileExt, &options)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldEqual, fileID)
+	})
+	t.Run("FileUploadFromBytes", func(t *testing.T) {
+		options := FileUploadOptions{
+			ComponentType:    &componentType,
+			ComponentName:    &componentName,
+			MethodName:       &method,
+			FileName:         &fileName,
+			MethodParameters: methodParameters,
+			FileExtension:    &fileExt,
+			Tags:             tags,
+		}
+		// Mock implementation of the streaming client.
+		//nolint:dupl
+		mockStream := &inject.DataSyncServiceFileUploadClient{
+			SendFunc: func(req *syncPb.FileUploadRequest) error {
+				switch packet := req.UploadPacket.(type) {
+				case *syncPb.FileUploadRequest_Metadata:
+					methodParams, _ := protoutils.ConvertMapToProtoAny(methodParameters)
+					meta := packet.Metadata
+					test.That(t, meta.PartId, test.ShouldEqual, partID)
+					test.That(t, meta.ComponentType, test.ShouldEqual, componentType)
+					test.That(t, meta.ComponentName, test.ShouldEqual, componentName)
+					test.That(t, meta.MethodName, test.ShouldEqual, method)
+					test.That(t, meta.Type, test.ShouldEqual, DataTypeFile)
+					test.That(t, meta.FileName, test.ShouldEqual, fileName)
+					test.That(t, meta.MethodParameters, test.ShouldResemble, methodParams)
+					test.That(t, meta.FileExtension, test.ShouldEqual, fileExt)
+					test.That(t, meta.Tags, test.ShouldResemble, tags)
+				case *syncPb.FileUploadRequest_FileContents:
+					test.That(t, packet.FileContents.Data, test.ShouldResemble, binaryDataByte)
+				default:
+					t.Errorf("unexpected packet type: %T", packet)
+				}
+				return nil
+			},
+			CloseAndRecvFunc: func() (*syncPb.FileUploadResponse, error) {
+				return &syncPb.FileUploadResponse{
+					FileId: fileID,
+				}, nil
+			},
+		}
+		grpcClient.FileUploadFunc = func(ctx context.Context,
+			opts ...grpc.CallOption,
+		) (syncPb.DataSyncService_FileUploadClient, error) {
+			return mockStream, nil
+		}
+		resp, err := client.FileUploadFromBytes(context.Background(), partID, binaryDataByte, &options)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldEqual, fileID)
+	})
+
+	t.Run("FileUploadFromPath", func(t *testing.T) {
+		options := FileUploadOptions{
+			ComponentType:    &componentType,
+			ComponentName:    &componentName,
+			MethodName:       &method,
+			FileName:         &fileName,
+			MethodParameters: methodParameters,
+			FileExtension:    &fileExt,
+			Tags:             tags,
+		}
+		// Create a temporary file for testing
+		tempContent := []byte("test file content")
+		tempFile, err := os.CreateTemp("", "test-upload-*.txt")
+		test.That(t, err, test.ShouldBeNil)
+		defer os.Remove(tempFile.Name())
+		// Mock implementation of the streaming client.
+		//nolint:dupl
+		mockStream := &inject.DataSyncServiceFileUploadClient{
+			SendFunc: func(req *syncPb.FileUploadRequest) error {
+				switch packet := req.UploadPacket.(type) {
+				case *syncPb.FileUploadRequest_Metadata:
+					methodParams, _ := protoutils.ConvertMapToProtoAny(methodParameters)
+					meta := packet.Metadata
+					test.That(t, meta.PartId, test.ShouldEqual, partID)
+					test.That(t, meta.ComponentType, test.ShouldEqual, componentType)
+					test.That(t, meta.ComponentName, test.ShouldEqual, componentName)
+					test.That(t, meta.MethodName, test.ShouldEqual, method)
+					test.That(t, meta.Type, test.ShouldEqual, DataTypeFile)
+					test.That(t, meta.FileName, test.ShouldEqual, fileName)
+					test.That(t, meta.MethodParameters, test.ShouldResemble, methodParams)
+					test.That(t, meta.FileExtension, test.ShouldEqual, fileExt)
+					test.That(t, meta.Tags, test.ShouldResemble, tags)
+				case *syncPb.FileUploadRequest_FileContents:
+					test.That(t, packet.FileContents.Data, test.ShouldResemble, tempContent)
+				default:
+					t.Errorf("unexpected packet type: %T", packet)
+				}
+				return nil
+			},
+			CloseAndRecvFunc: func() (*syncPb.FileUploadResponse, error) {
+				return &syncPb.FileUploadResponse{
+					FileId: fileID,
+				}, nil
+			},
+		}
+		grpcClient.FileUploadFunc = func(ctx context.Context,
+			opts ...grpc.CallOption,
+		) (syncPb.DataSyncService_FileUploadClient, error) {
+			return mockStream, nil
+		}
+		resp, err := client.FileUploadFromPath(context.Background(), partID, tempFile.Name(), &options)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldEqual, fileID)
+	})
+}
+
+func TestDatasetClient(t *testing.T) {
+	grpcClient := createDatasetGrpcClient()
+	client := DataClient{datasetClient: grpcClient}
+
+	t.Run("CreateDataset", func(t *testing.T) {
+		grpcClient.CreateDatasetFunc = func(
+			ctx context.Context, in *setPb.CreateDatasetRequest, opts ...grpc.CallOption,
+		) (*setPb.CreateDatasetResponse, error) {
+			test.That(t, in.Name, test.ShouldEqual, name)
+			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
+			return &setPb.CreateDatasetResponse{
+				Id: datasetID,
+			}, nil
+		}
+		resp, err := client.CreateDataset(context.Background(), name, organizationID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldEqual, datasetID)
+	})
+
+	t.Run("DeleteDataset", func(t *testing.T) {
+		grpcClient.DeleteDatasetFunc = func(
+			ctx context.Context, in *setPb.DeleteDatasetRequest, opts ...grpc.CallOption,
+		) (*setPb.DeleteDatasetResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, datasetID)
+			return &setPb.DeleteDatasetResponse{}, nil
+		}
+		err := client.DeleteDataset(context.Background(), datasetID)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("RenameDataset", func(t *testing.T) {
+		grpcClient.RenameDatasetFunc = func(
+			ctx context.Context, in *setPb.RenameDatasetRequest, opts ...grpc.CallOption,
+		) (*setPb.RenameDatasetResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, datasetID)
+			test.That(t, in.Name, test.ShouldEqual, name)
+			return &setPb.RenameDatasetResponse{}, nil
+		}
+		err := client.RenameDataset(context.Background(), datasetID, name)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("ListDatasetsByOrganizationID", func(t *testing.T) {
+		grpcClient.ListDatasetsByOrganizationIDFunc = func(
+			ctx context.Context, in *setPb.ListDatasetsByOrganizationIDRequest, opts ...grpc.CallOption,
+		) (*setPb.ListDatasetsByOrganizationIDResponse, error) {
+			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
+			return &setPb.ListDatasetsByOrganizationIDResponse{
+				Datasets: pbDatasets,
+			}, nil
+		}
+		resp, err := client.ListDatasetsByOrganizationID(context.Background(), organizationID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, &resp, test.ShouldResemble, &datasets)
+	})
+
+	t.Run("ListDatasetsByIDs", func(t *testing.T) {
+		grpcClient.ListDatasetsByIDsFunc = func(
+			ctx context.Context, in *setPb.ListDatasetsByIDsRequest, opts ...grpc.CallOption,
+		) (*setPb.ListDatasetsByIDsResponse, error) {
+			test.That(t, in.Ids, test.ShouldResemble, datasetIDs)
+			return &setPb.ListDatasetsByIDsResponse{
+				Datasets: pbDatasets,
+			}, nil
+		}
+		resp, err := client.ListDatasetsByIDs(context.Background(), datasetIDs)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, &resp, test.ShouldResemble, &datasets)
 	})
 }

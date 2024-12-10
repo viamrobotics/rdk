@@ -33,16 +33,18 @@ type trackLocalStaticRTP struct {
 	mu                sync.RWMutex
 	bindings          []trackBinding
 	codec             webrtc.RTPCodecCapability
+	sequencer         rtp.Sequencer
 	id, rid, streamID string
 }
 
 // newtrackLocalStaticRTP returns a trackLocalStaticRTP.
 func newtrackLocalStaticRTP(c webrtc.RTPCodecCapability, id, streamID string) *trackLocalStaticRTP {
 	return &trackLocalStaticRTP{
-		codec:    c,
-		bindings: []trackBinding{},
-		id:       id,
-		streamID: streamID,
+		codec:     c,
+		bindings:  []trackBinding{},
+		id:        id,
+		sequencer: rtp.NewRandomSequencer(),
+		streamID:  streamID,
 	}
 }
 
@@ -126,6 +128,10 @@ func (s *trackLocalStaticRTP) WriteRTP(p *rtp.Packet) error {
 	for _, b := range s.bindings {
 		outboundPacket.Header.SSRC = uint32(b.ssrc)
 		outboundPacket.Header.PayloadType = uint8(b.payloadType)
+		// We overwrite the sequence number to ensure continuity between packets
+		// coming from Passthrough sources and those that are packetized by the
+		// Pion RTP Packetizer in the WriteData method.
+		outboundPacket.Header.SequenceNumber = s.sequencer.NextSequenceNumber()
 		if _, err := b.writeStream.WriteRTP(&outboundPacket.Header, outboundPacket.Payload); err != nil {
 			writeErrs = append(writeErrs, err)
 		}
