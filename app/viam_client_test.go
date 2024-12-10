@@ -74,9 +74,9 @@ func TestCreateViamClientWithOptions(t *testing.T) {
 	for _, tt := range urlTests {
 		t.Run(tt.name, func(t *testing.T) {
 			opts := Options{
-				baseURL: tt.baseURL,
-				entity:  tt.entity,
-				credentials: rpc.Credentials{
+				BaseURL: tt.baseURL,
+				Entity:  tt.entity,
+				Credentials: rpc.Credentials{
 					Type:    rpc.CredentialsTypeAPIKey,
 					Payload: tt.payload,
 				},
@@ -129,9 +129,9 @@ func TestNewAppClients(t *testing.T) {
 	dialDirectGRPC = mockDialDirectGRPC
 	defer func() { dialDirectGRPC = originalDialDirectGRPC }()
 	opts := Options{
-		baseURL: defaultURL,
-		entity:  testAPIKey,
-		credentials: rpc.Credentials{
+		BaseURL: defaultURL,
+		Entity:  testAPIKey,
+		Credentials: rpc.Credentials{
 			Type:    rpc.CredentialsTypeAPIKey,
 			Payload: testAPIKeyID,
 		},

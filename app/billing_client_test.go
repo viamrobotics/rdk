@@ -28,7 +28,7 @@ const (
 	digits                       = "1234"
 	invoiceID                    = "invoice_id"
 	invoiceAmount        float64 = 100.12
-	status                       = "status"
+	statusString                 = "status"
 	balance              float64 = 73.21
 	billingOwnerOrgID            = "billing_owner_organization_id"
 )
@@ -73,7 +73,7 @@ var (
 		ID:            invoiceID,
 		InvoiceDate:   &invoiceDate,
 		InvoiceAmount: invoiceAmount,
-		Status:        status,
+		Status:        statusString,
 		DueDate:       &dueDate,
 		PaidDate:      &paidDate,
 	}
