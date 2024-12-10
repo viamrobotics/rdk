@@ -12,7 +12,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -161,25 +160,21 @@ func (svc *webService) StartModule(ctx context.Context) error {
 		if err != nil {
 			return errors.WithMessage(err, "module startup failed")
 		}
-		addr, err = module.CreateSocketAddress(dir, "parent")
-		if err != nil {
-			return errors.WithMessage(err, "module startup failed")
-		}
 
-		if runtime.GOOS == "windows" {
-			// on windows, we need to craft a good enough looking URL for gRPC which
-			// means we need to take out the volume which will have the current drive
-			// be used. In a client server relationship for windows dialing, this must
-			// be known. That is, if this is a multi process UDS, then for the purposes
-			// of dialing without any resolver modifications to gRPC, they must initially
-			// agree on using the same drive.
-			addr = addr[2:]
+		if rutils.ViamTCPSockets() {
+			addr = "127.0.0.1:14998"
+			lis, err = net.Listen("tcp", addr)
+		} else {
+			addr, err = module.CreateSocketAddress(dir, "parent")
+			if err != nil {
+				return errors.WithMessage(err, "module startup failed")
+			}
+			lis, err = net.Listen("tcp", addr)
 		}
-		svc.modAddr = addr
-		lis, err = net.Listen("unix", addr)
 		if err != nil {
 			return errors.WithMessage(err, "failed to listen")
 		}
+		svc.modAddr = addr
 		return nil
 	}); err != nil {
 		return err

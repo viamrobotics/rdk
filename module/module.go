@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -58,6 +59,9 @@ const (
 	// NoModuleParentEnvVar indicates whether there is a parent for a module being started.
 	NoModuleParentEnvVar = "VIAM_NO_MODULE_PARENT"
 )
+
+// TCPRegex tests whether a module address is TCP (vs unix sockets). See also ViamTCPSockets().
+var TCPRegex = regexp.MustCompile(`:\d+$`)
 
 // errMaxSupportedWebRTCTrackLimit is the error returned when the MaxSupportedWebRTCTRacks limit is reached.
 var errMaxSupportedWebRTCTrackLimit = fmt.Errorf("only %d WebRTC tracks are supported per peer connection", maxSupportedWebRTCTRacks)
@@ -277,9 +281,13 @@ func (m *Module) Start(ctx context.Context) error {
 	defer m.mu.Unlock()
 
 	var lis net.Listener
+	prot := "unix"
+	if TCPRegex.MatchString(m.addr) {
+		prot = "tcp"
+	}
 	if err := MakeSelfOwnedFilesFunc(func() error {
 		var err error
-		lis, err = net.Listen("unix", m.addr)
+		lis, err = net.Listen(prot, m.addr)
 		if err != nil {
 			return errors.WithMessage(err, "failed to listen")
 		}
@@ -346,8 +354,12 @@ func (m *Module) connectParent(ctx context.Context) error {
 		return nil
 	}
 
-	if err := CheckSocketOwner(m.parentAddr); err != nil {
-		return err
+	fullAddr := m.parentAddr
+	if !TCPRegex.MatchString(m.parentAddr) {
+		if err := CheckSocketOwner(m.parentAddr); err != nil {
+			return err
+		}
+		fullAddr = "unix://" + m.parentAddr
 	}
 
 	// moduleLoggers may be creating the client connection below, so use a
@@ -356,7 +368,7 @@ func (m *Module) connectParent(ctx context.Context) error {
 	clientLogger := logging.NewLogger("networking.module-connection")
 	clientLogger.SetLevel(m.logger.GetLevel())
 	// TODO(PRODUCT-343): add session support to modules
-	rc, err := client.New(ctx, "unix://"+m.parentAddr, clientLogger, client.WithDisableSessions())
+	rc, err := client.New(ctx, fullAddr, clientLogger, client.WithDisableSessions())
 	if err != nil {
 		return err
 	}

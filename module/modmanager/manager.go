@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -988,8 +989,12 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 func (m *module) dial() error {
 	// TODO(PRODUCT-343): session support probably means interceptors here
 	var err error
+	addrToDial := m.addr
+	if !modlib.TCPRegex.MatchString(addrToDial) {
+		addrToDial = "unix://" + m.addr
+	}
 	conn, err := grpc.Dial( //nolint:staticcheck
-		"unix://"+m.addr,
+		addrToDial,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithChainUnaryInterceptor(
 			rdkgrpc.EnsureTimeoutUnaryClientInterceptor,
@@ -1088,6 +1093,8 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	return conf.FirstRun(ctx, pkgsDir, dataDir, env, mgr.logger)
 }
 
+var nextPort = 13500
+
 func (m *module) startProcess(
 	ctx context.Context,
 	parentAddr string,
@@ -1096,11 +1103,17 @@ func (m *module) startProcess(
 	packagesDir string,
 ) error {
 	var err error
-	// append a random alpha string to the module name while creating a socket address to avoid conflicts
-	// with old versions of the module.
-	if m.addr, err = modlib.CreateSocketAddress(
-		filepath.Dir(parentAddr), fmt.Sprintf("%s-%s", m.cfg.Name, utils.RandomAlphaString(5))); err != nil {
-		return err
+
+	if rutils.ViamTCPSockets() {
+		m.addr = "127.0.0.1:" + strconv.Itoa(nextPort)
+		nextPort++ // todo: atomic, and reclaim ports.
+	} else {
+		// append a random alpha string to the module name while creating a socket address to avoid conflicts
+		// with old versions of the module.
+		if m.addr, err = modlib.CreateSocketAddress(
+			filepath.Dir(parentAddr), fmt.Sprintf("%s-%s", m.cfg.Name, utils.RandomAlphaString(5))); err != nil {
+			return err
+		}
 	}
 
 	// We evaluate the Module's ExePath absolutely in the viam-server process so that
@@ -1164,12 +1177,14 @@ func (m *module) startProcess(
 				)
 			}
 		}
-		err = modlib.CheckSocketOwner(m.addr)
-		if errors.Is(err, fs.ErrNotExist) {
-			continue
-		}
-		if err != nil {
-			return errors.WithMessage(err, "module startup failed")
+		if !modlib.TCPRegex.MatchString(m.addr) {
+			err = modlib.CheckSocketOwner(m.addr)
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+			if err != nil {
+				return errors.WithMessage(err, "module startup failed")
+			}
 		}
 		break
 	}
