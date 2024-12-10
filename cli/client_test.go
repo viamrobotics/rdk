@@ -237,6 +237,91 @@ func TestGetSupportEmailAction(t *testing.T) {
 	test.That(t, out.messages[0], test.ShouldContainSubstring, "test-email")
 }
 
+func TestBillingServiceDisableAction(t *testing.T) {
+	disableBillingFunc := func(ctx context.Context, in *apppb.DisableBillingServiceRequest, opts ...grpc.CallOption) (
+		*apppb.DisableBillingServiceResponse, error,
+	) {
+		return &apppb.DisableBillingServiceResponse{}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		DisableBillingServiceFunc: disableBillingFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+	test.That(t, ac.organizationDisableBillingServiceAction(cCtx, "test-org"), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "Successfully disabled billing service for organization: ")
+}
+
+func TestGetBillingConfigAction(t *testing.T) {
+	getConfigEmailFunc := func(ctx context.Context, in *apppb.GetBillingServiceConfigRequest, opts ...grpc.CallOption) (
+		*apppb.GetBillingServiceConfigResponse, error,
+	) {
+		address2 := "Apt 123"
+		return &apppb.GetBillingServiceConfigResponse{
+			SupportEmail: "test-email@mail.com",
+			BillingAddress: &apppb.BillingAddress{
+				AddressLine_1: "1234 Main St",
+				AddressLine_2: &address2,
+				City:          "San Francisco",
+				State:         "CA",
+				Zipcode:       "94105",
+			},
+			LogoUrl:             "https://logo.com",
+			BillingDashboardUrl: "https://app.viam.dev/my-dashboard",
+		}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		GetBillingServiceConfigFunc: getConfigEmailFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+	test.That(t, ac.getBillingConfig(cCtx, "test-org"), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 12)
+
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "Billing config for organization")
+	test.That(t, out.messages[1], test.ShouldContainSubstring, "Support Email: test-email@mail.com")
+	test.That(t, out.messages[2], test.ShouldContainSubstring, "Billing Dashboard URL: https://app.viam.dev/my-dashboard")
+	test.That(t, out.messages[3], test.ShouldContainSubstring, "Logo URL: https://logo.com")
+	test.That(t, out.messages[5], test.ShouldContainSubstring, "--- Billing Address --- ")
+	test.That(t, out.messages[6], test.ShouldContainSubstring, "1234 Main St")
+	test.That(t, out.messages[7], test.ShouldContainSubstring, "Apt 123")
+	test.That(t, out.messages[8], test.ShouldContainSubstring, "San Francisco")
+	test.That(t, out.messages[9], test.ShouldContainSubstring, "CA")
+	test.That(t, out.messages[10], test.ShouldContainSubstring, "94105")
+	test.That(t, out.messages[11], test.ShouldContainSubstring, "USA")
+}
+
+func TestUpdateBillingServiceAction(t *testing.T) {
+	updateConfigFunc := func(ctx context.Context, in *apppb.UpdateBillingServiceRequest, opts ...grpc.CallOption) (
+		*apppb.UpdateBillingServiceResponse, error,
+	) {
+		return &apppb.UpdateBillingServiceResponse{}, nil
+	}
+	asc := &inject.AppServiceClient{
+		UpdateBillingServiceFunc: updateConfigFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+	address := "123 Main St, Suite 100, San Francisco, CA, 94105"
+	test.That(t, ac.updateBillingServiceAction(cCtx, "test-org", address), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 8)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "Successfully updated billing service for organization")
+	test.That(t, out.messages[1], test.ShouldContainSubstring, " --- Billing Address --- ")
+	test.That(t, out.messages[2], test.ShouldContainSubstring, "123 Main St")
+	test.That(t, out.messages[3], test.ShouldContainSubstring, "Suite 100")
+	test.That(t, out.messages[4], test.ShouldContainSubstring, "San Francisco")
+	test.That(t, out.messages[5], test.ShouldContainSubstring, "CA")
+	test.That(t, out.messages[6], test.ShouldContainSubstring, "94105")
+	test.That(t, out.messages[7], test.ShouldContainSubstring, "USA")
+}
+
 type mockDataServiceClient struct {
 	grpc.ClientStream
 	responses []*datapb.ExportTabularDataResponse
