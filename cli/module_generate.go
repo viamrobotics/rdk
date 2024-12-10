@@ -75,7 +75,7 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 	}
 
 	if newModule.HasEmptyInput() {
-		newModule, err = promptUser()
+		err = promptUser(newModule)
 		if err != nil {
 			return err
 		}
@@ -169,8 +169,7 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 
 // Prompt the user for information regarding the module they want to create
 // returns the common.ModuleInputs struct that contains the information the user entered.
-func promptUser() (*common.ModuleInputs, error) {
-	var newModule common.ModuleInputs
+func promptUser(module *common.ModuleInputs) error {
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewNote().
@@ -179,7 +178,7 @@ func promptUser() (*common.ModuleInputs, error) {
 			huh.NewInput().
 				Title("Set a module name:").
 				Description("The module name can contain only alphanumeric characters, dashes, and underscores.").
-				Value(&newModule.ModuleName).
+				Value(&module.ModuleName).
 				Placeholder("my-module").
 				Suggestions([]string{"my-module"}).
 				Validate(func(s string) error {
@@ -201,15 +200,15 @@ func promptUser() (*common.ModuleInputs, error) {
 					huh.NewOption("Python", python),
 					huh.NewOption("Go", golang),
 				).
-				Value(&newModule.Language),
+				Value(&module.Language),
 			huh.NewConfirm().
 				Title("Visibility").
 				Affirmative("Public").
 				Negative("Private").
-				Value(&newModule.IsPublic),
+				Value(&module.IsPublic),
 			huh.NewInput().
 				Title("Namespace/Organization ID").
-				Value(&newModule.Namespace).
+				Value(&module.Namespace).
 				Validate(func(s string) error {
 					if s == "" {
 						return errors.New("namespace or org ID must not be empty")
@@ -242,13 +241,13 @@ func promptUser() (*common.ModuleInputs, error) {
 					huh.NewOption("SLAM Service", "slam service"),
 					huh.NewOption("Vision Service", "vision service"),
 				).
-				Value(&newModule.Resource).WithHeight(25),
+				Value(&module.Resource).WithHeight(25),
 			huh.NewInput().
 				Title("Set a model name of the resource:").
 				Description("This is the name of the new resource model that your module will provide.\n"+
 					"The model name can contain only alphanumeric characters, dashes, and underscores.").
 				Placeholder("my-model").
-				Value(&newModule.ModelName).
+				Value(&module.ModelName).
 				Validate(func(s string) error {
 					if s == "" {
 						return errors.New("model name must not be empty")
@@ -262,20 +261,20 @@ func promptUser() (*common.ModuleInputs, error) {
 			huh.NewConfirm().
 				Title("Enable cloud build").
 				Description("If enabled, this will generate GitHub workflows to build your module.").
-				Value(&newModule.EnableCloudBuild),
+				Value(&module.EnableCloudBuild),
 			huh.NewConfirm().
 				Title("Register module").
 				Description("Register this module with Viam.\nIf selected, "+
 					"this will associate the module with your organization.\nOtherwise, this will be a local-only module.").
-				Value(&newModule.RegisterOnApp),
+				Value(&module.RegisterOnApp),
 		),
 	).WithHeight(25).WithWidth(88)
 	err := form.Run()
 	if err != nil {
-		return nil, errors.Wrap(err, "encountered an error generating module")
+		return errors.Wrap(err, "encountered an error generating module")
 	}
 
-	return &newModule, nil
+	return nil
 }
 
 func wrapResolveOrg(cCtx *cli.Context, c *viamClient, newModule *common.ModuleInputs) error {
