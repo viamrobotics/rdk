@@ -126,7 +126,7 @@ const (
 
 	organizationFlagSupportEmail = "support-email"
 	organizationBillingAddress   = "address"
-	organizationFlagLogo         = "logo-url"
+	organizationFlagLogoPath     = "logo-path"
 )
 
 var commonFilterFlags = []cli.Flag{
@@ -339,7 +339,7 @@ var app = &cli.App{
 					Subcommands: []*cli.Command{
 						{
 							Name:  "set",
-							Usage: "set the logo for an organization",
+							Usage: "set the logo for an organization from a local file",
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     generalFlagOrgID,
@@ -347,9 +347,9 @@ var app = &cli.App{
 									Usage:    "the org to set the logo for",
 								},
 								&cli.StringFlag{
-									Name:     organizationFlagLogo,
+									Name:     organizationFlagLogoPath,
 									Required: true,
-									Usage:    "the url of the logo to set for the organization",
+									Usage:    "the file path of the logo to set for the organization. This must be a png file.",
 								},
 							},
 							Action: OrganizationLogoSetAction,

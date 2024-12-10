@@ -12,6 +12,8 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
+	"regexp"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -303,29 +305,53 @@ func OrganizationLogoSetAction(cCtx *cli.Context) error {
 	if orgID == "" {
 		return errors.New("cannot set logo without an organization ID")
 	}
-	logoURL := cCtx.String(organizationFlagLogo)
-	if logoURL == "" {
+	logoFilePath := cCtx.String(organizationFlagLogoPath)
+	if logoFilePath == "" {
 		return errors.New("cannot set logo to an empty URL")
 	}
 
-	return client.organizationLogoSetAction(cCtx, orgID, logoURL)
+	return client.organizationLogoSetAction(cCtx, orgID, logoFilePath)
 }
 
-func (c *viamClient) organizationLogoSetAction(cCtx *cli.Context, orgID, logoURL string) error {
+func (c *viamClient) organizationLogoSetAction(cCtx *cli.Context, orgID, logoFilePath string) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
 
-	_, err := c.client.OrganizationSetLogo(cCtx.Context, &apppb.OrganizationSetLogoRequest{
+	// determine whether this is a valid file path on the local system
+	logoFilePath = strings.ToLower(filepath.Clean(logoFilePath))
+
+	// regex for a valid .png file path: matches any number of non-dot chars followed by a .png at the end
+	logoFilePathRegex := regexp.MustCompile(`^[^.]+\.png$`)
+	if !logoFilePathRegex.MatchString(logoFilePath) {
+		return errors.Errorf("%s is not a valid .png file path", logoFilePath)
+	}
+
+	logoFile, err := os.Open(logoFilePath)
+	if err != nil {
+		return errors.WithMessagef(err, "could not open logo file: %s", logoFilePath)
+	}
+	defer func() {
+		if err := logoFile.Close(); err != nil {
+			warningf(cCtx.App.ErrWriter, "could not close logo file: %s", err)
+		}
+	}()
+
+	logoBytes, err := io.ReadAll(logoFile)
+	if err != nil {
+		return errors.WithMessagef(err, "could not read logo file: %s", logoFilePath)
+	}
+
+	_, err = c.client.OrganizationSetLogo(cCtx.Context, &apppb.OrganizationSetLogoRequest{
 		OrgId: orgID,
-		Logo:  []byte(logoURL),
+		Logo:  logoBytes,
 	})
 	if err != nil {
 		return errors.WithMessage(err, "could not set the logo")
 	}
 
-	printf(cCtx.App.Writer, "Successfully set the logo for organization %s to logo-url: %s",
-		orgID, logoURL)
+	printf(cCtx.App.Writer, "Successfully set the logo for organization %s to logo at file-path: %s",
+		orgID, logoFilePath)
 	return nil
 }
 
