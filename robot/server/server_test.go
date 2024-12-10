@@ -79,20 +79,25 @@ func TestServer(t *testing.T) {
 
 	t.Run("GetMachineStatus", func(t *testing.T) {
 		for _, tc := range []struct {
-			name                string
-			injectMachineStatus robot.MachineStatus
-			expConfig           *pb.ConfigStatus
-			expResources        []*pb.ResourceStatus
-			expBadStateCount    int
+			name                     string
+			injectMachineStatus      robot.MachineStatus
+			expConfig                *pb.ConfigStatus
+			expResources             []*pb.ResourceStatus
+			expState                 pb.GetMachineStatusResponse_State
+			expBadResourceStateCount int
+			expBadMachineStateCount  int
 		}{
 			{
 				"no resources",
 				robot.MachineStatus{
 					Config:    config.Revision{Revision: "rev1"},
 					Resources: []resource.Status{},
+					State:     robot.StateRunning,
 				},
 				&pb.ConfigStatus{Revision: "rev1"},
 				[]*pb.ResourceStatus{},
+				pb.GetMachineStatusResponse_STATE_RUNNING,
+				0,
 				0,
 			},
 			{
@@ -105,6 +110,7 @@ func TestServer(t *testing.T) {
 							Revision: "rev0",
 						},
 					},
+					State: robot.StateRunning,
 				},
 				&pb.ConfigStatus{Revision: "rev1"},
 				[]*pb.ResourceStatus{
@@ -114,7 +120,9 @@ func TestServer(t *testing.T) {
 						Revision: "rev0",
 					},
 				},
+				pb.GetMachineStatusResponse_STATE_RUNNING,
 				1,
+				0,
 			},
 			{
 				"resource with valid status",
@@ -127,6 +135,7 @@ func TestServer(t *testing.T) {
 							Revision: "rev1",
 						},
 					},
+					State: robot.StateRunning,
 				},
 				&pb.ConfigStatus{Revision: "rev1"},
 				[]*pb.ResourceStatus{
@@ -136,6 +145,8 @@ func TestServer(t *testing.T) {
 						Revision: "rev1",
 					},
 				},
+				pb.GetMachineStatusResponse_STATE_RUNNING,
+				0,
 				0,
 			},
 			{
@@ -157,6 +168,7 @@ func TestServer(t *testing.T) {
 							Revision: "rev-1",
 						},
 					},
+					State: robot.StateRunning,
 				},
 				&pb.ConfigStatus{Revision: "rev1"},
 				[]*pb.ResourceStatus{
@@ -176,7 +188,9 @@ func TestServer(t *testing.T) {
 						Revision: "rev-1",
 					},
 				},
+				pb.GetMachineStatusResponse_STATE_RUNNING,
 				2,
+				0,
 			},
 			{
 				"unhealthy status",
@@ -190,6 +204,7 @@ func TestServer(t *testing.T) {
 							Error:    errors.New("bad configuration"),
 						},
 					},
+					State: robot.StateRunning,
 				},
 				&pb.ConfigStatus{Revision: "rev1"},
 				[]*pb.ResourceStatus{
@@ -200,7 +215,35 @@ func TestServer(t *testing.T) {
 						Error:    "bad configuration",
 					},
 				},
+				pb.GetMachineStatusResponse_STATE_RUNNING,
 				0,
+				0,
+			},
+			{
+				"initializing machine state",
+				robot.MachineStatus{
+					Config:    config.Revision{Revision: "rev1"},
+					Resources: []resource.Status{},
+					State:     robot.StateInitializing,
+				},
+				&pb.ConfigStatus{Revision: "rev1"},
+				[]*pb.ResourceStatus{},
+				pb.GetMachineStatusResponse_STATE_INITIALIZING,
+				0,
+				0,
+			},
+			{
+				"unknown machine state",
+				robot.MachineStatus{
+					Config:    config.Revision{Revision: "rev1"},
+					Resources: []resource.Status{},
+					State:     robot.StateUnknown,
+				},
+				&pb.ConfigStatus{Revision: "rev1"},
+				[]*pb.ResourceStatus{},
+				pb.GetMachineStatusResponse_STATE_UNSPECIFIED,
+				0,
+				1,
 			},
 		} {
 			logger, logs := logging.NewObservedTestLogger(t)
@@ -221,9 +264,16 @@ func TestServer(t *testing.T) {
 				test.That(t, res.GetState(), test.ShouldResemble, tc.expResources[i].State)
 				test.That(t, res.GetRevision(), test.ShouldEqual, tc.expResources[i].Revision)
 			}
-			const badStateMsg = "resource in an unknown state"
-			badStateCount := logs.FilterLevelExact(zapcore.ErrorLevel).FilterMessageSnippet(badStateMsg).Len()
-			test.That(t, badStateCount, test.ShouldEqual, tc.expBadStateCount)
+
+			test.That(t, resp.GetState(), test.ShouldEqual, tc.expState)
+
+			const badResourceStateMsg = "resource in an unknown state"
+			badResourceStateCount := logs.FilterLevelExact(zapcore.ErrorLevel).FilterMessageSnippet(badResourceStateMsg).Len()
+			test.That(t, badResourceStateCount, test.ShouldEqual, tc.expBadResourceStateCount)
+
+			const badMachineStateMsg = "machine in an unknown state"
+			badMachineStateCount := logs.FilterLevelExact(zapcore.ErrorLevel).FilterMessageSnippet(badMachineStateMsg).Len()
+			test.That(t, badMachineStateCount, test.ShouldEqual, tc.expBadMachineStateCount)
 		}
 	})
 
