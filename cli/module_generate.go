@@ -68,8 +68,8 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 			Namespace:        cCtx.String("my-org"),
 			Resource:         resourceSubtype + " " + resourceType,
 			ModelName:        cCtx.String("my-model"),
-			EnableCloudBuild: cCtx.Bool(moduleFlagIsPublic),
-			RegisterOnApp:    cCtx.Bool(moduleFlagIsPublic),
+			EnableCloudBuild: cCtx.Bool(moduleFlagEnableCloud),
+			RegisterOnApp:    cCtx.Bool(moduleFlagRegister),
 		}
 		populateAdditionalInfo(newModule)
 	} else {
