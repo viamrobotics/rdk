@@ -63,9 +63,9 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 	if resourceSubtype != "" && resourceType != "" {
 		newModule = &common.ModuleInputs{
 			ModuleName:       "my-module",
+			Language:         cCtx.String(moduleFlagLanguage),
 			IsPublic:         false,
 			Namespace:        "my-org",
-			Language:         cCtx.String(moduleFlagLanguage),
 			Resource:         resourceSubtype + " " + resourceType,
 			ModelName:        "my-model",
 			EnableCloudBuild: false,
