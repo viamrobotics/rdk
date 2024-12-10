@@ -552,11 +552,6 @@ var app = &cli.App{
 									Name:  "end",
 									Usage: "ISO-8601 timestamp indicating the end of the interval",
 								},
-								&cli.UintFlag{
-									Name:  dataFlagTimeout,
-									Usage: "number of seconds to wait for large file downloads",
-									Value: 30,
-								},
 							},
 							Action: DataExportTabularAction,
 						},
