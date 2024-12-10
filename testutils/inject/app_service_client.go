@@ -52,6 +52,8 @@ type AppServiceClient struct {
 		opts ...grpc.CallOption) (*apppb.OrganizationSetSupportEmailResponse, error)
 	OrganizationGetSupportEmailFunc func(ctx context.Context, in *apppb.OrganizationGetSupportEmailRequest,
 		opts ...grpc.CallOption) (*apppb.OrganizationGetSupportEmailResponse, error)
+	OrganizationSetLogoFunc func(ctx context.Context, in *apppb.OrganizationSetLogoRequest,
+		opts ...grpc.CallOption) (*apppb.OrganizationSetLogoResponse, error)
 	CreateLocationFunc func(ctx context.Context, in *apppb.CreateLocationRequest,
 		opts ...grpc.CallOption) (*apppb.CreateLocationResponse, error)
 	GetLocationFunc func(ctx context.Context, in *apppb.GetLocationRequest,

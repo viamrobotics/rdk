@@ -837,6 +837,15 @@ func (c *AppClient) GetBillingServiceConfig(ctx context.Context, orgID string) (
 	return resp, nil
 }
 
+// OrganizationSetLogo sets an organization's logo.
+func (c *AppClient) OrganizationSetLogo(ctx context.Context, orgID string, logo []byte) error {
+	_, err := c.client.OrganizationSetLogo(ctx, &pb.OrganizationSetLogoRequest{
+		OrgId: orgID,
+		Logo:  logo,
+	})
+	return err
+}
+
 // CreateLocation creates a location with the given name under the given organization.
 func (c *AppClient) CreateLocation(ctx context.Context, orgID, name string, opts *CreateLocationOptions) (*Location, error) {
 	var parentID *string
