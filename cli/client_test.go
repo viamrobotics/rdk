@@ -379,8 +379,7 @@ func TestDataExportTabularAction(t *testing.T) {
 		test.That(t, len(out.messages), test.ShouldEqual, 3)
 		test.That(t, strings.Join(out.messages, ""), test.ShouldEqual, "Downloading...\n")
 
-		// `data.ndjson` is the standardized name of the file data is written to in the `tabularData` call
-		filePath := utils.ResolveFile("data.ndjson")
+		filePath := utils.ResolveFile(dataFileName)
 
 		data, err := os.ReadFile(filePath)
 		test.That(t, err, test.ShouldBeNil)
@@ -420,7 +419,7 @@ func TestDataExportTabularAction(t *testing.T) {
 	t.Run("error case", func(t *testing.T) {
 		exportTabularDataFunc := func(ctx context.Context, in *datapb.ExportTabularDataRequest, opts ...grpc.CallOption,
 		) (datapb.DataService_ExportTabularDataClient, error) {
-			return newMockExportStream([]*datapb.ExportTabularDataResponse{}, errors.New("whoops!")), nil
+			return newMockExportStream([]*datapb.ExportTabularDataResponse{}, errors.New("whoops")), nil
 		}
 
 		dsc := &inject.DataServiceClient{
@@ -431,7 +430,7 @@ func TestDataExportTabularAction(t *testing.T) {
 
 		err := ac.dataExportTabularAction(cCtx)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError, errors.New("error receiving tabular data: whoops!"))
+		test.That(t, err, test.ShouldBeError, errors.New("error receiving tabular data: whoops"))
 		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 
 		// Test that export was retried (total of 5 tries).
@@ -439,7 +438,7 @@ func TestDataExportTabularAction(t *testing.T) {
 		test.That(t, strings.Join(out.messages, ""), test.ShouldEqual, "Downloading.......\n")
 
 		// Test that the data.ndjson file was removed.
-		filePath := utils.ResolveFile("data.ndjson")
+		filePath := utils.ResolveFile(dataFileName)
 		_, err = os.ReadFile(filePath)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldBeError, fmt.Errorf("open %s: no such file or directory", filePath))

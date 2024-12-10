@@ -29,6 +29,7 @@ import (
 )
 
 const (
+	dataFileName  = "data.ndjson"
 	dataDir       = "data"
 	metadataDir   = "metadata"
 	maxRetryCount = 5
@@ -47,7 +48,7 @@ const (
 	noExistingADFErrCode = "NotFound"
 )
 
-// DataExportAction is the corresponding action for 'data export binary'.
+// DataExportBinaryAction is the corresponding action for 'data export binary'.
 func DataExportBinaryAction(cCtx *cli.Context) error {
 	client, err := newViamClient(cCtx)
 	if err != nil {
@@ -57,7 +58,7 @@ func DataExportBinaryAction(cCtx *cli.Context) error {
 	return client.dataExportBinaryAction(cCtx)
 }
 
-// DataExportAction is the corresponding action for 'data export tabular'.
+// DataExportTabularAction is the corresponding action for 'data export tabular'.
 func DataExportTabularAction(cCtx *cli.Context) error {
 	client, err := newViamClient(cCtx)
 	if err != nil {
@@ -292,13 +293,13 @@ func createExportTabularRequest(c *cli.Context) (*datapb.ExportTabularDataReques
 	return request, nil
 }
 
-func (client *viamClient) dataExportBinaryAction(cCtx *cli.Context) error {
+func (c *viamClient) dataExportBinaryAction(cCtx *cli.Context) error {
 	filter, err := createDataFilter(cCtx)
 	if err != nil {
 		return err
 	}
 
-	if err := client.binaryData(
+	if err := c.binaryData(
 		cCtx.Path(dataFlagDestination), filter, cCtx.Uint(dataFlagParallelDownloads), cCtx.Uint(dataFlagTimeout),
 	); err != nil {
 		return err
@@ -307,13 +308,13 @@ func (client *viamClient) dataExportBinaryAction(cCtx *cli.Context) error {
 	return nil
 }
 
-func (client *viamClient) dataExportTabularAction(cCtx *cli.Context) error {
+func (c *viamClient) dataExportTabularAction(cCtx *cli.Context) error {
 	request, err := createExportTabularRequest(cCtx)
 	if err != nil {
 		return err
 	}
 
-	if err := client.tabularData(cCtx.Path(dataFlagDestination), request); err != nil {
+	if err := c.tabularData(cCtx.Path(dataFlagDestination), request); err != nil {
 		return err
 	}
 
@@ -665,11 +666,12 @@ func (c *viamClient) tabularData(dest string, request *datapb.ExportTabularDataR
 		return errors.Wrapf(err, "could not create destination directories")
 	}
 
-	fmt.Fprintf(c.c.App.Writer, "Downloading..")
+	fmt.Fprintf(c.c.App.Writer, "Downloading..") //nolint:errcheck
 
 	for count := 0; count < maxRetryCount; count++ {
 		err := func() error {
-			dataFile, err := os.Create(filepath.Join(dest, "data.ndjson"))
+			dataFilePath := filepath.Join(dest, dataFileName)
+			dataFile, err := os.Create(dataFilePath) //nolint:gosec
 			if err != nil {
 				return errors.Wrapf(err, "could not create data file")
 			}
@@ -685,18 +687,18 @@ func (c *viamClient) tabularData(dest string, request *datapb.ExportTabularDataR
 			ctx, cancel := context.WithCancel(context.Background())
 
 			defer func() {
-				writer.Flush()
-				dataFile.Close()
+				writer.Flush()   //nolint:errcheck,gosec
+				dataFile.Close() //nolint:errcheck,gosec
 				cancel()
 
 				if exportErr != nil {
-					os.Remove(dataFile.Name())
+					os.Remove(dataFile.Name()) //nolint:errcheck,gosec
 				}
 			}()
 
 			go func() {
 				defer close(dataRowChan)
-				fmt.Fprintf(c.c.App.Writer, ".") // Adds '.' to 'Downloading..' output.
+				fmt.Fprintf(c.c.App.Writer, ".") //nolint:errcheck // Adds '.' to 'Downloading..' output.
 
 				stream, err := c.dataClient.ExportTabularData(ctx, request)
 				if err != nil {
@@ -710,7 +712,7 @@ func (c *viamClient) tabularData(dest string, request *datapb.ExportTabularDataR
 						return
 					default:
 						resp, err := stream.Recv()
-						if err == io.EOF {
+						if errors.Is(err, io.EOF) {
 							return
 						}
 						if err != nil {
@@ -739,11 +741,16 @@ func (c *viamClient) tabularData(dest string, request *datapb.ExportTabularDataR
 				case dataRow, ok := <-dataRowChan:
 					// No more data to write.
 					if !ok {
+						if err = writer.Flush(); err != nil {
+							exportErr = errors.Wrap(err, "error writing data to file")
+							return exportErr
+						}
+
 						return nil
 					}
 
-					if err = writeToDataFile(writer, dataRow, &numWrites); err != nil {
-						exportErr = errors.Wrap(err, "error writing data to file")
+					if err = writeData(writer, dataRow, &numWrites); err != nil {
+						exportErr = errors.Wrap(err, "error writing data")
 						return exportErr
 					}
 				case err := <-errChan:
@@ -767,7 +774,7 @@ func (c *viamClient) tabularData(dest string, request *datapb.ExportTabularDataR
 	return nil
 }
 
-func writeToDataFile(writer *bufio.Writer, dataRow []byte, numWrites *uint64) error {
+func writeData(writer *bufio.Writer, dataRow []byte, numWrites *uint64) error {
 	*numWrites++
 
 	_, err := writer.Write(dataRow)
@@ -782,7 +789,10 @@ func writeToDataFile(writer *bufio.Writer, dataRow []byte, numWrites *uint64) er
 
 	// Periodically flush to keep buffer size down.
 	if *numWrites == uint64(10_000) {
-		writer.Flush()
+		if err = writer.Flush(); err != nil {
+			return err
+		}
+
 		*numWrites = 0
 	}
 
