@@ -75,7 +75,7 @@ func registerObstacleDistanceDetector(
 		return nil, errors.New("config for obstacles_distance cannot be nil")
 	}
 
-	segmenter := func(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
+	segmenter := func(ctx context.Context, src camera.Camera) ([]*vision.Object, error) {
 		clouds := make([]pointcloud.PointCloud, 0, conf.NumQueries)
 
 		for i := 0; i < conf.NumQueries; i++ {

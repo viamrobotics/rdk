@@ -104,7 +104,6 @@ func buildRobotWithFakeCamera(logger logging.Logger) (robot.Robot, error) {
 	return robotimpl.RobotFromConfigPath(context.Background(), newConfFile, logger)
 }
 
-//nolint:dupl
 func TestColorDetectionSource(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -121,7 +120,7 @@ func TestColorDetectionSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer detector.Close(ctx)
 
-	resImg, _, err := camera.ReadImage(ctx, detector)
+	resImg, err := camera.DecodeImageFromCamera(ctx, rutils.MimeTypePNG, nil, detector)
 	test.That(t, err, test.ShouldBeNil)
 	ovImg := rimage.ConvertImage(resImg)
 	test.That(t, ovImg.GetXY(852, 431), test.ShouldResemble, rimage.Red)
@@ -146,7 +145,7 @@ func BenchmarkColorDetectionSource(b *testing.B) {
 	b.ResetTimer()
 	// begin benchmarking
 	for i := 0; i < b.N; i++ {
-		_, _, _ = camera.ReadImage(ctx, detector)
+		_, _ = camera.DecodeImageFromCamera(ctx, rutils.MimeTypeJPEG, nil, detector)
 	}
 	test.That(b, detector.Close(context.Background()), test.ShouldBeNil)
 }
