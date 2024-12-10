@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -326,67 +327,123 @@ type mockDataServiceClient struct {
 	grpc.ClientStream
 	responses []*datapb.ExportTabularDataResponse
 	index     int
-}
-
-func (m *mockDataServiceClient) CloseSend() error {
-	return nil
+	err       error
 }
 
 func (m *mockDataServiceClient) Recv() (*datapb.ExportTabularDataResponse, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+
 	if m.index >= len(m.responses) {
 		return nil, io.EOF
 	}
+
 	resp := m.responses[m.index]
 	m.index++
+
 	return resp, nil
 }
 
-func newMockStream(responses []*datapb.ExportTabularDataResponse) *mockDataServiceClient {
+func newMockExportStream(responses []*datapb.ExportTabularDataResponse, err error) *mockDataServiceClient {
 	return &mockDataServiceClient{
 		responses: responses,
+		err:       err,
 	}
 }
 
-func TestExportTabularDataAction(t *testing.T) {
-	pbStructPayload, err := protoutils.StructToStructPb(map[string]interface{}{"bool": true, "string": "true", "float": float64(1)})
-	test.That(t, err, test.ShouldBeNil)
+func TestDataExportTabularAction(t *testing.T) {
+	t.Run("successful case", func(t *testing.T) {
+		pbStructPayload1, err := protoutils.StructToStructPb(map[string]interface{}{"bool": true, "string": "true", "float": float64(1)})
+		test.That(t, err, test.ShouldBeNil)
 
-	exportTabularDataFunc := func(ctx context.Context, in *datapb.ExportTabularDataRequest, opts ...grpc.CallOption,
-	) (datapb.DataService_ExportTabularDataClient, error) {
-		return newMockStream([]*datapb.ExportTabularDataResponse{
-			{LocationId: "loc-id", Payload: pbStructPayload},
-		}), nil
-	}
+		pbStructPayload2, err := protoutils.StructToStructPb(map[string]interface{}{"booly": false, "string": "true", "float": float64(1)})
+		test.That(t, err, test.ShouldBeNil)
 
-	dsc := &inject.DataServiceClient{
-		ExportTabularDataFunc: exportTabularDataFunc,
-	}
+		exportTabularDataFunc := func(ctx context.Context, in *datapb.ExportTabularDataRequest, opts ...grpc.CallOption,
+		) (datapb.DataService_ExportTabularDataClient, error) {
+			return newMockExportStream([]*datapb.ExportTabularDataResponse{
+				{LocationId: "loc-id", Payload: pbStructPayload1},
+				{LocationId: "loc-id", Payload: pbStructPayload2},
+			}, nil), nil
+		}
 
-	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil, nil, nil, "token")
+		dsc := &inject.DataServiceClient{
+			ExportTabularDataFunc: exportTabularDataFunc,
+		}
 
-	test.That(t, ac.dataExportTabularAction(cCtx), test.ShouldBeNil)
-	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
-	test.That(t, len(out.messages), test.ShouldEqual, 3)
-	test.That(t, out.messages[0], test.ShouldEqual, "Downloading..")
-	test.That(t, out.messages[1], test.ShouldEqual, ".")
-	test.That(t, out.messages[2], test.ShouldEqual, "\n")
+		cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil, nil, nil, "token")
 
-	// expectedDataSize is the expected string length of the data returned by the injected call
-	expectedDataSize := 76
-	b := make([]byte, expectedDataSize)
+		test.That(t, ac.dataExportTabularAction(cCtx), test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, len(out.messages), test.ShouldEqual, 3)
+		test.That(t, strings.Join(out.messages, ""), test.ShouldEqual, "Downloading...\n")
 
-	// `data.ndjson` is the standardized name of the file data is written to in the `tabularData` call
-	filePath := utils.ResolveFile("data.ndjson")
-	file, err := os.Open(filePath)
-	test.That(t, err, test.ShouldBeNil)
+		// `data.ndjson` is the standardized name of the file data is written to in the `tabularData` call
+		filePath := utils.ResolveFile("data.ndjson")
 
-	dataSize, err := file.Read(b)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, dataSize, test.ShouldEqual, expectedDataSize)
+		data, err := os.ReadFile(filePath)
+		test.That(t, err, test.ShouldBeNil)
 
-	savedData := string(b)
-	expectedData := "{\"locationId\":\"loc-id\", \"payload\":{\"bool\":true, \"float\":1, \"string\":\"true\"}}"
-	test.That(t, savedData, test.ShouldEqual, expectedData)
+		// Output is unstable, so parse back into maps before comparing to expected.
+		var actual []map[string]interface{}
+		decoder := json.NewDecoder(strings.NewReader(string(data)))
+		for decoder.More() {
+			var item map[string]interface{}
+			err = decoder.Decode(&item)
+			test.That(t, err, test.ShouldBeNil)
+			actual = append(actual, item)
+		}
+
+		expectedData := []map[string]interface{}{
+			{
+				"locationId": "loc-id",
+				"payload": map[string]interface{}{
+					"bool":   true,
+					"float":  float64(1),
+					"string": "true",
+				},
+			},
+			{
+				"locationId": "loc-id",
+				"payload": map[string]interface{}{
+					"booly":  false,
+					"float":  float64(1),
+					"string": "true",
+				},
+			},
+		}
+
+		test.That(t, actual, test.ShouldResemble, expectedData)
+	})
+
+	t.Run("error case", func(t *testing.T) {
+		exportTabularDataFunc := func(ctx context.Context, in *datapb.ExportTabularDataRequest, opts ...grpc.CallOption,
+		) (datapb.DataService_ExportTabularDataClient, error) {
+			return newMockExportStream([]*datapb.ExportTabularDataResponse{}, errors.New("whoops!")), nil
+		}
+
+		dsc := &inject.DataServiceClient{
+			ExportTabularDataFunc: exportTabularDataFunc,
+		}
+
+		cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil, nil, nil, "token")
+
+		err := ac.dataExportTabularAction(cCtx)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, errors.New("error receiving tabular data: whoops!"))
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+
+		// Test that export was retried (total of 5 tries).
+		test.That(t, len(out.messages), test.ShouldEqual, 6)
+		test.That(t, strings.Join(out.messages, ""), test.ShouldEqual, "Downloading.......")
+
+		// Test that the data.ndjson file was removed.
+		filePath := utils.ResolveFile("data.ndjson")
+		_, err = os.ReadFile(filePath)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, fmt.Errorf("open %s: no such file or directory", filePath))
+	})
 }
 
 func TestBaseURLParsing(t *testing.T) {

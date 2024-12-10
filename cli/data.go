@@ -298,8 +298,9 @@ func (client *viamClient) dataExportBinaryAction(cCtx *cli.Context) error {
 		return err
 	}
 
-	if err := client.binaryData(cCtx.Path(dataFlagDestination), filter, cCtx.Uint(dataFlagParallelDownloads),
-		cCtx.Uint(dataFlagTimeout)); err != nil {
+	if err := client.binaryData(
+		cCtx.Path(dataFlagDestination), filter, cCtx.Uint(dataFlagParallelDownloads), cCtx.Uint(dataFlagTimeout),
+	); err != nil {
 		return err
 	}
 
@@ -312,7 +313,7 @@ func (client *viamClient) dataExportTabularAction(cCtx *cli.Context) error {
 		return err
 	}
 
-	if err := client.tabularData(cCtx.Path(dataFlagDestination), request, cCtx.Uint(dataFlagChunkLimit)); err != nil {
+	if err := client.tabularData(cCtx.Path(dataFlagDestination), request); err != nil {
 		return err
 	}
 
@@ -666,88 +667,101 @@ func (c *viamClient) tabularData(dest string, request *datapb.ExportTabularDataR
 
 	fmt.Fprintf(c.c.App.Writer, "Downloading..")
 
-retryLoop:
-	for count := 1; count <= maxRetryCount; count++ {
-		dataFile, err := os.Create(filepath.Join(dest, "data.ndjson"))
-		if err != nil {
-			return errors.Wrapf(err, "could not create data file")
-		}
-
-		writer := bufio.NewWriter(dataFile)
-		numWrites := uint64(0)
-
-		dataRowChan := make(chan []byte)
-		errChan := make(chan error, 1)
-
-		ctx, cancel := context.WithCancel(context.Background())
-
-		defer func() {
-			writer.Flush()
-			dataFile.Close()
-			close(errChan)
-			cancel()
-		}()
-
-		go func() {
-			defer close(dataRowChan)
-			fmt.Fprintf(c.c.App.Writer, ".") // Adds to 'Downloading..' message.
-
-			stream, err := c.dataClient.ExportTabularData(ctx, request)
+	for count := 0; count < maxRetryCount; count++ {
+		err := func() error {
+			dataFile, err := os.Create(filepath.Join(dest, "data.ndjson"))
 			if err != nil {
-				errChan <- errors.Wrap(err, "failed to export tabular data")
-				return
+				return errors.Wrapf(err, "could not create data file")
 			}
+
+			writer := bufio.NewWriter(dataFile)
+			numWrites := uint64(0)
+
+			dataRowChan := make(chan []byte)
+			errChan := make(chan error, 1)
+
+			var exportErr error
+
+			ctx, cancel := context.WithCancel(context.Background())
+
+			defer func() {
+				writer.Flush()
+				dataFile.Close()
+				cancel()
+
+				if exportErr != nil {
+					os.Remove(dataFile.Name())
+				}
+			}()
+
+			go func() {
+				defer close(dataRowChan)
+				fmt.Fprintf(c.c.App.Writer, ".") // Adds '.' to 'Downloading..' output.
+
+				stream, err := c.dataClient.ExportTabularData(ctx, request)
+				if err != nil {
+					errChan <- errors.Wrap(err, "failed to export tabular data")
+					return
+				}
+
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					default:
+						resp, err := stream.Recv()
+						if err == io.EOF {
+							return
+						}
+						if err != nil {
+							errChan <- errors.Wrap(err, "error receiving tabular data")
+							return
+						}
+
+						dataRow, err := protojson.Marshal(resp)
+						if err != nil {
+							errChan <- errors.Wrap(err, "error formatting tabular data")
+							return
+						}
+
+						select {
+						case dataRowChan <- dataRow:
+							// Successfully sent.
+						case <-ctx.Done():
+							return
+						}
+					}
+				}
+			}()
 
 			for {
 				select {
+				case dataRow, ok := <-dataRowChan:
+					// No more data to write.
+					if !ok {
+						printf(c.c.App.Writer, "") // newline
+						return nil
+					}
+
+					if err = writeToDataFile(writer, dataRow, &numWrites); err != nil {
+						exportErr = errors.Wrap(err, "error writing data to file")
+						return exportErr
+					}
+				case err := <-errChan:
+					exportErr = err
+					return err
 				case <-ctx.Done():
-					return
-				default:
-					resp, err := stream.Recv()
-					if err == io.EOF {
-						return
-					}
-					if err != nil {
-						errChan <- errors.Wrap(err, "error receiving tabular data")
-						return
-					}
-
-					dataRow, err := protojson.Marshal(resp)
-					if err != nil {
-						errChan <- errors.Wrap(err, "error marshaling tabular data")
-						return
-					}
-
-					dataRowChan <- dataRow
+					exportErr = ctx.Err()
+					return ctx.Err()
 				}
 			}
 		}()
 
-		for {
-			select {
-			case dataRow, ok := <-dataRowChan:
-				// No more data to write.
-				if !ok {
-					printf(c.c.App.Writer, "") // newline
-					return nil
-				}
-
-				if err = writeToDataFile(writer, dataRow, &numWrites); err != nil {
-					return err
-				}
-			case err := <-errChan:
-				cancel()
-
-				// Did not successfully finish export, so remove data file.
-				os.Remove(dataFile.Name())
-
-				if count < maxRetryCount {
-					continue retryLoop
-				}
-
-				return err
-			}
+		if err != nil && count < maxRetryCount-1 {
+			continue
 		}
+
+		return err
 	}
 
 	return nil
@@ -766,6 +780,7 @@ func writeToDataFile(writer *bufio.Writer, dataRow []byte, numWrites *uint64) er
 		return err
 	}
 
+	// Periodically flush to keep buffer size down.
 	if *numWrites == uint64(10_000) {
 		writer.Flush()
 		*numWrites = 0
