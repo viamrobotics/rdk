@@ -109,6 +109,37 @@ type TabularData struct {
 	TimeReceived  time.Time
 }
 
+// ExportTabularDataResponse represents the result of an ExportTabularData API call.
+type ExportTabularDataResponse struct {
+	OrganizationID   string
+	LocationID       string
+	RobotID          string
+	RobotName        string
+	PartID           string
+	PartName         string
+	ResourceName     string
+	ResourceSubtype  string
+	MethodName       string
+	TimeCaptured     time.Time
+	MethodParameters map[string]interface{}
+	Tags             []string
+	Payload          map[string]interface{}
+}
+
+// ExportTabularDataStream is a stream that returns ExportTabularDataResponses.
+type ExportTabularDataStream struct {
+	Stream pb.DataService_ExportTabularDataClient
+}
+
+// Next gets the next ExportTabularDataResponse.
+func (e *ExportTabularDataStream) Next() (*ExportTabularDataResponse, error) {
+	streamResp, err := e.Stream.Recv()
+	if err != nil {
+		return nil, err
+	}
+	return exportTabularDataResponseFromProto(streamResp), nil
+}
+
 // BinaryData contains data and metadata associated with binary data.
 type BinaryData struct {
 	Binary   []byte
@@ -354,6 +385,7 @@ func BsonToGo(rawData [][]byte) ([]map[string]interface{}, error) {
 }
 
 // TabularDataByFilter queries tabular data and metadata based on given filters.
+// Deprecated: This endpoint will be removed in a future version.
 func (d *DataClient) TabularDataByFilter(ctx context.Context, opts *DataByFilterOptions) (TabularDataReturn, error) {
 	dataReq := pb.DataRequest{}
 	var countOnly, includeInternalData bool
@@ -369,6 +401,7 @@ func (d *DataClient) TabularDataByFilter(ctx context.Context, opts *DataByFilter
 		countOnly = opts.CountOnly
 		includeInternalData = opts.IncludeInternalData
 	}
+	//nolint:deprecated,staticcheck
 	resp, err := d.dataClient.TabularDataByFilter(ctx, &pb.TabularDataByFilterRequest{
 		DataRequest:         &dataReq,
 		CountOnly:           countOnly,
@@ -708,6 +741,31 @@ func (d *DataClient) ConfigureDatabaseUser(
 		Password:       password,
 	})
 	return err
+}
+
+// ExportTabularData returns a stream of tabular data for a given part id, resource type, and method name combination.
+// The interval is optional. A blank interval will be interpretted as a request for all data.
+func (d *DataClient) ExportTabularData(
+	ctx context.Context,
+	partID,
+	resourceName,
+	resourceSubtype,
+	methodName string,
+	interval CaptureInterval,
+) (*ExportTabularDataStream, error) {
+	stream, err := d.dataClient.ExportTabularData(ctx, &pb.ExportTabularDataRequest{
+		PartId:          partID,
+		ResourceName:    resourceName,
+		ResourceSubtype: resourceSubtype,
+		MethodName:      methodName,
+		Interval:        captureIntervalToProto(interval),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &ExportTabularDataStream{
+		Stream: stream,
+	}, nil
 }
 
 // AddBinaryDataToDatasetByIDs adds the binary data with the given binary IDs to the dataset.
@@ -1219,6 +1277,7 @@ func binaryMetadataFromProto(proto *pb.BinaryMetadata) BinaryMetadata {
 	}
 }
 
+//nolint:deprecated,staticcheck
 func tabularDataFromProto(proto *pb.TabularData, metadata *pb.CaptureMetadata) TabularData {
 	return TabularData{
 		Data:          proto.Data.AsMap(),
@@ -1226,6 +1285,24 @@ func tabularDataFromProto(proto *pb.TabularData, metadata *pb.CaptureMetadata) T
 		Metadata:      captureMetadataFromProto(metadata),
 		TimeRequested: proto.TimeRequested.AsTime(),
 		TimeReceived:  proto.TimeReceived.AsTime(),
+	}
+}
+
+func exportTabularDataResponseFromProto(proto *pb.ExportTabularDataResponse) *ExportTabularDataResponse {
+	return &ExportTabularDataResponse{
+		OrganizationID:   proto.OrganizationId,
+		LocationID:       proto.LocationId,
+		RobotID:          proto.RobotId,
+		RobotName:        proto.RobotName,
+		PartID:           proto.PartId,
+		PartName:         proto.PartName,
+		ResourceName:     proto.ResourceName,
+		ResourceSubtype:  proto.ResourceSubtype,
+		MethodName:       proto.MethodName,
+		TimeCaptured:     proto.TimeCaptured.AsTime(),
+		MethodParameters: proto.MethodParameters.AsMap(),
+		Tags:             proto.Tags,
+		Payload:          proto.Payload.AsMap(),
 	}
 }
 
