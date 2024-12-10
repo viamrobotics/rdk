@@ -41,6 +41,9 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
+// tcpPortRange is the beginning of the port range. Only used when ViamTCPSockets() = true.
+const tcpPortRange = 13500
+
 var (
 	validateConfigTimeout       = 5 * time.Second
 	errMessageExitStatus143     = "exit status 143"
@@ -68,6 +71,7 @@ func NewManager(
 		restartCtx:              restartCtx,
 		restartCtxCancel:        restartCtxCancel,
 		packagesDir:             options.PackagesDir,
+		nextPort:                tcpPortRange,
 	}
 }
 
@@ -100,6 +104,8 @@ type module struct {
 	inStartup      atomic.Bool
 	inRecoveryLock sync.Mutex
 	logger         logging.Logger
+	// port stores the listen port of this module when ViamTCPSockets() = true.
+	port int
 }
 
 type addedResource struct {
@@ -179,6 +185,8 @@ type Manager struct {
 	removeOrphanedResources func(ctx context.Context, rNames []resource.Name)
 	restartCtx              context.Context
 	restartCtxCancel        context.CancelFunc
+	// nextPort manages ports when ViamTCPSockets() = true.
+	nextPort int
 }
 
 // Close terminates module connections and processes.
@@ -317,7 +325,9 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module) error {
 		dataDir:   moduleDataDir,
 		resources: map[resource.Name]*addedResource{},
 		logger:    mgr.logger.Sublogger(conf.Name),
+		port:      mgr.nextPort,
 	}
+	mgr.nextPort++
 
 	if err := mgr.startModule(ctx, mod); err != nil {
 		return err
@@ -1092,8 +1102,6 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	return conf.FirstRun(ctx, pkgsDir, dataDir, env, mgr.logger)
 }
 
-var nextPort = 13500
-
 func (m *module) startProcess(
 	ctx context.Context,
 	parentAddr string,
@@ -1105,8 +1113,7 @@ func (m *module) startProcess(
 	var err error
 
 	if rutils.ViamTCPSockets() {
-		m.addr = "127.0.0.1:" + strconv.Itoa(nextPort)
-		nextPort++ // todo: atomic, and reclaim ports.
+		m.addr = "127.0.0.1:" + strconv.Itoa(m.port)
 	} else {
 		// append a random alpha string to the module name while creating a socket address to avoid conflicts
 		// with old versions of the module.
