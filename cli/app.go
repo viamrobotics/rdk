@@ -126,6 +126,7 @@ const (
 
 	organizationFlagSupportEmail = "support-email"
 	organizationBillingAddress   = "address"
+	organizationFlagLogo         = "logo-url"
 )
 
 var commonFilterFlags = []cli.Flag{
@@ -330,6 +331,30 @@ var app = &cli.App{
 					Name:   "list",
 					Usage:  "list organizations for the current user",
 					Action: ListOrganizationsAction,
+				},
+				{
+					Name:      "logo",
+					Usage:     "manage logos for an organization",
+					UsageText: createUsageText("organizations logo", []string{generalFlagOrgID}, true),
+					Subcommands: []*cli.Command{
+						{
+							Name:  "set",
+							Usage: "set the logo for an organization",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "the org to set the logo for",
+								},
+								&cli.StringFlag{
+									Name:     organizationFlagLogo,
+									Required: true,
+									Usage:    "the url of the logo to set for the organization",
+								},
+							},
+							Action: OrganizationLogoSetAction,
+						},
+					},
 				},
 				{
 					Name:      "support-email",

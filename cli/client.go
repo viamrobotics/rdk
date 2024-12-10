@@ -292,6 +292,43 @@ func (c *viamClient) organizationDisableBillingServiceAction(cCtx *cli.Context, 
 	return nil
 }
 
+// OrganizationLogoSetAction corresponds to `organizations logo set`.
+func OrganizationLogoSetAction(cCtx *cli.Context) error {
+	client, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+
+	orgID := cCtx.String(generalFlagOrgID)
+	if orgID == "" {
+		return errors.New("cannot set logo without an organization ID")
+	}
+	logoURL := cCtx.String(organizationFlagLogo)
+	if logoURL == "" {
+		return errors.New("cannot set logo to an empty URL")
+	}
+
+	return client.organizationLogoSetAction(cCtx, orgID, logoURL)
+}
+
+func (c *viamClient) organizationLogoSetAction(cCtx *cli.Context, orgID, logoURL string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	_, err := c.client.OrganizationSetLogo(cCtx.Context, &apppb.OrganizationSetLogoRequest{
+		OrgId: orgID,
+		Logo:  []byte(logoURL),
+	})
+	if err != nil {
+		return errors.WithMessage(err, "could not set the logo")
+	}
+
+	printf(cCtx.App.Writer, "Successfully set the logo for organization %s to logo-url: %s",
+		orgID, logoURL)
+	return nil
+}
+
 // ListLocationsAction is the corresponding Action for 'locations list'.
 func ListLocationsAction(c *cli.Context) error {
 	client, err := newViamClient(c)
