@@ -65,9 +65,9 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 			ModuleName:       cCtx.String(moduleFlagName),
 			Language:         cCtx.String(moduleFlagLanguage),
 			IsPublic:         cCtx.Bool(moduleFlagIsPublic),
-			Namespace:        cCtx.String("my-org"),
+			Namespace:        cCtx.String(moduleFlagPublicNamespace),
 			Resource:         resourceSubtype + " " + resourceType,
-			ModelName:        cCtx.String("my-model"),
+			ModelName:        cCtx.String(moduleFlagModelName),
 			EnableCloudBuild: cCtx.Bool(moduleFlagEnableCloud),
 			RegisterOnApp:    cCtx.Bool(moduleFlagRegister),
 		}
