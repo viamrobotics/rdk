@@ -58,29 +58,31 @@ func GenerateModuleAction(cCtx *cli.Context) error {
 func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 	var newModule *common.ModuleInputs
 	var err error
+
 	resourceType := cCtx.String(moduleFlagResourceType)
 	resourceSubtype := cCtx.String(moduleFlagResourceSubtype)
-	if resourceSubtype != "" && resourceType != "" {
-		newModule = &common.ModuleInputs{
-			ModuleName:       cCtx.String(moduleFlagName),
-			Language:         cCtx.String(moduleFlagLanguage),
-			IsPublic:         cCtx.Bool(moduleFlagIsPublic),
-			Namespace:        cCtx.String(moduleFlagPublicNamespace),
-			Resource:         resourceSubtype + " " + resourceType,
-			ModelName:        cCtx.String(moduleFlagModelName),
-			EnableCloudBuild: cCtx.Bool(moduleFlagEnableCloud),
-			RegisterOnApp:    cCtx.Bool(moduleFlagRegister),
-		}
-		populateAdditionalInfo(newModule)
-	} else {
+	newModule = &common.ModuleInputs{
+		ModuleName:       cCtx.String(moduleFlagName),
+		Language:         cCtx.String(moduleFlagLanguage),
+		IsPublic:         cCtx.Bool(moduleFlagIsPublic),
+		Namespace:        cCtx.String(moduleFlagPublicNamespace),
+		Resource:         resourceSubtype + " " + resourceType,
+		ResourceType:     resourceType,
+		ResourceSubtype:  resourceSubtype,
+		ModelName:        cCtx.String(moduleFlagModelName),
+		EnableCloudBuild: cCtx.Bool(moduleFlagEnableCloud),
+		RegisterOnApp:    cCtx.Bool(moduleFlagRegister),
+	}
+
+	if newModule.HasEmptyInput() {
 		newModule, err = promptUser()
 		if err != nil {
 			return err
 		}
-		populateAdditionalInfo(newModule)
-		if err := wrapResolveOrg(cCtx, c, newModule); err != nil {
-			return err
-		}
+	}
+	populateAdditionalInfo(newModule)
+	if err := wrapResolveOrg(cCtx, c, newModule); err != nil {
+		return err
 	}
 
 	s := spinner.New()
