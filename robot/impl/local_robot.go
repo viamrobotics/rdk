@@ -93,7 +93,7 @@ type localRobot struct {
 
 	// whether the robot is still initializing (first reconfigure after initial
 	// construction has not yet completed.)
-	initializing bool
+	initializing atomic.Bool
 }
 
 // ExportResourcesAsDot exports the resource graph as a DOT representation for
@@ -503,7 +503,7 @@ func newWithResources(
 
 	successful = true
 	// Robot is "initializing" until first reconfigure after initial creation completes.
-	r.initializing = true
+	r.initializing.Store(true)
 	return r, nil
 }
 
@@ -1095,7 +1095,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	// got a chance to attempt configuration.
 	//
 	// On initial construction, this value will get set back to true.
-	r.initializing = false
+	r.initializing.Store(false)
 }
 
 // set Module.LocalVersion on Type=local modules. Call this before localPackages.Sync and in RestartModule.
@@ -1295,7 +1295,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	// If initializing, machine will be starting with no modules, but may
 	// immediately reconfigure to start modules that have already been
 	// downloaded. Do not cleanup packages/module dirs in that case.
-	if !r.initializing {
+	if !r.initializing.Load() {
 		allErrs = multierr.Combine(allErrs, r.packageManager.Cleanup(ctx))
 		allErrs = multierr.Combine(allErrs, r.localPackages.Cleanup(ctx))
 		// Cleanup extra dirs from previous modules or rogue scripts.
@@ -1307,7 +1307,6 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	} else {
 		r.logger.CInfow(ctx, "Robot (re)configured")
 	}
-
 }
 
 // checkMaxInstance checks to see if the local robot has reached the maximum number of a specific resource type that are local.
@@ -1416,7 +1415,7 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 	r.configRevisionMu.RUnlock()
 
 	result.State = robot.StateRunning
-	if r.initializing {
+	if r.initializing.Load() {
 		result.State = robot.StateInitializing
 	}
 	return result, nil
