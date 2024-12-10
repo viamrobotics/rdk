@@ -606,13 +606,13 @@ func (c *viamClient) downloadBinary(dst string, id *datapb.BinaryID, timeout uin
 		return errors.Wrapf(err, "could not create data directory %s", filepath.Dir(dataPath))
 	}
 	//nolint:gosec
-	tmpFile, err := os.Create(dataPath)
+	dataFile, err := os.Create(dataPath)
 	if err != nil {
 		debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Failed creating file %s: %s", id.FileId, err)
 		return errors.Wrapf(err, fmt.Sprintf("could not create file for datum %s", datum.GetMetadata().GetId())) //nolint:govet
 	}
 	//nolint:gosec
-	if _, err := io.Copy(tmpFile, r); err != nil {
+	if _, err := io.Copy(dataFile, r); err != nil {
 		debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Failed writing data to file %s: %s", id.FileId, err)
 		return err
 	}
@@ -739,7 +739,6 @@ func (c *viamClient) tabularData(dest string, request *datapb.ExportTabularDataR
 				case dataRow, ok := <-dataRowChan:
 					// No more data to write.
 					if !ok {
-						printf(c.c.App.Writer, "") // newline
 						return nil
 					}
 
@@ -761,6 +760,7 @@ func (c *viamClient) tabularData(dest string, request *datapb.ExportTabularDataR
 			continue
 		}
 
+		printf(c.c.App.Writer, "") // newline
 		return err
 	}
 
