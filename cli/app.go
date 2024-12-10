@@ -1603,12 +1603,12 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							Usage: "namespace or organization ID of module",
 						},
 						&cli.StringFlag{
-							Name:  moduleFlagResourceType,
-							Usage: "resource type to use in module",
-						},
-						&cli.StringFlag{
 							Name:  moduleFlagResourceSubtype,
 							Usage: "resource subtype to use in module",
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagResourceType,
+							Usage: "resource type to use in module",
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagModelName,
