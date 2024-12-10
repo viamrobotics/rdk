@@ -4504,3 +4504,72 @@ func TestRemovingOfflineRemotes(t *testing.T) {
 	cancelReconfig()
 	wg.Wait()
 }
+
+// Tests that machine state properly reports initializing and running.
+//func TestMachineState(t *testing.T) {
+//logger := logging.NewTestLogger(t)
+//ctx := context.Background()
+
+//completeComponentConstruction := make(chan struct{}, 1)
+
+//// Register a `foo` component whose construction completion can be delayed,
+//// and defer its deregistration.
+//resource.RegisterComponent(generic.API, fooModel, resource.Registration[resource.Resource,
+//resource.NoNativeConfig]{
+//Constructor: func(
+//ctx context.Context,
+//deps resource.Dependencies,
+//conf resource.Config,
+//logger logging.Logger,
+//) (resource.Resource, error) {
+//// Delay completion of constructor until `completeComponentConstruction` is closed.
+//<-completeComponentConstruction
+
+//return &fooComponent{
+//Named:  conf.ResourceName().AsNamed(),
+//logger: logger,
+//}, nil
+//},
+//})
+//defer func() {
+//resource.Deregister(generic.API, fooModel)
+//}()
+
+//cfg := &config.Config{
+//Components: []resource.Config{
+//{
+//Name:  "foo",
+//API:   generic.API,
+//Model: fooModel,
+//},
+//},
+//}
+//r := setupLocalRobot(t, ctx, cfg, logger)
+
+//// Assert that robot reports a state of "initializing" until `foo` completes construction.
+//machineStatus, err := r.MachineStatus(ctx)
+//test.That(t, err, test.ShouldBeNil)
+//test.That(t, machineStatus, test.ShouldNotBeNil)
+//test.That(t, machineStatus.State, test.ShouldEqual, robot.StateInitializing)
+
+//close(completeComponentConstruction)
+
+//// Assert that robot reports a state of "running" after `foo` completes
+//// construction.
+//machineStatus, err = r.MachineStatus(ctx)
+//test.That(t, err, test.ShouldBeNil)
+//test.That(t, machineStatus, test.ShouldNotBeNil)
+//test.That(t, machineStatus.State, test.ShouldEqual, robot.StateRunning)
+
+//// Reconfigure robot to replace `foo` with idential `bar` component (should build
+//// immediately, as `completeComponentConstruction` has already been closed.)
+//cfg.Components[0].Name = "bar"
+//r.Reconfigure(ctx, cfg)
+
+//// Assert that robot continues to report a state of "running" even after further
+//// reconfiguration.
+//machineStatus, err = r.MachineStatus(ctx)
+//test.That(t, err, test.ShouldBeNil)
+//test.That(t, machineStatus, test.ShouldNotBeNil)
+//test.That(t, machineStatus.State, test.ShouldEqual, robot.StateRunning)
+//}

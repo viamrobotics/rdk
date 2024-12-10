@@ -1115,6 +1115,16 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 		mStatus.Resources = append(mStatus.Resources, resStatus)
 	}
 
+	switch resp.State {
+	case pb.GetMachineStatusResponse_STATE_UNSPECIFIED:
+		rc.logger.CError(ctx, "received unspecified machine state")
+		mStatus.State = robot.StateUnknown
+	case pb.GetMachineStatusResponse_STATE_INITIALIZING:
+		mStatus.State = robot.StateInitializing
+	case pb.GetMachineStatusResponse_STATE_RUNNING:
+		mStatus.State = robot.StateRunning
+	}
+
 	return mStatus, nil
 }
 

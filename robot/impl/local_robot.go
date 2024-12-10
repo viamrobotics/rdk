@@ -91,6 +91,10 @@ type localRobot struct {
 
 	// whether the robot is actively reconfiguring
 	reconfiguring atomic.Bool
+
+	// whether the robot is still initializing (first reconfigure after initial
+	// construction has not yet completed.)
+	initializing bool
 }
 
 // ExportResourcesAsDot exports the resource graph as a DOT representation for
@@ -511,6 +515,8 @@ func newWithResources(
 	}
 
 	successful = true
+	// Robot is "initializing" until first reconfigure after initial creation completes.
+	r.initializing = true
 	return r, nil
 }
 
@@ -1097,6 +1103,14 @@ func dialRobotClient(
 // possibly leak resources. The given config may be modified by Reconfigure.
 func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) {
 	r.reconfigure(ctx, newConfig, false)
+
+	// Robot is no longer initializing after a reconfigure completes. It does not
+	// matter if the call above resulted in errors, we only care that all
+	// initially specified components, servies, modules, remotes, and processes
+	// got a chance to attempt configuration.
+	//
+	// On initial construction, this value will get set back to true.
+	r.initializing = false
 }
 
 // set Module.LocalVersion on Type=local modules. Call this before localPackages.Sync and in RestartModule.
@@ -1289,18 +1303,26 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		allErrs = multierr.Combine(allErrs, err)
 	}
 
-	// Cleanup unused packages after all old resources have been closed above. This ensures
-	// processes are shutdown before any files are deleted they are using.
-	allErrs = multierr.Combine(allErrs, r.packageManager.Cleanup(ctx))
-	allErrs = multierr.Combine(allErrs, r.localPackages.Cleanup(ctx))
-	// Cleanup extra dirs from previous modules or rogue scripts.
-	allErrs = multierr.Combine(allErrs, r.manager.moduleManager.CleanModuleDataDirectory())
+	// If not initializing, cleanup unused packages after all old resources have
+	// been closed above. This ensures processes are shutdown before any files
+	// are deleted they are using.
+	//
+	// If initializing, machine will be starting with no modules, but may
+	// immediately reconfigure to start modules that have already been
+	// downloaded. Do not cleanup packages/module dirs in that case.
+	if !r.initializing {
+		allErrs = multierr.Combine(allErrs, r.packageManager.Cleanup(ctx))
+		allErrs = multierr.Combine(allErrs, r.localPackages.Cleanup(ctx))
+		// Cleanup extra dirs from previous modules or rogue scripts.
+		allErrs = multierr.Combine(allErrs, r.manager.moduleManager.CleanModuleDataDirectory())
+	}
 
 	if allErrs != nil {
 		r.logger.CErrorw(ctx, "The following errors were gathered during reconfiguration", "errors", allErrs)
 	} else {
 		r.logger.CInfow(ctx, "Robot (re)configured")
 	}
+
 }
 
 // checkMaxInstance checks to see if the local robot has reached the maximum number of a specific resource type that are local.
@@ -1431,6 +1453,10 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 	result.Config = r.configRevision
 	r.configRevisionMu.RUnlock()
 
+	result.State = robot.StateRunning
+	if r.initializing {
+		result.State = robot.StateInitializing
+	}
 	return result, nil
 }
 
