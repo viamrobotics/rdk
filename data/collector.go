@@ -14,11 +14,9 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.opencensus.io/trace"
 	"go.viam.com/utils"
-	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
