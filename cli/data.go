@@ -612,6 +612,7 @@ func (c *viamClient) tabularData(dst string, filter *datapb.Filter, limit uint) 
 	}
 
 	var err error
+	//nolint:deprecated,staticcheck
 	var resp *datapb.TabularDataByFilterResponse
 	// TODO(DATA-640): Support export in additional formats.
 	//nolint:gosec
@@ -627,6 +628,7 @@ func (c *viamClient) tabularData(dst string, filter *datapb.Filter, limit uint) 
 	mdIndex := 0
 	for {
 		for count := 0; count < maxRetryCount; count++ {
+			//nolint:deprecated,staticcheck
 			resp, err = c.dataClient.TabularDataByFilter(context.Background(), &datapb.TabularDataByFilterRequest{
 				DataRequest: &datapb.DataRequest{
 					Filter: filter,
