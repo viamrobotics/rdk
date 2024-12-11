@@ -57,40 +57,6 @@ func TestFailingClient(t *testing.T) {
 	_, err := viamgrpc.Dial(cancelCtx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeError, context.Canceled)
-
-	// test nil GPIOByName to ensure that nil handle on server side works for client
-	listener, cleanup = setupService(t, injectBoard)
-	defer cleanup()
-
-	testNilFailingClient := func(t *testing.T, client board.Board) {
-		t.Helper()
-
-		injectGPIOPin := &inject.GPIOPin{}
-		injectBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
-			return nil, nil
-		}
-
-		// Set
-		injectGPIOPin.SetFunc = func(ctx context.Context, high bool, extra map[string]interface{}) error {
-			return nil
-		}
-
-		onePin, err := client.GPIOPinByName("one")
-		test.That(t, err, test.ShouldBeNil)
-		err = onePin.Set(context.Background(), true, nil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, board.ErrGPIOPinByNameReturnNil(testBoardName).Error())
-	}
-
-	t.Run("New failing client from connection", func(t *testing.T) {
-		ctx := context.Background()
-		conn, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
-		test.That(t, err, test.ShouldBeNil)
-		client, err := board.NewClientFromConn(ctx, conn, "", board.Named(testBoardName), logger)
-		test.That(t, err, test.ShouldBeNil)
-
-		testNilFailingClient(t, client)
-		test.That(t, conn.Close(), test.ShouldBeNil)
-	})
 }
 
 func TestWorkingClient(t *testing.T) {

@@ -13,12 +13,15 @@ import (
 )
 
 var (
+	// ErrGPIOPinByNameReturnNil is the error returned when a gpio pin is nil.
 	ErrGPIOPinByNameReturnNil = func(boardName string) error {
 		return fmt.Errorf("board component %v GPIOPinByName should not return nil pin", boardName)
 	}
+	// ErrAnalogByNameReturnNil is the error returned when an analog is nil.
 	ErrAnalogByNameReturnNil = func(boardName string) error {
 		return fmt.Errorf("board component %v AnalogByName should not return nil analog", boardName)
 	}
+	// ErrDigitalInterruptByNameReturnNil is the error returned when a digital interrupt is nil.
 	ErrDigitalInterruptByNameReturnNil = func(boardName string) error {
 		return fmt.Errorf("board component %v DigitalInterruptByName should not return nil digital interrupt", boardName)
 	}

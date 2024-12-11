@@ -201,13 +201,17 @@ func TestServer(t *testing.T) {
 			r3.Vector{},
 			testBaseName,
 		)
+		test.That(t, err, test.ShouldBeNil)
+
 		// on a successful get geometries
 		workingBase.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
 			return []spatialmath.Geometry{box}, nil
 		}
 		req := &pbcommon.GetGeometriesRequest{Name: testBaseName}
 		resp, err := server.GetGeometries(context.Background(), req) // TODO (rh) rename server to bServer after review
-		test.That(t, resp, test.ShouldResemble, &pbcommon.GetGeometriesResponse{Geometries: spatialmath.NewGeometriesToProto([]spatialmath.Geometry{box})})
+		test.That(t, resp, test.ShouldResemble, &pbcommon.GetGeometriesResponse{
+			Geometries: spatialmath.NewGeometriesToProto([]spatialmath.Geometry{box}),
+		})
 		test.That(t, err, test.ShouldBeNil)
 
 		// on a failing get properties

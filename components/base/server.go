@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+// ErrGeometriesNil is the returned error if base geometries are nil.
 var ErrGeometriesNil = func(baseName string) error {
 	return fmt.Errorf("base component %v Geometries should not return nil geometries", baseName)
 }
