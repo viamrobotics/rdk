@@ -175,7 +175,7 @@ func (s *serviceServer) ReadAnalogReader(
 		return nil, err
 	}
 	if theReader == nil {
-		return nil, ErrAnalogByNameReturnNil(req.AnalogReaderName)
+		return nil, ErrAnalogByNameReturnNil(req.BoardName)
 	}
 
 	analogValue, err := theReader.Read(ctx, req.Extra.AsMap())
@@ -205,7 +205,7 @@ func (s *serviceServer) WriteAnalog(
 		return nil, err
 	}
 	if analog == nil {
-		return nil, ErrAnalogByNameReturnNil(req.Pin)
+		return nil, ErrAnalogByNameReturnNil(req.Name)
 	}
 
 	err = analog.Write(ctx, int(req.Value), req.Extra.AsMap())
@@ -231,7 +231,7 @@ func (s *serviceServer) GetDigitalInterruptValue(
 		return nil, err
 	}
 	if interrupt == nil {
-		return nil, ErrDigitalInterruptByNameReturnNil(req.DigitalInterruptName)
+		return nil, ErrDigitalInterruptByNameReturnNil(req.BoardName)
 	}
 
 	val, err := interrupt.Value(ctx, req.Extra.AsMap())
@@ -257,9 +257,6 @@ func (s *serviceServer) StreamTicks(
 		di, err := b.DigitalInterruptByName(name)
 		if err != nil {
 			return err
-		}
-		if di == nil {
-			return ErrDigitalInterruptByNameReturnNil(name)
 		}
 
 		interrupts = append(interrupts, di)

@@ -576,12 +576,12 @@ func TestServerReadAnalogReader(t *testing.T) {
 			expRespErr:       "",
 		},
 		{
-			injectAnalog:     nil,
+			injectAnalog:     &inject.Analog{},
 			injectAnalogErr:  nil,
 			injectVal:        board.AnalogValue{Value: 8, Min: 0, Max: 10, StepSize: 0.1},
 			injectErr:        nil,
 			req:              &request{BoardName: testBoardName, AnalogReaderName: "analog1"},
-			expCapAnalogArgs: []interface{}(nil),
+			expCapAnalogArgs: []interface{}{"analog1"},
 			expCapArgs:       []interface{}(nil),
 			expResp:          nil,
 			expRespErr:       fmt.Sprint(board.ErrAnalogByNameReturnNil(testBoardName)),
@@ -595,6 +595,9 @@ func TestServerReadAnalogReader(t *testing.T) {
 			var actualExtra map[string]interface{}
 
 			injectBoard.AnalogByNameFunc = func(name string) (board.Analog, error) {
+				if tc.expRespErr == fmt.Sprint(board.ErrAnalogByNameReturnNil(testBoardName)) {
+					return nil, nil
+				}
 				return tc.injectAnalog, tc.injectAnalogErr
 			}
 
@@ -680,6 +683,9 @@ func TestServerWriteAnalog(t *testing.T) {
 				return tc.injectErr
 			}
 			injectBoard.AnalogByNameFunc = func(pin string) (board.Analog, error) {
+				if tc.expRespErr == fmt.Sprint(board.ErrAnalogByNameReturnNil(testBoardName)) {
+					return nil, nil
+				}
 				return &injectAnalog, nil
 			}
 
@@ -761,12 +767,12 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 			expRespErr:                 "",
 		},
 		{
-			injectDigitalInterrupt:     nil,
+			injectDigitalInterrupt:     &inject.DigitalInterrupt{},
 			injectDigitalInterruptErr:  nil,
 			injectResult:               0,
 			injectErr:                  nil,
 			req:                        &request{BoardName: testBoardName, DigitalInterruptName: "digital1"},
-			expCapDigitalInterruptArgs: []interface{}(nil),
+			expCapDigitalInterruptArgs: []interface{}{"digital1"},
 			expCapArgs:                 []interface{}(nil),
 			expResp:                    nil,
 			expRespErr:                 fmt.Sprint(board.ErrDigitalInterruptByNameReturnNil(testBoardName)),
@@ -780,6 +786,9 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 			var actualExtra map[string]interface{}
 
 			injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, error) {
+				if tc.expRespErr == fmt.Sprint(board.ErrDigitalInterruptByNameReturnNil(testBoardName)) {
+					return nil, nil
+				}
 				return tc.injectDigitalInterrupt, tc.injectDigitalInterruptErr
 			}
 
@@ -873,7 +882,7 @@ func TestStreamTicks(t *testing.T) {
 		},
 		{
 			name:                      "unknown digital interrupt should return error",
-			injectDigitalInterrupts:   nil,
+			injectDigitalInterrupts:   []*inject.DigitalInterrupt{{}, {}},
 			injectDigitalInterruptErr: errDigital,
 			streamTicksErr:            errors.New("unknown digital interrupt: digital3"),
 			req:                       &request{Name: testBoardName, PinNames: []string{"digital3"}},
@@ -890,16 +899,6 @@ func TestStreamTicks(t *testing.T) {
 			expResp:                   &response{PinName: "digital1", Time: uint64(time.Nanosecond), High: true},
 			expRespErr:                "send fail",
 			sendFail:                  true,
-		},
-		{
-			name:                      "digital interrupt is nil",
-			injectDigitalInterrupts:   nil,
-			injectDigitalInterruptErr: nil,
-			streamTicksErr:            nil,
-			req:                       &request{Name: testBoardName, PinNames: []string{"digital3"}},
-			expResp:                   nil,
-			expRespErr:                fmt.Sprint(board.ErrDigitalInterruptByNameReturnNil(testBoardName)),
-			sendFail:                  false,
 		},
 	}
 
