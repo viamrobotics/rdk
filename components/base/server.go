@@ -169,7 +169,7 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 		return nil, err
 	}
 	if geometries == nil {
-		return nil, fmt.Errorf("base component %v Geometries should not return nil geometries", req.GetName())
+		return nil, ErrGeometriesNil(req.GetName())
 	}
 	return &commonpb.GetGeometriesResponse{Geometries: spatialmath.NewGeometriesToProto(geometries)}, nil
 }
