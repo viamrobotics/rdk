@@ -404,7 +404,10 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	// and immediately start web service. We need the machine to be reachable
 	// through the web service ASAP, even if some resources take a long time to
 	// initially configure.
-	minimalProcessedConfig := &(*fullProcessedConfig)
+	minimalProcessedConfig, err := fullProcessedConfig.CopyOnlyPublicFields()
+	if err != nil {
+		return err
+	}
 	minimalProcessedConfig.Components = nil
 	minimalProcessedConfig.Services = nil
 	minimalProcessedConfig.Remotes = nil
