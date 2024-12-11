@@ -55,7 +55,13 @@ func (x *streamServer) Send(m *pb.StreamEventsResponse) error {
 	return nil
 }
 
-func newServer() (pb.InputControllerServiceServer, *inject.TriggerableInputController, *inject.InputController, *inject.InputController, error) {
+func newServer() (
+	pb.InputControllerServiceServer,
+	*inject.TriggerableInputController,
+	*inject.InputController,
+	*inject.InputController,
+	error,
+) {
 	injectInputController := &inject.TriggerableInputController{}
 	injectInputController2 := &inject.InputController{}
 	injectInputController3 := &inject.InputController{}
@@ -68,7 +74,11 @@ func newServer() (pb.InputControllerServiceServer, *inject.TriggerableInputContr
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-	return input.NewRPCServiceServer(inputControllerSvc).(pb.InputControllerServiceServer), injectInputController, injectInputController2, injectInputController3, nil
+	return input.NewRPCServiceServer(inputControllerSvc).(pb.InputControllerServiceServer),
+		injectInputController,
+		injectInputController2,
+		injectInputController3,
+		nil
 }
 
 func TestServer(t *testing.T) {
