@@ -67,6 +67,13 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errReadingsFailed.Error())
 
+		injectSensor2.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+			return nil, nil
+		}
+		_, err = sensorServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: failSensorName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, sensor.ErrReadingsNil("sensor", failSensorName).Error())
+
 		_, err = sensorServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: missingSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
