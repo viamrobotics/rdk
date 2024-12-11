@@ -73,6 +73,8 @@ type viamClient struct {
 	buildClient      buildpb.BuildServiceClient
 	baseURL          *url.URL
 	authFlow         *authFlow
+	// CR erodkin: use this to determine if we should try to log-in automatically (if attempting to auth with a profile) or not
+	profile *string
 
 	selectedOrg *apppb.Organization
 	selectedLoc *apppb.Location
@@ -736,7 +738,7 @@ func CheckUpdateAction(c *cli.Context) error {
 		return nil
 	}
 
-	conf, err := ConfigFromCache()
+	conf, err := ConfigFromCache(c)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			utils.UncheckedError(err)
@@ -895,7 +897,7 @@ func isProdBaseURL(baseURL *url.URL) bool {
 }
 
 func newViamClient(c *cli.Context) (*viamClient, error) {
-	conf, err := ConfigFromCache()
+	conf, err := ConfigFromCache(c)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			debugf(c.App.Writer, c.Bool(debugFlag), "Cached config parse error: %v", err)

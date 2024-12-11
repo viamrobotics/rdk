@@ -18,6 +18,8 @@ const (
 	machineFlag      = "machine"
 	aliasRobotFlag   = "robot"
 	partFlag         = "part"
+	profileFlag      = "profile"
+	profileFlagName  = "profile-name"
 
 	// TODO: RSDK-6683.
 	quietFlag = "quiet"
@@ -267,8 +269,34 @@ var app = &cli.App{
 			Aliases: []string{"q"},
 			Usage:   "suppress warnings",
 		},
+		&cli.StringFlag{
+			Name:  profileFlag,
+			Usage: "Specify a particular profile for the current command",
+		},
 	},
 	Commands: []*cli.Command{
+		{
+			// CR erodkin: move these down a layer, `cli profiles add`, `cli profiles update`, etc.
+			Name: "add-profile",
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:     profileFlagName,
+					Required: true,
+					Usage:    "name of the profile",
+				},
+				&cli.StringFlag{
+					Name:     loginFlagKeyID,
+					Required: true,
+					Usage:    "id of the key to authenticate with",
+				},
+				&cli.StringFlag{
+					Name:     loginFlagKey,
+					Required: true,
+					Usage:    "key to authenticate with",
+				},
+			},
+			Action: AddProfileAction,
+		},
 		{
 			Name: "login",
 			// NOTE(benjirewis): maintain `auth` as an alias for backward compatibility.

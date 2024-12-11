@@ -2,10 +2,12 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/pkg/errors"
+	"github.com/urfave/cli/v2"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -17,9 +19,17 @@ func getCLICachePath() string {
 	return filepath.Join(viamDotDir, "cached_cli_config.json")
 }
 
+func getCLIProfilesPath() string {
+	return filepath.Join(viamDotDir, "cli_profiles.json")
+}
+
+func getCLIProfilePath(profileName string) string {
+	return filepath.Join(viamDotDir, fmt.Sprintf("%s_cached_cli_config.json", profileName))
+}
+
 // ConfigFromCache parses the cached json into a Config. Removes the config from cache on any error.
 // TODO(RSDK-7812): maybe move shared code to common location.
-func ConfigFromCache() (_ *Config, err error) {
+func configFromCacheInner(configPath string) (_ *Config, err error) {
 	defer func() {
 		if err != nil && !os.IsNotExist(err) {
 			utils.UncheckedError(removeConfigFromCache())
@@ -43,11 +53,44 @@ func ConfigFromCache() (_ *Config, err error) {
 	return nil, errors.Wrap(multierr.Combine(tokenErr, apiKeyErr), "failed to parse cached config")
 }
 
+func ConfigFromCache(c *cli.Context) (*Config, error) {
+	// if the global `--profile` override flag is set, use that.
+	// CR erodkin: remove this `isSet` call if we can
+	if c.IsSet(profileFlag) {
+		// CR erodkin: use args
+		conf, err := configFromCacheInner(c.String(profileFlag))
+		if err != nil {
+			return conf, err
+		}
+		// CR erodkin: use args
+		warningf(c.App.ErrWriter, "Unable to find config for profile %s", c.String(profileFlag))
+	}
+	getProfileConfig := func() (*Config, error) {
+		profiles := profiles{}
+		profilesBytes, err := os.ReadFile(getCLIProfilesPath())
+		if err != nil {
+			return nil, err
+		}
+		if err = json.Unmarshal(profilesBytes, profiles); err != nil {
+			return nil, err
+		}
+
+		return configFromCacheInner(getCLIProfilePath(profiles.currentProfile))
+	}
+	conf, err := getProfileConfig()
+	if err == nil {
+		return conf, nil
+	}
+
+	warningf(c.App.ErrWriter, "Unable to get config for profile, falling back to default config")
+	return configFromCacheInner(getCLICachePath())
+}
+
 func removeConfigFromCache() error {
 	return os.Remove(getCLICachePath())
 }
 
-func storeConfigToCache(cfg *Config) error {
+func storeConfigToCacheInner(cfg *Config, path string) error {
 	if err := os.MkdirAll(viamDotDir, 0o700); err != nil {
 		return err
 	}
@@ -56,7 +99,15 @@ func storeConfigToCache(cfg *Config) error {
 		return err
 	}
 	//nolint:gosec
-	return os.WriteFile(getCLICachePath(), md, 0o640)
+	return os.WriteFile(path, md, 0o640)
+}
+
+func storeProfileConfigToCache(cfg *Config, profileName string) error {
+	return storeConfigToCacheInner(cfg, getCLIProfilePath(profileName))
+}
+
+func storeConfigToCache(cfg *Config) error {
+	return storeConfigToCacheInner(cfg, getCLICachePath())
 }
 
 // Config is the schema for saved CLI credentials.
