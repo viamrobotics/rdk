@@ -27,6 +27,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
@@ -191,4 +192,54 @@ func isExpectedShutdownError(err error, testLogger logging.Logger) bool {
 
 	testLogger.Errorw("Unexpected shutdown error", "err", err)
 	return false
+}
+
+// Tests that machine state properly reports initializing or running.
+func TestMachineState(t *testing.T) {
+	if runtime.GOARCH == "arm" {
+		t.Skip("skipping on 32-bit ARM, subprocess build warnings cause failure")
+	}
+
+	logger, logObserver := logging.NewObservedTestLogger(t)
+
+	cfgFilename := utils.ResolveFile("/etc/configs/fake.json")
+	cfg, err := config.Read(context.Background(), cfgFilename, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	var port int
+	var success bool
+	var server pexec.ManagedProcess
+	for portTryNum := 0; portTryNum < 10; portTryNum++ {
+		p, err := goutils.TryReserveRandomPort()
+		port = p
+		test.That(t, err, test.ShouldBeNil)
+
+		cfg.Network.BindAddress = fmt.Sprintf(":%d", port)
+		cfgFilename, err = robottestutils.MakeTempConfig(t, cfg, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		server = robottestutils.ServerAsSeparateProcess(t, cfgFilename, logger)
+		err = server.Start(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+
+		if success = robottestutils.WaitForServing(logObserver, port); success {
+			defer func() {
+				test.That(t, server.Stop(), test.ShouldBeNil)
+			}()
+			break
+		}
+		logger.Infow("Port in use. Restarting on new port.", "port", port, "err", err)
+		server.Stop()
+		continue
+	}
+	test.That(t, success, test.ShouldBeTrue)
+
+	addr := "localhost:" + strconv.Itoa(port)
+	rc := robottestutils.NewRobotClient(t, logger, addr, time.Second)
+
+	machineStatus, err := rc.MachineStatus(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, machineStatus, test.ShouldNotBeNil)
+	test.That(t, machineStatus.State, test.ShouldBeIn,
+		[]robot.MachineState{robot.StateInitializing, robot.StateRunning})
 }
