@@ -450,39 +450,41 @@ func newWithResources(
 		cfg.PackagePath,
 	)
 
-	r.activeBackgroundWorkers.Add(1)
-	r.configTicker = time.NewTicker(5 * time.Second)
-	// This goroutine tries to complete the config and update weak dependencies
-	// if any resources are not configured. It executes every 5 seconds or when
-	// manually triggered. Manual triggers are sent when changes in remotes are
-	// detected and in testing.
-	goutils.ManagedGo(func() {
-		for {
-			if closeCtx.Err() != nil {
-				return
-			}
+	if !rOpts.disableBackgroundReconfiguration {
+		r.activeBackgroundWorkers.Add(1)
+		r.configTicker = time.NewTicker(5 * time.Second)
+		// This goroutine tries to complete the config and update weak dependencies
+		// if any resources are not configured. It executes every 5 seconds or when
+		// manually triggered. Manual triggers are sent when changes in remotes are
+		// detected and in testing.
+		goutils.ManagedGo(func() {
+			for {
+				if closeCtx.Err() != nil {
+					return
+				}
 
-			var trigger string
-			select {
-			case <-closeCtx.Done():
-				return
-			case <-r.configTicker.C:
-				trigger = "ticker"
-			case <-r.triggerConfig:
-				trigger = "remote"
-				r.logger.CDebugw(ctx, "configuration attempt triggered by remote")
+				var trigger string
+				select {
+				case <-closeCtx.Done():
+					return
+				case <-r.configTicker.C:
+					trigger = "ticker"
+				case <-r.triggerConfig:
+					trigger = "remote"
+					r.logger.CDebugw(ctx, "configuration attempt triggered by remote")
+				}
+				anyChanges := r.manager.updateRemotesResourceNames(closeCtx)
+				if r.manager.anyResourcesNotConfigured() {
+					anyChanges = true
+					r.manager.completeConfig(closeCtx, r, false)
+				}
+				if anyChanges {
+					r.updateWeakDependents(ctx)
+					r.logger.CDebugw(ctx, "configuration attempt completed with changes", "trigger", trigger)
+				}
 			}
-			anyChanges := r.manager.updateRemotesResourceNames(closeCtx)
-			if r.manager.anyResourcesNotConfigured() {
-				anyChanges = true
-				r.manager.completeConfig(closeCtx, r, false)
-			}
-			if anyChanges {
-				r.updateWeakDependents(ctx)
-				r.logger.CDebugw(ctx, "configuration attempt completed with changes", "trigger", trigger)
-			}
-		}
-	}, r.activeBackgroundWorkers.Done)
+		}, r.activeBackgroundWorkers.Done)
+	}
 
 	r.Reconfigure(ctx, cfg)
 

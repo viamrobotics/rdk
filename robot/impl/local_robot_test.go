@@ -2798,14 +2798,8 @@ func TestSendTriggerConfig(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	// Set up local robot normally so that the triggerConfig channel is set up normally
-	r := setupLocalRobot(t, ctx, &config.Config{}, logger)
-
-	// Close the robot to stop the background workers from processing any messages to triggerConfig
-	// but also reinitialize the closeContext so that sendTriggerConfig will attempt to send messages
-	// through.
-	test.That(t, r.Close(ctx), test.ShouldBeNil)
+	r := setupLocalRobot(t, ctx, &config.Config{}, logger, withDisableBackgroundReconfiguration())
 	actualR := r.(*localRobot)
-	actualR.closeContext = context.Background()
 
 	// This pattern fails the test faster on deadlocks instead of having to wait for the full
 	// test timeout.
