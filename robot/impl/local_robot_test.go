@@ -72,7 +72,6 @@ import (
 	motionBuiltin "go.viam.com/rdk/services/motion/builtin"
 	"go.viam.com/rdk/services/navigation"
 	_ "go.viam.com/rdk/services/register"
-	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 	rtestutils "go.viam.com/rdk/testutils"
@@ -845,7 +844,7 @@ func TestMetadataUpdate(t *testing.T) {
 	test.That(t, len(resources), test.ShouldEqual, 7)
 	test.That(t, err, test.ShouldBeNil)
 
-	// 5 declared resources + default sensors
+	// 5 declared resources + default motion
 	resourceNames := []resource.Name{
 		arm.Named("pieceArm"),
 		audioinput.Named("mic1"),
@@ -1742,13 +1741,13 @@ func TestConfigMethod(t *testing.T) {
 
 	r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
 
-	// Assert that Config method returns the two default services: motion and sensors.
+	// Assert that Config method returns the default motion service.
 	actualCfg := r.Config()
 	defaultSvcs := removeDefaultServices(actualCfg)
 	test.That(t, len(defaultSvcs), test.ShouldEqual, 1)
 	for _, svc := range defaultSvcs {
-		test.That(t, svc.API.SubtypeName, test.ShouldBeIn,
-			motion.API.SubtypeName, sensors.API.SubtypeName)
+		test.That(t, svc.API.SubtypeName, test.ShouldEqual,
+			motion.API.SubtypeName)
 	}
 	test.That(t, actualCfg, test.ShouldResemble, &config.Config{})
 
@@ -1852,8 +1851,7 @@ func TestConfigMethod(t *testing.T) {
 	defaultSvcs = removeDefaultServices(actualCfg)
 	test.That(t, len(defaultSvcs), test.ShouldEqual, 1)
 	for _, svc := range defaultSvcs {
-		test.That(t, svc.API.SubtypeName, test.ShouldBeIn, motion.API.SubtypeName,
-			sensors.API.SubtypeName)
+		test.That(t, svc.API.SubtypeName, test.ShouldResemble, motion.API.SubtypeName)
 	}
 
 	// Manually inspect remaining service resources as ordering of config is
