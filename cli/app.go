@@ -1597,7 +1597,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 						},
 						&cli.BoolFlag{
 							Name: moduleFlagIsPublic,
-							Usage: "visibility of module",
+							Usage: "set module to public",
 						},
 						&cli.StringFlag{
 							Name: moduleFlagPublicNamespace,
