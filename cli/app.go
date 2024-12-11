@@ -129,6 +129,7 @@ const (
 	cpFlagPreserve  = "preserve"
 
 	organizationFlagSupportEmail = "support-email"
+	organizationBillingAddress   = "address"
 )
 
 // matches all uppercase characters that follow lowercase chars and aren't at the [0] index of a string.
@@ -474,6 +475,35 @@ var app = &cli.App{
 								},
 							},
 							Action: createCommandWithT[getBillingConfigArgs](GetBillingConfigAction),
+						},
+						{
+							Name:  "disable",
+							Usage: "disable the billing service for an organization",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "the org to disable the billing service for",
+								},
+							},
+							Action: createCommandWithT[organizationDisableBillingServiceArgs](OrganizationDisableBillingServiceAction),
+						},
+						{
+							Name:  "update",
+							Usage: "update the billing service update for an organization",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "the org to update the billing service for",
+								},
+								&cli.StringFlag{
+									Name:     organizationBillingAddress,
+									Required: true,
+									Usage:    "the stringified address that follows the pattern: line1, line2 (optional), city, state, zipcode",
+								},
+							},
+							Action: createCommandWithT[updateBillingServiceArgs](UpdateBillingServiceAction),
 						},
 					},
 				},

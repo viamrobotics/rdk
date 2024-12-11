@@ -186,6 +186,60 @@ func (c *viamClient) organizationsSupportEmailGetAction(cCtx *cli.Context, orgID
 	return nil
 }
 
+type updateBillingServiceArgs struct {
+	OrgID   string
+	Address string
+}
+
+// UpdateBillingServiceAction corresponds to `organizations billing-service update`.
+func UpdateBillingServiceAction(cCtx *cli.Context, args updateBillingServiceArgs) error {
+	c, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+	orgID := args.OrgID
+	if orgID == "" {
+		return errors.New("cannot update billing service without an organization ID")
+	}
+
+	address := args.Address
+	if address == "" {
+		return errors.New("cannot update billing service to an empty address")
+	}
+
+	return c.updateBillingServiceAction(cCtx, orgID, address)
+}
+
+func (c *viamClient) updateBillingServiceAction(cCtx *cli.Context, orgID, addressAsString string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	address, err := parseBillingAddress(addressAsString)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.client.UpdateBillingService(cCtx.Context, &apppb.UpdateBillingServiceRequest{
+		OrgId:          orgID,
+		BillingAddress: address,
+	})
+	if err != nil {
+		return err
+	}
+
+	printf(cCtx.App.Writer, "Successfully updated billing service for organization %q", orgID)
+	printf(cCtx.App.Writer, " --- Billing Address --- ")
+	printf(cCtx.App.Writer, "Address Line 1: %s", address.GetAddressLine_1())
+	if address.GetAddressLine_2() != "" {
+		printf(cCtx.App.Writer, "Address Line 2: %s", address.GetAddressLine_2())
+	}
+	printf(cCtx.App.Writer, "City: %s", address.GetCity())
+	printf(cCtx.App.Writer, "State: %s", address.GetState())
+	printf(cCtx.App.Writer, "Postal Code: %s", address.GetZipcode())
+	printf(cCtx.App.Writer, "Country: USA")
+	return nil
+}
+
 type getBillingConfigArgs struct {
 	OrgID string
 }
@@ -225,6 +279,38 @@ func (c *viamClient) getBillingConfig(cCtx *cli.Context, orgID string) error {
 	printf(cCtx.App.Writer, "State: %s", resp.BillingAddress.GetState())
 	printf(cCtx.App.Writer, "Postal Code: %s", resp.BillingAddress.GetZipcode())
 	printf(cCtx.App.Writer, "Country: %s", "USA")
+	return nil
+}
+
+type organizationDisableBillingServiceArgs struct {
+	OrgID string
+}
+
+// OrganizationDisableBillingServiceAction corresponds to `organizations billing disable`.
+func OrganizationDisableBillingServiceAction(cCtx *cli.Context, args organizationDisableBillingServiceArgs) error {
+	client, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+	orgID := args.OrgID
+	if orgID == "" {
+		return errors.New("cannot disable billing service without an organization ID")
+	}
+	return client.organizationDisableBillingServiceAction(cCtx, orgID)
+}
+
+func (c *viamClient) organizationDisableBillingServiceAction(cCtx *cli.Context, orgID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	if _, err := c.client.DisableBillingService(cCtx.Context, &apppb.DisableBillingServiceRequest{
+		OrgId: orgID,
+	}); err != nil {
+		return errors.WithMessage(err, "could not disable billing service")
+	}
+
+	printf(cCtx.App.Writer, "Successfully disabled billing service for organization: %s", orgID)
 	return nil
 }
 

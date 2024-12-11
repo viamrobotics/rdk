@@ -9,7 +9,6 @@ import (
 	"time"
 
 	pb "go.viam.com/api/component/inputcontroller/v1"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -17,7 +16,6 @@ import (
 
 func init() {
 	resource.RegisterAPI(API, resource.APIRegistration[Controller]{
-		Status:                      resource.StatusFunc(CreateStatus),
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterInputControllerServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.InputControllerService_ServiceDesc,
@@ -193,23 +191,4 @@ func FromRobot(r robot.Robot, name string) (Controller, error) {
 // NamesFromRobot is a helper for getting all input controller names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
-}
-
-// CreateStatus creates a status from the input controller.
-func CreateStatus(ctx context.Context, c Controller) (*pb.Status, error) {
-	eventsIn, err := c.Events(ctx, map[string]interface{}{})
-	if err != nil {
-		return nil, err
-	}
-	events := make([]*pb.Event, 0, len(eventsIn))
-	for _, eventIn := range eventsIn {
-		events = append(events, &pb.Event{
-			Time:    timestamppb.New(eventIn.Time),
-			Event:   string(eventIn.Event),
-			Control: string(eventIn.Control),
-			Value:   eventIn.Value,
-		})
-	}
-
-	return &pb.Status{Events: events}, nil
 }
