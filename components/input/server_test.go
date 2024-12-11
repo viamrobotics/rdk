@@ -21,6 +21,7 @@ const (
 	testInputControllerName    = "inputController1"
 	failInputControllerName    = "inputController2"
 	missingInputControllerName = "inputController3"
+	testInputControllerName4   = "inputController4"
 )
 
 var (
@@ -54,22 +55,24 @@ func (x *streamServer) Send(m *pb.StreamEventsResponse) error {
 	return nil
 }
 
-func newServer() (pb.InputControllerServiceServer, *inject.TriggerableInputController, *inject.InputController, error) {
+func newServer() (pb.InputControllerServiceServer, *inject.TriggerableInputController, *inject.InputController, *inject.InputController, error) {
 	injectInputController := &inject.TriggerableInputController{}
 	injectInputController2 := &inject.InputController{}
+	injectInputController3 := &inject.InputController{}
 	inputControllers := map[resource.Name]input.Controller{
-		input.Named(testInputControllerName): injectInputController,
-		input.Named(failInputControllerName): injectInputController2,
+		input.Named(testInputControllerName):  injectInputController,
+		input.Named(failInputControllerName):  injectInputController2,
+		input.Named(testInputControllerName4): injectInputController3,
 	}
 	inputControllerSvc, err := resource.NewAPIResourceCollection(input.API, inputControllers)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
-	return input.NewRPCServiceServer(inputControllerSvc).(pb.InputControllerServiceServer), injectInputController, injectInputController2, nil
+	return input.NewRPCServiceServer(inputControllerSvc).(pb.InputControllerServiceServer), injectInputController, injectInputController2, injectInputController3, nil
 }
 
 func TestServer(t *testing.T) {
-	inputControllerServer, injectInputController, injectInputController2, err := newServer()
+	inputControllerServer, injectInputController, injectInputController2, injectInputController3, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
 
 	var extraOptions map[string]interface{}
@@ -113,6 +116,13 @@ func TestServer(t *testing.T) {
 		return errRegisterFailed
 	}
 
+	injectInputController3.ControlsFunc = func(ctx context.Context, extra map[string]interface{}) ([]input.Control, error) {
+		return nil, nil
+	}
+	injectInputController2.EventsFunc = func(ctx context.Context, extra map[string]interface{}) (map[input.Control]input.Event, error) {
+		return nil, nil
+	}
+
 	t.Run("GetControls", func(t *testing.T) {
 		_, err := inputControllerServer.GetControls(
 			context.Background(),
@@ -138,6 +148,13 @@ func TestServer(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errControlsFailed.Error())
+
+		_, err = inputControllerServer.GetControls(
+			context.Background(),
+			&pb.GetControlsRequest{Controller: testInputControllerName4},
+		)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, input.ErrControlsNil(testInputControllerName4).Error())
 	})
 
 	t.Run("GetEvents", func(t *testing.T) {
@@ -187,6 +204,13 @@ func TestServer(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errEventsFailed.Error())
+
+		_, err = inputControllerServer.GetEvents(
+			context.Background(),
+			&pb.GetEventsRequest{Controller: testInputControllerName4},
+		)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, input.ErrEventsNil(testInputControllerName4).Error())
 	})
 
 	t.Run("StreamEvents", func(t *testing.T) {
