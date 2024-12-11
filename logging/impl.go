@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"sync"
 	"testing"
 	"time"
 
@@ -37,6 +38,9 @@ type (
 
 		// Whether or not to de-duplicate noisy logs.
 		dedupNoisyLogs bool
+
+		// recentMessageMu guards the recentMessage fields below.
+		recentMessageMu sync.Mutex
 		// Map of messages to counts of that message being `Write`ten within window.
 		recentMessageCounts map[string]int
 		// Map of messages to last `LogEntry` with that message within window.
@@ -103,9 +107,11 @@ func (imp *impl) Sublogger(subname string) Logger {
 		imp.testHelper,
 		// Inherit _whether_ we should deduplicate noisy logs from parent. However,
 		// subloggers should handle their own de-duplication with their own maps
-		// and windows. This design avoids races and allows logs with identical
-		// messages from different loggers to be considered unique.
+		// and windows. This design avoids locking across all loggers and allows
+		// logs with identical messages from different loggers to be considered
+		// unique.
 		imp.dedupNoisyLogs,
+		sync.Mutex{},
 		make(map[string]int),
 		make(map[string]LogEntry),
 		time.Now(),
@@ -224,8 +230,9 @@ func (imp *impl) shouldLog(logLevel Level) bool {
 
 func (imp *impl) Write(entry *LogEntry) {
 	if imp.dedupNoisyLogs {
-		// If we have have entered a new recentMessage window, output noisy logs from
+		// If we have entered a new recentMessage window, output noisy logs from
 		// the last window.
+		imp.recentMessageMu.Lock()
 		if time.Since(imp.recentMessageWindowStart) > noisyMessageWindowDuration {
 			for message, count := range imp.recentMessageCounts {
 				if count > noisyMessageCountThreshold {
@@ -255,8 +262,10 @@ func (imp *impl) Write(entry *LogEntry) {
 
 		if imp.recentMessageCounts[entry.Message] > noisyMessageCountThreshold {
 			// If entry's message is reportedly "noisy," return early.
+			imp.recentMessageMu.Unlock()
 			return
 		}
+		imp.recentMessageMu.Unlock()
 	}
 
 	imp.testHelper()
