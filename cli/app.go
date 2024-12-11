@@ -125,6 +125,7 @@ const (
 	cpFlagPreserve  = "preserve"
 
 	organizationFlagSupportEmail = "support-email"
+	organizationBillingAddress   = "address"
 )
 
 var commonFilterFlags = []cli.Flag{
@@ -382,6 +383,30 @@ var app = &cli.App{
 								},
 							},
 							Action: GetBillingConfigAction,
+						},
+						{
+							Name:  "disable",
+							Usage: "disable the billing service for an organization",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "the org to disable the billing service for",
+								},
+							},
+							Action: OrganizationDisableBillingServiceAction,
+						},
+						{
+							Name:  "update",
+							Usage: "update the billing service update for an organization",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     organizationBillingAddress,
+									Required: true,
+									Usage:    "the stringified address that follows the pattern: line1, line2 (optional), city, state, zipcode",
+								},
+							},
+							Action: UpdateBillingServiceAction,
 						},
 					},
 				},

@@ -20,7 +20,6 @@ import (
 
 func init() {
 	resource.RegisterAPI(API, resource.APIRegistration[Board]{
-		Status:                      resource.StatusFunc(CreateStatus),
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterBoardServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.BoardService_ServiceDesc,

@@ -16,7 +16,6 @@ import (
 
 func init() {
 	resource.RegisterAPI(API, resource.APIRegistration[Servo]{
-		Status:                      resource.StatusFunc(CreateStatus),
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterServoServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.ServoService_ServiceDesc,
@@ -82,17 +81,4 @@ func FromRobot(r robot.Robot, name string) (Servo, error) {
 // NamesFromRobot is a helper for getting all servo names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
-}
-
-// CreateStatus creates a status from the servo.
-func CreateStatus(ctx context.Context, s Servo) (*pb.Status, error) {
-	position, err := s.Position(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	isMoving, err := s.IsMoving(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.Status{PositionDeg: position, IsMoving: isMoving}, nil
 }

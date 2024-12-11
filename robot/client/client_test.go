@@ -16,7 +16,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-viper/mapstructure/v2"
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
@@ -877,7 +876,7 @@ func TestClientUnaryDisconnectHandler(t *testing.T) {
 			info *grpc.UnaryServerInfo,
 			handler grpc.UnaryHandler,
 		) (interface{}, error) {
-			if strings.HasSuffix(info.FullMethod, "RobotService/GetStatus") {
+			if strings.HasSuffix(info.FullMethod, "RobotService/GetMachineStatus") {
 				if unaryStatusCallReceived {
 					return nil, status.Error(codes.Unknown, io.ErrClosedPipe.Error())
 				}
@@ -890,8 +889,8 @@ func TestClientUnaryDisconnectHandler(t *testing.T) {
 	gServer := grpc.NewServer(justOneUnaryStatusCall)
 
 	injectRobot := &inject.Robot{}
-	injectRobot.StatusFunc = func(ctx context.Context, rs []resource.Name) ([]robot.Status, error) {
-		return []robot.Status{}, nil
+	injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
+		return robot.MachineStatus{}, nil
 	}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 
@@ -911,7 +910,7 @@ func TestClientUnaryDisconnectHandler(t *testing.T) {
 		t.Helper()
 
 		client.connected.Store(false)
-		_, err = client.Status(context.Background(), []resource.Name{})
+		_, err = client.MachineStatus(context.Background())
 		test.That(t, status.Code(err), test.ShouldEqual, codes.Unavailable)
 		test.That(t, err.Error(), test.ShouldContainSubstring, fmt.Sprintf("not connected to remote robot at %s", listener.Addr().String()))
 		test.That(t, unaryStatusCallReceived, test.ShouldBeFalse)
@@ -921,14 +920,14 @@ func TestClientUnaryDisconnectHandler(t *testing.T) {
 	t.Run("unary call to disconnected remote", func(t *testing.T) {
 		t.Helper()
 
-		_, err = client.Status(context.Background(), []resource.Name{})
+		_, err = client.MachineStatus(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, unaryStatusCallReceived, test.ShouldBeTrue)
 	})
 
 	t.Run("unary call to undetected disconnected remote", func(t *testing.T) {
 		test.That(t, unaryStatusCallReceived, test.ShouldBeTrue)
-		_, err = client.Status(context.Background(), []resource.Name{})
+		_, err = client.MachineStatus(context.Background())
 		test.That(t, status.Code(err), test.ShouldEqual, codes.Unavailable)
 		test.That(t, err.Error(), test.ShouldContainSubstring, fmt.Sprintf("not connected to remote robot at %s", listener.Addr().String()))
 	})
@@ -964,8 +963,8 @@ func TestClientStreamDisconnectHandler(t *testing.T) {
 	injectRobot := &inject.Robot{}
 	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return nil }
-	injectRobot.StatusFunc = func(ctx context.Context, rs []resource.Name) ([]robot.Status, error) {
-		return []robot.Status{}, nil
+	injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
+		return robot.MachineStatus{}, nil
 	}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 
@@ -1494,124 +1493,6 @@ func TestClientConfig(t *testing.T) {
 	})
 }
 
-func TestClientStatus(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	listener1, err := net.Listen("tcp", "localhost:0")
-	test.That(t, err, test.ShouldBeNil)
-	listener2, err := net.Listen("tcp", "localhost:0")
-	test.That(t, err, test.ShouldBeNil)
-	gServer := grpc.NewServer()
-	gServer2 := grpc.NewServer()
-
-	injectRobot := &inject.Robot{
-		ResourceNamesFunc:   func() []resource.Name { return []resource.Name{} },
-		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
-	}
-	injectRobot2 := &inject.Robot{
-		ResourceNamesFunc:   func() []resource.Name { return []resource.Name{} },
-		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
-	}
-	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
-	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot2))
-
-	go gServer.Serve(listener1)
-	defer gServer.Stop()
-
-	go gServer2.Serve(listener2)
-	defer gServer2.Stop()
-
-	t.Run("failing client", func(t *testing.T) {
-		cancelCtx, cancel := context.WithCancel(context.Background())
-		cancel()
-		_, err = New(cancelCtx, listener1.Addr().String(), logger)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
-	})
-
-	t.Run("working status service", func(t *testing.T) {
-		client, err := New(context.Background(), listener1.Addr().String(), logger)
-		test.That(t, err, test.ShouldBeNil)
-
-		gLastReconfigured, err := time.Parse("2006-01-02 15:04:05", "1998-04-30 19:08:00")
-		test.That(t, err, test.ShouldBeNil)
-		gStatus := robot.Status{
-			Name:             movementsensor.Named("gps"),
-			LastReconfigured: gLastReconfigured,
-			Status:           map[string]interface{}{"efg": []string{"hello"}},
-		}
-		aLastReconfigured, err := time.Parse("2006-01-02 15:04:05", "2011-11-11 00:00:00")
-		test.That(t, err, test.ShouldBeNil)
-		aStatus := robot.Status{
-			Name:             arm.Named("arm"),
-			LastReconfigured: aLastReconfigured,
-			Status:           struct{}{},
-		}
-		statusMap := map[resource.Name]robot.Status{
-			gStatus.Name: gStatus,
-			aStatus.Name: aStatus,
-		}
-		injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-			statuses := make([]robot.Status, 0, len(resourceNames))
-			for _, n := range resourceNames {
-				statuses = append(statuses, statusMap[n])
-			}
-			return statuses, nil
-		}
-		expected := map[resource.Name]interface{}{
-			gStatus.Name: map[string]interface{}{"efg": []interface{}{"hello"}},
-			aStatus.Name: map[string]interface{}{},
-		}
-		expectedLRs := map[resource.Name]time.Time{
-			gStatus.Name: gLastReconfigured,
-			aStatus.Name: aLastReconfigured,
-		}
-		resp, err := client.Status(context.Background(), []resource.Name{aStatus.Name})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resp), test.ShouldEqual, 1)
-		test.That(t, resp[0].Status, test.ShouldResemble, expected[resp[0].Name])
-		test.That(t, resp[0].LastReconfigured, test.ShouldResemble, expectedLRs[resp[0].Name])
-
-		result := struct{}{}
-		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &result})
-		test.That(t, err, test.ShouldBeNil)
-		err = decoder.Decode(resp[0].Status)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, result, test.ShouldResemble, aStatus.Status)
-
-		resp, err = client.Status(context.Background(), []resource.Name{gStatus.Name, aStatus.Name})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resp), test.ShouldEqual, 2)
-
-		observed := map[resource.Name]interface{}{
-			resp[0].Name: resp[0].Status,
-			resp[1].Name: resp[1].Status,
-		}
-		observedLRs := map[resource.Name]time.Time{
-			resp[0].Name: resp[0].LastReconfigured,
-			resp[1].Name: resp[1].LastReconfigured,
-		}
-		test.That(t, observed, test.ShouldResemble, expected)
-		test.That(t, observedLRs, test.ShouldResemble, expectedLRs)
-
-		err = client.Close(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-	})
-
-	t.Run("failing status client", func(t *testing.T) {
-		client2, err := New(context.Background(), listener2.Addr().String(), logger)
-		test.That(t, err, test.ShouldBeNil)
-
-		passedErr := errors.New("can't get status")
-		injectRobot2.StatusFunc = func(ctx context.Context, status []resource.Name) ([]robot.Status, error) {
-			return nil, passedErr
-		}
-		_, err = client2.Status(context.Background(), []resource.Name{})
-		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
-
-		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
-	})
-}
-
 func TestForeignResource(t *testing.T) {
 	injectRobot := &inject.Robot{}
 
@@ -1886,18 +1767,18 @@ func TestClientOperationIntercept(t *testing.T) {
 	client, err := New(ctx, listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+	injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
 		meta, ok := metadata.FromIncomingContext(ctx)
 		test.That(t, ok, test.ShouldBeTrue)
 		receivedOpID, err := operation.GetOrCreateFromMetadata(meta)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, receivedOpID.String(), test.ShouldEqual, fakeOp.ID.String())
-		return []robot.Status{}, nil
+		return robot.MachineStatus{}, nil
 	}
 
-	resp, err := client.Status(ctx, []resource.Name{})
+	resp, err := client.MachineStatus(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(resp), test.ShouldEqual, 0)
+	test.That(t, resp, test.ShouldNotBeNil)
 
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -1952,27 +1833,20 @@ func TestLoggingInterceptor(t *testing.T) {
 		ResourceNamesFunc:   func() []resource.Name { return []resource.Name{arm.Named("myArm")} },
 		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
 
-		// Hijack the `StatusFunc` for testing the reception of debug metadata via the
+		// Hijack the `MachineStatusFunc` for testing the reception of debug metadata via the
 		// logging/distributed tracing interceptor.
-		StatusFunc: func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-			switch len(resourceNames) {
-			case 0:
-				// The status call with a nil `resourceNames` signals there should be no debug
-				// information on the context.
-				if logging.IsDebugMode(ctx) || logging.GetName(ctx) != "" {
-					return nil, fmt.Errorf("Bad context. DebugMode? %v Name: %v", logging.IsDebugMode(ctx), logging.GetName(ctx))
-				}
-			case 1:
-				// The status call with a `resourceNames` of length 1 signals there should be debug
-				// information with `oliver`.
-				if !logging.IsDebugMode(ctx) || logging.GetName(ctx) != "oliver" {
-					return nil, fmt.Errorf("Bad context. DebugMode? %v Name: %v", logging.IsDebugMode(ctx), logging.GetName(ctx))
-				}
-			default:
-				return nil, fmt.Errorf("Bad resource names: %v", resourceNames)
+		MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
+			// If there is no debug information with the context, return no revision
+			if !logging.IsDebugMode(ctx) && logging.GetName(ctx) == "" {
+				return robot.MachineStatus{}, nil
 			}
 
-			return nil, nil
+			// If there is debug information with `oliver` with the context, return a revision of `oliver`
+			if logging.IsDebugMode(ctx) && logging.GetName(ctx) == "oliver" {
+				return robot.MachineStatus{Config: config.Revision{Revision: "oliver"}}, nil
+			}
+
+			return robot.MachineStatus{}, errors.New("shouldn't happen")
 		},
 	}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
@@ -1986,15 +1860,15 @@ func TestLoggingInterceptor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer client.Close(context.Background())
 
-	// The status call with a nil `resourceNames` signals there should be no debug information on
-	// the context.
-	_, err = client.Status(context.Background(), []resource.Name{})
+	// The machine status call with no debug information on the context should return no resource statuses.
+	status, err := client.MachineStatus(context.Background())
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, status.Config.Revision, test.ShouldEqual, "")
 
-	// The status call with a `resourceNames` of length 1 signals there should be debug information
-	// with `oliver`.
-	_, err = client.Status(logging.EnableDebugModeWithKey(context.Background(), "oliver"), []resource.Name{{}})
+	// The machine status call with debug information of `oliver` should return one resource status.
+	status, err = client.MachineStatus(logging.EnableDebugModeWithKey(context.Background(), "oliver"))
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, status.Config.Revision, test.ShouldEqual, "oliver")
 }
 
 func TestCloudMetadata(t *testing.T) {
