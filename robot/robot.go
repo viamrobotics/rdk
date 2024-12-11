@@ -310,6 +310,7 @@ func (rmr *RestartModuleRequest) MatchesModule(mod config.Module) bool {
 	return mod.Name == rmr.ModuleName
 }
 
+// MachineState captures the state of a machine.
 type MachineState uint8
 
 const (
