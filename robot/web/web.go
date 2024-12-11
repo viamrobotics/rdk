@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -42,7 +43,13 @@ import (
 )
 
 // SubtypeName is a constant that identifies the internal web resource subtype string.
-const SubtypeName = "web"
+const (
+	SubtypeName   = "web"
+	TCPParentPort = 14998
+	// TestTCPParentPort is the test suite version of TCPParentPort. It's different to avoid
+	// collisions; it's listed here for documentation.
+	TestTCPParentPort = 14999
+)
 
 // API is the fully qualified API for the internal web service.
 var API = resource.APINamespaceRDKInternal.WithServiceType(SubtypeName)
@@ -162,7 +169,7 @@ func (svc *webService) StartModule(ctx context.Context) error {
 		}
 
 		if rutils.ViamTCPSockets() {
-			addr = "127.0.0.1:14998"
+			addr = "127.0.0.1:" + strconv.Itoa(TCPParentPort)
 			lis, err = net.Listen("tcp", addr)
 		} else {
 			addr, err = module.CreateSocketAddress(dir, "parent")
