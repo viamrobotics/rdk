@@ -60,6 +60,7 @@ type BillingAddress struct {
 	AddressLine2 *string
 	City         string
 	State        string
+	Zipcode      string
 }
 
 // Location holds the information of a specific location.
@@ -823,6 +824,17 @@ func (c *AppClient) OrganizationGetSupportEmail(ctx context.Context, orgID strin
 		return "", err
 	}
 	return resp.Email, nil
+}
+
+// GetBillingServiceConfig gets the billing service configuration for an organization.
+func (c *AppClient) GetBillingServiceConfig(ctx context.Context, orgID string) (*pb.GetBillingServiceConfigResponse, error) {
+	resp, err := c.client.GetBillingServiceConfig(ctx, &pb.GetBillingServiceConfigRequest{
+		OrgId: orgID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
 
 // CreateLocation creates a location with the given name under the given organization.
@@ -1845,6 +1857,7 @@ func billingAddressToProto(addr *BillingAddress) *pb.BillingAddress {
 		AddressLine_2: addr.AddressLine2,
 		City:          addr.City,
 		State:         addr.State,
+		Zipcode:       addr.Zipcode,
 	}
 }
 

@@ -51,6 +51,7 @@ func setupSocketWithRobot(t *testing.T) string {
 		socketAddress, err = modlib.CreateSocketAddress(t.TempDir(), "parent")
 		test.That(t, err, test.ShouldBeNil)
 	}
+
 	rtestutils.MakeRobotForModuleLogging(t, socketAddress)
 	return socketAddress
 }
@@ -91,18 +92,19 @@ func setupModManager(
 }
 
 func TestModManagerFunctions(t *testing.T) {
+	// Precompile module copies to avoid timeout issues when building takes too long.
+	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
+	modPath2 := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
+
 	for _, mode := range []string{"tcp", "unix"} {
 		t.Run(mode, func(t *testing.T) {
 			ctx := context.Background()
 			logger := logging.NewTestLogger(t)
+
 			if mode == "tcp" {
 				os.Setenv("VIAM_TCP_SOCKETS", "yes")
 				t.Cleanup(func() { os.Unsetenv("VIAM_TCP_SOCKETS") })
 			}
-
-			// Precompile module copies to avoid timeout issues when building takes too long.
-			modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
-			modPath2 := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
 
 			myCounterModel := resource.NewModel("acme", "demo", "mycounter")
 			rNameCounter1 := resource.NewName(generic.API, "counter1")
@@ -133,21 +135,16 @@ func TestModManagerFunctions(t *testing.T) {
 				port:    tcpPortRange,
 			}
 
-			err = mod.startProcess(ctx, parentAddr, nil, logger, viamHomeTemp, filepath.Join(viamHomeTemp, "packages"))
-			if err != nil && rutils.ViamTCPSockets() {
-				// TODO: make parent process take down child procs instead.
-				t.Log("processes don't get cleaned up if the test fails, which means the port stays open in tcp mode. " +
-					"fix with `killall simplemodule`")
-			}
+			err = mod.startProcess(ctx, parentAddr, nil, viamHomeTemp, filepath.Join(viamHomeTemp, "packages"))
 			test.That(t, err, test.ShouldBeNil)
 
 			err = mod.dial()
 			test.That(t, err, test.ShouldBeNil)
 
-			err = mod.checkReady(ctx, parentAddr, logger)
+			err = mod.checkReady(ctx, parentAddr)
 			test.That(t, err, test.ShouldBeNil)
 
-			mod.registerResources(mgr, logger)
+			mod.registerResources(mgr)
 			reg, ok := resource.LookupRegistration(generic.API, myCounterModel)
 			test.That(t, ok, test.ShouldBeTrue)
 			test.That(t, reg, test.ShouldNotBeNil)
@@ -175,7 +172,7 @@ func TestModManagerFunctions(t *testing.T) {
 			oldAddr := mod.addr
 			oldClient := mod.client
 
-			utils.UncheckedError(mod.startProcess(ctx, parentAddr, nil, logger, viamHomeTemp, filepath.Join(viamHomeTemp, "packages")))
+			utils.UncheckedError(mod.startProcess(ctx, parentAddr, nil, viamHomeTemp, filepath.Join(viamHomeTemp, "packages")))
 			err = mod.dial()
 			test.That(t, err, test.ShouldBeNil)
 
@@ -183,6 +180,7 @@ func TestModManagerFunctions(t *testing.T) {
 				// make sure mod.addr has changed
 				test.That(t, mod.addr, test.ShouldNotEqual, oldAddr)
 			}
+
 			// check that we're still able to use the old client
 			_, err = oldClient.Ready(ctx, &v1.ReadyRequest{ParentAddress: parentAddr})
 			test.That(t, err, test.ShouldBeNil)
