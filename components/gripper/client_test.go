@@ -59,6 +59,9 @@ func TestClient(t *testing.T) {
 	injectGripper2.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		return errStopUnimplemented
 	}
+	injectGripper2.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
+		return nil, nil
+	}
 
 	gripperSvc, err := resource.NewAPIResourceCollection(
 		gripper.API,
@@ -144,6 +147,9 @@ func TestClient(t *testing.T) {
 		err = client2.Stop(context.Background(), extra)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errStopUnimplemented.Error())
+
+		_, err = client2.Geometries(context.Background(), extra)
+		test.That(t, err.Error(), test.ShouldContainSubstring, gripper.ErrGeometriesNil(failGripperName).Error())
 
 		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
