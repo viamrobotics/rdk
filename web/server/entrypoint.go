@@ -420,6 +420,17 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		err = multierr.Combine(err, myRobot.Close(context.Background()))
 	}()
 
+	// Start web service with `minimalProcessedConfig`, then `Reconfigure` robot
+	// to have `fullProcessedConfig`.
+	options, err := s.createWebOptions(minimalProcessedConfig)
+	if err != nil {
+		return err
+	}
+	if err := web.RunWeb(ctx, myRobot, options, s.logger); err != nil {
+		return err
+	}
+	myRobot.Reconfigure(ctx, fullProcessedConfig)
+
 	// watch for and deliver changes to the robot
 	watcher, err := config.NewWatcher(ctx, cfg, s.logger.Sublogger("config"))
 	if err != nil {
@@ -494,17 +505,6 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		<-onWatchDone
 	}()
 	defer cancel()
-
-	// As mentioned above, start web service with `minimalProcessedConfig`. Then,
-	// `Reconfigure` robot to have `fullProcessedConfig`.
-	options, err := s.createWebOptions(minimalProcessedConfig)
-	if err != nil {
-		return err
-	}
-	if err := web.RunWeb(ctx, myRobot, options, s.logger); err != nil {
-		return err
-	}
-	myRobot.Reconfigure(ctx, fullProcessedConfig)
 	return nil
 }
 
