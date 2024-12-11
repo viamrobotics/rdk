@@ -156,41 +156,27 @@ func newTPSpaceMotionPlanner(
 	return tpPlanner, nil
 }
 
-// TODO: seed is not immediately useful for TP-space.
-func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context, goal PathStep, seed map[string][]referenceframe.Input) ([]node, error) {
-	mp.planOpts.setGoal(goal)
+func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context, seed, goal *PlanState) ([]node, error) {
+	zeroInputs := map[string][]referenceframe.Input{}
+	zeroInputs[mp.tpFrame.Name()] = make([]referenceframe.Input, len(mp.tpFrame.DoF()))
 	solutionChan := make(chan *rrtSolution, 1)
 
-	seedPos := mp.opt().startPoses
-
-	startNode := &basicNode{q: make(map[string][]referenceframe.Input, len(mp.lfs.dof)), cost: 0, poses: seedPos, corner: false}
-	maps := &rrtMaps{startMap: map[node]node{startNode: nil}}
-	if mp.opt().PositionSeeds > 0 && mp.opt().profile == PositionOnlyMotionProfile {
-		err := maps.fillPosOnlyGoal(goal, mp.opt().PositionSeeds)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		goalNode := &basicNode{
-			q:    make(map[string][]referenceframe.Input),
-			cost: 0,
-			poses: PathStep{
-				mp.tpFrame.Name(): referenceframe.NewPoseInFrame(
-					referenceframe.World,
-					spatialmath.Compose(goal[mp.tpFrame.Name()].Pose(), flipPose),
-				),
-			},
-			corner: false,
-		}
-		maps.goalMap = map[node]node{goalNode: nil}
+	maps := &rrtMaps{startMap: map[node]node{}, goalMap: map[node]node{}}
+	
+	startNode := &basicNode{q: zeroInputs, poses: PathStep{mp.tpFrame.Name(): referenceframe.NewZeroPoseInFrame(referenceframe.World)}}
+	if seed != nil {
+		startNode = &basicNode{q: zeroInputs, poses: seed.poses}
 	}
+	maps.startMap = map[node]node{startNode: nil}
+	goalNode := &basicNode{q: zeroInputs, poses: goal.poses}
+	maps.goalMap = map[node]node{flipNodePoses(goalNode): nil}
 
 	var planRunners sync.WaitGroup
 
 	planRunners.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer planRunners.Done()
-		mp.rrtBackgroundRunner(ctx, seed, &rrtParallelPlannerShared{maps, nil, solutionChan})
+		mp.rrtBackgroundRunner(ctx, &rrtParallelPlannerShared{maps, nil, solutionChan})
 	})
 	select {
 	case <-ctx.Done():
@@ -216,7 +202,6 @@ func (mp *tpSpaceRRTMotionPlanner) pathStepToPose(step PathStep) spatialmath.Pos
 // Separating this allows other things to call planRunner in parallel allowing the thread-agnostic Plan to be accessible.
 func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	ctx context.Context,
-	_ map[string][]referenceframe.Input, // TODO: this may be needed for smoothing
 	rrt *rrtParallelPlannerShared,
 ) {
 	defer close(rrt.solutionChan)

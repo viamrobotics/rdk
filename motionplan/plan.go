@@ -261,7 +261,7 @@ type ExecutionState struct {
 	currentInputs map[string][]referenceframe.Input
 
 	// The current PoseInFrames of input-enabled elements described by this plan.
-	currentPose map[string]*referenceframe.PoseInFrame
+	currentPose PathStep
 }
 
 // NewExecutionState will construct an ExecutionState struct.
@@ -269,7 +269,7 @@ func NewExecutionState(
 	plan Plan,
 	index int,
 	currentInputs map[string][]referenceframe.Input,
-	currentPose map[string]*referenceframe.PoseInFrame,
+	currentPose PathStep,
 ) (ExecutionState, error) {
 	if plan == nil {
 		return ExecutionState{}, errors.New("cannot create new ExecutionState with nil plan")
@@ -304,7 +304,7 @@ func (e *ExecutionState) CurrentInputs() map[string][]referenceframe.Input {
 }
 
 // CurrentPoses returns the current poses in frame of the components associated with the ExecutionState.
-func (e *ExecutionState) CurrentPoses() map[string]*referenceframe.PoseInFrame {
+func (e *ExecutionState) CurrentPoses() PathStep {
 	return e.currentPose
 }
 
@@ -348,4 +348,33 @@ func CalculateFrameErrorState(e ExecutionState, executionFrame, localizationFram
 // newFrameNotFoundError returns an error indicating that a given frame was not found in the given ExecutionState.
 func newFrameNotFoundError(frameName string) error {
 	return fmt.Errorf("could not find frame %s in ExecutionState", frameName)
+}
+
+type PlanState struct {
+	poses         PathStep
+	configuration map[string][]referenceframe.Input
+}
+
+// Poses returns the poses of a PlanState if they are populated, or computes them using the given FrameSystem if not.
+// 
+func (p *PlanState) Poses(fs referenceframe.FrameSystem) (PathStep, error) {
+	if p.poses != nil {
+		return p.poses, nil
+	}
+
+	if p.configuration == nil {
+		return nil, errors.New("cannot computes poses, neither poses nor configuration are populated")
+	}
+
+	// Compute poses from configuration using the FrameSystem
+	computedPoses := make(PathStep)
+	for frameName, _ := range p.configuration {
+		pif, err := fs.Transform(p.configuration, referenceframe.NewZeroPoseInFrame(frameName), referenceframe.World)
+		if err != nil {
+			return nil, err
+		}
+		computedPoses[frameName] = pif.(*referenceframe.PoseInFrame)
+	}
+
+	return computedPoses, nil
 }
