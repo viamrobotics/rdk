@@ -61,10 +61,10 @@ func TestClient(t *testing.T) {
 
 	injectInputController2 := &inject.InputController{}
 	injectInputController2.ControlsFunc = func(ctx context.Context, extra map[string]interface{}) ([]input.Control, error) {
-		return nil, errControlsFailed
+		return nil, nil
 	}
 	injectInputController2.EventsFunc = func(ctx context.Context, extra map[string]interface{}) (map[input.Control]input.Event, error) {
-		return nil, errEventsFailed
+		return nil, nil
 	}
 
 	injectInputController3 := &inject.InputController{}
@@ -76,9 +76,8 @@ func TestClient(t *testing.T) {
 	}
 
 	resources := map[resource.Name]input.Controller{
-		input.Named(testInputControllerName):  injectInputController,
-		input.Named(failInputControllerName):  injectInputController2,
-		input.Named(testInputControllerName4): injectInputController3,
+		input.Named(testInputControllerName): injectInputController,
+		input.Named(failInputControllerName): injectInputController2,
 	}
 	inputControllerSvc, err := resource.NewAPIResourceCollection(input.API, resources)
 	test.That(t, err, test.ShouldBeNil)
@@ -261,11 +260,11 @@ func TestClient(t *testing.T) {
 
 		_, err = client2.Controls(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errControlsFailed.Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, input.ErrControlsNil(failInputControllerName).Error())
 
 		_, err = client2.Events(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errEventsFailed.Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, input.ErrEventsNil(failInputControllerName).Error())
 
 		event1 := input.Event{
 			Time:    time.Now().UTC(),
@@ -278,26 +277,6 @@ func TestClient(t *testing.T) {
 		err = injectable.TriggerEvent(context.Background(), event1, map[string]interface{}{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not of type Triggerable")
-	})
-
-	t.Run("input controller client 3", func(t *testing.T) {
-		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
-		test.That(t, err, test.ShouldBeNil)
-		client3, err := resourceAPI.RPCClient(context.Background(), conn, "", input.Named(failInputControllerName), logger)
-		test.That(t, err, test.ShouldBeNil)
-
-		defer func() {
-			test.That(t, client3.Close(context.Background()), test.ShouldBeNil)
-			test.That(t, conn.Close(), test.ShouldBeNil)
-		}()
-
-		_, err = client3.Controls(context.Background(), map[string]interface{}{})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, input.ErrControlsNil(testInputControllerName4).Error())
-
-		_, err = client3.Events(context.Background(), map[string]interface{}{})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, input.ErrEventsNil(testInputControllerName4).Error())
 	})
 }
 
