@@ -8,7 +8,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -59,9 +58,6 @@ const (
 	// NoModuleParentEnvVar indicates whether there is a parent for a module being started.
 	NoModuleParentEnvVar = "VIAM_NO_MODULE_PARENT"
 )
-
-// TCPRegex tests whether a module address is TCP (vs unix sockets). See also ViamTCPSockets().
-var TCPRegex = regexp.MustCompile(`:\d+$`)
 
 // errMaxSupportedWebRTCTrackLimit is the error returned when the MaxSupportedWebRTCTRacks limit is reached.
 var errMaxSupportedWebRTCTrackLimit = fmt.Errorf("only %d WebRTC tracks are supported per peer connection", maxSupportedWebRTCTRacks)
@@ -282,7 +278,7 @@ func (m *Module) Start(ctx context.Context) error {
 
 	var lis net.Listener
 	prot := "unix"
-	if TCPRegex.MatchString(m.addr) {
+	if rutils.TCPRegex.MatchString(m.addr) {
 		prot = "tcp"
 	}
 	if err := MakeSelfOwnedFilesFunc(func() error {
@@ -355,7 +351,7 @@ func (m *Module) connectParent(ctx context.Context) error {
 	}
 
 	fullAddr := m.parentAddr
-	if !TCPRegex.MatchString(m.parentAddr) {
+	if !rutils.TCPRegex.MatchString(m.parentAddr) {
 		if err := CheckSocketOwner(m.parentAddr); err != nil {
 			return err
 		}

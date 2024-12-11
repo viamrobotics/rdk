@@ -10,7 +10,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/module"
+	"go.viam.com/rdk/utils"
 )
 
 type mockRobotService struct {
@@ -27,7 +27,7 @@ func (ms *mockRobotService) Log(ctx context.Context, req *robotpb.LogRequest) (*
 func MakeRobotForModuleLogging(t *testing.T, parentAddr string) rpc.Server {
 	logger := logging.NewTestLogger(t)
 	prot := "unix"
-	if module.TCPRegex.MatchString(parentAddr) {
+	if utils.TCPRegex.MatchString(parentAddr) {
 		prot = "tcp"
 	}
 	listener, err := net.Listen(prot, parentAddr)

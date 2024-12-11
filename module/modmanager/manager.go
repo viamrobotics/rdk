@@ -1000,7 +1000,7 @@ func (m *module) dial() error {
 	// TODO(PRODUCT-343): session support probably means interceptors here
 	var err error
 	addrToDial := m.addr
-	if !modlib.TCPRegex.MatchString(addrToDial) {
+	if !rutils.TCPRegex.MatchString(addrToDial) {
 		addrToDial = "unix://" + m.addr
 	}
 	conn, err := grpc.Dial( //nolint:staticcheck
@@ -1184,7 +1184,7 @@ func (m *module) startProcess(
 				)
 			}
 		}
-		if !modlib.TCPRegex.MatchString(m.addr) {
+		if !rutils.TCPRegex.MatchString(m.addr) {
 			err = modlib.CheckSocketOwner(m.addr)
 			if errors.Is(err, fs.ErrNotExist) {
 				continue

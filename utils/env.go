@@ -2,6 +2,7 @@ package utils
 
 import (
 	"os"
+	"regexp"
 	"runtime"
 	"slices"
 	"time"
@@ -33,6 +34,9 @@ const (
 
 // EnvTrueValues contains strings that we interpret as boolean true in env vars.
 var EnvTrueValues = []string{"true", "yes", "1", "TRUE", "YES"}
+
+// TCPRegex tests whether a module address is TCP (vs unix sockets). See also ViamTCPSockets().
+var TCPRegex = regexp.MustCompile(`:\d+$`)
 
 // GetResourceConfigurationTimeout calculates the resource configuration
 // timeout (env variable value if set, DefaultResourceConfigurationTimeout
