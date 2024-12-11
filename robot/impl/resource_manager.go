@@ -18,6 +18,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"golang.org/x/sync/errgroup"
 
+	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/ftdc"
 	"go.viam.com/rdk/logging"
@@ -1451,13 +1452,14 @@ func remoteDialOptions(config config.Remote, opts resourceManagerOptions) []rpc.
 // remote cycles from preventing this call from finishing.
 var defaultRemoteMachineStatusTimeout = time.Minute
 
-func (manager *resourceManager) getRemoteResourceStatuses(ctx context.Context) map[resource.Name]resource.Status {
-	resourceStatusMap := make(map[resource.Name]resource.Status)
+// getRemoteResourceMetadata
+func (manager *resourceManager) getRemoteResourceMetadata(ctx context.Context) map[resource.Name]cloud.Metadata {
+	resourceStatusMap := make(map[resource.Name]cloud.Metadata)
 	for _, resName := range manager.resources.FindNodesByAPI(client.RemoteAPI) {
 		gNode, _ := manager.resources.Node(resName)
 		res, err := gNode.Resource()
 		if err != nil {
-			manager.logger.Debugw("error getting remote resource status", "remote", resName.Name, "err", err)
+			manager.logger.Debugw("error getting remote machine status", "remote", resName.Name, "err", err)
 			continue
 		}
 		ctx, cancel := contextutils.ContextWithTimeoutIfNoDeadline(ctx, defaultRemoteMachineStatusTimeout)
@@ -1465,23 +1467,17 @@ func (manager *resourceManager) getRemoteResourceStatuses(ctx context.Context) m
 		remote := res.(internalRemoteRobot)
 		machineStatus, err := remote.MachineStatus(ctx)
 		if err != nil {
-			manager.logger.Debugw("error getting remote resource status", "remote", resName.Name, "err", err)
+			manager.logger.Debugw("error getting remote machine status", "remote", resName.Name, "err", err)
 			continue
 		}
 		// Resources come back without their remote name since they are grabbed
 		// from the remote themselves. We need to add that information back.
+		//
+		// Resources on remote may have different cloud metadata from each other, so keep a map of every
+		// resource to cloud metadata pair we come across.
 		for _, remoteResource := range machineStatus.Resources {
 			nameWithRemote := remoteResource.Name.PrependRemote(resName.Name)
-			resourceStatusMap[nameWithRemote] = resource.Status{
-				NodeStatus: resource.NodeStatus{
-					Name:        nameWithRemote,
-					State:       remoteResource.State,
-					LastUpdated: remoteResource.LastUpdated,
-					Revision:    remoteResource.Revision,
-					Error:       remoteResource.Error,
-				},
-				CloudMetadata: remoteResource.CloudMetadata,
-			}
+			resourceStatusMap[nameWithRemote] = remoteResource.CloudMetadata
 		}
 	}
 	return resourceStatusMap

@@ -1391,26 +1391,27 @@ func (r *localRobot) Shutdown(ctx context.Context) error {
 func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
 	var result robot.MachineStatus
 
-	remoteStatusMap := r.manager.getRemoteResourceStatuses(ctx)
+	remoteMdMap := r.manager.getRemoteResourceMetadata(ctx)
 
 	// we can safely ignore errors from `r.CloudMetadata`. If there is an error, that means
 	// that this robot does not have CloudMetadata to attach to resources.
 	md, _ := r.CloudMetadata(ctx) //nolint:errcheck
 	for _, resourceStatus := range r.manager.resources.Status() {
-		// if the resource is local, we can safely use the status as is and attach the cloud metadata of this robot.
+		// if the resource is local, we can use the status as is and attach the cloud metadata of this robot.
 		if !resourceStatus.Name.ContainsRemoteNames() {
 			result.Resources = append(result.Resources, resource.Status{NodeStatus: resourceStatus, CloudMetadata: md})
 			continue
 		}
 
-		// Otherwise, the resource is remote. If the corresponding status exists in remoteStatusMap, use that.
-		if status, ok := remoteStatusMap[resourceStatus.Name]; ok {
-			result.Resources = append(result.Resources, status)
+		// Otherwise, the resource is remote. If the corresponding status exists in remoteMdMap, use that.
+		if rMd, ok := remoteMdMap[resourceStatus.Name]; ok {
+			result.Resources = append(result.Resources, resource.Status{NodeStatus: resourceStatus, CloudMetadata: rMd})
 			continue
 		}
 
-		// At this point, the resource is remote and does not have a corresponding status in remoteStatusMap.
-		// Use the status in the resource graph and attach no cloud metadata.
+		// if the remote resource is not in remoteMdMap, there is a mismatch between remote resource nodes
+		// in the resource graph and what was expected from getRemoteResourceMetadata. We should leave
+		// cloud metadata blank in that case.
 		result.Resources = append(result.Resources, resource.Status{NodeStatus: resourceStatus, CloudMetadata: cloud.Metadata{}})
 	}
 	r.configRevisionMu.RLock()
