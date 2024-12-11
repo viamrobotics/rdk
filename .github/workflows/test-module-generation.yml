@@ -56,6 +56,7 @@ jobs:
           --public-namespace "my-org" \
           --resource-subtype "${{ matrix.resource.subtype }}" \
           --resource-type "${{ matrix.resource.type }}" \
+          --test
 
       - name: Run module
         run: |

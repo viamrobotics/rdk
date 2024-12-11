@@ -81,8 +81,10 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 		}
 	}
 	populateAdditionalInfo(newModule)
-	if err := wrapResolveOrg(cCtx, c, newModule); err != nil {
-		return err
+	if !cCtx.Bool(moduleFlagTest) {
+		if err := wrapResolveOrg(cCtx, c, newModule); err != nil {
+			return err
+		}
 	}
 
 	s := spinner.New()
