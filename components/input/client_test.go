@@ -67,14 +67,6 @@ func TestClient(t *testing.T) {
 		return nil, nil
 	}
 
-	injectInputController3 := &inject.InputController{}
-	injectInputController3.ControlsFunc = func(ctx context.Context, extra map[string]interface{}) ([]input.Control, error) {
-		return nil, nil
-	}
-	injectInputController3.EventsFunc = func(ctx context.Context, extra map[string]interface{}) (map[input.Control]input.Event, error) {
-		return nil, nil
-	}
-
 	resources := map[resource.Name]input.Controller{
 		input.Named(testInputControllerName): injectInputController,
 		input.Named(failInputControllerName): injectInputController2,
