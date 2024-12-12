@@ -51,7 +51,7 @@ jobs:
       - name: Run module generator
         run: |
           go run ./cli/viam --debug module generate \
-          --name "my-module" \
+          --module-name "my-module" \
           --language "${{ matrix.language }}" \
           --public-namespace "my-org" \
           --resource-subtype "${{ matrix.resource.subtype }}" \

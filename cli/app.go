@@ -45,7 +45,7 @@ const (
 	// TODO(RSDK-9287) - "name" occurs as three different flags. let's simplify that.
 	apiKeyCreateFlagName = "name"
 
-	moduleFlagName            = "name"
+	moduleFlagName            = "module-name"
 	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
 	moduleFlagPath            = "module"
