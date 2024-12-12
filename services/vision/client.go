@@ -303,12 +303,17 @@ func (c *client) CaptureAllFromCamera(
 		}
 	}
 
+	vcExtra := resp.Extra.AsMap()
+	if len(vcExtra) == 0 {
+		vcExtra = nil
+	}
+
 	capt := viscapture.VisCapture{
 		Image:           img,
 		Detections:      dets,
 		Classifications: class,
 		Objects:         objPCD,
-		Extra:           resp.Extra.AsMap(),
+		Extra:           vcExtra,
 	}
 
 	return capt, nil
