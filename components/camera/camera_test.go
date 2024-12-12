@@ -10,7 +10,6 @@ import (
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
@@ -186,18 +185,6 @@ func TestCameraWithNoProjector(t *testing.T) {
 	_, got := pc.At(0, 0, 0)
 	test.That(t, got, test.ShouldBeTrue)
 
-	// TODO(hexbabe): remove below test when Stream is refactored
-	t.Run("ReadImage depth map without projector", func(t *testing.T) {
-		img, _, err := camera.ReadImage(
-			gostream.WithMIMETypeHint(context.Background(), rutils.WithLazyMIMEType(rutils.MimeTypePNG)),
-			noProj2)
-		test.That(t, err, test.ShouldBeNil)
-		depthImg := img.(*rimage.DepthMap)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, depthImg.Bounds().Dx(), test.ShouldEqual, 1280)
-		test.That(t, depthImg.Bounds().Dy(), test.ShouldEqual, 720)
-	})
-
 	img, err := camera.DecodeImageFromCamera(context.Background(), rutils.WithLazyMIMEType(rutils.MimeTypePNG), nil, noProj2)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -246,26 +233,6 @@ func TestCameraWithProjector(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, got := pc.At(0, 0, 0)
 	test.That(t, got, test.ShouldBeTrue)
-
-	// TODO(hexbabe): remove below test when Stream/ReadImage pattern is refactored
-	t.Run("ReadImage depth map with projector", func(t *testing.T) {
-		img, _, err := camera.ReadImage(
-			gostream.WithMIMETypeHint(context.Background(), rutils.MimeTypePNG),
-			cam2)
-		test.That(t, err, test.ShouldBeNil)
-
-		depthImg := img.(*rimage.DepthMap)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, depthImg.Bounds().Dx(), test.ShouldEqual, 1280)
-		test.That(t, depthImg.Bounds().Dy(), test.ShouldEqual, 720)
-		// cam2 should implement a default GetImages, that just returns the one image
-		images, _, err := cam2.Images(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(images), test.ShouldEqual, 1)
-		test.That(t, images[0].Image, test.ShouldHaveSameTypeAs, &rimage.DepthMap{})
-		test.That(t, images[0].Image.Bounds().Dx(), test.ShouldEqual, 1280)
-		test.That(t, images[0].Image.Bounds().Dy(), test.ShouldEqual, 720)
-	})
 
 	img, err := camera.DecodeImageFromCamera(context.Background(), rutils.MimeTypePNG, nil, cam2)
 	test.That(t, err, test.ShouldBeNil)
