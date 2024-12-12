@@ -162,7 +162,7 @@ func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context, seed, goal *PlanSta
 	solutionChan := make(chan *rrtSolution, 1)
 
 	maps := &rrtMaps{startMap: map[node]node{}, goalMap: map[node]node{}}
-	
+
 	startNode := &basicNode{q: zeroInputs, poses: PathStep{mp.tpFrame.Name(): referenceframe.NewZeroPoseInFrame(referenceframe.World)}}
 	if seed != nil {
 		startNode = &basicNode{q: zeroInputs, poses: seed.poses}

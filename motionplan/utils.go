@@ -126,7 +126,7 @@ type motionChain struct {
 	worldRooted bool
 }
 
-func motionChainFromGoal(fs referenceframe.FrameSystem, moveFrame string, goalFrameName string) (*motionChain, error) {
+func motionChainFromGoal(fs referenceframe.FrameSystem, moveFrame, goalFrameName string) (*motionChain, error) {
 	// get goal frame
 	goalFrame := fs.Frame(goalFrameName)
 	if goalFrame == nil {
@@ -289,7 +289,7 @@ func nodeConfigurationDistanceFunc(node1, node2 node) float64 {
 }
 
 // If a motion chain is worldrooted, then goals are translated to their position in `World` before solving.
-// This is useful when e.g. moving a gripper relative to a point seen by a camera built into that gripper
+// This is useful when e.g. moving a gripper relative to a point seen by a camera built into that gripper.
 func alterGoals(
 	chains []*motionChain,
 	fs referenceframe.FrameSystem,

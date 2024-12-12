@@ -436,13 +436,13 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq) (motionplan.Pla
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
 	return motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
-		Logger:             ms.logger,
-		Goals:               worldWaypoints,
-		StartState: startState,
-		FrameSystem:        frameSys,
-		WorldState:         req.WorldState,
-		Constraints:        req.Constraints,
-		Options:            req.Extra,
+		Logger:      ms.logger,
+		Goals:       worldWaypoints,
+		StartState:  startState,
+		FrameSystem: frameSys,
+		WorldState:  req.WorldState,
+		Constraints: req.Constraints,
+		Options:     req.Extra,
 	})
 }
 
@@ -541,14 +541,14 @@ func waypointsFromRequest(
 	var goalState *motionplan.PlanState
 	var waypoints []*motionplan.PlanState
 	var err error
-	
+
 	if startStateIface, ok := req.Extra["start_state"]; ok {
 		if startStateMap, ok := startStateIface.(map[string]interface{}); ok {
 			startState, err = motionplan.DeserializePlanState(startStateMap)
 			if err != nil {
 				return nil, nil, err
 			}
-		} else{
+		} else {
 			return nil, nil, errors.New("extras start_state could not be interpreted as map[string]interface{}")
 		}
 		if startState.Configuration() == nil {
@@ -557,7 +557,7 @@ func waypointsFromRequest(
 	} else {
 		startState = motionplan.NewPlanState(nil, fsInputs)
 	}
-	
+
 	if waypointsIface, ok := req.Extra["waypoints"]; ok {
 		if waypointsIfaceList, ok := waypointsIface.([]interface{}); ok {
 			for _, wpIface := range waypointsIfaceList {
@@ -567,7 +567,7 @@ func waypointsFromRequest(
 						return nil, nil, err
 					}
 					waypoints = append(waypoints, wp)
-				} else{
+				} else {
 					return nil, nil, errors.New("element in extras waypoints could not be interpreted as map[string]interface{}")
 				}
 			}
@@ -575,7 +575,7 @@ func waypointsFromRequest(
 			return nil, nil, errors.New("Invalid 'waypoints' extra type. Expected an array")
 		}
 	}
-	
+
 	// If goal state is specified, it overrides the request goal
 	if goalStateIface, ok := req.Extra["goal_state"]; ok {
 		if goalStateMap, ok := goalStateIface.(map[string]interface{}); ok {
@@ -583,7 +583,7 @@ func waypointsFromRequest(
 			if err != nil {
 				return nil, nil, err
 			}
-		} else{
+		} else {
 			return nil, nil, errors.New("extras goal_state could not be interpreted as map[string]interface{}")
 		}
 	} else {

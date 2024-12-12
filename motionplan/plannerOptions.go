@@ -337,7 +337,7 @@ func (p *plannerOptions) addOrientationConstraints(
 }
 
 func (p *plannerOptions) fillMotionChains(fs referenceframe.FrameSystem, to *PlanState) error {
-	motionChains := make([]*motionChain, 0, len(to.poses) + len(to.configuration))
+	motionChains := make([]*motionChain, 0, len(to.poses)+len(to.configuration))
 
 	for frame, pif := range to.poses {
 		chain, err := motionChainFromGoal(fs, frame, pif.Parent())
@@ -346,7 +346,7 @@ func (p *plannerOptions) fillMotionChains(fs referenceframe.FrameSystem, to *Pla
 		}
 		motionChains = append(motionChains, chain)
 	}
-	for frame, _ := range to.configuration {
+	for frame := range to.configuration {
 		chain, err := motionChainFromGoal(fs, frame, frame)
 		if err != nil {
 			return err

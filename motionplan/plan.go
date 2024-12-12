@@ -1,8 +1,8 @@
 package motionplan
 
 import (
-	"errors"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 
@@ -352,19 +352,24 @@ func newFrameNotFoundError(frameName string) error {
 	return fmt.Errorf("could not find frame %s in ExecutionState", frameName)
 }
 
+// PlanState is a struct which holds both a PathStep and a configuration. This is intended to be used as start or goal states for plans.
+// Either field may be nil.
 type PlanState struct {
 	poses         PathStep
 	configuration map[string][]referenceframe.Input
 }
 
+// NewPlanState creates a PlanState from the given poses and configuration. Either or both may be nil.
 func NewPlanState(poses PathStep, configuration map[string][]referenceframe.Input) *PlanState {
 	return &PlanState{poses: poses, configuration: configuration}
 }
 
+// Poses returns the poses of the PlanState.
 func (p *PlanState) Poses() PathStep {
 	return p.poses
 }
 
+// Configuration returns the configuration of the PlanState.
 func (p *PlanState) Configuration() map[string][]referenceframe.Input {
 	return p.configuration
 }
@@ -381,7 +386,7 @@ func (p *PlanState) ComputePoses(fs referenceframe.FrameSystem) (PathStep, error
 
 	// Compute poses from configuration using the FrameSystem
 	computedPoses := make(PathStep)
-	for frameName, _ := range p.configuration {
+	for frameName := range p.configuration {
 		pif, err := fs.Transform(p.configuration, referenceframe.NewZeroPoseInFrame(frameName), referenceframe.World)
 		if err != nil {
 			return nil, err
@@ -392,7 +397,7 @@ func (p *PlanState) ComputePoses(fs referenceframe.FrameSystem) (PathStep, error
 	return computedPoses, nil
 }
 
-// Serialize turns a PlanState into a map[string]interface suitable for being transmitted over proto
+// Serialize turns a PlanState into a map[string]interface suitable for being transmitted over proto.
 func (p PlanState) Serialize() map[string]interface{} {
 	m := map[string]interface{}{}
 	poseMap := map[string]interface{}{}
@@ -409,10 +414,10 @@ func (p PlanState) Serialize() map[string]interface{} {
 	return m
 }
 
-// DeserializePlanState turns a serialized PlanState back into a PlanState
+// DeserializePlanState turns a serialized PlanState back into a PlanState.
 func DeserializePlanState(iface map[string]interface{}) (*PlanState, error) {
 	ps := &PlanState{
-		poses: PathStep{},
+		poses:         PathStep{},
 		configuration: map[string][]referenceframe.Input{},
 	}
 	if posesIface, ok := iface["poses"]; ok {

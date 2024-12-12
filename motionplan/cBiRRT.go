@@ -95,7 +95,7 @@ func newCBiRRTMotionPlanner(
 
 func (mp *cBiRRTMotionPlanner) plan(ctx context.Context, seed, goal *PlanState) ([]node, error) {
 	solutionChan := make(chan *rrtSolution, 1)
-	initMaps := initRRTSolutions(ctx, atomicWaypoint{mp:mp, startState: seed, goalState: goal})
+	initMaps := initRRTSolutions(ctx, atomicWaypoint{mp: mp, startState: seed, goalState: goal})
 	if initMaps.err != nil {
 		return nil, initMaps.err
 	}

@@ -81,10 +81,10 @@ func TestPTGKinematicsNoGeom(t *testing.T) {
 	goalState := motionplan.NewPlanState(motionplan.PathStep{f.Name(): dstPIF}, nil)
 
 	plan, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
-		Logger:             logger,
-		Goals:              []*motionplan.PlanState{goalState},
-		StartState:         startState,
-		FrameSystem:        fs,
+		Logger:      logger,
+		Goals:       []*motionplan.PlanState{goalState},
+		StartState:  startState,
+		FrameSystem: fs,
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, plan, test.ShouldNotBeNil)
@@ -168,11 +168,11 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 	startState := motionplan.NewPlanState(motionplan.PathStep{f.Name(): referenceframe.NewZeroPoseInFrame(referenceframe.World)}, inputMap)
 	goalState := motionplan.NewPlanState(motionplan.PathStep{f.Name(): dstPIF}, nil)
 	plan, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
-		Logger:             logger,
-		Goals:              []*motionplan.PlanState{goalState},
-		StartState:         startState,
-		FrameSystem:        fs,
-		WorldState:         worldState,
+		Logger:      logger,
+		Goals:       []*motionplan.PlanState{goalState},
+		StartState:  startState,
+		FrameSystem: fs,
+		WorldState:  worldState,
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, plan, test.ShouldNotBeNil)

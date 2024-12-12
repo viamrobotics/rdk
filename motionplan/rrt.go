@@ -50,23 +50,6 @@ type rrtMaps struct {
 	optNode  node // The highest quality IK solution
 }
 
-func newRRTmaps(seeds, goals []node) *rrtMaps {
-	startMap := rrtMap{}
-	for _, seedNode := range seeds {
-		startMap[seedNode] = nil
-	}
-	goalMap := rrtMap{}
-	var optNode node
-	for i, goalNode := range goals {
-		goalMap[goalNode] = nil
-		if i == 0 {
-			optNode = goalNode
-		}
-	}
-	return &rrtMaps{startMap, goalMap, optNode}
-}
-
-
 func (maps *rrtMaps) fillPosOnlyGoal(goal PathStep, posSeeds int) error {
 	thetaStep := 360. / float64(posSeeds)
 	if maps == nil {
@@ -118,7 +101,7 @@ func initRRTSolutions(ctx context.Context, wp atomicWaypoint) *rrtSolution {
 	// the smallest interpolated distance between the start and end input represents a lower bound on cost
 	optimalCost := wp.mp.opt().configurationDistanceFunc(&ik.SegmentFS{
 		StartConfiguration: startNodes[0].Q(),
-		EndConfiguration: goalNodes[0].Q(),
+		EndConfiguration:   goalNodes[0].Q(),
 	})
 	rrt.maps.optNode = &basicNode{q: goalNodes[0].Q(), cost: optimalCost}
 
@@ -126,7 +109,7 @@ func initRRTSolutions(ctx context.Context, wp atomicWaypoint) *rrtSolution {
 	// Since solutions are returned ordered, we check until one is out of bounds, then skip remaining checks
 	canInterp := true
 	// initialize maps and check whether direct interpolation is an option
-	for _, seed := range startNodes{
+	for _, seed := range startNodes {
 		for _, solution := range goalNodes {
 			if canInterp {
 				cost := wp.mp.opt().configurationDistanceFunc(&ik.SegmentFS{StartConfiguration: seed.Q(), EndConfiguration: solution.Q()})

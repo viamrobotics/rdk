@@ -58,23 +58,14 @@ func newPlanManager(
 }
 
 type atomicWaypoint struct {
-	mp motionPlanner
+	mp         motionPlanner
 	startState *PlanState // A list of starting states, any of which would be valid to start from
-	goalState *PlanState // A list of goal states, any of which would be valid to arrive at
-}
-
-func (wp *atomicWaypoint) nodes() ([]node, []node) {
-	startNodes := []node{&basicNode{q: wp.startState.configuration,poses: wp.startState.poses}}
-	goalNodes := []node{&basicNode{q: wp.goalState.configuration,poses: wp.goalState.poses}}
-
-	
-	return startNodes, goalNodes
+	goalState  *PlanState // A list of goal states, any of which would be valid to arrive at
 }
 
 // planMultiWaypoint plans a motion through multiple waypoints, using identical constraints for each
 // Any constraints, etc, will be held for the entire motion.
 func (pm *planManager) planMultiWaypoint(ctx context.Context, request *PlanRequest, seedPlan Plan) (Plan, error) {
-
 	startPoses, err := request.StartState.ComputePoses(request.FrameSystem)
 	if err != nil {
 		return nil, err
@@ -94,7 +85,6 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context, request *PlanReque
 	}
 	pm.planOpts = opt
 	if pm.useTPspace {
-		
 		return pm.planRelativeWaypoint(ctx, request, seedPlan)
 	}
 	// Theoretically, a plan could be made between two poses, by running IK on both the start and end poses to create sets of seed and
@@ -216,7 +206,7 @@ func (pm *planManager) planAtomicWaypoints(
 		if err != nil {
 			return nil, err
 		}
-		pm.logger.Debug("completed planning for waypoint %d",i)
+		pm.logger.Debug("completed planning for waypoint %d", i)
 		resultSlices = append(resultSlices, steps...)
 	}
 
@@ -230,14 +220,13 @@ func (pm *planManager) planSingleAtomicWaypoint(
 	wp atomicWaypoint,
 	maps *rrtMaps,
 ) (map[string][]referenceframe.Input, *resultPromise, error) {
-	
-	//~ pm.logger.Debug("start planning for ", goal.ToProto())
-	
+	// ~ pm.logger.Debug("start planning for ", goal.ToProto())
+
 	if _, ok := wp.mp.(rrtParallelPlanner); ok {
 		// rrtParallelPlanner supports solution look-ahead for parallel waypoint solving
 		// This will set that up, and if we get a result on `endpointPreview`, then the next iteration will be started, and the steps
 		// for this solve will be rectified at the end.
-		
+
 		endpointPreview := make(chan node, 1)
 		solutionChan := make(chan *rrtSolution, 1)
 		pm.activeBackgroundWorkers.Add(1)
@@ -285,7 +274,7 @@ func (pm *planManager) planParallelRRTMotion(
 	solutionChan chan *rrtSolution,
 	maps *rrtMaps,
 ) {
-	pathPlanner :=  wp.mp.(rrtParallelPlanner)
+	pathPlanner := wp.mp.(rrtParallelPlanner)
 	var rrtBackground sync.WaitGroup
 	var err error
 	if maps == nil {
@@ -439,7 +428,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	// Start with normal options
 	opt := newBasicPlannerOptions()
 	opt.extra = planningOpts
-	
+
 	startPoses, err := from.ComputePoses(pm.fs)
 	if err != nil {
 		return nil, err
@@ -681,9 +670,8 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	return opt, nil
 }
 
-// generateWaypoints will return the list of atomic waypoints that correspond to a specific goal in a plan request
+// generateWaypoints will return the list of atomic waypoints that correspond to a specific goal in a plan request.
 func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wpi int) ([]atomicWaypoint, error) {
-	
 	wpGoals := request.Goals[wpi]
 	if wpGoals.poses != nil {
 		// Transform goal poses into world frame if needed. This is used for e.g. when a component's goal is given in terms of itself.
@@ -693,7 +681,7 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 		}
 		wpGoals = alteredGoals
 	}
-	
+
 	startPoses, err := request.StartState.ComputePoses(pm.fs)
 	if err != nil {
 		return nil, err
@@ -702,7 +690,7 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 	if err != nil {
 		return nil, err
 	}
-	
+
 	subWaypoints := useSubWaypoints(request, seedPlan, wpi)
 	// TPspace should never use subwaypoints
 	if !subWaypoints || pm.useTPspace {
@@ -718,6 +706,7 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 		if err != nil {
 			return nil, err
 		}
+		//nolint: gosec
 		pathPlanner, err := opt.PlannerConstructor(
 			pm.fs,
 			rand.New(rand.NewSource(int64(pm.randseed.Int()))),
@@ -729,7 +718,7 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 		}
 		return []atomicWaypoint{{mp: pathPlanner, startState: request.StartState, goalState: wpGoals}}, nil
 	}
-	
+
 	pathStepSize, ok := request.Options["path_step_size"].(float64)
 	if !ok {
 		pathStepSize = defaultPathStepSize
@@ -778,7 +767,7 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 		if err != nil {
 			return nil, err
 		}
-		//~ wpOpt.setGoal(to)
+		// ~ wpOpt.setGoal(to)
 		//nolint: gosec
 		pathPlanner, err := wpOpt.PlannerConstructor(
 			pm.fs,
@@ -983,7 +972,7 @@ func nodesToTrajectory(nodes []node) Trajectory {
 	return traj
 }
 
-// Determines whether to break a motion down into sub-waypoints if all intermediate points are known
+// Determines whether to break a motion down into sub-waypoints if all intermediate points are known.
 func useSubWaypoints(request *PlanRequest, seedPlan Plan, wpi int) bool {
 	// If we are seeding off of a pre-existing plan, we don't need the speedup of subwaypoints
 	if seedPlan != nil {
@@ -1002,7 +991,7 @@ func useSubWaypoints(request *PlanRequest, seedPlan Plan, wpi int) bool {
 			return false
 		}
 	}
-	
+
 	// linear motion profile has known intermediate points, so solving can be broken up and sped up
 	if profile, ok := request.Options["motion_profile"]; ok && profile == LinearMotionProfile {
 		return true

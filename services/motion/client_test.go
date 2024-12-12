@@ -6,7 +6,6 @@ import (
 	"net"
 	"testing"
 	"time"
-	"fmt"
 
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
@@ -87,10 +86,6 @@ func TestClient(t *testing.T) {
 			r3.Vector{X: 1., Y: 2., Z: 3.},
 			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 		)
-		testPose2 := spatialmath.NewPose(
-			r3.Vector{X: 10., Y: 20., Z: 30.},
-			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
-		)
 
 		test.That(t, err, test.ShouldBeNil)
 
@@ -100,9 +95,6 @@ func TestClient(t *testing.T) {
 		receivedTransforms := make(map[string]*referenceframe.LinkInFrame)
 		success := true
 		injectMS.MoveFunc = func(ctx context.Context, req motion.MoveReq) (bool, error) {
-			fmt.Println("req.ComponentName", req.ComponentName)
-			fmt.Println("req.Extra", req.Extra)
-			fmt.Println(motionplan.DeserializePlanState(req.Extra["waypoints"].(map[string]interface{})))
 			return success, nil
 		}
 		injectMS.GetPoseFunc = func(
@@ -120,23 +112,7 @@ func TestClient(t *testing.T) {
 		}
 
 		// Move
-		g1 := referenceframe.NewPoseInFrame("frame1", testPose)
-		g2 := referenceframe.NewPoseInFrame("frame2", testPose2)
-		step1 := motionplan.PathStep{"component1": g1, "component2": g2}
-		step2 := motionplan.PathStep{"component3": g1, "component4": g2}
-		c1 := map[string][]referenceframe.Input{
-			"component5": {},
-			"component6": {{1.1}, {2.5}},
-		}
-		state1 := motionplan.NewPlanState(step1, c1)
-		state2 := motionplan.NewPlanState(step2, nil)
-		_ = state2
-		_ = state1
-		extra := map[string]interface{}{
-			"waypoints": state1.Serialize(),
-			"waypoints2": state2.Serialize(),
-		}
-		result, err := client.Move(ctx, motion.MoveReq{ComponentName: gripperName, Destination: zeroPoseInFrame, Extra: extra})
+		result, err := client.Move(ctx, motion.MoveReq{ComponentName: gripperName, Destination: zeroPoseInFrame})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, result, test.ShouldEqual, success)
 

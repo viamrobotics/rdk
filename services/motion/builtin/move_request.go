@@ -919,18 +919,17 @@ func (ms *builtIn) createBaseMoveRequest(
 		currentInputs,
 	)
 	goals := []*motionplan.PlanState{motionplan.NewPlanState(motionplan.PathStep{kinematicFrame.Name(): goal}, nil)}
-		
 
 	mr := &moveRequest{
 		config: motionCfg,
 		logger: ms.logger,
 		planRequest: &motionplan.PlanRequest{
-			Logger:             logger,
-			Goals:               goals,
-			FrameSystem:        planningFS,
-			StartState: startState,
-			WorldState:         worldState,
-			Options:            valExtra.extra,
+			Logger:      logger,
+			Goals:       goals,
+			FrameSystem: planningFS,
+			StartState:  startState,
+			WorldState:  worldState,
+			Options:     valExtra.extra,
 		},
 		kinematicBase:     kb,
 		replanCostFactor:  valExtra.replanCostFactor,

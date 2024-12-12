@@ -896,11 +896,11 @@ func TestReplanValidations(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.msg, func(t *testing.T) {
 			_, err := Replan(ctx, &PlanRequest{
-				Logger:      logger,
-				Goals:       []*PlanState{{poses: PathStep{kinematicFrame.Name(): frame.NewPoseInFrame(frame.World, goal)}}},
-				StartState:  &PlanState{
+				Logger: logger,
+				Goals:  []*PlanState{{poses: PathStep{kinematicFrame.Name(): frame.NewPoseInFrame(frame.World, goal)}}},
+				StartState: &PlanState{
 					configuration: frame.StartPositions(baseFS),
-					poses: PathStep{kinematicFrame.Name(): frame.NewZeroPoseInFrame(frame.World)},
+					poses:         PathStep{kinematicFrame.Name(): frame.NewZeroPoseInFrame(frame.World)},
 				},
 				FrameSystem: baseFS,
 				Options:     tc.extra,
@@ -992,15 +992,15 @@ func TestPtgPosOnlyBidirectional(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	planRequest := &PlanRequest{
-		Logger:             logger,
-		Goals:              []*PlanState{{poses: PathStep{kinematicFrame.Name(): frame.NewPoseInFrame(frame.World, goal)}}},
-		FrameSystem:        baseFS,
-		StartState:         &PlanState{
+		Logger:      logger,
+		Goals:       []*PlanState{{poses: PathStep{kinematicFrame.Name(): frame.NewPoseInFrame(frame.World, goal)}}},
+		FrameSystem: baseFS,
+		StartState: &PlanState{
 			configuration: frame.StartPositions(baseFS),
-			poses: PathStep{kinematicFrame.Name(): frame.NewZeroPoseInFrame(frame.World)},
+			poses:         PathStep{kinematicFrame.Name(): frame.NewZeroPoseInFrame(frame.World)},
 		},
-		WorldState:         nil,
-		Options:            extra,
+		WorldState: nil,
+		Options:    extra,
 	}
 
 	bidirectionalPlanRaw, err := PlanMotion(ctx, planRequest)
@@ -1055,7 +1055,7 @@ func TestValidatePlanRequest(t *testing.T) {
 			request: PlanRequest{
 				Logger:      logger,
 				FrameSystem: fs,
-				Goals:        validGoal,
+				Goals:       validGoal,
 			},
 			expectedErr: errors.New("PlanRequest cannot have nil StartState"),
 		},
@@ -1086,7 +1086,7 @@ func TestValidatePlanRequest(t *testing.T) {
 			request: PlanRequest{
 				Logger:      logger,
 				FrameSystem: fs,
-				Goals:        badGoal,
+				Goals:       badGoal,
 				StartState: &PlanState{configuration: map[string][]frame.Input{
 					"frame1": frame.FloatsToInputs([]float64{}),
 				}},
@@ -1098,7 +1098,7 @@ func TestValidatePlanRequest(t *testing.T) {
 			request: PlanRequest{
 				Logger:      logger,
 				FrameSystem: fs,
-				Goals:        validGoal,
+				Goals:       validGoal,
 				StartState: &PlanState{configuration: map[string][]frame.Input{
 					"frame1": frame.FloatsToInputs([]float64{0}),
 				}},
@@ -1110,8 +1110,8 @@ func TestValidatePlanRequest(t *testing.T) {
 			request: PlanRequest{
 				Logger:      logger,
 				FrameSystem: fs,
-				Goals:        validGoal,
-				StartState: &PlanState{},
+				Goals:       validGoal,
+				StartState:  &PlanState{},
 			},
 			expectedErr: errors.New("PlanRequest cannot have nil StartState configuration"),
 		},
@@ -1120,7 +1120,7 @@ func TestValidatePlanRequest(t *testing.T) {
 			request: PlanRequest{
 				Logger:      logger,
 				FrameSystem: fs,
-				Goals:        validGoal,
+				Goals:       validGoal,
 				StartState: &PlanState{configuration: map[string][]frame.Input{
 					"frame2": frame.FloatsToInputs([]float64{0, 0, 0, 0, 0}),
 				}},
@@ -1132,7 +1132,7 @@ func TestValidatePlanRequest(t *testing.T) {
 			request: PlanRequest{
 				Logger:      logger,
 				FrameSystem: fs,
-				Goals:        validGoal,
+				Goals:       validGoal,
 				StartState: &PlanState{configuration: map[string][]frame.Input{
 					"frame1": {},
 				}},

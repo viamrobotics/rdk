@@ -45,9 +45,9 @@ type PlanRequest struct {
 	// The planner will hit each Goal in order. Each goal may be a configuration and/or PathStep for arms, or must be a PathStep for bases.
 	// For arms, if both a configuration and PathStep are given, the IK solutions for the PathStep will be added to the configuration when
 	// creating the goal tree.
-	Goals           []*PlanState
-	FrameSystem     referenceframe.FrameSystem
-	
+	Goals       []*PlanState
+	FrameSystem referenceframe.FrameSystem
+
 	// This must always have a configuration filled in, for geometry placement purposes.
 	// If poses are also filled in, the configuration will be used to determine geometry collisions, but the poses will be used
 	// in IK to generate plan start configurations. The given configuration will NOT automatically be added to the seed tree.
@@ -100,7 +100,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 		}
 	}
 
-	if req.Goals == nil || len(req.Goals) == 0 {
+	if len(req.Goals) == 0 {
 		return errors.New("PlanRequest must have at least one goal")
 	}
 
@@ -110,7 +110,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 			if req.FrameSystem.Frame(goalParentFrame) == nil {
 				return referenceframe.NewParentFrameMissingError(fName, goalParentFrame)
 			}
-			
+
 			if len(req.BoundingRegions) > 0 {
 				// Check that robot components start within bounding regions.
 				// Bounding regions are for 2d planning, which requires a start pose
@@ -181,7 +181,7 @@ func PlanFrameMotion(ctx context.Context,
 	plan, err := PlanMotion(ctx, &PlanRequest{
 		Logger: logger,
 		Goals: []*PlanState{
-			&PlanState{poses: PathStep{f.Name(): referenceframe.NewPoseInFrame(referenceframe.World, dst)}},
+			{poses: PathStep{f.Name(): referenceframe.NewPoseInFrame(referenceframe.World, dst)}},
 		},
 		StartState:  &PlanState{configuration: map[string][]referenceframe.Input{f.Name(): seed}},
 		FrameSystem: fs,
@@ -380,7 +380,7 @@ func (mp *planner) getSolutions(ctx context.Context, seed map[string][]reference
 	if nSolutions == 0 {
 		nSolutions = defaultSolutionsToSeed
 	}
-	if seed == nil || len(seed) == 0 {
+	if len(seed) == 0 {
 		// If no seed is passed, generate one randomly
 		for _, frameName := range mp.fs.FrameNames() {
 			seed[frameName] = referenceframe.RandomFrameInputs(mp.fs.Frame(frameName), mp.randseed)

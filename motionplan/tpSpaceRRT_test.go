@@ -56,7 +56,7 @@ func TestPtgRrtBidirectional(t *testing.T) {
 	opt.scoreFunc = tpspace.NewPTGDistanceMetric([]string{ackermanFrame.Name()})
 	opt.PlannerConstructor = newTPSpaceMotionPlanner
 	opt.relativeInputs = true
-	
+
 	opt.fillMotionChains(fs, goal)
 
 	mp, err := newTPSpaceMotionPlanner(fs, rand.New(rand.NewSource(42)), logger, opt)
