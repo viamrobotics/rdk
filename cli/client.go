@@ -344,7 +344,7 @@ func (c *viamClient) organizationLogoSetAction(cCtx *cli.Context, orgID, logoFil
 	logoFilePath = strings.ToLower(filepath.Clean(logoFilePath))
 
 	// regex for a valid .png file path: matches any number of non-dot chars followed by a .png at the end
-	logoFilePathRegex := regexp.MustCompile(`^[^.]+\.png$`)
+	logoFilePathRegex := regexp.MustCompile(`^[^.]+\.(?i)png$`)
 	if !logoFilePathRegex.MatchString(logoFilePath) {
 		return errors.Errorf("%s is not a valid .png file path", logoFilePath)
 	}
