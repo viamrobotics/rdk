@@ -18,7 +18,6 @@ import (
 
 func init() {
 	resource.RegisterAPI(API, resource.APIRegistration[Motor]{
-		Status:                      resource.StatusFunc(CreateStatus),
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterMotorServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.MotorService_ServiceDesc,
@@ -158,34 +157,6 @@ func FromRobot(r robot.Robot, name string) (Motor, error) {
 // NamesFromRobot is a helper for getting all motor names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
-}
-
-// CreateStatus creates a status from the motor.
-func CreateStatus(ctx context.Context, m Motor) (*pb.Status, error) {
-	isPowered, _, err := m.IsPowered(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	properties, err := m.Properties(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	var position float64
-	if properties.PositionReporting {
-		position, err = m.Position(ctx, nil)
-		if err != nil {
-			return nil, err
-		}
-	}
-	isMoving, err := m.IsMoving(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.Status{
-		IsPowered: isPowered,
-		Position:  position,
-		IsMoving:  isMoving,
-	}, nil
 }
 
 // CheckSpeed checks if the input rpm is too slow or fast and returns a warning and/or error.
