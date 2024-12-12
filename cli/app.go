@@ -1588,7 +1588,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Usage: "generate a new modular resource via prompts",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name: moduleFlagName,
+							Name:  moduleFlagName,
 							Usage: "name to use for module",
 						},
 						&cli.StringFlag{
@@ -1596,11 +1596,11 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							Usage: "language to use for module",
 						},
 						&cli.BoolFlag{
-							Name: moduleFlagIsPublic,
+							Name:  moduleFlagIsPublic,
 							Usage: "set module to public",
 						},
 						&cli.StringFlag{
-							Name: moduleFlagPublicNamespace,
+							Name:  moduleFlagPublicNamespace,
 							Usage: "namespace or organization ID of module",
 						},
 						&cli.StringFlag{
@@ -1616,15 +1616,15 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							Usage: "resource model name to use in module",
 						},
 						&cli.BoolFlag{
-							Name: moduleFlagEnableCloud,
+							Name:  moduleFlagEnableCloud,
 							Usage: "generate Github workflows to build module",
 						},
 						&cli.BoolFlag{
-							Name: moduleFlagRegister,
+							Name:  moduleFlagRegister,
 							Usage: "register module with Viam and associate with your organization",
 						},
 						&cli.BoolFlag{
-							Name: moduleFlagTest,
+							Name:  moduleFlagTest,
 							Usage: "don't check if given organization or namespace exists",
 						},
 					},

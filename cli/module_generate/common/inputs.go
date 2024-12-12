@@ -43,7 +43,7 @@ type GoModuleTmpl struct {
 	Functions string
 }
 
-// HasEmptyInput checks to see if any required inputs were not filled in. 
+// HasEmptyInput checks to see if any required inputs were not filled in.
 func (inputs *ModuleInputs) HasEmptyInput() bool {
 	requiredInputs := []string{inputs.ModuleName, inputs.Language, inputs.Namespace, inputs.ResourceType, inputs.ResourceSubtype, inputs.ModelName}
 	for _, input := range requiredInputs {
