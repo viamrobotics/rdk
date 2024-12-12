@@ -1681,11 +1681,11 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 						},
 						&cli.BoolFlag{
 							Name:  moduleFlagRegister,
-							Usage: "register module with Viam and associate with your organization",
+							Usage: "register module with Viam to associate with your organization",
 						},
 						&cli.BoolFlag{
 							Name:  moduleFlagTest,
-							Usage: "don't check if given organization or namespace exists",
+							Usage: "don't do organization or namespace check",
 						},
 					},
 					Action: createCommandWithT[generateModuleArgs](GenerateModuleAction),
