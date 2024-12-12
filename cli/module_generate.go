@@ -47,9 +47,15 @@ var (
 )
 
 type generateModuleArgs struct {
+	ModuleName      string
 	Language        string
+	IsPublic        bool
+	PublicNamespace string
 	ResourceType    string
 	ResourceSubtype string
+	ModelName       string
+	EnableCloud     bool
+	Register        bool
 }
 
 // GenerateModuleAction runs the module generate cli and generates necessary module templates based on user input.
@@ -65,19 +71,17 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 	var newModule *common.ModuleInputs
 	var err error
 
-	resourceType := args.ResourceType
-	resourceSubtype := args.ResourceSubtype
 	newModule = &common.ModuleInputs{
-		ModuleName:       cCtx.String(moduleFlagName),
+		ModuleName:       args.ModuleName,
 		Language:         args.Language,
-		IsPublic:         cCtx.Bool(moduleFlagIsPublic),
-		Namespace:        cCtx.String(moduleFlagPublicNamespace),
-		Resource:         resourceSubtype + " " + resourceType,
-		ResourceType:     resourceType,
-		ResourceSubtype:  resourceSubtype,
-		ModelName:        cCtx.String(moduleFlagModelName),
-		EnableCloudBuild: cCtx.Bool(moduleFlagEnableCloud),
-		RegisterOnApp:    cCtx.Bool(moduleFlagRegister),
+		IsPublic:         args.IsPublic,
+		Namespace:        args.PublicNamespace,
+		Resource:         args.ResourceSubtype + " " + args.ResourceType,
+		ResourceType:     args.ResourceType,
+		ResourceSubtype:  args.ResourceSubtype,
+		ModelName:        args.ModelName,
+		EnableCloudBuild: args.EnableCloud,
+		RegisterOnApp:    args.Register,
 	}
 
 	if newModule.HasEmptyInput() {
