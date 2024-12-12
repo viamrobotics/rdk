@@ -13,7 +13,7 @@ import (
 )
 
 // ErrReadingsNil is the returned error if sensor readings are nil.
-var ErrReadingsNil = func(sensorName, sensorType string) error {
+var ErrReadingsNil = func(sensorType, sensorName string) error {
 	return fmt.Errorf("%v component %v Readings should not return nil readings", sensorType, sensorName)
 }
 
