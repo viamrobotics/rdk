@@ -5,8 +5,8 @@ package module
 import (
 	"os"
 	"os/user"
-	"syscall"
 	"strconv"
+	"syscall"
 
 	"github.com/pkg/errors"
 )
@@ -26,17 +26,17 @@ func CheckSocketOwner(address string) error {
 	if err != nil {
 		return err
 	}
-	sockUid := int(info.Sys().(*syscall.Stat_t).Uid)
-	if osUid := os.Getuid(); osUid != sockUid {
-		sockUser, err := user.LookupId(strconv.Itoa(sockUid))
+	sockUID := int(info.Sys().(*syscall.Stat_t).Uid)
+	if serverUID := os.Getuid(); serverUID != sockUID {
+		sockUser, err := user.LookupId(strconv.Itoa(sockUID))
 		if err != nil {
 			return errors.Wrap(err, "error looking up user")
 		}
-		osUser, err := user.LookupId(strconv.Itoa(osUid))
+		serverUser, err := user.LookupId(strconv.Itoa(serverUID))
 		if err != nil {
 			return errors.Wrap(err, "error looking up user")
 		}
-		return errors.Errorf("socket owned by %s while process is owned by %s", sockUser.Name, osUser.Name)
+		return errors.Errorf("socket owned by %s while process is owned by %s", sockUser.Name, serverUser.Name)
 	}
 	return nil
 }
