@@ -2,11 +2,13 @@ package motionplan
 
 import (
 	"errors"
+	"encoding/json"
 	"fmt"
 	"math"
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
 
 	"go.viam.com/rdk/motionplan/ik"
@@ -355,9 +357,20 @@ type PlanState struct {
 	configuration map[string][]referenceframe.Input
 }
 
-// Poses returns the poses of a PlanState if they are populated, or computes them using the given FrameSystem if not.
-// 
-func (p *PlanState) Poses(fs referenceframe.FrameSystem) (PathStep, error) {
+func NewPlanState(poses PathStep, configuration map[string][]referenceframe.Input) *PlanState {
+	return &PlanState{poses: poses, configuration: configuration}
+}
+
+func (p *PlanState) Poses() PathStep {
+	return p.poses
+}
+
+func (p *PlanState) Configuration() map[string][]referenceframe.Input {
+	return p.configuration
+}
+
+// ComputePoses returns the poses of a PlanState if they are populated, or computes them using the given FrameSystem if not.
+func (p *PlanState) ComputePoses(fs referenceframe.FrameSystem) (PathStep, error) {
 	if p.poses != nil {
 		return p.poses, nil
 	}
@@ -377,4 +390,70 @@ func (p *PlanState) Poses(fs referenceframe.FrameSystem) (PathStep, error) {
 	}
 
 	return computedPoses, nil
+}
+
+// Serialize turns a PlanState into a map[string]interface suitable for being transmitted over proto
+func (p PlanState) Serialize() map[string]interface{} {
+	m := map[string]interface{}{}
+	poseMap := map[string]interface{}{}
+	confMap := map[string]interface{}{}
+	for fName, pif := range p.poses {
+		pifProto := referenceframe.PoseInFrameToProtobuf(pif)
+		poseMap[fName] = pifProto
+	}
+	for fName, conf := range p.configuration {
+		confMap[fName] = referenceframe.InputsToFloats(conf)
+	}
+	m["poses"] = poseMap
+	m["configuration"] = confMap
+	return m
+}
+
+// DeserializePlanState turns a serialized PlanState back into a PlanState
+func DeserializePlanState(iface map[string]interface{}) (*PlanState, error) {
+	ps := &PlanState{
+		poses: PathStep{},
+		configuration: map[string][]referenceframe.Input{},
+	}
+	if posesIface, ok := iface["poses"]; ok {
+		if pathStepMap, ok := posesIface.(map[string]interface{}); ok {
+			for fName, pifIface := range pathStepMap {
+				pifJSON, err := json.Marshal(pifIface)
+				if err != nil {
+					return nil, err
+				}
+				pifPb := &commonpb.PoseInFrame{}
+				err = json.Unmarshal(pifJSON, pifPb)
+				if err != nil {
+					return nil, err
+				}
+				pif := referenceframe.ProtobufToPoseInFrame(pifPb)
+				ps.poses[fName] = pif
+			}
+		} else {
+			return nil, errors.New("could not decode contents of poses")
+		}
+	}
+	if confIface, ok := iface["configuration"]; ok {
+		if confMap, ok := confIface.(map[string]interface{}); ok {
+			for fName, inputsArrIface := range confMap {
+				if inputsArr, ok := inputsArrIface.([]interface{}); ok {
+					floats := make([]float64, 0, len(inputsArr))
+					for _, inputIface := range inputsArr {
+						if val, ok := inputIface.(float64); ok {
+							floats = append(floats, val)
+						} else {
+							return nil, errors.New("configuration input array did not contain floats")
+						}
+					}
+					ps.configuration[fName] = referenceframe.FloatsToInputs(floats)
+				} else {
+					return nil, errors.New("configuration did not contain array of inputs")
+				}
+			}
+		} else {
+			return nil, errors.New("could not decode contents of configuration")
+		}
+	}
+	return ps, nil
 }

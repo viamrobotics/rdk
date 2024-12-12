@@ -75,7 +75,7 @@ func (wp *atomicWaypoint) nodes() ([]node, []node) {
 // Any constraints, etc, will be held for the entire motion.
 func (pm *planManager) planMultiWaypoint(ctx context.Context, request *PlanRequest, seedPlan Plan) (Plan, error) {
 
-	startPoses, err := request.StartState.Poses(request.FrameSystem)
+	startPoses, err := request.StartState.ComputePoses(request.FrameSystem)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +116,7 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context, request *PlanReque
 	waypoints := []atomicWaypoint{}
 
 	for i, goal := range request.Goals {
-		goalPoses, err := goal.Poses(request.FrameSystem)
+		goalPoses, err := goal.ComputePoses(request.FrameSystem)
 		if err != nil {
 			return nil, err
 		}
@@ -440,11 +440,11 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	opt := newBasicPlannerOptions()
 	opt.extra = planningOpts
 	
-	startPoses, err := from.Poses(pm.fs)
+	startPoses, err := from.ComputePoses(pm.fs)
 	if err != nil {
 		return nil, err
 	}
-	goalPoses, err := to.Poses(pm.fs)
+	goalPoses, err := to.ComputePoses(pm.fs)
 	if err != nil {
 		return nil, err
 	}
@@ -694,11 +694,11 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 		wpGoals = alteredGoals
 	}
 	
-	startPoses, err := request.StartState.Poses(pm.fs)
+	startPoses, err := request.StartState.ComputePoses(pm.fs)
 	if err != nil {
 		return nil, err
 	}
-	goalPoses, err := wpGoals.Poses(pm.fs)
+	goalPoses, err := wpGoals.ComputePoses(pm.fs)
 	if err != nil {
 		return nil, err
 	}
