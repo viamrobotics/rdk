@@ -34,11 +34,8 @@ const (
 // Intended information flow should be:
 // motionplan.PlanMotion() -> SolvableFrameSystem.SolveWaypointsWithOptions() -> planManager.planSingleWaypoint().
 type planManager struct {
-	*planner
+	*planner // TODO: This should probably be removed
 	activeBackgroundWorkers sync.WaitGroup
-
-	useTPspace   bool
-	ptgFrameName string
 }
 
 func newPlanManager(
@@ -83,9 +80,8 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context, request *PlanReque
 	if err != nil {
 		return nil, err
 	}
-	pm.planOpts = opt
-	if pm.useTPspace {
-		return pm.planRelativeWaypoint(ctx, request, seedPlan)
+	if opt.useTPspace {
+		return pm.planRelativeWaypoint(ctx, request, seedPlan, opt)
 	}
 	// Theoretically, a plan could be made between two poses, by running IK on both the start and end poses to create sets of seed and
 	// goal configurations. However, the blocker here is the lack of a "known good" configuration used to determine which obstacles
@@ -176,7 +172,7 @@ func (pm *planManager) planAtomicWaypoints(
 		// TPspace should fill in its maps in planRelativeWaypoint and then call planSingleAtomicWaypoint directly so no need to
 		// deal with that here.
 		// TODO: Once TPspace also supports multiple waypoints, this needs to be updated.
-		if !pm.useTPspace && maps == nil {
+		if !wp.mp.opt().useTPspace && maps == nil {
 			if seed != nil {
 				// If we have a seed, we are linking ultiple waypoints, so the next one MUST start at the ending configuration of the last
 				wp.startState = &PlanState{configuration: seed}
@@ -186,7 +182,9 @@ func (pm *planManager) planAtomicWaypoints(
 				return nil, planSeed.err
 			}
 			if planSeed.steps != nil {
-				return newRRTPlan(planSeed.steps, pm.fs, pm.useTPspace, nil)
+				resultPromises = append(resultPromises, &resultPromise{steps: planSeed.steps})
+				seed = planSeed.steps[len(planSeed.steps)-1].Q()
+				continue
 			}
 			maps = planSeed.maps
 		}
@@ -210,7 +208,8 @@ func (pm *planManager) planAtomicWaypoints(
 		resultSlices = append(resultSlices, steps...)
 	}
 
-	return newRRTPlan(resultSlices, pm.fs, pm.useTPspace, nil)
+	// // TODO: Once TPspace also supports multiple waypoints, this needs to be updated. For now it can be false.
+	return newRRTPlan(resultSlices, pm.fs, false, nil)
 }
 
 // planSingleAtomicWaypoint attempts to plan a single waypoint. It may optionally be pre-seeded with rrt maps; these will be passed to the
@@ -220,7 +219,7 @@ func (pm *planManager) planSingleAtomicWaypoint(
 	wp atomicWaypoint,
 	maps *rrtMaps,
 ) (map[string][]referenceframe.Input, *resultPromise, error) {
-	// ~ pm.logger.Debug("start planning for ", goal.ToProto())
+	pm.logger.Debug("start planning for ", wp.goalState.configuration, wp.goalState.poses)
 
 	if _, ok := wp.mp.(rrtParallelPlanner); ok {
 		// rrtParallelPlanner supports solution look-ahead for parallel waypoint solving
@@ -343,7 +342,7 @@ func (pm *planManager) planParallelRRTMotion(
 		// If there *was* an error, then either the fallback will not error and will replace it, or the error will be returned
 		if finalSteps.err == nil {
 			if fallbackPlanner != nil {
-				if ok, score := pm.goodPlan(finalSteps, pm.opt()); ok {
+				if ok, score := pm.goodPlan(finalSteps, pathPlanner.opt()); ok {
 					pm.logger.CDebugf(ctx, "got path with score %f, close enough to optimal %f", score, maps.optNode.Cost())
 					fallbackPlanner = nil
 				} else {
@@ -380,7 +379,7 @@ func (pm *planManager) planParallelRRTMotion(
 		score := math.Inf(1)
 
 		if finalSteps.steps != nil {
-			score = nodesToTrajectory(finalSteps.steps).EvaluateCost(pm.opt().scoreFunc)
+			score = nodesToTrajectory(finalSteps.steps).EvaluateCost(pathPlanner.opt().scoreFunc)
 		}
 
 		// If we ran a fallback, retrieve the result and compare to the smoothed path
@@ -389,7 +388,7 @@ func (pm *planManager) planParallelRRTMotion(
 			if err == nil {
 				// If the fallback successfully found a path, check if it is better than our smoothed previous path.
 				// The fallback should emerge pre-smoothed, so that should be a non-issue
-				altCost := nodesToTrajectory(alternate).EvaluateCost(pm.opt().scoreFunc)
+				altCost := nodesToTrajectory(alternate).EvaluateCost(pathPlanner.opt().scoreFunc)
 				if altCost < score {
 					pm.logger.CDebugf(ctx, "replacing path with score %f with better score %f", score, altCost)
 					finalSteps = &rrtSolution{steps: alternate}
@@ -454,33 +453,33 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("opt.motionChains", opt.motionChains)
 	if len(opt.motionChains) < 1 {
 		return nil, errors.New("must have at least one motion chain")
 	}
 	// create motion chains for each goal, and error check for PTG frames
 	// TODO: currently, if any motion chain has a PTG frame, that must be the only motion chain and that frame must be the only
 	// frame in the chain with nonzero DoF. Eventually this need not be the case.
-	pm.useTPspace = false
 	for _, chain := range opt.motionChains {
 		for _, movingFrame := range chain.frames {
 			if _, isPTGframe := movingFrame.(tpspace.PTGProvider); isPTGframe {
-				if pm.useTPspace {
+				if opt.useTPspace {
 					return nil, errors.New("only one PTG frame can be planned for at a time")
 				}
 				if len(opt.motionChains) > 1 {
 					return nil, errMixedFrameTypes
 				}
-				pm.useTPspace = true
-				pm.ptgFrameName = movingFrame.Name()
+				opt.useTPspace = true
+				opt.ptgFrameName = movingFrame.Name()
 				chain.worldRooted = true
 			} else if len(movingFrame.DoF()) > 0 {
-				if pm.useTPspace {
+				if opt.useTPspace {
 					return nil, errMixedFrameTypes
 				}
 			}
 		}
 	}
-	if pm.useTPspace {
+	if opt.useTPspace {
 		opt.Resolution = defaultPTGCollisionResolution
 	}
 
@@ -588,7 +587,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		constraints.AddOrientationConstraint(OrientationConstraint{tolerance})
 	case PositionOnlyMotionProfile:
 		opt.profile = PositionOnlyMotionProfile
-		if !pm.useTPspace || opt.PositionSeeds <= 0 {
+		if !opt.useTPspace || opt.PositionSeeds <= 0 {
 			opt.goalMetricConstructor = ik.NewPositionOnlyMetric
 		}
 	}
@@ -614,7 +613,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 			return nil, errors.New("could not interpret planning_alg field as string")
 		}
 	}
-	if pm.useTPspace && planAlg != "" {
+	if opt.useTPspace && planAlg != "" {
 		return nil, fmt.Errorf("cannot specify a planning_alg when planning for a TP-space frame. alg specified was %s", planAlg)
 	}
 	if hasTopoConstraint {
@@ -634,7 +633,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	default:
 		// use default, already set
 	}
-	if pm.useTPspace {
+	if opt.useTPspace {
 		// overwrite default with TP space
 		opt.PlannerConstructor = newTPSpaceMotionPlanner
 
@@ -642,10 +641,9 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		opt.poseDistanceFunc = ik.NewSquaredNormSegmentMetric(defaultTPspaceOrientationScale)
 		// If we have PTGs, then we calculate distances using the PTG-specific distance function.
 		// Otherwise we just use squared norm on inputs.
-		opt.scoreFunc = tpspace.NewPTGDistanceMetric([]string{pm.ptgFrameName})
+		opt.scoreFunc = tpspace.NewPTGDistanceMetric([]string{opt.ptgFrameName})
 
 		planAlg = "tpspace"
-		opt.relativeInputs = true
 	}
 
 	if opt.profile == FreeMotionProfile || opt.profile == PositionOnlyMotionProfile {
@@ -673,14 +671,8 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 // generateWaypoints will return the list of atomic waypoints that correspond to a specific goal in a plan request.
 func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wpi int) ([]atomicWaypoint, error) {
 	wpGoals := request.Goals[wpi]
-	if wpGoals.poses != nil {
-		// Transform goal poses into world frame if needed. This is used for e.g. when a component's goal is given in terms of itself.
-		alteredGoals, err := alterGoals(pm.planOpts.motionChains, pm.fs, request.StartState.configuration, wpGoals)
-		if err != nil {
-			return nil, err
-		}
-		wpGoals = alteredGoals
-	}
+	fmt.Println("wpGoals", wpGoals)
+
 
 	startPoses, err := request.StartState.ComputePoses(pm.fs)
 	if err != nil {
@@ -692,9 +684,27 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 	}
 
 	subWaypoints := useSubWaypoints(request, seedPlan, wpi)
-	// TPspace should never use subwaypoints
-	if !subWaypoints || pm.useTPspace {
-		opt, err := pm.plannerSetupFromMoveRequest(
+	opt, err := pm.plannerSetupFromMoveRequest(
+		request.StartState,
+		wpGoals,
+		request.StartState.configuration,
+		request.WorldState,
+		request.BoundingRegions,
+		request.Constraints,
+		request.Options,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if wpGoals.poses != nil {
+		// Transform goal poses into world frame if needed. This is used for e.g. when a component's goal is given in terms of itself.
+		alteredGoals, err := alterGoals(opt.motionChains, pm.fs, request.StartState.configuration, wpGoals)
+		if err != nil {
+			return nil, err
+		}
+		wpGoals = alteredGoals
+		// Regenerate opts since our metrics will have changed
+		opt, err = pm.plannerSetupFromMoveRequest(
 			request.StartState,
 			wpGoals,
 			request.StartState.configuration,
@@ -706,6 +716,13 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 		if err != nil {
 			return nil, err
 		}
+	}
+	fmt.Println("alteredGoals", wpGoals)
+	
+	// TPspace should never use subwaypoints
+	if !subWaypoints || opt.useTPspace {
+		fmt.Println("wpi", wpi, "single")
+
 		//nolint: gosec
 		pathPlanner, err := opt.PlannerConstructor(
 			pm.fs,
@@ -718,6 +735,7 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 		}
 		return []atomicWaypoint{{mp: pathPlanner, startState: request.StartState, goalState: wpGoals}}, nil
 	}
+	fmt.Println("wpi", wpi, "multi")
 
 	pathStepSize, ok := request.Options["path_step_size"].(float64)
 	if !ok {
@@ -767,7 +785,6 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 		if err != nil {
 			return nil, err
 		}
-		// ~ wpOpt.setGoal(to)
 		//nolint: gosec
 		pathPlanner, err := wpOpt.PlannerConstructor(
 			pm.fs,
@@ -813,17 +830,17 @@ func (pm *planManager) planToRRTGoalMap(plan Plan, goal atomicWaypoint) (*rrtMap
 		planNodes = append(planNodes, &basicNode{q: tConf, poses: path[i]})
 	}
 
-	if pm.useTPspace {
+	if goal.mp.opt().useTPspace {
 		// Fill in positions from the old origin to where the goal was during the last run
-		planNodesOld, err := rectifyTPspacePath(planNodes, pm.fs.Frame(pm.ptgFrameName), spatialmath.NewZeroPose())
+		planNodesOld, err := rectifyTPspacePath(planNodes, pm.fs.Frame(goal.mp.opt().ptgFrameName), spatialmath.NewZeroPose())
 		if err != nil {
 			return nil, err
 		}
 
 		// Figure out where our new starting point is relative to our last one, and re-rectify using the new adjusted location
-		oldGoal := planNodesOld[len(planNodesOld)-1].Poses()[pm.ptgFrameName].Pose()
-		pathDiff := spatialmath.PoseBetween(oldGoal, goal.goalState.poses[pm.ptgFrameName].Pose())
-		planNodes, err = rectifyTPspacePath(planNodes, pm.fs.Frame(pm.ptgFrameName), pathDiff)
+		oldGoal := planNodesOld[len(planNodesOld)-1].Poses()[goal.mp.opt().ptgFrameName].Pose()
+		pathDiff := spatialmath.PoseBetween(oldGoal, goal.goalState.poses[goal.mp.opt().ptgFrameName].Pose())
+		planNodes, err = rectifyTPspacePath(planNodes, pm.fs.Frame(goal.mp.opt().ptgFrameName), pathDiff)
 		if err != nil {
 			return nil, err
 		}
@@ -834,7 +851,7 @@ func (pm *planManager) planToRRTGoalMap(plan Plan, goal atomicWaypoint) (*rrtMap
 	for i := len(planNodes) - 1; i >= 0; i-- {
 		if i != 0 {
 			// Fill in costs
-			cost := pm.opt().configurationDistanceFunc(&ik.SegmentFS{
+			cost := goal.mp.opt().configurationDistanceFunc(&ik.SegmentFS{
 				StartConfiguration: planNodes[i-1].Q(),
 				EndConfiguration:   planNodes[i].Q(),
 				FS:                 pm.fs,
@@ -855,19 +872,19 @@ func (pm *planManager) planToRRTGoalMap(plan Plan, goal atomicWaypoint) (*rrtMap
 
 // planRelativeWaypoint will solve the PTG frame to one individual pose. This is used for frames whose inputs are relative, that
 // is, the pose returned by `Transform` is a transformation rather than an absolute position.
-func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRequest, seedPlan Plan) (Plan, error) {
+func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRequest, seedPlan Plan, opt *plannerOptions) (Plan, error) {
 	if request.StartState.poses == nil {
 		return nil, errors.New("must provide a startPose if solving for PTGs")
 	}
 	if len(request.Goals) != 1 {
 		return nil, errors.New("can only provide one goal if solving for PTGs")
 	}
-	startPose := request.StartState.poses[pm.ptgFrameName].Pose()
-	goalPif := request.Goals[0].poses[pm.ptgFrameName]
+	startPose := request.StartState.poses[opt.ptgFrameName].Pose()
+	goalPif := request.Goals[0].poses[opt.ptgFrameName]
 
 	request.Logger.CInfof(ctx,
 		"planning relative motion for frame %s\nGoal: %v\nstartPose %v\n, worldstate: %v\n",
-		pm.ptgFrameName,
+		opt.ptgFrameName,
 		referenceframe.PoseInFrameToProtobuf(goalPif),
 		spatialmath.PoseToProtobuf(startPose),
 		request.WorldState.String(),
@@ -900,7 +917,7 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 	}
 
 	// Create frame system subset using frame name
-	relativeOnlyFS, err := pm.fs.FrameSystemSubset(pm.fs.Frame(pm.ptgFrameName))
+	relativeOnlyFS, err := pm.fs.FrameSystemSubset(pm.fs.Frame(opt.ptgFrameName))
 	if err != nil {
 		return nil, err
 	}
@@ -917,7 +934,7 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 	wp := wps[0]
 
 	zeroInputs := map[string][]referenceframe.Input{}
-	zeroInputs[pm.ptgFrameName] = make([]referenceframe.Input, len(pm.fs.Frame(pm.ptgFrameName).DoF()))
+	zeroInputs[opt.ptgFrameName] = make([]referenceframe.Input, len(pm.fs.Frame(opt.ptgFrameName).DoF()))
 	maps := &rrtMaps{}
 	if seedPlan != nil {
 		// TODO: This probably needs to be flipped? Check if these paths are ever used.
@@ -926,15 +943,15 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 			return nil, err
 		}
 	}
-	if pm.opt().PositionSeeds > 0 && pm.opt().profile == PositionOnlyMotionProfile {
-		err = maps.fillPosOnlyGoal(wp.goalState.poses, pm.opt().PositionSeeds)
+	if opt.PositionSeeds > 0 && opt.profile == PositionOnlyMotionProfile {
+		err = maps.fillPosOnlyGoal(wp.goalState.poses, opt.PositionSeeds)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		goalPose := wp.goalState.poses[pm.ptgFrameName].Pose()
+		goalPose := wp.goalState.poses[opt.ptgFrameName].Pose()
 		goalMapFlip := map[string]*referenceframe.PoseInFrame{
-			pm.ptgFrameName: referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.Compose(goalPose, flipPose)),
+			opt.ptgFrameName: referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.Compose(goalPose, flipPose)),
 		}
 		goalNode := &basicNode{q: zeroInputs, poses: goalMapFlip}
 		maps.goalMap = map[node]node{goalNode: nil}
@@ -952,7 +969,7 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 		return nil, err
 	}
 
-	return newRRTPlan(steps, pm.fs, pm.useTPspace, startPose)
+	return newRRTPlan(steps, pm.fs, opt.useTPspace, startPose)
 }
 
 // Copy any atomic values.

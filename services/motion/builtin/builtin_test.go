@@ -1299,3 +1299,206 @@ func TestDoCommand(t *testing.T) {
 		test.That(t, resp, test.ShouldBeTrue)
 	})
 }
+
+func TestMultiWaypointPlanning(t *testing.T) {
+	ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
+	defer teardown()
+	ctx := context.Background()
+
+	// Helper function to extract plan from Move call using DoCommand
+	getPlanFromMove := func(t *testing.T, req motion.MoveReq) motionplan.Trajectory {
+		t.Helper()
+		// Convert MoveReq to proto format for DoCommand
+		moveReqProto, err := req.ToProto("")
+		test.That(t, err, test.ShouldBeNil)
+
+		resp, err := ms.DoCommand(ctx, map[string]interface{}{
+			DoPlan: moveReqProto,
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		plan, ok := resp[DoPlan].(motionplan.Trajectory)
+		test.That(t, ok, test.ShouldBeTrue)
+		return plan
+	}
+
+	t.Run("plan through multiple pose waypoints", func(t *testing.T) {
+		// Define waypoints as poses relative to world frame
+		waypoint1 := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -180, Z: 30}))
+		waypoint2 := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -190, Z: 30}))
+		finalPose := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -200, Z: 30}))
+
+		wp1State := motionplan.NewPlanState(motionplan.PathStep{"pieceGripper": waypoint1}, nil)
+		wp2State := motionplan.NewPlanState(motionplan.PathStep{"pieceGripper": waypoint2}, nil)
+
+		moveReq := motion.MoveReq{
+			ComponentName: gripper.Named("pieceGripper"),
+			Destination:   finalPose,
+			Extra: map[string]interface{}{
+				"waypoints":   []interface{}{wp1State.Serialize(), wp2State.Serialize()},
+				"smooth_iter": 5,
+			},
+		}
+
+		plan := getPlanFromMove(t, moveReq)
+		test.That(t, len(plan), test.ShouldBeGreaterThan, 0)
+
+		// Verify start configuration matches current robot state
+		fsInputs, _, err := ms.(*builtIn).fsService.CurrentInputs(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, plan[0], test.ShouldResemble, fsInputs)
+
+		// Verify final pose
+		frameSys, err := ms.(*builtIn).fsService.FrameSystem(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		for _, step := range plan {
+			poseInWorld, err := frameSys.Transform(step, referenceframe.NewZeroPoseInFrame("pieceGripper"), "world")
+			test.That(t, err, test.ShouldBeNil)
+			fmt.Println("poseInWorld", referenceframe.PoseInFrameToProtobuf(poseInWorld.(*referenceframe.PoseInFrame)))
+		}
+
+		finalConfig := plan[len(plan)-1]
+		finalPoseInWorld, err := frameSys.Transform(finalConfig,
+			referenceframe.NewPoseInFrame("pieceGripper", spatialmath.NewZeroPose()),
+			"world")
+		test.That(t, err, test.ShouldBeNil)
+		plannedPose := finalPoseInWorld.(*referenceframe.PoseInFrame).Pose()
+		test.That(t, spatialmath.PoseAlmostEqualEps(plannedPose, finalPose.Pose(), 1e-3), test.ShouldBeTrue)
+	})
+
+	t.Run("plan through mixed pose and configuration waypoints", func(t *testing.T) {
+		// Define specific arm configuration for first waypoint
+		armConfig := []float64{0.2, 0.3, 0.4, 0.5, 0.6, 0.7}
+		wp1State := motionplan.NewPlanState(nil, map[string][]referenceframe.Input{
+			"pieceArm": referenceframe.FloatsToInputs(armConfig),
+		})
+
+		// Define pose for second waypoint
+		intermediatePose := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -25, Z: -45})
+		wp2State := motionplan.NewPlanState(
+			motionplan.PathStep{"pieceGripper": referenceframe.NewPoseInFrame("world", intermediatePose)},
+			nil,
+		)
+
+		finalPose := referenceframe.NewPoseInFrame("world",
+			spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -30, Z: -50}))
+
+		moveReq := motion.MoveReq{
+			ComponentName: gripper.Named("pieceGripper"),
+			Destination:   finalPose,
+			Extra: map[string]interface{}{
+				"waypoints":   []interface{}{wp1State.Serialize(), wp2State.Serialize()},
+				"smooth_iter": 5,
+			},
+		}
+
+		plan := getPlanFromMove(t, moveReq)
+		test.That(t, len(plan), test.ShouldBeGreaterThan, 0)
+
+		// Find configuration closest to first waypoint
+		foundMatchingConfig := false
+		for _, config := range plan {
+			if armInputs, ok := config["pieceArm"]; ok {
+				// Check if this configuration matches our waypoint within some epsilon
+				matches := true
+				for i, val := range armInputs {
+					if math.Abs(val.Value-armConfig[i]) > 1e-6 {
+						matches = false
+						break
+					}
+				}
+				if matches {
+					foundMatchingConfig = true
+					break
+				}
+			}
+		}
+		test.That(t, foundMatchingConfig, test.ShouldBeTrue)
+
+		// Verify final pose
+		frameSys, err := ms.(*builtIn).fsService.FrameSystem(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		finalConfig := plan[len(plan)-1]
+		finalPoseInWorld, err := frameSys.Transform(finalConfig,
+			referenceframe.NewPoseInFrame("pieceGripper", spatialmath.NewZeroPose()),
+			"world")
+		test.That(t, err, test.ShouldBeNil)
+		plannedPose := finalPoseInWorld.(*referenceframe.PoseInFrame).Pose()
+		test.That(t, spatialmath.PoseAlmostEqualEps(plannedPose, finalPose.Pose(), 1e-3), test.ShouldBeTrue)
+	})
+
+	t.Run("plan with custom start state", func(t *testing.T) {
+		startConfig := []float64{0.1, 0.2, 0.3, 0.4, 0.5, 0.6}
+		startState := motionplan.NewPlanState(nil, map[string][]referenceframe.Input{
+			"pieceArm": referenceframe.FloatsToInputs(startConfig),
+		})
+
+		finalPose := referenceframe.NewPoseInFrame("world",
+			spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -30, Z: -50}))
+
+		moveReq := motion.MoveReq{
+			ComponentName: gripper.Named("pieceGripper"),
+			Destination:   finalPose,
+			Extra: map[string]interface{}{
+				"start_state": startState.Serialize(),
+				"smooth_iter": 5,
+			},
+		}
+
+		plan := getPlanFromMove(t, moveReq)
+		test.That(t, len(plan), test.ShouldBeGreaterThan, 0)
+
+		// Verify start configuration matches specified start state
+		startArmConfig := plan[0]["pieceArm"]
+		test.That(t, startArmConfig, test.ShouldResemble, referenceframe.FloatsToInputs(startConfig))
+
+		// Verify final pose
+		frameSys, err := ms.(*builtIn).fsService.FrameSystem(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		finalConfig := plan[len(plan)-1]
+		finalPoseInWorld, err := frameSys.Transform(finalConfig,
+			referenceframe.NewPoseInFrame("pieceGripper", spatialmath.NewZeroPose()),
+			"world")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, finalPoseInWorld.(*referenceframe.PoseInFrame).Pose().Point(), test.ShouldResemble, finalPose.Pose().Point())
+	})
+
+	t.Run("plan with explicit goal state", func(t *testing.T) {
+		goalConfig := []float64{0.7, 0.6, 0.5, 0.4, 0.3, 0.2}
+		goalPose := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -30, Z: -50})
+
+		goalState := motionplan.NewPlanState(
+			motionplan.PathStep{"pieceGripper": referenceframe.NewPoseInFrame("world", goalPose)},
+			map[string][]referenceframe.Input{"pieceArm": referenceframe.FloatsToInputs(goalConfig)},
+		)
+
+		moveReq := motion.MoveReq{
+			ComponentName: gripper.Named("pieceGripper"),
+			Extra: map[string]interface{}{
+				"goal_state":  goalState.Serialize(),
+				"smooth_iter": 5,
+			},
+		}
+
+		plan := getPlanFromMove(t, moveReq)
+		test.That(t, len(plan), test.ShouldBeGreaterThan, 0)
+
+		// Verify final configuration matches goal state
+		finalArmConfig := plan[len(plan)-1]["pieceArm"]
+		test.That(t, finalArmConfig, test.ShouldResemble, referenceframe.FloatsToInputs(goalConfig))
+
+		// Verify final pose
+		frameSys, err := ms.(*builtIn).fsService.FrameSystem(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		finalConfig := plan[len(plan)-1]
+		finalPoseInWorld, err := frameSys.Transform(finalConfig,
+			referenceframe.NewPoseInFrame("pieceGripper", spatialmath.NewZeroPose()),
+			"world")
+		test.That(t, err, test.ShouldBeNil)
+				plannedPose := finalPoseInWorld.(*referenceframe.PoseInFrame).Pose()
+		test.That(t, spatialmath.PoseAlmostEqualEps(plannedPose, goalPose, 1e-3), test.ShouldBeTrue)
+	})
+}

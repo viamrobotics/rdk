@@ -3,6 +3,7 @@
 package motionplan
 
 import (
+	"fmt"
 	"math"
 	"runtime"
 
@@ -184,9 +185,8 @@ type plannerOptions struct {
 
 	Fallback *plannerOptions
 
-	// relativeInputs is a flag that is set by the planning algorithm describing if the solutions it generates are
-	// relative as in each step in the solution builds off a previous one, as opposed to being asolute with respect to some reference frame.
-	relativeInputs bool
+	useTPspace   bool
+	ptgFrameName string
 }
 
 // getGoalMetric creates the distance metric for the solver using the configured options.
@@ -338,6 +338,7 @@ func (p *plannerOptions) addOrientationConstraints(
 
 func (p *plannerOptions) fillMotionChains(fs referenceframe.FrameSystem, to *PlanState) error {
 	motionChains := make([]*motionChain, 0, len(to.poses)+len(to.configuration))
+	fmt.Println("to", to)
 
 	for frame, pif := range to.poses {
 		chain, err := motionChainFromGoal(fs, frame, pif.Parent())

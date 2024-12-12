@@ -297,16 +297,22 @@ func alterGoals(
 	goal *PlanState,
 ) (*PlanState, error) {
 	alteredGoals := PathStep{}
-	for _, chain := range chains {
-		if chain.worldRooted {
-			tf, err := fs.Transform(start, goal.poses[chain.solveFrameName], referenceframe.World)
-			if err != nil {
-				return nil, err
+	if goal.poses != nil {
+		for _, chain := range chains {
+			// chain solve frame may only be in the goal configuration, in which case we skip as the configuration will be passed through
+			if goalPif, ok := goal.poses[chain.solveFrameName]; ok {
+				if chain.worldRooted {
+					tf, err := fs.Transform(start, goalPif, referenceframe.World)
+					if err != nil {
+						return nil, err
+					}
+					alteredGoals[chain.solveFrameName] = tf.(*referenceframe.PoseInFrame)
+				} else {
+					alteredGoals[chain.solveFrameName] = goalPif
+				}
 			}
-			alteredGoals[chain.solveFrameName] = tf.(*referenceframe.PoseInFrame)
-		} else {
-			alteredGoals[chain.solveFrameName] = goal.poses[chain.solveFrameName]
 		}
+		return &PlanState{poses: alteredGoals, configuration: goal.configuration}, nil
 	}
-	return &PlanState{poses: alteredGoals, configuration: goal.configuration}, nil
+	return goal, nil
 }

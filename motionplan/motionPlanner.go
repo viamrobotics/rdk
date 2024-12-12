@@ -42,9 +42,10 @@ type plannerConstructor func(referenceframe.FrameSystem, *rand.Rand, logging.Log
 // PlanRequest is a struct to store all the data necessary to make a call to PlanMotion.
 type PlanRequest struct {
 	Logger logging.Logger
-	// The planner will hit each Goal in order. Each goal may be a configuration and/or PathStep for arms, or must be a PathStep for bases.
-	// For arms, if both a configuration and PathStep are given, the IK solutions for the PathStep will be added to the configuration when
-	// creating the goal tree.
+	// The planner will hit each Goal in order. Each goal may be a configuration or PathStep for holonomic motion, or must be a
+	// PathStep for non-holonomic motion. For holonomic motion, if both a configuration and PathStep are given, an error is thrown.
+	// TODO: Perhaps we could do something where some components are enforced to arrive at a certain configuration, but others can have IK
+	// run to solve for poses. Doing this while enforcing configurations may be tricky.
 	Goals       []*PlanState
 	FrameSystem referenceframe.FrameSystem
 
@@ -106,6 +107,10 @@ func (req *PlanRequest) validatePlanRequest() error {
 
 	for i, goalState := range req.Goals {
 		for fName, pif := range goalState.poses {
+			if len(goalState.configuration) > 0 {
+				return errors.New("individual goals cannot have both configuration and poses populated")
+			}
+			
 			goalParentFrame := pif.Parent()
 			if req.FrameSystem.Frame(goalParentFrame) == nil {
 				return referenceframe.NewParentFrameMissingError(fName, goalParentFrame)
