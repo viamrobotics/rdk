@@ -57,7 +57,7 @@ func TestStartBuild(t *testing.T) {
 			return &v1.StartBuildResponse{BuildId: "xyz123"}, nil
 		},
 	}, nil, map[string]any{moduleBuildFlagPath: manifest, moduleBuildFlagVersion: "1.2.3"}, "token")
-	err := ac.moduleBuildStartAction(cCtx)
+	err := ac.moduleBuildStartAction(cCtx, parseStructFromCtx[moduleBuildStartArgs](cCtx))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.messages, test.ShouldHaveLength, 1)
 	test.That(t, out.messages[0], test.ShouldEqual, "xyz123\n")
@@ -80,7 +80,7 @@ func TestListBuild(t *testing.T) {
 			}}, nil
 		},
 	}, nil, map[string]any{moduleBuildFlagPath: manifest}, "token")
-	err := ac.moduleBuildListAction(cCtx)
+	err := ac.moduleBuildListAction(cCtx, parseStructFromCtx[moduleBuildListArgs](cCtx))
 	test.That(t, err, test.ShouldBeNil)
 	joinedOutput := strings.Join(out.messages, "")
 	test.That(t, joinedOutput, test.ShouldEqual, `ID     PLATFORM    STATUS VERSION TIME

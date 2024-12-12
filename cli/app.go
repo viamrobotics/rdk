@@ -3,6 +3,8 @@ package cli
 import (
 	"fmt"
 	"io"
+	"reflect"
+	"regexp"
 	"strings"
 
 	"github.com/urfave/cli/v2"
@@ -10,9 +12,10 @@ import (
 
 // CLI flags.
 const (
-	baseURLFlag      = "base-url"
-	configFlag       = "config"
-	debugFlag        = "debug"
+	baseURLFlag = "base-url"
+	configFlag  = "config"
+	debugFlag   = "debug"
+	// TODO(RSDK-9287) - replace with `org-id` and `location-id` flags.
 	organizationFlag = "organization"
 	locationFlag     = "location"
 	machineFlag      = "machine"
@@ -39,6 +42,7 @@ const (
 	generalFlagMachineID    = "machine-id"
 	generalFlagAliasRobotID = "robot-id"
 
+	// TODO(RSDK-9287) - "name" occurs as three different flags. let's simplify that.
 	apiKeyCreateFlagName = "name"
 
 	moduleFlagName            = "name"
@@ -123,7 +127,15 @@ const (
 
 	cpFlagRecursive = "recursive"
 	cpFlagPreserve  = "preserve"
+
+	organizationFlagSupportEmail = "support-email"
+	organizationBillingAddress   = "address"
 )
+
+// matches all uppercase characters that follow lowercase chars and aren't at the [0] index of a string.
+// This is useful for converting camel case into kabob case when getting values out of a CLI Context
+// based on a flag name, and putting them into a struct with a camel cased field name.
+var matchAllCap = regexp.MustCompile("([a-z0-9])([A-Z])")
 
 var commonFilterFlags = []cli.Flag{
 	&cli.StringSliceFlag{
@@ -224,6 +236,87 @@ var dataTagByFilterFlags = append([]cli.Flag{
 },
 	commonFilterFlags...)
 
+type emptyArgs struct{}
+
+type globalArgs struct {
+	BaseURL string
+	Config  string
+	Debug   bool
+	Quiet   bool
+}
+
+func getValFromContext(name string, ctx *cli.Context) any {
+	// some fuzzy searching is required here, because flags are typically in kebab case, but
+	// params are typically in snake or camel case
+	replacer := strings.NewReplacer("_", "-")
+	dashFormattedName := replacer.Replace(strings.ToLower(name))
+
+	value := ctx.Value(dashFormattedName)
+	if value != nil {
+		return value
+	}
+
+	camelFormattedName := matchAllCap.ReplaceAllString(name, "${1}-${2}")
+	camelFormattedName = strings.ToLower(camelFormattedName)
+
+	return ctx.Value(camelFormattedName)
+}
+
+// TODO(RSDK-9447) - We don't support pointers in this. The problem is that when getting a value
+// from a context for a supported flag, the context will default to populating with the zero value.
+// When getting a value from the context, though, we currently have no way of know if that's going
+// to a concrete value, going to a pointer and should be a nil value, or going to a pointer but should
+// be a pointer to that default value.
+func parseStructFromCtx[T any](ctx *cli.Context) T {
+	var t T
+	var s cli.StringSlice
+	s.Value()
+	tValue := reflect.ValueOf(&t).Elem()
+	tType := tValue.Type()
+	for i := 0; i < tType.NumField(); i++ {
+		field := tType.Field(i)
+		if value := getValFromContext(field.Name, ctx); value != nil {
+			reflectVal := reflect.ValueOf(&value)
+			// (erodkin) Unfortunately, the value we get out of the context when dealing with a
+			// slice is not, e.g., a `[]string`, but rather a `cli.StringSlice` that has a
+			// `Value` method that returns a `[]string`. Some short attempts to use reflection
+			// to access that `Value` method proved unproductive, so instead we match on all
+			// currently existing `cli.FooSlice` types. This should be relatively stable
+			// (currently we only use a `StringSlice` in the CLI), but in theory it would be
+			// sad if urfave introduced a new slice type and someone tried to use it in our
+			// CLI. The default warning message should hopefully provide some clarity if
+			// such a case should ever arise.
+			if field.Type.Kind() == reflect.Slice {
+				switch v := value.(type) {
+				case cli.StringSlice:
+					tValue.Field(i).Set(reflect.ValueOf(v.Value()))
+				case cli.IntSlice:
+					tValue.Field(i).Set(reflect.ValueOf(v.Value()))
+				case cli.Int64Slice:
+					tValue.Field(i).Set(reflect.ValueOf(v.Value()))
+				case cli.Float64Slice:
+					tValue.Field(i).Set(reflect.ValueOf(v.Value()))
+				default:
+					warningf(ctx.App.Writer,
+						"Attempted to set flag with unsupported slice type %s, this value may not be set correctly. consider filing a ticket to add support",
+						reflectVal.Type().Name())
+				}
+			} else {
+				tValue.Field(i).Set(reflect.ValueOf(value))
+			}
+		}
+	}
+
+	return t
+}
+
+func createCommandWithT[T any](f func(*cli.Context, T) error) func(*cli.Context) error {
+	return func(ctx *cli.Context) error {
+		t := parseStructFromCtx[T](ctx)
+		return f(ctx, t)
+	}
+}
+
 // createUsageText is a helper for formatting UsageTexts. The created UsageText
 // contains "viam", the command, requiredFlags, [other options] if otherOptions
 // is true, and all passed-in arguments in that order.
@@ -249,6 +342,8 @@ var app = &cli.App{
 			Hidden: true,
 			Usage:  "base URL of app",
 		},
+		// TODO(RSDK-9287) - this flag isn't used anywhere. Confirm that we actually need it,
+		// get rid of it if we don't.
 		&cli.StringFlag{
 			Name:    configFlag,
 			Aliases: []string{"c"},
@@ -279,13 +374,13 @@ var app = &cli.App{
 					Usage: "prevent opening the default browser during login",
 				},
 			},
-			Action: LoginAction,
-			After:  CheckUpdateAction,
+			Action: createCommandWithT[loginActionArgs](LoginAction),
+			After:  createCommandWithT[emptyArgs](CheckUpdateAction),
 			Subcommands: []*cli.Command{
 				{
 					Name:   "print-access-token",
 					Usage:  "print the access token associated with current credentials",
-					Action: PrintAccessTokenAction,
+					Action: createCommandWithT[emptyArgs](PrintAccessTokenAction),
 				},
 				{
 					Name:      "api-key",
@@ -303,19 +398,19 @@ var app = &cli.App{
 							Usage:    "key to authenticate with",
 						},
 					},
-					Action: LoginWithAPIKeyAction,
+					Action: createCommandWithT[loginWithAPIKeyArgs](LoginWithAPIKeyAction),
 				},
 			},
 		},
 		{
 			Name:   "logout",
 			Usage:  "logout from current session",
-			Action: LogoutAction,
+			Action: createCommandWithT[emptyArgs](LogoutAction),
 		},
 		{
 			Name:   "whoami",
 			Usage:  "get currently logged-in user",
-			Action: WhoAmIAction,
+			Action: createCommandWithT[emptyArgs](WhoAmIAction),
 		},
 		{
 			Name:            "organizations",
@@ -326,7 +421,91 @@ var app = &cli.App{
 				{
 					Name:   "list",
 					Usage:  "list organizations for the current user",
-					Action: ListOrganizationsAction,
+					Action: createCommandWithT[emptyArgs](ListOrganizationsAction),
+				},
+				{
+					Name:      "support-email",
+					Usage:     "manage the support email for an organization",
+					UsageText: createUsageText("organizations support-email", []string{generalFlagOrgID}, true),
+					Subcommands: []*cli.Command{
+						{
+							Name:  "set",
+							Usage: "set the support email for an organization",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "the org to set the support email for",
+								},
+								&cli.StringFlag{
+									Name:     organizationFlagSupportEmail,
+									Required: true,
+									Usage:    "the support email to set for the organization",
+								},
+							},
+							Action: createCommandWithT[organizationsSupportEmailSetArgs](OrganizationsSupportEmailSetAction),
+						},
+						{
+							Name:  "get",
+							Usage: "get the support email for an organization",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "the org to get the support email for",
+								},
+							},
+							Action: createCommandWithT[organizationsSupportEmailGetArgs](OrganizationsSupportEmailGetAction),
+						},
+					},
+				},
+				{
+					Name:      "billing-service",
+					Usage:     "manage the organizations billing service",
+					UsageText: createUsageText("organizations billing-service", []string{generalFlagOrgID}, false),
+					Subcommands: []*cli.Command{
+						{
+							Name:  "get-config",
+							Usage: "get the billing service config for an organization",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "the org to get the billing config for",
+								},
+							},
+							Action: createCommandWithT[getBillingConfigArgs](GetBillingConfigAction),
+						},
+						{
+							Name:  "disable",
+							Usage: "disable the billing service for an organization",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "the org to disable the billing service for",
+								},
+							},
+							Action: createCommandWithT[organizationDisableBillingServiceArgs](OrganizationDisableBillingServiceAction),
+						},
+						{
+							Name:  "update",
+							Usage: "update the billing service update for an organization",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "the org to update the billing service for",
+								},
+								&cli.StringFlag{
+									Name:     organizationBillingAddress,
+									Required: true,
+									Usage:    "the stringified address that follows the pattern: line1, line2 (optional), city, state, zipcode",
+								},
+							},
+							Action: createCommandWithT[updateBillingServiceArgs](UpdateBillingServiceAction),
+						},
+					},
 				},
 				{
 					Name:      "api-key",
@@ -347,7 +526,7 @@ var app = &cli.App{
 									Usage: "the name of the key (defaults to your login info with the current time)",
 								},
 							},
-							Action: OrganizationsAPIKeyCreateAction,
+							Action: createCommandWithT[organizationsAPIKeyCreateArgs](OrganizationsAPIKeyCreateAction),
 						},
 					},
 				},
@@ -363,7 +542,7 @@ var app = &cli.App{
 					Name:      "list",
 					Usage:     "list locations for the current user",
 					ArgsUsage: "[organization]",
-					Action:    ListLocationsAction,
+					Action:    createCommandWithT[emptyArgs](ListLocationsAction),
 				},
 				{
 					Name:  "api-key",
@@ -389,7 +568,7 @@ var app = &cli.App{
 										"If not provided, will attempt to attach itself to the org of the location if only one org is attached to the location",
 								},
 							},
-							Action: LocationAPIKeyCreateAction,
+							Action: createCommandWithT[locationAPIKeyCreateArgs](LocationAPIKeyCreateAction),
 						},
 					},
 				},
@@ -436,7 +615,7 @@ var app = &cli.App{
 						},
 					},
 						commonFilterFlags...),
-					Action: DataExportAction,
+					Action: createCommandWithT[dataExportArgs](DataExportAction),
 				},
 				{
 					Name:            "delete",
@@ -505,8 +684,13 @@ var app = &cli.App{
 									Name:  dataFlagMimeTypes,
 									Usage: "mime types filter",
 								},
+								&cli.StringSliceFlag{
+									Name: dataFlagBboxLabels,
+									Usage: "bbox labels filter. " +
+										"accepts string labels corresponding to bounding boxes within images",
+								},
 							},
-							Action: DataDeleteBinaryAction,
+							Action: createCommandWithT[emptyArgs](DataDeleteBinaryAction),
 						},
 						{
 							Name:      "tabular",
@@ -524,7 +708,7 @@ var app = &cli.App{
 									Required: true,
 								},
 							},
-							Action: DataDeleteTabularAction,
+							Action: createCommandWithT[dataDeleteTabularArgs](DataDeleteTabularAction),
 						},
 					},
 				},
@@ -549,8 +733,8 @@ var app = &cli.App{
 									Required: true,
 								},
 							},
-							Before: DataConfigureDatabaseUserConfirmation,
-							Action: DataConfigureDatabaseUser,
+							Before: createCommandWithT[dataConfigureDatabaseUserArgs](DataConfigureDatabaseUserConfirmation),
+							Action: createCommandWithT[dataConfigureDatabaseUserArgs](DataConfigureDatabaseUser),
 						},
 						{
 							Name:      "hostname",
@@ -563,7 +747,7 @@ var app = &cli.App{
 									Required: true,
 								},
 							},
-							Action: DataGetDatabaseConnection,
+							Action: createCommandWithT[dataGetDatabaseConnectionArgs](DataGetDatabaseConnection),
 						},
 					},
 				},
@@ -585,7 +769,7 @@ var app = &cli.App{
 										dataFlagLocationID, dataFlagFileIDs,
 									}, false),
 									Flags:  dataTagByIDsFlags,
-									Action: DataTagActionByIds,
+									Action: createCommandWithT[dataTagByIDsArgs](DataTagActionByIds),
 								},
 								{
 									Name:  "remove",
@@ -595,7 +779,7 @@ var app = &cli.App{
 										dataFlagLocationID, dataFlagFileIDs,
 									}, false),
 									Flags:  dataTagByIDsFlags,
-									Action: DataTagActionByIds,
+									Action: createCommandWithT[dataTagByIDsArgs](DataTagActionByIds),
 								},
 							},
 						},
@@ -611,7 +795,7 @@ var app = &cli.App{
 										dataFlagTags,
 									}, false),
 									Flags:  dataTagByFilterFlags,
-									Action: DataTagActionByFilter,
+									Action: createCommandWithT[dataTagByFilterArgs](DataTagActionByFilter),
 								},
 								{
 									Name:  "remove",
@@ -620,7 +804,7 @@ var app = &cli.App{
 										dataFlagTags,
 									}, false),
 									Flags:  dataTagByFilterFlags,
-									Action: DataTagActionByFilter,
+									Action: createCommandWithT[dataTagByFilterArgs](DataTagActionByFilter),
 								},
 							},
 						},
@@ -649,7 +833,7 @@ var app = &cli.App{
 							Usage:    "name of the new dataset",
 						},
 					},
-					Action: DatasetCreateAction,
+					Action: createCommandWithT[datasetCreateArgs](DatasetCreateAction),
 				},
 				{
 					Name:  "rename",
@@ -668,7 +852,7 @@ var app = &cli.App{
 							Usage:    "new name for the dataset",
 						},
 					},
-					Action: DatasetRenameAction,
+					Action: createCommandWithT[datasetRenameArgs](DatasetRenameAction),
 				},
 				{
 					Name:  "list",
@@ -685,7 +869,7 @@ var app = &cli.App{
 							Usage: "org ID for which datasets will be listed",
 						},
 					},
-					Action: DatasetListAction,
+					Action: createCommandWithT[datasetListArgs](DatasetListAction),
 				},
 				{
 					Name:      "delete",
@@ -698,7 +882,7 @@ var app = &cli.App{
 							Usage:    "ID of the dataset to be deleted",
 						},
 					},
-					Action: DatasetDeleteAction,
+					Action: createCommandWithT[datasetDeleteArgs](DatasetDeleteAction),
 				},
 				{
 					Name:  "export",
@@ -734,7 +918,7 @@ var app = &cli.App{
 							Value: 30,
 						},
 					},
-					Action: DatasetDownloadAction,
+					Action: createCommandWithT[datasetDownloadArgs](DatasetDownloadAction),
 				},
 				{
 					Name:      "data",
@@ -774,84 +958,26 @@ var app = &cli.App{
 											Required: true,
 										},
 									},
-									Action: DataAddToDatasetByIDs,
+									Action: createCommandWithT[dataAddToDatasetByIDsArgs](DataAddToDatasetByIDs),
 								},
 								{
 									Name:      "filter",
 									Usage:     "adds binary data from the specified filter to dataset",
 									UsageText: createUsageText("dataset data add filter", []string{datasetFlagDatasetID}, true),
-									Flags: []cli.Flag{
+									Flags: append([]cli.Flag{
 										&cli.StringFlag{
 											Name:     datasetFlagDatasetID,
 											Usage:    "dataset ID to which data will be added",
 											Required: true,
 										},
 										&cli.StringSliceFlag{
-											Name:  dataFlagOrgIDs,
-											Usage: "orgs filter",
-										},
-										&cli.StringSliceFlag{
-											Name:  dataFlagLocationIDs,
-											Usage: "locations filter",
-										},
-										&AliasStringFlag{
-											cli.StringFlag{
-												Name:    generalFlagMachineID,
-												Aliases: []string{generalFlagAliasRobotID},
-												Usage:   "machine id filter",
-											},
-										},
-										&cli.StringFlag{
-											Name:  dataFlagPartID,
-											Usage: "part id filter",
-										},
-										&AliasStringFlag{
-											cli.StringFlag{
-												Name:    dataFlagMachineName,
-												Aliases: []string{dataFlagAliasRobotName},
-												Usage:   "machine name filter",
-											},
-										},
-										&cli.StringFlag{
-											Name:  dataFlagPartName,
-											Usage: "part name filter",
-										},
-										&cli.StringFlag{
-											Name:  dataFlagComponentType,
-											Usage: "component type filter",
-										},
-										&cli.StringFlag{
-											Name:  dataFlagComponentName,
-											Usage: "component name filter",
-										},
-										&cli.StringFlag{
-											Name:  dataFlagMethod,
-											Usage: "method filter",
-										},
-										&cli.StringSliceFlag{
-											Name:  dataFlagMimeTypes,
-											Usage: "mime types filter",
-										},
-										&cli.StringFlag{
-											Name:  dataFlagStart,
-											Usage: "ISO-8601 timestamp indicating the start of the interval filter",
-										},
-										&cli.StringFlag{
-											Name:  dataFlagEnd,
-											Usage: "ISO-8601 timestamp indicating the end of the interval filter",
-										},
-										&cli.StringSliceFlag{
 											Name: dataFlagTags,
 											Usage: "tags filter. " +
 												"accepts tagged for all tagged data, untagged for all untagged data, or a list of tags for all data matching any of the tags",
 										},
-										&cli.StringSliceFlag{
-											Name: dataFlagBboxLabels,
-											Usage: "bbox labels filter. " +
-												"accepts string labels corresponding to bounding boxes within images",
-										},
 									},
-									Action: DataAddToDatasetByFilter,
+										commonFilterFlags...),
+									Action: createCommandWithT[dataAddToDatasetByFilterArgs](DataAddToDatasetByFilter),
 								},
 							},
 						},
@@ -860,6 +986,7 @@ var app = &cli.App{
 							Usage: "removes binary data with file IDs in a single org and location from dataset",
 							UsageText: createUsageText("dataset data remove",
 								[]string{datasetFlagDatasetID, generalFlagOrgID, dataFlagLocationID, dataFlagFileIDs}, false),
+							// TODO(RSDK-9286) do we need to ask for og and location here?
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     datasetFlagDatasetID,
@@ -882,7 +1009,7 @@ var app = &cli.App{
 									Required: true,
 								},
 							},
-							Action: DataRemoveFromDataset,
+							Action: createCommandWithT[dataRemoveFromDatasetArgs](DataRemoveFromDataset),
 						},
 					},
 				},
@@ -935,7 +1062,7 @@ var app = &cli.App{
 									Usage: "version of ML model. defaults to current timestamp if unspecified.",
 								},
 							},
-							Action: MLSubmitTrainingJob,
+							Action: createCommandWithT[mlSubmitTrainingJobArgs](MLSubmitTrainingJob),
 						},
 						{
 							Name:  "custom",
@@ -988,7 +1115,7 @@ var app = &cli.App{
 											Required: false,
 										},
 									},
-									Action: MLSubmitCustomTrainingJob,
+									Action: createCommandWithT[mlSubmitCustomTrainingJobArgs](MLSubmitCustomTrainingJob),
 								},
 								{
 									Name:  "with-upload",
@@ -1014,8 +1141,18 @@ var app = &cli.App{
 											Usage: "version of ML model. defaults to current timestamp if unspecified.",
 										},
 										&cli.StringFlag{
+											Name:     mlTrainingFlagURL,
+											Usage:    "url of Github repository associated with the training scripts",
+											Required: false,
+										},
+										&cli.StringFlag{
 											Name:     mlTrainingFlagPath,
 											Usage:    "path to ML training scripts for upload",
+											Required: true,
+										},
+										&cli.StringFlag{
+											Name:     generalFlagOrgID,
+											Usage:    "org ID to save the custom training script in",
 											Required: true,
 										},
 										&cli.StringFlag{
@@ -1050,7 +1187,7 @@ var app = &cli.App{
 											Required: false,
 										},
 									},
-									Action: MLSubmitCustomTrainingJobWithUpload,
+									Action: createCommandWithT[mlSubmitCustomTrainingJobWithUploadArgs](MLSubmitCustomTrainingJobWithUpload),
 								},
 							},
 						},
@@ -1067,7 +1204,7 @@ var app = &cli.App{
 							Required: true,
 						},
 					},
-					Action: DataGetTrainingJob,
+					Action: createCommandWithT[dataGetTrainingJobArgs](DataGetTrainingJob),
 				},
 				{
 					Name:      "logs",
@@ -1080,7 +1217,7 @@ var app = &cli.App{
 							Required: true,
 						},
 					},
-					Action: MLGetTrainingJobLogs,
+					Action: createCommandWithT[mlGetTrainingJobLogsArgs](MLGetTrainingJobLogs),
 				},
 				{
 					Name:      "cancel",
@@ -1093,7 +1230,7 @@ var app = &cli.App{
 							Required: true,
 						},
 					},
-					Action: DataCancelTrainingJob,
+					Action: createCommandWithT[dataCancelTrainingJobArgs](DataCancelTrainingJob),
 				},
 				{
 					Name:      "list",
@@ -1112,7 +1249,7 @@ var app = &cli.App{
 							Value:    defaultTrainingStatus(),
 						},
 					},
-					Action: DataListTrainingJobs,
+					Action: createCommandWithT[dataListTrainingJobsArgs](DataListTrainingJobs),
 				},
 			},
 		},
@@ -1135,7 +1272,7 @@ var app = &cli.App{
 							DefaultText: "first location alphabetically",
 						},
 					},
-					Action: ListRobotsAction,
+					Action: createCommandWithT[listRobotsActionArgs](ListRobotsAction),
 				},
 				{
 					Name:  "api-key",
@@ -1164,7 +1301,7 @@ var app = &cli.App{
 										"we will attempt to use the org attached to the machine if only one exists",
 								},
 							},
-							Action: RobotAPIKeyCreateAction,
+							Action: createCommandWithT[robotAPIKeyCreateArgs](RobotAPIKeyCreateAction),
 						},
 					},
 				},
@@ -1172,6 +1309,7 @@ var app = &cli.App{
 					Name:      "status",
 					Usage:     "display machine status",
 					UsageText: createUsageText("machines status", []string{machineFlag}, true),
+					// TODO(RSDK-9286) - do we need to ask for all three of these?
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:        organizationFlag,
@@ -1189,13 +1327,14 @@ var app = &cli.App{
 							},
 						},
 					},
-					Action: RobotsStatusAction,
+					Action: createCommandWithT[robotsStatusArgs](RobotsStatusAction),
 				},
 				{
 					Name:      "logs",
 					Aliases:   []string{"log"},
 					Usage:     "display machine logs",
 					UsageText: createUsageText("machines logs", []string{machineFlag}, true),
+					// TODO(RSDK-9286) do we need to ask for og and location and machine here?
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:        organizationFlag,
@@ -1222,7 +1361,7 @@ var app = &cli.App{
 							DefaultText: fmt.Sprintf("%v", defaultNumLogs),
 						},
 					},
-					Action: RobotsLogsAction,
+					Action: createCommandWithT[robotsLogsArgs](RobotsLogsAction),
 				},
 				{
 					Name:            "part",
@@ -1233,6 +1372,7 @@ var app = &cli.App{
 							Name:      "status",
 							Usage:     "display part status",
 							UsageText: createUsageText("machines part status", []string{machineFlag, partFlag}, true),
+							// TODO(RSDK-9286) do we need to ask for og and location and machine and part here?
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:        organizationFlag,
@@ -1254,7 +1394,7 @@ var app = &cli.App{
 									Required: true,
 								},
 							},
-							Action: RobotsPartStatusAction,
+							Action: createCommandWithT[robotsPartStatusArgs](RobotsPartStatusAction),
 						},
 						{
 							Name:      "logs",
@@ -1296,13 +1436,14 @@ var app = &cli.App{
 									DefaultText: fmt.Sprintf("%v", defaultNumLogs),
 								},
 							},
-							Action: RobotsPartLogsAction,
+							Action: createCommandWithT[robotsPartLogsArgs](RobotsPartLogsAction),
 						},
 						{
 							Name:      "restart",
 							Aliases:   []string{},
 							Usage:     "request part restart",
 							UsageText: createUsageText("machines part restart", []string{machineFlag, partFlag}, true),
+							// TODO(RSDK-9286) revisit flags
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:        organizationFlag,
@@ -1324,7 +1465,7 @@ var app = &cli.App{
 									Required: true,
 								},
 							},
-							Action: RobotsPartRestartAction,
+							Action: createCommandWithT[robotsPartRestartArgs](RobotsPartRestartAction),
 						},
 						{
 							Name:  "run",
@@ -1361,13 +1502,14 @@ var app = &cli.App{
 									Aliases: []string{"s"},
 								},
 							},
-							Action: RobotsPartRunAction,
+							Action: createCommandWithT[robotsPartRunArgs](RobotsPartRunAction),
 						},
 						{
 							Name:        "shell",
 							Usage:       "start a shell on a machine part",
 							Description: `In order to use the shell command, the machine must have a valid shell type service.`,
 							UsageText:   createUsageText("machines part shell", []string{organizationFlag, locationFlag, machineFlag, partFlag}, false),
+							// TODO(RSDK-9286) do we need to ask for og and location and machine and part here?
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name: organizationFlag,
@@ -1385,7 +1527,7 @@ var app = &cli.App{
 									Name: partFlag,
 								},
 							},
-							Action: RobotsPartShellAction,
+							Action: createCommandWithT[robotsPartShellArgs](RobotsPartShellAction),
 						},
 						{
 							Name:  "cp",
@@ -1451,7 +1593,7 @@ Copy multiple files from the machine to a local destination with recursion and k
 									Usage: "preserve modification times and file mode bits from the source files",
 								},
 							},
-							Action: MachinesPartCopyFilesAction,
+							Action: createCommandWithT[machinesPartCopyFilesArgs](MachinesPartCopyFilesAction),
 						},
 					},
 				},
@@ -1494,7 +1636,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							Usage: "create a meta.json file for local use, but don't create the module on the backend",
 						},
 					},
-					Action: CreateModuleAction,
+					Action: createCommandWithT[createModuleActionArgs](CreateModuleAction),
 				},
 				{
 					Name:  "generate",
@@ -1514,7 +1656,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							Usage: "resource subtype to use in module",
 						},
 					},
-					Action: GenerateModuleAction,
+					Action: createCommandWithT[generateModuleArgs](GenerateModuleAction),
 				},
 				{
 					Name:  "update",
@@ -1527,7 +1669,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							TakesFile: true,
 						},
 					},
-					Action: UpdateModuleAction,
+					Action: createCommandWithT[updateModuleArgs](UpdateModuleAction),
 				},
 				{
 					Name:      "update-models",
@@ -1546,7 +1688,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							Required: true,
 						},
 					},
-					Action: UpdateModelsAction,
+					Action: createCommandWithT[updateModelsArgs](UpdateModelsAction),
 				},
 				{
 					Name:  "upload",
@@ -1618,7 +1760,7 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 							Usage: "skip validation (may result in non-functional versions)",
 						},
 					},
-					Action: UploadModuleAction,
+					Action: createCommandWithT[uploadModuleArgs](UploadModuleAction),
 				},
 				{
 					Name:  "build",
@@ -1649,7 +1791,7 @@ Example:
 									TakesFile: true,
 								},
 							},
-							Action: ModuleBuildLocalAction,
+							Action: createCommandWithT[moduleBuildLocalArgs](ModuleBuildLocalAction),
 						},
 						{
 							Name:      "start",
@@ -1682,7 +1824,7 @@ Example:
 									Value: ".",
 								},
 							},
-							Action: ModuleBuildStartAction,
+							Action: createCommandWithT[moduleBuildStartArgs](ModuleBuildStartAction),
 						},
 						{
 							Name:  "list",
@@ -1705,7 +1847,7 @@ Example:
 									Usage: "restrict output to just return builds that match this id",
 								},
 							},
-							Action: ModuleBuildListAction,
+							Action: createCommandWithT[moduleBuildListArgs](ModuleBuildListAction),
 						},
 						{
 							Name:      "logs",
@@ -1731,7 +1873,7 @@ Example:
 									Usage: "write ::group:: commands so github action logs collapse",
 								},
 							},
-							Action: ModuleBuildLogsAction,
+							Action: createCommandWithT[moduleBuildLogsArgs](ModuleBuildLogsAction),
 						},
 						{
 							Name:  "link-repo",
@@ -1758,7 +1900,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 									Usage: "your github repository in account/repository form (e.g. viamrobotics/rdk, not github.com/viamrobotics/rdk)",
 								},
 							},
-							Action: ModuleBuildLinkRepoAction,
+							Action: createCommandWithT[moduleBuildLinkRepoArgs](ModuleBuildLinkRepoAction),
 						},
 					},
 				},
@@ -1815,7 +1957,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Value: "/root",
 						},
 					},
-					Action: ReloadModuleAction,
+					Action: createCommandWithT[reloadModuleArgs](ReloadModuleAction),
 				},
 				{
 					Name:      "download",
@@ -1841,7 +1983,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage: "platform like 'linux/amd64'. if missing, will use platform of the CLI binary",
 						},
 					},
-					Action: DownloadModuleAction,
+					Action: createCommandWithT[downloadModuleFlags](DownloadModuleAction),
 				},
 			},
 		},
@@ -1880,7 +2022,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage:    "type of the requested package, can be: " + strings.Join(packageTypes, ", "),
 						},
 					},
-					Action: PackageExportAction,
+					Action: createCommandWithT[packageExportArgs](PackageExportAction),
 				},
 				{
 					Name:  "upload",
@@ -1923,7 +2065,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 								strings.Join(modelFrameworks, ", ") + ", Required if packages if of type `ml_model`",
 						},
 					},
-					Action: PackageUploadAction,
+					Action: createCommandWithT[packageUploadArgs](PackageUploadAction),
 				},
 			},
 		},
@@ -1978,7 +2120,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 					},
 					// Upload action
-					Action: MLTrainingUploadAction,
+					Action: createCommandWithT[mlTrainingUploadArgs](MLTrainingUploadAction),
 				},
 				{
 					Name:      "update",
@@ -2011,7 +2153,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Required: false,
 						},
 					},
-					Action: MLTrainingUpdateAction,
+					Action: createCommandWithT[mlTrainingUpdateArgs](MLTrainingUpdateAction),
 				},
 			},
 		},
@@ -2054,7 +2196,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Required: true,
 						},
 					},
-					Action: RegisterAuthApplicationAction,
+					Action: createCommandWithT[registerAuthApplicationArgs](RegisterAuthApplicationAction),
 				},
 				{
 					Name:  "update",
@@ -2096,7 +2238,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Required: false,
 						},
 					},
-					Action: UpdateAuthApplicationAction,
+					Action: createCommandWithT[updateAuthApplicationArgs](UpdateAuthApplicationAction),
 				},
 				{
 					Name:  "get",
@@ -2117,14 +2259,14 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Required: true,
 						},
 					},
-					Action: GetAuthApplicationAction,
+					Action: createCommandWithT[getAuthApplicationArgs](GetAuthApplicationAction),
 				},
 			},
 		},
 		{
 			Name:   "version",
 			Usage:  "print version info for this program",
-			Action: VersionAction,
+			Action: createCommandWithT[emptyArgs](VersionAction),
 		},
 	},
 }

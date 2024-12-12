@@ -7,7 +7,6 @@ package robotimpl
 import (
 	"context"
 	"slices"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -48,8 +47,6 @@ var _ = robot.LocalRobot(&localRobot{})
 // localRobot satisfies robot.LocalRobot and defers most
 // logic to its manager.
 type localRobot struct {
-	// statusLock guards calls to the Status method.
-	statusLock    sync.Mutex
 	manager       *resourceManager
 	mostRecentCfg atomic.Value // config.Config
 
@@ -88,6 +85,7 @@ type localRobot struct {
 	// map keyed by Module.Name. This is necessary to get the package manager to use a new folder
 	// when a local tarball is updated.
 	localModuleVersions map[string]semver.Version
+	startFtdcOnce       sync.Once
 	ftdc                *ftdc.FTDC
 
 	// whether the robot is actively reconfiguring
@@ -244,7 +242,13 @@ func (r *localRobot) Logger() logging.Logger {
 
 // StartWeb starts the web server, will return an error if server is already up.
 func (r *localRobot) StartWeb(ctx context.Context, o weboptions.Options) (err error) {
-	return r.webSvc.Start(ctx, o)
+	ret := r.webSvc.Start(ctx, o)
+	r.startFtdcOnce.Do(func() {
+		if r.ftdc != nil {
+			r.ftdc.Start()
+		}
+	})
+	return ret
 }
 
 // StopWeb stops the web server, will be a noop if server is not up.
@@ -260,125 +264,6 @@ func (r *localRobot) WebAddress() (string, error) {
 // ModuleAddress return the module service's address.
 func (r *localRobot) ModuleAddress() (string, error) {
 	return r.webSvc.ModuleAddress(), nil
-}
-
-// remoteNameByResource returns the remote the resource is pulled from, if found.
-// False can mean either the resource doesn't exist or is local to the robot.
-func remoteNameByResource(resourceName resource.Name) (string, bool) {
-	if !resourceName.ContainsRemoteNames() {
-		return "", false
-	}
-	remote := strings.Split(resourceName.Remote, ":")
-	return remote[0], true
-}
-
-func (r *localRobot) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-	r.statusLock.Lock()
-	defer r.statusLock.Unlock()
-
-	// If no resource names are specified, return status of all resources.
-	namesToDedupe := resourceNames
-	if len(resourceNames) == 0 {
-		namesToDedupe = append(namesToDedupe, r.manager.ResourceNames()...)
-	}
-
-	// Dedupe resources.
-	resourceNameSet := make(map[resource.Name]struct{}, len(namesToDedupe))
-	for _, name := range namesToDedupe {
-		resourceNameSet[name] = struct{}{}
-	}
-
-	// Group remote resource names by owning remote and map those names to
-	// corresponding name on the remote (without the remote prefix).
-	remoteResources := make(map[string]map[resource.Name]resource.Name)
-	for name := range resourceNameSet {
-		remoteName, ok := remoteNameByResource(name)
-		if !ok {
-			continue
-		}
-		mappings, ok := remoteResources[remoteName]
-		if !ok {
-			mappings = make(map[resource.Name]resource.Name)
-		}
-		mappings[name.PopRemote()] = name
-		remoteResources[remoteName] = mappings
-	}
-
-	// Loop through remotes and get remote resource statuses through remotes.
-	combinedRemoteResourceStatuses := make(map[resource.Name]robot.Status)
-	for remoteName, resourceNameMappings := range remoteResources {
-		remote, ok := r.RemoteByName(remoteName)
-		if !ok {
-			// should never happen
-			r.Logger().CErrorw(ctx, "remote robot not found in resource graph while creating status",
-				"remote", remoteName)
-			continue
-		}
-		var remoteResourceNames []resource.Name
-		for remoteResourceName := range resourceNameMappings {
-			remoteResourceNames = append(remoteResourceNames, remoteResourceName)
-		}
-
-		// Request status of resources associated with the remote from the remote.
-		remoteResourceStatuses, err := remote.Status(ctx, remoteResourceNames)
-		if err != nil {
-			return nil, err
-		}
-		for _, remoteResourceStatus := range remoteResourceStatuses {
-			mappedName, ok := resourceNameMappings[remoteResourceStatus.Name]
-			if !ok {
-				// should never happen
-				r.Logger().CErrorw(ctx,
-					"failed to find corresponding resource name for remote resource name while creating status",
-					"resource", remoteResourceStatus.Name,
-				)
-				continue
-			}
-			// Set name to have remote prefix and add to remoteStatuses.
-			remoteResourceStatus.Name = mappedName
-			combinedRemoteResourceStatuses[mappedName] = remoteResourceStatus
-		}
-	}
-
-	// Loop through entire resourceNameSet and get status for any local resources.
-	combinedResourceStatuses := make([]robot.Status, 0, len(resourceNameSet))
-	for name := range resourceNameSet {
-		// Just append status if it was a remote resource.
-		resourceStatus, ok := combinedRemoteResourceStatuses[name]
-		if !ok {
-			res, err := r.manager.ResourceByName(name)
-			if err != nil {
-				return nil, err
-			}
-
-			// If resource API registration had an associated CreateStatus method,
-			// call that method, otherwise return an empty status.
-			var status interface{} = map[string]interface{}{}
-			if apiReg, ok := resource.LookupGenericAPIRegistration(name.API); ok &&
-				apiReg.Status != nil {
-				status, err = apiReg.Status(ctx, res)
-				if err != nil {
-					return nil, errors.Wrapf(err, "failed to get status from %q", name)
-				}
-			}
-			resNode, ok := r.manager.resources.Node(name)
-			if !ok {
-				return nil, resource.NewNotFoundError(name)
-			}
-			lastReconfigured := resNode.LastReconfigured()
-			if lastReconfigured == nil {
-				return nil, errors.Errorf("resource %s queried for status is not configured",
-					name)
-			}
-			resourceStatus = robot.Status{
-				Name:             name,
-				LastReconfigured: *lastReconfigured,
-				Status:           status,
-			}
-		}
-		combinedResourceStatuses = append(combinedResourceStatuses, resourceStatus)
-	}
-	return combinedResourceStatuses, nil
 }
 
 func (r *localRobot) sendTriggerConfig(caller string) {
@@ -421,8 +306,23 @@ func newWithResources(
 			partID = cfg.Cloud.ID
 		}
 		// CloudID is also known as the robot part id.
+		//
+		// RSDK-9369: We create a new FTDC worker, but do not yet start it. This is because the
+		// `webSvc` gets registered with FTDC before we construct the underlying
+		// `webSvc.rpcServer`. Which happens when calling `localRobot.StartWeb`. We've postponed
+		// starting FTDC to when that method is called (the first time).
+		//
+		// As per the FTDC.Statser interface documentation, the return value of `webSvc.Stats` must
+		// always have the same schema. Otherwise we risk the ftdc "schema" getting out of sync with
+		// the data being written. Having `webSvc.Stats` conform to the API requirements is
+		// challenging when we want to include stats from the `rpcServer`.
+		//
+		// RSDK-9369 can be reverted, having the FTDC worker getting started here, when we either:
+		// - Relax the requirement that successive calls to `Stats` have the same schema or
+		// - Guarantee that the `rpcServer` is initialized (enough) when the web service is
+		//   constructed to get a valid copy of its stats object (for the schema's sake). Even if
+		//   the web service has not been "started".
 		ftdcWorker = ftdc.New(ftdc.DefaultDirectory(config.ViamDotDir, partID), logger.Sublogger("ftdc"))
-		ftdcWorker.Start()
 	}
 
 	closeCtx, cancel := context.WithCancel(ctx)

@@ -28,7 +28,7 @@ const (
 	digits                       = "1234"
 	invoiceID                    = "invoice_id"
 	invoiceAmount        float64 = 100.12
-	status                       = "status"
+	statusString                 = "status"
 	balance              float64 = 73.21
 	billingOwnerOrgID            = "billing_owner_organization_id"
 )
@@ -73,14 +73,13 @@ var (
 		ID:            invoiceID,
 		InvoiceDate:   &invoiceDate,
 		InvoiceAmount: invoiceAmount,
-		Status:        status,
+		Status:        statusString,
 		DueDate:       &dueDate,
 		PaidDate:      &paidDate,
 	}
-	chunk1     = []byte{4, 8}
 	chunk2     = []byte("chunk1")
 	chunk3     = []byte("chunk2")
-	chunks     = [][]byte{chunk1, chunk2, chunk3}
+	chunks     = [][]byte{byteData, chunk2, chunk3}
 	chunkCount = len(chunks)
 )
 

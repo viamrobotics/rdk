@@ -89,7 +89,7 @@ func TestConstrainedMotion(t *testing.T) {
 
 // TestConstrainedArmMotion tests a simple linear motion on a longer path, with a no-spill constraint.
 func constrainedXArmMotion() (*planConfig, error) {
-	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), "")
+	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm7_kinematics_test.json"), "")
 	if err != nil {
 		return nil, err
 	}
@@ -283,7 +283,7 @@ func simple2DMap() (*planConfig, error) {
 
 // simpleArmMotion tests moving an xArm7.
 func simpleXArmMotion() (*planConfig, error) {
-	xarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), "")
+	xarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm7_kinematics_test.json"), "")
 	if err != nil {
 		return nil, err
 	}
@@ -460,7 +460,7 @@ func makeTestFS(t *testing.T) frame.FrameSystem {
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(gantryY, gantryX)
 
-	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
+	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(modelXarm, gantryY)
 
@@ -590,7 +590,7 @@ func TestMultiArmSolve(t *testing.T) {
 
 func TestReachOverArm(t *testing.T) {
 	// setup frame system with an xarm
-	xarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
+	xarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	offset, err := frame.NewStaticFrame("offset", spatialmath.NewPoseFromPoint(r3.Vector{X: -500, Y: 200}))
 	test.That(t, err, test.ShouldBeNil)
@@ -701,7 +701,7 @@ func TestSliceUniq(t *testing.T) {
 
 func TestArmConstraintSpecificationSolve(t *testing.T) {
 	fs := frame.NewEmptyFrameSystem("")
-	x, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
+	x, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fs.AddFrame(x, fs.World()), test.ShouldBeNil)
 	bc, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{Z: 100}), r3.Vector{200, 200, 200}, "")
@@ -1179,7 +1179,7 @@ func TestArmGantryCheckPlan(t *testing.T) {
 	err = fs.AddFrame(gantryX, gantryOffset)
 	test.That(t, err, test.ShouldBeNil)
 
-	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
+	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(modelXarm, gantryX)
 	test.That(t, err, test.ShouldBeNil)

@@ -18,34 +18,35 @@ type ViamClient struct {
 	appClient          *AppClient
 	billingClient      *BillingClient
 	dataClient         *DataClient
+	mlTrainingClient   *MLTrainingClient
 	provisioningClient *ProvisioningClient
 }
 
 // Options has the options necessary to connect through gRPC.
 type Options struct {
-	baseURL     string
-	entity      string
-	credentials rpc.Credentials
+	BaseURL     string
+	Entity      string
+	Credentials rpc.Credentials
 }
 
 var dialDirectGRPC = rpc.DialDirectGRPC
 
 // CreateViamClientWithOptions creates a ViamClient with an Options struct.
 func CreateViamClientWithOptions(ctx context.Context, options Options, logger logging.Logger) (*ViamClient, error) {
-	if options.baseURL == "" {
-		options.baseURL = "https://app.viam.com"
-	} else if !strings.HasPrefix(options.baseURL, "http://") && !strings.HasPrefix(options.baseURL, "https://") {
+	if options.BaseURL == "" {
+		options.BaseURL = "https://app.viam.com"
+	} else if !strings.HasPrefix(options.BaseURL, "http://") && !strings.HasPrefix(options.BaseURL, "https://") {
 		return nil, errors.New("use valid URL")
 	}
-	serviceHost, err := url.Parse(options.baseURL + ":443")
+	serviceHost, err := url.Parse(options.BaseURL + ":443")
 	if err != nil {
 		return nil, err
 	}
 
-	if options.credentials.Payload == "" || options.entity == "" {
+	if options.Credentials.Payload == "" || options.Entity == "" {
 		return nil, errors.New("entity and payload cannot be empty")
 	}
-	opts := rpc.WithEntityCredentials(options.entity, options.credentials)
+	opts := rpc.WithEntityCredentials(options.Entity, options.Credentials)
 
 	conn, err := dialDirectGRPC(ctx, serviceHost.Host, logger, opts)
 	if err != nil {
@@ -58,8 +59,8 @@ func CreateViamClientWithOptions(ctx context.Context, options Options, logger lo
 func CreateViamClientWithAPIKey(
 	ctx context.Context, options Options, apiKey, apiKeyID string, logger logging.Logger,
 ) (*ViamClient, error) {
-	options.entity = apiKeyID
-	options.credentials = rpc.Credentials{
+	options.Entity = apiKeyID
+	options.Credentials = rpc.Credentials{
 		Type:    rpc.CredentialsTypeAPIKey,
 		Payload: apiKey,
 	}
@@ -94,6 +95,16 @@ func (c *ViamClient) DataClient() *DataClient {
 	}
 	c.dataClient = newDataClient(c.conn)
 	return c.dataClient
+}
+
+// MLTrainingClient initializes and returns a MLTrainingClient instance used to make ML training method calls.
+// To use MLTrainingClient, you must first instantiate a ViamClient.
+func (c *ViamClient) MLTrainingClient() *MLTrainingClient {
+	if c.mlTrainingClient != nil {
+		return c.mlTrainingClient
+	}
+	c.mlTrainingClient = newMLTrainingClient(c.conn)
+	return c.mlTrainingClient
 }
 
 // ProvisioningClient initializes and returns a ProvisioningClient instance used to make provisioning method calls.

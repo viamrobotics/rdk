@@ -66,7 +66,6 @@ type fileSource struct {
 type fileSourceConfig struct {
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
-	Debug                bool                               `json:"debug,omitempty"`
 	Color                string                             `json:"color_image_file_path,omitempty"`
 	Depth                string                             `json:"depth_image_file_path,omitempty"`
 	PointCloud           string                             `json:"pointcloud_file_path,omitempty"`

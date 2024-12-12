@@ -66,11 +66,5 @@ func (svc *webService) initStreamServer(ctx context.Context) error {
 	return nil
 }
 
-func (svc *webService) Stats() any {
-	return struct {
-		RPCServer any
-	}{svc.rpcServer.Stats()}
-}
-
 // stub for missing gostream
 type options struct{}
