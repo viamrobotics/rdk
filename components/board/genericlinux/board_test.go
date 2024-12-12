@@ -36,9 +36,6 @@ func TestGenericLinux(t *testing.T) {
 	}
 
 	t.Run("test analog-readers digital-interrupts and gpio names", func(t *testing.T) {
-		ans := b.AnalogNames()
-		test.That(t, ans, test.ShouldResemble, []string{"an"})
-
 		an1, err := b.AnalogByName("an")
 		test.That(t, an1, test.ShouldHaveSameTypeAs, &wrappedAnalogReader{})
 		test.That(t, err, test.ShouldBeNil)
@@ -46,9 +43,6 @@ func TestGenericLinux(t *testing.T) {
 		an2, err := b.AnalogByName("missing")
 		test.That(t, an2, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
-
-		dns := b.DigitalInterruptNames()
-		test.That(t, dns, test.ShouldBeNil)
 
 		dn1, err := b.DigitalInterruptByName("dn")
 		test.That(t, dn1, test.ShouldBeNil)
@@ -124,12 +118,6 @@ func TestNewBoard(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, b, test.ShouldNotBeNil)
 	defer b.Close(ctx)
-
-	ans := b.AnalogNames()
-	test.That(t, ans, test.ShouldResemble, []string{"an1"})
-
-	dis := b.DigitalInterruptNames()
-	test.That(t, dis, test.ShouldResemble, []string{})
 
 	gn1, err := b.GPIOPinByName("1")
 	test.That(t, err, test.ShouldBeNil)

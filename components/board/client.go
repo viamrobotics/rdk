@@ -92,22 +92,6 @@ func (c *client) GPIOPinByName(name string) (GPIOPin, error) {
 	}, nil
 }
 
-func (c *client) AnalogNames() []string {
-	if len(c.info.analogNames) == 0 {
-		c.logger.Debugw("no cached analog readers")
-		return []string{}
-	}
-	return copyStringSlice(c.info.analogNames)
-}
-
-func (c *client) DigitalInterruptNames() []string {
-	if len(c.info.digitalInterruptNames) == 0 {
-		c.logger.Debugw("no cached digital interrupts")
-		return []string{}
-	}
-	return copyStringSlice(c.info.digitalInterruptNames)
-}
-
 func (c *client) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
 	var dur *durationpb.Duration
 	if duration != nil {
@@ -325,12 +309,4 @@ func (gpc *gpioPinClient) SetPWMFreq(ctx context.Context, freqHz uint, extra map
 		Extra:       ext,
 	})
 	return err
-}
-
-// copyStringSlice is a helper to simply copy a string slice
-// so that no one mutates it.
-func copyStringSlice(src []string) []string {
-	out := make([]string, len(src))
-	copy(out, src)
-	return out
 }
