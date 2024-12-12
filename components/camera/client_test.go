@@ -276,9 +276,8 @@ func TestClient(t *testing.T) {
 		}
 
 		// one kvp created with map[string]interface{}
-		ext := map[string]interface{}{"hello": "world"}
 		ctx := context.Background()
-		_, _, err = camClient.Image(ctx, "", ext)
+		_, _, err = camClient.Image(ctx, "", nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
 
@@ -301,7 +300,7 @@ func TestClient(t *testing.T) {
 		}
 
 		// merge values from data and camera
-		ext = data.FromDMExtraMap
+		ext := data.FromDMExtraMap
 		ext["hello"] = "world"
 		ctx = context.Background()
 		_, _, err = camClient.Image(ctx, "", ext)
