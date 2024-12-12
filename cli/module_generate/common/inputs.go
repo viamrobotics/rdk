@@ -1,7 +1,10 @@
 // Package common contains defined types used for module generation
 package common
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // ModuleInputs contains the necessary information to fill out template files.
 type ModuleInputs struct {
@@ -54,4 +57,38 @@ func (inputs *ModuleInputs) HasEmptyInput() bool {
 		}
 	}
 	return false
+}
+
+// CheckResource checks if the given resource is valid.
+func (inputs *ModuleInputs) CheckResource() error {
+	resources := []string{
+		"arm component",
+		"audio_input component",
+		"base component",
+		"board component",
+		"camera component",
+		"encoder component",
+		"gantry component",
+		"generic component",
+		"gripper component",
+		"input component",
+		"motor component",
+		"movement_sensor component",
+		"pose_tracker component",
+		"power_sensor component",
+		"sensor component",
+		"servo component",
+		"generic service",
+		"mlmodel service",
+		"motion service",
+		"navigation service",
+		"slam service",
+		"vision service",
+	}
+	for _, resource := range resources {
+		if inputs.Resource == resource {
+			return nil
+		}
+	}
+	return fmt.Errorf("given resource '%s' does not exist", inputs.Resource)
 }

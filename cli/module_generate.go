@@ -84,6 +84,9 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 		EnableCloudBuild: args.EnableCloud,
 		RegisterOnApp:    args.Register,
 	}
+	if err := newModule.CheckResource(); err != nil {
+		return err
+	}
 
 	if newModule.HasEmptyInput() {
 		err = promptUser(newModule)
