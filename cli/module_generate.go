@@ -56,6 +56,7 @@ type generateModuleArgs struct {
 	ModelName       string
 	EnableCloud     bool
 	Register        bool
+	Test            bool
 }
 
 // GenerateModuleAction runs the module generate cli and generates necessary module templates based on user input.
@@ -91,7 +92,7 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 		}
 	}
 	populateAdditionalInfo(newModule)
-	if !cCtx.Bool(moduleFlagTest) {
+	if !args.Test {
 		if err := wrapResolveOrg(cCtx, c, newModule); err != nil {
 			return err
 		}
