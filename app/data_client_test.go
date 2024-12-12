@@ -260,19 +260,23 @@ func TestDataClient(t *testing.T) {
 
 	t.Run("TabularDataByFilter", func(t *testing.T) {
 		dataStruct, _ := utils.StructToStructPb(data)
+		//nolint:deprecated,staticcheck
 		tabularDataPb := &pb.TabularData{
 			Data:          dataStruct,
 			MetadataIndex: 0,
 			TimeRequested: timestamppb.New(start),
 			TimeReceived:  timestamppb.New(end),
 		}
+		//nolint:deprecated,staticcheck
 		grpcClient.TabularDataByFilterFunc = func(ctx context.Context, in *pb.TabularDataByFilterRequest,
 			opts ...grpc.CallOption,
 		) (*pb.TabularDataByFilterResponse, error) {
 			test.That(t, in.DataRequest, test.ShouldResemble, dataRequestToProto(dataRequest))
 			test.That(t, in.CountOnly, test.ShouldBeTrue)
 			test.That(t, in.IncludeInternalData, test.ShouldBeTrue)
+			//nolint:deprecated,staticcheck
 			return &pb.TabularDataByFilterResponse{
+				//nolint:deprecated,staticcheck
 				Data:     []*pb.TabularData{tabularDataPb},
 				Count:    pbCount,
 				Last:     last,
@@ -722,6 +726,7 @@ func TestDataSyncClient(t *testing.T) {
 	t.Run("TabularDataCaptureUpload", func(t *testing.T) {
 		uploadMetadata.Type = DataTypeTabularSensor
 		dataStruct, _ := utils.StructToStructPb(data)
+		//nolint:deprecated,staticcheck
 		tabularDataPb := &pb.TabularData{
 			Data:          dataStruct,
 			MetadataIndex: 0,
