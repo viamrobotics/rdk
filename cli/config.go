@@ -27,15 +27,13 @@ func getCLIProfilePath(profileName string) string {
 	return filepath.Join(viamDotDir, fmt.Sprintf("%s_cached_cli_config.json", profileName))
 }
 
-// ConfigFromCache parses the cached json into a Config. Removes the config from cache on any error.
-// TODO(RSDK-7812): maybe move shared code to common location.
 func configFromCacheInner(configPath string) (_ *Config, err error) {
 	defer func() {
 		if err != nil && !os.IsNotExist(err) {
 			utils.UncheckedError(removeConfigFromCache())
 		}
 	}()
-	rd, err := os.ReadFile(getCLICachePath())
+	rd, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, err
 	}
@@ -53,36 +51,40 @@ func configFromCacheInner(configPath string) (_ *Config, err error) {
 	return nil, errors.Wrap(multierr.Combine(tokenErr, apiKeyErr), "failed to parse cached config")
 }
 
+// ConfigFromCache parses the cached json into a Config. Removes the config from cache on any error.
+// TODO(RSDK-7812): maybe move shared code to common location.
 func ConfigFromCache(c *cli.Context) (*Config, error) {
-	// if the global `--profile` override flag is set, use that.
-	// CR erodkin: remove this `isSet` call if we can
-	if c.IsSet(profileFlag) {
-		// CR erodkin: use args
-		conf, err := configFromCacheInner(c.String(profileFlag))
-		if err != nil {
-			return conf, err
-		}
-		// CR erodkin: use args
-		warningf(c.App.ErrWriter, "Unable to find config for profile %s", c.String(profileFlag))
+	var configPath string
+	var whichProf *string
+	var profileSpecified bool
+	globalArgs, err := getGlobalArgs(c)
+	if err != nil {
+		return nil, err
 	}
-	getProfileConfig := func() (*Config, error) {
-		profiles := profiles{}
-		profilesBytes, err := os.ReadFile(getCLIProfilesPath())
-		if err != nil {
-			return nil, err
+	if !globalArgs.DisableProfiles {
+		whichProf, profileSpecified = whichProfile(globalArgs)
+	}
+
+	if whichProf != nil {
+		configPath = getCLIProfilePath(*whichProf)
+		conf, err := configFromCacheInner(configPath)
+		if err == nil {
+			conf.profile = *whichProf
+			return conf, nil
 		}
-		if err = json.Unmarshal(profilesBytes, profiles); err != nil {
+
+		// if someone explicitly asked for a profile via CLI flag and we were unable to provide
+		// it, we should error out rather than trying to infer what they might prefer instead
+		if profileSpecified {
 			return nil, err
 		}
 
-		return configFromCacheInner(getCLIProfilePath(profiles.currentProfile))
-	}
-	conf, err := getProfileConfig()
-	if err == nil {
-		return conf, nil
+		// A profile has been set as an env var but not specified by flag. Since the env var
+		// is relatively persistent, it's more reasonable to assume a user would want to fall
+		// back to default login behavior.
+		warningf(c.App.ErrWriter, "Unable to find config for profile %s, falling back to default login", globalArgs.Profile)
 	}
 
-	warningf(c.App.ErrWriter, "Unable to get config for profile, falling back to default config")
 	return configFromCacheInner(getCLICachePath())
 }
 
@@ -90,7 +92,14 @@ func removeConfigFromCache() error {
 	return os.Remove(getCLICachePath())
 }
 
-func storeConfigToCacheInner(cfg *Config, path string) error {
+func storeConfigToCache(cfg *Config) error {
+	var path string
+
+	if cfg.profile != "" {
+		path = getCLIProfilePath(cfg.profile)
+	} else {
+		path = getCLICachePath()
+	}
 	if err := os.MkdirAll(viamDotDir, 0o700); err != nil {
 		return err
 	}
@@ -98,16 +107,9 @@ func storeConfigToCacheInner(cfg *Config, path string) error {
 	if err != nil {
 		return err
 	}
+
 	//nolint:gosec
 	return os.WriteFile(path, md, 0o640)
-}
-
-func storeProfileConfigToCache(cfg *Config, profileName string) error {
-	return storeConfigToCacheInner(cfg, getCLIProfilePath(profileName))
-}
-
-func storeConfigToCache(cfg *Config) error {
-	return storeConfigToCacheInner(cfg, getCLICachePath())
 }
 
 // Config is the schema for saved CLI credentials.
@@ -116,6 +118,7 @@ type Config struct {
 	Auth            authMethod `json:"auth"`
 	LastUpdateCheck string     `json:"last_update_check"`
 	LatestVersion   string     `json:"latest_version"`
+	profile         string     `json:"-"`
 }
 
 func (conf *Config) tryUnmarshallWithToken(configBytes []byte) error {

@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 )
 
@@ -16,13 +17,14 @@ const (
 	configFlag  = "config"
 	debugFlag   = "debug"
 	// TODO(RSDK-9287) - replace with `org-id` and `location-id` flags.
-	organizationFlag = "organization"
-	locationFlag     = "location"
-	machineFlag      = "machine"
-	aliasRobotFlag   = "robot"
-	partFlag         = "part"
-	profileFlag      = "profile"
-	profileFlagName  = "profile-name"
+	organizationFlag    = "organization"
+	locationFlag        = "location"
+	machineFlag         = "machine"
+	aliasRobotFlag      = "robot"
+	partFlag            = "part"
+	profileFlag         = "profile"
+	disableProfilesFlag = "disable-profiles"
+	profileFlagName     = "profile-name"
 
 	// TODO: RSDK-6683.
 	quietFlag = "quiet"
@@ -241,10 +243,12 @@ var dataTagByFilterFlags = append([]cli.Flag{
 type emptyArgs struct{}
 
 type globalArgs struct {
-	BaseURL string
-	Config  string
-	Debug   bool
-	Quiet   bool
+	BaseURL         string
+	Config          string
+	Debug           bool
+	Quiet           bool
+	Profile         string
+	DisableProfiles bool
 }
 
 func getValFromContext(name string, ctx *cli.Context) any {
@@ -312,6 +316,16 @@ func parseStructFromCtx[T any](ctx *cli.Context) T {
 	return t
 }
 
+func getGlobalArgs(ctx *cli.Context) (*globalArgs, error) {
+	gArgs := parseStructFromCtx[globalArgs](ctx)
+	// TODO(RSDK-9361) - we shouldn't let people create global args directly, to enforce this
+	if gArgs.DisableProfiles && gArgs.Profile != "" {
+		return nil, errors.New("Error: profile specified with disable-profiles flag set.")
+	}
+
+	return &gArgs, nil
+}
+
 func createCommandWithT[T any](f func(*cli.Context, T) error) func(*cli.Context) error {
 	return func(ctx *cli.Context) error {
 		t := parseStructFromCtx[T](ctx)
@@ -366,30 +380,13 @@ var app = &cli.App{
 			Name:  profileFlag,
 			Usage: "Specify a particular profile for the current command",
 		},
+		&cli.BoolFlag{
+			Name:    disableProfilesFlag,
+			Aliases: []string{"disable-profile"},
+			Usage:   "Disable usage of profiles, falling back to default behavior",
+		},
 	},
 	Commands: []*cli.Command{
-		{
-			// CR erodkin: move these down a layer, `cli profiles add`, `cli profiles update`, etc.
-			Name: "add-profile",
-			Flags: []cli.Flag{
-				&cli.StringFlag{
-					Name:     profileFlagName,
-					Required: true,
-					Usage:    "name of the profile",
-				},
-				&cli.StringFlag{
-					Name:     loginFlagKeyID,
-					Required: true,
-					Usage:    "id of the key to authenticate with",
-				},
-				&cli.StringFlag{
-					Name:     loginFlagKey,
-					Required: true,
-					Usage:    "key to authenticate with",
-				},
-			},
-			Action: AddProfileAction,
-		},
 		{
 			Name: "login",
 			// NOTE(benjirewis): maintain `auth` as an alias for backward compatibility.
@@ -599,6 +596,74 @@ var app = &cli.App{
 							Action: createCommandWithT[locationAPIKeyCreateArgs](LocationAPIKeyCreateAction),
 						},
 					},
+				},
+			},
+		},
+		{
+			Name:            "profiles",
+			Usage:           "Work with CLI profiles",
+			HideHelpCommand: true,
+			Subcommands: []*cli.Command{
+				{
+					Name:  "update",
+					Usage: "Update an existing profile for authentication, or add it if it doesn't exist",
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     profileFlagName,
+							Required: true,
+							Usage:    "name of the profile to update",
+						},
+						&cli.StringFlag{
+							Name:     loginFlagKeyID,
+							Required: true,
+							Usage:    "id of the profile's API key",
+						},
+						&cli.StringFlag{
+							Name:     loginFlagKey,
+							Required: true,
+							Usage:    "the profile's API key",
+						},
+					},
+					Action: createCommandWithT[addOrUpdateProfileArgs](UpdateProfileAction),
+				},
+				{
+					Name:  "add",
+					Usage: "Add a new profile for authentication (errors if the profile already exists)",
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     profileFlagName,
+							Required: true,
+							Usage:    "name of the profile to add",
+						},
+						&cli.StringFlag{
+							Name:     loginFlagKeyID,
+							Required: true,
+							Usage:    "id of the profile's API key",
+						},
+						&cli.StringFlag{
+							Name:     loginFlagKey,
+							Required: true,
+							Usage:    "the profile's API key",
+						},
+					},
+					Action: createCommandWithT[addOrUpdateProfileArgs](AddProfileAction),
+				},
+				{
+					Name:   "list",
+					Usage:  "List all existing profiles by name",
+					Action: createCommandWithT[emptyArgs](ListProfilesAction),
+				},
+				{
+					Name:  "remove",
+					Usage: "Remove an authentication profile",
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     profileFlagName,
+							Required: true,
+							Usage:    "name of the profile to remove",
+						},
+					},
+					Action: createCommandWithT[removeProfileArgs](RemoveProfileAction),
 				},
 			},
 		},

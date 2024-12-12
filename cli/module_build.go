@@ -551,7 +551,10 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs) e
 				return err
 			}
 			infof(c.App.Writer, "Copying %s to part %s", manifest.Build.Path, part.Part.Id)
-			args := parseStructFromCtx[globalArgs](c)
+			args, err := getGlobalArgs(c)
+			if err != nil {
+				return err
+			}
 			err = vc.copyFilesToFqdn(
 				part.Part.Fqdn, args.Debug, false, false, []string{manifest.Build.Path},
 				reloadingDestination(c, manifest), logging.NewLogger("reload"))
@@ -684,7 +687,10 @@ func restartModule(c *cli.Context, vc *viamClient, part *apppb.RobotPart, manife
 		return errors.New("API keys list for this machine is empty. You can create one with \"viam machine api-key create\"")
 	}
 	key := apiRes.ApiKeys[0]
-	args := parseStructFromCtx[globalArgs](c)
+	args, err := getGlobalArgs(c)
+	if err != nil {
+		return err
+	}
 	debugf(c.App.Writer, args.Debug, "using API key: %s %s", key.ApiKey.Id, key.ApiKey.Name)
 	creds := rpc.WithEntityCredentials(key.ApiKey.Id, rpc.Credentials{
 		Type:    rpc.CredentialsTypeAPIKey,

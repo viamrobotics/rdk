@@ -41,7 +41,8 @@ func TestGenerateModuleAction(t *testing.T) {
 	}
 
 	cCtx := newTestContext(t, map[string]any{"local": true})
-	globalArgs := parseStructFromCtx[globalArgs](cCtx)
+	gArgs, _ := getGlobalArgs(cCtx)
+	globalArgs := *gArgs
 
 	testDir := t.TempDir()
 	testChdir(t, testDir)
