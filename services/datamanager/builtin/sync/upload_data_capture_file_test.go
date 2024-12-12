@@ -33,17 +33,15 @@ func TestUploadDataCaptureFile(t *testing.T) {
 		sd []*v1.SensorData
 	}
 	type testCase struct {
-		testName        string
-		api             resource.API
-		name            string
-		method          string
-		tags            []string
-		captureType     data.CaptureType
-		captureResults  data.CaptureResult
-		client          MockDataSyncServiceClient
-		expectedUploads []upload
-		// expectedUploadMetadata []*v1.UploadMetadata
-		// expectedSensorData     [][]*v1.SensorData
+		testName         string
+		api              resource.API
+		name             string
+		method           string
+		tags             []string
+		captureType      data.CaptureType
+		captureResults   data.CaptureResult
+		client           MockDataSyncServiceClient
+		expectedUploads  []upload
 		additionalParams map[string]string
 		unaryReqs        chan *v1.DataCaptureUploadRequest
 		steamingReqs     []chan *v1.StreamingDataCaptureUploadRequest
