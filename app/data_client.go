@@ -104,7 +104,7 @@ type CaptureInterval struct {
 type TabularData struct {
 	Data          map[string]interface{}
 	MetadataIndex int
-	Metadata      CaptureMetadata
+	Metadata      *CaptureMetadata
 	TimeRequested time.Time
 	TimeReceived  time.Time
 }
@@ -112,7 +112,7 @@ type TabularData struct {
 // BinaryData contains data and metadata associated with binary data.
 type BinaryData struct {
 	Binary   []byte
-	Metadata BinaryMetadata
+	Metadata *BinaryMetadata
 }
 
 // BinaryMetadata is the metadata associated with binary data.
@@ -124,7 +124,7 @@ type BinaryMetadata struct {
 	FileName        string
 	FileExt         string
 	URI             string
-	Annotations     Annotations
+	Annotations     *Annotations
 	DatasetIDs      []string
 }
 
@@ -148,39 +148,39 @@ type BoundingBox struct {
 
 // Annotations are data annotations used for machine learning.
 type Annotations struct {
-	Bboxes []BoundingBox
+	Bboxes []*BoundingBox
 }
 
-// TabularDataReturn represents the result of a TabularDataByFilter query.
+// TabularDataByFilterResponse represents the result of a TabularDataByFilter query.
 // It contains the retrieved tabular data and associated metadata,
 // the total number of entries retrieved (Count), and the ID of the last returned page (Last).
-type TabularDataReturn struct {
-	TabularData []TabularData
+type TabularDataByFilterResponse struct {
+	TabularData []*TabularData
 	Count       int
 	Last        string
 }
 
-// BinaryDataReturn represents the result of a BinaryDataByFilter query.
+// BinaryDataByFilterResponse represents the result of a BinaryDataByFilter query.
 // It contains the retrieved binary data and associated metadata,
 // the total number of entries retrieved (Count), and the ID of the last returned page (Last).
-type BinaryDataReturn struct {
-	BinaryData []BinaryData
+type BinaryDataByFilterResponse struct {
+	BinaryData []*BinaryData
 	Count      int
 	Last       string
 }
 
-// DatabaseConnReturn represents the response returned by GetDatabaseConnection.
+// GetDatabaseConnectionResponse represents the response returned by GetDatabaseConnection.
 // It contains the hostname endpoint, a URI for connecting to the MongoDB Atlas Data Federation instance,
 // and a flag indicating whether a database user is configured for the Viam organization.
-type DatabaseConnReturn struct {
+type GetDatabaseConnectionResponse struct {
 	Hostname        string
 	MongodbURI      string
 	HasDatabaseUser bool
 }
 
-// LatestTabularDataReturn represents the response returned by GetLatestTabularData. It contains the most recently captured data
+// GetLatestTabularDataResponse represents the response returned by GetLatestTabularData. It contains the most recently captured data
 // payload, the time it was captured, and the time it was synced.
-type LatestTabularDataReturn struct {
+type GetLatestTabularDataResponse struct {
 	TimeCaptured time.Time
 	TimeSynced   time.Time
 	Payload      map[string]interface{}
@@ -193,7 +193,7 @@ type SensorMetadata struct {
 	TimeRequested time.Time
 	TimeReceived  time.Time
 	MimeType      MimeType
-	Annotations   Annotations
+	Annotations   *Annotations
 }
 
 // SensorData contains the contents and metadata for tabular data.
@@ -354,7 +354,7 @@ func BsonToGo(rawData [][]byte) ([]map[string]interface{}, error) {
 }
 
 // TabularDataByFilter queries tabular data and metadata based on given filters.
-func (d *DataClient) TabularDataByFilter(ctx context.Context, opts *DataByFilterOptions) (TabularDataReturn, error) {
+func (d *DataClient) TabularDataByFilter(ctx context.Context, opts *DataByFilterOptions) (*TabularDataByFilterResponse, error) {
 	dataReq := pb.DataRequest{}
 	var countOnly, includeInternalData bool
 	if opts != nil {
@@ -375,21 +375,25 @@ func (d *DataClient) TabularDataByFilter(ctx context.Context, opts *DataByFilter
 		IncludeInternalData: includeInternalData,
 	})
 	if err != nil {
-		return TabularDataReturn{}, err
+		return nil, err
 	}
 	// TabularData contains tabular data and associated metadata
-	dataArray := []TabularData{}
+	dataArray := []*TabularData{}
 	var metadata *pb.CaptureMetadata
-	for _, data := range resp.Data {
-		if int(data.MetadataIndex) < len(resp.Metadata) {
-			metadata = resp.Metadata[data.MetadataIndex]
+	for _, tabData := range resp.Data {
+		if int(tabData.MetadataIndex) < len(resp.Metadata) {
+			metadata = resp.Metadata[tabData.MetadataIndex]
 		} else {
 			metadata = &pb.CaptureMetadata{}
 		}
-		dataArray = append(dataArray, tabularDataFromProto(data, metadata))
+		data, err := tabularDataFromProto(tabData, metadata)
+		if err != nil {
+			return nil, err
+		}
+		dataArray = append(dataArray, data)
 	}
 
-	return TabularDataReturn{
+	return &TabularDataByFilterResponse{
 		TabularData: dataArray,
 		Count:       int(resp.Count),
 		Last:        resp.Last,
@@ -412,11 +416,22 @@ func (d *DataClient) TabularDataBySQL(ctx context.Context, organizationID, sqlQu
 	return dataObjects, nil
 }
 
-// TabularDataByMQL queries tabular data with an MQL (MongoDB Query Language) query.
-func (d *DataClient) TabularDataByMQL(ctx context.Context, organizationID string, mqlbinary [][]byte) ([]map[string]interface{}, error) {
+// TabularDataByMQL queries tabular data with MQL (MongoDB Query Language) queries.
+func (d *DataClient) TabularDataByMQL(
+	ctx context.Context, organizationID string, mqlQueries []map[string]interface{},
+) ([]map[string]interface{}, error) {
+	mqlBinary := [][]byte{}
+	for _, query := range mqlQueries {
+		binary, err := bson.Marshal(query)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal BSON query: %w", err)
+		}
+		mqlBinary = append(mqlBinary, binary)
+	}
+
 	resp, err := d.dataClient.TabularDataByMQL(ctx, &pb.TabularDataByMQLRequest{
 		OrganizationId: organizationID,
-		MqlBinary:      mqlbinary,
+		MqlBinary:      mqlBinary,
 	})
 	if err != nil {
 		return nil, err
@@ -432,7 +447,7 @@ func (d *DataClient) TabularDataByMQL(ctx context.Context, organizationID string
 // GetLatestTabularData gets the most recent tabular data captured from the specified data source, as well as the time that it was captured
 // and synced. If no data was synced to the data source within the last year, LatestTabularDataReturn will be empty.
 func (d *DataClient) GetLatestTabularData(ctx context.Context, partID, resourceName, resourceSubtype, methodName string) (
-	LatestTabularDataReturn, error,
+	*GetLatestTabularDataResponse, error,
 ) {
 	resp, err := d.dataClient.GetLatestTabularData(ctx, &pb.GetLatestTabularDataRequest{
 		PartId:          partID,
@@ -441,10 +456,10 @@ func (d *DataClient) GetLatestTabularData(ctx context.Context, partID, resourceN
 		MethodName:      methodName,
 	})
 	if err != nil {
-		return LatestTabularDataReturn{}, err
+		return nil, err
 	}
 
-	return LatestTabularDataReturn{
+	return &GetLatestTabularDataResponse{
 		TimeCaptured: resp.TimeCaptured.AsTime(),
 		TimeSynced:   resp.TimeSynced.AsTime(),
 		Payload:      resp.Payload.AsMap(),
@@ -454,7 +469,7 @@ func (d *DataClient) GetLatestTabularData(ctx context.Context, partID, resourceN
 // BinaryDataByFilter queries binary data and metadata based on given filters.
 func (d *DataClient) BinaryDataByFilter(
 	ctx context.Context, includeBinary bool, opts *DataByFilterOptions,
-) (BinaryDataReturn, error) {
+) (*BinaryDataByFilterResponse, error) {
 	dataReq := pb.DataRequest{}
 	var countOnly, includeInternalData bool
 	if opts != nil {
@@ -476,13 +491,17 @@ func (d *DataClient) BinaryDataByFilter(
 		IncludeInternalData: includeInternalData,
 	})
 	if err != nil {
-		return BinaryDataReturn{}, err
+		return nil, err
 	}
-	data := make([]BinaryData, len(resp.Data))
+	data := make([]*BinaryData, len(resp.Data))
 	for i, protoData := range resp.Data {
-		data[i] = binaryDataFromProto(protoData)
+		binData, err := binaryDataFromProto(protoData)
+		if err != nil {
+			return nil, err
+		}
+		data[i] = binData
 	}
-	return BinaryDataReturn{
+	return &BinaryDataByFilterResponse{
 		BinaryData: data,
 		Count:      int(resp.Count),
 		Last:       resp.Last,
@@ -490,7 +509,7 @@ func (d *DataClient) BinaryDataByFilter(
 }
 
 // BinaryDataByIDs queries binary data and metadata based on given IDs.
-func (d *DataClient) BinaryDataByIDs(ctx context.Context, binaryIDs []*BinaryID) ([]BinaryData, error) {
+func (d *DataClient) BinaryDataByIDs(ctx context.Context, binaryIDs []*BinaryID) ([]*BinaryData, error) {
 	resp, err := d.dataClient.BinaryDataByIDs(ctx, &pb.BinaryDataByIDsRequest{
 		IncludeBinary: true,
 		BinaryIds:     binaryIDsToProto(binaryIDs),
@@ -498,9 +517,13 @@ func (d *DataClient) BinaryDataByIDs(ctx context.Context, binaryIDs []*BinaryID)
 	if err != nil {
 		return nil, err
 	}
-	data := make([]BinaryData, len(resp.Data))
+	data := make([]*BinaryData, len(resp.Data))
 	for i, protoData := range resp.Data {
-		data[i] = binaryDataFromProto(protoData)
+		binData, err := binaryDataFromProto(protoData)
+		if err != nil {
+			return nil, err
+		}
+		data[i] = binData
 	}
 	return data, nil
 }
@@ -683,14 +706,14 @@ func (d *DataClient) UpdateBoundingBox(ctx context.Context, binaryID *BinaryID, 
 // GetDatabaseConnection establishes a connection to a MongoDB Atlas Data Federation instance.
 // It returns the hostname endpoint, a URI for connecting to the database via MongoDB clients,
 // and a flag indicating whether a database user is configured for the Viam organization.
-func (d *DataClient) GetDatabaseConnection(ctx context.Context, organizationID string) (DatabaseConnReturn, error) {
+func (d *DataClient) GetDatabaseConnection(ctx context.Context, organizationID string) (*GetDatabaseConnectionResponse, error) {
 	resp, err := d.dataClient.GetDatabaseConnection(ctx, &pb.GetDatabaseConnectionRequest{
 		OrganizationId: organizationID,
 	})
 	if err != nil {
-		return DatabaseConnReturn{}, err
+		return nil, err
 	}
-	return DatabaseConnReturn{
+	return &GetDatabaseConnectionResponse{
 		Hostname:        resp.Hostname,
 		MongodbURI:      resp.MongodbUri,
 		HasDatabaseUser: resp.HasDatabaseUser,
@@ -1142,8 +1165,11 @@ func (d *DataClient) ListDatasetsByIDs(ctx context.Context, ids []string) ([]*Da
 	return datasets, nil
 }
 
-func boundingBoxFromProto(proto *pb.BoundingBox) BoundingBox {
-	return BoundingBox{
+func boundingBoxFromProto(proto *pb.BoundingBox) *BoundingBox {
+	if proto == nil {
+		return nil
+	}
+	return &BoundingBox{
 		ID:             proto.Id,
 		Label:          proto.Label,
 		XMinNormalized: proto.XMinNormalized,
@@ -1153,36 +1179,43 @@ func boundingBoxFromProto(proto *pb.BoundingBox) BoundingBox {
 	}
 }
 
-func annotationsFromProto(proto *pb.Annotations) Annotations {
+func annotationsFromProto(proto *pb.Annotations) *Annotations {
 	if proto == nil {
-		return Annotations{}
+		return nil
 	}
-	bboxes := make([]BoundingBox, len(proto.Bboxes))
+	bboxes := make([]*BoundingBox, len(proto.Bboxes))
 	for i, bboxProto := range proto.Bboxes {
 		bboxes[i] = boundingBoxFromProto(bboxProto)
 	}
-	return Annotations{
+	return &Annotations{
 		Bboxes: bboxes,
 	}
 }
 
-func methodParamsFromProto(proto map[string]*anypb.Any) map[string]interface{} {
+func methodParamsFromProto(proto map[string]*anypb.Any) (map[string]interface{}, error) {
 	methodParameters := make(map[string]interface{})
 	for key, value := range proto {
+		if value == nil {
+			methodParameters[key] = nil
+		}
 		structValue := &structpb.Value{}
 		if err := value.UnmarshalTo(structValue); err != nil {
-			return nil
+			return nil, err
 		}
 		methodParameters[key] = structValue.String()
 	}
-	return methodParameters
+	return methodParameters, nil
 }
 
-func captureMetadataFromProto(proto *pb.CaptureMetadata) CaptureMetadata {
+func captureMetadataFromProto(proto *pb.CaptureMetadata) (*CaptureMetadata, error) {
 	if proto == nil {
-		return CaptureMetadata{}
+		return nil, nil
 	}
-	return CaptureMetadata{
+	params, err := methodParamsFromProto(proto.MethodParameters)
+	if err != nil {
+		return nil, err
+	}
+	return &CaptureMetadata{
 		OrganizationID:   proto.OrganizationId,
 		LocationID:       proto.LocationId,
 		RobotName:        proto.RobotName,
@@ -1192,23 +1225,37 @@ func captureMetadataFromProto(proto *pb.CaptureMetadata) CaptureMetadata {
 		ComponentType:    proto.ComponentType,
 		ComponentName:    proto.ComponentName,
 		MethodName:       proto.MethodName,
-		MethodParameters: methodParamsFromProto(proto.MethodParameters),
+		MethodParameters: params,
 		Tags:             proto.Tags,
 		MimeType:         proto.MimeType,
-	}
+	}, nil
 }
 
-func binaryDataFromProto(proto *pb.BinaryData) BinaryData {
-	return BinaryData{
+func binaryDataFromProto(proto *pb.BinaryData) (*BinaryData, error) {
+	if proto == nil {
+		return nil, nil
+	}
+	metadata, err := binaryMetadataFromProto(proto.Metadata)
+	if err != nil {
+		return nil, err
+	}
+	return &BinaryData{
 		Binary:   proto.Binary,
-		Metadata: binaryMetadataFromProto(proto.Metadata),
-	}
+		Metadata: metadata,
+	}, nil
 }
 
-func binaryMetadataFromProto(proto *pb.BinaryMetadata) BinaryMetadata {
-	return BinaryMetadata{
+func binaryMetadataFromProto(proto *pb.BinaryMetadata) (*BinaryMetadata, error) {
+	if proto == nil {
+		return nil, nil
+	}
+	captureMetadata, err := captureMetadataFromProto(proto.CaptureMetadata)
+	if err != nil {
+		return nil, err
+	}
+	return &BinaryMetadata{
 		ID:              proto.Id,
-		CaptureMetadata: captureMetadataFromProto(proto.CaptureMetadata),
+		CaptureMetadata: *captureMetadata,
 		TimeRequested:   proto.TimeRequested.AsTime(),
 		TimeReceived:    proto.TimeReceived.AsTime(),
 		FileName:        proto.FileName,
@@ -1216,17 +1263,24 @@ func binaryMetadataFromProto(proto *pb.BinaryMetadata) BinaryMetadata {
 		URI:             proto.Uri,
 		Annotations:     annotationsFromProto(proto.Annotations),
 		DatasetIDs:      proto.DatasetIds,
-	}
+	}, nil
 }
 
-func tabularDataFromProto(proto *pb.TabularData, metadata *pb.CaptureMetadata) TabularData {
-	return TabularData{
+func tabularDataFromProto(proto *pb.TabularData, metadata *pb.CaptureMetadata) (*TabularData, error) {
+	if proto == nil {
+		return nil, nil
+	}
+	md, err := captureMetadataFromProto(metadata)
+	if err != nil {
+		return nil, err
+	}
+	return &TabularData{
 		Data:          proto.Data.AsMap(),
 		MetadataIndex: int(proto.MetadataIndex),
-		Metadata:      captureMetadataFromProto(metadata),
+		Metadata:      md,
 		TimeRequested: proto.TimeRequested.AsTime(),
 		TimeReceived:  proto.TimeReceived.AsTime(),
-	}
+	}, nil
 }
 
 func binaryIDToProto(binaryID *BinaryID) *pb.BinaryID {
@@ -1329,6 +1383,9 @@ func convertBsonToNative(data interface{}) interface{} {
 }
 
 func datasetFromProto(dataset *setPb.Dataset) *Dataset {
+	if dataset == nil {
+		return nil
+	}
 	var timeCreated *time.Time
 	if dataset.TimeCreated != nil {
 		t := dataset.TimeCreated.AsTime()
@@ -1364,7 +1421,10 @@ func uploadMetadataToProto(metadata UploadMetadata) *syncPb.UploadMetadata {
 	}
 }
 
-func annotationsToProto(annotations Annotations) *pb.Annotations {
+func annotationsToProto(annotations *Annotations) *pb.Annotations {
+	if annotations == nil {
+		return nil
+	}
 	var protoBboxes []*pb.BoundingBox
 	for _, bbox := range annotations.Bboxes {
 		protoBboxes = append(protoBboxes, &pb.BoundingBox{

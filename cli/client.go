@@ -85,7 +85,7 @@ type viamClient struct {
 }
 
 // ListOrganizationsAction is the corresponding Action for 'organizations list'.
-func ListOrganizationsAction(cCtx *cli.Context) error {
+func ListOrganizationsAction(cCtx *cli.Context, args emptyArgs) error {
 	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
@@ -112,19 +112,24 @@ func (c *viamClient) listOrganizationsAction(cCtx *cli.Context) error {
 	return nil
 }
 
+type organizationsSupportEmailSetArgs struct {
+	OrgID        string
+	SupportEmail string
+}
+
 // OrganizationsSupportEmailSetAction corresponds to `organizations support-email set`.
-func OrganizationsSupportEmailSetAction(cCtx *cli.Context) error {
+func OrganizationsSupportEmailSetAction(cCtx *cli.Context, args organizationsSupportEmailSetArgs) error {
 	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
 	}
 
-	orgID := cCtx.String(generalFlagOrgID)
+	orgID := args.OrgID
 	if orgID == "" {
 		return errors.New("cannot set support email without an organization ID")
 	}
 
-	supportEmail := cCtx.String(organizationFlagSupportEmail)
+	supportEmail := args.SupportEmail
 	if supportEmail == "" {
 		return errors.New("cannot set support email to an empty string")
 	}
@@ -148,14 +153,18 @@ func (c *viamClient) organizationsSupportEmailSetAction(cCtx *cli.Context, orgID
 	return nil
 }
 
+type organizationsSupportEmailGetArgs struct {
+	OrgID string
+}
+
 // OrganizationsSupportEmailGetAction corresponds to `organizations support-email get`.
-func OrganizationsSupportEmailGetAction(cCtx *cli.Context) error {
+func OrganizationsSupportEmailGetAction(cCtx *cli.Context, args organizationsSupportEmailGetArgs) error {
 	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
 	}
 
-	orgID := cCtx.String(generalFlagOrgID)
+	orgID := args.OrgID
 	if orgID == "" {
 		return errors.New("cannot get support email without an organization ID")
 	}
@@ -179,13 +188,71 @@ func (c *viamClient) organizationsSupportEmailGetAction(cCtx *cli.Context, orgID
 	return nil
 }
 
-// GetBillingConfigAction corresponds to `organizations billing get`.
-func GetBillingConfigAction(cCtx *cli.Context) error {
+type updateBillingServiceArgs struct {
+	OrgID   string
+	Address string
+}
+
+// UpdateBillingServiceAction corresponds to `organizations billing-service update`.
+func UpdateBillingServiceAction(cCtx *cli.Context, args updateBillingServiceArgs) error {
 	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
 	}
-	return c.getBillingConfig(cCtx, cCtx.String(generalFlagOrgID))
+	orgID := args.OrgID
+	if orgID == "" {
+		return errors.New("cannot update billing service without an organization ID")
+	}
+
+	address := args.Address
+	if address == "" {
+		return errors.New("cannot update billing service to an empty address")
+	}
+
+	return c.updateBillingServiceAction(cCtx, orgID, address)
+}
+
+func (c *viamClient) updateBillingServiceAction(cCtx *cli.Context, orgID, addressAsString string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	address, err := parseBillingAddress(addressAsString)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.client.UpdateBillingService(cCtx.Context, &apppb.UpdateBillingServiceRequest{
+		OrgId:          orgID,
+		BillingAddress: address,
+	})
+	if err != nil {
+		return err
+	}
+
+	printf(cCtx.App.Writer, "Successfully updated billing service for organization %q", orgID)
+	printf(cCtx.App.Writer, " --- Billing Address --- ")
+	printf(cCtx.App.Writer, "Address Line 1: %s", address.GetAddressLine_1())
+	if address.GetAddressLine_2() != "" {
+		printf(cCtx.App.Writer, "Address Line 2: %s", address.GetAddressLine_2())
+	}
+	printf(cCtx.App.Writer, "City: %s", address.GetCity())
+	printf(cCtx.App.Writer, "State: %s", address.GetState())
+	printf(cCtx.App.Writer, "Postal Code: %s", address.GetZipcode())
+	printf(cCtx.App.Writer, "Country: USA")
+	return nil
+}
+
+type getBillingConfigArgs struct {
+	OrgID string
+}
+
+// GetBillingConfigAction corresponds to `organizations billing get`.
+func GetBillingConfigAction(cCtx *cli.Context, args getBillingConfigArgs) error {
+	c, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+	return c.getBillingConfig(cCtx, args.OrgID)
 }
 
 func (c *viamClient) getBillingConfig(cCtx *cli.Context, orgID string) error {
@@ -217,12 +284,46 @@ func (c *viamClient) getBillingConfig(cCtx *cli.Context, orgID string) error {
 	return nil
 }
 
+type organizationDisableBillingServiceArgs struct {
+	OrgID string
+}
+
+// OrganizationDisableBillingServiceAction corresponds to `organizations billing disable`.
+func OrganizationDisableBillingServiceAction(cCtx *cli.Context, args organizationDisableBillingServiceArgs) error {
+	client, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+	orgID := args.OrgID
+	if orgID == "" {
+		return errors.New("cannot disable billing service without an organization ID")
+	}
+	return client.organizationDisableBillingServiceAction(cCtx, orgID)
+}
+
+func (c *viamClient) organizationDisableBillingServiceAction(cCtx *cli.Context, orgID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	if _, err := c.client.DisableBillingService(cCtx.Context, &apppb.DisableBillingServiceRequest{
+		OrgId: orgID,
+	}); err != nil {
+		return errors.WithMessage(err, "could not disable billing service")
+	}
+
+	printf(cCtx.App.Writer, "Successfully disabled billing service for organization: %s", orgID)
+	return nil
+}
+
 // ListLocationsAction is the corresponding Action for 'locations list'.
-func ListLocationsAction(c *cli.Context) error {
+func ListLocationsAction(c *cli.Context, args emptyArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
+	// TODO(RSDK-9288) - this is brittle and inconsistent with how most data is passed.
+	// Move this to being a flag (but make sure existing workflows still work!)
 	orgStr := c.Args().First()
 	listLocations := func(orgID string) error {
 		locs, err := client.listLocations(orgID)
@@ -253,14 +354,19 @@ func ListLocationsAction(c *cli.Context) error {
 	return listLocations(orgStr)
 }
 
+type listRobotsActionArgs struct {
+	Organization string
+	Location     string
+}
+
 // ListRobotsAction is the corresponding Action for 'machines list'.
-func ListRobotsAction(c *cli.Context) error {
+func ListRobotsAction(c *cli.Context, args listRobotsActionArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
-	orgStr := c.String(organizationFlag)
-	locStr := c.String(locationFlag)
+	orgStr := args.Organization
+	locStr := args.Location
 	robots, err := client.listRobots(orgStr, locStr)
 	if err != nil {
 		return errors.Wrap(err, "could not list machines")
@@ -276,16 +382,22 @@ func ListRobotsAction(c *cli.Context) error {
 	return nil
 }
 
+type robotsStatusArgs struct {
+	Organization string
+	Location     string
+	Machine      string
+}
+
 // RobotsStatusAction is the corresponding Action for 'machines status'.
-func RobotsStatusAction(c *cli.Context) error {
+func RobotsStatusAction(c *cli.Context, args robotsStatusArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
 
-	orgStr := c.String(organizationFlag)
-	locStr := c.String(locationFlag)
-	robot, err := client.robot(orgStr, locStr, c.String(machineFlag))
+	orgStr := args.Organization
+	locStr := args.Location
+	robot, err := client.robot(orgStr, locStr, args.Machine)
 	if err != nil {
 		return err
 	}
@@ -331,8 +443,7 @@ func RobotsStatusAction(c *cli.Context) error {
 	return nil
 }
 
-func getNumLogs(c *cli.Context) (int, error) {
-	numLogs := c.Int(logsFlagCount)
+func getNumLogs(c *cli.Context, numLogs int) (int, error) {
 	if numLogs < 0 {
 		warningf(c.App.ErrWriter, "Provided negative %q value. Defaulting to %d", logsFlagCount, defaultNumLogs)
 		return defaultNumLogs, nil
@@ -346,16 +457,24 @@ func getNumLogs(c *cli.Context) (int, error) {
 	return numLogs, nil
 }
 
+type robotsLogsArgs struct {
+	Organization string
+	Location     string
+	Machine      string
+	Errors       bool
+	Count        int
+}
+
 // RobotsLogsAction is the corresponding Action for 'machines logs'.
-func RobotsLogsAction(c *cli.Context) error {
+func RobotsLogsAction(c *cli.Context, args robotsLogsArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
 
-	orgStr := c.String(organizationFlag)
-	locStr := c.String(locationFlag)
-	robotStr := c.String(machineFlag)
+	orgStr := args.Organization
+	locStr := args.Location
+	robotStr := args.Machine
 	robot, err := client.robot(orgStr, locStr, robotStr)
 	if err != nil {
 		return errors.Wrap(err, "could not get machine")
@@ -377,13 +496,13 @@ func RobotsLogsAction(c *cli.Context) error {
 		} else {
 			header = part.Name
 		}
-		numLogs, err := getNumLogs(c)
+		numLogs, err := getNumLogs(c, args.Count)
 		if err != nil {
 			return err
 		}
 		if err := client.printRobotPartLogs(
 			orgStr, locStr, robotStr, part.Id,
-			c.Bool(logsFlagErrors),
+			args.Errors,
 			"\t",
 			header,
 			numLogs,
@@ -395,22 +514,29 @@ func RobotsLogsAction(c *cli.Context) error {
 	return nil
 }
 
+type robotsPartStatusArgs struct {
+	Organization string
+	Location     string
+	Machine      string
+	Part         string
+}
+
 // RobotsPartStatusAction is the corresponding Action for 'machines part status'.
-func RobotsPartStatusAction(c *cli.Context) error {
+func RobotsPartStatusAction(c *cli.Context, args robotsPartStatusArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
 
-	orgStr := c.String(organizationFlag)
-	locStr := c.String(locationFlag)
-	robotStr := c.String(machineFlag)
+	orgStr := args.Organization
+	locStr := args.Location
+	robotStr := args.Machine
 	robot, err := client.robot(orgStr, locStr, robotStr)
 	if err != nil {
 		return errors.Wrap(err, "could not get machine")
 	}
 
-	part, err := client.robotPart(orgStr, locStr, robotStr, c.String(partFlag))
+	part, err := client.robotPart(orgStr, locStr, robotStr, args.Part)
 	if err != nil {
 		return errors.Wrap(err, "could not get machine part")
 	}
@@ -435,20 +561,30 @@ func RobotsPartStatusAction(c *cli.Context) error {
 	return nil
 }
 
+type robotsPartLogsArgs struct {
+	Organization string
+	Location     string
+	Machine      string
+	Part         string
+	Errors       bool
+	Tail         bool
+	Count        int
+}
+
 // RobotsPartLogsAction is the corresponding Action for 'machines part logs'.
-func RobotsPartLogsAction(c *cli.Context) error {
+func RobotsPartLogsAction(c *cli.Context, args robotsPartLogsArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
 
-	return client.robotsPartLogsAction(c)
+	return client.robotsPartLogsAction(c, args)
 }
 
-func (c *viamClient) robotsPartLogsAction(cCtx *cli.Context) error {
-	orgStr := cCtx.String(organizationFlag)
-	locStr := cCtx.String(locationFlag)
-	robotStr := cCtx.String(machineFlag)
+func (c *viamClient) robotsPartLogsAction(cCtx *cli.Context, args robotsPartLogsArgs) error {
+	orgStr := args.Organization
+	locStr := args.Location
+	robotStr := args.Machine
 	robot, err := c.robot(orgStr, locStr, robotStr)
 	if err != nil {
 		return errors.Wrap(err, "could not get machine")
@@ -458,42 +594,49 @@ func (c *viamClient) robotsPartLogsAction(cCtx *cli.Context) error {
 	if orgStr == "" || locStr == "" || robotStr == "" {
 		header = fmt.Sprintf("%s -> %s -> %s", c.selectedOrg.Name, c.selectedLoc.Name, robot.Name)
 	}
-	if cCtx.Bool(logsFlagTail) {
+	if args.Tail {
 		return c.tailRobotPartLogs(
-			orgStr, locStr, robotStr, cCtx.String(partFlag),
-			cCtx.Bool(logsFlagErrors),
+			orgStr, locStr, robotStr, args.Part,
+			args.Errors,
 			"",
 			header,
 		)
 	}
-	numLogs, err := getNumLogs(cCtx)
+	numLogs, err := getNumLogs(cCtx, args.Count)
 	if err != nil {
 		return err
 	}
 	return c.printRobotPartLogs(
-		orgStr, locStr, robotStr, cCtx.String(partFlag),
-		cCtx.Bool(logsFlagErrors),
+		orgStr, locStr, robotStr, args.Part,
+		args.Errors,
 		"",
 		header,
 		numLogs,
 	)
 }
 
+type robotsPartRestartArgs struct {
+	Organization string
+	Location     string
+	Machine      string
+	Part         string
+}
+
 // RobotsPartRestartAction is the corresponding Action for 'machines part restart'.
-func RobotsPartRestartAction(c *cli.Context) error {
+func RobotsPartRestartAction(c *cli.Context, args robotsPartRestartArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
 
-	return client.robotPartRestart(c)
+	return client.robotPartRestart(c, args)
 }
 
-func (c *viamClient) robotPartRestart(cCtx *cli.Context) error {
-	orgStr := cCtx.String(organizationFlag)
-	locStr := cCtx.String(locationFlag)
-	robotStr := cCtx.String(machineFlag)
-	partStr := cCtx.String(partFlag)
+func (c *viamClient) robotPartRestart(cCtx *cli.Context, args robotsPartRestartArgs) error {
+	orgStr := args.Organization
+	locStr := args.Location
+	robotStr := args.Machine
+	partStr := args.Part
 
 	part, err := c.robotPart(orgStr, locStr, robotStr, partStr)
 	if err != nil {
@@ -507,8 +650,19 @@ func (c *viamClient) robotPartRestart(cCtx *cli.Context) error {
 	return nil
 }
 
+type robotsPartRunArgs struct {
+	Organization string
+	Location     string
+	Machine      string
+	Part         string
+	Data         string
+	Stream       time.Duration
+}
+
 // RobotsPartRunAction is the corresponding Action for 'machines part run'.
-func RobotsPartRunAction(c *cli.Context) error {
+func RobotsPartRunAction(c *cli.Context, args robotsPartRunArgs) error {
+	// TODO(RSDK-9288) - this is brittle and inconsistent with how most data is passed.
+	// Move this to being a flag (but make sure existing workflows still work!)
 	svcMethod := c.Args().First()
 	if svcMethod == "" {
 		return errors.New("service method required")
@@ -521,25 +675,33 @@ func RobotsPartRunAction(c *cli.Context) error {
 
 	// Create logger based on presence of debugFlag.
 	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
-	if c.Bool(debugFlag) {
+	globalArgs := parseStructFromCtx[globalArgs](c)
+	if globalArgs.Debug {
 		logger = logging.NewDebugLogger("cli")
 	}
 
 	return client.runRobotPartCommand(
-		c.String(organizationFlag),
-		c.String(locationFlag),
-		c.String(machineFlag),
-		c.String(partFlag),
+		args.Organization,
+		args.Location,
+		args.Machine,
+		args.Part,
 		svcMethod,
-		c.String(runFlagData),
-		c.Duration(runFlagStream),
-		c.Bool(debugFlag),
+		args.Data,
+		args.Stream,
+		globalArgs.Debug,
 		logger,
 	)
 }
 
+type robotsPartShellArgs struct {
+	Organization string
+	Location     string
+	Machine      string
+	Part         string
+}
+
 // RobotsPartShellAction is the corresponding Action for 'machines part shell'.
-func RobotsPartShellAction(c *cli.Context) error {
+func RobotsPartShellAction(c *cli.Context, args robotsPartShellArgs) error {
 	infof(c.App.Writer, "Ensure machine part has a valid shell type service")
 
 	client, err := newViamClient(c)
@@ -549,16 +711,17 @@ func RobotsPartShellAction(c *cli.Context) error {
 
 	// Create logger based on presence of debugFlag.
 	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
-	if c.Bool(debugFlag) {
+	globalArgs := parseStructFromCtx[globalArgs](c)
+	if globalArgs.Debug {
 		logger = logging.NewDebugLogger("cli")
 	}
 
 	return client.startRobotPartShell(
-		c.String(organizationFlag),
-		c.String(locationFlag),
-		c.String(machineFlag),
-		c.String(partFlag),
-		c.Bool(debugFlag),
+		args.Organization,
+		args.Location,
+		args.Machine,
+		args.Part,
+		globalArgs.Debug,
 		logger,
 	)
 }
@@ -578,17 +741,28 @@ func (err copyFromPathInvalidError) Error() string {
 	return fmt.Sprintf("expected argument %q to be machine:<copy from path>", err.path)
 }
 
+type machinesPartCopyFilesArgs struct {
+	Organization string
+	Location     string
+	Machine      string
+	Part         string
+	Recursive    bool
+	Preserve     bool
+}
+
 // MachinesPartCopyFilesAction is the corresponding Action for 'machines part cp'.
-func MachinesPartCopyFilesAction(c *cli.Context) error {
+func MachinesPartCopyFilesAction(c *cli.Context, args machinesPartCopyFilesArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
 
-	return machinesPartCopyFilesAction(c, client)
+	return machinesPartCopyFilesAction(c, client, args)
 }
 
-func machinesPartCopyFilesAction(c *cli.Context, client *viamClient) error {
+func machinesPartCopyFilesAction(c *cli.Context, client *viamClient, flagArgs machinesPartCopyFilesArgs) error {
+	// TODO(RSDK-9288) - this is brittle and inconsistent with how most data is passed.
+	// Move this to being a flag (but make sure existing workflows still work!)
 	args := c.Args().Slice()
 	if len(args) == 0 {
 		return errNoFiles
@@ -596,7 +770,8 @@ func machinesPartCopyFilesAction(c *cli.Context, client *viamClient) error {
 
 	// Create logger based on presence of debugFlag.
 	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
-	if c.Bool(debugFlag) {
+	globalArgs := parseStructFromCtx[globalArgs](c)
+	if globalArgs.Debug {
 		logger = logging.NewDebugLogger("cli")
 	}
 
@@ -644,13 +819,13 @@ func machinesPartCopyFilesAction(c *cli.Context, client *viamClient) error {
 	doCopy := func() error {
 		if isFrom {
 			return client.copyFilesFromMachine(
-				c.String(organizationFlag),
-				c.String(locationFlag),
-				c.String(machineFlag),
-				c.String(partFlag),
-				c.Bool(debugFlag),
-				c.Bool(cpFlagRecursive),
-				c.Bool(cpFlagPreserve),
+				flagArgs.Organization,
+				flagArgs.Location,
+				flagArgs.Machine,
+				flagArgs.Part,
+				globalArgs.Debug,
+				flagArgs.Recursive,
+				flagArgs.Preserve,
 				paths,
 				destination,
 				logger,
@@ -658,13 +833,13 @@ func machinesPartCopyFilesAction(c *cli.Context, client *viamClient) error {
 		}
 
 		return client.copyFilesToMachine(
-			c.String(organizationFlag),
-			c.String(locationFlag),
-			c.String(machineFlag),
-			c.String(partFlag),
-			c.Bool(debugFlag),
-			c.Bool(cpFlagRecursive),
-			c.Bool(cpFlagPreserve),
+			flagArgs.Organization,
+			flagArgs.Location,
+			flagArgs.Machine,
+			flagArgs.Part,
+			globalArgs.Debug,
+			flagArgs.Recursive,
+			flagArgs.Preserve,
 			paths,
 			destination,
 			logger,
@@ -715,8 +890,9 @@ func getLatestReleaseVersion() (string, error) {
 }
 
 // CheckUpdateAction is the corresponding Action for 'check-update'.
-func CheckUpdateAction(c *cli.Context) error {
-	if c.Bool(quietFlag) {
+func CheckUpdateAction(c *cli.Context, args emptyArgs) error {
+	globalArgs := parseStructFromCtx[globalArgs](c)
+	if globalArgs.Quiet {
 		return nil
 	}
 
@@ -806,12 +982,13 @@ func CheckUpdateAction(c *cli.Context) error {
 }
 
 // VersionAction is the corresponding Action for 'version'.
-func VersionAction(c *cli.Context) error {
+func VersionAction(c *cli.Context, args emptyArgs) error {
 	info, ok := debug.ReadBuildInfo()
 	if !ok {
 		return errors.New("error reading build info")
 	}
-	if c.Bool(debugFlag) {
+	globalArgs := parseStructFromCtx[globalArgs](c)
+	if globalArgs.Debug {
 		printf(c.App.Writer, "%s", info.String())
 	}
 	settings := make(map[string]string, len(info.Settings))
@@ -896,11 +1073,12 @@ func isProdBaseURL(baseURL *url.URL) bool {
 	return strings.HasSuffix(baseURL.Hostname(), "viam.com")
 }
 
-func newViamClient(c *cli.Context) (*viamClient, error) {
+func newViamClientInner(c *cli.Context, disableBrowserOpen bool) (*viamClient, error) {
 	conf, err := ConfigFromCache(c)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			debugf(c.App.Writer, c.Bool(debugFlag), "Cached config parse error: %v", err)
+			globalArgs := parseStructFromCtx[globalArgs](c)
+			debugf(c.App.Writer, globalArgs.Debug, "Cached config parse error: %v", err)
 			return nil, errors.New("failed to parse cached config. Please log in again")
 		}
 		conf = &Config{}
@@ -908,7 +1086,8 @@ func newViamClient(c *cli.Context) (*viamClient, error) {
 
 	// If base URL was not specified, assume cached base URL. If no base URL is
 	// cached, assume default base URL.
-	baseURLArg := c.String(baseURLFlag)
+	globalArgs := parseStructFromCtx[globalArgs](c)
+	baseURLArg := globalArgs.BaseURL
 	switch {
 	case conf.BaseURL == "" && baseURLArg == "":
 		conf.BaseURL = defaultBaseURL
@@ -928,7 +1107,6 @@ func newViamClient(c *cli.Context) (*viamClient, error) {
 	}
 
 	var authFlow *authFlow
-	disableBrowserOpen := c.Bool(loginFlagDisableBrowser)
 	if isProdBaseURL(baseURL) {
 		authFlow = newCLIAuthFlow(c.App.Writer, disableBrowserOpen)
 	} else {
@@ -943,6 +1121,12 @@ func newViamClient(c *cli.Context) (*viamClient, error) {
 		selectedLoc: &apppb.Location{},
 		authFlow:    authFlow,
 	}, nil
+}
+
+// Creates a new viam client, defaulting to _not_ passing the `disableBrowerOpen` arg (which
+// users don't even have an option of setting for any CLI method currently except `Login`).
+func newViamClient(c *cli.Context) (*viamClient, error) {
+	return newViamClientInner(c, false)
 }
 
 func (c *viamClient) loadOrganizations() error {

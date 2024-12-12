@@ -33,7 +33,7 @@ func TestRegisterAuthApplicationAction(t *testing.T) {
 	flags[authApplicationFlagLogoutURI] = "https://woof.com/logout"
 
 	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, nil, nil, eusc, flags, "token")
-	err := ac.registerAuthApplicationAction(cCtx)
+	err := ac.registerAuthApplicationAction(cCtx, parseStructFromCtx[registerAuthApplicationArgs](cCtx))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, len(out.messages), test.ShouldEqual, 5)
@@ -65,7 +65,7 @@ func TestUpdateAuthApplicationAction(t *testing.T) {
 	flags[authApplicationFlagLogoutURI] = "https://woof.com/logout"
 
 	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, nil, nil, eusc, flags, "token")
-	err := ac.updateAuthApplicationAction(cCtx)
+	err := ac.updateAuthApplicationAction(cCtx, parseStructFromCtx[updateAuthApplicationArgs](cCtx))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, len(out.messages), test.ShouldEqual, 3)
@@ -97,7 +97,7 @@ func TestGetAuthApplicationAction(t *testing.T) {
 	flags[authApplicationFlagApplicationID] = "a673022c-9916-4238-b8eb-4f7a89885909"
 
 	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, nil, nil, eusc, flags, "token")
-	err := ac.getAuthApplicationAction(cCtx)
+	err := ac.getAuthApplicationAction(cCtx, parseStructFromCtx[getAuthApplicationArgs](cCtx))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, len(out.messages), test.ShouldEqual, 3)
