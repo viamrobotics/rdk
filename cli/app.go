@@ -444,7 +444,7 @@ var app = &cli.App{
 									Usage:    "the file path of the logo to set for the organization. This must be a png file.",
 								},
 							},
-							Action: OrganizationLogoSetAction,
+							Action: createCommandWithT[organizationsLogoSetArgs](OrganizationLogoSetAction),
 						},
 					},
 				},
