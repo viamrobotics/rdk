@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -55,6 +56,8 @@ const (
 	// maxNumLogs is an arbitrary limit used to stop CLI users from overwhelming
 	// our logs DB with heavy reads.
 	maxNumLogs = 10000
+	// logoMaxSize is the maximum size of a logo in bytes.
+	logoMaxSize = 1024 * 200 // 200 KB
 )
 
 var errNoShellService = errors.New("shell service is not enabled on this machine part")
@@ -311,6 +314,74 @@ func (c *viamClient) organizationDisableBillingServiceAction(cCtx *cli.Context, 
 	}
 
 	printf(cCtx.App.Writer, "Successfully disabled billing service for organization: %s", orgID)
+	return nil
+}
+
+type organizationsLogoSetArgs struct {
+	OrgID    string
+	LogoPath string
+}
+
+// OrganizationLogoSetAction corresponds to `organizations logo set`.
+func OrganizationLogoSetAction(cCtx *cli.Context, args organizationsLogoSetArgs) error {
+	client, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+
+	orgID := args.OrgID
+	if orgID == "" {
+		return errors.New("cannot set logo without an organization ID")
+	}
+	logoFilePath := args.LogoPath
+	if logoFilePath == "" {
+		return errors.New("cannot set logo to an empty URL")
+	}
+
+	return client.organizationLogoSetAction(cCtx, orgID, logoFilePath)
+}
+
+func (c *viamClient) organizationLogoSetAction(cCtx *cli.Context, orgID, logoFilePath string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	// determine whether this is a valid file path on the local system
+	logoFilePath = strings.ToLower(filepath.Clean(logoFilePath))
+
+	if len(logoFilePath) < 5 || logoFilePath[len(logoFilePath)-4:] != ".png" {
+		return errors.Errorf("%s is not a valid .png file path", logoFilePath)
+	}
+
+	logoFile, err := os.Open(logoFilePath)
+	if err != nil {
+		return errors.WithMessagef(err, "could not open logo file: %s", logoFilePath)
+	}
+	defer func() {
+		if err := logoFile.Close(); err != nil {
+			warningf(cCtx.App.ErrWriter, "could not close logo file: %s", err)
+		}
+	}()
+
+	logoBytes, err := io.ReadAll(logoFile)
+	if err != nil {
+		return errors.WithMessagef(err, "could not read logo file: %s", logoFilePath)
+	}
+
+	if len(logoBytes) > logoMaxSize {
+		return errors.Errorf("logo file is too large: %d bytes (max size is 200KB)", len(logoBytes))
+	}
+
+	_, err = c.client.OrganizationSetLogo(cCtx.Context, &apppb.OrganizationSetLogoRequest{
+		OrgId: orgID,
+		Logo:  logoBytes,
+	})
+	if err != nil {
+		return err
+	}
+
+	printf(cCtx.App.Writer, "Successfully set the logo for organization %s to logo at file-path: %s",
+		orgID, logoFilePath)
 	return nil
 }
 
