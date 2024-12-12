@@ -275,7 +275,6 @@ func TestClient(t *testing.T) {
 			return nil, camera.ImageMetadata{}, errGetImageFailed
 		}
 
-		// one kvp created with map[string]interface{}
 		ctx := context.Background()
 		_, _, err = camClient.Image(ctx, "", nil)
 		test.That(t, err, test.ShouldNotBeNil)
