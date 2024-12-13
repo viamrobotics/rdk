@@ -1,7 +1,6 @@
 package camera
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"image"
@@ -201,10 +200,8 @@ func (s *serviceServer) GetPointCloud(
 		return nil, err
 	}
 
-	var buf bytes.Buffer
-	buf.Grow(200 + (pc.Size() * 4 * 4)) // 4 numbers per point, each 4 bytes
 	_, pcdSpan := trace.StartSpan(ctx, "camera::server::NextPointCloud::ToPCD")
-	err = pointcloud.ToPCD(pc, &buf, pointcloud.PCDBinary)
+	bytes, err := pointcloud.ToBytes(pc)
 	pcdSpan.End()
 	if err != nil {
 		return nil, err
@@ -212,7 +209,7 @@ func (s *serviceServer) GetPointCloud(
 
 	return &pb.GetPointCloudResponse{
 		MimeType:   utils.MimeTypePCD,
-		PointCloud: buf.Bytes(),
+		PointCloud: bytes,
 	}, nil
 }
 

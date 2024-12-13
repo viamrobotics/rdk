@@ -1,6 +1,7 @@
 package pointcloud
 
 import (
+	"bytes"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -116,4 +117,16 @@ func ToBasicOctree(cloud PointCloud) (*BasicOctree, error) {
 		return nil, err
 	}
 	return basicOctree, nil
+}
+
+func ToBytes(cloud PointCloud) ([]byte, error) {
+	if cloud == nil {
+		return nil, errors.New("pointcloud cannot be nil")
+	}
+	var buf bytes.Buffer
+	buf.Grow(200 + (cloud.Size() * 4 * 4)) // 4 numbers per point, each 4 bytes, 200 is header size
+	if err := ToPCD(cloud, &buf, PCDBinary); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
