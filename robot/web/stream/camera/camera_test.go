@@ -9,7 +9,7 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/rimage"
-	cameraStreamUtils "go.viam.com/rdk/robot/web/stream/camera"
+	camerautils "go.viam.com/rdk/robot/web/stream/camera"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 )
@@ -23,7 +23,7 @@ func TestVideoSourceFromCamera(t *testing.T) {
 			return imgBytes, camera.ImageMetadata{MimeType: utils.MimeTypePNG}, nil
 		},
 	}
-	vs := cameraStreamUtils.VideoSourceFromCamera(context.Background(), cam)
+	vs := camerautils.VideoSourceFromCamera(context.Background(), cam)
 
 	stream, err := vs.Stream(context.Background())
 	test.That(t, err, test.ShouldBeNil)
