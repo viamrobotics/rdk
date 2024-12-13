@@ -4,7 +4,6 @@ package board
 import (
 	"context"
 	"math"
-	"slices"
 	"sync"
 	"time"
 
@@ -26,17 +25,14 @@ type client struct {
 	client pb.BoardServiceClient
 	logger logging.Logger
 
-	info boardInfo
+	// boardName is used to attach the name of the board resource to the different
+	// pin clients (gpioclient, analogclient and digitalinterrupt client)
+	// the rpc services are fulfilled by methods on each pin type.
+	boardName string
 
 	interruptStreams []*interruptStream
 
 	mu sync.Mutex
-}
-
-type boardInfo struct {
-	name                  string
-	analogNames           []string
-	digitalInterruptNames []string
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -47,39 +43,28 @@ func NewClientFromConn(
 	name resource.Name,
 	logger logging.Logger,
 ) (Board, error) {
-	info := boardInfo{
-		name:                  name.ShortName(),
-		analogNames:           []string{},
-		digitalInterruptNames: []string{},
-	}
 	bClient := pb.NewBoardServiceClient(conn)
 	c := &client{
-		Named:  name.PrependRemote(remoteName).AsNamed(),
-		client: bClient,
-		logger: logger,
-		info:   info,
+		Named:     name.PrependRemote(remoteName).AsNamed(),
+		client:    bClient,
+		logger:    logger,
+		boardName: name.ShortName(),
 	}
 	return c, nil
 }
 
 func (c *client) AnalogByName(name string) (Analog, error) {
-	if !slices.Contains(c.info.analogNames, name) {
-		c.info.analogNames = append(c.info.analogNames, name)
-	}
 	return &analogClient{
 		client:     c,
-		boardName:  c.info.name,
+		boardName:  c.boardName,
 		analogName: name,
 	}, nil
 }
 
 func (c *client) DigitalInterruptByName(name string) (DigitalInterrupt, error) {
-	if !slices.Contains(c.info.digitalInterruptNames, name) {
-		c.info.digitalInterruptNames = append(c.info.digitalInterruptNames, name)
-	}
 	return &digitalInterruptClient{
 		client:               c,
-		boardName:            c.info.name,
+		boardName:            c.boardName,
 		digitalInterruptName: name,
 	}, nil
 }
@@ -87,7 +72,7 @@ func (c *client) DigitalInterruptByName(name string) (DigitalInterrupt, error) {
 func (c *client) GPIOPinByName(name string) (GPIOPin, error) {
 	return &gpioPinClient{
 		client:    c,
-		boardName: c.info.name,
+		boardName: c.boardName,
 		pinName:   name,
 	}, nil
 }
@@ -97,12 +82,12 @@ func (c *client) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *
 	if duration != nil {
 		dur = durationpb.New(*duration)
 	}
-	_, err := c.client.SetPowerMode(ctx, &pb.SetPowerModeRequest{Name: c.info.name, PowerMode: mode, Duration: dur})
+	_, err := c.client.SetPowerMode(ctx, &pb.SetPowerModeRequest{Name: c.boardName, PowerMode: mode, Duration: dur})
 	return err
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return rprotoutils.DoFromResourceClient(ctx, c.client, c.info.name, cmd)
+	return rprotoutils.DoFromResourceClient(ctx, c.client, c.boardName, cmd)
 }
 
 // analogClient satisfies a gRPC based board.AnalogReader. Refer to the interface
