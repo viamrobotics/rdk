@@ -423,12 +423,6 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		err = multierr.Combine(err, myRobot.Close(context.Background()))
 	}()
 
-	// Create initial web options with `minimalProcessedConfig`.
-	options, err := s.createWebOptions(minimalProcessedConfig)
-	if err != nil {
-		return err
-	}
-
 	// watch for and deliver changes to the robot
 	watcher, err := config.NewWatcher(ctx, cfg, s.logger.Sublogger("config"))
 	if err != nil {
@@ -508,6 +502,11 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	}()
 	defer cancel()
 
+	// Create initial web options with `minimalProcessedConfig`.
+	options, err := s.createWebOptions(minimalProcessedConfig)
+	if err != nil {
+		return err
+	}
 	return web.RunWeb(ctx, myRobot, options, s.logger)
 }
 
