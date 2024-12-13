@@ -24,8 +24,9 @@ var readingMap = map[string]any{"reading1": false, "reading2": "test"}
 
 func TestCollectors(t *testing.T) {
 	start := time.Now()
-	buf := tu.NewMockBuffer()
+	buf := tu.NewMockBuffer(t)
 	params := data.CollectorParams{
+		DataType:      data.CaptureTypeTabular,
 		ComponentName: "sensor",
 		Interval:      captureInterval,
 		Logger:        logging.NewTestLogger(t),
@@ -42,7 +43,7 @@ func TestCollectors(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	tu.CheckMockBufferWrites(t, ctx, start, buf.Writes, &datasyncpb.SensorData{
+	tu.CheckMockBufferWrites(t, ctx, start, buf.Writes, []*datasyncpb.SensorData{{
 		Metadata: &datasyncpb.SensorMetadata{},
 		Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
 			"readings": map[string]any{
@@ -50,7 +51,7 @@ func TestCollectors(t *testing.T) {
 				"reading2": "test",
 			},
 		})},
-	})
+	}})
 	buf.Close()
 }
 
