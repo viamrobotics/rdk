@@ -669,6 +669,9 @@ func TestClientRefresh(t *testing.T) {
 			callCountNames++
 			return emptyResources
 		}
+		injectRobot.MachineStatusFunc = func(context.Context) (robot.MachineStatus, error) {
+			return robot.MachineStatus{State: robot.StateRunning}, nil
+		}
 		mu.Unlock()
 
 		start := time.Now()
@@ -806,6 +809,9 @@ func TestClientDisconnect(t *testing.T) {
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		return []resource.Name{arm.Named("arm1")}
 	}
+	injectRobot.MachineStatusFunc = func(context.Context) (robot.MachineStatus, error) {
+		return robot.MachineStatus{State: robot.StateRunning}, nil
+	}
 
 	// TODO(RSDK-882): will update this so that this is not necessary
 	injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
@@ -859,21 +865,24 @@ func TestClientUnaryDisconnectHandler(t *testing.T) {
 			info *grpc.UnaryServerInfo,
 			handler grpc.UnaryHandler,
 		) (interface{}, error) {
+			// Allow a single GetMachineStatus through; return `io.ErrClosedPipe`
+			// after that.
 			if strings.HasSuffix(info.FullMethod, "RobotService/GetMachineStatus") {
 				if unaryStatusCallReceived {
 					return nil, status.Error(codes.Unknown, io.ErrClosedPipe.Error())
 				}
 				unaryStatusCallReceived = true
 			}
-			var resp interface{}
-			return resp, nil
+			return handler(ctx, req)
 		},
 	)
 	gServer := grpc.NewServer(justOneUnaryStatusCall)
 
 	injectRobot := &inject.Robot{}
+	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
+	injectRobot.ResourceNamesFunc = func() []resource.Name { return nil }
 	injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
-		return robot.MachineStatus{}, nil
+		return robot.MachineStatus{State: robot.StateRunning}, nil
 	}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 
@@ -888,10 +897,11 @@ func TestClientUnaryDisconnectHandler(t *testing.T) {
 		WithReconnectEvery(never),
 	)
 	test.That(t, err, test.ShouldBeNil)
+	// Reset unaryStatusCallReceived to false, as `New` call above set it to
+	// true.
+	unaryStatusCallReceived = false
 
 	t.Run("unary call to connected remote", func(t *testing.T) {
-		t.Helper()
-
 		client.connected.Store(false)
 		_, err = client.MachineStatus(context.Background())
 		test.That(t, status.Code(err), test.ShouldEqual, codes.Unavailable)
@@ -901,8 +911,6 @@ func TestClientUnaryDisconnectHandler(t *testing.T) {
 	})
 
 	t.Run("unary call to disconnected remote", func(t *testing.T) {
-		t.Helper()
-
 		_, err = client.MachineStatus(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, unaryStatusCallReceived, test.ShouldBeTrue)
@@ -947,7 +955,7 @@ func TestClientStreamDisconnectHandler(t *testing.T) {
 	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return nil }
 	injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
-		return robot.MachineStatus{}, nil
+		return robot.MachineStatus{State: robot.StateRunning}, nil
 	}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 
@@ -1041,7 +1049,9 @@ func TestClientReconnect(t *testing.T) {
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		return []resource.Name{arm.Named("arm1"), thing1Name}
 	}
-
+	injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
+		return robot.MachineStatus{State: robot.StateRunning}, nil
+	}
 	// TODO(RSDK-882): will update this so that this is not necessary
 	injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
 		return &framesystem.Config{}, nil
@@ -1137,6 +1147,9 @@ func TestClientRefreshNoReconfigure(t *testing.T) {
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
 	thing1Name := resource.NewName(someAPI, "thing1")
+	injectRobot.MachineStatusFunc = func(context.Context) (robot.MachineStatus, error) {
+		return robot.MachineStatus{State: robot.StateRunning}, nil
+	}
 
 	var callCount int
 	calledEnough := make(chan struct{})
@@ -1555,6 +1568,9 @@ func TestNewRobotClientRefresh(t *testing.T) {
 		callCount++
 		return emptyResources
 	}
+	injectRobot.MachineStatusFunc = func(context.Context) (robot.MachineStatus, error) {
+		return robot.MachineStatus{State: robot.StateRunning}, nil
+	}
 
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 
@@ -1638,6 +1654,9 @@ func TestRemoteClientMatch(t *testing.T) {
 	injectRobot1 := &inject.Robot{
 		ResourceNamesFunc:   func() []resource.Name { return validResources },
 		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+		MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
+			return robot.MachineStatus{State: robot.StateRunning}, nil
+		},
 	}
 
 	// TODO(RSDK-882): will update this so that this is not necessary
@@ -1688,6 +1707,9 @@ func TestRemoteClientDuplicate(t *testing.T) {
 	injectRobot1 := &inject.Robot{
 		ResourceNamesFunc:   func() []resource.Name { return validResources },
 		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+		MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
+			return robot.MachineStatus{State: robot.StateRunning}, nil
+		},
 	}
 	pb.RegisterRobotServiceServer(gServer1, server.New(injectRobot1))
 
@@ -1756,7 +1778,7 @@ func TestClientOperationIntercept(t *testing.T) {
 		receivedOpID, err := operation.GetOrCreateFromMetadata(meta)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, receivedOpID.String(), test.ShouldEqual, fakeOp.ID.String())
-		return robot.MachineStatus{}, nil
+		return robot.MachineStatus{State: robot.StateRunning}, nil
 	}
 
 	resp, err := client.MachineStatus(ctx)
@@ -1775,6 +1797,9 @@ func TestGetUnknownResource(t *testing.T) {
 	injectRobot := &inject.Robot{
 		ResourceNamesFunc:   func() []resource.Name { return []resource.Name{arm.Named("myArm")} },
 		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+		MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
+			return robot.MachineStatus{State: robot.StateRunning}, nil
+		},
 	}
 
 	// TODO(RSDK-882): will update this so that this is not necessary
@@ -1821,15 +1846,15 @@ func TestLoggingInterceptor(t *testing.T) {
 		MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
 			// If there is no debug information with the context, return no revision
 			if !logging.IsDebugMode(ctx) && logging.GetName(ctx) == "" {
-				return robot.MachineStatus{}, nil
+				return robot.MachineStatus{State: robot.StateRunning}, nil
 			}
 
 			// If there is debug information with `oliver` with the context, return a revision of `oliver`
 			if logging.IsDebugMode(ctx) && logging.GetName(ctx) == "oliver" {
-				return robot.MachineStatus{Config: config.Revision{Revision: "oliver"}}, nil
+				return robot.MachineStatus{Config: config.Revision{Revision: "oliver"}, State: robot.StateRunning}, nil
 			}
 
-			return robot.MachineStatus{}, errors.New("shouldn't happen")
+			return robot.MachineStatus{State: robot.StateRunning}, errors.New("shouldn't happen")
 		},
 	}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
@@ -1872,6 +1897,9 @@ func TestCloudMetadata(t *testing.T) {
 		CloudMetadataFunc: func(ctx context.Context) (cloud.Metadata, error) {
 			return injectCloudMD, nil
 		},
+		MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
+			return robot.MachineStatus{State: robot.StateRunning}, nil
+		},
 	}
 	// TODO(RSDK-882): will update this so that this is not necessary
 	injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
@@ -1905,6 +1933,9 @@ func TestShutDown(t *testing.T) {
 		ShutdownFunc: func(ctx context.Context) error {
 			shutdownCalled = true
 			return nil
+		},
+		MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
+			return robot.MachineStatus{State: robot.StateRunning}, nil
 		},
 	}
 
@@ -1942,6 +1973,9 @@ func TestUnregisteredResourceByName(t *testing.T) {
 	injectRobot := &inject.Robot{
 		ResourceNamesFunc:   func() []resource.Name { return resourceList },
 		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+		MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
+			return robot.MachineStatus{State: robot.StateRunning}, nil
+		},
 	}
 
 	gServer := grpc.NewServer()
@@ -2149,6 +2183,9 @@ func TestVersion(t *testing.T) {
 	injectRobot := &inject.Robot{
 		ResourceNamesFunc:   func() []resource.Name { return nil },
 		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+		MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
+			return robot.MachineStatus{State: robot.StateRunning}, nil
+		},
 	}
 
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
