@@ -1685,7 +1685,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 						},
 						&cli.BoolFlag{
 							Name:  moduleFlagTest,
-							Usage: "don't do organization or namespace check",
+							Usage: "indicate a test run, so skip regular checks",
 						},
 					},
 					Action: createCommandWithT[generateModuleArgs](GenerateModuleAction),

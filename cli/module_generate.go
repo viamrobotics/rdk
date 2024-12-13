@@ -49,7 +49,7 @@ var (
 type generateModuleArgs struct {
 	ModuleName      string
 	Language        string
-	IsPublic        bool
+	Public          bool
 	PublicNamespace string
 	ResourceType    string
 	ResourceSubtype string
@@ -75,7 +75,7 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 	newModule = &common.ModuleInputs{
 		ModuleName:       args.ModuleName,
 		Language:         args.Language,
-		IsPublic:         args.IsPublic,
+		IsPublic:         args.Public,
 		Namespace:        args.PublicNamespace,
 		Resource:         args.ResourceSubtype + " " + args.ResourceType,
 		ResourceType:     args.ResourceType,
