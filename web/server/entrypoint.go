@@ -423,16 +423,11 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		err = multierr.Combine(err, myRobot.Close(context.Background()))
 	}()
 
-	// Start web service with `minimalProcessedConfig`, then `Reconfigure` robot
-	// to have `fullProcessedConfig`.
+	// Create initial web options with `minimalProcessedConfig`.
 	options, err := s.createWebOptions(minimalProcessedConfig)
 	if err != nil {
 		return err
 	}
-	if err := web.RunWeb(ctx, myRobot, options, s.logger); err != nil {
-		return err
-	}
-	myRobot.Reconfigure(ctx, fullProcessedConfig)
 
 	// watch for and deliver changes to the robot
 	watcher, err := config.NewWatcher(ctx, cfg, s.logger.Sublogger("config"))
@@ -449,6 +444,10 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	// config.
 	oldCfg := fullProcessedConfig
 	utils.ManagedGo(func() {
+		// Reconfigure robot to have full processed config before listening for any
+		// config changes.
+		myRobot.Reconfigure(ctx, fullProcessedConfig)
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -508,7 +507,8 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		<-onWatchDone
 	}()
 	defer cancel()
-	return nil
+
+	return web.RunWeb(ctx, myRobot, options, s.logger)
 }
 
 // dumpResourceRegistrations prints all builtin resource registrations as a json array

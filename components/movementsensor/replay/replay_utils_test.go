@@ -46,8 +46,8 @@ type mockDataServiceServer struct {
 //
 //nolint:deprecated,staticcheck
 func (mDServer *mockDataServiceServer) TabularDataByFilter(ctx context.Context, req *datapb.TabularDataByFilterRequest,
+
 //nolint:deprecated,staticcheck
-) (*datapb.TabularDataByFilterResponse, error) {
 ) (*datapb.TabularDataByFilterResponse, error) {
 	filter := req.DataRequest.GetFilter()
 	last := req.DataRequest.GetLast()
