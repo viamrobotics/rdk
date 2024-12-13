@@ -127,7 +127,7 @@ func TestReplayPCDNew(t *testing.T) {
 	}
 }
 
-func TestReplayPCDNextPointCloud(t *testing.T) {
+func TestReplayPCDPointCloud(t *testing.T) {
 	ctx := context.Background()
 
 	cases := []struct {
@@ -137,7 +137,7 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 		endFileNum   int
 	}{
 		{
-			description: "Calling NextPointCloud no filter",
+			description: "Calling PointCloud no filter",
 			cfg: &Config{
 				Source:         validSource,
 				RobotID:        validRobotID,
@@ -150,7 +150,7 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 			endFileNum:   numPCDFiles,
 		},
 		{
-			description: "Calling NextPointCloud with bad source",
+			description: "Calling PointCloud with bad source",
 			cfg: &Config{
 				Source:         "bad_source",
 				RobotID:        validRobotID,
@@ -163,7 +163,7 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 			endFileNum:   -1,
 		},
 		{
-			description: "Calling NextPointCloud with bad robot_id",
+			description: "Calling PointCloud with bad robot_id",
 			cfg: &Config{
 				Source:         validSource,
 				RobotID:        "bad_robot_id",
@@ -176,7 +176,7 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 			endFileNum:   -1,
 		},
 		{
-			description: "Calling NextPointCloud with bad location_id",
+			description: "Calling PointCloud with bad location_id",
 			cfg: &Config{
 				Source:         validSource,
 				RobotID:        validRobotID,
@@ -189,7 +189,7 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 			endFileNum:   -1,
 		},
 		{
-			description: "Calling NextPointCloud with bad organization_id",
+			description: "Calling PointCloud with bad organization_id",
 			cfg: &Config{
 				Source:         validSource,
 				RobotID:        validRobotID,
@@ -202,7 +202,7 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 			endFileNum:   -1,
 		},
 		{
-			description: "Calling NextPointCloud with filter no data",
+			description: "Calling PointCloud with filter no data",
 			cfg: &Config{
 				Source:         validSource,
 				RobotID:        validRobotID,
@@ -220,7 +220,7 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 			endFileNum:   -1,
 		},
 		{
-			description: "Calling NextPointCloud with end filter",
+			description: "Calling PointCloud with end filter",
 			cfg: &Config{
 				Source:         validSource,
 				RobotID:        validRobotID,
@@ -237,7 +237,7 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 			endFileNum:   10,
 		},
 		{
-			description: "Calling NextPointCloud with start filter",
+			description: "Calling PointCloud with start filter",
 			cfg: &Config{
 				Source:         validSource,
 				RobotID:        validRobotID,
@@ -254,7 +254,7 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 			endFileNum:   numPCDFiles,
 		},
 		{
-			description: "Calling NextPointCloud with start and end filter",
+			description: "Calling PointCloud with start and end filter",
 			cfg: &Config{
 				Source:         validSource,
 				RobotID:        validRobotID,
@@ -272,7 +272,7 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 			endFileNum:   10,
 		},
 		{
-			description: "Calling NextPointCloud with non-divisible batch size, last batch size 1",
+			description: "Calling PointCloud with non-divisible batch size, last batch size 1",
 			cfg: &Config{
 				Source:         validSource,
 				RobotID:        validRobotID,
@@ -286,7 +286,7 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 			endFileNum:   numPCDFiles,
 		},
 		{
-			description: "Calling NextPointCloud with non-divisible batch size, last batch > 1",
+			description: "Calling PointCloud with non-divisible batch size, last batch > 1",
 			cfg: &Config{
 				Source:         validSource,
 				RobotID:        validRobotID,
@@ -300,7 +300,7 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 			endFileNum:   numPCDFiles,
 		},
 		{
-			description: "Calling NextPointCloud with divisible batch size",
+			description: "Calling PointCloud with divisible batch size",
 			cfg: &Config{
 				Source:         validSource,
 				RobotID:        validRobotID,
@@ -314,7 +314,7 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 			endFileNum:   numPCDFiles,
 		},
 		{
-			description: "Calling NextPointCloud with batching and a start and end filter",
+			description: "Calling PointCloud with batching and a start and end filter",
 			cfg: &Config{
 				Source:         validSource,
 				RobotID:        validRobotID,
@@ -332,7 +332,7 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 			endFileNum:   11,
 		},
 		{
-			description: "Calling NextPointCloud with a large batch size",
+			description: "Calling PointCloud with a large batch size",
 			cfg: &Config{
 				Source:         validSource,
 				RobotID:        validRobotID,
@@ -383,10 +383,10 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 	}
 }
 
-// TestLiveNextPointCloud checks the replay pcd camera's ability to handle new data being added to the
-// database the pool during a session, proving that NextPointCloud can return new data even after
+// TestLivePointCloud checks the replay pcd camera's ability to handle new data being added to the
+// database the pool during a session, proving that PointCloud can return new data even after
 // returning errEndOfDataset.
-func TestReplayPCDLiveNextPointCloud(t *testing.T) {
+func TestReplayPCDLivePointCloud(t *testing.T) {
 	ctx := context.Background()
 
 	numPCDFiles = 10
@@ -679,7 +679,7 @@ func TestReplayPCDTimestamps(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, replayCamera, test.ShouldNotBeNil)
 
-		// Repeatedly call NextPointCloud, checking for timestamps in the gRPC header.
+		// Repeatedly call PointCloud, checking for timestamps in the gRPC header.
 		for i := 0; i < numPCDFiles; i++ {
 			serverStream := testutils.NewServerTransportStream()
 			ctx = grpc.NewContextWithServerTransportStream(ctx, serverStream)
@@ -769,7 +769,7 @@ func TestReplayPCDReconfigure(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, replayCamera, test.ShouldNotBeNil)
 
-	// Call NextPointCloud to iterate through a few files
+	// Call PointCloud to iterate through a few files
 	for i := 0; i < 3; i++ {
 		pc, err := replayCamera.PointCloud(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
@@ -782,7 +782,7 @@ func TestReplayPCDReconfigure(t *testing.T) {
 	cfg = &Config{Source: validSource, BatchSize: &batchSize4}
 	replayCamera.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
 
-	// Call NextPointCloud a couple more times, ensuring that we start over from the beginning
+	// Call PointCloud a couple more times, ensuring that we start over from the beginning
 	// of the dataset after calling Reconfigure
 	for i := 0; i < 5; i++ {
 		pc, err := replayCamera.PointCloud(ctx, nil)

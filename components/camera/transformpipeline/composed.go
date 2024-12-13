@@ -159,7 +159,7 @@ func (os *overlaySource) Read(ctx context.Context) (image.Image, func(), error) 
 	if !ok {
 		return nil, nil, errors.New("source of overlay transform does not have PointCloud method")
 	}
-	pc, err := srcPointCloud.NextPointCloud(ctx)
+	pc, err := srcPointCloud.PointCloud(ctx, nil)
 	if err != nil {
 		return nil, nil, err
 	}

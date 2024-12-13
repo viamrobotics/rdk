@@ -98,7 +98,7 @@ func NewPinholeModelWithBrownConradyDistortion(pinholeCameraIntrinsics *transfor
 
 // NewVideoSourceFromReader creates a VideoSource either with or without a projector. The stream type
 // argument is for detecting whether or not the resulting camera supports return
-// of pointcloud data in the absence of an implemented NextPointCloud function.
+// of pointcloud data in the absence of an implemented PointCloud function.
 // If this is unknown or not applicable, a value of camera.Unspecified stream can be supplied.
 func NewVideoSourceFromReader(
 	ctx context.Context,
@@ -144,7 +144,7 @@ func NewVideoSourceFromReader(
 
 // WrapVideoSourceWithProjector creates a Camera either with or without a projector. The stream type
 // argument is for detecting whether or not the resulting camera supports return
-// of pointcloud data in the absence of an implemented NextPointCloud function.
+// of pointcloud data in the absence of an implemented PointCloud function.
 // If this is unknown or not applicable, a value of camera.Unspecified stream can be supplied.
 func WrapVideoSourceWithProjector(
 	ctx context.Context,
@@ -240,11 +240,11 @@ func (vs *videoSource) Images(ctx context.Context) ([]NamedImage, resource.Respo
 }
 
 // PointCloud returns the next PointCloud from the camera, or will error if not supported.
-func (vs *videoSource) PointCloud(ctx context.Context, _ map[string]interface{}) (pointcloud.PointCloud, error) {
-	ctx, span := trace.StartSpan(ctx, "camera::videoSource::NextPointCloud")
+func (vs *videoSource) PointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
+	ctx, span := trace.StartSpan(ctx, "camera::videoSource::PointCloud")
 	defer span.End()
 	if c, ok := vs.actualSource.(PointCloudSource); ok {
-		return c.NextPointCloud(ctx)
+		return c.PointCloud(ctx, extra)
 	}
 	if vs.system == nil || vs.system.PinholeCameraIntrinsics == nil {
 		return nil, transform.NewNoIntrinsicsError("cannot do a projection to a point cloud")

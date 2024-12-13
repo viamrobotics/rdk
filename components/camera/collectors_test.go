@@ -108,7 +108,7 @@ func TestCollectors(t *testing.T) {
 			camera: cam,
 		},
 		{
-			name:      "NextPointCloud returns a non nil binary response",
+			name:      "PointCloud returns a non nil binary response",
 			collector: camera.NewNextPointCloudCollector,
 			expected: []*datasyncpb.SensorData{{
 				Metadata: &datasyncpb.SensorMetadata{

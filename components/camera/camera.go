@@ -57,7 +57,7 @@ func Named(name string) resource.Name {
 // Properties is a lookup for a camera's features and settings.
 type Properties struct {
 	// SupportsPCD indicates that the Camera supports a valid
-	// implementation of NextPointCloud
+	// implementation of PointCloud
 	SupportsPCD      bool
 	ImageType        ImageType
 	IntrinsicParams  *transform.PinholeCameraIntrinsics
@@ -113,12 +113,12 @@ type Camera interface {
 //	img, release, err := stream.Next(context.Background())
 //	defer release()
 //
-// NextPointCloud example:
+// PointCloud example:
 //
 //	myCamera, err := camera.FromRobot(machine, "my_camera")
 //
 //	// gets the next point cloud from a camera
-//	pointCloud, err := myCamera.NextPointCloud(context.Background())
+//	pointCloud, err := myCamera.PointCloud(context.Background(), nil)
 //
 // Close example:
 //
@@ -175,7 +175,7 @@ func DecodeImageFromCamera(ctx context.Context, mimeType string, extra map[strin
 
 // A PointCloudSource is a source that can generate pointclouds.
 type PointCloudSource interface {
-	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
+	PointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error)
 }
 
 // A ImagesSource is a source that can return a list of images with timestamp.

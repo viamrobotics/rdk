@@ -238,10 +238,10 @@ func (c *client) Images(ctx context.Context) ([]NamedImage, resource.ResponseMet
 }
 
 func (c *client) PointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
-	ctx, span := trace.StartSpan(ctx, "camera::client::NextPointCloud")
+	ctx, span := trace.StartSpan(ctx, "camera::client::PointCloud")
 	defer span.End()
 
-	ctx, getPcdSpan := trace.StartSpan(ctx, "camera::client::NextPointCloud::GetPointCloud")
+	ctx, getPcdSpan := trace.StartSpan(ctx, "camera::client::PointCloud::GetPointCloud")
 
 	extraStructPb, err := goprotoutils.StructToStructPb(extra)
 	if err != nil {
@@ -263,7 +263,7 @@ func (c *client) PointCloud(ctx context.Context, extra map[string]interface{}) (
 	}
 
 	return func() (pointcloud.PointCloud, error) {
-		_, span := trace.StartSpan(ctx, "camera::client::NextPointCloud::ReadPCD")
+		_, span := trace.StartSpan(ctx, "camera::client::PointCloud::ReadPCD")
 		defer span.End()
 
 		return pointcloud.ReadPCD(bytes.NewReader(resp.PointCloud))

@@ -534,7 +534,7 @@ func TestClientWithInterceptor(t *testing.T) {
 	camera1Client, err := camera.NewClientFromConn(context.Background(), conn, "", camera.Named(testCameraName), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Construct a ContextWithMetadata to pass into NextPointCloud and check that the
+	// Construct a ContextWithMetadata to pass into PointCloud and check that the
 	// interceptor correctly injected the metadata from the gRPC response header into the
 	// context.
 	ctx, md := contextutils.ContextWithMetadata(context.Background())

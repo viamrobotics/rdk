@@ -49,7 +49,7 @@ func (c *Camera) PointCloud(ctx context.Context, extra map[string]interface{}) (
 	if c.Camera != nil {
 		return c.Camera.PointCloud(ctx, extra)
 	}
-	return nil, errors.New("NextPointCloud unimplemented")
+	return nil, errors.New("PointCloud unimplemented")
 }
 
 // Stream calls the injected Stream or the real version.

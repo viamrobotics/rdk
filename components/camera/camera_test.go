@@ -49,7 +49,7 @@ func (s *simpleSourceWithPCD) Read(ctx context.Context) (image.Image, func(), er
 	return img, func() {}, err
 }
 
-func (s *simpleSourceWithPCD) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+func (s *simpleSourceWithPCD) PointCloud(ctx context.Context, _ map[string]interface{}) (pointcloud.PointCloud, error) {
 	return nil, nil
 }
 
@@ -162,7 +162,7 @@ type cloudSource struct {
 	*simpleSource
 }
 
-func (cs *cloudSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+func (cs *cloudSource) PointCloud(ctx context.Context, _ map[string]interface{}) (pointcloud.PointCloud, error) {
 	p := pointcloud.New()
 	return p, p.Set(pointcloud.NewVector(0, 0, 0), nil)
 }
@@ -175,7 +175,7 @@ func TestCameraWithNoProjector(t *testing.T) {
 	_, err = noProj.PointCloud(context.Background(), nil)
 	test.That(t, errors.Is(err, transform.ErrNoIntrinsics), test.ShouldBeTrue)
 
-	// make a camera with a NextPointCloudFunction
+	// make a camera with a PointCloudFunction
 	cloudSrc2 := &cloudSource{Named: camera.Named("foo").AsNamed(), simpleSource: videoSrc}
 	videoSrc2, err := camera.NewVideoSourceFromReader(context.Background(), cloudSrc2, nil, camera.DepthStream)
 	noProj2 := camera.FromVideoSource(resource.NewName(camera.API, "bar"), videoSrc2, logger)

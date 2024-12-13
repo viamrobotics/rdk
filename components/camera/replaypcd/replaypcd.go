@@ -169,7 +169,7 @@ func newPCDCamera(
 func (replay *pcdCamera) PointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 	// First acquire the lock, so that it's safe to populate the cache and/or retrieve and
 	// remove the next data point from the cache. Note that if multiple threads call
-	// NextPointCloud concurrently, they may get data out-of-order, since there's no guarantee
+	// PointCloud concurrently, they may get data out-of-order, since there's no guarantee
 	// about who acquires the lock first.
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
