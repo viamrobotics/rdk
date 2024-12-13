@@ -637,9 +637,15 @@ var app = &cli.App{
 							Action: createCommandWithT[dataExportBinaryArgs](DataExportBinaryAction),
 						},
 						{
-							Name:      "tabular",
-							Usage:     "download tabular data",
-							UsageText: createUsageText("data export tabular", []string{dataFlagDestination, "part-id", "component-name", "method"}, true),
+							Name:  "tabular",
+							Usage: "download tabular data",
+							UsageText: createUsageText("data export tabular", []string{
+								dataFlagDestination,
+								dataFlagPartName,
+								dataFlagResourceName,
+								dataFlagResourceSubtype,
+								dataFlagMethod,
+							}, true),
 							Flags: []cli.Flag{
 								&cli.PathFlag{
 									Name:     dataFlagDestination,
@@ -647,17 +653,17 @@ var app = &cli.App{
 									Usage:    "output directory for downloaded data",
 								},
 								&cli.StringFlag{
-									Name:     "part-id",
+									Name:     dataFlagPartID,
 									Required: true,
 									Usage:    "part id",
 								},
 								&cli.StringFlag{
-									Name:     "resource-name",
+									Name:     dataFlagResourceName,
 									Required: true,
 									Usage:    "resource name (sometimes called 'component name')",
 								},
 								&cli.StringFlag{
-									Name:     "resource-subtype",
+									Name:     dataFlagResourceSubtype,
 									Required: true,
 									Usage:    "resource subtype (sometimes called 'component type')",
 								},
