@@ -35,12 +35,11 @@ func VideoSourceFromCamera(ctx context.Context, cam camera.Camera) gostream.Vide
 		}
 		return img, func() {}, nil
 	})
-	camProps, err := cam.Properties(ctx)
-	if err != nil {
-		camProps = camera.Properties{}
+
+	img, errImage := camera.DecodeImageFromCamera(ctx, "", nil, cam)
+	if errImage == nil {
+		return gostream.NewVideoSource(reader, prop.Video{Width: img.Bounds().Dx(), Height: img.Bounds().Dy()})
 	}
-	if camProps.IntrinsicParams == nil {
-		return gostream.NewVideoSource(reader, prop.Video{Width: 0, Height: 0})
-	}
-	return gostream.NewVideoSource(reader, prop.Video{Width: camProps.IntrinsicParams.Width, Height: camProps.IntrinsicParams.Height})
+	// Okay to return empty prop because processInputFrames will tick and set them
+	return gostream.NewVideoSource(reader, prop.Video{})
 }
