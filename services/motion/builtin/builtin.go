@@ -4,16 +4,15 @@ package builtin
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/golang/geo/r3"
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/motion/v1"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
@@ -357,7 +356,7 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 			return nil, err
 		}
 		var moveReqProto pb.MoveRequest
-		err = jsonpb.Unmarshal(strings.NewReader(s), &moveReqProto)
+		err = protojson.Unmarshal([]byte(s), &moveReqProto)
 		if err != nil {
 			return nil, err
 		}

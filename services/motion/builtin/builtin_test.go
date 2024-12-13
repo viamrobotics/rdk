@@ -10,12 +10,12 @@ import (
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/golang/geo/r3"
-	"github.com/golang/protobuf/jsonpb"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"go.viam.com/rdk/components/arm"
 	armFake "go.viam.com/rdk/components/arm/fake"
@@ -1276,10 +1276,9 @@ func TestDoCommand(t *testing.T) {
 		// format the command to send DoCommand
 		proto, err := moveReq.ToProto(ms.Name().Name)
 		test.That(t, err, test.ShouldBeNil)
-		m := jsonpb.Marshaler{}
-		s, err := m.MarshalToString(proto)
+		bytes, err := protojson.Marshal(proto)
 		test.That(t, err, test.ShouldBeNil)
-		cmd := map[string]interface{}{DoPlan: s}
+		cmd := map[string]interface{}{DoPlan: string(bytes)}
 
 		// simulate going over the wire
 		resp, ok := doOverWire(ms, cmd)[DoPlan]
