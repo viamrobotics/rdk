@@ -3,13 +3,14 @@ package builtin
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/golang/geo/r3"
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/motion/v1"
@@ -351,12 +352,12 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 
 	resp := make(map[string]interface{}, 0)
 	if req, ok := cmd[DoPlan]; ok {
-		bytes, err := json.Marshal(req)
+		s, err := utils.AssertType[string](req)
 		if err != nil {
 			return nil, err
 		}
 		var moveReqProto pb.MoveRequest
-		err = json.Unmarshal(bytes, &moveReqProto)
+		err = jsonpb.Unmarshal(strings.NewReader(s), &moveReqProto)
 		if err != nil {
 			return nil, err
 		}
