@@ -471,7 +471,6 @@ func TestDataExportTabularAction(t *testing.T) {
 		cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil, nil, nil, "token")
 
 		err := ac.dataExportTabularAction(cCtx, parseStructFromCtx[dataExportTabularArgs](cCtx))
-		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldBeError, errors.New("error receiving tabular data: whoops"))
 		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 
@@ -482,7 +481,6 @@ func TestDataExportTabularAction(t *testing.T) {
 		// Test that the data.ndjson file was removed.
 		filePath := utils.ResolveFile(dataFileName)
 		_, err = os.ReadFile(filePath)
-		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldBeError, fmt.Errorf("open %s: no such file or directory", filePath))
 	})
 }
