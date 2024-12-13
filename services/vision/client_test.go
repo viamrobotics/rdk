@@ -157,7 +157,7 @@ func TestClient(t *testing.T) {
 		test.That(t, capt.Extra, test.ShouldResemble, extra)
 		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 
-		//test with 'nil' extra
+		// test with 'nil' extra
 		capt, err = client.CaptureAllFromCamera(context.Background(), "", opts, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capt.Extra, test.ShouldBeNil) // not necessarily true
