@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"context"
 	"image"
-
-
 	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	camerapb "go.viam.com/api/component/camera/v1"
