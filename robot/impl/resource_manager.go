@@ -629,13 +629,18 @@ func (manager *resourceManager) completeConfig(
 	levels := manager.resources.ReverseTopologicalSortInLevels()
 	timeout := rutils.GetResourceConfigurationTimeout(manager.logger)
 	for _, resourceNames := range levels {
-		// if any resources in the level needs reconfiguration and depends on weak dependents,
-		// and the resource graph has updated since the last time weak dependents were updated,
-		// update weak dependents.
+		// At the start of every reconfiguration level, check if updateWeakDependents should be run.
+		// Both conditions below should be met for `updateWeakDependents` to be called:
+		// - At least one resource that needs to reconfigure in this level
+		//   depends on at least one resource with weak dependencies (weak dependents)
+		// - The logical clock is higher than the `lastWeakDependentsRound` value
 		//
-		// resources that depend on weak dependents should expect that the weak dependents at time
-		// of reconfiguration will only have been reconfigured with all resources constructed before
-		// their level.
+		// This will make sure that weak dependents are updated before they are passed into constructors
+		// or reconfigure methods.
+		//
+		// Resources that depend on weak dependents should expect that the weak dependents pass into the
+		// constructor or reconfigure method will only have been reconfigured with all resources constructed
+		// before their level.
 		var weakDependentsUpdated bool
 		for _, resName := range resourceNames {
 			select {

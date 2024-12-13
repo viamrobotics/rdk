@@ -331,11 +331,10 @@ func TestWeakDependentsExplicitDependency(t *testing.T) {
 	// 1) base1 and base2 configure first in parallel, alongside any default resources (motion).
 	// 2) Prior to calling the constructor for the resources and subsequently `SwapResource` (which bumps the
 	//    logical clock), `completeConfig` checks to see if there is a need to call `updateWeakDependents`.
-	//    Both conditions should be met for `updateWeakDependents` to be called:
-	//    - Check if the logical clock (0) has changed since the `lastWeakDependentsRound` (0)
-	//      value or
-	//    - whether resources that need to be configured in the current reconfiguration level (base1, base2, motion) depend
-	//      on resources that have weak dependencies.
+	//    Both conditions below have to be met for `updateWeakDependents` to be called:
+	//    - At least one resource that needs to reconfigure in this level (base1, base2, motion)
+	//      depends on at least one resource with weak dependencies (weak dependents)
+	//    - The logical clock (0) is higher than the `lastWeakDependentsRound` (0) value
 	//
 	//    Both conditions are false. There will be no call to `updateWeakDependents`. because the logical
 	//    clock has not changed and there is nothing that depends on weak dependents, e.g., weak1 in
@@ -395,11 +394,10 @@ func TestWeakDependentsExplicitDependency(t *testing.T) {
 	//    base2 and motion (neither of which needs to be reconfigured because their configs did not change).
 	// 2) Prior to calling `base1.Reconfigure` and subsequently `SwapResource` (which bumps the
 	//    logical clock), `completeConfig` checks to see if there is a need to call `updateWeakDependents`.
-	//    Both conditions should be met for `updateWeakDependents` to be called:
-	//    - Check if the logical clock (4) has changed since the `lastWeakDependentsRound` (4)
-	//      value or
-	//    - whether resources that need to reconfigure in the current reconfiguration level (base1)
-	//      depend on resources that have weak dependencies.
+	//    Both conditions below have to be met for `updateWeakDependents` to be called:
+	//    - At least one resource that needs to reconfigure in this level (base1)
+	//      depends on at least one resource with weak dependencies
+	//    - The logical clock (4) is higher than the `lastWeakDependentsRound` (4) value
 	//
 	//    Both conditions are false. There will be no call to `updateWeakDependents`. because the logical
 	//    clock has not changed and there is nothing that depends on weak dependents, e.g., weak1 in
@@ -409,8 +407,8 @@ func TestWeakDependentsExplicitDependency(t *testing.T) {
 	// 3) weak1 will be processed in a separate reconfiguration level but it will not reconfigure.
 	//    For a resource to reconfigure, one of the following conditions should be met:
 	//    - Resource config has a diff in the new robot config
-	//    - An "explicit" dependent reconfigured and resulted in:
-	//      -  an error return value or
+	//    - An "explicit" dependent reconfigured and resulted in either of the following conditions:
+	//      - an error return value
 	//      - a new resource object being created ("newly built"). `base1` is reconfigured "in place".
 	//
 	//    weak1's config does not have a diff and its "explicit" dependents reconfigured "in place", so
@@ -437,11 +435,10 @@ func TestWeakDependentsExplicitDependency(t *testing.T) {
 	//    base1 and motion (neither of which needs to be reconfigured because their configs did not change).
 	// 2) Prior to calling `base2.Reconfigure` and subsequently `SwapResource` (which bumps the
 	//    logical clock), `completeConfig` checks to see if there is a need to call `updateWeakDependents`.
-	//    Both conditions should be met for `updateWeakDependents` to be called:
-	//    - Check if the logical clock (5) has changed since the `lastWeakDependentsRound` 5)
-	//      value or
-	//    - whether resources that need to reconfigure in the current reconfiguration level (base2)
-	//      depend on resources that have weak dependencies.
+	//    Both conditions below have to be met for `updateWeakDependents` to be called:
+	//    - At least one resource that needs to reconfigure in this level (base2)
+	//      depends on at least one resource with weak dependencies
+	//    - The logical clock (5) is higher than the `lastWeakDependentsRound` (5) value
 	//
 	//    Both conditions are false. There will be no call to `updateWeakDependents`. because the logical
 	//    clock has not changed and there is nothing that depends on weak dependents, e.g., weak1 in
@@ -517,11 +514,10 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 	// 1) base2 and weak1 configure first in parallel, alongside any default resources (motion).
 	// 2) Prior to calling the constructor for the resources and subsequently `SwapResource` (which bumps the
 	//    logical clock), `completeConfig` checks to see if there is a need to call `updateWeakDependents`.
-	//    Both conditions should be met for `updateWeakDependents` to be called:
-	//    - Check if the logical clock (0) has changed since the `lastWeakDependentsRound` (0)
-	//      value or
-	//    - whether resources that need to be configured in the current reconfiguration level (base2, weak1, motion) depend
-	//      on resources that have weak dependencies.
+	//    Both conditions below have to be met for `updateWeakDependents` to be called:
+	//    - At least one resource that needs to reconfigure in this level (base2, weak1, motion)
+	//      depends on at least one resource with weak dependencies (weak dependents)
+	//    - The logical clock (0) is higher than the `lastWeakDependentsRound` (0) value
 	//
 	//    Both conditions are false. There will be no call to `updateWeakDependents`. because the logical
 	//    clock has not changed and there is nothing that depends on weak dependents, e.g., weak1 in
@@ -588,13 +584,12 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 	// 2) base1 needs to reconfigure as its config has a diff. Prior to calling `base1.Reconfigure` and
 	//    subsequently `SwapResource` (which bumps the logical clock), `completeConfig` checks to see if
 	//    there is a need to call `updateWeakDependents`.
-	//    Both conditions should be met for `updateWeakDependents` to be called:
-	//    - Check if the logical clock (4) has changed since the `lastWeakDependentsRound` (4)
-	//      value or
-	//    - whether resources that need to reconfigure in the current reconfiguration level (base1)
-	//      depend on resources that have weak dependencies.
+	//    Both conditions below have to be met for `updateWeakDependents` to be called:
+	//    - At least one resource that needs to reconfigure in this level (base1)
+	//      depends on at least one resource with weak dependencies
+	//    - The logical clock (4) is higher than the `lastWeakDependentsRound` (4) value
 	//
-	//    The first condition is false while the second is true. There will be no call to `updateWeakDependents`,
+	//    The first condition is true while the second is false. There will be no call to `updateWeakDependents`,
 	//    because the logical clock has not changed.
 	//
 	//    base1 is reconfigured and the logical clock is bumped to 5.
@@ -620,11 +615,10 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 	//    weak1 and motion (neither of which needs to be reconfigured because their configs did not change).
 	// 2) Prior to calling `base2.Reconfigure` and subsequently `SwapResource` (which bumps the
 	//    logical clock), `completeConfig` checks to see if there is a need to call `updateWeakDependents`.
-	//    Both conditions should be met for `updateWeakDependents` to be called:
-	//    - Check if the logical clock (5) has changed since the `lastWeakDependentsRound` 5)
-	//      value or
-	//    - whether resources that need to reconfigure in the current reconfiguration level (base2)
-	//      depend on resources that have weak dependencies.
+	//    Both conditions below have to be met for `updateWeakDependents` to be called:
+	//    - At least one resource that needs to reconfigure in this level (base2)
+	//      depends on at least one resource with weak dependencies
+	//    - The logical clock (5) is higher than the `lastWeakDependentsRound` (5) value
 	//
 	//    Both conditions are false. There will be no call to `updateWeakDependents`. because the logical
 	//    clock has not changed and there is nothing that depends on weak dependents, e.g., weak1 in
