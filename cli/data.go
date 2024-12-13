@@ -329,11 +329,9 @@ func createExportTabularRequest(c *cli.Context) (*datapb.ExportTabularDataReques
 		}
 		end = timestamppb.New(t)
 	}
-	if start != nil || end != nil {
-		request.Interval = &datapb.CaptureInterval{
-			Start: start,
-			End:   end,
-		}
+	request.Interval = &datapb.CaptureInterval{
+		Start: start,
+		End:   end,
 	}
 
 	return request, nil
