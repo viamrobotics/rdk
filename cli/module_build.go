@@ -173,8 +173,6 @@ func (c *viamClient) moduleBuildListAction(cCtx *cli.Context, args moduleBuildLi
 	var buildIDFilter *string
 	var moduleIDFilter string
 	// This will use the build id if present and fall back on the module manifest if not
-	// TODO(RSDK-9447) - This usage of `cCtx.IsSet` is an unfortunate necessity. See comment
-	// in `cli/app.go` for more details.
 	if cCtx.IsSet(moduleBuildFlagBuildID) {
 		buildIDFilter = &args.ID
 	} else {

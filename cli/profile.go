@@ -7,7 +7,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
-	"go.uber.org/multierr"
 )
 
 const profileEnvVar = "VIAM_CLI_PROFILE_NAME"
@@ -62,7 +61,19 @@ func addOrUpdateProfile(c *cli.Context, args addOrUpdateProfileArgs, isAdd bool)
 	profile.Name = args.ProfileName
 	profiles[args.ProfileName] = profile
 
-	return writeProfiles(profiles)
+	if err := writeProfiles(profiles); err != nil {
+		return err
+	}
+
+	var addOrUpdate string
+	if isAdd {
+		addOrUpdate = "added"
+	} else {
+		addOrUpdate = "updated"
+	}
+
+	printf(c.App.Writer, "Successfully %s profile %s", addOrUpdate, args.ProfileName)
+	return nil
 }
 
 func AddProfileAction(c *cli.Context, args addOrUpdateProfileArgs) error {
@@ -98,10 +109,16 @@ func RemoveProfileAction(c *cli.Context, args removeProfileArgs) error {
 	}
 
 	delete(profiles, args.ProfileName)
-	removeConfErr := os.Remove(getCLIProfilePath(args.ProfileName))
-	writeProfilesErr := writeProfiles(profiles)
+	if err := os.Remove(getCLIProfilePath(args.ProfileName)); err != nil {
+		return err
+	}
+	if err := writeProfiles(profiles); err != nil {
+		return err
+	}
 
-	return multierr.Combine(removeConfErr, writeProfilesErr)
+	printf(c.App.Writer, "Successfully deleted profile %s", args.ProfileName)
+
+	return nil
 }
 
 func ListProfilesAction(c *cli.Context, args emptyArgs) error {

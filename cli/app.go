@@ -269,7 +269,7 @@ func getValFromContext(name string, ctx *cli.Context) any {
 	return ctx.Value(camelFormattedName)
 }
 
-// TODO(RSDK-9447) - We don't support pointers in this. The problem is that when getting a value
+// (erodkin) We don't support pointers in structs here. The problem is that when getting a value
 // from a context for a supported flag, the context will default to populating with the zero value.
 // When getting a value from the context, though, we currently have no way of know if that's going
 // to a concrete value, going to a pointer and should be a nil value, or going to a pointer but should
