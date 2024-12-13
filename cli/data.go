@@ -296,7 +296,7 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 }
 
 func createExportTabularRequest(c *cli.Context) (*datapb.ExportTabularDataRequest, error) {
-	args := parseStructFromCtx[commonFilterArgs](c)
+	args := parseStructFromCtx[dataExportTabularArgs](c)
 	request := &datapb.ExportTabularDataRequest{}
 
 	if args.PartID != "" {
@@ -339,7 +339,7 @@ func createExportTabularRequest(c *cli.Context) (*datapb.ExportTabularDataReques
 	return request, nil
 }
 
-func (c *viamClient) dataExportBinaryAction(cCtx *cli.Context, args dataExportArgs) error {
+func (c *viamClient) dataExportBinaryAction(cCtx *cli.Context, args dataExportBinaryArgs) error {
 	filter, err := createDataFilter(cCtx)
 	if err != nil {
 		return err
@@ -352,7 +352,7 @@ func (c *viamClient) dataExportBinaryAction(cCtx *cli.Context, args dataExportAr
 	return nil
 }
 
-func (c *viamClient) dataExportTabularAction(cCtx *cli.Context, args dataExportArgs) error {
+func (c *viamClient) dataExportTabularAction(cCtx *cli.Context, args dataExportTabularArgs) error {
 	request, err := createExportTabularRequest(cCtx)
 	if err != nil {
 		return err

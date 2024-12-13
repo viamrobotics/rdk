@@ -470,7 +470,7 @@ func TestDataExportTabularAction(t *testing.T) {
 
 		cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil, nil, nil, "token")
 
-		err := ac.dataExportTabularAction(cCtx)
+		err := ac.dataExportTabularAction(cCtx, parseStructFromCtx[dataExportTabularArgs](cCtx))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldBeError, errors.New("error receiving tabular data: whoops"))
 		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
