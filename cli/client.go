@@ -395,6 +395,12 @@ func OrganizationsLogoGetAction(cCtx *cli.Context, args organizationsLogoGetArgs
 	if err != nil {
 		return err
 	}
+
+	orgID := args.OrgID
+	if orgID == "" {
+		return errors.New("cannot get logo without an organization ID")
+	}
+
 	return c.organizationsLogoGetAction(cCtx, args.OrgID)
 }
 
