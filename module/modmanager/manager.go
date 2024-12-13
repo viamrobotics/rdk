@@ -1185,6 +1185,7 @@ func (m *module) startProcess(
 			}
 		}
 		if !rutils.TCPRegex.MatchString(m.addr) {
+			// note: we don't do this check in TCP mode because TCP addresses are not file paths and will fail check.
 			err = modlib.CheckSocketOwner(m.addr)
 			if errors.Is(err, fs.ErrNotExist) {
 				continue
