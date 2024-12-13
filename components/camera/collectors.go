@@ -3,10 +3,10 @@ package camera
 import (
 	"bytes"
 	"context"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
-	pb "go.viam.com/api/component/camera/v1"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -41,7 +41,9 @@ func newNextPointCloudCollector(resource interface{}, params data.CollectorParam
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
+		timeRequested := time.Now()
+		var res data.CaptureResult
 		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::NextPointCloud")
 		defer span.End()
 
@@ -52,9 +54,9 @@ func newNextPointCloudCollector(resource interface{}, params data.CollectorParam
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
 			if errors.Is(err, data.ErrNoCaptureToStore) {
-				return nil, err
+				return res, err
 			}
-			return nil, data.FailedToReadErr(params.ComponentName, nextPointCloud.String(), err)
+			return res, data.FailedToReadErr(params.ComponentName, nextPointCloud.String(), err)
 		}
 
 		var buf bytes.Buffer
@@ -63,10 +65,17 @@ func newNextPointCloudCollector(resource interface{}, params data.CollectorParam
 			buf.Grow(headerSize + v.Size()*4*4) // 4 numbers per point, each 4 bytes
 			err = pointcloud.ToPCD(v, &buf, pointcloud.PCDBinary)
 			if err != nil {
-				return nil, errors.Errorf("failed to convert returned point cloud to PCD: %v", err)
+				return res, errors.Errorf("failed to convert returned point cloud to PCD: %v", err)
 			}
 		}
-		return buf.Bytes(), nil
+		ts := data.Timestamps{
+			TimeRequested: timeRequested,
+			TimeReceived:  time.Now(),
+		}
+		return data.NewBinaryCaptureResult(ts, []data.Binary{{
+			Payload:  buf.Bytes(),
+			MimeType: data.MimeTypeApplicationPcd,
+		}}), nil
 	})
 	return data.NewCollector(cFunc, params)
 }
@@ -92,22 +101,32 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
+		timeRequested := time.Now()
+		var res data.CaptureResult
 		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::ReadImage")
 		defer span.End()
 
-		img, _, err := camera.Image(ctx, mimeStr.Value, data.FromDMExtraMap)
+		img, metadata, err := camera.Image(ctx, mimeStr.Value, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
 			if errors.Is(err, data.ErrNoCaptureToStore) {
-				return nil, err
+				return res, err
 			}
 
-			return nil, data.FailedToReadErr(params.ComponentName, readImage.String(), err)
+			return res, data.FailedToReadErr(params.ComponentName, readImage.String(), err)
 		}
 
-		return img, nil
+		mimeType := data.CameraFormatToMimeType(utils.MimeTypeToFormat[metadata.MimeType])
+		ts := data.Timestamps{
+			TimeRequested: timeRequested,
+			TimeReceived:  time.Now(),
+		}
+		return data.NewBinaryCaptureResult(ts, []data.Binary{{
+			MimeType: mimeType,
+			Payload:  img,
+		}}), nil
 	})
 	return data.NewCollector(cFunc, params)
 }
@@ -117,37 +136,37 @@ func newGetImagesCollector(resource interface{}, params data.CollectorParams) (d
 	if err != nil {
 		return nil, err
 	}
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
+		var res data.CaptureResult
 		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::GetImages")
 		defer span.End()
-
 		ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
 
 		resImgs, resMetadata, err := camera.Images(ctx)
 		if err != nil {
 			if errors.Is(err, data.ErrNoCaptureToStore) {
-				return nil, err
+				return res, err
 			}
-			return nil, data.FailedToReadErr(params.ComponentName, getImages.String(), err)
+			return res, data.FailedToReadErr(params.ComponentName, getImages.String(), err)
 		}
 
-		var imgsConverted []*pb.Image
+		var binaries []data.Binary
 		for _, img := range resImgs {
 			format, imgBytes, err := encodeImageFromUnderlyingType(ctx, img.Image)
 			if err != nil {
-				return nil, err
+				return res, err
 			}
-			imgPb := &pb.Image{
-				SourceName: img.SourceName,
-				Format:     format,
-				Image:      imgBytes,
-			}
-			imgsConverted = append(imgsConverted, imgPb)
+			binaries = append(binaries, data.Binary{
+				Annotations: data.Annotations{Classifications: []data.Classification{{Label: img.SourceName}}},
+				Payload:     imgBytes,
+				MimeType:    data.CameraFormatToMimeType(format),
+			})
 		}
-		return pb.GetImagesResponse{
-			ResponseMetadata: resMetadata.AsProto(),
-			Images:           imgsConverted,
-		}, nil
+		ts := data.Timestamps{
+			TimeRequested: resMetadata.CapturedAt,
+			TimeReceived:  resMetadata.CapturedAt,
+		}
+		return data.NewBinaryCaptureResult(ts, binaries), nil
 	})
 	return data.NewCollector(cFunc, params)
 }

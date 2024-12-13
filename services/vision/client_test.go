@@ -56,6 +56,7 @@ func TestClient(t *testing.T) {
 		det1 := objectdetection.NewDetection(image.Rectangle{}, 0.5, "yes")
 		return viscapture.VisCapture{
 			Detections: []objectdetection.Detection{det1},
+			Extra:      extra,
 		}, nil
 	}
 	m := map[resource.Name]vision.Service{
@@ -142,15 +143,24 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		opts := viscapture.CaptureOptions{
 			true,
-			true, true, true,
+			true,
+			true,
+			true,
 		}
-		capt, err := client.CaptureAllFromCamera(context.Background(), "", opts, map[string]interface{}{})
+		extra := map[string]interface{}{"foo": "captureAll"}
+		capt, err := client.CaptureAllFromCamera(context.Background(), "", opts, extra)
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, capt.Detections, test.ShouldHaveLength, 1)
 		test.That(t, capt.Detections[0].Label(), test.ShouldEqual, "yes")
 		test.That(t, capt.Detections[0].Score(), test.ShouldEqual, 0.5)
+		test.That(t, capt.Extra, test.ShouldResemble, extra)
 		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+
+		// test with 'nil' extra
+		capt, err = client.CaptureAllFromCamera(context.Background(), "", opts, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capt.Extra, test.ShouldBeNil) // not necessarily true
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }

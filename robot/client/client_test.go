@@ -54,7 +54,6 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/gostream"
 	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
@@ -504,12 +503,6 @@ func TestStatusClient(t *testing.T) {
 
 	camera1, err := camera.FromRobot(client, "camera1")
 	test.That(t, err, test.ShouldBeNil)
-	// TODO(hexbabe): remove below test when Stream/ReadImage pattern is refactored
-	t.Run("ReadImage on missing camera", func(t *testing.T) {
-		_, _, err = camera.ReadImage(context.Background(), camera1)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
-	})
 	imgBytes, metadata, err := camera1.Image(context.Background(), rutils.MimeTypeJPEG, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
@@ -590,16 +583,6 @@ func TestStatusClient(t *testing.T) {
 
 	camera1, err = camera.FromRobot(client, "camera1")
 	test.That(t, err, test.ShouldBeNil)
-
-	// TODO(hexbabe): remove below test when Stream/ReadImage pattern is refactored
-	t.Run("ReadImage on camera with valid response", func(t *testing.T) {
-		ctx := gostream.WithMIMETypeHint(context.Background(), rutils.MimeTypeRawRGBA)
-		frame, _, err := camera.ReadImage(ctx, camera1)
-		test.That(t, err, test.ShouldBeNil)
-		compVal, _, err := rimage.CompareImages(img, frame)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
-	})
 
 	frame, err := camera.DecodeImageFromCamera(context.Background(), rutils.MimeTypeRawRGBA, nil, camera1)
 	test.That(t, err, test.ShouldBeNil)

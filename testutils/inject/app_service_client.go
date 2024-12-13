@@ -52,6 +52,10 @@ type AppServiceClient struct {
 		opts ...grpc.CallOption) (*apppb.OrganizationSetSupportEmailResponse, error)
 	OrganizationGetSupportEmailFunc func(ctx context.Context, in *apppb.OrganizationGetSupportEmailRequest,
 		opts ...grpc.CallOption) (*apppb.OrganizationGetSupportEmailResponse, error)
+	OrganizationSetLogoFunc func(ctx context.Context, in *apppb.OrganizationSetLogoRequest,
+		opts ...grpc.CallOption) (*apppb.OrganizationSetLogoResponse, error)
+	OrganizationGetLogoFunc func(ctx context.Context, in *apppb.OrganizationGetLogoRequest,
+		opts ...grpc.CallOption) (*apppb.OrganizationGetLogoResponse, error)
 	CreateLocationFunc func(ctx context.Context, in *apppb.CreateLocationRequest,
 		opts ...grpc.CallOption) (*apppb.CreateLocationResponse, error)
 	GetLocationFunc func(ctx context.Context, in *apppb.GetLocationRequest,
@@ -377,6 +381,26 @@ func (asc *AppServiceClient) OrganizationGetSupportEmail(
 		return asc.AppServiceClient.OrganizationGetSupportEmail(ctx, in, opts...)
 	}
 	return asc.OrganizationGetSupportEmailFunc(ctx, in, opts...)
+}
+
+// OrganizationSetLogo calls the injected OrganizationSetLogoFunc or the real version.
+func (asc *AppServiceClient) OrganizationSetLogo(
+	ctx context.Context, in *apppb.OrganizationSetLogoRequest, opts ...grpc.CallOption,
+) (*apppb.OrganizationSetLogoResponse, error) {
+	if asc.OrganizationSetLogoFunc == nil {
+		return asc.AppServiceClient.OrganizationSetLogo(ctx, in, opts...)
+	}
+	return asc.OrganizationSetLogoFunc(ctx, in, opts...)
+}
+
+// OrganizationGetLogo calls the injected OrganizationGetLogoFunc or the real version.
+func (asc *AppServiceClient) OrganizationGetLogo(
+	ctx context.Context, in *apppb.OrganizationGetLogoRequest, opts ...grpc.CallOption,
+) (*apppb.OrganizationGetLogoResponse, error) {
+	if asc.OrganizationGetLogoFunc == nil {
+		return asc.AppServiceClient.OrganizationGetLogo(ctx, in, opts...)
+	}
+	return asc.OrganizationGetLogoFunc(ctx, in, opts...)
 }
 
 // CreateLocation calls the injected CreateLocationFunc or the real version.
