@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 )
 
@@ -39,8 +38,8 @@ func writeProfiles(profiles map[string]profile) error {
 		return err
 	}
 
+	//nolint:gosec
 	return os.WriteFile(getCLIProfilesPath(), md, 0o640)
-
 }
 
 func addOrUpdateProfile(c *cli.Context, args addOrUpdateProfileArgs, isAdd bool) error {
@@ -54,7 +53,7 @@ func addOrUpdateProfile(c *cli.Context, args addOrUpdateProfileArgs, isAdd bool)
 
 	profile, alreadyExists := profiles[args.ProfileName]
 	if isAdd && alreadyExists {
-		return errors.New(fmt.Sprintf("Attempted to add new profile %s but it already existed", args.ProfileName))
+		return fmt.Errorf("attempted to add new profile %s but it already existed", args.ProfileName)
 	}
 	profile.APIKey.KeyCrypto = args.Key
 	profile.APIKey.KeyID = args.KeyID
@@ -76,10 +75,12 @@ func addOrUpdateProfile(c *cli.Context, args addOrUpdateProfileArgs, isAdd bool)
 	return nil
 }
 
+// AddProfileAction adds a new CLI profile.
 func AddProfileAction(c *cli.Context, args addOrUpdateProfileArgs) error {
 	return addOrUpdateProfile(c, args, true)
 }
 
+// UpdateProfileAction updates an existing CLI profile, or adds it if it doesn't already exist.
 func UpdateProfileAction(c *cli.Context, args addOrUpdateProfileArgs) error {
 	return addOrUpdateProfile(c, args, false)
 }
@@ -102,6 +103,7 @@ func whichProfile(args *globalArgs) (_ *string, profileSpecified bool) {
 	return nil, profileSpecified
 }
 
+// RemoveProfileAction removes a CLI profile.
 func RemoveProfileAction(c *cli.Context, args removeProfileArgs) error {
 	profiles, err := getProfiles()
 	if err != nil {
@@ -121,6 +123,7 @@ func RemoveProfileAction(c *cli.Context, args removeProfileArgs) error {
 	return nil
 }
 
+// ListProfilesAction lists all currently supported profiles.
 func ListProfilesAction(c *cli.Context, args emptyArgs) error {
 	profiles, err := getProfiles()
 	if err != nil {

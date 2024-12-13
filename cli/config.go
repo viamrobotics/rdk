@@ -33,6 +33,7 @@ func configFromCacheInner(configPath string) (_ *Config, err error) {
 			utils.UncheckedError(removeConfigFromCache())
 		}
 	}()
+	//nolint: gosec
 	rd, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, err

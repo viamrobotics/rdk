@@ -321,7 +321,7 @@ func getGlobalArgs(ctx *cli.Context) (*globalArgs, error) {
 	gArgs := parseStructFromCtx[globalArgs](ctx)
 	// TODO(RSDK-9361) - we shouldn't let people create global args directly, to enforce this
 	if gArgs.DisableProfiles && gArgs.Profile != "" {
-		return nil, errors.New("Error: profile specified with disable-profiles flag set.")
+		return nil, errors.New("profile specified with disable-profiles flag set")
 	}
 
 	return &gArgs, nil
