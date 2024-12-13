@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/arm"
@@ -1245,10 +1246,18 @@ func TestCheckPlan(t *testing.T) {
 }
 
 func TestDoCommand(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
+	cloud, err := pointcloud.NewFromFile(artifact.MustPath("pointcloud/test.las"), logger)
+	test.That(t, err, test.ShouldBeNil)
+	pcBytes, err := pointcloud.ToBytes(cloud)
+	test.That(t, err, test.ShouldBeNil)
 	moveReq := motion.MoveReq{
 		ComponentName: gripper.Named("pieceGripper"),
 		Destination:   referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -30, Z: -50})),
+		Extra: map[string]interface{}{
+			"pcd": pcBytes,
+		},
 	}
 
 	// need to simulate what happens when the DoCommand message is serialized/deserialized into proto

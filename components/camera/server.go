@@ -200,9 +200,7 @@ func (s *serviceServer) GetPointCloud(
 		return nil, err
 	}
 
-	_, pcdSpan := trace.StartSpan(ctx, "camera::server::NextPointCloud::ToPCD")
 	bytes, err := pointcloud.ToBytes(pc)
-	pcdSpan.End()
 	if err != nil {
 		return nil, err
 	}
