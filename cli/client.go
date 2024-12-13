@@ -410,6 +410,11 @@ func (c *viamClient) organizationsLogoGetAction(cCtx *cli.Context, orgID string)
 		return err
 	}
 
+	if resp.GetUrl() == "" {
+		printf(cCtx.App.Writer, "No logo set for organization %q", orgID)
+		return nil
+	}
+
 	printf(cCtx.App.Writer, "Logo URL for organization %q: %q", orgID, resp.GetUrl())
 	return nil
 }
