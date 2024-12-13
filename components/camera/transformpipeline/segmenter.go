@@ -70,7 +70,7 @@ func (cfg *segmenterConfig) Validate(path string) ([]string, error) {
 }
 
 // PointCloud function calls a segmenter service on the underlying camera and returns a pointcloud.
-func (ss *segmenterSource) PointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
+func (ss *segmenterSource) PointCloud(ctx context.Context, _ map[string]interface{}) (pointcloud.PointCloud, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::segmenter::PointCloud")
 	defer span.End()
 

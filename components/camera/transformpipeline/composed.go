@@ -83,7 +83,7 @@ func (dtp *depthToPretty) Close(ctx context.Context) error {
 	return dtp.src.Close(ctx)
 }
 
-func (dtp *depthToPretty) PointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+func (dtp *depthToPretty) PointCloud(ctx context.Context, _ map[string]interface{}) (pointcloud.PointCloud, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::depthToPretty::PointCloud")
 	defer span.End()
 	if dtp.cameraModel == nil || dtp.cameraModel.PinholeCameraIntrinsics == nil {

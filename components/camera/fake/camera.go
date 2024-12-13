@@ -226,7 +226,7 @@ func (c *Camera) Read(ctx context.Context) (image.Image, func(), error) {
 }
 
 // PointCloud always returns a pointcloud of a yellow to blue gradient, with the depth determined by the intensity of blue.
-func (c *Camera) PointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
+func (c *Camera) PointCloud(ctx context.Context, _ map[string]interface{}) (pointcloud.PointCloud, error) {
 	if c.cachePointCloud != nil {
 		return c.cachePointCloud, nil
 	}
