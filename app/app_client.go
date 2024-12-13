@@ -846,6 +846,17 @@ func (c *AppClient) OrganizationSetLogo(ctx context.Context, orgID string, logo 
 	return err
 }
 
+// OrganizationGetLogo gets an organization's logo.
+func (c *AppClient) OrganizationGetLogo(ctx context.Context, orgID string) (string, error) {
+	resp, err := c.client.OrganizationGetLogo(ctx, &pb.OrganizationGetLogoRequest{
+		OrgId: orgID,
+	})
+	if err != nil {
+		return "", err
+	}
+	return resp.Url, nil
+}
+
 // CreateLocation creates a location with the given name under the given organization.
 func (c *AppClient) CreateLocation(ctx context.Context, orgID, name string, opts *CreateLocationOptions) (*Location, error) {
 	var parentID *string

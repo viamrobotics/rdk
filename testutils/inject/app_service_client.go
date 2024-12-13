@@ -54,6 +54,8 @@ type AppServiceClient struct {
 		opts ...grpc.CallOption) (*apppb.OrganizationGetSupportEmailResponse, error)
 	OrganizationSetLogoFunc func(ctx context.Context, in *apppb.OrganizationSetLogoRequest,
 		opts ...grpc.CallOption) (*apppb.OrganizationSetLogoResponse, error)
+	OrganizationGetLogoFunc func(ctx context.Context, in *apppb.OrganizationGetLogoRequest,
+		opts ...grpc.CallOption) (*apppb.OrganizationGetLogoResponse, error)
 	CreateLocationFunc func(ctx context.Context, in *apppb.CreateLocationRequest,
 		opts ...grpc.CallOption) (*apppb.CreateLocationResponse, error)
 	GetLocationFunc func(ctx context.Context, in *apppb.GetLocationRequest,
@@ -389,6 +391,16 @@ func (asc *AppServiceClient) OrganizationSetLogo(
 		return asc.AppServiceClient.OrganizationSetLogo(ctx, in, opts...)
 	}
 	return asc.OrganizationSetLogoFunc(ctx, in, opts...)
+}
+
+// OrganizationGetLogo calls the injected OrganizationGetLogoFunc or the real version.
+func (asc *AppServiceClient) OrganizationGetLogo(
+	ctx context.Context, in *apppb.OrganizationGetLogoRequest, opts ...grpc.CallOption,
+) (*apppb.OrganizationGetLogoResponse, error) {
+	if asc.OrganizationGetLogoFunc == nil {
+		return asc.AppServiceClient.OrganizationGetLogo(ctx, in, opts...)
+	}
+	return asc.OrganizationGetLogoFunc(ctx, in, opts...)
 }
 
 // CreateLocation calls the injected CreateLocationFunc or the real version.

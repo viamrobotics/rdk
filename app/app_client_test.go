@@ -725,6 +725,21 @@ func TestAppClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
+	t.Run("OrganizationGetLogo", func(t *testing.T) {
+		grpcClient.OrganizationGetLogoFunc = func(
+			ctx context.Context, in *pb.OrganizationGetLogoRequest, opts ...grpc.CallOption,
+		) (*pb.OrganizationGetLogoResponse, error) {
+			test.That(t, in.OrgId, test.ShouldEqual, organizationID)
+			return &pb.OrganizationGetLogoResponse{
+				Url: "https://logo.com",
+			}, nil
+		}
+
+		resp, err := client.OrganizationGetLogo(context.Background(), organizationID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldEqual, "https://logo.com")
+	})
+
 	t.Run("GetSupportEmail", func(t *testing.T) {
 		grpcClient.OrganizationGetSupportEmailFunc = func(
 			ctx context.Context, in *pb.OrganizationGetSupportEmailRequest, opts ...grpc.CallOption,

@@ -339,6 +339,25 @@ func TestOrganizationSetLogoAction(t *testing.T) {
 	test.That(t, len(out.messages), test.ShouldEqual, 0)
 }
 
+func TestGetLogoAction(t *testing.T) {
+	getLogoFunc := func(ctx context.Context, in *apppb.OrganizationGetLogoRequest, opts ...grpc.CallOption) (
+		*apppb.OrganizationGetLogoResponse, error,
+	) {
+		return &apppb.OrganizationGetLogoResponse{Url: "https://logo.com"}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		OrganizationGetLogoFunc: getLogoFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+
+	test.That(t, ac.organizationsLogoGetAction(cCtx, "test-org"), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "https://logo.com")
+}
+
 func TestUpdateBillingServiceAction(t *testing.T) {
 	updateConfigFunc := func(ctx context.Context, in *apppb.UpdateBillingServiceRequest, opts ...grpc.CallOption) (
 		*apppb.UpdateBillingServiceResponse, error,

@@ -426,7 +426,7 @@ var app = &cli.App{
 				},
 				{
 					Name:      "logo",
-					Usage:     "manage logos for an organization",
+					Usage:     "manage the logo for an organization",
 					UsageText: createUsageText("organizations logo", []string{generalFlagOrgID}, true),
 					Subcommands: []*cli.Command{
 						{
@@ -445,6 +445,18 @@ var app = &cli.App{
 								},
 							},
 							Action: createCommandWithT[organizationsLogoSetArgs](OrganizationLogoSetAction),
+						},
+						{
+							Name:  "get",
+							Usage: "get the logo for an organization",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "the org to get the logo for",
+								},
+							},
+							Action: createCommandWithT[organizationsLogoGetArgs](OrganizationsLogoGetAction),
 						},
 					},
 				},
