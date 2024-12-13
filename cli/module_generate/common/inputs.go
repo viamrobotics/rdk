@@ -37,6 +37,32 @@ type ModuleInputs struct {
 	SDKVersion string `json:"-"`
 }
 
+// Resources is a list of all the available resources in Viam.
+var Resources = []string{
+	"arm component",
+	"audio_input component",
+	"base component",
+	"board component",
+	"camera component",
+	"encoder component",
+	"gantry component",
+	"generic component",
+	"gripper component",
+	"input component",
+	"motor component",
+	"movement_sensor component",
+	"pose_tracker component",
+	"power_sensor component",
+	"sensor component",
+	"servo component",
+	"generic service",
+	"mlmodel service",
+	"motion service",
+	"navigation service",
+	"slam service",
+	"vision service",
+}
+
 // GoModuleTmpl contains necessary information to fill out the go method stubs.
 type GoModuleTmpl struct {
 	Module    ModuleInputs
@@ -61,31 +87,7 @@ func (inputs *ModuleInputs) HasEmptyInput() bool {
 
 // CheckResource checks if the given resource is valid.
 func (inputs *ModuleInputs) CheckResource() error {
-	resources := []string{
-		"arm component",
-		"audio_input component",
-		"base component",
-		"board component",
-		"camera component",
-		"encoder component",
-		"gantry component",
-		"generic component",
-		"gripper component",
-		"input component",
-		"motor component",
-		"movement_sensor component",
-		"pose_tracker component",
-		"power_sensor component",
-		"sensor component",
-		"servo component",
-		"generic service",
-		"mlmodel service",
-		"motion service",
-		"navigation service",
-		"slam service",
-		"vision service",
-	}
-	for _, resource := range resources {
+	for _, resource := range Resources {
 		if inputs.Resource == resource {
 			return nil
 		}

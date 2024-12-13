@@ -187,6 +187,22 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 // Prompt the user for information regarding the module they want to create
 // returns the common.ModuleInputs struct that contains the information the user entered.
 func promptUser(module *common.ModuleInputs) error {
+	titleCaser := cases.Title(language.Und)
+	resourceOptions := []huh.Option[string]{}
+	for _, resource := range common.Resources {
+		words := strings.Split(strings.ReplaceAll(resource, "_", " "), " ")
+		for i, word := range words {
+			switch word {
+			case "mlmodel":
+				words[i] = "MLModel"
+			case "slam":
+				words[i] = "SLAM"
+			default:
+				words[i] = titleCaser.String(word)
+			}
+		}
+		resourceOptions = append(resourceOptions, huh.NewOption(strings.Join(words, " "), resource))
+	}
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewNote().
@@ -234,30 +250,7 @@ func promptUser(module *common.ModuleInputs) error {
 				}),
 			huh.NewSelect[string]().
 				Title("Select a resource to be added to the module:").
-				Options(
-					huh.NewOption("Arm Component", "arm component"),
-					huh.NewOption("Audio Input Component", "audio_input component"),
-					huh.NewOption("Base Component", "base component"),
-					huh.NewOption("Board Component", "board component"),
-					huh.NewOption("Camera Component", "camera component"),
-					huh.NewOption("Encoder Component", "encoder component"),
-					huh.NewOption("Gantry Component", "gantry component"),
-					huh.NewOption("Generic Component", "generic component"),
-					huh.NewOption("Gripper Component", "gripper component"),
-					huh.NewOption("Input Component", "input component"),
-					huh.NewOption("Motor Component", "motor component"),
-					huh.NewOption("Movement Sensor Component", "movement_sensor component"),
-					huh.NewOption("Pose Tracker Component", "pose_tracker component"),
-					huh.NewOption("Power Sensor Component", "power_sensor component"),
-					huh.NewOption("Sensor Component", "sensor component"),
-					huh.NewOption("Servo Component", "servo component"),
-					huh.NewOption("Generic Service", "generic service"),
-					huh.NewOption("MLModel Service", "mlmodel service"),
-					huh.NewOption("Motion Service", "motion service"),
-					huh.NewOption("Navigation Service", "navigation service"),
-					huh.NewOption("SLAM Service", "slam service"),
-					huh.NewOption("Vision Service", "vision service"),
-				).
+				Options(resourceOptions...).
 				Value(&module.Resource).WithHeight(25),
 			huh.NewInput().
 				Title("Set a model name of the resource:").
