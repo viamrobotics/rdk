@@ -23,13 +23,18 @@ const (
 	datasetFlagIncludeJSONLines = "include-jsonl"
 )
 
+type datasetCreateArgs struct {
+	OrgID string
+	Name  string
+}
+
 // DatasetCreateAction is the corresponding action for 'dataset create'.
-func DatasetCreateAction(c *cli.Context) error {
+func DatasetCreateAction(c *cli.Context, args datasetCreateArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
-	if err := client.createDataset(c.String(generalFlagOrgID), c.String(datasetFlagName)); err != nil {
+	if err := client.createDataset(args.OrgID, args.Name); err != nil {
 		return err
 	}
 	return nil
@@ -49,13 +54,18 @@ func (c *viamClient) createDataset(orgID, datasetName string) error {
 	return nil
 }
 
+type datasetRenameArgs struct {
+	DatasetID string
+	Name      string
+}
+
 // DatasetRenameAction is the corresponding action for 'dataset rename'.
-func DatasetRenameAction(c *cli.Context) error {
+func DatasetRenameAction(c *cli.Context, args datasetRenameArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
-	if err := client.renameDataset(c.String(datasetFlagDatasetID), c.String(datasetFlagName)); err != nil {
+	if err := client.renameDataset(args.DatasetID, args.Name); err != nil {
 		return err
 	}
 	return nil
@@ -75,15 +85,21 @@ func (c *viamClient) renameDataset(datasetID, newDatasetName string) error {
 	return nil
 }
 
+type datasetListArgs struct {
+	DatasetIDs []string
+	OrgID      string
+}
+
 // DatasetListAction is the corresponding action for 'dataset list'.
-func DatasetListAction(c *cli.Context) error {
+func DatasetListAction(c *cli.Context, args datasetListArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
-	datasetIDs := c.StringSlice(datasetFlagDatasetIDs)
-	orgID := c.String(generalFlagOrgID)
+	datasetIDs := args.DatasetIDs
+	orgID := args.OrgID
 
+	// TODO(RSDK-9288) - see if we can make this clearer to users from the outset
 	if orgID != "" && datasetIDs != nil {
 		return errors.New("must specify either dataset IDs or organization ID, got both")
 	}
@@ -132,13 +148,17 @@ func (c *viamClient) listDatasetByOrg(orgID string) error {
 	return nil
 }
 
+type datasetDeleteArgs struct {
+	DatasetID string
+}
+
 // DatasetDeleteAction is the corresponding action for 'dataset delete'.
-func DatasetDeleteAction(c *cli.Context) error {
+func DatasetDeleteAction(c *cli.Context, args datasetDeleteArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
-	if err := client.deleteDataset(c.String(datasetFlagDatasetID)); err != nil {
+	if err := client.deleteDataset(args.DatasetID); err != nil {
 		return err
 	}
 	return nil
@@ -158,15 +178,22 @@ func (c *viamClient) deleteDataset(datasetID string) error {
 	return nil
 }
 
+type datasetDownloadArgs struct {
+	Destination  string
+	DatasetID    string
+	IncludeJSONl bool
+	Parallel     uint
+	Timeout      uint
+}
+
 // DatasetDownloadAction is the corresponding action for 'dataset download'.
-func DatasetDownloadAction(c *cli.Context) error {
+func DatasetDownloadAction(c *cli.Context, args datasetDownloadArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
-	if err := client.downloadDataset(c.Path(dataFlagDestination), c.String(datasetFlagDatasetID),
-		c.Bool(datasetFlagIncludeJSONLines), c.Uint(dataFlagParallelDownloads),
-		c.Uint(dataFlagTimeout)); err != nil {
+	if err := client.downloadDataset(args.Destination, args.DatasetID,
+		args.IncludeJSONl, args.Parallel, args.Timeout); err != nil {
 		return err
 	}
 	return nil

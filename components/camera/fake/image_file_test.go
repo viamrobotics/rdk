@@ -27,10 +27,6 @@ func TestPCD(t *testing.T) {
 	cam, err := newCamera(ctx, resource.Name{API: camera.API}, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	// TODO(hexbabe): remove below test when Stream/ReadImage pattern is refactored
-	_, err = cam.Stream(ctx)
-	test.That(t, err, test.ShouldBeNil)
-
 	pc, err := cam.NextPointCloud(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pc.Size(), test.ShouldEqual, 628)
@@ -49,16 +45,6 @@ func TestPCD(t *testing.T) {
 
 	readInImage, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
 	test.That(t, err, test.ShouldBeNil)
-
-	// TODO(hexbabe): remove below test when Stream/ReadImage pattern is refactored
-	t.Run("test Stream and Next", func(t *testing.T) {
-		stream, err := cam.Stream(ctx)
-		test.That(t, err, test.ShouldBeNil)
-		strmImg, _, err := stream.Next(ctx)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, strmImg, test.ShouldResemble, readInImage)
-		test.That(t, strmImg.Bounds(), test.ShouldResemble, readInImage.Bounds())
-	})
 
 	imgBytes, _, err := cam.Image(ctx, utils.MimeTypeJPEG, nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -83,16 +69,6 @@ func TestColor(t *testing.T) {
 
 	readInImage, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
 	test.That(t, err, test.ShouldBeNil)
-
-	// TODO(hexbabe): remove below test when Stream/ReadImage pattern is refactored
-	t.Run("test Stream and Next", func(t *testing.T) {
-		stream, err := cam.Stream(ctx)
-		test.That(t, err, test.ShouldBeNil)
-		strmImg, _, err := stream.Next(ctx)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, strmImg, test.ShouldResemble, readInImage)
-		test.That(t, strmImg.Bounds(), test.ShouldResemble, readInImage.Bounds())
-	})
 
 	imgBytes, _, err := cam.Image(ctx, utils.MimeTypeJPEG, nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -125,21 +101,6 @@ func TestColorOddResolution(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	cam, err := newCamera(ctx, resource.Name{API: camera.API}, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-
-	// TODO(hexbabe): remove below test when Stream/ReadImage pattern is refactored
-	t.Run("test Stream and Next", func(t *testing.T) {
-		stream, err := cam.Stream(ctx)
-		test.That(t, err, test.ShouldBeNil)
-
-		readInImage, err := rimage.NewImageFromFile(imgFilePath)
-		test.That(t, err, test.ShouldBeNil)
-
-		strmImg, _, err := stream.Next(ctx)
-		test.That(t, err, test.ShouldBeNil)
-
-		expectedBounds := image.Rect(0, 0, readInImage.Bounds().Dx()-1, readInImage.Bounds().Dy()-1)
-		test.That(t, strmImg, test.ShouldResemble, readInImage.SubImage(expectedBounds))
-	})
 
 	strmImg, err := camera.DecodeImageFromCamera(ctx, utils.MimeTypeRawRGBA, nil, cam)
 	test.That(t, err, test.ShouldBeNil)
