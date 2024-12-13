@@ -28,7 +28,7 @@ func TestERCCL(t *testing.T) {
 	}()
 	logger := logging.NewTestLogger(t)
 	injectCamera := &inject.Camera{}
-	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+	injectCamera.PointCloudFunc = func(ctx context.Context, _ map[string]interface{}) (pointcloud.PointCloud, error) {
 		return pointcloud.NewFromFile(artifact.MustPath("pointcloud/intel_d435_pointcloud_424.pcd"), logger)
 	}
 
@@ -82,7 +82,7 @@ func BenchmarkERCCL(b *testing.B) {
 	}
 	// create the fake camera
 	injectCamera := &inject.Camera{}
-	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+	injectCamera.PointCloudFunc = func(ctx context.Context, _ map[string]interface{}) (pointcloud.PointCloud, error) {
 		img, err := rimage.NewImageFromFile(artifact.MustPath("pointcloud/the_color_image_intel_424.jpg"))
 		test.That(b, err, test.ShouldBeNil)
 		dm, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("pointcloud/the_depth_image_intel_424.png"))

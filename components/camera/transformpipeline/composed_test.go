@@ -31,7 +31,7 @@ func TestComposed(t *testing.T) {
 	robot := &inject.Robot{}
 	logger := logging.NewTestLogger(t)
 	cloudSource := &inject.Camera{}
-	cloudSource.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+	cloudSource.PointCloudFunc = func(ctx context.Context, _ map[string]interface{}) (pointcloud.PointCloud, error) {
 		p := pointcloud.New()
 		return p, p.Set(pointcloud.NewVector(0, 0, 0), pointcloud.NewColoredData(color.NRGBA{255, 1, 2, 255}))
 	}
@@ -59,7 +59,7 @@ func TestComposed(t *testing.T) {
 			},
 		},
 	}
-	pc, err := cloudSource.NextPointCloud(context.Background())
+	pc, err := cloudSource.PointCloud(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pc.Size(), test.ShouldEqual, 1)
 

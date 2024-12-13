@@ -25,10 +25,10 @@ type Camera struct {
 		ctx context.Context,
 		errHandlers ...gostream.ErrorHandler,
 	) (gostream.VideoStream, error)
-	NextPointCloudFunc func(ctx context.Context) (pointcloud.PointCloud, error)
-	ProjectorFunc      func(ctx context.Context) (transform.Projector, error)
-	PropertiesFunc     func(ctx context.Context) (camera.Properties, error)
-	CloseFunc          func(ctx context.Context) error
+	PointCloudFunc func(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error)
+	ProjectorFunc  func(ctx context.Context) (transform.Projector, error)
+	PropertiesFunc func(ctx context.Context) (camera.Properties, error)
+	CloseFunc      func(ctx context.Context) error
 }
 
 // NewCamera returns a new injected camera.
@@ -41,13 +41,13 @@ func (c *Camera) Name() resource.Name {
 	return c.name
 }
 
-// NextPointCloud calls the injected NextPointCloud or the real version.
-func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	if c.NextPointCloudFunc != nil {
-		return c.NextPointCloudFunc(ctx)
+// PointCloud calls the injected PointCloud or the real version.
+func (c *Camera) PointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
+	if c.PointCloudFunc != nil {
+		return c.PointCloudFunc(ctx, extra)
 	}
 	if c.Camera != nil {
-		return c.Camera.NextPointCloud(ctx)
+		return c.Camera.PointCloud(ctx, extra)
 	}
 	return nil, errors.New("NextPointCloud unimplemented")
 }

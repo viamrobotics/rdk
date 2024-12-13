@@ -20,7 +20,7 @@ import (
 func TestRadiusClusteringSegmentation(t *testing.T) {
 	r := &inject.Robot{}
 	cam := &inject.Camera{}
-	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+	cam.PointCloudFunc = func(ctx context.Context, _ map[string]interface{}) (pc.PointCloud, error) {
 		return nil, errors.New("no pointcloud")
 	}
 	r.ResourceNamesFunc = func() []resource.Name {
@@ -77,7 +77,7 @@ func TestRadiusClusteringSegmentation(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no pointcloud")
 
 	// successful, creates two clusters of points
-	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+	cam.PointCloudFunc = func(ctx context.Context, _ map[string]interface{}) (pc.PointCloud, error) {
 		cloud := pc.New()
 		// cluster 1
 		err = cloud.Set(pc.NewVector(1, 1, 1), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))

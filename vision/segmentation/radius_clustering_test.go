@@ -57,7 +57,7 @@ func TestPixelSegmentation(t *testing.T) {
 	t.Parallel()
 	logger := logging.NewTestLogger(t)
 	injectCamera := &inject.Camera{}
-	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+	injectCamera.PointCloudFunc = func(ctx context.Context, _ map[string]interface{}) (pc.PointCloud, error) {
 		return pc.NewFromLASFile(artifact.MustPath("pointcloud/test.las"), logger)
 	}
 	// do segmentation
@@ -83,7 +83,7 @@ func TestPixelSegmentationNoFiltering(t *testing.T) {
 	t.Parallel()
 	logger := logging.NewTestLogger(t)
 	injectCamera := &inject.Camera{}
-	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+	injectCamera.PointCloudFunc = func(ctx context.Context, _ map[string]interface{}) (pc.PointCloud, error) {
 		return pc.NewFromLASFile(artifact.MustPath("pointcloud/test.las"), logger)
 	}
 	// do segmentation with no mean k filtering
@@ -125,7 +125,7 @@ func testSegmentation(t *testing.T, segments []*vision.Object, expectedLabel str
 
 func BenchmarkRadiusClustering(b *testing.B) {
 	injectCamera := &inject.Camera{}
-	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+	injectCamera.PointCloudFunc = func(ctx context.Context, _ map[string]interface{}) (pc.PointCloud, error) {
 		return pc.NewFromLASFile(artifact.MustPath("pointcloud/test.las"), nil)
 	}
 	var pts []*vision.Object

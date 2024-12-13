@@ -89,7 +89,7 @@ func NewRadiusClustering(params utils.AttributeMap) (Segmenter, error) {
 // RadiusClustering applies the radius clustering algorithm directly on a given point cloud.
 func (rcc *RadiusClusteringConfig) RadiusClustering(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
 	// get next point cloud
-	cloud, err := src.NextPointCloud(ctx)
+	cloud, err := src.PointCloud(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

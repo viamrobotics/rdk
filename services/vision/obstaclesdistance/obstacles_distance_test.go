@@ -34,7 +34,7 @@ func TestObstacleDist(t *testing.T) {
 	r := &inject.Robot{}
 	cam := &inject.Camera{}
 
-	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+	cam.PointCloudFunc = func(ctx context.Context, _ map[string]interface{}) (pc.PointCloud, error) {
 		return nil, errors.New("no pointcloud")
 	}
 	r.ResourceNamesFunc = func() []resource.Name {
@@ -72,7 +72,7 @@ func TestObstacleDist(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "does not implement")
 
-	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+	cam.PointCloudFunc = func(ctx context.Context, _ map[string]interface{}) (pc.PointCloud, error) {
 		cloud := pc.New()
 		err = cloud.Set(pc.NewVector(0, 0, 1), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
 		test.That(t, err, test.ShouldBeNil)
@@ -92,7 +92,7 @@ func TestObstacleDist(t *testing.T) {
 
 	count := 0
 	nums := []float64{10, 9, 4, 5, 3, 1, 2, 6, 7, 8}
-	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+	cam.PointCloudFunc = func(ctx context.Context, _ map[string]interface{}) (pc.PointCloud, error) {
 		cloud := pc.New()
 		err = cloud.Set(pc.NewVector(0, 0, nums[count]), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
 		test.That(t, err, test.ShouldBeNil)
@@ -109,7 +109,7 @@ func TestObstacleDist(t *testing.T) {
 
 	// more than one point in cloud
 	count = 0
-	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+	cam.PointCloudFunc = func(ctx context.Context, _ map[string]interface{}) (pc.PointCloud, error) {
 		cloud := pc.New()
 		err = cloud.Set(pc.NewVector(0, 0, nums[count]), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
 		test.That(t, err, test.ShouldBeNil)

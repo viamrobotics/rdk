@@ -31,11 +31,11 @@ func TestPCD(t *testing.T) {
 	_, err = cam.Stream(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
-	pc, err := cam.NextPointCloud(ctx)
+	pc, err := cam.PointCloud(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pc.Size(), test.ShouldEqual, 628)
 
-	pc, err = cam.NextPointCloud(ctx)
+	pc, err = cam.PointCloud(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pc.Size(), test.ShouldEqual, 628)
 
@@ -78,7 +78,7 @@ func TestColor(t *testing.T) {
 	cam, err := newCamera(ctx, resource.Name{API: camera.API}, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = cam.NextPointCloud(ctx)
+	_, err = cam.PointCloud(ctx, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	readInImage, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))

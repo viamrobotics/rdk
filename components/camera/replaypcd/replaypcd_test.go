@@ -356,7 +356,7 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 			// Iterate through all files that meet the provided filter
 			if tt.startFileNum != -1 {
 				for i := tt.startFileNum; i < tt.endFileNum; i++ {
-					pc, err := replayCamera.NextPointCloud(ctx)
+					pc, err := replayCamera.PointCloud(ctx, nil)
 					test.That(t, err, test.ShouldBeNil)
 					pcExpected, err := getPointCloudFromArtifact(i)
 					if err != nil {
@@ -370,7 +370,7 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 			}
 
 			// Confirm the end of the dataset was reached when expected
-			pc, err := replayCamera.NextPointCloud(ctx)
+			pc, err := replayCamera.PointCloud(ctx, nil)
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
 			test.That(t, pc, test.ShouldBeNil)
@@ -408,7 +408,7 @@ func TestReplayPCDLiveNextPointCloud(t *testing.T) {
 	// Iterate through all files that meet the provided filter
 	i := 0
 	for {
-		pc, err := replayCamera.NextPointCloud(ctx)
+		pc, err := replayCamera.PointCloud(ctx, nil)
 		if i == numPCDFiles {
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
@@ -683,7 +683,7 @@ func TestReplayPCDTimestamps(t *testing.T) {
 		for i := 0; i < numPCDFiles; i++ {
 			serverStream := testutils.NewServerTransportStream()
 			ctx = grpc.NewContextWithServerTransportStream(ctx, serverStream)
-			pc, err := replayCamera.NextPointCloud(ctx)
+			pc, err := replayCamera.PointCloud(ctx, nil)
 			test.That(t, err, test.ShouldBeNil)
 			pcExpected, err := getPointCloudFromArtifact(i)
 			test.That(t, err, test.ShouldBeNil)
@@ -700,7 +700,7 @@ func TestReplayPCDTimestamps(t *testing.T) {
 		}
 
 		// Confirm the end of the dataset was reached when expected
-		pc, err := replayCamera.NextPointCloud(ctx)
+		pc, err := replayCamera.PointCloud(ctx, nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
 		test.That(t, pc, test.ShouldBeNil)
@@ -771,7 +771,7 @@ func TestReplayPCDReconfigure(t *testing.T) {
 
 	// Call NextPointCloud to iterate through a few files
 	for i := 0; i < 3; i++ {
-		pc, err := replayCamera.NextPointCloud(ctx)
+		pc, err := replayCamera.PointCloud(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		pcExpected, err := getPointCloudFromArtifact(i)
 		test.That(t, err, test.ShouldBeNil)
@@ -785,7 +785,7 @@ func TestReplayPCDReconfigure(t *testing.T) {
 	// Call NextPointCloud a couple more times, ensuring that we start over from the beginning
 	// of the dataset after calling Reconfigure
 	for i := 0; i < 5; i++ {
-		pc, err := replayCamera.NextPointCloud(ctx)
+		pc, err := replayCamera.PointCloud(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		pcExpected, err := getPointCloudFromArtifact(i)
 		test.That(t, err, test.ShouldBeNil)
@@ -798,7 +798,7 @@ func TestReplayPCDReconfigure(t *testing.T) {
 
 	// Again verify dataset starts from beginning
 	for i := 0; i < numPCDFiles; i++ {
-		pc, err := replayCamera.NextPointCloud(ctx)
+		pc, err := replayCamera.PointCloud(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		pcExpected, err := getPointCloudFromArtifact(i)
 		test.That(t, err, test.ShouldBeNil)
@@ -806,7 +806,7 @@ func TestReplayPCDReconfigure(t *testing.T) {
 	}
 
 	// Confirm the end of the dataset was reached when expected
-	pc, err := replayCamera.NextPointCloud(ctx)
+	pc, err := replayCamera.PointCloud(ctx, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
 	test.That(t, pc, test.ShouldBeNil)

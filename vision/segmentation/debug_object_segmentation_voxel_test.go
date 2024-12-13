@@ -48,7 +48,7 @@ func (h *gripperVoxelSegmentTestHelper) Process(
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(cloud, "gripper-pointcloud")
 	cam := &inject.Camera{}
-	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+	cam.PointCloudFunc = func(ctx context.Context, _ map[string]interface{}) (pc.PointCloud, error) {
 		return cloud, nil
 	}
 

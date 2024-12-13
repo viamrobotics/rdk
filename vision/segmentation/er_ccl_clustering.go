@@ -131,7 +131,7 @@ func NewERCCLClustering(params utils.AttributeMap) (Segmenter, error) {
 // ErCCLAlgorithm applies the connected components clustering algorithm to a VideoSource.
 func (erCCL *ErCCLConfig) ErCCLAlgorithm(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
 	// get next point cloud
-	cloud, err := src.NextPointCloud(ctx)
+	cloud, err := src.PointCloud(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

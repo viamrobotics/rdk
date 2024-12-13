@@ -140,9 +140,9 @@ type VideoSource interface {
 	// that may have a MIME type hint dictated in the context via gostream.WithMIMETypeHint.
 	Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error)
 
-	// NextPointCloud returns the next immediately available point cloud, not necessarily one
+	// PointCloud returns the next immediately available point cloud, not necessarily one
 	// a part of a sequence. In the future, there could be streaming of point clouds.
-	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
+	PointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error)
 
 	// Properties returns properties that are intrinsic to the particular
 	// implementation of a camera.

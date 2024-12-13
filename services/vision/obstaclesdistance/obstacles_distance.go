@@ -79,7 +79,7 @@ func registerObstacleDistanceDetector(
 		clouds := make([]pointcloud.PointCloud, 0, conf.NumQueries)
 
 		for i := 0; i < conf.NumQueries; i++ {
-			nxtPC, err := src.NextPointCloud(ctx)
+			nxtPC, err := src.PointCloud(ctx, nil)
 			if err != nil {
 				return nil, err
 			}

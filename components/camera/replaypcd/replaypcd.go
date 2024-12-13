@@ -165,8 +165,8 @@ func newPCDCamera(
 	return cam, nil
 }
 
-// NextPointCloud returns the next point cloud retrieved from cloud storage based on the applied filter.
-func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+// PointCloud returns the next point cloud retrieved from cloud storage based on the applied filter.
+func (replay *pcdCamera) PointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 	// First acquire the lock, so that it's safe to populate the cache and/or retrieve and
 	// remove the next data point from the cache. Note that if multiple threads call
 	// NextPointCloud concurrently, they may get data out-of-order, since there's no guarantee

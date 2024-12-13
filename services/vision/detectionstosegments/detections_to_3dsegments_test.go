@@ -34,7 +34,7 @@ func Test3DSegmentsFromDetector(t *testing.T) {
 	svc, err := vision.NewService(name, r, nil, nil, m.Detect, nil)
 	test.That(t, err, test.ShouldBeNil)
 	cam := &inject.Camera{}
-	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+	cam.PointCloudFunc = func(ctx context.Context, _ map[string]interface{}) (pc.PointCloud, error) {
 		return nil, errors.New("no pointcloud")
 	}
 	cam.ImagesFunc = func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
@@ -100,7 +100,7 @@ func Test3DSegmentsFromDetector(t *testing.T) {
 		imgs := []camera.NamedImage{{img, "color"}, {dm, "depth"}}
 		return imgs, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
 	}
-	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+	cam.PointCloudFunc = func(ctx context.Context, _ map[string]interface{}) (pc.PointCloud, error) {
 		cloud := pc.New()
 		err = cloud.Set(pc.NewVector(0, 0, 5), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
 		test.That(t, err, test.ShouldBeNil)

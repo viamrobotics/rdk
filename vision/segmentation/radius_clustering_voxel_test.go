@@ -47,7 +47,7 @@ func TestClusteringVoxelConfig(t *testing.T) {
 func TestVoxelSegmentMeans(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	cam := &inject.Camera{}
-	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+	cam.PointCloudFunc = func(ctx context.Context, _ map[string]interface{}) (pc.PointCloud, error) {
 		return pc.NewFromLASFile(artifact.MustPath("pointcloud/test.las"), logger)
 	}
 

@@ -239,8 +239,8 @@ func (vs *videoSource) Images(ctx context.Context) ([]NamedImage, resource.Respo
 	return []NamedImage{{img, ""}}, resource.ResponseMetadata{CapturedAt: ts}, nil
 }
 
-// NextPointCloud returns the next PointCloud from the camera, or will error if not supported.
-func (vs *videoSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+// PointCloud returns the next PointCloud from the camera, or will error if not supported.
+func (vs *videoSource) PointCloud(ctx context.Context, _ map[string]interface{}) (pointcloud.PointCloud, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::videoSource::NextPointCloud")
 	defer span.End()
 	if c, ok := vs.actualSource.(PointCloudSource); ok {

@@ -572,13 +572,13 @@ func (c *webcam) Image(ctx context.Context, mimeType string, extra map[string]in
 	return camera.ReadImageBytes(ctx, c.underlyingSource, mimeType)
 }
 
-func (c *webcam) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+func (c *webcam) PointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	if err := c.ensureActive(); err != nil {
 		return nil, err
 	}
-	return c.exposedProjector.NextPointCloud(ctx)
+	return c.exposedProjector.PointCloud(ctx, extra)
 }
 
 // driverInfo gets the mediadevices Info struct containing info such as name and device type of the given driver.

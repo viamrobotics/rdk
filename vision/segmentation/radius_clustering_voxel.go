@@ -88,7 +88,7 @@ func NewRadiusClusteringFromVoxels(params utils.AttributeMap) (Segmenter, error)
 func (rcc *RadiusClusteringVoxelConfig) RadiusClusteringVoxels(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
 	// get next point cloud and convert it to a  VoxelGrid
 	// NOTE(bh): Maybe one day cameras will return voxel grids directly.
-	cloud, err := src.NextPointCloud(ctx)
+	cloud, err := src.PointCloud(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

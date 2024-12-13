@@ -154,7 +154,7 @@ func TestTransformSegmenterFunctionality(t *testing.T) {
 	pipeline, err := newTransformPipeline(context.Background(), cam, transformConf, r, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	pc, err := pipeline.NextPointCloud(context.Background())
+	pc, err := pipeline.PointCloud(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pc, test.ShouldNotBeNil)
 	_, isValid := pc.At(0, 0, 1)

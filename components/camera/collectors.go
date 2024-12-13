@@ -45,9 +45,7 @@ func newNextPointCloudCollector(resource interface{}, params data.CollectorParam
 		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::NextPointCloud")
 		defer span.End()
 
-		ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
-
-		v, err := camera.NextPointCloud(ctx)
+		v, err := camera.PointCloud(ctx, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
