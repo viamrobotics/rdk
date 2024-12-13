@@ -237,9 +237,10 @@ func TestMachineState(t *testing.T) {
 	addr := "localhost:" + strconv.Itoa(port)
 	rc := robottestutils.NewRobotClient(t, logger, addr, time.Second)
 
+	// NewRobotClient will wait for machine state to be running. Assert that this
+	// is still the case.
 	machineStatus, err := rc.MachineStatus(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, machineStatus, test.ShouldNotBeNil)
-	test.That(t, machineStatus.State, test.ShouldBeIn,
-		[]robot.MachineState{robot.StateInitializing, robot.StateRunning})
+	test.That(t, machineStatus.State, test.ShouldEqual, robot.StateRunning)
 }
