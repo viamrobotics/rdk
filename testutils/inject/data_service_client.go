@@ -126,7 +126,6 @@ func (client *DataServiceClient) ExportTabularData(ctx context.Context, in *data
 		return client.DataServiceClient.ExportTabularData(ctx, in, opts...)
 	}
 	return client.ExportTabularDataFunc(ctx, in, opts...)
-
 }
 
 // BinaryDataByFilter calls the injected BinaryDataByFilter or the real version.
