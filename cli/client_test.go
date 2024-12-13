@@ -297,6 +297,48 @@ func TestGetBillingConfigAction(t *testing.T) {
 	test.That(t, out.messages[11], test.ShouldContainSubstring, "USA")
 }
 
+func TestOrganizationSetLogoAction(t *testing.T) {
+	organizationSetLogoFunc := func(ctx context.Context, in *apppb.OrganizationSetLogoRequest, opts ...grpc.CallOption) (
+		*apppb.OrganizationSetLogoResponse, error,
+	) {
+		return &apppb.OrganizationSetLogoResponse{}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		OrganizationSetLogoFunc: organizationSetLogoFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+	// Create a temporary file for testing
+	fileName := "test-logo-*.png"
+	tmpFile, err := os.CreateTemp("", fileName)
+	test.That(t, err, test.ShouldBeNil)
+	defer os.Remove(tmpFile.Name()) // Clean up temp file after test
+	test.That(t, ac.organizationLogoSetAction(cCtx, "test-org", tmpFile.Name()), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "Successfully set the logo for organization")
+
+	cCtx, ac, out, errOut = setup(asc, nil, nil, nil, nil, "token")
+
+	logoFileName2 := "test-logo-2-*.PNG"
+	tmpFile2, err := os.CreateTemp("", logoFileName2)
+	test.That(t, err, test.ShouldBeNil)
+	defer os.Remove(tmpFile2.Name()) // Clean up temp file after test
+
+	test.That(t, ac.organizationLogoSetAction(cCtx, "test-org", tmpFile.Name()), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "Successfully set the logo for organization")
+
+	cCtx, ac, out, _ = setup(asc, nil, nil, nil, nil, "token")
+	invalidLogoFilePath := "data/test-logo.jpg"
+	err = ac.organizationLogoSetAction(cCtx, "test-org", invalidLogoFilePath)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "is not a valid .png file path")
+	test.That(t, len(out.messages), test.ShouldEqual, 0)
+}
+
 func TestUpdateBillingServiceAction(t *testing.T) {
 	updateConfigFunc := func(ctx context.Context, in *apppb.UpdateBillingServiceRequest, opts ...grpc.CallOption) (
 		*apppb.UpdateBillingServiceResponse, error,

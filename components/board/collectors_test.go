@@ -30,11 +30,12 @@ func TestCollectors(t *testing.T) {
 		name      string
 		params    data.CollectorParams
 		collector data.CollectorConstructor
-		expected  *datasyncpb.SensorData
+		expected  []*datasyncpb.SensorData
 	}{
 		{
 			name: "Board analog collector should write an analog response",
 			params: data.CollectorParams{
+				DataType:      data.CaptureTypeTabular,
 				ComponentName: componentName,
 				Interval:      captureInterval,
 				Logger:        logging.NewTestLogger(t),
@@ -43,7 +44,7 @@ func TestCollectors(t *testing.T) {
 				},
 			},
 			collector: board.NewAnalogCollector,
-			expected: &datasyncpb.SensorData{
+			expected: []*datasyncpb.SensorData{{
 				Metadata: &datasyncpb.SensorMetadata{},
 				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
 					"value":     1,
@@ -51,11 +52,12 @@ func TestCollectors(t *testing.T) {
 					"max_range": 10,
 					"step_size": float64(float32(0.1)),
 				})},
-			},
+			}},
 		},
 		{
 			name: "Board gpio collector should write a gpio response",
 			params: data.CollectorParams{
+				DataType:      data.CaptureTypeTabular,
 				ComponentName: componentName,
 				Interval:      captureInterval,
 				Logger:        logging.NewTestLogger(t),
@@ -64,19 +66,19 @@ func TestCollectors(t *testing.T) {
 				},
 			},
 			collector: board.NewGPIOCollector,
-			expected: &datasyncpb.SensorData{
+			expected: []*datasyncpb.SensorData{{
 				Metadata: &datasyncpb.SensorMetadata{},
 				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
 					"high": true,
 				})},
-			},
+			}},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			start := time.Now()
-			buf := tu.NewMockBuffer()
+			buf := tu.NewMockBuffer(t)
 			tc.params.Clock = clock.New()
 			tc.params.Target = buf
 

@@ -5,7 +5,6 @@ package data
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"sync"
 	"time"
 
@@ -14,15 +13,10 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.opencensus.io/trace"
-	v1 "go.viam.com/api/app/datasync/v1"
-	pb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
-	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/structpb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -30,9 +24,6 @@ import (
 
 // The cutoff at which if interval < cutoff, a sleep based capture func is used instead of a ticker.
 var sleepCaptureCutoff = 2 * time.Millisecond
-
-// CaptureFunc allows the creation of simple Capturers with anonymous functions.
-type CaptureFunc func(ctx context.Context, params map[string]*anypb.Any) (interface{}, error)
 
 // FromDMContextKey is used to check whether the context is from data management.
 // Deprecated: use a camera.Extra with camera.NewContext instead.
@@ -50,6 +41,17 @@ var ErrNoCaptureToStore = status.Error(codes.FailedPrecondition, "no capture fro
 // If an error is ongoing, the frequency (in seconds) with which to suppress identical error logs.
 const identicalErrorLogFrequencyHz = 2
 
+// TabularDataBson is a denormalized sensor reading that can be
+// encoded into BSON.
+type TabularDataBson struct {
+	TimeRequested time.Time `bson:"time_requested"`
+	TimeReceived  time.Time `bson:"time_received"`
+	ComponentName string    `bson:"component_name"`
+	ComponentType string    `bson:"component_type"`
+	MethodName    string    `bson:"method_name"`
+	Data          bson.M    `bson:"data"`
+}
+
 // Collector collects data to some target.
 type Collector interface {
 	Close()
@@ -58,9 +60,9 @@ type Collector interface {
 }
 
 type collector struct {
-	clock          clock.Clock
-	captureResults chan *v1.SensorData
+	clock clock.Clock
 
+	captureResults  chan CaptureResult
 	mongoCollection *mongo.Collection
 	componentName   string
 	componentType   string
@@ -78,6 +80,7 @@ type collector struct {
 	captureFunc      CaptureFunc
 	target           CaptureBufferedWriter
 	lastLoggedErrors map[string]int64
+	dataType         CaptureType
 }
 
 // Close closes the channels backing the Collector. It should always be called before disposing of a Collector to avoid
@@ -178,10 +181,27 @@ func (c *collector) tickerBasedCapture(started chan struct{}) {
 	}
 }
 
+func (c *collector) validateReadingType(t CaptureType) error {
+	switch c.dataType {
+	case CaptureTypeTabular:
+		if t != CaptureTypeTabular {
+			return fmt.Errorf("expected result of type CaptureTypeTabular, instead got CaptureResultType: %d", t)
+		}
+		return nil
+	case CaptureTypeBinary:
+		if t != CaptureTypeBinary {
+			return fmt.Errorf("expected result of type CaptureTypeBinary,instead got CaptureResultType: %d", t)
+		}
+		return nil
+	case CaptureTypeUnspecified:
+		return fmt.Errorf("unknown collector data type: %d", c.dataType)
+	default:
+		return fmt.Errorf("unknown collector data type: %d", c.dataType)
+	}
+}
+
 func (c *collector) getAndPushNextReading() {
-	timeRequested := timestamppb.New(c.clock.Now().UTC())
-	reading, err := c.captureFunc(c.cancelCtx, c.params)
-	timeReceived := timestamppb.New(c.clock.Now().UTC())
+	result, err := c.captureFunc(c.cancelCtx, c.params)
 
 	if c.cancelCtx.Err() != nil {
 		return
@@ -196,56 +216,22 @@ func (c *collector) getAndPushNextReading() {
 		return
 	}
 
-	var msg v1.SensorData
-	switch v := reading.(type) {
-	case []byte:
-		msg = v1.SensorData{
-			Metadata: &v1.SensorMetadata{
-				TimeRequested: timeRequested,
-				TimeReceived:  timeReceived,
-			},
-			Data: &v1.SensorData_Binary{
-				Binary: v,
-			},
-		}
-	default:
-		// If it's not bytes, it's a struct.
-		var pbReading *structpb.Struct
-		var err error
+	if err := c.validateReadingType(result.Type); err != nil {
+		c.captureErrors <- errors.Wrap(err, "capture result invalid type")
+		return
+	}
 
-		if reflect.TypeOf(reading) == reflect.TypeOf(pb.GetReadingsResponse{}) {
-			// We special-case the GetReadingsResponse because it already contains
-			// structpb.Values in it, and the StructToStructPb logic does not handle
-			// that cleanly.
-			topLevelMap := make(map[string]*structpb.Value)
-			topLevelMap["readings"] = structpb.NewStructValue(
-				&structpb.Struct{Fields: reading.(pb.GetReadingsResponse).Readings},
-			)
-			pbReading = &structpb.Struct{Fields: topLevelMap}
-		} else {
-			pbReading, err = protoutils.StructToStructPbIgnoreOmitEmpty(reading)
-			if err != nil {
-				c.captureErrors <- errors.Wrap(err, "error while converting reading to structpb.Struct")
-				return
-			}
-		}
-
-		msg = v1.SensorData{
-			Metadata: &v1.SensorMetadata{
-				TimeRequested: timeRequested,
-				TimeReceived:  timeReceived,
-			},
-			Data: &v1.SensorData_Struct{
-				Struct: pbReading,
-			},
-		}
+	if err := result.Validate(); err != nil {
+		c.captureErrors <- errors.Wrap(err, "capture result failed validation")
+		return
 	}
 
 	select {
-	// If c.captureResults is full, c.captureResults <- a can block indefinitely. This additional select block allows cancel to
+	// If c.captureResults is full, c.captureResults <- a can block indefinitely.
+	// This additional select block allows cancel to
 	// still work when this happens.
 	case <-c.cancelCtx.Done():
-	case c.captureResults <- &msg:
+	case c.captureResults <- result:
 	}
 }
 
@@ -267,9 +253,10 @@ func NewCollector(captureFunc CaptureFunc, params CollectorParams) (Collector, e
 		componentName:    params.ComponentName,
 		componentType:    params.ComponentType,
 		methodName:       params.MethodName,
-		captureResults:   make(chan *v1.SensorData, params.QueueSize),
 		mongoCollection:  params.MongoCollection,
+		captureResults:   make(chan CaptureResult, params.QueueSize),
 		captureErrors:    make(chan error, params.QueueSize),
+		dataType:         params.DataType,
 		interval:         params.Interval,
 		params:           params.MethodParams,
 		logger:           params.Logger,
@@ -292,8 +279,30 @@ func (c *collector) writeCaptureResults() {
 		case <-c.cancelCtx.Done():
 			return
 		case msg := <-c.captureResults:
-			if err := c.target.Write(msg); err != nil {
-				c.logger.Error(errors.Wrap(err, fmt.Sprintf("failed to write to collector %s", c.target.Path())).Error())
+			proto := msg.ToProto()
+
+			switch msg.Type {
+			case CaptureTypeTabular:
+				if len(proto) != 1 {
+					// This is impossible and could only happen if a future code change breaks CaptureResult.ToProto()
+					err := errors.New("tabular CaptureResult returned more than one tabular result")
+					c.logger.Error(errors.Wrap(err, fmt.Sprintf("failed to write tabular data to prog file %s", c.target.Path())).Error())
+					return
+				}
+				if err := c.target.WriteTabular(proto[0]); err != nil {
+					c.logger.Error(errors.Wrap(err, fmt.Sprintf("failed to write tabular data to prog file %s", c.target.Path())).Error())
+					return
+				}
+			case CaptureTypeBinary:
+				if err := c.target.WriteBinary(proto); err != nil {
+					c.logger.Error(errors.Wrap(err, fmt.Sprintf("failed to write binary data to prog file %s", c.target.Path())).Error())
+					return
+				}
+			case CaptureTypeUnspecified:
+				c.logger.Error(fmt.Sprintf("collector returned invalid result type: %d", msg.Type))
+				return
+			default:
+				c.logger.Error(fmt.Sprintf("collector returned invalid result type: %d", msg.Type))
 				return
 			}
 
@@ -302,34 +311,19 @@ func (c *collector) writeCaptureResults() {
 	}
 }
 
-// TabularData is a denormalized sensor reading.
-type TabularData struct {
-	TimeRequested time.Time `bson:"time_requested"`
-	TimeReceived  time.Time `bson:"time_received"`
-	ComponentName string    `bson:"component_name"`
-	ComponentType string    `bson:"component_type"`
-	MethodName    string    `bson:"method_name"`
-	Data          bson.M    `bson:"data"`
-}
-
 // maybeWriteToMongo will write to the mongoCollection
 // if it is non-nil and the msg is tabular data
 // logs errors on failure.
-func (c *collector) maybeWriteToMongo(msg *v1.SensorData) {
+func (c *collector) maybeWriteToMongo(msg CaptureResult) {
 	if c.mongoCollection == nil {
 		return
 	}
 
-	// DATA-3338:
-	// currently vision.CaptureAllFromCamera and camera.GetImages are stored in .capture files as VERY LARGE
-	// tabular sensor data
-	// That is a mistake which we are rectifying but in the meantime we don't want data captured from those methods to be synced
-	// to mongo
-	if getDataType(c.methodName) == v1.DataType_DATA_TYPE_BINARY_SENSOR || c.methodName == captureAllFromCamera {
+	if msg.Type != CaptureTypeTabular {
 		return
 	}
 
-	s := msg.GetStruct()
+	s := msg.TabularData.Payload
 	if s == nil {
 		return
 	}
@@ -340,9 +334,9 @@ func (c *collector) maybeWriteToMongo(msg *v1.SensorData) {
 		return
 	}
 
-	td := TabularData{
-		TimeRequested: msg.Metadata.TimeRequested.AsTime(),
-		TimeReceived:  msg.Metadata.TimeReceived.AsTime(),
+	td := TabularDataBson{
+		TimeRequested: msg.TimeRequested,
+		TimeReceived:  msg.TimeReceived,
 		ComponentName: c.componentName,
 		ComponentType: c.componentType,
 		MethodName:    c.methodName,
