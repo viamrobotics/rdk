@@ -46,6 +46,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
+	"go.viam.com/rdk/grpc"
 	rgrpc "go.viam.com/rdk/grpc"
 	internalcloud "go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
@@ -3195,6 +3196,151 @@ func TestMachineStatus(t *testing.T) {
 		)
 		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
 	})
+}
+
+func TestMachineStatusWithRemotes(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	testCases := []struct {
+		name          string
+		localCloudMd  bool
+		remoteCloudMd bool
+	}{
+		{
+			name:          "local cloud metadata and remote cloud metadata",
+			localCloudMd:  true,
+			remoteCloudMd: true,
+		},
+		{
+			name:          "local cloud metadata and no remote cloud metadata",
+			localCloudMd:  true,
+			remoteCloudMd: false,
+		},
+		{
+			name:          "no local cloud metadata and remote cloud metadata",
+			localCloudMd:  false,
+			remoteCloudMd: true,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+			md := cloud.Metadata{
+				PrimaryOrgID:  "the-org",
+				LocationID:    "the-location",
+				MachineID:     "the-machine",
+				MachinePartID: "the-robot-part",
+			}
+			rev1 := "rev1"
+			cfg := &config.Config{}
+			if tc.localCloudMd {
+				cfg = &config.Config{
+					Cloud: &config.Cloud{
+						ID:           md.MachinePartID,
+						LocationID:   md.LocationID,
+						PrimaryOrgID: md.PrimaryOrgID,
+						MachineID:    md.MachineID,
+					},
+					Revision: rev1,
+				}
+			}
+			lr := setupLocalRobot(t, ctx, cfg, logger, withDisableBackgroundReconfiguration())
+
+			resName1 := resource.NewName(resource.APINamespace("acme").WithComponentType("huwat"), "thing1")
+			injectRemoteRobot := &inject.Robot{
+				LoggerFunc:          func() logging.Logger { return logger },
+				ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+				ResourceNamesFunc:   func() []resource.Name { return []resource.Name{resName1} },
+			}
+			remoteName := "remote1"
+			injectRemoteRobot.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
+				for _, rName := range injectRemoteRobot.ResourceNames() {
+					if rName == name {
+						return grpc.NewForeignResource(rName.PrependRemote(remoteName), nil), nil
+					}
+				}
+				return nil, resource.NewNotFoundError(name)
+			}
+
+			remoteMd := cloud.Metadata{
+				PrimaryOrgID:  "the-remote-org",
+				LocationID:    "the-remote-location",
+				MachineID:     "the-remote-machine",
+				MachinePartID: "the-remote-part",
+			}
+			injectRemoteRobot.CloudMetadataFunc = func(context.Context) (cloud.Metadata, error) {
+				if !tc.remoteCloudMd {
+					return cloud.Metadata{}, errNoCloudMetadata
+				}
+				return remoteMd, nil
+			}
+			injectRemoteRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
+				// check that a timeout is passed down from the caller.
+				if _, ok := ctx.Deadline(); !ok {
+					return robot.MachineStatus{}, errors.New("no timeout detected")
+				}
+				md := cloud.Metadata{}
+				if tc.remoteCloudMd {
+					md = remoteMd
+				}
+				return robot.MachineStatus{
+					Resources: []resource.Status{
+						{
+							NodeStatus: resource.NodeStatus{
+								Name: resName1, State: resource.NodeStateUnconfigured, Revision: "rev2",
+							},
+							CloudMetadata: md,
+						},
+					},
+				}, nil
+			}
+			dRobot := newDummyRobot(t, injectRemoteRobot)
+			dRobot.SetName(remoteName)
+			lr.(*localRobot).manager.addRemote(
+				context.Background(),
+				dRobot,
+				nil,
+				config.Remote{Name: remoteName},
+			)
+
+			mStatus, err := lr.MachineStatus(ctx)
+			test.That(t, err, test.ShouldBeNil)
+
+			expectedRev := ""
+			expectedMd := cloud.Metadata{}
+			if tc.localCloudMd {
+				expectedRev = rev1
+				expectedMd = md
+			}
+
+			expectedRemoteMd := cloud.Metadata{}
+			if tc.remoteCloudMd {
+				expectedRemoteMd = remoteMd
+			}
+			test.That(t, mStatus.Config.Revision, test.ShouldEqual, expectedRev)
+
+			expectedStatuses := rtestutils.ConcatResourceStatuses(
+				getExpectedDefaultStatuses(expectedRev, expectedMd),
+				[]resource.Status{
+					{
+						NodeStatus: resource.NodeStatus{
+							Name:  resource.NewName(client.RemoteAPI, remoteName),
+							State: resource.NodeStateReady,
+						},
+						CloudMetadata: expectedRemoteMd,
+					},
+					{
+						NodeStatus: resource.NodeStatus{
+							Name:  resName1.PrependRemote(remoteName),
+							State: resource.NodeStateReady,
+						},
+						CloudMetadata: expectedRemoteMd,
+					},
+				},
+			)
+			rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
+		})
+	}
 }
 
 // assertDialFails reconnects an existing `RobotClient` with a small timeout value to keep tests
