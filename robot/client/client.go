@@ -341,6 +341,7 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 	// It is expected that golang SDK users will handle lack of resource
 	// availability due to the machine being in an initializing state themselves.
 	if testing.Testing() {
+		logger.Info("BENJI-DBG I AM checking for a machine status of Running due to presence of testing flag")
 		for {
 			if ctx.Err() != nil {
 				return nil, multierr.Combine(ctx.Err(), rc.conn.Close())
@@ -356,6 +357,8 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 			}
 			time.Sleep(50 * time.Millisecond)
 		}
+	} else {
+		logger.Info("BENJI-DBG I am NOT checking for a machine status of Running due to lack of testing flag")
 	}
 
 	return rc, nil
