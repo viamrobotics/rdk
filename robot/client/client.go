@@ -288,6 +288,31 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		return nil, err
 	}
 
+	// If running in a testing environment, wait for machine to report a state of
+	// running. We often establish connections in tests and expected resources to
+	// be immediately available once the web service has started; resources will
+	// not be available when the machine is still initializing.
+	//
+	// It is expected that golang SDK users will handle lack of resource
+	// availability due to the machine being in an initializing state themselves.
+	if testing.Testing() {
+		for {
+			if ctx.Err() != nil {
+				return nil, multierr.Combine(ctx.Err(), rc.conn.Close())
+			}
+
+			mStatus, err := rc.MachineStatus(ctx)
+			if err != nil {
+				return nil, multierr.Combine(err, rc.conn.Close())
+			}
+
+			if mStatus.State == robot.StateRunning {
+				break
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+	}
+
 	// refresh once to hydrate the robot.
 	if err := rc.Refresh(ctx); err != nil {
 		return nil, multierr.Combine(err, rc.conn.Close())
@@ -331,34 +356,6 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		utils.ManagedGo(func() {
 			rc.RefreshEvery(backgroundCtx, refreshTime)
 		}, rc.activeBackgroundWorkers.Done)
-	}
-
-	// If running in a testing environment, wait for machine to report a state of
-	// running. We often establish connections in tests and expected resources to
-	// be immediately available once the web service has started; resources will
-	// not be available when the machine is still initializing.
-	//
-	// It is expected that golang SDK users will handle lack of resource
-	// availability due to the machine being in an initializing state themselves.
-	if testing.Testing() {
-		logger.Info("BENJI-DBG I AM checking for a machine status of Running due to presence of testing flag")
-		for {
-			if ctx.Err() != nil {
-				return nil, multierr.Combine(ctx.Err(), rc.conn.Close())
-			}
-
-			mStatus, err := rc.MachineStatus(ctx)
-			if err != nil {
-				return nil, multierr.Combine(err, rc.conn.Close())
-			}
-
-			if mStatus.State == robot.StateRunning {
-				break
-			}
-			time.Sleep(50 * time.Millisecond)
-		}
-	} else {
-		logger.Info("BENJI-DBG I am NOT checking for a machine status of Running due to lack of testing flag")
 	}
 
 	return rc, nil
