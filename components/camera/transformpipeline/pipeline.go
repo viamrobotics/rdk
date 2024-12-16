@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
+	camerautils "go.viam.com/rdk/robot/web/stream/camera"
 	"go.viam.com/rdk/utils"
 )
 
@@ -99,13 +100,17 @@ func (sc *streamCamera) Stream(ctx context.Context, errHandlers ...gostream.Erro
 	return sc.Stream(ctx, errHandlers...)
 }
 
+// streamCameraFromCamera is a hack to allow us to use Stream to pipe frames through the pipeline
+// and still implement a camera resource.
+// We prefer this methodology over passing Image bytes because each transform desires a image.Image over
+// a raw byte slice. To use Image would be to wastefully encode and decode the frame multiple times.
 func streamCameraFromCamera(ctx context.Context, cam camera.Camera) camera.StreamCamera {
 	if streamCam, ok := cam.(camera.StreamCamera); ok {
 		return streamCam
 	}
 	return &streamCamera{
 		Camera: cam,
-		vs:     camera.VideoSourceFromCamera(ctx, cam),
+		vs:     camerautils.VideoSourceFromCamera(ctx, cam),
 	}
 }
 

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/camera/v1"
 
@@ -156,25 +155,6 @@ func DecodeImageFromCamera(ctx context.Context, mimeType string, extra map[strin
 		return nil, fmt.Errorf("could not decode into image.Image: %w", err)
 	}
 	return img, nil
-}
-
-// VideoSourceFromCamera converts a camera resource into a gostream VideoSource.
-func VideoSourceFromCamera(ctx context.Context, cam Camera) gostream.VideoSource {
-	reader := gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-		img, err := DecodeImageFromCamera(ctx, "", nil, cam)
-		if err != nil {
-			return nil, func() {}, err
-		}
-		return img, func() {}, nil
-	})
-	camProps, err := cam.Properties(ctx)
-	if err != nil {
-		camProps = Properties{}
-	}
-	if camProps.IntrinsicParams == nil {
-		return gostream.NewVideoSource(reader, prop.Video{Width: 0, Height: 0})
-	}
-	return gostream.NewVideoSource(reader, prop.Video{Width: camProps.IntrinsicParams.Width, Height: camProps.IntrinsicParams.Height})
 }
 
 // A PointCloudSource is a source that can generate pointclouds.

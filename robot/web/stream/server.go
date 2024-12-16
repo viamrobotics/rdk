@@ -22,7 +22,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	cameraStreamUtils "go.viam.com/rdk/robot/web/stream/camera"
+	camerautils "go.viam.com/rdk/robot/web/stream/camera"
 	"go.viam.com/rdk/robot/web/stream/state"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -170,7 +170,7 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 	}
 
 	// return error if resource is neither a camera nor audioinput
-	_, isCamErr := cameraStreamUtils.Camera(server.robot, streamStateToAdd.Stream)
+	_, isCamErr := camerautils.Camera(server.robot, streamStateToAdd.Stream)
 	_, isAudioErr := audioinput.FromRobot(server.robot, resource.SDPTrackNameToShortName(streamStateToAdd.Stream.Name()))
 	if isCamErr != nil && isAudioErr != nil {
 		return nil, errors.Errorf("stream is neither a camera nor audioinput. streamName: %v", streamStateToAdd.Stream)
@@ -307,7 +307,7 @@ func (server *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStre
 
 	shortName := resource.SDPTrackNameToShortName(streamToRemove.Stream.Name())
 	_, isAudioResourceErr := audioinput.FromRobot(server.robot, shortName)
-	_, isCameraResourceErr := cameraStreamUtils.Camera(server.robot, streamToRemove.Stream)
+	_, isCameraResourceErr := camerautils.Camera(server.robot, streamToRemove.Stream)
 
 	if isAudioResourceErr != nil && isCameraResourceErr != nil {
 		return &streampb.RemoveStreamResponse{}, nil
@@ -440,7 +440,7 @@ func (server *Server) resizeVideoSource(ctx context.Context, name string, width,
 	if !ok {
 		return fmt.Errorf("stream state not found with name %q", name)
 	}
-	resizer := gostream.NewResizeVideoSource(camera.VideoSourceFromCamera(ctx, cam), width, height)
+	resizer := gostream.NewResizeVideoSource(camerautils.VideoSourceFromCamera(ctx, cam), width, height)
 	server.logger.Debugf(
 		"resizing video source to width %d and height %d",
 		width, height,
@@ -468,7 +468,7 @@ func (server *Server) resetVideoSource(ctx context.Context, name string) error {
 		return fmt.Errorf("stream state not found with name %q", name)
 	}
 	server.logger.Debug("resetting video source")
-	existing.Swap(camera.VideoSourceFromCamera(ctx, cam))
+	existing.Swap(camerautils.VideoSourceFromCamera(ctx, cam))
 	err = streamState.Reset()
 	if err != nil {
 		return fmt.Errorf("failed to reset stream %q: %w", name, err)
@@ -650,7 +650,7 @@ func (server *Server) refreshVideoSources(ctx context.Context) {
 			continue
 		}
 		existing, ok := server.videoSources[cam.Name().SDPTrackName()]
-		src := camera.VideoSourceFromCamera(ctx, cam)
+		src := camerautils.VideoSourceFromCamera(ctx, cam)
 		if ok {
 			existing.Swap(src)
 			continue
