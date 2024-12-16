@@ -188,11 +188,11 @@ var commonFilterFlags = []cli.Flag{
 	},
 	&cli.StringFlag{
 		Name:  dataFlagStart,
-		Usage: "ISO-8601 timestamp indicating the start of the interval filter",
+		Usage: "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter",
 	},
 	&cli.StringFlag{
 		Name:  dataFlagEnd,
-		Usage: "ISO-8601 timestamp indicating the end of the interval filter",
+		Usage: "ISO-8601 timestamp in RFC3339 format indicating the end of the interval filter",
 	},
 	&cli.StringSliceFlag{
 		Name: dataFlagBboxLabels,
@@ -674,11 +674,11 @@ var app = &cli.App{
 								},
 								&cli.StringFlag{
 									Name:  "start",
-									Usage: "ISO-8601 timestamp indicating the start of the interval",
+									Usage: "ISO-8601 timestamp in RFC3339 format indicating the start of the interval",
 								},
 								&cli.StringFlag{
 									Name:  "end",
-									Usage: "ISO-8601 timestamp indicating the end of the interval",
+									Usage: "ISO-8601 timestamp in RFC3339 format indicating the end of the interval",
 								},
 							},
 							Action: createCommandWithT[dataExportTabularArgs](DataExportTabularAction),
@@ -703,12 +703,12 @@ var app = &cli.App{
 								&cli.StringFlag{
 									Name:     dataFlagStart,
 									Required: true,
-									Usage:    "ISO-8601 timestamp indicating the start of the interval filter",
+									Usage:    "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter",
 								},
 								&cli.StringFlag{
 									Name:     dataFlagEnd,
 									Required: true,
-									Usage:    "ISO-8601 timestamp indicating the end of the interval filter",
+									Usage:    "ISO-8601 timestamp in RFC3339 format indicating the end of the interval filter",
 								},
 								&cli.StringSliceFlag{
 									Name:  dataFlagLocationIDs,
