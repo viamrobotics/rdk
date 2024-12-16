@@ -20,6 +20,8 @@ type DataServiceClient struct {
 		opts ...grpc.CallOption) (*datapb.TabularDataByMQLResponse, error)
 	GetLatestTabularDataFunc func(ctx context.Context, in *datapb.GetLatestTabularDataRequest,
 		opts ...grpc.CallOption) (*datapb.GetLatestTabularDataResponse, error)
+	ExportTabularDataFunc func(ctx context.Context, in *datapb.ExportTabularDataRequest,
+		opts ...grpc.CallOption) (datapb.DataService_ExportTabularDataClient, error)
 	BinaryDataByFilterFunc func(ctx context.Context, in *datapb.BinaryDataByFilterRequest,
 		opts ...grpc.CallOption) (*datapb.BinaryDataByFilterResponse, error)
 	BinaryDataByIDsFunc func(ctx context.Context, in *datapb.BinaryDataByIDsRequest,
@@ -100,6 +102,30 @@ func (client *DataServiceClient) GetLatestTabularData(ctx context.Context, in *d
 		return client.DataServiceClient.GetLatestTabularData(ctx, in, opts...)
 	}
 	return client.GetLatestTabularDataFunc(ctx, in, opts...)
+}
+
+// DataServiceExportTabularDataClient represents a fake instance of a proto DataService_ExportTabularDataClient.
+type DataServiceExportTabularDataClient struct {
+	datapb.DataService_ExportTabularDataClient
+	RecvFunc func() (*datapb.ExportTabularDataResponse, error)
+}
+
+// Recv calls the injected RecvFunc or the real version.
+func (c *DataServiceExportTabularDataClient) Recv() (*datapb.ExportTabularDataResponse, error) {
+	if c.RecvFunc == nil {
+		return c.DataService_ExportTabularDataClient.Recv()
+	}
+	return c.RecvFunc()
+}
+
+// ExportTabularData calls the injected ExportTabularData or the real version.
+func (client *DataServiceClient) ExportTabularData(ctx context.Context, in *datapb.ExportTabularDataRequest,
+	opts ...grpc.CallOption,
+) (datapb.DataService_ExportTabularDataClient, error) {
+	if client.ExportTabularDataFunc == nil {
+		return client.DataServiceClient.ExportTabularData(ctx, in, opts...)
+	}
+	return client.ExportTabularDataFunc(ctx, in, opts...)
 }
 
 // BinaryDataByFilter calls the injected BinaryDataByFilter or the real version.
