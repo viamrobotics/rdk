@@ -2944,7 +2944,7 @@ func getExpectedDefaultStatuses(revision string, md cloud.Metadata) []resource.S
 		{
 			NodeStatus: resource.NodeStatus{
 				Name: resource.Name{
-					API:  resource.APINamespaceRDKInternal.WithServiceType("framesystem"),
+					API:  resource.APINamespaceRDKInternal.WithServiceType("frame_system"),
 					Name: "builtin",
 				},
 				State: resource.NodeStateReady,
@@ -3225,26 +3225,6 @@ func TestMachineStatusWithRemotes(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()
-			md := cloud.Metadata{
-				PrimaryOrgID:  "the-org",
-				LocationID:    "the-location",
-				MachineID:     "the-machine",
-				MachinePartID: "the-robot-part",
-			}
-			rev1 := "rev1"
-			cfg := &config.Config{}
-			if tc.localCloudMd {
-				cfg = &config.Config{
-					Cloud: &config.Cloud{
-						ID:           md.MachinePartID,
-						LocationID:   md.LocationID,
-						PrimaryOrgID: md.PrimaryOrgID,
-						MachineID:    md.MachineID,
-					},
-					Revision: rev1,
-				}
-			}
-			lr := setupLocalRobot(t, ctx, cfg, logger, withDisableBackgroundReconfiguration())
 
 			resName1 := resource.NewName(resource.APINamespace("acme").WithComponentType("huwat"), "thing1")
 			injectRemoteRobot := &inject.Robot{
@@ -3256,7 +3236,7 @@ func TestMachineStatusWithRemotes(t *testing.T) {
 			injectRemoteRobot.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 				for _, rName := range injectRemoteRobot.ResourceNames() {
 					if rName == name {
-						return grpc.NewForeignResource(rName.PrependRemote(remoteName), nil), nil
+						return grpc.NewForeignResource(rName, nil), nil
 					}
 				}
 				return nil, resource.NewNotFoundError(name)
@@ -3296,6 +3276,26 @@ func TestMachineStatusWithRemotes(t *testing.T) {
 			}
 			dRobot := newDummyRobot(t, injectRemoteRobot)
 			dRobot.SetName(remoteName)
+			md := cloud.Metadata{
+				PrimaryOrgID:  "the-org",
+				LocationID:    "the-location",
+				MachineID:     "the-machine",
+				MachinePartID: "the-robot-part",
+			}
+			rev1 := "rev1"
+			cfg := &config.Config{}
+			if tc.localCloudMd {
+				cfg = &config.Config{
+					Cloud: &config.Cloud{
+						ID:           md.MachinePartID,
+						LocationID:   md.LocationID,
+						PrimaryOrgID: md.PrimaryOrgID,
+						MachineID:    md.MachineID,
+					},
+					Revision: rev1,
+				}
+			}
+			lr := setupLocalRobot(t, ctx, cfg, logger, withDisableBackgroundReconfiguration())
 			lr.(*localRobot).manager.addRemote(
 				context.Background(),
 				dRobot,
@@ -3346,11 +3346,7 @@ func TestMachineStatusWithRemotes(t *testing.T) {
 func TestMachineStatusWithTwoRemotes(t *testing.T) {
 	// test that if one remote returns an error, MachineStatus returns correctly
 	logger := logging.NewTestLogger(t)
-
 	ctx := context.Background()
-
-	cfg := &config.Config{}
-	lr := setupLocalRobot(t, ctx, cfg, logger, withDisableBackgroundReconfiguration())
 
 	resName1 := resource.NewName(resource.APINamespace("acme").WithComponentType("huwat"), "thing1")
 	injectRemoteRobot1 := &inject.Robot{
@@ -3362,7 +3358,7 @@ func TestMachineStatusWithTwoRemotes(t *testing.T) {
 	injectRemoteRobot1.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		for _, rName := range injectRemoteRobot1.ResourceNames() {
 			if rName == name {
-				return grpc.NewForeignResource(rName.PrependRemote(remoteName1), nil), nil
+				return grpc.NewForeignResource(rName, nil), nil
 			}
 		}
 		return nil, resource.NewNotFoundError(name)
@@ -3388,6 +3384,7 @@ func TestMachineStatusWithTwoRemotes(t *testing.T) {
 	}
 	dRobot1 := newDummyRobot(t, injectRemoteRobot1)
 	dRobot1.SetName(remoteName1)
+	lr := setupLocalRobot(t, ctx, &config.Config{}, logger, withDisableBackgroundReconfiguration())
 	lr.(*localRobot).manager.addRemote(
 		context.Background(),
 		dRobot1,
@@ -3405,7 +3402,7 @@ func TestMachineStatusWithTwoRemotes(t *testing.T) {
 	injectRemoteRobot2.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		for _, rName := range injectRemoteRobot2.ResourceNames() {
 			if rName == name {
-				return grpc.NewForeignResource(rName.PrependRemote(remoteName2), nil), nil
+				return grpc.NewForeignResource(rName, nil), nil
 			}
 		}
 		return nil, resource.NewNotFoundError(name)
@@ -3481,6 +3478,172 @@ func TestMachineStatusWithTwoRemotes(t *testing.T) {
 		},
 	)
 	rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
+}
+
+func TestMachineStatusWithRemoteChain(t *testing.T) {
+	// test that if MachineStatus returns correctly if the remote has a remote
+	// The topography is local -> remote1 -> remote2
+	// remote2 will always have cloud metadata, but this test will test behavior
+	// depending on whether remote1 is online and has cloud metadata
+	logger := logging.NewTestLogger(t)
+
+	testCases := []struct {
+		name          string
+		remoteOffline bool
+		remoteCloudMd bool
+	}{
+		{
+			name:          "remote1 is online and has cloud metadata",
+			remoteOffline: false,
+			remoteCloudMd: true,
+		},
+		{
+			name:          "remote1 is offline and has cloud metadata",
+			remoteOffline: true,
+			remoteCloudMd: true,
+		},
+		{
+			name:          "remote1 is online and does not have cloud metadata",
+			remoteOffline: false,
+			remoteCloudMd: false,
+		},
+		{
+			name:          "remote1 is offline and does not have cloud metadata",
+			remoteOffline: true,
+			remoteCloudMd: false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+
+			// setup remote2
+			resName1 := resource.NewName(resource.APINamespace("acme").WithComponentType("huwat"), "thing1")
+			remote2 := &inject.Robot{
+				LoggerFunc:          func() logging.Logger { return logger },
+				ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+				ResourceNamesFunc:   func() []resource.Name { return []resource.Name{resName1} },
+			}
+			remoteName2 := "remote1"
+			remote2.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
+				for _, rName := range remote2.ResourceNames() {
+					if rName == name {
+						return grpc.NewForeignResource(rName, nil), nil
+					}
+				}
+				return nil, resource.NewNotFoundError(name)
+			}
+
+			remote2Md := cloud.Metadata{
+				PrimaryOrgID:  "the-remote-org",
+				LocationID:    "the-remote-location",
+				MachineID:     "the-remote-machine",
+				MachinePartID: "the-remote-part",
+			}
+			remote2.CloudMetadataFunc = func(context.Context) (cloud.Metadata, error) {
+				return remote2Md, nil
+			}
+			remote2.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
+				// check that a timeout is passed down from the caller.
+				if _, ok := ctx.Deadline(); !ok {
+					return robot.MachineStatus{}, errors.New("no timeout detected")
+				}
+				return robot.MachineStatus{
+					Resources: []resource.Status{
+						{
+							NodeStatus: resource.NodeStatus{
+								Name: resName1, State: resource.NodeStateUnconfigured, Revision: "rev1",
+							},
+							CloudMetadata: remote2Md,
+						},
+					},
+				}, nil
+			}
+			remote2Dummy := newDummyRobot(t, remote2)
+			remote2Dummy.SetName(remoteName2)
+
+			// setup remote1
+			cfg := &config.Config{}
+			md := cloud.Metadata{
+				PrimaryOrgID:  "the-org",
+				LocationID:    "the-location",
+				MachineID:     "the-machine",
+				MachinePartID: "the-robot-part",
+			}
+			if tc.remoteCloudMd {
+				cfg = &config.Config{
+					Cloud: &config.Cloud{
+						ID:           md.MachinePartID,
+						LocationID:   md.LocationID,
+						PrimaryOrgID: md.PrimaryOrgID,
+						MachineID:    md.MachineID,
+					},
+				}
+			}
+			remote1 := setupLocalRobot(t, ctx, cfg, logger, withDisableBackgroundReconfiguration())
+			remote1.(*localRobot).manager.addRemote(
+				context.Background(),
+				remote2Dummy,
+				nil,
+				config.Remote{Name: remoteName2},
+			)
+
+			// setup local
+			remoteName1 := "remote1"
+			remote1Dummy := newDummyRobot(t, remote1)
+			remote1Dummy.SetName(remoteName1)
+			lRobot := setupLocalRobot(t, ctx, &config.Config{}, logger, withDisableBackgroundReconfiguration())
+			lRobot.(*localRobot).manager.addRemote(
+				context.Background(),
+				remote1Dummy,
+				nil,
+				config.Remote{Name: remoteName1},
+			)
+
+			remote1Dummy.SetOffline(tc.remoteOffline)
+
+			mStatus, err := lRobot.MachineStatus(ctx)
+			test.That(t, err, test.ShouldBeNil)
+
+			test.That(t, mStatus.Config.Revision, test.ShouldEqual, "")
+
+			expectedMd := cloud.Metadata{}
+			expectedRemote2Md := cloud.Metadata{}
+			if !tc.remoteOffline {
+				if tc.remoteCloudMd {
+					expectedMd = md
+				}
+				expectedRemote2Md = remote2Md
+			}
+			expectedStatuses := rtestutils.ConcatResourceStatuses(
+				getExpectedDefaultStatuses("", cloud.Metadata{}),
+				[]resource.Status{
+					{
+						NodeStatus: resource.NodeStatus{
+							Name:  resource.NewName(client.RemoteAPI, remoteName1),
+							State: resource.NodeStateReady,
+						},
+						CloudMetadata: expectedMd,
+					},
+					{
+						NodeStatus: resource.NodeStatus{
+							Name:  motion.Named("builtin").PrependRemote(remoteName1),
+							State: resource.NodeStateReady,
+						},
+						CloudMetadata: expectedMd,
+					},
+					{
+						NodeStatus: resource.NodeStatus{
+							Name:  resName1.PrependRemote(remoteName2).PrependRemote(remoteName1),
+							State: resource.NodeStateReady,
+						},
+						CloudMetadata: expectedRemote2Md,
+					},
+				},
+			)
+			rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
+		})
+	}
 }
 
 // assertDialFails reconnects an existing `RobotClient` with a small timeout value to keep tests

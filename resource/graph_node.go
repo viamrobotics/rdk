@@ -563,28 +563,21 @@ func (w *GraphNode) Status() NodeStatus {
 }
 
 func (w *GraphNode) status() NodeStatus {
-	var resName Name
-	if w.current == nil {
-		resName = w.config.ResourceName()
-	} else {
-		resName = w.current.Name()
-	}
-
 	err := w.lastErr
 	logger := w.Logger()
 
 	// check invariants between state and error
 	switch {
 	case w.state == NodeStateUnhealthy && w.lastErr == nil:
-		logger.Warnw("an unhealthy node doesn't have an error", "resource", resName)
+		logger.Warnw("an unhealthy node doesn't have an error")
 	case w.state == NodeStateReady && w.lastErr != nil:
-		logger.Warnw("a ready node still has an error", "resource", resName, "error", err)
+		logger.Warnw("a ready node still has an error", "error", err)
 		// do not return leftover error in status if the node is ready
 		err = nil
 	}
 
+	// TODO (RSDK-9550): Node should have the correct notion of its name
 	return NodeStatus{
-		Name:        resName,
 		State:       w.state,
 		LastUpdated: w.transitionedAt,
 		Revision:    w.revision,

@@ -1846,6 +1846,8 @@ type dummyRobot struct {
 	robot      robot.Robot
 	manager    *resourceManager
 	modmanager modmaninterface.ModuleManager
+
+	offline bool
 }
 
 // newDummyRobot returns a new dummy robot wrapping a given robot.Robot
@@ -1863,16 +1865,34 @@ func newDummyRobot(t *testing.T, robot robot.Robot) *dummyRobot {
 }
 
 func (rr *dummyRobot) SetName(remoteName string) {
+	rr.mu.Lock()
+	defer rr.mu.Unlock()
 	rr.Named = resource.NewName(client.RemoteAPI, remoteName).AsNamed()
 }
 
+func (rr *dummyRobot) SetOffline(offline bool) {
+	rr.mu.Lock()
+	defer rr.mu.Unlock()
+	rr.offline = offline
+}
+
 func (rr *dummyRobot) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	rr.mu.Lock()
+	defer rr.mu.Unlock()
+	if rr.offline {
+		return errors.New("offline")
+	}
 	return errors.New("unsupported")
 }
 
 // DiscoverComponents takes a list of discovery queries and returns corresponding
 // component configurations.
 func (rr *dummyRobot) DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error) {
+	rr.mu.Lock()
+	defer rr.mu.Unlock()
+	if rr.offline {
+		return nil, errors.New("offline")
+	}
 	return rr.robot.DiscoverComponents(ctx, qs)
 }
 
@@ -1881,8 +1901,12 @@ func (rr *dummyRobot) RemoteNames() []string {
 }
 
 func (rr *dummyRobot) ResourceNames() []resource.Name {
+	// NOTE: The offline behavior here should resemble behavior in the robot client
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
+	if rr.offline {
+		return nil
+	}
 	names := rr.manager.ResourceNames()
 	newNames := make([]resource.Name, 0, len(names))
 	newNames = append(newNames, names...)
@@ -1890,6 +1914,12 @@ func (rr *dummyRobot) ResourceNames() []resource.Name {
 }
 
 func (rr *dummyRobot) ResourceRPCAPIs() []resource.RPCAPI {
+	// NOTE: The offline behavior here should resemble behavior in the robot client
+	rr.mu.Lock()
+	defer rr.mu.Unlock()
+	if rr.offline {
+		return nil
+	}
 	return rr.robot.ResourceRPCAPIs()
 }
 
@@ -1900,6 +1930,9 @@ func (rr *dummyRobot) RemoteByName(name string) (robot.Robot, bool) {
 func (rr *dummyRobot) ResourceByName(name resource.Name) (resource.Resource, error) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
+	if rr.offline {
+		return nil, errors.New("offline")
+	}
 	return rr.manager.ResourceByName(name)
 }
 
@@ -1947,6 +1980,11 @@ func (rr *dummyRobot) Logger() logging.Logger {
 }
 
 func (rr *dummyRobot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) {
+	rr.mu.Lock()
+	defer rr.mu.Unlock()
+	if rr.offline {
+		return cloud.Metadata{}, errors.New("offline")
+	}
 	return rr.robot.CloudMetadata(ctx)
 }
 
@@ -1955,22 +1993,47 @@ func (rr *dummyRobot) Close(ctx context.Context) error {
 }
 
 func (rr *dummyRobot) StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
+	rr.mu.Lock()
+	defer rr.mu.Unlock()
+	if rr.offline {
+		return errors.New("offline")
+	}
 	return rr.robot.StopAll(ctx, extra)
 }
 
 func (rr *dummyRobot) RestartModule(ctx context.Context, req robot.RestartModuleRequest) error {
+	rr.mu.Lock()
+	defer rr.mu.Unlock()
+	if rr.offline {
+		return errors.New("offline")
+	}
 	return rr.robot.RestartModule(ctx, req)
 }
 
 func (rr *dummyRobot) Shutdown(ctx context.Context) error {
+	rr.mu.Lock()
+	defer rr.mu.Unlock()
+	if rr.offline {
+		return errors.New("offline")
+	}
 	return rr.robot.Shutdown(ctx)
 }
 
 func (rr *dummyRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
+	rr.mu.Lock()
+	defer rr.mu.Unlock()
+	if rr.offline {
+		return robot.MachineStatus{}, errors.New("offline")
+	}
 	return rr.robot.MachineStatus(ctx)
 }
 
 func (rr *dummyRobot) Version(ctx context.Context) (robot.VersionResponse, error) {
+	rr.mu.Lock()
+	defer rr.mu.Unlock()
+	if rr.offline {
+		return robot.VersionResponse{}, errors.New("offline")
+	}
 	return rr.robot.Version(ctx)
 }
 

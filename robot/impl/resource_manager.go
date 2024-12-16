@@ -1468,7 +1468,6 @@ func (manager *resourceManager) getRemoteResourceMetadata(ctx context.Context) m
 		md, err := remote.CloudMetadata(ctx)
 		if err != nil {
 			manager.logger.Debugw("error getting remote cloud metadata", "remote", resName.Name, "err", err)
-			continue
 		}
 		resourceStatusMap[resName] = md
 		machineStatus, err := remote.MachineStatus(ctx)

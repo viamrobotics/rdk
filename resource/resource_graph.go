@@ -703,8 +703,12 @@ func (g *Graph) Status() []NodeStatus {
 	defer g.mu.Unlock()
 
 	var result []NodeStatus
-	for _, node := range g.nodes {
-		result = append(result, node.Status())
+	for name, node := range g.nodes {
+		// TODO (RSDK-9550): Node should have the correct notion of its name
+		// but they don't, so fill it in here
+		status := node.Status()
+		status.Name = name
+		result = append(result, status)
 	}
 
 	return result
