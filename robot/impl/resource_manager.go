@@ -1459,12 +1459,18 @@ func (manager *resourceManager) getRemoteResourceMetadata(ctx context.Context) m
 		gNode, _ := manager.resources.Node(resName)
 		res, err := gNode.Resource()
 		if err != nil {
-			manager.logger.Debugw("error getting remote machine status", "remote", resName.Name, "err", err)
+			manager.logger.Debugw("error getting remote machine node", "remote", resName.Name, "err", err)
 			continue
 		}
 		ctx, cancel := contextutils.ContextWithTimeoutIfNoDeadline(ctx, defaultRemoteMachineStatusTimeout)
 		defer cancel()
 		remote := res.(internalRemoteRobot)
+		md, err := remote.CloudMetadata(ctx)
+		if err != nil {
+			manager.logger.Debugw("error getting remote cloud metadata", "remote", resName.Name, "err", err)
+			continue
+		}
+		resourceStatusMap[resName] = md
 		machineStatus, err := remote.MachineStatus(ctx)
 		if err != nil {
 			manager.logger.Debugw("error getting remote machine status", "remote", resName.Name, "err", err)

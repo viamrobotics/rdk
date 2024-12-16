@@ -1398,7 +1398,7 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 	md, _ := r.CloudMetadata(ctx) //nolint:errcheck
 	for _, resourceStatus := range r.manager.resources.Status() {
 		// if the resource is local, we can use the status as is and attach the cloud metadata of this robot.
-		if !resourceStatus.Name.ContainsRemoteNames() {
+		if !resourceStatus.Name.ContainsRemoteNames() && resourceStatus.Name.API != client.RemoteAPI {
 			result.Resources = append(result.Resources, resource.Status{NodeStatus: resourceStatus, CloudMetadata: md})
 			continue
 		}
