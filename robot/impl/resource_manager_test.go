@@ -1862,6 +1862,10 @@ func newDummyRobot(t *testing.T, robot robot.Robot) *dummyRobot {
 	return remote
 }
 
+func (rr *dummyRobot) SetName(remoteName string) {
+	rr.Named = resource.NewName(client.RemoteAPI, remoteName).AsNamed()
+}
+
 func (rr *dummyRobot) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	return errors.New("unsupported")
 }
