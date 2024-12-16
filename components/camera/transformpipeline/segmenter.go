@@ -114,7 +114,6 @@ func (ss *segmenterSource) Read(ctx context.Context) (image.Image, func(), error
 	return img, release, nil
 }
 
-// Close closes the underlying stream.
 func (ss *segmenterSource) Close(ctx context.Context) error {
-	return ss.src.Close(ctx)
+	return nil
 }
