@@ -186,6 +186,38 @@ type GetLatestTabularDataResponse struct {
 	Payload      map[string]interface{}
 }
 
+// ExportTabularDataResponse represents the result of an ExportTabularData API call.
+type ExportTabularDataResponse struct {
+	OrganizationID   string
+	LocationID       string
+	RobotID          string
+	RobotName        string
+	PartID           string
+	PartName         string
+	ResourceName     string
+	ResourceSubtype  string
+	MethodName       string
+	TimeCaptured     time.Time
+	MethodParameters map[string]interface{}
+	Tags             []string
+	Payload          map[string]interface{}
+}
+
+// ExportTabularDataStream is a stream that returns ExportTabularDataResponses.
+type ExportTabularDataStream struct {
+	Stream pb.DataService_ExportTabularDataClient
+}
+
+// Next gets the next ExportTabularDataResponse.
+func (e *ExportTabularDataStream) Next() (*ExportTabularDataResponse, error) {
+	streamResp, err := e.Stream.Recv()
+	if err != nil {
+		return nil, err
+	}
+
+	return exportTabularDataResponseFromProto(streamResp), nil
+}
+
 // DataSyncClient structs
 
 // SensorMetadata contains the time the sensor data was requested and was received.
@@ -465,6 +497,25 @@ func (d *DataClient) GetLatestTabularData(ctx context.Context, partID, resourceN
 		TimeCaptured: resp.TimeCaptured.AsTime(),
 		TimeSynced:   resp.TimeSynced.AsTime(),
 		Payload:      resp.Payload.AsMap(),
+	}, nil
+}
+
+// ExportTabularData returns a stream of ExportTabularDataResponses.
+func (d *DataClient) ExportTabularData(
+	ctx context.Context, partID, resourceName, resourceSubtype, method string, interval CaptureInterval,
+) (*ExportTabularDataStream, error) {
+	stream, err := d.dataClient.ExportTabularData(ctx, &pb.ExportTabularDataRequest{
+		PartId:          partID,
+		ResourceName:    resourceName,
+		ResourceSubtype: resourceSubtype,
+		MethodName:      method,
+		Interval:        captureIntervalToProto(interval),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &ExportTabularDataStream{
+		Stream: stream,
 	}, nil
 }
 
@@ -1178,6 +1229,24 @@ func boundingBoxFromProto(proto *pb.BoundingBox) *BoundingBox {
 		YMinNormalized: proto.YMinNormalized,
 		XMaxNormalized: proto.XMaxNormalized,
 		YMaxNormalized: proto.YMaxNormalized,
+	}
+}
+
+func exportTabularDataResponseFromProto(proto *pb.ExportTabularDataResponse) *ExportTabularDataResponse {
+	return &ExportTabularDataResponse{
+		OrganizationID:   proto.OrganizationId,
+		LocationID:       proto.LocationId,
+		RobotID:          proto.RobotId,
+		RobotName:        proto.RobotName,
+		PartID:           proto.PartId,
+		PartName:         proto.PartName,
+		ResourceName:     proto.ResourceName,
+		ResourceSubtype:  proto.ResourceSubtype,
+		MethodName:       proto.MethodName,
+		TimeCaptured:     proto.TimeCaptured.AsTime(),
+		MethodParameters: proto.MethodParameters.AsMap(),
+		Tags:             proto.Tags,
+		Payload:          proto.Payload.AsMap(),
 	}
 }
 
