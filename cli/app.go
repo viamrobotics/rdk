@@ -641,7 +641,7 @@ var app = &cli.App{
 							Usage: "download tabular data",
 							UsageText: createUsageText("data export tabular", []string{
 								dataFlagDestination,
-								dataFlagPartName,
+								dataFlagPartID,
 								dataFlagResourceName,
 								dataFlagResourceSubtype,
 								dataFlagMethod,
