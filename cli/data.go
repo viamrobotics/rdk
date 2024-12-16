@@ -269,28 +269,13 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 	if len(args.BBoxLabels) != 0 {
 		filter.BboxLabels = args.BBoxLabels
 	}
-	var start *timestamppb.Timestamp
-	var end *timestamppb.Timestamp
-	timeLayout := time.RFC3339
-	if args.Start != "" {
-		t, err := time.Parse(timeLayout, args.Start)
+	if args.Start != "" || args.End != "" {
+		interval, err := createCaptureInterval(args.Start, args.End)
 		if err != nil {
-			return nil, errors.Wrap(err, "could not parse start flag")
+			return nil, err
 		}
-		start = timestamppb.New(t)
-	}
-	if args.End != "" {
-		t, err := time.Parse(timeLayout, args.End)
-		if err != nil {
-			return nil, errors.Wrap(err, "could not parse end flag")
-		}
-		end = timestamppb.New(t)
-	}
-	if start != nil || end != nil {
-		filter.Interval = &datapb.CaptureInterval{
-			Start: start,
-			End:   end,
-		}
+
+		filter.Interval = interval
 	}
 	return filter, nil
 }
@@ -312,29 +297,40 @@ func createExportTabularRequest(c *cli.Context) (*datapb.ExportTabularDataReques
 		request.MethodName = args.Method
 	}
 
+	interval, err := createCaptureInterval(args.Start, args.End)
+	if err != nil {
+		return nil, err
+	}
+
+	request.Interval = interval
+
+	return request, nil
+}
+
+func createCaptureInterval(startStr, endStr string) (*datapb.CaptureInterval, error) {
 	var start *timestamppb.Timestamp
 	var end *timestamppb.Timestamp
 	timeLayout := time.RFC3339
-	if args.Start != "" {
-		t, err := time.Parse(timeLayout, args.Start)
+
+	if startStr != "" {
+		t, err := time.Parse(timeLayout, startStr)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not parse start flag")
 		}
 		start = timestamppb.New(t)
 	}
-	if args.End != "" {
-		t, err := time.Parse(timeLayout, args.End)
+	if endStr != "" {
+		t, err := time.Parse(timeLayout, endStr)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not parse end flag")
 		}
 		end = timestamppb.New(t)
 	}
-	request.Interval = &datapb.CaptureInterval{
+
+	return &datapb.CaptureInterval{
 		Start: start,
 		End:   end,
-	}
-
-	return request, nil
+	}, nil
 }
 
 func (c *viamClient) dataExportBinaryAction(cCtx *cli.Context, args dataExportBinaryArgs) error {
