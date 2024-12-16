@@ -1,6 +1,7 @@
 package resource
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -308,6 +309,8 @@ func (g *Graph) addNode(node Name, nodeVal *GraphNode) error {
 func (g *Graph) AddChild(child, parent Name) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	fmt.Printf("child: %v\n", child)
+	fmt.Printf("parent: %v\n", parent)
 	return g.addChild(child, parent)
 }
 
@@ -701,7 +704,7 @@ func (g *Graph) Status() []NodeStatus {
 
 	var result []NodeStatus
 	for _, node := range g.nodes {
-		result = append(result, node.ResourceStatus())
+		result = append(result, node.Status())
 	}
 
 	return result

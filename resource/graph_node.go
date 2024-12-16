@@ -554,8 +554,8 @@ func (w *GraphNode) transitionTo(state NodeState) {
 	w.transitionedAt = time.Now()
 }
 
-// ResourceStatus returns the current [NodeStatus].
-func (w *GraphNode) ResourceStatus() NodeStatus {
+// Status returns the current [NodeStatus].
+func (w *GraphNode) Status() NodeStatus {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 

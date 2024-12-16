@@ -40,7 +40,7 @@ func TestUninitializedLifecycle(t *testing.T) {
 	expectedState := resource.NodeStateUnconfigured
 	test.That(t, node.State(), test.ShouldEqual, expectedState)
 
-	status := node.ResourceStatus()
+	status := node.Status()
 	test.That(t, status.State, test.ShouldResemble, expectedState)
 
 	lifecycleTest(t, node, []string(nil))
@@ -71,7 +71,7 @@ func TestUnconfiguredLifecycle(t *testing.T) {
 	expectedState := resource.NodeStateConfiguring
 	test.That(t, node.State(), test.ShouldEqual, expectedState)
 
-	status := node.ResourceStatus()
+	status := node.Status()
 	test.That(t, status.Name.Name, test.ShouldEqual, "foo")
 	test.That(t, status.State, test.ShouldResemble, expectedState)
 
@@ -102,7 +102,7 @@ func TestConfiguredLifecycle(t *testing.T) {
 	expectedState := resource.NodeStateReady
 	test.That(t, node.State(), test.ShouldEqual, expectedState)
 
-	status := node.ResourceStatus()
+	status := node.Status()
 	test.That(t, status.Name, test.ShouldResemble, resName)
 	test.That(t, status.State, test.ShouldResemble, resource.NodeStateReady)
 
@@ -149,7 +149,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	// Attempt to change status to [NodeStateUnhealthy]
 	ourErr = errors.New("whoops")
 	node.LogAndSetLastError(ourErr)
-	status := node.ResourceStatus()
+	status := node.Status()
 	// Ensure that error is set and node stays in [NodeStateUnhealthy]
 	// since state transition [NodeStateUnhealthy] -> [NodeStateRemoving] is blocked
 	test.That(t, status.Error.Error(), test.ShouldContainSubstring, "whoops")
