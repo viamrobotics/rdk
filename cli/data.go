@@ -716,7 +716,6 @@ func (c *viamClient) tabularData(dest string, request *datapb.ExportTabularDataR
 			}
 
 			writer := bufio.NewWriter(dataFile)
-			numWrites := uint64(0)
 
 			dataRowChan := make(chan []byte)
 			errChan := make(chan error, 1)
@@ -788,7 +787,7 @@ func (c *viamClient) tabularData(dest string, request *datapb.ExportTabularDataR
 						return nil
 					}
 
-					if err = writeData(writer, dataRow, &numWrites); err != nil {
+					if err = writeData(writer, dataRow); err != nil {
 						exportErr = errors.Wrap(err, "error writing data")
 						return exportErr
 					}
@@ -813,9 +812,7 @@ func (c *viamClient) tabularData(dest string, request *datapb.ExportTabularDataR
 	return nil
 }
 
-func writeData(writer *bufio.Writer, dataRow []byte, numWrites *uint64) error {
-	*numWrites++
-
+func writeData(writer *bufio.Writer, dataRow []byte) error {
 	_, err := writer.Write(dataRow)
 	if err != nil {
 		return err
@@ -827,12 +824,10 @@ func writeData(writer *bufio.Writer, dataRow []byte, numWrites *uint64) error {
 	}
 
 	// Periodically flush to keep buffer size down.
-	if *numWrites == uint64(10_000) {
+	if uint64(writer.Size()) > uint64(10_000_000) {
 		if err = writer.Flush(); err != nil {
 			return err
 		}
-
-		*numWrites = 0
 	}
 
 	return nil
