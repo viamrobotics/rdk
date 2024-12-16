@@ -50,7 +50,7 @@ type rrtMaps struct {
 	optNode  node // The highest quality IK solution
 }
 
-func (maps *rrtMaps) fillPosOnlyGoal(goal PathStep, posSeeds int) error {
+func (maps *rrtMaps) fillPosOnlyGoal(goal PathState, posSeeds int) error {
 	thetaStep := 360. / float64(posSeeds)
 	if maps == nil {
 		return errors.New("cannot call method fillPosOnlyGoal on nil maps")
@@ -59,7 +59,7 @@ func (maps *rrtMaps) fillPosOnlyGoal(goal PathStep, posSeeds int) error {
 		maps.goalMap = map[node]node{}
 	}
 	for i := 0; i < posSeeds; i++ {
-		newMap := PathStep{}
+		newMap := PathState{}
 		for frame, goal := range goal {
 			newMap[frame] = referenceframe.NewPoseInFrame(
 				frame,
@@ -87,12 +87,12 @@ func initRRTSolutions(ctx context.Context, wp atomicWaypoint) *rrtSolution {
 		},
 	}
 
-	startNodes, err := nodesFromPlanState(ctx, wp.mp, wp.startState, wp.goalState.configuration)
+	startNodes, err := generateNodeListForPlanState(ctx, wp.mp, wp.startState, wp.goalState.configuration)
 	if err != nil {
 		rrt.err = err
 		return rrt
 	}
-	goalNodes, err := nodesFromPlanState(ctx, wp.mp, wp.goalState, wp.startState.configuration)
+	goalNodes, err := generateNodeListForPlanState(ctx, wp.mp, wp.goalState, wp.startState.configuration)
 	if err != nil {
 		rrt.err = err
 		return rrt

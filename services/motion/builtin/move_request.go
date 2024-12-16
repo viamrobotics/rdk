@@ -387,7 +387,7 @@ func (mr *moveRequest) augmentBaseExecutionState(
 		// The exception to this is if we are at the index we are currently executing, then
 		// we will use the base's reported current position.
 
-		currPathStep := existingPlan.Path()[idx]
+		currPathState := existingPlan.Path()[idx]
 		kbTraj := currTraj[mr.kinematicBase.Name().Name]
 
 		// determine which pose should be used as the origin of a ptg input
@@ -395,7 +395,7 @@ func (mr *moveRequest) augmentBaseExecutionState(
 		if idx == baseExecutionState.Index() {
 			prevPathPose = baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose()
 		} else {
-			kbPose := currPathStep[mr.kinematicBase.Kinematics().Name()]
+			kbPose := currPathState[mr.kinematicBase.Kinematics().Name()]
 			trajPose, err := mr.kinematicBase.Kinematics().Transform(kbTraj)
 			if err != nil {
 				return baseExecutionState, err
@@ -915,10 +915,10 @@ func (ms *builtIn) createBaseMoveRequest(
 
 	var backgroundWorkers sync.WaitGroup
 	startState := motionplan.NewPlanState(
-		motionplan.PathStep{kinematicFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose)},
+		motionplan.PathState{kinematicFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose)},
 		currentInputs,
 	)
-	goals := []*motionplan.PlanState{motionplan.NewPlanState(motionplan.PathStep{kinematicFrame.Name(): goal}, nil)}
+	goals := []*motionplan.PlanState{motionplan.NewPlanState(motionplan.PathState{kinematicFrame.Name(): goal}, nil)}
 
 	mr := &moveRequest{
 		config: motionCfg,

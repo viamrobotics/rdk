@@ -51,9 +51,9 @@ func OffsetPlan(plan Plan, offset spatialmath.Pose) Plan {
 	if path == nil {
 		return NewSimplePlan(nil, plan.Trajectory())
 	}
-	newPath := make([]PathStep, 0, len(path))
+	newPath := make([]PathState, 0, len(path))
 	for _, step := range path {
-		newStep := make(PathStep, len(step))
+		newStep := make(PathState, len(step))
 		for frame, pose := range step {
 			newStep[frame] = referenceframe.NewPoseInFrame(pose.Parent(), spatialmath.Compose(offset, pose.Pose()))
 		}
@@ -116,9 +116,9 @@ func (traj Trajectory) EvaluateCost(distFunc ik.SegmentFSMetric) float64 {
 	return totalCost
 }
 
-// Path is a slice of PathSteps describing a series of Poses for a robot to travel to in the course of following a Plan.
-// The pose of the PathStep is the pose at the end of the corresponding set of inputs in the Trajectory.
-type Path []PathStep
+// Path is a slice of PathStates describing a series of Poses for a robot to travel to in the course of following a Plan.
+// The pose of the PathState is the pose at the end of the corresponding set of inputs in the Trajectory.
+type Path []PathState
 
 func newPath(solution []node, fs referenceframe.FrameSystem) (Path, error) {
 	path := make(Path, 0, len(solution))
@@ -144,10 +144,10 @@ func newPathFromRelativePath(path Path) (Path, error) {
 	if len(path) < 2 {
 		return nil, errors.New("need to have at least 2 elements in path")
 	}
-	newPath := make([]PathStep, 0, len(path))
+	newPath := make([]PathState, 0, len(path))
 	newPath = append(newPath, path[0])
 	for i, step := range path[1:] {
-		newStep := make(PathStep, len(step))
+		newStep := make(PathState, len(step))
 		for frame, pose := range step {
 			lastPose := newPath[i][frame].Pose()
 			newStep[frame] = referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.Compose(lastPose, pose.Pose()))
@@ -181,11 +181,11 @@ func (path Path) String() string {
 	return str
 }
 
-// PathStep is a mapping of Frame names to PoseInFrames.
-type PathStep map[string]*referenceframe.PoseInFrame
+// PathState is a mapping of Frame names to PoseInFrames.
+type PathState map[string]*referenceframe.PoseInFrame
 
-// ToProto converts a PathStep to its representation in protobuf.
-func (ps PathStep) ToProto() *pb.PlanStep {
+// ToProto converts a PathState to its representation in protobuf.
+func (ps PathState) ToProto() *pb.PlanStep {
 	step := make(map[string]*pb.ComponentState)
 	for name, pose := range ps {
 		pbPose := spatialmath.PoseToProtobuf(pose.Pose())
@@ -194,13 +194,13 @@ func (ps PathStep) ToProto() *pb.PlanStep {
 	return &pb.PlanStep{Step: step}
 }
 
-// PathStepFromProto converts a *pb.PlanStep to a PlanStep.
-func PathStepFromProto(ps *pb.PlanStep) (PathStep, error) {
+// PathStateFromProto converts a *pb.PlanStep to a PlanStep.
+func PathStateFromProto(ps *pb.PlanStep) (PathState, error) {
 	if ps == nil {
-		return PathStep{}, errors.New("received nil *pb.PlanStep")
+		return PathState{}, errors.New("received nil *pb.PlanStep")
 	}
 
-	step := make(PathStep, len(ps.Step))
+	step := make(PathState, len(ps.Step))
 	for k, v := range ps.Step {
 		step[k] = referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromProtobuf(v.Pose))
 	}
@@ -211,9 +211,9 @@ func PathStepFromProto(ps *pb.PlanStep) (PathStep, error) {
 // A Point with X as the longitude and Y as the latitude
 // An orientation using the heading as the theta in an OrientationVector with Z=1.
 func NewGeoPlan(plan Plan, pt *geo.Point) Plan {
-	newPath := make([]PathStep, 0, len(plan.Path()))
+	newPath := make([]PathState, 0, len(plan.Path()))
 	for _, step := range plan.Path() {
-		newStep := make(PathStep)
+		newStep := make(PathState)
 		for frame, pif := range step {
 			pose := pif.Pose()
 			geoPose := spatialmath.PoseToGeoPose(spatialmath.NewGeoPose(pt, 0), pose)
@@ -263,7 +263,7 @@ type ExecutionState struct {
 	currentInputs map[string][]referenceframe.Input
 
 	// The current PoseInFrames of input-enabled elements described by this plan.
-	currentPose PathStep
+	currentPose PathState
 }
 
 // NewExecutionState will construct an ExecutionState struct.
@@ -271,7 +271,7 @@ func NewExecutionState(
 	plan Plan,
 	index int,
 	currentInputs map[string][]referenceframe.Input,
-	currentPose PathStep,
+	currentPose PathState,
 ) (ExecutionState, error) {
 	if plan == nil {
 		return ExecutionState{}, errors.New("cannot create new ExecutionState with nil plan")
@@ -306,7 +306,7 @@ func (e *ExecutionState) CurrentInputs() map[string][]referenceframe.Input {
 }
 
 // CurrentPoses returns the current poses in frame of the components associated with the ExecutionState.
-func (e *ExecutionState) CurrentPoses() PathStep {
+func (e *ExecutionState) CurrentPoses() PathState {
 	return e.currentPose
 }
 
@@ -352,20 +352,20 @@ func newFrameNotFoundError(frameName string) error {
 	return fmt.Errorf("could not find frame %s in ExecutionState", frameName)
 }
 
-// PlanState is a struct which holds both a PathStep and a configuration. This is intended to be used as start or goal states for plans.
+// PlanState is a struct which holds both a PathState and a configuration. This is intended to be used as start or goal states for plans.
 // Either field may be nil.
 type PlanState struct {
-	poses         PathStep
+	poses         PathState
 	configuration map[string][]referenceframe.Input
 }
 
 // NewPlanState creates a PlanState from the given poses and configuration. Either or both may be nil.
-func NewPlanState(poses PathStep, configuration map[string][]referenceframe.Input) *PlanState {
+func NewPlanState(poses PathState, configuration map[string][]referenceframe.Input) *PlanState {
 	return &PlanState{poses: poses, configuration: configuration}
 }
 
 // Poses returns the poses of the PlanState.
-func (p *PlanState) Poses() PathStep {
+func (p *PlanState) Poses() PathState {
 	return p.poses
 }
 
@@ -375,7 +375,7 @@ func (p *PlanState) Configuration() map[string][]referenceframe.Input {
 }
 
 // ComputePoses returns the poses of a PlanState if they are populated, or computes them using the given FrameSystem if not.
-func (p *PlanState) ComputePoses(fs referenceframe.FrameSystem) (PathStep, error) {
+func (p *PlanState) ComputePoses(fs referenceframe.FrameSystem) (PathState, error) {
 	if p.poses != nil {
 		return p.poses, nil
 	}
@@ -385,7 +385,7 @@ func (p *PlanState) ComputePoses(fs referenceframe.FrameSystem) (PathStep, error
 	}
 
 	// Compute poses from configuration using the FrameSystem
-	computedPoses := make(PathStep)
+	computedPoses := make(PathState)
 	for frameName := range p.configuration {
 		pif, err := fs.Transform(p.configuration, referenceframe.NewZeroPoseInFrame(frameName), referenceframe.World)
 		if err != nil {
@@ -417,12 +417,12 @@ func (p PlanState) Serialize() map[string]interface{} {
 // DeserializePlanState turns a serialized PlanState back into a PlanState.
 func DeserializePlanState(iface map[string]interface{}) (*PlanState, error) {
 	ps := &PlanState{
-		poses:         PathStep{},
+		poses:         PathState{},
 		configuration: map[string][]referenceframe.Input{},
 	}
 	if posesIface, ok := iface["poses"]; ok {
-		if pathStepMap, ok := posesIface.(map[string]interface{}); ok {
-			for fName, pifIface := range pathStepMap {
+		if pathStateMap, ok := posesIface.(map[string]interface{}); ok {
+			for fName, pifIface := range pathStateMap {
 				pifJSON, err := json.Marshal(pifIface)
 				if err != nil {
 					return nil, err

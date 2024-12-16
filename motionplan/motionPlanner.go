@@ -42,8 +42,8 @@ type plannerConstructor func(referenceframe.FrameSystem, *rand.Rand, logging.Log
 // PlanRequest is a struct to store all the data necessary to make a call to PlanMotion.
 type PlanRequest struct {
 	Logger logging.Logger
-	// The planner will hit each Goal in order. Each goal may be a configuration or PathStep for holonomic motion, or must be a
-	// PathStep for non-holonomic motion. For holonomic motion, if both a configuration and PathStep are given, an error is thrown.
+	// The planner will hit each Goal in order. Each goal may be a configuration or PathState for holonomic motion, or must be a
+	// PathState for non-holonomic motion. For holonomic motion, if both a configuration and PathState are given, an error is thrown.
 	// TODO: Perhaps we could do something where some components are enforced to arrive at a certain configuration, but others can have IK
 	// run to solve for poses. Doing this while enforcing configurations may be tricky.
 	Goals       []*PlanState
@@ -105,12 +105,13 @@ func (req *PlanRequest) validatePlanRequest() error {
 		return errors.New("PlanRequest must have at least one goal")
 	}
 
+	// Validate the goals. Each goal with a pose must not alos have a configuration specified. The parent frame of the pose must exist.
 	for i, goalState := range req.Goals {
 		for fName, pif := range goalState.poses {
 			if len(goalState.configuration) > 0 {
 				return errors.New("individual goals cannot have both configuration and poses populated")
 			}
-			
+
 			goalParentFrame := pif.Parent()
 			if req.FrameSystem.Frame(goalParentFrame) == nil {
 				return referenceframe.NewParentFrameMissingError(fName, goalParentFrame)
@@ -186,7 +187,7 @@ func PlanFrameMotion(ctx context.Context,
 	plan, err := PlanMotion(ctx, &PlanRequest{
 		Logger: logger,
 		Goals: []*PlanState{
-			{poses: PathStep{f.Name(): referenceframe.NewPoseInFrame(referenceframe.World, dst)}},
+			{poses: PathState{f.Name(): referenceframe.NewPoseInFrame(referenceframe.World, dst)}},
 		},
 		StartState:  &PlanState{configuration: map[string][]referenceframe.Input{f.Name(): seed}},
 		FrameSystem: fs,
@@ -386,6 +387,7 @@ func (mp *planner) getSolutions(ctx context.Context, seed map[string][]reference
 		nSolutions = defaultSolutionsToSeed
 	}
 	if len(seed) == 0 {
+		seed = map[string][]referenceframe.Input{}
 		// If no seed is passed, generate one randomly
 		for _, frameName := range mp.fs.FrameNames() {
 			seed[frameName] = referenceframe.RandomFrameInputs(mp.fs.Frame(frameName), mp.randseed)

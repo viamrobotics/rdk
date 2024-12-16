@@ -34,7 +34,7 @@ const (
 // Intended information flow should be:
 // motionplan.PlanMotion() -> SolvableFrameSystem.SolveWaypointsWithOptions() -> planManager.planSingleWaypoint().
 type planManager struct {
-	*planner // TODO: This should probably be removed
+	*planner                // TODO: This should probably be removed
 	activeBackgroundWorkers sync.WaitGroup
 }
 
@@ -108,6 +108,7 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context, request *PlanReque
 		}
 
 		// Log each requested motion
+		// TODO: PlanRequest.String() could begin to exist
 		for frame, goal := range goalPoses {
 			request.Logger.CInfof(ctx,
 				"setting up motion for frame %s\nGoal: %v\nstartPose %v\nworldstate: %v\n",
@@ -174,7 +175,7 @@ func (pm *planManager) planAtomicWaypoints(
 		// TODO: Once TPspace also supports multiple waypoints, this needs to be updated.
 		if !wp.mp.opt().useTPspace && maps == nil {
 			if seed != nil {
-				// If we have a seed, we are linking ultiple waypoints, so the next one MUST start at the ending configuration of the last
+				// If we have a seed, we are linking multiple waypoints, so the next one MUST start at the ending configuration of the last
 				wp.startState = &PlanState{configuration: seed}
 			}
 			planSeed := initRRTSolutions(ctx, wp)
@@ -204,7 +205,7 @@ func (pm *planManager) planAtomicWaypoints(
 		if err != nil {
 			return nil, err
 		}
-		pm.logger.Debug("completed planning for waypoint %d", i)
+		pm.logger.Debugf("completed planning for waypoint %d", i)
 		resultSlices = append(resultSlices, steps...)
 	}
 
@@ -453,7 +454,6 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("opt.motionChains", opt.motionChains)
 	if len(opt.motionChains) < 1 {
 		return nil, errors.New("must have at least one motion chain")
 	}
@@ -671,8 +671,6 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 // generateWaypoints will return the list of atomic waypoints that correspond to a specific goal in a plan request.
 func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wpi int) ([]atomicWaypoint, error) {
 	wpGoals := request.Goals[wpi]
-	fmt.Println("wpGoals", wpGoals)
-
 
 	startPoses, err := request.StartState.ComputePoses(pm.fs)
 	if err != nil {
@@ -717,12 +715,9 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 			return nil, err
 		}
 	}
-	fmt.Println("alteredGoals", wpGoals)
-	
+
 	// TPspace should never use subwaypoints
 	if !subWaypoints || opt.useTPspace {
-		fmt.Println("wpi", wpi, "single")
-
 		//nolint: gosec
 		pathPlanner, err := opt.PlannerConstructor(
 			pm.fs,
@@ -735,17 +730,16 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 		}
 		return []atomicWaypoint{{mp: pathPlanner, startState: request.StartState, goalState: wpGoals}}, nil
 	}
-	fmt.Println("wpi", wpi, "multi")
 
-	pathStepSize, ok := request.Options["path_step_size"].(float64)
+	pathStateSize, ok := request.Options["path_step_size"].(float64)
 	if !ok {
-		pathStepSize = defaultPathStepSize
+		pathStateSize = defaultPathStateSize
 	}
 
 	numSteps := 0
 	for frame, pif := range goalPoses {
 		// Calculate steps needed for this frame
-		steps := PathStepCount(startPoses[frame].Pose(), pif.Pose(), pathStepSize)
+		steps := PathStateCount(startPoses[frame].Pose(), pif.Pose(), pathStateSize)
 		if steps > numSteps {
 			numSteps = steps
 		}

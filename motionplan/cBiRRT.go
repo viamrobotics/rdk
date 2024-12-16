@@ -103,11 +103,7 @@ func (mp *cBiRRTMotionPlanner) plan(ctx context.Context, seed, goal *PlanState) 
 		return initMaps.steps, nil
 	}
 	utils.PanicCapturingGo(func() {
-		mp.rrtBackgroundRunner(ctx, &rrtParallelPlannerShared{
-			initMaps.maps,
-			nil,
-			solutionChan,
-		})
+		mp.rrtBackgroundRunner(ctx, &rrtParallelPlannerShared{initMaps.maps, nil, solutionChan})
 	})
 	solution := <-solutionChan
 	if solution.err != nil {
@@ -142,6 +138,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	for sNode, parent := range rrt.maps.startMap {
 		if parent == nil {
 			seed = sNode.Q()
+			break
 		}
 	}
 	mp.logger.CInfof(ctx, "goal node: %v\n", rrt.maps.optNode.Q())

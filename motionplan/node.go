@@ -44,7 +44,7 @@ type node interface {
 	Q() map[string][]referenceframe.Input
 	Cost() float64
 	SetCost(float64)
-	Poses() PathStep
+	Poses() PathState
 	Corner() bool
 	SetCorner(bool)
 }
@@ -52,7 +52,7 @@ type node interface {
 type basicNode struct {
 	q      map[string][]referenceframe.Input
 	cost   float64
-	poses  PathStep
+	poses  PathState
 	corner bool
 }
 
@@ -77,7 +77,7 @@ func (n *basicNode) SetCost(cost float64) {
 	n.cost = cost
 }
 
-func (n *basicNode) Poses() PathStep {
+func (n *basicNode) Poses() PathState {
 	return n.poses
 }
 
@@ -149,9 +149,16 @@ func sumCosts(path []node) float64 {
 	return cost
 }
 
-func nodesFromPlanState(ctx context.Context, mp motionPlanner, state *PlanState, ikSeed map[string][]referenceframe.Input) ([]node, error) {
+// This function is the entrypoint to IK for all cases. Everything prior to here is poses or configurations as the user passed in, which
+// here are converted to a list of nodes which are to be used as the from or to states for a motionPlanner.
+func generateNodeListForPlanState(
+	ctx context.Context,
+	mp motionPlanner,
+	state *PlanState,
+	ikSeed map[string][]referenceframe.Input,
+) ([]node, error) {
 	nodes := []node{}
-	if state.poses != nil {
+	if len(state.poses) != 0 {
 		// If we have goal state poses, add them to the goal state configurations
 		goalMetric := mp.opt().getGoalMetric(state.poses)
 		// get many potential end goals from IK solver

@@ -45,7 +45,7 @@ func CheckPlan(
 	if err != nil {
 		return err
 	}
-	
+
 	// Spot check plan for options
 	planOpts, err := sfPlanner.plannerSetupFromMoveRequest(
 		&PlanState{poses: plan.Path()[0]},
@@ -59,7 +59,7 @@ func CheckPlan(
 	if err != nil {
 		return err
 	}
-	
+
 	// This should be done for any plan whose configurations are specified in relative terms rather than absolute ones.
 	// Currently this is only TP-space, so we check if the PTG length is >0.
 	if planOpts.useTPspace {
@@ -237,7 +237,7 @@ func checkPlanAbsolute(
 		startingInputs,
 		worldState,
 		nil,
-		nil, // no pb.Constraints
+		nil, // no Constraints
 		nil, // no planOpts
 	); err != nil {
 		return err

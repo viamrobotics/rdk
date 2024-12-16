@@ -29,7 +29,7 @@ func TestIKTolerances(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test inability to arrive at another position due to orientation
-	goal := &PlanState{poses: PathStep{m.Name(): frame.NewPoseInFrame(frame.World, spatial.NewPoseFromProtobuf(&commonpb.Pose{
+	goal := &PlanState{poses: PathState{m.Name(): frame.NewPoseInFrame(frame.World, spatial.NewPoseFromProtobuf(&commonpb.Pose{
 		X:  -46,
 		Y:  0,
 		Z:  372,
@@ -151,8 +151,8 @@ func TestLineFollow(t *testing.T) {
 
 	opt := newBasicPlannerOptions()
 	startCfg := map[string][]frame.Input{m.Name(): m.InputFromProtobuf(mp1)}
-	from := PathStep{markerFrame.Name(): frame.NewPoseInFrame(markerFrame.Name(), p1)}
-	to := PathStep{markerFrame.Name(): frame.NewPoseInFrame(goalFrame.Name(), p2)}
+	from := PathState{markerFrame.Name(): frame.NewPoseInFrame(markerFrame.Name(), p1)}
+	to := PathState{markerFrame.Name(): frame.NewPoseInFrame(goalFrame.Name(), p2)}
 
 	validFunc, gradFunc, err := CreateLineConstraintFS(fs, startCfg, from, to, 0.001)
 	test.That(t, err, test.ShouldBeNil)

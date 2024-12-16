@@ -384,10 +384,6 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 }
 
 func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq) (motionplan.Plan, error) {
-	if req.Destination == nil {
-		return nil, errors.New("cannot specify a nil destination in motion.MoveReq")
-	}
-
 	frameSys, err := ms.fsService.FrameSystem(ctx, req.WorldState.Transforms())
 	if err != nil {
 		return nil, err
@@ -409,6 +405,9 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq) (motionplan.Pla
 	if err != nil {
 		return nil, err
 	}
+	if len(waypoints) == 0 {
+		return nil, errors.New("could not find any waypoitns to plan for in MoveRequest. Fill in Destination or goal_state")
+	}
 
 	// re-evaluate goal poses to be in the frame of World
 	// TODO (RSDK-8847) : this is a workaround to help account for us not yet being able to properly synchronize simultaneous motion across
@@ -419,7 +418,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq) (motionplan.Pla
 	solvingFrame := referenceframe.World
 	for _, wp := range waypoints {
 		if wp.Poses() != nil {
-			step := motionplan.PathStep{}
+			step := motionplan.PathState{}
 			for fName, destination := range wp.Poses() {
 				tf, err := frameSys.Transform(fsInputs, destination, solvingFrame)
 				if err != nil {
@@ -587,7 +586,7 @@ func waypointsFromRequest(
 			return nil, nil, errors.New("extras goal_state could not be interpreted as map[string]interface{}")
 		}
 	} else {
-		goalState = motionplan.NewPlanState(motionplan.PathStep{req.ComponentName.ShortName(): req.Destination}, nil)
+		goalState = motionplan.NewPlanState(motionplan.PathState{req.ComponentName.ShortName(): req.Destination}, nil)
 	}
 	waypoints = append(waypoints, goalState)
 	return startState, waypoints, nil
