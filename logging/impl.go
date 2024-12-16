@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,6 +14,14 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest"
+)
+
+const (
+	// Window duration over which to consider log messages "noisy."
+	noisyMessageWindowDuration = 10 * time.Second
+	// Count threshold within `noisyMessageWindowDuration` after which to
+	// consider log messages "noisy."
+	noisyMessageCountThreshold = 3
 )
 
 type (
@@ -26,6 +35,18 @@ type (
 		// avoid that. This function is a no-op for non-test loggers. See `NewTestAppender`
 		// documentation for more details.
 		testHelper func()
+
+		// Whether or not to de-duplicate noisy logs.
+		dedupNoisyLogs bool
+
+		// recentMessageMu guards the recentMessage fields below.
+		recentMessageMu sync.Mutex
+		// Map of messages to counts of that message being `Write`ten within window.
+		recentMessageCounts map[string]int
+		// Map of messages to last `LogEntry` with that message within window.
+		recentMessageEntries map[string]LogEntry
+		// Start of current window.
+		recentMessageWindowStart time.Time
 	}
 
 	// LogEntry embeds a zapcore Entry and slice of Fields.
@@ -84,6 +105,16 @@ func (imp *impl) Sublogger(subname string) Logger {
 		imp.appenders,
 		imp.registry,
 		imp.testHelper,
+		// Inherit _whether_ we should deduplicate noisy logs from parent. However,
+		// subloggers should handle their own de-duplication with their own maps
+		// and windows. This design avoids locking across all loggers and allows
+		// logs with identical messages from different loggers to be considered
+		// unique.
+		imp.dedupNoisyLogs,
+		sync.Mutex{},
+		make(map[string]int),
+		make(map[string]LogEntry),
+		time.Now(),
 	}
 
 	// If there are multiple callers racing to create the same logger name (e.g: `viam.networking`),
@@ -198,6 +229,45 @@ func (imp *impl) shouldLog(logLevel Level) bool {
 }
 
 func (imp *impl) Write(entry *LogEntry) {
+	if imp.dedupNoisyLogs {
+		// If we have entered a new recentMessage window, output noisy logs from
+		// the last window.
+		imp.recentMessageMu.Lock()
+		if time.Since(imp.recentMessageWindowStart) > noisyMessageWindowDuration {
+			for message, count := range imp.recentMessageCounts {
+				if count > noisyMessageCountThreshold {
+					collapsedEntry := imp.recentMessageEntries[entry.Message]
+					collapsedEntry.Message = fmt.Sprintf("Message logged %d times in past %v: %s",
+						count, noisyMessageWindowDuration, message)
+
+					imp.testHelper()
+					for _, appender := range imp.appenders {
+						err := appender.Write(collapsedEntry.Entry, collapsedEntry.Fields)
+						if err != nil {
+							fmt.Fprint(os.Stderr, err)
+						}
+					}
+				}
+			}
+
+			// Clear maps and reset window.
+			clear(imp.recentMessageCounts)
+			clear(imp.recentMessageEntries)
+			imp.recentMessageWindowStart = time.Now()
+		}
+
+		// Track entry in recentMessage maps.
+		imp.recentMessageCounts[entry.Message]++
+		imp.recentMessageEntries[entry.Message] = *entry
+
+		if imp.recentMessageCounts[entry.Message] > noisyMessageCountThreshold {
+			// If entry's message is reportedly "noisy," return early.
+			imp.recentMessageMu.Unlock()
+			return
+		}
+		imp.recentMessageMu.Unlock()
+	}
+
 	imp.testHelper()
 	for _, appender := range imp.appenders {
 		err := appender.Write(entry.Entry, entry.Fields)
