@@ -481,6 +481,30 @@ func StartPositions(fs FrameSystem) map[string][]Input {
 	return positions
 }
 
+// InterpolateFS interpolates.
+func InterpolateFS(fs FrameSystem, from, to map[string][]Input, by float64) (map[string][]Input, error) {
+	interp := make(map[string][]Input)
+	for fn, fromInputs := range from {
+		if len(fromInputs) == 0 {
+			continue
+		}
+		frame := fs.Frame(fn)
+		if frame == nil {
+			return nil, NewFrameMissingError(fn)
+		}
+		toInputs, ok := to[fn]
+		if !ok {
+			return nil, fmt.Errorf("frame with name %s not found in `to` interpolation inputs", fn)
+		}
+		interpInputs, err := frame.Interpolate(fromInputs, toInputs, by)
+		if err != nil {
+			return nil, err
+		}
+		interp[fn] = interpInputs
+	}
+	return interp, nil
+}
+
 // FrameSystemToPCD takes in a framesystem and returns a map where all elements are
 // the point representation of their geometry type with respect to the world.
 func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input, logger logging.Logger) (map[string][]r3.Vector, error) {

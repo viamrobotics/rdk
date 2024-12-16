@@ -42,6 +42,8 @@ type AppServiceClient struct {
 		opts ...grpc.CallOption) (*apppb.ResendOrganizationInviteResponse, error)
 	EnableBillingServiceFunc func(ctx context.Context, in *apppb.EnableBillingServiceRequest,
 		opts ...grpc.CallOption) (*apppb.EnableBillingServiceResponse, error)
+	GetBillingServiceConfigFunc func(ctx context.Context, in *apppb.GetBillingServiceConfigRequest,
+		opts ...grpc.CallOption) (*apppb.GetBillingServiceConfigResponse, error)
 	DisableBillingServiceFunc func(ctx context.Context, in *apppb.DisableBillingServiceRequest,
 		opts ...grpc.CallOption) (*apppb.DisableBillingServiceResponse, error)
 	UpdateBillingServiceFunc func(ctx context.Context, in *apppb.UpdateBillingServiceRequest,
@@ -325,6 +327,16 @@ func (asc *AppServiceClient) EnableBillingService(
 		return asc.AppServiceClient.EnableBillingService(ctx, in, opts...)
 	}
 	return asc.EnableBillingServiceFunc(ctx, in, opts...)
+}
+
+// GetBillingServiceConfig calls the injected GetBillingServiceConfigFunc or the real version.
+func (asc *AppServiceClient) GetBillingServiceConfig(
+	ctx context.Context, in *apppb.GetBillingServiceConfigRequest, opts ...grpc.CallOption,
+) (*apppb.GetBillingServiceConfigResponse, error) {
+	if asc.GetBillingServiceConfigFunc == nil {
+		return asc.AppServiceClient.GetBillingServiceConfig(ctx, in, opts...)
+	}
+	return asc.GetBillingServiceConfigFunc(ctx, in, opts...)
 }
 
 // DisableBillingService calls the injected DisableBillingServiceFunc or the real version.

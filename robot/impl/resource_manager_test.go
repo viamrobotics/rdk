@@ -1918,10 +1918,6 @@ func (rr *dummyRobot) TransformPointCloud(ctx context.Context, srcpc pointcloud.
 	panic("change to return nil")
 }
 
-func (rr *dummyRobot) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-	panic("change to return nil")
-}
-
 func (rr *dummyRobot) ProcessManager() pexec.ProcessManager {
 	panic("change to return nil")
 }

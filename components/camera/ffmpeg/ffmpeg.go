@@ -26,7 +26,6 @@ import (
 type Config struct {
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
-	Debug                bool                               `json:"debug,omitempty"`
 	VideoPath            string                             `json:"video_path"`
 	InputKWArgs          map[string]interface{}             `json:"input_kw_args,omitempty"`
 	Filters              []FilterConfig                     `json:"filters,omitempty"`

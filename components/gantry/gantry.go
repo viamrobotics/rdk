@@ -18,7 +18,6 @@ import (
 
 func init() {
 	resource.RegisterAPI(API, resource.APIRegistration[Gantry]{
-		Status:                      resource.StatusFunc(CreateStatus),
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterGantryServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.GantryService_ServiceDesc,
@@ -116,22 +115,4 @@ func FromRobot(r robot.Robot, name string) (Gantry, error) {
 // NamesFromRobot is a helper for getting all gantry names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
-}
-
-// CreateStatus creates a status from the gantry.
-func CreateStatus(ctx context.Context, g Gantry) (*pb.Status, error) {
-	positions, err := g.Position(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	lengths, err := g.Lengths(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	isMoving, err := g.IsMoving(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.Status{PositionsMm: positions, LengthsMm: lengths, IsMoving: isMoving}, nil
 }
