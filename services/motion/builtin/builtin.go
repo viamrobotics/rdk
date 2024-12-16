@@ -3,7 +3,6 @@ package builtin
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -13,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/motion/v1"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
@@ -351,12 +351,12 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 
 	resp := make(map[string]interface{}, 0)
 	if req, ok := cmd[DoPlan]; ok {
-		bytes, err := json.Marshal(req)
+		s, err := utils.AssertType[string](req)
 		if err != nil {
 			return nil, err
 		}
 		var moveReqProto pb.MoveRequest
-		err = json.Unmarshal(bytes, &moveReqProto)
+		err = protojson.Unmarshal([]byte(s), &moveReqProto)
 		if err != nil {
 			return nil, err
 		}

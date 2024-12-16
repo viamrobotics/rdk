@@ -277,18 +277,6 @@ func TestClient(t *testing.T) {
 
 		injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
 			test.That(t, len(extra), test.ShouldEqual, 1)
-			test.That(t, extra["hello"], test.ShouldEqual, "world")
-			return nil, camera.ImageMetadata{}, errGetImageFailed
-		}
-
-		// one kvp created with map[string]interface{}
-		ext := map[string]interface{}{"hello": "world"}
-		_, _, err = camClient.Image(ctx, "", ext)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
-
-		injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
-			test.That(t, len(extra), test.ShouldEqual, 1)
 			test.That(t, extra[data.FromDMString], test.ShouldBeTrue)
 
 			return nil, camera.ImageMetadata{}, errGetImageFailed
@@ -306,7 +294,7 @@ func TestClient(t *testing.T) {
 		}
 
 		// merge values from data and camera
-		ext = data.FromDMExtraMap
+		ext := data.FromDMExtraMap
 		ext["hello"] = "world"
 		ctx = context.Background()
 		_, _, err = camClient.Image(ctx, "", ext)

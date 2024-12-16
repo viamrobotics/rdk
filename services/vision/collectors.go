@@ -2,10 +2,9 @@ package vision
 
 import (
 	"context"
+	"time"
 
 	"github.com/pkg/errors"
-	servicepb "go.viam.com/api/service/vision/v1"
-	"go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -29,12 +28,6 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-type extraFields struct {
-	Height   int
-	Width    int
-	MimeType string
-}
-
 type methodParamsDecoded struct {
 	cameraName    string
 	mimeType      string
@@ -53,79 +46,88 @@ func newCaptureAllFromCameraCollector(resource interface{}, params data.Collecto
 	}
 
 	cameraName := decodedParams.cameraName
-	mimeType := decodedParams.mimeType
 	minConfidenceScore := decodedParams.minConfidence
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
+		timeRequested := time.Now()
+		var res data.CaptureResult
 		visCaptureOptions := viscapture.CaptureOptions{
 			ReturnImage:           true,
 			ReturnDetections:      true,
 			ReturnClassifications: true,
-			ReturnObject:          true,
 		}
 		visCapture, err := vision.CaptureAllFromCamera(ctx, cameraName, visCaptureOptions, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a service. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
 			if errors.Is(err, data.ErrNoCaptureToStore) {
-				return nil, err
+				return res, err
 			}
-			return nil, data.FailedToReadErr(params.ComponentName, captureAllFromCamera.String(), err)
+			return res, data.FailedToReadErr(params.ComponentName, captureAllFromCamera.String(), err)
+		}
+
+		if visCapture.Image == nil {
+			return res, errors.New("vision service didn't return an image")
 		}
 
 		protoImage, err := imageToProto(ctx, visCapture.Image, cameraName)
 		if err != nil {
-			return nil, err
+			return res, err
 		}
 
-		filteredDetections := []objectdetection.Detection{}
-		for _, elem := range visCapture.Detections {
-			if elem.Score() >= minConfidenceScore {
-				filteredDetections = append(filteredDetections, elem)
-			}
-		}
-
-		protoDetections := detsToProto(filteredDetections)
-
-		filteredClassifications := classification.Classifications{}
-		for _, elem := range visCapture.Classifications {
-			if elem.Score() >= minConfidenceScore {
-				filteredClassifications = append(filteredClassifications, elem)
-			}
-		}
-
-		protoClassifications := clasToProto(filteredClassifications)
-
-		protoObjects, err := segmentsToProto(cameraName, visCapture.Objects)
-		if err != nil {
-			return nil, err
-		}
-
-		// We need this to pass in the height & width of an image in order to calculate
-		// the normalized coordinate values of any bounding boxes. We also need the
-		// mimeType to appropriately upload the image.
-		bounds := extraFields{}
-
+		var width, height int
 		if visCapture.Image != nil {
-			bounds = extraFields{
-				Height:   visCapture.Image.Bounds().Dy(),
-				Width:    visCapture.Image.Bounds().Dx(),
-				MimeType: mimeType,
+			width = visCapture.Image.Bounds().Dx()
+			height = visCapture.Image.Bounds().Dy()
+		}
+
+		filteredBoundingBoxes := []data.BoundingBox{}
+		for _, d := range visCapture.Detections {
+			if d.Score() >= minConfidenceScore {
+				filteredBoundingBoxes = append(filteredBoundingBoxes, toDataBoundingBox(d, width, height))
 			}
 		}
 
-		boundsPb, err := protoutils.StructToStructPb(bounds)
-		if err != nil {
-			return nil, err
+		filteredClassifications := []data.Classification{}
+		for _, c := range visCapture.Classifications {
+			if score := c.Score(); score >= minConfidenceScore {
+				filteredClassifications = append(filteredClassifications, toDataClassification(c))
+			}
 		}
 
-		return &servicepb.CaptureAllFromCameraResponse{
-			Image: protoImage, Detections: protoDetections, Classifications: protoClassifications,
-			Objects: protoObjects, Extra: boundsPb,
-		}, nil
+		ts := data.Timestamps{
+			TimeRequested: timeRequested,
+			TimeReceived:  time.Now(),
+		}
+		return data.NewBinaryCaptureResult(ts, []data.Binary{{
+			Payload:  protoImage.Image,
+			MimeType: data.CameraFormatToMimeType(protoImage.Format),
+			Annotations: data.Annotations{
+				BoundingBoxes:   filteredBoundingBoxes,
+				Classifications: filteredClassifications,
+			},
+		}}), nil
 	})
 
 	return data.NewCollector(cFunc, params)
+}
+
+func toDataClassification(c classification.Classification) data.Classification {
+	confidence := c.Score()
+	return data.Classification{Label: c.Label(), Confidence: &confidence}
+}
+
+func toDataBoundingBox(d objectdetection.Detection, width, height int) data.BoundingBox {
+	confidence := d.Score()
+	bbox := d.BoundingBox()
+	return data.BoundingBox{
+		Label:          d.Label(),
+		Confidence:     &confidence,
+		XMinNormalized: float64(bbox.Min.X) / float64(width),
+		XMaxNormalized: float64(bbox.Max.X) / float64(width),
+		YMinNormalized: float64(bbox.Min.Y) / float64(height),
+		YMaxNormalized: float64(bbox.Max.Y) / float64(height),
+	}
 }
 
 func additionalParamExtraction(methodParams map[string]*anypb.Any) (methodParamsDecoded, error) {
