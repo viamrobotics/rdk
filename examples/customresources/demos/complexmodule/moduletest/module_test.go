@@ -296,7 +296,6 @@ func TestComplexModule(t *testing.T) {
 }
 
 func connect(port int, logger logging.Logger) (robot.Robot, error) {
-	logger.Info("BENJI-DBG Calling complex module connect")
 	connectCtx, cancelConn := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancelConn()
 	for {
@@ -307,7 +306,6 @@ func connect(port int, logger logging.Logger) (robot.Robot, error) {
 		)
 		dialCancel()
 		if !errors.Is(err, context.DeadlineExceeded) {
-			logger.Info("BENJI-DBG I successfully created a client in complex module connect")
 			return rc, err
 		}
 		select {
