@@ -406,7 +406,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq) (motionplan.Pla
 		return nil, err
 	}
 	if len(waypoints) == 0 {
-		return nil, errors.New("could not find any waypoitns to plan for in MoveRequest. Fill in Destination or goal_state")
+		return nil, errors.New("could not find any waypoints to plan for in MoveRequest. Fill in Destination or goal_state")
 	}
 
 	// re-evaluate goal poses to be in the frame of World
@@ -537,7 +537,6 @@ func waypointsFromRequest(
 	fsInputs map[string][]referenceframe.Input,
 ) (*motionplan.PlanState, []*motionplan.PlanState, error) {
 	var startState *motionplan.PlanState
-	var goalState *motionplan.PlanState
 	var waypoints []*motionplan.PlanState
 	var err error
 
@@ -578,16 +577,17 @@ func waypointsFromRequest(
 	// If goal state is specified, it overrides the request goal
 	if goalStateIface, ok := req.Extra["goal_state"]; ok {
 		if goalStateMap, ok := goalStateIface.(map[string]interface{}); ok {
-			goalState, err = motionplan.DeserializePlanState(goalStateMap)
+			goalState, err := motionplan.DeserializePlanState(goalStateMap)
 			if err != nil {
 				return nil, nil, err
 			}
+			waypoints = append(waypoints, goalState)
 		} else {
 			return nil, nil, errors.New("extras goal_state could not be interpreted as map[string]interface{}")
 		}
-	} else {
-		goalState = motionplan.NewPlanState(motionplan.PathState{req.ComponentName.ShortName(): req.Destination}, nil)
+	} else if req.Destination != nil {
+		goalState := motionplan.NewPlanState(motionplan.PathState{req.ComponentName.ShortName(): req.Destination}, nil)
+		waypoints = append(waypoints, goalState)
 	}
-	waypoints = append(waypoints, goalState)
 	return startState, waypoints, nil
 }
