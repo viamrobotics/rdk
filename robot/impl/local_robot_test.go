@@ -46,7 +46,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
-	"go.viam.com/rdk/grpc"
 	rgrpc "go.viam.com/rdk/grpc"
 	internalcloud "go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
@@ -3020,16 +3019,16 @@ func TestMachineStatus(t *testing.T) {
 
 	t.Run("default resources with cloud metadata", func(t *testing.T) {
 		rev1 := "rev1"
-		partId := "the-robot-part"
-		locId := "the-location"
-		orgId := "the-org"
-		machineId := "the-machine"
+		partID := "the-robot-part"
+		locID := "the-location"
+		orgID := "the-org"
+		machineID := "the-machine"
 		cfg := &config.Config{
 			Cloud: &config.Cloud{
-				ID:           partId,
-				LocationID:   locId,
-				PrimaryOrgID: orgId,
-				MachineID:    machineId,
+				ID:           partID,
+				LocationID:   locID,
+				PrimaryOrgID: orgID,
+				MachineID:    machineID,
 			},
 			Revision: rev1,
 		}
@@ -3040,10 +3039,10 @@ func TestMachineStatus(t *testing.T) {
 		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev1)
 
 		md := cloud.Metadata{
-			PrimaryOrgID:  orgId,
-			LocationID:    locId,
-			MachineID:     machineId,
-			MachinePartID: partId,
+			PrimaryOrgID:  orgID,
+			LocationID:    locID,
+			MachineID:     machineID,
+			MachinePartID: partID,
 		}
 		expectedStatuses := getExpectedDefaultStatuses(rev1, md)
 		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
@@ -3236,7 +3235,7 @@ func TestMachineStatusWithRemotes(t *testing.T) {
 			injectRemoteRobot.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 				for _, rName := range injectRemoteRobot.ResourceNames() {
 					if rName == name {
-						return grpc.NewForeignResource(rName, nil), nil
+						return rgrpc.NewForeignResource(rName, nil), nil
 					}
 				}
 				return nil, resource.NewNotFoundError(name)
@@ -3358,7 +3357,7 @@ func TestMachineStatusWithTwoRemotes(t *testing.T) {
 	injectRemoteRobot1.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		for _, rName := range injectRemoteRobot1.ResourceNames() {
 			if rName == name {
-				return grpc.NewForeignResource(rName, nil), nil
+				return rgrpc.NewForeignResource(rName, nil), nil
 			}
 		}
 		return nil, resource.NewNotFoundError(name)
@@ -3402,7 +3401,7 @@ func TestMachineStatusWithTwoRemotes(t *testing.T) {
 	injectRemoteRobot2.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		for _, rName := range injectRemoteRobot2.ResourceNames() {
 			if rName == name {
-				return grpc.NewForeignResource(rName, nil), nil
+				return rgrpc.NewForeignResource(rName, nil), nil
 			}
 		}
 		return nil, resource.NewNotFoundError(name)
@@ -3528,7 +3527,7 @@ func TestMachineStatusWithRemoteChain(t *testing.T) {
 			remote2.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 				for _, rName := range remote2.ResourceNames() {
 					if rName == name {
-						return grpc.NewForeignResource(rName, nil), nil
+						return rgrpc.NewForeignResource(rName, nil), nil
 					}
 				}
 				return nil, resource.NewNotFoundError(name)

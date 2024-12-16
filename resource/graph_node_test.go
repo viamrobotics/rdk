@@ -72,7 +72,7 @@ func TestUnconfiguredLifecycle(t *testing.T) {
 	test.That(t, node.State(), test.ShouldEqual, expectedState)
 
 	status := node.Status()
-	test.That(t, status.Name.Name, test.ShouldEqual, "foo")
+	test.That(t, status.Name.Name, test.ShouldEqual, "")
 	test.That(t, status.State, test.ShouldResemble, expectedState)
 
 	lifecycleTest(t, node, initialDeps)
@@ -103,7 +103,7 @@ func TestConfiguredLifecycle(t *testing.T) {
 	test.That(t, node.State(), test.ShouldEqual, expectedState)
 
 	status := node.Status()
-	test.That(t, status.Name, test.ShouldResemble, resName)
+	test.That(t, status.Name, test.ShouldResemble, resource.Name{})
 	test.That(t, status.State, test.ShouldResemble, resource.NodeStateReady)
 
 	lifecycleTest(t, node, []string(nil))

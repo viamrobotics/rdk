@@ -1,7 +1,6 @@
 package resource
 
 import (
-	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -309,8 +308,6 @@ func (g *Graph) addNode(node Name, nodeVal *GraphNode) error {
 func (g *Graph) AddChild(child, parent Name) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	fmt.Printf("child: %v\n", child)
-	fmt.Printf("parent: %v\n", parent)
 	return g.addChild(child, parent)
 }
 

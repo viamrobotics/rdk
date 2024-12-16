@@ -6,7 +6,6 @@ package robotimpl
 
 import (
 	"context"
-	"fmt"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -1393,14 +1392,11 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 	var result robot.MachineStatus
 
 	remoteMdMap := r.manager.getRemoteResourceMetadata(ctx)
-	fmt.Printf("remoteMdMap: %v\n", remoteMdMap)
 
 	// we can safely ignore errors from `r.CloudMetadata`. If there is an error, that means
 	// that this robot does not have CloudMetadata to attach to resources.
 	md, _ := r.CloudMetadata(ctx) //nolint:errcheck
 	for _, resourceStatus := range r.manager.resources.Status() {
-		fmt.Printf("resourceStatus.Name: %v\n", resourceStatus.Name)
-
 		// if the resource is local, we can use the status as is and attach the cloud metadata of this robot.
 		if !resourceStatus.Name.ContainsRemoteNames() && resourceStatus.Name.API != client.RemoteAPI {
 			result.Resources = append(result.Resources, resource.Status{NodeStatus: resourceStatus, CloudMetadata: md})
