@@ -3343,6 +3343,146 @@ func TestMachineStatusWithRemotes(t *testing.T) {
 	}
 }
 
+func TestMachineStatusWithTwoRemotes(t *testing.T) {
+	// test that if one remote returns an error, MachineStatus returns correctly
+	logger := logging.NewTestLogger(t)
+
+	ctx := context.Background()
+
+	cfg := &config.Config{}
+	lr := setupLocalRobot(t, ctx, cfg, logger, withDisableBackgroundReconfiguration())
+
+	resName1 := resource.NewName(resource.APINamespace("acme").WithComponentType("huwat"), "thing1")
+	injectRemoteRobot1 := &inject.Robot{
+		LoggerFunc:          func() logging.Logger { return logger },
+		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+		ResourceNamesFunc:   func() []resource.Name { return []resource.Name{resName1} },
+	}
+	remoteName1 := "remote1"
+	injectRemoteRobot1.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
+		for _, rName := range injectRemoteRobot1.ResourceNames() {
+			if rName == name {
+				return grpc.NewForeignResource(rName.PrependRemote(remoteName1), nil), nil
+			}
+		}
+		return nil, resource.NewNotFoundError(name)
+	}
+	injectRemoteRobot1.CloudMetadataFunc = func(context.Context) (cloud.Metadata, error) {
+		return cloud.Metadata{}, errNoCloudMetadata
+	}
+	injectRemoteRobot1.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
+		// check that a timeout is passed down from the caller.
+		if _, ok := ctx.Deadline(); !ok {
+			return robot.MachineStatus{}, errors.New("no timeout detected")
+		}
+		return robot.MachineStatus{
+			Resources: []resource.Status{
+				{
+					NodeStatus: resource.NodeStatus{
+						Name: resName1, State: resource.NodeStateUnconfigured, Revision: "rev2",
+					},
+					CloudMetadata: cloud.Metadata{},
+				},
+			},
+		}, nil
+	}
+	dRobot1 := newDummyRobot(t, injectRemoteRobot1)
+	dRobot1.SetName(remoteName1)
+	lr.(*localRobot).manager.addRemote(
+		context.Background(),
+		dRobot1,
+		nil,
+		config.Remote{Name: remoteName1},
+	)
+
+	resName2 := resource.NewName(resource.APINamespace("acme").WithComponentType("huwat"), "thing2")
+	injectRemoteRobot2 := &inject.Robot{
+		LoggerFunc:          func() logging.Logger { return logger },
+		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+		ResourceNamesFunc:   func() []resource.Name { return []resource.Name{resName2} },
+	}
+	remoteName2 := "remote2"
+	injectRemoteRobot2.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
+		for _, rName := range injectRemoteRobot2.ResourceNames() {
+			if rName == name {
+				return grpc.NewForeignResource(rName.PrependRemote(remoteName2), nil), nil
+			}
+		}
+		return nil, resource.NewNotFoundError(name)
+	}
+
+	remoteMd := cloud.Metadata{
+		PrimaryOrgID:  "the-remote-org",
+		LocationID:    "the-remote-location",
+		MachineID:     "the-remote-machine",
+		MachinePartID: "the-remote-part",
+	}
+	injectRemoteRobot2.CloudMetadataFunc = func(context.Context) (cloud.Metadata, error) {
+		return remoteMd, nil
+	}
+	injectRemoteRobot2.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
+		// check that a timeout is passed down from the caller.
+		if _, ok := ctx.Deadline(); !ok {
+			return robot.MachineStatus{}, errors.New("no timeout detected")
+		}
+		return robot.MachineStatus{
+			Resources: []resource.Status{
+				{
+					NodeStatus: resource.NodeStatus{
+						Name: resName2, State: resource.NodeStateUnconfigured, Revision: "rev2",
+					},
+					CloudMetadata: remoteMd,
+				},
+			},
+		}, nil
+	}
+	dRobot2 := newDummyRobot(t, injectRemoteRobot2)
+	dRobot2.SetName(remoteName2)
+	lr.(*localRobot).manager.addRemote(
+		context.Background(),
+		dRobot2,
+		nil,
+		config.Remote{Name: remoteName2},
+	)
+
+	mStatus, err := lr.MachineStatus(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, mStatus.Config.Revision, test.ShouldEqual, "")
+	expectedStatuses := rtestutils.ConcatResourceStatuses(
+		getExpectedDefaultStatuses("", cloud.Metadata{}),
+		[]resource.Status{
+			{
+				NodeStatus: resource.NodeStatus{
+					Name:  resource.NewName(client.RemoteAPI, remoteName1),
+					State: resource.NodeStateReady,
+				},
+			},
+			{
+				NodeStatus: resource.NodeStatus{
+					Name:  resName1.PrependRemote(remoteName1),
+					State: resource.NodeStateReady,
+				},
+			},
+			{
+				NodeStatus: resource.NodeStatus{
+					Name:  resource.NewName(client.RemoteAPI, remoteName2),
+					State: resource.NodeStateReady,
+				},
+				CloudMetadata: remoteMd,
+			},
+			{
+				NodeStatus: resource.NodeStatus{
+					Name:  resName2.PrependRemote(remoteName2),
+					State: resource.NodeStateReady,
+				},
+				CloudMetadata: remoteMd,
+			},
+		},
+	)
+	rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
+}
+
 // assertDialFails reconnects an existing `RobotClient` with a small timeout value to keep tests
 // fast.
 func assertDialFails(t *testing.T, client *client.RobotClient) {
