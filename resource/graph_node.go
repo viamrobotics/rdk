@@ -559,10 +559,10 @@ func (w *GraphNode) Status() NodeStatus {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
-	return w.resourceStatus()
+	return w.status()
 }
 
-func (w *GraphNode) resourceStatus() NodeStatus {
+func (w *GraphNode) status() NodeStatus {
 	var resName Name
 	if w.current == nil {
 		resName = w.config.ResourceName()
