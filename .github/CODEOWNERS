@@ -1,0 +1,4 @@
+# Team SDK is responsible for CLI best practices and wishes to maintain insight into any
+# changes currently being made to the CLI codebase.
+/cli/ @viamrobotics/sdk-netcode
+
