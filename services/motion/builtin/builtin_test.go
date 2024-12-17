@@ -1302,7 +1302,7 @@ func TestDoCommand(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(trajectory), test.ShouldEqual, 2)
 
-		// test that it breaks if a bad motion profile is provided, meaning it is being parsed correctly
+		// test that it correctly breaks if bad inputs are provided, meaning it is being parsed correctly
 		moveReq.Extra = map[string]interface{}{
 			"motion_profile": motionplan.LinearMotionProfile,
 			"planning_alg":   "rrtstar",
