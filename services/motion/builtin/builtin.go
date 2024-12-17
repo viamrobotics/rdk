@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/motion/v1"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
@@ -359,6 +360,14 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 		err = protojson.Unmarshal([]byte(s), &moveReqProto)
 		if err != nil {
 			return nil, err
+		}
+		fields := moveReqProto.Extra.AsMap()
+		if extra, err := utils.AssertType[map[string]interface{}](fields["fields"]); err == nil {
+			v, err := structpb.NewStruct(extra)
+			if err != nil {
+				return nil, err
+			}
+			moveReqProto.Extra = v
 		}
 		moveReq, err := motion.MoveReqFromProto(&moveReqProto)
 		if err != nil {
