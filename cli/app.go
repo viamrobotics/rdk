@@ -45,7 +45,7 @@ const (
 	// TODO(RSDK-9287) - "name" occurs as three different flags. let's simplify that.
 	apiKeyCreateFlagName = "name"
 
-	moduleFlagName            = "name"
+	moduleFlagName            = "module-name"
 	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
 	moduleFlagPath            = "module"
@@ -57,9 +57,14 @@ const (
 	moduleFlagHomeDir         = "home"
 	moduleCreateLocalOnly     = "local-only"
 	moduleFlagID              = "id"
+	moduleFlagIsPublic        = "public"
 	moduleFlagResourceType    = "resource-type"
 	moduleFlagResourceSubtype = "resource-subtype"
+	moduleFlagModelName       = "model-name"
+	moduleFlagEnableCloud     = "enable-cloud"
+	moduleFlagRegister        = "register"
 	moduleFlagTags            = "tags"
+	moduleFlagDryRun          = "dry-run"
 
 	moduleBuildFlagPath      = "module"
 	moduleBuildFlagRef       = "ref"
@@ -1680,17 +1685,45 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Usage: "generate a new modular resource via prompts",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
+							Name:  moduleFlagName,
+							Usage: "name to use for module",
+						},
+						&cli.StringFlag{
 							Name:  moduleFlagLanguage,
 							Usage: "language to use for module",
-							Value: "python",
+						},
+						&cli.BoolFlag{
+							Name:  moduleFlagIsPublic,
+							Usage: "set module to public",
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagPublicNamespace,
+							Usage: "namespace or organization ID of module",
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagResourceSubtype,
+							Usage: "resource subtype to use in module",
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagResourceType,
 							Usage: "resource type to use in module",
 						},
 						&cli.StringFlag{
-							Name:  moduleFlagResourceSubtype,
-							Usage: "resource subtype to use in module",
+							Name:  moduleFlagModelName,
+							Usage: "resource model name to use in module",
+						},
+						&cli.BoolFlag{
+							Name:  moduleFlagEnableCloud,
+							Usage: "generate Github workflows to build module",
+						},
+						&cli.BoolFlag{
+							Name:  moduleFlagRegister,
+							Usage: "register module with Viam to associate with your organization",
+						},
+						&cli.BoolFlag{
+							Name:   moduleFlagDryRun,
+							Usage:  "indicate a dry test run, so skip regular checks",
+							Hidden: true,
 						},
 					},
 					Action: createCommandWithT[generateModuleArgs](GenerateModuleAction),
