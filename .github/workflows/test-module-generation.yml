@@ -55,7 +55,7 @@ jobs:
           --resource-subtype "${{ matrix.resource.subtype }}" \
           --resource-type "${{ matrix.resource.type }}" \
           --model-name "model-name" \
-          --test
+          --dry-run
 
       - name: Run module
         run: |

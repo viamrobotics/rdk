@@ -56,7 +56,7 @@ type generateModuleArgs struct {
 	ModelName       string
 	EnableCloud     bool
 	Register        bool
-	Test            bool
+	DryRun          bool
 }
 
 // GenerateModuleAction runs the module generate cli and generates necessary module templates based on user input.
@@ -95,7 +95,7 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 		}
 	}
 	populateAdditionalInfo(newModule)
-	if !args.Test {
+	if !args.DryRun {
 		if err := wrapResolveOrg(cCtx, c, newModule); err != nil {
 			return err
 		}
@@ -242,6 +242,7 @@ func promptUser(module *common.ModuleInputs) error {
 			huh.NewInput().
 				Title("Namespace/Organization ID").
 				Value(&module.Namespace).
+				Placeholder("my-namespace").
 				Validate(func(s string) error {
 					if s == "" {
 						return errors.New("namespace or org ID must not be empty")

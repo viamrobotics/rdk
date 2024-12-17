@@ -64,7 +64,7 @@ const (
 	moduleFlagEnableCloud     = "enable-cloud"
 	moduleFlagRegister        = "register"
 	moduleFlagTags            = "tags"
-	moduleFlagTest            = "test"
+	moduleFlagDryRun          = "dry-run"
 
 	moduleBuildFlagPath      = "module"
 	moduleBuildFlagRef       = "ref"
@@ -1684,8 +1684,9 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							Usage: "register module with Viam to associate with your organization",
 						},
 						&cli.BoolFlag{
-							Name:  moduleFlagTest,
-							Usage: "indicate a test run, so skip regular checks",
+							Name:   moduleFlagDryRun,
+							Usage:  "indicate a dry test run, so skip regular checks",
+							Hidden: true,
 						},
 					},
 					Action: createCommandWithT[generateModuleArgs](GenerateModuleAction),
