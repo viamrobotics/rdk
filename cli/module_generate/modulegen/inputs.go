@@ -1,5 +1,5 @@
-// Package common contains defined types used for module generation
-package common
+// Package modulegen contains defined types used for module generation
+package modulegen
 
 import (
 	"fmt"

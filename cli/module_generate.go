@@ -23,7 +23,7 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	"go.viam.com/rdk/cli/module_generate/common"
+	"go.viam.com/rdk/cli/module_generate/modulegen"
 	gen "go.viam.com/rdk/cli/module_generate/scripts"
 )
 
@@ -69,10 +69,10 @@ func GenerateModuleAction(cCtx *cli.Context, args generateModuleArgs) error {
 }
 
 func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModuleArgs) error {
-	var newModule *common.ModuleInputs
+	var newModule *modulegen.ModuleInputs
 	var err error
 
-	newModule = &common.ModuleInputs{
+	newModule = &modulegen.ModuleInputs{
 		ModuleName:       args.ModuleName,
 		Language:         args.Language,
 		IsPublic:         args.Public,
@@ -185,11 +185,11 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 }
 
 // Prompt the user for information regarding the module they want to create
-// returns the common.ModuleInputs struct that contains the information the user entered.
-func promptUser(module *common.ModuleInputs) error {
+// returns the modulegen.ModuleInputs struct that contains the information the user entered.
+func promptUser(module *modulegen.ModuleInputs) error {
 	titleCaser := cases.Title(language.Und)
 	resourceOptions := []huh.Option[string]{}
-	for _, resource := range common.Resources {
+	for _, resource := range modulegen.Resources {
 		words := strings.Split(strings.ReplaceAll(resource, "_", " "), " ")
 		for i, word := range words {
 			switch word {
@@ -288,7 +288,7 @@ func promptUser(module *common.ModuleInputs) error {
 	return nil
 }
 
-func wrapResolveOrg(cCtx *cli.Context, c *viamClient, newModule *common.ModuleInputs) error {
+func wrapResolveOrg(cCtx *cli.Context, c *viamClient, newModule *modulegen.ModuleInputs) error {
 	match, err := regexp.MatchString("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", newModule.Namespace)
 	if !match || err != nil {
 		// If newModule.Namespace is NOT a UUID
@@ -309,7 +309,7 @@ func wrapResolveOrg(cCtx *cli.Context, c *viamClient, newModule *common.ModuleIn
 	return nil
 }
 
-func catchResolveOrgErr(cCtx *cli.Context, c *viamClient, newModule *common.ModuleInputs, caughtErr error) error {
+func catchResolveOrgErr(cCtx *cli.Context, c *viamClient, newModule *modulegen.ModuleInputs, caughtErr error) error {
 	if strings.Contains(caughtErr.Error(), "not logged in") || strings.Contains(caughtErr.Error(), "error while refreshing token") {
 		originalWriter := cCtx.App.Writer
 		cCtx.App.Writer = io.Discard
@@ -328,7 +328,7 @@ func catchResolveOrgErr(cCtx *cli.Context, c *viamClient, newModule *common.Modu
 }
 
 // populateAdditionalInfo fills in additional info in newModule.
-func populateAdditionalInfo(newModule *common.ModuleInputs) {
+func populateAdditionalInfo(newModule *modulegen.ModuleInputs) {
 	newModule.GeneratedOn = time.Now().UTC()
 	newModule.GeneratorVersion = version
 	newModule.ResourceSubtype = strings.Split(newModule.Resource, " ")[0]
@@ -362,7 +362,7 @@ func setupDirectories(c *cli.Context, moduleName string, globalArgs globalArgs) 
 	return nil
 }
 
-func renderCommonFiles(c *cli.Context, module common.ModuleInputs, globalArgs globalArgs) error {
+func renderCommonFiles(c *cli.Context, module modulegen.ModuleInputs, globalArgs globalArgs) error {
 	debugf(c.App.Writer, globalArgs.Debug, module.ResourceSubtypePascal)
 	debugf(c.App.Writer, globalArgs.Debug, "Rendering common files")
 
@@ -499,7 +499,7 @@ func copyLanguageTemplate(c *cli.Context, language, moduleName string, globalArg
 }
 
 // Render all the files in the new directory.
-func renderTemplate(c *cli.Context, module common.ModuleInputs, globalArgs globalArgs) error {
+func renderTemplate(c *cli.Context, module modulegen.ModuleInputs, globalArgs globalArgs) error {
 	debugf(c.App.Writer, globalArgs.Debug, "Rendering template files")
 	languagePath := filepath.Join(templatesPath, module.Language)
 	tempDir, err := fs.Sub(templates, languagePath)
@@ -544,7 +544,7 @@ func renderTemplate(c *cli.Context, module common.ModuleInputs, globalArgs globa
 }
 
 // Generate stubs for the resource.
-func generateStubs(c *cli.Context, module common.ModuleInputs, globalArgs globalArgs) error {
+func generateStubs(c *cli.Context, module modulegen.ModuleInputs, globalArgs globalArgs) error {
 	debugf(c.App.Writer, globalArgs.Debug, "Generating %s stubs", module.Language)
 	switch module.Language {
 	case python:
@@ -556,7 +556,7 @@ func generateStubs(c *cli.Context, module common.ModuleInputs, globalArgs global
 	}
 }
 
-func generateGolangStubs(module common.ModuleInputs) error {
+func generateGolangStubs(module modulegen.ModuleInputs) error {
 	out, err := gen.RenderGoTemplates(module)
 	if err != nil {
 		return errors.Wrap(err, "cannot generate go stubs -- generator script encountered an error")
@@ -621,7 +621,7 @@ func checkGoPath() (string, error) {
 	return goPath, err
 }
 
-func generatePythonStubs(module common.ModuleInputs) error {
+func generatePythonStubs(module modulegen.ModuleInputs) error {
 	venvName := ".venv"
 	cmd := exec.Command("python3", "--version")
 	_, err := cmd.Output()
@@ -703,7 +703,7 @@ func getLatestSDKTag(c *cli.Context, language string, globalArgs globalArgs) (st
 	return version, nil
 }
 
-func generateCloudBuild(c *cli.Context, module common.ModuleInputs, globalArgs globalArgs) error {
+func generateCloudBuild(c *cli.Context, module modulegen.ModuleInputs, globalArgs globalArgs) error {
 	debugf(c.App.Writer, globalArgs.Debug, "Setting cloud build functionality to %s", module.EnableCloudBuild)
 	switch module.Language {
 	case python:
@@ -729,7 +729,7 @@ func generateCloudBuild(c *cli.Context, module common.ModuleInputs, globalArgs g
 	return nil
 }
 
-func createModuleAndManifest(cCtx *cli.Context, c *viamClient, module common.ModuleInputs, globalArgs globalArgs) error {
+func createModuleAndManifest(cCtx *cli.Context, c *viamClient, module modulegen.ModuleInputs, globalArgs globalArgs) error {
 	var moduleID moduleID
 	if module.RegisterOnApp {
 		debugf(cCtx.App.Writer, globalArgs.Debug, "Registering module with Viam")
@@ -754,7 +754,7 @@ func createModuleAndManifest(cCtx *cli.Context, c *viamClient, module common.Mod
 }
 
 // Create the meta.json manifest.
-func renderManifest(c *cli.Context, moduleID string, module common.ModuleInputs, globalArgs globalArgs) error {
+func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInputs, globalArgs globalArgs) error {
 	debugf(c.App.Writer, globalArgs.Debug, "Rendering module manifest")
 
 	visibility := moduleVisibilityPrivate
