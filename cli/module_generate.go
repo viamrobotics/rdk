@@ -47,7 +47,7 @@ var (
 )
 
 type generateModuleArgs struct {
-	ModuleName      string
+	Name            string
 	Language        string
 	Public          bool
 	PublicNamespace string
@@ -73,7 +73,7 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 	var err error
 
 	newModule = &modulegen.ModuleInputs{
-		ModuleName:       args.ModuleName,
+		ModuleName:       args.Name,
 		Language:         args.Language,
 		IsPublic:         args.Public,
 		Namespace:        args.PublicNamespace,
