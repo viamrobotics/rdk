@@ -104,5 +104,5 @@ func (ds *detectorSource) Read(ctx context.Context) (image.Image, func(), error)
 }
 
 func (ds *detectorSource) Close(ctx context.Context) error {
-	return ds.src.Close(ctx)
+	return nil
 }

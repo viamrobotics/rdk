@@ -7,7 +7,6 @@ import (
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
-	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/gostream"
@@ -155,7 +154,6 @@ func NewVideoSourceFromReader(
 		rtpPassthroughSource: rtpPassthroughSource,
 		system:               actualSystem,
 		videoSource:          vs,
-		videoStream:          gostream.NewEmbeddedVideoStream(vs),
 		actualSource:         reader,
 		imageType:            imageType,
 	}, nil
@@ -196,7 +194,6 @@ func WrapVideoSourceWithProjector(
 	return &videoSource{
 		system:       actualSystem,
 		videoSource:  source,
-		videoStream:  gostream.NewEmbeddedVideoStream(source),
 		actualSource: source,
 		imageType:    imageType,
 	}, nil
@@ -207,7 +204,6 @@ type videoSource struct {
 	resource.AlwaysRebuild
 	rtpPassthroughSource rtppassthrough.Source
 	videoSource          gostream.VideoSource
-	videoStream          gostream.VideoStream
 	actualSource         interface{}
 	system               *transform.PinholeCameraModel
 	imageType            ImageType
@@ -268,7 +264,7 @@ func (vs *videoSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 	if vs.system == nil || vs.system.PinholeCameraIntrinsics == nil {
 		return nil, transform.NewNoIntrinsicsError("cannot do a projection to a point cloud")
 	}
-	img, release, err := vs.videoStream.Next(ctx)
+	img, release, err := ReadImage(ctx, vs.videoSource)
 	defer release()
 	if err != nil {
 		return nil, err
@@ -317,7 +313,7 @@ func (vs *videoSource) Properties(ctx context.Context) (Properties, error) {
 
 func (vs *videoSource) Close(ctx context.Context) error {
 	if res, ok := vs.actualSource.(resource.Resource); ok {
-		return multierr.Combine(vs.videoStream.Close(ctx), vs.videoSource.Close(ctx), res.Close(ctx))
+		return res.Close(ctx)
 	}
-	return multierr.Combine(vs.videoStream.Close(ctx), vs.videoSource.Close(ctx))
+	return vs.videoSource.Close(ctx)
 }

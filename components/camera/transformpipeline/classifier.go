@@ -110,5 +110,5 @@ func (cs *classifierSource) Read(ctx context.Context) (image.Image, func(), erro
 }
 
 func (cs *classifierSource) Close(ctx context.Context) error {
-	return cs.src.Close(ctx)
+	return nil
 }

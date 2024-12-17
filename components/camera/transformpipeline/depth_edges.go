@@ -72,5 +72,5 @@ func (os *depthEdgesSource) Read(ctx context.Context) (image.Image, func(), erro
 }
 
 func (os *depthEdgesSource) Close(ctx context.Context) error {
-	return os.src.Close(ctx)
+	return nil
 }
