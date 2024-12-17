@@ -49,7 +49,8 @@ type GraphNode struct {
 	mu sync.RWMutex
 
 	// graphLogicalClock is a pointer to the Graph's logicalClock. It is
-	// incremented every time any GraphNode calls SwapResource.
+	// incremented every time any GraphNode calls SwapResource. SwapResource is called
+	// whenever a resource is reconfigured.
 	graphLogicalClock *atomic.Int64
 	// updatedAt is the value of the graphLogicalClock when it was last
 	// incremented by this GraphNode's SwapResource method. It is only referenced
