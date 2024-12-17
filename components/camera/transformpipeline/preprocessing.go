@@ -58,5 +58,5 @@ func (os *preprocessDepthTransform) Read(ctx context.Context) (image.Image, func
 }
 
 func (os *preprocessDepthTransform) Close(ctx context.Context) error {
-	return os.src.Close(ctx)
+	return nil
 }

@@ -81,7 +81,6 @@ func (us *undistortSource) Read(ctx context.Context) (image.Image, func(), error
 	}
 }
 
-// Close closes the original stream.
 func (us *undistortSource) Close(ctx context.Context) error {
-	return us.originalSource.Close(ctx)
+	return nil
 }
