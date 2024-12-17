@@ -157,11 +157,6 @@ func TestServerCaptureAllFromCamera(t *testing.T) {
 	test.That(t, len(getDetectionsResp.GetDetections()), test.ShouldEqual, 1)
 	test.That(t, getDetectionsResp.GetDetections()[0].GetClassName(), test.ShouldEqual, "yes")
 
-	captureRequest := pb.CaptureAllFromCameraRequest{
-		Name:             testVisionServiceName,
-		ReturnDetections: true,
-	}
-
 	injectVS.CaptureAllFromCameraFunc = func(ctx context.Context,
 		cameraName string,
 		opts viscapture.CaptureOptions,
@@ -170,12 +165,32 @@ func TestServerCaptureAllFromCamera(t *testing.T) {
 		det1 := objectdetection.NewDetection(image.Rectangle{}, 0.5, "yes")
 		return viscapture.VisCapture{
 			Detections: []objectdetection.Detection{det1},
+			Extra:      extra,
 		}, nil
 	}
+
+	captureRequest := pb.CaptureAllFromCameraRequest{
+		Name:             testVisionServiceName,
+		ReturnDetections: true,
+		Extra:            ext,
+	}
+
 	captAllResp, err := server.CaptureAllFromCamera(context.Background(), &captureRequest)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(captAllResp.Detections), test.ShouldEqual, 1)
-	test.That(t, getDetectionsResp.Detections[0].GetClassName(), test.ShouldEqual, "yes")
+	test.That(t, captAllResp.Detections[0].GetClassName(), test.ShouldEqual, "yes")
+	test.That(t, captAllResp.Extra.AsMap(), test.ShouldResemble, map[string]interface{}{"foo": "GetDetections"})
+
+	captureRequest = pb.CaptureAllFromCameraRequest{
+		Name:             testVisionServiceName,
+		ReturnDetections: true,
+		Extra:            nil,
+	}
+	captAllResp, err = server.CaptureAllFromCamera(context.Background(), &captureRequest)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(captAllResp.Detections), test.ShouldEqual, 1)
+	test.That(t, captAllResp.Detections[0].GetClassName(), test.ShouldEqual, "yes")
+	test.That(t, len(captAllResp.Extra.AsMap()), test.ShouldEqual, 0)
 
 	test.ShouldResemble(captAllResp.Detections, getDetectionsResp.Detections)
 }

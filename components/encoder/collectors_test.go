@@ -23,8 +23,9 @@ const (
 
 func TestCollectors(t *testing.T) {
 	start := time.Now()
-	buf := tu.NewMockBuffer()
+	buf := tu.NewMockBuffer(t)
 	params := data.CollectorParams{
+		DataType:      data.CaptureTypeTabular,
 		ComponentName: "encoder",
 		Interval:      captureInterval,
 		Logger:        logging.NewTestLogger(t),
@@ -41,13 +42,13 @@ func TestCollectors(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	tu.CheckMockBufferWrites(t, ctx, start, buf.Writes, &datasyncpb.SensorData{
+	tu.CheckMockBufferWrites(t, ctx, start, buf.Writes, []*datasyncpb.SensorData{{
 		Metadata: &datasyncpb.SensorMetadata{},
 		Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
 			"value":         1.0,
 			"position_type": int(pb.PositionType_POSITION_TYPE_TICKS_COUNT),
 		})},
-	})
+	}})
 	buf.Close()
 }
 

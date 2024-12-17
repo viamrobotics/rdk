@@ -324,7 +324,7 @@ func (c *Capture) initializeOrUpdateCollector(
 		return nil, errors.Wrapf(err, "failed to create target directory %s with 700 file permissions", targetDir)
 	}
 	// Build metadata.
-	captureMetadata := data.BuildCaptureMetadata(
+	captureMetadata, dataType := data.BuildCaptureMetadata(
 		collectorConfig.Name.API,
 		collectorConfig.Name.ShortName(),
 		collectorConfig.Method,
@@ -337,6 +337,7 @@ func (c *Capture) initializeOrUpdateCollector(
 	bufferSize := defaultIfZeroVal(collectorConfig.CaptureBufferSize, defaultCaptureBufferSize)
 	collector, err := collectorConstructor(res, data.CollectorParams{
 		MongoCollection: collection,
+		DataType:        dataType,
 		ComponentName:   collectorConfig.Name.ShortName(),
 		ComponentType:   collectorConfig.Name.API.String(),
 		MethodName:      collectorConfig.Method,

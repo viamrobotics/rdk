@@ -57,9 +57,14 @@ const (
 	moduleFlagHomeDir         = "home"
 	moduleCreateLocalOnly     = "local-only"
 	moduleFlagID              = "id"
+	moduleFlagIsPublic        = "public"
 	moduleFlagResourceType    = "resource-type"
 	moduleFlagResourceSubtype = "resource-subtype"
+	moduleFlagModelName       = "model-name"
+	moduleFlagEnableCloud     = "enable-cloud"
+	moduleFlagRegister        = "register"
 	moduleFlagTags            = "tags"
+	moduleFlagDryRun          = "dry-run"
 
 	moduleBuildFlagPath      = "module"
 	moduleBuildFlagRef       = "ref"
@@ -130,6 +135,7 @@ const (
 
 	organizationFlagSupportEmail = "support-email"
 	organizationBillingAddress   = "address"
+	organizationFlagLogoPath     = "logo-path"
 )
 
 // matches all uppercase characters that follow lowercase chars and aren't at the [0] index of a string.
@@ -422,6 +428,42 @@ var app = &cli.App{
 					Name:   "list",
 					Usage:  "list organizations for the current user",
 					Action: createCommandWithT[emptyArgs](ListOrganizationsAction),
+				},
+				{
+					Name:      "logo",
+					Usage:     "manage the logo for an organization",
+					UsageText: createUsageText("organizations logo", []string{generalFlagOrgID}, true),
+					Subcommands: []*cli.Command{
+						{
+							Name:  "set",
+							Usage: "set the logo for an organization from a local file",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "the org to set the logo for",
+								},
+								&cli.StringFlag{
+									Name:     organizationFlagLogoPath,
+									Required: true,
+									Usage:    "the file path of the logo to set for the organization. This must be a png file.",
+								},
+							},
+							Action: createCommandWithT[organizationsLogoSetArgs](OrganizationLogoSetAction),
+						},
+						{
+							Name:  "get",
+							Usage: "get the logo for an organization",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "the org to get the logo for",
+								},
+							},
+							Action: createCommandWithT[organizationsLogoGetArgs](OrganizationsLogoGetAction),
+						},
+					},
 				},
 				{
 					Name:      "support-email",
@@ -1643,17 +1685,45 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Usage: "generate a new modular resource via prompts",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
+							Name:  moduleFlagName,
+							Usage: "name to use for module",
+						},
+						&cli.StringFlag{
 							Name:  moduleFlagLanguage,
 							Usage: "language to use for module",
-							Value: "python",
+						},
+						&cli.BoolFlag{
+							Name:  moduleFlagIsPublic,
+							Usage: "set module to public",
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagPublicNamespace,
+							Usage: "namespace or organization ID of module",
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagResourceSubtype,
+							Usage: "resource subtype to use in module",
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagResourceType,
 							Usage: "resource type to use in module",
 						},
 						&cli.StringFlag{
-							Name:  moduleFlagResourceSubtype,
-							Usage: "resource subtype to use in module",
+							Name:  moduleFlagModelName,
+							Usage: "resource model name to use in module",
+						},
+						&cli.BoolFlag{
+							Name:  moduleFlagEnableCloud,
+							Usage: "generate Github workflows to build module",
+						},
+						&cli.BoolFlag{
+							Name:  moduleFlagRegister,
+							Usage: "register module with Viam to associate with your organization",
+						},
+						&cli.BoolFlag{
+							Name:   moduleFlagDryRun,
+							Usage:  "indicate a dry test run, so skip regular checks",
+							Hidden: true,
 						},
 					},
 					Action: createCommandWithT[generateModuleArgs](GenerateModuleAction),
