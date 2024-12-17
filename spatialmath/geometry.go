@@ -205,6 +205,9 @@ func NewGeometryFromProto(geometry *commonpb.Geometry) (Geometry, error) {
 
 // NewGeometriesFromProto converts a list of Geometries from protobuf.
 func NewGeometriesFromProto(proto []*commonpb.Geometry) ([]Geometry, error) {
+	if proto == nil {
+		return nil, nil
+	}
 	geometries := []Geometry{}
 	for _, geometry := range proto {
 		g, err := NewGeometryFromProto(geometry)
