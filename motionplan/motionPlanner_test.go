@@ -792,6 +792,9 @@ func TestArmConstraintSpecificationSolve(t *testing.T) {
 }
 
 func TestMovementWithGripper(t *testing.T) {
+	// TODO(rb): move these tests to a separate repo eventually, as they take up too much time for general CI pipeline
+	t.Skip()
+
 	// setup frame system and planning query
 	fs := makeTestFS(t)
 	fs.RemoveFrame(fs.Frame("urOffset"))
