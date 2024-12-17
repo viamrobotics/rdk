@@ -25,6 +25,9 @@ import (
 
 // MetadataFromProto converts a proto GetCloudMetadataResponse to Metadata.
 func MetadataFromProto(pbMetadata *robotpb.GetCloudMetadataResponse) cloud.Metadata {
+	if pbMetadata == nil {
+		return cloud.Metadata{}
+	}
 	return cloud.Metadata{
 		MachinePartID: pbMetadata.MachinePartId,
 		MachineID:     pbMetadata.MachineId,

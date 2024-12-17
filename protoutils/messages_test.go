@@ -13,6 +13,10 @@ import (
 )
 
 func TestMetadataFromProto(t *testing.T) {
+	expected := cloud.Metadata{}
+	observed := MetadataFromProto(nil)
+	test.That(t, observed, test.ShouldResemble, expected)
+
 	partID := "123"
 	machineID := "abc"
 	orgID := "456"
@@ -25,13 +29,13 @@ func TestMetadataFromProto(t *testing.T) {
 		PrimaryOrgId:  orgID,
 		LocationId:    locID,
 	}
-	expected := cloud.Metadata{
+	expected = cloud.Metadata{
 		MachinePartID: partID,
 		MachineID:     machineID,
 		PrimaryOrgID:  orgID,
 		LocationID:    locID,
 	}
-	observed := MetadataFromProto(samePartID)
+	observed = MetadataFromProto(samePartID)
 	test.That(t, observed, test.ShouldResemble, expected)
 
 	robotPartID := "789"
