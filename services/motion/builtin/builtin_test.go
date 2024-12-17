@@ -1249,9 +1249,6 @@ func TestCheckPlan(t *testing.T) {
 func TestDoCommand(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
-	cloud, err := pointcloud.NewFromFile(artifact.MustPath("pointcloud/test.las"), logger)
-	test.That(t, err, test.ShouldBeNil)
-	pcBytes, err := pointcloud.ToBytes(cloud)
 	box, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{1000, 1000, 1000}), r3.Vector{1, 1, 1}, "box")
 	test.That(t, err, test.ShouldBeNil)
 	geometries := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame("world", []spatialmath.Geometry{box})}
@@ -1261,9 +1258,7 @@ func TestDoCommand(t *testing.T) {
 		ComponentName: gripper.Named("pieceGripper"),
 		WorldState:    worldState,
 		Destination:   referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -30, Z: -50})),
-		Extra: map[string]interface{}{
-			"pcd": pcBytes,
-		},
+		Extra:         nil,
 	}
 
 	// need to simulate what happens when the DoCommand message is serialized/deserialized into proto
@@ -1277,7 +1272,7 @@ func TestDoCommand(t *testing.T) {
 		return respProto.AsMap()
 	}
 
-	t.Run("DoPlan", func(t *testing.T) {
+	testDoPlan := func(t *testing.T, moveReq motion.MoveReq) {
 		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		defer teardown()
 
@@ -1297,7 +1292,20 @@ func TestDoCommand(t *testing.T) {
 		err = mapstructure.Decode(resp, &trajectory)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(trajectory), test.ShouldEqual, 2)
+	}
+
+	t.Run("DoPlan", func(t *testing.T) {
+		testDoPlan(t, moveReq)
+
+		// test that it still works when extras are added to moveReq
+		cloud, err := pointcloud.NewFromFile(artifact.MustPath("pointcloud/test.las"), logger)
+		test.That(t, err, test.ShouldBeNil)
+		pcBytes, err := pointcloud.ToBytes(cloud)
+		test.That(t, err, test.ShouldBeNil)
+		moveReq.Extra = map[string]interface{}{"pcd": pcBytes}
+		testDoPlan(t, moveReq)
 	})
+
 	t.Run("DoExectute", func(t *testing.T) {
 		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		defer teardown()
