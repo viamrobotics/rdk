@@ -1272,7 +1272,7 @@ func TestDoCommand(t *testing.T) {
 		return respProto.AsMap(), nil
 	}
 
-	testDoPlan := func(t *testing.T, moveReq motion.MoveReq) (motionplan.Trajectory, error) {
+	testDoPlan := func(moveReq motion.MoveReq) (motionplan.Trajectory, error) {
 		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		defer teardown()
 
@@ -1298,18 +1298,9 @@ func TestDoCommand(t *testing.T) {
 	}
 
 	t.Run("DoPlan", func(t *testing.T) {
-		trajectory, err := testDoPlan(t, moveReq)
+		trajectory, err := testDoPlan(moveReq)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(trajectory), test.ShouldEqual, 2)
-
-		// test that it correctly breaks if bad inputs are provided, meaning it is being parsed correctly
-		moveReq.Extra = map[string]interface{}{
-			"motion_profile": motionplan.LinearMotionProfile,
-			"planning_alg":   "rrtstar",
-		}
-		_, err = testDoPlan(t, moveReq)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldResemble, motionplan.NewAlgAndConstraintMismatchErr("rrtstar"))
 	})
 
 	t.Run("DoExectute", func(t *testing.T) {
@@ -1330,5 +1321,16 @@ func TestDoCommand(t *testing.T) {
 
 		// the client will need to decode the response still
 		test.That(t, resp, test.ShouldBeTrue)
+	})
+
+	t.Run("Extras transmitted correctly", func(t *testing.T) {
+		// test that DoPlan correctly breaks if bad inputs are provided, meaning it is being parsed correctly
+		moveReq.Extra = map[string]interface{}{
+			"motion_profile": motionplan.LinearMotionProfile,
+			"planning_alg":   "rrtstar",
+		}
+		_, err = testDoPlan(moveReq)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldResemble, motionplan.NewAlgAndConstraintMismatchErr("rrtstar"))
 	})
 }
