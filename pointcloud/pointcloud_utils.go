@@ -119,6 +119,7 @@ func ToBasicOctree(cloud PointCloud) (*BasicOctree, error) {
 	return basicOctree, nil
 }
 
+// ToBytes takes a pointcloud object and converts it to bytes.
 func ToBytes(cloud PointCloud) ([]byte, error) {
 	if cloud == nil {
 		return nil, errors.New("pointcloud cannot be nil")

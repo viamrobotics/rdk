@@ -13,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/motion/v1"
 	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/components/movementsensor"
