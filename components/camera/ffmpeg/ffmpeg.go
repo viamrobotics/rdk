@@ -63,7 +63,7 @@ func init() {
 				return nil, err
 			}
 
-			src, err := NewFFMPEGCamera(ctx, newConf, logger)
+			src, err := NewFFMPEGCamera(ctx, newConf, conf.ResourceName().AsNamed(), logger)
 			if err != nil {
 				return nil, err
 			}
@@ -92,7 +92,7 @@ func (writer stderrWriter) Write(p []byte) (n int, err error) {
 }
 
 // NewFFMPEGCamera instantiates a new camera which leverages ffmpeg to handle a variety of potential video types.
-func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (camera.StreamCamera, error) {
+func NewFFMPEGCamera(ctx context.Context, conf *Config, named resource.Named, logger logging.Logger) (camera.StreamCamera, error) {
 	// make sure ffmpeg is in the path before doing anything else
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
 		return nil, err
@@ -107,7 +107,7 @@ func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (
 
 	// instantiate camera with cancellable context that will be applied to all spawned processes
 	cancelableCtx, cancel := context.WithCancel(context.Background())
-	ffCam := &ffmpegCamera{cancelFunc: cancel, logger: logger}
+	ffCam := &ffmpegCamera{Named: named, cancelFunc: cancel, logger: logger}
 
 	// We configure ffmpeg to output images to stdout. A goroutine will read those images via the
 	// `in` end of the pipe.
