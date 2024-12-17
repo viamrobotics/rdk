@@ -10,7 +10,6 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
 
@@ -18,7 +17,7 @@ func TestFFMPEGCamera(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	path := artifact.MustPath("components/camera/ffmpeg/testsrc.mpg")
-	cam, err := NewFFMPEGCamera(ctx, &Config{VideoPath: path}, resource.Name{Name: "test-ffmpeg"}.AsNamed(), logger)
+	cam, err := NewFFMPEGCamera(ctx, &Config{VideoPath: path}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, err, test.ShouldBeNil)
 	for i := 0; i < 5; i++ {
@@ -34,6 +33,6 @@ func TestFFMPEGNotFound(t *testing.T) {
 		os.Setenv("PATH", oldpath)
 	}()
 	os.Unsetenv("PATH")
-	_, err := NewFFMPEGCamera(context.Background(), nil, resource.Name{Name: "test-ffmpeg"}.AsNamed(), nil)
+	_, err := NewFFMPEGCamera(context.Background(), nil, nil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 }

@@ -33,7 +33,7 @@ func FromVideoSource(name resource.Name, src StreamCamera, logger logging.Logger
 	return &sourceBasedCamera{
 		rtpPassthroughSource: rtpPassthroughSource,
 		StreamCamera:         src,
-		name:                 name,
+		Named:                name.AsNamed(),
 		Logger:               logger,
 	}
 }
@@ -41,7 +41,7 @@ func FromVideoSource(name resource.Name, src StreamCamera, logger logging.Logger
 type sourceBasedCamera struct {
 	StreamCamera
 	resource.AlwaysRebuild
-	name                 resource.Name
+	resource.Named
 	rtpPassthroughSource rtppassthrough.Source
 	logging.Logger
 }
@@ -49,6 +49,16 @@ type sourceBasedCamera struct {
 // Explicitly define Reconfigure to resolve ambiguity.
 func (vs *sourceBasedCamera) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	return vs.AlwaysRebuild.Reconfigure(ctx, deps, conf)
+}
+
+// Explicitly define Name to resolve ambiguity.
+func (vs *sourceBasedCamera) Name() resource.Name {
+	return vs.Named.Name()
+}
+
+// Define DoCommand to fulfill Named interface.
+func (vs *sourceBasedCamera) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return vs.StreamCamera.DoCommand(ctx, cmd)
 }
 
 func (vs *sourceBasedCamera) SubscribeRTP(
