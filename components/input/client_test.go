@@ -61,10 +61,10 @@ func TestClient(t *testing.T) {
 
 	injectInputController2 := &inject.InputController{}
 	injectInputController2.ControlsFunc = func(ctx context.Context, extra map[string]interface{}) ([]input.Control, error) {
-		return nil, errControlsFailed
+		return nil, nil
 	}
 	injectInputController2.EventsFunc = func(ctx context.Context, extra map[string]interface{}) (map[input.Control]input.Event, error) {
-		return nil, errEventsFailed
+		return nil, nil
 	}
 
 	resources := map[resource.Name]input.Controller{
@@ -252,11 +252,11 @@ func TestClient(t *testing.T) {
 
 		_, err = client2.Controls(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errControlsFailed.Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, input.ErrControlsNil(failInputControllerName).Error())
 
 		_, err = client2.Events(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errEventsFailed.Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, input.ErrEventsNil(failInputControllerName).Error())
 
 		event1 := input.Event{
 			Time:    time.Now().UTC(),
