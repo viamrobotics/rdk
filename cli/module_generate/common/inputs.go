@@ -87,6 +87,9 @@ func (inputs *ModuleInputs) HasEmptyInput() bool {
 
 // CheckResource checks if the given resource is valid.
 func (inputs *ModuleInputs) CheckResource() error {
+	if inputs.ResourceSubtype == "" || inputs.ResourceType == "" {
+		return nil
+	}
 	for _, resource := range Resources {
 		if inputs.Resource == resource {
 			return nil
