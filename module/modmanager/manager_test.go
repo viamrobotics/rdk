@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -32,6 +33,7 @@ import (
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
 	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/web"
 	rtestutils "go.viam.com/rdk/testutils"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -41,8 +43,15 @@ type testDiscoveryResult map[string]interface{}
 func setupSocketWithRobot(t *testing.T) string {
 	t.Helper()
 
-	socketAddress, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
-	test.That(t, err, test.ShouldBeNil)
+	var socketAddress string
+	var err error
+	if rutils.ViamTCPSockets() {
+		socketAddress = "127.0.0.1:" + strconv.Itoa(web.TestTCPParentPort)
+	} else {
+		socketAddress, err = modlib.CreateSocketAddress(t.TempDir(), "parent")
+		test.That(t, err, test.ShouldBeNil)
+	}
+
 	rtestutils.MakeRobotForModuleLogging(t, socketAddress)
 	return socketAddress
 }
@@ -83,259 +92,272 @@ func setupModManager(
 }
 
 func TestModManagerFunctions(t *testing.T) {
-	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
-
 	// Precompile module copies to avoid timeout issues when building takes too long.
 	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
 	modPath2 := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
 
-	myCounterModel := resource.NewModel("acme", "demo", "mycounter")
-	rNameCounter1 := resource.NewName(generic.API, "counter1")
-	cfgCounter1 := resource.Config{
-		Name:  "counter1",
-		API:   generic.API,
-		Model: myCounterModel,
+	for _, mode := range []string{"tcp", "unix"} {
+		t.Run(mode, func(t *testing.T) {
+			ctx := context.Background()
+			logger := logging.NewTestLogger(t)
+
+			if mode == "tcp" {
+				os.Setenv("VIAM_TCP_SOCKETS", "yes")
+				t.Cleanup(func() { os.Unsetenv("VIAM_TCP_SOCKETS") })
+			}
+
+			myCounterModel := resource.NewModel("acme", "demo", "mycounter")
+			rNameCounter1 := resource.NewName(generic.API, "counter1")
+			cfgCounter1 := resource.Config{
+				Name:  "counter1",
+				API:   generic.API,
+				Model: myCounterModel,
+			}
+			_, err := cfgCounter1.Validate("test", resource.APITypeComponentName)
+			test.That(t, err, test.ShouldBeNil)
+
+			parentAddr := setupSocketWithRobot(t)
+
+			t.Log("test Helpers")
+			viamHomeTemp := t.TempDir()
+			mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: viamHomeTemp})
+
+			mod := &module{
+				cfg: config.Module{
+					Name:        "test",
+					ExePath:     modPath,
+					Type:        config.ModuleTypeRegistry,
+					ModuleID:    "new:york",
+					Environment: map[string]string{"SMART": "MACHINES"},
+				},
+				dataDir: "module-data-dir",
+				logger:  logger,
+				port:    tcpPortRange,
+			}
+
+			err = mod.startProcess(ctx, parentAddr, nil, viamHomeTemp, filepath.Join(viamHomeTemp, "packages"))
+			test.That(t, err, test.ShouldBeNil)
+
+			err = mod.dial()
+			test.That(t, err, test.ShouldBeNil)
+
+			err = mod.checkReady(ctx, parentAddr)
+			test.That(t, err, test.ShouldBeNil)
+
+			mod.registerResources(mgr)
+			reg, ok := resource.LookupRegistration(generic.API, myCounterModel)
+			test.That(t, ok, test.ShouldBeTrue)
+			test.That(t, reg, test.ShouldNotBeNil)
+			test.That(t, reg.Constructor, test.ShouldNotBeNil)
+
+			mod.deregisterResources()
+			_, ok = resource.LookupRegistration(generic.API, myCounterModel)
+			test.That(t, ok, test.ShouldBeFalse)
+
+			test.That(t, mod.process.Stop(), test.ShouldBeNil)
+
+			modEnv := mod.getFullEnvironment(viamHomeTemp)
+			test.That(t, modEnv["VIAM_HOME"], test.ShouldEqual, viamHomeTemp)
+			test.That(t, modEnv["VIAM_MODULE_DATA"], test.ShouldEqual, "module-data-dir")
+			test.That(t, modEnv["VIAM_MODULE_ID"], test.ShouldEqual, "new:york")
+			test.That(t, modEnv["SMART"], test.ShouldEqual, "MACHINES")
+
+			// Test that VIAM_MODULE_ID is unset for local modules
+			mod.cfg.Type = config.ModuleTypeLocal
+			modEnv = mod.getFullEnvironment(viamHomeTemp)
+			_, ok = modEnv["VIAM_MODULE_ID"]
+			test.That(t, ok, test.ShouldBeFalse)
+
+			// Make a copy of addr and client to test that connections are properly remade
+			oldAddr := mod.addr
+			oldClient := mod.client
+
+			utils.UncheckedError(mod.startProcess(ctx, parentAddr, nil, viamHomeTemp, filepath.Join(viamHomeTemp, "packages")))
+			err = mod.dial()
+			test.That(t, err, test.ShouldBeNil)
+
+			if mode == "unix" {
+				// make sure mod.addr has changed
+				test.That(t, mod.addr, test.ShouldNotEqual, oldAddr)
+			}
+
+			// check that we're still able to use the old client
+			_, err = oldClient.Ready(ctx, &v1.ReadyRequest{ParentAddress: parentAddr})
+			test.That(t, err, test.ShouldBeNil)
+
+			test.That(t, mod.process.Stop(), test.ShouldBeNil)
+
+			t.Log("test AddModule")
+			mgr = setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+			test.That(t, err, test.ShouldBeNil)
+
+			modCfg := config.Module{
+				Name:    "simple-module",
+				ExePath: modPath,
+			}
+			err = mgr.Add(ctx, modCfg)
+			test.That(t, err, test.ShouldBeNil)
+
+			reg, ok = resource.LookupRegistration(generic.API, myCounterModel)
+			test.That(t, ok, test.ShouldBeTrue)
+			test.That(t, reg.Constructor, test.ShouldNotBeNil)
+
+			t.Log("test Provides")
+			ok = mgr.Provides(cfgCounter1)
+			test.That(t, ok, test.ShouldBeTrue)
+
+			cfg2 := resource.Config{
+				API:   motor.API,
+				Model: resource.DefaultModelFamily.WithModel("fake"),
+			}
+			ok = mgr.Provides(cfg2)
+			test.That(t, ok, test.ShouldBeFalse)
+
+			t.Log("test AddResource")
+			counter, err := mgr.AddResource(ctx, cfgCounter1, nil)
+			test.That(t, err, test.ShouldBeNil)
+
+			ret, err := counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, ret["total"], test.ShouldEqual, 0)
+
+			t.Log("test IsModularResource")
+			ok = mgr.IsModularResource(rNameCounter1)
+			test.That(t, ok, test.ShouldBeTrue)
+
+			ok = mgr.IsModularResource(resource.NewName(generic.API, "missing"))
+			test.That(t, ok, test.ShouldBeFalse)
+
+			t.Log("test ValidateConfig")
+			// ValidateConfig for cfgCounter1 will not actually call any Validate functionality,
+			// as the mycounter model does not have a configuration object with Validate.
+			// Assert that ValidateConfig does not fail in this case (allows unimplemented
+			// validation).
+			deps, err := mgr.ValidateConfig(ctx, cfgCounter1)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, deps, test.ShouldBeNil)
+
+			t.Log("test ReconfigureResource")
+			// Reconfigure should replace the proxied object, resetting the counter
+			ret, err = counter.DoCommand(ctx, map[string]interface{}{"command": "add", "value": 73})
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, ret["total"], test.ShouldEqual, 73)
+
+			err = mgr.ReconfigureResource(ctx, cfgCounter1, nil)
+			test.That(t, err, test.ShouldBeNil)
+
+			ret, err = counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, ret["total"], test.ShouldEqual, 0)
+
+			t.Log("test RemoveResource")
+			err = mgr.RemoveResource(ctx, rNameCounter1)
+			test.That(t, err, test.ShouldBeNil)
+
+			ok = mgr.IsModularResource(rNameCounter1)
+			test.That(t, ok, test.ShouldBeFalse)
+
+			err = mgr.RemoveResource(ctx, rNameCounter1)
+			test.That(t, err, test.ShouldNotBeNil)
+
+			_, err = counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+
+			t.Log("test ReconfigureModule")
+			// Re-add counter1.
+			_, err = mgr.AddResource(ctx, cfgCounter1, nil)
+			test.That(t, err, test.ShouldBeNil)
+			// Add 24 to counter and ensure 'total' gets reset after reconfiguration.
+			ret, err = counter.DoCommand(ctx, map[string]interface{}{"command": "add", "value": 24})
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, ret["total"], test.ShouldEqual, 24)
+
+			// Change underlying binary path of module to be a different copy of the same module
+			modCfg.ExePath = modPath2
+
+			// Reconfigure module with new ExePath.
+			orphanedResourceNames, err := mgr.Reconfigure(ctx, modCfg)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, orphanedResourceNames, test.ShouldResemble, []resource.Name{rNameCounter1})
+
+			t.Log("test RemoveModule")
+			orphanedResourceNames, err = mgr.Remove("simple-module")
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, orphanedResourceNames, test.ShouldBeNil)
+
+			ok = mgr.IsModularResource(rNameCounter1)
+			test.That(t, ok, test.ShouldBeFalse)
+			_, err = counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, "not connected")
+
+			err = counter.Close(ctx)
+			test.That(t, err, test.ShouldBeNil)
+
+			t.Log("test UntrustedEnv")
+			mgr = setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: true})
+
+			modCfg = config.Module{
+				Name:    "simple-module",
+				ExePath: modPath,
+			}
+			err = mgr.Add(ctx, modCfg)
+			test.That(t, err, test.ShouldEqual, errModularResourcesDisabled)
+
+			t.Log("test empty dir for CleanModuleDataDirectory")
+			mgr = setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: ""})
+			err = mgr.CleanModuleDataDirectory()
+			test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "cannot clean a root level module data directory")
+
+			t.Log("test CleanModuleDataDirectory")
+			viamHomeTemp = t.TempDir()
+			robotCloudID := "a-b-c-d"
+			expectedDataDir := filepath.Join(viamHomeTemp, parentModuleDataFolderName, robotCloudID)
+			mgr = setupModManager(
+				t,
+				ctx,
+				parentAddr,
+				logger,
+				modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: viamHomeTemp, RobotCloudID: robotCloudID},
+			)
+			// check that premature clean is okay
+			err = mgr.CleanModuleDataDirectory()
+			test.That(t, err, test.ShouldBeNil)
+			// create a module and add it to the modmanager
+			modCfg = config.Module{
+				Name:    "simple-module",
+				ExePath: modPath,
+			}
+			err = mgr.Add(ctx, modCfg)
+			test.That(t, err, test.ShouldBeNil)
+			// check that we created the expected directory
+			moduleDataDir := filepath.Join(expectedDataDir, modCfg.Name)
+			_, err = os.Stat(moduleDataDir)
+			test.That(t, err, test.ShouldBeNil)
+			// make unwanted / unexpected directory
+			litterDataDir := filepath.Join(expectedDataDir, "litter")
+			err = os.MkdirAll(litterDataDir, os.ModePerm)
+			test.That(t, err, test.ShouldBeNil)
+			// clean
+			err = mgr.CleanModuleDataDirectory()
+			test.That(t, err, test.ShouldBeNil)
+			// check that the module directory still exists
+			_, err = os.Stat(moduleDataDir)
+			test.That(t, err, test.ShouldBeNil)
+			// check that the litter directory is removed
+			_, err = os.Stat(litterDataDir)
+			test.That(t, err, test.ShouldBeError)
+			// remove the module and verify that the entire directory is removed
+			_, err = mgr.Remove("simple-module")
+			test.That(t, err, test.ShouldBeNil)
+			// clean
+			err = mgr.CleanModuleDataDirectory()
+			test.That(t, err, test.ShouldBeNil)
+			_, err = os.Stat(expectedDataDir)
+			test.That(t, err, test.ShouldBeError)
+		})
 	}
-	_, err := cfgCounter1.Validate("test", resource.APITypeComponentName)
-	test.That(t, err, test.ShouldBeNil)
-
-	parentAddr := setupSocketWithRobot(t)
-
-	t.Log("test Helpers")
-	viamHomeTemp := t.TempDir()
-	mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: viamHomeTemp})
-
-	mod := &module{
-		cfg: config.Module{
-			Name:        "test",
-			ExePath:     modPath,
-			Type:        config.ModuleTypeRegistry,
-			ModuleID:    "new:york",
-			Environment: map[string]string{"SMART": "MACHINES"},
-		},
-		dataDir: "module-data-dir",
-		logger:  logger,
-	}
-
-	err = mod.startProcess(ctx, parentAddr, nil, viamHomeTemp, filepath.Join(viamHomeTemp, "packages"))
-	test.That(t, err, test.ShouldBeNil)
-
-	err = mod.dial()
-	test.That(t, err, test.ShouldBeNil)
-
-	err = mod.checkReady(ctx, parentAddr)
-	test.That(t, err, test.ShouldBeNil)
-
-	mod.registerResources(mgr)
-	reg, ok := resource.LookupRegistration(generic.API, myCounterModel)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, reg, test.ShouldNotBeNil)
-	test.That(t, reg.Constructor, test.ShouldNotBeNil)
-
-	mod.deregisterResources()
-	_, ok = resource.LookupRegistration(generic.API, myCounterModel)
-	test.That(t, ok, test.ShouldBeFalse)
-
-	test.That(t, mod.process.Stop(), test.ShouldBeNil)
-
-	modEnv := mod.getFullEnvironment(viamHomeTemp)
-	test.That(t, modEnv["VIAM_HOME"], test.ShouldEqual, viamHomeTemp)
-	test.That(t, modEnv["VIAM_MODULE_DATA"], test.ShouldEqual, "module-data-dir")
-	test.That(t, modEnv["VIAM_MODULE_ID"], test.ShouldEqual, "new:york")
-	test.That(t, modEnv["SMART"], test.ShouldEqual, "MACHINES")
-
-	// Test that VIAM_MODULE_ID is unset for local modules
-	mod.cfg.Type = config.ModuleTypeLocal
-	modEnv = mod.getFullEnvironment(viamHomeTemp)
-	_, ok = modEnv["VIAM_MODULE_ID"]
-	test.That(t, ok, test.ShouldBeFalse)
-
-	// Make a copy of addr and client to test that connections are properly remade
-	oldAddr := mod.addr
-	oldClient := mod.client
-
-	utils.UncheckedError(mod.startProcess(ctx, parentAddr, nil, viamHomeTemp, filepath.Join(viamHomeTemp, "packages")))
-	err = mod.dial()
-	test.That(t, err, test.ShouldBeNil)
-
-	// make sure mod.addr has changed
-	test.That(t, mod.addr, test.ShouldNotEqual, oldAddr)
-	// check that we're still able to use the old client
-	_, err = oldClient.Ready(ctx, &v1.ReadyRequest{ParentAddress: parentAddr})
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, mod.process.Stop(), test.ShouldBeNil)
-
-	t.Log("test AddModule")
-	mgr = setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
-	test.That(t, err, test.ShouldBeNil)
-
-	modCfg := config.Module{
-		Name:    "simple-module",
-		ExePath: modPath,
-	}
-	err = mgr.Add(ctx, modCfg)
-	test.That(t, err, test.ShouldBeNil)
-
-	reg, ok = resource.LookupRegistration(generic.API, myCounterModel)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, reg.Constructor, test.ShouldNotBeNil)
-
-	t.Log("test Provides")
-	ok = mgr.Provides(cfgCounter1)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	cfg2 := resource.Config{
-		API:   motor.API,
-		Model: resource.DefaultModelFamily.WithModel("fake"),
-	}
-	ok = mgr.Provides(cfg2)
-	test.That(t, ok, test.ShouldBeFalse)
-
-	t.Log("test AddResource")
-	counter, err := mgr.AddResource(ctx, cfgCounter1, nil)
-	test.That(t, err, test.ShouldBeNil)
-
-	ret, err := counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, ret["total"], test.ShouldEqual, 0)
-
-	t.Log("test IsModularResource")
-	ok = mgr.IsModularResource(rNameCounter1)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	ok = mgr.IsModularResource(resource.NewName(generic.API, "missing"))
-	test.That(t, ok, test.ShouldBeFalse)
-
-	t.Log("test ValidateConfig")
-	// ValidateConfig for cfgCounter1 will not actually call any Validate functionality,
-	// as the mycounter model does not have a configuration object with Validate.
-	// Assert that ValidateConfig does not fail in this case (allows unimplemented
-	// validation).
-	deps, err := mgr.ValidateConfig(ctx, cfgCounter1)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, deps, test.ShouldBeNil)
-
-	t.Log("test ReconfigureResource")
-	// Reconfigure should replace the proxied object, resetting the counter
-	ret, err = counter.DoCommand(ctx, map[string]interface{}{"command": "add", "value": 73})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, ret["total"], test.ShouldEqual, 73)
-
-	err = mgr.ReconfigureResource(ctx, cfgCounter1, nil)
-	test.That(t, err, test.ShouldBeNil)
-
-	ret, err = counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, ret["total"], test.ShouldEqual, 0)
-
-	t.Log("test RemoveResource")
-	err = mgr.RemoveResource(ctx, rNameCounter1)
-	test.That(t, err, test.ShouldBeNil)
-
-	ok = mgr.IsModularResource(rNameCounter1)
-	test.That(t, ok, test.ShouldBeFalse)
-
-	err = mgr.RemoveResource(ctx, rNameCounter1)
-	test.That(t, err, test.ShouldNotBeNil)
-
-	_, err = counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
-
-	t.Log("test ReconfigureModule")
-	// Re-add counter1.
-	_, err = mgr.AddResource(ctx, cfgCounter1, nil)
-	test.That(t, err, test.ShouldBeNil)
-	// Add 24 to counter and ensure 'total' gets reset after reconfiguration.
-	ret, err = counter.DoCommand(ctx, map[string]interface{}{"command": "add", "value": 24})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, ret["total"], test.ShouldEqual, 24)
-
-	// Change underlying binary path of module to be a different copy of the same module
-	modCfg.ExePath = modPath2
-
-	// Reconfigure module with new ExePath.
-	orphanedResourceNames, err := mgr.Reconfigure(ctx, modCfg)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, orphanedResourceNames, test.ShouldResemble, []resource.Name{rNameCounter1})
-
-	t.Log("test RemoveModule")
-	orphanedResourceNames, err = mgr.Remove("simple-module")
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, orphanedResourceNames, test.ShouldBeNil)
-
-	ok = mgr.IsModularResource(rNameCounter1)
-	test.That(t, ok, test.ShouldBeFalse)
-	_, err = counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "not connected")
-
-	err = counter.Close(ctx)
-	test.That(t, err, test.ShouldBeNil)
-
-	t.Log("test UntrustedEnv")
-	mgr = setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: true})
-
-	modCfg = config.Module{
-		Name:    "simple-module",
-		ExePath: modPath,
-	}
-	err = mgr.Add(ctx, modCfg)
-	test.That(t, err, test.ShouldEqual, errModularResourcesDisabled)
-
-	t.Log("test empty dir for CleanModuleDataDirectory")
-	mgr = setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: ""})
-	err = mgr.CleanModuleDataDirectory()
-	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "cannot clean a root level module data directory")
-
-	t.Log("test CleanModuleDataDirectory")
-	viamHomeTemp = t.TempDir()
-	robotCloudID := "a-b-c-d"
-	expectedDataDir := filepath.Join(viamHomeTemp, parentModuleDataFolderName, robotCloudID)
-	mgr = setupModManager(
-		t,
-		ctx,
-		parentAddr,
-		logger,
-		modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: viamHomeTemp, RobotCloudID: robotCloudID},
-	)
-	// check that premature clean is okay
-	err = mgr.CleanModuleDataDirectory()
-	test.That(t, err, test.ShouldBeNil)
-	// create a module and add it to the modmanager
-	modCfg = config.Module{
-		Name:    "simple-module",
-		ExePath: modPath,
-	}
-	err = mgr.Add(ctx, modCfg)
-	test.That(t, err, test.ShouldBeNil)
-	// check that we created the expected directory
-	moduleDataDir := filepath.Join(expectedDataDir, modCfg.Name)
-	_, err = os.Stat(moduleDataDir)
-	test.That(t, err, test.ShouldBeNil)
-	// make unwanted / unexpected directory
-	litterDataDir := filepath.Join(expectedDataDir, "litter")
-	err = os.MkdirAll(litterDataDir, os.ModePerm)
-	test.That(t, err, test.ShouldBeNil)
-	// clean
-	err = mgr.CleanModuleDataDirectory()
-	test.That(t, err, test.ShouldBeNil)
-	// check that the module directory still exists
-	_, err = os.Stat(moduleDataDir)
-	test.That(t, err, test.ShouldBeNil)
-	// check that the litter directory is removed
-	_, err = os.Stat(litterDataDir)
-	test.That(t, err, test.ShouldBeError)
-	// remove the module and verify that the entire directory is removed
-	_, err = mgr.Remove("simple-module")
-	test.That(t, err, test.ShouldBeNil)
-	// clean
-	err = mgr.CleanModuleDataDirectory()
-	test.That(t, err, test.ShouldBeNil)
-	_, err = os.Stat(expectedDataDir)
-	test.That(t, err, test.ShouldBeError)
 }
 
 func TestModManagerValidation(t *testing.T) {

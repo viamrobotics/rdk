@@ -12,7 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -43,7 +43,13 @@ import (
 )
 
 // SubtypeName is a constant that identifies the internal web resource subtype string.
-const SubtypeName = "web"
+const (
+	SubtypeName   = "web"
+	TCPParentPort = 14998
+	// TestTCPParentPort is the test suite version of TCPParentPort. It's different to avoid
+	// collisions; it's listed here for documentation.
+	TestTCPParentPort = 14999
+)
 
 // API is the fully qualified API for the internal web service.
 var API = resource.APINamespaceRDKInternal.WithServiceType(SubtypeName)
@@ -161,25 +167,21 @@ func (svc *webService) StartModule(ctx context.Context) error {
 		if err != nil {
 			return errors.WithMessage(err, "module startup failed")
 		}
-		addr, err = module.CreateSocketAddress(dir, "parent")
-		if err != nil {
-			return errors.WithMessage(err, "module startup failed")
-		}
 
-		if runtime.GOOS == "windows" {
-			// on windows, we need to craft a good enough looking URL for gRPC which
-			// means we need to take out the volume which will have the current drive
-			// be used. In a client server relationship for windows dialing, this must
-			// be known. That is, if this is a multi process UDS, then for the purposes
-			// of dialing without any resolver modifications to gRPC, they must initially
-			// agree on using the same drive.
-			addr = addr[2:]
+		if rutils.ViamTCPSockets() {
+			addr = "127.0.0.1:" + strconv.Itoa(TCPParentPort)
+			lis, err = net.Listen("tcp", addr)
+		} else {
+			addr, err = module.CreateSocketAddress(dir, "parent")
+			if err != nil {
+				return errors.WithMessage(err, "module startup failed")
+			}
+			lis, err = net.Listen("unix", addr)
 		}
-		svc.modAddr = addr
-		lis, err = net.Listen("unix", addr)
 		if err != nil {
 			return errors.WithMessage(err, "failed to listen")
 		}
+		svc.modAddr = addr
 		return nil
 	}); err != nil {
 		return err
