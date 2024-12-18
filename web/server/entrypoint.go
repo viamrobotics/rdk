@@ -338,7 +338,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		return out, nil
 	}
 
-	processedConfig, err := processConfig(cfg)
+	fullProcessedConfig, err := processConfig(cfg)
 	if err != nil {
 		return err
 	}
@@ -347,9 +347,9 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	// updates to the registry will be handled by the config watcher goroutine.
 	//
 	// This functionality is tested in `TestLogPropagation` in `local_robot_test.go`.
-	config.UpdateLoggerRegistryFromConfig(s.registry, processedConfig, s.logger)
+	config.UpdateLoggerRegistryFromConfig(s.registry, fullProcessedConfig, s.logger)
 
-	if processedConfig.Cloud != nil {
+	if fullProcessedConfig.Cloud != nil {
 		cloudRestartCheckerActive = make(chan struct{})
 		utils.PanicCapturingGo(func() {
 			defer close(cloudRestartCheckerActive)
@@ -398,7 +398,25 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		robotOptions = append(robotOptions, robotimpl.WithFTDC())
 	}
 
-	myRobot, err := robotimpl.New(ctx, processedConfig, s.logger, robotOptions...)
+	// Create `minimalProcessedConfig`, a copy of `fullProcessedConfig`. Remove
+	// all components, services, remotes, modules, and processes from
+	// `minimalProcessedConfig`. Create new robot with `minimalProcessedConfig`
+	// and immediately start web service. We need the machine to be reachable
+	// through the web service ASAP, even if some resources take a long time to
+	// initially configure.
+	minimalProcessedConfig, err := fullProcessedConfig.CopyOnlyPublicFields()
+	if err != nil {
+		return err
+	}
+	minimalProcessedConfig.Components = nil
+	minimalProcessedConfig.Services = nil
+	minimalProcessedConfig.Remotes = nil
+	minimalProcessedConfig.Modules = nil
+	minimalProcessedConfig.Processes = nil
+
+	// Start robot in an initializing state with minimal config.
+	robotOptions = append(robotOptions, robotimpl.WithInitializing())
+	myRobot, err := robotimpl.New(ctx, minimalProcessedConfig, s.logger, robotOptions...)
 	if err != nil {
 		cancel()
 		return err
@@ -417,8 +435,20 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		err = multierr.Combine(err, watcher.Close())
 	}()
 	onWatchDone := make(chan struct{})
-	oldCfg := processedConfig
+	// Use `fullProcessedConfig` as the initial `oldCfg` for the config watcher
+	// goroutine, as we want incoming config changes to be compared to the full
+	// config.
+	oldCfg := fullProcessedConfig
 	utils.ManagedGo(func() {
+		// Reconfigure robot to have full processed config before listening for any
+		// config changes.
+		myRobot.Reconfigure(ctx, fullProcessedConfig)
+
+		// Once reconfigure with full processed config is complete; set initializing
+		// to false. Robot is now fully running and can indicate this through the
+		// MachineStatus endpoint.
+		myRobot.SetInitializing(false)
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -479,7 +509,8 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	}()
 	defer cancel()
 
-	options, err := s.createWebOptions(processedConfig)
+	// Create initial web options with `minimalProcessedConfig`.
+	options, err := s.createWebOptions(minimalProcessedConfig)
 	if err != nil {
 		return err
 	}

@@ -393,7 +393,7 @@ func TestTabularDataByFilterAction(t *testing.T) {
 	var dataRequested bool
 	//nolint:deprecated,staticcheck
 	tabularDataByFilterFunc := func(ctx context.Context, in *datapb.TabularDataByFilterRequest, opts ...grpc.CallOption,
-	//nolint:deprecated
+	//nolint:deprecated,staticcheck
 	) (*datapb.TabularDataByFilterResponse, error) {
 		if dataRequested {
 			//nolint:deprecated,staticcheck
