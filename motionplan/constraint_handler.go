@@ -113,7 +113,7 @@ func interpolateSegment(ci *ik.Segment, resolution float64) ([][]referenceframe.
 		return nil, err
 	}
 
-	steps := PathStepCount(ci.StartPosition, ci.EndPosition, resolution)
+	steps := PathStateCount(ci.StartPosition, ci.EndPosition, resolution)
 	if steps < defaultMinStepCount {
 		// Minimum step count ensures we are not missing anything
 		steps = defaultMinStepCount
@@ -163,7 +163,7 @@ func interpolateSegmentFS(ci *ik.SegmentFS, resolution float64) ([]map[string][]
 		}
 
 		// Calculate steps needed for this frame
-		steps := PathStepCount(startPos, endPos, resolution)
+		steps := PathStateCount(startPos, endPos, resolution)
 		if steps > maxSteps {
 			maxSteps = steps
 		}

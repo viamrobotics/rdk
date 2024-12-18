@@ -77,13 +77,14 @@ func TestPTGKinematicsNoGeom(t *testing.T) {
 	fs.AddFrame(f, fs.World())
 	inputMap := referenceframe.StartPositions(fs)
 
+	startState := motionplan.NewPlanState(motionplan.PathState{f.Name(): referenceframe.NewZeroPoseInFrame(referenceframe.World)}, inputMap)
+	goalState := motionplan.NewPlanState(motionplan.PathState{f.Name(): dstPIF}, nil)
+
 	plan, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
-		Logger:             logger,
-		Goal:               dstPIF,
-		Frame:              f,
-		StartConfiguration: inputMap,
-		StartPose:          spatialmath.NewZeroPose(),
-		FrameSystem:        fs,
+		Logger:      logger,
+		Goals:       []*motionplan.PlanState{goalState},
+		StartState:  startState,
+		FrameSystem: fs,
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, plan, test.ShouldNotBeNil)
@@ -164,14 +165,14 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
+	startState := motionplan.NewPlanState(motionplan.PathState{f.Name(): referenceframe.NewZeroPoseInFrame(referenceframe.World)}, inputMap)
+	goalState := motionplan.NewPlanState(motionplan.PathState{f.Name(): dstPIF}, nil)
 	plan, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
-		Logger:             logger,
-		Goal:               dstPIF,
-		Frame:              f,
-		StartConfiguration: inputMap,
-		FrameSystem:        fs,
-		WorldState:         worldState,
-		StartPose:          spatialmath.NewZeroPose(),
+		Logger:      logger,
+		Goals:       []*motionplan.PlanState{goalState},
+		StartState:  startState,
+		FrameSystem: fs,
+		WorldState:  worldState,
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, plan, test.ShouldNotBeNil)
