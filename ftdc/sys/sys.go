@@ -30,29 +30,29 @@ func init() {
 	machineBootTimeSecsSinceEpoch = float64(machineStats.BootTime)
 }
 
-// SysUsageStatser can be used to get system metrics for a process.
-type SysUsageStatser struct {
+// UsageStatser can be used to get system metrics for a process.
+type UsageStatser struct {
 	proc procfs.Proc
 }
 
 // NewSelfSysUsageStatser will return a `SysUsageStatser` for the current process.
-func NewSelfSysUsageStatser() (*SysUsageStatser, error) {
+func NewSelfSysUsageStatser() (*UsageStatser, error) {
 	process, err := procfs.Self()
 	if err != nil {
 		return nil, err
 	}
 
-	return &SysUsageStatser{process}, nil
+	return &UsageStatser{process}, nil
 }
 
 // NewPidSysUsageStatser will return a `SysUsageStatser` for the given process id.
-func NewPidSysUsageStatser(pid int) (*SysUsageStatser, error) {
+func NewPidSysUsageStatser(pid int) (*UsageStatser, error) {
 	process, err := procfs.NewProc(pid)
 	if err != nil {
 		return nil, err
 	}
 
-	return &SysUsageStatser{process}, nil
+	return &UsageStatser{process}, nil
 }
 
 type stats struct {
@@ -63,7 +63,8 @@ type stats struct {
 	RssMB           float64
 }
 
-func (sys *SysUsageStatser) Stats() any {
+// Stats returns Stats.
+func (sys *UsageStatser) Stats() any {
 	// Stats files refer to time in "clock ticks". The right way to learn of the tick time (on
 	// linux) is via a system call to `sysconf(_SC_CLK_TCK)`. That system call, however, requires
 	// cgo. And it's almost universally true that 100hz is the configured value for "modern"
