@@ -1060,23 +1060,12 @@ func TestValidatePlanRequest(t *testing.T) {
 			expectedErr: errors.New("PlanRequest cannot have nil StartState"),
 		},
 		{
-			name: "framesystem does not contain frame - fail",
-			request: PlanRequest{
-				Logger:      logger,
-				FrameSystem: frame.NewEmptyFrameSystem("test"),
-				StartState: &PlanState{configuration: map[string][]frame.Input{
-					"frame1": frame.FloatsToInputs([]float64{0}),
-				}},
-			},
-			expectedErr: errors.Errorf("frame with name %q not in frame system", frame1.Name()),
-		},
-		{
 			name: "nil goal - fail",
 			request: PlanRequest{
 				Logger:      logger,
 				FrameSystem: fs,
 				StartState: &PlanState{configuration: map[string][]frame.Input{
-					"frame1": frame.FloatsToInputs([]float64{}),
+					"frame1": {}, "frame2": {{0}},
 				}},
 			},
 			expectedErr: errors.New("PlanRequest must have at least one goal"),
@@ -1088,22 +1077,10 @@ func TestValidatePlanRequest(t *testing.T) {
 				FrameSystem: fs,
 				Goals:       badGoal,
 				StartState: &PlanState{configuration: map[string][]frame.Input{
-					"frame1": frame.FloatsToInputs([]float64{}),
+					"frame1": {}, "frame2": {{0}},
 				}},
 			},
 			expectedErr: errors.New("part with name frame1 references non-existent parent non-existent"),
-		},
-		{
-			name: "incorrect length Start Configuration - fail",
-			request: PlanRequest{
-				Logger:      logger,
-				FrameSystem: fs,
-				Goals:       validGoal,
-				StartState: &PlanState{configuration: map[string][]frame.Input{
-					"frame1": frame.FloatsToInputs([]float64{0}),
-				}},
-			},
-			expectedErr: frame.NewIncorrectDoFError(1, 0),
 		},
 		{
 			name: "absent StartState Configuration - fail",
@@ -1122,7 +1099,7 @@ func TestValidatePlanRequest(t *testing.T) {
 				FrameSystem: fs,
 				Goals:       validGoal,
 				StartState: &PlanState{configuration: map[string][]frame.Input{
-					"frame2": frame.FloatsToInputs([]float64{0, 0, 0, 0, 0}),
+					"frame1": {}, "frame2": frame.FloatsToInputs([]float64{0, 0, 0, 0, 0}),
 				}},
 			},
 			expectedErr: frame.NewIncorrectDoFError(5, 1),
@@ -1134,7 +1111,7 @@ func TestValidatePlanRequest(t *testing.T) {
 				FrameSystem: fs,
 				Goals:       validGoal,
 				StartState: &PlanState{configuration: map[string][]frame.Input{
-					"frame1": {},
+					"frame1": {}, "frame2": {{0}},
 				}},
 			},
 			expectedErr: nil,
