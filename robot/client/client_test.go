@@ -1317,6 +1317,9 @@ func TestClientDiscovery(t *testing.T) {
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		return finalResources
 	}
+	injectRobot.MachineStatusFunc = func(_ context.Context) (robot.MachineStatus, error) {
+		return robot.MachineStatus{State: robot.StateRunning}, nil
+	}
 	q := resource.DiscoveryQuery{
 		API:   movementsensor.Named("foo").API,
 		Model: resource.DefaultModelFamily.WithModel("bar"),
@@ -1393,10 +1396,17 @@ func TestClientConfig(t *testing.T) {
 	workingRobot := &inject.Robot{
 		ResourceNamesFunc:   resourcesFunc,
 		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+		MachineStatusFunc: func(_ context.Context) (robot.MachineStatus, error) {
+			return robot.MachineStatus{State: robot.StateRunning}, nil
+		},
 	}
+
 	failingRobot := &inject.Robot{
 		ResourceNamesFunc:   resourcesFunc,
 		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+		MachineStatusFunc: func(_ context.Context) (robot.MachineStatus, error) {
+			return robot.MachineStatus{State: robot.StateRunning}, nil
+		},
 	}
 
 	o1 := &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1}
@@ -1540,6 +1550,9 @@ func TestForeignResource(t *testing.T) {
 
 	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return respWith }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return respWithResources }
+	injectRobot.MachineStatusFunc = func(_ context.Context) (robot.MachineStatus, error) {
+		return robot.MachineStatus{State: robot.StateRunning}, nil
+	}
 	// TODO(RSDK-882): will update this so that this is not necessary
 	injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
 		return &framesystem.Config{}, nil
@@ -1645,6 +1658,9 @@ func TestClientStopAll(t *testing.T) {
 	injectRobot1 := &inject.Robot{
 		ResourceNamesFunc:   resourcesFunc,
 		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+		MachineStatusFunc: func(_ context.Context) (robot.MachineStatus, error) {
+			return robot.MachineStatus{State: robot.StateRunning}, nil
+		},
 		StopAllFunc: func(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
 			stopAllCalled = true
 			return nil
@@ -1774,6 +1790,9 @@ func TestClientOperationIntercept(t *testing.T) {
 	injectRobot := &inject.Robot{
 		ResourceNamesFunc:   func() []resource.Name { return []resource.Name{} },
 		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+		MachineStatusFunc: func(_ context.Context) (robot.MachineStatus, error) {
+			return robot.MachineStatus{State: robot.StateRunning}, nil
+		},
 	}
 
 	gServer := grpc.NewServer()
@@ -2048,7 +2067,7 @@ func TestMachineStatus(t *testing.T) {
 				},
 				State: robot.StateRunning,
 			},
-			1,
+			2, // once for client.New call and once for MachineStatus call
 		},
 		{
 			"resource with valid status",
@@ -2094,7 +2113,7 @@ func TestMachineStatus(t *testing.T) {
 				},
 				State: robot.StateRunning,
 			},
-			2,
+			4, // twice for client.New call and twice for MachineStatus call
 		},
 		{
 			"unhealthy status",
@@ -2133,24 +2152,6 @@ func TestMachineStatus(t *testing.T) {
 					},
 				},
 				State: robot.StateRunning,
-			},
-			0,
-		},
-		{
-			"initializing machine state",
-			robot.MachineStatus{
-				Config:    config.Revision{Revision: "rev1"},
-				Resources: []resource.Status{},
-				State:     robot.StateInitializing,
-			},
-			0,
-		},
-		{
-			"unknown machine state",
-			robot.MachineStatus{
-				Config:    config.Revision{Revision: "rev1"},
-				Resources: []resource.Status{},
-				State:     robot.StateUnknown,
 			},
 			0,
 		},
