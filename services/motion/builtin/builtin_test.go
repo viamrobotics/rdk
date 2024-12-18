@@ -1406,11 +1406,11 @@ func TestMultiWaypointPlanning(t *testing.T) {
 		})
 
 		// Define pose for second waypoint
-		// ~ intermediatePose := spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -190, Z: 30})
-		//~ wp2State := motionplan.NewPlanState(
-		//~ motionplan.PathState{"pieceGripper": referenceframe.NewPoseInFrame("world", intermediatePose)},
-		//~ nil,
-		//~ )
+		intermediatePose := spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -190, Z: 30})
+		wp2State := motionplan.NewPlanState(
+			motionplan.PathState{"pieceGripper": referenceframe.NewPoseInFrame("world", intermediatePose)},
+			nil,
+		)
 
 		finalPose := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -180, Z: 34}))
 
@@ -1418,8 +1418,7 @@ func TestMultiWaypointPlanning(t *testing.T) {
 			ComponentName: gripper.Named("pieceGripper"),
 			Destination:   finalPose,
 			Extra: map[string]interface{}{
-				// ~ "waypoints":   []interface{}{wp1State.Serialize(), wp2State.Serialize()},
-				"waypoints":   []interface{}{wp1State.Serialize()},
+				"waypoints":   []interface{}{wp1State.Serialize(), wp2State.Serialize()},
 				"smooth_iter": 5,
 			},
 		}
