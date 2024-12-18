@@ -126,6 +126,7 @@ func (manager *resourceManager) startModuleManager(
 		ViamHomeDir:             viamHomeDir,
 		RobotCloudID:            robotCloudID,
 		PackagesDir:             packagesDir,
+		FTDC:                    manager.opts.ftdc,
 	}
 	manager.moduleManager = modmanager.NewManager(ctx, parentAddr, logger, mmOpts)
 }
