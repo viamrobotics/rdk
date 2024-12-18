@@ -1001,3 +1001,31 @@ func TestShellFileCopy(t *testing.T) {
 		})
 	})
 }
+
+func TestUpdateOAuthAppAction(t *testing.T) {
+	updateOAuthAppFunc := func(ctx context.Context, in *apppb.UpdateOAuthAppRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.UpdateOAuthAppResponse, error) {
+		return &apppb.UpdateOAuthAppResponse{}, nil
+	}
+	asc := &inject.AppServiceClient{
+		UpdateOAuthAppFunc: updateOAuthAppFunc,
+	}
+
+	flags := make(map[string]any)
+	flags[generalFlagOrgID] = "org-id"
+	flags[authApplicationFlagClientID] = "client-id"
+	flags[authApplicationFlagClientName] = "client-name"
+	flags[authApplicationFlagClientAuthentication] = "required"
+	flags[authApplicationFlagURLValidation] = "allow_wildcards"
+	flags[authApplicationFlagPKCE] = "not_required"
+	flags[authApplicationFlagOriginURIs] = []string{"https://woof.com/login", "https://arf.com/"}
+	flags[authApplicationFlagRedirectURIs] = []string{"https://woof.com/home", "https://arf.com/home"}
+	flags[authApplicationFlagLogoutURI] = "https://woof.com/logout"
+	flags[authApplicationFlagEnabledGrants] = []string{"implicit", "password"}
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, flags, "token")
+
+	test.That(t, ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx)), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, out.messages[1], test.ShouldContainSubstring, "Successfully updated oauth application")
+}

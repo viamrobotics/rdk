@@ -14,6 +14,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"time"
 
@@ -2049,4 +2050,129 @@ func logEntryFieldsToString(fields []*structpb.Struct) (string, error) {
 		}
 	}
 	return message + "}", nil
+}
+
+type updateOAuthAppArgs struct {
+	OrgID                string
+	ClientID             string
+	ClientName           string
+	ClientAuthentication string
+	Pkce                 string
+	LogoutURI            string
+	UrlValidation        string
+	OriginURIs           []string
+	RedirectURIs         []string
+	EnabledGrants        []string
+}
+
+const (
+	clientAuthenticationPrefix = "CLIENT_AUTHENTICATION_"
+	pkcePrefix                 = "PKCE_"
+	urlValidationPrefix        = "URL_VALIDATION_"
+	enabledGrantPrefix         = "ENABLED_GRANT_"
+)
+
+func allEnumValues(prefixToTrim string, enumValueMap map[string]int32) string {
+	var formattedValues []string
+	for values := range enumValueMap {
+		formattedValue := strings.ToLower(strings.TrimPrefix(values, prefixToTrim))
+		formattedValues = append(formattedValues, formattedValue)
+	}
+	slices.Sort(formattedValues)
+	return "[" + strings.Join(formattedValues, ", ") + "]"
+}
+
+// UpdateAuthApplicationAction is the corresponding action for 'auth-app update'.
+func UpdateOAuthAppAction(c *cli.Context, args updateOAuthAppArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	return client.updateOAuthAppAction(c, args)
+}
+
+func (c *viamClient) updateOAuthAppAction(cCtx *cli.Context, args updateOAuthAppArgs) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	req, err := createUpdateOAuthAppRequest(args)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.client.UpdateOAuthApp(c.c.Context, req)
+	if err != nil {
+		return err
+	}
+
+	infof(cCtx.App.Writer, "Successfully updated oauth application")
+	return nil
+}
+
+func createUpdateOAuthAppRequest(args updateOAuthAppArgs) (*apppb.UpdateOAuthAppRequest, error) {
+	orgID := args.OrgID
+	clientID := args.ClientID
+	clientName := args.ClientName
+	clientAuthentication := args.ClientAuthentication
+	urlValidation := args.UrlValidation
+	pkce := args.Pkce
+	originURIs := args.OriginURIs
+	redirectURIs := args.RedirectURIs
+	logoutURI := args.LogoutURI
+	enabledGrants := args.EnabledGrants
+
+	clientAuthenticationEnum, ok := apppb.ClientAuthentication_value[clientAuthenticationPrefix+strings.ToUpper(clientAuthentication)]
+	if !ok {
+		return nil, errors.Errorf("%s must be a valid ClientAuthentication, got %s. See `viam organizations auth-service update --help` for supported options",
+			authApplicationFlagClientAuthentication, clientAuthentication)
+	}
+	pkceEnum, ok := apppb.PKCE_value[pkcePrefix+strings.ToUpper(pkce)]
+	if !ok {
+		return nil, errors.Errorf("%s must be a valid PKCE, got %s. See `viam organizations auth-service update --help` for supported options",
+			authApplicationFlagPKCE, pkce)
+	}
+	urlValidationEnum, ok := apppb.URLValidation_value[urlValidationPrefix+strings.ToUpper(urlValidation)]
+	if !ok {
+		return nil, errors.Errorf("%s must be a valid UrlValidation, got %s. See `viam organizations auth-service update --help` for supported options",
+			authApplicationFlagURLValidation, urlValidation)
+	}
+
+	egProto, err := enabledGrantsToProto(enabledGrants)
+	if err != nil {
+		return nil, err
+	}
+
+	req := &apppb.UpdateOAuthAppRequest{
+		OrgId:      orgID,
+		ClientId:   clientID,
+		ClientName: clientName,
+		OauthConfig: &apppb.OAuthConfig{
+			ClientAuthentication: apppb.ClientAuthentication(clientAuthenticationEnum),
+			Pkce:                 apppb.PKCE(pkceEnum),
+			UrlValidation:        apppb.URLValidation(urlValidationEnum),
+			OriginUris:           originURIs,
+			RedirectUris:         redirectURIs,
+			LogoutUri:            logoutURI,
+			EnabledGrants:        egProto,
+		},
+	}
+	return req, nil
+}
+
+func enabledGrantsToProto(enabledGrants []string) ([]apppb.EnabledGrant, error) {
+	if enabledGrants == nil {
+		return nil, nil
+	}
+	enabledGrantsProto := make([]apppb.EnabledGrant, len(enabledGrants))
+	for i, eg := range enabledGrants {
+		enum, ok := apppb.EnabledGrant_value[enabledGrantPrefix+strings.ToUpper(eg)]
+		if !ok {
+			return nil, errors.Errorf("%s must consist of valid EnabledGrants, got %s. See `viam organizations auth-service update --help` for supported options",
+				authApplicationFlagEnabledGrants, eg)
+		}
+		enabledGrantsProto[i] = apppb.EnabledGrant(enum)
+	}
+	return enabledGrantsProto, nil
 }
