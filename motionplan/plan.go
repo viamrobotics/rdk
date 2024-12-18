@@ -404,7 +404,7 @@ func (p PlanState) Serialize() map[string]interface{} {
 	return m
 }
 
-// ComputePathStateFromConfiguration computes the poses for each frame in a framesystem, in frame of World, using the provided configuration.
+// ComputePathStateFromConfiguration computes the poses for each frame in a framesystem in frame of World, using the provided configuration.
 func ComputePathStateFromConfiguration(fs referenceframe.FrameSystem, configuration map[string][]referenceframe.Input) (PathState, error) {
 	// Compute poses from configuration using the FrameSystem
 	computedPoses := make(PathState)

@@ -161,41 +161,8 @@ func newRRTPlan(solution []node, fs referenceframe.FrameSystem, relative bool, o
 			return nil, errors.New("cannot construct a Plan using fewer than two nodes")
 		}
 	}
-	var dedup []node
-	var lastNode node
-	for _, solNode := range solution {
-		// Remove duplicate nodes
-		dup := true
-		if lastNode != nil {
-			if ik.FSConfigurationDistance(&ik.SegmentFS{lastNode.Q(), solNode.Q(), fs}) == 0 {
-				for frame, pif := range lastNode.Poses() {
-					if solPif, ok := solNode.Poses()[frame]; ok {
-						if solPif.Parent() != pif.Parent() {
-							dup = false
-							break
-						}
-						if !spatialmath.PoseAlmostEqual(pif.Pose(), solPif.Pose()) {
-							dup = false
-							break
-						}
-					} else {
-						dup = false
-						break
-					}
-				}
-			} else {
-				dup = false
-			}
-		} else {
-			dup = false
-		}
-		if !dup {
-			dedup = append(dedup, solNode)
-			lastNode = solNode
-		}
-	}
-	traj := nodesToTrajectory(dedup)
-	path, err := newPath(dedup, fs)
+	traj := nodesToTrajectory(solution)
+	path, err := newPath(solution, fs)
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +173,7 @@ func newRRTPlan(solution []node, fs referenceframe.FrameSystem, relative bool, o
 		}
 	}
 	var plan Plan
-	plan = &rrtPlan{SimplePlan: *NewSimplePlan(path, traj), nodes: dedup}
+	plan = &rrtPlan{SimplePlan: *NewSimplePlan(path, traj), nodes: solution}
 	if relative {
 		plan = OffsetPlan(plan, offsetPose)
 	}

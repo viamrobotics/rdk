@@ -208,8 +208,12 @@ func (pm *planManager) planAtomicWaypoints(
 			return nil, err
 		}
 		pm.logger.Debugf("completed planning for subwaypoint %d", i)
-		pm.logger.Debug(steps[0].Q())
-		resultSlices = append(resultSlices, steps...)
+		if i > 0 {
+			// Prevent doubled steps. The first step of each plan is the last step of the prior plan.
+			resultSlices = append(resultSlices, steps[1:]...)
+		} else {
+			resultSlices = append(resultSlices, steps...)
+		}
 	}
 
 	// // TODO: Once TPspace also supports multiple waypoints, this needs to be updated. For now it can be false.
