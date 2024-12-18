@@ -285,6 +285,51 @@ func (c *viamClient) getBillingConfig(cCtx *cli.Context, orgID string) error {
 	return nil
 }
 
+type organizationEnableBillingServiceArgs struct {
+	OrgID   string
+	Address string
+}
+
+// OrganizationEnableBillingServiceAction corresponds to `organizations billing enable`.
+func OrganizationEnableBillingServiceAction(cCtx *cli.Context, args organizationEnableBillingServiceArgs) error {
+	client, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+	orgID := args.OrgID
+	if orgID == "" {
+		return errors.New("cannot enable billing service without an organization ID")
+	}
+
+	address := args.Address
+	if address == "" {
+		return errors.New("cannot enable billing service to an empty address")
+	}
+
+	return client.organizationEnableBillingServiceAction(cCtx, orgID, address)
+}
+
+func (c *viamClient) organizationEnableBillingServiceAction(cCtx *cli.Context, orgID, addressAsString string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	address, err := parseBillingAddress(addressAsString)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.client.EnableBillingService(cCtx.Context, &apppb.EnableBillingServiceRequest{
+		OrgId:          orgID,
+		BillingAddress: address,
+	})
+	if err != nil {
+		return err
+	}
+	printf(cCtx.App.Writer, "Successfully enabled billing service for organization %q", orgID)
+	return nil
+}
+
 type organizationDisableBillingServiceArgs struct {
 	OrgID string
 }
