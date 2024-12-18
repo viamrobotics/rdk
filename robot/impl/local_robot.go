@@ -393,6 +393,10 @@ func newWithResources(
 		localModuleVersions:        make(map[string]semver.Version),
 		ftdc:                       ftdcWorker,
 	}
+
+	// Use value of initializing from robot options.
+	r.initializing.Store(rOpts.initializing)
+
 	r.mostRecentCfg.Store(config.Config{})
 	var heartbeatWindow time.Duration
 	if cfg.Network.Sessions.HeartbeatWindow == 0 {
