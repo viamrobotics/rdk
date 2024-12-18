@@ -7,9 +7,9 @@ import (
 	"github.com/prometheus/procfs"
 )
 
-// On linux, the page size is a system call. Cache the page size for the entirety of the progarm
-// lifetime. As opposed to calling it each time we wish to compute the resident memory a program is
-// using.
+// On linux, getting the page size is a system call. Cache the page size for the entirety of the
+// progarm lifetime. As opposed to calling it each time we wish to compute the resident memory a
+// program is using.
 var osPageSize int
 var machineBootTimeSecsSinceEpoch float64
 

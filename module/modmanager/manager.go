@@ -1167,7 +1167,7 @@ func (m *module) startProcess(
 			return
 		}
 
-		m.ftdc.Add(m.process.ID(), statser)
+		m.ftdc.Add(fmt.Sprintf("modules.%s", m.process.ID()), statser)
 	}()
 
 	checkTicker := time.NewTicker(100 * time.Millisecond)

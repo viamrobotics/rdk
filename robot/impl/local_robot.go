@@ -6,7 +6,6 @@ package robotimpl
 
 import (
 	"context"
-	"fmt"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -325,10 +324,8 @@ func newWithResources(
 		//   constructed to get a valid copy of its stats object (for the schema's sake). Even if
 		//   the web service has not been "started".
 		ftdcWorker = ftdc.New(ftdc.DefaultDirectory(config.ViamDotDir, partID), logger.Sublogger("ftdc"))
-		fmt.Println("New ftdc")
 		if statser, err := sys.NewSelfSysUsageStatser(); err == nil {
-			ftdcWorker.Add("viam-server-process", statser)
-			fmt.Println("New usage")
+			ftdcWorker.Add("viam-server", statser)
 		}
 	}
 
