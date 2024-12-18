@@ -264,7 +264,7 @@ func FSConfigurationDistance(segment *SegmentFS) float64 {
 			for i, val := range cfg {
 				score += math.Abs(val.Value - endCfg[i].Value)
 			}
-		} else {
+		} else if len(cfg) > 0 {
 			score += math.Inf(1)
 		}
 	}
@@ -277,7 +277,7 @@ func FSConfigurationL2Distance(segment *SegmentFS) float64 {
 	for frame, cfg := range segment.StartConfiguration {
 		if endCfg, ok := segment.EndConfiguration[frame]; ok && len(cfg) == len(endCfg) {
 			score += referenceframe.InputsL2Distance(cfg, endCfg)
-		} else {
+		} else if len(cfg) > 0 {
 			score += math.Inf(1)
 		}
 	}
