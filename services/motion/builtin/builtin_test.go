@@ -1256,20 +1256,23 @@ func TestDoCommand(t *testing.T) {
 		ComponentName: gripper.Named("pieceGripper"),
 		WorldState:    worldState,
 		Destination:   referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -30, Z: -50})),
+		Extra:         nil,
 	}
 
 	// need to simulate what happens when the DoCommand message is serialized/deserialized into proto
-	doOverWire := func(ms motion.Service, cmd map[string]interface{}) map[string]interface{} {
+	doOverWire := func(ms motion.Service, cmd map[string]interface{}) (map[string]interface{}, error) {
 		command, err := protoutils.StructToStructPb(cmd)
 		test.That(t, err, test.ShouldBeNil)
 		resp, err := ms.DoCommand(ctx, command.AsMap())
-		test.That(t, err, test.ShouldBeNil)
+		if err != nil {
+			return map[string]interface{}{}, err
+		}
 		respProto, err := protoutils.StructToStructPb(resp)
 		test.That(t, err, test.ShouldBeNil)
-		return respProto.AsMap()
+		return respProto.AsMap(), nil
 	}
 
-	t.Run("DoPlan", func(t *testing.T) {
+	testDoPlan := func(moveReq motion.MoveReq) (motionplan.Trajectory, error) {
 		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		defer teardown()
 
@@ -1281,15 +1284,25 @@ func TestDoCommand(t *testing.T) {
 		cmd := map[string]interface{}{DoPlan: string(bytes)}
 
 		// simulate going over the wire
-		resp, ok := doOverWire(ms, cmd)[DoPlan]
+		respMap, err := doOverWire(ms, cmd)
+		if err != nil {
+			return nil, err
+		}
+		resp, ok := respMap[DoPlan]
 		test.That(t, ok, test.ShouldBeTrue)
 
 		// the client will need to decode the response still
 		var trajectory motionplan.Trajectory
 		err = mapstructure.Decode(resp, &trajectory)
+		return trajectory, err
+	}
+
+	t.Run("DoPlan", func(t *testing.T) {
+		trajectory, err := testDoPlan(moveReq)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(trajectory), test.ShouldEqual, 2)
 	})
+
 	t.Run("DoExectute", func(t *testing.T) {
 		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		defer teardown()
@@ -1301,11 +1314,24 @@ func TestDoCommand(t *testing.T) {
 		cmd := map[string]interface{}{DoExecute: plan.Trajectory()}
 
 		// simulate going over the wire
-		resp, ok := doOverWire(ms, cmd)[DoExecute]
+		respMap, err := doOverWire(ms, cmd)
+		test.That(t, err, test.ShouldBeNil)
+		resp, ok := respMap[DoExecute]
 		test.That(t, ok, test.ShouldBeTrue)
 
 		// the client will need to decode the response still
 		test.That(t, resp, test.ShouldBeTrue)
+	})
+
+	t.Run("Extras transmitted correctly", func(t *testing.T) {
+		// test that DoPlan correctly breaks if bad inputs are provided, meaning it is being parsed correctly
+		moveReq.Extra = map[string]interface{}{
+			"motion_profile": motionplan.LinearMotionProfile,
+			"planning_alg":   "rrtstar",
+		}
+		_, err = testDoPlan(moveReq)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldResemble, motionplan.NewAlgAndConstraintMismatchErr("rrtstar"))
 	})
 }
 

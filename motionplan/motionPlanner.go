@@ -508,7 +508,7 @@ IK:
 			return nil, errIKSolve
 		}
 
-		return nil, genIKConstraintErr(failures, constraintFailCnt)
+		return nil, newIKConstraintErr(failures, constraintFailCnt)
 	}
 
 	keys := make([]float64, 0, len(solutions))
