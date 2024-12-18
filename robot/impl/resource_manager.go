@@ -1452,7 +1452,6 @@ func remoteDialOptions(config config.Remote, opts resourceManagerOptions) []rpc.
 // remote cycles from preventing this call from finishing.
 var defaultRemoteMachineStatusTimeout = time.Minute
 
-// getRemoteResourceMetadata.
 func (manager *resourceManager) getRemoteResourceMetadata(ctx context.Context) map[resource.Name]cloud.Metadata {
 	resourceStatusMap := make(map[resource.Name]cloud.Metadata)
 	for _, resName := range manager.resources.FindNodesByAPI(client.RemoteAPI) {

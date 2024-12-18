@@ -1864,12 +1864,6 @@ func newDummyRobot(t *testing.T, robot robot.Robot) *dummyRobot {
 	return remote
 }
 
-func (rr *dummyRobot) SetName(remoteName string) {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	rr.Named = resource.NewName(client.RemoteAPI, remoteName).AsNamed()
-}
-
 func (rr *dummyRobot) SetOffline(offline bool) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()

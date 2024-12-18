@@ -3274,7 +3274,6 @@ func TestMachineStatusWithRemotes(t *testing.T) {
 				}, nil
 			}
 			dRobot := newDummyRobot(t, injectRemoteRobot)
-			dRobot.SetName(remoteName)
 			md := cloud.Metadata{
 				PrimaryOrgID:  "the-org",
 				LocationID:    "the-location",
@@ -3382,7 +3381,6 @@ func TestMachineStatusWithTwoRemotes(t *testing.T) {
 		}, nil
 	}
 	dRobot1 := newDummyRobot(t, injectRemoteRobot1)
-	dRobot1.SetName(remoteName1)
 	lr := setupLocalRobot(t, ctx, &config.Config{}, logger, withDisableBackgroundReconfiguration())
 	lr.(*localRobot).manager.addRemote(
 		context.Background(),
@@ -3433,7 +3431,6 @@ func TestMachineStatusWithTwoRemotes(t *testing.T) {
 		}, nil
 	}
 	dRobot2 := newDummyRobot(t, injectRemoteRobot2)
-	dRobot2.SetName(remoteName2)
 	lr.(*localRobot).manager.addRemote(
 		context.Background(),
 		dRobot2,
@@ -3559,7 +3556,6 @@ func TestMachineStatusWithRemoteChain(t *testing.T) {
 				}, nil
 			}
 			remote2Dummy := newDummyRobot(t, remote2)
-			remote2Dummy.SetName(remoteName2)
 
 			// setup remote1
 			cfg := &config.Config{}
@@ -3590,7 +3586,6 @@ func TestMachineStatusWithRemoteChain(t *testing.T) {
 			// setup local
 			remoteName1 := "remote1"
 			remote1Dummy := newDummyRobot(t, remote1)
-			remote1Dummy.SetName(remoteName1)
 			lRobot := setupLocalRobot(t, ctx, &config.Config{}, logger, withDisableBackgroundReconfiguration())
 			lRobot.(*localRobot).manager.addRemote(
 				context.Background(),
