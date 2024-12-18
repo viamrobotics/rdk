@@ -3600,6 +3600,10 @@ func TestMachineStatusWithRemoteChain(t *testing.T) {
 			)
 
 			remote1Dummy.SetOffline(tc.remoteOffline)
+			// even though the remote1 is now offline, resources will be kept in the resource graph
+			// but marked unreachable
+			anythingChanged := lRobot.(*localRobot).manager.updateRemotesResourceNames(ctx)
+			test.That(t, anythingChanged, test.ShouldBeFalse)
 
 			mStatus, err := lRobot.MachineStatus(ctx)
 			test.That(t, err, test.ShouldBeNil)
