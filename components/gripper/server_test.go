@@ -5,12 +5,15 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/golang/geo/r3"
+	pbcommon "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/gripper/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -56,6 +59,14 @@ func TestServer(t *testing.T) {
 		extraOptions = extra
 		return nil
 	}
+	injectGripper.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
+		box, err := spatialmath.NewBox(
+			spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, spatialmath.NewZeroPose().Orientation()),
+			r3.Vector{},
+			testGripperName,
+		)
+		return []spatialmath.Geometry{box}, err
+	}
 
 	injectGripper2.OpenFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		gripperOpen = testGripperName2
@@ -66,6 +77,9 @@ func TestServer(t *testing.T) {
 	}
 	injectGripper2.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		return errStopUnimplemented
+	}
+	injectGripper2.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
+		return nil, nil
 	}
 
 	t.Run("open", func(t *testing.T) {
@@ -121,5 +135,13 @@ func TestServer(t *testing.T) {
 		_, err = gripperServer.Stop(context.Background(), &pb.StopRequest{Name: testGripperName2})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldBeError, errStopUnimplemented)
+	})
+
+	t.Run("geometries", func(t *testing.T) {
+		_, err = gripperServer.GetGeometries(context.Background(), &pbcommon.GetGeometriesRequest{Name: testGripperName})
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = gripperServer.GetGeometries(context.Background(), &pbcommon.GetGeometriesRequest{Name: testGripperName2})
+		test.That(t, err, test.ShouldBeError, gripper.ErrGeometriesNil(testGripperName2))
 	})
 }

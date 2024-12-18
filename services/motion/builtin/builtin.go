@@ -3,7 +3,6 @@ package builtin
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -13,6 +12,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/motion/v1"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
@@ -351,14 +352,22 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 
 	resp := make(map[string]interface{}, 0)
 	if req, ok := cmd[DoPlan]; ok {
-		bytes, err := json.Marshal(req)
+		s, err := utils.AssertType[string](req)
 		if err != nil {
 			return nil, err
 		}
 		var moveReqProto pb.MoveRequest
-		err = json.Unmarshal(bytes, &moveReqProto)
+		err = protojson.Unmarshal([]byte(s), &moveReqProto)
 		if err != nil {
 			return nil, err
+		}
+		fields := moveReqProto.Extra.AsMap()
+		if extra, err := utils.AssertType[map[string]interface{}](fields["fields"]); err == nil {
+			v, err := structpb.NewStruct(extra)
+			if err != nil {
+				return nil, err
+			}
+			moveReqProto.Extra = v
 		}
 		moveReq, err := motion.MoveReqFromProto(&moveReqProto)
 		if err != nil {
@@ -384,10 +393,6 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 }
 
 func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq) (motionplan.Plan, error) {
-	if req.Destination == nil {
-		return nil, errors.New("cannot specify a nil destination in motion.MoveReq")
-	}
-
 	frameSys, err := ms.fsService.FrameSystem(ctx, req.WorldState.Transforms())
 	if err != nil {
 		return nil, err
@@ -405,24 +410,47 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq) (motionplan.Pla
 		return nil, fmt.Errorf("component named %s not found in robot frame system", req.ComponentName.ShortName())
 	}
 
-	// re-evaluate goalPose to be in the frame of World
-	solvingFrame := referenceframe.World // TODO(erh): this should really be the parent of rootName
-	tf, err := frameSys.Transform(fsInputs, req.Destination, solvingFrame)
+	startState, waypoints, err := waypointsFromRequest(req, fsInputs)
 	if err != nil {
 		return nil, err
 	}
-	goalPose, _ := tf.(*referenceframe.PoseInFrame)
+	if len(waypoints) == 0 {
+		return nil, errors.New("could not find any waypoints to plan for in MoveRequest. Fill in Destination or goal_state")
+	}
+
+	// re-evaluate goal poses to be in the frame of World
+	// TODO (RSDK-8847) : this is a workaround to help account for us not yet being able to properly synchronize simultaneous motion across
+	// multiple components. If we are moving component1, mounted on arm2, to a goal in frame of component2, which is mounted on arm2, then
+	// passing that raw poseInFrame will certainly result in a plan which moves arm1 and arm2. We cannot guarantee that this plan is
+	// collision-free until RSDK-8847 is complete. By transforming goals to world, only one arm should move for such a plan.
+	worldWaypoints := []*motionplan.PlanState{}
+	solvingFrame := referenceframe.World
+	for _, wp := range waypoints {
+		if wp.Poses() != nil {
+			step := motionplan.PathState{}
+			for fName, destination := range wp.Poses() {
+				tf, err := frameSys.Transform(fsInputs, destination, solvingFrame)
+				if err != nil {
+					return nil, err
+				}
+				goalPose, _ := tf.(*referenceframe.PoseInFrame)
+				step[fName] = goalPose
+			}
+			worldWaypoints = append(worldWaypoints, motionplan.NewPlanState(step, wp.Configuration()))
+		} else {
+			worldWaypoints = append(worldWaypoints, wp)
+		}
+	}
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
 	return motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
-		Logger:             ms.logger,
-		Goal:               goalPose,
-		Frame:              movingFrame,
-		StartConfiguration: fsInputs,
-		FrameSystem:        frameSys,
-		WorldState:         req.WorldState,
-		Constraints:        req.Constraints,
-		Options:            req.Extra,
+		Logger:      ms.logger,
+		Goals:       worldWaypoints,
+		StartState:  startState,
+		FrameSystem: frameSys,
+		WorldState:  req.WorldState,
+		Constraints: req.Constraints,
+		Options:     req.Extra,
 	})
 }
 
@@ -511,4 +539,64 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 		}
 	}
 	return nil
+}
+
+func waypointsFromRequest(
+	req motion.MoveReq,
+	fsInputs map[string][]referenceframe.Input,
+) (*motionplan.PlanState, []*motionplan.PlanState, error) {
+	var startState *motionplan.PlanState
+	var waypoints []*motionplan.PlanState
+	var err error
+
+	if startStateIface, ok := req.Extra["start_state"]; ok {
+		if startStateMap, ok := startStateIface.(map[string]interface{}); ok {
+			startState, err = motionplan.DeserializePlanState(startStateMap)
+			if err != nil {
+				return nil, nil, err
+			}
+		} else {
+			return nil, nil, errors.New("extras start_state could not be interpreted as map[string]interface{}")
+		}
+		if startState.Configuration() == nil {
+			startState = motionplan.NewPlanState(startState.Poses(), fsInputs)
+		}
+	} else {
+		startState = motionplan.NewPlanState(nil, fsInputs)
+	}
+
+	if waypointsIface, ok := req.Extra["waypoints"]; ok {
+		if waypointsIfaceList, ok := waypointsIface.([]interface{}); ok {
+			for _, wpIface := range waypointsIfaceList {
+				if wpMap, ok := wpIface.(map[string]interface{}); ok {
+					wp, err := motionplan.DeserializePlanState(wpMap)
+					if err != nil {
+						return nil, nil, err
+					}
+					waypoints = append(waypoints, wp)
+				} else {
+					return nil, nil, errors.New("element in extras waypoints could not be interpreted as map[string]interface{}")
+				}
+			}
+		} else {
+			return nil, nil, errors.New("Invalid 'waypoints' extra type. Expected an array")
+		}
+	}
+
+	// If goal state is specified, it overrides the request goal
+	if goalStateIface, ok := req.Extra["goal_state"]; ok {
+		if goalStateMap, ok := goalStateIface.(map[string]interface{}); ok {
+			goalState, err := motionplan.DeserializePlanState(goalStateMap)
+			if err != nil {
+				return nil, nil, err
+			}
+			waypoints = append(waypoints, goalState)
+		} else {
+			return nil, nil, errors.New("extras goal_state could not be interpreted as map[string]interface{}")
+		}
+	} else if req.Destination != nil {
+		goalState := motionplan.NewPlanState(motionplan.PathState{req.ComponentName.ShortName(): req.Destination}, nil)
+		waypoints = append(waypoints, goalState)
+	}
+	return startState, waypoints, nil
 }

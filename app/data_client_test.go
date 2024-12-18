@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"io"
 	"os"
 	"testing"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"go.viam.com/test"
 	utils "go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/protoutils"
@@ -70,6 +72,21 @@ var (
 		Metadata:      &tabularMetadata,
 		TimeRequested: start,
 		TimeReceived:  end,
+	}
+	exportTabularResponse = &pb.ExportTabularDataResponse{
+		PartId:           partID,
+		ResourceName:     componentName,
+		ResourceSubtype:  componentType,
+		MethodName:       method,
+		TimeCaptured:     timestamppb.Now(),
+		OrganizationId:   organizationID,
+		LocationId:       parentLocationID,
+		RobotName:        robotName,
+		RobotId:          robotID,
+		PartName:         partName,
+		MethodParameters: &structpb.Struct{},
+		Tags:             tags,
+		Payload:          &structpb.Struct{},
 	}
 	binaryID = BinaryID{
 		FileID:         "file1",
@@ -270,6 +287,7 @@ func TestDataClient(t *testing.T) {
 		//nolint:deprecated,staticcheck
 		grpcClient.TabularDataByFilterFunc = func(ctx context.Context, in *pb.TabularDataByFilterRequest,
 			opts ...grpc.CallOption,
+			//nolint:deprecated,staticcheck
 		) (*pb.TabularDataByFilterResponse, error) {
 			test.That(t, in.DataRequest, test.ShouldResemble, dataRequestToProto(dataRequest))
 			test.That(t, in.CountOnly, test.ShouldBeTrue)
@@ -373,6 +391,35 @@ func TestDataClient(t *testing.T) {
 		resp, err := client.GetLatestTabularData(context.Background(), partID, componentName, componentType, method)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, &latestTabularData)
+	})
+
+	t.Run("ExportTabularData", func(t *testing.T) {
+		sentOnce := false
+		mockStream := &inject.DataServiceExportTabularDataClient{
+			RecvFunc: func() (*pb.ExportTabularDataResponse, error) {
+				if sentOnce {
+					return nil, io.EOF
+				}
+
+				sentOnce = true
+				return exportTabularResponse, nil
+			},
+		}
+
+		grpcClient.ExportTabularDataFunc = func(ctx context.Context, in *pb.ExportTabularDataRequest,
+			opts ...grpc.CallOption,
+		) (pb.DataService_ExportTabularDataClient, error) {
+			test.That(t, in.PartId, test.ShouldEqual, partID)
+			test.That(t, in.ResourceName, test.ShouldEqual, componentName)
+			test.That(t, in.ResourceSubtype, test.ShouldEqual, componentType)
+			test.That(t, in.MethodName, test.ShouldEqual, method)
+			test.That(t, in.Interval, test.ShouldResemble, captureIntervalToProto(captureInterval))
+			return mockStream, nil
+		}
+
+		responses, err := client.ExportTabularData(context.Background(), partID, componentName, componentType, method, captureInterval)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, responses[0], test.ShouldResemble, exportTabularDataResponseFromProto(exportTabularResponse))
 	})
 
 	t.Run("BinaryDataByFilter", func(t *testing.T) {

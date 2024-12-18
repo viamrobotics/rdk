@@ -6,8 +6,7 @@ import (
 	"strconv"
 
 	"github.com/golang/geo/r3"
-	//nolint:staticcheck
-	protov1 "github.com/golang/protobuf/proto"
+	protov1 "github.com/golang/protobuf/proto" //nolint:staticcheck
 	commonpb "go.viam.com/api/common/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils/protoutils"

@@ -76,6 +76,9 @@ func (c *client) Controls(ctx context.Context, extra map[string]interface{}) ([]
 	if err != nil {
 		return nil, err
 	}
+	if resp.Controls == nil {
+		return nil, nil
+	}
 	var controls []Control
 	for _, control := range resp.Controls {
 		controls = append(controls, Control(control))
@@ -94,6 +97,9 @@ func (c *client) Events(ctx context.Context, extra map[string]interface{}) (map[
 	})
 	if err != nil {
 		return nil, err
+	}
+	if resp.Events == nil {
+		return nil, nil
 	}
 
 	eventsOut := make(map[Control]Event)

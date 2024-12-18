@@ -69,6 +69,12 @@ func TestServerSetGPIO(t *testing.T) {
 			expCapArgs: []interface{}{ctx, true},
 			expRespErr: "",
 		},
+		{
+			injectErr:  nil,
+			req:        &request{Name: testBoardName, Pin: "one", High: true},
+			expCapArgs: []interface{}(nil),
+			expRespErr: board.ErrGPIOPinByNameReturnNil(testBoardName).Error(),
+		},
 	}
 
 	//nolint:dupl
@@ -80,6 +86,9 @@ func TestServerSetGPIO(t *testing.T) {
 
 			injectGPIOPin := &inject.GPIOPin{}
 			injectBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
+				if tc.expRespErr == board.ErrGPIOPinByNameReturnNil(testBoardName).Error() {
+					return nil, nil
+				}
 				return injectGPIOPin, nil
 			}
 
@@ -142,6 +151,13 @@ func TestServerGetGPIO(t *testing.T) {
 			expResp:      &response{High: true},
 			expRespErr:   "",
 		},
+		{
+			injectResult: false,
+			injectErr:    nil,
+			req:          &request{Name: testBoardName, Pin: "one"},
+			expResp:      nil,
+			expRespErr:   board.ErrGPIOPinByNameReturnNil(testBoardName).Error(),
+		},
 	}
 
 	//nolint:dupl
@@ -153,6 +169,9 @@ func TestServerGetGPIO(t *testing.T) {
 
 			injectGPIOPin := &inject.GPIOPin{}
 			injectBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
+				if tc.expRespErr == board.ErrGPIOPinByNameReturnNil(testBoardName).Error() {
+					return nil, nil
+				}
 				return injectGPIOPin, nil
 			}
 
@@ -217,6 +236,14 @@ func TestServerPWM(t *testing.T) {
 			expResp:      &response{DutyCyclePct: 0.1},
 			expRespErr:   "",
 		},
+		{
+			injectResult: 0,
+			injectErr:    nil,
+			req:          &request{Name: testBoardName, Pin: "one"},
+			expCapArgs:   []interface{}(nil),
+			expResp:      nil,
+			expRespErr:   board.ErrGPIOPinByNameReturnNil(testBoardName).Error(),
+		},
 	}
 
 	for _, tc := range tests {
@@ -227,6 +254,9 @@ func TestServerPWM(t *testing.T) {
 
 			injectGPIOPin := &inject.GPIOPin{}
 			injectBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
+				if tc.expRespErr == board.ErrGPIOPinByNameReturnNil(testBoardName).Error() {
+					return nil, nil
+				}
 				return injectGPIOPin, nil
 			}
 
@@ -281,6 +311,12 @@ func TestServerSetPWM(t *testing.T) {
 			expCapArgs: []interface{}{ctx, 0.03},
 			expRespErr: "",
 		},
+		{
+			injectErr:  nil,
+			req:        &request{Name: testBoardName, Pin: "one"},
+			expCapArgs: []interface{}(nil),
+			expRespErr: board.ErrGPIOPinByNameReturnNil(testBoardName).Error(),
+		},
 	}
 
 	//nolint:dupl
@@ -292,6 +328,9 @@ func TestServerSetPWM(t *testing.T) {
 
 			injectGPIOPin := &inject.GPIOPin{}
 			injectBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
+				if tc.expRespErr == board.ErrGPIOPinByNameReturnNil(testBoardName).Error() {
+					return nil, nil
+				}
 				return injectGPIOPin, nil
 			}
 
@@ -355,6 +394,14 @@ func TestServerPWMFrequency(t *testing.T) {
 			expResp:      &response{FrequencyHz: 1},
 			expRespErr:   "",
 		},
+		{
+			injectResult: 0,
+			injectErr:    nil,
+			req:          &request{Name: testBoardName, Pin: "one"},
+			expCapArgs:   []interface{}(nil),
+			expResp:      nil,
+			expRespErr:   board.ErrGPIOPinByNameReturnNil(testBoardName).Error(),
+		},
 	}
 
 	for _, tc := range tests {
@@ -365,6 +412,9 @@ func TestServerPWMFrequency(t *testing.T) {
 
 			injectGPIOPin := &inject.GPIOPin{}
 			injectBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
+				if tc.expRespErr == board.ErrGPIOPinByNameReturnNil(testBoardName).Error() {
+					return nil, nil
+				}
 				return injectGPIOPin, nil
 			}
 
@@ -419,6 +469,12 @@ func TestServerSetPWMFrequency(t *testing.T) {
 			expCapArgs: []interface{}{ctx, uint(123123)},
 			expRespErr: "",
 		},
+		{
+			injectErr:  nil,
+			req:        &request{Name: testBoardName, Pin: "one"},
+			expCapArgs: []interface{}(nil),
+			expRespErr: board.ErrGPIOPinByNameReturnNil(testBoardName).Error(),
+		},
 	}
 
 	//nolint:dupl
@@ -430,6 +486,9 @@ func TestServerSetPWMFrequency(t *testing.T) {
 
 			injectGPIOPin := &inject.GPIOPin{}
 			injectBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
+				if tc.expRespErr == board.ErrGPIOPinByNameReturnNil(testBoardName).Error() {
+					return nil, nil
+				}
 				return injectGPIOPin, nil
 			}
 
@@ -515,6 +574,17 @@ func TestServerReadAnalogReader(t *testing.T) {
 			expResp:          &response{Value: 8, MinRange: 0, MaxRange: 10, StepSize: 0.1},
 			expRespErr:       "",
 		},
+		{
+			injectAnalog:     &inject.Analog{},
+			injectAnalogErr:  nil,
+			injectVal:        board.AnalogValue{Value: 8, Min: 0, Max: 10, StepSize: 0.1},
+			injectErr:        nil,
+			req:              &request{BoardName: testBoardName, AnalogReaderName: "analog1"},
+			expCapAnalogArgs: []interface{}{"analog1"},
+			expCapArgs:       []interface{}(nil),
+			expResp:          nil,
+			expRespErr:       board.ErrAnalogByNameReturnNil(testBoardName).Error(),
+		},
 	}
 
 	for _, tc := range tests {
@@ -524,6 +594,9 @@ func TestServerReadAnalogReader(t *testing.T) {
 			var actualExtra map[string]interface{}
 
 			injectBoard.AnalogByNameFunc = func(name string) (board.Analog, error) {
+				if tc.expRespErr == board.ErrAnalogByNameReturnNil(testBoardName).Error() {
+					return nil, nil
+				}
 				return tc.injectAnalog, tc.injectAnalogErr
 			}
 
@@ -588,6 +661,13 @@ func TestServerWriteAnalog(t *testing.T) {
 			expResp:    nil,
 			expRespErr: errFoo.Error(),
 		},
+		{
+			name:       "Analog should be nil",
+			injectErr:  nil,
+			req:        &request{Name: testBoardName, Pin: "analog1", Extra: pbExpectedExtra},
+			expResp:    nil,
+			expRespErr: board.ErrAnalogByNameReturnNil(testBoardName).Error(),
+		},
 	}
 
 	for _, tc := range tests {
@@ -602,6 +682,9 @@ func TestServerWriteAnalog(t *testing.T) {
 				return tc.injectErr
 			}
 			injectBoard.AnalogByNameFunc = func(pin string) (board.Analog, error) {
+				if tc.expRespErr == board.ErrAnalogByNameReturnNil(testBoardName).Error() {
+					return nil, nil
+				}
 				return &injectAnalog, nil
 			}
 
@@ -682,6 +765,17 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 			expResp:                    &response{Value: 42},
 			expRespErr:                 "",
 		},
+		{
+			injectDigitalInterrupt:     &inject.DigitalInterrupt{},
+			injectDigitalInterruptErr:  nil,
+			injectResult:               0,
+			injectErr:                  nil,
+			req:                        &request{BoardName: testBoardName, DigitalInterruptName: "digital1"},
+			expCapDigitalInterruptArgs: []interface{}{"digital1"},
+			expCapArgs:                 []interface{}(nil),
+			expResp:                    nil,
+			expRespErr:                 board.ErrDigitalInterruptByNameReturnNil(testBoardName).Error(),
+		},
 	}
 
 	for _, tc := range tests {
@@ -691,6 +785,9 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 			var actualExtra map[string]interface{}
 
 			injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, error) {
+				if tc.expRespErr == board.ErrDigitalInterruptByNameReturnNil(testBoardName).Error() {
+					return nil, nil
+				}
 				return tc.injectDigitalInterrupt, tc.injectDigitalInterruptErr
 			}
 
@@ -784,7 +881,7 @@ func TestStreamTicks(t *testing.T) {
 		},
 		{
 			name:                      "unknown digital interrupt should return error",
-			injectDigitalInterrupts:   nil,
+			injectDigitalInterrupts:   []*inject.DigitalInterrupt{{}, {}},
 			injectDigitalInterruptErr: errDigital,
 			streamTicksErr:            errors.New("unknown digital interrupt: digital3"),
 			req:                       &request{Name: testBoardName, PinNames: []string{"digital3"}},

@@ -85,9 +85,8 @@ func (rs *rotateSource) Read(ctx context.Context) (image.Image, func(), error) {
 	}
 }
 
-// Close closes the original stream.
 func (rs *rotateSource) Close(ctx context.Context) error {
-	return rs.src.Close(ctx)
+	return nil
 }
 
 // resizeConfig are the attributes for a resize transform.
@@ -152,9 +151,8 @@ func (rs *resizeSource) Read(ctx context.Context) (image.Image, func(), error) {
 	}
 }
 
-// Close closes the original stream.
 func (rs *resizeSource) Close(ctx context.Context) error {
-	return rs.src.Close(ctx)
+	return nil
 }
 
 // cropConfig are the attributes for a crop transform.
@@ -296,7 +294,6 @@ func (cs *cropSource) Read(ctx context.Context) (image.Image, func(), error) {
 	}
 }
 
-// Close closes the original stream.
 func (cs *cropSource) Close(ctx context.Context) error {
-	return cs.src.Close(ctx)
+	return nil
 }

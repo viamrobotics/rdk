@@ -3,6 +3,7 @@ package input
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
@@ -11,6 +12,17 @@ import (
 
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
+)
+
+var (
+	// ErrControlsNil is the returned error if input controller controls are nil.
+	ErrControlsNil = func(inputName string) error {
+		return fmt.Errorf("input controller component %v Controls should not return nil controls", inputName)
+	}
+	// ErrEventsNil is the returned error if input controller events are nil.
+	ErrEventsNil = func(inputName string) error {
+		return fmt.Errorf("input controller component %v Events should not return nil events", inputName)
+	}
 )
 
 // serviceServer implements the InputControllerService from proto.
@@ -39,6 +51,9 @@ func (s *serviceServer) GetControls(
 	if err != nil {
 		return nil, err
 	}
+	if controlList == nil {
+		return nil, ErrControlsNil(req.Controller)
+	}
 
 	resp := &pb.GetControlsResponse{}
 
@@ -61,6 +76,9 @@ func (s *serviceServer) GetEvents(
 	eventsIn, err := controller.Events(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
+	}
+	if eventsIn == nil {
+		return nil, ErrEventsNil(req.Controller)
 	}
 
 	resp := &pb.GetEventsResponse{}
