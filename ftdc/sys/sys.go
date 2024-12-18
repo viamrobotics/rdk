@@ -1,3 +1,4 @@
+// Package sys provides functionality for gathering system metrics in an FTDC compliant API.
 package sys
 
 import (
@@ -29,10 +30,12 @@ func init() {
 	machineBootTimeSecsSinceEpoch = float64(machineStats.BootTime)
 }
 
+// SysUsageStatser can be used to get system metrics for a process.
 type SysUsageStatser struct {
 	proc procfs.Proc
 }
 
+// NewSelfSysUsageStatser will return a `SysUsageStatser` for the current process.
 func NewSelfSysUsageStatser() (*SysUsageStatser, error) {
 	process, err := procfs.Self()
 	if err != nil {
@@ -42,6 +45,7 @@ func NewSelfSysUsageStatser() (*SysUsageStatser, error) {
 	return &SysUsageStatser{process}, nil
 }
 
+// NewPidSysUsageStatser will return a `SysUsageStatser` for the given process id.
 func NewPidSysUsageStatser(pid int) (*SysUsageStatser, error) {
 	process, err := procfs.NewProc(pid)
 	if err != nil {
