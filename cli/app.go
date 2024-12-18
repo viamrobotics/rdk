@@ -442,7 +442,8 @@ var app = &cli.App{
 							Usage: "update an oauth application",
 							UsageText: createUsageText("update", []string{
 								generalFlagOrgID,
-								authApplicationFlagClientID, authApplicationFlagClientName, authApplicationFlagClientAuthentication, authApplicationFlagURLValidation, authApplicationFlagPKCE, authApplicationFlagOriginURIs,
+								authApplicationFlagClientID, authApplicationFlagClientName, authApplicationFlagClientAuthentication,
+								authApplicationFlagURLValidation, authApplicationFlagPKCE, authApplicationFlagOriginURIs,
 								authApplicationFlagRedirectURIs, authApplicationFlagLogoutURI, authApplicationFlagEnabledGrants,
 							}, false),
 							Flags: []cli.Flag{
@@ -462,20 +463,23 @@ var app = &cli.App{
 									Required: true,
 								},
 								&cli.StringFlag{
-									Name:     authApplicationFlagClientAuthentication,
-									Usage:    "updated client authentication policy for the oauth application. can be one of " + allEnumValues(clientAuthenticationPrefix, apppb.ClientAuthentication_value),
+									Name: authApplicationFlagClientAuthentication,
+									Usage: "updated client authentication policy for the oauth application. can be one of " +
+										allEnumValues(clientAuthenticationPrefix, apppb.ClientAuthentication_value),
 									Required: false,
 									Value:    unspecified,
 								},
 								&cli.StringFlag{
-									Name:     authApplicationFlagURLValidation,
-									Usage:    "updated url validation for the oauth application. can be one of " + allEnumValues(urlValidationPrefix, apppb.URLValidation_value),
+									Name: authApplicationFlagURLValidation,
+									Usage: "updated url validation for the oauth application. can be one of " +
+										allEnumValues(urlValidationPrefix, apppb.URLValidation_value),
 									Required: false,
 									Value:    unspecified,
 								},
 								&cli.StringFlag{
-									Name:     authApplicationFlagPKCE,
-									Usage:    "updated pkce for the oauth application. can be one of " + allEnumValues(pkcePrefix, apppb.PKCE_value),
+									Name: authApplicationFlagPKCE,
+									Usage: "updated pkce for the oauth application. can be one of " +
+										allEnumValues(pkcePrefix, apppb.PKCE_value),
 									Required: false,
 									Value:    unspecified,
 								},
@@ -495,8 +499,9 @@ var app = &cli.App{
 									Required: false,
 								},
 								&cli.StringSliceFlag{
-									Name:     authApplicationFlagEnabledGrants,
-									Usage:    "updated comma separated enabled grants for the auth application. values can be of " + allEnumValues(enabledGrantPrefix, apppb.EnabledGrant_value),
+									Name: authApplicationFlagEnabledGrants,
+									Usage: "updated comma separated enabled grants for the auth application. values can be of " +
+										allEnumValues(enabledGrantPrefix, apppb.EnabledGrant_value),
 									Required: false,
 								},
 							},
