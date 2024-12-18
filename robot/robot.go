@@ -186,6 +186,9 @@ type LocalRobot interface {
 
 	// RestartAllowed returns whether the robot can safely be restarted.
 	RestartAllowed() bool
+
+	// SetInitializing sets the initializing state of the robot.
+	SetInitializing(initializing bool)
 }
 
 // A RemoteRobot is a Robot that was created through a connection.

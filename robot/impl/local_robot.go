@@ -92,8 +92,9 @@ type localRobot struct {
 	// whether the robot is actively reconfiguring
 	reconfiguring atomic.Bool
 
-	// whether the robot is still initializing (first reconfigure after initial
-	// construction has not yet completed.)
+	// whether the robot is still initializing; can be set with SetInitializing
+	// and defaults to false. this value controls what state will be returned by
+	// the MachineStatus endpoint (initializing if true, running if false.)
 	initializing atomic.Bool
 }
 
@@ -515,8 +516,6 @@ func newWithResources(
 	}
 
 	successful = true
-	// Robot is "initializing" until first reconfigure after initial creation completes.
-	r.initializing.Store(true)
 	return r, nil
 }
 
@@ -1103,14 +1102,6 @@ func dialRobotClient(
 // possibly leak resources. The given config may be modified by Reconfigure.
 func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) {
 	r.reconfigure(ctx, newConfig, false)
-
-	// Robot is no longer initializing after a reconfigure completes. It does not
-	// matter if the call above resulted in errors, we only care that all
-	// initially specified components, servies, modules, remotes, and processes
-	// got a chance to attempt configuration.
-	//
-	// On initial construction, this value will get set back to true.
-	r.initializing.Store(false)
 }
 
 // set Module.LocalVersion on Type=local modules. Call this before localPackages.Sync and in RestartModule.
@@ -1556,4 +1547,11 @@ func (r *localRobot) RestartAllowed() bool {
 		return true
 	}
 	return false
+}
+
+// SetInitializing sets the initializing state of the robot. This method can be
+// used after initial configuration to indicate that the robot should return a
+// state of running from the MachineStatus endpoint.
+func (r *localRobot) SetInitializing(initializing bool) {
+	r.initializing.Store(initializing)
 }

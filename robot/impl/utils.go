@@ -36,12 +36,6 @@ func setupLocalRobot(
 		test.That(t, ok, test.ShouldBeTrue)
 		lRobot.reconfigureWorkers.Wait()
 	})
-
-	// Manually move testing robot out of initializing mode. Normally this is
-	// done as part of web server entrypoint code.
-	lRobot, ok := r.(*localRobot)
-	test.That(t, ok, test.ShouldBeTrue)
-	lRobot.initializing.Store(false)
 	return r
 }
 
