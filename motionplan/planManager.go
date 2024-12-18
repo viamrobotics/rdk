@@ -101,6 +101,7 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context, request *PlanReque
 
 	waypoints := []atomicWaypoint{}
 
+	runningStart := startPoses
 	for i, goal := range request.Goals {
 		goalPoses, err := goal.ComputePoses(request.FrameSystem)
 		if err != nil {
@@ -109,15 +110,16 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context, request *PlanReque
 
 		// Log each requested motion
 		// TODO: PlanRequest.String() could begin to exist
-		for frame, goal := range goalPoses {
+		for frame, stepgoal := range goalPoses {
 			request.Logger.CInfof(ctx,
 				"setting up motion for frame %s\nGoal: %v\nstartPose %v\nworldstate: %v\n",
 				frame,
-				referenceframe.PoseInFrameToProtobuf(goal),
-				referenceframe.PoseInFrameToProtobuf(startPoses[frame]),
+				referenceframe.PoseInFrameToProtobuf(stepgoal),
+				referenceframe.PoseInFrameToProtobuf(runningStart[frame]),
 				request.WorldState.String(),
 			)
 		}
+		runningStart = goalPoses
 
 		// Solving highly constrained motions by breaking apart into small pieces is much more performant
 		goalWaypoints, err := pm.generateWaypoints(request, seedPlan, i)
@@ -205,7 +207,8 @@ func (pm *planManager) planAtomicWaypoints(
 		if err != nil {
 			return nil, err
 		}
-		pm.logger.Debugf("completed planning for waypoint %d", i)
+		pm.logger.Debugf("completed planning for subwaypoint %d", i)
+		pm.logger.Debug(steps[0].Q())
 		resultSlices = append(resultSlices, steps...)
 	}
 
@@ -671,8 +674,12 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 // generateWaypoints will return the list of atomic waypoints that correspond to a specific goal in a plan request.
 func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wpi int) ([]atomicWaypoint, error) {
 	wpGoals := request.Goals[wpi]
+	startState := request.StartState
+	if wpi > 0 {
+		startState = request.Goals[wpi-1]
+	}
 
-	startPoses, err := request.StartState.ComputePoses(pm.fs)
+	startPoses, err := startState.ComputePoses(pm.fs)
 	if err != nil {
 		return nil, err
 	}
@@ -683,7 +690,7 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 
 	subWaypoints := useSubWaypoints(request, seedPlan, wpi)
 	opt, err := pm.plannerSetupFromMoveRequest(
-		request.StartState,
+		startState,
 		wpGoals,
 		request.StartState.configuration,
 		request.WorldState,
@@ -703,7 +710,7 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 		wpGoals = alteredGoals
 		// Regenerate opts since our metrics will have changed
 		opt, err = pm.plannerSetupFromMoveRequest(
-			request.StartState,
+			startState,
 			wpGoals,
 			request.StartState.configuration,
 			request.WorldState,
@@ -745,11 +752,11 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 		}
 	}
 
-	from := request.StartState
+	from := startState
 	waypoints := []atomicWaypoint{}
-	for i := 1; i < numSteps; i++ {
+	for i := 1; i <= numSteps; i++ {
 		by := float64(i) / float64(numSteps)
-		to := &PlanState{}
+		to := &PlanState{PathState{}, map[string][]referenceframe.Input{}}
 		if wpGoals.poses != nil {
 			for frameName, pif := range wpGoals.poses {
 				toPose := spatialmath.Interpolate(startPoses[frameName].Pose(), pif.Pose(), by)
@@ -789,7 +796,7 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 		if err != nil {
 			return nil, err
 		}
-		waypoints = append(waypoints, atomicWaypoint{mp: pathPlanner, startState: request.StartState, goalState: wpGoals})
+		waypoints = append(waypoints, atomicWaypoint{mp: pathPlanner, startState: from, goalState: to})
 
 		from = to
 	}

@@ -119,6 +119,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	rrt *rrtParallelPlannerShared,
 ) {
 	defer close(rrt.solutionChan)
+	mp.logger.CDebugf(ctx, "starting cbirrt with start map len %d and goal map len %d\n", len(rrt.maps.startMap), len(rrt.maps.goalMap))
 
 	// setup planner options
 	if mp.planOpts == nil {

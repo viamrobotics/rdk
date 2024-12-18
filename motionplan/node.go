@@ -168,7 +168,7 @@ func generateNodeListForPlanState(
 		}
 		nodes = append(nodes, solutions...)
 	}
-	if state.configuration != nil {
+	if len(state.configuration) > 0 {
 		nodes = append(nodes, newConfigurationNode(state.configuration))
 	}
 	if len(nodes) == 0 {

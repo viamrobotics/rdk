@@ -79,16 +79,11 @@ func (req *PlanRequest) validatePlanRequest() error {
 	if req.StartState.configuration == nil {
 		return errors.New("PlanRequest cannot have nil StartState configuration")
 	}
-	// If we have a start configuration, check for correctness
-	for fName, seed := range req.StartState.configuration {
-		seedFrame := req.FrameSystem.Frame(fName)
-		if seedFrame == nil {
-			return referenceframe.NewFrameMissingError(fName)
-		}
-		// Check correct DOF if we were given a start configuration
-		frameDOF := seedFrame.DoF()
-		if len(frameDOF) != len(seed) {
-			return referenceframe.NewIncorrectDoFError(len(seed), len(frameDOF))
+	// If we have a start configuration, check for correctness. Reuse PathState compute function to provide error.
+	if len(req.StartState.configuration) > 0 {
+		_, err := ComputePathStateFromConfiguration(req.FrameSystem, req.StartState.configuration)
+		if err != nil {
+			return err
 		}
 	}
 	// if we have start poses, check we have valid frames

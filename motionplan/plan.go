@@ -380,21 +380,11 @@ func (p *PlanState) ComputePoses(fs referenceframe.FrameSystem) (PathState, erro
 		return p.poses, nil
 	}
 
-	if p.configuration == nil {
+	if len(p.configuration) == 0 {
 		return nil, errors.New("cannot computes poses, neither poses nor configuration are populated")
 	}
 
-	// Compute poses from configuration using the FrameSystem
-	computedPoses := make(PathState)
-	for frameName := range p.configuration {
-		pif, err := fs.Transform(p.configuration, referenceframe.NewZeroPoseInFrame(frameName), referenceframe.World)
-		if err != nil {
-			return nil, err
-		}
-		computedPoses[frameName] = pif.(*referenceframe.PoseInFrame)
-	}
-
-	return computedPoses, nil
+	return ComputePathStateFromConfiguration(fs, p.configuration)
 }
 
 // Serialize turns a PlanState into a map[string]interface suitable for being transmitted over proto.
@@ -412,6 +402,20 @@ func (p PlanState) Serialize() map[string]interface{} {
 	m["poses"] = poseMap
 	m["configuration"] = confMap
 	return m
+}
+
+// ComputePathStateFromConfiguration computes the poses for each frame in a framesystem, in frame of World, using the provided configuration.
+func ComputePathStateFromConfiguration(fs referenceframe.FrameSystem, configuration map[string][]referenceframe.Input) (PathState, error) {
+	// Compute poses from configuration using the FrameSystem
+	computedPoses := make(PathState)
+	for _, frameName := range fs.FrameNames() {
+		pif, err := fs.Transform(configuration, referenceframe.NewZeroPoseInFrame(frameName), referenceframe.World)
+		if err != nil {
+			return nil, err
+		}
+		computedPoses[frameName] = pif.(*referenceframe.PoseInFrame)
+	}
+	return computedPoses, nil
 }
 
 // DeserializePlanState turns a serialized PlanState back into a PlanState.
