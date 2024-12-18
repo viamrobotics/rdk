@@ -1258,6 +1258,9 @@ func TestClientResources(t *testing.T) {
 
 	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return respWith }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return finalResources }
+	injectRobot.MachineStatusFunc = func(_ context.Context) (robot.MachineStatus, error) {
+		return robot.MachineStatus{State: robot.StateRunning}, nil
+	}
 
 	gServer := grpc.NewServer()
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))

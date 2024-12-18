@@ -303,6 +303,10 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 
 			mStatus, err := rc.MachineStatus(ctx)
 			if err != nil {
+				// Allow for MachineStatus to not be injected/implemented in some tests.
+				if status.Code(err) == codes.Unimplemented {
+					break
+				}
 				return nil, multierr.Combine(err, rc.conn.Close())
 			}
 
