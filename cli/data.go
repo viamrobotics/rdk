@@ -824,7 +824,7 @@ func writeData(writer *bufio.Writer, dataRow []byte) error {
 	}
 
 	// Periodically flush to keep buffer size down.
-	if uint64(writer.Size()) > uint64(10_000_000) {
+	if writer.Size() > 10_000_000 {
 		if err = writer.Flush(); err != nil {
 			return err
 		}
