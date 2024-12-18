@@ -11,6 +11,7 @@ import (
 	"github.com/kylelemons/godebug/pretty"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/resource"
 )
 
@@ -105,6 +106,45 @@ func VerifySameResourceStatuses(tb testing.TB, actual, expected []resource.Statu
 	for i := range sortedExpected {
 		sortedExpected[i].LastUpdated = time.Time{}
 	}
+
+	// This deferred function provides more concise output for debugging on failure
+	defer func() {
+		if !tb.Failed() {
+			return
+		}
+		var sb strings.Builder
+
+		type stat struct {
+			Name          string
+			CloudMetadata cloud.Metadata
+			State         resource.NodeState
+			Revision      string
+			Error         error
+		}
+		expectedStatuses := make([]stat, len(sortedExpected))
+		for i, exp := range sortedExpected {
+			expectedStatuses[i] = stat{
+				Name:          exp.Name.String(),
+				CloudMetadata: exp.CloudMetadata,
+				State:         exp.State,
+				Revision:      exp.Revision,
+				Error:         exp.Error,
+			}
+		}
+		actualStatuses := make([]stat, len(sortedActual))
+		for i, act := range sortedActual {
+			actualStatuses[i] = stat{
+				Name:          act.Name.String(),
+				CloudMetadata: act.CloudMetadata,
+				State:         act.State,
+				Revision:      act.Revision,
+				Error:         act.Error,
+			}
+		}
+		sb.WriteString("Resource statuses do not match - see diff below: (-expected +actual)\n")
+		sb.WriteString(pretty.Compare(expectedStatuses, actualStatuses))
+		tb.Log(sb.String())
+	}()
 
 	test.That(tb, sortedActual, test.ShouldResemble, sortedExpected)
 }
