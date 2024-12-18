@@ -108,6 +108,12 @@ func (ms *mockRPCSubtypesUnimplemented) ResourceNames(
 	return ms.ResourceNamesFunc(req)
 }
 
+func (ms *mockRPCSubtypesUnimplemented) GetMachineStatus(
+	ctx context.Context, req *pb.GetMachineStatusRequest,
+) (*pb.GetMachineStatusResponse, error) {
+	return &pb.GetMachineStatusResponse{State: pb.GetMachineStatusResponse_STATE_RUNNING}, nil
+}
+
 type mockRPCSubtypesImplemented struct {
 	mockRPCSubtypesUnimplemented
 	ResourceNamesFunc func(*pb.ResourceNamesRequest) (*pb.ResourceNamesResponse, error)
@@ -123,6 +129,12 @@ func (ms *mockRPCSubtypesImplemented) ResourceNames(
 	ctx context.Context, req *pb.ResourceNamesRequest,
 ) (*pb.ResourceNamesResponse, error) {
 	return ms.ResourceNamesFunc(req)
+}
+
+func (ms *mockRPCSubtypesImplemented) GetMachineStatus(
+	ctx context.Context, req *pb.GetMachineStatusRequest,
+) (*pb.GetMachineStatusResponse, error) {
+	return &pb.GetMachineStatusResponse{State: pb.GetMachineStatusResponse_STATE_RUNNING}, nil
 }
 
 var resourceFunc1 = func(*pb.ResourceNamesRequest) (*pb.ResourceNamesResponse, error) {
@@ -309,11 +321,17 @@ func TestStatusClient(t *testing.T) {
 		FrameSystemConfigFunc: frameSystemConfigFunc,
 		ResourceNamesFunc:     resourcesFunc,
 		ResourceRPCAPIsFunc:   func() []resource.RPCAPI { return nil },
+		MachineStatusFunc: func(_ context.Context) (robot.MachineStatus, error) {
+			return robot.MachineStatus{State: robot.StateRunning}, nil
+		},
 	}
 	injectRobot2 := &inject.Robot{
 		FrameSystemConfigFunc: frameSystemConfigFunc,
 		ResourceNamesFunc:     resourcesFunc,
 		ResourceRPCAPIsFunc:   func() []resource.RPCAPI { return nil },
+		MachineStatusFunc: func(_ context.Context) (robot.MachineStatus, error) {
+			return robot.MachineStatus{State: robot.StateRunning}, nil
+		},
 	}
 	pb.RegisterRobotServiceServer(gServer1, server.New(injectRobot1))
 	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot2))
