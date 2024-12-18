@@ -414,6 +414,8 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	minimalProcessedConfig.Modules = nil
 	minimalProcessedConfig.Processes = nil
 
+	// Start robot in an initializing state with minimal config.
+	robotOptions = append(robotOptions, robotimpl.WithInitializing())
 	myRobot, err := robotimpl.New(ctx, minimalProcessedConfig, s.logger, robotOptions...)
 	if err != nil {
 		cancel()
@@ -441,6 +443,11 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		// Reconfigure robot to have full processed config before listening for any
 		// config changes.
 		myRobot.Reconfigure(ctx, fullProcessedConfig)
+
+		// Once reconfigure with full processed config is complete; set initializing
+		// to false. Robot is now fully running and can indicate this through the
+		// MachineStatus endpoint.
+		myRobot.SetInitializing(false)
 
 		for {
 			select {
