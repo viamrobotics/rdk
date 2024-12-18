@@ -449,11 +449,11 @@ var app = &cli.App{
 								&cli.StringFlag{
 									Name:     generalFlagOrgID,
 									Required: true,
-									Usage:    "organization ID that will be tied to auth application",
+									Usage:    "organization ID that will be tied to oauth application",
 								},
 								&cli.StringFlag{
 									Name:     authApplicationFlagClientID,
-									Usage:    "id for the oauth application",
+									Usage:    "id for the oauth application to be updated",
 									Required: true,
 								},
 								&cli.StringFlag{

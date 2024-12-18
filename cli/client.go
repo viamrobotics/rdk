@@ -2072,6 +2072,7 @@ const (
 	enabledGrantPrefix         = "ENABLED_GRANT_"
 )
 
+// allEnumValues returns the possible values we accept for a given proto enum
 func allEnumValues(prefixToTrim string, enumValueMap map[string]int32) string {
 	var formattedValues []string
 	for values := range enumValueMap {
@@ -2082,7 +2083,7 @@ func allEnumValues(prefixToTrim string, enumValueMap map[string]int32) string {
 	return "[" + strings.Join(formattedValues, ", ") + "]"
 }
 
-// UpdateAuthApplicationAction is the corresponding action for 'auth-app update'.
+// UpdateOAuthAppAction is the corresponding action for 'auth-service update'.
 func UpdateOAuthAppAction(c *cli.Context, args updateOAuthAppArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
