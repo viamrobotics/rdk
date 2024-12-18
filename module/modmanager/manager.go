@@ -1167,7 +1167,9 @@ func (m *module) startProcess(
 			return
 		}
 
-		m.ftdc.Add(fmt.Sprintf("modules.%s", m.process.ID()), statser)
+		if m.ftdc != nil {
+			m.ftdc.Add(fmt.Sprintf("modules.%s", m.process.ID()), statser)
+		}
 	}()
 
 	checkTicker := time.NewTicker(100 * time.Millisecond)
@@ -1218,7 +1220,9 @@ func (m *module) stopProcess() error {
 		// The system metrics "statser" is resilient to the process dying under the hood. An empty set
 		// of metrics will be reported. Therefore it is safe to continue monitoring the module process
 		// while it's in shutdown.
-		m.ftdc.Remove(m.process.ID())
+		if m.ftdc != nil {
+			m.ftdc.Remove(m.process.ID())
+		}
 	}()
 
 	// TODO(RSDK-2551): stop ignoring exit status 143 once Python modules handle
