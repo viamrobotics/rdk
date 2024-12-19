@@ -130,6 +130,7 @@ const (
 	authApplicationFlagOriginURIs    = "origin-uris"
 	authApplicationFlagRedirectURIs  = "redirect-uris"
 	authApplicationFlagLogoutURI     = "logout-uri"
+	authApplicationFlagClientID      = "client-id"
 
 	cpFlagRecursive = "recursive"
 	cpFlagPreserve  = "preserve"
@@ -425,6 +426,36 @@ var app = &cli.App{
 			Usage:           "work with organizations",
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
+				{
+					Name:  "auth-service",
+					Usage: "manage auth-service",
+					Subcommands: []*cli.Command{
+						{
+							Name:  "oauth-app",
+							Usage: "manage the oauth applications for an organization",
+							Subcommands: []*cli.Command{
+								{
+									Name:      "delete",
+									Usage:     "delete an oauth application",
+									UsageText: createUsageText("delete", []string{generalFlagOrgID, authApplicationFlagClientID}, true),
+									Flags: []cli.Flag{
+										&cli.StringFlag{
+											Name:     generalFlagOrgID,
+											Required: true,
+											Usage:    "organization ID tied to the oauth application",
+										},
+										&cli.StringFlag{
+											Name:     authApplicationFlagClientID,
+											Required: true,
+											Usage:    "ID of the application to delete",
+										},
+									},
+									Action: createCommandWithT[deleteOAuthAppArgs](DeleteOAuthAppAction),
+								},
+							},
+						},
+					},
+				},
 				{
 					Name:   "list",
 					Usage:  "list organizations for the current user",
