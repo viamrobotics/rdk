@@ -425,6 +425,49 @@ func (c *viamClient) organizationsLogoGetAction(cCtx *cli.Context, orgID string)
 	return nil
 }
 
+type listOAuthAppsArgs struct {
+	OrgID string
+}
+
+// ListOAuthAppsAction corresponds to `list-oauth-apps`.
+func ListOAuthAppsAction(cCtx *cli.Context, args listOAuthAppsArgs) error {
+	c, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+
+	orgID := args.OrgID
+	if orgID == "" {
+		return errors.New("organization ID is required to list OAuth apps")
+	}
+
+	return c.listOAuthAppsAction(cCtx, orgID)
+}
+
+func (c *viamClient) listOAuthAppsAction(cCtx *cli.Context, orgID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	resp, err := c.client.ListOAuthApps(cCtx.Context, &apppb.ListOAuthAppsRequest{
+		OrgId: orgID,
+	})
+	if err != nil {
+		return err
+	}
+
+	if len(resp.ClientIds) == 0 {
+		printf(cCtx.App.Writer, "No OAuth apps found for organization %q\n", orgID)
+		return nil
+	}
+
+	printf(cCtx.App.Writer, "OAuth apps for organization %q:\n", orgID)
+	for _, id := range resp.ClientIds {
+		printf(cCtx.App.Writer, " - %s\n", id)
+	}
+	return nil
+}
+
 // ListLocationsAction is the corresponding Action for 'locations list'.
 func ListLocationsAction(c *cli.Context, args emptyArgs) error {
 	client, err := newViamClient(c)

@@ -466,6 +466,18 @@ var app = &cli.App{
 					},
 				},
 				{
+					Name:  "list-oauth-apps",
+					Usage: "list oauth applications for an organization",
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     generalFlagOrgID,
+							Required: true,
+							Usage:    "the org to get applications for",
+						},
+					},
+					Action: createCommandWithT[listOAuthAppsArgs](ListOAuthAppsAction),
+				},
+				{
 					Name:      "support-email",
 					Usage:     "manage the support email for an organization",
 					UsageText: createUsageText("organizations support-email", []string{generalFlagOrgID}, true),

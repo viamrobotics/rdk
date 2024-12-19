@@ -857,6 +857,17 @@ func (c *AppClient) OrganizationGetLogo(ctx context.Context, orgID string) (stri
 	return resp.Url, nil
 }
 
+// ListOAuthApps gets the client's list of OAuth applications.
+func (c *AppClient) ListOAuthApps(ctx context.Context, orgID string) ([]string, error) {
+	resp, err := c.client.ListOAuthApps(ctx, &pb.ListOAuthAppsRequest{
+		OrgId: orgID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.ClientIds, nil
+}
+
 // CreateLocation creates a location with the given name under the given organization.
 func (c *AppClient) CreateLocation(ctx context.Context, orgID, name string, opts *CreateLocationOptions) (*Location, error) {
 	var parentID *string
