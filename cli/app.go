@@ -136,6 +136,8 @@ const (
 	authApplicationFlagPKCE                 = "pkce"
 	authApplicationFlagEnabledGrants        = "enabled-grants"
 	authApplicationFlagURLValidation        = "url-validation"
+	authServiceFlag                         = "auth-service"
+	authOAuthAppFlag                        = "oauth-app"
 	unspecified                             = "unspecified"
 
 	cpFlagRecursive = "recursive"
@@ -433,79 +435,78 @@ var app = &cli.App{
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
 				{
-					Name:      "auth-service",
-					Usage:     "manage the oauth applications for an organization",
-					UsageText: createUsageText("organizations auth-service", []string{generalFlagOrgID}, true),
+					Name:  "auth-service",
+					Usage: "manage auth-service",
 					Subcommands: []*cli.Command{
 						{
-							Name:  "update",
-							Usage: "update an oauth application",
-							UsageText: createUsageText("update", []string{
-								generalFlagOrgID,
-								authApplicationFlagClientID, authApplicationFlagClientName, authApplicationFlagClientAuthentication,
-								authApplicationFlagURLValidation, authApplicationFlagPKCE, authApplicationFlagOriginURIs,
-								authApplicationFlagRedirectURIs, authApplicationFlagLogoutURI, authApplicationFlagEnabledGrants,
-							}, false),
-							Flags: []cli.Flag{
-								&cli.StringFlag{
-									Name:     generalFlagOrgID,
-									Required: true,
-									Usage:    "organization ID that is tied to the oauth application",
-								},
-								&cli.StringFlag{
-									Name:     authApplicationFlagClientID,
-									Usage:    "id for the oauth application to be updated",
-									Required: true,
-								},
-								&cli.StringFlag{
-									Name:     authApplicationFlagClientName,
-									Usage:    "updated name for the oauth application",
-									Required: true,
-								},
-								&cli.StringFlag{
-									Name: authApplicationFlagClientAuthentication,
-									Usage: "updated client authentication policy for the oauth application. can be one of " +
-										allEnumValues(clientAuthenticationPrefix, apppb.ClientAuthentication_value),
-									Required: false,
-									Value:    unspecified,
-								},
-								&cli.StringFlag{
-									Name: authApplicationFlagURLValidation,
-									Usage: "updated url validation for the oauth application. can be one of " +
-										allEnumValues(urlValidationPrefix, apppb.URLValidation_value),
-									Required: false,
-									Value:    unspecified,
-								},
-								&cli.StringFlag{
-									Name: authApplicationFlagPKCE,
-									Usage: "updated pkce for the oauth application. can be one of " +
-										allEnumValues(pkcePrefix, apppb.PKCE_value),
-									Required: false,
-									Value:    unspecified,
-								},
-								&cli.StringSliceFlag{
-									Name:     authApplicationFlagOriginURIs,
-									Usage:    "updated comma separated origin uris for the oauth application",
-									Required: false,
-								},
-								&cli.StringSliceFlag{
-									Name:     authApplicationFlagRedirectURIs,
-									Usage:    "updated comma separated redirect uris for the oauth application",
-									Required: false,
-								},
-								&cli.StringFlag{
-									Name:     authApplicationFlagLogoutURI,
-									Usage:    "updated logout uri for the oauth application",
-									Required: false,
-								},
-								&cli.StringSliceFlag{
-									Name: authApplicationFlagEnabledGrants,
-									Usage: "updated comma separated enabled grants for the auth application. values can be of " +
-										allEnumValues(enabledGrantPrefix, apppb.EnabledGrant_value),
-									Required: false,
+							Name:  "oauth-app",
+							Usage: "manage the oauth applications for an organization",
+							Subcommands: []*cli.Command{
+								{
+									Name:  "update",
+									Usage: "update an oauth application",
+									Flags: []cli.Flag{
+										&cli.StringFlag{
+											Name:     generalFlagOrgID,
+											Required: true,
+											Usage:    "organization ID that is tied to the oauth application",
+										},
+										&cli.StringFlag{
+											Name:     authApplicationFlagClientID,
+											Usage:    "id for the oauth application to be updated",
+											Required: true,
+										},
+										&cli.StringFlag{
+											Name:     authApplicationFlagClientName,
+											Usage:    "updated name for the oauth application",
+											Required: true,
+										},
+										&cli.StringFlag{
+											Name: authApplicationFlagClientAuthentication,
+											Usage: "updated client authentication policy for the oauth application. can be one of " +
+												allEnumValues(clientAuthenticationPrefix, apppb.ClientAuthentication_value),
+											Required: false,
+											Value:    unspecified,
+										},
+										&cli.StringFlag{
+											Name: authApplicationFlagURLValidation,
+											Usage: "updated url validation for the oauth application. can be one of " +
+												allEnumValues(urlValidationPrefix, apppb.URLValidation_value),
+											Required: false,
+											Value:    unspecified,
+										},
+										&cli.StringFlag{
+											Name: authApplicationFlagPKCE,
+											Usage: "updated pkce for the oauth application. can be one of " +
+												allEnumValues(pkcePrefix, apppb.PKCE_value),
+											Required: false,
+											Value:    unspecified,
+										},
+										&cli.StringSliceFlag{
+											Name:     authApplicationFlagOriginURIs,
+											Usage:    "updated comma separated origin uris for the oauth application",
+											Required: false,
+										},
+										&cli.StringSliceFlag{
+											Name:     authApplicationFlagRedirectURIs,
+											Usage:    "updated comma separated redirect uris for the oauth application",
+											Required: false,
+										},
+										&cli.StringFlag{
+											Name:     authApplicationFlagLogoutURI,
+											Usage:    "updated logout uri for the oauth application",
+											Required: false,
+										},
+										&cli.StringSliceFlag{
+											Name: authApplicationFlagEnabledGrants,
+											Usage: "updated comma separated enabled grants for the auth application. values can be of " +
+												allEnumValues(enabledGrantPrefix, apppb.EnabledGrant_value),
+											Required: false,
+										},
+									},
+									Action: createCommandWithT[updateOAuthAppArgs](UpdateOAuthAppAction),
 								},
 							},
-							Action: createCommandWithT[updateOAuthAppArgs](UpdateOAuthAppAction),
 						},
 					},
 				},
