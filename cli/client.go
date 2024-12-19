@@ -2081,6 +2081,6 @@ func (c *viamClient) deleteOAuthAppAction(cCtx *cli.Context, orgID, clientID str
 		return err
 	}
 
-	infof(cCtx.App.Writer, "Successfully deleted oauth application")
+	printf(cCtx.App.Writer, "Successfully deleted oauth application")
 	return nil
 }
