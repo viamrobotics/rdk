@@ -288,6 +288,35 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		return nil, err
 	}
 
+	// If running in a testing environment, wait for machine to report a state of
+	// running. We often establish connections in tests and expected resources to
+	// be immediately available once the web service has started; resources will
+	// not be available when the machine is still initializing.
+	//
+	// It is expected that golang SDK users will handle lack of resource
+	// availability due to the machine being in an initializing state themselves.
+	if testing.Testing() {
+		for {
+			if ctx.Err() != nil {
+				return nil, multierr.Combine(ctx.Err(), rc.conn.Close())
+			}
+
+			mStatus, err := rc.MachineStatus(ctx)
+			if err != nil {
+				// Allow for MachineStatus to not be injected/implemented in some tests.
+				if status.Code(err) == codes.Unimplemented {
+					break
+				}
+				return nil, multierr.Combine(err, rc.conn.Close())
+			}
+
+			if mStatus.State == robot.StateRunning {
+				break
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+	}
+
 	// refresh once to hydrate the robot.
 	if err := rc.Refresh(ctx); err != nil {
 		return nil, multierr.Combine(err, rc.conn.Close())
@@ -1115,6 +1144,16 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 		}
 
 		mStatus.Resources = append(mStatus.Resources, resStatus)
+	}
+
+	switch resp.State {
+	case pb.GetMachineStatusResponse_STATE_UNSPECIFIED:
+		rc.logger.CError(ctx, "received unspecified machine state")
+		mStatus.State = robot.StateUnknown
+	case pb.GetMachineStatusResponse_STATE_INITIALIZING:
+		mStatus.State = robot.StateInitializing
+	case pb.GetMachineStatusResponse_STATE_RUNNING:
+		mStatus.State = robot.StateRunning
 	}
 
 	return mStatus, nil
