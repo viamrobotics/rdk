@@ -2050,3 +2050,37 @@ func logEntryFieldsToString(fields []*structpb.Struct) (string, error) {
 	}
 	return message + "}", nil
 }
+
+type deleteOAuthAppArgs struct {
+	OrgID    string
+	ClientID string
+}
+
+// DeleteOAuthAppAction is the corresponding action for 'auth-service update'.
+func DeleteOAuthAppAction(c *cli.Context, args deleteOAuthAppArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	return client.deleteOAuthAppAction(c, args.OrgID, args.ClientID)
+}
+
+func (c *viamClient) deleteOAuthAppAction(cCtx *cli.Context, orgID, clientID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	req := &apppb.DeleteOAuthAppRequest{
+		OrgId:    orgID,
+		ClientId: clientID,
+	}
+
+	_, err := c.client.DeleteOAuthApp(c.c.Context, req)
+	if err != nil {
+		return err
+	}
+
+	infof(cCtx.App.Writer, "Successfully deleted oauth application")
+	return nil
+}
