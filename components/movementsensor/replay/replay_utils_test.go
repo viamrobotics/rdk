@@ -53,6 +53,7 @@ func (mDServer *mockDataServiceServer) TabularDataByFilter(ctx context.Context, 
 	last := req.DataRequest.GetLast()
 	limit := req.DataRequest.GetLimit()
 
+	//nolint:deprecated,staticcheck
 	var dataset []*datapb.TabularData
 	var dataIndex int
 	var err error
@@ -79,6 +80,7 @@ func (mDServer *mockDataServiceServer) TabularDataByFilter(ctx context.Context, 
 
 		last = fmt.Sprint(dataIndex)
 
+		//nolint:deprecated,staticcheck
 		tabularData := &datapb.TabularData{
 			Data:          data,
 			TimeRequested: timeReq,
