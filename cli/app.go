@@ -435,7 +435,7 @@ var app = &cli.App{
 				{
 					Name:      "auth-service",
 					Usage:     "manage the oauth applications for an organization",
-					UsageText: createUsageText("oauth applications", []string{generalFlagOrgID}, true),
+					UsageText: createUsageText("organizations auth-service", []string{generalFlagOrgID}, true),
 					Subcommands: []*cli.Command{
 						{
 							Name:  "update",
@@ -450,7 +450,7 @@ var app = &cli.App{
 								&cli.StringFlag{
 									Name:     generalFlagOrgID,
 									Required: true,
-									Usage:    "organization ID that will be tied to oauth application",
+									Usage:    "organization ID that is tied to the oauth application",
 								},
 								&cli.StringFlag{
 									Name:     authApplicationFlagClientID,
