@@ -1151,26 +1151,9 @@ func (m *module) startProcess(
 		return errors.WithMessage(err, "module startup failed")
 	}
 
-	// Turn on process cpu/memory diagnostics for the module process. If there's an error, we should
-	// continue normally, just without FTDC. The control flow for that is a bit messy, so we use a
-	// lambda to leverage early-returns.
-	func() {
-		pid, err := m.process.UnixPid()
-		if err != nil {
-			m.logger.Warnw("Module process has no pid. Cannot start ftdc.", "err", err)
-			return
-		}
-
-		statser, err := sys.NewPidSysUsageStatser(pid)
-		if err != nil {
-			m.logger.Warnw("Cannot find /proc files", "err", err)
-			return
-		}
-
-		if m.ftdc != nil {
-			m.ftdc.Add(fmt.Sprintf("modules.%s", m.process.ID()), statser)
-		}
-	}()
+	// Turn on process cpu/memory diagnostics for the module process. If there's an error, we
+	// continue normally, just without FTDC.
+	m.registerProcessWithFTDC()
 
 	checkTicker := time.NewTicker(100 * time.Millisecond)
 	defer checkTicker.Stop()
@@ -1341,6 +1324,26 @@ func (m *module) cleanupAfterCrash(mgr *Manager) {
 
 func (m *module) getFullEnvironment(viamHomeDir string) map[string]string {
 	return getFullEnvironment(m.cfg, m.dataDir, viamHomeDir)
+}
+
+func (m *module) registerProcessWithFTDC() {
+	if m.ftdc == nil {
+		return
+	}
+
+	pid, err := m.process.UnixPid()
+	if err != nil {
+		m.logger.Warnw("Module process has no pid. Cannot start ftdc.", "err", err)
+		return
+	}
+
+	statser, err := sys.NewPidSysUsageStatser(pid)
+	if err != nil {
+		m.logger.Warnw("Cannot find /proc files", "err", err)
+		return
+	}
+
+	m.ftdc.Add(fmt.Sprintf("modules.%s", m.process.ID()), statser)
 }
 
 func getFullEnvironment(
