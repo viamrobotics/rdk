@@ -430,13 +430,13 @@ var app = &cli.App{
 					Subcommands: []*cli.Command{
 						{
 							Name:      "enable",
-							Usage:     "enable auth-service for oauth applications",
+							Usage:     "enable auth-service for OAuth applications",
 							UsageText: createUsageText("enable", []string{generalFlagOrgID}, true),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     generalFlagOrgID,
 									Required: true,
-									Usage:    "organization ID tied to oauth applications",
+									Usage:    "organization ID tied to OAuth applications",
 								},
 							},
 							Action: createCommandWithT[enableAuthServiceArgs](EnableAuthServiceAction),
