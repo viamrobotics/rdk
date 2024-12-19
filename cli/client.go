@@ -2,6 +2,7 @@
 package cli
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -2056,7 +2057,38 @@ type deleteOAuthAppArgs struct {
 	ClientID string
 }
 
-// DeleteOAuthAppAction is the corresponding action for 'auth-service update'.
+func DeleteOAuthAppConfirmation(c *cli.Context, args deleteOAuthAppArgs) error {
+	if args.OrgID == "" {
+		return errors.New("cannot delete oauth app without an organization ID")
+	}
+
+	if args.ClientID == "" {
+		return errors.New("cannot delete oauth app without a client ID")
+	}
+
+	yellow := "\033[1;33m%s\033[0m"
+	printf(c.App.Writer, yellow, "WARNING!!\n")
+	printf(c.App.Writer, yellow, fmt.Sprintf("You are trying to delete OAuth application with client ID %s."+
+		"Once deleted, any web or mobile apps with this client ID will no longer be able to authenticate users.\n", args.ClientID))
+	printf(c.App.Writer, yellow, "Do you want to continue?")
+	printf(c.App.Writer, "Continue: y/n")
+	if err := c.Err(); err != nil {
+		return err
+	}
+
+	rawInput, err := bufio.NewReader(c.App.Reader).ReadString('\n')
+	if err != nil {
+		return err
+	}
+
+	input := strings.ToUpper(strings.TrimSpace(rawInput))
+	if input != "Y" {
+		return errors.New("aborted")
+	}
+	return nil
+}
+
+// DeleteOAuthAppAction is the corresponding action for 'oauth-app delete'.
 func DeleteOAuthAppAction(c *cli.Context, args deleteOAuthAppArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
@@ -2081,6 +2113,6 @@ func (c *viamClient) deleteOAuthAppAction(cCtx *cli.Context, orgID, clientID str
 		return err
 	}
 
-	printf(cCtx.App.Writer, "Successfully deleted oauth application")
+	printf(cCtx.App.Writer, "Successfully deleted OAuth application")
 	return nil
 }
