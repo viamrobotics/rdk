@@ -19,7 +19,7 @@ import (
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/robot"
-	streamCamera "go.viam.com/rdk/robot/web/stream/camera"
+	camerautils "go.viam.com/rdk/robot/web/stream/camera"
 )
 
 // ErrClosed indicates that the StreamState is already closed.
@@ -332,7 +332,7 @@ func (state *StreamState) tick() {
 }
 
 func (state *StreamState) streamH264Passthrough() error {
-	cam, err := streamCamera.Camera(state.robot, state.Stream)
+	cam, err := camerautils.Camera(state.robot, state.Stream)
 	if err != nil {
 		return err
 	}
@@ -393,7 +393,7 @@ func (state *StreamState) streamH264Passthrough() error {
 }
 
 func (state *StreamState) unsubscribeH264Passthrough(ctx context.Context, id rtppassthrough.SubscriptionID) error {
-	cam, err := streamCamera.Camera(state.robot, state.Stream)
+	cam, err := camerautils.Camera(state.robot, state.Stream)
 	if err != nil {
 		return err
 	}
