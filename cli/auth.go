@@ -17,6 +17,7 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
+	"go.uber.org/multierr"
 	buildpb "go.viam.com/api/app/build/v1"
 	datapb "go.viam.com/api/app/data/v1"
 	datasetpb "go.viam.com/api/app/dataset/v1"
@@ -157,7 +158,10 @@ func (c *viamClient) loginAction(cCtx *cli.Context) error {
 
 	var t *token
 	var err error
-	globalArgs := parseStructFromCtx[globalArgs](c.c)
+	globalArgs, err := getGlobalArgs(c.c)
+	if err != nil {
+		return err
+	}
 	if currentToken != nil && currentToken.canRefresh() {
 		t, err = c.authFlow.refreshToken(c.c.Context, currentToken)
 		if err != nil {
@@ -240,7 +244,7 @@ func (c *viamClient) printAccessTokenAction(cCtx *cli.Context) error {
 // LogoutAction is the corresponding Action for 'logout'.
 func LogoutAction(cCtx *cli.Context, args emptyArgs) error {
 	// Create basic viam client; no need to check base URL.
-	conf, err := ConfigFromCache()
+	conf, err := ConfigFromCache(cCtx)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			return err
@@ -485,7 +489,7 @@ func (c *viamClient) robotAPIKeyCreateAction(cCtx *cli.Context, args robotAPIKey
 	return nil
 }
 
-func (c *viamClient) ensureLoggedIn() error {
+func (c *viamClient) ensureLoggedInInner() error {
 	if c.client != nil {
 		return nil
 	}
@@ -504,7 +508,10 @@ func (c *viamClient) ensureLoggedIn() error {
 		// expired.
 		newToken, err := c.authFlow.refreshToken(c.c.Context, authToken)
 		if err != nil {
-			globalArgs := parseStructFromCtx[globalArgs](c.c)
+			globalArgs, err := getGlobalArgs(c.c)
+			if err != nil {
+				return err
+			}
 			debugf(c.c.App.Writer, globalArgs.Debug, "Token refresh error: %v", err)
 			utils.UncheckedError(c.logout()) // clear cache if failed to refresh
 			return errors.New("error while refreshing token, logging out. Please log in again")
@@ -541,6 +548,39 @@ func (c *viamClient) ensureLoggedIn() error {
 	c.buildClient = buildpb.NewBuildServiceClient(conn)
 
 	return nil
+}
+
+func (c *viamClient) ensureLoggedIn() error {
+	firstPassErr := c.ensureLoggedInInner()
+	// if err is nil we're good, if we have no profile set then trying to login with a profile is meaningless
+	if firstPassErr == nil || c.conf.profile == "" {
+		return firstPassErr
+	}
+
+	// at this point we know that we're using a profile and are not logged in, so let's try logging in
+	warningf(c.c.App.ErrWriter, "Currently logged out with profile %s, attempting to log back in...", c.conf.profile)
+
+	profiles, err := getProfiles()
+	if err != nil {
+		return multierr.Combine(firstPassErr, err)
+	}
+	profile, ok := profiles[c.conf.profile]
+	if !ok {
+		return errors.Errorf("Unable to login: profile %s not found", c.conf.profile)
+	}
+
+	args := loginWithAPIKeyArgs{
+		Key:   profile.APIKey.KeyCrypto,
+		KeyID: profile.APIKey.KeyID,
+	}
+
+	// login using the API key associated with the profile
+	if err = c.loginWithAPIKeyAction(c.c, args); err != nil {
+		return multierr.Combine(firstPassErr, err)
+	}
+
+	// ensure logged in and set clients
+	return c.ensureLoggedInInner()
 }
 
 // logout logs out the client and clears the config.
