@@ -438,11 +438,11 @@ func (d *DataClient) TabularDataBySQL(ctx context.Context, organizationID, sqlQu
 
 // TabularDataByMQL queries tabular data with MQL (MongoDB Query Language) queries.
 func (d *DataClient) TabularDataByMQL(
-	ctx context.Context, organizationID string, mqlQueries []map[string]interface{},
+	ctx context.Context, organizationID string, query []map[string]interface{},
 ) ([]map[string]interface{}, error) {
 	mqlBinary := [][]byte{}
-	for _, query := range mqlQueries {
-		binary, err := bson.Marshal(query)
+	for _, q := range query {
+		binary, err := bson.Marshal(q)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal BSON query: %w", err)
 		}
