@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"io"
 	"os"
 	"testing"
 	"time"
@@ -286,6 +287,7 @@ func TestDataClient(t *testing.T) {
 		//nolint:deprecated,staticcheck
 		grpcClient.TabularDataByFilterFunc = func(ctx context.Context, in *pb.TabularDataByFilterRequest,
 			opts ...grpc.CallOption,
+			//nolint:deprecated,staticcheck
 		) (*pb.TabularDataByFilterResponse, error) {
 			test.That(t, in.DataRequest, test.ShouldResemble, dataRequestToProto(dataRequest))
 			test.That(t, in.CountOnly, test.ShouldBeTrue)
@@ -392,8 +394,14 @@ func TestDataClient(t *testing.T) {
 	})
 
 	t.Run("ExportTabularData", func(t *testing.T) {
+		sentOnce := false
 		mockStream := &inject.DataServiceExportTabularDataClient{
 			RecvFunc: func() (*pb.ExportTabularDataResponse, error) {
+				if sentOnce {
+					return nil, io.EOF
+				}
+
+				sentOnce = true
 				return exportTabularResponse, nil
 			},
 		}
@@ -409,11 +417,9 @@ func TestDataClient(t *testing.T) {
 			return mockStream, nil
 		}
 
-		stream, err := client.ExportTabularData(context.Background(), partID, componentName, componentType, method, captureInterval)
+		responses, err := client.ExportTabularData(context.Background(), partID, componentName, componentType, method, captureInterval)
 		test.That(t, err, test.ShouldBeNil)
-		resp, err := stream.Next()
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp, test.ShouldResemble, exportTabularDataResponseFromProto(exportTabularResponse))
+		test.That(t, responses[0], test.ShouldResemble, exportTabularDataResponseFromProto(exportTabularResponse))
 	})
 
 	t.Run("BinaryDataByFilter", func(t *testing.T) {

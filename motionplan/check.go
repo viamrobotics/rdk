@@ -45,9 +45,24 @@ func CheckPlan(
 	if err != nil {
 		return err
 	}
+
+	// Spot check plan for options
+	planOpts, err := sfPlanner.plannerSetupFromMoveRequest(
+		&PlanState{poses: plan.Path()[0]},
+		&PlanState{poses: plan.Path()[len(plan.Path())-1]},
+		plan.Trajectory()[0],
+		worldState,
+		nil,
+		nil, // no pb.Constraints
+		nil, // no plannOpts
+	)
+	if err != nil {
+		return err
+	}
+
 	// This should be done for any plan whose configurations are specified in relative terms rather than absolute ones.
 	// Currently this is only TP-space, so we check if the PTG length is >0.
-	if sfPlanner.useTPspace {
+	if planOpts.useTPspace {
 		return checkPlanRelative(checkFrame, executionState, worldState, fs, lookAheadDistanceMM, sfPlanner)
 	}
 	return checkPlanAbsolute(checkFrame, executionState, worldState, fs, lookAheadDistanceMM, sfPlanner)
@@ -80,8 +95,8 @@ func checkPlanRelative(
 
 	// setup the planOpts. Poses should be in world frame. This allows us to know e.g. which obstacles may ephemerally collide.
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
-		plan.Path()[0],
-		plan.Path()[len(plan.Path())-1],
+		&PlanState{poses: plan.Path()[0], configuration: plan.Trajectory()[0]},
+		&PlanState{poses: plan.Path()[len(plan.Path())-1]},
 		plan.Trajectory()[0],
 		worldState,
 		nil,
@@ -217,13 +232,13 @@ func checkPlanAbsolute(
 
 	// setup the planOpts
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
-		executionState.CurrentPoses(),
-		poses[len(poses)-1],
+		&PlanState{poses: executionState.CurrentPoses(), configuration: startingInputs},
+		&PlanState{poses: poses[len(poses)-1]},
 		startingInputs,
 		worldState,
 		nil,
-		nil, // no pb.Constraints
-		nil, // no plannOpts
+		nil, // no Constraints
+		nil, // no planOpts
 	); err != nil {
 		return err
 	}

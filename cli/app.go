@@ -101,12 +101,13 @@ const (
 	dataFlagAliasRobotName                 = "robot-name"
 	dataFlagPartName                       = "part-name"
 	dataFlagComponentType                  = "component-type"
+	dataFlagResourceSubtype                = "resource-subtype"
 	dataFlagComponentName                  = "component-name"
+	dataFlagResourceName                   = "resource-name"
 	dataFlagMethod                         = "method"
 	dataFlagMimeTypes                      = "mime-types"
 	dataFlagStart                          = "start"
 	dataFlagEnd                            = "end"
-	dataFlagChunkLimit                     = "chunk-limit"
 	dataFlagParallelDownloads              = "parallel"
 	dataFlagTags                           = "tags"
 	dataFlagBboxLabels                     = "bbox-labels"
@@ -193,11 +194,11 @@ var commonFilterFlags = []cli.Flag{
 	},
 	&cli.StringFlag{
 		Name:  dataFlagStart,
-		Usage: "ISO-8601 timestamp indicating the start of the interval filter",
+		Usage: "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter",
 	},
 	&cli.StringFlag{
 		Name:  dataFlagEnd,
-		Usage: "ISO-8601 timestamp indicating the end of the interval filter",
+		Usage: "ISO-8601 timestamp in RFC3339 format indicating the end of the interval filter",
 	},
 	&cli.StringSliceFlag{
 		Name: dataFlagBboxLabels,
@@ -649,42 +650,84 @@ var app = &cli.App{
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
 				{
-					Name:      "export",
-					Usage:     "download data from Viam cloud",
-					UsageText: createUsageText("data export", []string{dataFlagDestination, dataFlagDataType}, true),
-					Flags: append([]cli.Flag{
-						&cli.PathFlag{
-							Name:     dataFlagDestination,
-							Required: true,
-							Usage:    "output directory for downloaded data",
+					Name:  "export",
+					Usage: "download data from Viam cloud",
+					Subcommands: []*cli.Command{
+						{
+							Name:      "binary",
+							Usage:     "download binary data",
+							UsageText: createUsageText("data export binary", []string{dataFlagDestination}, true),
+							Flags: append([]cli.Flag{
+								&cli.PathFlag{
+									Name:     dataFlagDestination,
+									Required: true,
+									Usage:    "output directory for downloaded data",
+								},
+								&cli.UintFlag{
+									Name:  dataFlagParallelDownloads,
+									Usage: "number of download requests to make in parallel",
+									Value: 100,
+								},
+								&cli.UintFlag{
+									Name:  dataFlagTimeout,
+									Usage: "number of seconds to wait for large file downloads",
+									Value: 30,
+								},
+								&cli.StringSliceFlag{
+									Name:  dataFlagTags,
+									Usage: "tags filter. accepts tagged for all tagged data, untagged for all untagged data, or a list of tags",
+								},
+							}, commonFilterFlags...),
+							Action: createCommandWithT[dataExportBinaryArgs](DataExportBinaryAction),
 						},
-						&cli.UintFlag{
-							Name:  dataFlagChunkLimit,
-							Usage: "maximum number of results per download request (tabular data only)",
-							Value: 100000,
-						},
-						&cli.UintFlag{
-							Name:  dataFlagParallelDownloads,
-							Usage: "number of download requests to make in parallel (binary data only)",
-							Value: 100,
-						},
-						&cli.StringSliceFlag{
-							Name: dataFlagTags,
-							Usage: "tags filter. " +
-								"accepts tagged for all tagged data, untagged for all untagged data, or a list of tags for all data matching any of the tags",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagDataType,
-							Usage: "type of data to download. can be binary or tabular",
-						},
-						&cli.UintFlag{
-							Name:  dataFlagTimeout,
-							Usage: "number of seconds to wait for large file downloads",
-							Value: 30,
+						{
+							Name:  "tabular",
+							Usage: "download tabular data",
+							UsageText: createUsageText("data export tabular", []string{
+								dataFlagDestination,
+								dataFlagPartID,
+								dataFlagResourceName,
+								dataFlagResourceSubtype,
+								dataFlagMethod,
+							}, true),
+							Flags: []cli.Flag{
+								&cli.PathFlag{
+									Name:     dataFlagDestination,
+									Required: true,
+									Usage:    "output directory for downloaded data",
+								},
+								&cli.StringFlag{
+									Name:     dataFlagPartID,
+									Required: true,
+									Usage:    "part id",
+								},
+								&cli.StringFlag{
+									Name:     dataFlagResourceName,
+									Required: true,
+									Usage:    "resource name (sometimes called 'component name')",
+								},
+								&cli.StringFlag{
+									Name:     dataFlagResourceSubtype,
+									Required: true,
+									Usage:    "resource subtype (sometimes called 'component type')",
+								},
+								&cli.StringFlag{
+									Name:     dataFlagMethod,
+									Required: true,
+									Usage:    "method name",
+								},
+								&cli.StringFlag{
+									Name:  "start",
+									Usage: "ISO-8601 timestamp in RFC3339 format indicating the start of the interval",
+								},
+								&cli.StringFlag{
+									Name:  "end",
+									Usage: "ISO-8601 timestamp in RFC3339 format indicating the end of the interval",
+								},
+							},
+							Action: createCommandWithT[dataExportTabularArgs](DataExportTabularAction),
 						},
 					},
-						commonFilterFlags...),
-					Action: createCommandWithT[dataExportArgs](DataExportAction),
 				},
 				{
 					Name:            "delete",
@@ -704,12 +747,12 @@ var app = &cli.App{
 								&cli.StringFlag{
 									Name:     dataFlagStart,
 									Required: true,
-									Usage:    "ISO-8601 timestamp indicating the start of the interval filter",
+									Usage:    "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter",
 								},
 								&cli.StringFlag{
 									Name:     dataFlagEnd,
 									Required: true,
-									Usage:    "ISO-8601 timestamp indicating the end of the interval filter",
+									Usage:    "ISO-8601 timestamp in RFC3339 format indicating the end of the interval filter",
 								},
 								&cli.StringSliceFlag{
 									Name:  dataFlagLocationIDs,
