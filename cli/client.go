@@ -2057,6 +2057,8 @@ type deleteOAuthAppArgs struct {
 	ClientID string
 }
 
+// DeleteOAuthAppConfirmation is the Before action for 'organizations auth-service oauth-app delete'.
+// It asks for the user to confirm that they want to delete the oauth app.
 func DeleteOAuthAppConfirmation(c *cli.Context, args deleteOAuthAppArgs) error {
 	if args.OrgID == "" {
 		return errors.New("cannot delete oauth app without an organization ID")
@@ -2068,7 +2070,7 @@ func DeleteOAuthAppConfirmation(c *cli.Context, args deleteOAuthAppArgs) error {
 
 	yellow := "\033[1;33m%s\033[0m"
 	printf(c.App.Writer, yellow, "WARNING!!\n")
-	printf(c.App.Writer, yellow, fmt.Sprintf("You are trying to delete OAuth application with client ID %s."+
+	printf(c.App.Writer, yellow, fmt.Sprintf("You are trying to delete OAuth application with client ID %s. "+
 		"Once deleted, any web or mobile apps with this client ID will no longer be able to authenticate users.\n", args.ClientID))
 	printf(c.App.Writer, yellow, "Do you want to continue?")
 	printf(c.App.Writer, "Continue: y/n")
