@@ -189,6 +189,38 @@ func (c *viamClient) organizationsSupportEmailGetAction(cCtx *cli.Context, orgID
 	return nil
 }
 
+type enableAuthServiceArgs struct {
+	OrgID string
+}
+
+func EnableAuthServiceAction(cCtx *cli.Context, args enableAuthServiceArgs) error {
+	c, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+
+	orgID := args.OrgID
+	if orgID == "" {
+		return errors.New("cannot enable auth service without an organization ID")
+	}
+
+	return c.enableAuthServiceAction(cCtx, args.OrgID)
+}
+
+func (c *viamClient) enableAuthServiceAction(cCtx *cli.Context, orgID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	_, err := c.client.EnableAuthService(cCtx.Context, &apppb.EnableAuthServiceRequest{OrgId: orgID})
+	if err != nil {
+		return err
+	}
+
+	printf(cCtx.App.Writer, "enabled auth service for organization %q:\n", orgID)
+	return nil
+}
+
 type updateBillingServiceArgs struct {
 	OrgID   string
 	Address string

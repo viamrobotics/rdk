@@ -425,6 +425,25 @@ var app = &cli.App{
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
 				{
+					Name:  "auth-service",
+					Usage: "manage auth-service",
+					Subcommands: []*cli.Command{
+						{
+							Name:      "enable",
+							Usage:     "enable auth-service for oauth applications",
+							UsageText: createUsageText("enable", []string{generalFlagOrgID}, true),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "organization ID tied to oauth applications",
+								},
+							},
+							Action: createCommandWithT[enableAuthServiceArgs](EnableAuthServiceAction),
+						},
+					},
+				},
+				{
 					Name:   "list",
 					Usage:  "list organizations for the current user",
 					Action: createCommandWithT[emptyArgs](ListOrganizationsAction),
