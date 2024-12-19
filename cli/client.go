@@ -2083,7 +2083,7 @@ func allEnumValues(prefixToTrim string, enumValueMap map[string]int32) string {
 	return "[" + strings.Join(formattedValues, ", ") + "]"
 }
 
-// UpdateOAuthAppAction is the corresponding action for 'auth-service update'.
+// UpdateOAuthAppAction is the corresponding action for 'oauth-app update'.
 func UpdateOAuthAppAction(c *cli.Context, args updateOAuthAppArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
@@ -2108,7 +2108,7 @@ func (c *viamClient) updateOAuthAppAction(cCtx *cli.Context, args updateOAuthApp
 		return err
 	}
 
-	infof(cCtx.App.Writer, "Successfully updated oauth application")
+	printf(cCtx.App.Writer, "Successfully updated oauth application %s", args.ClientID)
 	return nil
 }
 
@@ -2127,19 +2127,21 @@ func createUpdateOAuthAppRequest(args updateOAuthAppArgs) (*apppb.UpdateOAuthApp
 	clientAuthenticationEnum, ok := apppb.ClientAuthentication_value[clientAuthenticationPrefix+strings.ToUpper(clientAuthentication)]
 	if !ok {
 		return nil, errors.Errorf("%s must be a valid ClientAuthentication, got %s. "+
-			"See `viam organizations auth-service update --help` for supported options",
+			"See `viam organizations auth-service oauth-app update --help` for supported options",
 			authApplicationFlagClientAuthentication, clientAuthentication)
 	}
+
 	pkceEnum, ok := apppb.PKCE_value[pkcePrefix+strings.ToUpper(pkce)]
 	if !ok {
 		return nil, errors.Errorf("%s must be a valid PKCE, got %s. "+
-			"See `viam organizations auth-service update --help` for supported options",
+			"See `viam organizations auth-service oauth-app update --help` for supported options",
 			authApplicationFlagPKCE, pkce)
 	}
+
 	urlValidationEnum, ok := apppb.URLValidation_value[urlValidationPrefix+strings.ToUpper(urlValidation)]
 	if !ok {
 		return nil, errors.Errorf("%s must be a valid UrlValidation, got %s. "+
-			"See `viam organizations auth-service update --help` for supported options",
+			"See `viam organizations auth-service oauth-app update --help` for supported options",
 			authApplicationFlagURLValidation, urlValidation)
 	}
 
@@ -2174,7 +2176,7 @@ func enabledGrantsToProto(enabledGrants []string) ([]apppb.EnabledGrant, error) 
 		enum, ok := apppb.EnabledGrant_value[enabledGrantPrefix+strings.ToUpper(eg)]
 		if !ok {
 			return nil, errors.Errorf("%s must consist of valid EnabledGrants, got %s. "+
-				"See `viam organizations auth-service update --help` for supported options",
+				"See `viam organizations auth-service oauth-app update --help` for supported options",
 				authApplicationFlagEnabledGrants, eg)
 		}
 		enabledGrantsProto[i] = apppb.EnabledGrant(enum)

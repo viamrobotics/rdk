@@ -459,7 +459,7 @@ var app = &cli.App{
 										&cli.StringFlag{
 											Name:     authApplicationFlagClientName,
 											Usage:    "updated name for the oauth application",
-											Required: true,
+											Required: false,
 										},
 										&cli.StringFlag{
 											Name: authApplicationFlagClientAuthentication,
