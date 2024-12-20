@@ -3,6 +3,7 @@ package sensor
 
 import (
 	"context"
+	"fmt"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/sensor/v1"
@@ -10,6 +11,11 @@ import (
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
+
+// ErrReadingsNil is the returned error if sensor readings are nil.
+var ErrReadingsNil = func(sensorType, sensorName string) error {
+	return fmt.Errorf("%v component %v Readings should not return nil readings", sensorType, sensorName)
+}
 
 // serviceServer implements the SensorService from sensor.proto.
 type serviceServer struct {
@@ -34,6 +40,9 @@ func (s *serviceServer) GetReadings(
 	readings, err := sensorDevice.Readings(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
+	}
+	if readings == nil {
+		return nil, ErrReadingsNil("sensor", req.Name)
 	}
 	m, err := protoutils.ReadingGoToProto(readings)
 	if err != nil {

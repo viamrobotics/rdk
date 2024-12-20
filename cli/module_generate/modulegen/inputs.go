@@ -1,7 +1,10 @@
-// Package common contains defined types used for module generation
-package common
+// Package modulegen contains defined types used for module generation
+package modulegen
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // ModuleInputs contains the necessary information to fill out template files.
 type ModuleInputs struct {
@@ -34,6 +37,32 @@ type ModuleInputs struct {
 	SDKVersion string `json:"-"`
 }
 
+// Resources is a list of all the available resources in Viam.
+var Resources = []string{
+	"arm component",
+	"audio_input component",
+	"base component",
+	"board component",
+	"camera component",
+	"encoder component",
+	"gantry component",
+	"generic component",
+	"gripper component",
+	"input component",
+	"motor component",
+	"movement_sensor component",
+	"pose_tracker component",
+	"power_sensor component",
+	"sensor component",
+	"servo component",
+	"generic service",
+	"mlmodel service",
+	"motion service",
+	"navigation service",
+	"slam service",
+	"vision service",
+}
+
 // GoModuleTmpl contains necessary information to fill out the go method stubs.
 type GoModuleTmpl struct {
 	Module    ModuleInputs
@@ -41,4 +70,30 @@ type GoModuleTmpl struct {
 	ObjName   string
 	Imports   string
 	Functions string
+}
+
+// HasEmptyInput checks to see if any required inputs were not filled in.
+func (inputs *ModuleInputs) HasEmptyInput() bool {
+	requiredInputs := []string{
+		inputs.ModuleName, inputs.Language, inputs.Namespace, inputs.ResourceType, inputs.ResourceSubtype, inputs.ModelName,
+	}
+	for _, input := range requiredInputs {
+		if input == "" {
+			return true
+		}
+	}
+	return false
+}
+
+// CheckResource checks if the given resource is valid.
+func (inputs *ModuleInputs) CheckResource() error {
+	if inputs.ResourceSubtype == "" || inputs.ResourceType == "" {
+		return nil
+	}
+	for _, resource := range Resources {
+		if inputs.Resource == resource {
+			return nil
+		}
+	}
+	return fmt.Errorf("given resource '%s' does not exist", inputs.Resource)
 }

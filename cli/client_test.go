@@ -2,9 +2,11 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"io/fs"
 	"maps"
 	"os"
@@ -103,7 +105,6 @@ func setup(
 
 	if dataClient != nil {
 		// these flags are only relevant when testing a dataClient
-		flags.String(dataFlagDataType, dataTypeTabular, "")
 		flags.String(dataFlagDestination, utils.ResolveFile(""), "")
 	}
 
@@ -339,6 +340,25 @@ func TestOrganizationSetLogoAction(t *testing.T) {
 	test.That(t, len(out.messages), test.ShouldEqual, 0)
 }
 
+func TestGetLogoAction(t *testing.T) {
+	getLogoFunc := func(ctx context.Context, in *apppb.OrganizationGetLogoRequest, opts ...grpc.CallOption) (
+		*apppb.OrganizationGetLogoResponse, error,
+	) {
+		return &apppb.OrganizationGetLogoResponse{Url: "https://logo.com"}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		OrganizationGetLogoFunc: getLogoFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+
+	test.That(t, ac.organizationsLogoGetAction(cCtx, "test-org"), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "https://logo.com")
+}
+
 func TestUpdateBillingServiceAction(t *testing.T) {
 	updateConfigFunc := func(ctx context.Context, in *apppb.UpdateBillingServiceRequest, opts ...grpc.CallOption) (
 		*apppb.UpdateBillingServiceResponse, error,
@@ -383,76 +403,124 @@ func TestOrganizationEnableBillingServiceAction(t *testing.T) {
 	test.That(t, out.messages[0], test.ShouldContainSubstring, "Successfully enabled billing service for organization")
 }
 
-func TestTabularDataByFilterAction(t *testing.T) {
-	pbStruct, err := protoutils.StructToStructPb(map[string]interface{}{"bool": true, "string": "true", "float": float64(1)})
-	test.That(t, err, test.ShouldBeNil)
+type mockDataServiceClient struct {
+	grpc.ClientStream
+	responses []*datapb.ExportTabularDataResponse
+	index     int
+	err       error
+}
 
-	// calls to `TabularDataByFilter` will repeat so long as data continue to be returned,
-	// so we need a way of telling our injected method when data has already been sent so we
-	// can send an empty response
-	var dataRequested bool
-	//nolint:deprecated,staticcheck
-	tabularDataByFilterFunc := func(ctx context.Context, in *datapb.TabularDataByFilterRequest, opts ...grpc.CallOption,
-	//nolint:deprecated
-	) (*datapb.TabularDataByFilterResponse, error) {
-		if dataRequested {
-			//nolint:deprecated,staticcheck
-			return &datapb.TabularDataByFilterResponse{}, nil
+func (m *mockDataServiceClient) Recv() (*datapb.ExportTabularDataResponse, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+
+	if m.index >= len(m.responses) {
+		return nil, io.EOF
+	}
+
+	resp := m.responses[m.index]
+	m.index++
+
+	return resp, nil
+}
+
+func newMockExportStream(responses []*datapb.ExportTabularDataResponse, err error) *mockDataServiceClient {
+	return &mockDataServiceClient{
+		responses: responses,
+		err:       err,
+	}
+}
+
+func TestDataExportTabularAction(t *testing.T) {
+	t.Run("successful case", func(t *testing.T) {
+		pbStructPayload1, err := protoutils.StructToStructPb(map[string]interface{}{"bool": true, "string": "true", "float": float64(1)})
+		test.That(t, err, test.ShouldBeNil)
+
+		pbStructPayload2, err := protoutils.StructToStructPb(map[string]interface{}{"booly": false, "string": "true", "float": float64(1)})
+		test.That(t, err, test.ShouldBeNil)
+
+		exportTabularDataFunc := func(ctx context.Context, in *datapb.ExportTabularDataRequest, opts ...grpc.CallOption,
+		) (datapb.DataService_ExportTabularDataClient, error) {
+			return newMockExportStream([]*datapb.ExportTabularDataResponse{
+				{LocationId: "loc-id", Payload: pbStructPayload1},
+				{LocationId: "loc-id", Payload: pbStructPayload2},
+			}, nil), nil
 		}
-		dataRequested = true
-		//nolint:deprecated,staticcheck
-		return &datapb.TabularDataByFilterResponse{
-			//nolint:deprecated,staticcheck
-			Data:     []*datapb.TabularData{{Data: pbStruct}},
-			Metadata: []*datapb.CaptureMetadata{{LocationId: "loc-id"}},
-		}, nil
-	}
 
-	dsc := &inject.DataServiceClient{
-		TabularDataByFilterFunc: tabularDataByFilterFunc,
-	}
+		dsc := &inject.DataServiceClient{
+			ExportTabularDataFunc: exportTabularDataFunc,
+		}
 
-	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil, nil, nil, "token")
+		cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil, nil, nil, "token")
 
-	test.That(t, ac.dataExportAction(cCtx, parseStructFromCtx[dataExportArgs](cCtx)), test.ShouldBeNil)
-	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
-	test.That(t, len(out.messages), test.ShouldEqual, 4)
-	test.That(t, out.messages[0], test.ShouldEqual, "Downloading..")
-	test.That(t, out.messages[1], test.ShouldEqual, ".")
-	test.That(t, out.messages[2], test.ShouldEqual, ".")
-	test.That(t, out.messages[3], test.ShouldEqual, "\n")
+		test.That(t, ac.dataExportTabularAction(cCtx, parseStructFromCtx[dataExportTabularArgs](cCtx)), test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, len(out.messages), test.ShouldEqual, 3)
+		test.That(t, strings.Join(out.messages, ""), test.ShouldEqual, "Downloading...\n")
 
-	// expectedDataSize is the expected string length of the data returned by the injected call
-	expectedDataSize := 98
-	b := make([]byte, expectedDataSize)
+		filePath := utils.ResolveFile(dataFileName)
 
-	// `data.ndjson` is the standardized name of the file data is written to in the `tabularData` call
-	filePath := utils.ResolveFile("data/data.ndjson")
-	file, err := os.Open(filePath)
-	test.That(t, err, test.ShouldBeNil)
+		data, err := os.ReadFile(filePath)
+		test.That(t, err, test.ShouldBeNil)
 
-	dataSize, err := file.Read(b)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, dataSize, test.ShouldEqual, expectedDataSize)
+		// Output is unstable, so parse back into maps before comparing to expected.
+		var actual []map[string]interface{}
+		decoder := json.NewDecoder(strings.NewReader(string(data)))
+		for decoder.More() {
+			var item map[string]interface{}
+			err = decoder.Decode(&item)
+			test.That(t, err, test.ShouldBeNil)
+			actual = append(actual, item)
+		}
 
-	savedData := string(b)
-	expectedData := "{\"MetadataIndex\":0,\"TimeReceived\":null,\"TimeRequested\":null,\"bool\":true,\"float\":1,\"string\":\"true\"}"
-	test.That(t, savedData, test.ShouldEqual, expectedData)
+		expectedData := []map[string]interface{}{
+			{
+				"locationId": "loc-id",
+				"payload": map[string]interface{}{
+					"bool":   true,
+					"float":  float64(1),
+					"string": "true",
+				},
+			},
+			{
+				"locationId": "loc-id",
+				"payload": map[string]interface{}{
+					"booly":  false,
+					"float":  float64(1),
+					"string": "true",
+				},
+			},
+		}
 
-	expectedMetadataSize := 23
-	b = make([]byte, expectedMetadataSize)
+		test.That(t, actual, test.ShouldResemble, expectedData)
+	})
 
-	// metadata is named `0.json` based on its index in the metadata array
-	filePath = utils.ResolveFile("metadata/0.json")
-	file, err = os.Open(filePath)
-	test.That(t, err, test.ShouldBeNil)
+	t.Run("error case", func(t *testing.T) {
+		exportTabularDataFunc := func(ctx context.Context, in *datapb.ExportTabularDataRequest, opts ...grpc.CallOption,
+		) (datapb.DataService_ExportTabularDataClient, error) {
+			return newMockExportStream([]*datapb.ExportTabularDataResponse{}, errors.New("whoops")), nil
+		}
 
-	metadataSize, err := file.Read(b)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, metadataSize, test.ShouldEqual, expectedMetadataSize)
+		dsc := &inject.DataServiceClient{
+			ExportTabularDataFunc: exportTabularDataFunc,
+		}
 
-	savedMetadata := string(b)
-	test.That(t, savedMetadata, test.ShouldEqual, "{\"locationId\":\"loc-id\"}")
+		cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil, nil, nil, "token")
+
+		err := ac.dataExportTabularAction(cCtx, parseStructFromCtx[dataExportTabularArgs](cCtx))
+		test.That(t, err, test.ShouldBeError, errors.New("error receiving tabular data: whoops"))
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+
+		// Test that export was retried (total of 5 tries).
+		test.That(t, len(out.messages), test.ShouldEqual, 7)
+		test.That(t, strings.Join(out.messages, ""), test.ShouldEqual, "Downloading.......\n")
+
+		// Test that the data.ndjson file was removed.
+		filePath := utils.ResolveFile(dataFileName)
+		_, err = os.ReadFile(filePath)
+		test.That(t, err, test.ShouldBeError, fmt.Errorf("open %s: no such file or directory", filePath))
+	})
 }
 
 func TestBaseURLParsing(t *testing.T) {

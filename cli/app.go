@@ -57,9 +57,14 @@ const (
 	moduleFlagHomeDir         = "home"
 	moduleCreateLocalOnly     = "local-only"
 	moduleFlagID              = "id"
+	moduleFlagIsPublic        = "public"
 	moduleFlagResourceType    = "resource-type"
 	moduleFlagResourceSubtype = "resource-subtype"
+	moduleFlagModelName       = "model-name"
+	moduleFlagEnableCloud     = "enable-cloud"
+	moduleFlagRegister        = "register"
 	moduleFlagTags            = "tags"
+	moduleFlagDryRun          = "dry-run"
 
 	moduleBuildFlagPath      = "module"
 	moduleBuildFlagRef       = "ref"
@@ -96,12 +101,13 @@ const (
 	dataFlagAliasRobotName                 = "robot-name"
 	dataFlagPartName                       = "part-name"
 	dataFlagComponentType                  = "component-type"
+	dataFlagResourceSubtype                = "resource-subtype"
 	dataFlagComponentName                  = "component-name"
+	dataFlagResourceName                   = "resource-name"
 	dataFlagMethod                         = "method"
 	dataFlagMimeTypes                      = "mime-types"
 	dataFlagStart                          = "start"
 	dataFlagEnd                            = "end"
-	dataFlagChunkLimit                     = "chunk-limit"
 	dataFlagParallelDownloads              = "parallel"
 	dataFlagTags                           = "tags"
 	dataFlagBboxLabels                     = "bbox-labels"
@@ -187,11 +193,11 @@ var commonFilterFlags = []cli.Flag{
 	},
 	&cli.StringFlag{
 		Name:  dataFlagStart,
-		Usage: "ISO-8601 timestamp indicating the start of the interval filter",
+		Usage: "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter",
 	},
 	&cli.StringFlag{
 		Name:  dataFlagEnd,
-		Usage: "ISO-8601 timestamp indicating the end of the interval filter",
+		Usage: "ISO-8601 timestamp in RFC3339 format indicating the end of the interval filter",
 	},
 	&cli.StringSliceFlag{
 		Name: dataFlagBboxLabels,
@@ -426,7 +432,7 @@ var app = &cli.App{
 				},
 				{
 					Name:      "logo",
-					Usage:     "manage logos for an organization",
+					Usage:     "manage the logo for an organization",
 					UsageText: createUsageText("organizations logo", []string{generalFlagOrgID}, true),
 					Subcommands: []*cli.Command{
 						{
@@ -445,6 +451,18 @@ var app = &cli.App{
 								},
 							},
 							Action: createCommandWithT[organizationsLogoSetArgs](OrganizationLogoSetAction),
+						},
+						{
+							Name:  "get",
+							Usage: "get the logo for an organization",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "the org to get the logo for",
+								},
+							},
+							Action: createCommandWithT[organizationsLogoGetArgs](OrganizationsLogoGetAction),
 						},
 					},
 				},
@@ -622,42 +640,84 @@ var app = &cli.App{
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
 				{
-					Name:      "export",
-					Usage:     "download data from Viam cloud",
-					UsageText: createUsageText("data export", []string{dataFlagDestination, dataFlagDataType}, true),
-					Flags: append([]cli.Flag{
-						&cli.PathFlag{
-							Name:     dataFlagDestination,
-							Required: true,
-							Usage:    "output directory for downloaded data",
+					Name:  "export",
+					Usage: "download data from Viam cloud",
+					Subcommands: []*cli.Command{
+						{
+							Name:      "binary",
+							Usage:     "download binary data",
+							UsageText: createUsageText("data export binary", []string{dataFlagDestination}, true),
+							Flags: append([]cli.Flag{
+								&cli.PathFlag{
+									Name:     dataFlagDestination,
+									Required: true,
+									Usage:    "output directory for downloaded data",
+								},
+								&cli.UintFlag{
+									Name:  dataFlagParallelDownloads,
+									Usage: "number of download requests to make in parallel",
+									Value: 100,
+								},
+								&cli.UintFlag{
+									Name:  dataFlagTimeout,
+									Usage: "number of seconds to wait for large file downloads",
+									Value: 30,
+								},
+								&cli.StringSliceFlag{
+									Name:  dataFlagTags,
+									Usage: "tags filter. accepts tagged for all tagged data, untagged for all untagged data, or a list of tags",
+								},
+							}, commonFilterFlags...),
+							Action: createCommandWithT[dataExportBinaryArgs](DataExportBinaryAction),
 						},
-						&cli.UintFlag{
-							Name:  dataFlagChunkLimit,
-							Usage: "maximum number of results per download request (tabular data only)",
-							Value: 100000,
-						},
-						&cli.UintFlag{
-							Name:  dataFlagParallelDownloads,
-							Usage: "number of download requests to make in parallel (binary data only)",
-							Value: 100,
-						},
-						&cli.StringSliceFlag{
-							Name: dataFlagTags,
-							Usage: "tags filter. " +
-								"accepts tagged for all tagged data, untagged for all untagged data, or a list of tags for all data matching any of the tags",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagDataType,
-							Usage: "type of data to download. can be binary or tabular",
-						},
-						&cli.UintFlag{
-							Name:  dataFlagTimeout,
-							Usage: "number of seconds to wait for large file downloads",
-							Value: 30,
+						{
+							Name:  "tabular",
+							Usage: "download tabular data",
+							UsageText: createUsageText("data export tabular", []string{
+								dataFlagDestination,
+								dataFlagPartID,
+								dataFlagResourceName,
+								dataFlagResourceSubtype,
+								dataFlagMethod,
+							}, true),
+							Flags: []cli.Flag{
+								&cli.PathFlag{
+									Name:     dataFlagDestination,
+									Required: true,
+									Usage:    "output directory for downloaded data",
+								},
+								&cli.StringFlag{
+									Name:     dataFlagPartID,
+									Required: true,
+									Usage:    "part id",
+								},
+								&cli.StringFlag{
+									Name:     dataFlagResourceName,
+									Required: true,
+									Usage:    "resource name (sometimes called 'component name')",
+								},
+								&cli.StringFlag{
+									Name:     dataFlagResourceSubtype,
+									Required: true,
+									Usage:    "resource subtype (sometimes called 'component type')",
+								},
+								&cli.StringFlag{
+									Name:     dataFlagMethod,
+									Required: true,
+									Usage:    "method name",
+								},
+								&cli.StringFlag{
+									Name:  "start",
+									Usage: "ISO-8601 timestamp in RFC3339 format indicating the start of the interval",
+								},
+								&cli.StringFlag{
+									Name:  "end",
+									Usage: "ISO-8601 timestamp in RFC3339 format indicating the end of the interval",
+								},
+							},
+							Action: createCommandWithT[dataExportTabularArgs](DataExportTabularAction),
 						},
 					},
-						commonFilterFlags...),
-					Action: createCommandWithT[dataExportArgs](DataExportAction),
 				},
 				{
 					Name:            "delete",
@@ -677,12 +737,12 @@ var app = &cli.App{
 								&cli.StringFlag{
 									Name:     dataFlagStart,
 									Required: true,
-									Usage:    "ISO-8601 timestamp indicating the start of the interval filter",
+									Usage:    "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter",
 								},
 								&cli.StringFlag{
 									Name:     dataFlagEnd,
 									Required: true,
-									Usage:    "ISO-8601 timestamp indicating the end of the interval filter",
+									Usage:    "ISO-8601 timestamp in RFC3339 format indicating the end of the interval filter",
 								},
 								&cli.StringSliceFlag{
 									Name:  dataFlagLocationIDs,
@@ -1685,17 +1745,45 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Usage: "generate a new modular resource via prompts",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
+							Name:  moduleFlagName,
+							Usage: "name to use for module",
+						},
+						&cli.StringFlag{
 							Name:  moduleFlagLanguage,
 							Usage: "language to use for module",
-							Value: "python",
+						},
+						&cli.BoolFlag{
+							Name:  moduleFlagIsPublic,
+							Usage: "set module to public",
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagPublicNamespace,
+							Usage: "namespace or organization ID of module",
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagResourceSubtype,
+							Usage: "resource subtype to use in module",
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagResourceType,
 							Usage: "resource type to use in module",
 						},
 						&cli.StringFlag{
-							Name:  moduleFlagResourceSubtype,
-							Usage: "resource subtype to use in module",
+							Name:  moduleFlagModelName,
+							Usage: "resource model name to use in module",
+						},
+						&cli.BoolFlag{
+							Name:  moduleFlagEnableCloud,
+							Usage: "generate Github workflows to build module",
+						},
+						&cli.BoolFlag{
+							Name:  moduleFlagRegister,
+							Usage: "register module with Viam to associate with your organization",
+						},
+						&cli.BoolFlag{
+							Name:   moduleFlagDryRun,
+							Usage:  "indicate a dry test run, so skip regular checks",
+							Hidden: true,
 						},
 					},
 					Action: createCommandWithT[generateModuleArgs](GenerateModuleAction),

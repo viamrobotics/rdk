@@ -126,6 +126,7 @@ func (manager *resourceManager) startModuleManager(
 		ViamHomeDir:             viamHomeDir,
 		RobotCloudID:            robotCloudID,
 		PackagesDir:             packagesDir,
+		FTDC:                    manager.opts.ftdc,
 	}
 	manager.moduleManager = modmanager.NewManager(ctx, parentAddr, logger, mmOpts)
 }
@@ -629,6 +630,46 @@ func (manager *resourceManager) completeConfig(
 	levels := manager.resources.ReverseTopologicalSortInLevels()
 	timeout := rutils.GetResourceConfigurationTimeout(manager.logger)
 	for _, resourceNames := range levels {
+		// At the start of every reconfiguration level, check if updateWeakDependents should be run.
+		// Both conditions below should be met for `updateWeakDependents` to be called:
+		// - At least one resource that needs to reconfigure in this level
+		//   depends on at least one resource with weak dependencies (weak dependents)
+		// - The logical clock is higher than the `lastWeakDependentsRound` value
+		//
+		// This will make sure that weak dependents are updated before they are passed into constructors
+		// or reconfigure methods.
+		//
+		// Resources that depend on weak dependents should expect that the weak dependents pass into the
+		// constructor or reconfigure method will only have been reconfigured with all resources constructed
+		// before their level.
+		var weakDependentsUpdated bool
+		for _, resName := range resourceNames {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+			gNode, ok := manager.resources.Node(resName)
+			if !ok || !gNode.NeedsReconfigure() {
+				continue
+			}
+			if !(resName.API.IsComponent() || resName.API.IsService()) {
+				continue
+			}
+
+			for _, dep := range manager.resources.GetAllParentsOf(resName) {
+				if node, ok := manager.resources.Node(dep); ok {
+					if lr.resourceHasWeakDependencies(dep, node) && lr.lastWeakDependentsRound.Load() < manager.resources.CurrLogicalClockValue() {
+						lr.updateWeakDependents(ctx)
+						weakDependentsUpdated = true
+						break
+					}
+				}
+			}
+			if weakDependentsUpdated {
+				break
+			}
+		}
 		// we use an errgroup here instead of a normal waitgroup to conveniently bubble
 		// up errors in resource processing goroutinues that warrant an early exit.
 		var levelErrG errgroup.Group
@@ -638,8 +679,6 @@ func (manager *resourceManager) completeConfig(
 				return
 			default:
 			}
-
-			resName := resName
 			// processResource is intended to be run concurrently for each resource
 			// within a topological sort level. if any processResource function returns a
 			// non-nil error then the entire `completeConfig` function will exit early.
@@ -992,7 +1031,7 @@ func (manager *resourceManager) processResource(
 	}
 
 	resName := conf.ResourceName()
-	deps, err := lr.getDependencies(ctx, resName, gNode)
+	deps, err := lr.getDependencies(resName, gNode)
 	if err != nil {
 		manager.logger.CDebugw(ctx,
 			"failed to get dependencies for existing resource during reconfiguration, closing and removing resource from graph node",

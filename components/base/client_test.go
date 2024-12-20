@@ -75,6 +75,10 @@ func setupBrokenBase(brokenBase *inject.Base) {
 	brokenBase.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
 		return base.Properties{}, errPropertiesFailed
 	}
+
+	brokenBase.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
+		return nil, nil
+	}
 }
 
 func TestClient(t *testing.T) {
@@ -220,6 +224,9 @@ func TestClient(t *testing.T) {
 
 		_, err = failingBaseClient.Properties(context.Background(), nil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errPropertiesFailed.Error())
+
+		_, err = failingBaseClient.Geometries(context.Background(), nil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, base.ErrGeometriesNil(failBaseName).Error())
 
 		err = failingBaseClient.Stop(context.Background(), nil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errStopFailed.Error())

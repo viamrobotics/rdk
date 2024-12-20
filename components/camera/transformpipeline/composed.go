@@ -80,7 +80,7 @@ func (dtp *depthToPretty) Read(ctx context.Context) (image.Image, func(), error)
 }
 
 func (dtp *depthToPretty) Close(ctx context.Context) error {
-	return dtp.src.Close(ctx)
+	return nil
 }
 
 func (dtp *depthToPretty) PointCloud(ctx context.Context) (pointcloud.PointCloud, error) {

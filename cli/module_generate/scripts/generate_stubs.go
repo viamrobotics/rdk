@@ -19,14 +19,14 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/cli/module_generate/common"
+	"go.viam.com/rdk/cli/module_generate/modulegen"
 )
 
 //go:embed tmpl-module
 var goTmpl string
 
 // getClientCode grabs client.go code of component type.
-func getClientCode(module common.ModuleInputs) (string, error) {
+func getClientCode(module modulegen.ModuleInputs) (string, error) {
 	url := fmt.Sprintf("https://raw.githubusercontent.com/viamrobotics/rdk/refs/tags/v%s/%ss/%s/client.go",
 		module.SDKVersion, module.ResourceType, module.ResourceSubtype)
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
@@ -53,8 +53,8 @@ func getClientCode(module common.ModuleInputs) (string, error) {
 }
 
 // setGoModuleTemplate sets the imports and functions for the go method stubs.
-func setGoModuleTemplate(clientCode string, module common.ModuleInputs) (*common.GoModuleTmpl, error) {
-	var goTmplInputs common.GoModuleTmpl
+func setGoModuleTemplate(clientCode string, module modulegen.ModuleInputs) (*modulegen.GoModuleTmpl, error) {
+	var goTmplInputs modulegen.GoModuleTmpl
 
 	if module.ResourceSubtype == "input" {
 		module.ResourceSubtypePascal = "Controller"
@@ -265,7 +265,7 @@ func formatEmptyFunction(receiver, funcName, args string, returns []string) stri
 }
 
 // RenderGoTemplates outputs the method stubs for created module.
-func RenderGoTemplates(module common.ModuleInputs) ([]byte, error) {
+func RenderGoTemplates(module modulegen.ModuleInputs) ([]byte, error) {
 	clientCode, err := getClientCode(module)
 	var empty []byte
 	if err != nil {

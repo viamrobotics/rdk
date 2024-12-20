@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -184,6 +185,23 @@ type GetLatestTabularDataResponse struct {
 	TimeCaptured time.Time
 	TimeSynced   time.Time
 	Payload      map[string]interface{}
+}
+
+// ExportTabularDataResponse represents the result of an ExportTabularData API call.
+type ExportTabularDataResponse struct {
+	OrganizationID   string
+	LocationID       string
+	RobotID          string
+	RobotName        string
+	PartID           string
+	PartName         string
+	ResourceName     string
+	ResourceSubtype  string
+	MethodName       string
+	TimeCaptured     time.Time
+	MethodParameters map[string]interface{}
+	Tags             []string
+	Payload          map[string]interface{}
 }
 
 // DataSyncClient structs
@@ -466,6 +484,38 @@ func (d *DataClient) GetLatestTabularData(ctx context.Context, partID, resourceN
 		TimeSynced:   resp.TimeSynced.AsTime(),
 		Payload:      resp.Payload.AsMap(),
 	}, nil
+}
+
+// ExportTabularData returns a stream of ExportTabularDataResponses.
+func (d *DataClient) ExportTabularData(
+	ctx context.Context, partID, resourceName, resourceSubtype, method string, interval CaptureInterval,
+) ([]*ExportTabularDataResponse, error) {
+	stream, err := d.dataClient.ExportTabularData(ctx, &pb.ExportTabularDataRequest{
+		PartId:          partID,
+		ResourceName:    resourceName,
+		ResourceSubtype: resourceSubtype,
+		MethodName:      method,
+		Interval:        captureIntervalToProto(interval),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var responses []*ExportTabularDataResponse
+
+	for {
+		response, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		responses = append(responses, exportTabularDataResponseFromProto(response))
+	}
+
+	return responses, nil
 }
 
 // BinaryDataByFilter queries binary data and metadata based on given filters.
@@ -1178,6 +1228,24 @@ func boundingBoxFromProto(proto *pb.BoundingBox) *BoundingBox {
 		YMinNormalized: proto.YMinNormalized,
 		XMaxNormalized: proto.XMaxNormalized,
 		YMaxNormalized: proto.YMaxNormalized,
+	}
+}
+
+func exportTabularDataResponseFromProto(proto *pb.ExportTabularDataResponse) *ExportTabularDataResponse {
+	return &ExportTabularDataResponse{
+		OrganizationID:   proto.OrganizationId,
+		LocationID:       proto.LocationId,
+		RobotID:          proto.RobotId,
+		RobotName:        proto.RobotName,
+		PartID:           proto.PartId,
+		PartName:         proto.PartName,
+		ResourceName:     proto.ResourceName,
+		ResourceSubtype:  proto.ResourceSubtype,
+		MethodName:       proto.MethodName,
+		TimeCaptured:     proto.TimeCaptured.AsTime(),
+		MethodParameters: proto.MethodParameters.AsMap(),
+		Tags:             proto.Tags,
+		Payload:          proto.Payload.AsMap(),
 	}
 }
 

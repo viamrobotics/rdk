@@ -26,6 +26,7 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/ftdc"
+	"go.viam.com/rdk/ftdc/sys"
 	icloud "go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
@@ -323,6 +324,9 @@ func newWithResources(
 		//   constructed to get a valid copy of its stats object (for the schema's sake). Even if
 		//   the web service has not been "started".
 		ftdcWorker = ftdc.New(ftdc.DefaultDirectory(config.ViamDotDir, partID), logger.Sublogger("ftdc"))
+		if statser, err := sys.NewSelfSysUsageStatser(); err == nil {
+			ftdcWorker.Add("viam-server", statser)
+		}
 	}
 
 	closeCtx, cancel := context.WithCancel(ctx)
@@ -524,11 +528,24 @@ func (r *localRobot) removeOrphanedResources(ctx context.Context,
 	r.updateWeakDependents(ctx)
 }
 
+// resourceHasWeakDependencies will return whether a given resource has weak dependencies.
+// Internal services that depend on other resources are also included in the check.
+func (r *localRobot) resourceHasWeakDependencies(rName resource.Name, node *resource.GraphNode) bool {
+	if len(r.getWeakDependencyMatchers(node.Config().API, node.Config().Model)) > 0 {
+		return true
+	}
+
+	// also return true for internal services that depends on other resources (web, framesystem).
+	if rName == web.InternalServiceName || rName == framesystem.InternalServiceName {
+		return true
+	}
+	return false
+}
+
 // getDependencies derives a collection of dependencies from a robot for a given
 // component's name. We don't use the resource manager for this information since
 // it is not be constructed at this point.
 func (r *localRobot) getDependencies(
-	ctx context.Context,
 	rName resource.Name,
 	gNode *resource.GraphNode,
 ) (resource.Dependencies, error) {
@@ -536,16 +553,8 @@ func (r *localRobot) getDependencies(
 		return nil, errors.Errorf("resource has unresolved dependencies: %v", deps)
 	}
 	allDeps := make(resource.Dependencies)
-	var needUpdate bool
+
 	for _, dep := range r.manager.resources.GetAllParentsOf(rName) {
-		// If any of the dependencies of this resource has an updatedAt value that
-		// is "later" than the last value at which we ran updateWeakDependents,
-		// ensure that we run updateWeakDependents later in this method.
-		if node, ok := r.manager.resources.Node(dep); ok {
-			if r.lastWeakDependentsRound.Load() <= node.UpdatedAt() {
-				needUpdate = true
-			}
-		}
 		// Specifically call ResourceByName and not directly to the manager since this
 		// will only return fully configured and available resources (not marked for removal
 		// and no last error).
@@ -561,10 +570,6 @@ func (r *localRobot) getDependencies(
 			continue
 		}
 		allDeps[weakDepName] = weakDepRes
-	}
-
-	if needUpdate {
-		r.updateWeakDependents(ctx)
 	}
 
 	return allDeps, nil
@@ -619,7 +624,7 @@ func (r *localRobot) newResource(
 		return nil, errors.Errorf("unknown resource type: API %q with model %q not registered", resName.API, conf.Model)
 	}
 
-	deps, err := r.getDependencies(ctx, resName, gNode)
+	deps, err := r.getDependencies(resName, gNode)
 	if err != nil {
 		return nil, err
 	}
@@ -658,7 +663,7 @@ func (r *localRobot) newResource(
 func (r *localRobot) updateWeakDependents(ctx context.Context) {
 	// Track the current value of the resource graph's logical clock. This will
 	// later be used to determine if updateWeakDependents should be called during
-	// getDependencies.
+	// completeConfig.
 	r.lastWeakDependentsRound.Store(r.manager.resources.CurrLogicalClockValue())
 
 	allResources := map[resource.Name]resource.Resource{}
@@ -705,6 +710,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 				resChan <- struct{}{}
 				r.reconfigureWorkers.Done()
 			}()
+			// NOTE(cheukt): when adding internal services that reconfigure, also add them to the check in `localRobot.resourceHasWeakDependencies`.
 			switch resName {
 			case web.InternalServiceName:
 				if err := res.Reconfigure(ctxWithTimeout, allResources, resource.Config{}); err != nil {
@@ -762,7 +768,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 			return
 		}
 		r.Logger().CDebugw(ctx, "handling weak update for resource", "resource", resName)
-		deps, err := r.getDependencies(ctx, resName, resNode)
+		deps, err := r.getDependencies(resName, resNode)
 		if err != nil {
 			r.Logger().CErrorw(ctx, "failed to get dependencies during weak dependencies update; skipping", "resource", resName, "error", err)
 			return

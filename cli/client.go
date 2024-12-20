@@ -430,6 +430,46 @@ func (c *viamClient) organizationLogoSetAction(cCtx *cli.Context, orgID, logoFil
 	return nil
 }
 
+type organizationsLogoGetArgs struct {
+	OrgID string
+}
+
+// OrganizationsLogoGetAction corresponds to `organizations logo get`.
+func OrganizationsLogoGetAction(cCtx *cli.Context, args organizationsLogoGetArgs) error {
+	c, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+
+	orgID := args.OrgID
+	if orgID == "" {
+		return errors.New("cannot get logo without an organization ID")
+	}
+
+	return c.organizationsLogoGetAction(cCtx, args.OrgID)
+}
+
+func (c *viamClient) organizationsLogoGetAction(cCtx *cli.Context, orgID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	resp, err := c.client.OrganizationGetLogo(cCtx.Context, &apppb.OrganizationGetLogoRequest{
+		OrgId: orgID,
+	})
+	if err != nil {
+		return err
+	}
+
+	if resp.GetUrl() == "" {
+		printf(cCtx.App.Writer, "No logo set for organization %q", orgID)
+		return nil
+	}
+
+	printf(cCtx.App.Writer, "Logo URL for organization %q: %q", orgID, resp.GetUrl())
+	return nil
+}
+
 // ListLocationsAction is the corresponding Action for 'locations list'.
 func ListLocationsAction(c *cli.Context, args emptyArgs) error {
 	client, err := newViamClient(c)

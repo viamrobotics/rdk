@@ -1,7 +1,6 @@
 package camera
 
 import (
-	"bytes"
 	"context"
 	"time"
 
@@ -49,7 +48,7 @@ func newNextPointCloudCollector(resource interface{}, params data.CollectorParam
 
 		ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
 
-		v, err := camera.NextPointCloud(ctx)
+		pc, err := camera.NextPointCloud(ctx)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
@@ -58,22 +57,16 @@ func newNextPointCloudCollector(resource interface{}, params data.CollectorParam
 			}
 			return res, data.FailedToReadErr(params.ComponentName, nextPointCloud.String(), err)
 		}
-
-		var buf bytes.Buffer
-		headerSize := 200
-		if v != nil {
-			buf.Grow(headerSize + v.Size()*4*4) // 4 numbers per point, each 4 bytes
-			err = pointcloud.ToPCD(v, &buf, pointcloud.PCDBinary)
-			if err != nil {
-				return res, errors.Errorf("failed to convert returned point cloud to PCD: %v", err)
-			}
+		bytes, err := pointcloud.ToBytes(pc)
+		if err != nil {
+			return res, errors.Errorf("failed to convert returned point cloud to PCD: %v", err)
 		}
 		ts := data.Timestamps{
 			TimeRequested: timeRequested,
 			TimeReceived:  time.Now(),
 		}
 		return data.NewBinaryCaptureResult(ts, []data.Binary{{
-			Payload:  buf.Bytes(),
+			Payload:  bytes,
 			MimeType: data.MimeTypeApplicationPcd,
 		}}), nil
 	})
