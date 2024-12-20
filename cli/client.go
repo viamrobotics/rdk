@@ -2108,7 +2108,7 @@ func (c *viamClient) updateOAuthAppAction(cCtx *cli.Context, args updateOAuthApp
 		return err
 	}
 
-	printf(cCtx.App.Writer, "Successfully updated oauth application %s", args.ClientID)
+	printf(cCtx.App.Writer, "Successfully updated OAuth app %s", args.ClientID)
 	return nil
 }
 
@@ -2126,23 +2126,23 @@ func createUpdateOAuthAppRequest(args updateOAuthAppArgs) (*apppb.UpdateOAuthApp
 
 	clientAuthenticationEnum, ok := apppb.ClientAuthentication_value[clientAuthenticationPrefix+strings.ToUpper(clientAuthentication)]
 	if !ok {
-		return nil, errors.Errorf("%s must be a valid ClientAuthentication, got %s. "+
+		return nil, errors.Errorf("--%s must be a valid ClientAuthentication, got %s. "+
 			"See `viam organizations auth-service oauth-app update --help` for supported options",
-			authApplicationFlagClientAuthentication, clientAuthentication)
+			oauthAppFlagClientAuthentication, clientAuthentication)
 	}
 
 	pkceEnum, ok := apppb.PKCE_value[pkcePrefix+strings.ToUpper(pkce)]
 	if !ok {
-		return nil, errors.Errorf("%s must be a valid PKCE, got %s. "+
+		return nil, errors.Errorf("--%s must be a valid PKCE, got %s. "+
 			"See `viam organizations auth-service oauth-app update --help` for supported options",
-			authApplicationFlagPKCE, pkce)
+			oauthAppFlagPKCE, pkce)
 	}
 
 	urlValidationEnum, ok := apppb.URLValidation_value[urlValidationPrefix+strings.ToUpper(urlValidation)]
 	if !ok {
-		return nil, errors.Errorf("%s must be a valid UrlValidation, got %s. "+
+		return nil, errors.Errorf("--%s must be a valid UrlValidation, got %s. "+
 			"See `viam organizations auth-service oauth-app update --help` for supported options",
-			authApplicationFlagURLValidation, urlValidation)
+			oauthAppFlagURLValidation, urlValidation)
 	}
 
 	egProto, err := enabledGrantsToProto(enabledGrants)
@@ -2177,7 +2177,7 @@ func enabledGrantsToProto(enabledGrants []string) ([]apppb.EnabledGrant, error) 
 		if !ok {
 			return nil, errors.Errorf("%s must consist of valid EnabledGrants, got %s. "+
 				"See `viam organizations auth-service oauth-app update --help` for supported options",
-				authApplicationFlagEnabledGrants, eg)
+				oauthAppFlagEnabledGrants, eg)
 		}
 		enabledGrantsProto[i] = apppb.EnabledGrant(enum)
 	}
