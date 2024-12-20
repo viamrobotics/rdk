@@ -375,7 +375,6 @@ func TestEnableAuthServiceAction(t *testing.T) {
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, len(out.messages), test.ShouldEqual, 1)
 	test.That(t, out.messages[0], test.ShouldContainSubstring, "enabled auth")
-
 }
 
 func TestUpdateBillingServiceAction(t *testing.T) {

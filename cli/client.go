@@ -193,6 +193,7 @@ type enableAuthServiceArgs struct {
 	OrgID string
 }
 
+// EnableAuthServiceAction corresponds to 'organizations auth-service enable'.
 func EnableAuthServiceAction(cCtx *cli.Context, args enableAuthServiceArgs) error {
 	c, err := newViamClient(cCtx)
 	if err != nil {
