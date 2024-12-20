@@ -56,6 +56,8 @@ type AppServiceClient struct {
 		opts ...grpc.CallOption) (*apppb.OrganizationSetLogoResponse, error)
 	OrganizationGetLogoFunc func(ctx context.Context, in *apppb.OrganizationGetLogoRequest,
 		opts ...grpc.CallOption) (*apppb.OrganizationGetLogoResponse, error)
+	ReadOAuthAppFunc func(ctx context.Context, in *apppb.ReadOAuthAppRequest,
+		opts ...grpc.CallOption) (*apppb.ReadOAuthAppResponse, error)
 	CreateLocationFunc func(ctx context.Context, in *apppb.CreateLocationRequest,
 		opts ...grpc.CallOption) (*apppb.CreateLocationResponse, error)
 	GetLocationFunc func(ctx context.Context, in *apppb.GetLocationRequest,
@@ -401,6 +403,16 @@ func (asc *AppServiceClient) OrganizationGetLogo(
 		return asc.AppServiceClient.OrganizationGetLogo(ctx, in, opts...)
 	}
 	return asc.OrganizationGetLogoFunc(ctx, in, opts...)
+}
+
+// ReadOAuthApp calls the injected ReadOAuthAppFunc or the real version.
+func (asc *AppServiceClient) ReadOAuthApp(
+	ctx context.Context, in *apppb.ReadOAuthAppRequest, opts ...grpc.CallOption,
+) (*apppb.ReadOAuthAppResponse, error) {
+	if asc.ReadOAuthAppFunc == nil {
+		return asc.AppServiceClient.ReadOAuthApp(ctx, in, opts...)
+	}
+	return asc.ReadOAuthAppFunc(ctx, in, opts...)
 }
 
 // CreateLocation calls the injected CreateLocationFunc or the real version.
