@@ -385,7 +385,7 @@ var app = &cli.App{
 		},
 		&cli.BoolFlag{
 			Name:    disableProfilesFlag,
-			Aliases: []string{"disable-profile"},
+			Aliases: []string{"disable-profile"}, // for ease of use; not backwards compatibility related
 			Usage:   "disable usage of profiles, falling back to default behavior",
 		},
 	},
