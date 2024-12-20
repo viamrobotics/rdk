@@ -482,7 +482,7 @@ func newWithResources(
 				r.manager.completeConfig(closeCtx, r, false)
 			}
 			if anyChanges {
-				r.updateWeakDependents(ctx)
+				r.updateWeakDependentsInLock(ctx)
 				r.logger.CDebugw(ctx, "configuration attempt completed with changes", "trigger", trigger)
 			}
 		}
@@ -498,7 +498,7 @@ func newWithResources(
 	}
 
 	if len(resources) != 0 {
-		r.updateWeakDependents(ctx)
+		r.updateWeakDependentsInLock(ctx)
 	}
 
 	successful = true
@@ -525,7 +525,7 @@ func (r *localRobot) removeOrphanedResources(ctx context.Context,
 		r.logger.CErrorw(ctx, "error removing and closing marked resources",
 			"error", err)
 	}
-	r.updateWeakDependents(ctx)
+	r.updateWeakDependentsInLock(ctx)
 }
 
 // resourceHasWeakDependencies will return whether a given resource has weak dependencies.
@@ -658,6 +658,12 @@ func (r *localRobot) newResource(
 		return nil, multierr.Combine(ctx.Err(), res.Close(r.closeContext))
 	}
 	return res, nil
+}
+
+func (r *localRobot) updateWeakDependentsInLock(ctx context.Context) {
+	r.manager.resourceGraphLock.Lock()
+	defer r.manager.resourceGraphLock.Unlock()
+	r.updateWeakDependents(ctx)
 }
 
 func (r *localRobot) updateWeakDependents(ctx context.Context) {
@@ -1272,7 +1278,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	// Fourth we attempt to complete the config (see function for details) and
 	// update weak dependents.
 	r.manager.completeConfig(ctx, r, forceSync)
-	r.updateWeakDependents(ctx)
+	r.updateWeakDependentsInLock(ctx)
 
 	// Finally we actually remove marked resources and Close any that are
 	// still unclosed.
