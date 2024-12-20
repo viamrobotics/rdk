@@ -119,7 +119,7 @@ type Config struct {
 	Auth            authMethod `json:"auth"`
 	LastUpdateCheck string     `json:"last_update_check"`
 	LatestVersion   string     `json:"latest_version"`
-	profile         string     `json:"-"`
+	profile         string
 }
 
 func (conf *Config) tryUnmarshallWithToken(configBytes []byte) error {

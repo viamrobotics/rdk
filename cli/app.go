@@ -1,13 +1,13 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
 	"regexp"
 	"strings"
 
-	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 )
 
@@ -319,7 +319,9 @@ func parseStructFromCtx[T any](ctx *cli.Context) T {
 
 func getGlobalArgs(ctx *cli.Context) (*globalArgs, error) {
 	gArgs := parseStructFromCtx[globalArgs](ctx)
-	// TODO(RSDK-9361) - we shouldn't let people create global args directly, to enforce this
+	// TODO(RSDK-9361) - currently nothing prevents a developer from creating globalArgs directly
+	// and thereby bypassing this check. We should find a way to prevent direct creation and thereby
+	// prevent people from doing so.
 	if gArgs.DisableProfiles && gArgs.Profile != "" {
 		return nil, errors.New("profile specified with disable-profiles flag set")
 	}
@@ -379,12 +381,12 @@ var app = &cli.App{
 		},
 		&cli.StringFlag{
 			Name:  profileFlag,
-			Usage: "Specify a particular profile for the current command",
+			Usage: "specify a particular profile for the current command",
 		},
 		&cli.BoolFlag{
 			Name:    disableProfilesFlag,
 			Aliases: []string{"disable-profile"},
-			Usage:   "Disable usage of profiles, falling back to default behavior",
+			Usage:   "disable usage of profiles, falling back to default behavior",
 		},
 	},
 	Commands: []*cli.Command{
@@ -625,13 +627,12 @@ var app = &cli.App{
 			},
 		},
 		{
-			Name:            "profiles",
-			Usage:           "Work with CLI profiles",
-			HideHelpCommand: true,
+			Name:  "profiles",
+			Usage: "work with CLI profiles",
 			Subcommands: []*cli.Command{
 				{
 					Name:  "update",
-					Usage: "Update an existing profile for authentication, or add it if it doesn't exist",
+					Usage: "update an existing profile for authentication, or add it if it doesn't exist",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     profileFlagName,
@@ -653,7 +654,7 @@ var app = &cli.App{
 				},
 				{
 					Name:  "add",
-					Usage: "Add a new profile for authentication (errors if the profile already exists)",
+					Usage: "add a new profile for authentication (errors if the profile already exists)",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     profileFlagName,
@@ -675,12 +676,12 @@ var app = &cli.App{
 				},
 				{
 					Name:   "list",
-					Usage:  "List all existing profiles by name",
+					Usage:  "list all existing profiles by name",
 					Action: createCommandWithT[emptyArgs](ListProfilesAction),
 				},
 				{
 					Name:  "remove",
-					Usage: "Remove an authentication profile",
+					Usage: "remove an authentication profile",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     profileFlagName,

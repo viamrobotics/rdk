@@ -8,6 +8,16 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+// CLI profiles allow a user to run commands with a specific API key without having to
+// log out and log back in. A profile is added with `viam profiles add`, updated with
+// `viam profiles udpate`, etc. Once a profile is added, a command can be run using a
+// profile by using the `--profile {profile name}` global flag.
+//
+// If one wants to use aprofile for an entire shell session without having to specify it
+// each time, the envvar `VIAM_CLI_PROFILE_NAME` will be used to find a profile if the
+// global flag is not set. To override the envvar without unsetting it, simply use the
+// `--disable-profiles` flag.
+
 const profileEnvVar = "VIAM_CLI_PROFILE_NAME"
 
 type addOrUpdateProfileArgs struct {
@@ -89,18 +99,19 @@ type removeProfileArgs struct {
 	ProfileName string
 }
 
-func whichProfile(args *globalArgs) (_ *string, profileSpecified bool) {
+// bool return indicates whether a profile has been specified, as opposed to either not existing
+// or existing as an env var
+func whichProfile(args *globalArgs) (*string, bool) {
 	// profile hasn't been specified for this command
 	if args.Profile != "" {
-		profileSpecified = true
-		return &args.Profile, profileSpecified
+		return &args.Profile, true
 	}
 
 	if envProfile := os.Getenv(profileEnvVar); envProfile != "" {
-		return &envProfile, profileSpecified
+		return &envProfile, false
 	}
 
-	return nil, profileSpecified
+	return nil, false
 }
 
 // RemoveProfileAction removes a CLI profile.
