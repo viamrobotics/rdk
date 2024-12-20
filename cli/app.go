@@ -321,7 +321,7 @@ func getGlobalArgs(ctx *cli.Context) (*globalArgs, error) {
 	gArgs := parseStructFromCtx[globalArgs](ctx)
 	// TODO(RSDK-9361) - currently nothing prevents a developer from creating globalArgs directly
 	// and thereby bypassing this check. We should find a way to prevent direct creation and thereby
-	// prevent people from doing so.
+	// programmatically enforce compliance here.
 	if gArgs.DisableProfiles && gArgs.Profile != "" {
 		return nil, errors.New("profile specified with disable-profiles flag set")
 	}

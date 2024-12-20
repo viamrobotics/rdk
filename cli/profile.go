@@ -13,9 +13,9 @@ import (
 // `viam profiles udpate`, etc. Once a profile is added, a command can be run using a
 // profile by using the `--profile {profile name}` global flag.
 //
-// If one wants to use aprofile for an entire shell session without having to specify it
-// each time, the envvar `VIAM_CLI_PROFILE_NAME` will be used to find a profile if the
-// global flag is not set. To override the envvar without unsetting it, simply use the
+// If one wants to use a profile for an entire shell session without having to specify it
+// each time, the env var `VIAM_CLI_PROFILE_NAME` will be used to find a profile if the
+// global flag is not set. To override the env var without unsetting it, simply use the
 // `--disable-profiles` flag.
 
 const profileEnvVar = "VIAM_CLI_PROFILE_NAME"
