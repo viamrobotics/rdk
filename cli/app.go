@@ -446,7 +446,7 @@ var app = &cli.App{
 										},
 										&cli.StringFlag{
 											Name:     oauthAppFlagClientID,
-											Usage:    "id for the OAuth application to be updated",
+											Usage:    "id for the OAuth application",
 											Required: true,
 										},
 									},
