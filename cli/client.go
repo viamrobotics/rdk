@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -344,7 +345,8 @@ func (c *viamClient) organizationLogoSetAction(cCtx *cli.Context, orgID, logoFil
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
-	logoFile, err := os.Open(logoFilePath) //nolint:gosec
+
+	logoFile, err := os.Open(filepath.Clean(logoFilePath))
 	if err != nil {
 		return errors.WithMessagef(err, "could not open logo file: %s", logoFilePath)
 	}
