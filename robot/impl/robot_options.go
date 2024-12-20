@@ -19,7 +19,11 @@ type options struct {
 	// shutdownCallback provides a callback for the robot to be able to shut itself down.
 	shutdownCallback func()
 
+	// whether FTDC is enabled
 	enableFTDC bool
+
+	// whether robot should be in an initializing state
+	initializing bool
 }
 
 // Option configures how we set up the web service.
@@ -80,5 +84,12 @@ func WithViamHomeDir(homeDir string) Option {
 func WithShutdownCallback(shutdownFunc func()) Option {
 	return newFuncOption(func(o *options) {
 		o.shutdownCallback = shutdownFunc
+	})
+}
+
+// WithInitializing returns an Option which sets initializing to true.
+func WithInitializing() Option {
+	return newFuncOption(func(o *options) {
+		o.initializing = true
 	})
 }
