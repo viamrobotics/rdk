@@ -12,7 +12,6 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"path/filepath"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -345,15 +344,7 @@ func (c *viamClient) organizationLogoSetAction(cCtx *cli.Context, orgID, logoFil
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
-
-	// determine whether this is a valid file path on the local system
-	logoFilePath = strings.ToLower(filepath.Clean(logoFilePath))
-
-	if len(logoFilePath) < 5 || logoFilePath[len(logoFilePath)-4:] != ".png" {
-		return errors.Errorf("%s is not a valid .png file path", logoFilePath)
-	}
-
-	logoFile, err := os.Open(logoFilePath)
+	logoFile, err := os.Open(logoFilePath) //nolint:gosec
 	if err != nil {
 		return errors.WithMessagef(err, "could not open logo file: %s", logoFilePath)
 	}
