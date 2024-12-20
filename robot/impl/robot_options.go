@@ -20,6 +20,9 @@ type options struct {
 	shutdownCallback func()
 
 	enableFTDC bool
+
+	// disableBackgroundReconfiguration starts the robot without any background processes - should only be used for tests.
+	disableBackgroundReconfiguration bool
 }
 
 // Option configures how we set up the web service.
@@ -80,5 +83,12 @@ func WithViamHomeDir(homeDir string) Option {
 func WithShutdownCallback(shutdownFunc func()) Option {
 	return newFuncOption(func(o *options) {
 		o.shutdownCallback = shutdownFunc
+	})
+}
+
+// withDisableBackgroundReconfiguration returns a Option which disables background reconfiguration.
+func withDisableBackgroundReconfiguration() Option {
+	return newFuncOption(func(o *options) {
+		o.disableBackgroundReconfiguration = true
 	})
 }
