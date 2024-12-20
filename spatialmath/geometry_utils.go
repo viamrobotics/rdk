@@ -100,7 +100,7 @@ func BoundingSphere(geometry Geometry) (Geometry, error) {
 }
 
 // closestSegmentTrianglePoints takes a line segment and a triangle, and returns the point on each closest to the other.
-func closestPointsSegmentTriangle(ap1, ap2 r3.Vector, t *triangle) (bestSegPt, bestTriPt r3.Vector) {
+func closestPointsSegmentTriangle(ap1, ap2 r3.Vector, t *Triangle) (bestSegPt, bestTriPt r3.Vector) {
 	// The closest triangle point is either on the edge or within the triangle.
 
 	// First, handle the case where the closest triangle point is inside the
@@ -109,7 +109,7 @@ func closestPointsSegmentTriangle(ap1, ap2 r3.Vector, t *triangle) (bestSegPt, b
 	// If the line overlaps the triangle and is parallel to the triangle plane,
 	// the chosen triangle point is arbitrary.
 	segPt, _ := closestPointsSegmentPlane(ap1, ap2, t.p0, t.normal)
-	triPt, inside := t.closestInsidePoint(segPt)
+	triPt, inside := t.ClosestInsidePoint(segPt)
 	if inside {
 		// If inside is false, then these will not be the best points, because they are based on the segment-plane intersection
 		return segPt, triPt
