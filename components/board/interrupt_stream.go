@@ -40,7 +40,7 @@ func (s *interruptStream) startStream(ctx context.Context, interrupts []DigitalI
 	}
 
 	req := &pb.StreamTicksRequest{
-		Name:     s.client.info.name,
+		Name:     s.client.boardName,
 		PinNames: names,
 		Extra:    s.extra,
 	}

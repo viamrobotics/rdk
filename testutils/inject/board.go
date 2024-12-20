@@ -21,8 +21,6 @@ type Board struct {
 	digitalInterruptByNameCap  []interface{}
 	GPIOPinByNameFunc          func(name string) (board.GPIOPin, error)
 	gpioPinByNameCap           []interface{}
-	AnalogNamesFunc            func() []string
-	DigitalInterruptNamesFunc  func() []string
 	CloseFunc                  func(ctx context.Context) error
 	SetPowerModeFunc           func(ctx context.Context, mode boardpb.PowerMode, duration *time.Duration) error
 	StreamTicksFunc            func(ctx context.Context,
@@ -91,22 +89,6 @@ func (b *Board) GPIOPinByNameCap() []interface{} {
 	}
 	defer func() { b.gpioPinByNameCap = nil }()
 	return b.gpioPinByNameCap
-}
-
-// AnalogNames calls the injected AnalogNames or the real version.
-func (b *Board) AnalogNames() []string {
-	if b.AnalogNamesFunc == nil {
-		return b.Board.AnalogNames()
-	}
-	return b.AnalogNamesFunc()
-}
-
-// DigitalInterruptNames calls the injected DigitalInterruptNames or the real version.
-func (b *Board) DigitalInterruptNames() []string {
-	if b.DigitalInterruptNamesFunc == nil {
-		return b.Board.DigitalInterruptNames()
-	}
-	return b.DigitalInterruptNamesFunc()
 }
 
 // Close calls the injected Close or the real version.
