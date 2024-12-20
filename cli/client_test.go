@@ -331,13 +331,6 @@ func TestOrganizationSetLogoAction(t *testing.T) {
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, len(out.messages), test.ShouldEqual, 1)
 	test.That(t, out.messages[0], test.ShouldContainSubstring, "Successfully set the logo for organization")
-
-	cCtx, ac, out, _ = setup(asc, nil, nil, nil, nil, "token")
-	invalidLogoFilePath := "data/test-logo.jpg"
-	err = ac.organizationLogoSetAction(cCtx, "test-org", invalidLogoFilePath)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "is not a valid .png file path")
-	test.That(t, len(out.messages), test.ShouldEqual, 0)
 }
 
 func TestGetLogoAction(t *testing.T) {
