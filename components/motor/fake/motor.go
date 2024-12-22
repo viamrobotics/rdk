@@ -18,7 +18,6 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/utils"
 )
 
 var (
@@ -80,6 +79,7 @@ func init() {
 // direction.
 type Motor struct {
 	resource.Named
+	resource.TriviallyCloseable
 
 	mu                sync.Mutex
 	powerPct          float64
@@ -93,29 +93,14 @@ type Motor struct {
 
 	OpMgr  *operation.SingleOperationManager
 	Logger logging.Logger
-
-	logWorkers *utils.StoppableWorkers
 }
 
 // NewMotor creates a new fake motor.
 func NewMotor(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (motor.Motor, error) {
-	logWorker := func(ctx context.Context) {
-		for {
-			if ctx.Err() != nil {
-				logger.Info("stopping log worker")
-				return
-			}
-
-			logger.Info("here is an annoying spammy message")
-			time.Sleep(10 * time.Millisecond)
-		}
-	}
-
 	m := &Motor{
-		Named:      conf.ResourceName().AsNamed(),
-		Logger:     logger,
-		OpMgr:      operation.NewSingleOperationManager(),
-		logWorkers: utils.NewBackgroundStoppableWorkers(logWorker),
+		Named:  conf.ResourceName().AsNamed(),
+		Logger: logger,
+		OpMgr:  operation.NewSingleOperationManager(),
 	}
 	if err := m.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
@@ -445,9 +430,4 @@ func (m *Motor) IsMoving(ctx context.Context) (bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return math.Abs(m.powerPct) >= 0.005, nil
-}
-
-func (m *Motor) Close(ctx context.Context) error {
-	m.logWorkers.Stop()
-	return nil
 }
