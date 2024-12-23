@@ -287,6 +287,10 @@ func (r *localRobot) sendTriggerConfig(caller string) {
 	}
 }
 
+// completeConfigWorker tries to complete the config and update weak dependencies
+// if any resources are not configured. It will also update the resource graph
+// if remotes have changed. It executes every 5 seconds or when manually triggered.
+// Manual triggers are sent when changes in remotes are detected and in testing.
 func (r *localRobot) completeConfigWorker() {
 	for {
 		if r.closeContext.Err() != nil {
@@ -485,10 +489,9 @@ func newWithResources(
 	if !rOpts.disableCompleteConfigWorker {
 		r.activeBackgroundWorkers.Add(1)
 		r.configTicker = time.NewTicker(5 * time.Second)
-		// This goroutine tries to complete the config and update weak dependencies
-		// if any resources are not configured. It executes every 5 seconds or when
-		// manually triggered. Manual triggers are sent when changes in remotes are
-		// detected and in testing.
+		// This goroutine will try to complete the config and update weak dependencies
+		// if any resources are not configured. It will also update the resource graph
+		// when remotes changes or if manually triggered.
 		goutils.ManagedGo(func() {
 			r.completeConfigWorker()
 		}, r.activeBackgroundWorkers.Done)
