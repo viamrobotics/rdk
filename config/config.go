@@ -71,6 +71,10 @@ type Config struct {
 	// Revision contains the current revision of the config.
 	Revision string
 
+	// DisableLogDeduplication controls whether deduplication of noisy logs
+	// should be turned off. Defaults to false.
+	DisableLogDeduplication bool
+
 	// toCache stores the JSON marshalled version of the config to be cached. It should be a copy of
 	// the config pulled from cloud with minor changes.
 	// This version is kept because the config is changed as it moves through the system.
@@ -86,21 +90,22 @@ type MaintenanceConfig struct {
 
 // NOTE: This data must be maintained with what is in Config.
 type configData struct {
-	Cloud               *Cloud                        `json:"cloud,omitempty"`
-	Modules             []Module                      `json:"modules,omitempty"`
-	Remotes             []Remote                      `json:"remotes,omitempty"`
-	Components          []resource.Config             `json:"components,omitempty"`
-	Processes           []pexec.ProcessConfig         `json:"processes,omitempty"`
-	Services            []resource.Config             `json:"services,omitempty"`
-	Packages            []PackageConfig               `json:"packages,omitempty"`
-	Network             NetworkConfig                 `json:"network"`
-	Auth                AuthConfig                    `json:"auth"`
-	Debug               bool                          `json:"debug,omitempty"`
-	DisablePartialStart bool                          `json:"disable_partial_start"`
-	EnableWebProfile    bool                          `json:"enable_web_profile"`
-	LogConfig           []logging.LoggerPatternConfig `json:"log,omitempty"`
-	Revision            string                        `json:"revision,omitempty"`
-	MaintenanceConfig   *MaintenanceConfig            `json:"maintenance,omitempty"`
+	Cloud                   *Cloud                        `json:"cloud,omitempty"`
+	Modules                 []Module                      `json:"modules,omitempty"`
+	Remotes                 []Remote                      `json:"remotes,omitempty"`
+	Components              []resource.Config             `json:"components,omitempty"`
+	Processes               []pexec.ProcessConfig         `json:"processes,omitempty"`
+	Services                []resource.Config             `json:"services,omitempty"`
+	Packages                []PackageConfig               `json:"packages,omitempty"`
+	Network                 NetworkConfig                 `json:"network"`
+	Auth                    AuthConfig                    `json:"auth"`
+	Debug                   bool                          `json:"debug,omitempty"`
+	DisablePartialStart     bool                          `json:"disable_partial_start"`
+	EnableWebProfile        bool                          `json:"enable_web_profile"`
+	LogConfig               []logging.LoggerPatternConfig `json:"log,omitempty"`
+	Revision                string                        `json:"revision,omitempty"`
+	MaintenanceConfig       *MaintenanceConfig            `json:"maintenance,omitempty"`
+	DisableLogDeduplication bool                          `json:"disable_log_deduplication"`
 }
 
 // AppValidationStatus refers to the.

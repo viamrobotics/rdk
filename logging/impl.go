@@ -36,9 +36,6 @@ type (
 		// documentation for more details.
 		testHelper func()
 
-		// Whether or not to de-duplicate noisy logs.
-		dedupNoisyLogs bool
-
 		// recentMessageMu guards the recentMessage fields below.
 		recentMessageMu sync.Mutex
 		// Map of messages to counts of that message being `Write`ten within window.
@@ -131,12 +128,6 @@ func (imp *impl) Sublogger(subname string) Logger {
 		imp.appenders,
 		imp.registry,
 		imp.testHelper,
-		// Inherit _whether_ we should deduplicate noisy logs from parent. However,
-		// subloggers should handle their own de-duplication with their own maps
-		// and windows. This design avoids locking across all loggers and allows
-		// logs with identical messages from different loggers to be considered
-		// unique.
-		imp.dedupNoisyLogs,
 		sync.Mutex{},
 		make(map[string]int),
 		make(map[string]LogEntry),
@@ -255,7 +246,7 @@ func (imp *impl) shouldLog(logLevel Level) bool {
 }
 
 func (imp *impl) Write(entry *LogEntry) {
-	if imp.dedupNoisyLogs {
+	if !DisableLogDeduplication.Load() {
 		// If we have entered a new recentMessage window, output noisy logs from
 		// the last window.
 		imp.recentMessageMu.Lock()
