@@ -539,53 +539,9 @@ func TestLoggingDeduplication(t *testing.T) {
 	assertLogMatches(t, notStdout,
 		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	foo	{"key":"value"}`)
 
-	// TODO(benji): Fix and uncomment the following tests to test more deduplication logic.
+	// TODO(benji): Add the following assertions to test more deduplication logic.
 	//
 	// Assert that using a different sublogger uses separate aggregation.
-	// loggerWith2 := logger.WithFields("key", "value2")
-	// for range 3 {
-	// loggerWith.Info(identicalMsg)
-	// assertLogMatches(t, notStdout,
-	//`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"key":"value"}`)
-
-	// loggerWith2.Info(identicalMsg)
-	// assertLogMatches(t, notStdout,
-	// `2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"key":"value2"}`)
-	//}
-	// loggerWith.Info(identicalMsg)  // not output due to being noisy
-	//loggerWith2.Info(identicalMsg) // not output due to being noisy
-	//assertLogMatches(t, notStdout,
-	//`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"key":"value2"}`)
-	//time.Sleep(noisyMessageWindowDuration)
-	//assertLogMatches(t, notStdout,
-	//`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	Message logged 5 times in past 500ms: identical message`)
-	//assertLogMatches(t, notStdout,
-	//`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	Message logged 5 times in past 500ms: identical message`)
-
-	//// Assert that using different fields uses separate aggregation.
-	// for range 5 {
-	// loggerWith2.Infow(identicalMsg, "key2", "value")
-	// assertLogMatches(t, notStdout,
-	// `2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"key":"value2", "key2": "value"}`)
-	//}
-	//loggerWith2.Info(identicalMsg) // not output due to being noisy
-	//time.Sleep(noisyMessageWindowDuration)
-	//assertLogMatches(t, notStdout,
-	//`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	Message logged 5 times in past 500ms: identical message`)
-
-	//// Assert that using different levels does _not_ use separate aggregation.
-	// for range 2 {
-	// loggerWith.Info(identicalMsg)
-	// assertLogMatches(t, notStdout,
-	// `2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"key":"value2"}`)
-	//}
-	//for range 2 {
-	//loggerWith.Error(identicalMsg)
-	//assertLogMatches(t, notStdout,
-	//`2023-10-30T13:19:45.806Z	ERROR	impl	logging/impl_test.go:132	identical message	{"key":"value2"}`)
-	//}
-	//loggerWith2.Debug(identicalMsg)
-	//time.Sleep(noisyMessageWindowDuration)
-	//assertLogMatches(t, notStdout,
-	//`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	Message logged 5 times in past 1s: identical message`)
+	// Assert that using different fields uses separate aggregation.
+	// Assert that using different levels does _not_ use separate aggregation.
 }
