@@ -1142,6 +1142,15 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 
 	var allErrs error
 
+	// Check incoming disable log deduplication value for any diff.
+	if newConfig.DisableLogDeduplication != logging.DisableLogDeduplication.Load() {
+		state := "enabled"
+		if newConfig.DisableLogDeduplication {
+			state = "disabled"
+		}
+		r.Logger().CInfof(ctx, "noisy log deduplication now %s", state)
+	}
+
 	// Sync Packages before reconfiguring rest of robot and resolving references to any packages
 	// in the config.
 	// TODO(RSDK-1849): Make this non-blocking so other resources that do not require packages can run before package sync finishes.

@@ -148,11 +148,14 @@ func TestConsoleOutputFormat(t *testing.T) {
 	// A logger object that will write to the `notStdout` buffer.
 	notStdout := &bytes.Buffer{}
 	impl := &impl{
-		name:       "impl",
-		level:      NewAtomicLevelAt(DEBUG),
-		appenders:  []Appender{NewWriterAppender(notStdout)},
-		registry:   newRegistry(),
-		testHelper: func() {},
+		name:                     "impl",
+		level:                    NewAtomicLevelAt(DEBUG),
+		appenders:                []Appender{NewWriterAppender(notStdout)},
+		registry:                 newRegistry(),
+		testHelper:               func() {},
+		recentMessageCounts:      make(map[string]int),
+		recentMessageEntries:     make(map[string]LogEntry),
+		recentMessageWindowStart: time.Now(),
 	}
 
 	impl.Info("impl Info log")
@@ -213,11 +216,14 @@ func TestContextLogging(t *testing.T) {
 	notStdout := &bytes.Buffer{}
 	// The default log level is error.
 	logger := &impl{
-		name:       "impl",
-		level:      NewAtomicLevelAt(ERROR),
-		appenders:  []Appender{NewWriterAppender(notStdout)},
-		registry:   newRegistry(),
-		testHelper: func() {},
+		name:                     "impl",
+		level:                    NewAtomicLevelAt(ERROR),
+		appenders:                []Appender{NewWriterAppender(notStdout)},
+		registry:                 newRegistry(),
+		testHelper:               func() {},
+		recentMessageCounts:      make(map[string]int),
+		recentMessageEntries:     make(map[string]LogEntry),
+		recentMessageWindowStart: time.Now(),
 	}
 
 	logger.CDebug(ctxNoDebug, "Debug log")
@@ -288,11 +294,14 @@ func TestSublogger(t *testing.T) {
 	// A logger object that will write to the `notStdout` buffer.
 	notStdout := &bytes.Buffer{}
 	logger := &impl{
-		name:       "impl",
-		level:      NewAtomicLevelAt(DEBUG),
-		appenders:  []Appender{NewWriterAppender(notStdout)},
-		registry:   newRegistry(),
-		testHelper: func() {},
+		name:                     "impl",
+		level:                    NewAtomicLevelAt(DEBUG),
+		appenders:                []Appender{NewWriterAppender(notStdout)},
+		registry:                 newRegistry(),
+		testHelper:               func() {},
+		recentMessageCounts:      make(map[string]int),
+		recentMessageEntries:     make(map[string]LogEntry),
+		recentMessageWindowStart: time.Now(),
 	}
 
 	logger.Info("info log")
@@ -306,6 +315,13 @@ func TestSublogger(t *testing.T) {
 }
 
 func TestLoggingWithFields(t *testing.T) {
+	// Disable log deduplication for this test, as it logs "noisily" and makes
+	// assertions on those logs.
+	DisableLogDeduplication.Store(true)
+	defer func() {
+		DisableLogDeduplication.Store(false)
+	}()
+
 	// A logger object that will write to the `notStdout` buffer.
 	notStdout := &bytes.Buffer{}
 	var logger Logger
@@ -488,13 +504,11 @@ func TestLoggingDeduplication(t *testing.T) {
 	// Create a logger object that will write to the `notStdout` buffer.
 	notStdout := &bytes.Buffer{}
 	logger := &impl{
-		name:           "impl",
-		level:          NewAtomicLevelAt(DEBUG),
-		appenders:      []Appender{NewWriterAppender(notStdout)},
-		registry:       newRegistry(),
-		testHelper:     func() {},
-		dedupNoisyLogs: true,
-		// Initialize recent message fields as `NewLogger` would.
+		name:                     "impl",
+		level:                    NewAtomicLevelAt(DEBUG),
+		appenders:                []Appender{NewWriterAppender(notStdout)},
+		registry:                 newRegistry(),
+		testHelper:               func() {},
 		recentMessageCounts:      make(map[string]int),
 		recentMessageEntries:     make(map[string]LogEntry),
 		recentMessageWindowStart: time.Now(),
