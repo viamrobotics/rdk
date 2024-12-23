@@ -1984,8 +1984,10 @@ func TestMachineStatus(t *testing.T) {
 				Config: config.Revision{Revision: "rev1"},
 				Resources: []resource.Status{
 					{
-						Name:     arm.Named("badArm"),
-						Revision: "rev0",
+						NodeStatus: resource.NodeStatus{
+							Name:     arm.Named("badArm"),
+							Revision: "rev0",
+						},
 					},
 				},
 			},
@@ -1997,9 +1999,11 @@ func TestMachineStatus(t *testing.T) {
 				Config: config.Revision{Revision: "rev1"},
 				Resources: []resource.Status{
 					{
-						Name:     arm.Named("goodArm"),
-						State:    resource.NodeStateConfiguring,
-						Revision: "rev1",
+						NodeStatus: resource.NodeStatus{
+							Name:     arm.Named("goodArm"),
+							State:    resource.NodeStateConfiguring,
+							Revision: "rev1",
+						},
 					},
 				},
 			},
@@ -2011,17 +2015,23 @@ func TestMachineStatus(t *testing.T) {
 				Config: config.Revision{Revision: "rev1"},
 				Resources: []resource.Status{
 					{
-						Name:     arm.Named("goodArm"),
-						State:    resource.NodeStateConfiguring,
-						Revision: "rev1",
+						NodeStatus: resource.NodeStatus{
+							Name:     arm.Named("goodArm"),
+							State:    resource.NodeStateConfiguring,
+							Revision: "rev1",
+						},
 					},
 					{
-						Name:     arm.Named("badArm"),
-						Revision: "rev0",
+						NodeStatus: resource.NodeStatus{
+							Name:     arm.Named("badArm"),
+							Revision: "rev0",
+						},
 					},
 					{
-						Name:     arm.Named("anotherBadArm"),
-						Revision: "rev-1",
+						NodeStatus: resource.NodeStatus{
+							Name:     arm.Named("anotherBadArm"),
+							Revision: "rev-1",
+						},
 					},
 				},
 			},
@@ -2033,10 +2043,34 @@ func TestMachineStatus(t *testing.T) {
 				Config: config.Revision{Revision: "rev1"},
 				Resources: []resource.Status{
 					{
-						Name:     arm.Named("brokenArm"),
-						State:    resource.NodeStateUnhealthy,
-						Error:    errors.New("bad configuration"),
-						Revision: "rev1",
+						NodeStatus: resource.NodeStatus{
+							Name:     arm.Named("brokenArm"),
+							State:    resource.NodeStateUnhealthy,
+							Error:    errors.New("bad configuration"),
+							Revision: "rev1",
+						},
+					},
+				},
+			},
+			0,
+		},
+		{
+			"cloud metadata",
+			robot.MachineStatus{
+				Config: config.Revision{Revision: "rev1"},
+				Resources: []resource.Status{
+					{
+						NodeStatus: resource.NodeStatus{
+							Name:     arm.Named("arm1"),
+							State:    resource.NodeStateReady,
+							Revision: "rev1",
+						},
+						CloudMetadata: cloud.Metadata{
+							MachinePartID: "123",
+							MachineID:     "456",
+							PrimaryOrgID:  "789",
+							LocationID:    "abc",
+						},
 					},
 				},
 			},
