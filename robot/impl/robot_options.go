@@ -21,8 +21,8 @@ type options struct {
 
 	enableFTDC bool
 
-	// disableBackgroundReconfiguration starts the robot without any background processes - should only be used for tests.
-	disableBackgroundReconfiguration bool
+	// disableCompleteConfigWorker starts the robot without any background processes - should only be used for tests.
+	disableCompleteConfigWorker bool
 }
 
 // Option configures how we set up the web service.
@@ -86,9 +86,9 @@ func WithShutdownCallback(shutdownFunc func()) Option {
 	})
 }
 
-// withDisableBackgroundReconfiguration returns a Option which disables background reconfiguration.
-func withDisableBackgroundReconfiguration() Option {
+// withDisableCompleteConfigWorker returns a Option which disables background reconfiguration.
+func withDisableCompleteConfigWorker() Option {
 	return newFuncOption(func(o *options) {
-		o.disableBackgroundReconfiguration = true
+		o.disableCompleteConfigWorker = true
 	})
 }

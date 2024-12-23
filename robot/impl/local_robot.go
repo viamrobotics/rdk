@@ -287,6 +287,34 @@ func (r *localRobot) sendTriggerConfig(caller string) {
 	}
 }
 
+func (r *localRobot) completeConfigWorker() {
+	for {
+		if r.closeContext.Err() != nil {
+			return
+		}
+
+		var trigger string
+		select {
+		case <-r.closeContext.Done():
+			return
+		case <-r.configTicker.C:
+			trigger = "ticker"
+		case <-r.triggerConfig:
+			trigger = "remote"
+			r.logger.CDebugw(r.closeContext, "configuration attempt triggered by remote")
+		}
+		anyChanges := r.manager.updateRemotesResourceNames(r.closeContext)
+		if r.manager.anyResourcesNotConfigured() {
+			anyChanges = true
+			r.manager.completeConfig(r.closeContext, r, false)
+		}
+		if anyChanges {
+			r.updateWeakDependents(r.closeContext)
+			r.logger.CDebugw(r.closeContext, "configuration attempt completed with changes", "trigger", trigger)
+		}
+	}
+}
+
 func newWithResources(
 	ctx context.Context,
 	cfg *config.Config,
@@ -454,7 +482,7 @@ func newWithResources(
 		cfg.PackagePath,
 	)
 
-	if !rOpts.disableBackgroundReconfiguration {
+	if !rOpts.disableCompleteConfigWorker {
 		r.activeBackgroundWorkers.Add(1)
 		r.configTicker = time.NewTicker(5 * time.Second)
 		// This goroutine tries to complete the config and update weak dependencies
@@ -462,31 +490,7 @@ func newWithResources(
 		// manually triggered. Manual triggers are sent when changes in remotes are
 		// detected and in testing.
 		goutils.ManagedGo(func() {
-			for {
-				if closeCtx.Err() != nil {
-					return
-				}
-
-				var trigger string
-				select {
-				case <-closeCtx.Done():
-					return
-				case <-r.configTicker.C:
-					trigger = "ticker"
-				case <-r.triggerConfig:
-					trigger = "remote"
-					r.logger.CDebugw(ctx, "configuration attempt triggered by remote")
-				}
-				anyChanges := r.manager.updateRemotesResourceNames(closeCtx)
-				if r.manager.anyResourcesNotConfigured() {
-					anyChanges = true
-					r.manager.completeConfig(closeCtx, r, false)
-				}
-				if anyChanges {
-					r.updateWeakDependents(ctx)
-					r.logger.CDebugw(ctx, "configuration attempt completed with changes", "trigger", trigger)
-				}
-			}
+			r.completeConfigWorker()
 		}, r.activeBackgroundWorkers.Done)
 	}
 
@@ -1165,7 +1169,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	if newConfig.Cloud != nil {
 		r.Logger().CDebug(ctx, "updating cached config")
 		if err := newConfig.StoreToCache(); err != nil {
-			r.logger.CDebugw(ctx, "error storing the config", "error", err)
+			r.logger.CErrorw(ctx, "error storing the config", "error", err)
 		}
 	}
 

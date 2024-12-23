@@ -2790,7 +2790,7 @@ func TestSendTriggerConfig(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	// Set up local robot normally so that the triggerConfig channel is set up normally
-	r := setupLocalRobot(t, ctx, &config.Config{}, logger, withDisableBackgroundReconfiguration())
+	r := setupLocalRobot(t, ctx, &config.Config{}, logger, withDisableCompleteConfigWorker())
 	actualR := r.(*localRobot)
 
 	// This pattern fails the test faster on deadlocks instead of having to wait for the full
@@ -3293,7 +3293,7 @@ func TestMachineStatusWithRemotes(t *testing.T) {
 					Revision: rev1,
 				}
 			}
-			lr := setupLocalRobot(t, ctx, cfg, logger, withDisableBackgroundReconfiguration())
+			lr := setupLocalRobot(t, ctx, cfg, logger, withDisableCompleteConfigWorker())
 			lr.(*localRobot).manager.addRemote(
 				context.Background(),
 				dRobot,
@@ -3342,7 +3342,9 @@ func TestMachineStatusWithRemotes(t *testing.T) {
 }
 
 func TestMachineStatusWithTwoRemotes(t *testing.T) {
-	// test that if one remote returns an error, MachineStatus returns correctly
+	// test that if one remote returns an error, MachineStatus returns correctly.
+	// ResourceStatuses for the erroring remote should not have CloudMetadata while
+	// ResourceStatuses for the non-erroring remote should have CloudMetadata.
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
@@ -3381,7 +3383,7 @@ func TestMachineStatusWithTwoRemotes(t *testing.T) {
 		}, nil
 	}
 	dRobot1 := newDummyRobot(t, injectRemoteRobot1)
-	lr := setupLocalRobot(t, ctx, &config.Config{}, logger, withDisableBackgroundReconfiguration())
+	lr := setupLocalRobot(t, ctx, &config.Config{}, logger, withDisableCompleteConfigWorker())
 	lr.(*localRobot).manager.addRemote(
 		context.Background(),
 		dRobot1,
@@ -3575,7 +3577,7 @@ func TestMachineStatusWithRemoteChain(t *testing.T) {
 					},
 				}
 			}
-			remote1 := setupLocalRobot(t, ctx, cfg, logger, withDisableBackgroundReconfiguration())
+			remote1 := setupLocalRobot(t, ctx, cfg, logger, withDisableCompleteConfigWorker())
 			remote1.(*localRobot).manager.addRemote(
 				context.Background(),
 				remote2Dummy,
@@ -3586,7 +3588,7 @@ func TestMachineStatusWithRemoteChain(t *testing.T) {
 			// setup local
 			remoteName1 := "remote1"
 			remote1Dummy := newDummyRobot(t, remote1)
-			lRobot := setupLocalRobot(t, ctx, &config.Config{}, logger, withDisableBackgroundReconfiguration())
+			lRobot := setupLocalRobot(t, ctx, &config.Config{}, logger, withDisableCompleteConfigWorker())
 			lRobot.(*localRobot).manager.addRemote(
 				context.Background(),
 				remote1Dummy,
