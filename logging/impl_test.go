@@ -545,14 +545,14 @@ func TestLoggingDeduplication(t *testing.T) {
 	// loggerWith2 := logger.WithFields("key", "value2")
 	// for range 3 {
 	// loggerWith.Info(identicalMsg)
-	//assertLogMatches(t, notStdout,
+	// assertLogMatches(t, notStdout,
 	//`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"key":"value"}`)
 
 	// loggerWith2.Info(identicalMsg)
 	// assertLogMatches(t, notStdout,
 	// `2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"key":"value2"}`)
 	//}
-	//loggerWith.Info(identicalMsg)  // not output due to being noisy
+	// loggerWith.Info(identicalMsg)  // not output due to being noisy
 	//loggerWith2.Info(identicalMsg) // not output due to being noisy
 	//assertLogMatches(t, notStdout,
 	//`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"key":"value2"}`)
@@ -566,7 +566,7 @@ func TestLoggingDeduplication(t *testing.T) {
 	// for range 5 {
 	// loggerWith2.Infow(identicalMsg, "key2", "value")
 	// assertLogMatches(t, notStdout,
-	//`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"key":"value2", "key2": "value"}`)
+	// `2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"key":"value2", "key2": "value"}`)
 	//}
 	//loggerWith2.Info(identicalMsg) // not output due to being noisy
 	//time.Sleep(noisyMessageWindowDuration)
@@ -577,7 +577,7 @@ func TestLoggingDeduplication(t *testing.T) {
 	// for range 2 {
 	// loggerWith.Info(identicalMsg)
 	// assertLogMatches(t, notStdout,
-	//`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"key":"value2"}`)
+	// `2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"key":"value2"}`)
 	//}
 	//for range 2 {
 	//loggerWith.Error(identicalMsg)
