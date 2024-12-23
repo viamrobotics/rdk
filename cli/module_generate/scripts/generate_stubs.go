@@ -135,7 +135,7 @@ func formatType(typeExpr ast.Expr, resourceSubtype string) string {
 		}
 		return str
 	}
-	for _, prefix := range(prefixes) {
+	for _, prefix := range prefixes {
 		if strings.HasPrefix(typeString, prefix) {
 			return checkUpper(typeString, prefix)
 		}
