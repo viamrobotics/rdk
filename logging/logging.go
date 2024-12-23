@@ -21,8 +21,8 @@ var (
 	// flag from the CLI or robot config.
 	GlobalLogLevel = zap.NewAtomicLevelAt(zap.InfoLevel)
 
-	// Whether to disable de-duplicating noisy logs; defaults to false and can be
-	// specified in robot config.
+	// DisableLogDeduplication controls whether to disable de-duplicating noisy
+	// logs; defaults to false and can be specified in robot config.
 	DisableLogDeduplication = atomic.Bool{}
 )
 
