@@ -166,7 +166,7 @@ func (c *viamClient) loginAction(cCtx *cli.Context) error {
 			return errors.New("error while refreshing token, logging out. Please log in again")
 		}
 	} else {
-		t, err = c.authFlow.loginAsUser(c.c.Context)
+		t, err = c.authFlow.loginAsUser(c.c)
 		if err != nil {
 			debugf(c.c.App.Writer, globalArgs.Debug, "Login error: %v", err)
 
@@ -660,7 +660,8 @@ func newCLIAuthFlowWithAuthDomain(authDomain, audience, clientID string, console
 	}
 }
 
-func (a *authFlow) loginAsUser(ctx context.Context) (*token, error) {
+func (a *authFlow) loginAsUser(c *cli.Context) (*token, error) {
+	ctx := c.Context
 	discovery, err := a.loadOIDiscoveryEndpoint(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed retrieving discovery endpoint")
@@ -673,8 +674,9 @@ func (a *authFlow) loginAsUser(ctx context.Context) (*token, error) {
 
 	err = a.directUser(deviceCode)
 	if err != nil {
-		return nil, fmt.Errorf("unable to open the browser to complete the login flow due to %w."+
-			"You can use the --%s flag to skip this behavior", err, loginFlagDisableBrowser)
+		warningf(c.App.ErrWriter, "unable to open the browser to complete the login flow due to %w. "+
+			"Please go to the provided URL to log in; you can use the --%s flag to skip this warning in the future",
+			err, loginFlagDisableBrowser)
 	}
 
 	token, err := a.waitForUser(ctx, deviceCode, discovery)
@@ -741,9 +743,13 @@ func (a *authFlow) makeDeviceCodeRequest(ctx context.Context, discovery *openIDD
 }
 
 func (a *authFlow) directUser(code *deviceCodeResponse) error {
-	infof(a.console, `You can log into Viam through the opened browser window or follow the URL below.
+	suggestedLoginMethods := ""
+	if !a.disableBrowserOpen {
+		suggestedLoginMethods = "through the opened browser window or"
+	}
+	infof(a.console, `You can log into Viam %s by following the URL below.
 Ensure the code in the URL matches the one shown in your browser.
-  %s`, code.VerificationURIComplete)
+  %s`, suggestedLoginMethods, code.VerificationURIComplete)
 
 	if a.disableBrowserOpen {
 		return nil

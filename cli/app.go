@@ -371,8 +371,9 @@ var app = &cli.App{
 			HideHelpCommand: true,
 			Flags: []cli.Flag{
 				&cli.BoolFlag{
-					Name:  loginFlagDisableBrowser,
-					Usage: "prevent opening the default browser during login",
+					Name:    loginFlagDisableBrowser,
+					Aliases: []string{"no-browser"}, // ease of use alias, not related to backwards compatibility
+					Usage:   "prevent opening the default browser during login",
 				},
 			},
 			Action: createCommandWithT[loginActionArgs](LoginAction),
