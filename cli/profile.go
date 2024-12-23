@@ -14,9 +14,9 @@ import (
 // profile by using the `--profile {profile name}` global flag.
 //
 // If one wants to use a profile for an entire shell session without having to specify it
-// each time, the env var `VIAM_CLI_PROFILE_NAME` will be used to find a profile if the
-// global flag is not set. To override the env var without unsetting it, simply use the
-// `--disable-profiles` flag.
+// each time, the user can set the `VIAM_CLI_PROFILE_NAME` env var. The CLI will then use
+// that env var to find a profile, provided the global flag is not set. To override the env
+// var without unsetting it, simply use the `--disable-profiles` flag.
 
 const profileEnvVar = "VIAM_CLI_PROFILE_NAME"
 

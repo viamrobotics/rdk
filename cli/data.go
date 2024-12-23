@@ -445,7 +445,6 @@ func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, 
 }
 
 func (c *viamClient) downloadBinary(dst string, id *datapb.BinaryID, timeout uint) error {
-	var err error
 	args, err := getGlobalArgs(c.c)
 	if err != nil {
 		return err
