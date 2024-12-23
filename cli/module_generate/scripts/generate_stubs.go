@@ -126,6 +126,7 @@ func formatType(typeExpr ast.Expr, resourceSubtype string) string {
 	}
 	typeString := buf.String()
 
+	prefixes := []string{"*", "[]*", "[]", "chan "}
 	// checkUpper attributes to <resourceSubtype> if type is capitalized after prefix.
 	checkUpper := func(str, prefix string) string {
 		prefixLen := len(prefix)
@@ -134,20 +135,12 @@ func formatType(typeExpr ast.Expr, resourceSubtype string) string {
 		}
 		return str
 	}
-
-	// Attribute type to <resourceSubtype> if type if applicable.
-	switch {
-	default:
-		return checkUpper(typeString, "")
-	case strings.HasPrefix(typeString, "*"):
-		return checkUpper(typeString, "*")
-	case strings.HasPrefix(typeString, "[]*"):
-		return checkUpper(typeString, "[]*")
-	case strings.HasPrefix(typeString, "[]"):
-		return checkUpper(typeString, "[]")
-	case strings.HasPrefix(typeString, "chan "):
-		return checkUpper(typeString, "chan ")
-	case strings.HasPrefix(typeString, "map["):
+	for _, prefix := range(prefixes) {
+		if strings.HasPrefix(typeString, prefix) {
+			return checkUpper(typeString, prefix)
+		}
+	}
+	if strings.HasPrefix(typeString, "map[") {
 		endStr := strings.Index(typeString, "]")
 		keyType := strings.TrimSpace(typeString[4:endStr])
 		valueType := strings.TrimSpace(typeString[endStr+1:])
@@ -159,6 +152,7 @@ func formatType(typeExpr ast.Expr, resourceSubtype string) string {
 		}
 		return fmt.Sprintf("map[%s]%s", keyType, valueType)
 	}
+	return checkUpper(typeString, "")
 }
 
 func formatStruct(typeSpec *ast.TypeSpec, modelType string) string {
