@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -16,11 +17,14 @@ const (
 	configFlag  = "config"
 	debugFlag   = "debug"
 	// TODO(RSDK-9287) - replace with `org-id` and `location-id` flags.
-	organizationFlag = "organization"
-	locationFlag     = "location"
-	machineFlag      = "machine"
-	aliasRobotFlag   = "robot"
-	partFlag         = "part"
+	organizationFlag    = "organization"
+	locationFlag        = "location"
+	machineFlag         = "machine"
+	aliasRobotFlag      = "robot"
+	partFlag            = "part"
+	profileFlag         = "profile"
+	disableProfilesFlag = "disable-profiles"
+	profileFlagName     = "profile-name"
 
 	// TODO: RSDK-6683.
 	quietFlag = "quiet"
@@ -246,10 +250,12 @@ var dataTagByFilterFlags = append([]cli.Flag{
 type emptyArgs struct{}
 
 type globalArgs struct {
-	BaseURL string
-	Config  string
-	Debug   bool
-	Quiet   bool
+	BaseURL         string
+	Config          string
+	Debug           bool
+	Quiet           bool
+	Profile         string
+	DisableProfiles bool
 }
 
 func getValFromContext(name string, ctx *cli.Context) any {
@@ -269,7 +275,7 @@ func getValFromContext(name string, ctx *cli.Context) any {
 	return ctx.Value(camelFormattedName)
 }
 
-// TODO(RSDK-9447) - We don't support pointers in this. The problem is that when getting a value
+// (erodkin) We don't support pointers in structs here. The problem is that when getting a value
 // from a context for a supported flag, the context will default to populating with the zero value.
 // When getting a value from the context, though, we currently have no way of know if that's going
 // to a concrete value, going to a pointer and should be a nil value, or going to a pointer but should
@@ -315,6 +321,18 @@ func parseStructFromCtx[T any](ctx *cli.Context) T {
 	}
 
 	return t
+}
+
+func getGlobalArgs(ctx *cli.Context) (*globalArgs, error) {
+	gArgs := parseStructFromCtx[globalArgs](ctx)
+	// TODO(RSDK-9361) - currently nothing prevents a developer from creating globalArgs directly
+	// and thereby bypassing this check. We should find a way to prevent direct creation and thereby
+	// programmatically enforce compliance here.
+	if gArgs.DisableProfiles && gArgs.Profile != "" {
+		return nil, errors.New("profile specified with disable-profiles flag set")
+	}
+
+	return &gArgs, nil
 }
 
 func createCommandWithT[T any](f func(*cli.Context, T) error) func(*cli.Context) error {
@@ -366,6 +384,15 @@ var app = &cli.App{
 			Value:   false,
 			Aliases: []string{"q"},
 			Usage:   "suppress warnings",
+		},
+		&cli.StringFlag{
+			Name:  profileFlag,
+			Usage: "specify a particular profile for the current command",
+		},
+		&cli.BoolFlag{
+			Name:    disableProfilesFlag,
+			Aliases: []string{"disable-profile"}, // for ease of use; not backwards compatibility related
+			Usage:   "disable usage of profiles, falling back to default behavior",
 		},
 	},
 	Commands: []*cli.Command{
@@ -631,6 +658,73 @@ var app = &cli.App{
 							Action: createCommandWithT[locationAPIKeyCreateArgs](LocationAPIKeyCreateAction),
 						},
 					},
+				},
+			},
+		},
+		{
+			Name:  "profiles",
+			Usage: "work with CLI profiles",
+			Subcommands: []*cli.Command{
+				{
+					Name:  "update",
+					Usage: "update an existing profile for authentication, or add it if it doesn't exist",
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     profileFlagName,
+							Required: true,
+							Usage:    "name of the profile to update",
+						},
+						&cli.StringFlag{
+							Name:     loginFlagKeyID,
+							Required: true,
+							Usage:    "id of the profile's API key",
+						},
+						&cli.StringFlag{
+							Name:     loginFlagKey,
+							Required: true,
+							Usage:    "the profile's API key",
+						},
+					},
+					Action: createCommandWithT[addOrUpdateProfileArgs](UpdateProfileAction),
+				},
+				{
+					Name:  "add",
+					Usage: "add a new profile for authentication (errors if the profile already exists)",
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     profileFlagName,
+							Required: true,
+							Usage:    "name of the profile to add",
+						},
+						&cli.StringFlag{
+							Name:     loginFlagKeyID,
+							Required: true,
+							Usage:    "id of the profile's API key",
+						},
+						&cli.StringFlag{
+							Name:     loginFlagKey,
+							Required: true,
+							Usage:    "the profile's API key",
+						},
+					},
+					Action: createCommandWithT[addOrUpdateProfileArgs](AddProfileAction),
+				},
+				{
+					Name:   "list",
+					Usage:  "list all existing profiles by name",
+					Action: createCommandWithT[emptyArgs](ListProfilesAction),
+				},
+				{
+					Name:  "remove",
+					Usage: "remove an authentication profile",
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     profileFlagName,
+							Required: true,
+							Usage:    "name of the profile to remove",
+						},
+					},
+					Action: createCommandWithT[removeProfileArgs](RemoveProfileAction),
 				},
 			},
 		},

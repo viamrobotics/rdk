@@ -104,7 +104,11 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 	s := spinner.New()
 	var fatalError error
 	nonFatalError := false
-	globalArgs := parseStructFromCtx[globalArgs](cCtx)
+	gArgs, err := getGlobalArgs(cCtx)
+	if err != nil {
+		return err
+	}
+	globalArgs := *gArgs
 	action := func() {
 		s.Title("Getting latest release...")
 		version, err := getLatestSDKTag(cCtx, newModule.Language, globalArgs)

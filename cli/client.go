@@ -822,7 +822,10 @@ func RobotsPartRunAction(c *cli.Context, args robotsPartRunArgs) error {
 
 	// Create logger based on presence of debugFlag.
 	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
-	globalArgs := parseStructFromCtx[globalArgs](c)
+	globalArgs, err := getGlobalArgs(c)
+	if err != nil {
+		return err
+	}
 	if globalArgs.Debug {
 		logger = logging.NewDebugLogger("cli")
 	}
@@ -858,7 +861,10 @@ func RobotsPartShellAction(c *cli.Context, args robotsPartShellArgs) error {
 
 	// Create logger based on presence of debugFlag.
 	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
-	globalArgs := parseStructFromCtx[globalArgs](c)
+	globalArgs, err := getGlobalArgs(c)
+	if err != nil {
+		return err
+	}
 	if globalArgs.Debug {
 		logger = logging.NewDebugLogger("cli")
 	}
@@ -917,7 +923,10 @@ func machinesPartCopyFilesAction(c *cli.Context, client *viamClient, flagArgs ma
 
 	// Create logger based on presence of debugFlag.
 	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
-	globalArgs := parseStructFromCtx[globalArgs](c)
+	globalArgs, err := getGlobalArgs(c)
+	if err != nil {
+		return err
+	}
 	if globalArgs.Debug {
 		logger = logging.NewDebugLogger("cli")
 	}
@@ -1038,7 +1047,10 @@ func getLatestReleaseVersion() (string, error) {
 
 // CheckUpdateAction is the corresponding Action for 'check-update'.
 func CheckUpdateAction(c *cli.Context, args emptyArgs) error {
-	globalArgs := parseStructFromCtx[globalArgs](c)
+	globalArgs, err := getGlobalArgs(c)
+	if err != nil {
+		return err
+	}
 	if globalArgs.Quiet {
 		return nil
 	}
@@ -1061,7 +1073,7 @@ func CheckUpdateAction(c *cli.Context, args emptyArgs) error {
 		return nil
 	}
 
-	conf, err := ConfigFromCache()
+	conf, err := ConfigFromCache(c)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			utils.UncheckedError(err)
@@ -1134,7 +1146,10 @@ func VersionAction(c *cli.Context, args emptyArgs) error {
 	if !ok {
 		return errors.New("error reading build info")
 	}
-	globalArgs := parseStructFromCtx[globalArgs](c)
+	globalArgs, err := getGlobalArgs(c)
+	if err != nil {
+		return err
+	}
 	if globalArgs.Debug {
 		printf(c.App.Writer, "%s", info.String())
 	}
@@ -1221,19 +1236,25 @@ func isProdBaseURL(baseURL *url.URL) bool {
 }
 
 func newViamClientInner(c *cli.Context, disableBrowserOpen bool) (*viamClient, error) {
-	conf, err := ConfigFromCache()
+	globalArgs, err := getGlobalArgs(c)
+	if err != nil {
+		return nil, err
+	}
+	conf, err := ConfigFromCache(c)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			globalArgs := parseStructFromCtx[globalArgs](c)
 			debugf(c.App.Writer, globalArgs.Debug, "Cached config parse error: %v", err)
 			return nil, errors.New("failed to parse cached config. Please log in again")
 		}
 		conf = &Config{}
+		whichProfile, _ := whichProfile(globalArgs)
+		if !globalArgs.DisableProfiles && whichProfile != nil {
+			conf.profile = *whichProfile
+		}
 	}
 
 	// If base URL was not specified, assume cached base URL. If no base URL is
 	// cached, assume default base URL.
-	globalArgs := parseStructFromCtx[globalArgs](c)
 	baseURLArg := globalArgs.BaseURL
 	switch {
 	case conf.BaseURL == "" && baseURLArg == "":
