@@ -745,9 +745,9 @@ func (a *authFlow) makeDeviceCodeRequest(ctx context.Context, discovery *openIDD
 func (a *authFlow) directUser(code *deviceCodeResponse) error {
 	suggestedLoginMethods := ""
 	if !a.disableBrowserOpen {
-		suggestedLoginMethods = "through the opened browser window or"
+		suggestedLoginMethods = " through the opened browser window or"
 	}
-	infof(a.console, `You can log into Viam %s by following the URL below.
+	infof(a.console, `You can log into Viam%s by following the URL below.
 Ensure the code in the URL matches the one shown in your browser.
   %s`, suggestedLoginMethods, code.VerificationURIComplete)
 
