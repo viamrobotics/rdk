@@ -102,7 +102,7 @@ type removeProfileArgs struct {
 // bool return indicates whether a profile has been specified, as opposed to either not existing
 // or existing as an env var. This is relevant because we want to fall back on default behavior
 // if an env var profile isn't found, but return an error if a profile specified with the `--profile`
-// flag isn't found
+// flag isn't found.
 func whichProfile(args *globalArgs) (*string, bool) {
 	// profile hasn't been specified for this command
 	if args.Profile != "" {
