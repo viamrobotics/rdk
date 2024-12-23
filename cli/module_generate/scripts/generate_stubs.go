@@ -195,7 +195,9 @@ func parseFunctionSignature(
 			switch {
 			case unicode.IsUpper(rune(paramType[0])):
 				paramType = fmt.Sprintf("%s.%s", resourceSubtype, paramType)
-			// IF `paramType` has a prefix, check if type is capitalized after prefix.
+			// If `paramType` has a prefix, check if type is capitalized after prefix.
+			case strings.HasPrefix(paramType, "*") && unicode.IsUpper(rune(paramType[1])):
+				paramType = fmt.Sprintf("*%s.%s", resourceSubtype, paramType[1:])
 			case strings.HasPrefix(paramType, "[]") && unicode.IsUpper(rune(paramType[2])):
 				paramType = fmt.Sprintf("[]%s.%s", resourceSubtype, paramType[2:])
 			case strings.HasPrefix(paramType, "chan ") && unicode.IsUpper(rune(paramType[5])):
