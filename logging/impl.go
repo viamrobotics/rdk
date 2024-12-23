@@ -62,6 +62,31 @@ type (
 	}
 )
 
+// String stringifies a `LogEntry`. Should be used to emplace a log entry in
+// `recentMessageEntries`, i.e. `LogEntry`s that `String`ify identically should
+// be treated as identical with respect to noisiness and deduplication. Should
+// not be used for actual writing of the entry to an appender.
+func (le *LogEntry) String() string {
+	ret := le.Message
+	for _, field := range le.Fields {
+		ret += " " + field.Key + " "
+
+		// Assume field's value is held in one of `Integer`, `Interface`, or
+		// `String`. Otherwise (field has no value or is equivalent to 0 or "") use
+		// the string "undefined".
+		if field.Integer != 0 {
+			ret += fmt.Sprintf("%d", field.Integer)
+		} else if field.Interface != nil {
+			ret += fmt.Sprintf("%v", field.Interface)
+		} else if field.String != "" {
+			ret += field.String
+		} else {
+			ret += "undefined"
+		}
+	}
+	return ret
+}
+
 func (imp *impl) NewLogEntry() *LogEntry {
 	ret := &LogEntry{}
 	ret.Time = time.Now()
@@ -234,11 +259,11 @@ func (imp *impl) Write(entry *LogEntry) {
 		// the last window.
 		imp.recentMessageMu.Lock()
 		if time.Since(imp.recentMessageWindowStart) > noisyMessageWindowDuration {
-			for message, count := range imp.recentMessageCounts {
+			for stringifiedEntry, count := range imp.recentMessageCounts {
 				if count > noisyMessageCountThreshold {
-					collapsedEntry := imp.recentMessageEntries[entry.Message]
+					collapsedEntry := imp.recentMessageEntries[stringifiedEntry]
 					collapsedEntry.Message = fmt.Sprintf("Message logged %d times in past %v: %s",
-						count, noisyMessageWindowDuration, message)
+						count, noisyMessageWindowDuration, collapsedEntry.Message)
 
 					imp.testHelper()
 					for _, appender := range imp.appenders {
@@ -257,10 +282,11 @@ func (imp *impl) Write(entry *LogEntry) {
 		}
 
 		// Track entry in recentMessage maps.
-		imp.recentMessageCounts[entry.Message]++
-		imp.recentMessageEntries[entry.Message] = *entry
+		stringifiedEntry := entry.String()
+		imp.recentMessageCounts[stringifiedEntry]++
+		imp.recentMessageEntries[stringifiedEntry] = *entry
 
-		if imp.recentMessageCounts[entry.Message] > noisyMessageCountThreshold {
+		if imp.recentMessageCounts[stringifiedEntry] > noisyMessageCountThreshold {
 			// If entry's message is reportedly "noisy," return early.
 			imp.recentMessageMu.Unlock()
 			return
