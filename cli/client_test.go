@@ -377,6 +377,25 @@ func TestUpdateBillingServiceAction(t *testing.T) {
 	test.That(t, out.messages[7], test.ShouldContainSubstring, "USA")
 }
 
+func TestOrganizationEnableBillingServiceAction(t *testing.T) {
+	enableBillingFunc := func(ctx context.Context, in *apppb.EnableBillingServiceRequest, opts ...grpc.CallOption) (
+		*apppb.EnableBillingServiceResponse, error,
+	) {
+		return &apppb.EnableBillingServiceResponse{}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		EnableBillingServiceFunc: enableBillingFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+	test.That(t, ac.organizationEnableBillingServiceAction(cCtx, "test-org",
+		"123 Main St, Suite 100, San Francisco, CA, 94105"), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "Successfully enabled billing service for organization")
+}
+
 type mockDataServiceClient struct {
 	grpc.ClientStream
 	responses []*datapb.ExportTabularDataResponse

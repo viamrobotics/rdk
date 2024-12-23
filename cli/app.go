@@ -548,6 +548,23 @@ var app = &cli.App{
 							},
 							Action: createCommandWithT[updateBillingServiceArgs](UpdateBillingServiceAction),
 						},
+						{
+							Name:  "enable",
+							Usage: "enable the billing service for an organization",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "the org to enable the billing service for",
+								},
+								&cli.StringFlag{
+									Name:     organizationBillingAddress,
+									Required: true,
+									Usage:    "the stringified address that follows the pattern: line1, line2 (optional), city, state, zipcode",
+								},
+							},
+							Action: createCommandWithT[organizationEnableBillingServiceArgs](OrganizationEnableBillingServiceAction),
+						},
 					},
 				},
 				{
