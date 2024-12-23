@@ -16,11 +16,11 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-const (
-	// Window duration over which to consider log messages "noisy."
+var (
+	// Window duration over which to consider log messages "noisy.".
 	noisyMessageWindowDuration = 10 * time.Second
 	// Count threshold within `noisyMessageWindowDuration` after which to
-	// consider log messages "noisy."
+	// consider log messages "noisy.".
 	noisyMessageCountThreshold = 3
 )
 
@@ -74,13 +74,14 @@ func (le *LogEntry) String() string {
 		// Assume field's value is held in one of `Integer`, `Interface`, or
 		// `String`. Otherwise (field has no value or is equivalent to 0 or "") use
 		// the string "undefined".
-		if field.Integer != 0 {
+		switch {
+		case field.Integer != 0:
 			ret += fmt.Sprintf("%d", field.Integer)
-		} else if field.Interface != nil {
+		case field.Interface != nil:
 			ret += fmt.Sprintf("%v", field.Interface)
-		} else if field.String != "" {
+		case field.String != "":
 			ret += field.String
-		} else {
+		default:
 			ret += "undefined"
 		}
 	}
