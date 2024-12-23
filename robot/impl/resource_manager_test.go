@@ -1330,6 +1330,10 @@ func (fp *fakeProcess) Status() error {
 	return nil
 }
 
+func (fp *fakeProcess) UnixPid() (int, error) {
+	return 0, errors.New("unimplemented")
+}
+
 func TestManagerResourceRPCAPIs(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	injectRobot := &inject.Robot{}
