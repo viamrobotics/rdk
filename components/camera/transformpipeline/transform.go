@@ -88,7 +88,6 @@ func buildTransform(
 	source camera.VideoSource,
 	stream camera.ImageType,
 	tr Transformation,
-	sourceString string,
 ) (camera.VideoSource, camera.ImageType, error) {
 	switch transformType(tr.Type) {
 	case transformTypeUnspecified:
