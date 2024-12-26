@@ -110,12 +110,6 @@ type Board interface {
 	// GPIOPinByName returns a GPIOPin by name.
 	GPIOPinByName(name string) (GPIOPin, error)
 
-	// AnalogNames returns the names of all known analog pins.
-	AnalogNames() []string
-
-	// DigitalInterruptNames returns the names of all known digital interrupts.
-	DigitalInterruptNames() []string
-
 	// SetPowerMode sets the board to the given power mode. If
 	// provided, the board will exit the given power mode after
 	// the specified duration.
