@@ -187,6 +187,14 @@ func (r *localRobot) Close(ctx context.Context) error {
 	return err
 }
 
+// Kill will attempt to kill any processes on the system started by the robot as quickly as possible.
+// This operation is not clean and will not wait for completion.
+func (r *localRobot) Kill() {
+	if r.manager != nil {
+		r.manager.Kill()
+	}
+}
+
 // StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement.
 func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
 	// Stop all operations

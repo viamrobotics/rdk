@@ -25,6 +25,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
@@ -261,6 +262,8 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	forceShutdown := make(chan struct{})
 	defer func() { <-forceShutdown }()
 
+	var myRobot robot.LocalRobot
+
 	utils.PanicCapturingGo(func() {
 		defer close(forceShutdown)
 
@@ -280,6 +283,9 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 				case <-doneServing:
 					return true
 				default:
+					if myRobot != nil {
+						myRobot.Kill()
+					}
 					s.logger.Fatalw("server failed to cleanly shutdown after deadline", "deadline", hungShutdownDeadline)
 					return true
 				}
@@ -398,7 +404,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		robotOptions = append(robotOptions, robotimpl.WithFTDC())
 	}
 
-	myRobot, err := robotimpl.New(ctx, processedConfig, s.logger, robotOptions...)
+	myRobot, err = robotimpl.New(ctx, processedConfig, s.logger, robotOptions...)
 	if err != nil {
 		cancel()
 		return err

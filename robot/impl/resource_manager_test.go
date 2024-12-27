@@ -1325,6 +1325,7 @@ func (fp *fakeProcess) Start(ctx context.Context) error {
 func (fp *fakeProcess) Stop() error {
 	return nil
 }
+func (fp *fakeProcess) Kill() {}
 
 func (fp *fakeProcess) Status() error {
 	return nil
