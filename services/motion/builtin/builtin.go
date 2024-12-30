@@ -417,6 +417,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq) (motionplan.Pla
 	if len(waypoints) == 0 {
 		return nil, errors.New("could not find any waypoints to plan for in MoveRequest. Fill in Destination or goal_state")
 	}
+	req.Extra["waypoints"] = nil
 
 	// re-evaluate goal poses to be in the frame of World
 	// TODO (RSDK-8847) : this is a workaround to help account for us not yet being able to properly synchronize simultaneous motion across

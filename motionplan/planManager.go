@@ -63,11 +63,6 @@ type atomicWaypoint struct {
 // planMultiWaypoint plans a motion through multiple waypoints, using identical constraints for each
 // Any constraints, etc, will be held for the entire motion.
 func (pm *planManager) planMultiWaypoint(ctx context.Context, request *PlanRequest, seedPlan Plan) (Plan, error) {
-	startPoses, err := request.StartState.ComputePoses(request.FrameSystem)
-	if err != nil {
-		return nil, err
-	}
-
 	opt, err := pm.plannerSetupFromMoveRequest(
 		request.StartState,
 		request.Goals[0],
@@ -101,26 +96,13 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context, request *PlanReque
 
 	waypoints := []atomicWaypoint{}
 
-	runningStart := startPoses
-	for i, goal := range request.Goals {
-		goalPoses, err := goal.ComputePoses(request.FrameSystem)
-		if err != nil {
-			return nil, err
+	for i := range request.Goals {
+		request.Logger.Info("i", i)
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
 		}
-
-		// Log each requested motion
-		// TODO: PlanRequest.String() could begin to exist
-		for frame, stepgoal := range goalPoses {
-			request.Logger.CInfof(ctx,
-				"setting up motion for frame %s\nGoal: %v\nstartPose %v\nworldstate: %v\n",
-				frame,
-				referenceframe.PoseInFrameToProtobuf(stepgoal),
-				referenceframe.PoseInFrameToProtobuf(runningStart[frame]),
-				request.WorldState.String(),
-			)
-		}
-		runningStart = goalPoses
-
 		// Solving highly constrained motions by breaking apart into small pieces is much more performant
 		goalWaypoints, err := pm.generateWaypoints(request, seedPlan, i)
 		if err != nil {
@@ -156,13 +138,14 @@ func (pm *planManager) planAtomicWaypoints(
 	var seed map[string][]referenceframe.Input
 
 	// try to solve each goal, one at a time
-	for _, wp := range waypoints {
+	for i, wp := range waypoints {
 		// Check if ctx is done between each waypoint
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		default:
 		}
+		pm.logger.Info("planning step ", i, " of ", len(waypoints))
 
 		var maps *rrtMaps
 		if seedPlan != nil {
@@ -227,7 +210,10 @@ func (pm *planManager) planSingleAtomicWaypoint(
 	wp atomicWaypoint,
 	maps *rrtMaps,
 ) (map[string][]referenceframe.Input, *resultPromise, error) {
-	pm.logger.Debug("start planning for ", wp.goalState.configuration, wp.goalState.poses)
+	fromPoses, _ := wp.startState.ComputePoses(pm.fs)
+	toPoses, _ := wp.goalState.ComputePoses(pm.fs)
+	
+	pm.logger.Debug("start planning from\n", fromPoses, "\nto\n", toPoses)
 
 	if _, ok := wp.mp.(rrtParallelPlanner); ok {
 		// rrtParallelPlanner supports solution look-ahead for parallel waypoint solving

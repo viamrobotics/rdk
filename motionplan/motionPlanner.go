@@ -463,6 +463,18 @@ IK:
 						// good solution, stopping early
 						break IK
 					}
+					for _, oldSol := range solutions {
+						similarity := &ik.SegmentFS{
+							StartConfiguration: oldSol,
+							EndConfiguration:   step,
+							FS:                 mp.fs,
+						}
+						simscore := mp.planOpts.configurationDistanceFunc(similarity)
+						if simscore < 0.1 {
+							fmt.Println("Skipping similar")
+							continue IK
+						}
+					}
 
 					solutions[score] = step
 					if len(solutions) >= nSolutions {
