@@ -527,7 +527,7 @@ IK:
 
 // linearize the goal metric for use with solvers.
 // Since our solvers operate on arrays of floats, there needs to be a way to map bidirectionally between the framesystem configuration
-// of map[string][]Input and the []float64 that the solver expects. This is that mapping.
+// of FrameConfigurations and the []float64 that the solver expects. This is that mapping.
 func (mp *planner) linearizeFSmetric(metric ik.StateFSMetric) func([]float64) float64 {
 	return func(query []float64) float64 {
 		inputs, err := mp.lfs.sliceToMap(query)

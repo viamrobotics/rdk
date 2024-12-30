@@ -46,7 +46,7 @@ func (r *resultPromise) result() ([]node, error) {
 	return planReturn.steps, nil
 }
 
-// linearizedFrameSystem wraps a framesystem, allowing conversion in a known order between a map[string][]inputs and a flat array of floats,
+// linearizedFrameSystem wraps a framesystem, allowing conversion in a known order between a FrameConfiguratinos and a flat array of floats,
 // useful for being able to call IK solvers against framesystems.
 type linearizedFrameSystem struct {
 	fs     referenceframe.FrameSystem

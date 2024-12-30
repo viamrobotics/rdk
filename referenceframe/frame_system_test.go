@@ -270,7 +270,7 @@ func TestFrameSystemGeometries(t *testing.T) {
 
 	type testCase struct {
 		name    string
-		inputs  map[string][]Input
+		inputs  FrameConfgurations
 		success bool
 	}
 
