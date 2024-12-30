@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/motionplan/tpspace"
+	"go.viam.com/rdk/referenceframe"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -140,7 +141,7 @@ func constrainedXArmMotion() (*planConfig, error) {
 	opt.AddStateConstraint("orientation", orientConstraint)
 
 	start := &PlanState{configuration: map[string][]frame.Input{model.Name(): home7}}
-	goal := &PlanState{poses: PathState{model.Name(): frame.NewPoseInFrame(frame.World, pos)}}
+	goal := &PlanState{poses: referenceframe.FramePositions{model.Name(): frame.NewPoseInFrame(frame.World, pos)}}
 	opt.fillMotionChains(fs, goal)
 
 	return &planConfig{
@@ -167,7 +168,7 @@ func TestPlanningWithGripper(t *testing.T) {
 	newPose := frame.NewPoseInFrame("gripper", spatialmath.NewPoseFromPoint(r3.Vector{100, 100, 0}))
 	solutionMap, err := PlanMotion(context.Background(), &PlanRequest{
 		Logger:      logger,
-		Goals:       []*PlanState{{poses: PathState{"gripper": newPose}}},
+		Goals:       []*PlanState{{poses: referenceframe.FramePositions{"gripper": newPose}}},
 		StartState:  &PlanState{configuration: zeroPos},
 		FrameSystem: fs,
 	})
@@ -228,7 +229,7 @@ func simple2DMap() (*planConfig, error) {
 	startInput := frame.StartPositions(fs)
 	startInput[modelName] = frame.FloatsToInputs([]float64{-90., 90., 0})
 	goalPose := spatialmath.NewPoseFromPoint(r3.Vector{X: 90, Y: 90, Z: 0})
-	goal := &PlanState{poses: PathState{modelName: frame.NewPoseInFrame(frame.World, goalPose)}}
+	goal := &PlanState{poses: referenceframe.FramePositions{modelName: frame.NewPoseInFrame(frame.World, goalPose)}}
 
 	seedMap := frame.StartPositions(fs)
 	// create robot collision entities
@@ -294,7 +295,7 @@ func simpleXArmMotion() (*planConfig, error) {
 		return nil, err
 	}
 
-	goal := &PlanState{poses: PathState{
+	goal := &PlanState{poses: referenceframe.FramePositions{
 		xarm.Name(): frame.NewPoseInFrame(frame.World, spatialmath.NewPoseFromProtobuf(&commonpb.Pose{X: 206, Y: 100, Z: 120, OZ: -1})),
 	}}
 
@@ -361,7 +362,7 @@ func simpleUR5eMotion() (*planConfig, error) {
 		return nil, err
 	}
 
-	goal := &PlanState{poses: PathState{
+	goal := &PlanState{poses: referenceframe.FramePositions{
 		ur5e.Name(): frame.NewPoseInFrame(frame.World, spatialmath.NewPoseFromProtobuf(&commonpb.Pose{X: -750, Y: -250, Z: 200, OX: -1})),
 	}}
 
@@ -491,7 +492,7 @@ func TestArmOOBSolve(t *testing.T) {
 	goal1 := spatialmath.NewPose(r3.Vector{X: 257, Y: 21000, Z: -300}, &spatialmath.OrientationVectorDegrees{OZ: -1})
 	_, err := PlanMotion(context.Background(), &PlanRequest{
 		Logger:      logger,
-		Goals:       []*PlanState{{poses: PathState{"urCamera": frame.NewPoseInFrame(frame.World, goal1)}}},
+		Goals:       []*PlanState{{poses: referenceframe.FramePositions{"urCamera": frame.NewPoseInFrame(frame.World, goal1)}}},
 		StartState:  &PlanState{configuration: positions},
 		FrameSystem: fs,
 	})
@@ -516,7 +517,7 @@ func TestArmObstacleSolve(t *testing.T) {
 	goal1 := spatialmath.NewPose(r3.Vector{X: 257, Y: 210, Z: -300}, &spatialmath.OrientationVectorDegrees{OZ: -1})
 	_, err = PlanMotion(context.Background(), &PlanRequest{
 		Logger:      logger,
-		Goals:       []*PlanState{{poses: PathState{"urCamera": frame.NewPoseInFrame(frame.World, goal1)}}},
+		Goals:       []*PlanState{{poses: referenceframe.FramePositions{"urCamera": frame.NewPoseInFrame(frame.World, goal1)}}},
 		StartState:  &PlanState{configuration: positions},
 		FrameSystem: fs,
 		WorldState:  worldState,
@@ -542,7 +543,7 @@ func TestArmAndGantrySolve(t *testing.T) {
 	goal1 := spatialmath.NewPose(r3.Vector{X: 257, Y: 2100, Z: -300}, &spatialmath.OrientationVectorDegrees{OZ: -1})
 	plan, err := PlanMotion(context.Background(), &PlanRequest{
 		Logger:      logger,
-		Goals:       []*PlanState{{poses: PathState{"xArmVgripper": frame.NewPoseInFrame(frame.World, goal1)}}},
+		Goals:       []*PlanState{{poses: referenceframe.FramePositions{"xArmVgripper": frame.NewPoseInFrame(frame.World, goal1)}}},
 		StartState:  &PlanState{configuration: positions},
 		FrameSystem: fs,
 		Options:     map[string]interface{}{"smooth_iter": 5},
@@ -564,7 +565,7 @@ func TestMultiArmSolve(t *testing.T) {
 	goal2 := spatialmath.NewPose(r3.Vector{Z: 60}, &spatialmath.OrientationVectorDegrees{OZ: -1})
 	plan, err := PlanMotion(context.Background(), &PlanRequest{
 		Logger:      logger,
-		Goals:       []*PlanState{{poses: PathState{"xArmVgripper": frame.NewPoseInFrame("urCamera", goal2)}}},
+		Goals:       []*PlanState{{poses: referenceframe.FramePositions{"xArmVgripper": frame.NewPoseInFrame("urCamera", goal2)}}},
 		StartState:  &PlanState{configuration: positions},
 		FrameSystem: fs,
 		Options:     map[string]interface{}{"max_ik_solutions": 10, "timeout": 150.0, "smooth_iter": 5},
@@ -606,7 +607,7 @@ func TestReachOverArm(t *testing.T) {
 	opts := map[string]interface{}{"timeout": 150.0}
 	plan, err := PlanMotion(context.Background(), &PlanRequest{
 		Logger:      logger,
-		Goals:       []*PlanState{{poses: PathState{xarm.Name(): goal}}},
+		Goals:       []*PlanState{{poses: referenceframe.FramePositions{xarm.Name(): goal}}},
 		StartState:  &PlanState{configuration: frame.StartPositions(fs)},
 		FrameSystem: fs,
 		Options:     opts,
@@ -624,7 +625,7 @@ func TestReachOverArm(t *testing.T) {
 	opts = map[string]interface{}{"timeout": 150.0, "smooth_iter": 5}
 	plan, err = PlanMotion(context.Background(), &PlanRequest{
 		Logger:      logger,
-		Goals:       []*PlanState{{poses: PathState{xarm.Name(): goal}}},
+		Goals:       []*PlanState{{poses: referenceframe.FramePositions{xarm.Name(): goal}}},
 		StartState:  &PlanState{configuration: frame.StartPositions(fs)},
 		FrameSystem: fs,
 		Options:     opts,
@@ -672,7 +673,7 @@ func TestPlanMapMotion(t *testing.T) {
 		seedMap := map[string][]frame.Input{f.Name(): seed}
 		plan, err := PlanMotion(ctx, &PlanRequest{
 			Logger:      logger,
-			Goals:       []*PlanState{{poses: PathState{f.Name(): destination}}},
+			Goals:       []*PlanState{{poses: referenceframe.FramePositions{f.Name(): destination}}},
 			StartState:  &PlanState{configuration: seedMap},
 			FrameSystem: fs,
 			WorldState:  worldState,
@@ -714,7 +715,7 @@ func TestArmConstraintSpecificationSolve(t *testing.T) {
 		goal := spatialmath.NewPose(r3.Vector{X: 600, Y: 100, Z: 300}, &spatialmath.OrientationVectorDegrees{OX: 1})
 		_, err := PlanMotion(context.Background(), &PlanRequest{
 			Logger:      logger,
-			Goals:       []*PlanState{{poses: PathState{"xArmVgripper": frame.NewPoseInFrame(frame.World, goal)}}},
+			Goals:       []*PlanState{{poses: referenceframe.FramePositions{"xArmVgripper": frame.NewPoseInFrame(frame.World, goal)}}},
 			StartState:  &PlanState{configuration: frame.StartPositions(fs)},
 			FrameSystem: fs,
 			WorldState:  worldState,
@@ -796,7 +797,7 @@ func TestMovementWithGripper(t *testing.T) {
 	}
 	request := &PlanRequest{
 		Logger:      logger,
-		Goals:       []*PlanState{{poses: PathState{"xArmVgripper": frame.NewPoseInFrame(frame.World, goal)}}},
+		Goals:       []*PlanState{{poses: referenceframe.FramePositions{"xArmVgripper": frame.NewPoseInFrame(frame.World, goal)}}},
 		StartState:  &PlanState{configuration: startConfig},
 		FrameSystem: fs,
 		Options:     motionConfig,
@@ -820,7 +821,7 @@ func TestMovementWithGripper(t *testing.T) {
 
 	// plan with end of arm with gripper attached - this will fail
 	goal = spatialmath.NewPose(r3.Vector{500, 0, -100}, &spatialmath.OrientationVector{OZ: -1})
-	request.Goals = []*PlanState{{poses: PathState{"xArm6": frame.NewPoseInFrame(frame.World, goal)}}}
+	request.Goals = []*PlanState{{poses: referenceframe.FramePositions{"xArm6": frame.NewPoseInFrame(frame.World, goal)}}}
 	_, err = PlanMotion(context.Background(), request)
 	test.That(t, err, test.ShouldNotBeNil)
 
@@ -897,10 +898,10 @@ func TestReplanValidations(t *testing.T) {
 		t.Run(tc.msg, func(t *testing.T) {
 			_, err := Replan(ctx, &PlanRequest{
 				Logger: logger,
-				Goals:  []*PlanState{{poses: PathState{kinematicFrame.Name(): frame.NewPoseInFrame(frame.World, goal)}}},
+				Goals:  []*PlanState{{poses: referenceframe.FramePositions{kinematicFrame.Name(): frame.NewPoseInFrame(frame.World, goal)}}},
 				StartState: &PlanState{
 					configuration: frame.StartPositions(baseFS),
-					poses:         PathState{kinematicFrame.Name(): frame.NewZeroPoseInFrame(frame.World)},
+					poses:         referenceframe.FramePositions{kinematicFrame.Name(): frame.NewZeroPoseInFrame(frame.World)},
 				},
 				FrameSystem: baseFS,
 				Options:     tc.extra,
@@ -942,7 +943,7 @@ func TestReplan(t *testing.T) {
 
 	planRequest := &PlanRequest{
 		Logger:      logger,
-		Goals:       []*PlanState{{poses: PathState{kinematicFrame.Name(): frame.NewPoseInFrame(frame.World, goal)}}},
+		Goals:       []*PlanState{{poses: referenceframe.FramePositions{kinematicFrame.Name(): frame.NewPoseInFrame(frame.World, goal)}}},
 		StartState:  &PlanState{configuration: frame.StartPositions(baseFS)},
 		FrameSystem: baseFS,
 	}
@@ -952,7 +953,7 @@ func TestReplan(t *testing.T) {
 
 	// Let's pretend we've moved towards the goal, so the goal is now closer
 	goal = spatialmath.NewPoseFromPoint(r3.Vector{1000, 5000, 0})
-	planRequest.Goals = []*PlanState{{poses: PathState{kinematicFrame.Name(): frame.NewPoseInFrame(frame.World, goal)}}}
+	planRequest.Goals = []*PlanState{{poses: referenceframe.FramePositions{kinematicFrame.Name(): frame.NewPoseInFrame(frame.World, goal)}}}
 
 	// This should easily pass
 	newPlan1, err := Replan(ctx, planRequest, firstplan, 1.0)
@@ -993,11 +994,11 @@ func TestPtgPosOnlyBidirectional(t *testing.T) {
 
 	planRequest := &PlanRequest{
 		Logger:      logger,
-		Goals:       []*PlanState{{poses: PathState{kinematicFrame.Name(): frame.NewPoseInFrame(frame.World, goal)}}},
+		Goals:       []*PlanState{{poses: referenceframe.FramePositions{kinematicFrame.Name(): frame.NewPoseInFrame(frame.World, goal)}}},
 		FrameSystem: baseFS,
 		StartState: &PlanState{
 			configuration: frame.StartPositions(baseFS),
-			poses:         PathState{kinematicFrame.Name(): frame.NewZeroPoseInFrame(frame.World)},
+			poses:         referenceframe.FramePositions{kinematicFrame.Name(): frame.NewZeroPoseInFrame(frame.World)},
 		},
 		WorldState: nil,
 		Options:    extra,
@@ -1034,8 +1035,8 @@ func TestValidatePlanRequest(t *testing.T) {
 	err = fs.AddFrame(frame2, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 
-	validGoal := []*PlanState{{poses: PathState{"frame1": frame.NewPoseInFrame("frame1", spatialmath.NewZeroPose())}}}
-	badGoal := []*PlanState{{poses: PathState{"frame1": frame.NewPoseInFrame("non-existent", spatialmath.NewZeroPose())}}}
+	validGoal := []*PlanState{{poses: referenceframe.FramePositions{"frame1": frame.NewPoseInFrame("frame1", spatialmath.NewZeroPose())}}}
+	badGoal := []*PlanState{{poses: referenceframe.FramePositions{"frame1": frame.NewPoseInFrame("non-existent", spatialmath.NewZeroPose())}}}
 
 	testCases := []testCase{
 		{
@@ -1166,7 +1167,7 @@ func TestArmGantryCheckPlan(t *testing.T) {
 	f := fs.Frame("xArm6")
 	planReq := PlanRequest{
 		Logger:      logger,
-		Goals:       []*PlanState{{poses: PathState{"xArm6": frame.NewPoseInFrame(frame.World, goal)}}},
+		Goals:       []*PlanState{{poses: referenceframe.FramePositions{"xArm6": frame.NewPoseInFrame(frame.World, goal)}}},
 		StartState:  &PlanState{configuration: frame.StartPositions(fs)},
 		FrameSystem: fs,
 	}

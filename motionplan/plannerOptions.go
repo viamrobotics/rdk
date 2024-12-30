@@ -193,7 +193,7 @@ type plannerOptions struct {
 }
 
 // getGoalMetric creates the distance metric for the solver using the configured options.
-func (p *plannerOptions) getGoalMetric(goal PathState) ik.StateFSMetric {
+func (p *plannerOptions) getGoalMetric(goal referenceframe.FramePositions) ik.StateFSMetric {
 	metrics := map[string]ik.StateMetric{}
 	for frame, goalInFrame := range goal {
 		metrics[frame] = p.goalMetricConstructor(goalInFrame.Pose())
@@ -236,7 +236,7 @@ func (p *plannerOptions) SetMinScore(minScore float64) {
 func (p *plannerOptions) addTopoConstraints(
 	fs referenceframe.FrameSystem,
 	startCfg referenceframe.FrameConfigurations,
-	from, to PathState,
+	from, to referenceframe.FramePositions,
 	constraints *Constraints,
 ) (bool, error) {
 	topoConstraints := false
@@ -271,7 +271,7 @@ func (p *plannerOptions) addTopoConstraints(
 func (p *plannerOptions) addLinearConstraints(
 	fs referenceframe.FrameSystem,
 	startCfg referenceframe.FrameConfigurations,
-	from, to PathState,
+	from, to referenceframe.FramePositions,
 	linConstraint LinearConstraint,
 ) error {
 	// Linear constraints
@@ -297,7 +297,7 @@ func (p *plannerOptions) addLinearConstraints(
 func (p *plannerOptions) addPseudolinearConstraints(
 	fs referenceframe.FrameSystem,
 	startCfg referenceframe.FrameConfigurations,
-	from, to PathState,
+	from, to referenceframe.FramePositions,
 	plinConstraint PseudolinearConstraint,
 ) error {
 	// Linear constraints
@@ -323,7 +323,7 @@ func (p *plannerOptions) addPseudolinearConstraints(
 func (p *plannerOptions) addOrientationConstraints(
 	fs referenceframe.FrameSystem,
 	startCfg referenceframe.FrameConfigurations,
-	from, to PathState,
+	from, to referenceframe.FramePositions,
 	orientConstraint OrientationConstraint,
 ) error {
 	orientTol := orientConstraint.OrientationToleranceDegs

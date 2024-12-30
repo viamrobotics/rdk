@@ -296,7 +296,7 @@ func alterGoals(
 	start referenceframe.FrameConfigurations,
 	goal *PlanState,
 ) (*PlanState, error) {
-	alteredGoals := PathState{}
+	alteredGoals := referenceframe.FramePositions{}
 	if goal.poses != nil {
 		for _, chain := range chains {
 			// chain solve frame may only be in the goal configuration, in which case we skip as the configuration will be passed through

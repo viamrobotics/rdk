@@ -760,7 +760,7 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 	waypoints := []atomicWaypoint{}
 	for i := 1; i <= numSteps; i++ {
 		by := float64(i) / float64(numSteps)
-		to := &PlanState{PathState{}, referenceframe.FrameConfigurations{}}
+		to := &PlanState{referenceframe.FramePositions{}, referenceframe.FrameConfigurations{}}
 		if wpGoals.poses != nil {
 			for frameName, pif := range wpGoals.poses {
 				toPose := spatialmath.Interpolate(startPoses[frameName].Pose(), pif.Pose(), by)

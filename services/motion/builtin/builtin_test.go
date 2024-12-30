@@ -1365,8 +1365,8 @@ func TestMultiWaypointPlanning(t *testing.T) {
 		waypoint2 := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -190, Z: 30}))
 		finalPose := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -200, Z: 30}))
 
-		wp1State := motionplan.NewPlanState(motionplan.PathState{"pieceGripper": waypoint1}, nil)
-		wp2State := motionplan.NewPlanState(motionplan.PathState{"pieceGripper": waypoint2}, nil)
+		wp1State := motionplan.NewPlanState(referenceframe.FramePositions{"pieceGripper": waypoint1}, nil)
+		wp2State := motionplan.NewPlanState(referenceframe.FramePositions{"pieceGripper": waypoint2}, nil)
 
 		moveReq := motion.MoveReq{
 			ComponentName: gripper.Named("pieceGripper"),
@@ -1408,7 +1408,7 @@ func TestMultiWaypointPlanning(t *testing.T) {
 		// Define pose for second waypoint
 		intermediatePose := spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -190, Z: 30})
 		wp2State := motionplan.NewPlanState(
-			motionplan.PathState{"pieceGripper": referenceframe.NewPoseInFrame("world", intermediatePose)},
+			referenceframe.FramePositions{"pieceGripper": referenceframe.NewPoseInFrame("world", intermediatePose)},
 			nil,
 		)
 

@@ -44,10 +44,10 @@ func TestPtgRrtBidirectional(t *testing.T) {
 	fs.AddFrame(ackermanFrame, fs.World())
 
 	goalPos := spatialmath.NewPose(r3.Vector{X: 200, Y: 7000, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90})
-	goal := &PlanState{poses: PathState{
+	goal := &PlanState{poses: referenceframe.FramePositions{
 		ackermanFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, goalPos),
 	}}
-	start := &PlanState{poses: PathState{
+	start := &PlanState{poses: referenceframe.FramePositions{
 		ackermanFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
 	}}
 

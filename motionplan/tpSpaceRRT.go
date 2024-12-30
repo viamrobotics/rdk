@@ -163,7 +163,7 @@ func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context, seed, goal *PlanSta
 
 	maps := &rrtMaps{startMap: map[node]node{}, goalMap: map[node]node{}}
 
-	startNode := &basicNode{q: zeroInputs, poses: PathState{mp.tpFrame.Name(): referenceframe.NewZeroPoseInFrame(referenceframe.World)}}
+	startNode := &basicNode{q: zeroInputs, poses: referenceframe.FramePositions{mp.tpFrame.Name(): referenceframe.NewZeroPoseInFrame(referenceframe.World)}}
 	if seed != nil {
 		startNode = &basicNode{q: zeroInputs, poses: seed.poses}
 	}
@@ -190,11 +190,11 @@ func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context, seed, goal *PlanSta
 	}
 }
 
-func (mp *tpSpaceRRTMotionPlanner) poseToPathState(pose spatialmath.Pose) PathState {
-	return PathState{mp.tpFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, pose)}
+func (mp *tpSpaceRRTMotionPlanner) poseToPathState(pose spatialmath.Pose) referenceframe.FramePositions {
+	return referenceframe.FramePositions{mp.tpFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, pose)}
 }
 
-func (mp *tpSpaceRRTMotionPlanner) pathStateToPose(step PathState) spatialmath.Pose {
+func (mp *tpSpaceRRTMotionPlanner) pathStateToPose(step referenceframe.FramePositions) spatialmath.Pose {
 	return step[mp.tpFrame.Name()].Pose()
 }
 
@@ -206,7 +206,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 ) {
 	defer close(rrt.solutionChan)
 	// get start and goal poses
-	var startPoses PathState
+	var startPoses referenceframe.FramePositions
 	var goalPose spatialmath.Pose
 	var goalNode node
 
@@ -1073,7 +1073,7 @@ func rectifyTPspacePath(path []node, frame referenceframe.Frame, startPose spati
 		thisNode := &basicNode{
 			q:      wp.Q(),
 			cost:   wp.Cost(),
-			poses:  PathState{frame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, runningPose)},
+			poses:  referenceframe.FramePositions{frame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, runningPose)},
 			corner: wp.Corner(),
 		}
 		correctedPath = append(correctedPath, thisNode)
@@ -1125,7 +1125,7 @@ func extractTPspacePath(fName string, startMap, goalMap map[node]node, pair *nod
 					fName: {{0}, {0}, {0}, {0}},
 				},
 				cost:   goalReached.Cost(),
-				poses:  PathState{fName: referenceframe.NewPoseInFrame(goalPiF.Parent(), spatialmath.Compose(goalPiF.Pose(), flipPose))},
+				poses:  referenceframe.FramePositions{fName: referenceframe.NewPoseInFrame(goalPiF.Parent(), spatialmath.Compose(goalPiF.Pose(), flipPose))},
 				corner: goalReached.Corner(),
 			}
 		} else {
@@ -1139,7 +1139,7 @@ func extractTPspacePath(fName string, startMap, goalMap map[node]node, pair *nod
 					},
 				},
 				cost:   goalReached.Cost(),
-				poses:  PathState{fName: referenceframe.NewPoseInFrame(goalPiF.Parent(), spatialmath.Compose(goalPiF.Pose(), flipPose))},
+				poses:  referenceframe.FramePositions{fName: referenceframe.NewPoseInFrame(goalPiF.Parent(), spatialmath.Compose(goalPiF.Pose(), flipPose))},
 				corner: goalReached.Corner(),
 			}
 		}
@@ -1152,7 +1152,7 @@ func extractTPspacePath(fName string, startMap, goalMap map[node]node, pair *nod
 // Returns a new node whose orientation is flipped 180 degrees from the provided node.
 // It does NOT flip the configurations/inputs.
 func flipNodePoses(n node) node {
-	flippedPoses := PathState{}
+	flippedPoses := referenceframe.FramePositions{}
 	for f, pif := range n.Poses() {
 		flippedPoses[f] = referenceframe.NewPoseInFrame(pif.Parent(), spatialmath.Compose(pif.Pose(), flipPose))
 	}

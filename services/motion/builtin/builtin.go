@@ -427,7 +427,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq) (motionplan.Pla
 	solvingFrame := referenceframe.World
 	for _, wp := range waypoints {
 		if wp.Poses() != nil {
-			step := motionplan.PathState{}
+			step := referenceframe.FramePositions{}
 			for fName, destination := range wp.Poses() {
 				tf, err := frameSys.Transform(fsInputs, destination, solvingFrame)
 				if err != nil {
@@ -595,7 +595,7 @@ func waypointsFromRequest(
 			return nil, nil, errors.New("extras goal_state could not be interpreted as map[string]interface{}")
 		}
 	} else if req.Destination != nil {
-		goalState := motionplan.NewPlanState(motionplan.PathState{req.ComponentName.ShortName(): req.Destination}, nil)
+		goalState := motionplan.NewPlanState(referenceframe.FramePositions{req.ComponentName.ShortName(): req.Destination}, nil)
 		waypoints = append(waypoints, goalState)
 	}
 	return startState, waypoints, nil

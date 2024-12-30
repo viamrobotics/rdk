@@ -49,7 +49,7 @@ func TestPlanWithStatus(t *testing.T) {
 		ExecutionID:   executionID,
 		ComponentName: baseName,
 		Plan: motionplan.NewSimplePlan(
-			[]motionplan.PathState{
+			[]referenceframe.FramePositions{
 				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseA)},
 				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseB)},
 			},
@@ -585,7 +585,7 @@ func TestPlan(t *testing.T) {
 		ExecutionID:   executionID,
 		ComponentName: baseName,
 		Plan: motionplan.NewSimplePlan(
-			[]motionplan.PathState{
+			[]referenceframe.FramePositions{
 				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseA)},
 				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseB)},
 			},

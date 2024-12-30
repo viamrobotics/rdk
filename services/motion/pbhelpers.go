@@ -173,7 +173,7 @@ func planFromProto(p *pb.Plan) (PlanWithMetadata, error) {
 
 	steps := motionplan.Path{}
 	for _, s := range p.Steps {
-		step, err := motionplan.PathStateFromProto(s)
+		step, err := motionplan.FramePositionsFromProto(s)
 		if err != nil {
 			return PlanWithMetadata{}, err
 		}

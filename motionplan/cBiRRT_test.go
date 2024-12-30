@@ -39,7 +39,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	goalPos := spatialmath.NewPose(r3.Vector{X: 206, Y: 100, Z: 120.5}, &spatialmath.OrientationVectorDegrees{OY: -1})
 
 	opt := newBasicPlannerOptions()
-	goalMetric := opt.getGoalMetric(PathState{m.Name(): referenceframe.NewPoseInFrame(referenceframe.World, goalPos)})
+	goalMetric := opt.getGoalMetric(referenceframe.FramePositions{m.Name(): referenceframe.NewPoseInFrame(referenceframe.World, goalPos)})
 	fs := referenceframe.NewEmptyFrameSystem("")
 	fs.AddFrame(m, fs.World())
 	mp, err := newCBiRRTMotionPlanner(fs, rand.New(rand.NewSource(42)), logger, opt)

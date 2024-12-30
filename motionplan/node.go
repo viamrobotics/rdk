@@ -44,7 +44,7 @@ type node interface {
 	Q() referenceframe.FrameConfigurations
 	Cost() float64
 	SetCost(float64)
-	Poses() PathState
+	Poses() referenceframe.FramePositions
 	Corner() bool
 	SetCorner(bool)
 }
@@ -52,7 +52,7 @@ type node interface {
 type basicNode struct {
 	q      referenceframe.FrameConfigurations
 	cost   float64
-	poses  PathState
+	poses  referenceframe.FramePositions
 	corner bool
 }
 
@@ -77,7 +77,7 @@ func (n *basicNode) SetCost(cost float64) {
 	n.cost = cost
 }
 
-func (n *basicNode) Poses() PathState {
+func (n *basicNode) Poses() referenceframe.FramePositions {
 	return n.poses
 }
 

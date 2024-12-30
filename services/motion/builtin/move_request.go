@@ -915,10 +915,10 @@ func (ms *builtIn) createBaseMoveRequest(
 
 	var backgroundWorkers sync.WaitGroup
 	startState := motionplan.NewPlanState(
-		motionplan.PathState{kinematicFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose)},
+		referenceframe.FramePositions{kinematicFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose)},
 		currentInputs,
 	)
-	goals := []*motionplan.PlanState{motionplan.NewPlanState(motionplan.PathState{kinematicFrame.Name(): goal}, nil)}
+	goals := []*motionplan.PlanState{motionplan.NewPlanState(referenceframe.FramePositions{kinematicFrame.Name(): goal}, nil)}
 
 	mr := &moveRequest{
 		config: motionCfg,

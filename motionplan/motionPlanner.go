@@ -182,7 +182,7 @@ func PlanFrameMotion(ctx context.Context,
 	plan, err := PlanMotion(ctx, &PlanRequest{
 		Logger: logger,
 		Goals: []*PlanState{
-			{poses: PathState{f.Name(): referenceframe.NewPoseInFrame(referenceframe.World, dst)}},
+			{poses: referenceframe.FramePositions{f.Name(): referenceframe.NewPoseInFrame(referenceframe.World, dst)}},
 		},
 		StartState:  &PlanState{configuration: referenceframe.FrameConfigurations{f.Name(): seed}},
 		FrameSystem: fs,
