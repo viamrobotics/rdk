@@ -1343,7 +1343,7 @@ func (m *module) registerProcessWithFTDC() {
 		return
 	}
 
-	m.ftdc.Add(fmt.Sprintf("modules.%s", m.process.ID()), statser)
+	m.ftdc.Add(fmt.Sprintf("proc.modules.%s", m.process.ID()), statser)
 }
 
 func getFullEnvironment(
