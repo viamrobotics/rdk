@@ -132,7 +132,7 @@ func (gpw *gnuplotWriter) addPoint(timeSeconds int64, metricName string, metricV
 	writelnf(gpw.getDatafile(metricName), "%v %.5f", timeSeconds, metricValue)
 }
 
-type RatioMetric struct {
+type ratioMetric struct {
 	Numerator string
 	// An empty string Denominator will use the datum read timestamp value for its denominator.
 	Denominator string
@@ -142,20 +142,20 @@ type RatioMetric struct {
 // some ratio. The two members (`Numerator` and `Denominator`) refer to the suffix* of a metric
 // name. For example, `UserCPUSecs` will appear under `proc.viam-server.UserCPUSecs` as well as
 // `proc.modules.<foo>.UserCPUSecs`. If the `Denominator` is the empty string, the
-// `RatioReading.Time` value will be used.
+// `ratioReading.Time` value will be used.
 //
 // When computing rates for metrics across two "readings", we simply subtract the numerators and
 // denominator and divide the differences. We use the `windowSizeSecs` to pick which "readings"
 // should be compared. This creates a sliding window. We (currently) bias this window to better
 // portray "recent" resource utilization.
-var ratioMetricToFields map[string]RatioMetric = map[string]RatioMetric{
-	"UserCPU":   RatioMetric{"UserCPUSecs", "ElapsedTimeSecs"},
-	"SystemCPU": RatioMetric{"SystemCPUSecs", "ElapsedTimeSecs"},
+var ratioMetricToFields = map[string]ratioMetric{
+	"UserCPU":   {"UserCPUSecs", "ElapsedTimeSecs"},
+	"SystemCPU": {"SystemCPUSecs", "ElapsedTimeSecs"},
 	// PerSec ratios use an empty string denominator.
-	"HeadersProcessedPerSec": RatioMetric{"HeadersProcessed", ""},
+	"HeadersProcessedPerSec": {"HeadersProcessed", ""},
 }
 
-type RatioReading struct {
+type ratioReading struct {
 	GraphName string
 	// Seconds since epoch.
 	Time        int64
@@ -167,16 +167,16 @@ type RatioReading struct {
 	IsRate bool
 }
 
-func (rr RatioReading) AsPercentage() float32 {
+func (rr ratioReading) asPercentage() float32 {
 	return float32(float64(rr.Numerator) / rr.Denominator * 100)
 }
 
-func (rr RatioReading) AsRate() float32 {
+func (rr ratioReading) asRate() float32 {
 	return float32(float64(rr.Numerator) / rr.Denominator)
 }
 
-func (rr *RatioReading) Diff(other *RatioReading) RatioReading {
-	return RatioReading{
+func (rr *ratioReading) diff(other *ratioReading) ratioReading {
+	return ratioReading{
 		rr.GraphName,
 		rr.Time,
 		rr.Numerator - other.Numerator,
@@ -185,9 +185,7 @@ func (rr *RatioReading) Diff(other *RatioReading) RatioReading {
 	}
 }
 
-var globalRatios map[string][]RatioMetric
-
-func pullRatios(reading ftdc.Reading, readingTs int64, ratioGraphs map[string]*RatioReading, ratioMetrics map[string]RatioMetric) bool {
+func pullRatios(reading ftdc.Reading, readingTS int64, ratioGraphs map[string]*ratioReading, ratioMetrics map[string]ratioMetric) bool {
 	ret := false
 	for ratioMetricName, ratioMetric := range ratioMetrics {
 		if strings.HasSuffix(reading.MetricName, ratioMetric.Numerator) {
@@ -199,12 +197,12 @@ func pullRatios(reading ftdc.Reading, readingTs int64, ratioGraphs map[string]*R
 			// E.g: `rdk.foo_module.User CPU%'.
 			graphName := fmt.Sprint(metricIdentifier, ratioMetricName)
 			if _, exists := ratioGraphs[graphName]; !exists {
-				ratioGraphs[graphName] = &RatioReading{GraphName: graphName, Time: readingTs, IsRate: ratioMetric.Denominator == ""}
+				ratioGraphs[graphName] = &ratioReading{GraphName: graphName, Time: readingTS, IsRate: ratioMetric.Denominator == ""}
 			}
 
 			ratioGraphs[graphName].Numerator = reading.Value
 			if ratioMetric.Denominator == "" {
-				ratioGraphs[graphName].Denominator = float64(readingTs)
+				ratioGraphs[graphName].Denominator = float64(readingTS)
 			}
 
 			continue
@@ -219,7 +217,7 @@ func pullRatios(reading ftdc.Reading, readingTs int64, ratioGraphs map[string]*R
 			// E.g: `rdk.foo_module.User CPU%'.
 			graphName := fmt.Sprint(metricIdentifier, ratioMetricName)
 			if _, exists := ratioGraphs[graphName]; !exists {
-				ratioGraphs[graphName] = &RatioReading{GraphName: graphName, Time: readingTs, IsRate: false}
+				ratioGraphs[graphName] = &ratioReading{GraphName: graphName, Time: readingTS, IsRate: false}
 			}
 
 			ratioGraphs[graphName].Denominator = float64(reading.Value)
@@ -230,10 +228,10 @@ func pullRatios(reading ftdc.Reading, readingTs int64, ratioGraphs map[string]*R
 	return ret
 }
 
-func (gpw *gnuplotWriter) addFlatDatum(datum ftdc.FlatDatum) map[string]*RatioReading {
+func (gpw *gnuplotWriter) addFlatDatum(datum ftdc.FlatDatum) map[string]*ratioReading {
 	// ratioGraphs is an accumulator for readings of metrics that are used together to create a
 	// graph. Such as `UserCPUSecs` / `ElapsedTimeSecs`.
-	ratioGraphs := make(map[string]*RatioReading)
+	ratioGraphs := make(map[string]*ratioReading)
 
 	// There are two kinds of metrics. "Simple" metrics that can simply be passed through to the
 	// gnuplotWriter. And "ratio" metrics that combine two different readings.
@@ -275,7 +273,7 @@ const windowSizeSecs = 5
 
 // The deferredValues input is in FTDC reading order. On a responsive system, adjacent items in the
 // slice should be one second apart.
-func (gpw *gnuplotWriter) writeDeferredValues(deferredValues []map[string]*RatioReading) {
+func (gpw *gnuplotWriter) writeDeferredValues(deferredValues []map[string]*ratioReading) {
 	for idx, currReadings := range deferredValues {
 		if idx < windowSizeSecs {
 			// We can try harder here to output a reasonable value here. But we'd have to at least
@@ -286,17 +284,17 @@ func (gpw *gnuplotWriter) writeDeferredValues(deferredValues []map[string]*Ratio
 
 		prevReadings := deferredValues[idx-windowSizeSecs]
 		for metricName, currRatioReading := range currReadings {
-			var diff RatioReading
-			if prevRatioReading, exists := prevReadings[metricName]; exists {
-				diff = currRatioReading.Diff(prevRatioReading)
+			var diff ratioReading
+			if prevratioReading, exists := prevReadings[metricName]; exists {
+				diff = currRatioReading.diff(prevratioReading)
 			} else {
 				continue
 			}
 
 			if diff.IsRate {
-				gpw.addPoint(currRatioReading.Time, metricName, diff.AsRate())
+				gpw.addPoint(currRatioReading.Time, metricName, diff.asRate())
 			} else {
-				gpw.addPoint(currRatioReading.Time, metricName, diff.AsPercentage())
+				gpw.addPoint(currRatioReading.Time, metricName, diff.asPercentage())
 			}
 		}
 	}
@@ -380,7 +378,7 @@ func main() {
 	graphOptions := defaultGraphOptions()
 	for {
 		if render {
-			deferredValues := make([]map[string]*RatioReading, 0)
+			deferredValues := make([]map[string]*ratioReading, 0)
 			gpw := newGnuPlotWriter(graphOptions)
 			for _, flatDatum := range data {
 				deferredValues = append(deferredValues, gpw.addFlatDatum(flatDatum))
@@ -451,7 +449,7 @@ func main() {
 			graphOptions.minTimeSeconds = 0
 			graphOptions.maxTimeSeconds = math.MaxInt64
 		case cmd == "refresh" || cmd == "r":
-			fmt.Println("Refreshing graphs with new data")
+			nolintPrintln("Refreshing graphs with new data")
 		case len(cmd) == 0:
 			render = false
 		default:
