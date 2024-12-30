@@ -30,9 +30,9 @@ type motionPlanner interface {
 
 	// Everything below this point should be covered by anything that wraps the generic `planner`
 	smoothPath(context.Context, []node) []node
-	checkPath(map[string][]referenceframe.Input, map[string][]referenceframe.Input) bool
-	checkInputs(map[string][]referenceframe.Input) bool
-	getSolutions(context.Context, map[string][]referenceframe.Input, ik.StateFSMetric) ([]node, error)
+	checkPath(referenceframe.FrameConfigurations, referenceframe.FrameConfigurations) bool
+	checkInputs(referenceframe.FrameConfigurations) bool
+	getSolutions(context.Context, referenceframe.FrameConfigurations, ik.StateFSMetric) ([]node, error)
 	opt() *plannerOptions
 	sample(node, int) (node, error)
 }
@@ -184,7 +184,7 @@ func PlanFrameMotion(ctx context.Context,
 		Goals: []*PlanState{
 			{poses: PathState{f.Name(): referenceframe.NewPoseInFrame(referenceframe.World, dst)}},
 		},
-		StartState:  &PlanState{configuration: map[string][]referenceframe.Input{f.Name(): seed}},
+		StartState:  &PlanState{configuration: referenceframe.FrameConfigurations{f.Name(): seed}},
 		FrameSystem: fs,
 		Constraints: constraints,
 		Options:     planningOpts,
@@ -269,7 +269,7 @@ func newPlanner(fs referenceframe.FrameSystem, seed *rand.Rand, logger logging.L
 	return mp, nil
 }
 
-func (mp *planner) checkInputs(inputs map[string][]referenceframe.Input) bool {
+func (mp *planner) checkInputs(inputs referenceframe.FrameConfigurations) bool {
 	ok, _ := mp.planOpts.CheckStateFSConstraints(&ik.StateFS{
 		Configuration: inputs,
 		FS:            mp.fs,
@@ -277,7 +277,7 @@ func (mp *planner) checkInputs(inputs map[string][]referenceframe.Input) bool {
 	return ok
 }
 
-func (mp *planner) checkPath(seedInputs, target map[string][]referenceframe.Input) bool {
+func (mp *planner) checkPath(seedInputs, target referenceframe.FrameConfigurations) bool {
 	ok, _ := mp.planOpts.CheckSegmentAndStateValidityFS(
 		&ik.SegmentFS{
 			StartConfiguration: seedInputs,
@@ -293,7 +293,7 @@ func (mp *planner) sample(rSeed node, sampleNum int) (node, error) {
 	// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
 	// The 2 at a time is to ensure random seeds are added onto both the seed and gofsal maps.
 	if sampleNum >= mp.planOpts.IterBeforeRand && sampleNum%4 >= 2 {
-		randomInputs := make(map[string][]referenceframe.Input)
+		randomInputs := make(referenceframe.FrameConfigurations)
 		for _, name := range mp.fs.FrameNames() {
 			f := mp.fs.Frame(name)
 			if f != nil && len(f.DoF()) > 0 {
@@ -304,7 +304,7 @@ func (mp *planner) sample(rSeed node, sampleNum int) (node, error) {
 	}
 
 	// Seeding nearby to valid points results in much faster convergence in less constrained space
-	newInputs := make(map[string][]referenceframe.Input)
+	newInputs := make(referenceframe.FrameConfigurations)
 	for name, inputs := range rSeed.Q() {
 		f := mp.fs.Frame(name)
 		if f != nil && len(f.DoF()) > 0 {
@@ -375,14 +375,14 @@ func (mp *planner) smoothPath(ctx context.Context, path []node) []node {
 // getSolutions will initiate an IK solver for the given position and seed, collect solutions, and score them by constraints.
 // If maxSolutions is positive, once that many solutions have been collected, the solver will terminate and return that many solutions.
 // If minScore is positive, if a solution scoring below that amount is found, the solver will terminate and return that one solution.
-func (mp *planner) getSolutions(ctx context.Context, seed map[string][]referenceframe.Input, metric ik.StateFSMetric) ([]node, error) {
+func (mp *planner) getSolutions(ctx context.Context, seed referenceframe.FrameConfigurations, metric ik.StateFSMetric) ([]node, error) {
 	// Linter doesn't properly handle loop labels
 	nSolutions := mp.planOpts.MaxSolutions
 	if nSolutions == 0 {
 		nSolutions = defaultSolutionsToSeed
 	}
 	if len(seed) == 0 {
-		seed = map[string][]referenceframe.Input{}
+		seed = referenceframe.FrameConfigurations{}
 		// If no seed is passed, generate one randomly
 		for _, frameName := range mp.fs.FrameNames() {
 			seed[frameName] = referenceframe.RandomFrameInputs(mp.fs.Frame(frameName), mp.randseed)
@@ -415,7 +415,7 @@ func (mp *planner) getSolutions(ctx context.Context, seed map[string][]reference
 		ikErr <- mp.solver.Solve(ctxWithCancel, solutionGen, linearSeed, minFunc, mp.randseed.Int())
 	})
 
-	solutions := map[float64]map[string][]referenceframe.Input{}
+	solutions := map[float64]referenceframe.FrameConfigurations{}
 
 	// A map keeping track of which constraints fail
 	failures := map[string]int{}
@@ -458,7 +458,7 @@ IK:
 				if arcPass {
 					score := mp.planOpts.configurationDistanceFunc(stepArc)
 					if score < mp.planOpts.MinScore && mp.planOpts.MinScore > 0 {
-						solutions = map[float64]map[string][]referenceframe.Input{}
+						solutions = map[float64]referenceframe.FrameConfigurations{}
 						solutions[score] = step
 						// good solution, stopping early
 						break IK
@@ -563,10 +563,10 @@ func (mp *planner) frameLists() (moving, nonmoving []string) {
 // random configuration for the other. This function attempts to replace that random configuration with the seed configuration, if valid,
 // and if invalid will interpolate the solved random configuration towards the seed and set its configuration to the closest valid
 // configuration to the seed.
-func (mp *planner) nonchainMinimize(seed, step map[string][]referenceframe.Input) map[string][]referenceframe.Input {
+func (mp *planner) nonchainMinimize(seed, step referenceframe.FrameConfigurations) referenceframe.FrameConfigurations {
 	moving, nonmoving := mp.frameLists()
 	// Create a map with nonmoving configurations replaced with their seed values
-	alteredStep := map[string][]referenceframe.Input{}
+	alteredStep := referenceframe.FrameConfigurations{}
 	for _, frame := range moving {
 		alteredStep[frame] = step[frame]
 	}

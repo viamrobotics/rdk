@@ -21,25 +21,25 @@ import (
 
 func TestEvaluateTrajectory(t *testing.T) {
 	plan := Trajectory{
-		map[string][]referenceframe.Input{"": {{1.}, {2.}, {3.}}},
-		map[string][]referenceframe.Input{"": {{1.}, {2.}, {3.}}},
+		referenceframe.FrameConfigurations{"": {{1.}, {2.}, {3.}}},
+		referenceframe.FrameConfigurations{"": {{1.}, {2.}, {3.}}},
 	}
 	// Test no change
 	score := plan.EvaluateCost(ik.FSConfigurationL2Distance)
 	test.That(t, score, test.ShouldAlmostEqual, 0)
 
 	// Test L2 for "", and nothing for plan with only one entry
-	plan = append(plan, map[string][]referenceframe.Input{"": {{4.}, {5.}, {6.}}, "test": {{2.}, {3.}, {4.}}})
+	plan = append(plan, referenceframe.FrameConfigurations{"": {{4.}, {5.}, {6.}}, "test": {{2.}, {3.}, {4.}}})
 	score = plan.EvaluateCost(ik.FSConfigurationL2Distance)
 	test.That(t, score, test.ShouldAlmostEqual, math.Sqrt(27))
 
 	// Test cumulative L2 after returning to original inputs
-	plan = append(plan, map[string][]referenceframe.Input{"": {{1.}, {2.}, {3.}}})
+	plan = append(plan, referenceframe.FrameConfigurations{"": {{1.}, {2.}, {3.}}})
 	score = plan.EvaluateCost(ik.FSConfigurationL2Distance)
 	test.That(t, score, test.ShouldAlmostEqual, math.Sqrt(27)*2)
 
 	// Test that the "test" inputs are properly evaluated after skipping a step
-	plan = append(plan, map[string][]referenceframe.Input{"test": {{3.}, {5.}, {6.}}})
+	plan = append(plan, referenceframe.FrameConfigurations{"test": {{3.}, {5.}, {6.}}})
 	score = plan.EvaluateCost(ik.FSConfigurationL2Distance)
 	test.That(t, score, test.ShouldAlmostEqual, math.Sqrt(27)*2+3)
 

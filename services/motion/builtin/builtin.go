@@ -543,7 +543,7 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 
 func waypointsFromRequest(
 	req motion.MoveReq,
-	fsInputs map[string][]referenceframe.Input,
+	fsInputs referenceframe.FrameConfigurations,
 ) (*motionplan.PlanState, []*motionplan.PlanState, error) {
 	var startState *motionplan.PlanState
 	var waypoints []*motionplan.PlanState

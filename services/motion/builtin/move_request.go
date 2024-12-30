@@ -95,7 +95,7 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 	if len(mr.kinematicBase.Kinematics().DoF()) == 2 {
 		inputs = inputs[:2]
 	}
-	startConf := map[string][]referenceframe.Input{mr.kinematicBase.Kinematics().Name(): inputs}
+	startConf := referenceframe.FrameConfigurations{mr.kinematicBase.Kinematics().Name(): inputs}
 	mr.planRequest.StartState = motionplan.NewPlanState(mr.planRequest.StartState.Poses(), startConf)
 
 	// get existing elements of the worldstate
@@ -406,7 +406,7 @@ func (mr *moveRequest) augmentBaseExecutionState(
 		updatedTraj := kbTraj
 		updatedTraj = append(updatedTraj, referenceframe.PoseToInputs(prevPathPose)...)
 		newTrajectory = append(
-			newTrajectory, map[string][]referenceframe.Input{mr.kinematicBase.Kinematics().Name(): updatedTraj},
+			newTrajectory, referenceframe.FrameConfigurations{mr.kinematicBase.Kinematics().Name(): updatedTraj},
 		)
 	}
 	augmentedPlan := motionplan.NewSimplePlan(existingPlan.Path(), newTrajectory)

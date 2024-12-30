@@ -68,7 +68,7 @@ func (maps *rrtMaps) fillPosOnlyGoal(goal PathState, posSeeds int) error {
 		}
 
 		goalNode := &basicNode{
-			q:     make(map[string][]referenceframe.Input),
+			q:     make(referenceframe.FrameConfigurations),
 			poses: newMap,
 		}
 		maps.goalMap[goalNode] = nil

@@ -74,7 +74,7 @@ func newLinearizedFrameSystem(fs referenceframe.FrameSystem) (*linearizedFrameSy
 
 // mapToSlice will flatten a map of inputs into a slice suitable for input to inverse kinematics, by concatenating
 // the inputs together in the order of the frames in sf.frames.
-func (lfs *linearizedFrameSystem) mapToSlice(inputs map[string][]referenceframe.Input) ([]float64, error) {
+func (lfs *linearizedFrameSystem) mapToSlice(inputs referenceframe.FrameConfigurations) ([]float64, error) {
 	var floatSlice []float64
 	for _, frame := range lfs.frames {
 		if len(frame.DoF()) == 0 {
@@ -91,8 +91,8 @@ func (lfs *linearizedFrameSystem) mapToSlice(inputs map[string][]referenceframe.
 	return floatSlice, nil
 }
 
-func (lfs *linearizedFrameSystem) sliceToMap(floatSlice []float64) (map[string][]referenceframe.Input, error) {
-	inputs := map[string][]referenceframe.Input{}
+func (lfs *linearizedFrameSystem) sliceToMap(floatSlice []float64) (referenceframe.FrameConfigurations, error) {
+	inputs := referenceframe.FrameConfigurations{}
 	i := 0
 	for _, frame := range lfs.frames {
 		if len(frame.DoF()) == 0 {
@@ -293,7 +293,7 @@ func nodeConfigurationDistanceFunc(node1, node2 node) float64 {
 func alterGoals(
 	chains []*motionChain,
 	fs referenceframe.FrameSystem,
-	start map[string][]referenceframe.Input,
+	start referenceframe.FrameConfigurations,
 	goal *PlanState,
 ) (*PlanState, error) {
 	alteredGoals := PathState{}

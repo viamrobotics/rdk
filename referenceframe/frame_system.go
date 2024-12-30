@@ -22,7 +22,7 @@ const World = "world"
 const defaultPointDensity = 0.
 
 type (
-	FrameConfigurations FrameConfgurations
+	FrameConfigurations map[string][]Input
 	FramePositions      map[string]*PoseInFrame
 )
 

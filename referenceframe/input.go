@@ -100,7 +100,7 @@ func interpolateInputs(from, to []Input, by float64) []Input {
 }
 
 // GetFrameInputs looks through the inputMap and returns a slice of Inputs corresponding to the given frame.
-func GetFrameInputs(frame Frame, inputMap FrameConfgurations) ([]Input, error) {
+func GetFrameInputs(frame Frame, inputMap FrameConfigurations) ([]Input, error) {
 	var input []Input
 	// Get frame inputs if necessary
 	if len(frame.DoF()) > 0 {

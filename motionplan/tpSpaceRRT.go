@@ -157,7 +157,7 @@ func newTPSpaceMotionPlanner(
 }
 
 func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context, seed, goal *PlanState) ([]node, error) {
-	zeroInputs := map[string][]referenceframe.Input{}
+	zeroInputs := referenceframe.FrameConfigurations{}
 	zeroInputs[mp.tpFrame.Name()] = make([]referenceframe.Input, len(mp.tpFrame.DoF()))
 	solutionChan := make(chan *rrtSolution, 1)
 
@@ -506,7 +506,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 
 	// We may produce more than one consecutive arc. Reduce the one configuration to several 2dof arcs
 	for i := 0; i < len(solution.Configuration); i += 2 {
-		subConfig := map[string][]referenceframe.Input{
+		subConfig := referenceframe.FrameConfigurations{
 			mp.tpFrame.Name(): referenceframe.FloatsToInputs(solution.Configuration[i : i+2]),
 		}
 		subNode := newConfigurationNode(subConfig)
@@ -540,7 +540,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 		arcStartPose = spatialmath.Compose(arcStartPose, mp.pathStateToPose(goodNode.Poses()))
 
 		successNode = &basicNode{
-			q: map[string][]referenceframe.Input{
+			q: referenceframe.FrameConfigurations{
 				mp.tpFrame.Name(): {{float64(ptgNum)}, goodNode.Q()[mp.tpFrame.Name()][0], {0}, goodNode.Q()[mp.tpFrame.Name()][1]},
 			},
 			cost:   goodNode.Cost(),
@@ -607,7 +607,7 @@ func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, arcStart
 		}
 
 		okNode := &basicNode{
-			q: map[string][]referenceframe.Input{
+			q: referenceframe.FrameConfigurations{
 				mp.tpFrame.Name(): {{trajPt.Alpha}, {trajPt.Dist}},
 			},
 			cost:   trajPt.Dist,
@@ -619,7 +619,7 @@ func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, arcStart
 
 	lastTrajPt := trajK[len(trajK)-1]
 	return &basicNode{
-		q: map[string][]referenceframe.Input{
+		q: referenceframe.FrameConfigurations{
 			mp.tpFrame.Name(): {{lastTrajPt.Alpha}, {lastTrajPt.Dist}},
 		},
 		cost:   lastTrajPt.Dist,
@@ -794,7 +794,7 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 			if sinceLastNode > mp.algOpts.addNodeEvery {
 				// add the last node in trajectory
 				addedNode = &basicNode{
-					q: map[string][]referenceframe.Input{
+					q: referenceframe.FrameConfigurations{
 						mp.tpFrame.Name(): referenceframe.FloatsToInputs([]float64{float64(ptgNum), randAlpha, 0, trajPt.Dist}),
 					},
 					cost:   trajPt.Dist,
@@ -980,7 +980,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 		for adjNum := defaultSmoothChunkCount - 1; adjNum > 0; adjNum-- {
 			fullQ := pathNode.Q()[mp.tpFrame.Name()]
 			adj := (fullQ[3].Value - fullQ[2].Value) * (float64(adjNum) / float64(defaultSmoothChunkCount))
-			newQ := map[string][]referenceframe.Input{
+			newQ := referenceframe.FrameConfigurations{
 				mp.tpFrame.Name(): {fullQ[0], fullQ[1], fullQ[2], {fullQ[3].Value - adj}},
 			}
 			trajK, err := smoother.solvers[int(math.Round(newQ[mp.tpFrame.Name()][0].Value))].Trajectory(
@@ -1096,7 +1096,7 @@ func extractTPspacePath(fName string, startMap, goalMap map[node]node, pair *nod
 		if startMap[startReached] == nil {
 			path = append(path,
 				&basicNode{
-					q: map[string][]referenceframe.Input{
+					q: referenceframe.FrameConfigurations{
 						fName: {{0}, {0}, {0}, {0}},
 					},
 					cost:   startReached.Cost(),
@@ -1121,7 +1121,7 @@ func extractTPspacePath(fName string, startMap, goalMap map[node]node, pair *nod
 		if goalMap[goalReached] == nil {
 			// Add the final node
 			goalReachedReversed = &basicNode{
-				q: map[string][]referenceframe.Input{
+				q: referenceframe.FrameConfigurations{
 					fName: {{0}, {0}, {0}, {0}},
 				},
 				cost:   goalReached.Cost(),
@@ -1130,7 +1130,7 @@ func extractTPspacePath(fName string, startMap, goalMap map[node]node, pair *nod
 			}
 		} else {
 			goalReachedReversed = &basicNode{
-				q: map[string][]referenceframe.Input{
+				q: referenceframe.FrameConfigurations{
 					fName: {
 						goalReached.Q()[fName][0],
 						goalReached.Q()[fName][1],

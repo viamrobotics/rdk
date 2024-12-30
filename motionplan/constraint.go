@@ -754,7 +754,7 @@ func (fpc *fsPathConstraint) metric(state *ik.StateFS) float64 {
 
 func newFsPathConstraintSeparatedLinOrientTol(
 	fs referenceframe.FrameSystem,
-	startCfg map[string][]referenceframe.Input,
+	startCfg referenceframe.FrameConfigurations,
 	from, to PathState,
 	constructor func(spatial.Pose, spatial.Pose, float64, float64) (StateConstraint, ik.StateMetric),
 	linTol, orientTol float64,
@@ -786,7 +786,7 @@ func newFsPathConstraintSeparatedLinOrientTol(
 
 func newFsPathConstraintTol(
 	fs referenceframe.FrameSystem,
-	startCfg map[string][]referenceframe.Input,
+	startCfg referenceframe.FrameConfigurations,
 	from, to PathState,
 	constructor func(spatial.Pose, spatial.Pose, float64) (StateConstraint, ik.StateMetric),
 	tolerance float64,
@@ -821,7 +821,7 @@ func newFsPathConstraintTol(
 // their respective orientations, as well as a metric which returns the distance to that valid region.
 func CreateSlerpOrientationConstraintFS(
 	fs referenceframe.FrameSystem,
-	startCfg map[string][]referenceframe.Input,
+	startCfg referenceframe.FrameConfigurations,
 	from, to PathState,
 	tolerance float64,
 ) (StateFSConstraint, ik.StateFSMetric, error) {
@@ -837,7 +837,7 @@ func CreateSlerpOrientationConstraintFS(
 // line segment between their respective positions, as well as a metric which returns the distance to that valid region.
 func CreateLineConstraintFS(
 	fs referenceframe.FrameSystem,
-	startCfg map[string][]referenceframe.Input,
+	startCfg referenceframe.FrameConfigurations,
 	from, to PathState,
 	tolerance float64,
 ) (StateFSConstraint, ik.StateFSMetric, error) {
@@ -857,7 +857,7 @@ func CreateLineConstraintFS(
 // orientation deviation measured by norm of the R3AA orientation difference to the slerp path between start/goal orientations.
 func CreateAbsoluteLinearInterpolatingConstraintFS(
 	fs referenceframe.FrameSystem,
-	startCfg map[string][]referenceframe.Input,
+	startCfg referenceframe.FrameConfigurations,
 	from, to PathState,
 	linTol, orientTol float64,
 ) (StateFSConstraint, ik.StateFSMetric, error) {
@@ -881,7 +881,7 @@ func CreateAbsoluteLinearInterpolatingConstraintFS(
 // from start to goal.
 func CreateProportionalLinearInterpolatingConstraintFS(
 	fs referenceframe.FrameSystem,
-	startCfg map[string][]referenceframe.Input,
+	startCfg referenceframe.FrameConfigurations,
 	from, to PathState,
 	linTol, orientTol float64,
 ) (StateFSConstraint, ik.StateFSMetric, error) {

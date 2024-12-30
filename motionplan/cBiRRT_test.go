@@ -45,13 +45,13 @@ func TestSimpleLinearMotion(t *testing.T) {
 	mp, err := newCBiRRTMotionPlanner(fs, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
 	cbirrt, _ := mp.(*cBiRRTMotionPlanner)
-	solutions, err := mp.getSolutions(ctx, map[string][]referenceframe.Input{m.Name(): home7}, goalMetric)
+	solutions, err := mp.getSolutions(ctx, referenceframe.FrameConfigurations{m.Name(): home7}, goalMetric)
 	test.That(t, err, test.ShouldBeNil)
 
-	near1 := &basicNode{q: map[string][]referenceframe.Input{m.Name(): home7}}
+	near1 := &basicNode{q: referenceframe.FrameConfigurations{m.Name(): home7}}
 	seedMap := make(map[node]node)
 	seedMap[near1] = nil
-	target := map[string][]referenceframe.Input{m.Name(): interp}
+	target := referenceframe.FrameConfigurations{m.Name(): interp}
 
 	goalMap := make(map[node]node)
 

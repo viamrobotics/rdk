@@ -134,7 +134,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	defer cancel()
 	mp.start = time.Now()
 
-	var seed map[string][]referenceframe.Input
+	var seed referenceframe.FrameConfigurations
 	// Pick a random (first in map) seed node to create the first interp node
 	for sNode, parent := range rrt.maps.startMap {
 		if parent == nil {
@@ -351,8 +351,8 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 	ctx context.Context,
 	randseed *rand.Rand,
 	seedInputs,
-	target map[string][]referenceframe.Input,
-) map[string][]referenceframe.Input {
+	target referenceframe.FrameConfigurations,
+) referenceframe.FrameConfigurations {
 	for i := 0; i < maxNearIter; i++ {
 		select {
 		case <-ctx.Done():

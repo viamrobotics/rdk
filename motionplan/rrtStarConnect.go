@@ -126,7 +126,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 	if rrt.maps == nil || len(rrt.maps.goalMap) == 0 || len(rrt.maps.startMap) == 0 {
 		rrt.solutionChan <- &rrtSolution{err: errors.New("cannot run RRT background runner without prepopulated maps")}
 	}
-	var seed map[string][]referenceframe.Input
+	var seed referenceframe.FrameConfigurations
 	// Pick a random seed node to create the first interp node
 	for sNode, parent := range rrt.maps.startMap {
 		if parent == nil {

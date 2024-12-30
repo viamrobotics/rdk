@@ -153,7 +153,7 @@ func (pm *planManager) planAtomicWaypoints(
 	// Each atomic waypoint produces one result promise, all of which are resolved at the end, allowing multiple to be solved in parallel.
 	resultPromises := []*resultPromise{}
 
-	var seed map[string][]referenceframe.Input
+	var seed referenceframe.FrameConfigurations
 
 	// try to solve each goal, one at a time
 	for _, wp := range waypoints {
@@ -226,7 +226,7 @@ func (pm *planManager) planSingleAtomicWaypoint(
 	ctx context.Context,
 	wp atomicWaypoint,
 	maps *rrtMaps,
-) (map[string][]referenceframe.Input, *resultPromise, error) {
+) (referenceframe.FrameConfigurations, *resultPromise, error) {
 	pm.logger.Debug("start planning for ", wp.goalState.configuration, wp.goalState.poses)
 
 	if _, ok := wp.mp.(rrtParallelPlanner); ok {
@@ -419,7 +419,7 @@ func (pm *planManager) planParallelRRTMotion(
 // This is where the map[string]interface{} passed in via `extra` is used to decide how planning happens.
 func (pm *planManager) plannerSetupFromMoveRequest(
 	from, to *PlanState,
-	seedMap map[string][]referenceframe.Input, // A known good configuration to set up collsiion constraints. Not necessarily `from`.
+	seedMap referenceframe.FrameConfigurations, // A known good configuration to set up collsiion constraints. Not necessarily `from`.
 	worldState *referenceframe.WorldState,
 	boundingRegions []spatialmath.Geometry,
 	constraints *Constraints,
@@ -760,7 +760,7 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 	waypoints := []atomicWaypoint{}
 	for i := 1; i <= numSteps; i++ {
 		by := float64(i) / float64(numSteps)
-		to := &PlanState{PathState{}, map[string][]referenceframe.Input{}}
+		to := &PlanState{PathState{}, referenceframe.FrameConfigurations{}}
 		if wpGoals.poses != nil {
 			for frameName, pif := range wpGoals.poses {
 				toPose := spatialmath.Interpolate(startPoses[frameName].Pose(), pif.Pose(), by)
@@ -938,7 +938,7 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 	}
 	wp := wps[0]
 
-	zeroInputs := map[string][]referenceframe.Input{}
+	zeroInputs := referenceframe.FrameConfigurations{}
 	zeroInputs[opt.ptgFrameName] = make([]referenceframe.Input, len(pm.fs.Frame(opt.ptgFrameName).DoF()))
 	maps := &rrtMaps{}
 	if seedPlan != nil {

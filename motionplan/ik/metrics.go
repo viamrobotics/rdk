@@ -25,8 +25,8 @@ type Segment struct {
 // SegmentFS is a referenceframe.FrameSystem-specific contains all the information a constraint needs to determine validity for a movement.
 // It contains the starting inputs, the ending inputs, and the framesystem it refers to.
 type SegmentFS struct {
-	StartConfiguration map[string][]referenceframe.Input
-	EndConfiguration   map[string][]referenceframe.Input
+	StartConfiguration referenceframe.FrameConfigurations
+	EndConfiguration   referenceframe.FrameConfigurations
 	FS                 referenceframe.FrameSystem
 }
 
@@ -62,7 +62,7 @@ type State struct {
 // framesystem. It contains inputs, the corresponding poses, and the frame it refers to.
 // Pose field may be empty, and may be filled in by a constraint that needs it.
 type StateFS struct {
-	Configuration map[string][]referenceframe.Input
+	Configuration referenceframe.FrameConfigurations
 	FS            referenceframe.FrameSystem
 }
 

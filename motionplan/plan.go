@@ -68,7 +68,7 @@ func OffsetPlan(plan Plan, offset spatialmath.Pose) Plan {
 
 // Trajectory is a slice of maps describing a series of Inputs for a robot to travel to in the course of following a Plan.
 // Each item in this slice maps a Frame's name (found by calling frame.Name()) to the Inputs that Frame should be modified by.
-type Trajectory []map[string][]referenceframe.Input
+type Trajectory []referenceframe.FrameConfigurations
 
 // GetFrameInputs is a helper function which will extract the waypoints of a single frame from the map output of a trajectory.
 func (traj Trajectory) GetFrameInputs(frameName string) ([][]referenceframe.Input, error) {
@@ -100,7 +100,7 @@ func (traj Trajectory) String() string {
 // EvaluateCost calculates a cost to a trajectory as measured by the given distFunc Metric.
 func (traj Trajectory) EvaluateCost(distFunc ik.SegmentFSMetric) float64 {
 	var totalCost float64
-	last := map[string][]referenceframe.Input{}
+	last := referenceframe.FrameConfigurations{}
 	for i, step := range traj {
 		if i != 0 {
 			cost := distFunc(&ik.SegmentFS{
@@ -260,7 +260,7 @@ type ExecutionState struct {
 	index int
 
 	// The current inputs of input-enabled elements described by the plan
-	currentInputs map[string][]referenceframe.Input
+	currentInputs referenceframe.FrameConfigurations
 
 	// The current PoseInFrames of input-enabled elements described by this plan.
 	currentPose PathState
@@ -270,7 +270,7 @@ type ExecutionState struct {
 func NewExecutionState(
 	plan Plan,
 	index int,
-	currentInputs map[string][]referenceframe.Input,
+	currentInputs referenceframe.FrameConfigurations,
 	currentPose PathState,
 ) (ExecutionState, error) {
 	if plan == nil {
@@ -301,7 +301,7 @@ func (e *ExecutionState) Index() int {
 }
 
 // CurrentInputs returns the current inputs of the components associated with the ExecutionState.
-func (e *ExecutionState) CurrentInputs() map[string][]referenceframe.Input {
+func (e *ExecutionState) CurrentInputs() referenceframe.FrameConfigurations {
 	return e.currentInputs
 }
 
@@ -356,11 +356,11 @@ func newFrameNotFoundError(frameName string) error {
 // Either field may be nil.
 type PlanState struct {
 	poses         PathState
-	configuration map[string][]referenceframe.Input
+	configuration referenceframe.FrameConfigurations
 }
 
 // NewPlanState creates a PlanState from the given poses and configuration. Either or both may be nil.
-func NewPlanState(poses PathState, configuration map[string][]referenceframe.Input) *PlanState {
+func NewPlanState(poses PathState, configuration referenceframe.FrameConfigurations) *PlanState {
 	return &PlanState{poses: poses, configuration: configuration}
 }
 
@@ -370,7 +370,7 @@ func (p *PlanState) Poses() PathState {
 }
 
 // Configuration returns the configuration of the PlanState.
-func (p *PlanState) Configuration() map[string][]referenceframe.Input {
+func (p *PlanState) Configuration() referenceframe.FrameConfigurations {
 	return p.configuration
 }
 
@@ -405,7 +405,7 @@ func (p PlanState) Serialize() map[string]interface{} {
 }
 
 // ComputePathStateFromConfiguration computes the poses for each frame in a framesystem in frame of World, using the provided configuration.
-func ComputePathStateFromConfiguration(fs referenceframe.FrameSystem, configuration map[string][]referenceframe.Input) (PathState, error) {
+func ComputePathStateFromConfiguration(fs referenceframe.FrameSystem, configuration referenceframe.FrameConfigurations) (PathState, error) {
 	// Compute poses from configuration using the FrameSystem
 	computedPoses := make(PathState)
 	for _, frameName := range fs.FrameNames() {
@@ -422,7 +422,7 @@ func ComputePathStateFromConfiguration(fs referenceframe.FrameSystem, configurat
 func DeserializePlanState(iface map[string]interface{}) (*PlanState, error) {
 	ps := &PlanState{
 		poses:         PathState{},
-		configuration: map[string][]referenceframe.Input{},
+		configuration: referenceframe.FrameConfigurations{},
 	}
 	if posesIface, ok := iface["poses"]; ok {
 		if pathStateMap, ok := posesIface.(map[string]interface{}); ok {

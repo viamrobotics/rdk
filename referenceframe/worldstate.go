@@ -147,7 +147,7 @@ func (ws *WorldState) Transforms() []*LinkInFrame {
 
 // ObstaclesInWorldFrame takes a frame system and a set of inputs for that frame system and converts all the obstacles
 // in the WorldState such that they are in the frame system's World reference frame.
-func (ws *WorldState) ObstaclesInWorldFrame(fs FrameSystem, inputs FrameConfgurations) (*GeometriesInFrame, error) {
+func (ws *WorldState) ObstaclesInWorldFrame(fs FrameSystem, inputs FrameConfigurations) (*GeometriesInFrame, error) {
 	if ws == nil {
 		return NewGeometriesInFrame(World, []spatialmath.Geometry{}), nil
 	}

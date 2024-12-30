@@ -235,7 +235,7 @@ func (p *plannerOptions) SetMinScore(minScore float64) {
 // constraints. It will return a bool indicating whether there are any to add.
 func (p *plannerOptions) addTopoConstraints(
 	fs referenceframe.FrameSystem,
-	startCfg map[string][]referenceframe.Input,
+	startCfg referenceframe.FrameConfigurations,
 	from, to PathState,
 	constraints *Constraints,
 ) (bool, error) {
@@ -270,7 +270,7 @@ func (p *plannerOptions) addTopoConstraints(
 
 func (p *plannerOptions) addLinearConstraints(
 	fs referenceframe.FrameSystem,
-	startCfg map[string][]referenceframe.Input,
+	startCfg referenceframe.FrameConfigurations,
 	from, to PathState,
 	linConstraint LinearConstraint,
 ) error {
@@ -296,7 +296,7 @@ func (p *plannerOptions) addLinearConstraints(
 
 func (p *plannerOptions) addPseudolinearConstraints(
 	fs referenceframe.FrameSystem,
-	startCfg map[string][]referenceframe.Input,
+	startCfg referenceframe.FrameConfigurations,
 	from, to PathState,
 	plinConstraint PseudolinearConstraint,
 ) error {
@@ -322,7 +322,7 @@ func (p *plannerOptions) addPseudolinearConstraints(
 
 func (p *plannerOptions) addOrientationConstraints(
 	fs referenceframe.FrameSystem,
-	startCfg map[string][]referenceframe.Input,
+	startCfg referenceframe.FrameConfigurations,
 	from, to PathState,
 	orientConstraint OrientationConstraint,
 ) error {

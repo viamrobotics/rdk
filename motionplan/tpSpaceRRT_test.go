@@ -263,7 +263,7 @@ func TestTPsmoothing(t *testing.T) {
 	plan := []node{}
 	for _, inp := range planInputs {
 		thisNode := &basicNode{
-			q:    map[string][]referenceframe.Input{ackermanFrame.Name(): inp},
+			q:    referenceframe.FrameConfigurations{ackermanFrame.Name(): inp},
 			cost: inp[3].Value - inp[2].Value,
 		}
 		plan = append(plan, thisNode)
