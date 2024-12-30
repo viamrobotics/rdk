@@ -25,6 +25,9 @@ import (
 //go:embed tmpl-module
 var goTmpl string
 
+// possible prefixes before function parameter and return types
+var typePrefixes = []string{"*", "[]*", "[]", "chan "}
+
 // getClientCode grabs client.go code of component type.
 func getClientCode(module modulegen.ModuleInputs) (string, error) {
 	url := fmt.Sprintf("https://raw.githubusercontent.com/viamrobotics/rdk/refs/tags/v%s/%ss/%s/client.go",
@@ -126,8 +129,7 @@ func formatType(typeExpr ast.Expr, resourceSubtype string) string {
 	}
 	typeString := buf.String()
 
-	prefixes := []string{"*", "[]*", "[]", "chan "}
-	// checkUpper attributes to <resourceSubtype> if type is capitalized after prefix.
+	// checkUpper adds "<resourceSubtype>." to the type if type is capitalized after prefix.
 	checkUpper := func(str, prefix string) string {
 		prefixLen := len(prefix)
 		if unicode.IsUpper(rune(str[prefixLen])) {
@@ -135,7 +137,7 @@ func formatType(typeExpr ast.Expr, resourceSubtype string) string {
 		}
 		return str
 	}
-	for _, prefix := range prefixes {
+	for _, prefix := range typePrefixes {
 		if strings.HasPrefix(typeString, prefix) {
 			return checkUpper(typeString, prefix)
 		}
