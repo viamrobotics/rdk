@@ -2072,8 +2072,7 @@ func DeleteOAuthAppConfirmation(c *cli.Context, args deleteOAuthAppArgs) error {
 	printf(c.App.Writer, yellow, "WARNING!!\n")
 	printf(c.App.Writer, yellow, fmt.Sprintf("You are trying to delete an OAuth application with client ID %s. "+
 		"Once deleted, any existing apps that rely on this OAuth application will no longer be able to authenticate users.\n", args.ClientID))
-	printf(c.App.Writer, yellow, "Do you want to continue?")
-	printf(c.App.Writer, "Continue: y/n")
+	printf(c.App.Writer, yellow, "If you wish to continue, please type \"delete\":")
 	if err := c.Err(); err != nil {
 		return err
 	}
@@ -2084,7 +2083,7 @@ func DeleteOAuthAppConfirmation(c *cli.Context, args deleteOAuthAppArgs) error {
 	}
 
 	input := strings.ToUpper(strings.TrimSpace(rawInput))
-	if input != "Y" {
+	if input != "DELETE" {
 		return errors.New("aborted")
 	}
 	return nil
