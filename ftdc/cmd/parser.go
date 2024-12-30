@@ -126,7 +126,6 @@ func (gpw *gnuplotWriter) getDatafile(metricName string) io.Writer {
 
 func (gpw *gnuplotWriter) addPoint(timeSeconds int64, metricName string, metricValue float32) {
 	if timeSeconds < gpw.options.minTimeSeconds || timeSeconds > gpw.options.maxTimeSeconds {
-		fmt.Println("Returning:", metricName)
 		return
 	}
 
@@ -139,6 +138,16 @@ type RatioMetric struct {
 	Denominator string
 }
 
+// ratioMetricToFields is a global variable identifying the metric names that are to be graphed as
+// some ratio. The two members (`Numerator` and `Denominator`) refer to the suffix* of a metric
+// name. For example, `UserCPUSecs` will appear under `proc.viam-server.UserCPUSecs` as well as
+// `proc.modules.<foo>.UserCPUSecs`. If the `Denominator` is the empty string, the
+// `RatioReading.Time` value will be used.
+//
+// When computing rates for metrics across two "readings", we simply subtract the numerators and
+// denominator and divide the differences. We use the `windowSizeSecs` to pick which "readings"
+// should be compared. This creates a sliding window. We (currently) bias this window to better
+// portray "recent" resource utilization.
 var ratioMetricToFields map[string]RatioMetric = map[string]RatioMetric{
 	"UserCPU":   RatioMetric{"UserCPUSecs", "ElapsedTimeSecs"},
 	"SystemCPU": RatioMetric{"SystemCPUSecs", "ElapsedTimeSecs"},
@@ -152,16 +161,17 @@ type RatioReading struct {
 	Time        int64
 	Numerator   float32
 	Denominator float64
-	IsRate      bool
+
+	// `IsRate` == false will multiply by 100 for displaying as a percentage. Otherwise just display
+	// the quotient.
+	IsRate bool
 }
 
 func (rr RatioReading) AsPercentage() float32 {
-	fmt.Println("As percentage. Metric:", rr.GraphName, "Val:", float32(float64(rr.Numerator)/rr.Denominator*100))
 	return float32(float64(rr.Numerator) / rr.Denominator * 100)
 }
 
 func (rr RatioReading) AsRate() float32 {
-	fmt.Println("As rate. Metric:", rr.GraphName, "Val:", float32(float64(rr.Numerator)/rr.Denominator*100))
 	return float32(float64(rr.Numerator) / rr.Denominator)
 }
 
@@ -221,6 +231,8 @@ func pullRatios(reading ftdc.Reading, readingTs int64, ratioGraphs map[string]*R
 }
 
 func (gpw *gnuplotWriter) addFlatDatum(datum ftdc.FlatDatum) map[string]*RatioReading {
+	// ratioGraphs is an accumulator for readings of metrics that are used together to create a
+	// graph. Such as `UserCPUSecs` / `ElapsedTimeSecs`.
 	ratioGraphs := make(map[string]*RatioReading)
 
 	// There are two kinds of metrics. "Simple" metrics that can simply be passed through to the
@@ -235,17 +247,20 @@ func (gpw *gnuplotWriter) addFlatDatum(datum ftdc.FlatDatum) map[string]*RatioRe
 	// of the ratio metric, the "metric identifier". There may be `rdk.foo_module.UserCPUSecs` in
 	// addition to `rdk.bar_modular.UserCPUSecs`. Which should create two CPU% graphs.
 	for _, reading := range datum.Readings {
+		// pullRatios will identify if the metric is a "ratio" metric. If so, we do not currently
+		// know what to graph and `pullRatios` will accumulate the relevant information into
+		// `ratioGraphs`.
 		isRatioMetric := pullRatios(reading, datum.ConvertedTime().Unix(), ratioGraphs, ratioMetricToFields)
 		if isRatioMetric {
+			// Ratio metrics need to be compared to some prior ratio metric to create a data
+			// point. We do not output any information now. We instead accumulate all of these
+			// results to be later used. These are named "deferred values".
 			continue
 		}
 
 		gpw.addPoint(datum.ConvertedTime().Unix(), reading.MetricName, reading.Value)
 	}
 
-	// for metricName, ratioReading := range ratioGraphs {
-	//  	gpw.addPoint(ratioReading.Time, metricName, ratioReading.AsPercentage())
-	// }
 	return ratioGraphs
 }
 
@@ -258,9 +273,14 @@ func (gpw *gnuplotWriter) addFlatDatum(datum ftdc.FlatDatum) map[string]*RatioRe
 // system time difference.
 const windowSizeSecs = 5
 
+// The deferredValues input is in FTDC reading order. On a responsive system, adjacent items in the
+// slice should be one second apart.
 func (gpw *gnuplotWriter) writeDeferredValues(deferredValues []map[string]*RatioReading) {
 	for idx, currReadings := range deferredValues {
 		if idx < windowSizeSecs {
+			// We can try harder here to output a reasonable value here. But we'd have to at least
+			// look into the `currReadings` values to get an appropriate timestamp to use for the
+			// datapoint X-axis.
 			continue
 		}
 
