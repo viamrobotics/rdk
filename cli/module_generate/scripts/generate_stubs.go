@@ -25,7 +25,7 @@ import (
 //go:embed tmpl-module
 var goTmpl string
 
-// possible prefixes before function parameter and return types
+// typePrefixes lists possible prefixes before function parameter and return types.
 var typePrefixes = []string{"*", "[]*", "[]", "chan "}
 
 // getClientCode grabs client.go code of component type.

@@ -16,7 +16,7 @@ func TestGenerateStubs(t *testing.T) {
 		paramType := formatType(ast.NewIdent(testType), subtype)
 		test.That(t, paramType, test.ShouldEqual, fmt.Sprintf("%s.%s", subtype, testType))
 		for _, prefix := range typePrefixes {
-			paramType := formatType(ast.NewIdent(prefix + testType), subtype)
+			paramType := formatType(ast.NewIdent(prefix+testType), subtype)
 			test.That(t, paramType, test.ShouldEqual, fmt.Sprintf("%s%s.%s", prefix, subtype, testType))
 		}
 	})
