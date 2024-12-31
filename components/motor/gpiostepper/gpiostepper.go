@@ -85,46 +85,39 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 
 func init() {
 	resource.RegisterComponent(motor.API, model, resource.Registration[motor.Motor, *Config]{
-		Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger logging.Logger,
-		) (motor.Motor, error) {
-			actualBoard, motorConfig, err := getBoardFromRobotConfig(deps, conf)
-			if err != nil {
-				return nil, err
-			}
-
-			return newGPIOStepper(ctx, actualBoard, *motorConfig, conf.ResourceName(), logger)
-		},
-	})
+		Constructor: newGPIOStepper,
+	},
+	)
 }
 
-func getBoardFromRobotConfig(deps resource.Dependencies, conf resource.Config) (board.Board, *Config, error) {
-	motorConfig, err := resource.NativeConfig[*Config](conf)
-	if err != nil {
-		return nil, nil, err
+func (m *gpioStepper) enable(ctx context.Context, high bool) error {
+	var err error
+	if m.enablePinHigh != nil {
+		err = multierr.Combine(err, m.enablePinHigh.Set(ctx, high, nil))
 	}
-	if motorConfig.BoardName == "" {
-		return nil, nil, errors.New("expected board name in config for motor")
+
+	if m.enablePinLow != nil {
+		err = multierr.Combine(err, m.enablePinLow.Set(ctx, !high, nil))
 	}
-	b, err := board.FromDependencies(deps, motorConfig.BoardName)
-	if err != nil {
-		return nil, nil, err
-	}
-	return b, motorConfig, nil
+
+	return err
 }
 
 func newGPIOStepper(
 	ctx context.Context,
-	b board.Board,
-	mc Config,
-	name resource.Name,
+	deps resource.Dependencies,
+	conf resource.Config,
 	logger logging.Logger,
 ) (motor.Motor, error) {
-	if b == nil {
-		return nil, errors.New("board is required")
+
+	mc, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, err
+	}
+
+	b, err := board.FromDependencies(deps, mc.BoardName)
+	if err != nil {
+		return nil, err
 	}
 
 	if mc.TicksPerRotation == 0 {
@@ -132,14 +125,12 @@ func newGPIOStepper(
 	}
 
 	m := &gpioStepper{
-		Named:            name.AsNamed(),
+		Named:            conf.ResourceName().AsNamed(),
 		theBoard:         b,
 		stepsPerRotation: mc.TicksPerRotation,
 		logger:           logger,
 		opMgr:            operation.NewSingleOperationManager(),
 	}
-
-	var err error
 
 	// only set enable pins if they exist
 	if mc.Pins.EnablePinHigh != "" {
@@ -208,8 +199,7 @@ type gpioStepper struct {
 // SetPower sets the percentage of power the motor should employ between 0-1.
 func (m *gpioStepper) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	if math.Abs(powerPct) <= .0001 {
-		m.stop()
-		return nil
+		return m.Stop(ctx, nil)
 	}
 
 	if m.minDelay == 0 {
@@ -288,7 +278,9 @@ func (m *gpioStepper) doCycle(ctx context.Context) (time.Duration, error) {
 func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
 	err := multierr.Combine(
 		m.dirPin.Set(ctx, forward, nil),
-		m.stepPin.Set(ctx, true, nil))
+		m.stepPin.Set(ctx, true, nil),
+		m.enable(ctx, true),
+	)
 	if err != nil {
 		return err
 	}
@@ -319,12 +311,11 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
-	err := m.enable(ctx, true)
-	if err != nil {
-		return errors.Wrapf(err, "error enabling motor in GoFor from motor (%s)", m.Name().Name)
+	if err := m.enable(ctx, true); err != nil {
+		return err
 	}
 
-	err = m.goForInternal(ctx, rpm, revolutions)
+	err := m.goForInternal(ctx, rpm, revolutions)
 	if err != nil {
 		return multierr.Combine(
 			m.enable(ctx, false),
@@ -402,6 +393,10 @@ func (m *gpioStepper) GoTo(ctx context.Context, rpm, positionRevolutions float64
 
 // SetRPM instructs the motor to move at the specified RPM indefinitely.
 func (m *gpioStepper) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
+	if err := m.enable(ctx, true); err != nil {
+		return err
+	}
+
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
@@ -486,19 +481,6 @@ func (m *gpioStepper) IsPowered(ctx context.Context, extra map[string]interface{
 		percent = 1.0
 	}
 	return on, percent, err
-}
-
-func (m *gpioStepper) enable(ctx context.Context, on bool) error {
-	var err error
-	if m.enablePinHigh != nil {
-		err = multierr.Combine(err, m.enablePinHigh.Set(ctx, on, nil))
-	}
-
-	if m.enablePinLow != nil {
-		err = multierr.Combine(err, m.enablePinLow.Set(ctx, !on, nil))
-	}
-
-	return err
 }
 
 func (m *gpioStepper) Close(ctx context.Context) error {
