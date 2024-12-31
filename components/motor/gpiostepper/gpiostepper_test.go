@@ -101,7 +101,6 @@ func TestConfigs(t *testing.T) {
 
 	deps := resource.Dependencies{resource.NewName(board.API, "brd"): &b}
 	t.Run("initializing good with enable pins", func(t *testing.T) {
-
 		m, err := newGPIOStepper(ctx, deps, c, logger)
 		s := m.(*gpioStepper)
 
@@ -141,7 +140,6 @@ func TestConfigs(t *testing.T) {
 	})
 
 	t.Run("initializing with no board", func(t *testing.T) {
-
 		c := resource.Config{
 			Name:                "fake_gpiostepper",
 			ConvertedAttributes: &Config{BoardName: "some_board"},
@@ -158,7 +156,8 @@ func TestConfigs(t *testing.T) {
 			ConvertedAttributes: &Config{
 				BoardName:        "brd",
 				Pins:             PinConfig{Direction: "b", Step: "c", EnablePinHigh: "d", EnablePinLow: "e"},
-				TicksPerRotation: 0},
+				TicksPerRotation: 0,
+			},
 		}
 
 		_, err := newGPIOStepper(ctx, deps, c, logger)
@@ -173,7 +172,8 @@ func TestConfigs(t *testing.T) {
 				BoardName:        "brd",
 				Pins:             PinConfig{Direction: "b", Step: "c", EnablePinHigh: "d", EnablePinLow: "e"},
 				TicksPerRotation: 1,
-				StepperDelay:     -100},
+				StepperDelay:     -100,
+			},
 		}
 
 		m, err := newGPIOStepper(ctx, deps, c, logger)
@@ -208,7 +208,8 @@ func TestRunning(t *testing.T) {
 			TicksPerRotation: 200,
 			BoardName:        "brd",
 			StepperDelay:     30,
-		}}
+		},
+	}
 
 	pinB := &fakeboard.GPIOPin{}
 	pinC := &fakeboard.GPIOPin{}
