@@ -43,7 +43,8 @@ type plannerConstructor func(referenceframe.FrameSystem, *rand.Rand, logging.Log
 type PlanRequest struct {
 	Logger logging.Logger
 	// The planner will hit each Goal in order. Each goal may be a configuration or FrameSystemPoses for holonomic motion, or must be a
-	// FrameSystemPoses for non-holonomic motion. For holonomic motion, if both a configuration and FrameSystemPoses are given, an error is thrown.
+	// FrameSystemPoses for non-holonomic motion. For holonomic motion, if both a configuration and FrameSystemPoses are given,
+	// an error is thrown.
 	// TODO: Perhaps we could do something where some components are enforced to arrive at a certain configuration, but others can have IK
 	// run to solve for poses. Doing this while enforcing configurations may be tricky.
 	Goals       []*PlanState
@@ -81,7 +82,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 	}
 	// If we have a start configuration, check for correctness. Reuse FrameSystemPoses compute function to provide error.
 	if len(req.StartState.configuration) > 0 {
-		_, err := ComputePositionsFromConfigurations(req.FrameSystem, req.StartState.configuration)
+		_, err := req.StartState.configuration.ComputePositions(req.FrameSystem)
 		if err != nil {
 			return err
 		}

@@ -21,10 +21,7 @@ const World = "world"
 // defaultPointDensity ensures we use the default value specified within the spatialmath package.
 const defaultPointDensity = 0.
 
-type (
-	FrameSystemInputs map[string][]Input
-	FrameSystemPoses  map[string]*PoseInFrame
-)
+type FrameSystemPoses map[string]*PoseInFrame
 
 // FrameSystem represents a tree of frames connected to each other, allowing for transformations between any two frames.
 type FrameSystem interface {
@@ -55,7 +52,7 @@ type FrameSystem interface {
 
 	// Transform takes in a Transformable object and destination frame, and returns the pose from the first to the second. Positions
 	// is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
-	Transform(positions FrameSystemInputs, object Transformable, dst string) (Transformable, error)
+	Transform(inputs FrameSystemInputs, object Transformable, dst string) (Transformable, error)
 
 	// FrameSystemSubset will take a frame system and a frame in that system, and return a new frame system rooted
 	// at the given frame and containing all descendents of it. The original frame system is unchanged.
@@ -251,7 +248,7 @@ func (sfs *simpleFrameSystem) AddFrame(frame, parent Frame) error {
 
 // Transform takes in a Transformable object and destination frame, and returns the pose from the first to the second. Positions
 // is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
-func (sfs *simpleFrameSystem) Transform(positions FrameSystemInputs, object Transformable, dst string) (Transformable, error) {
+func (sfs *simpleFrameSystem) Transform(inputs FrameSystemInputs, object Transformable, dst string) (Transformable, error) {
 	src := object.Parent()
 	if src == dst {
 		return object, nil
@@ -272,9 +269,9 @@ func (sfs *simpleFrameSystem) Transform(positions FrameSystemInputs, object Tran
 		// A frame is assigned a pose and a geometry and the two are not coupled together. This way you do can define everything relative
 		// to the parent frame. So geometries are tied to the frame they are assigned to but we do not want to actually transform them
 		// along the final transformation.
-		tfParent, err = sfs.transformFromParent(positions, sfs.parents[srcFrame], sfs.Frame(dst))
+		tfParent, err = sfs.transformFromParent(inputs, sfs.parents[srcFrame], sfs.Frame(dst))
 	} else {
-		tfParent, err = sfs.transformFromParent(positions, srcFrame, sfs.Frame(dst))
+		tfParent, err = sfs.transformFromParent(inputs, srcFrame, sfs.Frame(dst))
 	}
 	if err != nil {
 		return nil, err
@@ -463,7 +460,11 @@ func (sfs *simpleFrameSystem) composeTransforms(frame Frame, inputMap FrameSyste
 	var errAll error
 	for sfs.parents[frame] != nil { // stop once you reach world node
 		// Transform() gives FROM q TO parent. Add new transforms to the left.
-		pose, err := poseFromPositions(frame, inputMap)
+		inputs, err := inputMap.GetFrameInputs(frame)
+		if err != nil {
+			return nil, err
+		}
+		pose, err := frame.Transform(inputs)
 		if err != nil && pose == nil {
 			return nil, err
 		}
@@ -474,8 +475,8 @@ func (sfs *simpleFrameSystem) composeTransforms(frame Frame, inputMap FrameSyste
 	return q, errAll
 }
 
-// StartPositions returns a zeroed input map ensuring all frames have inputs.
-func StartPositions(fs FrameSystem) FrameSystemInputs {
+// NewZeroInputs returns a zeroed input map ensuring all frames have inputs.
+func NewZeroInputs(fs FrameSystem) FrameSystemInputs {
 	positions := make(FrameSystemInputs)
 	for _, fn := range fs.FrameNames() {
 		frame := fs.Frame(fn)
@@ -532,7 +533,7 @@ func FrameSystemGeometries(fs FrameSystem, inputMap FrameSystemInputs) (map[stri
 	allGeometries := make(map[string]*GeometriesInFrame, 0)
 	for _, name := range fs.FrameNames() {
 		frame := fs.Frame(name)
-		inputs, err := GetFrameInputs(frame, inputMap)
+		inputs, err := inputMap.GetFrameInputs(frame)
 		if err != nil {
 			errAll = multierr.Append(errAll, err)
 			continue
@@ -732,12 +733,4 @@ func TopologicallySortParts(parts []*FrameSystemPart) ([]*FrameSystemPart, error
 		}
 	}
 	return topoSortedParts, nil
-}
-
-func poseFromPositions(frame Frame, positions FrameSystemInputs) (spatial.Pose, error) {
-	inputs, err := GetFrameInputs(frame, positions)
-	if err != nil {
-		return nil, err
-	}
-	return frame.Transform(inputs)
 }

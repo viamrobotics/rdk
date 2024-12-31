@@ -213,7 +213,7 @@ func (svc *frameSystemService) TransformPose(
 	if err != nil {
 		return nil, err
 	}
-	input := referenceframe.StartPositions(fs)
+	input := referenceframe.NewZeroInputs(fs)
 
 	svc.partsMu.RLock()
 	defer svc.partsMu.RUnlock()
@@ -260,7 +260,7 @@ func (svc *frameSystemService) CurrentInputs(
 	if err != nil {
 		return nil, nil, err
 	}
-	input := referenceframe.StartPositions(fs)
+	input := referenceframe.NewZeroInputs(fs)
 
 	// build maps of relevant components and inputs from initial inputs
 	resources := map[string]InputEnabled{}

@@ -51,7 +51,7 @@ func NewModelFromWorldState(ws *referenceframe.WorldState, name string) (*ModelC
 	links := []link{{Name: referenceframe.World}}
 	joints := make([]joint, 0)
 	emptyFS := referenceframe.NewEmptyFrameSystem("")
-	gf, err := ws.ObstaclesInWorldFrame(emptyFS, referenceframe.StartPositions(emptyFS))
+	gf, err := ws.ObstaclesInWorldFrame(emptyFS, referenceframe.NewZeroInputs(emptyFS))
 	if err != nil {
 		return nil, err
 	}

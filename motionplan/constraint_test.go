@@ -13,7 +13,6 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
-	"go.viam.com/rdk/referenceframe"
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -30,14 +29,10 @@ func TestIKTolerances(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test inability to arrive at another position due to orientation
-	goal := &PlanState{poses: referenceframe.FrameSystemPoses{m.Name(): frame.NewPoseInFrame(frame.World, spatial.NewPoseFromProtobuf(&commonpb.Pose{
-		X:  -46,
-		Y:  0,
-		Z:  372,
-		OX: -1.78,
-		OY: -3.3,
-		OZ: -1.11,
-	}))}}
+	goal := &PlanState{poses: frame.FrameSystemPoses{m.Name(): frame.NewPoseInFrame(
+		frame.World,
+		spatial.NewPoseFromProtobuf(&commonpb.Pose{X: -46, Y: 0, Z: 372, OX: -1.78, OY: -3.3, OZ: -1.11}),
+	)}}
 	seed := &PlanState{configuration: map[string][]frame.Input{m.Name(): frame.FloatsToInputs(make([]float64, 6))}}
 	_, err = mp.plan(context.Background(), seed, goal)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -152,8 +147,8 @@ func TestLineFollow(t *testing.T) {
 
 	opt := newBasicPlannerOptions()
 	startCfg := map[string][]frame.Input{m.Name(): m.InputFromProtobuf(mp1)}
-	from := referenceframe.FrameSystemPoses{markerFrame.Name(): frame.NewPoseInFrame(markerFrame.Name(), p1)}
-	to := referenceframe.FrameSystemPoses{markerFrame.Name(): frame.NewPoseInFrame(goalFrame.Name(), p2)}
+	from := frame.FrameSystemPoses{markerFrame.Name(): frame.NewPoseInFrame(markerFrame.Name(), p1)}
+	to := frame.FrameSystemPoses{markerFrame.Name(): frame.NewPoseInFrame(goalFrame.Name(), p2)}
 
 	validFunc, gradFunc, err := CreateLineConstraintFS(fs, startCfg, from, to, 0.001)
 	test.That(t, err, test.ShouldBeNil)
@@ -221,7 +216,7 @@ func TestCollisionConstraints(t *testing.T) {
 	fs := frame.NewEmptyFrameSystem("test")
 	err = fs.AddFrame(model, fs.Frame(frame.World))
 	test.That(t, err, test.ShouldBeNil)
-	seedMap := frame.StartPositions(fs)
+	seedMap := frame.NewZeroInputs(fs)
 	handler := &ConstraintHandler{}
 
 	// create robot collision entities
@@ -285,7 +280,7 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	fs := frame.NewEmptyFrameSystem("test")
 	err = fs.AddFrame(model, fs.Frame(frame.World))
 	test.That(b, err, test.ShouldBeNil)
-	seedMap := frame.StartPositions(fs)
+	seedMap := frame.NewZeroInputs(fs)
 	handler := &ConstraintHandler{}
 
 	// create robot collision entities

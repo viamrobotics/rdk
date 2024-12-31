@@ -349,8 +349,8 @@ func newFrameNotFoundError(frameName string) error {
 	return fmt.Errorf("could not find frame %s in ExecutionState", frameName)
 }
 
-// PlanState is a struct which holds both a referenceframe.FrameSystemPoses and a configuration. This is intended to be used as start or goal states for plans.
-// Either field may be nil.
+// PlanState is a struct which holds both a referenceframe.FrameSystemPoses and a configuration.
+// This is intended to be used as start or goal states for plans. Either field may be nil.
 type PlanState struct {
 	poses         referenceframe.FrameSystemPoses
 	configuration referenceframe.FrameSystemInputs
@@ -381,7 +381,7 @@ func (p *PlanState) ComputePoses(fs referenceframe.FrameSystem) (referenceframe.
 		return nil, errors.New("cannot computes poses, neither poses nor configuration are populated")
 	}
 
-	return ComputePositionsFromConfigurations(fs, p.configuration)
+	return p.configuration.ComputePositions(fs)
 }
 
 // Serialize turns a PlanState into a map[string]interface suitable for being transmitted over proto.
@@ -399,20 +399,6 @@ func (p PlanState) Serialize() map[string]interface{} {
 	m["poses"] = poseMap
 	m["configuration"] = confMap
 	return m
-}
-
-// ComputePositionsFromConfigurations computes the poses for each frame in a framesystem in frame of World, using the provided configuration.
-func ComputePositionsFromConfigurations(fs referenceframe.FrameSystem, configuration referenceframe.FrameSystemInputs) (referenceframe.FrameSystemPoses, error) {
-	// Compute poses from configuration using the FrameSystem
-	computedPoses := make(referenceframe.FrameSystemPoses)
-	for _, frameName := range fs.FrameNames() {
-		pif, err := fs.Transform(configuration, referenceframe.NewZeroPoseInFrame(frameName), referenceframe.World)
-		if err != nil {
-			return nil, err
-		}
-		computedPoses[frameName] = pif.(*referenceframe.PoseInFrame)
-	}
-	return computedPoses, nil
 }
 
 // DeserializePlanState turns a serialized PlanState back into a PlanState.

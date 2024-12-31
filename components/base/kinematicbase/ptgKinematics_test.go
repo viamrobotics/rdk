@@ -75,9 +75,12 @@ func TestPTGKinematicsNoGeom(t *testing.T) {
 
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(f, fs.World())
-	inputMap := referenceframe.StartPositions(fs)
+	inputMap := referenceframe.NewZeroInputs(fs)
 
-	startState := motionplan.NewPlanState(referenceframe.FrameSystemPoses{f.Name(): referenceframe.NewZeroPoseInFrame(referenceframe.World)}, inputMap)
+	startState := motionplan.NewPlanState(
+		referenceframe.FrameSystemPoses{f.Name(): referenceframe.NewZeroPoseInFrame(referenceframe.World)},
+		inputMap,
+	)
 	goalState := motionplan.NewPlanState(referenceframe.FrameSystemPoses{f.Name(): dstPIF}, nil)
 
 	plan, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
@@ -153,7 +156,7 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 	f := kb.Kinematics()
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(f, fs.World())
-	inputMap := referenceframe.StartPositions(fs)
+	inputMap := referenceframe.NewZeroInputs(fs)
 
 	obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2000, 0, 0}), r3.Vector{1, 1, 1}, "")
 	test.That(t, err, test.ShouldBeNil)
@@ -165,7 +168,10 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	startState := motionplan.NewPlanState(referenceframe.FrameSystemPoses{f.Name(): referenceframe.NewZeroPoseInFrame(referenceframe.World)}, inputMap)
+	startState := motionplan.NewPlanState(
+		referenceframe.FrameSystemPoses{f.Name(): referenceframe.NewZeroPoseInFrame(referenceframe.World)},
+		inputMap,
+	)
 	goalState := motionplan.NewPlanState(referenceframe.FrameSystemPoses{f.Name(): dstPIF}, nil)
 	plan, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
 		Logger:      logger,

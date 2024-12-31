@@ -154,9 +154,11 @@ func TestNewGeoPlan(t *testing.T) {
 		Logger: logging.NewTestLogger(t),
 		StartState: &PlanState{
 			poses:         referenceframe.FrameSystemPoses{kinematicFrame.Name(): referenceframe.NewZeroPoseInFrame(referenceframe.World)},
-			configuration: referenceframe.StartPositions(baseFS),
+			configuration: referenceframe.NewZeroInputs(baseFS),
 		},
-		Goals:       []*PlanState{{poses: referenceframe.FrameSystemPoses{kinematicFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, goal)}}},
+		Goals:       []*PlanState{{
+			poses: referenceframe.FrameSystemPoses{kinematicFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, goal)},
+		}},
 		FrameSystem: baseFS,
 	}, nil, math.NaN())
 	test.That(t, err, test.ShouldBeNil)

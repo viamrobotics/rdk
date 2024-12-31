@@ -307,7 +307,10 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	midPtNormalized := midPt.Sub(startPose.Point())
 	midOrient := &spatialmath.OrientationVector{OZ: 1, Theta: math.Atan2(-midPtNormalized.X, midPtNormalized.Y)}
 
-	midptNode := &basicNode{poses: mp.tpFramePoseToFrameSystemPoses(spatialmath.NewPose(midPt, midOrient)), cost: midPt.Sub(startPose.Point()).Norm()}
+	midptNode := &basicNode{
+		poses: mp.tpFramePoseToFrameSystemPoses(spatialmath.NewPose(midPt, midOrient)),
+		cost:  midPt.Sub(startPose.Point()).Norm(),
+	}
 	var randPosNode node = midptNode
 
 	for iter := 0; iter < mp.planOpts.PlanIter; iter++ {
@@ -1127,8 +1130,11 @@ func extractTPspacePath(fName string, startMap, goalMap map[node]node, pair *nod
 				q: referenceframe.FrameSystemInputs{
 					fName: {{0}, {0}, {0}, {0}},
 				},
-				cost:   goalReached.Cost(),
-				poses:  referenceframe.FrameSystemPoses{fName: referenceframe.NewPoseInFrame(goalPiF.Parent(), spatialmath.Compose(goalPiF.Pose(), flipPose))},
+				cost: goalReached.Cost(),
+				poses: referenceframe.FrameSystemPoses{fName: referenceframe.NewPoseInFrame(
+					goalPiF.Parent(),
+					spatialmath.Compose(goalPiF.Pose(), flipPose),
+				)},
 				corner: goalReached.Corner(),
 			}
 		} else {
@@ -1141,8 +1147,11 @@ func extractTPspacePath(fName string, startMap, goalMap map[node]node, pair *nod
 						goalReached.Q()[fName][2],
 					},
 				},
-				cost:   goalReached.Cost(),
-				poses:  referenceframe.FrameSystemPoses{fName: referenceframe.NewPoseInFrame(goalPiF.Parent(), spatialmath.Compose(goalPiF.Pose(), flipPose))},
+				cost: goalReached.Cost(),
+				poses: referenceframe.FrameSystemPoses{fName: referenceframe.NewPoseInFrame(
+					goalPiF.Parent(),
+					spatialmath.Compose(goalPiF.Pose(), flipPose),
+				)},
 				corner: goalReached.Corner(),
 			}
 		}

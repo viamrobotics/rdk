@@ -99,17 +99,33 @@ func interpolateInputs(from, to []Input, by float64) []Input {
 	return newVals
 }
 
+type FrameSystemInputs map[string][]Input
+
 // GetFrameInputs looks through the inputMap and returns a slice of Inputs corresponding to the given frame.
-func GetFrameInputs(frame Frame, inputMap FrameSystemInputs) ([]Input, error) {
+func (inputs FrameSystemInputs) GetFrameInputs(frame Frame) ([]Input, error) {
 	var input []Input
 	// Get frame inputs if necessary
 	if len(frame.DoF()) > 0 {
-		if _, ok := inputMap[frame.Name()]; !ok {
+		if _, ok := inputs[frame.Name()]; !ok {
 			return nil, fmt.Errorf("no positions provided for frame with name %s", frame.Name())
 		}
-		input = inputMap[frame.Name()]
+		input = inputs[frame.Name()]
 	}
 	return input, nil
+}
+
+// ComputePositions computes the poses for each frame in a framesystem in frame of World, using the provided configuration.
+func (inputs FrameSystemInputs) ComputePositions(fs FrameSystem) (FrameSystemPoses, error) {
+	// Compute poses from configuration using the FrameSystem
+	computedPoses := make(FrameSystemPoses)
+	for _, frameName := range fs.FrameNames() {
+		pif, err := fs.Transform(inputs, NewZeroPoseInFrame(frameName), World)
+		if err != nil {
+			return nil, err
+		}
+		computedPoses[frameName] = pif.(*PoseInFrame)
+	}
+	return computedPoses, nil
 }
 
 // InputsL2Distance returns the square of the two-norm (the sqrt of the sum of the squares) between two Input sets.

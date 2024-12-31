@@ -24,7 +24,7 @@ func TestSimpleRotationalFrame(t *testing.T) {
 	expected2 := NewPoseInFrame(World, spatial.NewPoseFromPoint(r3.Vector{2., -10, 2}))
 	expected3 := NewPoseInFrame(World, spatial.NewPoseFromPoint(r3.Vector{2., 10, -2}))
 
-	positions := StartPositions(fs) // zero position
+	positions := NewZeroInputs(fs) // zero position
 	testTransformPoint(t, fs, positions, pose, expected1)
 	positions["joint"] = []Input{{math.Pi / 2}} // Rotate 90 degrees one way
 	testTransformPoint(t, fs, positions, pose, expected2)
@@ -46,7 +46,7 @@ func TestSimpleTranslationalFrame(t *testing.T) {
 	poseEnd2 := NewPoseInFrame(World, spatial.NewPoseFromPoint(r3.Vector{45, 0, 0})) // after gantry moves 45
 
 	// test transformations
-	positions := StartPositions(fs)
+	positions := NewZeroInputs(fs)
 	testTransformPoint(t, fs, positions, poseStart, poseEnd1)
 	positions["gantry"] = []Input{{45.}}
 	testTransformPoint(t, fs, positions, poseStart, poseEnd2)
