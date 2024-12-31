@@ -21,6 +21,7 @@ const World = "world"
 // defaultPointDensity ensures we use the default value specified within the spatialmath package.
 const defaultPointDensity = 0.
 
+// FrameSystemPoses is an alias for a mapping of frame names to PoseInFrame.
 type FrameSystemPoses map[string]*PoseInFrame
 
 // FrameSystem represents a tree of frames connected to each other, allowing for transformations between any two frames.

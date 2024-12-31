@@ -99,6 +99,7 @@ func interpolateInputs(from, to []Input, by float64) []Input {
 	return newVals
 }
 
+// FrameSystemInputs is an alias for a mapping of frame names to slices of Inputs.
 type FrameSystemInputs map[string][]Input
 
 // GetFrameInputs looks through the inputMap and returns a slice of Inputs corresponding to the given frame.

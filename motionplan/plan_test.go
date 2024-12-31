@@ -156,7 +156,7 @@ func TestNewGeoPlan(t *testing.T) {
 			poses:         referenceframe.FrameSystemPoses{kinematicFrame.Name(): referenceframe.NewZeroPoseInFrame(referenceframe.World)},
 			configuration: referenceframe.NewZeroInputs(baseFS),
 		},
-		Goals:       []*PlanState{{
+		Goals: []*PlanState{{
 			poses: referenceframe.FrameSystemPoses{kinematicFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, goal)},
 		}},
 		FrameSystem: baseFS,
