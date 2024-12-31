@@ -90,7 +90,6 @@ func init() {
 	)
 }
 
-
 // TODO (rh) refactor this driver so that the enable and direction logic is at the beginning of each API call
 // and the step -> position logic is the only thing being handled by the background thread.
 // right now too many things can be called out of lock, this function is only called from the constructor, CLose
@@ -316,12 +315,7 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
-	if err := m.enable(ctx, true); err != nil {
-		return err
-	}
-
-	err := m.goForInternal(ctx, rpm, revolutions)
-	if err != nil {
+	if err := m.goForInternal(ctx, rpm, revolutions); err != nil {
 		return multierr.Combine(
 			m.enable(ctx, false),
 			errors.Wrapf(err, "error in GoFor from motor (%s)", m.Name().Name))
@@ -398,16 +392,11 @@ func (m *gpioStepper) GoTo(ctx context.Context, rpm, positionRevolutions float64
 
 // SetRPM instructs the motor to move at the specified RPM indefinitely.
 func (m *gpioStepper) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
-	if err := m.enable(ctx, true); err != nil {
-		return err
-	}
-
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
 	if math.Abs(rpm) <= .0001 {
-		m.stop()
-		return nil
+		return m.Stop(ctx, nil)
 	}
 
 	// calculate delay between steps for the thread in the goroutine that we started in component creation.
