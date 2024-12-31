@@ -13,10 +13,10 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// PathStateCount will determine the number of steps which should be used to get from the seed to the goal.
+// CalculateStepCount will determine the number of steps which should be used to get from the seed to the goal.
 // The returned value is guaranteed to be at least 1.
 // stepSize represents both the max mm movement per step, and max R4AA degrees per step.
-func PathStateCount(seedPos, goalPos spatialmath.Pose, stepSize float64) int {
+func CalculateStepCount(seedPos, goalPos spatialmath.Pose, stepSize float64) int {
 	// use a default size of 1 if zero is passed in to avoid divide-by-zero
 	if stepSize == 0 {
 		stepSize = 1.
@@ -74,7 +74,7 @@ func newLinearizedFrameSystem(fs referenceframe.FrameSystem) (*linearizedFrameSy
 
 // mapToSlice will flatten a map of inputs into a slice suitable for input to inverse kinematics, by concatenating
 // the inputs together in the order of the frames in sf.frames.
-func (lfs *linearizedFrameSystem) mapToSlice(inputs referenceframe.FrameConfigurations) ([]float64, error) {
+func (lfs *linearizedFrameSystem) mapToSlice(inputs referenceframe.FrameSystemInputs) ([]float64, error) {
 	var floatSlice []float64
 	for _, frame := range lfs.frames {
 		if len(frame.DoF()) == 0 {
@@ -91,8 +91,8 @@ func (lfs *linearizedFrameSystem) mapToSlice(inputs referenceframe.FrameConfigur
 	return floatSlice, nil
 }
 
-func (lfs *linearizedFrameSystem) sliceToMap(floatSlice []float64) (referenceframe.FrameConfigurations, error) {
-	inputs := referenceframe.FrameConfigurations{}
+func (lfs *linearizedFrameSystem) sliceToMap(floatSlice []float64) (referenceframe.FrameSystemInputs, error) {
+	inputs := referenceframe.FrameSystemInputs{}
 	i := 0
 	for _, frame := range lfs.frames {
 		if len(frame.DoF()) == 0 {
@@ -293,10 +293,10 @@ func nodeConfigurationDistanceFunc(node1, node2 node) float64 {
 func alterGoals(
 	chains []*motionChain,
 	fs referenceframe.FrameSystem,
-	start referenceframe.FrameConfigurations,
+	start referenceframe.FrameSystemInputs,
 	goal *PlanState,
 ) (*PlanState, error) {
-	alteredGoals := referenceframe.FramePositions{}
+	alteredGoals := referenceframe.FrameSystemPoses{}
 	if goal.poses != nil {
 		for _, chain := range chains {
 			// chain solve frame may only be in the goal configuration, in which case we skip as the configuration will be passed through

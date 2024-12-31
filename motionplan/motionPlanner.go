@@ -30,9 +30,9 @@ type motionPlanner interface {
 
 	// Everything below this point should be covered by anything that wraps the generic `planner`
 	smoothPath(context.Context, []node) []node
-	checkPath(referenceframe.FrameConfigurations, referenceframe.FrameConfigurations) bool
-	checkInputs(referenceframe.FrameConfigurations) bool
-	getSolutions(context.Context, referenceframe.FrameConfigurations, ik.StateFSMetric) ([]node, error)
+	checkPath(referenceframe.FrameSystemInputs, referenceframe.FrameSystemInputs) bool
+	checkInputs(referenceframe.FrameSystemInputs) bool
+	getSolutions(context.Context, referenceframe.FrameSystemInputs, ik.StateFSMetric) ([]node, error)
 	opt() *plannerOptions
 	sample(node, int) (node, error)
 }
@@ -42,8 +42,8 @@ type plannerConstructor func(referenceframe.FrameSystem, *rand.Rand, logging.Log
 // PlanRequest is a struct to store all the data necessary to make a call to PlanMotion.
 type PlanRequest struct {
 	Logger logging.Logger
-	// The planner will hit each Goal in order. Each goal may be a configuration or PathState for holonomic motion, or must be a
-	// PathState for non-holonomic motion. For holonomic motion, if both a configuration and PathState are given, an error is thrown.
+	// The planner will hit each Goal in order. Each goal may be a configuration or FrameSystemPoses for holonomic motion, or must be a
+	// FrameSystemPoses for non-holonomic motion. For holonomic motion, if both a configuration and FrameSystemPoses are given, an error is thrown.
 	// TODO: Perhaps we could do something where some components are enforced to arrive at a certain configuration, but others can have IK
 	// run to solve for poses. Doing this while enforcing configurations may be tricky.
 	Goals       []*PlanState
@@ -79,9 +79,9 @@ func (req *PlanRequest) validatePlanRequest() error {
 	if req.StartState.configuration == nil {
 		return errors.New("PlanRequest cannot have nil StartState configuration")
 	}
-	// If we have a start configuration, check for correctness. Reuse PathState compute function to provide error.
+	// If we have a start configuration, check for correctness. Reuse FrameSystemPoses compute function to provide error.
 	if len(req.StartState.configuration) > 0 {
-		_, err := ComputePathStateFromConfiguration(req.FrameSystem, req.StartState.configuration)
+		_, err := ComputePositionsFromConfigurations(req.FrameSystem, req.StartState.configuration)
 		if err != nil {
 			return err
 		}
@@ -182,9 +182,9 @@ func PlanFrameMotion(ctx context.Context,
 	plan, err := PlanMotion(ctx, &PlanRequest{
 		Logger: logger,
 		Goals: []*PlanState{
-			{poses: referenceframe.FramePositions{f.Name(): referenceframe.NewPoseInFrame(referenceframe.World, dst)}},
+			{poses: referenceframe.FrameSystemPoses{f.Name(): referenceframe.NewPoseInFrame(referenceframe.World, dst)}},
 		},
-		StartState:  &PlanState{configuration: referenceframe.FrameConfigurations{f.Name(): seed}},
+		StartState:  &PlanState{configuration: referenceframe.FrameSystemInputs{f.Name(): seed}},
 		FrameSystem: fs,
 		Constraints: constraints,
 		Options:     planningOpts,
@@ -269,7 +269,7 @@ func newPlanner(fs referenceframe.FrameSystem, seed *rand.Rand, logger logging.L
 	return mp, nil
 }
 
-func (mp *planner) checkInputs(inputs referenceframe.FrameConfigurations) bool {
+func (mp *planner) checkInputs(inputs referenceframe.FrameSystemInputs) bool {
 	ok, _ := mp.planOpts.CheckStateFSConstraints(&ik.StateFS{
 		Configuration: inputs,
 		FS:            mp.fs,
@@ -277,7 +277,7 @@ func (mp *planner) checkInputs(inputs referenceframe.FrameConfigurations) bool {
 	return ok
 }
 
-func (mp *planner) checkPath(seedInputs, target referenceframe.FrameConfigurations) bool {
+func (mp *planner) checkPath(seedInputs, target referenceframe.FrameSystemInputs) bool {
 	ok, _ := mp.planOpts.CheckSegmentAndStateValidityFS(
 		&ik.SegmentFS{
 			StartConfiguration: seedInputs,
@@ -293,7 +293,7 @@ func (mp *planner) sample(rSeed node, sampleNum int) (node, error) {
 	// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
 	// The 2 at a time is to ensure random seeds are added onto both the seed and gofsal maps.
 	if sampleNum >= mp.planOpts.IterBeforeRand && sampleNum%4 >= 2 {
-		randomInputs := make(referenceframe.FrameConfigurations)
+		randomInputs := make(referenceframe.FrameSystemInputs)
 		for _, name := range mp.fs.FrameNames() {
 			f := mp.fs.Frame(name)
 			if f != nil && len(f.DoF()) > 0 {
@@ -304,7 +304,7 @@ func (mp *planner) sample(rSeed node, sampleNum int) (node, error) {
 	}
 
 	// Seeding nearby to valid points results in much faster convergence in less constrained space
-	newInputs := make(referenceframe.FrameConfigurations)
+	newInputs := make(referenceframe.FrameSystemInputs)
 	for name, inputs := range rSeed.Q() {
 		f := mp.fs.Frame(name)
 		if f != nil && len(f.DoF()) > 0 {
@@ -375,14 +375,14 @@ func (mp *planner) smoothPath(ctx context.Context, path []node) []node {
 // getSolutions will initiate an IK solver for the given position and seed, collect solutions, and score them by constraints.
 // If maxSolutions is positive, once that many solutions have been collected, the solver will terminate and return that many solutions.
 // If minScore is positive, if a solution scoring below that amount is found, the solver will terminate and return that one solution.
-func (mp *planner) getSolutions(ctx context.Context, seed referenceframe.FrameConfigurations, metric ik.StateFSMetric) ([]node, error) {
+func (mp *planner) getSolutions(ctx context.Context, seed referenceframe.FrameSystemInputs, metric ik.StateFSMetric) ([]node, error) {
 	// Linter doesn't properly handle loop labels
 	nSolutions := mp.planOpts.MaxSolutions
 	if nSolutions == 0 {
 		nSolutions = defaultSolutionsToSeed
 	}
 	if len(seed) == 0 {
-		seed = referenceframe.FrameConfigurations{}
+		seed = referenceframe.FrameSystemInputs{}
 		// If no seed is passed, generate one randomly
 		for _, frameName := range mp.fs.FrameNames() {
 			seed[frameName] = referenceframe.RandomFrameInputs(mp.fs.Frame(frameName), mp.randseed)
@@ -415,7 +415,7 @@ func (mp *planner) getSolutions(ctx context.Context, seed referenceframe.FrameCo
 		ikErr <- mp.solver.Solve(ctxWithCancel, solutionGen, linearSeed, minFunc, mp.randseed.Int())
 	})
 
-	solutions := map[float64]referenceframe.FrameConfigurations{}
+	solutions := map[float64]referenceframe.FrameSystemInputs{}
 
 	// A map keeping track of which constraints fail
 	failures := map[string]int{}
@@ -458,7 +458,7 @@ IK:
 				if arcPass {
 					score := mp.planOpts.configurationDistanceFunc(stepArc)
 					if score < mp.planOpts.MinScore && mp.planOpts.MinScore > 0 {
-						solutions = map[float64]referenceframe.FrameConfigurations{}
+						solutions = map[float64]referenceframe.FrameSystemInputs{}
 						solutions[score] = step
 						// good solution, stopping early
 						break IK
@@ -527,7 +527,7 @@ IK:
 
 // linearize the goal metric for use with solvers.
 // Since our solvers operate on arrays of floats, there needs to be a way to map bidirectionally between the framesystem configuration
-// of FrameConfigurations and the []float64 that the solver expects. This is that mapping.
+// of FrameSystemInputs and the []float64 that the solver expects. This is that mapping.
 func (mp *planner) linearizeFSmetric(metric ik.StateFSMetric) func([]float64) float64 {
 	return func(query []float64) float64 {
 		inputs, err := mp.lfs.sliceToMap(query)
@@ -563,10 +563,10 @@ func (mp *planner) frameLists() (moving, nonmoving []string) {
 // random configuration for the other. This function attempts to replace that random configuration with the seed configuration, if valid,
 // and if invalid will interpolate the solved random configuration towards the seed and set its configuration to the closest valid
 // configuration to the seed.
-func (mp *planner) nonchainMinimize(seed, step referenceframe.FrameConfigurations) referenceframe.FrameConfigurations {
+func (mp *planner) nonchainMinimize(seed, step referenceframe.FrameSystemInputs) referenceframe.FrameSystemInputs {
 	moving, nonmoving := mp.frameLists()
 	// Create a map with nonmoving configurations replaced with their seed values
-	alteredStep := referenceframe.FrameConfigurations{}
+	alteredStep := referenceframe.FrameSystemInputs{}
 	for _, frame := range moving {
 		alteredStep[frame] = step[frame]
 	}

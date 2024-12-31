@@ -95,7 +95,7 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 	if len(mr.kinematicBase.Kinematics().DoF()) == 2 {
 		inputs = inputs[:2]
 	}
-	startConf := referenceframe.FrameConfigurations{mr.kinematicBase.Kinematics().Name(): inputs}
+	startConf := referenceframe.FrameSystemInputs{mr.kinematicBase.Kinematics().Name(): inputs}
 	mr.planRequest.StartState = motionplan.NewPlanState(mr.planRequest.StartState.Poses(), startConf)
 
 	// get existing elements of the worldstate
@@ -387,7 +387,7 @@ func (mr *moveRequest) augmentBaseExecutionState(
 		// The exception to this is if we are at the index we are currently executing, then
 		// we will use the base's reported current position.
 
-		currPathState := existingPlan.Path()[idx]
+		currFrameSystemPoses := existingPlan.Path()[idx]
 		kbTraj := currTraj[mr.kinematicBase.Name().Name]
 
 		// determine which pose should be used as the origin of a ptg input
@@ -395,7 +395,7 @@ func (mr *moveRequest) augmentBaseExecutionState(
 		if idx == baseExecutionState.Index() {
 			prevPathPose = baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose()
 		} else {
-			kbPose := currPathState[mr.kinematicBase.Kinematics().Name()]
+			kbPose := currFrameSystemPoses[mr.kinematicBase.Kinematics().Name()]
 			trajPose, err := mr.kinematicBase.Kinematics().Transform(kbTraj)
 			if err != nil {
 				return baseExecutionState, err
@@ -406,7 +406,7 @@ func (mr *moveRequest) augmentBaseExecutionState(
 		updatedTraj := kbTraj
 		updatedTraj = append(updatedTraj, referenceframe.PoseToInputs(prevPathPose)...)
 		newTrajectory = append(
-			newTrajectory, referenceframe.FrameConfigurations{mr.kinematicBase.Kinematics().Name(): updatedTraj},
+			newTrajectory, referenceframe.FrameSystemInputs{mr.kinematicBase.Kinematics().Name(): updatedTraj},
 		)
 	}
 	augmentedPlan := motionplan.NewSimplePlan(existingPlan.Path(), newTrajectory)
@@ -915,10 +915,10 @@ func (ms *builtIn) createBaseMoveRequest(
 
 	var backgroundWorkers sync.WaitGroup
 	startState := motionplan.NewPlanState(
-		referenceframe.FramePositions{kinematicFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose)},
+		referenceframe.FrameSystemPoses{kinematicFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose)},
 		currentInputs,
 	)
-	goals := []*motionplan.PlanState{motionplan.NewPlanState(referenceframe.FramePositions{kinematicFrame.Name(): goal}, nil)}
+	goals := []*motionplan.PlanState{motionplan.NewPlanState(referenceframe.FrameSystemPoses{kinematicFrame.Name(): goal}, nil)}
 
 	mr := &moveRequest{
 		config: motionCfg,

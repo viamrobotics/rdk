@@ -50,7 +50,7 @@ type rrtMaps struct {
 	optNode  node // The highest quality IK solution
 }
 
-func (maps *rrtMaps) fillPosOnlyGoal(goal referenceframe.FramePositions, posSeeds int) error {
+func (maps *rrtMaps) fillPosOnlyGoal(goal referenceframe.FrameSystemPoses, posSeeds int) error {
 	thetaStep := 360. / float64(posSeeds)
 	if maps == nil {
 		return errors.New("cannot call method fillPosOnlyGoal on nil maps")
@@ -59,7 +59,7 @@ func (maps *rrtMaps) fillPosOnlyGoal(goal referenceframe.FramePositions, posSeed
 		maps.goalMap = map[node]node{}
 	}
 	for i := 0; i < posSeeds; i++ {
-		newMap := referenceframe.FramePositions{}
+		newMap := referenceframe.FrameSystemPoses{}
 		for frame, goal := range goal {
 			newMap[frame] = referenceframe.NewPoseInFrame(
 				frame,
@@ -68,7 +68,7 @@ func (maps *rrtMaps) fillPosOnlyGoal(goal referenceframe.FramePositions, posSeed
 		}
 
 		goalNode := &basicNode{
-			q:     make(referenceframe.FrameConfigurations),
+			q:     make(referenceframe.FrameSystemInputs),
 			poses: newMap,
 		}
 		maps.goalMap[goalNode] = nil

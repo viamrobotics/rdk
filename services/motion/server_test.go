@@ -672,7 +672,7 @@ func TestServerGetPlan(t *testing.T) {
 		planID2 := uuid.New()
 
 		base1 := base.Named("base1")
-		steps := []referenceframe.FramePositions{{base1.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose())}}
+		steps := []referenceframe.FrameSystemPoses{{base1.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose())}}
 
 		plan1 := motion.PlanWithMetadata{
 			ID:            planID1,

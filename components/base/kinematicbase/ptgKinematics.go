@@ -206,7 +206,7 @@ func (ptgk *ptgBaseKinematics) ExecutionState(ctx context.Context) (motionplan.E
 	return motionplan.NewExecutionState(
 		currentPlan,
 		currentIdx,
-		referenceframe.FrameConfigurations{ptgk.Kinematics().Name(): currentInputs},
+		referenceframe.FrameSystemInputs{ptgk.Kinematics().Name(): currentInputs},
 		map[string]*referenceframe.PoseInFrame{ptgk.LocalizationFrame().Name(): actualPIF},
 	)
 }

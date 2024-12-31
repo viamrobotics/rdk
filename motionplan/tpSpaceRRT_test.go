@@ -44,10 +44,10 @@ func TestPtgRrtBidirectional(t *testing.T) {
 	fs.AddFrame(ackermanFrame, fs.World())
 
 	goalPos := spatialmath.NewPose(r3.Vector{X: 200, Y: 7000, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90})
-	goal := &PlanState{poses: referenceframe.FramePositions{
+	goal := &PlanState{poses: referenceframe.FrameSystemPoses{
 		ackermanFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, goalPos),
 	}}
-	start := &PlanState{poses: referenceframe.FramePositions{
+	start := &PlanState{poses: referenceframe.FrameSystemPoses{
 		ackermanFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
 	}}
 
@@ -263,7 +263,7 @@ func TestTPsmoothing(t *testing.T) {
 	plan := []node{}
 	for _, inp := range planInputs {
 		thisNode := &basicNode{
-			q:    referenceframe.FrameConfigurations{ackermanFrame.Name(): inp},
+			q:    referenceframe.FrameSystemInputs{ackermanFrame.Name(): inp},
 			cost: inp[3].Value - inp[2].Value,
 		}
 		plan = append(plan, thisNode)

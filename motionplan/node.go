@@ -12,8 +12,8 @@ import (
 
 // fixedStepInterpolation returns inputs at qstep distance along the path from start to target
 // if start and target have the same Input value, then no step increment is made.
-func fixedStepInterpolation(start, target node, qstep map[string][]float64) referenceframe.FrameConfigurations {
-	newNear := make(referenceframe.FrameConfigurations)
+func fixedStepInterpolation(start, target node, qstep map[string][]float64) referenceframe.FrameSystemInputs {
+	newNear := make(referenceframe.FrameSystemInputs)
 
 	// Iterate through each frame's inputs
 	for frameName, startInputs := range start.Q() {
@@ -41,23 +41,23 @@ func fixedStepInterpolation(start, target node, qstep map[string][]float64) refe
 // TODO: This is somewhat redundant with a State.
 type node interface {
 	// return the configuration associated with the node
-	Q() referenceframe.FrameConfigurations
+	Q() referenceframe.FrameSystemInputs
 	Cost() float64
 	SetCost(float64)
-	Poses() referenceframe.FramePositions
+	Poses() referenceframe.FrameSystemPoses
 	Corner() bool
 	SetCorner(bool)
 }
 
 type basicNode struct {
-	q      referenceframe.FrameConfigurations
+	q      referenceframe.FrameSystemInputs
 	cost   float64
-	poses  referenceframe.FramePositions
+	poses  referenceframe.FrameSystemPoses
 	corner bool
 }
 
 // Special case constructors for nodes without costs to return NaN.
-func newConfigurationNode(q referenceframe.FrameConfigurations) node {
+func newConfigurationNode(q referenceframe.FrameSystemInputs) node {
 	return &basicNode{
 		q:      q,
 		cost:   math.NaN(),
@@ -65,7 +65,7 @@ func newConfigurationNode(q referenceframe.FrameConfigurations) node {
 	}
 }
 
-func (n *basicNode) Q() referenceframe.FrameConfigurations {
+func (n *basicNode) Q() referenceframe.FrameSystemInputs {
 	return n.q
 }
 
@@ -77,7 +77,7 @@ func (n *basicNode) SetCost(cost float64) {
 	n.cost = cost
 }
 
-func (n *basicNode) Poses() referenceframe.FramePositions {
+func (n *basicNode) Poses() referenceframe.FrameSystemPoses {
 	return n.poses
 }
 
@@ -155,7 +155,7 @@ func generateNodeListForPlanState(
 	ctx context.Context,
 	mp motionPlanner,
 	state *PlanState,
-	ikSeed referenceframe.FrameConfigurations,
+	ikSeed referenceframe.FrameSystemInputs,
 ) ([]node, error) {
 	nodes := []node{}
 	if len(state.poses) != 0 {

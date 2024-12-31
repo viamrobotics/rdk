@@ -257,7 +257,7 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 
-		currentInputs := referenceframe.FrameConfigurations{
+		currentInputs := referenceframe.FrameSystemInputs{
 			mr.kinematicBase.Kinematics().Name(): {
 				{Value: 0}, // ptg index
 				{Value: 0}, // trajectory alpha within ptg
