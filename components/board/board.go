@@ -73,10 +73,10 @@ func Named(name string) resource.Name {
 //
 // AnalogNames example:
 //
-//  myBoard, err := board.FromRobot(robot, "my_board")
-// 
-//  // Get the names of all known analog pins
-//  names := myBoard.AnalogNames()
+//	myBoard, err := board.FromRobot(robot, "my_board")
+//
+//	// Get the names of all known analog pins
+//	names := myBoard.AnalogNames()
 //
 // SetPowerMode example:
 //
