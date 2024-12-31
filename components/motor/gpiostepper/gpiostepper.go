@@ -90,6 +90,11 @@ func init() {
 	)
 }
 
+
+// TODO (rh) refactor this driver so that the enable and direction logic is at the beginning of each API call
+// and the step -> position logic is the only thing being handled by the background thread.
+// right now too many things can be called out of lock, this function is only called from the constructor, CLose
+// the doCycle step routine, and should not be called elsewhere since there's no lock in in to ptoect the enable pins
 func (m *gpioStepper) enable(ctx context.Context, high bool) error {
 	var err error
 	if m.enablePinHigh != nil {
