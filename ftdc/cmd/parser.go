@@ -132,9 +132,12 @@ func (gpw *gnuplotWriter) addPoint(timeSeconds int64, metricName string, metricV
 	writelnf(gpw.getDatafile(metricName), "%v %.5f", timeSeconds, metricValue)
 }
 
+// ratioMetric describes which two FTDC metrics that should be combined to create a computed
+// value. Such as "CPU %". Can also be used to express "requests per second".
 type ratioMetric struct {
 	Numerator string
-	// An empty string Denominator will use the datum read timestamp value for its denominator.
+	// An empty string Denominator will use the datum read timestamp value for its denominator. For
+	// graphing a per-second rate.
 	Denominator string
 }
 
@@ -155,6 +158,7 @@ var ratioMetricToFields = map[string]ratioMetric{
 	"HeadersProcessedPerSec": {"HeadersProcessed", ""},
 }
 
+// ratioReading is a reading of two metrics described by `ratioMetric`. This is what will be graphed.
 type ratioReading struct {
 	GraphName string
 	// Seconds since epoch.
@@ -162,17 +166,22 @@ type ratioReading struct {
 	Numerator   float32
 	Denominator float64
 
-	// `IsRate` == false will multiply by 100 for displaying as a percentage. Otherwise just display
+	// `isRate` == false will multiply by 100 for displaying as a percentage. Otherwise just display
 	// the quotient.
-	IsRate bool
+	isRate bool
 }
 
-func (rr ratioReading) asPercentage() float32 {
-	return float32(float64(rr.Numerator) / rr.Denominator * 100)
-}
+func (rr ratioReading) toValue() (float32, error) {
+	if math.Abs(rr.Denominator) < 1e-9 {
+		return 0.0, fmt.Errorf("divide by zero error, metric: %v", rr.GraphName)
+	}
 
-func (rr ratioReading) asRate() float32 {
-	return float32(float64(rr.Numerator) / rr.Denominator)
+	if rr.isRate {
+		return float32(float64(rr.Numerator) / rr.Denominator), nil
+	} else {
+		// A percentage
+		return float32(float64(rr.Numerator) / rr.Denominator * 100), nil
+	}
 }
 
 func (rr *ratioReading) diff(other *ratioReading) ratioReading {
@@ -181,7 +190,7 @@ func (rr *ratioReading) diff(other *ratioReading) ratioReading {
 		rr.Time,
 		rr.Numerator - other.Numerator,
 		rr.Denominator - other.Denominator,
-		rr.IsRate,
+		rr.isRate,
 	}
 }
 
@@ -197,7 +206,7 @@ func pullRatios(reading ftdc.Reading, readingTS int64, ratioGraphs map[string]*r
 			// E.g: `rdk.foo_module.User CPU%'.
 			graphName := fmt.Sprint(metricIdentifier, ratioMetricName)
 			if _, exists := ratioGraphs[graphName]; !exists {
-				ratioGraphs[graphName] = &ratioReading{GraphName: graphName, Time: readingTS, IsRate: ratioMetric.Denominator == ""}
+				ratioGraphs[graphName] = &ratioReading{GraphName: graphName, Time: readingTS, isRate: ratioMetric.Denominator == ""}
 			}
 
 			ratioGraphs[graphName].Numerator = reading.Value
@@ -217,7 +226,7 @@ func pullRatios(reading ftdc.Reading, readingTS int64, ratioGraphs map[string]*r
 			// E.g: `rdk.foo_module.User CPU%'.
 			graphName := fmt.Sprint(metricIdentifier, ratioMetricName)
 			if _, exists := ratioGraphs[graphName]; !exists {
-				ratioGraphs[graphName] = &ratioReading{GraphName: graphName, Time: readingTS, IsRate: false}
+				ratioGraphs[graphName] = &ratioReading{GraphName: graphName, Time: readingTS, isRate: false}
 			}
 
 			ratioGraphs[graphName].Denominator = float64(reading.Value)
@@ -273,29 +282,38 @@ const windowSizeSecs = 5
 
 // The deferredValues input is in FTDC reading order. On a responsive system, adjacent items in the
 // slice should be one second apart.
-func (gpw *gnuplotWriter) writeDeferredValues(deferredValues []map[string]*ratioReading) {
+func (gpw *gnuplotWriter) writeDeferredValues(deferredValues []map[string]*ratioReading, logger logging.Logger) {
 	for idx, currReadings := range deferredValues {
-		if idx < windowSizeSecs {
-			// We can try harder here to output a reasonable value here. But we'd have to at least
-			// look into the `currReadings` values to get an appropriate timestamp to use for the
-			// datapoint X-axis.
+		if idx == 0 {
+			// The first element cannot be compared to anything. It would create a divide by zero
+			// problem.
 			continue
 		}
 
-		prevReadings := deferredValues[idx-windowSizeSecs]
+		// `forCompare` is the index element to compare the "current" element pointed to by `idx`.
+		forCompare := idx - windowSizeSecs
+		if forCompare < 0 {
+			// If we haven't
+			forCompare = 0
+		}
+
+		prevReadings := deferredValues[forCompare]
 		for metricName, currRatioReading := range currReadings {
 			var diff ratioReading
 			if prevratioReading, exists := prevReadings[metricName]; exists {
 				diff = currRatioReading.diff(prevratioReading)
 			} else {
+				logger.Infow("Deferred value missing a previous value to diff",
+					"metricName", metricName, "time", currRatioReading.Time)
 				continue
 			}
 
-			if diff.IsRate {
-				gpw.addPoint(currRatioReading.Time, metricName, diff.asRate())
-			} else {
-				gpw.addPoint(currRatioReading.Time, metricName, diff.asPercentage())
+			value, err := diff.toValue()
+			if err != nil {
+				// The denominator did not change -- divide by zero error.
+				continue
 			}
+			gpw.addPoint(currRatioReading.Time, metricName, value)
 		}
 	}
 }
@@ -384,7 +402,7 @@ func main() {
 				deferredValues = append(deferredValues, gpw.addFlatDatum(flatDatum))
 			}
 
-			gpw.writeDeferredValues(deferredValues)
+			gpw.writeDeferredValues(deferredValues, logger)
 
 			gpw.Render()
 		}
