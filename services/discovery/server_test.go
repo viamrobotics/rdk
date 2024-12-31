@@ -16,12 +16,17 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
+const (
+	testDiscoveryName = "discovery1"
+	failDiscoveryName = "discovery2"
+)
+
 var errDoFailed = errors.New("do failed")
 
 func newServer() (pb.DiscoveryServiceServer, *inject.DiscoveryService, *inject.DiscoveryService, error) {
-	injectDiscovery1 := &inject.DiscoveryService{}
+	injectDiscovery := &inject.DiscoveryService{}
 	injectDiscovery2 := &inject.DiscoveryService{}
-	resourceMap := map[resource.Name]resource.Resource{
+	resourceMap := map[resource.Name]discovery.Service{
 		discovery.Named(testDiscoveryName): injectDiscovery,
 		discovery.Named(failDiscoveryName): injectDiscovery2,
 	}
