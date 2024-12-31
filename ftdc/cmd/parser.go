@@ -194,9 +194,9 @@ func (rr *ratioReading) diff(other *ratioReading) ratioReading {
 	}
 }
 
-// pullRatios returns true if it found any `ratioMetrics` in the input `reading` and added those to
-// `deferredReadings`.
-func pullRatios(reading ftdc.Reading, readingTS int64, deferredReadings map[string]*ratioReading, ratioMetrics map[string]ratioMetric) bool {
+// pullRatios returns true if any of the `ratioMetrics` match the input `reading`. If so, a new
+// `ratioReading` is added to the the `deferredReadings`.
+func pullRatios(reading ftdc.Reading, readingTS int64, ratioMetrics map[string]ratioMetric, outDeferredReadings map[string]*ratioReading) bool {
 	ret := false
 	for ratioMetricName, ratioMetric := range ratioMetrics {
 		if strings.HasSuffix(reading.MetricName, ratioMetric.Numerator) {
@@ -207,13 +207,13 @@ func pullRatios(reading ftdc.Reading, readingTS int64, deferredReadings map[stri
 			metricIdentifier := strings.TrimSuffix(reading.MetricName, ratioMetric.Numerator)
 			// E.g: `rdk.foo_module.User CPU%'.
 			graphName := fmt.Sprint(metricIdentifier, ratioMetricName)
-			if _, exists := deferredReadings[graphName]; !exists {
-				deferredReadings[graphName] = &ratioReading{GraphName: graphName, Time: readingTS, isRate: ratioMetric.Denominator == ""}
+			if _, exists := outDeferredReadings[graphName]; !exists {
+				outDeferredReadings[graphName] = &ratioReading{GraphName: graphName, Time: readingTS, isRate: ratioMetric.Denominator == ""}
 			}
 
-			deferredReadings[graphName].Numerator = reading.Value
+			outDeferredReadings[graphName].Numerator = reading.Value
 			if ratioMetric.Denominator == "" {
-				deferredReadings[graphName].Denominator = float64(readingTS)
+				outDeferredReadings[graphName].Denominator = float64(readingTS)
 			}
 
 			continue
@@ -227,11 +227,11 @@ func pullRatios(reading ftdc.Reading, readingTS int64, deferredReadings map[stri
 			metricIdentifier := strings.TrimSuffix(reading.MetricName, ratioMetric.Denominator)
 			// E.g: `rdk.foo_module.User CPU%'.
 			graphName := fmt.Sprint(metricIdentifier, ratioMetricName)
-			if _, exists := deferredReadings[graphName]; !exists {
-				deferredReadings[graphName] = &ratioReading{GraphName: graphName, Time: readingTS, isRate: false}
+			if _, exists := outDeferredReadings[graphName]; !exists {
+				outDeferredReadings[graphName] = &ratioReading{GraphName: graphName, Time: readingTS, isRate: false}
 			}
 
-			deferredReadings[graphName].Denominator = float64(reading.Value)
+			outDeferredReadings[graphName].Denominator = float64(reading.Value)
 			continue
 		}
 	}
@@ -259,7 +259,7 @@ func (gpw *gnuplotWriter) addFlatDatum(datum ftdc.FlatDatum) map[string]*ratioRe
 		// pullRatios will identify if the metric is a "ratio" metric. If so, we do not currently
 		// know what to graph and `pullRatios` will accumulate the relevant information into
 		// `deferredReadings`.
-		isRatioMetric := pullRatios(reading, datum.ConvertedTime().Unix(), deferredReadings, ratioMetricToFields)
+		isRatioMetric := pullRatios(reading, datum.ConvertedTime().Unix(), ratioMetricToFields, deferredReadings)
 		if isRatioMetric {
 			// Ratio metrics need to be compared to some prior ratio metric to create a data
 			// point. We do not output any information now. We instead accumulate all of these
