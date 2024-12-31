@@ -71,6 +71,13 @@ func Named(name string) resource.Name {
 //	// Get the GPIOPin with pin number 15.
 //	pin, err := myBoard.GPIOPinByName("15")
 //
+// AnalogNames example:
+//
+//  myBoard, err := board.FromRobot(robot, "my_board")
+// 
+//  // Get the names of all known analog pins
+//  names := myBoard.AnalogNames()
+//
 // SetPowerMode example:
 //
 //	myBoard, err := board.FromRobot(robot, "my_board")
@@ -142,7 +149,7 @@ type Board interface {
 //	analog, err := myBoard.AnalogByName("my_example_analog")
 //
 //	// Set the pin to value 48.
-//	err := analog.Write(context.Background(), 48, nil)
+//	err = analog.Write(context.Background(), 48, nil)
 type Analog interface {
 	// Read reads off the current value.
 	Read(ctx context.Context, extra map[string]interface{}) (AnalogValue, error)
