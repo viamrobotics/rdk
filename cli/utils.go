@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -91,4 +93,43 @@ func parseBillingAddress(address string) (*apppb.BillingAddress, error) {
 		State:         strings.Trim(splitAddress[3], " "),
 		Zipcode:       strings.Trim(splitAddress[4], " "),
 	}, nil
+}
+
+func saveLogsToFile(filePath, format string, logs []string) error {
+	// Ensure the directory exists
+	dir := filepath.Dir(filePath)
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		return errors.Wrap(err, fmt.Sprintf("could not create directory: %s", dir))
+	}
+
+	// Validate directory permissions
+	info, statErr := os.Stat(dir)
+	if statErr != nil {
+		return errors.Wrap(statErr, fmt.Sprintf("could not stat directory: %s", dir))
+	}
+
+	if !info.IsDir() {
+		return fmt.Errorf("resolved path is not a directory: %s", dir)
+	}
+
+	var output []byte
+	switch format {
+	case "json":
+		var err error
+		output, err = json.MarshalIndent(logs, "", "  ")
+		if err != nil {
+			return errors.Wrap(err, "could not format logs as JSON")
+		}
+	case "text":
+		output = []byte(strings.Join(logs, "\n"))
+	default:
+		return fmt.Errorf("invalid format: %s, supported formats are 'text' and 'json'", format)
+	}
+
+	// Attempt to write the file
+	if err := os.WriteFile(filePath, output, 0o600); err != nil {
+		return errors.Wrap(err, "could not write logs to file")
+	}
+
+	return nil
 }

@@ -661,6 +661,56 @@ func RobotsLogsAction(c *cli.Context, args robotsLogsArgs) error {
 	return nil
 }
 
+type robotsDownloadLogsArgs struct {
+	Organization string
+	Location     string
+	Machine      string
+	Output       string
+	Format       string
+	Errors       bool
+	Count        int
+}
+
+// RobotsDownloadLogsAction handles the CLI command to download logs and save them to a file.
+func RobotsDownloadLogsAction(c *cli.Context, args robotsDownloadLogsArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	orgStr := args.Organization
+	locStr := args.Location
+	robotStr := args.Machine
+	if _, err := client.robot(orgStr, locStr, robotStr); err != nil {
+		return errors.Wrap(err, "could not get machine")
+	}
+
+	parts, err := client.robotParts(orgStr, locStr, robotStr)
+	if err != nil {
+		return errors.Wrap(err, "could not get machine parts")
+	}
+
+	logs := []string{}
+	for _, part := range parts {
+		numLogs, err := getNumLogs(c, args.Count)
+		if err != nil {
+			return err
+		}
+
+		partLogs, err := client.fetchRobotPartLogs(orgStr, locStr, robotStr, part.Id, args.Errors, numLogs)
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("could not fetch logs for part %s", part.Name))
+		}
+		logs = append(logs, partLogs...)
+	}
+
+	if err := saveLogsToFile(args.Output, args.Format, logs); err != nil {
+		return errors.Wrap(err, "could not save logs to file")
+	}
+
+	return nil
+}
+
 type robotsPartStatusArgs struct {
 	Organization string
 	Location     string
@@ -1611,6 +1661,32 @@ func (c *viamClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, err
 		logs = append(logs, resp.Logs...)
 
 		i += len(resp.Logs)
+	}
+
+	return logs, nil
+}
+
+func (c *viamClient) fetchRobotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool, numLogs int) ([]string, error) {
+	logEntries, err := c.robotPartLogs(orgStr, locStr, robotStr, partStr, errorsOnly, numLogs)
+	if err != nil {
+		return nil, err
+	}
+
+	logs := make([]string, len(logEntries))
+	for i, log := range logEntries {
+		fieldsString, err := logEntryFieldsToString(log.Fields)
+		if err != nil {
+			fieldsString = fmt.Sprintf("error formatting fields: %v", err)
+		}
+
+		logs[i] = fmt.Sprintf(
+			"%s\t%s\t%s\t%s\t%s",
+			log.Time.AsTime().Format(logging.DefaultTimeFormatStr),
+			log.Level,
+			log.LoggerName,
+			log.Message,
+			fieldsString,
+		)
 	}
 
 	return logs, nil
