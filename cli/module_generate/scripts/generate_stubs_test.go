@@ -11,13 +11,18 @@ import (
 func TestGenerateStubs(t *testing.T) {
 	t.Run("test type formatting", func(t *testing.T) {
 		subtype := "resource"
-		testType := "Test"
+		testType := "test"
+		testTypeUpper := "Test"
 
-		paramType := formatType(ast.NewIdent(testType), subtype)
-		test.That(t, paramType, test.ShouldEqual, fmt.Sprintf("%s.%s", subtype, testType))
+		test.That(t, formatType(ast.NewIdent(testType), subtype), test.ShouldEqual, testType)
+
+		paramType := formatType(ast.NewIdent(testTypeUpper), subtype)
+		test.That(t, paramType, test.ShouldEqual, fmt.Sprintf("%s.%s", subtype, testTypeUpper))
 		for _, prefix := range typePrefixes {
-			paramType := formatType(ast.NewIdent(prefix+testType), subtype)
-			test.That(t, paramType, test.ShouldEqual, fmt.Sprintf("%s%s.%s", prefix, subtype, testType))
+			paramType = formatType(ast.NewIdent(prefix+testType), subtype)
+			test.That(t, paramType, test.ShouldEqual, fmt.Sprintf("%s%s", prefix, testType))
+			paramType := formatType(ast.NewIdent(prefix+testTypeUpper), subtype)
+			test.That(t, paramType, test.ShouldEqual, fmt.Sprintf("%s%s.%s", prefix, subtype, testTypeUpper))
 		}
 	})
 }
