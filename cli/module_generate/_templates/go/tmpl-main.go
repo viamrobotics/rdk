@@ -8,6 +8,6 @@ import (
 )
 
 func main() {
-	// ModularMain can take multiple arguments, if your module implements multiple models.
+	// ModularMain can take multiple APIModel arguments, if your module implements multiple models.
 	module.ModularMain(resource.APIModel{ {{.ResourceSubtype}}.API, models.{{.ModelPascal}}})
 }
