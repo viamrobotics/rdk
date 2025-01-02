@@ -2049,9 +2049,9 @@ Example:
 									Usage: "use this to indicate that your meta.json is in a subdirectory of your repo." + " --module flag should be relative to this",
 									Value: ".",
 								},
-								&cli.StringFlag{
+								&cli.StringSliceFlag{
 									Name:  moduleBuildFlagPlatforms,
-									Usage: "comma-separated list of platforms to build, e.g. linux/amd64,linux/arm64. Defaults to build.arch in meta.json.",
+									Usage: "list of platforms to build, e.g. linux/amd64,linux/arm64. Defaults to build.arch in meta.json.",
 								},
 							},
 							Action: createCommandWithT[moduleBuildStartArgs](ModuleBuildStartAction),

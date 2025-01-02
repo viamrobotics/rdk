@@ -55,7 +55,7 @@ type moduleBuildStartArgs struct {
 	Ref       string
 	Token     string
 	Workdir   string
-	Platforms string
+	Platforms []string
 }
 
 // ModuleBuildStartAction starts a cloud build.
@@ -81,8 +81,8 @@ func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context, args moduleBuildS
 	version = strings.TrimPrefix(version, "v")
 
 	var platforms []string
-	if args.Platforms != "" { //nolint:gocritic
-		platforms = strings.Split(args.Platforms, ",")
+	if len(args.Platforms) > 0 { //nolint:gocritic
+		platforms = args.Platforms
 	} else if len(manifest.Build.Arch) > 0 {
 		platforms = manifest.Build.Arch
 	} else {
