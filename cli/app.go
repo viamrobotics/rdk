@@ -37,18 +37,15 @@ const (
 	loginFlagKeyID          = "key-id"
 	loginFlagKey            = "key"
 
-	// Flags shared by api-key, module, ml-training and data subcommands.
+	// Flags shared by api-key, module, ml-training, package, and data subcommands.
 	generalFlagOrgID        = "org-id"
 	generalFlagAliasOrgID    = "organization"
 	generalFlagLocationID   = "location-id"
 	generalFlagAliasLocationID        = "location"
 	generalFlagMachineID    = "machine-id"
 	generalFlagAliasRobotID = "robot-id"
+	generalFlagName = "name"
 
-	// TODO(RSDK-9287) - "name" occurs as three different flags. let's simplify that.
-	apiKeyCreateFlagName = "name"
-
-	moduleFlagName            = "name"
 	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
 	moduleFlagPath            = "module"
@@ -120,7 +117,6 @@ const (
 	dataFlagFilterTags                     = "filter-tags"
 	dataFlagTimeout                        = "timeout"
 
-	packageFlagName        = "name"
 	packageFlagVersion     = "version"
 	packageFlagType        = "type"
 	packageFlagDestination = "destination"
@@ -610,7 +606,7 @@ var app = &cli.App{
 									Usage:    "the org to create an api key for",
 								},
 								&cli.StringFlag{
-									Name:  apiKeyCreateFlagName,
+									Name:  generalFlagName,
 									Usage: "the name of the key (defaults to your login info with the current time)",
 								},
 							},
@@ -647,7 +643,7 @@ var app = &cli.App{
 									Usage:    "the location to create an api-key for",
 								},
 								&cli.StringFlag{
-									Name:  apiKeyCreateFlagName,
+									Name:  generalFlagName,
 									Usage: "the name of the key (defaults to your login info with the current time)",
 								},
 								&cli.StringFlag{
@@ -1491,7 +1487,7 @@ var app = &cli.App{
 									},
 								},
 								&cli.StringFlag{
-									Name:  apiKeyCreateFlagName,
+									Name:  generalFlagName,
 									Usage: "the name of the key (defaults to your login info with the current time)",
 								},
 								&cli.StringFlag{
@@ -1831,10 +1827,10 @@ you won't have to pass a namespace or org-id in future commands. Otherwise there
 and you will have to provide the org-id to future cli commands. You cannot make your module public until you claim an org-id.
 
 After creation, use 'viam module update' to push your new module to app.viam.com.`,
-					UsageText: createUsageText("module create", []string{moduleFlagName}, true),
+					UsageText: createUsageText("module create", []string{generalFlagName}, true),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:     moduleFlagName,
+							Name:     generalFlagName,
 							Usage:    "name of your module (cannot be changed once set)",
 							Required: true,
 						},
@@ -1858,7 +1854,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Usage: "generate a new modular resource via prompts",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:  moduleFlagName,
+							Name:  generalFlagName,
 							Usage: "name to use for module",
 						},
 						&cli.StringFlag{
@@ -1966,7 +1962,7 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 							Usage: "id of the organization that hosts the module",
 						},
 						&cli.StringFlag{
-							Name:  moduleFlagName,
+							Name:  generalFlagName,
 							Usage: "name of the module (used if you don't have a meta.json)",
 						},
 						&cli.StringFlag{
@@ -2179,7 +2175,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Value: "meta.json",
 						},
 						&cli.StringFlag{
-							Name:  moduleFlagName,
+							Name:  generalFlagName,
 							Usage: "name of module to restart. pass at most one of --name, --id",
 						},
 						&cli.StringFlag{
@@ -2255,7 +2251,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage: "organization ID or namespace of the requested package. if missing, will try to read from meta.json",
 						},
 						&cli.StringFlag{
-							Name:  packageFlagName,
+							Name:  generalFlagName,
 							Usage: "name of the requested package. if missing, will try to read from meta.json",
 						},
 						&cli.StringFlag{
@@ -2276,7 +2272,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 					Usage: "upload a package to Viam cloud",
 					UsageText: createUsageText("packages upload",
 						[]string{
-							packageFlagPath, generalFlagOrgID, packageFlagName,
+							packageFlagPath, generalFlagOrgID, generalFlagName,
 							packageFlagVersion, packageFlagType,
 						}, false),
 					Flags: []cli.Flag{
@@ -2291,7 +2287,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage:    "organization ID of the requested package",
 						},
 						&cli.StringFlag{
-							Name:     packageFlagName,
+							Name:     generalFlagName,
 							Required: true,
 							Usage:    "name of the requested package",
 						},
