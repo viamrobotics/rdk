@@ -1107,7 +1107,7 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	}
 	env := getFullEnvironment(conf, dataDir, mgr.viamHomeDir)
 
-	return conf.FirstRun(ctx, pkgsDir, dataDir, env, mgr.logger)
+	return conf.FirstRun(ctx, pkgsDir, dataDir, env, mgr.logger, mgr.packagesDir, mgr.viamHomeDir)
 }
 
 func (m *module) startProcess(
