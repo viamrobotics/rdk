@@ -49,6 +49,9 @@ import (
 )
 
 const (
+	formatJSON = "json"
+	formatText = "text"
+
 	rdkReleaseURL = "https://api.github.com/repos/viamrobotics/rdk/releases/latest"
 	// defaultNumLogs is the same as the number of logs currently returned by app
 	// in a single GetRobotPartLogsResponse.
@@ -657,7 +660,7 @@ func fetchAndSaveLogs(client *viamClient, parts []*apppb.RobotPart, args robotsL
 	//nolint:errcheck
 	defer file.Close()
 
-	if args.Format == "json" {
+	if args.Format == formatJSON {
 		if _, err := file.WriteString("["); err != nil {
 			return errors.Wrap(err, "failed to write JSON opening bracket")
 		}
@@ -669,12 +672,14 @@ func fetchAndSaveLogs(client *viamClient, parts []*apppb.RobotPart, args robotsL
 		if err != nil {
 			return errors.Wrapf(err, "could not stream logs for part %s", part.Name)
 		}
-		if args.Format == "json" && i < len(parts)-1 {
-			file.WriteString(",") // Add comma between parts
+		if args.Format == formatJSON && i < len(parts)-1 {
+			if _, err := file.WriteString(","); err != nil {
+				return errors.Wrap(err, "failed to write JSON comma between parts")
+			}
 		}
 	}
 
-	if args.Format == "json" {
+	if args.Format == formatJSON {
 		if _, err := file.WriteString("]"); err != nil {
 			return errors.Wrap(err, "failed to write JSON closing bracket")
 		}
@@ -691,11 +696,11 @@ func streamLogsForPart(client *viamClient, part *apppb.RobotPart, args robotsLog
 	}
 
 	// Write a header for this part
-	if args.Format == "text" {
+	if args.Format == formatText {
 		if _, err := file.WriteString(fmt.Sprintf("===== Logs for Part: %s =====\n", part.Name)); err != nil {
 			return errors.Wrap(err, "failed to write header to file")
 		}
-	} else if args.Format == "json" {
+	} else if args.Format == formatJSON {
 		if _, err := file.WriteString(fmt.Sprintf(`{"part": "%s", "logs": [`, part.Name)); err != nil {
 			return errors.Wrap(err, "failed to write JSON header to file")
 		}
@@ -729,7 +734,7 @@ func streamLogsForPart(client *viamClient, part *apppb.RobotPart, args robotsLog
 
 		for _, log := range resp.Logs {
 			// Add a comma separator for JSON if it's not the first log
-			if !firstLog && args.Format == "json" {
+			if !firstLog && args.Format == formatJSON {
 				if _, err := file.WriteString(","); err != nil {
 					return errors.Wrap(err, "failed to write JSON log separator")
 				}
@@ -750,7 +755,7 @@ func streamLogsForPart(client *viamClient, part *apppb.RobotPart, args robotsLog
 		logsFetched += len(resp.Logs)
 	}
 
-	if args.Format == "json" {
+	if args.Format == formatJSON {
 		if _, err := file.WriteString("]}"); err != nil {
 			return errors.Wrap(err, "failed to close JSON log array")
 		}
@@ -767,7 +772,7 @@ func formatLog(log *commonpb.LogEntry, format string) (string, error) {
 	}
 
 	switch format {
-	case "json":
+	case formatJSON:
 		logMap := map[string]interface{}{
 			"ts":      log.Time.AsTime().Unix(),
 			"time":    log.Time.AsTime().Format(logging.DefaultTimeFormatStr),
@@ -781,7 +786,7 @@ func formatLog(log *commonpb.LogEntry, format string) (string, error) {
 			return "", errors.Wrap(err, "failed to marshal log to JSON")
 		}
 		return string(logJSON), nil
-	case "text":
+	case formatText:
 		return fmt.Sprintf(
 			"%s\t%s\t%s\t%s\t%s\n",
 			log.Time.AsTime().Format(logging.DefaultTimeFormatStr),
@@ -1907,7 +1912,7 @@ func (c *viamClient) runRobotPartCommand(
 
 	invoke := func() (bool, error) {
 		rf, formatter, err := grpcurl.RequestParserAndFormatter(
-			grpcurl.Format("json"),
+			grpcurl.Format(formatJSON),
 			descSource,
 			strings.NewReader(data),
 			options)
