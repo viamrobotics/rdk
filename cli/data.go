@@ -504,11 +504,13 @@ func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, 
 }
 
 func (c *viamClient) downloadBinary(dst string, id *datapb.BinaryID, timeout uint) error {
-	args := parseStructFromCtx[globalArgs](c.c)
+	args, err := getGlobalArgs(c.c)
+	if err != nil {
+		return err
+	}
 	debugf(c.c.App.Writer, args.Debug, "Attempting to download binary file %s", id.FileId)
 
 	var resp *datapb.BinaryDataByIDsResponse
-	var err error
 	largeFile := false
 	// To begin, we assume the file is small and downloadable, so we try getting the binary directly
 	for count := 0; count < maxRetryCount; count++ {

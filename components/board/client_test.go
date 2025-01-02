@@ -3,7 +3,6 @@ package board_test
 import (
 	"context"
 	"net"
-	"slices"
 	"testing"
 	"time"
 
@@ -224,70 +223,4 @@ func TestWorkingClient(t *testing.T) {
 		testWorkingClient(t, client)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
-}
-
-// these tests validate that for modular boards(which rely on client.go's board interface)
-// we will only add new pins to the cached name lists.
-func TestClientNames(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	injectBoard := &inject.Board{}
-
-	listener, cleanup := setupService(t, injectBoard)
-	defer cleanup()
-	t.Run("test analog names are cached correctly in the client", func(t *testing.T) {
-		ctx := context.Background()
-		conn, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
-		test.That(t, err, test.ShouldBeNil)
-		client, err := board.NewClientFromConn(ctx, conn, "", board.Named(testBoardName), logger)
-		test.That(t, err, test.ShouldBeNil)
-
-		nameFunc := func(name string) error {
-			_, err = client.AnalogByName(name)
-			return err
-		}
-		testNamesAPI(t, client.AnalogNames, nameFunc, "Analog")
-
-		test.That(t, conn.Close(), test.ShouldBeNil)
-	})
-
-	t.Run("test interrupt names are cached correctly in the client", func(t *testing.T) {
-		ctx := context.Background()
-		conn, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
-		test.That(t, err, test.ShouldBeNil)
-		client, err := board.NewClientFromConn(ctx, conn, "", board.Named(testBoardName), logger)
-		test.That(t, err, test.ShouldBeNil)
-
-		nameFunc := func(name string) error {
-			_, err = client.DigitalInterruptByName(name)
-			return err
-		}
-		testNamesAPI(t, client.DigitalInterruptNames, nameFunc, "DigitalInterrupt")
-		test.That(t, conn.Close(), test.ShouldBeNil)
-	})
-}
-
-func testNamesAPI(t *testing.T, namesFunc func() []string, nameFunc func(string) error, name string) {
-	t.Helper()
-	names := namesFunc()
-	test.That(t, len(names), test.ShouldEqual, 0)
-	name1 := name + "1"
-	err := nameFunc(name1)
-	test.That(t, err, test.ShouldBeNil)
-	names = namesFunc()
-	test.That(t, len(names), test.ShouldEqual, 1)
-	test.That(t, slices.Contains(names, name1), test.ShouldBeTrue)
-
-	name2 := name + "2"
-	err = nameFunc(name2)
-	test.That(t, err, test.ShouldBeNil)
-
-	names = namesFunc()
-	test.That(t, len(names), test.ShouldEqual, 2)
-	test.That(t, slices.Contains(names, name2), test.ShouldBeTrue)
-
-	err = nameFunc(name1)
-	test.That(t, err, test.ShouldBeNil)
-	names = namesFunc()
-	test.That(t, len(names), test.ShouldEqual, 2)
-	test.That(t, slices.Contains(names, name1), test.ShouldBeTrue)
 }

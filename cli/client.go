@@ -285,6 +285,51 @@ func (c *viamClient) getBillingConfig(cCtx *cli.Context, orgID string) error {
 	return nil
 }
 
+type organizationEnableBillingServiceArgs struct {
+	OrgID   string
+	Address string
+}
+
+// OrganizationEnableBillingServiceAction corresponds to `organizations billing enable`.
+func OrganizationEnableBillingServiceAction(cCtx *cli.Context, args organizationEnableBillingServiceArgs) error {
+	client, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+	orgID := args.OrgID
+	if orgID == "" {
+		return errors.New("cannot enable billing service without an organization ID")
+	}
+
+	address := args.Address
+	if address == "" {
+		return errors.New("cannot enable billing service to an empty address")
+	}
+
+	return client.organizationEnableBillingServiceAction(cCtx, orgID, address)
+}
+
+func (c *viamClient) organizationEnableBillingServiceAction(cCtx *cli.Context, orgID, addressAsString string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	address, err := parseBillingAddress(addressAsString)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.client.EnableBillingService(cCtx.Context, &apppb.EnableBillingServiceRequest{
+		OrgId:          orgID,
+		BillingAddress: address,
+	})
+	if err != nil {
+		return err
+	}
+	printf(cCtx.App.Writer, "Successfully enabled billing service for organization %q", orgID)
+	return nil
+}
+
 type organizationDisableBillingServiceArgs struct {
 	OrgID string
 }
@@ -346,14 +391,7 @@ func (c *viamClient) organizationLogoSetAction(cCtx *cli.Context, orgID, logoFil
 		return err
 	}
 
-	// determine whether this is a valid file path on the local system
-	logoFilePath = strings.ToLower(filepath.Clean(logoFilePath))
-
-	if len(logoFilePath) < 5 || logoFilePath[len(logoFilePath)-4:] != ".png" {
-		return errors.Errorf("%s is not a valid .png file path", logoFilePath)
-	}
-
-	logoFile, err := os.Open(logoFilePath)
+	logoFile, err := os.Open(filepath.Clean(logoFilePath))
 	if err != nil {
 		return errors.WithMessagef(err, "could not open logo file: %s", logoFilePath)
 	}
@@ -784,7 +822,10 @@ func RobotsPartRunAction(c *cli.Context, args robotsPartRunArgs) error {
 
 	// Create logger based on presence of debugFlag.
 	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
-	globalArgs := parseStructFromCtx[globalArgs](c)
+	globalArgs, err := getGlobalArgs(c)
+	if err != nil {
+		return err
+	}
 	if globalArgs.Debug {
 		logger = logging.NewDebugLogger("cli")
 	}
@@ -820,7 +861,10 @@ func RobotsPartShellAction(c *cli.Context, args robotsPartShellArgs) error {
 
 	// Create logger based on presence of debugFlag.
 	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
-	globalArgs := parseStructFromCtx[globalArgs](c)
+	globalArgs, err := getGlobalArgs(c)
+	if err != nil {
+		return err
+	}
 	if globalArgs.Debug {
 		logger = logging.NewDebugLogger("cli")
 	}
@@ -879,7 +923,10 @@ func machinesPartCopyFilesAction(c *cli.Context, client *viamClient, flagArgs ma
 
 	// Create logger based on presence of debugFlag.
 	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
-	globalArgs := parseStructFromCtx[globalArgs](c)
+	globalArgs, err := getGlobalArgs(c)
+	if err != nil {
+		return err
+	}
 	if globalArgs.Debug {
 		logger = logging.NewDebugLogger("cli")
 	}
@@ -1000,7 +1047,10 @@ func getLatestReleaseVersion() (string, error) {
 
 // CheckUpdateAction is the corresponding Action for 'check-update'.
 func CheckUpdateAction(c *cli.Context, args emptyArgs) error {
-	globalArgs := parseStructFromCtx[globalArgs](c)
+	globalArgs, err := getGlobalArgs(c)
+	if err != nil {
+		return err
+	}
 	if globalArgs.Quiet {
 		return nil
 	}
@@ -1023,7 +1073,7 @@ func CheckUpdateAction(c *cli.Context, args emptyArgs) error {
 		return nil
 	}
 
-	conf, err := ConfigFromCache()
+	conf, err := ConfigFromCache(c)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			utils.UncheckedError(err)
@@ -1096,7 +1146,10 @@ func VersionAction(c *cli.Context, args emptyArgs) error {
 	if !ok {
 		return errors.New("error reading build info")
 	}
-	globalArgs := parseStructFromCtx[globalArgs](c)
+	globalArgs, err := getGlobalArgs(c)
+	if err != nil {
+		return err
+	}
 	if globalArgs.Debug {
 		printf(c.App.Writer, "%s", info.String())
 	}
@@ -1183,19 +1236,25 @@ func isProdBaseURL(baseURL *url.URL) bool {
 }
 
 func newViamClientInner(c *cli.Context, disableBrowserOpen bool) (*viamClient, error) {
-	conf, err := ConfigFromCache()
+	globalArgs, err := getGlobalArgs(c)
+	if err != nil {
+		return nil, err
+	}
+	conf, err := ConfigFromCache(c)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			globalArgs := parseStructFromCtx[globalArgs](c)
 			debugf(c.App.Writer, globalArgs.Debug, "Cached config parse error: %v", err)
 			return nil, errors.New("failed to parse cached config. Please log in again")
 		}
 		conf = &Config{}
+		whichProfile, _ := whichProfile(globalArgs)
+		if !globalArgs.DisableProfiles && whichProfile != nil {
+			conf.profile = *whichProfile
+		}
 	}
 
 	// If base URL was not specified, assume cached base URL. If no base URL is
 	// cached, assume default base URL.
-	globalArgs := parseStructFromCtx[globalArgs](c)
 	baseURLArg := globalArgs.BaseURL
 	switch {
 	case conf.BaseURL == "" && baseURLArg == "":
