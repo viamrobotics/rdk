@@ -81,7 +81,7 @@ func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context, args moduleBuildS
 	version = strings.TrimPrefix(version, "v")
 
 	var platforms []string
-	if args.Platforms != "" {
+	if args.Platforms != "" { //nolint:gocritic
 		platforms = strings.Split(args.Platforms, ",")
 	} else if len(manifest.Build.Arch) > 0 {
 		platforms = manifest.Build.Arch
