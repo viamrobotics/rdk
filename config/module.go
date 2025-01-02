@@ -249,7 +249,11 @@ func (m *Module) FirstRun(
 	dataDir string,
 	env map[string]string,
 	logger logging.Logger,
+	packagesDir,
+	viamHomeDir string,
 ) error {
+	fmt.Println("PACKAGES DIRECTORY: ", packagesDir)
+	fmt.Println("VIAM HOME DIRECTORY: ", viamHomeDir)
 	logger = logger.Sublogger("first_run").WithFields("module", m.Name)
 
 	unpackedModDir, err := m.exeDir(localPackagesDir)
