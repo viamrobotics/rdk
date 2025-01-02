@@ -381,7 +381,7 @@ func (p *PlanState) ComputePoses(fs referenceframe.FrameSystem) (referenceframe.
 		return nil, errors.New("cannot computes poses, neither poses nor configuration are populated")
 	}
 
-	return p.configuration.ComputePositions(fs)
+	return p.configuration.ComputePoses(fs)
 }
 
 // Serialize turns a PlanState into a map[string]interface suitable for being transmitted over proto.

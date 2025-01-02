@@ -82,7 +82,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 	}
 	// If we have a start configuration, check for correctness. Reuse FrameSystemPoses compute function to provide error.
 	if len(req.StartState.configuration) > 0 {
-		_, err := req.StartState.configuration.ComputePositions(req.FrameSystem)
+		_, err := req.StartState.configuration.ComputePoses(req.FrameSystem)
 		if err != nil {
 			return err
 		}

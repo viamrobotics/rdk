@@ -2,7 +2,6 @@ package referenceframe
 
 import (
 	"errors"
-	"fmt"
 	"math"
 
 	pb "go.viam.com/api/component/arm/v1"
@@ -102,21 +101,8 @@ func interpolateInputs(from, to []Input, by float64) []Input {
 // FrameSystemInputs is an alias for a mapping of frame names to slices of Inputs.
 type FrameSystemInputs map[string][]Input
 
-// GetFrameInputs looks through the inputMap and returns a slice of Inputs corresponding to the given frame.
-func (inputs FrameSystemInputs) GetFrameInputs(frame Frame) ([]Input, error) {
-	var input []Input
-	// Get frame inputs if necessary
-	if len(frame.DoF()) > 0 {
-		if _, ok := inputs[frame.Name()]; !ok {
-			return nil, fmt.Errorf("no positions provided for frame with name %s", frame.Name())
-		}
-		input = inputs[frame.Name()]
-	}
-	return input, nil
-}
-
-// ComputePositions computes the poses for each frame in a framesystem in frame of World, using the provided configuration.
-func (inputs FrameSystemInputs) ComputePositions(fs FrameSystem) (FrameSystemPoses, error) {
+// ComputePoses computes the poses for each frame in a framesystem in frame of World, using the provided configuration.
+func (inputs FrameSystemInputs) ComputePoses(fs FrameSystem) (FrameSystemPoses, error) {
 	// Compute poses from configuration using the FrameSystem
 	computedPoses := make(FrameSystemPoses)
 	for _, frameName := range fs.FrameNames() {

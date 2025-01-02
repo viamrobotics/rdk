@@ -461,9 +461,9 @@ func (sfs *simpleFrameSystem) composeTransforms(frame Frame, inputMap FrameSyste
 	var errAll error
 	for sfs.parents[frame] != nil { // stop once you reach world node
 		// Transform() gives FROM q TO parent. Add new transforms to the left.
-		inputs, err := inputMap.GetFrameInputs(frame)
-		if err != nil {
-			return nil, err
+		inputs, ok := inputMap[frame.Name()]
+		if !ok {
+			return nil, NewFrameMissingError(frame.Name())
 		}
 		pose, err := frame.Transform(inputs)
 		if err != nil && pose == nil {
@@ -533,11 +533,14 @@ func FrameSystemGeometries(fs FrameSystem, inputMap FrameSystemInputs) (map[stri
 	var errAll error
 	allGeometries := make(map[string]*GeometriesInFrame, 0)
 	for _, name := range fs.FrameNames() {
+		var inputs []Input
 		frame := fs.Frame(name)
-		inputs, err := inputMap.GetFrameInputs(frame)
-		if err != nil {
-			errAll = multierr.Append(errAll, err)
-			continue
+		if len(frame.DoF()) > 0 {
+			var ok bool
+			if inputs, ok = inputMap[name]; !ok {
+				errAll = multierr.Append(errAll, NewFrameMissingError(name))
+				continue
+			}
 		}
 		geosInFrame, err := frame.Geometries(inputs)
 		if err != nil {
