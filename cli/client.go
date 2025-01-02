@@ -654,6 +654,7 @@ func fetchAndSaveLogs(client *viamClient, parts []*apppb.RobotPart, args robotsL
 	if err != nil {
 		return errors.Wrap(err, "could not open file for writing")
 	}
+	//nolint:errcheck
 	defer file.Close()
 
 	// Stream logs part by part
