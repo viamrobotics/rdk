@@ -50,11 +50,12 @@ const (
 var moduleBuildPollingInterval = 2 * time.Second
 
 type moduleBuildStartArgs struct {
-	Module  string
-	Version string
-	Ref     string
-	Token   string
-	Workdir string
+	Module    string
+	Version   string
+	Ref       string
+	Token     string
+	Workdir   string
+	Platforms string
 }
 
 // ModuleBuildStartAction starts a cloud build.
@@ -79,8 +80,12 @@ func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context, args moduleBuildS
 	// Clean the version argument to ensure compatibility with github tag standards
 	version = strings.TrimPrefix(version, "v")
 
-	platforms := manifest.Build.Arch
-	if len(platforms) == 0 {
+	var platforms []string
+	if args.Platforms != "" {
+		platforms = strings.Split(args.Platforms, ",")
+	} else if len(manifest.Build.Arch) > 0 {
+		platforms = manifest.Build.Arch
+	} else {
 		platforms = defaultBuildInfo.Arch
 	}
 
