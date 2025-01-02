@@ -477,10 +477,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	// and immediately start web service. We need the machine to be reachable
 	// through the web service ASAP, even if some resources take a long time to
 	// initially configure.
-	minimalProcessedConfig, err := fullProcessedConfig.CopyOnlyPublicFields()
-	if err != nil {
-		return err
-	}
+	minimalProcessedConfig := *fullProcessedConfig
 	minimalProcessedConfig.Components = nil
 	minimalProcessedConfig.Services = nil
 	minimalProcessedConfig.Remotes = nil
@@ -489,7 +486,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 
 	// Start robot in an initializing state with minimal config.
 	robotOptions = append(robotOptions, robotimpl.WithInitializing())
-	myRobot, err := robotimpl.New(ctx, minimalProcessedConfig, s.logger, robotOptions...)
+	myRobot, err := robotimpl.New(ctx, &minimalProcessedConfig, s.logger, robotOptions...)
 	if err != nil {
 		cancel()
 		return err
@@ -527,7 +524,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	}()
 
 	// Create initial web options with `minimalProcessedConfig`.
-	options, err := s.createWebOptions(minimalProcessedConfig)
+	options, err := s.createWebOptions(&minimalProcessedConfig)
 	if err != nil {
 		return err
 	}
