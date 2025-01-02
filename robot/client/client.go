@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -60,6 +61,12 @@ var (
 
 	// defaultResourcesTimeout is the default timeout for getting resources.
 	defaultResourcesTimeout = 5 * time.Second
+
+	// DoNotWaitForRunningEnvVar is the name of an environment variable to set
+	// only in tests to allow connecting to still-initializing machines. Note
+	// that robot clients in production (not in a testing environment) will
+	// already allow connecting to still-initializing machines.
+	DoNotWaitForRunningEnvVar = "VIAM_CLIENT_DO_NOT_WAIT_FOR_RUNNING"
 )
 
 // RobotClient satisfies the robot.Robot interface through a gRPC based
@@ -289,13 +296,17 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 	}
 
 	// If running in a testing environment, wait for machine to report a state of
-	// running. We often establish connections in tests and expected resources to
+	// running. We often establish connections in tests and expect resources to
 	// be immediately available once the web service has started; resources will
 	// not be available when the machine is still initializing.
 	//
 	// It is expected that golang SDK users will handle lack of resource
 	// availability due to the machine being in an initializing state themselves.
-	if testing.Testing() {
+	//
+	// Allow this behavior to be turned off in some tests that specifically want
+	// to examine the behavior of a machine in an initializing state through the
+	// use of an environment variable.
+	if testing.Testing() && os.Getenv(DoNotWaitForRunningEnvVar) == "" {
 		for {
 			if ctx.Err() != nil {
 				return nil, multierr.Combine(ctx.Err(), rc.conn.Close())
@@ -417,7 +428,15 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 	dialOptionsWebRTCOnly[0] = rpc.WithDisableDirectGRPC()
 
 	dialLogger := rc.logger.Sublogger("networking")
+
+	// This dial seems to hang for 10 seconds, and it's not exactly clear why.
+	// Doesn't seem to have to do with reconfiguring, just some inner timeout
+	// probably related to checking for something? But what?
+
+	dialLogger.Info("DBG-BENJI Start of gRPC dial")
 	conn, err := grpc.Dial(ctx, rc.address, dialLogger, dialOptionsWebRTCOnly...)
+	dialLogger.Info("DBG-BENJI End of gRPC dial")
+
 	if err == nil {
 		// If we succeed with a webrtc connection, flip the `serverIsWebrtcEnabled` to force all future
 		// connections to use webrtc.

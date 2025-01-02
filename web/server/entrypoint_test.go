@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -23,15 +24,18 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"go.viam.com/rdk/components/generic"
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/client"
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/web/server"
 )
 
 // numResources is the # of resources in /etc/configs/fake.json + the 2
@@ -196,51 +200,100 @@ func isExpectedShutdownError(err error, testLogger logging.Logger) bool {
 
 // Tests that machine state properly reports initializing or running.
 func TestMachineState(t *testing.T) {
-	if runtime.GOARCH == "arm" {
-		t.Skip("skipping on 32-bit ARM, subprocess build warnings cause failure")
+	logger := logging.NewTestLogger(t)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	machineAddress := "localhost:23654"
+
+	// Register a slow-constructing generic resource and defer its
+	// deregistration.
+	type slow struct {
+		resource.Named
+		resource.AlwaysRebuild
+		resource.TriviallyCloseable
 	}
+	completeConstruction := make(chan struct{}, 1)
+	slowModel := resource.NewModel("slow", "to", "build")
+	resource.RegisterComponent(generic.API, slowModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+		Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (resource.Resource, error) {
+			// Wait for `completeConstruction` to close before returning from
+			// constructor.
+			<-completeConstruction
 
-	logger, logObserver := logging.NewObservedTestLogger(t)
+			return &slow{
+				Named: conf.ResourceName().AsNamed(),
+			}, nil
+		},
+	})
+	defer func() {
+		resource.Deregister(generic.API, slowModel)
+	}()
 
-	cfgFilename := utils.ResolveFile("/etc/configs/fake.json")
-	cfg, err := config.Read(context.Background(), cfgFilename, logger)
-	test.That(t, err, test.ShouldBeNil)
+	// Run entrypoint code (RunServer) in a goroutine, as it is blocking.
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
 
-	var port int
-	var success bool
-	var server pexec.ManagedProcess
-	for portTryNum := 0; portTryNum < 10; portTryNum++ {
-		p, err := goutils.TryReserveRandomPort()
-		port = p
+		// Create a temporary config file with a single
+		tempConfigFile, err := os.CreateTemp(t.TempDir(), "temp_config.json")
 		test.That(t, err, test.ShouldBeNil)
 
-		cfg.Network.BindAddress = fmt.Sprintf(":%d", port)
-		cfgFilename, err = robottestutils.MakeTempConfig(t, cfg, logger)
-		test.That(t, err, test.ShouldBeNil)
-
-		server = robottestutils.ServerAsSeparateProcess(t, cfgFilename, logger)
-		err = server.Start(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-
-		if success = robottestutils.WaitForServing(logObserver, port); success {
-			defer func() {
-				test.That(t, server.Stop(), test.ShouldBeNil)
-			}()
-			break
+		cfg := &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "slowpoke",
+					API:   generic.API,
+					Model: slowModel,
+				},
+			},
+			Network: config.NetworkConfig{
+				config.NetworkConfigData{
+					BindAddress: machineAddress,
+				},
+			},
 		}
-		logger.Infow("Port in use. Restarting on new port.", "port", port, "err", err)
-		server.Stop()
-		continue
-	}
-	test.That(t, success, test.ShouldBeTrue)
 
-	addr := "localhost:" + strconv.Itoa(port)
-	rc := robottestutils.NewRobotClient(t, logger, addr, time.Second)
+		cfgBytes, err := json.Marshal(&cfg)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, os.WriteFile(tempConfigFile.Name(), cfgBytes, 0o755), test.ShouldBeNil)
 
-	// NewRobotClient will wait for machine state to be running. Assert that this
-	// is still the case.
-	machineStatus, err := rc.MachineStatus(context.Background())
+		args := []string{"viam-server", "-config", tempConfigFile.Name()}
+		test.That(t, server.RunServer(ctx, args, logger), test.ShouldBeNil)
+	}()
+
+	// Set value for `DoNotWaitForRunningEnvVar` to allow connecting to a
+	// still-initializing machine.
+	test.That(t, os.Setenv(client.DoNotWaitForRunningEnvVar, "true"), test.ShouldBeNil)
+	defer func() {
+		test.That(t, os.Unsetenv(client.DoNotWaitForRunningEnvVar), test.ShouldBeNil)
+	}()
+
+	rc := robottestutils.NewRobotClient(t, logger, machineAddress, time.Second)
+
+	// Assert that, from client's perspective, robot is in an initializing state
+	// until `slowpoke` completes construction.
+	machineStatus, err := rc.MachineStatus(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, machineStatus, test.ShouldNotBeNil)
-	test.That(t, machineStatus.State, test.ShouldEqual, robot.StateRunning)
+	test.That(t, machineStatus.State, test.ShouldEqual, robot.StateInitializing)
+
+	// Allow `slowpoke` to complete construction.
+	close(completeConstruction)
+
+	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
+		machineStatus, err := rc.MachineStatus(ctx)
+		test.That(tb, err, test.ShouldBeNil)
+		test.That(tb, machineStatus, test.ShouldNotBeNil)
+		test.That(tb, machineStatus.State, test.ShouldEqual, robot.StateRunning)
+	})
+
+	// Cancel context and wait for server goroutine to stop running.
+	cancel()
+	wg.Wait()
 }
