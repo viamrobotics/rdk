@@ -79,6 +79,7 @@ const (
 	moduleBuildFlagWait      = "wait"
 	moduleBuildFlagToken     = "token"
 	moduleBuildFlagWorkdir   = "workdir"
+	moduleBuildFlagPlatforms = "platforms"
 	moduleBuildFlagGroupLogs = "group-logs"
 	moduleBuildRestartOnly   = "restart-only"
 	moduleBuildFlagNoBuild   = "no-build"
@@ -2047,6 +2048,10 @@ Example:
 									Name:  moduleBuildFlagWorkdir,
 									Usage: "use this to indicate that your meta.json is in a subdirectory of your repo." + " --module flag should be relative to this",
 									Value: ".",
+								},
+								&cli.StringSliceFlag{
+									Name:  moduleBuildFlagPlatforms,
+									Usage: "list of platforms to build, e.g. linux/amd64,linux/arm64. Defaults to build.arch in meta.json.",
 								},
 							},
 							Action: createCommandWithT[moduleBuildStartArgs](ModuleBuildStartAction),
