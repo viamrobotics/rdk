@@ -13,9 +13,9 @@ import (
 
 // CLI flags.
 const (
-	baseURLFlag = "base-url"
-	configFlag  = "config"
-	debugFlag   = "debug"
+	baseURLFlag         = "base-url"
+	configFlag          = "config"
+	debugFlag           = "debug"
 	machineFlag         = "machine"
 	aliasRobotFlag      = "robot"
 	partFlag            = "part"
@@ -38,13 +38,13 @@ const (
 	loginFlagKey            = "key"
 
 	// Flags shared by api-key, module, ml-training, package, and data subcommands.
-	generalFlagOrgID        = "org-id"
-	generalFlagAliasOrgID    = "organization"
-	generalFlagLocationID   = "location-id"
-	generalFlagAliasLocationID        = "location"
-	generalFlagMachineID    = "machine-id"
-	generalFlagAliasRobotID = "robot-id"
-	generalFlagName = "name"
+	generalFlagOrgID           = "org-id"
+	generalFlagAliasOrgID      = "organization"
+	generalFlagLocationID      = "location-id"
+	generalFlagAliasLocationID = "location"
+	generalFlagMachineID       = "machine-id"
+	generalFlagAliasRobotID    = "robot-id"
+	generalFlagName            = "name"
 
 	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
@@ -1458,12 +1458,12 @@ var app = &cli.App{
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:        generalFlagOrgID,
-							Aliases: []string{generalFlagAliasOrgID},
+							Aliases:     []string{generalFlagAliasOrgID},
 							DefaultText: "first organization alphabetically",
 						},
 						&cli.StringFlag{
 							Name:        generalFlagLocationID,
-							Aliases: []string{generalFlagAliasLocationID},
+							Aliases:     []string{generalFlagAliasLocationID},
 							DefaultText: "first location alphabetically",
 						},
 					},
@@ -1508,12 +1508,12 @@ var app = &cli.App{
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:        generalFlagOrgID,
-							Aliases: []string{generalFlagAliasOrgID},
+							Aliases:     []string{generalFlagAliasOrgID},
 							DefaultText: "first organization alphabetically",
 						},
 						&cli.StringFlag{
 							Name:        generalFlagLocationID,
-							Aliases: []string{generalFlagAliasLocationID},
+							Aliases:     []string{generalFlagAliasLocationID},
 							DefaultText: "first location alphabetically",
 						},
 						&AliasStringFlag{
@@ -1535,12 +1535,12 @@ var app = &cli.App{
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:        generalFlagOrgID,
-							Aliases: []string{generalFlagAliasOrgID},
+							Aliases:     []string{generalFlagAliasOrgID},
 							DefaultText: "first organization alphabetically",
 						},
 						&cli.StringFlag{
 							Name:        generalFlagLocationID,
-							Aliases: []string{generalFlagAliasLocationID},
+							Aliases:     []string{generalFlagAliasLocationID},
 							DefaultText: "first location alphabetically",
 						},
 						&AliasStringFlag{
@@ -1575,12 +1575,12 @@ var app = &cli.App{
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:        generalFlagOrgID,
-									Aliases: []string{generalFlagAliasOrgID},
+									Aliases:     []string{generalFlagAliasOrgID},
 									DefaultText: "first organization alphabetically",
 								},
 								&cli.StringFlag{
 									Name:        generalFlagLocationID,
-									Aliases: []string{generalFlagAliasLocationID},
+									Aliases:     []string{generalFlagAliasLocationID},
 									DefaultText: "first location alphabetically",
 								},
 								&AliasStringFlag{
@@ -1605,12 +1605,12 @@ var app = &cli.App{
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:        generalFlagOrgID,
-									Aliases: []string{generalFlagAliasOrgID},
+									Aliases:     []string{generalFlagAliasOrgID},
 									DefaultText: "first organization alphabetically",
 								},
 								&cli.StringFlag{
 									Name:        generalFlagLocationID,
-									Aliases: []string{generalFlagAliasLocationID},
+									Aliases:     []string{generalFlagAliasLocationID},
 									DefaultText: "first location alphabetically",
 								},
 								&AliasStringFlag{
@@ -1650,12 +1650,12 @@ var app = &cli.App{
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:        generalFlagOrgID,
-									Aliases: []string{generalFlagAliasOrgID},
+									Aliases:     []string{generalFlagAliasOrgID},
 									DefaultText: "first organization alphabetically",
 								},
 								&cli.StringFlag{
 									Name:        generalFlagLocationID,
-									Aliases: []string{generalFlagAliasLocationID},
+									Aliases:     []string{generalFlagAliasLocationID},
 									DefaultText: "first location alphabetically",
 								},
 								&AliasStringFlag{
@@ -1680,13 +1680,13 @@ var app = &cli.App{
 							}, true, "<service.method>"),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:        generalFlagOrgID,
-									Aliases: []string{generalFlagAliasOrgID},
+									Name:     generalFlagOrgID,
+									Aliases:  []string{generalFlagAliasOrgID},
 									Required: true,
 								},
 								&cli.StringFlag{
-									Name:        generalFlagLocationID,
-									Aliases: []string{generalFlagAliasLocationID},
+									Name:     generalFlagLocationID,
+									Aliases:  []string{generalFlagAliasLocationID},
 									Required: true,
 								},
 								&AliasStringFlag{
@@ -1719,11 +1719,11 @@ var app = &cli.App{
 							// TODO(RSDK-9286) do we need to ask for og and location and machine and part here?
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:        generalFlagOrgID,
+									Name:    generalFlagOrgID,
 									Aliases: []string{generalFlagAliasOrgID},
 								},
 								&cli.StringFlag{
-									Name:        generalFlagLocationID,
+									Name:    generalFlagLocationID,
 									Aliases: []string{generalFlagAliasLocationID},
 								},
 								&AliasStringFlag{
@@ -1774,11 +1774,11 @@ Copy multiple files from the machine to a local destination with recursion and k
 								"[-p] [-r] source ([machine:]files) ... target ([machine:]files"),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:        generalFlagOrgID,
+									Name:    generalFlagOrgID,
 									Aliases: []string{generalFlagAliasOrgID},
 								},
 								&cli.StringFlag{
-									Name:        generalFlagLocationID,
+									Name:    generalFlagLocationID,
 									Aliases: []string{generalFlagAliasLocationID},
 								},
 								&AliasStringFlag{
