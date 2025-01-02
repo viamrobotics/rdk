@@ -657,11 +657,26 @@ func fetchAndSaveLogs(client *viamClient, parts []*apppb.RobotPart, args robotsL
 	//nolint:errcheck
 	defer file.Close()
 
+	if args.Format == "json" {
+		if _, err := file.WriteString("["); err != nil {
+			return errors.Wrap(err, "failed to write JSON opening bracket")
+		}
+	}
+
 	// Stream logs part by part
-	for _, part := range parts {
+	for i, part := range parts {
 		err := streamLogsForPart(client, part, args, file)
 		if err != nil {
 			return errors.Wrapf(err, "could not stream logs for part %s", part.Name)
+		}
+		if args.Format == "json" && i < len(parts)-1 {
+			file.WriteString(",") // Add comma between parts
+		}
+	}
+
+	if args.Format == "json" {
+		if _, err := file.WriteString("]"); err != nil {
+			return errors.Wrap(err, "failed to write JSON closing bracket")
 		}
 	}
 
@@ -675,6 +690,18 @@ func streamLogsForPart(client *viamClient, part *apppb.RobotPart, args robotsLog
 		return err
 	}
 
+	// Write a header for this part
+	if args.Format == "text" {
+		if _, err := file.WriteString(fmt.Sprintf("===== Logs for Part: %s =====\n", part.Name)); err != nil {
+			return errors.Wrap(err, "failed to write header to file")
+		}
+	} else if args.Format == "json" {
+		if _, err := file.WriteString(fmt.Sprintf(`{"part": "%s", "logs": [`, part.Name)); err != nil {
+			return errors.Wrap(err, "failed to write JSON header to file")
+		}
+	}
+
+	firstLog := true
 	var pageToken string
 	for logsFetched := 0; logsFetched < numLogs; {
 		resp, err := client.client.GetRobotPartLogs(client.c.Context, &apppb.GetRobotPartLogsRequest{
@@ -701,17 +728,32 @@ func streamLogsForPart(client *viamClient, part *apppb.RobotPart, args robotsLog
 		}
 
 		for _, log := range resp.Logs {
+			// Add a comma separator for JSON if it's not the first log
+			if !firstLog && args.Format == "json" {
+				if _, err := file.WriteString(","); err != nil {
+					return errors.Wrap(err, "failed to write JSON log separator")
+				}
+			}
+			firstLog = false
+
 			formattedLog, err := formatLog(log, args.Format)
 			if err != nil {
 				return errors.Wrap(err, "failed to format log")
 			}
 
-			if _, err := file.WriteString(formattedLog + "\n"); err != nil {
+			if _, err := file.WriteString(formattedLog); err != nil {
 				return errors.Wrap(err, "failed to write log to file")
 			}
+
 		}
 
 		logsFetched += len(resp.Logs)
+	}
+
+	if args.Format == "json" {
+		if _, err := file.WriteString("]}"); err != nil {
+			return errors.Wrap(err, "failed to close JSON log array")
+		}
 	}
 
 	return nil
@@ -741,7 +783,7 @@ func formatLog(log *commonpb.LogEntry, format string) (string, error) {
 		return string(logJSON), nil
 	case "text":
 		return fmt.Sprintf(
-			"%s\t%s\t%s\t%s\t%s",
+			"%s\t%s\t%s\t%s\t%s\n",
 			log.Time.AsTime().Format(logging.DefaultTimeFormatStr),
 			log.Level,
 			log.LoggerName,
