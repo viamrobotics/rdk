@@ -113,23 +113,39 @@ func saveLogsToDisk(filePath, format string, logs []string) error {
 		return fmt.Errorf("resolved path is not a directory: %s", dir)
 	}
 
-	var output []byte
+	// Open file for writing
+	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return errors.Wrap(err, "could not open file for writing")
+	}
+	defer file.Close()
+
 	switch format {
 	case "json":
-		var err error
-		output, err = json.MarshalIndent(logs, "", "  ")
-		if err != nil {
-			return errors.Wrap(err, "could not format logs as JSON")
+		// Write logs as individual JSON objects per line
+		for _, log := range logs {
+			logEntry := map[string]string{
+				"message": log,
+			}
+			jsonLine, err := json.Marshal(logEntry)
+			if err != nil {
+				return errors.Wrap(err, "could not format log as JSON")
+			}
+			if _, err := file.Write(jsonLine); err != nil {
+				return errors.Wrap(err, "could not write log to file")
+			}
+			if _, err := file.WriteString("\n"); err != nil {
+				return errors.Wrap(err, "could not write newline to file")
+			}
 		}
 	case "text":
-		output = []byte(strings.Join(logs, "\n"))
+		for _, log := range logs {
+			if _, err := file.WriteString(log + "\n"); err != nil {
+				return errors.Wrap(err, "could not write log to file")
+			}
+		}
 	default:
 		return fmt.Errorf("invalid format: %s, supported formats are 'text' and 'json'", format)
-	}
-
-	// Attempt to write the file
-	if err := os.WriteFile(filePath, output, 0o600); err != nil {
-		return errors.Wrap(err, "could not write logs to file")
 	}
 
 	return nil
