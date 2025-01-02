@@ -1,9 +1,7 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -93,60 +91,4 @@ func parseBillingAddress(address string) (*apppb.BillingAddress, error) {
 		State:         strings.Trim(splitAddress[3], " "),
 		Zipcode:       strings.Trim(splitAddress[4], " "),
 	}, nil
-}
-
-// saveLogsToDisk writes logs to a file in the specified format.
-func saveLogsToDisk(filePath, format string, logs []string) error {
-	// Ensure the directory exists
-	dir := filepath.Dir(filePath)
-	if err := os.MkdirAll(dir, 0o750); err != nil {
-		return errors.Wrap(err, fmt.Sprintf("could not create directory: %s", dir))
-	}
-
-	// Validate directory permissions
-	info, statErr := os.Stat(dir)
-	if statErr != nil {
-		return errors.Wrap(statErr, fmt.Sprintf("could not stat directory: %s", dir))
-	}
-
-	if !info.IsDir() {
-		return fmt.Errorf("resolved path is not a directory: %s", dir)
-	}
-
-	// Open file for writing
-	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
-	if err != nil {
-		return errors.Wrap(err, "could not open file for writing")
-	}
-	defer file.Close()
-
-	switch format {
-	case "json":
-		// Write logs as individual JSON objects per line
-		for _, log := range logs {
-			logEntry := map[string]string{
-				"message": log,
-			}
-			jsonLine, err := json.Marshal(logEntry)
-			if err != nil {
-				return errors.Wrap(err, "could not format log as JSON")
-			}
-			if _, err := file.Write(jsonLine); err != nil {
-				return errors.Wrap(err, "could not write log to file")
-			}
-			if _, err := file.WriteString("\n"); err != nil {
-				return errors.Wrap(err, "could not write newline to file")
-			}
-		}
-	case "text":
-		for _, log := range logs {
-			if _, err := file.WriteString(log + "\n"); err != nil {
-				return errors.Wrap(err, "could not write log to file")
-			}
-		}
-	default:
-		return fmt.Errorf("invalid format: %s, supported formats are 'text' and 'json'", format)
-	}
-
-	return nil
 }

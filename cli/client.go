@@ -641,62 +641,115 @@ func RobotsLogsAction(c *cli.Context, args robotsLogsArgs) error {
 	return printLogsToConsole(client, robot, parts, args)
 }
 
-// fetchAndSaveLogs fetches logs for all parts and saves them to a file.
+// fetchAndSaveLogs fetches logs for all parts incrementally and saves them to a file.
 func fetchAndSaveLogs(client *viamClient, parts []*apppb.RobotPart, args robotsLogsArgs) error {
-	var allLogs []string
-
-	for _, part := range parts {
-		partLogs, err := fetchLogsForPart(client, part, args)
-		if err != nil {
-			return errors.Wrapf(err, "could not fetch logs for part %s", part.Name)
-		}
-
-		allLogs = append(allLogs, partLogs...)
+	// Ensure the directory exists
+	dir := filepath.Dir(args.Output)
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		return errors.Wrap(err, fmt.Sprintf("could not create directory: %s", dir))
 	}
 
-	if err := saveLogsToDisk(args.Output, args.Format, allLogs); err != nil {
-		return errors.Wrap(err, "could not save logs to file")
+	// Open the file for streaming writes
+	file, err := os.OpenFile(args.Output, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return errors.Wrap(err, "could not open file for writing")
+	}
+	defer file.Close()
+
+	// Stream logs part by part
+	for _, part := range parts {
+		err := streamLogsForPart(client, part, args, file)
+		if err != nil {
+			return errors.Wrapf(err, "could not stream logs for part %s", part.Name)
+		}
 	}
 
 	return nil
 }
 
-// fetchLogsForPart retrieves and formats logs for a specific robot part.
-func fetchLogsForPart(client *viamClient, part *apppb.RobotPart, args robotsLogsArgs) ([]string, error) {
+// streamLogsForPart streams logs for a specific part directly to a file.
+func streamLogsForPart(client *viamClient, part *apppb.RobotPart, args robotsLogsArgs, file *os.File) error {
 	numLogs, err := getNumLogs(client.c, args.Count)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get number of logs")
+		return err
 	}
 
-	partLogs, err := client.robotPartLogs(args.Organization, args.Location, args.Machine, part.Id, args.Errors, numLogs)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to retrieve logs")
-	}
-
-	return formatLogs(partLogs)
-}
-
-// formatLogs converts raw log entries into formatted strings.
-func formatLogs(logEntries []*commonpb.LogEntry) ([]string, error) {
-	formattedLogs := make([]string, len(logEntries))
-
-	for i, log := range logEntries {
-		fieldsString, err := logEntryFieldsToString(log.Fields)
+	var pageToken string
+	for logsFetched := 0; logsFetched < numLogs; {
+		resp, err := client.client.GetRobotPartLogs(client.c.Context, &apppb.GetRobotPartLogsRequest{
+			Id:         part.Id,
+			ErrorsOnly: args.Errors,
+			PageToken:  &pageToken,
+		})
 		if err != nil {
-			fieldsString = fmt.Sprintf("error formatting fields: %v", err)
+			return errors.Wrap(err, "failed to fetch logs")
 		}
 
-		formattedLogs[i] = fmt.Sprintf(
+		pageToken = resp.NextPageToken
+		// Break in the event of no logs in GetRobotPartLogsResponse or when
+		// page token is empty (no more pages).
+		if resp.Logs == nil || pageToken == "" {
+			break
+		}
+
+		// Truncate this intermediate slice of resp.Logs based on how many logs
+		// are still required by numLogs.
+		remainingLogsNeeded := numLogs - logsFetched
+		if remainingLogsNeeded < len(resp.Logs) {
+			resp.Logs = resp.Logs[:remainingLogsNeeded]
+		}
+
+		for _, log := range resp.Logs {
+			formattedLog, err := formatLog(log, args.Format)
+			if err != nil {
+				return errors.Wrap(err, "failed to format log")
+			}
+
+			if _, err := file.WriteString(formattedLog + "\n"); err != nil {
+				return errors.Wrap(err, "failed to write log to file")
+			}
+		}
+
+		logsFetched += len(resp.Logs)
+	}
+
+	return nil
+}
+
+// formatLog formats a single log entry based on the specified format.
+func formatLog(log *commonpb.LogEntry, format string) (string, error) {
+	fieldsString, err := logEntryFieldsToString(log.Fields)
+	if err != nil {
+		fieldsString = fmt.Sprintf("error formatting fields: %v", err)
+	}
+
+	switch format {
+	case "json":
+		logMap := map[string]interface{}{
+			"ts":      log.Time.AsTime().Unix(),
+			"time":    log.Time.AsTime().Format(logging.DefaultTimeFormatStr),
+			"message": log.Message,
+			"level":   log.Level,
+			"logger":  log.LoggerName,
+			"fields":  fieldsString,
+		}
+		logJSON, err := json.Marshal(logMap)
+		if err != nil {
+			return "", errors.Wrap(err, "failed to marshal log to JSON")
+		}
+		return string(logJSON), nil
+	case "text":
+		return fmt.Sprintf(
 			"%s\t%s\t%s\t%s\t%s",
 			log.Time.AsTime().Format(logging.DefaultTimeFormatStr),
 			log.Level,
 			log.LoggerName,
 			log.Message,
 			fieldsString,
-		)
+		), nil
+	default:
+		return "", fmt.Errorf("invalid format: %s", format)
 	}
-
-	return formattedLogs, nil
 }
 
 // printLogsToConsole prints logs to the console.
