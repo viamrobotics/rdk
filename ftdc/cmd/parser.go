@@ -178,10 +178,10 @@ func (rr ratioReading) toValue() (float32, error) {
 
 	if rr.isRate {
 		return float32(float64(rr.Numerator) / rr.Denominator), nil
-	} else {
-		// A percentage
-		return float32(float64(rr.Numerator) / rr.Denominator * 100), nil
 	}
+
+	// A percentage
+	return float32(float64(rr.Numerator) / rr.Denominator * 100), nil
 }
 
 func (rr *ratioReading) diff(other *ratioReading) ratioReading {
@@ -195,8 +195,13 @@ func (rr *ratioReading) diff(other *ratioReading) ratioReading {
 }
 
 // pullRatios returns true if any of the `ratioMetrics` match the input `reading`. If so, a new
-// `ratioReading` is added to the the `deferredReadings`.
-func pullRatios(reading ftdc.Reading, readingTS int64, ratioMetrics map[string]ratioMetric, outDeferredReadings map[string]*ratioReading) bool {
+// `ratioReading` is added to the `deferredReadings`.
+func pullRatios(
+	reading ftdc.Reading,
+	readingTS int64,
+	ratioMetrics map[string]ratioMetric,
+	outDeferredReadings map[string]*ratioReading,
+) bool {
 	ret := false
 	for ratioMetricName, ratioMetric := range ratioMetrics {
 		if strings.HasSuffix(reading.MetricName, ratioMetric.Numerator) {
