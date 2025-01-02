@@ -106,6 +106,10 @@ func FromProto(proto *pb.RobotConfig, logger logging.Logger) (*Config, error) {
 		cfg.MaintenanceConfig = maintenanceConfig
 	}
 
+	if proto.DisableLogDeduplication {
+		cfg.DisableLogDeduplication = true
+	}
+
 	return &cfg, nil
 }
 
