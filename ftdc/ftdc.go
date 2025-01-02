@@ -329,11 +329,18 @@ func (ftdc *FTDC) constructDatum() datum {
 		Data: map[string]any{},
 	}
 
+	// RSDK-9650: Take the mutex to make a copy of the list of `ftdc.statsers` objects. Such that we
+	// can release the mutex before calling any `Stats` methods. It may be the case where the
+	// `Stats` method acquires some other mutex/resource.  E.g: acquiring resources from the
+	// resource graph. Which is the starting point for creating a deadlock scenario.
+	statsers := make([]namedStatser, len(ftdc.statsers))
 	ftdc.mu.Lock()
-	defer ftdc.mu.Unlock()
 	datum.generationID = ftdc.inputGenerationID
-	for idx := range ftdc.statsers {
-		namedStatser := &ftdc.statsers[idx]
+	copy(statsers, ftdc.statsers)
+	ftdc.mu.Unlock()
+
+	for idx := range statsers {
+		namedStatser := &statsers[idx]
 		datum.Data[namedStatser.name] = namedStatser.statser.Stats()
 	}
 
