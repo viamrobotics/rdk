@@ -195,7 +195,7 @@ func (rr *ratioReading) diff(other *ratioReading) ratioReading {
 }
 
 // pullRatios returns true if any of the `ratioMetrics` match the input `reading`. If so, a new
-// `ratioReading` is added to the `deferredReadings`.
+// `ratioReading` is added to the `outDeferredReadings`.
 func pullRatios(
 	reading ftdc.Reading,
 	readingTS int64,
