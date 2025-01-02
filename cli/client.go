@@ -608,6 +608,8 @@ type robotsLogsArgs struct {
 	Organization string
 	Location     string
 	Machine      string
+	Output       string
+	Format       string
 	Errors       bool
 	Count        int
 }
@@ -632,9 +634,80 @@ func RobotsLogsAction(c *cli.Context, args robotsLogsArgs) error {
 		return errors.Wrap(err, "could not get machine parts")
 	}
 
+	if args.Output != "" {
+		return fetchAndSaveLogs(client, parts, args)
+	}
+
+	return printLogsToConsole(client, robot, parts, args)
+}
+
+// fetchAndSaveLogs fetches logs for all parts and saves them to a file.
+func fetchAndSaveLogs(client *viamClient, parts []*apppb.RobotPart, args robotsLogsArgs) error {
+	var allLogs []string
+
+	for _, part := range parts {
+		partLogs, err := fetchLogsForPart(client, part, args)
+		if err != nil {
+			return errors.Wrapf(err, "could not fetch logs for part %s", part.Name)
+		}
+
+		allLogs = append(allLogs, partLogs...)
+	}
+
+	if err := saveLogsToDisk(args.Output, args.Format, allLogs); err != nil {
+		return errors.Wrap(err, "could not save logs to file")
+	}
+
+	return nil
+}
+
+// fetchLogsForPart retrieves and formats logs for a specific robot part.
+func fetchLogsForPart(client *viamClient, part *apppb.RobotPart, args robotsLogsArgs) ([]string, error) {
+	numLogs, err := getNumLogs(client.c, args.Count)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get number of logs")
+	}
+
+	partLogs, err := client.robotPartLogs(args.Organization, args.Location, args.Machine, part.Id, args.Errors, numLogs)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to retrieve logs")
+	}
+
+	return formatLogs(partLogs)
+}
+
+// formatLogs converts raw log entries into formatted strings.
+func formatLogs(logEntries []*commonpb.LogEntry) ([]string, error) {
+	formattedLogs := make([]string, len(logEntries))
+
+	for i, log := range logEntries {
+		fieldsString, err := logEntryFieldsToString(log.Fields)
+		if err != nil {
+			fieldsString = fmt.Sprintf("error formatting fields: %v", err)
+		}
+
+		formattedLogs[i] = fmt.Sprintf(
+			"%s\t%s\t%s\t%s\t%s",
+			log.Time.AsTime().Format(logging.DefaultTimeFormatStr),
+			log.Level,
+			log.LoggerName,
+			log.Message,
+			fieldsString,
+		)
+	}
+
+	return formattedLogs, nil
+}
+
+// printLogsToConsole prints logs to the console.
+func printLogsToConsole(client *viamClient, robot *apppb.Robot, parts []*apppb.RobotPart, args robotsLogsArgs) error {
+	orgStr := args.Organization
+	locStr := args.Location
+	robotStr := args.Machine
+
 	for i, part := range parts {
 		if i != 0 {
-			printf(c.App.Writer, "")
+			printf(client.c.App.Writer, "")
 		}
 
 		var header string
@@ -643,7 +716,7 @@ func RobotsLogsAction(c *cli.Context, args robotsLogsArgs) error {
 		} else {
 			header = part.Name
 		}
-		numLogs, err := getNumLogs(c, args.Count)
+		numLogs, err := getNumLogs(client.c, args.Count)
 		if err != nil {
 			return err
 		}
@@ -656,56 +729,6 @@ func RobotsLogsAction(c *cli.Context, args robotsLogsArgs) error {
 		); err != nil {
 			return errors.Wrap(err, "could not print machine logs")
 		}
-	}
-
-	return nil
-}
-
-type robotsDownloadLogsArgs struct {
-	Organization string
-	Location     string
-	Machine      string
-	Output       string
-	Format       string
-	Errors       bool
-	Count        int
-}
-
-// RobotsDownloadLogsAction handles the CLI command to download logs and save them to a file.
-func RobotsDownloadLogsAction(c *cli.Context, args robotsDownloadLogsArgs) error {
-	client, err := newViamClient(c)
-	if err != nil {
-		return err
-	}
-
-	orgStr := args.Organization
-	locStr := args.Location
-	robotStr := args.Machine
-	if _, err := client.robot(orgStr, locStr, robotStr); err != nil {
-		return errors.Wrap(err, "could not get machine")
-	}
-
-	parts, err := client.robotParts(orgStr, locStr, robotStr)
-	if err != nil {
-		return errors.Wrap(err, "could not get machine parts")
-	}
-
-	logs := []string{}
-	for _, part := range parts {
-		numLogs, err := getNumLogs(c, args.Count)
-		if err != nil {
-			return err
-		}
-
-		partLogs, err := client.fetchRobotPartLogs(orgStr, locStr, robotStr, part.Id, args.Errors, numLogs)
-		if err != nil {
-			return errors.Wrap(err, fmt.Sprintf("could not fetch logs for part %s", part.Name))
-		}
-		logs = append(logs, partLogs...)
-	}
-
-	if err := saveLogsToFile(args.Output, args.Format, logs); err != nil {
-		return errors.Wrap(err, "could not save logs to file")
 	}
 
 	return nil
@@ -1661,32 +1684,6 @@ func (c *viamClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, err
 		logs = append(logs, resp.Logs...)
 
 		i += len(resp.Logs)
-	}
-
-	return logs, nil
-}
-
-func (c *viamClient) fetchRobotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool, numLogs int) ([]string, error) {
-	logEntries, err := c.robotPartLogs(orgStr, locStr, robotStr, partStr, errorsOnly, numLogs)
-	if err != nil {
-		return nil, err
-	}
-
-	logs := make([]string, len(logEntries))
-	for i, log := range logEntries {
-		fieldsString, err := logEntryFieldsToString(log.Fields)
-		if err != nil {
-			fieldsString = fmt.Sprintf("error formatting fields: %v", err)
-		}
-
-		logs[i] = fmt.Sprintf(
-			"%s\t%s\t%s\t%s\t%s",
-			log.Time.AsTime().Format(logging.DefaultTimeFormatStr),
-			log.Level,
-			log.LoggerName,
-			log.Message,
-			fieldsString,
-		)
 	}
 
 	return logs, nil

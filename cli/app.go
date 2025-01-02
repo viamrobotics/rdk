@@ -1550,39 +1550,6 @@ var app = &cli.App{
 								Required: true,
 							},
 						},
-						&cli.BoolFlag{
-							Name:  logsFlagErrors,
-							Usage: "show only errors",
-						},
-						&cli.IntFlag{
-							Name:        logsFlagCount,
-							Usage:       fmt.Sprintf("number of logs to fetch (max %v)", maxNumLogs),
-							DefaultText: fmt.Sprintf("%v", defaultNumLogs),
-						},
-					},
-					Action: createCommandWithT[robotsLogsArgs](RobotsLogsAction),
-				},
-				{
-					Name:      "download-logs",
-					Aliases:   []string{"dlogs"},
-					Usage:     "download machine logs to a file",
-					UsageText: createUsageText("machines download-logs", []string{machineFlag}, true),
-					Flags: []cli.Flag{
-						&cli.StringFlag{
-							Name:        organizationFlag,
-							DefaultText: "first organization alphabetically",
-						},
-						&cli.StringFlag{
-							Name:        locationFlag,
-							DefaultText: "first location alphabetically",
-						},
-						&AliasStringFlag{
-							cli.StringFlag{
-								Name:     machineFlag,
-								Aliases:  []string{aliasRobotFlag},
-								Required: true,
-							},
-						},
 						&cli.StringFlag{
 							Name:  logsFlagOutputFile,
 							Usage: "path to output file",
@@ -1601,7 +1568,7 @@ var app = &cli.App{
 							DefaultText: fmt.Sprintf("%v", defaultNumLogs),
 						},
 					},
-					Action: createCommandWithT[robotsDownloadLogsArgs](RobotsDownloadLogsAction),
+					Action: createCommandWithT[robotsLogsArgs](RobotsLogsAction),
 				},
 				{
 					Name:            "part",

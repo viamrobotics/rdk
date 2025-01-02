@@ -95,7 +95,8 @@ func parseBillingAddress(address string) (*apppb.BillingAddress, error) {
 	}, nil
 }
 
-func saveLogsToFile(filePath, format string, logs []string) error {
+// saveLogsToDisk writes logs to a file in the specified format.
+func saveLogsToDisk(filePath, format string, logs []string) error {
 	// Ensure the directory exists
 	dir := filepath.Dir(filePath)
 	if err := os.MkdirAll(dir, 0o750); err != nil {
