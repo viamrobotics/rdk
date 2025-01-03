@@ -649,7 +649,7 @@ func fetchAndSaveLogs(client *viamClient, parts []*apppb.RobotPart, args robotsL
 	// Ensure the directory exists
 	dir := filepath.Dir(args.Output)
 	if err := os.MkdirAll(dir, 0o750); err != nil {
-		return errors.Wrap(err, fmt.Sprintf("could not create directory: %s", dir))
+		return errors.Wrapf(err, "could not create directory: %s", dir)
 	}
 
 	// Open the file for streaming writes
@@ -660,28 +660,10 @@ func fetchAndSaveLogs(client *viamClient, parts []*apppb.RobotPart, args robotsL
 	//nolint:errcheck
 	defer file.Close()
 
-	if args.Format == formatJSON {
-		if _, err := file.WriteString("["); err != nil {
-			return errors.Wrap(err, "failed to write JSON opening bracket")
-		}
-	}
-
 	// Stream logs part by part
-	for i, part := range parts {
-		err := streamLogsForPart(client, part, args, file)
-		if err != nil {
+	for _, part := range parts {
+		if err := streamLogsForPart(client, part, args, file); err != nil {
 			return errors.Wrapf(err, "could not stream logs for part %s", part.Name)
-		}
-		if args.Format == formatJSON && i < len(parts)-1 {
-			if _, err := file.WriteString(","); err != nil {
-				return errors.Wrap(err, "failed to write JSON comma between parts")
-			}
-		}
-	}
-
-	if args.Format == formatJSON {
-		if _, err := file.WriteString("]"); err != nil {
-			return errors.Wrap(err, "failed to write JSON closing bracket")
 		}
 	}
 
@@ -700,13 +682,9 @@ func streamLogsForPart(client *viamClient, part *apppb.RobotPart, args robotsLog
 		if _, err := file.WriteString(fmt.Sprintf("===== Logs for Part: %s =====\n", part.Name)); err != nil {
 			return errors.Wrap(err, "failed to write header to file")
 		}
-	} else if args.Format == formatJSON {
-		if _, err := file.WriteString(fmt.Sprintf(`{"part": "%s", "logs": [`, part.Name)); err != nil {
-			return errors.Wrap(err, "failed to write JSON header to file")
-		}
 	}
 
-	firstLog := true
+	// Write logs for this part
 	var pageToken string
 	for logsFetched := 0; logsFetched < numLogs; {
 		resp, err := client.client.GetRobotPartLogs(client.c.Context, &apppb.GetRobotPartLogsRequest{
@@ -733,39 +711,32 @@ func streamLogsForPart(client *viamClient, part *apppb.RobotPart, args robotsLog
 		}
 
 		for _, log := range resp.Logs {
-			// Add a comma separator for JSON if it's not the first log
-			if !firstLog && args.Format == formatJSON {
-				if _, err := file.WriteString(","); err != nil {
-					return errors.Wrap(err, "failed to write JSON log separator")
-				}
-			}
-			firstLog = false
-
-			formattedLog, err := formatLog(log, args.Format)
+			formattedLog, err := formatLog(log, part.Name, args.Format)
 			if err != nil {
 				return errors.Wrap(err, "failed to format log")
 			}
 
-			if _, err := file.WriteString(formattedLog); err != nil {
-				return errors.Wrap(err, "failed to write log to file")
+			if args.Format == formatJSON {
+				// Each log as a standalone JSON object
+				if _, err := file.WriteString(formattedLog + "\n"); err != nil {
+					return errors.Wrap(err, "failed to write log to file")
+				}
+			} else if args.Format == formatText {
+				// Append formatted log for text output
+				if _, err := file.WriteString(formattedLog); err != nil {
+					return errors.Wrap(err, "failed to write log to file")
+				}
 			}
-
 		}
 
 		logsFetched += len(resp.Logs)
-	}
-
-	if args.Format == formatJSON {
-		if _, err := file.WriteString("]}"); err != nil {
-			return errors.Wrap(err, "failed to close JSON log array")
-		}
 	}
 
 	return nil
 }
 
 // formatLog formats a single log entry based on the specified format.
-func formatLog(log *commonpb.LogEntry, format string) (string, error) {
+func formatLog(log *commonpb.LogEntry, partName, format string) (string, error) {
 	fieldsString, err := logEntryFieldsToString(log.Fields)
 	if err != nil {
 		fieldsString = fmt.Sprintf("error formatting fields: %v", err)
@@ -774,6 +745,7 @@ func formatLog(log *commonpb.LogEntry, format string) (string, error) {
 	switch format {
 	case formatJSON:
 		logMap := map[string]interface{}{
+			"part":    partName,
 			"ts":      log.Time.AsTime().Unix(),
 			"time":    log.Time.AsTime().Format(logging.DefaultTimeFormatStr),
 			"message": log.Message,
