@@ -267,11 +267,11 @@ func TestMachineState(t *testing.T) {
 		test.That(t, server.RunServer(ctx, args, logger), test.ShouldBeNil)
 	}()
 
-	// Set value for `DoNotWaitForRunningEnvVar` to allow connecting to a
+	// Set `DoNotWaitForRunning` to true to allow connecting to a
 	// still-initializing machine.
-	test.That(t, os.Setenv(client.DoNotWaitForRunningEnvVar, "true"), test.ShouldBeNil)
+	client.DoNotWaitForRunning.Store(true)
 	defer func() {
-		test.That(t, os.Unsetenv(client.DoNotWaitForRunningEnvVar), test.ShouldBeNil)
+		client.DoNotWaitForRunning.Store(false)
 	}()
 
 	rc := robottestutils.NewRobotClient(t, logger, machineAddress, time.Second)

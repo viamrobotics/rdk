@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -62,11 +61,11 @@ var (
 	// defaultResourcesTimeout is the default timeout for getting resources.
 	defaultResourcesTimeout = 5 * time.Second
 
-	// DoNotWaitForRunningEnvVar is the name of an environment variable to set
-	// only in tests to allow connecting to still-initializing machines. Note
-	// that robot clients in production (not in a testing environment) will
-	// already allow connecting to still-initializing machines.
-	DoNotWaitForRunningEnvVar = "VIAM_CLIENT_DO_NOT_WAIT_FOR_RUNNING"
+	// DoNotWaitForRunning should be set only in tests to allow connecting to
+	// still-initializing machines. Note that robot clients in production (not in
+	// a testing environment) will already allow connecting to still-initializing
+	// machines.
+	DoNotWaitForRunning = atomic.Bool{}
 )
 
 // RobotClient satisfies the robot.Robot interface through a gRPC based
@@ -306,7 +305,7 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 	// Allow this behavior to be turned off in some tests that specifically want
 	// to examine the behavior of a machine in an initializing state through the
 	// use of an environment variable.
-	if testing.Testing() && os.Getenv(DoNotWaitForRunningEnvVar) == "" {
+	if testing.Testing() && !DoNotWaitForRunning.Load() {
 		for {
 			if ctx.Err() != nil {
 				return nil, multierr.Combine(ctx.Err(), rc.conn.Close())
@@ -318,7 +317,9 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 				if status.Code(err) == codes.Unimplemented {
 					break
 				}
-				return nil, multierr.Combine(err, rc.conn.Close())
+				// Ignore error from Close and just return original machine status error.
+				utils.UncheckedError(rc.conn.Close())
+				return nil, err
 			}
 
 			if mStatus.State == robot.StateRunning {
