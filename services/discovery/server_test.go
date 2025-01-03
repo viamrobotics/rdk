@@ -22,6 +22,7 @@ const (
 )
 
 var errDoFailed = errors.New("do failed")
+var errDiscoverFailed = errors.New("discover failed")
 
 func newServer() (pb.DiscoveryServiceServer, *inject.DiscoveryService, *inject.DiscoveryService, error) {
 	injectDiscovery := &inject.DiscoveryService{}
@@ -35,6 +36,25 @@ func newServer() (pb.DiscoveryServiceServer, *inject.DiscoveryService, *inject.D
 		return nil, nil, nil, err
 	}
 	return discovery.NewRPCServiceServer(injectSvc).(pb.DiscoveryServiceServer), injectDiscovery, injectDiscovery2, nil
+}
+
+func TestDiscoverResources(t *testing.T) {
+	discoveryServer, workingDiscovery, failingDiscovery, err := newServer()
+	test.That(t, err, test.ShouldBeNil)
+
+	workingDiscovery.DiscoverResourcesFunc = func(ctx context.Context, extra map[string]any) ([]*resource.Config, error) {
+		return nil, nil
+	}
+	failingDiscovery.DiscoverResourcesFunc = func(ctx context.Context, extra map[string]any) ([]*resource.Config, error) {
+		return nil, errDiscoverFailed
+	}
+	resp, err := discoveryServer.DiscoverResources(context.Background(), &pb.DiscoverResourcesRequest{Name: testDiscoveryName})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
+
+	respFail, err := discoveryServer.DiscoverResources(context.Background(), &pb.DiscoverResourcesRequest{Name: failDiscoveryName})
+	test.That(t, err, test.ShouldEqual, errDiscoverFailed)
+	test.That(t, respFail, test.ShouldBeNil)
 }
 
 func TestDiscoveryDo(t *testing.T) {
