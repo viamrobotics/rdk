@@ -49,6 +49,9 @@ import (
 )
 
 const (
+	formatJSON = "json"
+	formatText = "text"
+
 	rdkReleaseURL = "https://api.github.com/repos/viamrobotics/rdk/releases/latest"
 	// defaultNumLogs is the same as the number of logs currently returned by app
 	// in a single GetRobotPartLogsResponse.
@@ -608,6 +611,8 @@ type robotsLogsArgs struct {
 	Organization string
 	Location     string
 	Machine      string
+	Output       string
+	Format       string
 	Errors       bool
 	Count        int
 }
@@ -617,6 +622,14 @@ func RobotsLogsAction(c *cli.Context, args robotsLogsArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
+	}
+
+	// Validate required arguments
+	if args.Output != "" && args.Format == "" {
+		return errors.New("format is required when specifying an output file")
+	}
+	if args.Format != "" && args.Output == "" {
+		return errors.New("output file is required when specifying a format")
 	}
 
 	orgStr := args.Organization
@@ -632,22 +645,163 @@ func RobotsLogsAction(c *cli.Context, args robotsLogsArgs) error {
 		return errors.Wrap(err, "could not get machine parts")
 	}
 
+	if args.Output != "" {
+		return client.fetchAndSaveLogs(parts, args)
+	}
+
+	return client.printLogsToConsole(robot, parts, args)
+}
+
+// fetchAndSaveLogs fetches logs for all parts incrementally and saves them to a file.
+func (c *viamClient) fetchAndSaveLogs(parts []*apppb.RobotPart, args robotsLogsArgs) error {
+	// Ensure the directory exists
+	dir := filepath.Dir(args.Output)
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		return errors.Wrapf(err, "could not create directory: %s", dir)
+	}
+
+	// Open the file for streaming writes
+	file, err := os.OpenFile(args.Output, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return errors.Wrap(err, "could not open file for writing")
+	}
+	//nolint:errcheck
+	defer file.Close()
+
+	// Stream logs part by part
+	for _, part := range parts {
+		if err := c.streamLogsForPart(part, args, file); err != nil {
+			return errors.Wrapf(err, "could not stream logs for part %s", part.Name)
+		}
+	}
+
+	return nil
+}
+
+// streamLogsForPart streams logs for a specific part directly to a file.
+func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArgs, file *os.File) error {
+	numLogs, err := getNumLogs(c.c, args.Count)
+	if err != nil {
+		return err
+	}
+
+	// Write a header for this part
+	if args.Format == formatText {
+		if _, err := file.WriteString(fmt.Sprintf("===== Logs for Part: %s =====\n", part.Name)); err != nil {
+			return errors.Wrap(err, "failed to write header to file")
+		}
+	}
+
+	// Write logs for this part
+	var pageToken string
+	for logsFetched := 0; logsFetched < numLogs; {
+		resp, err := c.client.GetRobotPartLogs(c.c.Context, &apppb.GetRobotPartLogsRequest{
+			Id:         part.Id,
+			ErrorsOnly: args.Errors,
+			PageToken:  &pageToken,
+		})
+		if err != nil {
+			return errors.Wrap(err, "failed to fetch logs")
+		}
+
+		pageToken = resp.NextPageToken
+		// Break in the event of no logs in GetRobotPartLogsResponse or when
+		// page token is empty (no more pages).
+		if resp.Logs == nil || pageToken == "" {
+			break
+		}
+
+		// Truncate this intermediate slice of resp.Logs based on how many logs
+		// are still required by numLogs.
+		remainingLogsNeeded := numLogs - logsFetched
+		if remainingLogsNeeded < len(resp.Logs) {
+			resp.Logs = resp.Logs[:remainingLogsNeeded]
+		}
+
+		for _, log := range resp.Logs {
+			formattedLog, err := formatLog(log, part.Name, args.Format)
+			if err != nil {
+				return errors.Wrap(err, "failed to format log")
+			}
+
+			if args.Format == formatJSON {
+				// Each log as a standalone JSON object
+				if _, err := file.WriteString(formattedLog + "\n"); err != nil {
+					return errors.Wrap(err, "failed to write log to file")
+				}
+			} else if args.Format == formatText {
+				// Append formatted log for text output
+				if _, err := file.WriteString(formattedLog); err != nil {
+					return errors.Wrap(err, "failed to write log to file")
+				}
+			}
+		}
+
+		logsFetched += len(resp.Logs)
+	}
+
+	return nil
+}
+
+// formatLog formats a single log entry based on the specified format.
+func formatLog(log *commonpb.LogEntry, partName, format string) (string, error) {
+	fieldsString, err := logEntryFieldsToString(log.Fields)
+	if err != nil {
+		fieldsString = fmt.Sprintf("error formatting fields: %v", err)
+	}
+
+	switch format {
+	case formatJSON:
+		logMap := map[string]interface{}{
+			"part":    partName,
+			"ts":      log.Time.AsTime().Unix(),
+			"time":    log.Time.AsTime().Format(logging.DefaultTimeFormatStr),
+			"message": log.Message,
+			"level":   log.Level,
+			"logger":  log.LoggerName,
+			"fields":  fieldsString,
+		}
+		logJSON, err := json.Marshal(logMap)
+		if err != nil {
+			return "", errors.Wrap(err, "failed to marshal log to JSON")
+		}
+		return string(logJSON), nil
+	case formatText:
+		return fmt.Sprintf(
+			"%s\t%s\t%s\t%s\t%s\n",
+			log.Time.AsTime().Format(logging.DefaultTimeFormatStr),
+			log.Level,
+			log.LoggerName,
+			log.Message,
+			fieldsString,
+		), nil
+	default:
+		return "", fmt.Errorf("invalid format: %s", format)
+	}
+}
+
+// printLogsToConsole prints logs to the console.
+func (c *viamClient) printLogsToConsole(robot *apppb.Robot, parts []*apppb.RobotPart, args robotsLogsArgs) error {
+	orgStr := args.Organization
+	locStr := args.Location
+	robotStr := args.Machine
+
 	for i, part := range parts {
 		if i != 0 {
-			printf(c.App.Writer, "")
+			printf(c.c.App.Writer, "")
 		}
 
 		var header string
 		if orgStr == "" || locStr == "" || robotStr == "" {
-			header = fmt.Sprintf("%s -> %s -> %s -> %s", client.selectedOrg.Name, client.selectedLoc.Name, robot.Name, part.Name)
+			header = fmt.Sprintf("%s -> %s -> %s -> %s", c.selectedOrg.Name, c.selectedLoc.Name, robot.Name, part.Name)
 		} else {
 			header = part.Name
 		}
-		numLogs, err := getNumLogs(c, args.Count)
+		numLogs, err := getNumLogs(c.c, args.Count)
 		if err != nil {
 			return err
 		}
-		if err := client.printRobotPartLogs(
+		if err := c.printRobotPartLogs(
 			orgStr, locStr, robotStr, part.Id,
 			args.Errors,
 			"\t",
@@ -1738,7 +1892,7 @@ func (c *viamClient) runRobotPartCommand(
 
 	invoke := func() (bool, error) {
 		rf, formatter, err := grpcurl.RequestParserAndFormatter(
-			grpcurl.Format("json"),
+			grpcurl.Format(formatJSON),
 			descSource,
 			strings.NewReader(data),
 			options)
