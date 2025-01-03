@@ -26,8 +26,10 @@ func TestClient(t *testing.T) {
 	workingDiscovery := &inject.DiscoveryService{}
 	failingDiscovery := &inject.DiscoveryService{}
 
+	testComponents := []*resource.Config{createTestComponent("component-1"), createTestComponent("component-2")}
+
 	workingDiscovery.DiscoverResourcesFunc = func(ctx context.Context, extra map[string]any) ([]*resource.Config, error) {
-		return nil, nil
+		return testComponents, nil
 	}
 	failingDiscovery.DiscoverResourcesFunc = func(ctx context.Context, extra map[string]any) ([]*resource.Config, error) {
 		return nil, errDiscoverFailed
@@ -43,13 +45,13 @@ func TestClient(t *testing.T) {
 		return nil, errDoFailed
 	}
 
-	resourceMap := map[resource.Name]resource.Resource{
+	resourceMap := map[resource.Name]discovery.Service{
 		discovery.Named(testDiscoveryName): workingDiscovery,
 		discovery.Named(failDiscoveryName): failingDiscovery,
 	}
 	discoverySvc, err := resource.NewAPIResourceCollection(discovery.API, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	resourceAPI, ok, err := resource.LookupAPIRegistration[resource.Resource](discovery.API)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[discovery.Service](discovery.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, discoverySvc), test.ShouldBeNil)
@@ -73,7 +75,11 @@ func TestClient(t *testing.T) {
 
 		respDis, err := workingDiscoveryClient.DiscoverResources(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, respDis, test.ShouldNotBeNil)
+		test.That(t, len(respDis), test.ShouldEqual, len(testComponents))
+		for index, actual := range respDis {
+			expected := testComponents[index]
+			validateComponent(t, *actual, *expected)
+		}
 
 		resp, err := workingDiscoveryClient.DoCommand(context.Background(), testutils.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
