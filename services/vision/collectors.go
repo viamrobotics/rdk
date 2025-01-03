@@ -30,7 +30,6 @@ func (m method) String() string {
 
 type methodParamsDecoded struct {
 	cameraName    string
-	mimeType      string
 	minConfidence float64
 }
 
@@ -145,21 +144,6 @@ func additionalParamExtraction(methodParams map[string]*anypb.Any) (methodParams
 	}
 	cameraName = cameraNameWrapper.Value
 
-	mimeTypeParam := methodParams["mime_type"]
-
-	if mimeTypeParam == nil {
-		return methodParamsDecoded{}, errors.New("must specify a mime_type in the additional_params")
-	}
-
-	var mimeType string
-
-	mimeTypeWrapper := new(wrapperspb.StringValue)
-	if err := mimeTypeParam.UnmarshalTo(mimeTypeWrapper); err != nil {
-		return methodParamsDecoded{}, err
-	}
-
-	mimeType = mimeTypeWrapper.Value
-
 	minConfidenceParam := methodParams["min_confidence_score"]
 
 	// Default min_confidence_score is 0.5
@@ -180,7 +164,6 @@ func additionalParamExtraction(methodParams map[string]*anypb.Any) (methodParams
 
 	return methodParamsDecoded{
 		cameraName:    cameraName,
-		mimeType:      mimeType,
 		minConfidence: minConfidenceScore,
 	}, nil
 }
