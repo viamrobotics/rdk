@@ -445,7 +445,6 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 
 func findMetaJSONFile(dir string) (*JSONManifest, error) {
 	metaPath, err := utils.SafeJoinDir(dir, "meta.json")
-	fmt.Println("META PATH: ", metaPath)
 	if err != nil {
 		return nil, err
 	}
