@@ -267,7 +267,7 @@ func (m *Module) FirstRun(
 
 	// Load the module's meta.json. If it doesn't exist DEBUG log and exit quietly.
 	// For all other errors WARN log and exit.
-	meta, err := m.getJSONManifest(unpackedModDir, env)
+	meta, err, moduleWorkingDirectory := m.getJSONManifest(unpackedModDir, env)
 	var pathErr *os.PathError
 	switch {
 	case errors.As(err, &pathErr):
@@ -282,7 +282,13 @@ func (m *Module) FirstRun(
 		logger.Debug("no first run script specified, skipping first run")
 		return nil
 	}
-	relFirstRunPath, err := utils.SafeJoinDir(unpackedModDir, meta.FirstRun)
+	var firstRunTopLevelDir string
+	if moduleWorkingDirectory == "" {
+		firstRunTopLevelDir = unpackedModDir
+	} else {
+		firstRunTopLevelDir = moduleWorkingDirectory
+	}
+	relFirstRunPath, err := utils.SafeJoinDir(firstRunTopLevelDir, meta.FirstRun)
 	if err != nil {
 		logger.Errorw("failed to build path to first run script, skipping first run", "error", err)
 		return nil
@@ -381,17 +387,17 @@ func (m *Module) FirstRun(
 // 1. if there is a meta.json in the exe dir, use that, except in local non-tarball case.
 // 2. if this is a local tarball and there's a meta.json next to the tarball, use that.
 // Note: the working directory must be the unpacked tarball directory or local exec directory.
-func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*JSONManifest, error) {
+func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*JSONManifest, error, string) {
 	// note: we don't look at internal meta.json in local non-tarball case because user has explicitly requested a binary.
 	localNonTarball := m.Type == ModuleTypeLocal && !m.NeedsSyntheticPackage()
 	if !localNonTarball {
 		// this is case 1, meta.json in exe folder.
 		meta, err := findMetaJSONFile(unpackedModDir)
 		if err != nil {
-			return nil, err
+			return nil, err, ""
 		}
 		if meta != nil {
-			return meta, nil
+			return meta, nil, ""
 		}
 	}
 	if m.NeedsSyntheticPackage() {
@@ -399,43 +405,47 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 		// TODO(RSDK-7848): remove this case once java sdk supports internal meta.json.
 		metaPath, err := utils.SafeJoinDir(filepath.Dir(m.ExePath), "meta.json")
 		if err != nil {
-			return nil, err
+			return nil, err, ""
 		}
 		meta, err := parseJSONFile[JSONManifest](metaPath)
 		if err != nil {
 			// note: this error deprecates the side-by-side case because the side-by-side case is deprecated.
-			return nil, errors.Wrapf(err, "couldn't find meta.json inside tarball %s (or next to it)", m.ExePath)
+			return nil, errors.Wrapf(err, "couldn't find meta.json inside tarball %s (or next to it)", m.ExePath), ""
 		}
-		return meta, err
+		return meta, err, ""
 	}
 
-	moduleWorkingDirectory, ok := env["VIAM_MODULE_ROOT"]
-	if ok {
-		meta, err := findMetaJSONFile(moduleWorkingDirectory)
+	if m.Type == ModuleTypeRegistry {
+		moduleWorkingDirectory, ok := env["VIAM_MODULE_ROOT"]
+		if ok {
+			meta, err := findMetaJSONFile(moduleWorkingDirectory)
+			if err != nil {
+				return nil, err, ""
+			}
+			if meta != nil {
+				return meta, nil, moduleWorkingDirectory
+			}
+		}
+
+		meta, err := findMetaJSONFile(unpackedModDir)
 		if err != nil {
-			return nil, err
+			return nil, err, ""
 		}
 		if meta != nil {
-			return meta, nil
+			return meta, nil, ""
 		}
-	}
 
-	meta, err := findMetaJSONFile(unpackedModDir)
-	if err != nil {
-		return nil, err
+		if !ok {
+			return nil, errors.Errorf("VIAM_MODULE_ROOT not set. Failed to find meta.json in executable directory %s", unpackedModDir), ""
+		}
+		return nil, errors.Errorf("failed to find meta.json. Searched in  executable directory %s and path set by VIAM_MODULE_ROOT %s", moduleWorkingDirectory, unpackedModDir), ""
 	}
-	if meta != nil {
-		return meta, nil
-	}
-
-	if !ok {
-		return nil, errors.Errorf("VIAM_MODULE_ROOT not set. Failed to find meta.json in executable directory %s", unpackedModDir)
-	}
-	return nil, errors.Errorf("failed to find meta.json. Searched in  executable directory %s and path set by VIAM_MODULE_ROOT %s", moduleWorkingDirectory, unpackedModDir)
+	return nil, errors.New("failed to find meta.json"), ""
 }
 
 func findMetaJSONFile(dir string) (*JSONManifest, error) {
 	metaPath, err := utils.SafeJoinDir(dir, "meta.json")
+	fmt.Println("META PATH: ", metaPath)
 	if err != nil {
 		return nil, err
 	}
