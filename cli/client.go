@@ -2,6 +2,7 @@
 package cli
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -2108,4 +2109,70 @@ func logEntryFieldsToString(fields []*structpb.Struct) (string, error) {
 		}
 	}
 	return message + "}", nil
+}
+
+type deleteOAuthAppArgs struct {
+	OrgID    string
+	ClientID string
+}
+
+// DeleteOAuthAppConfirmation is the Before action for 'organizations auth-service oauth-app delete'.
+// It asks for the user to confirm that they want to delete the oauth app.
+func DeleteOAuthAppConfirmation(c *cli.Context, args deleteOAuthAppArgs) error {
+	if args.OrgID == "" {
+		return errors.New("cannot delete oauth app without an organization ID")
+	}
+
+	if args.ClientID == "" {
+		return errors.New("cannot delete oauth app without a client ID")
+	}
+
+	yellow := "\033[1;33m%s\033[0m"
+	printf(c.App.Writer, yellow, "WARNING!!\n")
+	printf(c.App.Writer, yellow, fmt.Sprintf("You are trying to delete an OAuth application with client ID %s. "+
+		"Once deleted, any existing apps that rely on this OAuth application will no longer be able to authenticate users.\n", args.ClientID))
+	printf(c.App.Writer, yellow, "If you wish to continue, please type \"delete\":")
+	if err := c.Err(); err != nil {
+		return err
+	}
+
+	rawInput, err := bufio.NewReader(c.App.Reader).ReadString('\n')
+	if err != nil {
+		return err
+	}
+
+	input := strings.ToUpper(strings.TrimSpace(rawInput))
+	if input != "DELETE" {
+		return errors.New("aborted")
+	}
+	return nil
+}
+
+// DeleteOAuthAppAction is the corresponding action for 'oauth-app delete'.
+func DeleteOAuthAppAction(c *cli.Context, args deleteOAuthAppArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	return client.deleteOAuthAppAction(c, args.OrgID, args.ClientID)
+}
+
+func (c *viamClient) deleteOAuthAppAction(cCtx *cli.Context, orgID, clientID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	req := &apppb.DeleteOAuthAppRequest{
+		OrgId:    orgID,
+		ClientId: clientID,
+	}
+
+	_, err := c.client.DeleteOAuthApp(c.c.Context, req)
+	if err != nil {
+		return err
+	}
+
+	printf(cCtx.App.Writer, "Successfully deleted OAuth application")
+	return nil
 }
