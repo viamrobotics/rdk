@@ -4435,8 +4435,7 @@ func TestRemovingOfflineRemote(t *testing.T) {
 // prevents that behavior and removes the remote correctly.
 func TestRemovingOfflineRemotes(t *testing.T) {
 	// Close the robot to stop the background workers from processing any messages to triggerConfig
-	r := setupLocalRobot(t, context.Background(), &config.Config{}, logging.NewTestLogger(t))
-	r.Close(context.Background())
+	r := setupLocalRobot(t, context.Background(), &config.Config{}, logging.NewTestLogger(t), withDisableCompleteConfigWorker())
 	localRobot := r.(*localRobot)
 
 	// Create a context that we can cancel to similuate the remote connection timeout
@@ -4469,6 +4468,9 @@ func TestRemovingOfflineRemotes(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		// manually grab the lock as completeConfig doesn't grab a lock
+		localRobot.reconfigurationLock.Lock()
+		defer localRobot.reconfigurationLock.Unlock()
 		localRobot.manager.completeConfig(ctxCompleteConfig, localRobot, false)
 	}()
 
@@ -4487,7 +4489,7 @@ func TestRemovingOfflineRemotes(t *testing.T) {
 	// Ensure that the remote is not marked for removal while trying to connect to the remote
 	remote, ok := localRobot.manager.resources.Node(remoteName)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, remote.MarkedForRemoval(), test.ShouldBeTrue)
+	test.That(t, remote.MarkedForRemoval(), test.ShouldBeFalse)
 
 	// Simulate a timeout by canceling the context while trying to connect to the remote
 	cancelCompleteConfig()
