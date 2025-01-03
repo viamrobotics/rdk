@@ -31,6 +31,10 @@ const (
 
 	logsFlagFormat     = "format"
 	logsFlagOutputFile = "output"
+	logsFlagKeyword    = "keyword"
+	logsFlagLevels     = "levels"
+	logsFlagStartTime  = "start"
+	logsFlagEndTime    = "end"
 	logsFlagErrors     = "errors"
 	logsFlagTail       = "tail"
 	logsFlagCount      = "count"
@@ -1557,6 +1561,24 @@ var app = &cli.App{
 						&cli.StringFlag{
 							Name:  logsFlagFormat,
 							Usage: "file format (text or json)",
+						},
+						&cli.StringFlag{
+							Name:  logsFlagKeyword,
+							Usage: "filter logs by keyword",
+						},
+						&cli.StringSliceFlag{
+							Name:  logsFlagLevels,
+							Usage: "filter logs by levels (e.g., info, warn, error)",
+						},
+						&cli.TimestampFlag{
+							Name:   logsFlagStartTime,
+							Usage:  "filter logs starting from this time",
+							Layout: "2006-01-02T15:04:05Z", // Example format for ISO 8601
+						},
+						&cli.TimestampFlag{
+							Name:   logsFlagEndTime,
+							Usage:  "filter logs until this time",
+							Layout: "2006-01-02T15:04:05Z", // Example format for ISO 8601
 						},
 						&cli.BoolFlag{
 							Name:  logsFlagErrors,

@@ -39,6 +39,7 @@ import (
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	rconfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
@@ -613,6 +614,10 @@ type robotsLogsArgs struct {
 	Machine      string
 	Output       string
 	Format       string
+	Keyword      string
+	Levels       []string
+	StartTime    string
+	EndTime      string
 	Errors       bool
 	Count        int
 }
@@ -685,6 +690,23 @@ func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArg
 		return err
 	}
 
+	// Parse start and end times if provided
+	var startTime, endTime *timestamppb.Timestamp
+	if args.StartTime != "" {
+		parsedStart, err := time.Parse(time.RFC3339, args.StartTime)
+		if err != nil {
+			return errors.Wrap(err, "invalid start time format")
+		}
+		startTime = timestamppb.New(parsedStart)
+	}
+	if args.EndTime != "" {
+		parsedEnd, err := time.Parse(time.RFC3339, args.EndTime)
+		if err != nil {
+			return errors.Wrap(err, "invalid end time format")
+		}
+		endTime = timestamppb.New(parsedEnd)
+	}
+
 	// Write a header for this part
 	if args.Format == formatText {
 		if _, err := file.WriteString(fmt.Sprintf("===== Logs for Part: %s =====\n", part.Name)); err != nil {
@@ -697,8 +719,12 @@ func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArg
 	for logsFetched := 0; logsFetched < numLogs; {
 		resp, err := c.client.GetRobotPartLogs(c.c.Context, &apppb.GetRobotPartLogsRequest{
 			Id:         part.Id,
+			Filter:     &args.Keyword,
 			ErrorsOnly: args.Errors,
 			PageToken:  &pageToken,
+			Levels:     args.Levels,
+			Start:      startTime,
+			End:        endTime,
 		})
 		if err != nil {
 			return errors.Wrap(err, "failed to fetch logs")
