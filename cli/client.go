@@ -646,14 +646,14 @@ func RobotsLogsAction(c *cli.Context, args robotsLogsArgs) error {
 	}
 
 	if args.Output != "" {
-		return fetchAndSaveLogs(client, parts, args)
+		return client.fetchAndSaveLogs(parts, args)
 	}
 
-	return printLogsToConsole(client, robot, parts, args)
+	return client.printLogsToConsole(robot, parts, args)
 }
 
 // fetchAndSaveLogs fetches logs for all parts incrementally and saves them to a file.
-func fetchAndSaveLogs(client *viamClient, parts []*apppb.RobotPart, args robotsLogsArgs) error {
+func (c *viamClient) fetchAndSaveLogs(parts []*apppb.RobotPart, args robotsLogsArgs) error {
 	// Ensure the directory exists
 	dir := filepath.Dir(args.Output)
 	if err := os.MkdirAll(dir, 0o750); err != nil {
@@ -670,7 +670,7 @@ func fetchAndSaveLogs(client *viamClient, parts []*apppb.RobotPart, args robotsL
 
 	// Stream logs part by part
 	for _, part := range parts {
-		if err := streamLogsForPart(client, part, args, file); err != nil {
+		if err := c.streamLogsForPart(part, args, file); err != nil {
 			return errors.Wrapf(err, "could not stream logs for part %s", part.Name)
 		}
 	}
@@ -679,8 +679,8 @@ func fetchAndSaveLogs(client *viamClient, parts []*apppb.RobotPart, args robotsL
 }
 
 // streamLogsForPart streams logs for a specific part directly to a file.
-func streamLogsForPart(client *viamClient, part *apppb.RobotPart, args robotsLogsArgs, file *os.File) error {
-	numLogs, err := getNumLogs(client.c, args.Count)
+func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArgs, file *os.File) error {
+	numLogs, err := getNumLogs(c.c, args.Count)
 	if err != nil {
 		return err
 	}
@@ -695,7 +695,7 @@ func streamLogsForPart(client *viamClient, part *apppb.RobotPart, args robotsLog
 	// Write logs for this part
 	var pageToken string
 	for logsFetched := 0; logsFetched < numLogs; {
-		resp, err := client.client.GetRobotPartLogs(client.c.Context, &apppb.GetRobotPartLogsRequest{
+		resp, err := c.client.GetRobotPartLogs(c.c.Context, &apppb.GetRobotPartLogsRequest{
 			Id:         part.Id,
 			ErrorsOnly: args.Errors,
 			PageToken:  &pageToken,
@@ -781,27 +781,27 @@ func formatLog(log *commonpb.LogEntry, partName, format string) (string, error) 
 }
 
 // printLogsToConsole prints logs to the console.
-func printLogsToConsole(client *viamClient, robot *apppb.Robot, parts []*apppb.RobotPart, args robotsLogsArgs) error {
+func (c *viamClient) printLogsToConsole(robot *apppb.Robot, parts []*apppb.RobotPart, args robotsLogsArgs) error {
 	orgStr := args.Organization
 	locStr := args.Location
 	robotStr := args.Machine
 
 	for i, part := range parts {
 		if i != 0 {
-			printf(client.c.App.Writer, "")
+			printf(c.c.App.Writer, "")
 		}
 
 		var header string
 		if orgStr == "" || locStr == "" || robotStr == "" {
-			header = fmt.Sprintf("%s -> %s -> %s -> %s", client.selectedOrg.Name, client.selectedLoc.Name, robot.Name, part.Name)
+			header = fmt.Sprintf("%s -> %s -> %s -> %s", c.selectedOrg.Name, c.selectedLoc.Name, robot.Name, part.Name)
 		} else {
 			header = part.Name
 		}
-		numLogs, err := getNumLogs(client.c, args.Count)
+		numLogs, err := getNumLogs(c.c, args.Count)
 		if err != nil {
 			return err
 		}
-		if err := client.printRobotPartLogs(
+		if err := c.printRobotPartLogs(
 			orgStr, locStr, robotStr, part.Id,
 			args.Errors,
 			"\t",
