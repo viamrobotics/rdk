@@ -502,8 +502,8 @@ func ListLocationsAction(c *cli.Context, args emptyArgs) error {
 }
 
 type listRobotsActionArgs struct {
-	OrgID string
-	LocationID     string
+	OrgID      string
+	LocationID string
 }
 
 // ListRobotsAction is the corresponding Action for 'machines list'.
@@ -530,9 +530,9 @@ func ListRobotsAction(c *cli.Context, args listRobotsActionArgs) error {
 }
 
 type robotsStatusArgs struct {
-	OrgID string
-	LocationID     string
-	Machine      string
+	OrgID      string
+	LocationID string
+	Machine    string
 }
 
 // RobotsStatusAction is the corresponding Action for 'machines status'.
@@ -605,11 +605,11 @@ func getNumLogs(c *cli.Context, numLogs int) (int, error) {
 }
 
 type robotsLogsArgs struct {
-	OrgID string
-	LocationID     string
-	Machine      string
-	Errors       bool
-	Count        int
+	OrgID      string
+	LocationID string
+	Machine    string
+	Errors     bool
+	Count      int
 }
 
 // RobotsLogsAction is the corresponding Action for 'machines logs'.
@@ -662,10 +662,10 @@ func RobotsLogsAction(c *cli.Context, args robotsLogsArgs) error {
 }
 
 type robotsPartStatusArgs struct {
-	OrgID string
-	LocationID     string
-	Machine      string
-	Part         string
+	OrgID      string
+	LocationID string
+	Machine    string
+	Part       string
 }
 
 // RobotsPartStatusAction is the corresponding Action for 'machines part status'.
@@ -709,13 +709,13 @@ func RobotsPartStatusAction(c *cli.Context, args robotsPartStatusArgs) error {
 }
 
 type robotsPartLogsArgs struct {
-	OrgID string
-	LocationID     string
-	Machine      string
-	Part         string
-	Errors       bool
-	Tail         bool
-	Count        int
+	OrgID      string
+	LocationID string
+	Machine    string
+	Part       string
+	Errors     bool
+	Tail       bool
+	Count      int
 }
 
 // RobotsPartLogsAction is the corresponding Action for 'machines part logs'.

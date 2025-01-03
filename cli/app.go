@@ -1492,7 +1492,7 @@ var app = &cli.App{
 								},
 								&cli.StringFlag{
 									Name: generalFlagOrgID,
-									Usage: "the org-id to attach this api-key to. If not provided," +
+									Usage: "the org-id to attach this api-key to. If not provided, " +
 										"we will attempt to use the org attached to the machine if only one exists",
 								},
 							},
