@@ -2104,7 +2104,7 @@ func TestReconfigureParity(t *testing.T) {
 			r1.Reconfigure(ctx, cfg)
 			cfg = ConfigFromFile(t, updateCfg)
 			// force robot to reconfigure resources serially
-			r2.reconfigure(ctx, cfg, true)
+			r2.reconfigureInLock(ctx, cfg, true)
 
 			rdktestutils.VerifySameResourceNames(t, r1.ResourceNames(), r2.ResourceNames())
 		})
