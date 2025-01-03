@@ -1098,6 +1098,7 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	// This value is normally set on a field on the [module] struct but it seems like we can safely get it on demand.
 	var dataDir string
 	if mgr.moduleDataParentDir != "" {
+		fmt.Println("MODULE DATA PARENT DIRECTORY: ", mgr.moduleDataParentDir)
 		var err error
 		// TODO: why isn't conf.Name being sanitized like PackageConfig.SanitizedName?
 		dataDir, err = rutils.SafeJoinDir(mgr.moduleDataParentDir, conf.Name)
@@ -1106,8 +1107,9 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 		}
 	}
 	env := getFullEnvironment(conf, dataDir, mgr.viamHomeDir)
+	fmt.Println("ENV: ", env)
 
-	return conf.FirstRun(ctx, pkgsDir, dataDir, env, mgr.logger, mgr.packagesDir, mgr.viamHomeDir)
+	return conf.FirstRun(ctx, pkgsDir, dataDir, env, mgr.logger)
 }
 
 func (m *module) startProcess(
@@ -1139,6 +1141,7 @@ func (m *module) startProcess(
 	moduleEnvironment := m.getFullEnvironment(viamHomeDir)
 	// Prefer VIAM_MODULE_ROOT as the current working directory if present but fallback to the directory of the exepath
 	moduleWorkingDirectory, ok := moduleEnvironment["VIAM_MODULE_ROOT"]
+	fmt.Println("MODULE WORKING DIRECTORY: ", moduleWorkingDirectory)
 	if !ok {
 		moduleWorkingDirectory = filepath.Dir(absoluteExePath)
 		m.logger.CDebugw(ctx, "VIAM_MODULE_ROOT was not passed to module. Defaulting to module's working directory",
