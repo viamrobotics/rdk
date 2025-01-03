@@ -599,6 +599,16 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 	return allErrs
 }
 
+// Kill attempts to kill all module processes.
+func (manager *resourceManager) Kill() {
+	// TODO: Kill processes in processManager as well.
+
+	// moduleManager may be nil in tests
+	if manager.moduleManager != nil {
+		manager.moduleManager.Kill()
+	}
+}
+
 // completeConfig process the tree in reverse order and attempts to build or reconfigure
 // resources that are wrapped in a placeholderResource. this function will attempt to
 // process resources concurrently when they do not depend on each other unless
