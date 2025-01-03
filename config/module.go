@@ -386,17 +386,11 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 	localNonTarball := m.Type == ModuleTypeLocal && !m.NeedsSyntheticPackage()
 	if !localNonTarball {
 		// this is case 1, meta.json in exe folder.
-		metaPath, err := utils.SafeJoinDir(unpackedModDir, "meta.json")
+		meta, err := findMetaJSONFile(unpackedModDir)
 		if err != nil {
 			return nil, err
 		}
-		_, err = os.Stat(metaPath)
-		if err == nil {
-			// this is case 1, meta.json in exe dir
-			meta, err := parseJSONFile[JSONManifest](metaPath)
-			if err != nil {
-				return nil, err
-			}
+		if meta != nil {
 			return meta, nil
 		}
 	}
@@ -417,20 +411,31 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 
 	moduleWorkingDirectory, ok := env["VIAM_MODULE_ROOT"]
 	if ok {
-		metaPath, err := utils.SafeJoinDir(moduleWorkingDirectory, "meta.json")
+		meta, err := findMetaJSONFile(moduleWorkingDirectory)
 		if err != nil {
 			return nil, err
 		}
-		_, err = os.Stat(metaPath)
-		if err == nil {
-			meta, err := parseJSONFile[JSONManifest](metaPath)
-			if err != nil {
-				return nil, err
-			}
+		if meta != nil {
 			return meta, nil
 		}
 	}
-	metaPath, err := utils.SafeJoinDir(unpackedModDir, "meta.json")
+
+	meta, err := findMetaJSONFile(unpackedModDir)
+	if err != nil {
+		return nil, err
+	}
+	if meta != nil {
+		return meta, nil
+	}
+
+	if !ok {
+		return nil, errors.Errorf("VIAM_MODULE_ROOT not set. Failed to find meta.json in executable directory %s", unpackedModDir)
+	}
+	return nil, errors.Errorf("failed to find meta.json. Searched in  executable directory %s and path set by VIAM_MODULE_ROOT %s", moduleWorkingDirectory, unpackedModDir)
+}
+
+func findMetaJSONFile(dir string) (*JSONManifest, error) {
+	metaPath, err := utils.SafeJoinDir(dir, "meta.json")
 	if err != nil {
 		return nil, err
 	}
@@ -442,8 +447,5 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 		}
 		return meta, nil
 	}
-	if !ok {
-		return nil, errors.Errorf("VIAM_MODULE_ROOT not set. Failed to find meta.json in executable directory %s", metaPath)
-	}
-	return nil, errors.Errorf("failed to find meta.json. Searched in path set by VIAM_MODULE_ROOT %s and executable directory %s", moduleWorkingDirectory, metaPath)
+	return nil, nil
 }
