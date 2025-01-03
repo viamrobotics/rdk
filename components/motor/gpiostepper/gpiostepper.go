@@ -201,6 +201,8 @@ type gpioStepper struct {
 
 // SetPower sets the percentage of power the motor should employ between 0-1.
 func (m *gpioStepper) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+	m.lock.Lock()
+	defer m.lock.Unlock()
 	if math.Abs(powerPct) <= .0001 {
 		return m.Stop(ctx, nil)
 	}
@@ -213,9 +215,7 @@ func (m *gpioStepper) SetPower(ctx context.Context, powerPct float64, extra map[
 	}
 
 	// lock added here to prevent race with doStep
-	m.lock.Lock()
-	m.stepperDelay = time.Duration(float64(m.minDelay) / math.Abs(powerPct))
-	m.lock.Unlock()
+	m.stepperDelay = time.Duration(float64(m.minDelay) / math.Abs(powerPct))	
 
 	if powerPct < 0 {
 		m.targetStepPosition = math.MinInt64
