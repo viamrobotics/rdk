@@ -161,6 +161,7 @@ func TestServer(t *testing.T) {
 							CloudMetadata: cloud.Metadata{},
 						},
 					},
+					State: robot.StateRunning,
 				},
 				&pb.ConfigStatus{Revision: "rev1"},
 				[]*pb.ResourceStatus{
@@ -171,6 +172,8 @@ func TestServer(t *testing.T) {
 						CloudMetadata: &pb.GetCloudMetadataResponse{},
 					},
 				},
+				pb.GetMachineStatusResponse_STATE_RUNNING,
+				0,
 				0,
 			},
 			{
@@ -204,6 +207,7 @@ func TestServer(t *testing.T) {
 							},
 						},
 					},
+					State: robot.StateRunning,
 				},
 				&pb.ConfigStatus{Revision: "rev1"},
 				[]*pb.ResourceStatus{
@@ -233,6 +237,8 @@ func TestServer(t *testing.T) {
 						),
 					},
 				},
+				pb.GetMachineStatusResponse_STATE_RUNNING,
+				0,
 				0,
 			},
 			{
@@ -340,34 +346,36 @@ func TestServer(t *testing.T) {
 				1,
 			},
 		} {
-			logger, logs := logging.NewObservedTestLogger(t)
-			injectRobot := &inject.Robot{}
-			server := server.New(injectRobot)
-			req := pb.GetMachineStatusRequest{}
-			injectRobot.LoggerFunc = func() logging.Logger {
-				return logger
-			}
-			injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
-				return tc.injectMachineStatus, nil
-			}
-			resp, err := server.GetMachineStatus(context.Background(), &req)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, resp.GetConfig().GetRevision(), test.ShouldEqual, tc.expConfig.Revision)
-			for i, res := range resp.GetResources() {
-				test.That(t, res.GetName(), test.ShouldResemble, tc.expResources[i].Name)
-				test.That(t, res.GetState(), test.ShouldResemble, tc.expResources[i].State)
-				test.That(t, res.GetRevision(), test.ShouldEqual, tc.expResources[i].Revision)
-			}
+			t.Run(tc.name, func(t *testing.T) {
+				logger, logs := logging.NewObservedTestLogger(t)
+				injectRobot := &inject.Robot{}
+				server := server.New(injectRobot)
+				req := pb.GetMachineStatusRequest{}
+				injectRobot.LoggerFunc = func() logging.Logger {
+					return logger
+				}
+				injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
+					return tc.injectMachineStatus, nil
+				}
+				resp, err := server.GetMachineStatus(context.Background(), &req)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, resp.GetConfig().GetRevision(), test.ShouldEqual, tc.expConfig.Revision)
+				for i, res := range resp.GetResources() {
+					test.That(t, res.GetName(), test.ShouldResemble, tc.expResources[i].Name)
+					test.That(t, res.GetState(), test.ShouldResemble, tc.expResources[i].State)
+					test.That(t, res.GetRevision(), test.ShouldEqual, tc.expResources[i].Revision)
+				}
 
-			test.That(t, resp.GetState(), test.ShouldEqual, tc.expState)
+				test.That(t, resp.GetState(), test.ShouldEqual, tc.expState)
 
-			const badResourceStateMsg = "resource in an unknown state"
-			badResourceStateCount := logs.FilterLevelExact(zapcore.ErrorLevel).FilterMessageSnippet(badResourceStateMsg).Len()
-			test.That(t, badResourceStateCount, test.ShouldEqual, tc.expBadResourceStateCount)
+				const badResourceStateMsg = "resource in an unknown state"
+				badResourceStateCount := logs.FilterLevelExact(zapcore.ErrorLevel).FilterMessageSnippet(badResourceStateMsg).Len()
+				test.That(t, badResourceStateCount, test.ShouldEqual, tc.expBadResourceStateCount)
 
-			const badMachineStateMsg = "machine in an unknown state"
-			badMachineStateCount := logs.FilterLevelExact(zapcore.ErrorLevel).FilterMessageSnippet(badMachineStateMsg).Len()
-			test.That(t, badMachineStateCount, test.ShouldEqual, tc.expBadMachineStateCount)
+				const badMachineStateMsg = "machine in an unknown state"
+				badMachineStateCount := logs.FilterLevelExact(zapcore.ErrorLevel).FilterMessageSnippet(badMachineStateMsg).Len()
+				test.That(t, badMachineStateCount, test.ShouldEqual, tc.expBadMachineStateCount)
+			})
 		}
 	})
 
