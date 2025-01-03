@@ -33,6 +33,13 @@ type (
 		Query DiscoveryQuery
 		Cause error
 	}
+
+	ModuleModelDiscovery struct {
+		ModuleName      string
+		API             API
+		Model           Model
+		FromLocalModule bool
+	}
 )
 
 func (e *DiscoverError) Error() string {

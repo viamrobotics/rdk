@@ -1065,6 +1065,24 @@ func (r *localRobot) discoverRobotInternals(query resource.DiscoveryQuery) (inte
 	}
 }
 
+func (r *localRobot) GetModelsFromModules(ctx context.Context) ([]*resource.ModuleModelDiscovery, error) {
+	moduleTypes := map[string]config.ModuleType{}
+	models := []*resource.ModuleModelDiscovery{}
+	for _, moduleConfig := range r.manager.moduleManager.Configs() {
+		moduleName := moduleConfig.Name
+		moduleTypes[moduleName] = moduleConfig.Type
+	}
+	for moduleName, handleMap := range r.manager.moduleManager.Handles() {
+		for api, handle := range handleMap {
+			for _, model := range handle {
+				modelModel := resource.ModuleModelDiscovery{ModuleName: moduleName, Model: model, FromLocalModule: moduleTypes[moduleName] == config.ModuleTypeLocal, API: api.API}
+				models = append(models, &modelModel)
+			}
+		}
+	}
+	return models, nil
+}
+
 func dialRobotClient(
 	ctx context.Context,
 	config config.Remote,
