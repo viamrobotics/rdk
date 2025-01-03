@@ -196,11 +196,14 @@ func (c *client) Image(ctx context.Context, mimeType string, extra map[string]in
 
 	if expectedType != "" && resp.MimeType != expectedType {
 		c.logger.CDebugw(ctx, "got different MIME type than what was asked for", "sent", expectedType, "received", resp.MimeType)
-	} else {
-		resp.MimeType = mimeType
+		if resp.MimeType == "" {
+			// if the user expected a mime_type and the successful response didn't have a mime type, assume the
+			// response's mime_type was what the user requested
+			resp.MimeType = mimeType
+		}
 	}
 
-	return resp.Image, ImageMetadata{MimeType: utils.WithLazyMIMEType(resp.MimeType)}, nil
+	return resp.Image, ImageMetadata{MimeType: resp.MimeType}, nil
 }
 
 func (c *client) Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error) {
