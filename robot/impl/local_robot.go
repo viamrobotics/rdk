@@ -58,6 +58,9 @@ type localRobot struct {
 	cloudConnSvc            icloud.ConnectionService
 	logger                  logging.Logger
 	activeBackgroundWorkers sync.WaitGroup
+
+	// reconfigurationLock manages access to the resource graph and nodes. If either may change, this lock should be taken.
+	reconfigurationLock sync.Mutex
 	// reconfigureWorkers tracks goroutines spawned by reconfiguration functions. we only
 	// wait on this group in tests to prevent goleak-related failures. however, we do not
 	// wait on this group outside of testing, since the related goroutines may be running
@@ -172,7 +175,9 @@ func (r *localRobot) Close(ctx context.Context) error {
 		err = multierr.Combine(err, r.cloudConnSvc.Close(ctx))
 	}
 	if r.manager != nil {
+		r.reconfigurationLock.Lock()
 		err = multierr.Combine(err, r.manager.Close(ctx))
+		r.reconfigurationLock.Unlock()
 	}
 	if r.packageManager != nil {
 		err = multierr.Combine(err, r.packageManager.Close(ctx))
@@ -307,15 +312,17 @@ func (r *localRobot) completeConfigWorker() {
 			trigger = "remote"
 			r.logger.CDebugw(r.closeContext, "configuration attempt triggered by remote")
 		}
+		r.reconfigurationLock.Lock()
 		anyChanges := r.manager.updateRemotesResourceNames(r.closeContext)
 		if r.manager.anyResourcesNotConfigured() {
 			anyChanges = true
 			r.manager.completeConfig(r.closeContext, r, false)
 		}
 		if anyChanges {
-			r.updateWeakDependentsInLock(r.closeContext)
+			r.updateWeakDependents(r.closeContext)
 			r.logger.CDebugw(r.closeContext, "configuration attempt completed with changes", "trigger", trigger)
 		}
+		r.reconfigurationLock.Unlock()
 	}
 }
 
@@ -440,6 +447,11 @@ func newWithResources(
 	if err != nil {
 		return nil, err
 	}
+
+	// now that we're changing the resource graph, take the reconfigurationLock so
+	// that other goroutines can't interleave
+	r.reconfigurationLock.Lock()
+	defer r.reconfigurationLock.Unlock()
 	if err := r.manager.resources.AddNode(
 		web.InternalServiceName,
 		resource.NewConfiguredGraphNode(resource.Config{}, r.webSvc, builtinModel)); err != nil {
@@ -497,7 +509,7 @@ func newWithResources(
 		}, r.activeBackgroundWorkers.Done)
 	}
 
-	r.Reconfigure(ctx, cfg)
+	r.reconfigureInLock(ctx, cfg, false)
 
 	for name, res := range resources {
 		node := resource.NewConfiguredGraphNode(resource.Config{}, res, unknownModel)
@@ -507,7 +519,7 @@ func newWithResources(
 	}
 
 	if len(resources) != 0 {
-		r.updateWeakDependentsInLock(ctx)
+		r.updateWeakDependents(ctx)
 	}
 
 	successful = true
@@ -529,12 +541,14 @@ func New(
 func (r *localRobot) removeOrphanedResources(ctx context.Context,
 	rNames []resource.Name,
 ) {
+	r.reconfigurationLock.Lock()
+	defer r.reconfigurationLock.Unlock()
 	r.manager.markResourcesRemoved(rNames, nil)
 	if err := r.manager.removeMarkedAndClose(ctx, nil); err != nil {
 		r.logger.CErrorw(ctx, "error removing and closing marked resources",
 			"error", err)
 	}
-	r.updateWeakDependentsInLock(ctx)
+	r.updateWeakDependents(ctx)
 }
 
 // resourceHasWeakDependencies will return whether a given resource has weak dependencies.
@@ -667,12 +681,6 @@ func (r *localRobot) newResource(
 		return nil, multierr.Combine(ctx.Err(), res.Close(r.closeContext))
 	}
 	return res, nil
-}
-
-func (r *localRobot) updateWeakDependentsInLock(ctx context.Context) {
-	r.manager.resourceGraphLock.Lock()
-	defer r.manager.resourceGraphLock.Unlock()
-	r.updateWeakDependents(ctx)
 }
 
 func (r *localRobot) updateWeakDependents(ctx context.Context) {
@@ -1102,7 +1110,9 @@ func dialRobotClient(
 // a best effort to remove no longer in use parts, but if it fails to do so, they could
 // possibly leak resources. The given config may be modified by Reconfigure.
 func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) {
-	r.reconfigure(ctx, newConfig, false)
+	r.reconfigurationLock.Lock()
+	defer r.reconfigurationLock.Unlock()
+	r.reconfigureInLock(ctx, newConfig, false)
 }
 
 // set Module.LocalVersion on Type=local modules. Call this before localPackages.Sync and in RestartModule.
@@ -1119,7 +1129,7 @@ func (r *localRobot) applyLocalModuleVersions(cfg *config.Config) {
 	}
 }
 
-func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, forceSync bool) {
+func (r *localRobot) reconfigureInLock(ctx context.Context, newConfig *config.Config, forceSync bool) {
 	if !r.reconfigureAllowed(ctx, newConfig, true) {
 		return
 	}
@@ -1287,7 +1297,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	// Fourth we attempt to complete the config (see function for details) and
 	// update weak dependents.
 	r.manager.completeConfig(ctx, r, forceSync)
-	r.updateWeakDependentsInLock(ctx)
+	r.updateWeakDependents(ctx)
 
 	// Finally we actually remove marked resources and Close any that are
 	// still unclosed.
