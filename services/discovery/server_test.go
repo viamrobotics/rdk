@@ -27,10 +27,12 @@ const (
 	failDiscoveryName = "discovery2"
 )
 
-var errDoFailed = errors.New("do failed")
-var errDiscoverFailed = errors.New("discover failed")
+var (
+	errDoFailed       = errors.New("do failed")
+	errDiscoverFailed = errors.New("discover failed")
+)
 
-// this was taken from proto_conversions_test and represents all of the information that a discovery service can provide about a component
+// this was taken from proto_conversions_test and represents all of the information that a discovery service can provide about a component.
 func createTestComponent(name string) *resource.Config {
 	testOrientation, _ := spatial.NewOrientationConfig(spatial.NewZeroOrientation())
 
