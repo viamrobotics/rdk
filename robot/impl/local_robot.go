@@ -509,7 +509,7 @@ func newWithResources(
 		}, r.activeBackgroundWorkers.Done)
 	}
 
-	r.reconfigureInLock(ctx, cfg, false)
+	r.reconfigure(ctx, cfg, false)
 
 	for name, res := range resources {
 		node := resource.NewConfiguredGraphNode(resource.Config{}, res, unknownModel)
@@ -1112,7 +1112,7 @@ func dialRobotClient(
 func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) {
 	r.reconfigurationLock.Lock()
 	defer r.reconfigurationLock.Unlock()
-	r.reconfigureInLock(ctx, newConfig, false)
+	r.reconfigure(ctx, newConfig, false)
 }
 
 // set Module.LocalVersion on Type=local modules. Call this before localPackages.Sync and in RestartModule.
@@ -1129,7 +1129,7 @@ func (r *localRobot) applyLocalModuleVersions(cfg *config.Config) {
 	}
 }
 
-func (r *localRobot) reconfigureInLock(ctx context.Context, newConfig *config.Config, forceSync bool) {
+func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, forceSync bool) {
 	if !r.reconfigureAllowed(ctx, newConfig, true) {
 		return
 	}
