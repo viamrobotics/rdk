@@ -72,7 +72,7 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("GetMachineStatus", func(t *testing.T) {
-		for _, tc := range []struct {
+		testCases := []struct {
 			name                     string
 			injectMachineStatus      robot.MachineStatus
 			expConfig                *pb.ConfigStatus
@@ -345,7 +345,9 @@ func TestServer(t *testing.T) {
 				0,
 				1,
 			},
-		} {
+		}
+
+		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
 				logger, logs := logging.NewObservedTestLogger(t)
 				injectRobot := &inject.Robot{}
