@@ -171,8 +171,10 @@ type ratioReading struct {
 	isRate bool
 }
 
+const epsilon = 1e-9
+
 func (rr ratioReading) toValue() (float32, error) {
-	if math.Abs(rr.Denominator) < 1e-9 {
+	if math.Abs(rr.Denominator) < epsilon {
 		return 0.0, fmt.Errorf("divide by zero error, metric: %v", rr.GraphName)
 	}
 
@@ -300,7 +302,6 @@ func (gpw *gnuplotWriter) writeDeferredValues(deferredValues []map[string]*ratio
 		// `forCompare` is the index element to compare the "current" element pointed to by `idx`.
 		forCompare := idx - windowSizeSecs
 		if forCompare < 0 {
-			// If we haven't
 			forCompare = 0
 		}
 
@@ -318,6 +319,7 @@ func (gpw *gnuplotWriter) writeDeferredValues(deferredValues []map[string]*ratio
 			value, err := diff.toValue()
 			if err != nil {
 				// The denominator did not change -- divide by zero error.
+				logger.Warnw("Error computing defered value", "metricName", metricName, "time", currRatioReading.Time, "err", err)
 				continue
 			}
 			gpw.addPoint(currRatioReading.Time, metricName, value)
