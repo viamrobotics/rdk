@@ -498,9 +498,9 @@ func TestRunning(t *testing.T) {
 		})
 
 		ctx, cancel = context.WithCancel(context.Background())
-		go func() {
-			m.SetRPM(ctx, 100, map[string]interface{}{})
-		}()
+
+		err = m.SetRPM(ctx, 100, map[string]interface{}{})
+		test.That(t, err, test.ShouldBeNil)
 
 		// Make sure it starts moving
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -518,9 +518,10 @@ func TestRunning(t *testing.T) {
 			test.That(tb, l, test.ShouldBeFalse)
 		})
 
-		go func() {
-			m.SetPower(ctx, 1, map[string]interface{}{})
-		}()
+		cancel()
+
+		err = m.SetPower(ctx, 1, map[string]interface{}{})
+		test.That(t, err, test.ShouldBeNil)
 
 		// Make sure it starts moving
 		testutils.WaitForAssertion(t, func(tb testing.TB) {

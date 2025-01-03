@@ -212,7 +212,10 @@ func (m *gpioStepper) SetPower(ctx context.Context, powerPct float64, extra map[
 			m.Name().Name)
 	}
 
+	// lock added here to prevent race with doStep
+	m.lock.Lock()
 	m.stepperDelay = time.Duration(float64(m.minDelay) / math.Abs(powerPct))
+	m.lock.Unlock()
 
 	if powerPct < 0 {
 		m.targetStepPosition = math.MinInt64
