@@ -587,6 +587,16 @@ func (mgr *Manager) Configs() []config.Module {
 	return configs
 }
 
+// // AllModels returns a slice of config.Module representing the currently available models from the currently managed modules
+// func (mgr *Manager) AllModels() []config.Module {
+// 	var configs []config.Module
+// 	mgr.modules.Range(func(_ string, mod *module) bool {
+// 		configs = append(configs, mod.cfg)
+// 		return true
+// 	})
+// 	return configs
+// }
+
 // Provides returns true if a component/service config WOULD be handled by a module.
 func (mgr *Manager) Provides(conf resource.Config) bool {
 	_, ok := mgr.getModule(conf)
