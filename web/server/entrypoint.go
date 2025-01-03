@@ -348,6 +348,17 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	forceShutdown := make(chan struct{})
 	defer func() { <-forceShutdown }()
 
+	var cloudRestartCheckerActive chan struct{}
+	rpcDialer := rpc.NewCachedDialer()
+	defer func() {
+		if cloudRestartCheckerActive != nil {
+			<-cloudRestartCheckerActive
+		}
+		err = multierr.Combine(err, rpcDialer.Close())
+	}()
+	defer cancel()
+	ctx = rpc.ContextWithDialer(ctx, rpcDialer)
+
 	utils.PanicCapturingGo(func() {
 		defer close(forceShutdown)
 
@@ -399,17 +410,6 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		slowWatcherCancel()
 		<-slowWatcher
 	}()
-
-	var cloudRestartCheckerActive chan struct{}
-	rpcDialer := rpc.NewCachedDialer()
-	defer func() {
-		if cloudRestartCheckerActive != nil {
-			<-cloudRestartCheckerActive
-		}
-		err = multierr.Combine(err, rpcDialer.Close())
-	}()
-	defer cancel()
-	ctx = rpc.ContextWithDialer(ctx, rpcDialer)
 
 	fullProcessedConfig, err := s.processConfig(cfg)
 	if err != nil {
