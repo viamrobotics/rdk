@@ -1042,7 +1042,7 @@ func TestUpdateOAuthAppAction(t *testing.T) {
 		test.That(t, len(out.messages), test.ShouldEqual, 0)
 	})
 
-	t.Run("should error if url-validation is not a valid enum value", func(t *testing.T) {
+	t.Run("should error if pkce is not a valid enum value", func(t *testing.T) {
 		flags := map[string]any{oauthAppFlagClientAuthentication: unspecified, oauthAppFlagPKCE: "not_one_of_the_allowed_values"}
 		cCtx, ac, out, _ := setup(asc, nil, nil, nil, flags, "token")
 		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))
