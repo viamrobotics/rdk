@@ -329,6 +329,7 @@ func flatten(datum datum, schema *schema) ([]float32, error) {
 //
 // [ Reading{"webrtc.connections", 5}, Reading{"webrtc.bytesSent", 8096} ].
 type FlatDatum struct {
+	// Time is a 64 bit integer representing nanoseconds since the epoch.
 	Time     int64
 	Readings []Reading
 }

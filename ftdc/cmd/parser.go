@@ -132,9 +132,198 @@ func (gpw *gnuplotWriter) addPoint(timeSeconds int64, metricName string, metricV
 	writelnf(gpw.getDatafile(metricName), "%v %.5f", timeSeconds, metricValue)
 }
 
-func (gpw *gnuplotWriter) addFlatDatum(datum ftdc.FlatDatum) {
+// ratioMetric describes which two FTDC metrics that should be combined to create a computed
+// value. Such as "CPU %". Can also be used to express "requests per second".
+type ratioMetric struct {
+	Numerator string
+	// An empty string Denominator will use the datum read timestamp value for its denominator. For
+	// graphing a per-second rate.
+	Denominator string
+}
+
+// ratioMetricToFields is a global variable identifying the metric names that are to be graphed as
+// some ratio. The two members (`Numerator` and `Denominator`) refer to the suffix* of a metric
+// name. For example, `UserCPUSecs` will appear under `proc.viam-server.UserCPUSecs` as well as
+// `proc.modules.<foo>.UserCPUSecs`. If the `Denominator` is the empty string, the
+// `ratioReading.Time` value will be used.
+//
+// When computing rates for metrics across two "readings", we simply subtract the numerators and
+// denominator and divide the differences. We use the `windowSizeSecs` to pick which "readings"
+// should be compared. This creates a sliding window. We (currently) bias this window to better
+// portray "recent" resource utilization.
+var ratioMetricToFields = map[string]ratioMetric{
+	"UserCPU":   {"UserCPUSecs", "ElapsedTimeSecs"},
+	"SystemCPU": {"SystemCPUSecs", "ElapsedTimeSecs"},
+	// PerSec ratios use an empty string denominator.
+	"HeadersProcessedPerSec": {"HeadersProcessed", ""},
+}
+
+// ratioReading is a reading of two metrics described by `ratioMetric`. This is what will be graphed.
+type ratioReading struct {
+	GraphName string
+	// Seconds since epoch.
+	Time        int64
+	Numerator   float32
+	Denominator float64
+
+	// `isRate` == false will multiply by 100 for displaying as a percentage. Otherwise just display
+	// the quotient.
+	isRate bool
+}
+
+const epsilon = 1e-9
+
+func (rr ratioReading) toValue() (float32, error) {
+	if math.Abs(rr.Denominator) < epsilon {
+		return 0.0, fmt.Errorf("divide by zero error, metric: %v", rr.GraphName)
+	}
+
+	if rr.isRate {
+		return float32(float64(rr.Numerator) / rr.Denominator), nil
+	}
+
+	// A percentage
+	return float32(float64(rr.Numerator) / rr.Denominator * 100), nil
+}
+
+func (rr *ratioReading) diff(other *ratioReading) ratioReading {
+	return ratioReading{
+		rr.GraphName,
+		rr.Time,
+		rr.Numerator - other.Numerator,
+		rr.Denominator - other.Denominator,
+		rr.isRate,
+	}
+}
+
+// pullRatios returns true if any of the `ratioMetrics` match the input `reading`. If so, a new
+// `ratioReading` is added to the `outDeferredReadings`.
+func pullRatios(
+	reading ftdc.Reading,
+	readingTS int64,
+	ratioMetrics map[string]ratioMetric,
+	outDeferredReadings map[string]*ratioReading,
+) bool {
+	ret := false
+	for ratioMetricName, ratioMetric := range ratioMetrics {
+		if strings.HasSuffix(reading.MetricName, ratioMetric.Numerator) {
+			ret = true
+
+			// `metricIdentifier` is expected to be of the form `rdk.foo_module.`. Leave the
+			// trailing dot as we would be about to re-add it.
+			metricIdentifier := strings.TrimSuffix(reading.MetricName, ratioMetric.Numerator)
+			// E.g: `rdk.foo_module.User CPU%'.
+			graphName := fmt.Sprint(metricIdentifier, ratioMetricName)
+			if _, exists := outDeferredReadings[graphName]; !exists {
+				outDeferredReadings[graphName] = &ratioReading{GraphName: graphName, Time: readingTS, isRate: ratioMetric.Denominator == ""}
+			}
+
+			outDeferredReadings[graphName].Numerator = reading.Value
+			if ratioMetric.Denominator == "" {
+				outDeferredReadings[graphName].Denominator = float64(readingTS)
+			}
+
+			continue
+		}
+
+		if ratioMetric.Denominator != "" && strings.HasSuffix(reading.MetricName, ratioMetric.Denominator) {
+			ret = true
+
+			// `metricIdentifier` is expected to be of the form `rdk.foo_module.`. Leave the
+			// trailing dot as we would be about to re-add it.
+			metricIdentifier := strings.TrimSuffix(reading.MetricName, ratioMetric.Denominator)
+			// E.g: `rdk.foo_module.User CPU%'.
+			graphName := fmt.Sprint(metricIdentifier, ratioMetricName)
+			if _, exists := outDeferredReadings[graphName]; !exists {
+				outDeferredReadings[graphName] = &ratioReading{GraphName: graphName, Time: readingTS, isRate: false}
+			}
+
+			outDeferredReadings[graphName].Denominator = float64(reading.Value)
+			continue
+		}
+	}
+
+	return ret
+}
+
+func (gpw *gnuplotWriter) addFlatDatum(datum ftdc.FlatDatum) map[string]*ratioReading {
+	// deferredReadings is an accumulator for readings of metrics that are used together to create a
+	// graph. Such as `UserCPUSecs` / `ElapsedTimeSecs`.
+	deferredReadings := make(map[string]*ratioReading)
+
+	// There are two kinds of metrics. "Simple" metrics that can simply be passed through to the
+	// gnuplotWriter. And "ratio" metrics that combine two different readings.
+	//
+	// For the ratio metrics, we use a two pass algorithm. The first pass will pair together all of
+	// the necessary numerators and denominators. The second pass will write the computed datapoint
+	// to the underlying gnuplotWriter.
+	//
+	// Ratio metrics are identified by the metric suffix. E.g: `rdk.custom_module.UserCPUSecs` will
+	// be classified as a (numerator in a) ratio metric. We must also take care to record the prefix
+	// of the ratio metric, the "metric identifier". There may be `rdk.foo_module.UserCPUSecs` in
+	// addition to `rdk.bar_modular.UserCPUSecs`. Which should create two CPU% graphs.
 	for _, reading := range datum.Readings {
+		// pullRatios will identify if the metric is a "ratio" metric. If so, we do not currently
+		// know what to graph and `pullRatios` will accumulate the relevant information into
+		// `deferredReadings`.
+		isRatioMetric := pullRatios(reading, datum.ConvertedTime().Unix(), ratioMetricToFields, deferredReadings)
+		if isRatioMetric {
+			// Ratio metrics need to be compared to some prior ratio metric to create a data
+			// point. We do not output any information now. We instead accumulate all of these
+			// results to be later used. These are named "deferred values".
+			continue
+		}
+
 		gpw.addPoint(datum.ConvertedTime().Unix(), reading.MetricName, reading.Value)
+	}
+
+	return deferredReadings
+}
+
+// Ratios are averaged over a "recent history". This window size refers to a time in seconds, but we
+// actually measure with respect to consecutive FTDC readings. The output value will use the system
+// clock difference to compute a correct rate. We just accept there may be fuzziness with respect to
+// how recent of a history we're actually using.
+//
+// Consider adding logging when two FTDC readings `windowSizeSecs` apart is not reflecting by their
+// system time difference.
+const windowSizeSecs = 5
+
+// The deferredValues input is in FTDC reading order. On a responsive system, adjacent items in the
+// slice should be one second apart.
+func (gpw *gnuplotWriter) writeDeferredValues(deferredValues []map[string]*ratioReading, logger logging.Logger) {
+	for idx, currReadings := range deferredValues {
+		if idx == 0 {
+			// The first element cannot be compared to anything. It would create a divide by zero
+			// problem.
+			continue
+		}
+
+		// `forCompare` is the index element to compare the "current" element pointed to by `idx`.
+		forCompare := idx - windowSizeSecs
+		if forCompare < 0 {
+			forCompare = 0
+		}
+
+		prevReadings := deferredValues[forCompare]
+		for metricName, currRatioReading := range currReadings {
+			var diff ratioReading
+			if prevratioReading, exists := prevReadings[metricName]; exists {
+				diff = currRatioReading.diff(prevratioReading)
+			} else {
+				logger.Infow("Deferred value missing a previous value to diff",
+					"metricName", metricName, "time", currRatioReading.Time)
+				continue
+			}
+
+			value, err := diff.toValue()
+			if err != nil {
+				// The denominator did not change -- divide by zero error.
+				logger.Warnw("Error computing defered value", "metricName", metricName, "time", currRatioReading.Time, "err", err)
+				continue
+			}
+			gpw.addPoint(currRatioReading.Time, metricName, value)
+		}
 	}
 }
 
@@ -216,10 +405,13 @@ func main() {
 	graphOptions := defaultGraphOptions()
 	for {
 		if render {
+			deferredValues := make([]map[string]*ratioReading, 0)
 			gpw := newGnuPlotWriter(graphOptions)
 			for _, flatDatum := range data {
-				gpw.addFlatDatum(flatDatum)
+				deferredValues = append(deferredValues, gpw.addFlatDatum(flatDatum))
 			}
+
+			gpw.writeDeferredValues(deferredValues, logger)
 
 			gpw.Render()
 		}
@@ -283,6 +475,8 @@ func main() {
 		case strings.HasPrefix(cmd, "reset range"):
 			graphOptions.minTimeSeconds = 0
 			graphOptions.maxTimeSeconds = math.MaxInt64
+		case cmd == "refresh" || cmd == "r":
+			nolintPrintln("Refreshing graphs with new data")
 		case len(cmd) == 0:
 			render = false
 		default:
