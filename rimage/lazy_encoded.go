@@ -33,7 +33,8 @@ type LazyEncodedImage struct {
 // NOTE: Usage of an image that would fail to decode causes a lazy panic.
 func NewLazyEncodedImage(imgBytes []byte, mimeType string) image.Image {
 	if mimeType == "" {
-		logging.Global().Warn("NewLazyEncodedImage called without a mime_type. Sniffing bytes to detect mime_type. Specify mime_type to reduce CPU utilization")
+		logging.Global().Warn("NewLazyEncodedImage called without a mime_type. " +
+			"Sniffing bytes to detect mime_type. Specify mime_type to reduce CPU utilization")
 		mimeType = http.DetectContentType(imgBytes)
 	}
 	return &LazyEncodedImage{
