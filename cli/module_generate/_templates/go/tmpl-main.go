@@ -19,7 +19,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 	if err != nil {
 		return err
 	}
-	
+
 	if err = {{.ModuleCamel}}.AddModelFromRegistry(ctx, {{.ResourceSubtype}}.API, models.{{.ModelPascal}}); err != nil {
 		return err
 	}

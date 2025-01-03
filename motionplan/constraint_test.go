@@ -29,15 +29,16 @@ func TestIKTolerances(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test inability to arrive at another position due to orientation
-	pos := PathStep{m.Name(): frame.NewPoseInFrame(frame.World, spatial.NewPoseFromProtobuf(&commonpb.Pose{
+	goal := &PlanState{poses: PathState{m.Name(): frame.NewPoseInFrame(frame.World, spatial.NewPoseFromProtobuf(&commonpb.Pose{
 		X:  -46,
 		Y:  0,
 		Z:  372,
 		OX: -1.78,
 		OY: -3.3,
 		OZ: -1.11,
-	}))}
-	_, err = mp.plan(context.Background(), pos, map[string][]frame.Input{m.Name(): frame.FloatsToInputs(make([]float64, 6))})
+	}))}}
+	seed := &PlanState{configuration: map[string][]frame.Input{m.Name(): frame.FloatsToInputs(make([]float64, 6))}}
+	_, err = mp.plan(context.Background(), seed, goal)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Now verify that setting tolerances to zero allows the same arm to reach that position
@@ -46,7 +47,7 @@ func TestIKTolerances(t *testing.T) {
 	opt.SetMaxSolutions(50)
 	mp, err = newCBiRRTMotionPlanner(fs, rand.New(rand.NewSource(1)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = mp.plan(context.Background(), pos, map[string][]frame.Input{m.Name(): frame.FloatsToInputs(make([]float64, 6))})
+	_, err = mp.plan(context.Background(), seed, goal)
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -150,8 +151,8 @@ func TestLineFollow(t *testing.T) {
 
 	opt := newBasicPlannerOptions()
 	startCfg := map[string][]frame.Input{m.Name(): m.InputFromProtobuf(mp1)}
-	from := PathStep{markerFrame.Name(): frame.NewPoseInFrame(markerFrame.Name(), p1)}
-	to := PathStep{markerFrame.Name(): frame.NewPoseInFrame(goalFrame.Name(), p2)}
+	from := PathState{markerFrame.Name(): frame.NewPoseInFrame(markerFrame.Name(), p1)}
+	to := PathState{markerFrame.Name(): frame.NewPoseInFrame(goalFrame.Name(), p2)}
 
 	validFunc, gradFunc, err := CreateLineConstraintFS(fs, startCfg, from, to, 0.001)
 	test.That(t, err, test.ShouldBeNil)

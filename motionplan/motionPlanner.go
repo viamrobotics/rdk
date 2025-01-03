@@ -26,13 +26,13 @@ import (
 type motionPlanner interface {
 	// Plan will take a context, a goal position, and an input start state and return a series of state waypoints which
 	// should be visited in order to arrive at the goal while satisfying all constraints
-	plan(context.Context, PathStep, map[string][]referenceframe.Input) ([]node, error)
+	plan(ctx context.Context, seed, goal *PlanState) ([]node, error)
 
 	// Everything below this point should be covered by anything that wraps the generic `planner`
 	smoothPath(context.Context, []node) []node
 	checkPath(map[string][]referenceframe.Input, map[string][]referenceframe.Input) bool
 	checkInputs(map[string][]referenceframe.Input) bool
-	getSolutions(context.Context, map[string][]referenceframe.Input) ([]node, error)
+	getSolutions(context.Context, map[string][]referenceframe.Input, ik.StateFSMetric) ([]node, error)
 	opt() *plannerOptions
 	sample(node, int) (node, error)
 }
@@ -41,17 +41,24 @@ type plannerConstructor func(referenceframe.FrameSystem, *rand.Rand, logging.Log
 
 // PlanRequest is a struct to store all the data necessary to make a call to PlanMotion.
 type PlanRequest struct {
-	Logger             logging.Logger
-	Goal               *referenceframe.PoseInFrame
-	Frame              referenceframe.Frame
-	FrameSystem        referenceframe.FrameSystem
-	StartPose          spatialmath.Pose
-	StartConfiguration map[string][]referenceframe.Input
-	WorldState         *referenceframe.WorldState
-	BoundingRegions    []spatialmath.Geometry
-	Constraints        *Constraints
-	Options            map[string]interface{}
-	allGoals           PathStep // TODO: this should replace Goal and Frame
+	Logger logging.Logger
+	// The planner will hit each Goal in order. Each goal may be a configuration or PathState for holonomic motion, or must be a
+	// PathState for non-holonomic motion. For holonomic motion, if both a configuration and PathState are given, an error is thrown.
+	// TODO: Perhaps we could do something where some components are enforced to arrive at a certain configuration, but others can have IK
+	// run to solve for poses. Doing this while enforcing configurations may be tricky.
+	Goals       []*PlanState
+	FrameSystem referenceframe.FrameSystem
+
+	// This must always have a configuration filled in, for geometry placement purposes.
+	// If poses are also filled in, the configuration will be used to determine geometry collisions, but the poses will be used
+	// in IK to generate plan start configurations. The given configuration will NOT automatically be added to the seed tree.
+	// The use case here is that if a particularly difficult path must be planned between two poses, that can be done first to ensure
+	// feasibility, and then other plans can be requested to connect to that returned plan's configurations.
+	StartState      *PlanState
+	WorldState      *referenceframe.WorldState
+	BoundingRegions []spatialmath.Geometry
+	Constraints     *Constraints
+	Options         map[string]interface{}
 }
 
 // validatePlanRequest ensures PlanRequests are not malformed.
@@ -62,68 +69,92 @@ func (req *PlanRequest) validatePlanRequest() error {
 	if req.Logger == nil {
 		return errors.New("PlanRequest cannot have nil logger")
 	}
-	if req.Frame == nil {
-		return errors.New("PlanRequest cannot have nil frame")
-	}
 
 	if req.FrameSystem == nil {
 		return errors.New("PlanRequest cannot have nil framesystem")
-	} else if req.FrameSystem.Frame(req.Frame.Name()) == nil {
-		return referenceframe.NewFrameMissingError(req.Frame.Name())
 	}
-
-	if req.Goal == nil {
-		return errors.New("PlanRequest cannot have nil goal")
+	if req.StartState == nil {
+		return errors.New("PlanRequest cannot have nil StartState")
 	}
-
-	goalParentFrame := req.Goal.Parent()
-	if req.FrameSystem.Frame(goalParentFrame) == nil {
-		return referenceframe.NewParentFrameMissingError(req.Goal.Name(), goalParentFrame)
+	if req.StartState.configuration == nil {
+		return errors.New("PlanRequest cannot have nil StartState configuration")
 	}
-
-	if len(req.BoundingRegions) > 0 {
-		buffer, ok := req.Options["collision_buffer_mm"].(float64)
-		if !ok {
-			buffer = defaultCollisionBufferMM
-		}
-		// check that the request frame's geometries are within or in collision with the bounding regions
-		robotGifs, err := req.Frame.Geometries(make([]referenceframe.Input, len(req.Frame.DoF())))
+	// If we have a start configuration, check for correctness. Reuse PathState compute function to provide error.
+	if len(req.StartState.configuration) > 0 {
+		_, err := ComputePathStateFromConfiguration(req.FrameSystem, req.StartState.configuration)
 		if err != nil {
 			return err
 		}
-		var robotGeoms []spatialmath.Geometry
-		for _, geom := range robotGifs.Geometries() {
-			robotGeoms = append(robotGeoms, geom.Transform(req.StartPose))
+	}
+	// if we have start poses, check we have valid frames
+	for fName, pif := range req.StartState.poses {
+		if req.FrameSystem.Frame(fName) == nil {
+			return referenceframe.NewFrameMissingError(fName)
 		}
-		robotGeomBoundingRegionCheck := NewBoundingRegionConstraint(robotGeoms, req.BoundingRegions, buffer)
-		if !robotGeomBoundingRegionCheck(&ik.State{}) {
-			return fmt.Errorf("frame named %s is not within the provided bounding regions", req.Frame.Name())
-		}
-
-		// check that the destination is within or in collision with the bounding regions
-		destinationAsGeom := []spatialmath.Geometry{spatialmath.NewPoint(req.Goal.Pose().Point(), "")}
-		destinationBoundingRegionCheck := NewBoundingRegionConstraint(destinationAsGeom, req.BoundingRegions, buffer)
-		if !destinationBoundingRegionCheck(&ik.State{}) {
-			return errors.New("destination was not within the provided bounding regions")
+		if req.FrameSystem.Frame(pif.Parent()) == nil {
+			return referenceframe.NewParentFrameMissingError(fName, pif.Parent())
 		}
 	}
 
-	frameDOF := len(req.Frame.DoF())
-	seedMap, ok := req.StartConfiguration[req.Frame.Name()]
-	if frameDOF > 0 {
-		if !ok {
-			return errors.Errorf("%s does not have a start configuration", req.Frame.Name())
-		}
-		if frameDOF != len(seedMap) {
-			return referenceframe.NewIncorrectDoFError(len(seedMap), len(req.Frame.DoF()))
-		}
-	} else if ok && frameDOF != len(seedMap) {
-		return referenceframe.NewIncorrectDoFError(len(seedMap), len(req.Frame.DoF()))
+	if len(req.Goals) == 0 {
+		return errors.New("PlanRequest must have at least one goal")
 	}
 
-	// TODO: This should replace Frame and Goal
-	req.allGoals = map[string]*referenceframe.PoseInFrame{req.Frame.Name(): req.Goal}
+	// Validate the goals. Each goal with a pose must not alos have a configuration specified. The parent frame of the pose must exist.
+	for i, goalState := range req.Goals {
+		for fName, pif := range goalState.poses {
+			if len(goalState.configuration) > 0 {
+				return errors.New("individual goals cannot have both configuration and poses populated")
+			}
 
+			goalParentFrame := pif.Parent()
+			if req.FrameSystem.Frame(goalParentFrame) == nil {
+				return referenceframe.NewParentFrameMissingError(fName, goalParentFrame)
+			}
+
+			if len(req.BoundingRegions) > 0 {
+				// Check that robot components start within bounding regions.
+				// Bounding regions are for 2d planning, which requires a start pose
+				if len(goalState.poses) > 0 && len(req.StartState.poses) > 0 {
+					goalFrame := req.FrameSystem.Frame(fName)
+					if goalFrame == nil {
+						return referenceframe.NewFrameMissingError(fName)
+					}
+					buffer, ok := req.Options["collision_buffer_mm"].(float64)
+					if !ok {
+						buffer = defaultCollisionBufferMM
+					}
+					// check that the request frame's geometries are within or in collision with the bounding regions
+					robotGifs, err := goalFrame.Geometries(make([]referenceframe.Input, len(goalFrame.DoF())))
+					if err != nil {
+						return err
+					}
+					if i == 0 {
+						// Only need to check start poses once
+						startPose, ok := req.StartState.poses[fName]
+						if !ok {
+							return fmt.Errorf("goal frame %s does not have a start pose", fName)
+						}
+						var robotGeoms []spatialmath.Geometry
+						for _, geom := range robotGifs.Geometries() {
+							robotGeoms = append(robotGeoms, geom.Transform(startPose.Pose()))
+						}
+						robotGeomBoundingRegionCheck := NewBoundingRegionConstraint(robotGeoms, req.BoundingRegions, buffer)
+						if !robotGeomBoundingRegionCheck(&ik.State{}) {
+							return fmt.Errorf("frame named %s is not within the provided bounding regions", fName)
+						}
+					}
+
+					// check that the destination is within or in collision with the bounding regions
+					destinationAsGeom := []spatialmath.Geometry{spatialmath.NewPoint(pif.Pose().Point(), "")}
+					destinationBoundingRegionCheck := NewBoundingRegionConstraint(destinationAsGeom, req.BoundingRegions, buffer)
+					if !destinationBoundingRegionCheck(&ik.State{}) {
+						return errors.New("destination was not within the provided bounding regions")
+					}
+				}
+			}
+		}
+	}
 	return nil
 }
 
@@ -149,13 +180,14 @@ func PlanFrameMotion(ctx context.Context,
 		return nil, err
 	}
 	plan, err := PlanMotion(ctx, &PlanRequest{
-		Logger:             logger,
-		Goal:               referenceframe.NewPoseInFrame(referenceframe.World, dst),
-		Frame:              f,
-		StartConfiguration: map[string][]referenceframe.Input{f.Name(): seed},
-		FrameSystem:        fs,
-		Constraints:        constraints,
-		Options:            planningOpts,
+		Logger: logger,
+		Goals: []*PlanState{
+			{poses: PathState{f.Name(): referenceframe.NewPoseInFrame(referenceframe.World, dst)}},
+		},
+		StartState:  &PlanState{configuration: map[string][]referenceframe.Input{f.Name(): seed}},
+		FrameSystem: fs,
+		Constraints: constraints,
+		Options:     planningOpts,
 	})
 	if err != nil {
 		return nil, err
@@ -182,7 +214,7 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 		return nil, err
 	}
 
-	newPlan, err := sfPlanner.PlanSingleWaypoint(ctx, request, currentPlan)
+	newPlan, err := sfPlanner.planMultiWaypoint(ctx, request, currentPlan)
 	if err != nil {
 		return nil, err
 	}
@@ -343,14 +375,21 @@ func (mp *planner) smoothPath(ctx context.Context, path []node) []node {
 // getSolutions will initiate an IK solver for the given position and seed, collect solutions, and score them by constraints.
 // If maxSolutions is positive, once that many solutions have been collected, the solver will terminate and return that many solutions.
 // If minScore is positive, if a solution scoring below that amount is found, the solver will terminate and return that one solution.
-func (mp *planner) getSolutions(ctx context.Context, seed map[string][]referenceframe.Input) ([]node, error) {
+func (mp *planner) getSolutions(ctx context.Context, seed map[string][]referenceframe.Input, metric ik.StateFSMetric) ([]node, error) {
 	// Linter doesn't properly handle loop labels
 	nSolutions := mp.planOpts.MaxSolutions
 	if nSolutions == 0 {
 		nSolutions = defaultSolutionsToSeed
 	}
+	if len(seed) == 0 {
+		seed = map[string][]referenceframe.Input{}
+		// If no seed is passed, generate one randomly
+		for _, frameName := range mp.fs.FrameNames() {
+			seed[frameName] = referenceframe.RandomFrameInputs(mp.fs.Frame(frameName), mp.randseed)
+		}
+	}
 
-	if mp.planOpts.goalMetric == nil {
+	if metric == nil {
 		return nil, errors.New("metric is nil")
 	}
 
@@ -368,7 +407,7 @@ func (mp *planner) getSolutions(ctx context.Context, seed map[string][]reference
 		return nil, err
 	}
 
-	minFunc := mp.linearizeFSmetric(mp.planOpts.goalMetric)
+	minFunc := mp.linearizeFSmetric(metric)
 	// Spawn the IK solver to generate solutions until done
 	utils.PanicCapturingGo(func() {
 		defer close(ikErr)
@@ -469,7 +508,7 @@ IK:
 			return nil, errIKSolve
 		}
 
-		return nil, genIKConstraintErr(failures, constraintFailCnt)
+		return nil, newIKConstraintErr(failures, constraintFailCnt)
 	}
 
 	keys := make([]float64, 0, len(solutions))

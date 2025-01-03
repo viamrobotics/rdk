@@ -23,7 +23,7 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	"go.viam.com/rdk/cli/module_generate/common"
+	"go.viam.com/rdk/cli/module_generate/modulegen"
 	gen "go.viam.com/rdk/cli/module_generate/scripts"
 )
 
@@ -46,50 +46,56 @@ var (
 	templatesPath = filepath.Join(basePath, "_templates")
 )
 
+type generateModuleArgs struct {
+	Name            string
+	Language        string
+	Public          bool
+	PublicNamespace string
+	ResourceType    string
+	ResourceSubtype string
+	ModelName       string
+	EnableCloud     bool
+	Register        bool
+	DryRun          bool
+}
+
 // GenerateModuleAction runs the module generate cli and generates necessary module templates based on user input.
-func GenerateModuleAction(cCtx *cli.Context) error {
+func GenerateModuleAction(cCtx *cli.Context, args generateModuleArgs) error {
 	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
 	}
-	return c.generateModuleAction(cCtx)
+	return c.generateModuleAction(cCtx, args)
 }
 
-func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
-	var newModule *common.ModuleInputs
+func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModuleArgs) error {
+	var newModule *modulegen.ModuleInputs
 	var err error
-	resourceType := cCtx.String(moduleFlagResourceType)
-	resourceSubtype := cCtx.String(moduleFlagResourceSubtype)
-	if resourceSubtype != "" && resourceType != "" {
-		newModule = &common.ModuleInputs{
-			ModuleName:       "my-module",
-			IsPublic:         false,
-			Namespace:        "my-org",
-			Language:         cCtx.String(moduleFlagLanguage),
-			Resource:         resourceSubtype + " " + resourceType,
-			ResourceType:     resourceType,
-			ResourceSubtype:  resourceSubtype,
-			ModelName:        "my-model",
-			EnableCloudBuild: false,
-			RegisterOnApp:    false,
-			GeneratorVersion: "0.1.0",
-			GeneratedOn:      time.Now().UTC(),
 
-			ModulePascal:          "MyModule",
-			API:                   fmt.Sprintf("rdk:%s:%s", resourceType, resourceSubtype),
-			ResourceSubtypePascal: strings.ToUpper(string(resourceSubtype[0])) + resourceSubtype[1:],
-			ModelPascal:           "MyModel",
-			ModelTriple:           "my-org:my-module:my-model",
+	newModule = &modulegen.ModuleInputs{
+		ModuleName:       args.Name,
+		Language:         args.Language,
+		IsPublic:         args.Public,
+		Namespace:        args.PublicNamespace,
+		Resource:         args.ResourceSubtype + " " + args.ResourceType,
+		ResourceType:     args.ResourceType,
+		ResourceSubtype:  args.ResourceSubtype,
+		ModelName:        args.ModelName,
+		EnableCloudBuild: args.EnableCloud,
+		RegisterOnApp:    args.Register,
+	}
+	if err := newModule.CheckResource(); err != nil {
+		return err
+	}
 
-			SDKVersion: "0.0.0",
-		}
-		populateAdditionalInfo(newModule)
-	} else {
-		newModule, err = promptUser()
+	if newModule.HasEmptyInput() {
+		err = promptUser(newModule)
 		if err != nil {
 			return err
 		}
-		populateAdditionalInfo(newModule)
+	}
+	populateAdditionalInfo(newModule)
+	if !args.DryRun {
 		if err := wrapResolveOrg(cCtx, c, newModule); err != nil {
 			return err
 		}
@@ -98,9 +104,14 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 	s := spinner.New()
 	var fatalError error
 	nonFatalError := false
+	gArgs, err := getGlobalArgs(cCtx)
+	if err != nil {
+		return err
+	}
+	globalArgs := *gArgs
 	action := func() {
 		s.Title("Getting latest release...")
-		version, err := getLatestSDKTag(cCtx, newModule.Language)
+		version, err := getLatestSDKTag(cCtx, newModule.Language, globalArgs)
 		if err != nil {
 			fatalError = err
 			return
@@ -108,49 +119,49 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 		newModule.SDKVersion = version[1:]
 
 		s.Title("Setting up module directory...")
-		if err = setupDirectories(cCtx, newModule.ModuleName); err != nil {
+		if err = setupDirectories(cCtx, newModule.ModuleName, globalArgs); err != nil {
 			fatalError = err
 			return
 		}
 
 		s.Title("Creating module and generating manifest...")
-		if err = createModuleAndManifest(cCtx, c, *newModule); err != nil {
+		if err = createModuleAndManifest(cCtx, c, *newModule, globalArgs); err != nil {
 			fatalError = err
 			return
 		}
 
 		s.Title("Rendering common files...")
-		if err = renderCommonFiles(cCtx, *newModule); err != nil {
+		if err = renderCommonFiles(cCtx, *newModule, globalArgs); err != nil {
 			fatalError = err
 			return
 		}
 
 		s.Title(fmt.Sprintf("Copying %s files...", newModule.Language))
-		if err = copyLanguageTemplate(cCtx, newModule.Language, newModule.ModuleName); err != nil {
+		if err = copyLanguageTemplate(cCtx, newModule.Language, newModule.ModuleName, globalArgs); err != nil {
 			fatalError = err
 			return
 		}
 
 		s.Title("Rendering template...")
-		if err = renderTemplate(cCtx, *newModule); err != nil {
+		if err = renderTemplate(cCtx, *newModule, globalArgs); err != nil {
 			fatalError = err
 			return
 		}
 
 		s.Title(fmt.Sprintf("Generating %s stubs...", newModule.Language))
-		if err = generateStubs(cCtx, *newModule); err != nil {
+		if err = generateStubs(cCtx, *newModule, globalArgs); err != nil {
 			warningf(cCtx.App.ErrWriter, err.Error())
 			nonFatalError = true
 		}
 
 		s.Title("Generating cloud build requirements...")
-		if err = generateCloudBuild(cCtx, *newModule); err != nil {
+		if err = generateCloudBuild(cCtx, *newModule, globalArgs); err != nil {
 			warningf(cCtx.App.ErrWriter, err.Error())
 			nonFatalError = true
 		}
 	}
 
-	if cCtx.Bool(debugFlag) {
+	if globalArgs.Debug {
 		action()
 	} else {
 		s.Action(action)
@@ -178,9 +189,24 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 }
 
 // Prompt the user for information regarding the module they want to create
-// returns the common.ModuleInputs struct that contains the information the user entered.
-func promptUser() (*common.ModuleInputs, error) {
-	var newModule common.ModuleInputs
+// returns the modulegen.ModuleInputs struct that contains the information the user entered.
+func promptUser(module *modulegen.ModuleInputs) error {
+	titleCaser := cases.Title(language.Und)
+	resourceOptions := []huh.Option[string]{}
+	for _, resource := range modulegen.Resources {
+		words := strings.Split(strings.ReplaceAll(resource, "_", " "), " ")
+		for i, word := range words {
+			switch word {
+			case "mlmodel":
+				words[i] = "MLModel"
+			case "slam":
+				words[i] = "SLAM"
+			default:
+				words[i] = titleCaser.String(word)
+			}
+		}
+		resourceOptions = append(resourceOptions, huh.NewOption(strings.Join(words, " "), resource))
+	}
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewNote().
@@ -189,7 +215,7 @@ func promptUser() (*common.ModuleInputs, error) {
 			huh.NewInput().
 				Title("Set a module name:").
 				Description("The module name can contain only alphanumeric characters, dashes, and underscores.").
-				Value(&newModule.ModuleName).
+				Value(&module.ModuleName).
 				Placeholder("my-module").
 				Suggestions([]string{"my-module"}).
 				Validate(func(s string) error {
@@ -211,15 +237,16 @@ func promptUser() (*common.ModuleInputs, error) {
 					huh.NewOption("Python", python),
 					huh.NewOption("Go", golang),
 				).
-				Value(&newModule.Language),
+				Value(&module.Language),
 			huh.NewConfirm().
 				Title("Visibility").
 				Affirmative("Public").
 				Negative("Private").
-				Value(&newModule.IsPublic),
+				Value(&module.IsPublic),
 			huh.NewInput().
 				Title("Namespace/Organization ID").
-				Value(&newModule.Namespace).
+				Value(&module.Namespace).
+				Placeholder("my-namespace").
 				Validate(func(s string) error {
 					if s == "" {
 						return errors.New("namespace or org ID must not be empty")
@@ -228,37 +255,14 @@ func promptUser() (*common.ModuleInputs, error) {
 				}),
 			huh.NewSelect[string]().
 				Title("Select a resource to be added to the module:").
-				Options(
-					huh.NewOption("Arm Component", "arm component"),
-					huh.NewOption("Audio Input Component", "audio_input component"),
-					huh.NewOption("Base Component", "base component"),
-					huh.NewOption("Board Component", "board component"),
-					huh.NewOption("Camera Component", "camera component"),
-					huh.NewOption("Encoder Component", "encoder component"),
-					huh.NewOption("Gantry Component", "gantry component"),
-					huh.NewOption("Generic Component", "generic component"),
-					huh.NewOption("Gripper Component", "gripper component"),
-					huh.NewOption("Input Component", "input component"),
-					huh.NewOption("Motor Component", "motor component"),
-					huh.NewOption("Movement Sensor Component", "movement_sensor component"),
-					huh.NewOption("Pose Tracker Component", "pose_tracker component"),
-					huh.NewOption("Power Sensor Component", "power_sensor component"),
-					huh.NewOption("Sensor Component", "sensor component"),
-					huh.NewOption("Servo Component", "servo component"),
-					huh.NewOption("Generic Service", "generic service"),
-					huh.NewOption("MLModel Service", "mlmodel service"),
-					huh.NewOption("Motion Service", "motion service"),
-					huh.NewOption("Navigation Service", "navigation service"),
-					huh.NewOption("SLAM Service", "slam service"),
-					huh.NewOption("Vision Service", "vision service"),
-				).
-				Value(&newModule.Resource).WithHeight(25),
+				Options(resourceOptions...).
+				Value(&module.Resource).WithHeight(25),
 			huh.NewInput().
 				Title("Set a model name of the resource:").
 				Description("This is the name of the new resource model that your module will provide.\n"+
 					"The model name can contain only alphanumeric characters, dashes, and underscores.").
 				Placeholder("my-model").
-				Value(&newModule.ModelName).
+				Value(&module.ModelName).
 				Validate(func(s string) error {
 					if s == "" {
 						return errors.New("model name must not be empty")
@@ -272,23 +276,23 @@ func promptUser() (*common.ModuleInputs, error) {
 			huh.NewConfirm().
 				Title("Enable cloud build").
 				Description("If enabled, this will generate GitHub workflows to build your module.").
-				Value(&newModule.EnableCloudBuild),
+				Value(&module.EnableCloudBuild),
 			huh.NewConfirm().
 				Title("Register module").
 				Description("Register this module with Viam.\nIf selected, "+
 					"this will associate the module with your organization.\nOtherwise, this will be a local-only module.").
-				Value(&newModule.RegisterOnApp),
+				Value(&module.RegisterOnApp),
 		),
 	).WithHeight(25).WithWidth(88)
 	err := form.Run()
 	if err != nil {
-		return nil, errors.Wrap(err, "encountered an error generating module")
+		return errors.Wrap(err, "encountered an error generating module")
 	}
 
-	return &newModule, nil
+	return nil
 }
 
-func wrapResolveOrg(cCtx *cli.Context, c *viamClient, newModule *common.ModuleInputs) error {
+func wrapResolveOrg(cCtx *cli.Context, c *viamClient, newModule *modulegen.ModuleInputs) error {
 	match, err := regexp.MatchString("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", newModule.Namespace)
 	if !match || err != nil {
 		// If newModule.Namespace is NOT a UUID
@@ -309,7 +313,7 @@ func wrapResolveOrg(cCtx *cli.Context, c *viamClient, newModule *common.ModuleIn
 	return nil
 }
 
-func catchResolveOrgErr(cCtx *cli.Context, c *viamClient, newModule *common.ModuleInputs, caughtErr error) error {
+func catchResolveOrgErr(cCtx *cli.Context, c *viamClient, newModule *modulegen.ModuleInputs, caughtErr error) error {
 	if strings.Contains(caughtErr.Error(), "not logged in") || strings.Contains(caughtErr.Error(), "error while refreshing token") {
 		originalWriter := cCtx.App.Writer
 		cCtx.App.Writer = io.Discard
@@ -328,7 +332,7 @@ func catchResolveOrgErr(cCtx *cli.Context, c *viamClient, newModule *common.Modu
 }
 
 // populateAdditionalInfo fills in additional info in newModule.
-func populateAdditionalInfo(newModule *common.ModuleInputs) {
+func populateAdditionalInfo(newModule *modulegen.ModuleInputs) {
 	newModule.GeneratedOn = time.Now().UTC()
 	newModule.GeneratorVersion = version
 	newModule.ResourceSubtype = strings.Split(newModule.Resource, " ")[0]
@@ -353,8 +357,8 @@ func populateAdditionalInfo(newModule *common.ModuleInputs) {
 }
 
 // Creates a new directory with moduleName.
-func setupDirectories(c *cli.Context, moduleName string) error {
-	debugf(c.App.Writer, c.Bool(debugFlag), "Setting up directories")
+func setupDirectories(c *cli.Context, moduleName string, globalArgs globalArgs) error {
+	debugf(c.App.Writer, globalArgs.Debug, "Setting up directories")
 	err := os.Mkdir(moduleName, 0o750)
 	if err != nil {
 		return err
@@ -362,9 +366,9 @@ func setupDirectories(c *cli.Context, moduleName string) error {
 	return nil
 }
 
-func renderCommonFiles(c *cli.Context, module common.ModuleInputs) error {
-	debugf(c.App.Writer, c.Bool(debugFlag), module.ResourceSubtypePascal)
-	debugf(c.App.Writer, c.Bool(debugFlag), "Rendering common files")
+func renderCommonFiles(c *cli.Context, module modulegen.ModuleInputs, globalArgs globalArgs) error {
+	debugf(c.App.Writer, globalArgs.Debug, module.ResourceSubtypePascal)
+	debugf(c.App.Writer, globalArgs.Debug, "Rendering common files")
 
 	// Render .viam-gen-info
 	infoBytes, err := json.MarshalIndent(module, "", "  ")
@@ -386,7 +390,7 @@ func renderCommonFiles(c *cli.Context, module common.ModuleInputs) error {
 
 	// Render workflows for cloud build
 	if module.EnableCloudBuild {
-		debugf(c.App.Writer, c.Bool(debugFlag), "\tCreating cloud build workflow")
+		debugf(c.App.Writer, globalArgs.Debug, "\tCreating cloud build workflow")
 		destWorkflowPath := filepath.Join(module.ModuleName, ".github")
 		if err = os.Mkdir(destWorkflowPath, 0o750); err != nil {
 			return errors.Wrap(err, "failed to create cloud build workflow")
@@ -404,14 +408,14 @@ func renderCommonFiles(c *cli.Context, module common.ModuleInputs) error {
 			}
 			if d.IsDir() {
 				if d.Name() != ".github" {
-					debugf(c.App.Writer, c.Bool(debugFlag), "\t\tCopying %s directory", d.Name())
+					debugf(c.App.Writer, globalArgs.Debug, "\t\tCopying %s directory", d.Name())
 					err = os.Mkdir(filepath.Join(destWorkflowPath, path), 0o750)
 					if err != nil {
 						return err
 					}
 				}
 			} else if !strings.HasPrefix(d.Name(), templatePrefix) {
-				debugf(c.App.Writer, c.Bool(debugFlag), "\t\tCopying file %s", path)
+				debugf(c.App.Writer, globalArgs.Debug, "\t\tCopying file %s", path)
 				srcFile, err := templates.Open(filepath.Join(workflowPath, path))
 				if err != nil {
 					return errors.Wrapf(err, "error opening file %s", srcFile)
@@ -443,8 +447,8 @@ func renderCommonFiles(c *cli.Context, module common.ModuleInputs) error {
 }
 
 // copyLanguageTemplate copies the files from templates/language directory into the moduleName root directory.
-func copyLanguageTemplate(c *cli.Context, language, moduleName string) error {
-	debugf(c.App.Writer, c.Bool(debugFlag), "Creating %s template files", language)
+func copyLanguageTemplate(c *cli.Context, language, moduleName string, globalArgs globalArgs) error {
+	debugf(c.App.Writer, globalArgs.Debug, "Creating %s template files", language)
 	languagePath := filepath.Join(templatesPath, language)
 	tempDir, err := fs.Sub(templates, languagePath)
 	if err != nil {
@@ -456,14 +460,14 @@ func copyLanguageTemplate(c *cli.Context, language, moduleName string) error {
 		}
 		if d.IsDir() {
 			if d.Name() != language {
-				debugf(c.App.Writer, c.Bool(debugFlag), "\tCopying %s directory", d.Name())
+				debugf(c.App.Writer, globalArgs.Debug, "\tCopying %s directory", d.Name())
 				err = os.Mkdir(filepath.Join(moduleName, path), 0o750)
 				if err != nil {
 					return err
 				}
 			}
 		} else if !strings.HasPrefix(d.Name(), templatePrefix) {
-			debugf(c.App.Writer, c.Bool(debugFlag), "\tCopying file %s", path)
+			debugf(c.App.Writer, globalArgs.Debug, "\tCopying file %s", path)
 			srcFile, err := templates.Open(filepath.Join(languagePath, path))
 			if err != nil {
 				return errors.Wrapf(err, "error opening file %s", srcFile)
@@ -499,8 +503,8 @@ func copyLanguageTemplate(c *cli.Context, language, moduleName string) error {
 }
 
 // Render all the files in the new directory.
-func renderTemplate(c *cli.Context, module common.ModuleInputs) error {
-	debugf(c.App.Writer, c.Bool(debugFlag), "Rendering template files")
+func renderTemplate(c *cli.Context, module modulegen.ModuleInputs, globalArgs globalArgs) error {
+	debugf(c.App.Writer, globalArgs.Debug, "Rendering template files")
 	languagePath := filepath.Join(templatesPath, module.Language)
 	tempDir, err := fs.Sub(templates, languagePath)
 	if err != nil {
@@ -509,7 +513,7 @@ func renderTemplate(c *cli.Context, module common.ModuleInputs) error {
 	err = fs.WalkDir(tempDir, ".", func(path string, d fs.DirEntry, err error) error {
 		if !d.IsDir() && strings.HasPrefix(d.Name(), templatePrefix) {
 			destPath := filepath.Join(module.ModuleName, strings.ReplaceAll(path, templatePrefix, ""))
-			debugf(c.App.Writer, c.Bool(debugFlag), "\tRendering file %s", destPath)
+			debugf(c.App.Writer, globalArgs.Debug, "\tRendering file %s", destPath)
 
 			tFile, err := templates.Open(filepath.Join(languagePath, path))
 			if err != nil {
@@ -544,8 +548,8 @@ func renderTemplate(c *cli.Context, module common.ModuleInputs) error {
 }
 
 // Generate stubs for the resource.
-func generateStubs(c *cli.Context, module common.ModuleInputs) error {
-	debugf(c.App.Writer, c.Bool(debugFlag), "Generating %s stubs", module.Language)
+func generateStubs(c *cli.Context, module modulegen.ModuleInputs, globalArgs globalArgs) error {
+	debugf(c.App.Writer, globalArgs.Debug, "Generating %s stubs", module.Language)
 	switch module.Language {
 	case python:
 		return generatePythonStubs(module)
@@ -556,7 +560,7 @@ func generateStubs(c *cli.Context, module common.ModuleInputs) error {
 	}
 }
 
-func generateGolangStubs(module common.ModuleInputs) error {
+func generateGolangStubs(module modulegen.ModuleInputs) error {
 	out, err := gen.RenderGoTemplates(module)
 	if err != nil {
 		return errors.Wrap(err, "cannot generate go stubs -- generator script encountered an error")
@@ -621,7 +625,7 @@ func checkGoPath() (string, error) {
 	return goPath, err
 }
 
-func generatePythonStubs(module common.ModuleInputs) error {
+func generatePythonStubs(module modulegen.ModuleInputs) error {
 	venvName := ".venv"
 	cmd := exec.Command("python3", "--version")
 	_, err := cmd.Output()
@@ -662,7 +666,7 @@ func generatePythonStubs(module common.ModuleInputs) error {
 	return nil
 }
 
-func getLatestSDKTag(c *cli.Context, language string) (string, error) {
+func getLatestSDKTag(c *cli.Context, language string, globalArgs globalArgs) (string, error) {
 	var repo string
 	switch language {
 	case python:
@@ -672,7 +676,7 @@ func getLatestSDKTag(c *cli.Context, language string) (string, error) {
 	default:
 		return "", errors.New("cannot produce template -- unexpected language was selected")
 	}
-	debugf(c.App.Writer, c.Bool(debugFlag), "Getting the latest release tag for %s", repo)
+	debugf(c.App.Writer, globalArgs.Debug, "Getting the latest release tag for %s", repo)
 	url := fmt.Sprintf("https://api.github.com/repos/viamrobotics/%s/releases", repo)
 
 	req, err := http.NewRequestWithContext(c.Context, http.MethodGet, url, nil)
@@ -699,12 +703,12 @@ func getLatestSDKTag(c *cli.Context, language string) (string, error) {
 	}
 	latest := releases[0]
 	version := latest.(map[string]interface{})["tag_name"].(string)
-	debugf(c.App.Writer, c.Bool(debugFlag), "\tLatest release for %s: %s", repo, version)
+	debugf(c.App.Writer, globalArgs.Debug, "\tLatest release for %s: %s", repo, version)
 	return version, nil
 }
 
-func generateCloudBuild(c *cli.Context, module common.ModuleInputs) error {
-	debugf(c.App.Writer, c.Bool(debugFlag), "Setting cloud build functionality to %s", module.EnableCloudBuild)
+func generateCloudBuild(c *cli.Context, module modulegen.ModuleInputs, globalArgs globalArgs) error {
+	debugf(c.App.Writer, globalArgs.Debug, "Setting cloud build functionality to %s", module.EnableCloudBuild)
 	switch module.Language {
 	case python:
 		if module.EnableCloudBuild {
@@ -729,10 +733,10 @@ func generateCloudBuild(c *cli.Context, module common.ModuleInputs) error {
 	return nil
 }
 
-func createModuleAndManifest(cCtx *cli.Context, c *viamClient, module common.ModuleInputs) error {
+func createModuleAndManifest(cCtx *cli.Context, c *viamClient, module modulegen.ModuleInputs, globalArgs globalArgs) error {
 	var moduleID moduleID
 	if module.RegisterOnApp {
-		debugf(cCtx.App.Writer, cCtx.Bool(debugFlag), "Registering module with Viam")
+		debugf(cCtx.App.Writer, globalArgs.Debug, "Registering module with Viam")
 		moduleResponse, err := c.createModule(module.ModuleName, module.OrgID)
 		if err != nil {
 			return errors.Wrap(err, "failed to register module")
@@ -742,11 +746,11 @@ func createModuleAndManifest(cCtx *cli.Context, c *viamClient, module common.Mod
 			return errors.Wrap(err, "failed to parse module identifier")
 		}
 	} else {
-		debugf(cCtx.App.Writer, cCtx.Bool(debugFlag), "Creating a local-only module")
+		debugf(cCtx.App.Writer, globalArgs.Debug, "Creating a local-only module")
 		moduleID.name = module.ModuleName
 		moduleID.prefix = module.Namespace
 	}
-	err := renderManifest(cCtx, moduleID.String(), module)
+	err := renderManifest(cCtx, moduleID.String(), module, globalArgs)
 	if err != nil {
 		return errors.Wrap(err, "failed to render manifest")
 	}
@@ -754,8 +758,8 @@ func createModuleAndManifest(cCtx *cli.Context, c *viamClient, module common.Mod
 }
 
 // Create the meta.json manifest.
-func renderManifest(c *cli.Context, moduleID string, module common.ModuleInputs) error {
-	debugf(c.App.Writer, c.Bool(debugFlag), "Rendering module manifest")
+func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInputs, globalArgs globalArgs) error {
+	debugf(c.App.Writer, globalArgs.Debug, "Rendering module manifest")
 
 	visibility := moduleVisibilityPrivate
 	if module.IsPublic {

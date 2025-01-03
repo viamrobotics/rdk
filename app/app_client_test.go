@@ -246,8 +246,8 @@ var (
 		RobotMainPartID: partID,
 	}
 	robotConfig           = map[string]interface{}{"name": name, "ID": robotID}
-	pbRobotConfig, _      = protoutils.StructToStructPb(*robotPart.RobotConfig)
-	pbUserSuppliedInfo, _ = protoutils.StructToStructPb(*robotPart.UserSuppliedInfo)
+	pbRobotConfig, _      = protoutils.StructToStructPb(robotPart.RobotConfig)
+	pbUserSuppliedInfo, _ = protoutils.StructToStructPb(robotPart.UserSuppliedInfo)
 	userSuppliedInfo      = map[string]interface{}{"userID": userID}
 	robotPart             = RobotPart{
 		ID:               partID,
@@ -256,9 +256,9 @@ var (
 		Secret:           secret,
 		Robot:            robotID,
 		LocationID:       locationID,
-		RobotConfig:      &robotConfig,
+		RobotConfig:      robotConfig,
 		LastAccess:       &lastAccess,
-		UserSuppliedInfo: &userSuppliedInfo,
+		UserSuppliedInfo: userSuppliedInfo,
 		MainPart:         mainPart,
 		FQDN:             fqdn,
 		LocalFQDN:        localFQDN,
@@ -294,11 +294,11 @@ var (
 		Time:       &timestamp,
 		LoggerName: loggerName,
 		Message:    message,
-		Caller:     &caller,
+		Caller:     caller,
 		Stack:      stack,
-		Fields:     []*map[string]interface{}{&field},
+		Fields:     []map[string]interface{}{field},
 	}
-	pbCaller, _ = protoutils.StructToStructPb(*logEntry.Caller)
+	pbCaller, _ = protoutils.StructToStructPb(logEntry.Caller)
 	pbField, _  = protoutils.StructToStructPb(field)
 	pbLogEntry  = common.LogEntry{
 		Host:       logEntry.Host,
@@ -373,7 +373,7 @@ var (
 	fragment                    = Fragment{
 		ID:                fragmentID,
 		Name:              name,
-		Fragment:          &f,
+		Fragment:          f,
 		OrganizationOwner: organizationOwner,
 		Public:            public,
 		CreatedOn:         &createdOn,
@@ -713,6 +713,33 @@ func TestAppClient(t *testing.T) {
 		test.That(t, resp, test.ShouldResemble, &pb.GetBillingServiceConfigResponse{})
 	})
 
+	t.Run("OrganizationSetLogo", func(t *testing.T) {
+		grpcClient.OrganizationSetLogoFunc = func(
+			ctx context.Context, in *pb.OrganizationSetLogoRequest, opts ...grpc.CallOption,
+		) (*pb.OrganizationSetLogoResponse, error) {
+			test.That(t, in.OrgId, test.ShouldEqual, organizationID)
+			return &pb.OrganizationSetLogoResponse{}, nil
+		}
+
+		err := client.OrganizationSetLogo(context.Background(), organizationID, []byte("test-logo"))
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("OrganizationGetLogo", func(t *testing.T) {
+		grpcClient.OrganizationGetLogoFunc = func(
+			ctx context.Context, in *pb.OrganizationGetLogoRequest, opts ...grpc.CallOption,
+		) (*pb.OrganizationGetLogoResponse, error) {
+			test.That(t, in.OrgId, test.ShouldEqual, organizationID)
+			return &pb.OrganizationGetLogoResponse{
+				Url: "https://logo.com",
+			}, nil
+		}
+
+		resp, err := client.OrganizationGetLogo(context.Background(), organizationID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldEqual, "https://logo.com")
+	})
+
 	t.Run("GetSupportEmail", func(t *testing.T) {
 		grpcClient.OrganizationGetSupportEmailFunc = func(
 			ctx context.Context, in *pb.OrganizationGetSupportEmailRequest, opts ...grpc.CallOption,
@@ -959,6 +986,19 @@ func TestAppClient(t *testing.T) {
 			return &pb.DisableBillingServiceResponse{}, nil
 		}
 		err := client.DisableBillingService(context.Background(), organizationID)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("EnableBillingSevice", func(t *testing.T) {
+		grpcClient.EnableBillingServiceFunc = func(
+			ctx context.Context, in *pb.EnableBillingServiceRequest, opts ...grpc.CallOption,
+		) (*pb.EnableBillingServiceResponse, error) {
+			test.That(t, in.OrgId, test.ShouldEqual, organizationID)
+			test.That(t, in.BillingAddress, test.ShouldResemble, &pbAddress)
+			return &pb.EnableBillingServiceResponse{}, nil
+		}
+
+		err := client.EnableBillingService(context.Background(), organizationID, &address)
 		test.That(t, err, test.ShouldBeNil)
 	})
 

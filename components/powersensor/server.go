@@ -6,6 +6,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/powersensor/v1"
 
+	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
@@ -32,6 +33,9 @@ func (s *serviceServer) GetReadings(
 	readings, err := sensorDevice.Readings(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
+	}
+	if readings == nil {
+		return nil, sensor.ErrReadingsNil("power-sensor", req.Name)
 	}
 	m, err := protoutils.ReadingGoToProto(readings)
 	if err != nil {

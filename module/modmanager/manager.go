@@ -30,6 +30,8 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/ftdc"
+	"go.viam.com/rdk/ftdc/sys"
 	rdkgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	modlib "go.viam.com/rdk/module"
@@ -71,6 +73,7 @@ func NewManager(
 		restartCtx:              restartCtx,
 		restartCtxCancel:        restartCtxCancel,
 		packagesDir:             options.PackagesDir,
+		ftdc:                    options.FTDC,
 		nextPort:                tcpPortRange,
 	}
 }
@@ -104,6 +107,7 @@ type module struct {
 	inStartup      atomic.Bool
 	inRecoveryLock sync.Mutex
 	logger         logging.Logger
+	ftdc           *ftdc.FTDC
 	// port stores the listen port of this module when ViamTCPSockets() = true.
 	port int
 }
@@ -185,6 +189,7 @@ type Manager struct {
 	removeOrphanedResources func(ctx context.Context, rNames []resource.Name)
 	restartCtx              context.Context
 	restartCtxCancel        context.CancelFunc
+	ftdc                    *ftdc.FTDC
 	// nextPort manages ports when ViamTCPSockets() = true.
 	nextPort int
 }
@@ -327,6 +332,7 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, moduleLogger lo
 		dataDir:   moduleDataDir,
 		resources: map[resource.Name]*addedResource{},
 		logger:    moduleLogger,
+		ftdc:      mgr.ftdc,
 		port:      mgr.nextPort,
 	}
 	mgr.nextPort++
@@ -1163,6 +1169,10 @@ func (m *module) startProcess(
 		return errors.WithMessage(err, "module startup failed")
 	}
 
+	// Turn on process cpu/memory diagnostics for the module process. If there's an error, we
+	// continue normally, just without FTDC.
+	m.registerProcessWithFTDC()
+
 	checkTicker := time.NewTicker(100 * time.Millisecond)
 	defer checkTicker.Stop()
 
@@ -1203,9 +1213,21 @@ func (m *module) stopProcess() error {
 	if m.process == nil {
 		return nil
 	}
+
+	m.logger.Infof("Stopping module: %s process", m.cfg.Name)
+
 	// Attempt to remove module's .sock file if module did not remove it
 	// already.
-	defer rutils.RemoveFileNoError(m.addr)
+	defer func() {
+		rutils.RemoveFileNoError(m.addr)
+
+		// The system metrics "statser" is resilient to the process dying under the hood. An empty set
+		// of metrics will be reported. Therefore it is safe to continue monitoring the module process
+		// while it's in shutdown.
+		if m.ftdc != nil {
+			m.ftdc.Remove(m.process.ID())
+		}
+	}()
 
 	// TODO(RSDK-2551): stop ignoring exit status 143 once Python modules handle
 	// SIGTERM correctly.
@@ -1216,7 +1238,7 @@ func (m *module) stopProcess() error {
 		}
 		return err
 	}
-	m.logger.Infof("Stopping module: %s process", m.cfg.Name)
+
 	return nil
 }
 
@@ -1323,6 +1345,26 @@ func (m *module) cleanupAfterCrash(mgr *Manager) {
 
 func (m *module) getFullEnvironment(viamHomeDir string) map[string]string {
 	return getFullEnvironment(m.cfg, m.dataDir, viamHomeDir)
+}
+
+func (m *module) registerProcessWithFTDC() {
+	if m.ftdc == nil {
+		return
+	}
+
+	pid, err := m.process.UnixPid()
+	if err != nil {
+		m.logger.Warnw("Module process has no pid. Cannot start ftdc.", "err", err)
+		return
+	}
+
+	statser, err := sys.NewPidSysUsageStatser(pid)
+	if err != nil {
+		m.logger.Warnw("Cannot find /proc files", "err", err)
+		return
+	}
+
+	m.ftdc.Add(fmt.Sprintf("modules.%s", m.process.ID()), statser)
 }
 
 func getFullEnvironment(

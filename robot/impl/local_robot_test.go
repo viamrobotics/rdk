@@ -16,20 +16,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-viper/mapstructure/v2"
 	"github.com/golang/geo/r3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
-	// registers all components.
-	commonpb "go.viam.com/api/common/v1"
-	armpb "go.viam.com/api/component/arm/v1"
-	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/testutils"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -63,7 +57,6 @@ import (
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/packages"
 	putils "go.viam.com/rdk/robot/packages/testutils"
-	"go.viam.com/rdk/robot/server"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/builtin"
@@ -72,7 +65,6 @@ import (
 	motionBuiltin "go.viam.com/rdk/services/motion/builtin"
 	"go.viam.com/rdk/services/navigation"
 	_ "go.viam.com/rdk/services/register"
-	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 	rtestutils "go.viam.com/rdk/testutils"
@@ -93,14 +85,6 @@ func TestConfig1(t *testing.T) {
 	c1, err := camera.FromRobot(r, "c1")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, c1.Name(), test.ShouldResemble, camera.Named("c1"))
-
-	// TODO(hexbabe): remove below test when Stream/ReadImage pattern is refactored
-	t.Run("ReadImage from camera", func(t *testing.T) {
-		pic, _, err := camera.ReadImage(context.Background(), c1)
-		test.That(t, err, test.ShouldBeNil)
-		bounds := pic.Bounds()
-		test.That(t, bounds.Max.X, test.ShouldBeGreaterThanOrEqualTo, 32)
-	})
 
 	pic, err := camera.DecodeImageFromCamera(context.Background(), rutils.MimeTypeJPEG, nil, c1)
 	test.That(t, err, test.ShouldBeNil)
@@ -238,60 +222,6 @@ func TestConfigRemote(t *testing.T) {
 	pos2, err := arm2.(arm.Arm).EndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatialmath.PoseAlmostCoincident(pos1, pos2), test.ShouldBeTrue)
-
-	statuses, err := r2.Status(
-		context.Background(),
-		[]resource.Name{
-			movementsensor.Named("squee:movement_sensor1"),
-			movementsensor.Named("foo:movement_sensor1"),
-			movementsensor.Named("bar:movement_sensor1"),
-		},
-	)
-	test.That(t, err, test.ShouldBeNil)
-
-	expectedStatusLength := 3
-	test.That(t, len(statuses), test.ShouldEqual, expectedStatusLength)
-
-	for idx := 0; idx < expectedStatusLength; idx++ {
-		test.That(t, statuses[idx].Status, test.ShouldResemble, map[string]interface{}{})
-		// Assert that last reconfigured values are within last hour (remote
-		// recently configured all three resources).
-		lr := statuses[idx].LastReconfigured
-		test.That(t, lr, test.ShouldHappenBetween,
-			time.Now().Add(-1*time.Hour), time.Now())
-	}
-
-	statuses, err = r2.Status(
-		context.Background(),
-		[]resource.Name{arm.Named("squee:pieceArm"), arm.Named("foo:pieceArm"), arm.Named("bar:pieceArm")},
-	)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(statuses), test.ShouldEqual, 3)
-
-	armStatus := &armpb.Status{
-		EndPosition:    &commonpb.Pose{X: 500, Z: 300, OZ: 1},
-		JointPositions: &armpb.JointPositions{Values: []float64{0.0}},
-	}
-	convMap := &armpb.Status{}
-	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
-	test.That(t, err, test.ShouldBeNil)
-	err = decoder.Decode(statuses[0].Status)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, convMap, test.ShouldResemble, armStatus)
-
-	convMap = &armpb.Status{}
-	decoder, err = mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
-	test.That(t, err, test.ShouldBeNil)
-	err = decoder.Decode(statuses[1].Status)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, convMap, test.ShouldResemble, armStatus)
-
-	convMap = &armpb.Status{}
-	decoder, err = mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
-	test.That(t, err, test.ShouldBeNil)
-	err = decoder.Decode(statuses[2].Status)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, convMap, test.ShouldResemble, armStatus)
 
 	cfg2 := r2.Config()
 	// Components should only include local components.
@@ -455,38 +385,6 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			expectedRemotes := []string{"bar", "foo"}
 
 			rtestutils.VerifySameElements(t, remotes2, expectedRemotes)
-
-			statuses, err := r2.Status(
-				context.Background(), []resource.Name{movementsensor.Named("bar:movement_sensor1"), movementsensor.Named("foo:movement_sensor1")},
-			)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, len(statuses), test.ShouldEqual, 2)
-			test.That(t, statuses[0].Status, test.ShouldResemble, map[string]interface{}{})
-			test.That(t, statuses[1].Status, test.ShouldResemble, map[string]interface{}{})
-
-			statuses, err = r2.Status(
-				context.Background(), []resource.Name{arm.Named("bar:pieceArm"), arm.Named("foo:pieceArm")},
-			)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, len(statuses), test.ShouldEqual, 2)
-
-			armStatus := &armpb.Status{
-				EndPosition:    &commonpb.Pose{X: 500, Z: 300, OZ: 1},
-				JointPositions: &armpb.JointPositions{Values: []float64{0.0}},
-			}
-			convMap := &armpb.Status{}
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
-			test.That(t, err, test.ShouldBeNil)
-			err = decoder.Decode(statuses[0].Status)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, convMap, test.ShouldResemble, armStatus)
-
-			convMap = &armpb.Status{}
-			decoder, err = mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
-			test.That(t, err, test.ShouldBeNil)
-			err = decoder.Decode(statuses[1].Status)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, convMap, test.ShouldResemble, armStatus)
 		})
 	}
 }
@@ -622,25 +520,10 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 
 	rtestutils.VerifySameElements(t, remotes2, expectedRemotes)
 
-	statuses, err := r2.Status(context.Background(), []resource.Name{movementsensor.Named("foo:movement_sensor1")})
+	statuses, err := r2.MachineStatus(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(statuses), test.ShouldEqual, 1)
-	test.That(t, statuses[0].Status, test.ShouldResemble, map[string]interface{}{})
-
-	statuses, err = r2.Status(context.Background(), []resource.Name{arm.Named("foo:pieceArm")})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(statuses), test.ShouldEqual, 1)
-
-	armStatus := &armpb.Status{
-		EndPosition:    &commonpb.Pose{X: 500, Z: 300, OZ: 1},
-		JointPositions: &armpb.JointPositions{Values: []float64{0.0}},
-	}
-	convMap := &armpb.Status{}
-	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
-	test.That(t, err, test.ShouldBeNil)
-	err = decoder.Decode(statuses[0].Status)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, convMap, test.ShouldResemble, armStatus)
+	test.That(t, len(statuses.Resources), test.ShouldEqual, 13)
+	test.That(t, statuses, test.ShouldNotBeNil)
 }
 
 func TestStopAll(t *testing.T) {
@@ -845,7 +728,7 @@ func TestMetadataUpdate(t *testing.T) {
 	test.That(t, len(resources), test.ShouldEqual, 7)
 	test.That(t, err, test.ShouldBeNil)
 
-	// 5 declared resources + default sensors
+	// 5 declared resources + default motion
 	resourceNames := []resource.Name{
 		arm.Named("pieceArm"),
 		audioinput.Named("mic1"),
@@ -863,326 +746,6 @@ func TestMetadataUpdate(t *testing.T) {
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	resources = r.ResourceNames()
 	test.That(t, resources, test.ShouldBeEmpty)
-}
-
-func TestStatusService(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	r := setupLocalRobot(t, context.Background(), cfg, logger)
-
-	resourceNames := []resource.Name{arm.Named("pieceArm"), movementsensor.Named("movement_sensor1")}
-	rArm, err := arm.FromRobot(r, "pieceArm")
-	test.That(t, err, test.ShouldBeNil)
-	armStatus, err := arm.CreateStatus(context.Background(), rArm)
-	test.That(t, err, test.ShouldBeNil)
-	expected := map[resource.Name]interface{}{
-		arm.Named("pieceArm"):                    armStatus,
-		movementsensor.Named("movement_sensor1"): map[string]interface{}{},
-	}
-
-	statuses, err := r.Status(context.Background(), []resource.Name{movementsensor.Named("movement_sensor1")})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(statuses), test.ShouldEqual, 1)
-	test.That(t, statuses[0].Name, test.ShouldResemble, movementsensor.Named("movement_sensor1"))
-	test.That(t, statuses[0].Status, test.ShouldResemble, expected[statuses[0].Name])
-
-	statuses, err = r.Status(context.Background(), resourceNames)
-	test.That(t, err, test.ShouldBeNil)
-
-	expectedStatusLength := 2
-	test.That(t, len(statuses), test.ShouldEqual, expectedStatusLength)
-
-	for idx := 0; idx < expectedStatusLength; idx++ {
-		test.That(t, statuses[idx].Status, test.ShouldResemble, expected[statuses[idx].Name])
-	}
-}
-
-func TestStatus(t *testing.T) {
-	buttonAPI := resource.APINamespace("acme").WithComponentType("button")
-	button1 := resource.NewName(buttonAPI, "button1")
-	button2 := resource.NewName(buttonAPI, "button2")
-
-	workingAPI := resource.APINamespace("acme").WithComponentType("working")
-	working1 := resource.NewName(workingAPI, "working1")
-
-	failAPI := resource.APINamespace("acme").WithComponentType("fail")
-	fail1 := resource.NewName(failAPI, "fail1")
-
-	workingStatus := map[string]interface{}{"position": "up"}
-	errFailed := errors.New("can't get status")
-
-	resource.RegisterAPI(
-		workingAPI,
-		resource.APIRegistration[resource.Resource]{
-			Status: func(ctx context.Context, res resource.Resource) (interface{}, error) { return workingStatus, nil },
-		},
-	)
-
-	resource.RegisterAPI(
-		failAPI,
-		resource.APIRegistration[resource.Resource]{
-			Status: func(ctx context.Context, res resource.Resource) (interface{}, error) { return nil, errFailed },
-		},
-	)
-	defer func() {
-		resource.DeregisterAPI(workingAPI)
-		resource.DeregisterAPI(failAPI)
-	}()
-
-	expectedRobotStatus := robot.Status{Name: button1, Status: map[string]interface{}{}}
-	logger := logging.NewTestLogger(t)
-	resourceNames := []resource.Name{working1, button1, fail1}
-	resourceMap := map[resource.Name]resource.Resource{
-		working1: rtestutils.NewUnimplementedResource(working1),
-		button1:  rtestutils.NewUnimplementedResource(button1),
-		fail1:    rtestutils.NewUnimplementedResource(fail1),
-	}
-
-	t.Run("not found", func(t *testing.T) {
-		r, err := RobotFromResources(context.Background(), resourceMap, logger)
-		defer func() {
-			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-		}()
-
-		test.That(t, err, test.ShouldBeNil)
-
-		_, err = r.Status(context.Background(), []resource.Name{button2})
-		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(button2))
-	})
-
-	t.Run("no CreateStatus", func(t *testing.T) {
-		r, err := RobotFromResources(context.Background(), resourceMap, logger)
-		defer func() {
-			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-		}()
-		test.That(t, err, test.ShouldBeNil)
-
-		resp, err := r.Status(context.Background(), []resource.Name{button1})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resp), test.ShouldEqual, 1)
-		test.That(t, resp[0].Name, test.ShouldResemble, expectedRobotStatus.Name)
-		test.That(t, resp[0].Status, test.ShouldResemble, expectedRobotStatus.Status)
-		test.That(t, resp[0].LastReconfigured, test.ShouldHappenBetween,
-			time.Now().Add(-1*time.Hour), time.Now())
-	})
-
-	t.Run("failing resource", func(t *testing.T) {
-		r, err := RobotFromResources(context.Background(), resourceMap, logger)
-		defer func() {
-			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-		}()
-		test.That(t, err, test.ShouldBeNil)
-
-		_, err = r.Status(context.Background(), []resource.Name{fail1})
-		// TODO(RSDK-6875): compare errors directly instead by string after
-		// `github.com/pkg/errors` is removed entirely.
-		expectedErr := fmt.Errorf("failed to get status from %q: %w", fail1, errFailed)
-		test.That(t, err.Error(), test.ShouldEqual, expectedErr.Error())
-	})
-
-	t.Run("many status", func(t *testing.T) {
-		expected := map[resource.Name]interface{}{
-			working1: workingStatus,
-			button1:  map[string]interface{}{},
-		}
-		r, err := RobotFromResources(context.Background(), resourceMap, logger)
-		test.That(t, err, test.ShouldBeNil)
-
-		defer func() {
-			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-		}()
-		_, err = r.Status(context.Background(), []resource.Name{button2})
-		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(button2))
-
-		resp, err := r.Status(context.Background(), []resource.Name{working1})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resp), test.ShouldEqual, 1)
-		status := resp[0]
-		test.That(t, status.Name, test.ShouldResemble, working1)
-		test.That(t, status.Status, test.ShouldResemble, workingStatus)
-
-		resp, err = r.Status(context.Background(), []resource.Name{working1, working1, working1})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resp), test.ShouldEqual, 1)
-		status = resp[0]
-		test.That(t, status.Name, test.ShouldResemble, working1)
-		test.That(t, status.Status, test.ShouldResemble, workingStatus)
-
-		resp, err = r.Status(context.Background(), []resource.Name{working1, button1})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resp), test.ShouldEqual, 2)
-		test.That(t, resp[0].Status, test.ShouldResemble, expected[resp[0].Name])
-		test.That(t, resp[1].Status, test.ShouldResemble, expected[resp[1].Name])
-
-		_, err = r.Status(context.Background(), resourceNames)
-		// TODO(RSDK-6875): compare errors directly instead by string after
-		// `github.com/pkg/errors` is removed entirely.
-		expectedErr := fmt.Errorf("failed to get status from %q: %w", fail1, errFailed)
-		test.That(t, err.Error(), test.ShouldEqual, expectedErr.Error())
-	})
-
-	t.Run("get all status", func(t *testing.T) {
-		workingResourceMap := map[resource.Name]resource.Resource{
-			working1: rtestutils.NewUnimplementedResource(working1),
-			button1:  rtestutils.NewUnimplementedResource(button1),
-		}
-		expected := map[resource.Name]interface{}{
-			working1: workingStatus,
-			button1:  map[string]interface{}{},
-		}
-		r, err := RobotFromResources(context.Background(), workingResourceMap, logger)
-		defer func() {
-			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-		}()
-		test.That(t, err, test.ShouldBeNil)
-
-		resp, err := r.Status(context.Background(), []resource.Name{})
-		test.That(t, err, test.ShouldBeNil)
-		// 5 because the 3 default services are always added to a local_robot. We only care
-		// about the first two (working1 and button1) however.
-		test.That(t, len(resp), test.ShouldEqual, 3)
-
-		// although the response is length 5, the only thing we actually care about for testing
-		// is consistency with the expected values in the workingResourceMap. So we eliminate
-		// the values that aren't in the workingResourceMap.
-		actual := []robot.Status{}
-		for _, status := range resp {
-			if _, ok := workingResourceMap[status.Name]; ok {
-				actual = append(actual, status)
-			}
-		}
-		test.That(t, len(actual), test.ShouldEqual, 2)
-		test.That(t, actual[0].Status, test.ShouldResemble, expected[actual[0].Name])
-		test.That(t, actual[1].Status, test.ShouldResemble, expected[actual[1].Name])
-	})
-}
-
-func TestStatusRemote(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	// set up remotes
-	listener1 := testutils.ReserveRandomListener(t)
-	addr1 := listener1.Addr().String()
-
-	listener2 := testutils.ReserveRandomListener(t)
-	addr2 := listener2.Addr().String()
-
-	gServer1 := grpc.NewServer()
-	gServer2 := grpc.NewServer()
-	resourcesFunc := func() []resource.Name { return []resource.Name{arm.Named("arm1"), arm.Named("arm2")} }
-	statusCallCount := 0
-
-	// TODO: RSDK-882 will update this so that this is not necessary
-	frameSystemConfigFunc := func(ctx context.Context) (*framesystem.Config, error) {
-		return &framesystem.Config{Parts: []*referenceframe.FrameSystemPart{
-			{
-				FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, nil, "arm1", nil),
-				ModelFrame:  referenceframe.NewSimpleModel("arm1"),
-			},
-			{
-				FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, nil, "arm2", nil),
-				ModelFrame:  referenceframe.NewSimpleModel("arm2"),
-			},
-		}}, nil
-	}
-
-	injectRobot1 := &inject.Robot{
-		FrameSystemConfigFunc: frameSystemConfigFunc,
-		ResourceNamesFunc:     resourcesFunc,
-		ResourceRPCAPIsFunc:   func() []resource.RPCAPI { return nil },
-	}
-	armStatus := &armpb.Status{
-		EndPosition:    &commonpb.Pose{},
-		JointPositions: &armpb.JointPositions{Values: []float64{1.0, 2.0, 3.0, 4.0, 5.0, 6.0}},
-	}
-
-	lastReconfigured, err := time.Parse("2006-01-02 15:04:05", "2011-11-11 00:00:00")
-	test.That(t, err, test.ShouldBeNil)
-
-	injectRobot1.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-		statusCallCount++
-		statuses := make([]robot.Status, 0, len(resourceNames))
-		for _, n := range resourceNames {
-			statuses = append(statuses, robot.Status{
-				Name:             n,
-				LastReconfigured: lastReconfigured,
-				Status:           armStatus,
-			})
-		}
-		return statuses, nil
-	}
-	injectRobot2 := &inject.Robot{
-		FrameSystemConfigFunc: frameSystemConfigFunc,
-		ResourceNamesFunc:     resourcesFunc,
-		ResourceRPCAPIsFunc:   func() []resource.RPCAPI { return nil },
-	}
-	injectRobot2.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-		statusCallCount++
-		statuses := make([]robot.Status, 0, len(resourceNames))
-		for _, n := range resourceNames {
-			statuses = append(statuses, robot.Status{
-				Name:             n,
-				LastReconfigured: lastReconfigured,
-				Status:           armStatus,
-			})
-		}
-		return statuses, nil
-	}
-	pb.RegisterRobotServiceServer(gServer1, server.New(injectRobot1))
-	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot2))
-
-	go gServer1.Serve(listener1)
-	defer gServer1.Stop()
-	go gServer2.Serve(listener2)
-	defer gServer2.Stop()
-
-	remoteConfig := &config.Config{
-		Remotes: []config.Remote{
-			{
-				Name:    "foo",
-				Address: addr1,
-			},
-			{
-				Name:    "bar",
-				Address: addr2,
-			},
-		},
-	}
-	test.That(t, remoteConfig.Ensure(false, logger), test.ShouldBeNil)
-	ctx := context.Background()
-	r := setupLocalRobot(t, ctx, remoteConfig, logger)
-
-	rtestutils.VerifySameResourceNames(
-		t,
-		r.ResourceNames(),
-		[]resource.Name{
-			motion.Named(resource.DefaultServiceName),
-			arm.Named("foo:arm1"),
-			arm.Named("foo:arm2"),
-			arm.Named("bar:arm1"),
-			arm.Named("bar:arm2"),
-		},
-	)
-	statuses, err := r.Status(
-		ctx, []resource.Name{arm.Named("foo:arm1"), arm.Named("foo:arm2"), arm.Named("bar:arm1"), arm.Named("bar:arm2")},
-	)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(statuses), test.ShouldEqual, 4)
-	test.That(t, statusCallCount, test.ShouldEqual, 2)
-
-	for _, status := range statuses {
-		convMap := &armpb.Status{}
-		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
-		test.That(t, err, test.ShouldBeNil)
-		err = decoder.Decode(status.Status)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, convMap, test.ShouldResemble, armStatus)
-
-		// Test that LastReconfigured values are from remotes, and not set based on
-		// when local resource graph nodes were added for the remote resources.
-		test.That(t, status.LastReconfigured, test.ShouldEqual, lastReconfigured)
-	}
 }
 
 func TestGetRemoteResourceAndGrandFather(t *testing.T) {
@@ -1742,13 +1305,13 @@ func TestConfigMethod(t *testing.T) {
 
 	r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
 
-	// Assert that Config method returns the two default services: motion and sensors.
+	// Assert that Config method returns the default motion service.
 	actualCfg := r.Config()
 	defaultSvcs := removeDefaultServices(actualCfg)
 	test.That(t, len(defaultSvcs), test.ShouldEqual, 1)
 	for _, svc := range defaultSvcs {
-		test.That(t, svc.API.SubtypeName, test.ShouldBeIn,
-			motion.API.SubtypeName, sensors.API.SubtypeName)
+		test.That(t, svc.API.SubtypeName, test.ShouldEqual,
+			motion.API.SubtypeName)
 	}
 	test.That(t, actualCfg, test.ShouldResemble, &config.Config{})
 
@@ -1852,8 +1415,7 @@ func TestConfigMethod(t *testing.T) {
 	defaultSvcs = removeDefaultServices(actualCfg)
 	test.That(t, len(defaultSvcs), test.ShouldEqual, 1)
 	for _, svc := range defaultSvcs {
-		test.That(t, svc.API.SubtypeName, test.ShouldBeIn, motion.API.SubtypeName,
-			sensors.API.SubtypeName)
+		test.That(t, svc.API.SubtypeName, test.ShouldResemble, motion.API.SubtypeName)
 	}
 
 	// Manually inspect remaining service resources as ordering of config is
@@ -3228,14 +2790,8 @@ func TestSendTriggerConfig(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	// Set up local robot normally so that the triggerConfig channel is set up normally
-	r := setupLocalRobot(t, ctx, &config.Config{}, logger)
-
-	// Close the robot to stop the background workers from processing any messages to triggerConfig
-	// but also reinitialize the closeContext so that sendTriggerConfig will attempt to send messages
-	// through.
-	test.That(t, r.Close(ctx), test.ShouldBeNil)
+	r := setupLocalRobot(t, ctx, &config.Config{}, logger, withDisableCompleteConfigWorker())
 	actualR := r.(*localRobot)
-	actualR.closeContext = context.Background()
 
 	// This pattern fails the test faster on deadlocks instead of having to wait for the full
 	// test timeout.
@@ -3381,44 +2937,59 @@ func (m *mockResource) Reconfigure(
 }
 
 // getExpectedDefaultStatuses returns a slice of default [resource.Status] with a given
-// revision set for motion and sensor services.
-func getExpectedDefaultStatuses(revision string) []resource.Status {
+// revision and cloud metadata.
+func getExpectedDefaultStatuses(revision string, md cloud.Metadata) []resource.Status {
 	return []resource.Status{
 		{
-			Name: resource.Name{
-				API:  resource.APINamespaceRDKInternal.WithServiceType("framesystem"),
-				Name: "builtin",
+			NodeStatus: resource.NodeStatus{
+				Name: resource.Name{
+					API:  resource.APINamespaceRDKInternal.WithServiceType("frame_system"),
+					Name: "builtin",
+				},
+				State: resource.NodeStateReady,
 			},
-			State: resource.NodeStateReady,
+			CloudMetadata: md,
 		},
 		{
-			Name: resource.Name{
-				API:  resource.APINamespaceRDKInternal.WithServiceType("cloud_connection"),
-				Name: "builtin",
+			NodeStatus: resource.NodeStatus{
+				Name: resource.Name{
+					API:  resource.APINamespaceRDKInternal.WithServiceType("cloud_connection"),
+					Name: "builtin",
+				},
+				State: resource.NodeStateReady,
 			},
-			State: resource.NodeStateReady,
+			CloudMetadata: md,
 		},
 		{
-			Name: resource.Name{
-				API:  resource.APINamespaceRDKInternal.WithServiceType("packagemanager"),
-				Name: "builtin",
+			NodeStatus: resource.NodeStatus{
+				Name: resource.Name{
+					API:  resource.APINamespaceRDKInternal.WithServiceType("packagemanager"),
+					Name: "builtin",
+				},
+				State: resource.NodeStateReady,
 			},
-			State: resource.NodeStateReady,
+			CloudMetadata: md,
 		},
 		{
-			Name: resource.Name{
-				API:  resource.APINamespaceRDKInternal.WithServiceType("web"),
-				Name: "builtin",
+			NodeStatus: resource.NodeStatus{
+				Name: resource.Name{
+					API:  resource.APINamespaceRDKInternal.WithServiceType("web"),
+					Name: "builtin",
+				},
+				State: resource.NodeStateReady,
 			},
-			State: resource.NodeStateReady,
+			CloudMetadata: md,
 		},
 		{
-			Name: resource.Name{
-				API:  resource.APINamespaceRDK.WithServiceType("motion"),
-				Name: "builtin",
+			NodeStatus: resource.NodeStatus{
+				Name: resource.Name{
+					API:  resource.APINamespaceRDK.WithServiceType("motion"),
+					Name: "builtin",
+				},
+				State:    resource.NodeStateReady,
+				Revision: revision,
 			},
-			State:    resource.NodeStateReady,
-			Revision: revision,
+			CloudMetadata: md,
 		},
 	}
 }
@@ -3442,7 +3013,38 @@ func TestMachineStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev1)
 
-		expectedStatuses := getExpectedDefaultStatuses(rev1)
+		expectedStatuses := getExpectedDefaultStatuses(rev1, cloud.Metadata{})
+		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
+	})
+
+	t.Run("default resources with cloud metadata", func(t *testing.T) {
+		rev1 := "rev1"
+		partID := "the-robot-part"
+		locID := "the-location"
+		orgID := "the-org"
+		machineID := "the-machine"
+		cfg := &config.Config{
+			Cloud: &config.Cloud{
+				ID:           partID,
+				LocationID:   locID,
+				PrimaryOrgID: orgID,
+				MachineID:    machineID,
+			},
+			Revision: rev1,
+		}
+		lr := setupLocalRobot(t, ctx, cfg, logger)
+
+		mStatus, err := lr.MachineStatus(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev1)
+
+		md := cloud.Metadata{
+			PrimaryOrgID:  orgID,
+			LocationID:    locID,
+			MachineID:     machineID,
+			MachinePartID: partID,
+		}
+		expectedStatuses := getExpectedDefaultStatuses(rev1, md)
 		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
 	})
 
@@ -3459,12 +3061,14 @@ func TestMachineStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev2)
 		expectedStatuses := rtestutils.ConcatResourceStatuses(
-			getExpectedDefaultStatuses(rev2),
+			getExpectedDefaultStatuses(rev2, cloud.Metadata{}),
 			[]resource.Status{
 				{
-					Name:     mockNamed("m"),
-					State:    resource.NodeStateReady,
-					Revision: rev2,
+					NodeStatus: resource.NodeStatus{
+						Name:     mockNamed("m"),
+						State:    resource.NodeStateReady,
+						Revision: rev2,
+					},
 				},
 			},
 		)
@@ -3482,13 +3086,15 @@ func TestMachineStatus(t *testing.T) {
 
 		expectedConfigError := fmt.Errorf("resource config validation error: %w", errMockValidation)
 		expectedStatuses = rtestutils.ConcatResourceStatuses(
-			getExpectedDefaultStatuses(rev3),
+			getExpectedDefaultStatuses(rev3, cloud.Metadata{}),
 			[]resource.Status{
 				{
-					Name:     mockNamed("m"),
-					State:    resource.NodeStateUnhealthy,
-					Revision: rev2,
-					Error:    expectedConfigError,
+					NodeStatus: resource.NodeStatus{
+						Name:     mockNamed("m"),
+						State:    resource.NodeStateUnhealthy,
+						Revision: rev2,
+						Error:    expectedConfigError,
+					},
 				},
 			},
 		)
@@ -3504,12 +3110,14 @@ func TestMachineStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev4)
 		expectedStatuses = rtestutils.ConcatResourceStatuses(
-			getExpectedDefaultStatuses(rev4),
+			getExpectedDefaultStatuses(rev4, cloud.Metadata{}),
 			[]resource.Status{
 				{
-					Name:     mockNamed("m"),
-					State:    resource.NodeStateReady,
-					Revision: rev4,
+					NodeStatus: resource.NodeStatus{
+						Name:     mockNamed("m"),
+						State:    resource.NodeStateReady,
+						Revision: rev4,
+					},
 				},
 			},
 		)
@@ -3549,9 +3157,11 @@ func TestMachineStatus(t *testing.T) {
 		filterConfiguring := rtestutils.FilterByStatus(t, mStatus.Resources, resource.NodeStateConfiguring)
 		expectedConfiguring := []resource.Status{
 			{
-				Name:     mockNamed("m"),
-				State:    resource.NodeStateConfiguring,
-				Revision: rev1,
+				NodeStatus: resource.NodeStatus{
+					Name:     mockNamed("m"),
+					State:    resource.NodeStateConfiguring,
+					Revision: rev1,
+				},
 			},
 		}
 		rtestutils.VerifySameResourceStatuses(t, filterConfiguring, expectedConfiguring)
@@ -3559,7 +3169,7 @@ func TestMachineStatus(t *testing.T) {
 		// all other components should be in the "ready" state and associated with the
 		// new revision.
 		filterReady := rtestutils.FilterByStatus(t, mStatus.Resources, resource.NodeStateReady)
-		expectedReady := getExpectedDefaultStatuses(rev2)
+		expectedReady := getExpectedDefaultStatuses(rev2, cloud.Metadata{})
 		rtestutils.VerifySameResourceStatuses(t, filterReady, expectedReady)
 
 		wg.Wait()
@@ -3572,17 +3182,468 @@ func TestMachineStatus(t *testing.T) {
 		// now all components, including the one whose config changed, should all be in
 		// the "ready" state and associated with the new revision.
 		expectedStatuses := rtestutils.ConcatResourceStatuses(
-			getExpectedDefaultStatuses(rev2),
+			getExpectedDefaultStatuses(rev2, cloud.Metadata{}),
 			[]resource.Status{
 				{
-					Name:     mockNamed("m"),
-					State:    resource.NodeStateReady,
-					Revision: rev2,
+					NodeStatus: resource.NodeStatus{
+						Name:     mockNamed("m"),
+						State:    resource.NodeStateReady,
+						Revision: rev2,
+					},
 				},
 			},
 		)
 		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
 	})
+}
+
+func TestMachineStatusWithRemotes(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	testCases := []struct {
+		name          string
+		localCloudMd  bool
+		remoteCloudMd bool
+	}{
+		{
+			name:          "local cloud metadata and remote cloud metadata",
+			localCloudMd:  true,
+			remoteCloudMd: true,
+		},
+		{
+			name:          "local cloud metadata and no remote cloud metadata",
+			localCloudMd:  true,
+			remoteCloudMd: false,
+		},
+		{
+			name:          "no local cloud metadata and remote cloud metadata",
+			localCloudMd:  false,
+			remoteCloudMd: true,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+
+			resName1 := resource.NewName(resource.APINamespace("acme").WithComponentType("huwat"), "thing1")
+			injectRemoteRobot := &inject.Robot{
+				LoggerFunc:          func() logging.Logger { return logger },
+				ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+				ResourceNamesFunc:   func() []resource.Name { return []resource.Name{resName1} },
+			}
+			remoteName := "remote1"
+			injectRemoteRobot.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
+				for _, rName := range injectRemoteRobot.ResourceNames() {
+					if rName == name {
+						return rgrpc.NewForeignResource(rName, nil), nil
+					}
+				}
+				return nil, resource.NewNotFoundError(name)
+			}
+
+			remoteMd := cloud.Metadata{
+				PrimaryOrgID:  "the-remote-org",
+				LocationID:    "the-remote-location",
+				MachineID:     "the-remote-machine",
+				MachinePartID: "the-remote-part",
+			}
+			injectRemoteRobot.CloudMetadataFunc = func(context.Context) (cloud.Metadata, error) {
+				if !tc.remoteCloudMd {
+					return cloud.Metadata{}, errNoCloudMetadata
+				}
+				return remoteMd, nil
+			}
+			injectRemoteRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
+				// check that a timeout is passed down from the caller.
+				if _, ok := ctx.Deadline(); !ok {
+					return robot.MachineStatus{}, errors.New("no timeout detected")
+				}
+				md := cloud.Metadata{}
+				if tc.remoteCloudMd {
+					md = remoteMd
+				}
+				return robot.MachineStatus{
+					Resources: []resource.Status{
+						{
+							NodeStatus: resource.NodeStatus{
+								Name: resName1, State: resource.NodeStateUnconfigured, Revision: "rev2",
+							},
+							CloudMetadata: md,
+						},
+					},
+				}, nil
+			}
+			dRobot := newDummyRobot(t, injectRemoteRobot)
+			md := cloud.Metadata{
+				PrimaryOrgID:  "the-org",
+				LocationID:    "the-location",
+				MachineID:     "the-machine",
+				MachinePartID: "the-robot-part",
+			}
+			rev1 := "rev1"
+			cfg := &config.Config{}
+			if tc.localCloudMd {
+				cfg = &config.Config{
+					Cloud: &config.Cloud{
+						ID:           md.MachinePartID,
+						LocationID:   md.LocationID,
+						PrimaryOrgID: md.PrimaryOrgID,
+						MachineID:    md.MachineID,
+					},
+					Revision: rev1,
+				}
+			}
+			lr := setupLocalRobot(t, ctx, cfg, logger, withDisableCompleteConfigWorker())
+			lr.(*localRobot).manager.addRemote(
+				context.Background(),
+				dRobot,
+				nil,
+				config.Remote{Name: remoteName},
+			)
+
+			mStatus, err := lr.MachineStatus(ctx)
+			test.That(t, err, test.ShouldBeNil)
+
+			expectedRev := ""
+			expectedMd := cloud.Metadata{}
+			if tc.localCloudMd {
+				expectedRev = rev1
+				expectedMd = md
+			}
+
+			expectedRemoteMd := cloud.Metadata{}
+			if tc.remoteCloudMd {
+				expectedRemoteMd = remoteMd
+			}
+			test.That(t, mStatus.Config.Revision, test.ShouldEqual, expectedRev)
+
+			expectedStatuses := rtestutils.ConcatResourceStatuses(
+				getExpectedDefaultStatuses(expectedRev, expectedMd),
+				[]resource.Status{
+					{
+						NodeStatus: resource.NodeStatus{
+							Name:  resource.NewName(client.RemoteAPI, remoteName),
+							State: resource.NodeStateReady,
+						},
+						CloudMetadata: expectedRemoteMd,
+					},
+					{
+						NodeStatus: resource.NodeStatus{
+							Name:  resName1.PrependRemote(remoteName),
+							State: resource.NodeStateReady,
+						},
+						CloudMetadata: expectedRemoteMd,
+					},
+				},
+			)
+			rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
+		})
+	}
+}
+
+func TestMachineStatusWithTwoRemotes(t *testing.T) {
+	// test that if one remote returns an error, MachineStatus returns correctly.
+	// ResourceStatuses for the erroring remote should not have CloudMetadata while
+	// ResourceStatuses for the non-erroring remote should have CloudMetadata.
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	resName1 := resource.NewName(resource.APINamespace("acme").WithComponentType("huwat"), "thing1")
+	injectRemoteRobot1 := &inject.Robot{
+		LoggerFunc:          func() logging.Logger { return logger },
+		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+		ResourceNamesFunc:   func() []resource.Name { return []resource.Name{resName1} },
+	}
+	remoteName1 := "remote1"
+	injectRemoteRobot1.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
+		for _, rName := range injectRemoteRobot1.ResourceNames() {
+			if rName == name {
+				return rgrpc.NewForeignResource(rName, nil), nil
+			}
+		}
+		return nil, resource.NewNotFoundError(name)
+	}
+	injectRemoteRobot1.CloudMetadataFunc = func(context.Context) (cloud.Metadata, error) {
+		return cloud.Metadata{}, errNoCloudMetadata
+	}
+	injectRemoteRobot1.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
+		// check that a timeout is passed down from the caller.
+		if _, ok := ctx.Deadline(); !ok {
+			return robot.MachineStatus{}, errors.New("no timeout detected")
+		}
+		return robot.MachineStatus{
+			Resources: []resource.Status{
+				{
+					NodeStatus: resource.NodeStatus{
+						Name: resName1, State: resource.NodeStateUnconfigured, Revision: "rev2",
+					},
+					CloudMetadata: cloud.Metadata{},
+				},
+			},
+		}, nil
+	}
+	dRobot1 := newDummyRobot(t, injectRemoteRobot1)
+	lr := setupLocalRobot(t, ctx, &config.Config{}, logger, withDisableCompleteConfigWorker())
+	lr.(*localRobot).manager.addRemote(
+		context.Background(),
+		dRobot1,
+		nil,
+		config.Remote{Name: remoteName1},
+	)
+
+	resName2 := resource.NewName(resource.APINamespace("acme").WithComponentType("huwat"), "thing2")
+	injectRemoteRobot2 := &inject.Robot{
+		LoggerFunc:          func() logging.Logger { return logger },
+		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+		ResourceNamesFunc:   func() []resource.Name { return []resource.Name{resName2} },
+	}
+	remoteName2 := "remote2"
+	injectRemoteRobot2.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
+		for _, rName := range injectRemoteRobot2.ResourceNames() {
+			if rName == name {
+				return rgrpc.NewForeignResource(rName, nil), nil
+			}
+		}
+		return nil, resource.NewNotFoundError(name)
+	}
+
+	remoteMd := cloud.Metadata{
+		PrimaryOrgID:  "the-remote-org",
+		LocationID:    "the-remote-location",
+		MachineID:     "the-remote-machine",
+		MachinePartID: "the-remote-part",
+	}
+	injectRemoteRobot2.CloudMetadataFunc = func(context.Context) (cloud.Metadata, error) {
+		return remoteMd, nil
+	}
+	injectRemoteRobot2.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
+		// check that a timeout is passed down from the caller.
+		if _, ok := ctx.Deadline(); !ok {
+			return robot.MachineStatus{}, errors.New("no timeout detected")
+		}
+		return robot.MachineStatus{
+			Resources: []resource.Status{
+				{
+					NodeStatus: resource.NodeStatus{
+						Name: resName2, State: resource.NodeStateUnconfigured, Revision: "rev2",
+					},
+					CloudMetadata: remoteMd,
+				},
+			},
+		}, nil
+	}
+	dRobot2 := newDummyRobot(t, injectRemoteRobot2)
+	lr.(*localRobot).manager.addRemote(
+		context.Background(),
+		dRobot2,
+		nil,
+		config.Remote{Name: remoteName2},
+	)
+
+	mStatus, err := lr.MachineStatus(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, mStatus.Config.Revision, test.ShouldEqual, "")
+	expectedStatuses := rtestutils.ConcatResourceStatuses(
+		getExpectedDefaultStatuses("", cloud.Metadata{}),
+		[]resource.Status{
+			{
+				NodeStatus: resource.NodeStatus{
+					Name:  resource.NewName(client.RemoteAPI, remoteName1),
+					State: resource.NodeStateReady,
+				},
+			},
+			{
+				NodeStatus: resource.NodeStatus{
+					Name:  resName1.PrependRemote(remoteName1),
+					State: resource.NodeStateReady,
+				},
+			},
+			{
+				NodeStatus: resource.NodeStatus{
+					Name:  resource.NewName(client.RemoteAPI, remoteName2),
+					State: resource.NodeStateReady,
+				},
+				CloudMetadata: remoteMd,
+			},
+			{
+				NodeStatus: resource.NodeStatus{
+					Name:  resName2.PrependRemote(remoteName2),
+					State: resource.NodeStateReady,
+				},
+				CloudMetadata: remoteMd,
+			},
+		},
+	)
+	rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
+}
+
+func TestMachineStatusWithRemoteChain(t *testing.T) {
+	// test that if MachineStatus returns correctly if the remote has a remote
+	// The topography is local -> remote1 -> remote2
+	// remote2 will always have cloud metadata, but this test will test behavior
+	// depending on whether remote1 is online and has cloud metadata
+	logger := logging.NewTestLogger(t)
+
+	testCases := []struct {
+		name          string
+		remoteOffline bool
+		remoteCloudMd bool
+	}{
+		{
+			name:          "remote1 is online and has cloud metadata",
+			remoteOffline: false,
+			remoteCloudMd: true,
+		},
+		{
+			name:          "remote1 is offline and has cloud metadata",
+			remoteOffline: true,
+			remoteCloudMd: true,
+		},
+		{
+			name:          "remote1 is online and does not have cloud metadata",
+			remoteOffline: false,
+			remoteCloudMd: false,
+		},
+		{
+			name:          "remote1 is offline and does not have cloud metadata",
+			remoteOffline: true,
+			remoteCloudMd: false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+
+			// setup remote2
+			resName1 := resource.NewName(resource.APINamespace("acme").WithComponentType("huwat"), "thing1")
+			remote2 := &inject.Robot{
+				LoggerFunc:          func() logging.Logger { return logger },
+				ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+				ResourceNamesFunc:   func() []resource.Name { return []resource.Name{resName1} },
+			}
+			remoteName2 := "remote1"
+			remote2.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
+				for _, rName := range remote2.ResourceNames() {
+					if rName == name {
+						return rgrpc.NewForeignResource(rName, nil), nil
+					}
+				}
+				return nil, resource.NewNotFoundError(name)
+			}
+
+			remote2Md := cloud.Metadata{
+				PrimaryOrgID:  "the-remote-org",
+				LocationID:    "the-remote-location",
+				MachineID:     "the-remote-machine",
+				MachinePartID: "the-remote-part",
+			}
+			remote2.CloudMetadataFunc = func(context.Context) (cloud.Metadata, error) {
+				return remote2Md, nil
+			}
+			remote2.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
+				// check that a timeout is passed down from the caller.
+				if _, ok := ctx.Deadline(); !ok {
+					return robot.MachineStatus{}, errors.New("no timeout detected")
+				}
+				return robot.MachineStatus{
+					Resources: []resource.Status{
+						{
+							NodeStatus: resource.NodeStatus{
+								Name: resName1, State: resource.NodeStateUnconfigured, Revision: "rev1",
+							},
+							CloudMetadata: remote2Md,
+						},
+					},
+				}, nil
+			}
+			remote2Dummy := newDummyRobot(t, remote2)
+
+			// setup remote1
+			cfg := &config.Config{}
+			md := cloud.Metadata{
+				PrimaryOrgID:  "the-org",
+				LocationID:    "the-location",
+				MachineID:     "the-machine",
+				MachinePartID: "the-robot-part",
+			}
+			if tc.remoteCloudMd {
+				cfg = &config.Config{
+					Cloud: &config.Cloud{
+						ID:           md.MachinePartID,
+						LocationID:   md.LocationID,
+						PrimaryOrgID: md.PrimaryOrgID,
+						MachineID:    md.MachineID,
+					},
+				}
+			}
+			remote1 := setupLocalRobot(t, ctx, cfg, logger, withDisableCompleteConfigWorker())
+			remote1.(*localRobot).manager.addRemote(
+				context.Background(),
+				remote2Dummy,
+				nil,
+				config.Remote{Name: remoteName2},
+			)
+
+			// setup local
+			remoteName1 := "remote1"
+			remote1Dummy := newDummyRobot(t, remote1)
+			lRobot := setupLocalRobot(t, ctx, &config.Config{}, logger, withDisableCompleteConfigWorker())
+			lRobot.(*localRobot).manager.addRemote(
+				context.Background(),
+				remote1Dummy,
+				nil,
+				config.Remote{Name: remoteName1},
+			)
+
+			remote1Dummy.SetOffline(tc.remoteOffline)
+			// even though the remote1 is now offline, resources will be kept in the resource graph
+			// but marked unreachable
+			anythingChanged := lRobot.(*localRobot).manager.updateRemotesResourceNames(ctx)
+			test.That(t, anythingChanged, test.ShouldBeFalse)
+
+			mStatus, err := lRobot.MachineStatus(ctx)
+			test.That(t, err, test.ShouldBeNil)
+
+			test.That(t, mStatus.Config.Revision, test.ShouldEqual, "")
+
+			expectedMd := cloud.Metadata{}
+			expectedRemote2Md := cloud.Metadata{}
+			if !tc.remoteOffline {
+				if tc.remoteCloudMd {
+					expectedMd = md
+				}
+				expectedRemote2Md = remote2Md
+			}
+			expectedStatuses := rtestutils.ConcatResourceStatuses(
+				getExpectedDefaultStatuses("", cloud.Metadata{}),
+				[]resource.Status{
+					{
+						NodeStatus: resource.NodeStatus{
+							Name:  resource.NewName(client.RemoteAPI, remoteName1),
+							State: resource.NodeStateReady,
+						},
+						CloudMetadata: expectedMd,
+					},
+					{
+						NodeStatus: resource.NodeStatus{
+							Name:  motion.Named("builtin").PrependRemote(remoteName1),
+							State: resource.NodeStateReady,
+						},
+						CloudMetadata: expectedMd,
+					},
+					{
+						NodeStatus: resource.NodeStatus{
+							Name:  resName1.PrependRemote(remoteName2).PrependRemote(remoteName1),
+							State: resource.NodeStateReady,
+						},
+						CloudMetadata: expectedRemote2Md,
+					},
+				},
+			)
+			rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
+		})
+	}
 }
 
 // assertDialFails reconnects an existing `RobotClient` with a small timeout value to keep tests

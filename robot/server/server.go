@@ -18,8 +18,6 @@ import (
 	"go.viam.com/utils"
 	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc/codes"
-	grpcstatus "google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -278,74 +276,11 @@ func (s *Server) TransformPCD(ctx context.Context, req *pb.TransformPCDRequest) 
 		return nil, err
 	}
 	// transform pointcloud back to PCD bytes
-	var buf bytes.Buffer
-	buf.Grow(200 + (final.Size() * 4 * 4)) // 4 numbers per point, each 4 bytes
-	err = pointcloud.ToPCD(final, &buf, pointcloud.PCDBinary)
+	bytes, err := pointcloud.ToBytes(final)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.TransformPCDResponse{PointCloudPcd: buf.Bytes()}, err
-}
-
-// GetStatus takes a list of resource names and returns their corresponding statuses. If no names are passed in, return all statuses.
-func (s *Server) GetStatus(ctx context.Context, req *pb.GetStatusRequest) (*pb.GetStatusResponse, error) {
-	resourceNames := make([]resource.Name, 0, len(req.ResourceNames))
-	for _, name := range req.ResourceNames {
-		resourceNames = append(resourceNames, protoutils.ResourceNameFromProto(name))
-	}
-
-	statuses, err := s.robot.Status(ctx, resourceNames)
-	if err != nil {
-		return nil, err
-	}
-
-	statusesP := make([]*pb.Status, 0, len(statuses))
-	for _, status := range statuses {
-		statusP, err := vprotoutils.StructToStructPb(status.Status)
-		if err != nil {
-			return nil, err
-		}
-		statusesP = append(
-			statusesP,
-			&pb.Status{
-				Name:             protoutils.ResourceNameToProto(status.Name),
-				LastReconfigured: timestamppb.New(status.LastReconfigured),
-				Status:           statusP,
-			},
-		)
-	}
-
-	return &pb.GetStatusResponse{Status: statusesP}, nil
-}
-
-const defaultStreamInterval = 1 * time.Second
-
-// StreamStatus periodically sends the status of all statuses requested. An empty request signifies all resources.
-func (s *Server) StreamStatus(req *pb.StreamStatusRequest, streamServer pb.RobotService_StreamStatusServer) error {
-	every := defaultStreamInterval
-	if reqEvery := req.Every.AsDuration(); reqEvery != time.Duration(0) {
-		every = reqEvery
-	}
-	ticker := time.NewTicker(every)
-	defer ticker.Stop()
-	for {
-		if !utils.SelectContextOrWaitChan(streamServer.Context(), ticker.C) {
-			return streamServer.Context().Err()
-		}
-
-		status, err := s.GetStatus(streamServer.Context(), &pb.GetStatusRequest{ResourceNames: req.ResourceNames})
-		switch {
-		case err == nil:
-		case grpcstatus.Code(err) == codes.Unimplemented:
-			return nil
-		default:
-			return err
-		}
-
-		if err := streamServer.Send(&pb.StreamStatusResponse{Status: status.Status}); err != nil {
-			return err
-		}
-	}
+	return &pb.TransformPCDResponse{PointCloudPcd: bytes}, err
 }
 
 // StopAll will stop all current and outstanding operations for the robot and stops all actuators and movement.
@@ -473,14 +408,7 @@ func (s *Server) GetCloudMetadata(ctx context.Context, _ *pb.GetCloudMetadataReq
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetCloudMetadataResponse{
-		// TODO: RSDK-7181 remove RobotPartId
-		RobotPartId:   md.MachinePartID, // Deprecated: Duplicates MachinePartId
-		PrimaryOrgId:  md.PrimaryOrgID,
-		LocationId:    md.LocationID,
-		MachineId:     md.MachineID,
-		MachinePartId: md.MachinePartID,
-	}, nil
+	return protoutils.MetadataToProto(md), nil
 }
 
 // RestartModule restarts a module by name or ID.
@@ -513,7 +441,6 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 	if err != nil {
 		return nil, err
 	}
-
 	result.Config = &pb.ConfigStatus{
 		Revision:    mStatus.Config.Revision,
 		LastUpdated: timestamppb.New(mStatus.Config.LastUpdated),
@@ -521,9 +448,10 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 	result.Resources = make([]*pb.ResourceStatus, 0, len(mStatus.Resources))
 	for _, resStatus := range mStatus.Resources {
 		pbResStatus := &pb.ResourceStatus{
-			Name:        protoutils.ResourceNameToProto(resStatus.Name),
-			LastUpdated: timestamppb.New(resStatus.LastUpdated),
-			Revision:    resStatus.Revision,
+			Name:          protoutils.ResourceNameToProto(resStatus.Name),
+			LastUpdated:   timestamppb.New(resStatus.LastUpdated),
+			Revision:      resStatus.Revision,
+			CloudMetadata: protoutils.MetadataToProto(resStatus.CloudMetadata),
 		}
 
 		switch resStatus.State {

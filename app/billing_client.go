@@ -192,6 +192,7 @@ func (c *BillingClient) SendPaymentRequiredEmail(ctx context.Context, customerOr
 }
 
 func usageCostTypeFromProto(costType pb.UsageCostType) UsageCostType {
+	//nolint:exhaustive
 	switch costType {
 	case pb.UsageCostType_USAGE_COST_TYPE_UNSPECIFIED:
 		return UsageCostTypeUnspecified

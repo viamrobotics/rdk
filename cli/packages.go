@@ -43,20 +43,22 @@ var packageTypes = []string{
 	string(PackageTypeModule), string(PackageTypeSLAMMap),
 }
 
+type packageExportArgs struct {
+	Destination string
+	OrgID       string
+	Name        string
+	Version     string
+	Type        string
+}
+
 // PackageExportAction is the corresponding action for 'package export'.
-func PackageExportAction(c *cli.Context) error {
+func PackageExportAction(c *cli.Context, args packageExportArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
 
-	return client.packageExportAction(
-		c.String(generalFlagOrgID),
-		c.String(packageFlagName),
-		c.String(packageFlagVersion),
-		c.String(packageFlagType),
-		c.Path(packageFlagDestination),
-	)
+	return client.packageExportAction(args.OrgID, args.Name, args.Version, args.Type, args.Destination)
 }
 
 func convertPackageTypeToProto(packageType string) (*packagespb.PackageType, error) {
@@ -172,33 +174,42 @@ func downloadPackageFromURL(ctx context.Context, httpClient *http.Client,
 	return nil
 }
 
+type packageUploadArgs struct {
+	Path           string
+	OrgID          string
+	Name           string
+	Version        string
+	Type           string
+	ModelFramework string
+}
+
 // PackageUploadAction is the corresponding action for "packages upload".
-func PackageUploadAction(c *cli.Context) error {
+func PackageUploadAction(c *cli.Context, args packageUploadArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
 
-	_, err = convertPackageTypeToProto(c.String(packageFlagType))
+	_, err = convertPackageTypeToProto(args.Type)
 	if err != nil {
 		return err
 	}
 
-	if err := validatePackageUploadRequest(c); err != nil {
+	if err := validatePackageUploadRequest(c, args); err != nil {
 		return err
 	}
 
 	resp, err := client.uploadPackage(
-		c.String(generalFlagOrgID),
-		c.String(packageFlagName),
-		c.String(packageFlagVersion),
-		c.String(packageFlagType),
-		c.Path(packageFlagPath),
+		args.OrgID,
+		args.Name,
+		args.Version,
+		args.Type,
+		args.Path,
 		&structpb.Struct{
 			Fields: map[string]*structpb.Value{
 				packageMetadataFlagFramework: {
 					Kind: &structpb.Value_StringValue{
-						StringValue: c.String(packageFlagFramework),
+						StringValue: args.ModelFramework,
 					},
 				},
 			},
@@ -288,15 +299,15 @@ func (m *moduleID) ToDetailURL(baseURL string, packageType PackageType) string {
 	return fmt.Sprintf("https://%s/%s/%s/%s", baseURL, strings.ReplaceAll(string(packageType), "_", "-"), m.prefix, m.name)
 }
 
-func validatePackageUploadRequest(c *cli.Context) error {
-	packageType := c.String(packageFlagType)
+func validatePackageUploadRequest(_ *cli.Context, args packageUploadArgs) error {
+	packageType := args.Type
 
 	if packageType == "ml_model" {
-		if c.String(packageFlagFramework) == "" {
+		if args.ModelFramework == "" {
 			return errors.New("must pass in a model-framework if package is of type `ml_model`")
 		}
 
-		if !slices.Contains(modelFrameworks, c.String(packageFlagFramework)) {
+		if !slices.Contains(modelFrameworks, args.ModelFramework) {
 			return errors.New("framework must be of type " + strings.Join(modelFrameworks, ", "))
 		}
 	}

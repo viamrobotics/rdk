@@ -10,7 +10,6 @@ import (
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
-	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/logging"
@@ -61,7 +60,6 @@ func init() {
 type transformConfig struct {
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
-	Debug                bool                               `json:"debug,omitempty"`
 	Source               string                             `json:"source"`
 	Pipeline             []Transformation                   `json:"pipeline"`
 }
@@ -163,16 +161,5 @@ func (tp transformPipeline) NextPointCloud(ctx context.Context) (pointcloud.Poin
 }
 
 func (tp transformPipeline) Close(ctx context.Context) error {
-	var errs error
-	for _, src := range tp.pipeline {
-		errs = multierr.Combine(errs, func() (err error) {
-			defer func() {
-				if panicErr := recover(); panicErr != nil {
-					err = multierr.Combine(err, errors.Errorf("panic: %v", panicErr))
-				}
-			}()
-			return src.Close(ctx)
-		}())
-	}
-	return multierr.Combine(tp.src.Close(ctx), errs)
+	return nil
 }

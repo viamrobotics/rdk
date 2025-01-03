@@ -28,7 +28,12 @@ var (
 	errMixedFrameTypes = errors.New("unable to plan for PTG and non-PTG frames simultaneously")
 )
 
-func genIKConstraintErr(failures map[string]int, constraintFailCnt int) error {
+// NewAlgAndConstraintMismatchErr is returned when an incompatible planning_alg is specified and there are contraints.
+func NewAlgAndConstraintMismatchErr(planAlg string) error {
+	return fmt.Errorf("cannot specify a planning alg other than cbirrt with topo constraints. alg specified was %s", planAlg)
+}
+
+func newIKConstraintErr(failures map[string]int, constraintFailCnt int) error {
 	ikConstraintFailures := errIKConstraint
 	for failName, count := range failures {
 		ikConstraintFailures += fmt.Sprintf("{ %s: %.2f%% }, ", failName, 100*float64(count)/float64(constraintFailCnt))
