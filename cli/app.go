@@ -136,6 +136,8 @@ const (
 	authApplicationFlagRedirectURIs  = "redirect-uris"
 	authApplicationFlagLogoutURI     = "logout-uri"
 
+	oauthAppFlagClientID = "client-id"
+
 	cpFlagRecursive = "recursive"
 	cpFlagPreserve  = "preserve"
 
@@ -454,6 +456,35 @@ var app = &cli.App{
 			Usage:           "work with organizations",
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
+				{
+					Name:  "auth-service",
+					Usage: "manage auth-service",
+					Subcommands: []*cli.Command{
+						{
+							Name:  "oauth-app",
+							Usage: "manage the OAuth applications for an organization",
+							Subcommands: []*cli.Command{
+								{
+									Name:  "read",
+									Usage: "read the OAuth configuration details",
+									Flags: []cli.Flag{
+										&cli.StringFlag{
+											Name:     generalFlagOrgID,
+											Required: true,
+											Usage:    "organization ID that is tied to the OAuth application",
+										},
+										&cli.StringFlag{
+											Name:     oauthAppFlagClientID,
+											Usage:    "id for the OAuth application",
+											Required: true,
+										},
+									},
+									Action: createCommandWithT[readOAuthAppArgs](ReadOAuthAppAction),
+								},
+							},
+						},
+					},
+				},
 				{
 					Name:   "list",
 					Usage:  "list organizations for the current user",
