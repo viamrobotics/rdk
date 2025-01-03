@@ -428,15 +428,7 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 	dialOptionsWebRTCOnly[0] = rpc.WithDisableDirectGRPC()
 
 	dialLogger := rc.logger.Sublogger("networking")
-
-	// This dial seems to hang for 10 seconds, and it's not exactly clear why.
-	// Doesn't seem to have to do with reconfiguring, just some inner timeout
-	// probably related to checking for something? But what?
-
-	dialLogger.Info("DBG-BENJI Start of gRPC dial")
 	conn, err := grpc.Dial(ctx, rc.address, dialLogger, dialOptionsWebRTCOnly...)
-	dialLogger.Info("DBG-BENJI End of gRPC dial")
-
 	if err == nil {
 		// If we succeed with a webrtc connection, flip the `serverIsWebrtcEnabled` to force all future
 		// connections to use webrtc.
