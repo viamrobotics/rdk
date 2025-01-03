@@ -21,25 +21,25 @@ import (
 
 func TestEvaluateTrajectory(t *testing.T) {
 	plan := Trajectory{
-		map[string][]referenceframe.Input{"": {{1.}, {2.}, {3.}}},
-		map[string][]referenceframe.Input{"": {{1.}, {2.}, {3.}}},
+		referenceframe.FrameSystemInputs{"": {{1.}, {2.}, {3.}}},
+		referenceframe.FrameSystemInputs{"": {{1.}, {2.}, {3.}}},
 	}
 	// Test no change
 	score := plan.EvaluateCost(ik.FSConfigurationL2Distance)
 	test.That(t, score, test.ShouldAlmostEqual, 0)
 
 	// Test L2 for "", and nothing for plan with only one entry
-	plan = append(plan, map[string][]referenceframe.Input{"": {{4.}, {5.}, {6.}}, "test": {{2.}, {3.}, {4.}}})
+	plan = append(plan, referenceframe.FrameSystemInputs{"": {{4.}, {5.}, {6.}}, "test": {{2.}, {3.}, {4.}}})
 	score = plan.EvaluateCost(ik.FSConfigurationL2Distance)
 	test.That(t, score, test.ShouldAlmostEqual, math.Sqrt(27))
 
 	// Test cumulative L2 after returning to original inputs
-	plan = append(plan, map[string][]referenceframe.Input{"": {{1.}, {2.}, {3.}}})
+	plan = append(plan, referenceframe.FrameSystemInputs{"": {{1.}, {2.}, {3.}}})
 	score = plan.EvaluateCost(ik.FSConfigurationL2Distance)
 	test.That(t, score, test.ShouldAlmostEqual, math.Sqrt(27)*2)
 
 	// Test that the "test" inputs are properly evaluated after skipping a step
-	plan = append(plan, map[string][]referenceframe.Input{"test": {{3.}, {5.}, {6.}}})
+	plan = append(plan, referenceframe.FrameSystemInputs{"test": {{3.}, {5.}, {6.}}})
 	score = plan.EvaluateCost(ik.FSConfigurationL2Distance)
 	test.That(t, score, test.ShouldAlmostEqual, math.Sqrt(27)*2+3)
 
@@ -60,16 +60,16 @@ func TestPlanStep(t *testing.T) {
 			baseNameB: {Pose: spatialmath.PoseToProtobuf(poseB)},
 		},
 	}
-	stepAB := PathState{
+	stepAB := referenceframe.FrameSystemPoses{
 		baseNameA: referenceframe.NewPoseInFrame(referenceframe.World, poseA),
 		baseNameB: referenceframe.NewPoseInFrame(referenceframe.World, poseB),
 	}
 
-	t.Run("pathStateFromProto", func(t *testing.T) {
+	t.Run("FrameSystemPosesFromProto", func(t *testing.T) {
 		type testCase struct {
 			description string
 			input       *pb.PlanStep
-			result      PathState
+			result      referenceframe.FrameSystemPoses
 			err         error
 		}
 
@@ -77,23 +77,23 @@ func TestPlanStep(t *testing.T) {
 			{
 				description: "nil pointer returns an error",
 				input:       nil,
-				result:      PathState{},
+				result:      referenceframe.FrameSystemPoses{},
 				err:         errors.New("received nil *pb.PlanStep"),
 			},
 			{
-				description: "an empty *pb.PlanStep returns an empty PathState{}",
+				description: "an empty *pb.PlanStep returns an empty referenceframe.FrameSystemPoses{}",
 				input:       &pb.PlanStep{},
-				result:      PathState{},
+				result:      referenceframe.FrameSystemPoses{},
 			},
 			{
-				description: "a full *pb.PlanStep returns an full PathState{}",
+				description: "a full *pb.PlanStep returns an full referenceframe.FrameSystemPoses{}",
 				input:       protoAB,
 				result:      stepAB,
 			},
 		}
 		for _, tc := range testCases {
 			t.Run(tc.description, func(t *testing.T) {
-				res, err := PathStateFromProto(tc.input)
+				res, err := FrameSystemPosesFromProto(tc.input)
 				if tc.err != nil {
 					test.That(t, err, test.ShouldBeError, tc.err)
 				} else {
@@ -104,26 +104,26 @@ func TestPlanStep(t *testing.T) {
 		}
 	})
 
-	t.Run("ToProto()", func(t *testing.T) {
+	t.Run("FrameSystemPosesToProto()", func(t *testing.T) {
 		type testCase struct {
 			description string
-			input       PathState
+			input       referenceframe.FrameSystemPoses
 			result      *pb.PlanStep
 		}
 
 		testCases := []testCase{
 			{
-				description: "an nil PathState returns an empty *pb.PlanStep",
+				description: "an nil referenceframe.FrameSystemPoses returns an empty *pb.PlanStep",
 				input:       nil,
 				result:      &pb.PlanStep{},
 			},
 			{
-				description: "an empty PathState returns an empty *pb.PlanStep",
-				input:       PathState{},
+				description: "an empty referenceframe.FrameSystemPoses returns an empty *pb.PlanStep",
+				input:       referenceframe.FrameSystemPoses{},
 				result:      &pb.PlanStep{},
 			},
 			{
-				description: "a full PathState{} returns an full *pb.PlanStep",
+				description: "a full referenceframe.FrameSystemPoses{} returns an full *pb.PlanStep",
 				input:       stepAB,
 				result:      protoAB,
 			},
@@ -131,7 +131,7 @@ func TestPlanStep(t *testing.T) {
 
 		for _, tc := range testCases {
 			t.Run(tc.description, func(t *testing.T) {
-				res := tc.input.ToProto()
+				res := FrameSystemPosesToProto(tc.input)
 				test.That(t, res, test.ShouldResemble, tc.result)
 			})
 		}
@@ -153,10 +153,12 @@ func TestNewGeoPlan(t *testing.T) {
 	plan, err := Replan(context.Background(), &PlanRequest{
 		Logger: logging.NewTestLogger(t),
 		StartState: &PlanState{
-			poses:         PathState{kinematicFrame.Name(): referenceframe.NewZeroPoseInFrame(referenceframe.World)},
-			configuration: referenceframe.StartPositions(baseFS),
+			poses:         referenceframe.FrameSystemPoses{kinematicFrame.Name(): referenceframe.NewZeroPoseInFrame(referenceframe.World)},
+			configuration: referenceframe.NewZeroInputs(baseFS),
 		},
-		Goals:       []*PlanState{{poses: PathState{kinematicFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, goal)}}},
+		Goals: []*PlanState{{
+			poses: referenceframe.FrameSystemPoses{kinematicFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, goal)},
+		}},
 		FrameSystem: baseFS,
 	}, nil, math.NaN())
 	test.That(t, err, test.ShouldBeNil)

@@ -478,7 +478,7 @@ func (p PlanWithMetadata) ToProto() *pb.Plan {
 	steps := []*pb.PlanStep{}
 	if p.Plan != nil {
 		for _, s := range p.Path() {
-			steps = append(steps, s.ToProto())
+			steps = append(steps, motionplan.FrameSystemPosesToProto(s))
 		}
 	}
 

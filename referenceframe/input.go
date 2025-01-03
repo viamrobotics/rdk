@@ -2,7 +2,6 @@ package referenceframe
 
 import (
 	"errors"
-	"fmt"
 	"math"
 
 	pb "go.viam.com/api/component/arm/v1"
@@ -99,17 +98,21 @@ func interpolateInputs(from, to []Input, by float64) []Input {
 	return newVals
 }
 
-// GetFrameInputs looks through the inputMap and returns a slice of Inputs corresponding to the given frame.
-func GetFrameInputs(frame Frame, inputMap map[string][]Input) ([]Input, error) {
-	var input []Input
-	// Get frame inputs if necessary
-	if len(frame.DoF()) > 0 {
-		if _, ok := inputMap[frame.Name()]; !ok {
-			return nil, fmt.Errorf("no positions provided for frame with name %s", frame.Name())
+// FrameSystemInputs is an alias for a mapping of frame names to slices of Inputs.
+type FrameSystemInputs map[string][]Input
+
+// ComputePoses computes the poses for each frame in a framesystem in frame of World, using the provided configuration.
+func (inputs FrameSystemInputs) ComputePoses(fs FrameSystem) (FrameSystemPoses, error) {
+	// Compute poses from configuration using the FrameSystem
+	computedPoses := make(FrameSystemPoses)
+	for _, frameName := range fs.FrameNames() {
+		pif, err := fs.Transform(inputs, NewZeroPoseInFrame(frameName), World)
+		if err != nil {
+			return nil, err
 		}
-		input = inputMap[frame.Name()]
+		computedPoses[frameName] = pif.(*PoseInFrame)
 	}
-	return input, nil
+	return computedPoses, nil
 }
 
 // InputsL2Distance returns the square of the two-norm (the sqrt of the sum of the squares) between two Input sets.

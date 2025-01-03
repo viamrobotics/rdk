@@ -597,7 +597,7 @@ func (ptgk *ptgBaseKinematics) stepsToPlan(steps []arcStep, parentFrame string) 
 	traj := motionplan.Trajectory{}
 	path := motionplan.Path{}
 	for _, step := range steps {
-		traj = append(traj, map[string][]referenceframe.Input{ptgk.Kinematics().Name(): step.arcSegment.EndConfiguration})
+		traj = append(traj, referenceframe.FrameSystemInputs{ptgk.Kinematics().Name(): step.arcSegment.EndConfiguration})
 		path = append(path, map[string]*referenceframe.PoseInFrame{
 			ptgk.Kinematics().Name(): referenceframe.NewPoseInFrame(parentFrame, step.arcSegment.EndPosition),
 		})

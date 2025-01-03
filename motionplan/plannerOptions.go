@@ -64,7 +64,7 @@ const (
 	defaultRobotCollisionConstraintDesc = "Collision between a robot component that is moving and one that is stationary"
 
 	// When breaking down a path into smaller waypoints, add a waypoint every this many mm of movement.
-	defaultPathStateSize = 10
+	defaultStepSizeMM = 10
 
 	// This is commented out due to Go compiler bug. See comment in newBasicPlannerOptions for explanation.
 	// var defaultPlanner = newCBiRRTMotionPlanner.
@@ -193,7 +193,7 @@ type plannerOptions struct {
 }
 
 // getGoalMetric creates the distance metric for the solver using the configured options.
-func (p *plannerOptions) getGoalMetric(goal PathState) ik.StateFSMetric {
+func (p *plannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) ik.StateFSMetric {
 	metrics := map[string]ik.StateMetric{}
 	for frame, goalInFrame := range goal {
 		metrics[frame] = p.goalMetricConstructor(goalInFrame.Pose())
@@ -235,8 +235,8 @@ func (p *plannerOptions) SetMinScore(minScore float64) {
 // constraints. It will return a bool indicating whether there are any to add.
 func (p *plannerOptions) addTopoConstraints(
 	fs referenceframe.FrameSystem,
-	startCfg map[string][]referenceframe.Input,
-	from, to PathState,
+	startCfg referenceframe.FrameSystemInputs,
+	from, to referenceframe.FrameSystemPoses,
 	constraints *Constraints,
 ) (bool, error) {
 	topoConstraints := false
@@ -270,8 +270,8 @@ func (p *plannerOptions) addTopoConstraints(
 
 func (p *plannerOptions) addLinearConstraints(
 	fs referenceframe.FrameSystem,
-	startCfg map[string][]referenceframe.Input,
-	from, to PathState,
+	startCfg referenceframe.FrameSystemInputs,
+	from, to referenceframe.FrameSystemPoses,
 	linConstraint LinearConstraint,
 ) error {
 	// Linear constraints
@@ -296,8 +296,8 @@ func (p *plannerOptions) addLinearConstraints(
 
 func (p *plannerOptions) addPseudolinearConstraints(
 	fs referenceframe.FrameSystem,
-	startCfg map[string][]referenceframe.Input,
-	from, to PathState,
+	startCfg referenceframe.FrameSystemInputs,
+	from, to referenceframe.FrameSystemPoses,
 	plinConstraint PseudolinearConstraint,
 ) error {
 	// Linear constraints
@@ -322,8 +322,8 @@ func (p *plannerOptions) addPseudolinearConstraints(
 
 func (p *plannerOptions) addOrientationConstraints(
 	fs referenceframe.FrameSystem,
-	startCfg map[string][]referenceframe.Input,
-	from, to PathState,
+	startCfg referenceframe.FrameSystemInputs,
+	from, to referenceframe.FrameSystemPoses,
 	orientConstraint OrientationConstraint,
 ) error {
 	orientTol := orientConstraint.OrientationToleranceDegs

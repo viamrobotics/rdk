@@ -270,13 +270,13 @@ func TestFrameSystemGeometries(t *testing.T) {
 
 	type testCase struct {
 		name    string
-		inputs  map[string][]Input
+		inputs  FrameSystemInputs
 		success bool
 	}
 
 	// test that boxes are where they should be regardless of input, since neither depend on input to be located
 	for _, tc := range []testCase{
-		{name: "non-nil inputs, zero DOF", inputs: StartPositions(fs)},
+		{name: "non-nil inputs, zero DOF", inputs: NewZeroInputs(fs)},
 		{name: "nil inputs, zero DOF", inputs: nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -319,7 +319,7 @@ func TestFrameSystemGeometries(t *testing.T) {
 
 	// test that boxes are where they should be regardless of input, since neither depend on input to be located
 	for _, tc := range []testCase{
-		{name: "non-nil inputs, non-zero DOF", inputs: StartPositions(fs), success: true},
+		{name: "non-nil inputs, non-zero DOF", inputs: NewZeroInputs(fs), success: true},
 		{name: "nil inputs, non-zero DOF", inputs: nil, success: false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

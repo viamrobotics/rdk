@@ -90,7 +90,7 @@ func TestNewFrameSystemFromConfigWithTransforms(t *testing.T) {
 	ctx := context.Background()
 	emptyIn := []referenceframe.Input{}
 	zeroIn := []referenceframe.Input{{Value: 0.0}}
-	blankPos := make(map[string][]referenceframe.Input)
+	blankPos := make(referenceframe.FrameSystemInputs)
 	blankPos["pieceArm"] = zeroIn
 	logger := logging.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), rdkutils.ResolveFile("robot/impl/data/fake.json"), logger)

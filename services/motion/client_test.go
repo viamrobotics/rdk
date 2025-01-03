@@ -488,7 +488,7 @@ func TestClient(t *testing.T) {
 		})
 
 		t.Run("otherwise returns a slice of PlanWithStatus", func(t *testing.T) {
-			steps := []motionplan.PathState{{"mybase": zeroPoseInFrame}}
+			steps := []referenceframe.FrameSystemPoses{{"mybase": zeroPoseInFrame}}
 			reason := "some reason"
 			id := uuid.New()
 			executionID := uuid.New()
@@ -518,7 +518,7 @@ func TestClient(t *testing.T) {
 		})
 
 		t.Run("supports returning a slice of PlanWithStatus with more than one plan", func(t *testing.T) {
-			steps := []motionplan.PathState{{"mybase": zeroPoseInFrame}}
+			steps := []referenceframe.FrameSystemPoses{{"mybase": zeroPoseInFrame}}
 			reason := "some reason"
 
 			idA := uuid.New()
