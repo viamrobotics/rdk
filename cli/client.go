@@ -502,8 +502,8 @@ func ListLocationsAction(c *cli.Context, args emptyArgs) error {
 }
 
 type listRobotsActionArgs struct {
-	Organization string
-	Location     string
+	OrgID string
+	LocationID     string
 }
 
 // ListRobotsAction is the corresponding Action for 'machines list'.
@@ -512,8 +512,8 @@ func ListRobotsAction(c *cli.Context, args listRobotsActionArgs) error {
 	if err != nil {
 		return err
 	}
-	orgStr := args.Organization
-	locStr := args.Location
+	orgStr := args.OrgID
+	locStr := args.LocationID
 	robots, err := client.listRobots(orgStr, locStr)
 	if err != nil {
 		return errors.Wrap(err, "could not list machines")
@@ -530,8 +530,8 @@ func ListRobotsAction(c *cli.Context, args listRobotsActionArgs) error {
 }
 
 type robotsStatusArgs struct {
-	Organization string
-	Location     string
+	OrgID string
+	LocationID     string
 	Machine      string
 }
 
@@ -542,8 +542,8 @@ func RobotsStatusAction(c *cli.Context, args robotsStatusArgs) error {
 		return err
 	}
 
-	orgStr := args.Organization
-	locStr := args.Location
+	orgStr := args.OrgID
+	locStr := args.LocationID
 	robot, err := client.robot(orgStr, locStr, args.Machine)
 	if err != nil {
 		return err
@@ -605,8 +605,8 @@ func getNumLogs(c *cli.Context, numLogs int) (int, error) {
 }
 
 type robotsLogsArgs struct {
-	Organization string
-	Location     string
+	OrgID string
+	LocationID     string
 	Machine      string
 	Errors       bool
 	Count        int
@@ -619,8 +619,8 @@ func RobotsLogsAction(c *cli.Context, args robotsLogsArgs) error {
 		return err
 	}
 
-	orgStr := args.Organization
-	locStr := args.Location
+	orgStr := args.OrgID
+	locStr := args.LocationID
 	robotStr := args.Machine
 	robot, err := client.robot(orgStr, locStr, robotStr)
 	if err != nil {
@@ -662,8 +662,8 @@ func RobotsLogsAction(c *cli.Context, args robotsLogsArgs) error {
 }
 
 type robotsPartStatusArgs struct {
-	Organization string
-	Location     string
+	OrgID string
+	LocationID     string
 	Machine      string
 	Part         string
 }
@@ -675,8 +675,8 @@ func RobotsPartStatusAction(c *cli.Context, args robotsPartStatusArgs) error {
 		return err
 	}
 
-	orgStr := args.Organization
-	locStr := args.Location
+	orgStr := args.OrgID
+	locStr := args.LocationID
 	robotStr := args.Machine
 	robot, err := client.robot(orgStr, locStr, robotStr)
 	if err != nil {
@@ -709,8 +709,8 @@ func RobotsPartStatusAction(c *cli.Context, args robotsPartStatusArgs) error {
 }
 
 type robotsPartLogsArgs struct {
-	Organization string
-	Location     string
+	OrgID string
+	LocationID     string
 	Machine      string
 	Part         string
 	Errors       bool
@@ -729,8 +729,8 @@ func RobotsPartLogsAction(c *cli.Context, args robotsPartLogsArgs) error {
 }
 
 func (c *viamClient) robotsPartLogsAction(cCtx *cli.Context, args robotsPartLogsArgs) error {
-	orgStr := args.Organization
-	locStr := args.Location
+	orgStr := args.OrgID
+	locStr := args.LocationID
 	robotStr := args.Machine
 	robot, err := c.robot(orgStr, locStr, robotStr)
 	if err != nil {
