@@ -19,10 +19,14 @@ type options struct {
 	// shutdownCallback provides a callback for the robot to be able to shut itself down.
 	shutdownCallback func()
 
+	// whether FTDC is enabled
 	enableFTDC bool
 
 	// disableCompleteConfigWorker starts the robot without the complete config worker - should only be used for tests.
 	disableCompleteConfigWorker bool
+
+	// whether robot should be in an initializing state
+	initializing bool
 }
 
 // Option configures how we set up the web service.
@@ -90,5 +94,12 @@ func WithShutdownCallback(shutdownFunc func()) Option {
 func withDisableCompleteConfigWorker() Option {
 	return newFuncOption(func(o *options) {
 		o.disableCompleteConfigWorker = true
+	})
+}
+
+// WithInitializing returns an Option which sets initializing to true.
+func WithInitializing() Option {
+	return newFuncOption(func(o *options) {
+		o.initializing = true
 	})
 }

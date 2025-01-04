@@ -91,6 +91,11 @@ type localRobot struct {
 
 	// whether the robot is actively reconfiguring
 	reconfiguring atomic.Bool
+
+	// whether the robot is still initializing; can be set with SetInitializing
+	// and defaults to false. this value controls what state will be returned by
+	// the MachineStatus endpoint (initializing if true, running if false.)
+	initializing atomic.Bool
 }
 
 // ExportResourcesAsDot exports the resource graph as a DOT representation for
@@ -388,6 +393,10 @@ func newWithResources(
 		localModuleVersions:        make(map[string]semver.Version),
 		ftdc:                       ftdcWorker,
 	}
+
+	// Use value of initializing from robot options.
+	r.initializing.Store(rOpts.initializing)
+
 	r.mostRecentCfg.Store(config.Config{})
 	var heartbeatWindow time.Duration
 	if cfg.Network.Sessions.HeartbeatWindow == 0 {
@@ -535,20 +544,6 @@ func (r *localRobot) removeOrphanedResources(ctx context.Context,
 			"error", err)
 	}
 	r.updateWeakDependents(ctx)
-}
-
-// resourceHasWeakDependencies will return whether a given resource has weak dependencies.
-// Internal services that depend on other resources are also included in the check.
-func (r *localRobot) resourceHasWeakDependencies(rName resource.Name, node *resource.GraphNode) bool {
-	if len(r.getWeakDependencyMatchers(node.Config().API, node.Config().Model)) > 0 {
-		return true
-	}
-
-	// also return true for internal services that depends on other resources (web, framesystem).
-	if rName == web.InternalServiceName || rName == framesystem.InternalServiceName {
-		return true
-	}
-	return false
 }
 
 // getDependencies derives a collection of dependencies from a robot for a given
@@ -1289,12 +1284,19 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		allErrs = multierr.Combine(allErrs, err)
 	}
 
-	// Cleanup unused packages after all old resources have been closed above. This ensures
-	// processes are shutdown before any files are deleted they are using.
-	allErrs = multierr.Combine(allErrs, r.packageManager.Cleanup(ctx))
-	allErrs = multierr.Combine(allErrs, r.localPackages.Cleanup(ctx))
-	// Cleanup extra dirs from previous modules or rogue scripts.
-	allErrs = multierr.Combine(allErrs, r.manager.moduleManager.CleanModuleDataDirectory())
+	// If not initializing, cleanup unused packages after all old resources have
+	// been closed above. This ensures processes are shutdown before any files
+	// are deleted they are using.
+	//
+	// If initializing, machine will be starting with no modules, but may
+	// immediately reconfigure to start modules that have already been
+	// downloaded. Do not cleanup packages/module dirs in that case.
+	if !r.initializing.Load() {
+		allErrs = multierr.Combine(allErrs, r.packageManager.Cleanup(ctx))
+		allErrs = multierr.Combine(allErrs, r.localPackages.Cleanup(ctx))
+		// Cleanup extra dirs from previous modules or rogue scripts.
+		allErrs = multierr.Combine(allErrs, r.manager.moduleManager.CleanModuleDataDirectory())
+	}
 
 	if allErrs != nil {
 		r.logger.CErrorw(ctx, "The following errors were gathered during reconfiguration", "errors", allErrs)
@@ -1431,6 +1433,10 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 	result.Config = r.configRevision
 	r.configRevisionMu.RUnlock()
 
+	result.State = robot.StateRunning
+	if r.initializing.Load() {
+		result.State = robot.StateInitializing
+	}
 	return result, nil
 }
 
@@ -1531,4 +1537,11 @@ func (r *localRobot) RestartAllowed() bool {
 		return true
 	}
 	return false
+}
+
+// SetInitializing sets the initializing state of the robot. This method can be
+// used after initial configuration to indicate that the robot should return a
+// state of running from the MachineStatus endpoint.
+func (r *localRobot) SetInitializing(initializing bool) {
+	r.initializing.Store(initializing)
 }
