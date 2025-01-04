@@ -79,7 +79,7 @@ func TestRobotAPIKeyCreateAction(t *testing.T) {
 	flags := make(map[string]any)
 	flags[generalFlagOrgID] = fakeOrgID
 	flags[generalFlagMachineID] = fakeRobotID
-	flags[apiKeyCreateFlagName] = "my-name"
+	flags[generalFlagName] = "my-name"
 	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, flags, "token")
 
 	test.That(t, ac.robotAPIKeyCreateAction(cCtx, parseStructFromCtx[robotAPIKeyCreateArgs](cCtx)), test.ShouldBeNil)
@@ -91,8 +91,8 @@ func TestRobotAPIKeyCreateAction(t *testing.T) {
 
 	// test that without name still works
 
-	cCtx.Set(apiKeyCreateFlagName, "")
-	test.That(t, cCtx.Value(apiKeyCreateFlagName), test.ShouldEqual, "")
+	cCtx.Set(generalFlagName, "")
+	test.That(t, cCtx.Value(generalFlagName), test.ShouldEqual, "")
 
 	test.That(t, ac.robotAPIKeyCreateAction(cCtx, parseStructFromCtx[robotAPIKeyCreateArgs](cCtx)), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -134,7 +134,7 @@ func TestRobotAPIKeyCreateAction(t *testing.T) {
 	flags = make(map[string]any)
 	flags[generalFlagMachineID] = fakeRobotID
 	flags[generalFlagOrgID] = ""
-	flags[apiKeyCreateFlagName] = "test-me"
+	flags[generalFlagName] = "test-me"
 	cCtx, ac, out, _ = setup(asc, nil, nil, nil, flags, "token")
 	err = ac.robotAPIKeyCreateAction(cCtx, parseStructFromCtx[robotAPIKeyCreateArgs](cCtx))
 	test.That(t, err, test.ShouldNotBeNil)
@@ -160,7 +160,7 @@ func TestLocationAPIKeyCreateAction(t *testing.T) {
 	flags := make(map[string]any)
 	flags[generalFlagLocationID] = ""
 	flags[generalFlagOrgID] = ""
-	flags[apiKeyCreateFlagName] = "" // testing no locationID
+	flags[generalFlagName] = "" // testing no locationID
 
 	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, flags, "token")
 	err := ac.locationAPIKeyCreateAction(cCtx, parseStructFromCtx[locationAPIKeyCreateArgs](cCtx))
@@ -201,7 +201,7 @@ func TestLocationAPIKeyCreateAction(t *testing.T) {
 	flags = make(map[string]any)
 	flags[generalFlagLocationID] = fakeLocID
 	flags[generalFlagOrgID] = ""
-	flags[apiKeyCreateFlagName] = "test-name"
+	flags[generalFlagName] = "test-name"
 
 	cCtx, ac, _, _ = setup(asc, nil, nil, nil, flags, "token")
 

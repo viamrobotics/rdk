@@ -13,12 +13,9 @@ import (
 
 // CLI flags.
 const (
-	baseURLFlag = "base-url"
-	configFlag  = "config"
-	debugFlag   = "debug"
-	// TODO(RSDK-9287) - replace with `org-id` and `location-id` flags.
-	organizationFlag    = "organization"
-	locationFlag        = "location"
+	baseURLFlag         = "base-url"
+	configFlag          = "config"
+	debugFlag           = "debug"
 	machineFlag         = "machine"
 	aliasRobotFlag      = "robot"
 	partFlag            = "part"
@@ -40,16 +37,15 @@ const (
 	loginFlagKeyID          = "key-id"
 	loginFlagKey            = "key"
 
-	// Flags shared by api-key, module, ml-training and data subcommands.
-	generalFlagOrgID        = "org-id"
-	generalFlagLocationID   = "location-id"
-	generalFlagMachineID    = "machine-id"
-	generalFlagAliasRobotID = "robot-id"
+	// Flags shared by api-key, module, ml-training, package, and data subcommands.
+	generalFlagOrgID           = "org-id"
+	generalFlagAliasOrgID      = "organization"
+	generalFlagLocationID      = "location-id"
+	generalFlagAliasLocationID = "location"
+	generalFlagMachineID       = "machine-id"
+	generalFlagAliasRobotID    = "robot-id"
+	generalFlagName            = "name"
 
-	// TODO(RSDK-9287) - "name" occurs as three different flags. let's simplify that.
-	apiKeyCreateFlagName = "name"
-
-	moduleFlagName            = "name"
 	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
 	moduleFlagPath            = "module"
@@ -121,7 +117,6 @@ const (
 	dataFlagFilterTags                     = "filter-tags"
 	dataFlagTimeout                        = "timeout"
 
-	packageFlagName        = "name"
 	packageFlagVersion     = "version"
 	packageFlagType        = "type"
 	packageFlagDestination = "destination"
@@ -611,7 +606,7 @@ var app = &cli.App{
 									Usage:    "the org to create an api key for",
 								},
 								&cli.StringFlag{
-									Name:  apiKeyCreateFlagName,
+									Name:  generalFlagName,
 									Usage: "the name of the key (defaults to your login info with the current time)",
 								},
 							},
@@ -648,7 +643,7 @@ var app = &cli.App{
 									Usage:    "the location to create an api-key for",
 								},
 								&cli.StringFlag{
-									Name:  apiKeyCreateFlagName,
+									Name:  generalFlagName,
 									Usage: "the name of the key (defaults to your login info with the current time)",
 								},
 								&cli.StringFlag{
@@ -1462,11 +1457,13 @@ var app = &cli.App{
 					Usage: "list machines in an organization and location",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:        organizationFlag,
+							Name:        generalFlagOrgID,
+							Aliases:     []string{generalFlagAliasOrgID},
 							DefaultText: "first organization alphabetically",
 						},
 						&cli.StringFlag{
-							Name:        locationFlag,
+							Name:        generalFlagLocationID,
+							Aliases:     []string{generalFlagAliasLocationID},
 							DefaultText: "first location alphabetically",
 						},
 					},
@@ -1490,12 +1487,12 @@ var app = &cli.App{
 									},
 								},
 								&cli.StringFlag{
-									Name:  apiKeyCreateFlagName,
+									Name:  generalFlagName,
 									Usage: "the name of the key (defaults to your login info with the current time)",
 								},
 								&cli.StringFlag{
 									Name: generalFlagOrgID,
-									Usage: "the org-id to attach this api-key to. If not provided," +
+									Usage: "the org-id to attach this api-key to. If not provided, " +
 										"we will attempt to use the org attached to the machine if only one exists",
 								},
 							},
@@ -1510,11 +1507,13 @@ var app = &cli.App{
 					// TODO(RSDK-9286) - do we need to ask for all three of these?
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:        organizationFlag,
+							Name:        generalFlagOrgID,
+							Aliases:     []string{generalFlagAliasOrgID},
 							DefaultText: "first organization alphabetically",
 						},
 						&cli.StringFlag{
-							Name:        locationFlag,
+							Name:        generalFlagLocationID,
+							Aliases:     []string{generalFlagAliasLocationID},
 							DefaultText: "first location alphabetically",
 						},
 						&AliasStringFlag{
@@ -1535,11 +1534,13 @@ var app = &cli.App{
 					// TODO(RSDK-9286) do we need to ask for og and location and machine here?
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:        organizationFlag,
+							Name:        generalFlagOrgID,
+							Aliases:     []string{generalFlagAliasOrgID},
 							DefaultText: "first organization alphabetically",
 						},
 						&cli.StringFlag{
-							Name:        locationFlag,
+							Name:        generalFlagLocationID,
+							Aliases:     []string{generalFlagAliasLocationID},
 							DefaultText: "first location alphabetically",
 						},
 						&AliasStringFlag{
@@ -1573,11 +1574,13 @@ var app = &cli.App{
 							// TODO(RSDK-9286) do we need to ask for og and location and machine and part here?
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:        organizationFlag,
+									Name:        generalFlagOrgID,
+									Aliases:     []string{generalFlagAliasOrgID},
 									DefaultText: "first organization alphabetically",
 								},
 								&cli.StringFlag{
-									Name:        locationFlag,
+									Name:        generalFlagLocationID,
+									Aliases:     []string{generalFlagAliasLocationID},
 									DefaultText: "first location alphabetically",
 								},
 								&AliasStringFlag{
@@ -1601,11 +1604,13 @@ var app = &cli.App{
 							UsageText: createUsageText("machines part logs", []string{machineFlag, partFlag}, true),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:        organizationFlag,
+									Name:        generalFlagOrgID,
+									Aliases:     []string{generalFlagAliasOrgID},
 									DefaultText: "first organization alphabetically",
 								},
 								&cli.StringFlag{
-									Name:        locationFlag,
+									Name:        generalFlagLocationID,
+									Aliases:     []string{generalFlagAliasLocationID},
 									DefaultText: "first location alphabetically",
 								},
 								&AliasStringFlag{
@@ -1644,11 +1649,13 @@ var app = &cli.App{
 							// TODO(RSDK-9286) revisit flags
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:        organizationFlag,
+									Name:        generalFlagOrgID,
+									Aliases:     []string{generalFlagAliasOrgID},
 									DefaultText: "first organization alphabetically",
 								},
 								&cli.StringFlag{
-									Name:        locationFlag,
+									Name:        generalFlagLocationID,
+									Aliases:     []string{generalFlagAliasLocationID},
 									DefaultText: "first location alphabetically",
 								},
 								&AliasStringFlag{
@@ -1669,15 +1676,17 @@ var app = &cli.App{
 							Name:  "run",
 							Usage: "run a command on a machine part",
 							UsageText: createUsageText("machines part run", []string{
-								organizationFlag, locationFlag, machineFlag, partFlag,
+								generalFlagOrgID, generalFlagLocationID, machineFlag, partFlag,
 							}, true, "<service.method>"),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     organizationFlag,
+									Name:     generalFlagOrgID,
+									Aliases:  []string{generalFlagAliasOrgID},
 									Required: true,
 								},
 								&cli.StringFlag{
-									Name:     locationFlag,
+									Name:     generalFlagLocationID,
+									Aliases:  []string{generalFlagAliasLocationID},
 									Required: true,
 								},
 								&AliasStringFlag{
@@ -1706,14 +1715,16 @@ var app = &cli.App{
 							Name:        "shell",
 							Usage:       "start a shell on a machine part",
 							Description: `In order to use the shell command, the machine must have a valid shell type service.`,
-							UsageText:   createUsageText("machines part shell", []string{organizationFlag, locationFlag, machineFlag, partFlag}, false),
+							UsageText:   createUsageText("machines part shell", []string{generalFlagOrgID, generalFlagLocationID, machineFlag, partFlag}, false),
 							// TODO(RSDK-9286) do we need to ask for og and location and machine and part here?
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name: organizationFlag,
+									Name:    generalFlagOrgID,
+									Aliases: []string{generalFlagAliasOrgID},
 								},
 								&cli.StringFlag{
-									Name: locationFlag,
+									Name:    generalFlagLocationID,
+									Aliases: []string{generalFlagAliasLocationID},
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
@@ -1739,7 +1750,7 @@ required flags if the machine/part name are not unique across your account.
 Note: There is no progress meter while copying is in progress.
 
 Copy a single file to the machine with a new name:
-'viam machine part cp --organization "org" --location "location" --machine "m1" --part "m1-main" my_file machine:/home/user/'
+'viam machine part cp --org-id "org" --location-id "location" --machine "m1" --part "m1-main" my_file machine:/home/user/'
 
 Recursively copy a directory to the machine with the same name:
 'viam machine part cp --machine "m1" --part "m1-main" -r my_dir machine:/home/user/'
@@ -1758,15 +1769,17 @@ Copy multiple files from the machine to a local destination with recursion and k
 `,
 							UsageText: createUsageText(
 								"machines part cp",
-								[]string{organizationFlag, locationFlag, machineFlag, partFlag},
+								[]string{generalFlagOrgID, generalFlagLocationID, machineFlag, partFlag},
 								true,
 								"[-p] [-r] source ([machine:]files) ... target ([machine:]files"),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name: organizationFlag,
+									Name:    generalFlagOrgID,
+									Aliases: []string{generalFlagAliasOrgID},
 								},
 								&cli.StringFlag{
-									Name: locationFlag,
+									Name:    generalFlagLocationID,
+									Aliases: []string{generalFlagAliasLocationID},
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
@@ -1814,10 +1827,10 @@ you won't have to pass a namespace or org-id in future commands. Otherwise there
 and you will have to provide the org-id to future cli commands. You cannot make your module public until you claim an org-id.
 
 After creation, use 'viam module update' to push your new module to app.viam.com.`,
-					UsageText: createUsageText("module create", []string{moduleFlagName}, true),
+					UsageText: createUsageText("module create", []string{generalFlagName}, true),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:     moduleFlagName,
+							Name:     generalFlagName,
 							Usage:    "name of your module (cannot be changed once set)",
 							Required: true,
 						},
@@ -1841,7 +1854,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Usage: "generate a new modular resource via prompts",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:  moduleFlagName,
+							Name:  generalFlagName,
 							Usage: "name to use for module",
 						},
 						&cli.StringFlag{
@@ -1949,7 +1962,7 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 							Usage: "id of the organization that hosts the module",
 						},
 						&cli.StringFlag{
-							Name:  moduleFlagName,
+							Name:  generalFlagName,
 							Usage: "name of the module (used if you don't have a meta.json)",
 						},
 						&cli.StringFlag{
@@ -2162,7 +2175,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Value: "meta.json",
 						},
 						&cli.StringFlag{
-							Name:  moduleFlagName,
+							Name:  generalFlagName,
 							Usage: "name of module to restart. pass at most one of --name, --id",
 						},
 						&cli.StringFlag{
@@ -2238,7 +2251,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage: "organization ID or namespace of the requested package. if missing, will try to read from meta.json",
 						},
 						&cli.StringFlag{
-							Name:  packageFlagName,
+							Name:  generalFlagName,
 							Usage: "name of the requested package. if missing, will try to read from meta.json",
 						},
 						&cli.StringFlag{
@@ -2259,7 +2272,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 					Usage: "upload a package to Viam cloud",
 					UsageText: createUsageText("packages upload",
 						[]string{
-							packageFlagPath, generalFlagOrgID, packageFlagName,
+							packageFlagPath, generalFlagOrgID, generalFlagName,
 							packageFlagVersion, packageFlagType,
 						}, false),
 					Flags: []cli.Flag{
@@ -2274,7 +2287,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage:    "organization ID of the requested package",
 						},
 						&cli.StringFlag{
-							Name:     packageFlagName,
+							Name:     generalFlagName,
 							Required: true,
 							Usage:    "name of the requested package",
 						},

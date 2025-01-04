@@ -656,7 +656,7 @@ func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.Resta
 	modID := args.ID
 	// todo: use MutuallyExclusiveFlags for this when urfave/cli 3.x is stable
 	if (len(modName) > 0) && (len(modID) > 0) {
-		return nil, fmt.Errorf("provide at most one of --%s and --%s", moduleFlagName, moduleBuildFlagBuildID)
+		return nil, fmt.Errorf("provide at most one of --%s and --%s", generalFlagName, moduleBuildFlagBuildID)
 	}
 	request := &robot.RestartModuleRequest{}
 	//nolint:gocritic
@@ -668,7 +668,7 @@ func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.Resta
 		// TODO(APP-4019): remove localize call
 		request.ModuleName = localizeModuleID(manifest.ModuleID)
 	} else {
-		return nil, fmt.Errorf("if there is no meta.json, provide one of --%s or --%s", moduleFlagName, moduleBuildFlagBuildID)
+		return nil, fmt.Errorf("if there is no meta.json, provide one of --%s or --%s", generalFlagName, moduleBuildFlagBuildID)
 	}
 	return request, nil
 }
