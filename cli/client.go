@@ -2109,3 +2109,263 @@ func logEntryFieldsToString(fields []*structpb.Struct) (string, error) {
 	}
 	return message + "}", nil
 }
+
+type pkce string
+
+const (
+	PKCEUnspecified                              pkce = "unspecified"
+	PKCERequired                                 pkce = "required"
+	PKCENotRequired                              pkce = "not_required"
+	PKCENotRequiredWhenUsingClientAuthentication pkce = "not_required_when_using_client_authentication"
+)
+
+func pkceFromProto(pbPKCE apppb.PKCE) pkce {
+	switch pbPKCE {
+	case apppb.PKCE_PKCE_REQUIRED:
+		return PKCERequired
+	case apppb.PKCE_PKCE_NOT_REQUIRED:
+		return PKCENotRequired
+	case apppb.PKCE_PKCE_NOT_REQUIRED_WHEN_USING_CLIENT_AUTHENTICATION:
+		return PKCENotRequiredWhenUsingClientAuthentication
+	}
+	return PKCEUnspecified
+}
+
+func pkceToProto(stringPKCE string) (apppb.PKCE, error) {
+	switch pkce(stringPKCE) {
+	case PKCENotRequired:
+		return apppb.PKCE_PKCE_NOT_REQUIRED, nil
+	case PKCERequired:
+		return apppb.PKCE_PKCE_REQUIRED, nil
+	case PKCENotRequiredWhenUsingClientAuthentication:
+		return apppb.PKCE_PKCE_NOT_REQUIRED_WHEN_USING_CLIENT_AUTHENTICATION, nil
+	case PKCEUnspecified:
+		return apppb.PKCE_PKCE_UNSPECIFIED, nil
+	}
+	return apppb.PKCE_PKCE_UNSPECIFIED, errors.Errorf("--%s must be a valid PKCE, got %s. "+
+		"See `viam organizations auth-service oauth-app update --help` for supported options",
+		oauthAppFlagPKCE, stringPKCE)
+}
+
+type clientAuthentication string
+
+const (
+	ClientAuthenticationUnspecified              clientAuthentication = "unspecified"
+	ClientAuthenticationRequired                 clientAuthentication = "required"
+	ClientAuthenticationNotRequired              clientAuthentication = "not_required"
+	ClientAuthenticationNotRequiredWhenUsingPKCE clientAuthentication = "not_required_when_using_pkce"
+)
+
+func clientAuthFromProto(clientAuth apppb.ClientAuthentication) clientAuthentication {
+	switch clientAuth {
+	case apppb.ClientAuthentication_CLIENT_AUTHENTICATION_NOT_REQUIRED:
+		return ClientAuthenticationNotRequired
+	case apppb.ClientAuthentication_CLIENT_AUTHENTICATION_REQUIRED:
+		return ClientAuthenticationRequired
+	case apppb.ClientAuthentication_CLIENT_AUTHENTICATION_NOT_REQUIRED_WHEN_USING_PKCE:
+		return ClientAuthenticationNotRequiredWhenUsingPKCE
+	}
+	return ClientAuthenticationUnspecified
+}
+
+func clientAuthToProto(clientAuth string) (apppb.ClientAuthentication, error) {
+	switch clientAuthentication(clientAuth) {
+	case ClientAuthenticationNotRequired:
+		return apppb.ClientAuthentication_CLIENT_AUTHENTICATION_NOT_REQUIRED, nil
+	case ClientAuthenticationRequired:
+		return apppb.ClientAuthentication_CLIENT_AUTHENTICATION_REQUIRED, nil
+	case ClientAuthenticationNotRequiredWhenUsingPKCE:
+		return apppb.ClientAuthentication_CLIENT_AUTHENTICATION_NOT_REQUIRED_WHEN_USING_PKCE, nil
+	case ClientAuthenticationUnspecified:
+		return apppb.ClientAuthentication_CLIENT_AUTHENTICATION_UNSPECIFIED, nil
+	}
+	return apppb.ClientAuthentication_CLIENT_AUTHENTICATION_UNSPECIFIED, errors.Errorf("--%s must be a valid ClientAuthentication, got %s. "+
+		"See `viam organizations auth-service oauth-app update --help` for supported options",
+		oauthAppFlagClientAuthentication, clientAuth)
+}
+
+type urlValidation string
+
+const (
+	URLValidationUnspecified    urlValidation = "unspecified"
+	URLValidationExactMatch     urlValidation = "exact_match"
+	URLValidationAllowWildcards urlValidation = "allow_wildcards"
+)
+
+func urlValidationFromProto(urlValidation apppb.URLValidation) urlValidation {
+	switch urlValidation {
+	case apppb.URLValidation_URL_VALIDATION_ALLOW_WILDCARDS:
+		return URLValidationAllowWildcards
+	case apppb.URLValidation_URL_VALIDATION_EXACT_MATCH:
+		return URLValidationExactMatch
+	}
+	return URLValidationUnspecified
+}
+
+func urlValidationToProto(urlValid string) (apppb.URLValidation, error) {
+	switch urlValidation(urlValid) {
+	case URLValidationAllowWildcards:
+		return apppb.URLValidation_URL_VALIDATION_ALLOW_WILDCARDS, nil
+	case URLValidationExactMatch:
+		return apppb.URLValidation_URL_VALIDATION_EXACT_MATCH, nil
+	case URLValidationUnspecified:
+		return apppb.URLValidation_URL_VALIDATION_UNSPECIFIED, nil
+	}
+	return apppb.URLValidation_URL_VALIDATION_UNSPECIFIED, errors.Errorf("--%s must be a valid UrlValidation, got %s. "+
+		"See `viam organizations auth-service oauth-app update --help` for supported options",
+		oauthAppFlagURLValidation, urlValid)
+}
+
+type enabledGrant string
+
+const (
+	EnabledGrantUnspecified       enabledGrant = "unspecified"
+	EnabledGrantAuthorizationCode enabledGrant = "authorization_code"
+	EnabledGrantImplicit          enabledGrant = "implicit"
+	EnabledGrantPassword          enabledGrant = "password"
+	EnabledGrantRefreshToken      enabledGrant = "refresh_token"
+	EnabledGrantDeviceCode        enabledGrant = "device_code"
+)
+
+func enabledGrantFromProto(eg apppb.EnabledGrant) enabledGrant {
+	switch eg {
+	case apppb.EnabledGrant_ENABLED_GRANT_AUTHORIZATION_CODE:
+		return EnabledGrantAuthorizationCode
+	case apppb.EnabledGrant_ENABLED_GRANT_IMPLICIT:
+		return EnabledGrantImplicit
+	case apppb.EnabledGrant_ENABLED_GRANT_PASSWORD:
+		return EnabledGrantPassword
+	case apppb.EnabledGrant_ENABLED_GRANT_REFRESH_TOKEN:
+		return EnabledGrantRefreshToken
+	case apppb.EnabledGrant_ENABLED_GRANT_DEVICE_CODE:
+		return EnabledGrantDeviceCode
+	}
+	return EnabledGrantUnspecified
+}
+
+func enabledGrantToProto(eg string) (apppb.EnabledGrant, error) {
+	switch enabledGrant(eg) {
+	case EnabledGrantAuthorizationCode:
+		return apppb.EnabledGrant_ENABLED_GRANT_AUTHORIZATION_CODE, nil
+	case EnabledGrantImplicit:
+		return apppb.EnabledGrant_ENABLED_GRANT_IMPLICIT, nil
+	case EnabledGrantPassword:
+		return apppb.EnabledGrant_ENABLED_GRANT_PASSWORD, nil
+	case EnabledGrantRefreshToken:
+		return apppb.EnabledGrant_ENABLED_GRANT_REFRESH_TOKEN, nil
+	case EnabledGrantDeviceCode:
+		return apppb.EnabledGrant_ENABLED_GRANT_DEVICE_CODE, nil
+	case EnabledGrantUnspecified:
+		return apppb.EnabledGrant_ENABLED_GRANT_UNSPECIFIED, nil
+	}
+	return apppb.EnabledGrant_ENABLED_GRANT_UNSPECIFIED, errors.Errorf("%s must consist of valid EnabledGrants, got %s. "+
+		"See `viam organizations auth-service oauth-app update --help` for supported options",
+		oauthAppFlagEnabledGrants, eg)
+}
+
+type updateOAuthAppArgs struct {
+	OrgID                string
+	ClientID             string
+	ClientName           string
+	ClientAuthentication string
+	Pkce                 string
+	LogoutURI            string
+	UrlValidation        string //nolint:revive,stylecheck
+	OriginURIs           []string
+	RedirectURIs         []string
+	EnabledGrants        []string
+}
+
+func formatAcceptedValues(values ...string) string {
+	joined := strings.Join(values, ", ")
+	return "[" + joined + "]"
+}
+
+// UpdateOAuthAppAction is the corresponding action for 'oauth-app update'.
+func UpdateOAuthAppAction(c *cli.Context, args updateOAuthAppArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	return client.updateOAuthAppAction(c, args)
+}
+
+func (c *viamClient) updateOAuthAppAction(cCtx *cli.Context, args updateOAuthAppArgs) error {
+	// if err := c.ensureLoggedIn(); err != nil {
+	// 	return err
+	// }
+
+	req, err := createUpdateOAuthAppRequest(args)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.client.UpdateOAuthApp(c.c.Context, req)
+	if err != nil {
+		return err
+	}
+
+	printf(cCtx.App.Writer, "Successfully updated OAuth app %s", args.ClientID)
+	return nil
+}
+
+func createUpdateOAuthAppRequest(args updateOAuthAppArgs) (*apppb.UpdateOAuthAppRequest, error) {
+	orgID := args.OrgID
+	clientID := args.ClientID
+	clientName := args.ClientName
+	originURIs := args.OriginURIs
+	redirectURIs := args.RedirectURIs
+	logoutURI := args.LogoutURI
+	enabledGrants := args.EnabledGrants
+
+	clientAuthentication, err := clientAuthToProto(args.ClientAuthentication)
+	if err != nil {
+		return nil, err
+	}
+	pkce, err := pkceToProto(args.Pkce)
+	if err != nil {
+		return nil, err
+	}
+
+	urlValidation, err := urlValidationToProto(args.UrlValidation)
+	if err != nil {
+		return nil, err
+	}
+
+	egProto, err := enabledGrantsToProto(enabledGrants)
+	if err != nil {
+		return nil, err
+	}
+
+	req := &apppb.UpdateOAuthAppRequest{
+		OrgId:      orgID,
+		ClientId:   clientID,
+		ClientName: clientName,
+		OauthConfig: &apppb.OAuthConfig{
+			ClientAuthentication: clientAuthentication,
+			Pkce:                 pkce,
+			UrlValidation:        urlValidation,
+			OriginUris:           originURIs,
+			RedirectUris:         redirectURIs,
+			LogoutUri:            logoutURI,
+			EnabledGrants:        egProto,
+		},
+	}
+	return req, nil
+}
+
+func enabledGrantsToProto(enabledGrants []string) ([]apppb.EnabledGrant, error) {
+	if enabledGrants == nil {
+		return nil, nil
+	}
+	enabledGrantsProto := make([]apppb.EnabledGrant, len(enabledGrants))
+	for i, eg := range enabledGrants {
+		enabledGrant, err := enabledGrantToProto(eg)
+		if err != nil {
+			return nil, err
+		}
+		enabledGrantsProto[i] = enabledGrant
+	}
+	return enabledGrantsProto, nil
+}
