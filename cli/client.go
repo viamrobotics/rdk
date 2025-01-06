@@ -49,9 +49,6 @@ import (
 )
 
 const (
-	formatJSON = "json"
-	formatText = "text"
-
 	rdkReleaseURL = "https://api.github.com/repos/viamrobotics/rdk/releases/latest"
 	// defaultNumLogs is the same as the number of logs currently returned by app
 	// in a single GetRobotPartLogsResponse.
@@ -659,7 +656,7 @@ func RobotsLogsAction(c *cli.Context, args robotsLogsArgs) error {
 func (c *viamClient) fetchAndSaveLogs(robot *apppb.Robot, parts []*apppb.RobotPart, args robotsLogsArgs, writer io.Writer) error {
 	for i, part := range parts {
 		// Write a header for text format
-		if args.Format == formatText || args.Format == "" {
+		if args.Format == "text" || args.Format == "" {
 			// Add robot information as a header for context
 			if i == 0 {
 				header := fmt.Sprintf("Robot: %s -> Location: %s -> Organization: %s -> Machine: %s\n",
@@ -740,7 +737,7 @@ func formatLog(log *commonpb.LogEntry, partName, format string) (string, error) 
 	}
 
 	switch format {
-	case formatJSON:
+	case "json":
 		logMap := map[string]interface{}{
 			"part":    partName,
 			"ts":      log.Time.AsTime().Unix(),
@@ -755,7 +752,7 @@ func formatLog(log *commonpb.LogEntry, partName, format string) (string, error) 
 			return "", errors.Wrap(err, "failed to marshal log to JSON")
 		}
 		return string(logJSON), nil
-	case formatText, "":
+	case "text", "":
 		return fmt.Sprintf(
 			"%s\t%s\t%s\t%s\t%s",
 			log.Time.AsTime().Format(logging.DefaultTimeFormatStr),
@@ -1846,7 +1843,7 @@ func (c *viamClient) runRobotPartCommand(
 
 	invoke := func() (bool, error) {
 		rf, formatter, err := grpcurl.RequestParserAndFormatter(
-			grpcurl.Format(formatJSON),
+			grpcurl.Format("json"),
 			descSource,
 			strings.NewReader(data),
 			options)
