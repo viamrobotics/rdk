@@ -2129,6 +2129,7 @@ func TestMachineStatus(t *testing.T) {
 						},
 					},
 				},
+				State: robot.StateRunning,
 			},
 			0,
 		},
