@@ -61,7 +61,7 @@ func TestFullReloadFlow(t *testing.T) {
 		},
 	}, nil, &inject.BuildServiceClient{}, nil,
 		map[string]any{
-			moduleBuildFlagPath: manifestPath, generalFlagPart: "part-123",
+			moduleBuildFlagPath: manifestPath, generalFlagPartID: "part-123",
 			moduleBuildFlagNoBuild: true, moduleFlagLocal: true,
 		},
 		"token",

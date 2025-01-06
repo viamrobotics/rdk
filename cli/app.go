@@ -2184,7 +2184,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 	# and configure or restart it.
 	# The GOARCH env in this case would get passed to an underlying go build (assuming you're targeting an arm device).
 	# Note that you'll still need to add the components for your models after your module is installed.
-	GOARCH=arm64 viam module reload --part UUID
+	GOARCH=arm64 viam module reload --part-id UUID
 
 	# Restart a module running on your local viam server, by name, without building or reconfiguring.
 	viam module reload --restart-only --id viam:python-example-module
