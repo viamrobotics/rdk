@@ -1595,10 +1595,12 @@ var app = &cli.App{
 										Required: true,
 									},
 								},
-								&cli.StringFlag{
-									Name:     generalFlagPart,
-									Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
-									Required: true,
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:     generalFlagPart,
+										Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
+										Required: true,
+									},
 								},
 							},
 							Action: createCommandWithT[robotsPartStatusArgs](RobotsPartStatusAction),
@@ -1626,10 +1628,12 @@ var app = &cli.App{
 										Required: true,
 									},
 								},
-								&cli.StringFlag{
-									Name:     generalFlagPart,
-									Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
-									Required: true,
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:     generalFlagPart,
+										Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
+										Required: true,
+									},
 								},
 								&cli.BoolFlag{
 									Name:  logsFlagErrors,
@@ -1672,10 +1676,12 @@ var app = &cli.App{
 										Required: true,
 									},
 								},
-								&cli.StringFlag{
-									Name:     generalFlagPart,
-									Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
-									Required: true,
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:     generalFlagPart,
+										Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
+										Required: true,
+									},
 								},
 							},
 							Action: createCommandWithT[robotsPartRestartArgs](RobotsPartRestartAction),
@@ -1687,15 +1693,19 @@ var app = &cli.App{
 								generalFlagOrganization, generalFlagLocation, generalFlagMachine, generalFlagPart,
 							}, true, "<service.method>"),
 							Flags: []cli.Flag{
-								&cli.StringFlag{
-									Name:     generalFlagOrganization,
-									Aliases:  []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-									Required: true,
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:     generalFlagOrganization,
+										Aliases:  []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+										Required: true,
+									},
 								},
-								&cli.StringFlag{
-									Name:     generalFlagLocation,
-									Aliases:  []string{generalFlagLocationID, generalFlagAliasLocationName},
-									Required: true,
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:     generalFlagLocation,
+										Aliases:  []string{generalFlagLocationID, generalFlagAliasLocationName},
+										Required: true,
+									},
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
@@ -1704,10 +1714,12 @@ var app = &cli.App{
 										Required: true,
 									},
 								},
-								&cli.StringFlag{
-									Name:     generalFlagPart,
-									Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
-									Required: true,
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:     generalFlagPart,
+										Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
+										Required: true,
+									},
 								},
 								&cli.StringFlag{
 									Name:    runFlagData,
@@ -1800,10 +1812,12 @@ Copy multiple files from the machine to a local destination with recursion and k
 										Required: true,
 									},
 								},
-								&cli.StringFlag{
-									Name:     generalFlagPart,
-									Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
-									Required: true,
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:     generalFlagPart,
+										Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
+										Required: true,
+									},
 								},
 								&cli.BoolFlag{
 									Name:    cpFlagRecursive,
