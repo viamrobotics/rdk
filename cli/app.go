@@ -48,7 +48,7 @@ const (
 	generalFlagAliasRobot        = "robot"
 	generalFlagAliasRobotID      = "robot-id"
 	generalFlagPart              = "part"
-	generalFlagAliasPartNAme     = "part-name"
+	generalFlagAliasPartName     = "part-name"
 	generalFlagPartID            = "part-id"
 	generalFlagName              = "name"
 
@@ -1481,7 +1481,7 @@ var app = &cli.App{
 						{
 							Name:      "create",
 							Usage:     "create an api-key for your machine",
-							UsageText: createUsageText("machines api-key create", []string{generalFlagMachine}, true),
+							UsageText: createUsageText("machines api-key create", []string{generalFlagMachineID}, true),
 							Flags: []cli.Flag{
 								&AliasStringFlag{
 									cli.StringFlag{
@@ -1524,7 +1524,7 @@ var app = &cli.App{
 						&AliasStringFlag{
 							cli.StringFlag{
 								Name:     generalFlagMachine,
-								Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID},
+								Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
 								Required: true,
 							},
 						},
@@ -1597,7 +1597,7 @@ var app = &cli.App{
 								},
 								&cli.StringFlag{
 									Name:     generalFlagPart,
-									Aliases:  []string{generalFlagPartID, generalFlagAliasPartNAme},
+									Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
 									Required: true,
 								},
 							},
@@ -1628,7 +1628,7 @@ var app = &cli.App{
 								},
 								&cli.StringFlag{
 									Name:     generalFlagPart,
-									Aliases:  []string{generalFlagPartID, generalFlagAliasPartNAme},
+									Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
 									Required: true,
 								},
 								&cli.BoolFlag{
@@ -1674,7 +1674,7 @@ var app = &cli.App{
 								},
 								&cli.StringFlag{
 									Name:     generalFlagPart,
-									Aliases:  []string{generalFlagPartID, generalFlagAliasPartNAme},
+									Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
 									Required: true,
 								},
 							},
@@ -1706,7 +1706,7 @@ var app = &cli.App{
 								},
 								&cli.StringFlag{
 									Name:     generalFlagPart,
-									Aliases:  []string{generalFlagPartID, generalFlagAliasPartNAme},
+									Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
 									Required: true,
 								},
 								&cli.StringFlag{
@@ -1745,7 +1745,7 @@ var app = &cli.App{
 								},
 								&cli.StringFlag{
 									Name:    generalFlagPart,
-									Aliases: []string{generalFlagPartID, generalFlagAliasPartNAme},
+									Aliases: []string{generalFlagPartID, generalFlagAliasPartName},
 								},
 							},
 							Action: createCommandWithT[robotsPartShellArgs](RobotsPartShellAction),
@@ -1802,7 +1802,7 @@ Copy multiple files from the machine to a local destination with recursion and k
 								},
 								&cli.StringFlag{
 									Name:     generalFlagPart,
-									Aliases:  []string{generalFlagPartID, generalFlagAliasPartNAme},
+									Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
 									Required: true,
 								},
 								&cli.BoolFlag{
@@ -2379,11 +2379,9 @@ This won't work unless you have an existing installation of our GitHub app on yo
 					Action: createCommandWithT[mlTrainingUploadArgs](MLTrainingUploadAction),
 				},
 				{
-					Name:  "update",
-					Usage: "update ML training scripts for custom ML training",
-					UsageText: createUsageText(
-						"training-script update", []string{generalFlagOrgID, mlTrainingFlagName, mlTrainingFlagVisibility}, true,
-					),
+					Name:      "update",
+					Usage:     "update ML training scripts for custom ML training",
+					UsageText: createUsageText("training-script update", []string{generalFlagOrgID, mlTrainingFlagName, mlTrainingFlagVisibility}, true),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     generalFlagOrgID,
