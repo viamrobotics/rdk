@@ -1011,7 +1011,7 @@ func (m *module) dial() error {
 	}
 	conn, err := grpc.Dial( //nolint:staticcheck
 		addrToDial,
-		// grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(rpc.MaxMessageSize)),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(rpc.MaxMessageSize)),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithChainUnaryInterceptor(
 			rdkgrpc.EnsureTimeoutUnaryClientInterceptor,
