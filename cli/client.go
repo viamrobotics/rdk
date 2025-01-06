@@ -468,7 +468,7 @@ type listOAuthAppsArgs struct {
 	OrgID string
 }
 
-// ListOAuthAppsAction corresponds to `list-oauth-apps`.
+// ListOAuthAppsAction corresponds to `organizations auth-service oauth-app list`.
 func ListOAuthAppsAction(cCtx *cli.Context, args listOAuthAppsArgs) error {
 	c, err := newViamClient(cCtx)
 	if err != nil {

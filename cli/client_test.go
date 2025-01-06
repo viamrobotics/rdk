@@ -352,6 +352,24 @@ func TestGetLogoAction(t *testing.T) {
 	test.That(t, out.messages[0], test.ShouldContainSubstring, "https://logo.com")
 }
 
+func TestListOAuthAppsAction(t *testing.T) {
+	listOAuthAppFunc := func(ctx context.Context, in *apppb.ListOAuthAppsRequest, opts ...grpc.CallOption) (
+		*apppb.ListOAuthAppsResponse, error,
+	) {
+		return &apppb.ListOAuthAppsResponse{}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		ListOAuthAppsFunc: listOAuthAppFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+	test.That(t, ac.listOAuthAppsAction(cCtx, "test-org"), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "No OAuth apps found for organization")
+}
+
 func TestDeleteOAuthAppAction(t *testing.T) {
 	deleteOAuthAppFunc := func(ctx context.Context, in *apppb.DeleteOAuthAppRequest, opts ...grpc.CallOption) (
 		*apppb.DeleteOAuthAppResponse, error,
