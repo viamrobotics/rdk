@@ -16,7 +16,6 @@ const (
 	baseURLFlag         = "base-url"
 	configFlag          = "config"
 	debugFlag           = "debug"
-	partFlag            = "part"
 	profileFlag         = "profile"
 	disableProfilesFlag = "disable-profiles"
 	profileFlagName     = "profile-name"
@@ -44,6 +43,8 @@ const (
 	generalFlagAliasMachine    = "machine"
 	generalFlagAliasRobot      = "robot"
 	generalFlagAliasRobotID    = "robot-id"
+	generalFlagPartID          = "part-id"
+	generalFlagAliasPart       = "part"
 	generalFlagName            = "name"
 
 	moduleFlagLanguage        = "language"
@@ -97,7 +98,6 @@ const (
 	dataFlagDataType                       = "data-type"
 	dataFlagOrgIDs                         = "org-ids"
 	dataFlagLocationIDs                    = "location-ids"
-	dataFlagPartID                         = "part-id"
 	dataFlagMachineName                    = "machine-name"
 	dataFlagAliasRobotName                 = "robot-name"
 	dataFlagPartName                       = "part-name"
@@ -161,7 +161,7 @@ var commonFilterFlags = []cli.Flag{
 		},
 	},
 	&cli.StringFlag{
-		Name:  dataFlagPartID,
+		Name:  generalFlagPartID,
 		Usage: "part id filter",
 	},
 	&AliasStringFlag{
@@ -766,7 +766,7 @@ var app = &cli.App{
 							Usage: "download tabular data",
 							UsageText: createUsageText("data export tabular", []string{
 								dataFlagDestination,
-								dataFlagPartID,
+								generalFlagPartID,
 								dataFlagResourceName,
 								dataFlagResourceSubtype,
 								dataFlagMethod,
@@ -778,7 +778,7 @@ var app = &cli.App{
 									Usage:    "output directory for downloaded data",
 								},
 								&cli.StringFlag{
-									Name:     dataFlagPartID,
+									Name:     generalFlagPartID,
 									Required: true,
 									Usage:    "part id",
 								},
@@ -847,7 +847,7 @@ var app = &cli.App{
 									},
 								},
 								&cli.StringFlag{
-									Name:  dataFlagPartID,
+									Name:  generalFlagPartID,
 									Usage: "part id filter",
 								},
 								&AliasStringFlag{
@@ -1570,7 +1570,7 @@ var app = &cli.App{
 						{
 							Name:      "status",
 							Usage:     "display part status",
-							UsageText: createUsageText("machines part status", []string{generalFlagMachineID, partFlag}, true),
+							UsageText: createUsageText("machines part status", []string{generalFlagMachineID, generalFlagPartID}, true),
 							// TODO(RSDK-9286) do we need to ask for og and location and machine and part here?
 							Flags: []cli.Flag{
 								&cli.StringFlag{
@@ -1591,7 +1591,8 @@ var app = &cli.App{
 									},
 								},
 								&cli.StringFlag{
-									Name:     partFlag,
+									Name:     generalFlagPartID,
+									Aliases:  []string{generalFlagAliasPart},
 									Required: true,
 								},
 							},
@@ -1601,7 +1602,7 @@ var app = &cli.App{
 							Name:      "logs",
 							Aliases:   []string{"log"},
 							Usage:     "display part logs",
-							UsageText: createUsageText("machines part logs", []string{generalFlagMachineID, partFlag}, true),
+							UsageText: createUsageText("machines part logs", []string{generalFlagMachineID, generalFlagPartID}, true),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:        generalFlagOrgID,
@@ -1621,7 +1622,8 @@ var app = &cli.App{
 									},
 								},
 								&cli.StringFlag{
-									Name:     partFlag,
+									Name:     generalFlagPartID,
+									Aliases:  []string{generalFlagAliasPart},
 									Required: true,
 								},
 								&cli.BoolFlag{
@@ -1645,7 +1647,7 @@ var app = &cli.App{
 							Name:      "restart",
 							Aliases:   []string{},
 							Usage:     "request part restart",
-							UsageText: createUsageText("machines part restart", []string{generalFlagMachineID, partFlag}, true),
+							UsageText: createUsageText("machines part restart", []string{generalFlagMachineID, generalFlagPartID}, true),
 							// TODO(RSDK-9286) revisit flags
 							Flags: []cli.Flag{
 								&cli.StringFlag{
@@ -1666,7 +1668,8 @@ var app = &cli.App{
 									},
 								},
 								&cli.StringFlag{
-									Name:     partFlag,
+									Name:     generalFlagPartID,
+									Aliases:  []string{generalFlagAliasPart},
 									Required: true,
 								},
 							},
@@ -1676,7 +1679,7 @@ var app = &cli.App{
 							Name:  "run",
 							Usage: "run a command on a machine part",
 							UsageText: createUsageText("machines part run", []string{
-								generalFlagOrgID, generalFlagLocationID, generalFlagMachineID, partFlag,
+								generalFlagOrgID, generalFlagLocationID, generalFlagMachineID, generalFlagPartID,
 							}, true, "<service.method>"),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
@@ -1697,7 +1700,8 @@ var app = &cli.App{
 									},
 								},
 								&cli.StringFlag{
-									Name:     partFlag,
+									Name:     generalFlagPartID,
+									Aliases:  []string{generalFlagAliasPart},
 									Required: true,
 								},
 								&cli.StringFlag{
@@ -1716,7 +1720,7 @@ var app = &cli.App{
 							Usage:       "start a shell on a machine part",
 							Description: `In order to use the shell command, the machine must have a valid shell type service.`,
 							UsageText: createUsageText(
-								"machines part shell", []string{generalFlagOrgID, generalFlagLocationID, generalFlagMachineID, partFlag}, false,
+								"machines part shell", []string{generalFlagOrgID, generalFlagLocationID, generalFlagMachineID, generalFlagPartID}, false,
 							),
 							// TODO(RSDK-9286) do we need to ask for og and location and machine and part here?
 							Flags: []cli.Flag{
@@ -1735,7 +1739,8 @@ var app = &cli.App{
 									},
 								},
 								&cli.StringFlag{
-									Name: partFlag,
+									Name:    generalFlagPartID,
+									Aliases: []string{generalFlagAliasPart},
 								},
 							},
 							Action: createCommandWithT[robotsPartShellArgs](RobotsPartShellAction),
@@ -1771,7 +1776,7 @@ Copy multiple files from the machine to a local destination with recursion and k
 `,
 							UsageText: createUsageText(
 								"machines part cp",
-								[]string{generalFlagOrgID, generalFlagLocationID, generalFlagMachineID, partFlag},
+								[]string{generalFlagOrgID, generalFlagLocationID, generalFlagMachineID, generalFlagPartID},
 								true,
 								"[-p] [-r] source ([machine:]files) ... target ([machine:]files"),
 							Flags: []cli.Flag{
@@ -1791,7 +1796,8 @@ Copy multiple files from the machine to a local destination with recursion and k
 									},
 								},
 								&cli.StringFlag{
-									Name:     partFlag,
+									Name:     generalFlagPartID,
+									Aliases:  []string{generalFlagAliasPart},
 									Required: true,
 								},
 								&cli.BoolFlag{
@@ -2168,8 +2174,9 @@ This won't work unless you have an existing installation of our GitHub app on yo
 	viam module reload --local`,
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:  partFlag,
-							Usage: "part ID of machine. get from 'Live/Offline' dropdown in the web app, or leave it blank to use /etc/viam.json",
+							Name:    generalFlagPartID,
+							Aliases: []string{generalFlagAliasPart},
+							Usage:   "part ID of machine. get from 'Live/Offline' dropdown in the web app, or leave it blank to use /etc/viam.json",
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagPath,

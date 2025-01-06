@@ -491,7 +491,7 @@ func jobStatusFromProto(s buildpb.JobStatus) jobStatus {
 }
 
 type reloadModuleArgs struct {
-	Part        string
+	PartID      string
 	Module      string
 	RestartOnly bool
 	NoBuild     bool
@@ -509,7 +509,7 @@ func ReloadModuleAction(c *cli.Context, args reloadModuleArgs) error {
 
 // reloadModuleAction is the testable inner reload logic.
 func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs) error {
-	partID, err := resolvePartID(c.Context, args.Part, "/etc/viam.json")
+	partID, err := resolvePartID(c.Context, args.PartID, "/etc/viam.json")
 	if err != nil {
 		return err
 	}
