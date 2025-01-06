@@ -1463,7 +1463,7 @@ var app = &cli.App{
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:        generalFlagOrganization,
-							Aliases:     []string{generalFlagOrgID, generalFlagAliasOrg, generalFlagAliasOrgName},
+							Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
 							DefaultText: "first organization alphabetically",
 						},
 						&cli.StringFlag{
