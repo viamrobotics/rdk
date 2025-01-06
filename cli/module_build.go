@@ -50,11 +50,12 @@ const (
 var moduleBuildPollingInterval = 2 * time.Second
 
 type moduleBuildStartArgs struct {
-	Module  string
-	Version string
-	Ref     string
-	Token   string
-	Workdir string
+	Module    string
+	Version   string
+	Ref       string
+	Token     string
+	Workdir   string
+	Platforms []string
 }
 
 // ModuleBuildStartAction starts a cloud build.
@@ -79,8 +80,12 @@ func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context, args moduleBuildS
 	// Clean the version argument to ensure compatibility with github tag standards
 	version = strings.TrimPrefix(version, "v")
 
-	platforms := manifest.Build.Arch
-	if len(platforms) == 0 {
+	var platforms []string
+	if len(args.Platforms) > 0 { //nolint:gocritic
+		platforms = args.Platforms
+	} else if len(manifest.Build.Arch) > 0 {
+		platforms = manifest.Build.Arch
+	} else {
 		platforms = defaultBuildInfo.Arch
 	}
 
@@ -173,8 +178,6 @@ func (c *viamClient) moduleBuildListAction(cCtx *cli.Context, args moduleBuildLi
 	var buildIDFilter *string
 	var moduleIDFilter string
 	// This will use the build id if present and fall back on the module manifest if not
-	// TODO(RSDK-9447) - This usage of `cCtx.IsSet` is an unfortunate necessity. See comment
-	// in `cli/app.go` for more details.
 	if cCtx.IsSet(moduleBuildFlagBuildID) {
 		buildIDFilter = &args.ID
 	} else {
@@ -551,7 +554,10 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs) e
 				return err
 			}
 			infof(c.App.Writer, "Copying %s to part %s", manifest.Build.Path, part.Part.Id)
-			args := parseStructFromCtx[globalArgs](c)
+			args, err := getGlobalArgs(c)
+			if err != nil {
+				return err
+			}
 			err = vc.copyFilesToFqdn(
 				part.Part.Fqdn, args.Debug, false, false, []string{manifest.Build.Path},
 				reloadingDestination(c, manifest), logging.NewLogger("reload"))
@@ -684,7 +690,10 @@ func restartModule(c *cli.Context, vc *viamClient, part *apppb.RobotPart, manife
 		return errors.New("API keys list for this machine is empty. You can create one with \"viam machine api-key create\"")
 	}
 	key := apiRes.ApiKeys[0]
-	args := parseStructFromCtx[globalArgs](c)
+	args, err := getGlobalArgs(c)
+	if err != nil {
+		return err
+	}
 	debugf(c.App.Writer, args.Debug, "using API key: %s %s", key.ApiKey.Id, key.ApiKey.Name)
 	creds := rpc.WithEntityCredentials(key.ApiKey.Id, rpc.Credentials{
 		Type:    rpc.CredentialsTypeAPIKey,

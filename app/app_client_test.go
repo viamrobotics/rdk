@@ -1004,6 +1004,19 @@ func TestAppClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
+	t.Run("EnableBillingSevice", func(t *testing.T) {
+		grpcClient.EnableBillingServiceFunc = func(
+			ctx context.Context, in *pb.EnableBillingServiceRequest, opts ...grpc.CallOption,
+		) (*pb.EnableBillingServiceResponse, error) {
+			test.That(t, in.OrgId, test.ShouldEqual, organizationID)
+			test.That(t, in.BillingAddress, test.ShouldResemble, &pbAddress)
+			return &pb.EnableBillingServiceResponse{}, nil
+		}
+
+		err := client.EnableBillingService(context.Background(), organizationID, &address)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
 	t.Run("UpdateBillingService", func(t *testing.T) {
 		grpcClient.UpdateBillingServiceFunc = func(
 			ctx context.Context, in *pb.UpdateBillingServiceRequest, opts ...grpc.CallOption,

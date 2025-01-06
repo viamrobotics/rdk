@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -16,11 +17,14 @@ const (
 	configFlag  = "config"
 	debugFlag   = "debug"
 	// TODO(RSDK-9287) - replace with `org-id` and `location-id` flags.
-	organizationFlag = "organization"
-	locationFlag     = "location"
-	machineFlag      = "machine"
-	aliasRobotFlag   = "robot"
-	partFlag         = "part"
+	organizationFlag    = "organization"
+	locationFlag        = "location"
+	machineFlag         = "machine"
+	aliasRobotFlag      = "robot"
+	partFlag            = "part"
+	profileFlag         = "profile"
+	disableProfilesFlag = "disable-profiles"
+	profileFlagName     = "profile-name"
 
 	// TODO: RSDK-6683.
 	quietFlag = "quiet"
@@ -75,6 +79,7 @@ const (
 	moduleBuildFlagWait      = "wait"
 	moduleBuildFlagToken     = "token"
 	moduleBuildFlagWorkdir   = "workdir"
+	moduleBuildFlagPlatforms = "platforms"
 	moduleBuildFlagGroupLogs = "group-logs"
 	moduleBuildRestartOnly   = "restart-only"
 	moduleBuildFlagNoBuild   = "no-build"
@@ -101,12 +106,13 @@ const (
 	dataFlagAliasRobotName                 = "robot-name"
 	dataFlagPartName                       = "part-name"
 	dataFlagComponentType                  = "component-type"
+	dataFlagResourceSubtype                = "resource-subtype"
 	dataFlagComponentName                  = "component-name"
+	dataFlagResourceName                   = "resource-name"
 	dataFlagMethod                         = "method"
 	dataFlagMimeTypes                      = "mime-types"
 	dataFlagStart                          = "start"
 	dataFlagEnd                            = "end"
-	dataFlagChunkLimit                     = "chunk-limit"
 	dataFlagParallelDownloads              = "parallel"
 	dataFlagTags                           = "tags"
 	dataFlagBboxLabels                     = "bbox-labels"
@@ -129,6 +135,7 @@ const (
 	authApplicationFlagOriginURIs    = "origin-uris"
 	authApplicationFlagRedirectURIs  = "redirect-uris"
 	authApplicationFlagLogoutURI     = "logout-uri"
+	authApplicationFlagClientID      = "client-id"
 
 	cpFlagRecursive = "recursive"
 	cpFlagPreserve  = "preserve"
@@ -192,11 +199,11 @@ var commonFilterFlags = []cli.Flag{
 	},
 	&cli.StringFlag{
 		Name:  dataFlagStart,
-		Usage: "ISO-8601 timestamp indicating the start of the interval filter",
+		Usage: "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter",
 	},
 	&cli.StringFlag{
 		Name:  dataFlagEnd,
-		Usage: "ISO-8601 timestamp indicating the end of the interval filter",
+		Usage: "ISO-8601 timestamp in RFC3339 format indicating the end of the interval filter",
 	},
 	&cli.StringSliceFlag{
 		Name: dataFlagBboxLabels,
@@ -245,10 +252,12 @@ var dataTagByFilterFlags = append([]cli.Flag{
 type emptyArgs struct{}
 
 type globalArgs struct {
-	BaseURL string
-	Config  string
-	Debug   bool
-	Quiet   bool
+	BaseURL         string
+	Config          string
+	Debug           bool
+	Quiet           bool
+	Profile         string
+	DisableProfiles bool
 }
 
 func getValFromContext(name string, ctx *cli.Context) any {
@@ -268,7 +277,7 @@ func getValFromContext(name string, ctx *cli.Context) any {
 	return ctx.Value(camelFormattedName)
 }
 
-// TODO(RSDK-9447) - We don't support pointers in this. The problem is that when getting a value
+// (erodkin) We don't support pointers in structs here. The problem is that when getting a value
 // from a context for a supported flag, the context will default to populating with the zero value.
 // When getting a value from the context, though, we currently have no way of know if that's going
 // to a concrete value, going to a pointer and should be a nil value, or going to a pointer but should
@@ -314,6 +323,18 @@ func parseStructFromCtx[T any](ctx *cli.Context) T {
 	}
 
 	return t
+}
+
+func getGlobalArgs(ctx *cli.Context) (*globalArgs, error) {
+	gArgs := parseStructFromCtx[globalArgs](ctx)
+	// TODO(RSDK-9361) - currently nothing prevents a developer from creating globalArgs directly
+	// and thereby bypassing this check. We should find a way to prevent direct creation and thereby
+	// programmatically enforce compliance here.
+	if gArgs.DisableProfiles && gArgs.Profile != "" {
+		return nil, errors.New("profile specified with disable-profiles flag set")
+	}
+
+	return &gArgs, nil
 }
 
 func createCommandWithT[T any](f func(*cli.Context, T) error) func(*cli.Context) error {
@@ -366,6 +387,15 @@ var app = &cli.App{
 			Aliases: []string{"q"},
 			Usage:   "suppress warnings",
 		},
+		&cli.StringFlag{
+			Name:  profileFlag,
+			Usage: "specify a particular profile for the current command",
+		},
+		&cli.BoolFlag{
+			Name:    disableProfilesFlag,
+			Aliases: []string{"disable-profile"}, // for ease of use; not backwards compatibility related
+			Usage:   "disable usage of profiles, falling back to default behavior",
+		},
 	},
 	Commands: []*cli.Command{
 		{
@@ -376,8 +406,9 @@ var app = &cli.App{
 			HideHelpCommand: true,
 			Flags: []cli.Flag{
 				&cli.BoolFlag{
-					Name:  loginFlagDisableBrowser,
-					Usage: "prevent opening the default browser during login",
+					Name:    loginFlagDisableBrowser,
+					Aliases: []string{"no-browser"}, // ease of use alias, not related to backwards compatibility
+					Usage:   "prevent opening the default browser during login",
 				},
 			},
 			Action: createCommandWithT[loginActionArgs](LoginAction),
@@ -424,6 +455,37 @@ var app = &cli.App{
 			Usage:           "work with organizations",
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
+				{
+					Name:  "auth-service",
+					Usage: "manage auth-service",
+					Subcommands: []*cli.Command{
+						{
+							Name:  "oauth-app",
+							Usage: "manage the OAuth applications for an organization",
+							Subcommands: []*cli.Command{
+								{
+									Name:      "delete",
+									Usage:     "delete an OAuth application",
+									UsageText: createUsageText("delete", []string{generalFlagOrgID, authApplicationFlagClientID}, true),
+									Flags: []cli.Flag{
+										&cli.StringFlag{
+											Name:     generalFlagOrgID,
+											Required: true,
+											Usage:    "organization ID tied to the OAuth application",
+										},
+										&cli.StringFlag{
+											Name:     authApplicationFlagClientID,
+											Required: true,
+											Usage:    "client ID of the OAuth application to delete",
+										},
+									},
+									Before: createCommandWithT[deleteOAuthAppArgs](DeleteOAuthAppConfirmation),
+									Action: createCommandWithT[deleteOAuthAppArgs](DeleteOAuthAppAction),
+								},
+							},
+						},
+					},
+				},
 				{
 					Name:   "list",
 					Usage:  "list organizations for the current user",
@@ -559,6 +621,23 @@ var app = &cli.App{
 							},
 							Action: createCommandWithT[updateBillingServiceArgs](UpdateBillingServiceAction),
 						},
+						{
+							Name:  "enable",
+							Usage: "enable the billing service for an organization",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "the org to enable the billing service for",
+								},
+								&cli.StringFlag{
+									Name:     organizationBillingAddress,
+									Required: true,
+									Usage:    "the stringified address that follows the pattern: line1, line2 (optional), city, state, zipcode",
+								},
+							},
+							Action: createCommandWithT[organizationEnableBillingServiceArgs](OrganizationEnableBillingServiceAction),
+						},
 					},
 				},
 				{
@@ -629,47 +708,156 @@ var app = &cli.App{
 			},
 		},
 		{
+			Name:  "profiles",
+			Usage: "work with CLI profiles",
+			Subcommands: []*cli.Command{
+				{
+					Name:  "update",
+					Usage: "update an existing profile for authentication, or add it if it doesn't exist",
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     profileFlagName,
+							Required: true,
+							Usage:    "name of the profile to update",
+						},
+						&cli.StringFlag{
+							Name:     loginFlagKeyID,
+							Required: true,
+							Usage:    "id of the profile's API key",
+						},
+						&cli.StringFlag{
+							Name:     loginFlagKey,
+							Required: true,
+							Usage:    "the profile's API key",
+						},
+					},
+					Action: createCommandWithT[addOrUpdateProfileArgs](UpdateProfileAction),
+				},
+				{
+					Name:  "add",
+					Usage: "add a new profile for authentication (errors if the profile already exists)",
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     profileFlagName,
+							Required: true,
+							Usage:    "name of the profile to add",
+						},
+						&cli.StringFlag{
+							Name:     loginFlagKeyID,
+							Required: true,
+							Usage:    "id of the profile's API key",
+						},
+						&cli.StringFlag{
+							Name:     loginFlagKey,
+							Required: true,
+							Usage:    "the profile's API key",
+						},
+					},
+					Action: createCommandWithT[addOrUpdateProfileArgs](AddProfileAction),
+				},
+				{
+					Name:   "list",
+					Usage:  "list all existing profiles by name",
+					Action: createCommandWithT[emptyArgs](ListProfilesAction),
+				},
+				{
+					Name:  "remove",
+					Usage: "remove an authentication profile",
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     profileFlagName,
+							Required: true,
+							Usage:    "name of the profile to remove",
+						},
+					},
+					Action: createCommandWithT[removeProfileArgs](RemoveProfileAction),
+				},
+			},
+		},
+		{
 			Name:            "data",
 			Usage:           "work with data",
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
 				{
-					Name:      "export",
-					Usage:     "download data from Viam cloud",
-					UsageText: createUsageText("data export", []string{dataFlagDestination, dataFlagDataType}, true),
-					Flags: append([]cli.Flag{
-						&cli.PathFlag{
-							Name:     dataFlagDestination,
-							Required: true,
-							Usage:    "output directory for downloaded data",
+					Name:  "export",
+					Usage: "download data from Viam cloud",
+					Subcommands: []*cli.Command{
+						{
+							Name:      "binary",
+							Usage:     "download binary data",
+							UsageText: createUsageText("data export binary", []string{dataFlagDestination}, true),
+							Flags: append([]cli.Flag{
+								&cli.PathFlag{
+									Name:     dataFlagDestination,
+									Required: true,
+									Usage:    "output directory for downloaded data",
+								},
+								&cli.UintFlag{
+									Name:  dataFlagParallelDownloads,
+									Usage: "number of download requests to make in parallel",
+									Value: 100,
+								},
+								&cli.UintFlag{
+									Name:  dataFlagTimeout,
+									Usage: "number of seconds to wait for large file downloads",
+									Value: 30,
+								},
+								&cli.StringSliceFlag{
+									Name:  dataFlagTags,
+									Usage: "tags filter. accepts tagged for all tagged data, untagged for all untagged data, or a list of tags",
+								},
+							}, commonFilterFlags...),
+							Action: createCommandWithT[dataExportBinaryArgs](DataExportBinaryAction),
 						},
-						&cli.UintFlag{
-							Name:  dataFlagChunkLimit,
-							Usage: "maximum number of results per download request (tabular data only)",
-							Value: 100000,
-						},
-						&cli.UintFlag{
-							Name:  dataFlagParallelDownloads,
-							Usage: "number of download requests to make in parallel (binary data only)",
-							Value: 100,
-						},
-						&cli.StringSliceFlag{
-							Name: dataFlagTags,
-							Usage: "tags filter. " +
-								"accepts tagged for all tagged data, untagged for all untagged data, or a list of tags for all data matching any of the tags",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagDataType,
-							Usage: "type of data to download. can be binary or tabular",
-						},
-						&cli.UintFlag{
-							Name:  dataFlagTimeout,
-							Usage: "number of seconds to wait for large file downloads",
-							Value: 30,
+						{
+							Name:  "tabular",
+							Usage: "download tabular data",
+							UsageText: createUsageText("data export tabular", []string{
+								dataFlagDestination,
+								dataFlagPartID,
+								dataFlagResourceName,
+								dataFlagResourceSubtype,
+								dataFlagMethod,
+							}, true),
+							Flags: []cli.Flag{
+								&cli.PathFlag{
+									Name:     dataFlagDestination,
+									Required: true,
+									Usage:    "output directory for downloaded data",
+								},
+								&cli.StringFlag{
+									Name:     dataFlagPartID,
+									Required: true,
+									Usage:    "part id",
+								},
+								&cli.StringFlag{
+									Name:     dataFlagResourceName,
+									Required: true,
+									Usage:    "resource name (sometimes called 'component name')",
+								},
+								&cli.StringFlag{
+									Name:     dataFlagResourceSubtype,
+									Required: true,
+									Usage:    "resource subtype (sometimes called 'component type')",
+								},
+								&cli.StringFlag{
+									Name:     dataFlagMethod,
+									Required: true,
+									Usage:    "method name",
+								},
+								&cli.StringFlag{
+									Name:  "start",
+									Usage: "ISO-8601 timestamp in RFC3339 format indicating the start of the interval",
+								},
+								&cli.StringFlag{
+									Name:  "end",
+									Usage: "ISO-8601 timestamp in RFC3339 format indicating the end of the interval",
+								},
+							},
+							Action: createCommandWithT[dataExportTabularArgs](DataExportTabularAction),
 						},
 					},
-						commonFilterFlags...),
-					Action: createCommandWithT[dataExportArgs](DataExportAction),
 				},
 				{
 					Name:            "delete",
@@ -689,12 +877,12 @@ var app = &cli.App{
 								&cli.StringFlag{
 									Name:     dataFlagStart,
 									Required: true,
-									Usage:    "ISO-8601 timestamp indicating the start of the interval filter",
+									Usage:    "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter",
 								},
 								&cli.StringFlag{
 									Name:     dataFlagEnd,
 									Required: true,
-									Usage:    "ISO-8601 timestamp indicating the end of the interval filter",
+									Usage:    "ISO-8601 timestamp in RFC3339 format indicating the end of the interval filter",
 								},
 								&cli.StringSliceFlag{
 									Name:  dataFlagLocationIDs,
@@ -1904,6 +2092,10 @@ Example:
 									Name:  moduleBuildFlagWorkdir,
 									Usage: "use this to indicate that your meta.json is in a subdirectory of your repo." + " --module flag should be relative to this",
 									Value: ".",
+								},
+								&cli.StringSliceFlag{
+									Name:  moduleBuildFlagPlatforms,
+									Usage: "list of platforms to build, e.g. linux/amd64,linux/arm64. Defaults to build.arch in meta.json.",
 								},
 							},
 							Action: createCommandWithT[moduleBuildStartArgs](ModuleBuildStartAction),

@@ -20,6 +20,9 @@ type options struct {
 	shutdownCallback func()
 
 	enableFTDC bool
+
+	// disableCompleteConfigWorker starts the robot without the complete config worker - should only be used for tests.
+	disableCompleteConfigWorker bool
 }
 
 // Option configures how we set up the web service.
@@ -80,5 +83,12 @@ func WithViamHomeDir(homeDir string) Option {
 func WithShutdownCallback(shutdownFunc func()) Option {
 	return newFuncOption(func(o *options) {
 		o.shutdownCallback = shutdownFunc
+	})
+}
+
+// withDisableCompleteConfigWorker returns an Option which disables the complete config worker.
+func withDisableCompleteConfigWorker() Option {
+	return newFuncOption(func(o *options) {
+		o.disableCompleteConfigWorker = true
 	})
 }

@@ -28,7 +28,10 @@ type ServiceMap map[string]any
 
 // addShellService adds a shell service to the services slice if missing. Mutates part.RobotConfig.
 func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart, wait bool) error {
-	args := parseStructFromCtx[globalArgs](c)
+	args, err := getGlobalArgs(c)
+	if err != nil {
+		return err
+	}
 	partMap := part.RobotConfig.AsMap()
 	if _, ok := partMap["services"]; !ok {
 		partMap["services"] = make([]any, 0, 1)
@@ -115,7 +118,10 @@ func configureModule(c *cli.Context, vc *viamClient, manifest *moduleManifest, p
 		return false, err
 	}
 	if dirty {
-		args := parseStructFromCtx[globalArgs](c)
+		args, err := getGlobalArgs(c)
+		if err != nil {
+			return false, err
+		}
 		debugf(c.App.Writer, args.Debug, "writing back config changes")
 		err = vc.updateRobotPart(part, partMap)
 		if err != nil {
@@ -155,7 +161,10 @@ func mutateModuleConfig(c *cli.Context, modules []ModuleMap, manifest moduleMani
 		absEntrypoint = reloadingDestination(c, &manifest)
 	}
 
-	args := parseStructFromCtx[globalArgs](c)
+	args, err := getGlobalArgs(c)
+	if err != nil {
+		return nil, false, err
+	}
 	if foundMod == nil {
 		debugf(c.App.Writer, args.Debug, "module not found, inserting")
 		dirty = true

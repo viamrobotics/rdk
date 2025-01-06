@@ -10,6 +10,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -207,6 +208,11 @@ func (ftdc *FTDC) Remove(name string) {
 // Start spins off the background goroutine for collecting + writing FTDC data. It's normal for tests
 // to _not_ call `Start`. Tests can simulate the same functionality by calling `constructDatum` and `writeDatum`.
 func (ftdc *FTDC) Start() {
+	if runtime.GOOS == "windows" {
+		// note: this logs a panic on RDK start on windows.
+		ftdc.logger.Warn("FTDC not implemented on windows, not starting")
+		return
+	}
 	ftdc.readStatsWorker = utils.NewStoppableWorkerWithTicker(time.Second, ftdc.statsReader)
 	utils.PanicCapturingGo(ftdc.statsWriter)
 
@@ -276,6 +282,9 @@ func (ftdc *FTDC) statsWriter() {
 // `statsWriter` by hand, without the `statsReader` can `close(ftdc.datumCh)` followed by
 // `<-ftdc.outputWorkerDone` to stop+wait for the `statsWriter`.
 func (ftdc *FTDC) StopAndJoin(ctx context.Context) {
+	if runtime.GOOS == "windows" {
+		return
+	}
 	ftdc.stopOnce.Do(func() {
 		// Only one caller should close the datum channel. And it should be the caller that called
 		// stop on the worker writing to the channel.
@@ -329,11 +338,18 @@ func (ftdc *FTDC) constructDatum() datum {
 		Data: map[string]any{},
 	}
 
+	// RSDK-9650: Take the mutex to make a copy of the list of `ftdc.statsers` objects. Such that we
+	// can release the mutex before calling any `Stats` methods. It may be the case where the
+	// `Stats` method acquires some other mutex/resource.  E.g: acquiring resources from the
+	// resource graph. Which is the starting point for creating a deadlock scenario.
+	statsers := make([]namedStatser, len(ftdc.statsers))
 	ftdc.mu.Lock()
-	defer ftdc.mu.Unlock()
 	datum.generationID = ftdc.inputGenerationID
-	for idx := range ftdc.statsers {
-		namedStatser := &ftdc.statsers[idx]
+	copy(statsers, ftdc.statsers)
+	ftdc.mu.Unlock()
+
+	for idx := range statsers {
+		namedStatser := &statsers[idx]
 		datum.Data[namedStatser.name] = namedStatser.statser.Stats()
 	}
 
