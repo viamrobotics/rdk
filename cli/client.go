@@ -844,10 +844,10 @@ func RobotsPartRunAction(c *cli.Context, args robotsPartRunArgs) error {
 }
 
 type robotsPartShellArgs struct {
-	OrgID      string
-	LocationID string
-	MachineID  string
-	PartID     string
+	Organization string
+	Location     string
+	Machine      string
+	Part         string
 }
 
 // RobotsPartShellAction is the corresponding Action for 'machines part shell'.
@@ -870,10 +870,10 @@ func RobotsPartShellAction(c *cli.Context, args robotsPartShellArgs) error {
 	}
 
 	return client.startRobotPartShell(
-		args.OrgID,
-		args.LocationID,
-		args.MachineID,
-		args.PartID,
+		args.Organization,
+		args.Location,
+		args.Machine,
+		args.Part,
 		globalArgs.Debug,
 		logger,
 	)
@@ -895,12 +895,12 @@ func (err copyFromPathInvalidError) Error() string {
 }
 
 type machinesPartCopyFilesArgs struct {
-	OrgID      string
-	LocationID string
-	MachineID  string
-	PartID     string
-	Recursive  bool
-	Preserve   bool
+	Organization string
+	Location     string
+	Machine      string
+	Part         string
+	Recursive    bool
+	Preserve     bool
 }
 
 // MachinesPartCopyFilesAction is the corresponding Action for 'machines part cp'.
@@ -975,10 +975,10 @@ func machinesPartCopyFilesAction(c *cli.Context, client *viamClient, flagArgs ma
 	doCopy := func() error {
 		if isFrom {
 			return client.copyFilesFromMachine(
-				flagArgs.OrgID,
-				flagArgs.LocationID,
-				flagArgs.MachineID,
-				flagArgs.PartID,
+				flagArgs.Organization,
+				flagArgs.Location,
+				flagArgs.Machine,
+				flagArgs.Part,
 				globalArgs.Debug,
 				flagArgs.Recursive,
 				flagArgs.Preserve,
@@ -989,10 +989,10 @@ func machinesPartCopyFilesAction(c *cli.Context, client *viamClient, flagArgs ma
 		}
 
 		return client.copyFilesToMachine(
-			flagArgs.OrgID,
-			flagArgs.LocationID,
-			flagArgs.MachineID,
-			flagArgs.PartID,
+			flagArgs.Organization,
+			flagArgs.Location,
+			flagArgs.Machine,
+			flagArgs.Part,
 			globalArgs.Debug,
 			flagArgs.Recursive,
 			flagArgs.Preserve,
