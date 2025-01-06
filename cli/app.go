@@ -160,13 +160,13 @@ var commonFilterFlags = []cli.Flag{
 	},
 	&AliasStringFlag{
 		cli.StringFlag{
-			Name:    generalFlagMachine,
+			Name:    generalFlagMachineID,
 			Aliases: []string{generalFlagAliasRobotID},
 			Usage:   "machine id filter",
 		},
 	},
 	&cli.StringFlag{
-		Name:  generalFlagPart,
+		Name:  generalFlagPartID,
 		Usage: "part id filter",
 	},
 	&AliasStringFlag{
@@ -645,7 +645,7 @@ var app = &cli.App{
 								&cli.StringFlag{
 									Name:     generalFlagLocationID,
 									Required: true,
-									Usage:    "the location to create an api-key for",
+									Usage:    "id of the location to create an api-key for",
 								},
 								&cli.StringFlag{
 									Name:  generalFlagName,
@@ -1463,12 +1463,12 @@ var app = &cli.App{
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:        generalFlagOrganization,
-							Aliases:     []string{generalFlagOrgID},
+							Aliases:     []string{generalFlagOrgID, generalFlagAliasOrg, generalFlagAliasOrgName},
 							DefaultText: "first organization alphabetically",
 						},
 						&cli.StringFlag{
 							Name:        generalFlagLocation,
-							Aliases:     []string{generalFlagLocationID},
+							Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
 							DefaultText: "first location alphabetically",
 						},
 					},
@@ -1485,10 +1485,10 @@ var app = &cli.App{
 							Flags: []cli.Flag{
 								&AliasStringFlag{
 									cli.StringFlag{
-										Name:     generalFlagMachine,
+										Name:     generalFlagMachineID,
 										Aliases:  []string{generalFlagAliasRobotID},
 										Required: true,
-										Usage:    "the machine to create an api-key for",
+										Usage:    "id of the machine to create an api-key for",
 									},
 								},
 								&cli.StringFlag{
@@ -1496,7 +1496,7 @@ var app = &cli.App{
 									Usage: "the name of the key (defaults to your login info with the current time)",
 								},
 								&cli.StringFlag{
-									Name: generalFlagOrganization,
+									Name: generalFlagOrgID,
 									Usage: "the org-id to attach this api-key to. If not provided, " +
 										"we will attempt to use the org attached to the machine if only one exists",
 								},
@@ -1513,12 +1513,12 @@ var app = &cli.App{
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:        generalFlagOrganization,
-							Aliases:     []string{generalFlagOrgID},
+							Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
 							DefaultText: "first organization alphabetically",
 						},
 						&cli.StringFlag{
 							Name:        generalFlagLocation,
-							Aliases:     []string{generalFlagLocationID},
+							Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
 							DefaultText: "first location alphabetically",
 						},
 						&AliasStringFlag{
@@ -1540,18 +1540,18 @@ var app = &cli.App{
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:        generalFlagOrganization,
-							Aliases:     []string{generalFlagOrgID},
+							Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
 							DefaultText: "first organization alphabetically",
 						},
 						&cli.StringFlag{
 							Name:        generalFlagLocation,
-							Aliases:     []string{generalFlagLocationID},
+							Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
 							DefaultText: "first location alphabetically",
 						},
 						&AliasStringFlag{
 							cli.StringFlag{
 								Name:     generalFlagMachine,
-								Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID},
+								Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
 								Required: true,
 							},
 						},
@@ -1580,24 +1580,24 @@ var app = &cli.App{
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:        generalFlagOrganization,
-									Aliases:     []string{generalFlagOrgID},
+									Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
 									DefaultText: "first organization alphabetically",
 								},
 								&cli.StringFlag{
 									Name:        generalFlagLocation,
-									Aliases:     []string{generalFlagLocationID},
+									Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
 									DefaultText: "first location alphabetically",
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
 										Name:     generalFlagMachine,
-										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID},
+										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
 										Required: true,
 									},
 								},
 								&cli.StringFlag{
 									Name:     generalFlagPart,
-									Aliases:  []string{generalFlagPartID},
+									Aliases:  []string{generalFlagPartID, generalFlagAliasPartNAme},
 									Required: true,
 								},
 							},
@@ -1611,24 +1611,24 @@ var app = &cli.App{
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:        generalFlagOrganization,
-									Aliases:     []string{generalFlagOrgID},
+									Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
 									DefaultText: "first organization alphabetically",
 								},
 								&cli.StringFlag{
 									Name:        generalFlagLocation,
-									Aliases:     []string{generalFlagLocationID},
+									Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
 									DefaultText: "first location alphabetically",
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
 										Name:     generalFlagMachine,
-										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID},
+										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
 										Required: true,
 									},
 								},
 								&cli.StringFlag{
 									Name:     generalFlagPart,
-									Aliases:  []string{generalFlagPartID},
+									Aliases:  []string{generalFlagPartID, generalFlagAliasPartNAme},
 									Required: true,
 								},
 								&cli.BoolFlag{
@@ -1657,24 +1657,24 @@ var app = &cli.App{
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:        generalFlagOrganization,
-									Aliases:     []string{generalFlagOrgID},
+									Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
 									DefaultText: "first organization alphabetically",
 								},
 								&cli.StringFlag{
 									Name:        generalFlagLocation,
-									Aliases:     []string{generalFlagLocationID},
+									Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
 									DefaultText: "first location alphabetically",
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
 										Name:     generalFlagMachine,
-										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID},
+										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
 										Required: true,
 									},
 								},
 								&cli.StringFlag{
 									Name:     generalFlagPart,
-									Aliases:  []string{generalFlagPartID},
+									Aliases:  []string{generalFlagPartID, generalFlagAliasPartNAme},
 									Required: true,
 								},
 							},
@@ -1689,24 +1689,24 @@ var app = &cli.App{
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     generalFlagOrganization,
-									Aliases:  []string{generalFlagOrgID},
+									Aliases:  []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
 									Required: true,
 								},
 								&cli.StringFlag{
 									Name:     generalFlagLocation,
-									Aliases:  []string{generalFlagLocationID},
+									Aliases:  []string{generalFlagLocationID, generalFlagAliasLocationName},
 									Required: true,
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
 										Name:     generalFlagMachine,
-										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID},
+										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
 										Required: true,
 									},
 								},
 								&cli.StringFlag{
 									Name:     generalFlagPart,
-									Aliases:  []string{generalFlagPartID},
+									Aliases:  []string{generalFlagPartID, generalFlagAliasPartNAme},
 									Required: true,
 								},
 								&cli.StringFlag{
@@ -1731,21 +1731,21 @@ var app = &cli.App{
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:    generalFlagOrganization,
-									Aliases: []string{generalFlagOrgID},
+									Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
 								},
 								&cli.StringFlag{
 									Name:    generalFlagLocation,
-									Aliases: []string{generalFlagLocationID},
+									Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
 										Name:    generalFlagMachine,
-										Aliases: []string{generalFlagAliasRobot, generalFlagMachineID},
+										Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
 									},
 								},
 								&cli.StringFlag{
 									Name:    generalFlagPart,
-									Aliases: []string{generalFlagPartID},
+									Aliases: []string{generalFlagPartID, generalFlagAliasPartNAme},
 								},
 							},
 							Action: createCommandWithT[robotsPartShellArgs](RobotsPartShellAction),
@@ -1762,7 +1762,7 @@ required flags if the machine/part name are not unique across your account.
 Note: There is no progress meter while copying is in progress.
 
 Copy a single file to the machine with a new name:
-'viam machine part cp --org-id "org" --location-id "location" --machine "m1" --part "m1-main" my_file machine:/home/user/'
+'viam machine part cp --organization "org" --location "location" --machine "m1" --part "m1-main" my_file machine:/home/user/'
 
 Recursively copy a directory to the machine with the same name:
 'viam machine part cp --machine "m1" --part "m1-main" -r my_dir machine:/home/user/'
@@ -1787,22 +1787,22 @@ Copy multiple files from the machine to a local destination with recursion and k
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:    generalFlagOrganization,
-									Aliases: []string{generalFlagOrgID},
+									Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
 								},
 								&cli.StringFlag{
 									Name:    generalFlagLocation,
-									Aliases: []string{generalFlagLocationID},
+									Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
 										Name:     generalFlagMachine,
-										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID},
+										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
 										Required: true,
 									},
 								},
 								&cli.StringFlag{
 									Name:     generalFlagPart,
-									Aliases:  []string{generalFlagPartID},
+									Aliases:  []string{generalFlagPartID, generalFlagAliasPartNAme},
 									Required: true,
 								},
 								&cli.BoolFlag{
@@ -2179,8 +2179,8 @@ This won't work unless you have an existing installation of our GitHub app on yo
 	viam module reload --local`,
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:    generalFlagPartID,
-							Usage:   "part ID of machine. get from 'Live/Offline' dropdown in the web app, or leave it blank to use /etc/viam.json",
+							Name:  generalFlagPartID,
+							Usage: "part ID of machine. get from 'Live/Offline' dropdown in the web app, or leave it blank to use /etc/viam.json",
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagPath,
