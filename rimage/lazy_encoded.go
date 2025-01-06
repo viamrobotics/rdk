@@ -6,6 +6,7 @@ import (
 	"image"
 	"image/color"
 	"net/http"
+	"strings"
 	"sync"
 
 	"go.viam.com/rdk/logging"
@@ -37,6 +38,11 @@ func NewLazyEncodedImage(imgBytes []byte, mimeType string) image.Image {
 			"Sniffing bytes to detect mime_type. Specify mime_type to reduce CPU utilization")
 		mimeType = http.DetectContentType(imgBytes)
 	}
+
+	if !strings.HasPrefix(mimeType, "image/") {
+		logging.Global().Warnf("NewLazyEncodedImage resolving to non image mime_type: %s", mimeType)
+	}
+
 	return &LazyEncodedImage{
 		imgBytes: imgBytes,
 		mimeType: mimeType,
