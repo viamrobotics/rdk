@@ -332,9 +332,9 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, moduleLogger lo
 		cfg:       conf,
 		dataDir:   moduleDataDir,
 		resources: map[resource.Name]*addedResource{},
+		logger:    moduleLogger,
 		ftdc:      mgr.ftdc,
 		port:      mgr.nextPort,
-		logger:    moduleLogger,
 	}
 
 	if err := mgr.startModule(ctx, mod); err != nil {
