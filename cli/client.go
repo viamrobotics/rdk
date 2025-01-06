@@ -532,7 +532,7 @@ func ListRobotsAction(c *cli.Context, args listRobotsActionArgs) error {
 type robotsStatusArgs struct {
 	OrgID      string
 	LocationID string
-	Machine    string
+	MachineID  string
 }
 
 // RobotsStatusAction is the corresponding Action for 'machines status'.
@@ -544,7 +544,7 @@ func RobotsStatusAction(c *cli.Context, args robotsStatusArgs) error {
 
 	orgStr := args.OrgID
 	locStr := args.LocationID
-	robot, err := client.robot(orgStr, locStr, args.Machine)
+	robot, err := client.robot(orgStr, locStr, args.MachineID)
 	if err != nil {
 		return err
 	}
@@ -607,7 +607,7 @@ func getNumLogs(c *cli.Context, numLogs int) (int, error) {
 type robotsLogsArgs struct {
 	OrgID      string
 	LocationID string
-	Machine    string
+	MachineID  string
 	Errors     bool
 	Count      int
 }
@@ -621,7 +621,7 @@ func RobotsLogsAction(c *cli.Context, args robotsLogsArgs) error {
 
 	orgStr := args.OrgID
 	locStr := args.LocationID
-	robotStr := args.Machine
+	robotStr := args.MachineID
 	robot, err := client.robot(orgStr, locStr, robotStr)
 	if err != nil {
 		return errors.Wrap(err, "could not get machine")
@@ -664,7 +664,7 @@ func RobotsLogsAction(c *cli.Context, args robotsLogsArgs) error {
 type robotsPartStatusArgs struct {
 	OrgID      string
 	LocationID string
-	Machine    string
+	MachineID  string
 	Part       string
 }
 
@@ -677,7 +677,7 @@ func RobotsPartStatusAction(c *cli.Context, args robotsPartStatusArgs) error {
 
 	orgStr := args.OrgID
 	locStr := args.LocationID
-	robotStr := args.Machine
+	robotStr := args.MachineID
 	robot, err := client.robot(orgStr, locStr, robotStr)
 	if err != nil {
 		return errors.Wrap(err, "could not get machine")
@@ -711,7 +711,7 @@ func RobotsPartStatusAction(c *cli.Context, args robotsPartStatusArgs) error {
 type robotsPartLogsArgs struct {
 	OrgID      string
 	LocationID string
-	Machine    string
+	MachineID  string
 	Part       string
 	Errors     bool
 	Tail       bool
@@ -731,7 +731,7 @@ func RobotsPartLogsAction(c *cli.Context, args robotsPartLogsArgs) error {
 func (c *viamClient) robotsPartLogsAction(cCtx *cli.Context, args robotsPartLogsArgs) error {
 	orgStr := args.OrgID
 	locStr := args.LocationID
-	robotStr := args.Machine
+	robotStr := args.MachineID
 	robot, err := c.robot(orgStr, locStr, robotStr)
 	if err != nil {
 		return errors.Wrap(err, "could not get machine")
@@ -763,10 +763,10 @@ func (c *viamClient) robotsPartLogsAction(cCtx *cli.Context, args robotsPartLogs
 }
 
 type robotsPartRestartArgs struct {
-	Organization string
-	Location     string
-	Machine      string
-	Part         string
+	OrgID      string
+	LocationID string
+	MachineID  string
+	Part       string
 }
 
 // RobotsPartRestartAction is the corresponding Action for 'machines part restart'.
@@ -780,9 +780,9 @@ func RobotsPartRestartAction(c *cli.Context, args robotsPartRestartArgs) error {
 }
 
 func (c *viamClient) robotPartRestart(cCtx *cli.Context, args robotsPartRestartArgs) error {
-	orgStr := args.Organization
-	locStr := args.Location
-	robotStr := args.Machine
+	orgStr := args.OrgID
+	locStr := args.LocationID
+	robotStr := args.MachineID
 	partStr := args.Part
 
 	part, err := c.robotPart(orgStr, locStr, robotStr, partStr)
@@ -798,12 +798,12 @@ func (c *viamClient) robotPartRestart(cCtx *cli.Context, args robotsPartRestartA
 }
 
 type robotsPartRunArgs struct {
-	Organization string
-	Location     string
-	Machine      string
-	Part         string
-	Data         string
-	Stream       time.Duration
+	OrgID      string
+	LocationID string
+	MachineID  string
+	Part       string
+	Data       string
+	Stream     time.Duration
 }
 
 // RobotsPartRunAction is the corresponding Action for 'machines part run'.
@@ -831,9 +831,9 @@ func RobotsPartRunAction(c *cli.Context, args robotsPartRunArgs) error {
 	}
 
 	return client.runRobotPartCommand(
-		args.Organization,
-		args.Location,
-		args.Machine,
+		args.OrgID,
+		args.LocationID,
+		args.MachineID,
 		args.Part,
 		svcMethod,
 		args.Data,
@@ -844,10 +844,10 @@ func RobotsPartRunAction(c *cli.Context, args robotsPartRunArgs) error {
 }
 
 type robotsPartShellArgs struct {
-	Organization string
-	Location     string
-	Machine      string
-	Part         string
+	OrgID      string
+	LocationID string
+	MachineID  string
+	Part       string
 }
 
 // RobotsPartShellAction is the corresponding Action for 'machines part shell'.
@@ -870,9 +870,9 @@ func RobotsPartShellAction(c *cli.Context, args robotsPartShellArgs) error {
 	}
 
 	return client.startRobotPartShell(
-		args.Organization,
-		args.Location,
-		args.Machine,
+		args.OrgID,
+		args.LocationID,
+		args.MachineID,
 		args.Part,
 		globalArgs.Debug,
 		logger,
@@ -895,12 +895,12 @@ func (err copyFromPathInvalidError) Error() string {
 }
 
 type machinesPartCopyFilesArgs struct {
-	Organization string
-	Location     string
-	Machine      string
-	Part         string
-	Recursive    bool
-	Preserve     bool
+	OrgID      string
+	LocationID string
+	MachineID  string
+	Part       string
+	Recursive  bool
+	Preserve   bool
 }
 
 // MachinesPartCopyFilesAction is the corresponding Action for 'machines part cp'.
@@ -975,9 +975,9 @@ func machinesPartCopyFilesAction(c *cli.Context, client *viamClient, flagArgs ma
 	doCopy := func() error {
 		if isFrom {
 			return client.copyFilesFromMachine(
-				flagArgs.Organization,
-				flagArgs.Location,
-				flagArgs.Machine,
+				flagArgs.OrgID,
+				flagArgs.LocationID,
+				flagArgs.MachineID,
 				flagArgs.Part,
 				globalArgs.Debug,
 				flagArgs.Recursive,
@@ -989,9 +989,9 @@ func machinesPartCopyFilesAction(c *cli.Context, client *viamClient, flagArgs ma
 		}
 
 		return client.copyFilesToMachine(
-			flagArgs.Organization,
-			flagArgs.Location,
-			flagArgs.Machine,
+			flagArgs.OrgID,
+			flagArgs.LocationID,
+			flagArgs.MachineID,
 			flagArgs.Part,
 			globalArgs.Debug,
 			flagArgs.Recursive,
