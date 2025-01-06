@@ -659,7 +659,7 @@ func RobotsLogsAction(c *cli.Context, args robotsLogsArgs) error {
 func (c *viamClient) fetchAndSaveLogs(robot *apppb.Robot, parts []*apppb.RobotPart, args robotsLogsArgs, writer io.Writer) error {
 	for i, part := range parts {
 		// Write a header for text format
-		if args.Format == formatText {
+		if args.Format == formatText || args.Format == "" {
 			// Add robot information as a header for context
 			if i == 0 {
 				header := fmt.Sprintf("Robot: %s -> Location: %s -> Organization: %s -> Machine: %s\n",
@@ -755,7 +755,7 @@ func formatLog(log *commonpb.LogEntry, partName, format string) (string, error) 
 			return "", errors.Wrap(err, "failed to marshal log to JSON")
 		}
 		return string(logJSON), nil
-	case formatText:
+	case formatText, "":
 		return fmt.Sprintf(
 			"%s\t%s\t%s\t%s\t%s",
 			log.Time.AsTime().Format(logging.DefaultTimeFormatStr),
