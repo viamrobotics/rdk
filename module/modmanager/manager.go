@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -42,6 +43,9 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
+// tcpPortRange is the beginning of the port range. Only used when ViamTCPSockets() = true.
+const tcpPortRange = 13500
+
 var (
 	validateConfigTimeout       = 5 * time.Second
 	errMessageExitStatus143     = "exit status 143"
@@ -70,6 +74,7 @@ func NewManager(
 		restartCtxCancel:        restartCtxCancel,
 		packagesDir:             options.PackagesDir,
 		ftdc:                    options.FTDC,
+		nextPort:                tcpPortRange,
 	}
 }
 
@@ -102,8 +107,9 @@ type module struct {
 	inStartup      atomic.Bool
 	inRecoveryLock sync.Mutex
 	logger         logging.Logger
-
-	ftdc *ftdc.FTDC
+	ftdc           *ftdc.FTDC
+	// port stores the listen port of this module when ViamTCPSockets() = true.
+	port int
 }
 
 type addedResource struct {
@@ -183,8 +189,9 @@ type Manager struct {
 	removeOrphanedResources func(ctx context.Context, rNames []resource.Name)
 	restartCtx              context.Context
 	restartCtxCancel        context.CancelFunc
-
-	ftdc *ftdc.FTDC
+	ftdc                    *ftdc.FTDC
+	// nextPort manages ports when ViamTCPSockets() = true.
+	nextPort int
 }
 
 // Close terminates module connections and processes.
@@ -326,7 +333,9 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, moduleLogger lo
 		resources: map[resource.Name]*addedResource{},
 		logger:    moduleLogger,
 		ftdc:      mgr.ftdc,
+		port:      mgr.nextPort,
 	}
+	mgr.nextPort++
 
 	if err := mgr.startModule(ctx, mod); err != nil {
 		return err
@@ -996,8 +1005,12 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 func (m *module) dial() error {
 	// TODO(PRODUCT-343): session support probably means interceptors here
 	var err error
+	addrToDial := m.addr
+	if !rutils.TCPRegex.MatchString(addrToDial) {
+		addrToDial = "unix://" + m.addr
+	}
 	conn, err := grpc.Dial( //nolint:staticcheck
-		"unix://"+m.addr,
+		addrToDial,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithChainUnaryInterceptor(
 			rdkgrpc.EnsureTimeoutUnaryClientInterceptor,
@@ -1104,11 +1117,16 @@ func (m *module) startProcess(
 	packagesDir string,
 ) error {
 	var err error
-	// append a random alpha string to the module name while creating a socket address to avoid conflicts
-	// with old versions of the module.
-	if m.addr, err = modlib.CreateSocketAddress(
-		filepath.Dir(parentAddr), fmt.Sprintf("%s-%s", m.cfg.Name, utils.RandomAlphaString(5))); err != nil {
-		return err
+
+	if rutils.ViamTCPSockets() {
+		m.addr = "127.0.0.1:" + strconv.Itoa(m.port)
+	} else {
+		// append a random alpha string to the module name while creating a socket address to avoid conflicts
+		// with old versions of the module.
+		if m.addr, err = modlib.CreateSocketAddress(
+			filepath.Dir(parentAddr), fmt.Sprintf("%s-%s", m.cfg.Name, utils.RandomAlphaString(5))); err != nil {
+			return err
+		}
 	}
 
 	// We evaluate the Module's ExePath absolutely in the viam-server process so that
@@ -1176,12 +1194,15 @@ func (m *module) startProcess(
 				)
 			}
 		}
-		err = modlib.CheckSocketOwner(m.addr)
-		if errors.Is(err, fs.ErrNotExist) {
-			continue
-		}
-		if err != nil {
-			return errors.WithMessage(err, "module startup failed")
+		if !rutils.TCPRegex.MatchString(m.addr) {
+			// note: we don't do this check in TCP mode because TCP addresses are not file paths and will fail check.
+			err = modlib.CheckSocketOwner(m.addr)
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+			if err != nil {
+				return errors.WithMessage(err, "module startup failed")
+			}
 		}
 		break
 	}
