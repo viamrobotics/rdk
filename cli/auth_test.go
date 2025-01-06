@@ -77,8 +77,8 @@ func TestRobotAPIKeyCreateAction(t *testing.T) {
 	}
 
 	flags := make(map[string]any)
-	flags[generalFlagOrgID] = fakeOrgID
-	flags[generalFlagMachineID] = fakeRobotID
+	flags[generalFlagOrganization] = fakeOrgID
+	flags[generalFlagMachine] = fakeRobotID
 	flags[generalFlagName] = "my-name"
 	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, flags, "token")
 
@@ -99,8 +99,8 @@ func TestRobotAPIKeyCreateAction(t *testing.T) {
 	test.That(t, strings.Join(out.messages, " "), test.ShouldContainSubstring, "using default key name of")
 
 	// test without an orgID
-	cCtx.Set(generalFlagOrgID, "")
-	test.That(t, cCtx.Value(generalFlagOrgID), test.ShouldEqual, "")
+	cCtx.Set(generalFlagOrganization, "")
+	test.That(t, cCtx.Value(generalFlagOrganization), test.ShouldEqual, "")
 
 	test.That(t, ac.robotAPIKeyCreateAction(cCtx, parseStructFromCtx[robotAPIKeyCreateArgs](cCtx)), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -113,8 +113,8 @@ func TestRobotAPIKeyCreateAction(t *testing.T) {
 	test.That(t, allMessages, test.ShouldContainSubstring, "Key Value: key-yyy")
 
 	// test without a robot ID should fail
-	cCtx.Set(generalFlagMachineID, "")
-	test.That(t, cCtx.Value(generalFlagMachineID), test.ShouldEqual, "")
+	cCtx.Set(generalFlagMachine, "")
+	test.That(t, cCtx.Value(generalFlagMachine), test.ShouldEqual, "")
 	err := ac.robotAPIKeyCreateAction(cCtx, parseStructFromCtx[robotAPIKeyCreateArgs](cCtx))
 	test.That(t, err, test.ShouldNotBeNil)
 
@@ -132,8 +132,8 @@ func TestRobotAPIKeyCreateAction(t *testing.T) {
 	}
 
 	flags = make(map[string]any)
-	flags[generalFlagMachineID] = fakeRobotID
-	flags[generalFlagOrgID] = ""
+	flags[generalFlagMachine] = fakeRobotID
+	flags[generalFlagOrganization] = ""
 	flags[generalFlagName] = "test-me"
 	cCtx, ac, out, _ = setup(asc, nil, nil, nil, flags, "token")
 	err = ac.robotAPIKeyCreateAction(cCtx, parseStructFromCtx[robotAPIKeyCreateArgs](cCtx))
@@ -158,8 +158,8 @@ func TestLocationAPIKeyCreateAction(t *testing.T) {
 	}
 
 	flags := make(map[string]any)
-	flags[generalFlagLocationID] = ""
-	flags[generalFlagOrgID] = ""
+	flags[generalFlagLocation] = ""
+	flags[generalFlagOrganization] = ""
 	flags[generalFlagName] = "" // testing no locationID
 
 	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, flags, "token")
@@ -168,7 +168,7 @@ func TestLocationAPIKeyCreateAction(t *testing.T) {
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot create an api-key for a location without an ID")
 
-	cCtx.Set(generalFlagLocationID, fakeLocID)
+	cCtx.Set(generalFlagLocation, fakeLocID)
 	// will create an api-key with a default name
 	test.That(t, ac.locationAPIKeyCreateAction(cCtx, parseStructFromCtx[locationAPIKeyCreateArgs](cCtx)), test.ShouldBeNil)
 	allMessages := strings.Join(out.messages, " ")
@@ -179,8 +179,8 @@ func TestLocationAPIKeyCreateAction(t *testing.T) {
 	test.That(t, allMessages, test.ShouldContainSubstring, "Key Value: key-yyy")
 
 	// test with an orgID is fine
-	cCtx.Set(generalFlagOrgID, fakeOrgID)
-	test.That(t, ac.c.Value(generalFlagOrgID), test.ShouldNotBeEmpty)
+	cCtx.Set(generalFlagOrganization, fakeOrgID)
+	test.That(t, ac.c.Value(generalFlagOrganization), test.ShouldNotBeEmpty)
 	test.That(t, ac.locationAPIKeyCreateAction(cCtx, parseStructFromCtx[locationAPIKeyCreateArgs](cCtx)), test.ShouldBeNil)
 	allMessages = strings.Join(out.messages, " ")
 
@@ -199,8 +199,8 @@ func TestLocationAPIKeyCreateAction(t *testing.T) {
 	}
 
 	flags = make(map[string]any)
-	flags[generalFlagLocationID] = fakeLocID
-	flags[generalFlagOrgID] = ""
+	flags[generalFlagLocation] = fakeLocID
+	flags[generalFlagOrganization] = ""
 	flags[generalFlagName] = "test-name"
 
 	cCtx, ac, _, _ = setup(asc, nil, nil, nil, flags, "token")

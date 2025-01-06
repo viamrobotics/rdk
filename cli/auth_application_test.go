@@ -26,7 +26,7 @@ func TestRegisterAuthApplicationAction(t *testing.T) {
 		RegisterAuthApplicationFunc: registerAuthApplicationFunc,
 	}
 	flags := make(map[string]any)
-	flags[generalFlagOrgID] = "a757fe30-5648-4c5b-ab74-4ecd6bf06e4c"
+	flags[generalFlagOrganization] = "a757fe30-5648-4c5b-ab74-4ecd6bf06e4c"
 	flags[authApplicationFlagName] = "pupper_app"
 	flags[authApplicationFlagOriginURIs] = []string{"https://woof.com/login", "https://arf.com/"}
 	flags[authApplicationFlagRedirectURIs] = []string{"https://woof.com/home", "https://arf.com/home"}
@@ -57,7 +57,7 @@ func TestUpdateAuthApplicationAction(t *testing.T) {
 		UpdateAuthApplicationFunc: updateAuthApplication,
 	}
 	flags := make(map[string]any)
-	flags[generalFlagOrgID] = "a757fe30-5648-4c5b-ab74-4ecd6bf06e4c"
+	flags[generalFlagOrganization] = "a757fe30-5648-4c5b-ab74-4ecd6bf06e4c"
 	flags[authApplicationFlagApplicationID] = "a673022c-9916-4238-b8eb-4f7a89885909"
 	flags[authApplicationFlagName] = "pupper_app"
 	flags[authApplicationFlagOriginURIs] = []string{"https://woof.com/login", "https://arf.com/"}
@@ -93,7 +93,7 @@ func TestGetAuthApplicationAction(t *testing.T) {
 		GetAuthApplicationFunc: getAuthApplication,
 	}
 	flags := make(map[string]any)
-	flags[generalFlagOrgID] = "a757fe30-5648-4c5b-ab74-4ecd6bf06e4c"
+	flags[generalFlagOrganization] = "a757fe30-5648-4c5b-ab74-4ecd6bf06e4c"
 	flags[authApplicationFlagApplicationID] = "a673022c-9916-4238-b8eb-4f7a89885909"
 
 	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, nil, nil, eusc, flags, "token")
