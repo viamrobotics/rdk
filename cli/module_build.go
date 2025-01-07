@@ -50,11 +50,12 @@ const (
 var moduleBuildPollingInterval = 2 * time.Second
 
 type moduleBuildStartArgs struct {
-	Module  string
-	Version string
-	Ref     string
-	Token   string
-	Workdir string
+	Module    string
+	Version   string
+	Ref       string
+	Token     string
+	Workdir   string
+	Platforms []string
 }
 
 // ModuleBuildStartAction starts a cloud build.
@@ -79,8 +80,12 @@ func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context, args moduleBuildS
 	// Clean the version argument to ensure compatibility with github tag standards
 	version = strings.TrimPrefix(version, "v")
 
-	platforms := manifest.Build.Arch
-	if len(platforms) == 0 {
+	var platforms []string
+	if len(args.Platforms) > 0 { //nolint:gocritic
+		platforms = args.Platforms
+	} else if len(manifest.Build.Arch) > 0 {
+		platforms = manifest.Build.Arch
+	} else {
 		platforms = defaultBuildInfo.Arch
 	}
 
@@ -486,7 +491,7 @@ func jobStatusFromProto(s buildpb.JobStatus) jobStatus {
 }
 
 type reloadModuleArgs struct {
-	Part        string
+	PartID      string
 	Module      string
 	RestartOnly bool
 	NoBuild     bool
@@ -504,7 +509,7 @@ func ReloadModuleAction(c *cli.Context, args reloadModuleArgs) error {
 
 // reloadModuleAction is the testable inner reload logic.
 func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs) error {
-	partID, err := resolvePartID(c.Context, args.Part, "/etc/viam.json")
+	partID, err := resolvePartID(c.Context, args.PartID, "/etc/viam.json")
 	if err != nil {
 		return err
 	}
@@ -651,7 +656,7 @@ func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.Resta
 	modID := args.ID
 	// todo: use MutuallyExclusiveFlags for this when urfave/cli 3.x is stable
 	if (len(modName) > 0) && (len(modID) > 0) {
-		return nil, fmt.Errorf("provide at most one of --%s and --%s", moduleFlagName, moduleBuildFlagBuildID)
+		return nil, fmt.Errorf("provide at most one of --%s and --%s", generalFlagName, moduleBuildFlagBuildID)
 	}
 	request := &robot.RestartModuleRequest{}
 	//nolint:gocritic
@@ -663,7 +668,7 @@ func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.Resta
 		// TODO(APP-4019): remove localize call
 		request.ModuleName = localizeModuleID(manifest.ModuleID)
 	} else {
-		return nil, fmt.Errorf("if there is no meta.json, provide one of --%s or --%s", moduleFlagName, moduleBuildFlagBuildID)
+		return nil, fmt.Errorf("if there is no meta.json, provide one of --%s or --%s", generalFlagName, moduleBuildFlagBuildID)
 	}
 	return request, nil
 }
