@@ -61,7 +61,7 @@ func NewManager(
 	ctx context.Context, parentAddr string, logger logging.Logger, options modmanageroptions.Options,
 ) modmaninterface.ModuleManager {
 	restartCtx, restartCtxCancel := context.WithCancel(ctx)
-	return &Manager{
+	ret := &Manager{
 		logger:                  logger.Sublogger("modmanager"),
 		modules:                 moduleMap{},
 		parentAddr:              parentAddr,
@@ -74,8 +74,9 @@ func NewManager(
 		restartCtxCancel:        restartCtxCancel,
 		packagesDir:             options.PackagesDir,
 		ftdc:                    options.FTDC,
-		nextPort:                tcpPortRange,
 	}
+	ret.nextPort.Store(tcpPortRange)
+	return ret
 }
 
 type module struct {
@@ -191,7 +192,7 @@ type Manager struct {
 	restartCtxCancel        context.CancelFunc
 	ftdc                    *ftdc.FTDC
 	// nextPort manages ports when ViamTCPSockets() = true.
-	nextPort int
+	nextPort atomic.Int32
 }
 
 // Close terminates module connections and processes.
@@ -333,9 +334,8 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, moduleLogger lo
 		resources: map[resource.Name]*addedResource{},
 		logger:    moduleLogger,
 		ftdc:      mgr.ftdc,
-		port:      mgr.nextPort,
+		port:      int(mgr.nextPort.Add(1)),
 	}
-	mgr.nextPort++
 
 	if err := mgr.startModule(ctx, mod); err != nil {
 		return err
