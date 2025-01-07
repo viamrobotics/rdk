@@ -168,10 +168,9 @@ func TestDiscoveryServiceServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, errDoFailed.Error())
 		test.That(t, resp, test.ShouldBeNil)
 	})
-
 }
 
-// this was taken from proto_conversion_test.go
+// this was taken from proto_conversion_test.go.
 func validateComponent(t *testing.T, actual, expected resource.Config) {
 	t.Helper()
 	test.That(t, actual.Name, test.ShouldEqual, expected.Name)

@@ -108,6 +108,23 @@ func TestClient(t *testing.T) {
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
+	t.Run("client tests for failing discovery due to nil response", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		failingDiscoveryClient, err := discovery.NewClientFromConn(context.Background(), conn, "", discovery.Named(failDiscoveryName), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		failingDiscovery.DiscoverResourcesFunc = func(ctx context.Context, extra map[string]any) ([]resource.Config, error) {
+			return nil, nil
+		}
+		_, err = failingDiscoveryClient.DiscoverResources(context.Background(), nil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, discovery.ErrNilResponse.Error())
+
+		test.That(t, failingDiscoveryClient.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
+
 	t.Run("dialed client tests for working discovery", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)

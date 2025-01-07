@@ -25,12 +25,11 @@ const (
 	SubtypeName = "discovery"
 )
 
-// API is a variable that identifies the slam resource API.
+// API is a variable that identifies the discovery resource API.
 var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
 
-var (
-	ErrNilResponse = errors.New("discovery service returned a nil response")
-)
+// ErrNilResponse is the error for when a nil response is returned from a discovery service
+var ErrNilResponse = errors.New("discovery service returned a nil response")
 
 // Named is a helper for getting the named service's typed resource name.
 func Named(name string) resource.Name {
