@@ -8,7 +8,6 @@ import (
 	"os"
 	"reflect"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/jhump/protoreflect/desc"
@@ -18,6 +17,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"golang.org/x/sync/errgroup"
 
+	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/ftdc"
 	"go.viam.com/rdk/logging"
@@ -30,6 +30,7 @@ import (
 	"go.viam.com/rdk/robot/web"
 	"go.viam.com/rdk/services/shell"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils/contextutils"
 )
 
 func init() {
@@ -53,9 +54,7 @@ type resourceManager struct {
 	opts           resourceManagerOptions
 	logger         logging.Logger
 
-	// resourceGraphLock manages access to the resource graph and nodes. If either may change, this lock should be taken.
-	resourceGraphLock sync.Mutex
-	viz               resource.Visualizer
+	viz resource.Visualizer
 }
 
 type resourceManagerOptions struct {
@@ -126,6 +125,7 @@ func (manager *resourceManager) startModuleManager(
 		ViamHomeDir:             viamHomeDir,
 		RobotCloudID:            robotCloudID,
 		PackagesDir:             packagesDir,
+		FTDC:                    manager.opts.ftdc,
 	}
 	manager.moduleManager = modmanager.NewManager(ctx, parentAddr, logger, mmOpts)
 }
@@ -317,9 +317,6 @@ func (manager *resourceManager) updateRemoteResourceNames(
 }
 
 func (manager *resourceManager) updateRemotesResourceNames(ctx context.Context) bool {
-	manager.resourceGraphLock.Lock()
-	defer manager.resourceGraphLock.Unlock()
-
 	anythingChanged := false
 	for _, name := range manager.resources.Names() {
 		gNode, _ := manager.resources.Node(name)
@@ -549,9 +546,7 @@ func (manager *resourceManager) removeMarkedAndClose(
 	ctx context.Context,
 	excludeFromClose map[resource.Name]struct{},
 ) error {
-	manager.resourceGraphLock.Lock()
 	defer func() {
-		defer manager.resourceGraphLock.Unlock()
 		if err := manager.viz.SaveSnapshot(manager.resources); err != nil {
 			manager.logger.Warnw("failed to save graph snapshot", "error", err)
 		}
@@ -605,12 +600,10 @@ func (manager *resourceManager) completeConfig(
 	lr *localRobot,
 	forceSync bool,
 ) {
-	manager.resourceGraphLock.Lock()
 	defer func() {
 		if err := manager.viz.SaveSnapshot(manager.resources); err != nil {
 			manager.logger.Warnw("failed to save graph snapshot", "error", err)
 		}
-		manager.resourceGraphLock.Unlock()
 	}()
 
 	// first handle remotes since they may reveal unresolved dependencies
@@ -1124,8 +1117,6 @@ func (manager *resourceManager) updateResources(
 	ctx context.Context,
 	conf *config.Diff,
 ) error {
-	manager.resourceGraphLock.Lock()
-	defer manager.resourceGraphLock.Unlock()
 	var allErrs error
 
 	// modules are not added into the resource tree as they belong to the module manager
@@ -1482,4 +1473,43 @@ func remoteDialOptions(config config.Remote, opts resourceManagerOptions) []rpc.
 		}
 	}
 	return dialOpts
+}
+
+// defaultRemoteMachineStatusTimeout is the default timeout for getting resource statuses from remotes. This prevents
+// remote cycles from preventing this call from finishing.
+var defaultRemoteMachineStatusTimeout = time.Minute
+
+func (manager *resourceManager) getRemoteResourceMetadata(ctx context.Context) map[resource.Name]cloud.Metadata {
+	resourceStatusMap := make(map[resource.Name]cloud.Metadata)
+	for _, resName := range manager.resources.FindNodesByAPI(client.RemoteAPI) {
+		gNode, _ := manager.resources.Node(resName)
+		res, err := gNode.Resource()
+		if err != nil {
+			manager.logger.Debugw("error getting remote machine node", "remote", resName.Name, "err", err)
+			continue
+		}
+		ctx, cancel := contextutils.ContextWithTimeoutIfNoDeadline(ctx, defaultRemoteMachineStatusTimeout)
+		defer cancel()
+		remote := res.(internalRemoteRobot)
+		md, err := remote.CloudMetadata(ctx)
+		if err != nil {
+			manager.logger.Debugw("error getting remote cloud metadata", "remote", resName.Name, "err", err)
+		}
+		resourceStatusMap[resName] = md
+		machineStatus, err := remote.MachineStatus(ctx)
+		if err != nil {
+			manager.logger.Debugw("error getting remote machine status", "remote", resName.Name, "err", err)
+			continue
+		}
+		// Resources come back without their remote name since they are grabbed
+		// from the remote themselves. We need to add that information back.
+		//
+		// Resources on remote may have different cloud metadata from each other, so keep a map of every
+		// resource to cloud metadata pair we come across.
+		for _, remoteResource := range machineStatus.Resources {
+			nameWithRemote := remoteResource.Name.PrependRemote(resName.Name)
+			resourceStatusMap[nameWithRemote] = remoteResource.CloudMetadata
+		}
+	}
+	return resourceStatusMap
 }
