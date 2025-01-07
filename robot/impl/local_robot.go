@@ -364,7 +364,7 @@ func newWithResources(
 		//   the web service has not been "started".
 		ftdcWorker = ftdc.New(ftdc.DefaultDirectory(config.ViamDotDir, partID), logger.Sublogger("ftdc"))
 		if statser, err := sys.NewSelfSysUsageStatser(); err == nil {
-			ftdcWorker.Add("viam-server", statser)
+			ftdcWorker.Add("proc.viam-server", statser)
 		}
 	}
 
