@@ -71,13 +71,6 @@ func Named(name string) resource.Name {
 //	// Get the GPIOPin with pin number 15.
 //	pin, err := myBoard.GPIOPinByName("15")
 //
-// AnalogNames example:
-//
-//	myBoard, err := board.FromRobot(robot, "my_board")
-//
-//	// Get the names of all known analog pins
-//	names := myBoard.AnalogNames()
-//
 // SetPowerMode example:
 //
 //	myBoard, err := board.FromRobot(robot, "my_board")
