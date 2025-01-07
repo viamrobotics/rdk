@@ -83,8 +83,8 @@ func createTestComponent(name string) resource.Config {
 }
 
 func newServer() (pb.DiscoveryServiceServer, *inject.DiscoveryService, *inject.DiscoveryService, error) {
-	injectDiscovery := &inject.DiscoveryService{}
-	injectDiscovery2 := &inject.DiscoveryService{}
+	injectDiscovery := inject.NewDiscoveryService(testDiscoveryName)
+	injectDiscovery2 := inject.NewDiscoveryService(failDiscoveryName)
 	resourceMap := map[resource.Name]discovery.Service{
 		discovery.Named(testDiscoveryName): injectDiscovery,
 		discovery.Named(failDiscoveryName): injectDiscovery2,

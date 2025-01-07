@@ -23,18 +23,18 @@ func TestClient(t *testing.T) {
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	workingDiscovery := &inject.DiscoveryService{}
-	failingDiscovery := &inject.DiscoveryService{}
-
 	testComponents := []resource.Config{createTestComponent("component-1"), createTestComponent("component-2")}
 
+	workingDiscovery := inject.NewDiscoveryService(testDiscoveryName)
 	workingDiscovery.DiscoverResourcesFunc = func(ctx context.Context, extra map[string]any) ([]resource.Config, error) {
 		return testComponents, nil
 	}
+	workingDiscovery.DoFunc = testutils.EchoFunc
+
+	failingDiscovery := inject.NewDiscoveryService(failDiscoveryName)
 	failingDiscovery.DiscoverResourcesFunc = func(ctx context.Context, extra map[string]any) ([]resource.Config, error) {
 		return nil, errDiscoverFailed
 	}
-	workingDiscovery.DoFunc = testutils.EchoFunc
 	failingDiscovery.DoFunc = func(
 		ctx context.Context,
 		cmd map[string]interface{},
