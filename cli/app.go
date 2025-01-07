@@ -437,7 +437,7 @@ var app = &cli.App{
 				{
 					Name:   "print-access-token",
 					Usage:  "print the access token associated with current credentials",
-					UsageText: createUsageText("login print-access-token", []string{}, false),
+					UsageText: createUsageText("login print-access-token", nil, false),
 					Action: createCommandWithT[emptyArgs](PrintAccessTokenAction),
 				},
 				{
@@ -463,29 +463,32 @@ var app = &cli.App{
 		{
 			Name:   "logout",
 			Usage:  "logout from current session",
-			UsageText: createUsageText("logout", []string{}, false),
+			UsageText: createUsageText("logout", nil, false),
 			Action: createCommandWithT[emptyArgs](LogoutAction),
 		},
 		{
 			Name:   "whoami",
 			Usage:  "get currently logged-in user",
-			UsageText: createUsageText("whoami", []string{}, false),
+			UsageText: createUsageText("whoami", nil, false),
 			Action: createCommandWithT[emptyArgs](WhoAmIAction),
 		},
 		{
 			Name:            "organizations",
 			Aliases:         []string{"organization", "org"},
 			Usage:           "work with organizations",
+			UsageText: "viam organizations <command> [command options]",
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
 				{
 					Name:  "auth-service",
 					Usage: "manage auth-service",
+					UsageText: "viam organizations auth-service <command> [command options]",
+					HideHelpCommand: true,
 					Subcommands: []*cli.Command{
 						{
 							Name:      "enable",
 							Usage:     "enable auth-service for OAuth applications",
-							UsageText: createUsageText("enable", []string{generalFlagOrgID}, true),
+							UsageText: createUsageText("organizations auth-service enable", []string{generalFlagOrgID}, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     generalFlagOrgID,
@@ -498,11 +501,13 @@ var app = &cli.App{
 						{
 							Name:  "oauth-app",
 							Usage: "manage the OAuth applications for an organization",
+							UsageText: "viam organizations auth-service oauth-app <command> [command options]",
+							HideHelpCommand: true,
 							Subcommands: []*cli.Command{
 								{
 									Name:      "delete",
 									Usage:     "delete an OAuth application",
-									UsageText: createUsageText("delete", []string{generalFlagOrgID, oauthAppFlagClientID}, true),
+									UsageText: createUsageText("organizations auth-service oauth-app delete", []string{generalFlagOrgID, oauthAppFlagClientID}, false),
 									Flags: []cli.Flag{
 										&cli.StringFlag{
 											Name:     generalFlagOrgID,
@@ -521,7 +526,7 @@ var app = &cli.App{
 								{
 									Name:      "list",
 									Usage:     "list oauth applications for an organization",
-									UsageText: createUsageText("delete", []string{generalFlagOrgID, oauthAppFlagClientID}, true),
+									UsageText: createUsageText("organizations auth-service oauth-app list", []string{generalFlagOrgID, oauthAppFlagClientID}, false),
 									Flags: []cli.Flag{
 										&cli.StringFlag{
 											Name:     generalFlagOrgID,
@@ -534,6 +539,7 @@ var app = &cli.App{
 								{
 									Name:  "update",
 									Usage: "update an OAuth application",
+									UsageText: createUsageText("organizations auth-service oauth-app update", []string{generalFlagOrgID, oauthAppFlagClientID}, true),
 									Flags: []cli.Flag{
 										&cli.StringFlag{
 											Name:     generalFlagOrgID,
@@ -598,16 +604,19 @@ var app = &cli.App{
 				{
 					Name:   "list",
 					Usage:  "list organizations for the current user",
+					UsageText: createUsageText("organizations list", nil, false),
 					Action: createCommandWithT[emptyArgs](ListOrganizationsAction),
 				},
 				{
 					Name:      "logo",
 					Usage:     "manage the logo for an organization",
-					UsageText: createUsageText("organizations logo", []string{generalFlagOrgID}, true),
+					UsageText: "viam organizations logo <command> [command options]",
+					HideHelpCommand: true,
 					Subcommands: []*cli.Command{
 						{
 							Name:  "set",
 							Usage: "set the logo for an organization from a local file",
+							UsageText: createUsageText("organizations logo set", []string{generalFlagOrgID, organizationFlagLogoPath}, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     generalFlagOrgID,
@@ -625,6 +634,7 @@ var app = &cli.App{
 						{
 							Name:  "get",
 							Usage: "get the logo for an organization",
+							UsageText: createUsageText("organizations logo get", []string{generalFlagOrgID}, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     generalFlagOrgID,
@@ -639,11 +649,13 @@ var app = &cli.App{
 				{
 					Name:      "support-email",
 					Usage:     "manage the support email for an organization",
-					UsageText: createUsageText("organizations support-email", []string{generalFlagOrgID}, true),
+					UsageText: "viam organizations support-email <command> [command options]",
+					HideHelpCommand: true,
 					Subcommands: []*cli.Command{
 						{
 							Name:  "set",
 							Usage: "set the support email for an organization",
+							UsageText: createUsageText("organizations support-email set", []string{generalFlagOrgID, organizationFlagSupportEmail}, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     generalFlagOrgID,
@@ -661,6 +673,7 @@ var app = &cli.App{
 						{
 							Name:  "get",
 							Usage: "get the support email for an organization",
+							UsageText: createUsageText("organizations support-email get", []string{generalFlagOrgID}, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     generalFlagOrgID,
@@ -675,11 +688,13 @@ var app = &cli.App{
 				{
 					Name:      "billing-service",
 					Usage:     "manage the organizations billing service",
-					UsageText: createUsageText("organizations billing-service", []string{generalFlagOrgID}, false),
+					UsageText: "organizations billing-service <command> [command options]",
+					HideHelpCommand: true,
 					Subcommands: []*cli.Command{
 						{
 							Name:  "get-config",
 							Usage: "get the billing service config for an organization",
+							UsageText: createUsageText("organizations billing-service get-config", []string{generalFlagOrgID}, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     generalFlagOrgID,
@@ -692,6 +707,7 @@ var app = &cli.App{
 						{
 							Name:  "disable",
 							Usage: "disable the billing service for an organization",
+							UsageText: createUsageText("organizations billing-service disable", []string{generalFlagOrgID}, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     generalFlagOrgID,
@@ -704,6 +720,7 @@ var app = &cli.App{
 						{
 							Name:  "update",
 							Usage: "update the billing service update for an organization",
+							UsageText: createUsageText("organizations billing-service update", []string{generalFlagOrgID, organizationBillingAddress}, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     generalFlagOrgID,
@@ -721,6 +738,7 @@ var app = &cli.App{
 						{
 							Name:  "enable",
 							Usage: "enable the billing service for an organization",
+							UsageText: createUsageText("organizations billing-service enable", []string{generalFlagOrgID, organizationBillingAddress}, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     generalFlagOrgID,
@@ -740,11 +758,13 @@ var app = &cli.App{
 				{
 					Name:      "api-key",
 					Usage:     "work with an organization's api keys",
-					UsageText: createUsageText("organizations api-key", []string{generalFlagOrgID}, true),
+					UsageText: "viam organizations api-key <command> [command options]",
+					HideHelpCommand: true,
 					Subcommands: []*cli.Command{
 						{
 							Name:  "create",
 							Usage: "create an api key for your organization",
+							UsageText: createUsageText("viam organizations api-key create", []string{generalFlagOrgID}, true),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     generalFlagOrgID,
