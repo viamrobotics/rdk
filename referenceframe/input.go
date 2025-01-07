@@ -101,6 +101,19 @@ func interpolateInputs(from, to []Input, by float64) []Input {
 // FrameSystemInputs is an alias for a mapping of frame names to slices of Inputs.
 type FrameSystemInputs map[string][]Input
 
+// GetFrameInputs returns the inputs corresponding to the given frame within the FrameSystemInputs object.
+func (inputs FrameSystemInputs) GetFrameInputs(frame Frame) ([]Input, error) {
+	var toReturn []Input
+	if len(frame.DoF()) > 0 {
+		var ok bool
+		toReturn, ok = inputs[frame.Name()]
+		if !ok {
+			return nil, NewFrameMissingError(frame.Name())
+		}
+	}
+	return toReturn, nil
+}
+
 // ComputePoses computes the poses for each frame in a framesystem in frame of World, using the provided configuration.
 func (inputs FrameSystemInputs) ComputePoses(fs FrameSystem) (FrameSystemPoses, error) {
 	// Compute poses from configuration using the FrameSystem
