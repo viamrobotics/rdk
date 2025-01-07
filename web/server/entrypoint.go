@@ -262,7 +262,12 @@ func (s *robotServer) processConfig(in *config.Config) (*config.Config, error) {
 	out.FromCommand = true
 	out.AllowInsecureCreds = s.args.AllowInsecureCreds
 	out.UntrustedEnv = s.args.UntrustedEnv
-	out.PackagePath = path.Join(viamDotDir, "packages")
+
+	// Use ~/.viam/packages for package path if one was not specified.
+	if in.PackagePath == "" {
+		out.PackagePath = path.Join(viamDotDir, "packages")
+	}
+
 	return out, nil
 }
 

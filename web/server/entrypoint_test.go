@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -205,8 +206,18 @@ func TestMachineState(t *testing.T) {
 
 	machineAddress := "localhost:23654"
 
-	// Register a slow-constructing generic resource and defer its
-	// deregistration.
+	// Create a fake package directory using `t.TempDir`. Set it up to be identical to the
+	// expected file tree of the local package manager. Place a single file `foo` in a
+	// `fake-module` directory.
+	tempDir := t.TempDir()
+	fakePackagePath := filepath.Join(tempDir, fmt.Sprint("packages", config.LocalPackagesSuffix))
+	fakeModuleDataPath := filepath.Join(fakePackagePath, "data", "fake-module")
+	err := os.MkdirAll(fakeModuleDataPath, 0o777) // should create all dirs along path
+	test.That(t, err, test.ShouldBeNil)
+	fakeModuleDataFile, err := os.Create(filepath.Join(fakeModuleDataPath, "foo"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// Register a slow-constructing generic resource and defer its deregistration.
 	type slow struct {
 		resource.Named
 		resource.AlwaysRebuild
@@ -221,8 +232,7 @@ func TestMachineState(t *testing.T) {
 			conf resource.Config,
 			logger logging.Logger,
 		) (resource.Resource, error) {
-			// Wait for `completeConstruction` to close before returning from
-			// constructor.
+			// Wait for `completeConstruction` to close before returning from constructor.
 			<-completeConstruction
 
 			return &slow{
@@ -245,6 +255,9 @@ func TestMachineState(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		cfg := &config.Config{
+			// Set PackagePath to temp dir created at top of test with the "-local" piece trimmed. Local
+			// package manager will automatically add that suffix.
+			PackagePath: strings.TrimSuffix(fakePackagePath, config.LocalPackagesSuffix),
 			Components: []resource.Config{
 				{
 					Name:  "slowpoke",
@@ -253,7 +266,7 @@ func TestMachineState(t *testing.T) {
 				},
 			},
 			Network: config.NetworkConfig{
-				config.NetworkConfigData{
+				NetworkConfigData: config.NetworkConfigData{
 					BindAddress: machineAddress,
 				},
 			},
@@ -267,8 +280,8 @@ func TestMachineState(t *testing.T) {
 		test.That(t, server.RunServer(ctx, args, logger), test.ShouldBeNil)
 	}()
 
-	// Set `DoNotWaitForRunning` to true to allow connecting to a
-	// still-initializing machine.
+	// Set `DoNotWaitForRunning` to true to allow connecting to a still-initializing
+	// machine.
 	client.DoNotWaitForRunning.Store(true)
 	defer func() {
 		client.DoNotWaitForRunning.Store(false)
@@ -276,12 +289,17 @@ func TestMachineState(t *testing.T) {
 
 	rc := robottestutils.NewRobotClient(t, logger, machineAddress, time.Second)
 
-	// Assert that, from client's perspective, robot is in an initializing state
-	// until `slowpoke` completes construction.
+	// Assert that, from client's perspective, robot is in an initializing state until
+	// `slowpoke` completes construction.
 	machineStatus, err := rc.MachineStatus(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, machineStatus, test.ShouldNotBeNil)
 	test.That(t, machineStatus.State, test.ShouldEqual, robot.StateInitializing)
+
+	// Assert that the `foo` package file exists during initialization, machine assumes
+	// package files may still be in use.)
+	_, err = os.Stat(fakeModuleDataFile.Name())
+	test.That(t, err, test.ShouldBeNil)
 
 	// Allow `slowpoke` to complete construction.
 	close(completeConstruction)
@@ -292,6 +310,11 @@ func TestMachineState(t *testing.T) {
 		test.That(tb, machineStatus, test.ShouldNotBeNil)
 		test.That(tb, machineStatus.State, test.ShouldEqual, robot.StateRunning)
 	})
+
+	// Assert that the `foo` file was removed, as the non-initializing `Reconfigure`
+	// determined it was unnecessary (no associated package/module.)
+	_, err = os.Stat(fakeModuleDataFile.Name())
+	test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
 
 	// Cancel context and wait for server goroutine to stop running.
 	cancel()

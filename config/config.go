@@ -107,6 +107,7 @@ type configData struct {
 	LogConfig           []logging.LoggerPatternConfig `json:"log,omitempty"`
 	Revision            string                        `json:"revision,omitempty"`
 	MaintenanceConfig   *MaintenanceConfig            `json:"maintenance,omitempty"`
+	PackagePath         string                        `json:"package_path,omitempty"`
 }
 
 // AppValidationStatus refers to the.
@@ -314,6 +315,7 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	c.LogConfig = conf.LogConfig
 	c.Revision = conf.Revision
 	c.MaintenanceConfig = conf.MaintenanceConfig
+	c.PackagePath = conf.PackagePath
 
 	return nil
 }
@@ -346,6 +348,7 @@ func (c Config) MarshalJSON() ([]byte, error) {
 		LogConfig:           c.LogConfig,
 		Revision:            c.Revision,
 		MaintenanceConfig:   c.MaintenanceConfig,
+		PackagePath:         c.PackagePath,
 	})
 }
 
