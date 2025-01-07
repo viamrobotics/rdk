@@ -609,6 +609,8 @@ type robotsLogsArgs struct {
 	Organization string
 	Location     string
 	Machine      string
+	Output       string
+	Format       string
 	Errors       bool
 	Count        int
 }
@@ -633,33 +635,136 @@ func RobotsLogsAction(c *cli.Context, args robotsLogsArgs) error {
 		return errors.Wrap(err, "could not get machine parts")
 	}
 
+	// Determine the output destination
+	var writer io.Writer
+	if args.Output != "" {
+		file, err := os.OpenFile(args.Output, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+		if err != nil {
+			return errors.Wrap(err, "could not open file for writing")
+		}
+		//nolint:errcheck
+		defer file.Close()
+		writer = file
+	} else {
+		// Output to console
+		writer = c.App.Writer
+	}
+
+	return client.fetchAndSaveLogs(robot, parts, args, writer)
+}
+
+// fetchLogs fetches logs for all parts and writes them to the provided writer.
+func (c *viamClient) fetchAndSaveLogs(robot *apppb.Robot, parts []*apppb.RobotPart, args robotsLogsArgs, writer io.Writer) error {
 	for i, part := range parts {
-		if i != 0 {
-			printf(c.App.Writer, "")
+		// Write a header for text format
+		if args.Format == "text" || args.Format == "" {
+			// Add robot information as a header for context
+			if i == 0 {
+				header := fmt.Sprintf("Robot: %s -> Location: %s -> Organization: %s -> Machine: %s\n",
+					robot.Name, args.Location, args.Organization, args.Machine)
+				if _, err := fmt.Fprintln(writer, header); err != nil {
+					return errors.Wrap(err, "failed to write robot header")
+				}
+			}
+
+			if _, err := fmt.Fprintf(writer, "===== Logs for Part: %s =====\n", part.Name); err != nil {
+				return errors.Wrap(err, "failed to write header to writer")
+			}
 		}
 
-		var header string
-		if orgStr == "" || locStr == "" || robotStr == "" {
-			header = fmt.Sprintf("%s -> %s -> %s -> %s", client.selectedOrg.Name, client.selectedLoc.Name, robot.Name, part.Name)
-		} else {
-			header = part.Name
+		// Stream logs for the part
+		if err := c.streamLogsForPart(part, args, writer); err != nil {
+			return errors.Wrapf(err, "could not stream logs for part %s", part.Name)
 		}
-		numLogs, err := getNumLogs(c, args.Count)
+	}
+	return nil
+}
+
+// streamLogsForPart streams logs for a specific part directly to a file.
+func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArgs, writer io.Writer) error {
+	numLogs, err := getNumLogs(c.c, args.Count)
+	if err != nil {
+		return err
+	}
+
+	// Write logs for this part
+	var pageToken string
+	for logsFetched := 0; logsFetched < numLogs; {
+		resp, err := c.client.GetRobotPartLogs(c.c.Context, &apppb.GetRobotPartLogsRequest{
+			Id:         part.Id,
+			ErrorsOnly: args.Errors,
+			PageToken:  &pageToken,
+		})
 		if err != nil {
-			return err
+			return errors.Wrap(err, "failed to fetch logs")
 		}
-		if err := client.printRobotPartLogs(
-			orgStr, locStr, robotStr, part.Id,
-			args.Errors,
-			"\t",
-			header,
-			numLogs,
-		); err != nil {
-			return errors.Wrap(err, "could not print machine logs")
+
+		pageToken = resp.NextPageToken
+		// Break in the event of no logs in GetRobotPartLogsResponse or when
+		// page token is empty (no more pages).
+		if resp.Logs == nil || pageToken == "" {
+			break
 		}
+
+		// Truncate this intermediate slice of resp.Logs based on how many logs
+		// are still required by numLogs.
+		remainingLogsNeeded := numLogs - logsFetched
+		if remainingLogsNeeded < len(resp.Logs) {
+			resp.Logs = resp.Logs[:remainingLogsNeeded]
+		}
+
+		for _, log := range resp.Logs {
+			formattedLog, err := formatLog(log, part.Name, args.Format)
+			if err != nil {
+				return errors.Wrap(err, "failed to format log")
+			}
+
+			if _, err := fmt.Fprintln(writer, formattedLog); err != nil {
+				return errors.Wrap(err, "failed to write log to writer")
+			}
+		}
+
+		logsFetched += len(resp.Logs)
 	}
 
 	return nil
+}
+
+// formatLog formats a single log entry based on the specified format.
+func formatLog(log *commonpb.LogEntry, partName, format string) (string, error) {
+	fieldsString, err := logEntryFieldsToString(log.Fields)
+	if err != nil {
+		fieldsString = fmt.Sprintf("error formatting fields: %v", err)
+	}
+
+	switch format {
+	case "json":
+		logMap := map[string]interface{}{
+			"part":    partName,
+			"ts":      log.Time.AsTime().Unix(),
+			"time":    log.Time.AsTime().Format(logging.DefaultTimeFormatStr),
+			"message": log.Message,
+			"level":   log.Level,
+			"logger":  log.LoggerName,
+			"fields":  fieldsString,
+		}
+		logJSON, err := json.Marshal(logMap)
+		if err != nil {
+			return "", errors.Wrap(err, "failed to marshal log to JSON")
+		}
+		return string(logJSON), nil
+	case "text", "":
+		return fmt.Sprintf(
+			"%s\t%s\t%s\t%s\t%s",
+			log.Time.AsTime().Format(logging.DefaultTimeFormatStr),
+			log.Level,
+			log.LoggerName,
+			log.Message,
+			fieldsString,
+		), nil
+	default:
+		return "", fmt.Errorf("invalid format: %s", format)
+	}
 }
 
 type robotsPartStatusArgs struct {

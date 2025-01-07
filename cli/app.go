@@ -23,9 +23,11 @@ const (
 	// TODO: RSDK-6683.
 	quietFlag = "quiet"
 
-	logsFlagErrors = "errors"
-	logsFlagTail   = "tail"
-	logsFlagCount  = "count"
+	logsFlagFormat     = "format"
+	logsFlagOutputFile = "output"
+	logsFlagErrors     = "errors"
+	logsFlagTail       = "tail"
+	logsFlagCount      = "count"
 
 	runFlagData   = "data"
 	runFlagStream = "stream"
@@ -1586,6 +1588,14 @@ var app = &cli.App{
 								Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
 								Required: true,
 							},
+						},
+						&cli.StringFlag{
+							Name:  logsFlagOutputFile,
+							Usage: "path to output file",
+						},
+						&cli.StringFlag{
+							Name:  logsFlagFormat,
+							Usage: "file format (text or json)",
 						},
 						&cli.BoolFlag{
 							Name:  logsFlagErrors,
