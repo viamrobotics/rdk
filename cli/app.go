@@ -474,25 +474,25 @@ var app = &cli.App{
 			Usage:           "work with organizations",
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
-				// {
-				// 	Name:  "auth-service",
-				// 	Usage: "manage auth-service",
-				// 	Subcommands: []*cli.Command{
-				// 		{
-				// 			Name:      "enable",
-				// 			Usage:     "enable auth-service for OAuth applications",
-				// 			UsageText: createUsageText("enable", []string{generalFlagOrgID}, true),
-				// 			Flags: []cli.Flag{
-				// 				&cli.StringFlag{
-				// 					Name:     generalFlagOrgID,
-				// 					Required: true,
-				// 					Usage:    "organization ID tied to OAuth applications",
-				// 				},
-				// 			},
-				// 			Action: createCommandWithT[enableAuthServiceArgs](EnableAuthServiceAction),
-				// 		},
-				// 	},
-				// },
+				{
+					Name:  "auth-service",
+					Usage: "manage auth-service",
+					Subcommands: []*cli.Command{
+						{
+							Name:      "enable",
+							Usage:     "enable auth-service for OAuth applications",
+							UsageText: createUsageText("enable", []string{generalFlagOrgID}, true),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "organization ID tied to OAuth applications",
+								},
+							},
+							Action: createCommandWithT[enableAuthServiceArgs](EnableAuthServiceAction),
+						},
+					},
+				},
 				{
 					Name:  "auth-service",
 					Usage: "manage auth-service",
