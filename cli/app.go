@@ -809,6 +809,7 @@ var app = &cli.App{
 		{
 			Name:  "profiles",
 			Usage: "work with CLI profiles",
+			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
 				{
 					Name:  "update",
@@ -1360,6 +1361,7 @@ var app = &cli.App{
 			Name:      "train",
 			Usage:     "train on data",
 			UsageText: "viam train [other options]",
+			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
 				{
 					Name:  "submit",
@@ -2493,6 +2495,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 		{
 			Name:  "training-script",
 			Usage: "manage training scripts for custom ML training",
+			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
 				{
 					Name:      "upload",
@@ -2581,6 +2584,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 		{
 			Name:  "auth-app",
 			Usage: "manage third party auth applications",
+			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
 				{
 					Name:  "register",
