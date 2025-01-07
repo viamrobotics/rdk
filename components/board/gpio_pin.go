@@ -17,7 +17,7 @@ import (
 //	pin, err := myBoard.GPIOPinByName("15")
 //
 //	// Set the pin to high.
-//	err := pin.Set(context.Background(), "true", nil)
+//	err = pin.Set(context.Background(), true, nil)
 //
 // Get example:
 //
@@ -27,7 +27,7 @@ import (
 //	pin, err := myBoard.GPIOPinByName("15")
 //
 //	// Get if it is true or false that the state of the pin is high.
-//	high := pin.Get(context.Background(), nil)
+//	high, err := pin.Get(context.Background(), nil)
 //
 // PWM example:
 //
@@ -37,7 +37,7 @@ import (
 //	pin, err := myBoard.GPIOPinByName("15")
 //
 //	// Returns the duty cycle.
-//	duty_cycle := pin.PWM(context.Background(), nil)
+//	duty_cycle, err := pin.PWM(context.Background(), nil)
 //
 // SetPWM example:
 //
@@ -47,7 +47,7 @@ import (
 //	pin, err := myBoard.GPIOPinByName("15")
 //
 //	// Set the duty cycle to .6, meaning that this pin will be in the high state for 60% of the duration of the PWM interval period.
-//	err := pin.SetPWM(context.Background(), .6, nil)
+//	err = pin.SetPWM(context.Background(), .6, nil)
 //
 // PWMFreq example:
 //
@@ -67,7 +67,7 @@ import (
 //	pin, err := myBoard.GPIOPinByName("15")
 //
 //	// Set the PWM frequency of this pin to 1600 Hz.
-//	high := pin.SetPWMFreq(context.Background(), 1600, nil)
+//	err = pin.SetPWMFreq(context.Background(), 1600, nil)
 type GPIOPin interface {
 	// Set sets the pin to either low or high.
 	Set(ctx context.Context, high bool, extra map[string]interface{}) error
