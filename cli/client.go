@@ -203,7 +203,7 @@ func DisableAuthServiceConfirmation(c *cli.Context, args disableAuthServiceArgs)
 
 	yellow := "\033[1;33m%s\033[0m"
 	printf(c.App.Writer, yellow, "WARNING!!\n")
-	printf(c.App.Writer, yellow, fmt.Sprintf("You are trying to disable auth service for organization ID %s. "+
+	printf(c.App.Writer, yellow, fmt.Sprintf("You are trying to disable the auth service for organization ID %s. "+
 		"Once disabled, all custom auth views and emails will be removed from your organization's (%s) "+
 		"OAuth applications and permanently deleted.\n", args.OrgID))
 	printf(c.App.Writer, yellow, "If you wish to continue, please type \"disable\":")
