@@ -194,10 +194,7 @@ func (f *CaptureFile) Close() error {
 	if err := f.file.Close(); err != nil {
 		return err
 	}
-	if err := os.Rename(f.file.Name(), newName); err != nil {
-		return err
-	}
-	return nil
+	return os.Rename(f.file.Name(), newName)
 }
 
 // Delete deletes the file.
