@@ -2465,6 +2465,54 @@ func enabledGrantToProto(eg string) (apppb.EnabledGrant, error) {
 		oauthAppFlagEnabledGrants, eg)
 }
 
+type createOAuthAppArgs struct {
+	OrgID                string
+	ClientName           string
+	ClientAuthentication string
+	Pkce                 string
+	LogoutURI            string
+	UrlValidation        string //nolint:revive,stylecheck
+	OriginURIs           []string
+	RedirectURIs         []string
+	EnabledGrants        []string
+}
+
+// CreateOAuthAppACtion is the corresponding action for 'oauth-app create'.
+func CreateOAuthAppAction(c *cli.Context, args createOAuthAppArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	return client.createOAuthAppAction(c, args)
+}
+
+func (c *viamClient) createOAuthAppAction(cCtx *cli.Context, args createOAuthAppArgs) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	config, err := createOauthAppConfig(args.ClientAuthentication, args.Pkce, args.UrlValidation,
+		args.LogoutURI, args.OriginURIs, args.RedirectURIs, args.EnabledGrants)
+	if err != nil {
+		return err
+	}
+
+	req := &apppb.CreateOAuthAppRequest{
+		OrgId:       args.OrgID,
+		ClientName:  args.ClientName,
+		OauthConfig: config,
+	}
+
+	_, err = c.client.CreateOAuthApp(c.c.Context, req)
+	if err != nil {
+		return err
+	}
+
+	printf(cCtx.App.Writer, "Successfully created OAuth app %s", args.ClientName)
+	return nil
+}
+
 type updateOAuthAppArgs struct {
 	OrgID                string
 	ClientID             string
@@ -2507,25 +2555,18 @@ func (c *viamClient) updateOAuthAppAction(cCtx *cli.Context, args updateOAuthApp
 	return nil
 }
 
-func createUpdateOAuthAppRequest(args updateOAuthAppArgs) (*apppb.UpdateOAuthAppRequest, error) {
-	orgID := args.OrgID
-	clientID := args.ClientID
-	clientName := args.ClientName
-	originURIs := args.OriginURIs
-	redirectURIs := args.RedirectURIs
-	logoutURI := args.LogoutURI
-	enabledGrants := args.EnabledGrants
-
-	clientAuthentication, err := clientAuthToProto(args.ClientAuthentication)
+func createOauthAppConfig(clientAuthentication, pkce, urlValidation, logoutURI string,
+	originURIs, redirectURIs, enabledGrants []string) (*apppb.OAuthConfig, error) {
+	clientAuthProto, err := clientAuthToProto(clientAuthentication)
 	if err != nil {
 		return nil, err
 	}
-	pkce, err := pkceToProto(args.Pkce)
+	pkceProto, err := pkceToProto(pkce)
 	if err != nil {
 		return nil, err
 	}
 
-	urlValidation, err := urlValidationToProto(args.UrlValidation)
+	urlValidationProto, err := urlValidationToProto(urlValidation)
 	if err != nil {
 		return nil, err
 	}
@@ -2535,19 +2576,31 @@ func createUpdateOAuthAppRequest(args updateOAuthAppArgs) (*apppb.UpdateOAuthApp
 		return nil, err
 	}
 
+	return &apppb.OAuthConfig{
+		ClientAuthentication: clientAuthProto,
+		Pkce:                 pkceProto,
+		UrlValidation:        urlValidationProto,
+		OriginUris:           originURIs,
+		RedirectUris:         redirectURIs,
+		LogoutUri:            logoutURI,
+		EnabledGrants:        egProto,
+	}, nil
+}
+
+func createUpdateOAuthAppRequest(args updateOAuthAppArgs) (*apppb.UpdateOAuthAppRequest, error) {
+	orgID := args.OrgID
+	clientID := args.ClientID
+	clientName := args.ClientName
+
+	oauthConfig, err := createOauthAppConfig(args.ClientAuthentication, args.Pkce, args.UrlValidation, args.LogoutURI, args.OriginURIs, args.RedirectURIs, args.EnabledGrants)
+	if err != nil {
+		return nil, err
+	}
 	req := &apppb.UpdateOAuthAppRequest{
-		OrgId:      orgID,
-		ClientId:   clientID,
-		ClientName: clientName,
-		OauthConfig: &apppb.OAuthConfig{
-			ClientAuthentication: clientAuthentication,
-			Pkce:                 pkce,
-			UrlValidation:        urlValidation,
-			OriginUris:           originURIs,
-			RedirectUris:         redirectURIs,
-			LogoutUri:            logoutURI,
-			EnabledGrants:        egProto,
-		},
+		OrgId:       orgID,
+		ClientId:    clientID,
+		ClientName:  clientName,
+		OauthConfig: oauthConfig,
 	}
 	return req, nil
 }
