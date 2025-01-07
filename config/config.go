@@ -71,6 +71,12 @@ type Config struct {
 	// Revision contains the current revision of the config.
 	Revision string
 
+	// Initial represents whether this is an "initial" config passed in by web
+	// server entrypoint code. If true, the robot will continue to report a state
+	// of initializing after applying this config. If false, the robot will
+	// report a state of reconfiguring after applying this config.
+	Initial bool
+
 	// toCache stores the JSON marshalled version of the config to be cached. It should be a copy of
 	// the config pulled from cloud with minor changes.
 	// This version is kept because the config is changed as it moves through the system.

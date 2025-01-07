@@ -277,11 +277,6 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 	// changes.
 	r.Reconfigure(ctx, currCfg)
 
-	// Once reconfigure with initial config is complete; set initializing to
-	// false. Robot is now fully running and can indicate this through the
-	// MachineStatus endpoint.
-	r.SetInitializing(false)
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -484,8 +479,10 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	minimalProcessedConfig.Modules = nil
 	minimalProcessedConfig.Processes = nil
 
-	// Start robot in an initializing state with minimal config.
-	robotOptions = append(robotOptions, robotimpl.WithInitializing())
+	// Mark minimalProcessedConfig as an initial config, so robot reports a
+	// state of initializing until reconfigured with full config.
+	minimalProcessedConfig.Initial = true
+
 	myRobot, err := robotimpl.New(ctx, &minimalProcessedConfig, s.logger, robotOptions...)
 	if err != nil {
 		cancel()
