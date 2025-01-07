@@ -389,9 +389,9 @@ func TestDisableAuthServiceAction(t *testing.T) {
 	test.That(t, len(out.messages), test.ShouldEqual, 1)
 	test.That(t, out.messages[0], test.ShouldContainSubstring, "disabled auth")
 
-	cCtx, ac, out, errOut = setup(asc, nil, nil, nil, nil, "token")
-	test.That(t, ac.disableAuthServiceAction(cCtx, ""), test.ShouldNotBeNil)
-
+	err := ac.disableAuthServiceAction(cCtx, "")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot disable")
 }
 
 func TestListOAuthAppsAction(t *testing.T) {
