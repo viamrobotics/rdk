@@ -56,6 +56,8 @@ type AppServiceClient struct {
 		opts ...grpc.CallOption) (*apppb.OrganizationSetLogoResponse, error)
 	OrganizationGetLogoFunc func(ctx context.Context, in *apppb.OrganizationGetLogoRequest,
 		opts ...grpc.CallOption) (*apppb.OrganizationGetLogoResponse, error)
+	EnableAuthServiceFunc func(ctx context.Context, in *apppb.EnableAuthServiceRequest,
+		opts ...grpc.CallOption) (*apppb.EnableAuthServiceResponse, error)
 	ListOAuthAppsFunc func(ctx context.Context, in *apppb.ListOAuthAppsRequest,
 		opts ...grpc.CallOption) (*apppb.ListOAuthAppsResponse, error)
 	DeleteOAuthAppFunc func(ctx context.Context, in *apppb.DeleteOAuthAppRequest,
@@ -405,6 +407,16 @@ func (asc *AppServiceClient) OrganizationGetLogo(
 		return asc.AppServiceClient.OrganizationGetLogo(ctx, in, opts...)
 	}
 	return asc.OrganizationGetLogoFunc(ctx, in, opts...)
+}
+
+// EnableAuthService calls the injected EnableAuthServiceFunc or the real version.
+func (asc *AppServiceClient) EnableAuthService(
+	ctx context.Context, in *apppb.EnableAuthServiceRequest, opts ...grpc.CallOption,
+) (*apppb.EnableAuthServiceResponse, error) {
+	if asc.EnableAuthServiceFunc == nil {
+		return asc.AppServiceClient.EnableAuthService(ctx, in, opts...)
+	}
+	return asc.EnableAuthServiceFunc(ctx, in, opts...)
 }
 
 // ListOAuthApps calls the injected ListOAuthAppsFunc or the real version.

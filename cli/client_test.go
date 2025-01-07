@@ -352,6 +352,25 @@ func TestGetLogoAction(t *testing.T) {
 	test.That(t, out.messages[0], test.ShouldContainSubstring, "https://logo.com")
 }
 
+func TestEnableAuthServiceAction(t *testing.T) {
+	enableAuthServiceFunc := func(ctx context.Context, in *apppb.EnableAuthServiceRequest, opts ...grpc.CallOption) (
+		*apppb.EnableAuthServiceResponse, error,
+	) {
+		return &apppb.EnableAuthServiceResponse{}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		EnableAuthServiceFunc: enableAuthServiceFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+
+	test.That(t, ac.enableAuthServiceAction(cCtx, "test-org"), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "enabled auth")
+}
+
 func TestListOAuthAppsAction(t *testing.T) {
 	listOAuthAppFunc := func(ctx context.Context, in *apppb.ListOAuthAppsRequest, opts ...grpc.CallOption) (
 		*apppb.ListOAuthAppsResponse, error,
