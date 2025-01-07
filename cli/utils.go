@@ -92,3 +92,8 @@ func parseBillingAddress(address string) (*apppb.BillingAddress, error) {
 		Zipcode:       strings.Trim(splitAddress[4], " "),
 	}, nil
 }
+
+func formatAcceptedValues(values ...string) string {
+	joined := strings.Join(values, ", ")
+	return "[" + joined + "]"
+}

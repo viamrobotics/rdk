@@ -2445,11 +2445,6 @@ type updateOAuthAppArgs struct {
 	EnabledGrants        []string
 }
 
-func formatAcceptedValues(values ...string) string {
-	joined := strings.Join(values, ", ")
-	return "[" + joined + "]"
-}
-
 // UpdateOAuthAppAction is the corresponding action for 'oauth-app update'.
 func UpdateOAuthAppAction(c *cli.Context, args updateOAuthAppArgs) error {
 	client, err := newViamClient(c)
@@ -2461,9 +2456,9 @@ func UpdateOAuthAppAction(c *cli.Context, args updateOAuthAppArgs) error {
 }
 
 func (c *viamClient) updateOAuthAppAction(cCtx *cli.Context, args updateOAuthAppArgs) error {
-	// if err := c.ensureLoggedIn(); err != nil {
-	// 	return err
-	// }
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
 
 	req, err := createUpdateOAuthAppRequest(args)
 	if err != nil {
@@ -2529,12 +2524,12 @@ func enabledGrantsToProto(enabledGrants []string) ([]apppb.EnabledGrant, error) 
 		return nil, nil
 	}
 	enabledGrantsProto := make([]apppb.EnabledGrant, len(enabledGrants))
-	for i, eg := range enabledGrants {
+	for _, eg := range enabledGrants {
 		enabledGrant, err := enabledGrantToProto(eg)
 		if err != nil {
 			return nil, err
 		}
-		enabledGrantsProto[i] = enabledGrant
+		enabledGrantsProto = append(enabledGrantsProto, enabledGrant)
 	}
 	return enabledGrantsProto, nil
 }

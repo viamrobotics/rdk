@@ -523,55 +523,47 @@ var app = &cli.App{
 											Required: true,
 										},
 										&cli.StringFlag{
-											Name:     oauthAppFlagClientName,
-											Usage:    "updated name for the OAuth application",
-											Required: false,
+											Name:  oauthAppFlagClientName,
+											Usage: "updated name for the OAuth application",
 										},
 										&cli.StringFlag{
 											Name: oauthAppFlagClientAuthentication,
 											Usage: "updated client authentication policy for the OAuth application. can be one of " +
 												formatAcceptedValues(string(ClientAuthenticationUnspecified), string(ClientAuthenticationRequired),
 													string(ClientAuthenticationNotRequired), string(ClientAuthenticationNotRequiredWhenUsingPKCE)),
-											Required: false,
-											Value:    unspecified,
+											Value: unspecified,
 										},
 										&cli.StringFlag{
 											Name: oauthAppFlagURLValidation,
 											Usage: "updated url validation for the OAuth application. can be one of " +
 												formatAcceptedValues(string(URLValidationUnspecified), string(URLValidationExactMatch),
 													string(URLValidationAllowWildcards)),
-											Required: false,
-											Value:    unspecified,
+											Value: unspecified,
 										},
 										&cli.StringFlag{
 											Name: oauthAppFlagPKCE,
 											Usage: "updated pkce for the OAuth application. can be one of " +
 												formatAcceptedValues(string(PKCEUnspecified), string(PKCERequired), string(PKCENotRequired),
 													string(PKCENotRequiredWhenUsingClientAuthentication)),
-											Required: false,
-											Value:    unspecified,
+											Value: unspecified,
 										},
 										&cli.StringSliceFlag{
-											Name:     oauthAppFlagOriginURIs,
-											Usage:    "updated comma separated origin uris for the OAuth application",
-											Required: false,
+											Name:  oauthAppFlagOriginURIs,
+											Usage: "updated comma separated origin uris for the OAuth application",
 										},
 										&cli.StringSliceFlag{
-											Name:     oauthAppFlagRedirectURIs,
-											Usage:    "updated comma separated redirect uris for the OAuth application",
-											Required: false,
+											Name:  oauthAppFlagRedirectURIs,
+											Usage: "updated comma separated redirect uris for the OAuth application",
 										},
 										&cli.StringFlag{
-											Name:     oauthAppFlagLogoutURI,
-											Usage:    "updated logout uri for the OAuth application",
-											Required: false,
+											Name:  oauthAppFlagLogoutURI,
+											Usage: "updated logout uri for the OAuth application",
 										},
 										&cli.StringSliceFlag{
 											Name: oauthAppFlagEnabledGrants,
 											Usage: "updated comma separated enabled grants for the OAuth application. values can be of " +
 												formatAcceptedValues(string(EnabledGrantUnspecified), string(EnabledGrantRefreshToken), string(EnabledGrantPassword),
 													string(EnabledGrantImplicit), string(EnabledGrantDeviceCode), string(EnabledGrantAuthorizationCode)),
-											Required: false,
 										},
 									},
 									Action: createCommandWithT[updateOAuthAppArgs](UpdateOAuthAppAction),
