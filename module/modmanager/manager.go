@@ -1021,6 +1021,7 @@ func (m *module) dial() error {
 	}
 	conn, err := grpc.Dial( //nolint:staticcheck
 		addrToDial,
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(rpc.MaxMessageSize)),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithChainUnaryInterceptor(
 			rdkgrpc.EnsureTimeoutUnaryClientInterceptor,
@@ -1374,7 +1375,7 @@ func (m *module) registerProcessWithFTDC() {
 		return
 	}
 
-	m.ftdc.Add(fmt.Sprintf("modules.%s", m.process.ID()), statser)
+	m.ftdc.Add(fmt.Sprintf("proc.modules.%s", m.process.ID()), statser)
 }
 
 func getFullEnvironment(
