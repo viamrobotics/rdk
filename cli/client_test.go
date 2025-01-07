@@ -371,6 +371,25 @@ func TestEnableAuthServiceAction(t *testing.T) {
 	test.That(t, out.messages[0], test.ShouldContainSubstring, "enabled auth")
 }
 
+func TestDisableAuthServiceAction(t *testing.T) {
+	disableAuthServiceFunc := func(ctx context.Context, in *apppb.DisableAuthServiceRequest, opts ...grpc.CallOption) (
+		*apppb.DisableAuthServiceResponse, error,
+	) {
+		return &apppb.DisableAuthServiceResponse{}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		DisableAuthServiceFunc: disableAuthServiceFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+
+	test.That(t, ac.disableAuthServiceAction(cCtx, "test-org"), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "disabled auth")
+}
+
 func TestListOAuthAppsAction(t *testing.T) {
 	listOAuthAppFunc := func(ctx context.Context, in *apppb.ListOAuthAppsRequest, opts ...grpc.CallOption) (
 		*apppb.ListOAuthAppsResponse, error,

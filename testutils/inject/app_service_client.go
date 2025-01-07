@@ -58,6 +58,8 @@ type AppServiceClient struct {
 		opts ...grpc.CallOption) (*apppb.OrganizationGetLogoResponse, error)
 	EnableAuthServiceFunc func(ctx context.Context, in *apppb.EnableAuthServiceRequest,
 		opts ...grpc.CallOption) (*apppb.EnableAuthServiceResponse, error)
+	DisableAuthServiceFunc func(ctx context.Context, in *apppb.DisableAuthServiceRequest,
+		opts ...grpc.CallOption) (*apppb.DisableAuthServiceResponse, error)
 	ListOAuthAppsFunc func(ctx context.Context, in *apppb.ListOAuthAppsRequest,
 		opts ...grpc.CallOption) (*apppb.ListOAuthAppsResponse, error)
 	DeleteOAuthAppFunc func(ctx context.Context, in *apppb.DeleteOAuthAppRequest,
@@ -417,6 +419,16 @@ func (asc *AppServiceClient) EnableAuthService(
 		return asc.AppServiceClient.EnableAuthService(ctx, in, opts...)
 	}
 	return asc.EnableAuthServiceFunc(ctx, in, opts...)
+}
+
+// DisableAuthService calls the injected DisableeAuthServiceFunc or the real version.
+func (asc *AppServiceClient) DisableAuthService(
+	ctx context.Context, in *apppb.DisableAuthServiceRequest, opts ...grpc.CallOption,
+) (*apppb.DisableAuthServiceResponse, error) {
+	if asc.DisableAuthServiceFunc == nil {
+		return asc.AppServiceClient.DisableAuthService(ctx, in, opts...)
+	}
+	return asc.DisableAuthServiceFunc(ctx, in, opts...)
 }
 
 // ListOAuthApps calls the injected ListOAuthAppsFunc or the real version.
