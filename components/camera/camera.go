@@ -79,12 +79,6 @@ type ImageMetadata struct {
 }
 
 // A Camera is a resource that can capture frames.
-type Camera interface {
-	resource.Resource
-	VideoSource
-}
-
-// VideoSource represents anything that can capture frames.
 // For more information, see the [camera component docs].
 //
 // Image example:
@@ -103,17 +97,6 @@ type Camera interface {
 //
 //	images, metadata, err := myCamera.Images(context.Background())
 //
-// Stream example:
-//
-//	myCamera, err := camera.FromRobot(machine, "my_camera")
-//
-//	// gets the stream from a camera
-//	stream, err := myCamera.Stream(context.Background())
-//
-//	// gets an image from the camera stream
-//	img, release, err := stream.Next(context.Background())
-//	defer release()
-//
 // NextPointCloud example:
 //
 //	myCamera, err := camera.FromRobot(machine, "my_camera")
@@ -128,7 +111,8 @@ type Camera interface {
 //	err = myCamera.Close(context.Background())
 //
 // [camera component docs]: https://docs.viam.com/components/camera/
-type VideoSource interface {
+type Camera interface {
+	resource.Resource
 	// Image returns a byte slice representing an image that tries to adhere to the MIME type hint.
 	// Image also may return metadata about the frame.
 	Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, ImageMetadata, error)
@@ -137,10 +121,6 @@ type VideoSource interface {
 	// along with associated metadata (just timestamp for now). It's not for getting a time series of images from the same imager.
 	Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error)
 
-	// Stream returns a stream that makes a best effort to return consecutive images
-	// that may have a MIME type hint dictated in the context via gostream.WithMIMETypeHint.
-	Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error)
-
 	// NextPointCloud returns the next immediately available point cloud, not necessarily one
 	// a part of a sequence. In the future, there could be streaming of point clouds.
 	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
@@ -148,9 +128,13 @@ type VideoSource interface {
 	// Properties returns properties that are intrinsic to the particular
 	// implementation of a camera.
 	Properties(ctx context.Context) (Properties, error)
+}
 
-	// Close shuts down the resource and prevents further use.
-	Close(ctx context.Context) error
+// StreamCamera is a camera that has `Stream` embedded to directly integrate with gostream.
+// Note that generally, when writing camera components from scratch, embedding `Stream` is an anti-pattern.
+type StreamCamera interface {
+	Camera
+	Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error)
 }
 
 // ReadImage reads an image from the given source that is immediately available.
