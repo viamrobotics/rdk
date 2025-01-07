@@ -241,8 +241,7 @@ func (c *viamClient) disableAuthServiceAction(cCtx *cli.Context, orgID string) e
 		return err
 	}
 
-	_, err := c.client.DisableAuthService(cCtx.Context, &apppb.DisableAuthServiceRequest{OrgId: orgID})
-	if err != nil {
+	if _, err := c.client.DisableAuthService(cCtx.Context, &apppb.DisableAuthServiceRequest{OrgId: orgID}); err != nil {
 		return err
 	}
 
