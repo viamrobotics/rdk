@@ -484,6 +484,19 @@ var app = &cli.App{
 									Before: createCommandWithT[deleteOAuthAppArgs](DeleteOAuthAppConfirmation),
 									Action: createCommandWithT[deleteOAuthAppArgs](DeleteOAuthAppAction),
 								},
+								{
+									Name:      "list",
+									Usage:     "list oauth applications for an organization",
+									UsageText: createUsageText("delete", []string{generalFlagOrgID, authApplicationFlagClientID}, true),
+									Flags: []cli.Flag{
+										&cli.StringFlag{
+											Name:     generalFlagOrgID,
+											Required: true,
+											Usage:    "the org to get applications for",
+										},
+									},
+									Action: createCommandWithT[listOAuthAppsArgs](ListOAuthAppsAction),
+								},
 							},
 						},
 					},
