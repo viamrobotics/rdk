@@ -191,10 +191,13 @@ func (f *CaptureFile) Close() error {
 	// Rename file to indicate that it is done being written.
 	withoutExt := strings.TrimSuffix(f.file.Name(), filepath.Ext(f.file.Name()))
 	newName := withoutExt + CompletedCaptureFileExt
+	if err := f.file.Close(); err != nil {
+		return err
+	}
 	if err := os.Rename(f.file.Name(), newName); err != nil {
 		return err
 	}
-	return f.file.Close()
+	return nil
 }
 
 // Delete deletes the file.
