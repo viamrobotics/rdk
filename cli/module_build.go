@@ -491,7 +491,7 @@ func jobStatusFromProto(s buildpb.JobStatus) jobStatus {
 }
 
 type reloadModuleArgs struct {
-	Part        string
+	PartID      string
 	Module      string
 	RestartOnly bool
 	NoBuild     bool
@@ -509,7 +509,7 @@ func ReloadModuleAction(c *cli.Context, args reloadModuleArgs) error {
 
 // reloadModuleAction is the testable inner reload logic.
 func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs) error {
-	partID, err := resolvePartID(c.Context, args.Part, "/etc/viam.json")
+	partID, err := resolvePartID(c.Context, args.PartID, "/etc/viam.json")
 	if err != nil {
 		return err
 	}
@@ -656,7 +656,7 @@ func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.Resta
 	modID := args.ID
 	// todo: use MutuallyExclusiveFlags for this when urfave/cli 3.x is stable
 	if (len(modName) > 0) && (len(modID) > 0) {
-		return nil, fmt.Errorf("provide at most one of --%s and --%s", moduleFlagName, moduleBuildFlagBuildID)
+		return nil, fmt.Errorf("provide at most one of --%s and --%s", generalFlagName, moduleBuildFlagBuildID)
 	}
 	request := &robot.RestartModuleRequest{}
 	//nolint:gocritic
@@ -668,7 +668,7 @@ func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.Resta
 		// TODO(APP-4019): remove localize call
 		request.ModuleName = localizeModuleID(manifest.ModuleID)
 	} else {
-		return nil, fmt.Errorf("if there is no meta.json, provide one of --%s or --%s", moduleFlagName, moduleBuildFlagBuildID)
+		return nil, fmt.Errorf("if there is no meta.json, provide one of --%s or --%s", generalFlagName, moduleBuildFlagBuildID)
 	}
 	return request, nil
 }
