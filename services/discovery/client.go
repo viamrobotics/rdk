@@ -42,7 +42,7 @@ func NewClientFromConn(
 	return c, nil
 }
 
-func (c *client) DiscoverResources(ctx context.Context, extra map[string]any) ([]*resource.Config, error) {
+func (c *client) DiscoverResources(ctx context.Context, extra map[string]any) ([]resource.Config, error) {
 	ctx, span := trace.StartSpan(ctx, "discovery::client::DoCommand")
 	defer span.End()
 	ext, err := protoutils.StructToStructPb(extra)
@@ -55,14 +55,14 @@ func (c *client) DiscoverResources(ctx context.Context, extra map[string]any) ([
 	if err != nil {
 		return nil, err
 	}
-	discoveredConfigs := []*resource.Config{}
+	discoveredConfigs := []resource.Config{}
 	protoConfigs := resp.GetDiscoveries()
 	for _, proto := range protoConfigs {
 		config, err := config.ComponentConfigFromProto(proto)
 		if err != nil {
 			return nil, err
 		}
-		discoveredConfigs = append(discoveredConfigs, config)
+		discoveredConfigs = append(discoveredConfigs, *config)
 	}
 	return discoveredConfigs, nil
 }

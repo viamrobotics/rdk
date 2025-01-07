@@ -46,5 +46,5 @@ func FromDependencies(deps resource.Dependencies, name string) (Service, error) 
 // Service describes the functions that are available to the service.
 type Service interface {
 	resource.Resource
-	DiscoverResources(ctx context.Context, extra map[string]any) ([]*resource.Config, error)
+	DiscoverResources(ctx context.Context, extra map[string]any) ([]resource.Config, error)
 }

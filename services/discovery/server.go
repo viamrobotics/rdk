@@ -43,7 +43,7 @@ func (server *serviceServer) DiscoverResources(ctx context.Context, req *pb.Disc
 	}
 	protoConfigs := []*apppb.ComponentConfig{}
 	for _, cfg := range configs {
-		proto, err := config.ComponentConfigToProto(cfg)
+		proto, err := config.ComponentConfigToProto(&cfg)
 		if err != nil {
 			return nil, err
 		}

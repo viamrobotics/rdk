@@ -26,12 +26,12 @@ func TestClient(t *testing.T) {
 	workingDiscovery := &inject.DiscoveryService{}
 	failingDiscovery := &inject.DiscoveryService{}
 
-	testComponents := []*resource.Config{createTestComponent("component-1"), createTestComponent("component-2")}
+	testComponents := []resource.Config{createTestComponent("component-1"), createTestComponent("component-2")}
 
-	workingDiscovery.DiscoverResourcesFunc = func(ctx context.Context, extra map[string]any) ([]*resource.Config, error) {
+	workingDiscovery.DiscoverResourcesFunc = func(ctx context.Context, extra map[string]any) ([]resource.Config, error) {
 		return testComponents, nil
 	}
-	failingDiscovery.DiscoverResourcesFunc = func(ctx context.Context, extra map[string]any) ([]*resource.Config, error) {
+	failingDiscovery.DiscoverResourcesFunc = func(ctx context.Context, extra map[string]any) ([]resource.Config, error) {
 		return nil, errDiscoverFailed
 	}
 	workingDiscovery.DoFunc = testutils.EchoFunc
@@ -78,7 +78,7 @@ func TestClient(t *testing.T) {
 		test.That(t, len(respDis), test.ShouldEqual, len(testComponents))
 		for index, actual := range respDis {
 			expected := testComponents[index]
-			validateComponent(t, *actual, *expected)
+			validateComponent(t, actual, expected)
 		}
 
 		resp, err := workingDiscoveryClient.DoCommand(context.Background(), testutils.TestCommand)

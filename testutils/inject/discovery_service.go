@@ -11,7 +11,7 @@ import (
 type DiscoveryService struct {
 	discovery.Service
 	name                  resource.Name
-	DiscoverResourcesFunc func(ctx context.Context, extra map[string]any) ([]*resource.Config, error)
+	DiscoverResourcesFunc func(ctx context.Context, extra map[string]any) ([]resource.Config, error)
 	DoFunc                func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 }
 
@@ -26,7 +26,7 @@ func (disSvc *DiscoveryService) Name() resource.Name {
 }
 
 // DiscoverResources calls the injected DiscoverResourcesFunc or the real version.
-func (disSvc *DiscoveryService) DiscoverResources(ctx context.Context, extra map[string]any) ([]*resource.Config, error) {
+func (disSvc *DiscoveryService) DiscoverResources(ctx context.Context, extra map[string]any) ([]resource.Config, error) {
 	if disSvc.DiscoverResourcesFunc == nil {
 		return disSvc.Service.DiscoverResources(ctx, extra)
 	}

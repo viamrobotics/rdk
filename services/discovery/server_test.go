@@ -33,7 +33,7 @@ var (
 )
 
 // this was taken from proto_conversions_test and represents all of the information that a discovery service can provide about a component.
-func createTestComponent(name string) *resource.Config {
+func createTestComponent(name string) resource.Config {
 	testOrientation, _ := spatial.NewOrientationConfig(spatial.NewZeroOrientation())
 
 	testFrame := &referenceframe.LinkConfig{
@@ -79,7 +79,7 @@ func createTestComponent(name string) *resource.Config {
 		Frame:            testFrame,
 		LogConfiguration: &resource.LogConfig{Level: logging.DEBUG},
 	}
-	return &testComponent
+	return testComponent
 }
 
 func newServer() (pb.DiscoveryServiceServer, *inject.DiscoveryService, *inject.DiscoveryService, error) {
@@ -99,12 +99,12 @@ func newServer() (pb.DiscoveryServiceServer, *inject.DiscoveryService, *inject.D
 func TestDiscoverResources(t *testing.T) {
 	discoveryServer, workingDiscovery, failingDiscovery, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
-	testComponents := []*resource.Config{createTestComponent("component-1"), createTestComponent("component-2")}
+	testComponents := []resource.Config{createTestComponent("component-1"), createTestComponent("component-2")}
 
-	workingDiscovery.DiscoverResourcesFunc = func(ctx context.Context, extra map[string]any) ([]*resource.Config, error) {
+	workingDiscovery.DiscoverResourcesFunc = func(ctx context.Context, extra map[string]any) ([]resource.Config, error) {
 		return testComponents, nil
 	}
-	failingDiscovery.DiscoverResourcesFunc = func(ctx context.Context, extra map[string]any) ([]*resource.Config, error) {
+	failingDiscovery.DiscoverResourcesFunc = func(ctx context.Context, extra map[string]any) ([]resource.Config, error) {
 		return nil, errDiscoverFailed
 	}
 	resp, err := discoveryServer.DiscoverResources(context.Background(), &pb.DiscoverResourcesRequest{Name: testDiscoveryName})
@@ -115,7 +115,7 @@ func TestDiscoverResources(t *testing.T) {
 		test.That(t, proto.Name, test.ShouldEqual, expected.Name)
 		actual, err := config.ComponentConfigFromProto(proto)
 		test.That(t, err, test.ShouldBeNil)
-		validateComponent(t, *actual, *expected)
+		validateComponent(t, *actual, expected)
 	}
 
 	respFail, err := discoveryServer.DiscoverResources(context.Background(), &pb.DiscoverResourcesRequest{Name: failDiscoveryName})
