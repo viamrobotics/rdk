@@ -132,12 +132,23 @@ const (
 
 	packageMetadataFlagFramework = "model_framework"
 
+	// TODO: APP-6993 remove these flags.
 	authApplicationFlagName          = "application-name"
 	authApplicationFlagApplicationID = "application-id"
 	authApplicationFlagOriginURIs    = "origin-uris"
 	authApplicationFlagRedirectURIs  = "redirect-uris"
 	authApplicationFlagLogoutURI     = "logout-uri"
-	authApplicationFlagClientID      = "client-id"
+
+	oauthAppFlagClientID             = "client-id"
+	oauthAppFlagClientName           = "client-name"
+	oauthAppFlagClientAuthentication = "client-authentication"
+	oauthAppFlagPKCE                 = "pkce"
+	oauthAppFlagEnabledGrants        = "enabled-grants"
+	oauthAppFlagURLValidation        = "url-validation"
+	oauthAppFlagOriginURIs           = "origin-uris"
+	oauthAppFlagRedirectURIs         = "redirect-uris"
+	oauthAppFlagLogoutURI            = "logout-uri"
+	unspecified                      = "unspecified"
 
 	cpFlagRecursive = "recursive"
 	cpFlagPreserve  = "preserve"
@@ -361,6 +372,12 @@ func createUsageText(command string, requiredFlags []string, otherOptions bool, 
 	return strings.Join(formatted, " ")
 }
 
+// formatAcceptedValues is a helper for formatting the usage text for flags that only accept certain values.
+func formatAcceptedValues(values ...string) string {
+	joined := strings.Join(values, ", ")
+	return "[" + joined + "]"
+}
+
 var app = &cli.App{
 	Name:            "viam",
 	Usage:           "interact with your Viam machines",
@@ -495,7 +512,7 @@ var app = &cli.App{
 								{
 									Name:      "delete",
 									Usage:     "delete an OAuth application",
-									UsageText: createUsageText("delete", []string{generalFlagOrgID, authApplicationFlagClientID}, true),
+									UsageText: createUsageText("delete", []string{generalFlagOrgID, oauthAppFlagClientID}, true),
 									Flags: []cli.Flag{
 										&cli.StringFlag{
 											Name:     generalFlagOrgID,
@@ -503,7 +520,7 @@ var app = &cli.App{
 											Usage:    "organization ID tied to the OAuth application",
 										},
 										&cli.StringFlag{
-											Name:     authApplicationFlagClientID,
+											Name:     oauthAppFlagClientID,
 											Required: true,
 											Usage:    "client ID of the OAuth application to delete",
 										},
@@ -514,7 +531,7 @@ var app = &cli.App{
 								{
 									Name:      "list",
 									Usage:     "list oauth applications for an organization",
-									UsageText: createUsageText("delete", []string{generalFlagOrgID, authApplicationFlagClientID}, true),
+									UsageText: createUsageText("delete", []string{generalFlagOrgID, oauthAppFlagClientID}, true),
 									Flags: []cli.Flag{
 										&cli.StringFlag{
 											Name:     generalFlagOrgID,
@@ -523,6 +540,66 @@ var app = &cli.App{
 										},
 									},
 									Action: createCommandWithT[listOAuthAppsArgs](ListOAuthAppsAction),
+								},
+								{
+									Name:  "update",
+									Usage: "update an OAuth application",
+									Flags: []cli.Flag{
+										&cli.StringFlag{
+											Name:     generalFlagOrgID,
+											Required: true,
+											Usage:    "organization ID that is tied to the OAuth application",
+										},
+										&cli.StringFlag{
+											Name:     oauthAppFlagClientID,
+											Usage:    "id for the OAuth application to be updated",
+											Required: true,
+										},
+										&cli.StringFlag{
+											Name:  oauthAppFlagClientName,
+											Usage: "updated name for the OAuth application",
+										},
+										&cli.StringFlag{
+											Name: oauthAppFlagClientAuthentication,
+											Usage: "updated client authentication policy for the OAuth application. can be one of " +
+												formatAcceptedValues(string(ClientAuthenticationUnspecified), string(ClientAuthenticationRequired),
+													string(ClientAuthenticationNotRequired), string(ClientAuthenticationNotRequiredWhenUsingPKCE)),
+											Value: unspecified,
+										},
+										&cli.StringFlag{
+											Name: oauthAppFlagURLValidation,
+											Usage: "updated url validation for the OAuth application. can be one of " +
+												formatAcceptedValues(string(URLValidationUnspecified), string(URLValidationExactMatch),
+													string(URLValidationAllowWildcards)),
+											Value: unspecified,
+										},
+										&cli.StringFlag{
+											Name: oauthAppFlagPKCE,
+											Usage: "updated pkce for the OAuth application. can be one of " +
+												formatAcceptedValues(string(PKCEUnspecified), string(PKCERequired), string(PKCENotRequired),
+													string(PKCENotRequiredWhenUsingClientAuthentication)),
+											Value: unspecified,
+										},
+										&cli.StringSliceFlag{
+											Name:  oauthAppFlagOriginURIs,
+											Usage: "updated comma separated origin uris for the OAuth application",
+										},
+										&cli.StringSliceFlag{
+											Name:  oauthAppFlagRedirectURIs,
+											Usage: "updated comma separated redirect uris for the OAuth application",
+										},
+										&cli.StringFlag{
+											Name:  oauthAppFlagLogoutURI,
+											Usage: "updated logout uri for the OAuth application",
+										},
+										&cli.StringSliceFlag{
+											Name: oauthAppFlagEnabledGrants,
+											Usage: "updated comma separated enabled grants for the OAuth application. values can be of " +
+												formatAcceptedValues(string(EnabledGrantUnspecified), string(EnabledGrantRefreshToken), string(EnabledGrantPassword),
+													string(EnabledGrantImplicit), string(EnabledGrantDeviceCode), string(EnabledGrantAuthorizationCode)),
+										},
+									},
+									Action: createCommandWithT[updateOAuthAppArgs](UpdateOAuthAppAction),
 								},
 							},
 						},
