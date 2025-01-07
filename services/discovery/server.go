@@ -50,7 +50,7 @@ func (server *serviceServer) DiscoverResources(ctx context.Context, req *pb.Disc
 		protoConfigs = append(protoConfigs, proto)
 	}
 
-	return &pb.DiscoverResourcesResponse{Discovery: protoConfigs}, nil
+	return &pb.DiscoverResourcesResponse{Discoveries: protoConfigs}, nil
 }
 
 // DoCommand receives arbitrary commands.

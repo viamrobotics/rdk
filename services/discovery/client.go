@@ -56,7 +56,7 @@ func (c *client) DiscoverResources(ctx context.Context, extra map[string]any) ([
 		return nil, err
 	}
 	discoveredConfigs := []*resource.Config{}
-	protoConfigs := resp.GetDiscovery()
+	protoConfigs := resp.GetDiscoveries()
 	for _, proto := range protoConfigs {
 		config, err := config.ComponentConfigFromProto(proto)
 		if err != nil {

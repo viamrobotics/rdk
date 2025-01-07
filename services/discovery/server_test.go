@@ -109,8 +109,8 @@ func TestDiscoverResources(t *testing.T) {
 	}
 	resp, err := discoveryServer.DiscoverResources(context.Background(), &pb.DiscoverResourcesRequest{Name: testDiscoveryName})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(resp.GetDiscovery()), test.ShouldEqual, len(testComponents))
-	for index, proto := range resp.GetDiscovery() {
+	test.That(t, len(resp.GetDiscoveries()), test.ShouldEqual, len(testComponents))
+	for index, proto := range resp.GetDiscoveries() {
 		expected := testComponents[index]
 		test.That(t, proto.Name, test.ShouldEqual, expected.Name)
 		actual, err := config.ComponentConfigFromProto(proto)
