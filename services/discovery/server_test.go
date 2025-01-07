@@ -96,77 +96,84 @@ func newServer() (pb.DiscoveryServiceServer, *inject.DiscoveryService, *inject.D
 	return discovery.NewRPCServiceServer(injectSvc).(pb.DiscoveryServiceServer), injectDiscovery, injectDiscovery2, nil
 }
 
-func TestDiscoverResources(t *testing.T) {
+func TestDiscoveryServiceServer(t *testing.T) {
 	discoveryServer, workingDiscovery, failingDiscovery, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
 	testComponents := []resource.Config{createTestComponent("component-1"), createTestComponent("component-2")}
 
-	workingDiscovery.DiscoverResourcesFunc = func(ctx context.Context, extra map[string]any) ([]resource.Config, error) {
-		return testComponents, nil
-	}
-	failingDiscovery.DiscoverResourcesFunc = func(ctx context.Context, extra map[string]any) ([]resource.Config, error) {
-		return nil, errDiscoverFailed
-	}
-	resp, err := discoveryServer.DiscoverResources(context.Background(), &pb.DiscoverResourcesRequest{Name: testDiscoveryName})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(resp.GetDiscoveries()), test.ShouldEqual, len(testComponents))
-	for index, proto := range resp.GetDiscoveries() {
-		expected := testComponents[index]
-		test.That(t, proto.Name, test.ShouldEqual, expected.Name)
-		actual, err := config.ComponentConfigFromProto(proto)
+	t.Run("Test DiscoverResources", func(t *testing.T) {
+		workingDiscovery.DiscoverResourcesFunc = func(ctx context.Context, extra map[string]any) ([]resource.Config, error) {
+			return testComponents, nil
+		}
+		failingDiscovery.DiscoverResourcesFunc = func(ctx context.Context, extra map[string]any) ([]resource.Config, error) {
+			return nil, errDiscoverFailed
+		}
+		resp, err := discoveryServer.DiscoverResources(context.Background(), &pb.DiscoverResourcesRequest{Name: testDiscoveryName})
 		test.That(t, err, test.ShouldBeNil)
-		validateComponent(t, *actual, expected)
-	}
+		test.That(t, len(resp.GetDiscoveries()), test.ShouldEqual, len(testComponents))
+		for index, proto := range resp.GetDiscoveries() {
+			expected := testComponents[index]
+			test.That(t, proto.Name, test.ShouldEqual, expected.Name)
+			actual, err := config.ComponentConfigFromProto(proto)
+			test.That(t, err, test.ShouldBeNil)
+			validateComponent(t, *actual, expected)
+		}
 
-	respFail, err := discoveryServer.DiscoverResources(context.Background(), &pb.DiscoverResourcesRequest{Name: failDiscoveryName})
-	test.That(t, err, test.ShouldEqual, errDiscoverFailed)
-	test.That(t, respFail, test.ShouldBeNil)
-}
+		respFail, err := discoveryServer.DiscoverResources(context.Background(), &pb.DiscoverResourcesRequest{Name: failDiscoveryName})
+		test.That(t, err, test.ShouldEqual, errDiscoverFailed)
+		test.That(t, respFail, test.ShouldBeNil)
+	})
+	t.Run("Test nil DiscoverResources response", func(t *testing.T) {
+		failingDiscovery.DiscoverResourcesFunc = func(ctx context.Context, extra map[string]any) ([]resource.Config, error) {
+			return nil, nil
+		}
+		resp, err := discoveryServer.DiscoverResources(context.Background(), &pb.DiscoverResourcesRequest{Name: failDiscoveryName})
+		test.That(t, err, test.ShouldEqual, discovery.ErrNilResponse)
+		test.That(t, resp, test.ShouldEqual, nil)
+	})
 
-func TestDiscoveryDo(t *testing.T) {
-	discoveryServer, workingDiscovery, failingDiscovery, err := newServer()
-	test.That(t, err, test.ShouldBeNil)
+	t.Run("Test DoCommand", func(t *testing.T) {
+		workingDiscovery.DoFunc = func(
+			ctx context.Context,
+			cmd map[string]interface{},
+		) (
+			map[string]interface{},
+			error,
+		) {
+			return cmd, nil
+		}
+		failingDiscovery.DoFunc = func(
+			ctx context.Context,
+			cmd map[string]interface{},
+		) (
+			map[string]interface{},
+			error,
+		) {
+			return nil, errDoFailed
+		}
 
-	workingDiscovery.DoFunc = func(
-		ctx context.Context,
-		cmd map[string]interface{},
-	) (
-		map[string]interface{},
-		error,
-	) {
-		return cmd, nil
-	}
-	failingDiscovery.DoFunc = func(
-		ctx context.Context,
-		cmd map[string]interface{},
-	) (
-		map[string]interface{},
-		error,
-	) {
-		return nil, errDoFailed
-	}
+		commandStruct, err := protoutils.StructToStructPb(testutils.TestCommand)
+		test.That(t, err, test.ShouldBeNil)
 
-	commandStruct, err := protoutils.StructToStructPb(testutils.TestCommand)
-	test.That(t, err, test.ShouldBeNil)
+		req := commonpb.DoCommandRequest{Name: testDiscoveryName, Command: commandStruct}
+		resp, err := discoveryServer.DoCommand(context.Background(), &req)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldNotBeNil)
+		test.That(t, resp.Result.AsMap()["cmd"], test.ShouldEqual, testutils.TestCommand["cmd"])
+		test.That(t, resp.Result.AsMap()["data"], test.ShouldEqual, testutils.TestCommand["data"])
 
-	req := commonpb.DoCommandRequest{Name: testDiscoveryName, Command: commandStruct}
-	resp, err := discoveryServer.DoCommand(context.Background(), &req)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp, test.ShouldNotBeNil)
-	test.That(t, resp.Result.AsMap()["cmd"], test.ShouldEqual, testutils.TestCommand["cmd"])
-	test.That(t, resp.Result.AsMap()["data"], test.ShouldEqual, testutils.TestCommand["data"])
+		req = commonpb.DoCommandRequest{Name: failDiscoveryName, Command: commandStruct}
+		resp, err = discoveryServer.DoCommand(context.Background(), &req)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errDoFailed.Error())
+		test.That(t, resp, test.ShouldBeNil)
+	})
 
-	req = commonpb.DoCommandRequest{Name: failDiscoveryName, Command: commandStruct}
-	resp, err = discoveryServer.DoCommand(context.Background(), &req)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, errDoFailed.Error())
-	test.That(t, resp, test.ShouldBeNil)
 }
 
 // this was taken from proto_conversion_test.go
-//
-//nolint:thelper
 func validateComponent(t *testing.T, actual, expected resource.Config) {
+	t.Helper()
 	test.That(t, actual.Name, test.ShouldEqual, expected.Name)
 	test.That(t, actual.API, test.ShouldResemble, expected.API)
 	test.That(t, actual.Model, test.ShouldResemble, expected.Model)

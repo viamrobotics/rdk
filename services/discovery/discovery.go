@@ -3,6 +3,7 @@ package discovery
 
 import (
 	"context"
+	"errors"
 
 	pb "go.viam.com/api/service/discovery/v1"
 
@@ -26,6 +27,10 @@ const (
 
 // API is a variable that identifies the slam resource API.
 var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
+
+var (
+	ErrNilResponse = errors.New("discovery service returned a nil response")
+)
 
 // Named is a helper for getting the named service's typed resource name.
 func Named(name string) resource.Name {
