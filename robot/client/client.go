@@ -876,6 +876,9 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.Dis
 	return discoveries, nil
 }
 
+// GetModelsFromModules  returns the available models from the configured modules on a given machine.
+//
+//	models, err := machine.GetModelsFromModules(context.Background())
 func (rc *RobotClient) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModelDiscovery, error) {
 	resp, err := rc.client.GetModelsFromModules(ctx, &pb.GetModelsFromModulesRequest{})
 	if err != nil {
