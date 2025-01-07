@@ -495,12 +495,6 @@ var app = &cli.App{
 							},
 							Action: createCommandWithT[enableAuthServiceArgs](EnableAuthServiceAction),
 						},
-					},
-				},
-				{
-					Name:  "auth-service",
-					Usage: "manage auth-service",
-					Subcommands: []*cli.Command{
 						{
 							Name:  "oauth-app",
 							Usage: "manage the OAuth applications for an organization",
