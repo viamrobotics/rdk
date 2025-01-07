@@ -216,8 +216,7 @@ func DisableAuthServiceConfirmation(c *cli.Context, args disableAuthServiceArgs)
 		return err
 	}
 
-	input := strings.ToUpper(strings.TrimSpace(rawInput))
-	if input != "DISABLE" {
+	if input := strings.ToUpper(strings.TrimSpace(rawInput)); input != "DISABLE" {
 		return errors.New("aborted")
 	}
 	return nil
