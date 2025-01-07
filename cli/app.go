@@ -422,6 +422,7 @@ var app = &cli.App{
 			// NOTE(benjirewis): maintain `auth` as an alias for backward compatibility.
 			Aliases:         []string{"auth"},
 			Usage:           "login to app.viam.com",
+			UsageText: "viam login [options] [command] [command options]",
 			HideHelpCommand: true,
 			Flags: []cli.Flag{
 				&cli.BoolFlag{
@@ -436,6 +437,7 @@ var app = &cli.App{
 				{
 					Name:   "print-access-token",
 					Usage:  "print the access token associated with current credentials",
+					UsageText: createUsageText("login print-access-token", []string{}, false),
 					Action: createCommandWithT[emptyArgs](PrintAccessTokenAction),
 				},
 				{
@@ -461,11 +463,13 @@ var app = &cli.App{
 		{
 			Name:   "logout",
 			Usage:  "logout from current session",
+			UsageText: createUsageText("logout", []string{}, false),
 			Action: createCommandWithT[emptyArgs](LogoutAction),
 		},
 		{
 			Name:   "whoami",
 			Usage:  "get currently logged-in user",
+			UsageText: createUsageText("whoami", []string{}, false),
 			Action: createCommandWithT[emptyArgs](WhoAmIAction),
 		},
 		{
