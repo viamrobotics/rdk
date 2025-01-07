@@ -477,6 +477,38 @@ var app = &cli.App{
 							Usage: "manage the OAuth applications for an organization",
 							Subcommands: []*cli.Command{
 								{
+									Name:      "delete",
+									Usage:     "delete an OAuth application",
+									UsageText: createUsageText("delete", []string{generalFlagOrgID, oauthAppFlagClientID}, true),
+									Flags: []cli.Flag{
+										&cli.StringFlag{
+											Name:     generalFlagOrgID,
+											Required: true,
+											Usage:    "organization ID tied to the OAuth application",
+										},
+										&cli.StringFlag{
+											Name:     oauthAppFlagClientID,
+											Required: true,
+											Usage:    "client ID of the OAuth application to delete",
+										},
+									},
+									Before: createCommandWithT[deleteOAuthAppArgs](DeleteOAuthAppConfirmation),
+									Action: createCommandWithT[deleteOAuthAppArgs](DeleteOAuthAppAction),
+								},
+								{
+									Name:      "list",
+									Usage:     "list oauth applications for an organization",
+									UsageText: createUsageText("delete", []string{generalFlagOrgID, oauthAppFlagClientID}, true),
+									Flags: []cli.Flag{
+										&cli.StringFlag{
+											Name:     generalFlagOrgID,
+											Required: true,
+											Usage:    "the org to get applications for",
+										},
+									},
+									Action: createCommandWithT[listOAuthAppsArgs](ListOAuthAppsAction),
+								},
+								{
 									Name:  "update",
 									Usage: "update an OAuth application",
 									Flags: []cli.Flag{
