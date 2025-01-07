@@ -274,7 +274,7 @@ func (m *Module) FirstRun(
 		logger.Debugw("meta.json not found, skipping first run", "error", err)
 		return nil
 	case err != nil:
-		logger.Warn("failed to parse meta.json, skipping first run", "error", err)
+		logger.Warnw("failed to parse meta.json, skipping first run", "error", err)
 		return nil
 	}
 

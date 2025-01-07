@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -166,7 +167,7 @@ func DecodeImageFromCamera(ctx context.Context, mimeType string, extra map[strin
 	if len(resBytes) == 0 {
 		return nil, errors.New("received empty bytes from camera")
 	}
-	img, err := rimage.DecodeImage(ctx, resBytes, resMetadata.MimeType)
+	img, err := rimage.DecodeImage(ctx, resBytes, utils.WithLazyMIMEType(resMetadata.MimeType))
 	if err != nil {
 		return nil, fmt.Errorf("could not decode into image.Image: %w", err)
 	}

@@ -61,7 +61,7 @@ func TestFullReloadFlow(t *testing.T) {
 		},
 	}, nil, &inject.BuildServiceClient{}, nil,
 		map[string]any{
-			moduleBuildFlagPath: manifestPath, partFlag: "part-123",
+			moduleBuildFlagPath: manifestPath, generalFlagPartID: "part-123",
 			moduleBuildFlagNoBuild: true, moduleFlagLocal: true,
 		},
 		"token",
@@ -89,13 +89,13 @@ func TestRestartModule(t *testing.T) {
 func TestResolvePartId(t *testing.T) {
 	c := newTestContext(t, map[string]any{})
 	// empty flag, no path
-	partID, err := resolvePartID(c.Context, c.String(partFlag), "")
+	partID, err := resolvePartID(c.Context, c.String(generalFlagPartID), "")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, partID, test.ShouldBeEmpty)
 
 	// empty flag, fake path
 	missingPath := filepath.Join(t.TempDir(), "MISSING.json")
-	_, err = resolvePartID(c.Context, c.String(partFlag), missingPath)
+	_, err = resolvePartID(c.Context, c.String(generalFlagPartID), missingPath)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// empty flag, valid path
@@ -104,13 +104,13 @@ func TestResolvePartId(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, err = fi.WriteString(`{"cloud":{"app_address":"https://app.viam.com:443","id":"JSON-PART","secret":"SECRET"}}`)
 	test.That(t, err, test.ShouldBeNil)
-	partID, err = resolvePartID(c.Context, c.String(partFlag), path)
+	partID, err = resolvePartID(c.Context, c.String(generalFlagPartID), path)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, partID, test.ShouldEqual, "JSON-PART")
 
 	// given flag, valid path
-	c = newTestContext(t, map[string]any{partFlag: "FLAG-PART"})
-	partID, err = resolvePartID(c.Context, c.String(partFlag), path)
+	c = newTestContext(t, map[string]any{generalFlagPartID: "FLAG-PART"})
+	partID, err = resolvePartID(c.Context, c.String(generalFlagPartID), path)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, partID, test.ShouldEqual, "FLAG-PART")
 }

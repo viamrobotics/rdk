@@ -58,6 +58,10 @@ type AppServiceClient struct {
 		opts ...grpc.CallOption) (*apppb.OrganizationGetLogoResponse, error)
 	EnableAuthServiceFunc func(ctx context.Context, in *apppb.EnableAuthServiceRequest,
 		opts ...grpc.CallOption) (*apppb.EnableAuthServiceResponse, error)
+	ListOAuthAppsFunc func(ctx context.Context, in *apppb.ListOAuthAppsRequest,
+		opts ...grpc.CallOption) (*apppb.ListOAuthAppsResponse, error)
+	DeleteOAuthAppFunc func(ctx context.Context, in *apppb.DeleteOAuthAppRequest,
+		opts ...grpc.CallOption) (*apppb.DeleteOAuthAppResponse, error)
 	CreateLocationFunc func(ctx context.Context, in *apppb.CreateLocationRequest,
 		opts ...grpc.CallOption) (*apppb.CreateLocationResponse, error)
 	GetLocationFunc func(ctx context.Context, in *apppb.GetLocationRequest,
@@ -413,6 +417,26 @@ func (asc *AppServiceClient) EnableAuthService(
 		return asc.AppServiceClient.EnableAuthService(ctx, in, opts...)
 	}
 	return asc.EnableAuthServiceFunc(ctx, in, opts...)
+}
+
+// ListOAuthApps calls the injected ListOAuthAppsFunc or the real version.
+func (asc *AppServiceClient) ListOAuthApps(
+	ctx context.Context, in *apppb.ListOAuthAppsRequest, opts ...grpc.CallOption,
+) (*apppb.ListOAuthAppsResponse, error) {
+	if asc.ListOAuthAppsFunc == nil {
+		return asc.AppServiceClient.ListOAuthApps(ctx, in, opts...)
+	}
+	return asc.ListOAuthAppsFunc(ctx, in, opts...)
+}
+
+// DeleteOAuthApp calls the injected DeleteOAuthAppFunc or the real version.
+func (asc *AppServiceClient) DeleteOAuthApp(
+	ctx context.Context, in *apppb.DeleteOAuthAppRequest, opts ...grpc.CallOption,
+) (*apppb.DeleteOAuthAppResponse, error) {
+	if asc.DeleteOAuthAppFunc == nil {
+		return asc.AppServiceClient.DeleteOAuthApp(ctx, in, opts...)
+	}
+	return asc.DeleteOAuthAppFunc(ctx, in, opts...)
 }
 
 // CreateLocation calls the injected CreateLocationFunc or the real version.

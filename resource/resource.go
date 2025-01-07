@@ -25,6 +25,7 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -303,4 +304,10 @@ func NewCloseOnlyResource(name Name, closeFunc func(ctx context.Context) error) 
 
 func (r *closeOnlyResource) Close(ctx context.Context) error {
 	return r.closeFunc(ctx)
+}
+
+// Status is a combination of a resources node status and the cloudMetadata associated with that resource.
+type Status struct {
+	NodeStatus
+	CloudMetadata cloud.Metadata
 }

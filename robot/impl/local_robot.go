@@ -26,6 +26,7 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/ftdc"
+	"go.viam.com/rdk/ftdc/sys"
 	icloud "go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
@@ -57,6 +58,9 @@ type localRobot struct {
 	cloudConnSvc            icloud.ConnectionService
 	logger                  logging.Logger
 	activeBackgroundWorkers sync.WaitGroup
+
+	// reconfigurationLock manages access to the resource graph and nodes. If either may change, this lock should be taken.
+	reconfigurationLock sync.Mutex
 	// reconfigureWorkers tracks goroutines spawned by reconfiguration functions. we only
 	// wait on this group in tests to prevent goleak-related failures. however, we do not
 	// wait on this group outside of testing, since the related goroutines may be running
@@ -171,7 +175,9 @@ func (r *localRobot) Close(ctx context.Context) error {
 		err = multierr.Combine(err, r.cloudConnSvc.Close(ctx))
 	}
 	if r.manager != nil {
+		r.reconfigurationLock.Lock()
 		err = multierr.Combine(err, r.manager.Close(ctx))
+		r.reconfigurationLock.Unlock()
 	}
 	if r.packageManager != nil {
 		err = multierr.Combine(err, r.packageManager.Close(ctx))
@@ -286,6 +292,40 @@ func (r *localRobot) sendTriggerConfig(caller string) {
 	}
 }
 
+// completeConfigWorker tries to complete the config and update weak dependencies
+// if any resources are not configured. It will also update the resource graph
+// if remotes have changed. It executes every 5 seconds or when manually triggered.
+// Manual triggers are sent when changes in remotes are detected and in testing.
+func (r *localRobot) completeConfigWorker() {
+	for {
+		if r.closeContext.Err() != nil {
+			return
+		}
+
+		var trigger string
+		select {
+		case <-r.closeContext.Done():
+			return
+		case <-r.configTicker.C:
+			trigger = "ticker"
+		case <-r.triggerConfig:
+			trigger = "remote"
+			r.logger.CDebugw(r.closeContext, "configuration attempt triggered by remote")
+		}
+		r.reconfigurationLock.Lock()
+		anyChanges := r.manager.updateRemotesResourceNames(r.closeContext)
+		if r.manager.anyResourcesNotConfigured() {
+			anyChanges = true
+			r.manager.completeConfig(r.closeContext, r, false)
+		}
+		if anyChanges {
+			r.updateWeakDependents(r.closeContext)
+			r.logger.CDebugw(r.closeContext, "configuration attempt completed with changes", "trigger", trigger)
+		}
+		r.reconfigurationLock.Unlock()
+	}
+}
+
 func newWithResources(
 	ctx context.Context,
 	cfg *config.Config,
@@ -323,6 +363,9 @@ func newWithResources(
 		//   constructed to get a valid copy of its stats object (for the schema's sake). Even if
 		//   the web service has not been "started".
 		ftdcWorker = ftdc.New(ftdc.DefaultDirectory(config.ViamDotDir, partID), logger.Sublogger("ftdc"))
+		if statser, err := sys.NewSelfSysUsageStatser(); err == nil {
+			ftdcWorker.Add("viam-server", statser)
+		}
 	}
 
 	closeCtx, cancel := context.WithCancel(ctx)
@@ -404,6 +447,11 @@ func newWithResources(
 	if err != nil {
 		return nil, err
 	}
+
+	// now that we're changing the resource graph, take the reconfigurationLock so
+	// that other goroutines can't interleave
+	r.reconfigurationLock.Lock()
+	defer r.reconfigurationLock.Unlock()
 	if err := r.manager.resources.AddNode(
 		web.InternalServiceName,
 		resource.NewConfiguredGraphNode(resource.Config{}, r.webSvc, builtinModel)); err != nil {
@@ -450,41 +498,18 @@ func newWithResources(
 		cfg.PackagePath,
 	)
 
-	r.activeBackgroundWorkers.Add(1)
-	r.configTicker = time.NewTicker(5 * time.Second)
-	// This goroutine tries to complete the config and update weak dependencies
-	// if any resources are not configured. It executes every 5 seconds or when
-	// manually triggered. Manual triggers are sent when changes in remotes are
-	// detected and in testing.
-	goutils.ManagedGo(func() {
-		for {
-			if closeCtx.Err() != nil {
-				return
-			}
+	if !rOpts.disableCompleteConfigWorker {
+		r.activeBackgroundWorkers.Add(1)
+		r.configTicker = time.NewTicker(5 * time.Second)
+		// This goroutine will try to complete the config and update weak dependencies
+		// if any resources are not configured. It will also update the resource graph
+		// when remotes changes or if manually triggered.
+		goutils.ManagedGo(func() {
+			r.completeConfigWorker()
+		}, r.activeBackgroundWorkers.Done)
+	}
 
-			var trigger string
-			select {
-			case <-closeCtx.Done():
-				return
-			case <-r.configTicker.C:
-				trigger = "ticker"
-			case <-r.triggerConfig:
-				trigger = "remote"
-				r.logger.CDebugw(ctx, "configuration attempt triggered by remote")
-			}
-			anyChanges := r.manager.updateRemotesResourceNames(closeCtx)
-			if r.manager.anyResourcesNotConfigured() {
-				anyChanges = true
-				r.manager.completeConfig(closeCtx, r, false)
-			}
-			if anyChanges {
-				r.updateWeakDependents(ctx)
-				r.logger.CDebugw(ctx, "configuration attempt completed with changes", "trigger", trigger)
-			}
-		}
-	}, r.activeBackgroundWorkers.Done)
-
-	r.Reconfigure(ctx, cfg)
+	r.reconfigure(ctx, cfg, false)
 
 	for name, res := range resources {
 		node := resource.NewConfiguredGraphNode(resource.Config{}, res, unknownModel)
@@ -516,6 +541,8 @@ func New(
 func (r *localRobot) removeOrphanedResources(ctx context.Context,
 	rNames []resource.Name,
 ) {
+	r.reconfigurationLock.Lock()
+	defer r.reconfigurationLock.Unlock()
 	r.manager.markResourcesRemoved(rNames, nil)
 	if err := r.manager.removeMarkedAndClose(ctx, nil); err != nil {
 		r.logger.CErrorw(ctx, "error removing and closing marked resources",
@@ -1083,6 +1110,8 @@ func dialRobotClient(
 // a best effort to remove no longer in use parts, but if it fails to do so, they could
 // possibly leak resources. The given config may be modified by Reconfigure.
 func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) {
+	r.reconfigurationLock.Lock()
+	defer r.reconfigurationLock.Unlock()
 	r.reconfigure(ctx, newConfig, false)
 }
 
@@ -1304,16 +1333,18 @@ func (r *localRobot) checkMaxInstance(api resource.API, max int) error {
 	return nil
 }
 
+var errNoCloudMetadata = errors.New("cloud metadata not available")
+
 // CloudMetadata returns app-related information about the robot.
 func (r *localRobot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) {
 	md := cloud.Metadata{}
 	cfg := r.Config()
 	if cfg == nil {
-		return md, errors.New("no config available")
+		return md, errNoCloudMetadata
 	}
 	cloud := cfg.Cloud
 	if cloud == nil {
-		return md, errors.New("cloud metadata not available")
+		return md, errNoCloudMetadata
 	}
 	md.PrimaryOrgID = cloud.PrimaryOrgID
 	md.LocationID = cloud.LocationID
@@ -1346,6 +1377,8 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module
 		Modified: &config.ModifiedConfigDiff{},
 		Removed:  &config.Config{},
 	}
+	r.reconfigurationLock.Lock()
+	defer r.reconfigurationLock.Unlock()
 	// note: if !isRunning (i.e. the module is in config but it crashed), putting it in diff.Modified
 	// results in a no-op; we use .Added instead.
 	if isRunning {
@@ -1389,8 +1422,29 @@ func (r *localRobot) Shutdown(ctx context.Context) error {
 func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
 	var result robot.MachineStatus
 
-	result.Resources = append(result.Resources, r.manager.resources.Status()...)
+	remoteMdMap := r.manager.getRemoteResourceMetadata(ctx)
 
+	// we can safely ignore errors from `r.CloudMetadata`. If there is an error, that means
+	// that this robot does not have CloudMetadata to attach to resources.
+	md, _ := r.CloudMetadata(ctx) //nolint:errcheck
+	for _, resourceStatus := range r.manager.resources.Status() {
+		// if the resource is local, we can use the status as is and attach the cloud metadata of this robot.
+		if !resourceStatus.Name.ContainsRemoteNames() && resourceStatus.Name.API != client.RemoteAPI {
+			result.Resources = append(result.Resources, resource.Status{NodeStatus: resourceStatus, CloudMetadata: md})
+			continue
+		}
+
+		// Otherwise, the resource is remote. If the corresponding status exists in remoteMdMap, use that.
+		if rMd, ok := remoteMdMap[resourceStatus.Name]; ok {
+			result.Resources = append(result.Resources, resource.Status{NodeStatus: resourceStatus, CloudMetadata: rMd})
+			continue
+		}
+
+		// if the remote resource is not in remoteMdMap, there is a mismatch between remote resource nodes
+		// in the resource graph and what was expected from getRemoteResourceMetadata. We should leave
+		// cloud metadata blank in that case.
+		result.Resources = append(result.Resources, resource.Status{NodeStatus: resourceStatus, CloudMetadata: cloud.Metadata{}})
+	}
 	r.configRevisionMu.RLock()
 	result.Config = r.configRevision
 	r.configRevisionMu.RUnlock()

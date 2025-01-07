@@ -740,6 +740,21 @@ func TestAppClient(t *testing.T) {
 		test.That(t, resp, test.ShouldEqual, "https://logo.com")
 	})
 
+	t.Run("ListOAuthApps", func(t *testing.T) {
+		grpcClient.ListOAuthAppsFunc = func(
+			ctx context.Context, in *pb.ListOAuthAppsRequest, opts ...grpc.CallOption,
+		) (*pb.ListOAuthAppsResponse, error) {
+			test.That(t, in.OrgId, test.ShouldEqual, organizationID)
+			return &pb.ListOAuthAppsResponse{
+				ClientIds: []string{"clientId"},
+			}, nil
+		}
+
+		resp, err := client.ListOAuthApps(context.Background(), organizationID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldResemble, []string{"clientId"})
+	})
+
 	t.Run("GetSupportEmail", func(t *testing.T) {
 		grpcClient.OrganizationGetSupportEmailFunc = func(
 			ctx context.Context, in *pb.OrganizationGetSupportEmailRequest, opts ...grpc.CallOption,
@@ -986,6 +1001,19 @@ func TestAppClient(t *testing.T) {
 			return &pb.DisableBillingServiceResponse{}, nil
 		}
 		err := client.DisableBillingService(context.Background(), organizationID)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("EnableBillingSevice", func(t *testing.T) {
+		grpcClient.EnableBillingServiceFunc = func(
+			ctx context.Context, in *pb.EnableBillingServiceRequest, opts ...grpc.CallOption,
+		) (*pb.EnableBillingServiceResponse, error) {
+			test.That(t, in.OrgId, test.ShouldEqual, organizationID)
+			test.That(t, in.BillingAddress, test.ShouldResemble, &pbAddress)
+			return &pb.EnableBillingServiceResponse{}, nil
+		}
+
+		err := client.EnableBillingService(context.Background(), organizationID, &address)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
