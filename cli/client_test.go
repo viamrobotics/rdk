@@ -1117,3 +1117,65 @@ func TestShellFileCopy(t *testing.T) {
 		})
 	})
 }
+
+func TestUpdateOAuthAppAction(t *testing.T) {
+	updateOAuthAppFunc := func(ctx context.Context, in *apppb.UpdateOAuthAppRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.UpdateOAuthAppResponse, error) {
+		return &apppb.UpdateOAuthAppResponse{}, nil
+	}
+	asc := &inject.AppServiceClient{
+		UpdateOAuthAppFunc: updateOAuthAppFunc,
+	}
+
+	t.Run("valid inputs", func(t *testing.T) {
+		flags := make(map[string]any)
+		flags[generalFlagOrgID] = "org-id"
+		flags[oauthAppFlagClientID] = "client-id"
+		flags[oauthAppFlagClientName] = "client-name"
+		flags[oauthAppFlagClientAuthentication] = "required"
+		flags[oauthAppFlagURLValidation] = "allow_wildcards"
+		flags[oauthAppFlagPKCE] = "not_required"
+		flags[oauthAppFlagOriginURIs] = []string{"https://woof.com/login", "https://arf.com/"}
+		flags[oauthAppFlagRedirectURIs] = []string{"https://woof.com/home", "https://arf.com/home"}
+		flags[oauthAppFlagLogoutURI] = "https://woof.com/logout"
+		flags[oauthAppFlagEnabledGrants] = []string{"implicit", "password"}
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, flags, "token")
+		test.That(t, ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx)), test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, out.messages[0], test.ShouldContainSubstring, "Successfully updated OAuth app")
+	})
+
+	t.Run("should error if client-authentication is not a valid enum value", func(t *testing.T) {
+		flags := make(map[string]any)
+		flags[generalFlagOrgID] = "org-id"
+		flags[oauthAppFlagClientID] = "client-id"
+		flags[oauthAppFlagClientAuthentication] = "not_one_of_the_allowed_values"
+		cCtx, ac, out, _ := setup(asc, nil, nil, nil, flags, "token")
+		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "client-authentication must be a valid ClientAuthentication")
+		test.That(t, len(out.messages), test.ShouldEqual, 0)
+	})
+
+	t.Run("should error if pkce is not a valid enum value", func(t *testing.T) {
+		flags := map[string]any{oauthAppFlagClientAuthentication: unspecified, oauthAppFlagPKCE: "not_one_of_the_allowed_values"}
+		cCtx, ac, out, _ := setup(asc, nil, nil, nil, flags, "token")
+		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "pkce must be a valid PKCE")
+		test.That(t, len(out.messages), test.ShouldEqual, 0)
+	})
+
+	t.Run("should error if url-validation is not a valid enum value", func(t *testing.T) {
+		flags := map[string]any{
+			oauthAppFlagClientAuthentication: unspecified, oauthAppFlagPKCE: unspecified,
+			oauthAppFlagURLValidation: "not_one_of_the_allowed_values",
+		}
+		cCtx, ac, out, _ := setup(asc, nil, nil, nil, flags, "token")
+		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "url-validation must be a valid UrlValidation")
+		test.That(t, len(out.messages), test.ShouldEqual, 0)
+	})
+}
