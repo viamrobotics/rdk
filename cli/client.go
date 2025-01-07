@@ -203,7 +203,7 @@ func DisableAuthServiceConfirmation(c *cli.Context, args disableAuthServiceArgs)
 
 	yellow := "\033[1;33m%s\033[0m"
 	printf(c.App.Writer, yellow, "WARNING!!\n")
-	printf(c.App.Writer, yellow, fmt.Sprintf("You are trying to disable auth service for organization ID %s. "+
+	printf(c.App.Writer, yellow, fmt.Sprintf("You are trying to disable the auth service for organization ID %s. "+
 		"Once disabled, all custom auth views and emails will be removed from your organization's (%s) "+
 		"OAuth applications and permanently deleted.\n", args.OrgID, args.OrgID))
 	printf(c.App.Writer, yellow, "If you wish to continue, please type \"disable\":")
@@ -216,8 +216,7 @@ func DisableAuthServiceConfirmation(c *cli.Context, args disableAuthServiceArgs)
 		return err
 	}
 
-	input := strings.ToUpper(strings.TrimSpace(rawInput))
-	if input != "DISABLE" {
+	if input := strings.ToUpper(strings.TrimSpace(rawInput)); input != "DISABLE" {
 		return errors.New("aborted")
 	}
 	return nil
@@ -242,8 +241,7 @@ func (c *viamClient) disableAuthServiceAction(cCtx *cli.Context, orgID string) e
 		return err
 	}
 
-	_, err := c.client.DisableAuthService(cCtx.Context, &apppb.DisableAuthServiceRequest{OrgId: orgID})
-	if err != nil {
+	if _, err := c.client.DisableAuthService(cCtx.Context, &apppb.DisableAuthServiceRequest{OrgId: orgID}); err != nil {
 		return err
 	}
 
