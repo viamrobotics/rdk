@@ -372,6 +372,12 @@ func createUsageText(command string, requiredFlags []string, otherOptions bool, 
 	return strings.Join(formatted, " ")
 }
 
+// formatAcceptedValues is a helper for formatting the usage text for flags that only accept certain values.
+func formatAcceptedValues(values ...string) string {
+	joined := strings.Join(values, ", ")
+	return "[" + joined + "]"
+}
+
 var app = &cli.App{
 	Name:            "viam",
 	Usage:           "interact with your Viam machines",
