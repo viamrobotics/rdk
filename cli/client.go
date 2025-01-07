@@ -235,7 +235,7 @@ func DisableAuthServiceAction(cCtx *cli.Context, args disableAuthServiceArgs) er
 		return errors.New("cannot disable auth service without an organization ID")
 	}
 
-	return c.disableAuthServiceAction(cCtx, args.OrgID)
+	return c.disableAuthServiceAction(cCtx, orgID)
 }
 
 func (c *viamClient) disableAuthServiceAction(cCtx *cli.Context, orgID string) error {
