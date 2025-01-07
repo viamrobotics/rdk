@@ -1894,6 +1894,15 @@ func (rr *dummyRobot) DiscoverComponents(ctx context.Context, qs []resource.Disc
 	return rr.robot.DiscoverComponents(ctx, qs)
 }
 
+func (rr *dummyRobot) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModelDiscovery, error) {
+	rr.mu.Lock()
+	defer rr.mu.Unlock()
+	if rr.offline {
+		return nil, errors.New("offline")
+	}
+	return rr.robot.GetModelsFromModules(ctx)
+}
+
 func (rr *dummyRobot) RemoteNames() []string {
 	return nil
 }

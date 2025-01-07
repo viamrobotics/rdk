@@ -596,15 +596,24 @@ func (mgr *Manager) Configs() []config.Module {
 	return configs
 }
 
-// // AllModels returns a slice of config.Module representing the currently available models from the currently managed modules
-// func (mgr *Manager) AllModels() []config.Module {
-// 	var configs []config.Module
-// 	mgr.modules.Range(func(_ string, mod *module) bool {
-// 		configs = append(configs, mod.cfg)
-// 		return true
-// 	})
-// 	return configs
-// }
+// AllModels returns a slice of resource.ModuleModelDiscovery representing the currently available models from the currently managed modules
+func (mgr *Manager) AllModels() []resource.ModuleModelDiscovery {
+	moduleTypes := map[string]config.ModuleType{}
+	models := []resource.ModuleModelDiscovery{}
+	for _, moduleConfig := range mgr.Configs() {
+		moduleName := moduleConfig.Name
+		moduleTypes[moduleName] = moduleConfig.Type
+	}
+	for moduleName, handleMap := range mgr.Handles() {
+		for api, handle := range handleMap {
+			for _, model := range handle {
+				modelModel := resource.ModuleModelDiscovery{ModuleName: moduleName, Model: model, FromLocalModule: moduleTypes[moduleName] == config.ModuleTypeLocal, API: api.API}
+				models = append(models, modelModel)
+			}
+		}
+	}
+	return models
+}
 
 // Provides returns true if a component/service config WOULD be handled by a module.
 func (mgr *Manager) Provides(conf resource.Config) bool {

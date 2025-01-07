@@ -876,6 +876,28 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.Dis
 	return discoveries, nil
 }
 
+func (rc *RobotClient) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModelDiscovery, error) {
+	resp, err := rc.client.GetModelsFromModules(ctx, &pb.GetModelsFromModulesRequest{})
+	if err != nil {
+		return nil, err
+	}
+	protoModels := resp.GetModels()
+	models := []resource.ModuleModelDiscovery{}
+	for _, protoModel := range protoModels {
+		modelTriplet, err := resource.NewModelFromString(protoModel.Model)
+		if err != nil {
+			return nil, err
+		}
+		api, err := resource.NewAPIFromString(protoModel.Api)
+		if err != nil {
+			return nil, err
+		}
+		model := resource.ModuleModelDiscovery{ModuleName: protoModel.ModuleName, Model: modelTriplet, API: api, FromLocalModule: protoModel.FromLocalModule}
+		models = append(models, model)
+	}
+	return models, nil
+}
+
 // FrameSystemConfig  returns the configuration of the frame system of a given machine.
 //
 //	frameSystem, err := machine.FrameSystemConfig(context.Background(), nil)
