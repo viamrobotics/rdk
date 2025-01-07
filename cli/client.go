@@ -2327,24 +2327,13 @@ func (c *viamClient) deleteOAuthAppAction(cCtx *cli.Context, orgID, clientID str
 
 type pkce string
 
+// the valid pkce values.
 const (
 	PKCEUnspecified                              pkce = "unspecified"
 	PKCERequired                                 pkce = "required"
 	PKCENotRequired                              pkce = "not_required"
 	PKCENotRequiredWhenUsingClientAuthentication pkce = "not_required_when_using_client_authentication"
 )
-
-func pkceFromProto(pbPKCE apppb.PKCE) pkce {
-	switch pbPKCE {
-	case apppb.PKCE_PKCE_REQUIRED:
-		return PKCERequired
-	case apppb.PKCE_PKCE_NOT_REQUIRED:
-		return PKCENotRequired
-	case apppb.PKCE_PKCE_NOT_REQUIRED_WHEN_USING_CLIENT_AUTHENTICATION:
-		return PKCENotRequiredWhenUsingClientAuthentication
-	}
-	return PKCEUnspecified
-}
 
 func pkceToProto(stringPKCE string) (apppb.PKCE, error) {
 	switch pkce(stringPKCE) {
@@ -2364,24 +2353,13 @@ func pkceToProto(stringPKCE string) (apppb.PKCE, error) {
 
 type clientAuthentication string
 
+// the valid client authentication values.
 const (
 	ClientAuthenticationUnspecified              clientAuthentication = "unspecified"
 	ClientAuthenticationRequired                 clientAuthentication = "required"
 	ClientAuthenticationNotRequired              clientAuthentication = "not_required"
 	ClientAuthenticationNotRequiredWhenUsingPKCE clientAuthentication = "not_required_when_using_pkce"
 )
-
-func clientAuthFromProto(clientAuth apppb.ClientAuthentication) clientAuthentication {
-	switch clientAuth {
-	case apppb.ClientAuthentication_CLIENT_AUTHENTICATION_NOT_REQUIRED:
-		return ClientAuthenticationNotRequired
-	case apppb.ClientAuthentication_CLIENT_AUTHENTICATION_REQUIRED:
-		return ClientAuthenticationRequired
-	case apppb.ClientAuthentication_CLIENT_AUTHENTICATION_NOT_REQUIRED_WHEN_USING_PKCE:
-		return ClientAuthenticationNotRequiredWhenUsingPKCE
-	}
-	return ClientAuthenticationUnspecified
-}
 
 func clientAuthToProto(clientAuth string) (apppb.ClientAuthentication, error) {
 	switch clientAuthentication(clientAuth) {
@@ -2401,21 +2379,12 @@ func clientAuthToProto(clientAuth string) (apppb.ClientAuthentication, error) {
 
 type urlValidation string
 
+// the accepted url validation values.
 const (
 	URLValidationUnspecified    urlValidation = "unspecified"
 	URLValidationExactMatch     urlValidation = "exact_match"
 	URLValidationAllowWildcards urlValidation = "allow_wildcards"
 )
-
-func urlValidationFromProto(urlValidation apppb.URLValidation) urlValidation {
-	switch urlValidation {
-	case apppb.URLValidation_URL_VALIDATION_ALLOW_WILDCARDS:
-		return URLValidationAllowWildcards
-	case apppb.URLValidation_URL_VALIDATION_EXACT_MATCH:
-		return URLValidationExactMatch
-	}
-	return URLValidationUnspecified
-}
 
 func urlValidationToProto(urlValid string) (apppb.URLValidation, error) {
 	switch urlValidation(urlValid) {
@@ -2433,6 +2402,7 @@ func urlValidationToProto(urlValid string) (apppb.URLValidation, error) {
 
 type enabledGrant string
 
+// the accepted enabled grant values.
 const (
 	EnabledGrantUnspecified       enabledGrant = "unspecified"
 	EnabledGrantAuthorizationCode enabledGrant = "authorization_code"
@@ -2441,22 +2411,6 @@ const (
 	EnabledGrantRefreshToken      enabledGrant = "refresh_token"
 	EnabledGrantDeviceCode        enabledGrant = "device_code"
 )
-
-func enabledGrantFromProto(eg apppb.EnabledGrant) enabledGrant {
-	switch eg {
-	case apppb.EnabledGrant_ENABLED_GRANT_AUTHORIZATION_CODE:
-		return EnabledGrantAuthorizationCode
-	case apppb.EnabledGrant_ENABLED_GRANT_IMPLICIT:
-		return EnabledGrantImplicit
-	case apppb.EnabledGrant_ENABLED_GRANT_PASSWORD:
-		return EnabledGrantPassword
-	case apppb.EnabledGrant_ENABLED_GRANT_REFRESH_TOKEN:
-		return EnabledGrantRefreshToken
-	case apppb.EnabledGrant_ENABLED_GRANT_DEVICE_CODE:
-		return EnabledGrantDeviceCode
-	}
-	return EnabledGrantUnspecified
-}
 
 func enabledGrantToProto(eg string) (apppb.EnabledGrant, error) {
 	switch enabledGrant(eg) {

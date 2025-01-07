@@ -498,21 +498,24 @@ var app = &cli.App{
 										&cli.StringFlag{
 											Name: oauthAppFlagClientAuthentication,
 											Usage: "updated client authentication policy for the OAuth application. can be one of " +
-												formatAcceptedValues(string(ClientAuthenticationUnspecified), string(ClientAuthenticationRequired), string(ClientAuthenticationNotRequired), string(ClientAuthenticationNotRequiredWhenUsingPKCE)),
+												formatAcceptedValues(string(ClientAuthenticationUnspecified), string(ClientAuthenticationRequired),
+													string(ClientAuthenticationNotRequired), string(ClientAuthenticationNotRequiredWhenUsingPKCE)),
 											Required: false,
 											Value:    unspecified,
 										},
 										&cli.StringFlag{
 											Name: oauthAppFlagURLValidation,
 											Usage: "updated url validation for the OAuth application. can be one of " +
-												formatAcceptedValues(string(URLValidationUnspecified), string(URLValidationExactMatch), string(URLValidationAllowWildcards)),
+												formatAcceptedValues(string(URLValidationUnspecified), string(URLValidationExactMatch),
+													string(URLValidationAllowWildcards)),
 											Required: false,
 											Value:    unspecified,
 										},
 										&cli.StringFlag{
 											Name: oauthAppFlagPKCE,
 											Usage: "updated pkce for the OAuth application. can be one of " +
-												formatAcceptedValues(string(PKCEUnspecified), string(PKCERequired), string(PKCENotRequired), string(PKCENotRequiredWhenUsingClientAuthentication)),
+												formatAcceptedValues(string(PKCEUnspecified), string(PKCERequired), string(PKCENotRequired),
+													string(PKCENotRequiredWhenUsingClientAuthentication)),
 											Required: false,
 											Value:    unspecified,
 										},
@@ -534,7 +537,8 @@ var app = &cli.App{
 										&cli.StringSliceFlag{
 											Name: oauthAppFlagEnabledGrants,
 											Usage: "updated comma separated enabled grants for the OAuth application. values can be of " +
-												formatAcceptedValues(string(EnabledGrantUnspecified), string(EnabledGrantRefreshToken), string(EnabledGrantPassword), string(EnabledGrantImplicit), string(EnabledGrantDeviceCode), string(EnabledGrantAuthorizationCode)),
+												formatAcceptedValues(string(EnabledGrantUnspecified), string(EnabledGrantRefreshToken), string(EnabledGrantPassword),
+													string(EnabledGrantImplicit), string(EnabledGrantDeviceCode), string(EnabledGrantAuthorizationCode)),
 											Required: false,
 										},
 									},
