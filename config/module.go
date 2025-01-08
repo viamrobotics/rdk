@@ -377,6 +377,8 @@ func (m *Module) FirstRun(
 	return nil
 }
 
+// TODO(bashar): update comment with current state of things
+// TODO(bashar): write test(s)
 // getJSONManifest returns a loaded meta.json from one of two sources (in order of precedence):
 // 1. if there is a meta.json in the exe dir, use that, except in local non-tarball case.
 // 2. if this is a local tarball and there's a meta.json next to the tarball, use that.
@@ -427,9 +429,9 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 		}
 
 		if !ok {
-			return nil, "", errors.Errorf("VIAM_MODULE_ROOT not set. Failed to find meta.json in executable directory %s", unpackedModDir)
+			return nil, "", errors.Errorf("VIAM_MODULE_ROOT not set. Searched instead in executable directory %s but failed to find meta.json", unpackedModDir)
 		}
-		return nil, "", errors.Errorf("failed to find meta.json. Searched in  executable directory %s and path set by VIAM_MODULE_ROOT %s",
+		return nil, "", errors.Errorf("failed to find meta.json. Searched in executable directory %s and path set by VIAM_MODULE_ROOT %s",
 			moduleWorkingDirectory, unpackedModDir)
 	}
 	return nil, "", errors.New("failed to find meta.json")
