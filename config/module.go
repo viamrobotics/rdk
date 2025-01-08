@@ -377,7 +377,7 @@ func (m *Module) FirstRun(
 	return nil
 }
 
-// TODO(bashar): write test(s)
+// TODO(RSDK-9498): write test(s)
 // getJSONManifest returns a loaded meta.json from one of three sources (in order of precedence):
 // 1. if this is an online module and there is a meta.json in its top level directory, use that.
 // 3. if there is a meta.json in the exe dir, use that, exept in local non-tarball case.
