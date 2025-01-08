@@ -481,7 +481,7 @@ var app = &cli.App{
 						{
 							Name:      "enable",
 							Usage:     "enable auth-service for OAuth applications",
-							UsageText: createUsageText("enable", []string{generalFlagOrgID}, true),
+							UsageText: createUsageText("enable", []string{generalFlagOrgID}, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     generalFlagOrgID,
@@ -494,7 +494,7 @@ var app = &cli.App{
 						{
 							Name:      "disable",
 							Usage:     "disable auth-service for OAuth applications",
-							UsageText: createUsageText("disable", []string{generalFlagOrgID}, true),
+							UsageText: createUsageText("disable", []string{generalFlagOrgID}, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     generalFlagOrgID,

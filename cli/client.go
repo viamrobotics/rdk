@@ -59,6 +59,8 @@ const (
 	maxNumLogs = 10000
 	// logoMaxSize is the maximum size of a logo in bytes.
 	logoMaxSize = 1024 * 200 // 200 KB
+	// yellow is the format string used to output warnings in yellow color
+	yellow = "\033[1;33m%s\033[0m"
 )
 
 var errNoShellService = errors.New("shell service is not enabled on this machine part")
@@ -201,7 +203,6 @@ func DisableAuthServiceConfirmation(c *cli.Context, args disableAuthServiceArgs)
 		return errors.New("cannot disable auth service without an organization ID")
 	}
 
-	yellow := "\033[1;33m%s\033[0m"
 	printf(c.App.Writer, yellow, "WARNING!!\n")
 	printf(c.App.Writer, yellow, fmt.Sprintf("You are trying to disable the auth service for organization ID %s. "+
 		"Once disabled, all custom auth views and emails will be removed from your organization's (%s) "+
@@ -2367,7 +2368,6 @@ func DeleteOAuthAppConfirmation(c *cli.Context, args deleteOAuthAppArgs) error {
 		return errors.New("cannot delete oauth app without a client ID")
 	}
 
-	yellow := "\033[1;33m%s\033[0m"
 	printf(c.App.Writer, yellow, "WARNING!!\n")
 	printf(c.App.Writer, yellow, fmt.Sprintf("You are trying to delete an OAuth application with client ID %s. "+
 		"Once deleted, any existing apps that rely on this OAuth application will no longer be able to authenticate users.\n", args.ClientID))
