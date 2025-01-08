@@ -95,5 +95,3 @@ web/cmd/server/*.core
 
 # codegpt
 .codegpt/*
-
-.codegpt
