@@ -588,7 +588,7 @@ func (s *Sync) walkDirsAndSendFilesToSync(ctx context.Context, config Config) er
 				dirPath := filepath.Dir(path)
 				if !loggedDirPaths[dirPath] {
 					loggedDirPaths[dirPath] = true
-					s.logger.Infof("syncing from subdirectory: %s", dirPath)
+					s.logger.Debugf("syncing from subdirectory: %s", dirPath)
 				}
 				s.sendToSync(ctx, path)
 			}

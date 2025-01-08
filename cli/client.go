@@ -2,6 +2,7 @@
 package cli
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -39,7 +40,6 @@ import (
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	rconfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
@@ -650,68 +650,56 @@ func RobotsLogsAction(c *cli.Context, args robotsLogsArgs) error {
 		return errors.Wrap(err, "could not get machine parts")
 	}
 
+	// Determine the output destination
+	var writer io.Writer
 	if args.Output != "" {
-		return client.fetchAndSaveLogs(parts, args)
+		file, err := os.OpenFile(args.Output, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+		if err != nil {
+			return errors.Wrap(err, "could not open file for writing")
+		}
+		//nolint:errcheck
+		defer file.Close()
+		writer = file
+	} else {
+		// Output to console
+		writer = c.App.Writer
 	}
 
-	return client.printLogsToConsole(robot, parts, args)
+	return client.fetchAndSaveLogs(robot, parts, args, writer)
 }
 
-// fetchAndSaveLogs fetches logs for all parts incrementally and saves them to a file.
-func (c *viamClient) fetchAndSaveLogs(parts []*apppb.RobotPart, args robotsLogsArgs) error {
-	// Ensure the directory exists
-	dir := filepath.Dir(args.Output)
-	if err := os.MkdirAll(dir, 0o750); err != nil {
-		return errors.Wrapf(err, "could not create directory: %s", dir)
-	}
+// fetchLogs fetches logs for all parts and writes them to the provided writer.
+func (c *viamClient) fetchAndSaveLogs(robot *apppb.Robot, parts []*apppb.RobotPart, args robotsLogsArgs, writer io.Writer) error {
+	for i, part := range parts {
+		// Write a header for text format
+		if args.Format == "text" || args.Format == "" {
+			// Add robot information as a header for context
+			if i == 0 {
+				header := fmt.Sprintf("Robot: %s -> Location: %s -> Organization: %s -> Machine: %s\n",
+					robot.Name, args.Location, args.Organization, args.Machine)
+				if _, err := fmt.Fprintln(writer, header); err != nil {
+					return errors.Wrap(err, "failed to write robot header")
+				}
+			}
 
-	// Open the file for streaming writes
-	file, err := os.OpenFile(args.Output, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
-	if err != nil {
-		return errors.Wrap(err, "could not open file for writing")
-	}
-	//nolint:errcheck
-	defer file.Close()
+			if _, err := fmt.Fprintf(writer, "===== Logs for Part: %s =====\n", part.Name); err != nil {
+				return errors.Wrap(err, "failed to write header to writer")
+			}
+		}
 
-	// Stream logs part by part
-	for _, part := range parts {
-		if err := c.streamLogsForPart(part, args, file); err != nil {
+		// Stream logs for the part
+		if err := c.streamLogsForPart(part, args, writer); err != nil {
 			return errors.Wrapf(err, "could not stream logs for part %s", part.Name)
 		}
 	}
-
 	return nil
 }
 
 // streamLogsForPart streams logs for a specific part directly to a file.
-func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArgs, file *os.File) error {
+func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArgs, writer io.Writer) error {
 	numLogs, err := getNumLogs(c.c, args.Count)
 	if err != nil {
 		return err
-	}
-
-	// Parse start and end times if provided
-	var startTime, endTime *timestamppb.Timestamp
-	if args.StartTime != "" {
-		parsedStart, err := time.Parse(time.RFC3339, args.StartTime)
-		if err != nil {
-			return errors.Wrap(err, "invalid start time format")
-		}
-		startTime = timestamppb.New(parsedStart)
-	}
-	if args.EndTime != "" {
-		parsedEnd, err := time.Parse(time.RFC3339, args.EndTime)
-		if err != nil {
-			return errors.Wrap(err, "invalid end time format")
-		}
-		endTime = timestamppb.New(parsedEnd)
-	}
-
-	// Write a header for this part
-	if args.Format == formatText {
-		if _, err := file.WriteString(fmt.Sprintf("===== Logs for Part: %s =====\n", part.Name)); err != nil {
-			return errors.Wrap(err, "failed to write header to file")
-		}
 	}
 
 	// Write logs for this part
@@ -719,12 +707,8 @@ func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArg
 	for logsFetched := 0; logsFetched < numLogs; {
 		resp, err := c.client.GetRobotPartLogs(c.c.Context, &apppb.GetRobotPartLogsRequest{
 			Id:         part.Id,
-			Filter:     &args.Keyword,
 			ErrorsOnly: args.Errors,
 			PageToken:  &pageToken,
-			Levels:     args.Levels,
-			Start:      startTime,
-			End:        endTime,
 		})
 		if err != nil {
 			return errors.Wrap(err, "failed to fetch logs")
@@ -750,16 +734,8 @@ func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArg
 				return errors.Wrap(err, "failed to format log")
 			}
 
-			if args.Format == formatJSON {
-				// Each log as a standalone JSON object
-				if _, err := file.WriteString(formattedLog + "\n"); err != nil {
-					return errors.Wrap(err, "failed to write log to file")
-				}
-			} else if args.Format == formatText {
-				// Append formatted log for text output
-				if _, err := file.WriteString(formattedLog); err != nil {
-					return errors.Wrap(err, "failed to write log to file")
-				}
+			if _, err := fmt.Fprintln(writer, formattedLog); err != nil {
+				return errors.Wrap(err, "failed to write log to writer")
 			}
 		}
 
@@ -777,7 +753,7 @@ func formatLog(log *commonpb.LogEntry, partName, format string) (string, error) 
 	}
 
 	switch format {
-	case formatJSON:
+	case "json":
 		logMap := map[string]interface{}{
 			"part":    partName,
 			"ts":      log.Time.AsTime().Unix(),
@@ -792,9 +768,9 @@ func formatLog(log *commonpb.LogEntry, partName, format string) (string, error) 
 			return "", errors.Wrap(err, "failed to marshal log to JSON")
 		}
 		return string(logJSON), nil
-	case formatText:
+	case "text", "":
 		return fmt.Sprintf(
-			"%s\t%s\t%s\t%s\t%s\n",
+			"%s\t%s\t%s\t%s\t%s",
 			log.Time.AsTime().Format(logging.DefaultTimeFormatStr),
 			log.Level,
 			log.LoggerName,
@@ -804,41 +780,6 @@ func formatLog(log *commonpb.LogEntry, partName, format string) (string, error) 
 	default:
 		return "", fmt.Errorf("invalid format: %s", format)
 	}
-}
-
-// printLogsToConsole prints logs to the console.
-func (c *viamClient) printLogsToConsole(robot *apppb.Robot, parts []*apppb.RobotPart, args robotsLogsArgs) error {
-	orgStr := args.Organization
-	locStr := args.Location
-	robotStr := args.Machine
-
-	for i, part := range parts {
-		if i != 0 {
-			printf(c.c.App.Writer, "")
-		}
-
-		var header string
-		if orgStr == "" || locStr == "" || robotStr == "" {
-			header = fmt.Sprintf("%s -> %s -> %s -> %s", c.selectedOrg.Name, c.selectedLoc.Name, robot.Name, part.Name)
-		} else {
-			header = part.Name
-		}
-		numLogs, err := getNumLogs(c.c, args.Count)
-		if err != nil {
-			return err
-		}
-		if err := c.printRobotPartLogs(
-			orgStr, locStr, robotStr, part.Id,
-			args.Errors,
-			"\t",
-			header,
-			numLogs,
-		); err != nil {
-			return errors.Wrap(err, "could not print machine logs")
-		}
-	}
-
-	return nil
 }
 
 type robotsPartStatusArgs struct {
@@ -2288,4 +2229,70 @@ func logEntryFieldsToString(fields []*structpb.Struct) (string, error) {
 		}
 	}
 	return message + "}", nil
+}
+
+type deleteOAuthAppArgs struct {
+	OrgID    string
+	ClientID string
+}
+
+// DeleteOAuthAppConfirmation is the Before action for 'organizations auth-service oauth-app delete'.
+// It asks for the user to confirm that they want to delete the oauth app.
+func DeleteOAuthAppConfirmation(c *cli.Context, args deleteOAuthAppArgs) error {
+	if args.OrgID == "" {
+		return errors.New("cannot delete oauth app without an organization ID")
+	}
+
+	if args.ClientID == "" {
+		return errors.New("cannot delete oauth app without a client ID")
+	}
+
+	yellow := "\033[1;33m%s\033[0m"
+	printf(c.App.Writer, yellow, "WARNING!!\n")
+	printf(c.App.Writer, yellow, fmt.Sprintf("You are trying to delete an OAuth application with client ID %s. "+
+		"Once deleted, any existing apps that rely on this OAuth application will no longer be able to authenticate users.\n", args.ClientID))
+	printf(c.App.Writer, yellow, "If you wish to continue, please type \"delete\":")
+	if err := c.Err(); err != nil {
+		return err
+	}
+
+	rawInput, err := bufio.NewReader(c.App.Reader).ReadString('\n')
+	if err != nil {
+		return err
+	}
+
+	input := strings.ToUpper(strings.TrimSpace(rawInput))
+	if input != "DELETE" {
+		return errors.New("aborted")
+	}
+	return nil
+}
+
+// DeleteOAuthAppAction is the corresponding action for 'oauth-app delete'.
+func DeleteOAuthAppAction(c *cli.Context, args deleteOAuthAppArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	return client.deleteOAuthAppAction(c, args.OrgID, args.ClientID)
+}
+
+func (c *viamClient) deleteOAuthAppAction(cCtx *cli.Context, orgID, clientID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	req := &apppb.DeleteOAuthAppRequest{
+		OrgId:    orgID,
+		ClientId: clientID,
+	}
+
+	_, err := c.client.DeleteOAuthApp(c.c.Context, req)
+	if err != nil {
+		return err
+	}
+
+	printf(cCtx.App.Writer, "Successfully deleted OAuth application")
+	return nil
 }

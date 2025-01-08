@@ -89,7 +89,7 @@ func (c *viamClient) packageExportAction(orgID, name, version, packageType, dest
 	}
 	if orgID == "" || name == "" {
 		if orgID != "" || name != "" {
-			return fmt.Errorf("if either of %s or %s is missing, both must be missing", generalFlagOrgID, packageFlagName)
+			return fmt.Errorf("if either of %s or %s is missing, both must be missing", generalFlagOrgID, generalFlagName)
 		}
 		manifest, err := loadManifest(defaultManifestFilename)
 		if err != nil {
