@@ -20,6 +20,9 @@ const (
 	disableProfilesFlag = "disable-profiles"
 	profileFlagName     = "profile-name"
 
+	generalFlagStart = "start"
+	generalFlagEnd   = "end"
+
 	// TODO: RSDK-6683.
 	quietFlag = "quiet"
 
@@ -27,8 +30,6 @@ const (
 	logsFlagOutputFile = "output"
 	logsFlagKeyword    = "keyword"
 	logsFlagLevels     = "levels"
-	logsFlagStartTime  = "start"
-	logsFlagEndTime    = "end"
 	logsFlagErrors     = "errors"
 	logsFlagTail       = "tail"
 	logsFlagCount      = "count"
@@ -118,8 +119,6 @@ const (
 	dataFlagResourceName                   = "resource-name"
 	dataFlagMethod                         = "method"
 	dataFlagMimeTypes                      = "mime-types"
-	dataFlagStart                          = "start"
-	dataFlagEnd                            = "end"
 	dataFlagParallelDownloads              = "parallel"
 	dataFlagTags                           = "tags"
 	dataFlagBboxLabels                     = "bbox-labels"
@@ -204,11 +203,11 @@ var commonFilterFlags = []cli.Flag{
 		Usage: "mime types filter",
 	},
 	&cli.StringFlag{
-		Name:  dataFlagStart,
+		Name:  generalFlagStart,
 		Usage: "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter",
 	},
 	&cli.StringFlag{
-		Name:  dataFlagEnd,
+		Name:  generalFlagEnd,
 		Usage: "ISO-8601 timestamp in RFC3339 format indicating the end of the interval filter",
 	},
 	&cli.StringSliceFlag{
@@ -869,12 +868,12 @@ var app = &cli.App{
 									Usage:    "orgs filter",
 								},
 								&cli.StringFlag{
-									Name:     dataFlagStart,
+									Name:     generalFlagStart,
 									Required: true,
 									Usage:    "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter",
 								},
 								&cli.StringFlag{
-									Name:     dataFlagEnd,
+									Name:     generalFlagEnd,
 									Required: true,
 									Usage:    "ISO-8601 timestamp in RFC3339 format indicating the end of the interval filter",
 								},
@@ -1610,12 +1609,12 @@ var app = &cli.App{
 							Usage: "filter logs by levels (e.g., info, warn, error)",
 						},
 						&cli.TimestampFlag{
-							Name:   logsFlagStartTime,
+							Name:   generalFlagStart,
 							Usage:  "filter logs starting from this time",
 							Layout: "2006-01-02T15:04:05Z", // Example format for ISO 8601
 						},
 						&cli.TimestampFlag{
-							Name:   logsFlagEndTime,
+							Name:   generalFlagEnd,
 							Usage:  "filter logs until this time",
 							Layout: "2006-01-02T15:04:05Z", // Example format for ISO 8601
 						},
