@@ -582,7 +582,7 @@ var app = &cli.App{
 										},
 										&cli.StringSliceFlag{
 											Name:  oauthAppFlagOriginURIs,
-											Usage: "updated comma separated origin uris for the OAuth application",
+											Usage: "updated comma-separated origin uris for the OAuth application",
 										},
 										&cli.StringSliceFlag{
 											Name:  oauthAppFlagRedirectURIs,
@@ -600,6 +600,67 @@ var app = &cli.App{
 										},
 									},
 									Action: createCommandWithT[updateOAuthAppArgs](UpdateOAuthAppAction),
+								},
+								{
+									Name:  "create",
+									Usage: "create an OAuth application",
+									Flags: []cli.Flag{
+										&cli.StringFlag{
+											Name:     generalFlagOrgID,
+											Required: true,
+											Usage:    "organization ID that is tied to the OAuth application",
+										},
+										&cli.StringFlag{
+											Name:  oauthAppFlagClientName,
+											Usage: "name for the OAuth application",
+										},
+										&cli.StringFlag{
+											Name: oauthAppFlagClientAuthentication,
+											Usage: "client authentication policy for the OAuth application. can be one of " +
+												formatAcceptedValues(string(ClientAuthenticationUnspecified), string(ClientAuthenticationRequired),
+													string(ClientAuthenticationNotRequired), string(ClientAuthenticationNotRequiredWhenUsingPKCE)),
+											Value:    unspecified,
+											Required: true,
+										},
+										&cli.StringFlag{
+											Name: oauthAppFlagURLValidation,
+											Usage: "url validation for the OAuth application. can be one of " +
+												formatAcceptedValues(string(URLValidationUnspecified), string(URLValidationExactMatch),
+													string(URLValidationAllowWildcards)),
+											Value:    unspecified,
+											Required: true,
+										},
+										&cli.StringFlag{
+											Name: oauthAppFlagPKCE,
+											Usage: "pkce for the OAuth application. can be one of " +
+												formatAcceptedValues(string(PKCEUnspecified), string(PKCERequired), string(PKCENotRequired),
+													string(PKCENotRequiredWhenUsingClientAuthentication)),
+											Value:    unspecified,
+											Required: true,
+										},
+										&cli.StringSliceFlag{
+											Name:  oauthAppFlagOriginURIs,
+											Usage: "comma-separated origin uris for the OAuth application",
+										},
+										&cli.StringSliceFlag{
+											Name:     oauthAppFlagRedirectURIs,
+											Usage:    "comma-separated redirect uris for the OAuth application, requires at least one.",
+											Required: true,
+										},
+										&cli.StringFlag{
+											Name:     oauthAppFlagLogoutURI,
+											Usage:    "logout uri for the OAuth application",
+											Required: true,
+										},
+										&cli.StringSliceFlag{
+											Name: oauthAppFlagEnabledGrants,
+											Usage: "comma-separated enabled grants for the OAuth application. requires at least one, where values can be of " +
+												formatAcceptedValues(string(EnabledGrantUnspecified), string(EnabledGrantRefreshToken), string(EnabledGrantPassword),
+													string(EnabledGrantImplicit), string(EnabledGrantDeviceCode), string(EnabledGrantAuthorizationCode)),
+											Required: true,
+										},
+									},
+									Action: createCommandWithT[createOAuthAppArgs](CreateOAuthAppAction),
 								},
 							},
 						},
