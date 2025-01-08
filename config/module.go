@@ -442,13 +442,16 @@ func findMetaJSONFile(dir string) (*JSONManifest, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	_, err = os.Stat(metaPath)
-	if err == nil {
-		meta, err := parseJSONFile[JSONManifest](metaPath)
-		if err != nil {
-			return nil, err
-		}
-		return meta, nil
+	if err != nil {
+		return nil, nil
 	}
-	return nil, nil
+
+	meta, err := parseJSONFile[JSONManifest](metaPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return meta, nil
 }
