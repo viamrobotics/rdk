@@ -377,11 +377,11 @@ func (m *Module) FirstRun(
 	return nil
 }
 
-// TODO(bashar): update comment with current state of things
 // TODO(bashar): write test(s)
-// getJSONManifest returns a loaded meta.json from one of two sources (in order of precedence):
-// 1. if there is a meta.json in the exe dir, use that, except in local non-tarball case.
-// 2. if this is a local tarball and there's a meta.json next to the tarball, use that.
+// getJSONManifest returns a loaded meta.json from one of three sources (in order of precedence):
+// 1. if this is an online module and there is a meta.json in its top level directory, use that.
+// 3. if there is a meta.json in the exe dir, use that, exept in local non-tarball case.
+// 4. if this is a local tarball and there's a meta.json next to the tarball, use that.
 // Note: the working directory must be the unpacked tarball directory or local exec directory.
 func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*JSONManifest, string, error) {
 	// note: all online modules qualify for cases 1 & 2; local tarballs for cases 2 & 3; and local non-tarballs for none. We don't look at
