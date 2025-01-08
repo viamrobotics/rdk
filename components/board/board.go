@@ -142,7 +142,7 @@ type Board interface {
 //	analog, err := myBoard.AnalogByName("my_example_analog")
 //
 //	// Set the pin to value 48.
-//	err := analog.Write(context.Background(), 48, nil)
+//	err = analog.Write(context.Background(), 48, nil)
 type Analog interface {
 	// Read reads off the current value.
 	Read(ctx context.Context, extra map[string]interface{}) (AnalogValue, error)

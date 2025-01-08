@@ -176,7 +176,6 @@ func newGPIOStepper(
 type gpioStepper struct {
 	resource.Named
 	resource.AlwaysRebuild
-	resource.TriviallyCloseable
 
 	// config
 	theBoard                    board.Board
@@ -201,12 +200,12 @@ type gpioStepper struct {
 
 // SetPower sets the percentage of power the motor should employ between 0-1.
 func (m *gpioStepper) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
-	m.lock.Lock()
-	defer m.lock.Unlock()
 	if math.Abs(powerPct) <= .0001 {
 		return m.Stop(ctx, nil)
 	}
 
+	m.lock.Lock()
+	defer m.lock.Unlock()
 	if m.minDelay == 0 {
 		return errors.Errorf(
 			"if you want to set the power, set 'stepper_delay_usec' in the motor config at "+
@@ -452,16 +451,11 @@ func (m *gpioStepper) IsMoving(ctx context.Context) (bool, error) {
 
 // Stop turns the power to the motor off immediately, without any gradual step down.
 func (m *gpioStepper) Stop(ctx context.Context, extra map[string]interface{}) error {
-	m.stop()
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	return m.enable(ctx, false)
-}
-
-func (m *gpioStepper) stop() {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	m.targetStepPosition = m.stepPosition
+
+	return m.enable(ctx, false)
 }
 
 // IsPowered returns whether or not the motor is currently on. It also returns the percent power

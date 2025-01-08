@@ -113,7 +113,7 @@ func interpolateSegment(ci *ik.Segment, resolution float64) ([][]referenceframe.
 		return nil, err
 	}
 
-	steps := PathStateCount(ci.StartPosition, ci.EndPosition, resolution)
+	steps := CalculateStepCount(ci.StartPosition, ci.EndPosition, resolution)
 	if steps < defaultMinStepCount {
 		// Minimum step count ensures we are not missing anything
 		steps = defaultMinStepCount
@@ -133,7 +133,7 @@ func interpolateSegment(ci *ik.Segment, resolution float64) ([][]referenceframe.
 
 // interpolateSegmentFS is a helper function which produces a list of intermediate inputs, between the start and end
 // configuration of a segment at a given resolution value.
-func interpolateSegmentFS(ci *ik.SegmentFS, resolution float64) ([]map[string][]referenceframe.Input, error) {
+func interpolateSegmentFS(ci *ik.SegmentFS, resolution float64) ([]referenceframe.FrameSystemInputs, error) {
 	// Find the frame with the most steps by calculating steps for each frame
 	maxSteps := defaultMinStepCount
 	for frameName, startConfig := range ci.StartConfiguration {
@@ -163,17 +163,17 @@ func interpolateSegmentFS(ci *ik.SegmentFS, resolution float64) ([]map[string][]
 		}
 
 		// Calculate steps needed for this frame
-		steps := PathStateCount(startPos, endPos, resolution)
+		steps := CalculateStepCount(startPos, endPos, resolution)
 		if steps > maxSteps {
 			maxSteps = steps
 		}
 	}
 
 	// Create interpolated configurations for all frames
-	var interpolatedConfigurations []map[string][]referenceframe.Input
+	var interpolatedConfigurations []referenceframe.FrameSystemInputs
 	for i := 0; i <= maxSteps; i++ {
 		interp := float64(i) / float64(maxSteps)
-		frameConfigs := make(map[string][]referenceframe.Input)
+		frameConfigs := make(referenceframe.FrameSystemInputs)
 
 		// Interpolate each frame's configuration
 		for frameName, startConfig := range ci.StartConfiguration {
@@ -318,7 +318,7 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossSegmentFS(ci *ik.SegmentF
 	if err != nil {
 		return false, nil
 	}
-	var lastGood map[string][]referenceframe.Input
+	var lastGood referenceframe.FrameSystemInputs
 	for i, interpConfig := range interpolatedConfigurations {
 		interpC := &ik.StateFS{FS: ci.FS, Configuration: interpConfig}
 		pass, _ := c.CheckStateFSConstraints(interpC)
