@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -201,21 +202,6 @@ type ExportTabularDataResponse struct {
 	MethodParameters map[string]interface{}
 	Tags             []string
 	Payload          map[string]interface{}
-}
-
-// ExportTabularDataStream is a stream that returns ExportTabularDataResponses.
-type ExportTabularDataStream struct {
-	Stream pb.DataService_ExportTabularDataClient
-}
-
-// Next gets the next ExportTabularDataResponse.
-func (e *ExportTabularDataStream) Next() (*ExportTabularDataResponse, error) {
-	streamResp, err := e.Stream.Recv()
-	if err != nil {
-		return nil, err
-	}
-
-	return exportTabularDataResponseFromProto(streamResp), nil
 }
 
 // DataSyncClient structs
@@ -452,11 +438,11 @@ func (d *DataClient) TabularDataBySQL(ctx context.Context, organizationID, sqlQu
 
 // TabularDataByMQL queries tabular data with MQL (MongoDB Query Language) queries.
 func (d *DataClient) TabularDataByMQL(
-	ctx context.Context, organizationID string, mqlQueries []map[string]interface{},
+	ctx context.Context, organizationID string, query []map[string]interface{},
 ) ([]map[string]interface{}, error) {
 	mqlBinary := [][]byte{}
-	for _, query := range mqlQueries {
-		binary, err := bson.Marshal(query)
+	for _, q := range query {
+		binary, err := bson.Marshal(q)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal BSON query: %w", err)
 		}
@@ -503,7 +489,7 @@ func (d *DataClient) GetLatestTabularData(ctx context.Context, partID, resourceN
 // ExportTabularData returns a stream of ExportTabularDataResponses.
 func (d *DataClient) ExportTabularData(
 	ctx context.Context, partID, resourceName, resourceSubtype, method string, interval CaptureInterval,
-) (*ExportTabularDataStream, error) {
+) ([]*ExportTabularDataResponse, error) {
 	stream, err := d.dataClient.ExportTabularData(ctx, &pb.ExportTabularDataRequest{
 		PartId:          partID,
 		ResourceName:    resourceName,
@@ -514,9 +500,22 @@ func (d *DataClient) ExportTabularData(
 	if err != nil {
 		return nil, err
 	}
-	return &ExportTabularDataStream{
-		Stream: stream,
-	}, nil
+
+	var responses []*ExportTabularDataResponse
+
+	for {
+		response, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		responses = append(responses, exportTabularDataResponseFromProto(response))
+	}
+
+	return responses, nil
 }
 
 // BinaryDataByFilter queries binary data and metadata based on given filters.

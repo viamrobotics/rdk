@@ -144,7 +144,7 @@ func newTransformPipeline(
 	pipeline := make([]camera.StreamCamera, 0, len(cfg.Pipeline))
 	lastSource := streamCameraFromCamera(ctx, source)
 	for _, tr := range cfg.Pipeline {
-		src, newStreamType, err := buildTransform(ctx, r, lastSource, streamType, tr, cfg.Source)
+		src, newStreamType, err := buildTransform(ctx, r, lastSource, streamType, tr)
 		if err != nil {
 			return nil, err
 		}

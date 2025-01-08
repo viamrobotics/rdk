@@ -95,8 +95,10 @@ func TestServer(t *testing.T) {
 					Config: config.Revision{Revision: "rev1"},
 					Resources: []resource.Status{
 						{
-							Name:     arm.Named("badArm"),
-							Revision: "rev0",
+							NodeStatus: resource.NodeStatus{
+								Name:     arm.Named("badArm"),
+								Revision: "rev0",
+							},
 						},
 					},
 				},
@@ -116,9 +118,11 @@ func TestServer(t *testing.T) {
 					Config: config.Revision{Revision: "rev1"},
 					Resources: []resource.Status{
 						{
-							Name:     arm.Named("goodArm"),
-							State:    resource.NodeStateConfiguring,
-							Revision: "rev1",
+							NodeStatus: resource.NodeStatus{
+								Name:     arm.Named("goodArm"),
+								State:    resource.NodeStateConfiguring,
+								Revision: "rev1",
+							},
 						},
 					},
 				},
@@ -133,22 +137,116 @@ func TestServer(t *testing.T) {
 				0,
 			},
 			{
+				"resource with empty cloud metadata",
+				robot.MachineStatus{
+					Config: config.Revision{Revision: "rev1"},
+					Resources: []resource.Status{
+						{
+							NodeStatus: resource.NodeStatus{
+								Name:     arm.Named("goodArm"),
+								State:    resource.NodeStateConfiguring,
+								Revision: "rev1",
+							},
+							CloudMetadata: cloud.Metadata{},
+						},
+					},
+				},
+				&pb.ConfigStatus{Revision: "rev1"},
+				[]*pb.ResourceStatus{
+					{
+						Name:          protoutils.ResourceNameToProto(arm.Named("goodArm")),
+						State:         pb.ResourceStatus_STATE_CONFIGURING,
+						Revision:      "rev1",
+						CloudMetadata: &pb.GetCloudMetadataResponse{},
+					},
+				},
+				0,
+			},
+			{
+				"resource with cloud metadata",
+				robot.MachineStatus{
+					Config: config.Revision{Revision: "rev1"},
+					Resources: []resource.Status{
+						{
+							NodeStatus: resource.NodeStatus{
+								Name:     arm.Named("arm1"),
+								State:    resource.NodeStateConfiguring,
+								Revision: "rev1",
+							},
+							CloudMetadata: cloud.Metadata{
+								PrimaryOrgID:  "org1",
+								LocationID:    "loc1",
+								MachineID:     "mac1",
+								MachinePartID: "part1",
+							},
+						},
+						{
+							NodeStatus: resource.NodeStatus{
+								Name:  arm.Named("arm2").PrependRemote("remote1"),
+								State: resource.NodeStateReady,
+							},
+							CloudMetadata: cloud.Metadata{
+								PrimaryOrgID:  "org2",
+								LocationID:    "loc2",
+								MachineID:     "mac2",
+								MachinePartID: "part2",
+							},
+						},
+					},
+				},
+				&pb.ConfigStatus{Revision: "rev1"},
+				[]*pb.ResourceStatus{
+					{
+						Name:     protoutils.ResourceNameToProto(arm.Named("arm1")),
+						State:    pb.ResourceStatus_STATE_CONFIGURING,
+						Revision: "rev1",
+						CloudMetadata: protoutils.MetadataToProto(
+							cloud.Metadata{
+								PrimaryOrgID:  "org1",
+								LocationID:    "loc1",
+								MachineID:     "mac1",
+								MachinePartID: "part1",
+							},
+						),
+					},
+					{
+						Name:  protoutils.ResourceNameToProto(arm.Named("arm2").PrependRemote("remote1")),
+						State: pb.ResourceStatus_STATE_READY,
+						CloudMetadata: protoutils.MetadataToProto(
+							cloud.Metadata{
+								PrimaryOrgID:  "org2",
+								LocationID:    "loc2",
+								MachineID:     "mac2",
+								MachinePartID: "part2",
+							},
+						),
+					},
+				},
+				0,
+			},
+			{
 				"resources with mixed valid and invalid statuses",
 				robot.MachineStatus{
 					Config: config.Revision{Revision: "rev1"},
 					Resources: []resource.Status{
 						{
-							Name:     arm.Named("goodArm"),
-							State:    resource.NodeStateConfiguring,
-							Revision: "rev1",
+							NodeStatus: resource.NodeStatus{
+								Name:     arm.Named("goodArm"),
+								State:    resource.NodeStateConfiguring,
+								Revision: "rev1",
+							},
 						},
 						{
-							Name:     arm.Named("badArm"),
-							Revision: "rev0",
+							NodeStatus: resource.NodeStatus{
+								Name:     arm.Named("badArm"),
+								Revision: "rev0",
+							},
 						},
 						{
-							Name:     arm.Named("anotherBadArm"),
-							Revision: "rev-1",
+							NodeStatus: resource.NodeStatus{
+								Name:     arm.Named("anotherBadArm"),
+								Revision: "rev-1",
+							},
 						},
 					},
 				},
@@ -178,10 +276,12 @@ func TestServer(t *testing.T) {
 					Config: config.Revision{Revision: "rev1"},
 					Resources: []resource.Status{
 						{
-							Name:     arm.Named("brokenArm"),
-							Revision: "rev1",
-							State:    resource.NodeStateUnhealthy,
-							Error:    errors.New("bad configuration"),
+							NodeStatus: resource.NodeStatus{
+								Name:     arm.Named("brokenArm"),
+								Revision: "rev1",
+								State:    resource.NodeStateUnhealthy,
+								Error:    errors.New("bad configuration"),
+							},
 						},
 					},
 				},

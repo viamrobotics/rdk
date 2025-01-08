@@ -156,41 +156,30 @@ func newTPSpaceMotionPlanner(
 	return tpPlanner, nil
 }
 
-// TODO: seed is not immediately useful for TP-space.
-func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context, goal PathStep, seed map[string][]referenceframe.Input) ([]node, error) {
-	mp.planOpts.setGoal(goal)
+func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context, seed, goal *PlanState) ([]node, error) {
+	zeroInputs := referenceframe.FrameSystemInputs{}
+	zeroInputs[mp.tpFrame.Name()] = make([]referenceframe.Input, len(mp.tpFrame.DoF()))
 	solutionChan := make(chan *rrtSolution, 1)
 
-	seedPos := mp.opt().startPoses
+	maps := &rrtMaps{startMap: map[node]node{}, goalMap: map[node]node{}}
 
-	startNode := &basicNode{q: make(map[string][]referenceframe.Input, len(mp.lfs.dof)), cost: 0, poses: seedPos, corner: false}
-	maps := &rrtMaps{startMap: map[node]node{startNode: nil}}
-	if mp.opt().PositionSeeds > 0 && mp.opt().profile == PositionOnlyMotionProfile {
-		err := maps.fillPosOnlyGoal(goal, mp.opt().PositionSeeds)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		goalNode := &basicNode{
-			q:    make(map[string][]referenceframe.Input),
-			cost: 0,
-			poses: PathStep{
-				mp.tpFrame.Name(): referenceframe.NewPoseInFrame(
-					referenceframe.World,
-					spatialmath.Compose(goal[mp.tpFrame.Name()].Pose(), flipPose),
-				),
-			},
-			corner: false,
-		}
-		maps.goalMap = map[node]node{goalNode: nil}
+	startNode := &basicNode{
+		q:     zeroInputs,
+		poses: referenceframe.FrameSystemPoses{mp.tpFrame.Name(): referenceframe.NewZeroPoseInFrame(referenceframe.World)},
 	}
+	if seed != nil {
+		startNode = &basicNode{q: zeroInputs, poses: seed.poses}
+	}
+	maps.startMap = map[node]node{startNode: nil}
+	goalNode := &basicNode{q: zeroInputs, poses: goal.poses}
+	maps.goalMap = map[node]node{flipNodePoses(goalNode): nil}
 
 	var planRunners sync.WaitGroup
 
 	planRunners.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer planRunners.Done()
-		mp.rrtBackgroundRunner(ctx, seed, &rrtParallelPlannerShared{maps, nil, solutionChan})
+		mp.rrtBackgroundRunner(ctx, &rrtParallelPlannerShared{maps, nil, solutionChan})
 	})
 	select {
 	case <-ctx.Done():
@@ -204,11 +193,11 @@ func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context, goal PathStep, seed
 	}
 }
 
-func (mp *tpSpaceRRTMotionPlanner) poseToPathStep(pose spatialmath.Pose) PathStep {
-	return PathStep{mp.tpFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, pose)}
+func (mp *tpSpaceRRTMotionPlanner) tpFramePoseToFrameSystemPoses(pose spatialmath.Pose) referenceframe.FrameSystemPoses {
+	return referenceframe.FrameSystemPoses{mp.tpFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, pose)}
 }
 
-func (mp *tpSpaceRRTMotionPlanner) pathStepToPose(step PathStep) spatialmath.Pose {
+func (mp *tpSpaceRRTMotionPlanner) tpFramePose(step referenceframe.FrameSystemPoses) spatialmath.Pose {
 	return step[mp.tpFrame.Name()].Pose()
 }
 
@@ -216,12 +205,11 @@ func (mp *tpSpaceRRTMotionPlanner) pathStepToPose(step PathStep) spatialmath.Pos
 // Separating this allows other things to call planRunner in parallel allowing the thread-agnostic Plan to be accessible.
 func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	ctx context.Context,
-	_ map[string][]referenceframe.Input, // TODO: this may be needed for smoothing
 	rrt *rrtParallelPlannerShared,
 ) {
 	defer close(rrt.solutionChan)
 	// get start and goal poses
-	var startPoses PathStep
+	var startPoses referenceframe.FrameSystemPoses
 	var goalPose spatialmath.Pose
 	var goalNode node
 
@@ -319,12 +307,15 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	midPtNormalized := midPt.Sub(startPose.Point())
 	midOrient := &spatialmath.OrientationVector{OZ: 1, Theta: math.Atan2(-midPtNormalized.X, midPtNormalized.Y)}
 
-	midptNode := &basicNode{poses: mp.poseToPathStep(spatialmath.NewPose(midPt, midOrient)), cost: midPt.Sub(startPose.Point()).Norm()}
+	midptNode := &basicNode{
+		poses: mp.tpFramePoseToFrameSystemPoses(spatialmath.NewPose(midPt, midOrient)),
+		cost:  midPt.Sub(startPose.Point()).Norm(),
+	}
 	var randPosNode node = midptNode
 
 	for iter := 0; iter < mp.planOpts.PlanIter; iter++ {
 		if pathdebug {
-			randPose := mp.pathStepToPose(randPosNode.Poses())
+			randPose := mp.tpFramePose(randPosNode.Poses())
 			mp.logger.Debugf("$RRTGOAL,%f,%f", randPose.Point().X, randPose.Point().Y)
 		}
 		mp.logger.CDebugf(ctx, "TP Space RRT iteration %d", iter)
@@ -352,8 +343,8 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 		if seedReached.node != nil && goalReached.node != nil {
 			// Flip the orientation of the goal node for distance calculation and seed extension
 			reachedDelta = mp.planOpts.poseDistanceFunc(&ik.Segment{
-				StartPosition: mp.pathStepToPose(seedReached.node.Poses()),
-				EndPosition:   mp.pathStepToPose(flipNodePoses(goalReached.node).Poses()),
+				StartPosition: mp.tpFramePose(seedReached.node.Poses()),
+				EndPosition:   mp.tpFramePose(flipNodePoses(goalReached.node).Poses()),
 			})
 			if reachedDelta > mp.planOpts.GoalThreshold {
 				// If both maps extended, but did not reach the same point, then attempt to extend them towards each other
@@ -364,8 +355,8 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 				}
 				if seedReached.node != nil {
 					reachedDelta = mp.planOpts.poseDistanceFunc(&ik.Segment{
-						StartPosition: mp.pathStepToPose(seedReached.node.Poses()),
-						EndPosition:   mp.pathStepToPose(flipNodePoses(goalReached.node).Poses()),
+						StartPosition: mp.tpFramePose(seedReached.node.Poses()),
+						EndPosition:   mp.tpFramePose(flipNodePoses(goalReached.node).Poses()),
 					})
 					if reachedDelta > mp.planOpts.GoalThreshold {
 						goalReached = mp.attemptExtension(ctx, flipNodePoses(seedReached.node), rrt.maps.goalMap, true)
@@ -376,8 +367,8 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 					}
 					if goalReached.node != nil {
 						reachedDelta = mp.planOpts.poseDistanceFunc(&ik.Segment{
-							StartPosition: mp.pathStepToPose(seedReached.node.Poses()),
-							EndPosition:   mp.pathStepToPose(flipNodePoses(goalReached.node).Poses()),
+							StartPosition: mp.tpFramePose(seedReached.node.Poses()),
+							EndPosition:   mp.tpFramePose(flipNodePoses(goalReached.node).Poses()),
 						})
 					}
 				}
@@ -430,8 +421,8 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 					continue
 				}
 				reachedDelta = mp.planOpts.poseDistanceFunc(&ik.Segment{
-					StartPosition: mp.pathStepToPose(seedReached.node.Poses()),
-					EndPosition:   mp.pathStepToPose(flipNodePoses(goalMapNode).Poses()),
+					StartPosition: mp.tpFramePose(seedReached.node.Poses()),
+					EndPosition:   mp.tpFramePose(flipNodePoses(goalMapNode).Poses()),
 				})
 				if reachedDelta <= mp.planOpts.GoalThreshold {
 					// If we've reached the goal, extract the path from the RRT trees and return
@@ -496,7 +487,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 			return nil, errNoNeighbors
 		}
 
-		rawVal, ok := distMap.Load(mp.pathStepToPose(nearest.Poses()))
+		rawVal, ok := distMap.Load(mp.tpFramePose(nearest.Poses()))
 		if !ok {
 			mp.logger.Error("nearest neighbor failed to find nearest pose in distMap")
 			return nil, errNoNeighbors
@@ -508,20 +499,20 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 			return nil, errNoNeighbors
 		}
 	} else {
-		solution, err = mp.ptgSolution(curPtg, mp.pathStepToPose(nearest.Poses()), mp.pathStepToPose(randPosNode.Poses()))
+		solution, err = mp.ptgSolution(curPtg, mp.tpFramePose(nearest.Poses()), mp.tpFramePose(randPosNode.Poses()))
 		if err != nil || solution == nil {
 			return nil, err
 		}
 	}
 
 	// Get cartesian distance from NN to rand
-	arcStartPose := mp.pathStepToPose(nearest.Poses())
+	arcStartPose := mp.tpFramePose(nearest.Poses())
 	successNodes := []node{}
 	arcPose := spatialmath.NewZeroPose() // This will be the relative pose that is the delta from one end of the combined traj to the other.
 
 	// We may produce more than one consecutive arc. Reduce the one configuration to several 2dof arcs
 	for i := 0; i < len(solution.Configuration); i += 2 {
-		subConfig := map[string][]referenceframe.Input{
+		subConfig := referenceframe.FrameSystemInputs{
 			mp.tpFrame.Name(): referenceframe.FloatsToInputs(solution.Configuration[i : i+2]),
 		}
 		subNode := newConfigurationNode(subConfig)
@@ -549,17 +540,17 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 			}
 		}
 
-		arcPose = spatialmath.Compose(arcPose, mp.pathStepToPose(goodNode.Poses()))
+		arcPose = spatialmath.Compose(arcPose, mp.tpFramePose(goodNode.Poses()))
 
 		// add the last node in trajectory
-		arcStartPose = spatialmath.Compose(arcStartPose, mp.pathStepToPose(goodNode.Poses()))
+		arcStartPose = spatialmath.Compose(arcStartPose, mp.tpFramePose(goodNode.Poses()))
 
 		successNode = &basicNode{
-			q: map[string][]referenceframe.Input{
+			q: referenceframe.FrameSystemInputs{
 				mp.tpFrame.Name(): {{float64(ptgNum)}, goodNode.Q()[mp.tpFrame.Name()][0], {0}, goodNode.Q()[mp.tpFrame.Name()][1]},
 			},
 			cost:   goodNode.Cost(),
-			poses:  mp.poseToPathStep(arcStartPose),
+			poses:  mp.tpFramePoseToFrameSystemPoses(arcStartPose),
 			corner: false,
 		}
 		successNodes = append(successNodes, successNode)
@@ -572,7 +563,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 		return nil, errInvalidCandidate
 	}
 
-	targetFunc := defaultGoalMetricConstructor(spatialmath.PoseBetween(arcStartPose, mp.pathStepToPose(randPosNode.Poses())))
+	targetFunc := defaultGoalMetricConstructor(spatialmath.PoseBetween(arcStartPose, mp.tpFramePose(randPosNode.Poses())))
 	bestDist := targetFunc(&ik.State{Position: arcPose})
 
 	cand := &candidate{dist: bestDist, treeNode: nearest, newNodes: successNodes}
@@ -582,8 +573,8 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	nearest = nm.nearestNeighbor(ctx, mp.planOpts, successNode, rrt)
 	if nearest != nil {
 		dist := mp.planOpts.poseDistanceFunc(&ik.Segment{
-			StartPosition: mp.pathStepToPose(successNode.Poses()),
-			EndPosition:   mp.pathStepToPose(nearest.Poses()),
+			StartPosition: mp.tpFramePose(successNode.Poses()),
+			EndPosition:   mp.tpFramePose(nearest.Poses()),
 		})
 		// If too close, don't add a new node
 		if dist < mp.algOpts.identicalNodeDistance {
@@ -622,11 +613,11 @@ func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, arcStart
 		}
 
 		okNode := &basicNode{
-			q: map[string][]referenceframe.Input{
+			q: referenceframe.FrameSystemInputs{
 				mp.tpFrame.Name(): {{trajPt.Alpha}, {trajPt.Dist}},
 			},
 			cost:   trajPt.Dist,
-			poses:  mp.poseToPathStep(trajPt.Pose),
+			poses:  mp.tpFramePoseToFrameSystemPoses(trajPt.Pose),
 			corner: false,
 		}
 		passed = append(passed, okNode)
@@ -634,7 +625,7 @@ func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, arcStart
 
 	lastTrajPt := trajK[len(trajK)-1]
 	return &basicNode{
-		q: map[string][]referenceframe.Input{
+		q: referenceframe.FrameSystemInputs{
 			mp.tpFrame.Name(): {{lastTrajPt.Alpha}, {lastTrajPt.Dist}},
 		},
 		cost:   lastTrajPt.Dist,
@@ -717,7 +708,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 		for _, newNode := range reseedCandidate.newNodes {
 			distTravelledByCandidate += math.Abs(newNode.Q()[mp.tpFrame.Name()][3].Value - newNode.Q()[mp.tpFrame.Name()][2].Value)
 		}
-		distToGoal := mp.pathStepToPose(endNode.Poses()).Point().Distance(mp.pathStepToPose(goalNode.Poses()).Point())
+		distToGoal := mp.tpFramePose(endNode.Poses()).Point().Distance(mp.tpFramePose(goalNode.Poses()).Point())
 		if distToGoal < mp.planOpts.GoalThreshold || lastIteration {
 			// Reached the goal position, or otherwise failed to fully extend to the end of a trajectory
 			return &nodeAndError{endNode, nil}
@@ -782,7 +773,7 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 		if err != nil {
 			return nil, err
 		}
-		arcStartPose := mp.pathStepToPose(treeNode.Poses())
+		arcStartPose := mp.tpFramePose(treeNode.Poses())
 		lastDist := 0.
 		sinceLastNode := 0.
 
@@ -809,11 +800,11 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 			if sinceLastNode > mp.algOpts.addNodeEvery {
 				// add the last node in trajectory
 				addedNode = &basicNode{
-					q: map[string][]referenceframe.Input{
+					q: referenceframe.FrameSystemInputs{
 						mp.tpFrame.Name(): referenceframe.FloatsToInputs([]float64{float64(ptgNum), randAlpha, 0, trajPt.Dist}),
 					},
 					cost:   trajPt.Dist,
-					poses:  mp.poseToPathStep(trajState.Position),
+					poses:  mp.tpFramePoseToFrameSystemPoses(trajState.Position),
 					corner: false,
 				}
 				rrt[addedNode] = treeNode
@@ -894,8 +885,8 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGS
 	opts.poseDistanceFunc = segMetric
 	opts.nodeDistanceFunc = func(node1, node2 node) float64 {
 		return segMetric(&ik.Segment{
-			StartPosition: mp.pathStepToPose(node1.Poses()),
-			EndPosition:   mp.pathStepToPose(node2.Poses()),
+			StartPosition: mp.tpFramePose(node1.Poses()),
+			EndPosition:   mp.tpFramePose(node2.Poses()),
 		})
 	}
 	opts.Resolution = defaultPTGCollisionResolution
@@ -950,7 +941,7 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 
 	if pathdebug {
 		allPtgs := mp.solvers
-		lastPose := mp.pathStepToPose(path[0].Poses())
+		lastPose := mp.tpFramePose(path[0].Poses())
 		for _, mynode := range path {
 			trajPts, err := allPtgs[int(mynode.Q()[mp.tpFrame.Name()][0].Value)].Trajectory(
 				mynode.Q()[mp.tpFrame.Name()][1].Value,
@@ -987,7 +978,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 ) ([]node, error) {
 	startMap := map[node]node{}
 	var parent node
-	parentPose := mp.pathStepToPose(path[0].Poses())
+	parentPose := mp.tpFramePose(path[0].Poses())
 
 	for j := 0; j <= firstEdge; j++ {
 		pathNode := path[j]
@@ -995,7 +986,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 		for adjNum := defaultSmoothChunkCount - 1; adjNum > 0; adjNum-- {
 			fullQ := pathNode.Q()[mp.tpFrame.Name()]
 			adj := (fullQ[3].Value - fullQ[2].Value) * (float64(adjNum) / float64(defaultSmoothChunkCount))
-			newQ := map[string][]referenceframe.Input{
+			newQ := referenceframe.FrameSystemInputs{
 				mp.tpFrame.Name(): {fullQ[0], fullQ[1], fullQ[2], {fullQ[3].Value - adj}},
 			}
 			trajK, err := smoother.solvers[int(math.Round(newQ[mp.tpFrame.Name()][0].Value))].Trajectory(
@@ -1011,13 +1002,13 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 			intNode := &basicNode{
 				q:      newQ,
 				cost:   pathNode.Cost() - math.Abs(adj),
-				poses:  mp.poseToPathStep(spatialmath.Compose(parentPose, trajK[len(trajK)-1].Pose)),
+				poses:  mp.tpFramePoseToFrameSystemPoses(spatialmath.Compose(parentPose, trajK[len(trajK)-1].Pose)),
 				corner: false,
 			}
 			startMap[intNode] = parent
 		}
 		parent = pathNode
-		parentPose = mp.pathStepToPose(parent.Poses())
+		parentPose = mp.tpFramePose(parent.Poses())
 	}
 	// TODO: everything below this point can become an invocation of `smoother.planRunner`
 	reached := smoother.attemptExtension(ctx, path[secondEdge], startMap, false)
@@ -1026,8 +1017,8 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 	}
 
 	reachedDelta := mp.planOpts.poseDistanceFunc(&ik.Segment{
-		StartPosition: mp.pathStepToPose(reached.node.Poses()),
-		EndPosition:   mp.pathStepToPose(path[secondEdge].Poses()),
+		StartPosition: mp.tpFramePose(reached.node.Poses()),
+		EndPosition:   mp.tpFramePose(path[secondEdge].Poses()),
 	})
 
 	// If we tried the goal and have a close-enough XY location, check if the node is good enough to be a final goal
@@ -1047,7 +1038,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 		// so this step will replace it.
 		newInputSteps = append(newInputSteps, path[len(path)-1])
 	}
-	return rectifyTPspacePath(newInputSteps, mp.tpFrame, mp.pathStepToPose(path[0].Poses()))
+	return rectifyTPspacePath(newInputSteps, mp.tpFrame, mp.tpFramePose(path[0].Poses()))
 }
 
 func (mp *tpSpaceRRTMotionPlanner) sample(rSeed node, iter int) (node, error) {
@@ -1061,13 +1052,13 @@ func (mp *tpSpaceRRTMotionPlanner) sample(rSeed node, iter int) (node, error) {
 	randPosTheta := math.Pi * (mp.randseed.Float64() - 0.5)
 	randPos := spatialmath.NewPose(
 		r3.Vector{
-			mp.pathStepToPose(rSeed.Poses()).Point().X + (randPosX - rDist/2.),
-			mp.pathStepToPose(rSeed.Poses()).Point().Y + (randPosY - rDist/2.),
+			mp.tpFramePose(rSeed.Poses()).Point().X + (randPosX - rDist/2.),
+			mp.tpFramePose(rSeed.Poses()).Point().Y + (randPosY - rDist/2.),
 			0,
 		},
 		&spatialmath.OrientationVector{OZ: 1, Theta: randPosTheta},
 	)
-	return &basicNode{poses: mp.poseToPathStep(randPos)}, nil
+	return &basicNode{poses: mp.tpFramePoseToFrameSystemPoses(randPos)}, nil
 }
 
 // rectifyTPspacePath is needed because of how trees are currently stored. As trees grow from the start or goal, the Pose stored in the node
@@ -1088,7 +1079,7 @@ func rectifyTPspacePath(path []node, frame referenceframe.Frame, startPose spati
 		thisNode := &basicNode{
 			q:      wp.Q(),
 			cost:   wp.Cost(),
-			poses:  PathStep{frame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, runningPose)},
+			poses:  referenceframe.FrameSystemPoses{frame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, runningPose)},
 			corner: wp.Corner(),
 		}
 		correctedPath = append(correctedPath, thisNode)
@@ -1111,7 +1102,7 @@ func extractTPspacePath(fName string, startMap, goalMap map[node]node, pair *nod
 		if startMap[startReached] == nil {
 			path = append(path,
 				&basicNode{
-					q: map[string][]referenceframe.Input{
+					q: referenceframe.FrameSystemInputs{
 						fName: {{0}, {0}, {0}, {0}},
 					},
 					cost:   startReached.Cost(),
@@ -1136,16 +1127,19 @@ func extractTPspacePath(fName string, startMap, goalMap map[node]node, pair *nod
 		if goalMap[goalReached] == nil {
 			// Add the final node
 			goalReachedReversed = &basicNode{
-				q: map[string][]referenceframe.Input{
+				q: referenceframe.FrameSystemInputs{
 					fName: {{0}, {0}, {0}, {0}},
 				},
-				cost:   goalReached.Cost(),
-				poses:  PathStep{fName: referenceframe.NewPoseInFrame(goalPiF.Parent(), spatialmath.Compose(goalPiF.Pose(), flipPose))},
+				cost: goalReached.Cost(),
+				poses: referenceframe.FrameSystemPoses{fName: referenceframe.NewPoseInFrame(
+					goalPiF.Parent(),
+					spatialmath.Compose(goalPiF.Pose(), flipPose),
+				)},
 				corner: goalReached.Corner(),
 			}
 		} else {
 			goalReachedReversed = &basicNode{
-				q: map[string][]referenceframe.Input{
+				q: referenceframe.FrameSystemInputs{
 					fName: {
 						goalReached.Q()[fName][0],
 						goalReached.Q()[fName][1],
@@ -1153,8 +1147,11 @@ func extractTPspacePath(fName string, startMap, goalMap map[node]node, pair *nod
 						goalReached.Q()[fName][2],
 					},
 				},
-				cost:   goalReached.Cost(),
-				poses:  PathStep{fName: referenceframe.NewPoseInFrame(goalPiF.Parent(), spatialmath.Compose(goalPiF.Pose(), flipPose))},
+				cost: goalReached.Cost(),
+				poses: referenceframe.FrameSystemPoses{fName: referenceframe.NewPoseInFrame(
+					goalPiF.Parent(),
+					spatialmath.Compose(goalPiF.Pose(), flipPose),
+				)},
 				corner: goalReached.Corner(),
 			}
 		}
@@ -1167,7 +1164,7 @@ func extractTPspacePath(fName string, startMap, goalMap map[node]node, pair *nod
 // Returns a new node whose orientation is flipped 180 degrees from the provided node.
 // It does NOT flip the configurations/inputs.
 func flipNodePoses(n node) node {
-	flippedPoses := PathStep{}
+	flippedPoses := referenceframe.FrameSystemPoses{}
 	for f, pif := range n.Poses() {
 		flippedPoses[f] = referenceframe.NewPoseInFrame(pif.Parent(), spatialmath.Compose(pif.Pose(), flipPose))
 	}

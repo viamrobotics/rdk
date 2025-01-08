@@ -27,14 +27,19 @@ func (r MoveReq) ToProto(name string) (*pb.MoveRequest, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &pb.MoveRequest{
+	reqPB := &pb.MoveRequest{
 		Name:          name,
 		ComponentName: rprotoutils.ResourceNameToProto(r.ComponentName),
-		Destination:   referenceframe.PoseInFrameToProtobuf(r.Destination),
 		WorldState:    worldStateMsg,
 		Constraints:   r.Constraints.ToProtobuf(),
 		Extra:         ext,
-	}, nil
+	}
+	if r.Destination != nil {
+		// Destination is not needed if goal_state present. Validation on receiving end.
+		reqPB.Destination = referenceframe.PoseInFrameToProtobuf(r.Destination)
+	}
+
+	return reqPB, nil
 }
 
 // MoveReqFromProto converts a pb.MoveRequest to a MoveReq struct.
@@ -43,9 +48,16 @@ func MoveReqFromProto(req *pb.MoveRequest) (MoveReq, error) {
 	if err != nil {
 		return MoveReq{}, err
 	}
+	dst := req.GetDestination()
+	var destination *referenceframe.PoseInFrame
+	if dst != nil {
+		// Destination is not needed if goal_state present. Validation on receiving end.
+		destination = referenceframe.ProtobufToPoseInFrame(req.GetDestination())
+	}
+
 	return MoveReq{
 		rprotoutils.ResourceNameFromProto(req.GetComponentName()),
-		referenceframe.ProtobufToPoseInFrame(req.GetDestination()),
+		destination,
 		worldState,
 		motionplan.ConstraintsFromProtobuf(req.GetConstraints()),
 		req.Extra.AsMap(),
@@ -161,7 +173,7 @@ func planFromProto(p *pb.Plan) (PlanWithMetadata, error) {
 
 	steps := motionplan.Path{}
 	for _, s := range p.Steps {
-		step, err := motionplan.PathStepFromProto(s)
+		step, err := motionplan.FrameSystemPosesFromProto(s)
 		if err != nil {
 			return PlanWithMetadata{}, err
 		}

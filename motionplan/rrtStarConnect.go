@@ -5,6 +5,7 @@ package motionplan
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"math/rand"
 	"time"
 
@@ -83,27 +84,32 @@ func newRRTStarConnectMotionPlanner(
 	return &rrtStarConnectMotionPlanner{mp, algOpts}, nil
 }
 
-func (mp *rrtStarConnectMotionPlanner) plan(ctx context.Context, goal PathStep, seed map[string][]referenceframe.Input) ([]node, error) {
-	mp.planOpts.setGoal(goal)
+func (mp *rrtStarConnectMotionPlanner) plan(ctx context.Context, seed, goal *PlanState) ([]node, error) {
 	solutionChan := make(chan *rrtSolution, 1)
-	utils.PanicCapturingGo(func() {
-		mp.rrtBackgroundRunner(ctx, seed, &rrtParallelPlannerShared{nil, nil, solutionChan})
-	})
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case solution := <-solutionChan:
-		if solution.err != nil {
-			return nil, solution.err
-		}
-		return solution.steps, nil
+	initMaps := initRRTSolutions(ctx, atomicWaypoint{mp: mp, startState: seed, goalState: goal})
+	if initMaps.err != nil {
+		return nil, initMaps.err
 	}
+	if initMaps.steps != nil {
+		return initMaps.steps, nil
+	}
+	utils.PanicCapturingGo(func() {
+		mp.rrtBackgroundRunner(ctx, &rrtParallelPlannerShared{
+			initMaps.maps,
+			nil,
+			solutionChan,
+		})
+	})
+	solution := <-solutionChan
+	if solution.err != nil {
+		return nil, solution.err
+	}
+	return solution.steps, nil
 }
 
 // rrtBackgroundRunner will execute the plan. Plan() will call rrtBackgroundRunner in a separate thread and wait for results.
 // Separating this allows other things to call rrtBackgroundRunner in parallel allowing the thread-agnostic Plan to be accessible.
 func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
-	seed map[string][]referenceframe.Input,
 	rrt *rrtParallelPlannerShared,
 ) {
 	mp.logger.CDebug(ctx, "Starting RRT*")
@@ -117,13 +123,15 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 
 	mp.start = time.Now()
 
-	if rrt.maps == nil || len(rrt.maps.goalMap) == 0 {
-		planSeed := initRRTSolutions(ctx, mp, seed)
-		if planSeed.err != nil || planSeed.steps != nil {
-			rrt.solutionChan <- planSeed
-			return
+	if rrt.maps == nil || len(rrt.maps.goalMap) == 0 || len(rrt.maps.startMap) == 0 {
+		rrt.solutionChan <- &rrtSolution{err: errors.New("cannot run RRT background runner without prepopulated maps")}
+	}
+	var seed referenceframe.FrameSystemInputs
+	// Pick a random seed node to create the first interp node
+	for sNode, parent := range rrt.maps.startMap {
+		if parent == nil {
+			seed = sNode.Q()
 		}
-		rrt.maps = planSeed.maps
 	}
 	targetConf, err := referenceframe.InterpolateFS(mp.fs, seed, rrt.maps.optNode.Q(), 0.5)
 	if err != nil {

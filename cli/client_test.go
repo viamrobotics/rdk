@@ -2,9 +2,11 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"io/fs"
 	"maps"
 	"os"
@@ -103,7 +105,6 @@ func setup(
 
 	if dataClient != nil {
 		// these flags are only relevant when testing a dataClient
-		flags.String(dataFlagDataType, dataTypeTabular, "")
 		flags.String(dataFlagDestination, utils.ResolveFile(""), "")
 	}
 
@@ -330,13 +331,6 @@ func TestOrganizationSetLogoAction(t *testing.T) {
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, len(out.messages), test.ShouldEqual, 1)
 	test.That(t, out.messages[0], test.ShouldContainSubstring, "Successfully set the logo for organization")
-
-	cCtx, ac, out, _ = setup(asc, nil, nil, nil, nil, "token")
-	invalidLogoFilePath := "data/test-logo.jpg"
-	err = ac.organizationLogoSetAction(cCtx, "test-org", invalidLogoFilePath)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "is not a valid .png file path")
-	test.That(t, len(out.messages), test.ShouldEqual, 0)
 }
 
 func TestGetLogoAction(t *testing.T) {
@@ -356,6 +350,61 @@ func TestGetLogoAction(t *testing.T) {
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, len(out.messages), test.ShouldEqual, 1)
 	test.That(t, out.messages[0], test.ShouldContainSubstring, "https://logo.com")
+}
+
+func TestEnableAuthServiceAction(t *testing.T) {
+	enableAuthServiceFunc := func(ctx context.Context, in *apppb.EnableAuthServiceRequest, opts ...grpc.CallOption) (
+		*apppb.EnableAuthServiceResponse, error,
+	) {
+		return &apppb.EnableAuthServiceResponse{}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		EnableAuthServiceFunc: enableAuthServiceFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+
+	test.That(t, ac.enableAuthServiceAction(cCtx, "test-org"), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "enabled auth")
+}
+
+func TestListOAuthAppsAction(t *testing.T) {
+	listOAuthAppFunc := func(ctx context.Context, in *apppb.ListOAuthAppsRequest, opts ...grpc.CallOption) (
+		*apppb.ListOAuthAppsResponse, error,
+	) {
+		return &apppb.ListOAuthAppsResponse{}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		ListOAuthAppsFunc: listOAuthAppFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+	test.That(t, ac.listOAuthAppsAction(cCtx, "test-org"), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "No OAuth apps found for organization")
+}
+
+func TestDeleteOAuthAppAction(t *testing.T) {
+	deleteOAuthAppFunc := func(ctx context.Context, in *apppb.DeleteOAuthAppRequest, opts ...grpc.CallOption) (
+		*apppb.DeleteOAuthAppResponse, error,
+	) {
+		return &apppb.DeleteOAuthAppResponse{}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		DeleteOAuthAppFunc: deleteOAuthAppFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+	test.That(t, ac.deleteOAuthAppAction(cCtx, "test-org", "client-id"), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "Successfully deleted OAuth application")
 }
 
 func TestUpdateBillingServiceAction(t *testing.T) {
@@ -383,76 +432,143 @@ func TestUpdateBillingServiceAction(t *testing.T) {
 	test.That(t, out.messages[7], test.ShouldContainSubstring, "USA")
 }
 
-func TestTabularDataByFilterAction(t *testing.T) {
-	pbStruct, err := protoutils.StructToStructPb(map[string]interface{}{"bool": true, "string": "true", "float": float64(1)})
-	test.That(t, err, test.ShouldBeNil)
-
-	// calls to `TabularDataByFilter` will repeat so long as data continue to be returned,
-	// so we need a way of telling our injected method when data has already been sent so we
-	// can send an empty response
-	var dataRequested bool
-	//nolint:deprecated,staticcheck
-	tabularDataByFilterFunc := func(ctx context.Context, in *datapb.TabularDataByFilterRequest, opts ...grpc.CallOption,
-	//nolint:deprecated
-	) (*datapb.TabularDataByFilterResponse, error) {
-		if dataRequested {
-			//nolint:deprecated,staticcheck
-			return &datapb.TabularDataByFilterResponse{}, nil
-		}
-		dataRequested = true
-		//nolint:deprecated,staticcheck
-		return &datapb.TabularDataByFilterResponse{
-			//nolint:deprecated,staticcheck
-			Data:     []*datapb.TabularData{{Data: pbStruct}},
-			Metadata: []*datapb.CaptureMetadata{{LocationId: "loc-id"}},
-		}, nil
+func TestOrganizationEnableBillingServiceAction(t *testing.T) {
+	enableBillingFunc := func(ctx context.Context, in *apppb.EnableBillingServiceRequest, opts ...grpc.CallOption) (
+		*apppb.EnableBillingServiceResponse, error,
+	) {
+		return &apppb.EnableBillingServiceResponse{}, nil
 	}
 
-	dsc := &inject.DataServiceClient{
-		TabularDataByFilterFunc: tabularDataByFilterFunc,
+	asc := &inject.AppServiceClient{
+		EnableBillingServiceFunc: enableBillingFunc,
 	}
 
-	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil, nil, nil, "token")
-
-	test.That(t, ac.dataExportAction(cCtx, parseStructFromCtx[dataExportArgs](cCtx)), test.ShouldBeNil)
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+	test.That(t, ac.organizationEnableBillingServiceAction(cCtx, "test-org",
+		"123 Main St, Suite 100, San Francisco, CA, 94105"), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
-	test.That(t, len(out.messages), test.ShouldEqual, 4)
-	test.That(t, out.messages[0], test.ShouldEqual, "Downloading..")
-	test.That(t, out.messages[1], test.ShouldEqual, ".")
-	test.That(t, out.messages[2], test.ShouldEqual, ".")
-	test.That(t, out.messages[3], test.ShouldEqual, "\n")
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "Successfully enabled billing service for organization")
+}
 
-	// expectedDataSize is the expected string length of the data returned by the injected call
-	expectedDataSize := 98
-	b := make([]byte, expectedDataSize)
+type mockDataServiceClient struct {
+	grpc.ClientStream
+	responses []*datapb.ExportTabularDataResponse
+	index     int
+	err       error
+}
 
-	// `data.ndjson` is the standardized name of the file data is written to in the `tabularData` call
-	filePath := utils.ResolveFile("data/data.ndjson")
-	file, err := os.Open(filePath)
-	test.That(t, err, test.ShouldBeNil)
+func (m *mockDataServiceClient) Recv() (*datapb.ExportTabularDataResponse, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
 
-	dataSize, err := file.Read(b)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, dataSize, test.ShouldEqual, expectedDataSize)
+	if m.index >= len(m.responses) {
+		return nil, io.EOF
+	}
 
-	savedData := string(b)
-	expectedData := "{\"MetadataIndex\":0,\"TimeReceived\":null,\"TimeRequested\":null,\"bool\":true,\"float\":1,\"string\":\"true\"}"
-	test.That(t, savedData, test.ShouldEqual, expectedData)
+	resp := m.responses[m.index]
+	m.index++
 
-	expectedMetadataSize := 23
-	b = make([]byte, expectedMetadataSize)
+	return resp, nil
+}
 
-	// metadata is named `0.json` based on its index in the metadata array
-	filePath = utils.ResolveFile("metadata/0.json")
-	file, err = os.Open(filePath)
-	test.That(t, err, test.ShouldBeNil)
+func newMockExportStream(responses []*datapb.ExportTabularDataResponse, err error) *mockDataServiceClient {
+	return &mockDataServiceClient{
+		responses: responses,
+		err:       err,
+	}
+}
 
-	metadataSize, err := file.Read(b)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, metadataSize, test.ShouldEqual, expectedMetadataSize)
+func TestDataExportTabularAction(t *testing.T) {
+	t.Run("successful case", func(t *testing.T) {
+		pbStructPayload1, err := protoutils.StructToStructPb(map[string]interface{}{"bool": true, "string": "true", "float": float64(1)})
+		test.That(t, err, test.ShouldBeNil)
 
-	savedMetadata := string(b)
-	test.That(t, savedMetadata, test.ShouldEqual, "{\"locationId\":\"loc-id\"}")
+		pbStructPayload2, err := protoutils.StructToStructPb(map[string]interface{}{"booly": false, "string": "true", "float": float64(1)})
+		test.That(t, err, test.ShouldBeNil)
+
+		exportTabularDataFunc := func(ctx context.Context, in *datapb.ExportTabularDataRequest, opts ...grpc.CallOption,
+		) (datapb.DataService_ExportTabularDataClient, error) {
+			return newMockExportStream([]*datapb.ExportTabularDataResponse{
+				{LocationId: "loc-id", Payload: pbStructPayload1},
+				{LocationId: "loc-id", Payload: pbStructPayload2},
+			}, nil), nil
+		}
+
+		dsc := &inject.DataServiceClient{
+			ExportTabularDataFunc: exportTabularDataFunc,
+		}
+
+		cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil, nil, nil, "token")
+
+		test.That(t, ac.dataExportTabularAction(cCtx, parseStructFromCtx[dataExportTabularArgs](cCtx)), test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, len(out.messages), test.ShouldEqual, 3)
+		test.That(t, strings.Join(out.messages, ""), test.ShouldEqual, "Downloading...\n")
+
+		filePath := utils.ResolveFile(dataFileName)
+
+		data, err := os.ReadFile(filePath)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Output is unstable, so parse back into maps before comparing to expected.
+		var actual []map[string]interface{}
+		decoder := json.NewDecoder(strings.NewReader(string(data)))
+		for decoder.More() {
+			var item map[string]interface{}
+			err = decoder.Decode(&item)
+			test.That(t, err, test.ShouldBeNil)
+			actual = append(actual, item)
+		}
+
+		expectedData := []map[string]interface{}{
+			{
+				"locationId": "loc-id",
+				"payload": map[string]interface{}{
+					"bool":   true,
+					"float":  float64(1),
+					"string": "true",
+				},
+			},
+			{
+				"locationId": "loc-id",
+				"payload": map[string]interface{}{
+					"booly":  false,
+					"float":  float64(1),
+					"string": "true",
+				},
+			},
+		}
+
+		test.That(t, actual, test.ShouldResemble, expectedData)
+	})
+
+	t.Run("error case", func(t *testing.T) {
+		exportTabularDataFunc := func(ctx context.Context, in *datapb.ExportTabularDataRequest, opts ...grpc.CallOption,
+		) (datapb.DataService_ExportTabularDataClient, error) {
+			return newMockExportStream([]*datapb.ExportTabularDataResponse{}, errors.New("whoops")), nil
+		}
+
+		dsc := &inject.DataServiceClient{
+			ExportTabularDataFunc: exportTabularDataFunc,
+		}
+
+		cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil, nil, nil, "token")
+
+		err := ac.dataExportTabularAction(cCtx, parseStructFromCtx[dataExportTabularArgs](cCtx))
+		test.That(t, err, test.ShouldBeError, errors.New("error receiving tabular data: whoops"))
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+
+		// Test that export was retried (total of 5 tries).
+		test.That(t, len(out.messages), test.ShouldEqual, 7)
+		test.That(t, strings.Join(out.messages, ""), test.ShouldEqual, "Downloading.......\n")
+
+		// Test that the data.ndjson file was removed.
+		filePath := utils.ResolveFile(dataFileName)
+		_, err = os.ReadFile(filePath)
+		test.That(t, err, test.ShouldBeError, fmt.Errorf("open %s: no such file or directory", filePath))
+	})
 }
 
 func TestBaseURLParsing(t *testing.T) {
@@ -999,5 +1115,67 @@ func TestShellFileCopy(t *testing.T) {
 				})
 			}
 		})
+	})
+}
+
+func TestUpdateOAuthAppAction(t *testing.T) {
+	updateOAuthAppFunc := func(ctx context.Context, in *apppb.UpdateOAuthAppRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.UpdateOAuthAppResponse, error) {
+		return &apppb.UpdateOAuthAppResponse{}, nil
+	}
+	asc := &inject.AppServiceClient{
+		UpdateOAuthAppFunc: updateOAuthAppFunc,
+	}
+
+	t.Run("valid inputs", func(t *testing.T) {
+		flags := make(map[string]any)
+		flags[generalFlagOrgID] = "org-id"
+		flags[oauthAppFlagClientID] = "client-id"
+		flags[oauthAppFlagClientName] = "client-name"
+		flags[oauthAppFlagClientAuthentication] = "required"
+		flags[oauthAppFlagURLValidation] = "allow_wildcards"
+		flags[oauthAppFlagPKCE] = "not_required"
+		flags[oauthAppFlagOriginURIs] = []string{"https://woof.com/login", "https://arf.com/"}
+		flags[oauthAppFlagRedirectURIs] = []string{"https://woof.com/home", "https://arf.com/home"}
+		flags[oauthAppFlagLogoutURI] = "https://woof.com/logout"
+		flags[oauthAppFlagEnabledGrants] = []string{"implicit", "password"}
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, flags, "token")
+		test.That(t, ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx)), test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, out.messages[0], test.ShouldContainSubstring, "Successfully updated OAuth app")
+	})
+
+	t.Run("should error if client-authentication is not a valid enum value", func(t *testing.T) {
+		flags := make(map[string]any)
+		flags[generalFlagOrgID] = "org-id"
+		flags[oauthAppFlagClientID] = "client-id"
+		flags[oauthAppFlagClientAuthentication] = "not_one_of_the_allowed_values"
+		cCtx, ac, out, _ := setup(asc, nil, nil, nil, flags, "token")
+		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "client-authentication must be a valid ClientAuthentication")
+		test.That(t, len(out.messages), test.ShouldEqual, 0)
+	})
+
+	t.Run("should error if pkce is not a valid enum value", func(t *testing.T) {
+		flags := map[string]any{oauthAppFlagClientAuthentication: unspecified, oauthAppFlagPKCE: "not_one_of_the_allowed_values"}
+		cCtx, ac, out, _ := setup(asc, nil, nil, nil, flags, "token")
+		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "pkce must be a valid PKCE")
+		test.That(t, len(out.messages), test.ShouldEqual, 0)
+	})
+
+	t.Run("should error if url-validation is not a valid enum value", func(t *testing.T) {
+		flags := map[string]any{
+			oauthAppFlagClientAuthentication: unspecified, oauthAppFlagPKCE: unspecified,
+			oauthAppFlagURLValidation: "not_one_of_the_allowed_values",
+		}
+		cCtx, ac, out, _ := setup(asc, nil, nil, nil, flags, "token")
+		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "url-validation must be a valid UrlValidation")
+		test.That(t, len(out.messages), test.ShouldEqual, 0)
 	})
 }

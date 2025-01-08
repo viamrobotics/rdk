@@ -64,7 +64,7 @@ const (
 	defaultRobotCollisionConstraintDesc = "Collision between a robot component that is moving and one that is stationary"
 
 	// When breaking down a path into smaller waypoints, add a waypoint every this many mm of movement.
-	defaultPathStepSize = 10
+	defaultStepSizeMM = 10
 
 	// This is commented out due to Go compiler bug. See comment in newBasicPlannerOptions for explanation.
 	// var defaultPlanner = newCBiRRTMotionPlanner.
@@ -91,7 +91,6 @@ func newBasicPlannerOptions() *plannerOptions {
 	opt.nodeDistanceFunc = nodeConfigurationDistanceFunc
 	opt.scoreFunc = ik.FSConfigurationL2Distance
 	opt.pathMetric = ik.NewZeroFSMetric() // By default, the distance to the valid manifold is zero, unless constraints say otherwise
-	// opt.goalMetric is intentionally unset as it is likely dependent on the goal itself.
 
 	// TODO: RSDK-6079 this should be properly used, and deduplicated with defaultEpsilon, InputIdentDist, etc.
 	opt.GoalThreshold = 0.1
@@ -122,11 +121,14 @@ func newBasicPlannerOptions() *plannerOptions {
 // plannerOptions are a set of options to be passed to a planner which will specify how to solve a motion planning problem.
 type plannerOptions struct {
 	ConstraintHandler
-	motionChains          []*motionChain
+	motionChains []*motionChain
+
+	// This is used to create functions which are passed to IK for solving. This may be used to turn starting or ending state poses into
+	// configurations for nodes.
 	goalMetricConstructor func(spatialmath.Pose) ik.StateMetric
-	goalMetric            ik.StateFSMetric         // Distance function which converges to the final goal position
-	pathMetric            ik.StateFSMetric         // Distance function which converges on the valid manifold of intermediate path states
-	nodeDistanceFunc      func(node, node) float64 // Node distance function used for nearest neighbor
+
+	pathMetric       ik.StateFSMetric         // Distance function which converges on the valid manifold of intermediate path states
+	nodeDistanceFunc func(node, node) float64 // Node distance function used for nearest neighbor
 
 	extra map[string]interface{}
 
@@ -170,8 +172,6 @@ type plannerOptions struct {
 	// Number of seeds to pre-generate for bidirectional position-only solving.
 	PositionSeeds int `json:"position_seeds"`
 
-	startPoses PathStep // The starting poses of the plan. Useful when planning for frames with relative inputs.
-
 	// poseDistanceFunc is the function that the planner will use to measure the degree of "closeness" between two poses
 	poseDistanceFunc ik.SegmentMetric
 
@@ -188,18 +188,17 @@ type plannerOptions struct {
 
 	Fallback *plannerOptions
 
-	// relativeInputs is a flag that is set by the planning algorithm describing if the solutions it generates are
-	// relative as in each step in the solution builds off a previous one, as opposed to being asolute with respect to some reference frame.
-	relativeInputs bool
+	useTPspace   bool
+	ptgFrameName string
 }
 
-// setGoal sets the distance metric for the solver.
-func (p *plannerOptions) setGoal(goal PathStep) {
+// getGoalMetric creates the distance metric for the solver using the configured options.
+func (p *plannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) ik.StateFSMetric {
 	metrics := map[string]ik.StateMetric{}
 	for frame, goalInFrame := range goal {
 		metrics[frame] = p.goalMetricConstructor(goalInFrame.Pose())
 	}
-	goalMetricFS := func(state *ik.StateFS) float64 {
+	return func(state *ik.StateFS) float64 {
 		score := 0.
 		for frame, goalMetric := range metrics {
 			poseParent := goal[frame].Parent()
@@ -215,7 +214,6 @@ func (p *plannerOptions) setGoal(goal PathStep) {
 		}
 		return score
 	}
-	p.goalMetric = goalMetricFS
 }
 
 // SetPathDist sets the distance metric for the solver to move a constraint-violating point into a valid manifold.
@@ -237,8 +235,8 @@ func (p *plannerOptions) SetMinScore(minScore float64) {
 // constraints. It will return a bool indicating whether there are any to add.
 func (p *plannerOptions) addTopoConstraints(
 	fs referenceframe.FrameSystem,
-	startCfg map[string][]referenceframe.Input,
-	from, to PathStep,
+	startCfg referenceframe.FrameSystemInputs,
+	from, to referenceframe.FrameSystemPoses,
 	constraints *Constraints,
 ) (bool, error) {
 	topoConstraints := false
@@ -272,8 +270,8 @@ func (p *plannerOptions) addTopoConstraints(
 
 func (p *plannerOptions) addLinearConstraints(
 	fs referenceframe.FrameSystem,
-	startCfg map[string][]referenceframe.Input,
-	from, to PathStep,
+	startCfg referenceframe.FrameSystemInputs,
+	from, to referenceframe.FrameSystemPoses,
 	linConstraint LinearConstraint,
 ) error {
 	// Linear constraints
@@ -298,8 +296,8 @@ func (p *plannerOptions) addLinearConstraints(
 
 func (p *plannerOptions) addPseudolinearConstraints(
 	fs referenceframe.FrameSystem,
-	startCfg map[string][]referenceframe.Input,
-	from, to PathStep,
+	startCfg referenceframe.FrameSystemInputs,
+	from, to referenceframe.FrameSystemPoses,
 	plinConstraint PseudolinearConstraint,
 ) error {
 	// Linear constraints
@@ -324,8 +322,8 @@ func (p *plannerOptions) addPseudolinearConstraints(
 
 func (p *plannerOptions) addOrientationConstraints(
 	fs referenceframe.FrameSystem,
-	startCfg map[string][]referenceframe.Input,
-	from, to PathStep,
+	startCfg referenceframe.FrameSystemInputs,
+	from, to referenceframe.FrameSystemPoses,
 	orientConstraint OrientationConstraint,
 ) error {
 	orientTol := orientConstraint.OrientationToleranceDegs
@@ -341,11 +339,18 @@ func (p *plannerOptions) addOrientationConstraints(
 	return nil
 }
 
-func (p *plannerOptions) fillMotionChains(fs referenceframe.FrameSystem, to PathStep) error {
-	motionChains := make([]*motionChain, 0, len(to))
+func (p *plannerOptions) fillMotionChains(fs referenceframe.FrameSystem, to *PlanState) error {
+	motionChains := make([]*motionChain, 0, len(to.poses)+len(to.configuration))
 
-	for frame, goal := range to {
-		chain, err := motionChainFromGoal(fs, frame, goal)
+	for frame, pif := range to.poses {
+		chain, err := motionChainFromGoal(fs, frame, pif.Parent())
+		if err != nil {
+			return err
+		}
+		motionChains = append(motionChains, chain)
+	}
+	for frame := range to.configuration {
+		chain, err := motionChainFromGoal(fs, frame, frame)
 		if err != nil {
 			return err
 		}

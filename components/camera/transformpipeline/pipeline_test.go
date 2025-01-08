@@ -107,53 +107,6 @@ func TestTransformPipelineDepth(t *testing.T) {
 	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 }
 
-func TestTransformPipelineDepth2(t *testing.T) {
-	transform1 := &transformConfig{
-		Source: "source",
-		Pipeline: []Transformation{
-			{Type: "depth_preprocess", Attributes: utils.AttributeMap{}},
-			{Type: "rotate", Attributes: utils.AttributeMap{}},
-			{Type: "resize", Attributes: utils.AttributeMap{"height_px": 20, "width_px": 10}},
-			{Type: "depth_to_pretty", Attributes: utils.AttributeMap{}},
-		},
-	}
-	transform2 := &transformConfig{
-		Source: "source",
-		Pipeline: []Transformation{
-			{Type: "depth_preprocess", Attributes: utils.AttributeMap{}},
-			{Type: "rotate", Attributes: utils.AttributeMap{}},
-			{Type: "resize", Attributes: utils.AttributeMap{"height_px": 30, "width_px": 40}},
-			{Type: "depth_edges", Attributes: utils.AttributeMap{"high_threshold_pct": 0.85, "low_threshold_pct": 0.3, "blur_radius_px": 3.0}},
-		},
-	}
-	r := &inject.Robot{}
-	logger := logging.NewTestLogger(t)
-
-	dm, err := rimage.NewDepthMapFromFile(
-		context.Background(), artifact.MustPath("rimage/board1_gray_small.png"))
-	test.That(t, err, test.ShouldBeNil)
-	source, err := camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{DepthImg: dm}, nil, camera.UnspecifiedStream)
-	test.That(t, err, test.ShouldBeNil)
-
-	// first depth transform
-	depth1, err := newTransformPipeline(context.Background(), source, nil, transform1, r, logger)
-	test.That(t, err, test.ShouldBeNil)
-	outImg, _, err := camera.ReadImage(context.Background(), depth1)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, outImg.Bounds().Dx(), test.ShouldEqual, 10)
-	test.That(t, outImg.Bounds().Dy(), test.ShouldEqual, 20)
-	test.That(t, depth1.Close(context.Background()), test.ShouldBeNil)
-	// second depth image
-	depth2, err := newTransformPipeline(context.Background(), source, nil, transform2, r, logger)
-	test.That(t, err, test.ShouldBeNil)
-	outImg, _, err = camera.ReadImage(context.Background(), depth2)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, outImg.Bounds().Dx(), test.ShouldEqual, 40)
-	test.That(t, outImg.Bounds().Dy(), test.ShouldEqual, 30)
-	test.That(t, depth2.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
-}
-
 func TestNullPipeline(t *testing.T) {
 	transform1 := &transformConfig{
 		Source:   "source",
@@ -169,19 +122,6 @@ func TestNullPipeline(t *testing.T) {
 	_, err = newTransformPipeline(context.Background(), source, nil, transform1, r, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "pipeline has no transforms")
-
-	transform2 := &transformConfig{
-		Source:   "source",
-		Pipeline: []Transformation{{Type: "identity", Attributes: nil}},
-	}
-	pipe, err := newTransformPipeline(context.Background(), source, nil, transform2, r, logger)
-	test.That(t, err, test.ShouldBeNil)
-	outImg, _, err := camera.ReadImage(context.Background(), pipe) // should not transform anything
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, outImg.Bounds().Dx(), test.ShouldEqual, 128)
-	test.That(t, outImg.Bounds().Dy(), test.ShouldEqual, 72)
-	test.That(t, pipe.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestPipeIntoPipe(t *testing.T) {

@@ -26,13 +26,13 @@ import (
 type motionPlanner interface {
 	// Plan will take a context, a goal position, and an input start state and return a series of state waypoints which
 	// should be visited in order to arrive at the goal while satisfying all constraints
-	plan(context.Context, PathStep, map[string][]referenceframe.Input) ([]node, error)
+	plan(ctx context.Context, seed, goal *PlanState) ([]node, error)
 
 	// Everything below this point should be covered by anything that wraps the generic `planner`
 	smoothPath(context.Context, []node) []node
-	checkPath(map[string][]referenceframe.Input, map[string][]referenceframe.Input) bool
-	checkInputs(map[string][]referenceframe.Input) bool
-	getSolutions(context.Context, map[string][]referenceframe.Input) ([]node, error)
+	checkPath(referenceframe.FrameSystemInputs, referenceframe.FrameSystemInputs) bool
+	checkInputs(referenceframe.FrameSystemInputs) bool
+	getSolutions(context.Context, referenceframe.FrameSystemInputs, ik.StateFSMetric) ([]node, error)
 	opt() *plannerOptions
 	sample(node, int) (node, error)
 }
@@ -41,17 +41,25 @@ type plannerConstructor func(referenceframe.FrameSystem, *rand.Rand, logging.Log
 
 // PlanRequest is a struct to store all the data necessary to make a call to PlanMotion.
 type PlanRequest struct {
-	Logger             logging.Logger
-	Goal               *referenceframe.PoseInFrame
-	Frame              referenceframe.Frame
-	FrameSystem        referenceframe.FrameSystem
-	StartPose          spatialmath.Pose
-	StartConfiguration map[string][]referenceframe.Input
-	WorldState         *referenceframe.WorldState
-	BoundingRegions    []spatialmath.Geometry
-	Constraints        *Constraints
-	Options            map[string]interface{}
-	allGoals           PathStep // TODO: this should replace Goal and Frame
+	Logger logging.Logger
+	// The planner will hit each Goal in order. Each goal may be a configuration or FrameSystemPoses for holonomic motion, or must be a
+	// FrameSystemPoses for non-holonomic motion. For holonomic motion, if both a configuration and FrameSystemPoses are given,
+	// an error is thrown.
+	// TODO: Perhaps we could do something where some components are enforced to arrive at a certain configuration, but others can have IK
+	// run to solve for poses. Doing this while enforcing configurations may be tricky.
+	Goals       []*PlanState
+	FrameSystem referenceframe.FrameSystem
+
+	// This must always have a configuration filled in, for geometry placement purposes.
+	// If poses are also filled in, the configuration will be used to determine geometry collisions, but the poses will be used
+	// in IK to generate plan start configurations. The given configuration will NOT automatically be added to the seed tree.
+	// The use case here is that if a particularly difficult path must be planned between two poses, that can be done first to ensure
+	// feasibility, and then other plans can be requested to connect to that returned plan's configurations.
+	StartState      *PlanState
+	WorldState      *referenceframe.WorldState
+	BoundingRegions []spatialmath.Geometry
+	Constraints     *Constraints
+	Options         map[string]interface{}
 }
 
 // validatePlanRequest ensures PlanRequests are not malformed.
@@ -62,68 +70,92 @@ func (req *PlanRequest) validatePlanRequest() error {
 	if req.Logger == nil {
 		return errors.New("PlanRequest cannot have nil logger")
 	}
-	if req.Frame == nil {
-		return errors.New("PlanRequest cannot have nil frame")
-	}
 
 	if req.FrameSystem == nil {
 		return errors.New("PlanRequest cannot have nil framesystem")
-	} else if req.FrameSystem.Frame(req.Frame.Name()) == nil {
-		return referenceframe.NewFrameMissingError(req.Frame.Name())
 	}
-
-	if req.Goal == nil {
-		return errors.New("PlanRequest cannot have nil goal")
+	if req.StartState == nil {
+		return errors.New("PlanRequest cannot have nil StartState")
 	}
-
-	goalParentFrame := req.Goal.Parent()
-	if req.FrameSystem.Frame(goalParentFrame) == nil {
-		return referenceframe.NewParentFrameMissingError(req.Goal.Name(), goalParentFrame)
+	if req.StartState.configuration == nil {
+		return errors.New("PlanRequest cannot have nil StartState configuration")
 	}
-
-	if len(req.BoundingRegions) > 0 {
-		buffer, ok := req.Options["collision_buffer_mm"].(float64)
-		if !ok {
-			buffer = defaultCollisionBufferMM
-		}
-		// check that the request frame's geometries are within or in collision with the bounding regions
-		robotGifs, err := req.Frame.Geometries(make([]referenceframe.Input, len(req.Frame.DoF())))
+	// If we have a start configuration, check for correctness. Reuse FrameSystemPoses compute function to provide error.
+	if len(req.StartState.configuration) > 0 {
+		_, err := req.StartState.configuration.ComputePoses(req.FrameSystem)
 		if err != nil {
 			return err
 		}
-		var robotGeoms []spatialmath.Geometry
-		for _, geom := range robotGifs.Geometries() {
-			robotGeoms = append(robotGeoms, geom.Transform(req.StartPose))
+	}
+	// if we have start poses, check we have valid frames
+	for fName, pif := range req.StartState.poses {
+		if req.FrameSystem.Frame(fName) == nil {
+			return referenceframe.NewFrameMissingError(fName)
 		}
-		robotGeomBoundingRegionCheck := NewBoundingRegionConstraint(robotGeoms, req.BoundingRegions, buffer)
-		if !robotGeomBoundingRegionCheck(&ik.State{}) {
-			return fmt.Errorf("frame named %s is not within the provided bounding regions", req.Frame.Name())
-		}
-
-		// check that the destination is within or in collision with the bounding regions
-		destinationAsGeom := []spatialmath.Geometry{spatialmath.NewPoint(req.Goal.Pose().Point(), "")}
-		destinationBoundingRegionCheck := NewBoundingRegionConstraint(destinationAsGeom, req.BoundingRegions, buffer)
-		if !destinationBoundingRegionCheck(&ik.State{}) {
-			return errors.New("destination was not within the provided bounding regions")
+		if req.FrameSystem.Frame(pif.Parent()) == nil {
+			return referenceframe.NewParentFrameMissingError(fName, pif.Parent())
 		}
 	}
 
-	frameDOF := len(req.Frame.DoF())
-	seedMap, ok := req.StartConfiguration[req.Frame.Name()]
-	if frameDOF > 0 {
-		if !ok {
-			return errors.Errorf("%s does not have a start configuration", req.Frame.Name())
-		}
-		if frameDOF != len(seedMap) {
-			return referenceframe.NewIncorrectDoFError(len(seedMap), len(req.Frame.DoF()))
-		}
-	} else if ok && frameDOF != len(seedMap) {
-		return referenceframe.NewIncorrectDoFError(len(seedMap), len(req.Frame.DoF()))
+	if len(req.Goals) == 0 {
+		return errors.New("PlanRequest must have at least one goal")
 	}
 
-	// TODO: This should replace Frame and Goal
-	req.allGoals = map[string]*referenceframe.PoseInFrame{req.Frame.Name(): req.Goal}
+	// Validate the goals. Each goal with a pose must not alos have a configuration specified. The parent frame of the pose must exist.
+	for i, goalState := range req.Goals {
+		for fName, pif := range goalState.poses {
+			if len(goalState.configuration) > 0 {
+				return errors.New("individual goals cannot have both configuration and poses populated")
+			}
 
+			goalParentFrame := pif.Parent()
+			if req.FrameSystem.Frame(goalParentFrame) == nil {
+				return referenceframe.NewParentFrameMissingError(fName, goalParentFrame)
+			}
+
+			if len(req.BoundingRegions) > 0 {
+				// Check that robot components start within bounding regions.
+				// Bounding regions are for 2d planning, which requires a start pose
+				if len(goalState.poses) > 0 && len(req.StartState.poses) > 0 {
+					goalFrame := req.FrameSystem.Frame(fName)
+					if goalFrame == nil {
+						return referenceframe.NewFrameMissingError(fName)
+					}
+					buffer, ok := req.Options["collision_buffer_mm"].(float64)
+					if !ok {
+						buffer = defaultCollisionBufferMM
+					}
+					// check that the request frame's geometries are within or in collision with the bounding regions
+					robotGifs, err := goalFrame.Geometries(make([]referenceframe.Input, len(goalFrame.DoF())))
+					if err != nil {
+						return err
+					}
+					if i == 0 {
+						// Only need to check start poses once
+						startPose, ok := req.StartState.poses[fName]
+						if !ok {
+							return fmt.Errorf("goal frame %s does not have a start pose", fName)
+						}
+						var robotGeoms []spatialmath.Geometry
+						for _, geom := range robotGifs.Geometries() {
+							robotGeoms = append(robotGeoms, geom.Transform(startPose.Pose()))
+						}
+						robotGeomBoundingRegionCheck := NewBoundingRegionConstraint(robotGeoms, req.BoundingRegions, buffer)
+						if !robotGeomBoundingRegionCheck(&ik.State{}) {
+							return fmt.Errorf("frame named %s is not within the provided bounding regions", fName)
+						}
+					}
+
+					// check that the destination is within or in collision with the bounding regions
+					destinationAsGeom := []spatialmath.Geometry{spatialmath.NewPoint(pif.Pose().Point(), "")}
+					destinationBoundingRegionCheck := NewBoundingRegionConstraint(destinationAsGeom, req.BoundingRegions, buffer)
+					if !destinationBoundingRegionCheck(&ik.State{}) {
+						return errors.New("destination was not within the provided bounding regions")
+					}
+				}
+			}
+		}
+	}
 	return nil
 }
 
@@ -149,13 +181,14 @@ func PlanFrameMotion(ctx context.Context,
 		return nil, err
 	}
 	plan, err := PlanMotion(ctx, &PlanRequest{
-		Logger:             logger,
-		Goal:               referenceframe.NewPoseInFrame(referenceframe.World, dst),
-		Frame:              f,
-		StartConfiguration: map[string][]referenceframe.Input{f.Name(): seed},
-		FrameSystem:        fs,
-		Constraints:        constraints,
-		Options:            planningOpts,
+		Logger: logger,
+		Goals: []*PlanState{
+			{poses: referenceframe.FrameSystemPoses{f.Name(): referenceframe.NewPoseInFrame(referenceframe.World, dst)}},
+		},
+		StartState:  &PlanState{configuration: referenceframe.FrameSystemInputs{f.Name(): seed}},
+		FrameSystem: fs,
+		Constraints: constraints,
+		Options:     planningOpts,
 	})
 	if err != nil {
 		return nil, err
@@ -182,7 +215,7 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 		return nil, err
 	}
 
-	newPlan, err := sfPlanner.PlanSingleWaypoint(ctx, request, currentPlan)
+	newPlan, err := sfPlanner.planMultiWaypoint(ctx, request, currentPlan)
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +270,7 @@ func newPlanner(fs referenceframe.FrameSystem, seed *rand.Rand, logger logging.L
 	return mp, nil
 }
 
-func (mp *planner) checkInputs(inputs map[string][]referenceframe.Input) bool {
+func (mp *planner) checkInputs(inputs referenceframe.FrameSystemInputs) bool {
 	ok, _ := mp.planOpts.CheckStateFSConstraints(&ik.StateFS{
 		Configuration: inputs,
 		FS:            mp.fs,
@@ -245,7 +278,7 @@ func (mp *planner) checkInputs(inputs map[string][]referenceframe.Input) bool {
 	return ok
 }
 
-func (mp *planner) checkPath(seedInputs, target map[string][]referenceframe.Input) bool {
+func (mp *planner) checkPath(seedInputs, target referenceframe.FrameSystemInputs) bool {
 	ok, _ := mp.planOpts.CheckSegmentAndStateValidityFS(
 		&ik.SegmentFS{
 			StartConfiguration: seedInputs,
@@ -261,7 +294,7 @@ func (mp *planner) sample(rSeed node, sampleNum int) (node, error) {
 	// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
 	// The 2 at a time is to ensure random seeds are added onto both the seed and gofsal maps.
 	if sampleNum >= mp.planOpts.IterBeforeRand && sampleNum%4 >= 2 {
-		randomInputs := make(map[string][]referenceframe.Input)
+		randomInputs := make(referenceframe.FrameSystemInputs)
 		for _, name := range mp.fs.FrameNames() {
 			f := mp.fs.Frame(name)
 			if f != nil && len(f.DoF()) > 0 {
@@ -272,7 +305,7 @@ func (mp *planner) sample(rSeed node, sampleNum int) (node, error) {
 	}
 
 	// Seeding nearby to valid points results in much faster convergence in less constrained space
-	newInputs := make(map[string][]referenceframe.Input)
+	newInputs := make(referenceframe.FrameSystemInputs)
 	for name, inputs := range rSeed.Q() {
 		f := mp.fs.Frame(name)
 		if f != nil && len(f.DoF()) > 0 {
@@ -343,14 +376,21 @@ func (mp *planner) smoothPath(ctx context.Context, path []node) []node {
 // getSolutions will initiate an IK solver for the given position and seed, collect solutions, and score them by constraints.
 // If maxSolutions is positive, once that many solutions have been collected, the solver will terminate and return that many solutions.
 // If minScore is positive, if a solution scoring below that amount is found, the solver will terminate and return that one solution.
-func (mp *planner) getSolutions(ctx context.Context, seed map[string][]referenceframe.Input) ([]node, error) {
+func (mp *planner) getSolutions(ctx context.Context, seed referenceframe.FrameSystemInputs, metric ik.StateFSMetric) ([]node, error) {
 	// Linter doesn't properly handle loop labels
 	nSolutions := mp.planOpts.MaxSolutions
 	if nSolutions == 0 {
 		nSolutions = defaultSolutionsToSeed
 	}
+	if len(seed) == 0 {
+		seed = referenceframe.FrameSystemInputs{}
+		// If no seed is passed, generate one randomly
+		for _, frameName := range mp.fs.FrameNames() {
+			seed[frameName] = referenceframe.RandomFrameInputs(mp.fs.Frame(frameName), mp.randseed)
+		}
+	}
 
-	if mp.planOpts.goalMetric == nil {
+	if metric == nil {
 		return nil, errors.New("metric is nil")
 	}
 
@@ -368,7 +408,7 @@ func (mp *planner) getSolutions(ctx context.Context, seed map[string][]reference
 		return nil, err
 	}
 
-	minFunc := mp.linearizeFSmetric(mp.planOpts.goalMetric)
+	minFunc := mp.linearizeFSmetric(metric)
 	// Spawn the IK solver to generate solutions until done
 	utils.PanicCapturingGo(func() {
 		defer close(ikErr)
@@ -376,7 +416,7 @@ func (mp *planner) getSolutions(ctx context.Context, seed map[string][]reference
 		ikErr <- mp.solver.Solve(ctxWithCancel, solutionGen, linearSeed, minFunc, mp.randseed.Int())
 	})
 
-	solutions := map[float64]map[string][]referenceframe.Input{}
+	solutions := map[float64]referenceframe.FrameSystemInputs{}
 
 	// A map keeping track of which constraints fail
 	failures := map[string]int{}
@@ -419,7 +459,7 @@ IK:
 				if arcPass {
 					score := mp.planOpts.configurationDistanceFunc(stepArc)
 					if score < mp.planOpts.MinScore && mp.planOpts.MinScore > 0 {
-						solutions = map[float64]map[string][]referenceframe.Input{}
+						solutions = map[float64]referenceframe.FrameSystemInputs{}
 						solutions[score] = step
 						// good solution, stopping early
 						break IK
@@ -469,7 +509,7 @@ IK:
 			return nil, errIKSolve
 		}
 
-		return nil, genIKConstraintErr(failures, constraintFailCnt)
+		return nil, newIKConstraintErr(failures, constraintFailCnt)
 	}
 
 	keys := make([]float64, 0, len(solutions))
@@ -488,7 +528,7 @@ IK:
 
 // linearize the goal metric for use with solvers.
 // Since our solvers operate on arrays of floats, there needs to be a way to map bidirectionally between the framesystem configuration
-// of map[string][]Input and the []float64 that the solver expects. This is that mapping.
+// of FrameSystemInputs and the []float64 that the solver expects. This is that mapping.
 func (mp *planner) linearizeFSmetric(metric ik.StateFSMetric) func([]float64) float64 {
 	return func(query []float64) float64 {
 		inputs, err := mp.lfs.sliceToMap(query)
@@ -524,10 +564,10 @@ func (mp *planner) frameLists() (moving, nonmoving []string) {
 // random configuration for the other. This function attempts to replace that random configuration with the seed configuration, if valid,
 // and if invalid will interpolate the solved random configuration towards the seed and set its configuration to the closest valid
 // configuration to the seed.
-func (mp *planner) nonchainMinimize(seed, step map[string][]referenceframe.Input) map[string][]referenceframe.Input {
+func (mp *planner) nonchainMinimize(seed, step referenceframe.FrameSystemInputs) referenceframe.FrameSystemInputs {
 	moving, nonmoving := mp.frameLists()
 	// Create a map with nonmoving configurations replaced with their seed values
-	alteredStep := map[string][]referenceframe.Input{}
+	alteredStep := referenceframe.FrameSystemInputs{}
 	for _, frame := range moving {
 		alteredStep[frame] = step[frame]
 	}

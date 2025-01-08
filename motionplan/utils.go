@@ -13,10 +13,10 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// PathStepCount will determine the number of steps which should be used to get from the seed to the goal.
+// CalculateStepCount will determine the number of steps which should be used to get from the seed to the goal.
 // The returned value is guaranteed to be at least 1.
 // stepSize represents both the max mm movement per step, and max R4AA degrees per step.
-func PathStepCount(seedPos, goalPos spatialmath.Pose, stepSize float64) int {
+func CalculateStepCount(seedPos, goalPos spatialmath.Pose, stepSize float64) int {
 	// use a default size of 1 if zero is passed in to avoid divide-by-zero
 	if stepSize == 0 {
 		stepSize = 1.
@@ -46,7 +46,7 @@ func (r *resultPromise) result() ([]node, error) {
 	return planReturn.steps, nil
 }
 
-// linearizedFrameSystem wraps a framesystem, allowing conversion in a known order between a map[string][]inputs and a flat array of floats,
+// linearizedFrameSystem wraps a framesystem, allowing conversion in a known order between a FrameConfiguratinos and a flat array of floats,
 // useful for being able to call IK solvers against framesystems.
 type linearizedFrameSystem struct {
 	fs     referenceframe.FrameSystem
@@ -74,7 +74,7 @@ func newLinearizedFrameSystem(fs referenceframe.FrameSystem) (*linearizedFrameSy
 
 // mapToSlice will flatten a map of inputs into a slice suitable for input to inverse kinematics, by concatenating
 // the inputs together in the order of the frames in sf.frames.
-func (lfs *linearizedFrameSystem) mapToSlice(inputs map[string][]referenceframe.Input) ([]float64, error) {
+func (lfs *linearizedFrameSystem) mapToSlice(inputs referenceframe.FrameSystemInputs) ([]float64, error) {
 	var floatSlice []float64
 	for _, frame := range lfs.frames {
 		if len(frame.DoF()) == 0 {
@@ -91,8 +91,8 @@ func (lfs *linearizedFrameSystem) mapToSlice(inputs map[string][]referenceframe.
 	return floatSlice, nil
 }
 
-func (lfs *linearizedFrameSystem) sliceToMap(floatSlice []float64) (map[string][]referenceframe.Input, error) {
-	inputs := map[string][]referenceframe.Input{}
+func (lfs *linearizedFrameSystem) sliceToMap(floatSlice []float64) (referenceframe.FrameSystemInputs, error) {
+	inputs := referenceframe.FrameSystemInputs{}
 	i := 0
 	for _, frame := range lfs.frames {
 		if len(frame.DoF()) == 0 {
@@ -126,11 +126,11 @@ type motionChain struct {
 	worldRooted bool
 }
 
-func motionChainFromGoal(fs referenceframe.FrameSystem, moveFrame string, goal *referenceframe.PoseInFrame) (*motionChain, error) {
+func motionChainFromGoal(fs referenceframe.FrameSystem, moveFrame, goalFrameName string) (*motionChain, error) {
 	// get goal frame
-	goalFrame := fs.Frame(goal.Parent())
+	goalFrame := fs.Frame(goalFrameName)
 	if goalFrame == nil {
-		return nil, referenceframe.NewFrameMissingError(goal.Parent())
+		return nil, referenceframe.NewFrameMissingError(goalFrameName)
 	}
 	goalFrameList, err := fs.TracebackFrame(goalFrame)
 	if err != nil {
@@ -286,4 +286,33 @@ func uniqInPlaceSlice(s []referenceframe.Frame) []referenceframe.Frame {
 
 func nodeConfigurationDistanceFunc(node1, node2 node) float64 {
 	return ik.FSConfigurationL2Distance(&ik.SegmentFS{StartConfiguration: node1.Q(), EndConfiguration: node2.Q()})
+}
+
+// If a motion chain is worldrooted, then goals are translated to their position in `World` before solving.
+// This is useful when e.g. moving a gripper relative to a point seen by a camera built into that gripper.
+func alterGoals(
+	chains []*motionChain,
+	fs referenceframe.FrameSystem,
+	start referenceframe.FrameSystemInputs,
+	goal *PlanState,
+) (*PlanState, error) {
+	alteredGoals := referenceframe.FrameSystemPoses{}
+	if goal.poses != nil {
+		for _, chain := range chains {
+			// chain solve frame may only be in the goal configuration, in which case we skip as the configuration will be passed through
+			if goalPif, ok := goal.poses[chain.solveFrameName]; ok {
+				if chain.worldRooted {
+					tf, err := fs.Transform(start, goalPif, referenceframe.World)
+					if err != nil {
+						return nil, err
+					}
+					alteredGoals[chain.solveFrameName] = tf.(*referenceframe.PoseInFrame)
+				} else {
+					alteredGoals[chain.solveFrameName] = goalPif
+				}
+			}
+		}
+		return &PlanState{poses: alteredGoals, configuration: goal.configuration}, nil
+	}
+	return goal, nil
 }

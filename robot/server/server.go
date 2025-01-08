@@ -276,13 +276,11 @@ func (s *Server) TransformPCD(ctx context.Context, req *pb.TransformPCDRequest) 
 		return nil, err
 	}
 	// transform pointcloud back to PCD bytes
-	var buf bytes.Buffer
-	buf.Grow(200 + (final.Size() * 4 * 4)) // 4 numbers per point, each 4 bytes
-	err = pointcloud.ToPCD(final, &buf, pointcloud.PCDBinary)
+	bytes, err := pointcloud.ToBytes(final)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.TransformPCDResponse{PointCloudPcd: buf.Bytes()}, err
+	return &pb.TransformPCDResponse{PointCloudPcd: bytes}, err
 }
 
 // StopAll will stop all current and outstanding operations for the robot and stops all actuators and movement.
@@ -410,14 +408,7 @@ func (s *Server) GetCloudMetadata(ctx context.Context, _ *pb.GetCloudMetadataReq
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetCloudMetadataResponse{
-		// TODO: RSDK-7181 remove RobotPartId
-		RobotPartId:   md.MachinePartID, // Deprecated: Duplicates MachinePartId
-		PrimaryOrgId:  md.PrimaryOrgID,
-		LocationId:    md.LocationID,
-		MachineId:     md.MachineID,
-		MachinePartId: md.MachinePartID,
-	}, nil
+	return protoutils.MetadataToProto(md), nil
 }
 
 // RestartModule restarts a module by name or ID.
@@ -450,7 +441,6 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 	if err != nil {
 		return nil, err
 	}
-
 	result.Config = &pb.ConfigStatus{
 		Revision:    mStatus.Config.Revision,
 		LastUpdated: timestamppb.New(mStatus.Config.LastUpdated),
@@ -458,9 +448,10 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 	result.Resources = make([]*pb.ResourceStatus, 0, len(mStatus.Resources))
 	for _, resStatus := range mStatus.Resources {
 		pbResStatus := &pb.ResourceStatus{
-			Name:        protoutils.ResourceNameToProto(resStatus.Name),
-			LastUpdated: timestamppb.New(resStatus.LastUpdated),
-			Revision:    resStatus.Revision,
+			Name:          protoutils.ResourceNameToProto(resStatus.Name),
+			LastUpdated:   timestamppb.New(resStatus.LastUpdated),
+			Revision:      resStatus.Revision,
+			CloudMetadata: protoutils.MetadataToProto(resStatus.CloudMetadata),
 		}
 
 		switch resStatus.State {
