@@ -540,15 +540,16 @@ func (c *viamClient) listOAuthAppsAction(cCtx *cli.Context, orgID string) error 
 	return nil
 }
 
+type listLocationsArgs struct {
+	Organization string
+}
+
 // ListLocationsAction is the corresponding Action for 'locations list'.
-func ListLocationsAction(c *cli.Context, args emptyArgs) error {
+func ListLocationsAction(c *cli.Context, args listLocationsArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
-	// TODO(RSDK-9288) - this is brittle and inconsistent with how most data is passed.
-	// Move this to being a flag (but make sure existing workflows still work!)
-	orgStr := c.Args().First()
 	listLocations := func(orgID string) error {
 		locs, err := client.listLocations(orgID)
 		if err != nil {
@@ -558,6 +559,10 @@ func ListLocationsAction(c *cli.Context, args emptyArgs) error {
 			printf(c.App.Writer, "\t%s (id: %s)", loc.Name, loc.Id)
 		}
 		return nil
+	}
+	orgStr := args.Organization
+	if orgStr == "" && c.Args().First() != "" {
+		orgStr = c.Args().First()
 	}
 	if orgStr == "" {
 		orgs, err := client.listOrganizations()

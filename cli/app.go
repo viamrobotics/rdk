@@ -786,13 +786,20 @@ var app = &cli.App{
 			Name:            "locations",
 			Aliases:         []string{"location"},
 			Usage:           "work with locations",
+			UsageText: "viam locations <command> [command options]",
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
 				{
 					Name:      "list",
 					Usage:     "list locations for the current user",
-					ArgsUsage: "[organization]",
-					Action:    createCommandWithT[emptyArgs](ListLocationsAction),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:        generalFlagOrganization,
+							Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+							DefaultText: "first organization alphabetically",
+						},
+					},
+					Action:    createCommandWithT[listLocationsArgs](ListLocationsAction),
 				},
 				{
 					Name:  "api-key",
