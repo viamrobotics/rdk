@@ -1141,7 +1141,8 @@ func TestCreateOAuthAppAction(t *testing.T) {
 		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, flags, "token")
 		test.That(t, ac.createOAuthAppAction(cCtx, parseStructFromCtx[createOAuthAppArgs](cCtx)), test.ShouldBeNil)
 		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
-		test.That(t, out.messages[0], test.ShouldContainSubstring, "Successfully created OAuth app client-name with client ID client-id and client secret client-secret")
+		test.That(t, out.messages[0], test.ShouldContainSubstring,
+			"Successfully created OAuth app client-name with client ID client-id and client secret client-secret")
 	})
 
 	t.Run("should error if pkce is not a valid enum value", func(t *testing.T) {
