@@ -400,7 +400,10 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 		if ok {
 			meta, err := findMetaJSONFile(moduleWorkingDirectory)
 			if err != nil {
-				return nil, "", err
+				// return from getJSONManifest() if the error returned does NOT indicate that the file wasn't found
+				if !os.IsNotExist(err) {
+					return nil, "", err
+				}
 			}
 
 			if meta != nil {
@@ -415,7 +418,9 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 	if !localNonTarball {
 		meta, err := findMetaJSONFile(unpackedModDir)
 		if err != nil {
-			return nil, "", err
+			if !os.IsNotExist(err) {
+				return nil, "", err
+			}
 		}
 
 		if meta != nil {
@@ -432,7 +437,9 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 
 		meta, err := findMetaJSONFile(exeDir)
 		if err != nil {
-			return nil, "", err
+			if !os.IsNotExist(err) {
+				return nil, "", err
+			}
 		}
 
 		if meta != nil {
@@ -464,7 +471,7 @@ func findMetaJSONFile(dir string) (*JSONManifest, error) {
 
 	_, err = os.Stat(metaPath)
 	if err != nil {
-		return nil, nil
+		return nil, err
 	}
 
 	meta, err := parseJSONFile[JSONManifest](metaPath)
