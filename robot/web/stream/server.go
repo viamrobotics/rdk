@@ -422,6 +422,13 @@ func validateSetStreamOptionsRequest(req *streampb.SetStreamOptionsRequest) (int
 				req.Name, req.Resolution.Width, req.Resolution.Height,
 			)
 	}
+	if req.Resolution.Width%2 != 0 || req.Resolution.Height%2 != 0 {
+		return optionsCommandUnknown,
+			fmt.Errorf(
+				"invalid resolution to resize stream %q: width (%d) and height (%d) must be even",
+				req.Name, req.Resolution.Width, req.Resolution.Height,
+			)
+	}
 	return optionsCommandResize, nil
 }
 
