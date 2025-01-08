@@ -2328,7 +2328,8 @@ func (c *viamClient) readOAuthAppAction(cCtx *cli.Context, orgID, clientID strin
 	config := resp.OauthConfig
 	printf(cCtx.App.Writer, "OAuth config for client ID %s:", clientID)
 	printf(cCtx.App.Writer, "")
-	printf(cCtx.App.Writer, "Client Authentication: %s", formatStringForOutput(config.ClientAuthentication.String(), clientAuthenticationPrefix))
+	printf(cCtx.App.Writer, "Client Authentication: %s", formatStringForOutput(config.ClientAuthentication.String(),
+		clientAuthenticationPrefix))
 	printf(cCtx.App.Writer, "PKCE (Proof Key for Code Exchange): %s", formatStringForOutput(config.Pkce.String(), pkcePrefix))
 	printf(cCtx.App.Writer, "URL Validation Policy: %s", formatStringForOutput(config.UrlValidation.String(), urlValidationPrefix))
 	printf(cCtx.App.Writer, "Logout URL: %s", config.LogoutUri)

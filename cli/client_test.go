@@ -1154,7 +1154,6 @@ func TestReadOAuthApp(t *testing.T) {
 	test.That(t, out.messages[6], test.ShouldContainSubstring, "Redirect URLs: https://my-redirect-uri.com")
 	test.That(t, out.messages[7], test.ShouldContainSubstring, "Origin URLs: https://my-origin-uri.com, https://second-origin-uri.com")
 	test.That(t, out.messages[8], test.ShouldContainSubstring, "Enabled Grants: implicit, password")
-
 }
 
 func TestUpdateOAuthAppAction(t *testing.T) {
