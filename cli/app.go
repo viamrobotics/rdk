@@ -632,11 +632,11 @@ var app = &cli.App{
 										},
 										&cli.StringSliceFlag{
 											Name:  oauthAppFlagOriginURIs,
-											Usage: "comma separated origin uris for the OAuth application",
+											Usage: "comma-separated origin uris for the OAuth application",
 										},
 										&cli.StringSliceFlag{
 											Name:     oauthAppFlagRedirectURIs,
-											Usage:    "comma separated redirect uris for the OAuth application, requires at least one.",
+											Usage:    "comma-separated redirect uris for the OAuth application, requires at least one.",
 											Required: true,
 										},
 										&cli.StringFlag{
@@ -646,7 +646,7 @@ var app = &cli.App{
 										},
 										&cli.StringSliceFlag{
 											Name: oauthAppFlagEnabledGrants,
-											Usage: "comma separated enabled grants for the OAuth application. requires at least one, where values can be of " +
+											Usage: "comma-separated enabled grants for the OAuth application. requires at least one, where values can be of " +
 												formatAcceptedValues(string(EnabledGrantUnspecified), string(EnabledGrantRefreshToken), string(EnabledGrantPassword),
 													string(EnabledGrantImplicit), string(EnabledGrantDeviceCode), string(EnabledGrantAuthorizationCode)),
 											Required: true,
