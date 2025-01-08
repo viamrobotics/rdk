@@ -219,17 +219,16 @@ var commonFilterFlags = []cli.Flag{
 		Usage: "ISO-8601 timestamp in RFC3339 format indicating the end of the interval filter",
 	},
 	&cli.StringSliceFlag{
-		Name: dataFlagBboxLabels,
-		Usage: "bbox labels filter. " +
-			"accepts string labels corresponding to bounding boxes within images",
+		Name:  dataFlagBboxLabels,
+		Usage: "bbox labels filter. accepts string labels corresponding to bounding boxes within images",
 	},
 }
 
 var dataTagByIDsFlags = []cli.Flag{
 	&cli.StringSliceFlag{
 		Name:     dataFlagTags,
-		Required: true,
 		Usage:    "comma separated tags to add/remove to the data",
+		Required: true,
 	},
 	&cli.StringFlag{
 		Name:     generalFlagOrgID,
@@ -931,11 +930,14 @@ var app = &cli.App{
 		{
 			Name:            "data",
 			Usage:           "work with data",
+			UsageText:       createUsageText("data", nil, false, true),
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
 				{
-					Name:  "export",
-					Usage: "download data from Viam cloud",
+					Name:            "export",
+					Usage:           "download data from Viam cloud",
+					UsageText:       createUsageText("data export", nil, false, true),
+					HideHelpCommand: true,
 					Subcommands: []*cli.Command{
 						{
 							Name:      "binary",
@@ -1016,12 +1018,13 @@ var app = &cli.App{
 				{
 					Name:            "delete",
 					Usage:           "delete data from Viam cloud",
+					UsageText:       createUsageText("data delete", nil, false, true),
 					HideHelpCommand: true,
 					Subcommands: []*cli.Command{
 						{
 							Name:      "binary",
 							Usage:     "delete binary data from Viam cloud",
-							UsageText: createUsageText("data delete binary", nil, true, false),
+							UsageText: createUsageText("data delete binary", []string{dataFlagOrgIDs, dataFlagStart, dataFlagEnd}, true, false),
 							Flags: []cli.Flag{
 								&cli.StringSliceFlag{
 									Name:     dataFlagOrgIDs,
@@ -1109,9 +1112,10 @@ var app = &cli.App{
 					},
 				},
 				{
-					Name:      "database",
-					Usage:     "interact with a MongoDB Atlas Data Federation instance",
-					UsageText: createUsageText("data database", nil, true, false),
+					Name:            "database",
+					Usage:           "interact with a MongoDB Atlas Data Federation instance",
+					UsageText:       createUsageText("data database", nil, false, true),
+					HideHelpCommand: true,
 					Subcommands: []*cli.Command{
 						{
 							Name:      "configure",
@@ -1148,59 +1152,56 @@ var app = &cli.App{
 					},
 				},
 				{
-					Name:      "tag",
-					Usage:     "tag binary data by filter or ids",
-					UsageText: createUsageText("data tag", nil, true, false),
+					Name:            "tag",
+					Usage:           "tag binary data by filter or ids",
+					UsageText:       createUsageText("data tag", nil, false, true),
+					HideHelpCommand: true,
 					Subcommands: []*cli.Command{
 						{
-							Name:      "ids",
-							Usage:     "adds or removes tags from binary data by file ids for a given org and location",
-							UsageText: createUsageText("data tag ids", nil, true, false),
+							Name:            "ids",
+							Usage:           "adds or removes tags from binary data by file ids for a given org and location",
+							UsageText:       createUsageText("data tag ids", nil, true, false),
+							HideHelpCommand: true,
 							Subcommands: []*cli.Command{
 								{
 									Name:  "add",
 									Usage: "adds tags to binary data by file ids for a given org and location",
-									UsageText: createUsageText("data tag ids add", []string{
-										dataFlagTags, generalFlagOrgID,
-										dataFlagLocationID, dataFlagFileIDs,
-									}, false, false),
+									UsageText: createUsageText(
+										"data tag ids add", []string{dataFlagTags, generalFlagOrgID, dataFlagLocationID, dataFlagFileIDs}, false, false,
+									),
 									Flags:  dataTagByIDsFlags,
 									Action: createCommandWithT[dataTagByIDsArgs](DataTagActionByIds),
 								},
 								{
 									Name:  "remove",
 									Usage: "removes tags from binary data by file ids for a given org and location",
-									UsageText: createUsageText("data tag ids remove", []string{
-										dataFlagTags, generalFlagOrgID,
-										dataFlagLocationID, dataFlagFileIDs,
-									}, false, false),
+									UsageText: createUsageText(
+										"data tag ids remove", []string{dataFlagTags, generalFlagOrgID, dataFlagLocationID, dataFlagFileIDs}, false, false,
+									),
 									Flags:  dataTagByIDsFlags,
 									Action: createCommandWithT[dataTagByIDsArgs](DataTagActionByIds),
 								},
 							},
 						},
 						{
-							Name:      "filter",
-							Usage:     "adds or removes tags from binary data by filter",
-							UsageText: createUsageText("data tag filter", []string{dataFlagTags}, false, false),
+							Name:            "filter",
+							Usage:           "adds or removes tags from binary data by filter",
+							UsageText:       createUsageText("data tag filter", nil, false, true),
+							HideHelpCommand: true,
 							Subcommands: []*cli.Command{
 								{
-									Name:  "add",
-									Usage: "adds tags to binary data by filter",
-									UsageText: createUsageText("data tag filter add", []string{
-										dataFlagTags,
-									}, false, false),
-									Flags:  dataTagByFilterFlags,
-									Action: createCommandWithT[dataTagByFilterArgs](DataTagActionByFilter),
+									Name:      "add",
+									Usage:     "adds tags to binary data by filter",
+									UsageText: createUsageText("data tag filter add", []string{dataFlagTags}, false, false),
+									Flags:     dataTagByFilterFlags,
+									Action:    createCommandWithT[dataTagByFilterArgs](DataTagActionByFilter),
 								},
 								{
-									Name:  "remove",
-									Usage: "removes tags from binary data by filter",
-									UsageText: createUsageText("data tag filter remove", []string{
-										dataFlagTags,
-									}, false, false),
-									Flags:  dataTagByFilterFlags,
-									Action: createCommandWithT[dataTagByFilterArgs](DataTagActionByFilter),
+									Name:      "remove",
+									Usage:     "removes tags from binary data by filter",
+									UsageText: createUsageText("data tag filter remove", []string{dataFlagTags}, false, false),
+									Flags:     dataTagByFilterFlags,
+									Action:    createCommandWithT[dataTagByFilterArgs](DataTagActionByFilter),
 								},
 							},
 						},
