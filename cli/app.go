@@ -858,11 +858,13 @@ var app = &cli.App{
 		{
 			Name:            "profiles",
 			Usage:           "work with CLI profiles",
+			UsageText:       createUsageText("profiles", nil, false, true),
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
 				{
-					Name:  "update",
-					Usage: "update an existing profile for authentication, or add it if it doesn't exist",
+					Name:      "update",
+					Usage:     "update an existing profile for authentication, or add it if it doesn't exist",
+					UsageText: createUsageText("profiles update", []string{profileFlagName, loginFlagKeyID, loginFlagKey}, false, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     profileFlagName,
@@ -883,8 +885,9 @@ var app = &cli.App{
 					Action: createCommandWithT[addOrUpdateProfileArgs](UpdateProfileAction),
 				},
 				{
-					Name:  "add",
-					Usage: "add a new profile for authentication (errors if the profile already exists)",
+					Name:      "add",
+					Usage:     "add a new profile for authentication (errors if the profile already exists)",
+					UsageText: createUsageText("profiles add", []string{profileFlagName, loginFlagKeyID, loginFlagKey}, false, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     profileFlagName,
@@ -905,13 +908,15 @@ var app = &cli.App{
 					Action: createCommandWithT[addOrUpdateProfileArgs](AddProfileAction),
 				},
 				{
-					Name:   "list",
-					Usage:  "list all existing profiles by name",
-					Action: createCommandWithT[emptyArgs](ListProfilesAction),
+					Name:      "list",
+					Usage:     "list all existing profiles by name",
+					UsageText: createUsageText("profiles list", nil, false, false),
+					Action:    createCommandWithT[emptyArgs](ListProfilesAction),
 				},
 				{
-					Name:  "remove",
-					Usage: "remove an authentication profile",
+					Name:      "remove",
+					Usage:     "remove an authentication profile",
+					UsageText: createUsageText("profiles remove", []string{profileFlagName}, false, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     profileFlagName,
