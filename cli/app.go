@@ -360,13 +360,17 @@ func createCommandWithT[T any](f func(*cli.Context, T) error) func(*cli.Context)
 // createUsageText is a helper for formatting UsageTexts. The created UsageText
 // contains "viam", the command, requiredFlags, [other options] if otherOptions
 // is true, and all passed-in arguments in that order.
-func createUsageText(command string, requiredFlags []string, otherOptions bool, arguments ...string) string {
+func createUsageText(command string, requiredFlags []string, unrequiredOptions bool, arguments ...string) string {
 	formatted := []string{"viam", command}
 	for _, flag := range requiredFlags {
 		formatted = append(formatted, fmt.Sprintf("--%s=<%s>", flag, flag))
 	}
-	if otherOptions {
-		formatted = append(formatted, "[other options]")
+	if unrequiredOptions {
+		if requiredFlags == nil {
+			formatted = append(formatted, "[options]")
+		} else {
+			formatted = append(formatted, "[other options]")
+		}
 	}
 	formatted = append(formatted, arguments...)
 	return strings.Join(formatted, " ")
