@@ -63,7 +63,7 @@ func (sw *statsWorker) reconfigure(aus *atomicUploadStats, interval time.Duratio
 				newState := newUploadStats(aus)
 				summary := summary(oldState, newState, interval)
 				for _, line := range summary {
-					sw.logger.Info(line)
+					sw.logger.Debug(line)
 				}
 				oldState = newState
 			}

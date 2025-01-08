@@ -204,28 +204,6 @@ func (b *Board) GPIOPinByName(name string) (board.GPIOPin, error) {
 	return p, nil
 }
 
-// AnalogNames returns the names of all known analog pins.
-func (b *Board) AnalogNames() []string {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	names := []string{}
-	for k := range b.Analogs {
-		names = append(names, k)
-	}
-	return names
-}
-
-// DigitalInterruptNames returns the names of all known digital interrupts.
-func (b *Board) DigitalInterruptNames() []string {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	names := []string{}
-	for k := range b.Digitals {
-		names = append(names, k)
-	}
-	return names
-}
-
 // SetPowerMode sets the board to the given power mode. If provided,
 // the board will exit the given power mode after the specified
 // duration.

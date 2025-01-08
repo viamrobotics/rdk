@@ -413,28 +413,6 @@ func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, err
 	return interrupt, nil
 }
 
-// AnalogNames returns the names of all known analog pins.
-func (b *Board) AnalogNames() []string {
-	names := []string{}
-	for k := range b.analogReaders {
-		names = append(names, k)
-	}
-	return names
-}
-
-// DigitalInterruptNames returns the names of all known digital interrupts.
-func (b *Board) DigitalInterruptNames() []string {
-	if b.interrupts == nil {
-		return nil
-	}
-
-	names := []string{}
-	for name := range b.interrupts {
-		names = append(names, name)
-	}
-	return names
-}
-
 // GPIOPinByName returns a GPIOPin by name.
 func (b *Board) GPIOPinByName(pinName string) (board.GPIOPin, error) {
 	if pin, ok := b.gpios[pinName]; ok {
