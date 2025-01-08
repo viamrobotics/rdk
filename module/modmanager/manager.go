@@ -334,7 +334,7 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, moduleLogger lo
 		resources: map[resource.Name]*addedResource{},
 		logger:    moduleLogger,
 		ftdc:      mgr.ftdc,
-		port:      mgr.nextPort,
+		port:      int(mgr.nextPort.Add(1)),
 	}
 
 	if err := mgr.startModule(ctx, mod); err != nil {
@@ -1365,7 +1365,7 @@ func (m *module) registerProcessWithFTDC() {
 		return
 	}
 
-	m.ftdc.Add(fmt.Sprintf("modules.%s", m.process.ID()), statser)
+	m.ftdc.Add(fmt.Sprintf("proc.modules.%s", m.process.ID()), statser)
 }
 
 func getFullEnvironment(
