@@ -45,7 +45,7 @@ type (
 	}
 )
 
-// ToProto converts a ModuleModelDiscovery into the equivalent proto message
+// ToProto converts a ModuleModelDiscovery into the equivalent proto message.
 func (mm *ModuleModelDiscovery) ToProto() *pb.ModuleModel {
 	return &pb.ModuleModel{
 		Model: mm.Model.String(), Api: mm.API.String(), ModuleName: mm.ModuleName,
