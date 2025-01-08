@@ -92,3 +92,7 @@ func parseBillingAddress(address string) (*apppb.BillingAddress, error) {
 		Zipcode:       strings.Trim(splitAddress[4], " "),
 	}, nil
 }
+
+func formatStringForOutput(protoString, prefixToTrim string) string {
+	return strings.ToLower(strings.TrimPrefix(protoString, prefixToTrim))
+}

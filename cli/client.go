@@ -2087,9 +2087,9 @@ func (c *viamClient) readOAuthAppAction(cCtx *cli.Context, orgID, clientID strin
 	config := resp.OauthConfig
 	printf(cCtx.App.Writer, "OAuth config for client ID %s:", clientID)
 	printf(cCtx.App.Writer, "")
-	printf(cCtx.App.Writer, "Client Authentication: %s", protoToString(config.ClientAuthentication.String(), clientAuthenticationPrefix))
-	printf(cCtx.App.Writer, "PKCE (Proof Key for Code Exchange): %s", protoToString(config.Pkce.String(), pkcePrefix))
-	printf(cCtx.App.Writer, "URL Validation Policy: %s", protoToString(config.UrlValidation.String(), urlValidationPrefix))
+	printf(cCtx.App.Writer, "Client Authentication: %s", formatStringForOutput(config.ClientAuthentication.String(), clientAuthenticationPrefix))
+	printf(cCtx.App.Writer, "PKCE (Proof Key for Code Exchange): %s", formatStringForOutput(config.Pkce.String(), pkcePrefix))
+	printf(cCtx.App.Writer, "URL Validation Policy: %s", formatStringForOutput(config.UrlValidation.String(), urlValidationPrefix))
 	printf(cCtx.App.Writer, "Logout URL: %s", config.LogoutUri)
 	printf(cCtx.App.Writer, "Redirect URLs: %s", strings.Join(config.RedirectUris, ", "))
 	if len(config.OriginUris) > 0 {
@@ -2098,13 +2098,9 @@ func (c *viamClient) readOAuthAppAction(cCtx *cli.Context, orgID, clientID strin
 
 	var enabledGrants []string
 	for _, eg := range config.GetEnabledGrants() {
-		enabledGrants = append(enabledGrants, protoToString(eg.String(), enabledGrantPrefix))
+		enabledGrants = append(enabledGrants, formatStringForOutput(eg.String(), enabledGrantPrefix))
 	}
 	printf(cCtx.App.Writer, "Enabled Grants: %s", strings.Join(enabledGrants, ", "))
 
 	return nil
-}
-
-func protoToString(protoString, prefixToTrim string) string {
-	return strings.ToLower(strings.TrimPrefix(protoString, prefixToTrim))
 }
