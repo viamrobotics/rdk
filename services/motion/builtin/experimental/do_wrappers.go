@@ -1,3 +1,5 @@
+// Package experimental contains functions which extend the motion/builtin resource with additional functionality
+// the code contained within it comes with no stability guarantees and is likely to change often
 package experimental
 
 import (
@@ -5,13 +7,14 @@ import (
 	"errors"
 
 	"github.com/go-viper/mapstructure/v2"
+	"google.golang.org/protobuf/encoding/protojson"
+
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/motion/builtin"
-	"go.viam.com/utils/web/protojson"
 )
 
-// DoPlan is a helper function to wrap doPlan (a utility inside DoCommand) with types that are easier to work with.
+// DoPlan is a helper function to wrap DoPlan (a utility inside builtin/DoCommand) with types that are easier to work with.
 func DoPlan(ctx context.Context, ms motion.Service, req motion.MoveReq) (motionplan.Trajectory, error) {
 	proto, err := req.ToProto(ms.Name().Name)
 	if err != nil {
@@ -34,7 +37,7 @@ func DoPlan(ctx context.Context, ms motion.Service, req motion.MoveReq) (motionp
 	return trajectory, err
 }
 
-// DoExecute is a helper function to wrap doExecute (a utility inside DoCommand) with types that are easier to work with.
+// DoExecute is a helper function to wrap DoExecute (a utility inside builtin/DoCommand) with types that are easier to work with.
 func DoExecute(ctx context.Context, ms motion.Service, traj motionplan.Trajectory) error {
 	_, err := ms.DoCommand(ctx, map[string]interface{}{builtin.DoExecute: traj})
 	return err

@@ -1303,7 +1303,7 @@ func TestDoCommand(t *testing.T) {
 		test.That(t, len(trajectory), test.ShouldEqual, 2)
 	})
 
-	t.Run("DoExectute", func(t *testing.T) {
+	t.Run("DoExecute", func(t *testing.T) {
 		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		defer teardown()
 
