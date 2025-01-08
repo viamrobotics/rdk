@@ -88,7 +88,6 @@ func buildTransform(
 	source camera.StreamCamera,
 	stream camera.ImageType,
 	tr Transformation,
-	sourceString string,
 ) (camera.StreamCamera, camera.ImageType, error) {
 	switch transformType(tr.Type) {
 	case transformTypeUnspecified:
@@ -108,7 +107,7 @@ func buildTransform(
 	}
 }
 
-func propsFromVideoSource(ctx context.Context, source camera.VideoSource) (camera.Properties, error) {
+func propsFromVideoSource(ctx context.Context, source camera.Camera) (camera.Properties, error) {
 	var camProps camera.Properties
 
 	if cameraSrc, ok := source.(camera.Camera); ok {
