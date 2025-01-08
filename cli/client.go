@@ -630,14 +630,6 @@ func RobotsLogsAction(c *cli.Context, args robotsLogsArgs) error {
 		return err
 	}
 
-	// Validate required arguments
-	if args.Output != "" && args.Format == "" {
-		return errors.New("format is required when specifying an output file")
-	}
-	if args.Format != "" && args.Output == "" {
-		return errors.New("output file is required when specifying a format")
-	}
-
 	orgStr := args.Organization
 	locStr := args.Location
 	robotStr := args.Machine
