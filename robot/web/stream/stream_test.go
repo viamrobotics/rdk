@@ -286,6 +286,27 @@ func TestGetStreamOptions(t *testing.T) {
 				Model:  true,
 			},
 		},
+		// Odd resolutions gets rounded to nearest even resolution
+		// 100x100 downscaled to 25*25 turns into 24*24
+		{
+			Name:  "fake-cam-4-0",
+			API:   resource.NewAPI("rdk", "component", "camera"),
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			ConvertedAttributes: &fake.Config{
+				Width:  100,
+				Height: 100,
+			},
+		},
+		{
+			Name:  "fake-cam-4-1",
+			API:   resource.NewAPI("rdk", "component", "camera"),
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			ConvertedAttributes: &fake.Config{
+				Width:  100,
+				Height: 100,
+				Model:  true,
+			},
+		},
 	}}
 
 	ctx, robot, addr, webSvc := setupRealRobot(t, origCfg, logger)
@@ -298,7 +319,7 @@ func TestGetStreamOptions(t *testing.T) {
 	livestreamClient := streampb.NewStreamServiceClient(conn)
 	listResp, err := livestreamClient.ListStreams(ctx, &streampb.ListStreamsRequest{})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(listResp.Names), test.ShouldEqual, 8)
+	test.That(t, len(listResp.Names), test.ShouldEqual, 10)
 
 	streamOptionsResp, err := livestreamClient.GetStreamOptions(ctx, &streampb.GetStreamOptionsRequest{})
 	test.That(t, err, test.ShouldNotBeNil)
@@ -349,6 +370,8 @@ func TestGetStreamOptions(t *testing.T) {
 		"fake-cam-2-1": webstream.GenerateResolutions(1920, 1080, logger),
 		"fake-cam-3-0": webstream.GenerateResolutions(2, 2, logger),
 		"fake-cam-3-1": webstream.GenerateResolutions(2, 2, logger),
+		"fake-cam-4-0": webstream.GenerateResolutions(100, 100, logger),
+		"fake-cam-4-1": webstream.GenerateResolutions(100, 100, logger),
 	}
 
 	// Test each camera
@@ -425,6 +448,17 @@ func TestSetStreamOptions(t *testing.T) {
 		setStreamOptionsResp, err := livestreamClient.SetStreamOptions(ctx, &streampb.SetStreamOptionsRequest{
 			Name:       "fake-cam-0-0",
 			Resolution: &streampb.Resolution{Width: 0, Height: 0},
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, setStreamOptionsResp, test.ShouldBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid resolution")
+	})
+
+	// Test setting stream options with an odd resolution
+	t.Run("SetStreamOptions with odd resolution", func(t *testing.T) {
+		setStreamOptionsResp, err := livestreamClient.SetStreamOptions(ctx, &streampb.SetStreamOptionsRequest{
+			Name:       "fake-cam-0-0",
+			Resolution: &streampb.Resolution{Width: 25, Height: 25},
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, setStreamOptionsResp, test.ShouldBeNil)
