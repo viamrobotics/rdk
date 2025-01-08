@@ -397,16 +397,13 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 	if m.NeedsSyntheticPackage() {
 		// this is case 2, side-by-side
 		// TODO(RSDK-7848): remove this case once java sdk supports internal meta.json.
-		metaPath, err := utils.SafeJoinDir(filepath.Dir(m.ExePath), "meta.json")
+		meta, err := findMetaJSONFile(filepath.Dir(m.ExePath))
 		if err != nil {
-			return nil, unpackedModDir, err
+			return nil, "", err
 		}
-		meta, err := parseJSONFile[JSONManifest](metaPath)
-		if err != nil {
-			// note: this error deprecates the side-by-side case because the side-by-side case is deprecated.
-			return nil, unpackedModDir, errors.Wrapf(err, "couldn't find meta.json inside tarball %s (or next to it)", m.ExePath)
+		if meta != nil {
+			return meta, unpackedModDir, nil
 		}
-		return meta, unpackedModDir, err
 	}
 
 	if m.Type == ModuleTypeRegistry {
