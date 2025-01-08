@@ -812,8 +812,9 @@ var app = &cli.App{
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
 				{
-					Name:  "list",
-					Usage: "list locations for the current user",
+					Name:      "list",
+					Usage:     "list locations for the current user",
+					UsageText: createUsageText("locations list", nil, true, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:        generalFlagOrganization,
@@ -824,13 +825,14 @@ var app = &cli.App{
 					Action: createCommandWithT[listLocationsArgs](ListLocationsAction),
 				},
 				{
-					Name:  "api-key",
-					Usage: "work with an api-key for your location",
+					Name:      "api-key",
+					Usage:     "work with an api-key for your location",
+					UsageText: createUsageText("locations api-key", nil, false, true),
 					Subcommands: []*cli.Command{
 						{
 							Name:      "create",
 							Usage:     "create an api key for your location",
-							UsageText: createUsageText("api-key create", []string{generalFlagOrgID}, true, false),
+							UsageText: createUsageText("locations api-key create", []string{generalFlagLocationID}, true, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     generalFlagLocationID,
@@ -843,8 +845,8 @@ var app = &cli.App{
 								},
 								&cli.StringFlag{
 									Name: generalFlagOrgID,
-									Usage: "the org-id to attach the key to" +
-										"If not provided, will attempt to attach itself to the org of the location if only one org is attached to the location",
+									Usage: "the org-id to attach the key to",
+									DefaultText: "will attempt to attach key to the org of the location if only one org is attached to the location",
 								},
 							},
 							Action: createCommandWithT[locationAPIKeyCreateArgs](LocationAPIKeyCreateAction),
