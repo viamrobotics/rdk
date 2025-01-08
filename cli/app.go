@@ -359,7 +359,7 @@ func createCommandWithT[T any](f func(*cli.Context, T) error) func(*cli.Context)
 
 // createUsageText is a helper for formatting UsageTexts. The created UsageText
 // contains "viam", the command, requiredFlags, "[other options]" if unrequiredOptions
-// is true, "<command> [command options]" if subcommand is true, and all passed-in 
+// is true, "<command> [command options]" if subcommand is true, and all passed-in
 // arguments in that order.
 func createUsageText(command string, requiredFlags []string, unrequiredOptions, subcommand bool, arguments ...string) string {
 	formatted := []string{"viam", command}
@@ -793,8 +793,8 @@ var app = &cli.App{
 									Usage:    "the org to create an api key for",
 								},
 								&cli.StringFlag{
-									Name:  generalFlagName,
-									Usage: "the name of the key",
+									Name:        generalFlagName,
+									Usage:       "the name of the key",
 									DefaultText: "login info with current time",
 								},
 							},
@@ -844,8 +844,8 @@ var app = &cli.App{
 									Usage: "the name of the key (defaults to your login info with the current time)",
 								},
 								&cli.StringFlag{
-									Name: generalFlagOrgID,
-									Usage: "the org-id to attach the key to",
+									Name:        generalFlagOrgID,
+									Usage:       "the org-id to attach the key to",
 									DefaultText: "will attempt to attach key to the org of the location if only one org is attached to the location",
 								},
 							},
