@@ -646,7 +646,7 @@ var app = &cli.App{
 										},
 										&cli.StringSliceFlag{
 											Name: oauthAppFlagEnabledGrants,
-											Usage: "comma separated enabled grants for the OAuth application. requires at least one, where values can be of " +
+											Usage: "comma-separated enabled grants for the OAuth application. requires at least one, where values can be of " +
 												formatAcceptedValues(string(EnabledGrantUnspecified), string(EnabledGrantRefreshToken), string(EnabledGrantPassword),
 													string(EnabledGrantImplicit), string(EnabledGrantDeviceCode), string(EnabledGrantAuthorizationCode)),
 											Required: true,
