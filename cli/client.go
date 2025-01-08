@@ -51,9 +51,6 @@ import (
 )
 
 const (
-	formatJSON = "json"
-	formatText = "text"
-
 	rdkReleaseURL = "https://api.github.com/repos/viamrobotics/rdk/releases/latest"
 	// defaultNumLogs is the same as the number of logs currently returned by app
 	// in a single GetRobotPartLogsResponse.
@@ -1873,7 +1870,7 @@ func (c *viamClient) runRobotPartCommand(
 
 	invoke := func() (bool, error) {
 		rf, formatter, err := grpcurl.RequestParserAndFormatter(
-			grpcurl.Format(formatJSON),
+			grpcurl.Format("json"),
 			descSource,
 			strings.NewReader(data),
 			options)
