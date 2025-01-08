@@ -2492,7 +2492,7 @@ func (c *viamClient) createOAuthAppAction(cCtx *cli.Context, args createOAuthApp
 		return err
 	}
 
-	config, err := createOauthAppConfig(args.ClientAuthentication, args.Pkce, args.UrlValidation,
+	config, err := generateOAuthConfig(args.ClientAuthentication, args.Pkce, args.UrlValidation,
 		args.LogoutURI, args.OriginURIs, args.RedirectURIs, args.EnabledGrants)
 	if err != nil {
 		return err
@@ -2504,12 +2504,12 @@ func (c *viamClient) createOAuthAppAction(cCtx *cli.Context, args createOAuthApp
 		OauthConfig: config,
 	}
 
-	_, err = c.client.CreateOAuthApp(c.c.Context, req)
+	response, err := c.client.CreateOAuthApp(c.c.Context, req)
 	if err != nil {
 		return err
 	}
 
-	printf(cCtx.App.Writer, "Successfully created OAuth app %s", args.ClientName)
+	printf(cCtx.App.Writer, "Successfully created OAuth app %s with client ID %s and client secret %s", args.ClientName, response.ClientId, response.ClientSecret)
 	return nil
 }
 
@@ -2555,7 +2555,7 @@ func (c *viamClient) updateOAuthAppAction(cCtx *cli.Context, args updateOAuthApp
 	return nil
 }
 
-func createOauthAppConfig(clientAuthentication, pkce, urlValidation, logoutURI string,
+func generateOAuthConfig(clientAuthentication, pkce, urlValidation, logoutURI string,
 	originURIs, redirectURIs, enabledGrants []string) (*apppb.OAuthConfig, error) {
 	clientAuthProto, err := clientAuthToProto(clientAuthentication)
 	if err != nil {
@@ -2592,7 +2592,7 @@ func createUpdateOAuthAppRequest(args updateOAuthAppArgs) (*apppb.UpdateOAuthApp
 	clientID := args.ClientID
 	clientName := args.ClientName
 
-	oauthConfig, err := createOauthAppConfig(args.ClientAuthentication, args.Pkce, args.UrlValidation, args.LogoutURI, args.OriginURIs, args.RedirectURIs, args.EnabledGrants)
+	oauthConfig, err := generateOAuthConfig(args.ClientAuthentication, args.Pkce, args.UrlValidation, args.LogoutURI, args.OriginURIs, args.RedirectURIs, args.EnabledGrants)
 	if err != nil {
 		return nil, err
 	}

@@ -574,7 +574,7 @@ var app = &cli.App{
 										},
 										&cli.StringSliceFlag{
 											Name:  oauthAppFlagOriginURIs,
-											Usage: "updated comma separated origin uris for the OAuth application",
+											Usage: "updated comma-separated origin uris for the OAuth application",
 										},
 										&cli.StringSliceFlag{
 											Name:  oauthAppFlagRedirectURIs,
