@@ -110,12 +110,11 @@ func buildTransform(
 func propsFromVideoSource(ctx context.Context, source camera.Camera) (camera.Properties, error) {
 	var camProps camera.Properties
 
-	if cameraSrc, ok := source.(camera.Camera); ok {
-		props, err := cameraSrc.Properties(ctx)
-		if err != nil {
-			return camProps, err
-		}
-		camProps = props
+	props, err := source.Properties(ctx)
+	if err != nil {
+		return camProps, err
 	}
+	camProps = props
+
 	return camProps, nil
 }
