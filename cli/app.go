@@ -636,7 +636,7 @@ var app = &cli.App{
 										},
 										&cli.StringSliceFlag{
 											Name:     oauthAppFlagRedirectURIs,
-											Usage:    "comma separated redirect uris for the OAuth application, requires at least one.",
+											Usage:    "comma-separated redirect uris for the OAuth application, requires at least one.",
 											Required: true,
 										},
 										&cli.StringFlag{
