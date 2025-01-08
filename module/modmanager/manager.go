@@ -596,7 +596,8 @@ func (mgr *Manager) Configs() []config.Module {
 	return configs
 }
 
-// AllModels returns a slice of resource.ModuleModelDiscovery representing the currently available models from the currently managed modules
+// AllModels returns a slice of resource.ModuleModelDiscovery representing the available models
+// from the currently managed modules.
 func (mgr *Manager) AllModels() []resource.ModuleModelDiscovery {
 	moduleTypes := map[string]config.ModuleType{}
 	models := []resource.ModuleModelDiscovery{}
@@ -607,7 +608,10 @@ func (mgr *Manager) AllModels() []resource.ModuleModelDiscovery {
 	for moduleName, handleMap := range mgr.Handles() {
 		for api, handle := range handleMap {
 			for _, model := range handle {
-				modelModel := resource.ModuleModelDiscovery{ModuleName: moduleName, Model: model, FromLocalModule: moduleTypes[moduleName] == config.ModuleTypeLocal, API: api.API}
+				modelModel := resource.ModuleModelDiscovery{
+					ModuleName: moduleName, Model: model, API: api.API,
+					FromLocalModule: moduleTypes[moduleName] == config.ModuleTypeLocal,
+				}
 				models = append(models, modelModel)
 			}
 		}

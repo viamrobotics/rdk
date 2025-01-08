@@ -895,7 +895,10 @@ func (rc *RobotClient) GetModelsFromModules(ctx context.Context) ([]resource.Mod
 		if err != nil {
 			return nil, err
 		}
-		model := resource.ModuleModelDiscovery{ModuleName: protoModel.ModuleName, Model: modelTriplet, API: api, FromLocalModule: protoModel.FromLocalModule}
+		model := resource.ModuleModelDiscovery{
+			ModuleName: protoModel.ModuleName, Model: modelTriplet, API: api,
+			FromLocalModule: protoModel.FromLocalModule,
+		}
 		models = append(models, model)
 	}
 	return models, nil
