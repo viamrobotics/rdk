@@ -282,13 +282,7 @@ func (m *Module) FirstRun(
 		logger.Debug("no first run script specified, skipping first run")
 		return nil
 	}
-	var firstRunTopLevelDir string
-	if moduleWorkingDirectory == "" {
-		firstRunTopLevelDir = unpackedModDir
-	} else {
-		firstRunTopLevelDir = moduleWorkingDirectory
-	}
-	relFirstRunPath, err := utils.SafeJoinDir(firstRunTopLevelDir, meta.FirstRun)
+	relFirstRunPath, err := utils.SafeJoinDir(moduleWorkingDirectory, meta.FirstRun)
 	if err != nil {
 		logger.Errorw("failed to build path to first run script, skipping first run", "error", err)
 		return nil
@@ -397,7 +391,7 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 			return nil, "", err
 		}
 		if meta != nil {
-			return meta, "", nil
+			return meta, unpackedModDir, nil
 		}
 	}
 	if m.NeedsSyntheticPackage() {
@@ -405,14 +399,14 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 		// TODO(RSDK-7848): remove this case once java sdk supports internal meta.json.
 		metaPath, err := utils.SafeJoinDir(filepath.Dir(m.ExePath), "meta.json")
 		if err != nil {
-			return nil, "", err
+			return nil, unpackedModDir, err
 		}
 		meta, err := parseJSONFile[JSONManifest](metaPath)
 		if err != nil {
 			// note: this error deprecates the side-by-side case because the side-by-side case is deprecated.
-			return nil, "", errors.Wrapf(err, "couldn't find meta.json inside tarball %s (or next to it)", m.ExePath)
+			return nil, unpackedModDir, errors.Wrapf(err, "couldn't find meta.json inside tarball %s (or next to it)", m.ExePath)
 		}
-		return meta, "", err
+		return meta, unpackedModDir, err
 	}
 
 	if m.Type == ModuleTypeRegistry {
@@ -432,7 +426,7 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 			return nil, "", err
 		}
 		if meta != nil {
-			return meta, "", nil
+			return meta, unpackedModDir, nil
 		}
 
 		if !ok {
