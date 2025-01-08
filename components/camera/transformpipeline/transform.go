@@ -2,9 +2,9 @@ package transformpipeline
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/invopop/jsonschema"
-	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/robot"
@@ -17,18 +17,11 @@ type transformType string
 // the allowed transforms.
 const (
 	transformTypeUnspecified     = transformType("")
-	transformTypeIdentity        = transformType("identity")
 	transformTypeRotate          = transformType("rotate")
 	transformTypeResize          = transformType("resize")
 	transformTypeCrop            = transformType("crop")
-	transformTypeDepthPretty     = transformType("depth_to_pretty")
-	transformTypeOverlay         = transformType("overlay")
-	transformTypeUndistort       = transformType("undistort")
 	transformTypeDetections      = transformType("detections")
 	transformTypeClassifications = transformType("classifications")
-	transformTypeSegmentations   = transformType("segmentations")
-	transformTypeDepthEdges      = transformType("depth_edges")
-	transformTypeDepthPreprocess = transformType("depth_preprocess")
 )
 
 // transformRegistration holds pertinent information regarding the available transforms.
@@ -38,22 +31,8 @@ type transformRegistration struct {
 	description string
 }
 
-// Do not share the same config type across multile configs because otherwise
-// multiple json-schema reflected types will share the same $id
-// (which is not valid jsonschema and will fail to compile on the FE).
-type (
-	idenityConfig         struct{}
-	depthPrettyConfig     struct{}
-	depthPreprocessConfig struct{}
-)
-
 // registeredTransformConfigs is a map of all available transform configs, used for populating fields in the front-end.
 var registeredTransformConfigs = map[transformType]*transformRegistration{
-	transformTypeIdentity: {
-		string(transformTypeIdentity),
-		&idenityConfig{},
-		"Does nothing to the image. Can use this to duplicate camera sources, or change the source's stream or parameters.",
-	},
 	transformTypeRotate: {
 		string(transformTypeRotate),
 		&rotateConfig{},
@@ -69,21 +48,6 @@ var registeredTransformConfigs = map[transformType]*transformRegistration{
 		&cropConfig{},
 		"Crop the image to the specified rectangle in pixels",
 	},
-	transformTypeDepthPretty: {
-		string(transformTypeDepthPretty),
-		&depthPrettyConfig{},
-		"Turns a depth image source into a colorful image, with blue indicating distant points and red indicating nearby points.",
-	},
-	transformTypeOverlay: {
-		string(transformTypeOverlay),
-		&overlayConfig{},
-		"Projects a point cloud to a 2D RGB and Depth image, and overlays the two images. Used to debug the RGB+D alignment.",
-	},
-	transformTypeUndistort: {
-		string(transformTypeUndistort),
-		&undistortConfig{},
-		"Uses intrinsics and modified Brown-Conrady parameters to undistort the source image.",
-	},
 	transformTypeDetections: {
 		string(transformTypeDetections),
 		&detectorConfig{},
@@ -93,21 +57,6 @@ var registeredTransformConfigs = map[transformType]*transformRegistration{
 		string(transformTypeClassifications),
 		&classifierConfig{},
 		"Overlays image classifications on the image. Can use any classifier registered in the vision service.",
-	},
-	transformTypeSegmentations: {
-		string(transformTypeSegmentations),
-		&segmenterConfig{},
-		"Segments the camera's point cloud. Can use any segmenter registered in the vision service.",
-	},
-	transformTypeDepthEdges: {
-		string(transformTypeDepthEdges),
-		&depthEdgesConfig{},
-		"Applies a Canny edge detector to find edges. Only works on cameras that produce depth maps.",
-	},
-	transformTypeDepthPreprocess: {
-		string(transformTypeDepthPreprocess),
-		&depthPreprocessConfig{},
-		"Applies some basic hole-filling and edge smoothing to a depth map.",
 	},
 }
 
@@ -139,10 +88,9 @@ func buildTransform(
 	source camera.VideoSource,
 	stream camera.ImageType,
 	tr Transformation,
-	sourceString string,
 ) (camera.VideoSource, camera.ImageType, error) {
 	switch transformType(tr.Type) {
-	case transformTypeUnspecified, transformTypeIdentity:
+	case transformTypeUnspecified:
 		return source, stream, nil
 	case transformTypeRotate:
 		return newRotateTransform(ctx, source, stream, tr.Attributes)
@@ -150,23 +98,24 @@ func buildTransform(
 		return newResizeTransform(ctx, source, stream, tr.Attributes)
 	case transformTypeCrop:
 		return newCropTransform(ctx, source, stream, tr.Attributes)
-	case transformTypeDepthPretty:
-		return newDepthToPrettyTransform(ctx, source, stream)
-	case transformTypeOverlay:
-		return newOverlayTransform(ctx, source, stream, tr.Attributes)
-	case transformTypeUndistort:
-		return newUndistortTransform(ctx, source, stream, tr.Attributes)
 	case transformTypeDetections:
 		return newDetectionsTransform(ctx, source, r, tr.Attributes)
 	case transformTypeClassifications:
 		return newClassificationsTransform(ctx, source, r, tr.Attributes)
-	case transformTypeSegmentations:
-		return newSegmentationsTransform(ctx, source, r, tr.Attributes, sourceString)
-	case transformTypeDepthEdges:
-		return newDepthEdgesTransform(ctx, source, tr.Attributes)
-	case transformTypeDepthPreprocess:
-		return newDepthPreprocessTransform(ctx, source)
 	default:
-		return nil, camera.UnspecifiedStream, errors.Errorf("do not know camera transform of type %q", tr.Type)
+		return nil, camera.UnspecifiedStream, fmt.Errorf("do not  know camera transform of type %q", tr.Type)
 	}
+}
+
+func propsFromVideoSource(ctx context.Context, source camera.VideoSource) (camera.Properties, error) {
+	var camProps camera.Properties
+
+	if cameraSrc, ok := source.(camera.Camera); ok {
+		props, err := cameraSrc.Properties(ctx)
+		if err != nil {
+			return camProps, err
+		}
+		camProps = props
+	}
+	return camProps, nil
 }
