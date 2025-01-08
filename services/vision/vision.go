@@ -308,7 +308,7 @@ func (vm *vizModel) DetectionsFromCamera(
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find camera named %s", cameraName)
 	}
-	img, err := camera.ReadImage(ctx, cam)
+	img, err := camera.DecodeImageFromCamera(ctx, "", extra, cam)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get image from %s", cameraName)
 	}
