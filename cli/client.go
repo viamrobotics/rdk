@@ -40,7 +40,6 @@ import (
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	rconfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
@@ -614,8 +613,8 @@ type robotsLogsArgs struct {
 	Format       string
 	Keyword      string
 	Levels       []string
-	StartTime    string
-	EndTime      string
+	Start        string
+	End          string
 	Errors       bool
 	Count        int
 }
@@ -692,21 +691,9 @@ func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArg
 		return err
 	}
 
-	// Parse start and end times if provided
-	var startTime, endTime *timestamppb.Timestamp
-	if args.StartTime != "" {
-		parsedStart, err := time.Parse(time.RFC3339, args.StartTime)
-		if err != nil {
-			return errors.Wrap(err, "invalid start time format")
-		}
-		startTime = timestamppb.New(parsedStart)
-	}
-	if args.EndTime != "" {
-		parsedEnd, err := time.Parse(time.RFC3339, args.EndTime)
-		if err != nil {
-			return errors.Wrap(err, "invalid end time format")
-		}
-		endTime = timestamppb.New(parsedEnd)
+	interval, err := createCaptureInterval(args.Start, args.End)
+	if err != nil {
+		return errors.Wrap(err, "invalid interval format")
 	}
 
 	// Write logs for this part
@@ -718,8 +705,8 @@ func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArg
 			ErrorsOnly: args.Errors,
 			PageToken:  &pageToken,
 			Levels:     args.Levels,
-			Start:      startTime,
-			End:        endTime,
+			Start:      interval.Start,
+			End:        interval.End,
 		})
 		if err != nil {
 			return errors.Wrap(err, "failed to fetch logs")

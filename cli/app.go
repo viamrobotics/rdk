@@ -1608,11 +1608,11 @@ var app = &cli.App{
 							Name:  logsFlagLevels,
 							Usage: "filter logs by levels (e.g., info, warn, error)",
 						},
-						&cli.TimestampFlag{
+						&cli.StringFlag{
 							Name:  generalFlagStart,
 							Usage: "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter",
 						},
-						&cli.TimestampFlag{
+						&cli.StringFlag{
 							Name:  generalFlagEnd,
 							Usage: "ISO-8601 timestamp in RFC3339 format indicating the end of the interval filter",
 						},
