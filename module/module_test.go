@@ -262,11 +262,11 @@ func TestModuleFunctions(t *testing.T) {
 		test.That(t, "discovery", test.ShouldBeIn,
 			handlers2[0].Subtype.Subtype.Subtype, handlers2[1].Subtype.Subtype.Subtype, handlers2[2].Subtype.Subtype.Subtype)
 		test.That(t, "acme:demo:mygizmo", test.ShouldBeIn,
-			handlers2[0].GetModels()[0], handlers2[1].GetModels()[0], handlers[2].GetModels()[0])
+			handlers2[0].GetModels()[0], handlers2[1].GetModels()[0], handlers2[2].GetModels()[0])
 		test.That(t, "acme:demo:mybase", test.ShouldBeIn,
-			handlers2[0].GetModels()[0], handlers2[1].GetModels()[0], handlers[2].GetModels()[0])
+			handlers2[0].GetModels()[0], handlers2[1].GetModels()[0], handlers2[2].GetModels()[0])
 		test.That(t, "acme:demo:mydiscovery", test.ShouldBeIn,
-			handlers2[0].GetModels()[0], handlers2[1].GetModels()[0], handlers[2].GetModels()[0])
+			handlers2[0].GetModels()[0], handlers2[1].GetModels()[0], handlers2[2].GetModels()[0])
 	})
 
 	t.Run("GetParentResource", func(t *testing.T) {
