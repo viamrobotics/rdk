@@ -1167,6 +1167,44 @@ func TestCreateOAuthAppAction(t *testing.T) {
 	})
 }
 
+func TestReadOAuthApp(t *testing.T) {
+	readOAuthAppFunc := func(ctx context.Context, in *apppb.ReadOAuthAppRequest, opts ...grpc.CallOption) (
+		*apppb.ReadOAuthAppResponse, error,
+	) {
+		return &apppb.ReadOAuthAppResponse{
+			ClientName:   "clientname",
+			ClientSecret: "fakesecret",
+			OauthConfig: &apppb.OAuthConfig{
+				ClientAuthentication: apppb.ClientAuthentication_CLIENT_AUTHENTICATION_REQUIRED,
+				Pkce:                 apppb.PKCE_PKCE_REQUIRED,
+				UrlValidation:        apppb.URLValidation_URL_VALIDATION_ALLOW_WILDCARDS,
+				LogoutUri:            "https://my-logout-uri.com",
+				OriginUris:           []string{"https://my-origin-uri.com", "https://second-origin-uri.com"},
+				RedirectUris:         []string{"https://my-redirect-uri.com"},
+				EnabledGrants:        []apppb.EnabledGrant{apppb.EnabledGrant_ENABLED_GRANT_IMPLICIT, apppb.EnabledGrant_ENABLED_GRANT_PASSWORD},
+			},
+		}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		ReadOAuthAppFunc: readOAuthAppFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+
+	test.That(t, ac.readOAuthAppAction(cCtx, "test-org-id", "test-client-id"), test.ShouldBeNil)
+	test.That(t, len(out.messages), test.ShouldEqual, 9)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "OAuth config for client ID test-client-id")
+	test.That(t, out.messages[2], test.ShouldContainSubstring, "Client Authentication: required")
+	test.That(t, out.messages[3], test.ShouldContainSubstring, "PKCE (Proof Key for Code Exchange): required")
+	test.That(t, out.messages[4], test.ShouldContainSubstring, "URL Validation Policy: allow_wildcards")
+	test.That(t, out.messages[5], test.ShouldContainSubstring, "Logout URL: https://my-logout-uri.com")
+	test.That(t, out.messages[6], test.ShouldContainSubstring, "Redirect URLs: https://my-redirect-uri.com")
+	test.That(t, out.messages[7], test.ShouldContainSubstring, "Origin URLs: https://my-origin-uri.com, https://second-origin-uri.com")
+	test.That(t, out.messages[8], test.ShouldContainSubstring, "Enabled Grants: implicit, password")
+}
+
 func TestUpdateOAuthAppAction(t *testing.T) {
 	updateOAuthAppFunc := func(ctx context.Context, in *apppb.UpdateOAuthAppRequest,
 		opts ...grpc.CallOption,

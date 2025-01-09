@@ -2292,6 +2292,61 @@ func logEntryFieldsToString(fields []*structpb.Struct) (string, error) {
 	return message + "}", nil
 }
 
+type readOAuthAppArgs struct {
+	OrgID    string
+	ClientID string
+}
+
+const (
+	clientAuthenticationPrefix = "CLIENT_AUTHENTICATION_"
+	pkcePrefix                 = "PKCE_"
+	urlValidationPrefix        = "URL_VALIDATION_"
+	enabledGrantPrefix         = "ENABLED_GRANT_"
+)
+
+// ReadOAuthAppAction is the corresponding action for 'organizations auth-service oauth-app read'.
+func ReadOAuthAppAction(c *cli.Context, args readOAuthAppArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	return client.readOAuthAppAction(c, args.OrgID, args.ClientID)
+}
+
+func (c *viamClient) readOAuthAppAction(cCtx *cli.Context, orgID, clientID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	req := &apppb.ReadOAuthAppRequest{OrgId: orgID, ClientId: clientID}
+	resp, err := c.client.ReadOAuthApp(c.c.Context, req)
+	if err != nil {
+		return err
+	}
+
+	config := resp.OauthConfig
+	printf(cCtx.App.Writer, "OAuth config for client ID %s:", clientID)
+	printf(cCtx.App.Writer, "")
+	printf(cCtx.App.Writer, "Client Authentication: %s", formatStringForOutput(config.ClientAuthentication.String(),
+		clientAuthenticationPrefix))
+	printf(cCtx.App.Writer, "PKCE (Proof Key for Code Exchange): %s", formatStringForOutput(config.Pkce.String(), pkcePrefix))
+	printf(cCtx.App.Writer, "URL Validation Policy: %s", formatStringForOutput(config.UrlValidation.String(), urlValidationPrefix))
+	printf(cCtx.App.Writer, "Logout URL: %s", config.LogoutUri)
+	printf(cCtx.App.Writer, "Redirect URLs: %s", strings.Join(config.RedirectUris, ", "))
+	if len(config.OriginUris) > 0 {
+		printf(cCtx.App.Writer, "Origin URLs: %s", strings.Join(config.OriginUris, ", "))
+	}
+
+	var enabledGrants []string
+	for _, eg := range config.GetEnabledGrants() {
+		enabledGrants = append(enabledGrants, formatStringForOutput(eg.String(), enabledGrantPrefix))
+	}
+	printf(cCtx.App.Writer, "Enabled Grants: %s", strings.Join(enabledGrants, ", "))
+
+	return nil
+}
+
 type deleteOAuthAppArgs struct {
 	OrgID    string
 	ClientID string

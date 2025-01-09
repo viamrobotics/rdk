@@ -534,6 +534,23 @@ var app = &cli.App{
 									Action: createCommandWithT[listOAuthAppsArgs](ListOAuthAppsAction),
 								},
 								{
+									Name:  "read",
+									Usage: "read the OAuth configuration details",
+									Flags: []cli.Flag{
+										&cli.StringFlag{
+											Name:     generalFlagOrgID,
+											Required: true,
+											Usage:    "organization ID that is tied to the OAuth application",
+										},
+										&cli.StringFlag{
+											Name:     oauthAppFlagClientID,
+											Usage:    "id for the OAuth application",
+											Required: true,
+										},
+									},
+									Action: createCommandWithT[readOAuthAppArgs](ReadOAuthAppAction),
+								},
+								{
 									Name:  "update",
 									Usage: "update an OAuth application",
 									Flags: []cli.Flag{
