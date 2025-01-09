@@ -1568,11 +1568,11 @@ var app = &cli.App{
 										},
 										&cli.StringFlag{
 											Name:  mlTrainingFlagFramework,
-											Usage: "framework of the ML training script to upload, can be: [" + strings.Join(modelFrameworks, ", ") + "]",
+											Usage: fmt.Sprintf("framework of the ML training script to upload, can be: [%s]", strings.Join(modelFrameworks, ", ")),
 										},
 										&cli.StringFlag{
 											Name:  trainFlagModelType,
-											Usage: "task type of the ML training script to upload, can be: [" + strings.Join(modelTypes, ", ") + "]",
+											Usage: fmt.Sprintf("task type of the ML training script to upload, can be: [%s]", strings.Join(modelTypes, ", ")),
 										},
 										&cli.StringSliceFlag{
 											Name:  mlTrainingFlagArgs,
@@ -2373,7 +2373,8 @@ Example:
 							Name:      "link-repo",
 							Usage:     "link a GitHub repository to your module",
 							UsageText: createUsageText("module build link-repo", nil, true, false),
-							Description: `This command connects a Viam module to a GitHub repository so that repo actions can trigger builds and releases of your module.
+							Description: `
+This command connects a Viam module to a GitHub repository so that repo actions can trigger builds and releases of your module.
 
 This won't work unless you have an existing installation of our GitHub app on your GitHub org. (Details to follow).`,
 							// TODO(APP-3604): unhide when this is shipped externally
@@ -2416,8 +2417,8 @@ This won't work unless you have an existing installation of our GitHub app on yo
 	viam module reload --local`,
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:  generalFlagPartID,
-							Usage: "part ID of machine. get from 'Live/Offline' dropdown in the web app",
+							Name:        generalFlagPartID,
+							Usage:       "part ID of machine. get from 'Live/Offline' dropdown in the web app",
 							DefaultText: "/etc/viam.json",
 						},
 						&cli.StringFlag{
@@ -2464,8 +2465,8 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Value: ".",
 						},
 						&cli.StringFlag{
-							Name:  moduleFlagID,
-							Usage: "module ID as org-id:name or namespace:name",
+							Name:        moduleFlagID,
+							Usage:       "module ID as org-id:name or namespace:name",
 							DefaultText: "will try to read from meta.json",
 						},
 						&cli.StringFlag{
@@ -2474,8 +2475,8 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Value: "latest",
 						},
 						&cli.StringFlag{
-							Name:  moduleFlagPlatform,
-							Usage: "platform like 'linux/amd64'",
+							Name:        moduleFlagPlatform,
+							Usage:       "platform like 'linux/amd64'",
 							DefaultText: "platform of the CLI binary",
 						},
 					},
@@ -2486,13 +2487,13 @@ This won't work unless you have an existing installation of our GitHub app on yo
 		{
 			Name:            "packages",
 			Usage:           "work with packages",
+			UsageText:       createUsageText("packages", nil, false, true),
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
 				{
-					Name:  "export",
-					Usage: "download a package from Viam cloud",
-					UsageText: createUsageText("packages export",
-						[]string{packageFlagType}, false, false),
+					Name:      "export",
+					Usage:     "download a package from Viam cloud",
+					UsageText: createUsageText("packages export", []string{packageFlagType}, false, false),
 					Flags: []cli.Flag{
 						&cli.PathFlag{
 							Name:  packageFlagDestination,
@@ -2500,12 +2501,14 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Value: ".",
 						},
 						&cli.StringFlag{
-							Name:  generalFlagOrgID,
-							Usage: "organization ID or namespace of the requested package. if missing, will try to read from meta.json",
+							Name:        generalFlagOrgID,
+							Usage:       "organization ID or namespace of the requested package",
+							DefaultText: "will try to read from meta.json",
 						},
 						&cli.StringFlag{
-							Name:  generalFlagName,
-							Usage: "name of the requested package. if missing, will try to read from meta.json",
+							Name:        generalFlagName,
+							Usage:       "name of the requested package",
+							DefaultText: "will try to read from meta.json",
 						},
 						&cli.StringFlag{
 							Name:  packageFlagVersion,
@@ -2515,7 +2518,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						&cli.StringFlag{
 							Name:     packageFlagType,
 							Required: true,
-							Usage:    "type of the requested package, can be: " + strings.Join(packageTypes, ", "),
+							Usage:    fmt.Sprintf("type of the requested package, can be: [%s]", strings.Join(packageTypes, ", ")),
 						},
 					},
 					Action: createCommandWithT[packageExportArgs](PackageExportAction),
@@ -2524,10 +2527,8 @@ This won't work unless you have an existing installation of our GitHub app on yo
 					Name:  "upload",
 					Usage: "upload a package to Viam cloud",
 					UsageText: createUsageText("packages upload",
-						[]string{
-							packageFlagPath, generalFlagOrgID, generalFlagName,
-							packageFlagVersion, packageFlagType,
-						}, false, false),
+						[]string{packageFlagPath, generalFlagOrgID, generalFlagName, packageFlagVersion, packageFlagType},
+						false, false),
 					Flags: []cli.Flag{
 						&cli.PathFlag{
 							Name:     packageFlagPath,
@@ -2552,13 +2553,14 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						&cli.StringFlag{
 							Name:     packageFlagType,
 							Required: true,
-							Usage:    "type of the requested package, can be: " + strings.Join(packageTypes, ", "),
+							Usage:    fmt.Sprintf("type of the requested package, can be: [%s]", strings.Join(packageTypes, ", ")),
 						},
 						&cli.StringFlag{
-							Name:     packageFlagFramework,
-							Required: false,
-							Usage: "framework for an ml_model being uploaded, can be: " +
-								strings.Join(modelFrameworks, ", ") + ", Required if packages if of type `ml_model`",
+							Name: packageFlagFramework,
+							Usage: fmt.Sprintf(
+								"framework for an ml_model being uploaded, can be: [%s]. Required if packages is of type 'ml_model'",
+								strings.Join(modelFrameworks, ", "),
+							),
 						},
 					},
 					Action: createCommandWithT[packageUploadArgs](PackageUploadAction),
