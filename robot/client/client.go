@@ -304,7 +304,7 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 	//
 	// Allow this behavior to be turned off in some tests that specifically want
 	// to examine the behavior of a machine in an initializing state through the
-	// use of an environment variable.
+	// use of a global variable.
 	if testing.Testing() && !DoNotWaitForRunning.Load() {
 		for {
 			if ctx.Err() != nil {

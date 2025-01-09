@@ -19,7 +19,7 @@ type options struct {
 	// shutdownCallback provides a callback for the robot to be able to shut itself down.
 	shutdownCallback func()
 
-	// whether FTDC is enabled
+	// whether or not to run FTDC
 	enableFTDC bool
 
 	// disableCompleteConfigWorker starts the robot without the complete config worker - should only be used for tests.

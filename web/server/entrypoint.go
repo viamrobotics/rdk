@@ -509,9 +509,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 
 	onWatchDone := make(chan struct{})
 	go func() {
-		defer func() {
-			close(onWatchDone)
-		}()
+		defer close(onWatchDone)
 
 		// Use `fullProcessedConfig` as the initial config for the config watcher
 		// goroutine, as we want incoming config changes to be compared to the full
