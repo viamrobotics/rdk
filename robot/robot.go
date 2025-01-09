@@ -310,10 +310,25 @@ func (rmr *RestartModuleRequest) MatchesModule(mod config.Module) bool {
 	return mod.Name == rmr.ModuleName
 }
 
+// MachineState captures the state of a machine.
+type MachineState uint8
+
+const (
+	// StateUnknown represents an unknown state.
+	StateUnknown MachineState = iota
+	// StateInitializing denotes a currently initializing machine. The first
+	// reconfigure after initial creation has not completed.
+	StateInitializing
+	// StateRunning denotes a running machine. The first reconfigure after
+	// initial creation has completed.
+	StateRunning
+)
+
 // MachineStatus encapsulates the current status of the robot.
 type MachineStatus struct {
 	Resources []resource.Status
 	Config    config.Revision
+	State     MachineState
 }
 
 // VersionResponse encapsulates the version info of the robot.

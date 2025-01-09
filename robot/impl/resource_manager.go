@@ -622,11 +622,8 @@ func (manager *resourceManager) completeConfig(
 	levels := manager.resources.ReverseTopologicalSortInLevels()
 	timeout := rutils.GetResourceConfigurationTimeout(manager.logger)
 	for _, resourceNames := range levels {
-		// At the start of every reconfiguration level, check if updateWeakDependents should be run.
-		// Both conditions below should be met for `updateWeakDependents` to be called:
-		// - At least one resource that needs to reconfigure in this level
-		//   depends on at least one resource with weak dependencies (weak dependents)
-		// - The logical clock is higher than the `lastWeakDependentsRound` value
+		// At the start of every reconfiguration level, check if updateWeakDependents should be run
+		// by checking if the logical clock is higher than the `lastWeakDependentsRound` value.
 		//
 		// This will make sure that weak dependents are updated before they are passed into constructors
 		// or reconfigure methods.
@@ -634,7 +631,6 @@ func (manager *resourceManager) completeConfig(
 		// Resources that depend on weak dependents should expect that the weak dependents pass into the
 		// constructor or reconfigure method will only have been reconfigured with all resources constructed
 		// before their level.
-		var weakDependentsUpdated bool
 		for _, resName := range resourceNames {
 			select {
 			case <-ctx.Done():
@@ -649,17 +645,8 @@ func (manager *resourceManager) completeConfig(
 				continue
 			}
 
-			for _, dep := range manager.resources.GetAllParentsOf(resName) {
-				if node, ok := manager.resources.Node(dep); ok {
-					if lr.resourceHasWeakDependencies(dep, node) && lr.lastWeakDependentsRound.Load() < manager.resources.CurrLogicalClockValue() {
-						lr.updateWeakDependents(ctx)
-						weakDependentsUpdated = true
-						break
-					}
-				}
-			}
-			if weakDependentsUpdated {
-				break
+			if lr.lastWeakDependentsRound.Load() < manager.resources.CurrLogicalClockValue() {
+				lr.updateWeakDependents(ctx)
 			}
 		}
 		// we use an errgroup here instead of a normal waitgroup to conveniently bubble
