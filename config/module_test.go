@@ -102,7 +102,7 @@ func TestSyntheticModule(t *testing.T) {
 	})
 }
 
-func testFindMetaJSONFile(t *testing.T) {
+func TestFindMetaJSONFile(t *testing.T) {
 	tmp := t.TempDir()
 	metaJSONFilePath := filepath.Join(tmp, "meta.json")
 
