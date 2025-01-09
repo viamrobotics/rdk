@@ -31,8 +31,7 @@ func newDiscovery(name resource.Name, logger logging.Logger) discovery.Service {
 }
 
 func (dis *Discovery) DiscoverResources(context.Context, map[string]any) ([]resource.Config, error) {
-
-	return nil, nil
+	return dis.cfgs, nil
 }
 
 // Discovery is a fake Discovery service that returns
