@@ -4,10 +4,12 @@ package fake
 import (
 	"context"
 
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/discovery"
+	"go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -25,8 +27,8 @@ func init() {
 }
 
 func newDiscovery(name resource.Name, logger logging.Logger) discovery.Service {
-	cfg1 := createFakeConfig("fake1")
-	cfg2 := createFakeConfig("fake2")
+	cfg1 := createFakeConfig("fake1", movementsensor.API, nil)
+	cfg2 := createFakeConfig("fake2", camera.API, nil)
 	return &Discovery{Named: name.AsNamed(), logger: logger, cfgs: []resource.Config{cfg1, cfg2}}
 }
 
@@ -48,7 +50,9 @@ func (fg *Discovery) DoCommand(ctx context.Context, cmd map[string]interface{}) 
 	return cmd, nil
 }
 
-func createFakeConfig(name string) resource.Config {
+// createFakeConfig creates a fake component with the defined name, api, and attributes.
+// additionally the commented code is an example of how to take a model's Config and convert it into Attributes for the api.
+func createFakeConfig(name string, api resource.API, attributes utils.AttributeMap) resource.Config {
 	// // using the camera's Config struct in case a breaking change occurs
 	// attributes := viamrtsp.Config{Address: address}
 	// var result map[string]interface{}
@@ -64,5 +68,5 @@ func createFakeConfig(name string) resource.Config {
 	// if err != nil {
 	// 	return resource.Config{}, err
 	// }
-	return resource.Config{Name: name, API: movementsensor.API, Model: resource.DefaultModelFamily.WithModel("fake"), Attributes: nil}
+	return resource.Config{Name: name, API: api, Model: resource.DefaultModelFamily.WithModel("fake"), Attributes: attributes}
 }
