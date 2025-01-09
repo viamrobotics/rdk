@@ -561,7 +561,7 @@ func ListLocationsAction(c *cli.Context, args listLocationsArgs) error {
 		return nil
 	}
 	orgStr := args.Organization
-	if orgStr == "" && c.Args().First() != "" {
+	if orgStr == "" {
 		orgStr = c.Args().First()
 	}
 	if orgStr == "" {
@@ -984,20 +984,22 @@ func (c *viamClient) robotPartRestart(cCtx *cli.Context, args robotsPartRestartA
 	return nil
 }
 
-type robotsPartRunArgs struct {
+type machinesPartRunArgs struct {
 	Organization string
 	Location     string
 	Machine      string
 	Part         string
 	Data         string
 	Stream       time.Duration
+	Method       string
 }
 
-// RobotsPartRunAction is the corresponding Action for 'machines part run'.
-func RobotsPartRunAction(c *cli.Context, args robotsPartRunArgs) error {
-	// TODO(RSDK-9288) - this is brittle and inconsistent with how most data is passed.
-	// Move this to being a flag (but make sure existing workflows still work!)
-	svcMethod := c.Args().First()
+// MachinesPartRunAction is the corresponding Action for 'machines part run'.
+func MachinesPartRunAction(c *cli.Context, args machinesPartRunArgs) error {
+	svcMethod := args.Method
+	if svcMethod == "" {
+		svcMethod = c.Args().First()
+	}
 	if svcMethod == "" {
 		return errors.New("service method required")
 	}

@@ -53,6 +53,7 @@ const (
 	generalFlagAliasPartName     = "part-name"
 	generalFlagPartID            = "part-id"
 	generalFlagName              = "name"
+	generalFlagMethod            = "method"
 
 	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
@@ -112,7 +113,6 @@ const (
 	dataFlagResourceSubtype                = "resource-subtype"
 	dataFlagComponentName                  = "component-name"
 	dataFlagResourceName                   = "resource-name"
-	dataFlagMethod                         = "method"
 	dataFlagMimeTypes                      = "mime-types"
 	dataFlagStart                          = "start"
 	dataFlagEnd                            = "end"
@@ -203,7 +203,7 @@ var commonFilterFlags = []cli.Flag{
 		Usage: "component name filter",
 	},
 	&cli.StringFlag{
-		Name:  dataFlagMethod,
+		Name:  generalFlagMethod,
 		Usage: "method filter",
 	},
 	&cli.StringSliceFlag{
@@ -974,7 +974,7 @@ var app = &cli.App{
 								generalFlagPartID,
 								dataFlagResourceName,
 								dataFlagResourceSubtype,
-								dataFlagMethod,
+								generalFlagMethod,
 							}, true, false),
 							Flags: []cli.Flag{
 								&cli.PathFlag{
@@ -998,7 +998,7 @@ var app = &cli.App{
 									Usage:    "resource subtype (sometimes called 'component type')",
 								},
 								&cli.StringFlag{
-									Name:     dataFlagMethod,
+									Name:     generalFlagMethod,
 									Required: true,
 									Usage:    "method name",
 								},
@@ -1076,7 +1076,7 @@ var app = &cli.App{
 									Usage: "component name filter",
 								},
 								&cli.StringFlag{
-									Name:  dataFlagMethod,
+									Name:  generalFlagMethod,
 									Usage: "method filter",
 								},
 								&cli.StringSliceFlag{
@@ -1257,6 +1257,7 @@ var app = &cli.App{
 					Usage: "list dataset information from specified IDs or for an org ID",
 					UsageText: fmt.Sprintf("viam dataset list [--%s=<%s> | --%s=<%s>]",
 						datasetFlagDatasetIDs, datasetFlagDatasetIDs, generalFlagOrgID, generalFlagOrgID),
+					Description: "In order to list datasets, an org ID or a list of dataset IDs is required",
 					Flags: []cli.Flag{
 						&cli.StringSliceFlag{
 							Name:  datasetFlagDatasetIDs,
@@ -1648,11 +1649,13 @@ var app = &cli.App{
 			Name:            "machines",
 			Aliases:         []string{"machine", "robots", "robot"},
 			Usage:           "work with machines",
+			UsageText:       createUsageText("machines", nil, false, true),
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
 				{
-					Name:  "list",
-					Usage: "list machines in an organization and location",
+					Name:      "list",
+					Usage:     "list machines in an organization and location",
+					UsageText: createUsageText("machines list", nil, true, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:        generalFlagOrganization,
@@ -1668,8 +1671,10 @@ var app = &cli.App{
 					Action: createCommandWithT[listRobotsActionArgs](ListRobotsAction),
 				},
 				{
-					Name:  "api-key",
-					Usage: "work with a machine's api keys",
+					Name:            "api-key",
+					Usage:           "work with a machine's api keys",
+					UsageText:       createUsageText("machines api-key", nil, false, true),
+					HideHelpCommand: true,
 					Subcommands: []*cli.Command{
 						{
 							Name:      "create",
@@ -1685,13 +1690,14 @@ var app = &cli.App{
 									},
 								},
 								&cli.StringFlag{
-									Name:  generalFlagName,
-									Usage: "the name of the key (defaults to your login info with the current time)",
+									Name:        generalFlagName,
+									Usage:       "the name of the key",
+									DefaultText: "login info with the current time",
 								},
 								&cli.StringFlag{
-									Name: generalFlagOrgID,
-									Usage: "the org-id to attach this api-key to. If not provided, " +
-										"we will attempt to use the org attached to the machine if only one exists",
+									Name:        generalFlagOrgID,
+									Usage:       "the org-id to attach this api-key to.",
+									DefaultText: "the org attached to the machine if only one exists",
 								},
 							},
 							Action: createCommandWithT[robotAPIKeyCreateArgs](RobotAPIKeyCreateAction),
@@ -1771,6 +1777,7 @@ var app = &cli.App{
 				{
 					Name:            "part",
 					Usage:           "work with a machine part",
+					UsageText:       createUsageText("machines part", nil, false, true),
 					HideHelpCommand: true,
 					Subcommands: []*cli.Command{
 						{
@@ -1855,7 +1862,6 @@ var app = &cli.App{
 						},
 						{
 							Name:      "restart",
-							Aliases:   []string{},
 							Usage:     "request part restart",
 							UsageText: createUsageText("machines part restart", []string{generalFlagMachine, generalFlagPart}, true, false),
 							// TODO(RSDK-9286) revisit flags
@@ -1890,9 +1896,11 @@ var app = &cli.App{
 						{
 							Name:  "run",
 							Usage: "run a command on a machine part",
-							UsageText: createUsageText("machines part run", []string{
-								generalFlagOrganization, generalFlagLocation, generalFlagMachine, generalFlagPart,
-							}, true, false, "<service.method>"),
+							UsageText: createUsageText(
+								"machines part run",
+								[]string{generalFlagOrganization, generalFlagLocation, generalFlagMachine, generalFlagPart, generalFlagMethod},
+								true, false,
+							),
 							Flags: []cli.Flag{
 								&AliasStringFlag{
 									cli.StringFlag{
@@ -1930,16 +1938,22 @@ var app = &cli.App{
 									Name:    runFlagStream,
 									Aliases: []string{"s"},
 								},
+								&cli.StringFlag{
+									Name:     generalFlagMethod,
+									Usage:    "service method formatted as: '<service>.<method>' or '<service>/<method>'",
+									Required: false, // should be required but set as false to ensure backwards capability
+								},
 							},
-							Action: createCommandWithT[robotsPartRunArgs](RobotsPartRunAction),
+							Action: createCommandWithT[machinesPartRunArgs](MachinesPartRunAction),
 						},
 						{
-							Name:        "shell",
-							Usage:       "start a shell on a machine part",
-							Description: `In order to use the shell command, the machine must have a valid shell type service.`,
-							UsageText: createUsageText(
-								"machines part shell", []string{generalFlagOrganization, generalFlagLocation, generalFlagMachine, generalFlagPart}, false, false,
-							),
+							Name:  "shell",
+							Usage: "start a shell on a machine part",
+							Description: `
+In order to use the shell command, the machine must have a valid shell type service.
+Organization and location are required flags if the machine/part name are not unique across your account.
+`,
+							UsageText: createUsageText("machines part shell", []string{generalFlagMachine, generalFlagPart}, false, false),
 							// TODO(RSDK-9286) do we need to ask for og and location and machine and part here?
 							Flags: []cli.Flag{
 								&cli.StringFlag{
@@ -1952,13 +1966,17 @@ var app = &cli.App{
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
-										Name:    generalFlagMachine,
-										Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
+										Name:     generalFlagMachine,
+										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
+										Required: true,
 									},
 								},
-								&cli.StringFlag{
-									Name:    generalFlagPart,
-									Aliases: []string{generalFlagPartID, generalFlagAliasPartName},
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:     generalFlagPart,
+										Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
+										Required: true,
+									},
 								},
 							},
 							Action: createCommandWithT[robotsPartShellArgs](RobotsPartShellAction),
@@ -1966,7 +1984,6 @@ var app = &cli.App{
 						{
 							Name:  "cp",
 							Usage: "copy files to and from a machine part",
-
 							Description: `
 In order to use the cp command, the machine must have a valid shell type service.
 Specifying ~ or a blank destination for the machine will use the home directory of the user
@@ -1994,9 +2011,9 @@ Copy multiple files from the machine to a local destination with recursion and k
 `,
 							UsageText: createUsageText(
 								"machines part cp",
-								[]string{generalFlagOrganization, generalFlagLocation, generalFlagMachine, generalFlagPart},
+								[]string{generalFlagMachine, generalFlagPart},
 								true, false,
-								"[-p] [-r] source ([machine:]files) ... target ([machine:]files"),
+								"<source i.e. [machine:]files>... <target i.e. [machine:]files>"),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:    generalFlagOrganization,
