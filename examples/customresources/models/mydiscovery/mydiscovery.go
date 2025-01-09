@@ -11,10 +11,8 @@ import (
 	"go.viam.com/rdk/services/discovery"
 )
 
-var (
-	// Model is the full model definition.
-	Model = resource.NewModel("acme", "demo", "mydiscovery")
-)
+// Model is the full model definition.
+var Model = resource.NewModel("acme", "demo", "mydiscovery")
 
 func init() {
 	resource.RegisterService(
