@@ -449,7 +449,8 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 
 	if online {
 		if !ok {
-			return nil, "", errors.Errorf("VIAM_MODULE_ROOT not set. Searched instead in executable directory %s but failed to find meta.json", unpackedModDir)
+			return nil, "", errors.Errorf("VIAM_MODULE_ROOT not set. Searched instead in executable directory %s but failed to find meta.json",
+				unpackedModDir)
 		}
 
 		return nil, "", errors.Errorf("failed to find meta.json. Searched in executable directory %s and path set by VIAM_MODULE_ROOT %s",
