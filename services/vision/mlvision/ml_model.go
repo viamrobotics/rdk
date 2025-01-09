@@ -151,6 +151,7 @@ func registerMLModelVisionService(
 	var errList []error
 	classifierFunc, err := attemptToBuildClassifier(mlm, inNameMap, outNameMap, params)
 	if err != nil {
+		errList = append(errList, err)
 		logger.CDebugw(ctx, "unable to use ml model as a classifier, will attempt to evaluate as"+
 			"detector and segmenter", "model", params.ModelName, "error", err)
 	} else {
@@ -167,6 +168,7 @@ func registerMLModelVisionService(
 
 	detectorFunc, err := attemptToBuildDetector(mlm, inNameMap, outNameMap, params)
 	if err != nil {
+		errList = append(errList, err)
 		logger.CDebugw(ctx, "unable to use ml model as a detector, will attempt to evaluate as 3D segmenter",
 			"model", params.ModelName, "error", err)
 	} else {

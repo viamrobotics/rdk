@@ -58,6 +58,9 @@ type localRobot struct {
 	cloudConnSvc            icloud.ConnectionService
 	logger                  logging.Logger
 	activeBackgroundWorkers sync.WaitGroup
+
+	// reconfigurationLock manages access to the resource graph and nodes. If either may change, this lock should be taken.
+	reconfigurationLock sync.Mutex
 	// reconfigureWorkers tracks goroutines spawned by reconfiguration functions. we only
 	// wait on this group in tests to prevent goleak-related failures. however, we do not
 	// wait on this group outside of testing, since the related goroutines may be running
@@ -172,7 +175,9 @@ func (r *localRobot) Close(ctx context.Context) error {
 		err = multierr.Combine(err, r.cloudConnSvc.Close(ctx))
 	}
 	if r.manager != nil {
+		r.reconfigurationLock.Lock()
 		err = multierr.Combine(err, r.manager.Close(ctx))
+		r.reconfigurationLock.Unlock()
 	}
 	if r.packageManager != nil {
 		err = multierr.Combine(err, r.packageManager.Close(ctx))
@@ -315,6 +320,7 @@ func (r *localRobot) completeConfigWorker() {
 			trigger = "remote"
 			r.logger.CDebugw(r.closeContext, "configuration attempt triggered by remote")
 		}
+		r.reconfigurationLock.Lock()
 		anyChanges := r.manager.updateRemotesResourceNames(r.closeContext)
 		if r.manager.anyResourcesNotConfigured() {
 			anyChanges = true
@@ -324,6 +330,7 @@ func (r *localRobot) completeConfigWorker() {
 			r.updateWeakDependents(r.closeContext)
 			r.logger.CDebugw(r.closeContext, "configuration attempt completed with changes", "trigger", trigger)
 		}
+		r.reconfigurationLock.Unlock()
 	}
 }
 
@@ -365,7 +372,7 @@ func newWithResources(
 		//   the web service has not been "started".
 		ftdcWorker = ftdc.New(ftdc.DefaultDirectory(config.ViamDotDir, partID), logger.Sublogger("ftdc"))
 		if statser, err := sys.NewSelfSysUsageStatser(); err == nil {
-			ftdcWorker.Add("viam-server", statser)
+			ftdcWorker.Add("proc.viam-server", statser)
 		}
 	}
 
@@ -448,6 +455,11 @@ func newWithResources(
 	if err != nil {
 		return nil, err
 	}
+
+	// now that we're changing the resource graph, take the reconfigurationLock so
+	// that other goroutines can't interleave
+	r.reconfigurationLock.Lock()
+	defer r.reconfigurationLock.Unlock()
 	if err := r.manager.resources.AddNode(
 		web.InternalServiceName,
 		resource.NewConfiguredGraphNode(resource.Config{}, r.webSvc, builtinModel)); err != nil {
@@ -505,7 +517,7 @@ func newWithResources(
 		}, r.activeBackgroundWorkers.Done)
 	}
 
-	r.Reconfigure(ctx, cfg)
+	r.reconfigure(ctx, cfg, false)
 
 	for name, res := range resources {
 		node := resource.NewConfiguredGraphNode(resource.Config{}, res, unknownModel)
@@ -537,6 +549,8 @@ func New(
 func (r *localRobot) removeOrphanedResources(ctx context.Context,
 	rNames []resource.Name,
 ) {
+	r.reconfigurationLock.Lock()
+	defer r.reconfigurationLock.Unlock()
 	r.manager.markResourcesRemoved(rNames, nil)
 	if err := r.manager.removeMarkedAndClose(ctx, nil); err != nil {
 		r.logger.CErrorw(ctx, "error removing and closing marked resources",
@@ -1104,6 +1118,8 @@ func dialRobotClient(
 // a best effort to remove no longer in use parts, but if it fails to do so, they could
 // possibly leak resources. The given config may be modified by Reconfigure.
 func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) {
+	r.reconfigurationLock.Lock()
+	defer r.reconfigurationLock.Unlock()
 	r.reconfigure(ctx, newConfig, false)
 }
 
@@ -1369,6 +1385,8 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module
 		Modified: &config.ModifiedConfigDiff{},
 		Removed:  &config.Config{},
 	}
+	r.reconfigurationLock.Lock()
+	defer r.reconfigurationLock.Unlock()
 	// note: if !isRunning (i.e. the module is in config but it crashed), putting it in diff.Modified
 	// results in a no-op; we use .Added instead.
 	if isRunning {

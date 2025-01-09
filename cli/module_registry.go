@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"slices"
 	"strings"
@@ -61,8 +62,10 @@ func (err unknownRdkAPITypeError) Error() string {
 
 // ModuleComponent represents an api - model pair.
 type ModuleComponent struct {
-	API   string `json:"api"`
-	Model string `json:"model"`
+	API          string  `json:"api"`
+	Model        string  `json:"model"`
+	Description  *string `json:"short_description,omitempty"`
+	MarkdownLink *string `json:"markdown_link,omitempty"`
 }
 
 // moduleID represents a prefix:name pair where prefix can be either an org id or a namespace.
@@ -636,10 +639,22 @@ func visibilityToProto(visibility moduleVisibility) (apppb.Visibility, error) {
 }
 
 func moduleComponentToProto(moduleComponent ModuleComponent) *apppb.Model {
-	return &apppb.Model{
-		Api:   moduleComponent.API,
-		Model: moduleComponent.Model,
+	model := &apppb.Model{
+		Api:         moduleComponent.API,
+		Model:       moduleComponent.Model,
+		Description: moduleComponent.Description,
 	}
+
+	// If a markdown link is provided, read the content
+	if moduleComponent.MarkdownLink != nil {
+		if content, err := getMarkdownContent(*moduleComponent.MarkdownLink); err == nil {
+			model.MarkdownDocumentation = &content
+		} else {
+			warningf(os.Stderr, "Failed to read markdown content from %s: %v", *moduleComponent.MarkdownLink, err)
+		}
+	}
+
+	return model
 }
 
 func parseModuleID(id string) (moduleID, error) {
@@ -855,7 +870,7 @@ func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 	h := mgr.Handles()
 	for k, v := range h[cfg.Name] {
 		for _, m := range v {
-			res = append(res, ModuleComponent{k.API.String(), m.String()})
+			res = append(res, ModuleComponent{k.API.String(), m.String(), nil, nil})
 		}
 	}
 
@@ -1044,4 +1059,121 @@ func DownloadModuleAction(c *cli.Context, flags downloadModuleFlags) error {
 		flags.Destination, destName,
 		fullVersion, pkg.Package.Url, client.conf.Auth,
 	)
+}
+
+// getMarkdownContent reads and returns the content from a markdown file path.
+// The path may include an anchor tag (e.g., "docs/api.md#section-name").
+// The anchor tag is used to get the content of the section with the given anchor.
+// In the case of a nested section, the anchor tag is used to get the content of the section with the given anchor.
+// And the end of the section is determined by the next heading of the same or higher level.
+func getMarkdownContent(markdownPath string) (string, error) {
+	parts := strings.Split(markdownPath, "#")
+	filePath := parts[0]
+	var anchor string
+	if len(parts) > 1 {
+		anchor = parts[1]
+	}
+
+	//nolint:gosec
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to read markdown file at %s", filePath)
+	}
+
+	if anchor == "" {
+		return string(content), nil
+	}
+
+	lines := strings.Split(string(content), "\n")
+	sectionStart := -1
+	startHeaderLevel := 0
+
+	// Look for heading matching anchor and get its level
+	possibleAnchors := []string{}
+	anchorCounts := make(map[string]int)
+	for i, line := range lines {
+		if strings.HasPrefix(line, "#") {
+			// Count actual # characters at start of line
+			headerLevel := 0
+			for _, char := range line {
+				if char == '#' {
+					headerLevel++
+				} else {
+					break
+				}
+			}
+
+			headingAnchor := generateAnchor(line)
+
+			// Check if this anchor already exists
+			// If it does, add a numerical suffix to the anchor to make it unique
+			// This makes the anchor unique and avoids conflicts with other anchors in the same file
+			if count, exists := anchorCounts[headingAnchor]; exists {
+				anchorCounts[headingAnchor]++
+				headingAnchor = fmt.Sprintf("%s-%d", headingAnchor, count)
+			} else {
+				anchorCounts[headingAnchor] = 1
+			}
+
+			possibleAnchors = append(possibleAnchors, headingAnchor)
+			if headingAnchor == anchor {
+				// Skip the header line to not include the header in the model docs, only the body of the section.
+				sectionStart = i + 1
+				startHeaderLevel = headerLevel
+				break
+			}
+		}
+	}
+
+	// If the section matching the anchor is not found, return an error
+	if sectionStart == -1 {
+		return "", errors.Errorf(
+			"section #%s not found in %s. Check the format of your markdown_link and ensure the anchor is correct. "+
+				"You can anchor to the following headings: %v", anchor, filePath, possibleAnchors,
+		)
+	}
+
+	// Find end of section (next heading of same or higher level)
+	sectionEnd := len(lines)
+	for i := sectionStart; i < len(lines); i++ {
+		if strings.HasPrefix(lines[i], "#") {
+			// Count actual # characters at start of line
+			headerLevel := 0
+			for _, char := range lines[i] {
+				if char == '#' {
+					headerLevel++
+				} else {
+					break
+				}
+			}
+
+			if headerLevel <= startHeaderLevel {
+				sectionEnd = i
+				break
+			}
+		}
+	}
+
+	return strings.Join(lines[sectionStart:sectionEnd], "\n"), nil
+}
+
+func generateAnchor(header string) string {
+	// Convert to lowercase
+	anchor := strings.ToLower(header)
+
+	// Remove special characters except spaces and hyphens
+	re := regexp.MustCompile(`[^\w\s-]`)
+	anchor = re.ReplaceAllString(anchor, "")
+
+	// Replace spaces with hyphens
+	anchor = strings.ReplaceAll(anchor, " ", "-")
+
+	// Remove leading and trailing hyphens
+	anchor = strings.Trim(anchor, "-")
+
+	// Collapse consecutive hyphens into a single hyphen
+	reHyphen := regexp.MustCompile(`-+`)
+	anchor = reHyphen.ReplaceAllString(anchor, "-")
+
+	return anchor
 }

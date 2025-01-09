@@ -8,7 +8,6 @@ import (
 	"os"
 	"reflect"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/jhump/protoreflect/desc"
@@ -55,9 +54,7 @@ type resourceManager struct {
 	opts           resourceManagerOptions
 	logger         logging.Logger
 
-	// resourceGraphLock manages access to the resource graph and nodes. If either may change, this lock should be taken.
-	resourceGraphLock sync.Mutex
-	viz               resource.Visualizer
+	viz resource.Visualizer
 }
 
 type resourceManagerOptions struct {
@@ -320,9 +317,6 @@ func (manager *resourceManager) updateRemoteResourceNames(
 }
 
 func (manager *resourceManager) updateRemotesResourceNames(ctx context.Context) bool {
-	manager.resourceGraphLock.Lock()
-	defer manager.resourceGraphLock.Unlock()
-
 	anythingChanged := false
 	for _, name := range manager.resources.Names() {
 		gNode, _ := manager.resources.Node(name)
@@ -552,9 +546,7 @@ func (manager *resourceManager) removeMarkedAndClose(
 	ctx context.Context,
 	excludeFromClose map[resource.Name]struct{},
 ) error {
-	manager.resourceGraphLock.Lock()
 	defer func() {
-		defer manager.resourceGraphLock.Unlock()
 		if err := manager.viz.SaveSnapshot(manager.resources); err != nil {
 			manager.logger.Warnw("failed to save graph snapshot", "error", err)
 		}
@@ -618,12 +610,10 @@ func (manager *resourceManager) completeConfig(
 	lr *localRobot,
 	forceSync bool,
 ) {
-	manager.resourceGraphLock.Lock()
 	defer func() {
 		if err := manager.viz.SaveSnapshot(manager.resources); err != nil {
 			manager.logger.Warnw("failed to save graph snapshot", "error", err)
 		}
-		manager.resourceGraphLock.Unlock()
 	}()
 
 	// first handle remotes since they may reveal unresolved dependencies
@@ -1137,8 +1127,6 @@ func (manager *resourceManager) updateResources(
 	ctx context.Context,
 	conf *config.Diff,
 ) error {
-	manager.resourceGraphLock.Lock()
-	defer manager.resourceGraphLock.Unlock()
 	var allErrs error
 
 	// modules are not added into the resource tree as they belong to the module manager
