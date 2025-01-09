@@ -39,6 +39,7 @@ import (
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
+	"go.viam.com/rdk/services/discovery"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -134,9 +135,25 @@ func NewHandlerMapFromProto(ctx context.Context, pMap *pb.HandlerMap, conn rpc.C
 	var errs error
 	for _, h := range pMap.GetHandlers() {
 		api := protoutils.ResourceNameFromProto(h.Subtype.Subtype).API
-
+		if api == discovery.API {
+			fmt.Println("yos skip")
+			rpcAPI := &resource.RPCAPI{
+				API: api,
+			}
+			for _, m := range h.Models {
+				model, err := resource.NewModelFromString(m)
+				if err != nil {
+					return nil, err
+				}
+				hMap[*rpcAPI] = append(hMap[*rpcAPI], model)
+			}
+			continue
+		}
 		symDesc, err := reflSource.FindSymbol(h.Subtype.ProtoService)
 		if err != nil {
+			if api == discovery.API {
+				fmt.Println("yos error")
+			}
 			errs = multierr.Combine(errs, err)
 			if errors.Is(err, grpcurl.ErrReflectionNotSupported) {
 				return nil, errs
