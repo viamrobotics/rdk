@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"runtime/pprof"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/invopop/jsonschema"
@@ -262,7 +263,10 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	forceShutdown := make(chan struct{})
 	defer func() { <-forceShutdown }()
 
-	var myRobot robot.LocalRobot
+	var (
+		theRobot     robot.LocalRobot
+		theRobotLock sync.Mutex
+	)
 
 	utils.PanicCapturingGo(func() {
 		defer close(forceShutdown)
@@ -283,9 +287,13 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 				case <-doneServing:
 					return true
 				default:
-					if myRobot != nil {
-						myRobot.Kill()
+					theRobotLock.Lock()
+					robot := theRobot
+					theRobotLock.Unlock()
+					if robot != nil {
+						robot.Kill()
 					}
+					theRobotLock.Unlock()
 					s.logger.Fatalw("server failed to cleanly shutdown after deadline", "deadline", hungShutdownDeadline)
 					return true
 				}
@@ -404,13 +412,16 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		robotOptions = append(robotOptions, robotimpl.WithFTDC())
 	}
 
-	myRobot, err = robotimpl.New(ctx, processedConfig, s.logger, robotOptions...)
+	myRobot, err := robotimpl.New(ctx, processedConfig, s.logger, robotOptions...)
 	if err != nil {
 		cancel()
 		return err
 	}
+	theRobotLock.Lock()
+	theRobot = myRobot
+	theRobotLock.Unlock()
 	defer func() {
-		err = multierr.Combine(err, myRobot.Close(context.Background()))
+		err = multierr.Combine(err, theRobot.Close(context.Background()))
 	}()
 
 	// watch for and deliver changes to the robot
@@ -451,7 +462,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 
 				if !diff.NetworkEqual {
 					// TODO(RSDK-2694): use internal web service reconfiguration instead
-					myRobot.StopWeb()
+					theRobot.StopWeb()
 					options, err = s.createWebOptions(processedConfig)
 					if err != nil {
 						s.logger.Errorw("reconfiguration aborted: error creating weboptions", "error", err)
@@ -467,10 +478,10 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 					config.UpdateLoggerRegistryFromConfig(s.registry, processedConfig, s.logger)
 				}
 
-				myRobot.Reconfigure(ctx, processedConfig)
+				theRobot.Reconfigure(ctx, processedConfig)
 
 				if !diff.NetworkEqual {
-					if err := myRobot.StartWeb(ctx, options); err != nil {
+					if err := theRobot.StartWeb(ctx, options); err != nil {
 						s.logger.Errorw("reconfiguration failed: error starting web service while reconfiguring", "error", err)
 					}
 				}
@@ -489,7 +500,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	if err != nil {
 		return err
 	}
-	return web.RunWeb(ctx, myRobot, options, s.logger)
+	return web.RunWeb(ctx, theRobot, options, s.logger)
 }
 
 // dumpResourceRegistrations prints all builtin resource registrations as a json array

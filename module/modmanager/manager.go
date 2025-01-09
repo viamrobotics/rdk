@@ -218,6 +218,8 @@ func (mgr *Manager) Kill() {
 	if mgr.restartCtxCancel != nil {
 		mgr.restartCtxCancel()
 	}
+	// sync.Map's Range does not block other methods on the map;
+	// even f itself may call any method on the map.
 	mgr.modules.Range(func(_ string, mod *module) bool {
 		mod.killProcess()
 		return true
@@ -1261,7 +1263,7 @@ func (m *module) killProcess() {
 		return
 	}
 	m.logger.Infof("Killing module: %s process", m.cfg.Name)
-	m.process.Kill()
+	m.process.KillGroup()
 }
 
 func (m *module) registerResources(mgr modmaninterface.ModuleManager) {
