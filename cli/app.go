@@ -1212,6 +1212,7 @@ var app = &cli.App{
 		{
 			Name:            "dataset",
 			Usage:           "work with datasets",
+			UsageText:       createUsageText("dataset", nil, false, true),
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
 				{
@@ -1259,11 +1260,11 @@ var app = &cli.App{
 					Flags: []cli.Flag{
 						&cli.StringSliceFlag{
 							Name:  datasetFlagDatasetIDs,
-							Usage: "dataset IDs of datasets to be listed",
+							Usage: fmt.Sprintf("dataset IDs of datasets to be listed, required if '%s' is not given", generalFlagOrgID),
 						},
 						&cli.StringFlag{
 							Name:  generalFlagOrgID,
-							Usage: "org ID for which datasets will be listed",
+							Usage: fmt.Sprintf("org ID for which datasets will be listed, required if '%s' is not given", datasetFlagDatasetIDs),
 						},
 					},
 					Action: createCommandWithT[datasetListArgs](DatasetListAction),
@@ -1285,7 +1286,7 @@ var app = &cli.App{
 					Name:  "export",
 					Usage: "download data from a dataset",
 					UsageText: createUsageText("dataset export",
-						[]string{dataFlagDestination, datasetFlagDatasetID}, true, false, datasetFlagIncludeJSONLines, dataFlagParallelDownloads),
+						[]string{dataFlagDestination, datasetFlagDatasetID}, true, false),
 					Flags: []cli.Flag{
 						&cli.PathFlag{
 							Name:     dataFlagDestination,
@@ -1298,16 +1299,13 @@ var app = &cli.App{
 							Usage:    "dataset ID of the dataset to be downloaded",
 						},
 						&cli.BoolFlag{
-							Name:     datasetFlagIncludeJSONLines,
-							Required: false,
-							Usage:    "option to include JSON Lines files for local testing",
-							Value:    false,
+							Name:  datasetFlagIncludeJSONLines,
+							Usage: "option to include JSON Lines files for local testing",
 						},
 						&cli.UintFlag{
-							Name:     dataFlagParallelDownloads,
-							Required: false,
-							Usage:    "number of download requests to make in parallel",
-							Value:    100,
+							Name:  dataFlagParallelDownloads,
+							Usage: "number of download requests to make in parallel",
+							Value: 100,
 						},
 						&cli.UintFlag{
 							Name:  dataFlagTimeout,
@@ -1318,21 +1316,23 @@ var app = &cli.App{
 					Action: createCommandWithT[datasetDownloadArgs](DatasetDownloadAction),
 				},
 				{
-					Name:      "data",
-					Usage:     "add or remove data from datasets",
-					UsageText: createUsageText("dataset data", nil, true, false),
+					Name:            "data",
+					Usage:           "add or remove data from datasets",
+					UsageText:       createUsageText("dataset data", nil, false, true),
+					HideHelpCommand: true,
 					Subcommands: []*cli.Command{
 						{
-							Name:  "add",
-							Usage: "adds binary data either by IDs or filter to dataset",
+							Name:            "add",
+							Usage:           "adds binary data either by IDs or filter to dataset",
+							UsageText:       createUsageText("dataset data add", nil, false, true),
+							HideHelpCommand: true,
 							Subcommands: []*cli.Command{
 								{
 									Name:  "ids",
 									Usage: "adds binary data with file IDs in a single org and location to dataset",
-									UsageText: createUsageText("dataset data add ids", []string{
-										datasetFlagDatasetID, generalFlagOrgID,
-										dataFlagLocationID, dataFlagFileIDs,
-									}, false, false),
+									UsageText: createUsageText(
+										"dataset data add ids", []string{datasetFlagDatasetID, generalFlagOrgID, dataFlagLocationID, dataFlagFileIDs}, false, false,
+									),
 									Flags: []cli.Flag{
 										&cli.StringFlag{
 											Name:     datasetFlagDatasetID,
@@ -1381,8 +1381,9 @@ var app = &cli.App{
 						{
 							Name:  "remove",
 							Usage: "removes binary data with file IDs in a single org and location from dataset",
-							UsageText: createUsageText("dataset data remove",
-								[]string{datasetFlagDatasetID, generalFlagOrgID, dataFlagLocationID, dataFlagFileIDs}, false, false),
+							UsageText: createUsageText(
+								"dataset data remove", []string{datasetFlagDatasetID, generalFlagOrgID, dataFlagLocationID, dataFlagFileIDs}, false, false,
+							),
 							// TODO(RSDK-9286) do we need to ask for og and location here?
 							Flags: []cli.Flag{
 								&cli.StringFlag{
