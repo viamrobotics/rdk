@@ -59,6 +59,8 @@ const (
 	maxNumLogs = 10000
 	// logoMaxSize is the maximum size of a logo in bytes.
 	logoMaxSize = 1024 * 200 // 200 KB
+	// yellow is the format string used to output warnings in yellow color.
+	yellow = "\033[1;33m%s\033[0m"
 )
 
 var errNoShellService = errors.New("shell service is not enabled on this machine part")
@@ -187,6 +189,64 @@ func (c *viamClient) organizationsSupportEmailGetAction(cCtx *cli.Context, orgID
 	}
 
 	printf(cCtx.App.Writer, "Support email for organization %q: %q", orgID, resp.GetEmail())
+	return nil
+}
+
+type disableAuthServiceArgs struct {
+	OrgID string
+}
+
+// DisableAuthServiceConfirmation is the Before action for 'organizations auth-service disable'.
+// It asks for the user to confirm that they want to disable the auth service.
+func DisableAuthServiceConfirmation(c *cli.Context, args disableAuthServiceArgs) error {
+	if args.OrgID == "" {
+		return errors.New("cannot disable auth service without an organization ID")
+	}
+
+	printf(c.App.Writer, yellow, "WARNING!!\n")
+	printf(c.App.Writer, yellow, fmt.Sprintf("You are trying to disable the auth service for organization ID %s. "+
+		"Once disabled, all custom auth views and emails will be removed from your organization's (%s) "+
+		"OAuth applications and permanently deleted.\n", args.OrgID, args.OrgID))
+	printf(c.App.Writer, yellow, "If you wish to continue, please type \"disable\":")
+	if err := c.Err(); err != nil {
+		return err
+	}
+
+	rawInput, err := bufio.NewReader(c.App.Reader).ReadString('\n')
+	if err != nil {
+		return err
+	}
+
+	if input := strings.ToUpper(strings.TrimSpace(rawInput)); input != "DISABLE" {
+		return errors.New("aborted")
+	}
+	return nil
+}
+
+// DisableAuthServiceAction corresponds to 'organizations auth-service disable'.
+func DisableAuthServiceAction(cCtx *cli.Context, args disableAuthServiceArgs) error {
+	c, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+
+	return c.disableAuthServiceAction(cCtx, args.OrgID)
+}
+
+func (c *viamClient) disableAuthServiceAction(cCtx *cli.Context, orgID string) error {
+	if orgID == "" {
+		return errors.New("cannot disable auth service without an organization ID")
+	}
+
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	if _, err := c.client.DisableAuthService(cCtx.Context, &apppb.DisableAuthServiceRequest{OrgId: orgID}); err != nil {
+		return err
+	}
+
+	printf(cCtx.App.Writer, "disabled auth service for organization %q:\n", orgID)
 	return nil
 }
 
@@ -2363,7 +2423,6 @@ func DeleteOAuthAppConfirmation(c *cli.Context, args deleteOAuthAppArgs) error {
 		return errors.New("cannot delete oauth app without a client ID")
 	}
 
-	yellow := "\033[1;33m%s\033[0m"
 	printf(c.App.Writer, yellow, "WARNING!!\n")
 	printf(c.App.Writer, yellow, fmt.Sprintf("You are trying to delete an OAuth application with client ID %s. "+
 		"Once deleted, any existing apps that rely on this OAuth application will no longer be able to authenticate users.\n", args.ClientID))
