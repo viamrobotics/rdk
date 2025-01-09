@@ -79,7 +79,6 @@ const (
 	moduleBuildFlagRef       = "ref"
 	moduleBuildFlagCount     = "count"
 	moduleBuildFlagVersion   = "version"
-	moduleBuildFlagBuildID   = "id"
 	moduleBuildFlagPlatform  = "platform"
 	moduleBuildFlagWait      = "wait"
 	moduleBuildFlagToken     = "token"
@@ -366,7 +365,7 @@ func createUsageText(command string, requiredFlags []string, unrequiredOptions, 
 		formatted = append(formatted, fmt.Sprintf("--%s=<%s>", flag, flag))
 	}
 	if unrequiredOptions {
-		if requiredFlags == nil {
+		if len(requiredFlags) == 0 {
 			formatted = append(formatted, "[options]")
 		} else {
 			formatted = append(formatted, "[other options]")
@@ -2058,6 +2057,7 @@ Copy multiple files from the machine to a local destination with recursion and k
 		{
 			Name:            "module",
 			Usage:           "manage your modules in Viam's registry",
+			UsageText:       createUsageText("module", nil, false, true),
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
 				{
@@ -2095,8 +2095,9 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Action: createCommandWithT[createModuleActionArgs](CreateModuleAction),
 				},
 				{
-					Name:  "generate",
-					Usage: "generate a new modular resource via prompts",
+					Name:      "generate",
+					Usage:     "generate a new modular resource via prompts",
+					UsageText: createUsageText("module generate", nil, true, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:  generalFlagName,
@@ -2143,8 +2144,9 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Action: createCommandWithT[generateModuleArgs](GenerateModuleAction),
 				},
 				{
-					Name:  "update",
-					Usage: "update a module's metadata on app.viam.com",
+					Name:      "update",
+					Usage:     "update a module's metadata on app.viam.com",
+					UsageText: createUsageText("module update", nil, false, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:      moduleFlagPath,
@@ -2231,13 +2233,12 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
                       darwin/arm64  (Apple silicon macs)`,
 							Required: true,
 						},
-						&cli.StringFlag{
+						&cli.StringSliceFlag{
 							Name: moduleFlagTags,
-							Usage: `Optional extra fields for constraining the platforms to which this binary
+							Usage: `extra fields for constraining the platforms to which this binary
                              is deployed. Examples: distro:debian, distro:ubuntu, os_version:22.04,
-                             os_codename:jammy. You can provide multiple tags in this field by separating
-                             them with a comma. For a machine to use an upload, all tags must be satisified
-                             as well as the --platform field.`,
+                             os_codename:jammy. For a machine to use an upload, all tags must be
+                             satisified as well as the --platform field.`,
 						},
 						&cli.BoolFlag{
 							Name:  moduleFlagForce,
@@ -2247,9 +2248,11 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 					Action: createCommandWithT[uploadModuleArgs](UploadModuleAction),
 				},
 				{
-					Name:  "build",
-					Usage: "build your module for different architectures using cloud runners",
-					UsageText: `Build your module on different operating systems and cpu architectures via cloud runners.
+					Name:            "build",
+					Usage:           "build your module for different architectures using cloud runners",
+					UsageText:       createUsageText("module build", nil, false, true),
+					HideHelpCommand: true,
+					Description: `Build your module on different operating systems and cpu architectures via cloud runners.
 Make sure to add a "build" section to your meta.json.
 Example:
 {
@@ -2265,8 +2268,9 @@ Example:
 `,
 					Subcommands: []*cli.Command{
 						{
-							Name:  "local",
-							Usage: "run your meta.json build command locally",
+							Name:      "local",
+							Usage:     "run your meta.json build command locally",
+							UsageText: createUsageText("module build local", nil, true, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:      moduleFlagPath,
@@ -2304,19 +2308,20 @@ Example:
 								},
 								&cli.StringFlag{
 									Name:  moduleBuildFlagWorkdir,
-									Usage: "use this to indicate that your meta.json is in a subdirectory of your repo." + " --module flag should be relative to this",
+									Usage: "use this to indicate that your meta.json is in a subdirectory of your repo. --module flag should be relative to this",
 									Value: ".",
 								},
 								&cli.StringSliceFlag{
 									Name:  moduleBuildFlagPlatforms,
-									Usage: "list of platforms to build, e.g. linux/amd64,linux/arm64. Defaults to build.arch in meta.json.",
+									Usage: "list of platforms to build, e.g. linux/amd64,linux/arm64 (default: build.arch in meta.json)",
 								},
 							},
 							Action: createCommandWithT[moduleBuildStartArgs](ModuleBuildStartAction),
 						},
 						{
-							Name:  "list",
-							Usage: "check on the status of your cloud builds",
+							Name:      "list",
+							Usage:     "check on the status of your cloud builds",
+							UsageText: createUsageText("module build list", nil, true, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:      moduleFlagPath,
@@ -2331,7 +2336,7 @@ Example:
 									DefaultText: "all",
 								},
 								&cli.StringFlag{
-									Name:  moduleBuildFlagBuildID,
+									Name:  moduleFlagID,
 									Usage: "restrict output to just return builds that match this id",
 								},
 							},
@@ -2341,16 +2346,17 @@ Example:
 							Name:      "logs",
 							Aliases:   []string{"log"},
 							Usage:     "get the logs from one of your cloud builds",
-							UsageText: createUsageText("module build logs", []string{moduleBuildFlagBuildID}, true, false),
+							UsageText: createUsageText("module build logs", []string{moduleFlagID}, true, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     moduleBuildFlagBuildID,
+									Name:     moduleFlagID,
 									Usage:    "build that you want to get the logs for",
 									Required: true,
 								},
 								&cli.StringFlag{
-									Name:  moduleBuildFlagPlatform,
-									Usage: "build platform to get the logs for. Ex: linux/arm64. If a platform is not provided, it returns logs for all platforms",
+									Name:        moduleBuildFlagPlatform,
+									Usage:       "build platform to get the logs for. Ex: linux/arm64.",
+									DefaultText: "all platforms",
 								},
 								&cli.BoolFlag{
 									Name:  moduleBuildFlagWait,
@@ -2364,13 +2370,12 @@ Example:
 							Action: createCommandWithT[moduleBuildLogsArgs](ModuleBuildLogsAction),
 						},
 						{
-							Name:  "link-repo",
-							Usage: "link a GitHub repository to your module",
-							//nolint:lll
-							UsageText: `This command connects a Viam module to a GitHub repository so that repo actions can trigger builds and releases of your module.
+							Name:      "link-repo",
+							Usage:     "link a GitHub repository to your module",
+							UsageText: createUsageText("module build link-repo", nil, true, false),
+							Description: `This command connects a Viam module to a GitHub repository so that repo actions can trigger builds and releases of your module.
 
-This won't work unless you have an existing installation of our GitHub app on your GitHub org. (Details to follow).
-`,
+This won't work unless you have an existing installation of our GitHub app on your GitHub org. (Details to follow).`,
 							// TODO(APP-3604): unhide when this is shipped externally
 							Hidden: true,
 							Flags: []cli.Flag{
@@ -2379,9 +2384,9 @@ This won't work unless you have an existing installation of our GitHub app on yo
 									Usage: "ID of the oauth link between your GitHub org and Viam. Only required if you have more than one link",
 								},
 								&cli.StringFlag{
-									Name: moduleFlagPath,
-									Usage: "your module's ID in org-id:name or public-namespace:name format. " +
-										"If missing, we will try to get this from meta.json file in current directory",
+									Name:        moduleFlagPath,
+									Usage:       "your module's ID in org-id:name or public-namespace:name format",
+									DefaultText: "meta.json file in current directory",
 								},
 								&cli.StringFlag{
 									Name:  moduleBuildFlagRepo,
@@ -2395,7 +2400,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 				{
 					Name:      "reload",
 					Usage:     "build a module locally and run it on a target device. rebuild & restart if already running",
-					UsageText: createUsageText("module reload", []string{}, true, false),
+					UsageText: createUsageText("module reload", nil, true, false),
 					Description: `Example invocations:
 
 	# A full reload command. This will build your module, send the tarball to the machine with given part ID,
@@ -2412,7 +2417,8 @@ This won't work unless you have an existing installation of our GitHub app on yo
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:  generalFlagPartID,
-							Usage: "part ID of machine. get from 'Live/Offline' dropdown in the web app, or leave it blank to use /etc/viam.json",
+							Usage: "part ID of machine. get from 'Live/Offline' dropdown in the web app",
+							DefaultText: "/etc/viam.json",
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagPath,
@@ -2424,8 +2430,8 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage: "name of module to restart. pass at most one of --name, --id",
 						},
 						&cli.StringFlag{
-							Name:  moduleBuildFlagBuildID,
-							Usage: "ID of module to restart, for example viam:wifi-sensor",
+							Name:  moduleFlagID,
+							Usage: "ID of module to restart, for example viam:wifi-sensor. pass at most one of --name, --id",
 						},
 						&cli.BoolFlag{
 							Name:  moduleBuildRestartOnly,
@@ -2450,7 +2456,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 				{
 					Name:      "download",
 					Usage:     "download a module package from the registry",
-					UsageText: createUsageText("module download", []string{}, false, false),
+					UsageText: createUsageText("module download", []string{}, true, false),
 					Flags: []cli.Flag{
 						&cli.PathFlag{
 							Name:  packageFlagDestination,
@@ -2459,7 +2465,8 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagID,
-							Usage: "module ID as org-id:name or namespace:name. if missing, will try to read from meta.json",
+							Usage: "module ID as org-id:name or namespace:name",
+							DefaultText: "will try to read from meta.json",
 						},
 						&cli.StringFlag{
 							Name:  packageFlagVersion,
@@ -2468,7 +2475,8 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagPlatform,
-							Usage: "platform like 'linux/amd64'. if missing, will use platform of the CLI binary",
+							Usage: "platform like 'linux/amd64'",
+							DefaultText: "platform of the CLI binary",
 						},
 					},
 					Action: createCommandWithT[downloadModuleFlags](DownloadModuleAction),

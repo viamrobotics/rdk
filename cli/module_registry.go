@@ -260,7 +260,7 @@ type uploadModuleArgs struct {
 	Name            string
 	Version         string
 	Platform        string
-	Tags            string
+	Tags            []string
 	Force           bool
 }
 
@@ -353,11 +353,7 @@ func UploadModuleAction(c *cli.Context, args uploadModuleArgs) error {
 		}
 	}
 
-	var constraintsList []string
-	if constraints != "" {
-		constraintsList = strings.Split(constraints, ",")
-	}
-	response, err := client.uploadModuleFile(moduleID, versionArg, platformArg, constraintsList, tarballPath)
+	response, err := client.uploadModuleFile(moduleID, versionArg, platformArg, constraints, tarballPath)
 	if err != nil {
 		return err
 	}
