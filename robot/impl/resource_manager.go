@@ -602,6 +602,8 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 
 // Kill attempts to kill all module processes.
 func (manager *resourceManager) Kill() {
+	// TODO(RSDK-9709): Kill processes in processManager as well.
+
 	// take a lock minimally to map a copy of the moduleManager.
 	manager.modManagerLock.Lock()
 	modManager := manager.moduleManager
@@ -610,7 +612,6 @@ func (manager *resourceManager) Kill() {
 	if modManager != nil {
 		modManager.Kill()
 	}
-	// TODO: Kill processes in processManager as well.
 }
 
 // completeConfig process the tree in reverse order and attempts to build or reconfigure
