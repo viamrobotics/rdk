@@ -59,11 +59,10 @@ type (
 	}
 )
 
-// String stringifies a `LogEntry`. Should be used to emplace a log entry in
-// `recentMessageEntries`, i.e. `LogEntry`s that `String`ify identically should
-// be treated as identical with respect to noisiness and deduplication. Should
-// not be used for actual writing of the entry to an appender.
-func (le *LogEntry) String() string {
+// HashKey creates a hash key string for a `LogEntry`. Should be used to emplace a log
+// entry in `recentMessageEntries`, i.e. `LogEntry`s that `HashKey` identically should be
+// treated as identical with respect to noisiness and deduplication.
+func (le *LogEntry) HashKey() string {
 	ret := le.Message
 	for _, field := range le.Fields {
 		ret += " " + field.Key + " "
@@ -246,7 +245,9 @@ func (imp *impl) shouldLog(logLevel Level) bool {
 }
 
 func (imp *impl) Write(entry *LogEntry) {
-	if !DisableLogDeduplication.Load() {
+	if imp.registry.DeduplicateLogs.Load() {
+		hashkeyedEntry := entry.HashKey()
+
 		// If we have entered a new recentMessage window, output noisy logs from
 		// the last window.
 		imp.recentMessageMu.Lock()
@@ -273,12 +274,11 @@ func (imp *impl) Write(entry *LogEntry) {
 			imp.recentMessageWindowStart = time.Now()
 		}
 
-		// Track entry in recentMessage maps.
-		stringifiedEntry := entry.String()
-		imp.recentMessageCounts[stringifiedEntry]++
-		imp.recentMessageEntries[stringifiedEntry] = *entry
+		// Track hashkeyed entry in recentMessage maps.
+		imp.recentMessageCounts[hashkeyedEntry]++
+		imp.recentMessageEntries[hashkeyedEntry] = *entry
 
-		if imp.recentMessageCounts[stringifiedEntry] > noisyMessageCountThreshold {
+		if imp.recentMessageCounts[hashkeyedEntry] > noisyMessageCountThreshold {
 			// If entry's message is reportedly "noisy," return early.
 			imp.recentMessageMu.Unlock()
 			return

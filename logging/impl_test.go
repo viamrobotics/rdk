@@ -315,13 +315,6 @@ func TestSublogger(t *testing.T) {
 }
 
 func TestLoggingWithFields(t *testing.T) {
-	// Disable log deduplication for this test, as it logs "noisily" and makes
-	// assertions on those logs.
-	DisableLogDeduplication.Store(true)
-	defer func() {
-		DisableLogDeduplication.Store(false)
-	}()
-
 	// A logger object that will write to the `notStdout` buffer.
 	notStdout := &bytes.Buffer{}
 	var logger Logger
@@ -439,11 +432,11 @@ func TestLoggingWithFields(t *testing.T) {
 		`2023-10-30T09:12:09.459Z	DEBUG	impl	logging/impl_test.go:200	Debugw log	{"traceKey":"foobar","k":"v","key":"value"}`)
 }
 
-func TestLogEntryStringify(t *testing.T) {
+func TestLogEntryHashKey(t *testing.T) {
 	testCases := []struct {
-		name                    string
-		logEntry                *LogEntry
-		expectedStringification string
+		name            string
+		logEntry        *LogEntry
+		expectedHashKey string
 	}{
 		{
 			"no fields",
@@ -494,20 +487,24 @@ func TestLogEntryStringify(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			actualStringification := tc.logEntry.String()
-			test.That(t, actualStringification, test.ShouldEqual, tc.expectedStringification)
+			actualHashKey := tc.logEntry.HashKey()
+			test.That(t, actualHashKey, test.ShouldEqual, tc.expectedHashKey)
 		})
 	}
 }
 
 func TestLoggingDeduplication(t *testing.T) {
-	// Create a logger object that will write to the `notStdout` buffer.
+	// Create a logger object that will write to the `notStdout` buffer. Explicitly
+	// set DeduplicateLogs to true on the registry for the logger.
+	registry := newRegistry()
+	registry.DeduplicateLogs.Store(true)
+
 	notStdout := &bytes.Buffer{}
 	logger := &impl{
 		name:                     "impl",
 		level:                    NewAtomicLevelAt(DEBUG),
 		appenders:                []Appender{NewWriterAppender(notStdout)},
-		registry:                 newRegistry(),
+		registry:                 registry,
 		testHelper:               func() {},
 		recentMessageCounts:      make(map[string]int),
 		recentMessageEntries:     make(map[string]LogEntry),

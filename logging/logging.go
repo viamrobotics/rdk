@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
@@ -20,10 +19,6 @@ var (
 	// GlobalLogLevel should be used whenever a zap logger is created that wants to obey the debug
 	// flag from the CLI or robot config.
 	GlobalLogLevel = zap.NewAtomicLevelAt(zap.InfoLevel)
-
-	// DisableLogDeduplication controls whether to disable de-duplicating noisy
-	// logs; defaults to false and can be specified in robot config.
-	DisableLogDeduplication = atomic.Bool{}
 )
 
 // ReplaceGlobal replaces the global loggers.

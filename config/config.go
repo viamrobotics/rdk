@@ -321,6 +321,7 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	c.Revision = conf.Revision
 	c.MaintenanceConfig = conf.MaintenanceConfig
 	c.PackagePath = conf.PackagePath
+	c.DisableLogDeduplication = conf.DisableLogDeduplication
 
 	return nil
 }
@@ -338,22 +339,23 @@ func (c Config) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(configData{
-		Cloud:               c.Cloud,
-		Modules:             c.Modules,
-		Remotes:             c.Remotes,
-		Components:          c.Components,
-		Processes:           c.Processes,
-		Services:            c.Services,
-		Packages:            c.Packages,
-		Network:             c.Network,
-		Auth:                c.Auth,
-		Debug:               c.Debug,
-		DisablePartialStart: c.DisablePartialStart,
-		EnableWebProfile:    c.EnableWebProfile,
-		LogConfig:           c.LogConfig,
-		Revision:            c.Revision,
-		MaintenanceConfig:   c.MaintenanceConfig,
-		PackagePath:         c.PackagePath,
+		Cloud:                   c.Cloud,
+		Modules:                 c.Modules,
+		Remotes:                 c.Remotes,
+		Components:              c.Components,
+		Processes:               c.Processes,
+		Services:                c.Services,
+		Packages:                c.Packages,
+		Network:                 c.Network,
+		Auth:                    c.Auth,
+		Debug:                   c.Debug,
+		DisablePartialStart:     c.DisablePartialStart,
+		EnableWebProfile:        c.EnableWebProfile,
+		LogConfig:               c.LogConfig,
+		Revision:                c.Revision,
+		MaintenanceConfig:       c.MaintenanceConfig,
+		PackagePath:             c.PackagePath,
+		DisableLogDeduplication: c.DisableLogDeduplication,
 	})
 }
 
@@ -1141,9 +1143,10 @@ type Revision struct {
 	LastUpdated time.Time
 }
 
-// UpdateLoggerRegistryFromConfig will update the passed in registry with all log patterns in
-// `cfg.LogConfig` and each resource's `LogConfiguration` field if present.
-func UpdateLoggerRegistryFromConfig(registry *logging.Registry, cfg *Config, warnLogger logging.Logger) {
+// UpdateLoggerRegistryFromConfig will update the passed in registry with all log patterns
+// in `cfg.LogConfig` and each resource's `LogConfiguration` field if present. It will
+// also turn on or off log deduplication on the registry as necessary.
+func UpdateLoggerRegistryFromConfig(registry *logging.Registry, cfg *Config, logger logging.Logger) {
 	var combinedLogCfg []logging.LoggerPatternConfig
 	if cfg.LogConfig != nil {
 		combinedLogCfg = append(combinedLogCfg, cfg.LogConfig...)
@@ -1168,8 +1171,21 @@ func UpdateLoggerRegistryFromConfig(registry *logging.Registry, cfg *Config, war
 		}
 	}
 
-	if err := registry.Update(combinedLogCfg, warnLogger); err != nil {
-		warnLogger.Warnw("Error processing log patterns",
+	if err := registry.Update(combinedLogCfg, logger); err != nil {
+		logger.Warnw("Error processing log patterns",
 			"error", err)
+	}
+
+	// Check incoming disable log deduplication value for any diff. Note that config value
+	// is a "disable" while registry is an "enable". This is by design to make configuration
+	// easier for users and predicates easier for developers respectively. Due to this, the
+	// conditional to check for diff below looks odd (== instead of !=.)
+	if cfg.DisableLogDeduplication == registry.DeduplicateLogs.Load() {
+		state := "enabled"
+		if cfg.DisableLogDeduplication {
+			state = "disabled"
+		}
+		registry.DeduplicateLogs.Store(!cfg.DisableLogDeduplication)
+		logger.Infof("Noisy log deduplication is now %s", state)
 	}
 }
