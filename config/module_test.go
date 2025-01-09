@@ -109,7 +109,7 @@ func TestFindMetaJSONFile(t *testing.T) {
 	t.Run("MissingMetaFile", func(t *testing.T) {
 		meta, err := findMetaJSONFile(tmp)
 		test.That(t, meta, test.ShouldBeNil)
-		test.That(t, err, test.ShouldEqual, os.IsNotExist)
+		test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
 	})
 
 	file, err := os.Create(metaJSONFilePath)
@@ -126,7 +126,7 @@ func TestFindMetaJSONFile(t *testing.T) {
 	testWriteJSON(t, metaJSONFilePath, &validMeta)
 	t.Run("ValidMetaFileFound", func(t *testing.T) {
 		meta, err := findMetaJSONFile(tmp)
-		test.That(t, meta, test.ShouldEqual, validMeta)
+		test.That(t, *meta, test.ShouldResemble, validMeta)
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
