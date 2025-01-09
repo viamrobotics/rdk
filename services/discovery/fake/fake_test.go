@@ -28,7 +28,7 @@ func TestDiscoverResources(t *testing.T) {
 	test.That(t, len(cfgs), test.ShouldEqual, len(expectedCfgs))
 	for index, cfg := range cfgs {
 		test.That(t, cfg.Name, test.ShouldEqual, expectedCfgs[index].Name)
-		test.That(t, cfg.API, test.ShouldEqual, expectedCfgs[index].API)
-		test.That(t, cfg.Model, test.ShouldEqual, expectedCfgs[index].Model)
+		test.That(t, cfg.API, test.ShouldResemble, expectedCfgs[index].API)
+		test.That(t, cfg.Model, test.ShouldResemble, expectedCfgs[index].Model)
 	}
 }
