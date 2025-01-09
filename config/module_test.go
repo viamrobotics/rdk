@@ -102,6 +102,35 @@ func TestSyntheticModule(t *testing.T) {
 	})
 }
 
+func testFindMetaJSONFile(t *testing.T) {
+	tmp := t.TempDir()
+	metaJSONFilePath := filepath.Join(tmp, "meta.json")
+
+	t.Run("MissingMetaFile", func(t *testing.T) {
+		meta, err := findMetaJSONFile(tmp)
+		test.That(t, meta, test.ShouldBeNil)
+		test.That(t, err, test.ShouldEqual, os.IsNotExist)
+	})
+
+	file, err := os.Create(metaJSONFilePath)
+	test.That(t, err, test.ShouldBeNil)
+	defer file.Close()
+	t.Run("InvalidMetaFile", func(t *testing.T) {
+		meta, err := findMetaJSONFile(tmp)
+		test.That(t, meta, test.ShouldBeNil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldNotEqual, os.IsNotExist)
+	})
+
+	validMeta := JSONManifest{Entrypoint: "entry"}
+	testWriteJSON(t, metaJSONFilePath, &validMeta)
+	t.Run("ValidMetaFileFound", func(t *testing.T) {
+		meta, err := findMetaJSONFile(tmp)
+		test.That(t, meta, test.ShouldEqual, validMeta)
+		test.That(t, err, test.ShouldBeNil)
+	})
+}
+
 // testWriteJSON is a t.Helper that serializes `value` to `path` as json.
 func testWriteJSON(t *testing.T, path string, value any) {
 	t.Helper()
