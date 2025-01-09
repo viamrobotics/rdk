@@ -1416,18 +1416,21 @@ var app = &cli.App{
 		{
 			Name:            "train",
 			Usage:           "train on data",
-			UsageText:       "viam train [other options]",
+			UsageText:       createUsageText("train", nil, false, true),
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
 				{
-					Name:  "submit",
-					Usage: "submits training job on data in Viam cloud",
+					Name:      "submit",
+					Usage:     "submits training job on data in Viam cloud",
+					UsageText: createUsageText("train submit", nil, false, true),
 					Subcommands: []*cli.Command{
 						{
 							Name:  "managed",
 							Usage: "submits training job on data in Viam cloud with a Viam-managed training script",
 							UsageText: createUsageText("train submit managed",
-								[]string{datasetFlagDatasetID, trainFlagModelOrgID, trainFlagModelName, trainFlagModelType, trainFlagModelLabels}, true, false),
+								[]string{datasetFlagDatasetID, trainFlagModelOrgID, trainFlagModelName, trainFlagModelType, trainFlagModelLabels},
+								true, false,
+							),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     datasetFlagDatasetID,
@@ -1445,37 +1448,36 @@ var app = &cli.App{
 									Required: true,
 								},
 								&cli.StringFlag{
-									Name: trainFlagModelType,
-									Usage: "type of model to train. can be one of " +
-										"[single_label_classification, multi_label_classification, or object_detection]",
+									Name:     trainFlagModelType,
+									Usage:    "type of model to train. can be one of [single_label_classification, multi_label_classification, or object_detection]",
 									Required: true,
 								},
 								&cli.StringSliceFlag{
-									Name: trainFlagModelLabels,
-									Usage: "labels to train on. " +
-										"this will either be classification or object detection labels",
+									Name:     trainFlagModelLabels,
+									Usage:    "labels to train on. this will either be classification or object detection labels",
 									Required: true,
 								},
 								&cli.StringFlag{
-									Name:  trainFlagModelVersion,
-									Usage: "version of ML model. defaults to current timestamp if unspecified.",
+									Name:        trainFlagModelVersion,
+									Usage:       "version of ML model",
+									DefaultText: "current timestamp",
 								},
 							},
 							Action: createCommandWithT[mlSubmitTrainingJobArgs](MLSubmitTrainingJob),
 						},
 						{
-							Name:  "custom",
-							Usage: "submits custom training job on data in Viam cloud",
+							Name:            "custom",
+							Usage:           "submits custom training job on data in Viam cloud",
+							UsageText:       createUsageText("train submit custom", nil, false, true),
+							HideHelpCommand: true,
 							Subcommands: []*cli.Command{
 								{
 									Name:  "from-registry",
 									Usage: "submits custom training job with an existing training script in the registry on data in Viam cloud",
-
 									UsageText: createUsageText("train submit custom from-registry",
-										[]string{
-											datasetFlagDatasetID, generalFlagOrgID, trainFlagModelName,
-											mlTrainingFlagName, mlTrainingFlagVersion, mlTrainingFlagArgs,
-										}, true, false),
+										[]string{datasetFlagDatasetID, generalFlagOrgID, trainFlagModelName, mlTrainingFlagName, mlTrainingFlagVersion},
+										true, false,
+									),
 									Flags: []cli.Flag{
 										&cli.StringFlag{
 											Name:     datasetFlagDatasetID,
@@ -1499,7 +1501,7 @@ var app = &cli.App{
 										&cli.StringFlag{
 											Name: mlTrainingFlagName,
 											Usage: "registry name of the ML training script to use for training, " +
-												"which should be formatted as prefix:itemname where prefix is either the org ID or the namespace.",
+												"should be formatted as prefix:itemname where prefix is either the org ID or the namespace.",
 											Required: true,
 										},
 										&cli.StringFlag{
@@ -1508,10 +1510,8 @@ var app = &cli.App{
 											Required: true,
 										},
 										&cli.StringSliceFlag{
-											Name: mlTrainingFlagArgs,
-											Usage: "optional command line arguments to run the training script with " +
-												"which should be formatted as option1=value1,option2=value2",
-											Required: false,
+											Name:  mlTrainingFlagArgs,
+											Usage: "command line arguments to run the training script with, should be formatted as option1=value1,option2=value2",
 										},
 									},
 									Action: createCommandWithT[mlSubmitCustomTrainingJobArgs](MLSubmitCustomTrainingJob),
@@ -1520,10 +1520,9 @@ var app = &cli.App{
 									Name:  "with-upload",
 									Usage: "submits custom training job with an upload training script on data in Viam cloud",
 									UsageText: createUsageText("train submit custom with-upload",
-										[]string{
-											datasetFlagDatasetID, trainFlagModelOrgID, trainFlagModelName,
-											mlTrainingFlagPath, mlTrainingFlagName, mlTrainingFlagArgs,
-										}, true, false),
+										[]string{generalFlagOrgID, datasetFlagDatasetID, trainFlagModelOrgID, trainFlagModelName, mlTrainingFlagPath, mlTrainingFlagName},
+										true, false,
+									),
 									Flags: []cli.Flag{
 										&cli.StringFlag{
 											Name:     datasetFlagDatasetID,
@@ -1540,9 +1539,8 @@ var app = &cli.App{
 											Usage: "version of ML model. defaults to current timestamp if unspecified.",
 										},
 										&cli.StringFlag{
-											Name:     mlTrainingFlagURL,
-											Usage:    "url of Github repository associated with the training scripts",
-											Required: false,
+											Name:  mlTrainingFlagURL,
+											Usage: "url of Github repository associated with the training scripts",
 										},
 										&cli.StringFlag{
 											Name:     mlTrainingFlagPath,
@@ -1557,7 +1555,7 @@ var app = &cli.App{
 										&cli.StringFlag{
 											Name:     trainFlagModelOrgID,
 											Required: true,
-											Usage:    "organization ID to upload and run training job",
+											Usage:    "org ID to upload and run training job",
 										},
 										&cli.StringFlag{
 											Name:     mlTrainingFlagName,
@@ -1565,25 +1563,20 @@ var app = &cli.App{
 											Required: true,
 										},
 										&cli.StringFlag{
-											Name:     mlTrainingFlagVersion,
-											Usage:    "version of the ML training script to upload. defaults to current timestamp if unspecified.",
-											Required: false,
+											Name:  mlTrainingFlagVersion,
+											Usage: "version of the ML training script to upload. defaults to current timestamp if unspecified.",
 										},
 										&cli.StringFlag{
-											Name:     mlTrainingFlagFramework,
-											Usage:    "framework of the ML training script to upload, can be: " + strings.Join(modelFrameworks, ", "),
-											Required: false,
+											Name:  mlTrainingFlagFramework,
+											Usage: "framework of the ML training script to upload, can be: [" + strings.Join(modelFrameworks, ", ") + "]",
 										},
 										&cli.StringFlag{
-											Name:     trainFlagModelType,
-											Usage:    "task type of the ML training script to upload, can be: " + strings.Join(modelTypes, ", "),
-											Required: false,
+											Name:  trainFlagModelType,
+											Usage: "task type of the ML training script to upload, can be: [" + strings.Join(modelTypes, ", ") + "]",
 										},
 										&cli.StringSliceFlag{
-											Name: mlTrainingFlagArgs,
-											Usage: "optional command line arguments to run the training script with " +
-												"which should be formatted as option1=value1,option2=value2",
-											Required: false,
+											Name:  mlTrainingFlagArgs,
+											Usage: "command line arguments to run the training script with, should be formatted as option1=value1,option2=value2",
 										},
 									},
 									Action: createCommandWithT[mlSubmitCustomTrainingJobWithUploadArgs](MLSubmitCustomTrainingJobWithUpload),
@@ -1642,10 +1635,9 @@ var app = &cli.App{
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name:     trainFlagJobStatus,
-							Usage:    "training status to filter for. can be one of " + allTrainingStatusValues(),
-							Required: false,
-							Value:    defaultTrainingStatus(),
+							Name:  trainFlagJobStatus,
+							Usage: "training status to filter for. can be: " + allTrainingStatusValues(),
+							Value: defaultTrainingStatus(),
 						},
 					},
 					Action: createCommandWithT[dataListTrainingJobsArgs](DataListTrainingJobs),
