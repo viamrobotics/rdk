@@ -32,11 +32,12 @@ func newDiscovery(name resource.Name, logger logging.Logger) discovery.Service {
 	return &Discovery{Named: name.AsNamed(), logger: logger, cfgs: []resource.Config{cfg1, cfg2}}
 }
 
+// DiscoverResources returns the discovered resources.
 func (dis *Discovery) DiscoverResources(context.Context, map[string]any) ([]resource.Config, error) {
 	return dis.cfgs, nil
 }
 
-// Discovery is a fake Discovery service that returns
+// Discovery is a fake Discovery service that returns.
 type Discovery struct {
 	resource.Named
 	resource.TriviallyReconfigurable
@@ -46,12 +47,14 @@ type Discovery struct {
 }
 
 // DoCommand echos input back to the caller.
-func (fg *Discovery) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (dis *Discovery) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return cmd, nil
 }
 
 // createFakeConfig creates a fake component with the defined name, api, and attributes.
 // additionally the commented code is an example of how to take a model's Config and convert it into Attributes for the api.
+//
+//nolint:unparam
 func createFakeConfig(name string, api resource.API, attributes utils.AttributeMap) resource.Config {
 	// // using the camera's Config struct in case a breaking change occurs
 	// attributes := viamrtsp.Config{Address: address}
