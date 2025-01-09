@@ -135,8 +135,10 @@ func NewHandlerMapFromProto(ctx context.Context, pMap *pb.HandlerMap, conn rpc.C
 	var errs error
 	for _, h := range pMap.GetHandlers() {
 		api := protoutils.ResourceNameFromProto(h.Subtype.Subtype).API
+		// due to how tagger is setup in the proto we cannot use reflection on the discovery service currently
+		// for now we will add any registered models without a description,
+		// and rely on the builtin registered discovery service instead.
 		if api == discovery.API {
-			fmt.Println("yos skip")
 			rpcAPI := &resource.RPCAPI{
 				API: api,
 			}
@@ -151,9 +153,6 @@ func NewHandlerMapFromProto(ctx context.Context, pMap *pb.HandlerMap, conn rpc.C
 		}
 		symDesc, err := reflSource.FindSymbol(h.Subtype.ProtoService)
 		if err != nil {
-			if api == discovery.API {
-				fmt.Println("yos error")
-			}
 			errs = multierr.Combine(errs, err)
 			if errors.Is(err, grpcurl.ErrReflectionNotSupported) {
 				return nil, errs
