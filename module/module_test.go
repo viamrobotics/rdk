@@ -150,11 +150,6 @@ func TestModuleFunctions(t *testing.T) {
 		Api:   "rdk:component:base",
 		Model: "acme:demo:mybase",
 	}
-	// discoveryConf := &v1.ComponentConfig{
-	// 	Name: "mydis1",
-	// 	Api: "rdk:service:discovery",
-	// 	Model: "acme:demo:mydiscovery",
-	// }
 
 	cfg := &config.Config{Components: []resource.Config{
 		{
