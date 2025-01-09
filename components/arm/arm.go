@@ -59,6 +59,8 @@ func Named(name string) resource.Name {
 //	// Get the end position of the arm as a Pose.
 //	pos, err := myArm.EndPosition(context.Background(), nil)
 //
+// For more information, see the [EndPosition method docs].
+//
 // MoveToPosition example:
 //
 //	myArm, err := arm.FromRobot(machine, "my_arm")
@@ -71,6 +73,8 @@ func Named(name string) resource.Name {
 //	// Move your arm to the Pose.
 //	err = myArm.MoveToPosition(context.Background(), examplePose, nil)
 //
+// For more information, see the [MoveToPosition method docs].
+//
 // MoveToJointPositions example:
 //
 //	myArm, err := arm.FromRobot(machine, "my_arm")
@@ -80,6 +84,8 @@ func Named(name string) resource.Name {
 //
 //	// Move each joint of the arm to the positions specified in the above slice
 //	err = myArm.MoveToJointPositions(context.Background(), inputs, nil)
+//
+// For more information, see the [MoveToJointPositions method docs].
 //
 // MoveThroughJointPositions example:
 //
@@ -94,6 +100,8 @@ func Named(name string) resource.Name {
 //	// Move each joint of the arm through the positions in the slice defined above
 //	err = myArm.MoveThroughJointPositions(context.Background(), inputs, nil, nil)
 //
+// For more information, see the [MoveThroughJointPositions method docs].
+//
 // JointPositions example:
 //
 //	myArm , err := arm.FromRobot(machine, "my_arm")
@@ -101,7 +109,14 @@ func Named(name string) resource.Name {
 //	// Get the current position of each joint on the arm as JointPositions.
 //	pos, err := myArm.JointPositions(context.Background(), nil)
 //
+// For more information, see the [JointPositions method docs].
+//
 // [arm component docs]: https://docs.viam.com/components/arm/
+// [EndPosition method docs]: https://docs.viam.com/dev/reference/apis/components/arm/#getendposition
+// [MoveToPosition method docs]: https://docs.viam.com/dev/reference/apis/components/arm/#movetoposition
+// [MoveToJointPositions method docs]: https://docs.viam.com/dev/reference/apis/components/arm/#movetojointpositions
+// [MoveThroughJointPositions method docs]: https://docs.viam.com/dev/reference/apis/components/arm/#movethroughjointpositions 
+// [JointPositions method docs]: https://docs.viam.com/dev/reference/apis/components/arm/#getjointpositions
 type Arm interface {
 	resource.Resource
 	referenceframe.ModelFramer
