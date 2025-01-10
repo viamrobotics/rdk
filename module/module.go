@@ -140,6 +140,7 @@ func NewHandlerMapFromProto(ctx context.Context, pMap *pb.HandlerMap, conn rpc.C
 		}
 		// due to how tagger is setup in the api we cannot use reflection on the discovery service currently
 		// for now we will skip the reflection step for discovery until the issue is resolved.
+		// TODO(RSDK-9718) - remove the skip.
 		if api != discovery.API {
 			symDesc, err := reflSource.FindSymbol(h.Subtype.ProtoService)
 			if err != nil {
