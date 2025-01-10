@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"runtime/pprof"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/invopop/jsonschema"
@@ -348,7 +349,11 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	forceShutdown := make(chan struct{})
 	defer func() { <-forceShutdown }()
 
-	var cloudRestartCheckerActive chan struct{}
+	var (
+		theRobot                  robot.LocalRobot
+		theRobotLock              sync.Mutex
+		cloudRestartCheckerActive chan struct{}
+	)
 	rpcDialer := rpc.NewCachedDialer()
 	defer func() {
 		if cloudRestartCheckerActive != nil {
@@ -378,6 +383,12 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 				case <-doneServing:
 					return true
 				default:
+					theRobotLock.Lock()
+					robot := theRobot
+					theRobotLock.Unlock()
+					if robot != nil {
+						robot.Kill()
+					}
 					s.logger.Fatalw("server failed to cleanly shutdown after deadline", "deadline", hungShutdownDeadline)
 					return true
 				}
@@ -493,8 +504,11 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		cancel()
 		return err
 	}
+	theRobotLock.Lock()
+	theRobot = myRobot
+	theRobotLock.Unlock()
 	defer func() {
-		err = multierr.Combine(err, myRobot.Close(context.Background()))
+		err = multierr.Combine(err, theRobot.Close(context.Background()))
 	}()
 
 	// watch for and deliver changes to the robot
@@ -514,7 +528,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		// Use `fullProcessedConfig` as the initial config for the config watcher
 		// goroutine, as we want incoming config changes to be compared to the full
 		// config.
-		s.configWatcher(ctx, fullProcessedConfig, myRobot, watcher)
+		s.configWatcher(ctx, fullProcessedConfig, theRobot, watcher)
 	}()
 	// At end of this function, cancel context and wait for watcher goroutine
 	// to complete.
@@ -528,7 +542,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	if err != nil {
 		return err
 	}
-	return web.RunWeb(ctx, myRobot, options, s.logger)
+	return web.RunWeb(ctx, theRobot, options, s.logger)
 }
 
 // dumpResourceRegistrations prints all builtin resource registrations as a json array
