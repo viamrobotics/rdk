@@ -51,7 +51,8 @@ type resourceManager struct {
 	resources      *resource.Graph
 	processManager pexec.ProcessManager
 	processConfigs map[string]pexec.ProcessConfig
-	// modManagerLock controls access to the moduleManager
+	// modManagerLock controls access to the moduleManager and prevents a data race.
+	// This may happen if Kill() or Close() is called concurrently with startModuleManager.
 	modManagerLock sync.Mutex
 	moduleManager  modif.ModuleManager
 	opts           resourceManagerOptions

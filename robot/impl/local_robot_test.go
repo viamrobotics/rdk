@@ -2182,7 +2182,7 @@ func TestResourcelessModuleRemove(t *testing.T) {
 }
 
 func TestKill(t *testing.T) {
-	// this test will not pass in CI as the managed process's manage goroutine
+	// RSDK-9722: this test will not pass in CI as the managed process's manage goroutine
 	// will not return from Wait() and thus fail the goroutine leak detection.
 	t.Skip()
 	ctx := context.Background()

@@ -211,9 +211,10 @@ func (mgr *Manager) Close(ctx context.Context) error {
 	return err
 }
 
-// Kill kills module processes. This is best effort as we do not
-// have a lock during this function. Taking the lock will mean that
-// we may be blocked, and we do not want to be blocked.
+// Kill will kill all processes in the module's process group.
+// This is best effort as we do not have a lock during this
+// function. Taking the lock will mean that we may be blocked,
+// and we do not want to be blocked.
 func (mgr *Manager) Kill() {
 	if mgr.restartCtxCancel != nil {
 		mgr.restartCtxCancel()
@@ -221,7 +222,7 @@ func (mgr *Manager) Kill() {
 	// sync.Map's Range does not block other methods on the map;
 	// even f itself may call any method on the map.
 	mgr.modules.Range(func(_ string, mod *module) bool {
-		mod.killProcess()
+		mod.killProcessGroup()
 		return true
 	})
 }
@@ -1262,7 +1263,7 @@ func (m *module) stopProcess() error {
 	return nil
 }
 
-func (m *module) killProcess() {
+func (m *module) killProcessGroup() {
 	if m.process == nil {
 		return
 	}
