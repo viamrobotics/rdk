@@ -1427,7 +1427,7 @@ func TestFTDCAfterModuleCrash(t *testing.T) {
 
 	// Kill the module a few times for good measure.
 	for idx := 0; idx < 3; idx++ {
-		_, err = res.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
+		_, _ = res.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
 
 		// FTDC is running in the background with a one second interval. So we sleep for two seconds
 		// and cross our fingers we don't get a poor scheduler execution. The assertions are
@@ -1440,6 +1440,7 @@ func TestFTDCAfterModuleCrash(t *testing.T) {
 	opts.FTDC.StopAndJoin(ctx)
 
 	datums, err := ftdc.Parse(ftdcData)
+	test.That(t, err, test.ShouldBeNil)
 	logger.Info("Num ftdc datums: ", len(datums))
 
 	// Keep count of the number of `ElapsedTimeSecs` readings we encounter. It is a testing bug if
