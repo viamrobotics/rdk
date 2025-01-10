@@ -16,20 +16,13 @@ func init() {
 	resource.RegisterService(
 		discovery.API,
 		resource.DefaultModelFamily.WithModel("fake"),
-		resource.Registration[discovery.Service, resource.NoNativeConfig]{Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger logging.Logger,
-		) (discovery.Service, error) {
-			return newDiscovery(conf.ResourceName(), logger), nil
-		}})
+		resource.Registration[discovery.Service, resource.NoNativeConfig]{Constructor:  newDiscovery})
 }
 
-func newDiscovery(name resource.Name, logger logging.Logger) discovery.Service {
+func newDiscovery(_ context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger ) discovery.Service {
 	cfg1 := createFakeConfig("fake1", movementsensor.API, nil)
 	cfg2 := createFakeConfig("fake2", camera.API, nil)
-	return &Discovery{Named: name.AsNamed(), logger: logger, cfgs: []resource.Config{cfg1, cfg2}}
+	return &Discovery{Named: conf.ResourceName().AsNamed(), logger: logger, cfgs: []resource.Config{cfg1, cfg2}}
 }
 
 // DiscoverResources returns the discovered resources.
@@ -37,7 +30,7 @@ func (dis *Discovery) DiscoverResources(context.Context, map[string]any) ([]reso
 	return dis.cfgs, nil
 }
 
-// Discovery is a fake Discovery service that returns.
+// Discovery is a fake Discovery service.
 type Discovery struct {
 	resource.Named
 	resource.TriviallyReconfigurable

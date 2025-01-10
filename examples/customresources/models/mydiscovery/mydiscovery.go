@@ -39,7 +39,7 @@ func (dis *Discovery) DiscoverResources(context.Context, map[string]any) ([]reso
 	return dis.cfgs, nil
 }
 
-// Discovery is a fake Discovery service that returns.
+// Discovery is a fake Discovery service.
 type Discovery struct {
 	resource.Named
 	resource.TriviallyReconfigurable
