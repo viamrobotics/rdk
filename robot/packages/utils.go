@@ -391,6 +391,11 @@ func readStatusFile(pkg config.PackageConfig, packagesDir string) (packageSyncFi
 
 func writeStatusFile(pkg config.PackageConfig, statusFile packageSyncFile, packagesDir string) error {
 	syncFileName := getSyncFileName(pkg.LocalDataDirectory(packagesDir))
+	if runtime.GOOS == "windows" {
+		if err := os.MkdirAll(pkg.LocalDataDirectory(packagesDir), os.ModeDir); err != nil {
+			return err
+		}
+	}
 
 	statusFileBytes, err := json.MarshalIndent(statusFile, "", "  ")
 	if err != nil {
