@@ -2662,7 +2662,8 @@ This won't work unless you have an existing installation of our GitHub app on yo
 					Usage: "register a third party auth application",
 					UsageText: createUsageText("auth-app register",
 						[]string{
-							generalFlagOrgID, authApplicationFlagName, authApplicationFlagOriginURIs, authApplicationFlagRedirectURIs, authApplicationFlagLogoutURI,
+							generalFlagOrgID, authApplicationFlagName, authApplicationFlagOriginURIs,
+							authApplicationFlagRedirectURIs, authApplicationFlagLogoutURI,
 						}, false, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
@@ -2731,8 +2732,8 @@ This won't work unless you have an existing installation of our GitHub app on yo
 					Action: createCommandWithT[updateAuthApplicationArgs](UpdateAuthApplicationAction),
 				},
 				{
-					Name:  "get",
-					Usage: "get configuration for a third party auth application",
+					Name:      "get",
+					Usage:     "get configuration for a third party auth application",
 					UsageText: createUsageText("auth-app get", []string{generalFlagOrgID, authApplicationFlagApplicationID}, false, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
@@ -2751,10 +2752,10 @@ This won't work unless you have an existing installation of our GitHub app on yo
 			},
 		},
 		{
-			Name:   "version",
-			Usage:  "print version info for this program",
+			Name:      "version",
+			Usage:     "print version info for this program",
 			UsageText: createUsageText("version", nil, false, false),
-			Action: createCommandWithT[emptyArgs](VersionAction),
+			Action:    createCommandWithT[emptyArgs](VersionAction),
 		},
 	},
 }
