@@ -13,7 +13,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -70,13 +69,6 @@ func NewCloudManager(
 	packagesDir string,
 	logger logging.Logger,
 ) (ManagerSyncer, error) {
-	if runtime.GOOS == "windows" {
-		var err error
-		packagesDir, err = filepath.Abs(packagesDir)
-		if err != nil {
-			return nil, err
-		}
-	}
 	packagesDataDir := filepath.Join(packagesDir, "data")
 
 	if err := os.MkdirAll(packagesDir, 0o700); err != nil {
