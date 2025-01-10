@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 )
 
@@ -99,6 +100,68 @@ func TestSyntheticModule(t *testing.T) {
 		notTarPath, err := modNotTar.EvaluateExePath(tmp)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, notTarPath, test.ShouldEqual, modNotTar.ExePath)
+	})
+}
+
+func TestGetJSONManifest(t *testing.T) {
+	validJSONManifest := JSONManifest{Entrypoint: "entry"}
+
+	t.Run("RegistryModule", func(t *testing.T) {
+		tmp := t.TempDir()
+
+		topLevelDir := tmp
+		topLevelMetaJSONFilepath := filepath.Join(topLevelDir, "meta.json")
+		unpackedModDir := filepath.Join(tmp, "unpacked-mod-dir")
+		unpackedModMetaJSONFilepath := filepath.Join(unpackedModDir, "meta.json")
+		env := make(map[string]string, 1)
+		modRegistry := Module{Type: ModuleTypeRegistry}
+
+		err := os.Mkdir(unpackedModDir, 0700)
+
+		// meta.json not found; only unpacked module directory searched
+		meta, moduleWorkingDirectory, err := modRegistry.getJSONManifest(unpackedModDir, env)
+		test.That(t, meta, test.ShouldBeNil)
+		test.That(t, moduleWorkingDirectory, test.ShouldBeEmpty)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "registry module")
+		test.That(t, errors.Is(err, os.ErrNotExist), test.ShouldBeTrue)
+		test.That(t, err.Error(), test.ShouldContainSubstring, unpackedModMetaJSONFilepath)
+		test.That(t, err.Error(), test.ShouldNotContainSubstring, topLevelMetaJSONFilepath)
+
+		// meta.json not found; top level module directory and unpacked module directories searched
+		env["VIAM_MODULE_ROOT"] = tmp
+
+		meta, moduleWorkingDirectory, err = modRegistry.getJSONManifest(unpackedModDir, env)
+		test.That(t, meta, test.ShouldBeNil)
+		test.That(t, moduleWorkingDirectory, test.ShouldBeEmpty)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "registry module")
+		test.That(t, errors.Is(err, os.ErrNotExist), test.ShouldBeTrue)
+		test.That(t, err.Error(), test.ShouldContainSubstring, unpackedModMetaJSONFilepath)
+		test.That(t, err.Error(), test.ShouldContainSubstring, topLevelMetaJSONFilepath)
+
+		// meta.json found in unpacked modular directory; parsing fails
+		unpackedModMetaJSONFile, err := os.Create(unpackedModMetaJSONFilepath)
+		test.That(t, err, test.ShouldBeNil)
+		defer unpackedModMetaJSONFile.Close()
+
+		meta, moduleWorkingDirectory, err = modRegistry.getJSONManifest(unpackedModDir, env)
+		test.That(t, meta, test.ShouldBeNil)
+		test.That(t, moduleWorkingDirectory, test.ShouldBeEmpty)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "registry module")
+		test.That(t, errors.Is(err, os.ErrNotExist), test.ShouldBeFalse)
+
+		// meta.json found in unpacked modular directory; parsing succeeds
+		testWriteJSON(t, unpackedModMetaJSONFilepath, validJSONManifest)
+
+		meta, moduleWorkingDirectory, err = modRegistry.getJSONManifest(unpackedModDir, env)
+		test.That(t, *meta, test.ShouldResemble, validJSONManifest)
+		test.That(t, moduleWorkingDirectory, test.ShouldEqual, unpackedModDir)
+		test.That(t, err, test.ShouldBeNil)
+
+		// meta.json found in top level modular directory; parsing fails
+		// meta.json found in top level modular directory; parsing succeeds
 	})
 }
 
