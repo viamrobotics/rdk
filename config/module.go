@@ -402,7 +402,7 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 			if err != nil {
 				// return from getJSONManifest() if the error returned does NOT indicate that the file wasn't found
 				if !os.IsNotExist(err) {
-					return nil, "", err
+					return nil, "", errors.Wrap(err, "registry module")
 				}
 			}
 
@@ -419,7 +419,11 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 		meta, err := findMetaJSONFile(unpackedModDir)
 		if err != nil {
 			if !os.IsNotExist(err) {
-				return nil, "", err
+				if online {
+					return nil, "", errors.Wrap(err, "registry module")
+				}
+
+				return nil, "", errors.Wrap(err, "local non-tarball")
 			}
 		}
 
@@ -438,7 +442,7 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 		meta, err := findMetaJSONFile(exeDir)
 		if err != nil {
 			if !os.IsNotExist(err) {
-				return nil, "", err
+				return nil, "", errors.Wrap(err, "local tarball")
 			}
 		}
 
@@ -449,16 +453,16 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 
 	if online {
 		if !ok {
-			return nil, "", errors.Errorf("VIAM_MODULE_ROOT not set. Searched instead in executable directory %s but failed to find meta.json",
+			return nil, "", errors.Errorf("registry module: VIAM_MODULE_ROOT not set. Searched instead in executable directory %s but failed to find meta.json",
 				unpackedModDir)
 		}
 
-		return nil, "", errors.Errorf("failed to find meta.json. Searched in executable directory %s and path set by VIAM_MODULE_ROOT %s",
+		return nil, "", errors.Errorf("registry module: failed to find meta.json. Searched in executable directory %s and path set by VIAM_MODULE_ROOT %s",
 			moduleWorkingDirectory, unpackedModDir)
 	}
 
 	if !localNonTarball {
-		return nil, "", errors.Errorf("failed to find meta.json. Searched in %s and executable directory %s", unpackedModDir, exeDir)
+		return nil, "", errors.Errorf("local non-tarball: failed to find meta.json. Searched in %s and executable directory %s", unpackedModDir, exeDir)
 	}
 
 	return nil, "", errors.Errorf("local tarball: failed to find meta.json. Searched only in %s", exeDir)
