@@ -6,12 +6,15 @@ package server
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"net"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
@@ -30,6 +33,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/session"
+	"go.viam.com/rdk/tunnel"
 )
 
 // logTSKey is the key used in conjunction with the timestamp of logs received
@@ -54,6 +58,49 @@ func New(robot robot.Robot) pb.RobotServiceServer {
 
 // Close cleanly shuts down the server.
 func (s *Server) Close() {
+}
+
+// Tunnel tunnels traffic to/from the client from/to a specified port on the server.
+func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
+	req, err := srv.Recv()
+	if err != nil {
+		return fmt.Errorf("failed to receive first message from stream: %w", err)
+	}
+
+	dest := strconv.Itoa(int(req.DestinationPort))
+	s.robot.Logger().CDebugw(srv.Context(), "dialing to destination port", "port", dest)
+
+	dialTimeout := 10 * time.Second
+	conn, err := net.DialTimeout("tcp", net.JoinHostPort("localhost", dest), dialTimeout)
+	if err != nil {
+		return fmt.Errorf("failed to dial to destination port %v: %w", dest, err)
+	}
+	s.robot.Logger().CDebugw(srv.Context(), "successfully dialed to destination port, creating tunnel", "port", dest)
+
+	var (
+		wg              sync.WaitGroup
+		readerSenderErr error
+	)
+	wg.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer func() {
+			wg.Done()
+		}()
+		sendFunc := func(data []byte) error { return srv.Send(&pb.TunnelResponse{Data: data}) }
+		readerSenderErr = tunnel.ReaderSenderLoop(srv.Context(), conn, sendFunc, s.robot.Logger())
+	})
+	recvFunc := func() ([]byte, error) {
+		req, err := srv.Recv()
+		if err != nil {
+			return nil, err
+		}
+		return req.Data, nil
+	}
+	recvWriterErr := tunnel.RecvWriterLoop(srv.Context(), conn, recvFunc, s.robot.Logger())
+	// close the connection to unblock the read
+	conn.Close()
+	wg.Wait()
+	return errors.Join(readerSenderErr, recvWriterErr)
 }
 
 // GetOperations lists all running operations.
@@ -201,7 +248,7 @@ func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverCompone
 	for _, discovery := range discoveries {
 		pbResults, err := vprotoutils.StructToStructPb(discovery.Results)
 		if err != nil {
-			return nil, errors.Wrapf(err, "unable to construct a structpb.Struct from discovery for %q", discovery.Query)
+			return nil, fmt.Errorf("unable to construct a structpb.Struct from discovery for %q: %w", discovery.Query, err)
 		}
 		extra, err := structpb.NewStruct(discovery.Query.Extra)
 		if err != nil {
@@ -386,7 +433,7 @@ func (s *Server) Log(ctx context.Context, req *pb.LogRequest) (*pb.LogResponse, 
 	for _, fieldP := range log.Fields {
 		field, err := logging.FieldFromProto(fieldP)
 		if err != nil {
-			return nil, errors.Wrap(err, "error converting LogRequest log field from proto")
+			return nil, fmt.Errorf("error converting LogRequest log field from proto: %w", err)
 		}
 		fields = append(fields, field)
 	}

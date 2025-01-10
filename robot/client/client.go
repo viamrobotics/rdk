@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -47,6 +48,7 @@ import (
 	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/tunnel"
 	"go.viam.com/rdk/utils/contextutils"
 )
 
@@ -1188,6 +1190,64 @@ func (rc *RobotClient) Version(ctx context.Context) (robot.VersionResponse, erro
 	mVersion.APIVersion = resp.ApiVersion
 
 	return mVersion, nil
+}
+
+// Tunnel tunnels data to/from the read writer from/to the destination port on the server. This
+// function will close the connection passed in as part of cleanup.
+func (rc *RobotClient) Tunnel(ctx context.Context, conn net.Conn, dest int) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	client, err := rc.client.Tunnel(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := client.Send(&pb.TunnelRequest{
+		DestinationPort: uint32(dest),
+	}); err != nil {
+		return err
+	}
+	rc.Logger().CDebugw(ctx, "creating tunnel to server", "port", dest)
+	var (
+		wg              sync.WaitGroup
+		readerSenderErr error
+	)
+	wg.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer func() {
+			// we communicate an end to the stream by calling CloseSend(),
+			// which is why we don't need an EOF field on the request message.
+			client.CloseSend()
+			// By cancelling this ctx, we will close the client, meaning client.Recv() in the RecvWriterLoop will exit
+			// and return an error.
+			//
+			// NOTE(cheukt): This will cause DEBUG messages from WebRTC stating `no stream for id; discarding`
+			// to show up because the handler will have exited before we receive the last messages from the server.
+			// This is not an issue and is expected.
+			//
+			// TODO: Don't log `no stream for id; discarding` if client is canceled.
+			cancel()
+			wg.Done()
+		}()
+		sendFunc := func(data []byte) error { return client.Send(&pb.TunnelRequest{Data: data}) }
+		readerSenderErr = tunnel.ReaderSenderLoop(ctx, conn, sendFunc, rc.logger)
+	})
+
+	recvFunc := func() ([]byte, error) {
+		resp, err := client.Recv()
+		if err != nil {
+			return nil, err
+		}
+		return resp.Data, nil
+	}
+	recvWriterErr := tunnel.RecvWriterLoop(ctx, conn, recvFunc, rc.logger)
+	cancel()
+	// We do close the connection to unblock the reader/sender loop, which is not clean
+	// but there isn't a cleaner way to exit from the reader/sender loop.
+	err = conn.Close()
+
+	wg.Wait()
+	return errors.Join(err, readerSenderErr, recvWriterErr)
 }
 
 func unaryClientInterceptor() googlegrpc.UnaryClientInterceptor {
