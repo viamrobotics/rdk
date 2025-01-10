@@ -458,10 +458,10 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 	}
 
 	if !localNonTarball {
-		return nil, "", errors.Errorf("failed to find meta.json. Searched in %s and %s", unpackedModDir, exeDir)
+		return nil, "", errors.Errorf("failed to find meta.json. Searched in %s and executable directory %s", unpackedModDir, exeDir)
 	}
 
-	return nil, "", errors.Errorf("failed to find meta.json. Searched only in %s", exeDir)
+	return nil, "", errors.Errorf("local tarball: failed to find meta.json. Searched only in %s", exeDir)
 }
 
 func findMetaJSONFile(dir string) (*JSONManifest, error) {
