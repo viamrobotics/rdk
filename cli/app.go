@@ -549,9 +549,7 @@ var app = &cli.App{
 								{
 									Name:  "list",
 									Usage: "list oauth applications for an organization",
-									UsageText: createUsageText(
-										"organizations auth-service oauth-app list", []string{generalFlagOrgID}, false, false,
-									),
+									UsageText: createUsageText("organizations auth-service oauth-app list", []string{generalFlagOrgID}, false, false),
 									Flags: []cli.Flag{
 										&cli.StringFlag{
 											Name:     generalFlagOrgID,
