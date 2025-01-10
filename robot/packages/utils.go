@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -85,7 +86,16 @@ func installPackage(
 		return err
 	}
 
-	err = os.Rename(tmpDataPath, p.LocalDataDirectory(packagesDir))
+	renameDest := p.LocalDataDirectory(packagesDir)
+	if runtime.GOOS == "windows" {
+		if _, err := os.Stat(renameDest); err == nil {
+			logger.Debug("package rename destination exists, deleting")
+			if err := os.RemoveAll(renameDest); err != nil {
+				logger.Warnf("ignoring error from removing rename dest %s", err)
+			}
+		}
+	}
+	err = os.Rename(tmpDataPath, renameDest)
 	if err != nil {
 		utils.UncheckedError(cleanup(packagesDir, p))
 		return err
