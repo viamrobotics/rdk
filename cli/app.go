@@ -508,7 +508,7 @@ var app = &cli.App{
 						{
 							Name:      "disable",
 							Usage:     "disable auth-service for OAuth applications",
-							UsageText: createUsageText("disable", []string{generalFlagOrgID}, false, false),
+							UsageText: createUsageText("organizations auth-service disable", []string{generalFlagOrgID}, false, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     generalFlagOrgID,
