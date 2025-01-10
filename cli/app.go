@@ -562,8 +562,8 @@ var app = &cli.App{
 									Action: createCommandWithT[listOAuthAppsArgs](ListOAuthAppsAction),
 								},
 								{
-									Name:      "read",
-									Usage:     "read the OAuth configuration details",
+									Name:  "read",
+									Usage: "read the OAuth configuration details",
 									UsageText: createUsageText(
 										"organizations auth-service oauth-app read", []string{generalFlagOrgID, oauthAppFlagClientID}, false, false,
 									),
