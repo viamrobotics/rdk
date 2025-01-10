@@ -550,9 +550,42 @@ func TestLoggingDeduplication(t *testing.T) {
 	assertLogMatches(t, notStdout,
 		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	foo	{"key":"value"}`)
 
-	// TODO(benji): Add the following assertions to test more deduplication logic.
-	//
 	// Assert that using a different sublogger uses separate aggregation.
+	separateLoggerWith := logger.Sublogger("sub").WithFields("key", "value")
+	for range 3 {
+		separateLoggerWith.Info(identicalMsg)
+		assertLogMatches(t, notStdout,
+			`2023-10-30T13:19:45.806Z	INFO	impl.sub	logging/impl_test.go:132	identical message	{"key":"value"}`)
+		loggerWith.Info(identicalMsg)
+		assertLogMatches(t, notStdout,
+			`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"key":"value"}`)
+	}
+
+	time.Sleep(noisyMessageWindowDuration) // Sleep to reset window.
+
 	// Assert that using different fields uses separate aggregation.
+	for range 3 {
+		loggerWith.Infow(identicalMsg, "newkey", "newvalue")
+		assertLogMatches(t, notStdout,
+			`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"newkey":"newvalue","key":"value"}`)
+		loggerWith.Info(identicalMsg)
+		assertLogMatches(t, notStdout,
+			`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"key":"value"}`)
+	}
+
+	time.Sleep(noisyMessageWindowDuration) // Sleep to reset window.
+
 	// Assert that using different levels does _not_ use separate aggregation.
+	for range 3 {
+		loggerWith.Info(identicalMsg)
+		assertLogMatches(t, notStdout,
+			`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"key":"value"}`)
+	}
+	loggerWith.Error(identicalMsg) // not output due to being noisy
+	time.Sleep(noisyMessageWindowDuration)
+	loggerWith.Info("foo") // log arbitrary message to force output of aggregated message
+	assertLogMatches(t, notStdout,
+		`2023-10-30T13:19:45.806Z	ERROR	impl	logging/impl_test.go:132	Message logged 4 times in past 500ms: identical message	{"key":"value"}`)
+	assertLogMatches(t, notStdout,
+		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	foo	{"key":"value"}`)
 }
