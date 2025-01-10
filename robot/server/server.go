@@ -7,6 +7,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
+	"net"
 	"strings"
 	"time"
 
@@ -54,6 +56,121 @@ func New(robot robot.Robot) pb.RobotServiceServer {
 
 // Close cleanly shuts down the server.
 func (s *Server) Close() {
+}
+
+func (s *Server) Traffic(srv pb.RobotService_TrafficServer) (retErr error) {
+	// firstMsg := true
+	// req, err := srv.Recv()
+	// errTemp := err
+
+	// ctx, cancel := context.WithCancel(srv.Context())
+
+	for {
+		if srv.Context().Err() != nil {
+			return nil
+		}
+		// start something here
+		c1, err := net.Dial("tcp", net.JoinHostPort("localhost", "8081"))
+		if err != nil {
+			return errors.New("failed to dial to destination")
+		}
+
+		// utils.PanicCapturingGo(func() {
+		// 	defer cancel()
+		// 	// close connections here
+		// })
+
+		var eof bool
+		utils.PanicCapturingGo(func() {
+			defer c1.Close()
+			for {
+				if srv.Context().Err() != nil || eof {
+					eof = true
+					return
+				}
+				// if firstMsg {
+				// 	firstMsg = false
+				// 	err = errTemp
+				// } else {
+				// 	req, err = srv.Recv()
+				// }
+				req, err := srv.Recv()
+				if err != nil {
+					fmt.Printf("recv loop err: %v\n", err)
+					eof = true
+					return
+				}
+
+				if len(req.DataIn) == 0 {
+					continue
+				}
+				fmt.Printf("len(req.DataIn): %v\n", len(req.DataIn))
+				if req.Eof {
+					fmt.Printf("eof received")
+					eof = true
+					return
+				}
+				in := bytes.NewReader(req.DataIn)
+				_, err = io.Copy(c1, in)
+				if err != nil {
+					fmt.Printf("copy err: %v\n", err)
+					eof = true
+					return
+				}
+			}
+		})
+
+		for {
+			defer c1.Close()
+			if srv.Context().Err() != nil || eof {
+				eof = true
+				return
+			}
+			// var b bytes.Buffer
+			// _, err = io.Copy(&b, c1)
+			// if err != nil {
+			// 	fmt.Printf("err: %v\n", err)
+			// 	return
+			// }
+			// if b.Len() == 0 {
+			// 	continue
+			// }
+			// fmt.Printf("b.Len(): %v\n", b.Len())
+			// if err := srv.Send(&pb.TrafficResponse{
+			// 	DataOut: b.Bytes(),
+			// }); err != nil {
+			// 	s.robot.Logger().CErrorw(srv.Context(), "error sending data", "error", err)
+			// 	return
+			// }
+
+			// copying io.Copy's default buffer size
+			size := 32 * 1024
+			buf := make([]byte, size)
+			nr, err := c1.Read(buf)
+
+			if err != nil {
+				fmt.Printf("send loop err: %v\n", err)
+				eof = true
+				if err := srv.Send(&pb.TrafficResponse{
+					Eof: true,
+				}); err != nil {
+					s.robot.Logger().CErrorw(srv.Context(), "error sending eof", "error", err)
+				}
+				return
+			}
+			if nr == 0 {
+				continue
+			}
+			fmt.Printf("Len(): %v\n", len(buf))
+			if err := srv.Send(&pb.TrafficResponse{
+				DataOut: buf,
+			}); err != nil {
+				eof = true
+				s.robot.Logger().CErrorw(srv.Context(), "error sending data", "error", err)
+				return
+			}
+		}
+	}
 }
 
 // GetOperations lists all running operations.
