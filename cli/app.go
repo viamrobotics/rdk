@@ -2570,12 +2570,13 @@ This won't work unless you have an existing installation of our GitHub app on yo
 		{
 			Name:            "training-script",
 			Usage:           "manage training scripts for custom ML training",
+			UsageText:       createUsageText("training-script", nil, false, true),
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
 				{
 					Name:      "upload",
 					Usage:     "upload ML training scripts for custom ML training",
-					UsageText: createUsageText("training-script upload", []string{mlTrainingFlagPath, mlTrainingFlagName}, true, false),
+					UsageText: createUsageText("training-script upload", []string{generalFlagOrgID, mlTrainingFlagPath, mlTrainingFlagName}, true, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     mlTrainingFlagPath,
@@ -2593,32 +2594,26 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name:     mlTrainingFlagVersion,
-							Usage:    "version of the ML training script to upload",
-							Required: false,
+							Name:  mlTrainingFlagVersion,
+							Usage: "version of the ML training script to upload",
 						},
 						&cli.StringFlag{
-							Name:     mlTrainingFlagFramework,
-							Usage:    "framework of the ML training script to upload, can be: " + strings.Join(modelFrameworks, ", "),
-							Required: false,
+							Name:  mlTrainingFlagFramework,
+							Usage: fmt.Sprintf("framework of the ML training script to upload, can be: [%s]", strings.Join(modelFrameworks, ", ")),
 						},
 						&cli.StringFlag{
-							Name:     mlTrainingFlagType,
-							Usage:    "task type of the ML training script to upload, can be: " + strings.Join(modelTypes, ", "),
-							Required: false,
+							Name:  mlTrainingFlagType,
+							Usage: fmt.Sprintf("task type of the ML training script to upload, can be: [%s]", strings.Join(modelTypes, ", ")),
 						},
 						&cli.BoolFlag{
-							Name:     mlTrainingFlagDraft,
-							Usage:    "indicate draft mode, drafts will not be viewable in the registry",
-							Required: false,
+							Name:  mlTrainingFlagDraft,
+							Usage: "indicate draft mode, drafts will not be viewable in the registry",
 						},
 						&cli.StringFlag{
-							Name:     mlTrainingFlagURL,
-							Usage:    "url of Github repository associated with the training scripts",
-							Required: false,
+							Name:  mlTrainingFlagURL,
+							Usage: "url of Github repository associated with the training scripts",
 						},
 					},
-					// Upload action
 					Action: createCommandWithT[mlTrainingUploadArgs](MLTrainingUploadAction),
 				},
 				{
@@ -2644,14 +2639,12 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name:     mlTrainingFlagDescription,
-							Usage:    "description of the ML training script",
-							Required: false,
+							Name:  mlTrainingFlagDescription,
+							Usage: "description of the ML training script",
 						},
 						&cli.StringFlag{
-							Name:     mlTrainingFlagURL,
-							Usage:    "url of Github repository associated with the training scripts",
-							Required: false,
+							Name:  mlTrainingFlagURL,
+							Usage: "url of Github repository associated with the training scripts",
 						},
 					},
 					Action: createCommandWithT[mlTrainingUpdateArgs](MLTrainingUpdateAction),
