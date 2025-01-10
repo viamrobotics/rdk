@@ -867,6 +867,10 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 				"error", err)
 		}
 
+		if mgr.ftdc != nil {
+			mgr.ftdc.Remove(mod.getFTDCName())
+		}
+
 		// If attemptRestart returns any orphaned resource names, restart failed,
 		// and we should remove orphaned resources. Since we handle process
 		// restarting ourselves, return false here so goutils knows not to attempt
@@ -1226,7 +1230,7 @@ func (m *module) stopProcess() error {
 		// of metrics will be reported. Therefore it is safe to continue monitoring the module process
 		// while it's in shutdown.
 		if m.ftdc != nil {
-			m.ftdc.Remove(m.process.ID())
+			m.ftdc.Remove(m.getFTDCName())
 		}
 	}()
 
@@ -1348,6 +1352,10 @@ func (m *module) getFullEnvironment(viamHomeDir string) map[string]string {
 	return getFullEnvironment(m.cfg, m.dataDir, viamHomeDir)
 }
 
+func (m *module) getFTDCName() string {
+	return fmt.Sprintf("proc.modules.%s", m.process.ID())
+}
+
 func (m *module) registerProcessWithFTDC() {
 	if m.ftdc == nil {
 		return
@@ -1365,7 +1373,7 @@ func (m *module) registerProcessWithFTDC() {
 		return
 	}
 
-	m.ftdc.Add(fmt.Sprintf("proc.modules.%s", m.process.ID()), statser)
+	m.ftdc.Add(m.getFTDCName(), statser)
 }
 
 func getFullEnvironment(
