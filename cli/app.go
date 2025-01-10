@@ -2654,16 +2654,16 @@ This won't work unless you have an existing installation of our GitHub app on yo
 		{
 			Name:            "auth-app",
 			Usage:           "manage third party auth applications",
+			UsageText:       createUsageText("auth-app", nil, false, true),
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
 				{
 					Name:  "register",
 					Usage: "register a third party auth application",
-					UsageText: createUsageText("auth-app register", []string{
-						generalFlagOrgID,
-						authApplicationFlagName, authApplicationFlagOriginURIs, authApplicationFlagRedirectURIs,
-						authApplicationFlagLogoutURI,
-					}, false, false),
+					UsageText: createUsageText("auth-app register",
+						[]string{
+							generalFlagOrgID, authApplicationFlagName, authApplicationFlagOriginURIs, authApplicationFlagRedirectURIs, authApplicationFlagLogoutURI,
+						}, false, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     generalFlagOrgID,
@@ -2696,11 +2696,9 @@ This won't work unless you have an existing installation of our GitHub app on yo
 				{
 					Name:  "update",
 					Usage: "update a third party auth application",
-					UsageText: createUsageText("auth-app update", []string{
-						generalFlagOrgID,
-						authApplicationFlagApplicationID, authApplicationFlagName, authApplicationFlagOriginURIs,
-						authApplicationFlagRedirectURIs, authApplicationFlagLogoutURI,
-					}, false, false),
+					UsageText: createUsageText(
+						"auth-app update", []string{generalFlagOrgID, authApplicationFlagApplicationID, authApplicationFlagName}, false, false,
+					),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     generalFlagOrgID,
@@ -2718,19 +2716,16 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Required: true,
 						},
 						&cli.StringSliceFlag{
-							Name:     authApplicationFlagOriginURIs,
-							Usage:    "updated origin uris for the auth application",
-							Required: false,
+							Name:  authApplicationFlagOriginURIs,
+							Usage: "updated origin uris for the auth application",
 						},
 						&cli.StringSliceFlag{
-							Name:     authApplicationFlagRedirectURIs,
-							Usage:    "updated redirect uris for the auth application",
-							Required: false,
+							Name:  authApplicationFlagRedirectURIs,
+							Usage: "updated redirect uris for the auth application",
 						},
 						&cli.StringFlag{
-							Name:     authApplicationFlagLogoutURI,
-							Usage:    "updated logout uri for the auth application",
-							Required: false,
+							Name:  authApplicationFlagLogoutURI,
+							Usage: "updated logout uri for the auth application",
 						},
 					},
 					Action: createCommandWithT[updateAuthApplicationArgs](UpdateAuthApplicationAction),
@@ -2738,10 +2733,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 				{
 					Name:  "get",
 					Usage: "get configuration for a third party auth application",
-					UsageText: createUsageText("auth-app get", []string{
-						generalFlagOrgID,
-						authApplicationFlagApplicationID,
-					}, false, false),
+					UsageText: createUsageText("auth-app get", []string{generalFlagOrgID, authApplicationFlagApplicationID}, false, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     generalFlagOrgID,
@@ -2761,6 +2753,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 		{
 			Name:   "version",
 			Usage:  "print version info for this program",
+			UsageText: createUsageText("version", nil, false, false),
 			Action: createCommandWithT[emptyArgs](VersionAction),
 		},
 	},
