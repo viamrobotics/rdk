@@ -406,9 +406,7 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 				}
 			}
 
-			if meta != nil {
-				return meta, moduleWorkingDirectory, nil // TODO
-			}
+			return meta, moduleWorkingDirectory, nil // TODO
 		}
 	}
 
@@ -427,9 +425,7 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 			}
 		}
 
-		if meta != nil {
-			return meta, unpackedModDir, nil // TODO
-		}
+		return meta, unpackedModDir, nil // TODO
 	}
 
 	var exeDir string
@@ -446,9 +442,7 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 			}
 		}
 
-		if meta != nil {
-			return meta, unpackedModDir, nil // TODO
-		}
+		return meta, unpackedModDir, nil // TODO
 	}
 
 	if online {
