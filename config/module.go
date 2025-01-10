@@ -402,70 +402,70 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 			if err != nil {
 				// return from getJSONManifest() if the error returned does NOT indicate that the file wasn't found
 				if !os.IsNotExist(err) {
-					return nil, "", errors.Wrap(err, "registry module")
+					return nil, "", errors.Wrap(err, "registry module") // TODO
 				}
 			}
 
 			if meta != nil {
-				return meta, moduleWorkingDirectory, nil
+				return meta, moduleWorkingDirectory, nil // TODO
 			}
 		}
 	}
 
 	localNonTarball := m.Type == ModuleTypeLocal && !m.NeedsSyntheticPackage()
 
-	// case 2: online OR non-tarball
+	// case 2: online OR tarball
 	if !localNonTarball {
 		meta, err := findMetaJSONFile(unpackedModDir)
 		if err != nil {
 			if !os.IsNotExist(err) {
 				if online {
-					return nil, "", errors.Wrap(err, "registry module")
+					return nil, "", errors.Wrap(err, "registry module") // TODO
 				}
 
-				return nil, "", errors.Wrap(err, "local non-tarball")
+				return nil, "", errors.Wrap(err, "local tarball") // DONE
 			}
 		}
 
 		if meta != nil {
-			return meta, unpackedModDir, nil
+			return meta, unpackedModDir, nil // TODO
 		}
 	}
 
 	var exeDir string
 
 	// TODO(RSDK-7848): remove this case once java sdk supports internal meta.json.
-	// case 3: local AND tarball
+	// case 3: local AND non-tarball
 	if m.NeedsSyntheticPackage() {
 		exeDir = filepath.Dir(m.ExePath)
 
 		meta, err := findMetaJSONFile(exeDir)
 		if err != nil {
 			if !os.IsNotExist(err) {
-				return nil, "", errors.Wrap(err, "local tarball")
+				return nil, "", errors.Wrap(err, "local non-tarball") // TODO
 			}
 		}
 
 		if meta != nil {
-			return meta, unpackedModDir, nil
+			return meta, unpackedModDir, nil // TODO
 		}
 	}
 
 	if online {
 		if !ok {
 			return nil, "", errors.Errorf("registry module: VIAM_MODULE_ROOT not set. Searched instead in executable directory %s but failed to find meta.json",
-				unpackedModDir)
+				unpackedModDir) // TODO
 		}
 
 		return nil, "", errors.Errorf("registry module: failed to find meta.json. Searched in executable directory %s and path set by VIAM_MODULE_ROOT %s",
-			moduleWorkingDirectory, unpackedModDir)
+			moduleWorkingDirectory, unpackedModDir) // TODO
 	}
 
 	if !localNonTarball {
-		return nil, "", errors.Errorf("local non-tarball: failed to find meta.json. Searched in %s and executable directory %s", unpackedModDir, exeDir)
+		return nil, "", errors.Errorf("local tarball: failed to find meta.json. Searched in %s and executable directory %s", unpackedModDir, exeDir) // TODO
 	}
 
-	return nil, "", errors.Errorf("local tarball: failed to find meta.json. Searched only in %s", exeDir)
+	return nil, "", errors.Errorf("local non-tarball: failed to find meta.json. Searched only in %s", exeDir) // TODO
 }
 
 func findMetaJSONFile(dir string) (*JSONManifest, error) {
