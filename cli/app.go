@@ -27,7 +27,6 @@ const (
 	logsFlagOutputFile = "output"
 	logsFlagErrors     = "errors"
 	logsFlagTail       = "tail"
-	logsFlagCount      = "count"
 
 	runFlagData   = "data"
 	runFlagStream = "stream"
@@ -36,7 +35,7 @@ const (
 	loginFlagKeyID          = "key-id"
 	loginFlagKey            = "key"
 
-	// Flags shared by api-key, module, ml-training, package, and data subcommands.
+	// Flags shared by logs, api-key, module, ml-training, package, and data subcommands.
 	generalFlagOrganization      = "organization"
 	generalFlagAliasOrg          = "org"
 	generalFlagAliasOrgName      = "org-name"
@@ -45,20 +44,26 @@ const (
 	generalFlagAliasLocationName = "location-name"
 	generalFlagLocationID        = "location-id"
 	generalFlagMachine           = "machine"
-	generalFlagAliasMachineName  = "machine-name"
+	generalFlagMachineName       = "machine-name"
 	generalFlagMachineID         = "machine-id"
 	generalFlagAliasRobot        = "robot"
 	generalFlagAliasRobotID      = "robot-id"
 	generalFlagPart              = "part"
-	generalFlagAliasPartName     = "part-name"
+	generalFlagPartName          = "part-name"
 	generalFlagPartID            = "part-id"
 	generalFlagName              = "name"
 	generalFlagMethod            = "method"
+	generalFlagDestination       = "destination"
+	generalFlagVersion           = "version"
+	generalFlagCount             = "count"
+	generalFlagPath              = "path"
+	generalFlagType              = "type"
+	generalFlagResourceSubtype   = "resource-subtype"
+	generalFlagTags              = "tags"
 
 	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
 	moduleFlagPath            = "module"
-	moduleFlagVersion         = "version"
 	moduleFlagPlatform        = "platform"
 	moduleFlagForce           = "force"
 	moduleFlagBinary          = "binary"
@@ -68,19 +73,13 @@ const (
 	moduleFlagID              = "id"
 	moduleFlagIsPublic        = "public"
 	moduleFlagResourceType    = "resource-type"
-	moduleFlagResourceSubtype = "resource-subtype"
 	moduleFlagModelName       = "model-name"
 	moduleFlagEnableCloud     = "enable-cloud"
 	moduleFlagRegister        = "register"
-	moduleFlagTags            = "tags"
 	moduleFlagDryRun          = "dry-run"
 	moduleFlagUpload          = "upload"
 
-	moduleBuildFlagPath      = "module"
 	moduleBuildFlagRef       = "ref"
-	moduleBuildFlagCount     = "count"
-	moduleBuildFlagVersion   = "version"
-	moduleBuildFlagPlatform  = "platform"
 	moduleBuildFlagWait      = "wait"
 	moduleBuildFlagToken     = "token"
 	moduleBuildFlagWorkdir   = "workdir"
@@ -91,44 +90,32 @@ const (
 	moduleBuildFlagOAuthLink = "oauth-link"
 	moduleBuildFlagRepo      = "repo"
 
-	mlTrainingFlagPath        = "path"
 	mlTrainingFlagName        = "script-name"
-	mlTrainingFlagVersion     = "version"
 	mlTrainingFlagFramework   = "framework"
-	mlTrainingFlagType        = "type"
 	mlTrainingFlagDraft       = "draft"
 	mlTrainingFlagVisibility  = "visibility"
 	mlTrainingFlagDescription = "description"
 	mlTrainingFlagURL         = "url"
 	mlTrainingFlagArgs        = "args"
 
-	dataFlagDestination                    = "destination"
 	dataFlagDataType                       = "data-type"
 	dataFlagOrgIDs                         = "org-ids"
 	dataFlagLocationIDs                    = "location-ids"
-	dataFlagMachineName                    = "machine-name"
 	dataFlagAliasRobotName                 = "robot-name"
-	dataFlagPartName                       = "part-name"
 	dataFlagComponentType                  = "component-type"
-	dataFlagResourceSubtype                = "resource-subtype"
 	dataFlagComponentName                  = "component-name"
 	dataFlagResourceName                   = "resource-name"
 	dataFlagMimeTypes                      = "mime-types"
 	dataFlagStart                          = "start"
 	dataFlagEnd                            = "end"
 	dataFlagParallelDownloads              = "parallel"
-	dataFlagTags                           = "tags"
 	dataFlagBboxLabels                     = "bbox-labels"
 	dataFlagDeleteTabularDataOlderThanDays = "delete-older-than-days"
 	dataFlagDatabasePassword               = "password"
 	dataFlagFilterTags                     = "filter-tags"
 	dataFlagTimeout                        = "timeout"
 
-	packageFlagVersion     = "version"
-	packageFlagType        = "type"
-	packageFlagDestination = "destination"
-	packageFlagPath        = "path"
-	packageFlagFramework   = "model-framework"
+	packageFlagFramework = "model-framework"
 
 	packageMetadataFlagFramework = "model_framework"
 
@@ -185,13 +172,13 @@ var commonFilterFlags = []cli.Flag{
 	},
 	&AliasStringFlag{
 		cli.StringFlag{
-			Name:    dataFlagMachineName,
+			Name:    generalFlagMachineName,
 			Aliases: []string{dataFlagAliasRobotName},
 			Usage:   "machine name filter",
 		},
 	},
 	&cli.StringFlag{
-		Name:  dataFlagPartName,
+		Name:  generalFlagPartName,
 		Usage: "part name filter",
 	},
 	&cli.StringFlag{
@@ -226,7 +213,7 @@ var commonFilterFlags = []cli.Flag{
 
 var dataTagByIDsFlags = []cli.Flag{
 	&cli.StringSliceFlag{
-		Name:     dataFlagTags,
+		Name:     generalFlagTags,
 		Usage:    "comma separated tags to add/remove to the data",
 		Required: true,
 	},
@@ -249,7 +236,7 @@ var dataTagByIDsFlags = []cli.Flag{
 
 var dataTagByFilterFlags = append([]cli.Flag{
 	&cli.StringSliceFlag{
-		Name:     dataFlagTags,
+		Name:     generalFlagTags,
 		Required: true,
 		Usage:    "comma separated tags to add/remove to the data",
 	},
@@ -1038,10 +1025,10 @@ var app = &cli.App{
 						{
 							Name:      "binary",
 							Usage:     "download binary data",
-							UsageText: createUsageText("data export binary", []string{dataFlagDestination}, true, false),
+							UsageText: createUsageText("data export binary", []string{generalFlagDestination}, true, false),
 							Flags: append([]cli.Flag{
 								&cli.PathFlag{
-									Name:     dataFlagDestination,
+									Name:     generalFlagDestination,
 									Required: true,
 									Usage:    "output directory for downloaded data",
 								},
@@ -1056,7 +1043,7 @@ var app = &cli.App{
 									Value: 30,
 								},
 								&cli.StringSliceFlag{
-									Name:  dataFlagTags,
+									Name:  generalFlagTags,
 									Usage: "tags filter. accepts tagged for all tagged data, untagged for all untagged data, or a list of tags",
 								},
 							}, commonFilterFlags...),
@@ -1066,15 +1053,15 @@ var app = &cli.App{
 							Name:  "tabular",
 							Usage: "download tabular data",
 							UsageText: createUsageText("data export tabular", []string{
-								dataFlagDestination,
+								generalFlagDestination,
 								generalFlagPartID,
 								dataFlagResourceName,
-								dataFlagResourceSubtype,
+								generalFlagResourceSubtype,
 								generalFlagMethod,
 							}, true, false),
 							Flags: []cli.Flag{
 								&cli.PathFlag{
-									Name:     dataFlagDestination,
+									Name:     generalFlagDestination,
 									Required: true,
 									Usage:    "output directory for downloaded data",
 								},
@@ -1089,7 +1076,7 @@ var app = &cli.App{
 									Usage:    "resource name (sometimes called 'component name')",
 								},
 								&cli.StringFlag{
-									Name:     dataFlagResourceSubtype,
+									Name:     generalFlagResourceSubtype,
 									Required: true,
 									Usage:    "resource subtype (sometimes called 'component type')",
 								},
@@ -1154,13 +1141,13 @@ var app = &cli.App{
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
-										Name:    dataFlagMachineName,
+										Name:    generalFlagMachineName,
 										Aliases: []string{dataFlagAliasRobotName},
 										Usage:   "machine name filter",
 									},
 								},
 								&cli.StringFlag{
-									Name:  dataFlagPartName,
+									Name:  generalFlagPartName,
 									Usage: "part name filter",
 								},
 								&cli.StringFlag{
@@ -1263,7 +1250,7 @@ var app = &cli.App{
 									Name:  "add",
 									Usage: "adds tags to binary data by file ids for a given org and location",
 									UsageText: createUsageText(
-										"data tag ids add", []string{dataFlagTags, generalFlagOrgID, dataFlagLocationID, dataFlagFileIDs}, false, false,
+										"data tag ids add", []string{generalFlagTags, generalFlagOrgID, dataFlagLocationID, dataFlagFileIDs}, false, false,
 									),
 									Flags:  dataTagByIDsFlags,
 									Action: createCommandWithT[dataTagByIDsArgs](DataTagActionByIds),
@@ -1272,7 +1259,7 @@ var app = &cli.App{
 									Name:  "remove",
 									Usage: "removes tags from binary data by file ids for a given org and location",
 									UsageText: createUsageText(
-										"data tag ids remove", []string{dataFlagTags, generalFlagOrgID, dataFlagLocationID, dataFlagFileIDs}, false, false,
+										"data tag ids remove", []string{generalFlagTags, generalFlagOrgID, dataFlagLocationID, dataFlagFileIDs}, false, false,
 									),
 									Flags:  dataTagByIDsFlags,
 									Action: createCommandWithT[dataTagByIDsArgs](DataTagActionByIds),
@@ -1288,14 +1275,14 @@ var app = &cli.App{
 								{
 									Name:      "add",
 									Usage:     "adds tags to binary data by filter",
-									UsageText: createUsageText("data tag filter add", []string{dataFlagTags}, false, false),
+									UsageText: createUsageText("data tag filter add", []string{generalFlagTags}, false, false),
 									Flags:     dataTagByFilterFlags,
 									Action:    createCommandWithT[dataTagByFilterArgs](DataTagActionByFilter),
 								},
 								{
 									Name:      "remove",
 									Usage:     "removes tags from binary data by filter",
-									UsageText: createUsageText("data tag filter remove", []string{dataFlagTags}, false, false),
+									UsageText: createUsageText("data tag filter remove", []string{generalFlagTags}, false, false),
 									Flags:     dataTagByFilterFlags,
 									Action:    createCommandWithT[dataTagByFilterArgs](DataTagActionByFilter),
 								},
@@ -1383,10 +1370,10 @@ var app = &cli.App{
 					Name:  "export",
 					Usage: "download data from a dataset",
 					UsageText: createUsageText("dataset export",
-						[]string{dataFlagDestination, datasetFlagDatasetID}, true, false),
+						[]string{generalFlagDestination, datasetFlagDatasetID}, true, false),
 					Flags: []cli.Flag{
 						&cli.PathFlag{
-							Name:     dataFlagDestination,
+							Name:     generalFlagDestination,
 							Required: true,
 							Usage:    "output directory for downloaded data",
 						},
@@ -1465,7 +1452,7 @@ var app = &cli.App{
 											Required: true,
 										},
 										&cli.StringSliceFlag{
-											Name: dataFlagTags,
+											Name: generalFlagTags,
 											Usage: "tags filter. " +
 												"accepts tagged for all tagged data, untagged for all untagged data, or a list of tags for all data matching any of the tags",
 										},
@@ -1572,7 +1559,7 @@ var app = &cli.App{
 									Name:  "from-registry",
 									Usage: "submits custom training job with an existing training script in the registry on data in Viam cloud",
 									UsageText: createUsageText("train submit custom from-registry",
-										[]string{datasetFlagDatasetID, generalFlagOrgID, trainFlagModelName, mlTrainingFlagName, mlTrainingFlagVersion},
+										[]string{datasetFlagDatasetID, generalFlagOrgID, trainFlagModelName, mlTrainingFlagName, generalFlagVersion},
 										true, false,
 									),
 									Flags: []cli.Flag{
@@ -1602,7 +1589,7 @@ var app = &cli.App{
 											Required: true,
 										},
 										&cli.StringFlag{
-											Name:     mlTrainingFlagVersion,
+											Name:     generalFlagVersion,
 											Usage:    "version of the ML training script to use for training.",
 											Required: true,
 										},
@@ -1617,7 +1604,7 @@ var app = &cli.App{
 									Name:  "with-upload",
 									Usage: "submits custom training job with an upload training script on data in Viam cloud",
 									UsageText: createUsageText("train submit custom with-upload",
-										[]string{generalFlagOrgID, datasetFlagDatasetID, trainFlagModelOrgID, trainFlagModelName, mlTrainingFlagPath, mlTrainingFlagName},
+										[]string{generalFlagOrgID, datasetFlagDatasetID, trainFlagModelOrgID, trainFlagModelName, generalFlagPath, mlTrainingFlagName},
 										true, false,
 									),
 									Flags: []cli.Flag{
@@ -1640,7 +1627,7 @@ var app = &cli.App{
 											Usage: "url of Github repository associated with the training scripts",
 										},
 										&cli.StringFlag{
-											Name:     mlTrainingFlagPath,
+											Name:     generalFlagPath,
 											Usage:    "path to ML training scripts for upload",
 											Required: true,
 										},
@@ -1660,7 +1647,7 @@ var app = &cli.App{
 											Required: true,
 										},
 										&cli.StringFlag{
-											Name:  mlTrainingFlagVersion,
+											Name:  generalFlagVersion,
 											Usage: "version of the ML training script to upload. defaults to current timestamp if unspecified.",
 										},
 										&cli.StringFlag{
@@ -1819,7 +1806,7 @@ var app = &cli.App{
 						&AliasStringFlag{
 							cli.StringFlag{
 								Name:     generalFlagMachine,
-								Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
+								Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
 								Required: true,
 							},
 						},
@@ -1846,7 +1833,7 @@ var app = &cli.App{
 						&AliasStringFlag{
 							cli.StringFlag{
 								Name:     generalFlagMachine,
-								Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
+								Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
 								Required: true,
 							},
 						},
@@ -1863,7 +1850,7 @@ var app = &cli.App{
 							Usage: "show only errors",
 						},
 						&cli.IntFlag{
-							Name:        logsFlagCount,
+							Name:        generalFlagCount,
 							Usage:       fmt.Sprintf("number of logs to fetch (max %v)", maxNumLogs),
 							DefaultText: fmt.Sprintf("%v", defaultNumLogs),
 						},
@@ -1895,14 +1882,14 @@ var app = &cli.App{
 								&AliasStringFlag{
 									cli.StringFlag{
 										Name:     generalFlagMachine,
-										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
+										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
 										Required: true,
 									},
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
 										Name:     generalFlagPart,
-										Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
+										Aliases:  []string{generalFlagPartID, generalFlagPartName},
 										Required: true,
 									},
 								},
@@ -1928,14 +1915,14 @@ var app = &cli.App{
 								&AliasStringFlag{
 									cli.StringFlag{
 										Name:     generalFlagMachine,
-										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
+										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
 										Required: true,
 									},
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
 										Name:     generalFlagPart,
-										Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
+										Aliases:  []string{generalFlagPartID, generalFlagPartName},
 										Required: true,
 									},
 								},
@@ -1949,7 +1936,7 @@ var app = &cli.App{
 									Usage:   "follow logs",
 								},
 								&cli.IntFlag{
-									Name:        logsFlagCount,
+									Name:        generalFlagCount,
 									Usage:       fmt.Sprintf("number of logs to fetch (max %v)", maxNumLogs),
 									DefaultText: fmt.Sprintf("%v", defaultNumLogs),
 								},
@@ -1975,14 +1962,14 @@ var app = &cli.App{
 								&AliasStringFlag{
 									cli.StringFlag{
 										Name:     generalFlagMachine,
-										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
+										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
 										Required: true,
 									},
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
 										Name:     generalFlagPart,
-										Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
+										Aliases:  []string{generalFlagPartID, generalFlagPartName},
 										Required: true,
 									},
 								},
@@ -2015,14 +2002,14 @@ var app = &cli.App{
 								&AliasStringFlag{
 									cli.StringFlag{
 										Name:     generalFlagMachine,
-										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
+										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
 										Required: true,
 									},
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
 										Name:     generalFlagPart,
-										Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
+										Aliases:  []string{generalFlagPartID, generalFlagPartName},
 										Required: true,
 									},
 								},
@@ -2063,14 +2050,14 @@ Organization and location are required flags if the machine/part name are not un
 								&AliasStringFlag{
 									cli.StringFlag{
 										Name:     generalFlagMachine,
-										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
+										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
 										Required: true,
 									},
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
 										Name:     generalFlagPart,
-										Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
+										Aliases:  []string{generalFlagPartID, generalFlagPartName},
 										Required: true,
 									},
 								},
@@ -2122,14 +2109,14 @@ Copy multiple files from the machine to a local destination with recursion and k
 								&AliasStringFlag{
 									cli.StringFlag{
 										Name:     generalFlagMachine,
-										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
+										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
 										Required: true,
 									},
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
 										Name:     generalFlagPart,
-										Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
+										Aliases:  []string{generalFlagPartID, generalFlagPartName},
 										Required: true,
 									},
 								},
@@ -2213,7 +2200,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							Usage: "namespace or organization ID of module",
 						},
 						&cli.StringFlag{
-							Name:  moduleFlagResourceSubtype,
+							Name:  generalFlagResourceSubtype,
 							Usage: "resource subtype to use in module",
 						},
 						&cli.StringFlag{
@@ -2289,7 +2276,7 @@ Example uploading a custom tarball of your module:
 tar -czf packaged-module.tar.gz ./src requirements.txt run.sh
 viam module upload --version "0.1.0" --platform "linux/amd64" --upload "packaged-module.tar.gz"
                       `,
-					UsageText: createUsageText("module upload", []string{moduleFlagVersion, moduleFlagPlatform, moduleFlagUpload}, true, false),
+					UsageText: createUsageText("module upload", []string{generalFlagVersion, moduleFlagPlatform, moduleFlagUpload}, true, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:      moduleFlagPath,
@@ -2310,7 +2297,7 @@ viam module upload --version "0.1.0" --platform "linux/amd64" --upload "packaged
 							Usage: "name of the module (used if you don't have a meta.json)",
 						},
 						&cli.StringFlag{
-							Name:     moduleFlagVersion,
+							Name:     generalFlagVersion,
 							Usage:    "version of the module to upload (semver2.0) ex: \"0.1.0\"",
 							Required: true,
 						},
@@ -2331,7 +2318,7 @@ viam module upload --version "0.1.0" --platform "linux/amd64" --upload "packaged
 							Required: true,
 						},
 						&cli.StringSliceFlag{
-							Name: moduleFlagTags,
+							Name: generalFlagTags,
 							Usage: `extra fields for constraining the platforms to which this binary
                              is deployed. Examples: distro:debian, distro:ubuntu, os_version:22.04,
                              os_codename:jammy. For a machine to use an upload, all tags must be
@@ -2386,16 +2373,16 @@ Example:
 						{
 							Name:      "start",
 							Usage:     "start a remote build",
-							UsageText: createUsageText("module build start", []string{moduleBuildFlagVersion}, true, false),
+							UsageText: createUsageText("module build start", []string{generalFlagVersion}, true, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:      moduleBuildFlagPath,
+									Name:      moduleFlagPath,
 									Usage:     "path to meta.json",
 									Value:     "./meta.json",
 									TakesFile: true,
 								},
 								&cli.StringFlag{
-									Name:     moduleBuildFlagVersion,
+									Name:     generalFlagVersion,
 									Usage:    "version of the module to upload (semver2.0) ex: \"0.1.0\"",
 									Required: true,
 								},
@@ -2432,7 +2419,7 @@ Example:
 									TakesFile: true,
 								},
 								&cli.IntFlag{
-									Name:        moduleBuildFlagCount,
+									Name:        generalFlagCount,
 									Usage:       "number of builds to list",
 									Aliases:     []string{"c"},
 									DefaultText: "all",
@@ -2456,7 +2443,7 @@ Example:
 									Required: true,
 								},
 								&cli.StringFlag{
-									Name:        moduleBuildFlagPlatform,
+									Name:        moduleFlagPlatform,
 									Usage:       "build platform to get the logs for. Ex: linux/arm64.",
 									DefaultText: "all platforms",
 								},
@@ -2562,7 +2549,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 					UsageText: createUsageText("module download", []string{}, true, false),
 					Flags: []cli.Flag{
 						&cli.PathFlag{
-							Name:  packageFlagDestination,
+							Name:  generalFlagDestination,
 							Usage: "output directory for downloaded package",
 							Value: ".",
 						},
@@ -2572,7 +2559,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							DefaultText: "will try to read from meta.json",
 						},
 						&cli.StringFlag{
-							Name:  packageFlagVersion,
+							Name:  generalFlagVersion,
 							Usage: "version of the requested package, can be `latest` to get the most recent version",
 							Value: "latest",
 						},
@@ -2595,10 +2582,10 @@ This won't work unless you have an existing installation of our GitHub app on yo
 				{
 					Name:      "export",
 					Usage:     "download a package from Viam cloud",
-					UsageText: createUsageText("packages export", []string{packageFlagType}, false, false),
+					UsageText: createUsageText("packages export", []string{generalFlagType}, false, false),
 					Flags: []cli.Flag{
 						&cli.PathFlag{
-							Name:  packageFlagDestination,
+							Name:  generalFlagDestination,
 							Usage: "output directory for downloaded package",
 							Value: ".",
 						},
@@ -2613,12 +2600,12 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							DefaultText: "will try to read from meta.json",
 						},
 						&cli.StringFlag{
-							Name:  packageFlagVersion,
+							Name:  generalFlagVersion,
 							Usage: "version of the requested package, can be `latest` to get the most recent version",
 							Value: "latest",
 						},
 						&cli.StringFlag{
-							Name:     packageFlagType,
+							Name:     generalFlagType,
 							Required: true,
 							Usage:    fmt.Sprintf("type of the requested package, can be: [%s]", strings.Join(packageTypes, ", ")),
 						},
@@ -2629,11 +2616,11 @@ This won't work unless you have an existing installation of our GitHub app on yo
 					Name:  "upload",
 					Usage: "upload a package to Viam cloud",
 					UsageText: createUsageText("packages upload",
-						[]string{packageFlagPath, generalFlagOrgID, generalFlagName, packageFlagVersion, packageFlagType},
+						[]string{generalFlagPath, generalFlagOrgID, generalFlagName, generalFlagVersion, generalFlagType},
 						false, false),
 					Flags: []cli.Flag{
 						&cli.PathFlag{
-							Name:     packageFlagPath,
+							Name:     generalFlagPath,
 							Required: true,
 							Usage:    "path to package for upload",
 						},
@@ -2648,12 +2635,12 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage:    "name of the requested package",
 						},
 						&cli.StringFlag{
-							Name:     packageFlagVersion,
+							Name:     generalFlagVersion,
 							Required: true,
 							Usage:    "version of the requested package, can be `latest` to get the most recent version",
 						},
 						&cli.StringFlag{
-							Name:     packageFlagType,
+							Name:     generalFlagType,
 							Required: true,
 							Usage:    fmt.Sprintf("type of the requested package, can be: [%s]", strings.Join(packageTypes, ", ")),
 						},
@@ -2678,10 +2665,10 @@ This won't work unless you have an existing installation of our GitHub app on yo
 				{
 					Name:      "upload",
 					Usage:     "upload ML training scripts for custom ML training",
-					UsageText: createUsageText("training-script upload", []string{generalFlagOrgID, mlTrainingFlagPath, mlTrainingFlagName}, true, false),
+					UsageText: createUsageText("training-script upload", []string{generalFlagOrgID, generalFlagPath, mlTrainingFlagName}, true, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:     mlTrainingFlagPath,
+							Name:     generalFlagPath,
 							Usage:    "path to ML training scripts for upload",
 							Required: true,
 						},
@@ -2696,7 +2683,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name:  mlTrainingFlagVersion,
+							Name:  generalFlagVersion,
 							Usage: "version of the ML training script to upload",
 						},
 						&cli.StringFlag{
@@ -2704,7 +2691,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage: fmt.Sprintf("framework of the ML training script to upload, can be: [%s]", strings.Join(modelFrameworks, ", ")),
 						},
 						&cli.StringFlag{
-							Name:  mlTrainingFlagType,
+							Name:  generalFlagType,
 							Usage: fmt.Sprintf("task type of the ML training script to upload, can be: [%s]", strings.Join(modelTypes, ", ")),
 						},
 						&cli.BoolFlag{

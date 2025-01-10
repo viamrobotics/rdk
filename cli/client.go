@@ -734,14 +734,14 @@ func RobotsStatusAction(c *cli.Context, args robotsStatusArgs) error {
 
 func getNumLogs(c *cli.Context, numLogs int) (int, error) {
 	if numLogs < 0 {
-		warningf(c.App.ErrWriter, "Provided negative %q value. Defaulting to %d", logsFlagCount, defaultNumLogs)
+		warningf(c.App.ErrWriter, "Provided negative %q value. Defaulting to %d", generalFlagCount, defaultNumLogs)
 		return defaultNumLogs, nil
 	}
 	if numLogs == 0 {
 		return defaultNumLogs, nil
 	}
 	if numLogs > maxNumLogs {
-		return 0, errors.Errorf("provided too high of a %q value. Maximum is %d", logsFlagCount, maxNumLogs)
+		return 0, errors.Errorf("provided too high of a %q value. Maximum is %d", generalFlagCount, maxNumLogs)
 	}
 	return numLogs, nil
 }

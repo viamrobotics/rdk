@@ -105,7 +105,7 @@ func setup(
 
 	if dataClient != nil {
 		// these flags are only relevant when testing a dataClient
-		flags.String(dataFlagDestination, utils.ResolveFile(""), "")
+		flags.String(generalFlagDestination, utils.ResolveFile(""), "")
 	}
 
 	cCtx := cli.NewContext(NewApp(out, errOut), flags, nil)
@@ -774,7 +774,7 @@ func TestGetRobotPartLogs(t *testing.T) {
 		}
 	})
 	t.Run("max count", func(t *testing.T) {
-		flags := map[string]any{logsFlagCount: maxNumLogs}
+		flags := map[string]any{generalFlagCount: maxNumLogs}
 		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, flags, "")
 
 		test.That(t, ac.robotsPartLogsAction(cCtx, parseStructFromCtx[robotsPartLogsArgs](cCtx)), test.ShouldBeNil)
