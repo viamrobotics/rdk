@@ -356,6 +356,32 @@ func TestModManagerFunctions(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			_, err = os.Stat(expectedDataDir)
 			test.That(t, err, test.ShouldBeError)
+
+			t.Log("test Kill")
+			mgr = setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{})
+			modCfg = config.Module{
+				Name:    "simple-module",
+				ExePath: modPath,
+			}
+			err = mgr.Add(ctx, modCfg)
+			test.That(t, err, test.ShouldBeNil)
+
+			// get the module from the module map
+			mMgr, ok := mgr.(*Manager)
+			test.That(t, ok, test.ShouldBeTrue)
+
+			mod, ok = mMgr.modules.Load(modCfg.Name)
+			test.That(t, ok, test.ShouldBeTrue)
+
+			// if Status is nil, the process is both alive and owned.
+			test.That(t, mod.process.Status(), test.ShouldBeNil)
+
+			mgr.Kill()
+
+			testutils.WaitForAssertionWithSleep(t, 100*time.Millisecond, 100, func(tb testing.TB) {
+				tb.Helper()
+				test.That(tb, mod.process.Status(), test.ShouldBeError, os.ErrProcessDone)
+			})
 		})
 	}
 }

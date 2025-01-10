@@ -586,7 +586,7 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 	if err := manager.removeMarkedAndClose(ctx, excludeWebFromClose); err != nil {
 		allErrs = multierr.Combine(allErrs, err)
 	}
-	// take a lock minimally to map a copy of the moduleManager.
+	// take a lock minimally to make a copy of the moduleManager.
 	manager.modManagerLock.Lock()
 	modManager := manager.moduleManager
 	manager.modManagerLock.Unlock()
@@ -604,7 +604,7 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 func (manager *resourceManager) Kill() {
 	// TODO(RSDK-9709): Kill processes in processManager as well.
 
-	// take a lock minimally to map a copy of the moduleManager.
+	// take a lock minimally to make a copy of the moduleManager.
 	manager.modManagerLock.Lock()
 	modManager := manager.moduleManager
 	manager.modManagerLock.Unlock()
