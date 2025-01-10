@@ -342,8 +342,8 @@ func (ftdc *FTDC) constructDatum() datum {
 	// can release the mutex before calling any `Stats` methods. It may be the case where the
 	// `Stats` method acquires some other mutex/resource.  E.g: acquiring resources from the
 	// resource graph. Which is the starting point for creating a deadlock scenario.
-	statsers := make([]namedStatser, len(ftdc.statsers))
 	ftdc.mu.Lock()
+	statsers := make([]namedStatser, len(ftdc.statsers))
 	datum.generationID = ftdc.inputGenerationID
 	copy(statsers, ftdc.statsers)
 	ftdc.mu.Unlock()
@@ -579,7 +579,7 @@ func (ftdc *FTDC) checkAndDeleteOldFiles() error {
 // deletion testing. Filename generation uses padding such that we can rely on there before 2/4
 // digits for every numeric value.
 //
-//nolint
+// nolint
 // Example filename: countingBytesTest1228324349/viam-server-2024-11-18T20-37-01Z.ftdc
 var filenameTimeRe = regexp.MustCompile(`viam-server-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})Z.ftdc`)
 
