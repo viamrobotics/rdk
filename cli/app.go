@@ -74,6 +74,7 @@ const (
 	moduleFlagRegister        = "register"
 	moduleFlagTags            = "tags"
 	moduleFlagDryRun          = "dry-run"
+	moduleFlagUpload          = "upload"
 
 	moduleBuildFlagPath      = "module"
 	moduleBuildFlagRef       = "ref"
@@ -2277,18 +2278,18 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Usage: "upload a new version of your module",
 					Description: `Upload an archive containing your module's file(s) for a specified platform
 Example uploading a single file:
-viam module upload --version "0.1.0" --platform "linux/amd64" ./bin/my-module
+viam module upload --version "0.1.0" --platform "linux/amd64" --upload "./bin/my-module"
 (this example requires the entrypoint in the meta.json to be "./bin/my-module")
 
 Example uploading a whole directory:
-viam module upload --version "0.1.0" --platform "linux/amd64" ./bin
+viam module upload --version "0.1.0" --platform "linux/amd64" --upload "./bin"
 (this example requires the entrypoint in the meta.json to be inside the bin directory like "./bin/[your path here]")
 
 Example uploading a custom tarball of your module:
 tar -czf packaged-module.tar.gz ./src requirements.txt run.sh
-viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.tar.gz
+viam module upload --version "0.1.0" --platform "linux/amd64" --upload "packaged-module.tar.gz"
                       `,
-					UsageText: createUsageText("module upload", []string{moduleFlagVersion, moduleFlagPlatform}, true, false, "<packaged-module.tag.gz>"),
+					UsageText: createUsageText("module upload", []string{moduleFlagVersion, moduleFlagPlatform, moduleFlagUpload}, true, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:      moduleFlagPath,
@@ -2339,6 +2340,11 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 						&cli.BoolFlag{
 							Name:  moduleFlagForce,
 							Usage: "skip validation (may result in non-functional versions)",
+						},
+						&cli.StringFlag{
+							Name:     moduleFlagUpload,
+							Usage:    "the path to the upload",
+							Required: false, // should be true, but set to false to allow for backwards compatibility
 						},
 					},
 					Action: createCommandWithT[uploadModuleArgs](UploadModuleAction),

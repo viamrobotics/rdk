@@ -262,6 +262,7 @@ type uploadModuleArgs struct {
 	Platform        string
 	Tags            []string
 	Force           bool
+	Upload          string
 }
 
 // UploadModuleAction is the corresponding action for 'module upload'.
@@ -274,12 +275,9 @@ func UploadModuleAction(c *cli.Context, args uploadModuleArgs) error {
 	platformArg := args.Platform
 	forceUploadArg := args.Force
 	constraints := args.Tags
-	// TODO(RSDK-9288) - this is brittle and inconsistent with how most data is passed.
-	// Move this to being a flag (but make sure existing workflows still work!)
-	moduleUploadPath := c.Args().First()
-	if c.Args().Len() > 1 {
-		return errors.New("too many arguments passed to upload command. " +
-			"Make sure to specify flag and optional arguments before the required positional package argument")
+	moduleUploadPath := args.Upload
+	if moduleUploadPath == "" {
+		moduleUploadPath = c.Args().First()
 	}
 	if moduleUploadPath == "" {
 		return errors.New("nothing to upload -- please provide a path to your module. Use --help for more information")

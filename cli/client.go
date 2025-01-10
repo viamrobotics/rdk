@@ -1163,8 +1163,6 @@ func MachinesPartCopyFilesAction(c *cli.Context, args machinesPartCopyFilesArgs)
 }
 
 func machinesPartCopyFilesAction(c *cli.Context, client *viamClient, flagArgs machinesPartCopyFilesArgs) error {
-	// TODO(RSDK-9288) - this is brittle and inconsistent with how most data is passed.
-	// Move this to being a flag (but make sure existing workflows still work!)
 	args := c.Args().Slice()
 	if len(args) == 0 {
 		return errNoFiles
