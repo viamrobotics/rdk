@@ -2,10 +2,12 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1183,6 +1185,121 @@ func (rc *RobotClient) Version(ctx context.Context) (robot.VersionResponse, erro
 	mVersion.APIVersion = resp.ApiVersion
 
 	return mVersion, nil
+}
+
+func (rc *RobotClient) Traffic(ctx context.Context) error {
+	client, err := rc.client.Traffic(ctx)
+	if err != nil {
+		return err
+	}
+	// prime the correct destination port
+	// if err := client.Send(&pb.TrafficRequest{
+	// 	DataIn: "hello",
+	// }); err != nil {
+	// 	return err
+	// }
+
+	// create listener
+	li, err := net.Listen("tcp", net.JoinHostPort("localhost", "9090"))
+	if err != nil {
+		return errors.New("failed to create listener")
+	}
+	defer li.Close()
+
+	for {
+		if ctx.Err() != nil {
+			return nil
+		}
+		fmt.Printf("\"waiting for connection\": %v\n", "waiting for connection")
+		c1, err := li.Accept()
+		if err != nil {
+			return errors.New("failed to accept connection")
+		}
+
+		var eof bool
+		utils.PanicCapturingGo(func() {
+			defer c1.Close()
+			for {
+				if ctx.Err() != nil || eof {
+					eof = true
+					return
+				}
+				// copying io.Copy's default buffer size
+				size := 32 * 1024
+				buf := make([]byte, size)
+				nr, err := c1.Read(buf)
+
+				if err != nil {
+					fmt.Printf("send loop err: %v\n", err)
+					eof = true
+					if err := client.Send(&pb.TrafficRequest{
+						Eof: true,
+					}); err != nil {
+						rc.logger.CErrorw(ctx, "error sending eof", "error", err)
+					}
+					return
+				}
+				if nr == 0 {
+					continue
+				}
+				fmt.Printf("Len(): %v\n", len(buf))
+				if err := client.Send(&pb.TrafficRequest{
+					DataIn: buf,
+				}); err != nil {
+					rc.logger.CErrorw(ctx, "error sending data", "error", err)
+					eof = true
+					return
+				}
+
+				// var b bytes.Buffer
+				// _, err = io.Copy(&b, c1)
+				// if err != nil {
+				// 	fmt.Printf("err: %v\n", err)
+				// 	return
+				// }
+
+				// if b.Len() == 0 {
+				// 	continue
+				// }
+				// fmt.Printf("b.Len(): %v\n", b.Len())
+				// if err := client.Send(&pb.TrafficRequest{
+				// 	DataIn: b.Bytes(),
+				// }); err != nil {
+				// 	rc.logger.CErrorw(ctx, "error sending data", "error", err)
+				// 	return
+				// }
+			}
+		})
+
+		utils.PanicCapturingGo(func() {
+			defer c1.Close()
+			for {
+				if ctx.Err() != nil || eof {
+					eof = true
+					return
+				}
+				resp, err := client.Recv()
+				if err != nil {
+					fmt.Printf("recv loop err: %v\n", err)
+					eof = true
+					return
+				}
+				fmt.Printf("len(resp.DataOut): %v\n", len(resp.DataOut))
+				if resp.Eof {
+					fmt.Printf("eof received")
+					eof = true
+					return
+				}
+				out := bytes.NewReader(resp.DataOut)
+				_, err = io.Copy(c1, out)
+				if err != nil {
+					fmt.Printf("copy err: %v\n", err)
+					return
+				}
+			}
+		})
+
+	}
 }
 
 func unaryClientInterceptor() googlegrpc.UnaryClientInterceptor {
