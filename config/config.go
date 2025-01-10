@@ -71,6 +71,12 @@ type Config struct {
 	// Revision contains the current revision of the config.
 	Revision string
 
+	// Initial represents whether this is an "initial" config passed in by web
+	// server entrypoint code. If true, the robot will continue to report a state
+	// of initializing after applying this config. If false, the robot will
+	// report a state of running after applying this config.
+	Initial bool
+
 	// toCache stores the JSON marshalled version of the config to be cached. It should be a copy of
 	// the config pulled from cloud with minor changes.
 	// This version is kept because the config is changed as it moves through the system.
@@ -101,6 +107,7 @@ type configData struct {
 	LogConfig           []logging.LoggerPatternConfig `json:"log,omitempty"`
 	Revision            string                        `json:"revision,omitempty"`
 	MaintenanceConfig   *MaintenanceConfig            `json:"maintenance,omitempty"`
+	PackagePath         string                        `json:"package_path,omitempty"`
 }
 
 // AppValidationStatus refers to the.
@@ -308,6 +315,7 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	c.LogConfig = conf.LogConfig
 	c.Revision = conf.Revision
 	c.MaintenanceConfig = conf.MaintenanceConfig
+	c.PackagePath = conf.PackagePath
 
 	return nil
 }
@@ -340,6 +348,7 @@ func (c Config) MarshalJSON() ([]byte, error) {
 		LogConfig:           c.LogConfig,
 		Revision:            c.Revision,
 		MaintenanceConfig:   c.MaintenanceConfig,
+		PackagePath:         c.PackagePath,
 	})
 }
 
