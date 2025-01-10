@@ -389,7 +389,6 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 					if robot != nil {
 						robot.Kill()
 					}
-					theRobotLock.Unlock()
 					s.logger.Fatalw("server failed to cleanly shutdown after deadline", "deadline", hungShutdownDeadline)
 					return true
 				}
