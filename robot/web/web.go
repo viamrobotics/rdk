@@ -44,12 +44,14 @@ import (
 
 // SubtypeName is a constant that identifies the internal web resource subtype string.
 const (
-	SubtypeName   = "web"
-	TCPParentPort = 14998
+	SubtypeName = "web"
 	// TestTCPParentPort is the test suite version of TCPParentPort. It's different to avoid
 	// collisions; it's listed here for documentation.
 	TestTCPParentPort = 14999
 )
+
+// TCPParentPort is the auto-assigned port of the parent socket when VIAM_TCP_MODE is set.
+var TCPParentPort int
 
 // API is the fully qualified API for the internal web service.
 var API = resource.APINamespaceRDKInternal.WithServiceType(SubtypeName)
@@ -169,8 +171,15 @@ func (svc *webService) StartModule(ctx context.Context) error {
 		}
 
 		if rutils.ViamTCPSockets() {
-			addr = "127.0.0.1:" + strconv.Itoa(TCPParentPort)
+			addr = "127.0.0.1:0"
 			lis, err = net.Listen("tcp", addr)
+			tokens := strings.Split(lis.Addr().String(), ":")
+			port, err := strconv.Atoi(tokens[len(tokens)-1])
+			if err != nil {
+				return errors.WithMessage(err, "couldn't parse auto-assigned port")
+			}
+			TCPParentPort = port
+			svc.logger.Infof("listening on auto-assigned port %d", TCPParentPort)
 		} else {
 			addr, err = module.CreateSocketAddress(dir, "parent")
 			if err != nil {
