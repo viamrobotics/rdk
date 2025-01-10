@@ -547,8 +547,8 @@ var app = &cli.App{
 									Action: createCommandWithT[deleteOAuthAppArgs](DeleteOAuthAppAction),
 								},
 								{
-									Name:  "list",
-									Usage: "list oauth applications for an organization",
+									Name:      "list",
+									Usage:     "list oauth applications for an organization",
 									UsageText: createUsageText("organizations auth-service oauth-app list", []string{generalFlagOrgID}, false, false),
 									Flags: []cli.Flag{
 										&cli.StringFlag{
@@ -2731,7 +2731,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:     mlTrainingFlagVisibility,
-							Usage:    "visibility of the registry item, can be: `public` or `private`",
+							Usage:    "visibility of the registry item, can be: ['public', 'private']",
 							Required: true,
 						},
 						&cli.StringFlag{
