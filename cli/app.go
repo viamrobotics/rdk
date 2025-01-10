@@ -481,7 +481,7 @@ var app = &cli.App{
 						{
 							Name:      "enable",
 							Usage:     "enable auth-service for OAuth applications",
-							UsageText: createUsageText("enable", []string{generalFlagOrgID}, true),
+							UsageText: createUsageText("enable", []string{generalFlagOrgID}, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     generalFlagOrgID,
@@ -491,12 +491,20 @@ var app = &cli.App{
 							},
 							Action: createCommandWithT[enableAuthServiceArgs](EnableAuthServiceAction),
 						},
-					},
-				},
-				{
-					Name:  "auth-service",
-					Usage: "manage auth-service",
-					Subcommands: []*cli.Command{
+						{
+							Name:      "disable",
+							Usage:     "disable auth-service for OAuth applications",
+							UsageText: createUsageText("disable", []string{generalFlagOrgID}, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "organization ID tied to OAuth applications",
+								},
+							},
+							Before: createCommandWithT[disableAuthServiceArgs](DisableAuthServiceConfirmation),
+							Action: createCommandWithT[disableAuthServiceArgs](DisableAuthServiceAction),
+						},
 						{
 							Name:  "oauth-app",
 							Usage: "manage the OAuth applications for an organization",
@@ -532,6 +540,23 @@ var app = &cli.App{
 										},
 									},
 									Action: createCommandWithT[listOAuthAppsArgs](ListOAuthAppsAction),
+								},
+								{
+									Name:  "read",
+									Usage: "read the OAuth configuration details",
+									Flags: []cli.Flag{
+										&cli.StringFlag{
+											Name:     generalFlagOrgID,
+											Required: true,
+											Usage:    "organization ID that is tied to the OAuth application",
+										},
+										&cli.StringFlag{
+											Name:     oauthAppFlagClientID,
+											Usage:    "id for the OAuth application",
+											Required: true,
+										},
+									},
+									Action: createCommandWithT[readOAuthAppArgs](ReadOAuthAppAction),
 								},
 								{
 									Name:  "update",
