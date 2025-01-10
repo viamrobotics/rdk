@@ -117,8 +117,6 @@ const (
 
 	packageFlagFramework = "model-framework"
 
-	packageMetadataFlagFramework = "model_framework"
-
 	// TODO: APP-6993 remove these flags.
 	authApplicationFlagName          = "application-name"
 	authApplicationFlagApplicationID = "application-id"
