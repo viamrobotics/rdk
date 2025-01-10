@@ -550,7 +550,7 @@ var app = &cli.App{
 									Name:  "list",
 									Usage: "list oauth applications for an organization",
 									UsageText: createUsageText(
-										"organizations auth-service oauth-app list", []string{generalFlagOrgID, oauthAppFlagClientID}, false, false,
+										"organizations auth-service oauth-app list", []string{generalFlagOrgID}, false, false,
 									),
 									Flags: []cli.Flag{
 										&cli.StringFlag{
@@ -562,8 +562,11 @@ var app = &cli.App{
 									Action: createCommandWithT[listOAuthAppsArgs](ListOAuthAppsAction),
 								},
 								{
-									Name:  "read",
-									Usage: "read the OAuth configuration details",
+									Name:      "read",
+									Usage:     "read the OAuth configuration details",
+									UsageText: createUsageText(
+										"organizations auth-service oauth-app read", []string{generalFlagOrgID, oauthAppFlagClientID}, false, false,
+									),
 									Flags: []cli.Flag{
 										&cli.StringFlag{
 											Name:     generalFlagOrgID,
@@ -644,11 +647,17 @@ var app = &cli.App{
 								{
 									Name:  "create",
 									Usage: "create an OAuth application",
+									UsageText: createUsageText("organizations auth-serice oauth-app create",
+										[]string{
+											generalFlagOrgID, oauthAppFlagClientAuthentication, oauthAppFlagURLValidation, oauthAppFlagPKCE,
+											oauthAppFlagRedirectURIs, oauthAppFlagLogoutURI, oauthAppFlagEnabledGrants,
+										},
+										true, false),
 									Flags: []cli.Flag{
 										&cli.StringFlag{
 											Name:     generalFlagOrgID,
-											Required: true,
 											Usage:    "organization ID that is tied to the OAuth application",
+											Required: true,
 										},
 										&cli.StringFlag{
 											Name:  oauthAppFlagClientName,
@@ -659,7 +668,6 @@ var app = &cli.App{
 											Usage: "client authentication policy for the OAuth application. can be one of " +
 												formatAcceptedValues(string(ClientAuthenticationUnspecified), string(ClientAuthenticationRequired),
 													string(ClientAuthenticationNotRequired), string(ClientAuthenticationNotRequiredWhenUsingPKCE)),
-											Value:    unspecified,
 											Required: true,
 										},
 										&cli.StringFlag{
@@ -667,7 +675,6 @@ var app = &cli.App{
 											Usage: "url validation for the OAuth application. can be one of " +
 												formatAcceptedValues(string(URLValidationUnspecified), string(URLValidationExactMatch),
 													string(URLValidationAllowWildcards)),
-											Value:    unspecified,
 											Required: true,
 										},
 										&cli.StringFlag{
@@ -675,7 +682,6 @@ var app = &cli.App{
 											Usage: "pkce for the OAuth application. can be one of " +
 												formatAcceptedValues(string(PKCEUnspecified), string(PKCERequired), string(PKCENotRequired),
 													string(PKCENotRequiredWhenUsingClientAuthentication)),
-											Value:    unspecified,
 											Required: true,
 										},
 										&cli.StringSliceFlag{
