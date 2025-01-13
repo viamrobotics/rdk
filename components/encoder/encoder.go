@@ -74,7 +74,7 @@ func (t PositionType) String() string {
 //	position, posType, err := myEncoder.Position(context.Background(), encoder.PositionTypeTicks, nil)
 //
 // For more information, see the [Position method docs].
-// 
+//
 // ResetPosition example:
 //
 //	myEncoder, err := encoder.FromRobot(machine, "my_encoder")
