@@ -1616,10 +1616,6 @@ var app = &cli.App{
 							Name:  generalFlagEnd,
 							Usage: "ISO-8601 timestamp in RFC3339 format indicating the end of the interval filter",
 						},
-						&cli.BoolFlag{
-							Name:  logsFlagErrors,
-							Usage: "show only errors",
-						},
 						&cli.IntFlag{
 							Name:        logsFlagCount,
 							Usage:       fmt.Sprintf("number of logs to fetch (max %v)", maxNumLogs),
