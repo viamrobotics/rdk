@@ -182,6 +182,71 @@ func TestGetJSONManifest(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
+	t.Run("LocalTarball", func(t *testing.T) {
+		tmp := t.TempDir()
+
+		exePath := filepath.Join(tmp, "module.tgz")
+		exeDir := filepath.Dir(exePath)
+		exeMetaJSONFilepath := filepath.Join(exeDir, "meta.json")
+		unpackedModDir := filepath.Join(tmp, "unpacked-mod-dir")
+		unpackedModMetaJSONFilepath := filepath.Join(unpackedModDir, "meta.json")
+		env := map[string]string{}
+		modLocalTar := Module{Type: ModuleTypeLocal, ExePath: exePath}
+
+		err := os.Mkdir(unpackedModDir, 0o700)
+		test.That(t, err, test.ShouldBeNil)
+
+		// meta.json not found; unpacked module and executable directories searched
+		meta, moduleWorkingDirectory, err := modLocalTar.getJSONManifest(unpackedModDir, env)
+		test.That(t, meta, test.ShouldBeNil)
+		test.That(t, moduleWorkingDirectory, test.ShouldBeEmpty)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "local tarball")
+		test.That(t, errors.Is(err, os.ErrNotExist), test.ShouldBeTrue)
+		test.That(t, err.Error(), test.ShouldContainSubstring, unpackedModDir)
+		test.That(t, err.Error(), test.ShouldContainSubstring, exeDir)
+
+		// meta.json found in executable directory; parsing fails
+		exeMetaJSONFile, err := os.Create(exeMetaJSONFilepath)
+		test.That(t, err, test.ShouldBeNil)
+		defer exeMetaJSONFile.Close()
+
+		meta, moduleWorkingDirectory, err = modLocalTar.getJSONManifest(unpackedModDir, env)
+		test.That(t, meta, test.ShouldBeNil)
+		test.That(t, moduleWorkingDirectory, test.ShouldBeEmpty)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "local tarball")
+		test.That(t, errors.Is(err, os.ErrNotExist), test.ShouldBeFalse)
+
+		// meta.json found in executable directory; parsing succeeds
+		testWriteJSON(t, exeMetaJSONFilepath, validJSONManifest)
+
+		meta, moduleWorkingDirectory, err = modLocalTar.getJSONManifest(unpackedModDir, env)
+		test.That(t, *meta, test.ShouldResemble, validJSONManifest)
+		test.That(t, moduleWorkingDirectory, test.ShouldEqual, exeDir)
+		test.That(t, err, test.ShouldBeNil)
+
+		// meta.json found in unpacked modular directory; parsing fails
+		unpackedModMetaJSONFile, err := os.Create(unpackedModMetaJSONFilepath)
+		test.That(t, err, test.ShouldBeNil)
+		defer unpackedModMetaJSONFile.Close()
+
+		meta, moduleWorkingDirectory, err = modLocalTar.getJSONManifest(unpackedModDir, env)
+		test.That(t, meta, test.ShouldBeNil)
+		test.That(t, moduleWorkingDirectory, test.ShouldBeEmpty)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "local tarball")
+		test.That(t, errors.Is(err, os.ErrNotExist), test.ShouldBeFalse)
+
+		// meta.json found in unpacked module directory; parsing succeeds
+		testWriteJSON(t, unpackedModMetaJSONFilepath, validJSONManifest)
+
+		meta, moduleWorkingDirectory, err = modLocalTar.getJSONManifest(unpackedModDir, env)
+		test.That(t, *meta, test.ShouldResemble, validJSONManifest)
+		test.That(t, moduleWorkingDirectory, test.ShouldEqual, unpackedModDir)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
 	t.Run("LocalNontarball", func(t *testing.T) {
 		tmp := t.TempDir()
 

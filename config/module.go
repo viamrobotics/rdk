@@ -380,7 +380,7 @@ func (m *Module) FirstRun(
 
 // TODO(RSDK-9498): write test(s)
 // getJSONManifest returns a loaded meta.json from one of three sources (in order of precedence):
-// 1. if this is an registry module and there is a meta.json in its top level directory, use that.
+// 1. if this is a registry module and there is a meta.json in its top level directory, use that.
 // 2. if there is a meta.json in the exe dir, use that, except in local non-tarball case.
 // 3. if this is a local tarball and there's a meta.json next to the tarball, use that.
 // Note: the working directory must be the unpacked tarball directory or local exec directory.
@@ -405,12 +405,12 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 			if registryErr != nil {
 				// return from getJSONManifest() if the error returned does NOT indicate that the file wasn't found
 				if !os.IsNotExist(registryErr) {
-					return nil, "", errors.Wrap(registryErr, "registry module") // DONE
+					return nil, "", errors.Wrap(registryErr, "registry module")
 				}
 			}
 
 			if meta != nil {
-				return meta, moduleWorkingDirectory, nil // DONE
+				return meta, moduleWorkingDirectory, nil
 			}
 		}
 	}
@@ -426,7 +426,7 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 		if registryTarballErr != nil {
 			if !os.IsNotExist(registryTarballErr) {
 				if online {
-					return nil, "", errors.Wrap(registryTarballErr, "registry module") // DONE
+					return nil, "", errors.Wrap(registryTarballErr, "registry module")
 				}
 
 				return nil, "", errors.Wrap(registryTarballErr, "local tarball")
@@ -434,7 +434,7 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 		}
 
 		if meta != nil {
-			return meta, unpackedModDir, nil // DONE
+			return meta, unpackedModDir, nil
 		}
 	}
 
@@ -461,17 +461,17 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 
 	if online {
 		if !ok {
-			return nil, "", errors.Wrap(registryTarballErr, "registry module: failed to find meta.json. VIAM_MODULE_ROOT not set") // DONE
+			return nil, "", errors.Wrap(registryTarballErr, "registry module: failed to find meta.json. VIAM_MODULE_ROOT not set")
 		}
 
-		return nil, "", errors.Wrap(stderrors.Join(registryErr, registryTarballErr), "registry module: failed to find meta.json") // DONE
+		return nil, "", errors.Wrap(stderrors.Join(registryErr, registryTarballErr), "registry module: failed to find meta.json")
 	}
 
 	if !localNonTarball {
 		return nil, "", errors.Wrap(stderrors.Join(registryTarballErr, localTarballErr), "local tarball: failed to find meta.json")
 	}
 
-	return nil, "", errors.New("local non-tarball: did not search for meta.json") // DONE
+	return nil, "", errors.New("local non-tarball: did not search for meta.json")
 }
 
 func findMetaJSONFile(dir string) (*JSONManifest, error) {
