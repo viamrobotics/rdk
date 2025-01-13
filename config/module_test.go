@@ -1,12 +1,15 @@
 package config
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/pkg/errors"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/test"
 )
 
@@ -100,6 +103,60 @@ func TestSyntheticModule(t *testing.T) {
 		notTarPath, err := modNotTar.EvaluateExePath(tmp)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, notTarPath, test.ShouldEqual, modNotTar.ExePath)
+	})
+}
+
+func TestFirstRun(t *testing.T) {
+	m := Module{Type: ModuleTypeRegistry}
+
+	tmp := t.TempDir()
+	exePath := filepath.Join(tmp, "whatever.sh")
+	m.ExePath = exePath
+	metaJSONFilepath := filepath.Join(tmp, "meta.json")
+
+	ctx := context.Background()
+	localPackagesDir := ""
+	dataDir := ""
+	env := map[string]string{"VIAM_MODULE_ROOT": tmp}
+	logger := logging.NewTestLogger(t)
+
+	t.Run("MetaFileNotFound", func(t *testing.T) {
+		err := m.FirstRun(ctx, localPackagesDir, dataDir, env, logger)
+		// TODO: test logger output
+		// "meta.json not found, skipping first run"
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("MetaFileInvalid", func(t *testing.T) {
+		metaJSONFile, err := os.Create(metaJSONFilepath)
+		test.That(t, err, test.ShouldBeNil)
+		defer metaJSONFile.Close()
+
+		err = m.FirstRun(ctx, localPackagesDir, dataDir, env, logger)
+		// TODO: test logger output
+		// "failed to parse meta.json, skipping first run"
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("NoFirstRunScript", func(t *testing.T) {
+		testWriteJSON(t, metaJSONFilepath, JSONManifest{})
+
+		err := m.FirstRun(ctx, localPackagesDir, dataDir, env, logger)
+		t.Log(err)
+		// TODO: test logger output
+		// "no first run script specified, skipping first run"
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("InvalidFirstRunPath", func(t *testing.T) {
+		testWriteJSON(t, metaJSONFilepath, JSONManifest{FirstRun: "../firstrun.sh"})
+
+		err := m.FirstRun(ctx, localPackagesDir, dataDir, env, logger)
+		t.Log(err)
+		// TODO: test logger output
+		// "failed to build path to first run script, skipping first run"
+		test.That(t, err, test.ShouldBeNil)
+
 	})
 }
 
@@ -304,4 +361,8 @@ func testWriteJSON(t *testing.T, path string, value any) {
 	encoder := json.NewEncoder(file)
 	err = encoder.Encode(value)
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func testCheckLogOutput(t *testing.T, buf bytes.Buffer, expected string) {
+	t.Helper()
 }
