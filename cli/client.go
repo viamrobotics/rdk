@@ -747,7 +747,10 @@ type robotsLogsArgs struct {
 	Machine      string
 	Output       string
 	Format       string
-	Errors       bool
+	Keyword      string
+	Levels       []string
+	Start        string
+	End          string
 	Count        int
 }
 
@@ -756,6 +759,16 @@ func RobotsLogsAction(c *cli.Context, args robotsLogsArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
+	}
+
+	// Check if both start time and count are provided
+	if args.Start != "" && args.Count > 0 && args.End == "" {
+		return fmt.Errorf("unsupported functionality: specifying both a start time and a count without an end time is not supported. " +
+			"This behavior can be counterintuitive because logs are currently only sorted in descending order. " +
+			"For example, if there are 200 logs after the specified start time and you request 10 logs, it will return the 10 most recent logs, " +
+			"rather than the 10 logs closest to the start time. " +
+			"Please provide either a start time and an end time to define a clear range, or a count without a start time for recent logs",
+		)
 	}
 
 	orgStr := args.Organization
@@ -823,30 +836,37 @@ func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArg
 		return err
 	}
 
+	startTime, err := parseTimeString(args.Start, time.RFC3339)
+	if err != nil {
+		return errors.Wrap(err, "invalid start time format")
+	}
+	endTime, err := parseTimeString(args.End, time.RFC3339)
+	if err != nil {
+		return errors.Wrap(err, "invalid end time format")
+	}
+
 	// Write logs for this part
 	var pageToken string
 	for logsFetched := 0; logsFetched < numLogs; {
+		remainingLogs := int64(numLogs - logsFetched)
+		if remainingLogs > 100 {
+			remainingLogs = int64(100)
+		}
 		resp, err := c.client.GetRobotPartLogs(c.c.Context, &apppb.GetRobotPartLogsRequest{
-			Id:         part.Id,
-			ErrorsOnly: args.Errors,
-			PageToken:  &pageToken,
+			Id:        part.Id,
+			Filter:    &args.Keyword,
+			PageToken: &pageToken,
+			Levels:    args.Levels,
+			Start:     startTime,
+			End:       endTime,
+			Limit:     &remainingLogs,
 		})
 		if err != nil {
 			return errors.Wrap(err, "failed to fetch logs")
 		}
 
-		pageToken = resp.NextPageToken
-		// Break in the event of no logs in GetRobotPartLogsResponse or when
-		// page token is empty (no more pages).
-		if resp.Logs == nil || pageToken == "" {
+		if len(resp.Logs) == 0 {
 			break
-		}
-
-		// Truncate this intermediate slice of resp.Logs based on how many logs
-		// are still required by numLogs.
-		remainingLogsNeeded := numLogs - logsFetched
-		if remainingLogsNeeded < len(resp.Logs) {
-			resp.Logs = resp.Logs[:remainingLogsNeeded]
 		}
 
 		for _, log := range resp.Logs {
@@ -861,6 +881,12 @@ func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArg
 		}
 
 		logsFetched += len(resp.Logs)
+		pageToken = resp.NextPageToken
+
+		if pageToken == "" {
+			// End of pages
+			break
+		}
 	}
 
 	return nil
