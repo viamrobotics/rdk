@@ -129,7 +129,7 @@ func TestGetJSONManifest(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldNotContainSubstring, topLevelMetaJSONFilepath)
 
 		// meta.json not found; top level module directory and unpacked module directories searched
-		env["VIAM_MODULE_ROOT"] = tmp
+		env["VIAM_MODULE_ROOT"] = topLevelDir
 
 		meta, moduleWorkingDirectory, err = modRegistry.getJSONManifest(unpackedModDir, env)
 		test.That(t, meta, test.ShouldBeNil)
@@ -161,7 +161,24 @@ func TestGetJSONManifest(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		// meta.json found in top level modular directory; parsing fails
+		topLevelMetaJSONFile, err := os.Create(topLevelMetaJSONFilepath)
+		test.That(t, err, test.ShouldBeNil)
+		defer topLevelMetaJSONFile.Close()
+
+		meta, moduleWorkingDirectory, err = modRegistry.getJSONManifest(unpackedModDir, env)
+		test.That(t, meta, test.ShouldBeNil)
+		test.That(t, moduleWorkingDirectory, test.ShouldBeEmpty)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "registry module")
+		test.That(t, errors.Is(err, os.ErrNotExist), test.ShouldBeFalse)
+
 		// meta.json found in top level modular directory; parsing succeeds
+		testWriteJSON(t, topLevelMetaJSONFilepath, validJSONManifest)
+
+		meta, moduleWorkingDirectory, err = modRegistry.getJSONManifest(unpackedModDir, env)
+		test.That(t, *meta, test.ShouldResemble, validJSONManifest)
+		test.That(t, moduleWorkingDirectory, test.ShouldEqual, topLevelDir)
+		test.That(t, err, test.ShouldBeNil)
 	})
 }
 
