@@ -365,9 +365,9 @@ func createUsageText(command string, requiredFlags []string, unrequiredOptions, 
 }
 
 // formatAcceptedValues is a helper for formatting the usage text for flags that only accept certain values.
-func formatAcceptedValues(values ...string) string {
+func formatAcceptedValues(description string, values ...string) string {
 	joined := strings.Join(values, ", ")
-	return "[" + joined + "]"
+	return fmt.Sprintf("%s. must be one of: [%s]", description, joined)
 }
 
 var app = &cli.App{
@@ -588,23 +588,27 @@ var app = &cli.App{
 										},
 										&cli.StringFlag{
 											Name: oauthAppFlagClientAuthentication,
-											Usage: "updated client authentication policy for the OAuth application. can be one of " +
-												formatAcceptedValues(string(ClientAuthenticationUnspecified), string(ClientAuthenticationRequired),
-													string(ClientAuthenticationNotRequired), string(ClientAuthenticationNotRequiredWhenUsingPKCE)),
+											Usage: formatAcceptedValues(
+												"updated client authentication policy for the OAuth application",
+												string(ClientAuthenticationUnspecified), string(ClientAuthenticationRequired),
+												string(ClientAuthenticationNotRequired), string(ClientAuthenticationNotRequiredWhenUsingPKCE),
+											),
 											Value: unspecified,
 										},
 										&cli.StringFlag{
 											Name: oauthAppFlagURLValidation,
-											Usage: "updated url validation for the OAuth application. can be one of " +
-												formatAcceptedValues(string(URLValidationUnspecified), string(URLValidationExactMatch),
-													string(URLValidationAllowWildcards)),
+											Usage: formatAcceptedValues(
+												"updated url validation for the OAuth application",
+												string(URLValidationUnspecified), string(URLValidationExactMatch), string(URLValidationAllowWildcards),
+											),
 											Value: unspecified,
 										},
 										&cli.StringFlag{
 											Name: oauthAppFlagPKCE,
-											Usage: "updated pkce for the OAuth application. can be one of " +
-												formatAcceptedValues(string(PKCEUnspecified), string(PKCERequired), string(PKCENotRequired),
-													string(PKCENotRequiredWhenUsingClientAuthentication)),
+											Usage: formatAcceptedValues(
+												"updated pkce for the OAuth application",
+												string(PKCEUnspecified), string(PKCERequired), string(PKCENotRequired), string(PKCENotRequiredWhenUsingClientAuthentication),
+											),
 											Value: unspecified,
 										},
 										&cli.StringSliceFlag{
@@ -621,9 +625,11 @@ var app = &cli.App{
 										},
 										&cli.StringSliceFlag{
 											Name: oauthAppFlagEnabledGrants,
-											Usage: "updated comma separated enabled grants for the OAuth application. values can be of " +
-												formatAcceptedValues(string(EnabledGrantUnspecified), string(EnabledGrantRefreshToken), string(EnabledGrantPassword),
-													string(EnabledGrantImplicit), string(EnabledGrantDeviceCode), string(EnabledGrantAuthorizationCode)),
+											Usage: formatAcceptedValues(
+												"updated comma separated enabled grants for the OAuth application",
+												string(EnabledGrantUnspecified), string(EnabledGrantRefreshToken), string(EnabledGrantPassword),
+												string(EnabledGrantImplicit), string(EnabledGrantDeviceCode), string(EnabledGrantAuthorizationCode),
+											),
 										},
 									},
 									Action: createCommandWithT[updateOAuthAppArgs](UpdateOAuthAppAction),
@@ -649,23 +655,27 @@ var app = &cli.App{
 										},
 										&cli.StringFlag{
 											Name: oauthAppFlagClientAuthentication,
-											Usage: "client authentication policy for the OAuth application. can be one of " +
-												formatAcceptedValues(string(ClientAuthenticationUnspecified), string(ClientAuthenticationRequired),
-													string(ClientAuthenticationNotRequired), string(ClientAuthenticationNotRequiredWhenUsingPKCE)),
+											Usage: formatAcceptedValues(
+												"client authentication policy for the OAuth application",
+												string(ClientAuthenticationUnspecified), string(ClientAuthenticationRequired),
+												string(ClientAuthenticationNotRequired), string(ClientAuthenticationNotRequiredWhenUsingPKCE),
+											),
 											Required: true,
 										},
 										&cli.StringFlag{
 											Name: oauthAppFlagURLValidation,
-											Usage: "url validation for the OAuth application. can be one of " +
-												formatAcceptedValues(string(URLValidationUnspecified), string(URLValidationExactMatch),
-													string(URLValidationAllowWildcards)),
+											Usage: formatAcceptedValues(
+												"url validation for the OAuth application",
+												string(URLValidationUnspecified), string(URLValidationExactMatch), string(URLValidationAllowWildcards),
+											),
 											Required: true,
 										},
 										&cli.StringFlag{
 											Name: oauthAppFlagPKCE,
-											Usage: "pkce for the OAuth application. can be one of " +
-												formatAcceptedValues(string(PKCEUnspecified), string(PKCERequired), string(PKCENotRequired),
-													string(PKCENotRequiredWhenUsingClientAuthentication)),
+											Usage: formatAcceptedValues(
+												"pkce for the OAuth application",
+												string(PKCEUnspecified), string(PKCERequired), string(PKCENotRequired), string(PKCENotRequiredWhenUsingClientAuthentication),
+											),
 											Required: true,
 										},
 										&cli.StringSliceFlag{
@@ -684,9 +694,11 @@ var app = &cli.App{
 										},
 										&cli.StringSliceFlag{
 											Name: oauthAppFlagEnabledGrants,
-											Usage: "comma-separated enabled grants for the OAuth application. requires at least one, where values can be of " +
-												formatAcceptedValues(string(EnabledGrantUnspecified), string(EnabledGrantRefreshToken), string(EnabledGrantPassword),
-													string(EnabledGrantImplicit), string(EnabledGrantDeviceCode), string(EnabledGrantAuthorizationCode)),
+											Usage: formatAcceptedValues(
+												"comma-separated enabled grants for the OAuth application",
+												string(EnabledGrantUnspecified), string(EnabledGrantRefreshToken), string(EnabledGrantPassword),
+												string(EnabledGrantImplicit), string(EnabledGrantDeviceCode), string(EnabledGrantAuthorizationCode),
+											),
 											Required: true,
 										},
 									},
@@ -1530,8 +1542,11 @@ var app = &cli.App{
 									Required: true,
 								},
 								&cli.StringFlag{
-									Name:     trainFlagModelType,
-									Usage:    "type of model to train. can be one of [single_label_classification, multi_label_classification, or object_detection]",
+									Name: trainFlagModelType,
+									Usage: formatAcceptedValues(
+										"type of model to train",
+										"single_label_classification", "multi_label_classification", "object_detection",
+									),
 									Required: true,
 								},
 								&cli.StringSliceFlag{
@@ -1650,11 +1665,11 @@ var app = &cli.App{
 										},
 										&cli.StringFlag{
 											Name:  mlTrainingFlagFramework,
-											Usage: fmt.Sprintf("framework of the ML training script to upload. can be: [%s]", strings.Join(modelFrameworks, ", ")),
+											Usage: formatAcceptedValues("framework of the ML training script to upload", modelFrameworks...),
 										},
 										&cli.StringFlag{
 											Name:  trainFlagModelType,
-											Usage: fmt.Sprintf("task type of the ML training script to upload. can be: [%s]", strings.Join(modelTypes, ", ")),
+											Usage: formatAcceptedValues("task type of the ML training script to upload", modelTypes...),
 										},
 										&cli.StringSliceFlag{
 											Name:  mlTrainingFlagArgs,
@@ -1718,7 +1733,7 @@ var app = &cli.App{
 						},
 						&cli.StringFlag{
 							Name:  trainFlagJobStatus,
-							Usage: "training status to filter for. can be: " + allTrainingStatusValues(),
+							Usage: formatAcceptedValues("training status to filter for", allTrainingStatusValues()...),
 							Value: defaultTrainingStatus(),
 						},
 					},
@@ -2606,7 +2621,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						&cli.StringFlag{
 							Name:     generalFlagType,
 							Required: true,
-							Usage:    fmt.Sprintf("type of the requested package. can be one of: [%s]", strings.Join(packageTypes, ", ")),
+							Usage:    formatAcceptedValues("type of the requested package", packageTypes...),
 						},
 					},
 					Action: createCommandWithT[packageExportArgs](PackageExportAction),
@@ -2641,13 +2656,12 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						&cli.StringFlag{
 							Name:     generalFlagType,
 							Required: true,
-							Usage:    fmt.Sprintf("type of the requested package. can be: [%s]", strings.Join(packageTypes, ", ")),
+							Usage:    formatAcceptedValues("type of the requested package", packageTypes...),
 						},
 						&cli.StringFlag{
 							Name: packageFlagFramework,
-							Usage: fmt.Sprintf(
-								"framework for an ml_model being uploaded. can be: [%s]. Required if packages is of type 'ml_model'",
-								strings.Join(modelFrameworks, ", "),
+							Usage: formatAcceptedValues(
+								"framework for an ml_model being uploaded. Required if packages is of type 'ml_model'", modelFrameworks...,
 							),
 						},
 					},
@@ -2687,11 +2701,11 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:  mlTrainingFlagFramework,
-							Usage: fmt.Sprintf("framework of the ML training script to upload. can be: [%s]", strings.Join(modelFrameworks, ", ")),
+							Usage: formatAcceptedValues("framework of the ML training script to upload", modelFrameworks...),
 						},
 						&cli.StringFlag{
 							Name:  generalFlagType,
-							Usage: fmt.Sprintf("task type of the ML training script to upload. can be: [%s]", strings.Join(modelTypes, ", ")),
+							Usage: formatAcceptedValues("task type of the ML training script to upload", modelTypes...),
 						},
 						&cli.BoolFlag{
 							Name:  mlTrainingFlagDraft,
@@ -2723,7 +2737,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:     mlTrainingFlagVisibility,
-							Usage:    "visibility of the registry item. can be: ['public', 'private']",
+							Usage:    formatAcceptedValues("visibility of the registry item", "public", "private"),
 							Required: true,
 						},
 						&cli.StringFlag{
