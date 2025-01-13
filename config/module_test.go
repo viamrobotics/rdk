@@ -8,8 +8,9 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
-	"go.viam.com/rdk/logging"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/logging"
 )
 
 // testChdir is a helper that cleans up an os.Chdir.
@@ -155,7 +156,6 @@ func TestFirstRun(t *testing.T) {
 		// TODO: test logger output
 		// "failed to build path to first run script, skipping first run"
 		test.That(t, err, test.ShouldBeNil)
-
 	})
 }
 
