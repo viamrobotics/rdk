@@ -362,7 +362,3 @@ func testWriteJSON(t *testing.T, path string, value any) {
 	err = encoder.Encode(value)
 	test.That(t, err, test.ShouldBeNil)
 }
-
-func testCheckLogOutput(t *testing.T, buf bytes.Buffer, expected string) {
-	t.Helper()
-}
