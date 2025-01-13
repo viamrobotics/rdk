@@ -1,7 +1,6 @@
 package config
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"os"
