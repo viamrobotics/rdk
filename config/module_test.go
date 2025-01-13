@@ -1,12 +1,16 @@
 package config
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/pkg/errors"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/logging"
 )
 
 // testChdir is a helper that cleans up an os.Chdir.
@@ -99,6 +103,247 @@ func TestSyntheticModule(t *testing.T) {
 		notTarPath, err := modNotTar.EvaluateExePath(tmp)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, notTarPath, test.ShouldEqual, modNotTar.ExePath)
+	})
+}
+
+func TestFirstRun(t *testing.T) {
+	m := Module{Type: ModuleTypeRegistry}
+
+	tmp := t.TempDir()
+	exePath := filepath.Join(tmp, "whatever.sh")
+	m.ExePath = exePath
+	metaJSONFilepath := filepath.Join(tmp, "meta.json")
+
+	ctx := context.Background()
+	localPackagesDir := ""
+	dataDir := ""
+	env := map[string]string{"VIAM_MODULE_ROOT": tmp}
+	logger, observedLogs := logging.NewObservedTestLogger(t)
+
+	t.Run("MetaFileNotFound", func(t *testing.T) {
+		err := m.FirstRun(ctx, localPackagesDir, dataDir, env, logger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, observedLogs.FilterMessage("meta.json not found, skipping first run").Len(), test.ShouldEqual, 1)
+	})
+
+	t.Run("MetaFileInvalid", func(t *testing.T) {
+		metaJSONFile, err := os.Create(metaJSONFilepath)
+		test.That(t, err, test.ShouldBeNil)
+		defer metaJSONFile.Close()
+
+		err = m.FirstRun(ctx, localPackagesDir, dataDir, env, logger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, observedLogs.FilterMessage("failed to parse meta.json, skipping first run").Len(), test.ShouldEqual, 1)
+	})
+
+	t.Run("NoFirstRunScript", func(t *testing.T) {
+		testWriteJSON(t, metaJSONFilepath, JSONManifest{})
+
+		err := m.FirstRun(ctx, localPackagesDir, dataDir, env, logger)
+		t.Log(err)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, observedLogs.FilterMessage("no first run script specified, skipping first run").Len(), test.ShouldEqual, 1)
+	})
+
+	t.Run("InvalidFirstRunPath", func(t *testing.T) {
+		testWriteJSON(t, metaJSONFilepath, JSONManifest{FirstRun: "../firstrun.sh"})
+
+		err := m.FirstRun(ctx, localPackagesDir, dataDir, env, logger)
+		t.Log(err)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, observedLogs.FilterMessage("failed to build path to first run script, skipping first run").Len(), test.ShouldEqual, 1)
+	})
+}
+
+func TestGetJSONManifest(t *testing.T) {
+	validJSONManifest := JSONManifest{Entrypoint: "entry"}
+
+	t.Run("RegistryModule", func(t *testing.T) {
+		tmp := t.TempDir()
+
+		topLevelDir := tmp
+		topLevelMetaJSONFilepath := filepath.Join(topLevelDir, "meta.json")
+		unpackedModDir := filepath.Join(tmp, "unpacked-mod-dir")
+		unpackedModMetaJSONFilepath := filepath.Join(unpackedModDir, "meta.json")
+		env := make(map[string]string, 1)
+		modRegistry := Module{Type: ModuleTypeRegistry}
+
+		err := os.Mkdir(unpackedModDir, 0o700)
+		test.That(t, err, test.ShouldBeNil)
+
+		// meta.json not found; only unpacked module directory searched
+		meta, moduleWorkingDirectory, err := modRegistry.getJSONManifest(unpackedModDir, env)
+		test.That(t, meta, test.ShouldBeNil)
+		test.That(t, moduleWorkingDirectory, test.ShouldBeEmpty)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "registry module")
+		test.That(t, errors.Is(err, os.ErrNotExist), test.ShouldBeTrue)
+		test.That(t, err.Error(), test.ShouldContainSubstring, unpackedModMetaJSONFilepath)
+		test.That(t, err.Error(), test.ShouldNotContainSubstring, topLevelMetaJSONFilepath)
+
+		// meta.json not found; top level module directory and unpacked module directories searched
+		env["VIAM_MODULE_ROOT"] = topLevelDir
+
+		meta, moduleWorkingDirectory, err = modRegistry.getJSONManifest(unpackedModDir, env)
+		test.That(t, meta, test.ShouldBeNil)
+		test.That(t, moduleWorkingDirectory, test.ShouldBeEmpty)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "registry module")
+		test.That(t, errors.Is(err, os.ErrNotExist), test.ShouldBeTrue)
+		test.That(t, err.Error(), test.ShouldContainSubstring, unpackedModMetaJSONFilepath)
+		test.That(t, err.Error(), test.ShouldContainSubstring, topLevelMetaJSONFilepath)
+
+		// meta.json found in unpacked modular directory; parsing fails
+		unpackedModMetaJSONFile, err := os.Create(unpackedModMetaJSONFilepath)
+		test.That(t, err, test.ShouldBeNil)
+		defer unpackedModMetaJSONFile.Close()
+
+		meta, moduleWorkingDirectory, err = modRegistry.getJSONManifest(unpackedModDir, env)
+		test.That(t, meta, test.ShouldBeNil)
+		test.That(t, moduleWorkingDirectory, test.ShouldBeEmpty)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "registry module")
+		test.That(t, errors.Is(err, os.ErrNotExist), test.ShouldBeFalse)
+
+		// meta.json found in unpacked modular directory; parsing succeeds
+		testWriteJSON(t, unpackedModMetaJSONFilepath, validJSONManifest)
+
+		meta, moduleWorkingDirectory, err = modRegistry.getJSONManifest(unpackedModDir, env)
+		test.That(t, *meta, test.ShouldResemble, validJSONManifest)
+		test.That(t, moduleWorkingDirectory, test.ShouldEqual, unpackedModDir)
+		test.That(t, err, test.ShouldBeNil)
+
+		// meta.json found in top level modular directory; parsing fails
+		topLevelMetaJSONFile, err := os.Create(topLevelMetaJSONFilepath)
+		test.That(t, err, test.ShouldBeNil)
+		defer topLevelMetaJSONFile.Close()
+
+		meta, moduleWorkingDirectory, err = modRegistry.getJSONManifest(unpackedModDir, env)
+		test.That(t, meta, test.ShouldBeNil)
+		test.That(t, moduleWorkingDirectory, test.ShouldBeEmpty)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "registry module")
+		test.That(t, errors.Is(err, os.ErrNotExist), test.ShouldBeFalse)
+
+		// meta.json found in top level modular directory; parsing succeeds
+		testWriteJSON(t, topLevelMetaJSONFilepath, validJSONManifest)
+
+		meta, moduleWorkingDirectory, err = modRegistry.getJSONManifest(unpackedModDir, env)
+		test.That(t, *meta, test.ShouldResemble, validJSONManifest)
+		test.That(t, moduleWorkingDirectory, test.ShouldEqual, topLevelDir)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("LocalTarball", func(t *testing.T) {
+		tmp := t.TempDir()
+
+		exePath := filepath.Join(tmp, "module.tgz")
+		exeDir := filepath.Dir(exePath)
+		exeMetaJSONFilepath := filepath.Join(exeDir, "meta.json")
+		unpackedModDir := filepath.Join(tmp, "unpacked-mod-dir")
+		unpackedModMetaJSONFilepath := filepath.Join(unpackedModDir, "meta.json")
+		env := map[string]string{}
+		modLocalTar := Module{Type: ModuleTypeLocal, ExePath: exePath}
+
+		err := os.Mkdir(unpackedModDir, 0o700)
+		test.That(t, err, test.ShouldBeNil)
+
+		// meta.json not found; unpacked module and executable directories searched
+		meta, moduleWorkingDirectory, err := modLocalTar.getJSONManifest(unpackedModDir, env)
+		test.That(t, meta, test.ShouldBeNil)
+		test.That(t, moduleWorkingDirectory, test.ShouldBeEmpty)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "local tarball")
+		test.That(t, errors.Is(err, os.ErrNotExist), test.ShouldBeTrue)
+		test.That(t, err.Error(), test.ShouldContainSubstring, unpackedModDir)
+		test.That(t, err.Error(), test.ShouldContainSubstring, exeDir)
+
+		// meta.json found in executable directory; parsing fails
+		exeMetaJSONFile, err := os.Create(exeMetaJSONFilepath)
+		test.That(t, err, test.ShouldBeNil)
+		defer exeMetaJSONFile.Close()
+
+		meta, moduleWorkingDirectory, err = modLocalTar.getJSONManifest(unpackedModDir, env)
+		test.That(t, meta, test.ShouldBeNil)
+		test.That(t, moduleWorkingDirectory, test.ShouldBeEmpty)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "local tarball")
+		test.That(t, errors.Is(err, os.ErrNotExist), test.ShouldBeFalse)
+
+		// meta.json found in executable directory; parsing succeeds
+		testWriteJSON(t, exeMetaJSONFilepath, validJSONManifest)
+
+		meta, moduleWorkingDirectory, err = modLocalTar.getJSONManifest(unpackedModDir, env)
+		test.That(t, *meta, test.ShouldResemble, validJSONManifest)
+		test.That(t, moduleWorkingDirectory, test.ShouldEqual, exeDir)
+		test.That(t, err, test.ShouldBeNil)
+
+		// meta.json found in unpacked modular directory; parsing fails
+		unpackedModMetaJSONFile, err := os.Create(unpackedModMetaJSONFilepath)
+		test.That(t, err, test.ShouldBeNil)
+		defer unpackedModMetaJSONFile.Close()
+
+		meta, moduleWorkingDirectory, err = modLocalTar.getJSONManifest(unpackedModDir, env)
+		test.That(t, meta, test.ShouldBeNil)
+		test.That(t, moduleWorkingDirectory, test.ShouldBeEmpty)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "local tarball")
+		test.That(t, errors.Is(err, os.ErrNotExist), test.ShouldBeFalse)
+
+		// meta.json found in unpacked module directory; parsing succeeds
+		testWriteJSON(t, unpackedModMetaJSONFilepath, validJSONManifest)
+
+		meta, moduleWorkingDirectory, err = modLocalTar.getJSONManifest(unpackedModDir, env)
+		test.That(t, *meta, test.ShouldResemble, validJSONManifest)
+		test.That(t, moduleWorkingDirectory, test.ShouldEqual, unpackedModDir)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("LocalNontarball", func(t *testing.T) {
+		tmp := t.TempDir()
+
+		unpackedModDir := filepath.Join(tmp, "unpacked-mod-dir")
+		env := map[string]string{}
+		modLocalNontar := Module{Type: ModuleTypeLocal}
+
+		err := os.Mkdir(unpackedModDir, 0o700)
+		test.That(t, err, test.ShouldBeNil)
+
+		meta, moduleWorkingDirectory, err := modLocalNontar.getJSONManifest(unpackedModDir, env)
+		test.That(t, meta, test.ShouldBeNil)
+		test.That(t, moduleWorkingDirectory, test.ShouldBeEmpty)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "local non-tarball")
+		test.That(t, errors.Is(err, os.ErrNotExist), test.ShouldBeFalse)
+	})
+}
+
+func TestFindMetaJSONFile(t *testing.T) {
+	tmp := t.TempDir()
+	metaJSONFilePath := filepath.Join(tmp, "meta.json")
+
+	t.Run("MissingMetaFile", func(t *testing.T) {
+		meta, err := findMetaJSONFile(tmp)
+		test.That(t, meta, test.ShouldBeNil)
+		test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
+	})
+
+	file, err := os.Create(metaJSONFilePath)
+	test.That(t, err, test.ShouldBeNil)
+	defer file.Close()
+	t.Run("InvalidMetaFile", func(t *testing.T) {
+		meta, err := findMetaJSONFile(tmp)
+		test.That(t, meta, test.ShouldBeNil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldNotEqual, os.IsNotExist)
+	})
+
+	validMeta := JSONManifest{Entrypoint: "entry"}
+	testWriteJSON(t, metaJSONFilePath, &validMeta)
+	t.Run("ValidMetaFileFound", func(t *testing.T) {
+		meta, err := findMetaJSONFile(tmp)
+		test.That(t, *meta, test.ShouldResemble, validMeta)
+		test.That(t, err, test.ShouldBeNil)
 	})
 }
 
