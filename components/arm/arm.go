@@ -115,7 +115,7 @@ func Named(name string) resource.Name {
 // [EndPosition method docs]: https://docs.viam.com/dev/reference/apis/components/arm/#getendposition
 // [MoveToPosition method docs]: https://docs.viam.com/dev/reference/apis/components/arm/#movetoposition
 // [MoveToJointPositions method docs]: https://docs.viam.com/dev/reference/apis/components/arm/#movetojointpositions
-// [MoveThroughJointPositions method docs]: https://docs.viam.com/dev/reference/apis/components/arm/#movethroughjointpositions 
+// [MoveThroughJointPositions method docs]: https://docs.viam.com/dev/reference/apis/components/arm/#movethroughjointpositions
 // [JointPositions method docs]: https://docs.viam.com/dev/reference/apis/components/arm/#getjointpositions
 type Arm interface {
 	resource.Resource
