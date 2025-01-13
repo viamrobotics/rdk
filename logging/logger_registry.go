@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"sync"
+	"sync/atomic"
 )
 
 // Registry is a registry of loggers. It is stored on a logger, and holds a map
@@ -13,6 +14,10 @@ type Registry struct {
 	mu        sync.RWMutex
 	loggers   map[string]Logger
 	logConfig []LoggerPatternConfig
+
+	// DeduplicateLogs controls whether to deduplicate logs. Slightly odd to store this on
+	// the registry but preferable to having a global atomic.
+	DeduplicateLogs atomic.Bool
 }
 
 func newRegistry() *Registry {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,6 +14,14 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest"
+)
+
+var (
+	// Window duration over which to consider log messages "noisy.".
+	noisyMessageWindowDuration = 10 * time.Second
+	// Count threshold within `noisyMessageWindowDuration` after which to
+	// consider log messages "noisy.".
+	noisyMessageCountThreshold = 3
 )
 
 type (
@@ -26,6 +35,15 @@ type (
 		// avoid that. This function is a no-op for non-test loggers. See `NewTestAppender`
 		// documentation for more details.
 		testHelper func()
+
+		// recentMessageMu guards the recentMessage fields below.
+		recentMessageMu sync.Mutex
+		// Map of messages to counts of that message being `Write`ten within window.
+		recentMessageCounts map[string]int
+		// Map of messages to last `LogEntry` with that message within window.
+		recentMessageEntries map[string]LogEntry
+		// Start of current window.
+		recentMessageWindowStart time.Time
 	}
 
 	// LogEntry embeds a zapcore Entry and slice of Fields.
@@ -40,6 +58,31 @@ type (
 		logFields []zapcore.Field
 	}
 )
+
+// HashKey creates a hash key string for a `LogEntry`. Should be used to emplace a log
+// entry in `recentMessageEntries`, i.e. `LogEntry`s that `HashKey` identically should be
+// treated as identical with respect to noisiness and deduplication.
+func (le *LogEntry) HashKey() string {
+	ret := le.Message
+	for _, field := range le.Fields {
+		ret += " " + field.Key + " "
+
+		// Assume field's value is held in one of `Integer`, `Interface`, or
+		// `String`. Otherwise (field has no value or is equivalent to 0 or "") use
+		// the string "undefined".
+		switch {
+		case field.Integer != 0:
+			ret += fmt.Sprintf("%d", field.Integer)
+		case field.Interface != nil:
+			ret += fmt.Sprintf("%v", field.Interface)
+		case field.String != "":
+			ret += field.String
+		default:
+			ret += "undefined"
+		}
+	}
+	return ret
+}
 
 func (imp *impl) NewLogEntry() *LogEntry {
 	ret := &LogEntry{}
@@ -84,6 +127,10 @@ func (imp *impl) Sublogger(subname string) Logger {
 		imp.appenders,
 		imp.registry,
 		imp.testHelper,
+		sync.Mutex{},
+		make(map[string]int),
+		make(map[string]LogEntry),
+		time.Now(),
 	}
 
 	// If there are multiple callers racing to create the same logger name (e.g: `viam.networking`),
@@ -198,6 +245,47 @@ func (imp *impl) shouldLog(logLevel Level) bool {
 }
 
 func (imp *impl) Write(entry *LogEntry) {
+	if imp.registry.DeduplicateLogs.Load() {
+		hashkeyedEntry := entry.HashKey()
+
+		// If we have entered a new recentMessage window, output noisy logs from
+		// the last window.
+		imp.recentMessageMu.Lock()
+		if time.Since(imp.recentMessageWindowStart) > noisyMessageWindowDuration {
+			for stringifiedEntry, count := range imp.recentMessageCounts {
+				if count > noisyMessageCountThreshold {
+					collapsedEntry := imp.recentMessageEntries[stringifiedEntry]
+					collapsedEntry.Message = fmt.Sprintf("Message logged %d times in past %v: %s",
+						count, noisyMessageWindowDuration, collapsedEntry.Message)
+
+					imp.testHelper()
+					for _, appender := range imp.appenders {
+						err := appender.Write(collapsedEntry.Entry, collapsedEntry.Fields)
+						if err != nil {
+							fmt.Fprint(os.Stderr, err)
+						}
+					}
+				}
+			}
+
+			// Clear maps and reset window.
+			clear(imp.recentMessageCounts)
+			clear(imp.recentMessageEntries)
+			imp.recentMessageWindowStart = time.Now()
+		}
+
+		// Track hashkeyed entry in recentMessage maps.
+		imp.recentMessageCounts[hashkeyedEntry]++
+		imp.recentMessageEntries[hashkeyedEntry] = *entry
+
+		if imp.recentMessageCounts[hashkeyedEntry] > noisyMessageCountThreshold {
+			// If entry's message is reportedly "noisy," return early.
+			imp.recentMessageMu.Unlock()
+			return
+		}
+		imp.recentMessageMu.Unlock()
+	}
+
 	imp.testHelper()
 	for _, appender := range imp.appenders {
 		err := appender.Write(entry.Entry, entry.Fields)
