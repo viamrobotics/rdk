@@ -751,7 +751,6 @@ type robotsLogsArgs struct {
 	Levels       []string
 	Start        string
 	End          string
-	Errors       bool
 	Count        int
 }
 
@@ -851,14 +850,13 @@ func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArg
 	for logsFetched := 0; logsFetched < numLogs; {
 		remainingLogs := int64(numLogs - logsFetched)
 		resp, err := c.client.GetRobotPartLogs(c.c.Context, &apppb.GetRobotPartLogsRequest{
-			Id:         part.Id,
-			Filter:     &args.Keyword,
-			ErrorsOnly: args.Errors,
-			PageToken:  &pageToken,
-			Levels:     args.Levels,
-			Start:      startTime,
-			End:        endTime,
-			Limit:      &remainingLogs,
+			Id:        part.Id,
+			Filter:    &args.Keyword,
+			PageToken: &pageToken,
+			Levels:    args.Levels,
+			Start:     startTime,
+			End:       endTime,
+			Limit:     &remainingLogs,
 		})
 		if err != nil {
 			return errors.Wrap(err, "failed to fetch logs")
