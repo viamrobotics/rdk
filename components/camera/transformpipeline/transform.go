@@ -85,10 +85,10 @@ func (Transformation) JSONSchema() *jsonschema.Schema {
 func buildTransform(
 	ctx context.Context,
 	r robot.Robot,
-	source camera.VideoSource,
+	source camera.StreamCamera,
 	stream camera.ImageType,
 	tr Transformation,
-) (camera.VideoSource, camera.ImageType, error) {
+) (camera.StreamCamera, camera.ImageType, error) {
 	switch transformType(tr.Type) {
 	case transformTypeUnspecified:
 		return source, stream, nil
@@ -107,15 +107,14 @@ func buildTransform(
 	}
 }
 
-func propsFromVideoSource(ctx context.Context, source camera.VideoSource) (camera.Properties, error) {
+func propsFromVideoSource(ctx context.Context, source camera.Camera) (camera.Properties, error) {
 	var camProps camera.Properties
 
-	if cameraSrc, ok := source.(camera.Camera); ok {
-		props, err := cameraSrc.Properties(ctx)
-		if err != nil {
-			return camProps, err
-		}
-		camProps = props
+	props, err := source.Properties(ctx)
+	if err != nil {
+		return camProps, err
 	}
+	camProps = props
+
 	return camProps, nil
 }

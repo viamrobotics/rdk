@@ -308,11 +308,10 @@ func (vm *vizModel) DetectionsFromCamera(
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find camera named %s", cameraName)
 	}
-	img, release, err := camera.ReadImage(ctx, cam)
+	img, err := camera.DecodeImageFromCamera(ctx, "", extra, cam)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get image from %s", cameraName)
 	}
-	defer release()
 	return vm.detectorFunc(ctx, img)
 }
 
@@ -351,11 +350,10 @@ func (vm *vizModel) ClassificationsFromCamera(
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find camera named %s", cameraName)
 	}
-	img, release, err := camera.ReadImage(ctx, cam)
+	img, err := camera.DecodeImageFromCamera(ctx, "", extra, cam)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get image from %s", cameraName)
 	}
-	defer release()
 	fullClassifications, err := vm.classifierFunc(ctx, img)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get classifications from image")
@@ -401,11 +399,10 @@ func (vm *vizModel) CaptureAllFromCamera(
 	if err != nil {
 		return viscapture.VisCapture{}, errors.Wrapf(err, "could not find camera named %s", cameraName)
 	}
-	img, release, err := camera.ReadImage(ctx, cam)
+	img, err := camera.DecodeImageFromCamera(ctx, "", extra, cam)
 	if err != nil {
 		return viscapture.VisCapture{}, errors.Wrapf(err, "could not get image from %s", cameraName)
 	}
-	defer release()
 	logger := vm.r.Logger()
 	var detections []objectdetection.Detection
 	if opt.ReturnDetections {
