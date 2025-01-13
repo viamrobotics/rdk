@@ -849,6 +849,9 @@ func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArg
 	var pageToken string
 	for logsFetched := 0; logsFetched < numLogs; {
 		remainingLogs := int64(numLogs - logsFetched)
+		if remainingLogs > 100 {
+			remainingLogs = int64(100)
+		}
 		resp, err := c.client.GetRobotPartLogs(c.c.Context, &apppb.GetRobotPartLogsRequest{
 			Id:        part.Id,
 			Filter:    &args.Keyword,
