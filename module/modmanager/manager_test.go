@@ -183,11 +183,11 @@ func TestModManagerFunctions(t *testing.T) {
 			if mode == "unix" {
 				// make sure mod.addr has changed
 				test.That(t, mod.addr, test.ShouldNotEqual, oldAddr)
-			}
 
-			// check that we're still able to use the old client
-			_, err = oldClient.Ready(ctx, &v1.ReadyRequest{ParentAddress: parentAddr})
-			test.That(t, err, test.ShouldBeNil)
+				// check that we're still able to use the old client
+				_, err = oldClient.Ready(ctx, &v1.ReadyRequest{ParentAddress: parentAddr})
+				test.That(t, err, test.ShouldBeNil)
+			}
 
 			test.That(t, mod.process.Stop(), test.ShouldBeNil)
 
