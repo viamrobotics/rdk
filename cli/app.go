@@ -888,7 +888,7 @@ var app = &cli.App{
 			Name:            "locations",
 			Aliases:         []string{"location"},
 			Usage:           "work with locations",
-			UsageText:       "viam locations <command> [command options]",
+			UsageText:       createUsageText("locations", nil, false, true),
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
 				{
@@ -1536,7 +1536,7 @@ var app = &cli.App{
 								},
 								&cli.StringSliceFlag{
 									Name:     trainFlagModelLabels,
-									Usage:    "labels to train on. this will either be classification or object detection labels",
+									Usage:    "labels to train on. these will either be classification or object detection labels",
 									Required: true,
 								},
 								&cli.StringFlag{
@@ -1593,7 +1593,7 @@ var app = &cli.App{
 										},
 										&cli.StringSliceFlag{
 											Name:  mlTrainingFlagArgs,
-											Usage: "command line arguments to run the training script with, should be formatted as option1=value1,option2=value2",
+											Usage: "command line arguments to run the training script with. should be formatted as option1=value1,option2=value2",
 										},
 									},
 									Action: createCommandWithT[mlSubmitCustomTrainingJobArgs](MLSubmitCustomTrainingJob),
@@ -1650,15 +1650,15 @@ var app = &cli.App{
 										},
 										&cli.StringFlag{
 											Name:  mlTrainingFlagFramework,
-											Usage: fmt.Sprintf("framework of the ML training script to upload, can be: [%s]", strings.Join(modelFrameworks, ", ")),
+											Usage: fmt.Sprintf("framework of the ML training script to upload. can be: [%s]", strings.Join(modelFrameworks, ", ")),
 										},
 										&cli.StringFlag{
 											Name:  trainFlagModelType,
-											Usage: fmt.Sprintf("task type of the ML training script to upload, can be: [%s]", strings.Join(modelTypes, ", ")),
+											Usage: fmt.Sprintf("task type of the ML training script to upload. can be: [%s]", strings.Join(modelTypes, ", ")),
 										},
 										&cli.StringSliceFlag{
 											Name:  mlTrainingFlagArgs,
-											Usage: "command line arguments to run the training script with, should be formatted as option1=value1,option2=value2",
+											Usage: "command line arguments to run the training script with. should be formatted as option1=value1,option2=value2",
 										},
 									},
 									Action: createCommandWithT[mlSubmitCustomTrainingJobWithUploadArgs](MLSubmitCustomTrainingJobWithUpload),
@@ -2399,7 +2399,8 @@ Example:
 									Value: ".",
 								},
 								&cli.StringSliceFlag{
-									Name:  moduleBuildFlagPlatforms,
+									Name: moduleBuildFlagPlatforms,
+									// would use 'DefaultText' key, but defaults don't show for slice flags
 									Usage: "list of platforms to build, e.g. linux/amd64,linux/arm64 (default: build.arch in meta.json)",
 								},
 							},
@@ -2558,7 +2559,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:  generalFlagVersion,
-							Usage: "version of the requested package, can be `latest` to get the most recent version",
+							Usage: "version of the requested package. can be `latest` to get the most recent version",
 							Value: "latest",
 						},
 						&cli.StringFlag{
@@ -2599,13 +2600,13 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:  generalFlagVersion,
-							Usage: "version of the requested package, can be `latest` to get the most recent version",
+							Usage: "version of the requested package. can be `latest` to get the most recent version",
 							Value: "latest",
 						},
 						&cli.StringFlag{
 							Name:     generalFlagType,
 							Required: true,
-							Usage:    fmt.Sprintf("type of the requested package, can be: [%s]", strings.Join(packageTypes, ", ")),
+							Usage:    fmt.Sprintf("type of the requested package. can be one of: [%s]", strings.Join(packageTypes, ", ")),
 						},
 					},
 					Action: createCommandWithT[packageExportArgs](PackageExportAction),
@@ -2635,17 +2636,17 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						&cli.StringFlag{
 							Name:     generalFlagVersion,
 							Required: true,
-							Usage:    "version of the requested package, can be `latest` to get the most recent version",
+							Usage:    "version of the requested package. can be `latest` to get the most recent version",
 						},
 						&cli.StringFlag{
 							Name:     generalFlagType,
 							Required: true,
-							Usage:    fmt.Sprintf("type of the requested package, can be: [%s]", strings.Join(packageTypes, ", ")),
+							Usage:    fmt.Sprintf("type of the requested package. can be: [%s]", strings.Join(packageTypes, ", ")),
 						},
 						&cli.StringFlag{
 							Name: packageFlagFramework,
 							Usage: fmt.Sprintf(
-								"framework for an ml_model being uploaded, can be: [%s]. Required if packages is of type 'ml_model'",
+								"framework for an ml_model being uploaded. can be: [%s]. Required if packages is of type 'ml_model'",
 								strings.Join(modelFrameworks, ", "),
 							),
 						},
@@ -2686,11 +2687,11 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:  mlTrainingFlagFramework,
-							Usage: fmt.Sprintf("framework of the ML training script to upload, can be: [%s]", strings.Join(modelFrameworks, ", ")),
+							Usage: fmt.Sprintf("framework of the ML training script to upload. can be: [%s]", strings.Join(modelFrameworks, ", ")),
 						},
 						&cli.StringFlag{
 							Name:  generalFlagType,
-							Usage: fmt.Sprintf("task type of the ML training script to upload, can be: [%s]", strings.Join(modelTypes, ", ")),
+							Usage: fmt.Sprintf("task type of the ML training script to upload. can be: [%s]", strings.Join(modelTypes, ", ")),
 						},
 						&cli.BoolFlag{
 							Name:  mlTrainingFlagDraft,
@@ -2722,7 +2723,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:     mlTrainingFlagVisibility,
-							Usage:    "visibility of the registry item, can be: ['public', 'private']",
+							Usage:    "visibility of the registry item. can be: ['public', 'private']",
 							Required: true,
 						},
 						&cli.StringFlag{
