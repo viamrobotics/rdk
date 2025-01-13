@@ -1717,7 +1717,7 @@ func TestFirstRun(t *testing.T) {
 		modCfg := config.Module{
 			Name:            "test-module",
 			ExePath:         exePath,
-			FirstRunTimeout: utils.Duration(1 * time.Millisecond),
+			FirstRunTimeout: utils.Duration(100 * time.Millisecond),
 		}
 		err := mgr.FirstRun(ctx, modCfg)
 		test.That(t, err, test.ShouldNotBeNil)
