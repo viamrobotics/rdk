@@ -175,12 +175,10 @@ func ModuleBuildListAction(cCtx *cli.Context, args moduleBuildListArgs) error {
 }
 
 func (c *viamClient) moduleBuildListAction(cCtx *cli.Context, args moduleBuildListArgs) error {
-	var buildIDFilter *string
+	buildIDFilter := args.ID
 	var moduleIDFilter string
-	// This will use the build id if present and fall back on the module manifest if not
-	if cCtx.IsSet(moduleBuildFlagBuildID) {
-		buildIDFilter = &args.ID
-	} else {
+	// Fall back on the module manifest build filter is not present.
+	if buildIDFilter == "" {
 		manifestPath := args.Module
 		manifest, err := loadManifest(manifestPath)
 		if err != nil {
@@ -197,7 +195,7 @@ func (c *viamClient) moduleBuildListAction(cCtx *cli.Context, args moduleBuildLi
 		count := int32(args.Count)
 		numberOfJobsToReturn = &count
 	}
-	jobs, err := c.listModuleBuildJobs(moduleIDFilter, numberOfJobsToReturn, buildIDFilter)
+	jobs, err := c.listModuleBuildJobs(moduleIDFilter, numberOfJobsToReturn, &buildIDFilter)
 	if err != nil {
 		return err
 	}
@@ -656,7 +654,7 @@ func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.Resta
 	modID := args.ID
 	// todo: use MutuallyExclusiveFlags for this when urfave/cli 3.x is stable
 	if (len(modName) > 0) && (len(modID) > 0) {
-		return nil, fmt.Errorf("provide at most one of --%s and --%s", generalFlagName, moduleBuildFlagBuildID)
+		return nil, fmt.Errorf("provide at most one of --%s and --%s", generalFlagName, moduleFlagID)
 	}
 	request := &robot.RestartModuleRequest{}
 	//nolint:gocritic
@@ -668,7 +666,7 @@ func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.Resta
 		// TODO(APP-4019): remove localize call
 		request.ModuleName = localizeModuleID(manifest.ModuleID)
 	} else {
-		return nil, fmt.Errorf("if there is no meta.json, provide one of --%s or --%s", generalFlagName, moduleBuildFlagBuildID)
+		return nil, fmt.Errorf("if there is no meta.json, provide one of --%s or --%s", generalFlagName, moduleFlagID)
 	}
 	return request, nil
 }

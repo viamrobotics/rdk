@@ -56,7 +56,7 @@ func TestStartBuild(t *testing.T) {
 		StartBuildFunc: func(ctx context.Context, in *v1.StartBuildRequest, opts ...grpc.CallOption) (*v1.StartBuildResponse, error) {
 			return &v1.StartBuildResponse{BuildId: "xyz123"}, nil
 		},
-	}, nil, map[string]any{moduleBuildFlagPath: manifest, moduleBuildFlagVersion: "1.2.3"}, "token")
+	}, nil, map[string]any{moduleFlagPath: manifest, generalFlagVersion: "1.2.3"}, "token")
 	err := ac.moduleBuildStartAction(cCtx, parseStructFromCtx[moduleBuildStartArgs](cCtx))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.messages, test.ShouldHaveLength, 1)
@@ -79,7 +79,7 @@ func TestListBuild(t *testing.T) {
 				},
 			}}, nil
 		},
-	}, nil, map[string]any{moduleBuildFlagPath: manifest}, "token")
+	}, nil, map[string]any{moduleFlagPath: manifest}, "token")
 	err := ac.moduleBuildListAction(cCtx, parseStructFromCtx[moduleBuildListArgs](cCtx))
 	test.That(t, err, test.ShouldBeNil)
 	joinedOutput := strings.Join(out.messages, "")
@@ -195,7 +195,7 @@ func TestLocalBuild(t *testing.T) {
 
 	// run the build local action
 	cCtx, _, out, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
-		nil, map[string]any{moduleBuildFlagPath: manifestPath, moduleBuildFlagVersion: "1.2.3"}, "token")
+		nil, map[string]any{moduleFlagPath: manifestPath, generalFlagVersion: "1.2.3"}, "token")
 	manifest, err := loadManifest(manifestPath)
 	test.That(t, err, test.ShouldBeNil)
 	err = moduleBuildLocalAction(cCtx, &manifest)

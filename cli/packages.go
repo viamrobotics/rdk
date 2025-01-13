@@ -207,7 +207,7 @@ func PackageUploadAction(c *cli.Context, args packageUploadArgs) error {
 		args.Path,
 		&structpb.Struct{
 			Fields: map[string]*structpb.Value{
-				packageMetadataFlagFramework: {
+				"model_framework": {
 					Kind: &structpb.Value_StringValue{
 						StringValue: args.ModelFramework,
 					},

@@ -99,7 +99,6 @@ func DatasetListAction(c *cli.Context, args datasetListArgs) error {
 	datasetIDs := args.DatasetIDs
 	orgID := args.OrgID
 
-	// TODO(RSDK-9288) - see if we can make this clearer to users from the outset
 	if orgID != "" && datasetIDs != nil {
 		return errors.New("must specify either dataset IDs or organization ID, got both")
 	}

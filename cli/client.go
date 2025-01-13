@@ -600,15 +600,16 @@ func (c *viamClient) listOAuthAppsAction(cCtx *cli.Context, orgID string) error 
 	return nil
 }
 
+type listLocationsArgs struct {
+	Organization string
+}
+
 // ListLocationsAction is the corresponding Action for 'locations list'.
-func ListLocationsAction(c *cli.Context, args emptyArgs) error {
+func ListLocationsAction(c *cli.Context, args listLocationsArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
-	// TODO(RSDK-9288) - this is brittle and inconsistent with how most data is passed.
-	// Move this to being a flag (but make sure existing workflows still work!)
-	orgStr := c.Args().First()
 	listLocations := func(orgID string) error {
 		locs, err := client.listLocations(orgID)
 		if err != nil {
@@ -618,6 +619,10 @@ func ListLocationsAction(c *cli.Context, args emptyArgs) error {
 			printf(c.App.Writer, "\t%s (id: %s)", loc.Name, loc.Id)
 		}
 		return nil
+	}
+	orgStr := args.Organization
+	if orgStr == "" {
+		orgStr = c.Args().First()
 	}
 	if orgStr == "" {
 		orgs, err := client.listOrganizations()
@@ -729,14 +734,14 @@ func RobotsStatusAction(c *cli.Context, args robotsStatusArgs) error {
 
 func getNumLogs(c *cli.Context, numLogs int) (int, error) {
 	if numLogs < 0 {
-		warningf(c.App.ErrWriter, "Provided negative %q value. Defaulting to %d", logsFlagCount, defaultNumLogs)
+		warningf(c.App.ErrWriter, "Provided negative %q value. Defaulting to %d", generalFlagCount, defaultNumLogs)
 		return defaultNumLogs, nil
 	}
 	if numLogs == 0 {
 		return defaultNumLogs, nil
 	}
 	if numLogs > maxNumLogs {
-		return 0, errors.Errorf("provided too high of a %q value. Maximum is %d", logsFlagCount, maxNumLogs)
+		return 0, errors.Errorf("provided too high of a %q value. Maximum is %d", generalFlagCount, maxNumLogs)
 	}
 	return numLogs, nil
 }
@@ -1039,20 +1044,22 @@ func (c *viamClient) robotPartRestart(cCtx *cli.Context, args robotsPartRestartA
 	return nil
 }
 
-type robotsPartRunArgs struct {
+type machinesPartRunArgs struct {
 	Organization string
 	Location     string
 	Machine      string
 	Part         string
 	Data         string
 	Stream       time.Duration
+	Method       string
 }
 
-// RobotsPartRunAction is the corresponding Action for 'machines part run'.
-func RobotsPartRunAction(c *cli.Context, args robotsPartRunArgs) error {
-	// TODO(RSDK-9288) - this is brittle and inconsistent with how most data is passed.
-	// Move this to being a flag (but make sure existing workflows still work!)
-	svcMethod := c.Args().First()
+// MachinesPartRunAction is the corresponding Action for 'machines part run'.
+func MachinesPartRunAction(c *cli.Context, args machinesPartRunArgs) error {
+	svcMethod := args.Method
+	if svcMethod == "" {
+		svcMethod = c.Args().First()
+	}
 	if svcMethod == "" {
 		return errors.New("service method required")
 	}
@@ -1156,8 +1163,6 @@ func MachinesPartCopyFilesAction(c *cli.Context, args machinesPartCopyFilesArgs)
 }
 
 func machinesPartCopyFilesAction(c *cli.Context, client *viamClient, flagArgs machinesPartCopyFilesArgs) error {
-	// TODO(RSDK-9288) - this is brittle and inconsistent with how most data is passed.
-	// Move this to being a flag (but make sure existing workflows still work!)
 	args := c.Args().Slice()
 	if len(args) == 0 {
 		return errNoFiles
