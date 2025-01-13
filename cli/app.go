@@ -1413,7 +1413,6 @@ var app = &cli.App{
 							Usage: "removes binary data with file IDs in a single org and location from dataset",
 							UsageText: createUsageText("dataset data remove",
 								[]string{datasetFlagDatasetID, generalFlagOrgID, dataFlagLocationID, dataFlagFileIDs}, false),
-							// TODO(RSDK-9286) do we need to ask for og and location here?
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     datasetFlagDatasetID,
@@ -1738,8 +1737,14 @@ var app = &cli.App{
 					Name:      "status",
 					Usage:     "display machine status",
 					UsageText: createUsageText("machines status", []string{generalFlagMachine}, true),
-					// TODO(RSDK-9286) - do we need to ask for all three of these?
 					Flags: []cli.Flag{
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:     generalFlagMachine,
+								Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
+								Required: true,
+							},
+						},
 						&cli.StringFlag{
 							Name:        generalFlagOrganization,
 							Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
@@ -1749,13 +1754,6 @@ var app = &cli.App{
 							Name:        generalFlagLocation,
 							Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
 							DefaultText: "first location alphabetically",
-						},
-						&AliasStringFlag{
-							cli.StringFlag{
-								Name:     generalFlagMachine,
-								Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
-								Required: true,
-							},
 						},
 					},
 					Action: createCommandWithT[robotsStatusArgs](RobotsStatusAction),
@@ -1765,8 +1763,14 @@ var app = &cli.App{
 					Aliases:   []string{"log"},
 					Usage:     "display machine logs",
 					UsageText: createUsageText("machines logs", []string{generalFlagMachine}, true),
-					// TODO(RSDK-9286) do we need to ask for og and location and machine here?
 					Flags: []cli.Flag{
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:     generalFlagMachine,
+								Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
+								Required: true,
+							},
+						},
 						&cli.StringFlag{
 							Name:        generalFlagOrganization,
 							Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
@@ -1776,13 +1780,6 @@ var app = &cli.App{
 							Name:        generalFlagLocation,
 							Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
 							DefaultText: "first location alphabetically",
-						},
-						&AliasStringFlag{
-							cli.StringFlag{
-								Name:     generalFlagMachine,
-								Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
-								Required: true,
-							},
 						},
 						&cli.StringFlag{
 							Name:  logsFlagOutputFile,
@@ -1813,8 +1810,14 @@ var app = &cli.App{
 							Name:      "status",
 							Usage:     "display part status",
 							UsageText: createUsageText("machines part status", []string{generalFlagMachine, generalFlagPart}, true),
-							// TODO(RSDK-9286) do we need to ask for og and location and machine and part here?
 							Flags: []cli.Flag{
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:     generalFlagPart,
+										Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
+										Required: true,
+									},
+								},
 								&cli.StringFlag{
 									Name:        generalFlagOrganization,
 									Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
@@ -1827,16 +1830,8 @@ var app = &cli.App{
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
-										Name:     generalFlagMachine,
-										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
-										Required: true,
-									},
-								},
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:     generalFlagPart,
-										Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
-										Required: true,
+										Name:    generalFlagMachine,
+										Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
 									},
 								},
 							},
@@ -1848,6 +1843,13 @@ var app = &cli.App{
 							Usage:     "display part logs",
 							UsageText: createUsageText("machines part logs", []string{generalFlagMachine, generalFlagPart}, true),
 							Flags: []cli.Flag{
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:     generalFlagPart,
+										Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
+										Required: true,
+									},
+								},
 								&cli.StringFlag{
 									Name:        generalFlagOrganization,
 									Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
@@ -1860,16 +1862,8 @@ var app = &cli.App{
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
-										Name:     generalFlagMachine,
-										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
-										Required: true,
-									},
-								},
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:     generalFlagPart,
-										Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
-										Required: true,
+										Name:    generalFlagMachine,
+										Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
 									},
 								},
 								&cli.BoolFlag{
@@ -1894,8 +1888,14 @@ var app = &cli.App{
 							Aliases:   []string{},
 							Usage:     "request part restart",
 							UsageText: createUsageText("machines part restart", []string{generalFlagMachine, generalFlagPart}, true),
-							// TODO(RSDK-9286) revisit flags
 							Flags: []cli.Flag{
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:     generalFlagPart,
+										Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
+										Required: true,
+									},
+								},
 								&cli.StringFlag{
 									Name:        generalFlagOrganization,
 									Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
@@ -1908,16 +1908,8 @@ var app = &cli.App{
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
-										Name:     generalFlagMachine,
-										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
-										Required: true,
-									},
-								},
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:     generalFlagPart,
-										Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
-										Required: true,
+										Name:    generalFlagMachine,
+										Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
 									},
 								},
 							},
@@ -1932,30 +1924,27 @@ var app = &cli.App{
 							Flags: []cli.Flag{
 								&AliasStringFlag{
 									cli.StringFlag{
-										Name:     generalFlagOrganization,
-										Aliases:  []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-										Required: true,
-									},
-								},
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:     generalFlagLocation,
-										Aliases:  []string{generalFlagLocationID, generalFlagAliasLocationName},
-										Required: true,
-									},
-								},
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:     generalFlagMachine,
-										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
-										Required: true,
-									},
-								},
-								&AliasStringFlag{
-									cli.StringFlag{
 										Name:     generalFlagPart,
 										Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
 										Required: true,
+									},
+								},
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:    generalFlagOrganization,
+										Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+									},
+								},
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:    generalFlagLocation,
+										Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
+									},
+								},
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:    generalFlagMachine,
+										Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
 									},
 								},
 								&cli.StringFlag{
@@ -1974,10 +1963,14 @@ var app = &cli.App{
 							Usage:       "start a shell on a machine part",
 							Description: `In order to use the shell command, the machine must have a valid shell type service.`,
 							UsageText: createUsageText(
-								"machines part shell", []string{generalFlagOrganization, generalFlagLocation, generalFlagMachine, generalFlagPart}, false,
+								"machines part shell", []string{generalFlagMachine, generalFlagPart}, false,
 							),
-							// TODO(RSDK-9286) do we need to ask for og and location and machine and part here?
 							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagPart,
+									Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
+									Required: true,
+								},
 								&cli.StringFlag{
 									Name:    generalFlagOrganization,
 									Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
@@ -1991,10 +1984,6 @@ var app = &cli.App{
 										Name:    generalFlagMachine,
 										Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
 									},
-								},
-								&cli.StringFlag{
-									Name:    generalFlagPart,
-									Aliases: []string{generalFlagPartID, generalFlagAliasPartName},
 								},
 							},
 							Action: createCommandWithT[robotsPartShellArgs](RobotsPartShellAction),
@@ -2034,6 +2023,13 @@ Copy multiple files from the machine to a local destination with recursion and k
 								true,
 								"[-p] [-r] source ([machine:]files) ... target ([machine:]files"),
 							Flags: []cli.Flag{
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:     generalFlagPart,
+										Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
+										Required: true,
+									},
+								},
 								&cli.StringFlag{
 									Name:    generalFlagOrganization,
 									Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
@@ -2044,16 +2040,8 @@ Copy multiple files from the machine to a local destination with recursion and k
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
-										Name:     generalFlagMachine,
-										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
-										Required: true,
-									},
-								},
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:     generalFlagPart,
-										Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
-										Required: true,
+										Name:    generalFlagMachine,
+										Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagAliasMachineName},
 									},
 								},
 								&cli.BoolFlag{
