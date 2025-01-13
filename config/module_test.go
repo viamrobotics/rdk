@@ -118,13 +118,12 @@ func TestFirstRun(t *testing.T) {
 	localPackagesDir := ""
 	dataDir := ""
 	env := map[string]string{"VIAM_MODULE_ROOT": tmp}
-	logger := logging.NewTestLogger(t)
+	logger, observedLogs := logging.NewObservedTestLogger(t)
 
 	t.Run("MetaFileNotFound", func(t *testing.T) {
 		err := m.FirstRun(ctx, localPackagesDir, dataDir, env, logger)
-		// TODO: test logger output
-		// "meta.json not found, skipping first run"
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, observedLogs.FilterMessage("meta.json not found, skipping first run").Len(), test.ShouldEqual, 1)
 	})
 
 	t.Run("MetaFileInvalid", func(t *testing.T) {
@@ -133,9 +132,8 @@ func TestFirstRun(t *testing.T) {
 		defer metaJSONFile.Close()
 
 		err = m.FirstRun(ctx, localPackagesDir, dataDir, env, logger)
-		// TODO: test logger output
-		// "failed to parse meta.json, skipping first run"
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, observedLogs.FilterMessage("failed to parse meta.json, skipping first run").Len(), test.ShouldEqual, 1)
 	})
 
 	t.Run("NoFirstRunScript", func(t *testing.T) {
@@ -143,9 +141,8 @@ func TestFirstRun(t *testing.T) {
 
 		err := m.FirstRun(ctx, localPackagesDir, dataDir, env, logger)
 		t.Log(err)
-		// TODO: test logger output
-		// "no first run script specified, skipping first run"
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, observedLogs.FilterMessage("no first run script specified, skipping first run").Len(), test.ShouldEqual, 1)
 	})
 
 	t.Run("InvalidFirstRunPath", func(t *testing.T) {
@@ -153,9 +150,8 @@ func TestFirstRun(t *testing.T) {
 
 		err := m.FirstRun(ctx, localPackagesDir, dataDir, env, logger)
 		t.Log(err)
-		// TODO: test logger output
-		// "failed to build path to first run script, skipping first run"
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, observedLogs.FilterMessage("failed to build path to first run script, skipping first run").Len(), test.ShouldEqual, 1)
 	})
 }
 
