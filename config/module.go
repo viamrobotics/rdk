@@ -471,7 +471,7 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 		return nil, "", errors.Wrap(stderrors.Join(registryTarballErr, localTarballErr), "local tarball: failed to find meta.json")
 	}
 
-	return nil, "", errors.Errorf("local non-tarball: did not search for meta.json") // DONE
+	return nil, "", errors.New("local non-tarball: did not search for meta.json") // DONE
 }
 
 func findMetaJSONFile(dir string) (*JSONManifest, error) {
