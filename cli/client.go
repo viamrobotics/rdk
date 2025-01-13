@@ -627,10 +627,9 @@ func RobotsLogsAction(c *cli.Context, args robotsLogsArgs) error {
 	}
 
 	// Check if both start time and count are provided
-	if args.Start != "" && args.Count > 0 {
-		return fmt.Errorf("unsupported functionality: specifying both a start time and a count is not supported. " +
-			"Alternative functionality is to provide start time and end time",
-		)
+	if args.Start != "" && args.Count > 0 && args.End == "" {
+		return fmt.Errorf("unsupported functionality: specifying both a start time and a count is not supported unless an end time is provided. " +
+			"Please provide either a start time and an end time, or a count without a start time")
 	}
 
 	orgStr := args.Organization
