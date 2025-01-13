@@ -54,6 +54,8 @@ func Named(name string) resource.Name {
 //	// Get the current positions of the axes of the gantry in millimeters.
 //	position, err := myGantry.Position(context.Background(), nil)
 //
+// For more information, see the [Position method docs].
+//
 // MoveToPosition example:
 //
 //	myGantry, err := gantry.FromRobot(machine, "my_gantry")
@@ -67,6 +69,8 @@ func Named(name string) resource.Name {
 //	// Move the axes of the gantry to the positions specified.
 //	myGantry.MoveToPosition(context.Background(), examplePositions, exampleSpeeds, nil)
 //
+// For more information, see the [MoveToPosition method docs].
+//
 // Lengths example:
 //
 //	myGantry, err := gantry.FromRobot(machine, "my_gantry")
@@ -74,13 +78,21 @@ func Named(name string) resource.Name {
 //	// Get the lengths of the axes of the gantry in millimeters.
 //	lengths_mm, err := myGantry.Lengths(context.Background(), nil)
 //
+// For more information, see the [Lengths method docs].
+//
 // Home example:
 //
 //	myGantry, err := gantry.FromRobot(machine, "my_gantry")
 //
 //	myGantry.Home(context.Background(), nil)
 //
-// [gantry component docs]: https://docs.viam.com/components/gantry/
+// For more information, see the [Home method docs].
+//
+// [gantry component docs]: https://docs.viam.com/operate/reference/components/gantry/
+// [Position method docs]: https://docs.viam.com/dev/reference/apis/components/gantry/#getposition
+// [MoveToPosition method docs]: https://docs.viam.com/dev/reference/apis/components/gantry/#movetoposition
+// [Lengths method docs]: https://docs.viam.com/dev/reference/apis/components/gantry/#getlengths
+// [Home method docs]: https://docs.viam.com/dev/reference/apis/components/gantry/#home
 type Gantry interface {
 	resource.Resource
 	resource.Actuator
