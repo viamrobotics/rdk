@@ -117,6 +117,7 @@ func TestGetJSONManifest(t *testing.T) {
 		modRegistry := Module{Type: ModuleTypeRegistry}
 
 		err := os.Mkdir(unpackedModDir, 0700)
+		test.That(t, err, test.ShouldBeNil)
 
 		// meta.json not found; only unpacked module directory searched
 		meta, moduleWorkingDirectory, err := modRegistry.getJSONManifest(unpackedModDir, env)
@@ -179,6 +180,24 @@ func TestGetJSONManifest(t *testing.T) {
 		test.That(t, *meta, test.ShouldResemble, validJSONManifest)
 		test.That(t, moduleWorkingDirectory, test.ShouldEqual, topLevelDir)
 		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("LocalNontarball", func(t *testing.T) {
+		tmp := t.TempDir()
+
+		unpackedModDir := filepath.Join(tmp, "unpacked-mod-dir")
+		env := map[string]string{}
+		modLocalNontar := Module{Type: ModuleTypeLocal}
+
+		err := os.Mkdir(unpackedModDir, 0700)
+		test.That(t, err, test.ShouldBeNil)
+
+		meta, moduleWorkingDirectory, err := modLocalNontar.getJSONManifest(unpackedModDir, env)
+		test.That(t, meta, test.ShouldBeNil)
+		test.That(t, moduleWorkingDirectory, test.ShouldBeEmpty)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "local non-tarball")
+		test.That(t, errors.Is(err, os.ErrNotExist), test.ShouldBeFalse)
 	})
 }
 
