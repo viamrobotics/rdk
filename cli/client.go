@@ -626,6 +626,13 @@ func RobotsLogsAction(c *cli.Context, args robotsLogsArgs) error {
 		return err
 	}
 
+	// Check if both start time and count are provided
+	if args.Start != "" && args.Count > 0 {
+		return fmt.Errorf("unsupported functionality: specifying both a start time and a count is not supported. " +
+			"Alternative functionality is to provide start time and end time",
+		)
+	}
+
 	orgStr := args.Organization
 	locStr := args.Location
 	robotStr := args.Machine
@@ -699,6 +706,7 @@ func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArg
 	// Write logs for this part
 	var pageToken string
 	for logsFetched := 0; logsFetched < numLogs; {
+		remainingLogs := int64(numLogs - logsFetched)
 		resp, err := c.client.GetRobotPartLogs(c.c.Context, &apppb.GetRobotPartLogsRequest{
 			Id:         part.Id,
 			Filter:     &args.Keyword,
@@ -707,23 +715,14 @@ func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArg
 			Levels:     args.Levels,
 			Start:      interval.Start,
 			End:        interval.End,
+			Limit:      &remainingLogs,
 		})
 		if err != nil {
 			return errors.Wrap(err, "failed to fetch logs")
 		}
 
-		pageToken = resp.NextPageToken
-		// Break in the event of no logs in GetRobotPartLogsResponse or when
-		// page token is empty (no more pages).
-		if resp.Logs == nil || pageToken == "" {
+		if len(resp.Logs) == 0 {
 			break
-		}
-
-		// Truncate this intermediate slice of resp.Logs based on how many logs
-		// are still required by numLogs.
-		remainingLogsNeeded := numLogs - logsFetched
-		if remainingLogsNeeded < len(resp.Logs) {
-			resp.Logs = resp.Logs[:remainingLogsNeeded]
 		}
 
 		for _, log := range resp.Logs {
@@ -738,6 +737,12 @@ func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArg
 		}
 
 		logsFetched += len(resp.Logs)
+		pageToken = resp.NextPageToken
+
+		if pageToken == "" {
+			// End of pages
+			break
+		}
 	}
 
 	return nil
