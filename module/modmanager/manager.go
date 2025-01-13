@@ -61,7 +61,7 @@ func NewManager(
 	ctx context.Context, parentAddr string, logger logging.Logger, options modmanageroptions.Options,
 ) modmaninterface.ModuleManager {
 	restartCtx, restartCtxCancel := context.WithCancel(ctx)
-	return &Manager{
+	ret := &Manager{
 		logger:                  logger.Sublogger("modmanager"),
 		modules:                 moduleMap{},
 		parentAddr:              parentAddr,
@@ -74,8 +74,9 @@ func NewManager(
 		restartCtxCancel:        restartCtxCancel,
 		packagesDir:             options.PackagesDir,
 		ftdc:                    options.FTDC,
-		nextPort:                tcpPortRange,
 	}
+	ret.nextPort.Store(tcpPortRange)
+	return ret
 }
 
 type module struct {
@@ -191,7 +192,7 @@ type Manager struct {
 	restartCtxCancel        context.CancelFunc
 	ftdc                    *ftdc.FTDC
 	// nextPort manages ports when ViamTCPSockets() = true.
-	nextPort int
+	nextPort atomic.Int32
 }
 
 // Close terminates module connections and processes.
@@ -208,6 +209,22 @@ func (mgr *Manager) Close(ctx context.Context) error {
 		return true
 	})
 	return err
+}
+
+// Kill will kill all processes in the module's process group.
+// This is best effort as we do not have a lock during this
+// function. Taking the lock will mean that we may be blocked,
+// and we do not want to be blocked.
+func (mgr *Manager) Kill() {
+	if mgr.restartCtxCancel != nil {
+		mgr.restartCtxCancel()
+	}
+	// sync.Map's Range does not block other methods on the map;
+	// even f itself may call any method on the map.
+	mgr.modules.Range(func(_ string, mod *module) bool {
+		mod.killProcessGroup()
+		return true
+	})
 }
 
 // Handles returns all the models for each module registered.
@@ -333,9 +350,8 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, moduleLogger lo
 		resources: map[resource.Name]*addedResource{},
 		logger:    moduleLogger,
 		ftdc:      mgr.ftdc,
-		port:      mgr.nextPort,
+		port:      int(mgr.nextPort.Add(1)),
 	}
-	mgr.nextPort++
 
 	if err := mgr.startModule(ctx, mod); err != nil {
 		return err
@@ -867,6 +883,10 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 				"error", err)
 		}
 
+		if mgr.ftdc != nil {
+			mgr.ftdc.Remove(mod.getFTDCName())
+		}
+
 		// If attemptRestart returns any orphaned resource names, restart failed,
 		// and we should remove orphaned resources. Since we handle process
 		// restarting ourselves, return false here so goutils knows not to attempt
@@ -1011,6 +1031,7 @@ func (m *module) dial() error {
 	}
 	conn, err := grpc.Dial( //nolint:staticcheck
 		addrToDial,
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(rpc.MaxMessageSize)),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithChainUnaryInterceptor(
 			rdkgrpc.EnsureTimeoutUnaryClientInterceptor,
@@ -1225,7 +1246,7 @@ func (m *module) stopProcess() error {
 		// of metrics will be reported. Therefore it is safe to continue monitoring the module process
 		// while it's in shutdown.
 		if m.ftdc != nil {
-			m.ftdc.Remove(m.process.ID())
+			m.ftdc.Remove(m.getFTDCName())
 		}
 	}()
 
@@ -1240,6 +1261,14 @@ func (m *module) stopProcess() error {
 	}
 
 	return nil
+}
+
+func (m *module) killProcessGroup() {
+	if m.process == nil {
+		return
+	}
+	m.logger.Infof("Killing module: %s process", m.cfg.Name)
+	m.process.KillGroup()
 }
 
 func (m *module) registerResources(mgr modmaninterface.ModuleManager) {
@@ -1347,6 +1376,10 @@ func (m *module) getFullEnvironment(viamHomeDir string) map[string]string {
 	return getFullEnvironment(m.cfg, m.dataDir, viamHomeDir)
 }
 
+func (m *module) getFTDCName() string {
+	return fmt.Sprintf("proc.modules.%s", m.process.ID())
+}
+
 func (m *module) registerProcessWithFTDC() {
 	if m.ftdc == nil {
 		return
@@ -1364,7 +1397,7 @@ func (m *module) registerProcessWithFTDC() {
 		return
 	}
 
-	m.ftdc.Add(fmt.Sprintf("modules.%s", m.process.ID()), statser)
+	m.ftdc.Add(m.getFTDCName(), statser)
 }
 
 func getFullEnvironment(

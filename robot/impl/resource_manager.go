@@ -8,6 +8,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jhump/protoreflect/desc"
@@ -50,6 +51,9 @@ type resourceManager struct {
 	resources      *resource.Graph
 	processManager pexec.ProcessManager
 	processConfigs map[string]pexec.ProcessConfig
+	// modManagerLock controls access to the moduleManager and prevents a data race.
+	// This may happen if Kill() or Close() is called concurrently with startModuleManager.
+	modManagerLock sync.Mutex
 	moduleManager  modif.ModuleManager
 	opts           resourceManagerOptions
 	logger         logging.Logger
@@ -127,7 +131,10 @@ func (manager *resourceManager) startModuleManager(
 		PackagesDir:             packagesDir,
 		FTDC:                    manager.opts.ftdc,
 	}
-	manager.moduleManager = modmanager.NewManager(ctx, parentAddr, logger, mmOpts)
+	modmanager := modmanager.NewManager(ctx, parentAddr, logger, mmOpts)
+	manager.modManagerLock.Lock()
+	manager.moduleManager = modmanager
+	manager.modManagerLock.Unlock()
 }
 
 // addRemote adds a remote to the manager.
@@ -580,15 +587,32 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 	if err := manager.removeMarkedAndClose(ctx, excludeWebFromClose); err != nil {
 		allErrs = multierr.Combine(allErrs, err)
 	}
-
+	// take a lock minimally to make a copy of the moduleManager.
+	manager.modManagerLock.Lock()
+	modManager := manager.moduleManager
+	manager.modManagerLock.Unlock()
 	// moduleManager may be nil in tests, and must be closed last, after resources within have been closed properly above
-	if manager.moduleManager != nil {
-		if err := manager.moduleManager.Close(ctx); err != nil {
+	if modManager != nil {
+		if err := modManager.Close(ctx); err != nil {
 			allErrs = multierr.Combine(allErrs, fmt.Errorf("error closing module manager: %w", err))
 		}
 	}
 
 	return allErrs
+}
+
+// Kill attempts to kill all module processes.
+func (manager *resourceManager) Kill() {
+	// TODO(RSDK-9709): Kill processes in processManager as well.
+
+	// take a lock minimally to make a copy of the moduleManager.
+	manager.modManagerLock.Lock()
+	modManager := manager.moduleManager
+	manager.modManagerLock.Unlock()
+	// moduleManager may be nil in tests
+	if modManager != nil {
+		modManager.Kill()
+	}
 }
 
 // completeConfig process the tree in reverse order and attempts to build or reconfigure
@@ -622,11 +646,8 @@ func (manager *resourceManager) completeConfig(
 	levels := manager.resources.ReverseTopologicalSortInLevels()
 	timeout := rutils.GetResourceConfigurationTimeout(manager.logger)
 	for _, resourceNames := range levels {
-		// At the start of every reconfiguration level, check if updateWeakDependents should be run.
-		// Both conditions below should be met for `updateWeakDependents` to be called:
-		// - At least one resource that needs to reconfigure in this level
-		//   depends on at least one resource with weak dependencies (weak dependents)
-		// - The logical clock is higher than the `lastWeakDependentsRound` value
+		// At the start of every reconfiguration level, check if updateWeakDependents should be run
+		// by checking if the logical clock is higher than the `lastWeakDependentsRound` value.
 		//
 		// This will make sure that weak dependents are updated before they are passed into constructors
 		// or reconfigure methods.
@@ -634,7 +655,6 @@ func (manager *resourceManager) completeConfig(
 		// Resources that depend on weak dependents should expect that the weak dependents pass into the
 		// constructor or reconfigure method will only have been reconfigured with all resources constructed
 		// before their level.
-		var weakDependentsUpdated bool
 		for _, resName := range resourceNames {
 			select {
 			case <-ctx.Done():
@@ -649,17 +669,8 @@ func (manager *resourceManager) completeConfig(
 				continue
 			}
 
-			for _, dep := range manager.resources.GetAllParentsOf(resName) {
-				if node, ok := manager.resources.Node(dep); ok {
-					if lr.resourceHasWeakDependencies(dep, node) && lr.lastWeakDependentsRound.Load() < manager.resources.CurrLogicalClockValue() {
-						lr.updateWeakDependents(ctx)
-						weakDependentsUpdated = true
-						break
-					}
-				}
-			}
-			if weakDependentsUpdated {
-				break
+			if lr.lastWeakDependentsRound.Load() < manager.resources.CurrLogicalClockValue() {
+				lr.updateWeakDependents(ctx)
 			}
 		}
 		// we use an errgroup here instead of a normal waitgroup to conveniently bubble

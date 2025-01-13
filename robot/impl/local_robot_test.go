@@ -2181,6 +2181,34 @@ func TestResourcelessModuleRemove(t *testing.T) {
 	})
 }
 
+func TestKill(t *testing.T) {
+	// RSDK-9722: this test will not pass in CI as the managed process's manage goroutine
+	// will not return from Wait() and thus fail the goroutine leak detection.
+	t.Skip()
+	ctx := context.Background()
+	logger, logs := logging.NewObservedTestLogger(t)
+
+	// Precompile module to avoid timeout issues when building takes too long.
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+	}
+	r := setupLocalRobot(t, ctx, cfg, logger)
+
+	r.Kill()
+
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		test.That(tb, logs.FilterMessageSnippet("Killing module").Len(),
+			test.ShouldEqual, 1)
+	})
+}
+
 func TestCrashedModuleReconfigure(t *testing.T) {
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)

@@ -107,8 +107,11 @@ func TestClientSessionOptions(t *testing.T) {
 								return &dummyEcho{Named: arbName.AsNamed()}, nil
 							},
 							ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
-							LoggerFunc:          func() logging.Logger { return logger },
-							SessMgr:             sessMgr,
+							MachineStatusFunc: func(_ context.Context) (robot.MachineStatus, error) {
+								return robot.MachineStatus{State: robot.StateRunning}, nil
+							},
+							LoggerFunc: func() logging.Logger { return logger },
+							SessMgr:    sessMgr,
 						}
 
 						svc := web.New(injectRobot, logger)
@@ -129,13 +132,11 @@ func TestClientSessionOptions(t *testing.T) {
 								Disable: true,
 							})))
 						}
-						roboClient, err := client.New(ctx, addr, logger, opts...)
-						test.That(t, err, test.ShouldBeNil)
 
 						injectRobot.Mu.Lock()
 						injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
 							session.SafetyMonitorResourceName(ctx, someTargetName1)
-							return robot.MachineStatus{}, nil
+							return robot.MachineStatus{State: robot.StateRunning}, nil
 						}
 						injectRobot.Mu.Unlock()
 
@@ -179,6 +180,8 @@ func TestClientSessionOptions(t *testing.T) {
 						}
 						sessMgr.mu.Unlock()
 
+						roboClient, err := client.New(ctx, addr, logger, opts...)
+						test.That(t, err, test.ShouldBeNil)
 						resp, err := roboClient.MachineStatus(nextCtx)
 						test.That(t, err, test.ShouldBeNil)
 						test.That(t, resp, test.ShouldNotBeNil)
@@ -289,6 +292,9 @@ func TestClientSessionExpiration(t *testing.T) {
 					ResourceByNameFunc: func(name resource.Name) (resource.Resource, error) {
 						return &dummyEcho1, nil
 					},
+					MachineStatusFunc: func(_ context.Context) (robot.MachineStatus, error) {
+						return robot.MachineStatus{State: robot.StateRunning}, nil
+					},
 					ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
 					LoggerFunc:          func() logging.Logger { return logger },
 					SessMgr:             sessMgr,
@@ -306,8 +312,6 @@ func TestClientSessionExpiration(t *testing.T) {
 						Disable: true,
 					})))
 				}
-				roboClient, err := client.New(ctx, addr, logger, opts...)
-				test.That(t, err, test.ShouldBeNil)
 
 				injectRobot.Mu.Lock()
 				var capSessID uuid.UUID
@@ -317,7 +321,7 @@ func TestClientSessionExpiration(t *testing.T) {
 						panic("expected session")
 					}
 					capSessID = sess.ID()
-					return robot.MachineStatus{}, nil
+					return robot.MachineStatus{State: robot.StateRunning}, nil
 				}
 				injectRobot.Mu.Unlock()
 
@@ -372,6 +376,8 @@ func TestClientSessionExpiration(t *testing.T) {
 				}
 				sessMgr.mu.Unlock()
 
+				roboClient, err := client.New(ctx, addr, logger, opts...)
+				test.That(t, err, test.ShouldBeNil)
 				resp, err := roboClient.MachineStatus(nextCtx)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, resp, test.ShouldNotBeNil)
@@ -480,8 +486,11 @@ func TestClientSessionResume(t *testing.T) {
 				injectRobot := &inject.Robot{
 					ResourceNamesFunc:   func() []resource.Name { return []resource.Name{} },
 					ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
-					LoggerFunc:          func() logging.Logger { return logger },
-					SessMgr:             sessMgr,
+					MachineStatusFunc: func(_ context.Context) (robot.MachineStatus, error) {
+						return robot.MachineStatus{State: robot.StateRunning}, nil
+					},
+					LoggerFunc: func() logging.Logger { return logger },
+					SessMgr:    sessMgr,
 				}
 
 				svc := web.New(injectRobot, logger)
@@ -496,8 +505,6 @@ func TestClientSessionResume(t *testing.T) {
 						Disable: true,
 					})))
 				}
-				roboClient, err := client.New(ctx, addr, logger, opts...)
-				test.That(t, err, test.ShouldBeNil)
 
 				var capMu sync.Mutex
 				var startCalled int
@@ -536,10 +543,12 @@ func TestClientSessionResume(t *testing.T) {
 						panic("expected session")
 					}
 					capSessID = sess.ID()
-					return robot.MachineStatus{}, nil
+					return robot.MachineStatus{State: robot.StateRunning}, nil
 				}
 				injectRobot.Mu.Unlock()
 
+				roboClient, err := client.New(ctx, addr, logger, opts...)
+				test.That(t, err, test.ShouldBeNil)
 				resp, err := roboClient.MachineStatus(nextCtx)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, resp, test.ShouldNotBeNil)

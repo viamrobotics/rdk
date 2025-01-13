@@ -711,8 +711,16 @@ func (c *viamClient) tabularData(dest string, request *datapb.ExportTabularDataR
 
 			writer := bufio.NewWriter(dataFile)
 
-			dataRowChan := make(chan []byte)
-			errChan := make(chan error, 1)
+			// We buffer the `dataRowChan` to allow for efficient pipelining to better maximize the
+			// network and disk resource utilization.
+			dataRowChan := make(chan []byte, 10)
+
+			// RSDK-9667: The `errChan` must be unbuffered. Such that the consumer will first
+			// observe an error being returned before observing the `dataRowChan` being closed.
+			//
+			// Otherwise the program may run into an error exporting data, but not report it to the
+			// user.
+			errChan := make(chan error)
 
 			var exportErr error
 

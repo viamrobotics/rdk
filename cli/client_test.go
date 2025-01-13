@@ -352,6 +352,66 @@ func TestGetLogoAction(t *testing.T) {
 	test.That(t, out.messages[0], test.ShouldContainSubstring, "https://logo.com")
 }
 
+func TestEnableAuthServiceAction(t *testing.T) {
+	enableAuthServiceFunc := func(ctx context.Context, in *apppb.EnableAuthServiceRequest, opts ...grpc.CallOption) (
+		*apppb.EnableAuthServiceResponse, error,
+	) {
+		return &apppb.EnableAuthServiceResponse{}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		EnableAuthServiceFunc: enableAuthServiceFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+
+	test.That(t, ac.enableAuthServiceAction(cCtx, "test-org"), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "enabled auth")
+}
+
+func TestDisableAuthServiceAction(t *testing.T) {
+	disableAuthServiceFunc := func(ctx context.Context, in *apppb.DisableAuthServiceRequest, opts ...grpc.CallOption) (
+		*apppb.DisableAuthServiceResponse, error,
+	) {
+		return &apppb.DisableAuthServiceResponse{}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		DisableAuthServiceFunc: disableAuthServiceFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+
+	test.That(t, ac.disableAuthServiceAction(cCtx, "test-org"), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "disabled auth")
+
+	err := ac.disableAuthServiceAction(cCtx, "")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot disable")
+}
+
+func TestListOAuthAppsAction(t *testing.T) {
+	listOAuthAppFunc := func(ctx context.Context, in *apppb.ListOAuthAppsRequest, opts ...grpc.CallOption) (
+		*apppb.ListOAuthAppsResponse, error,
+	) {
+		return &apppb.ListOAuthAppsResponse{}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		ListOAuthAppsFunc: listOAuthAppFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+	test.That(t, ac.listOAuthAppsAction(cCtx, "test-org"), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "No OAuth apps found for organization")
+}
+
 func TestDeleteOAuthAppAction(t *testing.T) {
 	deleteOAuthAppFunc := func(ctx context.Context, in *apppb.DeleteOAuthAppRequest, opts ...grpc.CallOption) (
 		*apppb.DeleteOAuthAppResponse, error,
@@ -1078,5 +1138,154 @@ func TestShellFileCopy(t *testing.T) {
 				})
 			}
 		})
+	})
+}
+
+func TestCreateOAuthAppAction(t *testing.T) {
+	createOAuthAppFunc := func(ctx context.Context, in *apppb.CreateOAuthAppRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.CreateOAuthAppResponse, error) {
+		return &apppb.CreateOAuthAppResponse{ClientId: "client-id", ClientSecret: "client-secret"}, nil
+	}
+	asc := &inject.AppServiceClient{
+		CreateOAuthAppFunc: createOAuthAppFunc,
+	}
+	t.Run("valid inputs", func(t *testing.T) {
+		flags := make(map[string]any)
+		flags[generalFlagOrgID] = "org-id"
+		flags[oauthAppFlagClientName] = "client-name"
+		flags[oauthAppFlagClientAuthentication] = "required"
+		flags[oauthAppFlagURLValidation] = "allow_wildcards"
+		flags[oauthAppFlagPKCE] = "not_required"
+		flags[oauthAppFlagOriginURIs] = []string{"https://woof.com/login", "https://arf.com/"}
+		flags[oauthAppFlagRedirectURIs] = []string{"https://woof.com/home", "https://arf.com/home"}
+		flags[oauthAppFlagLogoutURI] = "https://woof.com/logout"
+		flags[oauthAppFlagEnabledGrants] = []string{"implicit", "password"}
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, flags, "token")
+		test.That(t, ac.createOAuthAppAction(cCtx, parseStructFromCtx[createOAuthAppArgs](cCtx)), test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, out.messages[0], test.ShouldContainSubstring,
+			"Successfully created OAuth app client-name with client ID client-id and client secret client-secret")
+	})
+
+	t.Run("should error if pkce is not a valid enum value", func(t *testing.T) {
+		flags := map[string]any{oauthAppFlagClientAuthentication: unspecified, oauthAppFlagPKCE: "not_one_of_the_allowed_values"}
+		cCtx, ac, out, _ := setup(asc, nil, nil, nil, flags, "token")
+		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "pkce must be a valid PKCE")
+		test.That(t, len(out.messages), test.ShouldEqual, 0)
+	})
+
+	t.Run("should error if url-validation is not a valid enum value", func(t *testing.T) {
+		flags := map[string]any{
+			oauthAppFlagClientAuthentication: unspecified, oauthAppFlagPKCE: unspecified,
+			oauthAppFlagURLValidation: "not_one_of_the_allowed_values",
+		}
+		cCtx, ac, out, _ := setup(asc, nil, nil, nil, flags, "token")
+		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "url-validation must be a valid UrlValidation")
+		test.That(t, len(out.messages), test.ShouldEqual, 0)
+	})
+}
+
+func TestReadOAuthApp(t *testing.T) {
+	readOAuthAppFunc := func(ctx context.Context, in *apppb.ReadOAuthAppRequest, opts ...grpc.CallOption) (
+		*apppb.ReadOAuthAppResponse, error,
+	) {
+		return &apppb.ReadOAuthAppResponse{
+			ClientName:   "clientname",
+			ClientSecret: "fakesecret",
+			OauthConfig: &apppb.OAuthConfig{
+				ClientAuthentication: apppb.ClientAuthentication_CLIENT_AUTHENTICATION_REQUIRED,
+				Pkce:                 apppb.PKCE_PKCE_REQUIRED,
+				UrlValidation:        apppb.URLValidation_URL_VALIDATION_ALLOW_WILDCARDS,
+				LogoutUri:            "https://my-logout-uri.com",
+				OriginUris:           []string{"https://my-origin-uri.com", "https://second-origin-uri.com"},
+				RedirectUris:         []string{"https://my-redirect-uri.com"},
+				EnabledGrants:        []apppb.EnabledGrant{apppb.EnabledGrant_ENABLED_GRANT_IMPLICIT, apppb.EnabledGrant_ENABLED_GRANT_PASSWORD},
+			},
+		}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		ReadOAuthAppFunc: readOAuthAppFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+
+	test.That(t, ac.readOAuthAppAction(cCtx, "test-org-id", "test-client-id"), test.ShouldBeNil)
+	test.That(t, len(out.messages), test.ShouldEqual, 9)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "OAuth config for client ID test-client-id")
+	test.That(t, out.messages[2], test.ShouldContainSubstring, "Client Authentication: required")
+	test.That(t, out.messages[3], test.ShouldContainSubstring, "PKCE (Proof Key for Code Exchange): required")
+	test.That(t, out.messages[4], test.ShouldContainSubstring, "URL Validation Policy: allow_wildcards")
+	test.That(t, out.messages[5], test.ShouldContainSubstring, "Logout URL: https://my-logout-uri.com")
+	test.That(t, out.messages[6], test.ShouldContainSubstring, "Redirect URLs: https://my-redirect-uri.com")
+	test.That(t, out.messages[7], test.ShouldContainSubstring, "Origin URLs: https://my-origin-uri.com, https://second-origin-uri.com")
+	test.That(t, out.messages[8], test.ShouldContainSubstring, "Enabled Grants: implicit, password")
+}
+
+func TestUpdateOAuthAppAction(t *testing.T) {
+	updateOAuthAppFunc := func(ctx context.Context, in *apppb.UpdateOAuthAppRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.UpdateOAuthAppResponse, error) {
+		return &apppb.UpdateOAuthAppResponse{}, nil
+	}
+	asc := &inject.AppServiceClient{
+		UpdateOAuthAppFunc: updateOAuthAppFunc,
+	}
+
+	t.Run("valid inputs", func(t *testing.T) {
+		flags := make(map[string]any)
+		flags[generalFlagOrgID] = "org-id"
+		flags[oauthAppFlagClientID] = "client-id"
+		flags[oauthAppFlagClientName] = "client-name"
+		flags[oauthAppFlagClientAuthentication] = "required"
+		flags[oauthAppFlagURLValidation] = "allow_wildcards"
+		flags[oauthAppFlagPKCE] = "not_required"
+		flags[oauthAppFlagOriginURIs] = []string{"https://woof.com/login", "https://arf.com/"}
+		flags[oauthAppFlagRedirectURIs] = []string{"https://woof.com/home", "https://arf.com/home"}
+		flags[oauthAppFlagLogoutURI] = "https://woof.com/logout"
+		flags[oauthAppFlagEnabledGrants] = []string{"implicit", "password"}
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, flags, "token")
+		test.That(t, ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx)), test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, out.messages[0], test.ShouldContainSubstring, "Successfully updated OAuth app")
+	})
+
+	t.Run("should error if client-authentication is not a valid enum value", func(t *testing.T) {
+		flags := make(map[string]any)
+		flags[generalFlagOrgID] = "org-id"
+		flags[oauthAppFlagClientID] = "client-id"
+		flags[oauthAppFlagClientAuthentication] = "not_one_of_the_allowed_values"
+		cCtx, ac, out, _ := setup(asc, nil, nil, nil, flags, "token")
+		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "client-authentication must be a valid ClientAuthentication")
+		test.That(t, len(out.messages), test.ShouldEqual, 0)
+	})
+
+	t.Run("should error if pkce is not a valid enum value", func(t *testing.T) {
+		flags := map[string]any{oauthAppFlagClientAuthentication: unspecified, oauthAppFlagPKCE: "not_one_of_the_allowed_values"}
+		cCtx, ac, out, _ := setup(asc, nil, nil, nil, flags, "token")
+		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "pkce must be a valid PKCE")
+		test.That(t, len(out.messages), test.ShouldEqual, 0)
+	})
+
+	t.Run("should error if url-validation is not a valid enum value", func(t *testing.T) {
+		flags := map[string]any{
+			oauthAppFlagClientAuthentication: unspecified, oauthAppFlagPKCE: unspecified,
+			oauthAppFlagURLValidation: "not_one_of_the_allowed_values",
+		}
+		cCtx, ac, out, _ := setup(asc, nil, nil, nil, flags, "token")
+		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "url-validation must be a valid UrlValidation")
+		test.That(t, len(out.messages), test.ShouldEqual, 0)
 	})
 }

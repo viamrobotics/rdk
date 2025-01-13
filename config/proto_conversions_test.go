@@ -841,19 +841,21 @@ func TestFromProto(t *testing.T) {
 
 	debug := true
 	enableWebProfile := true
+	disableLogDeduplication := true
 
 	input := &pb.RobotConfig{
-		Cloud:            cloudConfig,
-		Remotes:          []*pb.RemoteConfig{remoteConfig},
-		Modules:          []*pb.ModuleConfig{moduleConfig},
-		Components:       []*pb.ComponentConfig{componentConfig},
-		Processes:        []*pb.ProcessConfig{processConfig},
-		Services:         []*pb.ServiceConfig{serviceConfig},
-		Packages:         []*pb.PackageConfig{packageConfig},
-		Network:          networkConfig,
-		Auth:             authConfig,
-		Debug:            &debug,
-		EnableWebProfile: enableWebProfile,
+		Cloud:                   cloudConfig,
+		Remotes:                 []*pb.RemoteConfig{remoteConfig},
+		Modules:                 []*pb.ModuleConfig{moduleConfig},
+		Components:              []*pb.ComponentConfig{componentConfig},
+		Processes:               []*pb.ProcessConfig{processConfig},
+		Services:                []*pb.ServiceConfig{serviceConfig},
+		Packages:                []*pb.PackageConfig{packageConfig},
+		Network:                 networkConfig,
+		Auth:                    authConfig,
+		Debug:                   &debug,
+		EnableWebProfile:        enableWebProfile,
+		DisableLogDeduplication: disableLogDeduplication,
 	}
 
 	out, err := FromProto(input, logger)
@@ -874,6 +876,7 @@ func TestFromProto(t *testing.T) {
 	validateAuthConfig(t, out.Auth, testAuthConfig)
 	test.That(t, out.Debug, test.ShouldEqual, debug)
 	test.That(t, out.EnableWebProfile, test.ShouldEqual, enableWebProfile)
+	test.That(t, out.DisableLogDeduplication, test.ShouldEqual, disableLogDeduplication)
 	test.That(t, out.Packages, test.ShouldHaveLength, 1)
 	test.That(t, out.Packages[0], test.ShouldResemble, testPackageConfig)
 }

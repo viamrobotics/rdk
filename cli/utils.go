@@ -107,3 +107,7 @@ func parseTimeString(timeStr, timeLayout string) (*timestamppb.Timestamp, error)
 
 	return timestamppb.New(t), nil
 }
+
+func formatStringForOutput(protoString, prefixToTrim string) string {
+	return strings.ToLower(strings.TrimPrefix(protoString, prefixToTrim))
+}

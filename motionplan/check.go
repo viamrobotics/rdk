@@ -77,7 +77,7 @@ func checkPlanRelative(
 	sfPlanner *planManager,
 ) error {
 	var err error
-	toWorld := func(pif *referenceframe.PoseInFrame, inputs map[string][]referenceframe.Input) (*referenceframe.PoseInFrame, error) {
+	toWorld := func(pif *referenceframe.PoseInFrame, inputs referenceframe.FrameSystemInputs) (*referenceframe.PoseInFrame, error) {
 		transformable, err := fs.Transform(inputs, pif, referenceframe.World)
 		if err != nil {
 			return nil, err
@@ -331,7 +331,7 @@ func checkSegments(sfPlanner *planManager, segments []*ik.Segment, lookAheadDist
 		}
 		for _, interpConfig := range interpolatedConfigurations {
 			poseInPathTf, err := sfPlanner.fs.Transform(
-				map[string][]referenceframe.Input{checkFrame.Name(): interpConfig},
+				referenceframe.FrameSystemInputs{checkFrame.Name(): interpConfig},
 				referenceframe.NewZeroPoseInFrame(checkFrame.Name()),
 				parent.Name(),
 			)

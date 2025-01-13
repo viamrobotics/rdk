@@ -422,6 +422,13 @@ func validateSetStreamOptionsRequest(req *streampb.SetStreamOptionsRequest) (int
 				req.Name, req.Resolution.Width, req.Resolution.Height,
 			)
 	}
+	if req.Resolution.Width%2 != 0 || req.Resolution.Height%2 != 0 {
+		return optionsCommandUnknown,
+			fmt.Errorf(
+				"invalid resolution to resize stream %q: width (%d) and height (%d) must be even",
+				req.Name, req.Resolution.Width, req.Resolution.Height,
+			)
+	}
 	return optionsCommandResize, nil
 }
 
@@ -731,11 +738,18 @@ func GenerateResolutions(width, height int32, logger logging.Logger) []Resolutio
 	// original aspect ratio exactly if source dimensions are odd.
 	for i := 0; i < 4; i++ {
 		// Break if the next scaled resolution would be too small.
-		if width <= 1 || height <= 1 {
+		if width <= 2 || height <= 2 {
 			break
 		}
 		width /= 2
 		height /= 2
+		// Ensure width and height are even
+		if width%2 != 0 {
+			width--
+		}
+		if height%2 != 0 {
+			height--
+		}
 		resolutions = append(resolutions, Resolution{Width: width, Height: height})
 		logger.Debugf("scaled resolution %d: %dx%d", i, width, height)
 	}

@@ -59,6 +59,8 @@ const (
 	maxNumLogs = 10000
 	// logoMaxSize is the maximum size of a logo in bytes.
 	logoMaxSize = 1024 * 200 // 200 KB
+	// yellow is the format string used to output warnings in yellow color.
+	yellow = "\033[1;33m%s\033[0m"
 )
 
 var errNoShellService = errors.New("shell service is not enabled on this machine part")
@@ -187,6 +189,97 @@ func (c *viamClient) organizationsSupportEmailGetAction(cCtx *cli.Context, orgID
 	}
 
 	printf(cCtx.App.Writer, "Support email for organization %q: %q", orgID, resp.GetEmail())
+	return nil
+}
+
+type disableAuthServiceArgs struct {
+	OrgID string
+}
+
+// DisableAuthServiceConfirmation is the Before action for 'organizations auth-service disable'.
+// It asks for the user to confirm that they want to disable the auth service.
+func DisableAuthServiceConfirmation(c *cli.Context, args disableAuthServiceArgs) error {
+	if args.OrgID == "" {
+		return errors.New("cannot disable auth service without an organization ID")
+	}
+
+	printf(c.App.Writer, yellow, "WARNING!!\n")
+	printf(c.App.Writer, yellow, fmt.Sprintf("You are trying to disable the auth service for organization ID %s. "+
+		"Once disabled, all custom auth views and emails will be removed from your organization's (%s) "+
+		"OAuth applications and permanently deleted.\n", args.OrgID, args.OrgID))
+	printf(c.App.Writer, yellow, "If you wish to continue, please type \"disable\":")
+	if err := c.Err(); err != nil {
+		return err
+	}
+
+	rawInput, err := bufio.NewReader(c.App.Reader).ReadString('\n')
+	if err != nil {
+		return err
+	}
+
+	if input := strings.ToUpper(strings.TrimSpace(rawInput)); input != "DISABLE" {
+		return errors.New("aborted")
+	}
+	return nil
+}
+
+// DisableAuthServiceAction corresponds to 'organizations auth-service disable'.
+func DisableAuthServiceAction(cCtx *cli.Context, args disableAuthServiceArgs) error {
+	c, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+
+	return c.disableAuthServiceAction(cCtx, args.OrgID)
+}
+
+func (c *viamClient) disableAuthServiceAction(cCtx *cli.Context, orgID string) error {
+	if orgID == "" {
+		return errors.New("cannot disable auth service without an organization ID")
+	}
+
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	if _, err := c.client.DisableAuthService(cCtx.Context, &apppb.DisableAuthServiceRequest{OrgId: orgID}); err != nil {
+		return err
+	}
+
+	printf(cCtx.App.Writer, "disabled auth service for organization %q:\n", orgID)
+	return nil
+}
+
+type enableAuthServiceArgs struct {
+	OrgID string
+}
+
+// EnableAuthServiceAction corresponds to 'organizations auth-service enable'.
+func EnableAuthServiceAction(cCtx *cli.Context, args enableAuthServiceArgs) error {
+	c, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+
+	orgID := args.OrgID
+	if orgID == "" {
+		return errors.New("cannot enable auth service without an organization ID")
+	}
+
+	return c.enableAuthServiceAction(cCtx, args.OrgID)
+}
+
+func (c *viamClient) enableAuthServiceAction(cCtx *cli.Context, orgID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	_, err := c.client.EnableAuthService(cCtx.Context, &apppb.EnableAuthServiceRequest{OrgId: orgID})
+	if err != nil {
+		return err
+	}
+
+	printf(cCtx.App.Writer, "enabled auth service for organization %q:\n", orgID)
 	return nil
 }
 
@@ -461,6 +554,49 @@ func (c *viamClient) organizationsLogoGetAction(cCtx *cli.Context, orgID string)
 	}
 
 	printf(cCtx.App.Writer, "Logo URL for organization %q: %q", orgID, resp.GetUrl())
+	return nil
+}
+
+type listOAuthAppsArgs struct {
+	OrgID string
+}
+
+// ListOAuthAppsAction corresponds to `organizations auth-service oauth-app list`.
+func ListOAuthAppsAction(cCtx *cli.Context, args listOAuthAppsArgs) error {
+	c, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+
+	orgID := args.OrgID
+	if orgID == "" {
+		return errors.New("organization ID is required to list OAuth apps")
+	}
+
+	return c.listOAuthAppsAction(cCtx, orgID)
+}
+
+func (c *viamClient) listOAuthAppsAction(cCtx *cli.Context, orgID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	resp, err := c.client.ListOAuthApps(cCtx.Context, &apppb.ListOAuthAppsRequest{
+		OrgId: orgID,
+	})
+	if err != nil {
+		return err
+	}
+
+	if len(resp.ClientIds) == 0 {
+		printf(cCtx.App.Writer, "No OAuth apps found for organization %q\n", orgID)
+		return nil
+	}
+
+	printf(cCtx.App.Writer, "OAuth apps for organization %q:\n", orgID)
+	for _, id := range resp.ClientIds {
+		printf(cCtx.App.Writer, " - %s\n", id)
+	}
 	return nil
 }
 
@@ -2241,6 +2377,61 @@ func logEntryFieldsToString(fields []*structpb.Struct) (string, error) {
 	return message + "}", nil
 }
 
+type readOAuthAppArgs struct {
+	OrgID    string
+	ClientID string
+}
+
+const (
+	clientAuthenticationPrefix = "CLIENT_AUTHENTICATION_"
+	pkcePrefix                 = "PKCE_"
+	urlValidationPrefix        = "URL_VALIDATION_"
+	enabledGrantPrefix         = "ENABLED_GRANT_"
+)
+
+// ReadOAuthAppAction is the corresponding action for 'organizations auth-service oauth-app read'.
+func ReadOAuthAppAction(c *cli.Context, args readOAuthAppArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	return client.readOAuthAppAction(c, args.OrgID, args.ClientID)
+}
+
+func (c *viamClient) readOAuthAppAction(cCtx *cli.Context, orgID, clientID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	req := &apppb.ReadOAuthAppRequest{OrgId: orgID, ClientId: clientID}
+	resp, err := c.client.ReadOAuthApp(c.c.Context, req)
+	if err != nil {
+		return err
+	}
+
+	config := resp.OauthConfig
+	printf(cCtx.App.Writer, "OAuth config for client ID %s:", clientID)
+	printf(cCtx.App.Writer, "")
+	printf(cCtx.App.Writer, "Client Authentication: %s", formatStringForOutput(config.ClientAuthentication.String(),
+		clientAuthenticationPrefix))
+	printf(cCtx.App.Writer, "PKCE (Proof Key for Code Exchange): %s", formatStringForOutput(config.Pkce.String(), pkcePrefix))
+	printf(cCtx.App.Writer, "URL Validation Policy: %s", formatStringForOutput(config.UrlValidation.String(), urlValidationPrefix))
+	printf(cCtx.App.Writer, "Logout URL: %s", config.LogoutUri)
+	printf(cCtx.App.Writer, "Redirect URLs: %s", strings.Join(config.RedirectUris, ", "))
+	if len(config.OriginUris) > 0 {
+		printf(cCtx.App.Writer, "Origin URLs: %s", strings.Join(config.OriginUris, ", "))
+	}
+
+	var enabledGrants []string
+	for _, eg := range config.GetEnabledGrants() {
+		enabledGrants = append(enabledGrants, formatStringForOutput(eg.String(), enabledGrantPrefix))
+	}
+	printf(cCtx.App.Writer, "Enabled Grants: %s", strings.Join(enabledGrants, ", "))
+
+	return nil
+}
+
 type deleteOAuthAppArgs struct {
 	OrgID    string
 	ClientID string
@@ -2257,7 +2448,6 @@ func DeleteOAuthAppConfirmation(c *cli.Context, args deleteOAuthAppArgs) error {
 		return errors.New("cannot delete oauth app without a client ID")
 	}
 
-	yellow := "\033[1;33m%s\033[0m"
 	printf(c.App.Writer, yellow, "WARNING!!\n")
 	printf(c.App.Writer, yellow, fmt.Sprintf("You are trying to delete an OAuth application with client ID %s. "+
 		"Once deleted, any existing apps that rely on this OAuth application will no longer be able to authenticate users.\n", args.ClientID))
@@ -2305,4 +2495,269 @@ func (c *viamClient) deleteOAuthAppAction(cCtx *cli.Context, orgID, clientID str
 
 	printf(cCtx.App.Writer, "Successfully deleted OAuth application")
 	return nil
+}
+
+type pkce string
+
+// the valid pkce values.
+const (
+	PKCEUnspecified                              pkce = "unspecified"
+	PKCERequired                                 pkce = "required"
+	PKCENotRequired                              pkce = "not_required"
+	PKCENotRequiredWhenUsingClientAuthentication pkce = "not_required_when_using_client_authentication"
+)
+
+func pkceToProto(stringPKCE string) (apppb.PKCE, error) {
+	switch pkce(stringPKCE) {
+	case PKCENotRequired:
+		return apppb.PKCE_PKCE_NOT_REQUIRED, nil
+	case PKCERequired:
+		return apppb.PKCE_PKCE_REQUIRED, nil
+	case PKCENotRequiredWhenUsingClientAuthentication:
+		return apppb.PKCE_PKCE_NOT_REQUIRED_WHEN_USING_CLIENT_AUTHENTICATION, nil
+	case PKCEUnspecified:
+		return apppb.PKCE_PKCE_UNSPECIFIED, nil
+	}
+	return apppb.PKCE_PKCE_UNSPECIFIED, errors.Errorf("--%s must be a valid PKCE, got %s. "+
+		"See `viam organizations auth-service oauth-app update --help` for supported options",
+		oauthAppFlagPKCE, stringPKCE)
+}
+
+type clientAuthentication string
+
+// the valid client authentication values.
+const (
+	ClientAuthenticationUnspecified              clientAuthentication = "unspecified"
+	ClientAuthenticationRequired                 clientAuthentication = "required"
+	ClientAuthenticationNotRequired              clientAuthentication = "not_required"
+	ClientAuthenticationNotRequiredWhenUsingPKCE clientAuthentication = "not_required_when_using_pkce"
+)
+
+func clientAuthToProto(clientAuth string) (apppb.ClientAuthentication, error) {
+	switch clientAuthentication(clientAuth) {
+	case ClientAuthenticationNotRequired:
+		return apppb.ClientAuthentication_CLIENT_AUTHENTICATION_NOT_REQUIRED, nil
+	case ClientAuthenticationRequired:
+		return apppb.ClientAuthentication_CLIENT_AUTHENTICATION_REQUIRED, nil
+	case ClientAuthenticationNotRequiredWhenUsingPKCE:
+		return apppb.ClientAuthentication_CLIENT_AUTHENTICATION_NOT_REQUIRED_WHEN_USING_PKCE, nil
+	case ClientAuthenticationUnspecified:
+		return apppb.ClientAuthentication_CLIENT_AUTHENTICATION_UNSPECIFIED, nil
+	}
+	return apppb.ClientAuthentication_CLIENT_AUTHENTICATION_UNSPECIFIED, errors.Errorf("--%s must be a valid ClientAuthentication, got %s. "+
+		"See `viam organizations auth-service oauth-app update --help` for supported options",
+		oauthAppFlagClientAuthentication, clientAuth)
+}
+
+type urlValidation string
+
+// the accepted url validation values.
+const (
+	URLValidationUnspecified    urlValidation = "unspecified"
+	URLValidationExactMatch     urlValidation = "exact_match"
+	URLValidationAllowWildcards urlValidation = "allow_wildcards"
+)
+
+func urlValidationToProto(urlValid string) (apppb.URLValidation, error) {
+	switch urlValidation(urlValid) {
+	case URLValidationAllowWildcards:
+		return apppb.URLValidation_URL_VALIDATION_ALLOW_WILDCARDS, nil
+	case URLValidationExactMatch:
+		return apppb.URLValidation_URL_VALIDATION_EXACT_MATCH, nil
+	case URLValidationUnspecified:
+		return apppb.URLValidation_URL_VALIDATION_UNSPECIFIED, nil
+	}
+	return apppb.URLValidation_URL_VALIDATION_UNSPECIFIED, errors.Errorf("--%s must be a valid UrlValidation, got %s. "+
+		"See `viam organizations auth-service oauth-app update --help` for supported options",
+		oauthAppFlagURLValidation, urlValid)
+}
+
+type enabledGrant string
+
+// the accepted enabled grant values.
+const (
+	EnabledGrantUnspecified       enabledGrant = "unspecified"
+	EnabledGrantAuthorizationCode enabledGrant = "authorization_code"
+	EnabledGrantImplicit          enabledGrant = "implicit"
+	EnabledGrantPassword          enabledGrant = "password"
+	EnabledGrantRefreshToken      enabledGrant = "refresh_token"
+	EnabledGrantDeviceCode        enabledGrant = "device_code"
+)
+
+func enabledGrantToProto(eg string) (apppb.EnabledGrant, error) {
+	switch enabledGrant(eg) {
+	case EnabledGrantAuthorizationCode:
+		return apppb.EnabledGrant_ENABLED_GRANT_AUTHORIZATION_CODE, nil
+	case EnabledGrantImplicit:
+		return apppb.EnabledGrant_ENABLED_GRANT_IMPLICIT, nil
+	case EnabledGrantPassword:
+		return apppb.EnabledGrant_ENABLED_GRANT_PASSWORD, nil
+	case EnabledGrantRefreshToken:
+		return apppb.EnabledGrant_ENABLED_GRANT_REFRESH_TOKEN, nil
+	case EnabledGrantDeviceCode:
+		return apppb.EnabledGrant_ENABLED_GRANT_DEVICE_CODE, nil
+	case EnabledGrantUnspecified:
+		return apppb.EnabledGrant_ENABLED_GRANT_UNSPECIFIED, nil
+	}
+	return apppb.EnabledGrant_ENABLED_GRANT_UNSPECIFIED, errors.Errorf("%s must consist of valid EnabledGrants, got %s. "+
+		"See `viam organizations auth-service oauth-app update --help` for supported options",
+		oauthAppFlagEnabledGrants, eg)
+}
+
+type createOAuthAppArgs struct {
+	OrgID                string
+	ClientName           string
+	ClientAuthentication string
+	Pkce                 string
+	LogoutURI            string
+	UrlValidation        string //nolint:revive,stylecheck
+	OriginURIs           []string
+	RedirectURIs         []string
+	EnabledGrants        []string
+}
+
+// CreateOAuthAppAction is the corresponding action for 'oauth-app create'.
+func CreateOAuthAppAction(c *cli.Context, args createOAuthAppArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	return client.createOAuthAppAction(c, args)
+}
+
+func (c *viamClient) createOAuthAppAction(cCtx *cli.Context, args createOAuthAppArgs) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	config, err := generateOAuthConfig(args.ClientAuthentication, args.Pkce, args.UrlValidation,
+		args.LogoutURI, args.OriginURIs, args.RedirectURIs, args.EnabledGrants)
+	if err != nil {
+		return err
+	}
+
+	req := &apppb.CreateOAuthAppRequest{
+		OrgId:       args.OrgID,
+		ClientName:  args.ClientName,
+		OauthConfig: config,
+	}
+
+	response, err := c.client.CreateOAuthApp(c.c.Context, req)
+	if err != nil {
+		return err
+	}
+
+	printf(cCtx.App.Writer, "Successfully created OAuth app %s with client ID %s and client secret %s",
+		args.ClientName, response.ClientId, response.ClientSecret)
+	return nil
+}
+
+type updateOAuthAppArgs struct {
+	OrgID                string
+	ClientID             string
+	ClientName           string
+	ClientAuthentication string
+	Pkce                 string
+	LogoutURI            string
+	UrlValidation        string //nolint:revive,stylecheck
+	OriginURIs           []string
+	RedirectURIs         []string
+	EnabledGrants        []string
+}
+
+// UpdateOAuthAppAction is the corresponding action for 'oauth-app update'.
+func UpdateOAuthAppAction(c *cli.Context, args updateOAuthAppArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	return client.updateOAuthAppAction(c, args)
+}
+
+func (c *viamClient) updateOAuthAppAction(cCtx *cli.Context, args updateOAuthAppArgs) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	req, err := createUpdateOAuthAppRequest(args)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.client.UpdateOAuthApp(c.c.Context, req)
+	if err != nil {
+		return err
+	}
+
+	printf(cCtx.App.Writer, "Successfully updated OAuth app %s", args.ClientID)
+	return nil
+}
+
+func generateOAuthConfig(clientAuthentication, pkce, urlValidation, logoutURI string,
+	originURIs, redirectURIs, enabledGrants []string,
+) (*apppb.OAuthConfig, error) {
+	clientAuthProto, err := clientAuthToProto(clientAuthentication)
+	if err != nil {
+		return nil, err
+	}
+	pkceProto, err := pkceToProto(pkce)
+	if err != nil {
+		return nil, err
+	}
+
+	urlValidationProto, err := urlValidationToProto(urlValidation)
+	if err != nil {
+		return nil, err
+	}
+
+	egProto, err := enabledGrantsToProto(enabledGrants)
+	if err != nil {
+		return nil, err
+	}
+
+	return &apppb.OAuthConfig{
+		ClientAuthentication: clientAuthProto,
+		Pkce:                 pkceProto,
+		UrlValidation:        urlValidationProto,
+		OriginUris:           originURIs,
+		RedirectUris:         redirectURIs,
+		LogoutUri:            logoutURI,
+		EnabledGrants:        egProto,
+	}, nil
+}
+
+func createUpdateOAuthAppRequest(args updateOAuthAppArgs) (*apppb.UpdateOAuthAppRequest, error) {
+	orgID := args.OrgID
+	clientID := args.ClientID
+	clientName := args.ClientName
+
+	oauthConfig, err := generateOAuthConfig(args.ClientAuthentication, args.Pkce, args.UrlValidation,
+		args.LogoutURI, args.OriginURIs, args.RedirectURIs, args.EnabledGrants)
+	if err != nil {
+		return nil, err
+	}
+	req := &apppb.UpdateOAuthAppRequest{
+		OrgId:       orgID,
+		ClientId:    clientID,
+		ClientName:  clientName,
+		OauthConfig: oauthConfig,
+	}
+	return req, nil
+}
+
+func enabledGrantsToProto(enabledGrants []string) ([]apppb.EnabledGrant, error) {
+	if enabledGrants == nil {
+		return nil, nil
+	}
+	enabledGrantsProto := make([]apppb.EnabledGrant, len(enabledGrants))
+	for _, eg := range enabledGrants {
+		enabledGrant, err := enabledGrantToProto(eg)
+		if err != nil {
+			return nil, err
+		}
+		enabledGrantsProto = append(enabledGrantsProto, enabledGrant)
+	}
+	return enabledGrantsProto, nil
 }

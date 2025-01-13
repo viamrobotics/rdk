@@ -1,6 +1,7 @@
 package modmanager
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -8,8 +9,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -28,6 +31,7 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/ftdc"
 	"go.viam.com/rdk/logging"
 	modlib "go.viam.com/rdk/module"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
@@ -179,11 +183,11 @@ func TestModManagerFunctions(t *testing.T) {
 			if mode == "unix" {
 				// make sure mod.addr has changed
 				test.That(t, mod.addr, test.ShouldNotEqual, oldAddr)
-			}
 
-			// check that we're still able to use the old client
-			_, err = oldClient.Ready(ctx, &v1.ReadyRequest{ParentAddress: parentAddr})
-			test.That(t, err, test.ShouldBeNil)
+				// check that we're still able to use the old client
+				_, err = oldClient.Ready(ctx, &v1.ReadyRequest{ParentAddress: parentAddr})
+				test.That(t, err, test.ShouldBeNil)
+			}
 
 			test.That(t, mod.process.Stop(), test.ShouldBeNil)
 
@@ -357,6 +361,49 @@ func TestModManagerFunctions(t *testing.T) {
 			_, err = os.Stat(expectedDataDir)
 			test.That(t, err, test.ShouldBeError)
 		})
+	}
+}
+
+func TestModManagerKill(t *testing.T) {
+	// this test will not pass on windows as it relies on the UnixPid of the managed process
+	if runtime.GOOS == "windows" {
+		t.Skip()
+	}
+	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
+	logger, logs := logging.NewObservedTestLogger(t)
+	parentAddr := setupSocketWithRobot(t)
+
+	ctx := context.Background()
+	mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{})
+	modCfg := config.Module{
+		Name:    "simple-module",
+		ExePath: modPath,
+	}
+	err := mgr.Add(ctx, modCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	// get the module from the module map
+	mMgr, ok := mgr.(*Manager)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	mod, ok := mMgr.modules.Load(modCfg.Name)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	mgr.Kill()
+
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		test.That(tb, logs.FilterMessageSnippet("Killing module").Len(),
+			test.ShouldEqual, 1)
+	})
+
+	// in CI, we have to send another signal to make sure the cmd.Wait() in
+	// the manage goroutine actually returns.
+	// We do not care about the error if it is expected.
+	// maybe related to https://github.com/golang/go/issues/18874
+	pid, err := mod.process.UnixPid()
+	test.That(t, err, test.ShouldBeNil)
+	if err := syscall.Kill(pid, syscall.SIGTERM); err != nil {
+		test.That(t, errors.Is(err, os.ErrProcessDone), test.ShouldBeFalse)
 	}
 }
 
@@ -1377,6 +1424,91 @@ func TestBadModuleFailsFast(t *testing.T) {
 	err := mgr.Add(ctx, modCfgs...)
 
 	test.That(t, err.Error(), test.ShouldContainSubstring, "module test-module exited too quickly after attempted startup")
+}
+
+// TestFTDCAfterModuleCrash is to give confidence that the FTDC sections devoted to tracking module
+// process information (e.g: CPU usage) is in sync with the Process IDs (PIDs) that are actually
+// running.
+func TestFTDCAfterModuleCrash(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	modCfgs := []config.Module{
+		{
+			Name: "test-module",
+			// testmodule2 has a `kill_module` DoCommand to force a module/process crash.
+			ExePath: rtestutils.BuildTempModule(t, "module/testmodule2"),
+			Type:    config.ModuleTypeLocal,
+		},
+	}
+
+	ctx := context.Background()
+	parentAddr := setupSocketWithRobot(t)
+	opts := modmanageroptions.Options{UntrustedEnv: false}
+
+	// Start up a mod manager with FTDC enabled. We will inspect the FTDC output for the
+	// `ElapsedTimeSecs` to assert the "pid tracking code" is working correctly.
+	ftdcData := bytes.NewBuffer(nil)
+	opts.FTDC = ftdc.NewWithWriter(ftdcData, logger)
+	// Normally a test would explicitly call `constructDatum` to control/guarantee FTDC gets
+	// data. But as a short-cut to avoid exposing methods that are currently private, we just run
+	// FTDC in the background. And sleep long enough between testing events (killing the module) to
+	// assert the right behavior.
+	opts.FTDC.Start()
+
+	// Set up a mod manager. Currently there are zero modules running.
+	mgr := setupModManager(t, ctx, parentAddr, logger, opts)
+
+	// Add a module, this will register an FTDC "section" for that module process.
+	err := mgr.Add(ctx, modCfgs...)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Add a resource -- this is simply to invoke the `kill_module` command.
+	res, err := mgr.AddResource(ctx, resource.Config{
+		Name:  "foo",
+		API:   generic.API,
+		Model: resource.NewModel("rdk", "test", "helper2"),
+	}, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, mgr.IsModularResource(generic.Named("foo")), test.ShouldBeTrue)
+
+	// Kill the module a few times for good measure.
+	for idx := 0; idx < 3; idx++ {
+		_, _ = res.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
+
+		// FTDC is running in the background with a one second interval. So we sleep for two seconds
+		// and cross our fingers we don't get a poor scheduler execution. The assertions are
+		// intentionally weak to minimize the risk of false positives (a test failure with correct
+		// production code).
+		time.Sleep(2 * time.Second)
+	}
+
+	mgr.Close(ctx)
+	opts.FTDC.StopAndJoin(ctx)
+
+	datums, err := ftdc.Parse(ftdcData)
+	test.That(t, err, test.ShouldBeNil)
+	logger.Info("Num ftdc datums: ", len(datums))
+
+	// Keep count of the number of `ElapsedTimeSecs` readings we encounter. It is a testing bug if
+	// we don't see any process FTDC metrics for the module.
+	numModuleElapsedTimeMetricsSeen := 0
+	for _, datum := range datums {
+		for _, reading := range datum.Readings {
+			if reading.MetricName == "proc.modules.test-module.ElapsedTimeSecs" {
+				logger.Infow("Reading", "timestamp", datum.Time, "elapsedTimeSecs", reading.Value)
+				numModuleElapsedTimeMetricsSeen++
+				// Dan: I don't have a good reason to believe that we can't (legitimately) observe
+				// an `ElapsedTimeSecs` of 0 here. It's more likely we'd see a 0 because we queried
+				// a bad PID.
+				//
+				// If my assumption is wrong and we get a false positive here, we can reevaluate the
+				// options for making a more robust test.
+				test.That(t, reading.Value, test.ShouldBeGreaterThan, 0)
+			}
+		}
+	}
+
+	// Assert that we saw at least one datapoint before considering the test a success.
+	test.That(t, numModuleElapsedTimeMetricsSeen, test.ShouldBeGreaterThan, 0)
 }
 
 func TestModularDiscoverFunc(t *testing.T) {
