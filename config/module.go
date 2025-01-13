@@ -405,12 +405,12 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 			if registryErr != nil {
 				// return from getJSONManifest() if the error returned does NOT indicate that the file wasn't found
 				if !os.IsNotExist(registryErr) {
-					return nil, "", errors.Wrap(registryErr, "registry module")
+					return nil, "", errors.Wrap(registryErr, "registry module") // DONE
 				}
 			}
 
 			if meta != nil {
-				return meta, moduleWorkingDirectory, nil
+				return meta, moduleWorkingDirectory, nil // DONE
 			}
 		}
 	}
@@ -450,7 +450,7 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 		meta, localTarballErr = findMetaJSONFile(exeDir)
 		if localTarballErr != nil {
 			if !os.IsNotExist(localTarballErr) {
-				return nil, "", errors.Wrap(localTarballErr, "local non-tarball")
+				return nil, "", errors.Wrap(localTarballErr, "local tarball")
 			}
 		}
 
