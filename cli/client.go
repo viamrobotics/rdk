@@ -698,9 +698,13 @@ func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArg
 		return err
 	}
 
-	interval, err := createCaptureInterval(args.Start, args.End)
+	startTime, err := parseTimeString(args.Start, time.RFC3339)
 	if err != nil {
-		return errors.Wrap(err, "invalid interval format")
+		return errors.Wrap(err, "invalid start time format")
+	}
+	endTime, err := parseTimeString(args.End, time.RFC3339)
+	if err != nil {
+		return errors.Wrap(err, "invalid end time format")
 	}
 
 	// Write logs for this part
@@ -713,8 +717,8 @@ func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArg
 			ErrorsOnly: args.Errors,
 			PageToken:  &pageToken,
 			Levels:     args.Levels,
-			Start:      interval.Start,
-			End:        interval.End,
+			Start:      startTime,
+			End:        endTime,
 			Limit:      &remainingLogs,
 		})
 		if err != nil {
