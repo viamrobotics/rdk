@@ -628,8 +628,12 @@ func RobotsLogsAction(c *cli.Context, args robotsLogsArgs) error {
 
 	// Check if both start time and count are provided
 	if args.Start != "" && args.Count > 0 && args.End == "" {
-		return fmt.Errorf("unsupported functionality: specifying both a start time and a count is not supported unless an end time is provided. " +
-			"Please provide either a start time and an end time, or a count without a start time")
+		return fmt.Errorf("unsupported functionality: specifying both a start time and a count without an end time is not supported. " +
+			"This behavior can be counterintuitive because logs are currently only sorted in descending order. " +
+			"For example, if there are 200 logs after the specified start time and you request 10 logs, it will return the 10 most recent logs, " +
+			"rather than the 10 logs closest to the start time. " +
+			"Please provide either a start time and an end time to define a clear range, or a count without a start time for recent logs",
+		)
 	}
 
 	orgStr := args.Organization
