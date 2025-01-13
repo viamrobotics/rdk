@@ -162,7 +162,7 @@ type Board interface {
 //	err = analog.Write(context.Background(), 48, nil)
 //
 // For more information, see the [Write method docs].
-// 
+//
 // [Read method docs]: https://docs.viam.com/dev/reference/apis/components/board/#readanalogreader
 // [Write method docs]: https://docs.viam.com/dev/reference/apis/components/board/#writeanalog
 type Analog interface {

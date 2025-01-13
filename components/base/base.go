@@ -103,7 +103,7 @@ func Named(name string) resource.Name {
 //
 //	// Get the wheel circumference
 //	myBaseWheelCircumference := properties.WheelCircumferenceMeters
-// 
+//
 // For more information, see the [Properties method docs].
 //
 // [base component docs]: https://docs.viam.com/components/base/
