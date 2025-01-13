@@ -116,7 +116,7 @@ func TestGetJSONManifest(t *testing.T) {
 		env := make(map[string]string, 1)
 		modRegistry := Module{Type: ModuleTypeRegistry}
 
-		err := os.Mkdir(unpackedModDir, 0700)
+		err := os.Mkdir(unpackedModDir, 0o700)
 		test.That(t, err, test.ShouldBeNil)
 
 		// meta.json not found; only unpacked module directory searched
@@ -189,7 +189,7 @@ func TestGetJSONManifest(t *testing.T) {
 		env := map[string]string{}
 		modLocalNontar := Module{Type: ModuleTypeLocal}
 
-		err := os.Mkdir(unpackedModDir, 0700)
+		err := os.Mkdir(unpackedModDir, 0o700)
 		test.That(t, err, test.ShouldBeNil)
 
 		meta, moduleWorkingDirectory, err := modLocalNontar.getJSONManifest(unpackedModDir, env)
