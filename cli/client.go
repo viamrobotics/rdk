@@ -613,7 +613,6 @@ type robotsStatusArgs struct {
 	Machine      string
 }
 
-// CR erodkin: mention flyby here
 func (c *viamClient) getOrgAndLocationNamesForRobot(ctx context.Context, robot *apppb.Robot) (string, string, error) {
 	orgs, err := c.client.GetOrganizationsWithAccessToLocation(ctx, &apppb.GetOrganizationsWithAccessToLocationRequest{LocationId: robot.Location})
 	if err != nil {

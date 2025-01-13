@@ -1327,7 +1327,6 @@ var app = &cli.App{
 							Usage: "removes binary data with file IDs in a single org and location from dataset",
 							UsageText: createUsageText("dataset data remove",
 								[]string{datasetFlagDatasetID, generalFlagOrgID, dataFlagLocationID, dataFlagFileIDs}, false),
-							// CR erodkin: we need these because currently the way the Data APIs work, if you don't pass the primary org ID then it won't work correctly and I don't think we can properly infer which one is the "correct" one. We could do something hacky! but probably better to leave this to data to fix, and flag this to reviewers in the meantime.
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     datasetFlagDatasetID,
