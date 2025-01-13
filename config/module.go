@@ -382,10 +382,10 @@ func (m *Module) FirstRun(
 // getJSONManifest returns a loaded meta.json from one of three sources (in order of precedence):
 // 1. if this is a registry module and there is a meta.json in its top level directory, use that.
 // 2. if there is a meta.json in the exe dir, use that, except in local non-tarball case.
-// 3. if this is a local tarball and there's a meta.json next to the tarball, use that.
+// 3. if this is a local tarball, use the meta.json in unpackedModDir.
 // Note: the working directory must be the unpacked tarball directory or local exec directory.
 func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*JSONManifest, string, error) {
-	// note: all registry modules qualify for cases 1 & 2; local tarballs for cases 2 & 3; and local non-tarballs for case 3. We don't look at
+	// note: all registry modules qualify for cases 1 & 2; local tarballs for cases 2 & 3; and local non-tarballs for none. We don't look at
 	// internal meta.json in local non-tarball case because user has explicitly requested a binary.
 
 	// note: each case is exited iff no errors occur but the meta.json file is not found
