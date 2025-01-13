@@ -674,17 +674,30 @@ func TestGetRobotPartLogs(t *testing.T) {
 		return resp, nil
 	}
 
+	loc := apppb.Location{Name: "naboo"}
+
 	listOrganizationsFunc := func(ctx context.Context, in *apppb.ListOrganizationsRequest,
 		opts ...grpc.CallOption,
 	) (*apppb.ListOrganizationsResponse, error) {
 		orgs := []*apppb.Organization{{Name: "jedi", Id: "123"}}
 		return &apppb.ListOrganizationsResponse{Organizations: orgs}, nil
 	}
+	getOrganizationsWithAccessToLocationFunc := func(ctx context.Context, in *apppb.GetOrganizationsWithAccessToLocationRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.GetOrganizationsWithAccessToLocationResponse, error) {
+
+		orgIdentities := []*apppb.OrganizationIdentity{{Name: "jedi", Id: "123"}}
+		return &apppb.GetOrganizationsWithAccessToLocationResponse{OrganizationIdentities: orgIdentities}, nil
+	}
+	getLocationFunc := func(ctx context.Context, in *apppb.GetLocationRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.GetLocationResponse, error) {
+		return &apppb.GetLocationResponse{Location: &loc}, nil
+	}
 	listLocationsFunc := func(ctx context.Context, in *apppb.ListLocationsRequest,
 		opts ...grpc.CallOption,
 	) (*apppb.ListLocationsResponse, error) {
-		locs := []*apppb.Location{{Name: "naboo"}}
-		return &apppb.ListLocationsResponse{Locations: locs}, nil
+		return &apppb.ListLocationsResponse{Locations: []*apppb.Location{&loc}}, nil
 	}
 	listRobotsFunc := func(ctx context.Context, in *apppb.ListRobotsRequest,
 		opts ...grpc.CallOption,
@@ -703,10 +716,12 @@ func TestGetRobotPartLogs(t *testing.T) {
 		GetRobotPartLogsFunc: getRobotPartLogsFunc,
 		// Supply some injected functions to avoid a panic when loading
 		// organizations, locations, robots and parts.
-		ListOrganizationsFunc: listOrganizationsFunc,
-		ListLocationsFunc:     listLocationsFunc,
-		ListRobotsFunc:        listRobotsFunc,
-		GetRobotPartsFunc:     getRobotPartsFunc,
+		ListOrganizationsFunc:                    listOrganizationsFunc,
+		ListLocationsFunc:                        listLocationsFunc,
+		ListRobotsFunc:                           listRobotsFunc,
+		GetRobotPartsFunc:                        getRobotPartsFunc,
+		GetLocationFunc:                          getLocationFunc,
+		GetOrganizationsWithAccessToLocationFunc: getOrganizationsWithAccessToLocationFunc,
 	}
 
 	t.Run("no count", func(t *testing.T) {
