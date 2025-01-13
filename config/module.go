@@ -420,7 +420,7 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 	localNonTarball := m.Type == ModuleTypeLocal && !m.NeedsSyntheticPackage()
 
 	// case 2: registry OR tarball
-	if !localNonTarball {
+	if !localNonTarball && unpackedModDir != moduleWorkingDirectory {
 		var meta *JSONManifest
 		meta, registryTarballErr = findMetaJSONFile(unpackedModDir)
 		if registryTarballErr != nil {
