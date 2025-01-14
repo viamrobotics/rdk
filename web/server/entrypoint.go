@@ -31,6 +31,8 @@ import (
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	rutils "go.viam.com/rdk/utils"
+
+	"golang.org/x/sys/windows/svc/eventlog"
 )
 
 var viamDotDir = filepath.Join(rutils.PlatformHomeDir(), ".viam")
@@ -94,6 +96,12 @@ func logVersion(logger logging.Logger) {
 }
 
 func logStartupInfo(logger logging.Logger) {
+	elog, err := eventlog.Open("viam-server")
+	if err != nil {
+		panic(err)
+	}
+	elog.Info(1, fmt.Sprintf("elog happened: %v", time.Now()))
+	elog.Close()
 	logVersion(logger)
 	logViamEnvVariables(logger)
 }
