@@ -685,7 +685,6 @@ func TestGetRobotPartLogs(t *testing.T) {
 	getOrganizationsWithAccessToLocationFunc := func(ctx context.Context, in *apppb.GetOrganizationsWithAccessToLocationRequest,
 		opts ...grpc.CallOption,
 	) (*apppb.GetOrganizationsWithAccessToLocationResponse, error) {
-
 		orgIdentities := []*apppb.OrganizationIdentity{{Name: "jedi", Id: "123"}}
 		return &apppb.GetOrganizationsWithAccessToLocationResponse{OrganizationIdentities: orgIdentities}, nil
 	}

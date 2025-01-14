@@ -614,7 +614,9 @@ type robotsStatusArgs struct {
 }
 
 func (c *viamClient) getOrgAndLocationNamesForRobot(ctx context.Context, robot *apppb.Robot) (string, string, error) {
-	orgs, err := c.client.GetOrganizationsWithAccessToLocation(ctx, &apppb.GetOrganizationsWithAccessToLocationRequest{LocationId: robot.Location})
+	orgs, err := c.client.GetOrganizationsWithAccessToLocation(
+		ctx, &apppb.GetOrganizationsWithAccessToLocationRequest{LocationId: robot.Location},
+	)
 	if err != nil {
 		return "", "", err
 	}
