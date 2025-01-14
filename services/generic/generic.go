@@ -1,7 +1,7 @@
 // Package generic defines an abstract generic service and DoCommand() method.
 // For more information, see the [generic service docs].
 //
-// [generic service docs]: https://docs.viam.com/services/generic/
+// [generic service docs]: https://docs.viam.com/dev/reference/apis/services/generic/
 package generic
 
 import (

@@ -90,19 +90,27 @@ type Properties struct {
 //	// Get the Mode the service is operating in.
 //	mode, err := myNav.Mode(context.Background(), nil)
 //
+// For more information, see the [Mode method docs].
+//
 // SetMode example:
 //
 //	// Set the Mode the service is operating in to ModeWaypoint and begin navigation.
 //	err := myNav.SetMode(context.Background(), navigation.ModeWaypoint, nil)
+//
+// For more information, see the [SetMode method docs].
 //
 // Location example:
 //
 //	// Get the current location of the robot in the navigation service.
 //	location, err := myNav.Location(context.Background(), nil)
 //
+// For more information, see the [Location method docs].
+//
 // Waypoints example:
 //
 //	waypoints, err := myNav.Waypoints(context.Background(), nil)
+//
+// For more information, see the [Waypoints method docs].
 //
 // AddWaypoint example:
 //
@@ -112,6 +120,8 @@ type Properties struct {
 //
 //	// Add your waypoint to the service's data storage.
 //	err := myNav.AddWaypoint(context.Background(), location, nil)
+//
+// For more information, see the [AddWaypoint method docs].
 //
 // RemoveWaypoint example:
 //
@@ -124,22 +134,39 @@ type Properties struct {
 //	// Remove the first waypoint from the service's data storage.
 //	err = myNav.RemoveWaypoint(context.Background(), waypoints[0].ID, nil)
 //
+// For more information, see the [RemoveWaypoint method docs].
+//
 // Obstacles example:
 //
 //	// Get an array containing each obstacle stored by the navigation service.
 //	obstacles, err := myNav.Obstacles(context.Background(), nil)
+//
+// For more information, see the [Obstacles method docs].
 //
 // Paths example:
 //
 //	// Get an array containing each path stored by the navigation service.
 //	paths, err := myNav.Paths(context.Background(), nil)
 //
+// For more information, see the [Paths method docs].
+//
 // Properties example:
 //
 //	// Get the properties of the current navigation service.
 //	navProperties, err := myNav.Properties(context.Background())
 //
-// [navigation service docs]: https://docs.viam.com/services/navigation/
+// For more information, see the [Properties method docs].
+//
+// [navigation service docs]: https://docs.viam.com/operate/reference/services/navigation/
+// [Mode method docs]: https://docs.viam.com/dev/reference/apis/services/navigation/#getmode
+// [SetMode method docs]: https://docs.viam.com/dev/reference/apis/services/navigation/#setmode
+// [Location method docs]: https://docs.viam.com/dev/reference/apis/services/navigation/#getlocation
+// [Waypoints method docs]: https://docs.viam.com/dev/reference/apis/services/navigation/#getwaypoints
+// [AddWaypoint method docs]: https://docs.viam.com/dev/reference/apis/services/navigation/#addwaypoint
+// [RemoveWaypoint method docs]: https://docs.viam.com/dev/reference/apis/services/navigation/#removewaypoint
+// [Paths method docs]: https://docs.viam.com/dev/reference/apis/services/navigation/#getpaths
+// [Properties method docs]: https://docs.viam.com/dev/reference/apis/services/navigation/#getproperties
+// [Obstacles method docs]: https://docs.viam.com/dev/reference/apis/services/navigation/#getobstacles
 type Service interface {
 	resource.Resource
 
