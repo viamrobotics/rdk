@@ -100,7 +100,7 @@ func logStartupInfo(logger logging.Logger) {
 	if err != nil {
 		panic(err)
 	}
-	elog.Info(1, fmt.Sprintf("elog happened: %v", time.Now()))
+	elog.Info(0, fmt.Sprintf("elog happened: %v", time.Now()))
 	elog.Close()
 	logVersion(logger)
 	logViamEnvVariables(logger)
