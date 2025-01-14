@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -85,7 +86,16 @@ func installPackage(
 		return err
 	}
 
-	err = os.Rename(tmpDataPath, p.LocalDataDirectory(packagesDir))
+	renameDest := p.LocalDataDirectory(packagesDir)
+	if runtime.GOOS == "windows" {
+		if _, err := os.Stat(renameDest); err == nil {
+			logger.Debug("package rename destination exists, deleting")
+			if err := os.RemoveAll(renameDest); err != nil {
+				logger.Warnf("ignoring error from removing rename dest %s", err)
+			}
+		}
+	}
+	err = os.Rename(tmpDataPath, renameDest)
 	if err != nil {
 		utils.UncheckedError(cleanup(packagesDir, p))
 		return err
@@ -381,6 +391,11 @@ func readStatusFile(pkg config.PackageConfig, packagesDir string) (packageSyncFi
 
 func writeStatusFile(pkg config.PackageConfig, statusFile packageSyncFile, packagesDir string) error {
 	syncFileName := getSyncFileName(pkg.LocalDataDirectory(packagesDir))
+	if runtime.GOOS == "windows" {
+		if err := os.MkdirAll(pkg.LocalDataDirectory(packagesDir), os.ModeDir); err != nil {
+			return err
+		}
+	}
 
 	statusFileBytes, err := json.MarshalIndent(statusFile, "", "  ")
 	if err != nil {

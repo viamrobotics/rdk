@@ -44,7 +44,8 @@ import (
 
 // SubtypeName is a constant that identifies the internal web resource subtype string.
 const (
-	SubtypeName   = "web"
+	SubtypeName = "web"
+	// TCPParentPort is the port of the parent socket when VIAM_TCP_MODE is set.
 	TCPParentPort = 14998
 	// TestTCPParentPort is the test suite version of TCPParentPort. It's different to avoid
 	// collisions; it's listed here for documentation.

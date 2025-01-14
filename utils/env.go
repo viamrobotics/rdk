@@ -69,6 +69,12 @@ func PlatformHomeDir() string {
 	if runtime.GOOS == "android" {
 		return AndroidFilesDir
 	}
+	if runtime.GOOS == "windows" {
+		homedir, _ := os.UserHomeDir() //nolint:errcheck
+		if homedir != "" {
+			return homedir
+		}
+	}
 	return os.Getenv("HOME")
 }
 
