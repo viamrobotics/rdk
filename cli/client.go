@@ -831,7 +831,7 @@ func (c *viamClient) fetchAndSaveLogs(robot *apppb.Robot, parts []*apppb.RobotPa
 
 // streamLogsForPart streams logs for a specific part directly to a file.
 func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArgs, writer io.Writer) error {
-	numLogs, err := getNumLogs(c.c, args.Count)
+	maxLogsToFetch, err := getNumLogs(c.c, args.Count)
 	if err != nil {
 		return err
 	}
@@ -845,30 +845,44 @@ func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArg
 		return errors.Wrap(err, "invalid end time format")
 	}
 
-	// Write logs for this part
+	keyword := &args.Keyword
+
+	// Tracks the token for the next page of logs to fetch, allowing pagination through log results.
 	var pageToken string
-	for logsFetched := 0; logsFetched < numLogs; {
-		remainingLogs := int64(numLogs - logsFetched)
-		if remainingLogs > 100 {
-			remainingLogs = int64(100)
-		}
+
+	// Fetch logs in batches and write them to the output.
+	for fetchedLogCount := 0; fetchedLogCount < maxLogsToFetch; {
 		resp, err := c.client.GetRobotPartLogs(c.c.Context, &apppb.GetRobotPartLogsRequest{
 			Id:        part.Id,
-			Filter:    &args.Keyword,
+			Filter:    keyword,
 			PageToken: &pageToken,
 			Levels:    args.Levels,
 			Start:     startTime,
 			End:       endTime,
-			Limit:     &remainingLogs,
 		})
 		if err != nil {
 			return errors.Wrap(err, "failed to fetch logs")
 		}
 
+		// End of pagination if no logs are returned.
 		if len(resp.Logs) == 0 {
 			break
 		}
 
+		// The API may return more logs than the user requested via the `count` argument.
+		// This is because the API uses pagination internally and fetches logs in batches.
+		// To ensure we do not append more logs than the user requested, we calculate the
+		// `remainingLogsNeeded` by subtracting the logs we have already fetched (`logsFetched`)
+		// from the total number of logs the user asked for (`numLogs`).
+		// If the current batch contains more logs than the remaining needed, we truncate the
+		// batch to include only the necessary number of logs.
+		// This ensures the output strictly adheres to the `count` limit specified by the user.
+		remainingLogsNeeded := maxLogsToFetch - fetchedLogCount
+		if remainingLogsNeeded < len(resp.Logs) {
+			resp.Logs = resp.Logs[:remainingLogsNeeded]
+		}
+
+		// Write the logs to the output
 		for _, log := range resp.Logs {
 			formattedLog, err := formatLog(log, part.Name, args.Format)
 			if err != nil {
@@ -880,11 +894,11 @@ func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArg
 			}
 		}
 
-		logsFetched += len(resp.Logs)
-		pageToken = resp.NextPageToken
+		// Increment the total number of logs fetched so far by the count of logs retrieved in this batch.
+		fetchedLogCount += len(resp.Logs)
 
-		if pageToken == "" {
-			// End of pages
+		// End of pagination if there is no next page token.
+		if pageToken = resp.NextPageToken; pageToken == "" {
 			break
 		}
 	}
