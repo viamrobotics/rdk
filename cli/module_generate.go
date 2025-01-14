@@ -336,13 +336,10 @@ func populateAdditionalInfo(newModule *modulegen.ModuleInputs) {
 	newModule.GeneratedOn = time.Now().UTC()
 	newModule.GeneratorVersion = version
 	// TODO(RSDK-9727) - this is a bit inefficient because `newModule.Resource` is set above in
-	// `generateModuleAction` based on `ResourceType` and `ResourceSubtype`! Since this is always
-	// called and this setting is unqualified, we end up just repeating work here.
-	//
-	// update: actually not sure that's true, at least in cases where the user doesn't provide
-	// info and so it's being set in the `promptUser` call. I wonder if we can avoid the duplicate
-	// work in the "user passed info" case while still functioning properly in the "user didn't pass info"
-	// case?
+	// `generateModuleAction` based on `ResourceType` and `ResourceSubtype`, which are then
+	// overwritten based on `newModule.Resource`! Unfortunately fixing this is slightly complicated
+	// due to cases where a user didn't pass a `ResourceSubtype`, and so it was set in the `promptUser`
+	// call. We should look into simplifying though, such that all these values are only ever set once.
 	newModule.ResourceSubtype = strings.Split(newModule.Resource, " ")[0]
 	newModule.ResourceType = strings.Split(newModule.Resource, " ")[1]
 
