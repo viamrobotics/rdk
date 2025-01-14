@@ -88,7 +88,7 @@ func Named(name string) resource.Name {
 //
 // For more information, see the [Home method docs].
 //
-// [gantry component docs]: https://docs.viam.com/operate/reference/components/gantry/
+// [gantry component docs]: https://docs.viam.com/dev/reference/apis/components/gantry/
 // [Position method docs]: https://docs.viam.com/dev/reference/apis/components/gantry/#getposition
 // [MoveToPosition method docs]: https://docs.viam.com/dev/reference/apis/components/gantry/#movetoposition
 // [Lengths method docs]: https://docs.viam.com/dev/reference/apis/components/gantry/#getlengths

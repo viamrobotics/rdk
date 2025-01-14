@@ -81,7 +81,7 @@ func Named(name string) resource.Name {
 //
 // For more information, see the [RegisterControlCallback method docs].
 //
-// [input controller component docs]: https://docs.viam.com/operate/reference/components/input-controller/
+// [input controller component docs]: https://docs.viam.com/dev/reference/apis/components/input-controller/
 // [Controls method docs]: https://docs.viam.com/dev/reference/apis/components/input-controller/#getcontrols
 // [Events method docs]: https://docs.viam.com/dev/reference/apis/components/input-controller/#getevents
 // [RegisterControlCallback method docs]: https://docs.viam.com/dev/reference/apis/components/input-controller/#registercontrolcallback

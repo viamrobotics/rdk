@@ -113,7 +113,7 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 //
 // For more information, see the [IsPowered method docs].
 //
-// [motor component docs]: https://docs.viam.com/operate/reference/components/motor/
+// [motor component docs]: https://docs.viam.com/dev/reference/apis/components/motor/
 // [SetPower method docs]: https://docs.viam.com/dev/reference/apis/components/motor/#setpower
 // [GoFor method docs]: https://docs.viam.com/dev/reference/apis/components/motor/#gofor
 // [GoTo method docs]: https://docs.viam.com/dev/reference/apis/components/motor/#goto

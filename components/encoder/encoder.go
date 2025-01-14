@@ -95,7 +95,7 @@ func (t PositionType) String() string {
 //
 // For more information, see the [Properties methods docs].
 //
-// [encoder component docs]: https://docs.viam.com/operate/reference/components/encoder/
+// [encoder component docs]: https://docs.viam.com/dev/reference/apis/components/encoder/
 // [Position method docs]: https://docs.viam.com/dev/reference/apis/components/encoder/#getposition
 // [ResetPosition method docs]: https://docs.viam.com/dev/reference/apis/components/encoder/#resetposition
 // [Properties methods docs]: https://docs.viam.com/dev/reference/apis/components/encoder/#getproperties
