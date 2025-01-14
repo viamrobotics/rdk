@@ -41,7 +41,10 @@ func init() {
 //	// Sync data stored on the machine to the cloud.
 //	err := data.Sync(context.Background(), nil)
 //
-// [data management service docs]: https://docs.viam.com/services/data/
+// For more information, see the [Sync method docs].
+//
+// [data management service docs]: https://docs.viam.com/data-ai/capture-data/capture-sync/
+// [Sync method docs]: https://docs.viam.com/dev/reference/apis/services/data/#sync
 type Service interface {
 	resource.Resource
 	// Sync will sync data stored on the machine to the cloud.

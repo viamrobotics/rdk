@@ -52,12 +52,18 @@ func init() {
 //
 //	output_tensors, err := myMLModel.Infer(context.Background(), input_tensors)
 //
+// For more information, see the [Infer method docs].
+//
 // Metadata example:
 //
 //	myMLModel, err := mlmodel.FromRobot(machine, "my_mlmodel")
 //	metadata, err := myMLModel.Metadata(context.Background())
 //
-// [ML model service docs]: https://docs.viam.com/services/ml/deploy/
+// For more information, see the [Metadata method docs].
+//
+// [ML model service docs]: https://docs.viam.com/data-ai/ai/deploy/
+// [Infer method docs]: https://docs.viam.com/dev/reference/apis/services/ml/#infer
+// [Metadata method docs]: https://docs.viam.com/dev/reference/apis/services/ml/#metadata
 type Service interface {
 	resource.Resource
 	// Infer returns an output tensor map after running an input tensor map through an interface model.
