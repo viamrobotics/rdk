@@ -18,14 +18,17 @@ type connectedComponentDetector struct {
 // Inference takes in an image frame and returns the Detections found in the image.
 func (ccd *connectedComponentDetector) Inference(ctx context.Context, img image.Image) ([]Detection, error) {
 	detections := []Detection{}
-	rectangles, _ := ConnectedComponents(img, ccd.valid)
+	_, rectangles := ConnectedComponents(img, ccd.valid)
 	for _, rectangle := range rectangles {
 		detections = append(detections, NewDetection(rectangle, 1, ccd.label))
 	}
 	return detections, nil
 }
 
-func ConnectedComponents(img image.Image, isValid func(image.Image, image.Point) bool) ([]image.Rectangle, [][]image.Point) {
+// ConnectedComponents takes in an image frame and a function that determines if a point in the image is valid and returns two slices.
+// The first returned slice is a 2D slice of Points, with each 1D slice corresponding to a contiguous set of valid Points within the image.
+// The second returned slice contains Rectangles, each of which constitutes the bounding box for the set of valid Points at the same index.
+func ConnectedComponents(img image.Image, isValid func(image.Image, image.Point) bool) ([][]image.Point, []image.Rectangle) {
 	width, height := img.Bounds().Dx(), img.Bounds().Dy()
 	seen := make([]bool, width*height)
 	rectangles := []image.Rectangle{}
@@ -84,5 +87,5 @@ func ConnectedComponents(img image.Image, isValid func(image.Image, image.Point)
 			clusters = append(clusters, cluster)
 		}
 	}
-	return rectangles, clusters
+	return clusters, rectangles
 }
