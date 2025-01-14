@@ -2195,31 +2195,37 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:  generalFlagName,
-							Usage: "name to use for module",
+							Usage: "name to use for module. for example, a module that contains sensor implementations might be named 'sensors'",
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagLanguage,
-							Usage: "language to use for module",
+							Usage: formatAcceptedValues("language to use for module", supportedModuleGenLanguages...),
 						},
 						&cli.BoolFlag{
 							Name:  moduleFlagIsPublic,
 							Usage: "set module to public",
 						},
 						&cli.StringFlag{
-							Name:  moduleFlagPublicNamespace,
-							Usage: "namespace or organization ID of module",
+							Name: moduleFlagPublicNamespace,
+							Usage: "namespace or organization ID of module. " +
+								"must be either a valid organization ID, or a namespace that exists within a user organization",
 						},
 						&cli.StringFlag{
-							Name:  generalFlagResourceSubtype,
-							Usage: "resource subtype to use in module",
+							Name: generalFlagResourceSubtype,
+							Usage: "resource subtype to use in module, for example arm, camera, or motion. see " +
+								"https://docs.viam.com/dev/reference/glossary/#term-subtype for more details",
+						},
+						// This is unnecessary and creates a gotcha for users. Kept here
+						// because it's technically breaking to remove it, but it's hidden
+						// and serves no purpose.
+						&cli.StringFlag{
+							Name:   moduleFlagResourceType,
+							Hidden: true,
 						},
 						&cli.StringFlag{
-							Name:  moduleFlagResourceType,
-							Usage: "resource type to use in module",
-						},
-						&cli.StringFlag{
-							Name:  moduleFlagModelName,
-							Usage: "resource model name to use in module",
+							Name: moduleFlagModelName,
+							Usage: "name for the particular resource subtype implementation." +
+								" for example, a sensor model that detects moisture might be named 'moisture'",
 						},
 						&cli.BoolFlag{
 							Name:  moduleFlagEnableCloud,
@@ -2236,6 +2242,13 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 						},
 					},
 					Action: createCommandWithT[generateModuleArgs](GenerateModuleAction),
+					UsageText: createUsageText("module generate", []string{
+						generalFlagName,
+						moduleFlagLanguage,
+						generalFlagResourceSubtype,
+						moduleFlagModelName,
+						moduleFlagPublicNamespace,
+					}, true, false),
 				},
 				{
 					Name:      "update",

@@ -41,6 +41,8 @@ const (
 	golang         = "go"
 )
 
+var supportedModuleGenLanguages = []string{python, golang}
+
 var (
 	scriptsPath   = filepath.Join(basePath, "scripts")
 	templatesPath = filepath.Join(basePath, "_templates")
@@ -51,7 +53,6 @@ type generateModuleArgs struct {
 	Language        string
 	Public          bool
 	PublicNamespace string
-	ResourceType    string
 	ResourceSubtype string
 	ModelName       string
 	EnableCloud     bool
@@ -77,14 +78,13 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 		Language:         args.Language,
 		IsPublic:         args.Public,
 		Namespace:        args.PublicNamespace,
-		Resource:         args.ResourceSubtype + " " + args.ResourceType,
-		ResourceType:     args.ResourceType,
 		ResourceSubtype:  args.ResourceSubtype,
 		ModelName:        args.ModelName,
 		EnableCloudBuild: args.EnableCloud,
 		RegisterOnApp:    args.Register,
 	}
-	if err := newModule.CheckResource(); err != nil {
+
+	if err := newModule.CheckResourceAndSetType(); err != nil {
 		return err
 	}
 
@@ -335,12 +335,20 @@ func catchResolveOrgErr(cCtx *cli.Context, c *viamClient, newModule *modulegen.M
 func populateAdditionalInfo(newModule *modulegen.ModuleInputs) {
 	newModule.GeneratedOn = time.Now().UTC()
 	newModule.GeneratorVersion = version
+	// TODO(RSDK-9727) - this is a bit inefficient because `newModule.Resource` is set above in
+	// `generateModuleAction` based on `ResourceType` and `ResourceSubtype`! Since this is always
+	// called and this setting is unqualified, we end up just repeating work here.
+	//
+	// update: actually not sure that's true, at least in cases where the user doesn't provide
+	// info and so it's being set in the `promptUser` call. I wonder if we can avoid the duplicate
+	// work in the "user passed info" case while still functioning properly in the "user didn't pass info"
+	// case?
 	newModule.ResourceSubtype = strings.Split(newModule.Resource, " ")[0]
 	newModule.ResourceType = strings.Split(newModule.Resource, " ")[1]
 
 	titleCaser := cases.Title(language.Und)
 	replacer := strings.NewReplacer("_", " ", "-", " ")
-	spaceReplacer := strings.NewReplacer(" ", "", "_", "", "-", "")
+	spaceReplacer := modulegen.SpaceReplacer
 	newModule.ModulePascal = spaceReplacer.Replace(titleCaser.String(replacer.Replace(newModule.ModuleName)))
 	newModule.ModuleCamel = strings.ToLower(string(newModule.ModulePascal[0])) + newModule.ModulePascal[1:]
 	newModule.ModuleLowercase = strings.ToLower(newModule.ModulePascal)

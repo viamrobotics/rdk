@@ -2,7 +2,9 @@
 package modulegen
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -46,7 +48,7 @@ var Resources = []string{
 	"camera component",
 	"encoder component",
 	"gantry component",
-	"generic component",
+	"generic_component component",
 	"gripper component",
 	"input component",
 	"motor component",
@@ -55,7 +57,7 @@ var Resources = []string{
 	"power_sensor component",
 	"sensor component",
 	"servo component",
-	"generic service",
+	"generic_service service",
 	"mlmodel service",
 	"motion service",
 	"navigation service",
@@ -75,7 +77,7 @@ type GoModuleTmpl struct {
 // HasEmptyInput checks to see if any required inputs were not filled in.
 func (inputs *ModuleInputs) HasEmptyInput() bool {
 	requiredInputs := []string{
-		inputs.ModuleName, inputs.Language, inputs.Namespace, inputs.ResourceType, inputs.ResourceSubtype, inputs.ModelName,
+		inputs.ModuleName, inputs.Language, inputs.Namespace, inputs.ResourceSubtype, inputs.ModelName,
 	}
 	for _, input := range requiredInputs {
 		if input == "" {
@@ -85,15 +87,40 @@ func (inputs *ModuleInputs) HasEmptyInput() bool {
 	return false
 }
 
-// CheckResource checks if the given resource is valid.
-func (inputs *ModuleInputs) CheckResource() error {
-	if inputs.ResourceSubtype == "" || inputs.ResourceType == "" {
+// SpaceReplacer removes spaces, dashes, and underscores from a string
+var SpaceReplacer = strings.NewReplacer(" ", "", "_", "", "-", "")
+
+// CheckResourceAndSetType checks if the given resource subtype is valid, and sets the corresponding resource type if so.
+func (inputs *ModuleInputs) CheckResourceAndSetType() error {
+	if inputs.ResourceSubtype == "" {
 		return nil
 	}
+	if inputs.ResourceSubtype == "generic" {
+		return fmt.Errorf(
+			"resource subtype 'generic' cannot be differentiated; please specify either 'generic-service' or 'generic-component'")
+	}
 	for _, resource := range Resources {
-		if inputs.Resource == resource {
+		splitResource := strings.Split(resource, " ")
+		if len(splitResource) != 2 {
+			return errors.New("resource not formatted correctly in code base; this shouldn't happen. please consider filing a ticket")
+		}
+		subtype := splitResource[0]
+		// make sure we support subtypes that are passed with different spacers (e.g.,
+		// "power sensor", "power-sensor", "power_sensor", "powerSensor")
+		if strings.ToLower(SpaceReplacer.Replace(inputs.ResourceSubtype)) == SpaceReplacer.Replace(subtype) {
+			// we need users to specify if a generic is a component or service, but we want to
+			// internally simplify the subtype back down to `generic`
+			if subtype == "generic_component" || subtype == "generic_service" {
+				inputs.ResourceSubtype = "generic"
+			} else {
+				// use the canonically correct subtype formatting so we don't have to continue
+				// supporting all variations of it everywhere in the codebase
+				inputs.ResourceSubtype = subtype
+			}
+			inputs.ResourceType = splitResource[1]
+			inputs.Resource = inputs.ResourceSubtype + " " + inputs.ResourceType
 			return nil
 		}
 	}
-	return fmt.Errorf("given resource '%s' does not exist", inputs.Resource)
+	return fmt.Errorf("given resource subtype '%s' does not exist", inputs.ResourceSubtype)
 }
