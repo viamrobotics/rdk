@@ -95,12 +95,12 @@ func parseBillingAddress(address string) (*apppb.BillingAddress, error) {
 	}, nil
 }
 
-func parseTimeString(timeStr, timeLayout string) (*timestamppb.Timestamp, error) {
+func parseTimeString(timeStr string) (*timestamppb.Timestamp, error) {
 	if timeStr == "" {
 		return nil, nil
 	}
 
-	t, err := time.Parse(timeLayout, timeStr)
+	t, err := time.Parse(time.RFC3339, timeStr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not parse time string: %s", timeStr)
 	}

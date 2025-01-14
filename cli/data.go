@@ -307,14 +307,12 @@ func createExportTabularRequest(c *cli.Context) (*datapb.ExportTabularDataReques
 }
 
 func createCaptureInterval(startStr, endStr string) (*datapb.CaptureInterval, error) {
-	timeLayout := time.RFC3339
-
-	start, err := parseTimeString(startStr, timeLayout)
+	start, err := parseTimeString(startStr)
 	if err != nil {
 		return nil, err
 	}
 
-	end, err := parseTimeString(endStr, timeLayout)
+	end, err := parseTimeString(endStr)
 	if err != nil {
 		return nil, err
 	}

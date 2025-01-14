@@ -836,11 +836,11 @@ func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArg
 		return err
 	}
 
-	startTime, err := parseTimeString(args.Start, time.RFC3339)
+	startTime, err := parseTimeString(args.Start)
 	if err != nil {
 		return errors.Wrap(err, "invalid start time format")
 	}
-	endTime, err := parseTimeString(args.End, time.RFC3339)
+	endTime, err := parseTimeString(args.End)
 	if err != nil {
 		return errors.Wrap(err, "invalid end time format")
 	}
