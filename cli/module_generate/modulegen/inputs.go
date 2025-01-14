@@ -87,7 +87,7 @@ func (inputs *ModuleInputs) HasEmptyInput() bool {
 	return false
 }
 
-// SpaceReplacer removes spaces, dashes, and underscores from a string
+// SpaceReplacer removes spaces, dashes, and underscores from a string.
 var SpaceReplacer = strings.NewReplacer(" ", "", "_", "", "-", "")
 
 // CheckResourceAndSetType checks if the given resource subtype is valid, and sets the corresponding resource type if so.
