@@ -17,10 +17,37 @@ type connectedComponentDetector struct {
 
 // Inference takes in an image frame and returns the Detections found in the image.
 func (ccd *connectedComponentDetector) Inference(ctx context.Context, img image.Image) ([]Detection, error) {
+	detections := []Detection{}
+	rectangles, _ := ConnectedComponents(img, ccd.valid)
+	for _, rectangle := range rectangles {
+		detections = append(detections, NewDetection(rectangle, 1, ccd.label))
+	}
+	return detections, nil
+}
+
+func ConnectedComponents(img image.Image, isValid func(image.Image, image.Point) bool) ([]image.Rectangle, [][]image.Point) {
 	width, height := img.Bounds().Dx(), img.Bounds().Dy()
 	seen := make([]bool, width*height)
-	queue := []image.Point{}
-	detections := []Detection{}
+	rectangles := []image.Rectangle{}
+	clusters := [][]image.Point{}
+
+	getNeighbors := func(pt image.Point) []image.Point {
+		bounds := img.Bounds()
+		neighbors := make([]image.Point, 0, 4)
+		fourPoints := []image.Point{{pt.X, pt.Y - 1}, {pt.X, pt.Y + 1}, {pt.X - 1, pt.Y}, {pt.X + 1, pt.Y}}
+		for _, p := range fourPoints {
+			indx := p.Y*bounds.Dx() + p.X
+			if !p.In(bounds) || seen[indx] {
+				continue
+			}
+			if isValid(img, p) {
+				neighbors = append(neighbors, p)
+			}
+			seen[indx] = true
+		}
+		return neighbors
+	}
+
 	for i := 0; i < width; i++ {
 		for j := 0; j < height; j++ {
 			pt := image.Point{i, j}
@@ -28,17 +55,16 @@ func (ccd *connectedComponentDetector) Inference(ctx context.Context, img image.
 			if seen[indx] {
 				continue
 			}
-			if !ccd.valid(img, pt) {
+			if !isValid(img, pt) {
 				seen[indx] = true
 				continue
 			}
-			queue = append(queue, pt)
+			cluster := []image.Point{pt}
 			x0, y0, x1, y1 := pt.X, pt.Y, pt.X, pt.Y // the bounding box of the segment
-			for len(queue) != 0 {
-				newPt := queue[0]
+			for k := 0; k < len(cluster); k++ {
+				newPt := cluster[k]
 				newIndx := newPt.Y*width + newPt.X
 				seen[newIndx] = true
-				queue = queue[1:]
 				if newPt.X < x0 {
 					x0 = newPt.X
 				}
@@ -51,29 +77,12 @@ func (ccd *connectedComponentDetector) Inference(ctx context.Context, img image.
 				if newPt.Y > y1 {
 					y1 = newPt.Y
 				}
-				neighbors := ccd.getNeighbors(newPt, img, seen)
-				queue = append(queue, neighbors...)
+				neighbors := getNeighbors(newPt)
+				cluster = append(cluster, neighbors...)
 			}
-			d := &detection2D{image.Rect(x0, y0, x1, y1), 1.0, ccd.label}
-			detections = append(detections, d)
+			rectangles = append(rectangles, image.Rect(x0, y0, x1, y1))
+			clusters = append(clusters, cluster)
 		}
 	}
-	return detections, nil
-}
-
-func (ccd *connectedComponentDetector) getNeighbors(pt image.Point, img image.Image, seen []bool) []image.Point {
-	bounds := img.Bounds()
-	neighbors := make([]image.Point, 0, 4)
-	fourPoints := []image.Point{{pt.X, pt.Y - 1}, {pt.X, pt.Y + 1}, {pt.X - 1, pt.Y}, {pt.X + 1, pt.Y}}
-	for _, p := range fourPoints {
-		indx := p.Y*bounds.Dx() + p.X
-		if !p.In(bounds) || seen[indx] {
-			continue
-		}
-		if ccd.valid(img, p) {
-			neighbors = append(neighbors, p)
-		}
-		seen[indx] = true
-	}
-	return neighbors
+	return rectangles, clusters
 }
