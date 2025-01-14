@@ -59,7 +59,7 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 //
 // For more information, see the [Position method docs].
 //
-// [servo component docs]: https://docs.viam.com/operate/reference/components/servo/
+// [servo component docs]: https://docs.viam.com/dev/reference/apis/components/servo/
 // [Move method docs]: https://docs.viam.com/dev/reference/apis/components/servo/#move
 // [Position method docs]: https://docs.viam.com/dev/reference/apis/components/servo/#getposition
 type Servo interface {

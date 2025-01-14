@@ -160,7 +160,7 @@ func ContainsReservedCharacter(val string) error {
 //
 // For more information, see the [Readings method docs].
 //
-// [sensor component docs]: https://docs.viam.com/operate/reference/components/sensor/
+// [sensor component docs]: https://docs.viam.com/dev/reference/apis/components/sensor/
 // [Readings method docs]: https://docs.viam.com/dev/reference/apis/components/sensor/#getreadings
 type Sensor interface {
 	// Readings return data specific to the type of sensor and can be of any type.
