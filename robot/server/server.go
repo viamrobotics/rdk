@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -59,43 +60,39 @@ func New(robot robot.Robot) pb.RobotServiceServer {
 func (s *Server) Close() {
 }
 
-func (s *Server) Traffic(srv pb.RobotService_TrafficServer) (retErr error) {
-	// firstMsg := true
-	// req, err := srv.Recv()
-	// errTemp := err
+func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) (retErr error) {
+	ctx, cancel := context.WithCancel(srv.Context())
 
-	if srv.Context().Err() != nil {
-		return nil
-	}
-	// start something here
-	c1, err := net.Dial("tcp", net.JoinHostPort("localhost", "8081"))
+	req, err := srv.Recv()
 	if err != nil {
-		return errors.New("failed to dial to destination")
+		return errors.WithMessage(err, "failed to receive first message from stream")
 	}
-	defer c1.Close()
+
+	dest := strconv.Itoa(int(req.DestinationPort))
+	conn, err := net.Dial("tcp", net.JoinHostPort("localhost", dest))
+	if err != nil {
+		return errors.WithMessage(err, fmt.Sprintf("failed to dial to destination port %v", dest))
+	}
+	defer conn.Close()
 
 	var wg sync.WaitGroup
 	wg.Add(1)
-	var eof bool
 	utils.PanicCapturingGo(func() {
-		defer wg.Done()
-		defer func() { fmt.Printf("\"exiting receive loop\": %v\n", "exiting receive loop") }()
+		defer func() {
+			fmt.Printf("\"exiting receive loop\": %v\n", "exiting receive loop")
+			cancel()
+			// unblock any current Reads
+			conn.Close()
+			wg.Done()
+		}()
 		for {
-			if srv.Context().Err() != nil || eof {
-				eof = true
+			if ctx.Err() != nil {
 				return
 			}
-			// if firstMsg {
-			// 	firstMsg = false
-			// 	err = errTemp
-			// } else {
-			// 	req, err = srv.Recv()
-			// }
 			fmt.Printf("waiting for msg\n")
 			req, err := srv.Recv()
 			if err != nil {
 				fmt.Printf("recv loop err: %v\n", err)
-				eof = true
 				return
 			}
 
@@ -105,23 +102,20 @@ func (s *Server) Traffic(srv pb.RobotService_TrafficServer) (retErr error) {
 			fmt.Printf("len(req.DataIn): %v\n", len(req.DataIn))
 
 			in := bytes.NewReader(req.DataIn)
-			_, err = io.Copy(c1, in)
+			_, err = io.Copy(conn, in)
 			if err != nil {
 				fmt.Printf("copy err: %v\n", err)
-				eof = true
 				return
 			}
 			if req.Eof {
 				fmt.Printf("eof received\n")
-				eof = true
 				return
 			}
 		}
 	})
 
 	for {
-		if srv.Context().Err() != nil || eof {
-			eof = true
+		if ctx.Err() != nil {
 			fmt.Printf("\"exiting send loop\": %v\n", "top of loop")
 			break
 		}
@@ -130,33 +124,34 @@ func (s *Server) Traffic(srv pb.RobotService_TrafficServer) (retErr error) {
 		size := 32 * 1024
 		buf := make([]byte, size)
 		fmt.Printf("waiting for buf\n")
-		nr, err := c1.Read(buf)
-
+		nr, err := conn.Read(buf)
 		if err != nil {
 			fmt.Printf("send loop err: %v\n", err)
-			eof = true
-			if err := srv.Send(&pb.TrafficResponse{
+
+			if err := srv.Send(&pb.TunnelResponse{
 				Eof: true,
 			}); err != nil {
 				s.robot.Logger().CErrorw(srv.Context(), "error sending eof", "error", err)
 			}
 			fmt.Printf("\"eof sent\": %v\n", "eof sent")
+
 			fmt.Printf("\"exiting send loop\": %v\n", "send loop err")
 			break
 		}
 		if nr == 0 {
+			fmt.Printf("getting nothing from buffer\n")
 			continue
 		}
 		fmt.Printf("Len(): %v\n", len(buf))
-		if err := srv.Send(&pb.TrafficResponse{
+		if err := srv.Send(&pb.TunnelResponse{
 			DataOut: buf[:nr],
 		}); err != nil {
-			eof = true
-			s.robot.Logger().CErrorw(srv.Context(), "error sending data", "error", err)
+			s.robot.Logger().CErrorw(ctx, "error sending data", "error", err)
 			fmt.Printf("\"exiting send loop\": %v\n", "error sending data")
 			break
 		}
 	}
+
 	fmt.Printf("\"waiting for workers\": %v\n", "waiting for workers")
 	wg.Wait()
 	fmt.Printf("\"ending conn\": %v\n", "ending conn")

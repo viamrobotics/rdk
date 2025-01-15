@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1187,45 +1186,45 @@ func (rc *RobotClient) Version(ctx context.Context) (robot.VersionResponse, erro
 	return mVersion, nil
 }
 
-func (rc *RobotClient) Traffic(ctx context.Context, c1 net.Conn) error {
-	client, err := rc.client.Traffic(ctx)
+func (rc *RobotClient) Tunnel(ctx context.Context, rw io.ReadWriter, dest int) error {
+	ctx, cancel := context.WithCancel(ctx)
+	client, err := rc.client.Tunnel(ctx)
 	if err != nil {
 		return err
 	}
 	// prime the correct destination port
-	// if err := client.Send(&pb.TrafficRequest{
-	// 	DataIn: "hello",
-	// }); err != nil {
-	// 	return err
-	// }
-
-	if ctx.Err() != nil {
-		return nil
+	if err := client.Send(&pb.TunnelRequest{
+		DestinationPort: uint32(dest),
+	}); err != nil {
+		return err
 	}
-	fmt.Printf("\"waiting for connection\": %v\n", "waiting for connection")
 
-	var eof bool
+	fmt.Printf("\"waiting for connection\": %v\n", "waiting for connection")
+	// var eof bool
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(1)
 	utils.PanicCapturingGo(func() {
-		defer wg.Done()
-		defer func() { fmt.Printf("\"exiting send loop\": %v\n", "exiting send loop") }()
+		defer func() {
+			fmt.Printf("\"exiting send loop\": %v\n", "exiting send loop")
+			cancel()
+			wg.Done()
+		}()
 
 		for {
-			if ctx.Err() != nil || eof {
-				eof = true
+			if ctx.Err() != nil {
+				// eof = true
 				return
 			}
 			// copying io.Copy's default buffer size
 			size := 32 * 1024
 			buf := make([]byte, size)
 			fmt.Printf("waiting for buf\n")
-			nr, err := c1.Read(buf)
+			nr, err := rw.Read(buf)
 
 			if err != nil {
 				fmt.Printf("send loop err: %v\n", err)
-				eof = true
-				if err := client.Send(&pb.TrafficRequest{
+				// eof = true
+				if err := client.Send(&pb.TunnelRequest{
 					Eof: true,
 				}); err != nil {
 					rc.logger.CErrorw(ctx, "error sending eof", "error", err)
@@ -1237,49 +1236,48 @@ func (rc *RobotClient) Traffic(ctx context.Context, c1 net.Conn) error {
 				continue
 			}
 			fmt.Printf("Len(): %v\n", len(buf))
-			if err := client.Send(&pb.TrafficRequest{
+			if err := client.Send(&pb.TunnelRequest{
 				DataIn: buf[:nr],
 			}); err != nil {
 				rc.logger.CErrorw(ctx, "error sending data", "error", err)
-				eof = true
+				// eof = true
 				return
 			}
 		}
 	})
 
-	utils.PanicCapturingGo(func() {
-		defer wg.Done()
-		defer func() { fmt.Printf("\"exiting receive loop\": %v\n", "exiting receive loop") }()
-
-		for {
-			if ctx.Err() != nil || eof {
-				eof = true
-				return
-			}
-			fmt.Printf("waiting for msg\n")
-			resp, err := client.Recv()
-			if err != nil {
-				fmt.Printf("recv loop err: %v\n", err)
-				eof = true
-				return
-			}
-			fmt.Printf("len(resp.DataOut): %v\n", len(resp.DataOut))
-			out := bytes.NewReader(resp.DataOut)
-			_, err = io.Copy(c1, out)
-			if err != nil {
-				fmt.Printf("copy err: %v\n", err)
-				return
-			}
-			if resp.Eof {
-				fmt.Printf("eof received")
-				eof = true
-				return
-			}
+	for {
+		if ctx.Err() != nil {
+			fmt.Printf("\"exiting receive loop\": %v\n", "exiting receive loop")
+			break
 		}
-	})
+		fmt.Printf("waiting for msg\n")
+		resp, err := client.Recv()
+		if err != nil {
+			fmt.Printf("recv loop err: %v\n", err)
+			fmt.Printf("\"exiting receive loop\": %v\n", "exiting receive loop")
+			break
+		}
+		fmt.Printf("len(resp.DataOut): %v\n", len(resp.DataOut))
+		out := bytes.NewReader(resp.DataOut)
+		_, err = io.Copy(rw, out)
+		if err != nil {
+			fmt.Printf("copy err: %v\n", err)
+			fmt.Printf("\"exiting receive loop\": %v\n", "exiting receive loop")
+			break
+		}
+		if resp.Eof {
+			fmt.Printf("eof received")
+			fmt.Printf("\"exiting receive loop\": %v\n", "exiting receive loop")
+			break
+		}
+	}
+	cancel()
+	client.CloseSend()
+
 	fmt.Printf("\"waiting for workers\": %v\n", "waiting for workers")
 	wg.Wait()
-	fmt.Printf("\"ending conn\": %v\n", "ending conn")
+	fmt.Printf("\"ending req\": %v\n", "ending req")
 	return nil
 }
 
