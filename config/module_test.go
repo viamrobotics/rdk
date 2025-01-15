@@ -113,69 +113,92 @@ func TestRegistryModuleFirstRun(t *testing.T) {
 	dataDir := ""
 
 	t.Run("MetaFileNotFound", func(t *testing.T) {
-		m := Module{Type: ModuleTypeRegistry}
-		tmp := t.TempDir()
-		exePath := filepath.Join(tmp, "whatever.sh")
-		m.ExePath = exePath
+		module, _, env, logger, observedLogs := testSetUpRegistryModule(t)
 
-		// getJSONManifest() uses the "VIAM_MODUE_ROOT" environment variable to find the top level directory of a registry module
-		env := map[string]string{"VIAM_MODULE_ROOT": tmp}
-
-		logger, observedLogs := logging.NewObservedTestLogger(t)
-
-		err := m.FirstRun(ctx, localPackagesDir, dataDir, env, logger)
+		err := module.FirstRun(ctx, localPackagesDir, dataDir, env, logger)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, observedLogs.FilterMessage("meta.json not found, skipping first run").Len(), test.ShouldEqual, 1)
 	})
 
 	t.Run("MetaFileInvalid", func(t *testing.T) {
-		m := Module{Type: ModuleTypeRegistry}
-		tmp := t.TempDir()
-		exePath := filepath.Join(tmp, "whatever.sh")
-		m.ExePath = exePath
-		metaJSONFilepath := filepath.Join(tmp, "meta.json")
-		env := map[string]string{"VIAM_MODULE_ROOT": tmp}
-		logger, observedLogs := logging.NewObservedTestLogger(t)
+		module, metaJSONFilepath, env, logger, observedLogs := testSetUpRegistryModule(t)
 
 		metaJSONFile, err := os.Create(metaJSONFilepath)
 		test.That(t, err, test.ShouldBeNil)
 		defer metaJSONFile.Close()
 
-		err = m.FirstRun(ctx, localPackagesDir, dataDir, env, logger)
+		err = module.FirstRun(ctx, localPackagesDir, dataDir, env, logger)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, observedLogs.FilterMessage("failed to parse meta.json, skipping first run").Len(), test.ShouldEqual, 1)
 	})
 
 	t.Run("NoFirstRunScript", func(t *testing.T) {
-		m := Module{Type: ModuleTypeRegistry}
-		tmp := t.TempDir()
-		exePath := filepath.Join(tmp, "whatever.sh")
-		m.ExePath = exePath
-		metaJSONFilepath := filepath.Join(tmp, "meta.json")
-		env := map[string]string{"VIAM_MODULE_ROOT": tmp}
-		logger, observedLogs := logging.NewObservedTestLogger(t)
+		module, metaJSONFilepath, env, logger, observedLogs := testSetUpRegistryModule(t)
 
 		testWriteJSON(t, metaJSONFilepath, JSONManifest{})
 
-		err := m.FirstRun(ctx, localPackagesDir, dataDir, env, logger)
+		err := module.FirstRun(ctx, localPackagesDir, dataDir, env, logger)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, observedLogs.FilterMessage("no first run script specified, skipping first run").Len(), test.ShouldEqual, 1)
 	})
 
 	t.Run("InvalidFirstRunPath", func(t *testing.T) {
-		m := Module{Type: ModuleTypeRegistry}
-		tmp := t.TempDir()
-		exePath := filepath.Join(tmp, "whatever.sh")
-		m.ExePath = exePath
-		metaJSONFilepath := filepath.Join(tmp, "meta.json")
-		env := map[string]string{"VIAM_MODULE_ROOT": tmp}
-		logger, observedLogs := logging.NewObservedTestLogger(t)
+		module, metaJSONFilepath, env, logger, observedLogs := testSetUpRegistryModule(t)
 
 		testWriteJSON(t, metaJSONFilepath, JSONManifest{FirstRun: "../firstrun.sh"})
 
-		err := m.FirstRun(ctx, localPackagesDir, dataDir, env, logger)
+		err := module.FirstRun(ctx, localPackagesDir, dataDir, env, logger)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, observedLogs.FilterMessage("failed to build path to first run script, skipping first run").Len(), test.ShouldEqual, 1)
+	})
+
+	// the executable is one level deep, and the meta.json file is in the same directory
+	t.Run("NoFirstRunScriptOneLevelExe", func(t *testing.T) {
+		module := Module{Type: ModuleTypeRegistry}
+
+		tmp := t.TempDir()
+		exeDir := filepath.Join(tmp, "executable-directory")
+		exePath := filepath.Join(exeDir, "whatever.sh")
+		module.ExePath = exePath
+		exeMetaJSONFilepath := filepath.Join(exeDir, "meta.json")
+
+		env := map[string]string{"VIAM_MODULE_ROOT": tmp}
+
+		logger, observedLogs := logging.NewObservedTestLogger(t)
+
+		err := os.Mkdir(exeDir, 0o700)
+		test.That(t, err, test.ShouldBeNil)
+
+		testWriteJSON(t, exeMetaJSONFilepath, JSONManifest{})
+
+		err = module.FirstRun(ctx, localPackagesDir, dataDir, env, logger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, observedLogs.FilterMessage("no first run script specified, skipping first run").Len(), test.ShouldEqual, 1)
+	})
+
+	// the executable is one level deep, and the meta.json file is in the top level directory
+	t.Run("NoFirstRunScriptOneLevelTopLevel", func(t *testing.T) {
+		module := Module{Type: ModuleTypeRegistry}
+
+		tmp := t.TempDir()
+		topLevelDir := tmp
+		exeDir := filepath.Join(tmp, "executable-directory")
+		exePath := filepath.Join(exeDir, "whatever.sh")
+		module.ExePath = exePath
+		exeMetaJSONFilepath := filepath.Join(topLevelDir, "meta.json")
+
+		env := map[string]string{"VIAM_MODULE_ROOT": tmp}
+
+		logger, observedLogs := logging.NewObservedTestLogger(t)
+
+		err := os.Mkdir(exeDir, 0o700)
+		test.That(t, err, test.ShouldBeNil)
+
+		testWriteJSON(t, exeMetaJSONFilepath, JSONManifest{})
+
+		err = module.FirstRun(ctx, localPackagesDir, dataDir, env, logger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, observedLogs.FilterMessage("no first run script specified, skipping first run").Len(), test.ShouldEqual, 1)
 	})
 }
 
@@ -396,6 +419,7 @@ func testSetUpRegistryModule(t *testing.T) (module Module, metaJSONFilepath stri
 	module.ExePath = exePath
 	metaJSONFilepath = filepath.Join(tmp, "meta.json")
 
+	// getJSONManifest() uses the "VIAM_MODUE_ROOT" environment variable to find the top level directory of a registry module
 	env = make(map[string]string, 1)
 	env["VIAM_MODULE_ROOT"] = tmp
 
