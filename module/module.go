@@ -355,7 +355,9 @@ func (m *Module) connectParent(ctx context.Context) error {
 	if err := CheckSocketOwner(m.parentAddr); err != nil {
 		return err
 	}
-	fullAddr := "unix://" + m.parentAddr
+	println("parentAddr= ", m.parentAddr)
+	fullAddr := "unix://" + strings.Replace(strings.ReplaceAll(m.parentAddr, `\`, `/`), "C:", "", 1)
+	println("fullAddr= ", fullAddr)
 
 	// moduleLoggers may be creating the client connection below, so use a
 	// different logger here to avoid a deadlock where the client connection
