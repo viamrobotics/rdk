@@ -97,7 +97,18 @@ func CreateSocketAddress(parentDir, desiredName string) (string, error) {
 	// Assemble the truncated socket address
 	socketHashSuffix := desiredNameHash[:socketHashSuffixLength]
 	truncatedName := desiredName[:(numRemainingChars - socketHashSuffixLength - 1)]
-	return filepath.Join(baseAddr, fmt.Sprintf("%s-%s%s", truncatedName, socketHashSuffix, socketSuffix)), nil
+	addr := strings.Replace(
+		strings.ReplaceAll(
+			filepath.Join(
+				baseAddr,
+				fmt.Sprintf("%s-%s%s", truncatedName, socketHashSuffix, socketSuffix)),
+			`\`,
+			`/`),
+		"C:",
+		"",
+		1,
+	)
+	return addr, nil
 }
 
 // HandlerMap is the format for api->model pairs that the module will service.
@@ -355,9 +366,7 @@ func (m *Module) connectParent(ctx context.Context) error {
 	if err := CheckSocketOwner(m.parentAddr); err != nil {
 		return err
 	}
-	println("parentAddr= ", m.parentAddr)
-	fullAddr := "unix://" + strings.Replace(strings.ReplaceAll(m.parentAddr, `\`, `/`), "C:", "", 1)
-	println("fullAddr= ", fullAddr)
+	fullAddr := "unix://" + m.parentAddr
 
 	// moduleLoggers may be creating the client connection below, so use a
 	// different logger here to avoid a deadlock where the client connection

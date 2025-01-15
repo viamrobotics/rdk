@@ -1017,9 +1017,7 @@ func (m *module) dial() error {
 	var err error
 	// Unix socket paths on Windows are formatted with "C:" and backslashes (\), which are incompatible
 	// with url.Parse(). Reformat the path to use forward slashes (/) and remove the "C:" prefix for compatibility.
-	println("m.addr= ", m.addr)
-	addrToDial := "unix://" + strings.Replace(strings.ReplaceAll(m.addr, `\`, `/`), "C:", "", 1)
-	println("addrToDial= ", addrToDial)
+	addrToDial := "unix://" + m.addr
 
 	conn, err := grpc.Dial( //nolint:staticcheck
 		addrToDial,
