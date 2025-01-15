@@ -127,7 +127,9 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	logger.SetLevel(logging.INFO)
 	if argsParsed.OutputLogFile != "" {
 		logWriter, closer := logging.NewFileAppender(argsParsed.OutputLogFile)
-		defer closer.Close()
+		defer func() {
+			utils.UncheckedError(closer.Close())
+		}()
 		logger.AddAppender(logWriter)
 	} else {
 		logger.AddAppender(logging.NewStdoutAppender())
