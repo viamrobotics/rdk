@@ -145,7 +145,10 @@ func (pm *planManager) planAtomicWaypoints(
 			return nil, ctx.Err()
 		default:
 		}
-		pm.logger.Info("planning step ", i, " of ", len(waypoints))
+		pm.logger.Info("planning step ", i, " of ", len(waypoints), ":", wp.goalState)
+		for k, v := range wp.goalState.Poses() {
+			pm.logger.Info(k, v)
+		}
 
 		var maps *rrtMaps
 		if seedPlan != nil {
@@ -212,7 +215,7 @@ func (pm *planManager) planSingleAtomicWaypoint(
 ) (map[string][]referenceframe.Input, *resultPromise, error) {
 	fromPoses, _ := wp.startState.ComputePoses(pm.fs)
 	toPoses, _ := wp.goalState.ComputePoses(pm.fs)
-	
+	pm.logger.Debug("start configuration", wp.startState.Configuration())
 	pm.logger.Debug("start planning from\n", fromPoses, "\nto\n", toPoses)
 
 	if _, ok := wp.mp.(rrtParallelPlanner); ok {
