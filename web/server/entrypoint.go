@@ -51,6 +51,7 @@ type Arguments struct {
 	DisableMulticastDNS        bool   `flag:"disable-mdns,usage=disable server discovery through multicast DNS"`
 	DumpResourcesPath          string `flag:"dump-resources,usage=dump all resource registrations as json to the provided file path"`
 	EnableFTDC                 bool   `flag:"ftdc,default=true,usage=enable fulltime data capture for diagnostics"`
+	OutputLogFile              string `flag:"log-file,usage=write logs to a file with log rotation"`
 }
 
 type robotServer struct {
@@ -69,6 +70,9 @@ func logViamEnvVariables(logger logging.Logger) {
 	}
 	if value, exists := os.LookupEnv("VIAM_MODULE_STARTUP_TIMEOUT"); exists {
 		viamEnvVariables = append(viamEnvVariables, "VIAM_MODULE_STARTUP_TIMEOUT", value)
+	}
+	if value, exists := os.LookupEnv("CWD"); exists {
+		viamEnvVariables = append(viamEnvVariables, "CWD", value)
 	}
 	if rutils.PlatformHomeDir() != "" {
 		viamEnvVariables = append(viamEnvVariables, "HOME", rutils.PlatformHomeDir())
@@ -115,7 +119,22 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		return dumpResourceRegistrations(argsParsed.DumpResourcesPath)
 	}
 
-	logger, registry := logging.NewLoggerWithRegistry("rdk")
+	logger, registry := logging.NewBlankLoggerWithRegistry("rdk")
+	// Dan: We changed from a constructor that defaulted to INFO to `NewBlankLoggerWithRegistry`
+	// which defaults to DEBUG. We pessimistically set the level to INFO to ensure parity. Though I
+	// expect `InitLoggingSettings` will always put the logger into the right state without any
+	// observable side-effects.
+	logger.SetLevel(logging.INFO)
+	if argsParsed.OutputLogFile != "" {
+		logWriter, err := logging.NewFileAppender(argsParsed.OutputLogFile)
+		if err != nil {
+			return fmt.Errorf("Error opening log file. File: %v Err: %v", argsParsed.OutputLogFile, err)
+		}
+		logger.AddAppender(logWriter)
+	} else {
+		logger.AddAppender(logging.NewStdoutAppender())
+	}
+
 	logging.RegisterEventLogger(logger)
 	logging.ReplaceGlobal(logger)
 	config.InitLoggingSettings(logger, argsParsed.Debug)

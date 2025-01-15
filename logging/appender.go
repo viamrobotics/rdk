@@ -36,6 +36,17 @@ func NewWriterAppender(writer io.Writer) ConsoleAppender {
 	return ConsoleAppender{writer}
 }
 
+// NewFileAppender will create an Appender that writes output to a log file. If the file already
+// exists, it will be appended to. There is no log rotation, but in the future there may be.
+func NewFileAppender(filename string) (Appender, error) {
+	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o640)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewWriterAppender(file), nil
+}
+
 // ZapcoreFieldsToJSON will serialize the Field objects into a JSON map of key/value pairs. It's
 // unclear what circumstances will result in an error being returned.
 func ZapcoreFieldsToJSON(fields []zapcore.Field) (string, error) {
