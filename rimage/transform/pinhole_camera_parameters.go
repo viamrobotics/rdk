@@ -197,7 +197,7 @@ func (params *PinholeCameraIntrinsics) PointToPixel(x, y, z float64) (float64, f
 }
 
 // ImagePointTo3DPoint takes in a image coordinate and returns the 3D point from the camera matrix.
-func (params *PinholeCameraIntrinsics) ImagePointTo3DPoint(point image.Point, d rimage.Depth) (r3.Vector, error) {
+func (params *PinholeCameraIntrinsics) ImagePointTo3DPoint(point image.Point, d rimage.Depth) r3.Vector {
 	return intrinsics2DPtTo3DPt(point, d, params)
 }
 
@@ -277,9 +277,9 @@ func (params *PinholeCameraIntrinsics) GetCameraMatrix() *mat.Dense {
 }
 
 // intrinsics2DPtTo3DPt takes in a image coordinate and returns the 3D point using the camera's intrinsic matrix.
-func intrinsics2DPtTo3DPt(pt image.Point, d rimage.Depth, pci *PinholeCameraIntrinsics) (r3.Vector, error) {
+func intrinsics2DPtTo3DPt(pt image.Point, d rimage.Depth, pci *PinholeCameraIntrinsics) r3.Vector {
 	px, py, pz := pci.PixelToPoint(float64(pt.X), float64(pt.Y), float64(d))
-	return r3.Vector{px, py, pz}, nil
+	return r3.Vector{px, py, pz}
 }
 
 // intrinsics3DTo2D uses the camera's intrinsic matrix to project the 3D pointcloud to a 2D image and depth map.
