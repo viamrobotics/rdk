@@ -206,6 +206,24 @@ func TestModManagerFunctions(t *testing.T) {
 			test.That(t, ok, test.ShouldBeTrue)
 			test.That(t, reg.Constructor, test.ShouldNotBeNil)
 
+			t.Log("test AllModels")
+			modCfg2 := config.Module{
+				Name:    "simple-module2",
+				ExePath: modPath,
+				Type:    config.ModuleTypeLocal,
+			}
+			err = mgr.Add(ctx, modCfg2)
+			test.That(t, err, test.ShouldBeNil)
+			expectedModels := []resource.ModuleModelDiscovery{{ModuleName: "simple-module",
+				API:             resource.NewAPI("rdk", "component", "generic"),
+				Model:           resource.NewModel("acme", "demo", "mycounter"),
+				FromLocalModule: false}, {ModuleName: "simple-module2",
+				API:             resource.NewAPI("rdk", "component", "generic"),
+				Model:           resource.NewModel("acme", "demo", "mycounter"),
+				FromLocalModule: true}}
+			models := mgr.AllModels()
+			test.That(t, models, test.ShouldResemble, expectedModels)
+
 			t.Log("test Provides")
 			ok = mgr.Provides(cfgCounter1)
 			test.That(t, ok, test.ShouldBeTrue)
