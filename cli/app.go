@@ -1723,7 +1723,7 @@ var app = &cli.App{
 						{
 							Name:      "status",
 							Usage:     "display part status",
-							UsageText: createUsageText("machines part status", []string{generalFlagMachine, generalFlagPart}, true),
+							UsageText: createUsageText("machines part status", []string{generalFlagPart}, true),
 							Flags: []cli.Flag{
 								&AliasStringFlag{
 									cli.StringFlag{
@@ -1755,7 +1755,7 @@ var app = &cli.App{
 							Name:      "logs",
 							Aliases:   []string{"log"},
 							Usage:     "display part logs",
-							UsageText: createUsageText("machines part logs", []string{generalFlagMachine, generalFlagPart}, true),
+							UsageText: createUsageText("machines part logs", []string{generalFlagPart}, true),
 							Flags: []cli.Flag{
 								&AliasStringFlag{
 									cli.StringFlag{
@@ -1801,7 +1801,7 @@ var app = &cli.App{
 							Name:      "restart",
 							Aliases:   []string{},
 							Usage:     "request part restart",
-							UsageText: createUsageText("machines part restart", []string{generalFlagMachine, generalFlagPart}, true),
+							UsageText: createUsageText("machines part restart", []string{generalFlagPart}, true),
 							Flags: []cli.Flag{
 								&AliasStringFlag{
 									cli.StringFlag{
@@ -1830,11 +1830,9 @@ var app = &cli.App{
 							Action: createCommandWithT[robotsPartRestartArgs](RobotsPartRestartAction),
 						},
 						{
-							Name:  "run",
-							Usage: "run a command on a machine part",
-							UsageText: createUsageText("machines part run", []string{
-								generalFlagOrganization, generalFlagLocation, generalFlagMachine, generalFlagPart,
-							}, true, "<service.method>"),
+							Name:      "run",
+							Usage:     "run a command on a machine part",
+							UsageText: createUsageText("machines part run", []string{generalFlagPart}, true, "<service.method>"),
 							Flags: []cli.Flag{
 								&AliasStringFlag{
 									cli.StringFlag{
@@ -1877,7 +1875,7 @@ var app = &cli.App{
 							Usage:       "start a shell on a machine part",
 							Description: `In order to use the shell command, the machine must have a valid shell type service.`,
 							UsageText: createUsageText(
-								"machines part shell", []string{generalFlagMachine, generalFlagPart}, false,
+								"machines part shell", []string{generalFlagPart}, false,
 							),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
@@ -1933,7 +1931,7 @@ Copy multiple files from the machine to a local destination with recursion and k
 `,
 							UsageText: createUsageText(
 								"machines part cp",
-								[]string{generalFlagOrganization, generalFlagLocation, generalFlagMachine, generalFlagPart},
+								[]string{generalFlagPart},
 								true,
 								"[-p] [-r] source ([machine:]files) ... target ([machine:]files"),
 							Flags: []cli.Flag{
