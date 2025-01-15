@@ -117,7 +117,10 @@ func TestFirstRun(t *testing.T) {
 	ctx := context.Background()
 	localPackagesDir := ""
 	dataDir := ""
+
+	// getJSONManifest() uses the "VIAM_MODUE_ROOT" environment variable to find the top level directory of a registry module
 	env := map[string]string{"VIAM_MODULE_ROOT": tmp}
+
 	logger, observedLogs := logging.NewObservedTestLogger(t)
 
 	t.Run("MetaFileNotFound", func(t *testing.T) {
@@ -182,6 +185,9 @@ func TestGetJSONManifest(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldNotContainSubstring, topLevelMetaJSONFilepath)
 
 		// meta.json not found; top level module directory and unpacked module directories searched
+
+		// setting the "VIAM_MODULE_ROOT" environment variable allows getJSONManifest() to search in a registry module's top level directory
+		// for the meta.json file. The variable is accessed through the 'env' function parameter
 		env["VIAM_MODULE_ROOT"] = topLevelDir
 
 		meta, moduleWorkingDirectory, err = modRegistry.getJSONManifest(unpackedModDir, env)
