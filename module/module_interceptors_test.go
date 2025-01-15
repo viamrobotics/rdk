@@ -76,6 +76,16 @@ func TestOpID(t *testing.T) {
 	md := metadata.New(map[string]string{"opid": opIDOutgoing})
 	mdCtx := metadata.NewOutgoingContext(ctx, md)
 
+	// Wait for generic helper to build on machine (machine to report a state of "running.")
+	for {
+		mStatus, err := rc.GetMachineStatus(ctx, &robotpb.GetMachineStatusRequest{})
+		test.That(t, err, test.ShouldBeNil)
+		if mStatus.State == robotpb.GetMachineStatusResponse_STATE_RUNNING {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+
 	// Do this twice, once with no opID set, and a second with a set opID.
 	for name, cCtx := range map[string]context.Context{"default context": ctx, "context with opid set": mdCtx} {
 		t.Run(name, func(t *testing.T) {
