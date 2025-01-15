@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -238,6 +239,9 @@ func (m *cloudManager) validateAndGetChangedPackages(
 
 // Cleanup removes all unknown packages from the working directory.
 func (m *cloudManager) Cleanup(ctx context.Context) error {
+	if runtime.GOOS == "windows" { //nolint:goconst
+		return nil
+	}
 	// Only allow one rdk process to operate on the manager at once. This is generally safe to keep locked for an extended period of time
 	// since the config reconfiguration process is handled by a single thread.
 	m.mu.Lock()

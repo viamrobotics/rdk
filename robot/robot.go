@@ -190,6 +190,11 @@ type LocalRobot interface {
 
 	// RestartAllowed returns whether the robot can safely be restarted.
 	RestartAllowed() bool
+
+	// Kill will attempt to kill any processes on the system started by the robot as quickly as possible.
+	// This operation is not clean and will not wait for completion.
+	// Only use this if comfortable with leaking resources (in cases where exiting the program as quickly as possible is desired).
+	Kill()
 }
 
 // A RemoteRobot is a Robot that was created through a connection.
@@ -314,10 +319,25 @@ func (rmr *RestartModuleRequest) MatchesModule(mod config.Module) bool {
 	return mod.Name == rmr.ModuleName
 }
 
+// MachineState captures the state of a machine.
+type MachineState uint8
+
+const (
+	// StateUnknown represents an unknown state.
+	StateUnknown MachineState = iota
+	// StateInitializing denotes a currently initializing machine. The first
+	// reconfigure after initial creation has not completed.
+	StateInitializing
+	// StateRunning denotes a running machine. The first reconfigure after
+	// initial creation has completed.
+	StateRunning
+)
+
 // MachineStatus encapsulates the current status of the robot.
 type MachineStatus struct {
 	Resources []resource.Status
 	Config    config.Revision
+	State     MachineState
 }
 
 // VersionResponse encapsulates the version info of the robot.

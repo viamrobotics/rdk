@@ -31,4 +31,5 @@ type ModuleManager interface {
 	FirstRun(ctx context.Context, conf config.Module) error
 
 	Close(ctx context.Context) error
+	Kill()
 }

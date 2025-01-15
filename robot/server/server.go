@@ -489,6 +489,16 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 		result.Resources = append(result.Resources, pbResStatus)
 	}
 
+	switch mStatus.State {
+	case robot.StateUnknown:
+		s.robot.Logger().CError(ctx, "machine in an unknown state")
+		result.State = pb.GetMachineStatusResponse_STATE_UNSPECIFIED
+	case robot.StateInitializing:
+		result.State = pb.GetMachineStatusResponse_STATE_INITIALIZING
+	case robot.StateRunning:
+		result.State = pb.GetMachineStatusResponse_STATE_RUNNING
+	}
+
 	return &result, nil
 }
 

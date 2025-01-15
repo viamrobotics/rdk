@@ -23,7 +23,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/data"
 )
@@ -308,23 +307,14 @@ func createExportTabularRequest(c *cli.Context) (*datapb.ExportTabularDataReques
 }
 
 func createCaptureInterval(startStr, endStr string) (*datapb.CaptureInterval, error) {
-	var start *timestamppb.Timestamp
-	var end *timestamppb.Timestamp
-	timeLayout := time.RFC3339
-
-	if startStr != "" {
-		t, err := time.Parse(timeLayout, startStr)
-		if err != nil {
-			return nil, errors.Wrap(err, "could not parse start flag")
-		}
-		start = timestamppb.New(t)
+	start, err := parseTimeString(startStr)
+	if err != nil {
+		return nil, err
 	}
-	if endStr != "" {
-		t, err := time.Parse(timeLayout, endStr)
-		if err != nil {
-			return nil, errors.Wrap(err, "could not parse end flag")
-		}
-		end = timestamppb.New(t)
+
+	end, err := parseTimeString(endStr)
+	if err != nil {
+		return nil, err
 	}
 
 	return &datapb.CaptureInterval{

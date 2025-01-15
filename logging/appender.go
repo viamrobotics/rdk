@@ -36,6 +36,21 @@ func NewWriterAppender(writer io.Writer) ConsoleAppender {
 	return ConsoleAppender{writer}
 }
 
+// ZapcoreFieldsToJSON will serialize the Field objects into a JSON map of key/value pairs. It's
+// unclear what circumstances will result in an error being returned.
+func ZapcoreFieldsToJSON(fields []zapcore.Field) (string, error) {
+	// Use zap's json encoder which will encode our slice of fields in-order. As opposed to the
+	// random iteration order of a map. Call it with an empty Entry object such that only the fields
+	// become "map-ified".
+	jsonEncoder := zapcore.NewJSONEncoder(zapcore.EncoderConfig{SkipLineEnding: true})
+	buf, err := jsonEncoder.EncodeEntry(zapcore.Entry{}, fields)
+	if err != nil {
+		return "", err
+	}
+
+	return string(buf.Bytes()), nil
+}
+
 // Write outputs the log entry to the underlying stream.
 func (appender ConsoleAppender) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 	const maxLength = 10
@@ -54,17 +69,11 @@ func (appender ConsoleAppender) Write(entry zapcore.Entry, fields []zapcore.Fiel
 		return nil
 	}
 
-	// Use zap's json encoder which will encode our slice of fields in-order. As opposed to the
-	// random iteration order of a map. Call it with an empty Entry object such that only the fields
-	// become "map-ified".
-	jsonEncoder := zapcore.NewJSONEncoder(zapcore.EncoderConfig{SkipLineEnding: true})
-	buf, err := jsonEncoder.EncodeEntry(zapcore.Entry{}, fields)
+	fieldsJSON, err := ZapcoreFieldsToJSON(fields)
 	if err != nil {
-		// Log what we have and return the error.
 		fmt.Fprintln(appender.Writer, strings.Join(toPrint, "\t")) //nolint:errcheck
-		return err
 	}
-	toPrint = append(toPrint, string(buf.Bytes()))
+	toPrint = append(toPrint, fieldsJSON)
 
 	fmt.Fprintln(appender.Writer, strings.Join(toPrint, "\t")) //nolint:errcheck
 	return nil

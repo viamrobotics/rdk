@@ -371,6 +371,29 @@ func TestEnableAuthServiceAction(t *testing.T) {
 	test.That(t, out.messages[0], test.ShouldContainSubstring, "enabled auth")
 }
 
+func TestDisableAuthServiceAction(t *testing.T) {
+	disableAuthServiceFunc := func(ctx context.Context, in *apppb.DisableAuthServiceRequest, opts ...grpc.CallOption) (
+		*apppb.DisableAuthServiceResponse, error,
+	) {
+		return &apppb.DisableAuthServiceResponse{}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		DisableAuthServiceFunc: disableAuthServiceFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+
+	test.That(t, ac.disableAuthServiceAction(cCtx, "test-org"), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "disabled auth")
+
+	err := ac.disableAuthServiceAction(cCtx, "")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot disable")
+}
+
 func TestListOAuthAppsAction(t *testing.T) {
 	listOAuthAppFunc := func(ctx context.Context, in *apppb.ListOAuthAppsRequest, opts ...grpc.CallOption) (
 		*apppb.ListOAuthAppsResponse, error,
@@ -806,6 +829,8 @@ func TestGetRobotPartLogs(t *testing.T) {
 }
 
 func TestShellFileCopy(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
 	listOrganizationsFunc := func(ctx context.Context, in *apppb.ListOrganizationsRequest,
 		opts ...grpc.CallOption,
 	) (*apppb.ListOrganizationsResponse, error) {
@@ -850,7 +875,7 @@ func TestShellFileCopy(t *testing.T) {
 	t.Run("no arguments or files", func(t *testing.T) {
 		cCtx, viamClient, _, _ := setup(asc, nil, nil, nil, partFlags, "token")
 		test.That(t,
-			machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx)),
+			machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
 			test.ShouldEqual, errNoFiles)
 	})
 
@@ -858,13 +883,13 @@ func TestShellFileCopy(t *testing.T) {
 		args := []string{"machine:path"}
 		cCtx, viamClient, _, _ := setup(asc, nil, nil, nil, partFlags, "token", args...)
 		test.That(t,
-			machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx)),
+			machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
 			test.ShouldEqual, errLastArgOfFromMissing)
 
 		args = []string{"path"}
 		cCtx, viamClient, _, _ = setup(asc, nil, nil, nil, partFlags, "token", args...)
 		test.That(t,
-			machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx)),
+			machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
 			test.ShouldEqual, errLastArgOfToMissing)
 	})
 
@@ -872,7 +897,7 @@ func TestShellFileCopy(t *testing.T) {
 		args := []string{"machine:path", "path2", "machine:path3", "destination"}
 		cCtx, viamClient, _, _ := setup(asc, nil, nil, nil, partFlags, "token", args...)
 		test.That(t,
-			machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx)),
+			machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
 			test.ShouldHaveSameTypeAs, copyFromPathInvalidError{})
 	})
 
@@ -885,7 +910,9 @@ func TestShellFileCopy(t *testing.T) {
 			args := []string{fmt.Sprintf("machine:%s", tfs.SingleFileNested), tempDir}
 			cCtx, viamClient, _, _ := setupWithRunningPart(
 				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
-			test.That(t, machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx)), test.ShouldBeNil)
+			test.That(t,
+				machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
+				test.ShouldBeNil)
 
 			rd, err := os.ReadFile(filepath.Join(tempDir, filepath.Base(tfs.SingleFileNested)))
 			test.That(t, err, test.ShouldBeNil)
@@ -902,7 +929,9 @@ func TestShellFileCopy(t *testing.T) {
 			args := []string{fmt.Sprintf("machine:%s", tfs.SingleFileNested), "foo"}
 			cCtx, viamClient, _, _ := setupWithRunningPart(
 				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
-			test.That(t, machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx)), test.ShouldBeNil)
+			test.That(t,
+				machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
+				test.ShouldBeNil)
 
 			rd, err := os.ReadFile(filepath.Join(tempDir, "foo"))
 			test.That(t, err, test.ShouldBeNil)
@@ -917,7 +946,7 @@ func TestShellFileCopy(t *testing.T) {
 			t.Log("without recursion set")
 			cCtx, viamClient, _, _ := setupWithRunningPart(
 				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
-			err := machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx))
+			err := machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger)
 			test.That(t, errors.Is(err, errDirectoryCopyRequestNoRecursion), test.ShouldBeTrue)
 			_, err = os.ReadFile(filepath.Join(tempDir, filepath.Base(tfs.SingleFileNested)))
 			test.That(t, errors.Is(err, fs.ErrNotExist), test.ShouldBeTrue)
@@ -928,7 +957,9 @@ func TestShellFileCopy(t *testing.T) {
 			partFlagsCopy["recursive"] = true
 			cCtx, viamClient, _, _ = setupWithRunningPart(
 				t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...)
-			test.That(t, machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx)), test.ShouldBeNil)
+			test.That(t,
+				machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
+				test.ShouldBeNil)
 			test.That(t, shelltestutils.DirectoryContentsEqual(tfs.Root, filepath.Join(tempDir, filepath.Base(tfs.Root))), test.ShouldBeNil)
 		})
 
@@ -945,7 +976,9 @@ func TestShellFileCopy(t *testing.T) {
 			partFlagsCopy["recursive"] = true
 			cCtx, viamClient, _, _ := setupWithRunningPart(
 				t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...)
-			test.That(t, machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx)), test.ShouldBeNil)
+			test.That(t,
+				machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
+				test.ShouldBeNil)
 
 			rd, err := os.ReadFile(filepath.Join(tempDir, filepath.Base(tfs.SingleFileNested)))
 			test.That(t, err, test.ShouldBeNil)
@@ -979,7 +1012,9 @@ func TestShellFileCopy(t *testing.T) {
 					partFlagsCopy["preserve"] = preserve
 					cCtx, viamClient, _, _ := setupWithRunningPart(
 						t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...)
-					test.That(t, machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx)), test.ShouldBeNil)
+					test.That(t,
+						machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
+						test.ShouldBeNil)
 					test.That(t, shelltestutils.DirectoryContentsEqual(tfs.Root, filepath.Join(tempDir, filepath.Base(tfs.Root))), test.ShouldBeNil)
 
 					nestedCopy := filepath.Join(tempDir, filepath.Base(tfs.Root), relNestedPath)
@@ -1005,7 +1040,9 @@ func TestShellFileCopy(t *testing.T) {
 			args := []string{tfs.SingleFileNested, fmt.Sprintf("machine:%s", tempDir)}
 			cCtx, viamClient, _, _ := setupWithRunningPart(
 				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
-			test.That(t, machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx)), test.ShouldBeNil)
+			test.That(t,
+				machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
+				test.ShouldBeNil)
 
 			rd, err := os.ReadFile(filepath.Join(tempDir, filepath.Base(tfs.SingleFileNested)))
 			test.That(t, err, test.ShouldBeNil)
@@ -1021,7 +1058,9 @@ func TestShellFileCopy(t *testing.T) {
 			args := []string{tfs.SingleFileNested, fmt.Sprintf("machine:%s", randomName)}
 			cCtx, viamClient, _, _ := setupWithRunningPart(
 				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
-			test.That(t, machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx)), test.ShouldBeNil)
+			test.That(t,
+				machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
+				test.ShouldBeNil)
 
 			rd, err := os.ReadFile(randomPath)
 			test.That(t, err, test.ShouldBeNil)
@@ -1036,7 +1075,7 @@ func TestShellFileCopy(t *testing.T) {
 			t.Log("without recursion set")
 			cCtx, viamClient, _, _ := setupWithRunningPart(
 				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
-			err := machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx))
+			err := machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger)
 			test.That(t, errors.Is(err, errDirectoryCopyRequestNoRecursion), test.ShouldBeTrue)
 			_, err = os.ReadFile(filepath.Join(tempDir, filepath.Base(tfs.SingleFileNested)))
 			test.That(t, errors.Is(err, fs.ErrNotExist), test.ShouldBeTrue)
@@ -1047,7 +1086,9 @@ func TestShellFileCopy(t *testing.T) {
 			partFlagsCopy["recursive"] = true
 			cCtx, viamClient, _, _ = setupWithRunningPart(
 				t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...)
-			test.That(t, machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx)), test.ShouldBeNil)
+			test.That(t,
+				machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
+				test.ShouldBeNil)
 			test.That(t, shelltestutils.DirectoryContentsEqual(tfs.Root, filepath.Join(tempDir, filepath.Base(tfs.Root))), test.ShouldBeNil)
 		})
 
@@ -1064,7 +1105,9 @@ func TestShellFileCopy(t *testing.T) {
 			partFlagsCopy["recursive"] = true
 			cCtx, viamClient, _, _ := setupWithRunningPart(
 				t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...)
-			test.That(t, machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx)), test.ShouldBeNil)
+			test.That(t,
+				machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
+				test.ShouldBeNil)
 
 			rd, err := os.ReadFile(filepath.Join(tempDir, filepath.Base(tfs.SingleFileNested)))
 			test.That(t, err, test.ShouldBeNil)
@@ -1098,7 +1141,9 @@ func TestShellFileCopy(t *testing.T) {
 					partFlagsCopy["preserve"] = preserve
 					cCtx, viamClient, _, _ := setupWithRunningPart(
 						t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...)
-					test.That(t, machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx)), test.ShouldBeNil)
+					test.That(t,
+						machinesPartCopyFilesAction(cCtx, viamClient, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
+						test.ShouldBeNil)
 					test.That(t, shelltestutils.DirectoryContentsEqual(tfs.Root, filepath.Join(tempDir, filepath.Base(tfs.Root))), test.ShouldBeNil)
 
 					nestedCopy := filepath.Join(tempDir, filepath.Base(tfs.Root), relNestedPath)
@@ -1165,6 +1210,44 @@ func TestCreateOAuthAppAction(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "url-validation must be a valid UrlValidation")
 		test.That(t, len(out.messages), test.ShouldEqual, 0)
 	})
+}
+
+func TestReadOAuthApp(t *testing.T) {
+	readOAuthAppFunc := func(ctx context.Context, in *apppb.ReadOAuthAppRequest, opts ...grpc.CallOption) (
+		*apppb.ReadOAuthAppResponse, error,
+	) {
+		return &apppb.ReadOAuthAppResponse{
+			ClientName:   "clientname",
+			ClientSecret: "fakesecret",
+			OauthConfig: &apppb.OAuthConfig{
+				ClientAuthentication: apppb.ClientAuthentication_CLIENT_AUTHENTICATION_REQUIRED,
+				Pkce:                 apppb.PKCE_PKCE_REQUIRED,
+				UrlValidation:        apppb.URLValidation_URL_VALIDATION_ALLOW_WILDCARDS,
+				LogoutUri:            "https://my-logout-uri.com",
+				OriginUris:           []string{"https://my-origin-uri.com", "https://second-origin-uri.com"},
+				RedirectUris:         []string{"https://my-redirect-uri.com"},
+				EnabledGrants:        []apppb.EnabledGrant{apppb.EnabledGrant_ENABLED_GRANT_IMPLICIT, apppb.EnabledGrant_ENABLED_GRANT_PASSWORD},
+			},
+		}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		ReadOAuthAppFunc: readOAuthAppFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+
+	test.That(t, ac.readOAuthAppAction(cCtx, "test-org-id", "test-client-id"), test.ShouldBeNil)
+	test.That(t, len(out.messages), test.ShouldEqual, 9)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "OAuth config for client ID test-client-id")
+	test.That(t, out.messages[2], test.ShouldContainSubstring, "Client Authentication: required")
+	test.That(t, out.messages[3], test.ShouldContainSubstring, "PKCE (Proof Key for Code Exchange): required")
+	test.That(t, out.messages[4], test.ShouldContainSubstring, "URL Validation Policy: allow_wildcards")
+	test.That(t, out.messages[5], test.ShouldContainSubstring, "Logout URL: https://my-logout-uri.com")
+	test.That(t, out.messages[6], test.ShouldContainSubstring, "Redirect URLs: https://my-redirect-uri.com")
+	test.That(t, out.messages[7], test.ShouldContainSubstring, "Origin URLs: https://my-origin-uri.com, https://second-origin-uri.com")
+	test.That(t, out.messages[8], test.ShouldContainSubstring, "Enabled Grants: implicit, password")
 }
 
 func TestUpdateOAuthAppAction(t *testing.T) {

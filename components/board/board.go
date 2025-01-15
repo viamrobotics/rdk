@@ -57,12 +57,16 @@ func Named(name string) resource.Name {
 //	// Get the Analog pin "my_example_analog".
 //	analog, err := myBoard.AnalogByName("my_example_analog")
 //
+// For more information, see the [AnalogByName method docs].
+//
 // DigitalInterruptByName example:
 //
 //	myBoard, err := board.FromRobot(robot, "my_board")
 //
 //	// Get the DigitalInterrupt "my_example_digital_interrupt".
 //	interrupt, err := myBoard.DigitalInterruptByName("my_example_digital_interrupt")
+//
+// For more information, see the [DigitalInterruptByName method docs].
 //
 // GPIOPinByName example:
 //
@@ -71,12 +75,16 @@ func Named(name string) resource.Name {
 //	// Get the GPIOPin with pin number 15.
 //	pin, err := myBoard.GPIOPinByName("15")
 //
+// For more information, see the [GPIOPinByName method docs].
+//
 // SetPowerMode example:
 //
 //	myBoard, err := board.FromRobot(robot, "my_board")
 //
 //	Set the power mode of the board to OFFLINE_DEEP.
 //	myBoard.SetPowerMode(context.Background(), boardpb.PowerMode_POWER_MODE_OFFLINE_DEEP, nil)
+//
+// For more information, see the [SetPowerMode method docs].
 //
 // StreamTicks example:
 //
@@ -97,7 +105,14 @@ func Named(name string) resource.Name {
 //
 //	err = myBoard.StreamTicks(context.Background(), interrupts, ticksChan, nil)
 //
-// [board component docs]: https://docs.viam.com/components/board/
+// For more information, see the [StreamTicks method docs].
+//
+// [board component docs]: https://docs.viam.com/operate/reference/components/board/
+// [AnalogByName method docs]: https://docs.viam.com/dev/reference/apis/components/board/#analogbyname
+// [DigitalInterruptByName method docs]: https://docs.viam.com/dev/reference/apis/components/board/#digitalinterruptbyname
+// [GPIOPinByName method docs]: https://docs.viam.com/dev/reference/apis/components/board/#gpiopinbyname
+// [SetPowerMode method docs]: https://docs.viam.com/dev/reference/apis/components/board/#setpowermode
+// [StreamTicks method docs]: https://docs.viam.com/dev/reference/apis/components/board/#streamticks
 type Board interface {
 	resource.Resource
 
@@ -134,6 +149,8 @@ type Board interface {
 //	readingValue := reading.Value
 //	stepSize := reading.StepSize
 //
+// For more information, see the [Read method docs].
+//
 // Write example:
 //
 //	myBoard, err := board.FromRobot(robot, "my_board")
@@ -143,6 +160,11 @@ type Board interface {
 //
 //	// Set the pin to value 48.
 //	err = analog.Write(context.Background(), 48, nil)
+//
+// For more information, see the [Write method docs].
+//
+// [Read method docs]: https://docs.viam.com/dev/reference/apis/components/board/#readanalogreader
+// [Write method docs]: https://docs.viam.com/dev/reference/apis/components/board/#writeanalog
 type Analog interface {
 	// Read reads off the current value.
 	Read(ctx context.Context, extra map[string]interface{}) (AnalogValue, error)

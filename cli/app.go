@@ -20,11 +20,16 @@ const (
 	disableProfilesFlag = "disable-profiles"
 	profileFlagName     = "profile-name"
 
+	generalFlagStart = "start"
+	generalFlagEnd   = "end"
+
 	// TODO: RSDK-6683.
 	quietFlag = "quiet"
 
 	logsFlagFormat     = "format"
 	logsFlagOutputFile = "output"
+	logsFlagKeyword    = "keyword"
+	logsFlagLevels     = "levels"
 	logsFlagErrors     = "errors"
 	logsFlagTail       = "tail"
 	logsFlagCount      = "count"
@@ -114,8 +119,6 @@ const (
 	dataFlagResourceName                   = "resource-name"
 	dataFlagMethod                         = "method"
 	dataFlagMimeTypes                      = "mime-types"
-	dataFlagStart                          = "start"
-	dataFlagEnd                            = "end"
 	dataFlagParallelDownloads              = "parallel"
 	dataFlagTags                           = "tags"
 	dataFlagBboxLabels                     = "bbox-labels"
@@ -211,11 +214,11 @@ var commonFilterFlags = []cli.Flag{
 		Usage: "mime types filter",
 	},
 	&cli.StringFlag{
-		Name:  dataFlagStart,
+		Name:  generalFlagStart,
 		Usage: "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter",
 	},
 	&cli.StringFlag{
-		Name:  dataFlagEnd,
+		Name:  generalFlagEnd,
 		Usage: "ISO-8601 timestamp in RFC3339 format indicating the end of the interval filter",
 	},
 	&cli.StringSliceFlag{
@@ -481,7 +484,7 @@ var app = &cli.App{
 						{
 							Name:      "enable",
 							Usage:     "enable auth-service for OAuth applications",
-							UsageText: createUsageText("enable", []string{generalFlagOrgID}, true),
+							UsageText: createUsageText("enable", []string{generalFlagOrgID}, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     generalFlagOrgID,
@@ -491,12 +494,20 @@ var app = &cli.App{
 							},
 							Action: createCommandWithT[enableAuthServiceArgs](EnableAuthServiceAction),
 						},
-					},
-				},
-				{
-					Name:  "auth-service",
-					Usage: "manage auth-service",
-					Subcommands: []*cli.Command{
+						{
+							Name:      "disable",
+							Usage:     "disable auth-service for OAuth applications",
+							UsageText: createUsageText("disable", []string{generalFlagOrgID}, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "organization ID tied to OAuth applications",
+								},
+							},
+							Before: createCommandWithT[disableAuthServiceArgs](DisableAuthServiceConfirmation),
+							Action: createCommandWithT[disableAuthServiceArgs](DisableAuthServiceAction),
+						},
 						{
 							Name:  "oauth-app",
 							Usage: "manage the OAuth applications for an organization",
@@ -532,6 +543,23 @@ var app = &cli.App{
 										},
 									},
 									Action: createCommandWithT[listOAuthAppsArgs](ListOAuthAppsAction),
+								},
+								{
+									Name:  "read",
+									Usage: "read the OAuth configuration details",
+									Flags: []cli.Flag{
+										&cli.StringFlag{
+											Name:     generalFlagOrgID,
+											Required: true,
+											Usage:    "organization ID that is tied to the OAuth application",
+										},
+										&cli.StringFlag{
+											Name:     oauthAppFlagClientID,
+											Usage:    "id for the OAuth application",
+											Required: true,
+										},
+									},
+									Action: createCommandWithT[readOAuthAppArgs](ReadOAuthAppAction),
 								},
 								{
 									Name:  "update",
@@ -1035,12 +1063,12 @@ var app = &cli.App{
 									Usage:    "orgs filter",
 								},
 								&cli.StringFlag{
-									Name:     dataFlagStart,
+									Name:     generalFlagStart,
 									Required: true,
 									Usage:    "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter",
 								},
 								&cli.StringFlag{
-									Name:     dataFlagEnd,
+									Name:     generalFlagEnd,
 									Required: true,
 									Usage:    "ISO-8601 timestamp in RFC3339 format indicating the end of the interval filter",
 								},
@@ -1767,9 +1795,21 @@ var app = &cli.App{
 							Name:  logsFlagFormat,
 							Usage: "file format (text or json)",
 						},
-						&cli.BoolFlag{
-							Name:  logsFlagErrors,
-							Usage: "show only errors",
+						&cli.StringFlag{
+							Name:  logsFlagKeyword,
+							Usage: "filter logs by keyword",
+						},
+						&cli.StringSliceFlag{
+							Name:  logsFlagLevels,
+							Usage: "filter logs by levels (e.g., info, warn, error)",
+						},
+						&cli.StringFlag{
+							Name:  generalFlagStart,
+							Usage: "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter (e.g., 2025-01-15T14:00:00Z)",
+						},
+						&cli.StringFlag{
+							Name:  generalFlagEnd,
+							Usage: "ISO-8601 timestamp in RFC3339 format indicating the end of the interval filter (e.g., 2025-01-15T15:00:00Z)",
 						},
 						&cli.IntFlag{
 							Name:        logsFlagCount,
