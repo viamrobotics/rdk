@@ -283,9 +283,6 @@ func (m *Module) Start(ctx context.Context) error {
 
 	var lis net.Listener
 	prot := "unix"
-	if rutils.TCPRegex.MatchString(m.addr) {
-		prot = "tcp"
-	}
 	if err := MakeSelfOwnedFilesFunc(func() error {
 		var err error
 		lis, err = net.Listen(prot, m.addr)
@@ -355,13 +352,10 @@ func (m *Module) connectParent(ctx context.Context) error {
 		return nil
 	}
 
-	fullAddr := m.parentAddr
-	if !rutils.TCPRegex.MatchString(m.parentAddr) {
-		if err := CheckSocketOwner(m.parentAddr); err != nil {
-			return err
-		}
-		fullAddr = "unix://" + m.parentAddr
+	if err := CheckSocketOwner(m.parentAddr); err != nil {
+		return err
 	}
+	fullAddr := "unix://" + m.parentAddr
 
 	// moduleLoggers may be creating the client connection below, so use a
 	// different logger here to avoid a deadlock where the client connection

@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"sync/atomic"
 	"syscall"
 	"testing"
@@ -37,7 +36,6 @@ import (
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
 	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot/web"
 	rtestutils "go.viam.com/rdk/testutils"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -49,12 +47,8 @@ func setupSocketWithRobot(t *testing.T) string {
 
 	var socketAddress string
 	var err error
-	if rutils.ViamTCPSockets() {
-		socketAddress = "127.0.0.1:" + strconv.Itoa(web.TestTCPParentPort)
-	} else {
-		socketAddress, err = modlib.CreateSocketAddress(t.TempDir(), "parent")
-		test.That(t, err, test.ShouldBeNil)
-	}
+	socketAddress, err = modlib.CreateSocketAddress(t.TempDir(), "parent")
+	test.That(t, err, test.ShouldBeNil)
 
 	rtestutils.MakeRobotForModuleLogging(t, socketAddress)
 	return socketAddress
@@ -136,7 +130,6 @@ func TestModManagerFunctions(t *testing.T) {
 				},
 				dataDir: "module-data-dir",
 				logger:  logger,
-				port:    tcpPortRange,
 			}
 
 			err = mod.startProcess(ctx, parentAddr, nil, viamHomeTemp, filepath.Join(viamHomeTemp, "packages"))
