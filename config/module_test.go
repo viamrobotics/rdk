@@ -386,15 +386,19 @@ func testWriteJSON(t *testing.T, path string, value any) {
 }
 
 // testSetUpRegistryModule is a t.Helper that creates a registry module with a meta.json file and an executable file in its top level
-// directory. It also returns a logger and its observed logs for testing
-func testSetUpRegistryModule(t *testing.T) (module Module, metaJSONFilepath string, env map[string]string, logger logging.Logger, observedLogs *observer.ObservedLogs) {
+// directory. It also returns a logger and its observed logs for testing.
+func testSetUpRegistryModule(t *testing.T) (module Module, metaJSONFilepath string, env map[string]string, logger logging.Logger,
+	observedLogs *observer.ObservedLogs) {
 	t.Helper()
 	module = Module{Type: ModuleTypeRegistry}
 	tmp := t.TempDir()
 	exePath := filepath.Join(tmp, "whatever.sh")
 	module.ExePath = exePath
 	metaJSONFilepath = filepath.Join(tmp, "meta.json")
+
+	env = make(map[string]string, 1)
 	env["VIAM_MODULE_ROOT"] = tmp
+
 	logger, observedLogs = logging.NewObservedTestLogger(t)
 	return
 }
