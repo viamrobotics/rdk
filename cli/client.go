@@ -747,7 +747,10 @@ type robotsLogsArgs struct {
 	Machine      string
 	Output       string
 	Format       string
-	Errors       bool
+	Keyword      string
+	Levels       []string
+	Start        string
+	End          string
 	Count        int
 }
 
@@ -756,6 +759,18 @@ func RobotsLogsAction(c *cli.Context, args robotsLogsArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
+	}
+
+	// Check if both start time and count are provided
+	// TODO: [APP-7415] Enhance LogsForPart API to Support Sorting Options for Log Display Order
+	// TODO: [APP-7450] Implement "Start Time with Count without End Time" Functionality in LogsForPart
+	if args.Start != "" && args.Count > 0 && args.End == "" {
+		return errors.New("unsupported functionality: specifying both a start time and a count without an end time is not supported. " +
+			"This behavior can be counterintuitive because logs are currently only sorted in descending order. " +
+			"For example, if there are 200 logs after the specified start time and you request 10 logs, it will return the 10 most recent logs, " +
+			"rather than the 10 logs closest to the start time. " +
+			"Please provide either a start time and an end time to define a clear range, or a count without a start time for recent logs",
+		)
 	}
 
 	orgStr := args.Organization
@@ -818,33 +833,58 @@ func (c *viamClient) fetchAndSaveLogs(robot *apppb.Robot, parts []*apppb.RobotPa
 
 // streamLogsForPart streams logs for a specific part directly to a file.
 func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArgs, writer io.Writer) error {
-	numLogs, err := getNumLogs(c.c, args.Count)
+	maxLogsToFetch, err := getNumLogs(c.c, args.Count)
 	if err != nil {
 		return err
 	}
 
-	// Write logs for this part
+	startTime, err := parseTimeString(args.Start)
+	if err != nil {
+		return errors.Wrap(err, "invalid start time format")
+	}
+	endTime, err := parseTimeString(args.End)
+	if err != nil {
+		return errors.Wrap(err, "invalid end time format")
+	}
+
+	keyword := &args.Keyword
+
+	// Tracks the token for the next page of logs to fetch, allowing pagination through log results.
 	var pageToken string
-	for logsFetched := 0; logsFetched < numLogs; {
+
+	// Fetch logs in batches and write them to the output.
+	for fetchedLogCount := 0; fetchedLogCount < maxLogsToFetch; {
+		// We do not request the exact limit specified by the user in the `count` argument because the API enforces a maximum
+		// limit of 100 logs per batch fetch. To keep the RDK independent of specific limits imposed by the app API,
+		// we always request the next full batch of logs as allowed by the API (currently 100). This approach
+		// ensures that if the API limit changes in the future, only the app API logic needs to be updated without requiring
+		// changes in the RDK.
 		resp, err := c.client.GetRobotPartLogs(c.c.Context, &apppb.GetRobotPartLogsRequest{
-			Id:         part.Id,
-			ErrorsOnly: args.Errors,
-			PageToken:  &pageToken,
+			Id:        part.Id,
+			Filter:    keyword,
+			PageToken: &pageToken,
+			Levels:    args.Levels,
+			Start:     startTime,
+			End:       endTime,
 		})
 		if err != nil {
 			return errors.Wrap(err, "failed to fetch logs")
 		}
 
-		pageToken = resp.NextPageToken
-		// Break in the event of no logs in GetRobotPartLogsResponse or when
-		// page token is empty (no more pages).
-		if resp.Logs == nil || pageToken == "" {
+		// End of pagination if no logs are returned.
+		if len(resp.Logs) == 0 {
 			break
 		}
 
-		// Truncate this intermediate slice of resp.Logs based on how many logs
-		// are still required by numLogs.
-		remainingLogsNeeded := numLogs - logsFetched
+		// The API may return more logs than the user requested via the `count` argument.
+		// This is because the API uses pagination internally and fetches logs in batches.
+		// To ensure we do not append more logs than the user requested, we calculate the
+		// `remainingLogsNeeded` by subtracting the logs we have already fetched (`logsFetched`)
+		// from the total number of logs the user asked for (`numLogs`).
+		// If the current batch contains more logs than the remaining needed, we truncate the
+		// batch to include only the necessary number of logs.
+		// This ensures the output strictly adheres to the `count` limit specified by the user.
+		remainingLogsNeeded := maxLogsToFetch - fetchedLogCount
 		if remainingLogsNeeded < len(resp.Logs) {
 			resp.Logs = resp.Logs[:remainingLogsNeeded]
 		}
@@ -860,7 +900,12 @@ func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArg
 			}
 		}
 
-		logsFetched += len(resp.Logs)
+		fetchedLogCount += len(resp.Logs)
+
+		// End of pagination if there is no next page token.
+		if pageToken = resp.NextPageToken; pageToken == "" {
+			break
+		}
 	}
 
 	return nil

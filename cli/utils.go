@@ -5,9 +5,11 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	apppb "go.viam.com/api/app/v1"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // samePath returns true if abs(path1) and abs(path2) are the same.
@@ -91,6 +93,19 @@ func parseBillingAddress(address string) (*apppb.BillingAddress, error) {
 		State:         strings.Trim(splitAddress[3], " "),
 		Zipcode:       strings.Trim(splitAddress[4], " "),
 	}, nil
+}
+
+func parseTimeString(timeStr string) (*timestamppb.Timestamp, error) {
+	if timeStr == "" {
+		return nil, nil
+	}
+
+	t, err := time.Parse(time.RFC3339, timeStr)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not parse time string: %s", timeStr)
+	}
+
+	return timestamppb.New(t), nil
 }
 
 func formatStringForOutput(protoString, prefixToTrim string) string {
