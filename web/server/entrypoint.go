@@ -116,6 +116,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	}
 
 	logger, registry := logging.NewLoggerWithRegistry("rdk")
+	logging.RegisterEventLogger(logger)
 	logging.ReplaceGlobal(logger)
 	config.InitLoggingSettings(logger, argsParsed.Debug)
 
