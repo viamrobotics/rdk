@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zaptest/observer"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/logging"
@@ -107,29 +108,35 @@ func TestSyntheticModule(t *testing.T) {
 }
 
 func TestRegistryModuleFirstRun(t *testing.T) {
-	m := Module{Type: ModuleTypeRegistry}
-
-	tmp := t.TempDir()
-	exePath := filepath.Join(tmp, "whatever.sh")
-	m.ExePath = exePath
-	metaJSONFilepath := filepath.Join(tmp, "meta.json")
-
 	ctx := context.Background()
 	localPackagesDir := ""
 	dataDir := ""
 
-	// getJSONManifest() uses the "VIAM_MODUE_ROOT" environment variable to find the top level directory of a registry module
-	env := map[string]string{"VIAM_MODULE_ROOT": tmp}
-
-	logger, observedLogs := logging.NewObservedTestLogger(t)
-
 	t.Run("MetaFileNotFound", func(t *testing.T) {
+		m := Module{Type: ModuleTypeRegistry}
+		tmp := t.TempDir()
+		exePath := filepath.Join(tmp, "whatever.sh")
+		m.ExePath = exePath
+
+		// getJSONManifest() uses the "VIAM_MODUE_ROOT" environment variable to find the top level directory of a registry module
+		env := map[string]string{"VIAM_MODULE_ROOT": tmp}
+
+		logger, observedLogs := logging.NewObservedTestLogger(t)
+
 		err := m.FirstRun(ctx, localPackagesDir, dataDir, env, logger)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, observedLogs.FilterMessage("meta.json not found, skipping first run").Len(), test.ShouldEqual, 1)
 	})
 
 	t.Run("MetaFileInvalid", func(t *testing.T) {
+		m := Module{Type: ModuleTypeRegistry}
+		tmp := t.TempDir()
+		exePath := filepath.Join(tmp, "whatever.sh")
+		m.ExePath = exePath
+		metaJSONFilepath := filepath.Join(tmp, "meta.json")
+		env := map[string]string{"VIAM_MODULE_ROOT": tmp}
+		logger, observedLogs := logging.NewObservedTestLogger(t)
+
 		metaJSONFile, err := os.Create(metaJSONFilepath)
 		test.That(t, err, test.ShouldBeNil)
 		defer metaJSONFile.Close()
@@ -140,19 +147,33 @@ func TestRegistryModuleFirstRun(t *testing.T) {
 	})
 
 	t.Run("NoFirstRunScript", func(t *testing.T) {
+		m := Module{Type: ModuleTypeRegistry}
+		tmp := t.TempDir()
+		exePath := filepath.Join(tmp, "whatever.sh")
+		m.ExePath = exePath
+		metaJSONFilepath := filepath.Join(tmp, "meta.json")
+		env := map[string]string{"VIAM_MODULE_ROOT": tmp}
+		logger, observedLogs := logging.NewObservedTestLogger(t)
+
 		testWriteJSON(t, metaJSONFilepath, JSONManifest{})
 
 		err := m.FirstRun(ctx, localPackagesDir, dataDir, env, logger)
-		t.Log(err)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, observedLogs.FilterMessage("no first run script specified, skipping first run").Len(), test.ShouldEqual, 1)
 	})
 
 	t.Run("InvalidFirstRunPath", func(t *testing.T) {
+		m := Module{Type: ModuleTypeRegistry}
+		tmp := t.TempDir()
+		exePath := filepath.Join(tmp, "whatever.sh")
+		m.ExePath = exePath
+		metaJSONFilepath := filepath.Join(tmp, "meta.json")
+		env := map[string]string{"VIAM_MODULE_ROOT": tmp}
+		logger, observedLogs := logging.NewObservedTestLogger(t)
+
 		testWriteJSON(t, metaJSONFilepath, JSONManifest{FirstRun: "../firstrun.sh"})
 
 		err := m.FirstRun(ctx, localPackagesDir, dataDir, env, logger)
-		t.Log(err)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, observedLogs.FilterMessage("failed to build path to first run script, skipping first run").Len(), test.ShouldEqual, 1)
 	})
@@ -362,4 +383,18 @@ func testWriteJSON(t *testing.T, path string, value any) {
 	encoder := json.NewEncoder(file)
 	err = encoder.Encode(value)
 	test.That(t, err, test.ShouldBeNil)
+}
+
+// testSetUpRegistryModule is a t.Helper that creates a registry module with a meta.json file and an executable file in its top level
+// directory. It also returns a logger and its observed logs for testing
+func testSetUpRegistryModule(t *testing.T) (module Module, metaJSONFilepath string, env map[string]string, logger logging.Logger, observedLogs *observer.ObservedLogs) {
+	t.Helper()
+	module = Module{Type: ModuleTypeRegistry}
+	tmp := t.TempDir()
+	exePath := filepath.Join(tmp, "whatever.sh")
+	module.ExePath = exePath
+	metaJSONFilepath = filepath.Join(tmp, "meta.json")
+	env["VIAM_MODULE_ROOT"] = tmp
+	logger, observedLogs = logging.NewObservedTestLogger(t)
+	return
 }
