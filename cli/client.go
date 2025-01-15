@@ -852,6 +852,11 @@ func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArg
 
 	// Fetch logs in batches and write them to the output.
 	for fetchedLogCount := 0; fetchedLogCount < maxLogsToFetch; {
+		// We do not request the exact limit specified by the user in the `count` argument because the API enforces a maximum
+		// limit of 100 logs per batch fetch. To keep the RDK independent of specific limits imposed by the app API,
+		// we always request the next full batch of logs as allowed by the API (currently 100). This approach
+		// ensures that if the API limit changes in the future, only the app API logic needs to be updated without requiring
+		// changes in the RDK.
 		resp, err := c.client.GetRobotPartLogs(c.c.Context, &apppb.GetRobotPartLogsRequest{
 			Id:        part.Id,
 			Filter:    keyword,
@@ -882,7 +887,6 @@ func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArg
 			resp.Logs = resp.Logs[:remainingLogsNeeded]
 		}
 
-		// Write the logs to the output
 		for _, log := range resp.Logs {
 			formattedLog, err := formatLog(log, part.Name, args.Format)
 			if err != nil {
@@ -894,7 +898,6 @@ func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArg
 			}
 		}
 
-		// Increment the total number of logs fetched so far by the count of logs retrieved in this batch.
 		fetchedLogCount += len(resp.Logs)
 
 		// End of pagination if there is no next page token.
