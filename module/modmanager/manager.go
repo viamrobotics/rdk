@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -1016,13 +1015,11 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 func (m *module) dial() error {
 	// TODO(PRODUCT-343): session support probably means interceptors here
 	var err error
-	addrToDial := "unix://" + m.addr
-
 	// Unix socket paths on Windows are formatted with "C:" and backslashes (\), which are incompatible
 	// with url.Parse(). Reformat the path to use forward slashes (/) and remove the "C:" prefix for compatibility.
-	if runtime.GOOS == "windows" {
-		addrToDial = strings.Replace(strings.ReplaceAll(addrToDial, `\`, `/`), "C:", "", 1)
-	}
+	println("m.addr= ", m.addr)
+	addrToDial := "unix://" + strings.Replace(strings.ReplaceAll(m.addr, `\`, `/`), "C:", "", 1)
+	println("addrToDial= ", addrToDial)
 
 	conn, err := grpc.Dial( //nolint:staticcheck
 		addrToDial,
