@@ -131,8 +131,8 @@ func NewBlankLogger(name string) Logger {
 	return logger
 }
 
-// NewBlankLogger returns a new logger that outputs Debug+ logs in UTC, but without any
-// pre-existing appenders/outputs.
+// NewBlankLoggerWithRegistry returns a new logger that outputs Debug+ logs in UTC, but without any
+// pre-existing appenders/outputs. It also returns the logger `Registry`.
 func NewBlankLoggerWithRegistry(name string) (Logger, *Registry) {
 	logger := &impl{
 		name:                     name,
