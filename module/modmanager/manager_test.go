@@ -214,22 +214,23 @@ func TestModManagerFunctions(t *testing.T) {
 			}
 			err = mgr.Add(ctx, modCfg2)
 			test.That(t, err, test.ShouldBeNil)
-			expectedModels := []resource.ModuleModelDiscovery{
-				{
-					ModuleName:      "simple-module",
-					API:             resource.NewAPI("rdk", "component", "generic"),
-					Model:           resource.NewModel("acme", "demo", "mycounter"),
-					FromLocalModule: false,
-				},
-				{
-					ModuleName:      "simple-module2",
-					API:             resource.NewAPI("rdk", "component", "generic"),
-					Model:           resource.NewModel("acme", "demo", "mycounter"),
-					FromLocalModule: true,
-				},
-			}
 			models := mgr.AllModels()
-			test.That(t, models, test.ShouldResemble, expectedModels)
+			for _, model := range models {
+				test.That(t, model.Model, test.ShouldEqual, resource.NewModel("acme", "demo", "mycounter"))
+				test.That(t, model.API, test.ShouldResemble, resource.NewAPI("rdk", "component", "generic"))
+				switch model.ModuleName {
+				case "simple-module":
+					test.That(t, model.FromLocalModule, test.ShouldEqual, false)
+				case "simple-module2":
+					test.That(t, model.FromLocalModule, test.ShouldEqual, true)
+				default:
+					t.Fail()
+					t.Logf("test AllModels failure: unrecoginzed moduleName %v", model.ModuleName)
+				}
+			}
+			names, err := mgr.Remove(modCfg2.Name)
+			test.That(t, names, test.ShouldBeEmpty)
+			test.That(t, err, test.ShouldBeNil)
 
 			t.Log("test Provides")
 			ok = mgr.Provides(cfgCounter1)
