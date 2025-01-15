@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"go.uber.org/zap/zapcore"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 // DefaultTimeFormatStr is the default time format string for log appenders.
@@ -34,6 +35,26 @@ func NewStdoutAppender() ConsoleAppender {
 // NewWriterAppender creates a new appender that prints to the input writer.
 func NewWriterAppender(writer io.Writer) ConsoleAppender {
 	return ConsoleAppender{writer}
+}
+
+// NewFileAppender will create an Appender that writes output to a log file. Log rotation will be
+// enabled such that restarts of the viam-server with the same filename will move the old file out
+// of the way. The `io.Closer`
+func NewFileAppender(filename string) (Appender, io.Closer) {
+	logger := &lumberjack.Logger{
+		Filename: filename,
+		// 1 Terabyte -- basically infinite. Don't rollover on size. Just restarts.
+		MaxSize: 1024 * 1024,
+	}
+
+	// Dan: If we're restarting, explicitly call `Rotate` to write to a different file. This is a
+	// convention I think is nice, but by no means a correctness requirement.
+	logger.Rotate()
+
+	// We only have `NewFileAppender` return an io.Closer, rather than `NewWriterAppender` because
+	// `NewWriterAppender` accepts stdout from `NewStdoutAppender`. And I'm not certain that it's a
+	// good idea to be calling `stdout.Close`.
+	return NewWriterAppender(logger), logger
 }
 
 // ZapcoreFieldsToJSON will serialize the Field objects into a JSON map of key/value pairs. It's

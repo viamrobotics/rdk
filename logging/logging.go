@@ -131,6 +131,24 @@ func NewBlankLogger(name string) Logger {
 	return logger
 }
 
+// NewBlankLogger returns a new logger that outputs Debug+ logs in UTC, but without any
+// pre-existing appenders/outputs.
+func NewBlankLoggerWithRegistry(name string) (Logger, *Registry) {
+	logger := &impl{
+		name:                     name,
+		level:                    NewAtomicLevelAt(DEBUG),
+		appenders:                []Appender{},
+		registry:                 newRegistry(),
+		testHelper:               func() {},
+		recentMessageCounts:      make(map[string]int),
+		recentMessageEntries:     make(map[string]LogEntry),
+		recentMessageWindowStart: time.Now(),
+	}
+
+	logger.registry.registerLogger(name, logger)
+	return logger, logger.registry
+}
+
 // NewTestLogger returns a new logger that outputs Debug+ logs to stdout in local time.
 func NewTestLogger(tb testing.TB) Logger {
 	logger, _ := NewObservedTestLogger(tb)
