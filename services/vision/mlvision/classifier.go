@@ -3,8 +3,6 @@ package mlvision
 import (
 	"context"
 	"image"
-	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/nfnt/resize"
@@ -101,50 +99,11 @@ func attemptToBuildClassifier(mlm mlmodel.Service,
 			return nil, err
 		}
 
-		// check if output tensor name that classifier is looking for is already present
-		// in the nameMap. If not, find the probability name, and cache it in the nameMap
-		pName, ok := outNameMap.Load(classifierProbabilityName)
-		if !ok {
-			_, ok := outMap[classifierProbabilityName]
-			if !ok {
-				if len(outMap) == 1 {
-					for name := range outMap { //  only 1 element in map, assume its probabilities
-						outNameMap.Store(classifierProbabilityName, name)
-						pName = name
-					}
-				}
-			} else {
-				outNameMap.Store(classifierProbabilityName, classifierProbabilityName)
-				pName = classifierProbabilityName
-			}
-		}
-		probabilityName, ok := pName.(string)
-		if !ok {
-			return nil, errors.Errorf("name map did not store a string of the tensor name, but an object of type %T instead", pName)
-		}
-		data, ok := outMap[probabilityName]
-		if !ok {
-			return nil, errors.Errorf("no tensor named 'probability' among output tensors [%s]", strings.Join(tensorNames(outMap), ", "))
-		}
-		probs, err := convertToFloat64Slice(data.Data())
+		classifications, err := ml.FormatClassificationOutputs(inNameMap, outNameMap, outMap, labels)
 		if err != nil {
 			return nil, err
 		}
-		confs := checkClassificationScores(probs)
-		if labels != nil && len(labels) != len(confs) {
-			return nil, errors.Errorf("length of output (%d) expected to be length of label list (%d)", len(confs), len(labels))
-		}
-		classifications := make(classification.Classifications, 0, len(confs))
-		for i := 0; i < len(confs); i++ {
-			if labels == nil {
-				classifications = append(classifications, classification.NewClassification(confs[i], strconv.Itoa(i)))
-			} else {
-				if i >= len(labels) {
-					return nil, errors.Errorf("cannot access label number %v from label file with %v labels", i, len(labels))
-				}
-				classifications = append(classifications, classification.NewClassification(confs[i], labels[i]))
-			}
-		}
+
 		if postprocessor != nil {
 			classifications = postprocessor(classifications)
 		}

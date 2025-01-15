@@ -12,7 +12,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/montanaflynn/stats"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"golang.org/x/exp/constraints"
@@ -311,29 +310,6 @@ func softmax(in []float64) []float64 {
 		out = append(out, math.Exp(x)/bigSum)
 	}
 	return out
-}
-
-// checkClassification scores ensures that the input scores (output of classifier)
-// will represent confidence values (from 0-1).
-func checkClassificationScores(in []float64) []float64 {
-	if len(in) > 1 {
-		for _, p := range in {
-			if p < 0 || p > 1 { // is logit, needs softmax
-				confs := softmax(in)
-				return confs
-			}
-		}
-		return in // no need to softmax
-	}
-	// otherwise, this is a binary classifier
-	if in[0] < -1 || in[0] > 1 { // needs sigmoid
-		out, err := stats.Sigmoid(in)
-		if err != nil {
-			return in
-		}
-		return out
-	}
-	return in // no need to sigmoid
 }
 
 // Number interface for converting between numbers.
