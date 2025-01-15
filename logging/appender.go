@@ -36,6 +36,8 @@ func NewWriterAppender(writer io.Writer) ConsoleAppender {
 	return ConsoleAppender{writer}
 }
 
+// ZapcoreFieldsToJSON will serialize the Field objects into a JSON map of key/value pairs. It's
+// unclear what circumstances will result in an error being returned.
 func ZapcoreFieldsToJSON(fields []zapcore.Field) (string, error) {
 	// Use zap's json encoder which will encode our slice of fields in-order. As opposed to the
 	// random iteration order of a map. Call it with an empty Entry object such that only the fields

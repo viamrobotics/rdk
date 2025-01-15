@@ -9,6 +9,8 @@ import (
 	"golang.org/x/sys/windows/svc/eventlog"
 )
 
+// RegisterEventLogger does nothing on Unix. On Windows it will add an `Appender` for logging to
+// windows event system.
 func RegisterEventLogger(rootLogger Logger) {
 	log, err := eventlog.Open("viam-server")
 	if err != nil {
