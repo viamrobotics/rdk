@@ -106,7 +106,7 @@ func TestSyntheticModule(t *testing.T) {
 	})
 }
 
-func TestFirstRun(t *testing.T) {
+func TestRegistryModuleFirstRun(t *testing.T) {
 	m := Module{Type: ModuleTypeRegistry}
 
 	tmp := t.TempDir()
