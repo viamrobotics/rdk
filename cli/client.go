@@ -762,6 +762,8 @@ func RobotsLogsAction(c *cli.Context, args robotsLogsArgs) error {
 	}
 
 	// Check if both start time and count are provided
+	// TODO: [APP-7415] Enhance LogsForPart API to Support Sorting Options for Log Display Order
+	// TODO: [APP-7450] Implement "Start Time with Count without End Time" Functionality in LogsForPart
 	if args.Start != "" && args.Count > 0 && args.End == "" {
 		return errors.New("unsupported functionality: specifying both a start time and a count without an end time is not supported. " +
 			"This behavior can be counterintuitive because logs are currently only sorted in descending order. " +
