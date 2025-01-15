@@ -214,13 +214,20 @@ func TestModManagerFunctions(t *testing.T) {
 			}
 			err = mgr.Add(ctx, modCfg2)
 			test.That(t, err, test.ShouldBeNil)
-			expectedModels := []resource.ModuleModelDiscovery{{ModuleName: "simple-module",
-				API:             resource.NewAPI("rdk", "component", "generic"),
-				Model:           resource.NewModel("acme", "demo", "mycounter"),
-				FromLocalModule: false}, {ModuleName: "simple-module2",
-				API:             resource.NewAPI("rdk", "component", "generic"),
-				Model:           resource.NewModel("acme", "demo", "mycounter"),
-				FromLocalModule: true}}
+			expectedModels := []resource.ModuleModelDiscovery{
+				{
+					ModuleName:      "simple-module",
+					API:             resource.NewAPI("rdk", "component", "generic"),
+					Model:           resource.NewModel("acme", "demo", "mycounter"),
+					FromLocalModule: false,
+				},
+				{
+					ModuleName:      "simple-module2",
+					API:             resource.NewAPI("rdk", "component", "generic"),
+					Model:           resource.NewModel("acme", "demo", "mycounter"),
+					FromLocalModule: true,
+				},
+			}
 			models := mgr.AllModels()
 			test.That(t, models, test.ShouldResemble, expectedModels)
 
