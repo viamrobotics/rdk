@@ -1805,11 +1805,11 @@ var app = &cli.App{
 						},
 						&cli.StringFlag{
 							Name:  generalFlagStart,
-							Usage: "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter",
+							Usage: "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter (e.g., 2025-01-15T14:00:00Z)",
 						},
 						&cli.StringFlag{
 							Name:  generalFlagEnd,
-							Usage: "ISO-8601 timestamp in RFC3339 format indicating the end of the interval filter",
+							Usage: "ISO-8601 timestamp in RFC3339 format indicating the end of the interval filter (e.g., 2025-01-15T15:00:00Z)",
 						},
 						&cli.IntFlag{
 							Name:        logsFlagCount,
