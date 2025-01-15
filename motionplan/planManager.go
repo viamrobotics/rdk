@@ -213,8 +213,14 @@ func (pm *planManager) planSingleAtomicWaypoint(
 	wp atomicWaypoint,
 	maps *rrtMaps,
 ) (map[string][]referenceframe.Input, *resultPromise, error) {
-	fromPoses, _ := wp.startState.ComputePoses(pm.fs)
-	toPoses, _ := wp.goalState.ComputePoses(pm.fs)
+	fromPoses, err := wp.startState.ComputePoses(pm.fs)
+	if err != nil {
+		return nil, nil, err
+	}
+	toPoses, err := wp.goalState.ComputePoses(pm.fs)
+	if err != nil {
+		return nil, nil, err
+	}
 	pm.logger.Debug("start configuration", wp.startState.Configuration())
 	pm.logger.Debug("start planning from\n", fromPoses, "\nto\n", toPoses)
 

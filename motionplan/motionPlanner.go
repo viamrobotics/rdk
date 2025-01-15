@@ -471,7 +471,6 @@ IK:
 						}
 						simscore := mp.planOpts.configurationDistanceFunc(similarity)
 						if simscore < 0.1 {
-							fmt.Println("Skipping similar")
 							continue IK
 						}
 					}

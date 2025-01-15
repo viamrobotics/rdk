@@ -143,7 +143,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		}
 	}
 	mp.logger.CInfof(ctx, "goal node: %v\n", rrt.maps.optNode.Q())
-	for n, _ := range rrt.maps.startMap {
+	for n := range rrt.maps.startMap {
 		mp.logger.CInfof(ctx, "start node: %v\n", n.Q())
 		break
 	}

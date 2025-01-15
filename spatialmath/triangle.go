@@ -6,6 +6,7 @@ import (
 	"github.com/golang/geo/r3"
 )
 
+// Triangle is three points and a normal vector.
 type Triangle struct {
 	p0 r3.Vector
 	p1 r3.Vector
@@ -14,6 +15,7 @@ type Triangle struct {
 	normal r3.Vector
 }
 
+// NewTriangle creates a Triangle from three points. The Normal is computed; directionality is random.
 func NewTriangle(p0, p1, p2 r3.Vector) *Triangle {
 	return &Triangle{
 		p0:     p0,
@@ -23,7 +25,7 @@ func NewTriangle(p0, p1, p2 r3.Vector) *Triangle {
 	}
 }
 
-// closestPointToCoplanarPoint takes a point, and returns the closest point on the triangle to the given point
+// ClosestPointToCoplanarPoint takes a point, and returns the closest point on the triangle to the given point
 // The given point *MUST* be coplanar with the triangle. If it is known ahead of time that the point is coplanar, this is faster.
 func (t *Triangle) ClosestPointToCoplanarPoint(pt r3.Vector) r3.Vector {
 	// Determine whether point is inside all triangle edges:
@@ -55,8 +57,8 @@ func (t *Triangle) ClosestPointToCoplanarPoint(pt r3.Vector) r3.Vector {
 	return refPt
 }
 
-// closestPointToPoint takes a point, and returns the closest point on the triangle to the given point.
-// This is slower than closestPointToCoplanarPoint.
+// ClosestPointToPoint takes a point, and returns the closest point on the triangle to the given point.
+// This is slower than ClosestPointToCoplanarPoint.
 func (t *Triangle) ClosestPointToPoint(point r3.Vector) r3.Vector {
 	closestPtInside, inside := t.ClosestInsidePoint(point)
 	if inside {
@@ -81,7 +83,7 @@ func (t *Triangle) ClosestPointToPoint(point r3.Vector) r3.Vector {
 	return closestPt
 }
 
-// closestInsidePoint returns the closest point on a triangle IF AND ONLY IF the query point's projection overlaps the triangle.
+// ClosestInsidePoint returns the closest point on a triangle IF AND ONLY IF the query point's projection overlaps the triangle.
 // Otherwise it will return the query point.
 // To visualize this- if one draws a tetrahedron using the triangle and the query point, all angles from the triangle to the query point
 // must be <= 90 degrees.
@@ -107,10 +109,12 @@ func (t *Triangle) ClosestInsidePoint(point r3.Vector) (r3.Vector, bool) {
 	return t.p0.Add(e0.Mul(u)).Add(e1.Mul(v)), inside
 }
 
+// Points returns the three points associated with the triangle.
 func (t *Triangle) Points() []r3.Vector {
 	return []r3.Vector{t.p0, t.p1, t.p2}
 }
 
+// Normal returns the triangle's normal vector.
 func (t *Triangle) Normal() r3.Vector {
 	return t.normal
 }
