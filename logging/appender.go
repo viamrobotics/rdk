@@ -39,7 +39,7 @@ func NewWriterAppender(writer io.Writer) ConsoleAppender {
 
 // NewFileAppender will create an Appender that writes output to a log file. Log rotation will be
 // enabled such that restarts of the viam-server with the same filename will move the old file out
-// of the way. The `io.Closer`
+// of the way. The `io.Closer` can be used to eventually close the opened log file.
 func NewFileAppender(filename string) (Appender, io.Closer) {
 	logger := &lumberjack.Logger{
 		Filename: filename,
