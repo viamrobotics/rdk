@@ -61,6 +61,8 @@ func init() {
 //
 // Detections example:
 //
+//  // add "go.viam.com/rdk/utils" to imports to use this code snippet
+//
 //	myCam, err := camera.FromRobot(machine, "my_camera")
 //	if err != nil {
 //		logger.Error(err)
@@ -83,7 +85,7 @@ func init() {
 //		logger.Info(detections[0])
 //	}
 //
-// Import "go.viam.com/rdk/utils". For more information, see the [Detections method docs].
+// For more information, see the [Detections method docs].
 //
 // ClassificationsFromCamera example:
 //
@@ -104,6 +106,8 @@ func init() {
 // For more information, see the [ClassificationsFromCamera method docs].
 //
 // Classifications example:
+//
+//  // add "go.viam.com/rdk/utils" to imports to use this code snippet
 //
 //	myCam, err := camera.FromRobot(machine, "my_camera")
 //	if err != nil {
@@ -127,7 +131,7 @@ func init() {
 //		logger.Info(classifications[0])
 //	}
 //
-// Import "go.viam.com/rdk/utils". For more information, see the [Classifications method docs].
+// For more information, see the [Classifications method docs].
 //
 // GetObjectPointClouds example:
 //
