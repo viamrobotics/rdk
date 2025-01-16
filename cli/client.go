@@ -1214,16 +1214,15 @@ func MachinesPartCopyFilesAction(c *cli.Context, args machinesPartCopyFilesArgs)
 		logger = logging.NewDebugLogger("cli")
 	}
 
-	return machinesPartCopyFilesAction(c, client, args, logger)
+	return client.machinesPartCopyFilesAction(c, args, logger)
 }
 
-func machinesPartCopyFilesAction(
-	c *cli.Context,
-	client *viamClient,
+func (c *viamClient) machinesPartCopyFilesAction(
+	ctx *cli.Context,
 	flagArgs machinesPartCopyFilesArgs,
 	logger logging.Logger,
 ) error {
-	args := c.Args().Slice()
+	args := ctx.Args().Slice()
 	if len(args) == 0 {
 		return errNoFiles
 	}
@@ -1269,14 +1268,14 @@ func machinesPartCopyFilesAction(
 		return err
 	}
 
-	globalArgs, err := getGlobalArgs(c)
+	globalArgs, err := getGlobalArgs(ctx)
 	if err != nil {
 		return err
 	}
 
 	doCopy := func() error {
 		if isFrom {
-			return client.copyFilesFromMachine(
+			return c.copyFilesFromMachine(
 				flagArgs.Organization,
 				flagArgs.Location,
 				flagArgs.Machine,
@@ -1290,7 +1289,7 @@ func machinesPartCopyFilesAction(
 			)
 		}
 
-		return client.copyFilesToMachine(
+		return c.copyFilesToMachine(
 			flagArgs.Organization,
 			flagArgs.Location,
 			flagArgs.Machine,

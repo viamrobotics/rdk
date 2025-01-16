@@ -908,6 +908,7 @@ var app = &cli.App{
 				{
 					Name:      "list",
 					Usage:     "list locations for the current user",
+					// use custom usage text to show default organization flag usage even if it isn't required
 					UsageText: "viam locations list [--organization=<organization>]",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
