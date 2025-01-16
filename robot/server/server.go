@@ -79,7 +79,7 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 	wg.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer func() {
-			fmt.Printf("\"exiting receive loop\": %v\n", "exiting receive loop")
+			fmt.Printf("exiting client reader/dest writer loop\n")
 			cancel()
 			// unblock any current Reads by closing the connection
 			conn.Close()
@@ -89,10 +89,9 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 			if ctx.Err() != nil {
 				return
 			}
-			fmt.Printf("waiting for msg\n")
 			req, err := srv.Recv()
 			if err == io.EOF {
-				fmt.Printf("recv EOF from client")
+				fmt.Printf("recv EOF from client connection\n")
 				return
 			}
 			if err != nil {
@@ -102,7 +101,7 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 				// and exit out of this handler without any issues.
 				//
 				// Otherwise we should return the error
-				fmt.Printf("recv loop err: %v\n", err)
+				fmt.Printf("client reader/dest writer loop err: %v\n", err)
 				return
 			}
 
@@ -122,27 +121,26 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 
 	for {
 		if ctx.Err() != nil {
-			fmt.Printf("\"exiting send loop\": %v\n", "top of loop")
+			fmt.Printf("exiting dest reader/client writer loop\n")
 			break
 		}
 
 		// copying io.Copy's default buffer size
 		size := 32 * 1024
 		buf := make([]byte, size)
-		fmt.Printf("waiting for buf\n")
 		nr, err := conn.Read(buf)
+		// TODO: filter out use of closed network connection error
+		// if we already explicitly closed the connection already
 		if err != nil {
-			fmt.Printf("send loop err: %v\n", err)
-
+			fmt.Printf("dest reader/client writer loop err: %v\n", err)
 			// we communicate an end to the stream
 			// by returning from this handler,
 			// which is why we don't have an EOF field
 			// on the response.
-			fmt.Printf("\"exiting send loop\": %v\n", "send loop err")
+			fmt.Printf("exiting dest reader/client writer loop\n")
 			break
 		}
 		if nr == 0 {
-			fmt.Printf("getting nothing from buffer\n")
 			continue
 		}
 		fmt.Printf("Len(): %v\n", len(buf))
@@ -150,13 +148,13 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 			Data: buf[:nr],
 		}); err != nil {
 			s.robot.Logger().CErrorw(ctx, "error sending data", "error", err)
-			fmt.Printf("\"exiting send loop\": %v\n", "error sending data")
+			fmt.Printf("exiting dest reader/client writer loop\n")
 			break
 		}
 	}
 
-	// may need more handling for to close the client reader/server writer loop
-	// if the server reader/client writer loop exits prematurely
+	// TODO: may need more handling for to close the client reader/dest writer loop
+	// if the dest reader/client writer loop exits prematurely
 
 	fmt.Printf("\"waiting for workers\": %v\n", "waiting for workers")
 	wg.Wait()

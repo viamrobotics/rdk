@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	ADDRESS    = ""
+	ADDRESS    = "something-unique"
 	API_KEY    = ""
 	API_KEY_ID = ""
 
@@ -35,20 +35,34 @@ func main() {
 
 	logger := logging.NewDebugLogger("client")
 	logger.Infow("starting tunnel", "source address", src, "destination address", dest)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	machine, err := client.New(
-		ctx,
-		"something-unique",
-		logger,
-		client.WithDialOptions(
-			rpc.WithInsecure(),
-			rpc.WithDisableDirectGRPC(),
-		),
+	ctx := context.Background()
+
+	opts := []client.RobotClientOption{
 		client.WithRefreshEvery(0),
 		client.WithCheckConnectedEvery(0),
 		client.WithDisableSessions(),
-	)
+	}
+
+	if API_KEY != "" && API_KEY_ID != "" {
+		opts = append(opts,
+			client.WithDialOptions(rpc.WithEntityCredentials(
+				API_KEY_ID,
+				rpc.Credentials{
+					Type:    rpc.CredentialsTypeAPIKey,
+					Payload: API_KEY,
+				}),
+			),
+		)
+
+	} else {
+		opts = append(opts,
+			client.WithDialOptions(
+				rpc.WithInsecure(),
+				rpc.WithDisableDirectGRPC(),
+			),
+		)
+	}
+	machine, err := client.New(ctx, ADDRESS, logger, opts...)
 	if err != nil {
 		logger.Info(err)
 		return
