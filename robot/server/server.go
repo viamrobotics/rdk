@@ -60,7 +60,7 @@ func New(robot robot.Robot) pb.RobotServiceServer {
 func (s *Server) Close() {
 }
 
-func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) (retErr error) {
+func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 	ctx, cancel := context.WithCancel(srv.Context())
 
 	req, err := srv.Recv()
@@ -81,7 +81,7 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) (retErr error) {
 		defer func() {
 			fmt.Printf("\"exiting receive loop\": %v\n", "exiting receive loop")
 			cancel()
-			// unblock any current Reads
+			// unblock any current Reads by closing the connection
 			conn.Close()
 			wg.Done()
 		}()
@@ -91,24 +91,30 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) (retErr error) {
 			}
 			fmt.Printf("waiting for msg\n")
 			req, err := srv.Recv()
+			if err == io.EOF {
+				fmt.Printf("recv EOF from client")
+				return
+			}
 			if err != nil {
+				// receiving an EOF error means that client
+				// is no longer receiving or expecting to receive
+				// any more data. We can filter out the error
+				// and exit out of this handler without any issues.
+				//
+				// Otherwise we should return the error
 				fmt.Printf("recv loop err: %v\n", err)
 				return
 			}
 
-			if len(req.DataIn) == 0 && !req.Eof {
+			if len(req.Data) == 0 {
 				continue
 			}
-			fmt.Printf("len(req.DataIn): %v\n", len(req.DataIn))
+			fmt.Printf("len(req.DataIn): %v\n", len(req.Data))
 
-			in := bytes.NewReader(req.DataIn)
+			in := bytes.NewReader(req.Data)
 			_, err = io.Copy(conn, in)
 			if err != nil {
 				fmt.Printf("copy err: %v\n", err)
-				return
-			}
-			if req.Eof {
-				fmt.Printf("eof received\n")
 				return
 			}
 		}
@@ -128,13 +134,10 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) (retErr error) {
 		if err != nil {
 			fmt.Printf("send loop err: %v\n", err)
 
-			if err := srv.Send(&pb.TunnelResponse{
-				Eof: true,
-			}); err != nil {
-				s.robot.Logger().CErrorw(srv.Context(), "error sending eof", "error", err)
-			}
-			fmt.Printf("\"eof sent\": %v\n", "eof sent")
-
+			// we communicate an end to the stream
+			// by returning from this handler,
+			// which is why we don't have an EOF field
+			// on the response.
 			fmt.Printf("\"exiting send loop\": %v\n", "send loop err")
 			break
 		}
@@ -144,7 +147,7 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) (retErr error) {
 		}
 		fmt.Printf("Len(): %v\n", len(buf))
 		if err := srv.Send(&pb.TunnelResponse{
-			DataOut: buf[:nr],
+			Data: buf[:nr],
 		}); err != nil {
 			s.robot.Logger().CErrorw(ctx, "error sending data", "error", err)
 			fmt.Printf("\"exiting send loop\": %v\n", "error sending data")
@@ -152,10 +155,14 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) (retErr error) {
 		}
 	}
 
+	// may need more handling for to close the client reader/server writer loop
+	// if the server reader/client writer loop exits prematurely
+
 	fmt.Printf("\"waiting for workers\": %v\n", "waiting for workers")
 	wg.Wait()
 	fmt.Printf("\"ending conn\": %v\n", "ending conn")
-	return
+	// collect all errors here
+	return nil
 }
 
 // GetOperations lists all running operations.

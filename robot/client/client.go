@@ -1200,19 +1200,18 @@ func (rc *RobotClient) Tunnel(ctx context.Context, rw io.ReadWriter, dest int) e
 	}
 
 	fmt.Printf("\"waiting for connection\": %v\n", "waiting for connection")
-	// var eof bool
 	var wg sync.WaitGroup
 	wg.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer func() {
 			fmt.Printf("\"exiting send loop\": %v\n", "exiting send loop")
+			client.CloseSend()
 			cancel()
 			wg.Done()
 		}()
 
 		for {
 			if ctx.Err() != nil {
-				// eof = true
 				return
 			}
 			// copying io.Copy's default buffer size
@@ -1223,13 +1222,10 @@ func (rc *RobotClient) Tunnel(ctx context.Context, rw io.ReadWriter, dest int) e
 
 			if err != nil {
 				fmt.Printf("send loop err: %v\n", err)
-				// eof = true
-				if err := client.Send(&pb.TunnelRequest{
-					Eof: true,
-				}); err != nil {
-					rc.logger.CErrorw(ctx, "error sending eof", "error", err)
-				}
-				fmt.Printf("\"eof sent\": %v\n", "eof sent")
+				// we communicate an end to the stream
+				// by calling CloseSend(),
+				// which is why we don't have an EOF field
+				// on the request.
 				return
 			}
 			if nr == 0 {
@@ -1237,10 +1233,9 @@ func (rc *RobotClient) Tunnel(ctx context.Context, rw io.ReadWriter, dest int) e
 			}
 			fmt.Printf("Len(): %v\n", len(buf))
 			if err := client.Send(&pb.TunnelRequest{
-				DataIn: buf[:nr],
+				Data: buf[:nr],
 			}); err != nil {
 				rc.logger.CErrorw(ctx, "error sending data", "error", err)
-				// eof = true
 				return
 			}
 		}
@@ -1253,27 +1248,38 @@ func (rc *RobotClient) Tunnel(ctx context.Context, rw io.ReadWriter, dest int) e
 		}
 		fmt.Printf("waiting for msg\n")
 		resp, err := client.Recv()
+		if err == io.EOF {
+			fmt.Printf("recv EOF from server")
+			break
+		}
 		if err != nil {
+			// receiving an EOF error means that client
+			// is no longer receiving or expecting to receive
+			// any more data. We can filter out the error
+			// and exit out of this handler without any issues.
+			//
+			// Otherwise we should return the error
 			fmt.Printf("recv loop err: %v\n", err)
 			fmt.Printf("\"exiting receive loop\": %v\n", "exiting receive loop")
 			break
 		}
-		fmt.Printf("len(resp.DataOut): %v\n", len(resp.DataOut))
-		out := bytes.NewReader(resp.DataOut)
+		fmt.Printf("len(resp.DataOut): %v\n", len(resp.Data))
+		out := bytes.NewReader(resp.Data)
 		_, err = io.Copy(rw, out)
+		if err == io.EOF {
+			fmt.Printf("recv EOF from client")
+			break
+		}
 		if err != nil {
 			fmt.Printf("copy err: %v\n", err)
 			fmt.Printf("\"exiting receive loop\": %v\n", "exiting receive loop")
 			break
 		}
-		if resp.Eof {
-			fmt.Printf("eof received")
-			fmt.Printf("\"exiting receive loop\": %v\n", "exiting receive loop")
-			break
-		}
 	}
 	cancel()
-	client.CloseSend()
+
+	// may need more handling for to close the client reader/server writer loop
+	// if the server reader/client writer loop exits prematurely
 
 	fmt.Printf("\"waiting for workers\": %v\n", "waiting for workers")
 	wg.Wait()
