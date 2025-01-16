@@ -378,7 +378,6 @@ func (m *Module) FirstRun(
 	return nil
 }
 
-// TODO(RSDK-9498): write test(s)
 // getJSONManifest returns a loaded meta.json from one of three sources (in order of precedence):
 // 1. if this is a registry module and there is a meta.json in its top level directory, use that.
 // 2. if there is a meta.json in the exe dir, use that, except in local non-tarball case.
