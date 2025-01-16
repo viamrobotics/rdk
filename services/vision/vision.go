@@ -61,29 +61,29 @@ func init() {
 //
 // Detections example:
 //
-//  // add "go.viam.com/rdk/utils" to imports to use this code snippet
+//	 // add "go.viam.com/rdk/utils" to imports to use this code snippet
 //
-//	myCam, err := camera.FromRobot(machine, "my_camera")
-//	if err != nil {
-//		logger.Error(err)
-//		return
-//	}
-//	// Get an image from the camera decoded as an image.Image
-//	img, err = camera.DecodeImageFromCamera(context.Background(), utils.MimeTypeJPEG, nil, myCam)
+//		myCam, err := camera.FromRobot(machine, "my_camera")
+//		if err != nil {
+//			logger.Error(err)
+//			return
+//		}
+//		// Get an image from the camera decoded as an image.Image
+//		img, err = camera.DecodeImageFromCamera(context.Background(), utils.MimeTypeJPEG, nil, myCam)
 //
-//	myDetectorService, err := vision.FromRobot(machine, "my_detector")
-//	if err != nil {
-//		logger.Error(err)
-//		return
-//	}
-//	// Get the detections from the image
-//	detections, err := myDetectorService.Detections(context.Background(), img, nil)
-//	if err != nil {
-//		logger.Fatalf("Could not get detections: %v", err)
-//	}
-//	if len(detections) > 0 {
-//		logger.Info(detections[0])
-//	}
+//		myDetectorService, err := vision.FromRobot(machine, "my_detector")
+//		if err != nil {
+//			logger.Error(err)
+//			return
+//		}
+//		// Get the detections from the image
+//		detections, err := myDetectorService.Detections(context.Background(), img, nil)
+//		if err != nil {
+//			logger.Fatalf("Could not get detections: %v", err)
+//		}
+//		if len(detections) > 0 {
+//			logger.Info(detections[0])
+//		}
 //
 // For more information, see the [Detections method docs].
 //
@@ -107,29 +107,29 @@ func init() {
 //
 // Classifications example:
 //
-//  // add "go.viam.com/rdk/utils" to imports to use this code snippet
+//	 // add "go.viam.com/rdk/utils" to imports to use this code snippet
 //
-//	myCam, err := camera.FromRobot(machine, "my_camera")
-//	if err != nil {
-//		logger.Error(err)
-//		return
-//	}
-//	// Get an image from the camera decoded as an image.Image
-//	img, err = camera.DecodeImageFromCamera(context.Background(), utils.MimeTypeJPEG, nil, myCam)
+//		myCam, err := camera.FromRobot(machine, "my_camera")
+//		if err != nil {
+//			logger.Error(err)
+//			return
+//		}
+//		// Get an image from the camera decoded as an image.Image
+//		img, err = camera.DecodeImageFromCamera(context.Background(), utils.MimeTypeJPEG, nil, myCam)
 //
-//	myClassifierService, err := vision.FromRobot(machine, "my_classifier")
-//	if err != nil {
-//		logger.Error(err)
-//		return
-//	}
-//	// Get the 2 classifications with the highest confidence scores from the image
-//	classifications, err := myClassifierService.Classifications(context.Background(), img, 2, nil)
-//	if err != nil {
-//		logger.Fatalf("Could not get classifications: %v", err)
-//	}
-//	if len(classifications) > 0 {
-//		logger.Info(classifications[0])
-//	}
+//		myClassifierService, err := vision.FromRobot(machine, "my_classifier")
+//		if err != nil {
+//			logger.Error(err)
+//			return
+//		}
+//		// Get the 2 classifications with the highest confidence scores from the image
+//		classifications, err := myClassifierService.Classifications(context.Background(), img, 2, nil)
+//		if err != nil {
+//			logger.Fatalf("Could not get classifications: %v", err)
+//		}
+//		if len(classifications) > 0 {
+//			logger.Info(classifications[0])
+//		}
 //
 // For more information, see the [Classifications method docs].
 //
