@@ -118,7 +118,8 @@ cli.Command{
             ...
         },
     },
-}```
+}
+```
 </details>
 
 ## Create Usage Text With Helper Func, Only Specify Required Args
