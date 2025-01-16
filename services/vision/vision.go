@@ -83,7 +83,7 @@ func init() {
 //		logger.Info(detections[0])
 //	}
 //
-// For more information, see the [Detections method docs].
+// Import "go.viam.com/rdk/utils". For more information, see the [Detections method docs].
 //
 // ClassificationsFromCamera example:
 //
@@ -127,7 +127,7 @@ func init() {
 //		logger.Info(classifications[0])
 //	}
 //
-// For more information, see the [Classifications method docs].
+// Import "go.viam.com/rdk/utils". For more information, see the [Classifications method docs].
 //
 // GetObjectPointClouds example:
 //
