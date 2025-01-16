@@ -13,29 +13,29 @@ jobs:
         language: ["python", "go"]
         resource:
           [
-            { subtype: "arm", type: "component" },
-            { subtype: "audio_input", type: "component" },
-            { subtype: "base", type: "component" },
-            { subtype: "board", type: "component" },
-            { subtype: "camera", type: "component" },
-            { subtype: "encoder", type: "component" },
-            { subtype: "gantry", type: "component" },
-            { subtype: "generic", type: "component" },
-            { subtype: "gripper", type: "component" },
-            { subtype: "input", type: "component" },
-            { subtype: "motor", type: "component" },
-            { subtype: "movement_sensor", type: "component" },
-            { subtype: "pose_tracker", type: "component" },
-            { subtype: "power_sensor", type: "component" },
-            { subtype: "sensor", type: "component" },
-            { subtype: "servo", type: "component" },
+            { subtype: "arm" },
+            { subtype: "audio_input" },
+            { subtype: "base" },
+            { subtype: "board" },
+            { subtype: "camera" },
+            { subtype: "encoder" },
+            { subtype: "gantry" },
+            { subtype: "generic_component" },
+            { subtype: "gripper" },
+            { subtype: "input" },
+            { subtype: "motor" },
+            { subtype: "movement_sensor" },
+            { subtype: "pose_tracker" },
+            { subtype: "power_sensor" },
+            { subtype: "sensor" },
+            { subtype: "servo" },
 
-            { subtype: "generic", type: "service" },
-            { subtype: "mlmodel", type: "service" },
-            { subtype: "motion", type: "service" },
-            { subtype: "navigation", type: "service" },
-            { subtype: "slam", type: "service" },
-            { subtype: "vision", type: "service" },
+            { subtype: "generic-service" },
+            { subtype: "mlmodel" },
+            { subtype: "motion" },
+            { subtype: "navigation" },
+            { subtype: "slam" },
+            { subtype: "vision" },
           ]
     steps:
       - name: Checkout Code
@@ -53,7 +53,6 @@ jobs:
           --language "${{ matrix.language }}" \
           --public-namespace "my-org" \
           --resource-subtype "${{ matrix.resource.subtype }}" \
-          --resource-type "${{ matrix.resource.type }}" \
           --model-name "model-name" \
           --dry-run
 
