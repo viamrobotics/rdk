@@ -205,7 +205,16 @@ func promptUser(module *modulegen.ModuleInputs) error {
 				words[i] = titleCaser.String(word)
 			}
 		}
-		resourceOptions = append(resourceOptions, huh.NewOption(strings.Join(words, " "), resource))
+		// we differentiate generic-service and generic-component in `modulegen.Resources`
+		// but they still have the type listed. This carveout prevents the user prompt from
+		// suggesting `Generic Component Component` or `Generic Service Service` as an option
+		var resType string
+		if words[0] == "Generic" {
+			resType = strings.Join(words[:2], " ")
+		} else {
+			resType = strings.Join(words, " ")
+		}
+		resourceOptions = append(resourceOptions, huh.NewOption(resType, resource))
 	}
 	form := huh.NewForm(
 		huh.NewGroup(
