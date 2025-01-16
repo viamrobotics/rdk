@@ -441,6 +441,9 @@ func main() {
 			nolintPrintln("reset range")
 			nolintPrintln("-  Unset any prior range. \"zoom out to full\"")
 			nolintPrintln()
+			nolintPrintln("r, refresh")
+			nolintPrintln("-  Regenerate the plot.png image. Useful when a current viam-server is running.")
+			nolintPrintln()
 			nolintPrintln("`quit` or Ctrl-d to exit")
 		case strings.HasPrefix(cmd, "range "):
 			pieces := strings.SplitN(cmd, " ", 3)

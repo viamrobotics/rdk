@@ -342,8 +342,8 @@ func (ftdc *FTDC) constructDatum() datum {
 	// can release the mutex before calling any `Stats` methods. It may be the case where the
 	// `Stats` method acquires some other mutex/resource.  E.g: acquiring resources from the
 	// resource graph. Which is the starting point for creating a deadlock scenario.
-	statsers := make([]namedStatser, len(ftdc.statsers))
 	ftdc.mu.Lock()
+	statsers := make([]namedStatser, len(ftdc.statsers))
 	datum.generationID = ftdc.inputGenerationID
 	copy(statsers, ftdc.statsers)
 	ftdc.mu.Unlock()

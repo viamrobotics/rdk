@@ -215,9 +215,6 @@ func readFromCloud(
 	cloudCfg := originalCfg.Cloud
 	unprocessedConfig, cached, err := getFromCloudOrCache(ctx, cloudCfg, shouldReadFromCache, logger)
 	if err != nil {
-		if !cached {
-			err = errors.Wrap(err, "error getting cloud config")
-		}
 		return nil, err
 	}
 
@@ -622,10 +619,13 @@ func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCac
 			if cacheErr != nil {
 				if os.IsNotExist(cacheErr) {
 					// Return original http error if failed to load from cache.
-					return nil, cached, err
+					return nil, cached, errors.Wrap(
+						err,
+						"error getting cloud config, cached config does not exist; returning error from cloud config attempt",
+					)
 				}
 				// return cache err
-				return nil, cached, cacheErr
+				return nil, cached, errors.Wrap(cacheErr, "error reading cache after getting cloud config failed")
 			}
 
 			lastUpdated := "unknown"
@@ -638,7 +638,7 @@ func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCac
 			return cachedConfig, cached, nil
 		}
 
-		return nil, cached, err
+		return nil, cached, errors.Wrap(err, "error getting cloud config")
 	}
 
 	return cfg, cached, nil
@@ -650,25 +650,25 @@ func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger logging.Logge
 
 	conn, err := CreateNewGRPCClient(ctx, cloudCfg, logger)
 	if err != nil {
-		return nil, shouldCheckCacheOnFailure, err
+		return nil, shouldCheckCacheOnFailure, errors.WithMessage(err, "error creating cloud grpc client")
 	}
 	defer utils.UncheckedErrorFunc(conn.Close)
 
 	agentInfo, err := getAgentInfo(logger)
 	if err != nil {
-		return nil, shouldCheckCacheOnFailure, err
+		return nil, shouldCheckCacheOnFailure, errors.WithMessage(err, "error getting agent info")
 	}
 
 	service := apppb.NewRobotServiceClient(conn)
 	res, err := service.Config(ctx, &apppb.ConfigRequest{Id: cloudCfg.ID, AgentInfo: agentInfo})
 	if err != nil {
 		// Check cache?
-		return nil, shouldCheckCacheOnFailure, err
+		return nil, shouldCheckCacheOnFailure, errors.WithMessage(err, "error getting config from config endpoint")
 	}
 	cfg, err := FromProto(res.Config, logger)
 	if err != nil {
 		// Check cache?
-		return nil, shouldCheckCacheOnFailure, err
+		return nil, shouldCheckCacheOnFailure, errors.WithMessage(err, "error converting config from proto")
 	}
 
 	return cfg, false, nil

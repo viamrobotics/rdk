@@ -57,6 +57,8 @@ func init() {
 //		logger.Info(detections[0])
 //	}
 //
+// For more information, see the [DetectionsFromCamera method docs].
+//
 // Detections example:
 //
 //	myCam, err := camera.FromRobot(machine, "my_camera")
@@ -84,6 +86,8 @@ func init() {
 //		logger.Info(detections[0])
 //	}
 //
+// For more information, see the [Detections method docs].
+//
 // ClassificationsFromCamera example:
 //
 //	myClassifierService, err := vision.FromRobot(machine, "my_classifier")
@@ -99,6 +103,8 @@ func init() {
 //	if len(classifications) > 0 {
 //		logger.Info(classifications[0])
 //	}
+//
+// For more information, see the [ClassificationsFromCamera method docs].
 //
 // Classifications example:
 //
@@ -131,6 +137,8 @@ func init() {
 //		logger.Info(classifications[0])
 //	}
 //
+// For more information, see the [Classifications method docs].
+//
 // GetObjectPointClouds example:
 //
 //	mySegmenterService, err := vision.FromRobot(machine, "my_segmenter")
@@ -146,6 +154,8 @@ func init() {
 //	if len(objects) > 0 {
 //		logger.Info(objects[0])
 //	}
+//
+// For more information, see the [GetObjectPointClouds method docs].
 //
 // CaptureAllFromCamera example:
 //
@@ -164,7 +174,15 @@ func init() {
 //	classifications := capture.Classifications
 //	objects := capture.Objects
 //
-// [vision service docs]: https://docs.viam.com/services/vision/
+// For more information, see the [CaptureAllFromCamera method docs].
+//
+// [vision service docs]: https://docs.viam.com/dev/reference/apis/services/vision/
+// [DetectionsFromCamera method docs]: https://docs.viam.com/dev/reference/apis/services/vision/#getdetectionsfromcamera
+// [Detections method docs]: https://docs.viam.com/dev/reference/apis/services/vision/#getdetections
+// [ClassificationsFromCamera method docs]: https://docs.viam.com/dev/reference/apis/services/vision/#getclassificationsfromcamera
+// [Classifications method docs]: https://docs.viam.com/dev/reference/apis/services/vision/#getclassifications
+// [GetObjectPointClouds method docs]: https://docs.viam.com/dev/reference/apis/services/vision/#getobjectpointclouds
+// [CaptureAllFromCamera method docs]: https://docs.viam.com/dev/reference/apis/services/vision/#captureallfromcamera
 type Service interface {
 	resource.Resource
 	// DetectionsFromCamera returns a list of detections from the next image from a specified camera using a configured detector.
