@@ -62,8 +62,8 @@ const (
 	generalFlagType              = "type"
 	generalFlagResourceSubtype   = "resource-subtype"
 	generalFlagTags              = "tags"
-	generalFlagStart = "start"
-	generalFlagEnd   = "end"
+	generalFlagStart             = "start"
+	generalFlagEnd               = "end"
 
 	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
