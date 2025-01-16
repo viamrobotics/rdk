@@ -97,11 +97,15 @@ type Camera interface {
 //	myCamera, err := camera.FromRobot(machine, "my_camera")
 //	img, err = camera.DecodeImageFromCamera(context.Background(), utils.MimeTypeJPEG, nil, myCamera)
 //
+// For more information, see the [Image method docs].
+//
 // Images example:
 //
 //	myCamera, err := camera.FromRobot(machine, "my_camera")
 //
 //	images, metadata, err := myCamera.Images(context.Background())
+//
+// For more information, see the [Images method docs].
 //
 // Stream example:
 //
@@ -121,13 +125,21 @@ type Camera interface {
 //	// gets the next point cloud from a camera
 //	pointCloud, err := myCamera.NextPointCloud(context.Background())
 //
+// For more information, see the [NextPointCloud method docs].
+//
 // Close example:
 //
 //	myCamera, err := camera.FromRobot(machine, "my_camera")
 //
 //	err = myCamera.Close(context.Background())
 //
-// [camera component docs]: https://docs.viam.com/components/camera/
+// For more information, see the [Close method docs].
+//
+// [camera component docs]: https://docs.viam.com/dev/reference/apis/components/camera/
+// [Image method docs]: https://docs.viam.com/dev/reference/apis/components/camera/#getimage
+// [Images method docs]: https://docs.viam.com/dev/reference/apis/components/camera/#getimages
+// [NextPointCloud method docs]: https://docs.viam.com/dev/reference/apis/components/camera/#getpointcloud
+// [Close method docs]: https://docs.viam.com/dev/reference/apis/components/camera/#close
 type VideoSource interface {
 	// Image returns a byte slice representing an image that tries to adhere to the MIME type hint.
 	// Image also may return metadata about the frame.

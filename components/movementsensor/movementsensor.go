@@ -75,10 +75,14 @@ func Named(name string) resource.Name {
 //	// Get the current position of the movement sensor above sea level in meters.
 //	position, altitude, err := myMovementSensor.Position(context.Background(), nil)
 //
+// For more information, see the [Position method docs].
+//
 // LinearVelocity example:
 //
 //	// Get the current linear velocity of the movement sensor.
 //	linVel, err := myMovementSensor.LinearVelocity(context.Background(), nil)
+//
+// For more information, see the [LinearVelocity method docs].
 //
 // AngularVelocity example:
 //
@@ -88,15 +92,21 @@ func Named(name string) resource.Name {
 //	// Get the y component of angular velocity.
 //	yAngVel := angVel.Y
 //
+// For more information, see the [AngularVelocity method docs].
+//
 // LinearAcceleration example:
 //
 //	// Get the current linear acceleration of the movement sensor.
 //	linAcc, err := myMovementSensor.LinearAcceleration(context.Background(), nil)
 //
+// For more information, see the [LinearAcceleration method docs].
+//
 // CompassHeading example:
 //
 //	// Get the current compass heading of the movement sensor.
 //	heading, err := myMovementSensor.CompassHeading(context.Background(), nil)
+//
+// For more information, see the [CompassHeading method docs].
 //
 // Orientation example:
 //
@@ -112,17 +122,31 @@ func Named(name string) resource.Name {
 //	logger.Info("The z component of the orientation vector: ", orientation.OZ)
 //	logger.Info("The number of degrees that the movement sensor is rotated about the vector: ", orientation.Theta)
 //
+// For more information, see the [Orientation method docs].
+//
 // Properties example:
 //
 //	// Get the supported properties of the movement sensor.
 //	properties, err := myMovementSensor.Properties(context.Background(), nil)
+//
+// For more information, see the [Properties method docs].
 //
 // Accuracy example:
 //
 //	// Get the accuracy of the movement sensor.
 //	accuracy, err := myMovementSensor.Accuracy(context.Background(), nil)
 //
-// [movement sensor component docs]: https://docs.viam.com/components/movement-sensor/
+// For more information, see the [Accuracy method docs].
+//
+// [movement sensor component docs]: https://docs.viam.com/dev/reference/apis/components/movement-sensor/
+// [Position method docs]: https://docs.viam.com/dev/reference/apis/components/movement-sensor/#getposition
+// [LinearVelocity method docs]: https://docs.viam.com/dev/reference/apis/components/movement-sensor/#getlinearvelocity
+// [AngularVelocity method docs]: https://docs.viam.com/dev/reference/apis/components/movement-sensor/#getangularvelocity
+// [LinearAcceleration method docs]: https://docs.viam.com/dev/reference/apis/components/movement-sensor/#getlinearacceleration
+// [CompassHeading method docs]: https://docs.viam.com/dev/reference/apis/components/movement-sensor/#getcompassheading
+// [Orientation method docs]: https://docs.viam.com/dev/reference/apis/components/movement-sensor/#getorientation
+// [Properties method docs]: https://docs.viam.com/dev/reference/apis/components/movement-sensor/#getproperties
+// [Accuracy method docs]: https://docs.viam.com/dev/reference/apis/components/movement-sensor/#getaccuracy
 type MovementSensor interface {
 	resource.Sensor
 	resource.Resource

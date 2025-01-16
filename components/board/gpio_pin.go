@@ -19,6 +19,8 @@ import (
 //	// Set the pin to high.
 //	err = pin.Set(context.Background(), true, nil)
 //
+// For more information, see the [Set method docs].
+//
 // Get example:
 //
 //	myBoard, err := board.FromRobot(robot, "my_board")
@@ -28,6 +30,8 @@ import (
 //
 //	// Get if it is true or false that the state of the pin is high.
 //	high, err := pin.Get(context.Background(), nil)
+//
+// For more information, see the [Get method docs].
 //
 // PWM example:
 //
@@ -39,6 +43,8 @@ import (
 //	// Returns the duty cycle.
 //	duty_cycle, err := pin.PWM(context.Background(), nil)
 //
+// For more information, see the [PWM method docs].
+//
 // SetPWM example:
 //
 //	myBoard, err := board.FromRobot(robot, "my_board")
@@ -48,6 +54,8 @@ import (
 //
 //	// Set the duty cycle to .6, meaning that this pin will be in the high state for 60% of the duration of the PWM interval period.
 //	err = pin.SetPWM(context.Background(), .6, nil)
+//
+// For more information, see the [SetPWM method docs].
 //
 // PWMFreq example:
 //
@@ -59,6 +67,8 @@ import (
 //	// Get the PWM frequency of this pin.
 //	freqHz, err := pin.PWMFreq(context.Background(), nil)
 //
+// For more information, see the [PWMFreq method docs].
+//
 // SetPWMFreq example:
 //
 //	myBoard, err := board.FromRobot(robot, "my_board")
@@ -68,6 +78,15 @@ import (
 //
 //	// Set the PWM frequency of this pin to 1600 Hz.
 //	err = pin.SetPWMFreq(context.Background(), 1600, nil)
+//
+// For more information, see the [SetPWMFreq method docs].
+//
+// [Set method docs]: https://docs.viam.com/dev/reference/apis/components/board/#setgpio
+// [Get method docs]: https://docs.viam.com/dev/reference/apis/components/board/#getgpio
+// [PWM method docs]: https://docs.viam.com/dev/reference/apis/components/board/#getpwm
+// [SetPWM method docs]: https://docs.viam.com/dev/reference/apis/components/board/#setpwm
+// [PWMFreq method docs]: https://docs.viam.com/dev/reference/apis/components/board/#pwmfrequency
+// [SetPWMFreq method docs]: https://docs.viam.com/dev/reference/apis/components/board/#setpwmfrequency
 type GPIOPin interface {
 	// Set sets the pin to either low or high.
 	Set(ctx context.Context, high bool, extra map[string]interface{}) error

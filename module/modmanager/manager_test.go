@@ -9,8 +9,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -181,11 +183,11 @@ func TestModManagerFunctions(t *testing.T) {
 			if mode == "unix" {
 				// make sure mod.addr has changed
 				test.That(t, mod.addr, test.ShouldNotEqual, oldAddr)
-			}
 
-			// check that we're still able to use the old client
-			_, err = oldClient.Ready(ctx, &v1.ReadyRequest{ParentAddress: parentAddr})
-			test.That(t, err, test.ShouldBeNil)
+				// check that we're still able to use the old client
+				_, err = oldClient.Ready(ctx, &v1.ReadyRequest{ParentAddress: parentAddr})
+				test.That(t, err, test.ShouldBeNil)
+			}
 
 			test.That(t, mod.process.Stop(), test.ShouldBeNil)
 
@@ -359,6 +361,49 @@ func TestModManagerFunctions(t *testing.T) {
 			_, err = os.Stat(expectedDataDir)
 			test.That(t, err, test.ShouldBeError)
 		})
+	}
+}
+
+func TestModManagerKill(t *testing.T) {
+	// this test will not pass on windows as it relies on the UnixPid of the managed process
+	if runtime.GOOS == "windows" {
+		t.Skip()
+	}
+	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
+	logger, logs := logging.NewObservedTestLogger(t)
+	parentAddr := setupSocketWithRobot(t)
+
+	ctx := context.Background()
+	mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{})
+	modCfg := config.Module{
+		Name:    "simple-module",
+		ExePath: modPath,
+	}
+	err := mgr.Add(ctx, modCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	// get the module from the module map
+	mMgr, ok := mgr.(*Manager)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	mod, ok := mMgr.modules.Load(modCfg.Name)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	mgr.Kill()
+
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		test.That(tb, logs.FilterMessageSnippet("Killing module").Len(),
+			test.ShouldEqual, 1)
+	})
+
+	// in CI, we have to send another signal to make sure the cmd.Wait() in
+	// the manage goroutine actually returns.
+	// We do not care about the error if it is expected.
+	// maybe related to https://github.com/golang/go/issues/18874
+	pid, err := mod.process.UnixPid()
+	test.That(t, err, test.ShouldBeNil)
+	if err := syscall.Kill(pid, syscall.SIGTERM); err != nil {
+		test.That(t, errors.Is(err, os.ErrProcessDone), test.ShouldBeFalse)
 	}
 }
 
@@ -1672,7 +1717,7 @@ func TestFirstRun(t *testing.T) {
 		modCfg := config.Module{
 			Name:            "test-module",
 			ExePath:         exePath,
-			FirstRunTimeout: utils.Duration(1 * time.Millisecond),
+			FirstRunTimeout: utils.Duration(100 * time.Millisecond),
 		}
 		err := mgr.FirstRun(ctx, modCfg)
 		test.That(t, err, test.ShouldNotBeNil)

@@ -45,12 +45,16 @@ func Named(name string) resource.Name {
 //	// Get the list of Controls provided by the controller.
 //	controls, err := myController.Controls(context.Background(), nil)
 //
+// For more information, see the [Controls method docs].
+//
 // Events example:
 //
 //	myController, err := input.FromRobot(machine, "my_input_controller")
 //
 //	// Get the most recent Event for each Control.
 //	recent_events, err := myController.Events(context.Background(), nil)
+//
+// For more information, see the [Events method docs].
 //
 // RegisterControlCallback example:
 //
@@ -75,7 +79,12 @@ func Named(name string) resource.Name {
 //
 //	myController.RegisterControlCallback(context.Background(), input.ButtonStart, triggers, printStartTime, nil)
 //
-// [input controller component docs]: https://docs.viam.com/components/input-controller/
+// For more information, see the [RegisterControlCallback method docs].
+//
+// [input controller component docs]: https://docs.viam.com/dev/reference/apis/components/input-controller/
+// [Controls method docs]: https://docs.viam.com/dev/reference/apis/components/input-controller/#getcontrols
+// [Events method docs]: https://docs.viam.com/dev/reference/apis/components/input-controller/#getevents
+// [RegisterControlCallback method docs]: https://docs.viam.com/dev/reference/apis/components/input-controller/#registercontrolcallback
 type Controller interface {
 	resource.Resource
 

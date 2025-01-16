@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"runtime/pprof"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/invopop/jsonschema"
@@ -50,6 +51,7 @@ type Arguments struct {
 	DisableMulticastDNS        bool   `flag:"disable-mdns,usage=disable server discovery through multicast DNS"`
 	DumpResourcesPath          string `flag:"dump-resources,usage=dump all resource registrations as json to the provided file path"`
 	EnableFTDC                 bool   `flag:"ftdc,default=true,usage=enable fulltime data capture for diagnostics"`
+	OutputLogFile              string `flag:"log-file,usage=write logs to a file with log rotation"`
 }
 
 type robotServer struct {
@@ -68,6 +70,9 @@ func logViamEnvVariables(logger logging.Logger) {
 	}
 	if value, exists := os.LookupEnv("VIAM_MODULE_STARTUP_TIMEOUT"); exists {
 		viamEnvVariables = append(viamEnvVariables, "VIAM_MODULE_STARTUP_TIMEOUT", value)
+	}
+	if value, exists := os.LookupEnv("CWD"); exists {
+		viamEnvVariables = append(viamEnvVariables, "CWD", value)
 	}
 	if rutils.PlatformHomeDir() != "" {
 		viamEnvVariables = append(viamEnvVariables, "HOME", rutils.PlatformHomeDir())
@@ -114,7 +119,23 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		return dumpResourceRegistrations(argsParsed.DumpResourcesPath)
 	}
 
-	logger, registry := logging.NewLoggerWithRegistry("rdk")
+	logger, registry := logging.NewBlankLoggerWithRegistry("rdk")
+	// Dan: We changed from a constructor that defaulted to INFO to `NewBlankLoggerWithRegistry`
+	// which defaults to DEBUG. We pessimistically set the level to INFO to ensure parity. Though I
+	// expect `InitLoggingSettings` will always put the logger into the right state without any
+	// observable side-effects.
+	logger.SetLevel(logging.INFO)
+	if argsParsed.OutputLogFile != "" {
+		logWriter, closer := logging.NewFileAppender(argsParsed.OutputLogFile)
+		defer func() {
+			utils.UncheckedError(closer.Close())
+		}()
+		logger.AddAppender(logWriter)
+	} else {
+		logger.AddAppender(logging.NewStdoutAppender())
+	}
+
+	logging.RegisterEventLogger(logger)
 	logging.ReplaceGlobal(logger)
 	config.InitLoggingSettings(logger, argsParsed.Debug)
 
@@ -348,7 +369,11 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	forceShutdown := make(chan struct{})
 	defer func() { <-forceShutdown }()
 
-	var cloudRestartCheckerActive chan struct{}
+	var (
+		theRobot                  robot.LocalRobot
+		theRobotLock              sync.Mutex
+		cloudRestartCheckerActive chan struct{}
+	)
 	rpcDialer := rpc.NewCachedDialer()
 	defer func() {
 		if cloudRestartCheckerActive != nil {
@@ -378,6 +403,12 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 				case <-doneServing:
 					return true
 				default:
+					theRobotLock.Lock()
+					robot := theRobot
+					theRobotLock.Unlock()
+					if robot != nil {
+						robot.Kill()
+					}
 					s.logger.Fatalw("server failed to cleanly shutdown after deadline", "deadline", hungShutdownDeadline)
 					return true
 				}
@@ -493,8 +524,11 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		cancel()
 		return err
 	}
+	theRobotLock.Lock()
+	theRobot = myRobot
+	theRobotLock.Unlock()
 	defer func() {
-		err = multierr.Combine(err, myRobot.Close(context.Background()))
+		err = multierr.Combine(err, theRobot.Close(context.Background()))
 	}()
 
 	// watch for and deliver changes to the robot
@@ -514,7 +548,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		// Use `fullProcessedConfig` as the initial config for the config watcher
 		// goroutine, as we want incoming config changes to be compared to the full
 		// config.
-		s.configWatcher(ctx, fullProcessedConfig, myRobot, watcher)
+		s.configWatcher(ctx, fullProcessedConfig, theRobot, watcher)
 	}()
 	// At end of this function, cancel context and wait for watcher goroutine
 	// to complete.
@@ -528,7 +562,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	if err != nil {
 		return err
 	}
-	return web.RunWeb(ctx, myRobot, options, s.logger)
+	return web.RunWeb(ctx, theRobot, options, s.logger)
 }
 
 // dumpResourceRegistrations prints all builtin resource registrations as a json array

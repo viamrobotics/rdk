@@ -28,6 +28,10 @@ type Tick struct {
 //
 //	// Get the amount of times this DigitalInterrupt has ticked.
 //	count, err := interrupt.Value(context.Background(), nil)
+//
+// For more information, see the [Value method docs].
+//
+// [Value method docs]: https://docs.viam.com/dev/reference/apis/components/board/#getdigitalinterruptvalue
 type DigitalInterrupt interface {
 	// Name returns the name of the interrupt.
 	Name() string

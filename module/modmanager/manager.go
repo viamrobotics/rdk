@@ -211,6 +211,22 @@ func (mgr *Manager) Close(ctx context.Context) error {
 	return err
 }
 
+// Kill will kill all processes in the module's process group.
+// This is best effort as we do not have a lock during this
+// function. Taking the lock will mean that we may be blocked,
+// and we do not want to be blocked.
+func (mgr *Manager) Kill() {
+	if mgr.restartCtxCancel != nil {
+		mgr.restartCtxCancel()
+	}
+	// sync.Map's Range does not block other methods on the map;
+	// even f itself may call any method on the map.
+	mgr.modules.Range(func(_ string, mod *module) bool {
+		mod.killProcessGroup()
+		return true
+	})
+}
+
 // Handles returns all the models for each module registered.
 func (mgr *Manager) Handles() map[string]modlib.HandlerMap {
 	res := map[string]modlib.HandlerMap{}
@@ -1245,6 +1261,14 @@ func (m *module) stopProcess() error {
 	}
 
 	return nil
+}
+
+func (m *module) killProcessGroup() {
+	if m.process == nil {
+		return
+	}
+	m.logger.Infof("Killing module: %s process", m.cfg.Name)
+	m.process.KillGroup()
 }
 
 func (m *module) registerResources(mgr modmaninterface.ModuleManager) {
