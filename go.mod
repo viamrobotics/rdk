@@ -77,7 +77,7 @@ require (
 	go.uber.org/zap v1.27.0
 	go.viam.com/api v0.1.380
 	go.viam.com/test v1.2.4
-	go.viam.com/utils v0.1.120
+	go.viam.com/utils v0.1.123
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.19.0
 	golang.org/x/mobile v0.0.0-20240112133503-c713f31d574b
@@ -94,6 +94,7 @@ require (
 	google.golang.org/grpc v1.66.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.2.0
 	google.golang.org/protobuf v1.35.1
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/src-d/go-billy.v4 v4.3.2
 	gorgonia.org/tensor v0.9.24
 	gotest.tools/gotestsum v1.10.0
