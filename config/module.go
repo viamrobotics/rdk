@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -267,7 +268,7 @@ func (m *Module) FirstRun(
 
 	// Load the module's meta.json. If it doesn't exist DEBUG log and exit quietly.
 	// For all other errors WARN log and exit.
-	meta, err := m.getJSONManifest(unpackedModDir)
+	meta, moduleWorkingDirectory, err := m.getJSONManifest(unpackedModDir, env)
 	var pathErr *os.PathError
 	switch {
 	case errors.As(err, &pathErr):
@@ -282,7 +283,7 @@ func (m *Module) FirstRun(
 		logger.Debug("no first run script specified, skipping first run")
 		return nil
 	}
-	relFirstRunPath, err := utils.SafeJoinDir(unpackedModDir, meta.FirstRun)
+	relFirstRunPath, err := utils.SafeJoinDir(moduleWorkingDirectory, meta.FirstRun)
 	if err != nil {
 		logger.Errorw("failed to build path to first run script, skipping first run", "error", err)
 		return nil
@@ -377,42 +378,116 @@ func (m *Module) FirstRun(
 	return nil
 }
 
-// getJSONManifest returns a loaded meta.json from one of two sources (in order of precedence):
-// 1. if there is a meta.json in the exe dir, use that, except in local non-tarball case.
-// 2. if this is a local tarball and there's a meta.json next to the tarball, use that.
+// getJSONManifest returns a loaded meta.json from one of three sources (in order of precedence):
+// 1. if this is a registry module and there is a meta.json in its top level directory, use that.
+// 2. if there is a meta.json in the exe dir, use that, except in local non-tarball case.
+// 3. if this is a local tarball, use the meta.json in unpackedModDir.
 // Note: the working directory must be the unpacked tarball directory or local exec directory.
-func (m Module) getJSONManifest(unpackedModDir string) (*JSONManifest, error) {
-	// note: we don't look at internal meta.json in local non-tarball case because user has explicitly requested a binary.
-	localNonTarball := m.Type == ModuleTypeLocal && !m.NeedsSyntheticPackage()
-	if !localNonTarball {
-		// this is case 1, meta.json in exe folder.
-		metaPath, err := utils.SafeJoinDir(unpackedModDir, "meta.json")
-		if err != nil {
-			return nil, err
-		}
-		_, err = os.Stat(metaPath)
-		if err == nil {
-			// this is case 1, meta.json in exe dir
-			meta, err := parseJSONFile[JSONManifest](metaPath)
-			if err != nil {
-				return nil, err
+func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*JSONManifest, string, error) {
+	// note: all registry modules qualify for cases 1 & 2; local tarballs for cases 2 & 3; and local non-tarballs for none. We don't look at
+	// internal meta.json in local non-tarball case because user has explicitly requested a binary.
+
+	// note: each case is exited iff no errors occur but the meta.json file is not found
+
+	var ok bool
+	var moduleWorkingDirectory string
+	var registryErr error
+
+	online := m.Type == ModuleTypeRegistry
+
+	// case 1: registry
+	if online {
+		moduleWorkingDirectory, ok = env["VIAM_MODULE_ROOT"]
+		if ok {
+			var meta *JSONManifest
+			meta, registryErr = findMetaJSONFile(moduleWorkingDirectory)
+			if registryErr != nil {
+				// return from getJSONManifest() if the error returned does NOT indicate that the file wasn't found
+				if !os.IsNotExist(registryErr) {
+					return nil, "", errors.Wrap(registryErr, "registry module")
+				}
 			}
-			return meta, nil
+
+			if meta != nil {
+				return meta, moduleWorkingDirectory, nil
+			}
 		}
 	}
+
+	var registryTarballErr error
+
+	localNonTarball := m.Type == ModuleTypeLocal && !m.NeedsSyntheticPackage()
+
+	// case 2: registry OR tarball
+	if !localNonTarball && unpackedModDir != moduleWorkingDirectory {
+		var meta *JSONManifest
+		meta, registryTarballErr = findMetaJSONFile(unpackedModDir)
+		if registryTarballErr != nil {
+			if !os.IsNotExist(registryTarballErr) {
+				if online {
+					return nil, "", errors.Wrap(registryTarballErr, "registry module")
+				}
+
+				return nil, "", errors.Wrap(registryTarballErr, "local tarball")
+			}
+		}
+
+		if meta != nil {
+			return meta, unpackedModDir, nil
+		}
+	}
+
+	var exeDir string
+	var localTarballErr error
+
+	// TODO(RSDK-7848): remove this case once java sdk supports internal meta.json.
+	// case 3: local AND tarball
 	if m.NeedsSyntheticPackage() {
-		// this is case 2, side-by-side
-		// TODO(RSDK-7848): remove this case once java sdk supports internal meta.json.
-		metaPath, err := utils.SafeJoinDir(filepath.Dir(m.ExePath), "meta.json")
-		if err != nil {
-			return nil, err
+		exeDir = filepath.Dir(m.ExePath)
+
+		var meta *JSONManifest
+		meta, localTarballErr = findMetaJSONFile(exeDir)
+		if localTarballErr != nil {
+			if !os.IsNotExist(localTarballErr) {
+				return nil, "", errors.Wrap(localTarballErr, "local tarball")
+			}
 		}
-		meta, err := parseJSONFile[JSONManifest](metaPath)
-		if err != nil {
-			// note: this error deprecates the side-by-side case because the side-by-side case is deprecated.
-			return nil, errors.Wrapf(err, "couldn't find meta.json inside tarball %s (or next to it)", m.ExePath)
+
+		if meta != nil {
+			return meta, exeDir, nil
 		}
-		return meta, err
 	}
-	return nil, errors.New("failed to find meta.json")
+
+	if online {
+		if !ok {
+			return nil, "", errors.Wrap(registryTarballErr, "registry module: failed to find meta.json. VIAM_MODULE_ROOT not set")
+		}
+
+		return nil, "", errors.Wrap(stderrors.Join(registryErr, registryTarballErr), "registry module: failed to find meta.json")
+	}
+
+	if !localNonTarball {
+		return nil, "", errors.Wrap(stderrors.Join(registryTarballErr, localTarballErr), "local tarball: failed to find meta.json")
+	}
+
+	return nil, "", errors.New("local non-tarball: did not search for meta.json")
+}
+
+func findMetaJSONFile(dir string) (*JSONManifest, error) {
+	metaPath, err := utils.SafeJoinDir(dir, "meta.json")
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = os.Stat(metaPath)
+	if err != nil {
+		return nil, err
+	}
+
+	meta, err := parseJSONFile[JSONManifest](metaPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return meta, nil
 }
