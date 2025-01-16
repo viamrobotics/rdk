@@ -1682,7 +1682,7 @@ func TestRemoteConnClosedOnReconfigure(t *testing.T) {
 
 		// Also check that there are no error logs associated with the main robot trying to reconnect to remote2
 		// Leaked remote connections will cause the test to fail due to goroutine leaks
-		test.That(t, observer.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)
+		test.That(t, observer.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0) // TODO(RSDK-9149)
 	})
 
 	t.Run("remotes with different resources", func(t *testing.T) {
