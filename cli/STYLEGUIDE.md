@@ -127,7 +127,7 @@ When creating usage text for a CLI command, use the `createUsageText` convenienc
 to generate text. Be sure to provide the fully qualified command (less `viam`) as your first
 argument, and only include actually required flags in the `requiredFlags` argument.
 
-###Examples
+### Example
 <details>
 <summary>Diff:</summary>
 
