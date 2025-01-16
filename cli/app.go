@@ -20,9 +20,6 @@ const (
 	disableProfilesFlag = "disable-profiles"
 	profileFlagName     = "profile-name"
 
-	generalFlagStart = "start"
-	generalFlagEnd   = "end"
-
 	// TODO: RSDK-6683.
 	quietFlag = "quiet"
 
@@ -65,6 +62,8 @@ const (
 	generalFlagType              = "type"
 	generalFlagResourceSubtype   = "resource-subtype"
 	generalFlagTags              = "tags"
+	generalFlagStart = "start"
+	generalFlagEnd   = "end"
 
 	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
@@ -1120,7 +1119,7 @@ var app = &cli.App{
 						{
 							Name:      "binary",
 							Usage:     "delete binary data from Viam cloud",
-							UsageText: createUsageText("data delete binary", []string{dataFlagOrgIDs, dataFlagStart, dataFlagEnd}, true, false),
+							UsageText: createUsageText("data delete binary", []string{dataFlagOrgIDs, generalFlagStart, generalFlagEnd}, true, false),
 							Flags: []cli.Flag{
 								&cli.StringSliceFlag{
 									Name:     dataFlagOrgIDs,
