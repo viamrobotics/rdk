@@ -2242,13 +2242,6 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 						},
 					},
 					Action: createCommandWithT[generateModuleArgs](GenerateModuleAction),
-					UsageText: createUsageText("module generate", []string{
-						generalFlagName,
-						moduleFlagLanguage,
-						generalFlagResourceSubtype,
-						moduleFlagModelName,
-						moduleFlagPublicNamespace,
-					}, true, false),
 				},
 				{
 					Name:      "update",
