@@ -92,6 +92,7 @@ const yourSpecialFlag = "some-cool-flag"
 ...
 const mySpecialFlag = "some-cool-flag"
 ```
+</details>
 
 ## Hide Help From Commands With Subcommands
 When a parent level command with child commands exists (e.g., `viam organizations` has `list`,
