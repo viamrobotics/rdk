@@ -2781,7 +2781,7 @@ func enabledGrantsToProto(enabledGrants []string) ([]apppb.EnabledGrant, error) 
 	if enabledGrants == nil {
 		return nil, nil
 	}
-	enabledGrantsProto := make([]apppb.EnabledGrant, len(enabledGrants))
+	var enabledGrantsProto []apppb.EnabledGrant
 	for _, eg := range enabledGrants {
 		enabledGrant, err := enabledGrantToProto(eg)
 		if err != nil {
