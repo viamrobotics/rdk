@@ -1898,7 +1898,7 @@ var app = &cli.App{
 								&AliasStringFlag{
 									cli.StringFlag{
 										Name:     generalFlagPart,
-										Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
+										Aliases:  []string{generalFlagPartID, generalFlagPartName},
 										Required: true,
 									},
 								},
@@ -1930,7 +1930,7 @@ var app = &cli.App{
 								&AliasStringFlag{
 									cli.StringFlag{
 										Name:     generalFlagPart,
-										Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
+										Aliases:  []string{generalFlagPartID, generalFlagPartName},
 										Required: true,
 									},
 								},
@@ -1975,7 +1975,7 @@ var app = &cli.App{
 								&AliasStringFlag{
 									cli.StringFlag{
 										Name:     generalFlagPart,
-										Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
+										Aliases:  []string{generalFlagPartID, generalFlagPartName},
 										Required: true,
 									},
 								},
@@ -1991,8 +1991,8 @@ var app = &cli.App{
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
-										Name:     generalFlagMachine,
-										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
+										Name:    generalFlagMachine,
+										Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
 									},
 								},
 							},
@@ -2006,7 +2006,7 @@ var app = &cli.App{
 								&AliasStringFlag{
 									cli.StringFlag{
 										Name:     generalFlagPart,
-										Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
+										Aliases:  []string{generalFlagPartID, generalFlagPartName},
 										Required: true,
 									},
 								},
@@ -2055,7 +2055,7 @@ Organization and location are required flags if the machine/part name are not un
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     generalFlagPart,
-									Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
+									Aliases:  []string{generalFlagPartID, generalFlagPartName},
 									Required: true,
 								},
 								&cli.StringFlag{
@@ -2068,8 +2068,8 @@ Organization and location are required flags if the machine/part name are not un
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
-										Name:     generalFlagMachine,
-										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
+										Name:    generalFlagMachine,
+										Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
 									},
 								},
 							},
@@ -2089,19 +2089,19 @@ Copy a single file to the machine with a new name:
 'viam machine part cp --organization "org" --location "location" --machine "m1" --part "m1-main" my_file machine:/home/user/'
 
 Recursively copy a directory to the machine with the same name:
-'viam machine part cp --machine "m1" --part "m1-main" -r my_dir machine:/home/user/'
+'viam machine part cp --part "m1-main" -r my_dir machine:/home/user/'
 
 Copy multiple files to the machine with recursion and keep original permissions and metadata:
-'viam machine part cp --machine "m1" --part "m1-main" -r -p my_dir my_file machine:/home/user/some/existing/dir/'
+'viam machine part cp --part "m1-main" -r -p my_dir my_file machine:/home/user/some/existing/dir/'
 
 Copy a single file from the machine to a local destination:
-'viam machine part cp --machine "m1" --part "m1-main" machine:my_file ~/Downloads/'
+'viam machine part cp --part "m1-main" machine:my_file ~/Downloads/'
 
 Recursively copy a directory from the machine to a local destination with the same name:
-'viam machine part cp --machine "m1" --part "m1-main" -r machine:my_dir ~/Downloads/'
+'viam machine part cp --part "m1-main" -r machine:my_dir ~/Downloads/'
 
 Copy multiple files from the machine to a local destination with recursion and keep original permissions and metadata:
-'viam machine part cp --machine "m1" --part "m1-main" -r -p machine:my_dir machine:my_file ~/some/existing/dir/'
+'viam machine part cp --part "m1-main" -r -p machine:my_dir machine:my_file ~/some/existing/dir/'
 `,
 							UsageText: createUsageText(
 								"machines part cp",
@@ -2112,7 +2112,7 @@ Copy multiple files from the machine to a local destination with recursion and k
 								&AliasStringFlag{
 									cli.StringFlag{
 										Name:     generalFlagPart,
-										Aliases:  []string{generalFlagPartID, generalFlagAliasPartName},
+										Aliases:  []string{generalFlagPartID, generalFlagPartName},
 										Required: true,
 									},
 								},
