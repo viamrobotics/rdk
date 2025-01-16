@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	ADDRESS    = "something-unique"
+	ADDRESS    = ""
 	API_KEY    = ""
 	API_KEY_ID = ""
 
@@ -25,15 +25,29 @@ var (
 )
 
 func main() {
+	logger := logging.NewDebugLogger("client")
 	var src int
 	flag.IntVar(&src, "src", DEFAULT_SOURCE_PORT, "source address to listen on")
 
 	var dest int
 	flag.IntVar(&dest, "dest", DEFAULT_DESTINATION_PORT, "destination address to tunnel to")
 
+	var addr string
+	flag.StringVar(&addr, "addr", ADDRESS, "machine name to connect to")
+
+	var apiKey string
+	flag.StringVar(&apiKey, "api-key", apiKey, "api key to use to connect to machine")
+
+	var apiKeyID string
+	flag.StringVar(&apiKeyID, "api-key-id", apiKeyID, "api key id to use to connect to machine")
+
 	flag.Parse()
 
-	logger := logging.NewDebugLogger("client")
+	if addr == "" {
+		logger.Error("please enter an address with flag --addr")
+		return
+	}
+
 	logger.Infow("starting tunnel", "source address", src, "destination address", dest)
 	ctx := context.Background()
 
@@ -43,13 +57,13 @@ func main() {
 		client.WithDisableSessions(),
 	}
 
-	if API_KEY != "" && API_KEY_ID != "" {
+	if apiKey != "" && apiKeyID != "" {
 		opts = append(opts,
 			client.WithDialOptions(rpc.WithEntityCredentials(
-				API_KEY_ID,
+				apiKeyID,
 				rpc.Credentials{
 					Type:    rpc.CredentialsTypeAPIKey,
-					Payload: API_KEY,
+					Payload: apiKey,
 				}),
 			),
 		)
@@ -62,7 +76,7 @@ func main() {
 			),
 		)
 	}
-	machine, err := client.New(ctx, ADDRESS, logger, opts...)
+	machine, err := client.New(ctx, addr, logger, opts...)
 	if err != nil {
 		logger.Info(err)
 		return
