@@ -177,7 +177,7 @@ func ModuleBuildListAction(cCtx *cli.Context, args moduleBuildListArgs) error {
 func (c *viamClient) moduleBuildListAction(cCtx *cli.Context, args moduleBuildListArgs) error {
 	buildIDFilter := args.ID
 	var moduleIDFilter string
-	// Fall back on the module manifest build filter is not present.
+	// Fall back on the module manifest if build id is not present.
 	if buildIDFilter == "" {
 		manifestPath := args.Module
 		manifest, err := loadManifest(manifestPath)

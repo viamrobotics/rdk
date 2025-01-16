@@ -367,7 +367,7 @@ func createUsageText(command string, requiredFlags []string, unrequiredOptions, 
 // formatAcceptedValues is a helper for formatting the usage text for flags that only accept certain values.
 func formatAcceptedValues(description string, values ...string) string {
 	joined := strings.Join(values, ", ")
-	return fmt.Sprintf("%s. must be one of: [%s]", description, joined)
+	return fmt.Sprintf("%s. value(s) can be: [%s]", description, joined)
 }
 
 var app = &cli.App{
@@ -906,7 +906,7 @@ var app = &cli.App{
 				{
 					Name:      "list",
 					Usage:     "list locations for the current user",
-					UsageText: createUsageText("locations list", nil, true, false),
+					UsageText: "viam locations list [--organization=<organization>]",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:        generalFlagOrganization,
@@ -1660,8 +1660,9 @@ var app = &cli.App{
 											Required: true,
 										},
 										&cli.StringFlag{
-											Name:  generalFlagVersion,
-											Usage: "version of the ML training script to upload. defaults to current timestamp if unspecified.",
+											Name:        generalFlagVersion,
+											Usage:       "version of the ML training script to upload",
+											DefaultText: "current timestamp",
 										},
 										&cli.StringFlag{
 											Name:  mlTrainingFlagFramework,
