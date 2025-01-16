@@ -99,7 +99,7 @@ type ImageMetadata struct {
 //
 //	images, metadata, err := myCamera.Images(context.Background())
 //
-// For more infromation, see the [Images method docs]
+// For more information, see the [Images method docs]
 //
 // NextPointCloud example:
 //
