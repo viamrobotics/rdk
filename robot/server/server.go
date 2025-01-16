@@ -62,6 +62,7 @@ func (s *Server) Close() {
 
 func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 	ctx, cancel := context.WithCancel(srv.Context())
+	defer cancel()
 
 	req, err := srv.Recv()
 	if err != nil {

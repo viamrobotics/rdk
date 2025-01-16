@@ -1188,6 +1188,7 @@ func (rc *RobotClient) Version(ctx context.Context) (robot.VersionResponse, erro
 
 func (rc *RobotClient) Tunnel(ctx context.Context, rw io.ReadWriter, dest int) error {
 	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	client, err := rc.client.Tunnel(ctx)
 	if err != nil {
 		return err
