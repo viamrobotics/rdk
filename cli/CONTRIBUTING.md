@@ -10,6 +10,7 @@ credit will always be given.
 If you are reporting a bug, please include:
 
 - Your operating system name and version.
+- Which version of the viam CLI you are using (viewable with command `viam version`)
 - Any details about your local setup that might be helpful in troubleshooting.
 - The observed behavior.
 - Detailed steps to reproduce the bug.

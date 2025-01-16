@@ -127,6 +127,9 @@ When creating usage text for a CLI command, use the `createUsageText` convenienc
 to generate text. Be sure to provide the fully qualified command (less `viam`) as your first
 argument, and only include actually required flags in the `requiredFlags` argument.
 
+Additionally, be sure to use the `formatAcceptedValues` convenience method for defining usage
+text on a flag where only a discrete set of values are permitted.
+
 ### Example
 <details>
 <summary>Diff:</summary>
@@ -141,15 +144,45 @@ cli.Command{
             &cli.StringFlag{
                 Name: requiredFlag,
                 Required: true,
++                Usage: formatAcceptedValues("passes some required value", 'foo', 'bar, 'baz')
+-                Usage: "passes some required value. must be either 'foo', 'bar', or 'baz'"
             },
             &cli.StringFlag{
                 Name: optionalFlag,
             },
         },
 +        UsageText: createUsageText("my-parent-command my-child-command", []string{requiredFlag}, true, false),
--        UsageText: createUsageText("my-child-command", []string{requiredFlag, optionalFlag}, true, false),
+-        UsageText: createUsageText("my-child-command", []string{requiredFlag, optionalFlag}, false, false),
         ...
     }
+}
+```
+</details>
+
+## Use `DefaultText` Field For Defining Default values
+Instead of adding extra text to the description of what a field does, we should use the automated
+formatting provided by the `DefaultText` field.
+
+### Examples
+<details>
+<summary>Good:</summary>
+
+```golang
+cli.StringFlag{
+    Name: fooFlag,
+    Usage: "sets value of Foo",
+    DefaultText: "foo",
+}
+```
+</details>
+
+<details>
+<summary>Bad:</summary>
+
+```golang
+cli.StringFlag{
+    Name: fooFlag,
+    Usage: "sets value of Foo (defaults to foo)",
 }
 ```
 </details>
