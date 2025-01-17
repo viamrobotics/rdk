@@ -166,6 +166,8 @@ github.com/aybabtme/uniplot v0.0.0-20151203143629-039c559e5e7e h1:dSeuFcs4WAJJns
 github.com/aybabtme/uniplot v0.0.0-20151203143629-039c559e5e7e/go.mod h1:uh71c5Vc3VNIplXOFXsnDy21T1BepgT32c5X/YPrOyc=
 github.com/aymanbagabas/go-osc52/v2 v2.0.1 h1:HwpRHbFMcZLEVr42D4p7XBqjyuxQH5SMiErDT4WkJ2k=
 github.com/aymanbagabas/go-osc52/v2 v2.0.1/go.mod h1:uYgXzlJ7ZpABp8OJ+exZzJJhRNQ2ASbcXHWsFqH8hp8=
+github.com/bashar-515/goutils v0.0.0-20250114173019-5b9a1a5435a4 h1:masszxNsi1cuIQJyELg2Wjy+MnB3eX3Hh4pQ+4jdxTs=
+github.com/bashar-515/goutils v0.0.0-20250114173019-5b9a1a5435a4/go.mod h1:g1CaEkf7aJCrSI/Sfkx+6cBS1+Y3fPT2pvMQbp7TTBI=
 github.com/benbjohnson/clock v1.1.0/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
 github.com/benbjohnson/clock v1.3.5 h1:VvXlSJBzZpA/zum6Sj74hxwYI2DIxRWuNIoXAzHZz5o=
 github.com/benbjohnson/clock v1.3.5/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
@@ -1517,8 +1519,6 @@ go.viam.com/api v0.1.380 h1:VgRHDlPBku+kjIp4omxmPNmRVZezytFUUOFJ2xpRFR8=
 go.viam.com/api v0.1.380/go.mod h1:g5eipXHNm0rQmW7DWya6avKcmzoypLmxnMlAaIsE5Ls=
 go.viam.com/test v1.2.4 h1:JYgZhsuGAQ8sL9jWkziAXN9VJJiKbjoi9BsO33TW3ug=
 go.viam.com/test v1.2.4/go.mod h1:zI2xzosHdqXAJ/kFqcN+OIF78kQuTV2nIhGZ8EzvaJI=
-go.viam.com/utils v0.1.123 h1:0nxG3Rp9MmFn+qFbPQ4qSptz+hvm9MENbPXvKUBgRqU=
-go.viam.com/utils v0.1.123/go.mod h1:g1CaEkf7aJCrSI/Sfkx+6cBS1+Y3fPT2pvMQbp7TTBI=
 go4.org/unsafe/assume-no-moving-gc v0.0.0-20230525183740-e7c30c78aeb2 h1:WJhcL4p+YeDxmZWg141nRm7XC8IDmhz7lk5GpadO1Sg=
 go4.org/unsafe/assume-no-moving-gc v0.0.0-20230525183740-e7c30c78aeb2/go.mod h1:FftLjUGFEDu5k8lt0ddY+HcrH/qU/0qk+H8j9/nTl3E=
 gocv.io/x/gocv v0.25.0/go.mod h1:Rar2PS6DV+T4FL+PM535EImD/h13hGVaHhnCu1xarBs=
