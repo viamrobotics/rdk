@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
-	stderrors "errors"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -15,7 +15,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
@@ -104,7 +103,7 @@ func (m *Module) validate(path string) error {
 	if m.Type == ModuleTypeLocal {
 		_, err := os.Stat(m.ExePath)
 		if err != nil {
-			return errors.Wrapf(err, "module %s executable path error", path)
+			return fmt.Errorf("module %s executable path error: %w", path, err)
 		}
 	}
 
@@ -113,7 +112,7 @@ func (m *Module) validate(path string) error {
 	}
 
 	if m.Name == reservedModuleName {
-		return errors.Errorf("module %s cannot use the reserved name of %s", path, reservedModuleName)
+		return fmt.Errorf("module %s cannot use the reserved name of %s", path, reservedModuleName)
 	}
 
 	return nil
@@ -141,7 +140,7 @@ func (m Module) NeedsSyntheticPackage() bool {
 // SyntheticPackage creates a fake package for a module which can be used to access some package logic.
 func (m Module) SyntheticPackage() (PackageConfig, error) {
 	if m.Type != ModuleTypeLocal {
-		return PackageConfig{}, errors.New("SyntheticPackage only works on local modules")
+		return PackageConfig{}, fmt.Errorf("SyntheticPackage only works on local modules")
 	}
 	var name string
 	if m.NeedsSyntheticPackage() {
@@ -168,7 +167,7 @@ func (m Module) exeDir(packagesDir string) (string, error) {
 func parseJSONFile[T any](path string) (*T, error) {
 	f, err := os.Open(path) //nolint:gosec
 	if err != nil {
-		return nil, errors.Wrap(err, "reading json file")
+		return nil, fmt.Errorf("reading json file: %w", err)
 	}
 	var target T
 	err = json.NewDecoder(f).Decode(&target)
@@ -223,7 +222,7 @@ func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 		meta, err := parseJSONFile[JSONManifest](metaPath)
 		if err != nil {
 			// note: this error deprecates the side-by-side case because the side-by-side case is deprecated.
-			return "", errors.Wrapf(err, "couldn't find meta.json inside tarball %s (or next to it)", m.ExePath)
+			return "", fmt.Errorf("couldn't find meta.json inside tarball %s (or next to it): %w", m.ExePath, err)
 		}
 		entrypoint, err := utils.SafeJoinDir(exeDir, meta.Entrypoint)
 		if err != nil {
@@ -258,8 +257,13 @@ func (m *Module) FirstRun(
 		return err
 	}
 
-	// check if FirstRun already ran successfully for this module version by
-	// checking if a success marker file exists on disk.
+	// check if FirstRun already ran successfully for this module version by checking if a success
+	// marker file exists on disk. An example module directory structure:
+	//
+	// .viam/packages/data/module/e76d1b3b-0468-4efd-bb7f-fb1d2b352fcb-viamrtsp-0_1_0-linux-amd64/
+	// .viam/packages/data/module/e76d1b3b-0468-4efd-bb7f-fb1d2b352fcb-viamrtsp-0_1_0-linux-amd64/bin/
+	// .viam/packages/data/module/e76d1b3b-0468-4efd-bb7f-fb1d2b352fcb-viamrtsp-0_1_0-linux-amd64/bin.first_run_succeeded
+	// .viam/packages/data/module/e76d1b3b-0468-4efd-bb7f-fb1d2b352fcb-viamrtsp-0_1_0-linux-amd64/bin/viamrtsp
 	firstRunSuccessPath := unpackedModDir + FirstRunSuccessSuffix
 	if _, err := os.Stat(firstRunSuccessPath); !errors.Is(err, os.ErrNotExist) {
 		logger.Info("first run already ran")
@@ -272,7 +276,7 @@ func (m *Module) FirstRun(
 	var pathErr *os.PathError
 	switch {
 	case errors.As(err, &pathErr):
-		logger.Debugw("meta.json not found, skipping first run", "error", err)
+		logger.Infow("meta.json does not exist, skipping first run")
 		return nil
 	case err != nil:
 		logger.Warnw("failed to parse meta.json, skipping first run", "error", err)
@@ -404,7 +408,7 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 			if registryErr != nil {
 				// return from getJSONManifest() if the error returned does NOT indicate that the file wasn't found
 				if !os.IsNotExist(registryErr) {
-					return nil, "", errors.Wrap(registryErr, "registry module")
+					return nil, "", fmt.Errorf("registry module: %w", registryErr)
 				}
 			}
 
@@ -425,10 +429,10 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 		if registryTarballErr != nil {
 			if !os.IsNotExist(registryTarballErr) {
 				if online {
-					return nil, "", errors.Wrap(registryTarballErr, "registry module")
+					return nil, "", fmt.Errorf("registry module: %w", registryTarballErr)
 				}
 
-				return nil, "", errors.Wrap(registryTarballErr, "local tarball")
+				return nil, "", fmt.Errorf("local tarball: %w", registryTarballErr)
 			}
 		}
 
@@ -449,7 +453,7 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 		meta, localTarballErr = findMetaJSONFile(exeDir)
 		if localTarballErr != nil {
 			if !os.IsNotExist(localTarballErr) {
-				return nil, "", errors.Wrap(localTarballErr, "local tarball")
+				return nil, "", fmt.Errorf("local tarball: %w", localTarballErr)
 			}
 		}
 
@@ -460,14 +464,14 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 
 	if online {
 		if !ok {
-			return nil, "", errors.Wrap(registryTarballErr, "registry module: failed to find meta.json. VIAM_MODULE_ROOT not set")
+			return nil, "", fmt.Errorf("registry module: failed to find meta.json. VIAM_MODULE_ROOT not set: %w", registryTarballErr)
 		}
 
-		return nil, "", errors.Wrap(stderrors.Join(registryErr, registryTarballErr), "registry module: failed to find meta.json")
+		return nil, "", fmt.Errorf("registry module: failed to find meta.json: %w", errors.Join(registryErr, registryTarballErr))
 	}
 
 	if !localNonTarball {
-		return nil, "", errors.Wrap(stderrors.Join(registryTarballErr, localTarballErr), "local tarball: failed to find meta.json")
+		return nil, "", fmt.Errorf("local tarball: failed to find meta.json: %w", errors.Join(registryTarballErr, localTarballErr))
 	}
 
 	return nil, "", errors.New("local non-tarball: did not search for meta.json")
