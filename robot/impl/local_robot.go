@@ -1077,6 +1077,10 @@ func (r *localRobot) discoverRobotInternals(query resource.DiscoveryQuery) (inte
 	}
 }
 
+func (r *localRobot) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModelDiscovery, error) {
+	return r.manager.moduleManager.AllModels(), nil
+}
+
 func dialRobotClient(
 	ctx context.Context,
 	config config.Remote,

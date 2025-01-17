@@ -8,10 +8,19 @@ import (
 	modulepb "go.viam.com/api/module/v1"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
+	"go.viam.com/rdk/examples/customresources/apis/summationapi"
+	"go.viam.com/rdk/examples/customresources/models/mybase"
+	"go.viam.com/rdk/examples/customresources/models/mygizmo"
+	"go.viam.com/rdk/examples/customresources/models/mynavigation"
+	"go.viam.com/rdk/examples/customresources/models/mysum"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/services/navigation"
 	rtestutils "go.viam.com/rdk/testutils"
 )
 
@@ -166,5 +175,68 @@ func TestDiscovery(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		// confirm that complex handlers are also present in the map
 		test.That(t, len(complexHandles.Handlers), test.ShouldBeGreaterThan, 1)
+	})
+}
+
+func TestGetModelsFromModules(t *testing.T) {
+	t.Run("no modules configured", func(t *testing.T) {
+		r := setupLocalRobotWithFakeConfig(t)
+		models, err := r.GetModelsFromModules(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, models, test.ShouldBeEmpty)
+	})
+	t.Run("local and registry modules are configured", func(t *testing.T) {
+		r := setupLocalRobotWithFakeConfig(t)
+		ctx := context.Background()
+
+		// add modules
+		complexPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
+		simplePath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
+		cfg := &config.Config{
+			Modules: []config.Module{
+				{
+					Name:    "simple",
+					ExePath: simplePath,
+					Type:    config.ModuleTypeRegistry,
+				},
+				{
+					Name:    "complex",
+					ExePath: complexPath,
+					Type:    config.ModuleTypeLocal,
+				},
+			},
+		}
+		r.Reconfigure(ctx, cfg)
+		models, err := r.GetModelsFromModules(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, models, test.ShouldHaveLength, 5)
+
+		for _, model := range models {
+			switch model.Model {
+			case mygizmo.Model:
+				test.That(t, model.FromLocalModule, test.ShouldEqual, true)
+				test.That(t, model.ModuleName, test.ShouldEqual, "complex")
+				test.That(t, model.API, test.ShouldResemble, gizmoapi.API)
+			case mysum.Model:
+				test.That(t, model.FromLocalModule, test.ShouldEqual, true)
+				test.That(t, model.ModuleName, test.ShouldEqual, "complex")
+				test.That(t, model.API, test.ShouldResemble, summationapi.API)
+			case mybase.Model:
+				test.That(t, model.FromLocalModule, test.ShouldEqual, true)
+				test.That(t, model.ModuleName, test.ShouldEqual, "complex")
+				test.That(t, model.API, test.ShouldResemble, base.API)
+			case mynavigation.Model:
+				test.That(t, model.FromLocalModule, test.ShouldEqual, true)
+				test.That(t, model.ModuleName, test.ShouldEqual, "complex")
+				test.That(t, model.API, test.ShouldResemble, navigation.API)
+			case resource.NewModel("acme", "demo", "mycounter"):
+				test.That(t, model.FromLocalModule, test.ShouldEqual, false)
+				test.That(t, model.ModuleName, test.ShouldEqual, "simple")
+				test.That(t, model.API, test.ShouldResemble, generic.API)
+			default:
+				t.Fail()
+				t.Logf("test GetModelsFromModules failure: unrecoginzed model %v", model.Model)
+			}
+		}
 	})
 }

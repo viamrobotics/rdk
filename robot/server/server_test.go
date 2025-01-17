@@ -446,6 +446,49 @@ func TestServer(t *testing.T) {
 		})
 	})
 
+	t.Run("GetModelsFromModules", func(t *testing.T) {
+		injectRobot := &inject.Robot{}
+		injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
+		injectRobot.ResourceNamesFunc = func() []resource.Name { return []resource.Name{} }
+		server := server.New(injectRobot)
+
+		expectedModels := []resource.ModuleModelDiscovery{
+			{
+				ModuleName:      "simple-module",
+				API:             resource.NewAPI("rdk", "component", "generic"),
+				Model:           resource.NewModel("acme", "demo", "mycounter"),
+				FromLocalModule: false,
+			},
+			{
+				ModuleName:      "simple-module2",
+				API:             resource.NewAPI("rdk", "component", "generic"),
+				Model:           resource.NewModel("acme", "demo", "mycounter"),
+				FromLocalModule: true,
+			},
+		}
+		injectRobot.GetModelsFromModulesFunc = func(context.Context) ([]resource.ModuleModelDiscovery, error) {
+			return expectedModels, nil
+		}
+		expectedProto := []*pb.ModuleModel{expectedModels[0].ToProto(), expectedModels[1].ToProto()}
+
+		req := &pb.GetModelsFromModulesRequest{}
+		resp, err := server.GetModelsFromModules(context.Background(), req)
+		test.That(t, err, test.ShouldBeNil)
+		protoModels := resp.GetModels()
+		test.That(t, len(protoModels), test.ShouldEqual, 2)
+		test.That(t, protoModels, test.ShouldResemble, expectedProto)
+		for index, protoModel := range protoModels {
+			test.That(t, protoModel.ModuleName, test.ShouldEqual, expectedProto[index].ModuleName)
+			test.That(t, protoModel.ModuleName, test.ShouldEqual, expectedModels[index].ModuleName)
+			test.That(t, protoModel.Model, test.ShouldEqual, expectedProto[index].Model)
+			test.That(t, protoModel.Model, test.ShouldEqual, expectedModels[index].Model.String())
+			test.That(t, protoModel.Api, test.ShouldEqual, expectedProto[index].Api)
+			test.That(t, protoModel.Api, test.ShouldEqual, expectedModels[index].API.String())
+			test.That(t, protoModel.FromLocalModule, test.ShouldEqual, expectedProto[index].FromLocalModule)
+			test.That(t, protoModel.FromLocalModule, test.ShouldEqual, expectedModels[index].FromLocalModule)
+		}
+	})
+
 	t.Run("ResourceRPCSubtypes", func(t *testing.T) {
 		injectRobot := &inject.Robot{}
 		injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }

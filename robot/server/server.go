@@ -223,6 +223,19 @@ func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverCompone
 	return &pb.DiscoverComponentsResponse{Discovery: pbDiscoveries}, nil
 }
 
+// GetModelsFromModules returns all models from the currently managed modules.
+func (s *Server) GetModelsFromModules(ctx context.Context, req *pb.GetModelsFromModulesRequest) (*pb.GetModelsFromModulesResponse, error) {
+	models, err := s.robot.GetModelsFromModules(ctx)
+	if err != nil {
+		return nil, err
+	}
+	resp := pb.GetModelsFromModulesResponse{}
+	for _, mm := range models {
+		resp.Models = append(resp.Models, mm.ToProto())
+	}
+	return &resp, nil
+}
+
 // FrameSystemConfig returns the info of each individual part that makes up the frame system.
 func (s *Server) FrameSystemConfig(ctx context.Context, req *pb.FrameSystemConfigRequest) (*pb.FrameSystemConfigResponse, error) {
 	fsCfg, err := s.robot.FrameSystemConfig(ctx)
