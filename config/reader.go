@@ -35,7 +35,7 @@ var (
 const (
 	initialReadTimeout     = 1 * time.Second
 	readTimeout            = 5 * time.Second
-	readTimeoutBehindProxy = 15 * time.Second
+	readTimeoutBehindProxy = time.Minute
 	// PackagesDirName is where packages go underneath viamDotDir.
 	PackagesDirName = "packages"
 	// LocalPackagesSuffix is used by the local package manager.
