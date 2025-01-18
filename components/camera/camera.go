@@ -123,7 +123,6 @@ type ImageMetadata struct {
 // [Images method docs]: https://docs.viam.com/dev/reference/apis/components/camera/#getimages
 // [NextPointCloud method docs]: https://docs.viam.com/dev/reference/apis/components/camera/#getpointcloud
 // [Close method docs]: https://docs.viam.com/dev/reference/apis/components/camera/#close
-
 type Camera interface {
 	resource.Resource
 
