@@ -97,7 +97,18 @@ func CreateSocketAddress(parentDir, desiredName string) (string, error) {
 	// Assemble the truncated socket address
 	socketHashSuffix := desiredNameHash[:socketHashSuffixLength]
 	truncatedName := desiredName[:(numRemainingChars - socketHashSuffixLength - 1)]
-	return filepath.Join(baseAddr, fmt.Sprintf("%s-%s%s", truncatedName, socketHashSuffix, socketSuffix)), nil
+	addr := strings.Replace(
+		strings.ReplaceAll(
+			filepath.Join(
+				baseAddr,
+				fmt.Sprintf("%s-%s%s", truncatedName, socketHashSuffix, socketSuffix)),
+			`\`,
+			`/`),
+		"C:",
+		"",
+		1,
+	)
+	return addr, nil
 }
 
 // HandlerMap is the format for api->model pairs that the module will service.
@@ -283,9 +294,6 @@ func (m *Module) Start(ctx context.Context) error {
 
 	var lis net.Listener
 	prot := "unix"
-	if rutils.TCPRegex.MatchString(m.addr) {
-		prot = "tcp"
-	}
 	if err := MakeSelfOwnedFilesFunc(func() error {
 		var err error
 		lis, err = net.Listen(prot, m.addr)
@@ -355,13 +363,10 @@ func (m *Module) connectParent(ctx context.Context) error {
 		return nil
 	}
 
-	fullAddr := m.parentAddr
-	if !rutils.TCPRegex.MatchString(m.parentAddr) {
-		if err := CheckSocketOwner(m.parentAddr); err != nil {
-			return err
-		}
-		fullAddr = "unix://" + m.parentAddr
+	if err := CheckSocketOwner(m.parentAddr); err != nil {
+		return err
 	}
+	fullAddr := "unix://" + m.parentAddr
 
 	// moduleLoggers may be creating the client connection below, so use a
 	// different logger here to avoid a deadlock where the client connection

@@ -2,9 +2,7 @@ package utils
 
 import (
 	"os"
-	"regexp"
 	"runtime"
-	"slices"
 	"time"
 
 	"go.viam.com/rdk/logging"
@@ -34,9 +32,6 @@ const (
 
 // EnvTrueValues contains strings that we interpret as boolean true in env vars.
 var EnvTrueValues = []string{"true", "yes", "1", "TRUE", "YES"}
-
-// TCPRegex tests whether a module address is TCP (vs unix sockets). See also ViamTCPSockets().
-var TCPRegex = regexp.MustCompile(`:\d+$`)
 
 // GetResourceConfigurationTimeout calculates the resource configuration
 // timeout (env variable value if set, DefaultResourceConfigurationTimeout
@@ -85,13 +80,4 @@ func PlatformMkdirTemp(dir, pattern string) (string, error) {
 		dir = AndroidFilesDir
 	}
 	return os.MkdirTemp(dir, pattern)
-}
-
-// ViamTCPSockets returns true if an env is set or if the platform requires it.
-func ViamTCPSockets() bool {
-	// note: unix sockets have been supported on windows for a while, but go-grpc does not support them.
-	// 2017 support announcement: https://devblogs.microsoft.com/commandline/af_unix-comes-to-windows/
-	// go grpc client bug on win: https://github.com/dotnet/aspnetcore/issues/47043
-	return runtime.GOOS == "windows" ||
-		slices.Contains(EnvTrueValues, os.Getenv("VIAM_TCP_SOCKETS"))
 }

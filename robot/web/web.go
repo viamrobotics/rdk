@@ -12,7 +12,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -168,17 +167,11 @@ func (svc *webService) StartModule(ctx context.Context) error {
 		if err != nil {
 			return errors.WithMessage(err, "module startup failed")
 		}
-
-		if rutils.ViamTCPSockets() {
-			addr = "127.0.0.1:" + strconv.Itoa(TCPParentPort)
-			lis, err = net.Listen("tcp", addr)
-		} else {
-			addr, err = module.CreateSocketAddress(dir, "parent")
-			if err != nil {
-				return errors.WithMessage(err, "module startup failed")
-			}
-			lis, err = net.Listen("unix", addr)
+		addr, err = module.CreateSocketAddress(dir, "parent")
+		if err != nil {
+			return errors.WithMessage(err, "module startup failed")
 		}
+		lis, err = net.Listen("unix", addr)
 		if err != nil {
 			return errors.WithMessage(err, "failed to listen")
 		}
