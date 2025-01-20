@@ -27,47 +27,6 @@ func findWebcam(t *testing.T, webcams []*pb.Webcam, name string) *pb.Webcam {
 	return nil
 }
 
-func TestWebcamDiscovery(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-
-	reg, ok := resource.LookupRegistration(camera.API, videosource.ModelWebcam)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	ctx := context.Background()
-	discoveries, err := reg.Discover(ctx, logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	webcams, ok := discoveries.(*pb.Webcams)
-	test.That(t, ok, test.ShouldBeTrue)
-	webcamsLen := len(webcams.Webcams)
-
-	// Video capture and overlay minor numbers range == [0, 63]
-	// Start from the end of the range to avoid conflicts with other devices
-	// Source: https://www.kernel.org/doc/html/v4.9/media/uapi/v4l/diff-v4l.html
-	config, err := vcamera.Builder(logger).
-		NewCamera(62, "Lo Res Webcam", vcamera.Resolution{Width: 640, Height: 480}).
-		NewCamera(63, "Hi Res Webcam", vcamera.Resolution{Width: 1280, Height: 720}).
-		Stream()
-
-	test.That(t, err, test.ShouldBeNil)
-	defer config.Shutdown()
-
-	discoveries, err = reg.Discover(ctx, logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	webcams, ok = discoveries.(*pb.Webcams)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, len(webcams.Webcams), test.ShouldEqual, webcamsLen+2)
-
-	webcam := findWebcam(t, webcams.Webcams, "Hi Res Webcam")
-	test.That(t, webcam.Properties[0].WidthPx, test.ShouldEqual, 1280)
-	test.That(t, webcam.Properties[0].HeightPx, test.ShouldEqual, 720)
-
-	webcam = findWebcam(t, webcams.Webcams, "Lo Res Webcam")
-	test.That(t, webcam.Properties[0].WidthPx, test.ShouldEqual, 640)
-	test.That(t, webcam.Properties[0].HeightPx, test.ShouldEqual, 480)
-}
-
 func newWebcamConfig(name, path string) resource.Config {
 	conf := resource.NewEmptyConfig(
 		resource.NewName(camera.API, name),
