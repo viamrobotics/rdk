@@ -207,10 +207,14 @@ func promptUser(module *modulegen.ModuleInputs) error {
 		}
 		// we differentiate generic-service and generic-component in `modulegen.Resources`
 		// but they still have the type listed. This carveout prevents the user prompt from
-		// suggesting `Generic Component Component` or `Generic Service Service` as an option
+		// suggesting `Generic Component Component` or `Generic Service Service` as an option,
+		// either visually or under the hood
 		var resType string
 		if words[0] == "Generic" {
 			resType = strings.Join(words[:2], " ")
+			// specific carveout to ensure that the `resource` is either `generic service` or
+			// `generic component`, as opposed to `generic_service service`
+			resource = strings.ToLower(resType)
 		} else {
 			resType = strings.Join(words, " ")
 		}
