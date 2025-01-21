@@ -15,7 +15,6 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.uber.org/zap/zapcore"
 	armpb "go.viam.com/api/component/arm/v1"
 	basepb "go.viam.com/api/component/base/v1"
 	boardpb "go.viam.com/api/component/board/v1"
@@ -1581,7 +1580,7 @@ func TestReconfigure(t *testing.T) {
 }
 
 func TestRemoteConnClosedOnReconfigure(t *testing.T) {
-	logger, observer := logging.NewObservedTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	ctx := context.Background()
 
