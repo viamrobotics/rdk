@@ -117,6 +117,7 @@ func TestClientSessionOptions(t *testing.T) {
 						svc := web.New(injectRobot, logger)
 
 						options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+						options.WaitForHandlers = true
 						err := svc.Start(ctx, options)
 						test.That(t, err, test.ShouldBeNil)
 
@@ -303,6 +304,7 @@ func TestClientSessionExpiration(t *testing.T) {
 				svc := web.New(injectRobot, logger)
 
 				options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+				options.WaitForHandlers = true
 				err := svc.Start(ctx, options)
 				test.That(t, err, test.ShouldBeNil)
 
@@ -496,6 +498,7 @@ func TestClientSessionResume(t *testing.T) {
 				svc := web.New(injectRobot, logger)
 
 				options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+				options.WaitForHandlers = true
 				err := svc.Start(ctx, options)
 				test.That(t, err, test.ShouldBeNil)
 
