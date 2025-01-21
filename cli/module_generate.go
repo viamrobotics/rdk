@@ -410,7 +410,7 @@ func renderCommonFiles(c *cli.Context, module modulegen.ModuleInputs, globalArgs
 	}
 
 	// Render README.md
-	if err := renderReadme(c, module, globalArgs); err != nil {
+	if err := renderReadme(module); err != nil {
 		return errors.Wrap(err, "failed to render README.md")
 	}
 
@@ -784,7 +784,7 @@ func createModuleAndManifest(cCtx *cli.Context, c *viamClient, module modulegen.
 }
 
 // Create the README.md file.
-func renderReadme(c *cli.Context, module modulegen.ModuleInputs, globalArgs globalArgs) error {
+func renderReadme(module modulegen.ModuleInputs) error {
 	readmeTemplatePath, err := templates.Open(filepath.Join(templatesPath, defaultReadmeFilename))
 	readmeDest := filepath.Join(module.ModuleName, defaultReadmeFilename)
 	if err != nil {
