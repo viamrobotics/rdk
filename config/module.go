@@ -140,7 +140,7 @@ func (m Module) NeedsSyntheticPackage() bool {
 // SyntheticPackage creates a fake package for a module which can be used to access some package logic.
 func (m Module) SyntheticPackage() (PackageConfig, error) {
 	if m.Type != ModuleTypeLocal {
-		return PackageConfig{}, fmt.Errorf("SyntheticPackage only works on local modules")
+		return PackageConfig{}, errors.New("SyntheticPackage only works on local modules")
 	}
 	var name string
 	if m.NeedsSyntheticPackage() {
