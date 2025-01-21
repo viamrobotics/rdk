@@ -73,9 +73,6 @@ type Options struct {
 	WebRTCOnPeerRemoved func(pc *webrtc.PeerConnection)
 
 	DisableMulticastDNS bool
-
-	// WaitForHandlers dictates wether or not to use a graceful exit hen stopping a grpc server.
-	WaitForHandlers bool
 }
 
 // New returns a default set of options which will have the
