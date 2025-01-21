@@ -369,9 +369,12 @@ func populateAdditionalInfo(newModule *modulegen.ModuleInputs) {
 	}
 	newModule.ResourceTypePascal = spaceReplacer.Replace(titleCaser.String(replacer.Replace(newModule.ResourceType)))
 	newModule.ModelPascal = spaceReplacer.Replace(titleCaser.String(replacer.Replace(newModule.ModelName)))
-	newModule.ModelTriple = fmt.Sprintf("%s:%s:%s", newModule.Namespace, newModule.ModuleName, newModule.ModelName)
 	newModule.ModelCamel = strings.ToLower(string(newModule.ModelPascal[0])) + newModule.ModelPascal[1:]
 	newModule.ModelLowercase = strings.ToLower(newModule.ModelPascal)
+
+	modelTriple := fmt.Sprintf("%s:%s:%s", newModule.Namespace, newModule.ModuleName, newModule.ModelName)
+	newModule.ModelTriple = modelTriple
+	newModule.ModelReadmeLink = "README.md#" + generateAnchor(fmt.Sprintf("Model %s", modelTriple))
 }
 
 // Creates a new directory with moduleName.
@@ -404,6 +407,11 @@ func renderCommonFiles(c *cli.Context, module modulegen.ModuleInputs, globalArgs
 
 	if _, err := infoFile.Write(infoBytes); err != nil {
 		return errors.Wrapf(err, "failed to write generator info to %s", infoFilePath)
+	}
+
+	// Render README.md
+	if err := renderReadme(c, module, globalArgs); err != nil {
+		return errors.Wrap(err, "failed to render README.md")
 	}
 
 	// Render workflows for cloud build
@@ -775,6 +783,38 @@ func createModuleAndManifest(cCtx *cli.Context, c *viamClient, module modulegen.
 	return nil
 }
 
+// Create the README.md file.
+func renderReadme(c *cli.Context, module modulegen.ModuleInputs, globalArgs globalArgs) error {
+	readmeTemplatePath, err := templates.Open(filepath.Join(templatesPath, defaultReadmeFilename))
+	readmeDest := filepath.Join(module.ModuleName, defaultReadmeFilename)
+	if err != nil {
+		return err
+	}
+	defer utils.UncheckedErrorFunc(readmeTemplatePath.Close)
+	tBytes, err := io.ReadAll(readmeTemplatePath)
+	if err != nil {
+		return err
+	}
+
+	tmpl, err := template.New(defaultReadmeFilename).Parse(string(tBytes))
+	if err != nil {
+		return err
+	}
+
+	//nolint:gosec
+	destFile, err := os.Create(readmeDest)
+	if err != nil {
+		return err
+	}
+	defer utils.UncheckedErrorFunc(destFile.Close)
+
+	err = tmpl.Execute(destFile, module)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // Create the meta.json manifest.
 func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInputs, globalArgs globalArgs) error {
 	debugf(c.App.Writer, globalArgs.Debug, "Rendering module manifest")
@@ -784,13 +824,14 @@ func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInpu
 		visibility = moduleVisibilityPublic
 	}
 
+	modelDescription := "Provide a short (<100 character) description of this model here"
 	manifest := moduleManifest{
 		Schema:      "https://dl.viam.dev/module.schema.json",
 		ModuleID:    moduleID,
 		Visibility:  visibility,
 		Description: fmt.Sprintf("Modular %s %s: %s", module.ResourceSubtype, module.ResourceType, module.ModelName),
 		Models: []ModuleComponent{
-			{API: module.API, Model: module.ModelTriple},
+			{API: module.API, Model: module.ModelTriple, MarkdownLink: &module.ModelReadmeLink, Description: &modelDescription},
 		},
 	}
 	switch module.Language {

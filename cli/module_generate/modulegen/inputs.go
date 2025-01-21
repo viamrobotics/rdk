@@ -35,7 +35,7 @@ type ModuleInputs struct {
 	ModelCamel            string `json:"-"`
 	ModelTriple           string `json:"-"`
 	ModelLowercase        string `json:"-"`
-
+	ModelReadmeLink       string `json:"-"`
 	SDKVersion string `json:"-"`
 }
 
