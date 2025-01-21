@@ -330,11 +330,11 @@ func wrapResolveOrg(cCtx *cli.Context, c *viamClient, newModule *modulegen.Modul
 }
 
 // TODO(RSDK-9758) - this logic will never be relevant currently because we're now checking if
-// we're logged in at the first opportunity in `viam module generate`, and returning an error
-// if not. However, I'm leaving this logic here because we will likely want to revisit if and how
-// to use it more broadly (not just for `viam module generate` but for _all_ CLI commands),
-// and because disentangling it immediately may be complicated and delay the current attempt
-// to solve the problems this causes (see RSDK-9300).
+// we're logged in at the first opportunity in `viam module generate`, and returning an error if
+// not. However, I (ethan) am leaving this logic here because we will likely want to revisit if
+// and how to use it more broadly (not just for `viam module generate` but for _all_ CLI commands),
+// and because disentangling it immediately may be complicated and delay the current attempt to
+// solve the problems this causes (see RSDK-9452).
 func catchResolveOrgErr(cCtx *cli.Context, c *viamClient, newModule *modulegen.ModuleInputs, caughtErr error) error {
 	if strings.Contains(caughtErr.Error(), "not logged in") || strings.Contains(caughtErr.Error(), "error while refreshing token") {
 		originalWriter := cCtx.App.Writer
