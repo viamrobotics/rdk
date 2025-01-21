@@ -824,7 +824,7 @@ func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInpu
 		visibility = moduleVisibilityPublic
 	}
 
-	modelDescription := "Provide a short (<100 character) description of this model here"
+	modelDescription := "Provide a short (100 characters or less) description of this model here"
 	manifest := moduleManifest{
 		Schema:      "https://dl.viam.dev/module.schema.json",
 		ModuleID:    moduleID,
