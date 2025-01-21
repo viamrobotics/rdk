@@ -1893,7 +1893,6 @@ var app = &cli.App{
 							Name:      "status",
 							Usage:     "display part status",
 							UsageText: createUsageText("machines part status", []string{generalFlagPart}, true, false),
-							// TODO(RSDK-9286) do we need to ask for og and location and machine and part here?
 							Flags: []cli.Flag{
 								&AliasStringFlag{
 									cli.StringFlag{
