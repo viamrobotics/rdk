@@ -34,6 +34,19 @@ func NewImageFromBounds(bounds image.Rectangle) *Image {
 	return NewImage(bounds.Max.X, bounds.Max.Y)
 }
 
+// NewImageFromImage is a helper function to convert an image.Image to an *rimage.Image
+// Note that due to the limited number of functions on the image.Image interface this helper
+// function must be inefficient because it needs to deep copy the bytes.
+func NewImageFromImage(img image.Image) *Image {
+	i := NewImage(img.Bounds().Dx(), img.Bounds().Dy())
+	for x := 0; x < img.Bounds().Dx(); x++ {
+		for y := 0; y < img.Bounds().Dy(); y++ {
+			i.data[i.kxy(x, y)] = NewColorFromColor(img.At(x, y))
+		}
+	}
+	return i
+}
+
 // ColorModel returns our Color types color model.
 func (i *Image) ColorModel() color.Model {
 	return &TheColorModel{}
