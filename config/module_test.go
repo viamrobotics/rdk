@@ -117,7 +117,7 @@ func TestRegistryModuleFirstRun(t *testing.T) {
 
 		err := module.FirstRun(ctx, localPackagesDir, dataDir, env, logger)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, observedLogs.FilterMessage("meta.json not found, skipping first run").Len(), test.ShouldEqual, 1)
+		test.That(t, observedLogs.FilterMessage("meta.json does not exist, skipping first run").Len(), test.ShouldEqual, 1)
 	})
 
 	t.Run("MetaFileInvalid", func(t *testing.T) {
