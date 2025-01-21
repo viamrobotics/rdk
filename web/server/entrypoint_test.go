@@ -178,7 +178,7 @@ func TestShutdown(t *testing.T) {
 			test.That(tb, rdkStatus, test.ShouldNotBeNil)
 		})
 		test.That(t, isExpectedShutdownError(err, testLogger), test.ShouldBeTrue)
-		test.That(t, serverLogObserver.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 27)
+		test.That(t, serverLogObserver.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)
 	})
 }
 
