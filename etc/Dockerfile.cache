@@ -4,6 +4,7 @@ ARG BASE_TAG=amd64
 FROM $MAIN_TAG:$BASE_TAG as builder
 COPY --chown=1000:1000 ./ /tmp/rdk
 WORKDIR /tmp/rdk
+RUN apt-get update
 RUN --mount=type=secret,id=netrc,uid=1000,dst=/home/testbot/.netrc sudo -Hu testbot bash -lc 'if [ `dpkg --print-architecture` = armhf ]; then \
         make build-go tool-install; \
     else \
