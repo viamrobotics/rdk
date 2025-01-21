@@ -438,7 +438,7 @@ func (d *DataClient) TabularDataBySQL(ctx context.Context, organizationID, sqlQu
 
 // TabularDataByMQL queries tabular data with MQL (MongoDB Query Language) queries.
 func (d *DataClient) TabularDataByMQL(
-	ctx context.Context, organizationID string, query []map[string]interface{},
+	ctx context.Context, organizationID string, query []map[string]interface{}, useRecentData bool,
 ) ([]map[string]interface{}, error) {
 	mqlBinary := [][]byte{}
 	for _, q := range query {
@@ -452,6 +452,7 @@ func (d *DataClient) TabularDataByMQL(
 	resp, err := d.dataClient.TabularDataByMQL(ctx, &pb.TabularDataByMQLRequest{
 		OrganizationId: organizationID,
 		MqlBinary:      mqlBinary,
+		UseRecentData:  &useRecentData,
 	})
 	if err != nil {
 		return nil, err
