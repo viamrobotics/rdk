@@ -558,6 +558,8 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 		rpc.WithStreamServerInterceptor(streamInterceptor),
 	)
 
+	rpcOpts = append(rpcOpts, rpc.WaitForHandlers(options.WaitForHandlers))
+
 	return rpcOpts, nil
 }
 

@@ -73,6 +73,8 @@ type Options struct {
 	WebRTCOnPeerRemoved func(pc *webrtc.PeerConnection)
 
 	DisableMulticastDNS bool
+
+	WaitForHandlers bool
 }
 
 // New returns a default set of options which will have the
