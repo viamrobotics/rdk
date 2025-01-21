@@ -165,7 +165,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(
 
 // ImagePointTo3DPoint takes in a image coordinate and returns the 3D point from the camera matrix.
 func (dcie *DepthColorIntrinsicsExtrinsics) ImagePointTo3DPoint(point image.Point, depth rimage.Depth) (r3.Vector, error) {
-	return intrinsics2DPtTo3DPt(point, depth, &dcie.ColorCamera)
+	return intrinsics2DPtTo3DPt(point, depth, &dcie.ColorCamera), nil
 }
 
 // RGBDToPointCloud takes an Image and DepthMap and uses the camera parameters to project it to a pointcloud.

@@ -197,8 +197,8 @@ func (params *PinholeCameraIntrinsics) PointToPixel(x, y, z float64) (float64, f
 }
 
 // ImagePointTo3DPoint takes in a image coordinate and returns the 3D point from the camera matrix.
-func (params *PinholeCameraIntrinsics) ImagePointTo3DPoint(point image.Point, d rimage.Depth) r3.Vector {
-	return intrinsics2DPtTo3DPt(point, d, params)
+func (params *PinholeCameraIntrinsics) ImagePointTo3DPoint(point image.Point, d rimage.Depth) (r3.Vector, error) {
+	return intrinsics2DPtTo3DPt(point, d, params), nil
 }
 
 // RGBDToPointCloud takes an Image and Depth map and uses the camera parameters to project it to a pointcloud.
