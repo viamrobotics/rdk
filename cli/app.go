@@ -119,13 +119,6 @@ const (
 
 	packageFlagFramework = "model-framework"
 
-	// TODO: APP-6993 remove these flags.
-	authApplicationFlagName          = "application-name"
-	authApplicationFlagApplicationID = "application-id"
-	authApplicationFlagOriginURIs    = "origin-uris"
-	authApplicationFlagRedirectURIs  = "redirect-uris"
-	authApplicationFlagLogoutURI     = "logout-uri"
-
 	oauthAppFlagClientID             = "client-id"
 	oauthAppFlagClientName           = "client-name"
 	oauthAppFlagClientAuthentication = "client-authentication"
