@@ -35,9 +35,13 @@ func (oc offlineChecker) GetState() connectivity.State {
 	return connectivity.Ready
 }
 
+// returns true if the device is offline.
 func isOffline() bool {
 	timeout := 5 * time.Second
-	_, err := net.DialTimeout("tcp", "app.viam.com:443", timeout)
-	// If there's an error, the system is likely offline.
-	return err != nil
+	conn, err := net.DialTimeout("tcp", "app.viam.com:443", timeout)
+	if err != nil {
+		return true
+	}
+	conn.Close() //nolint:gosec,errcheck
+	return false
 }
