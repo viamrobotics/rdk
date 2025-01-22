@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"runtime"
 	"slices"
+	"strings"
 	"time"
 
 	"go.viam.com/rdk/logging"
@@ -30,6 +31,13 @@ const (
 
 	// AndroidFilesDir is hardcoded because golang inits before our android code can override HOME var.
 	AndroidFilesDir = "/data/user/0/com.viam.rdk.fgservice/cache"
+
+	// VIAM_PREFIX is the prefix for all Viam-related environment variables.
+	VIAM_PREFIX = "VIAM_"
+
+	// VIAM_API_KEY is the environment variable passed to the module that contains an API key that can be used for
+	// communications to app.viam.com.
+	VIAM_API_KEY = "VIAM_API_KEY"
 )
 
 // EnvTrueValues contains strings that we interpret as boolean true in env vars.
@@ -94,4 +102,25 @@ func ViamTCPSockets() bool {
 	// go grpc client bug on win: https://github.com/dotnet/aspnetcore/issues/47043
 	return runtime.GOOS == "windows" ||
 		slices.Contains(EnvTrueValues, os.Getenv("VIAM_TCP_SOCKETS"))
+}
+
+// LogViamEnvVariables logs the list of viam environment variables in [os.Environ] along with the env passed in.
+func LogViamEnvVariables(msg string, envVars map[string]string, logger logging.Logger) {
+	var env []string
+	for _, v := range os.Environ() {
+		if !strings.HasPrefix(v, VIAM_PREFIX) {
+			continue
+		}
+		env = append(env, v)
+	}
+	for key, val := range envVars {
+		// mask the secret
+		if key == VIAM_API_KEY {
+			val = "XXXXXXXXXX"
+		}
+		env = append(env, key+"="+val)
+	}
+	if len(env) != 0 {
+		logger.Infow(msg, "environment", env)
+	}
 }

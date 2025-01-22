@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"time"
 
 	"github.com/a8m/envsubst"
@@ -450,11 +451,19 @@ func additionalModuleEnvVars(cloud *Cloud, auth AuthConfig) map[string]string {
 		if handler.Type != rpc.CredentialsTypeAPIKey {
 			continue
 		}
-		keys := ParseAPIKeys(handler)
-		for keyId, key := range keys {
-			env["VIAM_API_KEY_ID"] = keyId
-			env["VIAM_API_KEY"] = key
+		apiKeys := ParseAPIKeys(handler)
+		if len(apiKeys) == 0 {
+			continue
 		}
+		// the keys come in unsorted, so sort the keys so we'll always get the same API key
+		// if there are no changes
+		keys := make([]string, 0, len(apiKeys))
+		for k := range apiKeys {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		env["VIAM_API_KEY_ID"] = keys[0]
+		env["VIAM_API_KEY"] = apiKeys[keys[0]]
 	}
 	return env
 }

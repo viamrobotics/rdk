@@ -326,6 +326,7 @@ func (m *Module) FirstRun(
 	for key, val := range env {
 		cmd.Env = append(cmd.Env, key+"="+val)
 	}
+	utils.LogViamEnvVariables("Running first run script with followingv Viam environment variables", env, logger)
 
 	stdOut, err := cmd.StdoutPipe()
 	if err != nil {
