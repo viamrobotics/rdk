@@ -1413,6 +1413,7 @@ func getFullEnvironment(
 		environment["VIAM_MODULE_ID"] = cfg.ModuleID
 	}
 	// Overwrite the base environment variables with the module's environment variables (if specified)
+	// VIAM_MODULE_ROOT is filled out by app.viam.com in cloud robots.
 	for key, value := range cfg.Environment {
 		environment[key] = value
 	}

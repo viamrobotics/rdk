@@ -437,6 +437,28 @@ func processConfigLocalConfig(unprocessedConfig *Config, logger logging.Logger) 
 	return processConfig(unprocessedConfig, false, logger)
 }
 
+// additionalModuleEnvVars will get additional environment variables for modules using other parts of the config.
+func additionalModuleEnvVars(cloud *Cloud, auth AuthConfig) map[string]string {
+	env := make(map[string]string)
+	if cloud != nil {
+		env["VIAM_PRIMARY_ORG_ID"] = cloud.PrimaryOrgID
+		env["VIAM_LOCATION_ID"] = cloud.LocationID
+		env["VIAM_MACHINE_ID"] = cloud.MachineID
+		env["VIAM_MACHINE_PART_ID"] = cloud.ID
+	}
+	for _, handler := range auth.Handlers {
+		if handler.Type != rpc.CredentialsTypeAPIKey {
+			continue
+		}
+		keys := ParseAPIKeys(handler)
+		for keyId, key := range keys {
+			env["VIAM_API_KEY_ID"] = keyId
+			env["VIAM_API_KEY"] = key
+		}
+	}
+	return env
+}
+
 // processConfig processes the config passed in. The config can be either JSON or gRPC derived.
 // If any part of this function errors, the function will exit and no part of the new config will be returned
 // until it is corrected.
@@ -594,6 +616,13 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 		if err := convertAndAssociateResourceConfigs(nil, &c.Name, c.AssociatedResourceConfigs); err != nil {
 			return nil, errors.Wrapf(err, "error processing associated service configs for remote %q", c.Name)
 		}
+	}
+
+	// add additional environment vars to modules
+	// adding them here ensures that if the parsed API key changes, the module will be restarted with the updated environment.
+	env := additionalModuleEnvVars(cfg.Cloud, cfg.Auth)
+	for _, m := range cfg.Modules {
+		m.MergeEnvVars(env)
 	}
 
 	// now that the attribute maps are converted, validate configs and get implicit dependencies for builtin resource models
