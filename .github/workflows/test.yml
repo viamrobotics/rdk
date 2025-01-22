@@ -73,7 +73,7 @@ jobs:
       - name: Run go unit tests
         run: |
           chmod -R a+rwx . # temporary fix for arm runners
-          sudo apt-get install -y python3-venv
+          sudo apt-get update && sudo apt-get install -y python3-venv
           sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -Hu testbot bash -lc 'make test-go'
 
       - name: Upload test.json
@@ -108,7 +108,7 @@ jobs:
             --platform linux/arm/v7 \
             -v `pwd`:/rdk \
             ghcr.io/viamrobotics/rdk-devenv:armhf-cache \
-            sudo -Hu testbot bash -lc 'sudo apt-get install -y python3-venv && cd /rdk && go test -v ./...'
+            sudo -Hu testbot bash -lc 'sudo apt-get update && sudo apt-get install -y python3-venv && cd /rdk && go test -v ./...'
 
   motion_tests:
     name: Test Longer-running Motion Plans if affected
