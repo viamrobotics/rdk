@@ -442,10 +442,10 @@ func processConfigLocalConfig(unprocessedConfig *Config, logger logging.Logger) 
 func additionalModuleEnvVars(cloud *Cloud, auth AuthConfig) map[string]string {
 	env := make(map[string]string)
 	if cloud != nil {
-		env["VIAM_PRIMARY_ORG_ID"] = cloud.PrimaryOrgID
-		env["VIAM_LOCATION_ID"] = cloud.LocationID
-		env["VIAM_MACHINE_ID"] = cloud.MachineID
-		env["VIAM_MACHINE_PART_ID"] = cloud.ID
+		env[rutils.PrimaryOrgIDEnvVar] = cloud.PrimaryOrgID
+		env[rutils.LocationIDEnvVar] = cloud.LocationID
+		env[rutils.MachineIDEnvVar] = cloud.MachineID
+		env[rutils.MachinePartIDEnvVar] = cloud.ID
 	}
 	for _, handler := range auth.Handlers {
 		if handler.Type != rpc.CredentialsTypeAPIKey {
@@ -457,13 +457,13 @@ func additionalModuleEnvVars(cloud *Cloud, auth AuthConfig) map[string]string {
 		}
 		// the keys come in unsorted, so sort the keys so we'll always get the same API key
 		// if there are no changes
-		keys := make([]string, 0, len(apiKeys))
+		keyIDs := make([]string, 0, len(apiKeys))
 		for k := range apiKeys {
-			keys = append(keys, k)
+			keyIDs = append(keyIDs, k)
 		}
-		sort.Strings(keys)
-		env["VIAM_API_KEY_ID"] = keys[0]
-		env["VIAM_API_KEY"] = apiKeys[keys[0]]
+		sort.Strings(keyIDs)
+		env[rutils.APIKeyIDEnvVar] = keyIDs[0]
+		env[rutils.APIKeyEnvVar] = apiKeys[keyIDs[0]]
 	}
 	return env
 }

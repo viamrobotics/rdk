@@ -35,9 +35,25 @@ const (
 	// VIAM_PREFIX is the prefix for all Viam-related environment variables.
 	VIAM_PREFIX = "VIAM_"
 
-	// VIAM_API_KEY is the environment variable passed to the module that contains an API key that can be used for
+	// APIKeyEnvVar is the environment variable which contains an API key that can be used for
 	// communications to app.viam.com.
-	VIAM_API_KEY = "VIAM_API_KEY"
+	APIKeyEnvVar = "VIAM_API_KEY"
+
+	// APIKeyIDEnvVar is the environment variable which contains an API key ID that can be used for
+	// communications to app.viam.com.
+	APIKeyIDEnvVar = "VIAM_API_KEY_ID"
+
+	// MachineIDEnvVar is the environment variable that contains the machine ID of the machine.
+	MachineIDEnvVar = "VIAM_MACHINE_ID"
+
+	// MachinePartIDEnvVar is the environment variable that contains the machine part ID of the machine.
+	MachinePartIDEnvVar = "VIAM_MACHINE_PART_ID"
+
+	// LocationIDEnvVar is the environment variable that contains the location ID of the machine.
+	LocationIDEnvVar = "VIAM_LOCATION_ID"
+
+	// PrimaryOrgIDEnvVar is the environment variable that contains the primary org ID of the machine.
+	PrimaryOrgIDEnvVar = "VIAM_PRIMARY_ORG_ID"
 )
 
 // EnvTrueValues contains strings that we interpret as boolean true in env vars.
@@ -115,7 +131,7 @@ func LogViamEnvVariables(msg string, envVars map[string]string, logger logging.L
 	}
 	for key, val := range envVars {
 		// mask the secret
-		if key == VIAM_API_KEY {
+		if key == APIKeyEnvVar {
 			val = "XXXXXXXXXX"
 		}
 		env = append(env, key+"="+val)

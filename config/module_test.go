@@ -397,6 +397,24 @@ func TestFindMetaJSONFile(t *testing.T) {
 	})
 }
 
+func TestMergeEnvVars(t *testing.T) {
+	t.Run("empty", func(t *testing.T) {
+		m := Module{Environment: map[string]string{}}
+		expected := map[string]string{"abc": "def", "hello": "world"}
+		m.MergeEnvVars(expected)
+		test.That(t, m.Environment, test.ShouldResemble, expected)
+	})
+
+	t.Run("existing env priority", func(t *testing.T) {
+		m := Module{Environment: map[string]string{"hello": "world"}}
+		env := map[string]string{"abc": "def", "hello": "friend"}
+
+		expected := map[string]string{"abc": "def", "hello": "world"}
+		m.MergeEnvVars(env)
+		test.That(t, m.Environment, test.ShouldResemble, expected)
+	})
+}
+
 // testWriteJSON is a t.Helper that serializes `value` to `path` as json.
 func testWriteJSON(t *testing.T, path string, value any) {
 	t.Helper()
