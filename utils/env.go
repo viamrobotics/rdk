@@ -32,15 +32,17 @@ const (
 	// AndroidFilesDir is hardcoded because golang inits before our android code can override HOME var.
 	AndroidFilesDir = "/data/user/0/com.viam.rdk.fgservice/cache"
 
-	// VIAM_PREFIX is the prefix for all Viam-related environment variables.
-	VIAM_PREFIX = "VIAM_"
+	// ViamEnvVarPrefix is the prefix for all Viam-related environment variables.
+	ViamEnvVarPrefix = "VIAM_"
 
 	// APIKeyEnvVar is the environment variable which contains an API key that can be used for
 	// communications to app.viam.com.
+	//nolint:gosec
 	APIKeyEnvVar = "VIAM_API_KEY"
 
 	// APIKeyIDEnvVar is the environment variable which contains an API key ID that can be used for
 	// communications to app.viam.com.
+	//nolint:gosec
 	APIKeyIDEnvVar = "VIAM_API_KEY_ID"
 
 	// MachineIDEnvVar is the environment variable that contains the machine ID of the machine.
@@ -124,7 +126,7 @@ func ViamTCPSockets() bool {
 func LogViamEnvVariables(msg string, envVars map[string]string, logger logging.Logger) {
 	var env []string
 	for _, v := range os.Environ() {
-		if !strings.HasPrefix(v, VIAM_PREFIX) {
+		if !strings.HasPrefix(v, ViamEnvVarPrefix) {
 			continue
 		}
 		env = append(env, v)

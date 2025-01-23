@@ -430,45 +430,45 @@ func TestAdditionalModuleEnvVars(t *testing.T) {
 		observed := additionalModuleEnvVars(nil, authWithExternalCreds)
 		test.That(t, observed, test.ShouldResemble, expected)
 	})
-	apiKeyId := "abc"
+	apiKeyID := "abc"
 	apiKey := "def"
 	authWithAPIKeyCreds := AuthConfig{
 		Handlers: []AuthHandlerConfig{{Type: rpc.CredentialsTypeAPIKey, Config: utils.AttributeMap{
-			apiKeyId: apiKey,
-			"keys":   []string{apiKeyId},
+			apiKeyID: apiKey,
+			"keys":   []string{apiKeyID},
 		}}},
 	}
 
 	t.Run("auth with api key creds", func(t *testing.T) {
 		expected := map[string]string{
 			utils.APIKeyEnvVar:   apiKey,
-			utils.APIKeyIDEnvVar: apiKeyId,
+			utils.APIKeyIDEnvVar: apiKeyID,
 		}
 		observed := additionalModuleEnvVars(nil, authWithAPIKeyCreds)
 		test.That(t, observed, test.ShouldResemble, expected)
 	})
 
-	apiKeyId2 := "uvw"
+	apiKeyID2 := "uvw"
 	apiKey2 := "xyz"
 	order1 := AuthConfig{
 		Handlers: []AuthHandlerConfig{{Type: rpc.CredentialsTypeAPIKey, Config: utils.AttributeMap{
-			apiKeyId:  apiKey,
-			apiKeyId2: apiKey2,
-			"keys":    []string{apiKeyId, apiKeyId2},
+			apiKeyID:  apiKey,
+			apiKeyID2: apiKey2,
+			"keys":    []string{apiKeyID, apiKeyID2},
 		}}},
 	}
 	order2 := AuthConfig{
 		Handlers: []AuthHandlerConfig{{Type: rpc.CredentialsTypeAPIKey, Config: utils.AttributeMap{
-			apiKeyId2: apiKey2,
-			apiKeyId:  apiKey,
-			"keys":    []string{apiKeyId, apiKeyId2},
+			apiKeyID2: apiKey2,
+			apiKeyID:  apiKey,
+			"keys":    []string{apiKeyID, apiKeyID2},
 		}}},
 	}
 
 	t.Run("auth with keys in different order are stable", func(t *testing.T) {
 		expected := map[string]string{
 			utils.APIKeyEnvVar:   apiKey,
-			utils.APIKeyIDEnvVar: apiKeyId,
+			utils.APIKeyIDEnvVar: apiKeyID,
 		}
 		observed := additionalModuleEnvVars(nil, order1)
 		test.That(t, observed, test.ShouldResemble, expected)
@@ -484,7 +484,7 @@ func TestAdditionalModuleEnvVars(t *testing.T) {
 			utils.PrimaryOrgIDEnvVar:  cloud1.PrimaryOrgID,
 			utils.LocationIDEnvVar:    cloud1.LocationID,
 			utils.APIKeyEnvVar:        apiKey,
-			utils.APIKeyIDEnvVar:      apiKeyId,
+			utils.APIKeyIDEnvVar:      apiKeyID,
 		}
 		observed := additionalModuleEnvVars(&cloud1, authWithAPIKeyCreds)
 		test.That(t, observed, test.ShouldResemble, expected)
