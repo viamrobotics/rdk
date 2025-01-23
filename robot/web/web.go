@@ -225,9 +225,23 @@ func (svc *webService) StartModule(ctx context.Context) error {
 		var name string
 		switch req.(type) {
 		case *streampb.AddStreamRequest:
-			name = req.(*streampb.AddStreamRequest).Name
+			reqA := req.(*streampb.AddStreamRequest)
+			name = reqA.Name
+			r, err := resource.NewFromString(name)
+			if err != nil {
+				break
+			}
+			reqA.Name = r.SDPTrackName()
+			req = reqA
 		case *streampb.RemoveStreamRequest:
-			name = req.(*streampb.RemoveStreamRequest).Name
+			reqA := req.(*streampb.RemoveStreamRequest)
+			name = reqA.Name
+			r, err := resource.NewFromString(name)
+			if err != nil {
+				break
+			}
+			reqA.Name = r.SDPTrackName()
+			req = reqA
 		default:
 			return handler(ctx, req)
 		}
@@ -268,13 +282,15 @@ func (svc *webService) StartModule(ctx context.Context) error {
 		return err
 	}
 
-	var streamConfig gostream.StreamConfig
-	if svc.opts.streamConfig != nil {
-		streamConfig = *svc.opts.streamConfig
-	} else {
-		svc.logger.Warn("streamConfig is nil, using empty config")
+	if svc.streamServer == nil {
+		var streamConfig gostream.StreamConfig
+		if svc.opts.streamConfig != nil {
+			streamConfig = *svc.opts.streamConfig
+		} else {
+			svc.logger.Warn("streamConfig is nil, using empty config")
+		}
+		svc.streamServer = webstream.NewServer(svc.r, streamConfig, svc.logger)
 	}
-	svc.streamServer = webstream.NewServer(svc.r, streamConfig, svc.logger)
 	if err := svc.streamServer.AddNewStreams(svc.cancelCtx); err != nil {
 		return err
 	}
