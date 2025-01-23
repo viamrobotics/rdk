@@ -409,3 +409,7 @@ func (state *StreamState) unsubscribeH264Passthrough(ctx context.Context, id rtp
 
 	return nil
 }
+
+func (state *StreamState) IsResized() bool {
+	return state.isResized
+}

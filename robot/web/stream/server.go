@@ -658,6 +658,16 @@ func (server *Server) refreshVideoSources() {
 		}
 		existing, ok := server.videoSources[cam.Name().SDPTrackName()]
 		if ok {
+			// Check stream state for the camera to see if it is in resized mode.
+			// If it is, we do not want to swap the camera source.
+			// This comes with the risk that a camera is added or changed to the same name
+			// as the previously resized stream source causing the stream to be pointed to the
+			// wrong camera.
+			streamState, ok := server.nameToStreamState[cam.Name().SDPTrackName()]
+			if ok && streamState.IsResized() {
+				server.logger.Debugf("stream %q is resized, skipping swap", cam.Name().SDPTrackName())
+				continue
+			}
 			existing.Swap(cam)
 			continue
 		}
