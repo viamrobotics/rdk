@@ -498,6 +498,10 @@ func newWithResources(
 	if rOpts.viamHomeDir != "" {
 		homeDir = rOpts.viamHomeDir
 	}
+	var m web.ModularResourceToPeerConnectionMapper
+	if mm, ok := r.webSvc.(web.ModularResourceToPeerConnectionMapper); ok {
+		m = mm
+	}
 	// Once web service is started, start module manager
 	r.manager.startModuleManager(
 		closeCtx,
@@ -508,6 +512,7 @@ func newWithResources(
 		cloudID,
 		logger,
 		cfg.PackagePath,
+		m,
 	)
 
 	if !rOpts.disableCompleteConfigWorker {

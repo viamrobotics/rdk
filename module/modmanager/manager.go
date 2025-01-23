@@ -40,6 +40,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/packages"
+	"go.viam.com/rdk/robot/web"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -59,9 +60,11 @@ var (
 // NewManager returns a Manager.
 func NewManager(
 	ctx context.Context, parentAddr string, logger logging.Logger, options modmanageroptions.Options,
+	m web.ModularResourceToPeerConnectionMapper,
 ) modmaninterface.ModuleManager {
 	restartCtx, restartCtxCancel := context.WithCancel(ctx)
 	ret := &Manager{
+		m:                       m,
 		logger:                  logger.Sublogger("modmanager"),
 		modules:                 moduleMap{},
 		parentAddr:              parentAddr,
@@ -165,6 +168,7 @@ func (rmap *resourceModuleMap) Range(f func(name resource.Name, mod *module) boo
 
 // Manager is the root structure for the module system.
 type Manager struct {
+	m web.ModularResourceToPeerConnectionMapper
 	// mu (mostly) coordinates API methods that modify the `modules` map. Specifically,
 	// `AddResource` can be called concurrently during a reconfigure. But `RemoveResource` or
 	// resources being restarted after a module crash are given exclusive access.
@@ -522,6 +526,7 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 	mgr.rMap.Range(func(r resource.Name, m *module) bool {
 		if m == mod {
 			mgr.rMap.Delete(r)
+			mgr.m.ClearResourceNameToModulePeerConnection(r.String())
 		}
 		return true
 	})
@@ -562,6 +567,9 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 		return nil, err
 	}
 	mgr.rMap.Store(conf.ResourceName(), mod)
+	if pc := mod.sharedConn.PeerConn(); pc != nil {
+		mgr.m.SetResourceNameToModulePeerConnection(conf.ResourceName().String(), pc)
+	}
 
 	mod.resourcesMu.Lock()
 	defer mod.resourcesMu.Unlock()
@@ -636,6 +644,7 @@ func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) erro
 	mod.logger.CInfow(ctx, "Removing resource for module", "resource", name.String(), "module", mod.cfg.Name)
 
 	mgr.rMap.Delete(name)
+	mgr.m.ClearResourceNameToModulePeerConnection(name.String())
 	delete(mod.resources, name)
 	_, err := mod.client.RemoveResource(ctx, &pb.RemoveResourceRequest{Name: name.String()})
 	if err != nil {
@@ -916,6 +925,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 				mod.logger.Warnw("Error while re-adding resource to module",
 					"resource", name, "module", mod.cfg.Name, "error", err)
 				mgr.rMap.Delete(name)
+				mgr.m.ClearResourceNameToModulePeerConnection(name.String())
 
 				mod.resourcesMu.Lock()
 				delete(mod.resources, name)
@@ -1366,6 +1376,7 @@ func (m *module) cleanupAfterCrash(mgr *Manager) {
 	mgr.rMap.Range(func(r resource.Name, mod *module) bool {
 		if mod == m {
 			mgr.rMap.Delete(r)
+			mgr.m.ClearResourceNameToModulePeerConnection(r.String())
 		}
 		return true
 	})

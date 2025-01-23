@@ -84,6 +84,7 @@ func NewClientFromConn(
 	streamClient := streampb.NewStreamServiceClient(conn)
 	trackClosed := make(chan struct{})
 	close(trackClosed)
+	logger.Infof("NICK!!! conn: %#v, streamClient: %#v", conn, streamClient)
 	return &client{
 		remoteName:     remoteName,
 		Named:          name.PrependRemote(remoteName).AsNamed(),
@@ -429,6 +430,7 @@ func (c *client) SubscribeRTP(
 		return rtppassthrough.NilSubscription, ErrNoSharedPeerConnection
 	}
 
+	c.logger.CInfow(ctx, "Client conn", "connType", fmt.Sprintf("%T", c.conn), "conn", fmt.Sprintf("%#v", c.conn))
 	c.logger.CDebugw(ctx, "SubscribeRTP", "subID", sub.ID.String(), "name", c.Name(), "bufAndCBByID", c.bufAndCBToString())
 	defer func() {
 		c.logger.CDebugw(ctx, "SubscribeRTP after", "subID", sub.ID.String(),

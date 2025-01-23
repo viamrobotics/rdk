@@ -122,6 +122,7 @@ func (manager *resourceManager) startModuleManager(
 	robotCloudID string,
 	logger logging.Logger,
 	packagesDir string,
+	m web.ModularResourceToPeerConnectionMapper,
 ) {
 	mmOpts := modmanageroptions.Options{
 		UntrustedEnv:            untrustedEnv,
@@ -131,7 +132,7 @@ func (manager *resourceManager) startModuleManager(
 		PackagesDir:             packagesDir,
 		FTDC:                    manager.opts.ftdc,
 	}
-	modmanager := modmanager.NewManager(ctx, parentAddr, logger, mmOpts)
+	modmanager := modmanager.NewManager(ctx, parentAddr, logger, mmOpts, m)
 	manager.modManagerLock.Lock()
 	manager.moduleManager = modmanager
 	manager.modManagerLock.Unlock()
@@ -744,7 +745,6 @@ func (manager *resourceManager) completeConfig(
 
 					switch {
 					case resName.API.IsComponent(), resName.API.IsService():
-
 						newRes, newlyBuilt, err := manager.processResource(ctxWithTimeout, conf, gNode, lr)
 						if newlyBuilt || err != nil {
 							if err := manager.markChildrenForUpdate(resName); err != nil {
@@ -759,7 +759,8 @@ func (manager *resourceManager) completeConfig(
 							gNode.LogAndSetLastError(
 								fmt.Errorf("resource build error: %w", err),
 								"resource", conf.ResourceName(),
-								"model", conf.Model)
+								"model", conf.Model,
+								"newlyBuilt", newlyBuilt)
 							return
 						}
 

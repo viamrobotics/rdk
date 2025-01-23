@@ -21,6 +21,7 @@ import (
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/pkg/errors"
 	"github.com/rs/cors"
+	"github.com/viamrobotics/webrtc/v3"
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/robot/v1"
 	streampb "go.viam.com/api/stream/v1"
@@ -81,6 +82,11 @@ type Service interface {
 	ModuleAddress() string
 
 	Stats() any
+}
+
+type ModularResourceToPeerConnectionMapper interface {
+	SetResourceNameToModulePeerConnection(name string, pc *webrtc.PeerConnection)
+	ClearResourceNameToModulePeerConnection(name string)
 }
 
 var internalWebServiceName = resource.NewName(
@@ -156,6 +162,18 @@ func (svc *webService) ModuleAddress() string {
 	return svc.modAddr
 }
 
+func (svc *webService) SetResourceNameToModulePeerConnection(name string, pc *webrtc.PeerConnection) {
+	svc.resourceNameToPeerConnectionMu.Lock()
+	defer svc.resourceNameToPeerConnectionMu.Unlock()
+	svc.resourceNameToPeerConnectionMap[name] = pc
+}
+
+func (svc *webService) ClearResourceNameToModulePeerConnection(name string) {
+	svc.resourceNameToPeerConnectionMu.Lock()
+	defer svc.resourceNameToPeerConnectionMu.Unlock()
+	delete(svc.resourceNameToPeerConnectionMap, name)
+}
+
 // StartModule starts the grpc module server.
 func (svc *webService) StartModule(ctx context.Context) error {
 	svc.mu.Lock()
@@ -196,10 +214,47 @@ func (svc *webService) StartModule(ctx context.Context) error {
 	)
 
 	unaryInterceptors = append(unaryInterceptors, grpc.EnsureTimeoutUnaryServerInterceptor)
+	f := func(ctx context.Context, req any, info *googlegrpc.UnaryServerInfo, handler googlegrpc.UnaryHandler) (resp any, err error) {
+		if !strings.HasPrefix(info.FullMethod, "/proto.stream.v1.StreamService") {
+			return handler(ctx, req)
+		}
+		defer svc.logger.Info("NICK done")
+		svc.logger.Infof("ctx before: %#v", ctx)
+		svc.logger.Infof("req: %#v", req)
+		svc.logger.Infof("info: %#v", info)
+		var name string
+		switch req.(type) {
+		case *streampb.AddStreamRequest:
+			name = req.(*streampb.AddStreamRequest).Name
+		case *streampb.RemoveStreamRequest:
+			name = req.(*streampb.RemoveStreamRequest).Name
+		default:
+			return handler(ctx, req)
+		}
+		svc.resourceNameToPeerConnectionMu.Lock()
+		pc, ok := svc.resourceNameToPeerConnectionMap[name]
+		svc.resourceNameToPeerConnectionMu.Unlock()
+
+		if !ok {
+			return handler(ctx, req)
+		}
+
+		// only add peer connections to add or remove stream
+		_, ok = rpc.ContextPeerConnection(ctx)
+		if ok {
+			return handler(ctx, req)
+		}
+		ctx = rpc.UnsafeContextWithPeerConnection(ctx, pc)
+		svc.logger.Infof("ctx after: %#v", ctx)
+		return handler(ctx, req)
+	}
+	unaryInterceptors = append(unaryInterceptors, f)
 
 	opManager := svc.r.OperationManager()
 	unaryInterceptors = append(unaryInterceptors,
-		opManager.UnaryServerInterceptor, logging.UnaryServerInterceptor)
+		opManager.UnaryServerInterceptor,
+		logging.UnaryServerInterceptor,
+	)
 	streamInterceptors = append(streamInterceptors, opManager.StreamServerInterceptor)
 	// TODO(PRODUCT-343): Add session manager interceptors
 
