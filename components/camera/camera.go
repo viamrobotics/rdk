@@ -143,9 +143,9 @@ type Camera interface {
 	Properties(ctx context.Context) (Properties, error)
 }
 
-// StreamCamera is a camera that has `Stream` embedded to directly integrate with gostream.
+// VideoSource is a camera that has `Stream` embedded to directly integrate with gostream.
 // Note that generally, when writing camera components from scratch, embedding `Stream` is an anti-pattern.
-type StreamCamera interface {
+type VideoSource interface {
 	Camera
 	Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error)
 }

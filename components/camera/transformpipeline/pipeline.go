@@ -49,8 +49,8 @@ func init() {
 				if err != nil {
 					return nil, fmt.Errorf("no source camera for transform pipeline (%s): %w", sourceName, err)
 				}
-				streamCamera := streamCameraFromCamera(ctx, source)
-				src, err := newTransformPipeline(ctx, streamCamera, conf.ResourceName().AsNamed(), newConf, actualR, logger)
+				vs := videoSourceFromCamera(ctx, source)
+				src, err := newTransformPipeline(ctx, vs, conf.ResourceName().AsNamed(), newConf, actualR, logger)
 				if err != nil {
 					return nil, err
 				}
@@ -87,27 +87,27 @@ func (cfg *transformConfig) Validate(path string) ([]string, error) {
 	return deps, nil
 }
 
-type streamCamera struct {
+type videoSource struct {
 	camera.Camera
 	vs gostream.VideoSource
 }
 
-func (sc *streamCamera) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+func (sc *videoSource) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 	if sc.vs != nil {
 		return sc.vs.Stream(ctx, errHandlers...)
 	}
 	return sc.Stream(ctx, errHandlers...)
 }
 
-// streamCameraFromCamera is a hack to allow us to use Stream to pipe frames through the pipeline
+// videoSourceFromCamera is a hack to allow us to use Stream to pipe frames through the pipeline
 // and still implement a camera resource.
 // We prefer this methodology over passing Image bytes because each transform desires a image.Image over
 // a raw byte slice. To use Image would be to wastefully encode and decode the frame multiple times.
-func streamCameraFromCamera(ctx context.Context, cam camera.Camera) camera.StreamCamera {
-	if streamCam, ok := cam.(camera.StreamCamera); ok {
+func videoSourceFromCamera(ctx context.Context, cam camera.Camera) camera.VideoSource {
+	if streamCam, ok := cam.(camera.VideoSource); ok {
 		return streamCam
 	}
-	return &streamCamera{
+	return &videoSource{
 		Camera: cam,
 		vs:     camerautils.VideoSourceFromCamera(ctx, cam),
 	}
@@ -115,12 +115,12 @@ func streamCameraFromCamera(ctx context.Context, cam camera.Camera) camera.Strea
 
 func newTransformPipeline(
 	ctx context.Context,
-	source camera.StreamCamera,
+	source camera.VideoSource,
 	named resource.Named,
 	cfg *transformConfig,
 	r robot.Robot,
 	logger logging.Logger,
-) (camera.StreamCamera, error) {
+) (camera.VideoSource, error) {
 	if source == nil {
 		return nil, errors.New("no source camera for transform pipeline")
 	}
@@ -141,14 +141,14 @@ func newTransformPipeline(
 		streamType = camera.ColorStream
 	}
 	// loop through the pipeline and create the image flow
-	pipeline := make([]camera.StreamCamera, 0, len(cfg.Pipeline))
-	lastSource := streamCameraFromCamera(ctx, source)
+	pipeline := make([]camera.VideoSource, 0, len(cfg.Pipeline))
+	lastSource := videoSourceFromCamera(ctx, source)
 	for _, tr := range cfg.Pipeline {
 		src, newStreamType, err := buildTransform(ctx, r, lastSource, streamType, tr)
 		if err != nil {
 			return nil, err
 		}
-		streamSrc := streamCameraFromCamera(ctx, src)
+		streamSrc := videoSourceFromCamera(ctx, src)
 		pipeline = append(pipeline, streamSrc)
 		lastSource = streamSrc
 		streamType = newStreamType
@@ -164,7 +164,7 @@ func newTransformPipeline(
 
 type transformPipeline struct {
 	resource.Named
-	pipeline            []camera.StreamCamera
+	pipeline            []camera.VideoSource
 	src                 camera.Camera
 	intrinsicParameters *transform.PinholeCameraIntrinsics
 	logger              logging.Logger

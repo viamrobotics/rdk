@@ -24,21 +24,21 @@ import (
 // Note: this strips away Reconfiguration and DoCommand abilities.
 // If needed, implement the Camera another way. For example, a webcam
 // implements a Camera manually so that it can atomically reconfigure itself.
-func FromVideoSource(name resource.Name, src StreamCamera, logger logging.Logger) StreamCamera {
+func FromVideoSource(name resource.Name, src VideoSource, logger logging.Logger) VideoSource {
 	var rtpPassthroughSource rtppassthrough.Source
 	if ps, ok := src.(rtppassthrough.Source); ok {
 		rtpPassthroughSource = ps
 	}
 	return &sourceBasedCamera{
 		rtpPassthroughSource: rtpPassthroughSource,
-		StreamCamera:         src,
+		VideoSource:          src,
 		Named:                name.AsNamed(),
 		Logger:               logger,
 	}
 }
 
 type sourceBasedCamera struct {
-	StreamCamera
+	VideoSource
 	resource.AlwaysRebuild
 	resource.Named
 	rtpPassthroughSource rtppassthrough.Source
@@ -57,7 +57,7 @@ func (vs *sourceBasedCamera) Name() resource.Name {
 
 // Define DoCommand to fulfill Named interface.
 func (vs *sourceBasedCamera) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return vs.StreamCamera.DoCommand(ctx, cmd)
+	return vs.VideoSource.DoCommand(ctx, cmd)
 }
 
 func (vs *sourceBasedCamera) SubscribeRTP(
@@ -122,7 +122,7 @@ func NewVideoSourceFromReader(
 	ctx context.Context,
 	reader gostream.VideoReader,
 	syst *transform.PinholeCameraModel, imageType ImageType,
-) (StreamCamera, error) {
+) (VideoSource, error) {
 	if reader == nil {
 		return nil, errors.New("cannot have a nil reader")
 	}
@@ -168,7 +168,7 @@ func WrapVideoSourceWithProjector(
 	ctx context.Context,
 	source gostream.VideoSource,
 	syst *transform.PinholeCameraModel, imageType ImageType,
-) (StreamCamera, error) {
+) (VideoSource, error) {
 	if source == nil {
 		return nil, errors.New("cannot have a nil source")
 	}
