@@ -71,10 +71,9 @@ type SharedConn struct {
 	// `peerConnMu` synchronizes changes to the underlying `peerConn`. Such that calls consecutive
 	// calls to `GrpcConn` and `PeerConn` will return connections from the same (or newer, but not
 	// prior) "generations".
-	peerConnMu     sync.Mutex
-	peerConn       *webrtc.PeerConnection
-	peerConnReady  <-chan struct{}
-	peerConnClosed <-chan struct{}
+	peerConnMu    sync.Mutex
+	peerConn      *webrtc.PeerConnection
+	peerConnReady <-chan struct{}
 	// peerConnFailed gets closed when a PeerConnection fails to connect. The peerConn pointer is
 	// set to nil before this channel is closed.
 	peerConnFailed chan struct{}
@@ -83,6 +82,23 @@ type SharedConn struct {
 	onTrackCBByTrackName   map[string]OnTrackCB
 
 	logger logging.Logger
+}
+
+func NewSharedConn(grpcConn rpc.ClientConn, peerConn *webrtc.PeerConnection) *SharedConn {
+	// We must be passed a ready connection.
+	pcReady := make(chan struct{})
+	close(pcReady)
+
+	ret := &SharedConn{
+		peerConn:      peerConn,
+		peerConnReady: pcReady,
+		// We were passed in a ready connection. Only create this for when `Close` is called.
+		peerConnFailed:       make(chan struct{}),
+		onTrackCBByTrackName: make(map[string]OnTrackCB),
+	}
+	ret.grpcConn.ReplaceConn(grpcConn)
+
+	return ret
 }
 
 // Invoke forwards to the underlying GRPC Connection.
@@ -193,7 +209,7 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 	}
 
 	sc.peerConn = peerConn
-	sc.peerConnReady, sc.peerConnClosed, err = rpc.ConfigureForRenegotiation(peerConn, rpc.PeerRoleClient, sc.logger)
+	sc.peerConnReady, _, err = rpc.ConfigureForRenegotiation(peerConn, rpc.PeerRoleClient, sc.logger)
 	if err != nil {
 		sc.logger.Warnw("Unable to create optional renegotiation channel for module. Ignoring.", "err", err)
 		return

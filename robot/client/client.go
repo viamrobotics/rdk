@@ -16,6 +16,7 @@ import (
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
+	"github.com/viamrobotics/webrtc/v3"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -84,6 +85,7 @@ type RobotClient struct {
 	changeChan               chan bool
 	notifyParent             func()
 	conn                     grpc.ReconfigurableClientConn
+	pc                       *webrtc.PeerConnection
 	client                   pb.RobotServiceClient
 	refClient                *grpcreflect.Client
 	connected                atomic.Bool
@@ -400,6 +402,21 @@ func (rc *RobotClient) Changed() <-chan bool {
 	return rc.changeChan
 }
 
+func (rc *RobotClient) SetPeerConnection(pc *webrtc.PeerConnection) {
+	rc.mu.Lock()
+	rc.pc = pc
+	rc.mu.Unlock()
+}
+
+func (rc *RobotClient) getClientConn() rpc.ClientConn {
+	// Must be called with `rc.mu` in ReadLock+ mode.
+	if rc.pc == nil {
+		return &rc.conn
+	}
+
+	return grpc.NewSharedConn(&rc.conn, rc.pc)
+}
+
 // Connect will close any existing connection and try to reconnect to the remote.
 func (rc *RobotClient) Connect(ctx context.Context) error {
 	if err := rc.connectWithLock(ctx); err != nil {
@@ -429,8 +446,10 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 	dialOptionsWebRTCOnly[0] = rpc.WithDisableDirectGRPC()
 
 	dialLogger := rc.logger.Sublogger("networking")
+	rc.logger.Infof("dialing: %s", rc.address)
 	conn, err := grpc.Dial(ctx, rc.address, dialLogger, dialOptionsWebRTCOnly...)
 	if err == nil {
+		rc.logger.Infof("webrtc connection succeeded %s", rc.address)
 		// If we succeed with a webrtc connection, flip the `serverIsWebrtcEnabled` to force all future
 		// connections to use webrtc.
 		if !rc.serverIsWebrtcEnabled {
@@ -439,6 +458,7 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 			rc.serverIsWebrtcEnabled = true
 		}
 	} else if !rc.serverIsWebrtcEnabled {
+		rc.logger.Infof("!rc.serverIsWebrtcEnabled and first connection didn't succeed: %s", rc.address)
 		// If we failed to connect via webrtc and* we've never previously connected over webrtc, try
 		// to connect with a grpc over a tcp connection.
 		//
@@ -455,6 +475,7 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 
 		grpcConn, grpcErr := grpc.Dial(ctx, rc.address, dialLogger, dialOptionsGRPCOnly...)
 		if grpcErr == nil {
+			rc.logger.Infof("!rc.serverIsWebrtcEnabled succeeded: %s", rc.address)
 			conn = grpcConn
 			err = nil
 		} else {
@@ -674,10 +695,10 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, er
 func (rc *RobotClient) createClient(name resource.Name) (resource.Resource, error) {
 	apiInfo, ok := resource.LookupGenericAPIRegistration(name.API)
 	if !ok || apiInfo.RPCClient == nil {
-		return grpc.NewForeignResource(name, &rc.conn), nil
+		return grpc.NewForeignResource(name, rc.getClientConn()), nil
 	}
 	logger := rc.Logger().Sublogger(resource.RemoveRemoteName(name).ShortName())
-	return apiInfo.RPCClient(rc.backgroundCtx, &rc.conn, rc.remoteName, name, logger)
+	return apiInfo.RPCClient(rc.backgroundCtx, rc.getClientConn(), rc.remoteName, name, logger)
 }
 
 func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resource.RPCAPI, error) {

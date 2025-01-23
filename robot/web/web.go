@@ -23,6 +23,7 @@ import (
 	"github.com/rs/cors"
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/robot/v1"
+	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils"
 	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
 	"go.viam.com/utils/rpc"
@@ -32,6 +33,7 @@ import (
 	googlegrpc "google.golang.org/grpc"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
@@ -39,6 +41,7 @@ import (
 	"go.viam.com/rdk/robot"
 	grpcserver "go.viam.com/rdk/robot/server"
 	weboptions "go.viam.com/rdk/robot/web/options"
+	webstream "go.viam.com/rdk/robot/web/stream"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -209,6 +212,26 @@ func (svc *webService) StartModule(ctx context.Context) error {
 	if err := svc.modServer.RegisterServiceServer(ctx, &pb.RobotService_ServiceDesc, grpcserver.New(svc.r)); err != nil {
 		return err
 	}
+
+	var streamConfig gostream.StreamConfig
+	if svc.opts.streamConfig != nil {
+		streamConfig = *svc.opts.streamConfig
+	} else {
+		svc.logger.Warn("streamConfig is nil, using empty config")
+	}
+	svc.streamServer = webstream.NewServer(svc.r, streamConfig, svc.logger)
+	if err := svc.streamServer.AddNewStreams(svc.cancelCtx); err != nil {
+		return err
+	}
+	if err := svc.modServer.RegisterServiceServer(
+		ctx,
+		&streampb.StreamService_ServiceDesc,
+		svc.streamServer,
+		streampb.RegisterStreamServiceHandlerFromEndpoint,
+	); err != nil {
+		return err
+	}
+
 	if err := svc.initAPIResourceCollections(ctx, true); err != nil {
 		return err
 	}
