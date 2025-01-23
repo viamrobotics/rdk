@@ -9,7 +9,9 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
+	"go.uber.org/zap/zapcore"
 	"go.viam.com/test"
 )
 
@@ -146,11 +148,14 @@ func TestConsoleOutputFormat(t *testing.T) {
 	// A logger object that will write to the `notStdout` buffer.
 	notStdout := &bytes.Buffer{}
 	impl := &impl{
-		name:       "impl",
-		level:      NewAtomicLevelAt(DEBUG),
-		appenders:  []Appender{NewWriterAppender(notStdout)},
-		registry:   newRegistry(),
-		testHelper: func() {},
+		name:                     "impl",
+		level:                    NewAtomicLevelAt(DEBUG),
+		appenders:                []Appender{NewWriterAppender(notStdout)},
+		registry:                 newRegistry(),
+		testHelper:               func() {},
+		recentMessageCounts:      make(map[string]int),
+		recentMessageEntries:     make(map[string]LogEntry),
+		recentMessageWindowStart: time.Now(),
 	}
 
 	impl.Info("impl Info log")
@@ -211,11 +216,14 @@ func TestContextLogging(t *testing.T) {
 	notStdout := &bytes.Buffer{}
 	// The default log level is error.
 	logger := &impl{
-		name:       "impl",
-		level:      NewAtomicLevelAt(ERROR),
-		appenders:  []Appender{NewWriterAppender(notStdout)},
-		registry:   newRegistry(),
-		testHelper: func() {},
+		name:                     "impl",
+		level:                    NewAtomicLevelAt(ERROR),
+		appenders:                []Appender{NewWriterAppender(notStdout)},
+		registry:                 newRegistry(),
+		testHelper:               func() {},
+		recentMessageCounts:      make(map[string]int),
+		recentMessageEntries:     make(map[string]LogEntry),
+		recentMessageWindowStart: time.Now(),
 	}
 
 	logger.CDebug(ctxNoDebug, "Debug log")
@@ -286,11 +294,14 @@ func TestSublogger(t *testing.T) {
 	// A logger object that will write to the `notStdout` buffer.
 	notStdout := &bytes.Buffer{}
 	logger := &impl{
-		name:       "impl",
-		level:      NewAtomicLevelAt(DEBUG),
-		appenders:  []Appender{NewWriterAppender(notStdout)},
-		registry:   newRegistry(),
-		testHelper: func() {},
+		name:                     "impl",
+		level:                    NewAtomicLevelAt(DEBUG),
+		appenders:                []Appender{NewWriterAppender(notStdout)},
+		registry:                 newRegistry(),
+		testHelper:               func() {},
+		recentMessageCounts:      make(map[string]int),
+		recentMessageEntries:     make(map[string]LogEntry),
+		recentMessageWindowStart: time.Now(),
 	}
 
 	logger.Info("info log")
@@ -419,4 +430,162 @@ func TestLoggingWithFields(t *testing.T) {
 	loggerWith.CDebugw(ctxWithDebug, "Debugw log", "k", "v")
 	assertLogMatches(t, notStdout,
 		`2023-10-30T09:12:09.459Z	DEBUG	impl	logging/impl_test.go:200	Debugw log	{"traceKey":"foobar","k":"v","key":"value"}`)
+}
+
+func TestLogEntryHashKey(t *testing.T) {
+	testCases := []struct {
+		name            string
+		logEntry        *LogEntry
+		expectedHashKey string
+	}{
+		{
+			"no fields",
+			&LogEntry{
+				Entry: zapcore.Entry{
+					Message: "these are not the droids you are looking for",
+				},
+			},
+			"these are not the droids you are looking for",
+		},
+		{
+			"fields",
+			&LogEntry{
+				Entry: zapcore.Entry{
+					Message: "these are not the droids you are looking for",
+				},
+				Fields: []zapcore.Field{
+					{
+						Key:    "obi",
+						String: "wan",
+					},
+					{
+						Key:     "r2d",
+						Integer: 2,
+					},
+					{
+						Key:       "c3",
+						Interface: "po",
+					},
+				},
+			},
+			"these are not the droids you are looking for obi wan r2d 2 c3 po",
+		},
+		{
+			"undefined field",
+			&LogEntry{
+				Entry: zapcore.Entry{
+					Message: "these are not the droids you are looking for",
+				},
+				Fields: []zapcore.Field{
+					{
+						Key: "obi",
+					},
+				},
+			},
+			"these are not the droids you are looking for obi undefined",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			actualHashKey := tc.logEntry.HashKey()
+			test.That(t, actualHashKey, test.ShouldEqual, tc.expectedHashKey)
+		})
+	}
+}
+
+func TestLoggingDeduplication(t *testing.T) {
+	// Create a logger object that will write to the `notStdout` buffer. Explicitly
+	// set DeduplicateLogs to true on the registry for the logger.
+	registry := newRegistry()
+	registry.DeduplicateLogs.Store(true)
+
+	notStdout := &bytes.Buffer{}
+	logger := &impl{
+		name:                     "impl",
+		level:                    NewAtomicLevelAt(DEBUG),
+		appenders:                []Appender{NewWriterAppender(notStdout)},
+		registry:                 registry,
+		testHelper:               func() {},
+		recentMessageCounts:      make(map[string]int),
+		recentMessageEntries:     make(map[string]LogEntry),
+		recentMessageWindowStart: time.Now(),
+	}
+
+	// Artificially lower noisy message window for testing.
+	originalNoisyMessageWindowDuration := noisyMessageWindowDuration
+	noisyMessageWindowDuration = 500 * time.Millisecond
+	defer func() {
+		noisyMessageWindowDuration = originalNoisyMessageWindowDuration
+	}()
+
+	// Log 4 identical messages (same sublogger, messages, and fields) in quick
+	// succession. Sleep for noisy message window duration. Assert that a final,
+	// separate log is an aggregation log.
+	identicalMsg := "identical message"
+	loggerWith := logger.WithFields("key", "value")
+	for range 3 {
+		loggerWith.Info(identicalMsg)
+		assertLogMatches(t, notStdout,
+			`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"key":"value"}`)
+	}
+	loggerWith.Info(identicalMsg) // not output due to being noisy
+	time.Sleep(noisyMessageWindowDuration)
+	loggerWith.Info("foo") // log arbitrary message to force output of aggregated message
+	assertLogMatches(t, notStdout,
+		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	Message logged 4 times in past 500ms: identical message	{"key":"value"}`)
+	assertLogMatches(t, notStdout,
+		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	foo	{"key":"value"}`)
+
+	// Assert aggregation resets after sleep (same aggregation occurs again.)
+	for range 3 {
+		loggerWith.Info(identicalMsg)
+		assertLogMatches(t, notStdout,
+			`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"key":"value"}`)
+	}
+	loggerWith.Info(identicalMsg) // not output due to being noisy
+	time.Sleep(noisyMessageWindowDuration)
+	loggerWith.Info("foo") // log arbitrary message to force output of aggregated message
+	assertLogMatches(t, notStdout,
+		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	Message logged 4 times in past 500ms: identical message	{"key":"value"}`)
+	assertLogMatches(t, notStdout,
+		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	foo	{"key":"value"}`)
+
+	// Assert that using a different sublogger uses separate aggregation.
+	separateLoggerWith := logger.Sublogger("sub").WithFields("key", "value")
+	for range 3 {
+		separateLoggerWith.Info(identicalMsg)
+		assertLogMatches(t, notStdout,
+			`2023-10-30T13:19:45.806Z	INFO	impl.sub	logging/impl_test.go:132	identical message	{"key":"value"}`)
+		loggerWith.Info(identicalMsg)
+		assertLogMatches(t, notStdout,
+			`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"key":"value"}`)
+	}
+
+	time.Sleep(noisyMessageWindowDuration) // Sleep to reset window.
+
+	// Assert that using different fields uses separate aggregation.
+	for range 3 {
+		loggerWith.Infow(identicalMsg, "newkey", "newvalue")
+		assertLogMatches(t, notStdout,
+			`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"newkey":"newvalue","key":"value"}`)
+		loggerWith.Info(identicalMsg)
+		assertLogMatches(t, notStdout,
+			`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"key":"value"}`)
+	}
+
+	time.Sleep(noisyMessageWindowDuration) // Sleep to reset window.
+
+	// Assert that using different levels does _not_ use separate aggregation.
+	for range 3 {
+		loggerWith.Info(identicalMsg)
+		assertLogMatches(t, notStdout,
+			`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"key":"value"}`)
+	}
+	loggerWith.Error(identicalMsg) // not output due to being noisy
+	time.Sleep(noisyMessageWindowDuration)
+	loggerWith.Info("foo") // log arbitrary message to force output of aggregated message
+	assertLogMatches(t, notStdout,
+		`2023-10-30T13:19:45.806Z	ERROR	impl	logging/impl_test.go:132	Message logged 4 times in past 500ms: identical message	{"key":"value"}`)
+	assertLogMatches(t, notStdout,
+		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	foo	{"key":"value"}`)
 }

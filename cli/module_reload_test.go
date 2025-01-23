@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	rdkConfig "go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -22,7 +23,7 @@ func TestConfigureModule(t *testing.T) {
 		StartBuildFunc: func(ctx context.Context, in *v1.StartBuildRequest, opts ...grpc.CallOption) (*v1.StartBuildResponse, error) {
 			return &v1.StartBuildResponse{BuildId: "xyz123"}, nil
 		},
-	}, nil, map[string]any{moduleBuildFlagPath: manifestPath, moduleBuildFlagVersion: "1.2.3"}, "token")
+	}, nil, map[string]any{moduleFlagPath: manifestPath, generalFlagVersion: "1.2.3"}, "token")
 	err := ac.moduleBuildStartAction(cCtx, parseStructFromCtx[moduleBuildStartArgs](cCtx))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.messages, test.ShouldHaveLength, 1)
@@ -31,6 +32,8 @@ func TestConfigureModule(t *testing.T) {
 }
 
 func TestFullReloadFlow(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
 	manifestPath := createTestManifest(t, "")
 	confStruct, err := structpb.NewStruct(map[string]any{
 		"modules": []any{},
@@ -61,13 +64,13 @@ func TestFullReloadFlow(t *testing.T) {
 		},
 	}, nil, &inject.BuildServiceClient{}, nil,
 		map[string]any{
-			moduleBuildFlagPath: manifestPath, generalFlagPartID: "part-123",
+			moduleFlagPath: manifestPath, generalFlagPartID: "part-123",
 			moduleBuildFlagNoBuild: true, moduleFlagLocal: true,
 		},
 		"token",
 	)
 	test.That(t, vc.loginAction(cCtx), test.ShouldBeNil)
-	err = reloadModuleAction(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx))
+	err = reloadModuleAction(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, updateCount, test.ShouldEqual, 1)
 

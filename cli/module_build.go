@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/multierr"
+	"go.uber.org/zap"
 	buildpb "go.viam.com/api/app/build/v1"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils/pexec"
@@ -175,12 +176,10 @@ func ModuleBuildListAction(cCtx *cli.Context, args moduleBuildListArgs) error {
 }
 
 func (c *viamClient) moduleBuildListAction(cCtx *cli.Context, args moduleBuildListArgs) error {
-	var buildIDFilter *string
+	buildIDFilter := args.ID
 	var moduleIDFilter string
-	// This will use the build id if present and fall back on the module manifest if not
-	if cCtx.IsSet(moduleBuildFlagBuildID) {
-		buildIDFilter = &args.ID
-	} else {
+	// Fall back on the module manifest if build id is not present.
+	if buildIDFilter == "" {
 		manifestPath := args.Module
 		manifest, err := loadManifest(manifestPath)
 		if err != nil {
@@ -197,7 +196,7 @@ func (c *viamClient) moduleBuildListAction(cCtx *cli.Context, args moduleBuildLi
 		count := int32(args.Count)
 		numberOfJobsToReturn = &count
 	}
-	jobs, err := c.listModuleBuildJobs(moduleIDFilter, numberOfJobsToReturn, buildIDFilter)
+	jobs, err := c.listModuleBuildJobs(moduleIDFilter, numberOfJobsToReturn, &buildIDFilter)
 	if err != nil {
 		return err
 	}
@@ -504,11 +503,22 @@ func ReloadModuleAction(c *cli.Context, args reloadModuleArgs) error {
 	if err != nil {
 		return err
 	}
-	return reloadModuleAction(c, vc, args)
+
+	// Create logger based on presence of debugFlag.
+	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
+	globalArgs, err := getGlobalArgs(c)
+	if err != nil {
+		return err
+	}
+	if globalArgs.Debug {
+		logger = logging.NewDebugLogger("cli")
+	}
+
+	return reloadModuleAction(c, vc, args, logger)
 }
 
 // reloadModuleAction is the testable inner reload logic.
-func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs) error {
+func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, logger logging.Logger) error {
 	partID, err := resolvePartID(c.Context, args.PartID, "/etc/viam.json")
 	if err != nil {
 		return err
@@ -576,7 +586,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs) e
 		}
 	}
 	if needsRestart {
-		return restartModule(c, vc, part.Part, manifest)
+		return restartModule(c, vc, part.Part, manifest, logger)
 	}
 	infof(c.App.Writer, "Reload complete")
 	return nil
@@ -656,7 +666,7 @@ func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.Resta
 	modID := args.ID
 	// todo: use MutuallyExclusiveFlags for this when urfave/cli 3.x is stable
 	if (len(modName) > 0) && (len(modID) > 0) {
-		return nil, fmt.Errorf("provide at most one of --%s and --%s", generalFlagName, moduleBuildFlagBuildID)
+		return nil, fmt.Errorf("provide at most one of --%s and --%s", generalFlagName, moduleFlagID)
 	}
 	request := &robot.RestartModuleRequest{}
 	//nolint:gocritic
@@ -668,13 +678,19 @@ func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.Resta
 		// TODO(APP-4019): remove localize call
 		request.ModuleName = localizeModuleID(manifest.ModuleID)
 	} else {
-		return nil, fmt.Errorf("if there is no meta.json, provide one of --%s or --%s", generalFlagName, moduleBuildFlagBuildID)
+		return nil, fmt.Errorf("if there is no meta.json, provide one of --%s or --%s", generalFlagName, moduleFlagID)
 	}
 	return request, nil
 }
 
 // restartModule restarts a module on a robot.
-func restartModule(c *cli.Context, vc *viamClient, part *apppb.RobotPart, manifest *moduleManifest) error {
+func restartModule(
+	c *cli.Context,
+	vc *viamClient,
+	part *apppb.RobotPart,
+	manifest *moduleManifest,
+	logger logging.Logger,
+) error {
 	restartReq, err := resolveTargetModule(c, manifest)
 	if err != nil {
 		return err
@@ -699,7 +715,7 @@ func restartModule(c *cli.Context, vc *viamClient, part *apppb.RobotPart, manife
 		Type:    rpc.CredentialsTypeAPIKey,
 		Payload: key.ApiKey.Key,
 	})
-	robotClient, err := client.New(c.Context, part.Fqdn, logging.NewLogger("robot"), client.WithDialOptions(creds))
+	robotClient, err := client.New(c.Context, part.Fqdn, logger, client.WithDialOptions(creds))
 	if err != nil {
 		return err
 	}

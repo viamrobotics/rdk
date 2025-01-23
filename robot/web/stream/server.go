@@ -22,7 +22,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	streamCamera "go.viam.com/rdk/robot/web/stream/camera"
+	camerautils "go.viam.com/rdk/robot/web/stream/camera"
 	"go.viam.com/rdk/robot/web/stream/state"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -170,7 +170,7 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 	}
 
 	// return error if resource is neither a camera nor audioinput
-	_, isCamErr := streamCamera.Camera(server.robot, streamStateToAdd.Stream)
+	_, isCamErr := camerautils.Camera(server.robot, streamStateToAdd.Stream)
 	_, isAudioErr := audioinput.FromRobot(server.robot, resource.SDPTrackNameToShortName(streamStateToAdd.Stream.Name()))
 	if isCamErr != nil && isAudioErr != nil {
 		return nil, errors.Errorf("stream is neither a camera nor audioinput. streamName: %v", streamStateToAdd.Stream)
@@ -307,7 +307,7 @@ func (server *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStre
 
 	shortName := resource.SDPTrackNameToShortName(streamToRemove.Stream.Name())
 	_, isAudioResourceErr := audioinput.FromRobot(server.robot, shortName)
-	_, isCameraResourceErr := streamCamera.Camera(server.robot, streamToRemove.Stream)
+	_, isCameraResourceErr := camerautils.Camera(server.robot, streamToRemove.Stream)
 
 	if isAudioResourceErr != nil && isCameraResourceErr != nil {
 		return &streampb.RemoveStreamResponse{}, nil
@@ -419,6 +419,13 @@ func validateSetStreamOptionsRequest(req *streampb.SetStreamOptionsRequest) (int
 		return optionsCommandUnknown,
 			fmt.Errorf(
 				"invalid resolution to resize stream %q: width (%d) and height (%d) must be greater than 0",
+				req.Name, req.Resolution.Width, req.Resolution.Height,
+			)
+	}
+	if req.Resolution.Width%2 != 0 || req.Resolution.Height%2 != 0 {
+		return optionsCommandUnknown,
+			fmt.Errorf(
+				"invalid resolution to resize stream %q: width (%d) and height (%d) must be even",
 				req.Name, req.Resolution.Width, req.Resolution.Height,
 			)
 	}
@@ -731,11 +738,18 @@ func GenerateResolutions(width, height int32, logger logging.Logger) []Resolutio
 	// original aspect ratio exactly if source dimensions are odd.
 	for i := 0; i < 4; i++ {
 		// Break if the next scaled resolution would be too small.
-		if width <= 1 || height <= 1 {
+		if width <= 2 || height <= 2 {
 			break
 		}
 		width /= 2
 		height /= 2
+		// Ensure width and height are even
+		if width%2 != 0 {
+			width--
+		}
+		if height%2 != 0 {
+			height--
+		}
 		resolutions = append(resolutions, Resolution{Width: width, Height: height})
 		logger.Debugf("scaled resolution %d: %dx%d", i, width, height)
 	}

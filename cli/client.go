@@ -25,6 +25,7 @@ import (
 	"github.com/nathan-fiscaletti/consolesize-go"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
+	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	buildpb "go.viam.com/api/app/build/v1"
 	datapb "go.viam.com/api/app/data/v1"
@@ -59,6 +60,8 @@ const (
 	maxNumLogs = 10000
 	// logoMaxSize is the maximum size of a logo in bytes.
 	logoMaxSize = 1024 * 200 // 200 KB
+	// yellow is the format string used to output warnings in yellow color.
+	yellow = "\033[1;33m%s\033[0m"
 )
 
 var errNoShellService = errors.New("shell service is not enabled on this machine part")
@@ -187,6 +190,64 @@ func (c *viamClient) organizationsSupportEmailGetAction(cCtx *cli.Context, orgID
 	}
 
 	printf(cCtx.App.Writer, "Support email for organization %q: %q", orgID, resp.GetEmail())
+	return nil
+}
+
+type disableAuthServiceArgs struct {
+	OrgID string
+}
+
+// DisableAuthServiceConfirmation is the Before action for 'organizations auth-service disable'.
+// It asks for the user to confirm that they want to disable the auth service.
+func DisableAuthServiceConfirmation(c *cli.Context, args disableAuthServiceArgs) error {
+	if args.OrgID == "" {
+		return errors.New("cannot disable auth service without an organization ID")
+	}
+
+	printf(c.App.Writer, yellow, "WARNING!!\n")
+	printf(c.App.Writer, yellow, fmt.Sprintf("You are trying to disable the auth service for organization ID %s. "+
+		"Once disabled, all custom auth views and emails will be removed from your organization's (%s) "+
+		"OAuth applications and permanently deleted.\n", args.OrgID, args.OrgID))
+	printf(c.App.Writer, yellow, "If you wish to continue, please type \"disable\":")
+	if err := c.Err(); err != nil {
+		return err
+	}
+
+	rawInput, err := bufio.NewReader(c.App.Reader).ReadString('\n')
+	if err != nil {
+		return err
+	}
+
+	if input := strings.ToUpper(strings.TrimSpace(rawInput)); input != "DISABLE" {
+		return errors.New("aborted")
+	}
+	return nil
+}
+
+// DisableAuthServiceAction corresponds to 'organizations auth-service disable'.
+func DisableAuthServiceAction(cCtx *cli.Context, args disableAuthServiceArgs) error {
+	c, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+
+	return c.disableAuthServiceAction(cCtx, args.OrgID)
+}
+
+func (c *viamClient) disableAuthServiceAction(cCtx *cli.Context, orgID string) error {
+	if orgID == "" {
+		return errors.New("cannot disable auth service without an organization ID")
+	}
+
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	if _, err := c.client.DisableAuthService(cCtx.Context, &apppb.DisableAuthServiceRequest{OrgId: orgID}); err != nil {
+		return err
+	}
+
+	printf(cCtx.App.Writer, "disabled auth service for organization %q:\n", orgID)
 	return nil
 }
 
@@ -540,15 +601,16 @@ func (c *viamClient) listOAuthAppsAction(cCtx *cli.Context, orgID string) error 
 	return nil
 }
 
+type listLocationsArgs struct {
+	Organization string
+}
+
 // ListLocationsAction is the corresponding Action for 'locations list'.
-func ListLocationsAction(c *cli.Context, args emptyArgs) error {
+func ListLocationsAction(c *cli.Context, args listLocationsArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
-	// TODO(RSDK-9288) - this is brittle and inconsistent with how most data is passed.
-	// Move this to being a flag (but make sure existing workflows still work!)
-	orgStr := c.Args().First()
 	listLocations := func(orgID string) error {
 		locs, err := client.listLocations(orgID)
 		if err != nil {
@@ -558,6 +620,10 @@ func ListLocationsAction(c *cli.Context, args emptyArgs) error {
 			printf(c.App.Writer, "\t%s (id: %s)", loc.Name, loc.Id)
 		}
 		return nil
+	}
+	orgStr := args.Organization
+	if orgStr == "" {
+		orgStr = c.Args().First()
 	}
 	if orgStr == "" {
 		orgs, err := client.listOrganizations()
@@ -612,6 +678,26 @@ type robotsStatusArgs struct {
 	Machine      string
 }
 
+func (c *viamClient) getOrgAndLocationNamesForRobot(ctx context.Context, robot *apppb.Robot) (string, string, error) {
+	orgs, err := c.client.GetOrganizationsWithAccessToLocation(
+		ctx, &apppb.GetOrganizationsWithAccessToLocationRequest{LocationId: robot.Location},
+	)
+	if err != nil {
+		return "", "", err
+	}
+	if len(orgs.OrganizationIdentities) == 0 {
+		return "", "", errors.Errorf("no parent org found for robot: %s", robot.Id)
+	}
+	org := orgs.OrganizationIdentities[0]
+
+	location, err := c.client.GetLocation(ctx, &apppb.GetLocationRequest{LocationId: robot.Location})
+	if err != nil {
+		return "", "", err
+	}
+
+	return org.Name, location.Location.Name, nil
+}
+
 // RobotsStatusAction is the corresponding Action for 'machines status'.
 func RobotsStatusAction(c *cli.Context, args robotsStatusArgs) error {
 	client, err := newViamClient(c)
@@ -631,7 +717,11 @@ func RobotsStatusAction(c *cli.Context, args robotsStatusArgs) error {
 	}
 
 	if orgStr == "" || locStr == "" {
-		printf(c.App.Writer, "%s -> %s", client.selectedOrg.Name, client.selectedLoc.Name)
+		orgName, locName, err := client.getOrgAndLocationNamesForRobot(c.Context, robot)
+		if err != nil {
+			return err
+		}
+		printf(c.App.Writer, "%s -> %s", orgName, locName)
 	}
 
 	printf(
@@ -669,14 +759,14 @@ func RobotsStatusAction(c *cli.Context, args robotsStatusArgs) error {
 
 func getNumLogs(c *cli.Context, numLogs int) (int, error) {
 	if numLogs < 0 {
-		warningf(c.App.ErrWriter, "Provided negative %q value. Defaulting to %d", logsFlagCount, defaultNumLogs)
+		warningf(c.App.ErrWriter, "Provided negative %q value. Defaulting to %d", generalFlagCount, defaultNumLogs)
 		return defaultNumLogs, nil
 	}
 	if numLogs == 0 {
 		return defaultNumLogs, nil
 	}
 	if numLogs > maxNumLogs {
-		return 0, errors.Errorf("provided too high of a %q value. Maximum is %d", logsFlagCount, maxNumLogs)
+		return 0, errors.Errorf("provided too high of a %q value. Maximum is %d", generalFlagCount, maxNumLogs)
 	}
 	return numLogs, nil
 }
@@ -687,7 +777,10 @@ type robotsLogsArgs struct {
 	Machine      string
 	Output       string
 	Format       string
-	Errors       bool
+	Keyword      string
+	Levels       []string
+	Start        string
+	End          string
 	Count        int
 }
 
@@ -698,6 +791,18 @@ func RobotsLogsAction(c *cli.Context, args robotsLogsArgs) error {
 		return err
 	}
 
+	// Check if both start time and count are provided
+	// TODO: [APP-7415] Enhance LogsForPart API to Support Sorting Options for Log Display Order
+	// TODO: [APP-7450] Implement "Start Time with Count without End Time" Functionality in LogsForPart
+	if args.Start != "" && args.Count > 0 && args.End == "" {
+		return errors.New("unsupported functionality: specifying both a start time and a count without an end time is not supported. " +
+			"This behavior can be counterintuitive because logs are currently only sorted in descending order. " +
+			"For example, if there are 200 logs after the specified start time and you request 10 logs, it will return the 10 most recent logs, " +
+			"rather than the 10 logs closest to the start time. " +
+			"Please provide either a start time and an end time to define a clear range, or a count without a start time for recent logs",
+		)
+	}
+
 	orgStr := args.Organization
 	locStr := args.Location
 	robotStr := args.Machine
@@ -706,6 +811,9 @@ func RobotsLogsAction(c *cli.Context, args robotsLogsArgs) error {
 		return errors.Wrap(err, "could not get machine")
 	}
 
+	// TODO(RSDK-9727) - this is a little inefficient insofar as a `robot` is created immediately
+	// above and then also again within this `robotParts` call. Might be nice to have a helper
+	// API for getting parts when we already have a `Robot`
 	parts, err := client.robotParts(orgStr, locStr, robotStr)
 	if err != nil {
 		return errors.Wrap(err, "could not get machine parts")
@@ -758,33 +866,58 @@ func (c *viamClient) fetchAndSaveLogs(robot *apppb.Robot, parts []*apppb.RobotPa
 
 // streamLogsForPart streams logs for a specific part directly to a file.
 func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArgs, writer io.Writer) error {
-	numLogs, err := getNumLogs(c.c, args.Count)
+	maxLogsToFetch, err := getNumLogs(c.c, args.Count)
 	if err != nil {
 		return err
 	}
 
-	// Write logs for this part
+	startTime, err := parseTimeString(args.Start)
+	if err != nil {
+		return errors.Wrap(err, "invalid start time format")
+	}
+	endTime, err := parseTimeString(args.End)
+	if err != nil {
+		return errors.Wrap(err, "invalid end time format")
+	}
+
+	keyword := &args.Keyword
+
+	// Tracks the token for the next page of logs to fetch, allowing pagination through log results.
 	var pageToken string
-	for logsFetched := 0; logsFetched < numLogs; {
+
+	// Fetch logs in batches and write them to the output.
+	for fetchedLogCount := 0; fetchedLogCount < maxLogsToFetch; {
+		// We do not request the exact limit specified by the user in the `count` argument because the API enforces a maximum
+		// limit of 100 logs per batch fetch. To keep the RDK independent of specific limits imposed by the app API,
+		// we always request the next full batch of logs as allowed by the API (currently 100). This approach
+		// ensures that if the API limit changes in the future, only the app API logic needs to be updated without requiring
+		// changes in the RDK.
 		resp, err := c.client.GetRobotPartLogs(c.c.Context, &apppb.GetRobotPartLogsRequest{
-			Id:         part.Id,
-			ErrorsOnly: args.Errors,
-			PageToken:  &pageToken,
+			Id:        part.Id,
+			Filter:    keyword,
+			PageToken: &pageToken,
+			Levels:    args.Levels,
+			Start:     startTime,
+			End:       endTime,
 		})
 		if err != nil {
 			return errors.Wrap(err, "failed to fetch logs")
 		}
 
-		pageToken = resp.NextPageToken
-		// Break in the event of no logs in GetRobotPartLogsResponse or when
-		// page token is empty (no more pages).
-		if resp.Logs == nil || pageToken == "" {
+		// End of pagination if no logs are returned.
+		if len(resp.Logs) == 0 {
 			break
 		}
 
-		// Truncate this intermediate slice of resp.Logs based on how many logs
-		// are still required by numLogs.
-		remainingLogsNeeded := numLogs - logsFetched
+		// The API may return more logs than the user requested via the `count` argument.
+		// This is because the API uses pagination internally and fetches logs in batches.
+		// To ensure we do not append more logs than the user requested, we calculate the
+		// `remainingLogsNeeded` by subtracting the logs we have already fetched (`logsFetched`)
+		// from the total number of logs the user asked for (`numLogs`).
+		// If the current batch contains more logs than the remaining needed, we truncate the
+		// batch to include only the necessary number of logs.
+		// This ensures the output strictly adheres to the `count` limit specified by the user.
+		remainingLogsNeeded := maxLogsToFetch - fetchedLogCount
 		if remainingLogsNeeded < len(resp.Logs) {
 			resp.Logs = resp.Logs[:remainingLogsNeeded]
 		}
@@ -800,7 +933,12 @@ func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArg
 			}
 		}
 
-		logsFetched += len(resp.Logs)
+		fetchedLogCount += len(resp.Logs)
+
+		// End of pagination if there is no next page token.
+		if pageToken = resp.NextPageToken; pageToken == "" {
+			break
+		}
 	}
 
 	return nil
@@ -860,18 +998,21 @@ func RobotsPartStatusAction(c *cli.Context, args robotsPartStatusArgs) error {
 	orgStr := args.Organization
 	locStr := args.Location
 	robotStr := args.Machine
-	robot, err := client.robot(orgStr, locStr, robotStr)
-	if err != nil {
-		return errors.Wrap(err, "could not get machine")
-	}
-
 	part, err := client.robotPart(orgStr, locStr, robotStr, args.Part)
 	if err != nil {
 		return errors.Wrap(err, "could not get machine part")
 	}
 
 	if orgStr == "" || locStr == "" || robotStr == "" {
-		printf(c.App.Writer, "%s -> %s -> %s", client.selectedOrg.Name, client.selectedLoc.Name, robot.Name)
+		robot, err := client.robot(orgStr, locStr, part.Robot)
+		if err != nil {
+			return err
+		}
+		orgName, locName, err := client.getOrgAndLocationNamesForRobot(c.Context, robot)
+		if err != nil {
+			return err
+		}
+		printf(c.App.Writer, "%s -> %s -> %s", orgName, locName, robot.Name)
 	}
 
 	name := part.Name
@@ -914,18 +1055,30 @@ func (c *viamClient) robotsPartLogsAction(cCtx *cli.Context, args robotsPartLogs
 	orgStr := args.Organization
 	locStr := args.Location
 	robotStr := args.Machine
-	robot, err := c.robot(orgStr, locStr, robotStr)
-	if err != nil {
-		return errors.Wrap(err, "could not get machine")
-	}
+	partStr := args.Part
 
 	var header string
 	if orgStr == "" || locStr == "" || robotStr == "" {
-		header = fmt.Sprintf("%s -> %s -> %s", c.selectedOrg.Name, c.selectedLoc.Name, robot.Name)
+		// TODO(RSDK-9727) - this is a little inefficient insofar as a `part` is created immediately
+		// here then also again within this `{tail|print}RobotPartLogs` call. Might be nice to have a
+		// helper API for getting logs from an already-existing `part`
+		part, err := c.robotPart(orgStr, locStr, robotStr, partStr)
+		if err != nil {
+			return err
+		}
+		robot, err := c.robot(orgStr, locStr, part.Robot)
+		if err != nil {
+			return err
+		}
+		orgName, locName, err := c.getOrgAndLocationNamesForRobot(cCtx.Context, robot)
+		if err != nil {
+			return err
+		}
+		header = fmt.Sprintf("%s -> %s -> %s", orgName, locName, robot.Name)
 	}
 	if args.Tail {
 		return c.tailRobotPartLogs(
-			orgStr, locStr, robotStr, args.Part,
+			orgStr, locStr, robotStr, partStr,
 			args.Errors,
 			"",
 			header,
@@ -936,7 +1089,7 @@ func (c *viamClient) robotsPartLogsAction(cCtx *cli.Context, args robotsPartLogs
 		return err
 	}
 	return c.printRobotPartLogs(
-		orgStr, locStr, robotStr, args.Part,
+		orgStr, locStr, robotStr, partStr,
 		args.Errors,
 		"",
 		header,
@@ -979,20 +1132,22 @@ func (c *viamClient) robotPartRestart(cCtx *cli.Context, args robotsPartRestartA
 	return nil
 }
 
-type robotsPartRunArgs struct {
+type machinesPartRunArgs struct {
 	Organization string
 	Location     string
 	Machine      string
 	Part         string
 	Data         string
 	Stream       time.Duration
+	Method       string
 }
 
-// RobotsPartRunAction is the corresponding Action for 'machines part run'.
-func RobotsPartRunAction(c *cli.Context, args robotsPartRunArgs) error {
-	// TODO(RSDK-9288) - this is brittle and inconsistent with how most data is passed.
-	// Move this to being a flag (but make sure existing workflows still work!)
-	svcMethod := c.Args().First()
+// MachinesPartRunAction is the corresponding Action for 'machines part run'.
+func MachinesPartRunAction(c *cli.Context, args machinesPartRunArgs) error {
+	svcMethod := args.Method
+	if svcMethod == "" {
+		svcMethod = c.Args().First()
+	}
 	if svcMethod == "" {
 		return errors.New("service method required")
 	}
@@ -1092,17 +1247,6 @@ func MachinesPartCopyFilesAction(c *cli.Context, args machinesPartCopyFilesArgs)
 		return err
 	}
 
-	return machinesPartCopyFilesAction(c, client, args)
-}
-
-func machinesPartCopyFilesAction(c *cli.Context, client *viamClient, flagArgs machinesPartCopyFilesArgs) error {
-	// TODO(RSDK-9288) - this is brittle and inconsistent with how most data is passed.
-	// Move this to being a flag (but make sure existing workflows still work!)
-	args := c.Args().Slice()
-	if len(args) == 0 {
-		return errNoFiles
-	}
-
 	// Create logger based on presence of debugFlag.
 	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
 	globalArgs, err := getGlobalArgs(c)
@@ -1111,6 +1255,19 @@ func machinesPartCopyFilesAction(c *cli.Context, client *viamClient, flagArgs ma
 	}
 	if globalArgs.Debug {
 		logger = logging.NewDebugLogger("cli")
+	}
+
+	return client.machinesPartCopyFilesAction(c, args, logger)
+}
+
+func (c *viamClient) machinesPartCopyFilesAction(
+	ctx *cli.Context,
+	flagArgs machinesPartCopyFilesArgs,
+	logger logging.Logger,
+) error {
+	args := ctx.Args().Slice()
+	if len(args) == 0 {
+		return errNoFiles
 	}
 
 	// the general format is
@@ -1154,9 +1311,14 @@ func machinesPartCopyFilesAction(c *cli.Context, client *viamClient, flagArgs ma
 		return err
 	}
 
+	globalArgs, err := getGlobalArgs(ctx)
+	if err != nil {
+		return err
+	}
+
 	doCopy := func() error {
 		if isFrom {
-			return client.copyFilesFromMachine(
+			return c.copyFilesFromMachine(
 				flagArgs.Organization,
 				flagArgs.Location,
 				flagArgs.Machine,
@@ -1170,7 +1332,7 @@ func machinesPartCopyFilesAction(c *cli.Context, client *viamClient, flagArgs ma
 			)
 		}
 
-		return client.copyFilesToMachine(
+		return c.copyFilesToMachine(
 			flagArgs.Organization,
 			flagArgs.Location,
 			flagArgs.Machine,
@@ -1694,6 +1856,22 @@ func (c *viamClient) robot(orgStr, locStr, robotStr string) (*apppb.Robot, error
 }
 
 func (c *viamClient) robotPart(orgStr, locStr, robotStr, partStr string) (*apppb.RobotPart, error) {
+	part, err := c.robotPartInner(orgStr, locStr, robotStr, partStr)
+	if err == nil {
+		return part, nil
+	}
+
+	// if we still haven't found the part, it's possible no robotStr was passed. That's okay
+	// so long as the partStr was passed as an ID, so let's try to get the part with just that.
+	resp, err2 := c.getRobotPart(partStr)
+	if err2 == nil {
+		return resp.Part, nil
+	}
+
+	return nil, multierr.Combine(err, err2)
+}
+
+func (c *viamClient) robotPartInner(orgStr, locStr, robotStr, partStr string) (*apppb.RobotPart, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
@@ -2292,6 +2470,61 @@ func logEntryFieldsToString(fields []*structpb.Struct) (string, error) {
 	return message + "}", nil
 }
 
+type readOAuthAppArgs struct {
+	OrgID    string
+	ClientID string
+}
+
+const (
+	clientAuthenticationPrefix = "CLIENT_AUTHENTICATION_"
+	pkcePrefix                 = "PKCE_"
+	urlValidationPrefix        = "URL_VALIDATION_"
+	enabledGrantPrefix         = "ENABLED_GRANT_"
+)
+
+// ReadOAuthAppAction is the corresponding action for 'organizations auth-service oauth-app read'.
+func ReadOAuthAppAction(c *cli.Context, args readOAuthAppArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	return client.readOAuthAppAction(c, args.OrgID, args.ClientID)
+}
+
+func (c *viamClient) readOAuthAppAction(cCtx *cli.Context, orgID, clientID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	req := &apppb.ReadOAuthAppRequest{OrgId: orgID, ClientId: clientID}
+	resp, err := c.client.ReadOAuthApp(c.c.Context, req)
+	if err != nil {
+		return err
+	}
+
+	config := resp.OauthConfig
+	printf(cCtx.App.Writer, "OAuth config for client ID %s:", clientID)
+	printf(cCtx.App.Writer, "")
+	printf(cCtx.App.Writer, "Client Authentication: %s", formatStringForOutput(config.ClientAuthentication.String(),
+		clientAuthenticationPrefix))
+	printf(cCtx.App.Writer, "PKCE (Proof Key for Code Exchange): %s", formatStringForOutput(config.Pkce.String(), pkcePrefix))
+	printf(cCtx.App.Writer, "URL Validation Policy: %s", formatStringForOutput(config.UrlValidation.String(), urlValidationPrefix))
+	printf(cCtx.App.Writer, "Logout URL: %s", config.LogoutUri)
+	printf(cCtx.App.Writer, "Redirect URLs: %s", strings.Join(config.RedirectUris, ", "))
+	if len(config.OriginUris) > 0 {
+		printf(cCtx.App.Writer, "Origin URLs: %s", strings.Join(config.OriginUris, ", "))
+	}
+
+	var enabledGrants []string
+	for _, eg := range config.GetEnabledGrants() {
+		enabledGrants = append(enabledGrants, formatStringForOutput(eg.String(), enabledGrantPrefix))
+	}
+	printf(cCtx.App.Writer, "Enabled Grants: %s", strings.Join(enabledGrants, ", "))
+
+	return nil
+}
+
 type deleteOAuthAppArgs struct {
 	OrgID    string
 	ClientID string
@@ -2308,7 +2541,6 @@ func DeleteOAuthAppConfirmation(c *cli.Context, args deleteOAuthAppArgs) error {
 		return errors.New("cannot delete oauth app without a client ID")
 	}
 
-	yellow := "\033[1;33m%s\033[0m"
 	printf(c.App.Writer, yellow, "WARNING!!\n")
 	printf(c.App.Writer, yellow, fmt.Sprintf("You are trying to delete an OAuth application with client ID %s. "+
 		"Once deleted, any existing apps that rely on this OAuth application will no longer be able to authenticate users.\n", args.ClientID))
@@ -2465,6 +2697,55 @@ func enabledGrantToProto(eg string) (apppb.EnabledGrant, error) {
 		oauthAppFlagEnabledGrants, eg)
 }
 
+type createOAuthAppArgs struct {
+	OrgID                string
+	ClientName           string
+	ClientAuthentication string
+	Pkce                 string
+	LogoutURI            string
+	UrlValidation        string //nolint:revive,stylecheck
+	OriginURIs           []string
+	RedirectURIs         []string
+	EnabledGrants        []string
+}
+
+// CreateOAuthAppAction is the corresponding action for 'oauth-app create'.
+func CreateOAuthAppAction(c *cli.Context, args createOAuthAppArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	return client.createOAuthAppAction(c, args)
+}
+
+func (c *viamClient) createOAuthAppAction(cCtx *cli.Context, args createOAuthAppArgs) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	config, err := generateOAuthConfig(args.ClientAuthentication, args.Pkce, args.UrlValidation,
+		args.LogoutURI, args.OriginURIs, args.RedirectURIs, args.EnabledGrants)
+	if err != nil {
+		return err
+	}
+
+	req := &apppb.CreateOAuthAppRequest{
+		OrgId:       args.OrgID,
+		ClientName:  args.ClientName,
+		OauthConfig: config,
+	}
+
+	response, err := c.client.CreateOAuthApp(c.c.Context, req)
+	if err != nil {
+		return err
+	}
+
+	printf(cCtx.App.Writer, "Successfully created OAuth app %s with client ID %s and client secret %s",
+		args.ClientName, response.ClientId, response.ClientSecret)
+	return nil
+}
+
 type updateOAuthAppArgs struct {
 	OrgID                string
 	ClientID             string
@@ -2507,25 +2788,19 @@ func (c *viamClient) updateOAuthAppAction(cCtx *cli.Context, args updateOAuthApp
 	return nil
 }
 
-func createUpdateOAuthAppRequest(args updateOAuthAppArgs) (*apppb.UpdateOAuthAppRequest, error) {
-	orgID := args.OrgID
-	clientID := args.ClientID
-	clientName := args.ClientName
-	originURIs := args.OriginURIs
-	redirectURIs := args.RedirectURIs
-	logoutURI := args.LogoutURI
-	enabledGrants := args.EnabledGrants
-
-	clientAuthentication, err := clientAuthToProto(args.ClientAuthentication)
+func generateOAuthConfig(clientAuthentication, pkce, urlValidation, logoutURI string,
+	originURIs, redirectURIs, enabledGrants []string,
+) (*apppb.OAuthConfig, error) {
+	clientAuthProto, err := clientAuthToProto(clientAuthentication)
 	if err != nil {
 		return nil, err
 	}
-	pkce, err := pkceToProto(args.Pkce)
+	pkceProto, err := pkceToProto(pkce)
 	if err != nil {
 		return nil, err
 	}
 
-	urlValidation, err := urlValidationToProto(args.UrlValidation)
+	urlValidationProto, err := urlValidationToProto(urlValidation)
 	if err != nil {
 		return nil, err
 	}
@@ -2535,19 +2810,32 @@ func createUpdateOAuthAppRequest(args updateOAuthAppArgs) (*apppb.UpdateOAuthApp
 		return nil, err
 	}
 
+	return &apppb.OAuthConfig{
+		ClientAuthentication: clientAuthProto,
+		Pkce:                 pkceProto,
+		UrlValidation:        urlValidationProto,
+		OriginUris:           originURIs,
+		RedirectUris:         redirectURIs,
+		LogoutUri:            logoutURI,
+		EnabledGrants:        egProto,
+	}, nil
+}
+
+func createUpdateOAuthAppRequest(args updateOAuthAppArgs) (*apppb.UpdateOAuthAppRequest, error) {
+	orgID := args.OrgID
+	clientID := args.ClientID
+	clientName := args.ClientName
+
+	oauthConfig, err := generateOAuthConfig(args.ClientAuthentication, args.Pkce, args.UrlValidation,
+		args.LogoutURI, args.OriginURIs, args.RedirectURIs, args.EnabledGrants)
+	if err != nil {
+		return nil, err
+	}
 	req := &apppb.UpdateOAuthAppRequest{
-		OrgId:      orgID,
-		ClientId:   clientID,
-		ClientName: clientName,
-		OauthConfig: &apppb.OAuthConfig{
-			ClientAuthentication: clientAuthentication,
-			Pkce:                 pkce,
-			UrlValidation:        urlValidation,
-			OriginUris:           originURIs,
-			RedirectUris:         redirectURIs,
-			LogoutUri:            logoutURI,
-			EnabledGrants:        egProto,
-		},
+		OrgId:       orgID,
+		ClientId:    clientID,
+		ClientName:  clientName,
+		OauthConfig: oauthConfig,
 	}
 	return req, nil
 }
@@ -2556,7 +2844,7 @@ func enabledGrantsToProto(enabledGrants []string) ([]apppb.EnabledGrant, error) 
 	if enabledGrants == nil {
 		return nil, nil
 	}
-	enabledGrantsProto := make([]apppb.EnabledGrant, len(enabledGrants))
+	var enabledGrantsProto []apppb.EnabledGrant
 	for _, eg := range enabledGrants {
 		enabledGrant, err := enabledGrantToProto(eg)
 		if err != nil {

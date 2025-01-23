@@ -1228,6 +1228,9 @@ func TestConfigJSONMarshalRoundtrip(t *testing.T) {
 		expected config.Config
 	}
 
+	// TODO(RSDK-9717): Add more test cases around config JSON round-tripping. We're testing
+	// only a few fields here. It would be great if adding a new field to config.Config
+	// broke this test somehow so we would remember to change (Un)MarhsalJSON methods.
 	for _, tc := range []testcase{
 		{
 			name: "maintenance config",
@@ -1273,6 +1276,24 @@ func TestConfigJSONMarshalRoundtrip(t *testing.T) {
 						Status:          &config.AppValidationStatus{Error: "durrr"},
 					},
 				},
+			},
+		},
+		{
+			name: "disable log deduplication",
+			c: config.Config{
+				DisableLogDeduplication: true,
+			},
+			expected: config.Config{
+				DisableLogDeduplication: true,
+			},
+		},
+		{
+			name: "package path",
+			c: config.Config{
+				PackagePath: "path/to/home/depot",
+			},
+			expected: config.Config{
+				PackagePath: "path/to/home/depot",
 			},
 		},
 	} {

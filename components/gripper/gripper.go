@@ -44,6 +44,8 @@ func Named(name string) resource.Name {
 //	// Open the gripper.
 //	err := myGripper.Open(context.Background(), nil)
 //
+// For more information, see the [Open method docs].
+//
 // Grab example:
 //
 //	myGripper, err := gripper.FromRobot(machine, "my_gripper")
@@ -51,7 +53,11 @@ func Named(name string) resource.Name {
 //	// Grab with the gripper.
 //	grabbed, err := myGripper.Grab(context.Background(), nil)
 //
-// [gripper component docs]: https://docs.viam.com/components/gripper/
+// For more information, see the [Grab method docs].
+//
+// [gripper component docs]: https://docs.viam.com/dev/reference/apis/components/gripper/
+// [Open method docs]: https://docs.viam.com/dev/reference/apis/components/gripper/#open
+// [Grab method docs]: https://docs.viam.com/dev/reference/apis/components/gripper/#grab
 type Gripper interface {
 	resource.Resource
 	resource.Shaped

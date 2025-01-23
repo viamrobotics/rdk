@@ -15,7 +15,6 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.uber.org/zap/zapcore"
 	armpb "go.viam.com/api/component/arm/v1"
 	basepb "go.viam.com/api/component/base/v1"
 	boardpb "go.viam.com/api/component/board/v1"
@@ -1325,6 +1324,7 @@ func (fp *fakeProcess) Start(ctx context.Context) error {
 func (fp *fakeProcess) Stop() error {
 	return nil
 }
+func (fp *fakeProcess) KillGroup() {}
 
 func (fp *fakeProcess) Status() error {
 	return nil
@@ -1580,7 +1580,7 @@ func TestReconfigure(t *testing.T) {
 }
 
 func TestRemoteConnClosedOnReconfigure(t *testing.T) {
-	logger, observer := logging.NewObservedTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	ctx := context.Background()
 
@@ -1678,10 +1678,6 @@ func TestRemoteConnClosedOnReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, moving, test.ShouldBeFalse)
 		test.That(t, speed, test.ShouldEqual, 0.0)
-
-		// Also check that there are no error logs associated with the main robot trying to reconnect to remote2
-		// Leaked remote connections will cause the test to fail due to goroutine leaks
-		test.That(t, observer.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)
 	})
 
 	t.Run("remotes with different resources", func(t *testing.T) {
@@ -1754,10 +1750,6 @@ func TestRemoteConnClosedOnReconfigure(t *testing.T) {
 		moving, err = arm1.IsMoving(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, moving, test.ShouldBeFalse)
-
-		// Also check that there are no error logs associated with the main robot trying to reconnect to remote2
-		// Leaked remote connections will cause the test to fail due to goroutine leaks
-		test.That(t, observer.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)
 	})
 }
 

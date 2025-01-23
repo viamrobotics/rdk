@@ -58,17 +58,26 @@ func Named(name string) resource.Name {
 //	// Get the voltage from device in volts.
 //	voltage, isAC, err := myPowerSensor.Voltage(context.Background(), nil)
 //
+// For more information, see the [Voltage method docs].
+//
 // Current example:
 //
 //	// Get the current reading from device in amps.
 //	current, isAC, err := myPowerSensor.Current(context.Background(), nil)
+//
+// For more information, see the [Current method docs].
 //
 // Power example:
 //
 //	// Get the power measurement from device in watts.
 //	power, err := myPowerSensor.Power(context.Background(), nil)
 //
-// [power sensor component docs]: https://docs.viam.com/components/power-sensor/
+// For more information, see the [Power method docs].
+//
+// [power sensor component docs]: https://docs.viam.com/dev/reference/apis/components/power-sensor/
+// [Voltage method docs]: https://docs.viam.com/dev/reference/apis/components/power-sensor/#getvoltage
+// [Current method docs]: https://docs.viam.com/dev/reference/apis/components/power-sensor/#getcurrent
+// [Power method docs]: https://docs.viam.com/dev/reference/apis/components/power-sensor/#getpower
 type PowerSensor interface {
 	resource.Sensor
 	resource.Resource

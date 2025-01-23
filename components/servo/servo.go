@@ -41,6 +41,8 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 //	// Move the servo from its origin to the desired angle of 30 degrees.
 //	myServoComponent.Move(context.Background(), 30, nil)
 //
+// For more information, see the [Move method docs].
+//
 // Position example:
 //
 //	// Get the current set angle of the servo.
@@ -55,7 +57,11 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 //	logger.Info("Position 1: ", pos1)
 //	logger.Info("Position 2: ", pos2)
 //
-// [servo component docs]: https://docs.viam.com/components/servo/
+// For more information, see the [Position method docs].
+//
+// [servo component docs]: https://docs.viam.com/dev/reference/apis/components/servo/
+// [Move method docs]: https://docs.viam.com/dev/reference/apis/components/servo/#move
+// [Position method docs]: https://docs.viam.com/dev/reference/apis/components/servo/#getposition
 type Servo interface {
 	resource.Resource
 	resource.Actuator

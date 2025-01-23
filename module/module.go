@@ -39,6 +39,7 @@ import (
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
+	"go.viam.com/rdk/services/discovery"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -134,22 +135,26 @@ func NewHandlerMapFromProto(ctx context.Context, pMap *pb.HandlerMap, conn rpc.C
 	var errs error
 	for _, h := range pMap.GetHandlers() {
 		api := protoutils.ResourceNameFromProto(h.Subtype.Subtype).API
-
-		symDesc, err := reflSource.FindSymbol(h.Subtype.ProtoService)
-		if err != nil {
-			errs = multierr.Combine(errs, err)
-			if errors.Is(err, grpcurl.ErrReflectionNotSupported) {
-				return nil, errs
-			}
-			continue
-		}
-		svcDesc, ok := symDesc.(*desc.ServiceDescriptor)
-		if !ok {
-			return nil, errors.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
-		}
 		rpcAPI := &resource.RPCAPI{
-			API:  api,
-			Desc: svcDesc,
+			API: api,
+		}
+		// due to how tagger is setup in the api we cannot use reflection on the discovery service currently
+		// for now we will skip the reflection step for discovery until the issue is resolved.
+		// TODO(RSDK-9718) - remove the skip.
+		if api != discovery.API {
+			symDesc, err := reflSource.FindSymbol(h.Subtype.ProtoService)
+			if err != nil {
+				errs = multierr.Combine(errs, err)
+				if errors.Is(err, grpcurl.ErrReflectionNotSupported) {
+					return nil, errs
+				}
+				continue
+			}
+			svcDesc, ok := symDesc.(*desc.ServiceDescriptor)
+			if !ok {
+				return nil, errors.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
+			}
+			rpcAPI.Desc = svcDesc
 		}
 		for _, m := range h.Models {
 			model, err := resource.NewModelFromString(m)
