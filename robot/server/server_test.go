@@ -406,6 +406,7 @@ func TestServer(t *testing.T) {
 		injectRobot := &inject.Robot{}
 		injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return []resource.Name{} }
+		injectRobot.LoggerFunc = func() logging.Logger { return logging.NewTestLogger(t) }
 		server := server.New(injectRobot)
 
 		q := resource.DiscoveryQuery{arm.Named("arm").API, resource.DefaultModelFamily.WithModel("some-arm"), nil}
