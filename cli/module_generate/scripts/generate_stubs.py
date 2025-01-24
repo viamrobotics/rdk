@@ -3,7 +3,7 @@ import os
 import subprocess
 import sys
 from importlib import import_module
-from typing import List, Set
+from typing import List, Set, Union
 
 
 def return_attribute(value: str, attr: str) -> ast.Attribute:
@@ -168,9 +168,10 @@ def main(
                         )
                         abstract_methods.append(indented_code)
                         if cstmt.name == "do_command":
+                            imports.append("from typing import Optional")
                             imports.append("from viam.utils import ValueTypes")
                         elif cstmt.name == "get_geometries":
-                            imports.append("from typing import List")
+                            imports.append("from typing import List, Optional")
                             imports.append("from viam.proto.common import Geometry")
 
     model_name_pascal = "".join(
