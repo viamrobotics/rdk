@@ -994,7 +994,7 @@ func TestClientStreamDisconnectHandler(t *testing.T) {
 
 		client.connected.Store(false)
 
-		_, err = client.client.StreamStatus(context.Background(), &pb.StreamStatusRequest{})
+		_, err = client.client.StreamStatus(context.Background(), &pb.StreamStatusRequest{}) //nolint:deprectaed,staticcheck
 		test.That(t, status.Code(err), test.ShouldEqual, codes.Unavailable)
 		test.That(t, err.Error(), test.ShouldContainSubstring, fmt.Sprintf("not connected to remote robot at %s", listener.Addr().String()))
 		test.That(t, streamStatusCallReceived, test.ShouldBeFalse)
@@ -1004,7 +1004,7 @@ func TestClientStreamDisconnectHandler(t *testing.T) {
 	t.Run("stream call to connected remote", func(t *testing.T) {
 		t.Helper()
 
-		ssc, err := client.client.StreamStatus(context.Background(), &pb.StreamStatusRequest{})
+		ssc, err := client.client.StreamStatus(context.Background(), &pb.StreamStatusRequest{}) //nolint:deprectaed,staticcheck
 		test.That(t, err, test.ShouldBeNil)
 		ssc.Recv()
 		test.That(t, streamStatusCallReceived, test.ShouldBeTrue)
@@ -1013,7 +1013,7 @@ func TestClientStreamDisconnectHandler(t *testing.T) {
 	t.Run("receive call from stream of disconnected remote", func(t *testing.T) {
 		t.Helper()
 
-		ssc, err := client.client.StreamStatus(context.Background(), &pb.StreamStatusRequest{})
+		ssc, err := client.client.StreamStatus(context.Background(), &pb.StreamStatusRequest{}) //nolint:deprectaed,staticcheck
 		test.That(t, err, test.ShouldBeNil)
 
 		client.connected.Store(false)
