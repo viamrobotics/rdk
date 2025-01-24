@@ -369,6 +369,7 @@ func (state *StreamState) streamH264Passthrough() error {
 		}
 	}
 
+	state.logger.Infof("Stream calling SubscribeRTP on camera %p %s using experimental H264 passthrough", rtpPassthroughSource, state.Stream.Name())
 	sub, err := rtpPassthroughSource.SubscribeRTP(state.closedCtx, rtpBufferSize, cb)
 	if err != nil {
 		return fmt.Errorf("SubscribeRTP failed: %w", err)

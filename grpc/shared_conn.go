@@ -84,7 +84,7 @@ type SharedConn struct {
 	logger logging.Logger
 }
 
-func NewSharedConn(grpcConn rpc.ClientConn, peerConn *webrtc.PeerConnection) *SharedConn {
+func NewSharedConn(grpcConn rpc.ClientConn, peerConn *webrtc.PeerConnection, logger logging.Logger) *SharedConn {
 	// We must be passed a ready connection.
 	pcReady := make(chan struct{})
 	close(pcReady)
@@ -96,7 +96,21 @@ func NewSharedConn(grpcConn rpc.ClientConn, peerConn *webrtc.PeerConnection) *Sh
 		peerConnFailed:       make(chan struct{}),
 		onTrackCBByTrackName: make(map[string]OnTrackCB),
 	}
-	ret.grpcConn.ReplaceConn(grpcConn)
+	ret.ResetConn(&ret.grpcConn, logger)
+	// peerConn.OnTrack(func(trackRemote *webrtc.TrackRemote, rtpReceiver *webrtc.RTPReceiver) {
+	// 	ret.logger.Warnf("OnTrack called on pc: %p, %#v, trackRemote: %p, %#v, rtpReceiver: %p, %#v", peerConn, peerConn, trackRemote, trackRemote, rtpReceiver, rtpReceiver)
+	// 	ret.onTrackCBByTrackNameMu.Lock()
+	// 	onTrackCB, ok := ret.onTrackCBByTrackName[trackRemote.StreamID()]
+	// 	ret.onTrackCBByTrackNameMu.Unlock()
+	// 	if !ok {
+	// 		msg := "Callback not found for StreamID: %s, keys(resOnTrackCBs): %#v"
+	// 		ret.logger.Errorf(msg, trackRemote.StreamID(), maps.Keys(ret.onTrackCBByTrackName))
+	// 		return
+	// 	}
+	// 	onTrackCB(trackRemote, rtpReceiver)
+	// })
+
+	// debug.PrintStack()
 
 	return ret
 }
@@ -123,8 +137,12 @@ func (sc *SharedConn) NewStream(
 
 // AddOnTrackSub adds an OnTrack subscription for the track.
 func (sc *SharedConn) AddOnTrackSub(trackName string, onTrackCB OnTrackCB) {
+	sc.logger.Infof("sharedConn: %p, pc: %p AddOnTrackSub called on %s", sc, sc.peerConn, trackName)
 	sc.onTrackCBByTrackNameMu.Lock()
 	defer sc.onTrackCBByTrackNameMu.Unlock()
+	if _, ok := sc.onTrackCBByTrackName[trackName]; ok {
+		sc.logger.Infof("track callback replaced %s", trackName)
+	}
 	sc.onTrackCBByTrackName[trackName] = onTrackCB
 }
 
@@ -215,7 +233,9 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 		return
 	}
 
+	sc.logger.Warnf("Setting OnTrack on pc: %p", sc.peerConn)
 	sc.peerConn.OnTrack(func(trackRemote *webrtc.TrackRemote, rtpReceiver *webrtc.RTPReceiver) {
+		sc.logger.Warnf("OnTrack called on pc: %p, %#v, trackRemote: %p, %#v, rtpReceiver: %p, %#v", sc.peerConn, sc.peerConn, trackRemote, trackRemote, rtpReceiver, rtpReceiver)
 		sc.onTrackCBByTrackNameMu.Lock()
 		onTrackCB, ok := sc.onTrackCBByTrackName[trackRemote.StreamID()]
 		sc.onTrackCBByTrackNameMu.Unlock()

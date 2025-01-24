@@ -71,9 +71,12 @@ func (c *ReconfigurableClientConn) ReplaceConn(conn rpc.ClientConn) {
 	if c.onTrackCBByTrackName == nil {
 		c.onTrackCBByTrackName = make(map[string]OnTrackCB)
 	}
-
+	logging.Global().Infof("ReconfigurableClientConn.ReplaceConn START: %p, %#v, pc: %p, %#v", c, c, conn.PeerConn(), conn.PeerConn())
+	defer logging.Global().Infof("ReconfigurableClientConn.ReplaceConn END: %p, %#v, pc: %p, %#v", c, c, conn.PeerConn(), conn.PeerConn())
 	if pc := conn.PeerConn(); pc != nil {
+		logging.Global().Infof("ReconfigurableClientConn.ReplaceConn installing OnTrack on %p, %#v, pc: %p, %#v", c, c, conn.PeerConn(), conn.PeerConn())
 		pc.OnTrack(func(trackRemote *webrtc.TrackRemote, rtpReceiver *webrtc.RTPReceiver) {
+			logging.Global().Infof("OnTrack called on pc: %p, %#v, tr: %p %#v, receiver: %p, %#v", pc, pc, trackRemote, trackRemote, rtpReceiver, rtpReceiver)
 			c.onTrackCBByTrackNameMu.Lock()
 			onTrackCB, ok := c.onTrackCBByTrackName[trackRemote.StreamID()]
 			c.onTrackCBByTrackNameMu.Unlock()

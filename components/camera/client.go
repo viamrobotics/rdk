@@ -8,6 +8,7 @@ import (
 	"image"
 	"io"
 	"os"
+	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -84,8 +85,7 @@ func NewClientFromConn(
 	streamClient := streampb.NewStreamServiceClient(conn)
 	trackClosed := make(chan struct{})
 	close(trackClosed)
-	logger.Infof("NICK!!! conn: %#v, streamClient: %#v", conn, streamClient)
-	return &client{
+	cc := &client{
 		remoteName:     remoteName,
 		Named:          name.PrependRemote(remoteName).AsNamed(),
 		name:           name.ShortName(),
@@ -96,7 +96,10 @@ func NewClientFromConn(
 		trackClosed:    trackClosed,
 		associatedSubs: map[int][]rtppassthrough.SubscriptionID{},
 		logger:         logger,
-	}, nil
+	}
+	debug.PrintStack()
+	logger.Infof("%p cameraClient %#v", c, c)
+	return cc, nil
 }
 
 func (c *client) Stream(
@@ -370,6 +373,7 @@ func (c *client) SubscribeRTP(
 	bufferSize int,
 	packetsCB rtppassthrough.PacketCallback,
 ) (rtppassthrough.Subscription, error) {
+	c.logger.Infof("%p SubscribeRTP called on camera client: %#v", c, c)
 	ctx, span := trace.StartSpan(ctx, "camera::client::SubscribeRTP")
 	defer span.End()
 	// RSDK-6340: The resource manager closes remote resources when the underlying
@@ -396,16 +400,20 @@ func (c *client) SubscribeRTP(
 	// with those from the new "generation".
 	healthyClientCh := c.maybeResetHealthyClientCh()
 
+	c.logger.Infof("%p SubscribeRTP calling rtpPassthroughMu", c)
+	defer c.logger.Infof("%p SubscribeRTP released rtpPassthroughMu", c)
 	c.rtpPassthroughMu.Lock()
 	defer c.rtpPassthroughMu.Unlock()
+	c.logger.Infof("%p SubscribeRTP has rtpPassthroughMu", c)
 
 	// Create a Subscription object and allocate a ring buffer of RTP packets.
 	sub, rtpPacketBuffer, err := rtppassthrough.NewSubscription(bufferSize)
 	if err != nil {
 		return sub, err
 	}
+	c.logger.Infof("%p SubscribeRTP got subscription", c)
 	g := utils.NewGuard(func() {
-		c.logger.CDebug(ctx, "Error subscribing to RTP. Closing passthrough buffer.")
+		c.logger.CDebugf(ctx, "%p Error subscribing to RTP. Closing passthrough buffer.", c)
 		rtpPacketBuffer.Close()
 	})
 	defer g.OnFail()
@@ -426,15 +434,13 @@ func (c *client) SubscribeRTP(
 	// for which video stream. The `grpc.Tracker` API is for manipulating that map.
 	tracker, ok := c.conn.(grpc.Tracker)
 	if !ok {
-		c.logger.CErrorw(ctx, "Client conn is not a `Tracker`", "connType", fmt.Sprintf("%T", c.conn))
+		c.logger.CErrorf(ctx, "%p Client conn is not a `Tracker` connType %T", c, c.conn)
 		return rtppassthrough.NilSubscription, ErrNoSharedPeerConnection
 	}
 
-	c.logger.CInfow(ctx, "Client conn", "connType", fmt.Sprintf("%T", c.conn), "conn", fmt.Sprintf("%#v", c.conn))
-	c.logger.CDebugw(ctx, "SubscribeRTP", "subID", sub.ID.String(), "name", c.Name(), "bufAndCBByID", c.bufAndCBToString())
+	c.logger.CDebugf(ctx, "%p SubscribeRTP subID: %s, name: %s, bufAndCBByID: %s", c, sub.ID.String(), c.Name(), c.bufAndCBToString())
 	defer func() {
-		c.logger.CDebugw(ctx, "SubscribeRTP after", "subID", sub.ID.String(),
-			"name", c.Name(), "bufAndCBByID", c.bufAndCBToString())
+		c.logger.CDebugf(ctx, "%p SubscribeRTP after subID: %s, name: %s, bufAndCBByID: %s", c, sub.ID.String(), c.Name(), c.bufAndCBToString())
 	}()
 
 	// If we do not currently have a video stream open for this camera, we create one. Otherwise
@@ -445,13 +451,13 @@ func (c *client) SubscribeRTP(
 	//    the same camera when the remote receives `RemoveStream`, it wouldn't know which to stop
 	//    sending data for.
 	if len(c.runningStreams) == 0 {
-		c.logger.CInfow(ctx, "SubscribeRTP is creating a video track",
-			"client", fmt.Sprintf("%p", c), "peerConnection", fmt.Sprintf("%p", c.conn.PeerConn()))
+		c.logger.CInfof(ctx, "%p SubscribeRTP is creating a video track, peerConnection: %p", c, c.conn.PeerConn())
 		// A previous subscriber/track may have exited, but its resources have not necessarily been
 		// cleaned up. We must wait for that to complete. We additionally select on other error
 		// conditions.
 		select {
 		case <-c.trackClosed:
+			c.logger.Infof("%p SubscribeRTP track closed", c)
 		case <-ctx.Done():
 			return rtppassthrough.NilSubscription, fmt.Errorf("track not closed within SubscribeRTP provided context %w", ctx.Err())
 		case <-healthyClientCh:
@@ -469,6 +475,7 @@ func (c *client) SubscribeRTP(
 		c.associatedSubs[c.subGenerationID] = []rtppassthrough.SubscriptionID{}
 
 		// Add the camera's addOnTrackSubFunc to the SharedConn's map of OnTrack callbacks.
+		c.logger.Infof("%p SubscribeRTP calling AddOnTrackSub on %p, %#v", c, tracker, tracker)
 		tracker.AddOnTrackSub(c.trackName(), c.addOnTrackFunc(healthyClientCh, trackReceived, trackClosed, c.subGenerationID))
 		// Remove the OnTrackSub once we either fail or succeed.
 		defer tracker.RemoveOnTrackSub(c.trackName())
@@ -476,25 +483,26 @@ func (c *client) SubscribeRTP(
 		// Call `AddStream` on the remote. In the successful case, this will result in a
 		// PeerConnection renegotiation to add this camera's video track and have the `OnTrack`
 		// callback invoked.
+		c.logger.Infof("%p SubscribeRTP calling AddStream on %s", c, c.trackName())
 		if _, err := c.streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: c.trackName()}); err != nil {
-			c.logger.CDebugw(ctx, "SubscribeRTP AddStream hit error", "subID", sub.ID.String(), "trackName", c.trackName(), "err", err)
+			c.logger.CDebugf(ctx, "%p SubscribeRTP AddStream hit error subID: %s, trackName: %s, err: %s", c, sub.ID.String(), c.trackName(), err.Error())
 			return rtppassthrough.NilSubscription, err
 		}
 
-		c.logger.CDebugw(ctx, "SubscribeRTP waiting for track", "client", fmt.Sprintf("%p", c), "pc", fmt.Sprintf("%p", c.conn.PeerConn()))
+		c.logger.CDebugf(ctx, "%p SubscribeRTP waiting for track  pc: %p", c, c.conn.PeerConn())
 		select {
 		case <-ctx.Done():
 			return rtppassthrough.NilSubscription, fmt.Errorf("track not received within SubscribeRTP provided context %w", ctx.Err())
 		case <-healthyClientCh:
 			return rtppassthrough.NilSubscription, errors.New("track not received before client closed")
 		case <-trackReceived:
-			c.logger.CDebugw(ctx, "SubscribeRTP received track data", "client", fmt.Sprintf("%p", c), "pc", fmt.Sprintf("%p", c.conn.PeerConn()))
+			c.logger.CDebugf(ctx, "%p SubscribeRTP received track data pc: %p", c, c.conn.PeerConn())
 		}
 
 		// Set up channel to detect when the track has closed. This can happen in response to an
 		// event / error internal to the peer or due to calling `RemoveStream`.
 		c.trackClosed = trackClosed
-		c.logger.CDebugw(ctx, "SubscribeRTP called AddStream and succeeded", "subID", sub.ID.String())
+		c.logger.CDebugf(ctx, "%p SubscribeRTP called AddStream and succeeded subID: %s", c, sub.ID.String())
 	}
 
 	// Associate this subscription with the current generation.
@@ -510,8 +518,7 @@ func (c *client) SubscribeRTP(
 	// Start the goroutine that copies RTP packets
 	rtpPacketBuffer.Start()
 	g.Success()
-	c.logger.CDebugw(ctx, "SubscribeRTP succeeded", "subID", sub.ID.String(),
-		"name", c.Name(), "bufAndCBByID", c.bufAndCBToString())
+	c.logger.CDebugf(ctx, "%p SubscribeRTP succeeded, subID: %s, name: %s, bufAndCBByID: %s", c, sub.ID.String(), c.Name(), c.bufAndCBToString())
 	return sub, nil
 }
 
@@ -519,8 +526,10 @@ func (c *client) addOnTrackFunc(
 	healthyClientCh, trackReceived, trackClosed chan struct{},
 	generationID int,
 ) grpc.OnTrackCB {
+	c.logger.Infof("%p %s addOnTrackFunc called, pc: %p", c, c.Name(), c.conn.PeerConn())
 	// This is invoked when `PeerConnection.OnTrack` is called for this camera's stream id.
 	return func(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver) {
+		c.logger.Infof("%p %s addOnTrackFunc callback called, pc: %p, tr: %p, r: %p", c, c.Name(), c.conn.PeerConn(), tr, r)
 		// Our `OnTrack` was called. Inform `SubscribeRTP` that getting video data was successful.
 		close(trackReceived)
 		c.activeBackgroundWorkers.Add(1)
@@ -547,7 +556,7 @@ func (c *client) addOnTrackFunc(
 				pkt, _, err := tr.ReadRTP()
 				if os.IsTimeout(err) {
 					c.logger.Debugw("ReadRTP read timeout", "generationId", generationID,
-						"err", err, "timeout", readRTPTimeout.String())
+						"err", err, "timeout", readRTPTimeout.String(), "pc", fmt.Sprintf("%p", c.conn.PeerConn()))
 					continue
 				}
 
@@ -573,7 +582,10 @@ func (c *client) addOnTrackFunc(
 					// This is needed to prevent the problem described here:
 					// https://go.dev/blog/loopvar-preview
 					bufAndCB := tmp
-					err := bufAndCB.buf.Publish(func() { bufAndCB.cb(pkt) })
+					err := bufAndCB.buf.Publish(func() {
+						c.logger.Infof("%p %s received packet from pc %p", c, c.Name(), c.conn.PeerConn())
+						bufAndCB.cb(pkt)
+					})
 					if err != nil {
 						c.logger.Debugw("rtp passthrough packet dropped",
 							"generationId", generationID, "err", err)

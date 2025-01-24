@@ -403,6 +403,7 @@ func (rc *RobotClient) Changed() <-chan bool {
 }
 
 func (rc *RobotClient) SetPeerConnection(pc *webrtc.PeerConnection) {
+	rc.logger.Infof("RobotClient: %p, SetPeerConnection called on pc: %p, reconfigurableClientConn: %p, %#v", rc, pc, &rc.conn, &rc.conn)
 	rc.mu.Lock()
 	rc.pc = pc
 	rc.mu.Unlock()
@@ -414,7 +415,7 @@ func (rc *RobotClient) getClientConn() rpc.ClientConn {
 		return &rc.conn
 	}
 
-	return grpc.NewSharedConn(&rc.conn, rc.pc)
+	return grpc.NewSharedConn(&rc.conn, rc.pc, rc.logger)
 }
 
 // Connect will close any existing connection and try to reconnect to the remote.

@@ -218,7 +218,6 @@ func (svc *webService) StartModule(ctx context.Context) error {
 		if !strings.HasPrefix(info.FullMethod, "/proto.stream.v1.StreamService") {
 			return handler(ctx, req)
 		}
-		defer svc.logger.Info("NICK done")
 		svc.logger.Infof("ctx before: %#v", ctx)
 		svc.logger.Infof("req: %#v", req)
 		svc.logger.Infof("info: %#v", info)

@@ -831,6 +831,8 @@ func (m *Module) ListStreams(ctx context.Context, req *streampb.ListStreamsReque
 // 6. A webrtc track is unable to be created
 // 7. Adding the track to the peer connection fails.
 func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) (*streampb.AddStreamResponse, error) {
+	m.logger.Infof("AddStream START, %s, pc: %p", req.Name, m.pc)
+	defer m.logger.Infof("AddStream END %s, %p", req.Name, m.pc)
 	ctx, span := trace.StartSpan(ctx, "module::module::AddStream")
 	defer span.End()
 	name, err := resource.NewFromString(req.GetName())
@@ -865,6 +867,7 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 
 	sub, err := vcss.SubscribeRTP(ctx, rtpBufferSize, func(pkts []*rtp.Packet) {
 		for _, pkt := range pkts {
+			m.logger.CInfof(ctx, "module %s calling WriteRTP on pc: %p, tlsRTP: %p", req.Name, m.pc, tlsRTP)
 			if err := tlsRTP.WriteRTP(pkt); err != nil {
 				m.logger.CWarnw(ctx, "SubscribeRTP callback function WriteRTP", "err", err)
 			}
@@ -874,7 +877,7 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 		return nil, errors.Wrap(err, "error setting up stream subscription")
 	}
 
-	m.logger.CDebugw(ctx, "AddStream calling AddTrack", "name", name, "subID", sub.ID.String())
+	m.logger.CDebugf(ctx, "AddStream calling AddTrack name: %s, subID: %s, pc: %p, tlsRTP: %p", name, sub.ID.String(), m.pc, tlsRTP)
 	sender, err := m.pc.AddTrack(tlsRTP)
 	if err != nil {
 		err = errors.Wrap(err, "error adding track")
