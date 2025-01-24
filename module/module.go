@@ -546,9 +546,7 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 func (m *Module) DiscoverComponents(
 	ctx context.Context,
 	req *robotpb.DiscoverComponentsRequest,
-) (*robotpb.DiscoverComponentsResponse,
-	error,
-) {
+) (*robotpb.DiscoverComponentsResponse, error) {
 	var discoveries []*robotpb.Discovery
 
 	for _, q := range req.Queries {
