@@ -216,7 +216,7 @@ func TestModManagerFunctions(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			models := mgr.AllModels()
 			for _, model := range models {
-				test.That(t, model.Model, test.ShouldEqual, resource.NewModel("acme", "demo", "mycounter"))
+				test.That(t, model.Model, test.ShouldResemble, resource.NewModel("acme", "demo", "mycounter"))
 				test.That(t, model.API, test.ShouldResemble, resource.NewAPI("rdk", "component", "generic"))
 				switch model.ModuleName {
 				case "simple-module":
