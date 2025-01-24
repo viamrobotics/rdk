@@ -538,7 +538,7 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 	return &pb.AddResourceResponse{}, nil
 }
 
-// DiscoverComponents  is DEPRECATED!!! Please use the Discovery Service instead.
+// DiscoverComponents is DEPRECATED!!! Please use the Discovery Service instead.
 // DiscoverComponents takes a list of discovery queries and returns corresponding
 // component configurations.
 //
