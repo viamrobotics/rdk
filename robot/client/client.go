@@ -893,7 +893,7 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.Dis
 		)
 	}
 
-	//nolint:statichcheck
+	//nolint:statichcheck,deprecated,exhaustive
 	resp, err := rc.client.DiscoverComponents(ctx, &pb.DiscoverComponentsRequest{Queries: pbQueries})
 	if err != nil {
 		return nil, err

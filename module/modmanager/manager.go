@@ -1310,7 +1310,7 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager) {
 							},
 						}
 
-						//nolint:staticcheck
+						//nolint:staticcheck,deprecated,exhaustive
 						res, err := m.robotClient.DiscoverComponents(ctx, req)
 						if err != nil {
 							m.logger.Errorf("error in modular DiscoverComponents: %s", err)
