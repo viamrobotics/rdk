@@ -542,12 +542,14 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 // DiscoverComponents takes a list of discovery queries and returns corresponding
 // component configurations.
 //
-//nolint:staticcheck,deprecated,exhaustive
+//nolint:deprecated, staticcheck
 func (m *Module) DiscoverComponents(
 	ctx context.Context,
-	req *robotpb.DiscoverComponentsRequest,
-) (*robotpb.DiscoverComponentsResponse, error) {
-	var discoveries []*robotpb.Discovery
+	req *robotpb.DiscoverComponentsRequest, //nolint:deprecated,staticcheck
+) (*robotpb.DiscoverComponentsResponse, //nolint:deprecated, staticcheck
+	error,
+) {
+	var discoveries []*robotpb.Discovery //nolint:deprecated,staticcheck
 
 	for _, q := range req.Queries {
 		// Handle triplet edge case i.e. if the subtype doesn't contain ':', add the "rdk:component:" prefix
@@ -586,14 +588,14 @@ func (m *Module) DiscoverComponents(
 			return nil, fmt.Errorf("unable to convert discovery results to pb struct for query %v: %w", q, err)
 		}
 
-		pbDiscovery := &robotpb.Discovery{
+		pbDiscovery := &robotpb.Discovery{ //nolint:deprecated
 			Query:   q,
 			Results: pbResults,
 		}
 		discoveries = append(discoveries, pbDiscovery)
 	}
 
-	return &robotpb.DiscoverComponentsResponse{
+	return &robotpb.DiscoverComponentsResponse{ //nolint:deprecated
 		Discovery: discoveries,
 	}, nil
 }

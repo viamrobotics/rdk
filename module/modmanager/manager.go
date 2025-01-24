@@ -1303,14 +1303,14 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager) {
 							return nil, err
 						}
 
-						//nolint:staticcheck,deprecated,exhaustive
-						req := &robotpb.DiscoverComponentsRequest{
-							Queries: []*robotpb.DiscoveryQuery{
+						//nolint:deprecated,staticcheck
+						req := &robotpb.DiscoverComponentsRequest{ //nolint:deprecated
+							Queries: []*robotpb.DiscoveryQuery{ //nolint:deprecated
 								{Subtype: apiCopy.API.String(), Model: modelCopy.String(), Extra: extraStructPb},
 							},
 						}
 
-						//nolint:staticcheck,deprecated,exhaustive
+						//nolint:deprecated,staticcheck
 						res, err := m.robotClient.DiscoverComponents(ctx, req)
 						if err != nil {
 							m.logger.Errorf("error in modular DiscoverComponents: %s", err)
