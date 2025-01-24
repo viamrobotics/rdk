@@ -32,7 +32,11 @@ type serviceServer struct {
 func NewRPCServiceServer(coll resource.APIResourceCollection[Camera]) interface{} {
 	logger := logging.NewLogger("camserver")
 	imgTypes := make(map[string]ImageType)
-	return &serviceServer{coll: coll, logger: logger, imgTypes: imgTypes}
+	return &serviceServer{
+		coll:     coll,
+		logger:   logger,
+		imgTypes: imgTypes,
+	}
 }
 
 // GetImage returns an image from a camera of the underlying robot. If a specific MIME type

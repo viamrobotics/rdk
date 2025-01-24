@@ -25,6 +25,7 @@ import (
 	"github.com/nathan-fiscaletti/consolesize-go"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
+	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	buildpb "go.viam.com/api/app/build/v1"
 	datapb "go.viam.com/api/app/data/v1"
@@ -74,7 +75,6 @@ type viamClient struct {
 	dataClient       datapb.DataServiceClient
 	packageClient    packagepb.PackageServiceClient
 	datasetClient    datasetpb.DatasetServiceClient
-	endUserClient    apppb.EndUserServiceClient
 	mlTrainingClient mltrainingpb.MLTrainingServiceClient
 	buildClient      buildpb.BuildServiceClient
 	baseURL          *url.URL
@@ -600,15 +600,16 @@ func (c *viamClient) listOAuthAppsAction(cCtx *cli.Context, orgID string) error 
 	return nil
 }
 
+type listLocationsArgs struct {
+	Organization string
+}
+
 // ListLocationsAction is the corresponding Action for 'locations list'.
-func ListLocationsAction(c *cli.Context, args emptyArgs) error {
+func ListLocationsAction(c *cli.Context, args listLocationsArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
-	// TODO(RSDK-9288) - this is brittle and inconsistent with how most data is passed.
-	// Move this to being a flag (but make sure existing workflows still work!)
-	orgStr := c.Args().First()
 	listLocations := func(orgID string) error {
 		locs, err := client.listLocations(orgID)
 		if err != nil {
@@ -618,6 +619,10 @@ func ListLocationsAction(c *cli.Context, args emptyArgs) error {
 			printf(c.App.Writer, "\t%s (id: %s)", loc.Name, loc.Id)
 		}
 		return nil
+	}
+	orgStr := args.Organization
+	if orgStr == "" {
+		orgStr = c.Args().First()
 	}
 	if orgStr == "" {
 		orgs, err := client.listOrganizations()
@@ -672,6 +677,26 @@ type robotsStatusArgs struct {
 	Machine      string
 }
 
+func (c *viamClient) getOrgAndLocationNamesForRobot(ctx context.Context, robot *apppb.Robot) (string, string, error) {
+	orgs, err := c.client.GetOrganizationsWithAccessToLocation(
+		ctx, &apppb.GetOrganizationsWithAccessToLocationRequest{LocationId: robot.Location},
+	)
+	if err != nil {
+		return "", "", err
+	}
+	if len(orgs.OrganizationIdentities) == 0 {
+		return "", "", errors.Errorf("no parent org found for robot: %s", robot.Id)
+	}
+	org := orgs.OrganizationIdentities[0]
+
+	location, err := c.client.GetLocation(ctx, &apppb.GetLocationRequest{LocationId: robot.Location})
+	if err != nil {
+		return "", "", err
+	}
+
+	return org.Name, location.Location.Name, nil
+}
+
 // RobotsStatusAction is the corresponding Action for 'machines status'.
 func RobotsStatusAction(c *cli.Context, args robotsStatusArgs) error {
 	client, err := newViamClient(c)
@@ -691,7 +716,11 @@ func RobotsStatusAction(c *cli.Context, args robotsStatusArgs) error {
 	}
 
 	if orgStr == "" || locStr == "" {
-		printf(c.App.Writer, "%s -> %s", client.selectedOrg.Name, client.selectedLoc.Name)
+		orgName, locName, err := client.getOrgAndLocationNamesForRobot(c.Context, robot)
+		if err != nil {
+			return err
+		}
+		printf(c.App.Writer, "%s -> %s", orgName, locName)
 	}
 
 	printf(
@@ -729,14 +758,14 @@ func RobotsStatusAction(c *cli.Context, args robotsStatusArgs) error {
 
 func getNumLogs(c *cli.Context, numLogs int) (int, error) {
 	if numLogs < 0 {
-		warningf(c.App.ErrWriter, "Provided negative %q value. Defaulting to %d", logsFlagCount, defaultNumLogs)
+		warningf(c.App.ErrWriter, "Provided negative %q value. Defaulting to %d", generalFlagCount, defaultNumLogs)
 		return defaultNumLogs, nil
 	}
 	if numLogs == 0 {
 		return defaultNumLogs, nil
 	}
 	if numLogs > maxNumLogs {
-		return 0, errors.Errorf("provided too high of a %q value. Maximum is %d", logsFlagCount, maxNumLogs)
+		return 0, errors.Errorf("provided too high of a %q value. Maximum is %d", generalFlagCount, maxNumLogs)
 	}
 	return numLogs, nil
 }
@@ -781,6 +810,9 @@ func RobotsLogsAction(c *cli.Context, args robotsLogsArgs) error {
 		return errors.Wrap(err, "could not get machine")
 	}
 
+	// TODO(RSDK-9727) - this is a little inefficient insofar as a `robot` is created immediately
+	// above and then also again within this `robotParts` call. Might be nice to have a helper
+	// API for getting parts when we already have a `Robot`
 	parts, err := client.robotParts(orgStr, locStr, robotStr)
 	if err != nil {
 		return errors.Wrap(err, "could not get machine parts")
@@ -965,18 +997,21 @@ func RobotsPartStatusAction(c *cli.Context, args robotsPartStatusArgs) error {
 	orgStr := args.Organization
 	locStr := args.Location
 	robotStr := args.Machine
-	robot, err := client.robot(orgStr, locStr, robotStr)
-	if err != nil {
-		return errors.Wrap(err, "could not get machine")
-	}
-
 	part, err := client.robotPart(orgStr, locStr, robotStr, args.Part)
 	if err != nil {
 		return errors.Wrap(err, "could not get machine part")
 	}
 
 	if orgStr == "" || locStr == "" || robotStr == "" {
-		printf(c.App.Writer, "%s -> %s -> %s", client.selectedOrg.Name, client.selectedLoc.Name, robot.Name)
+		robot, err := client.robot(orgStr, locStr, part.Robot)
+		if err != nil {
+			return err
+		}
+		orgName, locName, err := client.getOrgAndLocationNamesForRobot(c.Context, robot)
+		if err != nil {
+			return err
+		}
+		printf(c.App.Writer, "%s -> %s -> %s", orgName, locName, robot.Name)
 	}
 
 	name := part.Name
@@ -1019,18 +1054,30 @@ func (c *viamClient) robotsPartLogsAction(cCtx *cli.Context, args robotsPartLogs
 	orgStr := args.Organization
 	locStr := args.Location
 	robotStr := args.Machine
-	robot, err := c.robot(orgStr, locStr, robotStr)
-	if err != nil {
-		return errors.Wrap(err, "could not get machine")
-	}
+	partStr := args.Part
 
 	var header string
 	if orgStr == "" || locStr == "" || robotStr == "" {
-		header = fmt.Sprintf("%s -> %s -> %s", c.selectedOrg.Name, c.selectedLoc.Name, robot.Name)
+		// TODO(RSDK-9727) - this is a little inefficient insofar as a `part` is created immediately
+		// here then also again within this `{tail|print}RobotPartLogs` call. Might be nice to have a
+		// helper API for getting logs from an already-existing `part`
+		part, err := c.robotPart(orgStr, locStr, robotStr, partStr)
+		if err != nil {
+			return err
+		}
+		robot, err := c.robot(orgStr, locStr, part.Robot)
+		if err != nil {
+			return err
+		}
+		orgName, locName, err := c.getOrgAndLocationNamesForRobot(cCtx.Context, robot)
+		if err != nil {
+			return err
+		}
+		header = fmt.Sprintf("%s -> %s -> %s", orgName, locName, robot.Name)
 	}
 	if args.Tail {
 		return c.tailRobotPartLogs(
-			orgStr, locStr, robotStr, args.Part,
+			orgStr, locStr, robotStr, partStr,
 			args.Errors,
 			"",
 			header,
@@ -1041,7 +1088,7 @@ func (c *viamClient) robotsPartLogsAction(cCtx *cli.Context, args robotsPartLogs
 		return err
 	}
 	return c.printRobotPartLogs(
-		orgStr, locStr, robotStr, args.Part,
+		orgStr, locStr, robotStr, partStr,
 		args.Errors,
 		"",
 		header,
@@ -1084,20 +1131,22 @@ func (c *viamClient) robotPartRestart(cCtx *cli.Context, args robotsPartRestartA
 	return nil
 }
 
-type robotsPartRunArgs struct {
+type machinesPartRunArgs struct {
 	Organization string
 	Location     string
 	Machine      string
 	Part         string
 	Data         string
 	Stream       time.Duration
+	Method       string
 }
 
-// RobotsPartRunAction is the corresponding Action for 'machines part run'.
-func RobotsPartRunAction(c *cli.Context, args robotsPartRunArgs) error {
-	// TODO(RSDK-9288) - this is brittle and inconsistent with how most data is passed.
-	// Move this to being a flag (but make sure existing workflows still work!)
-	svcMethod := c.Args().First()
+// MachinesPartRunAction is the corresponding Action for 'machines part run'.
+func MachinesPartRunAction(c *cli.Context, args machinesPartRunArgs) error {
+	svcMethod := args.Method
+	if svcMethod == "" {
+		svcMethod = c.Args().First()
+	}
 	if svcMethod == "" {
 		return errors.New("service method required")
 	}
@@ -1207,18 +1256,15 @@ func MachinesPartCopyFilesAction(c *cli.Context, args machinesPartCopyFilesArgs)
 		logger = logging.NewDebugLogger("cli")
 	}
 
-	return machinesPartCopyFilesAction(c, client, args, logger)
+	return client.machinesPartCopyFilesAction(c, args, logger)
 }
 
-func machinesPartCopyFilesAction(
-	c *cli.Context,
-	client *viamClient,
+func (c *viamClient) machinesPartCopyFilesAction(
+	ctx *cli.Context,
 	flagArgs machinesPartCopyFilesArgs,
 	logger logging.Logger,
 ) error {
-	// TODO(RSDK-9288) - this is brittle and inconsistent with how most data is passed.
-	// Move this to being a flag (but make sure existing workflows still work!)
-	args := c.Args().Slice()
+	args := ctx.Args().Slice()
 	if len(args) == 0 {
 		return errNoFiles
 	}
@@ -1264,14 +1310,14 @@ func machinesPartCopyFilesAction(
 		return err
 	}
 
-	globalArgs, err := getGlobalArgs(c)
+	globalArgs, err := getGlobalArgs(ctx)
 	if err != nil {
 		return err
 	}
 
 	doCopy := func() error {
 		if isFrom {
-			return client.copyFilesFromMachine(
+			return c.copyFilesFromMachine(
 				flagArgs.Organization,
 				flagArgs.Location,
 				flagArgs.Machine,
@@ -1285,7 +1331,7 @@ func machinesPartCopyFilesAction(
 			)
 		}
 
-		return client.copyFilesToMachine(
+		return c.copyFilesToMachine(
 			flagArgs.Organization,
 			flagArgs.Location,
 			flagArgs.Machine,
@@ -1809,6 +1855,22 @@ func (c *viamClient) robot(orgStr, locStr, robotStr string) (*apppb.Robot, error
 }
 
 func (c *viamClient) robotPart(orgStr, locStr, robotStr, partStr string) (*apppb.RobotPart, error) {
+	part, err := c.robotPartInner(orgStr, locStr, robotStr, partStr)
+	if err == nil {
+		return part, nil
+	}
+
+	// if we still haven't found the part, it's possible no robotStr was passed. That's okay
+	// so long as the partStr was passed as an ID, so let's try to get the part with just that.
+	resp, err2 := c.getRobotPart(partStr)
+	if err2 == nil {
+		return resp.Part, nil
+	}
+
+	return nil, multierr.Combine(err, err2)
+}
+
+func (c *viamClient) robotPartInner(orgStr, locStr, robotStr, partStr string) (*apppb.RobotPart, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
@@ -2781,7 +2843,7 @@ func enabledGrantsToProto(enabledGrants []string) ([]apppb.EnabledGrant, error) 
 	if enabledGrants == nil {
 		return nil, nil
 	}
-	enabledGrantsProto := make([]apppb.EnabledGrant, len(enabledGrants))
+	var enabledGrantsProto []apppb.EnabledGrant
 	for _, eg := range enabledGrants {
 		enabledGrant, err := enabledGrantToProto(eg)
 		if err != nil {

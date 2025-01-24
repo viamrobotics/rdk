@@ -23,7 +23,7 @@ func TestConfigureModule(t *testing.T) {
 		StartBuildFunc: func(ctx context.Context, in *v1.StartBuildRequest, opts ...grpc.CallOption) (*v1.StartBuildResponse, error) {
 			return &v1.StartBuildResponse{BuildId: "xyz123"}, nil
 		},
-	}, nil, map[string]any{moduleBuildFlagPath: manifestPath, moduleBuildFlagVersion: "1.2.3"}, "token")
+	}, map[string]any{moduleFlagPath: manifestPath, generalFlagVersion: "1.2.3"}, "token")
 	err := ac.moduleBuildStartAction(cCtx, parseStructFromCtx[moduleBuildStartArgs](cCtx))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.messages, test.ShouldHaveLength, 1)
@@ -62,9 +62,9 @@ func TestFullReloadFlow(t *testing.T) {
 				{ApiKey: &apppb.APIKey{}},
 			}}, nil
 		},
-	}, nil, &inject.BuildServiceClient{}, nil,
+	}, nil, &inject.BuildServiceClient{},
 		map[string]any{
-			moduleBuildFlagPath: manifestPath, generalFlagPartID: "part-123",
+			moduleFlagPath: manifestPath, generalFlagPartID: "part-123",
 			moduleBuildFlagNoBuild: true, moduleFlagLocal: true,
 		},
 		"token",

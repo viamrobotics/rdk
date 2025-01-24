@@ -7,7 +7,6 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/rtppassthrough"
-	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
@@ -21,14 +20,10 @@ type Camera struct {
 	DoFunc               func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	ImageFunc            func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error)
 	ImagesFunc           func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error)
-	StreamFunc           func(
-		ctx context.Context,
-		errHandlers ...gostream.ErrorHandler,
-	) (gostream.VideoStream, error)
-	NextPointCloudFunc func(ctx context.Context) (pointcloud.PointCloud, error)
-	ProjectorFunc      func(ctx context.Context) (transform.Projector, error)
-	PropertiesFunc     func(ctx context.Context) (camera.Properties, error)
-	CloseFunc          func(ctx context.Context) error
+	NextPointCloudFunc   func(ctx context.Context) (pointcloud.PointCloud, error)
+	ProjectorFunc        func(ctx context.Context) (transform.Projector, error)
+	PropertiesFunc       func(ctx context.Context) (camera.Properties, error)
+	CloseFunc            func(ctx context.Context) error
 }
 
 // NewCamera returns a new injected camera.
@@ -50,20 +45,6 @@ func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 		return c.Camera.NextPointCloud(ctx)
 	}
 	return nil, errors.New("NextPointCloud unimplemented")
-}
-
-// Stream calls the injected Stream or the real version.
-func (c *Camera) Stream(
-	ctx context.Context,
-	errHandlers ...gostream.ErrorHandler,
-) (gostream.VideoStream, error) {
-	if c.StreamFunc != nil {
-		return c.StreamFunc(ctx, errHandlers...)
-	}
-	if c.Camera != nil {
-		return c.Camera.Stream(ctx, errHandlers...)
-	}
-	return nil, errors.Wrap(ctx.Err(), "no stream function available")
 }
 
 // Image calls the injected Image or the real version.

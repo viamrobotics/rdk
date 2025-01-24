@@ -41,6 +41,8 @@ const (
 	golang         = "go"
 )
 
+var supportedModuleGenLanguages = []string{python, golang}
+
 var (
 	scriptsPath   = filepath.Join(basePath, "scripts")
 	templatesPath = filepath.Join(basePath, "_templates")
@@ -51,7 +53,6 @@ type generateModuleArgs struct {
 	Language        string
 	Public          bool
 	PublicNamespace string
-	ResourceType    string
 	ResourceSubtype string
 	ModelName       string
 	EnableCloud     bool
@@ -69,6 +70,9 @@ func GenerateModuleAction(cCtx *cli.Context, args generateModuleArgs) error {
 }
 
 func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModuleArgs) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
 	var newModule *modulegen.ModuleInputs
 	var err error
 
@@ -77,14 +81,13 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 		Language:         args.Language,
 		IsPublic:         args.Public,
 		Namespace:        args.PublicNamespace,
-		Resource:         args.ResourceSubtype + " " + args.ResourceType,
-		ResourceType:     args.ResourceType,
 		ResourceSubtype:  args.ResourceSubtype,
 		ModelName:        args.ModelName,
 		EnableCloudBuild: args.EnableCloud,
 		RegisterOnApp:    args.Register,
 	}
-	if err := newModule.CheckResource(); err != nil {
+
+	if err := newModule.CheckResourceAndSetType(); err != nil {
 		return err
 	}
 
@@ -205,7 +208,20 @@ func promptUser(module *modulegen.ModuleInputs) error {
 				words[i] = titleCaser.String(word)
 			}
 		}
-		resourceOptions = append(resourceOptions, huh.NewOption(strings.Join(words, " "), resource))
+		// we differentiate generic-service and generic-component in `modulegen.Resources`
+		// but they still have the type listed. This carveout prevents the user prompt from
+		// suggesting `Generic Component Component` or `Generic Service Service` as an option,
+		// either visually or under the hood
+		var resType string
+		if words[0] == "Generic" {
+			resType = strings.Join(words[:2], " ")
+			// specific carveout to ensure that the `resource` is either `generic service` or
+			// `generic component`, as opposed to `generic_service service`
+			resource = strings.ToLower(resType)
+		} else {
+			resType = strings.Join(words, " ")
+		}
+		resourceOptions = append(resourceOptions, huh.NewOption(resType, resource))
 	}
 	form := huh.NewForm(
 		huh.NewGroup(
@@ -313,6 +329,12 @@ func wrapResolveOrg(cCtx *cli.Context, c *viamClient, newModule *modulegen.Modul
 	return nil
 }
 
+// TODO(RSDK-9758) - this logic will never be relevant currently because we're now checking if
+// we're logged in at the first opportunity in `viam module generate`, and returning an error if
+// not. However, I (ethan) am leaving this logic here because we will likely want to revisit if
+// and how to use it more broadly (not just for `viam module generate` but for _all_ CLI commands),
+// and because disentangling it immediately may be complicated and delay the current attempt to
+// solve the problems this causes (see RSDK-9452).
 func catchResolveOrgErr(cCtx *cli.Context, c *viamClient, newModule *modulegen.ModuleInputs, caughtErr error) error {
 	if strings.Contains(caughtErr.Error(), "not logged in") || strings.Contains(caughtErr.Error(), "error while refreshing token") {
 		originalWriter := cCtx.App.Writer
@@ -335,12 +357,17 @@ func catchResolveOrgErr(cCtx *cli.Context, c *viamClient, newModule *modulegen.M
 func populateAdditionalInfo(newModule *modulegen.ModuleInputs) {
 	newModule.GeneratedOn = time.Now().UTC()
 	newModule.GeneratorVersion = version
+	// TODO(RSDK-9727) - this is a bit inefficient because `newModule.Resource` is set above in
+	// `generateModuleAction` based on `ResourceType` and `ResourceSubtype`, which are then
+	// overwritten based on `newModule.Resource`! Unfortunately fixing this is slightly complicated
+	// due to cases where a user didn't pass a `ResourceSubtype`, and so it was set in the `promptUser`
+	// call. We should look into simplifying though, such that all these values are only ever set once.
 	newModule.ResourceSubtype = strings.Split(newModule.Resource, " ")[0]
 	newModule.ResourceType = strings.Split(newModule.Resource, " ")[1]
 
 	titleCaser := cases.Title(language.Und)
 	replacer := strings.NewReplacer("_", " ", "-", " ")
-	spaceReplacer := strings.NewReplacer(" ", "", "_", "", "-", "")
+	spaceReplacer := modulegen.SpaceReplacer
 	newModule.ModulePascal = spaceReplacer.Replace(titleCaser.String(replacer.Replace(newModule.ModuleName)))
 	newModule.ModuleCamel = strings.ToLower(string(newModule.ModulePascal[0])) + newModule.ModulePascal[1:]
 	newModule.ModuleLowercase = strings.ToLower(newModule.ModulePascal)
