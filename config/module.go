@@ -133,6 +133,9 @@ func (m Module) Equals(other Module) bool {
 // MergeEnvVars will merge the provided environment variables with the existing Environment, with the existing Environment
 // taking priority.
 func (m *Module) MergeEnvVars(env map[string]string) {
+	if m.Environment == nil {
+		m.Environment = make(map[string]string)
+	}
 	for k, v := range env {
 		if _, ok := m.Environment[k]; ok {
 			continue
