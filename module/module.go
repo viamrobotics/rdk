@@ -545,11 +545,11 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 //nolint:deprecated,staticcheck
 func (m *Module) DiscoverComponents(
 	ctx context.Context,
-	req *robotpb.DiscoverComponentsRequest, //nolint:deprecated,staticcheck
-) (*robotpb.DiscoverComponentsResponse, //nolint:deprecated,staticcheck
+	req *robotpb.DiscoverComponentsRequest,
+) (*robotpb.DiscoverComponentsResponse,
 	error,
 ) {
-	var discoveries []*robotpb.Discovery //nolint:deprecated,staticcheck
+	var discoveries []*robotpb.Discovery
 
 	for _, q := range req.Queries {
 		// Handle triplet edge case i.e. if the subtype doesn't contain ':', add the "rdk:component:" prefix
@@ -588,14 +588,14 @@ func (m *Module) DiscoverComponents(
 			return nil, fmt.Errorf("unable to convert discovery results to pb struct for query %v: %w", q, err)
 		}
 
-		pbDiscovery := &robotpb.Discovery{ //nolint:deprecated
+		pbDiscovery := &robotpb.Discovery{
 			Query:   q,
 			Results: pbResults,
 		}
 		discoveries = append(discoveries, pbDiscovery)
 	}
 
-	return &robotpb.DiscoverComponentsResponse{ //nolint:deprecated
+	return &robotpb.DiscoverComponentsResponse{
 		Discovery: discoveries,
 	}, nil
 }

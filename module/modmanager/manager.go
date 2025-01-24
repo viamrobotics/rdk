@@ -1304,8 +1304,8 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager) {
 						}
 
 						//nolint:deprecated,staticcheck
-						req := &robotpb.DiscoverComponentsRequest{ //nolint:deprecated
-							Queries: []*robotpb.DiscoveryQuery{ //nolint:deprecated
+						req := &robotpb.DiscoverComponentsRequest{
+							Queries: []*robotpb.DiscoveryQuery{
 								{Subtype: apiCopy.API.String(), Model: modelCopy.String(), Extra: extraStructPb},
 							},
 						}

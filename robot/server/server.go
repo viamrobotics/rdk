@@ -199,7 +199,6 @@ func (s *Server) DiscoverComponents(
 		return nil, err
 	}
 
-	//nolint:deprecated,staticcheck
 	pbDiscoveries := make([]*pb.Discovery, 0, len(discoveries))
 	for _, discovery := range discoveries {
 		pbResults, err := vprotoutils.StructToStructPb(discovery.Results)
@@ -210,7 +209,7 @@ func (s *Server) DiscoverComponents(
 		if err != nil {
 			return nil, err
 		}
-		pbQuery := &pb.DiscoveryQuery{ //nolint:deprecated,staticcheck
+		pbQuery := &pb.DiscoveryQuery{
 			Subtype: discovery.Query.API.String(),
 			Model:   discovery.Query.Model.String(),
 			Extra:   extra,
@@ -221,14 +220,14 @@ func (s *Server) DiscoverComponents(
 		}
 		pbDiscoveries = append(
 			pbDiscoveries,
-			&pb.Discovery{ //nolint:deprecated,staticcheck
+			&pb.Discovery{
 				Query:   pbQuery,
 				Results: pbResults,
 			},
 		)
 	}
 
-	return &pb.DiscoverComponentsResponse{Discovery: pbDiscoveries}, nil //nolint:deprecated,staticcheck
+	return &pb.DiscoverComponentsResponse{Discovery: pbDiscoveries}, nil
 }
 
 // FrameSystemConfig returns the info of each individual part that makes up the frame system.
