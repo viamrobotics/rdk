@@ -630,8 +630,10 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 	// add additional environment vars to modules
 	// adding them here ensures that if the parsed API key changes, the module will be restarted with the updated environment.
 	env := additionalModuleEnvVars(cfg.Cloud, cfg.Auth)
-	for _, m := range cfg.Modules {
-		m.MergeEnvVars(env)
+	if len(env) > 0 {
+		for _, m := range cfg.Modules {
+			m.MergeEnvVars(env)
+		}
 	}
 
 	// now that the attribute maps are converted, validate configs and get implicit dependencies for builtin resource models
