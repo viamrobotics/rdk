@@ -877,7 +877,7 @@ func (rc *RobotClient) Logger() logging.Logger {
 func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error) {
 	rc.logger.Warn(
 		"DiscoverComponents is deprecated and will be removed on March 10th 2025. Please use the Discovery Service instead.")
-	pbQueries := make([]*pb.DiscoveryQuery, 0, len(qs)) //nolint:staticheck,deprecated
+	pbQueries := make([]*pb.DiscoveryQuery, 0, len(qs)) //nolint:deprecated,staticcheck
 	for _, q := range qs {
 		extra, err := structpb.NewStruct(q.Extra)
 		if err != nil {
