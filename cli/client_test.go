@@ -90,14 +90,9 @@ func newTestContext(t *testing.T, flags map[string]any) *cli.Context {
 // setup creates a new cli.Context and viamClient with fake auth and the passed
 // in AppServiceClient and DataServiceClient. It also returns testWriters that capture Stdout and
 // Stdin.
-func setup(
-	asc apppb.AppServiceClient,
-	dataClient datapb.DataServiceClient,
-	buildClient buildpb.BuildServiceClient,
-	endUserClient apppb.EndUserServiceClient,
-	defaultFlags map[string]any,
-	authMethod string,
-	cliArgs ...string,
+func setup(asc apppb.AppServiceClient, dataClient datapb.DataServiceClient,
+	buildClient buildpb.BuildServiceClient, defaultFlags map[string]any,
+	authMethod string, cliArgs ...string,
 ) (*cli.Context, *viamClient, *testWriter, *testWriter) {
 	out := &testWriter{}
 	errOut := &testWriter{}
@@ -126,14 +121,13 @@ func setup(
 	}
 
 	ac := &viamClient{
-		client:        asc,
-		conf:          conf,
-		c:             cCtx,
-		dataClient:    dataClient,
-		buildClient:   buildClient,
-		endUserClient: endUserClient,
-		selectedOrg:   &apppb.Organization{},
-		selectedLoc:   &apppb.Location{},
+		client:      asc,
+		conf:        conf,
+		c:           cCtx,
+		dataClient:  dataClient,
+		buildClient: buildClient,
+		selectedOrg: &apppb.Organization{},
+		selectedLoc: &apppb.Location{},
 	}
 	return cCtx, ac, out, errOut
 }
@@ -151,7 +145,7 @@ func setupWithRunningPart(
 ) (*cli.Context, *viamClient, *testWriter, *testWriter) {
 	t.Helper()
 
-	cCtx, ac, out, errOut := setup(asc, dataClient, buildClient, nil, defaultFlags, authMethod, cliArgs...)
+	cCtx, ac, out, errOut := setup(asc, dataClient, buildClient, defaultFlags, authMethod, cliArgs...)
 
 	// this config could later become a parameter
 	r, err := robotimpl.New(cCtx.Context, &robotconfig.Config{
@@ -192,7 +186,7 @@ func TestListOrganizationsAction(t *testing.T) {
 	asc := &inject.AppServiceClient{
 		ListOrganizationsFunc: listOrganizationsFunc,
 	}
-	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
 
 	test.That(t, ac.listOrganizationsAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -213,7 +207,7 @@ func TestSetSupportEmailAction(t *testing.T) {
 		OrganizationSetSupportEmailFunc: setSupportEmailFunc,
 	}
 
-	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
 
 	test.That(t, ac.organizationsSupportEmailSetAction(cCtx, "test-org", "test-email"), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -230,7 +224,7 @@ func TestGetSupportEmailAction(t *testing.T) {
 		OrganizationGetSupportEmailFunc: getSupportEmailFunc,
 	}
 
-	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
 
 	test.That(t, ac.organizationsSupportEmailGetAction(cCtx, "test-org"), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -249,7 +243,7 @@ func TestBillingServiceDisableAction(t *testing.T) {
 		DisableBillingServiceFunc: disableBillingFunc,
 	}
 
-	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
 	test.That(t, ac.organizationDisableBillingServiceAction(cCtx, "test-org"), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, len(out.messages), test.ShouldEqual, 1)
@@ -280,7 +274,7 @@ func TestGetBillingConfigAction(t *testing.T) {
 		GetBillingServiceConfigFunc: getConfigEmailFunc,
 	}
 
-	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
 	test.That(t, ac.getBillingConfig(cCtx, "test-org"), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, len(out.messages), test.ShouldEqual, 12)
@@ -309,7 +303,7 @@ func TestOrganizationSetLogoAction(t *testing.T) {
 		OrganizationSetLogoFunc: organizationSetLogoFunc,
 	}
 
-	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
 	// Create a temporary file for testing
 	fileName := "test-logo-*.png"
 	tmpFile, err := os.CreateTemp("", fileName)
@@ -320,7 +314,7 @@ func TestOrganizationSetLogoAction(t *testing.T) {
 	test.That(t, len(out.messages), test.ShouldEqual, 1)
 	test.That(t, out.messages[0], test.ShouldContainSubstring, "Successfully set the logo for organization")
 
-	cCtx, ac, out, errOut = setup(asc, nil, nil, nil, nil, "token")
+	cCtx, ac, out, errOut = setup(asc, nil, nil, nil, "token")
 
 	logoFileName2 := "test-logo-2-*.PNG"
 	tmpFile2, err := os.CreateTemp("", logoFileName2)
@@ -344,7 +338,7 @@ func TestGetLogoAction(t *testing.T) {
 		OrganizationGetLogoFunc: getLogoFunc,
 	}
 
-	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
 
 	test.That(t, ac.organizationsLogoGetAction(cCtx, "test-org"), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -363,7 +357,7 @@ func TestEnableAuthServiceAction(t *testing.T) {
 		EnableAuthServiceFunc: enableAuthServiceFunc,
 	}
 
-	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
 
 	test.That(t, ac.enableAuthServiceAction(cCtx, "test-org"), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -382,7 +376,7 @@ func TestDisableAuthServiceAction(t *testing.T) {
 		DisableAuthServiceFunc: disableAuthServiceFunc,
 	}
 
-	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
 
 	test.That(t, ac.disableAuthServiceAction(cCtx, "test-org"), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -405,7 +399,7 @@ func TestListOAuthAppsAction(t *testing.T) {
 		ListOAuthAppsFunc: listOAuthAppFunc,
 	}
 
-	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
 	test.That(t, ac.listOAuthAppsAction(cCtx, "test-org"), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, len(out.messages), test.ShouldEqual, 1)
@@ -423,7 +417,7 @@ func TestDeleteOAuthAppAction(t *testing.T) {
 		DeleteOAuthAppFunc: deleteOAuthAppFunc,
 	}
 
-	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
 	test.That(t, ac.deleteOAuthAppAction(cCtx, "test-org", "client-id"), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, len(out.messages), test.ShouldEqual, 1)
@@ -440,7 +434,7 @@ func TestUpdateBillingServiceAction(t *testing.T) {
 		UpdateBillingServiceFunc: updateConfigFunc,
 	}
 
-	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
 	address := "123 Main St, Suite 100, San Francisco, CA, 94105"
 	test.That(t, ac.updateBillingServiceAction(cCtx, "test-org", address), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -466,7 +460,7 @@ func TestOrganizationEnableBillingServiceAction(t *testing.T) {
 		EnableBillingServiceFunc: enableBillingFunc,
 	}
 
-	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
 	test.That(t, ac.organizationEnableBillingServiceAction(cCtx, "test-org",
 		"123 Main St, Suite 100, San Francisco, CA, 94105"), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -523,7 +517,7 @@ func TestDataExportTabularAction(t *testing.T) {
 			ExportTabularDataFunc: exportTabularDataFunc,
 		}
 
-		cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil, nil, nil, "token")
+		cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil, nil, "token")
 
 		test.That(t, ac.dataExportTabularAction(cCtx, parseStructFromCtx[dataExportTabularArgs](cCtx)), test.ShouldBeNil)
 		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -577,7 +571,7 @@ func TestDataExportTabularAction(t *testing.T) {
 			ExportTabularDataFunc: exportTabularDataFunc,
 		}
 
-		cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil, nil, nil, "token")
+		cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil, nil, "token")
 
 		err := ac.dataExportTabularAction(cCtx, parseStructFromCtx[dataExportTabularArgs](cCtx))
 		test.That(t, err, test.ShouldBeError, errors.New("error receiving tabular data: whoops"))
@@ -747,7 +741,7 @@ func TestGetRobotPartLogs(t *testing.T) {
 	}
 
 	t.Run("no count", func(t *testing.T) {
-		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "")
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "")
 
 		test.That(t, ac.robotsPartLogsAction(cCtx, parseStructFromCtx[robotsPartLogsArgs](cCtx)), test.ShouldBeNil)
 
@@ -768,7 +762,7 @@ func TestGetRobotPartLogs(t *testing.T) {
 	})
 	t.Run("178 count", func(t *testing.T) {
 		flags := map[string]any{"count": 178}
-		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, flags, "")
+		cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "")
 
 		test.That(t, ac.robotsPartLogsAction(cCtx, parseStructFromCtx[robotsPartLogsArgs](cCtx)), test.ShouldBeNil)
 
@@ -789,7 +783,7 @@ func TestGetRobotPartLogs(t *testing.T) {
 	})
 	t.Run("max count", func(t *testing.T) {
 		flags := map[string]any{generalFlagCount: maxNumLogs}
-		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, flags, "")
+		cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "")
 
 		test.That(t, ac.robotsPartLogsAction(cCtx, parseStructFromCtx[robotsPartLogsArgs](cCtx)), test.ShouldBeNil)
 
@@ -811,7 +805,7 @@ func TestGetRobotPartLogs(t *testing.T) {
 	})
 	t.Run("negative count", func(t *testing.T) {
 		flags := map[string]any{"count": -1}
-		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, flags, "")
+		cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "")
 
 		test.That(t, ac.robotsPartLogsAction(cCtx, parseStructFromCtx[robotsPartLogsArgs](cCtx)), test.ShouldBeNil)
 
@@ -834,7 +828,7 @@ func TestGetRobotPartLogs(t *testing.T) {
 	})
 	t.Run("count too high", func(t *testing.T) {
 		flags := map[string]any{"count": 1000000}
-		cCtx, ac, _, _ := setup(asc, nil, nil, nil, flags, "")
+		cCtx, ac, _, _ := setup(asc, nil, nil, flags, "")
 
 		err := ac.robotsPartLogsAction(cCtx, parseStructFromCtx[robotsPartLogsArgs](cCtx))
 		test.That(t, err, test.ShouldNotBeNil)
@@ -887,7 +881,7 @@ func TestShellFileCopy(t *testing.T) {
 	}
 
 	t.Run("no arguments or files", func(t *testing.T) {
-		cCtx, viamClient, _, _ := setup(asc, nil, nil, nil, partFlags, "token")
+		cCtx, viamClient, _, _ := setup(asc, nil, nil, partFlags, "token")
 		test.That(t,
 			viamClient.machinesPartCopyFilesAction(cCtx, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
 			test.ShouldEqual, errNoFiles)
@@ -895,13 +889,13 @@ func TestShellFileCopy(t *testing.T) {
 
 	t.Run("one file path is insufficient", func(t *testing.T) {
 		args := []string{"machine:path"}
-		cCtx, viamClient, _, _ := setup(asc, nil, nil, nil, partFlags, "token", args...)
+		cCtx, viamClient, _, _ := setup(asc, nil, nil, partFlags, "token", args...)
 		test.That(t,
 			viamClient.machinesPartCopyFilesAction(cCtx, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
 			test.ShouldEqual, errLastArgOfFromMissing)
 
 		args = []string{"path"}
-		cCtx, viamClient, _, _ = setup(asc, nil, nil, nil, partFlags, "token", args...)
+		cCtx, viamClient, _, _ = setup(asc, nil, nil, partFlags, "token", args...)
 		test.That(t,
 			viamClient.machinesPartCopyFilesAction(cCtx, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
 			test.ShouldEqual, errLastArgOfToMissing)
@@ -909,7 +903,7 @@ func TestShellFileCopy(t *testing.T) {
 
 	t.Run("from has wrong path prefixes", func(t *testing.T) {
 		args := []string{"machine:path", "path2", "machine:path3", "destination"}
-		cCtx, viamClient, _, _ := setup(asc, nil, nil, nil, partFlags, "token", args...)
+		cCtx, viamClient, _, _ := setup(asc, nil, nil, partFlags, "token", args...)
 		test.That(t,
 			viamClient.machinesPartCopyFilesAction(cCtx, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
 			test.ShouldHaveSameTypeAs, copyFromPathInvalidError{})
@@ -1197,7 +1191,7 @@ func TestCreateOAuthAppAction(t *testing.T) {
 		flags[oauthAppFlagRedirectURIs] = []string{"https://woof.com/home", "https://arf.com/home"}
 		flags[oauthAppFlagLogoutURI] = "https://woof.com/logout"
 		flags[oauthAppFlagEnabledGrants] = []string{"implicit", "password"}
-		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, flags, "token")
+		cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "token")
 		test.That(t, ac.createOAuthAppAction(cCtx, parseStructFromCtx[createOAuthAppArgs](cCtx)), test.ShouldBeNil)
 		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 		test.That(t, out.messages[0], test.ShouldContainSubstring,
@@ -1206,7 +1200,7 @@ func TestCreateOAuthAppAction(t *testing.T) {
 
 	t.Run("should error if pkce is not a valid enum value", func(t *testing.T) {
 		flags := map[string]any{oauthAppFlagClientAuthentication: unspecified, oauthAppFlagPKCE: "not_one_of_the_allowed_values"}
-		cCtx, ac, out, _ := setup(asc, nil, nil, nil, flags, "token")
+		cCtx, ac, out, _ := setup(asc, nil, nil, flags, "token")
 		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "pkce must be a valid PKCE")
@@ -1218,7 +1212,7 @@ func TestCreateOAuthAppAction(t *testing.T) {
 			oauthAppFlagClientAuthentication: unspecified, oauthAppFlagPKCE: unspecified,
 			oauthAppFlagURLValidation: "not_one_of_the_allowed_values",
 		}
-		cCtx, ac, out, _ := setup(asc, nil, nil, nil, flags, "token")
+		cCtx, ac, out, _ := setup(asc, nil, nil, flags, "token")
 		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "url-validation must be a valid UrlValidation")
@@ -1249,7 +1243,7 @@ func TestReadOAuthApp(t *testing.T) {
 		ReadOAuthAppFunc: readOAuthAppFunc,
 	}
 
-	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
 
 	test.That(t, ac.readOAuthAppAction(cCtx, "test-org-id", "test-client-id"), test.ShouldBeNil)
 	test.That(t, len(out.messages), test.ShouldEqual, 9)
@@ -1286,7 +1280,7 @@ func TestUpdateOAuthAppAction(t *testing.T) {
 		flags[oauthAppFlagRedirectURIs] = []string{"https://woof.com/home", "https://arf.com/home"}
 		flags[oauthAppFlagLogoutURI] = "https://woof.com/logout"
 		flags[oauthAppFlagEnabledGrants] = []string{"implicit", "password"}
-		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, flags, "token")
+		cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "token")
 		test.That(t, ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx)), test.ShouldBeNil)
 		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 		test.That(t, out.messages[0], test.ShouldContainSubstring, "Successfully updated OAuth app")
@@ -1297,7 +1291,7 @@ func TestUpdateOAuthAppAction(t *testing.T) {
 		flags[generalFlagOrgID] = "org-id"
 		flags[oauthAppFlagClientID] = "client-id"
 		flags[oauthAppFlagClientAuthentication] = "not_one_of_the_allowed_values"
-		cCtx, ac, out, _ := setup(asc, nil, nil, nil, flags, "token")
+		cCtx, ac, out, _ := setup(asc, nil, nil, flags, "token")
 		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "client-authentication must be a valid ClientAuthentication")
@@ -1306,7 +1300,7 @@ func TestUpdateOAuthAppAction(t *testing.T) {
 
 	t.Run("should error if pkce is not a valid enum value", func(t *testing.T) {
 		flags := map[string]any{oauthAppFlagClientAuthentication: unspecified, oauthAppFlagPKCE: "not_one_of_the_allowed_values"}
-		cCtx, ac, out, _ := setup(asc, nil, nil, nil, flags, "token")
+		cCtx, ac, out, _ := setup(asc, nil, nil, flags, "token")
 		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "pkce must be a valid PKCE")
@@ -1318,7 +1312,7 @@ func TestUpdateOAuthAppAction(t *testing.T) {
 			oauthAppFlagClientAuthentication: unspecified, oauthAppFlagPKCE: unspecified,
 			oauthAppFlagURLValidation: "not_one_of_the_allowed_values",
 		}
-		cCtx, ac, out, _ := setup(asc, nil, nil, nil, flags, "token")
+		cCtx, ac, out, _ := setup(asc, nil, nil, flags, "token")
 		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "url-validation must be a valid UrlValidation")
