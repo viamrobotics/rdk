@@ -1320,6 +1320,7 @@ func TestClientDiscovery(t *testing.T) {
 	injectRobot.MachineStatusFunc = func(_ context.Context) (robot.MachineStatus, error) {
 		return robot.MachineStatus{State: robot.StateRunning}, nil
 	}
+	injectRobot.LoggerFunc = func() logging.Logger { return logging.NewTestLogger(t) }
 	q := resource.DiscoveryQuery{
 		API:   movementsensor.Named("foo").API,
 		Model: resource.DefaultModelFamily.WithModel("bar"),

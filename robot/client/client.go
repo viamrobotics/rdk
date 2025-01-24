@@ -860,6 +860,7 @@ func (rc *RobotClient) Logger() logging.Logger {
 	return rc.logger
 }
 
+// DiscoverComponents is DEPRECATED!!! Please use the Discovery Service instead.
 // DiscoverComponents takes a list of discovery queries and returns corresponding
 // component configurations.
 //
@@ -871,7 +872,11 @@ func (rc *RobotClient) Logger() logging.Logger {
 //
 //	// Get component configurations with these queries.
 //	component_configs, err := machine.DiscoverComponents(ctx.Background(), qs)
+//
+//nolint:deprecated,staticcheck
 func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error) {
+	rc.logger.Warn(
+		"DiscoverComponents is deprecated and will be removed on March 10th 2025. Please use the Discovery Service instead.")
 	pbQueries := make([]*pb.DiscoveryQuery, 0, len(qs))
 	for _, q := range qs {
 		extra, err := structpb.NewStruct(q.Extra)
