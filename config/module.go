@@ -130,6 +130,17 @@ func (m Module) Equals(other Module) bool {
 	return reflect.DeepEqual(m, other)
 }
 
+// MergeEnvVars will merge the provided environment variables with the existing Environment, with the existing Environment
+// taking priority.
+func (m *Module) MergeEnvVars(env map[string]string) {
+	for k, v := range env {
+		if _, ok := m.Environment[k]; ok {
+			continue
+		}
+		m.Environment[k] = v
+	}
+}
+
 var tarballExtensionsRegexp = regexp.MustCompile(`\.(tgz|tar\.gz)$`)
 
 // NeedsSyntheticPackage returns true if this is a local module pointing at a tarball.
@@ -315,6 +326,7 @@ func (m *Module) FirstRun(
 	for key, val := range env {
 		cmd.Env = append(cmd.Env, key+"="+val)
 	}
+	utils.LogViamEnvVariables("Running first run script with following Viam environment variables", env, logger)
 
 	stdOut, err := cmd.StdoutPipe()
 	if err != nil {

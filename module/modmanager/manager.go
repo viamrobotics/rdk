@@ -1198,6 +1198,8 @@ func (m *module) startProcess(
 	defer checkTicker.Stop()
 
 	m.logger.CInfow(ctx, "Starting up module", "module", m.cfg.Name)
+	rutils.LogViamEnvVariables("Starting module with following Viam environment variables", moduleEnvironment, m.logger)
+
 	ctxTimeout, cancel := context.WithTimeout(ctx, rutils.GetModuleStartupTimeout(m.logger))
 	defer cancel()
 	for {
@@ -1413,6 +1415,7 @@ func getFullEnvironment(
 		environment["VIAM_MODULE_ID"] = cfg.ModuleID
 	}
 	// Overwrite the base environment variables with the module's environment variables (if specified)
+	// VIAM_MODULE_ROOT is filled out by app.viam.com in cloud robots.
 	for key, value := range cfg.Environment {
 		environment[key] = value
 	}
