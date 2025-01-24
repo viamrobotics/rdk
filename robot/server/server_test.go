@@ -19,6 +19,7 @@ import (
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	"google.golang.org/grpc/peer"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/components/arm"
@@ -398,6 +399,52 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.GetPrimaryOrgId(), test.ShouldEqual, "the-primary-org")
 		test.That(t, resp.GetMachineId(), test.ShouldEqual, "the-machine")
 		test.That(t, resp.GetMachinePartId(), test.ShouldEqual, "the-robot-part")
+	})
+
+	//nolint:deprecated,staticcheck
+	t.Run("Discovery", func(t *testing.T) {
+		injectRobot := &inject.Robot{}
+		injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
+		injectRobot.ResourceNamesFunc = func() []resource.Name { return []resource.Name{} }
+		server := server.New(injectRobot)
+
+		q := resource.DiscoveryQuery{arm.Named("arm").API, resource.DefaultModelFamily.WithModel("some-arm"), nil}
+		disc := resource.Discovery{Query: q, Results: struct{}{}}
+		discoveries := []resource.Discovery{disc}
+		injectRobot.DiscoverComponentsFunc = func(ctx context.Context, keys []resource.DiscoveryQuery) ([]resource.Discovery, error) {
+			return discoveries, nil
+		}
+
+		t.Run("full api and model", func(t *testing.T) {
+			req := &pb.DiscoverComponentsRequest{
+				Queries: []*pb.DiscoveryQuery{{Subtype: q.API.String(), Model: q.Model.String()}},
+			}
+
+			resp, err := server.DiscoverComponents(context.Background(), req)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, len(resp.Discovery), test.ShouldEqual, 1)
+
+			observed := resp.Discovery[0].Results.AsMap()
+			expected := map[string]interface{}{}
+			expectedQ := &pb.DiscoveryQuery{Subtype: "rdk:component:arm", Model: "rdk:builtin:some-arm", Extra: &structpb.Struct{}}
+			test.That(t, resp.Discovery[0].Query, test.ShouldResemble, expectedQ)
+			test.That(t, observed, test.ShouldResemble, expected)
+		})
+		t.Run("short api and model", func(t *testing.T) {
+			req := &pb.DiscoverComponentsRequest{
+				Queries: []*pb.DiscoveryQuery{{Subtype: "arm", Model: "some-arm"}},
+			}
+
+			resp, err := server.DiscoverComponents(context.Background(), req)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, len(resp.Discovery), test.ShouldEqual, 1)
+
+			observed := resp.Discovery[0].Results.AsMap()
+			expected := map[string]interface{}{}
+			expectedQ := &pb.DiscoveryQuery{Subtype: "arm", Model: "some-arm", Extra: &structpb.Struct{}}
+			test.That(t, resp.Discovery[0].Query, test.ShouldResemble, expectedQ)
+			test.That(t, observed, test.ShouldResemble, expected)
+		})
 	})
 
 	t.Run("ResourceRPCSubtypes", func(t *testing.T) {
