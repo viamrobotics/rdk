@@ -1302,12 +1302,15 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager) {
 						if err != nil {
 							return nil, err
 						}
+
+						//nolint:staticcheck
 						req := &robotpb.DiscoverComponentsRequest{
 							Queries: []*robotpb.DiscoveryQuery{
 								{Subtype: apiCopy.API.String(), Model: modelCopy.String(), Extra: extraStructPb},
 							},
 						}
 
+						//nolint:staticcheck
 						res, err := m.robotClient.DiscoverComponents(ctx, req)
 						if err != nil {
 							m.logger.Errorf("error in modular DiscoverComponents: %s", err)

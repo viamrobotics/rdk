@@ -860,6 +860,7 @@ func (rc *RobotClient) Logger() logging.Logger {
 	return rc.logger
 }
 
+// DiscoverComponents  is DEPRECATED!!! Please use the Discovery Service instead.
 // DiscoverComponents takes a list of discovery queries and returns corresponding
 // component configurations.
 //
@@ -871,8 +872,11 @@ func (rc *RobotClient) Logger() logging.Logger {
 //
 //	// Get component configurations with these queries.
 //	component_configs, err := machine.DiscoverComponents(ctx.Background(), qs)
+//
+//nolint:staticcheck
 func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error) {
-	pbQueries := make([]*pb.DiscoveryQuery, 0, len(qs))
+	rc.logger.Warn("DiscoverComponents is deprecated. Please use the Discovery Service instead.")
+	pbQueries := make([]*pb.DiscoveryQuery, 0, len(qs)) //nolint:staticheck
 	for _, q := range qs {
 		extra, err := structpb.NewStruct(q.Extra)
 		if err != nil {
@@ -880,7 +884,7 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.Dis
 		}
 		pbQueries = append(
 			pbQueries,
-			&pb.DiscoveryQuery{
+			&pb.DiscoveryQuery{ //nolint:staticcheck
 				Subtype: q.API.String(),
 				Model:   q.Model.String(),
 				Extra:   extra,
@@ -888,6 +892,7 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.Dis
 		)
 	}
 
+	//nolint:statichcheck
 	resp, err := rc.client.DiscoverComponents(ctx, &pb.DiscoverComponentsRequest{Queries: pbQueries})
 	if err != nil {
 		return nil, err
