@@ -98,9 +98,9 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 	}
 	recvWriterErr := tunnel.RecvWriterLoop(srv.Context(), conn, recvFunc, s.robot.Logger())
 	// close the connection to unblock the read
-	conn.Close()
+	err = conn.Close()
 	wg.Wait()
-	return errors.Join(readerSenderErr, recvWriterErr)
+	return errors.Join(err, readerSenderErr, recvWriterErr)
 }
 
 // GetOperations lists all running operations.
