@@ -159,7 +159,7 @@ func TestGenerateModuleAction(t *testing.T) {
 			StartBuildFunc: func(ctx context.Context, in *v1.StartBuildRequest, opts ...grpc.CallOption) (*v1.StartBuildResponse, error) {
 				return &v1.StartBuildResponse{BuildId: "xyz123"}, nil
 			},
-		}, nil, map[string]any{}, "token")
+		}, map[string]any{}, "token")
 		err := createModuleAndManifest(cCtx, ac, testModule, globalArgs)
 		test.That(t, err, test.ShouldBeNil)
 	})
