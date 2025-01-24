@@ -3,41 +3,58 @@ package grpc
 import (
 	"context"
 	"net/url"
+	"time"
 
+	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 )
-
-// spin off Goroutine that attempts to create connection
-// routine should at first block for some time interval
-// if connection is not created after initial timeout, no longer block
-// however, continue re-attempting connection at other specified time interval
-// once connection establishes, close off routine
 
 type AppConn struct {
 	ReconfigurableClientConn
 }
 
-func CreateNewGRPCClient(ctx context.Context, cloudCfg *logging.CloudConfig, logger logging.Logger) (rpc.ClientConn, error) {
-	grpcURL, err := url.Parse(cloudCfg.AppAddress)
+func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger) (*AppConn, error) {
+	grpcURL, err := url.Parse(cloud.AppAddress)
 	if err != nil {
 		return nil, err
 	}
 
-	dialOpts := make([]rpc.DialOption, 0, 2)
-	// Only add credentials when secret is set.
-	if cloudCfg.Secret != "" {
-		dialOpts = append(dialOpts, rpc.WithEntityCredentials(cloudCfg.ID,
-			rpc.Credentials{
-				Type:    "robot-secret",
-				Payload: cloudCfg.Secret,
-			},
-		))
-	}
+	dialOpts := dialOpts(cloud)
 
 	if grpcURL.Scheme == "http" {
 		dialOpts = append(dialOpts, rpc.WithInsecure())
 	}
 
-	return rpc.DialDirectGRPC(ctx, grpcURL.Host, logger, dialOpts...)
+	appConn := &AppConn{}
+
+	appConn.connMu.Lock()
+	defer appConn.connMu.Unlock()
+	appConn.conn, err = rpc.DialDirectGRPC(ctx, grpcURL.Host, logger, dialOpts...)
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			// TODO(RSDK-8292): run background job to attempt connection
+		} else {
+			return nil, err
+		}
+	}
+
+	return appConn, nil
+}
+
+func dialOpts(cloud *config.Cloud) []rpc.DialOption {
+	dialOpts := make([]rpc.DialOption, 0, 2)
+	// Only add credentials when secret is set.
+	if cloud.Secret != "" {
+		dialOpts = append(dialOpts, rpc.WithEntityCredentials(cloud.ID,
+			rpc.Credentials{
+				Type:    "robot-secret",
+				Payload: cloud.Secret,
+			},
+		))
+	}
+	return dialOpts
 }

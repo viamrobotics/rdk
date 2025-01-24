@@ -24,6 +24,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -31,6 +32,7 @@ import (
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils/contextutils"
 )
 
 var viamDotDir = filepath.Join(rutils.PlatformHomeDir(), ".viam")
@@ -191,13 +193,16 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	// Start remote logging with config from disk.
 	// This is to ensure we make our best effort to write logs for failures loading the remote config.
 	if cfgFromDisk.Cloud != nil && (cfgFromDisk.Cloud.LogPath != "" || cfgFromDisk.Cloud.AppAddress != "") {
+		ctxWithTimeout, ctxWithTimeoutCancel := config.GetTimeoutCtx(ctx, true, cfgFromDisk.Cloud.ID)
+		appConn, err := grpc.NewAppConn(ctxWithTimeout, cfgFromDisk.Cloud, logger) // TODO(RSDK-8292): [q] what logger should I pass here?
+		ctxWithTimeoutCancel()
 		netAppender, err := logging.NewNetAppender(
 			&logging.CloudConfig{
 				AppAddress: cfgFromDisk.Cloud.AppAddress,
 				ID:         cfgFromDisk.Cloud.ID,
 				Secret:     cfgFromDisk.Cloud.Secret,
 			},
-			nil, false, logger.Sublogger("networking").Sublogger("netlogger"),
+			appConn, false, logger.Sublogger("networking").Sublogger("netlogger"),
 		)
 		if err != nil {
 			return err
