@@ -989,14 +989,11 @@ func TestClientStreamDisconnectHandler(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	// the StreamStatusAPI is deprecated
-	//
-	//nolint:deprecated,staticcheck
 	t.Run("stream call to disconnected remote", func(t *testing.T) {
 		t.Helper()
 
 		client.connected.Store(false)
-
+		//nolint:staticcheck // the status API is deprecated
 		_, err = client.client.StreamStatus(context.Background(), &pb.StreamStatusRequest{})
 		test.That(t, status.Code(err), test.ShouldEqual, codes.Unavailable)
 		test.That(t, err.Error(), test.ShouldContainSubstring, fmt.Sprintf("not connected to remote robot at %s", listener.Addr().String()))
@@ -1004,20 +1001,20 @@ func TestClientStreamDisconnectHandler(t *testing.T) {
 		client.connected.Store(true)
 	})
 
-	//nolint:deprecated,staticcheck
 	t.Run("stream call to connected remote", func(t *testing.T) {
 		t.Helper()
 
+		//nolint:staticcheck // the status API is deprecated
 		ssc, err := client.client.StreamStatus(context.Background(), &pb.StreamStatusRequest{})
 		test.That(t, err, test.ShouldBeNil)
 		ssc.Recv()
 		test.That(t, streamStatusCallReceived, test.ShouldBeTrue)
 	})
 
-	//nolint:deprecated,staticcheck
 	t.Run("receive call from stream of disconnected remote", func(t *testing.T) {
 		t.Helper()
 
+		//nolint:staticcheck // the status API is deprecated
 		ssc, err := client.client.StreamStatus(context.Background(), &pb.StreamStatusRequest{})
 		test.That(t, err, test.ShouldBeNil)
 
