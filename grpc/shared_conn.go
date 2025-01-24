@@ -18,6 +18,7 @@ import (
 	googlegrpc "google.golang.org/grpc"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -100,9 +101,21 @@ func NewSharedConn(grpcConn rpc.ClientConn, peerConn *webrtc.PeerConnection, log
 	ret.grpcConn.ReplaceConn(grpcConn)
 	ret.logger.Infof("OnTrack installed on %p", peerConn)
 	ret.peerConn.OnTrack(func(trackRemote *webrtc.TrackRemote, rtpReceiver *webrtc.RTPReceiver) {
-		ret.logger.Info("OnTrack called:", trackRemote.ID())
+		ret.logger.Info("OnTrack called:", trackRemote.StreamID())
 		ret.onTrackCBByTrackNameMu.Lock()
 		onTrackCB, ok := ret.onTrackCBByTrackName[trackRemote.StreamID()]
+		if !ok {
+			// HACK please forgive
+			for name, cb := range ret.onTrackCBByTrackName {
+				if n, err := resource.NewFromString(name); err == nil {
+					if n.SDPTrackName() == trackRemote.StreamID() {
+						onTrackCB = cb
+						ok = true
+						break
+					}
+				}
+			}
+		}
 		ret.onTrackCBByTrackNameMu.Unlock()
 		if !ok {
 			msg := "Callback not found for StreamID: %s, keys(resOnTrackCBs): %#v"
