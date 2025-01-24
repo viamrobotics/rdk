@@ -398,6 +398,13 @@ func TestFindMetaJSONFile(t *testing.T) {
 }
 
 func TestMergeEnvVars(t *testing.T) {
+	t.Run("nil", func(t *testing.T) {
+		m := Module{}
+		expected := map[string]string{"abc": "def", "hello": "world"}
+
+		test.That(t, func() { m.MergeEnvVars(expected) }, test.ShouldNotPanic)
+		test.That(t, m.Environment, test.ShouldResemble, expected)
+	})
 	t.Run("empty", func(t *testing.T) {
 		m := Module{Environment: map[string]string{}}
 		expected := map[string]string{"abc": "def", "hello": "world"}
