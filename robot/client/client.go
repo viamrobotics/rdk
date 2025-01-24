@@ -873,7 +873,7 @@ func (rc *RobotClient) Logger() logging.Logger {
 //	// Get component configurations with these queries.
 //	component_configs, err := machine.DiscoverComponents(ctx.Background(), qs)
 //
-//nolint:staticcheck,deprecated
+//nolint:deprecated,staticcheck
 func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error) {
 	rc.logger.Warn(
 		"DiscoverComponents is deprecated and will be removed on March 10th 2025. Please use the Discovery Service instead.")
@@ -893,7 +893,6 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.Dis
 		)
 	}
 
-	//nolint:deprecated
 	resp, err := rc.client.DiscoverComponents(ctx, &pb.DiscoverComponentsRequest{Queries: pbQueries})
 	if err != nil {
 		return nil, err
