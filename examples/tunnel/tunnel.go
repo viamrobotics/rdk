@@ -1,10 +1,9 @@
-// main TBD
+// main is an example of tunneling traffic over grpc
 package main
 
 import (
 	"context"
 	"flag"
-	"fmt"
 	"net"
 	"strconv"
 	"sync"
@@ -16,24 +15,22 @@ import (
 )
 
 var (
-	ADDRESS    = ""
-	API_KEY    = ""
-	API_KEY_ID = ""
+	address = ""
 
-	DEFAULT_SOURCE_PORT      = 9090
-	DEFAULT_DESTINATION_PORT = 3389
+	defaultSourcePort      = 9090
+	defaultDestinationPort = 3389
 )
 
 func main() {
 	logger := logging.NewDebugLogger("client")
 	var src int
-	flag.IntVar(&src, "src", DEFAULT_SOURCE_PORT, "source address to listen on")
+	flag.IntVar(&src, "src", defaultSourcePort, "source address to listen on")
 
 	var dest int
-	flag.IntVar(&dest, "dest", DEFAULT_DESTINATION_PORT, "destination address to tunnel to")
+	flag.IntVar(&dest, "dest", defaultDestinationPort, "destination address to tunnel to")
 
 	var addr string
-	flag.StringVar(&addr, "addr", ADDRESS, "machine name to connect to")
+	flag.StringVar(&addr, "addr", address, "machine name to connect to")
 
 	var apiKey string
 	flag.StringVar(&apiKey, "api-key", apiKey, "api key to use to connect to machine")
@@ -67,7 +64,6 @@ func main() {
 				}),
 			),
 		)
-
 	} else {
 		opts = append(opts,
 			client.WithDialOptions(
@@ -83,10 +79,10 @@ func main() {
 	}
 
 	defer machine.Close(context.Background())
-	TunnelTraffic(ctx, machine, src, dest, logger)
+	tunnelTraffic(ctx, machine, src, dest, logger)
 }
 
-func TunnelTraffic(ctx context.Context, machine *client.RobotClient, src, dest int, logger logging.Logger) {
+func tunnelTraffic(ctx context.Context, machine *client.RobotClient, src, dest int, logger logging.Logger) {
 	// create listener
 	li, err := net.Listen("tcp", net.JoinHostPort("localhost", strconv.Itoa(src)))
 	if err != nil {
@@ -102,7 +98,7 @@ func TunnelTraffic(ctx context.Context, machine *client.RobotClient, src, dest i
 		}
 		conn, err := li.Accept()
 		if err != nil {
-			fmt.Printf("failed to accept conn: %v\n", err)
+			logger.CErrorw(ctx, "failed to accept conn: %v\n", err)
 		}
 		wg.Add(1)
 		go func() {
@@ -111,7 +107,9 @@ func TunnelTraffic(ctx context.Context, machine *client.RobotClient, src, dest i
 			if err := machine.Tunnel(ctx, conn, dest); err != nil {
 				logger.CError(ctx, err)
 			}
-			conn.Close()
+			if err := conn.Close(); err != nil {
+				logger.CError(ctx, err)
+			}
 		}()
 	}
 	wg.Wait()
