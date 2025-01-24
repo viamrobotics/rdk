@@ -168,7 +168,7 @@ func (s *Server) ResourceRPCSubtypes(ctx context.Context, _ *pb.ResourceRPCSubty
 // DiscoverComponents takes a list of discovery queries and returns corresponding
 // component configurations.
 //
-//nolint:deprecated, staticcheck
+//nolint:deprecated,staticcheck
 func (s *Server) DiscoverComponents(
 	ctx context.Context, req *pb.DiscoverComponentsRequest,
 ) (*pb.DiscoverComponentsResponse, error) { //nolint:deprecated
@@ -199,7 +199,7 @@ func (s *Server) DiscoverComponents(
 		return nil, err
 	}
 
-	//nolint:deprecated, staticcheck
+	//nolint:deprecated,staticcheck
 	pbDiscoveries := make([]*pb.Discovery, 0, len(discoveries))
 	for _, discovery := range discoveries {
 		pbResults, err := vprotoutils.StructToStructPb(discovery.Results)

@@ -542,11 +542,11 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 // DiscoverComponents takes a list of discovery queries and returns corresponding
 // component configurations.
 //
-//nolint:deprecated, staticcheck
+//nolint:deprecated,staticcheck
 func (m *Module) DiscoverComponents(
 	ctx context.Context,
 	req *robotpb.DiscoverComponentsRequest, //nolint:deprecated,staticcheck
-) (*robotpb.DiscoverComponentsResponse, //nolint:deprecated, staticcheck
+) (*robotpb.DiscoverComponentsResponse, //nolint:deprecated,staticcheck
 	error,
 ) {
 	var discoveries []*robotpb.Discovery //nolint:deprecated,staticcheck
