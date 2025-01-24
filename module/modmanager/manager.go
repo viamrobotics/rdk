@@ -1303,7 +1303,7 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager) {
 							return nil, err
 						}
 
-						//nolint:staticcheck
+						//nolint:staticcheck,deprecated,exhaustive
 						req := &robotpb.DiscoverComponentsRequest{
 							Queries: []*robotpb.DiscoveryQuery{
 								{Subtype: apiCopy.API.String(), Model: modelCopy.String(), Extra: extraStructPb},

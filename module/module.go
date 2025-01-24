@@ -542,7 +542,7 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 // DiscoverComponents takes a list of discovery queries and returns corresponding
 // component configurations.
 //
-//nolint:staticcheck
+//nolint:staticcheck,deprecated,exhaustive
 func (m *Module) DiscoverComponents(
 	ctx context.Context,
 	req *robotpb.DiscoverComponentsRequest,

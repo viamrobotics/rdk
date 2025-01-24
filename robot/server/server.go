@@ -168,9 +168,9 @@ func (s *Server) ResourceRPCSubtypes(ctx context.Context, _ *pb.ResourceRPCSubty
 // DiscoverComponents takes a list of discovery queries and returns corresponding
 // component configurations.
 //
-//nolint:staticcheck
+//nolint:staticcheck,deprecated,exhaustive
 func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverComponentsRequest) (*pb.DiscoverComponentsResponse, error) {
-	s.robot.Logger().CWarn(ctx, 
+	s.robot.Logger().CWarn(ctx,
 		"DiscoverComponents is deprecated and will be removed on March 10th 2025. Please use the Discovery Service instead.")
 	// nonTriplet indicates older syntax for type and model E.g. "camera" instead of "rdk:component:camera"
 	// TODO(PRODUCT-344): remove triplet checking here after complete
@@ -197,7 +197,7 @@ func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverCompone
 		return nil, err
 	}
 
-	//nolint:staticcheck
+	//nolint:staticcheck,deprecated,exhaustive
 	pbDiscoveries := make([]*pb.Discovery, 0, len(discoveries))
 	for _, discovery := range discoveries {
 		pbResults, err := vprotoutils.StructToStructPb(discovery.Results)
@@ -208,7 +208,7 @@ func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverCompone
 		if err != nil {
 			return nil, err
 		}
-		pbQuery := &pb.DiscoveryQuery{ //nolint:staticcheck
+		pbQuery := &pb.DiscoveryQuery{ //nolint:staticcheck,deprecated,exhaustive
 			Subtype: discovery.Query.API.String(),
 			Model:   discovery.Query.Model.String(),
 			Extra:   extra,
@@ -219,7 +219,7 @@ func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverCompone
 		}
 		pbDiscoveries = append(
 			pbDiscoveries,
-			&pb.Discovery{ //nolint:staticcheck
+			&pb.Discovery{ //nolint:staticcheck,deprecated,exhaustive
 				Query:   pbQuery,
 				Results: pbResults,
 			},
