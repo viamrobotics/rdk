@@ -32,6 +32,7 @@ import (
 	"goji.io"
 	"goji.io/pat"
 	googlegrpc "google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/gostream"
@@ -218,6 +219,18 @@ func (svc *webService) StartModule(ctx context.Context) error {
 		if !strings.HasPrefix(info.FullMethod, "/proto.stream.v1.StreamService") {
 			return handler(ctx, req)
 		}
+		svc.logger.Infof("middleware START")
+		defer svc.logger.Infof("middleware END")
+		crn := metadata.ValueFromIncomingContext(ctx, "calling_resource_name")
+		svc.logger.Infof("NICK!!! crn: %#v", crn)
+		if len(crn) != 1 {
+			return handler(ctx, req)
+		}
+
+		callerResourceName, err := resource.NewFromString(crn[0])
+		if err != nil {
+			return handler(ctx, req)
+		}
 		svc.logger.Infof("ctx before: %#v", ctx)
 		svc.logger.Infof("req: %#v", req)
 		svc.logger.Infof("info: %#v", info)
@@ -245,7 +258,7 @@ func (svc *webService) StartModule(ctx context.Context) error {
 			return handler(ctx, req)
 		}
 		svc.resourceNameToPeerConnectionMu.Lock()
-		pc, ok := svc.resourceNameToPeerConnectionMap[name]
+		pc, ok := svc.resourceNameToPeerConnectionMap[callerResourceName.String()]
 		svc.resourceNameToPeerConnectionMu.Unlock()
 
 		if !ok {
@@ -258,7 +271,7 @@ func (svc *webService) StartModule(ctx context.Context) error {
 			return handler(ctx, req)
 		}
 		ctx = rpc.UnsafeContextWithPeerConnection(ctx, pc)
-		svc.logger.Infof("ctx after: %#v", ctx)
+		svc.logger.Infof("ctx after: %#v, callerResourceName:	%s, pc: %p", ctx, callerResourceName, pc)
 		return handler(ctx, req)
 	}
 	unaryInterceptors = append(unaryInterceptors, f)

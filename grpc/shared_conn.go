@@ -95,22 +95,22 @@ func NewSharedConn(grpcConn rpc.ClientConn, peerConn *webrtc.PeerConnection, log
 		// We were passed in a ready connection. Only create this for when `Close` is called.
 		peerConnFailed:       make(chan struct{}),
 		onTrackCBByTrackName: make(map[string]OnTrackCB),
+		logger:               logger,
 	}
-	ret.ResetConn(&ret.grpcConn, logger)
-	// peerConn.OnTrack(func(trackRemote *webrtc.TrackRemote, rtpReceiver *webrtc.RTPReceiver) {
-	// 	ret.logger.Warnf("OnTrack called on pc: %p, %#v, trackRemote: %p, %#v, rtpReceiver: %p, %#v", peerConn, peerConn, trackRemote, trackRemote, rtpReceiver, rtpReceiver)
-	// 	ret.onTrackCBByTrackNameMu.Lock()
-	// 	onTrackCB, ok := ret.onTrackCBByTrackName[trackRemote.StreamID()]
-	// 	ret.onTrackCBByTrackNameMu.Unlock()
-	// 	if !ok {
-	// 		msg := "Callback not found for StreamID: %s, keys(resOnTrackCBs): %#v"
-	// 		ret.logger.Errorf(msg, trackRemote.StreamID(), maps.Keys(ret.onTrackCBByTrackName))
-	// 		return
-	// 	}
-	// 	onTrackCB(trackRemote, rtpReceiver)
-	// })
-
-	// debug.PrintStack()
+	ret.grpcConn.ReplaceConn(grpcConn)
+	ret.logger.Infof("OnTrack installed on %p", peerConn)
+	ret.peerConn.OnTrack(func(trackRemote *webrtc.TrackRemote, rtpReceiver *webrtc.RTPReceiver) {
+		ret.logger.Info("OnTrack called:", trackRemote.ID())
+		ret.onTrackCBByTrackNameMu.Lock()
+		onTrackCB, ok := ret.onTrackCBByTrackName[trackRemote.StreamID()]
+		ret.onTrackCBByTrackNameMu.Unlock()
+		if !ok {
+			msg := "Callback not found for StreamID: %s, keys(resOnTrackCBs): %#v"
+			ret.logger.Errorf(msg, trackRemote.StreamID(), maps.Keys(ret.onTrackCBByTrackName))
+			return
+		}
+		onTrackCB(trackRemote, rtpReceiver)
+	})
 
 	return ret
 }
@@ -184,6 +184,7 @@ func (sc *SharedConn) PeerConn() *webrtc.PeerConnection {
 // happens. But subequent calls can be entirely asynchronous to components/services accessing
 // `SharedConn` for connection objects.
 func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger) {
+	moduleLogger.Infof("ResetConn called on %p, sharedConn: %p", conn, sc)
 	sc.grpcConn.ReplaceConn(conn)
 	if sc.logger == nil {
 		// The first call to `ResetConn` happens before anything can access `sc.logger`. So long as
@@ -226,6 +227,7 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 		return
 	}
 
+	sc.logger.Infof("shared conn: %p, peerConnection: %p", sc, peerConn)
 	sc.peerConn = peerConn
 	sc.peerConnReady, _, err = rpc.ConfigureForRenegotiation(peerConn, rpc.PeerRoleClient, sc.logger)
 	if err != nil {

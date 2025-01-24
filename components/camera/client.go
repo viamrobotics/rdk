@@ -8,7 +8,6 @@ import (
 	"image"
 	"io"
 	"os"
-	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -97,7 +96,6 @@ func NewClientFromConn(
 		associatedSubs: map[int][]rtppassthrough.SubscriptionID{},
 		logger:         logger,
 	}
-	debug.PrintStack()
 	logger.Infof("%p cameraClient %#v", c, c)
 	return cc, nil
 }
@@ -484,7 +482,11 @@ func (c *client) SubscribeRTP(
 		// PeerConnection renegotiation to add this camera's video track and have the `OnTrack`
 		// callback invoked.
 		c.logger.Infof("%p SubscribeRTP calling AddStream on %s", c, c.trackName())
-		if _, err := c.streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: c.trackName()}); err != nil {
+
+		if _, err := c.streamClient.AddStream(
+			ctx,
+			&streampb.AddStreamRequest{Name: c.trackName()},
+		); err != nil {
 			c.logger.CDebugf(ctx, "%p SubscribeRTP AddStream hit error subID: %s, trackName: %s, err: %s", c, sub.ID.String(), c.trackName(), err.Error())
 			return rtppassthrough.NilSubscription, err
 		}
@@ -643,7 +645,11 @@ func (c *client) Unsubscribe(ctx context.Context, id rtppassthrough.Subscription
 	request := &streampb.RemoveStreamRequest{Name: c.trackName()}
 	// We assume the server responds with a success if the requested `Name` is unknown/already
 	// removed.
-	if _, err := c.streamClient.RemoveStream(ctx, request); err != nil {
+
+	if _, err := c.streamClient.RemoveStream(
+		ctx,
+		request,
+	); err != nil {
 		c.logger.CWarnw(ctx, "Unsubscribe RemoveStream returned err", "trackName",
 			c.trackName(), "subID", id.String(), "err", err)
 		c.rtpPassthroughMu.Unlock()
