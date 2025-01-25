@@ -78,7 +78,11 @@ func main() {
 		return
 	}
 
-	defer machine.Close(context.Background())
+	defer func() {
+		if err := machine.Close(context.Background()); err != nil {
+			logger.CErrorw(ctx, "error closing machine", "err", err)
+		}
+	}()
 	tunnelTraffic(ctx, machine, src, dest, logger)
 }
 
@@ -89,7 +93,11 @@ func tunnelTraffic(ctx context.Context, machine *client.RobotClient, src, dest i
 		logger.CErrorw(ctx, "failed to create listener", "err", err)
 		return
 	}
-	defer li.Close()
+	defer func() {
+		if err := li.Close(); err != nil {
+			logger.CErrorw(ctx, "error closing listener", "err", err)
+		}
+	}()
 
 	var wg sync.WaitGroup
 	for {

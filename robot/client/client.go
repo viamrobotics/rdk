@@ -1217,7 +1217,7 @@ func (rc *RobotClient) Tunnel(ctx context.Context, conn net.Conn, dest int) erro
 		defer func() {
 			// we communicate an end to the stream by calling CloseSend(),
 			// which is why we don't need an EOF field on the request message.
-			client.CloseSend()
+			readerSenderErr = errors.Join(readerSenderErr, client.CloseSend())
 			// By cancelling this ctx, we will close the client, meaning client.Recv() in the RecvWriterLoop will exit
 			// and return an error.
 			//
