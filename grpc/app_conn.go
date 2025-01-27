@@ -42,11 +42,9 @@ func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger)
 			go func() {
 				for {
 					appConn.connMu.Lock()
-					defer appConn.connMu.Unlock()
 
 					// TODO(RSDK-8292): [qu] should I use ctx instead of context.Background()
 					ctxWithTimeOut, ctxWithTimeOutCancel := context.WithTimeout(context.Background(), 5*time.Second)
-					defer ctxWithTimeOutCancel()
 
 					appConn.conn, err = rpc.DialDirectGRPC(ctxWithTimeOut, grpcURL.Host, logger, dialOpts...)
 					if errors.Is(err, context.DeadlineExceeded) {
@@ -56,10 +54,14 @@ func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger)
 						continue
 					}
 
+					ctxWithTimeOutCancel()
+
 					appConn.Err = err
 
 					break
 				}
+
+				appConn.connMu.Unlock()
 			}()
 		} else {
 			return nil, err
