@@ -189,14 +189,14 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		defer exporter.Stop()
 	}
 
+	appConn, err := grpc.NewAppConn(ctx, cfgFromDisk.Cloud, logger.Sublogger("networking").Sublogger("appconnection"))
+	if err != nil {
+		return err
+	}
+
 	// Start remote logging with config from disk.
 	// This is to ensure we make our best effort to write logs for failures loading the remote config.
 	if cfgFromDisk.Cloud != nil && (cfgFromDisk.Cloud.LogPath != "" || cfgFromDisk.Cloud.AppAddress != "") {
-		appConn, err := grpc.NewAppConn(ctx, cfgFromDisk.Cloud, logger.Sublogger("networking").Sublogger("appconnection"))
-		if err != nil {
-			return err
-		}
-
 		netAppender, err := logging.NewNetAppender(
 			&logging.CloudConfig{
 				AppAddress: cfgFromDisk.Cloud.AppAddress,
@@ -223,7 +223,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	}
 
 	// Run the server with remote logging enabled.
-	err = server.runServer(ctx)
+	err = server.runServer(ctx, appConn)
 	if err != nil {
 		logger.Error("Fatal error running server, exiting now: ", err)
 	}
@@ -233,7 +233,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 
 // runServer is an entry point to starting the web server after the local config is read. Once the local config
 // is read the logger may be initialized to remote log. This ensure we capture errors starting up the server and report to the cloud.
-func (s *robotServer) runServer(ctx context.Context) error {
+func (s *robotServer) runServer(ctx context.Context, conn rpc.ClientConn) error {
 	initialReadCtx, cancel := context.WithTimeout(ctx, time.Second*5)
 	cfg, err := config.Read(initialReadCtx, s.args.ConfigFile, s.logger)
 	if err != nil {
@@ -243,7 +243,7 @@ func (s *robotServer) runServer(ctx context.Context) error {
 	cancel()
 	config.UpdateFileConfigDebug(cfg.Debug)
 
-	err = s.serveWeb(ctx, cfg)
+	err = s.serveWeb(ctx, cfg, conn)
 	if err != nil {
 		s.logger.Errorw("error serving web", "error", err)
 	}
@@ -363,7 +363,7 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 	}
 }
 
-func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err error) {
+func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config, conn rpc.ClientConn) (err error) {
 	ctx, cancel := context.WithCancel(ctx)
 
 	hungShutdownDeadline := 90 * time.Second
@@ -463,7 +463,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		cloudRestartCheckerActive = make(chan struct{})
 		utils.PanicCapturingGo(func() {
 			defer close(cloudRestartCheckerActive)
-			restartCheck, err := newRestartChecker(ctx, cfg.Cloud, s.logger)
+			restartCheck, err := newRestartChecker(ctx, cfg.Cloud, s.logger, conn)
 			if err != nil {
 				if errors.Is(err, context.Canceled) {
 					return
