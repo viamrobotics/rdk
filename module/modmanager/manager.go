@@ -612,6 +612,29 @@ func (mgr *Manager) Configs() []config.Module {
 	return configs
 }
 
+// AllModels returns a slice of resource.ModuleModelDiscovery representing the available models
+// from the currently managed modules.
+func (mgr *Manager) AllModels() []resource.ModuleModelDiscovery {
+	moduleTypes := map[string]config.ModuleType{}
+	models := []resource.ModuleModelDiscovery{}
+	for _, moduleConfig := range mgr.Configs() {
+		moduleName := moduleConfig.Name
+		moduleTypes[moduleName] = moduleConfig.Type
+	}
+	for moduleName, handleMap := range mgr.Handles() {
+		for api, handle := range handleMap {
+			for _, model := range handle {
+				modelModel := resource.ModuleModelDiscovery{
+					ModuleName: moduleName, Model: model, API: api.API,
+					FromLocalModule: moduleTypes[moduleName] == config.ModuleTypeLocal,
+				}
+				models = append(models, modelModel)
+			}
+		}
+	}
+	return models
+}
+
 // Provides returns true if a component/service config WOULD be handled by a module.
 func (mgr *Manager) Provides(conf resource.Config) bool {
 	_, ok := mgr.getModule(conf)
@@ -1198,6 +1221,8 @@ func (m *module) startProcess(
 	defer checkTicker.Stop()
 
 	m.logger.CInfow(ctx, "Starting up module", "module", m.cfg.Name)
+	rutils.LogViamEnvVariables("Starting module with following Viam environment variables", moduleEnvironment, m.logger)
+
 	ctxTimeout, cancel := context.WithTimeout(ctx, rutils.GetModuleStartupTimeout(m.logger))
 	defer cancel()
 	for {
@@ -1302,12 +1327,15 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager) {
 						if err != nil {
 							return nil, err
 						}
+
+						//nolint:deprecated,staticcheck
 						req := &robotpb.DiscoverComponentsRequest{
 							Queries: []*robotpb.DiscoveryQuery{
 								{Subtype: apiCopy.API.String(), Model: modelCopy.String(), Extra: extraStructPb},
 							},
 						}
 
+						//nolint:deprecated,staticcheck
 						res, err := m.robotClient.DiscoverComponents(ctx, req)
 						if err != nil {
 							m.logger.Errorf("error in modular DiscoverComponents: %s", err)
@@ -1413,6 +1441,7 @@ func getFullEnvironment(
 		environment["VIAM_MODULE_ID"] = cfg.ModuleID
 	}
 	// Overwrite the base environment variables with the module's environment variables (if specified)
+	// VIAM_MODULE_ROOT is filled out by app.viam.com in cloud robots.
 	for key, value := range cfg.Environment {
 		environment[key] = value
 	}

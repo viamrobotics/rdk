@@ -860,6 +860,7 @@ func (rc *RobotClient) Logger() logging.Logger {
 	return rc.logger
 }
 
+// DiscoverComponents is DEPRECATED!!! Please use the Discovery Service instead.
 // DiscoverComponents takes a list of discovery queries and returns corresponding
 // component configurations.
 //
@@ -871,7 +872,11 @@ func (rc *RobotClient) Logger() logging.Logger {
 //
 //	// Get component configurations with these queries.
 //	component_configs, err := machine.DiscoverComponents(ctx.Background(), qs)
+//
+//nolint:deprecated,staticcheck
 func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error) {
+	rc.logger.Warn(
+		"DiscoverComponents is deprecated and will be removed on March 10th 2025. Please use the Discovery Service instead.")
 	pbQueries := make([]*pb.DiscoveryQuery, 0, len(qs))
 	for _, q := range qs {
 		extra, err := structpb.NewStruct(q.Extra)
@@ -915,6 +920,32 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.Dis
 			})
 	}
 	return discoveries, nil
+}
+
+// GetModelsFromModules  returns the available models from the configured modules on a given machine.
+func (rc *RobotClient) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModelDiscovery, error) {
+	resp, err := rc.client.GetModelsFromModules(ctx, &pb.GetModelsFromModulesRequest{})
+	if err != nil {
+		return nil, err
+	}
+	protoModels := resp.GetModels()
+	models := []resource.ModuleModelDiscovery{}
+	for _, protoModel := range protoModels {
+		modelTriplet, err := resource.NewModelFromString(protoModel.Model)
+		if err != nil {
+			return nil, err
+		}
+		api, err := resource.NewAPIFromString(protoModel.Api)
+		if err != nil {
+			return nil, err
+		}
+		model := resource.ModuleModelDiscovery{
+			ModuleName: protoModel.ModuleName, Model: modelTriplet, API: api,
+			FromLocalModule: protoModel.FromLocalModule,
+		}
+		models = append(models, model)
+	}
+	return models, nil
 }
 
 // FrameSystemConfig  returns the configuration of the frame system of a given machine.
