@@ -111,11 +111,9 @@ func tunnelTraffic(ctx context.Context, machine *client.RobotClient, src, dest i
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			// call tunnel once per connection
+			// call tunnel once per connection, the connection passed in will be closed
+			// by Tunnel.
 			if err := machine.Tunnel(ctx, conn, dest); err != nil {
-				logger.CError(ctx, err)
-			}
-			if err := conn.Close(); err != nil {
 				logger.CError(ctx, err)
 			}
 		}()
