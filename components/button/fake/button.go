@@ -3,7 +3,6 @@ package fake
 
 import (
 	"context"
-	"sync"
 
 	"go.viam.com/rdk/components/button"
 	"go.viam.com/rdk/logging"
@@ -12,20 +11,15 @@ import (
 
 var model = resource.DefaultModelFamily.WithModel("fake")
 
-// Config is the config for a fake button.
-type Config struct {
-	resource.TriviallyValidateConfig
-}
-
 func init() {
-	resource.RegisterComponent(button.API, model, resource.Registration[button.Button, *Config]{Constructor: NewButton})
+	resource.RegisterComponent(button.API, model, resource.Registration[button.Button, *resource.NoNativeConfig]{Constructor: NewButton})
 }
 
 // Button is a fake button that logs when it is pressed
 type Button struct {
 	resource.Named
 	resource.TriviallyCloseable
-	mu     sync.Mutex
+  resource.AlwaysRebuild
 	logger logging.Logger
 }
 
@@ -37,18 +31,7 @@ func NewButton(
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
 	}
-	if err := b.Reconfigure(ctx, deps, conf); err != nil {
-		return nil, err
-	}
 	return b, nil
-}
-
-// Reconfigure reconfigures the button atomically and in place.
-func (b *Button) Reconfigure(_ context.Context, _ resource.Dependencies, conf resource.Config) error {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
-	return nil
 }
 
 // Push logs the push

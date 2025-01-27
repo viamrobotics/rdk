@@ -17,6 +17,9 @@ type Button struct {
 
 // Push calls PushFunc.
 func (b *Button) Push(ctx context.Context, extra map[string]interface{}) error {
+	if b.PushFunc == nil {
+		return nil
+	}
 	return b.PushFunc(ctx, extra)
 }
 

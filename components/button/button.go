@@ -44,6 +44,11 @@ func FromRobot(r robot.Robot, name string) (Button, error) {
 	return robot.ResourceFromRobot[Button](r, Named(name))
 }
 
+// FromDependencies is a helper for getting the named button component from a collection of dependencies.
+func FromDependencies(deps resource.Dependencies, name string) (Button, error) {
+	return resource.FromDependencies[Button](deps, Named(name))
+}
+
 // NamesFromRobot is a helper for getting all gripper names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
