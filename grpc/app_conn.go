@@ -62,7 +62,6 @@ func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger)
 				}
 			}()
 		} else {
-			appConn.Err = err
 			return nil, err
 		}
 	}
