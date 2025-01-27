@@ -13,8 +13,8 @@ import (
 
 var model = resource.DefaultModelFamily.WithModel("fake")
 
-// switchConfig is the config for a fake switch.
-type switchConfig struct {
+// Config is the config for a fake switch.
+type Config struct {
 	resource.TriviallyValidateConfig
 
 	// PositionCount is the number of positions that the switch can be in.
@@ -24,10 +24,8 @@ type switchConfig struct {
 
 func init() {
 	// Register all three switch models
-	resource.RegisterComponent(toggleswitch.API, model, resource.Registration[toggleswitch.Switch, *switchConfig]{
-		Constructor: func(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (toggleswitch.Switch, error) {
-			return NewSwitch(ctx, deps, conf, logger)
-		},
+	resource.RegisterComponent(toggleswitch.API, model, resource.Registration[toggleswitch.Switch, *Config]{
+		Constructor: NewSwitch,
 	})
 }
 
@@ -49,7 +47,6 @@ func NewSwitch(
 	conf resource.Config,
 	logger logging.Logger,
 ) (toggleswitch.Switch, error) {
-
 	s := &Switch{
 		Named:         conf.ResourceName().AsNamed(),
 		logger:        logger,
@@ -57,7 +54,7 @@ func NewSwitch(
 		positionCount: 2,
 	}
 
-	newConf, err := resource.NativeConfig[*switchConfig](conf)
+	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +71,7 @@ func (s *Switch) SetPosition(ctx context.Context, position uint32, extra map[str
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if position >= uint32(s.positionCount) {
+	if position >= s.positionCount {
 		return fmt.Errorf("switch component %v position %d is invalid (valid range: 0-%d)", s.Name(), position, s.positionCount-1)
 	}
 	s.position = position

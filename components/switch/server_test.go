@@ -69,58 +69,126 @@ func TestServer(t *testing.T) {
 		return 0, errCantGetNumberOfPositions
 	}
 
-	t.Run("set position", func(t *testing.T) {
-		_, err := switchServer.SetPosition(context.Background(), &pb.SetPositionRequest{Name: missingSwitchName})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errSwitchNotFound.Error())
+	tests := []struct {
+		name       string
+		operation  string
+		switchName string
+		position   uint32
+		extras     map[string]interface{}
+		wantErr    error
+		wantSwitch string
+		wantPos    uint32
+		wantNum    uint32
+		wantExtras map[string]interface{}
+	}{
+		{
+			name:       "set position - missing switch",
+			operation:  "set",
+			switchName: missingSwitchName,
+			wantErr:    errSwitchNotFound,
+		},
+		{
+			name:       "set position - successful with extras",
+			operation:  "set",
+			switchName: testSwitchName,
+			position:   0,
+			extras:     map[string]interface{}{"foo": "SetPosition"},
+			wantSwitch: testSwitchName,
+			wantExtras: map[string]interface{}{"foo": "SetPosition"},
+		},
+		{
+			name:       "set position - error",
+			operation:  "set",
+			switchName: testSwitchName2,
+			wantErr:    errCantSetPosition,
+			wantSwitch: testSwitchName2,
+		},
+		{
+			name:       "get position - missing switch",
+			operation:  "get",
+			switchName: missingSwitchName,
+			wantErr:    errSwitchNotFound,
+		},
+		{
+			name:       "get position - successful with extras",
+			operation:  "get",
+			switchName: testSwitchName,
+			extras:     map[string]interface{}{"foo": "GetPosition"},
+			wantPos:    0,
+			wantExtras: map[string]interface{}{"foo": "GetPosition"},
+		},
+		{
+			name:       "get position - error",
+			operation:  "get",
+			switchName: testSwitchName2,
+			wantErr:    errCantGetPosition,
+		},
+		{
+			name:       "get number of positions - missing switch",
+			operation:  "num",
+			switchName: missingSwitchName,
+			wantErr:    errSwitchNotFound,
+		},
+		{
+			name:       "get number of positions - successful with extras",
+			operation:  "num",
+			switchName: testSwitchName,
+			extras:     map[string]interface{}{"foo": "GetNumberOfPositions"},
+			wantNum:    2,
+			wantExtras: map[string]interface{}{"foo": "GetNumberOfPositions"},
+		},
+		{
+			name:       "get number of positions - error",
+			operation:  "num",
+			switchName: testSwitchName2,
+			wantErr:    errCantGetNumberOfPositions,
+		},
+	}
 
-		extra := map[string]interface{}{"foo": "SetPosition"}
-		ext, err := protoutils.StructToStructPb(extra)
-		test.That(t, err, test.ShouldBeNil)
-		_, err = switchServer.SetPosition(context.Background(), &pb.SetPositionRequest{Name: testSwitchName, Position: 0, Extra: ext})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, switchName, test.ShouldEqual, testSwitchName)
-		test.That(t, extraOptions, test.ShouldResemble, extra)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var err error
+			var resp interface{}
+			ext, err := protoutils.StructToStructPb(tt.extras)
+			test.That(t, err, test.ShouldBeNil)
 
-		_, err = switchServer.SetPosition(context.Background(), &pb.SetPositionRequest{Name: testSwitchName2})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errCantSetPosition.Error())
-		test.That(t, switchName, test.ShouldEqual, testSwitchName2)
-	})
+			switch tt.operation {
+			case "set":
+				resp, err = switchServer.SetPosition(context.Background(), &pb.SetPositionRequest{
+					Name:     tt.switchName,
+					Position: tt.position,
+					Extra:    ext,
+				})
+			case "get":
+				resp, err = switchServer.GetPosition(context.Background(), &pb.GetPositionRequest{
+					Name:  tt.switchName,
+					Extra: ext,
+				})
+			case "num":
+				resp, err = switchServer.GetNumberOfPositions(context.Background(), &pb.GetNumberOfPositionsRequest{
+					Name:  tt.switchName,
+					Extra: ext,
+				})
+			}
 
-	t.Run("get position", func(t *testing.T) {
-		_, err := switchServer.GetPosition(context.Background(), &pb.GetPositionRequest{Name: missingSwitchName})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errSwitchNotFound.Error())
-
-		extra := map[string]interface{}{"foo": "GetPosition"}
-		ext, err := protoutils.StructToStructPb(extra)
-		test.That(t, err, test.ShouldBeNil)
-		resp, err := switchServer.GetPosition(context.Background(), &pb.GetPositionRequest{Name: testSwitchName, Extra: ext})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Position, test.ShouldEqual, 0)
-		test.That(t, extraOptions, test.ShouldResemble, extra)
-
-		_, err = switchServer.GetPosition(context.Background(), &pb.GetPositionRequest{Name: testSwitchName2})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errCantGetPosition.Error())
-	})
-
-	t.Run("get number of positions", func(t *testing.T) {
-		_, err := switchServer.GetNumberOfPositions(context.Background(), &pb.GetNumberOfPositionsRequest{Name: missingSwitchName})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errSwitchNotFound.Error())
-
-		extra := map[string]interface{}{"foo": "GetNumberOfPositions"}
-		ext, err := protoutils.StructToStructPb(extra)
-		test.That(t, err, test.ShouldBeNil)
-		resp, err := switchServer.GetNumberOfPositions(context.Background(), &pb.GetNumberOfPositionsRequest{Name: testSwitchName, Extra: ext})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.NumberOfPositions, test.ShouldEqual, 2)
-		test.That(t, extraOptions, test.ShouldResemble, extra)
-
-		_, err = switchServer.GetNumberOfPositions(context.Background(), &pb.GetNumberOfPositionsRequest{Name: testSwitchName2})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errCantGetNumberOfPositions.Error())
-	})
+			if tt.wantErr != nil {
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tt.wantErr.Error())
+			} else {
+				test.That(t, err, test.ShouldBeNil)
+				switch tt.operation {
+				case "get":
+					test.That(t, resp.(*pb.GetPositionResponse).Position, test.ShouldEqual, tt.wantPos)
+				case "num":
+					test.That(t, resp.(*pb.GetNumberOfPositionsResponse).NumberOfPositions, test.ShouldEqual, tt.wantNum)
+				}
+			}
+			if tt.wantSwitch != "" {
+				test.That(t, switchName, test.ShouldEqual, tt.wantSwitch)
+			}
+			if tt.wantExtras != nil {
+				test.That(t, extraOptions, test.ShouldResemble, tt.wantExtras)
+			}
+		})
+	}
 }

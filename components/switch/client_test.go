@@ -16,12 +16,6 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-const (
-	testSwitchName    = "switch1"
-	failSwitchName    = "switch2"
-	missingSwitchName = "missing"
-)
-
 func TestClient(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
@@ -32,7 +26,7 @@ func TestClient(t *testing.T) {
 	var switchName string
 	var extraOptions map[string]interface{}
 
-	injectSwitch := &inject.Switch{}
+	injectSwitch := inject.NewSwitch(testSwitchName)
 	injectSwitch.SetPositionFunc = func(ctx context.Context, position uint32, extra map[string]interface{}) error {
 		extraOptions = extra
 		switchName = testSwitchName
@@ -40,24 +34,30 @@ func TestClient(t *testing.T) {
 	}
 	injectSwitch.GetPositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
 		extraOptions = extra
+		switchName = testSwitchName
 		return 0, nil
 	}
 	injectSwitch.GetNumberOfPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
 		extraOptions = extra
+		switchName = testSwitchName
 		return 2, nil
 	}
+	injectSwitch.DoFunc = testutils.EchoFunc
 
-	injectSwitch2 := &inject.Switch{}
+	injectSwitch2 := inject.NewSwitch(failSwitchName)
 	injectSwitch2.SetPositionFunc = func(ctx context.Context, position uint32, extra map[string]interface{}) error {
 		switchName = failSwitchName
 		return errCantSetPosition
 	}
 	injectSwitch2.GetPositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
+		switchName = failSwitchName
 		return 0, errCantGetPosition
 	}
 	injectSwitch2.GetNumberOfPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
+		switchName = failSwitchName
 		return 0, errCantGetNumberOfPositions
 	}
+	injectSwitch2.DoFunc = testutils.EchoFunc
 
 	switchSvc, err := resource.NewAPIResourceCollection(
 		toggleswitch.API,
@@ -70,8 +70,6 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, switchSvc), test.ShouldBeNil)
-
-	injectSwitch.DoFunc = testutils.EchoFunc
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()

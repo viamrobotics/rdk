@@ -46,11 +46,13 @@ func (s *serviceServer) GetPosition(ctx context.Context, req *pb.GetPositionRequ
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetPositionResponse{Position: uint32(position)}, nil
+	return &pb.GetPositionResponse{Position: position}, nil
 }
 
 // GetNumberOfPositions gets the total number of positions for a switch of the underlying robot.
-func (s *serviceServer) GetNumberOfPositions(ctx context.Context, req *pb.GetNumberOfPositionsRequest) (*pb.GetNumberOfPositionsResponse, error) {
+func (s *serviceServer) GetNumberOfPositions(
+	ctx context.Context, req *pb.GetNumberOfPositionsRequest,
+) (*pb.GetNumberOfPositionsResponse, error) {
 	sw, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
@@ -59,5 +61,5 @@ func (s *serviceServer) GetNumberOfPositions(ctx context.Context, req *pb.GetNum
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetNumberOfPositionsResponse{NumberOfPositions: uint32(count)}, nil
+	return &pb.GetNumberOfPositionsResponse{NumberOfPositions: count}, nil
 }
