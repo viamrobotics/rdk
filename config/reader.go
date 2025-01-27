@@ -181,6 +181,8 @@ func isLocationSecretsEqual(prevCloud, cloud *Cloud) bool {
 	return true
 }
 
+// GetTimeoutCtx returns a context [and its cancel function] with a timeout value determined by whether we are behind a proxy and whether a
+// cached config exists.
 func GetTimeoutCtx(ctx context.Context, shouldReadFromCache bool, id string) (context.Context, func()) {
 	timeout := readTimeout
 	// When environment indicates we are behind a proxy, bump timeout. Network

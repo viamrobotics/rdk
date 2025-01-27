@@ -6,12 +6,14 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/utils/rpc"
 )
 
+// AppConn maintains an underlying client connection meant to be used globally to connect to App. The AppConn constructor repeatedly
+// attempts to dial App until a connection is successfully established.
 type AppConn struct {
 	ReconfigurableClientConn
 
@@ -21,6 +23,10 @@ type AppConn struct {
 	Err error
 }
 
+// NewAppConn creates an AppConn instance with a gRPC client connection to App. An initial dial attempt blocks. If it errors, the error is
+// returned. If it times out, an AppConn object will return with a nil underlying client connection. Serialized attempts at establishing a
+// connection to App will continue to occur, however, in a background Goroutine. These attempts will continue until a connection is made or
+// an error that is not a context.DeadlineExceeded occurs - in which case the resulting error will be stored in AppConn.Err.
 func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger) (*AppConn, error) {
 	grpcURL, err := url.Parse(cloud.AppAddress)
 	if err != nil {
