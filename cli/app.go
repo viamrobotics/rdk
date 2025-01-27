@@ -102,6 +102,13 @@ const (
 	mlTrainingFlagURL         = "url"
 	mlTrainingFlagArgs        = "args"
 
+	inferenceFlagFileOrgID      = "file-org-id"
+	inferenceFlagFileID         = "file-id"
+	inferenceFlagFileLocationID = "file-location-id"
+	inferenceFlagModelID        = "model-id"
+	inferenceFlagModelOrgID     = "model-org-id"
+	inferenceFlagModelVersionID = "model-version"
+
 	dataFlagDataType                       = "data-type"
 	dataFlagOrgIDs                         = "org-ids"
 	dataFlagLocationIDs                    = "location-ids"
@@ -2745,6 +2752,57 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 					},
 					Action: createCommandWithT[mlTrainingUpdateArgs](MLTrainingUpdateAction),
+				},
+			},
+		},
+		{
+			Name:            "inference",
+			Usage:           "work with cloud hosted inference service",
+			UsageText:       createUsageText("inference", nil, false, true),
+			HideHelpCommand: true,
+			Subcommands: []*cli.Command{
+				{
+					Name:      "infer",
+					Usage:     "run inference on an image",
+					UsageText: createUsageText("inference infer", []string{generalFlagOrgID, inferenceFlagFileOrgID, inferenceFlagFileID, inferenceFlagFileLocationID, inferenceFlagModelID, inferenceFlagModelVersionID}, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     generalFlagOrgID,
+							Usage:    "organization ID that is executing the inference job",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     inferenceFlagFileOrgID,
+							Usage:    "organization ID that owns the file to run inference on",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     inferenceFlagFileID,
+							Usage:    "file ID of the file to run inference on",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     inferenceFlagFileLocationID,
+							Usage:    "location ID of the file to run inference on",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     inferenceFlagModelID,
+							Usage:    "ID of the model to use to run inference",
+							Required: true,
+						},
+						// &cli.StringFlag{
+						// 	Name:     inferenceFlagModelOrgID,
+						// 	Usage:    "organization ID that owns the model to use to run inference",
+						// 	Required: true,
+						// },
+						&cli.StringFlag{
+							Name:     inferenceFlagModelVersionID,
+							Usage:    "version ID of the model to use to run inference",
+							Required: true,
+						},
+					},
+					Action: createCommandWithT[InferenceInferArgs](InferenceInferAction),
 				},
 			},
 		},
