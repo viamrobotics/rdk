@@ -24,6 +24,7 @@ type ModuleManager interface {
 	CleanModuleDataDirectory() error
 
 	Configs() []config.Module
+	AllModels() []resource.ModuleModelDiscovery
 	Provides(cfg resource.Config) bool
 	Handles() map[string]module.HandlerMap
 
