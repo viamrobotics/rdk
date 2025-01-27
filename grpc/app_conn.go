@@ -41,8 +41,11 @@ func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger)
 
 	appConn := &AppConn{}
 
+	ctxWithTimeout, ctxWithTimeoutCancel := config.GetTimeoutCtx(ctx, true, cloud.ID)
+	defer ctxWithTimeoutCancel()
+
 	// a lock is not necessary here because this call is blocking
-	appConn.conn, err = rpc.DialDirectGRPC(ctx, grpcURL.Host, logger, dialOpts...)
+	appConn.conn, err = rpc.DialDirectGRPC(ctxWithTimeout, grpcURL.Host, logger, dialOpts...)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			go func() {

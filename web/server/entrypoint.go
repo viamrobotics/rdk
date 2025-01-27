@@ -192,12 +192,10 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	// Start remote logging with config from disk.
 	// This is to ensure we make our best effort to write logs for failures loading the remote config.
 	if cfgFromDisk.Cloud != nil && (cfgFromDisk.Cloud.LogPath != "" || cfgFromDisk.Cloud.AppAddress != "") {
-		ctxWithTimeout, ctxWithTimeoutCancel := config.GetTimeoutCtx(ctx, true, cfgFromDisk.Cloud.ID)
-		appConn, err := grpc.NewAppConn(ctxWithTimeout, cfgFromDisk.Cloud, logger.Sublogger("networking").Sublogger("app_connection"))
+		appConn, err := grpc.NewAppConn(ctx, cfgFromDisk.Cloud, logger.Sublogger("networking").Sublogger("app_connection"))
 		if err != nil {
 			return err
 		}
-		ctxWithTimeoutCancel()
 
 		netAppender, err := logging.NewNetAppender(
 			&logging.CloudConfig{
