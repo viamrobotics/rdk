@@ -30,6 +30,11 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
+// FromDependencies is a helper for getting the named generic from a collection of
+// dependencies.
+func FromDependencies(deps resource.Dependencies, name string) (resource.Resource, error) {
+	return resource.FromDependencies[resource.Resource](deps, Named(name))
+}
 
 // FromRobot is a helper for getting the named Generic from the given Robot.
 func FromRobot(r robot.Robot, name string) (resource.Resource, error) {
