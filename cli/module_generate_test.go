@@ -36,6 +36,7 @@ func TestGenerateModuleAction(t *testing.T) {
 		ResourceSubtypePascal: "Arm",
 		ModelPascal:           "MyModel",
 		ModelTriple:           "my-org:my-module:my-model",
+		ModelReadmeLink:       "model-readme-link",
 
 		SDKVersion: "0.0.0",
 	}
@@ -73,6 +74,17 @@ func TestGenerateModuleAction(t *testing.T) {
 		err = json.Unmarshal(bytes, &module)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, module.ModuleName, test.ShouldEqual, testModule.ModuleName)
+
+		_, err = os.Stat(filepath.Join(modulePath, "README.md"))
+		test.That(t, err, test.ShouldBeNil)
+
+		readme, err := os.Open(filepath.Join(modulePath, "README.md"))
+		test.That(t, err, test.ShouldBeNil)
+		defer readme.Close()
+		bytes, err = io.ReadAll(readme)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, string(bytes), test.ShouldContainSubstring, "Module "+testModule.ModuleName)
+		test.That(t, string(bytes), test.ShouldContainSubstring, "Model "+testModule.ModelTriple)
 
 		// cloud build enabled
 		_, err = os.Stat(filepath.Join(modulePath, ".github"))
@@ -170,5 +182,17 @@ func TestGenerateModuleAction(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		_, err = os.Stat(filepath.Join(testDir, testModule.ModuleName, "meta.json"))
 		test.That(t, err, test.ShouldBeNil)
+
+		manifestFile, err := os.Open(filepath.Join(testDir, testModule.ModuleName, "meta.json"))
+		test.That(t, err, test.ShouldBeNil)
+		defer manifestFile.Close()
+		bytes, err := io.ReadAll(manifestFile)
+		test.That(t, err, test.ShouldBeNil)
+		var manifest moduleManifest
+		err = json.Unmarshal(bytes, &manifest)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(manifest.Models), test.ShouldEqual, 1)
+		test.That(t, manifest.Models[0].Model, test.ShouldEqual, testModule.ModelTriple)
+		test.That(t, *manifest.Models[0].MarkdownLink, test.ShouldEqual, testModule.ModelReadmeLink)
 	})
 }

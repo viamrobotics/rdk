@@ -35,8 +35,8 @@ type ModuleInputs struct {
 	ModelCamel            string `json:"-"`
 	ModelTriple           string `json:"-"`
 	ModelLowercase        string `json:"-"`
-
-	SDKVersion string `json:"-"`
+	ModelReadmeLink       string `json:"-"`
+	SDKVersion            string `json:"-"`
 }
 
 // Resources is a list of all the available resources in Viam.
