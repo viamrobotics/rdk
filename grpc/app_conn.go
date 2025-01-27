@@ -52,7 +52,7 @@ func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger)
 				for {
 					appConn.connMu.Lock()
 
-					ctxWithTimeOut, ctxWithTimeOutCancel := context.WithTimeout(context.Background(), 5*time.Second)
+					ctxWithTimeOut, ctxWithTimeOutCancel := context.WithTimeout(ctx, 5*time.Second)
 
 					appConn.conn, err = rpc.DialDirectGRPC(ctxWithTimeOut, grpcURL.Host, logger, dialOpts...)
 					if errors.Is(err, context.DeadlineExceeded) {
