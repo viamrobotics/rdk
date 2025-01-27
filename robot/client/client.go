@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1194,7 +1193,7 @@ func (rc *RobotClient) Version(ctx context.Context) (robot.VersionResponse, erro
 
 // Tunnel tunnels data to/from the read writer from/to the destination port on the server. This
 // function will close the connection passed in as part of cleanup.
-func (rc *RobotClient) Tunnel(ctx context.Context, conn net.Conn, dest int) error {
+func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest int) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	client, err := rc.client.Tunnel(ctx)
@@ -1207,7 +1206,7 @@ func (rc *RobotClient) Tunnel(ctx context.Context, conn net.Conn, dest int) erro
 	}); err != nil {
 		return err
 	}
-	rc.Logger().CDebugw(ctx, "creating tunnel to server", "port", dest)
+	rc.Logger().CInfow(ctx, "creating tunnel to server", "port", dest)
 	var (
 		wg              sync.WaitGroup
 		readerSenderErr error

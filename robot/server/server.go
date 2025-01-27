@@ -75,7 +75,7 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 	if err != nil {
 		return fmt.Errorf("failed to dial to destination port %v: %w", dest, err)
 	}
-	s.robot.Logger().CDebugw(srv.Context(), "successfully dialed to destination port, creating tunnel", "port", dest)
+	s.robot.Logger().CInfow(srv.Context(), "successfully dialed to destination port, creating tunnel", "port", dest)
 
 	var (
 		wg              sync.WaitGroup
