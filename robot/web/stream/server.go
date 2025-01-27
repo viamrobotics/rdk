@@ -658,6 +658,37 @@ func (server *Server) refreshVideoSources() {
 		}
 		existing, ok := server.videoSources[cam.Name().SDPTrackName()]
 		if ok {
+			// Check stream state for the camera to see if it is in resized mode.
+			// If it is in resized mode, we want to apply the resize transformation to the
+			// video source before swapping it.
+			streamState, ok := server.nameToStreamState[cam.Name().SDPTrackName()]
+			if ok && streamState.IsResized() {
+				server.logger.Debugf("stream %q is resized attempting to reapply resize transformation", cam.Name().SDPTrackName())
+				mediaProps, err := existing.MediaProperties(server.closedCtx)
+				if err != nil {
+					server.logger.Errorf("error getting media properties from resize source: %v", err)
+				} else {
+					// resizeVideoSource should always have a width and height set.
+					height, width := mediaProps.Height, mediaProps.Width
+					if height != 0 && width != 0 {
+						server.logger.Debugf(
+							"resizing video source to width %d and height %d",
+							width, height,
+						)
+						resizer := gostream.NewResizeVideoSource(cam, width, height)
+						existing.Swap(resizer)
+						continue
+					}
+				}
+				// If we can't get the media properties or the width and height are 0, we fall back to
+				// the original source and need to notify the stream state that the source is no longer
+				// resized.
+				server.logger.Warnf("falling back to original source for stream %q", cam.Name().SDPTrackName())
+				err = streamState.Reset()
+				if err != nil {
+					server.logger.Errorf("error resetting stream %q: %v", cam.Name().SDPTrackName(), err)
+				}
+			}
 			existing.Swap(cam)
 			continue
 		}
