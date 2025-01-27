@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	pb "go.viam.com/api/robot/v1"
+
 	"go.viam.com/rdk/logging"
 )
 
@@ -33,7 +35,23 @@ type (
 		Query DiscoveryQuery
 		Cause error
 	}
+
+	// ModuleModelDiscovery holds the API and Model information of models within a module.
+	ModuleModelDiscovery struct {
+		ModuleName      string
+		API             API
+		Model           Model
+		FromLocalModule bool
+	}
 )
+
+// ToProto converts a ModuleModelDiscovery into the equivalent proto message.
+func (mm *ModuleModelDiscovery) ToProto() *pb.ModuleModel {
+	return &pb.ModuleModel{
+		Model: mm.Model.String(), Api: mm.API.String(), ModuleName: mm.ModuleName,
+		FromLocalModule: mm.FromLocalModule,
+	}
+}
 
 func (e *DiscoverError) Error() string {
 	return fmt.Sprintf("failed to get discovery for api %q and model %q error: %v", e.Query.API, e.Query.Model, e.Cause)
