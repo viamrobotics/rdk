@@ -3,11 +3,14 @@ package inject
 import (
 	"context"
 
+	"go.viam.com/rdk/components/button"
 	"go.viam.com/rdk/resource"
 )
 
 // Button implements button.Button for testing.
 type Button struct {
+	button.Button
+
 	resource.Named
 	resource.TriviallyReconfigurable
 	resource.TriviallyCloseable
@@ -18,7 +21,7 @@ type Button struct {
 // Push calls PushFunc.
 func (b *Button) Push(ctx context.Context, extra map[string]interface{}) error {
 	if b.PushFunc == nil {
-		return nil
+		return b.Button.Push(ctx, extra)
 	}
 	return b.PushFunc(ctx, extra)
 }
@@ -26,7 +29,7 @@ func (b *Button) Push(ctx context.Context, extra map[string]interface{}) error {
 // DoCommand calls DoFunc.
 func (b *Button) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if b.DoFunc == nil {
-		return nil, nil
+		return b.Button.DoCommand(ctx, cmd)
 	}
 	return b.DoFunc(ctx, cmd)
 }
