@@ -195,7 +195,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		ctxWithTimeout, ctxWithTimeoutCancel := config.GetTimeoutCtx(ctx, true, cfgFromDisk.Cloud.ID)
 		appConn, err := grpc.NewAppConn(ctxWithTimeout, cfgFromDisk.Cloud, logger) // TODO(RSDK-8292): [q] what logger should I pass here?
 		if err != nil {
-			logger.Info("error establishing global App gRPC connection:", err)
+			return err
 		}
 		ctxWithTimeoutCancel()
 
