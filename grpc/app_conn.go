@@ -9,12 +9,16 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 )
 
 type AppConn struct {
 	ReconfigurableClientConn
+
+	// Err stores the most recent error returned by the serialized dial attempts running in the background. It can also be used to tell
+	// whether dial attempts are currently happening; If err is a non-nil value, dial attempts have stopped. Accesses to Err should respect
+	// ReconfigurableClientConn.connMu
+	Err error
 }
 
 func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger) (*AppConn, error) {
@@ -31,13 +35,34 @@ func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger)
 
 	appConn := &AppConn{}
 
-	appConn.connMu.Lock()
-	defer appConn.connMu.Unlock()
+	// a lock is not necessary here because this call is blocking
 	appConn.conn, err = rpc.DialDirectGRPC(ctx, grpcURL.Host, logger, dialOpts...)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			// TODO(RSDK-8292): run background job to attempt connection
+			go func() {
+				for {
+					appConn.connMu.Lock()
+					defer appConn.connMu.Unlock()
+
+					// TODO(RSDK-8292): [qu] should I use ctx instead of context.Background()
+					ctxWithTimeOut, ctxWithTimeOutCancel := context.WithTimeout(context.Background(), 5*time.Second)
+					defer ctxWithTimeOutCancel()
+
+					appConn.conn, err = rpc.DialDirectGRPC(ctxWithTimeOut, grpcURL.Host, logger, dialOpts...)
+					if errors.Is(err, context.DeadlineExceeded) {
+						appConn.connMu.Unlock()
+
+						// only dial again if previous attempt timed out
+						continue
+					}
+
+					appConn.Err = err
+
+					break
+				}
+			}()
 		} else {
+			appConn.Err = err
 			return nil, err
 		}
 	}

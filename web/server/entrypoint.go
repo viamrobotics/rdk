@@ -32,7 +32,6 @@ import (
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	rutils "go.viam.com/rdk/utils"
-	"go.viam.com/rdk/utils/contextutils"
 )
 
 var viamDotDir = filepath.Join(rutils.PlatformHomeDir(), ".viam")
