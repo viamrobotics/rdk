@@ -16,17 +16,12 @@ import (
 // attempts to dial App until a connection is successfully established.
 type AppConn struct {
 	ReconfigurableClientConn
-
-	// Err stores the most recent error returned by the serialized dial attempts running in the background. It can also be used to tell
-	// whether dial attempts are currently happening; If err is a non-nil value, dial attempts have stopped. Accesses to Err should respect
-	// ReconfigurableClientConn.connMu
-	Err error
 }
 
 // NewAppConn creates an AppConn instance with a gRPC client connection to App. An initial dial attempt blocks. If it errors, the error is
 // returned. If it times out, an AppConn object will return with a nil underlying client connection. Serialized attempts at establishing a
 // connection to App will continue to occur, however, in a background Goroutine. These attempts will continue until a connection is made or
-// an error that is not a context.DeadlineExceeded occurs - in which case the resulting error will be stored in AppConn.Err.
+// an error that is not a context.DeadlineExceeded occurs.
 func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger) (*AppConn, error) {
 	grpcURL, err := url.Parse(cloud.AppAddress)
 	if err != nil {
@@ -63,8 +58,6 @@ func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger)
 					}
 
 					ctxWithTimeOutCancel()
-
-					appConn.Err = err
 
 					break
 				}
