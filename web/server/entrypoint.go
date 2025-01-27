@@ -463,11 +463,8 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config, conn rpc
 		cloudRestartCheckerActive = make(chan struct{})
 		utils.PanicCapturingGo(func() {
 			defer close(cloudRestartCheckerActive)
-			restartCheck, err := newRestartChecker(ctx, cfg.Cloud, s.logger, conn)
+			restartCheck, err := newRestartChecker(cfg.Cloud, s.logger, conn)
 			if err != nil {
-				if errors.Is(err, context.Canceled) {
-					return
-				}
 				s.logger.Errorw("error creating restart checker", "error", err)
 				panic(fmt.Sprintf("error creating restart checker: %v", err))
 			}

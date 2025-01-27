@@ -59,7 +59,7 @@ func (c *needsRestartCheckerGRPC) needsRestart(ctx context.Context) (bool, time.
 	return res.MustRestart, restartInterval, nil
 }
 
-func newRestartChecker(ctx context.Context, cfg *config.Cloud, logger logging.Logger, client rpc.ClientConn) (needsRestartChecker, error) {
+func newRestartChecker(cfg *config.Cloud, logger logging.Logger, client rpc.ClientConn) (needsRestartChecker, error) {
 	return &needsRestartCheckerGRPC{
 		cfg:    cfg,
 		logger: logger,
