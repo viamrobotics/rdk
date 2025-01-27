@@ -26,14 +26,14 @@ func TestClient(t *testing.T) {
 	var buttonPushed string
 	var extraOptions map[string]interface{}
 
-	injectButton := &inject.Button{}
+	injectButton := inject.NewButton(testButtonName)
 	injectButton.PushFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		extraOptions = extra
 		buttonPushed = testButtonName
 		return nil
 	}
 
-	injectButton2 := &inject.Button{}
+	injectButton2 := inject.NewButton(failButtonName)
 	injectButton2.PushFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		buttonPushed = failButtonName
 		return errCantPush

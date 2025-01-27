@@ -15,11 +15,11 @@ func init() {
 	resource.RegisterComponent(button.API, model, resource.Registration[button.Button, *resource.NoNativeConfig]{Constructor: NewButton})
 }
 
-// Button is a fake button that logs when it is pressed
+// Button is a fake button that logs when it is pressed.
 type Button struct {
 	resource.Named
 	resource.TriviallyCloseable
-  resource.AlwaysRebuild
+	resource.AlwaysRebuild
 	logger logging.Logger
 }
 
@@ -34,7 +34,7 @@ func NewButton(
 	return b, nil
 }
 
-// Push logs the push
+// Push logs the push.
 func (b *Button) Push(ctx context.Context, extra map[string]interface{}) error {
 	b.logger.Info("pushed button")
 	return nil

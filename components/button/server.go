@@ -23,7 +23,7 @@ func NewRPCServiceServer(coll resource.APIResourceCollection[Button]) interface{
 	return &serviceServer{coll: coll}
 }
 
-// Pushes a button
+// Pushes a button.
 func (s *serviceServer) Push(ctx context.Context, req *pb.PushRequest) (*pb.PushResponse, error) {
 	button, err := s.coll.Resource(req.Name)
 	if err != nil {
