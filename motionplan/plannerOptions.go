@@ -27,7 +27,7 @@ const (
 	defaultPseudolinearTolerance = 0.8
 
 	// Number of IK solutions that should be generated before stopping.
-	defaultSolutionsToSeed = 50
+	defaultSolutionsToSeed = 100
 
 	// Check constraints are still met every this many mm/degrees of movement.
 	defaultResolution = 2.0
@@ -64,7 +64,7 @@ const (
 	defaultRobotCollisionConstraintDesc = "Collision between a robot component that is moving and one that is stationary"
 
 	// When breaking down a path into smaller waypoints, add a waypoint every this many mm of movement.
-	defaultPathStateSize = 10
+	defaultPathStateSize = 15
 
 	// This is commented out due to Go compiler bug. See comment in newBasicPlannerOptions for explanation.
 	// var defaultPlanner = newCBiRRTMotionPlanner.

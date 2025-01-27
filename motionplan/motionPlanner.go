@@ -21,6 +21,10 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+// When we generate solutions, if a new solution is within this level of similarity to an existing one, discard it as a duplicate.
+// This prevents seeding the solution tree with 50 copies of essentially the same configuration.
+const defaultSimScore = 0.05
+
 // motionPlanner provides an interface to path planning methods, providing ways to request a path to be planned, and
 // management of the constraints used to plan paths.
 type motionPlanner interface {
@@ -470,7 +474,7 @@ IK:
 							FS:                 mp.fs,
 						}
 						simscore := mp.planOpts.configurationDistanceFunc(similarity)
-						if simscore < 0.1 {
+						if simscore < defaultSimScore {
 							continue IK
 						}
 					}

@@ -97,7 +97,6 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context, request *PlanReque
 	waypoints := []atomicWaypoint{}
 
 	for i := range request.Goals {
-		request.Logger.Info("i", i)
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()

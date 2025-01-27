@@ -376,7 +376,7 @@ func (p *PlanState) Configuration() map[string][]referenceframe.Input {
 
 // ComputePoses returns the poses of a PlanState if they are populated, or computes them using the given FrameSystem if not.
 func (p *PlanState) ComputePoses(fs referenceframe.FrameSystem) (PathState, error) {
-	if p.poses != nil {
+	if len(p.poses) > 0 {
 		return p.poses, nil
 	}
 
