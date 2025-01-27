@@ -175,6 +175,9 @@ type peerResourceState struct {
 
 // Module represents an external resource module that services components/services.
 type Module struct {
+	// The name of the module as per the robot config.
+	name string
+
 	shutdownCtx             context.Context
 	shutdownFn              context.CancelFunc
 	parent                  *client.RobotClient
@@ -219,7 +222,12 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	}
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
+
+	// If the env variable does not exist, the empty string is returned.
+	modName, _ := os.LookupEnv("VIAM_MODULE_NAME")
+
 	m := &Module{
+		name:                  modName,
 		shutdownCtx:           cancelCtx,
 		shutdownFn:            cancel,
 		logger:                logger,
@@ -369,7 +377,18 @@ func (m *Module) connectParent(ctx context.Context) error {
 	clientLogger := logging.NewLogger("networking.module-connection")
 	clientLogger.SetLevel(m.logger.GetLevel())
 	// TODO(PRODUCT-343): add session support to modules
-	rc, err := client.New(ctx, fullAddr, clientLogger, client.WithDisableSessions())
+
+	connectOptions := []client.RobotClientOption{
+		client.WithDisableSessions(),
+	}
+
+	// Modules compiled against newer SDKs may be running against older `viam-server`s that do not
+	// provide the module name as an env variable.
+	if m.name != "" {
+		connectOptions = append(connectOptions, client.WithModName(m.name))
+	}
+
+	rc, err := client.New(ctx, fullAddr, m.logger, connectOptions...)
 	if err != nil {
 		return err
 	}

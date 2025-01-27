@@ -46,6 +46,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
+	"go.viam.com/rdk/grpc"
 	rgrpc "go.viam.com/rdk/grpc"
 	internalcloud "go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
@@ -4533,4 +4534,82 @@ func TestRemovingOfflineRemotes(t *testing.T) {
 	// Wait for both goroutines to complete before finishing test
 	cancelReconfig()
 	wg.Wait()
+}
+
+// TestModuleNamePassing asserts that module names are passed from viam-server -> module
+// properly. Such that incoming requests from module -> viam-server identify themselves. And can be
+// observed on contexts via `grpc.GetModuleName(ctx)`.
+func TestModuleNamePassing(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	ctx := context.Background()
+
+	// We will inject a `ReadingsFunc` handler. The request should come from the `testmodule` and
+	// the interceptors should pass along a module name. Which will get captured in the
+	// `moduleNameCh` that the end of the test will assert on.
+	//
+	// The channel must be buffered to such that the `ReadingsFunc` returns without waiting on a
+	// reader of the channel.
+	moduleNameCh := make(chan string, 1)
+	callbackSensor := &inject.Sensor{
+		ReadingsFunc: func(ctx context.Context, extra map[string]any) (map[string]any, error) {
+			moduleNameCh <- grpc.GetModuleName(ctx)
+			return map[string]any{
+				"reading": 42,
+			}, nil
+		},
+		CloseFunc: func(ctx context.Context) error {
+			return nil
+		},
+	}
+
+	// The resource registry is a global. We must use unique model names to avoid unexpected
+	// collisions.
+	callbackModelName := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+	resource.RegisterComponent(
+		sensor.API,
+		callbackModelName,
+		resource.Registration[sensor.Sensor, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (sensor.Sensor, error) {
+			// Be lazy -- just return an a singleton object.
+			return callbackSensor, nil
+		}})
+
+	const moduleName = "fancy_module_name"
+	localRobot := setupLocalRobot(t, ctx, &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    moduleName,
+				ExePath: rtestutils.BuildTempModule(t, "module/testmodule"),
+				Type:    config.ModuleTypeLocal,
+			},
+		},
+		Components: []resource.Config{
+			// We will invoke a special `DoCommand` on `modularComp`. It will expect its `DependsOn:
+			// "foo"` to be a sensor. And call the `Readings` API on that sensor.
+			{
+				Name:      "modularComp",
+				API:       generic.API,
+				Model:     resource.NewModel("rdk", "test", "helper"),
+				DependsOn: []string{"foo"},
+			},
+			// `foo` will be a sensor that we've instrumented with the injected `ReadingsFunc`.
+			{
+				Name:  "foo",
+				API:   sensor.API,
+				Model: callbackModelName,
+			},
+		},
+	}, logger)
+
+	res, err := localRobot.ResourceByName(generic.Named("modularComp"))
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = res.DoCommand(ctx, map[string]interface{}{"command": "do_readings_on_dep"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, <-moduleNameCh, test.ShouldEqual, moduleName)
 }

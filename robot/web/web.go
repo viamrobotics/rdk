@@ -194,6 +194,10 @@ func (svc *webService) StartModule(ctx context.Context) error {
 
 	unaryInterceptors = append(unaryInterceptors, grpc.EnsureTimeoutUnaryServerInterceptor)
 
+	// Attach the module name (as defined by the robot config) to the handler context. Can be
+	// accessed via `grpc.GetModuleName`.
+	unaryInterceptors = append(unaryInterceptors, grpc.ModNameUnaryServerInterceptor)
+
 	opManager := svc.r.OperationManager()
 	unaryInterceptors = append(unaryInterceptors,
 		opManager.UnaryServerInterceptor, logging.UnaryServerInterceptor)

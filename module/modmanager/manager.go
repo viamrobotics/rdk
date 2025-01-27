@@ -1408,6 +1408,7 @@ func getFullEnvironment(
 	environment := map[string]string{
 		"VIAM_HOME":        viamHomeDir,
 		"VIAM_MODULE_DATA": dataDir,
+		"VIAM_MODULE_NAME": cfg.Name,
 	}
 	if cfg.Type == config.ModuleTypeRegistry {
 		environment["VIAM_MODULE_ID"] = cfg.ModuleID

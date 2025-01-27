@@ -32,6 +32,8 @@ type robotClientOpts struct {
 
 	// controls whether or not sessions are disabled.
 	disableSessions bool
+
+	modName string
 }
 
 // RobotClientOption configures how we set up the connection.
@@ -54,6 +56,12 @@ func newFuncRobotClientOption(f func(*robotClientOpts)) *funcRobotClientOption {
 	return &funcRobotClientOption{
 		f: f,
 	}
+}
+
+func WithModName(modName string) RobotClientOption {
+	return newFuncRobotClientOption(func(o *robotClientOpts) {
+		o.modName = modName
+	})
 }
 
 // WithRefreshEvery returns a RobotClientOption for how often to refresh the status/parts of the
