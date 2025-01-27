@@ -43,7 +43,6 @@ func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger)
 				for {
 					appConn.connMu.Lock()
 
-					// TODO(RSDK-8292): [qu] should I use ctx instead of context.Background()
 					ctxWithTimeOut, ctxWithTimeOutCancel := context.WithTimeout(context.Background(), 5*time.Second)
 
 					appConn.conn, err = rpc.DialDirectGRPC(ctxWithTimeOut, grpcURL.Host, logger, dialOpts...)
