@@ -50,10 +50,9 @@ func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger)
 					ctxWithTimeOut, ctxWithTimeOutCancel := context.WithTimeout(ctx, 5*time.Second)
 
 					appConn.conn, err = rpc.DialDirectGRPC(ctxWithTimeOut, grpcURL.Host, logger, dialOpts...)
-					if errors.Is(err, context.DeadlineExceeded) {
+					if err != nil {
 						appConn.connMu.Unlock()
 
-						// only dial again if previous attempt timed out
 						continue
 					}
 
