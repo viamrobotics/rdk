@@ -193,7 +193,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	// This is to ensure we make our best effort to write logs for failures loading the remote config.
 	if cfgFromDisk.Cloud != nil && (cfgFromDisk.Cloud.LogPath != "" || cfgFromDisk.Cloud.AppAddress != "") {
 		ctxWithTimeout, ctxWithTimeoutCancel := config.GetTimeoutCtx(ctx, true, cfgFromDisk.Cloud.ID)
-		appConn, err := grpc.NewAppConn(ctxWithTimeout, cfgFromDisk.Cloud, logger) // TODO(RSDK-8292): [q] what logger should I pass here?
+		appConn, err := grpc.NewAppConn(ctxWithTimeout, cfgFromDisk.Cloud, logger.Sublogger("networking").Sublogger("app_connection"))
 		if err != nil {
 			return err
 		}
