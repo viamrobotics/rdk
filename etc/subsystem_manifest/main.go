@@ -44,6 +44,7 @@ type substemManifest struct {
 func main() {
 	subsystem := flag.String("subsystem", viamServer, "subsystem type") // default to viam-server
 	binaryPath := flag.String("binary-path", "", "path to subsystem binary")
+	resourcesJSON := flag.String("resources-json", "", "optional pre-dumped resource json")
 	uploadPath := flag.String("upload-path", "", "path where this binary will be stored in gcs")
 	outputPath := flag.String("output-path", "", "path where this manifest json file will be written")
 	version := flag.String("version", "", "version")
@@ -63,7 +64,7 @@ func main() {
 	}
 	var metadata *viamServerMetadata
 	if *subsystem == viamServer {
-		metadata, err = getViamServerMetadata(*binaryPath)
+		metadata, err = getViamServerMetadata(*binaryPath, *resourcesJSON)
 		if err != nil {
 			log.Fatalf("failed to get viam-server metadata: %v", err)
 		}
@@ -93,18 +94,24 @@ func main() {
 	}
 }
 
-func getViamServerMetadata(path string) (*viamServerMetadata, error) {
-	resourcesOutputFile, err := os.CreateTemp("", "resources-")
-	if err != nil {
-		return nil, err
-	}
-	resourcesOutputFileName := resourcesOutputFile.Name()
-	//nolint:errcheck
-	defer os.Remove(resourcesOutputFileName)
-	//nolint:gosec
-	command := exec.Command(path, "--dump-resources", resourcesOutputFileName)
-	if err := command.Run(); err != nil {
-		return nil, err
+// `path` is the path to the binary.
+// `resourcesOutputFileName` is an optional pre-dumped resource json.
+// note: we pre-dump for the windows build so that we are not bound to a windows runner. (we can cross-compile,
+// but we can't run the cross-compiled artifact).
+func getViamServerMetadata(path, resourcesOutputFileName string) (*viamServerMetadata, error) {
+	if resourcesOutputFileName == "" {
+		resourcesOutputFile, err := os.CreateTemp("", "resources-")
+		if err != nil {
+			return nil, err
+		}
+		resourcesOutputFileName = resourcesOutputFile.Name()
+		//nolint:errcheck
+		defer os.Remove(resourcesOutputFileName)
+		//nolint:gosec
+		command := exec.Command(path, "--dump-resources", resourcesOutputFileName)
+		if err := command.Run(); err != nil {
+			return nil, err
+		}
 	}
 	//nolint:gosec
 	resourcesBytes, err := os.ReadFile(resourcesOutputFileName)
