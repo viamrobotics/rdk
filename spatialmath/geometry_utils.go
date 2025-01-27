@@ -109,7 +109,7 @@ func closestPointsSegmentTriangle(ap1, ap2 r3.Vector, t *Triangle) (bestSegPt, b
 	// If the line overlaps the triangle and is parallel to the triangle plane,
 	// the chosen triangle point is arbitrary.
 	segPt, _ := closestPointsSegmentPlane(ap1, ap2, t.p0, t.normal)
-	triPt, inside := t.ClosestInsidePoint(segPt)
+	triPt, inside := ClosestTriangleInsidePoint(t, segPt)
 	if inside {
 		// If inside is false, then these will not be the best points, because they are based on the segment-plane intersection
 		return segPt, triPt

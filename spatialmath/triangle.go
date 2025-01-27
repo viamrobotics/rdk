@@ -25,9 +25,9 @@ func NewTriangle(p0, p1, p2 r3.Vector) *Triangle {
 	}
 }
 
-// ClosestPointToCoplanarPoint takes a point, and returns the closest point on the triangle to the given point
+// ClosestPointTriangleCoplanarPoint takes a point, and returns the closest point on the triangle to the given point
 // The given point *MUST* be coplanar with the triangle. If it is known ahead of time that the point is coplanar, this is faster.
-func (t *Triangle) ClosestPointToCoplanarPoint(pt r3.Vector) r3.Vector {
+func ClosestPointTriangleCoplanarPoint(t *Triangle, pt r3.Vector) r3.Vector {
 	// Determine whether point is inside all triangle edges:
 	c0 := pt.Sub(t.p0).Cross(t.p1.Sub(t.p0))
 	c1 := pt.Sub(t.p1).Cross(t.p2.Sub(t.p1))
@@ -57,10 +57,10 @@ func (t *Triangle) ClosestPointToCoplanarPoint(pt r3.Vector) r3.Vector {
 	return refPt
 }
 
-// ClosestPointToPoint takes a point, and returns the closest point on the triangle to the given point.
-// This is slower than ClosestPointToCoplanarPoint.
-func (t *Triangle) ClosestPointToPoint(point r3.Vector) r3.Vector {
-	closestPtInside, inside := t.ClosestInsidePoint(point)
+// ClosestPointTrianglePoint takes a point, and returns the closest point on the triangle to the given point.
+// This is slower than ClosestPointTriangleCoplanarPoint.
+func ClosestPointTrianglePoint(t *Triangle, point r3.Vector) r3.Vector {
+	closestPtInside, inside := ClosestTriangleInsidePoint(t, point)
 	if inside {
 		return closestPtInside
 	}
@@ -83,11 +83,11 @@ func (t *Triangle) ClosestPointToPoint(point r3.Vector) r3.Vector {
 	return closestPt
 }
 
-// ClosestInsidePoint returns the closest point on a triangle IF AND ONLY IF the query point's projection overlaps the triangle.
+// ClosestTriangleInsidePoint returns the closest point on a triangle IF AND ONLY IF the query point's projection overlaps the triangle.
 // Otherwise it will return the query point.
 // To visualize this- if one draws a tetrahedron using the triangle and the query point, all angles from the triangle to the query point
 // must be <= 90 degrees.
-func (t *Triangle) ClosestInsidePoint(point r3.Vector) (r3.Vector, bool) {
+func ClosestTriangleInsidePoint(t *Triangle, point r3.Vector) (r3.Vector, bool) {
 	eps := 1e-6
 
 	// Parametrize the triangle s.t. a point inside the triangle is
@@ -119,9 +119,9 @@ func (t *Triangle) Normal() r3.Vector {
 	return t.normal
 }
 
-// IntersectsPlane determines if the triangle intersects with a plane defined by a point and normal vector.
+// TriangleIntersectsPlane determines if the triangle intersects with a plane defined by a point and normal vector.
 // Returns true if the triangle intersects with or lies on the plane.
-func (t *Triangle) IntersectsPlane(planePt, planeNormal r3.Vector) bool {
+func TriangleIntersectsPlane(t *Triangle, planePt, planeNormal r3.Vector) bool {
 	// Calculate signed distances from each triangle vertex to the plane
 	d0 := planeNormal.Dot(t.p0.Sub(planePt))
 	d1 := planeNormal.Dot(t.p1.Sub(planePt))
@@ -143,9 +143,9 @@ func (t *Triangle) IntersectsPlane(planePt, planeNormal r3.Vector) bool {
 // Returns the two points defining the intersection line segment and whether an intersection exists.
 // If the triangle only touches the plane at a point, both returned points will be the same.
 // If the triangle lies in the plane, it returns two points representing the longest edge of the triangle.
-func (t *Triangle) TrianglePlaneIntersectingSegment(planePt, planeNormal r3.Vector) (r3.Vector, r3.Vector, bool) {
+func TrianglePlaneIntersectingSegment(t *Triangle, planePt, planeNormal r3.Vector) (r3.Vector, r3.Vector, bool) {
 	// First check if there's an intersection
-	if !t.IntersectsPlane(planePt, planeNormal) {
+	if !TriangleIntersectsPlane(t, planePt, planeNormal) {
 		return r3.Vector{}, r3.Vector{}, false
 	}
 

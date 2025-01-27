@@ -14,9 +14,9 @@ func TestClosestPoint(t *testing.T) {
 	tri := NewTriangle(p0, p1, p2)
 
 	qp1 := r3.Vector{-1, 0, 0}
-	cp1 := tri.ClosestPointToCoplanarPoint(qp1)
-	cp2 := tri.ClosestPointToPoint(qp1)
-	cp3, inside := tri.ClosestInsidePoint(qp1)
+	cp1 := ClosestPointTriangleCoplanarPoint(tri, qp1)
+	cp2 := ClosestPointTrianglePoint(tri, qp1)
+	cp3, inside := ClosestTriangleInsidePoint(tri, qp1)
 	test.That(t, inside, test.ShouldBeFalse)
 	test.That(t, cp3.ApproxEqual(qp1), test.ShouldBeTrue)
 	test.That(t, cp1.ApproxEqual(cp2), test.ShouldBeTrue)

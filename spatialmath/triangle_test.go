@@ -74,7 +74,7 @@ func TestTriangleIntersectsPlane(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := tt.triangle.IntersectsPlane(tt.planePt, tt.planeNormal)
+			got := TriangleIntersectsPlane(tt.triangle, tt.planePt, tt.planeNormal)
 			test.That(t, tt.want, test.ShouldEqual, got)
 		})
 	}
@@ -146,7 +146,7 @@ func TestTrianglePlaneIntersectingSegment(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotP1, gotP2, gotExists := tt.triangle.TrianglePlaneIntersectingSegment(tt.planePt, tt.planeNormal)
+			gotP1, gotP2, gotExists := TrianglePlaneIntersectingSegment(tt.triangle, tt.planePt, tt.planeNormal)
 			test.That(t, tt.wantExists, test.ShouldEqual, gotExists)
 			if tt.wantExists {
 				test.That(t, tt.wantP1.ApproxEqual(gotP1), test.ShouldBeTrue)
