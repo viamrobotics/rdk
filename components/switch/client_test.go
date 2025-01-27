@@ -1,4 +1,4 @@
-package switch_component_test
+package toggleswitch_test
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
-	switch_component "go.viam.com/rdk/components/switch"
+	toggleswitch "go.viam.com/rdk/components/switch"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -42,7 +42,7 @@ func TestClient(t *testing.T) {
 		extraOptions = extra
 		return 0, nil
 	}
-	injectSwitch.GetNumberOfPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
+	injectSwitch.GetNumberOfPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
 		extraOptions = extra
 		return 2, nil
 	}
@@ -55,18 +55,18 @@ func TestClient(t *testing.T) {
 	injectSwitch2.GetPositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
 		return 0, errCantGetPosition
 	}
-	injectSwitch2.GetNumberOfPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
+	injectSwitch2.GetNumberOfPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
 		return 0, errCantGetNumberOfPositions
 	}
 
 	switchSvc, err := resource.NewAPIResourceCollection(
-		switch_component.API,
-		map[resource.Name]switch_component.Switch{
-			switch_component.Named(testSwitchName): injectSwitch,
-			switch_component.Named(failSwitchName): injectSwitch2,
+		toggleswitch.API,
+		map[resource.Name]toggleswitch.Switch{
+			toggleswitch.Named(testSwitchName): injectSwitch,
+			toggleswitch.Named(failSwitchName): injectSwitch2,
 		})
 	test.That(t, err, test.ShouldBeNil)
-	resourceAPI, ok, err := resource.LookupAPIRegistration[switch_component.Switch](switch_component.API)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[toggleswitch.Switch](toggleswitch.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, switchSvc), test.ShouldBeNil)
@@ -89,7 +89,7 @@ func TestClient(t *testing.T) {
 	t.Run("switch client 1", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client1, err := switch_component.NewClientFromConn(context.Background(), conn, "", switch_component.Named(testSwitchName), logger)
+		client1, err := toggleswitch.NewClientFromConn(context.Background(), conn, "", toggleswitch.Named(testSwitchName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		// DoCommand
@@ -123,7 +123,7 @@ func TestClient(t *testing.T) {
 	t.Run("switch client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client2, err := resourceAPI.RPCClient(context.Background(), conn, "", switch_component.Named(failSwitchName), logger)
+		client2, err := resourceAPI.RPCClient(context.Background(), conn, "", toggleswitch.Named(failSwitchName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		extra := map[string]interface{}{}

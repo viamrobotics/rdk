@@ -1,5 +1,5 @@
-// Package switch_component contains a gRPC based switch client.
-package switch_component
+// Package toggleswitch contains a gRPC based switch client.
+package toggleswitch
 
 import (
 	"context"
@@ -68,7 +68,7 @@ func (c *client) GetPosition(ctx context.Context, extra map[string]interface{}) 
 	return resp.Position, nil
 }
 
-func (c *client) GetNumberOfPositions(ctx context.Context, extra map[string]interface{}) (int, error) {
+func (c *client) GetNumberOfPositions(ctx context.Context, extra map[string]interface{}) (uint32, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return 0, err
@@ -80,7 +80,7 @@ func (c *client) GetNumberOfPositions(ctx context.Context, extra map[string]inte
 	if err != nil {
 		return 0, err
 	}
-	return int(resp.NumberOfPositions), nil
+	return resp.NumberOfPositions, nil
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

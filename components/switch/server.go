@@ -1,5 +1,5 @@
-// Package switch_component contains a gRPC based switch service server.
-package switch_component
+// Package toggleswitch contains a gRPC based switch service server.
+package toggleswitch
 
 import (
 	"context"
