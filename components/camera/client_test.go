@@ -5,6 +5,7 @@ import (
 	"context"
 	"image"
 	"image/color"
+	"image/jpeg"
 	"image/png"
 	"net"
 	"testing"
@@ -428,7 +429,14 @@ func TestClientLazyImage(t *testing.T) {
 	test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
 	imgPng, err := png.Decode(bytes.NewReader(imgBuf.Bytes()))
 	test.That(t, err, test.ShouldBeNil)
+	var jpegBuf bytes.Buffer
+	test.That(t, jpeg.Encode(&jpegBuf, img, &jpeg.Options{Quality: 100}), test.ShouldBeNil)
+	imgJpeg, err := jpeg.Decode(bytes.NewBuffer(jpegBuf.Bytes()))
+	test.That(t, err, test.ShouldBeNil)
 
+	injectCamera.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{}, nil
+	}
 	injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
 		if mimeType == "" {
 			mimeType = rutils.MimeTypeRawRGBA
@@ -470,7 +478,6 @@ func TestClientLazyImage(t *testing.T) {
 	frameLazy := frame.(*rimage.LazyEncodedImage)
 	test.That(t, frameLazy.RawData(), test.ShouldResemble, imgBuf.Bytes())
 
-	ctx = context.Background()
 	frame, err = camera.DecodeImageFromCamera(ctx, rutils.WithLazyMIMEType(rutils.MimeTypePNG), nil, camera1Client)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, frame, test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
@@ -482,6 +489,24 @@ func TestClientLazyImage(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
 
+	// when DecodeImageFromCamera is called without a mime type, defaults to JPEG
+	var called bool
+	injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
+		called = true
+		test.That(t, mimeType, test.ShouldResemble, rutils.WithLazyMIMEType(rutils.MimeTypeJPEG))
+		resBytes, err := rimage.EncodeImage(ctx, imgPng, mimeType)
+		test.That(t, err, test.ShouldBeNil)
+		return resBytes, camera.ImageMetadata{MimeType: mimeType}, nil
+	}
+	frame, err = camera.DecodeImageFromCamera(ctx, "", nil, camera1Client)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, frame, test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
+	frameLazy = frame.(*rimage.LazyEncodedImage)
+	test.That(t, frameLazy.MIMEType(), test.ShouldEqual, rutils.MimeTypeJPEG)
+	compVal, _, err = rimage.CompareImages(imgJpeg, frame)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
+	test.That(t, called, test.ShouldBeTrue)
 	test.That(t, conn.Close(), test.ShouldBeNil)
 }
 

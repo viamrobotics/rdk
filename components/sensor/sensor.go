@@ -1,7 +1,7 @@
 // Package sensor defines an abstract sensing device that can provide measurement readings.
 // For more information, see the [sensor component docs].
 //
-// [sensor component docs]: https://docs.viam.com/components/sensor/
+// [sensor component docs]: https://docs.viam.com/dev/reference/apis/components/sensor/
 package sensor
 
 import (

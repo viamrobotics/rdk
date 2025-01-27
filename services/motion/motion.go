@@ -239,6 +239,8 @@ type PlanWithStatus struct {
 //		WorldState: WorldState
 //	})
 //
+// For more information, see the [Move method docs].
+//
 // MoveOnMap example:
 //
 //	// Assumes a base with the name "my_base" is configured on the machine
@@ -265,6 +267,8 @@ type PlanWithStatus struct {
 //			ExecutionID:   executionID,
 //		},
 //	)
+//
+// For more information, see the [MoveOnMap method docs].
 //
 // MoveOnGlobe example:
 //
@@ -295,6 +299,8 @@ type PlanWithStatus struct {
 //		},
 //	)
 //
+// For more information, see the [MoveOnGlobe method docs].
+//
 // GetPose example:
 //
 //	// Insert code to connect to your machine.
@@ -316,6 +322,8 @@ type PlanWithStatus struct {
 //	logger.Info("Position of myArm from the motion service:", myArmMotionPose.Pose().Point())
 //	logger.Info("Orientation of myArm from the motion service:", myArmMotionPose.Pose().Orientation())
 //
+// For more information, see the [GetPose method docs].
+//
 // StopPlan example:
 //
 //	motionService, err := motion.FromRobot(machine, "builtin")
@@ -330,12 +338,16 @@ type PlanWithStatus struct {
 //	    ComponentName: s.req.ComponentName,
 //	})
 //
+// For more information, see the [StopPlan method docs].
+//
 // ListPlanStatuses example:
 //
 //	motionService, err := motion.FromRobot(machine, "builtin")
 //
 //	// Get the plan(s) of the base component's most recent execution i.e. `MoveOnGlobe()` or `MoveOnMap()` call.
 //	planStatuses, err := motionService.ListPlanStatuses(context.Background(), motion.ListPlanStatusesReq{})
+//
+// For more information, see the [ListPlanStatuses method docs].
 //
 // PlanHistory example:
 //
@@ -347,7 +359,16 @@ type PlanWithStatus struct {
 //		ComponentName: myBaseResourceName,
 //	})
 //
-// [motion service docs]: https://docs.viam.com/services/motion/
+// For more information, see the [PlanHistory method docs].
+//
+// [motion service docs]: https://docs.viam.com/operate/reference/services/motion/
+// [Move method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#move
+// [MoveOnMap method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#moveonmap
+// [MoveOnGlobe method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#moveonglobe
+// [GetPose method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#getpose
+// [StopPlan method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#stopplan
+// [ListPlanStatuses method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#listplanstatuses
+// [PlanHistory method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#getplan
 type Service interface {
 	resource.Resource
 
@@ -478,7 +499,7 @@ func (p PlanWithMetadata) ToProto() *pb.Plan {
 	steps := []*pb.PlanStep{}
 	if p.Plan != nil {
 		for _, s := range p.Path() {
-			steps = append(steps, s.ToProto())
+			steps = append(steps, motionplan.FrameSystemPosesToProto(s))
 		}
 	}
 

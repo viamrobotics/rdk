@@ -1074,7 +1074,7 @@ func TestCheckPlan(t *testing.T) {
 
 	wrapperFrame := mr.localizingFS.Frame(mr.kinematicBase.Name().Name)
 
-	currentInputs := map[string][]referenceframe.Input{
+	currentInputs := referenceframe.FrameSystemInputs{
 		mr.kinematicBase.Kinematics().Name(): {
 			{Value: 0}, // ptg index
 			{Value: 0}, // trajectory alpha within ptg
@@ -1184,7 +1184,7 @@ func TestCheckPlan(t *testing.T) {
 		test.That(t, strings.Contains(err.Error(), "found constraint violation or collision in segment between"), test.ShouldBeTrue)
 	})
 
-	currentInputs = map[string][]referenceframe.Input{
+	currentInputs = referenceframe.FrameSystemInputs{
 		mr.kinematicBase.Kinematics().Name(): {
 			{Value: 0}, // ptg index
 			{Value: 0}, // trajectory alpha within ptg
@@ -1365,8 +1365,8 @@ func TestMultiWaypointPlanning(t *testing.T) {
 		waypoint2 := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -190, Z: 30}))
 		finalPose := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -200, Z: 30}))
 
-		wp1State := motionplan.NewPlanState(motionplan.PathState{"pieceGripper": waypoint1}, nil)
-		wp2State := motionplan.NewPlanState(motionplan.PathState{"pieceGripper": waypoint2}, nil)
+		wp1State := motionplan.NewPlanState(referenceframe.FrameSystemPoses{"pieceGripper": waypoint1}, nil)
+		wp2State := motionplan.NewPlanState(referenceframe.FrameSystemPoses{"pieceGripper": waypoint2}, nil)
 
 		moveReq := motion.MoveReq{
 			ComponentName: gripper.Named("pieceGripper"),
@@ -1401,14 +1401,14 @@ func TestMultiWaypointPlanning(t *testing.T) {
 	t.Run("plan through mixed pose and configuration waypoints", func(t *testing.T) {
 		// Define specific arm configuration for first waypoint
 		armConfig := []float64{0.2, 0.3, 0.4, 0.5, 0.6, 0.7}
-		wp1State := motionplan.NewPlanState(nil, map[string][]referenceframe.Input{
+		wp1State := motionplan.NewPlanState(nil, referenceframe.FrameSystemInputs{
 			"pieceArm": referenceframe.FloatsToInputs(armConfig),
 		})
 
 		// Define pose for second waypoint
 		intermediatePose := spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -190, Z: 30})
 		wp2State := motionplan.NewPlanState(
-			motionplan.PathState{"pieceGripper": referenceframe.NewPoseInFrame("world", intermediatePose)},
+			referenceframe.FrameSystemPoses{"pieceGripper": referenceframe.NewPoseInFrame("world", intermediatePose)},
 			nil,
 		)
 
@@ -1461,7 +1461,7 @@ func TestMultiWaypointPlanning(t *testing.T) {
 
 	t.Run("plan with custom start state", func(t *testing.T) {
 		startConfig := []float64{0.1, 0.2, 0.3, 0.4, 0.5, 0.6}
-		startState := motionplan.NewPlanState(nil, map[string][]referenceframe.Input{
+		startState := motionplan.NewPlanState(nil, referenceframe.FrameSystemInputs{
 			"pieceArm": referenceframe.FloatsToInputs(startConfig),
 		})
 
@@ -1499,7 +1499,7 @@ func TestMultiWaypointPlanning(t *testing.T) {
 	t.Run("plan with explicit goal state configuration", func(t *testing.T) {
 		goalConfig := []float64{0.7, 0.6, 0.5, 0.4, 0.3, 0.2}
 
-		goalState := motionplan.NewPlanState(nil, map[string][]referenceframe.Input{"pieceArm": referenceframe.FloatsToInputs(goalConfig)})
+		goalState := motionplan.NewPlanState(nil, referenceframe.FrameSystemInputs{"pieceArm": referenceframe.FloatsToInputs(goalConfig)})
 
 		moveReq := motion.MoveReq{
 			ComponentName: gripper.Named("pieceGripper"),

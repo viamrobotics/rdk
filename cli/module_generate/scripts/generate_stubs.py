@@ -47,7 +47,7 @@ def replace_async_func(
         ast.Raise(
             exc=ast.Call(func=ast.Name(id='NotImplementedError',
                                        ctx=ast.Load()),
-                         args=[], 
+                         args=[],
                          keywords=[]),
             cause=None)
     ]

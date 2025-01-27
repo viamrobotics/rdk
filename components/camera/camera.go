@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -96,22 +97,15 @@ type Camera interface {
 //	myCamera, err := camera.FromRobot(machine, "my_camera")
 //	img, err = camera.DecodeImageFromCamera(context.Background(), utils.MimeTypeJPEG, nil, myCamera)
 //
+// For more information, see the [Image method docs].
+//
 // Images example:
 //
 //	myCamera, err := camera.FromRobot(machine, "my_camera")
 //
 //	images, metadata, err := myCamera.Images(context.Background())
 //
-// Stream example:
-//
-//	myCamera, err := camera.FromRobot(machine, "my_camera")
-//
-//	// gets the stream from a camera
-//	stream, err := myCamera.Stream(context.Background())
-//
-//	// gets an image from the camera stream
-//	img, release, err := stream.Next(context.Background())
-//	defer release()
+// For more information, see the [Images method docs].
 //
 // NextPointCloud example:
 //
@@ -120,13 +114,21 @@ type Camera interface {
 //	// gets the next point cloud from a camera
 //	pointCloud, err := myCamera.NextPointCloud(context.Background())
 //
+// For more information, see the [NextPointCloud method docs].
+//
 // Close example:
 //
 //	myCamera, err := camera.FromRobot(machine, "my_camera")
 //
 //	err = myCamera.Close(context.Background())
 //
-// [camera component docs]: https://docs.viam.com/components/camera/
+// For more information, see the [Close method docs].
+//
+// [camera component docs]: https://docs.viam.com/dev/reference/apis/components/camera/
+// [Image method docs]: https://docs.viam.com/dev/reference/apis/components/camera/#getimage
+// [Images method docs]: https://docs.viam.com/dev/reference/apis/components/camera/#getimages
+// [NextPointCloud method docs]: https://docs.viam.com/dev/reference/apis/components/camera/#getpointcloud
+// [Close method docs]: https://docs.viam.com/dev/reference/apis/components/camera/#close
 type VideoSource interface {
 	// Image returns a byte slice representing an image that tries to adhere to the MIME type hint.
 	// Image also may return metadata about the frame.
@@ -166,7 +168,7 @@ func DecodeImageFromCamera(ctx context.Context, mimeType string, extra map[strin
 	if len(resBytes) == 0 {
 		return nil, errors.New("received empty bytes from camera")
 	}
-	img, err := rimage.DecodeImage(ctx, resBytes, resMetadata.MimeType)
+	img, err := rimage.DecodeImage(ctx, resBytes, utils.WithLazyMIMEType(resMetadata.MimeType))
 	if err != nil {
 		return nil, fmt.Errorf("could not decode into image.Image: %w", err)
 	}

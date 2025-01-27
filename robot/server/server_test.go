@@ -72,21 +72,26 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("GetMachineStatus", func(t *testing.T) {
-		for _, tc := range []struct {
-			name                string
-			injectMachineStatus robot.MachineStatus
-			expConfig           *pb.ConfigStatus
-			expResources        []*pb.ResourceStatus
-			expBadStateCount    int
+		testCases := []struct {
+			name                     string
+			injectMachineStatus      robot.MachineStatus
+			expConfig                *pb.ConfigStatus
+			expResources             []*pb.ResourceStatus
+			expState                 pb.GetMachineStatusResponse_State
+			expBadResourceStateCount int
+			expBadMachineStateCount  int
 		}{
 			{
 				"no resources",
 				robot.MachineStatus{
 					Config:    config.Revision{Revision: "rev1"},
 					Resources: []resource.Status{},
+					State:     robot.StateRunning,
 				},
 				&pb.ConfigStatus{Revision: "rev1"},
 				[]*pb.ResourceStatus{},
+				pb.GetMachineStatusResponse_STATE_RUNNING,
+				0,
 				0,
 			},
 			{
@@ -95,10 +100,13 @@ func TestServer(t *testing.T) {
 					Config: config.Revision{Revision: "rev1"},
 					Resources: []resource.Status{
 						{
-							Name:     arm.Named("badArm"),
-							Revision: "rev0",
+							NodeStatus: resource.NodeStatus{
+								Name:     arm.Named("badArm"),
+								Revision: "rev0",
+							},
 						},
 					},
+					State: robot.StateRunning,
 				},
 				&pb.ConfigStatus{Revision: "rev1"},
 				[]*pb.ResourceStatus{
@@ -108,7 +116,9 @@ func TestServer(t *testing.T) {
 						Revision: "rev0",
 					},
 				},
+				pb.GetMachineStatusResponse_STATE_RUNNING,
 				1,
+				0,
 			},
 			{
 				"resource with valid status",
@@ -116,11 +126,14 @@ func TestServer(t *testing.T) {
 					Config: config.Revision{Revision: "rev1"},
 					Resources: []resource.Status{
 						{
-							Name:     arm.Named("goodArm"),
-							State:    resource.NodeStateConfiguring,
-							Revision: "rev1",
+							NodeStatus: resource.NodeStatus{
+								Name:     arm.Named("goodArm"),
+								State:    resource.NodeStateConfiguring,
+								Revision: "rev1",
+							},
 						},
 					},
+					State: robot.StateRunning,
 				},
 				&pb.ConfigStatus{Revision: "rev1"},
 				[]*pb.ResourceStatus{
@@ -130,6 +143,102 @@ func TestServer(t *testing.T) {
 						Revision: "rev1",
 					},
 				},
+				pb.GetMachineStatusResponse_STATE_RUNNING,
+				0,
+				0,
+			},
+			{
+				"resource with empty cloud metadata",
+				robot.MachineStatus{
+					Config: config.Revision{Revision: "rev1"},
+					Resources: []resource.Status{
+						{
+							NodeStatus: resource.NodeStatus{
+								Name:     arm.Named("goodArm"),
+								State:    resource.NodeStateConfiguring,
+								Revision: "rev1",
+							},
+							CloudMetadata: cloud.Metadata{},
+						},
+					},
+					State: robot.StateRunning,
+				},
+				&pb.ConfigStatus{Revision: "rev1"},
+				[]*pb.ResourceStatus{
+					{
+						Name:          protoutils.ResourceNameToProto(arm.Named("goodArm")),
+						State:         pb.ResourceStatus_STATE_CONFIGURING,
+						Revision:      "rev1",
+						CloudMetadata: &pb.GetCloudMetadataResponse{},
+					},
+				},
+				pb.GetMachineStatusResponse_STATE_RUNNING,
+				0,
+				0,
+			},
+			{
+				"resource with cloud metadata",
+				robot.MachineStatus{
+					Config: config.Revision{Revision: "rev1"},
+					Resources: []resource.Status{
+						{
+							NodeStatus: resource.NodeStatus{
+								Name:     arm.Named("arm1"),
+								State:    resource.NodeStateConfiguring,
+								Revision: "rev1",
+							},
+							CloudMetadata: cloud.Metadata{
+								PrimaryOrgID:  "org1",
+								LocationID:    "loc1",
+								MachineID:     "mac1",
+								MachinePartID: "part1",
+							},
+						},
+						{
+							NodeStatus: resource.NodeStatus{
+								Name:  arm.Named("arm2").PrependRemote("remote1"),
+								State: resource.NodeStateReady,
+							},
+							CloudMetadata: cloud.Metadata{
+								PrimaryOrgID:  "org2",
+								LocationID:    "loc2",
+								MachineID:     "mac2",
+								MachinePartID: "part2",
+							},
+						},
+					},
+					State: robot.StateRunning,
+				},
+				&pb.ConfigStatus{Revision: "rev1"},
+				[]*pb.ResourceStatus{
+					{
+						Name:     protoutils.ResourceNameToProto(arm.Named("arm1")),
+						State:    pb.ResourceStatus_STATE_CONFIGURING,
+						Revision: "rev1",
+						CloudMetadata: protoutils.MetadataToProto(
+							cloud.Metadata{
+								PrimaryOrgID:  "org1",
+								LocationID:    "loc1",
+								MachineID:     "mac1",
+								MachinePartID: "part1",
+							},
+						),
+					},
+					{
+						Name:  protoutils.ResourceNameToProto(arm.Named("arm2").PrependRemote("remote1")),
+						State: pb.ResourceStatus_STATE_READY,
+						CloudMetadata: protoutils.MetadataToProto(
+							cloud.Metadata{
+								PrimaryOrgID:  "org2",
+								LocationID:    "loc2",
+								MachineID:     "mac2",
+								MachinePartID: "part2",
+							},
+						),
+					},
+				},
+				pb.GetMachineStatusResponse_STATE_RUNNING,
+				0,
 				0,
 			},
 			{
@@ -138,19 +247,26 @@ func TestServer(t *testing.T) {
 					Config: config.Revision{Revision: "rev1"},
 					Resources: []resource.Status{
 						{
-							Name:     arm.Named("goodArm"),
-							State:    resource.NodeStateConfiguring,
-							Revision: "rev1",
+							NodeStatus: resource.NodeStatus{
+								Name:     arm.Named("goodArm"),
+								State:    resource.NodeStateConfiguring,
+								Revision: "rev1",
+							},
 						},
 						{
-							Name:     arm.Named("badArm"),
-							Revision: "rev0",
+							NodeStatus: resource.NodeStatus{
+								Name:     arm.Named("badArm"),
+								Revision: "rev0",
+							},
 						},
 						{
-							Name:     arm.Named("anotherBadArm"),
-							Revision: "rev-1",
+							NodeStatus: resource.NodeStatus{
+								Name:     arm.Named("anotherBadArm"),
+								Revision: "rev-1",
+							},
 						},
 					},
+					State: robot.StateRunning,
 				},
 				&pb.ConfigStatus{Revision: "rev1"},
 				[]*pb.ResourceStatus{
@@ -170,7 +286,9 @@ func TestServer(t *testing.T) {
 						Revision: "rev-1",
 					},
 				},
+				pb.GetMachineStatusResponse_STATE_RUNNING,
 				2,
+				0,
 			},
 			{
 				"unhealthy status",
@@ -178,12 +296,15 @@ func TestServer(t *testing.T) {
 					Config: config.Revision{Revision: "rev1"},
 					Resources: []resource.Status{
 						{
-							Name:     arm.Named("brokenArm"),
-							Revision: "rev1",
-							State:    resource.NodeStateUnhealthy,
-							Error:    errors.New("bad configuration"),
+							NodeStatus: resource.NodeStatus{
+								Name:     arm.Named("brokenArm"),
+								Revision: "rev1",
+								State:    resource.NodeStateUnhealthy,
+								Error:    errors.New("bad configuration"),
+							},
 						},
 					},
+					State: robot.StateRunning,
 				},
 				&pb.ConfigStatus{Revision: "rev1"},
 				[]*pb.ResourceStatus{
@@ -194,30 +315,69 @@ func TestServer(t *testing.T) {
 						Error:    "bad configuration",
 					},
 				},
+				pb.GetMachineStatusResponse_STATE_RUNNING,
+				0,
 				0,
 			},
-		} {
-			logger, logs := logging.NewObservedTestLogger(t)
-			injectRobot := &inject.Robot{}
-			server := server.New(injectRobot)
-			req := pb.GetMachineStatusRequest{}
-			injectRobot.LoggerFunc = func() logging.Logger {
-				return logger
-			}
-			injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
-				return tc.injectMachineStatus, nil
-			}
-			resp, err := server.GetMachineStatus(context.Background(), &req)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, resp.GetConfig().GetRevision(), test.ShouldEqual, tc.expConfig.Revision)
-			for i, res := range resp.GetResources() {
-				test.That(t, res.GetName(), test.ShouldResemble, tc.expResources[i].Name)
-				test.That(t, res.GetState(), test.ShouldResemble, tc.expResources[i].State)
-				test.That(t, res.GetRevision(), test.ShouldEqual, tc.expResources[i].Revision)
-			}
-			const badStateMsg = "resource in an unknown state"
-			badStateCount := logs.FilterLevelExact(zapcore.ErrorLevel).FilterMessageSnippet(badStateMsg).Len()
-			test.That(t, badStateCount, test.ShouldEqual, tc.expBadStateCount)
+			{
+				"initializing machine state",
+				robot.MachineStatus{
+					Config:    config.Revision{Revision: "rev1"},
+					Resources: []resource.Status{},
+					State:     robot.StateInitializing,
+				},
+				&pb.ConfigStatus{Revision: "rev1"},
+				[]*pb.ResourceStatus{},
+				pb.GetMachineStatusResponse_STATE_INITIALIZING,
+				0,
+				0,
+			},
+			{
+				"unknown machine state",
+				robot.MachineStatus{
+					Config:    config.Revision{Revision: "rev1"},
+					Resources: []resource.Status{},
+					State:     robot.StateUnknown,
+				},
+				&pb.ConfigStatus{Revision: "rev1"},
+				[]*pb.ResourceStatus{},
+				pb.GetMachineStatusResponse_STATE_UNSPECIFIED,
+				0,
+				1,
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				logger, logs := logging.NewObservedTestLogger(t)
+				injectRobot := &inject.Robot{}
+				server := server.New(injectRobot)
+				req := pb.GetMachineStatusRequest{}
+				injectRobot.LoggerFunc = func() logging.Logger {
+					return logger
+				}
+				injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
+					return tc.injectMachineStatus, nil
+				}
+				resp, err := server.GetMachineStatus(context.Background(), &req)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, resp.GetConfig().GetRevision(), test.ShouldEqual, tc.expConfig.Revision)
+				for i, res := range resp.GetResources() {
+					test.That(t, res.GetName(), test.ShouldResemble, tc.expResources[i].Name)
+					test.That(t, res.GetState(), test.ShouldResemble, tc.expResources[i].State)
+					test.That(t, res.GetRevision(), test.ShouldEqual, tc.expResources[i].Revision)
+				}
+
+				test.That(t, resp.GetState(), test.ShouldEqual, tc.expState)
+
+				const badResourceStateMsg = "resource in an unknown state"
+				badResourceStateCount := logs.FilterLevelExact(zapcore.ErrorLevel).FilterMessageSnippet(badResourceStateMsg).Len()
+				test.That(t, badResourceStateCount, test.ShouldEqual, tc.expBadResourceStateCount)
+
+				const badMachineStateMsg = "machine in an unknown state"
+				badMachineStateCount := logs.FilterLevelExact(zapcore.ErrorLevel).FilterMessageSnippet(badMachineStateMsg).Len()
+				test.That(t, badMachineStateCount, test.ShouldEqual, tc.expBadMachineStateCount)
+			})
 		}
 	})
 
@@ -241,10 +401,12 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.GetMachinePartId(), test.ShouldEqual, "the-robot-part")
 	})
 
+	//nolint:deprecated,staticcheck
 	t.Run("Discovery", func(t *testing.T) {
 		injectRobot := &inject.Robot{}
 		injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return []resource.Name{} }
+		injectRobot.LoggerFunc = func() logging.Logger { return logging.NewTestLogger(t) }
 		server := server.New(injectRobot)
 
 		q := resource.DiscoveryQuery{arm.Named("arm").API, resource.DefaultModelFamily.WithModel("some-arm"), nil}

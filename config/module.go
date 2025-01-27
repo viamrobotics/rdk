@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -14,7 +15,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
@@ -103,7 +103,7 @@ func (m *Module) validate(path string) error {
 	if m.Type == ModuleTypeLocal {
 		_, err := os.Stat(m.ExePath)
 		if err != nil {
-			return errors.Wrapf(err, "module %s executable path error", path)
+			return fmt.Errorf("module %s executable path error: %w", path, err)
 		}
 	}
 
@@ -112,7 +112,7 @@ func (m *Module) validate(path string) error {
 	}
 
 	if m.Name == reservedModuleName {
-		return errors.Errorf("module %s cannot use the reserved name of %s", path, reservedModuleName)
+		return fmt.Errorf("module %s cannot use the reserved name of %s", path, reservedModuleName)
 	}
 
 	return nil
@@ -128,6 +128,20 @@ func (m Module) Equals(other Module) bool {
 	other.Status = nil
 	//nolint:govet
 	return reflect.DeepEqual(m, other)
+}
+
+// MergeEnvVars will merge the provided environment variables with the existing Environment, with the existing Environment
+// taking priority.
+func (m *Module) MergeEnvVars(env map[string]string) {
+	if m.Environment == nil {
+		m.Environment = make(map[string]string)
+	}
+	for k, v := range env {
+		if _, ok := m.Environment[k]; ok {
+			continue
+		}
+		m.Environment[k] = v
+	}
 }
 
 var tarballExtensionsRegexp = regexp.MustCompile(`\.(tgz|tar\.gz)$`)
@@ -167,7 +181,7 @@ func (m Module) exeDir(packagesDir string) (string, error) {
 func parseJSONFile[T any](path string) (*T, error) {
 	f, err := os.Open(path) //nolint:gosec
 	if err != nil {
-		return nil, errors.Wrap(err, "reading json file")
+		return nil, fmt.Errorf("reading json file: %w", err)
 	}
 	var target T
 	err = json.NewDecoder(f).Decode(&target)
@@ -222,7 +236,7 @@ func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 		meta, err := parseJSONFile[JSONManifest](metaPath)
 		if err != nil {
 			// note: this error deprecates the side-by-side case because the side-by-side case is deprecated.
-			return "", errors.Wrapf(err, "couldn't find meta.json inside tarball %s (or next to it)", m.ExePath)
+			return "", fmt.Errorf("couldn't find meta.json inside tarball %s (or next to it): %w", m.ExePath, err)
 		}
 		entrypoint, err := utils.SafeJoinDir(exeDir, meta.Entrypoint)
 		if err != nil {
@@ -257,8 +271,13 @@ func (m *Module) FirstRun(
 		return err
 	}
 
-	// check if FirstRun already ran successfully for this module version by
-	// checking if a success marker file exists on disk.
+	// check if FirstRun already ran successfully for this module version by checking if a success
+	// marker file exists on disk. An example module directory structure:
+	//
+	// .viam/packages/data/module/e76d1b3b-0468-4efd-bb7f-fb1d2b352fcb-viamrtsp-0_1_0-linux-amd64/
+	// .viam/packages/data/module/e76d1b3b-0468-4efd-bb7f-fb1d2b352fcb-viamrtsp-0_1_0-linux-amd64/bin/
+	// .viam/packages/data/module/e76d1b3b-0468-4efd-bb7f-fb1d2b352fcb-viamrtsp-0_1_0-linux-amd64/bin.first_run_succeeded
+	// .viam/packages/data/module/e76d1b3b-0468-4efd-bb7f-fb1d2b352fcb-viamrtsp-0_1_0-linux-amd64/bin/viamrtsp
 	firstRunSuccessPath := unpackedModDir + FirstRunSuccessSuffix
 	if _, err := os.Stat(firstRunSuccessPath); !errors.Is(err, os.ErrNotExist) {
 		logger.Info("first run already ran")
@@ -267,14 +286,14 @@ func (m *Module) FirstRun(
 
 	// Load the module's meta.json. If it doesn't exist DEBUG log and exit quietly.
 	// For all other errors WARN log and exit.
-	meta, err := m.getJSONManifest(unpackedModDir)
+	meta, moduleWorkingDirectory, err := m.getJSONManifest(unpackedModDir, env)
 	var pathErr *os.PathError
 	switch {
 	case errors.As(err, &pathErr):
-		logger.Debugw("meta.json not found, skipping first run", "error", err)
+		logger.Infow("meta.json does not exist, skipping first run")
 		return nil
 	case err != nil:
-		logger.Warn("failed to parse meta.json, skipping first run", "error", err)
+		logger.Warnw("failed to parse meta.json, skipping first run", "error", err)
 		return nil
 	}
 
@@ -282,7 +301,7 @@ func (m *Module) FirstRun(
 		logger.Debug("no first run script specified, skipping first run")
 		return nil
 	}
-	relFirstRunPath, err := utils.SafeJoinDir(unpackedModDir, meta.FirstRun)
+	relFirstRunPath, err := utils.SafeJoinDir(moduleWorkingDirectory, meta.FirstRun)
 	if err != nil {
 		logger.Errorw("failed to build path to first run script, skipping first run", "error", err)
 		return nil
@@ -310,6 +329,7 @@ func (m *Module) FirstRun(
 	for key, val := range env {
 		cmd.Env = append(cmd.Env, key+"="+val)
 	}
+	utils.LogViamEnvVariables("Running first run script with following Viam environment variables", env, logger)
 
 	stdOut, err := cmd.StdoutPipe()
 	if err != nil {
@@ -377,42 +397,116 @@ func (m *Module) FirstRun(
 	return nil
 }
 
-// getJSONManifest returns a loaded meta.json from one of two sources (in order of precedence):
-// 1. if there is a meta.json in the exe dir, use that, except in local non-tarball case.
-// 2. if this is a local tarball and there's a meta.json next to the tarball, use that.
+// getJSONManifest returns a loaded meta.json from one of three sources (in order of precedence):
+// 1. if this is a registry module and there is a meta.json in its top level directory, use that.
+// 2. if there is a meta.json in the exe dir, use that, except in local non-tarball case.
+// 3. if this is a local tarball, use the meta.json in unpackedModDir.
 // Note: the working directory must be the unpacked tarball directory or local exec directory.
-func (m Module) getJSONManifest(unpackedModDir string) (*JSONManifest, error) {
-	// note: we don't look at internal meta.json in local non-tarball case because user has explicitly requested a binary.
-	localNonTarball := m.Type == ModuleTypeLocal && !m.NeedsSyntheticPackage()
-	if !localNonTarball {
-		// this is case 1, meta.json in exe folder.
-		metaPath, err := utils.SafeJoinDir(unpackedModDir, "meta.json")
-		if err != nil {
-			return nil, err
-		}
-		_, err = os.Stat(metaPath)
-		if err == nil {
-			// this is case 1, meta.json in exe dir
-			meta, err := parseJSONFile[JSONManifest](metaPath)
-			if err != nil {
-				return nil, err
+func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*JSONManifest, string, error) {
+	// note: all registry modules qualify for cases 1 & 2; local tarballs for cases 2 & 3; and local non-tarballs for none. We don't look at
+	// internal meta.json in local non-tarball case because user has explicitly requested a binary.
+
+	// note: each case is exited iff no errors occur but the meta.json file is not found
+
+	var ok bool
+	var moduleWorkingDirectory string
+	var registryErr error
+
+	online := m.Type == ModuleTypeRegistry
+
+	// case 1: registry
+	if online {
+		moduleWorkingDirectory, ok = env["VIAM_MODULE_ROOT"]
+		if ok {
+			var meta *JSONManifest
+			meta, registryErr = findMetaJSONFile(moduleWorkingDirectory)
+			if registryErr != nil {
+				// return from getJSONManifest() if the error returned does NOT indicate that the file wasn't found
+				if !os.IsNotExist(registryErr) {
+					return nil, "", fmt.Errorf("registry module: %w", registryErr)
+				}
 			}
-			return meta, nil
+
+			if meta != nil {
+				return meta, moduleWorkingDirectory, nil
+			}
 		}
 	}
+
+	var registryTarballErr error
+
+	localNonTarball := m.Type == ModuleTypeLocal && !m.NeedsSyntheticPackage()
+
+	// case 2: registry OR tarball
+	if !localNonTarball && unpackedModDir != moduleWorkingDirectory {
+		var meta *JSONManifest
+		meta, registryTarballErr = findMetaJSONFile(unpackedModDir)
+		if registryTarballErr != nil {
+			if !os.IsNotExist(registryTarballErr) {
+				if online {
+					return nil, "", fmt.Errorf("registry module: %w", registryTarballErr)
+				}
+
+				return nil, "", fmt.Errorf("local tarball: %w", registryTarballErr)
+			}
+		}
+
+		if meta != nil {
+			return meta, unpackedModDir, nil
+		}
+	}
+
+	var exeDir string
+	var localTarballErr error
+
+	// TODO(RSDK-7848): remove this case once java sdk supports internal meta.json.
+	// case 3: local AND tarball
 	if m.NeedsSyntheticPackage() {
-		// this is case 2, side-by-side
-		// TODO(RSDK-7848): remove this case once java sdk supports internal meta.json.
-		metaPath, err := utils.SafeJoinDir(filepath.Dir(m.ExePath), "meta.json")
-		if err != nil {
-			return nil, err
+		exeDir = filepath.Dir(m.ExePath)
+
+		var meta *JSONManifest
+		meta, localTarballErr = findMetaJSONFile(exeDir)
+		if localTarballErr != nil {
+			if !os.IsNotExist(localTarballErr) {
+				return nil, "", fmt.Errorf("local tarball: %w", localTarballErr)
+			}
 		}
-		meta, err := parseJSONFile[JSONManifest](metaPath)
-		if err != nil {
-			// note: this error deprecates the side-by-side case because the side-by-side case is deprecated.
-			return nil, errors.Wrapf(err, "couldn't find meta.json inside tarball %s (or next to it)", m.ExePath)
+
+		if meta != nil {
+			return meta, exeDir, nil
 		}
-		return meta, err
 	}
-	return nil, errors.New("failed to find meta.json")
+
+	if online {
+		if !ok {
+			return nil, "", fmt.Errorf("registry module: failed to find meta.json. VIAM_MODULE_ROOT not set: %w", registryTarballErr)
+		}
+
+		return nil, "", fmt.Errorf("registry module: failed to find meta.json: %w", errors.Join(registryErr, registryTarballErr))
+	}
+
+	if !localNonTarball {
+		return nil, "", fmt.Errorf("local tarball: failed to find meta.json: %w", errors.Join(registryTarballErr, localTarballErr))
+	}
+
+	return nil, "", errors.New("local non-tarball: did not search for meta.json")
+}
+
+func findMetaJSONFile(dir string) (*JSONManifest, error) {
+	metaPath, err := utils.SafeJoinDir(dir, "meta.json")
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = os.Stat(metaPath)
+	if err != nil {
+		return nil, err
+	}
+
+	meta, err := parseJSONFile[JSONManifest](metaPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return meta, nil
 }

@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	rdkConfig "go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -22,7 +23,7 @@ func TestConfigureModule(t *testing.T) {
 		StartBuildFunc: func(ctx context.Context, in *v1.StartBuildRequest, opts ...grpc.CallOption) (*v1.StartBuildResponse, error) {
 			return &v1.StartBuildResponse{BuildId: "xyz123"}, nil
 		},
-	}, nil, map[string]any{moduleBuildFlagPath: manifestPath, moduleBuildFlagVersion: "1.2.3"}, "token")
+	}, map[string]any{moduleFlagPath: manifestPath, generalFlagVersion: "1.2.3"}, "token")
 	err := ac.moduleBuildStartAction(cCtx, parseStructFromCtx[moduleBuildStartArgs](cCtx))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.messages, test.ShouldHaveLength, 1)
@@ -31,6 +32,8 @@ func TestConfigureModule(t *testing.T) {
 }
 
 func TestFullReloadFlow(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
 	manifestPath := createTestManifest(t, "")
 	confStruct, err := structpb.NewStruct(map[string]any{
 		"modules": []any{},
@@ -59,15 +62,15 @@ func TestFullReloadFlow(t *testing.T) {
 				{ApiKey: &apppb.APIKey{}},
 			}}, nil
 		},
-	}, nil, &inject.BuildServiceClient{}, nil,
+	}, nil, &inject.BuildServiceClient{},
 		map[string]any{
-			moduleBuildFlagPath: manifestPath, partFlag: "part-123",
+			moduleFlagPath: manifestPath, generalFlagPartID: "part-123",
 			moduleBuildFlagNoBuild: true, moduleFlagLocal: true,
 		},
 		"token",
 	)
 	test.That(t, vc.loginAction(cCtx), test.ShouldBeNil)
-	err = reloadModuleAction(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx))
+	err = reloadModuleAction(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, updateCount, test.ShouldEqual, 1)
 
@@ -89,13 +92,13 @@ func TestRestartModule(t *testing.T) {
 func TestResolvePartId(t *testing.T) {
 	c := newTestContext(t, map[string]any{})
 	// empty flag, no path
-	partID, err := resolvePartID(c.Context, c.String(partFlag), "")
+	partID, err := resolvePartID(c.Context, c.String(generalFlagPartID), "")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, partID, test.ShouldBeEmpty)
 
 	// empty flag, fake path
 	missingPath := filepath.Join(t.TempDir(), "MISSING.json")
-	_, err = resolvePartID(c.Context, c.String(partFlag), missingPath)
+	_, err = resolvePartID(c.Context, c.String(generalFlagPartID), missingPath)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// empty flag, valid path
@@ -104,13 +107,13 @@ func TestResolvePartId(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, err = fi.WriteString(`{"cloud":{"app_address":"https://app.viam.com:443","id":"JSON-PART","secret":"SECRET"}}`)
 	test.That(t, err, test.ShouldBeNil)
-	partID, err = resolvePartID(c.Context, c.String(partFlag), path)
+	partID, err = resolvePartID(c.Context, c.String(generalFlagPartID), path)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, partID, test.ShouldEqual, "JSON-PART")
 
 	// given flag, valid path
-	c = newTestContext(t, map[string]any{partFlag: "FLAG-PART"})
-	partID, err = resolvePartID(c.Context, c.String(partFlag), path)
+	c = newTestContext(t, map[string]any{generalFlagPartID: "FLAG-PART"})
+	partID, err = resolvePartID(c.Context, c.String(generalFlagPartID), path)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, partID, test.ShouldEqual, "FLAG-PART")
 }

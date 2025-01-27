@@ -307,7 +307,7 @@ func TestFileDeletion(t *testing.T) {
 		},
 	})
 	config, deps := setupConfig(t, r, enabledTabularManyCollectorsConfigPath)
-	timeoutCtx, timeout := context.WithTimeout(ctx, time.Second*2)
+	timeoutCtx, timeout := context.WithTimeout(ctx, time.Second*5)
 	defer timeout()
 	// create sync clock so we can control when a single iteration of file deltion happens
 	c := config.ConvertedAttributes.(*Config)

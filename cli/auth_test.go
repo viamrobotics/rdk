@@ -16,7 +16,7 @@ import (
 )
 
 func TestLoginAction(t *testing.T) {
-	cCtx, ac, out, errOut := setup(nil, nil, nil, nil, nil, "token")
+	cCtx, ac, out, errOut := setup(nil, nil, nil, nil, "token")
 
 	test.That(t, ac.loginAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -26,7 +26,7 @@ func TestLoginAction(t *testing.T) {
 }
 
 func TestAPIKeyAuth(t *testing.T) {
-	_, ac, _, errOut := setup(nil, nil, nil, nil, nil, "apiKey")
+	_, ac, _, errOut := setup(nil, nil, nil, nil, "apiKey")
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	APIKey, isAPIKey := ac.conf.Auth.(*apiKey)
 	test.That(t, isAPIKey, test.ShouldBeTrue)
@@ -36,7 +36,7 @@ func TestAPIKeyAuth(t *testing.T) {
 
 func TestPrintAccessTokenAction(t *testing.T) {
 	// AppServiceClient needed for any Action that calls ensureLoggedIn.
-	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, nil, nil, nil, nil, "token")
+	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, nil, nil, nil, "token")
 
 	test.That(t, ac.printAccessTokenAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -53,7 +53,7 @@ func TestAPIKeyCreateAction(t *testing.T) {
 	asc := &inject.AppServiceClient{
 		CreateKeyFunc: createKeyFunc,
 	}
-	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
 
 	test.That(t, ac.organizationsAPIKeyCreateAction(cCtx, parseStructFromCtx[organizationsAPIKeyCreateArgs](cCtx)), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -79,8 +79,8 @@ func TestRobotAPIKeyCreateAction(t *testing.T) {
 	flags := make(map[string]any)
 	flags[generalFlagOrgID] = fakeOrgID
 	flags[generalFlagMachineID] = fakeRobotID
-	flags[apiKeyCreateFlagName] = "my-name"
-	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, flags, "token")
+	flags[generalFlagName] = "my-name"
+	cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "token")
 
 	test.That(t, ac.robotAPIKeyCreateAction(cCtx, parseStructFromCtx[robotAPIKeyCreateArgs](cCtx)), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -91,8 +91,8 @@ func TestRobotAPIKeyCreateAction(t *testing.T) {
 
 	// test that without name still works
 
-	cCtx.Set(apiKeyCreateFlagName, "")
-	test.That(t, cCtx.Value(apiKeyCreateFlagName), test.ShouldEqual, "")
+	cCtx.Set(generalFlagName, "")
+	test.That(t, cCtx.Value(generalFlagName), test.ShouldEqual, "")
 
 	test.That(t, ac.robotAPIKeyCreateAction(cCtx, parseStructFromCtx[robotAPIKeyCreateArgs](cCtx)), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -134,8 +134,8 @@ func TestRobotAPIKeyCreateAction(t *testing.T) {
 	flags = make(map[string]any)
 	flags[generalFlagMachineID] = fakeRobotID
 	flags[generalFlagOrgID] = ""
-	flags[apiKeyCreateFlagName] = "test-me"
-	cCtx, ac, out, _ = setup(asc, nil, nil, nil, flags, "token")
+	flags[generalFlagName] = "test-me"
+	cCtx, ac, out, _ = setup(asc, nil, nil, flags, "token")
 	err = ac.robotAPIKeyCreateAction(cCtx, parseStructFromCtx[robotAPIKeyCreateArgs](cCtx))
 	test.That(t, err, test.ShouldNotBeNil)
 
@@ -160,9 +160,9 @@ func TestLocationAPIKeyCreateAction(t *testing.T) {
 	flags := make(map[string]any)
 	flags[generalFlagLocationID] = ""
 	flags[generalFlagOrgID] = ""
-	flags[apiKeyCreateFlagName] = "" // testing no locationID
+	flags[generalFlagName] = "" // testing no locationID
 
-	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, flags, "token")
+	cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "token")
 	err := ac.locationAPIKeyCreateAction(cCtx, parseStructFromCtx[locationAPIKeyCreateArgs](cCtx))
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -201,9 +201,9 @@ func TestLocationAPIKeyCreateAction(t *testing.T) {
 	flags = make(map[string]any)
 	flags[generalFlagLocationID] = fakeLocID
 	flags[generalFlagOrgID] = ""
-	flags[apiKeyCreateFlagName] = "test-name"
+	flags[generalFlagName] = "test-name"
 
-	cCtx, ac, _, _ = setup(asc, nil, nil, nil, flags, "token")
+	cCtx, ac, _, _ = setup(asc, nil, nil, flags, "token")
 
 	err = ac.locationAPIKeyCreateAction(cCtx, parseStructFromCtx[locationAPIKeyCreateArgs](cCtx))
 	test.That(t, err, test.ShouldNotBeNil)
@@ -212,7 +212,7 @@ func TestLocationAPIKeyCreateAction(t *testing.T) {
 }
 
 func TestLogoutAction(t *testing.T) {
-	cCtx, ac, out, errOut := setup(nil, nil, nil, nil, nil, "token")
+	cCtx, ac, out, errOut := setup(nil, nil, nil, nil, "token")
 
 	test.That(t, ac.logoutAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -222,7 +222,7 @@ func TestLogoutAction(t *testing.T) {
 }
 
 func TestWhoAmIAction(t *testing.T) {
-	cCtx, ac, out, errOut := setup(nil, nil, nil, nil, nil, "token")
+	cCtx, ac, out, errOut := setup(nil, nil, nil, nil, "token")
 
 	test.That(t, ac.whoAmIAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)

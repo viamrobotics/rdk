@@ -356,7 +356,7 @@ func (c *viamClient) dataListTrainingJobs(orgID, status string) ([]*mltrainingpb
 }
 
 // allTrainingStatusValues returns the accepted values for the trainFlagJobStatus flag.
-func allTrainingStatusValues() string {
+func allTrainingStatusValues() []string {
 	var formattedStatuses []string
 	for status := range mltrainingpb.TrainingStatus_value {
 		formattedStatus := strings.ToLower(strings.TrimPrefix(status, trainingStatusPrefix))
@@ -364,7 +364,7 @@ func allTrainingStatusValues() string {
 	}
 
 	slices.Sort(formattedStatuses)
-	return "[" + strings.Join(formattedStatuses, ", ") + "]"
+	return formattedStatuses
 }
 
 func defaultTrainingStatus() string {

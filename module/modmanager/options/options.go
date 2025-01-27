@@ -4,6 +4,7 @@ package modmanageroptions
 import (
 	"context"
 
+	"go.viam.com/rdk/ftdc"
 	"go.viam.com/rdk/resource"
 )
 
@@ -19,4 +20,7 @@ type Options struct {
 	RemoveOrphanedResources func(ctx context.Context, rNames []resource.Name)
 	// PackagesDir is from Config.PackagesPath. It's used for resolving local tarball module paths.
 	PackagesDir string
+	// Passing in an FTDC object will let the mod manager add and remove pieces to track diagnostics
+	// of. Such module process CPU/memory information as they are started and stopped.
+	FTDC *ftdc.FTDC
 }

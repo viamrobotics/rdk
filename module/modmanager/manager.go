@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -29,6 +30,8 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/ftdc"
+	"go.viam.com/rdk/ftdc/sys"
 	rdkgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	modlib "go.viam.com/rdk/module"
@@ -39,6 +42,9 @@ import (
 	"go.viam.com/rdk/robot/packages"
 	rutils "go.viam.com/rdk/utils"
 )
+
+// tcpPortRange is the beginning of the port range. Only used when ViamTCPSockets() = true.
+const tcpPortRange = 13500
 
 var (
 	validateConfigTimeout       = 5 * time.Second
@@ -55,7 +61,7 @@ func NewManager(
 	ctx context.Context, parentAddr string, logger logging.Logger, options modmanageroptions.Options,
 ) modmaninterface.ModuleManager {
 	restartCtx, restartCtxCancel := context.WithCancel(ctx)
-	return &Manager{
+	ret := &Manager{
 		logger:                  logger.Sublogger("modmanager"),
 		modules:                 moduleMap{},
 		parentAddr:              parentAddr,
@@ -67,7 +73,10 @@ func NewManager(
 		restartCtx:              restartCtx,
 		restartCtxCancel:        restartCtxCancel,
 		packagesDir:             options.PackagesDir,
+		ftdc:                    options.FTDC,
 	}
+	ret.nextPort.Store(tcpPortRange)
+	return ret
 }
 
 type module struct {
@@ -99,6 +108,9 @@ type module struct {
 	inStartup      atomic.Bool
 	inRecoveryLock sync.Mutex
 	logger         logging.Logger
+	ftdc           *ftdc.FTDC
+	// port stores the listen port of this module when ViamTCPSockets() = true.
+	port int
 }
 
 type addedResource struct {
@@ -178,6 +190,9 @@ type Manager struct {
 	removeOrphanedResources func(ctx context.Context, rNames []resource.Name)
 	restartCtx              context.Context
 	restartCtxCancel        context.CancelFunc
+	ftdc                    *ftdc.FTDC
+	// nextPort manages ports when ViamTCPSockets() = true.
+	nextPort atomic.Int32
 }
 
 // Close terminates module connections and processes.
@@ -194,6 +209,22 @@ func (mgr *Manager) Close(ctx context.Context) error {
 		return true
 	})
 	return err
+}
+
+// Kill will kill all processes in the module's process group.
+// This is best effort as we do not have a lock during this
+// function. Taking the lock will mean that we may be blocked,
+// and we do not want to be blocked.
+func (mgr *Manager) Kill() {
+	if mgr.restartCtxCancel != nil {
+		mgr.restartCtxCancel()
+	}
+	// sync.Map's Range does not block other methods on the map;
+	// even f itself may call any method on the map.
+	mgr.modules.Range(func(_ string, mod *module) bool {
+		mod.killProcessGroup()
+		return true
+	})
 }
 
 // Handles returns all the models for each module registered.
@@ -318,6 +349,8 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, moduleLogger lo
 		dataDir:   moduleDataDir,
 		resources: map[resource.Name]*addedResource{},
 		logger:    moduleLogger,
+		ftdc:      mgr.ftdc,
+		port:      int(mgr.nextPort.Add(1)),
 	}
 
 	if err := mgr.startModule(ctx, mod); err != nil {
@@ -850,6 +883,10 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 				"error", err)
 		}
 
+		if mgr.ftdc != nil {
+			mgr.ftdc.Remove(mod.getFTDCName())
+		}
+
 		// If attemptRestart returns any orphaned resource names, restart failed,
 		// and we should remove orphaned resources. Since we handle process
 		// restarting ourselves, return false here so goutils knows not to attempt
@@ -988,8 +1025,13 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 func (m *module) dial() error {
 	// TODO(PRODUCT-343): session support probably means interceptors here
 	var err error
+	addrToDial := m.addr
+	if !rutils.TCPRegex.MatchString(addrToDial) {
+		addrToDial = "unix://" + m.addr
+	}
 	conn, err := grpc.Dial( //nolint:staticcheck
-		"unix://"+m.addr,
+		addrToDial,
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(rpc.MaxMessageSize)),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithChainUnaryInterceptor(
 			rdkgrpc.EnsureTimeoutUnaryClientInterceptor,
@@ -1096,11 +1138,16 @@ func (m *module) startProcess(
 	packagesDir string,
 ) error {
 	var err error
-	// append a random alpha string to the module name while creating a socket address to avoid conflicts
-	// with old versions of the module.
-	if m.addr, err = modlib.CreateSocketAddress(
-		filepath.Dir(parentAddr), fmt.Sprintf("%s-%s", m.cfg.Name, utils.RandomAlphaString(5))); err != nil {
-		return err
+
+	if rutils.ViamTCPSockets() {
+		m.addr = "127.0.0.1:" + strconv.Itoa(m.port)
+	} else {
+		// append a random alpha string to the module name while creating a socket address to avoid conflicts
+		// with old versions of the module.
+		if m.addr, err = modlib.CreateSocketAddress(
+			filepath.Dir(parentAddr), fmt.Sprintf("%s-%s", m.cfg.Name, utils.RandomAlphaString(5))); err != nil {
+			return err
+		}
 	}
 
 	// We evaluate the Module's ExePath absolutely in the viam-server process so that
@@ -1143,10 +1190,16 @@ func (m *module) startProcess(
 		return errors.WithMessage(err, "module startup failed")
 	}
 
+	// Turn on process cpu/memory diagnostics for the module process. If there's an error, we
+	// continue normally, just without FTDC.
+	m.registerProcessWithFTDC()
+
 	checkTicker := time.NewTicker(100 * time.Millisecond)
 	defer checkTicker.Stop()
 
 	m.logger.CInfow(ctx, "Starting up module", "module", m.cfg.Name)
+	rutils.LogViamEnvVariables("Starting module with following Viam environment variables", moduleEnvironment, m.logger)
+
 	ctxTimeout, cancel := context.WithTimeout(ctx, rutils.GetModuleStartupTimeout(m.logger))
 	defer cancel()
 	for {
@@ -1164,12 +1217,15 @@ func (m *module) startProcess(
 				)
 			}
 		}
-		err = modlib.CheckSocketOwner(m.addr)
-		if errors.Is(err, fs.ErrNotExist) {
-			continue
-		}
-		if err != nil {
-			return errors.WithMessage(err, "module startup failed")
+		if !rutils.TCPRegex.MatchString(m.addr) {
+			// note: we don't do this check in TCP mode because TCP addresses are not file paths and will fail check.
+			err = modlib.CheckSocketOwner(m.addr)
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+			if err != nil {
+				return errors.WithMessage(err, "module startup failed")
+			}
 		}
 		break
 	}
@@ -1180,9 +1236,21 @@ func (m *module) stopProcess() error {
 	if m.process == nil {
 		return nil
 	}
+
+	m.logger.Infof("Stopping module: %s process", m.cfg.Name)
+
 	// Attempt to remove module's .sock file if module did not remove it
 	// already.
-	defer rutils.RemoveFileNoError(m.addr)
+	defer func() {
+		rutils.RemoveFileNoError(m.addr)
+
+		// The system metrics "statser" is resilient to the process dying under the hood. An empty set
+		// of metrics will be reported. Therefore it is safe to continue monitoring the module process
+		// while it's in shutdown.
+		if m.ftdc != nil {
+			m.ftdc.Remove(m.getFTDCName())
+		}
+	}()
 
 	// TODO(RSDK-2551): stop ignoring exit status 143 once Python modules handle
 	// SIGTERM correctly.
@@ -1193,8 +1261,16 @@ func (m *module) stopProcess() error {
 		}
 		return err
 	}
-	m.logger.Infof("Stopping module: %s process", m.cfg.Name)
+
 	return nil
+}
+
+func (m *module) killProcessGroup() {
+	if m.process == nil {
+		return
+	}
+	m.logger.Infof("Killing module: %s process", m.cfg.Name)
+	m.process.KillGroup()
 }
 
 func (m *module) registerResources(mgr modmaninterface.ModuleManager) {
@@ -1228,12 +1304,15 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager) {
 						if err != nil {
 							return nil, err
 						}
+
+						//nolint:deprecated,staticcheck
 						req := &robotpb.DiscoverComponentsRequest{
 							Queries: []*robotpb.DiscoveryQuery{
 								{Subtype: apiCopy.API.String(), Model: modelCopy.String(), Extra: extraStructPb},
 							},
 						}
 
+						//nolint:deprecated,staticcheck
 						res, err := m.robotClient.DiscoverComponents(ctx, req)
 						if err != nil {
 							m.logger.Errorf("error in modular DiscoverComponents: %s", err)
@@ -1302,6 +1381,30 @@ func (m *module) getFullEnvironment(viamHomeDir string) map[string]string {
 	return getFullEnvironment(m.cfg, m.dataDir, viamHomeDir)
 }
 
+func (m *module) getFTDCName() string {
+	return fmt.Sprintf("proc.modules.%s", m.process.ID())
+}
+
+func (m *module) registerProcessWithFTDC() {
+	if m.ftdc == nil {
+		return
+	}
+
+	pid, err := m.process.UnixPid()
+	if err != nil {
+		m.logger.Warnw("Module process has no pid. Cannot start ftdc.", "err", err)
+		return
+	}
+
+	statser, err := sys.NewPidSysUsageStatser(pid)
+	if err != nil {
+		m.logger.Warnw("Cannot find /proc files", "err", err)
+		return
+	}
+
+	m.ftdc.Add(m.getFTDCName(), statser)
+}
+
 func getFullEnvironment(
 	cfg config.Module,
 	dataDir string,
@@ -1315,6 +1418,7 @@ func getFullEnvironment(
 		environment["VIAM_MODULE_ID"] = cfg.ModuleID
 	}
 	// Overwrite the base environment variables with the module's environment variables (if specified)
+	// VIAM_MODULE_ROOT is filled out by app.viam.com in cloud robots.
 	for key, value := range cfg.Environment {
 		environment[key] = value
 	}

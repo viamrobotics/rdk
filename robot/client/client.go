@@ -60,6 +60,12 @@ var (
 
 	// defaultResourcesTimeout is the default timeout for getting resources.
 	defaultResourcesTimeout = 5 * time.Second
+
+	// DoNotWaitForRunning should be set only in tests to allow connecting to
+	// still-initializing machines. Note that robot clients in production (not in
+	// a testing environment) will already allow connecting to still-initializing
+	// machines.
+	DoNotWaitForRunning = atomic.Bool{}
 )
 
 // RobotClient satisfies the robot.Robot interface through a gRPC based
@@ -286,6 +292,41 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 
 	if err := rc.Connect(ctx); err != nil {
 		return nil, err
+	}
+
+	// If running in a testing environment, wait for machine to report a state of
+	// running. We often establish connections in tests and expect resources to
+	// be immediately available once the web service has started; resources will
+	// not be available when the machine is still initializing.
+	//
+	// It is expected that golang SDK users will handle lack of resource
+	// availability due to the machine being in an initializing state themselves.
+	//
+	// Allow this behavior to be turned off in some tests that specifically want
+	// to examine the behavior of a machine in an initializing state through the
+	// use of a global variable.
+	if testing.Testing() && !DoNotWaitForRunning.Load() {
+		for {
+			if ctx.Err() != nil {
+				return nil, multierr.Combine(ctx.Err(), rc.conn.Close())
+			}
+
+			mStatus, err := rc.MachineStatus(ctx)
+			if err != nil {
+				// Allow for MachineStatus to not be injected/implemented in some tests.
+				if status.Code(err) == codes.Unimplemented {
+					break
+				}
+				// Ignore error from Close and just return original machine status error.
+				utils.UncheckedError(rc.conn.Close())
+				return nil, err
+			}
+
+			if mStatus.State == robot.StateRunning {
+				break
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
 	}
 
 	// refresh once to hydrate the robot.
@@ -819,6 +860,7 @@ func (rc *RobotClient) Logger() logging.Logger {
 	return rc.logger
 }
 
+// DiscoverComponents is DEPRECATED!!! Please use the Discovery Service instead.
 // DiscoverComponents takes a list of discovery queries and returns corresponding
 // component configurations.
 //
@@ -830,7 +872,11 @@ func (rc *RobotClient) Logger() logging.Logger {
 //
 //	// Get component configurations with these queries.
 //	component_configs, err := machine.DiscoverComponents(ctx.Background(), qs)
+//
+//nolint:deprecated,staticcheck
 func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error) {
+	rc.logger.Warn(
+		"DiscoverComponents is deprecated and will be removed on March 10th 2025. Please use the Discovery Service instead.")
 	pbQueries := make([]*pb.DiscoveryQuery, 0, len(qs))
 	for _, q := range qs {
 		extra, err := structpb.NewStruct(q.Extra)
@@ -1014,17 +1060,12 @@ func (rc *RobotClient) Log(ctx context.Context, log zapcore.Entry, fields []zap.
 //
 //	metadata, err := machine.CloudMetadata(ctx.Background())
 func (rc *RobotClient) CloudMetadata(ctx context.Context) (cloud.Metadata, error) {
-	cloudMD := cloud.Metadata{}
 	req := &pb.GetCloudMetadataRequest{}
 	resp, err := rc.client.GetCloudMetadata(ctx, req)
 	if err != nil {
-		return cloudMD, err
+		return cloud.Metadata{}, err
 	}
-	cloudMD.PrimaryOrgID = resp.PrimaryOrgId
-	cloudMD.LocationID = resp.LocationId
-	cloudMD.MachineID = resp.MachineId
-	cloudMD.MachinePartID = resp.MachinePartId
-	return cloudMD, nil
+	return rprotoutils.MetadataFromProto(resp), nil
 }
 
 // RestartModule restarts a running module by name or ID.
@@ -1090,9 +1131,12 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 	mStatus.Resources = make([]resource.Status, 0, len(resp.Resources))
 	for _, pbResStatus := range resp.Resources {
 		resStatus := resource.Status{
-			Name:        rprotoutils.ResourceNameFromProto(pbResStatus.Name),
-			LastUpdated: pbResStatus.LastUpdated.AsTime(),
-			Revision:    pbResStatus.Revision,
+			NodeStatus: resource.NodeStatus{
+				Name:        rprotoutils.ResourceNameFromProto(pbResStatus.Name),
+				LastUpdated: pbResStatus.LastUpdated.AsTime(),
+				Revision:    pbResStatus.Revision,
+			},
+			CloudMetadata: rprotoutils.MetadataFromProto(pbResStatus.CloudMetadata),
 		}
 
 		switch pbResStatus.State {
@@ -1115,6 +1159,16 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 		}
 
 		mStatus.Resources = append(mStatus.Resources, resStatus)
+	}
+
+	switch resp.State {
+	case pb.GetMachineStatusResponse_STATE_UNSPECIFIED:
+		rc.logger.CError(ctx, "received unspecified machine state")
+		mStatus.State = robot.StateUnknown
+	case pb.GetMachineStatusResponse_STATE_INITIALIZING:
+		mStatus.State = robot.StateInitializing
+	case pb.GetMachineStatusResponse_STATE_RUNNING:
+		mStatus.State = robot.StateRunning
 	}
 
 	return mStatus, nil

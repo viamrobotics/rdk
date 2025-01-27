@@ -164,9 +164,14 @@ func (s *Server) ResourceRPCSubtypes(ctx context.Context, _ *pb.ResourceRPCSubty
 	return &pb.ResourceRPCSubtypesResponse{ResourceRpcSubtypes: protoTypes}, nil
 }
 
+// DiscoverComponents is DEPRECATED!!! Please use the Discovery Service instead.
 // DiscoverComponents takes a list of discovery queries and returns corresponding
 // component configurations.
+//
+//nolint:deprecated,staticcheck
 func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverComponentsRequest) (*pb.DiscoverComponentsResponse, error) {
+	s.robot.Logger().CWarn(ctx,
+		"DiscoverComponents is deprecated and will be removed on March 10th 2025. Please use the Discovery Service instead.")
 	// nonTriplet indicates older syntax for type and model E.g. "camera" instead of "rdk:component:camera"
 	// TODO(PRODUCT-344): remove triplet checking here after complete
 	var nonTriplet bool
@@ -408,14 +413,7 @@ func (s *Server) GetCloudMetadata(ctx context.Context, _ *pb.GetCloudMetadataReq
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetCloudMetadataResponse{
-		// TODO: RSDK-7181 remove RobotPartId
-		RobotPartId:   md.MachinePartID, // Deprecated: Duplicates MachinePartId
-		PrimaryOrgId:  md.PrimaryOrgID,
-		LocationId:    md.LocationID,
-		MachineId:     md.MachineID,
-		MachinePartId: md.MachinePartID,
-	}, nil
+	return protoutils.MetadataToProto(md), nil
 }
 
 // RestartModule restarts a module by name or ID.
@@ -448,7 +446,6 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 	if err != nil {
 		return nil, err
 	}
-
 	result.Config = &pb.ConfigStatus{
 		Revision:    mStatus.Config.Revision,
 		LastUpdated: timestamppb.New(mStatus.Config.LastUpdated),
@@ -456,9 +453,10 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 	result.Resources = make([]*pb.ResourceStatus, 0, len(mStatus.Resources))
 	for _, resStatus := range mStatus.Resources {
 		pbResStatus := &pb.ResourceStatus{
-			Name:        protoutils.ResourceNameToProto(resStatus.Name),
-			LastUpdated: timestamppb.New(resStatus.LastUpdated),
-			Revision:    resStatus.Revision,
+			Name:          protoutils.ResourceNameToProto(resStatus.Name),
+			LastUpdated:   timestamppb.New(resStatus.LastUpdated),
+			Revision:      resStatus.Revision,
+			CloudMetadata: protoutils.MetadataToProto(resStatus.CloudMetadata),
 		}
 
 		switch resStatus.State {
@@ -481,6 +479,16 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 		}
 
 		result.Resources = append(result.Resources, pbResStatus)
+	}
+
+	switch mStatus.State {
+	case robot.StateUnknown:
+		s.robot.Logger().CError(ctx, "machine in an unknown state")
+		result.State = pb.GetMachineStatusResponse_STATE_UNSPECIFIED
+	case robot.StateInitializing:
+		result.State = pb.GetMachineStatusResponse_STATE_INITIALIZING
+	case robot.StateRunning:
+		result.State = pb.GetMachineStatusResponse_STATE_RUNNING
 	}
 
 	return &result, nil

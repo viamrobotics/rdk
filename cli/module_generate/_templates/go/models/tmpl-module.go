@@ -21,7 +21,7 @@ type Config struct {
 	/*
 	Put config attributes here. There should be public/exported fields
 	with a `json` parameter at the end of each attribute.
-	
+
 	Example config struct:
 		type Config struct {
 			Pin   string `json:"pin"`
@@ -29,7 +29,7 @@ type Config struct {
 			MinDeg *float64 `json:"min_angle_deg,omitempty"`
 		}
 
-	If your model does not need a config, replace *Config in the init 
+	If your model does not need a config, replace *Config in the init
 	function with resource.NoNativeConfig
 	*/
 
@@ -38,7 +38,7 @@ type Config struct {
 	// resource.TriviallyValidateConfig
 }
 
-// Validate ensures all parts of the config are valid and important fields exist. 
+// Validate ensures all parts of the config are valid and important fields exist.
 // Returns implicit dependencies based on the config.
 // The path is the JSON path in your robot's config (not the `Config` struct) to the
 // resource being validated; e.g. "components.0".

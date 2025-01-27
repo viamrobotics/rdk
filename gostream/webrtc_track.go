@@ -124,14 +124,14 @@ func (s *trackLocalStaticRTP) WriteRTP(p *rtp.Packet) error {
 
 	writeErrs := []error{}
 	outboundPacket := *p
-
+	sequenceNum := s.sequencer.NextSequenceNumber()
 	for _, b := range s.bindings {
 		outboundPacket.Header.SSRC = uint32(b.ssrc)
 		outboundPacket.Header.PayloadType = uint8(b.payloadType)
 		// We overwrite the sequence number to ensure continuity between packets
 		// coming from Passthrough sources and those that are packetized by the
 		// Pion RTP Packetizer in the WriteData method.
-		outboundPacket.Header.SequenceNumber = s.sequencer.NextSequenceNumber()
+		outboundPacket.Header.SequenceNumber = sequenceNum
 		if _, err := b.writeStream.WriteRTP(&outboundPacket.Header, outboundPacket.Payload); err != nil {
 			writeErrs = append(writeErrs, err)
 		}

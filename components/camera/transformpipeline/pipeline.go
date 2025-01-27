@@ -117,7 +117,7 @@ func newTransformPipeline(
 	pipeline := make([]camera.VideoSource, 0, len(cfg.Pipeline))
 	lastSource := source
 	for _, tr := range cfg.Pipeline {
-		src, newStreamType, err := buildTransform(ctx, r, lastSource, streamType, tr, cfg.Source)
+		src, newStreamType, err := buildTransform(ctx, r, lastSource, streamType, tr)
 		if err != nil {
 			return nil, err
 		}

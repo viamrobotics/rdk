@@ -27,6 +27,7 @@ import (
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
 	"go.viam.com/rdk/examples/customresources/models/mybase"
+	"go.viam.com/rdk/examples/customresources/models/mydiscovery"
 	"go.viam.com/rdk/examples/customresources/models/mygizmo"
 	"go.viam.com/rdk/examples/customresources/models/mysum"
 	"go.viam.com/rdk/logging"
@@ -34,6 +35,7 @@ import (
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/datamanager"
+	"go.viam.com/rdk/services/discovery"
 	"go.viam.com/rdk/services/shell"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -176,6 +178,7 @@ func TestModuleFunctions(t *testing.T) {
 
 	test.That(t, m.AddModelFromRegistry(ctx, gizmoapi.API, mygizmo.Model), test.ShouldBeNil)
 	test.That(t, m.AddModelFromRegistry(ctx, base.API, mybase.Model), test.ShouldBeNil)
+	test.That(t, m.AddModelFromRegistry(ctx, discovery.API, mydiscovery.Model), test.ShouldBeNil)
 
 	test.That(t, m.Start(ctx), test.ShouldBeNil)
 
@@ -204,37 +207,66 @@ func TestModuleFunctions(t *testing.T) {
 	t.Run("HandlerMap", func(t *testing.T) {
 		// test the raw return
 		handlers := resp.GetHandlermap().GetHandlers()
-		test.That(t, "acme", test.ShouldBeIn, handlers[0].Subtype.Subtype.Namespace, handlers[1].Subtype.Subtype.Namespace)
-		test.That(t, "rdk", test.ShouldBeIn, handlers[0].Subtype.Subtype.Namespace, handlers[1].Subtype.Subtype.Namespace)
-		test.That(t, "component", test.ShouldBeIn, handlers[0].Subtype.Subtype.Type, handlers[1].Subtype.Subtype.Type)
-		test.That(t, "gizmo", test.ShouldBeIn, handlers[0].Subtype.Subtype.Subtype, handlers[1].Subtype.Subtype.Subtype)
-		test.That(t, "base", test.ShouldBeIn, handlers[0].Subtype.Subtype.Subtype, handlers[1].Subtype.Subtype.Subtype)
-		test.That(t, "acme:demo:mygizmo", test.ShouldBeIn, handlers[0].GetModels()[0], handlers[1].GetModels()[0])
-		test.That(t, "acme:demo:mybase", test.ShouldBeIn, handlers[0].GetModels()[0], handlers[1].GetModels()[0])
+		test.That(t, "acme", test.ShouldBeIn,
+			handlers[0].Subtype.Subtype.Namespace, handlers[1].Subtype.Subtype.Namespace, handlers[2].Subtype.Subtype.Namespace)
+		test.That(t, "rdk", test.ShouldBeIn,
+			handlers[0].Subtype.Subtype.Namespace, handlers[1].Subtype.Subtype.Namespace, handlers[2].Subtype.Subtype.Namespace)
+		test.That(t, "component", test.ShouldBeIn,
+			handlers[0].Subtype.Subtype.Type, handlers[1].Subtype.Subtype.Type, handlers[2].Subtype.Subtype.Type)
+		test.That(t, "service", test.ShouldBeIn,
+			handlers[0].Subtype.Subtype.Type, handlers[1].Subtype.Subtype.Type, handlers[2].Subtype.Subtype.Type)
+		test.That(t, "gizmo", test.ShouldBeIn,
+			handlers[0].Subtype.Subtype.Subtype, handlers[1].Subtype.Subtype.Subtype, handlers[2].Subtype.Subtype.Subtype)
+		test.That(t, "base", test.ShouldBeIn,
+			handlers[0].Subtype.Subtype.Subtype, handlers[1].Subtype.Subtype.Subtype, handlers[2].Subtype.Subtype.Subtype)
+		test.That(t, "discovery", test.ShouldBeIn,
+			handlers[0].Subtype.Subtype.Subtype, handlers[1].Subtype.Subtype.Subtype, handlers[2].Subtype.Subtype.Subtype)
+		test.That(t, "acme:demo:mygizmo", test.ShouldBeIn,
+			handlers[0].GetModels()[0], handlers[1].GetModels()[0], handlers[2].GetModels()[0])
+		test.That(t, "acme:demo:mybase", test.ShouldBeIn,
+			handlers[0].GetModels()[0], handlers[1].GetModels()[0], handlers[2].GetModels()[0])
+		test.That(t, "acme:demo:mydiscovery", test.ShouldBeIn,
+			handlers[0].GetModels()[0], handlers[1].GetModels()[0], handlers[2].GetModels()[0])
 
 		// convert from proto
 		hmap, err := module.NewHandlerMapFromProto(ctx, resp.GetHandlermap(), rpc.GrpcOverHTTPClientConn{ClientConn: conn})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(hmap), test.ShouldEqual, 2)
+		test.That(t, len(hmap), test.ShouldEqual, 3)
 
 		for k, v := range hmap {
-			test.That(t, k.API, test.ShouldBeIn, gizmoapi.API, base.API)
-			if k.API == gizmoapi.API {
+			test.That(t, k.API, test.ShouldBeIn, gizmoapi.API, base.API, discovery.API)
+			switch k.API {
+			case gizmoapi.API:
 				test.That(t, mygizmo.Model, test.ShouldResemble, v[0])
-			} else {
+			case discovery.API:
+				test.That(t, mydiscovery.Model, test.ShouldResemble, v[0])
+			default:
 				test.That(t, mybase.Model, test.ShouldResemble, v[0])
 			}
 		}
 
 		// convert back to proto
 		handlers2 := hmap.ToProto().GetHandlers()
-		test.That(t, "acme", test.ShouldBeIn, handlers2[0].Subtype.Subtype.Namespace, handlers2[1].Subtype.Subtype.Namespace)
-		test.That(t, "rdk", test.ShouldBeIn, handlers2[0].Subtype.Subtype.Namespace, handlers2[1].Subtype.Subtype.Namespace)
-		test.That(t, "component", test.ShouldBeIn, handlers2[0].Subtype.Subtype.Type, handlers2[1].Subtype.Subtype.Type)
-		test.That(t, "gizmo", test.ShouldBeIn, handlers2[0].Subtype.Subtype.Subtype, handlers2[1].Subtype.Subtype.Subtype)
-		test.That(t, "base", test.ShouldBeIn, handlers2[0].Subtype.Subtype.Subtype, handlers2[1].Subtype.Subtype.Subtype)
-		test.That(t, "acme:demo:mygizmo", test.ShouldBeIn, handlers2[0].GetModels()[0], handlers2[1].GetModels()[0])
-		test.That(t, "acme:demo:mybase", test.ShouldBeIn, handlers2[0].GetModels()[0], handlers2[1].GetModels()[0])
+		test.That(t, "acme", test.ShouldBeIn,
+			handlers2[0].Subtype.Subtype.Namespace, handlers2[1].Subtype.Subtype.Namespace, handlers2[2].Subtype.Subtype.Namespace)
+		test.That(t, "rdk", test.ShouldBeIn,
+			handlers2[0].Subtype.Subtype.Namespace, handlers2[1].Subtype.Subtype.Namespace, handlers2[2].Subtype.Subtype.Namespace)
+		test.That(t, "component", test.ShouldBeIn,
+			handlers2[0].Subtype.Subtype.Type, handlers2[1].Subtype.Subtype.Type, handlers2[2].Subtype.Subtype.Type)
+		test.That(t, "service", test.ShouldBeIn,
+			handlers2[0].Subtype.Subtype.Type, handlers2[1].Subtype.Subtype.Type, handlers2[2].Subtype.Subtype.Type)
+		test.That(t, "gizmo", test.ShouldBeIn,
+			handlers2[0].Subtype.Subtype.Subtype, handlers2[1].Subtype.Subtype.Subtype, handlers2[2].Subtype.Subtype.Subtype)
+		test.That(t, "base", test.ShouldBeIn,
+			handlers2[0].Subtype.Subtype.Subtype, handlers2[1].Subtype.Subtype.Subtype, handlers2[2].Subtype.Subtype.Subtype)
+		test.That(t, "discovery", test.ShouldBeIn,
+			handlers2[0].Subtype.Subtype.Subtype, handlers2[1].Subtype.Subtype.Subtype, handlers2[2].Subtype.Subtype.Subtype)
+		test.That(t, "acme:demo:mygizmo", test.ShouldBeIn,
+			handlers2[0].GetModels()[0], handlers2[1].GetModels()[0], handlers2[2].GetModels()[0])
+		test.That(t, "acme:demo:mybase", test.ShouldBeIn,
+			handlers2[0].GetModels()[0], handlers2[1].GetModels()[0], handlers2[2].GetModels()[0])
+		test.That(t, "acme:demo:mydiscovery", test.ShouldBeIn,
+			handlers2[0].GetModels()[0], handlers2[1].GetModels()[0], handlers2[2].GetModels()[0])
 	})
 
 	t.Run("GetParentResource", func(t *testing.T) {

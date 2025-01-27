@@ -60,6 +60,7 @@ require (
 	github.com/pion/logging v0.2.2
 	github.com/pion/mediadevices v0.6.4
 	github.com/pion/rtp v1.8.7
+	github.com/prometheus/procfs v0.15.1
 	github.com/rhysd/actionlint v1.6.24
 	github.com/rs/cors v1.11.1
 	github.com/sergi/go-diff v1.3.1
@@ -74,14 +75,14 @@ require (
 	go.uber.org/atomic v1.11.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
-	go.viam.com/api v0.1.372
+	go.viam.com/api v0.1.383
 	go.viam.com/test v1.2.4
-	go.viam.com/utils v0.1.116
+	go.viam.com/utils v0.1.127
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.19.0
 	golang.org/x/mobile v0.0.0-20240112133503-c713f31d574b
 	golang.org/x/sync v0.8.0
-	golang.org/x/sys v0.27.0
+	golang.org/x/sys v0.29.0
 	golang.org/x/term v0.25.0
 	golang.org/x/text v0.19.0
 	golang.org/x/time v0.6.0
@@ -93,6 +94,7 @@ require (
 	google.golang.org/grpc v1.66.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.2.0
 	google.golang.org/protobuf v1.35.1
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/src-d/go-billy.v4 v4.3.2
 	gorgonia.org/tensor v0.9.24
 	gotest.tools/gotestsum v1.10.0
@@ -334,7 +336,6 @@ require (
 	github.com/prometheus/client_golang v1.12.2 // indirect
 	github.com/prometheus/client_model v0.6.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
-	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/quasilyte/go-ruleguard v0.4.3-0.20240823090925-0fe6f58b47b1 // indirect
 	github.com/quasilyte/go-ruleguard/dsl v0.3.22 // indirect
 	github.com/quasilyte/gogrep v0.5.0 // indirect

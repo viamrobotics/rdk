@@ -23,7 +23,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/data"
 )
@@ -308,23 +307,14 @@ func createExportTabularRequest(c *cli.Context) (*datapb.ExportTabularDataReques
 }
 
 func createCaptureInterval(startStr, endStr string) (*datapb.CaptureInterval, error) {
-	var start *timestamppb.Timestamp
-	var end *timestamppb.Timestamp
-	timeLayout := time.RFC3339
-
-	if startStr != "" {
-		t, err := time.Parse(timeLayout, startStr)
-		if err != nil {
-			return nil, errors.Wrap(err, "could not parse start flag")
-		}
-		start = timestamppb.New(t)
+	start, err := parseTimeString(startStr)
+	if err != nil {
+		return nil, err
 	}
-	if endStr != "" {
-		t, err := time.Parse(timeLayout, endStr)
-		if err != nil {
-			return nil, errors.Wrap(err, "could not parse end flag")
-		}
-		end = timestamppb.New(t)
+
+	end, err := parseTimeString(endStr)
+	if err != nil {
+		return nil, err
 	}
 
 	return &datapb.CaptureInterval{
@@ -504,11 +494,13 @@ func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, 
 }
 
 func (c *viamClient) downloadBinary(dst string, id *datapb.BinaryID, timeout uint) error {
-	args := parseStructFromCtx[globalArgs](c.c)
+	args, err := getGlobalArgs(c.c)
+	if err != nil {
+		return err
+	}
 	debugf(c.c.App.Writer, args.Debug, "Attempting to download binary file %s", id.FileId)
 
 	var resp *datapb.BinaryDataByIDsResponse
-	var err error
 	largeFile := false
 	// To begin, we assume the file is small and downloadable, so we try getting the binary directly
 	for count := 0; count < maxRetryCount; count++ {
@@ -717,8 +709,16 @@ func (c *viamClient) tabularData(dest string, request *datapb.ExportTabularDataR
 
 			writer := bufio.NewWriter(dataFile)
 
-			dataRowChan := make(chan []byte)
-			errChan := make(chan error, 1)
+			// We buffer the `dataRowChan` to allow for efficient pipelining to better maximize the
+			// network and disk resource utilization.
+			dataRowChan := make(chan []byte, 10)
+
+			// RSDK-9667: The `errChan` must be unbuffered. Such that the consumer will first
+			// observe an error being returned before observing the `dataRowChan` being closed.
+			//
+			// Otherwise the program may run into an error exporting data, but not report it to the
+			// user.
+			errChan := make(chan error)
 
 			var exportErr error
 

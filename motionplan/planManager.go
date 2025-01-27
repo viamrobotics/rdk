@@ -134,7 +134,7 @@ func (pm *planManager) planAtomicWaypoints(
 	// Each atomic waypoint produces one result promise, all of which are resolved at the end, allowing multiple to be solved in parallel.
 	resultPromises := []*resultPromise{}
 
-	var seed map[string][]referenceframe.Input
+	var seed referenceframe.FrameSystemInputs
 
 	// try to solve each goal, one at a time
 	for i, wp := range waypoints {
@@ -211,7 +211,7 @@ func (pm *planManager) planSingleAtomicWaypoint(
 	ctx context.Context,
 	wp atomicWaypoint,
 	maps *rrtMaps,
-) (map[string][]referenceframe.Input, *resultPromise, error) {
+) (referenceframe.FrameSystemInputs, *resultPromise, error) {
 	fromPoses, err := wp.startState.ComputePoses(pm.fs)
 	if err != nil {
 		return nil, nil, err
@@ -413,7 +413,7 @@ func (pm *planManager) planParallelRRTMotion(
 // This is where the map[string]interface{} passed in via `extra` is used to decide how planning happens.
 func (pm *planManager) plannerSetupFromMoveRequest(
 	from, to *PlanState,
-	seedMap map[string][]referenceframe.Input, // A known good configuration to set up collsiion constraints. Not necessarily `from`.
+	seedMap referenceframe.FrameSystemInputs, // A known good configuration to set up collsiion constraints. Not necessarily `from`.
 	worldState *referenceframe.WorldState,
 	boundingRegions []spatialmath.Geometry,
 	constraints *Constraints,
@@ -736,15 +736,15 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 		return []atomicWaypoint{{mp: pathPlanner, startState: request.StartState, goalState: wpGoals}}, nil
 	}
 
-	pathStateSize, ok := request.Options["path_step_size"].(float64)
+	stepSize, ok := request.Options["path_step_size"].(float64)
 	if !ok {
-		pathStateSize = defaultPathStateSize
+		stepSize = defaultStepSizeMM
 	}
 
 	numSteps := 0
 	for frame, pif := range goalPoses {
 		// Calculate steps needed for this frame
-		steps := PathStateCount(startPoses[frame].Pose(), pif.Pose(), pathStateSize)
+		steps := CalculateStepCount(startPoses[frame].Pose(), pif.Pose(), stepSize)
 		if steps > numSteps {
 			numSteps = steps
 		}
@@ -754,7 +754,7 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 	waypoints := []atomicWaypoint{}
 	for i := 1; i <= numSteps; i++ {
 		by := float64(i) / float64(numSteps)
-		to := &PlanState{PathState{}, map[string][]referenceframe.Input{}}
+		to := &PlanState{referenceframe.FrameSystemPoses{}, referenceframe.FrameSystemInputs{}}
 		if wpGoals.poses != nil {
 			for frameName, pif := range wpGoals.poses {
 				toPose := spatialmath.Interpolate(startPoses[frameName].Pose(), pif.Pose(), by)
@@ -932,7 +932,7 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 	}
 	wp := wps[0]
 
-	zeroInputs := map[string][]referenceframe.Input{}
+	zeroInputs := referenceframe.FrameSystemInputs{}
 	zeroInputs[opt.ptgFrameName] = make([]referenceframe.Input, len(pm.fs.Frame(opt.ptgFrameName).DoF()))
 	maps := &rrtMaps{}
 	if seedPlan != nil {

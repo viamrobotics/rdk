@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/multierr"
+	"go.uber.org/zap"
 	buildpb "go.viam.com/api/app/build/v1"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils/pexec"
@@ -50,11 +51,12 @@ const (
 var moduleBuildPollingInterval = 2 * time.Second
 
 type moduleBuildStartArgs struct {
-	Module  string
-	Version string
-	Ref     string
-	Token   string
-	Workdir string
+	Module    string
+	Version   string
+	Ref       string
+	Token     string
+	Workdir   string
+	Platforms []string
 }
 
 // ModuleBuildStartAction starts a cloud build.
@@ -79,8 +81,12 @@ func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context, args moduleBuildS
 	// Clean the version argument to ensure compatibility with github tag standards
 	version = strings.TrimPrefix(version, "v")
 
-	platforms := manifest.Build.Arch
-	if len(platforms) == 0 {
+	var platforms []string
+	if len(args.Platforms) > 0 { //nolint:gocritic
+		platforms = args.Platforms
+	} else if len(manifest.Build.Arch) > 0 {
+		platforms = manifest.Build.Arch
+	} else {
 		platforms = defaultBuildInfo.Arch
 	}
 
@@ -170,14 +176,10 @@ func ModuleBuildListAction(cCtx *cli.Context, args moduleBuildListArgs) error {
 }
 
 func (c *viamClient) moduleBuildListAction(cCtx *cli.Context, args moduleBuildListArgs) error {
-	var buildIDFilter *string
+	buildIDFilter := args.ID
 	var moduleIDFilter string
-	// This will use the build id if present and fall back on the module manifest if not
-	// TODO(RSDK-9447) - This usage of `cCtx.IsSet` is an unfortunate necessity. See comment
-	// in `cli/app.go` for more details.
-	if cCtx.IsSet(moduleBuildFlagBuildID) {
-		buildIDFilter = &args.ID
-	} else {
+	// Fall back on the module manifest if build id is not present.
+	if buildIDFilter == "" {
 		manifestPath := args.Module
 		manifest, err := loadManifest(manifestPath)
 		if err != nil {
@@ -194,7 +196,7 @@ func (c *viamClient) moduleBuildListAction(cCtx *cli.Context, args moduleBuildLi
 		count := int32(args.Count)
 		numberOfJobsToReturn = &count
 	}
-	jobs, err := c.listModuleBuildJobs(moduleIDFilter, numberOfJobsToReturn, buildIDFilter)
+	jobs, err := c.listModuleBuildJobs(moduleIDFilter, numberOfJobsToReturn, &buildIDFilter)
 	if err != nil {
 		return err
 	}
@@ -488,7 +490,7 @@ func jobStatusFromProto(s buildpb.JobStatus) jobStatus {
 }
 
 type reloadModuleArgs struct {
-	Part        string
+	PartID      string
 	Module      string
 	RestartOnly bool
 	NoBuild     bool
@@ -501,12 +503,23 @@ func ReloadModuleAction(c *cli.Context, args reloadModuleArgs) error {
 	if err != nil {
 		return err
 	}
-	return reloadModuleAction(c, vc, args)
+
+	// Create logger based on presence of debugFlag.
+	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
+	globalArgs, err := getGlobalArgs(c)
+	if err != nil {
+		return err
+	}
+	if globalArgs.Debug {
+		logger = logging.NewDebugLogger("cli")
+	}
+
+	return reloadModuleAction(c, vc, args, logger)
 }
 
 // reloadModuleAction is the testable inner reload logic.
-func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs) error {
-	partID, err := resolvePartID(c.Context, args.Part, "/etc/viam.json")
+func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, logger logging.Logger) error {
+	partID, err := resolvePartID(c.Context, args.PartID, "/etc/viam.json")
 	if err != nil {
 		return err
 	}
@@ -551,7 +564,10 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs) e
 				return err
 			}
 			infof(c.App.Writer, "Copying %s to part %s", manifest.Build.Path, part.Part.Id)
-			args := parseStructFromCtx[globalArgs](c)
+			args, err := getGlobalArgs(c)
+			if err != nil {
+				return err
+			}
 			err = vc.copyFilesToFqdn(
 				part.Part.Fqdn, args.Debug, false, false, []string{manifest.Build.Path},
 				reloadingDestination(c, manifest), logging.NewLogger("reload"))
@@ -570,7 +586,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs) e
 		}
 	}
 	if needsRestart {
-		return restartModule(c, vc, part.Part, manifest)
+		return restartModule(c, vc, part.Part, manifest, logger)
 	}
 	infof(c.App.Writer, "Reload complete")
 	return nil
@@ -650,7 +666,7 @@ func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.Resta
 	modID := args.ID
 	// todo: use MutuallyExclusiveFlags for this when urfave/cli 3.x is stable
 	if (len(modName) > 0) && (len(modID) > 0) {
-		return nil, fmt.Errorf("provide at most one of --%s and --%s", moduleFlagName, moduleBuildFlagBuildID)
+		return nil, fmt.Errorf("provide at most one of --%s and --%s", generalFlagName, moduleFlagID)
 	}
 	request := &robot.RestartModuleRequest{}
 	//nolint:gocritic
@@ -662,13 +678,19 @@ func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.Resta
 		// TODO(APP-4019): remove localize call
 		request.ModuleName = localizeModuleID(manifest.ModuleID)
 	} else {
-		return nil, fmt.Errorf("if there is no meta.json, provide one of --%s or --%s", moduleFlagName, moduleBuildFlagBuildID)
+		return nil, fmt.Errorf("if there is no meta.json, provide one of --%s or --%s", generalFlagName, moduleFlagID)
 	}
 	return request, nil
 }
 
 // restartModule restarts a module on a robot.
-func restartModule(c *cli.Context, vc *viamClient, part *apppb.RobotPart, manifest *moduleManifest) error {
+func restartModule(
+	c *cli.Context,
+	vc *viamClient,
+	part *apppb.RobotPart,
+	manifest *moduleManifest,
+	logger logging.Logger,
+) error {
 	restartReq, err := resolveTargetModule(c, manifest)
 	if err != nil {
 		return err
@@ -684,13 +706,16 @@ func restartModule(c *cli.Context, vc *viamClient, part *apppb.RobotPart, manife
 		return errors.New("API keys list for this machine is empty. You can create one with \"viam machine api-key create\"")
 	}
 	key := apiRes.ApiKeys[0]
-	args := parseStructFromCtx[globalArgs](c)
+	args, err := getGlobalArgs(c)
+	if err != nil {
+		return err
+	}
 	debugf(c.App.Writer, args.Debug, "using API key: %s %s", key.ApiKey.Id, key.ApiKey.Name)
 	creds := rpc.WithEntityCredentials(key.ApiKey.Id, rpc.Credentials{
 		Type:    rpc.CredentialsTypeAPIKey,
 		Payload: key.ApiKey.Key,
 	})
-	robotClient, err := client.New(c.Context, part.Fqdn, logging.NewLogger("robot"), client.WithDialOptions(creds))
+	robotClient, err := client.New(c.Context, part.Fqdn, logger, client.WithDialOptions(creds))
 	if err != nil {
 		return err
 	}

@@ -89,7 +89,7 @@ func (c *viamClient) packageExportAction(orgID, name, version, packageType, dest
 	}
 	if orgID == "" || name == "" {
 		if orgID != "" || name != "" {
-			return fmt.Errorf("if either of %s or %s is missing, both must be missing", generalFlagOrgID, packageFlagName)
+			return fmt.Errorf("if either of %s or %s is missing, both must be missing", generalFlagOrgID, generalFlagName)
 		}
 		manifest, err := loadManifest(defaultManifestFilename)
 		if err != nil {
@@ -207,7 +207,7 @@ func PackageUploadAction(c *cli.Context, args packageUploadArgs) error {
 		args.Path,
 		&structpb.Struct{
 			Fields: map[string]*structpb.Value{
-				packageMetadataFlagFramework: {
+				"model_framework": {
 					Kind: &structpb.Value_StringValue{
 						StringValue: args.ModelFramework,
 					},
