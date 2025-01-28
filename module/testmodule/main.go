@@ -108,10 +108,8 @@ func newHelper(
 	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (resource.Resource, error) {
 	var dependsOnSensor sensor.Sensor
-	for _, resObj := range deps {
-		if resSensor, ok := resObj.(sensor.Sensor); ok {
-			dependsOnSensor = resSensor
-		}
+	if len(conf.DependsOn) > 0 {
+		dependsOnSensor, err := sensor.FromDependencies(deps, conf.DependsOn[0])
 	}
 
 	if len(deps) > 0 && dependsOnSensor == nil {

@@ -175,7 +175,8 @@ type peerResourceState struct {
 
 // Module represents an external resource module that services components/services.
 type Module struct {
-	// The name of the module as per the robot config.
+	// The name of the module as per the robot config. This value is communicated via the
+	// `VIAM_MODULE_NAME` env var.
 	name string
 
 	shutdownCtx             context.Context
