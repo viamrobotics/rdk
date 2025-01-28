@@ -108,12 +108,16 @@ func newHelper(
 	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (resource.Resource, error) {
 	var dependsOnSensor sensor.Sensor
+	var err error
 	if len(conf.DependsOn) > 0 {
-		dependsOnSensor, err := sensor.FromDependencies(deps, conf.DependsOn[0])
+		dependsOnSensor, err = sensor.FromDependencies(deps, conf.DependsOn[0])
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if len(deps) > 0 && dependsOnSensor == nil {
-		panic("bad")
+		return nil, fmt.Errorf("Sensor not found in deps: %v", deps)
 	}
 
 	return &helper{
