@@ -16,6 +16,7 @@ import (
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
+	"github.com/viamrobotics/webrtc/v3"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -112,6 +113,12 @@ type RobotClient struct {
 	// webrtc. We don't want a network disconnect to result in reconnecting over tcp such that
 	// performance would be impacted.
 	serverIsWebrtcEnabled bool
+
+	// If this client is running in a module process and this client represents the gRPC connection
+	// back to a viam-server. If this is true, `pc` and `sharedConn` are expected to be set.
+	isModuleConnection bool
+	pc                 *webrtc.PeerConnection
+	sharedConn         *grpc.SharedConn
 }
 
 // RemoteTypeName is the type name used for a remote. This is for internal use.
@@ -268,6 +275,7 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		sessionsDisabled:    rOpts.disableSessions,
 		heartbeatCtx:        heartbeatCtx,
 		heartbeatCtxCancel:  heartbeatCtxCancel,
+		isModuleConnection:  rOpts.modName != "",
 	}
 
 	// interceptors are applied in order from first to last
@@ -680,10 +688,10 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, er
 func (rc *RobotClient) createClient(name resource.Name) (resource.Resource, error) {
 	apiInfo, ok := resource.LookupGenericAPIRegistration(name.API)
 	if !ok || apiInfo.RPCClient == nil {
-		return grpc.NewForeignResource(name, &rc.conn), nil
+		return grpc.NewForeignResource(name, rc.getClientConn()), nil
 	}
 	logger := rc.Logger().Sublogger(resource.RemoveRemoteName(name).ShortName())
-	return apiInfo.RPCClient(rc.backgroundCtx, &rc.conn, rc.remoteName, name, logger)
+	return apiInfo.RPCClient(rc.backgroundCtx, rc.getClientConn(), rc.remoteName, name, logger)
 }
 
 func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resource.RPCAPI, error) {
@@ -1297,6 +1305,27 @@ func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest
 	wg.Wait()
 	rc.Logger().CInfow(ctx, "tunnel to server closed", "port", dest)
 	return errors.Join(err, readerSenderErr, recvWriterErr)
+}
+
+// SetPeerConnection is only to be called internally from modules.
+func (rc *RobotClient) SetPeerConnection(pc *webrtc.PeerConnection) {
+	rc.mu.Lock()
+	rc.pc = pc
+	rc.mu.Unlock()
+}
+
+func (rc *RobotClient) getClientConn() rpc.ClientConn {
+	// Must be called with `rc.mu` in ReadLock+ mode.
+	if rc.sharedConn != nil {
+		return rc.sharedConn
+	}
+
+	if rc.pc == nil {
+		return &rc.conn
+	}
+
+	rc.sharedConn = grpc.NewSharedConnForModule(&rc.conn, rc.pc, rc.logger.Sublogger("shared_conn"))
+	return rc.sharedConn
 }
 
 func unaryClientInterceptor() googlegrpc.UnaryClientInterceptor {
