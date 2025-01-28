@@ -57,15 +57,13 @@ func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger)
 				appConn.connMu.Lock()
 
 				appConn.conn, err = rpc.DialDirectGRPC(ctxWithTimeOut, grpcURL.Host, logger, dialOpts...)
+				appConn.connMu.Unlock()
 				ctxWithTimeOutCancel()
 				if err != nil {
 					logger.Debug("error while dialing App. Could not establish global, unified connection", err)
-					appConn.connMu.Unlock()
 
 					continue
 				}
-
-				appConn.connMu.Unlock()
 
 				return
 			}
