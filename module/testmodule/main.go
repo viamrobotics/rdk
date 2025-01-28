@@ -117,7 +117,7 @@ func newHelper(
 	}
 
 	if len(deps) > 0 && dependsOnSensor == nil {
-		return nil, fmt.Errorf("Sensor not found in deps: %v", deps)
+		return nil, fmt.Errorf("sensor not found in deps: %v", deps)
 	}
 
 	return &helper{
