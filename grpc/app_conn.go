@@ -42,33 +42,33 @@ func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger)
 	// a lock is not necessary here because this call is blocking
 	appConn.conn, err = rpc.DialDirectGRPC(ctxWithTimeout, grpcURL.Host, logger, dialOpts...)
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			go func() {
-				for {
-					if ctx.Err() != nil {
-						break
-					}
+		if !errors.Is(err, context.DeadlineExceeded) {
+			return nil, err
+		}
 
-					appConn.connMu.Lock()
-
-					ctxWithTimeOut, ctxWithTimeOutCancel := context.WithTimeout(ctx, 5*time.Second)
-					appConn.conn, err = rpc.DialDirectGRPC(ctxWithTimeOut, grpcURL.Host, logger, dialOpts...)
-					ctxWithTimeOutCancel()
-					if err != nil {
-						logger.Debug("error while dialing App. Could not establish global, unified connection", err)
-						appConn.connMu.Unlock()
-
-						continue
-					}
-
+		go func() {
+			for {
+				if ctx.Err() != nil {
 					break
 				}
 
-				appConn.connMu.Unlock()
-			}()
-		} else {
-			return nil, err
-		}
+				appConn.connMu.Lock()
+
+				ctxWithTimeOut, ctxWithTimeOutCancel := context.WithTimeout(ctx, 5*time.Second)
+				appConn.conn, err = rpc.DialDirectGRPC(ctxWithTimeOut, grpcURL.Host, logger, dialOpts...)
+				ctxWithTimeOutCancel()
+				if err != nil {
+					logger.Debug("error while dialing App. Could not establish global, unified connection", err)
+					appConn.connMu.Unlock()
+
+					continue
+				}
+
+				break
+			}
+
+			appConn.connMu.Unlock()
+		}()
 	}
 
 	return appConn, nil
