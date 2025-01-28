@@ -1262,6 +1262,7 @@ func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest
 			timerMu.Unlock()
 			wg.Done()
 		}()
+		// a max of 32kb will be sent per message (based on io.Copy's default buffer size)
 		sendFunc := func(data []byte) error { return client.Send(&pb.TunnelRequest{Data: data}) }
 		readerSenderErr = tunnel.ReaderSenderLoop(ctx, conn, sendFunc, connClosed, rc.logger.WithFields("loop", "reader/sender"))
 	})

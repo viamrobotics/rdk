@@ -89,6 +89,7 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 			close(rsDone)
 			wg.Done()
 		}()
+		// a max of 32kb will be sent per message (based on io.Copy's default buffer size)
 		sendFunc := func(data []byte) error { return srv.Send(&pb.TunnelResponse{Data: data}) }
 		readerSenderErr = tunnel.ReaderSenderLoop(srv.Context(), conn, sendFunc, connClosed, s.robot.Logger().WithFields("loop", "reader/sender"))
 	})
