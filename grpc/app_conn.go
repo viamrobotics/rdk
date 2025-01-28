@@ -42,7 +42,7 @@ func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger)
 	ctxWithTimeout, ctxWithTimeoutCancel := config.GetTimeoutCtx(ctx, true, cloud.ID)
 	defer ctxWithTimeoutCancel()
 
-	// a lock is not necessary here because this call is blocking
+	// lock not necessary here because call is blocking
 	appConn.conn, err = rpc.DialDirectGRPC(ctxWithTimeout, grpcURL.Host, logger, dialOpts...)
 	if err == nil {
 		return appConn, nil
@@ -77,7 +77,7 @@ func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger)
 		}
 	})
 
-	// if the initial dial attempt fails due to a time out, we return the connection-lacking `AppConn` and a nil `error`
+	// if initial dial attempt fails due to time out, return `AppConn` and nil `error` and no underlying connection
 	return appConn, nil
 }
 
