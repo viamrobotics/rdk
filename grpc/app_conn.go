@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
@@ -16,6 +17,8 @@ import (
 // attempts to dial App until a connection is successfully established.
 type AppConn struct {
 	ReconfigurableClientConn
+
+	dialer *utils.StoppableWorkers
 }
 
 // NewAppConn creates an AppConn instance with a gRPC client connection to App. An initial dial attempt blocks. If it errors, the error is
@@ -41,36 +44,47 @@ func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger)
 
 	// a lock is not necessary here because this call is blocking
 	appConn.conn, err = rpc.DialDirectGRPC(ctxWithTimeout, grpcURL.Host, logger, dialOpts...)
-	if err != nil {
-		if !errors.Is(err, context.DeadlineExceeded) {
-			return nil, err
-		}
-
-		go func() {
-			for {
-				if ctx.Err() != nil {
-					return
-				}
-
-				ctxWithTimeOut, ctxWithTimeOutCancel := context.WithTimeout(ctx, 5*time.Second)
-
-				appConn.connMu.Lock()
-
-				appConn.conn, err = rpc.DialDirectGRPC(ctxWithTimeOut, grpcURL.Host, logger, dialOpts...)
-				appConn.connMu.Unlock()
-				ctxWithTimeOutCancel()
-				if err != nil {
-					logger.Debug("error while dialing App. Could not establish global, unified connection", err)
-
-					continue
-				}
-
-				return
-			}
-		}()
+	if err == nil {
+		return appConn, nil
 	}
 
+	if !errors.Is(err, context.DeadlineExceeded) {
+		return nil, err
+	}
+
+	appConn.dialer = utils.NewStoppableWorkers(ctx)
+
+	appConn.dialer.Add(func(ctx context.Context) {
+		for {
+			if ctx.Err() != nil {
+				return
+			}
+
+			ctxWithTimeout, ctxWithTimeoutCancel := context.WithTimeout(ctx, 5*time.Second)
+
+			appConn.connMu.Lock()
+
+			appConn.conn, err = rpc.DialDirectGRPC(ctxWithTimeout, grpcURL.Host, logger, dialOpts...)
+			appConn.connMu.Unlock()
+			ctxWithTimeoutCancel()
+			if err != nil {
+				logger.Debug("error while dialing App. Could not establish global, unified connection", err)
+
+				continue
+			}
+
+			return
+		}
+	})
+
+	// if the initial dial attempt fails due to a time out, we return the connection-lacking `AppConn` and a nil `error`
 	return appConn, nil
+}
+
+func (ac *AppConn) Close() error {
+	ac.dialer.Stop()
+
+	return ac.ReconfigurableClientConn.Close()
 }
 
 func dialOpts(cloud *config.Cloud) []rpc.DialOption {
