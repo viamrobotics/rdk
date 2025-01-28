@@ -75,11 +75,11 @@ func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger)
 		}
 	})
 
-	// if initial dial attempt fails due to time out, return `AppConn` and nil `error` and no underlying connection
+	// if initial dial attempt fails due to time out, return nil error
 	return appConn, nil
 }
 
-// Close calls `ReconfigurableClientConn.Close()` in addition to `Stop`ping `dialer`.
+// Close attempts to close the underlying connection if there is one and stops background dialing attempts
 func (ac *AppConn) Close() error {
 	if ac.dialer != nil {
 		ac.dialer.Stop()
