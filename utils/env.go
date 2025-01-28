@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"runtime"
 	"slices"
+	"strings"
 	"time"
 
 	"go.viam.com/rdk/logging"
@@ -30,6 +31,31 @@ const (
 
 	// AndroidFilesDir is hardcoded because golang inits before our android code can override HOME var.
 	AndroidFilesDir = "/data/user/0/com.viam.rdk.fgservice/cache"
+
+	// ViamEnvVarPrefix is the prefix for all Viam-related environment variables.
+	ViamEnvVarPrefix = "VIAM_"
+
+	// APIKeyEnvVar is the environment variable which contains an API key that can be used for
+	// communications to app.viam.com.
+	//nolint:gosec
+	APIKeyEnvVar = "VIAM_API_KEY"
+
+	// APIKeyIDEnvVar is the environment variable which contains an API key ID that can be used for
+	// communications to app.viam.com.
+	//nolint:gosec
+	APIKeyIDEnvVar = "VIAM_API_KEY_ID"
+
+	// MachineIDEnvVar is the environment variable that contains the machine ID of the machine.
+	MachineIDEnvVar = "VIAM_MACHINE_ID"
+
+	// MachinePartIDEnvVar is the environment variable that contains the machine part ID of the machine.
+	MachinePartIDEnvVar = "VIAM_MACHINE_PART_ID"
+
+	// LocationIDEnvVar is the environment variable that contains the location ID of the machine.
+	LocationIDEnvVar = "VIAM_LOCATION_ID"
+
+	// PrimaryOrgIDEnvVar is the environment variable that contains the primary org ID of the machine.
+	PrimaryOrgIDEnvVar = "VIAM_PRIMARY_ORG_ID"
 )
 
 // EnvTrueValues contains strings that we interpret as boolean true in env vars.
@@ -94,4 +120,25 @@ func ViamTCPSockets() bool {
 	// go grpc client bug on win: https://github.com/dotnet/aspnetcore/issues/47043
 	return runtime.GOOS == "windows" ||
 		slices.Contains(EnvTrueValues, os.Getenv("VIAM_TCP_SOCKETS"))
+}
+
+// LogViamEnvVariables logs the list of viam environment variables in [os.Environ] along with the env passed in.
+func LogViamEnvVariables(msg string, envVars map[string]string, logger logging.Logger) {
+	var env []string
+	for _, v := range os.Environ() {
+		if !strings.HasPrefix(v, ViamEnvVarPrefix) {
+			continue
+		}
+		env = append(env, v)
+	}
+	for key, val := range envVars {
+		// mask the secret
+		if key == APIKeyEnvVar {
+			val = "XXXXXXXXXX"
+		}
+		env = append(env, key+"="+val)
+	}
+	if len(env) != 0 {
+		logger.Infow(msg, "environment", env)
+	}
 }

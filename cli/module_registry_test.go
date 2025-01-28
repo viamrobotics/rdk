@@ -34,7 +34,7 @@ func TestUpdateModelsAction(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	flags := map[string]any{"binary": binaryPath, "module": metaPath}
-	cCtx, _, _, errOut := setup(&inject.AppServiceClient{}, nil, nil, nil, flags, "")
+	cCtx, _, _, errOut := setup(&inject.AppServiceClient{}, nil, nil, flags, "")
 	test.That(t, UpdateModelsAction(cCtx, parseStructFromCtx[updateModelsArgs](cCtx)), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 

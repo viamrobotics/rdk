@@ -603,7 +603,7 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 		for _, handler := range options.Auth.Handlers {
 			switch handler.Type {
 			case rpc.CredentialsTypeAPIKey:
-				apiKeys := parseAPIKeys(handler)
+				apiKeys := config.ParseAPIKeys(handler)
 
 				if len(apiKeys) == 0 {
 					return nil, errors.Errorf("%q handler requires non-empty API keys", handler.Type)
@@ -638,18 +638,6 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 	}
 
 	return rpcOpts, nil
-}
-
-func parseAPIKeys(handler config.AuthHandlerConfig) map[string]string {
-	apiKeys := map[string]string{}
-	for k := range handler.Config {
-		// if it is not a legacy api key indicated by "key(s)" key
-		// current api keys will follow format { [keyId]: [key] }
-		if k != "keys" && k != "key" {
-			apiKeys[k] = handler.Config.String(k)
-		}
-	}
-	return apiKeys
 }
 
 // Register every API resource grpc service here.
