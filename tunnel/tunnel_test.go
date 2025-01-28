@@ -6,10 +6,11 @@ import (
 	"io"
 	"testing"
 
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/tunnel"
-	"go.viam.com/test"
 )
 
 func TestReaderSenderLoop(t *testing.T) {
@@ -88,6 +89,7 @@ func TestReaderSenderLoop(t *testing.T) {
 		test.That(t, sendCt, test.ShouldEqual, 1)
 	})
 
+	//nolint:dupl
 	t.Run("one message with read err", func(t *testing.T) {
 		connClosed := make(chan struct{})
 		defer close(connClosed)
@@ -114,6 +116,7 @@ func TestReaderSenderLoop(t *testing.T) {
 		test.That(t, sendCt, test.ShouldEqual, 1)
 	})
 
+	//nolint:dupl
 	t.Run("one message with send err", func(t *testing.T) {
 		connClosed := make(chan struct{})
 		defer close(connClosed)
