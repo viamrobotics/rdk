@@ -43,11 +43,11 @@ func ReaderSenderLoop(
 	connClosed <-chan struct{},
 	logger logging.Logger,
 ) (retErr error) {
-	var err error
+	var err, sendErr error
 	defer func() {
-		retErr = filterError(ctx, err, connClosed, logger)
+		retErr = filterError(ctx, errors.Join(err, sendErr), connClosed, logger)
 		if retErr != nil {
-			retErr = fmt.Errorf("reader/sender loop err: %w", err)
+			retErr = fmt.Errorf("reader/sender loop err: %w", retErr)
 		}
 		logger.CDebug(ctx, "exiting reader/sender loop")
 	}()
@@ -65,13 +65,14 @@ func ReaderSenderLoop(
 		buf := make([]byte, size)
 		var nr int
 		nr, err = r.Read(buf)
+		// based on [io.Reader], callers should always process the n > 0 bytes returned before
+		// considering the error
+		if nr > 0 {
+			if sendErr = sendFunc(buf[:nr]); sendErr != nil {
+				return
+			}
+		}
 		if err != nil {
-			return
-		}
-		if nr == 0 {
-			continue
-		}
-		if err = sendFunc(buf[:nr]); err != nil {
 			return
 		}
 	}
@@ -90,7 +91,7 @@ func RecvWriterLoop(
 	defer func() {
 		retErr = filterError(ctx, err, rsDone, logger)
 		if retErr != nil {
-			retErr = fmt.Errorf("receiver/writer loop err: %w", err)
+			retErr = fmt.Errorf("receiver/writer loop err: %w", retErr)
 		}
 		logger.CDebug(ctx, "exiting receiver/writer loop")
 	}()
