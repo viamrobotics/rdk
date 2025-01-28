@@ -102,8 +102,6 @@ const (
 	mlTrainingFlagURL         = "url"
 	mlTrainingFlagArgs        = "args"
 
-
-
 	dataFlagDataType                       = "data-type"
 	dataFlagOrgIDs                         = "org-ids"
 	dataFlagLocationIDs                    = "location-ids"
@@ -2786,11 +2784,6 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage:    "ID of the model to use to run inference",
 							Required: true,
 						},
-						// &cli.StringFlag{
-						// 	Name:     inferenceFlagModelOrgID,
-						// 	Usage:    "organization ID that owns the model to use to run inference",
-						// 	Required: true,
-						// },
 						&cli.StringFlag{
 							Name:     inferenceFlagModelVersionID,
 							Usage:    "version ID of the model to use to run inference",

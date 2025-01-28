@@ -15,7 +15,6 @@ const (
 	inferenceFlagFileID         = "file-id"
 	inferenceFlagFileLocationID = "file-location-id"
 	inferenceFlagModelID        = "model-id"
-	inferenceFlagModelOrgID     = "model-org-id"
 	inferenceFlagModelVersionID = "model-version"
 )
 
@@ -25,9 +24,7 @@ type mlInferenceInferArgs struct {
 	FileID         string
 	FileLocationID string
 	ModelID        string
-	// TODO: remove ModelOrgID
-	ModelOrgID   string
-	ModelVersion string
+	ModelVersion   string
 }
 
 // MLInferenceInferAction is the corresponding action for 'inference infer'.
@@ -43,21 +40,19 @@ func MLInferenceInferAction(c *cli.Context, args mlInferenceInferArgs) error {
 	fmt.Println("FileID: ", args.FileID)
 	fmt.Println("FileLocationID: ", args.FileLocationID)
 	fmt.Println("ModelID: ", args.ModelID)
-	fmt.Println("ModelOrgID: ", args.ModelOrgID)
 	fmt.Println("ModelVersion: ", args.ModelVersion)
 
-	inferenceJobID, err := client.mlRunInference(
+	_, err = client.mlRunInference(
 		args.OrgID, args.FileOrgID, args.FileID, args.FileLocationID,
-		args.ModelID, args.ModelOrgID, args.ModelVersion)
+		args.ModelID, args.ModelVersion)
 	if err != nil {
 		return err
 	}
-	printf(c.App.Writer, "Submitted inference job with ID %s", inferenceJobID)
 	return nil
 }
 
 // mlRunInference runs inference on an image with the specified parameters.
-func (c *viamClient) mlRunInference(orgID, fileOrgID, fileID, fileLocation, modelID, modelOrgID, modelVersion string) (*mlinferencepb.GetInferenceResponse, error) {
+func (c *viamClient) mlRunInference(orgID, fileOrgID, fileID, fileLocation, modelID, modelVersion string) (*mlinferencepb.GetInferenceResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
