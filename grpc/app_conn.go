@@ -83,7 +83,9 @@ func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger)
 
 // Close calls `ReconfigurableClientConn.Close()` in addition to `Stop`ping `dialer`.
 func (ac *AppConn) Close() error {
-	ac.dialer.Stop()
+	if ac.dialer != nil {
+		ac.dialer.Stop()
+	}
 
 	return ac.ReconfigurableClientConn.Close()
 }
