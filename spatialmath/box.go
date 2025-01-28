@@ -56,7 +56,7 @@ type box struct {
 	halfSize        [3]float64
 	boundingSphereR float64
 	label           string
-	mesh            *mesh
+	mesh            *Mesh
 	rotMatrix       *RotationMatrix
 	once            sync.Once
 }
@@ -240,14 +240,14 @@ func (b *box) vertices() []r3.Vector {
 	return verts
 }
 
-// vertices returns the vertices defining the box.
-func (b *box) toMesh() *mesh {
+// toMesh returns a 12-triangle mesh representation of the box, 2 right triangles for each face.
+func (b *box) toMesh() *Mesh {
 	if b.mesh == nil {
-		m := &mesh{pose: b.pose}
-		triangles := make([]*triangle, 0, 12)
+		m := &Mesh{pose: b.pose}
+		triangles := make([]*Triangle, 0, 12)
 		verts := b.vertices()
 		for _, tri := range boxTriangles {
-			triangles = append(triangles, newTriangle(verts[tri[0]], verts[tri[1]], verts[tri[2]]))
+			triangles = append(triangles, NewTriangle(verts[tri[0]], verts[tri[1]], verts[tri[2]]))
 		}
 		m.triangles = triangles
 		b.mesh = m
