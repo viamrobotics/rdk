@@ -392,12 +392,12 @@ func (server *Server) SetStreamOptions(
 	defer server.mu.Unlock()
 	switch cmd {
 	case optionsCommandResize:
-		err = server.resizeVideoSource(req.Name, int(req.Resolution.Width), int(req.Resolution.Height))
+		err = server.resizeVideoSource(ctx, req.Name, int(req.Resolution.Width), int(req.Resolution.Height))
 		if err != nil {
 			return nil, fmt.Errorf("failed to resize video source for stream %q: %w", req.Name, err)
 		}
 	case optionsCommandReset:
-		err = server.resetVideoSource(req.Name)
+		err = server.resetVideoSource(ctx, req.Name)
 		if err != nil {
 			return nil, fmt.Errorf("failed to reset video source for stream %q: %w", req.Name, err)
 		}
@@ -433,7 +433,7 @@ func validateSetStreamOptionsRequest(req *streampb.SetStreamOptionsRequest) (int
 }
 
 // resizeVideoSource resizes the video source with the given name.
-func (server *Server) resizeVideoSource(name string, width, height int) error {
+func (server *Server) resizeVideoSource(ctx context.Context, name string, width, height int) error {
 	existing, ok := server.videoSources[name]
 	if !ok {
 		return fmt.Errorf("video source %q not found", name)
@@ -447,7 +447,7 @@ func (server *Server) resizeVideoSource(name string, width, height int) error {
 	if !ok {
 		return fmt.Errorf("stream state not found with name %q", name)
 	}
-	resizer := gostream.NewResizeVideoSource(cam, width, height)
+	resizer := gostream.NewResizeVideoSource(camerautils.VideoSourceFromCamera(ctx, cam), width, height)
 	server.logger.Debugf(
 		"resizing video source to width %d and height %d",
 		width, height,
@@ -461,7 +461,7 @@ func (server *Server) resizeVideoSource(name string, width, height int) error {
 }
 
 // resetVideoSource resets the video source with the given name to the source resolution.
-func (server *Server) resetVideoSource(name string) error {
+func (server *Server) resetVideoSource(ctx context.Context, name string) error {
 	existing, ok := server.videoSources[name]
 	if !ok {
 		return fmt.Errorf("video source %q not found", name)
@@ -475,7 +475,7 @@ func (server *Server) resetVideoSource(name string) error {
 		return fmt.Errorf("stream state not found with name %q", name)
 	}
 	server.logger.Debug("resetting video source")
-	existing.Swap(cam)
+	existing.Swap(camerautils.VideoSourceFromCamera(ctx, cam))
 	err = streamState.Reset()
 	if err != nil {
 		return fmt.Errorf("failed to reset stream %q: %w", name, err)
@@ -489,7 +489,7 @@ func (server *Server) resetVideoSource(name string) error {
 func (server *Server) AddNewStreams(ctx context.Context) error {
 	// Refreshing sources will walk the robot resources for anything implementing the camera and
 	// audioinput APIs and mutate the `svc.videoSources` and `svc.audioSources` maps.
-	server.refreshVideoSources()
+	server.refreshVideoSources(ctx)
 	server.refreshAudioSources()
 
 	if server.streamConfig == (gostream.StreamConfig{}) {
@@ -650,13 +650,14 @@ func (server *Server) removeMissingStreams() {
 }
 
 // refreshVideoSources checks and initializes every possible video source that could be viewed from the robot.
-func (server *Server) refreshVideoSources() {
+func (server *Server) refreshVideoSources(ctx context.Context) {
 	for _, name := range camera.NamesFromRobot(server.robot) {
 		cam, err := camera.FromRobot(server.robot, name)
 		if err != nil {
 			continue
 		}
 		existing, ok := server.videoSources[cam.Name().SDPTrackName()]
+		src := camerautils.VideoSourceFromCamera(ctx, cam)
 		if ok {
 			// Check stream state for the camera to see if it is in resized mode.
 			// If it is in resized mode, we want to apply the resize transformation to the
@@ -675,7 +676,7 @@ func (server *Server) refreshVideoSources() {
 							"resizing video source to width %d and height %d",
 							width, height,
 						)
-						resizer := gostream.NewResizeVideoSource(cam, width, height)
+						resizer := gostream.NewResizeVideoSource(src, width, height)
 						existing.Swap(resizer)
 						continue
 					}
@@ -689,10 +690,10 @@ func (server *Server) refreshVideoSources() {
 					server.logger.Errorf("error resetting stream %q: %v", cam.Name().SDPTrackName(), err)
 				}
 			}
-			existing.Swap(cam)
+			existing.Swap(src)
 			continue
 		}
-		newSwapper := gostream.NewHotSwappableVideoSource(cam)
+		newSwapper := gostream.NewHotSwappableVideoSource(src)
 		server.videoSources[cam.Name().SDPTrackName()] = newSwapper
 	}
 }
@@ -788,38 +789,26 @@ func GenerateResolutions(width, height int32, logger logging.Logger) []Resolutio
 }
 
 // sampleFrameSize takes in a camera.Camera, starts a stream, attempts to
-// pull a frame using Stream.Next, and returns the width and height.
+// pull a frame, and returns the width and height.
 func sampleFrameSize(ctx context.Context, cam camera.Camera, logger logging.Logger) (int, int, error) {
 	logger.Debug("sampling frame size")
-	stream, err := cam.Stream(ctx)
-	if err != nil {
-		return 0, 0, err
-	}
-	defer func() {
-		if cerr := stream.Close(ctx); cerr != nil {
-			logger.Error("failed to close stream:", cerr)
-		}
-	}()
 	// Attempt to get a frame from the stream with a maximum of 5 retries.
 	// This is useful if cameras have a warm-up period before they can start streaming.
 	var frame image.Image
-	var release func()
+	var err error
 retryLoop:
 	for i := 0; i < 5; i++ {
 		select {
 		case <-ctx.Done():
 			return 0, 0, ctx.Err()
 		default:
-			frame, release, err = stream.Next(ctx)
+			frame, err = camera.DecodeImageFromCamera(ctx, "", nil, cam)
 			if err == nil {
 				break retryLoop // Break out of the for loop, not just the select.
 			}
 			logger.Debugf("failed to get frame, retrying... (%d/5)", i+1)
 			time.Sleep(retryDelay)
 		}
-	}
-	if release != nil {
-		defer release()
 	}
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to get frame after 5 attempts: %w", err)

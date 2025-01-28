@@ -34,13 +34,14 @@ func TestTransformPipelineColor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	source := gostream.NewVideoSource(&fake.StaticSource{ColorImg: img}, prop.Video{})
 	src, err := camera.WrapVideoSourceWithProjector(context.Background(), source, nil, camera.ColorStream)
+	vs := videoSourceFromCamera(context.Background(), src)
 	test.That(t, err, test.ShouldBeNil)
-	inImg, _, err := camera.ReadImage(context.Background(), src)
+	inImg, err := camera.DecodeImageFromCamera(context.Background(), "", nil, src)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, inImg.Bounds().Dx(), test.ShouldEqual, 128)
 	test.That(t, inImg.Bounds().Dy(), test.ShouldEqual, 72)
 
-	color, err := newTransformPipeline(context.Background(), src, transformConf, r, logger)
+	color, err := newTransformPipeline(context.Background(), vs, nil, transformConf, r, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	outImg, _, err := camera.ReadImage(context.Background(), color)
@@ -81,12 +82,13 @@ func TestTransformPipelineDepth(t *testing.T) {
 	source := gostream.NewVideoSource(&fake.StaticSource{DepthImg: dm}, prop.Video{})
 	src, err := camera.WrapVideoSourceWithProjector(context.Background(), source, nil, camera.DepthStream)
 	test.That(t, err, test.ShouldBeNil)
-	inImg, _, err := camera.ReadImage(context.Background(), src)
+	inImg, err := camera.DecodeImageFromCamera(context.Background(), "", nil, src)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, inImg.Bounds().Dx(), test.ShouldEqual, 128)
 	test.That(t, inImg.Bounds().Dy(), test.ShouldEqual, 72)
 
-	depth, err := newTransformPipeline(context.Background(), src, transformConf, r, logger)
+	vs := videoSourceFromCamera(context.Background(), src)
+	depth, err := newTransformPipeline(context.Background(), vs, nil, transformConf, r, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	outImg, _, err := camera.ReadImage(context.Background(), depth)
@@ -117,7 +119,7 @@ func TestNullPipeline(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	source, err := camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{ColorImg: img}, nil, camera.UnspecifiedStream)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = newTransformPipeline(context.Background(), source, transform1, r, logger)
+	_, err = newTransformPipeline(context.Background(), source, nil, transform1, r, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "pipeline has no transforms")
 }
@@ -146,7 +148,7 @@ func TestPipeIntoPipe(t *testing.T) {
 		},
 	}
 
-	pipe1, err := newTransformPipeline(context.Background(), source, transform1, r, logger)
+	pipe1, err := newTransformPipeline(context.Background(), source, nil, transform1, r, logger)
 	test.That(t, err, test.ShouldBeNil)
 	outImg, _, err := camera.ReadImage(context.Background(), pipe1)
 	test.That(t, err, test.ShouldBeNil)
@@ -157,7 +159,7 @@ func TestPipeIntoPipe(t *testing.T) {
 	test.That(t, prop.IntrinsicParams.Width, test.ShouldEqual, 128)
 	test.That(t, prop.IntrinsicParams.Height, test.ShouldEqual, 72)
 	// transform pipeline into pipeline
-	pipe2, err := newTransformPipeline(context.Background(), pipe1, transform2, r, logger)
+	pipe2, err := newTransformPipeline(context.Background(), pipe1, nil, transform2, r, logger)
 	test.That(t, err, test.ShouldBeNil)
 	outImg, _, err = camera.ReadImage(context.Background(), pipe2)
 	test.That(t, err, test.ShouldBeNil)

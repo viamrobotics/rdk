@@ -73,7 +73,6 @@ func init() {
 }
 
 type ffmpegCamera struct {
-	resource.Named
 	gostream.VideoReader
 	cancelFunc              context.CancelFunc
 	activeBackgroundWorkers sync.WaitGroup
