@@ -81,13 +81,16 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 		wg              sync.WaitGroup
 		readerSenderErr error
 	)
+	connClosed := make(chan struct{})
+	rsDone := make(chan struct{})
 	wg.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer func() {
+			close(rsDone)
 			wg.Done()
 		}()
 		sendFunc := func(data []byte) error { return srv.Send(&pb.TunnelResponse{Data: data}) }
-		readerSenderErr = tunnel.ReaderSenderLoop(srv.Context(), conn, sendFunc, s.robot.Logger())
+		readerSenderErr = tunnel.ReaderSenderLoop(srv.Context(), conn, sendFunc, connClosed, s.robot.Logger().WithFields("loop", "reader/sender"))
 	})
 	recvFunc := func() ([]byte, error) {
 		req, err := srv.Recv()
@@ -96,10 +99,14 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 		}
 		return req.Data, nil
 	}
-	recvWriterErr := tunnel.RecvWriterLoop(srv.Context(), conn, recvFunc, s.robot.Logger())
+	recvWriterErr := tunnel.RecvWriterLoop(srv.Context(), recvFunc, conn, rsDone, s.robot.Logger().WithFields("loop", "recv/writer"))
 	// close the connection to unblock the read
+	// close the channel first so that network errors can be filtered
+	// and prevented in the ReaderSenderLoop.
+	close(connClosed)
 	err = conn.Close()
 	wg.Wait()
+	s.robot.Logger().CInfow(srv.Context(), "tunnel to client closed", "port", dest)
 	return errors.Join(err, readerSenderErr, recvWriterErr)
 }
 

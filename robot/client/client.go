@@ -1236,26 +1236,34 @@ func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest
 	var (
 		wg              sync.WaitGroup
 		readerSenderErr error
+
+		timerMu sync.Mutex
+		timer   *time.Timer
 	)
+	connClosed := make(chan struct{})
+	rsDone := make(chan struct{})
 	wg.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer func() {
-			// we communicate an end to the stream by calling CloseSend(),
-			// which is why we don't need an EOF field on the request message.
+			// We communicate an end to the stream by calling CloseSend().
+			// Close the channel first so that network errors can be filtered
+			// and prevented in the RecvWriterLoop.
+			close(rsDone)
 			readerSenderErr = errors.Join(readerSenderErr, client.CloseSend())
-			// By cancelling this ctx, we will close the client, meaning client.Recv() in the RecvWriterLoop will exit
-			// and return an error.
+
+			// Schedule a task to cancel the context if we do not exit out of the recvWriterLoop within 5 seconds.
+			// This will close the client, meaning client.Recv() in the RecvWriterLoop will exit and return an error.
 			//
-			// NOTE(cheukt): This will cause DEBUG messages from WebRTC stating `no stream for id; discarding`
+			// NOTE(cheukt): This may cause DEBUG messages from WebRTC stating `no stream for id; discarding`
 			// to show up because the handler will have exited before we receive the last messages from the server.
 			// This is not an issue and is expected.
-			//
-			// TODO: Don't log `no stream for id; discarding` if client is canceled.
-			cancel()
+			timerMu.Lock()
+			timer = time.AfterFunc(5*time.Second, cancel)
+			timerMu.Unlock()
 			wg.Done()
 		}()
 		sendFunc := func(data []byte) error { return client.Send(&pb.TunnelRequest{Data: data}) }
-		readerSenderErr = tunnel.ReaderSenderLoop(ctx, conn, sendFunc, rc.logger)
+		readerSenderErr = tunnel.ReaderSenderLoop(ctx, conn, sendFunc, connClosed, rc.logger.WithFields("loop", "reader/sender"))
 	})
 
 	recvFunc := func() ([]byte, error) {
@@ -1265,13 +1273,23 @@ func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest
 		}
 		return resp.Data, nil
 	}
-	recvWriterErr := tunnel.RecvWriterLoop(ctx, conn, recvFunc, rc.logger)
-	cancel()
-	// We do close the connection to unblock the reader/sender loop, which is not clean
+	recvWriterErr := tunnel.RecvWriterLoop(ctx, recvFunc, conn, rsDone, rc.logger.WithFields("loop", "recv/writer"))
+	timerMu.Lock()
+	// cancel the timer if we've successfully returned from the RecvWriterLoop
+	if timer != nil {
+		timer.Stop()
+	}
+	timerMu.Unlock()
+
+	// We close the connection to unblock the reader/sender loop, which is not clean
 	// but there isn't a cleaner way to exit from the reader/sender loop.
+	// Close the channel first so that network errors can be filtered
+	// and prevented in the ReaderSenderLoop.
+	close(connClosed)
 	err = conn.Close()
 
 	wg.Wait()
+	rc.Logger().CInfow(ctx, "tunnel to server closed", "port", dest)
 	return errors.Join(err, readerSenderErr, recvWriterErr)
 }
 
