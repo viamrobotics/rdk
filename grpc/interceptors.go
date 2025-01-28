@@ -51,7 +51,8 @@ type modNameKeyType int
 
 const modNameKeyID = modNameKeyType(iota)
 
-// GetName returns the debug log key included when enabling the context for debug logging.
+// GetModuleName returns the module name (if any) the request came from. The module name will match
+// a string from the robot config.
 func GetModuleName(ctx context.Context) string {
 	valI := ctx.Value(modNameKeyID)
 	if val, ok := valI.(string); ok {
@@ -63,12 +64,13 @@ func GetModuleName(ctx context.Context) string {
 
 const modNameMetadataKey = "modName"
 
+// ModInterceptors takes a user input `ModName` and exposes an interceptor method that will attach
+// it to outgoing gRPC requests.
 type ModInterceptors struct {
 	ModName string
 }
 
-// UnaryClientInterceptor adds debug directives from the current context (if any) to the
-// outgoing request's metadata.
+// UnaryClientInterceptor adds a module name to any outgoing unary gRPC request.
 func (mc *ModInterceptors) UnaryClientInterceptor(
 	ctx context.Context,
 	method string,
@@ -81,8 +83,8 @@ func (mc *ModInterceptors) UnaryClientInterceptor(
 	return invoker(ctx, method, req, reply, cc, opts...)
 }
 
-// UnaryServerInterceptor checks the incoming RPC metadata for a distributed tracing directive and
-// attaches any information to a debug context.
+// ModNameUnaryServerInterceptor checks the incoming RPC metadata for a module name and attaches any
+// information to a context that can be retrieved with `GetModuleName`.
 func ModNameUnaryServerInterceptor(
 	ctx context.Context,
 	req interface{},

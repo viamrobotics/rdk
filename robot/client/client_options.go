@@ -58,6 +58,8 @@ func newFuncRobotClientOption(f func(*robotClientOpts)) *funcRobotClientOption {
 	}
 }
 
+// WithModName attaches a unary interceptor that attaches the module name for each outgoing gRPC
+// request.
 func WithModName(modName string) RobotClientOption {
 	return newFuncRobotClientOption(func(o *robotClientOpts) {
 		o.modName = modName

@@ -46,7 +46,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
-	"go.viam.com/rdk/grpc"
 	rgrpc "go.viam.com/rdk/grpc"
 	internalcloud "go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
@@ -4538,7 +4537,7 @@ func TestRemovingOfflineRemotes(t *testing.T) {
 
 // TestModuleNamePassing asserts that module names are passed from viam-server -> module
 // properly. Such that incoming requests from module -> viam-server identify themselves. And can be
-// observed on contexts via `grpc.GetModuleName(ctx)`.
+// observed on contexts via `[r]grpc.GetModuleName(ctx)`.
 func TestModuleNamePassing(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
@@ -4553,7 +4552,7 @@ func TestModuleNamePassing(t *testing.T) {
 	moduleNameCh := make(chan string, 1)
 	callbackSensor := &inject.Sensor{
 		ReadingsFunc: func(ctx context.Context, extra map[string]any) (map[string]any, error) {
-			moduleNameCh <- grpc.GetModuleName(ctx)
+			moduleNameCh <- rgrpc.GetModuleName(ctx)
 			return map[string]any{
 				"reading": 42,
 			}, nil

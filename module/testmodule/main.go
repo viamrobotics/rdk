@@ -206,8 +206,8 @@ func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map
 	case "get_num_reconfigurations":
 		return map[string]any{"num_reconfigurations": h.numReconfigurations}, nil
 	case "do_readings_on_dep":
-		h.dependsOnSensor.Readings(ctx, nil)
-		return nil, nil
+		_, err := h.dependsOnSensor.Readings(ctx, nil)
+		return nil, err
 	default:
 		return nil, fmt.Errorf("unknown command string %s", cmd)
 	}
