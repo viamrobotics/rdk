@@ -61,9 +61,7 @@ func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger)
 			}
 
 			ctxWithTimeout, ctxWithTimeoutCancel := context.WithTimeout(ctx, 5*time.Second)
-
 			appConn.connMu.Lock()
-
 			appConn.conn, err = rpc.DialDirectGRPC(ctxWithTimeout, grpcURL.Host, logger, dialOpts...)
 			appConn.connMu.Unlock()
 			ctxWithTimeoutCancel()
