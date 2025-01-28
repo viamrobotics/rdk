@@ -79,7 +79,7 @@ func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger)
 	return appConn, nil
 }
 
-// Close attempts to close the underlying connection if there is one and stops background dialing attempts
+// Close attempts to close the underlying connection if there is one and stops background dialing attempts.
 func (ac *AppConn) Close() error {
 	if ac.dialer != nil {
 		ac.dialer.Stop()
