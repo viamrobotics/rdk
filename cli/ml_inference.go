@@ -10,8 +10,16 @@ import (
 	mlinferencepb "go.viam.com/api/app/mlinference/v1"
 )
 
-// InferenceInferArgs holds the arguments for the inference action.
-type InferenceInferArgs struct {
+const (
+	inferenceFlagFileOrgID      = "file-org-id"
+	inferenceFlagFileID         = "file-id"
+	inferenceFlagFileLocationID = "file-location-id"
+	inferenceFlagModelID        = "model-id"
+	inferenceFlagModelOrgID     = "model-org-id"
+	inferenceFlagModelVersionID = "model-version"
+)
+
+type mlInferenceInferArgs struct {
 	OrgID          string
 	FileOrgID      string
 	FileID         string
@@ -22,8 +30,8 @@ type InferenceInferArgs struct {
 	ModelVersion string
 }
 
-// InferenceInferAction is the corresponding action for 'inference infer'.
-func InferenceInferAction(c *cli.Context, args InferenceInferArgs) error {
+// MLInferenceInferAction is the corresponding action for 'inference infer'.
+func MLInferenceInferAction(c *cli.Context, args mlInferenceInferArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -38,7 +46,7 @@ func InferenceInferAction(c *cli.Context, args InferenceInferArgs) error {
 	fmt.Println("ModelOrgID: ", args.ModelOrgID)
 	fmt.Println("ModelVersion: ", args.ModelVersion)
 
-	inferenceJobID, err := client.runInference(
+	inferenceJobID, err := client.mlRunInference(
 		args.OrgID, args.FileOrgID, args.FileID, args.FileLocationID,
 		args.ModelID, args.ModelOrgID, args.ModelVersion)
 	if err != nil {
@@ -48,8 +56,8 @@ func InferenceInferAction(c *cli.Context, args InferenceInferArgs) error {
 	return nil
 }
 
-// runInference runs inference on an image with the specified parameters.
-func (c *viamClient) runInference(orgID, fileOrgID, fileID, fileLocation, modelID, modelOrgID, modelVersion string) (*mlinferencepb.GetInferenceResponse, error) {
+// mlRunInference runs inference on an image with the specified parameters.
+func (c *viamClient) mlRunInference(orgID, fileOrgID, fileID, fileLocation, modelID, modelOrgID, modelVersion string) (*mlinferencepb.GetInferenceResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}

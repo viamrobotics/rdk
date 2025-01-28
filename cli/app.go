@@ -102,12 +102,7 @@ const (
 	mlTrainingFlagURL         = "url"
 	mlTrainingFlagArgs        = "args"
 
-	inferenceFlagFileOrgID      = "file-org-id"
-	inferenceFlagFileID         = "file-id"
-	inferenceFlagFileLocationID = "file-location-id"
-	inferenceFlagModelID        = "model-id"
-	inferenceFlagModelOrgID     = "model-org-id"
-	inferenceFlagModelVersionID = "model-version"
+
 
 	dataFlagDataType                       = "data-type"
 	dataFlagOrgIDs                         = "org-ids"
@@ -2802,7 +2797,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Required: true,
 						},
 					},
-					Action: createCommandWithT[InferenceInferArgs](InferenceInferAction),
+					Action: createCommandWithT[mlInferenceInferArgs](MLInferenceInferAction),
 				},
 			},
 		},
