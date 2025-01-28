@@ -164,9 +164,14 @@ func (s *Server) ResourceRPCSubtypes(ctx context.Context, _ *pb.ResourceRPCSubty
 	return &pb.ResourceRPCSubtypesResponse{ResourceRpcSubtypes: protoTypes}, nil
 }
 
+// DiscoverComponents is DEPRECATED!!! Please use the Discovery Service instead.
 // DiscoverComponents takes a list of discovery queries and returns corresponding
 // component configurations.
+//
+//nolint:deprecated,staticcheck
 func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverComponentsRequest) (*pb.DiscoverComponentsResponse, error) {
+	s.robot.Logger().CWarn(ctx,
+		"DiscoverComponents is deprecated and will be removed on March 10th 2025. Please use the Discovery Service instead.")
 	// nonTriplet indicates older syntax for type and model E.g. "camera" instead of "rdk:component:camera"
 	// TODO(PRODUCT-344): remove triplet checking here after complete
 	var nonTriplet bool
@@ -221,6 +226,19 @@ func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverCompone
 	}
 
 	return &pb.DiscoverComponentsResponse{Discovery: pbDiscoveries}, nil
+}
+
+// GetModelsFromModules returns all models from the currently managed modules.
+func (s *Server) GetModelsFromModules(ctx context.Context, req *pb.GetModelsFromModulesRequest) (*pb.GetModelsFromModulesResponse, error) {
+	models, err := s.robot.GetModelsFromModules(ctx)
+	if err != nil {
+		return nil, err
+	}
+	resp := pb.GetModelsFromModulesResponse{}
+	for _, mm := range models {
+		resp.Models = append(resp.Models, mm.ToProto())
+	}
+	return &resp, nil
 }
 
 // FrameSystemConfig returns the info of each individual part that makes up the frame system.

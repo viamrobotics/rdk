@@ -261,7 +261,7 @@ func capsuleVsBoxDistance(c *capsule, other *box) float64 {
 
 // IMPORTANT: meshes are not considered solid. A mesh is not guaranteed to represent an enclosed area. This will measure ONLY the distance
 // to the closest triangle in the mesh.
-func capsuleVsMeshDistance(c *capsule, other *mesh) float64 {
+func capsuleVsMeshDistance(c *capsule, other *Mesh) float64 {
 	lowDist := math.Inf(1)
 	for _, t := range other.triangles {
 		// Measure distance to each mesh triangle
@@ -273,7 +273,7 @@ func capsuleVsMeshDistance(c *capsule, other *mesh) float64 {
 	return lowDist
 }
 
-func capsuleVsTriangleDistance(c *capsule, other *triangle) float64 {
+func capsuleVsTriangleDistance(c *capsule, other *Triangle) float64 {
 	capPt, triPt := closestPointsSegmentTriangle(c.segA, c.segB, other)
 	return capPt.Sub(triPt).Norm() - c.radius
 }

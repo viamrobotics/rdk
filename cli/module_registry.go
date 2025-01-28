@@ -106,6 +106,7 @@ type moduleManifest struct {
 
 const (
 	defaultManifestFilename = "meta.json"
+	defaultReadmeFilename   = "README.md"
 )
 
 type createModuleActionArgs struct {

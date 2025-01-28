@@ -75,7 +75,6 @@ type viamClient struct {
 	dataClient       datapb.DataServiceClient
 	packageClient    packagepb.PackageServiceClient
 	datasetClient    datasetpb.DatasetServiceClient
-	endUserClient    apppb.EndUserServiceClient
 	mlTrainingClient mltrainingpb.MLTrainingServiceClient
 	buildClient      buildpb.BuildServiceClient
 	baseURL          *url.URL
