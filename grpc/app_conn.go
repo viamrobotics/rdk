@@ -5,7 +5,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/pkg/errors"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
