@@ -133,6 +133,70 @@ func isNumeric(kind reflect.Kind) bool {
 		kind == reflect.Float32 || kind == reflect.Float64
 }
 
+func flatten(value reflect.Value) ([]string, []float32, error) {
+}
+
+func flattenMap(mValue reflect.Value) ([]string, []float32, error) {
+	if mValue.Type().Key().Kind() != reflect.String {
+		return nil, nil, fmt.Errorf("map keys are not strings: %v", mValue.Type().Key())
+	}
+
+	flattenPtr := func(inp reflect.Value) reflect.Value {
+		for inp.Kind() == reflect.Pointer || inp.Kind() == reflect.Interface {
+			if inp.IsNil() {
+				return inp
+			}
+
+			inp = inp.Elem()
+		}
+		return inp
+	}
+
+	fields := make([]string, 0)
+	numbers := make([]float32, 0)
+	for iter := mValue.MapRange(); iter.Next(); {
+		value := flattenPtr(iter.Value())
+
+		switch {
+		case value.CanUint():
+			fields = append(fields, iter.Key().String())
+			numbers = append(numbers, float32(value.Uint()))
+		case value.CanInt():
+			fields = append(fields, iter.Key().String())
+			numbers = append(numbers, float32(value.Int()))
+		case value.CanFloat():
+			fields = append(fields, iter.Key().String())
+			numbers = append(numbers, float32(value.Float()))
+		case value.Kind() == reflect.Bool:
+			fields = append(fields, iter.Key().String())
+			if value.Bool() {
+				numbers = append(numbers, 1)
+			} else {
+				numbers = append(numbers, 0)
+			}
+		case value.Kind() == reflect.Struct ||
+			value.Kind() == reflect.Pointer ||
+			value.Kind() == reflect.Interface ||
+			value.Kind() == reflect.Map:
+			subFields, subNumbers, err := flattenStruct(value)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			for _, subField := range subFields {
+				fields = append(fields, fmt.Sprintf("%v.%v", iter.Key().String(), subField))
+			}
+			numbers = append(numbers, subNumbers...)
+		case isNumeric(value.Kind()):
+			//nolint:stylecheck
+			return nil, nil, fmt.Errorf("A numeric type was forgotten to be included. Kind: %v", value.Kind())
+		default:
+		}
+	}
+
+	return fields, numbers, nil
+}
+
 func flattenStruct(item reflect.Value) ([]string, []float32, error) {
 	flattenPtr := func(inp reflect.Value) reflect.Value {
 		for inp.Kind() == reflect.Pointer || inp.Kind() == reflect.Interface {
@@ -146,9 +210,12 @@ func flattenStruct(item reflect.Value) ([]string, []float32, error) {
 	}
 
 	rVal := flattenPtr(item)
-	if rVal.Kind() != reflect.Struct && rVal.Kind() != reflect.Map {
+	if rVal.Kind() == reflect.Map {
+		return flattenMap(rVal)
+	}
+
+	if rVal.Kind() != reflect.Struct {
 		// We don't support maps and instead ignore them.
-		fmt.Println("Returning:", rVal.Kind())
 		return []string{}, []float32{}, nil
 	}
 
@@ -186,7 +253,8 @@ func flattenStruct(item reflect.Value) ([]string, []float32, error) {
 			}
 		case rField.Kind() == reflect.Struct ||
 			rField.Kind() == reflect.Pointer ||
-			rField.Kind() == reflect.Interface:
+			rField.Kind() == reflect.Interface ||
+			rField.Kind() == reflect.Map:
 			subFields, subNumbers, err := flattenStruct(rField)
 			if err != nil {
 				return nil, nil, err

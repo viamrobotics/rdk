@@ -343,4 +343,10 @@ func TestFlattenMaps(t *testing.T) {
 	}
 
 	logger.Info(flattenStruct(reflect.ValueOf(mp)))
+
+	mp["Y"] = struct {
+		Foo int
+		Bar int
+	}{10, 20}
+	logger.Info(flattenStruct(reflect.ValueOf(mp)))
 }
