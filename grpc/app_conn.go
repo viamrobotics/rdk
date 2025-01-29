@@ -70,8 +70,8 @@ func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger)
 			}
 
 			appConn.connMu.Lock()
-			defer appConn.connMu.Unlock()
 			appConn.conn = conn
+			appConn.connMu.Unlock()
 
 			return
 		}
