@@ -16,6 +16,12 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
+const (
+	testSwitchName    = "switch1"
+	failSwitchName    = "switch2"
+	missingSwitchName = "missing"
+)
+
 func TestClient(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")

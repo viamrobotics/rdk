@@ -1,4 +1,4 @@
-package toggleswitch_test
+package fake_test
 
 import (
 	"context"
@@ -12,15 +12,9 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-const (
-	testSwitchName    = "switch1"
-	failSwitchName    = "switch2"
-	missingSwitchName = "missing"
-)
-
 func TestSwitch(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-  positionCount := uint32(3)
+	positionCount := uint32(3)
 	cfg := resource.Config{
 		Name: "fakeSwitch",
 		API:  toggleswitch.API,

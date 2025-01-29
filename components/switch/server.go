@@ -5,8 +5,10 @@ import (
 	"context"
 	"fmt"
 
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/switch/v1"
 
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
 
@@ -62,4 +64,15 @@ func (s *serviceServer) GetNumberOfPositions(
 		return nil, err
 	}
 	return &pb.GetNumberOfPositionsResponse{NumberOfPositions: count}, nil
+}
+
+// DoCommand receives arbitrary commands.
+func (s *serviceServer) DoCommand(ctx context.Context,
+	req *commonpb.DoCommandRequest,
+) (*commonpb.DoCommandResponse, error) {
+	sw, err := s.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	return protoutils.DoFromResourceServer(ctx, sw, req)
 }
