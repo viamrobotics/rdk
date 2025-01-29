@@ -190,6 +190,8 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		defer exporter.Stop()
 	}
 
+	// the underlying connection in `appConn` can be nil. In this case, a background Goroutine is kicked off to reattempt dials in a
+	// serialized manner
 	appConn, err := grpc.NewAppConn(ctx, cfgFromDisk.Cloud, logger.Sublogger("networking").Sublogger("app_connection"))
 	if err != nil {
 		return err
