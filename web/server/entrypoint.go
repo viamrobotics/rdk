@@ -24,6 +24,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -58,6 +59,7 @@ type robotServer struct {
 	args     Arguments
 	logger   logging.Logger
 	registry *logging.Registry
+	conn     rpc.ClientConn
 }
 
 func logViamEnvVariables(logger logging.Logger) {
@@ -188,6 +190,13 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		defer exporter.Stop()
 	}
 
+	// the underlying connection in `appConn` can be nil. In this case, a background Goroutine is kicked off to reattempt dials in a
+	// serialized manner
+	appConn, err := grpc.NewAppConn(ctx, cfgFromDisk.Cloud, logger.Sublogger("networking").Sublogger("app_connection"))
+	if err != nil {
+		return err
+	}
+
 	// Start remote logging with config from disk.
 	// This is to ensure we make our best effort to write logs for failures loading the remote config.
 	if cfgFromDisk.Cloud != nil && (cfgFromDisk.Cloud.LogPath != "" || cfgFromDisk.Cloud.AppAddress != "") {
@@ -197,7 +206,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 				ID:         cfgFromDisk.Cloud.ID,
 				Secret:     cfgFromDisk.Cloud.Secret,
 			},
-			nil, false, logger.Sublogger("networking").Sublogger("netlogger"),
+			appConn, false, logger.Sublogger("networking").Sublogger("netlogger"),
 		)
 		if err != nil {
 			return err
@@ -214,6 +223,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		logger:   logger,
 		args:     argsParsed,
 		registry: registry,
+		conn:     appConn,
 	}
 
 	// Run the server with remote logging enabled.
@@ -457,14 +467,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		cloudRestartCheckerActive = make(chan struct{})
 		utils.PanicCapturingGo(func() {
 			defer close(cloudRestartCheckerActive)
-			restartCheck, err := newRestartChecker(ctx, cfg.Cloud, s.logger)
-			if err != nil {
-				if errors.Is(err, context.Canceled) {
-					return
-				}
-				s.logger.Errorw("error creating restart checker", "error", err)
-				panic(fmt.Sprintf("error creating restart checker: %v", err))
-			}
+			restartCheck := newRestartChecker(cfg.Cloud, s.logger, s.conn)
 			defer restartCheck.close()
 			restartInterval := defaultNeedsRestartCheckInterval
 
