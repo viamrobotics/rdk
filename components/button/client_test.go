@@ -16,6 +16,13 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
+const (
+	testButtonName    = "button1"
+	testButtonName2   = "button2"
+	failButtonName    = "button3"
+	missingButtonName = "button4"
+)
+
 func TestClient(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")

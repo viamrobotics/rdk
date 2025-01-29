@@ -1,4 +1,4 @@
-package button_test
+package fake_test
 
 import (
 	"context"
@@ -10,13 +10,6 @@ import (
 	"go.viam.com/rdk/components/button/fake"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-)
-
-const (
-	testButtonName    = "button1"
-	testButtonName2   = "button2"
-	failButtonName    = "button3"
-	missingButtonName = "button4"
 )
 
 func TestPush(t *testing.T) {

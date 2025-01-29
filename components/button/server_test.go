@@ -67,7 +67,7 @@ func TestServer(t *testing.T) {
 
 		_, err = buttonServer.Push(context.Background(), &pb.PushRequest{Name: testButtonName2})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errCantPush.Error())
+		test.That(t, err, test.ShouldBeError, errCantPush)
 		test.That(t, buttonPushed, test.ShouldEqual, testButtonName2)
 	})
 

@@ -36,9 +36,9 @@ func (s *serviceServer) Push(ctx context.Context, req *pb.PushRequest) (*pb.Push
 func (s *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
-	gripper, err := s.coll.Resource(req.GetName())
+	button, err := s.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}
-	return protoutils.DoFromResourceServer(ctx, gripper, req)
+	return protoutils.DoFromResourceServer(ctx, button, req)
 }
