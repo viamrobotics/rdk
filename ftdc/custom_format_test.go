@@ -334,3 +334,13 @@ func TestNilNestedStats(t *testing.T) {
 	logger.Info("Values:", values, " Err:", err)
 	test.That(t, values, test.ShouldResemble, []float32{10})
 }
+
+func TestFlattenMaps(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	var mp = map[string]any{
+		"X": 42,
+	}
+
+	logger.Info(flattenStruct(reflect.ValueOf(mp)))
+}

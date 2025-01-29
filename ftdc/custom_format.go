@@ -146,13 +146,15 @@ func flattenStruct(item reflect.Value) ([]string, []float32, error) {
 	}
 
 	rVal := flattenPtr(item)
-	if rVal.Kind() != reflect.Struct {
+	if rVal.Kind() != reflect.Struct && rVal.Kind() != reflect.Map {
 		// We don't support maps and instead ignore them.
+		fmt.Println("Returning:", rVal.Kind())
 		return []string{}, []float32{}, nil
 	}
 
 	rType := rVal.Type()
 
+	fmt.Println("NumFields:", rVal.NumField())
 	var fields []string
 	var numbers []float32
 	// Use reflection to walk the member fields of an individual set of metric readings. We rely
@@ -202,6 +204,7 @@ func flattenStruct(item reflect.Value) ([]string, []float32, error) {
 		default:
 			// Getting the keys for a structure will ignore these types. Such as the antagonistic
 			// `channel`, or `string`. We follow suit in ignoring these types.
+			return nil, nil, fmt.Errorf("Unknown member: %T", rField)
 		}
 	}
 

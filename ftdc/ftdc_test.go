@@ -126,7 +126,6 @@ func (mapStatser *mapStatser) Stats() any {
 }
 
 func TestMapStatser(t *testing.T) {
-	t.Skip("flattening skips maps still")
 	logger := logging.NewTestLogger(t)
 
 	// ftdcData will be appended to on each call to `writeDatum`. At the end of the test we can pass
