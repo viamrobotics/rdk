@@ -3,7 +3,7 @@ import os
 import subprocess
 import sys
 from importlib import import_module
-from typing import List, Set
+from typing import List, Set, Union
 
 
 def return_attribute(value: str, attr: str) -> ast.Attribute:
@@ -154,6 +154,25 @@ def main(
                             ['    ' + line for line in ast.unparse(cstmt).splitlines()]
                         )
                         abstract_methods.append(indented_code)
+
+    type_module = import_module(f"viam.{resource_type}s.{resource_type}_base")
+    with open(type_module.__file__, "r") as f:
+        tree = ast.parse(f.read())
+        for stmt in tree.body:
+            if isinstance(stmt, ast.ClassDef):
+                for cstmt in stmt.body:
+                    if isinstance(cstmt, ast.AsyncFunctionDef):
+                        replace_async_func("", cstmt, [])
+                        indented_code = '\n'.join(
+                            ['    ' + line for line in ast.unparse(cstmt).splitlines()]
+                        )
+                        abstract_methods.append(indented_code)
+                        if cstmt.name == "do_command":
+                            imports.append("from typing import Optional")
+                            imports.append("from viam.utils import ValueTypes")
+                        elif cstmt.name == "get_geometries":
+                            imports.append("from typing import List, Optional")
+                            imports.append("from viam.proto.common import Geometry")
 
     model_name_pascal = "".join(
         [word.capitalize() for word in slugify(model_name).split("-")]
