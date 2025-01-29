@@ -26,6 +26,12 @@ type AppConn struct {
 // connection to App will continue to occur, however, in a background Goroutine. These attempts will continue until a connection is made or
 // an error that is not a context.DeadlineExceeded occurs.
 func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger) (*AppConn, error) {
+	appConn := &AppConn{}
+
+	if cloud == nil {
+		return appConn, nil
+	}
+
 	grpcURL, err := url.Parse(cloud.AppAddress)
 	if err != nil {
 		return nil, err
@@ -36,8 +42,6 @@ func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger)
 	if grpcURL.Scheme == "http" {
 		dialOpts = append(dialOpts, rpc.WithInsecure())
 	}
-
-	appConn := &AppConn{}
 
 	ctxWithTimeout, ctxWithTimeoutCancel := config.GetTimeoutCtx(ctx, true, cloud.ID)
 	defer ctxWithTimeoutCancel()
