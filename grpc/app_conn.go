@@ -53,10 +53,6 @@ func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger)
 		return appConn, nil
 	}
 
-	if !errors.Is(err, context.DeadlineExceeded) {
-		return nil, err
-	}
-
 	appConn.dialer = utils.NewStoppableWorkers(ctx)
 
 	appConn.dialer.Add(func(ctx context.Context) {
