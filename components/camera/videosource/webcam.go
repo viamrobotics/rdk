@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -48,91 +47,11 @@ func init() {
 		camera.API,
 		ModelWebcam,
 		resource.Registration[camera.Camera, *WebcamConfig]{
-			Constructor: NewWebcam,
-			Discover: func(ctx context.Context, logger logging.Logger, extra map[string]interface{}) (interface{}, error) {
-				// getVideoDrivers is a callback passed to the registered Discover func to get all video drivers.
-				getVideoDrivers := func() []driverutils.Driver {
-					return driverutils.GetManager().Query(driverutils.FilterVideoRecorder())
-				}
-				return Discover(ctx, getVideoDrivers, logger)
-			},
+			Constructor: NewWebcam
 		})
 	if err := json.Unmarshal(intrinsics, &data); err != nil {
 		logging.Global().Errorw("cannot parse intrinsics json", "error", err)
 	}
-}
-
-// getDriverProperties is a helper func for webcam discovery that returns the Media properties of a specific driver.
-func getDriverProperties(d driverutils.Driver) (_ []prop.Media, err error) {
-	// Need to open driver to get properties
-	if d.Status() == driverutils.StateClosed {
-		errOpen := d.Open()
-		if errOpen != nil {
-			return nil, errOpen
-		}
-		defer func() {
-			if errClose := d.Close(); errClose != nil {
-				err = errClose
-			}
-		}()
-	}
-	return d.Properties(), err
-}
-
-// Discover webcam attributes.
-func Discover(ctx context.Context, getDrivers func() []driverutils.Driver, logger logging.Logger) (*pb.Webcams, error) {
-	mediadevicescamera.Initialize()
-	var webcams []*pb.Webcam
-	drivers := getDrivers()
-	for _, d := range drivers {
-		driverInfo := d.Info()
-		props, err := getDriverProperties(d)
-		if len(props) == 0 {
-			logger.CDebugw(ctx, "no properties detected for driver, skipping discovery...", "driver", driverInfo.Label)
-			continue
-		} else if err != nil {
-			logger.CDebugw(ctx, "cannot access driver properties, skipping discovery...", "driver", driverInfo.Label, "error", err)
-			continue
-		}
-
-		if d.Status() == driverutils.StateRunning {
-			logger.CDebugw(ctx, "driver is in use, skipping discovery...", "driver", driverInfo.Label)
-			continue
-		}
-
-		labelParts := strings.Split(driverInfo.Label, mediadevicescamera.LabelSeparator)
-		label := labelParts[0]
-
-		name, id := func() (string, string) {
-			nameParts := strings.Split(driverInfo.Name, mediadevicescamera.LabelSeparator)
-			if len(nameParts) > 1 {
-				return nameParts[0], nameParts[1]
-			}
-			// fallback to the label if the name does not have an any additional parts to use.
-			return nameParts[0], label
-		}()
-
-		wc := &pb.Webcam{
-			Name:       name,
-			Id:         id,
-			Label:      label,
-			Status:     string(d.Status()),
-			Properties: make([]*pb.Property, 0, len(d.Properties())),
-		}
-
-		for _, prop := range props {
-			pbProp := &pb.Property{
-				WidthPx:     int32(prop.Video.Width),
-				HeightPx:    int32(prop.Video.Height),
-				FrameRate:   prop.Video.FrameRate,
-				FrameFormat: string(prop.Video.FrameFormat),
-			}
-			wc.Properties = append(wc.Properties, pbProp)
-		}
-		webcams = append(webcams, wc)
-	}
-
-	return &pb.Webcams{Webcams: webcams}, nil
 }
 
 // WebcamConfig is the native config attribute struct for webcams.
