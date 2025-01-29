@@ -406,7 +406,6 @@ func (w *remoteLogWriterGRPC) write(ctx context.Context, logs []*commonpb.LogEnt
 	return nil
 }
 
-// TODO(RSDK-8292): [qu] do we need this anymore?
 func (w *remoteLogWriterGRPC) getOrCreateClient(ctx context.Context) (apppb.RobotServiceClient, error) {
 	w.clientMutex.Lock()
 	defer w.clientMutex.Unlock()
