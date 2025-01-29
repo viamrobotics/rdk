@@ -389,6 +389,12 @@ func (c *webcam) ensureActive() error {
 }
 
 func (c *webcam) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
+	if c.closed {
+		return nil, camera.ImageMetadata{}, errClosed
+	}
+	if c.reader == nil {
+		return nil, camera.ImageMetadata{}, errors.New("underlying reader is nil")
+	}
 	img, release, err := c.reader.Read()
 	if err != nil {
 		return nil, camera.ImageMetadata{}, err
