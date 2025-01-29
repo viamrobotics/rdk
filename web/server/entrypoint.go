@@ -189,7 +189,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		defer exporter.Stop()
 	}
 
-	appConn, err := grpc.NewAppConn(ctx, cfgFromDisk.Cloud, logger.Sublogger("networking").Sublogger("appconnection"))
+	appConn, err := grpc.NewAppConn(ctx, cfgFromDisk.Cloud, logger.Sublogger("networking").Sublogger("app_connection"))
 	if err != nil {
 		return err
 	}

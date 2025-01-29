@@ -13,7 +13,7 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
-// AppConn maintains an underlying client connection meant to be used globally to connect to App. The AppConn constructor repeatedly
+// AppConn maintains an underlying client connection meant to be used globally to connect to App. The `AppConn` constructor repeatedly
 // attempts to dial App until a connection is successfully established.
 type AppConn struct {
 	ReconfigurableClientConn
@@ -21,10 +21,10 @@ type AppConn struct {
 	dialer *utils.StoppableWorkers
 }
 
-// NewAppConn creates an AppConn instance with a gRPC client connection to App. An initial dial attempt blocks. If it errors, the error is
-// returned. If it times out, an AppConn object will return with a nil underlying client connection. Serialized attempts at establishing a
-// connection to App will continue to occur, however, in a background Goroutine. These attempts will continue until a connection is made or
-// an error that is not a context.DeadlineExceeded occurs.
+// NewAppConn creates an `AppConn` instance with a gRPC client connection to App. An initial dial attempt blocks. If it errors, the error
+// is returned. If it times out, an `AppConn` object with a nil underlying client connection will return. Serialized attempts at establishing
+// a connection to App will continue to occur, however, in a background Goroutine. These attempts will continue until a connection is made.
+// If `cloud` is nil, an `AppConn` with a nil underlying connection will return, and the background dialer will not start.
 func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger) (*AppConn, error) {
 	appConn := &AppConn{}
 
@@ -83,7 +83,7 @@ func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger)
 	return appConn, nil
 }
 
-// Close attempts to close the underlying connection if there is one and stops background dialing attempts.
+// Close attempts to close the underlying connection and stops background dialing attempts.
 func (ac *AppConn) Close() error {
 	if ac.dialer != nil {
 		ac.dialer.Stop()
