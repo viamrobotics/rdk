@@ -357,57 +357,73 @@ func (ftdc *FTDC) constructDatum() datum {
 	return datum
 }
 
-func walk(data map[string]any, inputSchema *schema) (*schema, []float32, error) {
+// walk accepts a datum and the previous schema and will return:
+// - the new schema. If the schema is unchanged, this will be the same pointer value as `previousSchema`.
+// - the flattened float32 data points.
+// - an error. All errors (for now) are terminal -- the input datum cannot be output.
+func walk(datum map[string]any, previousSchema *schema) (*schema, []float32, error) {
 	schemaChanged := false
-	// Create a set out of the `inputSchema.mapOrder` as we iterate over it.
-	mapOrderSet := make(map[string]struct{})
 
-	dataMapOrder := make([]string, 0, len(data))
 	var (
 		fields         []string
 		values         []float32
 		iterationOrder []string
 	)
-	if inputSchema != nil {
-		fields = make([]string, 0, len(inputSchema.fieldOrder))
-		values = make([]float32, 0, len(inputSchema.fieldOrder))
-		iterationOrder = make([]string, 0, len(inputSchema.mapOrder))
-		iterationOrder = append(iterationOrder, inputSchema.mapOrder...)
+
+	// In the steady state, we will have an existing schema. Use that for a `datum` iteration order.
+	if previousSchema != nil {
+		fields = make([]string, 0, len(previousSchema.fieldOrder))
+		values = make([]float32, 0, len(previousSchema.fieldOrder))
+		iterationOrder = previousSchema.mapOrder
 	} else {
+		// If this is the first data point, we'll walk the map in... map order.
 		schemaChanged = true
-		iterationOrder = make([]string, 0, len(data))
-		for key := range data {
+		iterationOrder = make([]string, 0, len(datum))
+		for key := range datum {
 			iterationOrder = append(iterationOrder, key)
 		}
 	}
 
+	// Record the order we iterate through the keys in the input `datum`. We return this in the case
+	// we learn the schema changed.
+	datumMapOrder := make([]string, 0, len(datum))
+
+	// Create a set out of the `inputSchema.mapOrder` as we iterate over it. This will be used to
+	// see if new keys have been added to the `datum` map that were not in the `previousSchema`.
+	mapOrderSet := make(map[string]struct{})
 	for _, key := range iterationOrder {
 		mapOrderSet[key] = struct{}{}
 
 		// Walk over the datum in `mapOrder` to ensure we gather values in the order consistent with
 		// the current schema.
-		stats, exists := data[key]
+		stats, exists := datum[key]
 		if !exists {
+			// There was a `Statser` in the previous `datum` that no longer exists. Note the schema
+			// changed and move on.
 			schemaChanged = true
 			continue
 		}
 
+		// Get all of the field names and values from the `stats` object.
 		itemFields, itemNumbers, err := flattenStructNew(reflect.ValueOf(stats))
 		if err != nil {
 			return nil, nil, err
 		}
 
-		dataMapOrder = append(dataMapOrder, key)
+		datumMapOrder = append(datumMapOrder, key)
+		// For each field we found, prefix it with the `datum` key (the `Statser` name).
 		for idx := range itemFields {
 			fields = append(fields, fmt.Sprintf("%v.%v", key, itemFields[idx]))
 		}
 		values = append(values, itemNumbers...)
 	}
 
-	// Check for a schema change by walking all of the keys (`Statser`s) in the data and see if
-	// there is anything new.
-	for dataKey, stats := range data {
+	// Check for a schema change by walking all of the keys (`Statser`s) in the input `datum`. Look
+	// for anything new.
+	for dataKey, stats := range datum {
 		if _, exists := mapOrderSet[dataKey]; exists {
+			// The steady-state is that every key in the input `datum` matches the prior
+			// `datum`/schema.
 			continue
 		}
 
@@ -418,22 +434,28 @@ func walk(data map[string]any, inputSchema *schema) (*schema, []float32, error) 
 			return nil, nil, err
 		}
 
-		dataMapOrder = append(dataMapOrder, dataKey)
+		datumMapOrder = append(datumMapOrder, dataKey)
+		// Similarly, prefix fields with the `Statser` name.
 		for idx := range itemFields {
 			fields = append(fields, fmt.Sprintf("%v.%v", dataKey, itemFields[idx]))
 		}
 		values = append(values, itemNumbers...)
 	}
 
-	if inputSchema != nil && !slices.Equal(inputSchema.fieldOrder, fields) {
+	// Even if the keys in the `datum` stayed the same, the values returned by an individual `Stats`
+	// call may have changed. This ought to be rare, as this results in writing out a new schema and
+	// is consequently inefficient. But we prefer to have less FTDC data than inaccurate data, or
+	// more simply, failing.
+	if previousSchema != nil && !slices.Equal(previousSchema.fieldOrder, fields) {
 		schemaChanged = true
 	}
 
+	// If the schema changed, return a new schema object with the updated schema.
 	if schemaChanged {
-		return &schema{dataMapOrder, fields}, values, nil
+		return &schema{datumMapOrder, fields}, values, nil
 	}
 
-	return inputSchema, values, nil
+	return previousSchema, values, nil
 }
 
 func (ftdc *FTDC) writeDatumNew(datum datum) error {
