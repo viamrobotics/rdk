@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,7 +19,6 @@ import (
 	"github.com/pion/mediadevices/pkg/io/video"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
-	pb "go.viam.com/api/component/camera/v1"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
@@ -47,7 +47,7 @@ func init() {
 		camera.API,
 		ModelWebcam,
 		resource.Registration[camera.Camera, *WebcamConfig]{
-			Constructor: NewWebcam
+			Constructor: NewWebcam,
 		})
 	if err := json.Unmarshal(intrinsics, &data); err != nil {
 		logging.Global().Errorw("cannot parse intrinsics json", "error", err)
