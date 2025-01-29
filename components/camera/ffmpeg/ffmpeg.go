@@ -26,7 +26,6 @@ import (
 type Config struct {
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
-	Debug                bool                               `json:"debug,omitempty"`
 	VideoPath            string                             `json:"video_path"`
 	InputKWArgs          map[string]interface{}             `json:"input_kw_args,omitempty"`
 	Filters              []FilterConfig                     `json:"filters,omitempty"`
@@ -74,7 +73,6 @@ func init() {
 }
 
 type ffmpegCamera struct {
-	resource.Named
 	gostream.VideoReader
 	cancelFunc              context.CancelFunc
 	activeBackgroundWorkers sync.WaitGroup
@@ -93,7 +91,7 @@ func (writer stderrWriter) Write(p []byte) (n int, err error) {
 }
 
 // NewFFMPEGCamera instantiates a new camera which leverages ffmpeg to handle a variety of potential video types.
-func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (camera.StreamCamera, error) {
+func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (camera.VideoSource, error) {
 	// make sure ffmpeg is in the path before doing anything else
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
 		return nil, err

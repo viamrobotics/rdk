@@ -28,16 +28,26 @@ const (
 	trainingStatusPrefix = "TRAINING_STATUS_"
 )
 
+type mlSubmitCustomTrainingJobArgs struct {
+	DatasetID    string
+	OrgID        string
+	ModelName    string
+	ModelVersion string
+	ScriptName   string
+	Version      string
+	Args         []string
+}
+
 // MLSubmitCustomTrainingJob is the corresponding action for 'train submit-custom'.
-func MLSubmitCustomTrainingJob(c *cli.Context) error {
+func MLSubmitCustomTrainingJob(c *cli.Context, args mlSubmitCustomTrainingJobArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
 
 	trainingJobID, err := client.mlSubmitCustomTrainingJob(
-		c.String(datasetFlagDatasetID), c.String(mlTrainingFlagName), c.String(mlTrainingFlagVersion), c.String(generalFlagOrgID),
-		c.String(trainFlagModelName), c.String(trainFlagModelVersion), c.StringSlice(mlTrainingFlagArgs))
+		args.DatasetID, args.ScriptName, args.Version, args.OrgID,
+		args.ModelName, args.ModelVersion, args.Args)
 	if err != nil {
 		return err
 	}
@@ -45,32 +55,46 @@ func MLSubmitCustomTrainingJob(c *cli.Context) error {
 	return nil
 }
 
+type mlSubmitCustomTrainingJobWithUploadArgs struct {
+	URL          string
+	DatasetID    string
+	ModelName    string
+	ModelVersion string
+	Path         string
+	OrgID        string
+	ModelOrgID   string
+	ScriptName   string
+	Version      string
+	Framework    string
+	ModelType    string
+	Args         []string
+}
+
 // MLSubmitCustomTrainingJobWithUpload is the corresponding action for 'train submit-custom'.
-func MLSubmitCustomTrainingJobWithUpload(c *cli.Context) error {
+func MLSubmitCustomTrainingJobWithUpload(c *cli.Context, args mlSubmitCustomTrainingJobWithUploadArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
 
-	resp, err := client.uploadTrainingScript(true, c.String(trainFlagModelType), c.String(mlTrainingFlagFramework),
-		c.String(mlTrainingFlagURL), c.String(trainFlagModelOrgID), c.String(mlTrainingFlagName),
-		c.String(mlTrainingFlagVersion), c.Path(mlTrainingFlagPath))
+	resp, err := client.uploadTrainingScript(true, args.ModelType, args.Framework,
+		args.URL, args.OrgID, args.ScriptName, args.Version, args.Path)
 	if err != nil {
 		return err
 	}
-	registryItemID := fmt.Sprintf("%s:%s", c.String(trainFlagModelOrgID), c.String(mlTrainingFlagName))
+	registryItemID := fmt.Sprintf("%s:%s", args.OrgID, args.ScriptName)
 
 	moduleID := moduleID{
-		prefix: c.String(generalFlagOrgID),
-		name:   c.String(mlTrainingFlagName),
+		prefix: args.OrgID,
+		name:   args.ScriptName,
 	}
 	url := moduleID.ToDetailURL(client.baseURL.Hostname(), PackageTypeMLTraining)
 	printf(c.App.Writer, "Version successfully uploaded! you can view your changes online here: %s. \n"+
 		"To use your training script in the from-registry command, use %s as the script name", url,
 		registryItemID)
 	trainingJobID, err := client.mlSubmitCustomTrainingJob(
-		c.String(datasetFlagDatasetID), registryItemID, resp.Version, c.String(trainFlagModelOrgID),
-		c.String(trainFlagModelName), c.String(trainFlagModelVersion), c.StringSlice(mlTrainingFlagArgs))
+		args.DatasetID, registryItemID, resp.Version, args.ModelOrgID,
+		args.ModelName, args.ModelVersion, args.Args)
 	if err != nil {
 		return err
 	}
@@ -78,16 +102,24 @@ func MLSubmitCustomTrainingJobWithUpload(c *cli.Context) error {
 	return nil
 }
 
+type mlSubmitTrainingJobArgs struct {
+	DatasetID    string
+	ModelOrgID   string
+	ModelName    string
+	ModelType    string
+	ModelLabels  []string
+	ModelVersion string
+}
+
 // MLSubmitTrainingJob is the corresponding action for 'train submit'.
-func MLSubmitTrainingJob(c *cli.Context) error {
+func MLSubmitTrainingJob(c *cli.Context, args mlSubmitTrainingJobArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
 	trainingJobID, err := client.mlSubmitTrainingJob(
-		c.String(datasetFlagDatasetID), c.String(trainFlagModelOrgID),
-		c.String(trainFlagModelName), c.String(trainFlagModelVersion),
-		c.String(trainFlagModelType), c.StringSlice(trainFlagModelLabels))
+		args.DatasetID, args.ModelOrgID, args.ModelName, args.ModelVersion, args.ModelType,
+		args.ModelLabels)
 	if err != nil {
 		return err
 	}
@@ -168,13 +200,17 @@ func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, regist
 	return resp.Id, nil
 }
 
+type dataGetTrainingJobArgs struct {
+	JobID string
+}
+
 // DataGetTrainingJob is the corresponding action for 'data train get'.
-func DataGetTrainingJob(c *cli.Context) error {
+func DataGetTrainingJob(c *cli.Context, args dataGetTrainingJobArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
-	job, err := client.dataGetTrainingJob(c.String(trainFlagJobID))
+	job, err := client.dataGetTrainingJob(args.JobID)
 	if err != nil {
 		return err
 	}
@@ -194,13 +230,17 @@ func (c *viamClient) dataGetTrainingJob(trainingJobID string) (*mltrainingpb.Tra
 	return resp.Metadata, nil
 }
 
+type mlGetTrainingJobLogsArgs struct {
+	JobID string
+}
+
 // MLGetTrainingJobLogs is the corresponding action for 'data train logs'.
-func MLGetTrainingJobLogs(c *cli.Context) error {
+func MLGetTrainingJobLogs(c *cli.Context, args mlGetTrainingJobLogsArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
-	logs, err := client.mlGetTrainingJobLogs(c.String(trainFlagJobID))
+	logs, err := client.mlGetTrainingJobLogs(args.JobID)
 	if err != nil {
 		return err
 	}
@@ -239,13 +279,17 @@ func (c *viamClient) mlGetTrainingJobLogs(trainingJobID string) ([]*mltrainingpb
 	return allLogs, nil
 }
 
+type dataCancelTrainingJobArgs struct {
+	JobID string
+}
+
 // DataCancelTrainingJob is the corresponding action for 'data train cancel'.
-func DataCancelTrainingJob(c *cli.Context) error {
+func DataCancelTrainingJob(c *cli.Context, args dataCancelTrainingJobArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
-	id := c.String(trainFlagJobID)
+	id := args.JobID
 	if err := client.dataCancelTrainingJob(id); err != nil {
 		return err
 	}
@@ -265,13 +309,18 @@ func (c *viamClient) dataCancelTrainingJob(trainingJobID string) error {
 	return nil
 }
 
+type dataListTrainingJobsArgs struct {
+	OrgID     string
+	JobStatus string
+}
+
 // DataListTrainingJobs is the corresponding action for 'data train list'.
-func DataListTrainingJobs(c *cli.Context) error {
+func DataListTrainingJobs(c *cli.Context, args dataListTrainingJobsArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
-	jobs, err := client.dataListTrainingJobs(c.String(generalFlagOrgID), c.String(trainFlagJobStatus))
+	jobs, err := client.dataListTrainingJobs(args.OrgID, args.JobStatus)
 	if err != nil {
 		return err
 	}
@@ -307,7 +356,7 @@ func (c *viamClient) dataListTrainingJobs(orgID, status string) ([]*mltrainingpb
 }
 
 // allTrainingStatusValues returns the accepted values for the trainFlagJobStatus flag.
-func allTrainingStatusValues() string {
+func allTrainingStatusValues() []string {
 	var formattedStatuses []string
 	for status := range mltrainingpb.TrainingStatus_value {
 		formattedStatus := strings.ToLower(strings.TrimPrefix(status, trainingStatusPrefix))
@@ -315,31 +364,42 @@ func allTrainingStatusValues() string {
 	}
 
 	slices.Sort(formattedStatuses)
-	return "[" + strings.Join(formattedStatuses, ", ") + "]"
+	return formattedStatuses
 }
 
 func defaultTrainingStatus() string {
 	return strings.ToLower(strings.TrimPrefix(mltrainingpb.TrainingStatus_TRAINING_STATUS_UNSPECIFIED.String(), trainingStatusPrefix))
 }
 
+type mlTrainingUploadArgs struct {
+	Path       string
+	OrgID      string
+	ScriptName string
+	Version    string
+	Framework  string
+	Type       string
+	Draft      bool
+	URL        string
+}
+
 // MLTrainingUploadAction uploads a new custom training script.
-func MLTrainingUploadAction(c *cli.Context) error {
+func MLTrainingUploadAction(c *cli.Context, args mlTrainingUploadArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
 
-	_, err = client.uploadTrainingScript(c.Bool(mlTrainingFlagDraft), c.String(mlTrainingFlagType),
-		c.String(mlTrainingFlagFramework), c.String(mlTrainingFlagURL), c.String(generalFlagOrgID), c.String(mlTrainingFlagName),
-		c.String(mlTrainingFlagVersion), c.Path(mlTrainingFlagPath),
+	_, err = client.uploadTrainingScript(args.Draft, args.Type,
+		args.Framework, args.URL, args.OrgID, args.ScriptName,
+		args.Version, args.Path,
 	)
 	if err != nil {
 		return err
 	}
 
 	moduleID := moduleID{
-		prefix: c.String(generalFlagOrgID),
-		name:   c.String(mlTrainingFlagName),
+		prefix: args.OrgID,
+		name:   args.ScriptName,
 	}
 	url := moduleID.ToDetailURL(client.baseURL.Hostname(), PackageTypeMLTraining)
 	printf(c.App.Writer, "Version successfully uploaded! you can view your changes online here: %s. \n"+
@@ -373,23 +433,31 @@ func (c *viamClient) uploadTrainingScript(draft bool, modelType, framework, url,
 	return resp, nil
 }
 
+type mlTrainingUpdateArgs struct {
+	OrgID       string
+	ScriptName  string
+	Visibility  string
+	Description string
+	URL         string
+}
+
 // MLTrainingUpdateAction updates the visibility of training scripts.
-func MLTrainingUpdateAction(c *cli.Context) error {
+func MLTrainingUpdateAction(c *cli.Context, args mlTrainingUpdateArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
 
-	err = client.updateTrainingScript(c.String(generalFlagOrgID), c.String(mlTrainingFlagName),
-		c.String(mlTrainingFlagVisibility), c.String(mlTrainingFlagDescription), c.String(mlTrainingFlagURL),
+	err = client.updateTrainingScript(args.OrgID, args.ScriptName,
+		args.Visibility, args.Description, args.URL,
 	)
 	if err != nil {
 		return err
 	}
 
 	moduleID := moduleID{
-		prefix: c.String(generalFlagOrgID),
-		name:   c.String(mlTrainingFlagName),
+		prefix: args.OrgID,
+		name:   args.ScriptName,
 	}
 	url := moduleID.ToDetailURL(client.baseURL.Hostname(), PackageTypeMLTraining)
 	printf(c.App.Writer, "Training script successfully updated! you can view your changes online here: %s", url)

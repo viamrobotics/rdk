@@ -57,32 +57,35 @@ func init() {
 //		logger.Info(detections[0])
 //	}
 //
+// For more information, see the [DetectionsFromCamera method docs].
+//
 // Detections example:
 //
-//	myCam, err := camera.FromRobot(machine, "my_camera")
-//	if err != nil {
-//		logger.Error(err)
-//		return
-//	}
-//	// Get the stream from a camera
-//	camStream, err := myCam.Stream(context.Background())
-//	// Get an image from the camera stream
-//	img, release, err := camStream.Next(context.Background())
-//	defer release()
+//	 // add "go.viam.com/rdk/utils" to imports to use this code snippet
 //
-//	myDetectorService, err := vision.FromRobot(machine, "my_detector")
-//	if err != nil {
-//		logger.Error(err)
-//		return
-//	}
-//	// Get the detections from the image
-//	detections, err := myDetectorService.Detections(context.Background(), img, nil)
-//	if err != nil {
-//		logger.Fatalf("Could not get detections: %v", err)
-//	}
-//	if len(detections) > 0 {
-//		logger.Info(detections[0])
-//	}
+//		myCam, err := camera.FromRobot(machine, "my_camera")
+//		if err != nil {
+//			logger.Error(err)
+//			return
+//		}
+//		// Get an image from the camera decoded as an image.Image
+//		img, err = camera.DecodeImageFromCamera(context.Background(), utils.MimeTypeJPEG, nil, myCam)
+//
+//		myDetectorService, err := vision.FromRobot(machine, "my_detector")
+//		if err != nil {
+//			logger.Error(err)
+//			return
+//		}
+//		// Get the detections from the image
+//		detections, err := myDetectorService.Detections(context.Background(), img, nil)
+//		if err != nil {
+//			logger.Fatalf("Could not get detections: %v", err)
+//		}
+//		if len(detections) > 0 {
+//			logger.Info(detections[0])
+//		}
+//
+// For more information, see the [Detections method docs].
 //
 // ClassificationsFromCamera example:
 //
@@ -100,36 +103,35 @@ func init() {
 //		logger.Info(classifications[0])
 //	}
 //
+// For more information, see the [ClassificationsFromCamera method docs].
+//
 // Classifications example:
 //
-//	myCam, err := camera.FromRobot(machine, "my_camera")
-//	if err != nil {
-//		logger.Error(err)
-//		return
-//	}
-//	// Get the stream from a camera
-//	camStream, err := myCam.Stream(context.Background())
-//	if err!=nil {
+//	 // add "go.viam.com/rdk/utils" to imports to use this code snippet
+//
+//		myCam, err := camera.FromRobot(machine, "my_camera")
+//		if err != nil {
 //			logger.Error(err)
 //			return
-//	}
-//	// Get an image from the camera stream
-//	img, release, err := camStream.Next(context.Background())
-//	defer release()
+//		}
+//		// Get an image from the camera decoded as an image.Image
+//		img, err = camera.DecodeImageFromCamera(context.Background(), utils.MimeTypeJPEG, nil, myCam)
 //
-//	myClassifierService, err := vision.FromRobot(machine, "my_classifier")
-//	if err != nil {
-//		logger.Error(err)
-//		return
-//	}
-//	// Get the 2 classifications with the highest confidence scores from the image
-//	classifications, err := myClassifierService.Classifications(context.Background(), img, 2, nil)
-//	if err != nil {
-//		logger.Fatalf("Could not get classifications: %v", err)
-//	}
-//	if len(classifications) > 0 {
-//		logger.Info(classifications[0])
-//	}
+//		myClassifierService, err := vision.FromRobot(machine, "my_classifier")
+//		if err != nil {
+//			logger.Error(err)
+//			return
+//		}
+//		// Get the 2 classifications with the highest confidence scores from the image
+//		classifications, err := myClassifierService.Classifications(context.Background(), img, 2, nil)
+//		if err != nil {
+//			logger.Fatalf("Could not get classifications: %v", err)
+//		}
+//		if len(classifications) > 0 {
+//			logger.Info(classifications[0])
+//		}
+//
+// For more information, see the [Classifications method docs].
 //
 // GetObjectPointClouds example:
 //
@@ -146,6 +148,8 @@ func init() {
 //	if len(objects) > 0 {
 //		logger.Info(objects[0])
 //	}
+//
+// For more information, see the [GetObjectPointClouds method docs].
 //
 // CaptureAllFromCamera example:
 //
@@ -164,7 +168,15 @@ func init() {
 //	classifications := capture.Classifications
 //	objects := capture.Objects
 //
-// [vision service docs]: https://docs.viam.com/services/vision/
+// For more information, see the [CaptureAllFromCamera method docs].
+//
+// [vision service docs]: https://docs.viam.com/dev/reference/apis/services/vision/
+// [DetectionsFromCamera method docs]: https://docs.viam.com/dev/reference/apis/services/vision/#getdetectionsfromcamera
+// [Detections method docs]: https://docs.viam.com/dev/reference/apis/services/vision/#getdetections
+// [ClassificationsFromCamera method docs]: https://docs.viam.com/dev/reference/apis/services/vision/#getclassificationsfromcamera
+// [Classifications method docs]: https://docs.viam.com/dev/reference/apis/services/vision/#getclassifications
+// [GetObjectPointClouds method docs]: https://docs.viam.com/dev/reference/apis/services/vision/#getobjectpointclouds
+// [CaptureAllFromCamera method docs]: https://docs.viam.com/dev/reference/apis/services/vision/#captureallfromcamera
 type Service interface {
 	resource.Resource
 	// DetectionsFromCamera returns a list of detections from the next image from a specified camera using a configured detector.

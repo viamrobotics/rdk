@@ -738,7 +738,7 @@ func TestPaths(t *testing.T) {
 					Plan: motion.PlanWithMetadata{
 						ExecutionID: executionID,
 						Plan: motionplan.NewSimplePlan(
-							[]motionplan.PathStep{{s.base.Name().ShortName(): referenceframe.NewPoseInFrame(
+							[]referenceframe.FrameSystemPoses{{s.base.Name().ShortName(): referenceframe.NewPoseInFrame(
 								referenceframe.World,
 								spatialmath.NewPose(r3.Vector{X: expectedLng, Y: expectedLat}, nil),
 							)}},

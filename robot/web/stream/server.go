@@ -22,7 +22,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	cameraStreamUtils "go.viam.com/rdk/robot/web/stream/camera"
+	camerautils "go.viam.com/rdk/robot/web/stream/camera"
 	"go.viam.com/rdk/robot/web/stream/state"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -170,7 +170,7 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 	}
 
 	// return error if resource is neither a camera nor audioinput
-	_, isCamErr := cameraStreamUtils.Camera(server.robot, streamStateToAdd.Stream)
+	_, isCamErr := camerautils.Camera(server.robot, streamStateToAdd.Stream)
 	_, isAudioErr := audioinput.FromRobot(server.robot, resource.SDPTrackNameToShortName(streamStateToAdd.Stream.Name()))
 	if isCamErr != nil && isAudioErr != nil {
 		return nil, errors.Errorf("stream is neither a camera nor audioinput. streamName: %v", streamStateToAdd.Stream)
@@ -307,7 +307,7 @@ func (server *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStre
 
 	shortName := resource.SDPTrackNameToShortName(streamToRemove.Stream.Name())
 	_, isAudioResourceErr := audioinput.FromRobot(server.robot, shortName)
-	_, isCameraResourceErr := cameraStreamUtils.Camera(server.robot, streamToRemove.Stream)
+	_, isCameraResourceErr := camerautils.Camera(server.robot, streamToRemove.Stream)
 
 	if isAudioResourceErr != nil && isCameraResourceErr != nil {
 		return &streampb.RemoveStreamResponse{}, nil
@@ -422,6 +422,13 @@ func validateSetStreamOptionsRequest(req *streampb.SetStreamOptionsRequest) (int
 				req.Name, req.Resolution.Width, req.Resolution.Height,
 			)
 	}
+	if req.Resolution.Width%2 != 0 || req.Resolution.Height%2 != 0 {
+		return optionsCommandUnknown,
+			fmt.Errorf(
+				"invalid resolution to resize stream %q: width (%d) and height (%d) must be even",
+				req.Name, req.Resolution.Width, req.Resolution.Height,
+			)
+	}
 	return optionsCommandResize, nil
 }
 
@@ -440,7 +447,7 @@ func (server *Server) resizeVideoSource(ctx context.Context, name string, width,
 	if !ok {
 		return fmt.Errorf("stream state not found with name %q", name)
 	}
-	resizer := gostream.NewResizeVideoSource(camera.VideoSourceFromCamera(ctx, cam), width, height)
+	resizer := gostream.NewResizeVideoSource(camerautils.VideoSourceFromCamera(ctx, cam), width, height)
 	server.logger.Debugf(
 		"resizing video source to width %d and height %d",
 		width, height,
@@ -468,7 +475,7 @@ func (server *Server) resetVideoSource(ctx context.Context, name string) error {
 		return fmt.Errorf("stream state not found with name %q", name)
 	}
 	server.logger.Debug("resetting video source")
-	existing.Swap(camera.VideoSourceFromCamera(ctx, cam))
+	existing.Swap(camerautils.VideoSourceFromCamera(ctx, cam))
 	err = streamState.Reset()
 	if err != nil {
 		return fmt.Errorf("failed to reset stream %q: %w", name, err)
@@ -650,8 +657,39 @@ func (server *Server) refreshVideoSources(ctx context.Context) {
 			continue
 		}
 		existing, ok := server.videoSources[cam.Name().SDPTrackName()]
-		src := camera.VideoSourceFromCamera(ctx, cam)
+		src := camerautils.VideoSourceFromCamera(ctx, cam)
 		if ok {
+			// Check stream state for the camera to see if it is in resized mode.
+			// If it is in resized mode, we want to apply the resize transformation to the
+			// video source before swapping it.
+			streamState, ok := server.nameToStreamState[cam.Name().SDPTrackName()]
+			if ok && streamState.IsResized() {
+				server.logger.Debugf("stream %q is resized attempting to reapply resize transformation", cam.Name().SDPTrackName())
+				mediaProps, err := existing.MediaProperties(server.closedCtx)
+				if err != nil {
+					server.logger.Errorf("error getting media properties from resize source: %v", err)
+				} else {
+					// resizeVideoSource should always have a width and height set.
+					height, width := mediaProps.Height, mediaProps.Width
+					if height != 0 && width != 0 {
+						server.logger.Debugf(
+							"resizing video source to width %d and height %d",
+							width, height,
+						)
+						resizer := gostream.NewResizeVideoSource(src, width, height)
+						existing.Swap(resizer)
+						continue
+					}
+				}
+				// If we can't get the media properties or the width and height are 0, we fall back to
+				// the original source and need to notify the stream state that the source is no longer
+				// resized.
+				server.logger.Warnf("falling back to original source for stream %q", cam.Name().SDPTrackName())
+				err = streamState.Reset()
+				if err != nil {
+					server.logger.Errorf("error resetting stream %q: %v", cam.Name().SDPTrackName(), err)
+				}
+			}
 			existing.Swap(src)
 			continue
 		}
@@ -732,11 +770,18 @@ func GenerateResolutions(width, height int32, logger logging.Logger) []Resolutio
 	// original aspect ratio exactly if source dimensions are odd.
 	for i := 0; i < 4; i++ {
 		// Break if the next scaled resolution would be too small.
-		if width <= 1 || height <= 1 {
+		if width <= 2 || height <= 2 {
 			break
 		}
 		width /= 2
 		height /= 2
+		// Ensure width and height are even
+		if width%2 != 0 {
+			width--
+		}
+		if height%2 != 0 {
+			height--
+		}
 		resolutions = append(resolutions, Resolution{Width: width, Height: height})
 		logger.Debugf("scaled resolution %d: %dx%d", i, width, height)
 	}

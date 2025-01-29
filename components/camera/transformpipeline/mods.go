@@ -26,14 +26,14 @@ type rotateConfig struct {
 
 // rotateSource is the source to be rotated and the kind of image type.
 type rotateSource struct {
-	src    camera.StreamCamera
+	src    camera.VideoSource
 	stream camera.ImageType
 	angle  float64
 }
 
 // newRotateTransform creates a new rotation transform.
-func newRotateTransform(ctx context.Context, source camera.StreamCamera, stream camera.ImageType, am utils.AttributeMap,
-) (camera.StreamCamera, camera.ImageType, error) {
+func newRotateTransform(ctx context.Context, source camera.VideoSource, stream camera.ImageType, am utils.AttributeMap,
+) (camera.VideoSource, camera.ImageType, error) {
 	conf, err := resource.TransformAttributeMap[*rotateConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, errors.Wrap(err, "cannot parse rotate attribute map")
@@ -85,9 +85,8 @@ func (rs *rotateSource) Read(ctx context.Context) (image.Image, func(), error) {
 	}
 }
 
-// Close closes the original stream.
 func (rs *rotateSource) Close(ctx context.Context) error {
-	return rs.src.Close(ctx)
+	return nil
 }
 
 // resizeConfig are the attributes for a resize transform.
@@ -97,7 +96,7 @@ type resizeConfig struct {
 }
 
 type resizeSource struct {
-	src    camera.StreamCamera
+	src    camera.VideoSource
 	stream camera.ImageType
 	height int
 	width  int
@@ -105,8 +104,8 @@ type resizeSource struct {
 
 // newResizeTransform creates a new resize transform.
 func newResizeTransform(
-	ctx context.Context, source camera.StreamCamera, stream camera.ImageType, am utils.AttributeMap,
-) (camera.StreamCamera, camera.ImageType, error) {
+	ctx context.Context, source camera.VideoSource, stream camera.ImageType, am utils.AttributeMap,
+) (camera.VideoSource, camera.ImageType, error) {
 	conf, err := resource.TransformAttributeMap[*resizeConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
@@ -152,9 +151,8 @@ func (rs *resizeSource) Read(ctx context.Context) (image.Image, func(), error) {
 	}
 }
 
-// Close closes the original stream.
 func (rs *resizeSource) Close(ctx context.Context) error {
-	return rs.src.Close(ctx)
+	return nil
 }
 
 // cropConfig are the attributes for a crop transform.
@@ -167,7 +165,7 @@ type cropConfig struct {
 }
 
 type cropSource struct {
-	src         camera.StreamCamera
+	src         camera.VideoSource
 	imgType     camera.ImageType
 	cropWindow  image.Rectangle
 	cropRel     []float64
@@ -177,8 +175,8 @@ type cropSource struct {
 
 // newCropTransform creates a new crop transform.
 func newCropTransform(
-	ctx context.Context, source camera.StreamCamera, stream camera.ImageType, am utils.AttributeMap,
-) (camera.StreamCamera, camera.ImageType, error) {
+	ctx context.Context, source camera.VideoSource, stream camera.ImageType, am utils.AttributeMap,
+) (camera.VideoSource, camera.ImageType, error) {
 	conf, err := resource.TransformAttributeMap[*cropConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
@@ -296,7 +294,6 @@ func (cs *cropSource) Read(ctx context.Context) (image.Image, func(), error) {
 	}
 }
 
-// Close closes the original stream.
 func (cs *cropSource) Close(ctx context.Context) error {
-	return cs.src.Close(ctx)
+	return nil
 }

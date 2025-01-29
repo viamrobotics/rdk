@@ -10,7 +10,6 @@ import (
 	"context"
 	"fmt"
 
-	v1 "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 
 	"go.viam.com/rdk/data"
@@ -24,7 +23,6 @@ import (
 
 func init() {
 	resource.RegisterAPI(API, resource.APIRegistration[Arm]{
-		Status:                      resource.StatusFunc(CreateStatus),
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterArmServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.ArmService_ServiceDesc,
@@ -61,6 +59,8 @@ func Named(name string) resource.Name {
 //	// Get the end position of the arm as a Pose.
 //	pos, err := myArm.EndPosition(context.Background(), nil)
 //
+// For more information, see the [EndPosition method docs].
+//
 // MoveToPosition example:
 //
 //	myArm, err := arm.FromRobot(machine, "my_arm")
@@ -73,6 +73,8 @@ func Named(name string) resource.Name {
 //	// Move your arm to the Pose.
 //	err = myArm.MoveToPosition(context.Background(), examplePose, nil)
 //
+// For more information, see the [MoveToPosition method docs].
+//
 // MoveToJointPositions example:
 //
 //	myArm, err := arm.FromRobot(machine, "my_arm")
@@ -83,7 +85,9 @@ func Named(name string) resource.Name {
 //	// Move each joint of the arm to the positions specified in the above slice
 //	err = myArm.MoveToJointPositions(context.Background(), inputs, nil)
 //
-// MoveToJointPositions example:
+// For more information, see the [MoveToJointPositions method docs].
+//
+// MoveThroughJointPositions example:
 //
 //	myArm, err := arm.FromRobot(machine, "my_arm")
 //
@@ -96,6 +100,8 @@ func Named(name string) resource.Name {
 //	// Move each joint of the arm through the positions in the slice defined above
 //	err = myArm.MoveThroughJointPositions(context.Background(), inputs, nil, nil)
 //
+// For more information, see the [MoveThroughJointPositions method docs].
+//
 // JointPositions example:
 //
 //	myArm , err := arm.FromRobot(machine, "my_arm")
@@ -103,7 +109,14 @@ func Named(name string) resource.Name {
 //	// Get the current position of each joint on the arm as JointPositions.
 //	pos, err := myArm.JointPositions(context.Background(), nil)
 //
+// For more information, see the [JointPositions method docs].
+//
 // [arm component docs]: https://docs.viam.com/components/arm/
+// [EndPosition method docs]: https://docs.viam.com/dev/reference/apis/components/arm/#getendposition
+// [MoveToPosition method docs]: https://docs.viam.com/dev/reference/apis/components/arm/#movetoposition
+// [MoveToJointPositions method docs]: https://docs.viam.com/dev/reference/apis/components/arm/#movetojointpositions
+// [MoveThroughJointPositions method docs]: https://docs.viam.com/dev/reference/apis/components/arm/#movethroughjointpositions
+// [JointPositions method docs]: https://docs.viam.com/dev/reference/apis/components/arm/#getjointpositions
 type Arm interface {
 	resource.Resource
 	referenceframe.ModelFramer
@@ -144,32 +157,6 @@ func FromRobot(r robot.Robot, name string) (Arm, error) {
 // NamesFromRobot is a helper for getting all arm names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
-}
-
-// CreateStatus creates a status from the arm. This will report calculated end effector positions even if the given
-// arm is perceived to be out of bounds.
-func CreateStatus(ctx context.Context, a Arm) (*pb.Status, error) {
-	model := a.ModelFrame()
-	joints, err := a.JointPositions(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	var endPosition *v1.Pose
-	if endPose, err := referenceframe.ComputeOOBPosition(model, joints); err == nil {
-		endPosition = spatialmath.PoseToProtobuf(endPose)
-	}
-
-	var jointPositions *pb.JointPositions
-	if jp, err := referenceframe.JointPositionsFromInputs(model, joints); err == nil {
-		jointPositions = jp
-	}
-
-	isMoving, err := a.IsMoving(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.Status{EndPosition: endPosition, JointPositions: jointPositions, IsMoving: isMoving}, nil
 }
 
 // CheckDesiredJointPositions validates that the desired joint positions either bring the joint back

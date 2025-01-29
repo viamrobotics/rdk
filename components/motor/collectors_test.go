@@ -25,27 +25,29 @@ func TestCollectors(t *testing.T) {
 	tests := []struct {
 		name      string
 		collector data.CollectorConstructor
-		expected  *datasyncpb.SensorData
+		expected  []*datasyncpb.SensorData
 	}{
 		{
 			name:      "Motor position collector should write a position response",
 			collector: motor.NewPositionCollector,
-			expected: &datasyncpb.SensorData{
+			expected: []*datasyncpb.SensorData{{
 				Metadata: &datasyncpb.SensorMetadata{},
 				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
 					"position": 1.0,
 				})},
-			},
+			}},
 		},
 		{
 			name:      "Motor isPowered collector should write an isPowered response",
 			collector: motor.NewIsPoweredCollector,
-			expected: &datasyncpb.SensorData{
-				Metadata: &datasyncpb.SensorMetadata{},
-				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
-					"is_on":     false,
-					"power_pct": 0.5,
-				})},
+			expected: []*datasyncpb.SensorData{
+				{
+					Metadata: &datasyncpb.SensorMetadata{},
+					Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+						"is_on":     false,
+						"power_pct": 0.5,
+					})},
+				},
 			},
 		},
 	}
@@ -53,8 +55,9 @@ func TestCollectors(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			start := time.Now()
-			buf := tu.NewMockBuffer()
+			buf := tu.NewMockBuffer(t)
 			params := data.CollectorParams{
+				DataType:      data.CaptureTypeTabular,
 				ComponentName: componentName,
 				Interval:      captureInterval,
 				Logger:        logging.NewTestLogger(t),

@@ -4,6 +4,7 @@ package ik
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"sync"
 
@@ -70,7 +71,6 @@ func CreateNloptSolver(
 		iter = defaultMaxIter
 	}
 	ik.maxIterations = iter
-
 	ik.exact = exact
 	ik.useRelTol = useRelTol
 
@@ -89,6 +89,9 @@ func (ik *nloptIK) Solve(ctx context.Context,
 	minFunc func([]float64) float64,
 	rseed int,
 ) error {
+	if len(seed) != len(ik.limits) {
+		return fmt.Errorf("nlopt initialized with %d dof but seed was length %d", len(ik.limits), len(seed))
+	}
 	//nolint: gosec
 	randSeed := rand.New(rand.NewSource(int64(rseed)))
 	var err error

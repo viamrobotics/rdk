@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
+	datapb "go.viam.com/api/app/data/v1"
 	datasyncpb "go.viam.com/api/app/datasync/v1"
-	camerapb "go.viam.com/api/component/camera/v1"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -138,112 +138,58 @@ func convertStringToAnyPB(str string) (*anypb.Any, error) {
 }
 
 func TestCollectors(t *testing.T) {
-	methodParams, err := convertStringMapToAnyPBMap(map[string]string{"camera_name": "camera-1", "mime_type": "image/jpeg"})
+	methodParams, err := convertStringMapToAnyPBMap(map[string]string{"camera_name": "camera-1"})
 	test.That(t, err, test.ShouldBeNil)
 	viamLogoJpeg, err := io.ReadAll(base64.NewDecoder(base64.StdEncoding, bytes.NewReader(viamLogoJpegB64)))
 	test.That(t, err, test.ShouldBeNil)
-	viamLogoJpegAsInts := []any{}
-	for _, b := range viamLogoJpeg {
-		viamLogoJpegAsInts = append(viamLogoJpegAsInts, int(b))
-	}
-
 	img := rimage.NewLazyEncodedImage(viamLogoJpeg, utils.MimeTypeJPEG)
 	// 32 x 32 image
 	test.That(t, img.Bounds().Dx(), test.ShouldEqual, 32)
 	test.That(t, img.Bounds().Dy(), test.ShouldEqual, 32)
-
+	bboxConf := 0.95
+	classConf := 0.85
 	tests := []struct {
 		name      string
 		collector data.CollectorConstructor
-		expected  *datasyncpb.SensorData
+		expected  []*datasyncpb.SensorData
 		vision    visionservice.Service
 	}{
 		{
 			name:      "CaptureAllFromCameraCollector returns non-empty CaptureAllFromCameraResp",
 			collector: visionservice.NewCaptureAllFromCameraCollector,
-			expected: &datasyncpb.SensorData{
-				Metadata: &datasyncpb.SensorMetadata{},
-				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
-					"image": map[string]any{
-						"source_name": "camera-1",
-						"format":      int(camerapb.Format_FORMAT_JPEG),
-						"image":       viamLogoJpegAsInts,
-					},
-					"classifications": []any{
-						map[string]any{
-							"confidence": 0.85,
-							"class_name": "cat",
-						},
-					},
-					"detections": []any{
-						map[string]any{
-							"confidence": 0.95,
-							"class_name": "cat",
-							"x_min":      10,
-							"y_min":      20,
-							"x_max":      110,
-							"y_max":      120,
-						},
-					},
-					"objects": []any{},
-					"extra": map[string]any{
-						"fields": map[string]any{
-							"Height": map[string]any{
-								"Kind": map[string]any{
-									"NumberValue": 32,
-								},
-							},
-							"Width": map[string]any{
-								"Kind": map[string]any{
-									"NumberValue": 32,
-								},
-							},
-							"MimeType": map[string]any{
-								"Kind": map[string]any{
-									"StringValue": utils.MimeTypeJPEG,
-								},
+			expected: []*datasyncpb.SensorData{{
+				Metadata: &datasyncpb.SensorMetadata{
+					MimeType: datasyncpb.MimeType_MIME_TYPE_IMAGE_JPEG,
+					Annotations: &datapb.Annotations{
+						Bboxes: []*datapb.BoundingBox{
+							{
+								Label:          "cat",
+								XMinNormalized: 0.3125,
+								YMinNormalized: 0.625,
+								XMaxNormalized: 3.4375,
+								YMaxNormalized: 3.75,
+								Confidence:     &bboxConf,
 							},
 						},
+						Classifications: []*datapb.Classification{{
+							Label:      "cat",
+							Confidence: &classConf,
+						}},
 					},
-				})},
-			},
+				},
+				Data: &datasyncpb.SensorData_Binary{Binary: viamLogoJpeg},
+			}},
 			vision: newVisionService(img),
 		},
 		{
 			name:      "CaptureAllFromCameraCollector w/ Classifications & Detections < 0.5 returns empty CaptureAllFromCameraResp",
 			collector: visionservice.NewCaptureAllFromCameraCollector,
-			expected: &datasyncpb.SensorData{
-				Metadata: &datasyncpb.SensorMetadata{},
-				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
-					"image": map[string]any{
-						"source_name": "camera-1",
-						"format":      3,
-						"image":       viamLogoJpegAsInts,
-					},
-					"classifications": []any{},
-					"detections":      []any{},
-					"objects":         []any{},
-					"extra": map[string]any{
-						"fields": map[string]any{
-							"Height": map[string]any{
-								"Kind": map[string]any{
-									"NumberValue": 32,
-								},
-							},
-							"Width": map[string]any{
-								"Kind": map[string]any{
-									"NumberValue": 32,
-								},
-							},
-							"MimeType": map[string]any{
-								"Kind": map[string]any{
-									"StringValue": utils.MimeTypeJPEG,
-								},
-							},
-						},
-					},
-				})},
-			},
+			expected: []*datasyncpb.SensorData{{
+				Metadata: &datasyncpb.SensorMetadata{
+					MimeType: datasyncpb.MimeType_MIME_TYPE_IMAGE_JPEG,
+				},
+				Data: &datasyncpb.SensorData_Binary{Binary: viamLogoJpeg},
+			}},
 			vision: newVisionService2(img),
 		},
 	}
@@ -251,8 +197,9 @@ func TestCollectors(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			start := time.Now()
-			buf := tu.NewMockBuffer()
+			buf := tu.NewMockBuffer(t)
 			params := data.CollectorParams{
+				DataType:      data.CaptureTypeBinary,
 				ComponentName: serviceName,
 				Interval:      captureInterval,
 				Logger:        logging.NewTestLogger(t),

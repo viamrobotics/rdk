@@ -39,6 +39,7 @@ import (
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
+	"go.viam.com/rdk/services/discovery"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -134,22 +135,26 @@ func NewHandlerMapFromProto(ctx context.Context, pMap *pb.HandlerMap, conn rpc.C
 	var errs error
 	for _, h := range pMap.GetHandlers() {
 		api := protoutils.ResourceNameFromProto(h.Subtype.Subtype).API
-
-		symDesc, err := reflSource.FindSymbol(h.Subtype.ProtoService)
-		if err != nil {
-			errs = multierr.Combine(errs, err)
-			if errors.Is(err, grpcurl.ErrReflectionNotSupported) {
-				return nil, errs
-			}
-			continue
-		}
-		svcDesc, ok := symDesc.(*desc.ServiceDescriptor)
-		if !ok {
-			return nil, errors.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
-		}
 		rpcAPI := &resource.RPCAPI{
-			API:  api,
-			Desc: svcDesc,
+			API: api,
+		}
+		// due to how tagger is setup in the api we cannot use reflection on the discovery service currently
+		// for now we will skip the reflection step for discovery until the issue is resolved.
+		// TODO(RSDK-9718) - remove the skip.
+		if api != discovery.API {
+			symDesc, err := reflSource.FindSymbol(h.Subtype.ProtoService)
+			if err != nil {
+				errs = multierr.Combine(errs, err)
+				if errors.Is(err, grpcurl.ErrReflectionNotSupported) {
+					return nil, errs
+				}
+				continue
+			}
+			svcDesc, ok := symDesc.(*desc.ServiceDescriptor)
+			if !ok {
+				return nil, errors.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
+			}
+			rpcAPI.Desc = svcDesc
 		}
 		for _, m := range h.Models {
 			model, err := resource.NewModelFromString(m)
@@ -277,9 +282,13 @@ func (m *Module) Start(ctx context.Context) error {
 	defer m.mu.Unlock()
 
 	var lis net.Listener
+	prot := "unix"
+	if rutils.TCPRegex.MatchString(m.addr) {
+		prot = "tcp"
+	}
 	if err := MakeSelfOwnedFilesFunc(func() error {
 		var err error
-		lis, err = net.Listen("unix", m.addr)
+		lis, err = net.Listen(prot, m.addr)
 		if err != nil {
 			return errors.WithMessage(err, "failed to listen")
 		}
@@ -346,8 +355,12 @@ func (m *Module) connectParent(ctx context.Context) error {
 		return nil
 	}
 
-	if err := CheckSocketOwner(m.parentAddr); err != nil {
-		return err
+	fullAddr := m.parentAddr
+	if !rutils.TCPRegex.MatchString(m.parentAddr) {
+		if err := CheckSocketOwner(m.parentAddr); err != nil {
+			return err
+		}
+		fullAddr = "unix://" + m.parentAddr
 	}
 
 	// moduleLoggers may be creating the client connection below, so use a
@@ -356,7 +369,7 @@ func (m *Module) connectParent(ctx context.Context) error {
 	clientLogger := logging.NewLogger("networking.module-connection")
 	clientLogger.SetLevel(m.logger.GetLevel())
 	// TODO(PRODUCT-343): add session support to modules
-	rc, err := client.New(ctx, "unix://"+m.parentAddr, clientLogger, client.WithDisableSessions())
+	rc, err := client.New(ctx, fullAddr, clientLogger, client.WithDisableSessions())
 	if err != nil {
 		return err
 	}
@@ -525,8 +538,11 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 	return &pb.AddResourceResponse{}, nil
 }
 
+// DiscoverComponents is DEPRECATED!!! Please use the Discovery Service instead.
 // DiscoverComponents takes a list of discovery queries and returns corresponding
 // component configurations.
+//
+//nolint:deprecated,staticcheck
 func (m *Module) DiscoverComponents(
 	ctx context.Context,
 	req *robotpb.DiscoverComponentsRequest,

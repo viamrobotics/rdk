@@ -71,6 +71,16 @@ type Config struct {
 	// Revision contains the current revision of the config.
 	Revision string
 
+	// Initial represents whether this is an "initial" config passed in by web
+	// server entrypoint code. If true, the robot will continue to report a state
+	// of initializing after applying this config. If false, the robot will
+	// report a state of running after applying this config.
+	Initial bool
+
+	// DisableLogDeduplication controls whether deduplication of noisy logs
+	// should be turned off. Defaults to false.
+	DisableLogDeduplication bool
+
 	// toCache stores the JSON marshalled version of the config to be cached. It should be a copy of
 	// the config pulled from cloud with minor changes.
 	// This version is kept because the config is changed as it moves through the system.
@@ -86,21 +96,23 @@ type MaintenanceConfig struct {
 
 // NOTE: This data must be maintained with what is in Config.
 type configData struct {
-	Cloud               *Cloud                        `json:"cloud,omitempty"`
-	Modules             []Module                      `json:"modules,omitempty"`
-	Remotes             []Remote                      `json:"remotes,omitempty"`
-	Components          []resource.Config             `json:"components,omitempty"`
-	Processes           []pexec.ProcessConfig         `json:"processes,omitempty"`
-	Services            []resource.Config             `json:"services,omitempty"`
-	Packages            []PackageConfig               `json:"packages,omitempty"`
-	Network             NetworkConfig                 `json:"network"`
-	Auth                AuthConfig                    `json:"auth"`
-	Debug               bool                          `json:"debug,omitempty"`
-	DisablePartialStart bool                          `json:"disable_partial_start"`
-	EnableWebProfile    bool                          `json:"enable_web_profile"`
-	LogConfig           []logging.LoggerPatternConfig `json:"log,omitempty"`
-	Revision            string                        `json:"revision,omitempty"`
-	MaintenanceConfig   *MaintenanceConfig            `json:"maintenance,omitempty"`
+	Cloud                   *Cloud                        `json:"cloud,omitempty"`
+	Modules                 []Module                      `json:"modules,omitempty"`
+	Remotes                 []Remote                      `json:"remotes,omitempty"`
+	Components              []resource.Config             `json:"components,omitempty"`
+	Processes               []pexec.ProcessConfig         `json:"processes,omitempty"`
+	Services                []resource.Config             `json:"services,omitempty"`
+	Packages                []PackageConfig               `json:"packages,omitempty"`
+	Network                 NetworkConfig                 `json:"network"`
+	Auth                    AuthConfig                    `json:"auth"`
+	Debug                   bool                          `json:"debug,omitempty"`
+	DisablePartialStart     bool                          `json:"disable_partial_start"`
+	EnableWebProfile        bool                          `json:"enable_web_profile"`
+	LogConfig               []logging.LoggerPatternConfig `json:"log,omitempty"`
+	Revision                string                        `json:"revision,omitempty"`
+	MaintenanceConfig       *MaintenanceConfig            `json:"maintenance,omitempty"`
+	PackagePath             string                        `json:"package_path,omitempty"`
+	DisableLogDeduplication bool                          `json:"disable_log_deduplication"`
 }
 
 // AppValidationStatus refers to the.
@@ -308,6 +320,8 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	c.LogConfig = conf.LogConfig
 	c.Revision = conf.Revision
 	c.MaintenanceConfig = conf.MaintenanceConfig
+	c.PackagePath = conf.PackagePath
+	c.DisableLogDeduplication = conf.DisableLogDeduplication
 
 	return nil
 }
@@ -325,21 +339,23 @@ func (c Config) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(configData{
-		Cloud:               c.Cloud,
-		Modules:             c.Modules,
-		Remotes:             c.Remotes,
-		Components:          c.Components,
-		Processes:           c.Processes,
-		Services:            c.Services,
-		Packages:            c.Packages,
-		Network:             c.Network,
-		Auth:                c.Auth,
-		Debug:               c.Debug,
-		DisablePartialStart: c.DisablePartialStart,
-		EnableWebProfile:    c.EnableWebProfile,
-		LogConfig:           c.LogConfig,
-		Revision:            c.Revision,
-		MaintenanceConfig:   c.MaintenanceConfig,
+		Cloud:                   c.Cloud,
+		Modules:                 c.Modules,
+		Remotes:                 c.Remotes,
+		Components:              c.Components,
+		Processes:               c.Processes,
+		Services:                c.Services,
+		Packages:                c.Packages,
+		Network:                 c.Network,
+		Auth:                    c.Auth,
+		Debug:                   c.Debug,
+		DisablePartialStart:     c.DisablePartialStart,
+		EnableWebProfile:        c.EnableWebProfile,
+		LogConfig:               c.LogConfig,
+		Revision:                c.Revision,
+		MaintenanceConfig:       c.MaintenanceConfig,
+		PackagePath:             c.PackagePath,
+		DisableLogDeduplication: c.DisableLogDeduplication,
 	})
 }
 
@@ -949,6 +965,22 @@ func (config *AuthHandlerConfig) Validate(path string) error {
 	return nil
 }
 
+// ParseAPIKeys parses API keys from the handler config. It will return an empty map
+// if the credential type is not [rpc.CredentialsTypeAPIKey].
+func ParseAPIKeys(handler AuthHandlerConfig) map[string]string {
+	apiKeys := map[string]string{}
+	if handler.Type == rpc.CredentialsTypeAPIKey {
+		for k := range handler.Config {
+			// if it is not a legacy api key indicated by "key(s)" key
+			// current api keys will follow format { [keyId]: [key] }
+			if k != "keys" && k != "key" {
+				apiKeys[k] = handler.Config.String(k)
+			}
+		}
+	}
+	return apiKeys
+}
+
 // CreateTLSWithCert creates a tls.Config with the TLS certificate to be returned.
 func CreateTLSWithCert(cfg *Config) (*tls.Config, error) {
 	cert, err := tls.X509KeyPair([]byte(cfg.Cloud.TLSCertificate), []byte(cfg.Cloud.TLSPrivateKey))
@@ -1127,9 +1159,10 @@ type Revision struct {
 	LastUpdated time.Time
 }
 
-// UpdateLoggerRegistryFromConfig will update the passed in registry with all log patterns in
-// `cfg.LogConfig` and each resource's `LogConfiguration` field if present.
-func UpdateLoggerRegistryFromConfig(registry *logging.Registry, cfg *Config, warnLogger logging.Logger) {
+// UpdateLoggerRegistryFromConfig will update the passed in registry with all log patterns
+// in `cfg.LogConfig` and each resource's `LogConfiguration` field if present. It will
+// also turn on or off log deduplication on the registry as necessary.
+func UpdateLoggerRegistryFromConfig(registry *logging.Registry, cfg *Config, logger logging.Logger) {
 	var combinedLogCfg []logging.LoggerPatternConfig
 	if cfg.LogConfig != nil {
 		combinedLogCfg = append(combinedLogCfg, cfg.LogConfig...)
@@ -1154,8 +1187,21 @@ func UpdateLoggerRegistryFromConfig(registry *logging.Registry, cfg *Config, war
 		}
 	}
 
-	if err := registry.Update(combinedLogCfg, warnLogger); err != nil {
-		warnLogger.Warnw("Error processing log patterns",
+	if err := registry.Update(combinedLogCfg, logger); err != nil {
+		logger.Warnw("Error processing log patterns",
 			"error", err)
+	}
+
+	// Check incoming disable log deduplication value for any diff. Note that config value
+	// is a "disable" while registry is an "enable". This is by design to make configuration
+	// easier for users and predicates easier for developers respectively. Due to this, the
+	// conditional to check for diff below looks odd (== instead of !=.)
+	if cfg.DisableLogDeduplication == registry.DeduplicateLogs.Load() {
+		state := "enabled"
+		if cfg.DisableLogDeduplication {
+			state = "disabled"
+		}
+		registry.DeduplicateLogs.Store(!cfg.DisableLogDeduplication)
+		logger.Infof("Noisy log deduplication is now %s", state)
 	}
 }

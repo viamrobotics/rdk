@@ -9,9 +9,10 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	camerapb "go.viam.com/api/component/camera/v1"
 	pb "go.viam.com/api/service/vision/v1"
+	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/protoutils"
+	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
@@ -239,6 +240,7 @@ func (server *serviceServer) CaptureAllFromCamera(
 		ReturnClassifications: req.ReturnClassifications,
 		ReturnObject:          req.ReturnObjectPointClouds,
 	}
+
 	capt, err := svc.CaptureAllFromCamera(ctx,
 		req.CameraName,
 		captOptions,
@@ -257,12 +259,16 @@ func (server *serviceServer) CaptureAllFromCamera(
 	if err != nil {
 		return nil, err
 	}
-
+	extraProto, err := protoutils.StructToStructPb(capt.Extra)
+	if err != nil {
+		return nil, err
+	}
 	return &pb.CaptureAllFromCameraResponse{
 		Image:           imgProto,
 		Detections:      detsToProto(capt.Detections),
 		Classifications: clasToProto(capt.Classifications),
 		Objects:         objProto,
+		Extra:           extraProto,
 	}, nil
 }
 
@@ -312,5 +318,5 @@ func (server *serviceServer) DoCommand(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	return protoutils.DoFromResourceServer(ctx, svc, req)
+	return rprotoutils.DoFromResourceServer(ctx, svc, req)
 }

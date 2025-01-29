@@ -2,7 +2,6 @@ package referenceframe
 
 import (
 	"errors"
-	"fmt"
 	"math"
 
 	pb "go.viam.com/api/component/arm/v1"
@@ -99,20 +98,37 @@ func interpolateInputs(from, to []Input, by float64) []Input {
 	return newVals
 }
 
-// GetFrameInputs looks through the inputMap and returns a slice of Inputs corresponding to the given frame.
-func GetFrameInputs(frame Frame, inputMap map[string][]Input) ([]Input, error) {
-	var input []Input
-	// Get frame inputs if necessary
+// FrameSystemInputs is an alias for a mapping of frame names to slices of Inputs.
+type FrameSystemInputs map[string][]Input
+
+// GetFrameInputs returns the inputs corresponding to the given frame within the FrameSystemInputs object.
+func (inputs FrameSystemInputs) GetFrameInputs(frame Frame) ([]Input, error) {
+	var toReturn []Input
 	if len(frame.DoF()) > 0 {
-		if _, ok := inputMap[frame.Name()]; !ok {
-			return nil, fmt.Errorf("no positions provided for frame with name %s", frame.Name())
+		var ok bool
+		toReturn, ok = inputs[frame.Name()]
+		if !ok {
+			return nil, NewFrameMissingError(frame.Name())
 		}
-		input = inputMap[frame.Name()]
 	}
-	return input, nil
+	return toReturn, nil
 }
 
-// InputsL2Distance returns the square of the two-norm between the from and to vectors.
+// ComputePoses computes the poses for each frame in a framesystem in frame of World, using the provided configuration.
+func (inputs FrameSystemInputs) ComputePoses(fs FrameSystem) (FrameSystemPoses, error) {
+	// Compute poses from configuration using the FrameSystem
+	computedPoses := make(FrameSystemPoses)
+	for _, frameName := range fs.FrameNames() {
+		pif, err := fs.Transform(inputs, NewZeroPoseInFrame(frameName), World)
+		if err != nil {
+			return nil, err
+		}
+		computedPoses[frameName] = pif.(*PoseInFrame)
+	}
+	return computedPoses, nil
+}
+
+// InputsL2Distance returns the square of the two-norm (the sqrt of the sum of the squares) between two Input sets.
 func InputsL2Distance(from, to []Input) float64 {
 	if len(from) != len(to) {
 		return math.Inf(1)

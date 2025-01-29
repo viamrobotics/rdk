@@ -33,24 +33,25 @@ func TestSimpleLinearMotion(t *testing.T) {
 	inputSteps := []node{}
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
-	m, err := referenceframe.ParseModelJSONFile(rutils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), "")
+	m, err := referenceframe.ParseModelJSONFile(rutils.ResolveFile("components/arm/example_kinematics/xarm7_kinematics_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	goalPos := spatialmath.NewPose(r3.Vector{X: 206, Y: 100, Z: 120.5}, &spatialmath.OrientationVectorDegrees{OY: -1})
 
-	opt := newBasicPlannerOptions(m)
-	opt.SetGoal(goalPos)
-	mp, err := newCBiRRTMotionPlanner(m, rand.New(rand.NewSource(42)), logger, opt)
+	opt := newBasicPlannerOptions()
+	goalMetric := opt.getGoalMetric(referenceframe.FrameSystemPoses{m.Name(): referenceframe.NewPoseInFrame(referenceframe.World, goalPos)})
+	fs := referenceframe.NewEmptyFrameSystem("")
+	fs.AddFrame(m, fs.World())
+	mp, err := newCBiRRTMotionPlanner(fs, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
 	cbirrt, _ := mp.(*cBiRRTMotionPlanner)
-
-	solutions, err := mp.getSolutions(ctx, home7)
+	solutions, err := mp.getSolutions(ctx, referenceframe.FrameSystemInputs{m.Name(): home7}, goalMetric)
 	test.That(t, err, test.ShouldBeNil)
 
-	near1 := &basicNode{q: home7}
+	near1 := &basicNode{q: referenceframe.FrameSystemInputs{m.Name(): home7}}
 	seedMap := make(map[node]node)
 	seedMap[near1] = nil
-	target := interp
+	target := referenceframe.FrameSystemInputs{m.Name(): interp}
 
 	goalMap := make(map[node]node)
 
@@ -63,7 +64,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	}
 	nn := &neighborManager{nCPU: nCPU}
 
-	_, err = newCbirrtOptions(opt)
+	_, err = newCbirrtOptions(opt, cbirrt.lfs)
 	test.That(t, err, test.ShouldBeNil)
 
 	m1chan := make(chan node, 1)
@@ -81,8 +82,8 @@ func TestSimpleLinearMotion(t *testing.T) {
 		cbirrt.constrainedExtend(ctx, cbirrt.randseed, goalMap, near2, seedReached, m1chan)
 	})
 	goalReached := <-m1chan
-	dist := opt.DistanceFunc(&ik.Segment{StartConfiguration: seedReached.Q(), EndConfiguration: goalReached.Q()})
-	test.That(t, dist < cbirrt.planOpts.JointSolveDist, test.ShouldBeTrue)
+	dist := opt.configurationDistanceFunc(&ik.SegmentFS{StartConfiguration: seedReached.Q(), EndConfiguration: goalReached.Q()})
+	test.That(t, dist < cbirrt.planOpts.InputIdentDist, test.ShouldBeTrue)
 
 	seedReached.SetCorner(true)
 	goalReached.SetCorner(true)

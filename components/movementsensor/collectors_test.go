@@ -36,12 +36,12 @@ func TestCollectors(t *testing.T) {
 	tests := []struct {
 		name      string
 		collector data.CollectorConstructor
-		expected  *datasyncpb.SensorData
+		expected  []*datasyncpb.SensorData
 	}{
 		{
 			name:      "Movement sensor linear velocity collector should write a velocity response",
 			collector: movementsensor.NewLinearVelocityCollector,
-			expected: &datasyncpb.SensorData{
+			expected: []*datasyncpb.SensorData{{
 				Metadata: &datasyncpb.SensorMetadata{},
 				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
 					"linear_velocity": map[string]any{
@@ -50,26 +50,28 @@ func TestCollectors(t *testing.T) {
 						"z": 3.0,
 					},
 				})},
-			},
+			}},
 		},
 		{
 			name:      "Movement sensor position collector should write a position response",
 			collector: movementsensor.NewPositionCollector,
-			expected: &datasyncpb.SensorData{
-				Metadata: &datasyncpb.SensorMetadata{},
-				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
-					"coordinate": map[string]any{
-						"latitude":  1.0,
-						"longitude": 2.0,
-					},
-					"altitude_m": 3.0,
-				})},
+			expected: []*datasyncpb.SensorData{
+				{
+					Metadata: &datasyncpb.SensorMetadata{},
+					Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+						"coordinate": map[string]any{
+							"latitude":  1.0,
+							"longitude": 2.0,
+						},
+						"altitude_m": 3.0,
+					})},
+				},
 			},
 		},
 		{
 			name:      "Movement sensor angular velocity collector should write a velocity response",
 			collector: movementsensor.NewAngularVelocityCollector,
-			expected: &datasyncpb.SensorData{
+			expected: []*datasyncpb.SensorData{{
 				Metadata: &datasyncpb.SensorMetadata{},
 				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
 					"angular_velocity": map[string]any{
@@ -78,58 +80,66 @@ func TestCollectors(t *testing.T) {
 						"z": 3.0,
 					},
 				})},
-			},
+			}},
 		},
 		{
 			name:      "Movement sensor compass heading collector should write a heading response",
 			collector: movementsensor.NewCompassHeadingCollector,
-			expected: &datasyncpb.SensorData{
-				Metadata: &datasyncpb.SensorMetadata{},
-				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
-					"value": 1.0,
-				})},
+			expected: []*datasyncpb.SensorData{
+				{
+					Metadata: &datasyncpb.SensorMetadata{},
+					Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+						"value": 1.0,
+					})},
+				},
 			},
 		},
 		{
 			name:      "Movement sensor linear acceleration collector should write an acceleration response",
 			collector: movementsensor.NewLinearAccelerationCollector,
-			expected: &datasyncpb.SensorData{
-				Metadata: &datasyncpb.SensorMetadata{},
-				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
-					"linear_acceleration": map[string]any{
-						"x": 1.0,
-						"y": 2.0,
-						"z": 3.0,
-					},
-				})},
+			expected: []*datasyncpb.SensorData{
+				{
+					Metadata: &datasyncpb.SensorMetadata{},
+					Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+						"linear_acceleration": map[string]any{
+							"x": 1.0,
+							"y": 2.0,
+							"z": 3.0,
+						},
+					})},
+				},
 			},
 		},
 		{
 			name:      "Movement sensor orientation collector should write an orientation response",
 			collector: movementsensor.NewOrientationCollector,
-			expected: &datasyncpb.SensorData{
-				Metadata: &datasyncpb.SensorMetadata{},
-				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
-					"orientation": map[string]any{
-						"o_x":   0,
-						"o_y":   0,
-						"o_z":   1,
-						"theta": 0,
-					},
-				})},
+			expected: []*datasyncpb.SensorData{
+				{
+					Metadata: &datasyncpb.SensorMetadata{},
+					Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+						"orientation": map[string]any{
+							"o_x":   0,
+							"o_y":   0,
+							"o_z":   1,
+							"theta": 0,
+						},
+					})},
+				},
 			},
 		},
 		{
 			name:      "Movement sensor readings collector should write a readings response",
 			collector: movementsensor.NewReadingsCollector,
-			expected: &datasyncpb.SensorData{
-				Metadata: &datasyncpb.SensorMetadata{},
-				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
-					"readings": map[string]any{
-						"reading1": false,
-						"reading2": "test",
-					},
-				})},
+			expected: []*datasyncpb.SensorData{
+				{
+					Metadata: &datasyncpb.SensorMetadata{},
+					Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+						"readings": map[string]any{
+							"reading1": false,
+							"reading2": "test",
+						},
+					})},
+				},
 			},
 		},
 	}
@@ -137,8 +147,9 @@ func TestCollectors(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			start := time.Now()
-			buf := tu.NewMockBuffer()
+			buf := tu.NewMockBuffer(t)
 			params := data.CollectorParams{
+				DataType:      data.CaptureTypeTabular,
 				ComponentName: componentName,
 				Interval:      captureInterval,
 				Logger:        logging.NewTestLogger(t),

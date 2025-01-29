@@ -16,7 +16,6 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/utils"
 )
 
 // TODO Data-343: Reorganize this into a more standard interface/package, and add tests.
@@ -30,9 +29,10 @@ const (
 	CompletedCaptureFileExt = ".capture"
 	readImage               = "ReadImage"
 	// GetImages is used for getting simultaneous images from different imagers.
-	GetImages      = "GetImages"
-	nextPointCloud = "NextPointCloud"
-	pointCloudMap  = "PointCloudMap"
+	GetImages            = "GetImages"
+	nextPointCloud       = "NextPointCloud"
+	pointCloudMap        = "PointCloudMap"
+	captureAllFromCamera = "CaptureAllFromCamera"
 	// Non-exhaustive list of characters to strip from file paths, since not allowed
 	// on certain file systems.
 	filePathReservedChars = ":"
@@ -191,10 +191,10 @@ func (f *CaptureFile) Close() error {
 	// Rename file to indicate that it is done being written.
 	withoutExt := strings.TrimSuffix(f.file.Name(), filepath.Ext(f.file.Name()))
 	newName := withoutExt + CompletedCaptureFileExt
-	if err := os.Rename(f.file.Name(), newName); err != nil {
+	if err := f.file.Close(); err != nil {
 		return err
 	}
-	return f.file.Close()
+	return os.Rename(f.file.Name(), newName)
 }
 
 // Delete deletes the file.
@@ -210,23 +210,23 @@ func (f *CaptureFile) Delete() error {
 // BuildCaptureMetadata builds a DataCaptureMetadata object and returns error if
 // additionalParams fails to convert to anypb map.
 func BuildCaptureMetadata(
-	compAPI resource.API,
-	compName string,
+	api resource.API,
+	name string,
 	method string,
 	additionalParams map[string]string,
 	methodParams map[string]*anypb.Any,
 	tags []string,
-) *v1.DataCaptureMetadata {
-	dataType := getDataType(method)
+) (*v1.DataCaptureMetadata, CaptureType) {
+	dataType := MethodToCaptureType(method)
 	return &v1.DataCaptureMetadata{
-		ComponentType:    compAPI.String(),
-		ComponentName:    compName,
+		ComponentType:    api.String(),
+		ComponentName:    name,
 		MethodName:       method,
-		Type:             dataType,
+		Type:             dataType.ToProto(),
 		MethodParameters: methodParams,
-		FileExtension:    GetFileExt(dataType, method, additionalParams),
+		FileExtension:    getFileExt(dataType, method, additionalParams),
 		Tags:             tags,
-	}
+	}, dataType
 }
 
 // IsDataCaptureFile returns whether or not f is a data capture file.
@@ -238,49 +238,6 @@ func IsDataCaptureFile(f *os.File) bool {
 func getFileTimestampName() string {
 	// RFC3339Nano is a standard time format e.g. 2006-01-02T15:04:05Z07:00.
 	return time.Now().Format(time.RFC3339Nano)
-}
-
-// TODO DATA-246: Implement this in some more robust, programmatic way.
-func getDataType(methodName string) v1.DataType {
-	switch methodName {
-	case nextPointCloud, readImage, pointCloudMap, GetImages:
-		return v1.DataType_DATA_TYPE_BINARY_SENSOR
-	default:
-		return v1.DataType_DATA_TYPE_TABULAR_SENSOR
-	}
-}
-
-// GetFileExt gets the file extension for a capture file.
-func GetFileExt(dataType v1.DataType, methodName string, parameters map[string]string) string {
-	defaultFileExt := ""
-	switch dataType {
-	case v1.DataType_DATA_TYPE_TABULAR_SENSOR:
-		return ".dat"
-	case v1.DataType_DATA_TYPE_FILE:
-		return defaultFileExt
-	case v1.DataType_DATA_TYPE_BINARY_SENSOR:
-		if methodName == nextPointCloud {
-			return ".pcd"
-		}
-		if methodName == readImage {
-			// TODO: Add explicit file extensions for all mime types.
-			switch parameters["mime_type"] {
-			case utils.MimeTypeJPEG:
-				return ".jpeg"
-			case utils.MimeTypePNG:
-				return ".png"
-			case utils.MimeTypePCD:
-				return ".pcd"
-			default:
-				return defaultFileExt
-			}
-		}
-	case v1.DataType_DATA_TYPE_UNSPECIFIED:
-		return defaultFileExt
-	default:
-		return defaultFileExt
-	}
-	return defaultFileExt
 }
 
 // SensorDataFromCaptureFilePath returns all readings in the file at filePath.

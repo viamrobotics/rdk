@@ -7,7 +7,6 @@ import (
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
-	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/gostream"
@@ -25,23 +24,23 @@ import (
 // Note: this strips away Reconfiguration and DoCommand abilities.
 // If needed, implement the Camera another way. For example, a webcam
 // implements a Camera manually so that it can atomically reconfigure itself.
-func FromVideoSource(name resource.Name, src StreamCamera, logger logging.Logger) StreamCamera {
+func FromVideoSource(name resource.Name, src VideoSource, logger logging.Logger) VideoSource {
 	var rtpPassthroughSource rtppassthrough.Source
 	if ps, ok := src.(rtppassthrough.Source); ok {
 		rtpPassthroughSource = ps
 	}
 	return &sourceBasedCamera{
 		rtpPassthroughSource: rtpPassthroughSource,
-		StreamCamera:         src,
-		name:                 name,
+		VideoSource:          src,
+		Named:                name.AsNamed(),
 		Logger:               logger,
 	}
 }
 
 type sourceBasedCamera struct {
-	StreamCamera
+	VideoSource
 	resource.AlwaysRebuild
-	name                 resource.Name
+	resource.Named
 	rtpPassthroughSource rtppassthrough.Source
 	logging.Logger
 }
@@ -49,6 +48,16 @@ type sourceBasedCamera struct {
 // Explicitly define Reconfigure to resolve ambiguity.
 func (vs *sourceBasedCamera) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	return vs.AlwaysRebuild.Reconfigure(ctx, deps, conf)
+}
+
+// Explicitly define Name to resolve ambiguity.
+func (vs *sourceBasedCamera) Name() resource.Name {
+	return vs.Named.Name()
+}
+
+// Define DoCommand to fulfill Named interface.
+func (vs *sourceBasedCamera) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return vs.VideoSource.DoCommand(ctx, cmd)
 }
 
 func (vs *sourceBasedCamera) SubscribeRTP(
@@ -113,7 +122,7 @@ func NewVideoSourceFromReader(
 	ctx context.Context,
 	reader gostream.VideoReader,
 	syst *transform.PinholeCameraModel, imageType ImageType,
-) (StreamCamera, error) {
+) (VideoSource, error) {
 	if reader == nil {
 		return nil, errors.New("cannot have a nil reader")
 	}
@@ -145,7 +154,6 @@ func NewVideoSourceFromReader(
 		rtpPassthroughSource: rtpPassthroughSource,
 		system:               actualSystem,
 		videoSource:          vs,
-		videoStream:          gostream.NewEmbeddedVideoStream(vs),
 		actualSource:         reader,
 		imageType:            imageType,
 	}, nil
@@ -160,7 +168,7 @@ func WrapVideoSourceWithProjector(
 	ctx context.Context,
 	source gostream.VideoSource,
 	syst *transform.PinholeCameraModel, imageType ImageType,
-) (StreamCamera, error) {
+) (VideoSource, error) {
 	if source == nil {
 		return nil, errors.New("cannot have a nil source")
 	}
@@ -186,7 +194,6 @@ func WrapVideoSourceWithProjector(
 	return &videoSource{
 		system:       actualSystem,
 		videoSource:  source,
-		videoStream:  gostream.NewEmbeddedVideoStream(source),
 		actualSource: source,
 		imageType:    imageType,
 	}, nil
@@ -197,7 +204,6 @@ type videoSource struct {
 	resource.AlwaysRebuild
 	rtpPassthroughSource rtppassthrough.Source
 	videoSource          gostream.VideoSource
-	videoStream          gostream.VideoStream
 	actualSource         interface{}
 	system               *transform.PinholeCameraModel
 	imageType            ImageType
@@ -258,7 +264,7 @@ func (vs *videoSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 	if vs.system == nil || vs.system.PinholeCameraIntrinsics == nil {
 		return nil, transform.NewNoIntrinsicsError("cannot do a projection to a point cloud")
 	}
-	img, release, err := vs.videoStream.Next(ctx)
+	img, release, err := ReadImage(ctx, vs.videoSource)
 	defer release()
 	if err != nil {
 		return nil, err
@@ -307,7 +313,7 @@ func (vs *videoSource) Properties(ctx context.Context) (Properties, error) {
 
 func (vs *videoSource) Close(ctx context.Context) error {
 	if res, ok := vs.actualSource.(resource.Resource); ok {
-		return multierr.Combine(vs.videoStream.Close(ctx), vs.videoSource.Close(ctx), res.Close(ctx))
+		return res.Close(ctx)
 	}
-	return multierr.Combine(vs.videoStream.Close(ctx), vs.videoSource.Close(ctx))
+	return vs.videoSource.Close(ctx)
 }

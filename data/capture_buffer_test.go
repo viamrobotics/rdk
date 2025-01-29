@@ -1,7 +1,6 @@
 package data
 
 import (
-	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -85,16 +84,19 @@ func TestCaptureQueue(t *testing.T) {
 			tmpDir := t.TempDir()
 			md := &v1.DataCaptureMetadata{Type: tc.dataType}
 			sut := NewCaptureBuffer(tmpDir, md, int64(maxFileSize))
-			var pushValue *v1.SensorData
-			if tc.dataType == v1.DataType_DATA_TYPE_BINARY_SENSOR {
-				pushValue = binarySensorData
-			} else {
-				pushValue = structSensorData
-			}
 
 			for i := 0; i < tc.pushCount; i++ {
-				err := sut.Write(pushValue)
-				test.That(t, err, test.ShouldBeNil)
+				switch {
+				case tc.dataType == CaptureTypeBinary.ToProto():
+					err := sut.WriteBinary([]*v1.SensorData{binarySensorData})
+					test.That(t, err, test.ShouldBeNil)
+				case tc.dataType == CaptureTypeTabular.ToProto():
+					err := sut.WriteTabular(structSensorData)
+					test.That(t, err, test.ShouldBeNil)
+				default:
+					t.Error("unknown data type")
+					t.FailNow()
+				}
 			}
 
 			dcFiles, inProgressFiles := getCaptureFiles(tmpDir)
@@ -221,7 +223,7 @@ func TestCaptureBufferReader(t *testing.T) {
 				methodParams, err := rprotoutils.ConvertStringMapToAnyPBMap(tc.additionalParams)
 				test.That(t, err, test.ShouldBeNil)
 
-				readImageCaptureMetadata := BuildCaptureMetadata(
+				readImageCaptureMetadata, _ := BuildCaptureMetadata(
 					tc.resourceName.API,
 					tc.resourceName.ShortName(),
 					tc.methodName,
@@ -257,7 +259,7 @@ func TestCaptureBufferReader(t *testing.T) {
 						Struct: tc.readings[0],
 					},
 				}
-				test.That(t, b.Write(msg), test.ShouldBeNil)
+				test.That(t, b.WriteTabular(msg), test.ShouldBeNil)
 				test.That(t, b.Flush(), test.ShouldBeNil)
 				dirEntries, err := os.ReadDir(b.Path())
 				test.That(t, err, test.ShouldBeNil)
@@ -290,7 +292,7 @@ func TestCaptureBufferReader(t *testing.T) {
 						Struct: tc.readings[1],
 					},
 				}
-				test.That(t, b.Write(msg2), test.ShouldBeNil)
+				test.That(t, b.WriteTabular(msg2), test.ShouldBeNil)
 
 				now = time.Now()
 				timeRequested = timestamppb.New(now.UTC())
@@ -304,7 +306,7 @@ func TestCaptureBufferReader(t *testing.T) {
 						Struct: tc.readings[2],
 					},
 				}
-				test.That(t, b.Write(msg3), test.ShouldBeNil)
+				test.That(t, b.WriteTabular(msg3), test.ShouldBeNil)
 
 				dirEntries2, err := os.ReadDir(b.Path())
 				test.That(t, err, test.ShouldBeNil)
@@ -351,6 +353,60 @@ func TestCaptureBufferReader(t *testing.T) {
 				test.That(t, err, test.ShouldBeError, io.EOF)
 			})
 		}
+
+		t.Run("returns an error if binary data is written", func(t *testing.T) {
+			tmpDir := t.TempDir()
+			name := resource.NewName(resource.APINamespaceRDK.WithComponentType("camera"), "my-cam")
+			method := readImage
+			additionalParams := map[string]string{"mime_type": rutils.MimeTypeJPEG}
+			tags := []string{"my", "tags"}
+			methodParams, err := rprotoutils.ConvertStringMapToAnyPBMap(additionalParams)
+			test.That(t, err, test.ShouldBeNil)
+
+			readImageCaptureMetadata, _ := BuildCaptureMetadata(
+				name.API,
+				name.ShortName(),
+				method,
+				additionalParams,
+				methodParams,
+				tags,
+			)
+
+			test.That(t, readImageCaptureMetadata, test.ShouldResemble, &v1.DataCaptureMetadata{
+				ComponentName:    "my-cam",
+				ComponentType:    "rdk:component:camera",
+				MethodName:       readImage,
+				MethodParameters: methodParams,
+				Tags:             tags,
+				Type:             v1.DataType_DATA_TYPE_BINARY_SENSOR,
+				FileExtension:    ".jpeg",
+			})
+
+			b := NewCaptureBuffer(tmpDir, readImageCaptureMetadata, int64(256*1024))
+
+			// Path() is the same as the first paramenter passed to NewCaptureBuffer
+			test.That(t, b.Path(), test.ShouldResemble, tmpDir)
+			test.That(t, b.MetaData, test.ShouldResemble, readImageCaptureMetadata)
+
+			now := time.Now()
+			timeRequested := timestamppb.New(now.UTC())
+			timeReceived := timestamppb.New(now.Add(time.Millisecond).UTC())
+			msg := &v1.SensorData{
+				Metadata: &v1.SensorMetadata{
+					TimeRequested: timeRequested,
+					TimeReceived:  timeReceived,
+				},
+				Data: &v1.SensorData_Binary{
+					Binary: []byte("this is a fake image"),
+				},
+			}
+			test.That(t, b.WriteTabular(msg), test.ShouldBeError, errInvalidTabularSensorData)
+			test.That(t, b.Flush(), test.ShouldBeNil)
+			dirEntries, err := os.ReadDir(b.Path())
+			test.That(t, err, test.ShouldBeNil)
+			// no data written
+			test.That(t, len(dirEntries), test.ShouldEqual, 0)
+		})
 	})
 
 	t.Run("binary data", func(t *testing.T) {
@@ -426,7 +482,7 @@ func TestCaptureBufferReader(t *testing.T) {
 				methodParams, err := rprotoutils.ConvertStringMapToAnyPBMap(tc.additionalParams)
 				test.That(t, err, test.ShouldBeNil)
 
-				readImageCaptureMetadata := BuildCaptureMetadata(
+				readImageCaptureMetadata, _ := BuildCaptureMetadata(
 					tc.resourceName.API,
 					tc.resourceName.ShortName(),
 					tc.methodName,
@@ -456,32 +512,17 @@ func TestCaptureBufferReader(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, firstDirEntries, test.ShouldBeEmpty)
 
-				// writing empty sensor data returns an error
-				test.That(t, b.Write(nil), test.ShouldBeError, errors.New("proto: Marshal called with nil"))
-
 				// flushing after this error occures, behaves the same as if no write had occurred
 				// current behavior is likely a bug
 				test.That(t, b.Flush(), test.ShouldBeNil)
 				firstDirEntries, err = os.ReadDir(b.Path())
 				test.That(t, err, test.ShouldBeNil)
-				test.That(t, len(firstDirEntries), test.ShouldEqual, 1)
-				test.That(t, filepath.Ext(firstDirEntries[0].Name()), test.ShouldResemble, CompletedCaptureFileExt)
-				f, err := os.Open(filepath.Join(b.Path(), firstDirEntries[0].Name()))
-				test.That(t, err, test.ShouldBeNil)
-				defer func() { utils.UncheckedError(f.Close()) }()
-
-				cf, err := ReadCaptureFile(f)
-				test.That(t, err, test.ShouldBeNil)
-				test.That(t, cf.ReadMetadata(), test.ShouldResemble, readImageCaptureMetadata)
-
-				sd, err := cf.ReadNext()
-				test.That(t, err, test.ShouldBeError, io.EOF)
-				test.That(t, sd, test.ShouldBeNil)
+				test.That(t, len(firstDirEntries), test.ShouldEqual, 0)
 
 				now := time.Now()
 				timeRequested := timestamppb.New(now.UTC())
 				timeReceived := timestamppb.New(now.Add(time.Millisecond).UTC())
-				msg := &v1.SensorData{
+				msg := []*v1.SensorData{{
 					Metadata: &v1.SensorMetadata{
 						TimeRequested: timeRequested,
 						TimeReceived:  timeReceived,
@@ -489,19 +530,13 @@ func TestCaptureBufferReader(t *testing.T) {
 					Data: &v1.SensorData_Binary{
 						Binary: []byte("this is fake binary data"),
 					},
-				}
-				test.That(t, b.Write(msg), test.ShouldBeNil)
+				}}
+				test.That(t, b.WriteBinary(msg), test.ShouldBeNil)
 				test.That(t, b.Flush(), test.ShouldBeNil)
 				secondDirEntries, err := os.ReadDir(b.Path())
 				test.That(t, err, test.ShouldBeNil)
-				test.That(t, len(secondDirEntries), test.ShouldEqual, 2)
-				var newFileName string
-				for _, de := range secondDirEntries {
-					if de.Name() != firstDirEntries[0].Name() {
-						newFileName = de.Name()
-						break
-					}
-				}
+				test.That(t, len(secondDirEntries), test.ShouldEqual, 1)
+				newFileName := secondDirEntries[0].Name()
 				test.That(t, newFileName, test.ShouldNotBeEmpty)
 				test.That(t, filepath.Ext(newFileName), test.ShouldResemble, CompletedCaptureFileExt)
 				f2, err := os.Open(filepath.Join(b.Path(), newFileName))
@@ -514,14 +549,14 @@ func TestCaptureBufferReader(t *testing.T) {
 
 				sd2, err := cf2.ReadNext()
 				test.That(t, err, test.ShouldBeNil)
-				test.That(t, sd2, test.ShouldResemble, msg)
+				test.That(t, sd2, test.ShouldResemble, msg[0])
 
 				_, err = cf2.ReadNext()
 				test.That(t, err, test.ShouldBeError, io.EOF)
 
 				timeRequested = timestamppb.New(now.UTC())
 				timeReceived = timestamppb.New(now.Add(time.Millisecond).UTC())
-				msg3 := &v1.SensorData{
+				msg3 := []*v1.SensorData{{
 					Metadata: &v1.SensorMetadata{
 						TimeRequested: timeRequested,
 						TimeReceived:  timeReceived,
@@ -529,13 +564,13 @@ func TestCaptureBufferReader(t *testing.T) {
 					Data: &v1.SensorData_Binary{
 						Binary: []byte("msg2"),
 					},
-				}
+				}}
 
-				test.That(t, b.Write(msg3), test.ShouldBeNil)
+				test.That(t, b.WriteBinary(msg3), test.ShouldBeNil)
 
 				timeRequested = timestamppb.New(now.UTC())
 				timeReceived = timestamppb.New(now.Add(time.Millisecond).UTC())
-				msg4 := &v1.SensorData{
+				msg4 := []*v1.SensorData{{
 					Metadata: &v1.SensorMetadata{
 						TimeRequested: timeRequested,
 						TimeReceived:  timeReceived,
@@ -543,17 +578,17 @@ func TestCaptureBufferReader(t *testing.T) {
 					Data: &v1.SensorData_Binary{
 						Binary: []byte("msg3"),
 					},
-				}
+				}}
 				// Every binary data written becomes a new data capture file
-				test.That(t, b.Write(msg4), test.ShouldBeNil)
+				test.That(t, b.WriteBinary(msg4), test.ShouldBeNil)
 				test.That(t, b.Flush(), test.ShouldBeNil)
 				thirdDirEntries, err := os.ReadDir(b.Path())
 				test.That(t, err, test.ShouldBeNil)
-				test.That(t, len(thirdDirEntries), test.ShouldEqual, 4)
+				test.That(t, len(thirdDirEntries), test.ShouldEqual, 3)
 
 				var newFileNames []string
 				for _, de := range thirdDirEntries {
-					if de.Name() != firstDirEntries[0].Name() && de.Name() != newFileName {
+					if de.Name() != newFileName {
 						newFileNames = append(newFileNames, de.Name())
 					}
 				}
@@ -568,7 +603,7 @@ func TestCaptureBufferReader(t *testing.T) {
 				test.That(t, cf3.ReadMetadata(), test.ShouldResemble, readImageCaptureMetadata)
 				sd3, err := cf3.ReadNext()
 				test.That(t, err, test.ShouldBeNil)
-				test.That(t, sd3, test.ShouldResemble, msg3)
+				test.That(t, sd3, test.ShouldResemble, msg3[0])
 				_, err = cf3.ReadNext()
 				test.That(t, err, test.ShouldBeError, io.EOF)
 
@@ -581,7 +616,7 @@ func TestCaptureBufferReader(t *testing.T) {
 				test.That(t, cf4.ReadMetadata(), test.ShouldResemble, readImageCaptureMetadata)
 				sd4, err := cf4.ReadNext()
 				test.That(t, err, test.ShouldBeNil)
-				test.That(t, sd4, test.ShouldResemble, msg4)
+				test.That(t, sd4, test.ShouldResemble, msg4[0])
 				_, err = cf4.ReadNext()
 				test.That(t, err, test.ShouldBeError, io.EOF)
 			})
@@ -597,7 +632,7 @@ func TestCaptureBufferReader(t *testing.T) {
 		methodParams, err := rprotoutils.ConvertStringMapToAnyPBMap(additionalParams)
 		test.That(t, err, test.ShouldBeNil)
 
-		readImageCaptureMetadata := BuildCaptureMetadata(
+		readImageCaptureMetadata, _ := BuildCaptureMetadata(
 			name.API,
 			name.ShortName(),
 			method,
@@ -625,7 +660,7 @@ func TestCaptureBufferReader(t *testing.T) {
 		now := time.Now()
 		timeRequested := timestamppb.New(now.UTC())
 		timeReceived := timestamppb.New(now.Add(time.Millisecond).UTC())
-		msg := &v1.SensorData{
+		msg := []*v1.SensorData{{
 			Metadata: &v1.SensorMetadata{
 				TimeRequested: timeRequested,
 				TimeReceived:  timeReceived,
@@ -633,8 +668,8 @@ func TestCaptureBufferReader(t *testing.T) {
 			Data: &v1.SensorData_Binary{
 				Binary: []byte("this is a fake image"),
 			},
-		}
-		test.That(t, b.Write(msg), test.ShouldBeNil)
+		}}
+		test.That(t, b.WriteBinary(msg), test.ShouldBeNil)
 		test.That(t, b.Flush(), test.ShouldBeNil)
 		dirEntries, err := os.ReadDir(b.Path())
 		test.That(t, err, test.ShouldBeNil)
@@ -650,17 +685,79 @@ func TestCaptureBufferReader(t *testing.T) {
 
 		sd2, err := cf2.ReadNext()
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, sd2, test.ShouldResemble, msg)
+		test.That(t, sd2, test.ShouldResemble, msg[0])
 
 		_, err = cf2.ReadNext()
 		test.That(t, err, test.ShouldBeError, io.EOF)
 	})
+
+	t.Run("returns an error if tabular data is written", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		additionalParams := map[string]string{"some": "params"}
+		methodParams, err := rprotoutils.ConvertStringMapToAnyPBMap(additionalParams)
+		test.That(t, err, test.ShouldBeNil)
+
+		name := resource.NewName(resource.APINamespaceRDK.WithComponentType("sensor"), "my-sensor")
+		shortName := "sensor-1"
+		method := "Readings"
+		tags := []string{"my", "tags"}
+		readImageCaptureMetadata, _ := BuildCaptureMetadata(
+			name.API,
+			shortName,
+			method,
+			additionalParams,
+			methodParams,
+			tags,
+		)
+
+		test.That(t, readImageCaptureMetadata, test.ShouldResemble, &v1.DataCaptureMetadata{
+			ComponentName:    shortName,
+			ComponentType:    name.API.String(),
+			MethodName:       method,
+			MethodParameters: methodParams,
+			Tags:             tags,
+			FileExtension:    ".dat",
+			Type:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+		})
+
+		b := NewCaptureBuffer(tmpDir, readImageCaptureMetadata, int64(256*1024))
+
+		// Path() is the same as the first paramenter passed to NewCaptureBuffer
+		test.That(t, b.Path(), test.ShouldResemble, tmpDir)
+
+		now := time.Now()
+		timeRequested := timestamppb.New(now.UTC())
+		timeReceived := timestamppb.New(now.Add(time.Millisecond).UTC())
+		msg := []*v1.SensorData{{
+			Metadata: &v1.SensorMetadata{
+				TimeRequested: timeRequested,
+				TimeReceived:  timeReceived,
+			},
+			Data: &v1.SensorData_Struct{
+				Struct: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"readings": structpb.NewStructValue(
+							&structpb.Struct{Fields: map[string]*structpb.Value{
+								"speed": structpb.NewNumberValue(5),
+							}},
+						),
+					},
+				},
+			},
+		}}
+
+		test.That(t, b.WriteBinary(msg), test.ShouldBeError, errInvalidBinarySensorData)
+		test.That(t, b.Flush(), test.ShouldBeNil)
+		dirEntries, err := os.ReadDir(b.Path())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(dirEntries), test.ShouldEqual, 0)
+	})
 }
 
-//nolint
 func getCaptureFiles(dir string) (dcFiles, progFiles []string) {
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
+			//nolint:nilerr
 			return nil
 		}
 		if info.IsDir() {
@@ -675,4 +772,10 @@ func getCaptureFiles(dir string) (dcFiles, progFiles []string) {
 		return nil
 	})
 	return dcFiles, progFiles
+}
+
+func TestIsBinary(t *testing.T) {
+	test.That(t, IsBinary(nil), test.ShouldBeFalse)
+	test.That(t, IsBinary(&v1.SensorData{Data: &v1.SensorData_Struct{}}), test.ShouldBeFalse)
+	test.That(t, IsBinary(&v1.SensorData{Data: &v1.SensorData_Binary{}}), test.ShouldBeTrue)
 }

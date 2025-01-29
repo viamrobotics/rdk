@@ -2,6 +2,7 @@ package slam
 
 import (
 	"context"
+	"time"
 
 	pb "go.viam.com/api/service/slam/v1"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -33,12 +34,15 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
+		timeRequested := time.Now()
+		var res data.CaptureResult
 		pose, err := slam.Position(ctx)
 		if err != nil {
-			return nil, data.FailedToReadErr(params.ComponentName, position.String(), err)
+			return res, data.FailedToReadErr(params.ComponentName, position.String(), err)
 		}
-		return &pb.GetPositionResponse{Pose: spatialmath.PoseToProtobuf(pose)}, nil
+		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return data.NewTabularCaptureResult(ts, &pb.GetPositionResponse{Pose: spatialmath.PoseToProtobuf(pose)})
 	})
 	return data.NewCollector(cFunc, params)
 }
@@ -49,19 +53,28 @@ func newPointCloudMapCollector(resource interface{}, params data.CollectorParams
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
+		timeRequested := time.Now()
+		var res data.CaptureResult
 		// edited maps do not need to be captured because they should not be modified
 		f, err := slam.PointCloudMap(ctx, false)
 		if err != nil {
-			return nil, data.FailedToReadErr(params.ComponentName, pointCloudMap.String(), err)
+			return res, data.FailedToReadErr(params.ComponentName, pointCloudMap.String(), err)
 		}
 
 		pcd, err := HelperConcatenateChunksToFull(f)
 		if err != nil {
-			return nil, data.FailedToReadErr(params.ComponentName, pointCloudMap.String(), err)
+			return res, data.FailedToReadErr(params.ComponentName, pointCloudMap.String(), err)
 		}
 
-		return pcd, nil
+		ts := data.Timestamps{
+			TimeRequested: timeRequested,
+			TimeReceived:  time.Now(),
+		}
+		return data.NewBinaryCaptureResult(ts, []data.Binary{{
+			Payload:  pcd,
+			MimeType: data.MimeTypeApplicationPcd,
+		}}), nil
 	})
 	return data.NewCollector(cFunc, params)
 }

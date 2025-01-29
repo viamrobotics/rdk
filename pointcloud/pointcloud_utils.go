@@ -1,6 +1,7 @@
 package pointcloud
 
 import (
+	"bytes"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -90,4 +91,43 @@ func StatisticalOutlierFilter(meanK int, stdDevThresh float64) (func(PointCloud)
 		return filteredCloud, nil
 	}
 	return filterFunc, nil
+}
+
+// ToBasicOctree takes a pointcloud object and converts it into a basic octree.
+func ToBasicOctree(cloud PointCloud) (*BasicOctree, error) {
+	if basicOctree, ok := cloud.(*BasicOctree); ok {
+		return basicOctree, nil
+	}
+
+	center := getCenterFromPcMetaData(cloud.MetaData())
+	maxSideLength := getMaxSideLengthFromPcMetaData(cloud.MetaData())
+	basicOctree, err := NewBasicOctree(center, maxSideLength)
+	if err != nil {
+		return nil, err
+	}
+	var iterateError error
+	cloud.Iterate(0, 0, func(p r3.Vector, d Data) bool {
+		if err = basicOctree.Set(p, d); err != nil {
+			iterateError = err
+			return false
+		}
+		return true
+	})
+	if iterateError != nil {
+		return nil, err
+	}
+	return basicOctree, nil
+}
+
+// ToBytes takes a pointcloud object and converts it to bytes.
+func ToBytes(cloud PointCloud) ([]byte, error) {
+	if cloud == nil {
+		return nil, errors.New("pointcloud cannot be nil")
+	}
+	var buf bytes.Buffer
+	buf.Grow(200 + (cloud.Size() * 4 * 4)) // 4 numbers per point, each 4 bytes, 200 is header size
+	if err := ToPCD(cloud, &buf, PCDBinary); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }

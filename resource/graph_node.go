@@ -49,7 +49,8 @@ type GraphNode struct {
 	mu sync.RWMutex
 
 	// graphLogicalClock is a pointer to the Graph's logicalClock. It is
-	// incremented every time any GraphNode calls SwapResource.
+	// incremented every time any GraphNode calls SwapResource. SwapResource is called
+	// whenever a resource is reconfigured.
 	graphLogicalClock *atomic.Int64
 	// updatedAt is the value of the graphLogicalClock when it was last
 	// incremented by this GraphNode's SwapResource method. It is only referenced
@@ -554,37 +555,30 @@ func (w *GraphNode) transitionTo(state NodeState) {
 	w.transitionedAt = time.Now()
 }
 
-// ResourceStatus returns the current [Status].
-func (w *GraphNode) ResourceStatus() Status {
+// Status returns the current [NodeStatus].
+func (w *GraphNode) Status() NodeStatus {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
-	return w.resourceStatus()
+	return w.status()
 }
 
-func (w *GraphNode) resourceStatus() Status {
-	var resName Name
-	if w.current == nil {
-		resName = w.config.ResourceName()
-	} else {
-		resName = w.current.Name()
-	}
-
+func (w *GraphNode) status() NodeStatus {
 	err := w.lastErr
 	logger := w.Logger()
 
 	// check invariants between state and error
 	switch {
 	case w.state == NodeStateUnhealthy && w.lastErr == nil:
-		logger.Warnw("an unhealthy node doesn't have an error", "resource", resName)
+		logger.Warnw("an unhealthy node doesn't have an error")
 	case w.state == NodeStateReady && w.lastErr != nil:
-		logger.Warnw("a ready node still has an error", "resource", resName, "error", err)
+		logger.Warnw("a ready node still has an error", "error", err)
 		// do not return leftover error in status if the node is ready
 		err = nil
 	}
 
-	return Status{
-		Name:        resName,
+	// TODO (RSDK-9550): Node should have the correct notion of its name
+	return NodeStatus{
 		State:       w.state,
 		LastUpdated: w.transitionedAt,
 		Revision:    w.revision,
@@ -622,8 +616,8 @@ func (w *GraphNode) Stats() any {
 	return ret
 }
 
-// Status encapsulates a resource name along with state transition metadata.
-type Status struct {
+// NodeStatus encapsulates a resource name along with state transition metadata.
+type NodeStatus struct {
 	Name        Name
 	State       NodeState
 	LastUpdated time.Time

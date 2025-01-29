@@ -31,12 +31,12 @@ func TestCollectors(t *testing.T) {
 	tests := []struct {
 		name      string
 		collector data.CollectorConstructor
-		expected  *datasyncpb.SensorData
+		expected  []*datasyncpb.SensorData
 	}{
 		{
 			name:      "End position collector should write a pose",
 			collector: arm.NewEndPositionCollector,
-			expected: &datasyncpb.SensorData{
+			expected: []*datasyncpb.SensorData{{
 				Metadata: &datasyncpb.SensorMetadata{},
 				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
 					"pose": map[string]any{
@@ -49,27 +49,28 @@ func TestCollectors(t *testing.T) {
 						"z":     3,
 					},
 				})},
-			},
+			}},
 		},
 		{
 			name:      "Joint positions collector should write a list of positions",
 			collector: arm.NewJointPositionsCollector,
-			expected: &datasyncpb.SensorData{
+			expected: []*datasyncpb.SensorData{{
 				Metadata: &datasyncpb.SensorMetadata{},
 				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
 					"positions": map[string]any{
 						"values": []any{1.0, 2.0, 3.0},
 					},
 				})},
-			},
+			}},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			start := time.Now()
-			buf := tu.NewMockBuffer()
+			buf := tu.NewMockBuffer(t)
 			params := data.CollectorParams{
+				DataType:      data.CaptureTypeTabular,
 				ComponentName: componentName,
 				Interval:      captureInterval,
 				Logger:        logging.NewTestLogger(t),

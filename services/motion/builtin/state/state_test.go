@@ -584,17 +584,17 @@ func TestState(t *testing.T) {
 				planFunc: func(ctx context.Context) (motionplan.Plan, error) {
 					// first plan succeeds
 					if replanCount == 0 {
-						pbc := motionplan.PathStep{
+						pbc := referenceframe.FrameSystemPoses{
 							req.ComponentName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
 						}
-						return motionplan.NewSimplePlan([]motionplan.PathStep{pbc}, nil), nil
+						return motionplan.NewSimplePlan([]referenceframe.FrameSystemPoses{pbc}, nil), nil
 					}
 					// first replan succeeds
 					if replanCount == 1 {
-						pbc := motionplan.PathStep{
+						pbc := referenceframe.FrameSystemPoses{
 							req.ComponentName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
 						}
-						return motionplan.NewSimplePlan([]motionplan.PathStep{pbc, pbc}, nil), nil
+						return motionplan.NewSimplePlan([]referenceframe.FrameSystemPoses{pbc, pbc}, nil), nil
 					}
 					// second replan fails
 					return nil, replanFailReason
@@ -951,7 +951,7 @@ func TestState(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(ps6), test.ShouldEqual, 0)
 
-		pbc := motionplan.PathStep{
+		pbc := referenceframe.FrameSystemPoses{
 			req.ComponentName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
 		}
 
@@ -967,11 +967,11 @@ func TestState(t *testing.T) {
 				planFunc: func(ctx context.Context) (motionplan.Plan, error) {
 					// first replan succeeds
 					if replanCount == 0 || replanCount == 1 {
-						return motionplan.NewSimplePlan([]motionplan.PathStep{pbc, pbc}, nil), nil
+						return motionplan.NewSimplePlan([]referenceframe.FrameSystemPoses{pbc, pbc}, nil), nil
 					}
 
 					// second replan fails
-					return motionplan.NewSimplePlan([]motionplan.PathStep{}, nil), replanFailReason
+					return motionplan.NewSimplePlan([]referenceframe.FrameSystemPoses{}, nil), replanFailReason
 				},
 				executeFunc: func(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
 					if replanCount == 0 {

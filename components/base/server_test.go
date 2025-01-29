@@ -4,12 +4,15 @@ import (
 	"context"
 	"testing"
 
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+	pbcommon "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/base/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -190,5 +193,34 @@ func TestServer(t *testing.T) {
 		resp, err = server.Stop(context.Background(), req)
 		test.That(t, resp, test.ShouldBeNil)
 		test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
+	})
+
+	t.Run("Geometries", func(t *testing.T) {
+		box, err := spatialmath.NewBox(
+			spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, spatialmath.NewZeroPose().Orientation()),
+			r3.Vector{},
+			testBaseName,
+		)
+		test.That(t, err, test.ShouldBeNil)
+
+		// on a successful get geometries
+		workingBase.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
+			return []spatialmath.Geometry{box}, nil
+		}
+		req := &pbcommon.GetGeometriesRequest{Name: testBaseName}
+		resp, err := server.GetGeometries(context.Background(), req) // TODO (rh) rename server to bServer after review
+		test.That(t, resp, test.ShouldResemble, &pbcommon.GetGeometriesResponse{
+			Geometries: spatialmath.NewGeometriesToProto([]spatialmath.Geometry{box}),
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		// on a failing get properties
+		brokenBase.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
+			return nil, nil
+		}
+		req = &pbcommon.GetGeometriesRequest{Name: failBaseName}
+		resp, err = server.GetGeometries(context.Background(), req)
+		test.That(t, resp, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeError, base.ErrGeometriesNil(failBaseName))
 	})
 }

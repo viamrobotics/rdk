@@ -18,7 +18,6 @@ import (
 
 func init() {
 	resource.RegisterAPI(API, resource.APIRegistration[Motor]{
-		Status:                      resource.StatusFunc(CreateStatus),
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterMotorServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.MotorService_ServiceDesc,
@@ -49,26 +48,36 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 //	// Set the motor power to 40% forwards.
 //	myMotorComponent.SetPower(context.Background(), 0.4, nil)
 //
+// For more information, see the [SetPower method docs].
+//
 // GoFor example:
 //
 //	myMotorComponent, err := motor.FromRobot(machine, "my_motor")
 //	// Turn the motor 7.2 revolutions at 60 RPM.
 //	myMotorComponent.GoFor(context.Background(), 60, 7.2, nil)
 //
+// For more information, see the [GoFor method docs].
+//
 // GoTo example:
 //
 //	// Turn the motor to 8.3 revolutions from home at 75 RPM.
 //	myMotorComponent.GoTo(context.Background(), 75, 8.3, nil)
+//
+// For more information, see the [GoTo method docs].
 //
 // SetRPM example:
 //
 //	// Set the motor's RPM to 50
 //	myMotorComponent.SetRPM(context.Background(), 50, nil)
 //
+// For more information, see the [SetRPM method docs].
+//
 // ResetZeroPosition example:
 //
 //	// Set the current position as the new home position with no offset.
 //	myMotorComponent.ResetZeroPosition(context.Background(), 0.0, nil)
+//
+// For more information, see the [ResetZeroPosition method docs].
 //
 // Position example:
 //
@@ -79,6 +88,8 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 //	logger.Info("Position:")
 //	logger.Info(position)
 //
+// For more information, see the [Position method docs].
+//
 // Properties example:
 //
 //	// Return whether or not the motor supports certain optional features.
@@ -87,6 +98,8 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 //	// Log the properties.
 //	logger.Info("Properties:")
 //	logger.Info(properties)
+//
+// For more information, see the [Properties method docs].
 //
 // IsPowered example:
 //
@@ -98,7 +111,17 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 //	logger.Info("Power percent:")
 //	logger.Info(pct)
 //
-// [motor component docs]: https://docs.viam.com/components/motor/
+// For more information, see the [IsPowered method docs].
+//
+// [motor component docs]: https://docs.viam.com/dev/reference/apis/components/motor/
+// [SetPower method docs]: https://docs.viam.com/dev/reference/apis/components/motor/#setpower
+// [GoFor method docs]: https://docs.viam.com/dev/reference/apis/components/motor/#gofor
+// [GoTo method docs]: https://docs.viam.com/dev/reference/apis/components/motor/#goto
+// [SetRPM method docs]: https://docs.viam.com/dev/reference/apis/components/motor/#setrpm
+// [ResetZeroPosition method docs]: https://docs.viam.com/dev/reference/apis/components/motor/#resetzeroposition
+// [Position method docs]: https://docs.viam.com/dev/reference/apis/components/motor/#getposition
+// [Properties method docs]: https://docs.viam.com/dev/reference/apis/components/motor/#getproperties
+// [IsPowered method docs]: https://docs.viam.com/dev/reference/apis/components/motor/#ispowered
 type Motor interface {
 	resource.Resource
 	resource.Actuator
@@ -158,34 +181,6 @@ func FromRobot(r robot.Robot, name string) (Motor, error) {
 // NamesFromRobot is a helper for getting all motor names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
-}
-
-// CreateStatus creates a status from the motor.
-func CreateStatus(ctx context.Context, m Motor) (*pb.Status, error) {
-	isPowered, _, err := m.IsPowered(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	properties, err := m.Properties(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	var position float64
-	if properties.PositionReporting {
-		position, err = m.Position(ctx, nil)
-		if err != nil {
-			return nil, err
-		}
-	}
-	isMoving, err := m.IsMoving(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.Status{
-		IsPowered: isPowered,
-		Position:  position,
-		IsMoving:  isMoving,
-	}, nil
 }
 
 // CheckSpeed checks if the input rpm is too slow or fast and returns a warning and/or error.

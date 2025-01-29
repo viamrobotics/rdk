@@ -41,9 +41,15 @@ jobs:
           - arch: ubuntu-latest
             image: ghcr.io/viamrobotics/antique2:amd64-cache
             platform: linux/amd64
+            target: static-release
           - arch: ubuntu-small-arm
             image: ghcr.io/viamrobotics/antique2:arm64-cache
             platform: linux/arm64
+            target: static-release
+          - arch: ubuntu-latest
+            image: ghcr.io/viamrobotics/antique2:amd64-cache
+            platform: linux/amd64
+            target: static-release-win
     runs-on: ${{ matrix.arch }}
     container:
       image: ${{ matrix.image }}
@@ -89,7 +95,7 @@ jobs:
     - name: Build (PR)
       if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
       run: |
-        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" static-release'
+        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" ${{ matrix.target }}'
 
     - name: Upload Files (PR)
       if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
@@ -105,12 +111,12 @@ jobs:
     - name: Build (Latest)
       if: inputs.release_type == 'latest'
       run: |
-        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="latest" BUILD_CHANNEL="${{needs.build_timestamp.outputs.date}}" static-release'
+        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="latest" BUILD_CHANNEL="${{needs.build_timestamp.outputs.date}}" ${{ matrix.target }}'
 
     - name: Build (Tagged)
       if: inputs.release_type == 'stable' || inputs.release_type == 'rc'
       run: |
-        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="${{ inputs.release_type }}" BUILD_CHANNEL="${{ github.ref_name }}" static-release'
+        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="${{ inputs.release_type }}" BUILD_CHANNEL="${{ github.ref_name }}" ${{ matrix.target }}'
 
     - name: Set Date
       id: build_date

@@ -47,6 +47,7 @@ import (
 	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/tunnel"
 	"go.viam.com/rdk/utils/contextutils"
 )
 
@@ -60,6 +61,12 @@ var (
 
 	// defaultResourcesTimeout is the default timeout for getting resources.
 	defaultResourcesTimeout = 5 * time.Second
+
+	// DoNotWaitForRunning should be set only in tests to allow connecting to
+	// still-initializing machines. Note that robot clients in production (not in
+	// a testing environment) will already allow connecting to still-initializing
+	// machines.
+	DoNotWaitForRunning = atomic.Bool{}
 )
 
 // RobotClient satisfies the robot.Robot interface through a gRPC based
@@ -286,6 +293,41 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 
 	if err := rc.Connect(ctx); err != nil {
 		return nil, err
+	}
+
+	// If running in a testing environment, wait for machine to report a state of
+	// running. We often establish connections in tests and expect resources to
+	// be immediately available once the web service has started; resources will
+	// not be available when the machine is still initializing.
+	//
+	// It is expected that golang SDK users will handle lack of resource
+	// availability due to the machine being in an initializing state themselves.
+	//
+	// Allow this behavior to be turned off in some tests that specifically want
+	// to examine the behavior of a machine in an initializing state through the
+	// use of a global variable.
+	if testing.Testing() && !DoNotWaitForRunning.Load() {
+		for {
+			if ctx.Err() != nil {
+				return nil, multierr.Combine(ctx.Err(), rc.conn.Close())
+			}
+
+			mStatus, err := rc.MachineStatus(ctx)
+			if err != nil {
+				// Allow for MachineStatus to not be injected/implemented in some tests.
+				if status.Code(err) == codes.Unimplemented {
+					break
+				}
+				// Ignore error from Close and just return original machine status error.
+				utils.UncheckedError(rc.conn.Close())
+				return nil, err
+			}
+
+			if mStatus.State == robot.StateRunning {
+				break
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
 	}
 
 	// refresh once to hydrate the robot.
@@ -819,6 +861,7 @@ func (rc *RobotClient) Logger() logging.Logger {
 	return rc.logger
 }
 
+// DiscoverComponents is DEPRECATED!!! Please use the Discovery Service instead.
 // DiscoverComponents takes a list of discovery queries and returns corresponding
 // component configurations.
 //
@@ -830,7 +873,11 @@ func (rc *RobotClient) Logger() logging.Logger {
 //
 //	// Get component configurations with these queries.
 //	component_configs, err := machine.DiscoverComponents(ctx.Background(), qs)
+//
+//nolint:deprecated,staticcheck
 func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error) {
+	rc.logger.Warn(
+		"DiscoverComponents is deprecated and will be removed on March 10th 2025. Please use the Discovery Service instead.")
 	pbQueries := make([]*pb.DiscoveryQuery, 0, len(qs))
 	for _, q := range qs {
 		extra, err := structpb.NewStruct(q.Extra)
@@ -874,6 +921,32 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.Dis
 			})
 	}
 	return discoveries, nil
+}
+
+// GetModelsFromModules  returns the available models from the configured modules on a given machine.
+func (rc *RobotClient) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModelDiscovery, error) {
+	resp, err := rc.client.GetModelsFromModules(ctx, &pb.GetModelsFromModulesRequest{})
+	if err != nil {
+		return nil, err
+	}
+	protoModels := resp.GetModels()
+	models := []resource.ModuleModelDiscovery{}
+	for _, protoModel := range protoModels {
+		modelTriplet, err := resource.NewModelFromString(protoModel.Model)
+		if err != nil {
+			return nil, err
+		}
+		api, err := resource.NewAPIFromString(protoModel.Api)
+		if err != nil {
+			return nil, err
+		}
+		model := resource.ModuleModelDiscovery{
+			ModuleName: protoModel.ModuleName, Model: modelTriplet, API: api,
+			FromLocalModule: protoModel.FromLocalModule,
+		}
+		models = append(models, model)
+	}
+	return models, nil
 }
 
 // FrameSystemConfig  returns the configuration of the frame system of a given machine.
@@ -954,34 +1027,6 @@ func (rc *RobotClient) TransformPointCloud(ctx context.Context, srcpc pointcloud
 	return pointcloud.ApplyOffset(ctx, srcpc, transformPose, rc.Logger())
 }
 
-// Status returns the status of the resources on the machine. You can provide a list of ResourceNames for which you want
-// statuses. If no names are passed in, the status of every resource available on the machine is returned.
-//
-//	status, err := machine.Status(ctx.Background())
-func (rc *RobotClient) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-	names := make([]*commonpb.ResourceName, 0, len(resourceNames))
-	for _, name := range resourceNames {
-		names = append(names, rprotoutils.ResourceNameToProto(name))
-	}
-
-	//nolint:staticcheck // the status API is deprecated
-	resp, err := rc.client.GetStatus(ctx, &pb.GetStatusRequest{ResourceNames: names})
-	if err != nil {
-		return nil, err
-	}
-
-	statuses := make([]robot.Status, 0, len(resp.Status))
-	for _, status := range resp.Status {
-		statuses = append(
-			statuses, robot.Status{
-				Name:             rprotoutils.ResourceNameFromProto(status.Name),
-				LastReconfigured: status.LastReconfigured.AsTime(),
-				Status:           status.Status.AsMap(),
-			})
-	}
-	return statuses, nil
-}
-
 // StopAll cancels all current and outstanding operations for the machine and stops all actuators and movement.
 //
 //	err := machine.StopAll(ctx.Background())
@@ -1042,17 +1087,12 @@ func (rc *RobotClient) Log(ctx context.Context, log zapcore.Entry, fields []zap.
 //
 //	metadata, err := machine.CloudMetadata(ctx.Background())
 func (rc *RobotClient) CloudMetadata(ctx context.Context) (cloud.Metadata, error) {
-	cloudMD := cloud.Metadata{}
 	req := &pb.GetCloudMetadataRequest{}
 	resp, err := rc.client.GetCloudMetadata(ctx, req)
 	if err != nil {
-		return cloudMD, err
+		return cloud.Metadata{}, err
 	}
-	cloudMD.PrimaryOrgID = resp.PrimaryOrgId
-	cloudMD.LocationID = resp.LocationId
-	cloudMD.MachineID = resp.MachineId
-	cloudMD.MachinePartID = resp.MachinePartId
-	return cloudMD, nil
+	return rprotoutils.MetadataFromProto(resp), nil
 }
 
 // RestartModule restarts a running module by name or ID.
@@ -1118,9 +1158,12 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 	mStatus.Resources = make([]resource.Status, 0, len(resp.Resources))
 	for _, pbResStatus := range resp.Resources {
 		resStatus := resource.Status{
-			Name:        rprotoutils.ResourceNameFromProto(pbResStatus.Name),
-			LastUpdated: pbResStatus.LastUpdated.AsTime(),
-			Revision:    pbResStatus.Revision,
+			NodeStatus: resource.NodeStatus{
+				Name:        rprotoutils.ResourceNameFromProto(pbResStatus.Name),
+				LastUpdated: pbResStatus.LastUpdated.AsTime(),
+				Revision:    pbResStatus.Revision,
+			},
+			CloudMetadata: rprotoutils.MetadataFromProto(pbResStatus.CloudMetadata),
 		}
 
 		switch pbResStatus.State {
@@ -1145,6 +1188,16 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 		mStatus.Resources = append(mStatus.Resources, resStatus)
 	}
 
+	switch resp.State {
+	case pb.GetMachineStatusResponse_STATE_UNSPECIFIED:
+		rc.logger.CError(ctx, "received unspecified machine state")
+		mStatus.State = robot.StateUnknown
+	case pb.GetMachineStatusResponse_STATE_INITIALIZING:
+		mStatus.State = robot.StateInitializing
+	case pb.GetMachineStatusResponse_STATE_RUNNING:
+		mStatus.State = robot.StateRunning
+	}
+
 	return mStatus, nil
 }
 
@@ -1162,6 +1215,83 @@ func (rc *RobotClient) Version(ctx context.Context) (robot.VersionResponse, erro
 	mVersion.APIVersion = resp.ApiVersion
 
 	return mVersion, nil
+}
+
+// Tunnel tunnels data to/from the read writer from/to the destination port on the server. This
+// function will close the connection passed in as part of cleanup.
+func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest int) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	client, err := rc.client.Tunnel(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := client.Send(&pb.TunnelRequest{
+		DestinationPort: uint32(dest),
+	}); err != nil {
+		return err
+	}
+	rc.Logger().CInfow(ctx, "creating tunnel to server", "port", dest)
+	var (
+		wg              sync.WaitGroup
+		readerSenderErr error
+
+		timerMu sync.Mutex
+		timer   *time.Timer
+	)
+	connClosed := make(chan struct{})
+	rsDone := make(chan struct{})
+	wg.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer func() {
+			// We communicate an end to the stream by calling CloseSend().
+			// Close the channel first so that network errors can be filtered
+			// and prevented in the RecvWriterLoop.
+			close(rsDone)
+			readerSenderErr = errors.Join(readerSenderErr, client.CloseSend())
+
+			// Schedule a task to cancel the context if we do not exit out of the recvWriterLoop within 5 seconds.
+			// This will close the client, meaning client.Recv() in the RecvWriterLoop will exit and return an error.
+			//
+			// NOTE(cheukt): This may cause DEBUG messages from WebRTC stating `no stream for id; discarding`
+			// to show up because the handler will have exited before we receive the last messages from the server.
+			// This is not an issue and is expected.
+			timerMu.Lock()
+			timer = time.AfterFunc(5*time.Second, cancel)
+			timerMu.Unlock()
+			wg.Done()
+		}()
+		// a max of 32kb will be sent per message (based on io.Copy's default buffer size)
+		sendFunc := func(data []byte) error { return client.Send(&pb.TunnelRequest{Data: data}) }
+		readerSenderErr = tunnel.ReaderSenderLoop(ctx, conn, sendFunc, connClosed, rc.logger.WithFields("loop", "reader/sender"))
+	})
+
+	recvFunc := func() ([]byte, error) {
+		resp, err := client.Recv()
+		if err != nil {
+			return nil, err
+		}
+		return resp.Data, nil
+	}
+	recvWriterErr := tunnel.RecvWriterLoop(ctx, recvFunc, conn, rsDone, rc.logger.WithFields("loop", "recv/writer"))
+	timerMu.Lock()
+	// cancel the timer if we've successfully returned from the RecvWriterLoop
+	if timer != nil {
+		timer.Stop()
+	}
+	timerMu.Unlock()
+
+	// We close the connection to unblock the reader/sender loop, which is not clean
+	// but there isn't a cleaner way to exit from the reader/sender loop.
+	// Close the channel first so that network errors can be filtered
+	// and prevented in the ReaderSenderLoop.
+	close(connClosed)
+	err = conn.Close()
+
+	wg.Wait()
+	rc.Logger().CInfow(ctx, "tunnel to server closed", "port", dest)
+	return errors.Join(err, readerSenderErr, recvWriterErr)
 }
 
 func unaryClientInterceptor() googlegrpc.UnaryClientInterceptor {

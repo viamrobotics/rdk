@@ -17,9 +17,13 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
+const (
+	testInputControllerName    = "inputController1"
+	failInputControllerName    = "inputController2"
+	missingInputControllerName = "inputController3"
+)
+
 var (
-	errControlsFailed = errors.New("can't get controls")
-	errEventsFailed   = errors.New("can't get last events")
 	errTriggerEvent   = errors.New("can't inject event")
 	errSendFailed     = errors.New("send fail")
 	errRegisterFailed = errors.New("can't register callbacks")
@@ -92,10 +96,10 @@ func TestServer(t *testing.T) {
 	}
 
 	injectInputController2.ControlsFunc = func(ctx context.Context, extra map[string]interface{}) ([]input.Control, error) {
-		return nil, errControlsFailed
+		return nil, nil
 	}
 	injectInputController2.EventsFunc = func(ctx context.Context, extra map[string]interface{}) (map[input.Control]input.Event, error) {
-		return nil, errEventsFailed
+		return nil, nil
 	}
 	injectInputController2.RegisterControlCallbackFunc = func(
 		ctx context.Context,
@@ -131,7 +135,7 @@ func TestServer(t *testing.T) {
 			&pb.GetControlsRequest{Controller: failInputControllerName},
 		)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errControlsFailed.Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, input.ErrControlsNil(failInputControllerName).Error())
 	})
 
 	t.Run("GetEvents", func(t *testing.T) {
@@ -180,7 +184,7 @@ func TestServer(t *testing.T) {
 			&pb.GetEventsRequest{Controller: failInputControllerName},
 		)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errEventsFailed.Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, input.ErrEventsNil(failInputControllerName).Error())
 	})
 
 	t.Run("StreamEvents", func(t *testing.T) {

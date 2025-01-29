@@ -42,6 +42,8 @@ type AppServiceClient struct {
 		opts ...grpc.CallOption) (*apppb.ResendOrganizationInviteResponse, error)
 	EnableBillingServiceFunc func(ctx context.Context, in *apppb.EnableBillingServiceRequest,
 		opts ...grpc.CallOption) (*apppb.EnableBillingServiceResponse, error)
+	GetBillingServiceConfigFunc func(ctx context.Context, in *apppb.GetBillingServiceConfigRequest,
+		opts ...grpc.CallOption) (*apppb.GetBillingServiceConfigResponse, error)
 	DisableBillingServiceFunc func(ctx context.Context, in *apppb.DisableBillingServiceRequest,
 		opts ...grpc.CallOption) (*apppb.DisableBillingServiceResponse, error)
 	UpdateBillingServiceFunc func(ctx context.Context, in *apppb.UpdateBillingServiceRequest,
@@ -50,6 +52,24 @@ type AppServiceClient struct {
 		opts ...grpc.CallOption) (*apppb.OrganizationSetSupportEmailResponse, error)
 	OrganizationGetSupportEmailFunc func(ctx context.Context, in *apppb.OrganizationGetSupportEmailRequest,
 		opts ...grpc.CallOption) (*apppb.OrganizationGetSupportEmailResponse, error)
+	OrganizationSetLogoFunc func(ctx context.Context, in *apppb.OrganizationSetLogoRequest,
+		opts ...grpc.CallOption) (*apppb.OrganizationSetLogoResponse, error)
+	OrganizationGetLogoFunc func(ctx context.Context, in *apppb.OrganizationGetLogoRequest,
+		opts ...grpc.CallOption) (*apppb.OrganizationGetLogoResponse, error)
+	CreateOAuthAppFunc func(ctx context.Context, in *apppb.CreateOAuthAppRequest,
+		opts ...grpc.CallOption) (*apppb.CreateOAuthAppResponse, error)
+	ReadOAuthAppFunc func(ctx context.Context, in *apppb.ReadOAuthAppRequest,
+		opts ...grpc.CallOption) (*apppb.ReadOAuthAppResponse, error)
+	UpdateOAuthAppFunc func(ctx context.Context, in *apppb.UpdateOAuthAppRequest,
+		opts ...grpc.CallOption) (*apppb.UpdateOAuthAppResponse, error)
+	EnableAuthServiceFunc func(ctx context.Context, in *apppb.EnableAuthServiceRequest,
+		opts ...grpc.CallOption) (*apppb.EnableAuthServiceResponse, error)
+	DisableAuthServiceFunc func(ctx context.Context, in *apppb.DisableAuthServiceRequest,
+		opts ...grpc.CallOption) (*apppb.DisableAuthServiceResponse, error)
+	ListOAuthAppsFunc func(ctx context.Context, in *apppb.ListOAuthAppsRequest,
+		opts ...grpc.CallOption) (*apppb.ListOAuthAppsResponse, error)
+	DeleteOAuthAppFunc func(ctx context.Context, in *apppb.DeleteOAuthAppRequest,
+		opts ...grpc.CallOption) (*apppb.DeleteOAuthAppResponse, error)
 	CreateLocationFunc func(ctx context.Context, in *apppb.CreateLocationRequest,
 		opts ...grpc.CallOption) (*apppb.CreateLocationResponse, error)
 	GetLocationFunc func(ctx context.Context, in *apppb.GetLocationRequest,
@@ -327,6 +347,16 @@ func (asc *AppServiceClient) EnableBillingService(
 	return asc.EnableBillingServiceFunc(ctx, in, opts...)
 }
 
+// GetBillingServiceConfig calls the injected GetBillingServiceConfigFunc or the real version.
+func (asc *AppServiceClient) GetBillingServiceConfig(
+	ctx context.Context, in *apppb.GetBillingServiceConfigRequest, opts ...grpc.CallOption,
+) (*apppb.GetBillingServiceConfigResponse, error) {
+	if asc.GetBillingServiceConfigFunc == nil {
+		return asc.AppServiceClient.GetBillingServiceConfig(ctx, in, opts...)
+	}
+	return asc.GetBillingServiceConfigFunc(ctx, in, opts...)
+}
+
 // DisableBillingService calls the injected DisableBillingServiceFunc or the real version.
 func (asc *AppServiceClient) DisableBillingService(
 	ctx context.Context, in *apppb.DisableBillingServiceRequest, opts ...grpc.CallOption,
@@ -365,6 +395,96 @@ func (asc *AppServiceClient) OrganizationGetSupportEmail(
 		return asc.AppServiceClient.OrganizationGetSupportEmail(ctx, in, opts...)
 	}
 	return asc.OrganizationGetSupportEmailFunc(ctx, in, opts...)
+}
+
+// OrganizationSetLogo calls the injected OrganizationSetLogoFunc or the real version.
+func (asc *AppServiceClient) OrganizationSetLogo(
+	ctx context.Context, in *apppb.OrganizationSetLogoRequest, opts ...grpc.CallOption,
+) (*apppb.OrganizationSetLogoResponse, error) {
+	if asc.OrganizationSetLogoFunc == nil {
+		return asc.AppServiceClient.OrganizationSetLogo(ctx, in, opts...)
+	}
+	return asc.OrganizationSetLogoFunc(ctx, in, opts...)
+}
+
+// OrganizationGetLogo calls the injected OrganizationGetLogoFunc or the real version.
+func (asc *AppServiceClient) OrganizationGetLogo(
+	ctx context.Context, in *apppb.OrganizationGetLogoRequest, opts ...grpc.CallOption,
+) (*apppb.OrganizationGetLogoResponse, error) {
+	if asc.OrganizationGetLogoFunc == nil {
+		return asc.AppServiceClient.OrganizationGetLogo(ctx, in, opts...)
+	}
+	return asc.OrganizationGetLogoFunc(ctx, in, opts...)
+}
+
+// ReadOAuthApp calls the injected ReadOAuthAppFunc or the real version.
+func (asc *AppServiceClient) ReadOAuthApp(
+	ctx context.Context, in *apppb.ReadOAuthAppRequest, opts ...grpc.CallOption,
+) (*apppb.ReadOAuthAppResponse, error) {
+	if asc.ReadOAuthAppFunc == nil {
+		return asc.AppServiceClient.ReadOAuthApp(ctx, in, opts...)
+	}
+	return asc.ReadOAuthAppFunc(ctx, in, opts...)
+}
+
+// EnableAuthService calls the injected EnableAuthServiceFunc or the real version.
+func (asc *AppServiceClient) EnableAuthService(
+	ctx context.Context, in *apppb.EnableAuthServiceRequest, opts ...grpc.CallOption,
+) (*apppb.EnableAuthServiceResponse, error) {
+	if asc.EnableAuthServiceFunc == nil {
+		return asc.AppServiceClient.EnableAuthService(ctx, in, opts...)
+	}
+	return asc.EnableAuthServiceFunc(ctx, in, opts...)
+}
+
+// DisableAuthService calls the injected DisableeAuthServiceFunc or the real version.
+func (asc *AppServiceClient) DisableAuthService(
+	ctx context.Context, in *apppb.DisableAuthServiceRequest, opts ...grpc.CallOption,
+) (*apppb.DisableAuthServiceResponse, error) {
+	if asc.DisableAuthServiceFunc == nil {
+		return asc.AppServiceClient.DisableAuthService(ctx, in, opts...)
+	}
+	return asc.DisableAuthServiceFunc(ctx, in, opts...)
+}
+
+// CreateOAuthApp calls the injected CreateOAuthAppFunc or the real version.
+func (asc *AppServiceClient) CreateOAuthApp(
+	ctx context.Context, in *apppb.CreateOAuthAppRequest, opts ...grpc.CallOption,
+) (*apppb.CreateOAuthAppResponse, error) {
+	if asc.CreateOAuthAppFunc == nil {
+		return asc.AppServiceClient.CreateOAuthApp(ctx, in, opts...)
+	}
+	return asc.CreateOAuthAppFunc(ctx, in, opts...)
+}
+
+// UpdateOAuthApp calls the injected UpdateOAuthAppFunc or the real version.
+func (asc *AppServiceClient) UpdateOAuthApp(
+	ctx context.Context, in *apppb.UpdateOAuthAppRequest, opts ...grpc.CallOption,
+) (*apppb.UpdateOAuthAppResponse, error) {
+	if asc.UpdateOAuthAppFunc == nil {
+		return asc.AppServiceClient.UpdateOAuthApp(ctx, in, opts...)
+	}
+	return asc.UpdateOAuthAppFunc(ctx, in, opts...)
+}
+
+// ListOAuthApps calls the injected ListOAuthAppsFunc or the real version.
+func (asc *AppServiceClient) ListOAuthApps(
+	ctx context.Context, in *apppb.ListOAuthAppsRequest, opts ...grpc.CallOption,
+) (*apppb.ListOAuthAppsResponse, error) {
+	if asc.ListOAuthAppsFunc == nil {
+		return asc.AppServiceClient.ListOAuthApps(ctx, in, opts...)
+	}
+	return asc.ListOAuthAppsFunc(ctx, in, opts...)
+}
+
+// DeleteOAuthApp calls the injected DeleteOAuthAppFunc or the real version.
+func (asc *AppServiceClient) DeleteOAuthApp(
+	ctx context.Context, in *apppb.DeleteOAuthAppRequest, opts ...grpc.CallOption,
+) (*apppb.DeleteOAuthAppResponse, error) {
+	if asc.DeleteOAuthAppFunc == nil {
+		return asc.AppServiceClient.DeleteOAuthApp(ctx, in, opts...)
+	}
+	return asc.DeleteOAuthAppFunc(ctx, in, opts...)
 }
 
 // CreateLocation calls the injected CreateLocationFunc or the real version.

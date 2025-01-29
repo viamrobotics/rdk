@@ -18,17 +18,30 @@ func init() {
 }
 
 type Config struct {
-	// Put config attributes here
+	/*
+	Put config attributes here. There should be public/exported fields
+	with a `json` parameter at the end of each attribute.
 
-	/* if your model  does not need a config,
-	   replace *Config in the init function with resource.NoNativeConfig */
+	Example config struct:
+		type Config struct {
+			Pin   string `json:"pin"`
+			Board string `json:"board"`
+			MinDeg *float64 `json:"min_angle_deg,omitempty"`
+		}
+
+	If your model does not need a config, replace *Config in the init
+	function with resource.NoNativeConfig
+	*/
 
 	/* Uncomment this if your model does not need to be validated
 	    and has no implicit dependecies. */
 	// resource.TriviallyValidateConfig
-
 }
 
+// Validate ensures all parts of the config are valid and important fields exist.
+// Returns implicit dependencies based on the config.
+// The path is the JSON path in your robot's config (not the `Config` struct) to the
+// resource being validated; e.g. "components.0".
 func (cfg *Config) Validate(path string) ([]string, error) {
 	// Add config validation code here
 	 return nil, nil

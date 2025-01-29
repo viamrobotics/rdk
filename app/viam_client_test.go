@@ -8,6 +8,7 @@ import (
 	datapb "go.viam.com/api/app/data/v1"
 	setPb "go.viam.com/api/app/dataset/v1"
 	syncPb "go.viam.com/api/app/datasync/v1"
+	mltrainingpb "go.viam.com/api/app/mltraining/v1"
 	apppb "go.viam.com/api/app/v1"
 	provisioningpb "go.viam.com/api/provisioning/v1"
 	"go.viam.com/test"
@@ -73,9 +74,9 @@ func TestCreateViamClientWithOptions(t *testing.T) {
 	for _, tt := range urlTests {
 		t.Run(tt.name, func(t *testing.T) {
 			opts := Options{
-				baseURL: tt.baseURL,
-				entity:  tt.entity,
-				credentials: rpc.Credentials{
+				BaseURL: tt.baseURL,
+				Entity:  tt.entity,
+				Credentials: rpc.Credentials{
 					Type:    rpc.CredentialsTypeAPIKey,
 					Payload: tt.payload,
 				},
@@ -128,9 +129,9 @@ func TestNewAppClients(t *testing.T) {
 	dialDirectGRPC = mockDialDirectGRPC
 	defer func() { dialDirectGRPC = originalDialDirectGRPC }()
 	opts := Options{
-		baseURL: defaultURL,
-		entity:  testAPIKey,
-		credentials: rpc.Credentials{
+		BaseURL: defaultURL,
+		Entity:  testAPIKey,
+		Credentials: rpc.Credentials{
 			Type:    rpc.CredentialsTypeAPIKey,
 			Payload: testAPIKeyID,
 		},
@@ -170,6 +171,16 @@ func TestNewAppClients(t *testing.T) {
 	dataClient2 := client.DataClient()
 	test.That(t, dataClient2, test.ShouldNotBeNil)
 	test.That(t, dataClient, test.ShouldEqual, dataClient2)
+
+	mlTrainingClient := client.MLTrainingClient()
+	test.That(t, mlTrainingClient, test.ShouldNotBeNil)
+	test.That(t, mlTrainingClient, test.ShouldHaveSameTypeAs, &MLTrainingClient{})
+	test.That(t, mlTrainingClient.client, test.ShouldImplement, (*mltrainingpb.MLTrainingServiceClient)(nil))
+
+	// Testing that a second call to MLTrainingClient() returns the same instance
+	mlTrainingClient2 := client.MLTrainingClient()
+	test.That(t, mlTrainingClient2, test.ShouldNotBeNil)
+	test.That(t, mlTrainingClient, test.ShouldEqual, mlTrainingClient2)
 
 	provisioningClient := client.ProvisioningClient()
 	test.That(t, provisioningClient, test.ShouldNotBeNil)

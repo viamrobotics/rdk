@@ -7,7 +7,6 @@ package robotimpl
 import (
 	"context"
 	"slices"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -27,6 +26,7 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/ftdc"
+	"go.viam.com/rdk/ftdc/sys"
 	icloud "go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
@@ -48,8 +48,6 @@ var _ = robot.LocalRobot(&localRobot{})
 // localRobot satisfies robot.LocalRobot and defers most
 // logic to its manager.
 type localRobot struct {
-	// statusLock guards calls to the Status method.
-	statusLock    sync.Mutex
 	manager       *resourceManager
 	mostRecentCfg atomic.Value // config.Config
 
@@ -60,6 +58,9 @@ type localRobot struct {
 	cloudConnSvc            icloud.ConnectionService
 	logger                  logging.Logger
 	activeBackgroundWorkers sync.WaitGroup
+
+	// reconfigurationLock manages access to the resource graph and nodes. If either may change, this lock should be taken.
+	reconfigurationLock sync.Mutex
 	// reconfigureWorkers tracks goroutines spawned by reconfiguration functions. we only
 	// wait on this group in tests to prevent goleak-related failures. however, we do not
 	// wait on this group outside of testing, since the related goroutines may be running
@@ -88,10 +89,16 @@ type localRobot struct {
 	// map keyed by Module.Name. This is necessary to get the package manager to use a new folder
 	// when a local tarball is updated.
 	localModuleVersions map[string]semver.Version
+	startFtdcOnce       sync.Once
 	ftdc                *ftdc.FTDC
 
 	// whether the robot is actively reconfiguring
 	reconfiguring atomic.Bool
+
+	// whether the robot is still initializing. this value controls what state will be
+	// returned by the MachineStatus endpoint (initializing if true, running if false.)
+	// configured based on the `Initial` value of applied `config.Config`s.
+	initializing atomic.Bool
 }
 
 // ExportResourcesAsDot exports the resource graph as a DOT representation for
@@ -173,7 +180,9 @@ func (r *localRobot) Close(ctx context.Context) error {
 		err = multierr.Combine(err, r.cloudConnSvc.Close(ctx))
 	}
 	if r.manager != nil {
+		r.reconfigurationLock.Lock()
 		err = multierr.Combine(err, r.manager.Close(ctx))
+		r.reconfigurationLock.Unlock()
 	}
 	if r.packageManager != nil {
 		err = multierr.Combine(err, r.packageManager.Close(ctx))
@@ -186,6 +195,12 @@ func (r *localRobot) Close(ctx context.Context) error {
 	}
 
 	return err
+}
+
+// Kill will attempt to kill any processes on the system started by the robot as quickly as possible.
+// This operation is not clean and will not wait for completion.
+func (r *localRobot) Kill() {
+	r.manager.Kill()
 }
 
 // StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement.
@@ -244,7 +259,13 @@ func (r *localRobot) Logger() logging.Logger {
 
 // StartWeb starts the web server, will return an error if server is already up.
 func (r *localRobot) StartWeb(ctx context.Context, o weboptions.Options) (err error) {
-	return r.webSvc.Start(ctx, o)
+	ret := r.webSvc.Start(ctx, o)
+	r.startFtdcOnce.Do(func() {
+		if r.ftdc != nil {
+			r.ftdc.Start()
+		}
+	})
+	return ret
 }
 
 // StopWeb stops the web server, will be a noop if server is not up.
@@ -260,125 +281,6 @@ func (r *localRobot) WebAddress() (string, error) {
 // ModuleAddress return the module service's address.
 func (r *localRobot) ModuleAddress() (string, error) {
 	return r.webSvc.ModuleAddress(), nil
-}
-
-// remoteNameByResource returns the remote the resource is pulled from, if found.
-// False can mean either the resource doesn't exist or is local to the robot.
-func remoteNameByResource(resourceName resource.Name) (string, bool) {
-	if !resourceName.ContainsRemoteNames() {
-		return "", false
-	}
-	remote := strings.Split(resourceName.Remote, ":")
-	return remote[0], true
-}
-
-func (r *localRobot) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-	r.statusLock.Lock()
-	defer r.statusLock.Unlock()
-
-	// If no resource names are specified, return status of all resources.
-	namesToDedupe := resourceNames
-	if len(resourceNames) == 0 {
-		namesToDedupe = append(namesToDedupe, r.manager.ResourceNames()...)
-	}
-
-	// Dedupe resources.
-	resourceNameSet := make(map[resource.Name]struct{}, len(namesToDedupe))
-	for _, name := range namesToDedupe {
-		resourceNameSet[name] = struct{}{}
-	}
-
-	// Group remote resource names by owning remote and map those names to
-	// corresponding name on the remote (without the remote prefix).
-	remoteResources := make(map[string]map[resource.Name]resource.Name)
-	for name := range resourceNameSet {
-		remoteName, ok := remoteNameByResource(name)
-		if !ok {
-			continue
-		}
-		mappings, ok := remoteResources[remoteName]
-		if !ok {
-			mappings = make(map[resource.Name]resource.Name)
-		}
-		mappings[name.PopRemote()] = name
-		remoteResources[remoteName] = mappings
-	}
-
-	// Loop through remotes and get remote resource statuses through remotes.
-	combinedRemoteResourceStatuses := make(map[resource.Name]robot.Status)
-	for remoteName, resourceNameMappings := range remoteResources {
-		remote, ok := r.RemoteByName(remoteName)
-		if !ok {
-			// should never happen
-			r.Logger().CErrorw(ctx, "remote robot not found in resource graph while creating status",
-				"remote", remoteName)
-			continue
-		}
-		var remoteResourceNames []resource.Name
-		for remoteResourceName := range resourceNameMappings {
-			remoteResourceNames = append(remoteResourceNames, remoteResourceName)
-		}
-
-		// Request status of resources associated with the remote from the remote.
-		remoteResourceStatuses, err := remote.Status(ctx, remoteResourceNames)
-		if err != nil {
-			return nil, err
-		}
-		for _, remoteResourceStatus := range remoteResourceStatuses {
-			mappedName, ok := resourceNameMappings[remoteResourceStatus.Name]
-			if !ok {
-				// should never happen
-				r.Logger().CErrorw(ctx,
-					"failed to find corresponding resource name for remote resource name while creating status",
-					"resource", remoteResourceStatus.Name,
-				)
-				continue
-			}
-			// Set name to have remote prefix and add to remoteStatuses.
-			remoteResourceStatus.Name = mappedName
-			combinedRemoteResourceStatuses[mappedName] = remoteResourceStatus
-		}
-	}
-
-	// Loop through entire resourceNameSet and get status for any local resources.
-	combinedResourceStatuses := make([]robot.Status, 0, len(resourceNameSet))
-	for name := range resourceNameSet {
-		// Just append status if it was a remote resource.
-		resourceStatus, ok := combinedRemoteResourceStatuses[name]
-		if !ok {
-			res, err := r.manager.ResourceByName(name)
-			if err != nil {
-				return nil, err
-			}
-
-			// If resource API registration had an associated CreateStatus method,
-			// call that method, otherwise return an empty status.
-			var status interface{} = map[string]interface{}{}
-			if apiReg, ok := resource.LookupGenericAPIRegistration(name.API); ok &&
-				apiReg.Status != nil {
-				status, err = apiReg.Status(ctx, res)
-				if err != nil {
-					return nil, errors.Wrapf(err, "failed to get status from %q", name)
-				}
-			}
-			resNode, ok := r.manager.resources.Node(name)
-			if !ok {
-				return nil, resource.NewNotFoundError(name)
-			}
-			lastReconfigured := resNode.LastReconfigured()
-			if lastReconfigured == nil {
-				return nil, errors.Errorf("resource %s queried for status is not configured",
-					name)
-			}
-			resourceStatus = robot.Status{
-				Name:             name,
-				LastReconfigured: *lastReconfigured,
-				Status:           status,
-			}
-		}
-		combinedResourceStatuses = append(combinedResourceStatuses, resourceStatus)
-	}
-	return combinedResourceStatuses, nil
 }
 
 func (r *localRobot) sendTriggerConfig(caller string) {
@@ -398,6 +300,40 @@ func (r *localRobot) sendTriggerConfig(caller string) {
 			"attempted to trigger reconfiguration, but there is already one queued.",
 			"caller", caller,
 		)
+	}
+}
+
+// completeConfigWorker tries to complete the config and update weak dependencies
+// if any resources are not configured. It will also update the resource graph
+// if remotes have changed. It executes every 5 seconds or when manually triggered.
+// Manual triggers are sent when changes in remotes are detected and in testing.
+func (r *localRobot) completeConfigWorker() {
+	for {
+		if r.closeContext.Err() != nil {
+			return
+		}
+
+		var trigger string
+		select {
+		case <-r.closeContext.Done():
+			return
+		case <-r.configTicker.C:
+			trigger = "ticker"
+		case <-r.triggerConfig:
+			trigger = "remote"
+			r.logger.CDebugw(r.closeContext, "configuration attempt triggered by remote")
+		}
+		r.reconfigurationLock.Lock()
+		anyChanges := r.manager.updateRemotesResourceNames(r.closeContext)
+		if r.manager.anyResourcesNotConfigured() {
+			anyChanges = true
+			r.manager.completeConfig(r.closeContext, r, false)
+		}
+		if anyChanges {
+			r.updateWeakDependents(r.closeContext)
+			r.logger.CDebugw(r.closeContext, "configuration attempt completed with changes", "trigger", trigger)
+		}
+		r.reconfigurationLock.Unlock()
 	}
 }
 
@@ -421,8 +357,26 @@ func newWithResources(
 			partID = cfg.Cloud.ID
 		}
 		// CloudID is also known as the robot part id.
+		//
+		// RSDK-9369: We create a new FTDC worker, but do not yet start it. This is because the
+		// `webSvc` gets registered with FTDC before we construct the underlying
+		// `webSvc.rpcServer`. Which happens when calling `localRobot.StartWeb`. We've postponed
+		// starting FTDC to when that method is called (the first time).
+		//
+		// As per the FTDC.Statser interface documentation, the return value of `webSvc.Stats` must
+		// always have the same schema. Otherwise we risk the ftdc "schema" getting out of sync with
+		// the data being written. Having `webSvc.Stats` conform to the API requirements is
+		// challenging when we want to include stats from the `rpcServer`.
+		//
+		// RSDK-9369 can be reverted, having the FTDC worker getting started here, when we either:
+		// - Relax the requirement that successive calls to `Stats` have the same schema or
+		// - Guarantee that the `rpcServer` is initialized (enough) when the web service is
+		//   constructed to get a valid copy of its stats object (for the schema's sake). Even if
+		//   the web service has not been "started".
 		ftdcWorker = ftdc.New(ftdc.DefaultDirectory(config.ViamDotDir, partID), logger.Sublogger("ftdc"))
-		ftdcWorker.Start()
+		if statser, err := sys.NewSelfSysUsageStatser(); err == nil {
+			ftdcWorker.Add("proc.viam-server", statser)
+		}
 	}
 
 	closeCtx, cancel := context.WithCancel(ctx)
@@ -452,6 +406,7 @@ func newWithResources(
 		localModuleVersions:        make(map[string]semver.Version),
 		ftdc:                       ftdcWorker,
 	}
+
 	r.mostRecentCfg.Store(config.Config{})
 	var heartbeatWindow time.Duration
 	if cfg.Network.Sessions.HeartbeatWindow == 0 {
@@ -504,6 +459,11 @@ func newWithResources(
 	if err != nil {
 		return nil, err
 	}
+
+	// now that we're changing the resource graph, take the reconfigurationLock so
+	// that other goroutines can't interleave
+	r.reconfigurationLock.Lock()
+	defer r.reconfigurationLock.Unlock()
 	if err := r.manager.resources.AddNode(
 		web.InternalServiceName,
 		resource.NewConfiguredGraphNode(resource.Config{}, r.webSvc, builtinModel)); err != nil {
@@ -550,41 +510,18 @@ func newWithResources(
 		cfg.PackagePath,
 	)
 
-	r.activeBackgroundWorkers.Add(1)
-	r.configTicker = time.NewTicker(5 * time.Second)
-	// This goroutine tries to complete the config and update weak dependencies
-	// if any resources are not configured. It executes every 5 seconds or when
-	// manually triggered. Manual triggers are sent when changes in remotes are
-	// detected and in testing.
-	goutils.ManagedGo(func() {
-		for {
-			if closeCtx.Err() != nil {
-				return
-			}
+	if !rOpts.disableCompleteConfigWorker {
+		r.activeBackgroundWorkers.Add(1)
+		r.configTicker = time.NewTicker(5 * time.Second)
+		// This goroutine will try to complete the config and update weak dependencies
+		// if any resources are not configured. It will also update the resource graph
+		// when remotes changes or if manually triggered.
+		goutils.ManagedGo(func() {
+			r.completeConfigWorker()
+		}, r.activeBackgroundWorkers.Done)
+	}
 
-			var trigger string
-			select {
-			case <-closeCtx.Done():
-				return
-			case <-r.configTicker.C:
-				trigger = "ticker"
-			case <-r.triggerConfig:
-				trigger = "remote"
-				r.logger.CDebugw(ctx, "configuration attempt triggered by remote")
-			}
-			anyChanges := r.manager.updateRemotesResourceNames(closeCtx)
-			if r.manager.anyResourcesNotConfigured() {
-				anyChanges = true
-				r.manager.completeConfig(closeCtx, r, false)
-			}
-			if anyChanges {
-				r.updateWeakDependents(ctx)
-				r.logger.CDebugw(ctx, "configuration attempt completed with changes", "trigger", trigger)
-			}
-		}
-	}, r.activeBackgroundWorkers.Done)
-
-	r.Reconfigure(ctx, cfg)
+	r.reconfigure(ctx, cfg, false)
 
 	for name, res := range resources {
 		node := resource.NewConfiguredGraphNode(resource.Config{}, res, unknownModel)
@@ -616,6 +553,8 @@ func New(
 func (r *localRobot) removeOrphanedResources(ctx context.Context,
 	rNames []resource.Name,
 ) {
+	r.reconfigurationLock.Lock()
+	defer r.reconfigurationLock.Unlock()
 	r.manager.markResourcesRemoved(rNames, nil)
 	if err := r.manager.removeMarkedAndClose(ctx, nil); err != nil {
 		r.logger.CErrorw(ctx, "error removing and closing marked resources",
@@ -628,7 +567,6 @@ func (r *localRobot) removeOrphanedResources(ctx context.Context,
 // component's name. We don't use the resource manager for this information since
 // it is not be constructed at this point.
 func (r *localRobot) getDependencies(
-	ctx context.Context,
 	rName resource.Name,
 	gNode *resource.GraphNode,
 ) (resource.Dependencies, error) {
@@ -636,16 +574,8 @@ func (r *localRobot) getDependencies(
 		return nil, errors.Errorf("resource has unresolved dependencies: %v", deps)
 	}
 	allDeps := make(resource.Dependencies)
-	var needUpdate bool
+
 	for _, dep := range r.manager.resources.GetAllParentsOf(rName) {
-		// If any of the dependencies of this resource has an updatedAt value that
-		// is "later" than the last value at which we ran updateWeakDependents,
-		// ensure that we run updateWeakDependents later in this method.
-		if node, ok := r.manager.resources.Node(dep); ok {
-			if r.lastWeakDependentsRound.Load() <= node.UpdatedAt() {
-				needUpdate = true
-			}
-		}
 		// Specifically call ResourceByName and not directly to the manager since this
 		// will only return fully configured and available resources (not marked for removal
 		// and no last error).
@@ -661,10 +591,6 @@ func (r *localRobot) getDependencies(
 			continue
 		}
 		allDeps[weakDepName] = weakDepRes
-	}
-
-	if needUpdate {
-		r.updateWeakDependents(ctx)
 	}
 
 	return allDeps, nil
@@ -719,7 +645,7 @@ func (r *localRobot) newResource(
 		return nil, errors.Errorf("unknown resource type: API %q with model %q not registered", resName.API, conf.Model)
 	}
 
-	deps, err := r.getDependencies(ctx, resName, gNode)
+	deps, err := r.getDependencies(resName, gNode)
 	if err != nil {
 		return nil, err
 	}
@@ -758,7 +684,7 @@ func (r *localRobot) newResource(
 func (r *localRobot) updateWeakDependents(ctx context.Context) {
 	// Track the current value of the resource graph's logical clock. This will
 	// later be used to determine if updateWeakDependents should be called during
-	// getDependencies.
+	// completeConfig.
 	r.lastWeakDependentsRound.Store(r.manager.resources.CurrLogicalClockValue())
 
 	allResources := map[resource.Name]resource.Resource{}
@@ -805,6 +731,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 				resChan <- struct{}{}
 				r.reconfigureWorkers.Done()
 			}()
+			// NOTE(cheukt): when adding internal services that reconfigure, also add them to the check in `localRobot.resourceHasWeakDependencies`.
 			switch resName {
 			case web.InternalServiceName:
 				if err := res.Reconfigure(ctxWithTimeout, allResources, resource.Config{}); err != nil {
@@ -862,7 +789,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 			return
 		}
 		r.Logger().CDebugw(ctx, "handling weak update for resource", "resource", resName)
-		deps, err := r.getDependencies(ctx, resName, resNode)
+		deps, err := r.getDependencies(resName, resNode)
 		if err != nil {
 			r.Logger().CErrorw(ctx, "failed to get dependencies during weak dependencies update; skipping", "resource", resName, "error", err)
 			return
@@ -1150,6 +1077,10 @@ func (r *localRobot) discoverRobotInternals(query resource.DiscoveryQuery) (inte
 	}
 }
 
+func (r *localRobot) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModelDiscovery, error) {
+	return r.manager.moduleManager.AllModels(), nil
+}
+
 func dialRobotClient(
 	ctx context.Context,
 	config config.Remote,
@@ -1181,6 +1112,8 @@ func dialRobotClient(
 // a best effort to remove no longer in use parts, but if it fails to do so, they could
 // possibly leak resources. The given config may be modified by Reconfigure.
 func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) {
+	r.reconfigurationLock.Lock()
+	defer r.reconfigurationLock.Unlock()
 	r.reconfigure(ctx, newConfig, false)
 }
 
@@ -1374,18 +1307,29 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		allErrs = multierr.Combine(allErrs, err)
 	}
 
-	// Cleanup unused packages after all old resources have been closed above. This ensures
-	// processes are shutdown before any files are deleted they are using.
-	allErrs = multierr.Combine(allErrs, r.packageManager.Cleanup(ctx))
-	allErrs = multierr.Combine(allErrs, r.localPackages.Cleanup(ctx))
-	// Cleanup extra dirs from previous modules or rogue scripts.
-	allErrs = multierr.Combine(allErrs, r.manager.moduleManager.CleanModuleDataDirectory())
+	// If new config is not marked as initial, cleanup unused packages after all
+	// old resources have been closed above. This ensures processes are shutdown
+	// before any files are deleted they are using.
+	//
+	// If new config IS marked as initial, machine will be starting with no
+	// modules but may immediately reconfigure to start modules that have
+	// already been downloaded. Do not cleanup packages/module dirs in that case.
+	if !newConfig.Initial {
+		allErrs = multierr.Combine(allErrs, r.packageManager.Cleanup(ctx))
+		allErrs = multierr.Combine(allErrs, r.localPackages.Cleanup(ctx))
+
+		// Cleanup extra dirs from previous modules or rogue scripts.
+		allErrs = multierr.Combine(allErrs, r.manager.moduleManager.CleanModuleDataDirectory())
+	}
 
 	if allErrs != nil {
 		r.logger.CErrorw(ctx, "The following errors were gathered during reconfiguration", "errors", allErrs)
 	} else {
 		r.logger.CInfow(ctx, "Robot (re)configured")
 	}
+
+	// Set initializing value based on `newConfig.Initial`.
+	r.initializing.Store(newConfig.Initial)
 }
 
 // checkMaxInstance checks to see if the local robot has reached the maximum number of a specific resource type that are local.
@@ -1402,16 +1346,18 @@ func (r *localRobot) checkMaxInstance(api resource.API, max int) error {
 	return nil
 }
 
+var errNoCloudMetadata = errors.New("cloud metadata not available")
+
 // CloudMetadata returns app-related information about the robot.
 func (r *localRobot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) {
 	md := cloud.Metadata{}
 	cfg := r.Config()
 	if cfg == nil {
-		return md, errors.New("no config available")
+		return md, errNoCloudMetadata
 	}
 	cloud := cfg.Cloud
 	if cloud == nil {
-		return md, errors.New("cloud metadata not available")
+		return md, errNoCloudMetadata
 	}
 	md.PrimaryOrgID = cloud.PrimaryOrgID
 	md.LocationID = cloud.LocationID
@@ -1444,6 +1390,8 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module
 		Modified: &config.ModifiedConfigDiff{},
 		Removed:  &config.Config{},
 	}
+	r.reconfigurationLock.Lock()
+	defer r.reconfigurationLock.Unlock()
 	// note: if !isRunning (i.e. the module is in config but it crashed), putting it in diff.Modified
 	// results in a no-op; we use .Added instead.
 	if isRunning {
@@ -1487,12 +1435,37 @@ func (r *localRobot) Shutdown(ctx context.Context) error {
 func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
 	var result robot.MachineStatus
 
-	result.Resources = append(result.Resources, r.manager.resources.Status()...)
+	remoteMdMap := r.manager.getRemoteResourceMetadata(ctx)
 
+	// we can safely ignore errors from `r.CloudMetadata`. If there is an error, that means
+	// that this robot does not have CloudMetadata to attach to resources.
+	md, _ := r.CloudMetadata(ctx) //nolint:errcheck
+	for _, resourceStatus := range r.manager.resources.Status() {
+		// if the resource is local, we can use the status as is and attach the cloud metadata of this robot.
+		if !resourceStatus.Name.ContainsRemoteNames() && resourceStatus.Name.API != client.RemoteAPI {
+			result.Resources = append(result.Resources, resource.Status{NodeStatus: resourceStatus, CloudMetadata: md})
+			continue
+		}
+
+		// Otherwise, the resource is remote. If the corresponding status exists in remoteMdMap, use that.
+		if rMd, ok := remoteMdMap[resourceStatus.Name]; ok {
+			result.Resources = append(result.Resources, resource.Status{NodeStatus: resourceStatus, CloudMetadata: rMd})
+			continue
+		}
+
+		// if the remote resource is not in remoteMdMap, there is a mismatch between remote resource nodes
+		// in the resource graph and what was expected from getRemoteResourceMetadata. We should leave
+		// cloud metadata blank in that case.
+		result.Resources = append(result.Resources, resource.Status{NodeStatus: resourceStatus, CloudMetadata: cloud.Metadata{}})
+	}
 	r.configRevisionMu.RLock()
 	result.Config = r.configRevision
 	r.configRevisionMu.RUnlock()
 
+	result.State = robot.StateRunning
+	if r.initializing.Load() {
+		result.State = robot.StateInitializing
+	}
 	return result, nil
 }
 

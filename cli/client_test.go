@@ -2,9 +2,11 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"io/fs"
 	"maps"
 	"os"
@@ -88,14 +90,9 @@ func newTestContext(t *testing.T, flags map[string]any) *cli.Context {
 // setup creates a new cli.Context and viamClient with fake auth and the passed
 // in AppServiceClient and DataServiceClient. It also returns testWriters that capture Stdout and
 // Stdin.
-func setup(
-	asc apppb.AppServiceClient,
-	dataClient datapb.DataServiceClient,
-	buildClient buildpb.BuildServiceClient,
-	endUserClient apppb.EndUserServiceClient,
-	defaultFlags map[string]any,
-	authMethod string,
-	cliArgs ...string,
+func setup(asc apppb.AppServiceClient, dataClient datapb.DataServiceClient,
+	buildClient buildpb.BuildServiceClient, defaultFlags map[string]any,
+	authMethod string, cliArgs ...string,
 ) (*cli.Context, *viamClient, *testWriter, *testWriter) {
 	out := &testWriter{}
 	errOut := &testWriter{}
@@ -103,8 +100,7 @@ func setup(
 
 	if dataClient != nil {
 		// these flags are only relevant when testing a dataClient
-		flags.String(dataFlagDataType, dataTypeTabular, "")
-		flags.String(dataFlagDestination, utils.ResolveFile(""), "")
+		flags.String(generalFlagDestination, utils.ResolveFile(""), "")
 	}
 
 	cCtx := cli.NewContext(NewApp(out, errOut), flags, nil)
@@ -125,14 +121,13 @@ func setup(
 	}
 
 	ac := &viamClient{
-		client:        asc,
-		conf:          conf,
-		c:             cCtx,
-		dataClient:    dataClient,
-		buildClient:   buildClient,
-		endUserClient: endUserClient,
-		selectedOrg:   &apppb.Organization{},
-		selectedLoc:   &apppb.Location{},
+		client:      asc,
+		conf:        conf,
+		c:           cCtx,
+		dataClient:  dataClient,
+		buildClient: buildClient,
+		selectedOrg: &apppb.Organization{},
+		selectedLoc: &apppb.Location{},
 	}
 	return cCtx, ac, out, errOut
 }
@@ -150,7 +145,7 @@ func setupWithRunningPart(
 ) (*cli.Context, *viamClient, *testWriter, *testWriter) {
 	t.Helper()
 
-	cCtx, ac, out, errOut := setup(asc, dataClient, buildClient, nil, defaultFlags, authMethod, cliArgs...)
+	cCtx, ac, out, errOut := setup(asc, dataClient, buildClient, defaultFlags, authMethod, cliArgs...)
 
 	// this config could later become a parameter
 	r, err := robotimpl.New(cCtx.Context, &robotconfig.Config{
@@ -191,7 +186,7 @@ func TestListOrganizationsAction(t *testing.T) {
 	asc := &inject.AppServiceClient{
 		ListOrganizationsFunc: listOrganizationsFunc,
 	}
-	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
 
 	test.That(t, ac.listOrganizationsAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -202,71 +197,395 @@ func TestListOrganizationsAction(t *testing.T) {
 	test.That(t, out.messages[2], test.ShouldContainSubstring, "mandalorians")
 }
 
-func TestTabularDataByFilterAction(t *testing.T) {
-	pbStruct, err := protoutils.StructToStructPb(map[string]interface{}{"bool": true, "string": "true", "float": float64(1)})
-	test.That(t, err, test.ShouldBeNil)
+func TestSetSupportEmailAction(t *testing.T) {
+	setSupportEmailFunc := func(ctx context.Context, in *apppb.OrganizationSetSupportEmailRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.OrganizationSetSupportEmailResponse, error) {
+		return &apppb.OrganizationSetSupportEmailResponse{}, nil
+	}
+	asc := &inject.AppServiceClient{
+		OrganizationSetSupportEmailFunc: setSupportEmailFunc,
+	}
 
-	// calls to `TabularDataByFilter` will repeat so long as data continue to be returned,
-	// so we need a way of telling our injected method when data has already been sent so we
-	// can send an empty response
-	var dataRequested bool
-	tabularDataByFilterFunc := func(ctx context.Context, in *datapb.TabularDataByFilterRequest, opts ...grpc.CallOption,
-	) (*datapb.TabularDataByFilterResponse, error) {
-		if dataRequested {
-			return &datapb.TabularDataByFilterResponse{}, nil
-		}
-		dataRequested = true
-		return &datapb.TabularDataByFilterResponse{
-			Data:     []*datapb.TabularData{{Data: pbStruct}},
-			Metadata: []*datapb.CaptureMetadata{{LocationId: "loc-id"}},
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
+
+	test.That(t, ac.organizationsSupportEmailSetAction(cCtx, "test-org", "test-email"), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+}
+
+func TestGetSupportEmailAction(t *testing.T) {
+	getSupportEmailFunc := func(ctx context.Context, in *apppb.OrganizationGetSupportEmailRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.OrganizationGetSupportEmailResponse, error) {
+		return &apppb.OrganizationGetSupportEmailResponse{Email: "test-email"}, nil
+	}
+	asc := &inject.AppServiceClient{
+		OrganizationGetSupportEmailFunc: getSupportEmailFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
+
+	test.That(t, ac.organizationsSupportEmailGetAction(cCtx, "test-org"), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "test-email")
+}
+
+func TestBillingServiceDisableAction(t *testing.T) {
+	disableBillingFunc := func(ctx context.Context, in *apppb.DisableBillingServiceRequest, opts ...grpc.CallOption) (
+		*apppb.DisableBillingServiceResponse, error,
+	) {
+		return &apppb.DisableBillingServiceResponse{}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		DisableBillingServiceFunc: disableBillingFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
+	test.That(t, ac.organizationDisableBillingServiceAction(cCtx, "test-org"), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "Successfully disabled billing service for organization: ")
+}
+
+func TestGetBillingConfigAction(t *testing.T) {
+	getConfigEmailFunc := func(ctx context.Context, in *apppb.GetBillingServiceConfigRequest, opts ...grpc.CallOption) (
+		*apppb.GetBillingServiceConfigResponse, error,
+	) {
+		address2 := "Apt 123"
+		return &apppb.GetBillingServiceConfigResponse{
+			SupportEmail: "test-email@mail.com",
+			BillingAddress: &apppb.BillingAddress{
+				AddressLine_1: "1234 Main St",
+				AddressLine_2: &address2,
+				City:          "San Francisco",
+				State:         "CA",
+				Zipcode:       "94105",
+			},
+			LogoUrl:             "https://logo.com",
+			BillingDashboardUrl: "https://app.viam.dev/my-dashboard",
 		}, nil
 	}
 
-	dsc := &inject.DataServiceClient{
-		TabularDataByFilterFunc: tabularDataByFilterFunc,
+	asc := &inject.AppServiceClient{
+		GetBillingServiceConfigFunc: getConfigEmailFunc,
 	}
 
-	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil, nil, nil, "token")
-
-	test.That(t, ac.dataExportAction(cCtx), test.ShouldBeNil)
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
+	test.That(t, ac.getBillingConfig(cCtx, "test-org"), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
-	test.That(t, len(out.messages), test.ShouldEqual, 4)
-	test.That(t, out.messages[0], test.ShouldEqual, "Downloading..")
-	test.That(t, out.messages[1], test.ShouldEqual, ".")
-	test.That(t, out.messages[2], test.ShouldEqual, ".")
-	test.That(t, out.messages[3], test.ShouldEqual, "\n")
+	test.That(t, len(out.messages), test.ShouldEqual, 12)
 
-	// expectedDataSize is the expected string length of the data returned by the injected call
-	expectedDataSize := 98
-	b := make([]byte, expectedDataSize)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "Billing config for organization")
+	test.That(t, out.messages[1], test.ShouldContainSubstring, "Support Email: test-email@mail.com")
+	test.That(t, out.messages[2], test.ShouldContainSubstring, "Billing Dashboard URL: https://app.viam.dev/my-dashboard")
+	test.That(t, out.messages[3], test.ShouldContainSubstring, "Logo URL: https://logo.com")
+	test.That(t, out.messages[5], test.ShouldContainSubstring, "--- Billing Address --- ")
+	test.That(t, out.messages[6], test.ShouldContainSubstring, "1234 Main St")
+	test.That(t, out.messages[7], test.ShouldContainSubstring, "Apt 123")
+	test.That(t, out.messages[8], test.ShouldContainSubstring, "San Francisco")
+	test.That(t, out.messages[9], test.ShouldContainSubstring, "CA")
+	test.That(t, out.messages[10], test.ShouldContainSubstring, "94105")
+	test.That(t, out.messages[11], test.ShouldContainSubstring, "USA")
+}
 
-	// `data.ndjson` is the standardized name of the file data is written to in the `tabularData` call
-	filePath := utils.ResolveFile("data/data.ndjson")
-	file, err := os.Open(filePath)
+func TestOrganizationSetLogoAction(t *testing.T) {
+	organizationSetLogoFunc := func(ctx context.Context, in *apppb.OrganizationSetLogoRequest, opts ...grpc.CallOption) (
+		*apppb.OrganizationSetLogoResponse, error,
+	) {
+		return &apppb.OrganizationSetLogoResponse{}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		OrganizationSetLogoFunc: organizationSetLogoFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
+	// Create a temporary file for testing
+	fileName := "test-logo-*.png"
+	tmpFile, err := os.CreateTemp("", fileName)
 	test.That(t, err, test.ShouldBeNil)
+	defer os.Remove(tmpFile.Name()) // Clean up temp file after test
+	test.That(t, ac.organizationLogoSetAction(cCtx, "test-org", tmpFile.Name()), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "Successfully set the logo for organization")
 
-	dataSize, err := file.Read(b)
+	cCtx, ac, out, errOut = setup(asc, nil, nil, nil, "token")
+
+	logoFileName2 := "test-logo-2-*.PNG"
+	tmpFile2, err := os.CreateTemp("", logoFileName2)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, dataSize, test.ShouldEqual, expectedDataSize)
+	defer os.Remove(tmpFile2.Name()) // Clean up temp file after test
 
-	savedData := string(b)
-	expectedData := "{\"MetadataIndex\":0,\"TimeReceived\":null,\"TimeRequested\":null,\"bool\":true,\"float\":1,\"string\":\"true\"}"
-	test.That(t, savedData, test.ShouldEqual, expectedData)
+	test.That(t, ac.organizationLogoSetAction(cCtx, "test-org", tmpFile.Name()), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "Successfully set the logo for organization")
+}
 
-	expectedMetadataSize := 23
-	b = make([]byte, expectedMetadataSize)
+func TestGetLogoAction(t *testing.T) {
+	getLogoFunc := func(ctx context.Context, in *apppb.OrganizationGetLogoRequest, opts ...grpc.CallOption) (
+		*apppb.OrganizationGetLogoResponse, error,
+	) {
+		return &apppb.OrganizationGetLogoResponse{Url: "https://logo.com"}, nil
+	}
 
-	// metadata is named `0.json` based on its index in the metadata array
-	filePath = utils.ResolveFile("metadata/0.json")
-	file, err = os.Open(filePath)
-	test.That(t, err, test.ShouldBeNil)
+	asc := &inject.AppServiceClient{
+		OrganizationGetLogoFunc: getLogoFunc,
+	}
 
-	metadataSize, err := file.Read(b)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, metadataSize, test.ShouldEqual, expectedMetadataSize)
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
 
-	savedMetadata := string(b)
-	test.That(t, savedMetadata, test.ShouldEqual, "{\"locationId\":\"loc-id\"}")
+	test.That(t, ac.organizationsLogoGetAction(cCtx, "test-org"), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "https://logo.com")
+}
+
+func TestEnableAuthServiceAction(t *testing.T) {
+	enableAuthServiceFunc := func(ctx context.Context, in *apppb.EnableAuthServiceRequest, opts ...grpc.CallOption) (
+		*apppb.EnableAuthServiceResponse, error,
+	) {
+		return &apppb.EnableAuthServiceResponse{}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		EnableAuthServiceFunc: enableAuthServiceFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
+
+	test.That(t, ac.enableAuthServiceAction(cCtx, "test-org"), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "enabled auth")
+}
+
+func TestDisableAuthServiceAction(t *testing.T) {
+	disableAuthServiceFunc := func(ctx context.Context, in *apppb.DisableAuthServiceRequest, opts ...grpc.CallOption) (
+		*apppb.DisableAuthServiceResponse, error,
+	) {
+		return &apppb.DisableAuthServiceResponse{}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		DisableAuthServiceFunc: disableAuthServiceFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
+
+	test.That(t, ac.disableAuthServiceAction(cCtx, "test-org"), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "disabled auth")
+
+	err := ac.disableAuthServiceAction(cCtx, "")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot disable")
+}
+
+func TestListOAuthAppsAction(t *testing.T) {
+	listOAuthAppFunc := func(ctx context.Context, in *apppb.ListOAuthAppsRequest, opts ...grpc.CallOption) (
+		*apppb.ListOAuthAppsResponse, error,
+	) {
+		return &apppb.ListOAuthAppsResponse{}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		ListOAuthAppsFunc: listOAuthAppFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
+	test.That(t, ac.listOAuthAppsAction(cCtx, "test-org"), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "No OAuth apps found for organization")
+}
+
+func TestDeleteOAuthAppAction(t *testing.T) {
+	deleteOAuthAppFunc := func(ctx context.Context, in *apppb.DeleteOAuthAppRequest, opts ...grpc.CallOption) (
+		*apppb.DeleteOAuthAppResponse, error,
+	) {
+		return &apppb.DeleteOAuthAppResponse{}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		DeleteOAuthAppFunc: deleteOAuthAppFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
+	test.That(t, ac.deleteOAuthAppAction(cCtx, "test-org", "client-id"), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "Successfully deleted OAuth application")
+}
+
+func TestUpdateBillingServiceAction(t *testing.T) {
+	updateConfigFunc := func(ctx context.Context, in *apppb.UpdateBillingServiceRequest, opts ...grpc.CallOption) (
+		*apppb.UpdateBillingServiceResponse, error,
+	) {
+		return &apppb.UpdateBillingServiceResponse{}, nil
+	}
+	asc := &inject.AppServiceClient{
+		UpdateBillingServiceFunc: updateConfigFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
+	address := "123 Main St, Suite 100, San Francisco, CA, 94105"
+	test.That(t, ac.updateBillingServiceAction(cCtx, "test-org", address), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 8)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "Successfully updated billing service for organization")
+	test.That(t, out.messages[1], test.ShouldContainSubstring, " --- Billing Address --- ")
+	test.That(t, out.messages[2], test.ShouldContainSubstring, "123 Main St")
+	test.That(t, out.messages[3], test.ShouldContainSubstring, "Suite 100")
+	test.That(t, out.messages[4], test.ShouldContainSubstring, "San Francisco")
+	test.That(t, out.messages[5], test.ShouldContainSubstring, "CA")
+	test.That(t, out.messages[6], test.ShouldContainSubstring, "94105")
+	test.That(t, out.messages[7], test.ShouldContainSubstring, "USA")
+}
+
+func TestOrganizationEnableBillingServiceAction(t *testing.T) {
+	enableBillingFunc := func(ctx context.Context, in *apppb.EnableBillingServiceRequest, opts ...grpc.CallOption) (
+		*apppb.EnableBillingServiceResponse, error,
+	) {
+		return &apppb.EnableBillingServiceResponse{}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		EnableBillingServiceFunc: enableBillingFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
+	test.That(t, ac.organizationEnableBillingServiceAction(cCtx, "test-org",
+		"123 Main St, Suite 100, San Francisco, CA, 94105"), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 1)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "Successfully enabled billing service for organization")
+}
+
+type mockDataServiceClient struct {
+	grpc.ClientStream
+	responses []*datapb.ExportTabularDataResponse
+	index     int
+	err       error
+}
+
+func (m *mockDataServiceClient) Recv() (*datapb.ExportTabularDataResponse, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+
+	if m.index >= len(m.responses) {
+		return nil, io.EOF
+	}
+
+	resp := m.responses[m.index]
+	m.index++
+
+	return resp, nil
+}
+
+func newMockExportStream(responses []*datapb.ExportTabularDataResponse, err error) *mockDataServiceClient {
+	return &mockDataServiceClient{
+		responses: responses,
+		err:       err,
+	}
+}
+
+func TestDataExportTabularAction(t *testing.T) {
+	t.Run("successful case", func(t *testing.T) {
+		pbStructPayload1, err := protoutils.StructToStructPb(map[string]interface{}{"bool": true, "string": "true", "float": float64(1)})
+		test.That(t, err, test.ShouldBeNil)
+
+		pbStructPayload2, err := protoutils.StructToStructPb(map[string]interface{}{"booly": false, "string": "true", "float": float64(1)})
+		test.That(t, err, test.ShouldBeNil)
+
+		exportTabularDataFunc := func(ctx context.Context, in *datapb.ExportTabularDataRequest, opts ...grpc.CallOption,
+		) (datapb.DataService_ExportTabularDataClient, error) {
+			return newMockExportStream([]*datapb.ExportTabularDataResponse{
+				{LocationId: "loc-id", Payload: pbStructPayload1},
+				{LocationId: "loc-id", Payload: pbStructPayload2},
+			}, nil), nil
+		}
+
+		dsc := &inject.DataServiceClient{
+			ExportTabularDataFunc: exportTabularDataFunc,
+		}
+
+		cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil, nil, "token")
+
+		test.That(t, ac.dataExportTabularAction(cCtx, parseStructFromCtx[dataExportTabularArgs](cCtx)), test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, len(out.messages), test.ShouldEqual, 3)
+		test.That(t, strings.Join(out.messages, ""), test.ShouldEqual, "Downloading...\n")
+
+		filePath := utils.ResolveFile(dataFileName)
+
+		data, err := os.ReadFile(filePath)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Output is unstable, so parse back into maps before comparing to expected.
+		var actual []map[string]interface{}
+		decoder := json.NewDecoder(strings.NewReader(string(data)))
+		for decoder.More() {
+			var item map[string]interface{}
+			err = decoder.Decode(&item)
+			test.That(t, err, test.ShouldBeNil)
+			actual = append(actual, item)
+		}
+
+		expectedData := []map[string]interface{}{
+			{
+				"locationId": "loc-id",
+				"payload": map[string]interface{}{
+					"bool":   true,
+					"float":  float64(1),
+					"string": "true",
+				},
+			},
+			{
+				"locationId": "loc-id",
+				"payload": map[string]interface{}{
+					"booly":  false,
+					"float":  float64(1),
+					"string": "true",
+				},
+			},
+		}
+
+		test.That(t, actual, test.ShouldResemble, expectedData)
+	})
+
+	t.Run("error case", func(t *testing.T) {
+		exportTabularDataFunc := func(ctx context.Context, in *datapb.ExportTabularDataRequest, opts ...grpc.CallOption,
+		) (datapb.DataService_ExportTabularDataClient, error) {
+			return newMockExportStream([]*datapb.ExportTabularDataResponse{}, errors.New("whoops")), nil
+		}
+
+		dsc := &inject.DataServiceClient{
+			ExportTabularDataFunc: exportTabularDataFunc,
+		}
+
+		cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil, nil, "token")
+
+		err := ac.dataExportTabularAction(cCtx, parseStructFromCtx[dataExportTabularArgs](cCtx))
+		test.That(t, err, test.ShouldBeError, errors.New("error receiving tabular data: whoops"))
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+
+		// Test that export was retried (total of 5 tries).
+		test.That(t, len(out.messages), test.ShouldEqual, 7)
+		test.That(t, strings.Join(out.messages, ""), test.ShouldEqual, "Downloading.......\n")
+
+		// Test that the data.ndjson file was removed.
+		filePath := utils.ResolveFile(dataFileName)
+		_, err = os.ReadFile(filePath)
+		test.That(t, err, test.ShouldBeError, fmt.Errorf("open %s: no such file or directory", filePath))
+	})
 }
 
 func TestBaseURLParsing(t *testing.T) {
@@ -372,17 +691,29 @@ func TestGetRobotPartLogs(t *testing.T) {
 		return resp, nil
 	}
 
+	loc := apppb.Location{Name: "naboo"}
+
 	listOrganizationsFunc := func(ctx context.Context, in *apppb.ListOrganizationsRequest,
 		opts ...grpc.CallOption,
 	) (*apppb.ListOrganizationsResponse, error) {
 		orgs := []*apppb.Organization{{Name: "jedi", Id: "123"}}
 		return &apppb.ListOrganizationsResponse{Organizations: orgs}, nil
 	}
+	getOrganizationsWithAccessToLocationFunc := func(ctx context.Context, in *apppb.GetOrganizationsWithAccessToLocationRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.GetOrganizationsWithAccessToLocationResponse, error) {
+		orgIdentities := []*apppb.OrganizationIdentity{{Name: "jedi", Id: "123"}}
+		return &apppb.GetOrganizationsWithAccessToLocationResponse{OrganizationIdentities: orgIdentities}, nil
+	}
+	getLocationFunc := func(ctx context.Context, in *apppb.GetLocationRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.GetLocationResponse, error) {
+		return &apppb.GetLocationResponse{Location: &loc}, nil
+	}
 	listLocationsFunc := func(ctx context.Context, in *apppb.ListLocationsRequest,
 		opts ...grpc.CallOption,
 	) (*apppb.ListLocationsResponse, error) {
-		locs := []*apppb.Location{{Name: "naboo"}}
-		return &apppb.ListLocationsResponse{Locations: locs}, nil
+		return &apppb.ListLocationsResponse{Locations: []*apppb.Location{&loc}}, nil
 	}
 	listRobotsFunc := func(ctx context.Context, in *apppb.ListRobotsRequest,
 		opts ...grpc.CallOption,
@@ -401,16 +732,18 @@ func TestGetRobotPartLogs(t *testing.T) {
 		GetRobotPartLogsFunc: getRobotPartLogsFunc,
 		// Supply some injected functions to avoid a panic when loading
 		// organizations, locations, robots and parts.
-		ListOrganizationsFunc: listOrganizationsFunc,
-		ListLocationsFunc:     listLocationsFunc,
-		ListRobotsFunc:        listRobotsFunc,
-		GetRobotPartsFunc:     getRobotPartsFunc,
+		ListOrganizationsFunc:                    listOrganizationsFunc,
+		ListLocationsFunc:                        listLocationsFunc,
+		ListRobotsFunc:                           listRobotsFunc,
+		GetRobotPartsFunc:                        getRobotPartsFunc,
+		GetLocationFunc:                          getLocationFunc,
+		GetOrganizationsWithAccessToLocationFunc: getOrganizationsWithAccessToLocationFunc,
 	}
 
 	t.Run("no count", func(t *testing.T) {
-		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "")
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "")
 
-		test.That(t, ac.robotsPartLogsAction(cCtx), test.ShouldBeNil)
+		test.That(t, ac.robotsPartLogsAction(cCtx, parseStructFromCtx[robotsPartLogsArgs](cCtx)), test.ShouldBeNil)
 
 		// No warnings.
 		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -429,9 +762,9 @@ func TestGetRobotPartLogs(t *testing.T) {
 	})
 	t.Run("178 count", func(t *testing.T) {
 		flags := map[string]any{"count": 178}
-		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, flags, "")
+		cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "")
 
-		test.That(t, ac.robotsPartLogsAction(cCtx), test.ShouldBeNil)
+		test.That(t, ac.robotsPartLogsAction(cCtx, parseStructFromCtx[robotsPartLogsArgs](cCtx)), test.ShouldBeNil)
 
 		// No warnings.
 		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -449,10 +782,10 @@ func TestGetRobotPartLogs(t *testing.T) {
 		}
 	})
 	t.Run("max count", func(t *testing.T) {
-		flags := map[string]any{logsFlagCount: maxNumLogs}
-		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, flags, "")
+		flags := map[string]any{generalFlagCount: maxNumLogs}
+		cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "")
 
-		test.That(t, ac.robotsPartLogsAction(cCtx), test.ShouldBeNil)
+		test.That(t, ac.robotsPartLogsAction(cCtx, parseStructFromCtx[robotsPartLogsArgs](cCtx)), test.ShouldBeNil)
 
 		// No warnings.
 		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -472,9 +805,9 @@ func TestGetRobotPartLogs(t *testing.T) {
 	})
 	t.Run("negative count", func(t *testing.T) {
 		flags := map[string]any{"count": -1}
-		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, flags, "")
+		cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "")
 
-		test.That(t, ac.robotsPartLogsAction(cCtx), test.ShouldBeNil)
+		test.That(t, ac.robotsPartLogsAction(cCtx, parseStructFromCtx[robotsPartLogsArgs](cCtx)), test.ShouldBeNil)
 
 		// Warning should read: `Warning:\nProvided negative "count" value. Defaulting to 100`.
 		test.That(t, len(errOut.messages), test.ShouldEqual, 2)
@@ -495,15 +828,17 @@ func TestGetRobotPartLogs(t *testing.T) {
 	})
 	t.Run("count too high", func(t *testing.T) {
 		flags := map[string]any{"count": 1000000}
-		cCtx, ac, _, _ := setup(asc, nil, nil, nil, flags, "")
+		cCtx, ac, _, _ := setup(asc, nil, nil, flags, "")
 
-		err := ac.robotsPartLogsAction(cCtx)
+		err := ac.robotsPartLogsAction(cCtx, parseStructFromCtx[robotsPartLogsArgs](cCtx))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldBeError, errors.New(`provided too high of a "count" value. Maximum is 10000`))
 	})
 }
 
 func TestShellFileCopy(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
 	listOrganizationsFunc := func(ctx context.Context, in *apppb.ListOrganizationsRequest,
 		opts ...grpc.CallOption,
 	) (*apppb.ListOrganizationsResponse, error) {
@@ -546,24 +881,32 @@ func TestShellFileCopy(t *testing.T) {
 	}
 
 	t.Run("no arguments or files", func(t *testing.T) {
-		cCtx, viamClient, _, _ := setup(asc, nil, nil, nil, partFlags, "token")
-		test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldEqual, errNoFiles)
+		cCtx, viamClient, _, _ := setup(asc, nil, nil, partFlags, "token")
+		test.That(t,
+			viamClient.machinesPartCopyFilesAction(cCtx, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
+			test.ShouldEqual, errNoFiles)
 	})
 
 	t.Run("one file path is insufficient", func(t *testing.T) {
 		args := []string{"machine:path"}
-		cCtx, viamClient, _, _ := setup(asc, nil, nil, nil, partFlags, "token", args...)
-		test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldEqual, errLastArgOfFromMissing)
+		cCtx, viamClient, _, _ := setup(asc, nil, nil, partFlags, "token", args...)
+		test.That(t,
+			viamClient.machinesPartCopyFilesAction(cCtx, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
+			test.ShouldEqual, errLastArgOfFromMissing)
 
 		args = []string{"path"}
-		cCtx, viamClient, _, _ = setup(asc, nil, nil, nil, partFlags, "token", args...)
-		test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldEqual, errLastArgOfToMissing)
+		cCtx, viamClient, _, _ = setup(asc, nil, nil, partFlags, "token", args...)
+		test.That(t,
+			viamClient.machinesPartCopyFilesAction(cCtx, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
+			test.ShouldEqual, errLastArgOfToMissing)
 	})
 
 	t.Run("from has wrong path prefixes", func(t *testing.T) {
 		args := []string{"machine:path", "path2", "machine:path3", "destination"}
-		cCtx, viamClient, _, _ := setup(asc, nil, nil, nil, partFlags, "token", args...)
-		test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldHaveSameTypeAs, copyFromPathInvalidError{})
+		cCtx, viamClient, _, _ := setup(asc, nil, nil, partFlags, "token", args...)
+		test.That(t,
+			viamClient.machinesPartCopyFilesAction(cCtx, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
+			test.ShouldHaveSameTypeAs, copyFromPathInvalidError{})
 	})
 
 	tfs := shelltestutils.SetupTestFileSystem(t)
@@ -575,7 +918,9 @@ func TestShellFileCopy(t *testing.T) {
 			args := []string{fmt.Sprintf("machine:%s", tfs.SingleFileNested), tempDir}
 			cCtx, viamClient, _, _ := setupWithRunningPart(
 				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
-			test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldBeNil)
+			test.That(t,
+				viamClient.machinesPartCopyFilesAction(cCtx, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
+				test.ShouldBeNil)
 
 			rd, err := os.ReadFile(filepath.Join(tempDir, filepath.Base(tfs.SingleFileNested)))
 			test.That(t, err, test.ShouldBeNil)
@@ -592,7 +937,9 @@ func TestShellFileCopy(t *testing.T) {
 			args := []string{fmt.Sprintf("machine:%s", tfs.SingleFileNested), "foo"}
 			cCtx, viamClient, _, _ := setupWithRunningPart(
 				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
-			test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldBeNil)
+			test.That(t,
+				viamClient.machinesPartCopyFilesAction(cCtx, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
+				test.ShouldBeNil)
 
 			rd, err := os.ReadFile(filepath.Join(tempDir, "foo"))
 			test.That(t, err, test.ShouldBeNil)
@@ -607,7 +954,7 @@ func TestShellFileCopy(t *testing.T) {
 			t.Log("without recursion set")
 			cCtx, viamClient, _, _ := setupWithRunningPart(
 				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
-			err := machinesPartCopyFilesAction(cCtx, viamClient)
+			err := viamClient.machinesPartCopyFilesAction(cCtx, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger)
 			test.That(t, errors.Is(err, errDirectoryCopyRequestNoRecursion), test.ShouldBeTrue)
 			_, err = os.ReadFile(filepath.Join(tempDir, filepath.Base(tfs.SingleFileNested)))
 			test.That(t, errors.Is(err, fs.ErrNotExist), test.ShouldBeTrue)
@@ -618,7 +965,9 @@ func TestShellFileCopy(t *testing.T) {
 			partFlagsCopy["recursive"] = true
 			cCtx, viamClient, _, _ = setupWithRunningPart(
 				t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...)
-			test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldBeNil)
+			test.That(t,
+				viamClient.machinesPartCopyFilesAction(cCtx, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
+				test.ShouldBeNil)
 			test.That(t, shelltestutils.DirectoryContentsEqual(tfs.Root, filepath.Join(tempDir, filepath.Base(tfs.Root))), test.ShouldBeNil)
 		})
 
@@ -635,7 +984,9 @@ func TestShellFileCopy(t *testing.T) {
 			partFlagsCopy["recursive"] = true
 			cCtx, viamClient, _, _ := setupWithRunningPart(
 				t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...)
-			test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldBeNil)
+			test.That(t,
+				viamClient.machinesPartCopyFilesAction(cCtx, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
+				test.ShouldBeNil)
 
 			rd, err := os.ReadFile(filepath.Join(tempDir, filepath.Base(tfs.SingleFileNested)))
 			test.That(t, err, test.ShouldBeNil)
@@ -669,7 +1020,9 @@ func TestShellFileCopy(t *testing.T) {
 					partFlagsCopy["preserve"] = preserve
 					cCtx, viamClient, _, _ := setupWithRunningPart(
 						t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...)
-					test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldBeNil)
+					test.That(t,
+						viamClient.machinesPartCopyFilesAction(cCtx, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
+						test.ShouldBeNil)
 					test.That(t, shelltestutils.DirectoryContentsEqual(tfs.Root, filepath.Join(tempDir, filepath.Base(tfs.Root))), test.ShouldBeNil)
 
 					nestedCopy := filepath.Join(tempDir, filepath.Base(tfs.Root), relNestedPath)
@@ -695,7 +1048,9 @@ func TestShellFileCopy(t *testing.T) {
 			args := []string{tfs.SingleFileNested, fmt.Sprintf("machine:%s", tempDir)}
 			cCtx, viamClient, _, _ := setupWithRunningPart(
 				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
-			test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldBeNil)
+			test.That(t,
+				viamClient.machinesPartCopyFilesAction(cCtx, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
+				test.ShouldBeNil)
 
 			rd, err := os.ReadFile(filepath.Join(tempDir, filepath.Base(tfs.SingleFileNested)))
 			test.That(t, err, test.ShouldBeNil)
@@ -711,7 +1066,9 @@ func TestShellFileCopy(t *testing.T) {
 			args := []string{tfs.SingleFileNested, fmt.Sprintf("machine:%s", randomName)}
 			cCtx, viamClient, _, _ := setupWithRunningPart(
 				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
-			test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldBeNil)
+			test.That(t,
+				viamClient.machinesPartCopyFilesAction(cCtx, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
+				test.ShouldBeNil)
 
 			rd, err := os.ReadFile(randomPath)
 			test.That(t, err, test.ShouldBeNil)
@@ -726,7 +1083,7 @@ func TestShellFileCopy(t *testing.T) {
 			t.Log("without recursion set")
 			cCtx, viamClient, _, _ := setupWithRunningPart(
 				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
-			err := machinesPartCopyFilesAction(cCtx, viamClient)
+			err := viamClient.machinesPartCopyFilesAction(cCtx, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger)
 			test.That(t, errors.Is(err, errDirectoryCopyRequestNoRecursion), test.ShouldBeTrue)
 			_, err = os.ReadFile(filepath.Join(tempDir, filepath.Base(tfs.SingleFileNested)))
 			test.That(t, errors.Is(err, fs.ErrNotExist), test.ShouldBeTrue)
@@ -737,7 +1094,9 @@ func TestShellFileCopy(t *testing.T) {
 			partFlagsCopy["recursive"] = true
 			cCtx, viamClient, _, _ = setupWithRunningPart(
 				t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...)
-			test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldBeNil)
+			test.That(t,
+				viamClient.machinesPartCopyFilesAction(cCtx, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
+				test.ShouldBeNil)
 			test.That(t, shelltestutils.DirectoryContentsEqual(tfs.Root, filepath.Join(tempDir, filepath.Base(tfs.Root))), test.ShouldBeNil)
 		})
 
@@ -754,7 +1113,9 @@ func TestShellFileCopy(t *testing.T) {
 			partFlagsCopy["recursive"] = true
 			cCtx, viamClient, _, _ := setupWithRunningPart(
 				t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...)
-			test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldBeNil)
+			test.That(t,
+				viamClient.machinesPartCopyFilesAction(cCtx, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
+				test.ShouldBeNil)
 
 			rd, err := os.ReadFile(filepath.Join(tempDir, filepath.Base(tfs.SingleFileNested)))
 			test.That(t, err, test.ShouldBeNil)
@@ -788,7 +1149,9 @@ func TestShellFileCopy(t *testing.T) {
 					partFlagsCopy["preserve"] = preserve
 					cCtx, viamClient, _, _ := setupWithRunningPart(
 						t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...)
-					test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldBeNil)
+					test.That(t,
+						viamClient.machinesPartCopyFilesAction(cCtx, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
+						test.ShouldBeNil)
 					test.That(t, shelltestutils.DirectoryContentsEqual(tfs.Root, filepath.Join(tempDir, filepath.Base(tfs.Root))), test.ShouldBeNil)
 
 					nestedCopy := filepath.Join(tempDir, filepath.Base(tfs.Root), relNestedPath)
@@ -805,5 +1168,154 @@ func TestShellFileCopy(t *testing.T) {
 				})
 			}
 		})
+	})
+}
+
+func TestCreateOAuthAppAction(t *testing.T) {
+	createOAuthAppFunc := func(ctx context.Context, in *apppb.CreateOAuthAppRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.CreateOAuthAppResponse, error) {
+		return &apppb.CreateOAuthAppResponse{ClientId: "client-id", ClientSecret: "client-secret"}, nil
+	}
+	asc := &inject.AppServiceClient{
+		CreateOAuthAppFunc: createOAuthAppFunc,
+	}
+	t.Run("valid inputs", func(t *testing.T) {
+		flags := make(map[string]any)
+		flags[generalFlagOrgID] = "org-id"
+		flags[oauthAppFlagClientName] = "client-name"
+		flags[oauthAppFlagClientAuthentication] = "required"
+		flags[oauthAppFlagURLValidation] = "allow_wildcards"
+		flags[oauthAppFlagPKCE] = "not_required"
+		flags[oauthAppFlagOriginURIs] = []string{"https://woof.com/login", "https://arf.com/"}
+		flags[oauthAppFlagRedirectURIs] = []string{"https://woof.com/home", "https://arf.com/home"}
+		flags[oauthAppFlagLogoutURI] = "https://woof.com/logout"
+		flags[oauthAppFlagEnabledGrants] = []string{"implicit", "password"}
+		cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "token")
+		test.That(t, ac.createOAuthAppAction(cCtx, parseStructFromCtx[createOAuthAppArgs](cCtx)), test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, out.messages[0], test.ShouldContainSubstring,
+			"Successfully created OAuth app client-name with client ID client-id and client secret client-secret")
+	})
+
+	t.Run("should error if pkce is not a valid enum value", func(t *testing.T) {
+		flags := map[string]any{oauthAppFlagClientAuthentication: unspecified, oauthAppFlagPKCE: "not_one_of_the_allowed_values"}
+		cCtx, ac, out, _ := setup(asc, nil, nil, flags, "token")
+		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "pkce must be a valid PKCE")
+		test.That(t, len(out.messages), test.ShouldEqual, 0)
+	})
+
+	t.Run("should error if url-validation is not a valid enum value", func(t *testing.T) {
+		flags := map[string]any{
+			oauthAppFlagClientAuthentication: unspecified, oauthAppFlagPKCE: unspecified,
+			oauthAppFlagURLValidation: "not_one_of_the_allowed_values",
+		}
+		cCtx, ac, out, _ := setup(asc, nil, nil, flags, "token")
+		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "url-validation must be a valid UrlValidation")
+		test.That(t, len(out.messages), test.ShouldEqual, 0)
+	})
+}
+
+func TestReadOAuthApp(t *testing.T) {
+	readOAuthAppFunc := func(ctx context.Context, in *apppb.ReadOAuthAppRequest, opts ...grpc.CallOption) (
+		*apppb.ReadOAuthAppResponse, error,
+	) {
+		return &apppb.ReadOAuthAppResponse{
+			ClientName:   "clientname",
+			ClientSecret: "fakesecret",
+			OauthConfig: &apppb.OAuthConfig{
+				ClientAuthentication: apppb.ClientAuthentication_CLIENT_AUTHENTICATION_REQUIRED,
+				Pkce:                 apppb.PKCE_PKCE_REQUIRED,
+				UrlValidation:        apppb.URLValidation_URL_VALIDATION_ALLOW_WILDCARDS,
+				LogoutUri:            "https://my-logout-uri.com",
+				OriginUris:           []string{"https://my-origin-uri.com", "https://second-origin-uri.com"},
+				RedirectUris:         []string{"https://my-redirect-uri.com"},
+				EnabledGrants:        []apppb.EnabledGrant{apppb.EnabledGrant_ENABLED_GRANT_IMPLICIT, apppb.EnabledGrant_ENABLED_GRANT_PASSWORD},
+			},
+		}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		ReadOAuthAppFunc: readOAuthAppFunc,
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
+
+	test.That(t, ac.readOAuthAppAction(cCtx, "test-org-id", "test-client-id"), test.ShouldBeNil)
+	test.That(t, len(out.messages), test.ShouldEqual, 9)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, out.messages[0], test.ShouldContainSubstring, "OAuth config for client ID test-client-id")
+	test.That(t, out.messages[2], test.ShouldContainSubstring, "Client Authentication: required")
+	test.That(t, out.messages[3], test.ShouldContainSubstring, "PKCE (Proof Key for Code Exchange): required")
+	test.That(t, out.messages[4], test.ShouldContainSubstring, "URL Validation Policy: allow_wildcards")
+	test.That(t, out.messages[5], test.ShouldContainSubstring, "Logout URL: https://my-logout-uri.com")
+	test.That(t, out.messages[6], test.ShouldContainSubstring, "Redirect URLs: https://my-redirect-uri.com")
+	test.That(t, out.messages[7], test.ShouldContainSubstring, "Origin URLs: https://my-origin-uri.com, https://second-origin-uri.com")
+	test.That(t, out.messages[8], test.ShouldContainSubstring, "Enabled Grants: implicit, password")
+}
+
+func TestUpdateOAuthAppAction(t *testing.T) {
+	updateOAuthAppFunc := func(ctx context.Context, in *apppb.UpdateOAuthAppRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.UpdateOAuthAppResponse, error) {
+		return &apppb.UpdateOAuthAppResponse{}, nil
+	}
+	asc := &inject.AppServiceClient{
+		UpdateOAuthAppFunc: updateOAuthAppFunc,
+	}
+
+	t.Run("valid inputs", func(t *testing.T) {
+		flags := make(map[string]any)
+		flags[generalFlagOrgID] = "org-id"
+		flags[oauthAppFlagClientID] = "client-id"
+		flags[oauthAppFlagClientName] = "client-name"
+		flags[oauthAppFlagClientAuthentication] = "required"
+		flags[oauthAppFlagURLValidation] = "allow_wildcards"
+		flags[oauthAppFlagPKCE] = "not_required"
+		flags[oauthAppFlagOriginURIs] = []string{"https://woof.com/login", "https://arf.com/"}
+		flags[oauthAppFlagRedirectURIs] = []string{"https://woof.com/home", "https://arf.com/home"}
+		flags[oauthAppFlagLogoutURI] = "https://woof.com/logout"
+		flags[oauthAppFlagEnabledGrants] = []string{"implicit", "password"}
+		cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "token")
+		test.That(t, ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx)), test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, out.messages[0], test.ShouldContainSubstring, "Successfully updated OAuth app")
+	})
+
+	t.Run("should error if client-authentication is not a valid enum value", func(t *testing.T) {
+		flags := make(map[string]any)
+		flags[generalFlagOrgID] = "org-id"
+		flags[oauthAppFlagClientID] = "client-id"
+		flags[oauthAppFlagClientAuthentication] = "not_one_of_the_allowed_values"
+		cCtx, ac, out, _ := setup(asc, nil, nil, flags, "token")
+		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "client-authentication must be a valid ClientAuthentication")
+		test.That(t, len(out.messages), test.ShouldEqual, 0)
+	})
+
+	t.Run("should error if pkce is not a valid enum value", func(t *testing.T) {
+		flags := map[string]any{oauthAppFlagClientAuthentication: unspecified, oauthAppFlagPKCE: "not_one_of_the_allowed_values"}
+		cCtx, ac, out, _ := setup(asc, nil, nil, flags, "token")
+		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "pkce must be a valid PKCE")
+		test.That(t, len(out.messages), test.ShouldEqual, 0)
+	})
+
+	t.Run("should error if url-validation is not a valid enum value", func(t *testing.T) {
+		flags := map[string]any{
+			oauthAppFlagClientAuthentication: unspecified, oauthAppFlagPKCE: unspecified,
+			oauthAppFlagURLValidation: "not_one_of_the_allowed_values",
+		}
+		cCtx, ac, out, _ := setup(asc, nil, nil, flags, "token")
+		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "url-validation must be a valid UrlValidation")
+		test.That(t, len(out.messages), test.ShouldEqual, 0)
 	})
 }

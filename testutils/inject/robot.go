@@ -26,27 +26,27 @@ import (
 // Robot is an injected robot.
 type Robot struct {
 	robot.LocalRobot
-	Mu                     sync.RWMutex // Ugly, has to be manually locked if a test means to swap funcs on an in-use robot.
-	DiscoverComponentsFunc func(ctx context.Context, keys []resource.DiscoveryQuery) ([]resource.Discovery, error)
-	RemoteByNameFunc       func(name string) (robot.Robot, bool)
-	ResourceByNameFunc     func(name resource.Name) (resource.Resource, error)
-	RemoteNamesFunc        func() []string
-	ResourceNamesFunc      func() []resource.Name
-	ResourceRPCAPIsFunc    func() []resource.RPCAPI
-	ProcessManagerFunc     func() pexec.ProcessManager
-	ConfigFunc             func() *config.Config
-	LoggerFunc             func() logging.Logger
-	CloseFunc              func(ctx context.Context) error
-	StopAllFunc            func(ctx context.Context, extra map[resource.Name]map[string]interface{}) error
-	FrameSystemConfigFunc  func(ctx context.Context) (*framesystem.Config, error)
-	TransformPoseFunc      func(
+	Mu                       sync.RWMutex // Ugly, has to be manually locked if a test means to swap funcs on an in-use robot.
+	DiscoverComponentsFunc   func(ctx context.Context, keys []resource.DiscoveryQuery) ([]resource.Discovery, error)
+	GetModelsFromModulesFunc func(ctx context.Context) ([]resource.ModuleModelDiscovery, error)
+	RemoteByNameFunc         func(name string) (robot.Robot, bool)
+	ResourceByNameFunc       func(name resource.Name) (resource.Resource, error)
+	RemoteNamesFunc          func() []string
+	ResourceNamesFunc        func() []resource.Name
+	ResourceRPCAPIsFunc      func() []resource.RPCAPI
+	ProcessManagerFunc       func() pexec.ProcessManager
+	ConfigFunc               func() *config.Config
+	LoggerFunc               func() logging.Logger
+	CloseFunc                func(ctx context.Context) error
+	StopAllFunc              func(ctx context.Context, extra map[resource.Name]map[string]interface{}) error
+	FrameSystemConfigFunc    func(ctx context.Context) (*framesystem.Config, error)
+	TransformPoseFunc        func(
 		ctx context.Context,
 		pose *referenceframe.PoseInFrame,
 		dst string,
 		additionalTransforms []*referenceframe.LinkInFrame,
 	) (*referenceframe.PoseInFrame, error)
 	TransformPointCloudFunc func(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
-	StatusFunc              func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error)
 	ModuleAddressFunc       func() (string, error)
 	CloudMetadataFunc       func(ctx context.Context) (cloud.Metadata, error)
 	MachineStatusFunc       func(ctx context.Context) (robot.MachineStatus, error)
@@ -229,6 +229,16 @@ func (r *Robot) DiscoverComponents(ctx context.Context, keys []resource.Discover
 	return r.DiscoverComponentsFunc(ctx, keys)
 }
 
+// GetModelsFromModules calls the injected GetModelsFromModules or the real one.
+func (r *Robot) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModelDiscovery, error) {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+	if r.GetModelsFromModulesFunc == nil {
+		return r.LocalRobot.GetModelsFromModules(ctx)
+	}
+	return r.GetModelsFromModulesFunc(ctx)
+}
+
 // FrameSystemConfig calls the injected FrameSystemConfig or the real version.
 func (r *Robot) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
 	r.Mu.RLock()
@@ -264,16 +274,6 @@ func (r *Robot) TransformPointCloud(ctx context.Context, srcpc pointcloud.PointC
 		return r.LocalRobot.TransformPointCloud(ctx, srcpc, srcName, dstName)
 	}
 	return r.TransformPointCloudFunc(ctx, srcpc, srcName, dstName)
-}
-
-// Status call the injected Status or the real one.
-func (r *Robot) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-	r.Mu.RLock()
-	defer r.Mu.RUnlock()
-	if r.StatusFunc == nil {
-		return r.LocalRobot.Status(ctx, resourceNames)
-	}
-	return r.StatusFunc(ctx, resourceNames)
 }
 
 // ModuleAddress calls the injected ModuleAddress or the real one.

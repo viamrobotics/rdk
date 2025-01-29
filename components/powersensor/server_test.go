@@ -179,6 +179,14 @@ func TestServerGetReadings(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, errReadingsFailed.Error())
 
+	failingPowerSensor.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+		return nil, nil
+	}
+
+	_, err = powerSensorServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: failingPowerSensorName})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, sensor.ErrReadingsNil("power-sensor", failingPowerSensorName).Error())
+
 	_, err = powerSensorServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: missingPowerSensorName})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")

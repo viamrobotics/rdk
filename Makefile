@@ -81,6 +81,11 @@ full-static:
 	mkdir -p bin/static
 	go build -tags no_cgo,osusergo,netgo -ldflags="-extldflags=-static $(COMMON_LDFLAGS)" -o bin/static/viam-server-$(shell go env GOARCH) ./web/cmd/server
 
+windows:
+	mkdir -p bin/windows
+	GOOS=windows go build -tags no_cgo -ldflags="-extldflags=-static $(COMMON_LDFLAGS)" -o bin/windows/viam-server-$(shell go env GOARCH).exe ./web/cmd/server
+	cd bin/windows && zip viam.zip viam-server-$(shell go env GOARCH).exe
+
 server-static-compressed: server-static
 	upx --best --lzma $(BIN_OUTPUT_PATH)/viam-server
 

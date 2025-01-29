@@ -90,6 +90,9 @@ func (c *ProvisioningClient) GetNetworkList(ctx context.Context) ([]*NetworkInfo
 }
 
 func provisioningInfoFromProto(info *pb.ProvisioningInfo) *ProvisioningInfo {
+	if info == nil {
+		return nil
+	}
 	return &ProvisioningInfo{
 		FragmentID:   info.FragmentId,
 		Model:        info.Model,
@@ -98,6 +101,9 @@ func provisioningInfoFromProto(info *pb.ProvisioningInfo) *ProvisioningInfo {
 }
 
 func networkInfoFromProto(info *pb.NetworkInfo) *NetworkInfo {
+	if info == nil {
+		return nil
+	}
 	return &NetworkInfo{
 		Type:      info.Type,
 		SSID:      info.Ssid,
@@ -109,6 +115,9 @@ func networkInfoFromProto(info *pb.NetworkInfo) *NetworkInfo {
 }
 
 func getSmartMachineStatusResponseFromProto(resp *pb.GetSmartMachineStatusResponse) *GetSmartMachineStatusResponse {
+	if resp == nil {
+		return nil
+	}
 	return &GetSmartMachineStatusResponse{
 		ProvisioningInfo:           provisioningInfoFromProto(resp.ProvisioningInfo),
 		HasSmartMachineCredentials: resp.HasSmartMachineCredentials,
@@ -119,6 +128,9 @@ func getSmartMachineStatusResponseFromProto(resp *pb.GetSmartMachineStatusRespon
 }
 
 func cloudConfigToProto(config *CloudConfig) *pb.CloudConfig {
+	if config == nil {
+		return nil
+	}
 	return &pb.CloudConfig{
 		Id:         config.ID,
 		Secret:     config.Secret,

@@ -28,7 +28,7 @@ const (
 	digits                       = "1234"
 	invoiceID                    = "invoice_id"
 	invoiceAmount        float64 = 100.12
-	status                       = "status"
+	statusString                 = "status"
 	balance              float64 = 73.21
 	billingOwnerOrgID            = "billing_owner_organization_id"
 )
@@ -73,14 +73,13 @@ var (
 		ID:            invoiceID,
 		InvoiceDate:   &invoiceDate,
 		InvoiceAmount: invoiceAmount,
-		Status:        status,
+		Status:        statusString,
 		DueDate:       &dueDate,
 		PaidDate:      &paidDate,
 	}
-	chunk1     = []byte{4, 8}
 	chunk2     = []byte("chunk1")
 	chunk3     = []byte("chunk2")
-	chunks     = [][]byte{chunk1, chunk2, chunk3}
+	chunks     = [][]byte{byteData, chunk2, chunk3}
 	chunkCount = len(chunks)
 )
 
@@ -102,18 +101,22 @@ func usageCostTypeToProto(costType UsageCostType) pb.UsageCostType {
 	case UsageCostTypeUnspecified:
 		return pb.UsageCostType_USAGE_COST_TYPE_UNSPECIFIED
 	case UsageCostTypeDataUpload:
+		//nolint:deprecated,staticcheck
 		return pb.UsageCostType_USAGE_COST_TYPE_DATA_UPLOAD
 	case UsageCostTypeDataEgress:
+		//nolint:deprecated,staticcheck
 		return pb.UsageCostType_USAGE_COST_TYPE_DATA_EGRESS
 	case UsageCostTypeRemoteControl:
 		return pb.UsageCostType_USAGE_COST_TYPE_REMOTE_CONTROL
 	case UsageCostTypeStandardCompute:
 		return pb.UsageCostType_USAGE_COST_TYPE_STANDARD_COMPUTE
 	case UsageCostTypeCloudStorage:
+		//nolint:deprecated,staticcheck
 		return pb.UsageCostType_USAGE_COST_TYPE_CLOUD_STORAGE
 	case UsageCostTypeBinaryDataCloudStorage:
 		return pb.UsageCostType_USAGE_COST_TYPE_BINARY_DATA_CLOUD_STORAGE
 	case UsageCostTypeOtherCloudStorage:
+		//nolint:deprecated,staticcheck
 		return pb.UsageCostType_USAGE_COST_TYPE_OTHER_CLOUD_STORAGE
 	case UsageCostTypePerMachine:
 		return pb.UsageCostType_USAGE_COST_TYPE_PER_MACHINE

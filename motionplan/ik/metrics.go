@@ -11,7 +11,7 @@ import (
 
 const orientationDistanceScaling = 10.
 
-// Segment contains all the information a constraint needs to determine validity for a movement.
+// Segment is a referenceframe.Frame-specific contains all the information a constraint needs to determine validity for a movement.
 // It contains the starting inputs, the ending inputs, corresponding poses, and the frame it refers to.
 // Pose fields may be empty, and may be filled in by a constraint that needs them.
 type Segment struct {
@@ -22,44 +22,93 @@ type Segment struct {
 	Frame              referenceframe.Frame
 }
 
+// SegmentFS is a referenceframe.FrameSystem-specific contains all the information a constraint needs to determine validity for a movement.
+// It contains the starting inputs, the ending inputs, and the framesystem it refers to.
+type SegmentFS struct {
+	StartConfiguration referenceframe.FrameSystemInputs
+	EndConfiguration   referenceframe.FrameSystemInputs
+	FS                 referenceframe.FrameSystem
+}
+
 func (s *Segment) String() string {
+	startPosString := "nil"
+	endPosString := "nil"
+	if s.StartPosition != nil {
+		startPosString = fmt.Sprintf("%v", spatial.PoseToProtobuf(s.StartPosition))
+	}
+	if s.EndPosition != nil {
+		endPosString = fmt.Sprintf("%v", spatial.PoseToProtobuf(s.EndPosition))
+	}
 	return fmt.Sprintf(
-		"Segment: \n\t StartPosition: %v,\n\t EndPosition: %v,\n\t StartConfiguration:%v,\n\t EndConfiguration:%v,\n\t Frame: %v",
-		spatial.PoseToProtobuf(s.StartPosition),
-		spatial.PoseToProtobuf(s.EndPosition),
+		"Segment: \n\t StartPosition: %s,\n\t EndPosition: %s,\n\t StartConfiguration:%v,\n\t EndConfiguration:%v,\n\t Frame: %v",
+		startPosString,
+		endPosString,
 		s.StartConfiguration,
 		s.EndConfiguration,
 		s.Frame,
 	)
 }
 
-// State contains all the information a constraint needs to determine validity for a movement.
-// It contains the starting inputs, the ending inputs, corresponding poses, and the frame it refers to.
-// Pose fields may be empty, and may be filled in by a constraint that needs them.
+// State contains all the information a constraint needs to determine validity for a particular state or configuration.
+// It contains inputs, the corresponding poses, and the frame it refers to.
+// Pose field may be empty, and may be filled in by a constraint that needs it.
 type State struct {
 	Position      spatial.Pose
 	Configuration []referenceframe.Input
 	Frame         referenceframe.Frame
 }
 
+// StateFS contains all the information a constraint needs to determine validity for a particular state or configuration of an entire
+// framesystem. It contains inputs, the corresponding poses, and the frame it refers to.
+// Pose field may be empty, and may be filled in by a constraint that needs it.
+type StateFS struct {
+	Configuration referenceframe.FrameSystemInputs
+	FS            referenceframe.FrameSystem
+}
+
 // StateMetric are functions which, given a State, produces some score. Lower is better.
 // This is used for gradient descent to converge upon a goal pose, for example.
 type StateMetric func(*State) float64
+
+// StateFSMetric are functions which, given a StateFS, produces some score. Lower is better.
+// This is used for gradient descent to converge upon a goal pose, for example.
+type StateFSMetric func(*StateFS) float64
 
 // SegmentMetric are functions which produce some score given an Segment. Lower is better.
 // This is used to sort produced IK solutions by goodness, for example.
 type SegmentMetric func(*Segment) float64
 
-// NewZeroMetric always returns zero as the distance between two points.
+// SegmentFSMetric are functions which produce some score given an SegmentFS. Lower is better.
+// This is used to sort produced IK solutions by goodness, for example.
+type SegmentFSMetric func(*SegmentFS) float64
+
+// NewZeroMetric always returns zero as the distance.
 func NewZeroMetric() StateMetric {
 	return func(from *State) float64 { return 0 }
+}
+
+// NewZeroFSMetric always returns zero as the distance.
+func NewZeroFSMetric() StateFSMetric {
+	return func(from *StateFS) float64 { return 0 }
 }
 
 type combinableStateMetric struct {
 	metrics []StateMetric
 }
 
+type combinableStateFSMetric struct {
+	metrics []StateFSMetric
+}
+
 func (m *combinableStateMetric) combinedDist(input *State) float64 {
+	dist := 0.
+	for _, metric := range m.metrics {
+		dist += metric(input)
+	}
+	return dist
+}
+
+func (m *combinableStateFSMetric) combinedDist(input *StateFS) float64 {
 	dist := 0.
 	for _, metric := range m.metrics {
 		dist += metric(input)
@@ -71,6 +120,13 @@ func (m *combinableStateMetric) combinedDist(input *State) float64 {
 // their distances.
 func CombineMetrics(metrics ...StateMetric) StateMetric {
 	cm := &combinableStateMetric{metrics: metrics}
+	return cm.combinedDist
+}
+
+// CombineFSMetrics will take a variable number of StateFSMetrics and return a new StateFSMetric which will combine all given metrics into
+// one, summing their distances.
+func CombineFSMetrics(metrics ...StateFSMetric) StateFSMetric {
+	cm := &combinableStateFSMetric{metrics: metrics}
 	return cm.combinedDist
 }
 
@@ -125,14 +181,7 @@ func NewScaledSquaredNormMetric(goal spatial.Pose, orientationDistanceScale floa
 // TODO: RSDK-6053 this should probably be done more flexibly.
 func NewPosWeightSquaredNormMetric(goal spatial.Pose) StateMetric {
 	weightedSqNormDist := func(query *State) float64 {
-		// Increase weight for orientation since it's a small number
-		orientDelta := spatial.QuatToR3AA(spatial.OrientationBetween(
-			goal.Orientation(),
-			query.Position.Orientation(),
-		).Quaternion()).Mul(orientationDistanceScaling).Norm2()
-		// Also, we multiply delta.Point() by 0.1, effectively measuring in cm rather than mm.
-		ptDelta := goal.Point().Mul(0.1).Sub(query.Position.Point().Mul(0.1)).Norm2()
-		return ptDelta + orientDelta
+		return WeightedSquaredNormSegmentMetric(&Segment{StartPosition: query.Position, EndPosition: goal})
 	}
 	return weightedSqNormDist
 }
@@ -187,9 +236,46 @@ func NewSquaredNormSegmentMetric(orientationScaleFactor float64) SegmentMetric {
 // SquaredNormNoOrientSegmentMetric is a metric which will return the cartesian distance between the two positions.
 func SquaredNormNoOrientSegmentMetric(segment *Segment) float64 {
 	delta := spatial.PoseDelta(segment.StartPosition, segment.EndPosition)
-	// Increase weight for orientation since it's a small number
 	return delta.Point().Norm2()
+}
+
+// WeightedSquaredNormSegmentMetric is a distance function between two poses to be used for gradient descent.
+// This changes the magnitude of the position delta used to be smaller and avoid numeric instability issues that happens with large floats.
+// It also scales the orientation distance to give more weight to it.
+func WeightedSquaredNormSegmentMetric(segment *Segment) float64 {
+	// Increase weight for orientation since it's a small number
+	orientDelta := spatial.QuatToR3AA(spatial.OrientationBetween(
+		segment.EndPosition.Orientation(),
+		segment.StartPosition.Orientation(),
+	).Quaternion()).Mul(orientationDistanceScaling).Norm2()
+	// Also, we multiply delta.Point() by 0.1, effectively measuring in cm rather than mm.
+	ptDelta := segment.EndPosition.Point().Mul(0.1).Sub(segment.StartPosition.Point().Mul(0.1)).Norm2()
+	return ptDelta + orientDelta
 }
 
 // TODO(RSDK-2557): Writing a PenetrationDepthMetric will allow cbirrt to path along the sides of obstacles rather than terminating
 // the RRT tree when an obstacle is hit
+
+// FSConfigurationDistance is a fs metric which will sum the abs differences in each input from start to end.
+func FSConfigurationDistance(segment *SegmentFS) float64 {
+	score := 0.
+	for frame, cfg := range segment.StartConfiguration {
+		if endCfg, ok := segment.EndConfiguration[frame]; ok && len(cfg) == len(endCfg) {
+			for i, val := range cfg {
+				score += math.Abs(val.Value - endCfg[i].Value)
+			}
+		}
+	}
+	return score
+}
+
+// FSConfigurationL2Distance is a fs metric which will sum the L2 norm differences in each input from start to end.
+func FSConfigurationL2Distance(segment *SegmentFS) float64 {
+	score := 0.
+	for frame, cfg := range segment.StartConfiguration {
+		if endCfg, ok := segment.EndConfiguration[frame]; ok && len(cfg) == len(endCfg) {
+			score += referenceframe.InputsL2Distance(cfg, endCfg)
+		}
+	}
+	return score
+}

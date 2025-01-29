@@ -196,11 +196,14 @@ func (c *client) Image(ctx context.Context, mimeType string, extra map[string]in
 
 	if expectedType != "" && resp.MimeType != expectedType {
 		c.logger.CDebugw(ctx, "got different MIME type than what was asked for", "sent", expectedType, "received", resp.MimeType)
-	} else {
-		resp.MimeType = mimeType
+		if resp.MimeType == "" {
+			// if the user expected a mime_type and the successful response didn't have a mime type, assume the
+			// response's mime_type was what the user requested
+			resp.MimeType = mimeType
+		}
 	}
 
-	return resp.Image, ImageMetadata{MimeType: utils.WithLazyMIMEType(resp.MimeType)}, nil
+	return resp.Image, ImageMetadata{MimeType: resp.MimeType}, nil
 }
 
 func (c *client) Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error) {
@@ -244,7 +247,11 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 
 	ctx, getPcdSpan := trace.StartSpan(ctx, "camera::client::NextPointCloud::GetPointCloud")
 
-	ext, err := data.GetExtraFromContext(ctx)
+	extra := make(map[string]interface{})
+	if ctx.Value(data.FromDMContextKey{}) == true {
+		extra[data.FromDMString] = true
+	}
+	extraStructPb, err := goprotoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +259,7 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 	resp, err := c.client.GetPointCloud(ctx, &pb.GetPointCloudRequest{
 		Name:     c.name,
 		MimeType: utils.MimeTypePCD,
-		Extra:    ext,
+		Extra:    extraStructPb,
 	})
 	getPcdSpan.End()
 	if err != nil {

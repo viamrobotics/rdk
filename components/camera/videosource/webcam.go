@@ -139,7 +139,6 @@ func Discover(ctx context.Context, getDrivers func() []driverutils.Driver, logge
 type WebcamConfig struct {
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
-	Debug                bool                               `json:"debug,omitempty"`
 	Format               string                             `json:"format,omitempty"`
 	Path                 string                             `json:"video_path"`
 	Width                int                                `json:"width_px,omitempty"`
@@ -165,7 +164,7 @@ func (c WebcamConfig) Validate(path string) ([]string, error) {
 
 // makeConstraints is a helper that returns constraints to mediadevices in order to find and make a video source.
 // Constraints are specifications for the video stream such as frame format, resolution etc.
-func makeConstraints(conf *WebcamConfig, debug bool, logger logging.Logger) mediadevices.MediaStreamConstraints {
+func makeConstraints(conf *WebcamConfig, logger logging.Logger) mediadevices.MediaStreamConstraints {
 	return mediadevices.MediaStreamConstraints{
 		Video: func(constraint *mediadevices.MediaTrackConstraints) {
 			if conf.Width > 0 {
@@ -202,9 +201,7 @@ func makeConstraints(conf *WebcamConfig, debug bool, logger logging.Logger) medi
 				constraint.FrameFormat = prop.FrameFormatExact(conf.Format)
 			}
 
-			if debug {
-				logger.Debugf("constraints: %v", constraint)
-			}
+			logger.Debugf("constraints: %v", constraint)
 		},
 	}
 }
@@ -217,8 +214,7 @@ func findReaderAndDriver(
 	logger logging.Logger,
 ) (video.Reader, driverutils.Driver, string, error) {
 	mediadevicescamera.Initialize()
-	debug := conf.Debug
-	constraints := makeConstraints(conf, debug, logger)
+	constraints := makeConstraints(conf, logger)
 
 	// Handle specific path
 	if path != "" {

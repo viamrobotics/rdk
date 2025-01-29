@@ -19,7 +19,7 @@ jobs:
       - name: check modified files
         id: file_checker
         run: |
-          ( git diff --name-only origin/${{github.base_ref}} | grep -e "motionplan" \
+          ( git diff --name-only origin/${{github.base_ref}}... | grep -e "motionplan" \
             -e "referenceframe" \
             -e "spatialmath" \
             -e "components/base/wheeled" \

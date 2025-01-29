@@ -43,12 +43,17 @@ type mockDataServiceServer struct {
 
 // TabularDataByFilter is a mocked version of the Data Service function of a similar name. It returns a response with
 // data corresponding to the stored data associated with that function and index.
+//
+//nolint:deprecated,staticcheck
 func (mDServer *mockDataServiceServer) TabularDataByFilter(ctx context.Context, req *datapb.TabularDataByFilterRequest,
+
+//nolint:deprecated,staticcheck
 ) (*datapb.TabularDataByFilterResponse, error) {
 	filter := req.DataRequest.GetFilter()
 	last := req.DataRequest.GetLast()
 	limit := req.DataRequest.GetLimit()
 
+	//nolint:deprecated,staticcheck
 	var dataset []*datapb.TabularData
 	var dataIndex int
 	var err error
@@ -75,6 +80,7 @@ func (mDServer *mockDataServiceServer) TabularDataByFilter(ctx context.Context, 
 
 		last = fmt.Sprint(dataIndex)
 
+		//nolint:deprecated,staticcheck
 		tabularData := &datapb.TabularData{
 			Data:          data,
 			TimeRequested: timeReq,
@@ -84,6 +90,7 @@ func (mDServer *mockDataServiceServer) TabularDataByFilter(ctx context.Context, 
 	}
 
 	// Construct response
+	//nolint:deprecated,staticcheck
 	resp := &datapb.TabularDataByFilterResponse{
 		Data: dataset,
 		Last: last,

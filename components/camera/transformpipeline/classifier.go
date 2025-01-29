@@ -27,7 +27,7 @@ type classifierConfig struct {
 
 // classifierSource takes an image from the camera, and overlays labels from the classifier.
 type classifierSource struct {
-	src                camera.StreamCamera
+	src                camera.VideoSource
 	classifierName     string
 	maxClassifications uint32
 	labelFilter        classification.Postprocessor
@@ -37,8 +37,8 @@ type classifierSource struct {
 
 func newClassificationsTransform(
 	ctx context.Context,
-	source camera.StreamCamera, r robot.Robot, am utils.AttributeMap,
-) (camera.StreamCamera, camera.ImageType, error) {
+	source camera.VideoSource, r robot.Robot, am utils.AttributeMap,
+) (camera.VideoSource, camera.ImageType, error) {
 	conf, err := resource.TransformAttributeMap[*classifierConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
@@ -110,5 +110,5 @@ func (cs *classifierSource) Read(ctx context.Context) (image.Image, func(), erro
 }
 
 func (cs *classifierSource) Close(ctx context.Context) error {
-	return cs.src.Close(ctx)
+	return nil
 }

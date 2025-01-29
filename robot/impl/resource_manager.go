@@ -18,6 +18,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"golang.org/x/sync/errgroup"
 
+	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/ftdc"
 	"go.viam.com/rdk/logging"
@@ -30,6 +31,7 @@ import (
 	"go.viam.com/rdk/robot/web"
 	"go.viam.com/rdk/services/shell"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils/contextutils"
 )
 
 func init() {
@@ -49,13 +51,14 @@ type resourceManager struct {
 	resources      *resource.Graph
 	processManager pexec.ProcessManager
 	processConfigs map[string]pexec.ProcessConfig
+	// modManagerLock controls access to the moduleManager and prevents a data race.
+	// This may happen if Kill() or Close() is called concurrently with startModuleManager.
+	modManagerLock sync.Mutex
 	moduleManager  modif.ModuleManager
 	opts           resourceManagerOptions
 	logger         logging.Logger
 
-	// resourceGraphLock manages access to the resource graph and nodes. If either may change, this lock should be taken.
-	resourceGraphLock sync.Mutex
-	viz               resource.Visualizer
+	viz resource.Visualizer
 }
 
 type resourceManagerOptions struct {
@@ -126,8 +129,12 @@ func (manager *resourceManager) startModuleManager(
 		ViamHomeDir:             viamHomeDir,
 		RobotCloudID:            robotCloudID,
 		PackagesDir:             packagesDir,
+		FTDC:                    manager.opts.ftdc,
 	}
-	manager.moduleManager = modmanager.NewManager(ctx, parentAddr, logger, mmOpts)
+	modmanager := modmanager.NewManager(ctx, parentAddr, logger, mmOpts)
+	manager.modManagerLock.Lock()
+	manager.moduleManager = modmanager
+	manager.modManagerLock.Unlock()
 }
 
 // addRemote adds a remote to the manager.
@@ -317,9 +324,6 @@ func (manager *resourceManager) updateRemoteResourceNames(
 }
 
 func (manager *resourceManager) updateRemotesResourceNames(ctx context.Context) bool {
-	manager.resourceGraphLock.Lock()
-	defer manager.resourceGraphLock.Unlock()
-
 	anythingChanged := false
 	for _, name := range manager.resources.Names() {
 		gNode, _ := manager.resources.Node(name)
@@ -549,9 +553,7 @@ func (manager *resourceManager) removeMarkedAndClose(
 	ctx context.Context,
 	excludeFromClose map[resource.Name]struct{},
 ) error {
-	manager.resourceGraphLock.Lock()
 	defer func() {
-		defer manager.resourceGraphLock.Unlock()
 		if err := manager.viz.SaveSnapshot(manager.resources); err != nil {
 			manager.logger.Warnw("failed to save graph snapshot", "error", err)
 		}
@@ -585,15 +587,32 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 	if err := manager.removeMarkedAndClose(ctx, excludeWebFromClose); err != nil {
 		allErrs = multierr.Combine(allErrs, err)
 	}
-
+	// take a lock minimally to make a copy of the moduleManager.
+	manager.modManagerLock.Lock()
+	modManager := manager.moduleManager
+	manager.modManagerLock.Unlock()
 	// moduleManager may be nil in tests, and must be closed last, after resources within have been closed properly above
-	if manager.moduleManager != nil {
-		if err := manager.moduleManager.Close(ctx); err != nil {
+	if modManager != nil {
+		if err := modManager.Close(ctx); err != nil {
 			allErrs = multierr.Combine(allErrs, fmt.Errorf("error closing module manager: %w", err))
 		}
 	}
 
 	return allErrs
+}
+
+// Kill attempts to kill all module processes.
+func (manager *resourceManager) Kill() {
+	// TODO(RSDK-9709): Kill processes in processManager as well.
+
+	// take a lock minimally to make a copy of the moduleManager.
+	manager.modManagerLock.Lock()
+	modManager := manager.moduleManager
+	manager.modManagerLock.Unlock()
+	// moduleManager may be nil in tests
+	if modManager != nil {
+		modManager.Kill()
+	}
 }
 
 // completeConfig process the tree in reverse order and attempts to build or reconfigure
@@ -605,12 +624,10 @@ func (manager *resourceManager) completeConfig(
 	lr *localRobot,
 	forceSync bool,
 ) {
-	manager.resourceGraphLock.Lock()
 	defer func() {
 		if err := manager.viz.SaveSnapshot(manager.resources); err != nil {
 			manager.logger.Warnw("failed to save graph snapshot", "error", err)
 		}
-		manager.resourceGraphLock.Unlock()
 	}()
 
 	// first handle remotes since they may reveal unresolved dependencies
@@ -629,6 +646,33 @@ func (manager *resourceManager) completeConfig(
 	levels := manager.resources.ReverseTopologicalSortInLevels()
 	timeout := rutils.GetResourceConfigurationTimeout(manager.logger)
 	for _, resourceNames := range levels {
+		// At the start of every reconfiguration level, check if updateWeakDependents should be run
+		// by checking if the logical clock is higher than the `lastWeakDependentsRound` value.
+		//
+		// This will make sure that weak dependents are updated before they are passed into constructors
+		// or reconfigure methods.
+		//
+		// Resources that depend on weak dependents should expect that the weak dependents pass into the
+		// constructor or reconfigure method will only have been reconfigured with all resources constructed
+		// before their level.
+		for _, resName := range resourceNames {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+			gNode, ok := manager.resources.Node(resName)
+			if !ok || !gNode.NeedsReconfigure() {
+				continue
+			}
+			if !(resName.API.IsComponent() || resName.API.IsService()) {
+				continue
+			}
+
+			if lr.lastWeakDependentsRound.Load() < manager.resources.CurrLogicalClockValue() {
+				lr.updateWeakDependents(ctx)
+			}
+		}
 		// we use an errgroup here instead of a normal waitgroup to conveniently bubble
 		// up errors in resource processing goroutinues that warrant an early exit.
 		var levelErrG errgroup.Group
@@ -638,8 +682,6 @@ func (manager *resourceManager) completeConfig(
 				return
 			default:
 			}
-
-			resName := resName
 			// processResource is intended to be run concurrently for each resource
 			// within a topological sort level. if any processResource function returns a
 			// non-nil error then the entire `completeConfig` function will exit early.
@@ -992,7 +1034,7 @@ func (manager *resourceManager) processResource(
 	}
 
 	resName := conf.ResourceName()
-	deps, err := lr.getDependencies(ctx, resName, gNode)
+	deps, err := lr.getDependencies(resName, gNode)
 	if err != nil {
 		manager.logger.CDebugw(ctx,
 			"failed to get dependencies for existing resource during reconfiguration, closing and removing resource from graph node",
@@ -1086,8 +1128,6 @@ func (manager *resourceManager) updateResources(
 	ctx context.Context,
 	conf *config.Diff,
 ) error {
-	manager.resourceGraphLock.Lock()
-	defer manager.resourceGraphLock.Unlock()
 	var allErrs error
 
 	// modules are not added into the resource tree as they belong to the module manager
@@ -1444,4 +1484,43 @@ func remoteDialOptions(config config.Remote, opts resourceManagerOptions) []rpc.
 		}
 	}
 	return dialOpts
+}
+
+// defaultRemoteMachineStatusTimeout is the default timeout for getting resource statuses from remotes. This prevents
+// remote cycles from preventing this call from finishing.
+var defaultRemoteMachineStatusTimeout = time.Minute
+
+func (manager *resourceManager) getRemoteResourceMetadata(ctx context.Context) map[resource.Name]cloud.Metadata {
+	resourceStatusMap := make(map[resource.Name]cloud.Metadata)
+	for _, resName := range manager.resources.FindNodesByAPI(client.RemoteAPI) {
+		gNode, _ := manager.resources.Node(resName)
+		res, err := gNode.Resource()
+		if err != nil {
+			manager.logger.Debugw("error getting remote machine node", "remote", resName.Name, "err", err)
+			continue
+		}
+		ctx, cancel := contextutils.ContextWithTimeoutIfNoDeadline(ctx, defaultRemoteMachineStatusTimeout)
+		defer cancel()
+		remote := res.(internalRemoteRobot)
+		md, err := remote.CloudMetadata(ctx)
+		if err != nil {
+			manager.logger.Debugw("error getting remote cloud metadata", "remote", resName.Name, "err", err)
+		}
+		resourceStatusMap[resName] = md
+		machineStatus, err := remote.MachineStatus(ctx)
+		if err != nil {
+			manager.logger.Debugw("error getting remote machine status", "remote", resName.Name, "err", err)
+			continue
+		}
+		// Resources come back without their remote name since they are grabbed
+		// from the remote themselves. We need to add that information back.
+		//
+		// Resources on remote may have different cloud metadata from each other, so keep a map of every
+		// resource to cloud metadata pair we come across.
+		for _, remoteResource := range machineStatus.Resources {
+			nameWithRemote := remoteResource.Name.PrependRemote(resName.Name)
+			resourceStatusMap[nameWithRemote] = remoteResource.CloudMetadata
+		}
+	}
+	return resourceStatusMap
 }

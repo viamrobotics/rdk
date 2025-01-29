@@ -4,6 +4,12 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"strings"
+	"time"
+
+	"github.com/pkg/errors"
+	apppb "go.viam.com/api/app/v1"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // samePath returns true if abs(path1) and abs(path2) are the same.
@@ -58,4 +64,50 @@ func ParseFileType(raw string) string {
 		return ""
 	}
 	return fmt.Sprintf("%s/%s", osLookup[rawOs], archLookup[rawArch])
+}
+
+func parseBillingAddress(address string) (*apppb.BillingAddress, error) {
+	if address == "" {
+		return nil, errors.New("address is empty")
+	}
+
+	splitAddress := strings.Split(address, ",")
+	if len(splitAddress) != 4 && len(splitAddress) != 5 {
+		return nil, errors.Errorf("address: %s does not follow the format: line1, line2 (optional), city, state, zipcode", address)
+	}
+
+	if len(splitAddress) == 4 {
+		return &apppb.BillingAddress{
+			AddressLine_1: strings.Trim(splitAddress[0], " "),
+			City:          strings.Trim(splitAddress[1], " "),
+			State:         strings.Trim(splitAddress[2], " "),
+			Zipcode:       strings.Trim(splitAddress[3], " "),
+		}, nil
+	}
+
+	line2 := strings.Trim(splitAddress[1], " ")
+	return &apppb.BillingAddress{
+		AddressLine_1: strings.Trim(splitAddress[0], " "),
+		AddressLine_2: &line2,
+		City:          strings.Trim(splitAddress[2], " "),
+		State:         strings.Trim(splitAddress[3], " "),
+		Zipcode:       strings.Trim(splitAddress[4], " "),
+	}, nil
+}
+
+func parseTimeString(timeStr string) (*timestamppb.Timestamp, error) {
+	if timeStr == "" {
+		return nil, nil
+	}
+
+	t, err := time.Parse(time.RFC3339, timeStr)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not parse time string: %s", timeStr)
+	}
+
+	return timestamppb.New(t), nil
+}
+
+func formatStringForOutput(protoString, prefixToTrim string) string {
+	return strings.ToLower(strings.TrimPrefix(protoString, prefixToTrim))
 }

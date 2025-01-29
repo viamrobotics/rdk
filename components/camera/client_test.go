@@ -5,6 +5,7 @@ import (
 	"context"
 	"image"
 	"image/color"
+	"image/jpeg"
 	"image/png"
 	"net"
 	"testing"
@@ -277,18 +278,6 @@ func TestClient(t *testing.T) {
 
 		injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
 			test.That(t, len(extra), test.ShouldEqual, 1)
-			test.That(t, extra["hello"], test.ShouldEqual, "world")
-			return nil, camera.ImageMetadata{}, errGetImageFailed
-		}
-
-		// one kvp created with map[string]interface{}
-		ext := map[string]interface{}{"hello": "world"}
-		_, _, err = camClient.Image(ctx, "", ext)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
-
-		injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
-			test.That(t, len(extra), test.ShouldEqual, 1)
 			test.That(t, extra[data.FromDMString], test.ShouldBeTrue)
 
 			return nil, camera.ImageMetadata{}, errGetImageFailed
@@ -306,7 +295,7 @@ func TestClient(t *testing.T) {
 		}
 
 		// merge values from data and camera
-		ext = data.FromDMExtraMap
+		ext := data.FromDMExtraMap
 		ext["hello"] = "world"
 		ctx = context.Background()
 		_, _, err = camClient.Image(ctx, "", ext)
@@ -435,7 +424,14 @@ func TestClientLazyImage(t *testing.T) {
 	test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
 	imgPng, err := png.Decode(bytes.NewReader(imgBuf.Bytes()))
 	test.That(t, err, test.ShouldBeNil)
+	var jpegBuf bytes.Buffer
+	test.That(t, jpeg.Encode(&jpegBuf, img, &jpeg.Options{Quality: 100}), test.ShouldBeNil)
+	imgJpeg, err := jpeg.Decode(bytes.NewBuffer(jpegBuf.Bytes()))
+	test.That(t, err, test.ShouldBeNil)
 
+	injectCamera.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{}, nil
+	}
 	injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
 		if mimeType == "" {
 			mimeType = rutils.MimeTypeRawRGBA
@@ -477,7 +473,6 @@ func TestClientLazyImage(t *testing.T) {
 	frameLazy := frame.(*rimage.LazyEncodedImage)
 	test.That(t, frameLazy.RawData(), test.ShouldResemble, imgBuf.Bytes())
 
-	ctx = context.Background()
 	frame, err = camera.DecodeImageFromCamera(ctx, rutils.WithLazyMIMEType(rutils.MimeTypePNG), nil, camera1Client)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, frame, test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
@@ -489,6 +484,24 @@ func TestClientLazyImage(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
 
+	// when DecodeImageFromCamera is called without a mime type, defaults to JPEG
+	var called bool
+	injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
+		called = true
+		test.That(t, mimeType, test.ShouldResemble, rutils.WithLazyMIMEType(rutils.MimeTypeJPEG))
+		resBytes, err := rimage.EncodeImage(ctx, imgPng, mimeType)
+		test.That(t, err, test.ShouldBeNil)
+		return resBytes, camera.ImageMetadata{MimeType: mimeType}, nil
+	}
+	frame, err = camera.DecodeImageFromCamera(ctx, "", nil, camera1Client)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, frame, test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
+	frameLazy = frame.(*rimage.LazyEncodedImage)
+	test.That(t, frameLazy.MIMEType(), test.ShouldEqual, rutils.MimeTypeJPEG)
+	compVal, _, err = rimage.CompareImages(imgJpeg, frame)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
+	test.That(t, called, test.ShouldBeTrue)
 	test.That(t, conn.Close(), test.ShouldBeNil)
 }
 

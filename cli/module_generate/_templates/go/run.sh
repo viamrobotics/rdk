@@ -6,7 +6,7 @@ export PATH=$PATH:$(go env GOPATH)/bin
 
 
 echo "Downloading necessary go packages..."
-if ! ( 
+if ! (
     go get go.viam.com/rdk@latest  > /dev/null 2>&1
     go get golang.org/x/tools/cmd/goimports@latest  > /dev/null 2>&1
     gofmt -w -s .

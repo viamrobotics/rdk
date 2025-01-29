@@ -19,14 +19,17 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/cli/module_generate/common"
+	"go.viam.com/rdk/cli/module_generate/modulegen"
 )
 
 //go:embed tmpl-module
 var goTmpl string
 
+// typePrefixes lists possible prefixes before function parameter and return types.
+var typePrefixes = []string{"*", "[]*", "[]", "chan "}
+
 // getClientCode grabs client.go code of component type.
-func getClientCode(module common.ModuleInputs) (string, error) {
+func getClientCode(module modulegen.ModuleInputs) (string, error) {
 	url := fmt.Sprintf("https://raw.githubusercontent.com/viamrobotics/rdk/refs/tags/v%s/%ss/%s/client.go",
 		module.SDKVersion, module.ResourceType, module.ResourceSubtype)
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
@@ -53,8 +56,8 @@ func getClientCode(module common.ModuleInputs) (string, error) {
 }
 
 // setGoModuleTemplate sets the imports and functions for the go method stubs.
-func setGoModuleTemplate(clientCode string, module common.ModuleInputs) (*common.GoModuleTmpl, error) {
-	var goTmplInputs common.GoModuleTmpl
+func setGoModuleTemplate(clientCode string, module modulegen.ModuleInputs) (*modulegen.GoModuleTmpl, error) {
+	var goTmplInputs modulegen.GoModuleTmpl
 
 	if module.ResourceSubtype == "input" {
 		module.ResourceSubtypePascal = "Controller"
@@ -90,7 +93,6 @@ func setGoModuleTemplate(clientCode string, module common.ModuleInputs) (*common
 		if funcDecl, ok := n.(*ast.FuncDecl); ok {
 			name, receiver, args, returns := parseFunctionSignature(
 				module.ResourceSubtype,
-				module.ResourceSubtypePascal,
 				module.ModuleCamel+module.ModelPascal,
 				funcDecl,
 			)
@@ -118,28 +120,41 @@ func setGoModuleTemplate(clientCode string, module common.ModuleInputs) (*common
 	return &goTmplInputs, nil
 }
 
-// formatType outputs typeExpr as readable string.
-func formatType(typeExpr ast.Expr) string {
+// formatType formats typeExpr as readable string with correct attribution if applicable.
+func formatType(typeExpr ast.Expr, resourceSubtype string) string {
 	var buf bytes.Buffer
 	err := printer.Fprint(&buf, token.NewFileSet(), typeExpr)
 	if err != nil {
 		return fmt.Sprintf("Error formatting type: %v", err)
 	}
-	return buf.String()
-}
+	typeString := buf.String()
 
-func handleMapType(str, resourceSubtype string) string {
-	endStr := strings.Index(str, "]")
-	keyType := strings.TrimSpace(str[4:endStr])
-	valueType := strings.TrimSpace(str[endStr+1:])
-	if unicode.IsUpper(rune(keyType[0])) {
-		keyType = fmt.Sprintf("%s.%s", resourceSubtype, keyType)
+	// checkUpper adds "<resourceSubtype>." to the type if type is capitalized after prefix.
+	checkUpper := func(str, prefix string) string {
+		prefixLen := len(prefix)
+		if unicode.IsUpper(rune(str[prefixLen])) {
+			return fmt.Sprintf("%s%s.%s", prefix, resourceSubtype, str[prefixLen:])
+		}
+		return str
 	}
-	if unicode.IsUpper(rune(valueType[0])) {
-		valueType = fmt.Sprintf("%s.%s", resourceSubtype, valueType)
+	for _, prefix := range typePrefixes {
+		if strings.HasPrefix(typeString, prefix) {
+			return checkUpper(typeString, prefix)
+		}
 	}
-
-	return fmt.Sprintf("map[%s]%s", keyType, valueType)
+	if strings.HasPrefix(typeString, "map[") {
+		endStr := strings.Index(typeString, "]")
+		keyType := strings.TrimSpace(typeString[4:endStr])
+		valueType := strings.TrimSpace(typeString[endStr+1:])
+		if unicode.IsUpper(rune(keyType[0])) {
+			keyType = checkUpper(keyType, "")
+		}
+		if unicode.IsUpper(rune(valueType[0])) {
+			valueType = checkUpper(valueType, "")
+		}
+		return fmt.Sprintf("map[%s]%s", keyType, valueType)
+	}
+	return checkUpper(typeString, "")
 }
 
 func formatStruct(typeSpec *ast.TypeSpec, modelType string) string {
@@ -153,8 +168,7 @@ func formatStruct(typeSpec *ast.TypeSpec, modelType string) string {
 
 // parseFunctionSignature parses function declarations into the function name, the arguments, and the return types.
 func parseFunctionSignature(
-	resourceSubtype,
-	resourceSubtypePascal string,
+	resourceSubtype string,
 	modelType string,
 	funcDecl *ast.FuncDecl,
 ) (name, receiver, args string, returns []string) {
@@ -188,20 +202,7 @@ func parseFunctionSignature(
 	var params []string
 	if funcDecl.Type.Params != nil {
 		for _, param := range funcDecl.Type.Params.List {
-			paramType := formatType(param.Type)
-
-			// Check if `paramType` is a type that is capitalized.
-			// If so, attribute the type to <resourceSubtype>.
-			switch {
-			case unicode.IsUpper(rune(paramType[0])):
-				paramType = fmt.Sprintf("%s.%s", resourceSubtype, paramType)
-			// IF `paramType` has a prefix, check if type is capitalized after prefix.
-			case strings.HasPrefix(paramType, "[]") && unicode.IsUpper(rune(paramType[2])):
-				paramType = fmt.Sprintf("[]%s.%s", resourceSubtype, paramType[2:])
-			case strings.HasPrefix(paramType, "chan ") && unicode.IsUpper(rune(paramType[5])):
-				paramType = fmt.Sprintf("chan %s.%s", resourceSubtype, paramType[5:])
-			}
-
+			paramType := formatType(param.Type, resourceSubtype)
 			for _, name := range param.Names {
 				params = append(params, name.Name+" "+paramType)
 			}
@@ -211,32 +212,7 @@ func parseFunctionSignature(
 	// Return types
 	if funcDecl.Type.Results != nil {
 		for _, result := range funcDecl.Type.Results.List {
-			str := formatType(result.Type)
-			isPointer := false
-			isMapPointer := false
-			if str[0] == '*' {
-				str = str[1:]
-				isPointer = true
-			} else if str[2] == '*' {
-				str = str[3:]
-				isMapPointer = true
-			}
-
-			switch {
-			case strings.HasPrefix(str, "map["):
-				str = handleMapType(str, resourceSubtype)
-			case unicode.IsUpper(rune(str[0])):
-				str = fmt.Sprintf("%s.%s", resourceSubtype, str)
-			case strings.HasPrefix(str, "[]") && unicode.IsUpper(rune(str[2])):
-				str = fmt.Sprintf("[]%s.%s", resourceSubtype, str[2:])
-			case str == resourceSubtypePascal:
-				str = fmt.Sprintf("%s.%s", resourceSubtype, resourceSubtypePascal)
-			}
-			if isPointer {
-				str = fmt.Sprintf("*%s", str)
-			} else if isMapPointer {
-				str = fmt.Sprintf("[]*%s", str)
-			}
+			str := formatType(result.Type, resourceSubtype)
 			// fixing vision service package imports
 			if strings.Contains(str, "vision.Object") {
 				str = strings.ReplaceAll(str, "vision.Object", "vis.Object")
@@ -265,7 +241,7 @@ func formatEmptyFunction(receiver, funcName, args string, returns []string) stri
 }
 
 // RenderGoTemplates outputs the method stubs for created module.
-func RenderGoTemplates(module common.ModuleInputs) ([]byte, error) {
+func RenderGoTemplates(module modulegen.ModuleInputs) ([]byte, error) {
 	clientCode, err := getClientCode(module)
 	var empty []byte
 	if err != nil {

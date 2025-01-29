@@ -43,12 +43,6 @@ type (
 		logger logging.Logger,
 	) (ResourceT, error)
 
-	// CreateStatus creates a status from a given resource. The return type is expected to be comprised of string keys
-	// (or it should be possible to decompose it into string keys) and values comprised of primitives, list of primitives,
-	// maps with string keys (or at least can be decomposed into one), or lists of the aforementioned type of maps.
-	// Results with other types of data are not guaranteed.
-	CreateStatus[ResourceT Resource] func(ctx context.Context, res ResourceT) (interface{}, error)
-
 	// A CreateRPCClient will create the client for the resource.
 	CreateRPCClient[ResourceT Resource] func(
 		ctx context.Context,
@@ -144,7 +138,6 @@ func (r Registration[ResourceT, ConfigT]) ConfigReflectType() reflect.Type {
 
 // APIRegistration stores api-specific functions and clients.
 type APIRegistration[ResourceT Resource] struct {
-	Status                      CreateStatus[ResourceT]
 	RPCServiceServerConstructor func(apiColl APIResourceCollection[ResourceT]) interface{}
 	RPCServiceHandler           rpc.RegisterServiceHandlerFromEndpointFunc
 	RPCServiceDesc              *grpc.ServiceDesc
@@ -487,15 +480,7 @@ func makeGenericAPIRegistration[ResourceT Resource](
 			return genericSubypeCollection[ResourceT]{NewEmptyAPIResourceCollection[ResourceT](api)}
 		},
 	}
-	if typed.Status != nil {
-		reg.Status = func(ctx context.Context, res Resource) (interface{}, error) {
-			typedRes, err := AsType[ResourceT](res)
-			if err != nil {
-				return nil, err
-			}
-			return typed.Status(ctx, typedRes)
-		}
-	}
+
 	if typed.RPCServiceServerConstructor != nil {
 		reg.RPCServiceServerConstructor = func(
 			coll APIResourceCollection[Resource],

@@ -21,6 +21,9 @@ const World = "world"
 // defaultPointDensity ensures we use the default value specified within the spatialmath package.
 const defaultPointDensity = 0.
 
+// FrameSystemPoses is an alias for a mapping of frame names to PoseInFrame.
+type FrameSystemPoses map[string]*PoseInFrame
+
 // FrameSystem represents a tree of frames connected to each other, allowing for transformations between any two frames.
 type FrameSystem interface {
 	// Name returns the name of this FrameSystem
@@ -50,7 +53,7 @@ type FrameSystem interface {
 
 	// Transform takes in a Transformable object and destination frame, and returns the pose from the first to the second. Positions
 	// is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
-	Transform(positions map[string][]Input, object Transformable, dst string) (Transformable, error)
+	Transform(inputs FrameSystemInputs, object Transformable, dst string) (Transformable, error)
 
 	// FrameSystemSubset will take a frame system and a frame in that system, and return a new frame system rooted
 	// at the given frame and containing all descendents of it. The original frame system is unchanged.
@@ -246,7 +249,7 @@ func (sfs *simpleFrameSystem) AddFrame(frame, parent Frame) error {
 
 // Transform takes in a Transformable object and destination frame, and returns the pose from the first to the second. Positions
 // is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
-func (sfs *simpleFrameSystem) Transform(positions map[string][]Input, object Transformable, dst string) (Transformable, error) {
+func (sfs *simpleFrameSystem) Transform(inputs FrameSystemInputs, object Transformable, dst string) (Transformable, error) {
 	src := object.Parent()
 	if src == dst {
 		return object, nil
@@ -267,9 +270,9 @@ func (sfs *simpleFrameSystem) Transform(positions map[string][]Input, object Tra
 		// A frame is assigned a pose and a geometry and the two are not coupled together. This way you do can define everything relative
 		// to the parent frame. So geometries are tied to the frame they are assigned to but we do not want to actually transform them
 		// along the final transformation.
-		tfParent, err = sfs.transformFromParent(positions, sfs.parents[srcFrame], sfs.Frame(dst))
+		tfParent, err = sfs.transformFromParent(inputs, sfs.parents[srcFrame], sfs.Frame(dst))
 	} else {
-		tfParent, err = sfs.transformFromParent(positions, srcFrame, sfs.Frame(dst))
+		tfParent, err = sfs.transformFromParent(inputs, srcFrame, sfs.Frame(dst))
 	}
 	if err != nil {
 		return nil, err
@@ -386,7 +389,7 @@ func (sfs *simpleFrameSystem) DivideFrameSystem(newRoot Frame) (FrameSystem, err
 	return newFS, nil
 }
 
-func (sfs *simpleFrameSystem) getFrameToWorldTransform(inputMap map[string][]Input, src Frame) (spatial.Pose, error) {
+func (sfs *simpleFrameSystem) getFrameToWorldTransform(inputMap FrameSystemInputs, src Frame) (spatial.Pose, error) {
 	if !sfs.frameExists(src.Name()) {
 		return nil, NewFrameMissingError(src.Name())
 	}
@@ -437,7 +440,7 @@ func (sfs *simpleFrameSystem) ReplaceFrame(replacementFrame Frame) error {
 }
 
 // Returns the relative pose between the parent and the destination frame.
-func (sfs *simpleFrameSystem) transformFromParent(inputMap map[string][]Input, src, dst Frame) (*PoseInFrame, error) {
+func (sfs *simpleFrameSystem) transformFromParent(inputMap FrameSystemInputs, src, dst Frame) (*PoseInFrame, error) {
 	// catch all errors together to allow for hypothetical calculations that result in errors
 	var errAll error
 	dstToWorld, err := sfs.getFrameToWorldTransform(inputMap, dst)
@@ -453,12 +456,16 @@ func (sfs *simpleFrameSystem) transformFromParent(inputMap map[string][]Input, s
 }
 
 // compose the quaternions from the input frame to the world referenceframe.
-func (sfs *simpleFrameSystem) composeTransforms(frame Frame, inputMap map[string][]Input) (spatial.Pose, error) {
+func (sfs *simpleFrameSystem) composeTransforms(frame Frame, inputMap FrameSystemInputs) (spatial.Pose, error) {
 	q := spatial.NewZeroPose() // empty initial dualquat
 	var errAll error
 	for sfs.parents[frame] != nil { // stop once you reach world node
 		// Transform() gives FROM q TO parent. Add new transforms to the left.
-		pose, err := poseFromPositions(frame, inputMap)
+		inputs, err := inputMap.GetFrameInputs(frame)
+		if err != nil {
+			return nil, err
+		}
+		pose, err := frame.Transform(inputs)
 		if err != nil && pose == nil {
 			return nil, err
 		}
@@ -469,9 +476,9 @@ func (sfs *simpleFrameSystem) composeTransforms(frame Frame, inputMap map[string
 	return q, errAll
 }
 
-// StartPositions returns a zeroed input map ensuring all frames have inputs.
-func StartPositions(fs FrameSystem) map[string][]Input {
-	positions := make(map[string][]Input)
+// NewZeroInputs returns a zeroed input map ensuring all frames have inputs.
+func NewZeroInputs(fs FrameSystem) FrameSystemInputs {
+	positions := make(FrameSystemInputs)
 	for _, fn := range fs.FrameNames() {
 		frame := fs.Frame(fn)
 		if frame != nil {
@@ -481,9 +488,33 @@ func StartPositions(fs FrameSystem) map[string][]Input {
 	return positions
 }
 
+// InterpolateFS interpolates.
+func InterpolateFS(fs FrameSystem, from, to FrameSystemInputs, by float64) (FrameSystemInputs, error) {
+	interp := make(FrameSystemInputs)
+	for fn, fromInputs := range from {
+		if len(fromInputs) == 0 {
+			continue
+		}
+		frame := fs.Frame(fn)
+		if frame == nil {
+			return nil, NewFrameMissingError(fn)
+		}
+		toInputs, ok := to[fn]
+		if !ok {
+			return nil, fmt.Errorf("frame with name %s not found in `to` interpolation inputs", fn)
+		}
+		interpInputs, err := frame.Interpolate(fromInputs, toInputs, by)
+		if err != nil {
+			return nil, err
+		}
+		interp[fn] = interpInputs
+	}
+	return interp, nil
+}
+
 // FrameSystemToPCD takes in a framesystem and returns a map where all elements are
 // the point representation of their geometry type with respect to the world.
-func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input, logger logging.Logger) (map[string][]r3.Vector, error) {
+func FrameSystemToPCD(system FrameSystem, inputs FrameSystemInputs, logger logging.Logger) (map[string][]r3.Vector, error) {
 	vectorMap := make(map[string][]r3.Vector)
 	geometriesInWorldFrame, err := FrameSystemGeometries(system, inputs)
 	if err != nil {
@@ -498,12 +529,12 @@ func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input, logger logg
 }
 
 // FrameSystemGeometries takes in a framesystem and returns a map where all elements are GeometriesInFrames with a World reference frame.
-func FrameSystemGeometries(fs FrameSystem, inputMap map[string][]Input) (map[string]*GeometriesInFrame, error) {
+func FrameSystemGeometries(fs FrameSystem, inputMap FrameSystemInputs) (map[string]*GeometriesInFrame, error) {
 	var errAll error
 	allGeometries := make(map[string]*GeometriesInFrame, 0)
 	for _, name := range fs.FrameNames() {
 		frame := fs.Frame(name)
-		inputs, err := GetFrameInputs(frame, inputMap)
+		inputs, err := inputMap.GetFrameInputs(frame)
 		if err != nil {
 			errAll = multierr.Append(errAll, err)
 			continue
@@ -703,12 +734,4 @@ func TopologicallySortParts(parts []*FrameSystemPart) ([]*FrameSystemPart, error
 		}
 	}
 	return topoSortedParts, nil
-}
-
-func poseFromPositions(frame Frame, positions map[string][]Input) (spatial.Pose, error) {
-	inputs, err := GetFrameInputs(frame, positions)
-	if err != nil {
-		return nil, err
-	}
-	return frame.Transform(inputs)
 }

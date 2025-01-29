@@ -19,7 +19,6 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/testutils"
 
-	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -3319,73 +3318,6 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 			motion.Named(resource.DefaultServiceName),
 		},
 	)
-}
-
-// TODO(RSDK-8055): we can remove this test once we stop using the status service
-// entirely.
-func TestStatusServiceUpdate(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-
-	emptyCfg := &config.Config{}
-	cfg, cfgErr := config.Read(context.Background(), "data/fake.json", logger)
-	test.That(t, cfgErr, test.ShouldBeNil)
-
-	resourceNames := []resource.Name{
-		movementsensor.Named("movement_sensor1"),
-		movementsensor.Named("movement_sensor2"),
-	}
-	expected := map[resource.Name]interface{}{
-		movementsensor.Named("movement_sensor1"): map[string]interface{}{},
-		movementsensor.Named("movement_sensor2"): map[string]interface{}{},
-	}
-
-	t.Run("empty to not empty", func(t *testing.T) {
-		robot := setupLocalRobot(t, context.Background(), emptyCfg, logger)
-
-		_, err := robot.Status(context.Background(), resourceNames)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
-
-		robot.Reconfigure(context.Background(), cfg)
-
-		statuses, err := robot.Status(context.Background(), resourceNames)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(statuses), test.ShouldEqual, 2)
-		test.That(t, statuses[0].Status, test.ShouldResemble, expected[statuses[0].Name])
-		test.That(t, statuses[1].Status, test.ShouldResemble, expected[statuses[1].Name])
-	})
-
-	t.Run("not empty to empty", func(t *testing.T) {
-		robot := setupLocalRobot(t, context.Background(), cfg, logger)
-
-		statuses, err := robot.Status(context.Background(), resourceNames)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(statuses), test.ShouldEqual, 2)
-		test.That(t, statuses[0].Status, test.ShouldResemble, expected[statuses[0].Name])
-		test.That(t, statuses[1].Status, test.ShouldResemble, expected[statuses[1].Name])
-
-		robot.Reconfigure(context.Background(), emptyCfg)
-
-		_, err = robot.Status(context.Background(), resourceNames)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
-	})
-
-	t.Run("no change", func(t *testing.T) {
-		robot := setupLocalRobot(t, context.Background(), cfg, logger)
-
-		statuses, err := robot.Status(context.Background(), resourceNames)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(statuses), test.ShouldEqual, 2)
-		test.That(t, statuses[0].Status, test.ShouldResemble, expected[statuses[0].Name])
-		test.That(t, statuses[1].Status, test.ShouldResemble, expected[statuses[1].Name])
-
-		robot.Reconfigure(context.Background(), cfg)
-
-		statuses, err = robot.Status(context.Background(), resourceNames)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(statuses), test.ShouldEqual, 2)
-		test.That(t, statuses[0].Status, test.ShouldResemble, expected[statuses[0].Name])
-		test.That(t, statuses[1].Status, test.ShouldResemble, expected[statuses[1].Name])
-	})
 }
 
 func TestReconfigureModelRebuild(t *testing.T) {

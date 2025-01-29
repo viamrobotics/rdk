@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/geo/r3"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
@@ -344,7 +345,7 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 						ctx context.Context,
 						extra map[string]interface{},
 					) (spatialmath.Pose, error) {
-						return spatialmath.NewZeroPose(), nil
+						return spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3}), nil
 					},
 				},
 			})

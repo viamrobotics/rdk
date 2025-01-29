@@ -7,7 +7,6 @@ package gripper
 import (
 	"context"
 
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/gripper/v1"
 
 	"go.viam.com/rdk/referenceframe"
@@ -17,7 +16,6 @@ import (
 
 func init() {
 	resource.RegisterAPI(API, resource.APIRegistration[Gripper]{
-		Status:                      resource.StatusFunc(CreateStatus),
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterGripperServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.GripperService_ServiceDesc,
@@ -46,6 +44,8 @@ func Named(name string) resource.Name {
 //	// Open the gripper.
 //	err := myGripper.Open(context.Background(), nil)
 //
+// For more information, see the [Open method docs].
+//
 // Grab example:
 //
 //	myGripper, err := gripper.FromRobot(machine, "my_gripper")
@@ -53,7 +53,11 @@ func Named(name string) resource.Name {
 //	// Grab with the gripper.
 //	grabbed, err := myGripper.Grab(context.Background(), nil)
 //
-// [gripper component docs]: https://docs.viam.com/components/gripper/
+// For more information, see the [Grab method docs].
+//
+// [gripper component docs]: https://docs.viam.com/dev/reference/apis/components/gripper/
+// [Open method docs]: https://docs.viam.com/dev/reference/apis/components/gripper/#open
+// [Grab method docs]: https://docs.viam.com/dev/reference/apis/components/gripper/#grab
 type Gripper interface {
 	resource.Resource
 	resource.Shaped
@@ -75,16 +79,13 @@ func FromRobot(r robot.Robot, name string) (Gripper, error) {
 	return robot.ResourceFromRobot[Gripper](r, Named(name))
 }
 
+// FromDependencies is a helper for getting the named gripper from a collection of
+// dependencies.
+func FromDependencies(deps resource.Dependencies, name string) (Gripper, error) {
+	return resource.FromDependencies[Gripper](deps, Named(name))
+}
+
 // NamesFromRobot is a helper for getting all gripper names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
-}
-
-// CreateStatus creates a status from the gripper.
-func CreateStatus(ctx context.Context, g Gripper) (*commonpb.ActuatorStatus, error) {
-	isMoving, err := g.IsMoving(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &commonpb.ActuatorStatus{IsMoving: isMoving}, nil
 }

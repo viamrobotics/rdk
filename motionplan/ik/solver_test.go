@@ -23,9 +23,9 @@ var (
 
 func TestCombinedIKinematics(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	ik, err := CreateCombinedIKFrameSolver(m, logger, nCPU, defaultGoalThreshold)
+	ik, err := CreateCombinedIKSolver(m.DoF(), logger, nCPU, defaultGoalThreshold)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test ability to arrive at another position
@@ -52,7 +52,7 @@ func TestUR5NloptIKinematics(t *testing.T) {
 
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	ik, err := CreateCombinedIKFrameSolver(m, logger, nCPU, defaultGoalThreshold)
+	ik, err := CreateCombinedIKSolver(m.DoF(), logger, nCPU, defaultGoalThreshold)
 	test.That(t, err, test.ShouldBeNil)
 
 	goalJP := frame.JointPositionsFromRadians([]float64{-4.128, 2.71, 2.798, 2.3, 1.291, 0.62})
@@ -65,9 +65,9 @@ func TestUR5NloptIKinematics(t *testing.T) {
 
 func TestCombinedCPUs(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm7_kinematics_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	ik, err := CreateCombinedIKFrameSolver(m, logger, runtime.NumCPU()/400000, defaultGoalThreshold)
+	ik, err := CreateCombinedIKSolver(m.DoF(), logger, runtime.NumCPU()/400000, defaultGoalThreshold)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(ik.(*combinedIK).solvers), test.ShouldEqual, 1)
 }

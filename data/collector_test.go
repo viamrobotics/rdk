@@ -21,14 +21,29 @@ import (
 )
 
 var (
-	structCapturer = CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+	dummyTime      = time.Date(2024, time.January, 10, 23, 0, 0, 0, time.UTC)
+	structCapturer = CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (CaptureResult, error) {
 		return dummyStructReading, nil
 	})
-	binaryCapturer = CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
-		return dummyBytesReading, nil
+	binaryCapturer = CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (CaptureResult, error) {
+		return CaptureResult{
+			Timestamps: Timestamps{
+				TimeRequested: dummyTime,
+				TimeReceived:  dummyTime.Add(time.Second),
+			},
+			Type:     CaptureTypeBinary,
+			Binaries: []Binary{{Payload: dummyBytesReading}},
+		}, nil
 	})
-	dummyStructReading      = structReading{}
-	dummyStructReadingProto = dummyStructReading.toProto()
+	dummyStructReading = CaptureResult{
+		Timestamps: Timestamps{
+			TimeRequested: dummyTime,
+			TimeReceived:  dummyTime.Add(time.Second),
+		},
+		Type:        CaptureTypeTabular,
+		TabularData: TabularData{dummyStructReadingProto},
+	}
+	dummyStructReadingProto = structReading{}.toProto()
 	dummyBytesReading       = []byte("I sure am bytes")
 	queueSize               = 250
 	bufferSize              = 4096
@@ -44,13 +59,24 @@ func TestNewCollector(t *testing.T) {
 
 	// If not missing parameters, should not return an error.
 	c2, err2 := NewCollector(nil, CollectorParams{
+		DataType:      CaptureTypeTabular,
 		ComponentName: "name",
 		Logger:        logging.NewTestLogger(t),
 		Target:        NewCaptureBuffer("dir", nil, 50),
 	})
 
-	test.That(t, c2, test.ShouldNotBeNil)
 	test.That(t, err2, test.ShouldBeNil)
+	test.That(t, c2, test.ShouldNotBeNil)
+
+	c3, err3 := NewCollector(nil, CollectorParams{
+		DataType:      CaptureTypeBinary,
+		ComponentName: "name",
+		Logger:        logging.NewTestLogger(t),
+		Target:        NewCaptureBuffer("dir", nil, 50),
+	})
+
+	test.That(t, err3, test.ShouldBeNil)
+	test.That(t, c3, test.ShouldNotBeNil)
 }
 
 // Test that the Collector correctly writes the SensorData on an interval.
@@ -73,6 +99,7 @@ func TestSuccessfulWrite(t *testing.T) {
 		interval       time.Duration
 		expectReadings int
 		expFiles       int
+		datatype       CaptureType
 	}{
 		{
 			name:           "Ticker based struct writer.",
@@ -80,6 +107,7 @@ func TestSuccessfulWrite(t *testing.T) {
 			interval:       tickerInterval,
 			expectReadings: 2,
 			expFiles:       1,
+			datatype:       CaptureTypeTabular,
 		},
 		{
 			name:           "Sleep based struct writer.",
@@ -87,6 +115,7 @@ func TestSuccessfulWrite(t *testing.T) {
 			interval:       sleepInterval,
 			expectReadings: 2,
 			expFiles:       1,
+			datatype:       CaptureTypeTabular,
 		},
 		{
 			name:           "Ticker based binary writer.",
@@ -94,6 +123,7 @@ func TestSuccessfulWrite(t *testing.T) {
 			interval:       tickerInterval,
 			expectReadings: 2,
 			expFiles:       2,
+			datatype:       CaptureTypeBinary,
 		},
 		{
 			name:           "Sleep based binary writer.",
@@ -101,6 +131,7 @@ func TestSuccessfulWrite(t *testing.T) {
 			interval:       sleepInterval,
 			expectReadings: 2,
 			expFiles:       2,
+			datatype:       CaptureTypeBinary,
 		},
 	}
 
@@ -109,19 +140,13 @@ func TestSuccessfulWrite(t *testing.T) {
 			ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
 			defer cancel()
 			tmpDir := t.TempDir()
-			md := v1.DataCaptureMetadata{}
-			tgt := NewCaptureBuffer(tmpDir, &md, 50)
-			test.That(t, tgt, test.ShouldNotBeNil)
-			wrote := make(chan struct{})
-			target := &signalingBuffer{
-				bw:    tgt,
-				wrote: wrote,
-			}
+			target := newSignalingBuffer(ctx, tmpDir)
 
 			mockClock := clock.NewMock()
 			params.Interval = tc.interval
 			params.Target = target
 			params.Clock = mockClock
+			params.DataType = tc.datatype
 			c, err := NewCollector(tc.captureFunc, params)
 			test.That(t, err, test.ShouldBeNil)
 			c.Collect()
@@ -136,10 +161,9 @@ func TestSuccessfulWrite(t *testing.T) {
 				select {
 				case <-ctx.Done():
 					t.Fatalf("timed out waiting for data to be written")
-				case <-wrote:
+				case <-target.wrote:
 				}
 			}
-			close(wrote)
 
 			// If it's a sleep based collector, we need to move the clock forward one more time after calling Close.
 			// Otherwise, it will stay asleep indefinitely and Close will block forever.
@@ -158,7 +182,7 @@ func TestSuccessfulWrite(t *testing.T) {
 							return
 						default:
 							time.Sleep(time.Millisecond * 1)
-							mockClock.Add(tc.interval)
+							mockClock.Add(params.Interval)
 						}
 					}
 				}()
@@ -184,18 +208,15 @@ func TestSuccessfulWrite(t *testing.T) {
 func TestClose(t *testing.T) {
 	// Set up a collector.
 	l := logging.NewTestLogger(t)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
 	tmpDir := t.TempDir()
-	md := v1.DataCaptureMetadata{}
-	buf := NewCaptureBuffer(tmpDir, &md, 50)
-	wrote := make(chan struct{})
-	target := &signalingBuffer{
-		bw:    buf,
-		wrote: wrote,
-	}
 	mockClock := clock.NewMock()
+	target := newSignalingBuffer(ctx, tmpDir)
 	interval := time.Millisecond * 5
 
 	params := CollectorParams{
+		DataType:      CaptureTypeTabular,
 		ComponentName: "testComponent",
 		Interval:      interval,
 		MethodParams:  map[string]*anypb.Any{"name": fakeVal},
@@ -205,17 +226,18 @@ func TestClose(t *testing.T) {
 		Logger:        l,
 		Clock:         mockClock,
 	}
-	c, _ := NewCollector(structCapturer, params)
+	c, err := NewCollector(structCapturer, params)
+	test.That(t, err, test.ShouldBeNil)
 
 	// Start collecting, and validate it is writing.
 	c.Collect()
 	mockClock.Add(interval)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*10)
+	ctx, cancel = context.WithTimeout(context.Background(), time.Millisecond*10)
 	defer cancel()
 	select {
 	case <-ctx.Done():
 		t.Fatalf("timed out waiting for data to be written")
-	case <-wrote:
+	case <-target.wrote:
 	}
 
 	// Close and validate no additional writes occur even after an additional interval.
@@ -225,7 +247,7 @@ func TestClose(t *testing.T) {
 	defer cancel()
 	select {
 	case <-ctx.Done():
-	case <-wrote:
+	case <-target.wrote:
 		t.Fatalf("unexpected write after close")
 	}
 }
@@ -238,10 +260,11 @@ func TestCtxCancelledNotLoggedAfterClose(t *testing.T) {
 	tmpDir := t.TempDir()
 	target := NewCaptureBuffer(tmpDir, &v1.DataCaptureMetadata{}, 50)
 	captured := make(chan struct{})
-	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (CaptureResult, error) {
+		var res CaptureResult
 		select {
 		case <-ctx.Done():
-			return nil, fmt.Errorf("arbitrary wrapping message: %w", ctx.Err())
+			return res, fmt.Errorf("arbitrary wrapping message: %w", ctx.Err())
 		case captured <- struct{}{}:
 		}
 		return dummyStructReading, nil
@@ -249,6 +272,7 @@ func TestCtxCancelledNotLoggedAfterClose(t *testing.T) {
 
 	params := CollectorParams{
 		ComponentName: "testComponent",
+		DataType:      CaptureTypeTabular,
 		Interval:      time.Millisecond,
 		MethodParams:  map[string]*anypb.Any{"name": fakeVal},
 		Target:        target,
@@ -256,7 +280,8 @@ func TestCtxCancelledNotLoggedAfterClose(t *testing.T) {
 		BufferSize:    bufferSize,
 		Logger:        logger,
 	}
-	c, _ := NewCollector(errorCapturer, params)
+	c, err := NewCollector(errorCapturer, params)
+	test.That(t, err, test.ShouldBeNil)
 	c.Collect()
 	<-captured
 	c.Close()
@@ -274,20 +299,18 @@ func TestLogErrorsOnlyOnce(t *testing.T) {
 	// Set up a collector.
 	logger, logs := logging.NewObservedTestLogger(t)
 	tmpDir := t.TempDir()
-	md := v1.DataCaptureMetadata{}
-	buf := NewCaptureBuffer(tmpDir, &md, 50)
-	wrote := make(chan struct{})
-	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
-		return nil, errors.New("I am an error")
+	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (CaptureResult, error) {
+		return CaptureResult{}, errors.New("I am an error")
 	})
-	target := &signalingBuffer{
-		bw:    buf,
-		wrote: wrote,
-	}
-	mockClock := clock.NewMock()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	target := newSignalingBuffer(ctx, tmpDir)
 	interval := time.Millisecond * 5
 
+	mockClock := clock.NewMock()
+
 	params := CollectorParams{
+		DataType:      CaptureTypeTabular,
 		ComponentName: "testComponent",
 		Interval:      interval,
 		MethodParams:  map[string]*anypb.Any{"name": fakeVal},
@@ -297,13 +320,13 @@ func TestLogErrorsOnlyOnce(t *testing.T) {
 		Logger:        logger,
 		Clock:         mockClock,
 	}
-	c, _ := NewCollector(errorCapturer, params)
+	c, err := NewCollector(errorCapturer, params)
+	test.That(t, err, test.ShouldBeNil)
 
 	// Start collecting, and validate it is writing.
 	c.Collect()
 	mockClock.Add(interval * 5)
 
-	close(wrote)
 	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 1)
 	mockClock.Add(3 * time.Second)
 	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 2)
@@ -324,10 +347,10 @@ func validateReadings(t *testing.T, act []*v1.SensorData, n int) {
 	}
 }
 
-//nolint
 func getAllFiles(dir string) []os.FileInfo {
 	var files []os.FileInfo
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		//nolint:nilerr
 		if err != nil {
 			return nil
 		}
@@ -340,14 +363,36 @@ func getAllFiles(dir string) []os.FileInfo {
 	return files
 }
 
+func newSignalingBuffer(ctx context.Context, path string) *signalingBuffer {
+	md := v1.DataCaptureMetadata{}
+	return &signalingBuffer{
+		ctx:   ctx,
+		bw:    NewCaptureBuffer(path, &md, 50),
+		wrote: make(chan struct{}),
+	}
+}
+
 type signalingBuffer struct {
+	ctx   context.Context
 	bw    CaptureBufferedWriter
 	wrote chan struct{}
 }
 
-func (b *signalingBuffer) Write(data *v1.SensorData) error {
-	ret := b.bw.Write(data)
-	b.wrote <- struct{}{}
+func (b *signalingBuffer) WriteBinary(items []*v1.SensorData) error {
+	ret := b.bw.WriteBinary(items)
+	select {
+	case b.wrote <- struct{}{}:
+	case <-b.ctx.Done():
+	}
+	return ret
+}
+
+func (b *signalingBuffer) WriteTabular(item *v1.SensorData) error {
+	ret := b.bw.WriteTabular(item)
+	select {
+	case b.wrote <- struct{}{}:
+	case <-b.ctx.Done():
+	}
 	return ret
 }
 
