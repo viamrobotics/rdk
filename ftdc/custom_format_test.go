@@ -3,6 +3,7 @@ package ftdc
 import (
 	"bytes"
 	"reflect"
+	"slices"
 	"testing"
 
 	"go.viam.com/test"
@@ -336,17 +337,72 @@ func TestNilNestedStats(t *testing.T) {
 }
 
 func TestFlattenMaps(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-
-	var mp = map[string]any{
+	mp := map[string]any{
 		"X": 42,
 	}
 
-	logger.Info(flatten(reflect.ValueOf(mp)))
+	keys, values, err := flatten(reflect.ValueOf(mp))
+	test.That(t, err, test.ShouldBeNil)
+
+	slices.Sort(keys)
+	slices.Sort(values)
+	test.That(t, keys, test.ShouldResemble, []string{"X"})
+	test.That(t, values, test.ShouldResemble, []float32{42.0})
 
 	mp["Y"] = struct {
 		Foo int
 		Bar int
 	}{10, 20}
-	logger.Info(flatten(reflect.ValueOf(mp)))
+
+	keys, values, err = flatten(reflect.ValueOf(mp))
+	test.That(t, err, test.ShouldBeNil)
+
+	// Iterating maps are non-deterministic. Sort the output to get make assertions predictable.
+	slices.Sort(keys)
+	slices.Sort(values)
+	test.That(t, keys, test.ShouldResemble, []string{"X", "Y.Bar", "Y.Foo"})
+	test.That(t, values, test.ShouldResemble, []float32{10.0, 20.0, 42.0})
+}
+
+func TestFlattenTheWorld(t *testing.T) {
+	mp := map[string]any{
+		"X": 42,
+		"Y": struct {
+			Foo string
+			Bar int
+			mp  map[int]int
+			mp2 map[string]any
+		}{
+			"foo",
+			5,
+			map[int]int{1: 2},
+			map[string]any{
+				"eli":      2,
+				"patriots": 0,
+			},
+		},
+		"Z": map[string]any{"zelda": 64},
+	}
+
+	keys, values, err := flatten(reflect.ValueOf(mp))
+	test.That(t, err, test.ShouldBeNil)
+
+	// Iterating maps are non-deterministic. Sort the output to get make assertions predictable.
+	slices.Sort(keys)
+	slices.Sort(values)
+	test.That(t, keys, test.ShouldResemble, []string{"X", "Y.Bar", "Y.mp2.eli", "Y.mp2.patriots", "Z.zelda"})
+	test.That(t, values, test.ShouldResemble, []float32{0.0, 2.0, 5.0, 42.0, 64.0})
+
+	mp["Z"] = struct {
+		Foo int
+		Bar int
+	}{10, 20}
+
+	keys, values, err = flatten(reflect.ValueOf(mp))
+
+	slices.Sort(keys)
+	slices.Sort(values)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, keys, test.ShouldResemble, []string{"X", "Y.Bar", "Y.mp2.eli", "Y.mp2.patriots", "Z.Bar", "Z.Foo"})
+	test.That(t, values, test.ShouldResemble, []float32{0.0, 2.0, 5.0, 10.0, 20.0, 42.0})
 }

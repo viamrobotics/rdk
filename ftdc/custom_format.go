@@ -147,6 +147,8 @@ func flattenPtr(inp reflect.Value) reflect.Value {
 func flatten(value reflect.Value) ([]string, []float32, error) {
 	value = flattenPtr(value)
 
+	// why is the default case not sufficient to be considered exhaustive?
+	//nolint:exhaustive
 	switch value.Kind() {
 	case reflect.Struct:
 		return flattenStruct(value)
@@ -161,7 +163,8 @@ func flatten(value reflect.Value) ([]string, []float32, error) {
 
 func flattenMap(mValue reflect.Value) ([]string, []float32, error) {
 	if mValue.Type().Key().Kind() != reflect.String {
-		return nil, nil, fmt.Errorf("map keys are not strings: %v", mValue.Type().Key())
+		// We ignore types we refuse to serialize into ftdc.
+		return []string{}, []float32{}, nil
 	}
 
 	fields := make([]string, 0)
