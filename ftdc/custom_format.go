@@ -9,7 +9,6 @@ import (
 	"io"
 	"math"
 	"reflect"
-	"runtime/debug"
 	"strings"
 	"time"
 
@@ -60,7 +59,6 @@ func writeDatum(time int64, prev, curr []float32, output io.Writer) error {
 	numPts := len(curr)
 	if len(prev) != 0 && numPts != len(prev) {
 		//nolint:stylecheck
-		debug.PrintStack()
 		return fmt.Errorf("Bad input sizes. Prev: %v Curr: %v", len(prev), len(curr))
 	}
 
@@ -126,8 +124,6 @@ func writeDatum(time int64, prev, curr []float32, output io.Writer) error {
 	return nil
 }
 
-var errNotStruct = errors.New("stats object is not a struct")
-
 func isNumeric(kind reflect.Kind) bool {
 	return kind == reflect.Bool ||
 		kind == reflect.Int ||
@@ -135,6 +131,11 @@ func isNumeric(kind reflect.Kind) bool {
 		kind == reflect.Uint ||
 		kind == reflect.Uint8 || kind == reflect.Uint16 || kind == reflect.Uint32 || kind == reflect.Uint64 ||
 		kind == reflect.Float32 || kind == reflect.Float64
+}
+
+func getFieldsForStruct(item reflect.Value) ([]string, error) {
+	a, _, c := flattenStructNew(item)
+	return a, c
 }
 
 func flattenStruct(item reflect.Value) ([]float32, error) {
@@ -215,71 +216,6 @@ func flattenStructNew(item reflect.Value) ([]string, []float32, error) {
 	}
 
 	return fields, numbers, nil
-}
-
-func getFieldsForStruct(item reflect.Value) ([]string, error) {
-	a, _, c := flattenStructNew(item)
-	return a, c
-}
-
-// getFieldsForStruct returns the (flattened) list of strings for a metric structure. For example the
-// following type:
-//
-//	type Foo {
-//	  PowerPct float64
-//	  Pos      int
-//	}
-//
-// Will return `["PowerPct", "Pos"]`.
-//
-// Nested structures will walk and return a "dot delimited" name. E.g:
-//
-//	type ParentFoo {
-//	  Healthy Bool
-//	  FooField Foo
-//	}
-//
-// Will return `["Healthy", "FooField.PowerPct", "FooField.Pos"]`.
-func getFieldsForStructOld(item reflect.Value) ([]string, error) {
-	flattenPtr := func(inp reflect.Value) reflect.Value {
-		for inp.Kind() == reflect.Pointer || inp.Kind() == reflect.Interface {
-			if inp.IsNil() {
-				return inp
-			}
-			inp = inp.Elem()
-		}
-		return inp
-	}
-
-	rVal := flattenPtr(item)
-	if rVal.Kind() != reflect.Struct {
-		return nil, errNotStruct
-	}
-
-	rType := rVal.Type()
-	var fields []string
-	for memberIdx := 0; memberIdx < rVal.NumField(); memberIdx++ {
-		structField := rType.Field(memberIdx)
-		fieldVal := rVal.Field(memberIdx)
-		derefedVal := flattenPtr(fieldVal)
-		if isNumeric(derefedVal.Kind()) {
-			fields = append(fields, structField.Name)
-			continue
-		}
-
-		if derefedVal.Kind() == reflect.Struct {
-			subFields, err := getFieldsForStruct(derefedVal)
-			if err != nil {
-				return nil, err
-			}
-
-			for _, subField := range subFields {
-				fields = append(fields, fmt.Sprintf("%v.%v", structField.Name, subField))
-			}
-		}
-	}
-
-	return fields, nil
 }
 
 type schemaError struct {

@@ -357,10 +357,6 @@ func (ftdc *FTDC) constructDatum() datum {
 	return datum
 }
 
-func schemaDiff(prev []string, curr []string) bool {
-	return !slices.Equal(prev, curr)
-}
-
 func walk(data map[string]any, inputSchema *schema) (*schema, []float32, error) {
 	schemaChanged := false
 	// Create a set out of the `inputSchema.mapOrder` as we iterate over it.
@@ -376,10 +372,7 @@ func walk(data map[string]any, inputSchema *schema) (*schema, []float32, error) 
 		fields = make([]string, 0, len(inputSchema.fieldOrder))
 		values = make([]float32, 0, len(inputSchema.fieldOrder))
 		iterationOrder = make([]string, 0, len(inputSchema.mapOrder))
-
-		for _, key := range inputSchema.mapOrder {
-			iterationOrder = append(iterationOrder, key)
-		}
+		iterationOrder = append(iterationOrder, inputSchema.mapOrder...)
 	} else {
 		schemaChanged = true
 		iterationOrder = make([]string, 0, len(data))
@@ -705,7 +698,7 @@ func (ftdc *FTDC) checkAndDeleteOldFiles() error {
 // deletion testing. Filename generation uses padding such that we can rely on there before 2/4
 // digits for every numeric value.
 //
-// nolint
+//nolint
 // Example filename: countingBytesTest1228324349/viam-server-2024-11-18T20-37-01Z.ftdc
 var filenameTimeRe = regexp.MustCompile(`viam-server-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})Z.ftdc`)
 
