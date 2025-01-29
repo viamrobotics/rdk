@@ -22,9 +22,10 @@ type AppConn struct {
 }
 
 // NewAppConn creates an `AppConn` instance with a gRPC client connection to App. An initial dial attempt blocks. If it errors, the error
-// is returned. If it times out, an `AppConn` object with a nil underlying client connection will return. Serialized attempts at establishing
-// a connection to App will continue to occur, however, in a background Goroutine. These attempts will continue until a connection is made.
-// If `cloud` is nil, an `AppConn` with a nil underlying connection will return, and the background dialer will not start.
+// is returned. If it times out, an `AppConn` object with a nil underlying client connection will return. Serialized attempts at
+// establishing a connection to App will continue to occur, however, in a background Goroutine. These attempts will continue until a
+// connection is made. If `cloud` is nil, an `AppConn` with a nil underlying connection will return, and the background dialer will not
+// start.
 func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger) (*AppConn, error) {
 	appConn := &AppConn{}
 
