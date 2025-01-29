@@ -26,6 +26,8 @@ type Basic struct {
 	Foo int
 }
 
+// TestCustomFormatRoundtripBasic is a test of simple FTDC input/output. This tests schema changes,
+// but where the "stats" object payload both times is a single integer.
 func TestCustomFormatRoundtripBasic(t *testing.T) {
 	// This FTDC test will write to this `serializedData`.
 	serializedData := bytes.NewBuffer(nil)
@@ -85,6 +87,9 @@ func TestCustomFormatRoundtripBasic(t *testing.T) {
 	}
 }
 
+// TestCustomFormatRoundtripRich is a test of simple FTDC input/output. In contrast to the "basic"
+// test, this test has datum's with a combination of integers and floats that change in more dynamic
+// ways.
 func TestCustomFormatRoundtripRich(t *testing.T) {
 	// This FTDC test will write to this `serializedData`.
 	serializedData := bytes.NewBuffer(nil)

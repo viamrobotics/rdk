@@ -31,6 +31,93 @@ func (foo *foo) Stats() any {
 	return fooStats{X: foo.x, Y: foo.y}
 }
 
+type mockStatser struct {
+	stats any
+}
+
+func (ms *mockStatser) Stats() any {
+	return ms.stats
+}
+
+// TestCopeWithChangingSchema asserts that FTDC copes with schema's that change. Originally FTDC was
+// designed such that an explicit call to `ftdc.Add` was required to allow for a schema change. But
+// it became clear over time that we had to allow for deviations. Such as how network stats
+// reporting the list of network interfaces can change.
+func TestCopeWithChangingSchema(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	// ftdcData will be appended to on each call to `writeDatum`. At the end of the test we can pass
+	// this to `parse` to assert we have the expected results.
+	ftdcData := bytes.NewBuffer(nil)
+	ftdc := NewWithWriter(ftdcData, logger.Sublogger("ftdc"))
+
+	// `mockStatser` returns whatever we ask it to. Such that we can change the schema without a
+	// call to `ftdc.Add`.
+	statser := mockStatser{
+		stats: struct {
+			X int
+		}{5},
+	}
+
+	ftdc.Add("mock", &statser)
+	datum := ftdc.constructDatum()
+	err := ftdc.writeDatumNew(datum)
+	test.That(t, err, test.ShouldBeNil)
+
+	statser.stats = struct {
+		X int
+		Y float64
+	}{3, 4.0}
+	datum = ftdc.constructDatum()
+	err = ftdc.writeDatumNew(datum)
+	test.That(t, err, test.ShouldBeNil)
+
+	datums, err := Parse(ftdcData)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(datums), test.ShouldEqual, 2)
+
+	test.That(t, datums[0].asDatum().Data["mock"], test.ShouldResemble, map[string]float32{"X": 5})
+	test.That(t, datums[1].asDatum().Data["mock"], test.ShouldResemble, map[string]float32{"X": 3, "Y": 4})
+}
+
+// TestCopeWithSubtleSchemaChange is similar to TestCopeWithChangingSchema except that it keeps the
+// number of flattened fields the same. Only the field names changed.
+func TestCopeWithSubtleSchemaChange(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	// ftdcData will be appended to on each call to `writeDatum`. At the end of the test we can pass
+	// this to `parse` to assert we have the expected results.
+	ftdcData := bytes.NewBuffer(nil)
+	ftdc := NewWithWriter(ftdcData, logger.Sublogger("ftdc"))
+
+	// `mockStatser` returns whatever we ask it to. Such that we can change the schema without a
+	// call to `ftdc.Add`.
+	statser := mockStatser{
+		stats: struct {
+			X int
+		}{5},
+	}
+
+	ftdc.Add("mock", &statser)
+	datum := ftdc.constructDatum()
+	err := ftdc.writeDatumNew(datum)
+	test.That(t, err, test.ShouldBeNil)
+
+	statser.stats = struct {
+		Y int
+	}{3}
+	datum = ftdc.constructDatum()
+	err = ftdc.writeDatumNew(datum)
+	test.That(t, err, test.ShouldBeNil)
+
+	datums, err := Parse(ftdcData)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(datums), test.ShouldEqual, 2)
+
+	test.That(t, datums[0].asDatum().Data["mock"], test.ShouldResemble, map[string]float32{"X": 5})
+	test.That(t, datums[1].asDatum().Data["mock"], test.ShouldResemble, map[string]float32{"Y": 3})
+}
+
 func TestFTDCSchemaGenerations(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
@@ -124,6 +211,7 @@ func (badStatser badStatser) Stats() any {
 }
 
 func TestRemoveBadStatser(t *testing.T) {
+	t.Skip("It is now legal to change schemas without a corresponding `Add`/`Remove` statster call.")
 	logger := logging.NewTestLogger(t)
 
 	// ftdcData will be appended to on each call to `writeDatum`. At the end of the test we can pass
@@ -248,6 +336,7 @@ func TestNestedStructs(t *testing.T) {
 // TestStatsWriterContinuesOnSchemaError asserts that "schema errors" are handled by removing the
 // violating statser, but otherwise FTDC keeps going.
 func TestStatsWriterContinuesOnSchemaError(t *testing.T) {
+	t.Skip("It is now legal to change schemas without a corresponding `Add`/`Remove` statster call.")
 	logger := logging.NewTestLogger(t)
 
 	// ftdcData will be appended to on each call to `writeDatum`. At the end of the test we can pass

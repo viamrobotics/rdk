@@ -9,6 +9,7 @@ import (
 	"io"
 	"math"
 	"reflect"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -59,6 +60,7 @@ func writeDatum(time int64, prev, curr []float32, output io.Writer) error {
 	numPts := len(curr)
 	if len(prev) != 0 && numPts != len(prev) {
 		//nolint:stylecheck
+		debug.PrintStack()
 		return fmt.Errorf("Bad input sizes. Prev: %v Curr: %v", len(prev), len(curr))
 	}
 
@@ -136,6 +138,11 @@ func isNumeric(kind reflect.Kind) bool {
 }
 
 func flattenStruct(item reflect.Value) ([]float32, error) {
+	_, b, c := flattenStructNew(item)
+	return b, c
+}
+
+func flattenStructNew(item reflect.Value) ([]string, []float32, error) {
 	flattenPtr := func(inp reflect.Value) reflect.Value {
 		for inp.Kind() == reflect.Pointer || inp.Kind() == reflect.Interface {
 			if inp.IsNil() {
@@ -149,9 +156,13 @@ func flattenStruct(item reflect.Value) ([]float32, error) {
 
 	rVal := flattenPtr(item)
 	if rVal.Kind() != reflect.Struct {
-		return []float32{}, nil
+		// We don't support maps and instead ignore them.
+		return []string{}, []float32{}, nil
 	}
 
+	rType := rVal.Type()
+
+	var fields []string
 	var numbers []float32
 	// Use reflection to walk the member fields of an individual set of metric readings. We rely
 	// on reflection always walking fields in the same order.
@@ -164,35 +175,51 @@ func flattenStruct(item reflect.Value) ([]float32, error) {
 		rField := flattenPtr(rVal.Field(memberIdx))
 		switch {
 		case rField.CanUint():
+			fields = append(fields, rType.Field(memberIdx).Name)
 			numbers = append(numbers, float32(rField.Uint()))
 		case rField.CanInt():
+			fields = append(fields, rType.Field(memberIdx).Name)
 			numbers = append(numbers, float32(rField.Int()))
 		case rField.CanFloat():
+			fields = append(fields, rType.Field(memberIdx).Name)
 			numbers = append(numbers, float32(rField.Float()))
 		case rField.Kind() == reflect.Bool:
 			if rField.Bool() {
+				fields = append(fields, rType.Field(memberIdx).Name)
 				numbers = append(numbers, 1)
 			} else {
+				fields = append(fields, rType.Field(memberIdx).Name)
 				numbers = append(numbers, 0)
 			}
 		case rField.Kind() == reflect.Struct ||
 			rField.Kind() == reflect.Pointer ||
 			rField.Kind() == reflect.Interface:
-			subNumbers, err := flattenStruct(rField)
+			subFields, subNumbers, err := flattenStructNew(rField)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
+
+			thisFieldName := rType.Field(memberIdx).Name
+			for _, subField := range subFields {
+				fields = append(fields, fmt.Sprintf("%v.%v", thisFieldName, subField))
+			}
+
 			numbers = append(numbers, subNumbers...)
 		case isNumeric(rField.Kind()):
 			//nolint:stylecheck
-			return nil, fmt.Errorf("A numeric type was forgotten to be included. Kind: %v", rField.Kind())
+			return nil, nil, fmt.Errorf("A numeric type was forgotten to be included. Kind: %v", rField.Kind())
 		default:
 			// Getting the keys for a structure will ignore these types. Such as the antagonistic
 			// `channel`, or `string`. We follow suit in ignoring these types.
 		}
 	}
 
-	return numbers, nil
+	return fields, numbers, nil
+}
+
+func getFieldsForStruct(item reflect.Value) ([]string, error) {
+	a, _, c := flattenStructNew(item)
+	return a, c
 }
 
 // getFieldsForStruct returns the (flattened) list of strings for a metric structure. For example the
@@ -213,7 +240,7 @@ func flattenStruct(item reflect.Value) ([]float32, error) {
 //	}
 //
 // Will return `["Healthy", "FooField.PowerPct", "FooField.Pos"]`.
-func getFieldsForStruct(item reflect.Value) ([]string, error) {
+func getFieldsForStructOld(item reflect.Value) ([]string, error) {
 	flattenPtr := func(inp reflect.Value) reflect.Value {
 		for inp.Kind() == reflect.Pointer || inp.Kind() == reflect.Interface {
 			if inp.IsNil() {

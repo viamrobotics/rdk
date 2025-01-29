@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"runtime"
 	"slices"
@@ -356,6 +357,131 @@ func (ftdc *FTDC) constructDatum() datum {
 	return datum
 }
 
+func schemaDiff(prev []string, curr []string) bool {
+	return !slices.Equal(prev, curr)
+}
+
+func walk(data map[string]any, inputSchema *schema) (*schema, []float32, error) {
+	schemaChanged := false
+	// Create a set out of the `inputSchema.mapOrder` as we iterate over it.
+	mapOrderSet := make(map[string]struct{})
+
+	dataMapOrder := make([]string, 0, len(data))
+	var (
+		fields         []string
+		values         []float32
+		iterationOrder []string
+	)
+	if inputSchema != nil {
+		fields = make([]string, 0, len(inputSchema.fieldOrder))
+		values = make([]float32, 0, len(inputSchema.fieldOrder))
+		iterationOrder = make([]string, 0, len(inputSchema.mapOrder))
+
+		for _, key := range inputSchema.mapOrder {
+			iterationOrder = append(iterationOrder, key)
+		}
+	} else {
+		schemaChanged = true
+		iterationOrder = make([]string, 0, len(data))
+		for key := range data {
+			iterationOrder = append(iterationOrder, key)
+		}
+	}
+
+	for _, key := range iterationOrder {
+		mapOrderSet[key] = struct{}{}
+
+		// Walk over the datum in `mapOrder` to ensure we gather values in the order consistent with
+		// the current schema.
+		stats, exists := data[key]
+		if !exists {
+			schemaChanged = true
+			continue
+		}
+
+		itemFields, itemNumbers, err := flattenStructNew(reflect.ValueOf(stats))
+		if err != nil {
+			return nil, nil, err
+		}
+
+		dataMapOrder = append(dataMapOrder, key)
+		for idx := range itemFields {
+			fields = append(fields, fmt.Sprintf("%v.%v", key, itemFields[idx]))
+		}
+		values = append(values, itemNumbers...)
+	}
+
+	// Check for a schema change by walking all of the keys (`Statser`s) in the data and see if
+	// there is anything new.
+	for dataKey, stats := range data {
+		if _, exists := mapOrderSet[dataKey]; exists {
+			continue
+		}
+
+		// We found a statser that did not exist before. Let's add it to our results.
+		schemaChanged = true
+		itemFields, itemNumbers, err := flattenStructNew(reflect.ValueOf(stats))
+		if err != nil {
+			return nil, nil, err
+		}
+
+		dataMapOrder = append(dataMapOrder, dataKey)
+		for idx := range itemFields {
+			fields = append(fields, fmt.Sprintf("%v.%v", dataKey, itemFields[idx]))
+		}
+		values = append(values, itemNumbers...)
+	}
+
+	if inputSchema != nil && !slices.Equal(inputSchema.fieldOrder, fields) {
+		schemaChanged = true
+	}
+
+	if schemaChanged {
+		return &schema{dataMapOrder, fields}, values, nil
+	}
+
+	return inputSchema, values, nil
+}
+
+func (ftdc *FTDC) writeDatumNew(datum datum) error {
+	toWrite, err := ftdc.getWriter()
+	if err != nil {
+		return err
+	}
+
+	// walk will return the schema it found alongside the flattened data. Errors are terminal. If
+	// the schema is the same, the `newSchema` pointer will match `ftdc.currSchema` and `err` will
+	// be nil.
+	newSchema, flatData, err := walk(datum.Data, ftdc.currSchema)
+	if err != nil {
+		return err
+	}
+
+	// The first iteration when `currSchema` is nil, it's guaranteed that the generations will not
+	// be equal. In the happy path where the schema hasn't changed, the `walk` function is
+	// guaranteed to return the same schema object.
+	if datum.generationID != ftdc.outputGenerationID || ftdc.currSchema != newSchema {
+		ftdc.currSchema = newSchema
+		if err = writeSchema(ftdc.currSchema, toWrite); err != nil {
+			return err
+		}
+
+		// Update the `outputGenerationId` to reflect the new schema.
+		ftdc.outputGenerationID = datum.generationID
+
+		// Write the new data point to disk. When schema changes, we do not do any diffing. We write
+		// a raw value for each metric.
+		ftdc.prevFlatData = nil
+	}
+
+	if err = writeDatum(datum.Time, ftdc.prevFlatData, flatData, toWrite); err != nil {
+		return err
+	}
+	ftdc.prevFlatData = flatData
+
+	return nil
+}
+
 // writeDatum takes an ftdc reading ("Datum") as input and serializes + writes it to the backing
 // medium (e.g: a file). See `writeSchema`s documentation for a full description of the file format.
 func (ftdc *FTDC) writeDatum(datum datum) error {
@@ -579,7 +705,7 @@ func (ftdc *FTDC) checkAndDeleteOldFiles() error {
 // deletion testing. Filename generation uses padding such that we can rely on there before 2/4
 // digits for every numeric value.
 //
-//nolint
+// nolint
 // Example filename: countingBytesTest1228324349/viam-server-2024-11-18T20-37-01Z.ftdc
 var filenameTimeRe = regexp.MustCompile(`viam-server-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})Z.ftdc`)
 
