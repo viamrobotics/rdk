@@ -54,3 +54,30 @@ static-release: server-static-compressed
 		--version ${BUILD_CHANNEL} \
 		--arch ${UNAME_M} \
 		--output-path etc/packaging/static/manifest/viam-server-${BUILD_CHANNEL}-${UNAME_M}.json
+
+static-release-win: FILENAME_OS=-windows
+static-release-win:
+	# note: FILENAME_OS will be -windows for windows builds; for backwards compatibility, we don't do this for linux.
+	rm -f bin/static/viam-server-windows.exe
+	GOOS=windows GOARCH=amd64 go build -tags no_cgo,osusergo,netgo -ldflags="-extldflags=-static $(COMMON_LDFLAGS)" -o bin/static/viam-server-windows.exe ./web/cmd/server
+	upx --best --lzma bin/static/viam-server-windows.exe
+
+	rm -rf etc/packaging/static/deploy/
+	mkdir -p etc/packaging/static/deploy/
+	cp bin/static/viam-server-windows.exe etc/packaging/static/deploy/viam-server$(FILENAME_OS)-${BUILD_CHANNEL}-${UNAME_M}.exe
+	if [ "${RELEASE_TYPE}" = "stable" ] || [ "${RELEASE_TYPE}" = "latest" ]; then \
+		cp bin/static/viam-server-windows.exe etc/packaging/static/deploy/viam-server$(FILENAME_OS)-${RELEASE_TYPE}-${UNAME_M}.exe; \
+	fi
+
+	# note: GOOS=windows would break this on a linux runner
+	go run -tags no_cgo ./web/cmd/server --dump-resources win-resources.json
+
+	rm -rf etc/packaging/static/manifest/
+	mkdir -p etc/packaging/static/manifest/
+	go run ./etc/subsystem_manifest \
+		--binary-path etc/packaging/static/deploy/viam-server$(FILENAME_OS)-${BUILD_CHANNEL}-${UNAME_M}.exe \
+		--upload-path packages.viam.com/apps/viam-server/viam-server$(FILENAME_OS)-${BUILD_CHANNEL}-${UNAME_M}.exe \
+		--version ${BUILD_CHANNEL} \
+		--arch ${UNAME_M} \
+		--resources-json win-resources.json \
+		--output-path etc/packaging/static/manifest/viam-server$(FILENAME_OS)-${BUILD_CHANNEL}-${UNAME_M}.json

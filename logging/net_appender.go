@@ -24,7 +24,7 @@ var (
 	writeBatchSize             = 100
 	errUninitializedConnection = errors.New("sharedConn is true and connection is not initialized")
 	logWriteTimeout            = 4 * time.Second
-	logWriteTimeoutBehindProxy = 12 * time.Second
+	logWriteTimeoutBehindProxy = time.Minute
 )
 
 // CloudConfig contains the necessary inputs to send logs to the app backend over grpc.

@@ -47,6 +47,7 @@ import (
 	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/tunnel"
 	"go.viam.com/rdk/utils/contextutils"
 )
 
@@ -860,6 +861,7 @@ func (rc *RobotClient) Logger() logging.Logger {
 	return rc.logger
 }
 
+// DiscoverComponents is DEPRECATED!!! Please use the Discovery Service instead.
 // DiscoverComponents takes a list of discovery queries and returns corresponding
 // component configurations.
 //
@@ -871,7 +873,11 @@ func (rc *RobotClient) Logger() logging.Logger {
 //
 //	// Get component configurations with these queries.
 //	component_configs, err := machine.DiscoverComponents(ctx.Background(), qs)
+//
+//nolint:deprecated,staticcheck
 func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error) {
+	rc.logger.Warn(
+		"DiscoverComponents is deprecated and will be removed on March 10th 2025. Please use the Discovery Service instead.")
 	pbQueries := make([]*pb.DiscoveryQuery, 0, len(qs))
 	for _, q := range qs {
 		extra, err := structpb.NewStruct(q.Extra)
@@ -915,6 +921,32 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.Dis
 			})
 	}
 	return discoveries, nil
+}
+
+// GetModelsFromModules  returns the available models from the configured modules on a given machine.
+func (rc *RobotClient) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModelDiscovery, error) {
+	resp, err := rc.client.GetModelsFromModules(ctx, &pb.GetModelsFromModulesRequest{})
+	if err != nil {
+		return nil, err
+	}
+	protoModels := resp.GetModels()
+	models := []resource.ModuleModelDiscovery{}
+	for _, protoModel := range protoModels {
+		modelTriplet, err := resource.NewModelFromString(protoModel.Model)
+		if err != nil {
+			return nil, err
+		}
+		api, err := resource.NewAPIFromString(protoModel.Api)
+		if err != nil {
+			return nil, err
+		}
+		model := resource.ModuleModelDiscovery{
+			ModuleName: protoModel.ModuleName, Model: modelTriplet, API: api,
+			FromLocalModule: protoModel.FromLocalModule,
+		}
+		models = append(models, model)
+	}
+	return models, nil
 }
 
 // FrameSystemConfig  returns the configuration of the frame system of a given machine.
@@ -1183,6 +1215,83 @@ func (rc *RobotClient) Version(ctx context.Context) (robot.VersionResponse, erro
 	mVersion.APIVersion = resp.ApiVersion
 
 	return mVersion, nil
+}
+
+// Tunnel tunnels data to/from the read writer from/to the destination port on the server. This
+// function will close the connection passed in as part of cleanup.
+func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest int) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	client, err := rc.client.Tunnel(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := client.Send(&pb.TunnelRequest{
+		DestinationPort: uint32(dest),
+	}); err != nil {
+		return err
+	}
+	rc.Logger().CInfow(ctx, "creating tunnel to server", "port", dest)
+	var (
+		wg              sync.WaitGroup
+		readerSenderErr error
+
+		timerMu sync.Mutex
+		timer   *time.Timer
+	)
+	connClosed := make(chan struct{})
+	rsDone := make(chan struct{})
+	wg.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer func() {
+			// We communicate an end to the stream by calling CloseSend().
+			// Close the channel first so that network errors can be filtered
+			// and prevented in the RecvWriterLoop.
+			close(rsDone)
+			readerSenderErr = errors.Join(readerSenderErr, client.CloseSend())
+
+			// Schedule a task to cancel the context if we do not exit out of the recvWriterLoop within 5 seconds.
+			// This will close the client, meaning client.Recv() in the RecvWriterLoop will exit and return an error.
+			//
+			// NOTE(cheukt): This may cause DEBUG messages from WebRTC stating `no stream for id; discarding`
+			// to show up because the handler will have exited before we receive the last messages from the server.
+			// This is not an issue and is expected.
+			timerMu.Lock()
+			timer = time.AfterFunc(5*time.Second, cancel)
+			timerMu.Unlock()
+			wg.Done()
+		}()
+		// a max of 32kb will be sent per message (based on io.Copy's default buffer size)
+		sendFunc := func(data []byte) error { return client.Send(&pb.TunnelRequest{Data: data}) }
+		readerSenderErr = tunnel.ReaderSenderLoop(ctx, conn, sendFunc, connClosed, rc.logger.WithFields("loop", "reader/sender"))
+	})
+
+	recvFunc := func() ([]byte, error) {
+		resp, err := client.Recv()
+		if err != nil {
+			return nil, err
+		}
+		return resp.Data, nil
+	}
+	recvWriterErr := tunnel.RecvWriterLoop(ctx, recvFunc, conn, rsDone, rc.logger.WithFields("loop", "recv/writer"))
+	timerMu.Lock()
+	// cancel the timer if we've successfully returned from the RecvWriterLoop
+	if timer != nil {
+		timer.Stop()
+	}
+	timerMu.Unlock()
+
+	// We close the connection to unblock the reader/sender loop, which is not clean
+	// but there isn't a cleaner way to exit from the reader/sender loop.
+	// Close the channel first so that network errors can be filtered
+	// and prevented in the ReaderSenderLoop.
+	close(connClosed)
+	err = conn.Close()
+
+	wg.Wait()
+	rc.Logger().CInfow(ctx, "tunnel to server closed", "port", dest)
+	return errors.Join(err, readerSenderErr, recvWriterErr)
 }
 
 func unaryClientInterceptor() googlegrpc.UnaryClientInterceptor {

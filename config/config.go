@@ -965,6 +965,22 @@ func (config *AuthHandlerConfig) Validate(path string) error {
 	return nil
 }
 
+// ParseAPIKeys parses API keys from the handler config. It will return an empty map
+// if the credential type is not [rpc.CredentialsTypeAPIKey].
+func ParseAPIKeys(handler AuthHandlerConfig) map[string]string {
+	apiKeys := map[string]string{}
+	if handler.Type == rpc.CredentialsTypeAPIKey {
+		for k := range handler.Config {
+			// if it is not a legacy api key indicated by "key(s)" key
+			// current api keys will follow format { [keyId]: [key] }
+			if k != "keys" && k != "key" {
+				apiKeys[k] = handler.Config.String(k)
+			}
+		}
+	}
+	return apiKeys
+}
+
 // CreateTLSWithCert creates a tls.Config with the TLS certificate to be returned.
 func CreateTLSWithCert(cfg *Config) (*tls.Config, error) {
 	cert, err := tls.X509KeyPair([]byte(cfg.Cloud.TLSCertificate), []byte(cfg.Cloud.TLSPrivateKey))

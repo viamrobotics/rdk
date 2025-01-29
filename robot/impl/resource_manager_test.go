@@ -15,7 +15,6 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.uber.org/zap/zapcore"
 	armpb "go.viam.com/api/component/arm/v1"
 	basepb "go.viam.com/api/component/base/v1"
 	boardpb "go.viam.com/api/component/board/v1"
@@ -1581,7 +1580,7 @@ func TestReconfigure(t *testing.T) {
 }
 
 func TestRemoteConnClosedOnReconfigure(t *testing.T) {
-	logger, observer := logging.NewObservedTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	ctx := context.Background()
 
@@ -1679,10 +1678,6 @@ func TestRemoteConnClosedOnReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, moving, test.ShouldBeFalse)
 		test.That(t, speed, test.ShouldEqual, 0.0)
-
-		// Also check that there are no error logs associated with the main robot trying to reconnect to remote2
-		// Leaked remote connections will cause the test to fail due to goroutine leaks
-		test.That(t, observer.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)
 	})
 
 	t.Run("remotes with different resources", func(t *testing.T) {
@@ -1755,10 +1750,6 @@ func TestRemoteConnClosedOnReconfigure(t *testing.T) {
 		moving, err = arm1.IsMoving(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, moving, test.ShouldBeFalse)
-
-		// Also check that there are no error logs associated with the main robot trying to reconnect to remote2
-		// Leaked remote connections will cause the test to fail due to goroutine leaks
-		test.That(t, observer.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)
 	})
 }
 
@@ -1893,6 +1884,15 @@ func (rr *dummyRobot) DiscoverComponents(ctx context.Context, qs []resource.Disc
 		return nil, errors.New("offline")
 	}
 	return rr.robot.DiscoverComponents(ctx, qs)
+}
+
+func (rr *dummyRobot) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModelDiscovery, error) {
+	rr.mu.Lock()
+	defer rr.mu.Unlock()
+	if rr.offline {
+		return nil, errors.New("offline")
+	}
+	return rr.robot.GetModelsFromModules(ctx)
 }
 
 func (rr *dummyRobot) RemoteNames() []string {

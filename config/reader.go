@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"time"
 
 	"github.com/a8m/envsubst"
@@ -35,7 +36,7 @@ var (
 const (
 	initialReadTimeout     = 1 * time.Second
 	readTimeout            = 5 * time.Second
-	readTimeoutBehindProxy = 15 * time.Second
+	readTimeoutBehindProxy = time.Minute
 	// PackagesDirName is where packages go underneath viamDotDir.
 	PackagesDirName = "packages"
 	// LocalPackagesSuffix is used by the local package manager.
@@ -181,7 +182,9 @@ func isLocationSecretsEqual(prevCloud, cloud *Cloud) bool {
 	return true
 }
 
-func getTimeoutCtx(ctx context.Context, shouldReadFromCache bool, id string) (context.Context, func()) {
+// GetTimeoutCtx returns a context [and its cancel function] with a timeout value determined by whether we are behind a proxy and whether a
+// cached config exists.
+func GetTimeoutCtx(ctx context.Context, shouldReadFromCache bool, id string) (context.Context, func()) {
 	timeout := readTimeout
 	// When environment indicates we are behind a proxy, bump timeout. Network
 	// operations tend to take longer when behind a proxy.
@@ -257,7 +260,7 @@ func readFromCloud(
 	if !cfg.Cloud.SignalingInsecure && (checkForNewCert || tls.certificate == "" || tls.privateKey == "") {
 		logger.Debug("reading tlsCertificate from the cloud")
 
-		ctxWithTimeout, cancel := getTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
+		ctxWithTimeout, cancel := GetTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
 		certData, err := readCertificateDataFromCloudGRPC(ctxWithTimeout, cloudCfg, logger)
 		if err != nil {
 			cancel()
@@ -437,6 +440,36 @@ func processConfigLocalConfig(unprocessedConfig *Config, logger logging.Logger) 
 	return processConfig(unprocessedConfig, false, logger)
 }
 
+// additionalModuleEnvVars will get additional environment variables for modules using other parts of the config.
+func additionalModuleEnvVars(cloud *Cloud, auth AuthConfig) map[string]string {
+	env := make(map[string]string)
+	if cloud != nil {
+		env[rutils.PrimaryOrgIDEnvVar] = cloud.PrimaryOrgID
+		env[rutils.LocationIDEnvVar] = cloud.LocationID
+		env[rutils.MachineIDEnvVar] = cloud.MachineID
+		env[rutils.MachinePartIDEnvVar] = cloud.ID
+	}
+	for _, handler := range auth.Handlers {
+		if handler.Type != rpc.CredentialsTypeAPIKey {
+			continue
+		}
+		apiKeys := ParseAPIKeys(handler)
+		if len(apiKeys) == 0 {
+			continue
+		}
+		// the keys come in unsorted, so sort the keys so we'll always get the same API key
+		// if there are no changes
+		keyIDs := make([]string, 0, len(apiKeys))
+		for k := range apiKeys {
+			keyIDs = append(keyIDs, k)
+		}
+		sort.Strings(keyIDs)
+		env[rutils.APIKeyIDEnvVar] = keyIDs[0]
+		env[rutils.APIKeyEnvVar] = apiKeys[keyIDs[0]]
+	}
+	return env
+}
+
 // processConfig processes the config passed in. The config can be either JSON or gRPC derived.
 // If any part of this function errors, the function will exit and no part of the new config will be returned
 // until it is corrected.
@@ -596,6 +629,15 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 		}
 	}
 
+	// add additional environment vars to modules
+	// adding them here ensures that if the parsed API key changes, the module will be restarted with the updated environment.
+	env := additionalModuleEnvVars(cfg.Cloud, cfg.Auth)
+	if len(env) > 0 {
+		for _, m := range cfg.Modules {
+			m.MergeEnvVars(env)
+		}
+	}
+
 	// now that the attribute maps are converted, validate configs and get implicit dependencies for builtin resource models
 	if err := cfg.Ensure(fromCloud, logger); err != nil {
 		return nil, err
@@ -609,7 +651,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCache bool, logger logging.Logger) (*Config, bool, error) {
 	var cached bool
 
-	ctxWithTimeout, cancel := getTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
+	ctxWithTimeout, cancel := GetTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
 	defer cancel()
 
 	cfg, errorShouldCheckCache, err := getFromCloudGRPC(ctxWithTimeout, cloudCfg, logger)

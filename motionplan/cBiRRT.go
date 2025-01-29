@@ -142,7 +142,12 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 			break
 		}
 	}
-	mp.logger.CInfof(ctx, "goal node: %v\n", rrt.maps.optNode.Q())
+	mp.logger.CDebugf(ctx, "goal node: %v\n", rrt.maps.optNode.Q())
+	for n := range rrt.maps.startMap {
+		mp.logger.CDebugf(ctx, "start node: %v\n", n.Q())
+		break
+	}
+	mp.logger.Debug("DOF", mp.lfs.dof)
 	interpConfig, err := referenceframe.InterpolateFS(mp.fs, seed, rrt.maps.optNode.Q(), 0.5)
 	if err != nil {
 		rrt.solutionChan <- &rrtSolution{err: err}

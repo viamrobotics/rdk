@@ -1320,6 +1320,7 @@ func TestClientDiscovery(t *testing.T) {
 	injectRobot.MachineStatusFunc = func(_ context.Context) (robot.MachineStatus, error) {
 		return robot.MachineStatus{State: robot.StateRunning}, nil
 	}
+	injectRobot.LoggerFunc = func() logging.Logger { return logging.NewTestLogger(t) }
 	q := resource.DiscoveryQuery{
 		API:   movementsensor.Named("foo").API,
 		Model: resource.DefaultModelFamily.WithModel("bar"),
@@ -1349,6 +1350,60 @@ func TestClientDiscovery(t *testing.T) {
 	test.That(t, len(resp), test.ShouldEqual, 1)
 	test.That(t, resp[0].Query, test.ShouldResemble, q)
 	test.That(t, resp[0].Results, test.ShouldResemble, map[string]interface{}{"abc": []interface{}{1.2, 2.3, 3.4}})
+
+	err = client.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestClientGetModelsFromModules(t *testing.T) {
+	injectRobot := &inject.Robot{}
+	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
+	injectRobot.ResourceNamesFunc = func() []resource.Name {
+		return finalResources
+	}
+	injectRobot.MachineStatusFunc = func(_ context.Context) (robot.MachineStatus, error) {
+		return robot.MachineStatus{State: robot.StateRunning}, nil
+	}
+	expectedModels := []resource.ModuleModelDiscovery{
+		{
+			ModuleName:      "simple-module",
+			API:             resource.NewAPI("rdk", "component", "generic"),
+			Model:           resource.NewModel("acme", "demo", "mycounter"),
+			FromLocalModule: false,
+		},
+		{
+			ModuleName:      "simple-module2",
+			API:             resource.NewAPI("rdk", "component", "generic"),
+			Model:           resource.NewModel("acme", "demo", "mycounter"),
+			FromLocalModule: true,
+		},
+	}
+	injectRobot.GetModelsFromModulesFunc = func(context.Context) ([]resource.ModuleModelDiscovery, error) {
+		return expectedModels, nil
+	}
+
+	gServer := grpc.NewServer()
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	logger := logging.NewTestLogger(t)
+
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	client, err := New(context.Background(), listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	resp, err := client.GetModelsFromModules(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(resp), test.ShouldEqual, 2)
+	test.That(t, resp, test.ShouldResemble, expectedModels)
+	for index, model := range resp {
+		test.That(t, model.ModuleName, test.ShouldEqual, expectedModels[index].ModuleName)
+		test.That(t, model.Model, test.ShouldResemble, expectedModels[index].Model)
+		test.That(t, model.API, test.ShouldResemble, expectedModels[index].API)
+		test.That(t, model.FromLocalModule, test.ShouldEqual, expectedModels[index].FromLocalModule)
+	}
 
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
