@@ -67,7 +67,7 @@ func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger)
 			appConn.connMu.Unlock()
 			ctxWithTimeoutCancel()
 			if err != nil {
-				logger.Debug("error while dialing App. Could not establish global, unified connection", err)
+				logger.Debugw("error while dialing App. Could not establish global, unified connection", "error", err)
 
 				continue
 			}
