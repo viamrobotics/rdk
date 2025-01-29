@@ -72,8 +72,8 @@ func parseBillingAddress(address string) (*apppb.BillingAddress, error) {
 	}
 
 	splitAddress := strings.Split(address, ",")
-	if len(splitAddress) != 4 && len(splitAddress) != 5 {
-		return nil, errors.Errorf("address: %s does not follow the format: line1, line2 (optional), city, state, zipcode", address)
+	if len(splitAddress) != 5 && len(splitAddress) != 6 {
+		return nil, errors.Errorf("address: %s does not follow the format: line1, line2 (optional), city, state, zipcode, country", address)
 	}
 
 	if len(splitAddress) == 4 {
@@ -82,6 +82,7 @@ func parseBillingAddress(address string) (*apppb.BillingAddress, error) {
 			City:          strings.Trim(splitAddress[1], " "),
 			State:         strings.Trim(splitAddress[2], " "),
 			Zipcode:       strings.Trim(splitAddress[3], " "),
+			Country:       strings.Trim(splitAddress[4], " "),
 		}, nil
 	}
 
@@ -92,6 +93,7 @@ func parseBillingAddress(address string) (*apppb.BillingAddress, error) {
 		City:          strings.Trim(splitAddress[2], " "),
 		State:         strings.Trim(splitAddress[3], " "),
 		Zipcode:       strings.Trim(splitAddress[4], " "),
+		Country:       strings.Trim(splitAddress[5], " "),
 	}, nil
 }
 
