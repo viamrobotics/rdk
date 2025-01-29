@@ -182,7 +182,9 @@ func isLocationSecretsEqual(prevCloud, cloud *Cloud) bool {
 	return true
 }
 
-func getTimeoutCtx(ctx context.Context, shouldReadFromCache bool, id string) (context.Context, func()) {
+// GetTimeoutCtx returns a context [and its cancel function] with a timeout value determined by whether we are behind a proxy and whether a
+// cached config exists.
+func GetTimeoutCtx(ctx context.Context, shouldReadFromCache bool, id string) (context.Context, func()) {
 	timeout := readTimeout
 	// When environment indicates we are behind a proxy, bump timeout. Network
 	// operations tend to take longer when behind a proxy.
@@ -258,7 +260,7 @@ func readFromCloud(
 	if !cfg.Cloud.SignalingInsecure && (checkForNewCert || tls.certificate == "" || tls.privateKey == "") {
 		logger.Debug("reading tlsCertificate from the cloud")
 
-		ctxWithTimeout, cancel := getTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
+		ctxWithTimeout, cancel := GetTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
 		certData, err := readCertificateDataFromCloudGRPC(ctxWithTimeout, cloudCfg, logger)
 		if err != nil {
 			cancel()
@@ -649,7 +651,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCache bool, logger logging.Logger) (*Config, bool, error) {
 	var cached bool
 
-	ctxWithTimeout, cancel := getTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
+	ctxWithTimeout, cancel := GetTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
 	defer cancel()
 
 	cfg, errorShouldCheckCache, err := getFromCloudGRPC(ctxWithTimeout, cloudCfg, logger)
