@@ -107,7 +107,7 @@ func buildTransform(
 	}
 }
 
-func propsFromVideoSource(ctx context.Context, source camera.VideoSource) (camera.Properties, error) {
+func propsFromVideoSource(ctx context.Context, source camera.Camera) (camera.Properties, error) {
 	var camProps camera.Properties
 
 	props, err := source.Properties(ctx)
