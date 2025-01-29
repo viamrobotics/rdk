@@ -133,17 +133,7 @@ func isNumeric(kind reflect.Kind) bool {
 		kind == reflect.Float32 || kind == reflect.Float64
 }
 
-func getFieldsForStruct(item reflect.Value) ([]string, error) {
-	a, _, c := flattenStructNew(item)
-	return a, c
-}
-
-func flattenStruct(item reflect.Value) ([]float32, error) {
-	_, b, c := flattenStructNew(item)
-	return b, c
-}
-
-func flattenStructNew(item reflect.Value) ([]string, []float32, error) {
+func flattenStruct(item reflect.Value) ([]string, []float32, error) {
 	flattenPtr := func(inp reflect.Value) reflect.Value {
 		for inp.Kind() == reflect.Pointer || inp.Kind() == reflect.Interface {
 			if inp.IsNil() {
@@ -195,7 +185,7 @@ func flattenStructNew(item reflect.Value) ([]string, []float32, error) {
 		case rField.Kind() == reflect.Struct ||
 			rField.Kind() == reflect.Pointer ||
 			rField.Kind() == reflect.Interface:
-			subFields, subNumbers, err := flattenStructNew(rField)
+			subFields, subNumbers, err := flattenStruct(rField)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -225,62 +215,6 @@ type schemaError struct {
 
 func (err *schemaError) Error() string {
 	return fmt.Sprintf("SchemaError: %s StatserName: %s", err.err.Error(), err.statserName)
-}
-
-// getSchema returns a schema for a full FTDC datum. It immortalizes two properties:
-// - mapOrder: The order to iterate future input `map[string]any` data.
-// - fieldOrder: The order diff bits and values are to be written in.
-//
-// For correctness, it must be the case that the `mapOrder` and `fieldOrder` are consistent. I.e: if
-// the `mapOrder` is `A` then `B`, the `fieldOrder` must list all of the fields of `A` first,
-// followed by all the fields of `B`.
-func getSchema(data map[string]any) (*schema, *schemaError) {
-	var mapOrder []string
-	var fields []string
-
-	for name, stats := range data {
-		mapOrder = append(mapOrder, name)
-		fieldsForItem, err := getFieldsForStruct(reflect.ValueOf(stats))
-		if err != nil {
-			return nil, &schemaError{name, err}
-		}
-
-		for _, field := range fieldsForItem {
-			// We insert a `.` into every metric/field name we get a recording for. This property is
-			// assumed elsewhere.
-			fields = append(fields, fmt.Sprintf("%v.%v", name, field))
-		}
-	}
-
-	return &schema{
-		mapOrder:   mapOrder,
-		fieldOrder: fields,
-	}, nil
-}
-
-// flatten takes an input `Datum` and a `mapOrder` from the current `Schema` and returns a list of
-// `float32`s representing the readings. Similar to `getFieldsForItem`, there are constraints on
-// input data shape that this code currently does not validate.
-func flatten(datum datum, schema *schema) ([]float32, error) {
-	ret := make([]float32, 0, len(schema.fieldOrder))
-
-	for _, key := range schema.mapOrder {
-		// Walk over the datum in `mapOrder` to ensure we gather values in the order consistent with
-		// the current schema.
-		stats, exists := datum.Data[key]
-		if !exists {
-			//nolint
-			return nil, fmt.Errorf("Missing statser name. Name: %v", key)
-		}
-
-		numbers, err := flattenStruct(reflect.ValueOf(stats))
-		if err != nil {
-			return nil, err
-		}
-		ret = append(ret, numbers...)
-	}
-
-	return ret, nil
 }
 
 // FlatDatum has the same information as a `datum`, but without the arbitrarily nested `Data`
