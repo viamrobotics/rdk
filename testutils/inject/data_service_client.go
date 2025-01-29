@@ -220,16 +220,6 @@ func (client *DataServiceClient) RemoveTagsFromBinaryDataByFilter(ctx context.Co
 	return client.RemoveTagsFromBinaryDataByFilterFunc(ctx, in, opts...)
 }
 
-// TagsByFilter calls the injected TagsByFilter or the real version.
-func (client *DataServiceClient) TagsByFilter(ctx context.Context, in *datapb.TagsByFilterRequest,
-	opts ...grpc.CallOption,
-) (*datapb.TagsByFilterResponse, error) {
-	if client.TagsByFilterFunc == nil {
-		return client.DataServiceClient.TagsByFilter(ctx, in, opts...)
-	}
-	return client.TagsByFilterFunc(ctx, in, opts...)
-}
-
 // AddBoundingBoxToImageByID calls the injected AddBoundingBoxToImageByID or the real version.
 func (client *DataServiceClient) AddBoundingBoxToImageByID(ctx context.Context, in *datapb.AddBoundingBoxToImageByIDRequest,
 	opts ...grpc.CallOption,

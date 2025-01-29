@@ -564,20 +564,6 @@ func TestDataClient(t *testing.T) {
 		test.That(t, resp, test.ShouldEqual, count)
 	})
 
-	t.Run("TagsByFilter", func(t *testing.T) {
-		grpcClient.TagsByFilterFunc = func(ctx context.Context, in *pb.TagsByFilterRequest,
-			opts ...grpc.CallOption,
-		) (*pb.TagsByFilterResponse, error) {
-			test.That(t, in.Filter, test.ShouldResemble, pbFilter)
-			return &pb.TagsByFilterResponse{
-				Tags: tags,
-			}, nil
-		}
-		resp, err := client.TagsByFilter(context.Background(), &filter)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp, test.ShouldResemble, tags)
-	})
-
 	t.Run("AddBoundingBoxToImageByID", func(t *testing.T) {
 		grpcClient.AddBoundingBoxToImageByIDFunc = func(ctx context.Context,
 			in *pb.AddBoundingBoxToImageByIDRequest,
