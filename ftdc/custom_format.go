@@ -133,7 +133,30 @@ func isNumeric(kind reflect.Kind) bool {
 		kind == reflect.Float32 || kind == reflect.Float64
 }
 
+func flattenPtr(inp reflect.Value) reflect.Value {
+	for inp.Kind() == reflect.Pointer || inp.Kind() == reflect.Interface {
+		if inp.IsNil() {
+			return inp
+		}
+
+		inp = inp.Elem()
+	}
+	return inp
+}
+
 func flatten(value reflect.Value) ([]string, []float32, error) {
+	value = flattenPtr(value)
+
+	switch value.Kind() {
+	case reflect.Struct:
+		return flattenStruct(value)
+	case reflect.Map:
+		return flattenMap(value)
+	default:
+		// We can get here, for example, if a struct member is typed as an `any`, but the value is
+		// nil. More antagonistically, this also catches weird types such as channels.
+		return []string{}, []float32{}, nil
+	}
 }
 
 func flattenMap(mValue reflect.Value) ([]string, []float32, error) {
@@ -141,34 +164,24 @@ func flattenMap(mValue reflect.Value) ([]string, []float32, error) {
 		return nil, nil, fmt.Errorf("map keys are not strings: %v", mValue.Type().Key())
 	}
 
-	flattenPtr := func(inp reflect.Value) reflect.Value {
-		for inp.Kind() == reflect.Pointer || inp.Kind() == reflect.Interface {
-			if inp.IsNil() {
-				return inp
-			}
-
-			inp = inp.Elem()
-		}
-		return inp
-	}
-
 	fields := make([]string, 0)
 	numbers := make([]float32, 0)
 	for iter := mValue.MapRange(); iter.Next(); {
+		key := iter.Key()
 		value := flattenPtr(iter.Value())
 
 		switch {
 		case value.CanUint():
-			fields = append(fields, iter.Key().String())
+			fields = append(fields, key.String())
 			numbers = append(numbers, float32(value.Uint()))
 		case value.CanInt():
-			fields = append(fields, iter.Key().String())
+			fields = append(fields, key.String())
 			numbers = append(numbers, float32(value.Int()))
 		case value.CanFloat():
-			fields = append(fields, iter.Key().String())
+			fields = append(fields, key.String())
 			numbers = append(numbers, float32(value.Float()))
 		case value.Kind() == reflect.Bool:
-			fields = append(fields, iter.Key().String())
+			fields = append(fields, key.String())
 			if value.Bool() {
 				numbers = append(numbers, 1)
 			} else {
@@ -178,50 +191,31 @@ func flattenMap(mValue reflect.Value) ([]string, []float32, error) {
 			value.Kind() == reflect.Pointer ||
 			value.Kind() == reflect.Interface ||
 			value.Kind() == reflect.Map:
-			subFields, subNumbers, err := flattenStruct(value)
+			subFields, subNumbers, err := flatten(value)
 			if err != nil {
 				return nil, nil, err
 			}
 
 			for _, subField := range subFields {
-				fields = append(fields, fmt.Sprintf("%v.%v", iter.Key().String(), subField))
+				fields = append(fields, fmt.Sprintf("%v.%v", key.String(), subField))
 			}
 			numbers = append(numbers, subNumbers...)
 		case isNumeric(value.Kind()):
 			//nolint:stylecheck
 			return nil, nil, fmt.Errorf("A numeric type was forgotten to be included. Kind: %v", value.Kind())
 		default:
+			// Getting the keys for a structure will ignore these types. Such as the antagonistic
+			// `channel`, or `string`. We follow suit in ignoring these types.
 		}
 	}
 
 	return fields, numbers, nil
 }
 
-func flattenStruct(item reflect.Value) ([]string, []float32, error) {
-	flattenPtr := func(inp reflect.Value) reflect.Value {
-		for inp.Kind() == reflect.Pointer || inp.Kind() == reflect.Interface {
-			if inp.IsNil() {
-				return inp
-			}
+func flattenStruct(value reflect.Value) ([]string, []float32, error) {
+	value = flattenPtr(value)
+	rType := value.Type()
 
-			inp = inp.Elem()
-		}
-		return inp
-	}
-
-	rVal := flattenPtr(item)
-	if rVal.Kind() == reflect.Map {
-		return flattenMap(rVal)
-	}
-
-	if rVal.Kind() != reflect.Struct {
-		// We don't support maps and instead ignore them.
-		return []string{}, []float32{}, nil
-	}
-
-	rType := rVal.Type()
-
-	fmt.Println("NumFields:", rVal.NumField())
 	var fields []string
 	var numbers []float32
 	// Use reflection to walk the member fields of an individual set of metric readings. We rely
@@ -231,8 +225,8 @@ func flattenStruct(item reflect.Value) ([]string, []float32, error) {
 	// function calls and allocations than some more raw alternatives. For example, we can have
 	// the "schema" keep a (field, offset, type) index and we instead access get a single unsafe
 	// pointer to each structure and walk out index to pull out the relevant numbers.
-	for memberIdx := 0; memberIdx < rVal.NumField(); memberIdx++ {
-		rField := flattenPtr(rVal.Field(memberIdx))
+	for memberIdx := 0; memberIdx < value.NumField(); memberIdx++ {
+		rField := flattenPtr(value.Field(memberIdx))
 		switch {
 		case rField.CanUint():
 			fields = append(fields, rType.Field(memberIdx).Name)
@@ -255,7 +249,7 @@ func flattenStruct(item reflect.Value) ([]string, []float32, error) {
 			rField.Kind() == reflect.Pointer ||
 			rField.Kind() == reflect.Interface ||
 			rField.Kind() == reflect.Map:
-			subFields, subNumbers, err := flattenStruct(rField)
+			subFields, subNumbers, err := flatten(rField)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -272,7 +266,6 @@ func flattenStruct(item reflect.Value) ([]string, []float32, error) {
 		default:
 			// Getting the keys for a structure will ignore these types. Such as the antagonistic
 			// `channel`, or `string`. We follow suit in ignoring these types.
-			return nil, nil, fmt.Errorf("Unknown member: %T", rField)
 		}
 	}
 

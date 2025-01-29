@@ -137,23 +137,23 @@ func TestMapStatser(t *testing.T) {
 	foo1 := &foo{x: 1, y: 2}
 	ftdc.Add("foo1", foo1)
 
-	mapStatser1 := mapStatser{"X"}
+	mapStatser1 := mapStatser{"A"}
 	// `mapStatser` implements `Statser`, but returns a map instead of a struct.
 	ftdc.Add("mapStatser", &mapStatser1)
 
 	datum := ftdc.constructDatum()
 	test.That(t, len(datum.Data), test.ShouldEqual, 2)
 	test.That(t, datum.Data["foo1"], test.ShouldNotBeNil)
-	test.That(t, datum.Data["mapStatser"], test.ShouldResemble, map[string]float32{"X": 42})
+	test.That(t, datum.Data["mapStatser"], test.ShouldResemble, map[string]float32{"A": 42})
 
 	err := ftdc.writeDatum(datum)
 	test.That(t, err, test.ShouldBeNil)
 
-	mapStatser1.KeyName = "Y"
+	mapStatser1.KeyName = "B"
 	datum = ftdc.constructDatum()
 	test.That(t, len(datum.Data), test.ShouldEqual, 2)
 	test.That(t, datum.Data["foo1"], test.ShouldNotBeNil)
-	test.That(t, datum.Data["mapStatser"], test.ShouldResemble, map[string]float32{"Y": 42})
+	test.That(t, datum.Data["mapStatser"], test.ShouldResemble, map[string]float32{"B": 42})
 
 	// This time writing the datum works.
 	err = ftdc.writeDatum(datum)
@@ -165,9 +165,9 @@ func TestMapStatser(t *testing.T) {
 
 	test.That(t, len(datums), test.ShouldEqual, 2)
 	test.That(t, datums[0].asDatum().Data["foo1"], test.ShouldResemble, map[string]float32{"X": 1, "Y": 2})
-	test.That(t, datums[0].asDatum().Data["mapStatser"], test.ShouldResemble, map[string]float32{"X": 42})
+	test.That(t, datums[0].asDatum().Data["mapStatser"], test.ShouldResemble, map[string]float32{"A": 42})
 	test.That(t, datums[1].asDatum().Data["foo1"], test.ShouldResemble, map[string]float32{"X": 1, "Y": 2})
-	test.That(t, datums[1].asDatum().Data["mapStatser"], test.ShouldResemble, map[string]float32{"T": 42})
+	test.That(t, datums[1].asDatum().Data["mapStatser"], test.ShouldResemble, map[string]float32{"B": 42})
 }
 
 type nestedStatser struct {

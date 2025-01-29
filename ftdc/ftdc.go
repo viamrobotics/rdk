@@ -354,7 +354,7 @@ func walk(datum map[string]any, previousSchema *schema) (*schema, []float32, err
 		}
 
 		// Get all of the field names and values from the `stats` object.
-		itemFields, itemNumbers, err := flattenStruct(reflect.ValueOf(stats))
+		itemFields, itemNumbers, err := flatten(reflect.ValueOf(stats))
 		if err != nil {
 			return nil, nil, err
 		}
@@ -378,7 +378,7 @@ func walk(datum map[string]any, previousSchema *schema) (*schema, []float32, err
 
 		// We found a statser that did not exist before. Let's add it to our results.
 		schemaChanged = true
-		itemFields, itemNumbers, err := flattenStruct(reflect.ValueOf(stats))
+		itemFields, itemNumbers, err := flatten(reflect.ValueOf(stats))
 		if err != nil {
 			return nil, nil, err
 		}
