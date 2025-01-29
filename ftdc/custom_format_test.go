@@ -41,7 +41,6 @@ func TestCustomFormatRoundtripBasic(t *testing.T) {
 		Data: map[string]any{
 			"s1": &Basic{0},
 		},
-		generationID: 1,
 	}
 
 	ftdc.writeDatum(datumV1)
@@ -55,7 +54,6 @@ func TestCustomFormatRoundtripBasic(t *testing.T) {
 		Data: map[string]any{
 			"s2": &Basic{2},
 		},
-		generationID: 2,
 	}
 	ftdc.writeDatum(datumV2)
 	datumV2.Time = 3
@@ -104,7 +102,6 @@ func TestCustomFormatRoundtripRich(t *testing.T) {
 			Data: map[string]any{
 				"s1": Statser1{0, idx, 1.0},
 			},
-			generationID: 1,
 		}
 
 		ftdc.writeDatum(datumV1)
@@ -118,7 +115,6 @@ func TestCustomFormatRoundtripRich(t *testing.T) {
 				// The second metric here is to test a value that flips between a diff and no diff.
 				"s2": Statser2{0, 1 + (idx / 3), 100.0},
 			},
-			generationID: 2,
 		}
 
 		ftdc.writeDatum(datumV2)
