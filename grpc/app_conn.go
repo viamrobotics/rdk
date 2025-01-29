@@ -77,7 +77,6 @@ func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger)
 		}
 	})
 
-	// if initial dial attempt fails due to time out, return nil error
 	return appConn, nil
 }
 
