@@ -2140,9 +2140,11 @@ Copy multiple files from the machine to a local destination with recursion and k
 							Action: createCommandWithT[machinesPartCopyFilesArgs](MachinesPartCopyFilesAction),
 						},
 						{
-							Name:      "tunnel",
-							Usage:     "tunnel connections to the specified port on a machine part",
-							UsageText: createUsageText("machines part tunnel", []string{generalFlagPart, tunnelFlagLocalPort, tunnelFlagDestinationPort}, true, false),
+							Name:  "tunnel",
+							Usage: "tunnel connections to the specified port on a machine part",
+							UsageText: createUsageText("machines part tunnel", []string{
+								generalFlagPart, tunnelFlagLocalPort, tunnelFlagDestinationPort,
+							}, true, false),
 							Flags: []cli.Flag{
 								&AliasStringFlag{
 									cli.StringFlag{
