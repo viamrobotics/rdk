@@ -6,11 +6,15 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"unsafe"
 
 	"github.com/montanaflynn/stats"
 	"github.com/pkg/errors"
+	pb "go.viam.com/api/service/mlmodel/v1"
 	"go.viam.com/rdk/vision/classification"
 	"golang.org/x/exp/constraints"
+
+	"gorgonia.org/tensor"
 )
 
 const classifierProbabilityName = "probability"
@@ -63,6 +67,119 @@ func FormatClassificationOutputs(
 		}
 	}
 	return classifications, nil
+}
+
+// ProtoToTensors takes pb.FlatTensors and turns it into a Tensors map.
+func ProtoToTensors(pbft *pb.FlatTensors) (Tensors, error) {
+	if pbft == nil {
+		return nil, errors.New("protobuf FlatTensors is nil")
+	}
+	tensors := Tensors{}
+	for name, ftproto := range pbft.Tensors {
+		t, err := createNewTensor(ftproto)
+		if err != nil {
+			return nil, err
+		}
+		tensors[name] = t
+	}
+	return tensors, nil
+}
+
+// createNewTensor turns a proto FlatTensor into a *tensor.Dense.
+func createNewTensor(pft *pb.FlatTensor) (*tensor.Dense, error) {
+	shape := make([]int, 0, len(pft.Shape))
+	for _, s := range pft.Shape {
+		shape = append(shape, int(s))
+	}
+	pt := pft.Tensor
+	switch t := pt.(type) {
+	case *pb.FlatTensor_Int8Tensor:
+		data := t.Int8Tensor
+		if data == nil {
+			return nil, errors.New("tensor of type Int8Tensor is nil")
+		}
+		dataSlice := data.GetData()
+		unsafeInt8Slice := *(*[]int8)(unsafe.Pointer(&dataSlice)) //nolint:gosec
+		int8Slice := make([]int8, 0, len(dataSlice))
+		int8Slice = append(int8Slice, unsafeInt8Slice...)
+		return tensor.New(tensor.WithShape(shape...), tensor.WithBacking(int8Slice)), nil
+	case *pb.FlatTensor_Uint8Tensor:
+		data := t.Uint8Tensor
+		if data == nil {
+			return nil, errors.New("tensor of type Uint8Tensor is nil")
+		}
+		return tensor.New(tensor.WithShape(shape...), tensor.WithBacking(data.GetData())), nil
+	case *pb.FlatTensor_Int16Tensor:
+		data := t.Int16Tensor
+		if data == nil {
+			return nil, errors.New("tensor of type Int16Tensor is nil")
+		}
+		int16Data := uint32ToInt16(data.GetData())
+		return tensor.New(tensor.WithShape(shape...), tensor.WithBacking(int16Data)), nil
+	case *pb.FlatTensor_Uint16Tensor:
+		data := t.Uint16Tensor
+		if data == nil {
+			return nil, errors.New("tensor of type Uint16Tensor is nil")
+		}
+		uint16Data := uint32ToUint16(data.GetData())
+		return tensor.New(tensor.WithShape(shape...), tensor.WithBacking(uint16Data)), nil
+	case *pb.FlatTensor_Int32Tensor:
+		data := t.Int32Tensor
+		if data == nil {
+			return nil, errors.New("tensor of type Int32Tensor is nil")
+		}
+		return tensor.New(tensor.WithShape(shape...), tensor.WithBacking(data.GetData())), nil
+	case *pb.FlatTensor_Uint32Tensor:
+		data := t.Uint32Tensor
+		if data == nil {
+			return nil, errors.New("tensor of type Uint32Tensor is nil")
+		}
+		return tensor.New(tensor.WithShape(shape...), tensor.WithBacking(data.GetData())), nil
+	case *pb.FlatTensor_Int64Tensor:
+		data := t.Int64Tensor
+		if data == nil {
+			return nil, errors.New("tensor of type Int64Tensor is nil")
+		}
+		return tensor.New(tensor.WithShape(shape...), tensor.WithBacking(data.GetData())), nil
+	case *pb.FlatTensor_Uint64Tensor:
+		data := t.Uint64Tensor
+		if data == nil {
+			return nil, errors.New("tensor of type Uint64Tensor is nil")
+		}
+		return tensor.New(tensor.WithShape(shape...), tensor.WithBacking(data.GetData())), nil
+	case *pb.FlatTensor_FloatTensor:
+		data := t.FloatTensor
+		if data == nil {
+			return nil, errors.New("tensor of type FloatTensor is nil")
+		}
+		return tensor.New(tensor.WithShape(shape...), tensor.WithBacking(data.GetData())), nil
+	case *pb.FlatTensor_DoubleTensor:
+		data := t.DoubleTensor
+		if data == nil {
+			return nil, errors.New("tensor of type DoubleTensor is nil")
+		}
+		return tensor.New(tensor.WithShape(shape...), tensor.WithBacking(data.GetData())), nil
+	default:
+		return nil, errors.Errorf("don't know how to create tensor.Dense from proto type %T", pt)
+	}
+}
+
+func uint32ToInt16(uint32Slice []uint32) []int16 {
+	int16Slice := make([]int16, len(uint32Slice))
+
+	for i, value := range uint32Slice {
+		int16Slice[i] = int16(value)
+	}
+	return int16Slice
+}
+
+func uint32ToUint16(uint32Slice []uint32) []uint16 {
+	uint16Slice := make([]uint16, len(uint32Slice))
+
+	for i, value := range uint32Slice {
+		uint16Slice[i] = uint16(value)
+	}
+	return uint16Slice
 }
 
 // number interface for converting between numbers.
