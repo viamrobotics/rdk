@@ -3,7 +3,6 @@ package ftdc
 import (
 	"bytes"
 	"reflect"
-	"slices"
 	"testing"
 
 	"go.viam.com/test"
@@ -343,9 +342,6 @@ func TestFlattenMaps(t *testing.T) {
 
 	keys, values, err := flatten(reflect.ValueOf(mp))
 	test.That(t, err, test.ShouldBeNil)
-
-	slices.Sort(keys)
-	slices.Sort(values)
 	test.That(t, keys, test.ShouldResemble, []string{"X"})
 	test.That(t, values, test.ShouldResemble, []float32{42.0})
 
@@ -356,12 +352,10 @@ func TestFlattenMaps(t *testing.T) {
 
 	keys, values, err = flatten(reflect.ValueOf(mp))
 	test.That(t, err, test.ShouldBeNil)
-
-	// Iterating maps are non-deterministic. Sort the output to get make assertions predictable.
-	slices.Sort(keys)
-	slices.Sort(values)
+	// While iterating maps happens in a non-deterministic order, `flatten` will sort the outputs in
+	// ascending key order.
 	test.That(t, keys, test.ShouldResemble, []string{"X", "Y.Bar", "Y.Foo"})
-	test.That(t, values, test.ShouldResemble, []float32{10.0, 20.0, 42.0})
+	test.That(t, values, test.ShouldResemble, []float32{42.0, 20.0, 10.0})
 }
 
 func TestFlattenTheWorld(t *testing.T) {
@@ -386,7 +380,8 @@ func TestFlattenTheWorld(t *testing.T) {
 
 	keys, values, err := flatten(reflect.ValueOf(mp))
 	test.That(t, err, test.ShouldBeNil)
-	// While iterating maps happens in a non-deterministic order, `flatten` will sort the outputs in ascending key order
+	// While iterating maps happens in a non-deterministic order, `flatten` will sort the outputs in
+	// ascending key order.
 	test.That(t, keys, test.ShouldResemble, []string{"X", "Y.Bar", "Y.mp2.eli", "Y.mp2.patriots", "Z.zelda"})
 	test.That(t, values, test.ShouldResemble, []float32{42.0, 5.0, 2.0, 0.0, 64.0})
 
