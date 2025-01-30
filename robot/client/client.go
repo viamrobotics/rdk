@@ -291,6 +291,11 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		rpc.WithStreamClientInterceptor(streamClientInterceptor()),
 	)
 
+	if rOpts.modName != "" {
+		inter := &grpc.ModInterceptors{ModName: rOpts.modName}
+		rc.dialOptions = append(rc.dialOptions, rpc.WithUnaryClientInterceptor(inter.UnaryClientInterceptor))
+	}
+
 	if err := rc.Connect(ctx); err != nil {
 		return nil, err
 	}
