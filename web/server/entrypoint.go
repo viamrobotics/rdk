@@ -196,6 +196,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	if err != nil {
 		return err
 	}
+	defer appConn.Close()
 
 	// Start remote logging with config from disk.
 	// This is to ensure we make our best effort to write logs for failures loading the remote config.
@@ -468,7 +469,6 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		utils.PanicCapturingGo(func() {
 			defer close(cloudRestartCheckerActive)
 			restartCheck := newRestartChecker(cfg.Cloud, s.logger, s.conn)
-			defer restartCheck.close()
 			restartInterval := defaultNeedsRestartCheckInterval
 
 			for {
