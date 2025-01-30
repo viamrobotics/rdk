@@ -55,7 +55,7 @@ func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger)
 	appConn.dialer = utils.NewStoppableWorkers(ctx)
 
 	appConn.dialer.Add(func(ctx context.Context) {
-		for {
+		for appConn.conn != nil {
 			if ctx.Err() != nil {
 				return
 			}
@@ -72,8 +72,6 @@ func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger)
 			appConn.connMu.Lock()
 			appConn.conn = conn
 			appConn.connMu.Unlock()
-
-			return
 		}
 	})
 
