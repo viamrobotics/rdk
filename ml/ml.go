@@ -45,7 +45,7 @@ func FormatClassificationOutputs(
 	}
 	data, ok := outMap[probabilityName]
 	if !ok {
-		return nil, errors.Errorf("no tensor named 'probability' among output tensors [%s]", strings.Join(tensorNames(outMap), ", "))
+		return nil, errors.Errorf("no tensor named 'probability' among output tensors [%s]", strings.Join(TensorNames(outMap), ", "))
 	}
 	probs, err := ConvertToFloat64Slice(data.Data())
 	if err != nil {
@@ -287,8 +287,8 @@ func checkClassificationScores(in []float64) []float64 {
 	return in // no need to sigmoid
 }
 
-// tensorNames returns all the names of the tensors.
-func tensorNames(t Tensors) []string {
+// TensorNames returns all the names of the tensors.
+func TensorNames(t Tensors) []string {
 	names := []string{}
 	for name := range t {
 		names = append(names, name)

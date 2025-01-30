@@ -15,7 +15,6 @@ import (
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/mlmodel"
@@ -295,13 +294,4 @@ func getIndex(s []int, num int) int {
 		}
 	}
 	return -1
-}
-
-// tensorNames returns all the names of the tensors.
-func tensorNames(t ml.Tensors) []string {
-	names := []string{}
-	for name := range t {
-		names = append(names, name)
-	}
-	return names
 }

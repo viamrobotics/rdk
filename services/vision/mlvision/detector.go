@@ -304,7 +304,7 @@ func findDetectionTensorNames(outMap ml.Tensors, nameMap *sync.Map) (string, str
 func guessDetectionTensorNames(outMap ml.Tensors) (string, string, string, error) {
 	foundTensor := map[string]bool{}
 	mappedNames := map[string]string{}
-	outNames := tensorNames(outMap)
+	outNames := ml.TensorNames(outMap)
 	_, okLoc := outMap[detectorLocationName]
 	if okLoc {
 		foundTensor[detectorLocationName] = true
