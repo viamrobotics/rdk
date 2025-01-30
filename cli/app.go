@@ -133,6 +133,9 @@ const (
 	cpFlagRecursive = "recursive"
 	cpFlagPreserve  = "preserve"
 
+	tunnelFlagLocalPort       = "local-port"
+	tunnelFlagDestinationPort = "destination-port"
+
 	organizationFlagSupportEmail = "support-email"
 	organizationBillingAddress   = "address"
 	organizationFlagLogoPath     = "logo-path"
@@ -2135,6 +2138,49 @@ Copy multiple files from the machine to a local destination with recursion and k
 								},
 							},
 							Action: createCommandWithT[machinesPartCopyFilesArgs](MachinesPartCopyFilesAction),
+						},
+						{
+							Name:  "tunnel",
+							Usage: "tunnel connections to the specified port on a machine part",
+							UsageText: createUsageText("machines part tunnel", []string{
+								generalFlagPart, tunnelFlagLocalPort, tunnelFlagDestinationPort,
+							}, true, false),
+							Flags: []cli.Flag{
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:     generalFlagPart,
+										Aliases:  []string{generalFlagPartID, generalFlagPartName},
+										Required: true,
+									},
+								},
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:    generalFlagOrganization,
+										Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+									},
+								},
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:    generalFlagLocation,
+										Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
+									},
+								},
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:    generalFlagMachine,
+										Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
+									},
+								},
+								&cli.IntFlag{
+									Name:     tunnelFlagLocalPort,
+									Required: true,
+								},
+								&cli.IntFlag{
+									Name:     tunnelFlagDestinationPort,
+									Required: true,
+								},
+							},
+							Action: createCommandWithT[robotsPartTunnelArgs](RobotsPartTunnelAction),
 						},
 					},
 				},

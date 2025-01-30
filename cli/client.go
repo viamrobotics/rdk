@@ -15,7 +15,9 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -1355,6 +1357,94 @@ func (c *viamClient) machinesPartCopyFilesAction(
 	return nil
 }
 
+type robotsPartTunnelArgs struct {
+	Organization    string
+	Location        string
+	Machine         string
+	Part            string
+	LocalPort       int
+	DestinationPort int
+}
+
+// RobotsPartTunnelAction is the corresponding Action for 'machines part tunnel'.
+func RobotsPartTunnelAction(c *cli.Context, args robotsPartTunnelArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	return client.robotPartTunnel(c, args)
+}
+
+func tunnelTraffic(ctx *cli.Context, robotClient *client.RobotClient, local, dest int) error {
+	li, err := net.Listen("tcp", net.JoinHostPort("localhost", strconv.Itoa(local)))
+	if err != nil {
+		return fmt.Errorf("failed to create listener %w", err)
+	}
+	infof(ctx.App.Writer, "tunneling connections from local port %v to destination port %v on machine part...", local, dest)
+	defer func() {
+		if err := li.Close(); err != nil {
+			warningf(ctx.App.ErrWriter, "error closing listener: %s", err)
+		}
+	}()
+
+	var wg sync.WaitGroup
+	for {
+		if ctx.Err() != nil {
+			break
+		}
+		conn, err := li.Accept()
+		if err != nil {
+			warningf(ctx.App.ErrWriter, "failed to accept connection: %s", err)
+			continue
+		}
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			// call tunnel once per connection, the connection passed in will be closed
+			// by Tunnel.
+			if err := robotClient.Tunnel(ctx.Context, conn, dest); err != nil {
+				printf(ctx.App.Writer, "error while tunneling connection: %s", err)
+			}
+		}()
+	}
+	wg.Wait()
+	return nil
+}
+
+func (c *viamClient) robotPartTunnel(cCtx *cli.Context, args robotsPartTunnelArgs) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	orgStr := args.Organization
+	locStr := args.Location
+	robotStr := args.Machine
+	partStr := args.Part
+
+	// Create logger based on presence of debugFlag.
+	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
+	globalArgs, err := getGlobalArgs(cCtx)
+	if err != nil {
+		return err
+	}
+	if globalArgs.Debug {
+		logger = logging.NewDebugLogger("cli")
+	}
+
+	dialCtx, fqdn, rpcOpts, err := c.prepareDial(orgStr, locStr, robotStr, partStr, globalArgs.Debug)
+	if err != nil {
+		return err
+	}
+
+	robotClient, err := c.connectToRobot(dialCtx, fqdn, rpcOpts, globalArgs.Debug, logger)
+	if err != nil {
+		return err
+	}
+	return tunnelTraffic(cCtx, robotClient, args.LocalPort, args.DestinationPort)
+}
+
 // checkUpdateResponse holds the values used to hold release information.
 type getLatestReleaseResponse struct {
 	Name       string `json:"name"`
@@ -2185,6 +2275,23 @@ func (c *viamClient) connectToShellServiceFqdn(
 	return c.connectToShellServiceInner(dialCtx, fqdn, rpcOpts, debug, logger)
 }
 
+func (c *viamClient) connectToRobot(
+	dialCtx context.Context,
+	fqdn string,
+	rpcOpts []rpc.DialOption,
+	debug bool,
+	logger logging.Logger,
+) (*client.RobotClient, error) {
+	if debug {
+		printf(c.c.App.Writer, "Establishing connection...")
+	}
+	robotClient, err := client.New(dialCtx, fqdn, logger, client.WithDialOptions(rpcOpts...))
+	if err != nil {
+		return nil, errors.Wrap(err, "could not connect to machine part")
+	}
+	return robotClient, nil
+}
+
 func (c *viamClient) connectToShellServiceInner(
 	dialCtx context.Context,
 	fqdn string,
@@ -2192,12 +2299,9 @@ func (c *viamClient) connectToShellServiceInner(
 	debug bool,
 	logger logging.Logger,
 ) (shell.Service, func(ctx context.Context) error, error) {
-	if debug {
-		printf(c.c.App.Writer, "Establishing connection...")
-	}
-	robotClient, err := client.New(dialCtx, fqdn, logger, client.WithDialOptions(rpcOpts...))
+	robotClient, err := c.connectToRobot(dialCtx, fqdn, rpcOpts, debug, logger)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "could not connect to machine part")
+		return nil, nil, err
 	}
 
 	var successful bool
