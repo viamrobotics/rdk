@@ -146,14 +146,15 @@ func findReaderAndDriver(
 			return nil, nil, "", err
 		}
 
+		img, release, err := reader.Read()
+		if release != nil {
+			defer release()
+		}
+		if err != nil {
+			return nil, nil, "", err
+		}
+
 		if conf.Width != 0 && conf.Height != 0 {
-			img, release, err := reader.Read()
-			if release != nil {
-				defer release()
-			}
-			if err != nil {
-				return nil, nil, "", err
-			}
 			if img.Bounds().Dx() != conf.Width || img.Bounds().Dy() != conf.Height {
 				return nil, nil, "", errors.Errorf("requested width and height (%dx%d) are not available for this webcam"+
 					" (closest driver found supports resolution %dx%d)",
@@ -435,56 +436,6 @@ func (c *webcam) Properties(ctx context.Context) (camera.Properties, error) {
 		MimeTypes:        []string{utils.MimeTypeJPEG, utils.MimeTypePNG, utils.MimeTypeRawRGBA},
 		FrameRate:        frameRate,
 	}, nil
-
-	// props, err := c.exposedProjector.Properties(ctx)
-	// if err != nil {
-	// 	return camera.Properties{}, err
-	// }
-	// // Looking for intrinsics in map built using viam camera
-	// // calibration here https://github.com/viam-labs/camera-calibration/tree/main
-	// if props.IntrinsicParams == nil {
-	// 	dInfo := c.getDriverInfo()
-	// 	cameraIntrinsics, exists := data[dInfo.Name]
-	// 	if !exists {
-	// 		if !c.hasLoggedIntrinsicsInfo {
-	// 			c.logger.CInfo(ctx, "camera model not found in known camera models for: ", dInfo.Name, ". returning "+
-	// 				"properties without intrinsics")
-	// 			c.hasLoggedIntrinsicsInfo = true
-	// 		}
-	// 		return props, nil
-	// 	}
-	// 	if c.conf.Width != 0 {
-	// 		if c.conf.Width != cameraIntrinsics.Width {
-	// 			if !c.hasLoggedIntrinsicsInfo {
-	// 				c.logger.CInfo(ctx, "camera model found in known camera models for: ", dInfo.Name, " but "+
-	// 					"intrinsics width doesn't match configured image width")
-	// 				c.hasLoggedIntrinsicsInfo = true
-	// 			}
-	// 			return props, nil
-	// 		}
-	// 	}
-	// 	if c.conf.Height != 0 {
-	// 		if c.conf.Height != cameraIntrinsics.Height {
-	// 			if !c.hasLoggedIntrinsicsInfo {
-	// 				c.logger.CInfo(ctx, "camera model found in known camera models for: ", dInfo.Name, " but "+
-	// 					"intrinsics height doesn't match configured image height")
-	// 				c.hasLoggedIntrinsicsInfo = true
-	// 			}
-	// 			return props, nil
-	// 		}
-	// 	}
-	// 	if !c.hasLoggedIntrinsicsInfo {
-	// 		c.logger.CInfo(ctx, "Intrinsics are known for camera model: ", dInfo.Name, ". adding intrinsics "+
-	// 			"to camera properties")
-	// 		c.hasLoggedIntrinsicsInfo = true
-	// 	}
-	// 	props.IntrinsicParams = &cameraIntrinsics
-
-	// 	if c.conf.FrameRate > 0 {
-	// 		props.FrameRate = c.conf.FrameRate
-	// 	}
-	// }
-	// return props, nil
 }
 
 func (c *webcam) Close(ctx context.Context) error {
