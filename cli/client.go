@@ -1381,7 +1381,7 @@ func tunnelTraffic(ctx *cli.Context, robotClient *client.RobotClient, local, des
 	if err != nil {
 		return fmt.Errorf("failed to create listener %w", err)
 	}
-	infof(ctx.App.Writer, "tunneling connections from local port %v to destination port %v on machine part", local, dest)
+	infof(ctx.App.Writer, "tunneling connections from local port %v to destination port %v on machine part...", local, dest)
 	defer func() {
 		if err := li.Close(); err != nil {
 			warningf(ctx.App.ErrWriter, "error closing listener: %s", err)
