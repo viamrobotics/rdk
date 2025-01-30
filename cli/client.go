@@ -1414,6 +1414,10 @@ func tunnelTraffic(ctx *cli.Context, robotClient *client.RobotClient, local, des
 }
 
 func (c *viamClient) robotPartTunnel(cCtx *cli.Context, args robotsPartTunnelArgs) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
 	orgStr := args.Organization
 	locStr := args.Location
 	robotStr := args.Machine
