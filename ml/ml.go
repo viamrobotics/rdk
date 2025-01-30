@@ -76,7 +76,7 @@ func ProtoToTensors(pbft *pb.FlatTensors) (Tensors, error) {
 	}
 	tensors := Tensors{}
 	for name, ftproto := range pbft.Tensors {
-		t, err := createNewTensor(ftproto)
+		t, err := CreateNewTensor(ftproto)
 		if err != nil {
 			return nil, err
 		}
@@ -85,8 +85,8 @@ func ProtoToTensors(pbft *pb.FlatTensors) (Tensors, error) {
 	return tensors, nil
 }
 
-// createNewTensor turns a proto FlatTensor into a *tensor.Dense.
-func createNewTensor(pft *pb.FlatTensor) (*tensor.Dense, error) {
+// CreateNewTensor turns a proto FlatTensor into a *tensor.Dense.
+func CreateNewTensor(pft *pb.FlatTensor) (*tensor.Dense, error) {
 	shape := make([]int, 0, len(pft.Shape))
 	for _, s := range pft.Shape {
 		shape = append(shape, int(s))
