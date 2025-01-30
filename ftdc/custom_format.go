@@ -9,6 +9,7 @@ import (
 	"io"
 	"math"
 	"reflect"
+	"sort"
 	"strings"
 	"time"
 
@@ -161,6 +162,25 @@ func flatten(value reflect.Value) ([]string, []float32, error) {
 	}
 }
 
+type mapSorter struct {
+	fields []string
+	values []float32
+}
+
+func (ms mapSorter) Len() int {
+	return len(ms.fields)
+}
+
+func (ms mapSorter) Less(left, right int) bool {
+	return ms.fields[left] < ms.fields[right]
+}
+
+func (ms mapSorter) Swap(left, right int) {
+	ms.fields[left], ms.fields[right] = ms.fields[right], ms.fields[left]
+	ms.values[left], ms.values[right] = ms.values[right], ms.values[left]
+}
+
+// flattenMap must be passed in a map where the keys are explicitly typed as strings. The values can be any terminal type (e.g: numbers) or more maps of strings
 func flattenMap(mValue reflect.Value) ([]string, []float32, error) {
 	if mValue.Type().Key().Kind() != reflect.String {
 		// We ignore types we refuse to serialize into ftdc.
@@ -169,6 +189,11 @@ func flattenMap(mValue reflect.Value) ([]string, []float32, error) {
 
 	fields := make([]string, 0)
 	numbers := make([]float32, 0)
+
+	// Map iteration order is not predictable. This means that consecutive calls to a `Statser` that
+	// returns a map may yield: {"X": 1, "Y": 2} for one stat followed by {"Y": 2, "X": 1}. That
+	// sequence would result in us rewriting out the schema. We will build up results in map
+	// iteration order here and sort them later.
 	for iter := mValue.MapRange(); iter.Next(); {
 		key := iter.Key()
 		value := flattenPtr(iter.Value())
@@ -211,6 +236,10 @@ func flattenMap(mValue reflect.Value) ([]string, []float32, error) {
 			// `channel`, or `string`. We follow suit in ignoring these types.
 		}
 	}
+
+	// Sort `fields` in-place to ascending order to combat random map iteration order. This will
+	// also make the corresponding swaps on the `numbers` slice.
+	sort.Sort(mapSorter{fields, numbers})
 
 	return fields, numbers, nil
 }
