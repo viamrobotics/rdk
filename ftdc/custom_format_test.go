@@ -386,7 +386,6 @@ func TestFlattenTheWorld(t *testing.T) {
 
 	keys, values, err := flatten(reflect.ValueOf(mp))
 	test.That(t, err, test.ShouldBeNil)
-
 	// While iterating maps happens in a non-deterministic order, `flatten` will sort the outputs in ascending key order
 	test.That(t, keys, test.ShouldResemble, []string{"X", "Y.Bar", "Y.mp2.eli", "Y.mp2.patriots", "Z.zelda"})
 	test.That(t, values, test.ShouldResemble, []float32{42.0, 5.0, 2.0, 0.0, 64.0})
@@ -397,7 +396,6 @@ func TestFlattenTheWorld(t *testing.T) {
 	}{10, 20}
 
 	keys, values, err = flatten(reflect.ValueOf(mp))
-
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, keys, test.ShouldResemble, []string{"X", "Y.Bar", "Y.mp2.eli", "Y.mp2.patriots", "Z.Bar", "Z.Foo"})
 	test.That(t, values, test.ShouldResemble, []float32{42.0, 5.0, 2.0, 0.0, 20.0, 10.0})
