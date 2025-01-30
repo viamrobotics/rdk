@@ -180,7 +180,8 @@ func (ms mapSorter) Swap(left, right int) {
 	ms.values[left], ms.values[right] = ms.values[right], ms.values[left]
 }
 
-// flattenMap must be passed in a map where the keys are explicitly typed as strings. The values can be any terminal type (e.g: numbers) or more maps of strings
+// flattenMap must be passed in a map where the keys are explicitly typed as strings. The values can
+// be any terminal type (e.g: numbers) or more maps of strings.
 func flattenMap(mValue reflect.Value) ([]string, []float32, error) {
 	if mValue.Type().Key().Kind() != reflect.String {
 		// We ignore types we refuse to serialize into ftdc.
