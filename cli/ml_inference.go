@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
@@ -44,7 +45,9 @@ func MLInferenceInferAction(c *cli.Context, args mlInferenceInferArgs) error {
 }
 
 // mlRunInference runs inference on an image with the specified parameters.
-func (c *viamClient) mlRunInference(orgID, fileOrgID, fileID, fileLocation, modelID, modelVersion string) (*mlinferencepb.GetInferenceResponse, error) {
+func (c *viamClient) mlRunInference(orgID, fileOrgID, fileID, fileLocation, modelID,
+	modelVersion string,
+) (*mlinferencepb.GetInferenceResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
@@ -64,51 +67,53 @@ func (c *viamClient) mlRunInference(orgID, fileOrgID, fileID, fileLocation, mode
 	if err != nil {
 		return nil, errors.Wrapf(err, "received error from server")
 	}
-	printInferenceResponse(resp)
+	c.printInferenceResponse(resp)
 	return resp, nil
 }
 
 // printInferenceResponse prints a neat representation of the GetInferenceResponse.
-func printInferenceResponse(resp *mlinferencepb.GetInferenceResponse) {
-	fmt.Println("Inference Response:")
-	fmt.Println("Output Tensors:")
+func (c *viamClient) printInferenceResponse(resp *mlinferencepb.GetInferenceResponse) {
+	printf(c.c.App.Writer, "Inference Response:")
+	printf(c.c.App.Writer, "Output Tensors:")
 	if resp.OutputTensors != nil {
 		for name, tensor := range resp.OutputTensors.Tensors {
-			fmt.Printf("  Tensor Name: %s\n", name)
-			fmt.Printf("    Shape: %v\n", tensor.Shape)
+			printf(c.c.App.Writer, "  Tensor Name: %s", name)
+			printf(c.c.App.Writer, "    Shape: %v", tensor.Shape)
 			if tensor.Tensor != nil {
-				fmt.Print("    Values: [")
+				var sb strings.Builder
 				for i, value := range tensor.GetDoubleTensor().GetData() {
 					if i > 0 {
-						fmt.Print(", ")
+						sb.WriteString(", ")
 					}
-					fmt.Printf("%.4f", value)
+					sb.WriteString(fmt.Sprintf("%.4f", value))
 				}
-				fmt.Println("]")
+				printf(c.c.App.Writer, "    Values: [%s]", sb.String())
 			} else {
-				fmt.Println("    No values available.")
+				printf(c.c.App.Writer, "    No values available.")
 			}
 		}
 	} else {
-		fmt.Println("  No output tensors.")
+		printf(c.c.App.Writer, "  No output tensors.")
 	}
 
-	fmt.Println("Annotations:")
+	printf(c.c.App.Writer, "Annotations:")
 	if resp.Annotations != nil {
 		for _, bbox := range resp.Annotations.Bboxes {
-			fmt.Printf("  Bounding Box ID: %s, Label: %s\n", bbox.Id, bbox.Label)
-			fmt.Printf("    Coordinates: [%f, %f, %f, %f]\n", bbox.XMinNormalized, bbox.YMinNormalized, bbox.XMaxNormalized, bbox.YMaxNormalized)
+			printf(c.c.App.Writer, "  Bounding Box ID: %s, Label: %s",
+				bbox.Id, bbox.Label)
+			printf(c.c.App.Writer, "    Coordinates: [%f, %f, %f, %f]",
+				bbox.XMinNormalized, bbox.YMinNormalized, bbox.XMaxNormalized, bbox.YMaxNormalized)
 			if bbox.Confidence != nil {
-				fmt.Printf("    Confidence: %.4f\n", *bbox.Confidence)
+				printf(c.c.App.Writer, "    Confidence: %.4f", *bbox.Confidence)
 			}
 		}
 		for _, classification := range resp.Annotations.Classifications {
-			fmt.Printf("  Classification Label: %s\n", classification.Label)
+			printf(c.c.App.Writer, "  Classification Label: %s", classification.Label)
 			if classification.Confidence != nil {
-				fmt.Printf("    Confidence: %.4f\n", *classification.Confidence)
+				printf(c.c.App.Writer, "    Confidence: %.4f", *classification.Confidence)
 			}
 		}
 	} else {
-		fmt.Println("  No annotations.")
+		printf(c.c.App.Writer, "  No annotations.")
 	}
 }

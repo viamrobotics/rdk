@@ -2755,9 +2755,12 @@ This won't work unless you have an existing installation of our GitHub app on yo
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
 				{
-					Name:      "infer",
-					Usage:     "run inference on an image",
-					UsageText: createUsageText("inference infer", []string{generalFlagOrgID, inferenceFlagFileOrgID, inferenceFlagFileID, inferenceFlagFileLocationID, inferenceFlagModelID, inferenceFlagModelVersionID}, true, false),
+					Name:  "infer",
+					Usage: "run inference on an image",
+					UsageText: createUsageText("inference infer", []string{
+						generalFlagOrgID, inferenceFlagFileOrgID, inferenceFlagFileID,
+						inferenceFlagFileLocationID, inferenceFlagModelID, inferenceFlagModelVersionID,
+					}, true, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     generalFlagOrgID,
