@@ -192,10 +192,17 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 
 	// the underlying connection in `appConn` can be nil. In this case, a background Goroutine is kicked off to reattempt dials in a
 	// serialized manner
-	appConn, err := grpc.NewAppConn(ctx, cfgFromDisk.Cloud, logger.Sublogger("networking").Sublogger("app_connection"))
+	appConnLogger := logger.Sublogger("networking").Sublogger("app_connection")
+	appConn, err := grpc.NewAppConn(ctx, cfgFromDisk.Cloud, appConnLogger)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		err := appConn.Close()
+		if err != nil {
+			appConnLogger.Error(err)
+		}
+	}()
 
 	// Start remote logging with config from disk.
 	// This is to ensure we make our best effort to write logs for failures loading the remote config.
@@ -468,7 +475,6 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		utils.PanicCapturingGo(func() {
 			defer close(cloudRestartCheckerActive)
 			restartCheck := newRestartChecker(cfg.Cloud, s.logger, s.conn)
-			defer restartCheck.close()
 			restartInterval := defaultNeedsRestartCheckInterval
 
 			for {

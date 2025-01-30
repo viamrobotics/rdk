@@ -6,7 +6,6 @@ import (
 	"time"
 
 	apppb "go.viam.com/api/app/v1"
-	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
@@ -20,19 +19,12 @@ const (
 
 type needsRestartChecker interface {
 	needsRestart(ctx context.Context) (bool, time.Duration, error)
-	close()
 }
 
 type needsRestartCheckerGRPC struct {
 	cfg    *config.Cloud
 	logger logging.Logger
 	client rpc.ClientConn
-}
-
-func (c *needsRestartCheckerGRPC) close() {
-	if c.client != nil {
-		utils.UncheckedErrorFunc(c.client.Close)
-	}
 }
 
 // ForceRestart lets random other parts of the app request an exit.
