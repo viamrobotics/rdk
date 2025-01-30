@@ -121,11 +121,11 @@ func attemptToBuildDetector(mlm mlmodel.Service,
 		if err != nil {
 			return nil, err
 		}
-		locations, err := convertToFloat64Slice(outMap[locationName].Data())
+		locations, err := ml.ConvertToFloat64Slice(outMap[locationName].Data())
 		if err != nil {
 			return nil, err
 		}
-		scores, err := convertToFloat64Slice(outMap[scoreName].Data())
+		scores, err := ml.ConvertToFloat64Slice(outMap[scoreName].Data())
 		if err != nil {
 			return nil, err
 		}
@@ -133,7 +133,7 @@ func attemptToBuildDetector(mlm mlmodel.Service,
 		categories := make([]float64, len(scores)) // default 0 category if no category output
 		if categoryName != "" {
 			hasCategoryTensor = true
-			categories, err = convertToFloat64Slice(outMap[categoryName].Data())
+			categories, err = ml.ConvertToFloat64Slice(outMap[categoryName].Data())
 			if err != nil {
 				return nil, err
 			}
@@ -332,7 +332,7 @@ func guessDetectionTensorNames(outMap ml.Tensors) (string, string, string, error
 			if err != nil {
 				return "", "", "", err
 			}
-			val64, err := convertToFloat64Slice(val)
+			val64, err := ml.ConvertToFloat64Slice(val)
 			if err != nil {
 				return "", "", "", err
 			}
@@ -390,7 +390,7 @@ func guessDetectionTensorNames(outMap ml.Tensors) (string, string, string, error
 						return "", "", "", err
 					}
 				}
-				val, err := convertToFloat64Slice(whole.Data())
+				val, err := ml.ConvertToFloat64Slice(whole.Data())
 				if err != nil {
 					return "", "", "", err
 				}

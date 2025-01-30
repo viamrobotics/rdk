@@ -47,7 +47,7 @@ func FormatClassificationOutputs(
 	if !ok {
 		return nil, errors.Errorf("no tensor named 'probability' among output tensors [%s]", strings.Join(tensorNames(outMap), ", "))
 	}
-	probs, err := convertToFloat64Slice(data.Data())
+	probs, err := ConvertToFloat64Slice(data.Data())
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +196,7 @@ func convertNumberSlice[T1, T2 number](t1 []T1) []T2 {
 	return t2
 }
 
-func convertToFloat64Slice(slice interface{}) ([]float64, error) {
+func ConvertToFloat64Slice(slice interface{}) ([]float64, error) {
 	switch v := slice.(type) {
 	case []float64:
 		return v, nil
