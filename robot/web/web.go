@@ -39,6 +39,7 @@ import (
 	"go.viam.com/rdk/robot"
 	grpcserver "go.viam.com/rdk/robot/server"
 	weboptions "go.viam.com/rdk/robot/web/options"
+	webstream "go.viam.com/rdk/robot/web/stream"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -78,6 +79,28 @@ type Service interface {
 	ModuleAddress() string
 
 	Stats() any
+}
+
+type webService struct {
+	resource.Named
+
+	mu        sync.Mutex
+	r         robot.Robot
+	rpcServer rpc.Server
+	modServer rpc.Server
+
+	// Will be nil on non-cgo builds.
+	streamServer *webstream.Server
+	services     map[resource.API]resource.APIResourceCollection[resource.Resource]
+	opts         options
+	addr         string
+	modAddr      string
+	logger       logging.Logger
+	cancelCtx    context.Context
+	cancelFunc   func()
+	isRunning    bool
+	webWorkers   sync.WaitGroup
+	modWorkers   sync.WaitGroup
 }
 
 var internalWebServiceName = resource.NewName(
