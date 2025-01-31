@@ -461,7 +461,7 @@ func (c *webcam) Properties(ctx context.Context) (camera.Properties, error) {
 		frameRate = c.conf.FrameRate
 	}
 	return camera.Properties{
-		SupportsPCD:      intrinsics != nil,
+		SupportsPCD:      c.cameraModel.PinholeCameraIntrinsics != nil,
 		ImageType:        camera.ColorStream,
 		IntrinsicParams:  c.cameraModel.PinholeCameraIntrinsics,
 		DistortionParams: c.cameraModel.Distortion,
