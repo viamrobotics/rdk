@@ -166,6 +166,7 @@ func (bs *basicStream) Start() {
 // if we also need to support writing audio RTP packets, we should split
 // this method into WriteVideoRTP and WriteAudioRTP.
 func (bs *basicStream) WriteRTP(pkt *rtp.Packet) error {
+	bs.logger.Info("basic stream calling WriteRTP")
 	return bs.videoTrackLocal.rtpTrack.WriteRTP(pkt)
 }
 

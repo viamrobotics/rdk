@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+	"github.com/viamrobotics/webrtc/v3"
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils/rpc"
 
@@ -26,13 +27,14 @@ func New(r robot.Robot, logger logging.Logger, opts ...Option) Service {
 		opt.apply(&wOpts)
 	}
 	webSvc := &webService{
-		Named:        InternalServiceName.AsNamed(),
-		r:            r,
-		logger:       logger,
-		rpcServer:    nil,
-		streamServer: nil,
-		services:     map[resource.API]resource.APIResourceCollection[resource.Resource]{},
-		opts:         wOpts,
+		resourceNameToPeerConnectionMap: make(map[string]*webrtc.PeerConnection),
+		Named:                           InternalServiceName.AsNamed(),
+		r:                               r,
+		logger:                          logger,
+		rpcServer:                       nil,
+		streamServer:                    nil,
+		services:                        map[resource.API]resource.APIResourceCollection[resource.Resource]{},
+		opts:                            wOpts,
 	}
 	return webSvc
 }
@@ -55,6 +57,9 @@ type webService struct {
 	isRunning    bool
 	webWorkers   sync.WaitGroup
 	modWorkers   sync.WaitGroup
+
+	resourceNameToPeerConnectionMu  sync.Mutex
+	resourceNameToPeerConnectionMap map[string]*webrtc.PeerConnection
 }
 
 // Reconfigure pulls resources and updates the stream server audio and video streams with the new resources.
@@ -78,13 +83,15 @@ func (svc *webService) closeStreamServer() {
 
 func (svc *webService) initStreamServer(ctx context.Context) error {
 	// Check to make sure stream config option is set in the webservice.
-	var streamConfig gostream.StreamConfig
-	if svc.opts.streamConfig != nil {
-		streamConfig = *svc.opts.streamConfig
-	} else {
-		svc.logger.Warn("streamConfig is nil, using empty config")
+	if svc.streamServer == nil {
+		var streamConfig gostream.StreamConfig
+		if svc.opts.streamConfig != nil {
+			streamConfig = *svc.opts.streamConfig
+		} else {
+			svc.logger.Warn("streamConfig is nil, using empty config")
+		}
+		svc.streamServer = webstream.NewServer(svc.r, streamConfig, svc.logger)
 	}
-	svc.streamServer = webstream.NewServer(svc.r, streamConfig, svc.logger)
 	if err := svc.streamServer.AddNewStreams(svc.cancelCtx); err != nil {
 		return err
 	}

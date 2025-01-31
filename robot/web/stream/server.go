@@ -143,8 +143,8 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 	defer span.End()
 	// Get the peer connection to the caller.
 	pc, ok := rpc.ContextPeerConnection(ctx)
-	server.logger.Infow("Adding video stream", "name", req.Name, "peerConn", pc)
-	defer server.logger.Warnf("AddStream END %s", req.Name)
+	server.logger.Warnf("AddStream START %s, pc: %p, activePeerStreams: %#v", req.Name, pc, server.activePeerStreams)
+	defer server.logger.Warnf("AddStream END %s, pc: %p, activePeerStreams: %#v", req.Name, pc, server.activePeerStreams)
 
 	if !ok {
 		return nil, errors.New("can only add a stream over a WebRTC based connection")

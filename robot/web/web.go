@@ -21,8 +21,10 @@ import (
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/pkg/errors"
 	"github.com/rs/cors"
+	"github.com/viamrobotics/webrtc/v3"
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/robot/v1"
+	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils"
 	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
 	"go.viam.com/utils/rpc"
@@ -30,8 +32,10 @@ import (
 	"goji.io"
 	"goji.io/pat"
 	googlegrpc "google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
@@ -39,6 +43,7 @@ import (
 	"go.viam.com/rdk/robot"
 	grpcserver "go.viam.com/rdk/robot/server"
 	weboptions "go.viam.com/rdk/robot/web/options"
+	webstream "go.viam.com/rdk/robot/web/stream"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -78,6 +83,11 @@ type Service interface {
 	ModuleAddress() string
 
 	Stats() any
+}
+
+type ModularResourceToPeerConnectionMapper interface {
+	SetResourceNameToModulePeerConnection(name string, pc *webrtc.PeerConnection)
+	ClearResourceNameToModulePeerConnection(name string)
 }
 
 var internalWebServiceName = resource.NewName(
@@ -153,6 +163,18 @@ func (svc *webService) ModuleAddress() string {
 	return svc.modAddr
 }
 
+func (svc *webService) SetResourceNameToModulePeerConnection(name string, pc *webrtc.PeerConnection) {
+	svc.resourceNameToPeerConnectionMu.Lock()
+	defer svc.resourceNameToPeerConnectionMu.Unlock()
+	svc.resourceNameToPeerConnectionMap[name] = pc
+}
+
+func (svc *webService) ClearResourceNameToModulePeerConnection(name string) {
+	svc.resourceNameToPeerConnectionMu.Lock()
+	defer svc.resourceNameToPeerConnectionMu.Unlock()
+	delete(svc.resourceNameToPeerConnectionMap, name)
+}
+
 // StartModule starts the grpc module server.
 func (svc *webService) StartModule(ctx context.Context) error {
 	svc.mu.Lock()
@@ -193,6 +215,66 @@ func (svc *webService) StartModule(ctx context.Context) error {
 	)
 
 	unaryInterceptors = append(unaryInterceptors, grpc.EnsureTimeoutUnaryServerInterceptor)
+	f := func(ctx context.Context, req any, info *googlegrpc.UnaryServerInfo, handler googlegrpc.UnaryHandler) (resp any, err error) {
+		if !strings.HasPrefix(info.FullMethod, "/proto.stream.v1.StreamService") {
+			return handler(ctx, req)
+		}
+		svc.logger.Infof("middleware START")
+		defer svc.logger.Infof("middleware END")
+		crn := metadata.ValueFromIncomingContext(ctx, "calling_resource_name")
+		svc.logger.Infof("NICK!!! crn: %#v", crn)
+		if len(crn) != 1 {
+			return handler(ctx, req)
+		}
+
+		callerResourceName, err := resource.NewFromString(crn[0])
+		if err != nil {
+			return handler(ctx, req)
+		}
+		svc.logger.Infof("ctx before: %#v", ctx)
+		svc.logger.Infof("req: %#v", req)
+		svc.logger.Infof("info: %#v", info)
+		var name string
+		switch req.(type) {
+		case *streampb.AddStreamRequest:
+			reqA := req.(*streampb.AddStreamRequest)
+			name = reqA.Name
+			r, err := resource.NewFromString(name)
+			if err != nil {
+				break
+			}
+			reqA.Name = r.SDPTrackName()
+			req = reqA
+		case *streampb.RemoveStreamRequest:
+			reqA := req.(*streampb.RemoveStreamRequest)
+			name = reqA.Name
+			r, err := resource.NewFromString(name)
+			if err != nil {
+				break
+			}
+			reqA.Name = r.SDPTrackName()
+			req = reqA
+		default:
+			return handler(ctx, req)
+		}
+		svc.resourceNameToPeerConnectionMu.Lock()
+		pc, ok := svc.resourceNameToPeerConnectionMap[callerResourceName.String()]
+		svc.resourceNameToPeerConnectionMu.Unlock()
+
+		if !ok {
+			return handler(ctx, req)
+		}
+
+		// only add peer connections to add or remove stream
+		_, ok = rpc.ContextPeerConnection(ctx)
+		if ok {
+			return handler(ctx, req)
+		}
+		ctx = rpc.UnsafeContextWithPeerConnection(ctx, pc)
+		svc.logger.Infof("ctx after: %#v, callerResourceName:	%s, pc: %p", ctx, callerResourceName, pc)
+		return handler(ctx, req)
+	}
+	unaryInterceptors = append(unaryInterceptors, f)
 
 	// Attach the module name (as defined by the robot config) to the handler context. Can be
 	// accessed via `grpc.GetModuleName`.
@@ -200,7 +282,9 @@ func (svc *webService) StartModule(ctx context.Context) error {
 
 	opManager := svc.r.OperationManager()
 	unaryInterceptors = append(unaryInterceptors,
-		opManager.UnaryServerInterceptor, logging.UnaryServerInterceptor)
+		opManager.UnaryServerInterceptor,
+		logging.UnaryServerInterceptor,
+	)
 	streamInterceptors = append(streamInterceptors, opManager.StreamServerInterceptor)
 	// TODO(PRODUCT-343): Add session manager interceptors
 
@@ -213,6 +297,28 @@ func (svc *webService) StartModule(ctx context.Context) error {
 	if err := svc.modServer.RegisterServiceServer(ctx, &pb.RobotService_ServiceDesc, grpcserver.New(svc.r)); err != nil {
 		return err
 	}
+
+	if svc.streamServer == nil {
+		var streamConfig gostream.StreamConfig
+		if svc.opts.streamConfig != nil {
+			streamConfig = *svc.opts.streamConfig
+		} else {
+			svc.logger.Warn("streamConfig is nil, using empty config")
+		}
+		svc.streamServer = webstream.NewServer(svc.r, streamConfig, svc.logger)
+	}
+	if err := svc.streamServer.AddNewStreams(svc.cancelCtx); err != nil {
+		return err
+	}
+	if err := svc.modServer.RegisterServiceServer(
+		ctx,
+		&streampb.StreamService_ServiceDesc,
+		svc.streamServer,
+		streampb.RegisterStreamServiceHandlerFromEndpoint,
+	); err != nil {
+		return err
+	}
+
 	if err := svc.initAPIResourceCollections(ctx, true); err != nil {
 		return err
 	}
