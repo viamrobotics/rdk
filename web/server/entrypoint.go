@@ -275,7 +275,7 @@ func (s *robotServer) createWebOptions(cfg *config.Config) (weboptions.Options, 
 	if cfg.Cloud != nil && s.args.AllowInsecureCreds {
 		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
 	}
-	options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithConn(s.conn))
+	options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithExternalSignalingConn(s.conn))
 
 	if len(options.Auth.Handlers) == 0 {
 		host, _, err := net.SplitHostPort(cfg.Network.BindAddress)
