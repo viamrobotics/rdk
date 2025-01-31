@@ -503,16 +503,23 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 	return err
 }
 
-// Requests for resources are expected to be a gRPC object that includes a `GetName` method.
+// Namer is used to get a resource name from incoming requests for countingfor request. Requests for
+// resources are expected to be a gRPC object that includes a `GetName` method.
 type Namer interface {
 	GetName() string
 }
 
+// RequestCounter maps string keys to atomic ints that get bumped on every incoming gRPC request for
+// components.
 type RequestCounter struct {
 	counts sync.Map
 }
 
-func (mc *RequestCounter) UnaryInterceptor(ctx context.Context, req any, info *googlegrpc.UnaryServerInfo, handler googlegrpc.UnaryHandler) (resp any, err error) {
+// UnaryInterceptor returns an incoming server interceptor that will pull method information and
+// optionally resource information to bump the request counters.
+func (mc *RequestCounter) UnaryInterceptor(
+	ctx context.Context, req any, info *googlegrpc.UnaryServerInfo, handler googlegrpc.UnaryHandler,
+) (resp any, err error) {
 	// Handle `info.FullMethod` values such as:
 	// - `/viam.component.motor.v1.MotorService/IsMoving`
 	// - `/viam.robot.v1.RobotService/SendSessionHeartbeat`
@@ -542,6 +549,7 @@ func (mc *RequestCounter) UnaryInterceptor(ctx context.Context, req any, info *g
 	return handler(ctx, req)
 }
 
+// Stats satisfies the ftdc.Statser interface and will return a copy of the counters.
 func (mc *RequestCounter) Stats() any {
 	ret := make(map[string]int64)
 	mc.counts.Range(func(key, value any) bool {
@@ -552,6 +560,7 @@ func (mc *RequestCounter) Stats() any {
 	return ret
 }
 
+// RequestCounter returns the request counter object.
 func (svc *webService) RequestCounter() *RequestCounter {
 	return &svc.requestCounter
 }
