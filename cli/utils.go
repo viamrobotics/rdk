@@ -76,7 +76,7 @@ func parseBillingAddress(address string) (*apppb.BillingAddress, error) {
 		return nil, errors.Errorf("address: %s does not follow the format: line1, line2 (optional), city, state, zipcode, country", address)
 	}
 
-	if len(splitAddress) == 4 {
+	if len(splitAddress) == 5 {
 		return &apppb.BillingAddress{
 			AddressLine_1: strings.Trim(splitAddress[0], " "),
 			City:          strings.Trim(splitAddress[1], " "),
