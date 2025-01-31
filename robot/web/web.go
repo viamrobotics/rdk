@@ -79,6 +79,8 @@ type Service interface {
 	ModuleAddress() string
 
 	Stats() any
+
+	RequestCounter() *RequestCounter
 }
 
 type webService struct {
@@ -101,6 +103,8 @@ type webService struct {
 	isRunning    bool
 	webWorkers   sync.WaitGroup
 	modWorkers   sync.WaitGroup
+
+	requestCounter RequestCounter
 }
 
 var internalWebServiceName = resource.NewName(
@@ -220,6 +224,7 @@ func (svc *webService) StartModule(ctx context.Context) error {
 	// Attach the module name (as defined by the robot config) to the handler context. Can be
 	// accessed via `grpc.GetModuleName`.
 	unaryInterceptors = append(unaryInterceptors, grpc.ModNameUnaryServerInterceptor)
+	unaryInterceptors = append(unaryInterceptors, svc.requestCounter.UnaryInterceptor)
 
 	opManager := svc.r.OperationManager()
 	unaryInterceptors = append(unaryInterceptors,
@@ -498,6 +503,59 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 	return err
 }
 
+// Requests for resources are expected to be a gRPC object that includes a `GetName` method.
+type Namer interface {
+	GetName() string
+}
+
+type RequestCounter struct {
+	counts sync.Map
+}
+
+func (mc *RequestCounter) UnaryInterceptor(ctx context.Context, req any, info *googlegrpc.UnaryServerInfo, handler googlegrpc.UnaryHandler) (resp any, err error) {
+	// Handle `info.FullMethod` values such as:
+	// - `/viam.component.motor.v1.MotorService/IsMoving`
+	// - `/viam.robot.v1.RobotService/SendSessionHeartbeat`
+	//
+	// Only count component APIs, for now.
+	var apiMethod string
+	switch {
+	case strings.HasPrefix(info.FullMethod, "/viam.component."):
+		apiMethod = info.FullMethod[strings.LastIndexByte(info.FullMethod, byte('/'))+1:]
+	default:
+	}
+
+	// Storing in FTDC: `web.motor-name.IsMoving: <count>`.
+	if apiMethod != "" {
+		if namer, ok := req.(Namer); ok {
+			key := fmt.Sprintf("%v.%v", namer.GetName(), apiMethod)
+			if apiCounts, ok := mc.counts.Load(key); ok {
+				apiCounts.(*atomic.Int64).Add(1)
+			} else {
+				newCounter := new(atomic.Int64)
+				newCounter.Add(1)
+				mc.counts.Store(key, newCounter)
+			}
+		}
+	}
+
+	return handler(ctx, req)
+}
+
+func (mc *RequestCounter) Stats() any {
+	ret := make(map[string]int64)
+	mc.counts.Range(func(key, value any) bool {
+		ret[key.(string)] = value.(*atomic.Int64).Load()
+		return true
+	})
+
+	return ret
+}
+
+func (svc *webService) RequestCounter() *RequestCounter {
+	return &svc.requestCounter
+}
+
 // Initialize RPC Server options.
 func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options weboptions.Options) ([]rpc.ServerOption, error) {
 	hosts := options.GetHosts(listenerTCPAddr)
@@ -530,8 +588,8 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 	}
 
 	var unaryInterceptors []googlegrpc.UnaryServerInterceptor
-
 	unaryInterceptors = append(unaryInterceptors, grpc.EnsureTimeoutUnaryServerInterceptor)
+	unaryInterceptors = append(unaryInterceptors, svc.requestCounter.UnaryInterceptor)
 
 	if options.Debug {
 		rpcOpts = append(rpcOpts, rpc.WithDebug())
