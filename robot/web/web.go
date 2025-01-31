@@ -84,10 +84,12 @@ type Service interface {
 type webService struct {
 	resource.Named
 
-	mu           sync.Mutex
-	r            robot.Robot
-	rpcServer    rpc.Server
-	modServer    rpc.Server
+	mu        sync.Mutex
+	r         robot.Robot
+	rpcServer rpc.Server
+	modServer rpc.Server
+
+	// Will be nil on non-cgo builds.
 	streamServer *webstream.Server
 	services     map[resource.API]resource.APIResourceCollection[resource.Resource]
 	opts         options
