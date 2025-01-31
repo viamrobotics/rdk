@@ -6,11 +6,9 @@ import (
 	"bytes"
 	"context"
 	"net/http"
-	"sync"
 
 	"github.com/pkg/errors"
 	streampb "go.viam.com/api/stream/v1"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
@@ -35,26 +33,6 @@ func New(r robot.Robot, logger logging.Logger, opts ...Option) Service {
 		opts:         wOpts,
 	}
 	return webSvc
-}
-
-type webService struct {
-	resource.Named
-
-	mu           sync.Mutex
-	r            robot.Robot
-	rpcServer    rpc.Server
-	modServer    rpc.Server
-	streamServer *webstream.Server
-	services     map[resource.API]resource.APIResourceCollection[resource.Resource]
-	opts         options
-	addr         string
-	modAddr      string
-	logger       logging.Logger
-	cancelCtx    context.Context
-	cancelFunc   func()
-	isRunning    bool
-	webWorkers   sync.WaitGroup
-	modWorkers   sync.WaitGroup
 }
 
 // Reconfigure pulls resources and updates the stream server audio and video streams with the new resources.
