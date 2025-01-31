@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"runtime"
 	"slices"
@@ -62,8 +63,6 @@ type datum struct {
 	// Time in nanoseconds since the epoch.
 	Time int64
 	Data map[string]any
-
-	generationID int
 }
 
 // Statser implements Stats.
@@ -94,13 +93,6 @@ type FTDC struct {
 	mu       sync.Mutex
 	statsers []namedStatser
 
-	// Fields used to generate and serialize FTDC output to bytes.
-	//
-	// inputGenerationID changes when new pieces are added to FTDC at runtime that change the
-	// schema.
-	inputGenerationID int
-	// outputGenerationID represents the last schema written to the FTDC `outputWriter`.
-	outputGenerationID int
 	// The schema used describe how new Datums are serialized.
 	currSchema *schema
 	// The serialization format compares new metrics to the prior metric reading to determine what
@@ -169,21 +161,18 @@ func (ftdc *FTDC) Add(name string, statser Statser) {
 
 	for _, statser := range ftdc.statsers {
 		if statser.name == name {
-			ftdc.logger.Warnw("Trying to add conflicting ftdc section", "name", name,
-				"generationId", ftdc.inputGenerationID)
+			ftdc.logger.Warnw("Trying to add conflicting ftdc section", "name", name)
 			// FTDC output is broken down into separate "sections". The `name` is used to label each
 			// section. We return here to predictably include one of the `Add`ed statsers.
 			return
 		}
 	}
 
-	ftdc.logger.Debugw("Added statser", "name", name,
-		"type", fmt.Sprintf("%T", statser), "generationId", ftdc.inputGenerationID)
+	ftdc.logger.Debugw("Added statser", "name", name, "type", fmt.Sprintf("%T", statser))
 	ftdc.statsers = append(ftdc.statsers, namedStatser{
 		name:    name,
 		statser: statser,
 	})
-	ftdc.inputGenerationID++
 }
 
 // Remove removes a statser that was previously `Add`ed with the given `name`.
@@ -193,16 +182,13 @@ func (ftdc *FTDC) Remove(name string) {
 
 	for idx, statser := range ftdc.statsers {
 		if statser.name == name {
-			ftdc.logger.Debugw("Removed statser", "name", name,
-				"type", fmt.Sprintf("%T", statser.statser), "generationId", ftdc.inputGenerationID)
+			ftdc.logger.Debugw("Removed statser", "name", name, "type", fmt.Sprintf("%T", statser.statser))
 			ftdc.statsers = slices.Delete(ftdc.statsers, idx, idx+1)
-			ftdc.inputGenerationID++
 			return
 		}
 	}
 
-	ftdc.logger.Warnw("Did not find statser to remove",
-		"name", name, "generationId", ftdc.inputGenerationID)
+	ftdc.logger.Warnw("Did not find statser to remove", "name", name)
 }
 
 // Start spins off the background goroutine for collecting + writing FTDC data. It's normal for tests
@@ -227,10 +213,6 @@ func (ftdc *FTDC) Start() {
 
 func (ftdc *FTDC) statsReader(ctx context.Context) {
 	datum := ftdc.constructDatum()
-	if datum.generationID == 0 {
-		// No "statsers" were `Add`ed. No data to write out.
-		return
-	}
 
 	// `Debugw` does not seem to serialize any of the `datum` value.
 	ftdc.logger.Debugf("Metrics collected. Datum: %+v", datum)
@@ -300,37 +282,6 @@ func (ftdc *FTDC) StopAndJoin(ctx context.Context) {
 	}
 }
 
-// conditionalRemoveStatser first checks the generation matches before removing the `name` Statser.
-func (ftdc *FTDC) conditionalRemoveStatser(name string, generationID int) {
-	ftdc.mu.Lock()
-	defer ftdc.mu.Unlock()
-
-	// This function gets called by the "write ftdc" actor. Which is concurrent to a user
-	// adding/removing `Statser`s. If the datum/name that created a problem came from a different
-	// "generation", optimistically guess that the user fixed the problem, and avoid removing a
-	// perhaps working `Statser`.
-	//
-	// In the (honestly, more likely) event, the `Statser` is still bad, we will eventually succeed
-	// in removing it. As later `Datum` objects to write will have an updated `generationId`.
-	if generationID != ftdc.inputGenerationID {
-		ftdc.logger.Debugw("Not removing statser due to concurrent operation",
-			"datumGenerationId", generationID, "ftdcGenerationId", ftdc.inputGenerationID)
-		return
-	}
-
-	for idx, statser := range ftdc.statsers {
-		if statser.name == name {
-			ftdc.logger.Debugw("Removed statser", "name", name,
-				"type", fmt.Sprintf("%T", statser.statser), "generationId", ftdc.inputGenerationID)
-			ftdc.statsers = slices.Delete(ftdc.statsers, idx, idx+1)
-			ftdc.inputGenerationID++
-			return
-		}
-	}
-
-	ftdc.logger.Warnw("Did not find statser to remove", "name", name, "generationId", ftdc.inputGenerationID)
-}
-
 // constructDatum walks all of the registered `statser`s to construct a `datum`.
 func (ftdc *FTDC) constructDatum() datum {
 	datum := datum{
@@ -344,7 +295,6 @@ func (ftdc *FTDC) constructDatum() datum {
 	// resource graph. Which is the starting point for creating a deadlock scenario.
 	ftdc.mu.Lock()
 	statsers := make([]namedStatser, len(ftdc.statsers))
-	datum.generationID = ftdc.inputGenerationID
 	copy(statsers, ftdc.statsers)
 	ftdc.mu.Unlock()
 
@@ -356,61 +306,139 @@ func (ftdc *FTDC) constructDatum() datum {
 	return datum
 }
 
-// writeDatum takes an ftdc reading ("Datum") as input and serializes + writes it to the backing
-// medium (e.g: a file). See `writeSchema`s documentation for a full description of the file format.
+// walk accepts a datum and the previous schema and will return:
+// - the new schema. If the schema is unchanged, this will be the same pointer value as `previousSchema`.
+// - the flattened float32 data points.
+// - an error. All errors (for now) are terminal -- the input datum cannot be output.
+func walk(datum map[string]any, previousSchema *schema) (*schema, []float32, error) {
+	schemaChanged := false
+
+	var (
+		fields         []string
+		values         []float32
+		iterationOrder []string
+	)
+
+	// In the steady state, we will have an existing schema. Use that for a `datum` iteration order.
+	if previousSchema != nil {
+		fields = make([]string, 0, len(previousSchema.fieldOrder))
+		values = make([]float32, 0, len(previousSchema.fieldOrder))
+		iterationOrder = previousSchema.mapOrder
+	} else {
+		// If this is the first data point, we'll walk the map in... map order.
+		schemaChanged = true
+		iterationOrder = make([]string, 0, len(datum))
+		for key := range datum {
+			iterationOrder = append(iterationOrder, key)
+		}
+	}
+
+	// Record the order we iterate through the keys in the input `datum`. We return this in the case
+	// we learn the schema changed.
+	datumMapOrder := make([]string, 0, len(datum))
+
+	// Create a set out of the `inputSchema.mapOrder` as we iterate over it. This will be used to
+	// see if new keys have been added to the `datum` map that were not in the `previousSchema`.
+	mapOrderSet := make(map[string]struct{})
+	for _, key := range iterationOrder {
+		mapOrderSet[key] = struct{}{}
+
+		// Walk over the datum in `mapOrder` to ensure we gather values in the order consistent with
+		// the current schema.
+		stats, exists := datum[key]
+		if !exists {
+			// There was a `Statser` in the previous `datum` that no longer exists. Note the schema
+			// changed and move on.
+			schemaChanged = true
+			continue
+		}
+
+		// Get all of the field names and values from the `stats` object.
+		itemFields, itemNumbers, err := flatten(reflect.ValueOf(stats))
+		if err != nil {
+			return nil, nil, err
+		}
+
+		datumMapOrder = append(datumMapOrder, key)
+		// For each field we found, prefix it with the `datum` key (the `Statser` name).
+		for idx := range itemFields {
+			fields = append(fields, fmt.Sprintf("%v.%v", key, itemFields[idx]))
+		}
+		values = append(values, itemNumbers...)
+	}
+
+	// Check for a schema change by walking all of the keys (`Statser`s) in the input `datum`. Look
+	// for anything new.
+	for dataKey, stats := range datum {
+		if _, exists := mapOrderSet[dataKey]; exists {
+			// The steady-state is that every key in the input `datum` matches the prior
+			// `datum`/schema.
+			continue
+		}
+
+		// We found a statser that did not exist before. Let's add it to our results.
+		schemaChanged = true
+		itemFields, itemNumbers, err := flatten(reflect.ValueOf(stats))
+		if err != nil {
+			return nil, nil, err
+		}
+
+		datumMapOrder = append(datumMapOrder, dataKey)
+		// Similarly, prefix fields with the `Statser` name.
+		for idx := range itemFields {
+			fields = append(fields, fmt.Sprintf("%v.%v", dataKey, itemFields[idx]))
+		}
+		values = append(values, itemNumbers...)
+	}
+
+	// Even if the keys in the `datum` stayed the same, the values returned by an individual `Stats`
+	// call may have changed. This ought to be rare, as this results in writing out a new schema and
+	// is consequently inefficient. But we prefer to have less FTDC data than inaccurate data, or
+	// more simply, failing.
+	if previousSchema != nil && !slices.Equal(previousSchema.fieldOrder, fields) {
+		schemaChanged = true
+	}
+
+	// If the schema changed, return a new schema object with the updated schema.
+	if schemaChanged {
+		return &schema{datumMapOrder, fields}, values, nil
+	}
+
+	return previousSchema, values, nil
+}
+
 func (ftdc *FTDC) writeDatum(datum datum) error {
 	toWrite, err := ftdc.getWriter()
 	if err != nil {
 		return err
 	}
 
-	// The input `datum` being processed is for a different schema than we were previously using.
-	if datum.generationID != ftdc.outputGenerationID {
-		// Compute the new schema and write that to disk.
-		newSchema, schemaErr := getSchema(datum.Data)
-		if schemaErr != nil {
-			ftdc.logger.Warnw("Could not generate schema for statser",
-				"statser", schemaErr.statserName, "err", schemaErr.err)
-			// We choose to remove the misbehaving statser such that subsequent datums will be
-			// well-formed.
-			ftdc.conditionalRemoveStatser(schemaErr.statserName, datum.generationID)
-			return schemaErr
-		}
+	// walk will return the schema it found alongside the flattened data. Errors are terminal. If
+	// the schema is the same, the `newSchema` pointer will match `ftdc.currSchema` and `err` will
+	// be nil.
+	newSchema, flatData, err := walk(datum.Data, ftdc.currSchema)
+	if err != nil {
+		return err
+	}
 
+	// In the happy path where the schema hasn't changed, the `walk` function is guaranteed to
+	// return the same schema object.
+	if ftdc.currSchema != newSchema {
 		ftdc.currSchema = newSchema
 		if err = writeSchema(ftdc.currSchema, toWrite); err != nil {
 			return err
 		}
 
-		// Update the `outputGenerationId` to reflect the new schema.
-		ftdc.outputGenerationID = datum.generationID
-
-		data, err := flatten(datum, ftdc.currSchema)
-		if err != nil {
-			return err
-		}
-
 		// Write the new data point to disk. When schema changes, we do not do any diffing. We write
 		// a raw value for each metric.
-		if err = writeDatum(datum.Time, nil, data, toWrite); err != nil {
-			return err
-		}
-		ftdc.prevFlatData = data
-
-		return nil
+		ftdc.prevFlatData = nil
 	}
 
-	// The input `datum` is for the same schema as the prior datum. Flatten the values and write a
-	// datum entry diffed against the `prevFlatData`.
-	data, err := flatten(datum, ftdc.currSchema)
-	if err != nil {
+	if err = writeDatum(datum.Time, ftdc.prevFlatData, flatData, toWrite); err != nil {
 		return err
 	}
+	ftdc.prevFlatData = flatData
 
-	if err = writeDatum(datum.Time, ftdc.prevFlatData, data, toWrite); err != nil {
-		return err
-	}
-	ftdc.prevFlatData = data
 	return nil
 }
 
@@ -487,17 +515,17 @@ func (ftdc *FTDC) getWriter() (io.Writer, error) {
 	// New file, reset the bytes written counter.
 	ftdc.bytesWrittenCounter.count = 0
 
-	// When we create a new file, we must rewrite the schema. If we do not, a file may be useless
-	// without its "ancestors".
-	//
-	// As a hack, we decrement the `outputGenerationID` to force a new schema to be written.
-	ftdc.outputGenerationID--
-
 	// Assign the `outputWriter`. The `outputWriter` is an abstraction for where FTDC formatted
 	// bytes go. Testing often prefers to just write bytes into memory (and consequently construct
 	// an FTDC with `NewWithWriter`). While in production we obviously want to persist bytes on
 	// disk.
 	ftdc.outputWriter = io.MultiWriter(&ftdc.bytesWrittenCounter, ftdc.currOutputFile)
+
+	// The schema was last persisted in the prior FTDC file. To ensure this file can be understood
+	// without it, we start it with a copy of the schema. We achieve this by erasing the
+	// `currSchema` value. Such that the caller/`writeDatum` will behave as if this is a "schema
+	// change".
+	ftdc.currSchema = nil
 
 	return ftdc.outputWriter, nil
 }
