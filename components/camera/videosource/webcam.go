@@ -26,6 +26,7 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/depthadapter"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 )
@@ -366,6 +367,12 @@ func (c *webcam) Monitor() {
 }
 
 func (c *webcam) Images(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if err := c.ensureActive(); err != nil {
+		return nil, resource.ResponseMetadata{}, err
+	}
+
 	img, release, err := c.reader.Read()
 	if err != nil {
 		return nil, resource.ResponseMetadata{}, errors.Wrap(err, "monitoredWebcam: call to get Images failed")
@@ -390,8 +397,11 @@ func (c *webcam) ensureActive() error {
 }
 
 func (c *webcam) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
-	if c.closed {
-		return nil, camera.ImageMetadata{}, errClosed
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if err := c.ensureActive(); err != nil {
+		return nil, camera.ImageMetadata{}, err
 	}
 	if c.reader == nil {
 		return nil, camera.ImageMetadata{}, errors.New("underlying reader is nil")
@@ -413,7 +423,29 @@ func (c *webcam) Image(ctx context.Context, mimeType string, extra map[string]in
 }
 
 func (c *webcam) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	return nil, errors.New("NextPointCloud unimplemented")
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if err := c.ensureActive(); err != nil {
+		return nil, err
+	}
+
+	if c.cameraModel.PinholeCameraIntrinsics == nil {
+		return nil, transform.NewNoIntrinsicsError("cannot do a projection to a point cloud")
+	}
+
+	img, release, err := c.reader.Read()
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+
+	dm, err := rimage.ConvertImageToDepthMap(ctx, img)
+	if err != nil {
+		return nil, errors.Wrapf(err, "cannot project to a point cloud")
+	}
+
+	return depthadapter.ToPointCloud(dm, c.cameraModel.PinholeCameraIntrinsics), nil
 }
 
 func (c *webcam) Properties(ctx context.Context) (camera.Properties, error) {
