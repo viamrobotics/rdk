@@ -5,8 +5,9 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"go.viam.com/rdk/logging"
 	"go.viam.com/utils"
+
+	"go.viam.com/rdk/logging"
 )
 
 // BackoffTuningOptions represents a set of parameters for determining exponential
