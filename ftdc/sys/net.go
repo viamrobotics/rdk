@@ -4,20 +4,23 @@ import (
 	"github.com/prometheus/procfs"
 )
 
-type NetStatser struct {
+type netStatser struct {
 	fs procfs.FS
 }
 
-func NewNetUsage() (*NetStatser, error) {
+// NewNetUsage returns an object that can interpreted as an `ftdc.Statser`.
+//
+//nolint:revive
+func NewNetUsage() (*netStatser, error) {
 	fs, err := procfs.NewDefaultFS()
 	if err != nil {
 		return nil, err
 	}
 
-	return &NetStatser{fs}, nil
+	return &netStatser{fs}, nil
 }
 
-type NetDevLine struct {
+type netDevLine struct {
 	RxBytes   uint64
 	RxPackets uint64
 	RxErrors  uint64
@@ -28,43 +31,43 @@ type NetDevLine struct {
 	TxDropped uint64
 }
 
-type IfaceStats struct {
+type ifaceStats struct {
 	TxQueueLength uint64
 	RxQueueLength uint64
 	UsedSockets   uint64
 	Drops         uint64
 }
 
-type NetworkStats struct {
-	Ifaces map[string]NetDevLine
-	TCP    IfaceStats
-	UDP    IfaceStats
+type networkStats struct {
+	Ifaces map[string]netDevLine
+	TCP    ifaceStats
+	UDP    ifaceStats
 }
 
-func (netStatser *NetStatser) Stats() any {
-	ret := NetworkStats{
-		Ifaces: make(map[string]NetDevLine),
+func (netStatser *netStatser) Stats() any {
+	ret := networkStats{
+		Ifaces: make(map[string]netDevLine),
 	}
 	if dev, err := netStatser.fs.NetDev(); err == nil {
 		for ifaceName, stats := range dev {
-			ret.Ifaces[ifaceName] = NetDevLine{
+			ret.Ifaces[ifaceName] = netDevLine{
 				stats.RxBytes, stats.RxPackets, stats.RxErrors, stats.RxDropped,
 				stats.TxBytes, stats.TxPackets, stats.TxErrors, stats.TxDropped,
 			}
 		}
 	}
 
-	if netTcpSummary, err := netStatser.fs.NetTCPSummary(); err == nil {
-		ret.TCP.TxQueueLength = netTcpSummary.TxQueueLength
-		ret.TCP.RxQueueLength = netTcpSummary.RxQueueLength
-		ret.TCP.UsedSockets = netTcpSummary.UsedSockets
+	if netTCPSummary, err := netStatser.fs.NetTCPSummary(); err == nil {
+		ret.TCP.TxQueueLength = netTCPSummary.TxQueueLength
+		ret.TCP.RxQueueLength = netTCPSummary.RxQueueLength
+		ret.TCP.UsedSockets = netTCPSummary.UsedSockets
 	}
 
-	if netUdpSummary, err := netStatser.fs.NetUDPSummary(); err == nil {
-		ret.UDP.TxQueueLength = netUdpSummary.TxQueueLength
-		ret.UDP.RxQueueLength = netUdpSummary.RxQueueLength
-		ret.UDP.UsedSockets = netUdpSummary.UsedSockets
-		ret.UDP.Drops = *netUdpSummary.Drops
+	if netUDPSummary, err := netStatser.fs.NetUDPSummary(); err == nil {
+		ret.UDP.TxQueueLength = netUDPSummary.TxQueueLength
+		ret.UDP.RxQueueLength = netUDPSummary.RxQueueLength
+		ret.UDP.UsedSockets = netUDPSummary.UsedSockets
+		ret.UDP.Drops = *netUDPSummary.Drops
 	}
 
 	return ret
