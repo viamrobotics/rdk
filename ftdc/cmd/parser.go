@@ -156,6 +156,10 @@ var ratioMetricToFields = map[string]ratioMetric{
 	"SystemCPU": {"SystemCPUSecs", "ElapsedTimeSecs"},
 	// PerSec ratios use an empty string denominator.
 	"HeadersProcessedPerSec": {"HeadersProcessed", ""},
+	"TxPacketsPerSec":        {"TxPackets", ""},
+	"RxPacketsPerSec":        {"RxPackets", ""},
+	"TxBytesPerSec":          {"TxBytes", ""},
+	"RxBytesPerSec":          {"RxBytes", ""},
 }
 
 // ratioReading is a reading of two metrics described by `ratioMetric`. This is what will be graphed.
@@ -359,7 +363,10 @@ func (gpw *gnuplotWriter) CompileAndClose() string {
 	// We're making separate graphs instead of a single big graph. The graphs will be arranged in a
 	// rectangle with 1 column and X rows. Where X is the number of metrics.  Add some margins for
 	// aesthetics.
-	writelnf(gnuFile, "set multiplot layout %v,1 margins 0.05,0.9, 0.05,0.9 spacing screen 0, char 5", len(gpw.metricFiles))
+	//
+	// The first margin is the left-hand margin. We set it a bit bigger to allow for larger numbers
+	// for labeling the Y-axis values.
+	writelnf(gnuFile, "set multiplot layout %v,1 margins 0.10,0.9, 0.05,0.9 spacing screen 0, char 5", len(gpw.metricFiles))
 
 	//  Axis labeling/formatting/type information.
 	writeln(gnuFile, "set timefmt '%s'")
