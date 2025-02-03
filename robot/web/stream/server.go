@@ -511,7 +511,6 @@ func (server *Server) AddNewStreams(ctx context.Context) error {
 		if err != nil {
 			server.logger.Debugf("error getting framerate from camera %q: %v", name, err)
 		}
-		// encoderFactory := server.streamConfig.VideoEncoderFactory
 		// We walk the updated set of `videoSources` and ensure all of the sources are "created" and
 		// "started".
 		config := gostream.StreamConfig{
