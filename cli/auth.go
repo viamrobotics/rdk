@@ -166,10 +166,13 @@ func (c *viamClient) loginAction(cCtx *cli.Context) error {
 		t, err = c.authFlow.refreshToken(c.c.Context, currentToken)
 		if err != nil {
 			debugf(c.c.App.Writer, globalArgs.Debug, "Token refresh error: %v", err)
-			utils.UncheckedError(c.logout()) // clear cache if failed to refresh
-			return errors.New("error while refreshing token, logging out. Please log in again")
+			if err = c.logout(); err != nil { // clear cache if failed to refresh
+				Errorf(c.c.App.Writer, "Error clearing cache: %v", err)
+				return err
+			}
 		}
-	} else {
+	}
+	if t == nil {
 		t, err = c.authFlow.loginAsUser(c.c)
 		if err != nil {
 			debugf(c.c.App.Writer, globalArgs.Debug, "Login error: %v", err)
