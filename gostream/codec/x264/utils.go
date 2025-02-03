@@ -39,6 +39,7 @@ func (f *factory) MIMEType() string {
 	return "video/H264"
 }
 
+// calcBitrateFromResolution calculates the bitrate based on the given resolution and framerate.
 func calcBitrateFromResolution(width, height int, framerate float32) int {
 	bitrate := int(float32(width) * float32(height) * framerate * encodeCompressionRatio)
 	if bitrate < minBitrate {
