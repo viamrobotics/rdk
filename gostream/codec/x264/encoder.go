@@ -3,7 +3,6 @@ package x264
 
 import (
 	"context"
-	"fmt"
 	"image"
 
 	"github.com/pion/mediadevices/pkg/codec"
@@ -33,11 +32,6 @@ func NewEncoder(width, height, keyFrameInterval int, logger logging.Logger) (our
 	builder = &params
 	params.KeyFrameInterval = keyFrameInterval
 	params.BitRate = calcBitrateFromResolution(width, height, float32(params.KeyFrameInterval))
-	// TODO(seanp): this if for debugging. remove it before merging.
-	fmt.Println("KeyFrameInterval: ", params.KeyFrameInterval)
-	fmt.Println("Width: ", width)
-	fmt.Println("Height: ", height)
-	fmt.Println("Bitrate: ", params.BitRate)
 
 	codec, err := builder.BuildVideoEncoder(enc, prop.Media{
 		Video: prop.Video{
