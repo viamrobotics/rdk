@@ -507,6 +507,8 @@ func (server *Server) AddNewStreams(ctx context.Context) error {
 			server.logger.Warn("video streaming not supported on Windows yet")
 			break
 		}
+		// Attempt to look up the framerate for the camera. If the framerate is not available, we'll
+		// end up with a framerate of 0. This is fine as gostream will default to 30fps in this case.
 		framerate, err := server.getFramerateFromCamera(name)
 		if err != nil {
 			server.logger.Debugf("error getting framerate from camera %q: %v", name, err)
