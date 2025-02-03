@@ -517,7 +517,7 @@ type RequestCounter struct {
 
 // UnaryInterceptor returns an incoming server interceptor that will pull method information and
 // optionally resource information to bump the request counters.
-func (mc *RequestCounter) UnaryInterceptor(
+func (rc *RequestCounter) UnaryInterceptor(
 	ctx context.Context, req any, info *googlegrpc.UnaryServerInfo, handler googlegrpc.UnaryHandler,
 ) (resp any, err error) {
 	// Handle `info.FullMethod` values such as:
@@ -536,12 +536,12 @@ func (mc *RequestCounter) UnaryInterceptor(
 	if apiMethod != "" {
 		if namer, ok := req.(Namer); ok {
 			key := fmt.Sprintf("%v.%v", namer.GetName(), apiMethod)
-			if apiCounts, ok := mc.counts.Load(key); ok {
+			if apiCounts, ok := rc.counts.Load(key); ok {
 				apiCounts.(*atomic.Int64).Add(1)
 			} else {
 				newCounter := new(atomic.Int64)
 				newCounter.Add(1)
-				mc.counts.Store(key, newCounter)
+				rc.counts.Store(key, newCounter)
 			}
 		}
 	}
@@ -550,9 +550,9 @@ func (mc *RequestCounter) UnaryInterceptor(
 }
 
 // Stats satisfies the ftdc.Statser interface and will return a copy of the counters.
-func (mc *RequestCounter) Stats() any {
+func (rc *RequestCounter) Stats() any {
 	ret := make(map[string]int64)
-	mc.counts.Range(func(key, value any) bool {
+	rc.counts.Range(func(key, value any) bool {
 		ret[key.(string)] = value.(*atomic.Int64).Load()
 		return true
 	})
