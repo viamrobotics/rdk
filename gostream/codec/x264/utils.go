@@ -9,10 +9,11 @@ import (
 const (
 	encodeCompressionRatio = 0.15 // bits per pixel when encoded
 	// For very small resolutions, we need to ensure that the vbv buffer size is large enough to
-	// handle frame bursts. This is the minimum bitrate that we can use.
+	// handle frame bursts. This is the minimum bitrate that we can use without causing the encoder
+	// to spew out warnings about the buffer size being too small.
 	minBitrate = 300_000 // 300kbps
 	// Setting a reasonable max bitrate to prevent the encoder from using too much bandwidth.
-	// 4K resolution at 20fps is around 24.8Mbps
+	// 4K resolution at 20fps is around 24.8Mbps.
 	maxBitrate = 25_000_000 // 25Mbps
 )
 
