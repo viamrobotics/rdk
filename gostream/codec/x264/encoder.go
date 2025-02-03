@@ -3,6 +3,7 @@ package x264
 
 import (
 	"context"
+	"fmt"
 	"image"
 
 	"github.com/pion/mediadevices/pkg/codec"
@@ -19,9 +20,6 @@ type encoder struct {
 	logger logging.Logger
 }
 
-// Gives suitable results. Probably want to make this configurable this in the future.
-const bitrate = 3_200_000
-
 // NewEncoder returns an x264 encoder that can encode images of the given width and height. It will
 // also ensure that it produces key frames at the given interval.
 func NewEncoder(width, height, keyFrameInterval int, logger logging.Logger) (ourcodec.VideoEncoder, error) {
@@ -33,8 +31,13 @@ func NewEncoder(width, height, keyFrameInterval int, logger logging.Logger) (our
 		return nil, err
 	}
 	builder = &params
-	params.BitRate = bitrate
 	params.KeyFrameInterval = keyFrameInterval
+	params.BitRate = calcBitrateFromResolution(width, height, float32(params.KeyFrameInterval))
+	// TODO(seanp): this if for debugging. remove it before merging.
+	fmt.Println("KeyFrameInterval: ", params.KeyFrameInterval)
+	fmt.Println("Width: ", width)
+	fmt.Println("Height: ", height)
+	fmt.Println("Bitrate: ", params.BitRate)
 
 	codec, err := builder.BuildVideoEncoder(enc, prop.Media{
 		Video: prop.Video{
