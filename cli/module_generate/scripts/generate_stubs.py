@@ -15,10 +15,10 @@ def return_attribute(value: str, attr: str) -> ast.Attribute:
 
 def update_annotation(
     resource_name: str,
-    annotation: ast.Name | ast.Subscript,
+    annotation: Union[ast.Name, ast.Subscript],
     nodes: Set[str],
     parent: str
-) -> ast.Attribute | ast.Subscript:
+) -> Union[ast.Attribute, ast.Subscript]:
     if isinstance(annotation, ast.Name) and annotation.id in nodes:
         value = parent if parent else resource_name
         return return_attribute(value, annotation.id)
