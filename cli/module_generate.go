@@ -325,6 +325,9 @@ func wrapResolveOrg(cCtx *cli.Context, c *viamClient, newModule *modulegen.Modul
 		}
 		newModule.OrgID = newModule.Namespace
 		newModule.Namespace = org.GetPublicNamespace()
+		if newModule.Namespace == "" {
+			return errors.New("cannot create module in an organization with no public namespace. Set a namespace for your organization.")
+		}
 	}
 	return nil
 }
