@@ -264,6 +264,7 @@ func TestGetBillingConfigAction(t *testing.T) {
 				City:          "San Francisco",
 				State:         "CA",
 				Zipcode:       "94105",
+				Country:       "United States",
 			},
 			LogoUrl:             "https://logo.com",
 			BillingDashboardUrl: "https://app.viam.dev/my-dashboard",
@@ -289,7 +290,7 @@ func TestGetBillingConfigAction(t *testing.T) {
 	test.That(t, out.messages[8], test.ShouldContainSubstring, "San Francisco")
 	test.That(t, out.messages[9], test.ShouldContainSubstring, "CA")
 	test.That(t, out.messages[10], test.ShouldContainSubstring, "94105")
-	test.That(t, out.messages[11], test.ShouldContainSubstring, "USA")
+	test.That(t, out.messages[11], test.ShouldContainSubstring, "United States")
 }
 
 func TestOrganizationSetLogoAction(t *testing.T) {
@@ -435,7 +436,7 @@ func TestUpdateBillingServiceAction(t *testing.T) {
 	}
 
 	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
-	address := "123 Main St, Suite 100, San Francisco, CA, 94105"
+	address := "123 Main St, Suite 100, San Francisco, CA, 94105, United States"
 	test.That(t, ac.updateBillingServiceAction(cCtx, "test-org", address), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, len(out.messages), test.ShouldEqual, 8)
@@ -446,7 +447,7 @@ func TestUpdateBillingServiceAction(t *testing.T) {
 	test.That(t, out.messages[4], test.ShouldContainSubstring, "San Francisco")
 	test.That(t, out.messages[5], test.ShouldContainSubstring, "CA")
 	test.That(t, out.messages[6], test.ShouldContainSubstring, "94105")
-	test.That(t, out.messages[7], test.ShouldContainSubstring, "USA")
+	test.That(t, out.messages[7], test.ShouldContainSubstring, "United States")
 }
 
 func TestOrganizationEnableBillingServiceAction(t *testing.T) {

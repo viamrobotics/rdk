@@ -335,7 +335,7 @@ func (c *viamClient) updateBillingServiceAction(cCtx *cli.Context, orgID, addres
 	printf(cCtx.App.Writer, "City: %s", address.GetCity())
 	printf(cCtx.App.Writer, "State: %s", address.GetState())
 	printf(cCtx.App.Writer, "Postal Code: %s", address.GetZipcode())
-	printf(cCtx.App.Writer, "Country: USA")
+	printf(cCtx.App.Writer, "Country: %s", address.GetCountry())
 	return nil
 }
 
@@ -377,7 +377,10 @@ func (c *viamClient) getBillingConfig(cCtx *cli.Context, orgID string) error {
 	printf(cCtx.App.Writer, "City: %s", resp.BillingAddress.GetCity())
 	printf(cCtx.App.Writer, "State: %s", resp.BillingAddress.GetState())
 	printf(cCtx.App.Writer, "Postal Code: %s", resp.BillingAddress.GetZipcode())
-	printf(cCtx.App.Writer, "Country: %s", "USA")
+	if resp.BillingAddress.GetCountry() != "" {
+		printf(cCtx.App.Writer, "Country: %s", resp.BillingAddress.GetCountry())
+	}
+
 	return nil
 }
 

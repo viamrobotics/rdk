@@ -48,22 +48,24 @@ func TestParseBillingAddress(t *testing.T) {
 		expectedErr     error
 	}{
 		{
-			input: "123 Main St, Apt 1, San Francisco, CA, 94105",
+			input: "123 Main St, Apt 1, San Francisco, CA, 94105, United States",
 			expectedAddress: &apppb.BillingAddress{
 				AddressLine_1: "123 Main St",
 				AddressLine_2: &addressLine2,
 				City:          "San Francisco",
 				State:         "CA",
 				Zipcode:       "94105",
+				Country:       "United States",
 			},
 		},
 		{
-			input: "123 Main St, San Francisco, CA, 94105",
+			input: "123 Main St, San Francisco, CA, 94105, United States",
 			expectedAddress: &apppb.BillingAddress{
 				AddressLine_1: "123 Main St",
 				City:          "San Francisco",
 				State:         "CA",
 				Zipcode:       "94105",
+				Country:       "United States",
 			},
 		},
 		{
