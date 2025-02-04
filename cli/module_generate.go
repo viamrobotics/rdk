@@ -97,12 +97,12 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 			return err
 		}
 	}
-	populateAdditionalInfo(newModule)
 	if !args.DryRun {
 		if err := wrapResolveOrg(cCtx, c, newModule); err != nil {
 			return err
 		}
 	}
+	populateAdditionalInfo(newModule)
 
 	s := spinner.New()
 	var fatalError error
