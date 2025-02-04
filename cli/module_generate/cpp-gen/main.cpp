@@ -1,3 +1,4 @@
+#include "compilation_db.hpp"
 #include "compiler_info.hpp"
 
 #include <clang/AST/PrettyPrinter.h>
@@ -17,61 +18,6 @@
 using namespace viam::gen;
 
 static llvm::cl::OptionCategory opts("module-gen options");
-
-struct GeneratorCompDB : clang::tooling::CompilationDatabase {
-    GeneratorCompDB(
-        const clang::tooling::CompilationDatabase& orig,
-        const std::unordered_map<std::string, std::vector<std::string>>& implicitIncludes);
-
-    std::vector<clang::tooling::CompileCommand> getCompileCommands(
-        llvm::StringRef file) const override;
-
-    std::vector<std::string> getAllFiles() const override;
-
-    std::vector<clang::tooling::CompileCommand> getAllCompileCommands() const override {
-        return commands_;
-    }
-
-    std::vector<clang::tooling::CompileCommand> commands_;
-};
-
-GeneratorCompDB::GeneratorCompDB(
-    const clang::tooling::CompilationDatabase& orig,
-    const std::unordered_map<std::string, std::vector<std::string>>& implicitIncludes) {
-    commands_ = orig.getAllCompileCommands();
-
-    for (clang::tooling::CompileCommand& cmd : commands_) {
-        auto& cmdLine = cmd.CommandLine;
-        if (auto it = implicitIncludes.find(cmdLine.front()); it != implicitIncludes.end()) {
-            for (const auto& inc : it->second) {
-                cmdLine.emplace_back("-isystem" + inc);
-            }
-        }
-    }
-}
-
-std::vector<std::string> GeneratorCompDB::getAllFiles() const {
-    std::vector<std::string> result;
-    result.reserve(commands_.size());
-
-    for (const auto& cmd : commands_) {
-        result.push_back(cmd.Filename);
-    }
-
-    return result;
-}
-
-std::vector<clang::tooling::CompileCommand> GeneratorCompDB::getCompileCommands(
-    llvm::StringRef file) const {
-    auto it = std::find_if(commands_.begin(), commands_.end(), [file](const auto& cmd) {
-        return file == cmd.Filename;
-    });
-    if (it == commands_.end()) {
-        return {};
-    }
-
-    return {*it};
-}
 
 std::string className(llvm::StringRef fileName) {
     std::string result = fileName.str();
