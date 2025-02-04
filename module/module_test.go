@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -12,6 +13,7 @@ import (
 	v1 "go.viam.com/api/app/v1"
 	pb "go.viam.com/api/module/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
@@ -25,6 +27,7 @@ import (
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
 	"go.viam.com/rdk/examples/customresources/models/mybase"
+	"go.viam.com/rdk/examples/customresources/models/mydiscovery"
 	"go.viam.com/rdk/examples/customresources/models/mygizmo"
 	"go.viam.com/rdk/examples/customresources/models/mysum"
 	"go.viam.com/rdk/logging"
@@ -32,6 +35,7 @@ import (
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/datamanager"
+	"go.viam.com/rdk/services/discovery"
 	"go.viam.com/rdk/services/shell"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -174,10 +178,11 @@ func TestModuleFunctions(t *testing.T) {
 
 	test.That(t, m.AddModelFromRegistry(ctx, gizmoapi.API, mygizmo.Model), test.ShouldBeNil)
 	test.That(t, m.AddModelFromRegistry(ctx, base.API, mybase.Model), test.ShouldBeNil)
+	test.That(t, m.AddModelFromRegistry(ctx, discovery.API, mydiscovery.Model), test.ShouldBeNil)
 
 	test.That(t, m.Start(ctx), test.ShouldBeNil)
 
-	conn, err := grpc.Dial(
+	conn, err := grpc.Dial( //nolint:staticcheck
 		"unix://"+addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithStreamInterceptor(grpc_retry.StreamClientInterceptor()),
@@ -202,37 +207,66 @@ func TestModuleFunctions(t *testing.T) {
 	t.Run("HandlerMap", func(t *testing.T) {
 		// test the raw return
 		handlers := resp.GetHandlermap().GetHandlers()
-		test.That(t, "acme", test.ShouldBeIn, handlers[0].Subtype.Subtype.Namespace, handlers[1].Subtype.Subtype.Namespace)
-		test.That(t, "rdk", test.ShouldBeIn, handlers[0].Subtype.Subtype.Namespace, handlers[1].Subtype.Subtype.Namespace)
-		test.That(t, "component", test.ShouldBeIn, handlers[0].Subtype.Subtype.Type, handlers[1].Subtype.Subtype.Type)
-		test.That(t, "gizmo", test.ShouldBeIn, handlers[0].Subtype.Subtype.Subtype, handlers[1].Subtype.Subtype.Subtype)
-		test.That(t, "base", test.ShouldBeIn, handlers[0].Subtype.Subtype.Subtype, handlers[1].Subtype.Subtype.Subtype)
-		test.That(t, "acme:demo:mygizmo", test.ShouldBeIn, handlers[0].GetModels()[0], handlers[1].GetModels()[0])
-		test.That(t, "acme:demo:mybase", test.ShouldBeIn, handlers[0].GetModels()[0], handlers[1].GetModels()[0])
+		test.That(t, "acme", test.ShouldBeIn,
+			handlers[0].Subtype.Subtype.Namespace, handlers[1].Subtype.Subtype.Namespace, handlers[2].Subtype.Subtype.Namespace)
+		test.That(t, "rdk", test.ShouldBeIn,
+			handlers[0].Subtype.Subtype.Namespace, handlers[1].Subtype.Subtype.Namespace, handlers[2].Subtype.Subtype.Namespace)
+		test.That(t, "component", test.ShouldBeIn,
+			handlers[0].Subtype.Subtype.Type, handlers[1].Subtype.Subtype.Type, handlers[2].Subtype.Subtype.Type)
+		test.That(t, "service", test.ShouldBeIn,
+			handlers[0].Subtype.Subtype.Type, handlers[1].Subtype.Subtype.Type, handlers[2].Subtype.Subtype.Type)
+		test.That(t, "gizmo", test.ShouldBeIn,
+			handlers[0].Subtype.Subtype.Subtype, handlers[1].Subtype.Subtype.Subtype, handlers[2].Subtype.Subtype.Subtype)
+		test.That(t, "base", test.ShouldBeIn,
+			handlers[0].Subtype.Subtype.Subtype, handlers[1].Subtype.Subtype.Subtype, handlers[2].Subtype.Subtype.Subtype)
+		test.That(t, "discovery", test.ShouldBeIn,
+			handlers[0].Subtype.Subtype.Subtype, handlers[1].Subtype.Subtype.Subtype, handlers[2].Subtype.Subtype.Subtype)
+		test.That(t, "acme:demo:mygizmo", test.ShouldBeIn,
+			handlers[0].GetModels()[0], handlers[1].GetModels()[0], handlers[2].GetModels()[0])
+		test.That(t, "acme:demo:mybase", test.ShouldBeIn,
+			handlers[0].GetModels()[0], handlers[1].GetModels()[0], handlers[2].GetModels()[0])
+		test.That(t, "acme:demo:mydiscovery", test.ShouldBeIn,
+			handlers[0].GetModels()[0], handlers[1].GetModels()[0], handlers[2].GetModels()[0])
 
 		// convert from proto
 		hmap, err := module.NewHandlerMapFromProto(ctx, resp.GetHandlermap(), rpc.GrpcOverHTTPClientConn{ClientConn: conn})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(hmap), test.ShouldEqual, 2)
+		test.That(t, len(hmap), test.ShouldEqual, 3)
 
 		for k, v := range hmap {
-			test.That(t, k.API, test.ShouldBeIn, gizmoapi.API, base.API)
-			if k.API == gizmoapi.API {
+			test.That(t, k.API, test.ShouldBeIn, gizmoapi.API, base.API, discovery.API)
+			switch k.API {
+			case gizmoapi.API:
 				test.That(t, mygizmo.Model, test.ShouldResemble, v[0])
-			} else {
+			case discovery.API:
+				test.That(t, mydiscovery.Model, test.ShouldResemble, v[0])
+			default:
 				test.That(t, mybase.Model, test.ShouldResemble, v[0])
 			}
 		}
 
 		// convert back to proto
 		handlers2 := hmap.ToProto().GetHandlers()
-		test.That(t, "acme", test.ShouldBeIn, handlers2[0].Subtype.Subtype.Namespace, handlers2[1].Subtype.Subtype.Namespace)
-		test.That(t, "rdk", test.ShouldBeIn, handlers2[0].Subtype.Subtype.Namespace, handlers2[1].Subtype.Subtype.Namespace)
-		test.That(t, "component", test.ShouldBeIn, handlers2[0].Subtype.Subtype.Type, handlers2[1].Subtype.Subtype.Type)
-		test.That(t, "gizmo", test.ShouldBeIn, handlers2[0].Subtype.Subtype.Subtype, handlers2[1].Subtype.Subtype.Subtype)
-		test.That(t, "base", test.ShouldBeIn, handlers2[0].Subtype.Subtype.Subtype, handlers2[1].Subtype.Subtype.Subtype)
-		test.That(t, "acme:demo:mygizmo", test.ShouldBeIn, handlers2[0].GetModels()[0], handlers2[1].GetModels()[0])
-		test.That(t, "acme:demo:mybase", test.ShouldBeIn, handlers2[0].GetModels()[0], handlers2[1].GetModels()[0])
+		test.That(t, "acme", test.ShouldBeIn,
+			handlers2[0].Subtype.Subtype.Namespace, handlers2[1].Subtype.Subtype.Namespace, handlers2[2].Subtype.Subtype.Namespace)
+		test.That(t, "rdk", test.ShouldBeIn,
+			handlers2[0].Subtype.Subtype.Namespace, handlers2[1].Subtype.Subtype.Namespace, handlers2[2].Subtype.Subtype.Namespace)
+		test.That(t, "component", test.ShouldBeIn,
+			handlers2[0].Subtype.Subtype.Type, handlers2[1].Subtype.Subtype.Type, handlers2[2].Subtype.Subtype.Type)
+		test.That(t, "service", test.ShouldBeIn,
+			handlers2[0].Subtype.Subtype.Type, handlers2[1].Subtype.Subtype.Type, handlers2[2].Subtype.Subtype.Type)
+		test.That(t, "gizmo", test.ShouldBeIn,
+			handlers2[0].Subtype.Subtype.Subtype, handlers2[1].Subtype.Subtype.Subtype, handlers2[2].Subtype.Subtype.Subtype)
+		test.That(t, "base", test.ShouldBeIn,
+			handlers2[0].Subtype.Subtype.Subtype, handlers2[1].Subtype.Subtype.Subtype, handlers2[2].Subtype.Subtype.Subtype)
+		test.That(t, "discovery", test.ShouldBeIn,
+			handlers2[0].Subtype.Subtype.Subtype, handlers2[1].Subtype.Subtype.Subtype, handlers2[2].Subtype.Subtype.Subtype)
+		test.That(t, "acme:demo:mygizmo", test.ShouldBeIn,
+			handlers2[0].GetModels()[0], handlers2[1].GetModels()[0], handlers2[2].GetModels()[0])
+		test.That(t, "acme:demo:mybase", test.ShouldBeIn,
+			handlers2[0].GetModels()[0], handlers2[1].GetModels()[0], handlers2[2].GetModels()[0])
+		test.That(t, "acme:demo:mydiscovery", test.ShouldBeIn,
+			handlers2[0].GetModels()[0], handlers2[1].GetModels()[0], handlers2[2].GetModels()[0])
 	})
 
 	t.Run("GetParentResource", func(t *testing.T) {
@@ -439,7 +473,7 @@ func TestAttributeConversion(t *testing.T) {
 		test.That(t, m.AddModelFromRegistry(ctx, shell.API, modelWithReconfigure), test.ShouldBeNil)
 
 		test.That(t, m.Start(ctx), test.ShouldBeNil)
-		conn, err := grpc.Dial(
+		conn, err := grpc.Dial( //nolint:staticcheck
 			"unix://"+addr,
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 			grpc.WithStreamInterceptor(grpc_retry.StreamClientInterceptor()),
@@ -720,6 +754,92 @@ func TestAttributeConversion(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, convSvcCfg.CaptureMethods[0].Name, test.ShouldResemble, shell.Named("mymock2"))
 		test.That(t, convSvcCfg.CaptureMethods[0].Method, test.ShouldEqual, "Something")
+	})
+}
+
+// setupLocalModule sets up a module without a parent connection.
+func setupLocalModule(t *testing.T, ctx context.Context, logger logging.Logger) *module.Module {
+	t.Helper()
+
+	// Use 'foo.sock' for arbitrary module to test AddModelFromRegistry.
+	m, err := module.NewModule(ctx, filepath.Join(t.TempDir(), "foo.sock"), logger)
+	test.That(t, err, test.ShouldBeNil)
+	t.Cleanup(func() {
+		m.Close(ctx)
+	})
+
+	// Hit Ready as a way to close m.pcFailed, so that AddResource can proceed. Set NoModuleParentEnvVar so that parent connection
+	// will not be attempted.
+	test.That(t, os.Setenv(module.NoModuleParentEnvVar, "true"), test.ShouldBeNil)
+	t.Cleanup(func() {
+		test.That(t, os.Unsetenv(module.NoModuleParentEnvVar), test.ShouldBeNil)
+	})
+
+	_, err = m.Ready(ctx, &pb.ReadyRequest{})
+	test.That(t, err, test.ShouldBeNil)
+	return m
+}
+
+// TestModuleAddResource tests that modular resources gets closed on add if context is done before resource finished creation.
+func TestModuleAddResource(t *testing.T) {
+	type testHarness struct {
+		ctx context.Context
+
+		m              *module.Module
+		cfg            *v1.ComponentConfig
+		constructCount int
+		closeCount     int
+	}
+
+	setupTest := func(t *testing.T, shouldCancel bool) *testHarness {
+		var th testHarness
+
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		t.Cleanup(func() { cancelFunc() })
+		th.ctx = ctx
+
+		modelName := utils.RandomAlphaString(5)
+		model := resource.DefaultModelFamily.WithModel(modelName)
+
+		resource.RegisterService(shell.API, model, resource.Registration[shell.Service, *MockConfig]{
+			Constructor: func(
+				ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger logging.Logger,
+			) (shell.Service, error) {
+				th.constructCount++
+				if shouldCancel {
+					cancelFunc()
+					<-ctx.Done()
+				}
+				return &inject.ShellService{
+					CloseFunc: func(ctx context.Context) error { th.closeCount++; return nil },
+				}, nil
+			},
+		})
+		t.Cleanup(func() {
+			resource.Deregister(shell.API, model)
+		})
+
+		th.m = setupLocalModule(t, ctx, logging.NewTestLogger(t))
+		test.That(t, th.m.AddModelFromRegistry(ctx, shell.API, model), test.ShouldBeNil)
+
+		th.cfg = &v1.ComponentConfig{Name: "mymock", Api: shell.API.String(), Model: model.String()}
+		return &th
+	}
+
+	t.Run("add resource normally", func(t *testing.T) {
+		th := setupTest(t, false)
+		_, err := th.m.AddResource(th.ctx, &pb.AddResourceRequest{Config: th.cfg})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, th.constructCount, test.ShouldEqual, 1)
+		test.That(t, th.closeCount, test.ShouldEqual, 0)
+	})
+
+	t.Run("cancel ctx during resource add", func(t *testing.T) {
+		th := setupTest(t, true)
+		_, err := th.m.AddResource(th.ctx, &pb.AddResourceRequest{Config: th.cfg})
+		test.That(t, err, test.ShouldBeError, context.Canceled)
+		test.That(t, th.constructCount, test.ShouldEqual, 1)
+		test.That(t, th.closeCount, test.ShouldEqual, 1)
 	})
 }
 

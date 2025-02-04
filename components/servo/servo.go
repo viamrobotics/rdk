@@ -1,3 +1,7 @@
+// Package servo supports “RC” or “hobby” servo motors.
+// For more information, see the [servo component docs].
+//
+// [servo component docs]: https://docs.viam.com/components/servo/
 package servo
 
 import (
@@ -12,7 +16,6 @@ import (
 
 func init() {
 	resource.RegisterAPI(API, resource.APIRegistration[Servo]{
-		Status:                      resource.StatusFunc(CreateStatus),
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterServoServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.ServoService_ServiceDesc,
@@ -31,11 +34,14 @@ const SubtypeName = "servo"
 var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 
 // A Servo represents a physical servo connected to a board.
+// For more information, see the [servo component docs].
 //
 // Move example:
 //
 //	// Move the servo from its origin to the desired angle of 30 degrees.
 //	myServoComponent.Move(context.Background(), 30, nil)
+//
+// For more information, see the [Move method docs].
 //
 // Position example:
 //
@@ -50,6 +56,12 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 //
 //	logger.Info("Position 1: ", pos1)
 //	logger.Info("Position 2: ", pos2)
+//
+// For more information, see the [Position method docs].
+//
+// [servo component docs]: https://docs.viam.com/dev/reference/apis/components/servo/
+// [Move method docs]: https://docs.viam.com/dev/reference/apis/components/servo/#move
+// [Position method docs]: https://docs.viam.com/dev/reference/apis/components/servo/#getposition
 type Servo interface {
 	resource.Resource
 	resource.Actuator
@@ -75,17 +87,4 @@ func FromRobot(r robot.Robot, name string) (Servo, error) {
 // NamesFromRobot is a helper for getting all servo names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
-}
-
-// CreateStatus creates a status from the servo.
-func CreateStatus(ctx context.Context, s Servo) (*pb.Status, error) {
-	position, err := s.Position(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	isMoving, err := s.IsMoving(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.Status{PositionDeg: position, IsMoving: isMoving}, nil
 }

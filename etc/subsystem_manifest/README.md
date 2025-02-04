@@ -34,7 +34,7 @@ Sample manifest:
             },
             {
                 "api": "rdk:service:ml_model",
-                "model": "rdk:builtin:tflitecpu"
+                "model": "rdk:builtin:fake"
                 "attribute_schema": {
                      "..."
                  },

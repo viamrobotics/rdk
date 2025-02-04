@@ -39,7 +39,7 @@ func RestrictedRandomFrameInputs(m Frame, rSeed *rand.Rand, restrictionPercent f
 	}
 	dof := m.DoF()
 	if len(reference) != len(dof) {
-		return nil, NewIncorrectInputLengthError(len(reference), len(dof))
+		return nil, NewIncorrectDoFError(len(reference), len(dof))
 	}
 	pos := make([]Input, 0, len(dof))
 	for i, limit := range dof {
@@ -151,7 +151,7 @@ func (bf *baseFrame) Interpolate(from, to []Input, by float64) ([]Input, error) 
 func (bf *baseFrame) validInputs(inputs []Input) error {
 	var errAll error
 	if len(inputs) != len(bf.limits) {
-		return NewIncorrectInputLengthError(len(inputs), len(bf.limits))
+		return NewIncorrectDoFError(len(inputs), len(bf.limits))
 	}
 	for i := 0; i < len(bf.limits); i++ {
 		if inputs[i].Value < bf.limits[i].Min || inputs[i].Value > bf.limits[i].Max {
@@ -181,7 +181,7 @@ func (sf *tailGeometryStaticFrame) Geometries(input []Input) (*GeometriesInFrame
 		return NewGeometriesInFrame(sf.Name(), nil), nil
 	}
 	if len(input) != 0 {
-		return nil, NewIncorrectInputLengthError(len(input), 0)
+		return nil, NewIncorrectDoFError(len(input), 0)
 	}
 	newGeom := sf.geometry.Transform(sf.transform)
 	if newGeom.Label() == "" {
@@ -242,7 +242,7 @@ func NewStaticFrameWithGeometry(name string, pose spatial.Pose, geometry spatial
 // Transform returns the pose associated with this static referenceframe.
 func (sf *staticFrame) Transform(input []Input) (spatial.Pose, error) {
 	if len(input) != 0 {
-		return nil, NewIncorrectInputLengthError(len(input), 0)
+		return nil, NewIncorrectDoFError(len(input), 0)
 	}
 	return sf.transform, nil
 }
@@ -263,7 +263,7 @@ func (sf *staticFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 		return NewGeometriesInFrame(sf.Name(), nil), nil
 	}
 	if len(input) != 0 {
-		return nil, NewIncorrectInputLengthError(len(input), 0)
+		return nil, NewIncorrectDoFError(len(input), 0)
 	}
 	newGeom := sf.geometry.Transform(spatial.NewZeroPose())
 	if newGeom.Label() == "" {
@@ -444,4 +444,123 @@ func (rf rotationalFrame) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(temp)
+}
+
+type poseFrame struct {
+	*baseFrame
+	geometries []spatial.Geometry
+}
+
+// NewPoseFrame creates an orientation vector frame, i.e a frame with
+// 7 degrees of freedom: X, Y, Z, OX, OY, OZ, and Theta in radians.
+func NewPoseFrame(name string, geometry []spatial.Geometry) (Frame, error) {
+	limits := []Limit{
+		{Min: math.Inf(-1), Max: math.Inf(1)}, // X
+		{Min: math.Inf(-1), Max: math.Inf(1)}, // Y
+		{Min: math.Inf(-1), Max: math.Inf(1)}, // Z
+		{Min: math.Inf(-1), Max: math.Inf(1)}, // OX
+		{Min: math.Inf(-1), Max: math.Inf(1)}, // OY
+		{Min: math.Inf(-1), Max: math.Inf(1)}, // OZ
+		{Min: math.Inf(-1), Max: math.Inf(1)}, // Theta
+	}
+	return &poseFrame{
+		&baseFrame{name, limits},
+		geometry,
+	}, nil
+}
+
+// Transform on the poseFrame acts as the identity function. Whatever inputs are given are directly translated
+// in a 7DoF pose. We note that theta should be in radians.
+func (pf *poseFrame) Transform(inputs []Input) (spatial.Pose, error) {
+	if err := pf.baseFrame.validInputs(inputs); err != nil {
+		return nil, err
+	}
+	return spatial.NewPose(
+		r3.Vector{X: inputs[0].Value, Y: inputs[1].Value, Z: inputs[2].Value},
+		&spatial.OrientationVector{
+			OX:    inputs[3].Value,
+			OY:    inputs[4].Value,
+			OZ:    inputs[5].Value,
+			Theta: inputs[6].Value,
+		},
+	), nil
+}
+
+// Interpolate interpolates the given amount between the two sets of inputs.
+func (pf *poseFrame) Interpolate(from, to []Input, by float64) ([]Input, error) {
+	if err := pf.baseFrame.validInputs(from); err != nil {
+		return nil, NewIncorrectDoFError(len(from), len(pf.DoF()))
+	}
+	if err := pf.baseFrame.validInputs(to); err != nil {
+		return nil, NewIncorrectDoFError(len(to), len(pf.DoF()))
+	}
+	fromPose, err := pf.Transform(from)
+	if err != nil {
+		return nil, err
+	}
+	toPose, err := pf.Transform(to)
+	if err != nil {
+		return nil, err
+	}
+	interpolatedPose := spatial.Interpolate(fromPose, toPose, by)
+	return PoseToInputs(interpolatedPose), nil
+}
+
+// Geometries returns an object representing the 3D space associeted with the staticFrame.
+func (pf *poseFrame) Geometries(inputs []Input) (*GeometriesInFrame, error) {
+	transformByPose, err := pf.Transform(inputs)
+	if err != nil {
+		return nil, err
+	}
+	if len(pf.geometries) == 0 {
+		return NewGeometriesInFrame(pf.name, []spatial.Geometry{}), nil
+	}
+	transformedGeometries := []spatial.Geometry{}
+	for _, geom := range pf.geometries {
+		transformedGeometries = append(transformedGeometries, geom.Transform(transformByPose))
+	}
+	return NewGeometriesInFrame(pf.name, transformedGeometries), nil
+}
+
+// DoF returns the number of degrees of freedom within a model.
+func (pf *poseFrame) DoF() []Limit {
+	return pf.limits
+}
+
+// MarshalJSON serializes a Model.
+func (pf *poseFrame) MarshalJSON() ([]byte, error) {
+	return nil, errors.New("serializing a poseFrame is currently not supported")
+}
+
+// InputFromProtobuf converts pb.JointPosition to inputs.
+func (pf *poseFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
+	n := make([]Input, len(jp.Values))
+	for idx, d := range jp.Values[:len(jp.Values)-1] {
+		n[idx] = Input{d}
+	}
+	n[len(jp.Values)-1] = Input{utils.DegToRad(jp.Values[len(jp.Values)-1])}
+	return n
+}
+
+// ProtobufFromInput converts inputs to pb.JointPosition.
+func (pf *poseFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
+	n := make([]float64, len(input))
+	for idx, a := range input[:len(input)-1] {
+		n[idx] = a.Value
+	}
+	n[len(input)-1] = utils.RadToDeg(input[len(input)-1].Value)
+	return &pb.JointPositions{Values: n}
+}
+
+// PoseToInputs is a convenience method for turning a pose into a slice of inputs
+// in the form [X, Y, Z, OX, OY, OZ, Theta (in radians)]
+// This is the format that is expected by the poseFrame type and should not be used with other frames.
+func PoseToInputs(p spatial.Pose) []Input {
+	return FloatsToInputs([]float64{
+		p.Point().X, p.Point().Y, p.Point().Z,
+		p.Orientation().OrientationVectorRadians().OX,
+		p.Orientation().OrientationVectorRadians().OY,
+		p.Orientation().OrientationVectorRadians().OZ,
+		p.Orientation().OrientationVectorRadians().Theta,
+	})
 }

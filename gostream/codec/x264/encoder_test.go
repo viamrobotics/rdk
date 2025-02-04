@@ -10,9 +10,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/nfnt/resize"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/logging"
 )
 
 const (
@@ -54,7 +55,7 @@ func getResizedImageFromFile(b *testing.B, loc string) image.Image {
 
 func BenchmarkEncodeRGBA(b *testing.B) {
 	var w bool
-	var logger golog.Logger
+	var logger logging.Logger
 
 	imgCyan := getResizedImageFromFile(b, "../../data/cyan.png")
 	imgFuchsia := getResizedImageFromFile(b, "../../data/fuchsia.png")
@@ -77,7 +78,7 @@ func BenchmarkEncodeRGBA(b *testing.B) {
 
 func BenchmarkEncodeYCbCr(b *testing.B) {
 	var w bool
-	var logger golog.Logger
+	var logger logging.Logger
 	imgCyan := getResizedImageFromFile(b, "../../data/cyan.png")
 	imgFuchsia := getResizedImageFromFile(b, "../../data/fuchsia.png")
 

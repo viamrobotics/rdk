@@ -22,11 +22,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - arch: [ubuntu-latest]
+          - arch: ubuntu-latest
             image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
             platform: linux/amd64
             label: amd64
-          - arch: [github-linux-arm64-2core]
+          - arch: ubuntu-small-arm
             image: ghcr.io/viamrobotics/rdk-devenv:arm64-cache
             platform: linux/arm64
             label: arm64
@@ -103,7 +103,7 @@ jobs:
   # this job builds the 32-bit RDK binary
   appimage-static-32bit:
     name: static 32-bit for appimage
-    runs-on: github-linux-arm64-2core
+    runs-on: ubuntu-small-arm
     steps:
     - uses: actions/checkout@v4
       with:
@@ -124,7 +124,7 @@ jobs:
     # note: we do this because uname sees the arm64 kernel underneath the armhf container
     - name: fix platform detection
       run: mv bin/`uname -s`-`uname -m` bin/`uname -s`-armv7l
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: appimage-static-32bit
         path: |
@@ -140,7 +140,7 @@ jobs:
     - uses: actions/checkout@v4
       with:
         ref: ${{ github.event == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with:
         name: appimage-static-32bit
         path: bin/
@@ -157,7 +157,7 @@ jobs:
         DPKG_ARCH: armhf
         APPIMAGE_ARCH: armhf
       run: make appimage-arch
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: appimage-armhf
         path: etc/packaging/appimages/deploy
@@ -182,7 +182,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [[ubuntu-latest], [github-linux-arm64-2core], [arm64, pi4]]
+        arch: [[ubuntu-latest], [ubuntu-small-arm], [pi4], [pi5]]
     needs: appimage
     runs-on: ${{ matrix.arch }}
     timeout-minutes: 15
@@ -198,7 +198,7 @@ jobs:
 
     - name: Test AppImage
       run: |
-        if echo "${{ matrix.arch[0] }}" | grep -q -E 'ubuntu|github-linux'; then
+        if echo "${{ matrix.arch[0] }}" | grep -q 'ubuntu'; then
           sudo apt-get install -y libfuse2
         fi
         channel="${{ github.ref_name }}"
@@ -240,7 +240,7 @@ jobs:
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v1
 
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with:
         name: appimage-armhf
         path: etc/packaging/appimages/deploy

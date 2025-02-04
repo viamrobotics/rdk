@@ -1,6 +1,11 @@
 self-hosted-runner:
   labels:
+    - macos-13
     - pi4
+    - pi5
+    - ubuntu-large
+    - ubuntu-large-arm
+    - ubuntu-small-arm
     - buildjet-2vcpu-ubuntu-2204
     - buildjet-4vcpu-ubuntu-2204
     - buildjet-8vcpu-ubuntu-2204

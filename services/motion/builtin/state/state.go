@@ -638,13 +638,13 @@ func (s *State) purgeOlderThanTTL() error {
 			continue
 		}
 
-		executionIdsToKeep := componentState.executionIDHistory[:keepIndex+1]
-		executionIdsToDelete := componentState.executionIDHistory[keepIndex+1:]
+		executionIDsToKeep := componentState.executionIDHistory[:keepIndex+1]
+		executionIDsToDelete := componentState.executionIDHistory[keepIndex+1:]
 
-		for _, executionID := range executionIdsToDelete {
+		for _, executionID := range executionIDsToDelete {
 			delete(componentState.executionsByID, executionID)
 		}
-		componentState.executionIDHistory = executionIdsToKeep
+		componentState.executionIDHistory = executionIDsToKeep
 		s.componentStateByComponent[resource] = componentState
 	}
 	return nil

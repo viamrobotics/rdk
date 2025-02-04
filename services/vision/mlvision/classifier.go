@@ -37,7 +37,7 @@ func attemptToBuildClassifier(mlm mlmodel.Service,
 		return nil, errors.New("no input tensors received")
 	}
 	inType := md.Inputs[0].DataType
-	labels := getLabelsFromMetadata(md)
+	labels := getLabelsFromMetadata(md, params.LabelPath)
 	if shapeLen := len(md.Inputs[0].Shape); shapeLen < 4 {
 		return nil, errors.Errorf("invalid length of shape array (expected 4, got %d)", shapeLen)
 	}
@@ -132,7 +132,7 @@ func attemptToBuildClassifier(mlm mlmodel.Service,
 		}
 		confs := checkClassificationScores(probs)
 		if labels != nil && len(labels) != len(confs) {
-			return nil, errors.New("length of output expected to be length of label list (but is not)")
+			return nil, errors.Errorf("length of output (%d) expected to be length of label list (%d)", len(confs), len(labels))
 		}
 		classifications := make(classification.Classifications, 0, len(confs))
 		for i := 0; i < len(confs); i++ {

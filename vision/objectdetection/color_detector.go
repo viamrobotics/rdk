@@ -54,10 +54,16 @@ func NewColorDetector(cfg *ColorDetectorConfig) (Detector, error) {
 		return nil, errors.Errorf("value_cutoff_pct must be between 0.0 and 1.0. Got %.5f", val)
 	}
 	if s < sat {
-		return nil, errors.Errorf("the chosen color to detect has a saturation of %.5f which is less than saturation_cutoff_pct %.5f", s, sat)
+		return nil, errors.Errorf("the chosen color to detect is too unsaturated and resembles grayscale."+
+			"Color detector only detects colors."+
+			"The saturation was %.5f which is less than the saturation cutoff %.5f",
+			s, sat)
 	}
 	if v < val {
-		return nil, errors.Errorf("the chosen color to detect has a value of %.5f which is less than value_cutoff_pct %.5f", v, val)
+		return nil, errors.Errorf("the chosen color to detect is too dark."+
+			"The color detector only detects brighter colors."+
+			"The value was %.5f which is less than the value cutoff of %.5f",
+			v, val)
 	}
 
 	var valid validPixelFunc

@@ -12,8 +12,57 @@ import (
 
 	"go.viam.com/rdk/motionplan"
 	rprotoutils "go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
+
+// ToProto converts a MoveReq to a pb.MoveRequest
+// the name argument should correspond to the name of the motion service the request will be used with.
+func (r MoveReq) ToProto(name string) (*pb.MoveRequest, error) {
+	ext, err := vprotoutils.StructToStructPb(r.Extra)
+	if err != nil {
+		return nil, err
+	}
+	worldStateMsg, err := r.WorldState.ToProtobuf()
+	if err != nil {
+		return nil, err
+	}
+	reqPB := &pb.MoveRequest{
+		Name:          name,
+		ComponentName: rprotoutils.ResourceNameToProto(r.ComponentName),
+		WorldState:    worldStateMsg,
+		Constraints:   r.Constraints.ToProtobuf(),
+		Extra:         ext,
+	}
+	if r.Destination != nil {
+		// Destination is not needed if goal_state present. Validation on receiving end.
+		reqPB.Destination = referenceframe.PoseInFrameToProtobuf(r.Destination)
+	}
+
+	return reqPB, nil
+}
+
+// MoveReqFromProto converts a pb.MoveRequest to a MoveReq struct.
+func MoveReqFromProto(req *pb.MoveRequest) (MoveReq, error) {
+	worldState, err := referenceframe.WorldStateFromProtobuf(req.GetWorldState())
+	if err != nil {
+		return MoveReq{}, err
+	}
+	dst := req.GetDestination()
+	var destination *referenceframe.PoseInFrame
+	if dst != nil {
+		// Destination is not needed if goal_state present. Validation on receiving end.
+		destination = referenceframe.ProtobufToPoseInFrame(req.GetDestination())
+	}
+
+	return MoveReq{
+		rprotoutils.ResourceNameFromProto(req.GetComponentName()),
+		destination,
+		worldState,
+		motionplan.ConstraintsFromProtobuf(req.GetConstraints()),
+		req.Extra.AsMap(),
+	}, nil
+}
 
 // planWithStatusFromProto converts a *pb.PlanWithStatus to a PlanWithStatus.
 func planWithStatusFromProto(pws *pb.PlanWithStatus) (PlanWithStatus, error) {
@@ -124,7 +173,7 @@ func planFromProto(p *pb.Plan) (PlanWithMetadata, error) {
 
 	steps := motionplan.Path{}
 	for _, s := range p.Steps {
-		step, err := motionplan.PathStepFromProto(s)
+		step, err := motionplan.FrameSystemPosesFromProto(s)
 		if err != nil {
 			return PlanWithMetadata{}, err
 		}

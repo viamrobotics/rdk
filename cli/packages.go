@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"go.uber.org/multierr"
 	packagespb "go.viam.com/api/app/packages/v1"
 	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -41,20 +43,22 @@ var packageTypes = []string{
 	string(PackageTypeModule), string(PackageTypeSLAMMap),
 }
 
+type packageExportArgs struct {
+	Destination string
+	OrgID       string
+	Name        string
+	Version     string
+	Type        string
+}
+
 // PackageExportAction is the corresponding action for 'package export'.
-func PackageExportAction(c *cli.Context) error {
+func PackageExportAction(c *cli.Context, args packageExportArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
 
-	return client.packageExportAction(
-		c.String(generalFlagOrgID),
-		c.String(packageFlagName),
-		c.String(packageFlagVersion),
-		c.String(packageFlagType),
-		c.Path(packageFlagDestination),
-	)
+	return client.packageExportAction(args.OrgID, args.Name, args.Version, args.Type, args.Destination)
 }
 
 func convertPackageTypeToProto(packageType string) (*packagespb.PackageType, error) {
@@ -83,6 +87,16 @@ func (c *viamClient) packageExportAction(orgID, name, version, packageType, dest
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
+	if orgID == "" || name == "" {
+		if orgID != "" || name != "" {
+			return fmt.Errorf("if either of %s or %s is missing, both must be missing", generalFlagOrgID, generalFlagName)
+		}
+		manifest, err := loadManifest(defaultManifestFilename)
+		if err != nil {
+			return errors.Wrap(err, "trying to get package ID from meta.json")
+		}
+		orgID, name, _ = strings.Cut(manifest.ModuleID, ":")
+	}
 	// Package ID is the <organization-ID>/<package-name>
 	packageID := path.Join(orgID, name)
 	packageTypeProto, err := convertPackageTypeToProto(packageType)
@@ -102,11 +116,12 @@ func (c *viamClient) packageExportAction(orgID, name, version, packageType, dest
 		return err
 	}
 
-	return downloadPackageFromURL(c.c.Context, c.authFlow.httpClient, destination, name, version, resp.GetPackage().GetUrl())
+	return downloadPackageFromURL(c.c.Context, c.authFlow.httpClient, destination, name, version, resp.GetPackage().GetUrl(),
+		c.conf.Auth)
 }
 
 func downloadPackageFromURL(ctx context.Context, httpClient *http.Client,
-	destination, name, version, packageURL string,
+	destination, name, version, packageURL string, auth authMethod,
 ) error {
 	// All packages are stored as .tar.gz
 	packagePath := filepath.Join(destination, version, name+".tar.gz")
@@ -122,6 +137,18 @@ func downloadPackageFromURL(ctx context.Context, httpClient *http.Client,
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, packageURL, nil)
 	if err != nil {
 		return errors.Wrapf(err, serverErrorMessage)
+	}
+
+	// Set the headers so HTTP requests that are not gRPC calls can still be authenticated in app
+	// We can authenticate via token or API key, so we try both.
+	token, ok := auth.(*token)
+	if ok {
+		req.Header.Add(rpc.MetadataFieldAuthorization, rpc.AuthorizationValuePrefixBearer+token.AccessToken)
+	}
+	apiKey, ok := auth.(*apiKey)
+	if ok {
+		req.Header.Add("key_id", apiKey.KeyID)
+		req.Header.Add("key", apiKey.KeyCrypto)
 	}
 	res, err := httpClient.Do(req)
 	if err != nil {
@@ -147,25 +174,46 @@ func downloadPackageFromURL(ctx context.Context, httpClient *http.Client,
 	return nil
 }
 
+type packageUploadArgs struct {
+	Path           string
+	OrgID          string
+	Name           string
+	Version        string
+	Type           string
+	ModelFramework string
+}
+
 // PackageUploadAction is the corresponding action for "packages upload".
-func PackageUploadAction(c *cli.Context) error {
+func PackageUploadAction(c *cli.Context, args packageUploadArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
 
-	_, err = convertPackageTypeToProto(c.String(packageFlagType))
+	_, err = convertPackageTypeToProto(args.Type)
 	if err != nil {
 		return err
 	}
 
+	if err := validatePackageUploadRequest(c, args); err != nil {
+		return err
+	}
+
 	resp, err := client.uploadPackage(
-		c.String(generalFlagOrgID),
-		c.String(packageFlagName),
-		c.String(packageFlagVersion),
-		c.String(packageFlagType),
-		c.Path(packageFlagPath),
-		nil,
+		args.OrgID,
+		args.Name,
+		args.Version,
+		args.Type,
+		args.Path,
+		&structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"model_framework": {
+					Kind: &structpb.Value_StringValue{
+						StringValue: args.ModelFramework,
+					},
+				},
+			},
+		},
 	)
 	if err != nil {
 		return err
@@ -249,4 +297,20 @@ func getNextPackageUploadRequest(file *os.File) (*packagespb.CreatePackageReques
 
 func (m *moduleID) ToDetailURL(baseURL string, packageType PackageType) string {
 	return fmt.Sprintf("https://%s/%s/%s/%s", baseURL, strings.ReplaceAll(string(packageType), "_", "-"), m.prefix, m.name)
+}
+
+func validatePackageUploadRequest(_ *cli.Context, args packageUploadArgs) error {
+	packageType := args.Type
+
+	if packageType == "ml_model" {
+		if args.ModelFramework == "" {
+			return errors.New("must pass in a model-framework if package is of type `ml_model`")
+		}
+
+		if !slices.Contains(modelFrameworks, args.ModelFramework) {
+			return errors.New("framework must be of type " + strings.Join(modelFrameworks, ", "))
+		}
+	}
+
+	return nil
 }

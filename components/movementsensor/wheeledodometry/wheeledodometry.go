@@ -12,6 +12,7 @@ import (
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
+	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
@@ -76,7 +77,7 @@ type odometry struct {
 	useCompass bool
 	shiftPos   bool
 
-	workers utils.StoppableWorkers
+	workers *goutils.StoppableWorkers
 	mu      sync.Mutex
 	logger  logging.Logger
 }
@@ -368,7 +369,7 @@ func (o *odometry) checkBaseProps(ctx context.Context) {
 // https://stuff.mit.edu/afs/athena/course/6/6.186/OldFiles/2005/doc/odomtutorial/odomtutorial.pdf
 func (o *odometry) trackPosition() {
 	// Spawn a new goroutine to do all the work in the background.
-	o.workers = utils.NewStoppableWorkers(func(ctx context.Context) {
+	o.workers = goutils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
 		ticker := time.NewTicker(time.Duration(o.timeIntervalMSecs) * time.Millisecond)
 		for {
 			select {

@@ -63,10 +63,10 @@ func Connect(port int) (*grpc.ClientConn, error) {
 	defer cancelFunc()
 
 	var conn *grpc.ClientConn
-	conn, err := grpc.DialContext(ctxTimeout,
+	conn, err := grpc.DialContext(ctxTimeout, //nolint:staticcheck
 		fmt.Sprintf("dns:///localhost:%d", port),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
+		grpc.WithBlock(), //nolint:staticcheck
 	)
 	if err != nil {
 		return nil, err
@@ -109,7 +109,7 @@ func ServerAsSeparateProcess(t *testing.T, cfgFileName string, logger logging.Lo
 		CWD:         utils.ResolveFile("./"),
 		Environment: map[string]string{"HOME": testTempHome},
 		Log:         true,
-	}, logger.AsZap())
+	}, logger)
 	return server
 }
 

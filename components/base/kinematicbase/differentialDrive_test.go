@@ -68,12 +68,12 @@ func TestWrapWithDifferentialDriveKinematics(t *testing.T) {
 			if err != nil {
 				return
 			}
-			limits := ddk.executionFrame.DoF()
+			limits := ddk.localizationFrame.DoF()
 			test.That(t, limits[0].Min, test.ShouldBeLessThan, 0)
 			test.That(t, limits[1].Min, test.ShouldBeLessThan, 0)
 			test.That(t, limits[0].Max, test.ShouldBeGreaterThan, 0)
 			test.That(t, limits[1].Max, test.ShouldBeGreaterThan, 0)
-			geometry, err := ddk.executionFrame.(*referenceframe.SimpleModel).Geometries(make([]referenceframe.Input, len(limits)))
+			geometry, err := ddk.localizationFrame.(*referenceframe.SimpleModel).Geometries(make([]referenceframe.Input, len(limits)))
 			test.That(t, err, test.ShouldBeNil)
 			equivalent := spatialmath.GeometriesAlmostEqual(
 				geometry.GeometryByName(testCfg.Name+":"+testCfg.Frame.Geometry.Label),
@@ -148,7 +148,7 @@ func TestInputDiff(t *testing.T) {
 	desiredInput := []referenceframe.Input{{Value: 3}, {Value: 4}, {Value: utils.DegToRad(30)}}
 	distErr, headingErr, err := ddk.inputDiff(make([]referenceframe.Input, 3), desiredInput)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, distErr, test.ShouldEqual, r3.Vector{X: desiredInput[0].Value, Y: desiredInput[1].Value, Z: 0}.Norm())
+	test.That(t, distErr, test.ShouldAlmostEqual, r3.Vector{X: desiredInput[0].Value, Y: desiredInput[1].Value, Z: 0}.Norm())
 	test.That(t, headingErr, test.ShouldAlmostEqual, 30)
 }
 

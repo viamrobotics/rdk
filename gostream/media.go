@@ -228,7 +228,7 @@ func (pc *producerConsumer[T, U]) start() {
 			pc.cancelCtxMu.RLock()
 			if pc.cancelCtx.Err() != nil {
 				pc.cancelCtxMu.RUnlock()
-				return
+				break
 			}
 			pc.cancelCtxMu.RUnlock()
 
@@ -262,13 +262,13 @@ func (pc *producerConsumer[T, U]) start() {
 			}
 			requests, cont := waitForNext()
 			if !cont {
-				return
+				break
 			}
 
 			pc.cancelCtxMu.RLock()
 			if err := pc.cancelCtx.Err(); err != nil {
 				pc.cancelCtxMu.RUnlock()
-				return
+				break
 			}
 			pc.cancelCtxMu.RUnlock()
 
@@ -284,11 +284,11 @@ func (pc *producerConsumer[T, U]) start() {
 					doReadSpan.End()
 				}()
 
-				var lastRelease func()
+				var prevRelease func()
 				if !first {
 					// okay to not hold a lock because we are the only both reader AND writer;
 					// other goroutines are just readers.
-					lastRelease = pc.current.Release
+					prevRelease = pc.current.Release
 				} else {
 					first = false
 				}
@@ -313,10 +313,14 @@ func (pc *producerConsumer[T, U]) start() {
 					}
 				}, err}
 				pc.currentMu.Unlock()
-				if lastRelease != nil {
-					lastRelease()
+				if prevRelease != nil {
+					prevRelease()
 				}
 			}()
+		}
+		// After loop breaks, we likely still have an unreleased current media.
+		if pc.current != nil && pc.current.Release != nil {
+			pc.current.Release()
 		}
 	}, func() { defer pc.activeBackgroundWorkers.Done(); pc.cancel() })
 }
@@ -355,6 +359,10 @@ func (pc *producerConsumer[T, U]) stop() {
 	pc.consumerCond.Broadcast()
 	pc.consumerCond.L.Unlock()
 	pc.activeBackgroundWorkers.Wait()
+
+	pc.currentMu.Lock()
+	defer pc.currentMu.Unlock()
+	pc.current = nil
 
 	// reset
 	cancelCtx, cancel := context.WithCancel(WithMIMETypeHint(pc.rootCancelCtx, pc.mimeType))

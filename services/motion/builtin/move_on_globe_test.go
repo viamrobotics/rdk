@@ -126,6 +126,39 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, movementSensorInBase.Pose().Point(), test.ShouldResemble, movementSensorInBasePoint)
 	})
+
+	t.Run("starting at the goal", func(t *testing.T) {
+		_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
+		defer closeFunc(ctx)
+
+		req := motion.MoveOnGlobeReq{
+			ComponentName:      baseResource,
+			Destination:        gpsPoint,
+			MovementSensorName: moveSensorResource,
+			MotionCfg:          &motion.MotionConfiguration{},
+			Extra:              extra,
+		}
+
+		// validate that plan is actually empty
+		moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(ctx, req, nil, 0)
+		test.That(t, err, test.ShouldBeNil)
+		planResp, err := moveRequest.Plan(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, planResp, test.ShouldNotBeNil)
+
+		// test that nothing breaks in state when we return an empty plan
+		executionID, err := ms.MoveOnGlobe(ctx, req)
+		test.That(t, err, test.ShouldBeNil)
+
+		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+		defer timeoutFn()
+		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
+			ComponentName: req.ComponentName,
+			ExecutionID:   executionID,
+			LastPlanOnly:  true,
+		})
+		test.That(t, err, test.ShouldBeNil)
+	})
 }
 
 func TestBoundingRegionsConstraint(t *testing.T) {
@@ -313,8 +346,10 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 				// The camera is parented to the base. Thus, this will always see an obstacle 300mm in front of where the base is.
 				// Note: for CreateMoveOnGlobeTestEnvironment, the camera is given an orientation such that it is pointing left, not
 				// forwards. Thus, an obstacle in front of the base will be seen as being in +X.
-				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 300, Y: 0, Z: 0})
-				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 20, Y: 20, Z: 10}, caseName)
+				// NOTE: the orientation of the camera is OY:1, Theta: -90 degrees, this influences both the position and dimensions of
+				// the observed obstacle in this test case.
+				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 300})
+				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 40, Y: 10, Z: 40}, caseName)
 				test.That(t, err, test.ShouldBeNil)
 
 				detection, err := viz.NewObjectWithLabel(pointcloud.New(), caseName+"-detection", box.ToProtobuf())
@@ -330,10 +365,10 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 			name: "ensure replan reaching goal",
 			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
 				caseName := "test-case-3"
-				// This base will always see an obstacle 800mm in front of it, triggering several replans.
+				// This base will always see an obstacle 900mm in front of it, triggering several replans.
 				// However, enough replans should eventually get it to its goal.
-				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 900, Y: 0, Z: 0})
-				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 1, Y: 1, Z: 10}, caseName)
+				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 900})
+				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 1, Y: 10, Z: 1}, caseName)
 				test.That(t, err, test.ShouldBeNil)
 
 				detection, err := viz.NewObjectWithLabel(pointcloud.New(), caseName+"-detection", box.ToProtobuf())
@@ -362,7 +397,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 			ctx,
 			t,
 			gpsOrigin,
-			1,
+			2,
 			nil,
 		)
 		defer closeFunc(ctx)

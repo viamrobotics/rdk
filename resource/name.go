@@ -151,3 +151,12 @@ func (n Name) SDPTrackName() string {
 func SDPTrackNameToShortName(name string) string {
 	return strings.ReplaceAll(name, "+", ":")
 }
+
+// NamesToStrings is a utility that takes a list of resource names and returns a list of fully qualified names.
+func NamesToStrings(lst []Name) []string {
+	rNames := make([]string, 0, len(lst))
+	for _, rName := range lst {
+		rNames = append(rNames, rName.String())
+	}
+	return rNames
+}

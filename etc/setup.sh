@@ -27,16 +27,13 @@ do_piOS(){
 	echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2) main" > /etc/apt/sources.list.d/nodesource.list
 
 	# Install most things
-	apt-get update && apt-get install -y build-essential nodejs libnlopt-dev libx264-dev libtensorflowlite-dev ffmpeg libjpeg62-turbo-dev
+	apt-get update && apt-get install -y build-essential nodejs libnlopt-dev libx264-dev ffmpeg libjpeg62-turbo-dev
 
 	# Install Gostream dependencies
-	sudo apt-get install -y --no-install-recommends libopus-dev libvpx-dev libx11-dev libxext-dev libopusfile-dev
+	sudo apt-get install -y --no-install-recommends libopus-dev libx11-dev libxext-dev libopusfile-dev
 
 	# Install backports
 	apt-get install -y -t $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2)-backports golang-go
-
-	# Raspberry Pi support
-	test "$(uname -m)" = "aarch64" && apt-get install -y libpigpio-dev
 
 	# upx
 	UPX_URL=https://github.com/upx/upx/releases/download/v4.0.2/upx-4.0.2-amd64_linux.tar.xz
@@ -160,7 +157,7 @@ do_brew(){
 	tap  "viamrobotics/brews"
 
 	# pinned
-	brew "go@1.21", link: true, conflicts_with: ["go"]
+	brew "go@1.23", link: true, conflicts_with: ["go"]
 	brew "node@18", link: true, conflicts_with: ["node"]
 
 	# unpinned
@@ -173,8 +170,6 @@ do_brew(){
 	brew "licensefinder"
 	brew "opus"
 	brew "opusfile"
-	brew "libvpx"
-	brew "tensorflowlite" # Needs to be last
 	EOS
 
 	if [ $? -ne 0 ]; then
@@ -182,8 +177,8 @@ do_brew(){
 		exit 1
 	fi
 
-	# replace default go (currently 1.22, from canon build) with pinned go@1.21
-	brew link --overwrite go@1.21
+	# replace default go with pinned
+	brew link --overwrite go@1.23
 
 	# due to a missing bottle in homebrew, this has to be installed on its own
 	brew install upx

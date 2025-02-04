@@ -28,6 +28,8 @@ const (
 	// compassValue and orientationValue should be different for tests.
 	defaultCompassValue     = 45.
 	defaultOrientationValue = 40.
+	wrongTypeLinVel         = "linear"
+	wrongTypeAngVel         = "angulr_velocity"
 )
 
 var (
@@ -145,16 +147,16 @@ func TestSensorBase(t *testing.T) {
 	test.That(t, sb.Close(ctx), test.ShouldBeNil)
 }
 
-func sBaseTestConfig(msNames []string) resource.Config {
+func sBaseTestConfig(msNames []string, freq float64, linType, angType string) resource.Config {
 	controlParams := make([]control.PIDConfig, 2)
 	controlParams[0] = control.PIDConfig{
-		Type: typeLinVel,
+		Type: linType,
 		P:    0.5,
 		I:    0.5,
 		D:    0.0,
 	}
 	controlParams[1] = control.PIDConfig{
-		Type: typeAngVel,
+		Type: angType,
 		P:    0.5,
 		I:    0.5,
 		D:    0.0,
@@ -168,6 +170,7 @@ func sBaseTestConfig(msNames []string) resource.Config {
 			MovementSensor:    msNames,
 			Base:              "test_base",
 			ControlParameters: controlParams,
+			ControlFreq:       freq,
 		},
 	}
 }
@@ -176,7 +179,7 @@ func msDependencies(t *testing.T, msNames []string,
 ) (resource.Dependencies, resource.Config) {
 	t.Helper()
 
-	cfg := sBaseTestConfig(msNames)
+	cfg := sBaseTestConfig(msNames, defaultControlFreq, typeLinVel, typeAngVel)
 
 	deps := make(resource.Dependencies)
 
@@ -262,6 +265,7 @@ func TestReconfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, headingSupported, test.ShouldBeTrue)
 	test.That(t, headingOri, test.ShouldEqual, orientationValue)
+	test.That(t, sb.controlFreq, test.ShouldEqual, defaultControlFreq)
 
 	deps, cfg = msDependencies(t, []string{"orientation1"})
 	err = b.Reconfigure(ctx, deps, cfg)
@@ -275,7 +279,9 @@ func TestReconfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sb.velocities.Name().ShortName(), test.ShouldResemble, "setvel1")
 
-	deps, cfg = msDependencies(t, []string{"setvel2"})
+	deps, _ = msDependencies(t, []string{"setvel2"})
+	// generate a config with a non default freq
+	cfg = sBaseTestConfig([]string{"setvel2"}, 100, typeLinVel, typeAngVel)
 	err = b.Reconfigure(ctx, deps, cfg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sb.velocities.Name().ShortName(), test.ShouldResemble, "setvel2")
@@ -283,6 +289,7 @@ func TestReconfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, headingSupported, test.ShouldBeFalse)
 	test.That(t, headingNone, test.ShouldEqual, 0)
+	test.That(t, sb.controlFreq, test.ShouldEqual, 100.0)
 
 	deps, cfg = msDependencies(t, []string{"orientation3", "setvel3", "Bad"})
 	err = b.Reconfigure(ctx, deps, cfg)
@@ -331,23 +338,33 @@ func TestReconfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, headingSupported, test.ShouldBeFalse)
 	test.That(t, headingBad, test.ShouldEqual, 0)
+
+	deps, _ = msDependencies(t, []string{"setvel2"})
+	// generate a config with invalid pid types
+	cfg = sBaseTestConfig([]string{"setvel2"}, 100, wrongTypeLinVel, wrongTypeAngVel)
+	err = b.Reconfigure(ctx, deps, cfg)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "type must be 'linear_velocity' or 'angular_velocity'")
+	test.That(t, b.Close(ctx), test.ShouldBeNil)
 }
 
 func TestSensorBaseWithVelocitiesSensor(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
-	deps, cfg := msDependencies(t, []string{"setvel1"})
+	deps, _ := msDependencies(t, []string{"setvel1"})
+	// generate a config with a non default freq
+	cfg := sBaseTestConfig([]string{"setvel1"}, 100, typeLinVel, typeAngVel)
 
 	b, err := createSensorBase(ctx, deps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	sb, ok := b.(*sensorBase)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sb.velocities.Name().ShortName(), test.ShouldResemble, "setvel1")
 
 	test.That(t, sb.SetVelocity(ctx, r3.Vector{X: 0, Y: 100, Z: 0}, r3.Vector{X: 0, Y: 100, Z: 0}, nil), test.ShouldBeNil)
 	test.That(t, sb.loop, test.ShouldNotBeNil)
-	test.That(t, sb.Stop(ctx, nil), test.ShouldBeNil)
+	loopFreq, err := sb.loop.Frequency(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, loopFreq, test.ShouldEqual, 100)
 	test.That(t, sb.Close(ctx), test.ShouldBeNil)
 }
 
@@ -411,6 +428,7 @@ func TestSensorBaseSpin(t *testing.T) {
 		err := sbNoOri.Spin(ctx, 10, 10, nil)
 		test.That(t, err, test.ShouldBeNil)
 	})
+	test.That(t, b.Close(ctx), test.ShouldBeNil)
 }
 
 func TestSensorBaseMoveStraight(t *testing.T) {
@@ -500,4 +518,34 @@ func TestSensorBaseMoveStraight(t *testing.T) {
 		}
 		orientationValue = defaultOrientationValue
 	})
+	test.That(t, b.Close(ctx), test.ShouldBeNil)
+}
+
+func TestSensorBaseDoCommand(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	deps, cfg := msDependencies(t, []string{"setvel1", "position1", "orientation1"})
+	b, err := createSensorBase(ctx, deps, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	sb, ok := b.(*sensorBase)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	expectedPID := control.PIDConfig{P: 0.1, I: 2.0, D: 0.0}
+	sb.tunedVals = &[]control.PIDConfig{expectedPID, {}}
+	expectedeMap := make(map[string]interface{})
+	expectedeMap["get_tuned_pid"] = (expectedPID.String())
+
+	req := make(map[string]interface{})
+	req["get_tuned_pid"] = true
+	resp, err := b.DoCommand(ctx, req)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, expectedeMap)
+
+	emptyMap := make(map[string]interface{})
+	req["get_tuned_pid"] = false
+	resp, err = b.DoCommand(ctx, req)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, emptyMap)
+	test.That(t, b.Close(ctx), test.ShouldBeNil)
 }

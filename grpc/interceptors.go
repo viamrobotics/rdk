@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
 // DefaultMethodTimeout is the default context timeout for all inbound gRPC
@@ -42,4 +43,63 @@ func EnsureTimeoutUnaryClientInterceptor(
 	}
 
 	return invoker(ctx, method, req, reply, cc, opts...)
+}
+
+// The following code is for appending/extracting grpc metadata regarding module names/origins via
+// contexts.
+type modNameKeyType int
+
+const modNameKeyID = modNameKeyType(iota)
+
+// GetModuleName returns the module name (if any) the request came from. The module name will match
+// a string from the robot config.
+func GetModuleName(ctx context.Context) string {
+	valI := ctx.Value(modNameKeyID)
+	if val, ok := valI.(string); ok {
+		return val
+	}
+
+	return ""
+}
+
+const modNameMetadataKey = "modName"
+
+// ModInterceptors takes a user input `ModName` and exposes an interceptor method that will attach
+// it to outgoing gRPC requests.
+type ModInterceptors struct {
+	ModName string
+}
+
+// UnaryClientInterceptor adds a module name to any outgoing unary gRPC request.
+func (mc *ModInterceptors) UnaryClientInterceptor(
+	ctx context.Context,
+	method string,
+	req, reply interface{},
+	cc *grpc.ClientConn,
+	invoker grpc.UnaryInvoker,
+	opts ...grpc.CallOption,
+) error {
+	ctx = metadata.AppendToOutgoingContext(ctx, modNameMetadataKey, mc.ModName)
+	return invoker(ctx, method, req, reply, cc, opts...)
+}
+
+// ModNameUnaryServerInterceptor checks the incoming RPC metadata for a module name and attaches any
+// information to a context that can be retrieved with `GetModuleName`.
+func ModNameUnaryServerInterceptor(
+	ctx context.Context,
+	req interface{},
+	info *grpc.UnaryServerInfo,
+	handler grpc.UnaryHandler,
+) (interface{}, error) {
+	meta, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return handler(ctx, req)
+	}
+
+	values := meta.Get(modNameMetadataKey)
+	if len(values) == 1 {
+		ctx = context.WithValue(ctx, modNameKeyID, values[0])
+	}
+
+	return handler(ctx, req)
 }

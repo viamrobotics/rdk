@@ -1,71 +1,94 @@
 {
   "base": {
     "func": "IsMoving",
+    "packagePath": "go.viam.com/rdk/components",
     "args": ["context.Background()"]
   },
   "board": {
     "func": "GPIOPinByName",
+    "packagePath": "go.viam.com/rdk/components",
     "args": ["\"16\""],
     "comment": "Note that the pin supplied is a placeholder. Please change this to a valid pin."
   },
   "camera": {
     "func": "Properties",
+    "packagePath": "go.viam.com/rdk/components",
     "args": ["context.Background()"]
   },
   "encoder": {
     "func": "Properties",
+    "packagePath": "go.viam.com/rdk/components",
     "args": ["context.Background()", "map[string]interface{}{}"]
   },
   "motor": {
     "func": "IsMoving",
+    "packagePath": "go.viam.com/rdk/components",
     "args": ["context.Background()"]
   },
   "sensor": {
     "func": "Readings",
+    "packagePath": "go.viam.com/rdk/components",
     "args": ["context.Background()", "map[string]interface{}{}"]
   },
   "servo": {
     "func": "Position",
+    "packagePath": "go.viam.com/rdk/components",
     "args": ["context.Background()", "map[string]interface{}{}"]
   },
   "arm": {
     "func": "EndPosition",
+    "packagePath": "go.viam.com/rdk/components",
     "args": ["context.Background()", "map[string]interface{}{}"]
   },
   "audio": {
     "func": "MediaProperties",
+    "packagePath": "go.viam.com/rdk/components",
     "args": ["context.Background()"]
   },
   "gantry": {
     "func": "Lengths",
+    "packagePath": "go.viam.com/rdk/components",
     "args": ["context.Background()", "map[string]interface{}{}"]
   },
   "gripper": {
     "func": "IsMoving",
+    "packagePath": "go.viam.com/rdk/components",
     "args": ["context.Background()"]
   },
   "input_controller": {
     "func": "Controls",
-    "args": ["context.Background()", "map[string]interface{}{}"]
+    "packagePath": "go.viam.com/rdk/components",
+    "args": ["context.Background()", "map[string]interface{}{}"],
+    "packageName": "input",
+    "importName": "input"
   },
   "movement_sensor": {
     "func": "LinearAcceleration",
-    "args": ["context.Background()", "map[string]interface{}{}"]
+    "packagePath": "go.viam.com/rdk/components",
+    "args": ["context.Background()", "map[string]interface{}{}"],
+    "packageName": "movementsensor",
+    "importName": "movementsensor"
   },
   "power_sensor": {
     "func": "Power",
-    "args": ["context.Background()", "map[string]interface{}{}"]
+    "packagePath": "go.viam.com/rdk/components",
+    "args": ["context.Background()", "map[string]interface{}{}"],
+    "packageName": "powersensor",
+    "importName": "powersensor"
   },
   "pose_tracker": {
     "func": "Poses",
+    "packagePath": "go.viam.com/rdk/components",
     "args": []
   },
   "motion": {
     "func": "GetPose",
+    "packagePath": "go.viam.com/rdk/services",
     "args": []
   },
   "vision": {
     "func": "GetProperties",
+    "packagePath": "go.viam.com/rdk/services",
     "args": ["context.Background()", "map[string]interface{}{}"]
   }
 }

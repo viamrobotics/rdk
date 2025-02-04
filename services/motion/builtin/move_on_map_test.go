@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -131,25 +132,6 @@ func TestMoveOnMap(t *testing.T) {
 		test.That(t, ph3, test.ShouldResemble, ph2)
 	})
 
-	t.Run("returns error when within plan dev m of goal with position_only", func(t *testing.T) {
-		_, ms, closeFunc := CreateMoveOnMapTestEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-		defer closeFunc(ctx)
-
-		req := motion.MoveOnMapReq{
-			ComponentName: base.Named("test-base"),
-			Destination:   spatialmath.NewZeroPose(),
-			SlamName:      slam.Named("test_slam"),
-			MotionCfg:     &motion.MotionConfiguration{},
-			Extra:         map[string]interface{}{"motion_profile": "position_only"},
-		}
-
-		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
-		defer timeoutFn()
-		executionID, err := ms.(*builtIn).MoveOnMap(timeoutCtx, req)
-		test.That(t, err, test.ShouldBeError, motion.ErrGoalWithinPlanDeviation)
-		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
-	})
-
 	t.Run("pass when within plan dev m of goal without position_only due to theta difference in goal", func(t *testing.T) {
 		_, ms, closeFunc := CreateMoveOnMapTestEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer closeFunc(ctx)
@@ -265,7 +247,6 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 
 		// place obstacle in opposte position and show that the generate path
 		// collides with obstacleLeft
-
 		wrldSt, err := referenceframe.NewWorldState(
 			[]*referenceframe.GeometriesInFrame{
 				referenceframe.NewGeometriesInFrame(
@@ -275,27 +256,52 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 			}, nil,
 		)
 		test.That(t, err, test.ShouldBeNil)
-		executionState, err := motionplan.NewExecutionState(
-			plan,
-			1,
-			referenceframe.StartPositions(mr.planRequest.FrameSystem),
+
+		currentInputs := referenceframe.FrameSystemInputs{
+			mr.kinematicBase.Kinematics().Name(): {
+				{Value: 0}, // ptg index
+				{Value: 0}, // trajectory alpha within ptg
+				{Value: 0}, // start distance along trajectory index
+				{Value: 0}, // end distace along trajectory index
+			},
+			mr.kinematicBase.LocalizationFrame().Name(): {
+				{Value: 587},  // X
+				{Value: -808}, // Y
+				{Value: 0},    // Z
+				{Value: 0},    // OX
+				{Value: 0},    // OY
+				{Value: 1},    // OZ
+				{Value: 0},    // Theta
+			},
+		}
+
+		baseExecutionState, err := motionplan.NewExecutionState(
+			plan, 1, currentInputs,
 			map[string]*referenceframe.PoseInFrame{
-				mr.planRequest.Frame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPose(
+				mr.kinematicBase.LocalizationFrame().Name(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPose(
 					r3.Vector{X: 0.58772e3, Y: -0.80826e3, Z: 0},
 					&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 0},
 				)),
 			},
 		)
 		test.That(t, err, test.ShouldBeNil)
+
+		augmentedBaseExecutionState, err := mr.augmentBaseExecutionState(baseExecutionState)
+		test.That(t, err, test.ShouldBeNil)
+
+		wrapperFrame := mr.localizingFS.Frame(mr.kinematicBase.Name().Name)
+
+		test.That(t, err, test.ShouldBeNil)
 		err = motionplan.CheckPlan(
-			mr.planRequest.Frame,
-			executionState,
+			wrapperFrame,
+			augmentedBaseExecutionState,
 			wrldSt,
-			mr.planRequest.FrameSystem,
+			mr.localizingFS,
 			lookAheadDistanceMM,
 			logger,
 		)
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, strings.Contains(err.Error(), "found constraint violation or collision in segment between"), test.ShouldBeTrue)
 	})
 
 	t.Run("fail due to obstacles enclosing goals", func(t *testing.T) {

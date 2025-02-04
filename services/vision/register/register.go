@@ -4,5 +4,6 @@ package register
 import (
 	// for vision models.
 	_ "go.viam.com/rdk/services/vision"
+	_ "go.viam.com/rdk/services/vision/fake"
 	_ "go.viam.com/rdk/services/vision/mlvision"
 )

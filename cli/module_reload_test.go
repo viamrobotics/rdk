@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	rdkConfig "go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -22,8 +23,8 @@ func TestConfigureModule(t *testing.T) {
 		StartBuildFunc: func(ctx context.Context, in *v1.StartBuildRequest, opts ...grpc.CallOption) (*v1.StartBuildResponse, error) {
 			return &v1.StartBuildResponse{BuildId: "xyz123"}, nil
 		},
-	}, nil, map[string]any{moduleBuildFlagPath: manifestPath, moduleBuildFlagVersion: "1.2.3"}, "token")
-	err := ac.moduleBuildStartAction(cCtx)
+	}, map[string]any{moduleFlagPath: manifestPath, generalFlagVersion: "1.2.3"}, "token")
+	err := ac.moduleBuildStartAction(cCtx, parseStructFromCtx[moduleBuildStartArgs](cCtx))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.messages, test.ShouldHaveLength, 1)
 	test.That(t, out.messages[0], test.ShouldEqual, "xyz123\n")
@@ -31,6 +32,8 @@ func TestConfigureModule(t *testing.T) {
 }
 
 func TestFullReloadFlow(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
 	manifestPath := createTestManifest(t, "")
 	confStruct, err := structpb.NewStruct(map[string]any{
 		"modules": []any{},
@@ -59,15 +62,15 @@ func TestFullReloadFlow(t *testing.T) {
 				{ApiKey: &apppb.APIKey{}},
 			}}, nil
 		},
-	}, nil, &inject.BuildServiceClient{}, nil,
+	}, nil, &inject.BuildServiceClient{},
 		map[string]any{
-			moduleBuildFlagPath: manifestPath, partFlag: "part-123",
+			moduleFlagPath: manifestPath, generalFlagPartID: "part-123",
 			moduleBuildFlagNoBuild: true, moduleFlagLocal: true,
 		},
 		"token",
 	)
 	test.That(t, vc.loginAction(cCtx), test.ShouldBeNil)
-	err = reloadModuleAction(cCtx, vc)
+	err = reloadModuleAction(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, updateCount, test.ShouldEqual, 1)
 
@@ -89,13 +92,13 @@ func TestRestartModule(t *testing.T) {
 func TestResolvePartId(t *testing.T) {
 	c := newTestContext(t, map[string]any{})
 	// empty flag, no path
-	partID, err := resolvePartID(c.Context, c.String(partFlag), "")
+	partID, err := resolvePartID(c.Context, c.String(generalFlagPartID), "")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, partID, test.ShouldBeEmpty)
 
 	// empty flag, fake path
 	missingPath := filepath.Join(t.TempDir(), "MISSING.json")
-	_, err = resolvePartID(c.Context, c.String(partFlag), missingPath)
+	_, err = resolvePartID(c.Context, c.String(generalFlagPartID), missingPath)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// empty flag, valid path
@@ -104,13 +107,13 @@ func TestResolvePartId(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, err = fi.WriteString(`{"cloud":{"app_address":"https://app.viam.com:443","id":"JSON-PART","secret":"SECRET"}}`)
 	test.That(t, err, test.ShouldBeNil)
-	partID, err = resolvePartID(c.Context, c.String(partFlag), path)
+	partID, err = resolvePartID(c.Context, c.String(generalFlagPartID), path)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, partID, test.ShouldEqual, "JSON-PART")
 
 	// given flag, valid path
-	c = newTestContext(t, map[string]any{partFlag: "FLAG-PART"})
-	partID, err = resolvePartID(c.Context, c.String(partFlag), path)
+	c = newTestContext(t, map[string]any{generalFlagPartID: "FLAG-PART"})
+	partID, err = resolvePartID(c.Context, c.String(generalFlagPartID), path)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, partID, test.ShouldEqual, "FLAG-PART")
 }
@@ -126,7 +129,7 @@ func TestMutateModuleConfig(t *testing.T) {
 	t.Run("correct_exepath", func(t *testing.T) {
 		// correct ExePath (do nothing)
 		modules := []ModuleMap{{"module_id": manifest.ModuleID, "executable_path": manifest.Entrypoint}}
-		_, dirty, err := mutateModuleConfig(c, modules, manifest)
+		_, dirty, err := mutateModuleConfig(c, modules, manifest, true)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, dirty, test.ShouldBeFalse)
 	})
@@ -134,7 +137,7 @@ func TestMutateModuleConfig(t *testing.T) {
 	t.Run("wrong_exepath", func(t *testing.T) {
 		// wrong ExePath
 		modules := []ModuleMap{{"module_id": manifest.ModuleID, "executable_path": "WRONG"}}
-		_, dirty, err := mutateModuleConfig(c, modules, manifest)
+		_, dirty, err := mutateModuleConfig(c, modules, manifest, true)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, dirty, test.ShouldBeTrue)
 		test.That(t, modules[0]["executable_path"], test.ShouldEqual, manifest.Entrypoint)
@@ -143,14 +146,14 @@ func TestMutateModuleConfig(t *testing.T) {
 	t.Run("wrong_exepath_local", func(t *testing.T) {
 		// wrong ExePath with localName
 		modules := []ModuleMap{{"name": localizeModuleID(manifest.ModuleID)}}
-		mutateModuleConfig(c, modules, manifest)
+		mutateModuleConfig(c, modules, manifest, true)
 		test.That(t, modules[0]["executable_path"], test.ShouldEqual, manifest.Entrypoint)
 	})
 
 	t.Run("insert", func(t *testing.T) {
 		// insert case
 		modules := []ModuleMap{}
-		modules, _, _ = mutateModuleConfig(c, modules, manifest)
+		modules, _, _ = mutateModuleConfig(c, modules, manifest, true)
 		test.That(t, modules[0]["executable_path"], test.ShouldEqual, manifest.Entrypoint)
 	})
 
@@ -158,13 +161,13 @@ func TestMutateModuleConfig(t *testing.T) {
 		// registry to local
 		// todo(RSDK-6712): this goes away once we reconcile registry + local modules
 		modules := []ModuleMap{{"module_id": manifest.ModuleID, "executable_path": "WRONG", "type": string(rdkConfig.ModuleTypeRegistry)}}
-		mutateModuleConfig(c, modules, manifest)
+		mutateModuleConfig(c, modules, manifest, true)
 		test.That(t, modules[0]["name"], test.ShouldEqual, localizeModuleID(manifest.ModuleID))
 	})
 
 	c = newTestContext(t, map[string]any{})
 	t.Run("remote_insert", func(t *testing.T) {
-		modules, _, _ := mutateModuleConfig(c, []ModuleMap{}, manifest)
+		modules, _, _ := mutateModuleConfig(c, []ModuleMap{}, manifest, false)
 		test.That(t, modules[0]["executable_path"], test.ShouldEqual,
 			".viam/packages-local/viam-labs_test-module_from_reload-module.tar.gz")
 	})

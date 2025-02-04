@@ -41,7 +41,7 @@ func attemptToBuildDetector(mlm mlmodel.Service,
 		return nil, errors.New("no input tensors received")
 	}
 	inType := md.Inputs[0].DataType
-	labels := getLabelsFromMetadata(md)
+	labels := getLabelsFromMetadata(md, params.LabelPath)
 	var boxOrder []int
 	if len(params.BoxOrder) == 4 {
 		boxOrder = params.BoxOrder

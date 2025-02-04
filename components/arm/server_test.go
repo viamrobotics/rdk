@@ -49,28 +49,39 @@ func TestServer(t *testing.T) {
 
 	var (
 		capArmPos      spatialmath.Pose
-		capArmJointPos *pb.JointPositions
+		capArmJointPos []referenceframe.Input
+		moveOptions    arm.MoveOptions
 		extraOptions   map[string]interface{}
 	)
 
 	pose1 := spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})
-	positionDegs1 := &pb.JointPositions{Values: []float64{1.0, 2.0, 3.0}}
+	positions := []float64{1., 2., 3., 1., 2., 3.}
 	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		extraOptions = extra
 		return pose1, nil
 	}
-	injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+	injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
 		extraOptions = extra
-		return positionDegs1, nil
+		return referenceframe.FloatsToInputs(positions), nil
 	}
 	injectArm.MoveToPositionFunc = func(ctx context.Context, ap spatialmath.Pose, extra map[string]interface{}) error {
 		capArmPos = ap
 		extraOptions = extra
 		return nil
 	}
-
-	injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp *pb.JointPositions, extra map[string]interface{}) error {
+	injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp []referenceframe.Input, extra map[string]interface{}) error {
 		capArmJointPos = jp
+		extraOptions = extra
+		return nil
+	}
+	injectArm.MoveThroughJointPositionsFunc = func(
+		ctx context.Context,
+		positions [][]referenceframe.Input,
+		options *arm.MoveOptions,
+		extra map[string]interface{},
+	) error {
+		capArmJointPos = positions[len(positions)-1]
+		moveOptions = *options
 		extraOptions = extra
 		return nil
 	}
@@ -87,11 +98,11 @@ func TestServer(t *testing.T) {
 	}
 
 	pose2 := &commonpb.Pose{X: 4, Y: 5, Z: 6}
-	positionDegs2 := &pb.JointPositions{Values: []float64{4.0, 5.0, 6.0}}
+	positionDegs2 := &pb.JointPositions{Values: []float64{4.0, 5.0, 6.0, 4.0, 5.0, 6.0}}
 	injectArm2.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		return nil, errGetPoseFailed
 	}
-	injectArm2.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+	injectArm2.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
 		return nil, errGetJointsFailed
 	}
 	injectArm2.MoveToPositionFunc = func(ctx context.Context, ap spatialmath.Pose, extra map[string]interface{}) error {
@@ -99,7 +110,7 @@ func TestServer(t *testing.T) {
 		return errMoveToPositionFailed
 	}
 
-	injectArm2.MoveToJointPositionsFunc = func(ctx context.Context, jp *pb.JointPositions, extra map[string]interface{}) error {
+	injectArm2.MoveToJointPositionsFunc = func(ctx context.Context, jp []referenceframe.Input, extra map[string]interface{}) error {
 		capArmJointPos = jp
 		return errMoveToJointPositionFailed
 	}
@@ -166,7 +177,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		resp, err := armServer.GetJointPositions(context.Background(), &pb.GetJointPositionsRequest{Name: testArmName, Extra: ext})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Positions.String(), test.ShouldResemble, positionDegs1.String())
+		test.That(t, referenceframe.JointPositionsToRadians(resp.Positions), test.ShouldResemble, positions)
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "JointPositions"})
 
 		_, err = armServer.GetJointPositions(context.Background(), &pb.GetJointPositionsRequest{Name: failArmName})
@@ -175,12 +186,11 @@ func TestServer(t *testing.T) {
 
 		// Redefine JointPositionsFunc to test nil return.
 		//nolint: nilnil
-		injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+		injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
 			return nil, nil
 		}
-		resp, err = armServer.GetJointPositions(context.Background(), &pb.GetJointPositionsRequest{Name: testArmName})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Positions.Values, test.ShouldResemble, []float64{})
+		_, err = armServer.GetJointPositions(context.Background(), &pb.GetJointPositionsRequest{Name: testArmName})
+		test.That(t, err.Error(), test.ShouldResemble, referenceframe.NewIncorrectDoFError(0, len(positions)).Error())
 	})
 
 	t.Run("move to joint position", func(t *testing.T) {
@@ -198,16 +208,36 @@ func TestServer(t *testing.T) {
 			&pb.MoveToJointPositionsRequest{Name: testArmName, Positions: positionDegs2, Extra: ext},
 		)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArmJointPos.String(), test.ShouldResemble, positionDegs2.String())
+		positionsRads2, err := referenceframe.InputsFromJointPositions(nil, positionDegs2)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capArmJointPos, test.ShouldResemble, positionsRads2)
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "MoveToJointPositions"})
 
 		_, err = armServer.MoveToJointPositions(
 			context.Background(),
-			&pb.MoveToJointPositionsRequest{Name: failArmName, Positions: positionDegs1},
+			&pb.MoveToJointPositionsRequest{Name: failArmName, Positions: &pb.JointPositions{Values: positions}},
 		)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errMoveToJointPositionFailed.Error())
-		test.That(t, capArmJointPos.String(), test.ShouldResemble, positionDegs1.String())
+	})
+
+	t.Run("move through joint positions", func(t *testing.T) {
+		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "MoveThroughJointPositions"})
+		test.That(t, err, test.ShouldBeNil)
+		positionDegs3 := &pb.JointPositions{Values: []float64{1.0, 5.0, 6.0, 1.0, 5.0, 6.0}}
+		positions := []*pb.JointPositions{positionDegs2, positionDegs3}
+		positionRads3, err := referenceframe.InputsFromJointPositions(nil, positionDegs3)
+		test.That(t, err, test.ShouldBeNil)
+		expectedVelocity := 180.
+		expectedMoveOptions := &pb.MoveOptions{MaxVelDegsPerSec: &expectedVelocity}
+		_, err = armServer.MoveThroughJointPositions(
+			context.Background(),
+			&pb.MoveThroughJointPositionsRequest{Name: testArmName, Positions: positions, Options: expectedMoveOptions, Extra: ext},
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capArmJointPos, test.ShouldResemble, positionRads3)
+		test.That(t, moveOptions, test.ShouldResemble, arm.MoveOptions{MaxVelRads: utils.DegToRad(expectedVelocity)})
+		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "MoveThroughJointPositions"})
 	})
 
 	t.Run("get kinematics", func(t *testing.T) {

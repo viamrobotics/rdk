@@ -85,7 +85,7 @@ func NewRadiusClusteringFromVoxels(params utils.AttributeMap) (Segmenter, error)
 }
 
 // RadiusClusteringVoxels turns the cloud into a voxel grid and then does radius clustering  to segment it.
-func (rcc *RadiusClusteringVoxelConfig) RadiusClusteringVoxels(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
+func (rcc *RadiusClusteringVoxelConfig) RadiusClusteringVoxels(ctx context.Context, src camera.Camera) ([]*vision.Object, error) {
 	// get next point cloud and convert it to a  VoxelGrid
 	// NOTE(bh): Maybe one day cameras will return voxel grids directly.
 	cloud, err := src.NextPointCloud(ctx)

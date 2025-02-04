@@ -4,19 +4,20 @@ package gostream
 import (
 	"context"
 	"errors"
+	"fmt"
 	"image"
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/google/uuid"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
 	"github.com/pion/rtp"
-	"github.com/pion/webrtc/v3"
+	"github.com/viamrobotics/webrtc/v3"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/gostream/codec"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage"
 	utils2 "go.viam.com/rdk/utils"
 )
@@ -60,11 +61,7 @@ type MediaReleasePair[T any] struct {
 
 // NewStream returns a newly configured stream that can begin to handle
 // new connections.
-func NewStream(config StreamConfig) (Stream, error) {
-	logger := config.Logger
-	if logger == nil {
-		logger = golog.Global()
-	}
+func NewStream(config StreamConfig, logger logging.Logger) (Stream, error) {
 	if config.VideoEncoderFactory == nil && config.AudioEncoderFactory == nil {
 		return nil, errors.New("at least one audio or video encoder factory must be set")
 	}
@@ -142,7 +139,7 @@ type basicStream struct {
 	shutdownCtx             context.Context
 	shutdownCtxCancel       func()
 	activeBackgroundWorkers sync.WaitGroup
-	logger                  golog.Logger
+	logger                  logging.Logger
 }
 
 func (bs *basicStream) Name() string {
@@ -165,6 +162,9 @@ func (bs *basicStream) Start() {
 	utils.ManagedGo(bs.processOutputAudioChunks, bs.activeBackgroundWorkers.Done)
 }
 
+// NOTE: (Nick S) This only writes video RTP packets
+// if we also need to support writing audio RTP packets, we should split
+// this method into WriteVideoRTP and WriteAudioRTP.
 func (bs *basicStream) WriteRTP(pkt *rtp.Packet) error {
 	return bs.videoTrackLocal.rtpTrack.WriteRTP(pkt)
 }
@@ -270,7 +270,31 @@ func (bs *basicStream) processInputFrames() {
 			if frame, ok := framePair.Media.(*rimage.LazyEncodedImage); ok && frame.MIMEType() == utils2.MimeTypeH264 {
 				encodedFrame = frame.RawData() // nothing to do; already encoded
 			} else {
-				bounds := framePair.Media.Bounds()
+				var bounds image.Rectangle
+				var boundsError any
+				func() {
+					defer func() {
+						if paniced := recover(); paniced != nil {
+							boundsError = paniced
+						}
+					}()
+
+					bounds = framePair.Media.Bounds()
+				}()
+
+				if boundsError != nil {
+					bs.logger.Errorw("Getting frame bounds failed", "err", fmt.Sprintf("%s", boundsError))
+					// Dan: It's unclear why we get this error. There's reason to believe this pops
+					// up when a camera is reconfigured/removed. In which case I'd expect the
+					// `basicStream` to soon be closed. Making this `initErr = true` assignment to
+					// exit the `processInputFrames` goroutine unnecessary. But I'm choosing to be
+					// conservative for the worst case. Where we may be in a permanent bad state and
+					// (until we understand the problem better) we would spew logs until the user
+					// stops the stream.
+					initErr = true
+					return
+				}
+
 				newDx, newDy := bounds.Dx(), bounds.Dy()
 				if bs.videoEncoder == nil || dx != newDx || dy != newDy {
 					dx, dy = newDx, newDy

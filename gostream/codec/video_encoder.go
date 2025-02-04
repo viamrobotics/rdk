@@ -5,7 +5,7 @@ import (
 	"context"
 	"image"
 
-	"github.com/edaniels/golog"
+	"go.viam.com/rdk/logging"
 )
 
 // DefaultKeyFrameInterval is the default interval chosen
@@ -23,6 +23,6 @@ type VideoEncoder interface {
 
 // A VideoEncoderFactory produces VideoEncoders and provides information about the underlying encoder itself.
 type VideoEncoderFactory interface {
-	New(height, width, keyFrameInterval int, logger golog.Logger) (VideoEncoder, error)
+	New(height, width, keyFrameInterval int, logger logging.Logger) (VideoEncoder, error)
 	MIMEType() string
 }

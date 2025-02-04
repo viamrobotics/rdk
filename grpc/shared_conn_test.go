@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pion/webrtc/v3"
+	"github.com/viamrobotics/webrtc/v3"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
@@ -16,9 +16,9 @@ import (
 func TestNewLocalPeerConnection(t *testing.T) {
 	t.Run("both NewLocalPeerConnections", func(t *testing.T) {
 		logger := logging.NewTestLogger(t)
-		client, err := NewLocalPeerConnection(logger.AsZap())
+		client, err := NewLocalPeerConnection(logger)
 		test.That(t, err, test.ShouldBeNil)
-		server, err := NewLocalPeerConnection(logger.AsZap())
+		server, err := NewLocalPeerConnection(logger)
 		test.That(t, err, test.ShouldBeNil)
 		var cMu sync.Mutex
 		clientCandates := []*webrtc.ICECandidate{}
@@ -27,7 +27,7 @@ func TestNewLocalPeerConnection(t *testing.T) {
 			defer cMu.Unlock()
 			clientCandates = append(clientCandates, i)
 		})
-		clientPeerConnReady, clientPeerConnClosed, err := rpc.ConfigureForRenegotiation(client, logger.AsZap())
+		clientPeerConnReady, clientPeerConnClosed, err := rpc.ConfigureForRenegotiation(client, rpc.PeerRoleClient, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		var sMu sync.Mutex
@@ -39,13 +39,13 @@ func TestNewLocalPeerConnection(t *testing.T) {
 		})
 
 		defer func() {
-			test.That(t, client.Close(), test.ShouldBeNil)
+			test.That(t, client.GracefulClose(), test.ShouldBeNil)
 			<-clientPeerConnClosed
 		}()
-		serverPeerConnReady, serverPeerConnClosed, err := rpc.ConfigureForRenegotiation(server, logger.AsZap())
+		serverPeerConnReady, serverPeerConnClosed, err := rpc.ConfigureForRenegotiation(server, rpc.PeerRoleServer, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
-			server.Close()
+			server.GracefulClose()
 			<-serverPeerConnClosed
 		}()
 		timeoutCtx, timeoutFn := context.WithTimeout(context.Background(), time.Second*10)
@@ -87,7 +87,7 @@ func TestNewLocalPeerConnection(t *testing.T) {
 
 	t.Run("one NewLocalPeerConnection non local server", func(t *testing.T) {
 		logger := logging.NewTestLogger(t)
-		client, err := NewLocalPeerConnection(logger.AsZap())
+		client, err := NewLocalPeerConnection(logger)
 		test.That(t, err, test.ShouldBeNil)
 		server, err := webrtc.NewPeerConnection(webrtc.Configuration{})
 		test.That(t, err, test.ShouldBeNil)
@@ -97,7 +97,7 @@ func TestNewLocalPeerConnection(t *testing.T) {
 
 	t.Run("one NewLocalPeerConnection non local client", func(t *testing.T) {
 		logger := logging.NewTestLogger(t)
-		server, err := NewLocalPeerConnection(logger.AsZap())
+		server, err := NewLocalPeerConnection(logger)
 		test.That(t, err, test.ShouldBeNil)
 		client, err := webrtc.NewPeerConnection(webrtc.Configuration{})
 		test.That(t, err, test.ShouldBeNil)
@@ -126,17 +126,17 @@ func signalPair(t *testing.T, left, right *webrtc.PeerConnection) {
 }
 
 func testClientServer(t *testing.T, client, server *webrtc.PeerConnection, logger logging.Logger) {
-	clientPeerConnReady, clientPeerConnClosed, err := rpc.ConfigureForRenegotiation(client, logger.AsZap())
+	clientPeerConnReady, clientPeerConnClosed, err := rpc.ConfigureForRenegotiation(client, rpc.PeerRoleClient, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	defer func() {
-		test.That(t, client.Close(), test.ShouldBeNil)
+		test.That(t, client.GracefulClose(), test.ShouldBeNil)
 		<-clientPeerConnClosed
 	}()
-	serverPeerConnReady, serverPeerConnClosed, err := rpc.ConfigureForRenegotiation(server, logger.AsZap())
+	serverPeerConnReady, serverPeerConnClosed, err := rpc.ConfigureForRenegotiation(server, rpc.PeerRoleServer, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
-		server.Close()
+		server.GracefulClose()
 		<-serverPeerConnClosed
 	}()
 	timeoutCtx, timeoutFn := context.WithTimeout(context.Background(), time.Second*10)

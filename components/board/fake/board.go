@@ -18,7 +18,6 @@ import (
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 // In order to maintain test functionality, testPin will always return the analog value it is set
@@ -83,7 +82,7 @@ func NewBoard(ctx context.Context, conf resource.Config, logger logging.Logger) 
 		Analogs:  map[string]*Analog{},
 		Digitals: map[string]*DigitalInterrupt{},
 		GPIOPins: map[string]*GPIOPin{},
-		workers:  rdkutils.NewStoppableWorkers(),
+		workers:  utils.NewBackgroundStoppableWorkers(),
 		logger:   logger,
 	}
 
@@ -167,7 +166,7 @@ type Board struct {
 	logger     logging.Logger
 	CloseCount int
 
-	workers rdkutils.StoppableWorkers
+	workers *utils.StoppableWorkers
 }
 
 // AnalogByName returns the analog pin by the given name if it exists.
@@ -205,28 +204,6 @@ func (b *Board) GPIOPinByName(name string) (board.GPIOPin, error) {
 	return p, nil
 }
 
-// AnalogNames returns the names of all known analog pins.
-func (b *Board) AnalogNames() []string {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	names := []string{}
-	for k := range b.Analogs {
-		names = append(names, k)
-	}
-	return names
-}
-
-// DigitalInterruptNames returns the names of all known digital interrupts.
-func (b *Board) DigitalInterruptNames() []string {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	names := []string{}
-	for k := range b.Digitals {
-		names = append(names, k)
-	}
-	return names
-}
-
 // SetPowerMode sets the board to the given power mode. If provided,
 // the board will exit the given power mode after the specified
 // duration.
@@ -247,7 +224,7 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 
 	for _, di := range interrupts {
 		// Don't need to check if interrupt exists, just did that above
-		b.workers.AddWorkers(func(workersContext context.Context) {
+		b.workers.Add(func(workersContext context.Context) {
 			for {
 				// sleep to avoid a busy loop
 				if !utils.SelectContextOrWait(workersContext, 700*time.Millisecond) {

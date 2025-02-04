@@ -57,7 +57,7 @@ func (pf *ptgIKFrame) Geometries(inputs []referenceframe.Input) (*referenceframe
 func (pf *ptgIKFrame) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
 	if len(inputs) != len(pf.DoF()) && len(inputs) != 2 {
 		// We also want to always support 2 inputs
-		return nil, referenceframe.NewIncorrectInputLengthError(len(inputs), len(pf.DoF()))
+		return nil, referenceframe.NewIncorrectDoFError(len(inputs), len(pf.DoF()))
 	}
 	p1 := spatialmath.NewZeroPose()
 	for i := 0; i < len(inputs); i += 2 {

@@ -2,16 +2,19 @@ package resource
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/pkg/errors"
-
+	"go.viam.com/rdk/ftdc"
 	"go.viam.com/rdk/logging"
 )
 
 //go:generate stringer -type NodeState -trimprefix NodeState
+//
+// The directive above configures `go generate ./...` to automatically generate a
+// `String` method for the NodeState type.
 
 // NodeState captures the configuration lifecycle state of a resource node.
 type NodeState uint8
@@ -26,12 +29,14 @@ const (
 	// NodeStateConfiguring denotes a resource is being configured.
 	NodeStateConfiguring
 
-	// NodeStateReady denotes a resource that has been initialized and is not being
-	// configured or removed. A resource in this state may be unhealthy.
+	// NodeStateReady denotes a resource that has been configured and is healthy.
 	NodeStateReady
 
 	// NodeStateRemoving denotes a resource is being removed from the resource graph.
 	NodeStateRemoving
+
+	// NodeStateUnhealthy denotes a resource is unhealthy.
+	NodeStateUnhealthy
 )
 
 // A GraphNode contains the current state of a resource.
@@ -44,7 +49,8 @@ type GraphNode struct {
 	mu sync.RWMutex
 
 	// graphLogicalClock is a pointer to the Graph's logicalClock. It is
-	// incremented every time any GraphNode calls SwapResource.
+	// incremented every time any GraphNode calls SwapResource. SwapResource is called
+	// whenever a resource is reconfigured.
 	graphLogicalClock *atomic.Int64
 	// updatedAt is the value of the graphLogicalClock when it was last
 	// incremented by this GraphNode's SwapResource method. It is only referenced
@@ -69,6 +75,16 @@ type GraphNode struct {
 	// transitionedAt stores the timestamp of when resource entered its current lifecycle
 	// state.
 	transitionedAt time.Time
+
+	// pendingRevision stores the next revision that will be applied to the graph node
+	// once the underlying resource is successfully configured - that revision will be
+	// stored the on the revision field.
+	pendingRevision string
+	revision        string
+
+	// unreachable is an informational field that indicates if a resource on a remote
+	// machine is disconnected.
+	unreachable bool
 }
 
 var (
@@ -98,7 +114,7 @@ func NewConfiguredGraphNode(config Config, res Resource, resModel Model) *GraphN
 	node := NewUninitializedNode()
 	node.SetNewConfig(config, nil)
 	node.setDependenciesResolved()
-	node.SwapResource(res, resModel)
+	node.SwapResource(res, resModel, nil)
 	return node
 }
 
@@ -159,9 +175,8 @@ func (w *GraphNode) TransitionedAt() time.Time {
 }
 
 // InitializeLogger initializes the logger object associated with this resource node.
-func (w *GraphNode) InitializeLogger(parent logging.Logger, subname string, level logging.Level) {
+func (w *GraphNode) InitializeLogger(parent logging.Logger, subname string) {
 	logger := parent.Sublogger(subname)
-	logger.SetLevel(level)
 	w.logger = logger
 }
 
@@ -169,15 +184,6 @@ func (w *GraphNode) InitializeLogger(parent logging.Logger, subname string, leve
 // passed into the `Constructor` when registering resources.
 func (w *GraphNode) Logger() logging.Logger {
 	return w.logger
-}
-
-// SetLogLevel changes the log level of the logger (if available). Processing configs is the main
-// entry point for changing log levels. Which will affect whether models making log calls are
-// suppressed or not.
-func (w *GraphNode) SetLogLevel(level logging.Level) {
-	if w.logger != nil {
-		w.logger.SetLevel(level)
-	}
 }
 
 // UnsafeResource always returns the underlying resource, if
@@ -229,11 +235,16 @@ func (w *GraphNode) UnsetResource() {
 // and indicate it no longer needs reconfiguration. SwapResource also
 // increments the graphLogicalClock and sets updatedAt for this GraphNode
 // to the new value.
-func (w *GraphNode) SwapResource(newRes Resource, newModel Model) {
+//
+// The `ftdc` input may be nil (e.g: testing). If present, this will also updates FTDC to
+// communicate that the `Stats` method may return different values. As we'll now be calling `Stats`
+// on a potentially different underlying `Model`.
+func (w *GraphNode) SwapResource(newRes Resource, newModel Model, ftdc *ftdc.FTDC) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.current = newRes
 	w.currentModel = newModel
+	w.revision = w.pendingRevision
 	w.lastErr = nil
 	w.transitionTo(NodeStateReady)
 
@@ -246,6 +257,15 @@ func (w *GraphNode) SwapResource(newRes Resource, newModel Model) {
 	}
 	now := time.Now()
 	w.lastReconfigured = &now
+
+	// Calling `Stats` acquires the `GraphNode.mu` (via the `Resource` method). This allows us to
+	// safely Remove->Add in one step instead of needing to Remove->SwapResource->Add.
+	if ftdc != nil {
+		// We call `Remove` followed by `Add` instead of only calling `Add`. Only calling `Add`
+		// would result in a warning that we're overriding an existing ftdc "system".
+		ftdc.Remove(newRes.Name().String())
+		ftdc.Add(newRes.Name().String(), w)
+	}
 }
 
 // MarkForRemoval marks this node for removal at a later time.
@@ -270,7 +290,7 @@ func (w *GraphNode) MarkedForRemoval() bool {
 func (w *GraphNode) LogAndSetLastError(err error, args ...any) {
 	w.mu.Lock()
 	w.lastErr = err
-	// TODO(RSDK-7903): transition to an "unhealthy" state.
+	w.transitionTo(NodeStateUnhealthy)
 	w.mu.Unlock()
 
 	if w.logger != nil {
@@ -292,7 +312,10 @@ func (w *GraphNode) Config() Config {
 func (w *GraphNode) NeedsReconfigure() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	return w.state == NodeStateConfiguring
+
+	// A resource can only become unhealthy during (re)configuration, so we can
+	// assume that an unhealthy node always need to be reconfigured.
+	return w.state == NodeStateConfiguring || w.state == NodeStateUnhealthy
 }
 
 // hasUnresolvedDependencies returns whether or not this node has any
@@ -319,6 +342,33 @@ func (w *GraphNode) setNeedsReconfigure(newConfig Config, mustReconfigure bool, 
 	w.config = newConfig
 	w.transitionTo(NodeStateConfiguring)
 	w.unresolvedDependencies = dependencies
+}
+
+// UpdatePendingRevision sets the next revision to be applied once the node is in a
+// [NodeStateReady] state.
+func (w *GraphNode) UpdatePendingRevision(revision string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	w.pendingRevision = revision
+}
+
+// UpdateRevision updates the node config revision if the node is in a [NodeStateReady]
+// state.
+func (w *GraphNode) UpdateRevision(revision string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.state == NodeStateReady {
+		w.pendingRevision = revision
+		w.revision = revision
+	}
+}
+
+func (w *GraphNode) markReachability(reachable bool) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	w.unreachable = !reachable
 }
 
 // SetNewConfig is used to inform the node that it has been modified
@@ -444,7 +494,7 @@ func (w *GraphNode) canTransitionTo(state NodeState) bool {
 	case NodeStateConfiguring:
 		//nolint
 		switch state {
-		case NodeStateReady:
+		case NodeStateReady, NodeStateUnhealthy:
 			return true
 		}
 	case NodeStateReady:
@@ -454,6 +504,28 @@ func (w *GraphNode) canTransitionTo(state NodeState) bool {
 			return true
 		}
 	case NodeStateRemoving:
+	case NodeStateUnhealthy:
+		//nolint
+		switch state {
+		case NodeStateRemoving, NodeStateUnhealthy:
+			return true
+		case NodeStateReady:
+			// TODO(NEEDS TICKET): ideally, a node should "recover" by the following transition
+			// steps: "unhealthy" -> "configuring" -> "ready".
+			//
+			// However, once a node becomes "unhealthy" it is filtered out from most
+			// reconfiguration operations, and is not available to be transitioned to
+			// "configuring" when we want it to be.
+			//
+			// We eventually want to change the reconfiguration system to show unhealthy
+			// nodes instead of filtering them out at each step of the process.
+			//
+			// In the meantime, we allow nodes to "recover" by transitioning directly
+			// from "unhealthy" -> "ready".
+			//
+			// See this discussion for more details: https://github.com/viamrobotics/rdk/pull/4257#discussion_r1712173743
+			return true
+		}
 	}
 	return false
 }
@@ -467,10 +539,91 @@ func (w *GraphNode) transitionTo(state NodeState) {
 		return
 	}
 
+	// if state of a node is [NodeStateRemoving] it cannot transition to [NodeStateUnhealthy] until it is removed.
+	// currently this is the only hard blocked transition
+	// note this does not block SwapResource from transitioning a removing resource to ready
+	if w.state == NodeStateRemoving && state == NodeStateUnhealthy {
+		w.logger.Debug("node cannot transition from [NodeStateRemoving] to [NodeStateUnhealthy], blocking transition")
+		return
+	}
+
 	if !w.canTransitionTo(state) && w.logger != nil {
 		w.logger.Warnw("unexpected resource state transition", "from", w.state.String(), "to", state.String())
 	}
 
 	w.state = state
 	w.transitionedAt = time.Now()
+}
+
+// Status returns the current [NodeStatus].
+func (w *GraphNode) Status() NodeStatus {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	return w.status()
+}
+
+func (w *GraphNode) status() NodeStatus {
+	err := w.lastErr
+	logger := w.Logger()
+
+	// check invariants between state and error
+	switch {
+	case w.state == NodeStateUnhealthy && w.lastErr == nil:
+		logger.Warnw("an unhealthy node doesn't have an error")
+	case w.state == NodeStateReady && w.lastErr != nil:
+		logger.Warnw("a ready node still has an error", "error", err)
+		// do not return leftover error in status if the node is ready
+		err = nil
+	}
+
+	// TODO (RSDK-9550): Node should have the correct notion of its name
+	return NodeStatus{
+		State:       w.state,
+		LastUpdated: w.transitionedAt,
+		Revision:    w.revision,
+		Error:       err,
+	}
+}
+
+type graphNodeStats struct {
+	State    int
+	ResStats any
+}
+
+// Stats satisfies the FTDC Statser interface.
+func (w *GraphNode) Stats() any {
+	ret := graphNodeStats{}
+
+	res, err := w.Resource()
+	//nolint:errorlint
+	switch err {
+	case nil:
+		ret.State = 0
+	case errNotInitalized:
+		ret.State = 1
+	case errPendingRemoval:
+		ret.State = 2
+	default:
+		// `w.lastErr != nil`
+		ret.State = 3
+	}
+
+	if statser, isStatser := res.(ftdc.Statser); isStatser && err == nil {
+		ret.ResStats = statser.Stats()
+	}
+
+	return ret
+}
+
+// NodeStatus encapsulates a resource name along with state transition metadata.
+type NodeStatus struct {
+	Name        Name
+	State       NodeState
+	LastUpdated time.Time
+	Revision    string
+
+	// Error contains any errors on the resource if it currently unhealthy.
+	// This field will be nil if the resource is not in the [NodeStateUnhealthy] state.
+	Error error
 }

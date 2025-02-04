@@ -1,11 +1,10 @@
 package utils
 
 import (
+	"fmt"
 	"reflect"
 	"regexp"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 var (
@@ -24,10 +23,10 @@ var (
 // ValidateResourceName validates that the resource follows our naming requirements.
 func ValidateResourceName(name string) error {
 	if len(name) > 60 {
-		return errors.Errorf("name %q must be 60 characters or fewer", name)
+		return fmt.Errorf("name %q must be 60 characters or fewer", name)
 	}
 	if !validResourceNameRegex.MatchString(name) {
-		return errors.Errorf("name %q %s", name, validResourceNameExplanation)
+		return fmt.Errorf("name %q %s", name, validResourceNameExplanation)
 	}
 	return nil
 }
@@ -37,10 +36,10 @@ func ValidateResourceName(name string) error {
 // accepts valid socket paths.
 func ValidateModuleName(name string) error {
 	if len(name) > 200 {
-		return errors.Errorf("module name %q must be 200 characters or fewer", name)
+		return fmt.Errorf("module name %q must be 200 characters or fewer", name)
 	}
 	if !validResourceNameRegex.MatchString(name) {
-		return errors.Errorf("module name %q %s", name, validResourceNameExplanation)
+		return fmt.Errorf("module name %q %s", name, validResourceNameExplanation)
 	}
 	return nil
 }
@@ -48,10 +47,10 @@ func ValidateModuleName(name string) error {
 // ValidatePackageName validates that the package follows our naming requirements.
 func ValidatePackageName(name string) error {
 	if len(name) > 200 {
-		return errors.Errorf("package name %q must be 200 characters or fewer", name)
+		return fmt.Errorf("package name %q must be 200 characters or fewer", name)
 	}
 	if !validResourceNameRegex.MatchString(name) {
-		return errors.Errorf("package name %q %s", name, validResourceNameExplanation)
+		return fmt.Errorf("package name %q %s", name, validResourceNameExplanation)
 	}
 	return nil
 }

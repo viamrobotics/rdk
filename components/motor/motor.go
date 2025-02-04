@@ -1,3 +1,7 @@
+// Package motor defines machines that convert electricity into rotary motion.
+// For more information, see the [motor component docs].
+//
+// [motor component docs]: https://docs.viam.com/components/motor/
 package motor
 
 import (
@@ -14,7 +18,6 @@ import (
 
 func init() {
 	resource.RegisterAPI(API, resource.APIRegistration[Motor]{
-		Status:                      resource.StatusFunc(CreateStatus),
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterMotorServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.MotorService_ServiceDesc,
@@ -37,6 +40,7 @@ const SubtypeName = "motor"
 var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 
 // A Motor represents a physical motor connected to a board.
+// For more information, see the [motor component docs].
 //
 // SetPower example:
 //
@@ -44,21 +48,36 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 //	// Set the motor power to 40% forwards.
 //	myMotorComponent.SetPower(context.Background(), 0.4, nil)
 //
+// For more information, see the [SetPower method docs].
+//
 // GoFor example:
 //
 //	myMotorComponent, err := motor.FromRobot(machine, "my_motor")
 //	// Turn the motor 7.2 revolutions at 60 RPM.
 //	myMotorComponent.GoFor(context.Background(), 60, 7.2, nil)
 //
+// For more information, see the [GoFor method docs].
+//
 // GoTo example:
 //
 //	// Turn the motor to 8.3 revolutions from home at 75 RPM.
 //	myMotorComponent.GoTo(context.Background(), 75, 8.3, nil)
 //
+// For more information, see the [GoTo method docs].
+//
+// SetRPM example:
+//
+//	// Set the motor's RPM to 50
+//	myMotorComponent.SetRPM(context.Background(), 50, nil)
+//
+// For more information, see the [SetRPM method docs].
+//
 // ResetZeroPosition example:
 //
 //	// Set the current position as the new home position with no offset.
 //	myMotorComponent.ResetZeroPosition(context.Background(), 0.0, nil)
+//
+// For more information, see the [ResetZeroPosition method docs].
 //
 // Position example:
 //
@@ -69,6 +88,8 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 //	logger.Info("Position:")
 //	logger.Info(position)
 //
+// For more information, see the [Position method docs].
+//
 // Properties example:
 //
 //	// Return whether or not the motor supports certain optional features.
@@ -77,6 +98,8 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 //	// Log the properties.
 //	logger.Info("Properties:")
 //	logger.Info(properties)
+//
+// For more information, see the [Properties method docs].
 //
 // IsPowered example:
 //
@@ -87,6 +110,18 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 //	logger.Info(powered)
 //	logger.Info("Power percent:")
 //	logger.Info(pct)
+//
+// For more information, see the [IsPowered method docs].
+//
+// [motor component docs]: https://docs.viam.com/dev/reference/apis/components/motor/
+// [SetPower method docs]: https://docs.viam.com/dev/reference/apis/components/motor/#setpower
+// [GoFor method docs]: https://docs.viam.com/dev/reference/apis/components/motor/#gofor
+// [GoTo method docs]: https://docs.viam.com/dev/reference/apis/components/motor/#goto
+// [SetRPM method docs]: https://docs.viam.com/dev/reference/apis/components/motor/#setrpm
+// [ResetZeroPosition method docs]: https://docs.viam.com/dev/reference/apis/components/motor/#resetzeroposition
+// [Position method docs]: https://docs.viam.com/dev/reference/apis/components/motor/#getposition
+// [Properties method docs]: https://docs.viam.com/dev/reference/apis/components/motor/#getproperties
+// [IsPowered method docs]: https://docs.viam.com/dev/reference/apis/components/motor/#ispowered
 type Motor interface {
 	resource.Resource
 	resource.Actuator
@@ -100,7 +135,6 @@ type Motor interface {
 	// can be assigned negative values to move in a backwards direction. Note: if both are
 	// negative the motor will spin in the forward direction.
 	// If revolutions != 0, this will block until the number of revolutions has been completed or another operation comes in.
-	// Deprecated: If revolutions is 0, this will run the motor at rpm indefinitely.
 	GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error
 
 	// GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
@@ -149,34 +183,6 @@ func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
 }
 
-// CreateStatus creates a status from the motor.
-func CreateStatus(ctx context.Context, m Motor) (*pb.Status, error) {
-	isPowered, _, err := m.IsPowered(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	properties, err := m.Properties(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	var position float64
-	if properties.PositionReporting {
-		position, err = m.Position(ctx, nil)
-		if err != nil {
-			return nil, err
-		}
-	}
-	isMoving, err := m.IsMoving(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.Status{
-		IsPowered: isPowered,
-		Position:  position,
-		IsMoving:  isMoving,
-	}, nil
-}
-
 // CheckSpeed checks if the input rpm is too slow or fast and returns a warning and/or error.
 func CheckSpeed(rpm, max float64) (string, error) {
 	switch speed := math.Abs(rpm); {
@@ -187,4 +193,42 @@ func CheckSpeed(rpm, max float64) (string, error) {
 	default:
 		return "", nil
 	}
+}
+
+// CheckRevolutions checks if the input revolutions is non-zero.
+func CheckRevolutions(revs float64) error {
+	if revs == 0 {
+		return NewZeroRevsError()
+	}
+	return nil
+}
+
+// GetRequestedDirection returns the direction based on the rpm and revolutions.
+func GetRequestedDirection(rpm, revolutions float64) float64 {
+	dir := 1.0
+	if rpm*revolutions == 0.0 {
+		dir = 0.0
+	} else if rpm*revolutions < 0.0 {
+		dir = -1.0
+	}
+	return dir
+}
+
+// GetSign returns the sign of the float as a helper for getting
+// the intended direction of travel of a motor.
+func GetSign(x float64) float64 {
+	if x == 0 {
+		return 0
+	}
+	if math.Signbit(x) {
+		return -1.0
+	}
+	return 1.0
+}
+
+// ClampPower clamps a percentage power to 1.0 or -1.0.
+func ClampPower(pwr float64) float64 {
+	pwr = math.Min(pwr, 1.0)
+	pwr = math.Max(pwr, -1.0)
+	return pwr
 }

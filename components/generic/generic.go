@@ -1,4 +1,7 @@
-// Package generic defines an abstract generic device and DoCommand() method
+// Package generic defines an abstract generic device and DoCommand() method.
+// For more information, see the [generic component docs].
+//
+// [generic component docs]: https://docs.viam.com/components/generic/
 package generic
 
 import (
@@ -26,6 +29,12 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 // Named is a helper for getting the named Generic's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NewName(API, name)
+}
+
+// FromDependencies is a helper for getting the named generic from a collection of
+// dependencies.
+func FromDependencies(deps resource.Dependencies, name string) (resource.Resource, error) {
+	return resource.FromDependencies[resource.Resource](deps, Named(name))
 }
 
 // FromRobot is a helper for getting the named Generic from the given Robot.

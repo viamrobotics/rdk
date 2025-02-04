@@ -23,13 +23,6 @@ var ErrMarshalingHighDOFFrame = errors.New("cannot marshal frame with >1 DOF, us
 // ErrNoWorldConnection describes the error when a frame system is built but nothing is connected to the world node.
 var ErrNoWorldConnection = errors.New("there are no robot parts that connect to a 'world' node. Root node must be named 'world'")
 
-// ErrNilJointPositions denotes an error when the joint positions are nil.
-var ErrNilJointPositions = errors.New("joint positions are nil, check that you are" +
-	" passing non-empty joint positions when writing your driver")
-
-// ErrNilModelFrame denotes an error when the kinematics in form of model frames are nil.
-var ErrNilModelFrame = errors.New("the model frame is nil, check that you are passing non-empty kinematics when writing your driver")
-
 // NewParentFrameMissingError returns an error for when a part has named a parent whose part is missing from the collection of Parts
 // that are becoming a FrameSystem object.
 func NewParentFrameMissingError(partName, parentName string) error {
@@ -51,9 +44,9 @@ func NewFrameAlreadyExistsError(frameName string) error {
 	return errors.Errorf("frame with name %q already in frame system", frameName)
 }
 
-// NewIncorrectInputLengthError returns an error indicating that the length of the Input array does not match the DoF of the frame.
-func NewIncorrectInputLengthError(actual, expected int) error {
-	return errors.Errorf("number of inputs does not match frame DoF, expected %d but got %d", expected, actual)
+// NewIncorrectDoFError returns an error indicating that the length of the array does not match the DoF of the frame.
+func NewIncorrectDoFError(actual, expected int) error {
+	return errors.Errorf("array length does not match frame DoF, expected %d but got %d", expected, actual)
 }
 
 // NewUnsupportedJointTypeError returns an error indicating that a given joint type is not supported by current model parsing.

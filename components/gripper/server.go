@@ -3,6 +3,7 @@ package gripper
 
 import (
 	"context"
+	"fmt"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/gripper/v1"
@@ -12,6 +13,11 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
+
+// ErrGeometriesNil is the returned error if gripper geometries are nil.
+var ErrGeometriesNil = func(gripperName string) error {
+	return fmt.Errorf("gripper component %v Geometries should not return nil geometries", gripperName)
+}
 
 // serviceServer implements the GripperService from gripper.proto.
 type serviceServer struct {
@@ -89,6 +95,9 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 	geometries, err := res.Geometries(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
+	}
+	if geometries == nil {
+		return nil, ErrGeometriesNil(req.GetName())
 	}
 	return &commonpb.GetGeometriesResponse{Geometries: spatialmath.NewGeometriesToProto(geometries)}, nil
 }

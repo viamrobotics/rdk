@@ -60,29 +60,14 @@ func TestServerMove(t *testing.T) {
 	server, err = newServer(resources)
 	test.That(t, err, test.ShouldBeNil)
 	passedErr := errors.New("fake move error")
-	injectMS.MoveFunc = func(
-		ctx context.Context,
-		componentName resource.Name,
-		destination *referenceframe.PoseInFrame,
-		worldState *referenceframe.WorldState,
-		constraints *motionplan.Constraints,
-		extra map[string]interface{},
-	) (bool, error) {
+	injectMS.MoveFunc = func(ctx context.Context, req motion.MoveReq) (bool, error) {
 		return false, passedErr
 	}
-
 	_, err = server.Move(context.Background(), grabRequest)
 	test.That(t, err, test.ShouldBeError, passedErr)
 
 	// returns response
-	successfulMoveFunc := func(
-		ctx context.Context,
-		componentName resource.Name,
-		destination *referenceframe.PoseInFrame,
-		worldState *referenceframe.WorldState,
-		constraints *motionplan.Constraints,
-		extra map[string]interface{},
-	) (bool, error) {
+	successfulMoveFunc := func(ctx context.Context, req motion.MoveReq) (bool, error) {
 		return true, nil
 	}
 	injectMS.MoveFunc = successfulMoveFunc
@@ -687,7 +672,7 @@ func TestServerGetPlan(t *testing.T) {
 		planID2 := uuid.New()
 
 		base1 := base.Named("base1")
-		steps := []motionplan.PathStep{{base1.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose())}}
+		steps := []referenceframe.FrameSystemPoses{{base1.ShortName(): referenceframe.NewZeroPoseInFrame(referenceframe.World)}}
 
 		plan1 := motion.PlanWithMetadata{
 			ID:            planID1,

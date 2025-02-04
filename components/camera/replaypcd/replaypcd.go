@@ -23,7 +23,6 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils/contextutils"
 )
 
@@ -341,16 +340,14 @@ func (replay *pcdCamera) Properties(ctx context.Context) (camera.Properties, err
 	return props, nil
 }
 
-// Projector is a part of the camera interface but is not implemented for replay.
-func (replay *pcdCamera) Projector(ctx context.Context) (transform.Projector, error) {
-	var proj transform.Projector
-	return proj, errors.New("Projector is unimplemented")
-}
-
 // Stream is a part of the camera interface but is not implemented for replay.
 func (replay *pcdCamera) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 	var stream gostream.VideoStream
 	return stream, errors.New("Stream is unimplemented")
+}
+
+func (replay *pcdCamera) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
+	return nil, camera.ImageMetadata{}, errors.New("Image is unimplemented")
 }
 
 // Close stops replay camera, closes the channels and its connections to the cloud.

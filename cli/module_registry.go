@@ -11,7 +11,12 @@ import (
 	"io/fs"
 	"math"
 	"os"
+	"os/exec"
+	"path"
 	"path/filepath"
+	"regexp"
+	"runtime"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -24,27 +29,43 @@ import (
 
 	modconfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/module/modmanager"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
 
 // moduleUploadChunkSize sets the number of bytes included in each chunk of the upload stream.
-var moduleUploadChunkSize = 32 * 1024
+var (
+	moduleUploadChunkSize = 32 * 1024
+	rdkAPITypes           = []string{resource.APITypeServiceName, resource.APITypeComponentName}
+)
 
 // moduleVisibility determines whether modules are public or private.
 type moduleVisibility string
 
 // Permissions enumeration.
 const (
-	moduleVisibilityPrivate moduleVisibility = "private"
-	moduleVisibilityPublic  moduleVisibility = "public"
+	moduleVisibilityPrivate        moduleVisibility = "private"
+	moduleVisibilityPublic         moduleVisibility = "public"
+	moduleVisibilityPublicUnlisted moduleVisibility = "public_unlisted"
 )
+
+type unknownRdkAPITypeError struct {
+	APIType string
+}
+
+func (err unknownRdkAPITypeError) Error() string {
+	return fmt.Sprintf("API with unknown type '%s', expected one of %s", err.APIType, strings.Join(rdkAPITypes, ", "))
+}
 
 // ModuleComponent represents an api - model pair.
 type ModuleComponent struct {
-	API   string `json:"api"`
-	Model string `json:"model"`
+	API          string  `json:"api"`
+	Model        string  `json:"model"`
+	Description  *string `json:"short_description,omitempty"`
+	MarkdownLink *string `json:"markdown_link,omitempty"`
 }
 
 // moduleID represents a prefix:name pair where prefix can be either an org id or a namespace.
@@ -55,10 +76,11 @@ type moduleID struct {
 
 // manifestBuildInfo is the "build" section of meta.json.
 type manifestBuildInfo struct {
-	Build string   `json:"build"`
-	Setup string   `json:"setup"`
-	Path  string   `json:"path"`
-	Arch  []string `json:"arch"`
+	Build      string   `json:"build"`
+	Setup      string   `json:"setup"`
+	Path       string   `json:"path"`
+	Arch       []string `json:"arch"`
+	DarwinDeps []string `json:"darwin_deps,omitempty"`
 }
 
 // defaultBuildInfo has defaults for unset fields in "build".
@@ -69,7 +91,9 @@ var defaultBuildInfo = manifestBuildInfo{
 }
 
 // moduleManifest is used to create & parse manifest.json.
+// Detailed user-facing docs for this are in module.schema.json.
 type moduleManifest struct {
+	Schema      string            `json:"$schema"`
 	ModuleID    string            `json:"module_id"`
 	Visibility  moduleVisibility  `json:"visibility"`
 	URL         string            `json:"url"`
@@ -82,23 +106,39 @@ type moduleManifest struct {
 
 const (
 	defaultManifestFilename = "meta.json"
+	defaultReadmeFilename   = "README.md"
 )
+
+type createModuleActionArgs struct {
+	Name            string
+	PublicNamespace string
+	OrgID           string
+	LocalOnly       bool
+}
 
 // CreateModuleAction is the corresponding Action for 'module create'. It runs
 // the command to create a module. This includes both a gRPC call to register
 // the module on app.viam.com and creating the manifest file.
-func CreateModuleAction(c *cli.Context) error {
-	moduleNameArg := c.String(moduleFlagName)
-	publicNamespaceArg := c.String(moduleFlagPublicNamespace)
-	orgIDArg := c.String(generalFlagOrgID)
+func CreateModuleAction(c *cli.Context, args createModuleActionArgs) error {
+	moduleNameArg := args.Name
+	publicNamespaceArg := args.PublicNamespace
+	orgIDArg := args.OrgID
+	localOnly := args.LocalOnly
 
-	client, err := newViamClient(c)
-	if err != nil {
-		return err
-	}
-	org, err := resolveOrg(client, publicNamespaceArg, orgIDArg)
-	if err != nil {
-		return err
+	var client *viamClient
+	var err error
+	var org *apppb.Organization
+	if localOnly {
+		org = &apppb.Organization{Id: orgIDArg, PublicNamespace: publicNamespaceArg}
+	} else {
+		client, err = newViamClient(c)
+		if err != nil {
+			return err
+		}
+		org, err = resolveOrg(client, publicNamespaceArg, orgIDArg)
+		if err != nil {
+			return err
+		}
 	}
 
 	shouldWriteNewEmptyManifest := true
@@ -122,23 +162,32 @@ func CreateModuleAction(c *cli.Context) error {
 		shouldWriteNewEmptyManifest = false
 	}
 
-	response, err := client.createModule(moduleNameArg, org.GetId())
-	if err != nil {
-		return errors.Wrap(err, "failed to register the module on app.viam.com")
-	}
-
-	returnedModuleID, err := parseModuleID(response.GetModuleId())
-	if err != nil {
-		return err
-	}
-
-	printf(c.App.Writer, "Successfully created '%s'", returnedModuleID.String())
-	if response.GetUrl() != "" {
-		printf(c.App.Writer, "You can view it here: %s", response.GetUrl())
+	var returnedModuleID moduleID
+	if localOnly {
+		returnedModuleID.name = moduleNameArg
+		if org.PublicNamespace != "" {
+			returnedModuleID.prefix = org.PublicNamespace
+		} else {
+			returnedModuleID.prefix = org.Id
+		}
+	} else {
+		response, err := client.createModule(moduleNameArg, org.GetId())
+		if err != nil {
+			return errors.Wrap(err, "failed to register the module on app.viam.com")
+		}
+		returnedModuleID, err = parseModuleID(response.GetModuleId())
+		if err != nil {
+			return err
+		}
+		printf(c.App.Writer, "Successfully created '%s'", returnedModuleID.String())
+		if response.GetUrl() != "" {
+			printf(c.App.Writer, "You can view it here: %s", response.GetUrl())
+		}
 	}
 
 	if shouldWriteNewEmptyManifest {
 		emptyManifest := moduleManifest{
+			Schema:     "https://dl.viam.dev/module.schema.json",
 			ModuleID:   returnedModuleID.String(),
 			Visibility: moduleVisibilityPrivate,
 			// This is done so that the json has an empty example
@@ -155,11 +204,15 @@ func CreateModuleAction(c *cli.Context) error {
 	return nil
 }
 
+type updateModuleArgs struct {
+	Module string
+}
+
 // UpdateModuleAction is the corresponding Action for 'module update'. It runs
 // the command to update a module. This includes updating the meta.json to
 // include the public namespace (if set on the org).
-func UpdateModuleAction(c *cli.Context) error {
-	manifestPath := c.String(moduleFlagPath)
+func UpdateModuleAction(c *cli.Context, args updateModuleArgs) error {
+	manifestPath := args.Module
 
 	client, err := newViamClient(c)
 	if err != nil {
@@ -175,6 +228,8 @@ func UpdateModuleAction(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+
+	validateModels(c.App.ErrWriter, &manifest)
 
 	response, err := client.updateModule(moduleID, manifest)
 	if err != nil {
@@ -199,19 +254,31 @@ func UpdateModuleAction(c *cli.Context) error {
 	return nil
 }
 
+type uploadModuleArgs struct {
+	Module          string
+	PublicNamespace string
+	OrgID           string
+	Name            string
+	Version         string
+	Platform        string
+	Tags            []string
+	Force           bool
+	Upload          string
+}
+
 // UploadModuleAction is the corresponding action for 'module upload'.
-func UploadModuleAction(c *cli.Context) error {
-	manifestPath := c.String(moduleFlagPath)
-	publicNamespaceArg := c.String(moduleFlagPublicNamespace)
-	orgIDArg := c.String(generalFlagOrgID)
-	nameArg := c.String(moduleFlagName)
-	versionArg := c.String(moduleFlagVersion)
-	platformArg := c.String(moduleFlagPlatform)
-	forceUploadArg := c.Bool(moduleFlagForce)
-	moduleUploadPath := c.Args().First()
-	if c.Args().Len() > 1 {
-		return errors.New("too many arguments passed to upload command. " +
-			"Make sure to specify flag and optional arguments before the required positional package argument")
+func UploadModuleAction(c *cli.Context, args uploadModuleArgs) error {
+	manifestPath := args.Module
+	publicNamespaceArg := args.PublicNamespace
+	orgIDArg := args.OrgID
+	nameArg := args.Name
+	versionArg := args.Version
+	platformArg := args.Platform
+	forceUploadArg := args.Force
+	constraints := args.Tags
+	moduleUploadPath := args.Upload
+	if moduleUploadPath == "" {
+		moduleUploadPath = c.Args().First()
 	}
 	if moduleUploadPath == "" {
 		return errors.New("nothing to upload -- please provide a path to your module. Use --help for more information")
@@ -260,6 +327,8 @@ func UploadModuleAction(c *cli.Context) error {
 			return err
 		}
 
+		validateModels(c.App.ErrWriter, &manifest)
+
 		_, err = client.updateModule(moduleID, manifest)
 		if err != nil {
 			return errors.Wrap(err, "Module update failed. Please correct the following issues in your meta.json")
@@ -276,14 +345,14 @@ func UploadModuleAction(c *cli.Context) error {
 	}
 
 	if !forceUploadArg {
-		if err := validateModuleFile(client, moduleID, tarballPath, versionArg); err != nil {
+		if err := validateModuleFile(client, c, moduleID, tarballPath, versionArg, platformArg); err != nil {
 			return fmt.Errorf(
-				"error validating module: %w. For more details, please visit: https://docs.viam.com/fleet/cli/#module ",
+				"error validating module: %w. For more details, please visit: https://docs.viam.com/cli/#module ",
 				err)
 		}
 	}
 
-	response, err := client.uploadModuleFile(moduleID, versionArg, platformArg, tarballPath)
+	response, err := client.uploadModuleFile(moduleID, versionArg, platformArg, constraints, tarballPath)
 	if err != nil {
 		return err
 	}
@@ -293,15 +362,44 @@ func UploadModuleAction(c *cli.Context) error {
 	return nil
 }
 
+// call validateModelAPI on all models in manifest and warn if violations.
+func validateModels(errWriter io.Writer, manifest *moduleManifest) {
+	for _, model := range manifest.Models {
+		if err := validateModelAPI(model.API); err != nil {
+			warningf(errWriter, "error validating API string %s: %s", model.API, err)
+		}
+	}
+}
+
+// return a useful error if the model string looks wrong.
+func validateModelAPI(modelAPI string) error {
+	api, err := resource.ParseAPIString(modelAPI)
+	if err != nil {
+		return errors.Wrap(err, "unparseable model string")
+	}
+	if err := api.Validate(); err != nil {
+		return errors.Wrap(err, "failed to validate API")
+	}
+	if !slices.Contains(rdkAPITypes, api.Type.Name) {
+		return unknownRdkAPITypeError{APIType: api.Type.Name}
+	}
+	return nil
+}
+
+type updateModelsArgs struct {
+	Module string
+	Binary string
+}
+
 // UpdateModelsAction figures out the models that a module supports and updates it's metadata file.
-func UpdateModelsAction(c *cli.Context) error {
+func UpdateModelsAction(c *cli.Context, args updateModelsArgs) error {
 	logger := logging.NewLogger("x")
-	newModels, err := readModels(c.String("binary"), logger)
+	newModels, err := readModels(args.Binary, logger)
 	if err != nil {
 		return err
 	}
 
-	manifest, err := loadManifest(c.String(moduleFlagPath))
+	manifest, err := loadManifest(args.Module)
 	if err != nil {
 		return err
 	}
@@ -311,7 +409,7 @@ func UpdateModelsAction(c *cli.Context) error {
 	}
 
 	manifest.Models = newModels
-	return writeManifest(c.String(moduleFlagPath), manifest)
+	return writeManifest(args.Module, manifest)
 }
 
 func (c *viamClient) createModule(moduleName, organizationID string) (*apppb.CreateModuleResponse, error) {
@@ -355,6 +453,9 @@ func (c *viamClient) updateModule(moduleID moduleID, manifest moduleManifest) (*
 		Models:      models,
 		Entrypoint:  manifest.Entrypoint,
 	}
+	if manifest.FirstRun != "" {
+		req.FirstRun = &manifest.FirstRun
+	}
 	return c.client.UpdateModule(c.c.Context, &req)
 }
 
@@ -362,6 +463,7 @@ func (c *viamClient) uploadModuleFile(
 	moduleID moduleID,
 	version,
 	platform string,
+	constraints []string,
 	tarballPath string,
 ) (*apppb.UploadModuleFileResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
@@ -380,9 +482,10 @@ func (c *viamClient) uploadModuleFile(
 		return nil, err
 	}
 	moduleFileInfo := apppb.ModuleFileInfo{
-		ModuleId: moduleID.String(),
-		Version:  version,
-		Platform: platform,
+		ModuleId:     moduleID.String(),
+		Version:      version,
+		Platform:     platform,
+		PlatformTags: constraints,
 	}
 	req := &apppb.UploadModuleFileRequest{
 		ModuleFile: &apppb.UploadModuleFileRequest_ModuleFileInfo{ModuleFileInfo: &moduleFileInfo},
@@ -403,7 +506,7 @@ func (c *viamClient) uploadModuleFile(
 	return resp, errs
 }
 
-func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, version string) error {
+func validateModuleFile(client *viamClient, c *cli.Context, moduleID moduleID, tarballPath, version, platform string) error {
 	getModuleResp, err := client.getModule(moduleID)
 	if err != nil {
 		return err
@@ -466,6 +569,11 @@ func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, vers
 			// executable file at entrypoint. validation succeeded.
 			// continue looping to find symlinks
 			foundEntrypoint = true
+			if parsed := getExecutableArch(tarReader); parsed != "" && parsed != platform {
+				warningf(c.App.ErrWriter,
+					"You've tagged %s but your binary has platform %s. (This warning is experimental, ignore if it doesn't make sense).",
+					platform, parsed)
+			}
 		}
 		if filepath.Base(path) == filepath.Base(entrypoint) {
 			filesWithSameNameAsEntrypoint = append(filesWithSameNameAsEntrypoint, path)
@@ -496,23 +604,52 @@ func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, vers
 	return nil
 }
 
+// runs ParseFileType on the output of running `file` on whatever is in the tarball. Returns empty string if anything went wrong.
+func getExecutableArch(reader *tar.Reader) string {
+	if _, err := exec.LookPath("file"); err != nil {
+		return ""
+	}
+	cmd := exec.Command("file", "-")
+	cmd.Stdin = reader
+	output, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return ParseFileType(string(output))
+}
+
 func visibilityToProto(visibility moduleVisibility) (apppb.Visibility, error) {
 	switch visibility {
 	case moduleVisibilityPrivate:
 		return apppb.Visibility_VISIBILITY_PRIVATE, nil
 	case moduleVisibilityPublic:
 		return apppb.Visibility_VISIBILITY_PUBLIC, nil
+	case moduleVisibilityPublicUnlisted:
+		return apppb.Visibility_VISIBILITY_PUBLIC_UNLISTED, nil
 	default:
 		return apppb.Visibility_VISIBILITY_UNSPECIFIED,
-			errors.Errorf("invalid module visibility. must be either %q or %q", moduleVisibilityPublic, moduleVisibilityPrivate)
+			errors.Errorf("invalid module visibility. must be either %q, %q, or %q",
+				moduleVisibilityPublic, moduleVisibilityPrivate, moduleVisibilityPublicUnlisted)
 	}
 }
 
 func moduleComponentToProto(moduleComponent ModuleComponent) *apppb.Model {
-	return &apppb.Model{
-		Api:   moduleComponent.API,
-		Model: moduleComponent.Model,
+	model := &apppb.Model{
+		Api:         moduleComponent.API,
+		Model:       moduleComponent.Model,
+		Description: moduleComponent.Description,
 	}
+
+	// If a markdown link is provided, read the content
+	if moduleComponent.MarkdownLink != nil {
+		if content, err := getMarkdownContent(*moduleComponent.MarkdownLink); err == nil {
+			model.MarkdownDocumentation = &content
+		} else {
+			warningf(os.Stderr, "Failed to read markdown content from %s: %v", *moduleComponent.MarkdownLink, err)
+		}
+	}
+
+	return model
 }
 
 func parseModuleID(id string) (moduleID, error) {
@@ -704,11 +841,11 @@ func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 	parentAddr := tmpdir + "/parent.sock"
 
 	// allows a module to start without connecting to a parent
-	if err := os.Setenv("VIAM_NO_MODULE_PARENT", "true"); err != nil {
+	if err := os.Setenv(module.NoModuleParentEnvVar, "true"); err != nil {
 		return nil, err
 	}
 	//nolint:errcheck
-	defer os.Unsetenv("VIAM_NO_MODULE_PARENT")
+	defer os.Unsetenv(module.NoModuleParentEnvVar)
 
 	cfg := modconfig.Module{
 		Name:    "xxxx",
@@ -728,7 +865,7 @@ func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 	h := mgr.Handles()
 	for k, v := range h[cfg.Name] {
 		for _, m := range v {
-			res = append(res, ModuleComponent{k.API.String(), m.String()})
+			res = append(res, ModuleComponent{k.API.String(), m.String(), nil, nil})
 		}
 	}
 
@@ -818,7 +955,7 @@ func sendUploadRequests(ctx context.Context, moduleStream apppb.AppService_Uploa
 
 		// Simple progress reading until we have a proper tui library
 		uploadPercent := int(math.Ceil(100 * float64(uploadedBytes) / float64(fileSize)))
-		fmt.Fprintf(stdout, "\rUploading... %d%% (%d/%d bytes)", uploadPercent, uploadedBytes, fileSize) // no newline
+		fmt.Fprintf(stdout, "\rUploading... %d%% (%d/%d bytes)", uploadPercent, uploadedBytes, fileSize) //nolint:errcheck // no newline
 	}
 }
 
@@ -837,4 +974,201 @@ func getNextModuleUploadRequest(file *os.File) (*apppb.UploadModuleFileRequest, 
 			File: byteArr,
 		},
 	}, nil
+}
+
+type downloadModuleFlags struct {
+	Destination string
+	ID          string
+	Version     string
+	Platform    string
+}
+
+// DownloadModuleAction downloads a module.
+func DownloadModuleAction(c *cli.Context, flags downloadModuleFlags) error {
+	moduleID := flags.ID
+	if moduleID == "" {
+		manifest, err := loadManifest(defaultManifestFilename)
+		if err != nil {
+			return errors.Wrap(err, "trying to get package ID from meta.json")
+		}
+		moduleID = manifest.ModuleID
+	}
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	if err := client.ensureLoggedIn(); err != nil {
+		return err
+	}
+	req := &apppb.GetModuleRequest{ModuleId: moduleID}
+	res, err := client.client.GetModule(c.Context, req)
+	if err != nil {
+		return err
+	}
+	if len(res.Module.Versions) == 0 {
+		return errors.New("module has 0 uploaded versions, nothing to download")
+	}
+	requestedVersion := flags.Version
+	var ver *apppb.VersionHistory
+	if requestedVersion == "latest" {
+		ver = res.Module.Versions[len(res.Module.Versions)-1]
+	} else {
+		for _, iVer := range res.Module.Versions {
+			if iVer.Version == requestedVersion {
+				ver = iVer
+				break
+			}
+		}
+		if ver == nil {
+			return fmt.Errorf("version %s not found in versions for module", requestedVersion)
+		}
+	}
+	infof(c.App.ErrWriter, "found version %s", ver.Version)
+	if len(ver.Files) == 0 {
+		return fmt.Errorf("version %s has 0 files uploaded", ver.Version)
+	}
+	platform := flags.Platform
+	if platform == "" {
+		platform = fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
+		infof(c.App.ErrWriter, "using default platform %s", platform)
+	}
+	if !slices.ContainsFunc(ver.Files, func(file *apppb.Uploads) bool { return file.Platform == platform }) {
+		return fmt.Errorf("platform %s not present for version %s", platform, ver.Version)
+	}
+	include := true
+	packageType := packagespb.PackageType_PACKAGE_TYPE_MODULE
+	// note: this is working around a GetPackage quirk where platform messes with version
+	fullVersion := fmt.Sprintf("%s-%s", ver.Version, strings.ReplaceAll(platform, "/", "-"))
+	pkg, err := client.packageClient.GetPackage(c.Context, &packagespb.GetPackageRequest{
+		Id:         strings.ReplaceAll(moduleID, ":", "/"),
+		Version:    fullVersion,
+		IncludeUrl: &include,
+		Type:       &packageType,
+	})
+	if err != nil {
+		return err
+	}
+	destName := strings.ReplaceAll(moduleID, ":", "-")
+	infof(c.App.ErrWriter, "saving to %s", path.Join(flags.Destination, fullVersion, destName+".tar.gz"))
+	return downloadPackageFromURL(c.Context, client.authFlow.httpClient,
+		flags.Destination, destName,
+		fullVersion, pkg.Package.Url, client.conf.Auth,
+	)
+}
+
+// getMarkdownContent reads and returns the content from a markdown file path.
+// The path may include an anchor tag (e.g., "docs/api.md#section-name").
+// The anchor tag is used to get the content of the section with the given anchor.
+// In the case of a nested section, the anchor tag is used to get the content of the section with the given anchor.
+// And the end of the section is determined by the next heading of the same or higher level.
+func getMarkdownContent(markdownPath string) (string, error) {
+	parts := strings.Split(markdownPath, "#")
+	filePath := parts[0]
+	var anchor string
+	if len(parts) > 1 {
+		anchor = parts[1]
+	}
+
+	//nolint:gosec
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to read markdown file at %s", filePath)
+	}
+
+	if anchor == "" {
+		return string(content), nil
+	}
+
+	lines := strings.Split(string(content), "\n")
+	sectionStart := -1
+	startHeaderLevel := 0
+
+	// Look for heading matching anchor and get its level
+	possibleAnchors := []string{}
+	anchorCounts := make(map[string]int)
+	for i, line := range lines {
+		if strings.HasPrefix(line, "#") {
+			// Count actual # characters at start of line
+			headerLevel := 0
+			for _, char := range line {
+				if char == '#' {
+					headerLevel++
+				} else {
+					break
+				}
+			}
+
+			headingAnchor := generateAnchor(line)
+
+			// Check if this anchor already exists
+			// If it does, add a numerical suffix to the anchor to make it unique
+			// This makes the anchor unique and avoids conflicts with other anchors in the same file
+			if count, exists := anchorCounts[headingAnchor]; exists {
+				anchorCounts[headingAnchor]++
+				headingAnchor = fmt.Sprintf("%s-%d", headingAnchor, count)
+			} else {
+				anchorCounts[headingAnchor] = 1
+			}
+
+			possibleAnchors = append(possibleAnchors, headingAnchor)
+			if headingAnchor == anchor {
+				// Skip the header line to not include the header in the model docs, only the body of the section.
+				sectionStart = i + 1
+				startHeaderLevel = headerLevel
+				break
+			}
+		}
+	}
+
+	// If the section matching the anchor is not found, return an error
+	if sectionStart == -1 {
+		return "", errors.Errorf(
+			"section #%s not found in %s. Check the format of your markdown_link and ensure the anchor is correct. "+
+				"You can anchor to the following headings: %v", anchor, filePath, possibleAnchors,
+		)
+	}
+
+	// Find end of section (next heading of same or higher level)
+	sectionEnd := len(lines)
+	for i := sectionStart; i < len(lines); i++ {
+		if strings.HasPrefix(lines[i], "#") {
+			// Count actual # characters at start of line
+			headerLevel := 0
+			for _, char := range lines[i] {
+				if char == '#' {
+					headerLevel++
+				} else {
+					break
+				}
+			}
+
+			if headerLevel <= startHeaderLevel {
+				sectionEnd = i
+				break
+			}
+		}
+	}
+
+	return strings.Join(lines[sectionStart:sectionEnd], "\n"), nil
+}
+
+func generateAnchor(header string) string {
+	// Convert to lowercase
+	anchor := strings.ToLower(header)
+
+	// Remove special characters except spaces and hyphens
+	re := regexp.MustCompile(`[^\w\s-]`)
+	anchor = re.ReplaceAllString(anchor, "")
+
+	// Replace spaces with hyphens
+	anchor = strings.ReplaceAll(anchor, " ", "-")
+
+	// Remove leading and trailing hyphens
+	anchor = strings.Trim(anchor, "-")
+
+	// Collapse consecutive hyphens into a single hyphen
+	reHyphen := regexp.MustCompile(`-+`)
+	anchor = reHyphen.ReplaceAllString(anchor, "-")
+
+	return anchor
 }

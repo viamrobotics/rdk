@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net"
 	"reflect"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
+	"go.uber.org/zap/zapcore"
 	"go.viam.com/test"
 )
 
@@ -145,10 +148,14 @@ func TestConsoleOutputFormat(t *testing.T) {
 	// A logger object that will write to the `notStdout` buffer.
 	notStdout := &bytes.Buffer{}
 	impl := &impl{
-		name:       "impl",
-		level:      NewAtomicLevelAt(DEBUG),
-		appenders:  []Appender{NewWriterAppender(notStdout)},
-		testHelper: func() {},
+		name:                     "impl",
+		level:                    NewAtomicLevelAt(DEBUG),
+		appenders:                []Appender{NewWriterAppender(notStdout)},
+		registry:                 newRegistry(),
+		testHelper:               func() {},
+		recentMessageCounts:      make(map[string]int),
+		recentMessageEntries:     make(map[string]LogEntry),
+		recentMessageWindowStart: time.Now(),
 	}
 
 	impl.Info("impl Info log")
@@ -209,10 +216,14 @@ func TestContextLogging(t *testing.T) {
 	notStdout := &bytes.Buffer{}
 	// The default log level is error.
 	logger := &impl{
-		name:       "impl",
-		level:      NewAtomicLevelAt(ERROR),
-		appenders:  []Appender{NewWriterAppender(notStdout)},
-		testHelper: func() {},
+		name:                     "impl",
+		level:                    NewAtomicLevelAt(ERROR),
+		appenders:                []Appender{NewWriterAppender(notStdout)},
+		registry:                 newRegistry(),
+		testHelper:               func() {},
+		recentMessageCounts:      make(map[string]int),
+		recentMessageEntries:     make(map[string]LogEntry),
+		recentMessageWindowStart: time.Now(),
 	}
 
 	logger.CDebug(ctxNoDebug, "Debug log")
@@ -283,10 +294,14 @@ func TestSublogger(t *testing.T) {
 	// A logger object that will write to the `notStdout` buffer.
 	notStdout := &bytes.Buffer{}
 	logger := &impl{
-		name:       "impl",
-		level:      NewAtomicLevelAt(DEBUG),
-		appenders:  []Appender{NewWriterAppender(notStdout)},
-		testHelper: func() {},
+		name:                     "impl",
+		level:                    NewAtomicLevelAt(DEBUG),
+		appenders:                []Appender{NewWriterAppender(notStdout)},
+		registry:                 newRegistry(),
+		testHelper:               func() {},
+		recentMessageCounts:      make(map[string]int),
+		recentMessageEntries:     make(map[string]LogEntry),
+		recentMessageWindowStart: time.Now(),
 	}
 
 	logger.Info("info log")
@@ -297,4 +312,280 @@ func TestSublogger(t *testing.T) {
 	subLogger.Info("info log")
 	assertLogMatches(t, notStdout,
 		`2023-10-30T09:12:09.459Z	INFO	impl.sub	logging/impl_test.go:67	info log`)
+}
+
+func TestLoggingWithFields(t *testing.T) {
+	// A logger object that will write to the `notStdout` buffer.
+	notStdout := &bytes.Buffer{}
+	var logger Logger
+	var loggerWith Logger
+
+	logger = &impl{
+		name:       "impl",
+		level:      NewAtomicLevelAt(DEBUG),
+		appenders:  []Appender{NewWriterAppender(notStdout)},
+		registry:   newRegistry(),
+		testHelper: func() {},
+	}
+
+	// Basic test
+	loggerWith = logger.WithFields("key", "value")
+	loggerWith.Info("impl logw")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	impl logw	{"key":"value"}`)
+
+	loggerWith.Infof("impl logw %s", "test")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	impl logw test	{"key":"value"}`)
+
+	loggerWith.Infow("impl logw", "key1", "val1")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	impl logw	{"key1":"val1","key":"value"}`)
+
+	// Test with all log levels
+	loggerWith = logger.WithFields("key", "value")
+	loggerWith.Debug("impl logw")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T13:19:45.806Z	DEBUG	impl	logging/impl_test.go:132	impl logw	{"key":"value"}`)
+
+	loggerWith.Warn("impl logw")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T13:19:45.806Z	WARN	impl	logging/impl_test.go:132	impl logw	{"key":"value"}`)
+
+	loggerWith.Error("impl logw")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T13:19:45.806Z	ERROR	impl	logging/impl_test.go:132	impl logw	{"key":"value"}`)
+
+	// Tests with a few examples of different structs.
+
+	loggerWith = logger.WithFields("key", "val", "StructWithAnonymousStruct", StructWithAnonymousStruct{1, struct{ Y1 string }{"y1"}, "foo"})
+	loggerWith.Info("impl logw")
+	assertLogMatches(t, notStdout,
+		//nolint:lll
+		`2023-10-31T14:25:10.239Z	INFO	impl	logging/impl_test.go:148	impl logw	{"key":"val","StructWithAnonymousStruct":{"Y":{"Y1":"y1"},"Z":"foo"}}`)
+
+	loggerWith = logger.WithFields("key", "val", "StructWithStruct", StructWithStruct{1, User{"alice"}, "foo"})
+	loggerWith.Info("StructWithStruct")
+	assertLogMatches(t, notStdout,
+		`2023-10-31T14:25:21.095Z	INFO	impl	logging/impl_test.go:153	StructWithStruct	{"key":"val","StructWithStruct":{"Y":{"Name":"alice"}}}`)
+
+	loggerWith = logger.WithFields("implOneKey", "1val", "BasicStruct", BasicStruct{1, "alice", "foo"})
+	loggerWith.Info("BasicStruct")
+	assertLogMatches(t, notStdout,
+		`2023-10-31T14:25:29.927Z	INFO	impl	logging/impl_test.go:157	BasicStruct	{"implOneKey":"1val","BasicStruct":{"X":1}}`)
+
+	// Define a completely anonymous struct.
+	anonymousTypedValue := struct {
+		x int
+		y struct {
+			Y1 string
+		}
+		Z string
+	}{1, struct{ Y1 string }{"y1"}, "z"}
+
+	// Even though `y.Y1` is public, it is not included in the output. It isn't a rule that must be
+	// excluded. This is tested just as a description of the current behavior.
+	loggerWith = logger.WithFields("key", "val", "anonymous struct", anonymousTypedValue)
+	loggerWith.Info("impl logw")
+	assertLogMatches(t, notStdout,
+		`2023-10-31T14:25:39.320Z	INFO	impl	logging/impl_test.go:172	impl logw	{"key":"val","anonymous struct":{"Z":"z"}}`)
+
+	// Represent a struct as a string using `fmt.Sprintf`.
+	loggerWith = logger.WithFields("key", "val", "fmt.Sprintf", fmt.Sprintf("%+v", anonymousTypedValue))
+	loggerWith.Info("impl logw")
+	assertLogMatches(t, notStdout,
+		`2023-10-31T14:25:49.124Z	INFO	impl	logging/impl_test.go:177	impl logw	{"key":"val","fmt.Sprintf":"{x:1 y:{Y1:y1} Z:z}"}`)
+
+	// Test with odd number of keys
+	loggerWith = logger.WithFields("key", "val", "unpaired key")
+	loggerWith.Info("impl logw")
+	assertLogMatches(t, notStdout,
+		`2023-10-31T14:25:49.124Z	INFO	impl	logging/impl_test.go:177	impl logw	{"key":"val","unpaired key":"unpaired log key"}`)
+
+	// Test with non-string key
+	loggerWith = logger.WithFields(BasicStruct{}, "val")
+	loggerWith.Info("impl logw")
+	assertLogMatches(t, notStdout,
+		`2023-10-31T14:25:49.124Z	INFO	impl	logging/impl_test.go:177	impl logw`)
+
+	// Test with Stringer key
+	loggerWith = logger.WithFields(net.IPv4(8, 8, 8, 8), "val")
+	loggerWith.Info("impl logw")
+	assertLogMatches(t, notStdout,
+		`2023-10-31T14:25:49.124Z	INFO	impl	logging/impl_test.go:177	impl logw	{"8.8.8.8":"val"}`)
+
+	// Test with context logging
+	ctxNoDebug := context.Background()
+	traceKey := "foobar"
+	ctxWithDebug := EnableDebugModeWithKey(ctxNoDebug, traceKey)
+	loggerWith = logger.WithFields("key", "value")
+	loggerWith.CDebug(ctxWithDebug, "Debug log")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T09:12:09.459Z	DEBUG	impl	logging/impl_test.go:200	Debug log	{"traceKey":"foobar","key":"value"}`)
+
+	loggerWith.CDebugf(ctxWithDebug, "Debugf log %v", "Debugf")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T09:12:09.459Z	DEBUG	impl	logging/impl_test.go:200	Debugf log Debugf	{"traceKey":"foobar","key":"value"}`)
+
+	loggerWith.CDebugw(ctxWithDebug, "Debugw log", "k", "v")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T09:12:09.459Z	DEBUG	impl	logging/impl_test.go:200	Debugw log	{"traceKey":"foobar","k":"v","key":"value"}`)
+}
+
+func TestLogEntryHashKey(t *testing.T) {
+	testCases := []struct {
+		name            string
+		logEntry        *LogEntry
+		expectedHashKey string
+	}{
+		{
+			"no fields",
+			&LogEntry{
+				Entry: zapcore.Entry{
+					Message: "these are not the droids you are looking for",
+				},
+			},
+			"these are not the droids you are looking for",
+		},
+		{
+			"fields",
+			&LogEntry{
+				Entry: zapcore.Entry{
+					Message: "these are not the droids you are looking for",
+				},
+				Fields: []zapcore.Field{
+					{
+						Key:    "obi",
+						String: "wan",
+					},
+					{
+						Key:     "r2d",
+						Integer: 2,
+					},
+					{
+						Key:       "c3",
+						Interface: "po",
+					},
+				},
+			},
+			"these are not the droids you are looking for obi wan r2d 2 c3 po",
+		},
+		{
+			"undefined field",
+			&LogEntry{
+				Entry: zapcore.Entry{
+					Message: "these are not the droids you are looking for",
+				},
+				Fields: []zapcore.Field{
+					{
+						Key: "obi",
+					},
+				},
+			},
+			"these are not the droids you are looking for obi undefined",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			actualHashKey := tc.logEntry.HashKey()
+			test.That(t, actualHashKey, test.ShouldEqual, tc.expectedHashKey)
+		})
+	}
+}
+
+func TestLoggingDeduplication(t *testing.T) {
+	// Create a logger object that will write to the `notStdout` buffer. Explicitly
+	// set DeduplicateLogs to true on the registry for the logger.
+	registry := newRegistry()
+	registry.DeduplicateLogs.Store(true)
+
+	notStdout := &bytes.Buffer{}
+	logger := &impl{
+		name:                     "impl",
+		level:                    NewAtomicLevelAt(DEBUG),
+		appenders:                []Appender{NewWriterAppender(notStdout)},
+		registry:                 registry,
+		testHelper:               func() {},
+		recentMessageCounts:      make(map[string]int),
+		recentMessageEntries:     make(map[string]LogEntry),
+		recentMessageWindowStart: time.Now(),
+	}
+
+	// Artificially lower noisy message window for testing.
+	originalNoisyMessageWindowDuration := noisyMessageWindowDuration
+	noisyMessageWindowDuration = 500 * time.Millisecond
+	defer func() {
+		noisyMessageWindowDuration = originalNoisyMessageWindowDuration
+	}()
+
+	// Log 4 identical messages (same sublogger, messages, and fields) in quick
+	// succession. Sleep for noisy message window duration. Assert that a final,
+	// separate log is an aggregation log.
+	identicalMsg := "identical message"
+	loggerWith := logger.WithFields("key", "value")
+	for range 3 {
+		loggerWith.Info(identicalMsg)
+		assertLogMatches(t, notStdout,
+			`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"key":"value"}`)
+	}
+	loggerWith.Info(identicalMsg) // not output due to being noisy
+	time.Sleep(noisyMessageWindowDuration)
+	loggerWith.Info("foo") // log arbitrary message to force output of aggregated message
+	assertLogMatches(t, notStdout,
+		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	Message logged 4 times in past 500ms: identical message	{"key":"value"}`)
+	assertLogMatches(t, notStdout,
+		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	foo	{"key":"value"}`)
+
+	// Assert aggregation resets after sleep (same aggregation occurs again.)
+	for range 3 {
+		loggerWith.Info(identicalMsg)
+		assertLogMatches(t, notStdout,
+			`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"key":"value"}`)
+	}
+	loggerWith.Info(identicalMsg) // not output due to being noisy
+	time.Sleep(noisyMessageWindowDuration)
+	loggerWith.Info("foo") // log arbitrary message to force output of aggregated message
+	assertLogMatches(t, notStdout,
+		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	Message logged 4 times in past 500ms: identical message	{"key":"value"}`)
+	assertLogMatches(t, notStdout,
+		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	foo	{"key":"value"}`)
+
+	// Assert that using a different sublogger uses separate aggregation.
+	separateLoggerWith := logger.Sublogger("sub").WithFields("key", "value")
+	for range 3 {
+		separateLoggerWith.Info(identicalMsg)
+		assertLogMatches(t, notStdout,
+			`2023-10-30T13:19:45.806Z	INFO	impl.sub	logging/impl_test.go:132	identical message	{"key":"value"}`)
+		loggerWith.Info(identicalMsg)
+		assertLogMatches(t, notStdout,
+			`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"key":"value"}`)
+	}
+
+	time.Sleep(noisyMessageWindowDuration) // Sleep to reset window.
+
+	// Assert that using different fields uses separate aggregation.
+	for range 3 {
+		loggerWith.Infow(identicalMsg, "newkey", "newvalue")
+		assertLogMatches(t, notStdout,
+			`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"newkey":"newvalue","key":"value"}`)
+		loggerWith.Info(identicalMsg)
+		assertLogMatches(t, notStdout,
+			`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"key":"value"}`)
+	}
+
+	time.Sleep(noisyMessageWindowDuration) // Sleep to reset window.
+
+	// Assert that using different levels does _not_ use separate aggregation.
+	for range 3 {
+		loggerWith.Info(identicalMsg)
+		assertLogMatches(t, notStdout,
+			`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"key":"value"}`)
+	}
+	loggerWith.Error(identicalMsg) // not output due to being noisy
+	time.Sleep(noisyMessageWindowDuration)
+	loggerWith.Info("foo") // log arbitrary message to force output of aggregated message
+	assertLogMatches(t, notStdout,
+		`2023-10-30T13:19:45.806Z	ERROR	impl	logging/impl_test.go:132	Message logged 4 times in past 500ms: identical message	{"key":"value"}`)
+	assertLogMatches(t, notStdout,
+		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	foo	{"key":"value"}`)
 }

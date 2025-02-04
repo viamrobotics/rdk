@@ -12,7 +12,6 @@ import (
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -27,7 +26,7 @@ func TestClient(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
 	rs := map[string]interface{}{"a": 1.1, "b": 2.2}
@@ -45,9 +44,10 @@ func TestClient(t *testing.T) {
 	}
 
 	sensorSvc, err := resource.NewAPIResourceCollection(
-		sensors.API,
+		sensor.API,
 		map[resource.Name]sensor.Sensor{sensor.Named(testSensorName): injectSensor, sensor.Named(failSensorName): injectSensor2},
 	)
+
 	test.That(t, err, test.ShouldBeNil)
 	resourceAPI, ok, err := resource.LookupAPIRegistration[sensor.Sensor](sensor.API)
 	test.That(t, err, test.ShouldBeNil)
@@ -105,6 +105,13 @@ func TestClient(t *testing.T) {
 		_, err = client2.Readings(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errReadingsFailed.Error())
+
+		injectSensor2.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+			return nil, nil
+		}
+		_, err = client2.Readings(context.Background(), make(map[string]interface{}))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, sensor.ErrReadingsNil("sensor", failSensorName).Error())
 
 		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)

@@ -1,4 +1,7 @@
-// Package encoder implements the encoder component
+// Package encoder implements the encoder component.
+// For more information, see the [encoder component docs].
+//
+// [encoder component docs]: https://docs.viam.com/components/encoder/
 package encoder
 
 import (
@@ -58,6 +61,7 @@ func (t PositionType) String() string {
 }
 
 // A Encoder turns a position into a signal.
+// For more information, see the [encoder component docs].
 //
 // Position example:
 //
@@ -69,6 +73,8 @@ func (t PositionType) String() string {
 //	// Get the position of the encoder in ticks
 //	position, posType, err := myEncoder.Position(context.Background(), encoder.PositionTypeTicks, nil)
 //
+// For more information, see the [Position method docs].
+//
 // ResetPosition example:
 //
 //	myEncoder, err := encoder.FromRobot(machine, "my_encoder")
@@ -78,12 +84,21 @@ func (t PositionType) String() string {
 //
 //	err = myEncoder.ResetPosition(context.Background(), nil)
 //
+// For more information, see the [ResetPosition method docs].
+//
 // Properties example:
 //
 //	myEncoder, err := encoder.FromRobot(machine, "my_encoder")
 //
 //	// Get whether the encoder returns position in ticks or degrees.
 //	properties, err := myEncoder.Properties(context.Background(), nil)
+//
+// For more information, see the [Properties methods docs].
+//
+// [encoder component docs]: https://docs.viam.com/dev/reference/apis/components/encoder/
+// [Position method docs]: https://docs.viam.com/dev/reference/apis/components/encoder/#getposition
+// [ResetPosition method docs]: https://docs.viam.com/dev/reference/apis/components/encoder/#resetposition
+// [Properties methods docs]: https://docs.viam.com/dev/reference/apis/components/encoder/#getproperties
 type Encoder interface {
 	resource.Resource
 

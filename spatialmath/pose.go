@@ -87,16 +87,7 @@ func NewPoseFromDH(a, d, alpha float64) Pose {
 // It converts the poses to dual quaternions and multiplies them together, normalizes the transform and returns a new Pose.
 // Composition does not commute in general, i.e. you cannot guarantee ABx == BAx.
 func Compose(a, b Pose) Pose {
-	result := &dualQuaternion{dualQuaternionFromPose(a).Transformation(dualQuaternionFromPose(b).Number)}
-
-	// Normalization
-	if vecLen := 1 / quat.Abs(result.Real); vecLen != 1 {
-		result.Real.Real *= vecLen
-		result.Real.Imag *= vecLen
-		result.Real.Jmag *= vecLen
-		result.Real.Kmag *= vecLen
-	}
-	return result
+	return &dualQuaternion{dualQuaternionFromPose(a).Transformation(dualQuaternionFromPose(b).Number)}
 }
 
 // PoseBetween returns the difference between two dualQuaternions, that is, the dq which if multiplied by one will give the other.
@@ -104,13 +95,6 @@ func Compose(a, b Pose) Pose {
 func PoseBetween(a, b Pose) Pose {
 	invA := &dualQuaternion{dualquat.ConjQuat(dualQuaternionFromPose(a).Number)}
 	result := &dualQuaternion{invA.Transformation(dualQuaternionFromPose(b).Number)}
-	// Normalization
-	if vecLen := 1 / quat.Abs(result.Real); vecLen != 1 {
-		result.Real.Real *= vecLen
-		result.Real.Imag *= vecLen
-		result.Real.Jmag *= vecLen
-		result.Real.Kmag *= vecLen
-	}
 	return result
 }
 
@@ -119,13 +103,6 @@ func PoseBetween(a, b Pose) Pose {
 // PoseBetweenInverse(a, b) is equivalent to Compose(b, PoseInverse(a)).
 func PoseBetweenInverse(a, b Pose) Pose {
 	result := &dualQuaternion{dualQuaternionFromPose(b).Transformation(dualquat.ConjQuat(dualQuaternionFromPose(a).Number))}
-	// Normalization
-	if vecLen := 1 / quat.Abs(result.Real); vecLen != 1 {
-		result.Real.Real *= vecLen
-		result.Real.Imag *= vecLen
-		result.Real.Jmag *= vecLen
-		result.Real.Kmag *= vecLen
-	}
 	return result
 }
 
@@ -165,8 +142,12 @@ func PoseInverse(p Pose) Pose {
 // p1 and p2 are the two poses to interpolate between, by is a float representing the amount to interpolate between them.
 // by == 0 will return p1, by == 1 will return p2, and by == 0.5 will return the pose halfway between them.
 func Interpolate(p1, p2 Pose, by float64) Pose {
+	p2Orient := p2.Orientation().Quaternion()
+	if OrientationBetween(p1.Orientation(), p2.Orientation()).Quaternion().Real < 0 {
+		p2Orient = quat.Scale(-1, p2Orient)
+	}
 	intQ := newDualQuaternion()
-	intQ.Real = slerp(p1.Orientation().Quaternion(), p2.Orientation().Quaternion(), by)
+	intQ.Real = slerp(p1.Orientation().Quaternion(), p2Orient, by)
 
 	intQ.SetTranslation(r3.Vector{
 		(p1.Point().X + (p2.Point().X-p1.Point().X)*by),

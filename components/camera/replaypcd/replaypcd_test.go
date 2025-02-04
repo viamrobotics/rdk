@@ -660,16 +660,6 @@ func TestReplayPCDUnimplementedFunctions(t *testing.T) {
 	replayCamera, _, serverClose, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, true)
 	test.That(t, err, test.ShouldBeNil)
 
-	t.Run("Stream", func(t *testing.T) {
-		_, err := replayCamera.Stream(ctx, nil)
-		test.That(t, err.Error(), test.ShouldEqual, "Stream is unimplemented")
-	})
-
-	t.Run("Projector", func(t *testing.T) {
-		_, err := replayCamera.Projector(ctx)
-		test.That(t, err.Error(), test.ShouldEqual, "Projector is unimplemented")
-	})
-
 	err = replayCamera.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 

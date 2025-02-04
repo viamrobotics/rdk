@@ -54,3 +54,17 @@ func NewModuleStartUpTimeoutError(name string) error {
 func timeoutErrorHelper(id string, timeout time.Duration, timeoutMsg string) error {
 	return fmt.Errorf("%s timed out after %v during %v", id, timeout, timeoutMsg)
 }
+
+// NewConfigValidationError returns a config validation error
+// occurring at a given path.
+// copied from goutils.
+func NewConfigValidationError(path string, err error) error {
+	return errors.Wrapf(err, "error validating %q", path)
+}
+
+// NewConfigValidationFieldRequiredError returns a config validation
+// error for a field missing at a given path.
+// copied from goutils.
+func NewConfigValidationFieldRequiredError(path, field string) error {
+	return NewConfigValidationError(path, errors.Errorf("%q is required", field))
+}

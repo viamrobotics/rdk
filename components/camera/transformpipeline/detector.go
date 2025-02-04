@@ -9,7 +9,6 @@ import (
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
@@ -27,7 +26,7 @@ type detectorConfig struct {
 
 // detectorSource takes an image from the camera, and overlays the detections from the detector.
 type detectorSource struct {
-	stream       gostream.VideoStream
+	src          camera.VideoSource
 	detectorName string
 	labelFilter  objectdetection.Postprocessor // must build from ValidLabels
 	confFilter   objectdetection.Postprocessor
@@ -36,10 +35,10 @@ type detectorSource struct {
 
 func newDetectionsTransform(
 	ctx context.Context,
-	source gostream.VideoSource,
+	source camera.VideoSource,
 	r robot.Robot,
 	am utils.AttributeMap,
-) (gostream.VideoSource, camera.ImageType, error) {
+) (camera.VideoSource, camera.ImageType, error) {
 	conf, err := resource.TransformAttributeMap[*detectorConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
@@ -62,7 +61,7 @@ func newDetectionsTransform(
 	}
 	labelFilter := objectdetection.NewLabelFilter(validLabels)
 	detector := &detectorSource{
-		gostream.NewEmbeddedVideoStream(source),
+		source,
 		conf.DetectorName,
 		labelFilter,
 		confFilter,
@@ -85,7 +84,7 @@ func (ds *detectorSource) Read(ctx context.Context) (image.Image, func(), error)
 		return nil, nil, fmt.Errorf("source_detector cant find vision service: %w", err)
 	}
 	// get image from source camera
-	img, release, err := ds.stream.Next(ctx)
+	img, release, err := camera.ReadImage(ctx, ds.src)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not get next source image: %w", err)
 	}
@@ -105,5 +104,5 @@ func (ds *detectorSource) Read(ctx context.Context) (image.Image, func(), error)
 }
 
 func (ds *detectorSource) Close(ctx context.Context) error {
-	return ds.stream.Close(ctx)
+	return nil
 }

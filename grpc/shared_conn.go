@@ -3,23 +3,21 @@ package grpc
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pion/interceptor"
 	pionLogging "github.com/pion/logging"
-	"github.com/pion/webrtc/v3"
+	"github.com/viamrobotics/webrtc/v3"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"golang.org/x/exp/maps"
 	googlegrpc "google.golang.org/grpc"
 
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -81,8 +79,8 @@ type SharedConn struct {
 	// set to nil before this channel is closed.
 	peerConnFailed chan struct{}
 
-	resOnTrackMu  sync.Mutex
-	resOnTrackCBs map[resource.Name]OnTrackCB
+	onTrackCBByTrackNameMu sync.Mutex
+	onTrackCBByTrackName   map[string]OnTrackCB
 
 	logger logging.Logger
 }
@@ -107,18 +105,18 @@ func (sc *SharedConn) NewStream(
 	return sc.grpcConn.NewStream(ctx, desc, method, opts...)
 }
 
-// AddOnTrackSub adds an OnTrack subscription for the resource.
-func (sc *SharedConn) AddOnTrackSub(name resource.Name, onTrackCB OnTrackCB) {
-	sc.resOnTrackMu.Lock()
-	defer sc.resOnTrackMu.Unlock()
-	sc.resOnTrackCBs[name] = onTrackCB
+// AddOnTrackSub adds an OnTrack subscription for the track.
+func (sc *SharedConn) AddOnTrackSub(trackName string, onTrackCB OnTrackCB) {
+	sc.onTrackCBByTrackNameMu.Lock()
+	defer sc.onTrackCBByTrackNameMu.Unlock()
+	sc.onTrackCBByTrackName[trackName] = onTrackCB
 }
 
-// RemoveOnTrackSub removes an OnTrack subscription for the resource.
-func (sc *SharedConn) RemoveOnTrackSub(name resource.Name) {
-	sc.resOnTrackMu.Lock()
-	defer sc.resOnTrackMu.Unlock()
-	delete(sc.resOnTrackCBs, name)
+// RemoveOnTrackSub removes an OnTrack subscription for the track.
+func (sc *SharedConn) RemoveOnTrackSub(trackName string) {
+	sc.onTrackCBByTrackNameMu.Lock()
+	defer sc.onTrackCBByTrackNameMu.Unlock()
+	delete(sc.onTrackCBByTrackName, trackName)
 }
 
 // GrpcConn returns a gRPC capable client connection.
@@ -157,12 +155,14 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 		// The first call to `ResetConn` happens before anything can access `sc.logger`. So long as
 		// we never write to the member variable, everything can continue to access this without
 		// locks.
-		sc.logger = moduleLogger.Sublogger("conn")
+		sc.logger = moduleLogger.Sublogger("networking.conn")
 	}
 
-	if sc.resOnTrackCBs == nil {
+	// It is safe to access this without a mutex as it is only ever nil once at the beginning of the
+	// SharedConn's lifetime
+	if sc.onTrackCBByTrackName == nil {
 		// Same initilization argument as above with the logger.
-		sc.resOnTrackCBs = make(map[resource.Name]OnTrackCB)
+		sc.onTrackCBByTrackName = make(map[string]OnTrackCB)
 	}
 
 	sc.peerConnMu.Lock()
@@ -173,7 +173,7 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 	// steps.
 	guard := rutils.NewGuard(func() {
 		if sc.peerConn != nil {
-			utils.UncheckedError(sc.peerConn.Close())
+			utils.UncheckedError(sc.peerConn.GracefulClose())
 		}
 		sc.peerConn = nil
 		close(sc.peerConnFailed)
@@ -182,34 +182,30 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 
 	if sc.peerConn != nil {
 		sc.logger.Warn("SharedConn is being reset with an active peer connection.")
-		utils.UncheckedError(sc.peerConn.Close())
+		utils.UncheckedError(sc.peerConn.GracefulClose())
 		sc.peerConn = nil
 	}
 
-	peerConn, err := NewLocalPeerConnection(sc.logger.AsZap())
+	peerConn, err := NewLocalPeerConnection(sc.logger)
 	if err != nil {
 		sc.logger.Warnw("Unable to create optional peer connection for module. Ignoring.", "err", err)
 		return
 	}
 
 	sc.peerConn = peerConn
-	sc.peerConnReady, sc.peerConnClosed, err = rpc.ConfigureForRenegotiation(peerConn, sc.logger.AsZap())
+	sc.peerConnReady, sc.peerConnClosed, err = rpc.ConfigureForRenegotiation(peerConn, rpc.PeerRoleClient, sc.logger)
 	if err != nil {
 		sc.logger.Warnw("Unable to create optional renegotiation channel for module. Ignoring.", "err", err)
 		return
 	}
 
 	sc.peerConn.OnTrack(func(trackRemote *webrtc.TrackRemote, rtpReceiver *webrtc.RTPReceiver) {
-		name, err := resource.NewFromString(trackRemote.StreamID())
-		if err != nil {
-			sc.logger.Errorw("StreamID did not parse as a ResourceName", "sharedConn", fmt.Sprintf("%p", sc), "streamID", trackRemote.StreamID())
-			return
-		}
-		sc.resOnTrackMu.Lock()
-		onTrackCB, ok := sc.resOnTrackCBs[name]
-		sc.resOnTrackMu.Unlock()
+		sc.onTrackCBByTrackNameMu.Lock()
+		onTrackCB, ok := sc.onTrackCBByTrackName[trackRemote.StreamID()]
+		sc.onTrackCBByTrackNameMu.Unlock()
 		if !ok {
-			sc.logger.Errorw("Callback not found for StreamID", "sharedConn", fmt.Sprintf("%p", sc), "streamID", trackRemote.StreamID())
+			msg := "Callback not found for StreamID: %s, keys(resOnTrackCBs): %#v"
+			sc.logger.Errorf(msg, trackRemote.StreamID(), maps.Keys(sc.onTrackCBByTrackName))
 			return
 		}
 		onTrackCB(trackRemote, rtpReceiver)
@@ -223,7 +219,7 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 func (sc *SharedConn) GenerateEncodedOffer() (string, error) {
 	// If this generating an offer fails for any reason, we perform the following cleanup steps.
 	guard := rutils.NewGuard(func() {
-		utils.UncheckedError(sc.peerConn.Close())
+		utils.UncheckedError(sc.peerConn.GracefulClose())
 		sc.peerConnMu.Lock()
 		sc.peerConn = nil
 		sc.peerConnMu.Unlock()
@@ -266,7 +262,7 @@ func (sc *SharedConn) GenerateEncodedOffer() (string, error) {
 // `Reset`.
 func (sc *SharedConn) ProcessEncodedAnswer(encodedAnswer string) error {
 	guard := rutils.NewGuard(func() {
-		utils.UncheckedError(sc.peerConn.Close())
+		utils.UncheckedError(sc.peerConn.GracefulClose())
 		sc.peerConnMu.Lock()
 		sc.peerConn = nil
 		sc.peerConnMu.Unlock()
@@ -302,22 +298,7 @@ func (sc *SharedConn) Close() error {
 	var err error
 	sc.peerConnMu.Lock()
 	if sc.peerConn != nil {
-		err = sc.peerConn.Close()
-		// `PeerConnection.Close` returning does not guarantee that background workers have
-		// stopped. We've added best-effort hooks to observe when a peer connection has completely
-		// cleaned up.
-		if sc.peerConnClosed != nil {
-			select {
-			case <-sc.peerConnReady:
-				// RSDK-7691: There's evidence that closing peer connections is also not sufficient
-				// for its background goroutines to exit. See the ticket for more detail. For now we
-				// admit to leaked goroutines and add exempt these goroutines from causing test
-				// failures.
-				//
-				// <-sc.peerConnClosed
-			default:
-			}
-		}
+		err = sc.peerConn.GracefulClose()
 		sc.peerConn = nil
 		close(sc.peerConnFailed)
 	}
@@ -328,7 +309,7 @@ func (sc *SharedConn) Close() error {
 
 // NewLocalPeerConnection creates a peer connection that only accepts loopback
 // address candidates.
-func NewLocalPeerConnection(logger golog.Logger) (*webrtc.PeerConnection, error) {
+func NewLocalPeerConnection(logger logging.Logger) (*webrtc.PeerConnection, error) {
 	m := webrtc.MediaEngine{}
 	if err := m.RegisterDefaultCodecs(); err != nil {
 		return nil, err
@@ -356,6 +337,14 @@ func NewLocalPeerConnection(logger golog.Logger) (*webrtc.PeerConnection, error)
 		return false
 	})
 
+	// RSDK-8547: WebRTC video streams expect an "increasing" SRTP value. When we forward RTP
+	// packets through different hops, those values are copied as-is. If one connection in this
+	// chain of hops has a blip, it will reset its SRTP value. Other hops in the chain that were not
+	// disconnected will see these unexpected change in SRTP values and interpret it as a replay
+	// attack, dropping the data. We disable this "protection" as per the justification in the noted
+	// ticket.
+	settingEngine.DisableSRTPReplayProtection(true)
+
 	options := []func(a *webrtc.API){webrtc.WithMediaEngine(&m), webrtc.WithInterceptorRegistry(&i)}
 	if utils.Debug {
 		settingEngine.LoggerFactory = WebRTCLoggerFactory{logger}
@@ -372,17 +361,18 @@ func NewLocalPeerConnection(logger golog.Logger) (*webrtc.PeerConnection, error)
 	return pc, nil
 }
 
-// WebRTCLoggerFactory wraps a golog.Logger for use with pion's webrtc logging system.
+// WebRTCLoggerFactory wraps a logging.Logger for use with pion's webrtc logging system.
 type WebRTCLoggerFactory struct {
-	Logger golog.Logger
+	Logger logging.Logger
 }
 
 type webrtcLogger struct {
-	logger golog.Logger
+	logger logging.Logger
 }
 
-func (l webrtcLogger) loggerWithSkip() golog.Logger {
-	return l.logger.Desugar().WithOptions(zap.AddCallerSkip(1)).Sugar()
+func (l webrtcLogger) loggerWithSkip() logging.Logger {
+	logger := logging.FromZapCompatible(l.logger.WithOptions(zap.AddCallerSkip(1)))
+	return logger
 }
 
 func (l webrtcLogger) Trace(msg string) {
@@ -427,5 +417,6 @@ func (l webrtcLogger) Errorf(format string, args ...interface{}) {
 
 // NewLogger returns a new webrtc logger under the given scope.
 func (lf WebRTCLoggerFactory) NewLogger(scope string) pionLogging.LeveledLogger {
-	return webrtcLogger{lf.Logger.Named(scope)}
+	logger := lf.Logger.Sublogger(scope)
+	return webrtcLogger{logger}
 }

@@ -39,7 +39,7 @@ jobs:
             -d '{
               "event_type": "new_rc_branch",
               "client_payload": {
-                "version": "${{ github.event.inputs.version }}",
-                "rc_number": "${{ github.event.inputs.rc_number }}"
+                "version": "${{ inputs.version }}",
+                "rc_number": "${{ inputs.rc_number }}"
               }
             }'

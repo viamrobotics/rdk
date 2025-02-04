@@ -28,7 +28,7 @@ func TestRegister(t *testing.T) {
 
 	// Return registered collector if one exists.
 	RegisterCollector(md, dummyCollectorConstructor)
-	ret := *CollectorLookup(md)
+	ret := CollectorLookup(md)
 	test.That(t, ret, test.ShouldEqual, dummyCollectorConstructor)
 
 	// Return nothing if exact match has not been registered.

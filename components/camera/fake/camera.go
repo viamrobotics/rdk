@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"errors"
+	"fmt"
 	"image"
 	"image/color"
 	"image/jpeg"
@@ -17,7 +19,6 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/rtptime"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
@@ -64,7 +65,20 @@ func NewCamera(
 	if paramErr != nil {
 		return nil, paramErr
 	}
-	resModel, width, height := fakeModel(newConf.Width, newConf.Height)
+	width := initialWidth
+	if newConf.Width > 0 {
+		width = newConf.Width
+	}
+	height := initialHeight
+	if newConf.Height > 0 {
+		height = newConf.Height
+	}
+	var resModel *transform.PinholeCameraModel
+	if newConf.Model {
+		resModel = fakeModel(width, height)
+	} else {
+		resModel = nil
+	}
 	cancelCtx, cancelFn := context.WithCancel(context.Background())
 	cam := &Camera{
 		ctx:            cancelCtx,
@@ -106,6 +120,7 @@ type Config struct {
 	Height         int  `json:"height,omitempty"`
 	Animated       bool `json:"animated,omitempty"`
 	RTPPassthrough bool `json:"rtp_passthrough,omitempty"`
+	Model          bool `json:"model,omitempty"`
 }
 
 // Validate checks that the config attributes are valid for a fake camera.
@@ -119,11 +134,11 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	}
 
 	if conf.Height%2 != 0 {
-		return nil, errors.Errorf("odd-number resolutions cannot be rendered, cannot use a height of %d", conf.Height)
+		return nil, fmt.Errorf("odd-number resolutions cannot be rendered, cannot use a height of %d", conf.Height)
 	}
 
 	if conf.Width%2 != 0 {
-		return nil, errors.Errorf("odd-number resolutions cannot be rendered, cannot use a width of %d", conf.Width)
+		return nil, fmt.Errorf("odd-number resolutions cannot be rendered, cannot use a width of %d", conf.Width)
 	}
 
 	return nil, nil
@@ -146,59 +161,13 @@ var fakeDistortion = &transform.BrownConrady{
 	TangentialP2: 0.19969297,
 }
 
-func fakeModel(width, height int) (*transform.PinholeCameraModel, int, int) {
-	fakeModelReshaped := &transform.PinholeCameraModel{
-		PinholeCameraIntrinsics: fakeIntrinsics,
+func fakeModel(width, height int) *transform.PinholeCameraModel {
+	intrinsics := *fakeIntrinsics
+	intrinsics.Width = width
+	intrinsics.Height = height
+	return &transform.PinholeCameraModel{
+		PinholeCameraIntrinsics: &intrinsics,
 		Distortion:              fakeDistortion,
-	}
-	switch {
-	case width > 0 && height > 0:
-		widthRatio := float64(width) / float64(initialWidth)
-		heightRatio := float64(height) / float64(initialHeight)
-		intrinsics := &transform.PinholeCameraIntrinsics{
-			Width:  int(float64(fakeIntrinsics.Width) * widthRatio),
-			Height: int(float64(fakeIntrinsics.Height) * heightRatio),
-			Fx:     fakeIntrinsics.Fx * widthRatio,
-			Fy:     fakeIntrinsics.Fy * heightRatio,
-			Ppx:    fakeIntrinsics.Ppx * widthRatio,
-			Ppy:    fakeIntrinsics.Ppy * heightRatio,
-		}
-		fakeModelReshaped.PinholeCameraIntrinsics = intrinsics
-		return fakeModelReshaped, width, height
-	case width > 0 && height <= 0:
-		ratio := float64(width) / float64(initialWidth)
-		intrinsics := &transform.PinholeCameraIntrinsics{
-			Width:  int(float64(fakeIntrinsics.Width) * ratio),
-			Height: int(float64(fakeIntrinsics.Height) * ratio),
-			Fx:     fakeIntrinsics.Fx * ratio,
-			Fy:     fakeIntrinsics.Fy * ratio,
-			Ppx:    fakeIntrinsics.Ppx * ratio,
-			Ppy:    fakeIntrinsics.Ppy * ratio,
-		}
-		fakeModelReshaped.PinholeCameraIntrinsics = intrinsics
-		newHeight := int(float64(initialHeight) * ratio)
-		if newHeight%2 != 0 {
-			newHeight++
-		}
-		return fakeModelReshaped, width, newHeight
-	case width <= 0 && height > 0:
-		ratio := float64(height) / float64(initialHeight)
-		intrinsics := &transform.PinholeCameraIntrinsics{
-			Width:  int(float64(fakeIntrinsics.Width) * ratio),
-			Height: int(float64(fakeIntrinsics.Height) * ratio),
-			Fx:     fakeIntrinsics.Fx * ratio,
-			Fy:     fakeIntrinsics.Fy * ratio,
-			Ppx:    fakeIntrinsics.Ppx * ratio,
-			Ppy:    fakeIntrinsics.Ppy * ratio,
-		}
-		fakeModelReshaped.PinholeCameraIntrinsics = intrinsics
-		newWidth := int(float64(initialWidth) * ratio)
-		if newWidth%2 != 0 {
-			newWidth++
-		}
-		return fakeModelReshaped, newWidth, height
-	default:
-		return fakeModelReshaped, initialWidth, initialHeight
 	}
 }
 

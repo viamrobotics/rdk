@@ -102,6 +102,10 @@ func NewMotor(b board.Board, mc Config, name resource.Name, logger logging.Logge
 		m.EnablePinLow = enablePinLow
 	}
 
+	if m.maxRPM == 0 {
+		m.maxRPM = 100
+	}
+
 	return m, nil
 }
 
@@ -189,7 +193,7 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 	switch m.motorType {
 	case ABPwm, DirectionPwm:
 		if math.Abs(powerPct) <= 0.001 {
-			return m.turnOff(ctx, extra)
+			return m.turnOff(context.Background(), extra)
 		}
 		pwmPin = m.PWM
 	case AB:
@@ -278,15 +282,14 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 		return err
 	}
 
+	if err := motor.CheckRevolutions(revolutions); err != nil {
+		return err
+	}
+
 	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)
 	err = m.SetPower(ctx, powerPct, extra)
 	if err != nil {
 		return errors.Wrap(err, "error in GoFor")
-	}
-
-	if revolutions == 0 {
-		m.logger.Warn("Deprecated: setting revolutions == 0 will spin the motor indefinitely at the specified RPM")
-		return nil
 	}
 
 	if m.opMgr.NewTimedWaitOp(ctx, waitDur) {
@@ -307,7 +310,7 @@ func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.opMgr.CancelRunning(ctx)
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.setPWM(ctx, 0, extra)
+	return m.setPWM(context.Background(), 0, extra)
 }
 
 // IsMoving returns if the motor is currently on or off.

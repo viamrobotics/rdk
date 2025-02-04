@@ -3,6 +3,7 @@ package spatialmath
 import (
 	"fmt"
 	"math"
+	"math/rand"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -67,7 +68,7 @@ func TestBasicPoseConstruction(t *testing.T) {
 	fmt.Println(dq.String())
 	logger.Debug(p)
 
-	aa := QuatToR4AA(ov.ToQuat())
+	aa := QuatToR4AA(ov.Quaternion())
 	p = NewPose(r3.Vector{1, 2, 3}, &R4AA{aa.Theta, aa.RX, aa.RY, aa.RZ})
 	ptCompare(t, p.Point(), r3.Vector{1, 2, 3})
 	ovCompare(t, p.Orientation().OrientationVectorRadians(), ov)
@@ -152,6 +153,25 @@ func TestPoseInterpolation(t *testing.T) {
 	p2 = NewPose(r3.Vector{100, 200, 200}, ov)
 	intP = Interpolate(p1, p2, 0.1)
 	ptCompare(t, intP.Point(), r3.Vector{100, 110, 200})
+
+	// Set up from/to dual quats with the same real orientation but flipped signs
+	// p1 and p2 have a OV of OX: -1
+	// And so should all intermediate poses
+	p1 = &dualQuaternion{dualquat.Number{
+		Real: quat.Number{0, 0.7071, 0, -0.7071},
+		Dual: quat.Number{352.1382097850126, -5.310529463390053, -66.47154194130341, -5.30562208840844},
+	}}
+	p3 := &dualQuaternion{dualquat.Number{
+		Real: quat.Number{0, -0.7071, 0, 0.7071},
+		Dual: quat.Number{-253.144227664784, 5.303300858899092, 165.46298679765218, 5.303300858899096},
+	}}
+
+	intP = Interpolate(p1, p3, 0.4)
+	test.That(t, OrientationAlmostEqual(p1.Orientation(), intP.Orientation()), test.ShouldBeTrue)
+	intP = Interpolate(p1, p3, 0.5)
+	test.That(t, OrientationAlmostEqual(p1.Orientation(), intP.Orientation()), test.ShouldBeTrue)
+	intP = Interpolate(p1, p3, 0.6)
+	test.That(t, OrientationAlmostEqual(p1.Orientation(), intP.Orientation()), test.ShouldBeTrue)
 }
 
 func TestLidarPose(t *testing.T) {
@@ -200,4 +220,34 @@ func BenchmarkPoseBetween(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		PoseBetween(p1b, p2b)
 	}
+}
+
+var result Pose
+
+func BenchmarkCompose(b *testing.B) {
+	r := rand.New(rand.NewSource(517))
+	var x Pose
+	numIter := 10000
+	poses := [][]Pose{}
+
+	for i := 0; i < numIter; i++ {
+		p1 := randPose(r)
+		p2 := randPose(r)
+		poses = append(poses, []Pose{p1, p2})
+	}
+	for i := 0; len(poses) < b.N; i++ {
+		poses = append(poses, []Pose{poses[i][0], poses[i][1]})
+	}
+
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		x = Compose(poses[n][0], poses[n][1])
+	}
+	// Prevent compiler from interfering with benchmark
+	result = x
+}
+
+func randPose(r *rand.Rand) Pose {
+	ov := &OrientationVector{2 * math.Pi * (r.Float64() - 0.5), r.Float64() - 0.5, r.Float64() - 0.5, r.Float64() - 0.5}
+	return NewPose(r3.Vector{300 * (r.Float64() - 0.5), 300 * (r.Float64() - 0.5), 300 * (r.Float64() - 0.5)}, ov)
 }

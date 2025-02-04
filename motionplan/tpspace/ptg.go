@@ -2,6 +2,7 @@
 package tpspace
 
 import (
+	"context"
 	"errors"
 	"math"
 
@@ -20,13 +21,14 @@ var flipPose = spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVector
 
 // PTGSolver wraps a PTG with the ability to perform Inverse Kinematics.
 type PTGSolver interface {
-	// Solve will return the (alpha, dist) TP-space coordinates whose corresponding relative pose minimizes the given function
-	ik.InverseKinematics
+	referenceframe.Limited
 	PTG
 
 	// Returns the set of trajectory nodes along the given trajectory, out to the requested distance.
 	// This will return `TrajNode`s starting at dist=start, and every `resolution` increments thereafter, and finally at `end` exactly.
 	Trajectory(alpha, start, end, resolution float64) ([]*TrajNode, error)
+	// Solve will return the (alpha, dist) TP-space coordinates whose corresponding relative pose minimizes the given function
+	Solve(context.Context, []referenceframe.Input, ik.StateMetric) (*ik.Solution, error)
 }
 
 // PTGProvider is something able to provide a set of PTGs associsated with it. For example, a frame which precomputes
@@ -170,6 +172,21 @@ func invertComputedPTG(forwardsPTG []*TrajNode) []*TrajNode {
 // travelled is the distance field of the ending configuration.
 func PTGSegmentMetric(segment *ik.Segment) float64 {
 	return segment.EndConfiguration[len(segment.EndConfiguration)-1].Value
+}
+
+// NewPTGDistanceMetric creates a metric which returns the TP-space distance traversed in a segment for a frame. Since PTG inputs are
+// relative, the distance travelled is the distance field of the ending configuration.
+func NewPTGDistanceMetric(ptgFrames []string) ik.SegmentFSMetric {
+	return func(segment *ik.SegmentFS) float64 {
+		score := 0.
+		for _, ptgFrame := range ptgFrames {
+			if frameCfg, ok := segment.EndConfiguration[ptgFrame]; ok {
+				score += frameCfg[len(frameCfg)-1].Value
+			}
+		}
+		// If there's no matching configuration in the end, then the frame does not move
+		return score
+	}
 }
 
 // PTGIKSeed will generate a consistent set of valid, in-bounds inputs to be used with a PTGSolver as a seed for gradient descent.

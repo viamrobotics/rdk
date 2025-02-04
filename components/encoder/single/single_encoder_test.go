@@ -112,13 +112,48 @@ func TestEncoder(t *testing.T) {
 		})
 	})
 
-	// this test ensures that digital interrupts are ignored if AttachDirectionalAwareness
-	// is never called
+	// this test ensures that position goes forward if motor not attached.
 	t.Run("run no direction", func(t *testing.T) {
 		enc, err := NewSingleEncoder(ctx, deps, rawcfg, logging.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		enc2 := enc.(*Encoder)
 		defer enc2.Close(context.Background())
+
+		err = ii.Tick(context.Background(), true, uint64(time.Now().UnixNano()))
+		test.That(t, err, test.ShouldBeNil)
+
+		// Give the tick time to propagate to encoder
+		// Warning: theres a race condition if the tick has not been processed
+		// by the encoder worker
+		time.Sleep(50 * time.Millisecond)
+
+		ticks, _, err := enc.Position(context.Background(), encoder.PositionTypeUnspecified, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, ticks, test.ShouldEqual, 1)
+	})
+
+	// Taking off directional awareness makes encoder tick forward.
+	t.Run("run motor then no motor", func(t *testing.T) {
+		enc, err := NewSingleEncoder(ctx, deps, rawcfg, logging.NewTestLogger(t))
+		test.That(t, err, test.ShouldBeNil)
+		enc2 := enc.(*Encoder)
+		defer enc2.Close(context.Background())
+
+		m := &FakeDir{-1} // backward
+		enc2.AttachDirectionalAwareness(m)
+
+		err = ii.Tick(context.Background(), true, uint64(time.Now().UnixNano()))
+		test.That(t, err, test.ShouldBeNil)
+
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			ticks, _, err := enc.Position(context.Background(), encoder.PositionTypeUnspecified, nil)
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, ticks, test.ShouldEqual, -1)
+		})
+
+		// take off directional awareness.
+		enc2.m = nil
 
 		err = ii.Tick(context.Background(), true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)

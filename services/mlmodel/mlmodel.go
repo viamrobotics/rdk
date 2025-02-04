@@ -1,5 +1,8 @@
 // Package mlmodel defines the client and server for a service that can take in a map of
 // input tensors/arrays, pass them through an inference engine, and then return a map output tensors/arrays.
+// For more information, see the [ML model service docs].
+//
+// [ML model service docs]: https://docs.viam.com/services/ml/deploy/
 package mlmodel
 
 import (
@@ -28,16 +31,39 @@ func init() {
 // Service defines the ML Model interface, which takes a map of inputs, runs it through
 // an inference engine, and creates a map of outputs. Metadata is necessary in order to build
 // the struct that will decode that map[string]interface{} correctly.
+// For more information, see the [ML model service docs].
 //
 // Infer example:
 //
-//	input_tensors := ml.Tensors{"0": tensor.New(tensor.WithShape(1, 2, 3), tensor.WithBacking([]int{1, 2, 3, 4, 5, 6}))}
+//	import (
+//		"go.viam.com/rdk/ml"
+//		"gorgonia.org/tensor"
+//	 )
+//
+//	myMLModel, err := mlmodel.FromRobot(machine, "my_mlmodel")
+//
+//	input_tensors := ml.Tensors{
+//		"image": tensor.New(
+//			tensor.Of(tensor.Uint8),
+//			tensor.WithShape(1, 384, 384, 3),
+//		        tensor.WithBacking(make([]uint8, 1*384*384*3)),
+//		),
+//	}
 //
 //	output_tensors, err := myMLModel.Infer(context.Background(), input_tensors)
 //
+// For more information, see the [Infer method docs].
+//
 // Metadata example:
 //
+//	myMLModel, err := mlmodel.FromRobot(machine, "my_mlmodel")
 //	metadata, err := myMLModel.Metadata(context.Background())
+//
+// For more information, see the [Metadata method docs].
+//
+// [ML model service docs]: https://docs.viam.com/data-ai/ai/deploy/
+// [Infer method docs]: https://docs.viam.com/dev/reference/apis/services/ml/#infer
+// [Metadata method docs]: https://docs.viam.com/dev/reference/apis/services/ml/#metadata
 type Service interface {
 	resource.Resource
 	// Infer returns an output tensor map after running an input tensor map through an interface model.

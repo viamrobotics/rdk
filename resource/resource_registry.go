@@ -43,12 +43,6 @@ type (
 		logger logging.Logger,
 	) (ResourceT, error)
 
-	// CreateStatus creates a status from a given resource. The return type is expected to be comprised of string keys
-	// (or it should be possible to decompose it into string keys) and values comprised of primitives, list of primitives,
-	// maps with string keys (or at least can be decomposed into one), or lists of the aforementioned type of maps.
-	// Results with other types of data are not guaranteed.
-	CreateStatus[ResourceT Resource] func(ctx context.Context, res ResourceT) (interface{}, error)
-
 	// A CreateRPCClient will create the client for the resource.
 	CreateRPCClient[ResourceT Resource] func(
 		ctx context.Context,
@@ -144,7 +138,6 @@ func (r Registration[ResourceT, ConfigT]) ConfigReflectType() reflect.Type {
 
 // APIRegistration stores api-specific functions and clients.
 type APIRegistration[ResourceT Resource] struct {
-	Status                      CreateStatus[ResourceT]
 	RPCServiceServerConstructor func(apiColl APIResourceCollection[ResourceT]) interface{}
 	RPCServiceHandler           rpc.RegisterServiceHandlerFromEndpointFunc
 	RPCServiceDesc              *grpc.ServiceDesc
@@ -270,7 +263,8 @@ func Register[ResourceT Resource, ConfigT ConfigValidator](
 	apiModel := APIModel{api, model}
 	_, old := registry[apiModel]
 	if old {
-		panic(errors.Errorf("trying to register two resources with same api: %q, model: %q", api, model))
+		logging.Global().Errorw("An api, model pair is being double registered. Overwriting the old with the new.",
+			"api", api, "model", model)
 	}
 	if reg.Constructor == nil && reg.DeprecatedRobotConstructor == nil {
 		panic(errors.Errorf("cannot register a nil constructor for api: %q, model: %q", api, model))
@@ -359,7 +353,8 @@ func RegisterAPI[ResourceT Resource](api API, creator APIRegistration[ResourceT]
 	defer registryMu.Unlock()
 	_, old := apiRegistry[api]
 	if old {
-		panic(errors.Errorf("trying to register two of the same resource api: %s", api))
+		logging.Global().Errorw("An api name is being double registered. Overwriting the old with the new.",
+			"api", api)
 	}
 	if creator.RPCServiceServerConstructor != nil &&
 		(creator.RPCServiceDesc == nil || creator.RPCServiceHandler == nil) {
@@ -437,9 +432,6 @@ func (g genericSubypeCollection[ResourceT]) Resource(name string) (Resource, err
 }
 
 func (g genericSubypeCollection[ResourceT]) ReplaceAll(resources map[Name]Resource) error {
-	if len(resources) == 0 {
-		return nil
-	}
 	copied := make(map[Name]ResourceT, len(resources))
 	for k, v := range resources {
 		typed, err := AsType[ResourceT](v)
@@ -488,15 +480,7 @@ func makeGenericAPIRegistration[ResourceT Resource](
 			return genericSubypeCollection[ResourceT]{NewEmptyAPIResourceCollection[ResourceT](api)}
 		},
 	}
-	if typed.Status != nil {
-		reg.Status = func(ctx context.Context, res Resource) (interface{}, error) {
-			typedRes, err := AsType[ResourceT](res)
-			if err != nil {
-				return nil, err
-			}
-			return typed.Status(ctx, typedRes)
-		}
-	}
+
 	if typed.RPCServiceServerConstructor != nil {
 		reg.RPCServiceServerConstructor = func(
 			coll APIResourceCollection[Resource],

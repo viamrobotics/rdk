@@ -73,7 +73,7 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger)
 			}
 			newConfig, err := readFromCloud(cancelCtx, config, prevCfg, false, checkForNewCert, logger)
 			if err != nil {
-				logger.Errorw("error reading cloud config", "error", err)
+				logger.Debugw("error reading cloud config; will try again", "error", err)
 				continue
 			}
 			if cp, err := newConfig.CopyOnlyPublicFields(); err == nil {

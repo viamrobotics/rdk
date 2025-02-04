@@ -3,19 +3,19 @@ package client
 
 import (
 	"context"
-	"flag"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"testing"
 	"time"
 
 	"github.com/fullstorydev/grpcurl"
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
-	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -27,12 +27,14 @@ import (
 	"go.viam.com/utils/rpc"
 	googlegrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/cloud"
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
@@ -45,6 +47,7 @@ import (
 	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/tunnel"
 	"go.viam.com/rdk/utils/contextutils"
 )
 
@@ -58,6 +61,12 @@ var (
 
 	// defaultResourcesTimeout is the default timeout for getting resources.
 	defaultResourcesTimeout = 5 * time.Second
+
+	// DoNotWaitForRunning should be set only in tests to allow connecting to
+	// still-initializing machines. Note that robot clients in production (not in
+	// a testing environment) will already allow connecting to still-initializing
+	// machines.
+	DoNotWaitForRunning = atomic.Bool{}
 )
 
 // RobotClient satisfies the robot.Robot interface through a gRPC based
@@ -97,6 +106,12 @@ type RobotClient struct {
 	heartbeatWorkers   sync.WaitGroup
 	heartbeatCtx       context.Context
 	heartbeatCtxCancel func()
+
+	// If we ever connect to a server using webrtc, we want all subsequent connections to force
+	// webrtc. Some operations such as video streaming are much more performant when using
+	// webrtc. We don't want a network disconnect to result in reconnecting over tcp such that
+	// performance would be impacted.
+	serverIsWebrtcEnabled bool
 }
 
 // RemoteTypeName is the type name used for a remote. This is for internal use.
@@ -122,15 +137,37 @@ func skipConnectionCheck(method string) bool {
 	return exemptFromConnectionCheck[method]
 }
 
-func isClosedPipeError(err error) bool {
+// TODO(RSDK-9333): Better account for possible gRPC interaction errors
+// and transform them appropriately.
+//
+// NOTE(benjirewis): I believe gRPC interactions can fail in
+// three broad ways, each with one to three error paths:
+//
+//  1. Creation of stream
+//     a. `rpc.ErrDisconnected` returned due to underlying channel closure
+//  2. Sending of headers/message representing request
+//     a. Proto marshal failure
+//     b. `io.ErrClosedPipe` due to write to a closed socket
+//     c. Possible SCTP errors `ErrStreamClosed` and `ErrOutboundPacketTooLarge`
+//  3. Receiving of response
+//     a. Proto unmarshal failure
+//     b. `io.EOF` due to reading from a closed socket
+//     c. Context deadline exceeded due to timeout
+//     d. Context canceled due to client cancelation
+//
+// Ideally, these paths would all be represented in a single error type that a
+// Golang SDK user could treat as one error, and we could examine the message
+// of the error to see _where_ exactly the failure was in the interaction.
+func isDisconnectedError(err error) bool {
 	if err == nil {
 		return false
 	}
-	return strings.Contains(err.Error(), io.ErrClosedPipe.Error())
+	return errors.Is(err, rpc.ErrDisconnected) ||
+		strings.Contains(err.Error(), io.ErrClosedPipe.Error())
 }
 
 func (rc *RobotClient) notConnectedToRemoteError() error {
-	return errors.Errorf("not connected to remote robot at %s", rc.address)
+	return fmt.Errorf("not connected to remote robot at %s", rc.address)
 }
 
 func (rc *RobotClient) handleUnaryDisconnect(
@@ -153,7 +190,7 @@ func (rc *RobotClient) handleUnaryDisconnect(
 	err := invoker(ctx, method, req, reply, cc, opts...)
 	// we might lose connection before our background check detects it - in this case we
 	// should still surface a helpful error message.
-	if isClosedPipeError(err) {
+	if isDisconnectedError(err) {
 		return status.Error(codes.Unavailable, rc.notConnectedToRemoteError().Error())
 	}
 	return err
@@ -172,7 +209,7 @@ func (cs *handleDisconnectClientStream) RecvMsg(m interface{}) error {
 	// we might lose connection before our background check detects it - in this case we
 	// should still surface a helpful error message.
 	err := cs.ClientStream.RecvMsg(m)
-	if isClosedPipeError(err) {
+	if isDisconnectedError(err) {
 		return status.Error(codes.Unavailable, cs.RobotClient.notConnectedToRemoteError().Error())
 	}
 
@@ -199,7 +236,7 @@ func (rc *RobotClient) handleStreamDisconnect(
 	cs, err := streamer(ctx, desc, cc, method, opts...)
 	// we might lose connection before our background check detects it - in this case we
 	// should still surface a helpful error message.
-	if isClosedPipeError(err) {
+	if isDisconnectedError(err) {
 		return nil, status.Error(codes.Unavailable, rc.notConnectedToRemoteError().Error())
 	}
 	return &handleDisconnectClientStream{cs, rc}, err
@@ -249,10 +286,53 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		rpc.WithUnaryClientInterceptor(operation.UnaryClientInterceptor),
 		rpc.WithStreamClientInterceptor(operation.StreamClientInterceptor),
 		rpc.WithUnaryClientInterceptor(logging.UnaryClientInterceptor),
+		// sending version metadata
+		rpc.WithUnaryClientInterceptor(unaryClientInterceptor()),
+		rpc.WithStreamClientInterceptor(streamClientInterceptor()),
 	)
 
-	if err := rc.connect(ctx); err != nil {
+	if rOpts.modName != "" {
+		inter := &grpc.ModInterceptors{ModName: rOpts.modName}
+		rc.dialOptions = append(rc.dialOptions, rpc.WithUnaryClientInterceptor(inter.UnaryClientInterceptor))
+	}
+
+	if err := rc.Connect(ctx); err != nil {
 		return nil, err
+	}
+
+	// If running in a testing environment, wait for machine to report a state of
+	// running. We often establish connections in tests and expect resources to
+	// be immediately available once the web service has started; resources will
+	// not be available when the machine is still initializing.
+	//
+	// It is expected that golang SDK users will handle lack of resource
+	// availability due to the machine being in an initializing state themselves.
+	//
+	// Allow this behavior to be turned off in some tests that specifically want
+	// to examine the behavior of a machine in an initializing state through the
+	// use of a global variable.
+	if testing.Testing() && !DoNotWaitForRunning.Load() {
+		for {
+			if ctx.Err() != nil {
+				return nil, multierr.Combine(ctx.Err(), rc.conn.Close())
+			}
+
+			mStatus, err := rc.MachineStatus(ctx)
+			if err != nil {
+				// Allow for MachineStatus to not be injected/implemented in some tests.
+				if status.Code(err) == codes.Unimplemented {
+					break
+				}
+				// Ignore error from Close and just return original machine status error.
+				utils.UncheckedError(rc.conn.Close())
+				return nil, err
+			}
+
+			if mStatus.State == robot.StateRunning {
+				break
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
 	}
 
 	// refresh once to hydrate the robot.
@@ -326,7 +406,8 @@ func (rc *RobotClient) Changed() <-chan bool {
 	return rc.changeChan
 }
 
-func (rc *RobotClient) connect(ctx context.Context) error {
+// Connect will close any existing connection and try to reconnect to the remote.
+func (rc *RobotClient) Connect(ctx context.Context) error {
 	if err := rc.connectWithLock(ctx); err != nil {
 		return err
 	}
@@ -345,7 +426,47 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 	if err := rc.conn.Close(); err != nil {
 		return err
 	}
-	conn, err := grpc.Dial(ctx, rc.address, rc.logger, rc.dialOptions...)
+
+	// Try forcing a webrtc connection.
+	dialOptionsWebRTCOnly := make([]rpc.DialOption, len(rc.dialOptions)+1)
+	// Put our "disable GRPC" option in front and the user input values at the end. This ensures
+	// user inputs take precedence.
+	copy(dialOptionsWebRTCOnly[1:], rc.dialOptions)
+	dialOptionsWebRTCOnly[0] = rpc.WithDisableDirectGRPC()
+
+	dialLogger := rc.logger.Sublogger("networking")
+	conn, err := grpc.Dial(ctx, rc.address, dialLogger, dialOptionsWebRTCOnly...)
+	if err == nil {
+		// If we succeed with a webrtc connection, flip the `serverIsWebrtcEnabled` to force all future
+		// connections to use webrtc.
+		if !rc.serverIsWebrtcEnabled {
+			rc.logger.Info("A WebRTC connection was made to the robot. ",
+				"Reconnects will disallow direct gRPC connections.")
+			rc.serverIsWebrtcEnabled = true
+		}
+	} else if !rc.serverIsWebrtcEnabled {
+		// If we failed to connect via webrtc and* we've never previously connected over webrtc, try
+		// to connect with a grpc over a tcp connection.
+		//
+		// Put our "force GRPC" option in front and the user input values at the end. This ensures
+		// user inputs take precedence.
+		dialOptionsGRPCOnly := make([]rpc.DialOption, len(rc.dialOptions)+2)
+		copy(dialOptionsGRPCOnly[2:], rc.dialOptions)
+		dialOptionsGRPCOnly[0] = rpc.WithForceDirectGRPC()
+
+		// Using `WithForceDirectGRPC` disables mdns lookups. This is not the same behavior as a
+		// webrtc dial which will* fallback to a direct grpc connection with* the mdns address. So
+		// we add this flag to partially override the above override.
+		dialOptionsGRPCOnly[1] = rpc.WithDialMulticastDNSOptions(rpc.DialMulticastDNSOptions{Disable: false})
+
+		grpcConn, grpcErr := grpc.Dial(ctx, rc.address, dialLogger, dialOptionsGRPCOnly...)
+		if grpcErr == nil {
+			conn = grpcConn
+			err = nil
+		} else {
+			err = multierr.Combine(err, grpcErr)
+		}
+	}
 	if err != nil {
 		return err
 	}
@@ -380,6 +501,7 @@ func (rc *RobotClient) updateResourceClients(ctx context.Context) error {
 	for resourceName, client := range rc.resourceClients {
 		// check if no longer an active resource
 		if !activeResources[resourceName] {
+			rc.logger.Infow("Removing resource from remote client", "resourceName", resourceName)
 			if err := client.Close(ctx); err != nil {
 				rc.Logger().CError(ctx, err)
 				continue
@@ -410,7 +532,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 		}
 		if !rc.connected.Load() {
 			rc.Logger().CInfow(ctx, "trying to reconnect to remote at address", "address", rc.address)
-			if err := rc.connect(ctx); err != nil {
+			if err := rc.Connect(ctx); err != nil {
 				rc.Logger().CErrorw(ctx, "failed to reconnect remote", "error", err, "address", rc.address)
 				continue
 			}
@@ -432,8 +554,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 				err := check()
 				if err != nil {
 					outerError = err
-					// if pipe is closed, we know for sure we lost connection
-					if isClosedPipeError(err) {
+					if isDisconnectedError(err) {
 						break
 					}
 					// otherwise retry
@@ -561,7 +682,8 @@ func (rc *RobotClient) createClient(name resource.Name) (resource.Resource, erro
 	if !ok || apiInfo.RPCClient == nil {
 		return grpc.NewForeignResource(name, &rc.conn), nil
 	}
-	return apiInfo.RPCClient(rc.backgroundCtx, &rc.conn, rc.remoteName, name, rc.Logger())
+	logger := rc.Logger().Sublogger(resource.RemoveRemoteName(name).ShortName())
+	return apiInfo.RPCClient(rc.backgroundCtx, &rc.conn, rc.remoteName, name, logger)
 }
 
 func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resource.RPCAPI, error) {
@@ -570,10 +692,7 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 	// pauses for longer than 5s, below calls to ResourceNames or
 	// ResourceRPCSubtypes can result in context errors that appear in client.New
 	// and remote logic.
-	//
-	// TODO(APP-2917): Once we upgrade to go 1.21, replace this if check with if
-	// !testing.Testing().
-	if flag.Lookup("test.v") == nil {
+	if !testing.Testing() {
 		var cancel func()
 		ctx, cancel = contextutils.ContextWithTimeoutIfNoDeadline(ctx, defaultResourcesTimeout)
 		defer cancel()
@@ -615,7 +734,7 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 			}
 			svcDesc, ok := symDesc.(*desc.ServiceDescriptor)
 			if !ok {
-				return nil, nil, errors.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
+				return nil, nil, fmt.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
 			}
 			resTypes = append(resTypes, resource.RPCAPI{
 				API:  rprotoutils.ResourceNameFromProto(resAPI.Subtype).API,
@@ -647,7 +766,7 @@ func (rc *RobotClient) updateResources(ctx context.Context) error {
 
 	names, rpcAPIs, err := rc.resources(ctx)
 	if err != nil && status.Code(err) != codes.Unimplemented {
-		return err
+		return fmt.Errorf("error updating resources: %w", err)
 	}
 
 	rc.resourceNames = make([]resource.Name, 0, len(names))
@@ -747,6 +866,7 @@ func (rc *RobotClient) Logger() logging.Logger {
 	return rc.logger
 }
 
+// DiscoverComponents is DEPRECATED!!! Please use the Discovery Service instead.
 // DiscoverComponents takes a list of discovery queries and returns corresponding
 // component configurations.
 //
@@ -758,12 +878,24 @@ func (rc *RobotClient) Logger() logging.Logger {
 //
 //	// Get component configurations with these queries.
 //	component_configs, err := machine.DiscoverComponents(ctx.Background(), qs)
+//
+//nolint:deprecated,staticcheck
 func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error) {
+	rc.logger.Warn(
+		"DiscoverComponents is deprecated and will be removed on March 10th 2025. Please use the Discovery Service instead.")
 	pbQueries := make([]*pb.DiscoveryQuery, 0, len(qs))
 	for _, q := range qs {
+		extra, err := structpb.NewStruct(q.Extra)
+		if err != nil {
+			return nil, err
+		}
 		pbQueries = append(
 			pbQueries,
-			&pb.DiscoveryQuery{Subtype: q.API.String(), Model: q.Model.String()},
+			&pb.DiscoveryQuery{
+				Subtype: q.API.String(),
+				Model:   q.Model.String(),
+				Extra:   extra,
+			},
 		)
 	}
 
@@ -785,6 +917,7 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.Dis
 		q := resource.DiscoveryQuery{
 			API:   s,
 			Model: m,
+			Extra: disc.Query.Extra.AsMap(),
 		}
 		discoveries = append(
 			discoveries, resource.Discovery{
@@ -793,6 +926,32 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.Dis
 			})
 	}
 	return discoveries, nil
+}
+
+// GetModelsFromModules  returns the available models from the configured modules on a given machine.
+func (rc *RobotClient) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModelDiscovery, error) {
+	resp, err := rc.client.GetModelsFromModules(ctx, &pb.GetModelsFromModulesRequest{})
+	if err != nil {
+		return nil, err
+	}
+	protoModels := resp.GetModels()
+	models := []resource.ModuleModelDiscovery{}
+	for _, protoModel := range protoModels {
+		modelTriplet, err := resource.NewModelFromString(protoModel.Model)
+		if err != nil {
+			return nil, err
+		}
+		api, err := resource.NewAPIFromString(protoModel.Api)
+		if err != nil {
+			return nil, err
+		}
+		model := resource.ModuleModelDiscovery{
+			ModuleName: protoModel.ModuleName, Model: modelTriplet, API: api,
+			FromLocalModule: protoModel.FromLocalModule,
+		}
+		models = append(models, model)
+	}
+	return models, nil
 }
 
 // FrameSystemConfig  returns the configuration of the frame system of a given machine.
@@ -873,34 +1032,6 @@ func (rc *RobotClient) TransformPointCloud(ctx context.Context, srcpc pointcloud
 	return pointcloud.ApplyOffset(ctx, srcpc, transformPose, rc.Logger())
 }
 
-// Status returns the status of the resources on the machine. You can provide a list of ResourceNames for which you want
-// statuses. If no names are passed in, the status of every resource available on the machine is returned.
-//
-//	status, err := machine.Status(ctx.Background())
-func (rc *RobotClient) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-	names := make([]*commonpb.ResourceName, 0, len(resourceNames))
-	for _, name := range resourceNames {
-		names = append(names, rprotoutils.ResourceNameToProto(name))
-	}
-
-	//nolint:staticcheck // the status API is deprecated
-	resp, err := rc.client.GetStatus(ctx, &pb.GetStatusRequest{ResourceNames: names})
-	if err != nil {
-		return nil, err
-	}
-
-	statuses := make([]robot.Status, 0, len(resp.Status))
-	for _, status := range resp.Status {
-		statuses = append(
-			statuses, robot.Status{
-				Name:             rprotoutils.ResourceNameFromProto(status.Name),
-				LastReconfigured: status.LastReconfigured.AsTime(),
-				Status:           status.Status.AsMap(),
-			})
-	}
-	return statuses, nil
-}
-
 // StopAll cancels all current and outstanding operations for the machine and stops all actuators and movement.
 //
 //	err := machine.StopAll(ctx.Background())
@@ -961,17 +1092,12 @@ func (rc *RobotClient) Log(ctx context.Context, log zapcore.Entry, fields []zap.
 //
 //	metadata, err := machine.CloudMetadata(ctx.Background())
 func (rc *RobotClient) CloudMetadata(ctx context.Context) (cloud.Metadata, error) {
-	cloudMD := cloud.Metadata{}
 	req := &pb.GetCloudMetadataRequest{}
 	resp, err := rc.client.GetCloudMetadata(ctx, req)
 	if err != nil {
-		return cloudMD, err
+		return cloud.Metadata{}, err
 	}
-	cloudMD.PrimaryOrgID = resp.PrimaryOrgId
-	cloudMD.LocationID = resp.LocationId
-	cloudMD.MachineID = resp.MachineId
-	cloudMD.MachinePartID = resp.MachinePartId
-	return cloudMD, nil
+	return rprotoutils.MetadataFromProto(resp), nil
 }
 
 // RestartModule restarts a running module by name or ID.
@@ -1015,4 +1141,200 @@ func (rc *RobotClient) Shutdown(ctx context.Context) error {
 	}
 	rc.Logger().CDebug(ctx, "robot shutdown successful")
 	return nil
+}
+
+// MachineStatus returns the current status of the robot.
+func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
+	mStatus := robot.MachineStatus{}
+
+	req := &pb.GetMachineStatusRequest{}
+	resp, err := rc.client.GetMachineStatus(ctx, req)
+	if err != nil {
+		return mStatus, err
+	}
+
+	if resp.Config != nil {
+		mStatus.Config = config.Revision{
+			Revision:    resp.Config.Revision,
+			LastUpdated: resp.Config.LastUpdated.AsTime(),
+		}
+	}
+
+	mStatus.Resources = make([]resource.Status, 0, len(resp.Resources))
+	for _, pbResStatus := range resp.Resources {
+		resStatus := resource.Status{
+			NodeStatus: resource.NodeStatus{
+				Name:        rprotoutils.ResourceNameFromProto(pbResStatus.Name),
+				LastUpdated: pbResStatus.LastUpdated.AsTime(),
+				Revision:    pbResStatus.Revision,
+			},
+			CloudMetadata: rprotoutils.MetadataFromProto(pbResStatus.CloudMetadata),
+		}
+
+		switch pbResStatus.State {
+		case pb.ResourceStatus_STATE_UNSPECIFIED:
+			rc.logger.CErrorw(ctx, "received resource in an unspecified state", "resource", resStatus.Name.String())
+			resStatus.State = resource.NodeStateUnknown
+		case pb.ResourceStatus_STATE_UNCONFIGURED:
+			resStatus.State = resource.NodeStateUnconfigured
+		case pb.ResourceStatus_STATE_CONFIGURING:
+			resStatus.State = resource.NodeStateConfiguring
+		case pb.ResourceStatus_STATE_READY:
+			resStatus.State = resource.NodeStateReady
+		case pb.ResourceStatus_STATE_REMOVING:
+			resStatus.State = resource.NodeStateRemoving
+		case pb.ResourceStatus_STATE_UNHEALTHY:
+			resStatus.State = resource.NodeStateUnhealthy
+			if pbResStatus.Error != "" {
+				resStatus.Error = errors.New(pbResStatus.Error)
+			}
+		}
+
+		mStatus.Resources = append(mStatus.Resources, resStatus)
+	}
+
+	switch resp.State {
+	case pb.GetMachineStatusResponse_STATE_UNSPECIFIED:
+		rc.logger.CError(ctx, "received unspecified machine state")
+		mStatus.State = robot.StateUnknown
+	case pb.GetMachineStatusResponse_STATE_INITIALIZING:
+		mStatus.State = robot.StateInitializing
+	case pb.GetMachineStatusResponse_STATE_RUNNING:
+		mStatus.State = robot.StateRunning
+	}
+
+	return mStatus, nil
+}
+
+// Version returns version information about the machine.
+func (rc *RobotClient) Version(ctx context.Context) (robot.VersionResponse, error) {
+	mVersion := robot.VersionResponse{}
+
+	resp, err := rc.client.GetVersion(ctx, &pb.GetVersionRequest{})
+	if err != nil {
+		return mVersion, err
+	}
+
+	mVersion.Platform = resp.Platform
+	mVersion.Version = resp.Version
+	mVersion.APIVersion = resp.ApiVersion
+
+	return mVersion, nil
+}
+
+// Tunnel tunnels data to/from the read writer from/to the destination port on the server. This
+// function will close the connection passed in as part of cleanup.
+func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest int) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	client, err := rc.client.Tunnel(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := client.Send(&pb.TunnelRequest{
+		DestinationPort: uint32(dest),
+	}); err != nil {
+		return err
+	}
+	rc.Logger().CInfow(ctx, "creating tunnel to server", "port", dest)
+	var (
+		wg              sync.WaitGroup
+		readerSenderErr error
+
+		timerMu sync.Mutex
+		timer   *time.Timer
+	)
+	connClosed := make(chan struct{})
+	rsDone := make(chan struct{})
+	wg.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer func() {
+			// We communicate an end to the stream by calling CloseSend().
+			// Close the channel first so that network errors can be filtered
+			// and prevented in the RecvWriterLoop.
+			close(rsDone)
+			readerSenderErr = errors.Join(readerSenderErr, client.CloseSend())
+
+			// Schedule a task to cancel the context if we do not exit out of the recvWriterLoop within 5 seconds.
+			// This will close the client, meaning client.Recv() in the RecvWriterLoop will exit and return an error.
+			//
+			// NOTE(cheukt): This may cause DEBUG messages from WebRTC stating `no stream for id; discarding`
+			// to show up because the handler will have exited before we receive the last messages from the server.
+			// This is not an issue and is expected.
+			timerMu.Lock()
+			timer = time.AfterFunc(5*time.Second, cancel)
+			timerMu.Unlock()
+			wg.Done()
+		}()
+		// a max of 32kb will be sent per message (based on io.Copy's default buffer size)
+		sendFunc := func(data []byte) error { return client.Send(&pb.TunnelRequest{Data: data}) }
+		readerSenderErr = tunnel.ReaderSenderLoop(ctx, conn, sendFunc, connClosed, rc.logger.WithFields("loop", "reader/sender"))
+	})
+
+	recvFunc := func() ([]byte, error) {
+		resp, err := client.Recv()
+		if err != nil {
+			return nil, err
+		}
+		return resp.Data, nil
+	}
+	recvWriterErr := tunnel.RecvWriterLoop(ctx, recvFunc, conn, rsDone, rc.logger.WithFields("loop", "recv/writer"))
+	timerMu.Lock()
+	// cancel the timer if we've successfully returned from the RecvWriterLoop
+	if timer != nil {
+		timer.Stop()
+	}
+	timerMu.Unlock()
+
+	// We close the connection to unblock the reader/sender loop, which is not clean
+	// but there isn't a cleaner way to exit from the reader/sender loop.
+	// Close the channel first so that network errors can be filtered
+	// and prevented in the ReaderSenderLoop.
+	close(connClosed)
+	err = conn.Close()
+
+	wg.Wait()
+	rc.Logger().CInfow(ctx, "tunnel to server closed", "port", dest)
+	return errors.Join(err, readerSenderErr, recvWriterErr)
+}
+
+func unaryClientInterceptor() googlegrpc.UnaryClientInterceptor {
+	return func(
+		ctx context.Context,
+		method string,
+		req, reply interface{},
+		cc *googlegrpc.ClientConn,
+		invoker googlegrpc.UnaryInvoker,
+		opts ...googlegrpc.CallOption,
+	) error {
+		md, err := robot.Version()
+		if err != nil {
+			ctx = metadata.AppendToOutgoingContext(ctx, "viam_client", "go;unknown;unknown")
+			return invoker(ctx, method, req, reply, cc, opts...)
+		}
+		stringMd := fmt.Sprintf("go;%s;%s", md.Version, md.APIVersion)
+		ctx = metadata.AppendToOutgoingContext(ctx, "viam_client", stringMd)
+		return invoker(ctx, method, req, reply, cc, opts...)
+	}
+}
+
+func streamClientInterceptor() googlegrpc.StreamClientInterceptor {
+	return func(
+		ctx context.Context,
+		desc *googlegrpc.StreamDesc,
+		cc *googlegrpc.ClientConn,
+		method string,
+		streamer googlegrpc.Streamer,
+		opts ...googlegrpc.CallOption,
+	) (cs googlegrpc.ClientStream, err error) {
+		md, err := robot.Version()
+		if err != nil {
+			ctx = metadata.AppendToOutgoingContext(ctx, "viam_client", "go;unknown;unknown")
+			return streamer(ctx, desc, cc, method, opts...)
+		}
+		stringMd := fmt.Sprintf("go;%s;%s", md.Version, md.APIVersion)
+		ctx = metadata.AppendToOutgoingContext(ctx, "viam_client", stringMd)
+		return streamer(ctx, desc, cc, method, opts...)
+	}
 }

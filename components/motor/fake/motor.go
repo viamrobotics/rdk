@@ -31,7 +31,9 @@ var (
 	}
 )
 
-const defaultMaxRpm = 100
+const (
+	defaultMaxRpm = 100
+)
 
 // PinConfig defines the mapping of where motor are wired.
 type PinConfig struct {
@@ -251,8 +253,6 @@ func (m *Motor) Direction() int {
 	return 0
 }
 
-// If revolutions is 0, the returned wait duration will be 0 representing that
-// the motor should run indefinitely.
 func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration, float64) {
 	// need to do this so time is reasonable
 	if rpm > maxRPM {
@@ -260,16 +260,9 @@ func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration, float6
 	} else if rpm < -1*maxRPM {
 		rpm = -1 * maxRPM
 	}
-	if rpm == 0 {
-		return 0, 0, revolutions / math.Abs(revolutions)
-	}
 
-	if revolutions == 0 {
-		powerPct := rpm / maxRPM
-		return powerPct, 0, 1
-	}
+	dir := motor.GetRequestedDirection(rpm, revolutions)
 
-	dir := rpm * revolutions / math.Abs(revolutions*rpm)
 	powerPct := math.Abs(rpm) / maxRPM * dir
 	waitDur := time.Duration(math.Abs(revolutions/rpm)*60*1000) * time.Millisecond
 	return powerPct, waitDur, dir
@@ -300,6 +293,10 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 		return err
 	}
 
+	if err := motor.CheckRevolutions(revolutions); err != nil {
+		return err
+	}
+
 	powerPct, waitDur, dir := goForMath(m.MaxRPM, rpm, revolutions)
 
 	var finalPos float64
@@ -314,10 +311,6 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 	err = m.SetPower(ctx, powerPct, nil)
 	if err != nil {
 		return err
-	}
-
-	if revolutions == 0 {
-		return nil
 	}
 
 	if m.OpMgr.NewTimedWaitOp(ctx, waitDur) {
@@ -351,8 +344,9 @@ func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]int
 	if err != nil {
 		return err
 	}
-	if curPos == pos {
-		return nil
+
+	if err := motor.CheckRevolutions(pos - curPos); err != nil {
+		return err
 	}
 
 	revolutions := pos - curPos
@@ -362,10 +356,6 @@ func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]int
 	err = m.SetPower(ctx, powerPct, nil)
 	if err != nil {
 		return err
-	}
-
-	if revolutions == 0 {
-		return nil
 	}
 
 	if m.OpMgr.NewTimedWaitOp(ctx, waitDur) {

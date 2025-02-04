@@ -34,7 +34,7 @@ func (sb *sensorBase) MoveStraight(
 	// If a position movement sensor or controls are not configured, we cannot use this MoveStraight method.
 	// Instead we need to use the MoveStraight method of the base that the sensorcontrolled base wraps.
 	// If there is no valid velocity sensor, there won't be a controlLoopConfig.
-	if len(sb.controlLoopConfig.Blocks) == 0 {
+	if sb.controlLoopConfig == nil {
 		sb.logger.CWarnf(ctx,
 			"control loop not configured, using base %s's MoveStraight",
 			sb.controlledBase.Name().ShortName())
@@ -52,6 +52,11 @@ func (sb *sensorBase) MoveStraight(
 			distanceMm = -distanceMm
 			mmPerSec = -mmPerSec
 		}
+	}
+
+	// check tuning status
+	if err := sb.checkTuningStatus(); err != nil {
+		return err
 	}
 
 	// make sure the control loop is enabled
@@ -100,9 +105,10 @@ func (sb *sensorBase) MoveStraight(
 	for {
 		select {
 		case <-ctx.Done():
-			// do not return context canceled errors, just log them
+			// context.cancelled can happen due to UI being closed during MoveStraight.
+			// Do not return context canceled errors, just log them
 			if errors.Is(ctx.Err(), context.Canceled) {
-				sb.logger.Error(ctx.Err())
+				sb.logger.Warnf("Context cancelled during MoveStraight ", ctx.Err())
 				return nil
 			}
 			return ctx.Err()

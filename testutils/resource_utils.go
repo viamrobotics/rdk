@@ -4,10 +4,14 @@ import (
 	"cmp"
 	"context"
 	"slices"
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/kylelemons/godebug/pretty"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/resource"
 )
 
@@ -56,11 +60,116 @@ func newSortedResourceNames(resourceNames []resource.Name) []resource.Name {
 }
 
 // VerifySameResourceNames asserts that two slices of resource.Names contain the same
-// resources.Names without considering order.
+// resources.Names without considering order. To make debugging failures easier, this
+// function prints out differing [resource.Name] elements both as structs and
+// strings.
 func VerifySameResourceNames(tb testing.TB, actual, expected []resource.Name) {
 	tb.Helper()
 
-	test.That(tb, newSortedResourceNames(actual), test.ShouldResemble, newSortedResourceNames(expected))
+	actualSorted := newSortedResourceNames(actual)
+	expectedSorted := newSortedResourceNames(expected)
+
+	// This deferred function provides more concise output for debugging on failure
+	defer func() {
+		if !tb.Failed() {
+			return
+		}
+		var sb strings.Builder
+		expectedNames := make([]string, len(expectedSorted))
+		actualNames := make([]string, len(actualSorted))
+		for i, exp := range expectedSorted {
+			expectedNames[i] = exp.String()
+		}
+		for i, act := range actualSorted {
+			actualNames[i] = act.String()
+		}
+		sb.WriteString("Resource names do not match - see diff below: (-expected +actual)\n")
+		sb.WriteString(pretty.Compare(expectedNames, actualNames))
+		tb.Log(sb.String())
+	}()
+
+	test.That(tb, actualSorted, test.ShouldResemble, expectedSorted)
+}
+
+// VerifySameResourceStatuses asserts that two slices of [resource.Status] contain the
+// same elements without considering order. Does not consider
+// [resource.Status.LastUpdated] timestamps when comparing.
+func VerifySameResourceStatuses(tb testing.TB, actual, expected []resource.Status) {
+	tb.Helper()
+
+	sortedActual := newSortedResourceStatuses(actual)
+	sortedExpected := newSortedResourceStatuses(expected)
+
+	for i := range sortedActual {
+		sortedActual[i].LastUpdated = time.Time{}
+	}
+	for i := range sortedExpected {
+		sortedExpected[i].LastUpdated = time.Time{}
+	}
+
+	// This deferred function provides more concise output for debugging on failure
+	defer func() {
+		if !tb.Failed() {
+			return
+		}
+		var sb strings.Builder
+
+		type stat struct {
+			Name          string
+			CloudMetadata cloud.Metadata
+			State         resource.NodeState
+			Revision      string
+			Error         error
+		}
+		expectedStatuses := make([]stat, len(sortedExpected))
+		for i, exp := range sortedExpected {
+			expectedStatuses[i] = stat{
+				Name:          exp.Name.String(),
+				CloudMetadata: exp.CloudMetadata,
+				State:         exp.State,
+				Revision:      exp.Revision,
+				Error:         exp.Error,
+			}
+		}
+		actualStatuses := make([]stat, len(sortedActual))
+		for i, act := range sortedActual {
+			actualStatuses[i] = stat{
+				Name:          act.Name.String(),
+				CloudMetadata: act.CloudMetadata,
+				State:         act.State,
+				Revision:      act.Revision,
+				Error:         act.Error,
+			}
+		}
+		sb.WriteString("Resource statuses do not match - see diff below: (-expected +actual)\n")
+		sb.WriteString(pretty.Compare(expectedStatuses, actualStatuses))
+		tb.Log(sb.String())
+	}()
+
+	test.That(tb, sortedActual, test.ShouldResemble, sortedExpected)
+}
+
+// FilterByStatus takes a slice of [resource.Status] and a [resource.NodeState] and
+// returns a slice of [resource.Status] that are in the given [resource.NodeState].
+func FilterByStatus(tb testing.TB, resourceStatuses []resource.Status, state resource.NodeState) []resource.Status {
+	tb.Helper()
+
+	var result []resource.Status
+	for _, rs := range resourceStatuses {
+		if rs.State == state {
+			result = append(result, rs)
+		}
+	}
+	return result
+}
+
+func newSortedResourceStatuses(resourceStatuses []resource.Status) []resource.Status {
+	sorted := make([]resource.Status, len(resourceStatuses))
+	copy(sorted, resourceStatuses)
+	slices.SortStableFunc(sorted, func(r1, r2 resource.Status) int {
+		return cmp.Compare(r1.Name.String(), r2.Name.String())
+	})
+	return sorted
 }
 
 // ExtractNames takes a slice of resource.Name objects
@@ -125,6 +234,17 @@ func ConcatResourceNames(values ...[]resource.Name) []resource.Name {
 		rNames = append(rNames, v...)
 	}
 	return rNames
+}
+
+// ConcatResourceStatuses takes a slice of slices of resource.Status objects and returns
+// a concatenated slice of resource.Status for the purposes of comparison in automated
+// tests.
+func ConcatResourceStatuses(values ...[]resource.Status) []resource.Status {
+	var rs []resource.Status
+	for _, v := range values {
+		rs = append(rs, v...)
+	}
+	return rs
 }
 
 // AddSuffixes takes a slice of resource.Name objects and for each suffix,

@@ -22,7 +22,7 @@ type Distorter interface {
 
 // InvalidDistortionError is used when the distortion_parameters are invalid.
 func InvalidDistortionError(msg string) error {
-	return errors.Wrapf(errors.New("invalid distortion_parameters"), msg)
+	return errors.Wrapf(errors.New("invalid distortion_parameters"), msg) //nolint:govet
 }
 
 // NewDistorter returns a Distorter given a valid DistortionType and its parameters.

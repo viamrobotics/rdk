@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,14 +17,15 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pion/rtp"
-	"github.com/pion/webrtc/v3"
 	"github.com/pkg/errors"
+	"github.com/viamrobotics/webrtc/v3"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/module/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils"
+	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
 	"google.golang.org/grpc"
@@ -37,6 +39,7 @@ import (
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
+	"go.viam.com/rdk/services/discovery"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -52,6 +55,9 @@ const (
 	// https://viam.atlassian.net/browse/RSDK-7521
 	// maxSupportedWebRTCTRacks is the max number of WebRTC tracks that can be supported given wihout hitting the sctp SDP message size limit.
 	maxSupportedWebRTCTRacks = 9
+
+	// NoModuleParentEnvVar indicates whether there is a parent for a module being started.
+	NoModuleParentEnvVar = "VIAM_NO_MODULE_PARENT"
 )
 
 // errMaxSupportedWebRTCTrackLimit is the error returned when the MaxSupportedWebRTCTRacks limit is reached.
@@ -129,22 +135,26 @@ func NewHandlerMapFromProto(ctx context.Context, pMap *pb.HandlerMap, conn rpc.C
 	var errs error
 	for _, h := range pMap.GetHandlers() {
 		api := protoutils.ResourceNameFromProto(h.Subtype.Subtype).API
-
-		symDesc, err := reflSource.FindSymbol(h.Subtype.ProtoService)
-		if err != nil {
-			errs = multierr.Combine(errs, err)
-			if errors.Is(err, grpcurl.ErrReflectionNotSupported) {
-				return nil, errs
-			}
-			continue
-		}
-		svcDesc, ok := symDesc.(*desc.ServiceDescriptor)
-		if !ok {
-			return nil, errors.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
-		}
 		rpcAPI := &resource.RPCAPI{
-			API:  api,
-			Desc: svcDesc,
+			API: api,
+		}
+		// due to how tagger is setup in the api we cannot use reflection on the discovery service currently
+		// for now we will skip the reflection step for discovery until the issue is resolved.
+		// TODO(RSDK-9718) - remove the skip.
+		if api != discovery.API {
+			symDesc, err := reflSource.FindSymbol(h.Subtype.ProtoService)
+			if err != nil {
+				errs = multierr.Combine(errs, err)
+				if errors.Is(err, grpcurl.ErrReflectionNotSupported) {
+					return nil, errs
+				}
+				continue
+			}
+			svcDesc, ok := symDesc.(*desc.ServiceDescriptor)
+			if !ok {
+				return nil, errors.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
+			}
+			rpcAPI.Desc = svcDesc
 		}
 		for _, m := range h.Models {
 			model, err := resource.NewModelFromString(m)
@@ -165,6 +175,10 @@ type peerResourceState struct {
 
 // Module represents an external resource module that services components/services.
 type Module struct {
+	// The name of the module as per the robot config. This value is communicated via the
+	// `VIAM_MODULE_NAME` env var.
+	name string
+
 	shutdownCtx             context.Context
 	shutdownFn              context.CancelFunc
 	parent                  *client.RobotClient
@@ -188,9 +202,11 @@ type Module struct {
 	pcFailed                <-chan struct{}
 	pb.UnimplementedModuleServiceServer
 	streampb.UnimplementedStreamServiceServer
+	robotpb.UnimplementedRobotServiceServer
 }
 
-// NewModule returns the basic module framework/structure.
+// NewModule returns the basic module framework/structure. Use ModularMain and NewModuleFromArgs unless
+// you really know what you're doing.
 func NewModule(ctx context.Context, address string, logger logging.Logger) (*Module, error) {
 	// TODO(PRODUCT-343): session support likely means interceptors here
 	opMgr := operation.NewManager(logger)
@@ -207,7 +223,12 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	}
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
+
+	// If the env variable does not exist, the empty string is returned.
+	modName, _ := os.LookupEnv("VIAM_MODULE_NAME")
+
 	m := &Module{
+		name:                  modName,
 		shutdownCtx:           cancelCtx,
 		shutdownFn:            cancel,
 		logger:                logger,
@@ -227,16 +248,21 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	if err := m.server.RegisterServiceServer(ctx, &streampb.StreamService_ServiceDesc, m); err != nil {
 		return nil, err
 	}
+	// We register the RobotService API to supplement the ModuleService in order to serve select robot level methods from the module server
+	// such as the DiscoverComponents API
+	if err := m.server.RegisterServiceServer(ctx, &robotpb.RobotService_ServiceDesc, m); err != nil {
+		return nil, err
+	}
 
 	// attempt to construct a PeerConnection
-	pc, err := rgrpc.NewLocalPeerConnection(logger.AsZap())
+	pc, err := rgrpc.NewLocalPeerConnection(logger)
 	if err != nil {
 		logger.Debugw("Unable to create optional peer connection for module. Skipping WebRTC for module...", "err", err)
 		return m, nil
 	}
 
 	// attempt to configure PeerConnection
-	pcReady, pcClosed, err := rpc.ConfigureForRenegotiation(pc, logger.AsZap())
+	pcReady, pcClosed, err := rpc.ConfigureForRenegotiation(pc, rpc.PeerRoleServer, logger)
 	if err != nil {
 		msg := "Error creating renegotiation channel for module. Unable to " +
 			"create optional peer connection for module. Skipping WebRTC for module..."
@@ -252,11 +278,11 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 }
 
 // NewModuleFromArgs directly parses the command line argument to get its address.
-func NewModuleFromArgs(ctx context.Context, logger logging.Logger) (*Module, error) {
+func NewModuleFromArgs(ctx context.Context) (*Module, error) {
 	if len(os.Args) < 2 {
 		return nil, errors.New("need socket path as command line argument")
 	}
-	return NewModule(ctx, os.Args[1], logger)
+	return NewModule(ctx, os.Args[1], NewLoggerFromArgs(""))
 }
 
 // Start starts the module service and grpc server.
@@ -265,9 +291,13 @@ func (m *Module) Start(ctx context.Context) error {
 	defer m.mu.Unlock()
 
 	var lis net.Listener
+	prot := "unix"
+	if rutils.TCPRegex.MatchString(m.addr) {
+		prot = "tcp"
+	}
 	if err := MakeSelfOwnedFilesFunc(func() error {
 		var err error
-		lis, err = net.Listen("unix", m.addr)
+		lis, err = net.Listen(prot, m.addr)
 		if err != nil {
 			return errors.WithMessage(err, "failed to listen")
 		}
@@ -296,18 +326,8 @@ func (m *Module) Close(ctx context.Context) {
 		m.mu.Lock()
 		parent := m.parent
 		if m.pc != nil {
-			if err := m.pc.Close(); err != nil {
+			if err := m.pc.GracefulClose(); err != nil {
 				m.logger.CErrorw(ctx, "WebRTC Peer Connection Close", "err", err)
-			}
-			// `PeerConnection.Close` returning does not guarantee that background workers have
-			// stopped. We've added best-effort hooks to observe when a peer connection has completely
-			// cleaned up.
-			if m.pcClosed != nil {
-				select {
-				case <-m.pcReady:
-					<-m.pcClosed
-				default:
-				}
 			}
 		}
 		m.mu.Unlock()
@@ -344,17 +364,32 @@ func (m *Module) connectParent(ctx context.Context) error {
 		return nil
 	}
 
-	if err := CheckSocketOwner(m.parentAddr); err != nil {
-		return err
+	fullAddr := m.parentAddr
+	if !rutils.TCPRegex.MatchString(m.parentAddr) {
+		if err := CheckSocketOwner(m.parentAddr); err != nil {
+			return err
+		}
+		fullAddr = "unix://" + m.parentAddr
 	}
 
 	// moduleLoggers may be creating the client connection below, so use a
 	// different logger here to avoid a deadlock where the client connection
 	// tries to recursively connect to the parent.
-	clientLogger := logging.NewLogger("module-connection")
+	clientLogger := logging.NewLogger("networking.module-connection")
 	clientLogger.SetLevel(m.logger.GetLevel())
 	// TODO(PRODUCT-343): add session support to modules
-	rc, err := client.New(ctx, "unix://"+m.parentAddr, clientLogger, client.WithDisableSessions())
+
+	connectOptions := []client.RobotClientOption{
+		client.WithDisableSessions(),
+	}
+
+	// Modules compiled against newer SDKs may be running against older `viam-server`s that do not
+	// provide the module name as an env variable.
+	if m.name != "" {
+		connectOptions = append(connectOptions, client.WithModName(m.name))
+	}
+
+	rc, err := client.New(ctx, fullAddr, m.logger, connectOptions...)
 	if err != nil {
 		return err
 	}
@@ -415,7 +450,7 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 
 	// we start the module without connecting to a parent since we
 	// are only concerned with validation and extracting metadata.
-	if os.Getenv("VIAM_NO_MODULE_PARENT") != "true" {
+	if os.Getenv(NoModuleParentEnvVar) != "true" {
 		m.parentAddr = req.GetParentAddress()
 		if err := m.connectParent(ctx); err != nil {
 			// Return error back to parent if we cannot make a connection from module
@@ -472,9 +507,28 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 		return nil, errors.Errorf("invariant: no constructor for %q", conf.API)
 	}
 	resLogger := m.logger.Sublogger(conf.ResourceName().String())
+	levelStr := req.Config.GetLogConfiguration().GetLevel()
+	// An unset LogConfiguration will materialize as an empty string.
+	if levelStr != "" {
+		if level, err := logging.LevelFromString(levelStr); err == nil {
+			resLogger.SetLevel(level)
+		} else {
+			m.logger.Warnw("LogConfiguration does not contain a valid level.", "resource", conf.ResourceName().Name, "level", levelStr)
+		}
+	}
+
 	res, err := resInfo.Constructor(ctx, deps, *conf, resLogger)
 	if err != nil {
 		return nil, err
+	}
+
+	// If context has errored, even if construction succeeded we should close the resource and return the context error.
+	// Use shutdownCtx because otherwise any Close operations that rely on the context will immediately fail.
+	// The deadline associated with the context passed in to this function is rutils.GetResourceConfigurationTimeout,
+	// which is propagated to AddResource through gRPC.
+	if ctx.Err() != nil {
+		m.logger.CDebugw(ctx, "resource successfully constructed but context is done, closing constructed resource", "err", ctx.Err().Error())
+		return nil, multierr.Combine(ctx.Err(), res.Close(m.shutdownCtx))
 	}
 
 	var passthroughSource rtppassthrough.Source
@@ -502,6 +556,66 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 		m.streamSourceByName[res.Name()] = passthroughSource
 	}
 	return &pb.AddResourceResponse{}, nil
+}
+
+// DiscoverComponents is DEPRECATED!!! Please use the Discovery Service instead.
+// DiscoverComponents takes a list of discovery queries and returns corresponding
+// component configurations.
+//
+//nolint:deprecated,staticcheck
+func (m *Module) DiscoverComponents(
+	ctx context.Context,
+	req *robotpb.DiscoverComponentsRequest,
+) (*robotpb.DiscoverComponentsResponse, error) {
+	var discoveries []*robotpb.Discovery
+
+	for _, q := range req.Queries {
+		// Handle triplet edge case i.e. if the subtype doesn't contain ':', add the "rdk:component:" prefix
+		if !strings.ContainsRune(q.Subtype, ':') {
+			q.Subtype = "rdk:component:" + q.Subtype
+		}
+
+		api, err := resource.NewAPIFromString(q.Subtype)
+		if err != nil {
+			return nil, fmt.Errorf("invalid subtype: %s: %w", q.Subtype, err)
+		}
+		model, err := resource.NewModelFromString(q.Model)
+		if err != nil {
+			return nil, fmt.Errorf("invalid model: %s: %w", q.Model, err)
+		}
+
+		resInfo, ok := resource.LookupRegistration(api, model)
+		if !ok {
+			return nil, fmt.Errorf("no registration found for API %s and model %s", api, model)
+		}
+
+		if resInfo.Discover == nil {
+			return nil, fmt.Errorf("discovery not supported for API %s and model %s", api, model)
+		}
+
+		results, err := resInfo.Discover(ctx, m.logger, q.Extra.AsMap())
+		if err != nil {
+			return nil, fmt.Errorf("error discovering components for API %s and model %s: %w", api, model, err)
+		}
+		if results == nil {
+			return nil, fmt.Errorf("error discovering components for API %s and model %s: results was nil", api, model)
+		}
+
+		pbResults, err := vprotoutils.StructToStructPb(results)
+		if err != nil {
+			return nil, fmt.Errorf("unable to convert discovery results to pb struct for query %v: %w", q, err)
+		}
+
+		pbDiscovery := &robotpb.Discovery{
+			Query:   q,
+			Results: pbResults,
+		}
+		discoveries = append(discoveries, pbDiscovery)
+	}
+
+	return &robotpb.DiscoverComponentsResponse{
+		Discovery: discoveries,
+	}, nil
 }
 
 // ReconfigureResource receives the component/service configuration from the parent.
@@ -544,10 +658,13 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 
 	if logger, ok := m.resLoggers[res]; ok {
 		levelStr := req.GetConfig().GetLogConfiguration().GetLevel()
-		if level, err := logging.LevelFromString(levelStr); err == nil {
-			logger.SetLevel(level)
-		} else {
-			m.logger.Warnw("LogConfiguration does not contain a valid level.", "resource", res.Name().Name, "level", levelStr)
+		// An unset LogConfiguration will materialize as an empty string.
+		if levelStr != "" {
+			if level, err := logging.LevelFromString(levelStr); err == nil {
+				logger.SetLevel(level)
+			} else {
+				m.logger.Warnw("LogConfiguration does not contain a valid level.", "resource", res.Name().Name, "level", levelStr)
+			}
 		}
 	}
 
@@ -618,7 +735,7 @@ func (m *Module) ValidateConfig(ctx context.Context,
 // RemoveResource receives the request for resource removal.
 func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceRequest) (*pb.RemoveResourceResponse, error) {
 	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcher(
-		30*time.Second, fmt.Sprintf("module resource %q is taking a while to remove", req.Name), m.logger.AsZap())
+		30*time.Second, fmt.Sprintf("module resource %q is taking a while to remove", req.Name), m.logger)
 	defer func() {
 		slowWatcherCancel()
 		<-slowWatcher

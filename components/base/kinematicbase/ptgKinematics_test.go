@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -74,15 +75,19 @@ func TestPTGKinematicsNoGeom(t *testing.T) {
 
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(f, fs.World())
-	inputMap := referenceframe.StartPositions(fs)
+	inputMap := referenceframe.NewZeroInputs(fs)
+
+	startState := motionplan.NewPlanState(
+		referenceframe.FrameSystemPoses{f.Name(): referenceframe.NewZeroPoseInFrame(referenceframe.World)},
+		inputMap,
+	)
+	goalState := motionplan.NewPlanState(referenceframe.FrameSystemPoses{f.Name(): dstPIF}, nil)
 
 	plan, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
-		Logger:             logger,
-		Goal:               dstPIF,
-		Frame:              f,
-		StartConfiguration: inputMap,
-		StartPose:          spatialmath.NewZeroPose(),
-		FrameSystem:        fs,
+		Logger:      logger,
+		Goals:       []*motionplan.PlanState{goalState},
+		StartState:  startState,
+		FrameSystem: fs,
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, plan, test.ShouldNotBeNil)
@@ -151,7 +156,7 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 	f := kb.Kinematics()
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(f, fs.World())
-	inputMap := referenceframe.StartPositions(fs)
+	inputMap := referenceframe.NewZeroInputs(fs)
 
 	obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2000, 0, 0}), r3.Vector{1, 1, 1}, "")
 	test.That(t, err, test.ShouldBeNil)
@@ -163,14 +168,17 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
+	startState := motionplan.NewPlanState(
+		referenceframe.FrameSystemPoses{f.Name(): referenceframe.NewZeroPoseInFrame(referenceframe.World)},
+		inputMap,
+	)
+	goalState := motionplan.NewPlanState(referenceframe.FrameSystemPoses{f.Name(): dstPIF}, nil)
 	plan, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
-		Logger:             logger,
-		Goal:               dstPIF,
-		Frame:              f,
-		StartConfiguration: inputMap,
-		FrameSystem:        fs,
-		WorldState:         worldState,
-		StartPose:          spatialmath.NewZeroPose(),
+		Logger:      logger,
+		Goals:       []*motionplan.PlanState{goalState},
+		StartState:  startState,
+		FrameSystem: fs,
+		WorldState:  worldState,
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, plan, test.ShouldNotBeNil)
@@ -237,9 +245,10 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 		test.That(t, solution, test.ShouldNotBeNil)
 
 		t.Run("ErrorState", func(t *testing.T) {
-			errorState, err := kb.ErrorState(ctx)
+			executionState, err := kb.ExecutionState(ctx)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, errorState, test.ShouldNotBeNil)
+			errorState, err := motionplan.CalculateFrameErrorState(executionState, kb.Kinematics(), kb.LocalizationFrame())
+			test.That(t, err, test.ShouldBeNil)
 
 			// Error State should be computed based on current inputs, current executing steps, and the localizer's position function
 			currentPosition, err := kb.CurrentPosition(ctx)
@@ -278,9 +287,10 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 			ptgBase.currentState.currentInputs = newInputs
 			ptgBase.inputLock.Unlock()
 			// After course correction, error state should always be zero
-			errorState, err := kb.ErrorState(ctx)
+			executionState, err := kb.ExecutionState(ctx)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, errorState, test.ShouldNotBeNil)
+			errorState, err := motionplan.CalculateFrameErrorState(executionState, kb.Kinematics(), kb.LocalizationFrame())
+			test.That(t, err, test.ShouldBeNil)
 			test.That(t, spatialmath.PoseAlmostEqualEps(errorState, spatialmath.NewZeroPose(), 1e-5), test.ShouldBeTrue)
 		})
 	})
@@ -407,4 +417,31 @@ func TestPTGKinematicsSimpleInputs(t *testing.T) {
 	inputs = []referenceframe.Input{{0}, {1.9}, {1300}, {0}}
 	err = ptgBase.GoToInputs(ctx, inputs)
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestCopyArcStep(t *testing.T) {
+	step := &arcStep{
+		linVelMMps:      r3.Vector{1, 2, 3},
+		angVelDegps:     r3.Vector{4, 5, 6},
+		durationSeconds: 3.14,
+		arcSegment: ik.Segment{
+			StartPosition:      spatialmath.NewPoseFromPoint(r3.Vector{1, 2, 3}),
+			EndPosition:        spatialmath.NewPoseFromPoint(r3.Vector{4, 5, 6}),
+			StartConfiguration: []referenceframe.Input{{1}, {2}, {3}},
+			EndConfiguration:   []referenceframe.Input{{4}, {5}, {6}},
+			Frame:              referenceframe.NewZeroStaticFrame("test"),
+		},
+		subTraj: []*tpspace.TrajNode{
+			{
+				Pose:   spatialmath.NewPoseFromPoint(r3.Vector{7, 8, 9}),
+				Dist:   2.72,
+				Alpha:  1.61,
+				LinVel: 0.11,
+				AngVel: 0.22,
+			},
+		},
+	}
+
+	copiedStep := copyArcStep(*step)
+	test.That(t, &copiedStep, test.ShouldResemble, step)
 }

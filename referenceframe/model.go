@@ -13,6 +13,7 @@ import (
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -20,6 +21,7 @@ import (
 type Model interface {
 	Frame
 	ModelConfig() *ModelConfig
+	ModelPieceFrames([]Input) (map[string]Frame, error)
 }
 
 // ModelFramer has a method that returns the kinematics information needed to build a dynamic referenceframe.
@@ -188,13 +190,27 @@ func (m *SimpleModel) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m.modelConfig)
 }
 
+// ModelPieceFrames takes a list of inputs and returns a map of frame names to their corresponding static frames,
+// effectively breaking the model into its kinematic pieces.
+func (m *SimpleModel) ModelPieceFrames(inputs []Input) (map[string]Frame, error) {
+	poses, err := m.inputsToFrames(inputs, true)
+	if err != nil {
+		return nil, err
+	}
+	frameMap := map[string]Frame{}
+	for _, sFrame := range poses {
+		frameMap[sFrame.Name()] = sFrame
+	}
+	return frameMap, nil
+}
+
 // TODO(rb) better comment
 // takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of each of the links up to and including the end effector. This is useful for when conversions
 // between quaternions and OV are not needed.
 func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*staticFrame, error) {
 	if len(m.DoF()) != len(inputs) {
-		return nil, NewIncorrectInputLengthError(len(inputs), len(m.DoF()))
+		return nil, NewIncorrectDoFError(len(inputs), len(m.DoF()))
 	}
 	var err error
 	poses := make([]*staticFrame, 0, len(m.OrdTransforms))
@@ -284,4 +300,42 @@ func New2DMobileModelFrame(name string, limits []Limit, collisionGeometry spatia
 		model.OrdTransforms = []Frame{x, y, geometry}
 	}
 	return model, nil
+}
+
+// ComputeOOBPosition takes a frame and a slice of Inputs and returns the cartesian position of the frame after
+// transforming it by the given inputs even when if the inputs given would violate the Limits of the frame.
+// This is performed statelessly without changing any data.
+func ComputeOOBPosition(frame Frame, inputs []Input) (spatialmath.Pose, error) {
+	if inputs == nil {
+		return nil, errors.New("cannot compute position for nil joints")
+	}
+	if frame == nil {
+		return nil, errors.New("cannot compute position for nil frame")
+	}
+
+	pose, err := frame.Transform(inputs)
+	if err != nil && !strings.Contains(err.Error(), OOBErrString) {
+		return nil, err
+	}
+
+	return pose, nil
+}
+
+// ComputePosition takes a frame and a slice of Inputs and returns the cartesian position of the frame.
+func ComputePosition(frame Frame, inputs []Input) (spatialmath.Pose, error) {
+	// TODO: delete this function
+	logging.Global().Warn("ComputePosition is deprecated and will be removed in a future update. Swap to Transform()")
+
+	if inputs == nil {
+		return nil, errors.New("cannot compute position for nil joints")
+	}
+	if frame == nil {
+		return nil, errors.New("cannot compute position for nil frame")
+	}
+
+	pose, err := frame.Transform(inputs)
+	if err != nil {
+		return nil, err
+	}
+	return pose, err
 }

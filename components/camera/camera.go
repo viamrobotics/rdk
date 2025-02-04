@@ -1,27 +1,25 @@
 // Package camera defines an image capturing device.
+// For more information, see the [camera component docs].
+//
+// [camera component docs]: https://docs.viam.com/components/camera/
 package camera
 
 import (
 	"context"
+	"fmt"
 	"image"
-	"time"
 
-	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
-	"go.opencensus.io/trace"
-	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/camera/v1"
 
-	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/rimage/depthadapter"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -66,6 +64,7 @@ type Properties struct {
 	IntrinsicParams  *transform.PinholeCameraIntrinsics
 	DistortionParams transform.Distorter
 	MimeTypes        []string
+	FrameRate        float32
 }
 
 // NamedImage is a struct that associates the source from where the image came from to the Image.
@@ -74,13 +73,25 @@ type NamedImage struct {
 	SourceName string
 }
 
-// A Camera is a resource that can capture frames.
-type Camera interface {
-	resource.Resource
-	VideoSource
+// ImageMetadata contains useful information about returned image bytes such as its mimetype.
+type ImageMetadata struct {
+	MimeType string
 }
 
-// A VideoSource represents anything that can capture frames.
+// A Camera is a resource that can capture frames.
+// For more information, see the [camera component docs].
+//
+// Image example:
+//
+//	myCamera, err := camera.FromRobot(machine, "my_camera")
+//	imageBytes, mimeType, err := myCamera.Image(context.Background(), utils.MimeTypeJPEG, nil)
+//
+// Or try to directly decode as an image.Image:
+//
+//	myCamera, err := camera.FromRobot(machine, "my_camera")
+//	img, err = camera.DecodeImageFromCamera(context.Background(), utils.MimeTypeJPEG, nil, myCamera)
+//
+// For more information, see the [Image method docs].
 //
 // Images example:
 //
@@ -88,38 +99,40 @@ type Camera interface {
 //
 //	images, metadata, err := myCamera.Images(context.Background())
 //
-// Stream example:
-//
-//	myCamera, err := camera.FromRobot(machine, "my_camera")
-//
-//	// gets the stream from a camera
-//	stream, err := myCamera.Stream(context.Background())
-//
-//	// gets an image from the camera stream
-//	img, release, err := stream.Next(context.Background())
-//	defer release()
+// For more information, see the [Images method docs].
 //
 // NextPointCloud example:
 //
 //	myCamera, err := camera.FromRobot(machine, "my_camera")
 //
-//	// gets the properties from a camera
-//	properties, err := myCamera.Properties(context.Background())
+//	// gets the next point cloud from a camera
+//	pointCloud, err := myCamera.NextPointCloud(context.Background())
+//
+// For more information, see the [NextPointCloud method docs].
 //
 // Close example:
 //
 //	myCamera, err := camera.FromRobot(machine, "my_camera")
 //
-//	err = myCamera.Close(ctx)
-type VideoSource interface {
-	projectorProvider
+//	err = myCamera.Close(context.Background())
+//
+// For more information, see the [Close method docs].
+//
+// [camera component docs]: https://docs.viam.com/dev/reference/apis/components/camera/
+// [Image method docs]: https://docs.viam.com/dev/reference/apis/components/camera/#getimage
+// [Images method docs]: https://docs.viam.com/dev/reference/apis/components/camera/#getimages
+// [NextPointCloud method docs]: https://docs.viam.com/dev/reference/apis/components/camera/#getpointcloud
+// [Close method docs]: https://docs.viam.com/dev/reference/apis/components/camera/#close
+type Camera interface {
+	resource.Resource
+
+	// Image returns a byte slice representing an image that tries to adhere to the MIME type hint.
+	// Image also may return metadata about the frame.
+	Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, ImageMetadata, error)
+
 	// Images is used for getting simultaneous images from different imagers,
 	// along with associated metadata (just timestamp for now). It's not for getting a time series of images from the same imager.
 	Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error)
-
-	// Stream returns a stream that makes a best effort to return consecutive images
-	// that may have a MIME type hint dictated in the context via gostream.WithMIMETypeHint.
-	Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error)
 
 	// NextPointCloud returns the next immediately available point cloud, not necessarily one
 	// a part of a sequence. In the future, there could be streaming of point clouds.
@@ -128,9 +141,13 @@ type VideoSource interface {
 	// Properties returns properties that are intrinsic to the particular
 	// implementation of a camera.
 	Properties(ctx context.Context) (Properties, error)
+}
 
-	// Close shuts down the resource and prevents further use.
-	Close(ctx context.Context) error
+// VideoSource is a camera that has `Stream` embedded to directly integrate with gostream.
+// Note that generally, when writing camera components from scratch, embedding `Stream` is an anti-pattern.
+type VideoSource interface {
+	Camera
+	Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error)
 }
 
 // ReadImage reads an image from the given source that is immediately available.
@@ -138,8 +155,20 @@ func ReadImage(ctx context.Context, src gostream.VideoSource) (image.Image, func
 	return gostream.ReadImage(ctx, src)
 }
 
-type projectorProvider interface {
-	Projector(ctx context.Context) (transform.Projector, error)
+// DecodeImageFromCamera retrieves image bytes from a camera resource and serializes it as an image.Image.
+func DecodeImageFromCamera(ctx context.Context, mimeType string, extra map[string]interface{}, cam Camera) (image.Image, error) {
+	resBytes, resMetadata, err := cam.Image(ctx, mimeType, extra)
+	if err != nil {
+		return nil, fmt.Errorf("could not get image bytes from camera: %w", err)
+	}
+	if len(resBytes) == 0 {
+		return nil, errors.New("received empty bytes from camera")
+	}
+	img, err := rimage.DecodeImage(ctx, resBytes, utils.WithLazyMIMEType(resMetadata.MimeType))
+	if err != nil {
+		return nil, fmt.Errorf("could not decode into image.Image: %w", err)
+	}
+	return img, nil
 }
 
 // A PointCloudSource is a source that can generate pointclouds.
@@ -152,269 +181,9 @@ type ImagesSource interface {
 	Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error)
 }
 
-// FromVideoSource creates a Camera resource from a VideoSource.
-// Note: this strips away Reconfiguration and DoCommand abilities.
-// If needed, implement the Camera another way. For example, a webcam
-// implements a Camera manually so that it can atomically reconfigure itself.
-func FromVideoSource(name resource.Name, src VideoSource, logger logging.Logger) Camera {
-	var rtpPassthroughSource rtppassthrough.Source
-	if ps, ok := src.(rtppassthrough.Source); ok {
-		rtpPassthroughSource = ps
-	}
-	return &sourceBasedCamera{
-		rtpPassthroughSource: rtpPassthroughSource,
-		Named:                name.AsNamed(),
-		VideoSource:          src,
-		Logger:               logger,
-	}
-}
-
-type sourceBasedCamera struct {
-	resource.Named
-	resource.AlwaysRebuild
-	VideoSource
-	rtpPassthroughSource rtppassthrough.Source
-	logging.Logger
-}
-
-func (vs *sourceBasedCamera) SubscribeRTP(
-	ctx context.Context,
-	bufferSize int,
-	packetsCB rtppassthrough.PacketCallback,
-) (rtppassthrough.Subscription, error) {
-	if vs.rtpPassthroughSource != nil {
-		return vs.rtpPassthroughSource.SubscribeRTP(ctx, bufferSize, packetsCB)
-	}
-	return rtppassthrough.NilSubscription, errors.New("SubscribeRTP unimplemented")
-}
-
-func (vs *sourceBasedCamera) Unsubscribe(ctx context.Context, id rtppassthrough.SubscriptionID) error {
-	if vs.rtpPassthroughSource != nil {
-		return vs.rtpPassthroughSource.Unsubscribe(ctx, id)
-	}
-	return errors.New("Unsubscribe unimplemented")
-}
-
-// NewVideoSourceFromReader creates a VideoSource either with or without a projector. The stream type
-// argument is for detecting whether or not the resulting camera supports return
-// of pointcloud data in the absence of an implemented NextPointCloud function.
-// If this is unknown or not applicable, a value of camera.Unspecified stream can be supplied.
-func NewVideoSourceFromReader(
-	ctx context.Context,
-	reader gostream.VideoReader,
-	syst *transform.PinholeCameraModel, imageType ImageType,
-) (VideoSource, error) {
-	if reader == nil {
-		return nil, errors.New("cannot have a nil reader")
-	}
-	var rtpPassthroughSource rtppassthrough.Source
-	passthrough, isRTPPassthrough := reader.(rtppassthrough.Source)
-	if isRTPPassthrough {
-		rtpPassthroughSource = passthrough
-	}
-	vs := gostream.NewVideoSource(reader, prop.Video{})
-	actualSystem := syst
-	if actualSystem == nil {
-		srcCam, ok := reader.(VideoSource)
-		if ok {
-			props, err := srcCam.Properties(ctx)
-			if err != nil {
-				return nil, NewPropertiesError("source camera")
-			}
-
-			var cameraModel transform.PinholeCameraModel
-			cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
-
-			if props.DistortionParams != nil {
-				cameraModel.Distortion = props.DistortionParams
-			}
-			actualSystem = &cameraModel
-		}
-	}
-	return &videoSource{
-		rtpPassthroughSource: rtpPassthroughSource,
-		system:               actualSystem,
-		videoSource:          vs,
-		videoStream:          gostream.NewEmbeddedVideoStream(vs),
-		actualSource:         reader,
-		imageType:            imageType,
-	}, nil
-}
-
-func (vs *videoSource) SubscribeRTP(
-	ctx context.Context,
-	bufferSize int,
-	packetsCB rtppassthrough.PacketCallback,
-) (rtppassthrough.Subscription, error) {
-	if vs.rtpPassthroughSource != nil {
-		return vs.rtpPassthroughSource.SubscribeRTP(ctx, bufferSize, packetsCB)
-	}
-	return rtppassthrough.NilSubscription, errors.New("SubscribeRTP unimplemented")
-}
-
-func (vs *videoSource) Unsubscribe(ctx context.Context, id rtppassthrough.SubscriptionID) error {
-	if vs.rtpPassthroughSource != nil {
-		return vs.rtpPassthroughSource.Unsubscribe(ctx, id)
-	}
-	return errors.New("Unsubscribe unimplemented")
-}
-
-// NewPinholeModelWithBrownConradyDistortion creates a transform.PinholeCameraModel from
-// a *transform.PinholeCameraIntrinsics and a *transform.BrownConrady.
-// If *transform.BrownConrady is `nil`, transform.PinholeCameraModel.Distortion
-// is not set & remains nil, to prevent https://go.dev/doc/faq#nil_error.
-func NewPinholeModelWithBrownConradyDistortion(pinholeCameraIntrinsics *transform.PinholeCameraIntrinsics,
-	distortion *transform.BrownConrady,
-) transform.PinholeCameraModel {
-	var cameraModel transform.PinholeCameraModel
-	cameraModel.PinholeCameraIntrinsics = pinholeCameraIntrinsics
-
-	if distortion != nil {
-		cameraModel.Distortion = distortion
-	}
-	return cameraModel
-}
-
 // NewPropertiesError returns an error specific to a failure in Properties.
 func NewPropertiesError(cameraIdentifier string) error {
 	return errors.Errorf("failed to get properties from %s", cameraIdentifier)
-}
-
-// WrapVideoSourceWithProjector creates a Camera either with or without a projector. The stream type
-// argument is for detecting whether or not the resulting camera supports return
-// of pointcloud data in the absence of an implemented NextPointCloud function.
-// If this is unknown or not applicable, a value of camera.Unspecified stream can be supplied.
-func WrapVideoSourceWithProjector(
-	ctx context.Context,
-	source gostream.VideoSource,
-	syst *transform.PinholeCameraModel, imageType ImageType,
-) (VideoSource, error) {
-	if source == nil {
-		return nil, errors.New("cannot have a nil source")
-	}
-	actualSystem := syst
-	if actualSystem == nil {
-		//nolint:staticcheck
-		srcCam, ok := source.(Camera)
-		if ok {
-			props, err := srcCam.Properties(ctx)
-			if err != nil {
-				return nil, NewPropertiesError("source camera")
-			}
-			var cameraModel transform.PinholeCameraModel
-			cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
-
-			if props.DistortionParams != nil {
-				cameraModel.Distortion = props.DistortionParams
-			}
-
-			actualSystem = &cameraModel
-		}
-	}
-	return &videoSource{
-		system:       actualSystem,
-		videoSource:  source,
-		videoStream:  gostream.NewEmbeddedVideoStream(source),
-		actualSource: source,
-		imageType:    imageType,
-	}, nil
-}
-
-// videoSource implements a Camera with a gostream.VideoSource.
-type videoSource struct {
-	rtpPassthroughSource rtppassthrough.Source
-	videoSource          gostream.VideoSource
-	videoStream          gostream.VideoStream
-	actualSource         interface{}
-	system               *transform.PinholeCameraModel
-	imageType            ImageType
-}
-
-func (vs *videoSource) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
-	return vs.videoSource.Stream(ctx, errHandlers...)
-}
-
-// Images is for getting simultaneous images from different sensors
-// If the underlying source did not specify an Images function, a default is applied.
-// The default returns a list of 1 image from ReadImage, and the current time.
-func (vs *videoSource) Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error) {
-	ctx, span := trace.StartSpan(ctx, "camera::videoSource::Images")
-	defer span.End()
-	if c, ok := vs.actualSource.(ImagesSource); ok {
-		return c.Images(ctx)
-	}
-	img, release, err := ReadImage(ctx, vs.videoSource)
-	if err != nil {
-		return nil, resource.ResponseMetadata{}, errors.Wrap(err, "videoSource: call to get Images failed")
-	}
-	defer func() {
-		if release != nil {
-			release()
-		}
-	}()
-	ts := time.Now()
-	return []NamedImage{{img, ""}}, resource.ResponseMetadata{CapturedAt: ts}, nil
-}
-
-// NextPointCloud returns the next PointCloud from the camera, or will error if not supported.
-func (vs *videoSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	ctx, span := trace.StartSpan(ctx, "camera::videoSource::NextPointCloud")
-	defer span.End()
-	if c, ok := vs.actualSource.(PointCloudSource); ok {
-		return c.NextPointCloud(ctx)
-	}
-	if vs.system == nil || vs.system.PinholeCameraIntrinsics == nil {
-		return nil, transform.NewNoIntrinsicsError("cannot do a projection to a point cloud")
-	}
-	img, release, err := vs.videoStream.Next(ctx)
-	defer release()
-	if err != nil {
-		return nil, err
-	}
-	dm, err := rimage.ConvertImageToDepthMap(ctx, img)
-	if err != nil {
-		return nil, errors.Wrapf(err, "cannot project to a point cloud")
-	}
-	return depthadapter.ToPointCloud(dm, vs.system.PinholeCameraIntrinsics), nil
-}
-
-func (vs *videoSource) Projector(ctx context.Context) (transform.Projector, error) {
-	if vs.system == nil || vs.system.PinholeCameraIntrinsics == nil {
-		return nil, transform.NewNoIntrinsicsError("No features in config")
-	}
-	return vs.system.PinholeCameraIntrinsics, nil
-}
-
-func (vs *videoSource) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	if res, ok := vs.videoSource.(resource.Resource); ok {
-		return res.DoCommand(ctx, cmd)
-	}
-	return nil, resource.ErrDoUnimplemented
-}
-
-func (vs *videoSource) Properties(ctx context.Context) (Properties, error) {
-	_, supportsPCD := vs.actualSource.(PointCloudSource)
-	result := Properties{
-		SupportsPCD: supportsPCD,
-	}
-	if vs.system == nil {
-		return result, nil
-	}
-	if (vs.system.PinholeCameraIntrinsics != nil) && (vs.imageType == DepthStream) {
-		result.SupportsPCD = true
-	}
-	result.ImageType = vs.imageType
-	result.IntrinsicParams = vs.system.PinholeCameraIntrinsics
-
-	if vs.system.Distortion != nil {
-		result.DistortionParams = vs.system.Distortion
-	}
-
-	return result, nil
-}
-
-func (vs *videoSource) Close(ctx context.Context) error {
-	return multierr.Combine(vs.videoStream.Close(ctx), vs.videoSource.Close(ctx))
 }
 
 // FromDependencies is a helper for getting the named camera from a collection of

@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/board/v1"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux/buses"
@@ -23,7 +24,6 @@ import (
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/utils"
 )
 
 // RegisterBoard registers a sysfs based board of the given model.
@@ -55,7 +55,7 @@ func NewBoard(
 		convertConfig: convertConfig,
 
 		logger:  logger,
-		workers: utils.NewStoppableWorkers(),
+		workers: utils.NewBackgroundStoppableWorkers(),
 
 		analogReaders: map[string]*wrappedAnalogReader{},
 		gpios:         map[string]*gpioPin{},
@@ -196,9 +196,9 @@ func (b *Board) reconfigureGpios(newConf *LinuxBoardConfig) error {
 func (b *Board) reconfigureAnalogReaders(ctx context.Context, newConf *LinuxBoardConfig) error {
 	stillExists := map[string]struct{}{}
 	for _, c := range newConf.AnalogReaders {
-		channel, err := strconv.Atoi(c.Pin)
+		channel, err := strconv.Atoi(c.Channel)
 		if err != nil {
-			return errors.Errorf("bad analog pin (%s)", c.Pin)
+			return errors.Errorf("bad analog pin (%s)", c.Channel)
 		}
 
 		bus := buses.NewSpiBus(c.SPIBus)
@@ -321,9 +321,9 @@ func (b *Board) reconfigureInterrupts(newConf *LinuxBoardConfig) error {
 			oldInterrupt = nil
 		}
 
-		gpioMapping, ok := b.gpioMappings[config.Name]
+		gpioMapping, ok := b.gpioMappings[config.Pin]
 		if !ok {
-			return fmt.Errorf("cannot create digital interrupt on unknown pin %s", config.Name)
+			return fmt.Errorf("cannot create digital interrupt on unknown pin %s", config.Pin)
 		}
 		interrupt, err := newDigitalInterrupt(config, gpioMapping, oldInterrupt)
 		if err != nil {
@@ -336,11 +336,14 @@ func (b *Board) reconfigureInterrupts(newConf *LinuxBoardConfig) error {
 }
 
 func (b *Board) createGpioPin(mapping GPIOBoardMapping) *gpioPin {
+	startSoftwarePWMChan := make(chan any)
 	pin := gpioPin{
-		devicePath: mapping.GPIOChipDev,
-		offset:     uint32(mapping.GPIO),
-		logger:     b.logger,
+		devicePath:           mapping.GPIOChipDev,
+		offset:               uint32(mapping.GPIO),
+		logger:               b.logger,
+		startSoftwarePWMChan: &startSoftwarePWMChan,
 	}
+	pin.softwarePwm = utils.NewBackgroundStoppableWorkers(pin.softwarePwmLoop)
 	if mapping.HWPWMSupported {
 		pin.hwPwm = newPwmDevice(mapping.PWMSysFsDir, mapping.PWMID, b.logger)
 	}
@@ -360,7 +363,7 @@ type Board struct {
 	gpios      map[string]*gpioPin
 	interrupts map[string]*digitalInterrupt
 
-	workers utils.StoppableWorkers
+	workers *utils.StoppableWorkers
 }
 
 // AnalogByName returns the analog pin by the given name if it exists.
@@ -410,28 +413,6 @@ func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, err
 	return interrupt, nil
 }
 
-// AnalogNames returns the names of all known analog pins.
-func (b *Board) AnalogNames() []string {
-	names := []string{}
-	for k := range b.analogReaders {
-		names = append(names, k)
-	}
-	return names
-}
-
-// DigitalInterruptNames returns the names of all known digital interrupts.
-func (b *Board) DigitalInterruptNames() []string {
-	if b.interrupts == nil {
-		return nil
-	}
-
-	names := []string{}
-	for name := range b.interrupts {
-		names = append(names, name)
-	}
-	return names
-}
-
 // GPIOPinByName returns a GPIOPin by name.
 func (b *Board) GPIOPinByName(pinName string) (board.GPIOPin, error) {
 	if pin, ok := b.gpios[pinName]; ok {
@@ -474,7 +455,7 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 		i.AddChannel(ch)
 	}
 
-	b.workers.AddWorkers(func(cancelCtx context.Context) {
+	b.workers.Add(func(cancelCtx context.Context) {
 		// Wait until it's time to shut down then remove callbacks.
 		select {
 		case <-ctx.Done():

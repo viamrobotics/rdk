@@ -11,13 +11,13 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"time"
 
 	"github.com/a8m/envsubst"
 	"github.com/pkg/errors"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
-	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/sys/cpu"
 
@@ -34,15 +34,16 @@ var (
 )
 
 const (
-	initialReadTimeout = 1 * time.Second
-	readTimeout        = 5 * time.Second
+	initialReadTimeout     = 1 * time.Second
+	readTimeout            = 5 * time.Second
+	readTimeoutBehindProxy = time.Minute
 	// PackagesDirName is where packages go underneath viamDotDir.
 	PackagesDirName = "packages"
 	// LocalPackagesSuffix is used by the local package manager.
 	LocalPackagesSuffix = "-local"
 )
 
-func getAgentInfo() (*apppb.AgentInfo, error) {
+func getAgentInfo(logger logging.Logger) (*apppb.AgentInfo, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, err
@@ -70,12 +71,13 @@ func getAgentInfo() (*apppb.AgentInfo, error) {
 	platform := fmt.Sprintf("%s/%s", runtime.GOOS, arch)
 
 	return &apppb.AgentInfo{
-		Host:        hostname,
-		Ips:         ips,
-		Os:          runtime.GOOS,
-		Version:     Version,
-		GitRevision: GitRevision,
-		Platform:    &platform,
+		Host:         hostname,
+		Ips:          ips,
+		Os:           runtime.GOOS,
+		Version:      Version,
+		GitRevision:  GitRevision,
+		Platform:     &platform,
+		PlatformTags: readExtendedPlatformTags(logger, true),
 	}, nil
 }
 
@@ -112,22 +114,6 @@ func readFromCache(id string) (*Config, error) {
 		return nil, errors.Wrap(err, "cannot parse the cached config as json")
 	}
 	return unprocessedConfig, nil
-}
-
-func storeToCache(id string, cfg *Config) error {
-	if err := os.MkdirAll(ViamDotDir, 0o700); err != nil {
-		return err
-	}
-
-	md, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		return err
-	}
-	reader := bytes.NewReader(md)
-
-	path := getCloudCacheFilePath(id)
-
-	return artifact.AtomicStore(path, reader, id)
 }
 
 func clearCache(id string) {
@@ -196,8 +182,15 @@ func isLocationSecretsEqual(prevCloud, cloud *Cloud) bool {
 	return true
 }
 
-func getTimeoutCtx(ctx context.Context, shouldReadFromCache bool, id string) (context.Context, func()) {
+// GetTimeoutCtx returns a context [and its cancel function] with a timeout value determined by whether we are behind a proxy and whether a
+// cached config exists.
+func GetTimeoutCtx(ctx context.Context, shouldReadFromCache bool, id string) (context.Context, func()) {
 	timeout := readTimeout
+	// When environment indicates we are behind a proxy, bump timeout. Network
+	// operations tend to take longer when behind a proxy.
+	if proxyAddr := os.Getenv(rpc.SocksProxyEnvVar); proxyAddr != "" {
+		timeout = readTimeoutBehindProxy
+	}
 
 	// use shouldReadFromCache to determine whether this is part of initial read or not, but only shorten timeout
 	// if cached config exists
@@ -225,9 +218,6 @@ func readFromCloud(
 	cloudCfg := originalCfg.Cloud
 	unprocessedConfig, cached, err := getFromCloudOrCache(ctx, cloudCfg, shouldReadFromCache, logger)
 	if err != nil {
-		if !cached {
-			err = errors.Wrap(err, "error getting cloud config")
-		}
 		return nil, err
 	}
 
@@ -270,7 +260,7 @@ func readFromCloud(
 	if !cfg.Cloud.SignalingInsecure && (checkForNewCert || tls.certificate == "" || tls.privateKey == "") {
 		logger.Debug("reading tlsCertificate from the cloud")
 
-		ctxWithTimeout, cancel := getTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
+		ctxWithTimeout, cancel := GetTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
 		certData, err := readCertificateDataFromCloudGRPC(ctxWithTimeout, cloudCfg, logger)
 		if err != nil {
 			cancel()
@@ -318,10 +308,9 @@ func readFromCloud(
 	unprocessedConfig.Cloud.TLSCertificate = tls.certificate
 	unprocessedConfig.Cloud.TLSPrivateKey = tls.privateKey
 
-	if err := storeToCache(cloudCfg.ID, unprocessedConfig); err != nil {
-		logger.Errorw("failed to cache config", "error", err)
+	if err := cfg.SetToCache(unprocessedConfig); err != nil {
+		logger.Errorw("failed to set toCache on config", "error", err)
 	}
-
 	return cfg, nil
 }
 
@@ -449,6 +438,36 @@ func processConfigFromCloud(unprocessedConfig *Config, logger logging.Logger) (*
 // Returns an error if the unprocessedConfig is non-valid.
 func processConfigLocalConfig(unprocessedConfig *Config, logger logging.Logger) (*Config, error) {
 	return processConfig(unprocessedConfig, false, logger)
+}
+
+// additionalModuleEnvVars will get additional environment variables for modules using other parts of the config.
+func additionalModuleEnvVars(cloud *Cloud, auth AuthConfig) map[string]string {
+	env := make(map[string]string)
+	if cloud != nil {
+		env[rutils.PrimaryOrgIDEnvVar] = cloud.PrimaryOrgID
+		env[rutils.LocationIDEnvVar] = cloud.LocationID
+		env[rutils.MachineIDEnvVar] = cloud.MachineID
+		env[rutils.MachinePartIDEnvVar] = cloud.ID
+	}
+	for _, handler := range auth.Handlers {
+		if handler.Type != rpc.CredentialsTypeAPIKey {
+			continue
+		}
+		apiKeys := ParseAPIKeys(handler)
+		if len(apiKeys) == 0 {
+			continue
+		}
+		// the keys come in unsorted, so sort the keys so we'll always get the same API key
+		// if there are no changes
+		keyIDs := make([]string, 0, len(apiKeys))
+		for k := range apiKeys {
+			keyIDs = append(keyIDs, k)
+		}
+		sort.Strings(keyIDs)
+		env[rutils.APIKeyIDEnvVar] = keyIDs[0]
+		env[rutils.APIKeyEnvVar] = apiKeys[keyIDs[0]]
+	}
+	return env
 }
 
 // processConfig processes the config passed in. The config can be either JSON or gRPC derived.
@@ -610,6 +629,15 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 		}
 	}
 
+	// add additional environment vars to modules
+	// adding them here ensures that if the parsed API key changes, the module will be restarted with the updated environment.
+	env := additionalModuleEnvVars(cfg.Cloud, cfg.Auth)
+	if len(env) > 0 {
+		for _, m := range cfg.Modules {
+			m.MergeEnvVars(env)
+		}
+	}
+
 	// now that the attribute maps are converted, validate configs and get implicit dependencies for builtin resource models
 	if err := cfg.Ensure(fromCloud, logger); err != nil {
 		return nil, err
@@ -623,21 +651,23 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCache bool, logger logging.Logger) (*Config, bool, error) {
 	var cached bool
 
-	ctxWithTimeout, cancel := getTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
+	ctxWithTimeout, cancel := GetTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
 	defer cancel()
 
 	cfg, errorShouldCheckCache, err := getFromCloudGRPC(ctxWithTimeout, cloudCfg, logger)
 	if err != nil {
 		if shouldReadFromCache && errorShouldCheckCache {
-			logger.Warnw("failed to read config from cloud, checking cache", "error", err)
 			cachedConfig, cacheErr := readFromCache(cloudCfg.ID)
 			if cacheErr != nil {
 				if os.IsNotExist(cacheErr) {
 					// Return original http error if failed to load from cache.
-					return nil, cached, err
+					return nil, cached, errors.Wrap(
+						err,
+						"error getting cloud config, cached config does not exist; returning error from cloud config attempt",
+					)
 				}
 				// return cache err
-				return nil, cached, cacheErr
+				return nil, cached, errors.Wrap(cacheErr, "error reading cache after getting cloud config failed")
 			}
 
 			lastUpdated := "unknown"
@@ -650,7 +680,7 @@ func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCac
 			return cachedConfig, cached, nil
 		}
 
-		return nil, cached, err
+		return nil, cached, errors.Wrap(err, "error getting cloud config")
 	}
 
 	return cfg, cached, nil
@@ -662,25 +692,25 @@ func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger logging.Logge
 
 	conn, err := CreateNewGRPCClient(ctx, cloudCfg, logger)
 	if err != nil {
-		return nil, shouldCheckCacheOnFailure, err
+		return nil, shouldCheckCacheOnFailure, errors.WithMessage(err, "error creating cloud grpc client")
 	}
 	defer utils.UncheckedErrorFunc(conn.Close)
 
-	agentInfo, err := getAgentInfo()
+	agentInfo, err := getAgentInfo(logger)
 	if err != nil {
-		return nil, shouldCheckCacheOnFailure, err
+		return nil, shouldCheckCacheOnFailure, errors.WithMessage(err, "error getting agent info")
 	}
 
 	service := apppb.NewRobotServiceClient(conn)
 	res, err := service.Config(ctx, &apppb.ConfigRequest{Id: cloudCfg.ID, AgentInfo: agentInfo})
 	if err != nil {
 		// Check cache?
-		return nil, shouldCheckCacheOnFailure, err
+		return nil, shouldCheckCacheOnFailure, errors.WithMessage(err, "error getting config from config endpoint")
 	}
 	cfg, err := FromProto(res.Config, logger)
 	if err != nil {
 		// Check cache?
-		return nil, shouldCheckCacheOnFailure, err
+		return nil, shouldCheckCacheOnFailure, errors.WithMessage(err, "error converting config from proto")
 	}
 
 	return cfg, false, nil
@@ -708,7 +738,7 @@ func CreateNewGRPCClient(ctx context.Context, cloudCfg *Cloud, logger logging.Lo
 		dialOpts = append(dialOpts, rpc.WithInsecure())
 	}
 
-	return rpc.DialDirectGRPC(ctx, u.Host, logger.AsZap(), dialOpts...)
+	return rpc.DialDirectGRPC(ctx, u.Host, logger.Sublogger("networking"), dialOpts...)
 }
 
 // CreateNewGRPCClientWithAPIKey creates a new grpc cloud configured to communicate with the robot service
@@ -734,5 +764,5 @@ func CreateNewGRPCClientWithAPIKey(ctx context.Context, cloudCfg *Cloud,
 		dialOpts = append(dialOpts, rpc.WithInsecure())
 	}
 
-	return rpc.DialDirectGRPC(ctx, u.Host, logger.AsZap(), dialOpts...)
+	return rpc.DialDirectGRPC(ctx, u.Host, logger.Sublogger("networking"), dialOpts...)
 }

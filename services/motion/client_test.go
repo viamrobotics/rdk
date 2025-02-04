@@ -40,7 +40,7 @@ func TestClient(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
 	injectMS := &inject.MotionService{}
@@ -82,6 +82,11 @@ func TestClient(t *testing.T) {
 	t.Run("motion client 1", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 
+		testPose := spatialmath.NewPose(
+			r3.Vector{X: 1., Y: 2., Z: 3.},
+			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
+		)
+
 		test.That(t, err, test.ShouldBeNil)
 
 		client, err := motion.NewClientFromConn(context.Background(), conn, "", testMotionServiceName, logger)
@@ -89,14 +94,7 @@ func TestClient(t *testing.T) {
 
 		receivedTransforms := make(map[string]*referenceframe.LinkInFrame)
 		success := true
-		injectMS.MoveFunc = func(
-			ctx context.Context,
-			componentName resource.Name,
-			destination *referenceframe.PoseInFrame,
-			worldState *referenceframe.WorldState,
-			constraints *motionplan.Constraints,
-			extra map[string]interface{},
-		) (bool, error) {
+		injectMS.MoveFunc = func(ctx context.Context, req motion.MoveReq) (bool, error) {
 			return success, nil
 		}
 		injectMS.GetPoseFunc = func(
@@ -114,15 +112,11 @@ func TestClient(t *testing.T) {
 		}
 
 		// Move
-		result, err := client.Move(ctx, gripperName, zeroPoseInFrame, nil, nil, nil)
+		result, err := client.Move(ctx, motion.MoveReq{ComponentName: gripperName, Destination: zeroPoseInFrame})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, result, test.ShouldEqual, success)
 
 		// GetPose
-		testPose := spatialmath.NewPose(
-			r3.Vector{X: 1., Y: 2., Z: 3.},
-			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
-		)
 		transforms := []*referenceframe.LinkInFrame{
 			referenceframe.NewLinkInFrame("arm1", testPose, "frame1", nil),
 			referenceframe.NewLinkInFrame("frame1", testPose, "frame2", nil),
@@ -165,14 +159,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		passedErr := errors.New("fake move error")
-		injectMS.MoveFunc = func(
-			ctx context.Context,
-			componentName resource.Name,
-			grabPose *referenceframe.PoseInFrame,
-			worldState *referenceframe.WorldState,
-			constraints *motionplan.Constraints,
-			extra map[string]interface{},
-		) (bool, error) {
+		injectMS.MoveFunc = func(ctx context.Context, req motion.MoveReq) (bool, error) {
 			return false, passedErr
 		}
 		passedErr = errors.New("fake GetPose error")
@@ -187,7 +174,7 @@ func TestClient(t *testing.T) {
 		}
 
 		// Move
-		resp, err := client2.Move(ctx, gripperName, zeroPoseInFrame, nil, nil, nil)
+		resp, err := client2.Move(ctx, motion.MoveReq{ComponentName: gripperName, Destination: zeroPoseInFrame})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, resp, test.ShouldEqual, false)
 
@@ -501,7 +488,7 @@ func TestClient(t *testing.T) {
 		})
 
 		t.Run("otherwise returns a slice of PlanWithStatus", func(t *testing.T) {
-			steps := []motionplan.PathStep{{"mybase": zeroPoseInFrame}}
+			steps := []referenceframe.FrameSystemPoses{{"mybase": zeroPoseInFrame}}
 			reason := "some reason"
 			id := uuid.New()
 			executionID := uuid.New()
@@ -531,7 +518,7 @@ func TestClient(t *testing.T) {
 		})
 
 		t.Run("supports returning a slice of PlanWithStatus with more than one plan", func(t *testing.T) {
-			steps := []motionplan.PathStep{{"mybase": zeroPoseInFrame}}
+			steps := []referenceframe.FrameSystemPoses{{"mybase": zeroPoseInFrame}}
 			reason := "some reason"
 
 			idA := uuid.New()

@@ -16,13 +16,15 @@ import (
 // where left is usually old and right is new. So the diff is the
 // changes from left to right.
 type Diff struct {
-	Left, Right    *Config
-	Added          *Config
-	Modified       *ModifiedConfigDiff
-	Removed        *Config
-	ResourcesEqual bool
-	NetworkEqual   bool
-	PrettyDiff     string
+	Left, Right         *Config
+	Added               *Config
+	Modified            *ModifiedConfigDiff
+	Removed             *Config
+	ResourcesEqual      bool
+	NetworkEqual        bool
+	LogEqual            bool
+	PrettyDiff          string
+	UnmodifiedResources []resource.Config
 }
 
 // ModifiedConfigDiff is the modificative different between two configs.
@@ -33,6 +35,14 @@ type ModifiedConfigDiff struct {
 	Services   []resource.Config
 	Packages   []PackageConfig
 	Modules    []Module
+}
+
+// NewRevision returns the revision from the new config if available.
+func (diff Diff) NewRevision() string {
+	if diff.Right != nil {
+		return diff.Right.Revision
+	}
+	return ""
 }
 
 // DiffConfigs returns the difference between the two given configs
@@ -79,6 +89,9 @@ func DiffConfigs(left, right Config, revealSensitiveConfigDiffs bool) (_ *Diff, 
 
 	networkDifferent := diffNetworkingCfg(&left, &right)
 	diff.NetworkEqual = !networkDifferent
+
+	logDifferent := diffLogCfg(&left, &right, servicesDifferent, componentsDifferent)
+	diff.LogEqual = !logDifferent
 
 	return &diff, nil
 }
@@ -234,6 +247,9 @@ func diffComponents(left, right []resource.Config, diff *Diff) bool {
 		if ok {
 			componentDifferent := diffComponent(l, r, diff)
 			different = componentDifferent || different
+			if !componentDifferent && diff.Left.Revision != diff.Right.Revision {
+				diff.UnmodifiedResources = append(diff.UnmodifiedResources, r)
+			}
 			continue
 		}
 		diff.Added.Components = append(diff.Added.Components, r)
@@ -360,6 +376,9 @@ func diffServices(left, right []resource.Config, diff *Diff) bool {
 		if ok {
 			serviceDifferent := diffService(l, r, diff)
 			different = serviceDifferent || different
+			if !serviceDifferent && diff.Left.Revision != diff.Right.Revision {
+				diff.UnmodifiedResources = append(diff.UnmodifiedResources, r)
+			}
 			continue
 		}
 		diff.Added.Services = append(diff.Added.Services, r)
@@ -497,4 +516,17 @@ func diffModule(left, right Module, diff *Diff) bool {
 	}
 	diff.Modified.Modules = append(diff.Modified.Modules, right)
 	return true
+}
+
+// diffLogCfg returns true if any part of the log config is different or if any
+// services or components have been updated.
+func diffLogCfg(left, right *Config, servicesDifferent, componentsDifferent bool) bool {
+	if !reflect.DeepEqual(left.LogConfig, right.LogConfig) {
+		return true
+	}
+	// If there was any change in services or components; attempt to update logger levels.
+	if servicesDifferent || componentsDifferent {
+		return true
+	}
+	return false
 }

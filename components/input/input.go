@@ -1,4 +1,7 @@
 // Package input provides human input, such as buttons, switches, knobs, gamepads, joysticks, keyboards, mice, etc.
+// For more information, see the [input controller component docs].
+//
+// [input controller component docs]: https://docs.viam.com/components/input-controller/
 package input
 
 import (
@@ -6,7 +9,6 @@ import (
 	"time"
 
 	pb "go.viam.com/api/component/inputcontroller/v1"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -14,7 +16,6 @@ import (
 
 func init() {
 	resource.RegisterAPI(API, resource.APIRegistration[Controller]{
-		Status:                      resource.StatusFunc(CreateStatus),
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterInputControllerServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.InputControllerService_ServiceDesc,
@@ -33,18 +34,27 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
-// Controller is a logical "container" more than an actual device
-// Could be a single gamepad, or a collection of digitalInterrupts and analogReaders, a keyboard, etc.
+// Controller is a logical "container" more than an actual device.
+// It could be a single gamepad, or a collection of digitalInterrupts and analogReaders, a keyboard, etc.
+// For more information, see the [input controller component docs].
 //
 // Controls example:
+//
+//	myController, err := input.FromRobot(machine, "my_input_controller")
 //
 //	// Get the list of Controls provided by the controller.
 //	controls, err := myController.Controls(context.Background(), nil)
 //
+// For more information, see the [Controls method docs].
+//
 // Events example:
+//
+//	myController, err := input.FromRobot(machine, "my_input_controller")
 //
 //	// Get the most recent Event for each Control.
 //	recent_events, err := myController.Events(context.Background(), nil)
+//
+// For more information, see the [Events method docs].
 //
 // RegisterControlCallback example:
 //
@@ -53,17 +63,28 @@ func Named(name string) resource.Name {
 //	    logger.Info("Start Menu Button was pressed at this time: %v", event.Time)
 //	}
 //
+//	myController, err := input.FromRobot(machine, "my_input_controller")
+//
 //	// Define the EventType "ButtonPress" to serve as the trigger for printStartTime.
 //	triggers := []input.EventType{input.ButtonPress}
 //
 //	// Get the controller's Controls.
-//	controls, err := controller.Controls(ctx, nil)
+//	controls, err := myController.Controls(context.Background(), nil)
 //
-//	// If the "ButtonStart" Control is found, trigger printStartTime when "ButtonStart" the event "ButtonPress" occurs.
+//	// If the "ButtonStart" Control is found, trigger printStartTime when on "ButtonStart" the event "ButtonPress" occurs.
 //	if !slices.Contains(controls, input.ButtonStart) {
-//	    return errors.New("button `ButtonStart` not found; controller may be disconnected")
+//	    logger.Error("button 'ButtonStart' not found; controller may be disconnected")
+//	    return
 //	}
-//	Mycontroller.RegisterControlCallback(context.Background(), input.ButtonStart, triggers, printStartTime, nil)
+//
+//	myController.RegisterControlCallback(context.Background(), input.ButtonStart, triggers, printStartTime, nil)
+//
+// For more information, see the [RegisterControlCallback method docs].
+//
+// [input controller component docs]: https://docs.viam.com/dev/reference/apis/components/input-controller/
+// [Controls method docs]: https://docs.viam.com/dev/reference/apis/components/input-controller/#getcontrols
+// [Events method docs]: https://docs.viam.com/dev/reference/apis/components/input-controller/#getevents
+// [RegisterControlCallback method docs]: https://docs.viam.com/dev/reference/apis/components/input-controller/#registercontrolcallback
 type Controller interface {
 	resource.Resource
 
@@ -179,23 +200,4 @@ func FromRobot(r robot.Robot, name string) (Controller, error) {
 // NamesFromRobot is a helper for getting all input controller names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
-}
-
-// CreateStatus creates a status from the input controller.
-func CreateStatus(ctx context.Context, c Controller) (*pb.Status, error) {
-	eventsIn, err := c.Events(ctx, map[string]interface{}{})
-	if err != nil {
-		return nil, err
-	}
-	events := make([]*pb.Event, 0, len(eventsIn))
-	for _, eventIn := range eventsIn {
-		events = append(events, &pb.Event{
-			Time:    timestamppb.New(eventIn.Time),
-			Event:   string(eventIn.Event),
-			Control: string(eventIn.Control),
-			Value:   eventIn.Value,
-		})
-	}
-
-	return &pb.Status{Events: events}, nil
 }

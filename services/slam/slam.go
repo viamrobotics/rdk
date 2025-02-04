@@ -1,5 +1,8 @@
 // Package slam implements simultaneous localization and mapping.
 // This is an Experimental package.
+// For more information, see the [SLAM service docs].
+//
+// [SLAM service docs]: https://docs.viam.com/services/slam/
 package slam
 
 import (
@@ -122,6 +125,7 @@ func FromDependencies(deps resource.Dependencies, name string) (Service, error) 
 // The Go SDK implements helper functions that concatenate streaming
 // responses. Some of the following examples use corresponding
 // helper methods instead of interface methods.
+// For more information, see the [SLAM service docs].
 //
 // Position example:
 //
@@ -129,11 +133,15 @@ func FromDependencies(deps resource.Dependencies, name string) (Service, error) 
 //	// in the SLAM map as a Pose.
 //	pos, name, err := mySLAMService.Position(context.Background())
 //
+// For more information, see the [Position method docs].
+//
 // PointCloudMap example (using PointCloudMapFull helper method):
 //
 //	// Get the point cloud map in standard PCD format.
 //	pcdMapBytes, err := PointCloudMapFull(
 //	    context.Background(), mySLAMService, true)
+//
+// For more information, see the [PointCloudMap method docs].
 //
 // InternalState example (using InternalStateFull helper method):
 //
@@ -142,10 +150,20 @@ func FromDependencies(deps resource.Dependencies, name string) (Service, error) 
 //	internalStateBytes, err := InternalStateFull(
 //	    context.Background(), mySLAMService)
 //
+// For more information, see the [InternalState method docs].
+//
 // Properties example:
 //
 //	// Get the properties of your current SLAM session
 //	properties, err := mySLAMService.Properties(context.Background())
+//
+// For more information, see the [Properties method docs].
+//
+// [SLAM service docs]: https://docs.viam.com/operate/reference/services/slam/
+// [Position method docs]: https://docs.viam.com/dev/reference/apis/services/slam/#getposition
+// [PointCloudMap method docs]: https://docs.viam.com/dev/reference/apis/services/slam/#getpointcloudmap
+// [InternalState method docs]: https://docs.viam.com/dev/reference/apis/services/slam/#getinternalstate
+// [Properties method docs]: https://docs.viam.com/dev/reference/apis/services/slam/#getproperties
 type Service interface {
 	resource.Resource
 	Position(ctx context.Context) (spatialmath.Pose, error)

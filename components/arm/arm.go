@@ -1,29 +1,28 @@
 //go:build !no_cgo
 
 // Package arm defines the arm that a robot uses to manipulate objects.
+// For more information, see the [arm component docs].
+//
+// [arm component docs]: https://docs.viam.com/components/arm/
 package arm
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"strings"
 
-	v1 "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 
 	"go.viam.com/rdk/data"
-	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 func init() {
 	resource.RegisterAPI(API, resource.APIRegistration[Arm]{
-		Status:                      resource.StatusFunc(CreateStatus),
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterArmServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.ArmService_ServiceDesc,
@@ -43,17 +42,6 @@ func init() {
 // SubtypeName is a constant that identifies the component resource API string "arm".
 const SubtypeName = "arm"
 
-// MTPoob is a string that all MoveToPosition errors should contain if the method is called
-// and there are joints which are out of bounds.
-const MTPoob = "cartesian movements are not allowed when arm joints are out of bounds"
-
-var (
-	defaultLinearConstraint  = motionplan.LinearConstraint{}
-	defaultArmPlannerOptions = &motionplan.Constraints{
-		LinearConstraint: []motionplan.LinearConstraint{defaultLinearConstraint},
-	}
-)
-
 // API is a variable that identifies the component resource API.
 var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 
@@ -63,6 +51,7 @@ func Named(name string) resource.Name {
 }
 
 // An Arm represents a physical robotic arm that exists in three-dimensional space.
+// For more information, see the [arm component docs].
 //
 // EndPosition example:
 //
@@ -70,31 +59,48 @@ func Named(name string) resource.Name {
 //	// Get the end position of the arm as a Pose.
 //	pos, err := myArm.EndPosition(context.Background(), nil)
 //
+// For more information, see the [EndPosition method docs].
+//
 // MoveToPosition example:
 //
 //	myArm, err := arm.FromRobot(machine, "my_arm")
 //	// Create a Pose for the arm.
 //	examplePose := spatialmath.NewPose(
 //	        r3.Vector{X: 5, Y: 5, Z: 5},
-//	        &spatialmath.OrientationVectorDegrees{0X: 5, 0Y: 5, Theta: 20}
+//	        &spatialmath.OrientationVectorDegrees{OX: 5, OY: 5, Theta: 20},
 //	)
 //
 //	// Move your arm to the Pose.
 //	err = myArm.MoveToPosition(context.Background(), examplePose, nil)
 //
+// For more information, see the [MoveToPosition method docs].
+//
 // MoveToJointPositions example:
 //
-//	// Assumes you have imported "go.viam.com/api/component/arm/v1" as `componentpb`
 //	myArm, err := arm.FromRobot(machine, "my_arm")
 //
-//	// Declare an array of values with your desired rotational value for each joint on the arm.
-//	degrees := []float64{4.0, 5.0, 6.0}
+//	// Declare an array of values with your desired rotational value (in radians) for each joint on the arm.
+//	inputs := referenceframe.FloatsToInputs([]float64{0, math.Pi/2, math.Pi})
 //
-//	// Declare a new JointPositions with these values.
-//	jointPos := &componentpb.JointPositions{Values: degrees}
+//	// Move each joint of the arm to the positions specified in the above slice
+//	err = myArm.MoveToJointPositions(context.Background(), inputs, nil)
 //
-//	// Move each joint of the arm to the position these values specify.
-//	err = myArm.MoveToJointPositions(context.Background(), jointPos, nil)
+// For more information, see the [MoveToJointPositions method docs].
+//
+// MoveThroughJointPositions example:
+//
+//	myArm, err := arm.FromRobot(machine, "my_arm")
+//
+//	// Declare a 2D array of values with your desired rotational value (in radians) for each joint on the arm.
+//	inputs := [][]referenceframe.Input{
+//		referenceframe.FloatsToInputs([]float64{0, math.Pi/2, math.Pi})
+//		referenceframe.FloatsToInputs([]float64{0, 0, 0})
+//	}
+//
+//	// Move each joint of the arm through the positions in the slice defined above
+//	err = myArm.MoveThroughJointPositions(context.Background(), inputs, nil, nil)
+//
+// For more information, see the [MoveThroughJointPositions method docs].
 //
 // JointPositions example:
 //
@@ -102,12 +108,21 @@ func Named(name string) resource.Name {
 //
 //	// Get the current position of each joint on the arm as JointPositions.
 //	pos, err := myArm.JointPositions(context.Background(), nil)
+//
+// For more information, see the [JointPositions method docs].
+//
+// [arm component docs]: https://docs.viam.com/components/arm/
+// [EndPosition method docs]: https://docs.viam.com/dev/reference/apis/components/arm/#getendposition
+// [MoveToPosition method docs]: https://docs.viam.com/dev/reference/apis/components/arm/#movetoposition
+// [MoveToJointPositions method docs]: https://docs.viam.com/dev/reference/apis/components/arm/#movetojointpositions
+// [MoveThroughJointPositions method docs]: https://docs.viam.com/dev/reference/apis/components/arm/#movethroughjointpositions
+// [JointPositions method docs]: https://docs.viam.com/dev/reference/apis/components/arm/#getjointpositions
 type Arm interface {
 	resource.Resource
 	referenceframe.ModelFramer
 	resource.Shaped
 	resource.Actuator
-	referenceframe.InputEnabled
+	framesystem.InputEnabled
 
 	// EndPosition returns the current position of the arm.
 	EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error)
@@ -118,10 +133,14 @@ type Arm interface {
 
 	// MoveToJointPositions moves the arm's joints to the given positions.
 	// This will block until done or a new operation cancels this one.
-	MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions, extra map[string]interface{}) error
+	MoveToJointPositions(ctx context.Context, positions []referenceframe.Input, extra map[string]interface{}) error
+
+	// MoveThroughJointPositions moves the arm's joints through the given positions in the order they are specified.
+	// This will block until done or a new operation cancels this one.
+	MoveThroughJointPositions(ctx context.Context, positions [][]referenceframe.Input, options *MoveOptions, extra map[string]any) error
 
 	// JointPositions returns the current joint positions of the arm.
-	JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error)
+	JointPositions(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error)
 }
 
 // FromDependencies is a helper for getting the named arm from a collection of
@@ -140,76 +159,6 @@ func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
 }
 
-// CreateStatus creates a status from the arm. This will report calculated end effector positions even if the given
-// arm is perceived to be out of bounds.
-func CreateStatus(ctx context.Context, a Arm) (*pb.Status, error) {
-	jointPositions, err := a.JointPositions(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	model := a.ModelFrame()
-
-	var endPosition *v1.Pose
-	if endPose, err := motionplan.ComputeOOBPosition(model, jointPositions); err == nil {
-		endPosition = spatialmath.PoseToProtobuf(endPose)
-	}
-
-	isMoving, err := a.IsMoving(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.Status{EndPosition: endPosition, JointPositions: jointPositions, IsMoving: isMoving}, nil
-}
-
-// Move is a helper function to abstract away movement for general arms.
-func Move(ctx context.Context, logger logging.Logger, a Arm, dst spatialmath.Pose) error {
-	joints, err := a.JointPositions(ctx, nil)
-	if err != nil {
-		return err
-	}
-	model := a.ModelFrame()
-	// check that joint positions are not out of bounds
-	_, err = motionplan.ComputePosition(model, joints)
-	if err != nil && strings.Contains(err.Error(), referenceframe.OOBErrString) {
-		return errors.New(MTPoob + ": " + err.Error())
-	} else if err != nil {
-		return err
-	}
-
-	solution, err := Plan(ctx, logger, a, dst)
-	if err != nil {
-		return err
-	}
-	return GoToWaypoints(ctx, a, solution)
-}
-
-// Plan is a helper function to be called by arm implementations to abstract away the default procedure for using the
-// motion planning library with arms.
-func Plan(ctx context.Context, logger logging.Logger, a Arm, dst spatialmath.Pose) ([][]referenceframe.Input, error) {
-	model := a.ModelFrame()
-	jp, err := a.JointPositions(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	return motionplan.PlanFrameMotion(ctx, logger, dst, model, model.InputFromProtobuf(jp), defaultArmPlannerOptions, nil)
-}
-
-// GoToWaypoints will visit in turn each of the joint position waypoints generated by a motion planner.
-func GoToWaypoints(ctx context.Context, a Arm, waypoints [][]referenceframe.Input) error {
-	for _, waypoint := range waypoints {
-		err := ctx.Err() // make sure we haven't been cancelled
-		if err != nil {
-			return err
-		}
-
-		err = a.GoToInputs(ctx, waypoint)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // CheckDesiredJointPositions validates that the desired joint positions either bring the joint back
 // in bounds or do not move the joint more out of bounds.
 func CheckDesiredJointPositions(ctx context.Context, a Arm, desiredInputs []referenceframe.Input) error {
@@ -218,22 +167,24 @@ func CheckDesiredJointPositions(ctx context.Context, a Arm, desiredInputs []refe
 		return err
 	}
 	model := a.ModelFrame()
-	checkPositions := model.InputFromProtobuf(currentJointPos)
 	limits := model.DoF()
 	for i, val := range desiredInputs {
 		max := limits[i].Max
 		min := limits[i].Min
-		currPosition := checkPositions[i]
-		// to make sure that val is a valid input
-		// it must either bring the joint more
-		// inbounds or keep the joint inbounds.
+		currPosition := currentJointPos[i]
+		// to make sure that val is a valid input it must either bring the joint closer inbounds or keep the joint inbounds.
 		if currPosition.Value > limits[i].Max {
 			max = currPosition.Value
 		} else if currPosition.Value < limits[i].Min {
 			min = currPosition.Value
 		}
 		if val.Value > max || val.Value < min {
-			return fmt.Errorf("joint %v needs to be within range [%v, %v] and cannot be moved to %v", i, min, max, val.Value)
+			return fmt.Errorf("joint %v needs to be within range [%v, %v] and cannot be moved to %v",
+				i,
+				utils.RadToDeg(min),
+				utils.RadToDeg(max),
+				utils.RadToDeg(val.Value),
+			)
 		}
 	}
 	return nil

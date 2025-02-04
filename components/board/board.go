@@ -2,6 +2,9 @@
 // such as a Raspberry Pi.
 //
 // Besides the board itself, some other interfaces it defines are analog pins and digital interrupts.
+// For more information, see the [board component docs].
+//
+// [board component docs]: https://docs.viam.com/components/board/
 package board
 
 import (
@@ -17,7 +20,6 @@ import (
 
 func init() {
 	resource.RegisterAPI(API, resource.APIRegistration[Board]{
-		Status:                      resource.StatusFunc(CreateStatus),
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterBoardServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.BoardService_ServiceDesc,
@@ -46,6 +48,7 @@ func Named(name string) resource.Name {
 
 // A Board represents a physical general purpose board that contains various
 // components such as analogs, and digital interrupts.
+// For more information, see the [board component docs].
 //
 // AnalogByName example:
 //
@@ -54,12 +57,16 @@ func Named(name string) resource.Name {
 //	// Get the Analog pin "my_example_analog".
 //	analog, err := myBoard.AnalogByName("my_example_analog")
 //
+// For more information, see the [AnalogByName method docs].
+//
 // DigitalInterruptByName example:
 //
 //	myBoard, err := board.FromRobot(robot, "my_board")
 //
 //	// Get the DigitalInterrupt "my_example_digital_interrupt".
 //	interrupt, err := myBoard.DigitalInterruptByName("my_example_digital_interrupt")
+//
+// For more information, see the [DigitalInterruptByName method docs].
 //
 // GPIOPinByName example:
 //
@@ -68,12 +75,16 @@ func Named(name string) resource.Name {
 //	// Get the GPIOPin with pin number 15.
 //	pin, err := myBoard.GPIOPinByName("15")
 //
+// For more information, see the [GPIOPinByName method docs].
+//
 // SetPowerMode example:
 //
 //	myBoard, err := board.FromRobot(robot, "my_board")
 //
 //	Set the power mode of the board to OFFLINE_DEEP.
 //	myBoard.SetPowerMode(context.Background(), boardpb.PowerMode_POWER_MODE_OFFLINE_DEEP, nil)
+//
+// For more information, see the [SetPowerMode method docs].
 //
 // StreamTicks example:
 //
@@ -93,6 +104,15 @@ func Named(name string) resource.Name {
 //	}
 //
 //	err = myBoard.StreamTicks(context.Background(), interrupts, ticksChan, nil)
+//
+// For more information, see the [StreamTicks method docs].
+//
+// [board component docs]: https://docs.viam.com/operate/reference/components/board/
+// [AnalogByName method docs]: https://docs.viam.com/dev/reference/apis/components/board/#analogbyname
+// [DigitalInterruptByName method docs]: https://docs.viam.com/dev/reference/apis/components/board/#digitalinterruptbyname
+// [GPIOPinByName method docs]: https://docs.viam.com/dev/reference/apis/components/board/#gpiopinbyname
+// [SetPowerMode method docs]: https://docs.viam.com/dev/reference/apis/components/board/#setpowermode
+// [StreamTicks method docs]: https://docs.viam.com/dev/reference/apis/components/board/#streamticks
 type Board interface {
 	resource.Resource
 
@@ -104,12 +124,6 @@ type Board interface {
 
 	// GPIOPinByName returns a GPIOPin by name.
 	GPIOPinByName(name string) (GPIOPin, error)
-
-	// AnalogNames returns the names of all known analog pins.
-	AnalogNames() []string
-
-	// DigitalInterruptNames returns the names of all known digital interrupts.
-	DigitalInterruptNames() []string
 
 	// SetPowerMode sets the board to the given power mode. If
 	// provided, the board will exit the given power mode after
@@ -135,6 +149,8 @@ type Board interface {
 //	readingValue := reading.Value
 //	stepSize := reading.StepSize
 //
+// For more information, see the [Read method docs].
+//
 // Write example:
 //
 //	myBoard, err := board.FromRobot(robot, "my_board")
@@ -143,7 +159,12 @@ type Board interface {
 //	analog, err := myBoard.AnalogByName("my_example_analog")
 //
 //	// Set the pin to value 48.
-//	err := analog.Write(context.Background(), 48, nil)
+//	err = analog.Write(context.Background(), 48, nil)
+//
+// For more information, see the [Write method docs].
+//
+// [Read method docs]: https://docs.viam.com/dev/reference/apis/components/board/#readanalogreader
+// [Write method docs]: https://docs.viam.com/dev/reference/apis/components/board/#writeanalog
 type Analog interface {
 	// Read reads off the current value.
 	Read(ctx context.Context, extra map[string]interface{}) (AnalogValue, error)

@@ -24,8 +24,12 @@ type ModuleManager interface {
 	CleanModuleDataDirectory() error
 
 	Configs() []config.Module
+	AllModels() []resource.ModuleModelDiscovery
 	Provides(cfg resource.Config) bool
 	Handles() map[string]module.HandlerMap
 
+	FirstRun(ctx context.Context, conf config.Module) error
+
 	Close(ctx context.Context) error
+	Kill()
 }

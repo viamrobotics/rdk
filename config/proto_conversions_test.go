@@ -14,6 +14,7 @@ import (
 	packagespb "go.viam.com/api/app/packages/v1"
 	pb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
+	goutils "go.viam.com/utils"
 	"go.viam.com/utils/jwks"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
@@ -69,7 +70,7 @@ var testComponent = resource.Config{
 		},
 	},
 	Frame:            testFrame,
-	LogConfiguration: resource.LogConfig{Level: logging.DEBUG},
+	LogConfiguration: &resource.LogConfig{Level: logging.DEBUG},
 }
 
 var testRemote = Remote{
@@ -119,7 +120,7 @@ var testService = resource.Config{
 			},
 		},
 	},
-	LogConfiguration: resource.LogConfig{Level: logging.DEBUG},
+	LogConfiguration: &resource.LogConfig{Level: logging.DEBUG},
 }
 
 var testProcessConfig = pexec.ProcessConfig{
@@ -127,8 +128,9 @@ var testProcessConfig = pexec.ProcessConfig{
 	Name:        "Some-name",
 	Args:        []string{"arg1", "arg2"},
 	CWD:         "/home",
-	Environment: map[string]string{"SOME_VAR": "value"},
 	OneShot:     true,
+	Username:    "sam",
+	Environment: map[string]string{"SOME_VAR": "value"},
 	Log:         true,
 	StopSignal:  syscall.SIGINT,
 	StopTimeout: time.Second,
@@ -200,11 +202,26 @@ var testModuleWithError = Module{
 	},
 }
 
+var testModuleWithTimeout = Module{
+	Name:            "testmod",
+	ExePath:         "/tmp/test.mod",
+	LogLevel:        "debug",
+	Type:            ModuleTypeLocal,
+	ModuleID:        "a:b",
+	Environment:     map[string]string{"SOME_VAR": "value"},
+	FirstRunTimeout: goutils.Duration(time.Minute),
+}
+
 var testPackageConfig = PackageConfig{
 	Name:    "package-name",
 	Package: "some/package",
 	Version: "v1",
 	Type:    PackageTypeModule,
+}
+
+var testLogConfig = logging.LoggerPatternConfig{
+	Pattern: "rdk.resource_manager.modmanager",
+	Level:   "WARN",
 }
 
 var (
@@ -234,6 +251,7 @@ func validateModule(t *testing.T, actual, expected Module) {
 	test.That(t, actual.Name, test.ShouldEqual, expected.Name)
 	test.That(t, actual.ExePath, test.ShouldEqual, expected.ExePath)
 	test.That(t, actual.LogLevel, test.ShouldEqual, expected.LogLevel)
+	test.That(t, actual.FirstRunTimeout, test.ShouldEqual, expected.FirstRunTimeout)
 	test.That(t, actual, test.ShouldResemble, expected)
 }
 
@@ -266,6 +284,16 @@ func TestPackageConfigConversions(t *testing.T) {
 	test.That(t, pckWithErr, test.ShouldResemble, out)
 }
 
+func TestLogConfigConversions(t *testing.T) {
+	proto, err := LogConfigToProto(&testLogConfig)
+	test.That(t, err, test.ShouldBeNil)
+
+	out, err := LogConfigFromProto(proto)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, testLogConfig, test.ShouldResemble, *out)
+}
+
 func TestModuleConfigToProto(t *testing.T) {
 	proto, err := ModuleConfigToProto(&testModule)
 	test.That(t, err, test.ShouldBeNil)
@@ -281,11 +309,21 @@ func TestModuleConfigToProto(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, protoWithErr.Status, test.ShouldNotBeNil)
 
-	out, err = ModuleConfigFromProto(proto)
+	out, err = ModuleConfigFromProto(protoWithErr)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out, test.ShouldNotBeNil)
 
-	validateModule(t, *out, testModule)
+	validateModule(t, *out, testModuleWithError)
+
+	protoWithTimeout, err := ModuleConfigToProto(&testModuleWithTimeout)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, protoWithTimeout.Status, test.ShouldBeNil)
+
+	out, err = ModuleConfigFromProto(protoWithTimeout)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out, test.ShouldNotBeNil)
+
+	validateModule(t, *out, testModuleWithTimeout)
 }
 
 //nolint:thelper
@@ -803,19 +841,21 @@ func TestFromProto(t *testing.T) {
 
 	debug := true
 	enableWebProfile := true
+	disableLogDeduplication := true
 
 	input := &pb.RobotConfig{
-		Cloud:            cloudConfig,
-		Remotes:          []*pb.RemoteConfig{remoteConfig},
-		Modules:          []*pb.ModuleConfig{moduleConfig},
-		Components:       []*pb.ComponentConfig{componentConfig},
-		Processes:        []*pb.ProcessConfig{processConfig},
-		Services:         []*pb.ServiceConfig{serviceConfig},
-		Packages:         []*pb.PackageConfig{packageConfig},
-		Network:          networkConfig,
-		Auth:             authConfig,
-		Debug:            &debug,
-		EnableWebProfile: enableWebProfile,
+		Cloud:                   cloudConfig,
+		Remotes:                 []*pb.RemoteConfig{remoteConfig},
+		Modules:                 []*pb.ModuleConfig{moduleConfig},
+		Components:              []*pb.ComponentConfig{componentConfig},
+		Processes:               []*pb.ProcessConfig{processConfig},
+		Services:                []*pb.ServiceConfig{serviceConfig},
+		Packages:                []*pb.PackageConfig{packageConfig},
+		Network:                 networkConfig,
+		Auth:                    authConfig,
+		Debug:                   &debug,
+		EnableWebProfile:        enableWebProfile,
+		DisableLogDeduplication: disableLogDeduplication,
 	}
 
 	out, err := FromProto(input, logger)
@@ -836,6 +876,7 @@ func TestFromProto(t *testing.T) {
 	validateAuthConfig(t, out.Auth, testAuthConfig)
 	test.That(t, out.Debug, test.ShouldEqual, debug)
 	test.That(t, out.EnableWebProfile, test.ShouldEqual, enableWebProfile)
+	test.That(t, out.DisableLogDeduplication, test.ShouldEqual, disableLogDeduplication)
 	test.That(t, out.Packages, test.ShouldHaveLength, 1)
 	test.That(t, out.Packages[0], test.ShouldResemble, testPackageConfig)
 }
@@ -989,4 +1030,42 @@ func TestPackageTypeConversion(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "invalid-package-type")
 	test.That(t, converted, test.ShouldResemble, packagespb.PackageType_PACKAGE_TYPE_UNSPECIFIED.Enum())
+}
+
+func TestMaintenanceConfigToProtoSuccess(t *testing.T) {
+	testMaintenanceConfig := MaintenanceConfig{
+		SensorName:            "rdk:component:sensor/car",
+		MaintenanceAllowedKey: "honk",
+	}
+
+	proto, err := MaintenanceConfigToProto(&testMaintenanceConfig)
+	test.That(t, err, test.ShouldBeNil)
+	out, err := MaintenanceConfigFromProto(proto)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, *out, test.ShouldResemble, testMaintenanceConfig)
+}
+
+func TestMaintenanceConfigToProtoRemoteSuccess(t *testing.T) {
+	testMaintenanceConfig := MaintenanceConfig{
+		SensorName:            "rdk:component:sensor/go:store",
+		MaintenanceAllowedKey: "fast",
+	}
+
+	proto, err := MaintenanceConfigToProto(&testMaintenanceConfig)
+	test.That(t, err, test.ShouldBeNil)
+	out, err := MaintenanceConfigFromProto(proto)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, *out, test.ShouldResemble, testMaintenanceConfig)
+}
+
+func TestMaintenanceConfigToProtoFailure(t *testing.T) {
+	testMaintenanceConfig := MaintenanceConfig{
+		SensorName:            "car:go",
+		MaintenanceAllowedKey: "slow",
+	}
+
+	_, err := MaintenanceConfigToProto(&testMaintenanceConfig)
+	test.That(t, err.Error(), test.ShouldEqual, "string \"car:go\" is not a fully qualified resource name")
 }

@@ -15,6 +15,7 @@ type VisCapture struct {
 	Detections      []objectdetection.Detection
 	Classifications classification.Classifications
 	Objects         []*vision.Object
+	Extra           map[string]interface{}
 }
 
 // CaptureOptions is a struct to configure CaptureAllFromCamera request.s.

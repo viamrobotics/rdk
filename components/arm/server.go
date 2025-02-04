@@ -5,16 +5,20 @@ package arm
 
 import (
 	"context"
+	"errors"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/referenceframe/urdf"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
+
+var errUnimplemented = errors.New("unimplemented")
 
 // serviceServer implements the ArmService from arm.proto.
 type serviceServer struct {
@@ -52,10 +56,7 @@ func (s *serviceServer) GetEndPosition(
 }
 
 // GetJointPositions gets the current joint position of an arm of the underlying robot.
-func (s *serviceServer) GetJointPositions(
-	ctx context.Context,
-	req *pb.GetJointPositionsRequest,
-) (*pb.GetJointPositionsResponse, error) {
+func (s *serviceServer) GetJointPositions(ctx context.Context, req *pb.GetJointPositionsRequest) (*pb.GetJointPositionsResponse, error) {
 	arm, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
@@ -64,13 +65,11 @@ func (s *serviceServer) GetJointPositions(
 	if err != nil {
 		return nil, err
 	}
-	// Have a default empty joint position object in case the position returned is nil,
-	// this guards against nil objects being transferred over the wire.
-	convertedPos := &pb.JointPositions{Values: []float64{}}
-	if pos != nil {
-		convertedPos.Values = pos.Values
+	jp, err := referenceframe.JointPositionsFromInputs(arm.ModelFrame(), pos)
+	if err != nil {
+		return nil, err
 	}
-	return &pb.GetJointPositionsResponse{Positions: convertedPos}, nil
+	return &pb.GetJointPositionsResponse{Positions: jp}, nil
 }
 
 // MoveToPosition returns the position of the arm specified.
@@ -97,7 +96,33 @@ func (s *serviceServer) MoveToJointPositions(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.MoveToJointPositionsResponse{}, arm.MoveToJointPositions(ctx, req.Positions, req.Extra.AsMap())
+	inputs, err := referenceframe.InputsFromJointPositions(arm.ModelFrame(), req.Positions)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.MoveToJointPositionsResponse{}, arm.MoveToJointPositions(ctx, inputs, req.Extra.AsMap())
+}
+
+// MoveThroughJointPositions moves an arm of the underlying robot through the requested joint positions.
+func (s *serviceServer) MoveThroughJointPositions(
+	ctx context.Context,
+	req *pb.MoveThroughJointPositionsRequest,
+) (*pb.MoveThroughJointPositionsResponse, error) {
+	operation.CancelOtherWithLabel(ctx, req.Name)
+	arm, err := s.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	allInputs := make([][]referenceframe.Input, 0, len(req.Positions))
+	for _, position := range req.Positions {
+		inputs, err := referenceframe.InputsFromJointPositions(arm.ModelFrame(), position)
+		if err != nil {
+			return nil, err
+		}
+		allInputs = append(allInputs, inputs)
+	}
+	err = arm.MoveThroughJointPositions(ctx, allInputs, moveOptionsFromProtobuf(req.Options), req.Extra.AsMap())
+	return &pb.MoveThroughJointPositionsResponse{}, err
 }
 
 // Stop stops the arm specified.
@@ -130,6 +155,31 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 	}
 	geometries, err := res.Geometries(ctx, req.Extra.AsMap())
 	if err != nil {
+		// if the error tells us the method is unimplemented, then we
+		// can use the kinematics and joint positions endpoints to
+		// construct the geometries of the arm
+		if errors.Is(err, errUnimplemented) {
+			kinematicsPbResp, err := s.GetKinematics(ctx, &commonpb.GetKinematicsRequest{Name: req.GetName()})
+			if err != nil {
+				return nil, err
+			}
+			model, err := parseKinematicsResponse(req.GetName(), kinematicsPbResp)
+			if err != nil {
+				return nil, err
+			}
+
+			jointPbResp, err := s.GetJointPositions(ctx, &pb.GetJointPositionsRequest{Name: req.GetName()})
+			if err != nil {
+				return nil, err
+			}
+			jointPositionsPb := jointPbResp.GetPositions()
+
+			gifs, err := model.Geometries(model.InputFromProtobuf(jointPositionsPb))
+			if err != nil {
+				return nil, err
+			}
+			return &commonpb.GetGeometriesResponse{Geometries: spatialmath.NewGeometriesToProto(gifs.Geometries())}, nil
+		}
 		return nil, err
 	}
 	return &commonpb.GetGeometriesResponse{Geometries: spatialmath.NewGeometriesToProto(geometries)}, nil

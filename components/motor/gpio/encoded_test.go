@@ -2,7 +2,6 @@ package gpio
 
 import (
 	"context"
-	"math"
 	"sync"
 	"testing"
 	"time"
@@ -56,6 +55,9 @@ func injectEncoder(vals *injectedState) encoder.Encoder {
 	}
 	enc.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (encoder.Properties, error) {
 		return encoder.Properties{TicksCountSupported: true}, nil
+	}
+	enc.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+		return nil, nil
 	}
 	return enc
 }
@@ -210,6 +212,10 @@ func TestEncodedMotor(t *testing.T) {
 		test.That(t, initpos > finalpos, test.ShouldBeTrue)
 	})
 
+	t.Run("encoded motor test GoFor zero revolutions", func(t *testing.T) {
+		test.That(t, m.GoFor(context.Background(), 10, 0, nil), test.ShouldBeError, motor.NewZeroRevsError())
+	})
+
 	t.Run("encoded motor test encodedGoForMath", func(t *testing.T) {
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
@@ -245,21 +251,19 @@ func TestEncodedMotor(t *testing.T) {
 		test.That(t, direction, test.ShouldEqual, expectedDirection)
 
 		// positive rpm and zero revolutions
-		expectedGoalPos, expectedGoalRPM, expectedDirection = math.Inf(1), 10.0, 1.0
+		expectedGoalPos, expectedGoalRPM, expectedDirection = 0.0, 0.0, 0.0
 		goalPos, goalRPM, direction = encodedGoForMath(10, 0, 0, 1)
 		test.That(t, goalPos, test.ShouldEqual, expectedGoalPos)
 		test.That(t, goalRPM, test.ShouldEqual, expectedGoalRPM)
 		test.That(t, direction, test.ShouldEqual, expectedDirection)
 
 		// negative rpm and zero revolutions
-		expectedGoalPos, expectedGoalRPM, expectedDirection = math.Inf(-1), -10.0, -1.0
 		goalPos, goalRPM, direction = encodedGoForMath(-10, 0, 0, 1)
 		test.That(t, goalPos, test.ShouldEqual, expectedGoalPos)
 		test.That(t, goalRPM, test.ShouldEqual, expectedGoalRPM)
 		test.That(t, direction, test.ShouldEqual, expectedDirection)
 
 		// zero rpm and zero revolutions
-		expectedGoalPos, expectedGoalRPM, expectedDirection = math.Inf(1), 0.0, 0.0
 		goalPos, goalRPM, direction = encodedGoForMath(0, 0, 0, 1)
 		test.That(t, goalPos, test.ShouldEqual, expectedGoalPos)
 		test.That(t, goalRPM, test.ShouldEqual, expectedGoalRPM)
