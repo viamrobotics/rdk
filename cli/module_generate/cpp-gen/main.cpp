@@ -1,8 +1,9 @@
 #include "compiler_info.hpp"
 
-#include "clang/Frontend/FrontendActions.h"
+#include <clang/AST/PrettyPrinter.h>
 #include <clang/ASTMatchers/ASTMatchFinder.h>
 #include <clang/ASTMatchers/ASTMatchers.h>
+#include <clang/Frontend/FrontendActions.h>
 #include <clang/Tooling/CommonOptionsParser.h>
 #include <clang/Tooling/CompilationDatabase.h>
 #include <clang/Tooling/Tooling.h>
@@ -119,19 +120,38 @@ int main(int argc, const char** argv) {
             .bind("method");
 
     struct MethodPrinter : MatchFinder::MatchCallback {
+        static void printParm(const clang::ParmVarDecl& parm,
+                              llvm::raw_ostream& out = llvm::outs()) {
+            out << parm.getType().getAsString({parm.getASTContext().getLangOpts()}) << " "
+                << parm.getName();
+        }
+
         void run(const MatchFinder::MatchResult& result) override {
             if (const auto* method = result.Nodes.getNodeAs<clang::CXXMethodDecl>("method")) {
-                clang::ASTContext& ctx = method->getASTContext();
-                clang::SourceManager& mgr = ctx.getSourceManager();
+                clang::PrintingPolicy printPolicy(method->getASTContext().getLangOpts());
 
-                clang::SourceRange range(method->getSourceRange().getBegin(),
-                                         method->getSourceRange().getEnd());
+                llvm::outs() << method->getReturnType().getAsString(printPolicy) << " "
+                             << method->getName() << "(";
 
-                llvm::outs() << clang::Lexer::getSourceText(
-                                    clang::CharSourceRange::getTokenRange(range),
-                                    mgr,
-                                    ctx.getLangOpts())
-                             << "\n";
+                if (method->getNumParams() > 0) {
+                    auto param_begin = method->param_begin();
+                    printParm(**param_begin);
+
+                    if (method->getNumParams() > 1) {
+                        for (const clang::ParmVarDecl* parm :
+                             llvm::makeArrayRef(++param_begin, method->param_end())) {
+                            llvm::outs() << ", ";
+                            printParm(*parm);
+                        }
+                    }
+                }
+
+                llvm::outs() << ")";
+
+                method->getMethodQualifiers().print(llvm::outs(), printPolicy, true);
+
+                llvm::outs() << "\n{\n\tthrow std::logic_error(\"" << method->getName()
+                             << "\" not implemented\");\n}\n\n";
             }
         }
     };
