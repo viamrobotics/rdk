@@ -15,8 +15,9 @@ const (
 	inferenceFlagFileOrgID      = "file-org-id"
 	inferenceFlagFileID         = "file-id"
 	inferenceFlagFileLocationID = "file-location-id"
-	inferenceFlagModelID        = "model-id"
-	inferenceFlagModelVersionID = "model-version"
+	inferenceFlagModelOrgID     = "model-org-id"
+	inferenceFlagModelName      = "model-name"
+	inferenceFlagModelVersion   = "model-version"
 )
 
 type mlInferenceInferArgs struct {
@@ -24,7 +25,8 @@ type mlInferenceInferArgs struct {
 	FileOrgID      string
 	FileID         string
 	FileLocationID string
-	ModelID        string
+	ModelOrgID     string
+	ModelName      string
 	ModelVersion   string
 }
 
@@ -37,7 +39,7 @@ func MLInferenceInferAction(c *cli.Context, args mlInferenceInferArgs) error {
 
 	_, err = client.mlRunInference(
 		args.OrgID, args.FileOrgID, args.FileID, args.FileLocationID,
-		args.ModelID, args.ModelVersion)
+		args.ModelOrgID, args.ModelName, args.ModelVersion)
 	if err != nil {
 		return err
 	}
@@ -45,8 +47,8 @@ func MLInferenceInferAction(c *cli.Context, args mlInferenceInferArgs) error {
 }
 
 // mlRunInference runs inference on an image with the specified parameters.
-func (c *viamClient) mlRunInference(orgID, fileOrgID, fileID, fileLocation, modelID,
-	modelVersion string,
+func (c *viamClient) mlRunInference(orgID, fileOrgID, fileID, fileLocation, modelOrgID,
+	modelName, modelVersion string,
 ) (*mlinferencepb.GetInferenceResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
@@ -59,7 +61,7 @@ func (c *viamClient) mlRunInference(orgID, fileOrgID, fileID, fileLocation, mode
 			OrganizationId: fileOrgID,
 			LocationId:     fileLocation,
 		},
-		RegistryItemId:      modelID,
+		RegistryItemId:      fmt.Sprintf("%s:%s", modelOrgID, modelName),
 		RegistryItemVersion: modelVersion,
 	}
 
@@ -97,6 +99,7 @@ func (c *viamClient) printInferenceResponse(resp *mlinferencepb.GetInferenceResp
 	}
 
 	printf(c.c.App.Writer, "Annotations:")
+	printf(c.c.App.Writer, "Bounding Box Format: [x_min, y_min, x_max, y_max]")
 	if resp.Annotations != nil {
 		for _, bbox := range resp.Annotations.Bboxes {
 			printf(c.c.App.Writer, "  Bounding Box ID: %s, Label: %s",

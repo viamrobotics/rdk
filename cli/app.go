@@ -2759,7 +2759,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 					Usage: "run inference on an image",
 					UsageText: createUsageText("inference infer", []string{
 						generalFlagOrgID, inferenceFlagFileOrgID, inferenceFlagFileID,
-						inferenceFlagFileLocationID, inferenceFlagModelID, inferenceFlagModelVersionID,
+						inferenceFlagFileLocationID, inferenceFlagModelOrgID, inferenceFlagModelName, inferenceFlagModelVersion,
 					}, true, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
@@ -2783,13 +2783,18 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name:     inferenceFlagModelID,
-							Usage:    "ID of the model to use to run inference",
+							Name:     inferenceFlagModelOrgID,
+							Usage:    "organization ID that hosts the model to use to run inference",
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name:     inferenceFlagModelVersionID,
-							Usage:    "version ID of the model to use to run inference",
+							Name:     inferenceFlagModelName,
+							Usage:    "name of the model to use to run inference",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     inferenceFlagModelVersion,
+							Usage:    "version of the model to use to run inference",
 							Required: true,
 						},
 					},
