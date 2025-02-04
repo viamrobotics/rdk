@@ -643,6 +643,47 @@ func ListLocationsAction(c *cli.Context, args listLocationsArgs) error {
 	return listLocations(orgStr)
 }
 
+type machinesPartListArgs struct {
+	Organization string
+	Location     string
+	Machine      string
+}
+
+func MachinesPartListAction(c *cli.Context, args machinesPartListArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	if err = client.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	parts, err := client.robotParts(args.Organization, args.Location, args.Machine)
+	if err != nil {
+		return err
+	}
+
+	for _, part := range parts {
+
+		name := part.Name
+		if part.MainPart {
+			name += " (main)"
+		}
+		printf(
+			c.App.Writer,
+			"ID: %s\nName: %s\nLast Access: %s (%s ago)",
+			part.Id,
+			name,
+			part.LastAccess.AsTime().Format(time.UnixDate),
+			time.Since(part.LastAccess.AsTime()),
+		)
+		printf(c.App.Writer, "%s", part.String())
+	}
+
+	return nil
+}
+
 type listRobotsActionArgs struct {
 	Organization string
 	Location     string
