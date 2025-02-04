@@ -114,11 +114,8 @@ type RobotClient struct {
 	// performance would be impacted.
 	serverIsWebrtcEnabled bool
 
-	// If this client is running in a module process and this client represents the gRPC connection
-	// back to a viam-server. If this is true, `pc` and `sharedConn` are expected to be set.
-	isModuleConnection bool
-	pc                 *webrtc.PeerConnection
-	sharedConn         *grpc.SharedConn
+	pc         *webrtc.PeerConnection
+	sharedConn *grpc.SharedConn
 }
 
 // RemoteTypeName is the type name used for a remote. This is for internal use.
@@ -275,7 +272,6 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		sessionsDisabled:    rOpts.disableSessions,
 		heartbeatCtx:        heartbeatCtx,
 		heartbeatCtxCancel:  heartbeatCtxCancel,
-		isModuleConnection:  rOpts.modName != "",
 	}
 
 	// interceptors are applied in order from first to last
@@ -299,6 +295,9 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		rpc.WithStreamClientInterceptor(streamClientInterceptor()),
 	)
 
+	// If we're a client running as part of a module, we annotate our requests with our module
+	// name. That way the receiver (e.g: viam-server) can execute logic based on where a request
+	// came from. Such as knowing what WebRTC connection to add a video track to.
 	if rOpts.modName != "" {
 		inter := &grpc.ModInterceptors{ModName: rOpts.modName}
 		rc.dialOptions = append(rc.dialOptions, rpc.WithUnaryClientInterceptor(inter.UnaryClientInterceptor))

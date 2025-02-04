@@ -247,6 +247,15 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 	}
 
 	sc.peerConn = peerConn
+	// When communicating with modules, we may both call `AddStream` on the module (we are the
+	// client) _and_ the module may call `AddStream` on us (for example, to stream video data from a
+	// different module). Thus we must use the `PeerRoleServer` role such that we install an
+	// `OnNegotiationNeeded` callback for when the stream server handle for `AddStream` attempts to
+	// call `peerConn.AddTrack`.
+	//
+	// That said, it's not been rigorously exercised that when both ends initiate a renegotiation
+	// for different video tracks, that we end up in a state where both video tracks are
+	// successfully created.
 	sc.peerConnReady, _, err = rpc.ConfigureForRenegotiation(peerConn, rpc.PeerRoleServer, sc.logger)
 	if err != nil {
 		sc.logger.Warnw("Unable to create optional renegotiation channel for module. Ignoring.", "err", err)
