@@ -84,10 +84,6 @@ std::unordered_map<std::string, std::vector<std::string>> getCompilersDefaultInc
         }
     }
 
-    for (const auto& str : res.begin()->second) {
-        llvm::outs() << str << "\n";
-    }
-
     return res;
 }
 
