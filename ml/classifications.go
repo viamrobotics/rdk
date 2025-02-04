@@ -13,7 +13,7 @@ import (
 const classifierProbabilityName = "probability"
 
 func FormatClassificationOutputs(
-	inNameMap, outNameMap *sync.Map, outMap Tensors, labels []string,
+	outNameMap *sync.Map, outMap Tensors, labels []string,
 ) (classification.Classifications, error) {
 	// check if output tensor name that classifier is looking for is already present
 	// in the nameMap. If not, find the probability name, and cache it in the nameMap

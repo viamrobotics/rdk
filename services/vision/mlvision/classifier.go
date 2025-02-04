@@ -99,7 +99,7 @@ func attemptToBuildClassifier(mlm mlmodel.Service,
 			return nil, err
 		}
 
-		classifications, err := ml.FormatClassificationOutputs(inNameMap, outNameMap, outMap, labels)
+		classifications, err := ml.FormatClassificationOutputs(outNameMap, outMap, labels)
 		if err != nil {
 			return nil, err
 		}
