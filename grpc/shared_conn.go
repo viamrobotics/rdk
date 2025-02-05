@@ -128,7 +128,7 @@ func NewSharedConnForModule(grpcConn rpc.ClientConn, peerConn *webrtc.PeerConnec
 
 // IsConnectedToModule returns whether this shared conn is being used to communicate with a module.
 func (sc *SharedConn) IsConnectedToModule() bool {
-	return sc.isConnectedToViamServer
+	return !sc.isConnectedToViamServer
 }
 
 // IsConnectedToViamServer returns whether this shared conn is being used to communicate with a
@@ -136,7 +136,7 @@ func (sc *SharedConn) IsConnectedToModule() bool {
 // clients/remote connections are a pure webrtc connection. As opposed to a frankenstein tcp/unix
 // socket + webrtc connection.
 func (sc *SharedConn) IsConnectedToViamServer() bool {
-	return !sc.isConnectedToViamServer
+	return sc.isConnectedToViamServer
 }
 
 // Invoke forwards to the underlying GRPC Connection.

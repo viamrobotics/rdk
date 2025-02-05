@@ -663,8 +663,10 @@ func (c *client) Unsubscribe(ctx context.Context, id rtppassthrough.Subscription
 func (c *client) trackName() string {
 	// if c.conn is a *grpc.SharedConn then, this is being used for communication between a
 	// viam-server and module. The viam-server will have one SharedConn and the module will have a
-	// different one. When asking a module to start a video stream, we create a track name with the
-	// full resource name (i.e: rdk:components:camera/foo).
+	// different one.
+	//
+	// When asking a module to start a video stream, we create a track name with the full resource
+	// name (i.e: rdk:components:camera/foo).
 	//
 	// Modules talking back to the viam-server for a camera stream should use the "short
 	// name"/`SDPTrackName` (i.e: `foo`).
