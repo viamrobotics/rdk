@@ -1049,7 +1049,7 @@ func RobotsPartStatusAction(c *cli.Context, args robotsPartStatusArgs) error {
 		printf(c.App.Writer, "%s -> %s -> %s", orgName, locName, robot.Name)
 	}
 
-	printMachinePartStatus(c, []*apppb.RobotPart{&part})
+	printMachinePartStatus(c, []*apppb.RobotPart{part})
 
 	return nil
 }
