@@ -2750,7 +2750,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 		},
 		{
 			Name:  "infer",
-			Usage: "run inference on an image",
+			Usage: "run cloud hosted inference on an image",
 			UsageText: createUsageText("inference infer", []string{
 				generalFlagOrgID, inferenceFlagFileOrgID, inferenceFlagFileID,
 				inferenceFlagFileLocationID, inferenceFlagModelOrgID, inferenceFlagModelName, inferenceFlagModelVersion,
