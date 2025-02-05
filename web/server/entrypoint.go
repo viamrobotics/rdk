@@ -173,9 +173,11 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		defer pprof.StopCPUProfile()
 	}
 
+	appConn := &grpc.AppConn{}
+
 	// Read the config from disk and use it to initialize the remote logger.
 	initialReadCtx, cancel := context.WithTimeout(ctx, time.Second*5)
-	cfgFromDisk, err := config.ReadLocalConfig(initialReadCtx, argsParsed.ConfigFile, logger.Sublogger("config"))
+	cfgFromDisk, err := config.ReadLocalConfig(initialReadCtx, argsParsed.ConfigFile, logger.Sublogger("config"), appConn)
 	if err != nil {
 		cancel()
 		return err
@@ -193,7 +195,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	// the underlying connection in `appConn` can be nil. In this case, a background Goroutine is kicked off to reattempt dials in a
 	// serialized manner
 	appConnLogger := logger.Sublogger("networking").Sublogger("app_connection")
-	appConn, err := grpc.NewAppConn(ctx, cfgFromDisk.Cloud, appConnLogger)
+	appConn, err = grpc.NewAppConn(ctx, cfgFromDisk.Cloud, appConnLogger)
 	if err != nil {
 		return err
 	}
@@ -246,7 +248,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 // is read the logger may be initialized to remote log. This ensure we capture errors starting up the server and report to the cloud.
 func (s *robotServer) runServer(ctx context.Context) error {
 	initialReadCtx, cancel := context.WithTimeout(ctx, time.Second*5)
-	cfg, err := config.Read(initialReadCtx, s.args.ConfigFile, s.logger)
+	cfg, err := config.Read(initialReadCtx, s.args.ConfigFile, s.logger, s.conn)
 	if err != nil {
 		cancel()
 		return err

@@ -351,13 +351,14 @@ func Read(
 	ctx context.Context,
 	filePath string,
 	logger logging.Logger,
+	conn rpc.ClientConn,
 ) (*Config, error) {
 	buf, err := envsubst.ReadFile(filePath)
 	if err != nil {
 		return nil, err
 	}
 
-	return FromReader(ctx, filePath, bytes.NewReader(buf), logger)
+	return FromReader(ctx, filePath, bytes.NewReader(buf), logger, conn)
 }
 
 // ReadLocalConfig reads a config from the given file but does not fetch any config from the remote servers.
@@ -365,13 +366,14 @@ func ReadLocalConfig(
 	ctx context.Context,
 	filePath string,
 	logger logging.Logger,
+	conn rpc.ClientConn,
 ) (*Config, error) {
 	buf, err := envsubst.ReadFile(filePath)
 	if err != nil {
 		return nil, err
 	}
 
-	return fromReader(ctx, filePath, bytes.NewReader(buf), logger, false)
+	return fromReader(ctx, filePath, bytes.NewReader(buf), logger, false, conn)
 }
 
 // FromReader reads a config from the given reader and specifies
@@ -381,8 +383,9 @@ func FromReader(
 	originalPath string,
 	r io.Reader,
 	logger logging.Logger,
+	conn rpc.ClientConn,
 ) (*Config, error) {
-	return fromReader(ctx, originalPath, r, logger, true)
+	return fromReader(ctx, originalPath, r, logger, true, conn)
 }
 
 // fromReader reads a config from the given reader and specifies
@@ -393,6 +396,7 @@ func fromReader(
 	r io.Reader,
 	logger logging.Logger,
 	shouldReadFromCloud bool,
+	conn rpc.ClientConn,
 ) (*Config, error) {
 	// First read and process config from disk
 	unprocessedConfig := Config{
@@ -408,7 +412,7 @@ func fromReader(
 	}
 
 	if shouldReadFromCloud && cfgFromDisk.Cloud != nil {
-		cfg, err := readFromCloud(ctx, cfgFromDisk, nil, true, true, logger)
+		cfg, err := readFromCloud(ctx, cfgFromDisk, nil, true, true, logger, conn)
 		return cfg, err
 	}
 

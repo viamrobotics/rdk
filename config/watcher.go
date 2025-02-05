@@ -32,7 +32,7 @@ func NewWatcher(ctx context.Context, config *Config, logger logging.Logger, conn
 		return newCloudWatcher(ctx, config, logger, conn), nil
 	}
 	if config.ConfigFilePath != "" {
-		return newFSWatcher(ctx, config.ConfigFilePath, logger)
+		return newFSWatcher(ctx, config.ConfigFilePath, logger, conn)
 	}
 	return noopWatcher{}, nil
 }
@@ -119,8 +119,8 @@ type fsConfigWatcher struct {
 }
 
 // newFSWatcher returns a new v that will fetch new configs
-// as soon as the underlying file is written to.
-func newFSWatcher(ctx context.Context, configPath string, logger logging.Logger) (*fsConfigWatcher, error) {
+// as soon as the underlying file is written to.Jk
+func newFSWatcher(ctx context.Context, configPath string, logger logging.Logger, conn rpc.ClientConn) (*fsConfigWatcher, error) {
 	fsWatcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
@@ -155,7 +155,7 @@ func newFSWatcher(ctx context.Context, configPath string, logger logging.Logger)
 							return
 						}
 						lastRd = rd
-						newConfig, err := FromReader(cancelCtx, configPath, bytes.NewReader(rd), logger)
+						newConfig, err := FromReader(cancelCtx, configPath, bytes.NewReader(rd), logger, conn)
 						if err != nil {
 							logger.Errorw("error reading config after write", "error", err)
 							return

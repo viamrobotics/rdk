@@ -27,6 +27,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/ftdc"
 	"go.viam.com/rdk/ftdc/sys"
+	"go.viam.com/rdk/grpc"
 	icloud "go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
@@ -997,7 +998,7 @@ func (r *localRobot) TransformPointCloud(
 
 // RobotFromConfigPath is a helper to read and process a config given its path and then create a robot based on it.
 func RobotFromConfigPath(ctx context.Context, cfgPath string, logger logging.Logger, opts ...Option) (robot.LocalRobot, error) {
-	cfg, err := config.Read(ctx, cfgPath, logger)
+	cfg, err := config.Read(ctx, cfgPath, logger, &grpc.AppConn{})
 	if err != nil {
 		logger.CError(ctx, "cannot read config")
 		return nil, err
