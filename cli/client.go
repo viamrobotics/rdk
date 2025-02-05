@@ -643,6 +643,27 @@ func ListLocationsAction(c *cli.Context, args listLocationsArgs) error {
 	return listLocations(orgStr)
 }
 
+func printMachinePartStatus(c *cli.Context, parts []*apppb.RobotPart) {
+	for i, part := range parts {
+		name := part.Name
+		if part.MainPart {
+			name += " (main)"
+		}
+		printf(
+			c.App.Writer,
+			"\tID: %s\n\tName: %s\n\tLast Access: %s (%s ago)",
+			part.Id,
+			name,
+			part.LastAccess.AsTime().Format(time.UnixDate),
+			time.Since(part.LastAccess.AsTime()),
+		)
+		if i != len(parts)-1 {
+			printf(c.App.Writer, "")
+		}
+	}
+
+}
+
 type machinesPartListArgs struct {
 	Organization string
 	Location     string
@@ -661,25 +682,13 @@ func MachinesPartListAction(c *cli.Context, args machinesPartListArgs) error {
 
 	parts, err := client.robotParts(args.Organization, args.Location, args.Machine)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not get machine parts")
 	}
 
-	for _, part := range parts {
-
-		name := part.Name
-		if part.MainPart {
-			name += " (main)"
-		}
-		printf(
-			c.App.Writer,
-			"ID: %s\nName: %s\nLast Access: %s (%s ago)",
-			part.Id,
-			name,
-			part.LastAccess.AsTime().Format(time.UnixDate),
-			time.Since(part.LastAccess.AsTime()),
-		)
-		printf(c.App.Writer, "%s", part.String())
+	if len(parts) != 0 {
+		printf(c.App.Writer, "Parts:")
 	}
+	printMachinePartStatus(c, parts)
 
 	return nil
 }
@@ -776,23 +785,8 @@ func RobotsStatusAction(c *cli.Context, args robotsStatusArgs) error {
 	if len(parts) != 0 {
 		printf(c.App.Writer, "Parts:")
 	}
-	for i, part := range parts {
-		name := part.Name
-		if part.MainPart {
-			name += " (main)"
-		}
-		printf(
-			c.App.Writer,
-			"\tID: %s\n\tName: %s\n\tLast Access: %s (%s ago)",
-			part.Id,
-			name,
-			part.LastAccess.AsTime().Format(time.UnixDate),
-			time.Since(part.LastAccess.AsTime()),
-		)
-		if i != len(parts)-1 {
-			printf(c.App.Writer, "")
-		}
-	}
+
+	printMachinePartStatus(c, parts)
 
 	return nil
 }
@@ -1055,18 +1049,7 @@ func RobotsPartStatusAction(c *cli.Context, args robotsPartStatusArgs) error {
 		printf(c.App.Writer, "%s -> %s -> %s", orgName, locName, robot.Name)
 	}
 
-	name := part.Name
-	if part.MainPart {
-		name += " (main)"
-	}
-	printf(
-		c.App.Writer,
-		"ID: %s\nName: %s\nLast Access: %s (%s ago)",
-		part.Id,
-		name,
-		part.LastAccess.AsTime().Format(time.UnixDate),
-		time.Since(part.LastAccess.AsTime()),
-	)
+	printMachinePartStatus(c, []*apppb.RobotPart{&part})
 
 	return nil
 }
