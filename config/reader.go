@@ -213,10 +213,11 @@ func readFromCloud(
 	shouldReadFromCache bool,
 	checkForNewCert bool,
 	logger logging.Logger,
+	conn rpc.ClientConn,
 ) (*Config, error) {
 	logger.Debug("reading configuration from the cloud")
 	cloudCfg := originalCfg.Cloud
-	unprocessedConfig, cached, err := getFromCloudOrCache(ctx, cloudCfg, shouldReadFromCache, logger)
+	unprocessedConfig, cached, err := getFromCloudOrCache(ctx, cloudCfg, shouldReadFromCache, logger, conn)
 	if err != nil {
 		return nil, err
 	}
@@ -648,13 +649,13 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 
 // getFromCloudOrCache returns the config from the gRPC endpoint. If failures during cloud lookup fallback to the
 // local cache if the error indicates it should.
-func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCache bool, logger logging.Logger) (*Config, bool, error) {
+func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCache bool, logger logging.Logger, conn rpc.ClientConn) (*Config, bool, error) {
 	var cached bool
 
 	ctxWithTimeout, cancel := GetTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
 	defer cancel()
 
-	cfg, errorShouldCheckCache, err := getFromCloudGRPC(ctxWithTimeout, cloudCfg, logger)
+	cfg, errorShouldCheckCache, err := getFromCloudGRPC(ctxWithTimeout, cloudCfg, logger, conn)
 	if err != nil {
 		if shouldReadFromCache && errorShouldCheckCache {
 			cachedConfig, cacheErr := readFromCache(cloudCfg.ID)
@@ -687,14 +688,8 @@ func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCac
 }
 
 // getFromCloudGRPC actually does the fetching of the robot config from the gRPC endpoint.
-func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger logging.Logger) (*Config, bool, error) {
+func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger logging.Logger, conn rpc.ClientConn) (*Config, bool, error) {
 	shouldCheckCacheOnFailure := true
-
-	conn, err := CreateNewGRPCClient(ctx, cloudCfg, logger)
-	if err != nil {
-		return nil, shouldCheckCacheOnFailure, errors.WithMessage(err, "error creating cloud grpc client")
-	}
-	defer utils.UncheckedErrorFunc(conn.Close)
 
 	agentInfo, err := getAgentInfo(logger)
 	if err != nil {

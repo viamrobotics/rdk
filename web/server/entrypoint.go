@@ -1,8 +1,6 @@
 // Package server implements the entry point for running a robot web server.
 package server
 
-// TODO: use global connection in config watcher
-
 import (
 	"cmp"
 	"context"
@@ -544,7 +542,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	}()
 
 	// watch for and deliver changes to the robot
-	watcher, err := config.NewWatcher(ctx, cfg, s.logger.Sublogger("config"))
+	watcher, err := config.NewWatcher(ctx, cfg, s.logger.Sublogger("config"), s.conn) // TODO(bashar)
 	if err != nil {
 		cancel()
 		return err
