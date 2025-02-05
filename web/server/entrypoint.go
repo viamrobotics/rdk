@@ -1,6 +1,8 @@
 // Package server implements the entry point for running a robot web server.
 package server
 
+// TODO: use global connection in config watcher
+
 import (
 	"cmp"
 	"context"
