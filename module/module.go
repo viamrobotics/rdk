@@ -395,6 +395,9 @@ func (m *Module) connectParent(ctx context.Context) error {
 	}
 
 	m.parent = rc
+	if m.pc != nil {
+		m.parent.SetPeerConnection(m.pc)
+	}
 	return nil
 }
 

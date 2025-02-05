@@ -661,9 +661,16 @@ func (c *client) Unsubscribe(ctx context.Context, id rtppassthrough.Subscription
 }
 
 func (c *client) trackName() string {
-	// if c.conn is a *grpc.SharedConn then the client
-	// is talking to a module and we need to send the fully qualified name
-	if _, ok := c.conn.(*grpc.SharedConn); ok {
+	// if c.conn is a *grpc.SharedConn then, this is being used for communication between a
+	// viam-server and module. The viam-server will have one SharedConn and the module will have a
+	// different one.
+	//
+	// When asking a module to start a video stream, we create a track name with the full resource
+	// name (i.e: rdk:components:camera/foo).
+	//
+	// Modules talking back to the viam-server for a camera stream should use the "short
+	// name"/`SDPTrackName` (i.e: `foo`).
+	if sc, ok := c.conn.(*grpc.SharedConn); ok && sc.IsConnectedToModule() {
 		return c.Name().String()
 	}
 
@@ -673,6 +680,7 @@ func (c *client) trackName() string {
 		// as the remote doesn't know it's own name from the perspective of the main part
 		return c.Name().PopRemote().SDPTrackName()
 	}
+
 	// in this case we are talking to a main part & the remote name (if it exists) needs to be preserved
 	return c.Name().SDPTrackName()
 }
