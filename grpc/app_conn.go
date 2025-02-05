@@ -8,8 +8,8 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/utils/contextutils"
 )
 
 // AppConn maintains an underlying client connection meant to be used globally to connect to App. The `AppConn` constructor repeatedly
@@ -25,25 +25,21 @@ type AppConn struct {
 // establishing a connection to App will continue to occur, however, in a background Goroutine. These attempts will continue until a
 // connection is made. If `cloud` is nil, an `AppConn` with a nil underlying connection will return, and the background dialer will not
 // start.
-func NewAppConn(ctx context.Context, cloud *config.Cloud, logger logging.Logger) (*AppConn, error) {
+func NewAppConn(ctx context.Context, appAddress string, secret string, id string, logger logging.Logger) (*AppConn, error) {
 	appConn := &AppConn{}
 
-	if cloud == nil {
-		return appConn, nil
-	}
-
-	grpcURL, err := url.Parse(cloud.AppAddress)
+	grpcURL, err := url.Parse(appAddress)
 	if err != nil {
 		return nil, err
 	}
 
-	dialOpts := dialOpts(cloud)
+	dialOpts := dialOpts(secret, id)
 
 	if grpcURL.Scheme == "http" {
 		dialOpts = append(dialOpts, rpc.WithInsecure())
 	}
 
-	ctxWithTimeout, ctxWithTimeoutCancel := config.GetTimeoutCtx(ctx, true, cloud.ID)
+	ctxWithTimeout, ctxWithTimeoutCancel := contextutils.GetTimeoutCtx(ctx, true, id)
 	defer ctxWithTimeoutCancel()
 
 	// lock not necessary here because call is blocking
@@ -89,14 +85,14 @@ func (ac *AppConn) Close() error {
 	return ac.ReconfigurableClientConn.Close()
 }
 
-func dialOpts(cloud *config.Cloud) []rpc.DialOption {
+func dialOpts(secret string, id string) []rpc.DialOption {
 	dialOpts := make([]rpc.DialOption, 0, 2)
 	// Only add credentials when secret is set.
-	if cloud.Secret != "" {
-		dialOpts = append(dialOpts, rpc.WithEntityCredentials(cloud.ID,
+	if secret != "" {
+		dialOpts = append(dialOpts, rpc.WithEntityCredentials(id,
 			rpc.Credentials{
 				Type:    "robot-secret",
-				Payload: cloud.Secret,
+				Payload: secret,
 			},
 		))
 	}

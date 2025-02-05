@@ -4,10 +4,16 @@ package contextutils
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
+	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+
+	"go.viam.com/rdk/utils"
 )
 
 type contextKey string
@@ -23,7 +29,22 @@ const (
 	// TimeReceivedMetadataKey is optional metadata in the gRPC response header that correlates
 	// to the time right after the point cloud was captured.
 	TimeReceivedMetadataKey = "viam-time-received"
+
+	readTimeout            = 5 * time.Second
+	readTimeoutBehindProxy = time.Minute
+	initialReadTimeout     = 1 * time.Second
 )
+
+var (
+	// ViamDotDir is the directory for Viam's cached files.
+	ViamDotDir      string
+	viamPackagesDir string
+)
+
+func init() {
+	home := utils.PlatformHomeDir()
+	ViamDotDir = filepath.Join(home, ".viam")
+}
 
 // ContextWithMetadata attaches a metadata map to the context.
 func ContextWithMetadata(ctx context.Context) (context.Context, map[string][]string) {
@@ -73,4 +94,27 @@ func ContextWithTimeoutIfNoDeadline(ctx context.Context, timeout time.Duration) 
 		return context.WithTimeout(ctx, timeout)
 	}
 	return context.WithCancel(ctx)
+}
+
+// GetTimeoutCtx returns a context [and its cancel function] with a timeout value determined by whether we are behind a proxy and whether a
+// cached config exists.
+func GetTimeoutCtx(ctx context.Context, shouldReadFromCache bool, id string) (context.Context, func()) {
+	timeout := readTimeout
+	// When environment indicates we are behind a proxy, bump timeout. Network
+	// operations tend to take longer when behind a proxy.
+	if proxyAddr := os.Getenv(rpc.SocksProxyEnvVar); proxyAddr != "" {
+		timeout = readTimeoutBehindProxy
+	}
+
+	// use shouldReadFromCache to determine whether this is part of initial read or not, but only shorten timeout
+	// if cached config exists
+	cachedConfigExists := false
+	cloudCacheFilepath := fmt.Sprintf("cached_cloud_config_%s.json", id)
+	if _, err := os.Stat(filepath.Join(ViamDotDir, cloudCacheFilepath)); err == nil {
+		cachedConfigExists = true
+	}
+	if shouldReadFromCache && cachedConfigExists {
+		timeout = initialReadTimeout
+	}
+	return context.WithTimeout(ctx, timeout)
 }

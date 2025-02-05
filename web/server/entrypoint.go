@@ -173,7 +173,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		defer pprof.StopCPUProfile()
 	}
 
-	appConn := &grpc.AppConn{}
+	var appConn rpc.ClientConn
 
 	// Read the config from disk and use it to initialize the remote logger.
 	initialReadCtx, cancel := context.WithTimeout(ctx, time.Second*5)
@@ -194,17 +194,15 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 
 	// the underlying connection in `appConn` can be nil. In this case, a background Goroutine is kicked off to reattempt dials in a
 	// serialized manner
-	appConnLogger := logger.Sublogger("networking").Sublogger("app_connection")
-	appConn, err = grpc.NewAppConn(ctx, cfgFromDisk.Cloud, appConnLogger)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err := appConn.Close()
+	if cfgFromDisk.Cloud != nil {
+		cloud := cfgFromDisk.Cloud
+		appConnLogger := logger.Sublogger("networking").Sublogger("app_connection")
+		appConn, err = grpc.NewAppConn(ctx, cloud.AppAddress, cloud.Secret, cloud.ID, appConnLogger)
 		if err != nil {
-			appConnLogger.Error(err)
+			return err
 		}
-	}()
+		defer utils.UncheckedErrorFunc(appConn.Close)
+	}
 
 	// Start remote logging with config from disk.
 	// This is to ensure we make our best effort to write logs for failures loading the remote config.

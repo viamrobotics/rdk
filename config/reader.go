@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
-	"time"
 
 	"github.com/a8m/envsubst"
 	"github.com/pkg/errors"
@@ -24,6 +23,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils/contextutils"
 )
 
 // RDK versioning variables which are replaced by LD flags.
@@ -34,9 +34,6 @@ var (
 )
 
 const (
-	initialReadTimeout     = 1 * time.Second
-	readTimeout            = 5 * time.Second
-	readTimeoutBehindProxy = time.Minute
 	// PackagesDirName is where packages go underneath viamDotDir.
 	PackagesDirName = "packages"
 	// LocalPackagesSuffix is used by the local package manager.
@@ -182,28 +179,6 @@ func isLocationSecretsEqual(prevCloud, cloud *Cloud) bool {
 	return true
 }
 
-// GetTimeoutCtx returns a context [and its cancel function] with a timeout value determined by whether we are behind a proxy and whether a
-// cached config exists.
-func GetTimeoutCtx(ctx context.Context, shouldReadFromCache bool, id string) (context.Context, func()) {
-	timeout := readTimeout
-	// When environment indicates we are behind a proxy, bump timeout. Network
-	// operations tend to take longer when behind a proxy.
-	if proxyAddr := os.Getenv(rpc.SocksProxyEnvVar); proxyAddr != "" {
-		timeout = readTimeoutBehindProxy
-	}
-
-	// use shouldReadFromCache to determine whether this is part of initial read or not, but only shorten timeout
-	// if cached config exists
-	cachedConfigExists := false
-	if _, err := os.Stat(getCloudCacheFilePath(id)); err == nil {
-		cachedConfigExists = true
-	}
-	if shouldReadFromCache && cachedConfigExists {
-		timeout = initialReadTimeout
-	}
-	return context.WithTimeout(ctx, timeout)
-}
-
 // readFromCloud fetches a robot config from the cloud based
 // on the given config.
 func readFromCloud(
@@ -261,7 +236,7 @@ func readFromCloud(
 	if !cfg.Cloud.SignalingInsecure && (checkForNewCert || tls.certificate == "" || tls.privateKey == "") {
 		logger.Debug("reading tlsCertificate from the cloud")
 
-		ctxWithTimeout, cancel := GetTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
+		ctxWithTimeout, cancel := contextutils.GetTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
 		certData, err := readCertificateDataFromCloudGRPC(ctxWithTimeout, cloudCfg, logger)
 		if err != nil {
 			cancel()
@@ -656,7 +631,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCache bool, logger logging.Logger, conn rpc.ClientConn) (*Config, bool, error) {
 	var cached bool
 
-	ctxWithTimeout, cancel := GetTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
+	ctxWithTimeout, cancel := contextutils.GetTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
 	defer cancel()
 
 	cfg, errorShouldCheckCache, err := getFromCloudGRPC(ctxWithTimeout, cloudCfg, logger, conn)
