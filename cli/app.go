@@ -2075,8 +2075,9 @@ Organization and location are required flags if the machine/part name are not un
 
 								&AliasStringFlag{
 									cli.StringFlag{
-										Name:    generalFlagMachine,
-										Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
+										Name:     generalFlagMachine,
+										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
+										Required: true,
 									},
 								},
 								&cli.StringFlag{
