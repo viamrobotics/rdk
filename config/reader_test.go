@@ -16,6 +16,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config/testutils"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
@@ -67,8 +68,10 @@ func TestFromReader(t *testing.T) {
 		fakeServer.StoreDeviceConfig(robotPartID, protoConfig, certProto)
 
 		appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
+		appConn, err := grpc.NewAppConn(ctx, appAddress, secret, robotPartID, logger)
+		test.That(t, err, test.ShouldBeNil)
 		cfgText := fmt.Sprintf(`{"cloud":{"id":%q,"app_address":%q,"secret":%q}}`, robotPartID, appAddress, secret)
-		gotCfg, err := FromReader(ctx, "", strings.NewReader(cfgText), logger)
+		gotCfg, err := FromReader(ctx, "", strings.NewReader(cfgText), logger, appConn)
 		test.That(t, err, test.ShouldBeNil)
 
 		expectedCloud := *cloudResponse
@@ -116,8 +119,10 @@ func TestFromReader(t *testing.T) {
 		fakeServer.StoreDeviceConfig(robotPartID, nil, nil)
 
 		appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
+		appConn, err := grpc.NewAppConn(ctx, appAddress, secret, robotPartID, logger)
+		test.That(t, err, test.ShouldBeNil)
 		cfgText := fmt.Sprintf(`{"cloud":{"id":%q,"app_address":%q,"secret":%q}}`, robotPartID, appAddress, secret)
-		gotCfg, err := FromReader(ctx, "", strings.NewReader(cfgText), logger)
+		gotCfg, err := FromReader(ctx, "", strings.NewReader(cfgText), logger, appConn)
 		test.That(t, err, test.ShouldBeNil)
 
 		expectedCloud := *cachedCloud
@@ -155,8 +160,10 @@ func TestFromReader(t *testing.T) {
 		fakeServer.StoreDeviceConfig(robotPartID, protoConfig, certProto)
 
 		appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
+		appConn, err := grpc.NewAppConn(ctx, appAddress, secret, robotPartID, logger)
+		test.That(t, err, test.ShouldBeNil)
 		cfgText := fmt.Sprintf(`{"cloud":{"id":%q,"app_address":%q,"secret":%q}}`, robotPartID, appAddress, secret)
-		gotCfg, err := FromReader(ctx, "", strings.NewReader(cfgText), logger)
+		gotCfg, err := FromReader(ctx, "", strings.NewReader(cfgText), logger, appConn)
 		test.That(t, err, test.ShouldBeNil)
 
 		expectedCloud := *cloudResponse
