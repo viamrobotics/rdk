@@ -167,9 +167,9 @@ func (c *viamClient) loginAction(cCtx *cli.Context) error {
 		if err != nil {
 			debugf(c.c.App.Writer, globalArgs.Debug, "Token refresh error: %v", err)
 			utils.UncheckedError(c.logout()) // clear cache if failed to refresh
-			return errors.New("error while refreshing token, logging out. Please log in again")
 		}
-	} else {
+	}
+	if t == nil { // either there was no current token, or the current token couldn't be refreshed
 		t, err = c.authFlow.loginAsUser(c.c)
 		if err != nil {
 			debugf(c.c.App.Writer, globalArgs.Debug, "Login error: %v", err)
