@@ -97,12 +97,12 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 			return err
 		}
 	}
-	populateAdditionalInfo(newModule)
 	if !args.DryRun {
 		if err := wrapResolveOrg(cCtx, c, newModule); err != nil {
 			return err
 		}
 	}
+	populateAdditionalInfo(newModule)
 
 	s := spinner.New()
 	var fatalError error
@@ -325,6 +325,9 @@ func wrapResolveOrg(cCtx *cli.Context, c *viamClient, newModule *modulegen.Modul
 		}
 		newModule.OrgID = newModule.Namespace
 		newModule.Namespace = org.GetPublicNamespace()
+		if newModule.Namespace == "" {
+			return errors.New("cannot create module in an organization with no public namespace. Set a namespace for your organization")
+		}
 	}
 	return nil
 }
