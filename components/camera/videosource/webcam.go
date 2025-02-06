@@ -43,6 +43,13 @@ var (
 	data            map[string]transform.PinholeCameraIntrinsics
 )
 
+// minResolutionDimension is set to 2 to ensure proper fitness distance calculation for resolution selection.
+// Setting this to 0 would cause mediadevices' IntRanged.Compare() method to treat all values smaller than ideal
+// as equally acceptable. See https://github.com/pion/mediadevices/blob/c10fb000dbbb28597e068468f3175dc68a281bfd/pkg/prop/int.go#L104
+// Setting it to 1 could theoretically allow 1x1 resolutions. 2 is small enough and even,
+// allowing all real camera resolutions while ensuring proper distance calculations.
+const minResolutionDimension = 2
+
 func init() {
 	resource.RegisterComponent(
 		camera.API,
@@ -90,13 +97,13 @@ func makeConstraints(conf *WebcamConfig, logger logging.Logger) mediadevices.Med
 			if conf.Width > 0 {
 				constraint.Width = prop.IntExact(conf.Width)
 			} else {
-				constraint.Width = prop.IntRanged{Min: 0, Ideal: 640, Max: 4096}
+				constraint.Width = prop.IntRanged{Min: minResolutionDimension, Ideal: 640, Max: 4096}
 			}
 
 			if conf.Height > 0 {
 				constraint.Height = prop.IntExact(conf.Height)
 			} else {
-				constraint.Height = prop.IntRanged{Min: 0, Ideal: 480, Max: 2160}
+				constraint.Height = prop.IntRanged{Min: minResolutionDimension, Ideal: 480, Max: 2160}
 			}
 
 			if conf.FrameRate > 0.0 {
