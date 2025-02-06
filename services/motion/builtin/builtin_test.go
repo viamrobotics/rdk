@@ -26,6 +26,7 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/pointcloud"
@@ -45,7 +46,7 @@ func setupMotionServiceFromConfig(t *testing.T, configFilename string) (motion.S
 	t.Helper()
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(ctx, configFilename, logger)
+	cfg, err := config.Read(ctx, configFilename, logger, &grpc.AppConn{})
 	test.That(t, err, test.ShouldBeNil)
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
