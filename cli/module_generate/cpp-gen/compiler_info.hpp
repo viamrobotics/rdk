@@ -1,3 +1,5 @@
+#pragma once
+
 #include <clang/Tooling/CompilationDatabase.h>
 
 #include <llvm/ADT/StringRef.h>
