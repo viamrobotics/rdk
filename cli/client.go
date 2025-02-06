@@ -670,6 +670,7 @@ type machinesPartListArgs struct {
 	Machine      string
 }
 
+// MachinesPartListAction is the corresponding Action for 'machines part list'.
 func MachinesPartListAction(c *cli.Context, args machinesPartListArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
