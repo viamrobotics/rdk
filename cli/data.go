@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -46,6 +47,8 @@ const (
 
 	noExistingADFErrCode = "NotFound"
 )
+
+var viamCaptureSubdirPattern = regexp.MustCompile(`.*` + viamCaptureDotSubdir)
 
 type commonFilterArgs struct {
 	OrgIDs        []string
@@ -670,10 +673,10 @@ func filenameForDownload(meta *datapb.BinaryMetadata) string {
 	}
 
 	// If the file name is not a data capture file but was manually saved in the default viam capture directory, remove
-	// that directory. Otherwise, the file will be hidden due to the .viam directory.
+	// that directory + home directories. Otherwise, the file will be hidden due to the .viam directory.
 	// Use ReplaceAll rather than TrimPrefix since it will be stored under os.Getenv("HOME"), which differs between upload
 	// to export time.
-	fileName = strings.ReplaceAll(fileName, viamCaptureDotSubdir, "")
+	fileName = viamCaptureSubdirPattern.ReplaceAllString(fileName, "")
 
 	// The file name will end with .gz if the user uploaded a gzipped file. We will unzip it below, so remove the last
 	// .gz from the file name. If the user has gzipped the file multiple times, we will only unzip once.
