@@ -673,7 +673,13 @@ func filenameForDownload(meta *datapb.BinaryMetadata) string {
 	// that directory. Otherwise, the file will be hidden due to the .viam directory.
 	// Use ReplaceAll rather than TrimPrefix since it will be stored under os.Getenv("HOME"), which differs between upload
 	// to export time.
-	fileName = strings.ReplaceAll(fileName, viamCaptureDotSubdir, "")
+	if strings.HasPrefix(fileName, viamCaptureDotSubdir) {
+		// If it's the first occurrence, remove it
+		fileName = strings.Replace(fileName, viamCaptureDotSubdir, "", 1)
+	}
+
+	// Otherwise, replace with "/"
+	fileName = strings.ReplaceAll(fileName, viamCaptureDotSubdir, "/")
 
 	// The file name will end with .gz if the user uploaded a gzipped file. We will unzip it below, so remove the last
 	// .gz from the file name. If the user has gzipped the file multiple times, we will only unzip once.
