@@ -242,8 +242,7 @@ class {3}({4}, EasyResource):
         '\n\n'.join([subclass for subclass in subclasses]),
         '\n\n'.join([f'{method}' for method in abstract_methods]),
     )
-    f_name = os.path.join(mod_name, "src", f"{model_name}.py")
-    os.rename(os.path.join(mod_name, "src", "resource.py"), f_name)
+    f_name = os.path.join(mod_name, "src", "resource.py")
     with open(f_name, "w+") as f:
         f.write(resource_file)
         try:
