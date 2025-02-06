@@ -82,13 +82,19 @@ func (s *interruptStream) receiveFromStream(ctx context.Context, stream pb.Board
 			s.client.logger.Debug(err)
 			return
 		}
-		// If there is a response, send to the tick channel.
-		tick := Tick{
-			Name:             streamResp.PinName,
-			High:             streamResp.High,
-			TimestampNanosec: streamResp.Time,
+		select {
+		case <-ctx.Done():
+			s.client.logger.Debug(ctx.Err())
+			return
+		default:
+			// If there is a response, send to the tick channel.
+			tick := Tick{
+				Name:             streamResp.PinName,
+				High:             streamResp.High,
+				TimestampNanosec: streamResp.Time,
+			}
+			ch <- tick
 		}
-		ch <- tick
 	}
 }
 
