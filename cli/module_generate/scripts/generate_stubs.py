@@ -242,18 +242,18 @@ class {3}({4}, EasyResource):
         '\n\n'.join([subclass for subclass in subclasses]),
         '\n\n'.join([f'{method}' for method in abstract_methods]),
     )
-    resource_file_name = os.path.join(mod_name, "src", f"{model_name}.py")
-    os.rename(os.path.join(mod_name, "src", "resource.py"), resource_file_name)
-    with open(resource_file_name, "w+") as f:
+    f_name = os.path.join(mod_name, "src", f"{model_name}.py")
+    os.rename(os.path.join(mod_name, "src", "resource.py"), f_name)
+    with open(f_name, "w+") as f:
         f.write(resource_file)
         try:
             f.seek(0)
-            subprocess.check_call([sys.executable, "-m", "black", resource_file_name, "-q"])
+            subprocess.check_call([sys.executable, "-m", "black", f_name, "-q"])
             f.seek(0)
             resource_file = f.read()
         except subprocess.CalledProcessError:
             pass
-    os.remove(resource_file_name)
+    os.remove(f_name)
     sorted_code = isort.code(resource_file)
 
     return sorted_code
