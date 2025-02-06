@@ -185,11 +185,9 @@ func TestFromReader(t *testing.T) {
 }
 
 func TestStoreToCache(t *testing.T) {
-	var appConn rpc.ClientConn
-
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
-	cfg, err := FromReader(ctx, "", strings.NewReader(`{}`), logger, appConn)
+	cfg, err := FromReader(ctx, "", strings.NewReader(`{}`), logger, nil)
 
 	test.That(t, err, test.ShouldBeNil)
 
@@ -209,7 +207,7 @@ func TestStoreToCache(t *testing.T) {
 	}
 	cfg.Cloud = cloud
 
-	appConn, err = grpc.NewAppConn(ctx, cloud.AppAddress, cloud.Secret, cloud.ID, logger)
+	appConn, err := grpc.NewAppConn(ctx, cloud.AppAddress, cloud.Secret, cloud.ID, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer appConn.Close()
 
