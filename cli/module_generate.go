@@ -690,7 +690,7 @@ func generatePythonStubs(module modulegen.ModuleInputs) error {
 		return errors.Wrap(err, "cannot generate python stubs -- generator script encountered an error")
 	}
 
-	resourcePath := filepath.Join(module.ModuleName, "src", fmt.Sprintf("%s.py", module.ModelSnake))
+	resourcePath := filepath.Join(module.ModuleName, "src", "models", fmt.Sprintf("%s.py", module.ModelSnake))
 	//nolint:gosec
 	resourceFile, err := os.Create(resourcePath)
 	if err != nil {
