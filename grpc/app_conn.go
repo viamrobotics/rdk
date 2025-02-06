@@ -26,7 +26,7 @@ type AppConn struct {
 // connection is made. If `cloud` is nil, an `AppConn` with a nil underlying connection will return, and the background dialer will not
 // start.
 func NewAppConn(ctx context.Context, appAddress, secret, id string, logger logging.Logger) (rpc.ClientConn, error) {
-	appConn := &AppConn{}
+	appConn := &AppConn{ReconfigurableClientConn: &ReconfigurableClientConn{}}
 
 	grpcURL, err := url.Parse(appAddress)
 	if err != nil {
