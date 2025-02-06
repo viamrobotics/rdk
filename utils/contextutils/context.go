@@ -35,14 +35,6 @@ const (
 	initialReadTimeout     = 1 * time.Second
 )
 
-// ViamDotDir is the directory for Viam's cached files.
-var ViamDotDir string
-
-func init() {
-	home := utils.PlatformHomeDir()
-	ViamDotDir = filepath.Join(home, ".viam")
-}
-
 // ContextWithMetadata attaches a metadata map to the context.
 func ContextWithMetadata(ctx context.Context) (context.Context, map[string][]string) {
 	// If the context already has metadata, return that and leave the context untouched.
@@ -107,7 +99,7 @@ func GetTimeoutCtx(ctx context.Context, shouldReadFromCache bool, id string) (co
 	// if cached config exists
 	cachedConfigExists := false
 	cloudCacheFilepath := fmt.Sprintf("cached_cloud_config_%s.json", id)
-	if _, err := os.Stat(filepath.Join(ViamDotDir, cloudCacheFilepath)); err == nil {
+	if _, err := os.Stat(filepath.Join(utils.ViamDotDir, cloudCacheFilepath)); err == nil {
 		cachedConfigExists = true
 	}
 	if shouldReadFromCache && cachedConfigExists {

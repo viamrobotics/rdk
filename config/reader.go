@@ -78,20 +78,14 @@ func getAgentInfo(logger logging.Logger) (*apppb.AgentInfo, error) {
 	}, nil
 }
 
-var (
-	// ViamDotDir is the directory for Viam's cached files.
-	ViamDotDir      string
-	viamPackagesDir string
-)
+var viamPackagesDir string
 
 func init() {
-	home := rutils.PlatformHomeDir()
-	ViamDotDir = filepath.Join(home, ".viam")
-	viamPackagesDir = filepath.Join(ViamDotDir, PackagesDirName)
+	viamPackagesDir = filepath.Join(rutils.ViamDotDir, PackagesDirName)
 }
 
 func getCloudCacheFilePath(id string) string {
-	return filepath.Join(ViamDotDir, fmt.Sprintf("cached_cloud_config_%s.json", id))
+	return filepath.Join(rutils.ViamDotDir, fmt.Sprintf("cached_cloud_config_%s.json", id))
 }
 
 func readFromCache(id string) (*Config, error) {
