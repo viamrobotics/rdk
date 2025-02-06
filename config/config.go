@@ -280,7 +280,7 @@ func (c *Config) StoreToCache() error {
 	if c.toCache == nil {
 		return errors.New("no unprocessed config to cache")
 	}
-	if err := os.MkdirAll(ViamDotDir, 0o700); err != nil {
+	if err := os.MkdirAll(rutils.ViamDotDir, 0o700); err != nil {
 		return err
 	}
 	reader := bytes.NewReader(c.toCache)

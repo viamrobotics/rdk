@@ -65,6 +65,7 @@ var EnvTrueValues = []string{"true", "yes", "1", "TRUE", "YES"}
 // TCPRegex tests whether a module address is TCP (vs unix sockets). See also ViamTCPSockets().
 var TCPRegex = regexp.MustCompile(`:\d+$`)
 
+// ViamDotDir is the directory for Viam's cached files.
 var ViamDotDir = filepath.Join(PlatformHomeDir(), ".viam")
 
 // GetResourceConfigurationTimeout calculates the resource configuration

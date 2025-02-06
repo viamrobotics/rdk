@@ -30,9 +30,10 @@ const (
 	// to the time right after the point cloud was captured.
 	TimeReceivedMetadataKey = "viam-time-received"
 
-	readTimeout            = 5 * time.Second
-	readTimeoutBehindProxy = time.Minute
-	initialReadTimeout     = 1 * time.Second
+	// timeout values to use when reading a config either from App, from App behind a proxy, or from a local (cached) file.
+	readConfigFromCloudTimeout            = 5 * time.Second
+	readConfigFromCloudBehindProxyTimeout = time.Minute
+	readCachedConfigTimeout               = 1 * time.Second
 )
 
 // ContextWithMetadata attaches a metadata map to the context.
@@ -88,11 +89,11 @@ func ContextWithTimeoutIfNoDeadline(ctx context.Context, timeout time.Duration) 
 // GetTimeoutCtx returns a context [and its cancel function] with a timeout value determined by whether we are behind a proxy and whether a
 // cached config exists.
 func GetTimeoutCtx(ctx context.Context, shouldReadFromCache bool, id string) (context.Context, func()) {
-	timeout := readTimeout
+	timeout := readConfigFromCloudTimeout
 	// When environment indicates we are behind a proxy, bump timeout. Network
 	// operations tend to take longer when behind a proxy.
 	if proxyAddr := os.Getenv(rpc.SocksProxyEnvVar); proxyAddr != "" {
-		timeout = readTimeoutBehindProxy
+		timeout = readConfigFromCloudBehindProxyTimeout
 	}
 
 	// use shouldReadFromCache to determine whether this is part of initial read or not, but only shorten timeout
@@ -103,7 +104,7 @@ func GetTimeoutCtx(ctx context.Context, shouldReadFromCache bool, id string) (co
 		cachedConfigExists = true
 	}
 	if shouldReadFromCache && cachedConfigExists {
-		timeout = initialReadTimeout
+		timeout = readCachedConfigTimeout
 	}
 	return context.WithTimeout(ctx, timeout)
 }

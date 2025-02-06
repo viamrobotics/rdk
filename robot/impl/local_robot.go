@@ -373,7 +373,7 @@ func newWithResources(
 		// - Guarantee that the `rpcServer` is initialized (enough) when the web service is
 		//   constructed to get a valid copy of its stats object (for the schema's sake). Even if
 		//   the web service has not been "started".
-		ftdcWorker = ftdc.New(ftdc.DefaultDirectory(config.ViamDotDir, partID), logger.Sublogger("ftdc"))
+		ftdcWorker = ftdc.New(ftdc.DefaultDirectory(utils.ViamDotDir, partID), logger.Sublogger("ftdc"))
 		if statser, err := sys.NewSelfSysUsageStatser(); err == nil {
 			ftdcWorker.Add("proc.viam-server", statser)
 		}
@@ -500,7 +500,7 @@ func newWithResources(
 		cloudID = cfg.Cloud.ID
 	}
 
-	homeDir := config.ViamDotDir
+	homeDir := utils.ViamDotDir
 	if rOpts.viamHomeDir != "" {
 		homeDir = rOpts.viamHomeDir
 	}
