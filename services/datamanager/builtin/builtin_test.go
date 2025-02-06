@@ -28,7 +28,6 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
-	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/internal/cloud"
 	cloudinject "go.viam.com/rdk/internal/testutils/inject"
 	"go.viam.com/rdk/logging"
@@ -819,7 +818,7 @@ func setupRobot(
 func setupConfig(t *testing.T, r *inject.Robot, configPath string) (resource.Config, resource.Dependencies) {
 	t.Helper()
 	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), utils.ResolveFile(configPath), logger, &rgrpc.AppConn{})
+	cfg, err := config.Read(context.Background(), utils.ResolveFile(configPath), logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 	return resourceConfigAndDeps(t, cfg, r)
 }

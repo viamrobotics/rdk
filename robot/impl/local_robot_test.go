@@ -77,7 +77,7 @@ var fakeModel = resource.DefaultModelFamily.WithModel("fake")
 
 func TestConfig1(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/cfgtest1.json", logger, &rgrpc.AppConn{})
+	cfg, err := config.Read(context.Background(), "data/cfgtest1.json", logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	r := setupLocalRobot(t, context.Background(), cfg, logger)
@@ -96,7 +96,7 @@ func TestConfig1(t *testing.T) {
 
 func TestConfigFake(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/fake.json", logger, &rgrpc.AppConn{})
+	cfg, err := config.Read(context.Background(), "data/fake.json", logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	setupLocalRobot(t, context.Background(), cfg, logger)
@@ -106,7 +106,7 @@ func TestConfigFake(t *testing.T) {
 // dependency on all resources.
 func TestConfigRemote(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/fake.json", logger, &rgrpc.AppConn{})
+	cfg, err := config.Read(context.Background(), "data/fake.json", logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
@@ -234,7 +234,7 @@ func TestConfigRemote(t *testing.T) {
 
 func TestConfigRemoteWithAuth(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/fake.json", logger, &rgrpc.AppConn{})
+	cfg, err := config.Read(context.Background(), "data/fake.json", logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	for _, tc := range []struct {
@@ -391,7 +391,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 
 func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/fake.json", logger, &rgrpc.AppConn{})
+	cfg, err := config.Read(context.Background(), "data/fake.json", logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
@@ -597,7 +597,7 @@ func TestStopAll(t *testing.T) {
 		resource.Deregister(arm.API, model)
 	}()
 
-	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(armConfig), logger, &rgrpc.AppConn{})
+	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(armConfig), logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
@@ -704,7 +704,7 @@ func TestNewTeardown(t *testing.T) {
     ]
 }
 `, model)
-	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(failingConfig), logger, &rgrpc.AppConn{})
+	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(failingConfig), logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
@@ -715,7 +715,7 @@ func TestNewTeardown(t *testing.T) {
 
 func TestMetadataUpdate(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/fake.json", logger, &rgrpc.AppConn{})
+	cfg, err := config.Read(context.Background(), "data/fake.json", logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
@@ -810,7 +810,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 		},
 	}
 
-	cfg, err := config.Read(context.Background(), "data/fake.json", logger, &rgrpc.AppConn{})
+	cfg, err := config.Read(context.Background(), "data/fake.json", logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 	cfg.Remotes = append(cfg.Remotes, config.Remote{
 		Name:    "foo",
@@ -1317,7 +1317,7 @@ func TestConfigMethod(t *testing.T) {
 
 	// Use a remote with components and services to ensure none of its resources
 	// will be returned by Config.
-	remoteCfg, err := config.Read(context.Background(), "data/remote_fake.json", logger, &rgrpc.AppConn{})
+	remoteCfg, err := config.Read(context.Background(), "data/remote_fake.json", logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 	remoteRobot := setupLocalRobot(t, ctx, remoteCfg, logger)
 
