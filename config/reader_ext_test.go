@@ -10,22 +10,21 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
 func TestFromReaderValidate(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	_, err := config.FromReader(context.Background(), "somepath", strings.NewReader(""), logger, &grpc.AppConn{})
+	_, err := config.FromReader(context.Background(), "somepath", strings.NewReader(""), logger, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "json: EOF")
 
-	_, err = config.FromReader(context.Background(), "somepath", strings.NewReader(`{"cloud": 1}`), logger, &grpc.AppConn{})
+	_, err = config.FromReader(context.Background(), "somepath", strings.NewReader(`{"cloud": 1}`), logger, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "unmarshal")
 
-	conf, err := config.FromReader(context.Background(), "somepath", strings.NewReader(`{}`), logger, &grpc.AppConn{})
+	conf, err := config.FromReader(context.Background(), "somepath", strings.NewReader(`{}`), logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, conf, test.ShouldResemble, &config.Config{
 		ConfigFilePath: "somepath",
@@ -40,12 +39,12 @@ func TestFromReaderValidate(t *testing.T) {
 		},
 	})
 
-	_, err = config.FromReader(context.Background(), "somepath", strings.NewReader(`{"cloud": {}}`), logger, &grpc.AppConn{})
+	_, err = config.FromReader(context.Background(), "somepath", strings.NewReader(`{"cloud": {}}`), logger, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "id")
 
 	_, err = config.FromReader(context.Background(),
-		"somepath", strings.NewReader(`{"disable_partial_start":true,"components": [{}]}`), logger, &grpc.AppConn{})
+		"somepath", strings.NewReader(`{"disable_partial_start":true,"components": [{}]}`), logger, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	var fre resource.FieldRequiredError
 	test.That(t, errors.As(err, &fre), test.ShouldBeTrue)
@@ -55,7 +54,7 @@ func TestFromReaderValidate(t *testing.T) {
 	conf, err = config.FromReader(context.Background(),
 		"somepath",
 		strings.NewReader(`{"components": [{"name": "foo", "type": "arm", "model": "foo"}]}`),
-		logger, &grpc.AppConn{})
+		logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 	expected := &config.Config{
 		ConfigFilePath: "somepath",

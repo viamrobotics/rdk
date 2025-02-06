@@ -13,7 +13,6 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -28,8 +27,7 @@ import (
 func TestFrameSystemConfigWithRemote(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	// make the remote robots
-	remoteConfig, err := config.Read(context.Background(), rutils.ResolveFile("robot/impl/data/fake.json"), logger.Sublogger("remote"),
-		&grpc.AppConn{})
+	remoteConfig, err := config.Read(context.Background(), rutils.ResolveFile("robot/impl/data/fake.json"), logger.Sublogger("remote"), nil)
 	test.That(t, err, test.ShouldBeNil)
 	ctx := context.Background()
 	remoteRobot := setupLocalRobot(t, ctx, remoteConfig, logger)

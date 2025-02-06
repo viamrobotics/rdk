@@ -341,8 +341,7 @@ func ReadLocalConfig(
 		return nil, err
 	}
 
-	var nilConn rpc.ClientConn
-	return fromReader(ctx, filePath, bytes.NewReader(buf), logger, nilConn)
+	return fromReader(ctx, filePath, bytes.NewReader(buf), logger, nil)
 }
 
 // FromReader reads a config from the given reader and specifies

@@ -11,7 +11,6 @@ import (
 
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	robotimpl "go.viam.com/rdk/robot/impl"
@@ -94,7 +93,7 @@ func TestNewFrameSystemFromConfigWithTransforms(t *testing.T) {
 	blankPos := make(referenceframe.FrameSystemInputs)
 	blankPos["pieceArm"] = zeroIn
 	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), rdkutils.ResolveFile("robot/impl/data/fake.json"), logger, &grpc.AppConn{})
+	cfg, err := config.Read(context.Background(), rdkutils.ResolveFile("robot/impl/data/fake.json"), logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	r, err := robotimpl.New(context.Background(), cfg, logger)
@@ -226,7 +225,7 @@ func TestNewFrameSystemFromBadConfig(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cfg, err := config.Read(ctx, rdkutils.ResolveFile("robot/impl/data/fake_wrongconfig"+tc.num+".json"), logger, &grpc.AppConn{})
+			cfg, err := config.Read(ctx, rdkutils.ResolveFile("robot/impl/data/fake_wrongconfig"+tc.num+".json"), logger, nil)
 			test.That(t, err, test.ShouldBeNil)
 			r, err := robotimpl.New(ctx, cfg, logger)
 			test.That(t, err, test.ShouldBeNil)
@@ -241,7 +240,7 @@ func TestNewFrameSystemFromBadConfig(t *testing.T) {
 		})
 	}
 
-	cfg, err := config.Read(ctx, rdkutils.ResolveFile("robot/impl/data/fake.json"), logger, &grpc.AppConn{})
+	cfg, err := config.Read(ctx, rdkutils.ResolveFile("robot/impl/data/fake.json"), logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 	r, err := robotimpl.New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)

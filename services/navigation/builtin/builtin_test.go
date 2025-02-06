@@ -23,7 +23,6 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	_ "go.viam.com/rdk/components/movementsensor/fake"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/pointcloud"
@@ -57,7 +56,7 @@ func setupNavigationServiceFromConfig(t *testing.T, configFilename string) (navi
 	t.Helper()
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(ctx, configFilename, logger, &grpc.AppConn{})
+	cfg, err := config.Read(ctx, configFilename, logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
@@ -594,7 +593,7 @@ func TestNavSetUpFromFaultyConfig(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 	for _, tc := range testCases {
-		cfg, err := config.Read(ctx, tc.configPath, logger, &grpc.AppConn{})
+		cfg, err := config.Read(ctx, tc.configPath, logger, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
 		myRobot, err := robotimpl.New(ctx, cfg, logger)

@@ -25,7 +25,7 @@ import (
 
 func TestNewWatcherNoop(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	watcher, err := config.NewWatcher(context.Background(), &config.Config{}, logger, &grpc.AppConn{})
+	watcher, err := config.NewWatcher(context.Background(), &config.Config{}, logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	timer := time.NewTimer(time.Second)
@@ -46,7 +46,7 @@ func TestNewWatcherFile(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer os.Remove(temp.Name())
 
-	watcher, err := config.NewWatcher(context.Background(), &config.Config{ConfigFilePath: temp.Name()}, logger, &grpc.AppConn{})
+	watcher, err := config.NewWatcher(context.Background(), &config.Config{ConfigFilePath: temp.Name()}, logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	writeConf := func(conf *config.Config) {

@@ -8,7 +8,6 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
@@ -26,7 +25,7 @@ var (
 func TestPlaneSegmentImageAndDepthMap(t *testing.T) {
 	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/planes/color", "*.png", "segmentation/planes/depth")
 	logger := logging.NewTestLogger(t)
-	config, err := config.Read(context.Background(), intelJSONPath, logger, &grpc.AppConn{})
+	config, err := config.Read(context.Background(), intelJSONPath, logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	c := config.FindComponent("front")

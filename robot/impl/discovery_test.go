@@ -17,7 +17,6 @@ import (
 	"go.viam.com/rdk/examples/customresources/models/mygizmo"
 	"go.viam.com/rdk/examples/customresources/models/mynavigation"
 	"go.viam.com/rdk/examples/customresources/models/mysum"
-	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -30,7 +29,7 @@ func setupLocalRobotWithFakeConfig(t *testing.T) robot.LocalRobot {
 
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
-	cfg, err := config.Read(ctx, "data/fake.json", logger, &grpc.AppConn{})
+	cfg, err := config.Read(ctx, "data/fake.json", logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 	return setupLocalRobot(t, ctx, cfg, logger)
 }

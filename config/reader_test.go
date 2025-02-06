@@ -319,7 +319,7 @@ func TestProcessConfig(t *testing.T) {
 func TestReadTLSFromCache(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
-	cfg, err := FromReader(ctx, "", strings.NewReader(`{}`), logger, &grpc.AppConn{})
+	cfg, err := FromReader(ctx, "", strings.NewReader(`{}`), logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	robotPartID := "forCachingTest"
