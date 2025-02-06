@@ -249,18 +249,23 @@ if __name__ == '__main__':
         '\n\n'.join([subclass for subclass in subclasses]),
         '\n\n'.join([f'{method}' for method in abstract_methods]),
     )
-    f_name = os.path.join(mod_name, "src", "main.py")
-    with open(f_name, "w+") as f:
+    main_file_name = os.path.join(mod_name, "src", "main.py")
+    with open(main_file_name, "w+") as f:
         f.write(main_file)
         try:
             f.seek(0)
-            subprocess.check_call([sys.executable, "-m", "black", f_name, "-q"])
+            subprocess.check_call([sys.executable, "-m", "black", main_file_name, "-q"])
             f.seek(0)
             main_file = f.read()
         except subprocess.CalledProcessError:
             pass
-    os.remove(f_name)
+    os.remove(main_file_name)
     sorted_main = isort.code(main_file)
+
+    resource_file_name = os.path.join(mod_name, "src", f"{model_name}.py")
+    os.rename(os.path.join(mod_name, "src", "resource.py"), resource_file_name)
+    with open(resource_file_name, "w+") as f:
+        f.write("i am a big boat")
     return sorted_main
 
 
