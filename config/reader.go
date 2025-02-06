@@ -348,7 +348,7 @@ func ReadLocalConfig(
 	}
 
 	var nilConn rpc.ClientConn
-	return fromReader(ctx, filePath, bytes.NewReader(buf), logger, false, nilConn)
+	return fromReader(ctx, filePath, bytes.NewReader(buf), logger, nilConn)
 }
 
 // FromReader reads a config from the given reader and specifies
@@ -360,7 +360,7 @@ func FromReader(
 	logger logging.Logger,
 	conn rpc.ClientConn,
 ) (*Config, error) {
-	return fromReader(ctx, originalPath, r, logger, true, conn)
+	return fromReader(ctx, originalPath, r, logger, conn)
 }
 
 // fromReader reads a config from the given reader and specifies
@@ -370,7 +370,6 @@ func fromReader(
 	originalPath string,
 	r io.Reader,
 	logger logging.Logger,
-	shouldReadFromCloud bool,
 	conn rpc.ClientConn,
 ) (*Config, error) {
 	// First read and process config from disk
@@ -386,7 +385,7 @@ func fromReader(
 		return nil, errors.Wrapf(err, "failed to process Config")
 	}
 
-	if shouldReadFromCloud && cfgFromDisk.Cloud != nil {
+	if conn != nil && cfgFromDisk.Cloud != nil {
 		cfg, err := readFromCloud(ctx, cfgFromDisk, nil, true, true, logger, conn)
 		return cfg, err
 	}
