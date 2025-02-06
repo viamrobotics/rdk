@@ -70,6 +70,7 @@ func TestFromReader(t *testing.T) {
 		appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
 		appConn, err := grpc.NewAppConn(ctx, appAddress, secret, robotPartID, logger)
 		test.That(t, err, test.ShouldBeNil)
+		defer appConn.Close()
 		cfgText := fmt.Sprintf(`{"cloud":{"id":%q,"app_address":%q,"secret":%q}}`, robotPartID, appAddress, secret)
 		gotCfg, err := FromReader(ctx, "", strings.NewReader(cfgText), logger, appConn)
 		test.That(t, err, test.ShouldBeNil)
@@ -121,6 +122,7 @@ func TestFromReader(t *testing.T) {
 		appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
 		appConn, err := grpc.NewAppConn(ctx, appAddress, secret, robotPartID, logger)
 		test.That(t, err, test.ShouldBeNil)
+		defer appConn.Close()
 		cfgText := fmt.Sprintf(`{"cloud":{"id":%q,"app_address":%q,"secret":%q}}`, robotPartID, appAddress, secret)
 		gotCfg, err := FromReader(ctx, "", strings.NewReader(cfgText), logger, appConn)
 		test.That(t, err, test.ShouldBeNil)
@@ -162,6 +164,7 @@ func TestFromReader(t *testing.T) {
 		appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
 		appConn, err := grpc.NewAppConn(ctx, appAddress, secret, robotPartID, logger)
 		test.That(t, err, test.ShouldBeNil)
+		defer appConn.Close()
 		cfgText := fmt.Sprintf(`{"cloud":{"id":%q,"app_address":%q,"secret":%q}}`, robotPartID, appAddress, secret)
 		gotCfg, err := FromReader(ctx, "", strings.NewReader(cfgText), logger, appConn)
 		test.That(t, err, test.ShouldBeNil)
@@ -208,6 +211,7 @@ func TestStoreToCache(t *testing.T) {
 
 	appConn, err = grpc.NewAppConn(ctx, cloud.AppAddress, cloud.Secret, cloud.ID, logger)
 	test.That(t, err, test.ShouldBeNil)
+	defer appConn.Close()
 
 	// errors if no unprocessed config to cache
 	cfgToCache := &Config{Cloud: &Cloud{ID: "forCachingTest"}}

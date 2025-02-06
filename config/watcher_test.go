@@ -275,6 +275,7 @@ func TestNewWatcherCloud(t *testing.T) {
 	appConn, err := grpc.NewAppConn(context.Background(), confToReturn.Cloud.AppAddress, confToReturn.Cloud.Secret, confToReturn.Cloud.ID,
 		logger)
 	test.That(t, err, test.ShouldBeNil)
+	defer appConn.Close()
 	watcher, err := config.NewWatcher(context.Background(), &config.Config{Cloud: newCloudConf()}, logger, appConn)
 	test.That(t, err, test.ShouldBeNil)
 
