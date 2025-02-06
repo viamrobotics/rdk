@@ -1295,6 +1295,11 @@ func (c *viamClient) machinesPartCopyFilesAction(
 		destination = args[len(args)-1]
 		if !isFrom {
 			destination = strings.TrimPrefix(destination, machinePrefix)
+			// If the user passes a `~` for their machine destination, we should treat
+			// it as root rather than trying to create a file named `~` at the root
+			if destination == "~" {
+				destination = ""
+			}
 		}
 
 		// all but the last arg are what we are copying to/from
