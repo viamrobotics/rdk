@@ -370,6 +370,7 @@ func populateAdditionalInfo(newModule *modulegen.ModuleInputs) {
 
 	titleCaser := cases.Title(language.Und)
 	replacer := strings.NewReplacer("_", " ", "-", " ")
+	snakeReplacer := strings.NewReplacer("-", "_", " ", "_")
 	spaceReplacer := modulegen.SpaceReplacer
 	newModule.ModulePascal = spaceReplacer.Replace(titleCaser.String(replacer.Replace(newModule.ModuleName)))
 	newModule.ModuleCamel = strings.ToLower(string(newModule.ModulePascal[0])) + newModule.ModulePascal[1:]
@@ -382,7 +383,7 @@ func populateAdditionalInfo(newModule *modulegen.ModuleInputs) {
 	newModule.ResourceTypePascal = spaceReplacer.Replace(titleCaser.String(replacer.Replace(newModule.ResourceType)))
 	newModule.ModelPascal = spaceReplacer.Replace(titleCaser.String(replacer.Replace(newModule.ModelName)))
 	newModule.ModelCamel = strings.ToLower(string(newModule.ModelPascal[0])) + newModule.ModelPascal[1:]
-	newModule.ModelLowercase = strings.ToLower(newModule.ModelPascal)
+	newModule.ModelSnake = snakeReplacer.Replace(newModule.ModelName)
 
 	modelTriple := fmt.Sprintf("%s:%s:%s", newModule.Namespace, newModule.ModuleName, newModule.ModelName)
 	newModule.ModelTriple = modelTriple
