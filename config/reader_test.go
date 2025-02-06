@@ -184,7 +184,8 @@ func TestFromReader(t *testing.T) {
 func TestStoreToCache(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
-	cfg, err := FromReader(ctx, "", strings.NewReader(`{}`), logger)
+	appConn := &grpc.AppConn{}
+	cfg, err := FromReader(ctx, "", strings.NewReader(`{}`), logger, appConn)
 
 	test.That(t, err, test.ShouldBeNil)
 
@@ -204,6 +205,9 @@ func TestStoreToCache(t *testing.T) {
 	}
 	cfg.Cloud = cloud
 
+	appConn, err = grpc.NewAppConn(ctx, cloud.AppAddress, cloud.Secret, cloud.ID, logger)
+	test.That(t, err, test.ShouldBeNil)
+
 	// errors if no unprocessed config to cache
 	cfgToCache := &Config{Cloud: &Cloud{ID: "forCachingTest"}}
 	err = cfgToCache.StoreToCache()
@@ -215,7 +219,7 @@ func TestStoreToCache(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// read config from cloud, confirm consistency
-	cloudCfg, err := readFromCloud(ctx, cfg, nil, true, false, logger)
+	cloudCfg, err := readFromCloud(ctx, cfg, nil, true, false, logger, appConn)
 	test.That(t, err, test.ShouldBeNil)
 	cloudCfg.toCache = nil
 	test.That(t, cloudCfg, test.ShouldResemble, cfg)
@@ -225,7 +229,7 @@ func TestStoreToCache(t *testing.T) {
 	cfg.Remotes = append(cfg.Remotes, newRemote)
 
 	// read config from cloud again, confirm that the cached config differs from cfg
-	cloudCfg2, err := readFromCloud(ctx, cfg, nil, true, false, logger)
+	cloudCfg2, err := readFromCloud(ctx, cfg, nil, true, false, logger, appConn)
 	test.That(t, err, test.ShouldBeNil)
 	cloudCfg2.toCache = nil
 	test.That(t, cloudCfg2, test.ShouldNotResemble, cfgToCache)
@@ -238,7 +242,7 @@ func TestStoreToCache(t *testing.T) {
 	test.That(t, cfg.Ensure(true, logger), test.ShouldBeNil)
 
 	// read updated cloud config, confirm that it now matches our updated cfg
-	cloudCfg3, err := readFromCloud(ctx, cfg, nil, true, false, logger)
+	cloudCfg3, err := readFromCloud(ctx, cfg, nil, true, false, logger, appConn)
 	test.That(t, err, test.ShouldBeNil)
 	cloudCfg3.toCache = nil
 	test.That(t, cloudCfg3, test.ShouldResemble, cfg)
@@ -310,7 +314,7 @@ func TestProcessConfig(t *testing.T) {
 func TestReadTLSFromCache(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
-	cfg, err := FromReader(ctx, "", strings.NewReader(`{}`), logger)
+	cfg, err := FromReader(ctx, "", strings.NewReader(`{}`), logger, &grpc.AppConn{})
 	test.That(t, err, test.ShouldBeNil)
 
 	robotPartID := "forCachingTest"
