@@ -1025,7 +1025,7 @@ type dataRemoveFromDatasetArgs struct {
 	FileIDs    []string
 }
 
-// DataRemoveFromDataset is the corresponding action for 'data dataset remove'.
+// DataRemoveFromDataset is the corresponding action for 'data dataset remove ids'.
 func DataRemoveFromDataset(c *cli.Context, args dataRemoveFromDatasetArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
