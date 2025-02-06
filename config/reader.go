@@ -341,14 +341,14 @@ func ReadLocalConfig(
 	ctx context.Context,
 	filePath string,
 	logger logging.Logger,
-	conn rpc.ClientConn,
 ) (*Config, error) {
 	buf, err := envsubst.ReadFile(filePath)
 	if err != nil {
 		return nil, err
 	}
 
-	return fromReader(ctx, filePath, bytes.NewReader(buf), logger, false, conn)
+	var nilConn rpc.ClientConn
+	return fromReader(ctx, filePath, bytes.NewReader(buf), logger, false, nilConn)
 }
 
 // FromReader reads a config from the given reader and specifies

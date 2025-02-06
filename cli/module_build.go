@@ -645,7 +645,7 @@ func resolvePartID(ctx context.Context, partIDFromFlag, cloudJSON string) (strin
 	if len(cloudJSON) == 0 {
 		return "", errors.New("no --part and no default json")
 	}
-	conf, err := config.ReadLocalConfig(ctx, cloudJSON, logging.NewLogger("config"), &grpc.AppConn{})
+	conf, err := config.ReadLocalConfig(ctx, cloudJSON, logging.NewLogger("config"))
 	if err != nil {
 		return "", err
 	}
