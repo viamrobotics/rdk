@@ -690,14 +690,14 @@ func generatePythonStubs(module modulegen.ModuleInputs) error {
 		return errors.Wrap(err, "cannot generate python stubs -- generator script encountered an error")
 	}
 
-	mainPath := filepath.Join(module.ModuleName, "src", "main.py")
+	resourcePath := filepath.Join(module.ModuleName, "src", fmt.Sprintf("%s.py", module.ModelSnake))
 	//nolint:gosec
-	mainFile, err := os.Create(mainPath)
+	resourceFile, err := os.Create(resourcePath)
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to open file")
 	}
-	defer utils.UncheckedErrorFunc(mainFile.Close)
-	_, err = mainFile.Write(out)
+	defer utils.UncheckedErrorFunc(resourceFile.Close)
+	_, err = resourceFile.Write(out)
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to write to file")
 	}

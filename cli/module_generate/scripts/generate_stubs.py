@@ -177,11 +177,9 @@ def main(
     model_name_pascal = "".join(
         [word.capitalize() for word in slugify(model_name).split("-")]
     )
-    main_file = '''
-import asyncio
+    resource_file = '''
 from typing import ClassVar, Mapping, Sequence
 from typing_extensions import Self
-from viam.module.module import Module
 from viam.proto.app.robot import ComponentConfig
 from viam.proto.common import ResourceName
 from viam.resource.base import ResourceBase
@@ -232,11 +230,6 @@ class {3}({4}, EasyResource):
 
 {8}
 {9}
-
-
-if __name__ == '__main__':
-    asyncio.run(Module.run_from_registry())
-
 '''.format(
         "\n".join(list(set(imports))),
         resource_type,
@@ -249,24 +242,21 @@ if __name__ == '__main__':
         '\n\n'.join([subclass for subclass in subclasses]),
         '\n\n'.join([f'{method}' for method in abstract_methods]),
     )
-    main_file_name = os.path.join(mod_name, "src", "main.py")
-    with open(main_file_name, "w+") as f:
-        f.write(main_file)
-        try:
-            f.seek(0)
-            subprocess.check_call([sys.executable, "-m", "black", main_file_name, "-q"])
-            f.seek(0)
-            main_file = f.read()
-        except subprocess.CalledProcessError:
-            pass
-    os.remove(main_file_name)
-    sorted_main = isort.code(main_file)
-
     resource_file_name = os.path.join(mod_name, "src", f"{model_name}.py")
     os.rename(os.path.join(mod_name, "src", "resource.py"), resource_file_name)
     with open(resource_file_name, "w+") as f:
-        f.write("i am a big boat")
-    return sorted_main
+        f.write(resource_file)
+        try:
+            f.seek(0)
+            subprocess.check_call([sys.executable, "-m", "black", resource_file_name, "-q"])
+            f.seek(0)
+            resource_file = f.read()
+        except subprocess.CalledProcessError:
+            pass
+    os.remove(resource_file_name)
+    sorted_code = isort.code(resource_file)
+
+    return sorted_code
 
 
 if __name__ == "__main__":
