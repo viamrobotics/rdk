@@ -122,13 +122,8 @@ func clearCache(id string) {
 func readCertificateDataFromCloudGRPC(ctx context.Context,
 	cloudConfigFromDisk *Cloud,
 	logger logging.Logger,
+	conn rpc.ClientConn,
 ) (tlsConfig, error) {
-	conn, err := CreateNewGRPCClient(ctx, cloudConfigFromDisk, logger)
-	if err != nil {
-		return tlsConfig{}, err
-	}
-	defer utils.UncheckedErrorFunc(conn.Close)
-
 	service := apppb.NewRobotServiceClient(conn)
 	res, err := service.Certificate(ctx, &apppb.CertificateRequest{Id: cloudConfigFromDisk.ID})
 	if err != nil {
@@ -237,7 +232,7 @@ func readFromCloud(
 		logger.Debug("reading tlsCertificate from the cloud")
 
 		ctxWithTimeout, cancel := contextutils.GetTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
-		certData, err := readCertificateDataFromCloudGRPC(ctxWithTimeout, cloudCfg, logger)
+		certData, err := readCertificateDataFromCloudGRPC(ctxWithTimeout, cloudCfg, logger, conn)
 		if err != nil {
 			cancel()
 			if !errors.As(err, &context.DeadlineExceeded) {
