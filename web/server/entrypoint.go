@@ -1,6 +1,8 @@
 // Package server implements the entry point for running a robot web server.
 package server
 
+// TODO(RSDK-8296): use global connection to App in first config/cert retrieval
+
 import (
 	"cmp"
 	"context"
