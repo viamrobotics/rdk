@@ -16,6 +16,7 @@ add_executable(generator
     main.cpp
     compilation_db.cpp
     compiler_info.cpp
+    generator.cpp
 )
 
 target_include_directories(generator
