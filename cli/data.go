@@ -1076,6 +1076,7 @@ func DataRemoveFromDatasetByFilter(c *cli.Context, args dataRemoveFromDatasetByF
 		return err
 	}
 
+	// set the dataset ID in the filter, so that we do not attempt to remove data that is not in the dataset
 	filter.DatasetId = args.DatasetID
 
 	if err := client.dataRemoveFromDatasetByFilter(filter, args.DatasetID); err != nil {
