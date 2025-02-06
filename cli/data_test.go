@@ -22,7 +22,7 @@ func TestFilenameForDownload(t *testing.T) {
 	test.That(t, inViamCaptureFolder, test.ShouldEqual, "2024-01-30Twhatever.jpg")
 
 	nestedViamCaptureFolder := filenameForDownload(&datapb.BinaryMetadata{FileName: "Users/hi/.viam/capture/2024-01-30Twhatever.jpg"})
-	test.That(t, nestedViamCaptureFolder, test.ShouldEqual, "Users/hi/2024-01-30Twhatever.jpg")
+	test.That(t, nestedViamCaptureFolder, test.ShouldEqual, "2024-01-30Twhatever.jpg")
 
 	gzAtRoot := filenameForDownload(&datapb.BinaryMetadata{FileName: "whatever.gz"})
 	test.That(t, gzAtRoot, test.ShouldEqual, expectedUTC+"_whatever")
