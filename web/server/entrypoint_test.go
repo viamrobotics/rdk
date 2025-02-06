@@ -28,6 +28,7 @@ import (
 	"go.viam.com/rdk/components/generic"
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -51,7 +52,7 @@ func TestEntrypoint(t *testing.T) {
 	t.Run("number of resources", func(t *testing.T) {
 		logger, logObserver := logging.NewObservedTestLogger(t)
 		cfgFilename := utils.ResolveFile("/etc/configs/fake.json")
-		cfg, err := config.Read(context.Background(), cfgFilename, logger)
+		cfg, err := config.Read(context.Background(), cfgFilename, logger, &grpc.AppConn{})
 		test.That(t, err, test.ShouldBeNil)
 
 		var port int
@@ -134,7 +135,7 @@ func TestShutdown(t *testing.T) {
 		serverLogObserver := serverLogger.Observer
 
 		cfgFilename := utils.ResolveFile("/etc/configs/fake.json")
-		cfg, err := config.Read(context.Background(), cfgFilename, testLogger)
+		cfg, err := config.Read(context.Background(), cfgFilename, testLogger, &grpc.AppConn{})
 		test.That(t, err, test.ShouldBeNil)
 
 		var port int
