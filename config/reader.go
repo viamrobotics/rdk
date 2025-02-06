@@ -628,7 +628,13 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 
 // getFromCloudOrCache returns the config from the gRPC endpoint. If failures during cloud lookup fallback to the
 // local cache if the error indicates it should.
-func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCache bool, logger logging.Logger, conn rpc.ClientConn) (*Config, bool, error) {
+func getFromCloudOrCache(
+	ctx context.Context,
+	cloudCfg *Cloud,
+	shouldReadFromCache bool,
+	logger logging.Logger,
+	conn rpc.ClientConn,
+) (*Config, bool, error) {
 	var cached bool
 
 	ctxWithTimeout, cancel := contextutils.GetTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)

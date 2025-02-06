@@ -15,7 +15,7 @@ import (
 // AppConn maintains an underlying client connection meant to be used globally to connect to App. The `AppConn` constructor repeatedly
 // attempts to dial App until a connection is successfully established.
 type AppConn struct {
-	ReconfigurableClientConn
+	*ReconfigurableClientConn
 
 	dialer *utils.StoppableWorkers
 }
@@ -25,7 +25,7 @@ type AppConn struct {
 // establishing a connection to App will continue to occur, however, in a background Goroutine. These attempts will continue until a
 // connection is made. If `cloud` is nil, an `AppConn` with a nil underlying connection will return, and the background dialer will not
 // start.
-func NewAppConn(ctx context.Context, appAddress string, secret string, id string, logger logging.Logger) (*AppConn, error) {
+func NewAppConn(ctx context.Context, appAddress, secret, id string, logger logging.Logger) (rpc.ClientConn, error) {
 	appConn := &AppConn{}
 
 	grpcURL, err := url.Parse(appAddress)
@@ -85,7 +85,7 @@ func (ac *AppConn) Close() error {
 	return ac.ReconfigurableClientConn.Close()
 }
 
-func dialOpts(secret string, id string) []rpc.DialOption {
+func dialOpts(secret, id string) []rpc.DialOption {
 	dialOpts := make([]rpc.DialOption, 0, 2)
 	// Only add credentials when secret is set.
 	if secret != "" {

@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
@@ -324,7 +325,7 @@ func modifyCfg(t *testing.T, cfgIn string, logger logging.Logger) (string, int, 
 		return "", 0, err
 	}
 
-	cfg, err := config.Read(context.Background(), cfgIn, logger)
+	cfg, err := config.Read(context.Background(), cfgIn, logger, &grpc.AppConn{})
 	if err != nil {
 		return "", 0, err
 	}

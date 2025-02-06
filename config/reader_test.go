@@ -182,9 +182,10 @@ func TestFromReader(t *testing.T) {
 }
 
 func TestStoreToCache(t *testing.T) {
+	var appConn rpc.ClientConn
+
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
-	appConn := &grpc.AppConn{}
 	cfg, err := FromReader(ctx, "", strings.NewReader(`{}`), logger, appConn)
 
 	test.That(t, err, test.ShouldBeNil)

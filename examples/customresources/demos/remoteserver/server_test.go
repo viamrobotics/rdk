@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	_ "go.viam.com/rdk/examples/customresources/models/mygizmo"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	weboptions "go.viam.com/rdk/robot/web/options"
@@ -40,7 +41,8 @@ func TestGizmo(t *testing.T) {
 		remoteAddrB = fmt.Sprintf("localhost:%d", port)
 		test.That(t, err, test.ShouldBeNil)
 
-		cfgServer, err := config.Read(ctx, utils.ResolveFile("./examples/customresources/demos/remoteserver/remote.json"), logger)
+		cfgServer, err := config.Read(ctx, utils.ResolveFile("./examples/customresources/demos/remoteserver/remote.json"), logger,
+			&grpc.AppConn{})
 		test.That(t, err, test.ShouldBeNil)
 		remoteB, err := robotimpl.New(ctx, cfgServer, logger.Sublogger("remoteB"))
 		test.That(t, err, test.ShouldBeNil)

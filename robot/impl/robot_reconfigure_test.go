@@ -20,6 +20,7 @@ import (
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
@@ -50,7 +51,7 @@ func ConfigFromFile(tb testing.TB, filePath string) *config.Config {
 	logger := logging.NewTestLogger(tb)
 	buf, err := envsubst.ReadFile(filePath)
 	test.That(tb, err, test.ShouldBeNil)
-	conf, err := config.FromReader(context.Background(), filePath, bytes.NewReader(buf), logger)
+	conf, err := config.FromReader(context.Background(), filePath, bytes.NewReader(buf), logger, &grpc.AppConn{})
 	test.That(tb, err, test.ShouldBeNil)
 	return conf
 }

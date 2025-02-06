@@ -35,11 +35,8 @@ const (
 	initialReadTimeout     = 1 * time.Second
 )
 
-var (
-	// ViamDotDir is the directory for Viam's cached files.
-	ViamDotDir      string
-	viamPackagesDir string
-)
+// ViamDotDir is the directory for Viam's cached files.
+var ViamDotDir string
 
 func init() {
 	home := utils.PlatformHomeDir()

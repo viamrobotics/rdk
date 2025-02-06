@@ -119,7 +119,7 @@ type fsConfigWatcher struct {
 }
 
 // newFSWatcher returns a new v that will fetch new configs
-// as soon as the underlying file is written to.Jk
+// as soon as the underlying file is written to.Jk.
 func newFSWatcher(ctx context.Context, configPath string, logger logging.Logger, conn rpc.ClientConn) (*fsConfigWatcher, error) {
 	fsWatcher, err := fsnotify.NewWatcher()
 	if err != nil {

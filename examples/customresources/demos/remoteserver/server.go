@@ -9,6 +9,7 @@ import (
 
 	"go.viam.com/rdk/config"
 	_ "go.viam.com/rdk/examples/customresources/models/mygizmo"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/web"
@@ -35,7 +36,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) (er
 		return errors.New("please specify a config file through the -config parameter")
 	}
 
-	cfg, err := config.Read(ctx, argsParsed.ConfigFile, logger)
+	cfg, err := config.Read(ctx, argsParsed.ConfigFile, logger, &grpc.AppConn{})
 	if err != nil {
 		return err
 	}

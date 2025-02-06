@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/components/base"
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
@@ -39,7 +40,7 @@ func TestMoveOnMap(t *testing.T) {
 	}
 
 	t.Run("Timeout", func(t *testing.T) {
-		cfg, err := config.Read(ctx, "../data/real_wheeled_base.json", logger)
+		cfg, err := config.Read(ctx, "../data/real_wheeled_base.json", logger, &grpc.AppConn{})
 		test.That(t, err, test.ShouldBeNil)
 		myRobot, err := robotimpl.New(ctx, cfg, logger)
 		test.That(t, err, test.ShouldBeNil)
