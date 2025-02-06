@@ -30,6 +30,7 @@ import (
 	"go.viam.com/rdk/components/encoder/incremental"
 	fakemotor "go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -40,7 +41,7 @@ import (
 
 func TestConfigRobot(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/robot.json", logger)
+	cfg, err := config.Read(context.Background(), "data/robot.json", logger, &grpc.AppConn{})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, cfg.Components, test.ShouldHaveLength, 3)
@@ -76,7 +77,7 @@ func TestConfig3(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	test.That(t, os.Setenv("TEST_THING_FOO", "5"), test.ShouldBeNil)
-	cfg, err := config.Read(context.Background(), "data/config3.json", logger)
+	cfg, err := config.Read(context.Background(), "data/config3.json", logger, &grpc.AppConn{})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, len(cfg.Components), test.ShouldEqual, 4)
@@ -152,7 +153,7 @@ func TestConfig3(t *testing.T) {
 
 func TestConfigWithLogDeclarations(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/config_with_log.json", logger)
+	cfg, err := config.Read(context.Background(), "data/config_with_log.json", logger, &grpc.AppConn{})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, len(cfg.Components), test.ShouldEqual, 4)
@@ -1207,7 +1208,7 @@ func TestPackageConfig(t *testing.T) {
 
 func TestConfigRobotWebProfile(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/config_with_web_profile.json", logger)
+	cfg, err := config.Read(context.Background(), "data/config_with_web_profile.json", logger, &grpc.AppConn{})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, cfg.EnableWebProfile, test.ShouldBeTrue)
@@ -1215,7 +1216,7 @@ func TestConfigRobotWebProfile(t *testing.T) {
 
 func TestConfigRobotRevision(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/config_with_revision.json", logger)
+	cfg, err := config.Read(context.Background(), "data/config_with_revision.json", logger, &grpc.AppConn{})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, cfg.Revision, test.ShouldEqual, "rev1")
