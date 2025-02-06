@@ -661,7 +661,6 @@ func printMachinePartStatus(c *cli.Context, parts []*apppb.RobotPart) {
 			printf(c.App.Writer, "")
 		}
 	}
-
 }
 
 type machinesPartListArgs struct {

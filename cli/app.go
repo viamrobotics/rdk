@@ -2072,7 +2072,6 @@ Organization and location are required flags if the machine/part name are not un
 							Usage:     "list parts on a machine",
 							UsageText: createUsageText("machines part list", []string{generalFlagMachine}, true, false),
 							Flags: []cli.Flag{
-
 								&AliasStringFlag{
 									cli.StringFlag{
 										Name:     generalFlagMachine,
