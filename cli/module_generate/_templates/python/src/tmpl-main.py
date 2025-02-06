@@ -1,5 +1,6 @@
 import asyncio
 from viam.module.module import Module
+from .{{ .ModelSnake }} import {{ .ModelPascal }}
 
 
 if __name__ == '__main__':
