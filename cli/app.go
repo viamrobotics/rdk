@@ -907,10 +907,12 @@ var app = &cli.App{
 					// use custom usage text to show default organization flag usage even if it isn't required
 					UsageText: "viam locations list [--organization=<organization>]",
 					Flags: []cli.Flag{
-						&cli.StringFlag{
-							Name:        generalFlagOrganization,
-							Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-							DefaultText: "first organization alphabetically",
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:        generalFlagOrganization,
+								Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+								DefaultText: "first organization alphabetically",
+							},
 						},
 					},
 					Action: createCommandWithT[listLocationsArgs](ListLocationsAction),
@@ -1752,15 +1754,19 @@ var app = &cli.App{
 					Usage:     "list machines in an organization and location",
 					UsageText: createUsageText("machines list", nil, true, false),
 					Flags: []cli.Flag{
-						&cli.StringFlag{
-							Name:        generalFlagOrganization,
-							Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-							DefaultText: "first organization alphabetically",
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:        generalFlagOrganization,
+								Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+								DefaultText: "first organization alphabetically",
+							},
 						},
-						&cli.StringFlag{
-							Name:        generalFlagLocation,
-							Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
-							DefaultText: "first location alphabetically",
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:        generalFlagLocation,
+								Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
+								DefaultText: "first location alphabetically",
+							},
 						},
 					},
 					Action: createCommandWithT[listRobotsActionArgs](ListRobotsAction),
@@ -1811,15 +1817,19 @@ var app = &cli.App{
 								Required: true,
 							},
 						},
-						&cli.StringFlag{
-							Name:        generalFlagOrganization,
-							Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-							DefaultText: "first organization alphabetically",
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:        generalFlagOrganization,
+								Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+								DefaultText: "first organization alphabetically",
+							},
 						},
-						&cli.StringFlag{
-							Name:        generalFlagLocation,
-							Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
-							DefaultText: "first location alphabetically",
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:        generalFlagLocation,
+								Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
+								DefaultText: "first location alphabetically",
+							},
 						},
 					},
 					Action: createCommandWithT[robotsStatusArgs](RobotsStatusAction),
@@ -1837,15 +1847,19 @@ var app = &cli.App{
 								Required: true,
 							},
 						},
-						&cli.StringFlag{
-							Name:        generalFlagOrganization,
-							Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-							DefaultText: "first organization alphabetically",
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:        generalFlagOrganization,
+								Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+								DefaultText: "first organization alphabetically",
+							},
 						},
-						&cli.StringFlag{
-							Name:        generalFlagLocation,
-							Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
-							DefaultText: "first location alphabetically",
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:        generalFlagLocation,
+								Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
+								DefaultText: "first location alphabetically",
+							},
 						},
 						&cli.StringFlag{
 							Name:  logsFlagOutputFile,
@@ -1897,15 +1911,19 @@ var app = &cli.App{
 										Required: true,
 									},
 								},
-								&cli.StringFlag{
-									Name:        generalFlagOrganization,
-									Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-									DefaultText: "first organization alphabetically",
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:        generalFlagOrganization,
+										Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+										DefaultText: "first organization alphabetically",
+									},
 								},
-								&cli.StringFlag{
-									Name:        generalFlagLocation,
-									Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
-									DefaultText: "first location alphabetically",
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:        generalFlagLocation,
+										Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
+										DefaultText: "first location alphabetically",
+									},
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
@@ -1929,15 +1947,19 @@ var app = &cli.App{
 										Required: true,
 									},
 								},
-								&cli.StringFlag{
-									Name:        generalFlagOrganization,
-									Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-									DefaultText: "first organization alphabetically",
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:        generalFlagOrganization,
+										Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+										DefaultText: "first organization alphabetically",
+									},
 								},
-								&cli.StringFlag{
-									Name:        generalFlagLocation,
-									Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
-									DefaultText: "first location alphabetically",
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:        generalFlagLocation,
+										Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
+										DefaultText: "first location alphabetically",
+									},
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
@@ -1974,15 +1996,19 @@ var app = &cli.App{
 										Required: true,
 									},
 								},
-								&cli.StringFlag{
-									Name:        generalFlagOrganization,
-									Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-									DefaultText: "first organization alphabetically",
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:        generalFlagOrganization,
+										Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+										DefaultText: "first organization alphabetically",
+									},
 								},
-								&cli.StringFlag{
-									Name:        generalFlagLocation,
-									Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
-									DefaultText: "first location alphabetically",
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:        generalFlagLocation,
+										Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
+										DefaultText: "first location alphabetically",
+									},
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
@@ -2048,18 +2074,24 @@ Organization and location are required flags if the machine/part name are not un
 `,
 							UsageText: createUsageText("machines part shell", []string{generalFlagPart}, false, false),
 							Flags: []cli.Flag{
-								&cli.StringFlag{
-									Name:     generalFlagPart,
-									Aliases:  []string{generalFlagPartID, generalFlagPartName},
-									Required: true,
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:     generalFlagPart,
+										Aliases:  []string{generalFlagPartID, generalFlagPartName},
+										Required: true,
+									},
 								},
-								&cli.StringFlag{
-									Name:    generalFlagOrganization,
-									Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:    generalFlagOrganization,
+										Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+									},
 								},
-								&cli.StringFlag{
-									Name:    generalFlagLocation,
-									Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:    generalFlagLocation,
+										Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
+									},
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
@@ -2111,13 +2143,17 @@ Copy multiple files from the machine to a local destination with recursion and k
 										Required: true,
 									},
 								},
-								&cli.StringFlag{
-									Name:    generalFlagOrganization,
-									Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:    generalFlagOrganization,
+										Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+									},
 								},
-								&cli.StringFlag{
-									Name:    generalFlagLocation,
-									Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:    generalFlagLocation,
+										Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
+									},
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
