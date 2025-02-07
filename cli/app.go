@@ -2074,14 +2074,15 @@ Organization and location are required flags if the machine/part name are not un
 							Name:  "cp",
 							Usage: "copy files to and from a machine part",
 							Description: `
-In order to use the cp command, the machine must have a valid shell type service.
-Specifying ~ or a blank destination for the machine will use the home directory of the user
-that is running the process (this may sometimes be root). Organization and location are
-required flags if the machine/part name are not unique across your account.
+In order to use the cp command, the machine must have a valid shell type service. When specifying
+the paths to copy to and from, use the 'machine:' prefix to clarify which path is on the machine
+(as opposet to local). Specifying ~ or a blank destination for the machine will use the home
+directory of the user that is running the process (this may sometimes be root). Organization and
+location are required flags if using name (rather than ID) for the part.
 Note: There is no progress meter while copying is in progress.
 
 Copy a single file to the machine with a new name:
-'viam machine part cp --organization "org" --location "location" --machine "m1" --part "m1-main" my_file machine:/home/user/'
+'viam machine part cp --organization "org" --location "location" --machine "m1" --part "m1-main" my_file machine:/home/user/my-new-file'
 
 Recursively copy a directory to the machine with the same name:
 'viam machine part cp --part "m1-main" -r my_dir machine:/home/user/'
@@ -2089,7 +2090,7 @@ Recursively copy a directory to the machine with the same name:
 Copy multiple files to the machine with recursion and keep original permissions and metadata:
 'viam machine part cp --part "m1-main" -r -p my_dir my_file machine:/home/user/some/existing/dir/'
 
-Copy a single file from the machine to a local destination:
+Copy a single file from the machine to a local destination with the same name:
 'viam machine part cp --part "m1-main" machine:my_file ~/Downloads/'
 
 Recursively copy a directory from the machine to a local destination with the same name:
