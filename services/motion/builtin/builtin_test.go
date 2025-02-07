@@ -45,7 +45,7 @@ func setupMotionServiceFromConfig(t *testing.T, configFilename string) (motion.S
 	t.Helper()
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(ctx, configFilename, logger)
+	cfg, err := config.Read(ctx, configFilename, logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)

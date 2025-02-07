@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
-	"time"
 
 	"github.com/a8m/envsubst"
 	"github.com/pkg/errors"
@@ -24,6 +23,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils/contextutils"
 )
 
 // RDK versioning variables which are replaced by LD flags.
@@ -34,9 +34,6 @@ var (
 )
 
 const (
-	initialReadTimeout     = 1 * time.Second
-	readTimeout            = 5 * time.Second
-	readTimeoutBehindProxy = time.Minute
 	// PackagesDirName is where packages go underneath viamDotDir.
 	PackagesDirName = "packages"
 	// LocalPackagesSuffix is used by the local package manager.
@@ -81,20 +78,14 @@ func getAgentInfo(logger logging.Logger) (*apppb.AgentInfo, error) {
 	}, nil
 }
 
-var (
-	// ViamDotDir is the directory for Viam's cached files.
-	ViamDotDir      string
-	viamPackagesDir string
-)
+var viamPackagesDir string
 
 func init() {
-	home := rutils.PlatformHomeDir()
-	ViamDotDir = filepath.Join(home, ".viam")
-	viamPackagesDir = filepath.Join(ViamDotDir, PackagesDirName)
+	viamPackagesDir = filepath.Join(rutils.ViamDotDir, PackagesDirName)
 }
 
 func getCloudCacheFilePath(id string) string {
-	return filepath.Join(ViamDotDir, fmt.Sprintf("cached_cloud_config_%s.json", id))
+	return filepath.Join(rutils.ViamDotDir, fmt.Sprintf("cached_cloud_config_%s.json", id))
 }
 
 func readFromCache(id string) (*Config, error) {
@@ -124,14 +115,8 @@ func clearCache(id string) {
 
 func readCertificateDataFromCloudGRPC(ctx context.Context,
 	cloudConfigFromDisk *Cloud,
-	logger logging.Logger,
+	conn rpc.ClientConn,
 ) (tlsConfig, error) {
-	conn, err := CreateNewGRPCClient(ctx, cloudConfigFromDisk, logger)
-	if err != nil {
-		return tlsConfig{}, err
-	}
-	defer utils.UncheckedErrorFunc(conn.Close)
-
 	service := apppb.NewRobotServiceClient(conn)
 	res, err := service.Certificate(ctx, &apppb.CertificateRequest{Id: cloudConfigFromDisk.ID})
 	if err != nil {
@@ -182,28 +167,6 @@ func isLocationSecretsEqual(prevCloud, cloud *Cloud) bool {
 	return true
 }
 
-// GetTimeoutCtx returns a context [and its cancel function] with a timeout value determined by whether we are behind a proxy and whether a
-// cached config exists.
-func GetTimeoutCtx(ctx context.Context, shouldReadFromCache bool, id string) (context.Context, func()) {
-	timeout := readTimeout
-	// When environment indicates we are behind a proxy, bump timeout. Network
-	// operations tend to take longer when behind a proxy.
-	if proxyAddr := os.Getenv(rpc.SocksProxyEnvVar); proxyAddr != "" {
-		timeout = readTimeoutBehindProxy
-	}
-
-	// use shouldReadFromCache to determine whether this is part of initial read or not, but only shorten timeout
-	// if cached config exists
-	cachedConfigExists := false
-	if _, err := os.Stat(getCloudCacheFilePath(id)); err == nil {
-		cachedConfigExists = true
-	}
-	if shouldReadFromCache && cachedConfigExists {
-		timeout = initialReadTimeout
-	}
-	return context.WithTimeout(ctx, timeout)
-}
-
 // readFromCloud fetches a robot config from the cloud based
 // on the given config.
 func readFromCloud(
@@ -213,10 +176,11 @@ func readFromCloud(
 	shouldReadFromCache bool,
 	checkForNewCert bool,
 	logger logging.Logger,
+	conn rpc.ClientConn,
 ) (*Config, error) {
 	logger.Debug("reading configuration from the cloud")
 	cloudCfg := originalCfg.Cloud
-	unprocessedConfig, cached, err := getFromCloudOrCache(ctx, cloudCfg, shouldReadFromCache, logger)
+	unprocessedConfig, cached, err := getFromCloudOrCache(ctx, cloudCfg, shouldReadFromCache, logger, conn)
 	if err != nil {
 		return nil, err
 	}
@@ -260,8 +224,8 @@ func readFromCloud(
 	if !cfg.Cloud.SignalingInsecure && (checkForNewCert || tls.certificate == "" || tls.privateKey == "") {
 		logger.Debug("reading tlsCertificate from the cloud")
 
-		ctxWithTimeout, cancel := GetTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
-		certData, err := readCertificateDataFromCloudGRPC(ctxWithTimeout, cloudCfg, logger)
+		ctxWithTimeout, cancel := contextutils.GetTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
+		certData, err := readCertificateDataFromCloudGRPC(ctxWithTimeout, cloudCfg, conn)
 		if err != nil {
 			cancel()
 			if !errors.As(err, &context.DeadlineExceeded) {
@@ -350,13 +314,14 @@ func Read(
 	ctx context.Context,
 	filePath string,
 	logger logging.Logger,
+	conn rpc.ClientConn,
 ) (*Config, error) {
 	buf, err := envsubst.ReadFile(filePath)
 	if err != nil {
 		return nil, err
 	}
 
-	return FromReader(ctx, filePath, bytes.NewReader(buf), logger)
+	return FromReader(ctx, filePath, bytes.NewReader(buf), logger, conn)
 }
 
 // ReadLocalConfig reads a config from the given file but does not fetch any config from the remote servers.
@@ -370,7 +335,7 @@ func ReadLocalConfig(
 		return nil, err
 	}
 
-	return fromReader(ctx, filePath, bytes.NewReader(buf), logger, false)
+	return fromReader(ctx, filePath, bytes.NewReader(buf), logger, nil)
 }
 
 // FromReader reads a config from the given reader and specifies
@@ -380,8 +345,9 @@ func FromReader(
 	originalPath string,
 	r io.Reader,
 	logger logging.Logger,
+	conn rpc.ClientConn,
 ) (*Config, error) {
-	return fromReader(ctx, originalPath, r, logger, true)
+	return fromReader(ctx, originalPath, r, logger, conn)
 }
 
 // fromReader reads a config from the given reader and specifies
@@ -391,7 +357,7 @@ func fromReader(
 	originalPath string,
 	r io.Reader,
 	logger logging.Logger,
-	shouldReadFromCloud bool,
+	conn rpc.ClientConn,
 ) (*Config, error) {
 	// First read and process config from disk
 	unprocessedConfig := Config{
@@ -406,8 +372,8 @@ func fromReader(
 		return nil, errors.Wrapf(err, "failed to process Config")
 	}
 
-	if shouldReadFromCloud && cfgFromDisk.Cloud != nil {
-		cfg, err := readFromCloud(ctx, cfgFromDisk, nil, true, true, logger)
+	if conn != nil && cfgFromDisk.Cloud != nil {
+		cfg, err := readFromCloud(ctx, cfgFromDisk, nil, true, true, logger, conn)
 		return cfg, err
 	}
 
@@ -648,13 +614,19 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 
 // getFromCloudOrCache returns the config from the gRPC endpoint. If failures during cloud lookup fallback to the
 // local cache if the error indicates it should.
-func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCache bool, logger logging.Logger) (*Config, bool, error) {
+func getFromCloudOrCache(
+	ctx context.Context,
+	cloudCfg *Cloud,
+	shouldReadFromCache bool,
+	logger logging.Logger,
+	conn rpc.ClientConn,
+) (*Config, bool, error) {
 	var cached bool
 
-	ctxWithTimeout, cancel := GetTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
+	ctxWithTimeout, cancel := contextutils.GetTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
 	defer cancel()
 
-	cfg, errorShouldCheckCache, err := getFromCloudGRPC(ctxWithTimeout, cloudCfg, logger)
+	cfg, errorShouldCheckCache, err := getFromCloudGRPC(ctxWithTimeout, cloudCfg, logger, conn)
 	if err != nil {
 		if shouldReadFromCache && errorShouldCheckCache {
 			cachedConfig, cacheErr := readFromCache(cloudCfg.ID)
@@ -687,14 +659,8 @@ func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCac
 }
 
 // getFromCloudGRPC actually does the fetching of the robot config from the gRPC endpoint.
-func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger logging.Logger) (*Config, bool, error) {
+func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger logging.Logger, conn rpc.ClientConn) (*Config, bool, error) {
 	shouldCheckCacheOnFailure := true
-
-	conn, err := CreateNewGRPCClient(ctx, cloudCfg, logger)
-	if err != nil {
-		return nil, shouldCheckCacheOnFailure, errors.WithMessage(err, "error creating cloud grpc client")
-	}
-	defer utils.UncheckedErrorFunc(conn.Close)
 
 	agentInfo, err := getAgentInfo(logger)
 	if err != nil {

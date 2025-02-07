@@ -818,7 +818,7 @@ func setupRobot(
 func setupConfig(t *testing.T, r *inject.Robot, configPath string) (resource.Config, resource.Dependencies) {
 	t.Helper()
 	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), utils.ResolveFile(configPath), logger)
+	cfg, err := config.Read(context.Background(), utils.ResolveFile(configPath), logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 	return resourceConfigAndDeps(t, cfg, r)
 }

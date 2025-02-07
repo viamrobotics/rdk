@@ -1178,7 +1178,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 
 func TestConfigRemoteAllowInsecureCreds(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
+	cfg, err := config.Read(context.Background(), "data/fake.json", logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
@@ -1523,7 +1523,7 @@ func TestReconfigure(t *testing.T) {
 	api := resource.APINamespaceRDK.WithServiceType(subtypeName)
 
 	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
+	cfg, err := config.Read(context.Background(), "data/fake.json", logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()

@@ -35,7 +35,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) (er
 		return errors.New("please specify a config file through the -config parameter")
 	}
 
-	cfg, err := config.Read(ctx, argsParsed.ConfigFile, logger)
+	cfg, err := config.Read(ctx, argsParsed.ConfigFile, logger, nil)
 	if err != nil {
 		return err
 	}

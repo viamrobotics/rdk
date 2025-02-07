@@ -173,6 +173,8 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		defer pprof.StopCPUProfile()
 	}
 
+	var appConn rpc.ClientConn
+
 	// Read the config from disk and use it to initialize the remote logger.
 	initialReadCtx, cancel := context.WithTimeout(ctx, time.Second*5)
 	cfgFromDisk, err := config.ReadLocalConfig(initialReadCtx, argsParsed.ConfigFile, logger.Sublogger("config"))
@@ -192,17 +194,15 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 
 	// the underlying connection in `appConn` can be nil. In this case, a background Goroutine is kicked off to reattempt dials in a
 	// serialized manner
-	appConnLogger := logger.Sublogger("networking").Sublogger("app_connection")
-	appConn, err := grpc.NewAppConn(ctx, cfgFromDisk.Cloud, appConnLogger)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err := appConn.Close()
+	if cfgFromDisk.Cloud != nil {
+		cloud := cfgFromDisk.Cloud
+		appConnLogger := logger.Sublogger("networking").Sublogger("app_connection")
+		appConn, err = grpc.NewAppConn(ctx, cloud.AppAddress, cloud.Secret, cloud.ID, appConnLogger)
 		if err != nil {
-			appConnLogger.Error(err)
+			return err
 		}
-	}()
+		defer utils.UncheckedErrorFunc(appConn.Close)
+	}
 
 	// Start remote logging with config from disk.
 	// This is to ensure we make our best effort to write logs for failures loading the remote config.
@@ -246,7 +246,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 // is read the logger may be initialized to remote log. This ensure we capture errors starting up the server and report to the cloud.
 func (s *robotServer) runServer(ctx context.Context) error {
 	initialReadCtx, cancel := context.WithTimeout(ctx, time.Second*5)
-	cfg, err := config.Read(initialReadCtx, s.args.ConfigFile, s.logger)
+	cfg, err := config.Read(initialReadCtx, s.args.ConfigFile, s.logger, s.conn)
 	if err != nil {
 		cancel()
 		return err
@@ -542,7 +542,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	}()
 
 	// watch for and deliver changes to the robot
-	watcher, err := config.NewWatcher(ctx, cfg, s.logger.Sublogger("config"))
+	watcher, err := config.NewWatcher(ctx, cfg, s.logger.Sublogger("config"), s.conn)
 	if err != nil {
 		cancel()
 		return err
