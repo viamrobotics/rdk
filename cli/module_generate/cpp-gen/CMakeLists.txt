@@ -12,8 +12,7 @@ list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
 include(HandleLLVMOptions)
 add_definitions(${LLVM_DEFINITIONS})
 
-add_executable(generator
-    main.cpp
+add_library(generator
     compilation_db.cpp
     compiler_info.cpp
     generator.cpp
@@ -37,5 +36,11 @@ target_link_libraries(generator PUBLIC
     LLVMSupport
 )
 
-target_compile_features(generator PRIVATE cxx_std_17)
-target_compile_options(generator PRIVATE "-fno-rtti")
+target_compile_features(generator PUBLIC cxx_std_17)
+target_compile_options(generator PUBLIC "-fno-rtti")
+
+add_executable(cl_gen
+    main.cpp
+)
+
+target_link_libraries(cl_gen PRIVATE generator)

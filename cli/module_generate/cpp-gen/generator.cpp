@@ -9,6 +9,7 @@
 #include <clang/Tooling/JSONCompilationDatabase.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/StringMap.h>
+#include <llvm/Support/FormatVariadic.h>
 #include <llvm/Support/Path.h>
 #include <llvm/Support/raw_ostream.h>
 
@@ -56,6 +57,69 @@ Generator Generator::createFromCommandLine(const clang::tooling::CompilationData
 }
 
 int Generator::run() {
+    include_stmts();
+
+    const char* fmt =
+        R"--(
+class My{0} : public viam::sdk::{0}, public viam::sdk::Reconfigurable {{
+public:
+    My{0}(const viam::sdk::Dependencies& deps, const viam::sdk::ResourceConfig& cfg) : {0}(cfg.name()) {{
+        this->reconfigure(deps, cfg);
+    }
+
+)--";
+
+    moduleFile_ << llvm::formatv(fmt, className_);
+
+    moduleFile_ << R"--(
+    static std::vector<std::string> validate(const viam::sdk::ResourceConfig&)
+    {
+        throw std::runtime_error("\"validate\" not implemented");
+    }
+
+    void reconfigure(const viam::sdk::Dependencies&, const ResourceConfig&) override
+    {
+        throw std::runtime_error("\"reconfigure\" not implemented");
+    }
+
+)--";
+
+    int result = do_stubs();
+
+    if (result != 0) {
+        throw std::runtime_error("Nonzero return from stub generation");
+    }
+
+    moduleFile_ << "};\n\n";
+
+    main_fn();
+
+    return 0;
+}
+
+void Generator::include_stmts() {
+    const char* fmt = R"--(
+#include <iostream>
+#include <memory>
+#include <vector>
+
+#include <viam/sdk/common/exception.hpp>
+#include <viam/sdk/common/proto_value.hpp>
+#include <viam/sdk/components/{0}.hpp
+#include <viam/sdk/config/resource.hpp>
+#include <viam/sdk/module/service.hpp>
+#include <viam/sdk/registry/registry.hpp>
+#include <viam/sdk/resource/reconfigurable.hpp>
+
+    )--";
+
+    llvm::StringRef cppFilename = classNameToSource(className_);
+
+    moduleFile_ << llvm::formatv(fmt,
+                                 llvm::StringRef(cppFilename).substr(0, cppFilename.find('.')));
+}
+
+int Generator::do_stubs() {
     clang::tooling::ClangTool tool(db_, classPath_);
 
     using namespace clang::ast_matchers;
@@ -79,8 +143,8 @@ int Generator::run() {
             if (const auto* method = result.Nodes.getNodeAs<clang::CXXMethodDecl>("method")) {
                 clang::PrintingPolicy printPolicy(method->getASTContext().getLangOpts());
 
-                os << method->getReturnType().getAsString(printPolicy) << " " << method->getName()
-                   << "(";
+                os << "    " << method->getReturnType().getAsString(printPolicy) << " "
+                   << method->getName() << "(";
 
                 if (method->getNumParams() > 0) {
                     auto param_begin = method->param_begin();
@@ -99,10 +163,15 @@ int Generator::run() {
 
                 method->getMethodQualifiers().print(os, printPolicy, false);
 
-                os << " override\n";
+                os << " override";
 
-                os << "{\n\tthrow std::logic_error(\"" << method->getName()
-                   << "\" not implemented\");\n}\n\n";
+                os << llvm::formatv(R"--(
+    {
+        throw std::logic_error("\"{0}\" not implemented");
+    }
+
+)--",
+                                    method->getName());
             }
         }
     };
@@ -113,6 +182,48 @@ int Generator::run() {
     finder.addMatcher(methodMatcher, &printer);
 
     return tool.run(clang::tooling::newFrontendActionFactory(&finder).get());
+}
+
+void Generator::main_fn() {
+    std::string myClass = "My" + className_;
+
+    llvm::StringRef cppFilename = classNameToSource(className_);
+
+    llvm::StringRef c1 = cppFilename.substr(0, cppFilename.find('.'));
+
+    std::string c2 = ("my" + c1).str();
+
+    moduleFile_ << "int main(int argc, char** argv) try {\n"
+                << llvm::formatv(R"--(
+    Model model("viam", "{0}", "{1}");)--",
+                                 c1,
+                                 c2)
+                << "\n\n"
+                << llvm::formatv(
+                       R"--(
+    std::shared_ptr<ModelRegistration> mr = std::make_shared<ModelRegistration>(
+        API::get<{0}>,
+        model,
+        [](viam::sdk::Dependencies deps, viam::sdk::ResourceConfig cfg) {
+            return std::make_unique<{1}>(deps, cfg);
+        },
+        &{1}::validate);
+)--",
+                       className_,
+                       myClass)
+                << "\n\n"
+                <<
+        R"--(
+    std::vector<std::shared_ptr<ModelRegistration>> mrs = {mr};
+    auto my_mod = std::make_shared<ModuleService>(argc, argv, mrs);
+    my_mod->serve();
+
+    return EXIT_SUCCESS;
+} catch (const viam::sdk::Exception& ex) {
+    std::cerr << "main failed with exception: " << ex.what() << "\n";
+    return EXIT_FAILURE;
+}
+)--";
 }
 
 Generator::Generator(GeneratorCompDB db,

@@ -22,6 +22,10 @@ class Generator {
     int run();
 
    private:
+    void include_stmts();
+    int do_stubs();
+    void main_fn();
+
     Generator(GeneratorCompDB db,
               std::string className,
               std::string classPath,
