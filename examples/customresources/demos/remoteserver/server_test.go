@@ -40,7 +40,7 @@ func TestGizmo(t *testing.T) {
 		remoteAddrB = fmt.Sprintf("localhost:%d", port)
 		test.That(t, err, test.ShouldBeNil)
 
-		cfgServer, err := config.Read(ctx, utils.ResolveFile("./examples/customresources/demos/remoteserver/remote.json"), logger)
+		cfgServer, err := config.Read(ctx, utils.ResolveFile("./examples/customresources/demos/remoteserver/remote.json"), logger, nil)
 		test.That(t, err, test.ShouldBeNil)
 		remoteB, err := robotimpl.New(ctx, cfgServer, logger.Sublogger("remoteB"))
 		test.That(t, err, test.ShouldBeNil)

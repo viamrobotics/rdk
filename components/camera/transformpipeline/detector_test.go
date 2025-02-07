@@ -45,7 +45,7 @@ func writeTempConfig(cfg *config.Config) (string, error) {
 // make a fake robot with a vision service.
 func buildRobotWithFakeCamera(logger logging.Logger) (robot.Robot, error) {
 	// add a fake camera to the config
-	cfg, err := config.Read(context.Background(), artifact.MustPath("components/camera/transformpipeline/vision.json"), logger)
+	cfg, err := config.Read(context.Background(), artifact.MustPath("components/camera/transformpipeline/vision.json"), logger, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -9,6 +9,7 @@ import (
 	"github.com/bep/debounce"
 	"github.com/fsnotify/fsnotify"
 	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/logging"
 )
@@ -23,15 +24,15 @@ type Watcher interface {
 
 // NewWatcher returns an optimally selected Watcher based on the
 // given config.
-func NewWatcher(ctx context.Context, config *Config, logger logging.Logger) (Watcher, error) {
+func NewWatcher(ctx context.Context, config *Config, logger logging.Logger, conn rpc.ClientConn) (Watcher, error) {
 	if err := config.Ensure(false, logger); err != nil {
 		return nil, err
 	}
 	if config.Cloud != nil {
-		return newCloudWatcher(ctx, config, logger), nil
+		return newCloudWatcher(ctx, config, logger, conn), nil
 	}
 	if config.ConfigFilePath != "" {
-		return newFSWatcher(ctx, config.ConfigFilePath, logger)
+		return newFSWatcher(ctx, config.ConfigFilePath, logger, conn)
 	}
 	return noopWatcher{}, nil
 }
@@ -47,7 +48,7 @@ const checkForNewCertInterval = time.Hour
 
 // newCloudWatcher returns a cloudWatcher that will periodically fetch
 // new configs from the cloud.
-func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger) *cloudWatcher {
+func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger, conn rpc.ClientConn) *cloudWatcher {
 	configCh := make(chan *Config)
 	watcherDoneCh := make(chan struct{})
 	cancelCtx, cancel := context.WithCancel(ctx)
@@ -71,7 +72,7 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger)
 			if time.Now().After(nextCheckForNewCert) {
 				checkForNewCert = true
 			}
-			newConfig, err := readFromCloud(cancelCtx, config, prevCfg, false, checkForNewCert, logger)
+			newConfig, err := readFromCloud(cancelCtx, config, prevCfg, false, checkForNewCert, logger, conn)
 			if err != nil {
 				logger.Debugw("error reading cloud config; will try again", "error", err)
 				continue
@@ -119,7 +120,7 @@ type fsConfigWatcher struct {
 
 // newFSWatcher returns a new v that will fetch new configs
 // as soon as the underlying file is written to.
-func newFSWatcher(ctx context.Context, configPath string, logger logging.Logger) (*fsConfigWatcher, error) {
+func newFSWatcher(ctx context.Context, configPath string, logger logging.Logger, conn rpc.ClientConn) (*fsConfigWatcher, error) {
 	fsWatcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
@@ -154,7 +155,7 @@ func newFSWatcher(ctx context.Context, configPath string, logger logging.Logger)
 							return
 						}
 						lastRd = rd
-						newConfig, err := FromReader(cancelCtx, configPath, bytes.NewReader(rd), logger)
+						newConfig, err := FromReader(cancelCtx, configPath, bytes.NewReader(rd), logger, conn)
 						if err != nil {
 							logger.Errorw("error reading config after write", "error", err)
 							return

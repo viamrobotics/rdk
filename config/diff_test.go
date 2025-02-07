@@ -400,9 +400,9 @@ func TestDiffConfigs(t *testing.T) {
 				t.Run(fmt.Sprintf("revealSensitiveConfigDiffs=%t", revealSensitiveConfigDiffs), func(t *testing.T) {
 					logger.Infof("Test name: %v LeftFile: `%v` RightFile: `%v`", tc.Name, tc.LeftFile, tc.RightFile)
 					logger := logging.NewTestLogger(t)
-					left, err := config.Read(context.Background(), tc.LeftFile, logger)
+					left, err := config.Read(context.Background(), tc.LeftFile, logger, nil)
 					test.That(t, err, test.ShouldBeNil)
-					right, err := config.Read(context.Background(), tc.RightFile, logger)
+					right, err := config.Read(context.Background(), tc.RightFile, logger, nil)
 					test.That(t, err, test.ShouldBeNil)
 
 					diff, err := config.DiffConfigs(*left, *right, revealSensitiveConfigDiffs)
@@ -445,9 +445,9 @@ func TestDiffConfigHeterogenousTypes(t *testing.T) {
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
 			logger := logging.NewTestLogger(t)
-			left, err := config.Read(context.Background(), tc.LeftFile, logger)
+			left, err := config.Read(context.Background(), tc.LeftFile, logger, nil)
 			test.That(t, err, test.ShouldBeNil)
-			right, err := config.Read(context.Background(), tc.RightFile, logger)
+			right, err := config.Read(context.Background(), tc.RightFile, logger, nil)
 			test.That(t, err, test.ShouldBeNil)
 
 			_, err = config.DiffConfigs(*left, *right, true)

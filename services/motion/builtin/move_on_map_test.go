@@ -39,7 +39,7 @@ func TestMoveOnMap(t *testing.T) {
 	}
 
 	t.Run("Timeout", func(t *testing.T) {
-		cfg, err := config.Read(ctx, "../data/real_wheeled_base.json", logger)
+		cfg, err := config.Read(ctx, "../data/real_wheeled_base.json", logger, nil)
 		test.That(t, err, test.ShouldBeNil)
 		myRobot, err := robotimpl.New(ctx, cfg, logger)
 		test.That(t, err, test.ShouldBeNil)

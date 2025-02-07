@@ -51,7 +51,7 @@ func TestEntrypoint(t *testing.T) {
 	t.Run("number of resources", func(t *testing.T) {
 		logger, logObserver := logging.NewObservedTestLogger(t)
 		cfgFilename := utils.ResolveFile("/etc/configs/fake.json")
-		cfg, err := config.Read(context.Background(), cfgFilename, logger)
+		cfg, err := config.Read(context.Background(), cfgFilename, logger, nil)
 		test.That(t, err, test.ShouldBeNil)
 
 		var port int
@@ -134,7 +134,7 @@ func TestShutdown(t *testing.T) {
 		serverLogObserver := serverLogger.Observer
 
 		cfgFilename := utils.ResolveFile("/etc/configs/fake.json")
-		cfg, err := config.Read(context.Background(), cfgFilename, testLogger)
+		cfg, err := config.Read(context.Background(), cfgFilename, testLogger, nil)
 		test.That(t, err, test.ShouldBeNil)
 
 		var port int

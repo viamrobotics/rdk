@@ -25,7 +25,7 @@ var (
 func TestPlaneSegmentImageAndDepthMap(t *testing.T) {
 	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/planes/color", "*.png", "segmentation/planes/depth")
 	logger := logging.NewTestLogger(t)
-	config, err := config.Read(context.Background(), intelJSONPath, logger)
+	config, err := config.Read(context.Background(), intelJSONPath, logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	c := config.FindComponent("front")
