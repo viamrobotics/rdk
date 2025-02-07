@@ -3,9 +3,10 @@ package mlmodel
 import (
 	"testing"
 
-	"go.viam.com/rdk/ml"
 	"go.viam.com/test"
 	"gorgonia.org/tensor"
+
+	"go.viam.com/rdk/ml"
 )
 
 func TestTensorRoundTrip(t *testing.T) {

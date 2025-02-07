@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/mlmodel/v1"
 	"golang.org/x/exp/constraints"
-
 	"gorgonia.org/tensor"
 )
 
@@ -139,6 +138,7 @@ func convertNumberSlice[T1, T2 number](t1 []T1) []T2 {
 	return t2
 }
 
+// ConvertToFloat64Slice converts any numbers or slice of numbers into a float64 slice.
 func ConvertToFloat64Slice(slice interface{}) ([]float64, error) {
 	switch v := slice.(type) {
 	case []float64:

@@ -7,11 +7,13 @@ import (
 
 	"github.com/montanaflynn/stats"
 	"github.com/pkg/errors"
+
 	"go.viam.com/rdk/vision/classification"
 )
 
 const classifierProbabilityName = "probability"
 
+// FormatClassificationOutputs formats the output tensors from a model into classifications.
 func FormatClassificationOutputs(
 	outNameMap *sync.Map, outMap Tensors, labels []string,
 ) (classification.Classifications, error) {
