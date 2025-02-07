@@ -282,55 +282,60 @@ func (g *singleAxis) checkForHit(ctx context.Context, ticksChan chan board.Tick)
 	}
 	var hit bool
 	var pinHit int
-	g.logger.Infof("waiting for tick")
+	fmt.Println("waiting for tick")
 	select {
 	case <-ctx.Done():
 		g.logger.Infof("here crx canceled")
 		return 0, false, ctx.Err()
 	case tick := <-ticksChan:
-		g.logger.Infof("got tick")
-		g.logger.Infof("%s", tick.Name)
-		switch tick.Name {
-		case g.limitSwitchPins[0].Name():
-			pinHit = 0
-			g.state0 = !g.state0
-			hit = g.state0
-		case g.limitSwitchPins[1].Name():
-			pinHit = 1
-			g.state1 = !g.state1
-			hit = g.state1
+		fmt.Println("got tick")
+		fmt.Println(tick.Name)
+		for i, pin := range g.limitSwitchPins {
+			if tick.Name == pin.Name() {
+				pinHit = i
+				if i == 0 {
+					g.state0 = !g.state0
+					hit = g.state0
+				} else if i == 1 {
+					g.state1 = !g.state1
+					hit = g.state1
+				}
+				break
+			}
 		}
-		g.logger.Infof("%s, %s", pinHit, hit)
-		return pinHit, hit, nil
 	}
+	return pinHit, hit, nil
 }
 
-func (g *singleAxis) updateCurrentLimitState(ctx context.Context) error {
-	pin0, err := g.board.GPIOPinByName(g.limitSwitchPins[0].Name())
+func (g *singleAxis) updateCurrentLimitState(ctx context.Context, pin int) error {
+	gpioPin, err := g.board.GPIOPinByName(g.limitSwitchPins[pin].Name())
+	if err != nil {
+		return err
+	}
+	state, err := gpioPin.Get(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	pin1, err := g.board.GPIOPinByName(g.limitSwitchPins[1].Name())
-	if err != nil {
-		return err
+	if pin == 0 {
+		g.state0 = state
+		if !g.limitHigh {
+			g.state0 = !g.state0
+		}
+	} else {
+		g.state1 = state
+		if !g.limitHigh {
+			g.state1 = !g.state1
+		}
 	}
-	state0, err := pin0.Get(ctx, nil)
-	if err != nil {
-		return err
-	}
-	state1, err := pin1.Get(ctx, nil)
-	if err != nil {
-		return err
-	}
-	g.logger.Infof("state 0 %s state 1 %s", state0, state1)
-	g.state0 = state0
-	g.state1 = state1
-
-	if !g.limitHigh {
-		g.state0 = !g.state0
-		g.state1 = !g.state1
-	}
+	// pin1, err := g.board.GPIOPinByName(g.limitSwitchPins[1].Name())
+	// if err != nil {
+	// 	return err
+	// }
+	// state1, err := pin1.Get(ctx, nil)
+	// if err != nil {
+	// 	return err
+	// }
 	return nil
 }
 
@@ -351,9 +356,11 @@ func (g *singleAxis) checkHit(ctx context.Context) error {
 		}
 		g.logger.Infof("making a new one")
 
-		err := g.updateCurrentLimitState(ctx)
-		if err != nil {
-			return
+		for i, _ := range g.limitSwitchPins {
+			err := g.updateCurrentLimitState(ctx, i)
+			if err != nil {
+				return
+			}
 		}
 		for {
 			pinHit, hit, err := g.checkForHit(ctx, g.ticksChan)
@@ -449,13 +456,11 @@ func (g *singleAxis) doHome(ctx context.Context) (bool, error) {
 
 func (g *singleAxis) homeLimSwitch(ctx context.Context) error {
 	var positionA, positionB float64
+	fmt.Println("in test limit ")
 	positionA, err := g.testLimit(ctx, 0)
 	if err != nil {
 		return err
 	}
-
-	g.logger.Infof("postiion A: %f", positionA)
-	g.logger.Infof("len limit switch pins: %d", len(g.limitSwitchPins))
 
 	if len(g.limitSwitchPins) > 1 {
 		// Multiple limit switches, get positionB from testLimit
@@ -463,7 +468,6 @@ func (g *singleAxis) homeLimSwitch(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		g.logger.Infof("postiion B: %f", positionB)
 	} else {
 		// Only one limit switch, calculate positionBs
 		revPerLength := g.lengthMm / g.mmPerRevolution
@@ -521,6 +525,8 @@ func (g *singleAxis) testLimit(ctx context.Context, pin int) (float64, error) {
 	defer utils.UncheckedErrorFunc(func() error {
 		return g.motor.Stop(ctx, nil)
 	})
+
+	fmt.Println("doing first testLimit")
 	wrongPin := 1
 	d := -1.0
 	if pin != 0 {
@@ -528,8 +534,7 @@ func (g *singleAxis) testLimit(ctx context.Context, pin int) (float64, error) {
 		wrongPin = 0
 	}
 
-	//
-	err := g.updateCurrentLimitState(ctx)
+	err := g.updateCurrentLimitState(ctx, pin)
 	if err != nil {
 		return 0, err
 	}
@@ -549,13 +554,12 @@ func (g *singleAxis) testLimit(ctx context.Context, pin int) (float64, error) {
 	// time.Sleep(100 * time.Millisecond)
 	start := time.Now()
 	for {
-		g.logger.Infof("here for loop")
 		pinHit, hit, err := g.checkForHit(ctx, g.ticksChan)
 		if err != nil {
 			return 0, err
 		}
 		if hit {
-			g.logger.Infof("here hit")
+			fmt.Println("here- hit the limit switch")
 			err = g.motor.SetRPM(ctx, -d*g.rpm, nil)
 			if err != nil {
 				return 0, err
