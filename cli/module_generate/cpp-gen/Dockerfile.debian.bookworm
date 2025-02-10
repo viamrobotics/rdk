@@ -1,0 +1,44 @@
+FROM debian:bookworm
+
+ENV HOME /root
+ARG DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update
+
+RUN apt-get -y dist-upgrade
+
+RUN apt-get -y --no-install-recommends install \
+    build-essential \
+    ca-certificates \
+    cmake \
+    curl \
+    doxygen \
+    g++ \
+    gdb \
+    git \
+    gnupg \
+    gpg \
+    less \
+    libboost-all-dev \
+    libgrpc++-dev \
+    libprotobuf-dev \
+    libssl-dev \
+    libxtensor-dev \
+    ninja-build \
+    pkg-config \
+    protobuf-compiler-grpc \
+    software-properties-common \
+    sudo \
+    wget
+
+RUN bash -c 'wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key|apt-key add -'
+RUN apt-add-repository -y 'deb http://apt.llvm.org/bookworm/ llvm-toolchain-bookworm-15 main'
+# NOTE: For reasons I cannot explain, the first invocation of apt-add-repository fails
+# but the second works fine. I suspect a Debian bug
+RUN apt-add-repository -y 'deb http://apt.llvm.org/bookworm/ llvm-toolchain-bookworm-15 main'
+RUN apt-get update
+
+RUN apt-get -y --no-install-recommends install -t llvm-toolchain-bookworm-15 \
+    clang-15 \
+    clang-tidy-15 \
+    clang-format
