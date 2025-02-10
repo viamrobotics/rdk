@@ -57,6 +57,9 @@ Generator Generator::createFromCommandLine(const clang::tooling::CompilationData
 }
 
 int Generator::run() {
+    // TODO: this should store the result of do_stubs in an intermediate and only write to the
+    // output stream if it succeeded
+    // also should take a config option for the class name and module/ns name
     include_stmts();
 
     const char* fmt =
