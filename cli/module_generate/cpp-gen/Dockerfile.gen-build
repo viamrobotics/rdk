@@ -1,0 +1,47 @@
+# This Dockerfile is meant to be built on top of an existing image from the base-images directory.
+# Suggested usage, from the SDK root:
+#   docker build -t base/bullseye -f etc/docker/base-images/Dockerfile.debian.bullseye .
+#   docker build --build-arg BASE_TAG=base/bullseye --build-arg GIT_TAG=[...] etc/docker/Dockerfile.sdk-build .
+# You can substitute the bullseye image for whichever you want to use as a base.
+# Note that it is necessary to tag the base image with `-t` and then refer to it using the `BASE_TAG` arg.
+
+ARG REPO_SETUP=git
+
+ARG BASE_TAG
+
+# See https://stackoverflow.com/a/54245466 for the trick used below
+# The two possible branches are repo_setup_git and repo_setup_copy, which are conditionally executed
+# using ARG REPO_SETUP
+
+FROM ${BASE_TAG} AS repo_setup_git
+ARG GIT_TAG
+ONBUILD RUN echo "Checking if GIT_TAG is set" && test -n "${GIT_TAG}"
+ONBUILD RUN git clone https://github.com/viamrobotics/viam-cpp-sdk/ -b ${GIT_TAG}
+
+FROM ${BASE_TAG} AS repo_setup_copy
+ONBUILD COPY . /viam-cpp-sdk/
+
+FROM repo_setup_${REPO_SETUP}
+ENV DEBIAN_FRONTEND=noninteractive
+
+ARG BUILD_TYPE=RelWithDebInfo
+ARG BUILD_SHARED=ON
+ARG BUILD_TESTS=OFF
+ARG BUILD_EXAMPLES=OFF
+ARG EXTRA_CMAKE_ARGS
+
+WORKDIR /viam-cpp-sdk
+
+RUN mkdir build && \
+    cd build && \
+    cmake .. -G Ninja \
+    -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+    -DBUILD_SHARED_LIBS=${BUILD_SHARED} \
+    -DVIAMCPPSDK_OFFLINE_PROTO_GENERATION=ON \
+    -DVIAMCPPSDK_BUILD_TESTS=${BUILD_TESTS} \
+    -DVIAMCPPSDK_BUILD_EXAMPLES=${BUILD_EXAMPLES} \
+    ${EXTRA_CMAKE_ARGS}
+
+RUN cmake --build build --target install && \
+    cmake --install build
+
