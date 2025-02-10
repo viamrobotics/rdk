@@ -2796,6 +2796,52 @@ This won't work unless you have an existing installation of our GitHub app on yo
 			},
 		},
 		{
+			Name:  "infer",
+			Usage: "run cloud hosted inference on an image",
+			UsageText: createUsageText("inference infer", []string{
+				generalFlagOrgID, inferenceFlagFileOrgID, inferenceFlagFileID,
+				inferenceFlagFileLocationID, inferenceFlagModelOrgID, inferenceFlagModelName, inferenceFlagModelVersion,
+			}, true, false),
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:     generalFlagOrgID,
+					Usage:    "organization ID that is executing the inference job",
+					Required: true,
+				},
+				&cli.StringFlag{
+					Name:     inferenceFlagFileOrgID,
+					Usage:    "organization ID that owns the file to run inference on",
+					Required: true,
+				},
+				&cli.StringFlag{
+					Name:     inferenceFlagFileID,
+					Usage:    "file ID of the file to run inference on",
+					Required: true,
+				},
+				&cli.StringFlag{
+					Name:     inferenceFlagFileLocationID,
+					Usage:    "location ID of the file to run inference on",
+					Required: true,
+				},
+				&cli.StringFlag{
+					Name:     inferenceFlagModelOrgID,
+					Usage:    "organization ID that hosts the model to use to run inference",
+					Required: true,
+				},
+				&cli.StringFlag{
+					Name:     inferenceFlagModelName,
+					Usage:    "name of the model to use to run inference",
+					Required: true,
+				},
+				&cli.StringFlag{
+					Name:     inferenceFlagModelVersion,
+					Usage:    "version of the model to use to run inference",
+					Required: true,
+				},
+			},
+			Action: createCommandWithT[mlInferenceInferArgs](MLInferenceInferAction),
+		},
+		{
 			Name:      "version",
 			Usage:     "print version info for this program",
 			UsageText: createUsageText("version", nil, false, false),

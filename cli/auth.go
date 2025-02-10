@@ -21,6 +21,7 @@ import (
 	buildpb "go.viam.com/api/app/build/v1"
 	datapb "go.viam.com/api/app/data/v1"
 	datasetpb "go.viam.com/api/app/dataset/v1"
+	mlinferencepb "go.viam.com/api/app/mlinference/v1"
 	mltrainingpb "go.viam.com/api/app/mltraining/v1"
 	packagepb "go.viam.com/api/app/packages/v1"
 	apppb "go.viam.com/api/app/v1"
@@ -544,6 +545,7 @@ func (c *viamClient) ensureLoggedInInner() error {
 	c.packageClient = packagepb.NewPackageServiceClient(conn)
 	c.datasetClient = datasetpb.NewDatasetServiceClient(conn)
 	c.mlTrainingClient = mltrainingpb.NewMLTrainingServiceClient(conn)
+	c.mlInferenceClient = mlinferencepb.NewMLInferenceServiceClient(conn)
 	c.buildClient = buildpb.NewBuildServiceClient(conn)
 
 	return nil
