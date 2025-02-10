@@ -3,6 +3,7 @@ package fake
 
 import (
 	"context"
+	"sync/atomic"
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
@@ -41,6 +42,7 @@ type MovementSensor struct {
 	resource.Named
 	resource.AlwaysRebuild
 	logger logging.Logger
+	count  atomic.Int64
 }
 
 // Position gets the position of a fake movementsensor.
@@ -66,7 +68,8 @@ func (f *MovementSensor) AngularVelocity(ctx context.Context, extra map[string]i
 
 // CompassHeading gets the compass headings of a fake movementsensor.
 func (f *MovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	return 25, nil
+	f.count.Add(1)
+	return float64(f.count.Load()), nil
 }
 
 // Orientation gets the orientation of a fake movementsensor.
