@@ -18,6 +18,9 @@ func (f AliasStringFlag) Names() []string {
 	return cli.FlagNames(names[0], names[1:])
 }
 
+// String has to be overwritten to avoid cluttering help text with all aliases for a flag,
+// (e.g., `--organization, --org-id, --org-name, --org`). Instead, the string representation
+// includes just the expected, canonical flag name.
 func (f *AliasStringFlag) String() string {
 	aliases := f.Aliases
 	f.Aliases = []string{}
