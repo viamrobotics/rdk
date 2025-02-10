@@ -229,10 +229,6 @@ func PrintAccessTokenAction(cCtx *cli.Context, args emptyArgs) error {
 }
 
 func (c *viamClient) printAccessTokenAction(cCtx *cli.Context) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
-
 	if token, ok := c.conf.Auth.(*token); ok {
 		printf(cCtx.App.Writer, token.AccessToken)
 	} else {
@@ -312,9 +308,6 @@ func OrganizationsAPIKeyCreateAction(cCtx *cli.Context, args organizationsAPIKey
 }
 
 func (c *viamClient) organizationsAPIKeyCreateAction(cCtx *cli.Context, args organizationsAPIKeyCreateArgs) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
 	orgID := args.OrgID
 	keyName := args.Name
 	if keyName == "" {
@@ -333,10 +326,6 @@ func (c *viamClient) organizationsAPIKeyCreateAction(cCtx *cli.Context, args org
 }
 
 func (c *viamClient) createOrganizationAPIKey(orgID, keyName string) (*apppb.CreateKeyResponse, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
-
 	req := &apppb.CreateKeyRequest{
 		Authorizations: []*apppb.Authorization{
 			{
@@ -372,10 +361,6 @@ func LocationAPIKeyCreateAction(cCtx *cli.Context, args locationAPIKeyCreateArgs
 }
 
 func (c *viamClient) locationAPIKeyCreateAction(cCtx *cli.Context, args locationAPIKeyCreateArgs) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
-
 	locationID := args.LocationID
 	orgID := args.OrgID
 	keyName := args.Name
@@ -437,10 +422,6 @@ func RobotAPIKeyCreateAction(cCtx *cli.Context, args robotAPIKeyCreateArgs) erro
 }
 
 func (c *viamClient) robotAPIKeyCreateAction(cCtx *cli.Context, args robotAPIKeyCreateArgs) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
-
 	robotID := args.MachineID
 	keyName := args.Name
 	orgID := args.OrgID
@@ -595,9 +576,6 @@ func (c *viamClient) prepareDial(
 	orgStr, locStr, robotStr, partStr string,
 	debug bool,
 ) (context.Context, string, []rpc.DialOption, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, "", nil, err
-	}
 	if err := c.selectOrganization(orgStr); err != nil {
 		return nil, "", nil, err
 	}
