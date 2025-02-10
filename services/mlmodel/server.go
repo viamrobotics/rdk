@@ -29,7 +29,7 @@ func (server *serviceServer) Infer(ctx context.Context, req *pb.InferRequest) (*
 
 	var it ml.Tensors
 	if req.InputTensors != nil {
-		it, err = ProtoToTensors(req.InputTensors)
+		it, err = ml.ProtoToTensors(req.InputTensors)
 		if err != nil {
 			return nil, err
 		}
