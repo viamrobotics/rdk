@@ -947,7 +947,7 @@ type dataAddToDatasetByIDsArgs struct {
 	FileIDs    []string
 }
 
-// DataAddToDatasetByIDs is the corresponding action for 'data dataset add ids'.
+// DataAddToDatasetByIDs is the corresponding action for 'dataset data add ids'.
 func DataAddToDatasetByIDs(c *cli.Context, args dataAddToDatasetByIDsArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
@@ -986,7 +986,7 @@ type dataAddToDatasetByFilterArgs struct {
 	DatasetID string
 }
 
-// DataAddToDatasetByFilter is the corresponding action for 'data dataset add filter'.
+// DataAddToDatasetByFilter is the corresponding action for 'dataset data add filter'.
 func DataAddToDatasetByFilter(c *cli.Context, args dataAddToDatasetByFilterArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
@@ -1028,7 +1028,7 @@ type dataRemoveFromDatasetArgs struct {
 	FileIDs    []string
 }
 
-// DataRemoveFromDataset is the corresponding action for 'data dataset remove'.
+// DataRemoveFromDataset is the corresponding action for 'dataset data remove ids'.
 func DataRemoveFromDataset(c *cli.Context, args dataRemoveFromDatasetArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
@@ -1062,6 +1062,49 @@ func (c *viamClient) dataRemoveFromDataset(datasetID, orgID, locationID string, 
 	}
 	printf(c.c.App.Writer, "Removed data from dataset ID %s", datasetID)
 	return nil
+}
+
+type dataRemoveFromDatasetByFilterArgs struct {
+	DatasetID string
+}
+
+// DataRemoveFromDatasetByFilter is the corresponding action for 'dataset data remove filter'.
+func DataRemoveFromDatasetByFilter(c *cli.Context, args dataRemoveFromDatasetByFilterArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	filter, err := createDataFilter(c)
+	if err != nil {
+		return err
+	}
+
+	// set the dataset ID in the filter, so that we do not attempt to remove data that is not in the dataset
+	filter.DatasetId = args.DatasetID
+
+	if err := client.dataRemoveFromDatasetByFilter(filter, args.DatasetID); err != nil {
+		return err
+	}
+	return nil
+}
+
+// dataRemoveFromDatasetByFilter removes binary data from the specified filter from dataset.
+func (c *viamClient) dataRemoveFromDatasetByFilter(filter *datapb.Filter, datasetID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	parallelActions := uint(100)
+
+	return c.performActionOnBinaryDataFromFilter(
+		func(id *datapb.BinaryID) error {
+			_, err := c.dataClient.RemoveBinaryDataFromDatasetByIDs(c.c.Context,
+				&datapb.RemoveBinaryDataFromDatasetByIDsRequest{DatasetId: datasetID, BinaryIds: []*datapb.BinaryID{id}})
+			return err
+		},
+		filter, parallelActions,
+		func(i int32) {
+			printf(c.c.App.Writer, "Removed %d files from dataset ID %s", i, datasetID)
+		})
 }
 
 type dataConfigureDatabaseUserArgs struct {
