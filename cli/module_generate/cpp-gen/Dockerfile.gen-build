@@ -5,43 +5,41 @@
 # You can substitute the bullseye image for whichever you want to use as a base.
 # Note that it is necessary to tag the base image with `-t` and then refer to it using the `BASE_TAG` arg.
 
-ARG REPO_SETUP=git
-
 ARG BASE_TAG
 
-# See https://stackoverflow.com/a/54245466 for the trick used below
-# The two possible branches are repo_setup_git and repo_setup_copy, which are conditionally executed
-# using ARG REPO_SETUP
+FROM ${BASE_TAG}
+COPY . /module-generator
 
-FROM ${BASE_TAG} AS repo_setup_git
-ARG GIT_TAG
-ONBUILD RUN echo "Checking if GIT_TAG is set" && test -n "${GIT_TAG}"
-ONBUILD RUN git clone https://github.com/viamrobotics/viam-cpp-sdk/ -b ${GIT_TAG}
+ARG SDK_GIT_TAG
+RUN echo "Checking if GIT_TAG is set" && test -n "${SDK_GIT_TAG}"
+RUN git clone https://github.com/viamrobotics/viam-cpp-sdk/ -b ${SDK_GIT_TAG}
 
-FROM ${BASE_TAG} AS repo_setup_copy
-ONBUILD COPY . /viam-cpp-sdk/
-
-FROM repo_setup_${REPO_SETUP}
 ENV DEBIAN_FRONTEND=noninteractive
 
+WORKDIR /viam-cpp-sdk
+
+# Note we only generate but do not build the SDK--we just need a compile_commands.json in the build dir.
+RUN mkdir build && \
+    cd build && \
+    cmake .. -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DVIAMCPPSDK_OFFLINE_PROTO_GENERATION=ON \
+    -DVIAMCPPSDK_BUILD_EXAMPLES=OFF \
+    -DVIAMCPPSDK_BUILD_TESTS=OFF \
+    -DCMAKE_CXX_COMPILER=clang++-15
+
 ARG BUILD_TYPE=RelWithDebInfo
-ARG BUILD_SHARED=ON
-ARG BUILD_TESTS=OFF
-ARG BUILD_EXAMPLES=OFF
 ARG EXTRA_CMAKE_ARGS
 
-WORKDIR /viam-cpp-sdk
+WORKDIR /module-generator
 
 RUN mkdir build && \
     cd build && \
     cmake .. -G Ninja \
     -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
-    -DBUILD_SHARED_LIBS=${BUILD_SHARED} \
-    -DVIAMCPPSDK_OFFLINE_PROTO_GENERATION=ON \
-    -DVIAMCPPSDK_BUILD_TESTS=${BUILD_TESTS} \
-    -DVIAMCPPSDK_BUILD_EXAMPLES=${BUILD_EXAMPLES} \
+    -DCMAKE_CXX_COMPILER=clang++-15 \
+    -DLLVM_DIR=/usr/lib/llvm-15 \
     ${EXTRA_CMAKE_ARGS}
 
-RUN cmake --build build --target install && \
-    cmake --install build
+RUN cmake --build build --target all
 
