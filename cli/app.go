@@ -1463,7 +1463,8 @@ var app = &cli.App{
 										&cli.StringSliceFlag{
 											Name: generalFlagTags,
 											Usage: "tags filter. " +
-												"accepts 'tagged' for all tagged data, 'untagged' for all untagged data, or a list of tags for all data matching any of the tags",
+												"accepts 'tagged' for all tagged data, 'untagged' for all untagged data, " +
+												"or a list of tags for all data matching any of the tags",
 										},
 									},
 										commonFilterFlags...),
@@ -1520,7 +1521,8 @@ var app = &cli.App{
 										&cli.StringSliceFlag{
 											Name: generalFlagTags,
 											Usage: "tags filter. " +
-												"accepts 'tagged' for all tagged data, 'untagged' for all untagged data, or a list of tags for all data matching any of the tags",
+												"accepts 'tagged' for all tagged data, 'untagged' for all untagged data, " +
+												"or a list of tags for all data matching any of the tags",
 										},
 									},
 										commonFilterFlags...),
