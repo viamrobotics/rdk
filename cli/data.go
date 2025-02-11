@@ -944,7 +944,7 @@ type dataAddToDatasetByIDsArgs struct {
 	FileIDs    []string
 }
 
-// DataAddToDatasetByIDs is the corresponding action for 'data dataset add ids'.
+// DataAddToDatasetByIDs is the corresponding action for 'dataset data add ids'.
 func DataAddToDatasetByIDs(c *cli.Context, args dataAddToDatasetByIDsArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
@@ -983,7 +983,7 @@ type dataAddToDatasetByFilterArgs struct {
 	DatasetID string
 }
 
-// DataAddToDatasetByFilter is the corresponding action for 'data dataset add filter'.
+// DataAddToDatasetByFilter is the corresponding action for 'dataset data add filter'.
 func DataAddToDatasetByFilter(c *cli.Context, args dataAddToDatasetByFilterArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
@@ -1025,7 +1025,7 @@ type dataRemoveFromDatasetArgs struct {
 	FileIDs    []string
 }
 
-// DataRemoveFromDataset is the corresponding action for 'data dataset remove ids'.
+// DataRemoveFromDataset is the corresponding action for 'dataset data remove ids'.
 func DataRemoveFromDataset(c *cli.Context, args dataRemoveFromDatasetArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
@@ -1065,7 +1065,7 @@ type dataRemoveFromDatasetByFilterArgs struct {
 	DatasetID string
 }
 
-// DataRemoveFromDatasetByFilter is the corresponding action for 'data dataset remove filter'.
+// DataRemoveFromDatasetByFilter is the corresponding action for 'dataset data remove filter'.
 func DataRemoveFromDatasetByFilter(c *cli.Context, args dataRemoveFromDatasetByFilterArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
