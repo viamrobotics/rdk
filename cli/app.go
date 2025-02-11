@@ -239,7 +239,7 @@ var dataTagByFilterFlags = append([]cli.Flag{
 	&cli.StringSliceFlag{
 		Name: dataFlagFilterTags,
 		Usage: "tags filter. " +
-			"accepts tagged for all tagged data, untagged for all untagged data, or a list of tags for all data matching any of the tags",
+			"accepts 'tagged' for all tagged data, 'untagged' for all untagged data, or a list of tags for all data matching any of the tags",
 	},
 },
 	commonFilterFlags...)
@@ -1053,7 +1053,7 @@ var app = &cli.App{
 								},
 								&cli.StringSliceFlag{
 									Name:  generalFlagTags,
-									Usage: "tags filter. accepts tagged for all tagged data, untagged for all untagged data, or a list of tags",
+									Usage: "tags filter. accepts 'tagged' for all tagged data, 'untagged' for all untagged data, or a list of tags",
 								},
 							}, commonFilterFlags...),
 							Action: createCommandWithT[dataExportBinaryArgs](DataExportBinaryAction),
@@ -1414,6 +1414,7 @@ var app = &cli.App{
 					UsageText:       createUsageText("dataset data", nil, false, true),
 					HideHelpCommand: true,
 					Subcommands: []*cli.Command{
+						//nolint:dupl
 						{
 							Name:            "add",
 							Usage:           "adds binary data either by IDs or filter to dataset",
@@ -1452,7 +1453,7 @@ var app = &cli.App{
 								},
 								{
 									Name:      "filter",
-									Usage:     "adds binary data from the specified filter to dataset",
+									Usage:     "adds binary data associated with a filter to a dataset",
 									UsageText: createUsageText("dataset data add filter", []string{datasetFlagDatasetID}, true, false),
 									Flags: append([]cli.Flag{
 										&cli.StringFlag{
@@ -1463,7 +1464,8 @@ var app = &cli.App{
 										&cli.StringSliceFlag{
 											Name: generalFlagTags,
 											Usage: "tags filter. " +
-												"accepts tagged for all tagged data, untagged for all untagged data, or a list of tags for all data matching any of the tags",
+												"accepts 'tagged' for all tagged data, 'untagged' for all untagged data, " +
+												"or a list of tags for all data matching any of the tags",
 										},
 									},
 										commonFilterFlags...),
@@ -1471,35 +1473,64 @@ var app = &cli.App{
 								},
 							},
 						},
+						//nolint:dupl
 						{
-							Name:  "remove",
-							Usage: "removes binary data with file IDs in a single org and location from dataset",
-							UsageText: createUsageText(
-								"dataset data remove", []string{datasetFlagDatasetID, generalFlagOrgID, dataFlagLocationID, dataFlagFileIDs}, false, false,
-							),
-							Flags: []cli.Flag{
-								&cli.StringFlag{
-									Name:     datasetFlagDatasetID,
-									Usage:    "dataset ID from which data will be removed",
-									Required: true,
+							Name:            "remove",
+							Usage:           "removes binary data either by IDs or filter from dataset",
+							UsageText:       createUsageText("dataset data remove", nil, false, true),
+							HideHelpCommand: true,
+							Subcommands: []*cli.Command{
+								{
+									Name:  "ids",
+									Usage: "removes binary data with file IDs in a single org and location from a dataset",
+									UsageText: createUsageText(
+										"dataset data remove ids", []string{datasetFlagDatasetID, generalFlagOrgID, dataFlagLocationID, dataFlagFileIDs}, false, false,
+									),
+									Flags: []cli.Flag{
+										&cli.StringFlag{
+											Name:     datasetFlagDatasetID,
+											Usage:    "dataset ID from which data will be removed",
+											Required: true,
+										},
+										&cli.StringFlag{
+											Name:     generalFlagOrgID,
+											Usage:    "org ID to which data belongs",
+											Required: true,
+										},
+										&cli.StringFlag{
+											Name:     dataFlagLocationID,
+											Usage:    "location ID to which data belongs",
+											Required: true,
+										},
+										&cli.StringSliceFlag{
+											Name:     dataFlagFileIDs,
+											Usage:    "file IDs of data belonging to specified org and location",
+											Required: true,
+										},
+									},
+									Action: createCommandWithT[dataRemoveFromDatasetArgs](DataRemoveFromDataset),
 								},
-								&cli.StringFlag{
-									Name:     generalFlagOrgID,
-									Usage:    "org ID to which data belongs",
-									Required: true,
-								},
-								&cli.StringFlag{
-									Name:     dataFlagLocationID,
-									Usage:    "location ID to which data belongs",
-									Required: true,
-								},
-								&cli.StringSliceFlag{
-									Name:     dataFlagFileIDs,
-									Usage:    "file IDs of data belonging to specified org and location",
-									Required: true,
+								{
+									Name:      "filter",
+									Usage:     "removes binary data associated with a filter from a dataset",
+									UsageText: createUsageText("dataset data remove filter", []string{datasetFlagDatasetID}, true, false),
+									Flags: append([]cli.Flag{
+										&cli.StringFlag{
+											Name:     datasetFlagDatasetID,
+											Usage:    "dataset ID from which data will be removed",
+											Required: true,
+										},
+										&cli.StringSliceFlag{
+											Name: generalFlagTags,
+											Usage: "tags filter. " +
+												"accepts 'tagged' for all tagged data, 'untagged' for all untagged data, " +
+												"or a list of tags for all data matching any of the tags",
+										},
+									},
+										commonFilterFlags...),
+									Action: createCommandWithT[dataRemoveFromDatasetByFilterArgs](DataRemoveFromDatasetByFilter),
 								},
 							},
-							Action: createCommandWithT[dataRemoveFromDatasetArgs](DataRemoveFromDataset),
 						},
 					},
 				},
