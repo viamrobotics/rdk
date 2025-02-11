@@ -19,8 +19,14 @@ RUN apt-get -y --no-install-recommends install \
     gnupg \
     gpg \
     less \
+    libboost-all-dev \
+    libgrpc++-dev \
+    libprotobuf-dev \
+    libssl-dev \
+    libxtensor-dev \
     ninja-build \
     pkg-config \
+    protobuf-compiler-grpc \
     software-properties-common \
     sudo \
     wget
@@ -34,6 +40,5 @@ RUN apt-get update
 
 RUN apt-get -y --no-install-recommends install -t llvm-toolchain-bookworm-15 \
     clang-15 \
-    clang-tidy-15 \
     llvm-15-dev \
     libclang-15-dev
