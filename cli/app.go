@@ -1414,6 +1414,7 @@ var app = &cli.App{
 					UsageText:       createUsageText("dataset data", nil, false, true),
 					HideHelpCommand: true,
 					Subcommands: []*cli.Command{
+						//nolint:dupl
 						{
 							Name:            "add",
 							Usage:           "adds binary data either by IDs or filter to dataset",
@@ -1472,6 +1473,7 @@ var app = &cli.App{
 								},
 							},
 						},
+						//nolint:dupl
 						{
 							Name:            "remove",
 							Usage:           "removes binary data either by IDs or filter from dataset",
