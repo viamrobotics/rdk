@@ -361,7 +361,7 @@ func TestDataClient(t *testing.T) {
 				RawData: expectedRawDataPb,
 			}, nil
 		}
-		response, err := client.TabularDataByMQL(context.Background(), organizationID, mqlQueries, false)
+		response, err := client.TabularDataByMQL(context.Background(), organizationID, mqlQueries, &TabularDataByMQLOptions{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, response, test.ShouldResemble, rawData)
 	})
