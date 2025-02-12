@@ -2443,7 +2443,7 @@ viam module upload --version "0.1.0" --platform "linux/amd64" --upload "packaged
 							Name: generalFlagTags,
 							Usage: `extra fields for constraining the platforms to which this binary
                              is deployed. Examples: distro:debian, distro:ubuntu, os_version:22.04,
-                             os_codename:jammy. For a machine to use an upload, all tags must be
+                             codename:jammy. For a machine to use an upload, all tags must be
                              satisified as well as the --platform field.`,
 						},
 						&cli.BoolFlag{
