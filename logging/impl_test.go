@@ -588,4 +588,20 @@ func TestLoggingDeduplication(t *testing.T) {
 		`2023-10-30T13:19:45.806Z	ERROR	impl	logging/impl_test.go:132	Message logged 4 times in past 500ms: identical message	{"key":"value"}`)
 	assertLogMatches(t, notStdout,
 		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	foo	{"key":"value"}`)
+
+	// Assert that using different ignored fields does _not_ use separate aggregation.
+	for ignoredLogFieldKey := range ignoredLogFieldKeys {
+		loggerWith.Infow(identicalMsg, ignoredLogFieldKey, "bar")
+		assertLogMatches(t, notStdout,
+			fmt.Sprintf(
+				`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"%s":"bar","key":"value"}`,
+				ignoredLogFieldKey))
+	}
+	loggerWith.Info(identicalMsg) // not output due to being noisy
+	time.Sleep(noisyMessageWindowDuration)
+	loggerWith.Info("foo") // log arbitrary message to force output of aggregated message
+	assertLogMatches(t, notStdout,
+		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	Message logged 4 times in past 500ms: identical message	{"key":"value"}`)
+	assertLogMatches(t, notStdout,
+		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	foo	{"key":"value"}`)
 }
