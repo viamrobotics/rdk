@@ -601,6 +601,7 @@ func TestLoggingDeduplication(t *testing.T) {
 	time.Sleep(noisyMessageWindowDuration)
 	loggerWith.Info("foo") // log arbitrary message to force output of aggregated message
 	assertLogMatches(t, notStdout,
+		//nolint:lll
 		fmt.Sprintf(`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	Message logged %d times in past 500ms: identical message	{"key":"value"}`,
 			len(ignoredLogFieldKeys)+1))
 	assertLogMatches(t, notStdout,
