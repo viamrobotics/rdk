@@ -6,9 +6,11 @@ import (
 	"errors"
 
 	goutils "go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
 	_ "go.viam.com/rdk/examples/customresources/models/mygizmo"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/web"
@@ -40,7 +42,15 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) (er
 		return err
 	}
 
-	myRobot, err := robotimpl.RobotFromConfig(ctx, cfg, logger)
+	var appConn rpc.ClientConn
+	if cfg.Cloud != nil && cfg.Cloud.AppAddress != "" {
+		appConn, err = grpc.NewAppConn(ctx, cfg.Cloud.AppAddress, cfg.Cloud.Secret, cfg.Cloud.ID, logger)
+		if err != nil {
+			return nil
+		}
+	}
+
+	myRobot, err := robotimpl.RobotFromConfig(ctx, cfg, appConn, logger)
 	if err != nil {
 		return err
 	}
