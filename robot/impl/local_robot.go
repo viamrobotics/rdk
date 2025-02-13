@@ -1017,7 +1017,7 @@ func RobotFromConfig(ctx context.Context, cfg *config.Config, logger logging.Log
 	if err != nil {
 		return nil, err
 	}
-	return New(ctx, processedCfg, logger, opts...)
+	return New(ctx, processedCfg, nil, logger, opts...)
 }
 
 // RobotFromResources creates a new robot consisting of the given resources. Using RobotFromConfig is preferred
@@ -1028,7 +1028,7 @@ func RobotFromResources(
 	logger logging.Logger,
 	opts ...Option,
 ) (robot.LocalRobot, error) {
-	return newWithResources(ctx, &config.Config{}, resources, logger, opts...)
+	return newWithResources(ctx, &config.Config{}, resources, nil, logger, opts...)
 }
 
 // DiscoverComponents takes a list of discovery queries and returns corresponding
