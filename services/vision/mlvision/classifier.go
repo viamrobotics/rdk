@@ -40,7 +40,7 @@ func attemptToBuildClassifier(mlm mlmodel.Service,
 		return nil, errors.Errorf("invalid length of shape array (expected 4, got %d)", shapeLen)
 	}
 	channelsFirst := false // if channelFirst is true, then shape is (1, 3, height, width)
-	if shape := md.Inputs[0].Shape; getIndex(shape, 3) == 1 {
+	if shape := md.Inputs[0].Shape; GetIndex(shape, 3) == 1 {
 		channelsFirst = true
 		inHeight, inWidth = shape[2], shape[3]
 	} else {
