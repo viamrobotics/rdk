@@ -439,6 +439,8 @@ func newWithResources(
 					return packagespb.NewPackageServiceClient(conn), err
 				}
 
+				// NOTE(bashar-515): this case where `conn` is nil, `cfg.Cloud` is non-nil, and `cfg.Cloud.AppAddress` is not the empty string
+				// is only encountered in tests. It is not an actual path expected to be taken in prod
 				_, cloudConn, err := r.cloudConnSvc.AcquireConnection(ctx)
 				return packagespb.NewPackageServiceClient(cloudConn), err
 			},
