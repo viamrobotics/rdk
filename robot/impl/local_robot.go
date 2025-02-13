@@ -1002,22 +1002,22 @@ func (r *localRobot) TransformPointCloud(
 }
 
 // RobotFromConfigPath is a helper to read and process a config given its path and then create a robot based on it.
-func RobotFromConfigPath(ctx context.Context, cfgPath string, logger logging.Logger, opts ...Option) (robot.LocalRobot, error) {
+func RobotFromConfigPath(ctx context.Context, cfgPath string, conn rpc.ClientConn, logger logging.Logger, opts ...Option) (robot.LocalRobot, error) {
 	cfg, err := config.Read(ctx, cfgPath, logger, nil)
 	if err != nil {
 		logger.CError(ctx, "cannot read config")
 		return nil, err
 	}
-	return RobotFromConfig(ctx, cfg, logger, opts...)
+	return RobotFromConfig(ctx, cfg, conn, logger, opts...)
 }
 
 // RobotFromConfig is a helper to process a config and then create a robot based on it.
-func RobotFromConfig(ctx context.Context, cfg *config.Config, logger logging.Logger, opts ...Option) (robot.LocalRobot, error) {
+func RobotFromConfig(ctx context.Context, cfg *config.Config, conn rpc.ClientConn, logger logging.Logger, opts ...Option) (robot.LocalRobot, error) {
 	processedCfg, err := config.ProcessConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
-	return New(ctx, processedCfg, nil, logger, opts...)
+	return New(ctx, processedCfg, conn, logger, opts...)
 }
 
 // RobotFromResources creates a new robot consisting of the given resources. Using RobotFromConfig is preferred
