@@ -41,25 +41,36 @@ type ConnectionService interface {
 
 // NewCloudConnectionService makes a new cloud connection service to get gRPC connections
 // to a cloud service managing robots.
-func NewCloudConnectionService(cfg *config.Cloud, logger logging.Logger) ConnectionService {
+func NewCloudConnectionService(cfg *config.Cloud, conn rpc.ClientConn, logger logging.Logger) ConnectionService {
 	if cfg == nil || cfg.AppAddress == "" {
 		return &cloudManagedService{
 			Named: InternalServiceName.AsNamed(),
 		}
 	}
-	return &cloudManagedService{
+
+	cm := &cloudManagedService{
 		Named:    InternalServiceName.AsNamed(),
 		managed:  true,
 		dialer:   rpc.NewCachedDialer(),
 		cloudCfg: *cfg,
 		logger:   logger,
 	}
+
+	if conn != nil {
+		cm.conn = conn
+		cm.sharedConn = true
+	}
+
+	return cm
 }
 
 type cloudManagedService struct {
 	resource.Named
 	// we assume the config is immutable for the lifetime of the process
 	resource.TriviallyReconfigurable
+
+	conn       rpc.ClientConn
+	sharedConn bool
 
 	managed  bool
 	cloudCfg config.Cloud
@@ -70,6 +81,11 @@ type cloudManagedService struct {
 }
 
 func (cm *cloudManagedService) AcquireConnection(ctx context.Context) (string, rpc.ClientConn, error) {
+	if cm.conn != nil {
+		return cm.cloudCfg.ID, cm.conn, nil
+	}
+
+	// NOTE(bashar-515): the following is only expected execute in tests, NOT in prod
 	cm.dialerMu.RLock()
 	defer cm.dialerMu.RUnlock()
 	if !cm.managed {
@@ -118,6 +134,10 @@ func (cm *cloudManagedService) AcquireConnectionAPIKey(ctx context.Context,
 }
 
 func (cm *cloudManagedService) Close(ctx context.Context) error {
+	if !cm.sharedConn {
+		utils.UncheckedError(cm.conn.Close())
+	}
+
 	cm.dialerMu.Lock()
 	defer cm.dialerMu.Unlock()
 

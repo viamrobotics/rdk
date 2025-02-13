@@ -405,7 +405,7 @@ func newWithResources(
 		triggerConfig:              make(chan struct{}, 1),
 		configTicker:               nil,
 		revealSensitiveConfigDiffs: rOpts.revealSensitiveConfigDiffs,
-		cloudConnSvc:               icloud.NewCloudConnectionService(cfg.Cloud, logger),
+		cloudConnSvc:               icloud.NewCloudConnectionService(cfg.Cloud, conn, logger),
 		shutdownCallback:           rOpts.shutdownCallback,
 		localModuleVersions:        make(map[string]semver.Version),
 		ftdc:                       ftdcWorker,
@@ -435,12 +435,6 @@ func newWithResources(
 		r.packageManager = packages.NewDeferredPackageManager(
 			ctx,
 			func(ctx context.Context) (packagespb.PackageServiceClient, error) {
-				if conn != nil {
-					return packagespb.NewPackageServiceClient(conn), err
-				}
-
-				// NOTE(bashar-515): this case where `conn` is nil, `cfg.Cloud` is non-nil, and `cfg.Cloud.AppAddress` is not the empty string
-				// is only encountered in tests. It is not an actual path expected to be taken in prod
 				_, cloudConn, err := r.cloudConnSvc.AcquireConnection(ctx)
 				return packagespb.NewPackageServiceClient(cloudConn), err
 			},
