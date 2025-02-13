@@ -48,6 +48,8 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) (er
 		if err != nil {
 			return nil
 		}
+
+		defer goutils.UncheckedErrorFunc(appConn.Close)
 	}
 
 	myRobot, err := robotimpl.RobotFromConfig(ctx, cfg, appConn, logger)

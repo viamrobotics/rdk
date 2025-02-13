@@ -33,7 +33,7 @@ func setupTestRobotWithModules(
 			},
 		},
 	}
-	rob, err := robotimpl.New(ctx, cfg, logger)
+	rob, err := robotimpl.New(ctx, cfg, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
 	t.Cleanup(func() {
 		test.That(t, rob.Close(ctx), test.ShouldBeNil)

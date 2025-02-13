@@ -627,7 +627,7 @@ func setupRealRobot(
 	t.Helper()
 
 	ctx := context.Background()
-	robot, err := robotimpl.RobotFromConfig(ctx, robotConfig, logger)
+	robot, err := robotimpl.RobotFromConfig(ctx, robotConfig, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	// We initialize with a stream config such that the stream server is capable of creating video stream and
@@ -652,7 +652,7 @@ func setupRealRobotWithOptions(
 	t.Helper()
 
 	ctx := context.Background()
-	robot, err := robotimpl.RobotFromConfig(ctx, robotConfig, logger)
+	robot, err := robotimpl.RobotFromConfig(ctx, robotConfig, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	// We initialize with a stream config such that the stream server is capable of creating video stream and

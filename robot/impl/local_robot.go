@@ -1012,7 +1012,13 @@ func RobotFromConfigPath(ctx context.Context, cfgPath string, logger logging.Log
 }
 
 // RobotFromConfig is a helper to process a config and then create a robot based on it.
-func RobotFromConfig(ctx context.Context, cfg *config.Config, conn rpc.ClientConn, logger logging.Logger, opts ...Option) (robot.LocalRobot, error) {
+func RobotFromConfig(
+	ctx context.Context,
+	cfg *config.Config,
+	conn rpc.ClientConn,
+	logger logging.Logger,
+	opts ...Option,
+) (robot.LocalRobot, error) {
 	processedCfg, err := config.ProcessConfig(cfg)
 	if err != nil {
 		return nil, err
