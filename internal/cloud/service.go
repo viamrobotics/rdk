@@ -134,7 +134,7 @@ func (cm *cloudManagedService) AcquireConnectionAPIKey(ctx context.Context,
 }
 
 func (cm *cloudManagedService) Close(ctx context.Context) error {
-	if !cm.sharedConn {
+	if !cm.sharedConn && cm.conn != nil {
 		utils.UncheckedError(cm.conn.Close())
 	}
 
