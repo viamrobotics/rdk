@@ -79,4 +79,4 @@ static-release-win:
 		--version ${BUILD_CHANNEL} \
 		--arch ${UNAME_M} \
 		--resources-json win-resources.json \
-		--output-path etc/packaging/static/manifest/viam-server-${BUILD_CHANNEL}-windows-${UNAME_M}.json
+		--output-path etc/packaging/static/manifest/viam-server-windows-${BUILD_CHANNEL}-${UNAME_M}.json
