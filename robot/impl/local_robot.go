@@ -341,6 +341,7 @@ func newWithResources(
 	ctx context.Context,
 	cfg *config.Config,
 	resources map[resource.Name]resource.Resource,
+	conn rpc.ClientConn,
 	logger logging.Logger,
 	opts ...Option,
 ) (robot.LocalRobot, error) {
@@ -434,6 +435,10 @@ func newWithResources(
 		r.packageManager = packages.NewDeferredPackageManager(
 			ctx,
 			func(ctx context.Context) (packagespb.PackageServiceClient, error) {
+				if conn != nil {
+					return packagespb.NewPackageServiceClient(conn), err
+				}
+
 				_, cloudConn, err := r.cloudConnSvc.AcquireConnection(ctx)
 				return packagespb.NewPackageServiceClient(cloudConn), err
 			},
@@ -548,10 +553,11 @@ func newWithResources(
 func New(
 	ctx context.Context,
 	cfg *config.Config,
+	conn rpc.ClientConn,
 	logger logging.Logger,
 	opts ...Option,
 ) (robot.LocalRobot, error) {
-	return newWithResources(ctx, cfg, nil, logger, opts...)
+	return newWithResources(ctx, cfg, nil, conn, logger, opts...)
 }
 
 // removeOrphanedResources is called by the module manager to remove resources
