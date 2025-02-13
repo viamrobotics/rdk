@@ -54,14 +54,7 @@ func TestCloudManaged(t *testing.T) {
 		AppAddress: fmt.Sprintf("http://%s", addr),
 	}
 
-	appConn, err := grpc.NewAppConn(context.Background(), conf.AppAddress, "", "", logger)
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		err := appConn.Close()
-		test.That(t, err, test.ShouldBeNil)
-	}()
-
-	svc := cloud.NewCloudConnectionService(conf, appConn, logger)
+	svc := cloud.NewCloudConnectionService(conf, nil, logger)
 	id, conn1, err := svc.AcquireConnection(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, id, test.ShouldBeEmpty)
@@ -180,14 +173,7 @@ func TestCloudManagedWithAuth(t *testing.T) {
 		AppAddress: fmt.Sprintf("http://%s", addr),
 	}
 
-	appConn, err := grpc.NewAppConn(context.Background(), conf.AppAddress, "", "", logger)
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		err := appConn.Close()
-		test.That(t, err, test.ShouldBeNil)
-	}()
-
-	svc := cloud.NewCloudConnectionService(conf, appConn, logger)
+	svc := cloud.NewCloudConnectionService(conf, nil, logger)
 	id, conn1, err := svc.AcquireConnection(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, id, test.ShouldBeEmpty)
@@ -214,14 +200,7 @@ func TestCloudManagedWithAuth(t *testing.T) {
 		Secret:     "bar",
 	}
 
-	appConn, err = grpc.NewAppConn(context.Background(), conf.AppAddress, conf.Secret, conf.ID, logger)
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		err := appConn.Close()
-		test.That(t, err, test.ShouldBeNil)
-	}()
-
-	svc = cloud.NewCloudConnectionService(conf, appConn, logger)
+	svc = cloud.NewCloudConnectionService(conf, nil, logger)
 	id, conn1, err = svc.AcquireConnection(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, id, test.ShouldEqual, "foo")
