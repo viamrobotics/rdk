@@ -99,12 +99,6 @@ func (q *dualQuaternion) ToProtobuf() *commonpb.Pose {
 	return final
 }
 
-// Clone returns a dualQuaternion object identical to this one.
-func (q *dualQuaternion) Clone() dualQuaternion {
-	// No need for deep copies here, a dualquat.Number is primitives all the way down
-	return dualQuaternion{q.Number}
-}
-
 // Point multiplies the dual quaternion by its own conjugate to give a dq where the real is the identity quat,
 // and the dual is representative of real world millimeters. We then return the XYZ point on its own.
 // We intentionally do not return the resulting dual quaternion, because we do not want to mix dq's representing
