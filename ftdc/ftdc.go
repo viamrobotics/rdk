@@ -214,9 +214,6 @@ func (ftdc *FTDC) Start() {
 func (ftdc *FTDC) statsReader(ctx context.Context) {
 	datum := ftdc.constructDatum()
 
-	// `Debugw` does not seem to serialize any of the `datum` value.
-	ftdc.logger.Debugf("Metrics collected. Datum: %+v", datum)
-
 	select {
 	case ftdc.datumCh <- datum:
 		break
