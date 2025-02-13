@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
@@ -21,7 +22,7 @@ import (
 
 func TestNotCloudManaged(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	svc := cloud.NewCloudConnectionService(nil, logger)
+	svc := cloud.NewCloudConnectionService(nil, nil, logger)
 	_, _, err := svc.AcquireConnection(context.Background())
 	test.That(t, err, test.ShouldEqual, cloud.ErrNotCloudManaged)
 	test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
@@ -53,7 +54,14 @@ func TestCloudManaged(t *testing.T) {
 		AppAddress: fmt.Sprintf("http://%s", addr),
 	}
 
-	svc := cloud.NewCloudConnectionService(conf, logger)
+	appConn, err := grpc.NewAppConn(context.Background(), conf.AppAddress, "", "", logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		err := appConn.Close()
+		test.That(t, err, test.ShouldBeNil)
+	}()
+
+	svc := cloud.NewCloudConnectionService(conf, appConn, logger)
 	id, conn1, err := svc.AcquireConnection(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, id, test.ShouldBeEmpty)
@@ -172,7 +180,14 @@ func TestCloudManagedWithAuth(t *testing.T) {
 		AppAddress: fmt.Sprintf("http://%s", addr),
 	}
 
-	svc := cloud.NewCloudConnectionService(conf, logger)
+	appConn, err := grpc.NewAppConn(context.Background(), conf.AppAddress, "", "", logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		err := appConn.Close()
+		test.That(t, err, test.ShouldBeNil)
+	}()
+
+	svc := cloud.NewCloudConnectionService(conf, appConn, logger)
 	id, conn1, err := svc.AcquireConnection(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, id, test.ShouldBeEmpty)
@@ -199,7 +214,14 @@ func TestCloudManagedWithAuth(t *testing.T) {
 		Secret:     "bar",
 	}
 
-	svc = cloud.NewCloudConnectionService(conf, logger)
+	appConn, err = grpc.NewAppConn(context.Background(), conf.AppAddress, conf.Secret, conf.ID, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		err := appConn.Close()
+		test.That(t, err, test.ShouldBeNil)
+	}()
+
+	svc = cloud.NewCloudConnectionService(conf, appConn, logger)
 	id, conn1, err = svc.AcquireConnection(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, id, test.ShouldEqual, "foo")
