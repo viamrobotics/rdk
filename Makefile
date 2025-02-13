@@ -24,7 +24,7 @@ build-go:
 
 .PHONY: rm-cli
 rm-cli:
-	rm -f $(BIN_OUTPUT_PATH)/viam-cli
+	rm -f ./bin/$(GOOS)-$(GOARCH)/viam-cli
 
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
