@@ -7,6 +7,7 @@ package spatialmath
 
 import (
 	"errors"
+	"fmt"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -27,6 +28,7 @@ const defaultDistanceEpsilon = 1e-8
 type Pose interface {
 	Point() r3.Vector
 	Orientation() Orientation
+	fmt.Stringer
 }
 
 // PoseMap encodes the orientation interface to something serializable and human readable.
