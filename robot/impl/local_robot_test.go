@@ -46,7 +46,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
-	"go.viam.com/rdk/grpc"
 	rgrpc "go.viam.com/rdk/grpc"
 	internalcloud "go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
