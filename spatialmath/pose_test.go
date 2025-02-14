@@ -1,32 +1,20 @@
 package spatialmath
 
 import (
-	"fmt"
 	"math"
 	"math/rand"
 	"testing"
 
 	"github.com/golang/geo/r3"
-	"go.viam.com/rdk/logging"
 	"go.viam.com/test"
 	"gonum.org/v1/gonum/num/dualquat"
 	"gonum.org/v1/gonum/num/quat"
 )
 
-func TestPose(t *testing.T) {
-	p := NewZeroPose()
-	fmt.Println(p)
-	fmt.Printf("%.3v\n", p)
-	fmt.Printf("%#v\n", p)
-	fmt.Printf("%1.3s\n", p)
-	fmt.Printf("%g\n", p)
-}
-
 func TestBasicPoseConstruction(t *testing.T) {
 	p := NewZeroPose()
 	// Should return an identity dual quat
 	test.That(t, p.Orientation().OrientationVectorRadians(), test.ShouldResemble, &OrientationVector{0, 0, 0, 1})
-	logger := logging.NewTestLogger(t)
 
 	// point at +Y, rotate 90 degrees
 	ov := &OrientationVector{math.Pi / 2, 0, 1, 0}
@@ -34,31 +22,21 @@ func TestBasicPoseConstruction(t *testing.T) {
 
 	p = NewPose(r3.Vector{1, 2, 3}, ov)
 	ovCompare(t, p.Orientation().OrientationVectorRadians(), ov)
-	// ptCompare(t, p.Point(), r3.Vector{1, 2, 3})
-	_, ok := p.(fmt.Stringer)
-	test.That(t, ok, test.ShouldBeTrue)
-	fmt.Println(p)
-	dq, ok := p.(*dualQuaternion)
-	fmt.Println(dq)
-	logger.Debug(p)
+	ptCompare(t, p.Point(), r3.Vector{1, 2, 3})
 
 	aa := QuatToR4AA(ov.Quaternion())
 	p = NewPose(r3.Vector{1, 2, 3}, &R4AA{aa.Theta, aa.RX, aa.RY, aa.RZ})
 	ptCompare(t, p.Point(), r3.Vector{1, 2, 3})
 	ovCompare(t, p.Orientation().OrientationVectorRadians(), ov)
-	logger.Debug(p)
 
 	p = NewPoseFromPoint(r3.Vector{1, 2, 3})
 	ptCompare(t, p.Point(), r3.Vector{1, 2, 3})
 	test.That(t, p.Orientation().OrientationVectorRadians(), test.ShouldResemble, &OrientationVector{0, 0, 0, 1})
-	logger.Debug(p)
 
 	p1 := NewPose(r3.Vector{1, 2, 3}, ov)
 	p2 := NewPoseFromPoint(r3.Vector{1, 2, 3})
 	pComp := Compose(p1, p2)
 	ptCompare(t, pComp.Point(), r3.Vector{0, 5, 5})
-	logger.Debug(p1)
-	logger.Debug(p2)
 
 	p2 = NewPose(r3.Vector{2, 3, 4}, ov)
 	delta := PoseDelta(p1, p2)
