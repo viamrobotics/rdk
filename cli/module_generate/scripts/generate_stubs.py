@@ -171,7 +171,7 @@ def main(
                             imports.append("from typing import Optional")
                             imports.append("from viam.utils import ValueTypes")
                         elif cstmt.name == "get_geometries":
-                            imports.append("from typing import List, Optional")
+                            imports.append("from typing import List, Optional, Dict")
                             imports.append("from viam.proto.common import Geometry")
 
     model_name_pascal = "".join(
