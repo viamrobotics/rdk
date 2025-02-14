@@ -7,7 +7,6 @@ package spatialmath
 
 import (
 	"errors"
-	"fmt"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -28,7 +27,6 @@ const defaultDistanceEpsilon = 1e-8
 type Pose interface {
 	Point() r3.Vector
 	Orientation() Orientation
-	fmt.Stringer
 }
 
 // PoseMap encodes the orientation interface to something serializable and human readable.
@@ -195,11 +193,6 @@ func (d *distancePose) Point() r3.Vector {
 
 func (d *distancePose) Orientation() Orientation {
 	return (*Quaternion)(&d.orientation)
-}
-
-func (d *distancePose) String() string {
-	// TODO
-	return "nil"
 }
 
 // ResetPoseDQTranslation takes a Pose that must be a dualQuaternion and reset's it's translation.

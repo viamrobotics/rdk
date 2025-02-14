@@ -13,39 +13,13 @@ import (
 	"gonum.org/v1/gonum/num/quat"
 )
 
-type Swearer interface {
-	MyFunc()
-}
-
-type swear struct {
-	A dualQuaternion
-}
-
-func (s swear) String() string {
-	return "fuck"
-}
-
-func (s swear) MyFunc() {}
-
-func NewSwear() Swearer {
-	return swear{}
-}
-
-func TestStringer(t *testing.T) {
-	fuck := NewSwear()
-	test.That(t, fmt.Sprint(fuck), test.ShouldEqual, "fuck")
-}
-
 func TestPose(t *testing.T) {
 	p := NewZeroPose()
-	stringer, ok := p.(fmt.Stringer)
-	test.That(t, ok, test.ShouldBeTrue)
-	fmt.Println(p.String())
-	fmt.Println(stringer.String())
-	dq, ok := p.(*dualQuaternion)
-	test.That(t, ok, test.ShouldBeTrue)
-	fmt.Println(dq)
-	fmt.Println(dq.String())
+	fmt.Println(p)
+	fmt.Printf("%.3v\n", p)
+	fmt.Printf("%#v\n", p)
+	fmt.Printf("%1.3s\n", p)
+	fmt.Printf("%g\n", p)
 }
 
 func TestBasicPoseConstruction(t *testing.T) {
@@ -65,7 +39,7 @@ func TestBasicPoseConstruction(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	fmt.Println(p)
 	dq, ok := p.(*dualQuaternion)
-	fmt.Println(dq.String())
+	fmt.Println(dq)
 	logger.Debug(p)
 
 	aa := QuatToR4AA(ov.Quaternion())
