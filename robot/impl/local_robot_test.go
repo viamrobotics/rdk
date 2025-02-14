@@ -1263,7 +1263,7 @@ func TestConfigPackages(t *testing.T) {
 	}
 
 	fakePackageServer.StorePackage(robotConfig2.Packages...)
-	r.Reconfigure(ctx, robotConfig2) // TODO(bashar-515): DONE
+	r.Reconfigure(ctx, robotConfig2)
 
 	path1, err := r.PackageManager().PackagePath("some-name-1")
 	test.That(t, err, test.ShouldBeNil)
