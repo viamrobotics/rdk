@@ -176,16 +176,20 @@ func TestCloudManagedWithAuth(t *testing.T) {
 		AppAddress: fmt.Sprintf("http://%s", addr),
 	}
 
+	appConn, err := grpc.NewAppConn(context.Background(), conf.AppAddress, "", "", logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer test.That(t, appConn.Close(), test.ShouldBeNil)
+
 	svc := cloud.NewCloudConnectionService(conf, nil, logger)
 	id, conn1, err := svc.AcquireConnection(context.Background())
-	test.That(t, err, test.ShouldEqual, cloud.ErrNotCloudManaged)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, id, test.ShouldBeEmpty)
-	test.That(t, conn1, test.ShouldBeNil)
+	test.That(t, conn1, test.ShouldEqual, appConn)
 
 	id2, conn2, err := svc.AcquireConnection(context.Background())
-	test.That(t, err, test.ShouldEqual, cloud.ErrNotCloudManaged)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, id2, test.ShouldBeEmpty)
-	test.That(t, conn2, test.ShouldBeNil)
+	test.That(t, conn2, test.ShouldEqual, appConn)
 
 	echoClient := echopb.NewEchoServiceClient(conn1)
 	_, err = echoClient.Echo(context.Background(), &echopb.EchoRequest{
