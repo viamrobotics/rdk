@@ -1,6 +1,7 @@
 package videosource
 
 import (
+	"fmt"
 	"math"
 	"strings"
 	"time"
@@ -136,10 +137,9 @@ func selectBestDriver(
 	for i, d := range baseDrivers {
 		props := d.Properties()
 		logger.Debugw("base driver found",
-			"driver_number", i+1,
-			"total_drivers", len(baseDrivers),
+			"driver_number", fmt.Sprintf("%d/%d", i+1, len(baseDrivers)),
 			"label", d.Info().Label,
-			"priority", float32(d.Info().Priority), 
+			"priority", float32(d.Info().Priority),
 			"type", d.Info().DeviceType,
 			"properties", props)
 	}
