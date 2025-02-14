@@ -628,7 +628,9 @@ func (c *viamClient) prepareDialInner(
 	if err != nil {
 		return nil, "", nil, err
 	}
-	rpcOpts = append(rpcOpts, rpc.WithExternalAuth(c.baseURL.Host, partFqdn))
+	if _, ok := c.conf.Auth.(*token); ok {
+		rpcOpts = append(rpcOpts, rpc.WithExternalAuth(c.baseURL.Host, partFqdn))
+	}
 
 	if debug {
 		rpcOpts = append(rpcOpts, rpc.WithDialDebug())
