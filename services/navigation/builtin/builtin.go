@@ -475,7 +475,7 @@ func (svc *builtIn) Location(ctx context.Context, extra map[string]interface{}) 
 		)
 		movementSensorPoseInBase = referenceframe.NewPoseInFrame(svc.base.Name().ShortName(), spatialmath.NewZeroPose())
 	}
-	svc.logger.CDebugf(ctx, "movementSensorPoseInBase: %v", spatialmath.PoseToProtobuf(movementSensorPoseInBase.Pose()))
+	svc.logger.CDebugf(ctx, "movementSensorPoseInBase: %v", movementSensorPoseInBase.Pose())
 
 	movementSensor2dOrientation, err := spatialmath.ProjectOrientationTo2dRotation(movementSensorPoseInBase.Pose())
 	if err != nil {
@@ -691,7 +691,7 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 			)
 			cameraToMovementsensor = movementsensorOrigin
 		}
-		svc.logger.CDebugf(ctx, "cameraToMovementsensor Pose: %v", spatialmath.PoseToProtobuf(cameraToMovementsensor.Pose()))
+		svc.logger.CDebugf(ctx, "cameraToMovementsensor Pose: %v", cameraToMovementsensor.Pose())
 
 		// determine transform from base to movement sensor
 		baseToMovementSensor, err := svc.fsService.TransformPose(ctx, movementsensorOrigin, svc.base.Name().ShortName(), nil)
@@ -704,7 +704,7 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 			)
 			baseToMovementSensor = movementsensorOrigin
 		}
-		svc.logger.CDebugf(ctx, "baseToMovementSensor Pose: %v", spatialmath.PoseToProtobuf(baseToMovementSensor.Pose()))
+		svc.logger.CDebugf(ctx, "baseToMovementSensor Pose: %v", baseToMovementSensor.Pose())
 
 		// determine transform from base to camera
 		cameraOrigin := referenceframe.NewPoseInFrame(detector.CameraName.ShortName(), spatialmath.NewZeroPose())
@@ -718,7 +718,7 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 			)
 			baseToCamera = cameraOrigin
 		}
-		svc.logger.CDebugf(ctx, "baseToCamera Pose: %v", spatialmath.PoseToProtobuf(baseToCamera.Pose()))
+		svc.logger.CDebugf(ctx, "baseToCamera Pose: %v", baseToCamera.Pose())
 
 		// get current geo position of robot
 		gp, _, err := svc.movementSensor.Position(ctx, nil)
@@ -747,11 +747,7 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 
 		// iterate through all detections and construct a geoGeometry to append
 		for i, detection := range detections {
-			svc.logger.CInfof(
-				ctx,
-				"detection %d pose with respect to camera frame: %v",
-				i, spatialmath.PoseToProtobuf(detection.Geometry.Pose()),
-			)
+			svc.logger.CInfof(ctx, "detection %d pose with respect to camera frame: %v", i, detection.Geometry.Pose())
 			// the position of the detection in the camera coordinate frame if it were at the movementsensor's location
 			desiredPoint := detection.Geometry.Pose().Point().Sub(cameraToMovementsensor.Pose().Point())
 
@@ -767,7 +763,7 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 			svc.logger.CDebugf(
 				ctx,
 				"detection %d pose from movementsensor's position with camera frame coordinate axes: %v ",
-				i, spatialmath.PoseToProtobuf(manipulatedGeom.Pose()),
+				i, manipulatedGeom.Pose(),
 			)
 
 			// fix axes of geometry's pose such that it is in the cooordinate system of the base
@@ -775,16 +771,12 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 			svc.logger.CDebugf(
 				ctx,
 				"detection %d pose from movementsensor's position with base frame coordinate axes: %v ",
-				i, spatialmath.PoseToProtobuf(manipulatedGeom.Pose()),
+				i, manipulatedGeom.Pose(),
 			)
 
 			// get the geometry's lat & lng along with its heading with respect to north as a left handed value
 			obstacleGeoPose := spatialmath.PoseToGeoPose(robotGeoPose, manipulatedGeom.Pose())
-			svc.logger.CDebugf(
-				ctx,
-				"obstacleGeoPose Location: %v, Heading: %v",
-				*obstacleGeoPose.Location(), obstacleGeoPose.Heading(),
-			)
+			svc.logger.CDebugf(ctx, "obstacleGeoPose Location: %v, Heading: %v", *obstacleGeoPose.Location(), obstacleGeoPose.Heading())
 
 			// prefix the label of the geometry so we know it is transient and add extra info
 			label := "transient_" + strconv.Itoa(i) + "_" + detector.CameraName.Name
