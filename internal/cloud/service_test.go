@@ -23,7 +23,7 @@ func TestNotCloudManaged(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	svc := cloud.NewCloudConnectionService(nil, nil, logger)
 	_, _, err := svc.AcquireConnection(context.Background())
-	test.That(t, err, test.ShouldEqual, nil)
+	test.That(t, err, test.ShouldEqual, cloud.ErrNotCloudManaged)
 	test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
 	_, _, err = svc.AcquireConnection(context.Background())
 	test.That(t, err, test.ShouldEqual, cloud.ErrNotCloudManaged)
@@ -55,7 +55,7 @@ func TestCloudManaged(t *testing.T) {
 
 	svc := cloud.NewCloudConnectionService(conf, nil, logger)
 	id, conn1, err := svc.AcquireConnection(context.Background())
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, err, test.ShouldEqual, cloud.ErrNotCloudManaged)
 	test.That(t, id, test.ShouldBeEmpty)
 	test.That(t, conn1, test.ShouldBeNil)
 
@@ -174,9 +174,9 @@ func TestCloudManagedWithAuth(t *testing.T) {
 
 	svc := cloud.NewCloudConnectionService(conf, nil, logger)
 	id, conn1, err := svc.AcquireConnection(context.Background())
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, err, test.ShouldEqual, cloud.ErrNotCloudManaged)
 	test.That(t, id, test.ShouldBeEmpty)
-	test.That(t, conn1, test.ShouldEqual, nil)
+	test.That(t, conn1, test.ShouldBeNil)
 
 	id2, conn2, err := svc.AcquireConnection(context.Background())
 	test.That(t, err, test.ShouldBeNil)
