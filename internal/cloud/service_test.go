@@ -60,10 +60,9 @@ func TestCloudManaged(t *testing.T) {
 	test.That(t, conn1, test.ShouldBeNil)
 
 	id2, conn2, err := svc.AcquireConnection(context.Background())
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, err, test.ShouldEqual, cloud.ErrNotCloudManaged)
 	test.That(t, id2, test.ShouldBeEmpty)
-	test.That(t, conn2, test.ShouldNotBeNil)
-	test.That(t, conn2, test.ShouldNotEqual, conn1)
+	test.That(t, conn2, test.ShouldBeNil)
 
 	echoClient1 := echopb.NewEchoServiceClient(conn1)
 	echoClient2 := echopb.NewEchoServiceClient(conn2)
@@ -179,10 +178,9 @@ func TestCloudManagedWithAuth(t *testing.T) {
 	test.That(t, conn1, test.ShouldBeNil)
 
 	id2, conn2, err := svc.AcquireConnection(context.Background())
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, err, test.ShouldEqual, cloud.ErrNotCloudManaged)
 	test.That(t, id2, test.ShouldBeEmpty)
-	test.That(t, conn2, test.ShouldNotBeNil)
-	test.That(t, conn2, test.ShouldNotEqual, conn1)
+	test.That(t, conn2, test.ShouldBeNil)
 
 	echoClient := echopb.NewEchoServiceClient(conn1)
 	_, err = echoClient.Echo(context.Background(), &echopb.EchoRequest{
