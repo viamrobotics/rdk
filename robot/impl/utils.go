@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"go.viam.com/test"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -17,6 +18,7 @@ func setupLocalRobot(
 	t *testing.T,
 	ctx context.Context,
 	cfg *config.Config,
+	conn rpc.ClientConn,
 	logger logging.Logger,
 	opts ...Option,
 ) robot.LocalRobot {
@@ -27,7 +29,7 @@ func setupLocalRobot(
 	var rOpts []Option
 	rOpts = append(rOpts, opts...)
 	rOpts = append(rOpts, WithViamHomeDir(t.TempDir()))
-	r, err := New(ctx, cfg, nil, logger, rOpts...)
+	r, err := New(ctx, cfg, conn, logger, rOpts...)
 	test.That(t, err, test.ShouldBeNil)
 	t.Cleanup(func() {
 		test.That(t, r.Close(ctx), test.ShouldBeNil)

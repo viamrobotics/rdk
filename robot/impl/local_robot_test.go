@@ -46,6 +46,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
+	"go.viam.com/rdk/grpc"
 	rgrpc "go.viam.com/rdk/grpc"
 	internalcloud "go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
@@ -1232,7 +1233,10 @@ func TestConfigPackages(t *testing.T) {
 		PackagePath: packageDir,
 	}
 
-	r := setupLocalRobot(t, ctx, robotConfig, logger)
+	appConn, err := grpc.NewAppConn(ctx, robotConfig.Cloud.AppAddress, "", "", logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer test.That(t, appConn.Close(), test.ShouldBeNil)
+	r := setupLocalRobot(t, ctx, robotConfig, appConn, logger)
 
 	_, err = r.PackageManager().PackagePath("some-name-1")
 	test.That(t, err, test.ShouldEqual, packages.ErrPackageMissing)
@@ -1259,7 +1263,7 @@ func TestConfigPackages(t *testing.T) {
 	}
 
 	fakePackageServer.StorePackage(robotConfig2.Packages...)
-	r.Reconfigure(ctx, robotConfig2)
+	r.Reconfigure(ctx, robotConfig2) // TODO(bashar-515): DONE
 
 	path1, err := r.PackageManager().PackagePath("some-name-1")
 	test.That(t, err, test.ShouldBeNil)
