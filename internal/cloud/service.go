@@ -50,15 +50,11 @@ func NewCloudConnectionService(cfg *config.Cloud, conn rpc.ClientConn, logger lo
 
 	cm := &cloudManagedService{
 		Named:    InternalServiceName.AsNamed(),
+		conn:     conn,
 		managed:  true,
 		dialer:   rpc.NewCachedDialer(),
 		cloudCfg: *cfg,
 		logger:   logger,
-	}
-
-	if conn != nil {
-		cm.conn = conn
-		cm.sharedConn = true
 	}
 
 	return cm
@@ -69,8 +65,7 @@ type cloudManagedService struct {
 	// we assume the config is immutable for the lifetime of the process
 	resource.TriviallyReconfigurable
 
-	conn       rpc.ClientConn
-	sharedConn bool
+	conn rpc.ClientConn
 
 	managed  bool
 	cloudCfg config.Cloud
@@ -81,6 +76,10 @@ type cloudManagedService struct {
 }
 
 func (cm *cloudManagedService) AcquireConnection(ctx context.Context) (string, rpc.ClientConn, error) {
+	if cm.conn != nil {
+		return "", nil, ErrNotCloudManaged
+	}
+
 	return cm.cloudCfg.ID, cm.conn, nil
 }
 
@@ -110,10 +109,6 @@ func (cm *cloudManagedService) AcquireConnectionAPIKey(ctx context.Context,
 }
 
 func (cm *cloudManagedService) Close(ctx context.Context) error {
-	if !cm.sharedConn && cm.conn != nil {
-		utils.UncheckedError(cm.conn.Close())
-	}
-
 	cm.dialerMu.Lock()
 	defer cm.dialerMu.Unlock()
 
