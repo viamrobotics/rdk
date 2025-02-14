@@ -1233,10 +1233,7 @@ func TestConfigPackages(t *testing.T) {
 		PackagePath: packageDir,
 	}
 
-	appConn, err := grpc.NewAppConn(ctx, robotConfig.Cloud.AppAddress, "", "", logger)
-	test.That(t, err, test.ShouldBeNil)
-	defer test.That(t, appConn.Close(), test.ShouldBeNil)
-	r := setupLocalRobot(t, ctx, robotConfig, appConn, logger)
+	r := setupLocalRobot(t, ctx, robotConfig, logger)
 
 	_, err = r.PackageManager().PackagePath("some-name-1")
 	test.That(t, err, test.ShouldEqual, packages.ErrPackageMissing)
