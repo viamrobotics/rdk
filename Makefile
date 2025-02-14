@@ -22,9 +22,13 @@ build: build-go
 build-go:
 	go build ./...
 
+.PHONY: rm-cli
+rm-cli:
+	rm -f ./bin/$(GOOS)-$(GOARCH)/viam-cli
+
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
-bin/$(GOOS)-$(GOARCH)/viam-cli:
+bin/$(GOOS)-$(GOARCH)/viam-cli: rm-cli
 	go build $(LDFLAGS) -tags osusergo,netgo -o $@ ./cli/viam
 
 .PHONY: cli
