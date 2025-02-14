@@ -44,7 +44,9 @@ func setupLocalRobot(
 		lRobot, ok := r.(*localRobot)
 		test.That(t, ok, test.ShouldBeTrue)
 		lRobot.reconfigureWorkers.Wait()
-		test.That(t, conn.Close(), test.ShouldBeNil)
+		if conn != nil {
+			test.That(t, conn.Close(), test.ShouldBeNil)
+		}
 	})
 	return r
 }
