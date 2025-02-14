@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
@@ -53,16 +54,20 @@ func TestCloudManaged(t *testing.T) {
 		AppAddress: fmt.Sprintf("http://%s", addr),
 	}
 
-	svc := cloud.NewCloudConnectionService(conf, nil, logger)
+	appConn, err := grpc.NewAppConn(context.Background(), conf.AppAddress, "", "", logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer test.That(t, appConn.Close(), test.ShouldBeNil)
+
+	svc := cloud.NewCloudConnectionService(conf, appConn, logger)
 	id, conn1, err := svc.AcquireConnection(context.Background())
-	test.That(t, err, test.ShouldEqual, cloud.ErrNotCloudManaged)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, id, test.ShouldBeEmpty)
-	test.That(t, conn1, test.ShouldBeNil)
+	test.That(t, conn1, test.ShouldEqual, appConn)
 
 	id2, conn2, err := svc.AcquireConnection(context.Background())
-	test.That(t, err, test.ShouldEqual, cloud.ErrNotCloudManaged)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, id2, test.ShouldBeEmpty)
-	test.That(t, conn2, test.ShouldBeNil)
+	test.That(t, conn1, test.ShouldEqual, appConn)
 
 	echoClient1 := echopb.NewEchoServiceClient(conn1)
 	echoClient2 := echopb.NewEchoServiceClient(conn2)
