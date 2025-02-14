@@ -715,9 +715,9 @@ func (a *authFlow) loginAsUser(c *cli.Context) (*token, error) {
 
 	err = a.directUser(deviceCode)
 	if err != nil {
-		warningf(c.App.ErrWriter, "unable to open the browser to complete the login flow (ensure xdgopen is installed on Linux "+
-			"if this is unexpected.) Please go to the provided URL to log in; you can use the --%s flag to skip this warning in the future",
-			loginFlagDisableBrowser)
+		warningf(c.App.ErrWriter, "unable to open the browser to complete the login flow due to %q. "+
+			"Please go to the provided URL to log in; you can use the --%s flag to skip this warning in the future",
+			err.Error(), loginFlagDisableBrowser)
 	}
 
 	token, err := a.waitForUser(ctx, deviceCode, discovery)
