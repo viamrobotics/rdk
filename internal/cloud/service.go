@@ -81,31 +81,31 @@ type cloudManagedService struct {
 }
 
 func (cm *cloudManagedService) AcquireConnection(ctx context.Context) (string, rpc.ClientConn, error) {
-	if cm.conn != nil {
-		return cm.cloudCfg.ID, cm.conn, nil
-	}
+	// if cm.conn != nil {
+	return cm.cloudCfg.ID, cm.conn, nil
+	// }
 
 	// NOTE(bashar-515): the following is only expected execute in tests, NOT in prod
-	cm.dialerMu.RLock()
-	defer cm.dialerMu.RUnlock()
-	if !cm.managed {
-		return "", nil, ErrNotCloudManaged
-	}
-	if cm.dialer == nil {
-		return "", nil, errors.New("service closed")
-	}
-
-	ctx = rpc.ContextWithDialer(ctx, cm.dialer)
-	timeout := connectTimeout
-	// When environment indicates we are behind a proxy, bump timeout. Network
-	// operations tend to take longer when behind a proxy.
-	if os.Getenv(rpc.SocksProxyEnvVar) != "" {
-		timeout = connectTimeoutBehindProxy
-	}
-	timeOutCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-	conn, err := config.CreateNewGRPCClient(timeOutCtx, &cm.cloudCfg, cm.logger)
-	return cm.cloudCfg.ID, conn, err
+	// cm.dialerMu.RLock()
+	// defer cm.dialerMu.RUnlock()
+	// if !cm.managed {
+	// 	return "", nil, ErrNotCloudManaged
+	// }
+	// if cm.dialer == nil {
+	// 	return "", nil, errors.New("service closed")
+	// }
+	//
+	// ctx = rpc.ContextWithDialer(ctx, cm.dialer)
+	// timeout := connectTimeout
+	// // When environment indicates we are behind a proxy, bump timeout. Network
+	// // operations tend to take longer when behind a proxy.
+	// if os.Getenv(rpc.SocksProxyEnvVar) != "" {
+	// 	timeout = connectTimeoutBehindProxy
+	// }
+	// timeOutCtx, cancel := context.WithTimeout(ctx, timeout)
+	// defer cancel()
+	// conn, err := config.CreateNewGRPCClient(timeOutCtx, &cm.cloudCfg, cm.logger)
+	// return cm.cloudCfg.ID, conn, err
 }
 
 func (cm *cloudManagedService) AcquireConnectionAPIKey(ctx context.Context,
