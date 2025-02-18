@@ -529,7 +529,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	// state of initializing until reconfigured with full config.
 	minimalProcessedConfig.Initial = true
 
-	myRobot, err := robotimpl.New(ctx, &minimalProcessedConfig, s.logger, robotOptions...)
+	myRobot, err := robotimpl.New(ctx, &minimalProcessedConfig, s.conn, s.logger, robotOptions...)
 	if err != nil {
 		cancel()
 		return err

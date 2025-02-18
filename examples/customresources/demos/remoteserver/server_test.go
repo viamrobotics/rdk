@@ -42,7 +42,7 @@ func TestGizmo(t *testing.T) {
 
 		cfgServer, err := config.Read(ctx, utils.ResolveFile("./examples/customresources/demos/remoteserver/remote.json"), logger, nil)
 		test.That(t, err, test.ShouldBeNil)
-		remoteB, err := robotimpl.New(ctx, cfgServer, logger.Sublogger("remoteB"))
+		remoteB, err := robotimpl.New(ctx, cfgServer, nil, logger.Sublogger("remoteB"))
 		test.That(t, err, test.ShouldBeNil)
 		options := weboptions.New()
 		options.Network.BindAddress = remoteAddrB
@@ -116,7 +116,7 @@ func TestGizmo(t *testing.T) {
 			},
 		},
 	}
-	mainPart, err := robotimpl.New(ctx, mainPartConfig, logger.Sublogger("mainPart.client"))
+	mainPart, err := robotimpl.New(ctx, mainPartConfig, nil, logger.Sublogger("mainPart.client"))
 	defer func() {
 		test.That(t, mainPart.Close(context.Background()), test.ShouldBeNil)
 	}()

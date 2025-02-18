@@ -166,7 +166,7 @@ func TestModuleFunctions(t *testing.T) {
 		},
 	}}
 
-	myRobot, err := robotimpl.RobotFromConfig(ctx, cfg, logger)
+	myRobot, err := robotimpl.RobotFromConfig(ctx, cfg, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	parentAddr, err := myRobot.ModuleAddress()
@@ -425,7 +425,7 @@ func TestAttributeConversion(t *testing.T) {
 			},
 		}}
 
-		myRobot, err := robotimpl.RobotFromConfig(ctx, cfg, logger)
+		myRobot, err := robotimpl.RobotFromConfig(ctx, cfg, nil, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		parentAddr, err := myRobot.ModuleAddress()

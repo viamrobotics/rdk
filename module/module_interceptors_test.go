@@ -171,7 +171,7 @@ func TestModuleClientTimeoutInterceptor(t *testing.T) {
 			Name:  "helper1",
 		}},
 	}
-	r, err := robotimpl.New(ctx, cfg, logger)
+	r, err := robotimpl.New(ctx, cfg, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, r.Close(ctx), test.ShouldBeNil)
