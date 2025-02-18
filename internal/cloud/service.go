@@ -75,6 +75,8 @@ type cloudManagedService struct {
 	dialer   rpc.Dialer
 }
 
+// AcquireConnection returns the connection provided to `NewCloudConnectionService` regardless of the state of the `cloudManagedService`.
+// This means that if `Close` has been called on the `cloudManagedService`, `AcquireConnection` can still return an open connection.
 func (cm *cloudManagedService) AcquireConnection(ctx context.Context) (string, rpc.ClientConn, error) {
 	if cm.conn == nil {
 		return "", nil, ErrNotCloudManaged
