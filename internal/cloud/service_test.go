@@ -125,8 +125,6 @@ func TestCloudManaged(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, conn2.Close(), test.ShouldBeNil)
-
-	_, _, err = svc.AcquireConnection(context.Background())
 }
 
 func TestCloudManagedWithAuth(t *testing.T) {
