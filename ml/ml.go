@@ -215,3 +215,14 @@ func TensorNames(t Tensors) []string {
 	}
 	return names
 }
+
+// GetIndex returns the index of an int in an array of ints
+// Will return -1 if it's not there.
+func GetIndex(s []int, num int) int {
+	for i, v := range s {
+		if v == num {
+			return i
+		}
+	}
+	return -1
+}
