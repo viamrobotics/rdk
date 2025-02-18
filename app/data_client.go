@@ -276,6 +276,11 @@ type DataByFilterOptions struct {
 	IncludeInternalData bool
 }
 
+// TabularDataByMQLOptions contains optional parameters for TabularDataByMQL.
+type TabularDataByMQLOptions struct {
+	UseRecentData bool
+}
+
 // BinaryDataCaptureUploadOptions represents optional parameters for the BinaryDataCaptureUpload method.
 type BinaryDataCaptureUploadOptions struct {
 	Type             *DataType
@@ -438,7 +443,7 @@ func (d *DataClient) TabularDataBySQL(ctx context.Context, organizationID, sqlQu
 
 // TabularDataByMQL queries tabular data with MQL (MongoDB Query Language) queries.
 func (d *DataClient) TabularDataByMQL(
-	ctx context.Context, organizationID string, query []map[string]interface{},
+	ctx context.Context, organizationID string, query []map[string]interface{}, opts *TabularDataByMQLOptions,
 ) ([]map[string]interface{}, error) {
 	mqlBinary := [][]byte{}
 	for _, q := range query {
@@ -449,9 +454,15 @@ func (d *DataClient) TabularDataByMQL(
 		mqlBinary = append(mqlBinary, binary)
 	}
 
+	useRecentData := false
+	if opts != nil {
+		useRecentData = opts.UseRecentData
+	}
+
 	resp, err := d.dataClient.TabularDataByMQL(ctx, &pb.TabularDataByMQLRequest{
 		OrganizationId: organizationID,
 		MqlBinary:      mqlBinary,
+		UseRecentData:  &useRecentData,
 	})
 	if err != nil {
 		return nil, err
