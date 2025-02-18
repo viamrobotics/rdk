@@ -192,10 +192,11 @@ func (q *dualQuaternion) Transformation(by dualquat.Number) dualquat.Number {
 // Some example verbs and how they would display a zero pose are shown below
 //
 //	Verb    | String
-//	%v		| {X:0 Y:0 Z:0 OX:0 OY:0 OZ:1 Theta:0°}
-//	%.3v	| {X:0.000 Y:0.000 Z:0.000 OX:0.000 OY:0.000 OZ:1.000 Theta:0.000°}
-//	%#v		| r3.Vector{0 0 0} *spatialmath.OrientationVectorDegrees{0 0 0 1}
-//	%g		| ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
+//	%v      | {X:0 Y:0 Z:0 OX:0 OY:0 OZ:1 Theta:0°}
+//	%s      | {X:0 Y:0 Z:0 OX:0 OY:0 OZ:1 Theta:0°}
+//	%.3v    | {X:0.000 Y:0.000 Z:0.000 OX:0.000 OY:0.000 OZ:1.000 Theta:0.000°}
+//	%#v     | r3.Vector{0 0 0} *spatialmath.OrientationVectorDegrees{0 0 0 1}
+//	%g      | ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
 func (q *dualQuaternion) Format(fs fmt.State, verb rune) {
 	prec, _ := fs.Precision()
 	width, _ := fs.Width()
