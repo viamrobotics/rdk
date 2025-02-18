@@ -76,11 +76,11 @@ type cloudManagedService struct {
 }
 
 func (cm *cloudManagedService) AcquireConnection(ctx context.Context) (string, rpc.ClientConn, error) {
-	if cm.conn != nil {
-		return cm.cloudCfg.ID, cm.conn, nil
+	if cm.conn == nil {
+		return "", nil, ErrNotCloudManaged
 	}
 
-	return "", nil, ErrNotCloudManaged
+	return cm.cloudCfg.ID, cm.conn, nil
 }
 
 func (cm *cloudManagedService) AcquireConnectionAPIKey(ctx context.Context,
