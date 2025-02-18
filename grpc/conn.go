@@ -23,8 +23,7 @@ type ReconfigurableClientConn struct {
 	onTrackCBByTrackName   map[string]OnTrackCB
 }
 
-// Return this constant such that backoff error logging can compare consecutive errors and reliably
-// conclude they are the same.
+// ErrNotConnected returns so that backoff error logging can compare consecutive errors and reliably conclude they are the same.
 var ErrNotConnected = errors.New("not connected")
 
 // Invoke invokes using the underlying client connection. In the case of c.conn being closed in the middle of
