@@ -34,10 +34,10 @@ func (s *Segment) String() string {
 	startPosString := "nil"
 	endPosString := "nil"
 	if s.StartPosition != nil {
-		startPosString = fmt.Sprintf("%v", spatial.PoseToProtobuf(s.StartPosition))
+		startPosString = fmt.Sprint(s.StartPosition)
 	}
 	if s.EndPosition != nil {
-		endPosString = fmt.Sprintf("%v", spatial.PoseToProtobuf(s.EndPosition))
+		endPosString = fmt.Sprint(s.EndPosition)
 	}
 	return fmt.Sprintf(
 		"Segment: \n\t StartPosition: %s,\n\t EndPosition: %s,\n\t StartConfiguration:%v,\n\t EndConfiguration:%v,\n\t Frame: %v",

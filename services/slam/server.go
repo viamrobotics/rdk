@@ -43,9 +43,7 @@ func (server *serviceServer) GetPosition(ctx context.Context, req *pb.GetPositio
 		return nil, err
 	}
 
-	return &pb.GetPositionResponse{
-		Pose: spatialmath.PoseToProtobuf(p),
-	}, nil
+	return &pb.GetPositionResponse{Pose: spatialmath.PoseToProtobuf(p)}, nil
 }
 
 // GetPointCloudMap returns the slam service's slam algo's current map state in PCD format as

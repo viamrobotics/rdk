@@ -72,7 +72,7 @@ func (pF *PoseInFrame) Transform(tf *PoseInFrame) Transformable {
 
 // String returns the string representation of the PoseInFrame.
 func (pF *PoseInFrame) String() string {
-	return fmt.Sprintf("parent: %s, pose: %s", pF.parent, spatialmath.PoseToProtobuf(pF.pose))
+	return fmt.Sprintf("parent: %s, pose: %v", pF.parent, pF.pose)
 }
 
 // LinkInFrame is a PoseInFrame plus a Geometry.

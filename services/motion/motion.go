@@ -103,11 +103,11 @@ type MoveOnMapReq struct {
 
 func (r MoveOnMapReq) String() string {
 	return fmt.Sprintf(
-		"motion.MoveOnMapReq{ComponentName: %s, SlamName: %s, Destination: %+v, "+
+		"motion.MoveOnMapReq{ComponentName: %s, SlamName: %s, Destination: %v, "+
 			"MotionCfg: %#v, Obstacles: %s, Extra: %s}",
 		r.ComponentName,
 		r.SlamName,
-		spatialmath.PoseToProtobuf(r.Destination),
+		r.Destination,
 		r.MotionCfg,
 		r.Obstacles,
 		r.Extra)

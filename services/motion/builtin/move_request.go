@@ -329,7 +329,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			}
 
 			mr.logger.CDebugf(ctx, "CheckPlan inputs: \n currentPosition: %v\n currentInputs: %v\n worldstate: %s",
-				spatialmath.PoseToProtobuf(updatedBaseExecutionState.CurrentPoses()[mr.kinematicBase.Kinematics().Name()].Pose()),
+				updatedBaseExecutionState.CurrentPoses()[mr.kinematicBase.Kinematics().Name()].Pose(),
 				updatedBaseExecutionState.CurrentInputs(),
 				worldState.String(),
 			)
