@@ -66,7 +66,7 @@ func TestCloudManaged(t *testing.T) {
 	id2, conn2, err := svc.AcquireConnection(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, id2, test.ShouldBeEmpty)
-	test.That(t, conn1, test.ShouldEqual, appConn)
+	test.That(t, conn2, test.ShouldEqual, appConn)
 
 	echoClient1 := echopb.NewEchoServiceClient(conn1)
 	echoClient2 := echopb.NewEchoServiceClient(conn2)
