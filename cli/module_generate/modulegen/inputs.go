@@ -33,8 +33,8 @@ type ModuleInputs struct {
 	ResourceTypePascal    string `json:"-"`
 	ModelPascal           string `json:"-"`
 	ModelCamel            string `json:"-"`
+	ModelSnake            string `json:"-"`
 	ModelTriple           string `json:"-"`
-	ModelLowercase        string `json:"-"`
 	ModelReadmeLink       string `json:"-"`
 	SDKVersion            string `json:"-"`
 }
