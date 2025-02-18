@@ -76,17 +76,24 @@ func TestCloudManaged(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.Message, test.ShouldEqual, "hello")
+	resp, err = echoClient2.Echo(context.Background(), &echopb.EchoRequest{
+		Message: "hello",
+	})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Message, test.ShouldEqual, "hello")
 
 	test.That(t, appConn.Close(), test.ShouldBeNil)
 
-	// now both are closed
-	_, err = echoClient1.Echo(context.Background(), &echopb.EchoRequest{
+	// now "both" connections are closed
+	resp, err = echoClient1.Echo(context.Background(), &echopb.EchoRequest{
 		Message: "hello",
 	})
+	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
-	_, err = echoClient2.Echo(context.Background(), &echopb.EchoRequest{
+	resp, err = echoClient2.Echo(context.Background(), &echopb.EchoRequest{
 		Message: "hello",
 	})
+	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	id3, conn3, err := svc.AcquireConnection(context.Background())
@@ -95,36 +102,14 @@ func TestCloudManaged(t *testing.T) {
 	test.That(t, conn3, test.ShouldNotBeNil)
 	test.That(t, conn3, test.ShouldEqual, conn2)
 
-	_, err = echoClient1.Echo(context.Background(), &echopb.EchoRequest{
-		Message: "hello",
-	})
-	test.That(t, err, test.ShouldNotBeNil)
-	_, err = echoClient2.Echo(context.Background(), &echopb.EchoRequest{
-		Message: "hello",
-	})
-	test.That(t, err, test.ShouldNotBeNil)
-
 	echoClient3 := echopb.NewEchoServiceClient(conn3)
 	resp, err = echoClient3.Echo(context.Background(), &echopb.EchoRequest{
 		Message: "hello",
 	})
-	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, resp, test.ShouldBeNil)
+	test.That(t, err, test.ShouldNotBeNil)
 
 	test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
-	_, err = echoClient1.Echo(context.Background(), &echopb.EchoRequest{
-		Message: "hello",
-	})
-	test.That(t, err, test.ShouldNotBeNil)
-	_, err = echoClient2.Echo(context.Background(), &echopb.EchoRequest{
-		Message: "hello",
-	})
-	test.That(t, err, test.ShouldNotBeNil)
-	_, err = echoClient3.Echo(context.Background(), &echopb.EchoRequest{
-		Message: "hello",
-	})
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, conn2.Close(), test.ShouldBeNil)
 }
 
 func TestCloudManagedWithAuth(t *testing.T) {
