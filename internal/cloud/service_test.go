@@ -90,11 +90,14 @@ func TestCloudManaged(t *testing.T) {
 	})
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldEqual, grpc.ErrNotConnected)
+
 	resp, err = echoClient2.Echo(context.Background(), &echopb.EchoRequest{
 		Message: "hello",
 	})
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldEqual, grpc.ErrNotConnected)
 
 	id3, conn3, err := svc.AcquireConnection(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -108,6 +111,7 @@ func TestCloudManaged(t *testing.T) {
 	})
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldEqual, grpc.ErrNotConnected)
 
 	test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
 }
