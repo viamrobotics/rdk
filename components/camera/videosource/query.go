@@ -1,6 +1,7 @@
 package videosource
 
 import (
+	"fmt"
 	"math"
 	"strings"
 	"time"
@@ -133,16 +134,22 @@ func selectBestDriver(
 
 	baseDrivers := driver.GetManager().Query(baseFilter)
 	logger.Debugw("before specific filter, we found the following drivers", "count", len(baseDrivers))
-	for _, d := range baseDrivers {
-		logger.Debugw(d.Info().Label, "priority", float32(d.Info().Priority), "type", d.Info().DeviceType)
+	for i, d := range baseDrivers {
+		props := d.Properties()
+		logger.Debugw("base driver found",
+			"driver_number", fmt.Sprintf("%d/%d", i+1, len(baseDrivers)),
+			"label", d.Info().Label,
+			"priority", float32(d.Info().Priority),
+			"type", d.Info().DeviceType,
+			"properties", props)
 	}
 
 	driverProperties := queryDriverProperties(filter, logger)
 	if len(driverProperties) == 0 {
-		logger.Debugw("found no drivers matching filter")
-	} else {
-		logger.Debugw("found drivers matching specific filter", "count", len(driverProperties))
+		return nil, prop.Media{}, errors.New("found no queryable drivers matching filter")
 	}
+
+	logger.Debugw("found drivers matching specific filter", "count", len(driverProperties))
 	for d, props := range driverProperties {
 		priority := float64(d.Info().Priority)
 		logger.Debugw(
@@ -171,7 +178,13 @@ func selectBestDriver(
 	}
 
 	if bestDriver == nil {
-		return nil, prop.Media{}, errors.New("failed to find the best driver that fits the constraints")
+		labels := make([]string, 0, len(driverProperties))
+		for d := range driverProperties {
+			labels = append(labels, d.Info().Label)
+		}
+		return nil, prop.Media{}, errors.Errorf(
+			"failed to find a queryable driver that matches the config constraints. Devices tried: %s",
+			strings.Join(labels, ", "))
 	}
 
 	logger.Debugw("winning driver", "label", bestDriver.Info().Label, "props", bestProp)
@@ -203,14 +216,14 @@ func queryDriverProperties(
 		if isAvailable {
 			err := d.Open()
 			if err != nil {
-				logger.Debugw("error opening driver for querying", "error", err)
+				logger.Infow("error trying to open driver for querying", "error", err)
 				// Skip this driver if we failed to open because we can't get the properties
 				continue
 			}
 			needToClose = append(needToClose, d)
 			m[d] = d.Properties()
 		} else {
-			logger.Debugw("driver not available", "name", d.Info().Name, "label", d.Info().Label, "status", status)
+			logger.Infow("driver not available", "name", d.Info().Name, "label", d.Info().Label, "status", status)
 		}
 	}
 

@@ -628,7 +628,9 @@ func (c *viamClient) prepareDialInner(
 	if err != nil {
 		return nil, "", nil, err
 	}
-	rpcOpts = append(rpcOpts, rpc.WithExternalAuth(c.baseURL.Host, partFqdn))
+	if _, ok := c.conf.Auth.(*token); ok {
+		rpcOpts = append(rpcOpts, rpc.WithExternalAuth(c.baseURL.Host, partFqdn))
+	}
 
 	if debug {
 		rpcOpts = append(rpcOpts, rpc.WithDialDebug())
@@ -715,9 +717,9 @@ func (a *authFlow) loginAsUser(c *cli.Context) (*token, error) {
 
 	err = a.directUser(deviceCode)
 	if err != nil {
-		warningf(c.App.ErrWriter, "unable to open the browser to complete the login flow due to %w. "+
+		warningf(c.App.ErrWriter, "unable to open the browser to complete the login flow due to %q. "+
 			"Please go to the provided URL to log in; you can use the --%s flag to skip this warning in the future",
-			err, loginFlagDisableBrowser)
+			err.Error(), loginFlagDisableBrowser)
 	}
 
 	token, err := a.waitForUser(ctx, deviceCode, discovery)
