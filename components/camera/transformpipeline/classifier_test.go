@@ -75,7 +75,7 @@ func buildRobotWithClassifier(logger logging.Logger) (robot.Robot, error) {
 	defer os.Remove(newConfFile)
 
 	// make the robot from new config
-	r, err := robotimpl.RobotFromConfigPath(context.Background(), newConfFile, logger)
+	r, err := robotimpl.RobotFromConfigPath(context.Background(), newConfFile, nil, logger)
 	if err != nil {
 		return nil, err
 	}
