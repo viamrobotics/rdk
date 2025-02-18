@@ -5,7 +5,7 @@ package arm
 
 import (
 	"context"
-	"errors"
+	"strings"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
@@ -18,7 +18,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-var errUnimplemented = errors.New("unimplemented")
+const unimplemented = "unimplemented"
 
 // serviceServer implements the ArmService from arm.proto.
 type serviceServer struct {
@@ -158,7 +158,7 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 		// if the error tells us the method is unimplemented, then we
 		// can use the kinematics and joint positions endpoints to
 		// construct the geometries of the arm
-		if errors.Is(err, errUnimplemented) {
+		if strings.Contains(err.Error(), unimplemented) {
 			kinematicsPbResp, err := s.GetKinematics(ctx, &commonpb.GetKinematicsRequest{Name: req.GetName()})
 			if err != nil {
 				return nil, err
