@@ -180,6 +180,7 @@ def main(
     resource_file = '''
 from typing import ClassVar, Mapping, Sequence
 from typing_extensions import Self
+from viam.logging import getLogger
 from viam.proto.app.robot import ComponentConfig
 from viam.proto.common import ResourceName
 from viam.resource.base import ResourceBase
@@ -187,6 +188,8 @@ from viam.resource.easy_resource import EasyResource
 from viam.resource.types import Model, ModelFamily
 {0}
 from viam.{1}s.{2} import *
+
+LOGGER = getLogger(__name__)
 
 
 class {3}({4}, EasyResource):
