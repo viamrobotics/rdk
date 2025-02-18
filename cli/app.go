@@ -2134,6 +2134,29 @@ Organization and location are required flags if the machine/part name are not un
 							Action: createCommandWithT[robotsPartShellArgs](RobotsPartShellAction),
 						},
 						{
+							Name:      "list",
+							Usage:     "list parts on a machine",
+							UsageText: createUsageText("machines part list", []string{generalFlagMachine}, true, false),
+							Flags: []cli.Flag{
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:     generalFlagMachine,
+										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
+										Required: true,
+									},
+								},
+								&cli.StringFlag{
+									Name:    generalFlagOrganization,
+									Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+								},
+								&cli.StringFlag{
+									Name:    generalFlagLocation,
+									Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
+								},
+							},
+							Action: createCommandWithT[machinesPartListArgs](MachinesPartListAction),
+						},
+						{
 							Name:  "cp",
 							Usage: "copy files to and from a machine part",
 							Description: `
