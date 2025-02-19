@@ -1,14 +1,11 @@
 import logging
 from typing import ClassVar, Mapping, Sequence, Self
-from viam.logging import getLogger
 from viam.proto.app.robot import ComponentConfig
 from viam.proto.common import ResourceName
 from viam.resource.base import ResourceBase
 from viam.resource.easy_resource import EasyResource
 from viam.resource.types import Model, ModelFamily
 from viam.{{ .ResourceType }}s.{{ .ResourceSubtype }} import {{ .ResourceSubtypePascal }}
-
-LOGGER = getLogger(__name__)
 
 
 class {{ .ModelPascal  }}({{ .ResourceSubtypePascal }}, EasyResource):
