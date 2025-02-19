@@ -58,3 +58,29 @@ func ClosestTriangleInsidePoint(t *Triangle, point r3.Vector) (r3.Vector, bool) 
 	inside := (0 <= u+eps) && (u <= 1+eps) && (0 <= v+eps) && (v <= 1+eps) && (u+v <= 1+eps)
 	return t.p0.Add(e0.Mul(u)).Add(e1.Mul(v)), inside
 }
+
+// ClosestPointTrianglePoint takes a point, and returns the closest point on the triangle to the given point.
+func ClosestPointTrianglePoint(t *Triangle, point r3.Vector) r3.Vector {
+	pts := t.Points()
+	closestPtInside, inside := ClosestTriangleInsidePoint(t, point)
+	if inside {
+		return closestPtInside
+	}
+
+	// If the closest point is outside the triangle, it must be on an edge, so we
+	// check each triangle edge for a closest point to the point pt.
+	closestPt := ClosestPointSegmentPoint(pts[0], pts[1], point)
+	bestDist := point.Sub(closestPt).Norm2()
+
+	newPt := ClosestPointSegmentPoint(pts[1], pts[2], point)
+	if newDist := point.Sub(newPt).Norm2(); newDist < bestDist {
+		closestPt = newPt
+		bestDist = newDist
+	}
+
+	newPt = ClosestPointSegmentPoint(pts[2], pts[0], point)
+	if newDist := point.Sub(newPt).Norm2(); newDist < bestDist {
+		return newPt
+	}
+	return closestPt
+}

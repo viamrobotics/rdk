@@ -146,51 +146,54 @@ func (b *box) ToProtobuf() *commonpb.Geometry {
 
 // CollidesWith checks if the given box collides with the given geometry and returns true if it does.
 func (b *box) CollidesWith(g Geometry, collisionBufferMM float64) (bool, error) {
-	if other, ok := g.(*box); ok {
+	switch other := g.(type) {
+	case *Mesh:
+		return other.CollidesWith(b, collisionBufferMM)
+	case *box:
 		return boxVsBoxCollision(b, other, collisionBufferMM), nil
-	}
-	if other, ok := g.(*sphere); ok {
+	case *sphere:
 		return sphereVsBoxCollision(other, b, collisionBufferMM), nil
-	}
-	if other, ok := g.(*capsule); ok {
+	case *capsule:
 		return capsuleVsBoxCollision(other, b, collisionBufferMM), nil
-	}
-	if other, ok := g.(*point); ok {
+	case *point:
 		return pointVsBoxCollision(other.position, b, collisionBufferMM), nil
+	default:
+		return true, newCollisionTypeUnsupportedError(b, g)
 	}
-	return true, newCollisionTypeUnsupportedError(b, g)
 }
 
 func (b *box) DistanceFrom(g Geometry) (float64, error) {
-	if other, ok := g.(*box); ok {
+	switch other := g.(type) {
+	case *Mesh:
+		return other.DistanceFrom(b)
+	case *box:
 		return boxVsBoxDistance(b, other), nil
-	}
-	if other, ok := g.(*sphere); ok {
+	case *sphere:
 		return sphereVsBoxDistance(other, b), nil
-	}
-	if other, ok := g.(*capsule); ok {
+	case *capsule:
 		return capsuleVsBoxDistance(other, b), nil
-	}
-	if other, ok := g.(*point); ok {
+	case *point:
 		return pointVsBoxDistance(other.position, b), nil
+	default:
+		return math.Inf(-1), newCollisionTypeUnsupportedError(b, g)
 	}
-	return math.Inf(-1), newCollisionTypeUnsupportedError(b, g)
 }
 
 func (b *box) EncompassedBy(g Geometry) (bool, error) {
-	if other, ok := g.(*box); ok {
+	switch other := g.(type) {
+	case *Mesh:
+		return false, nil // Like points, meshes have no volume and cannot encompass
+	case *box:
 		return boxInBox(b, other), nil
-	}
-	if other, ok := g.(*sphere); ok {
+	case *sphere:
 		return boxInSphere(b, other), nil
-	}
-	if other, ok := g.(*capsule); ok {
+	case *capsule:
 		return boxInCapsule(b, other), nil
-	}
-	if _, ok := g.(*point); ok {
+	case *point:
 		return false, nil
+	default:
+		return false, newCollisionTypeUnsupportedError(b, g)
 	}
-	return false, newCollisionTypeUnsupportedError(b, g)
 }
 
 // closestPoint returns the closest point on the specified box to the specified point

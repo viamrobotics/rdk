@@ -91,51 +91,54 @@ func (s *sphere) ToProtobuf() *commonpb.Geometry {
 
 // CollidesWith checks if the given sphere collides with the given geometry and returns true if it does.
 func (s *sphere) CollidesWith(g Geometry, collisionBufferMM float64) (bool, error) {
-	if other, ok := g.(*sphere); ok {
+	switch other := g.(type) {
+	case *Mesh:
+		return other.CollidesWith(s, collisionBufferMM)
+	case *sphere:
 		return sphereVsSphereDistance(s, other) <= collisionBufferMM, nil
-	}
-	if other, ok := g.(*capsule); ok {
+	case *capsule:
 		return capsuleVsSphereDistance(other, s) <= collisionBufferMM, nil
-	}
-	if other, ok := g.(*box); ok {
+	case *box:
 		return sphereVsBoxCollision(s, other, collisionBufferMM), nil
-	}
-	if other, ok := g.(*point); ok {
+	case *point:
 		return sphereVsPointDistance(s, other.position) <= collisionBufferMM, nil
+	default:
+		return true, newCollisionTypeUnsupportedError(s, g)
 	}
-	return true, newCollisionTypeUnsupportedError(s, g)
 }
 
 func (s *sphere) DistanceFrom(g Geometry) (float64, error) {
-	if other, ok := g.(*box); ok {
+	switch other := g.(type) {
+	case *Mesh:
+		return other.DistanceFrom(s)
+	case *box:
 		return sphereVsBoxDistance(s, other), nil
-	}
-	if other, ok := g.(*sphere); ok {
+	case *sphere:
 		return sphereVsSphereDistance(s, other), nil
-	}
-	if other, ok := g.(*capsule); ok {
+	case *capsule:
 		return capsuleVsSphereDistance(other, s), nil
-	}
-	if other, ok := g.(*point); ok {
+	case *point:
 		return sphereVsPointDistance(s, other.position), nil
+	default:
+		return math.Inf(-1), newCollisionTypeUnsupportedError(s, g)
 	}
-	return math.Inf(-1), newCollisionTypeUnsupportedError(s, g)
 }
 
 func (s *sphere) EncompassedBy(g Geometry) (bool, error) {
-	if other, ok := g.(*sphere); ok {
+	switch other := g.(type) {
+	case *Mesh:
+		return false, nil // Like points, meshes have no volume and cannot encompass
+	case *sphere:
 		return sphereInSphere(s, other), nil
-	}
-	if other, ok := g.(*capsule); ok {
+	case *capsule:
 		return sphereInCapsule(s, other), nil
-	}
-	if other, ok := g.(*box); ok {
+	case *box:
 		return sphereInBox(s, other), nil
-	}
-	if _, ok := g.(*point); ok {
+	case *point:
 		return false, nil
+	default:
+		return true, newCollisionTypeUnsupportedError(s, g)
 	}
-	return true, newCollisionTypeUnsupportedError(s, g)
 }
 
 // sphereVsPointDistance takes a sphere and a point as arguments and returns a floating point number.  If this number is nonpositive it
