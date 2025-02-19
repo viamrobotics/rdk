@@ -13,6 +13,8 @@ LOGGER = getLogger(__name__)
 
 class {{ .ModelPascal  }}({{ .ResourceSubtypePascal }}, EasyResource):
     MODEL: ClassVar[Model] = "{{ .ModelTriple }}"
+    # To enable debug-level logging, either run viam-server with the --debug option,
+    # or configure your resource/machine to display debug logs.
     logger = logging.getLogger(__name__)
 
     @classmethod

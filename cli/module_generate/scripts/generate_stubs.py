@@ -196,6 +196,8 @@ LOGGER = getLogger(__name__)
 
 class {3}({4}, EasyResource):
     MODEL: ClassVar[Model] = Model(ModelFamily("{5}", "{6}"), "{7}")
+    # To enable debug-level logging, either run viam-server with the --debug option,
+    # or configure your resource/machine to display debug logs.
     logger = logging.getLogger(__name__)
 
     @classmethod
