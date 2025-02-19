@@ -507,11 +507,18 @@ func (server *Server) AddNewStreams(ctx context.Context) error {
 			server.logger.Warn("video streaming not supported on Windows yet")
 			break
 		}
+		// Attempt to look up the framerate for the camera. If the framerate is not available, we'll
+		// end up with a framerate of 0. This is fine as gostream will default to 30fps in this case.
+		framerate, err := server.getFramerateFromCamera(name)
+		if err != nil {
+			server.logger.Debugf("error getting framerate from camera %q: %v", name, err)
+		}
 		// We walk the updated set of `videoSources` and ensure all of the sources are "created" and
 		// "started".
 		config := gostream.StreamConfig{
 			Name:                name,
 			VideoEncoderFactory: server.streamConfig.VideoEncoderFactory,
+			TargetFrameRate:     framerate,
 		}
 		// Call `createStream`. `createStream` is responsible for first checking if the stream
 		// already exists. If it does, it skips creating a new stream and we continue to the next source.
@@ -756,6 +763,18 @@ func (server *Server) startAudioStream(ctx context.Context, source gostream.Audi
 		streamAudioCtx, _ := utils.MergeContext(server.closedCtx, ctx)
 		return streamAudioSource(streamAudioCtx, source, stream, opts, server.logger)
 	})
+}
+
+func (server *Server) getFramerateFromCamera(name string) (int, error) {
+	cam, err := camera.FromRobot(server.robot, name)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get camera from robot: %w", err)
+	}
+	props, err := cam.Properties(context.Background())
+	if err != nil {
+		return 0, fmt.Errorf("failed to get camera properties: %w", err)
+	}
+	return int(props.FrameRate), nil
 }
 
 // GenerateResolutions takes the original width and height of an image and returns
