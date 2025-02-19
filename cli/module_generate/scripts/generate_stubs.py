@@ -44,11 +44,18 @@ def replace_async_func(
             nodes,
             parent)
     func.body = [
+        ast.Expr(ast.Call(
+            func=ast.Attribute(
+                value=ast.Attribute(
+                    ast.Name(id="self"),
+                    attr="logger"),
+                attr="error",
+            ),
+            args=[ast.Constant(value=f"`{func.name}` is not implemented")]
+        )),
         ast.Raise(
             exc=ast.Call(func=ast.Name(id='NotImplementedError',
-                                       ctx=ast.Load()),
-                         args=[],
-                         keywords=[]),
+                                       ctx=ast.Load())),
             cause=None)
     ]
     func.decorator_list = []
@@ -178,6 +185,7 @@ def main(
         [word.capitalize() for word in slugify(model_name).split("-")]
     )
     resource_file = '''
+import logging
 from typing import ClassVar, Mapping, Sequence
 from typing_extensions import Self
 from viam.proto.app.robot import ComponentConfig
@@ -191,6 +199,9 @@ from viam.{1}s.{2} import *
 
 class {3}({4}, EasyResource):
     MODEL: ClassVar[Model] = Model(ModelFamily("{5}", "{6}"), "{7}")
+    # To enable debug-level logging, either run viam-server with the --debug option,
+    # or configure your resource/machine to display debug logs.
+    logger = logging.getLogger(__name__)
 
     @classmethod
     def new(cls, config: ComponentConfig, dependencies: Mapping[ResourceName, ResourceBase]) -> Self:
