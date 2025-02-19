@@ -148,52 +148,50 @@ func (c *capsule) ToProtobuf() *commonpb.Geometry {
 
 // CollidesWith checks if the given capsule collides with the given geometry and returns true if it does.
 func (c *capsule) CollidesWith(g Geometry, collisionBufferMM float64) (bool, error) {
-	if other, ok := g.(*box); ok {
+	switch other := g.(type) {
+	case *box:
 		return capsuleVsBoxCollision(c, other, collisionBufferMM), nil
+	default:
+		dist, err := c.DistanceFrom(g)
+		if err != nil {
+			return true, err
+		}
+		return dist <= collisionBufferMM, nil
 	}
-	dist, err := c.DistanceFrom(g)
-	if err != nil {
-		return true, err
-	}
-	return dist <= collisionBufferMM, nil
 }
 
 func (c *capsule) DistanceFrom(g Geometry) (float64, error) {
-	if other, ok := g.(*Mesh); ok {
+	switch other := g.(type) {
+	case *Mesh:
 		return other.DistanceFrom(c)
-	}
-	if other, ok := g.(*box); ok {
+	case *box:
 		return capsuleVsBoxDistance(c, other), nil
-	}
-	if other, ok := g.(*capsule); ok {
+	case *capsule:
 		return capsuleVsCapsuleDistance(c, other), nil
-	}
-	if other, ok := g.(*point); ok {
+	case *point:
 		return capsuleVsPointDistance(c, other.position), nil
-	}
-	if other, ok := g.(*sphere); ok {
+	case *sphere:
 		return capsuleVsSphereDistance(c, other), nil
+	default:
+		return math.Inf(-1), newCollisionTypeUnsupportedError(c, g)
 	}
-	return math.Inf(-1), newCollisionTypeUnsupportedError(c, g)
 }
 
 func (c *capsule) EncompassedBy(g Geometry) (bool, error) {
-	if _, ok := g.(*Mesh); ok {
+	switch other := g.(type) {
+	case *Mesh:
 		return false, nil // Like points, meshes have no volume and cannot encompass
-	}
-	if other, ok := g.(*capsule); ok {
+	case *capsule:
 		return capsuleInCapsule(c, other), nil
-	}
-	if other, ok := g.(*box); ok {
+	case *box:
 		return capsuleInBox(c, other), nil
-	}
-	if other, ok := g.(*sphere); ok {
+	case *sphere:
 		return capsuleInSphere(c, other), nil
-	}
-	if _, ok := g.(*point); ok {
+	case *point:
 		return false, nil
+	default:
+		return true, newCollisionTypeUnsupportedError(c, g)
 	}
-	return true, newCollisionTypeUnsupportedError(c, g)
 }
 
 // ToPoints converts a capsule geometry into []r3.Vector. This method takes one argument which determines

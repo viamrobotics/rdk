@@ -51,31 +51,32 @@ func (m *Mesh) Transform(pose Pose) Geometry {
 
 // CollidesWith checks if the given mesh collides with the given geometry and returns true if it does.
 func (m *Mesh) CollidesWith(g Geometry, collisionBufferMM float64) (bool, error) {
-	if other, ok := g.(*box); ok {
+	switch other := g.(type) {
+	case *box:
 		// Convert box to mesh and check triangle collisions
 		return m.collidesWithMesh(other.toMesh(), collisionBufferMM), nil
-	}
-	if other, ok := g.(*capsule); ok {
+	case *capsule:
 		// Use existing capsule vs mesh distance check
 		// TODO: This is inefficient! Replace with a function with a short-circuit.
 		dist := capsuleVsMeshDistance(other, m)
 		return dist <= collisionBufferMM, nil
-	}
-	if other, ok := g.(*point); ok {
+	case *point:
 		return m.collidesWithSphere(other.position, 0, collisionBufferMM), nil
-	}
-	if other, ok := g.(*sphere); ok {
+	case *sphere:
 		return m.collidesWithSphere(other.pose.Point(), other.radius, collisionBufferMM), nil
-	}
-	if other, ok := g.(*Mesh); ok {
+	case *Mesh:
 		return m.collidesWithMesh(other, collisionBufferMM), nil
+	default:
+		return true, newCollisionTypeUnsupportedError(m, g)
 	}
-	return true, newCollisionTypeUnsupportedError(m, g)
 }
 
 // EncompassedBy returns whether this mesh is completely contained within another geometry.
 func (m *Mesh) EncompassedBy(g Geometry) (bool, error) {
 	if _, ok := g.(*point); ok {
+		return false, nil
+	}
+	if _, ok := g.(*Mesh); ok {
 		return false, nil
 	}
 	// For all other geometry types, check if all vertices of all triangles are inside
@@ -98,28 +99,26 @@ func (m *Mesh) EncompassedBy(g Geometry) (bool, error) {
 
 // DistanceFrom returns the minimum distance between this mesh and another geometry.
 func (m *Mesh) DistanceFrom(g Geometry) (float64, error) {
-	if other, ok := g.(*box); ok {
+	switch other := g.(type) {
+	case *box:
 		return m.distanceFromMesh(other.toMesh()), nil
-	}
-	if other, ok := g.(*capsule); ok {
+	case *capsule:
 		return capsuleVsMeshDistance(other, m), nil
-	}
-	if other, ok := g.(*point); ok {
+	case *point:
 		return m.distanceFromSphere(other.position, 0), nil
-	}
-	if other, ok := g.(*sphere); ok {
+	case *sphere:
 		return m.distanceFromSphere(other.pose.Point(), other.radius), nil
-	}
-	if other, ok := g.(*Mesh); ok {
+	case *Mesh:
 		return m.distanceFromMesh(other), nil
+	default:
+		return math.Inf(-1), newCollisionTypeUnsupportedError(m, g)
 	}
-	return math.Inf(-1), newCollisionTypeUnsupportedError(m, g)
 }
 
 func (m *Mesh) distanceFromSphere(pt r3.Vector, radius float64) float64 {
 	minDist := math.Inf(1)
 	for _, tri := range m.triangles {
-		closestPt, _ := ClosestTriangleInsidePoint(tri, pt)
+		closestPt := ClosestPointTrianglePoint(tri, pt)
 		dist := closestPt.Sub(pt).Norm() - radius
 		if dist < minDist {
 			minDist = dist
@@ -130,8 +129,8 @@ func (m *Mesh) distanceFromSphere(pt r3.Vector, radius float64) float64 {
 
 func (m *Mesh) collidesWithSphere(pt r3.Vector, radius, buffer float64) bool {
 	for _, tri := range m.triangles {
-		closestPt, inside := ClosestTriangleInsidePoint(tri, pt)
-		if inside && closestPt.Sub(pt).Norm() <= radius+buffer {
+		closestPt := ClosestPointTrianglePoint(tri, pt)
+		if closestPt.Sub(pt).Norm() <= radius+buffer {
 			return true
 		}
 	}
@@ -141,18 +140,26 @@ func (m *Mesh) collidesWithSphere(pt r3.Vector, radius, buffer float64) bool {
 // collidesWithMesh checks if this mesh collides with another mesh
 // TODO: This function is *begging* for GPU acceleration.
 func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) bool {
-	// Check if any triangles from either mesh collide
+	// Check if any triangles from either mesh collide.
+	// If two triangles intersect, then the segment between two vertices of one triangle intersects the other triangle.
 	for _, tri1 := range m.triangles {
 		for _, tri2 := range other.triangles {
-			for _, pt := range tri1.Points() {
-				closestPt, inside := ClosestTriangleInsidePoint(tri2, pt)
-				if inside && closestPt.Sub(pt).Norm() <= collisionBufferMM {
+			p1 := tri1.Points()
+			for i := 0; i < 3; i++ {
+				// This is sufficiently perf sensitive that it is better to avoid an extra function call here
+				start := p1[i]
+				end := p1[(i+1)%3]
+				bestSegPt, bestTriPt := closestPointsSegmentTriangle(start, end, tri1)
+				if bestSegPt.Sub(bestTriPt).Norm() <= collisionBufferMM {
 					return true
 				}
 			}
-			for _, pt := range tri2.Points() {
-				closestPt, inside := ClosestTriangleInsidePoint(tri1, pt)
-				if inside && closestPt.Sub(pt).Norm() <= collisionBufferMM {
+			p2 := tri2.Points()
+			for i := 0; i < 3; i++ {
+				start := p2[i]
+				end := p2[(i+1)%3]
+				bestSegPt, bestTriPt := closestPointsSegmentTriangle(start, end, tri1)
+				if bestSegPt.Sub(bestTriPt).Norm() <= collisionBufferMM {
 					return true
 				}
 			}
@@ -166,16 +173,23 @@ func (m *Mesh) distanceFromMesh(other *Mesh) float64 {
 	minDist := math.Inf(1)
 	for _, tri1 := range m.triangles {
 		for _, tri2 := range other.triangles {
-			for _, pt := range tri1.Points() {
-				closestPt, _ := ClosestTriangleInsidePoint(tri2, pt)
-				dist := closestPt.Sub(pt).Norm()
+			p1 := tri1.Points()
+			for i := 0; i < 3; i++ {
+				// This is sufficiently perf sensitive that it is better to avoid an extra function call here
+				start := p1[i]
+				end := p1[(i+1)%3]
+				bestSegPt, bestTriPt := closestPointsSegmentTriangle(start, end, tri1)
+				dist := bestSegPt.Sub(bestTriPt).Norm()
 				if dist < minDist {
 					minDist = dist
 				}
 			}
-			for _, pt := range tri2.Points() {
-				closestPt, _ := ClosestTriangleInsidePoint(tri1, pt)
-				dist := closestPt.Sub(pt).Norm()
+			p2 := tri2.Points()
+			for i := 0; i < 3; i++ {
+				start := p2[i]
+				end := p2[(i+1)%3]
+				bestSegPt, bestTriPt := closestPointsSegmentTriangle(start, end, tri1)
+				dist := bestSegPt.Sub(bestTriPt).Norm()
 				if dist < minDist {
 					minDist = dist
 				}
