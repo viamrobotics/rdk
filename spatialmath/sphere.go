@@ -91,6 +91,9 @@ func (s *sphere) ToProtobuf() *commonpb.Geometry {
 
 // CollidesWith checks if the given sphere collides with the given geometry and returns true if it does.
 func (s *sphere) CollidesWith(g Geometry, collisionBufferMM float64) (bool, error) {
+	if other, ok := g.(*Mesh); ok {
+		return other.CollidesWith(s, collisionBufferMM)
+	}
 	if other, ok := g.(*sphere); ok {
 		return sphereVsSphereDistance(s, other) <= collisionBufferMM, nil
 	}
@@ -107,6 +110,9 @@ func (s *sphere) CollidesWith(g Geometry, collisionBufferMM float64) (bool, erro
 }
 
 func (s *sphere) DistanceFrom(g Geometry) (float64, error) {
+	if other, ok := g.(*Mesh); ok {
+		return other.DistanceFrom(s)
+	}
 	if other, ok := g.(*box); ok {
 		return sphereVsBoxDistance(s, other), nil
 	}
@@ -123,6 +129,9 @@ func (s *sphere) DistanceFrom(g Geometry) (float64, error) {
 }
 
 func (s *sphere) EncompassedBy(g Geometry) (bool, error) {
+	if _, ok := g.(*Mesh); ok {
+		return false, nil // Like points, meshes have no volume and cannot encompass
+	}
 	if other, ok := g.(*sphere); ok {
 		return sphereInSphere(s, other), nil
 	}

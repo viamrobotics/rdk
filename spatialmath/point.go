@@ -78,6 +78,9 @@ func (pt *point) ToProtobuf() *commonpb.Geometry {
 
 // CollidesWith checks if the given point collides with the given geometry and returns true if it does.
 func (pt *point) CollidesWith(g Geometry, collisionBufferMM float64) (bool, error) {
+	if other, ok := g.(*Mesh); ok {
+		return other.CollidesWith(pt, collisionBufferMM)
+	}
 	if other, ok := g.(*box); ok {
 		return pointVsBoxCollision(pt.position, other, collisionBufferMM), nil
 	}
@@ -95,6 +98,9 @@ func (pt *point) CollidesWith(g Geometry, collisionBufferMM float64) (bool, erro
 
 // CollidesWith checks if the given point collides with the given geometry and returns true if it does.
 func (pt *point) DistanceFrom(g Geometry) (float64, error) {
+	if other, ok := g.(*Mesh); ok {
+		return other.DistanceFrom(pt)
+	}
 	if other, ok := g.(*box); ok {
 		return pointVsBoxDistance(pt.position, other), nil
 	}

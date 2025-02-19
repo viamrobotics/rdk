@@ -159,6 +159,9 @@ func (c *capsule) CollidesWith(g Geometry, collisionBufferMM float64) (bool, err
 }
 
 func (c *capsule) DistanceFrom(g Geometry) (float64, error) {
+	if other, ok := g.(*Mesh); ok {
+		return other.DistanceFrom(c)
+	}
 	if other, ok := g.(*box); ok {
 		return capsuleVsBoxDistance(c, other), nil
 	}
@@ -175,6 +178,9 @@ func (c *capsule) DistanceFrom(g Geometry) (float64, error) {
 }
 
 func (c *capsule) EncompassedBy(g Geometry) (bool, error) {
+	if _, ok := g.(*Mesh); ok {
+		return false, nil // Like points, meshes have no volume and cannot encompass
+	}
 	if other, ok := g.(*capsule); ok {
 		return capsuleInCapsule(c, other), nil
 	}
