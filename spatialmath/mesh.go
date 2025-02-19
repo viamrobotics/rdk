@@ -53,6 +53,11 @@ func (m *Mesh) Transform(pose Pose) Geometry {
 func (m *Mesh) CollidesWith(g Geometry, collisionBufferMM float64) (bool, error) {
 	switch other := g.(type) {
 	case *box:
+		// Mesh-ifying the box misses the case where the box encompasses a mesh triangle without its surface intersecting a triangle.
+		encompassed := m.boxIntersectsVertex(other)
+		if encompassed {
+			return true, nil
+		}
 		// Convert box to mesh and check triangle collisions
 		return m.collidesWithMesh(other.toMesh(), collisionBufferMM), nil
 	case *capsule:
@@ -80,12 +85,7 @@ func (m *Mesh) EncompassedBy(g Geometry) (bool, error) {
 		return false, nil
 	}
 	// For all other geometry types, check if all vertices of all triangles are inside
-	var points []r3.Vector
-	for _, tri := range m.triangles {
-		points = append(points, tri.Points()...)
-	}
-
-	for _, pt := range points {
+	for _, pt := range m.ToPoints(1) {
 		collides, err := NewPoint(pt, "").CollidesWith(g, defaultCollisionBufferMM)
 		if err != nil {
 			return false, err
@@ -101,6 +101,11 @@ func (m *Mesh) EncompassedBy(g Geometry) (bool, error) {
 func (m *Mesh) DistanceFrom(g Geometry) (float64, error) {
 	switch other := g.(type) {
 	case *box:
+		// Mesh-ifying the box misses the case where the box encompasses a mesh triangle without its surface intersecting a triangle.
+		encompassed := m.boxIntersectsVertex(other)
+		if encompassed {
+			return 0, nil
+		}
 		return m.distanceFromMesh(other.toMesh()), nil
 	case *capsule:
 		return capsuleVsMeshDistance(other, m), nil
@@ -115,10 +120,26 @@ func (m *Mesh) DistanceFrom(g Geometry) (float64, error) {
 	}
 }
 
+// Returns true if any triangle vertex of the mesh intersects the box.
+func (m *Mesh) boxIntersectsVertex(b *box) bool {
+	for _, p := range m.ToPoints(1) {
+		if pointVsBoxCollision(p, b, defaultCollisionBufferMM) {
+			return true
+		}
+	}
+	return false
+}
+
 func (m *Mesh) distanceFromSphere(pt r3.Vector, radius float64) float64 {
 	minDist := math.Inf(1)
+
 	for _, tri := range m.triangles {
-		closestPt := ClosestPointTrianglePoint(tri, pt)
+		worldTri := NewTriangle(
+			Compose(m.pose, NewPoseFromPoint(tri.p0)).Point(),
+			Compose(m.pose, NewPoseFromPoint(tri.p1)).Point(),
+			Compose(m.pose, NewPoseFromPoint(tri.p2)).Point(),
+		)
+		closestPt := ClosestPointTrianglePoint(worldTri, pt)
 		dist := closestPt.Sub(pt).Norm() - radius
 		if dist < minDist {
 			minDist = dist
@@ -128,8 +149,14 @@ func (m *Mesh) distanceFromSphere(pt r3.Vector, radius float64) float64 {
 }
 
 func (m *Mesh) collidesWithSphere(pt r3.Vector, radius, buffer float64) bool {
+	// Transform all triangles to world space once
 	for _, tri := range m.triangles {
-		closestPt := ClosestPointTrianglePoint(tri, pt)
+		worldTri := NewTriangle(
+			Compose(m.pose, NewPoseFromPoint(tri.p0)).Point(),
+			Compose(m.pose, NewPoseFromPoint(tri.p1)).Point(),
+			Compose(m.pose, NewPoseFromPoint(tri.p2)).Point(),
+		)
+		closestPt := ClosestPointTrianglePoint(worldTri, pt)
 		if closestPt.Sub(pt).Norm() <= radius+buffer {
 			return true
 		}
@@ -140,25 +167,48 @@ func (m *Mesh) collidesWithSphere(pt r3.Vector, radius, buffer float64) bool {
 // collidesWithMesh checks if this mesh collides with another mesh
 // TODO: This function is *begging* for GPU acceleration.
 func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) bool {
+	// Transform all triangles to world space once
+	worldTris1 := make([]*Triangle, len(m.triangles))
+	for i, tri := range m.triangles {
+		worldTris1[i] = NewTriangle(
+			Compose(m.pose, NewPoseFromPoint(tri.p0)).Point(),
+			Compose(m.pose, NewPoseFromPoint(tri.p1)).Point(),
+			Compose(m.pose, NewPoseFromPoint(tri.p2)).Point(),
+		)
+	}
+
+	worldTris2 := make([]*Triangle, len(other.triangles))
+	for i, tri := range other.triangles {
+		worldTris2[i] = NewTriangle(
+			Compose(other.pose, NewPoseFromPoint(tri.p0)).Point(),
+			Compose(other.pose, NewPoseFromPoint(tri.p1)).Point(),
+			Compose(other.pose, NewPoseFromPoint(tri.p2)).Point(),
+		)
+	}
+
 	// Check if any triangles from either mesh collide.
 	// If two triangles intersect, then the segment between two vertices of one triangle intersects the other triangle.
-	for _, tri1 := range m.triangles {
-		for _, tri2 := range other.triangles {
-			p1 := tri1.Points()
+	for _, worldTri1 := range worldTris1 {
+		p1 := worldTri1.Points()
+
+		for _, worldTri2 := range worldTris2 {
+			p2 := worldTri2.Points()
+
+			// Check segments from tri1 against tri2
 			for i := 0; i < 3; i++ {
-				// This is sufficiently perf sensitive that it is better to avoid an extra function call here
 				start := p1[i]
 				end := p1[(i+1)%3]
-				bestSegPt, bestTriPt := closestPointsSegmentTriangle(start, end, tri1)
+				bestSegPt, bestTriPt := closestPointsSegmentTriangle(start, end, worldTri2)
 				if bestSegPt.Sub(bestTriPt).Norm() <= collisionBufferMM {
 					return true
 				}
 			}
-			p2 := tri2.Points()
+
+			// Check segments from tri2 against tri1
 			for i := 0; i < 3; i++ {
 				start := p2[i]
 				end := p2[(i+1)%3]
-				bestSegPt, bestTriPt := closestPointsSegmentTriangle(start, end, tri1)
+				bestSegPt, bestTriPt := closestPointsSegmentTriangle(start, end, worldTri1)
 				if bestSegPt.Sub(bestTriPt).Norm() <= collisionBufferMM {
 					return true
 				}
@@ -170,25 +220,48 @@ func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) bool {
 
 // distanceFromMesh returns the minimum distance between this mesh and another mesh.
 func (m *Mesh) distanceFromMesh(other *Mesh) float64 {
+	// Transform all triangles to world space once
+	worldTris1 := make([]*Triangle, len(m.triangles))
+	for i, tri := range m.triangles {
+		worldTris1[i] = NewTriangle(
+			Compose(m.pose, NewPoseFromPoint(tri.p0)).Point(),
+			Compose(m.pose, NewPoseFromPoint(tri.p1)).Point(),
+			Compose(m.pose, NewPoseFromPoint(tri.p2)).Point(),
+		)
+	}
+
+	worldTris2 := make([]*Triangle, len(other.triangles))
+	for i, tri := range other.triangles {
+		worldTris2[i] = NewTriangle(
+			Compose(other.pose, NewPoseFromPoint(tri.p0)).Point(),
+			Compose(other.pose, NewPoseFromPoint(tri.p1)).Point(),
+			Compose(other.pose, NewPoseFromPoint(tri.p2)).Point(),
+		)
+	}
+
 	minDist := math.Inf(1)
-	for _, tri1 := range m.triangles {
-		for _, tri2 := range other.triangles {
-			p1 := tri1.Points()
+	for _, worldTri1 := range worldTris1 {
+		p1 := worldTri1.Points()
+
+		for _, worldTri2 := range worldTris2 {
+			p2 := worldTri2.Points()
+
+			// Check segments from tri1 against tri2
 			for i := 0; i < 3; i++ {
-				// This is sufficiently perf sensitive that it is better to avoid an extra function call here
 				start := p1[i]
 				end := p1[(i+1)%3]
-				bestSegPt, bestTriPt := closestPointsSegmentTriangle(start, end, tri1)
+				bestSegPt, bestTriPt := closestPointsSegmentTriangle(start, end, worldTri2)
 				dist := bestSegPt.Sub(bestTriPt).Norm()
 				if dist < minDist {
 					minDist = dist
 				}
 			}
-			p2 := tri2.Points()
+
+			// Check segments from tri2 against tri1
 			for i := 0; i < 3; i++ {
 				start := p2[i]
 				end := p2[(i+1)%3]
-				bestSegPt, bestTriPt := closestPointsSegmentTriangle(start, end, tri1)
+				bestSegPt, bestTriPt := closestPointsSegmentTriangle(start, end, worldTri1)
 				dist := bestSegPt.Sub(bestTriPt).Norm()
 				if dist < minDist {
 					minDist = dist
@@ -217,8 +290,10 @@ func (m *Mesh) ToPoints(density float64) []r3.Vector {
 	// Add all triangle vertices, formatting as a string for map deduplication
 	for _, tri := range m.triangles {
 		for _, pt := range tri.Points() {
-			key := fmt.Sprintf("%.10f,%.10f,%.10f", pt.X, pt.Y, pt.Z)
-			pointMap[key] = pt
+			// Transform point to world space
+			worldPt := Compose(m.pose, NewPoseFromPoint(pt)).Point()
+			key := fmt.Sprintf("%.10f,%.10f,%.10f", worldPt.X, worldPt.Y, worldPt.Z)
+			pointMap[key] = worldPt
 		}
 	}
 
