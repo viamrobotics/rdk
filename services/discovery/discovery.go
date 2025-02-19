@@ -58,9 +58,10 @@ func FromDependencies(deps resource.Dependencies, name string) (Service, error) 
 // 	if err != nil {
 // 		logger.Fatal(err)
 // 	}
+//  // Print out the discovered resources.
 // 	for _, cfg := range cfgs {
-// 		logger.Infof("Name: %v\tModel: %v\tAPI: %v", cfg.Name, cfg.Model, cfg.API)
-// 		logger.Infof("Attributes: ", cfg.Attributes)
+// 		fmt.Printf("Name: %v\tModel: %v\tAPI: %v", cfg.Name, cfg.Model, cfg.API)
+// 		fmt.Printf("Attributes: ", cfg.Attributes)
 // 	}
 //
 // For more information, see the [discover resources method docs].
