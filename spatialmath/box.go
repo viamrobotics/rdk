@@ -202,33 +202,23 @@ func (b *box) EncompassedBy(g Geometry) (bool, error) {
 	return false, newCollisionTypeUnsupportedError(b, g)
 }
 
+// closestPoint returns the closest point on the specified box to the specified point
+// Reference: https://github.com/gszauer/GamePhysicsCookbook/blob/a0b8ee0c39fed6d4b90bb6d2195004dfcf5a1115/Code/Geometry3D.cpp#L165
 func (b *box) closestPoint(pt r3.Vector) r3.Vector {
-	// result := b.pose.Point()
-	// direction := pt.Sub(result)
-	// rm := b.pose.Orientation().RotationMatrix()
-	// for i := 0; i < 3; i++ {
-	// 	axis := rm.Row(i)
-	// 	distance := direction.Dot(axis)
-	// 	if distance > b.halfSize[i] {
-	// 		distance = b.halfSize[i]
-	// 	} else if distance < -b.halfSize[i] {
-	// 		distance = -b.halfSize[i]
-	// 	}
-	// 	result = result.Add(axis.Mul(distance))
-	// }
-	// return result
-	// First transform the point into the box's local coordinate system
-	localPt := Compose(PoseInverse(b.pose), NewPoseFromPoint(pt)).Point()
-
-	// Clamp in local coordinates (where box is axis-aligned at origin)
-	clamped := r3.Vector{
-		X: math.Max(-b.halfSize[0], math.Min(b.halfSize[0], localPt.X)),
-		Y: math.Max(-b.halfSize[1], math.Min(b.halfSize[1], localPt.Y)),
-		Z: math.Max(-b.halfSize[2], math.Min(b.halfSize[2], localPt.Z)),
+	result := b.pose.Point()
+	direction := pt.Sub(result)
+	rm := b.pose.Orientation().RotationMatrix()
+	for i := 0; i < 3; i++ {
+		axis := rm.Row(i)
+		distance := direction.Dot(axis)
+		if distance > b.halfSize[i] {
+			distance = b.halfSize[i]
+		} else if distance < -b.halfSize[i] {
+			distance = -b.halfSize[i]
+		}
+		result = result.Add(axis.Mul(distance))
 	}
-
-	// Transform back to world coordinates
-	return Compose(b.pose, NewPoseFromPoint(clamped)).Point()
+	return result
 }
 
 // penetrationDepth returns the minimum distance needed to move a pt inside the box to the edge of the box.
