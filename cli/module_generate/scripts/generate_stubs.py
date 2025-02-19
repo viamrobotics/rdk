@@ -44,11 +44,18 @@ def replace_async_func(
             nodes,
             parent)
     func.body = [
+        ast.Expr(ast.Call(
+            func=ast.Attribute(
+                value=ast.Attribute(
+                    ast.Name(id="self"),
+                    attr="logger"),
+                attr="error",
+            ),
+            args=[ast.Constant(value=f"`{func.name}` is not implemented")]
+        )),
         ast.Raise(
             exc=ast.Call(func=ast.Name(id='NotImplementedError',
-                                       ctx=ast.Load()),
-                         args=[],
-                         keywords=[]),
+                                       ctx=ast.Load())),
             cause=None)
     ]
     func.decorator_list = []
