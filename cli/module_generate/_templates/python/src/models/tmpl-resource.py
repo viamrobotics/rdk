@@ -1,3 +1,4 @@
+import logging
 from typing import ClassVar, Mapping, Sequence, Self
 from viam.logging import getLogger
 from viam.proto.app.robot import ComponentConfig
@@ -12,6 +13,7 @@ LOGGER = getLogger(__name__)
 
 class {{ .ModelPascal  }}({{ .ResourceSubtypePascal }}, EasyResource):
     MODEL: ClassVar[Model] = "{{ .ModelTriple }}"
+    logger = logging.getLogger(__name__)
 
     @classmethod
     def new(cls, config: ComponentConfig, dependencies: Mapping[ResourceName, ResourceBase]) -> Self:

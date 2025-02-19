@@ -178,6 +178,7 @@ def main(
         [word.capitalize() for word in slugify(model_name).split("-")]
     )
     resource_file = '''
+import logging
 from typing import ClassVar, Mapping, Sequence
 from typing_extensions import Self
 from viam.logging import getLogger
@@ -192,8 +193,10 @@ from viam.{1}s.{2} import *
 LOGGER = getLogger(__name__)
 
 
+
 class {3}({4}, EasyResource):
     MODEL: ClassVar[Model] = Model(ModelFamily("{5}", "{6}"), "{7}")
+    logger = logging.getLogger(__name__)
 
     @classmethod
     def new(cls, config: ComponentConfig, dependencies: Mapping[ResourceName, ResourceBase]) -> Self:
