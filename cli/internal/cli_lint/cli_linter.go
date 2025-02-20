@@ -1,3 +1,4 @@
+// Package main is the CLI-specific linter itself.
 package main
 
 import (
@@ -21,7 +22,6 @@ func enforceCreateCommandWithTRun(pass *analysis.Pass) (interface{}, error) {
 	for _, pkg := range pass.Pkg.Imports() {
 		// we want to differentiate the upstream `cli` package and our own `cli` package
 		if pkg.Name() == "cli" && !strings.Contains(pkg.Path(), "viam") {
-
 			commandType = pkg.Scope().Lookup("Command").Type()
 			commandType = types.NewPointer(commandType) // actual `Commands` in the app are pointers
 		}
