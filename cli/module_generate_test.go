@@ -35,6 +35,7 @@ func TestGenerateModuleAction(t *testing.T) {
 		API:                   "rdk:component:arm",
 		ResourceSubtypePascal: "Arm",
 		ModelPascal:           "MyModel",
+		ModelSnake:            "my-model",
 		ModelTriple:           "my-org:my-module:my-model",
 		ModelReadmeLink:       "model-readme-link",
 
@@ -134,6 +135,7 @@ func TestGenerateModuleAction(t *testing.T) {
 		err = generateStubs(cCtx, testModule, globalArgs)
 		test.That(t, err, test.ShouldBeNil)
 	})
+
 	t.Run("test generate go stubs", func(t *testing.T) {
 		testModule.Language = "go"
 		testModule.SDKVersion = "0.44.0"
