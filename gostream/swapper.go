@@ -67,15 +67,16 @@ func (swapper *hotSwappableMediaSource[T, U]) Stream(
 		swapper.mu.RUnlock()
 		return nil, errSwapperClosed
 	}
-	// We dont want to hold the read lock during initialization to avoid deadlocks
-	// with the swapper's lock.
-	swapper.mu.RUnlock()
 
 	stream := &hotSwappableMediaSourceStream[T, U]{
 		parent:      swapper,
 		errHandlers: errHandlers,
 		cancelCtx:   swapper.cancelCtx,
 	}
+
+	// Release the read lock before initialization to avoid deadlocks
+	swapper.mu.RUnlock()
+
 	stream.mu.Lock()
 	defer stream.mu.Unlock()
 	if err := stream.init(ctx); err != nil {
