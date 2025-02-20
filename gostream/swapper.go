@@ -4,6 +4,7 @@ import (
 	"context"
 	"image"
 	"sync"
+	"time"
 
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
@@ -61,11 +62,14 @@ func (swapper *hotSwappableMediaSource[T, U]) Stream(
 	errHandlers ...ErrorHandler,
 ) (MediaStream[T], error) {
 	swapper.mu.RLock()
-	defer swapper.mu.RUnlock()
 
 	if swapper.src == nil {
+		swapper.mu.RUnlock()
 		return nil, errSwapperClosed
 	}
+	// We dont want to hold the read lock during initialization to avoid deadlocks
+	// with the swapper's lock.
+	swapper.mu.RUnlock()
 
 	stream := &hotSwappableMediaSourceStream[T, U]{
 		parent:      swapper,
@@ -137,6 +141,8 @@ func (cs *hotSwappableMediaSourceStream[T, U]) init(ctx context.Context) error {
 		utils.UncheckedError(cs.stream.Close(ctx))
 		cs.stream = nil
 	}
+	// TODO(seanp): remove sleep before merging.
+	time.Sleep(time.Second)
 	cs.parent.mu.RLock()
 	defer cs.parent.mu.RUnlock()
 	cs.cancelCtx = cs.parent.cancelCtx
