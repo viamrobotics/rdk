@@ -9,7 +9,7 @@ import (
 	"golang.org/x/tools/go/analysis/singlechecker"
 )
 
-var EnforceCreateCommandWithT = &analysis.Analyzer{
+var enforceCreateCommandWithT = &analysis.Analyzer{
 	Name: "createcommandwitht",
 	Doc:  "Use CreateCommandWithT",
 	Run:  enforceCreateCommandWithTRun,
@@ -97,5 +97,5 @@ func enforceCreateCommandWithTRun(pass *analysis.Pass) (interface{}, error) {
 }
 
 func main() {
-	singlechecker.Main(EnforceCreateCommandWithT)
+	singlechecker.Main(enforceCreateCommandWithT)
 }
