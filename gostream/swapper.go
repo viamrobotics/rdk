@@ -74,7 +74,9 @@ func (swapper *hotSwappableMediaSource[T, U]) Stream(
 		cancelCtx:   swapper.cancelCtx,
 	}
 
-	// Release the read lock before initialization to avoid deadlocks
+	// Release the read lock before calling init to avoid potential deadlocks.
+	// This ensures that the Swap method can acquire the write lock if needed
+	// while the initialization process is ongoing.
 	swapper.mu.RUnlock()
 
 	stream.mu.Lock()
