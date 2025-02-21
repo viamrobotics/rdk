@@ -679,18 +679,6 @@ func (d *DataClient) RemoveTagsFromBinaryDataByFilter(ctx context.Context,
 	return int(resp.DeletedCount), nil
 }
 
-// TagsByFilter retrieves all unique tags associated with the data that match the specified filter.
-// It returns the list of these unique tags. If no filter is given, all data tags are returned.
-func (d *DataClient) TagsByFilter(ctx context.Context, filter *Filter) ([]string, error) {
-	resp, err := d.dataClient.TagsByFilter(ctx, &pb.TagsByFilterRequest{
-		Filter: filterToProto(filter),
-	})
-	if err != nil {
-		return nil, err
-	}
-	return resp.Tags, nil
-}
-
 // AddBoundingBoxToImageByID adds a bounding box to an image with the specified ID,
 // using the provided label and position in normalized coordinates.
 // All normalized coordinates (xMin, yMin, xMax, yMax) must be float values in the range [0, 1].
