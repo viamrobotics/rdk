@@ -138,7 +138,6 @@ func TestGenerateModuleAction(t *testing.T) {
 		testModule.Language = "go"
 		testModule.SDKVersion = "0.44.0"
 		setupDirectories(cCtx, testModule.ModuleName, globalArgs)
-		_ = os.Mkdir(filepath.Join(modulePath, "models"), 0o755)
 
 		err := generateGolangStubs(testModule)
 		test.That(t, err, test.ShouldBeNil)
