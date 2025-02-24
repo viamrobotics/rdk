@@ -54,7 +54,7 @@ def replace_async_func(
                 attr="error",
                 ctx=ast.Load()),
             args=[ast.Constant(value=f"`{func.name}` is not implemented")],
-        )),
+            keywords=[])),
         ast.Raise(
             exc=ast.Call(func=ast.Name(id='NotImplementedError',
                                        ctx=ast.Load()),
