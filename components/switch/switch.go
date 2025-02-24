@@ -36,7 +36,6 @@ type Switch interface {
 
 	// SetPosition sets the switch to the specified position.
 	// Position must be within the valid range for the switch type.
-	// This will block until done or a new operation cancels this one.
 	SetPosition(ctx context.Context, position uint32, extra map[string]interface{}) error
 
 	// GetPosition returns the current position of the switch.
