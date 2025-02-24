@@ -1,4 +1,3 @@
-import logging
 from typing import ClassVar, Mapping, Sequence, Self
 from viam.proto.app.robot import ComponentConfig
 from viam.proto.common import ResourceName
@@ -10,9 +9,6 @@ from viam.{{ .ResourceType }}s.{{ .ResourceSubtype }} import {{ .ResourceSubtype
 
 class {{ .ModelPascal  }}({{ .ResourceSubtypePascal }}, EasyResource):
     MODEL: ClassVar[Model] = "{{ .ModelTriple }}"
-    # To enable debug-level logging, either run viam-server with the --debug option,
-    # or configure your resource/machine to display debug logs.
-    logger = logging.getLogger(__name__)
 
     @classmethod
     def new(cls, config: ComponentConfig, dependencies: Mapping[ResourceName, ResourceBase]) -> Self:
