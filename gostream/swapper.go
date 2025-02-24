@@ -4,7 +4,6 @@ import (
 	"context"
 	"image"
 	"sync"
-	"time"
 
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
@@ -144,8 +143,6 @@ func (cs *hotSwappableMediaSourceStream[T, U]) init(ctx context.Context) error {
 		utils.UncheckedError(cs.stream.Close(ctx))
 		cs.stream = nil
 	}
-	// TODO(seanp): remove sleep before merging.
-	time.Sleep(time.Second)
 	cs.parent.mu.RLock()
 	defer cs.parent.mu.RUnlock()
 	cs.cancelCtx = cs.parent.cancelCtx
