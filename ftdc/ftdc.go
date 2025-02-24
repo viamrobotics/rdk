@@ -126,8 +126,8 @@ type FTDC struct {
 // `ftdcDirectory`.
 func New(ftdcDirectory string, logger logging.Logger) *FTDC {
 	ret := newFTDC(logger)
-	ret.maxFileSizeBytes = 1_000_000
-	ret.maxNumFiles = 10
+	ret.maxFileSizeBytes = 10_000_000
+	ret.maxNumFiles = 20
 	ret.ftdcDir = ftdcDirectory
 	return ret
 }
