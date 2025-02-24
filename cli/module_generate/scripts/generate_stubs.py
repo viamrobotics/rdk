@@ -253,8 +253,7 @@ class {3}({4}, EasyResource):
         '\n\n'.join([subclass for subclass in subclasses]),
         '\n\n'.join([f'{method}' for method in abstract_methods]),
     )
-    f_name = os.path.join(os.getcwd(), mod_name, "src", "models", "resource.py")
-    os.makedirs(os.path.dirname(f_name), exist_ok=True)
+    f_name = os.path.join(mod_name, "src", "models", "resource.py")
     with open(f_name, "w+") as f:
         f.write(resource_file)
         try:
