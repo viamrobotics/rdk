@@ -1,4 +1,4 @@
-package models
+package {{.ModuleName}}
 
 import (
     "go.viam.com/rdk/{{ .ResourceType }}s/{{ .ResourceSubtype}}"
