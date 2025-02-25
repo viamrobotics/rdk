@@ -80,6 +80,7 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 			if tte.ConnectionTimeout != 0 {
 				dialTimeout = tte.ConnectionTimeout
 			}
+			break
 		}
 	}
 	if !destAllowed {
