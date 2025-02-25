@@ -805,7 +805,8 @@ func trafficTunnelEndpointsToProto(ttes []TrafficTunnelEndpoint) []*pb.TrafficTu
 	var protoTTEs []*pb.TrafficTunnelEndpoint
 	for _, tte := range ttes {
 		protoTTEs = append(protoTTEs, &pb.TrafficTunnelEndpoint{
-			Port: int32(tte.Port), ConnectionTimeout: durationpb.New(tte.ConnectionTimeout)})
+			Port: int32(tte.Port), ConnectionTimeout: durationpb.New(tte.ConnectionTimeout),
+		})
 	}
 	return protoTTEs
 }
@@ -822,7 +823,8 @@ func trafficTunnelEndpointsFromProto(protoTTEs []*pb.TrafficTunnelEndpoint) []Tr
 		}
 
 		ttes = append(ttes, TrafficTunnelEndpoint{
-			Port: int(protoTTE.Port), ConnectionTimeout: protoTTE.ConnectionTimeout.AsDuration()})
+			Port: int(protoTTE.Port), ConnectionTimeout: protoTTE.ConnectionTimeout.AsDuration(),
+		})
 	}
 	return ttes
 }

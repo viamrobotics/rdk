@@ -42,11 +42,9 @@ const (
 	logTSKey = "log_ts"
 )
 
-var (
-	// Default timeout to use when dialing to a tunnel port when one is not specified in
-	// `traffic_tunnel_endpoints` through `connection_timeout`.
-	defaultTunnelConnectionTimeout = 10 * time.Second
-)
+// Default timeout to use when dialing to a tunnel port when one is not specified in
+// `traffic_tunnel_endpoints` through `connection_timeout`.
+var defaultTunnelConnectionTimeout = 10 * time.Second
 
 // Server implements the contract from robot.proto that ultimately satisfies
 // a robot.Robot as a gRPC server.
