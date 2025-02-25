@@ -747,12 +747,7 @@ func generateCloudBuild(c *cli.Context, module modulegen.ModuleInputs, globalArg
 	debugf(c.App.Writer, globalArgs.Debug, "Setting cloud build functionality to %s", module.EnableCloudBuild)
 	switch module.Language {
 	case python:
-		if module.EnableCloudBuild {
-			err := os.Remove(filepath.Join(module.ModuleName, "run.sh"))
-			if err != nil {
-				return err
-			}
-		} else {
+		if !module.EnableCloudBuild {
 			err := os.Remove(filepath.Join(module.ModuleName, "build.sh"))
 			if err != nil {
 				return err
