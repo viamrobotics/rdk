@@ -509,7 +509,7 @@ func (gpw *gnuplotWriter) CompileAndClose() string {
 	// Actually write out the `vert-<number>.txt` plots.
 	for idx, vertLineX := range gpw.options.vertLinesAtSeconds {
 		vertFile, err := os.Create(filepath.Join(gpw.tempdir, fmt.Sprintf("vert-%v.txt", idx)))
-		defer vertFile.Close()
+		defer utils.UncheckedErrorFunc(vertFile.Close)
 		if err != nil {
 			panic(err)
 		}
