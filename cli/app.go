@@ -424,6 +424,7 @@ var app = &cli.App{
 			},
 			Action: createCommandWithT[loginActionArgs](LoginAction),
 			After:  createCommandWithT[emptyArgs](CheckUpdateAction),
+			Before: func(*cli.Context) error { return nil },
 			Subcommands: []*cli.Command{
 				{
 					Name:      "print-access-token",
