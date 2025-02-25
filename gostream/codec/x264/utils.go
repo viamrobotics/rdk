@@ -1,6 +1,8 @@
 package x264
 
 import (
+	"math"
+
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/gostream/codec"
 	"go.viam.com/rdk/logging"
@@ -41,7 +43,9 @@ func (f *factory) MIMEType() string {
 
 // calcBitrateFromResolution calculates the bitrate based on the given resolution and framerate.
 func calcBitrateFromResolution(width, height int, framerate float32) int {
-	bitrate := int(float32(width) * float32(height) * framerate * encodeCompressionRatio)
+	bitrate := float32(width) * float32(height) * framerate * encodeCompressionRatio
+	// Round up to the nearest integer value.
+	bitrate = float32(math.Ceil(float64(bitrate)))
 	// This accounts for zero bitrates too.
 	if bitrate < minBitrate {
 		return minBitrate
@@ -49,5 +53,5 @@ func calcBitrateFromResolution(width, height int, framerate float32) int {
 	if bitrate > maxBitrate {
 		return maxBitrate
 	}
-	return bitrate
+	return int(bitrate)
 }
