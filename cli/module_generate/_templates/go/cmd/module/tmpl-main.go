@@ -1,7 +1,7 @@
 package main
 
 import (
-	"{{.ModuleName}}"
+	"{{.ModuleLowercase}}"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/{{.ResourceType}}s/{{.ResourceSubtype}}"
@@ -9,5 +9,5 @@ import (
 
 func main() {
 	// ModularMain can take multiple APIModel arguments, if your module implements multiple models.
-	module.ModularMain(resource.APIModel{ {{.ResourceSubtype}}.API, {{.ModuleName}}.{{.ModelPascal}}})
+	module.ModularMain(resource.APIModel{ {{.ResourceSubtype}}.API, {{.ModuleLowercase}}.{{.ModelPascal}}})
 }
