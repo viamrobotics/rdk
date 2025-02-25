@@ -32,6 +32,7 @@ func TestGenerateModuleAction(t *testing.T) {
 		GeneratedOn:      time.Now().UTC(),
 
 		ModulePascal:          "MyModule",
+		ModuleLowercase:       "mymodule",
 		API:                   "rdk:component:arm",
 		ResourceSubtypePascal: "Arm",
 		ModelPascal:           "MyModel",

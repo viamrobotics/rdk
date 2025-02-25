@@ -2,7 +2,7 @@ package {{.Module.ModuleLowercase}}
 
 import (
   "go.viam.com/rdk/{{ .Module.ResourceType }}s/{{ .Module.ResourceSubtype}}"
-	{{.Imports}}
+  {{.Imports}}
 )
 
 var (
