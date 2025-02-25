@@ -1,7 +1,6 @@
 package ml
 
 import (
-	"image"
 	"math"
 	"strconv"
 	"strings"
@@ -10,8 +9,8 @@ import (
 	"github.com/pkg/errors"
 	"gorgonia.org/tensor"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/rdk/vision/objectdetection"
 )
 
 const (
@@ -23,7 +22,7 @@ const (
 // FormatDetectionOutputs formats the output tensors from a model into detections.
 func FormatDetectionOutputs(outNameMap *sync.Map, outMap Tensors, origW, origH int,
 	boxOrder []int, labels []string,
-) ([]objectdetection.Detection, error) {
+) ([]data.BoundingBox, error) {
 	// use the outNameMap to find the tensor names, or guess and cache the names
 	locationName, categoryName, scoreName, err := findDetectionTensorNames(outMap, outNameMap)
 	if err != nil {
@@ -70,7 +69,7 @@ func FormatDetectionOutputs(outNameMap *sync.Map, outMap Tensors, origW, origH i
 			len(locations),
 		)
 	}
-	detections := make([]objectdetection.Detection, 0, len(scores))
+	detections := make([]data.BoundingBox, 0, len(scores))
 	detectionBoxesAreProportional := false
 	for i := 0; i < len(scores); i++ {
 		// heuristic for knowing if bounding box coordinates are abolute pixel locations, or
@@ -81,26 +80,39 @@ func FormatDetectionOutputs(outNameMap *sync.Map, outMap Tensors, origW, origH i
 		}
 		var xmin, ymin, xmax, ymax float64
 		if detectionBoxesAreProportional {
-			xmin = utils.Clamp(locations[4*i+GetIndex(boxOrder, 0)], 0, 1) * float64(origW-1)
-			ymin = utils.Clamp(locations[4*i+GetIndex(boxOrder, 1)], 0, 1) * float64(origH-1)
-			xmax = utils.Clamp(locations[4*i+GetIndex(boxOrder, 2)], 0, 1) * float64(origW-1)
-			ymax = utils.Clamp(locations[4*i+GetIndex(boxOrder, 3)], 0, 1) * float64(origH-1)
+			xmin = utils.Clamp(locations[4*i+GetIndex(boxOrder, 0)], 0, 1)
+			ymin = utils.Clamp(locations[4*i+GetIndex(boxOrder, 1)], 0, 1)
+			xmax = utils.Clamp(locations[4*i+GetIndex(boxOrder, 2)], 0, 1)
+			ymax = utils.Clamp(locations[4*i+GetIndex(boxOrder, 3)], 0, 1)
 		} else {
-			xmin = utils.Clamp(locations[4*i+GetIndex(boxOrder, 0)], 0, float64(origW-1))
-			ymin = utils.Clamp(locations[4*i+GetIndex(boxOrder, 1)], 0, float64(origH-1))
-			xmax = utils.Clamp(locations[4*i+GetIndex(boxOrder, 2)], 0, float64(origW-1))
-			ymax = utils.Clamp(locations[4*i+GetIndex(boxOrder, 3)], 0, float64(origH-1))
+			xmin = utils.Clamp(locations[4*i+GetIndex(boxOrder, 0)], 0, float64(origW-1)) / float64(origW-1)
+			ymin = utils.Clamp(locations[4*i+GetIndex(boxOrder, 1)], 0, float64(origH-1)) / float64(origH-1)
+			xmax = utils.Clamp(locations[4*i+GetIndex(boxOrder, 2)], 0, float64(origW-1)) / float64(origW-1)
+			ymax = utils.Clamp(locations[4*i+GetIndex(boxOrder, 3)], 0, float64(origH-1)) / float64(origH-1)
 		}
-		rect := image.Rect(int(xmin), int(ymin), int(xmax), int(ymax))
 		labelNum := int(utils.Clamp(categories[i], 0, math.MaxInt))
 
 		if labels == nil {
-			detections = append(detections, objectdetection.NewDetection(rect, scores[i], strconv.Itoa(labelNum)))
+			detections = append(detections, data.BoundingBox{
+				Confidence:     &scores[i],
+				Label:          strconv.Itoa(labelNum),
+				XMinNormalized: xmin,
+				YMinNormalized: ymin,
+				XMaxNormalized: xmax,
+				YMaxNormalized: ymax,
+			})
 		} else {
 			if labelNum >= len(labels) {
 				return nil, errors.Errorf("cannot access label number %v from label file with %v labels", labelNum, len(labels))
 			}
-			detections = append(detections, objectdetection.NewDetection(rect, scores[i], labels[labelNum]))
+			detections = append(detections, data.BoundingBox{
+				Confidence:     &scores[i],
+				Label:          labels[labelNum],
+				XMinNormalized: xmin,
+				YMinNormalized: ymin,
+				XMaxNormalized: xmax,
+				YMaxNormalized: ymax,
+			})
 		}
 	}
 	return detections, nil

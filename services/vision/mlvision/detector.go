@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"gorgonia.org/tensor"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/mlmodel"
@@ -109,10 +110,11 @@ func attemptToBuildDetector(mlm mlmodel.Service,
 			return nil, err
 		}
 
-		detections, err := ml.FormatDetectionOutputs(outNameMap, outMap, origW, origH, boxOrder, labels)
+		boundingBoxes, err := ml.FormatDetectionOutputs(outNameMap, outMap, origW, origH, boxOrder, labels)
 		if err != nil {
 			return nil, err
 		}
+		detections := convertBoundingBoxesToDetections(boundingBoxes, origW, origH)
 		if postprocessor != nil {
 			detections = postprocessor(detections)
 		}
@@ -159,4 +161,17 @@ func GetIndex(s []int, num int) int {
 		}
 	}
 	return -1
+}
+
+func convertBoundingBoxesToDetections(boundingBoxes []data.BoundingBox, origW, origH int) []objectdetection.Detection {
+	var detections []objectdetection.Detection
+	for _, bbox := range boundingBoxes {
+		xmin := bbox.XMinNormalized * float64(origW)
+		ymin := bbox.YMinNormalized * float64(origH)
+		xmax := bbox.XMaxNormalized * float64(origW)
+		ymax := bbox.YMaxNormalized * float64(origH)
+		rect := image.Rect(int(xmin), int(ymin), int(xmax), int(ymax))
+		detections = append(detections, objectdetection.NewDetection(rect, *bbox.Confidence, bbox.Label))
+	}
+	return detections
 }
