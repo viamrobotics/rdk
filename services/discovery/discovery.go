@@ -1,4 +1,7 @@
 // Package discovery implements the discovery service, which lets users surface resource configs for their machines to use.
+// For more information, see the [Discovery service docs].
+//
+// [Discovery service docs]: https://docs.viam.com/dev/reference/apis/services/discovery/
 package discovery
 
 import (
@@ -48,6 +51,26 @@ func FromDependencies(deps resource.Dependencies, name string) (Service, error) 
 }
 
 // Service describes the functions that are available to the service.
+//
+// For more information, see the [Discovery service docs].
+//
+// DiscoverResources example:
+//
+//		// Get the discovered resources of a Discovery Service.
+//		cfgs, err := myDiscoveryService.DiscoverResources(ctx, nil)
+//		if err != nil {
+//			logger.Fatal(err)
+//		}
+//	 	// Print out the discovered resources.
+//		for _, cfg := range cfgs {
+//			fmt.Printf("Name: %v\tModel: %v\tAPI: %v", cfg.Name, cfg.Model, cfg.API)
+//			fmt.Printf("Attributes: ", cfg.Attributes)
+//		}
+//
+// For more information, see the [discover resources method docs].
+//
+// [Discovery service docs]: https://docs.viam.com/dev/reference/apis/services/discovery/
+// [discover resources method docs]: https://docs.viam.com/dev/reference/apis/services/discovery/#discoverresources
 type Service interface {
 	resource.Resource
 	DiscoverResources(ctx context.Context, extra map[string]any) ([]resource.Config, error)
