@@ -104,3 +104,23 @@ func BenchmarkEncodeYCbCr(b *testing.B) {
 		w = !w
 	}
 }
+
+func TestCalcBitrateFromResolution(t *testing.T) {
+	bitrateTests := []struct {
+		width, height int
+		framerate     float32
+		expected      int
+	}{
+		{640, 480, 30, 1382400},
+		{1920, 1080, 30, 9331200},
+		{3840, 2160, 30, maxBitrate},
+		{240, 180, 30, minBitrate},
+	}
+
+	for _, bt := range bitrateTests {
+		t.Run("", func(t *testing.T) {
+			bitrate := calcBitrateFromResolution(bt.width, bt.height, bt.framerate)
+			test.That(t, bitrate, test.ShouldEqual, bt.expected)
+		})
+	}
+}
