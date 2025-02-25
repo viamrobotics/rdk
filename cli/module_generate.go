@@ -841,25 +841,25 @@ func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInpu
 	}
 	switch module.Language {
 	case python:
+		manifest.Build = &manifestBuildInfo{
+			Setup: "./setup.sh",
+			Build: "./build.sh",
+			Path:  "dist/archive.tar.gz",
+			Arch:  []string{"linux/amd64", "linux/arm64"},
+		}
 		if module.EnableCloudBuild {
-			manifest.Build = &manifestBuildInfo{
-				Setup: "./setup.sh",
-				Build: "./build.sh",
-				Path:  "dist/archive.tar.gz",
-				Arch:  []string{"linux/amd64", "linux/arm64"},
-			}
 			manifest.Entrypoint = "dist/main"
 		} else {
 			manifest.Entrypoint = "./run.sh"
 		}
 	case golang:
+		manifest.Build = &manifestBuildInfo{
+			Setup: "make setup",
+			Build: "make module.tar.gz",
+			Path:  "bin/module.tar.gz",
+			Arch:  []string{"linux/amd64", "linux/arm64"},
+		}
 		if module.EnableCloudBuild {
-			manifest.Build = &manifestBuildInfo{
-				Setup: "make setup",
-				Build: "make module.tar.gz",
-				Path:  "bin/module.tar.gz",
-				Arch:  []string{"linux/amd64", "linux/arm64"},
-			}
 			manifest.Entrypoint = fmt.Sprintf("bin/%s", module.ModuleName)
 		} else {
 			manifest.Entrypoint = "./run.sh"
