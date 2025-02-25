@@ -112,7 +112,7 @@ func nolintPrintln(str ...any) {
 	fmt.Println(str...)
 }
 
-// writeln is a wrapper for Fprint that panics on any error.
+// write is a wrapper for Fprint that panics on any error.
 func write(toWrite io.Writer, str string) {
 	_, err := fmt.Fprint(toWrite, str)
 	if err != nil {
