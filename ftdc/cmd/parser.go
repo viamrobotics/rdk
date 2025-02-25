@@ -524,6 +524,18 @@ func (gpw *gnuplotWriter) CompileAndClose() string {
 	return gnuFile.Name()
 }
 
+func parseStringAsTime(inp string) (time.Time, error) {
+	goTime, err := time.Parse("2006-01-02T15:04:05", inp)
+	if err != nil {
+		// This is a CLI. It's acceptable to output to stdout.
+		//nolint:forbidigo
+		fmt.Printf("Error parsing start time. Working example: `2024-09-24T18:00:00` Inp: %q Err: %v\n", inp, err)
+		return time.Time{}, err
+	}
+
+	return goTime, nil
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		nolintPrintln("Expected an FTDC filename. E.g: go run parser.go <path-to>/viam-server.ftdc")
@@ -596,41 +608,29 @@ func main() {
 			if start == "start" {
 				graphOptions.minTimeSeconds = 0
 			} else {
-				goTime, err := time.Parse("2006-01-02T15:04:05", start)
-				if err != nil {
-					// This is a CLI. It's acceptable to output to stdout.
-					//nolint:forbidigo
-					fmt.Printf("Error parsing start time. Working example: `2024-09-24T18:00:00` Inp: %q Err: %v\n", start, err)
-					continue
+				if goTime, err := parseStringAsTime(start); err == nil {
+					// parseStringAsTime outputs an error message for us.
+					graphOptions.minTimeSeconds = goTime.Unix()
 				}
-				graphOptions.minTimeSeconds = goTime.Unix()
 			}
 
 			if end == "end" {
 				graphOptions.maxTimeSeconds = math.MaxInt64
 			} else {
-				goTime, err := time.Parse("2006-01-02T15:04:05", end)
-				if err != nil {
-					// This is a CLI. It's acceptable to output to stdout.
-					//nolint:forbidigo
-					fmt.Printf("Error parsing end time. Working example: `2024-09-24T18:00:00` Inp: %q Err: %v\n", end, err)
-					continue
+				if goTime, err := parseStringAsTime(end); err == nil {
+					// parseStringAsTime outputs an error message for us.
+					graphOptions.maxTimeSeconds = goTime.Unix()
 				}
-				graphOptions.maxTimeSeconds = goTime.Unix()
 			}
 		case strings.HasPrefix(cmd, "reset range"):
 			graphOptions.minTimeSeconds = 0
 			graphOptions.maxTimeSeconds = math.MaxInt64
 		case strings.HasPrefix(cmd, "ev ") || strings.HasPrefix(cmd, "event "):
 			pieces := strings.SplitN(cmd, " ", 2)
-			goTime, err := time.Parse("2006-01-02T15:04:05", pieces[1])
-			if err != nil {
-				// This is a CLI. It's acceptable to output to stdout.
-				//nolint:forbidigo
-				fmt.Printf("Error parsing event time. Working example: `2024-09-24T18:00:00` Inp: %q Err: %v\n", pieces[1], err)
-				continue
+			if goTime, err := parseStringAsTime(pieces[1]); err == nil {
+				// parseStringAsTime outputs an error message for us.
+				graphOptions.vertLinesAtSeconds = append(graphOptions.vertLinesAtSeconds, goTime.Unix())
 			}
-			graphOptions.vertLinesAtSeconds = append(graphOptions.vertLinesAtSeconds, goTime.Unix())
 		case cmd == "refresh" || cmd == "r":
 			nolintPrintln("Refreshing graphs with new data")
 		case len(cmd) == 0:
