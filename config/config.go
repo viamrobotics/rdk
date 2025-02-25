@@ -844,6 +844,8 @@ func (tte *TrafficTunnelEndpoint) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
+	tte.Port = temp.Port
+
 	if temp.ConnectionTimeout != "" {
 		dur, err := time.ParseDuration(temp.ConnectionTimeout)
 		if err != nil {
@@ -851,12 +853,16 @@ func (tte *TrafficTunnelEndpoint) UnmarshalJSON(data []byte) error {
 		}
 		tte.ConnectionTimeout = dur
 	}
+
 	return nil
 }
 
 // MarshalJSON marshals out this traffic tunnel endpoint.
 func (tte *TrafficTunnelEndpoint) MarshalJSON() ([]byte, error) {
 	var temp trafficTunnelEndpointData
+
+	temp.Port = tte.Port
+
 	if tte.ConnectionTimeout != 0 {
 		temp.ConnectionTimeout = tte.ConnectionTimeout.String()
 	}

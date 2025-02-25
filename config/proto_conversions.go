@@ -639,11 +639,12 @@ func RemoteConfigFromProto(proto *pb.RemoteConfig) (*Remote, error) {
 // NetworkConfigToProto converts NetworkConfig from the proto equivalent.
 func NetworkConfigToProto(network *NetworkConfig) (*pb.NetworkConfig, error) {
 	proto := pb.NetworkConfig{
-		Fqdn:        network.FQDN,
-		BindAddress: network.BindAddress,
-		TlsCertFile: network.TLSCertFile,
-		TlsKeyFile:  network.TLSKeyFile,
-		Sessions:    sessionsConfigToProto(network.Sessions),
+		Fqdn:                   network.FQDN,
+		BindAddress:            network.BindAddress,
+		TlsCertFile:            network.TLSCertFile,
+		TlsKeyFile:             network.TLSKeyFile,
+		Sessions:               sessionsConfigToProto(network.Sessions),
+		TrafficTunnelEndpoints: trafficTunnelEndpointsToProto(network.TrafficTunnelEndpoints),
 	}
 
 	return &proto, nil
@@ -669,11 +670,12 @@ func MaintenanceConfigToProto(maintenanceConfig *MaintenanceConfig) (*pb.Mainten
 func NetworkConfigFromProto(proto *pb.NetworkConfig) (*NetworkConfig, error) {
 	network := NetworkConfig{
 		NetworkConfigData: NetworkConfigData{
-			FQDN:        proto.GetFqdn(),
-			BindAddress: proto.GetBindAddress(),
-			TLSCertFile: proto.GetTlsCertFile(),
-			TLSKeyFile:  proto.GetTlsKeyFile(),
-			Sessions:    sessionsConfigFromProto(proto.GetSessions()),
+			FQDN:                   proto.GetFqdn(),
+			BindAddress:            proto.GetBindAddress(),
+			TLSCertFile:            proto.GetTlsCertFile(),
+			TLSKeyFile:             proto.GetTlsKeyFile(),
+			Sessions:               sessionsConfigFromProto(proto.GetSessions()),
+			TrafficTunnelEndpoints: trafficTunnelEndpointsFromProto(proto.TrafficTunnelEndpoints),
 		},
 	}
 
@@ -793,6 +795,36 @@ func sessionsConfigFromProto(proto *pb.SessionsConfig) SessionsConfig {
 	return SessionsConfig{
 		HeartbeatWindow: proto.GetHeartbeatWindow().AsDuration(),
 	}
+}
+
+func trafficTunnelEndpointsToProto(ttes []TrafficTunnelEndpoint) []*pb.TrafficTunnelEndpoint {
+	if ttes == nil {
+		return nil
+	}
+
+	var protoTTEs []*pb.TrafficTunnelEndpoint
+	for _, tte := range ttes {
+		protoTTEs = append(protoTTEs, &pb.TrafficTunnelEndpoint{
+			Port: int32(tte.Port), ConnectionTimeout: durationpb.New(tte.ConnectionTimeout)})
+	}
+	return protoTTEs
+}
+
+func trafficTunnelEndpointsFromProto(protoTTEs []*pb.TrafficTunnelEndpoint) []TrafficTunnelEndpoint {
+	if protoTTEs == nil {
+		return nil
+	}
+
+	var ttes []TrafficTunnelEndpoint
+	for _, protoTTE := range protoTTEs {
+		if protoTTE == nil {
+			continue
+		}
+
+		ttes = append(ttes, TrafficTunnelEndpoint{
+			Port: int(protoTTE.Port), ConnectionTimeout: protoTTE.ConnectionTimeout.AsDuration()})
+	}
+	return ttes
 }
 
 func locationSecretToProto(secret LocationSecret) (*pb.LocationSecret, error) {

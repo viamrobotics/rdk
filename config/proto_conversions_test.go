@@ -145,6 +145,19 @@ var testNetworkConfig = NetworkConfig{
 		Sessions: SessionsConfig{
 			HeartbeatWindow: 5 * time.Second,
 		},
+		TrafficTunnelEndpoints: []TrafficTunnelEndpoint{
+			{
+				Port:              9090,
+				ConnectionTimeout: 20 * time.Second,
+			},
+			{
+				Port:              27017,
+				ConnectionTimeout: 40 * time.Millisecond,
+			},
+			{
+				Port: 23654,
+			},
+		},
 	},
 }
 
