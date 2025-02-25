@@ -196,7 +196,7 @@ type loginWithAPIKeyArgs struct {
 
 // LoginWithAPIKeyAction is the corresponding Action for `login api-key`.
 func LoginWithAPIKeyAction(cCtx *cli.Context, args loginWithAPIKeyArgs) error {
-	c, err := newViamClient(cCtx)
+	c, err := newViamClientInner(cCtx, false)
 	if err != nil {
 		return err
 	}
@@ -209,6 +209,9 @@ func (c viamClient) loginWithAPIKeyAction(cCtx *cli.Context, args loginWithAPIKe
 		KeyCrypto: args.Key,
 	}
 	c.conf.Auth = &key
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
 	if err := storeConfigToCache(c.conf); err != nil {
 		return err
 	}
