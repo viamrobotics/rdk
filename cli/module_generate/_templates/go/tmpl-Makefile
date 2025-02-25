@@ -6,7 +6,7 @@ export PATH := ${PATH}:$(GOPATH)
 
 build: format update-rdk
 	rm -f $(BIN_OUTPUT_PATH)/{{ .ModuleName}}
-	go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/{{ .ModuleName}} main.go
+	go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/{{ .ModuleName}} cmd/module/main.go
 
 module.tar.gz: build
 	rm -f $(BIN_OUTPUT_PATH)/module.tar.gz

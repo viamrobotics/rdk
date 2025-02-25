@@ -601,7 +601,7 @@ func generateGolangStubs(module modulegen.ModuleInputs) error {
 	if err != nil {
 		return errors.Wrap(err, "cannot generate go stubs -- generator script encountered an error")
 	}
-	modulePath := filepath.Join(module.ModuleName, "models", "module.go")
+	modulePath := filepath.Join(module.ModuleName, "module.go")
 	//nolint:gosec
 	moduleFile, err := os.Create(modulePath)
 	if err != nil {
