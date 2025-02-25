@@ -25,7 +25,7 @@ type encoder struct {
 func NewEncoder(width, height, keyFrameInterval int, logger logging.Logger) (ourcodec.VideoEncoder, error) {
 	// Check to make sure dimensions are even.
 	if width%2 != 0 || height%2 != 0 {
-		return nil, errors.New("x264 encoder does not support odd dimensions. Please provide frames with dimensions for width and height.")
+		return nil, errors.New("x264 encoder does not support odd dimensions. Please provide frames with even dimensions for width and height.")
 	}
 
 	enc := &encoder{logger: logger}
