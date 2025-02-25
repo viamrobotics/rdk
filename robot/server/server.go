@@ -42,6 +42,12 @@ const (
 	logTSKey = "log_ts"
 )
 
+var (
+	// Default timeout to use when dialing to a tunnel port when one is not specified in
+	// `traffic_tunnel_endpoints` through `connection_timeout`.
+	defaultTunnelConnectionTimeout = 10 * time.Second
+)
+
 // Server implements the contract from robot.proto that ultimately satisfies
 // a robot.Robot as a gRPC server.
 type Server struct {
@@ -67,10 +73,24 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 		return fmt.Errorf("failed to receive first message from stream: %w", err)
 	}
 
-	dest := strconv.Itoa(int(req.DestinationPort))
-	s.robot.Logger().CDebugw(srv.Context(), "dialing to destination port", "port", dest)
+	var destAllowed bool
+	dialTimeout := defaultTunnelConnectionTimeout
+	// Ensure destination port is available; otherwise error.
+	for _, tte := range s.robot.TrafficTunnelEndpoints() {
+		if int(req.DestinationPort) == tte.Port {
+			destAllowed = true
+			if tte.ConnectionTimeout != 0 {
+				dialTimeout = tte.ConnectionTimeout
+			}
+		}
+	}
+	if !destAllowed {
+		return fmt.Errorf("tunnel not available at port %d", req.DestinationPort)
+	}
 
-	dialTimeout := 10 * time.Second
+	dest := strconv.Itoa(int(req.DestinationPort))
+
+	s.robot.Logger().CInfow(srv.Context(), "dialing to destination port", "port", dest, "timeout", dialTimeout)
 	conn, err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", dest), dialTimeout)
 	if err != nil {
 		return fmt.Errorf("failed to dial to destination port %v: %w", dest, err)

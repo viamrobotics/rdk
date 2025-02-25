@@ -92,6 +92,9 @@ type localRobot struct {
 	startFtdcOnce       sync.Once
 	ftdc                *ftdc.FTDC
 
+	// slice of allowed tunnel endpoints and their options.
+	trafficTunnelEndpoints []config.TrafficTunnelEndpoint
+
 	// whether the robot is actively reconfiguring
 	reconfiguring atomic.Bool
 
@@ -1207,6 +1210,10 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		}
 	}
 
+	// Apply traffic tunnel endpoints from new config. This allow-list of endpoints is
+	// referenced in the robot server `Tunnel` handler.
+	r.trafficTunnelEndpoints = newConfig.Network.TrafficTunnelEndpoints
+
 	if newConfig.Cloud != nil {
 		r.Logger().CDebug(ctx, "updating cached config")
 		if err := newConfig.StoreToCache(); err != nil {
@@ -1586,4 +1593,9 @@ func (r *localRobot) RestartAllowed() bool {
 		return true
 	}
 	return false
+}
+
+// TrafficTunnelEndpoints returns information on available traffic tunnels.
+func (r *localRobot) TrafficTunnelEndpoints() []config.TrafficTunnelEndpoint {
+	return r.trafficTunnelEndpoints
 }
