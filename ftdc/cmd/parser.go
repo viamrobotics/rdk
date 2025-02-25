@@ -92,8 +92,8 @@ type graphOptions struct {
 	hideAllZeroes bool
 
 	// vertLinesAtSeconds will draw a vertical line for each element. The items are expected to be
-	// in units of seconds since the epoch.These are to represent "events" that are interest of a
-	// user. Where the user would like to find correlations in other metrics.
+	// in units of seconds since the epoch. These are to represent "events" that are of interest to a
+	// user (where the user would like to find correlations in other metrics.)
 	vertLinesAtSeconds []int64
 }
 
