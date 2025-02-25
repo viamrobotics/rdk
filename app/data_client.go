@@ -591,6 +591,25 @@ func (d *DataClient) BinaryDataByIDs(ctx context.Context, binaryIDs []*BinaryID)
 	return data, nil
 }
 
+func (d *DataClient) BinaryDataByID2(ctx context.Context, binaryIDs []string) ([]*BinaryData, error) {
+	resp, err := d.dataClient.BinaryDataByIDs(ctx, &pb.BinaryDataByIDsRequest{
+		IncludeBinary: true,
+		BinaryDataIds: binaryIDs,
+	})
+	if err != nil {
+		return nil, err
+	}
+	data := make([]*BinaryData, len(resp.Data))
+	for i, protoData := range resp.Data {
+		binData, err := binaryDataFromProto(protoData)
+		if err != nil {
+			return nil, err
+		}
+		data[i] = binData
+	}
+	return data, nil
+}
+
 // DeleteTabularData deletes tabular data older than a number of days, based on the given organization ID.
 // It returns the number of tabular datapoints deleted.
 func (d *DataClient) DeleteTabularData(ctx context.Context, organizationID string, deleteOlderThanDays int) (int, error) {
@@ -1262,6 +1281,7 @@ func annotationsFromProto(proto *pb.Annotations) *Annotations {
 }
 
 func methodParamsFromProto(proto map[string]*anypb.Any) (map[string]interface{}, error) {
+	return map[string]interface{}{}, nil
 	methodParameters := make(map[string]interface{})
 	for key, value := range proto {
 		if value == nil {
@@ -1280,10 +1300,12 @@ func captureMetadataFromProto(proto *pb.CaptureMetadata) (*CaptureMetadata, erro
 	if proto == nil {
 		return nil, nil
 	}
+	fmt.Println("here1")
 	params, err := methodParamsFromProto(proto.MethodParameters)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("here3")
 	return &CaptureMetadata{
 		OrganizationID:   proto.OrganizationId,
 		LocationID:       proto.LocationId,
@@ -1304,6 +1326,7 @@ func binaryDataFromProto(proto *pb.BinaryData) (*BinaryData, error) {
 	if proto == nil {
 		return nil, nil
 	}
+	fmt.Println("here")
 	metadata, err := binaryMetadataFromProto(proto.Metadata)
 	if err != nil {
 		return nil, err
@@ -1322,6 +1345,7 @@ func binaryMetadataFromProto(proto *pb.BinaryMetadata) (*BinaryMetadata, error) 
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("here2")
 	return &BinaryMetadata{
 		ID:              proto.Id,
 		CaptureMetadata: *captureMetadata,
