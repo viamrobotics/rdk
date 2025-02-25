@@ -70,6 +70,9 @@ func GenerateModuleAction(cCtx *cli.Context, args generateModuleArgs) error {
 }
 
 func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModuleArgs) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
 	var newModule *modulegen.ModuleInputs
 	var err error
 

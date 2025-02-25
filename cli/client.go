@@ -146,6 +146,10 @@ func OrganizationsSupportEmailSetAction(cCtx *cli.Context, args organizationsSup
 }
 
 func (c *viamClient) organizationsSupportEmailSetAction(cCtx *cli.Context, orgID, supportEmail string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
 	_, err := c.client.OrganizationSetSupportEmail(c.c.Context, &apppb.OrganizationSetSupportEmailRequest{
 		OrgId: orgID,
 		Email: supportEmail,
@@ -177,6 +181,10 @@ func OrganizationsSupportEmailGetAction(cCtx *cli.Context, args organizationsSup
 }
 
 func (c *viamClient) organizationsSupportEmailGetAction(cCtx *cli.Context, orgID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
 	resp, err := c.client.OrganizationGetSupportEmail(c.c.Context, &apppb.OrganizationGetSupportEmailRequest{
 		OrgId: orgID,
 	})
@@ -234,6 +242,10 @@ func (c *viamClient) disableAuthServiceAction(cCtx *cli.Context, orgID string) e
 		return errors.New("cannot disable auth service without an organization ID")
 	}
 
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
 	if _, err := c.client.DisableAuthService(cCtx.Context, &apppb.DisableAuthServiceRequest{OrgId: orgID}); err != nil {
 		return err
 	}
@@ -262,6 +274,10 @@ func EnableAuthServiceAction(cCtx *cli.Context, args enableAuthServiceArgs) erro
 }
 
 func (c *viamClient) enableAuthServiceAction(cCtx *cli.Context, orgID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
 	_, err := c.client.EnableAuthService(cCtx.Context, &apppb.EnableAuthServiceRequest{OrgId: orgID})
 	if err != nil {
 		return err
@@ -296,6 +312,9 @@ func UpdateBillingServiceAction(cCtx *cli.Context, args updateBillingServiceArgs
 }
 
 func (c *viamClient) updateBillingServiceAction(cCtx *cli.Context, orgID, addressAsString string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
 	address, err := parseBillingAddress(addressAsString)
 	if err != nil {
 		return err
@@ -336,6 +355,10 @@ func GetBillingConfigAction(cCtx *cli.Context, args getBillingConfigArgs) error 
 }
 
 func (c *viamClient) getBillingConfig(cCtx *cli.Context, orgID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
 	resp, err := c.client.GetBillingServiceConfig(cCtx.Context, &apppb.GetBillingServiceConfigRequest{
 		OrgId: orgID,
 	})
@@ -388,6 +411,10 @@ func OrganizationEnableBillingServiceAction(cCtx *cli.Context, args organization
 }
 
 func (c *viamClient) organizationEnableBillingServiceAction(cCtx *cli.Context, orgID, addressAsString string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
 	address, err := parseBillingAddress(addressAsString)
 	if err != nil {
 		return err
@@ -422,6 +449,10 @@ func OrganizationDisableBillingServiceAction(cCtx *cli.Context, args organizatio
 }
 
 func (c *viamClient) organizationDisableBillingServiceAction(cCtx *cli.Context, orgID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
 	if _, err := c.client.DisableBillingService(cCtx.Context, &apppb.DisableBillingServiceRequest{
 		OrgId: orgID,
 	}); err != nil {
@@ -457,6 +488,10 @@ func OrganizationLogoSetAction(cCtx *cli.Context, args organizationsLogoSetArgs)
 }
 
 func (c *viamClient) organizationLogoSetAction(cCtx *cli.Context, orgID, logoFilePath string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
 	logoFile, err := os.Open(filepath.Clean(logoFilePath))
 	if err != nil {
 		return errors.WithMessagef(err, "could not open logo file: %s", logoFilePath)
@@ -509,6 +544,10 @@ func OrganizationsLogoGetAction(cCtx *cli.Context, args organizationsLogoGetArgs
 }
 
 func (c *viamClient) organizationsLogoGetAction(cCtx *cli.Context, orgID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
 	resp, err := c.client.OrganizationGetLogo(cCtx.Context, &apppb.OrganizationGetLogoRequest{
 		OrgId: orgID,
 	})
@@ -545,6 +584,10 @@ func ListOAuthAppsAction(cCtx *cli.Context, args listOAuthAppsArgs) error {
 }
 
 func (c *viamClient) listOAuthAppsAction(cCtx *cli.Context, orgID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
 	resp, err := c.client.ListOAuthApps(cCtx.Context, &apppb.ListOAuthAppsRequest{
 		OrgId: orgID,
 	})
@@ -1405,6 +1448,10 @@ func tunnelTraffic(ctx *cli.Context, robotClient *client.RobotClient, local, des
 }
 
 func (c *viamClient) robotPartTunnel(cCtx *cli.Context, args robotsPartTunnelArgs) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
 	orgStr := args.Organization
 	locStr := args.Location
 	robotStr := args.Machine
@@ -1714,14 +1761,7 @@ func newViamClientInner(c *cli.Context, disableBrowserOpen bool) (*viamClient, e
 // Creates a new viam client, defaulting to _not_ passing the `disableBrowerOpen` arg (which
 // users don't even have an option of setting for any CLI method currently except `Login`).
 func newViamClient(c *cli.Context) (*viamClient, error) {
-	client, err := newViamClientInner(c, false)
-	if err != nil {
-		return nil, err
-	}
-	if err := client.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
-	return client, nil
+	return newViamClientInner(c, false)
 }
 
 func (c *viamClient) loadOrganizations() error {
@@ -1734,6 +1774,9 @@ func (c *viamClient) loadOrganizations() error {
 }
 
 func (c *viamClient) selectOrganization(orgStr string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
 	if orgStr != "" && (c.selectedOrg.Id == orgStr || c.selectedOrg.Name == orgStr) {
 		return nil
 	}
@@ -1779,6 +1822,9 @@ func (c *viamClient) selectOrganization(orgStr string) error {
 // org UUID, then this matchs on organization ID, otherwise this will match
 // on organization name.
 func (c *viamClient) getOrg(orgStr string) (*apppb.Organization, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
 	resp, err := c.client.ListOrganizations(c.c.Context, &apppb.ListOrganizationsRequest{})
 	if err != nil {
 		return nil, err
@@ -1803,6 +1849,10 @@ func (c *viamClient) getOrg(orgStr string) (*apppb.Organization, error) {
 // getUserOrgByPublicNamespace searches the logged in users orgs to see
 // if any have a matching public namespace.
 func (c *viamClient) getUserOrgByPublicNamespace(publicNamespace string) (*apppb.Organization, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+
 	if err := c.loadOrganizations(); err != nil {
 		return nil, err
 	}
@@ -1815,6 +1865,9 @@ func (c *viamClient) getUserOrgByPublicNamespace(publicNamespace string) (*apppb
 }
 
 func (c *viamClient) listOrganizations() ([]*apppb.Organization, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
 	if err := c.loadOrganizations(); err != nil {
 		return nil, err
 	}
@@ -1868,6 +1921,9 @@ func (c *viamClient) selectLocation(locStr string) error {
 }
 
 func (c *viamClient) listLocations(orgID string) ([]*apppb.Location, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
 	if err := c.selectOrganization(orgID); err != nil {
 		return nil, err
 	}
@@ -1878,6 +1934,9 @@ func (c *viamClient) listLocations(orgID string) ([]*apppb.Location, error) {
 }
 
 func (c *viamClient) listRobots(orgStr, locStr string) ([]*apppb.Robot, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
 	if err := c.selectOrganization(orgStr); err != nil {
 		return nil, err
 	}
@@ -1894,6 +1953,10 @@ func (c *viamClient) listRobots(orgStr, locStr string) ([]*apppb.Robot, error) {
 }
 
 func (c *viamClient) robot(orgStr, locStr, robotStr string) (*apppb.Robot, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+
 	robots, err := c.listRobots(orgStr, locStr)
 	if err != nil {
 		return nil, err
@@ -1932,6 +1995,9 @@ func (c *viamClient) robotPart(orgStr, locStr, robotStr, partStr string) (*apppb
 }
 
 func (c *viamClient) robotPartInner(orgStr, locStr, robotStr, partStr string) (*apppb.RobotPart, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
 	parts, err := c.robotParts(orgStr, locStr, robotStr)
 	if err != nil {
 		return nil, err
@@ -1967,10 +2033,16 @@ func (c *viamClient) robotPartInner(orgStr, locStr, robotStr, partStr string) (*
 // note: overlaps with viamClient.robotPart, which wraps GetRobotParts.
 // Use this variant if you don't know the robot ID.
 func (c *viamClient) getRobotPart(partID string) (*apppb.GetRobotPartResponse, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
 	return c.client.GetRobotPart(c.c.Context, &apppb.GetRobotPartRequest{Id: partID})
 }
 
 func (c *viamClient) updateRobotPart(part *apppb.RobotPart, confMap map[string]any) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
 	confStruct, err := structpb.NewStruct(confMap)
 	if err != nil {
 		return errors.Wrap(err, "in NewStruct")
@@ -2028,6 +2100,9 @@ func (c *viamClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, err
 }
 
 func (c *viamClient) robotParts(orgStr, locStr, robotStr string) ([]*apppb.RobotPart, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
 	robot, err := c.robot(orgStr, locStr, robotStr)
 	if err != nil {
 		return nil, err
@@ -2555,6 +2630,10 @@ func ReadOAuthAppAction(c *cli.Context, args readOAuthAppArgs) error {
 }
 
 func (c *viamClient) readOAuthAppAction(cCtx *cli.Context, orgID, clientID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
 	req := &apppb.ReadOAuthAppRequest{OrgId: orgID, ClientId: clientID}
 	resp, err := c.client.ReadOAuthApp(c.c.Context, req)
 	if err != nil {
@@ -2630,6 +2709,10 @@ func DeleteOAuthAppAction(c *cli.Context, args deleteOAuthAppArgs) error {
 }
 
 func (c *viamClient) deleteOAuthAppAction(cCtx *cli.Context, orgID, clientID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
 	req := &apppb.DeleteOAuthAppRequest{
 		OrgId:    orgID,
 		ClientId: clientID,
@@ -2774,6 +2857,10 @@ func CreateOAuthAppAction(c *cli.Context, args createOAuthAppArgs) error {
 }
 
 func (c *viamClient) createOAuthAppAction(cCtx *cli.Context, args createOAuthAppArgs) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
 	config, err := generateOAuthConfig(args.ClientAuthentication, args.Pkce, args.UrlValidation,
 		args.LogoutURI, args.OriginURIs, args.RedirectURIs, args.EnabledGrants)
 	if err != nil {
@@ -2820,6 +2907,10 @@ func UpdateOAuthAppAction(c *cli.Context, args updateOAuthAppArgs) error {
 }
 
 func (c *viamClient) updateOAuthAppAction(cCtx *cli.Context, args updateOAuthAppArgs) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
 	req, err := createUpdateOAuthAppRequest(args)
 	if err != nil {
 		return err

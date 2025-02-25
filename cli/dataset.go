@@ -42,6 +42,9 @@ func DatasetCreateAction(c *cli.Context, args datasetCreateArgs) error {
 
 // createDataset creates a dataset with the a dataset ID.
 func (c *viamClient) createDataset(orgID, datasetName string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
 	resp, err := c.datasetClient.CreateDataset(context.Background(),
 		&datasetpb.CreateDatasetRequest{OrganizationId: orgID, Name: datasetName})
 	if err != nil {
@@ -70,6 +73,9 @@ func DatasetRenameAction(c *cli.Context, args datasetRenameArgs) error {
 
 // renameDataset renames an existing datasetID with the newDatasetName.
 func (c *viamClient) renameDataset(datasetID, newDatasetName string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
 	_, err := c.datasetClient.RenameDataset(context.Background(),
 		&datasetpb.RenameDatasetRequest{Id: datasetID, Name: newDatasetName})
 	if err != nil {
@@ -111,6 +117,9 @@ func DatasetListAction(c *cli.Context, args datasetListArgs) error {
 
 // listDatasetByIDs list all datasets by ID.
 func (c *viamClient) listDatasetByIDs(datasetIDs []string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
 	resp, err := c.datasetClient.ListDatasetsByIDs(context.Background(),
 		&datasetpb.ListDatasetsByIDsRequest{Ids: datasetIDs})
 	if err != nil {
@@ -124,6 +133,9 @@ func (c *viamClient) listDatasetByIDs(datasetIDs []string) error {
 
 // listDatasetByOrg list all datasets for the specified org ID.
 func (c *viamClient) listDatasetByOrg(orgID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
 	resp, err := c.datasetClient.ListDatasetsByOrganizationID(context.Background(),
 		&datasetpb.ListDatasetsByOrganizationIDRequest{OrganizationId: orgID})
 	if err != nil {
@@ -153,6 +165,9 @@ func DatasetDeleteAction(c *cli.Context, args datasetDeleteArgs) error {
 
 // deleteDataset deletes a dataset with the specified ID.
 func (c *viamClient) deleteDataset(datasetID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
 	_, err := c.datasetClient.DeleteDataset(context.Background(),
 		&datasetpb.DeleteDatasetRequest{Id: datasetID})
 	if err != nil {
@@ -185,6 +200,10 @@ func DatasetDownloadAction(c *cli.Context, args datasetDownloadArgs) error {
 
 // downloadDataset downloads a dataset with the specified ID.
 func (c *viamClient) downloadDataset(dst, datasetID string, includeJSONLines bool, parallelDownloads, timeout uint) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
 	var datasetFile *os.File
 	var err error
 	if includeJSONLines {

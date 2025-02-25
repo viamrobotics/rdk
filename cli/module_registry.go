@@ -413,6 +413,9 @@ func UpdateModelsAction(c *cli.Context, args updateModelsArgs) error {
 }
 
 func (c *viamClient) createModule(moduleName, organizationID string) (*apppb.CreateModuleResponse, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
 	req := apppb.CreateModuleRequest{
 		Name:           moduleName,
 		OrganizationId: organizationID,
@@ -421,6 +424,9 @@ func (c *viamClient) createModule(moduleName, organizationID string) (*apppb.Cre
 }
 
 func (c *viamClient) getModule(moduleID moduleID) (*apppb.GetModuleResponse, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
 	req := apppb.GetModuleRequest{
 		ModuleId: moduleID.String(),
 	}
@@ -428,6 +434,9 @@ func (c *viamClient) getModule(moduleID moduleID) (*apppb.GetModuleResponse, err
 }
 
 func (c *viamClient) updateModule(moduleID moduleID, manifest moduleManifest) (*apppb.UpdateModuleResponse, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
 	var models []*apppb.Model
 	for _, moduleComponent := range manifest.Models {
 		models = append(models, moduleComponentToProto(moduleComponent))
@@ -457,6 +466,10 @@ func (c *viamClient) uploadModuleFile(
 	constraints []string,
 	tarballPath string,
 ) (*apppb.UploadModuleFileResponse, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+
 	//nolint:gosec
 	file, err := os.Open(tarballPath)
 	if err != nil {
@@ -982,6 +995,9 @@ func DownloadModuleAction(c *cli.Context, flags downloadModuleFlags) error {
 	}
 	client, err := newViamClient(c)
 	if err != nil {
+		return err
+	}
+	if err := client.ensureLoggedIn(); err != nil {
 		return err
 	}
 	req := &apppb.GetModuleRequest{ModuleId: moduleID}

@@ -354,6 +354,10 @@ func (c *viamClient) dataExportTabularAction(cCtx *cli.Context, args dataExportT
 
 // BinaryData downloads binary data matching filter to dst.
 func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownloads, timeout uint) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
 	return c.performActionOnBinaryDataFromFilter(
 		func(id *datapb.BinaryID) error {
 			return c.downloadBinary(dst, id, timeout)
@@ -688,6 +692,10 @@ func filenameForDownload(meta *datapb.BinaryMetadata) string {
 
 // tabularData downloads unified tabular data and metadata for the requested data source and interval to the specified destination.
 func (c *viamClient) tabularData(dest string, request *datapb.ExportTabularDataRequest) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
 	if err := makeDestinationDirs(dest); err != nil {
 		return errors.Wrapf(err, "could not create destination directories")
 	}
@@ -836,6 +844,9 @@ func makeDestinationDirs(dst string) error {
 }
 
 func (c *viamClient) deleteBinaryData(filter *datapb.Filter) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
 	resp, err := c.dataClient.DeleteBinaryDataByFilter(context.Background(),
 		&datapb.DeleteBinaryDataByFilterRequest{Filter: filter})
 	if err != nil {
@@ -846,6 +857,9 @@ func (c *viamClient) deleteBinaryData(filter *datapb.Filter) error {
 }
 
 func (c *viamClient) dataAddTagsToBinaryByFilter(filter *datapb.Filter, tags []string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
 	_, err := c.dataClient.AddTagsToBinaryDataByFilter(context.Background(),
 		&datapb.AddTagsToBinaryDataByFilterRequest{Filter: filter, Tags: tags})
 	if err != nil {
@@ -856,6 +870,9 @@ func (c *viamClient) dataAddTagsToBinaryByFilter(filter *datapb.Filter, tags []s
 }
 
 func (c *viamClient) dataRemoveTagsFromBinaryByFilter(filter *datapb.Filter, tags []string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
 	_, err := c.dataClient.RemoveTagsFromBinaryDataByFilter(context.Background(),
 		&datapb.RemoveTagsFromBinaryDataByFilterRequest{Filter: filter, Tags: tags})
 	if err != nil {
@@ -866,6 +883,9 @@ func (c *viamClient) dataRemoveTagsFromBinaryByFilter(filter *datapb.Filter, tag
 }
 
 func (c *viamClient) dataAddTagsToBinaryByIDs(tags []string, orgID, locationID string, fileIDs []string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
 	binaryData := make([]*datapb.BinaryID, 0, len(fileIDs))
 	for _, fileID := range fileIDs {
 		binaryData = append(binaryData, &datapb.BinaryID{
@@ -886,6 +906,9 @@ func (c *viamClient) dataAddTagsToBinaryByIDs(tags []string, orgID, locationID s
 // dataRemoveTagsFromData removes tags from data, with the specified org ID, location ID,
 // and file IDs.
 func (c *viamClient) dataRemoveTagsFromBinaryByIDs(tags []string, orgID, locationID string, fileIDs []string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
 	binaryData := make([]*datapb.BinaryID, 0, len(fileIDs))
 	for _, fileID := range fileIDs {
 		binaryData = append(binaryData, &datapb.BinaryID{
@@ -905,6 +928,9 @@ func (c *viamClient) dataRemoveTagsFromBinaryByIDs(tags []string, orgID, locatio
 
 // deleteTabularData delete tabular data matching filter.
 func (c *viamClient) deleteTabularData(orgID string, deleteOlderThanDays int) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
 	resp, err := c.dataClient.DeleteTabularData(context.Background(),
 		&datapb.DeleteTabularDataRequest{OrganizationId: orgID, DeleteOlderThanDays: uint32(deleteOlderThanDays)})
 	if err != nil {
@@ -936,6 +962,9 @@ func DataAddToDatasetByIDs(c *cli.Context, args dataAddToDatasetByIDsArgs) error
 
 // dataAddToDatasetByIDs adds data, with the specified org ID, location ID, and file IDs to the dataset corresponding to the dataset ID.
 func (c *viamClient) dataAddToDatasetByIDs(datasetID, orgID, locationID string, fileIDs []string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
 	binaryData := make([]*datapb.BinaryID, 0, len(fileIDs))
 	for _, fileID := range fileIDs {
 		binaryData = append(binaryData, &datapb.BinaryID{
@@ -975,6 +1004,9 @@ func DataAddToDatasetByFilter(c *cli.Context, args dataAddToDatasetByFilterArgs)
 
 // dataAddToDatasetByFilter adds data, with the specified filter to the dataset corresponding to the dataset ID.
 func (c *viamClient) dataAddToDatasetByFilter(filter *datapb.Filter, datasetID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
 	parallelActions := uint(100)
 
 	return c.performActionOnBinaryDataFromFilter(
@@ -1012,6 +1044,9 @@ func DataRemoveFromDataset(c *cli.Context, args dataRemoveFromDatasetArgs) error
 // dataRemoveFromDataset removes data, with the specified org ID, location ID,
 // and file IDs from the dataset corresponding to the dataset ID.
 func (c *viamClient) dataRemoveFromDataset(datasetID, orgID, locationID string, fileIDs []string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
 	binaryData := make([]*datapb.BinaryID, 0, len(fileIDs))
 	for _, fileID := range fileIDs {
 		binaryData = append(binaryData, &datapb.BinaryID{
@@ -1136,6 +1171,9 @@ func DataConfigureDatabaseUser(c *cli.Context, args dataConfigureDatabaseUserArg
 // being configured. Viam uses gRPC over TLS, so the entire request will be encrypted while in
 // flight, including the password.
 func (c *viamClient) dataConfigureDatabaseUser(orgID, password string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
 	_, err := c.dataClient.ConfigureDatabaseUser(context.Background(),
 		&datapb.ConfigureDatabaseUserRequest{OrganizationId: orgID, Password: password})
 	if err != nil {
@@ -1167,6 +1205,9 @@ func DataGetDatabaseConnection(c *cli.Context, args dataGetDatabaseConnectionArg
 // dataGetDatabaseConnection gets the hostname of the MongoDB Atlas Data Federation instance
 // for the given organization ID.
 func (c *viamClient) dataGetDatabaseConnection(orgID string) (*datapb.GetDatabaseConnectionResponse, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
 	res, err := c.dataClient.GetDatabaseConnection(context.Background(), &datapb.GetDatabaseConnectionRequest{OrganizationId: orgID})
 	if err != nil {
 		return nil, errors.Wrapf(err, serverErrorMessage)
