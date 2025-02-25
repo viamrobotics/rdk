@@ -102,7 +102,7 @@ func defaultGraphOptions() graphOptions {
 		minTimeSeconds:     0,
 		maxTimeSeconds:     math.MaxInt64,
 		hideAllZeroes:      true,
-		vertLinesAtSeconds: make([]in64, 0),
+		vertLinesAtSeconds: make([]int64, 0),
 	}
 }
 
