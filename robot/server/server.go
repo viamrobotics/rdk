@@ -78,7 +78,7 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 	//
 	// var destAllowed bool
 	//// Ensure destination port is available; otherwise error.
-	//for _, tte := range s.robot.TrafficTunnelEndpoints() {
+	// for _, tte := range s.robot.TrafficTunnelEndpoints() {
 	//if int(req.DestinationPort) == tte.Port {
 	//destAllowed = true
 	//if tte.ConnectionTimeout != 0 {
