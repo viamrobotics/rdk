@@ -121,6 +121,10 @@ func (conf Config) MarshalJSON() ([]byte, error) {
 // of Models -> T's (cannot right now because of type instantiation rules), then
 // this should be a method on the type and hide away both Attributes and
 // ConvertedAttributes.
+//
+// If the config struct uses embedded structs, the returned config from NativeConfig
+// may be unexpected and missing data. In these cases. please access Attributes directly
+// or write a custom AttributeMapConverter for the model.
 func NativeConfig[T any](conf Config) (T, error) {
 	val, err := utils.AssertType[T](conf.ConvertedAttributes)
 	if err != nil {
