@@ -4612,3 +4612,34 @@ func TestModuleNamePassing(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, <-moduleNameCh, test.ShouldEqual, moduleName)
 }
+
+func TestListTunnels(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	trafficTunnelEndpoints := []config.TrafficTunnelEndpoint{
+		{
+			Port:              9090,
+			ConnectionTimeout: 20 * time.Second,
+		},
+		{
+			Port:              27017,
+			ConnectionTimeout: 40 * time.Millisecond,
+		},
+		{
+			Port: 23654,
+		},
+	}
+	cfg := &config.Config{
+		Network: config.NetworkConfig{
+			NetworkConfigData: config.NetworkConfigData{
+				TrafficTunnelEndpoints: trafficTunnelEndpoints,
+			},
+		},
+	}
+
+	r := setupLocalRobot(t, ctx, cfg, logger)
+
+	ttes := r.ListTunnels()
+	test.That(t, ttes, test.ShouldResemble, trafficTunnelEndpoints)
+}
