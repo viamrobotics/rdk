@@ -82,7 +82,7 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 	// if int(req.DestinationPort) == tte.Port {
 	// destAllowed = true
 	// if tte.ConnectionTimeout != 0 {
-	//dialTimeout = tte.ConnectionTimeout
+	// dialTimeout = tte.ConnectionTimeout
 	//}
 	//break
 	//}
