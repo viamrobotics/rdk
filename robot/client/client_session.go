@@ -21,17 +21,22 @@ type ctxKey byte
 
 const ctxKeyInSessionMDReq = ctxKey(iota)
 
-var exemptFromSession = map[string]bool{
-	"/grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo": true,
-	"/proto.rpc.webrtc.v1.SignalingService/Call":                     true,
-	"/proto.rpc.webrtc.v1.SignalingService/CallUpdate":               true,
-	"/proto.rpc.webrtc.v1.SignalingService/OptionalWebRTCConfig":     true,
-	"/proto.rpc.v1.AuthService/Authenticate":                         true,
-	"/proto.rpc.v1.ExternalAuthService/AuthenticateTo":               true,
-	"/viam.robot.v1.RobotService/ResourceNames":                      true,
-	"/viam.robot.v1.RobotService/ResourceRPCSubtypes":                true,
-	"/viam.robot.v1.RobotService/StartSession":                       true,
-	"/viam.robot.v1.RobotService/SendSessionHeartbeat":               true,
+var includeInSession = map[string]bool{
+	"/viam.component.arm.v1.ArmService/MoveToPosition":            true,
+	"/viam.component.arm.v1.ArmService/MoveToJointPositions":      true,
+	"/viam.component.arm.v1.ArmService/MoveThroughJointPositions": true,
+	"/viam.component.base.v1.BaseService/MoveStraight":            true,
+	"/viam.component.base.v1.BaseService/Spin":                    true,
+	"/viam.component.base.v1.BaseService/SetPower":                true,
+	"/viam.component.base.v1.BaseService/SetVelocity":             true,
+	"/viam.component.gantry.v1.GantryService/MoveToPosition":      true,
+	"/viam.component.gripper.v1.GripperService/Open":              true,
+	"/viam.component.gripper.v1.GripperService/Grab":              true,
+	"/viam.component.motor.v1.MotorService/SetPower":              true,
+	"/viam.component.motor.v1.MotorService/GoFor":                 true,
+	"/viam.component.motor.v1.MotorService/GoTo":                  true,
+	"/viam.component.motor.v1.MotorService/SetRPM":                true,
+	"/viam.component.servo.v1.ServoService/Move":                  true,
 }
 
 func (rc *RobotClient) sessionReset() {
@@ -166,7 +171,7 @@ func (rc *RobotClient) safetyMonitorFromHeaders(ctx context.Context, hdr metadat
 }
 
 func (rc *RobotClient) useSessionInRequest(ctx context.Context, method string) bool {
-	return !rc.sessionsDisabled && !exemptFromSession[method] && ctx.Value(ctxKeyInSessionMDReq) == nil
+	return !rc.sessionsDisabled && includeInSession[method] && ctx.Value(ctxKeyInSessionMDReq) == nil
 }
 
 func (rc *RobotClient) sessionUnaryClientInterceptor(
