@@ -745,15 +745,7 @@ func getLatestSDKTag(c *cli.Context, language string, globalArgs globalArgs) (st
 
 func generateCloudBuild(c *cli.Context, module modulegen.ModuleInputs, globalArgs globalArgs) error {
 	debugf(c.App.Writer, globalArgs.Debug, "Setting cloud build functionality to %s", module.EnableCloudBuild)
-	switch module.Language {
-	case python:
-		if !module.EnableCloudBuild {
-			err := os.Remove(filepath.Join(module.ModuleName, "build.sh"))
-			if err != nil {
-				return err
-			}
-		}
-	case golang:
+	if module.Language == golang {
 		if module.EnableCloudBuild {
 			err := os.Remove(filepath.Join(module.ModuleName, "run.sh"))
 			if err != nil {
