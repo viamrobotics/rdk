@@ -11,6 +11,8 @@ import (
 	"gonum.org/v1/gonum/num/quat"
 )
 
+var defaultPrecision = 6
+
 // dualQuaternion defines functions to perform rigid dualQuaternionformations in 3D.
 // If you find yourself importing gonum.org/v1/gonum/num/dualquat in some other package, you should probably be
 // using these instead.
@@ -198,7 +200,10 @@ func (q *dualQuaternion) Transformation(by dualquat.Number) dualquat.Number {
 //	%#v     | r3.Vector{0 0 0} *spatialmath.OrientationVectorDegrees{0 0 0 1}
 //	%g      | ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
 func (q *dualQuaternion) Format(fs fmt.State, verb rune) {
-	prec, _ := fs.Precision()
+	prec, ok := fs.Precision()
+	if !ok {
+		prec = defaultPrecision
+	}
 	width, _ := fs.Width()
 	format := fmt.Sprintf("%%%d.%df", width, prec)
 	pt := q.Point()
