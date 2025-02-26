@@ -75,21 +75,22 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 
 	// TODO(RSDK-5763): Start rejecting requests to unavailable ports once `app` has been
 	// updated to propagate `traffic_tunnel_endpoints` configs.
-	//
-	// var destAllowed bool
-	//// Ensure destination port is available; otherwise error.
-	// for _, tte := range s.robot.ListTunnels() {
-	// if int(req.DestinationPort) == tte.Port {
-	// destAllowed = true
-	// if tte.ConnectionTimeout != 0 {
-	// dialTimeout = tte.ConnectionTimeout
-	//}
-	//break
-	//}
-	//}
-	//if !destAllowed {
-	//return fmt.Errorf("tunnel not available at port %d", req.DestinationPort)
-	//}
+	/*
+	   var destAllowed bool
+	  // Ensure destination port is available; otherwise error.
+	   for _, tte := range s.robot.ListTunnels() {
+	   if int(req.DestinationPort) == tte.Port {
+	   destAllowed = true
+	   if tte.ConnectionTimeout != 0 {
+	   dialTimeout = tte.ConnectionTimeout
+	  }
+	   break
+	  }
+	  }
+	   if !destAllowed {
+	  return fmt.Errorf("tunnel not available at port %d", req.DestinationPort)
+	  }
+	*/
 
 	dest := strconv.Itoa(int(req.DestinationPort))
 
