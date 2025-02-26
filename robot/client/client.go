@@ -1367,7 +1367,7 @@ func streamClientInterceptor() googlegrpc.StreamClientInterceptor {
 	}
 }
 
-// TrafficTunnelEndpoints is a no-op (returns nil) for robot clients.
-func (rc *RobotClient) TrafficTunnelEndpoints() []config.TrafficTunnelEndpoint {
+// ListTunnels is a no-op (returns nil) for robot clients.
+func (rc *RobotClient) ListTunnels() []config.TrafficTunnelEndpoint {
 	return nil
 }

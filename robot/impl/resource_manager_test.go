@@ -2036,8 +2036,8 @@ func (rr *dummyRobot) Version(ctx context.Context) (robot.VersionResponse, error
 	return rr.robot.Version(ctx)
 }
 
-// TrafficTunnelEndpoints returns information on available traffic tunnels.
-func (rr *dummyRobot) TrafficTunnelEndpoints() []config.TrafficTunnelEndpoint {
+// ListTunnels returns information on available traffic tunnels.
+func (rr *dummyRobot) ListTunnels() []config.TrafficTunnelEndpoint {
 	return nil
 }
 

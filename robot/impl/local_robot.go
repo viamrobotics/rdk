@@ -1595,7 +1595,7 @@ func (r *localRobot) RestartAllowed() bool {
 	return false
 }
 
-// TrafficTunnelEndpoints returns information on available traffic tunnels.
-func (r *localRobot) TrafficTunnelEndpoints() []config.TrafficTunnelEndpoint {
+// ListTunnels returns information on available traffic tunnels.
+func (r *localRobot) ListTunnels() []config.TrafficTunnelEndpoint {
 	return r.trafficTunnelEndpoints
 }
