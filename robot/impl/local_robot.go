@@ -1587,3 +1587,12 @@ func (r *localRobot) RestartAllowed() bool {
 	}
 	return false
 }
+
+// ListTunnels returns information on available traffic tunnels.
+func (r *localRobot) ListTunnels() []config.TrafficTunnelEndpoint {
+	cfg := r.Config()
+	if cfg != nil {
+		return cfg.Network.NetworkConfigData.TrafficTunnelEndpoints
+	}
+	return nil
+}
