@@ -1058,6 +1058,7 @@ func TestMaintenanceConfigToProtoSuccess(t *testing.T) {
 
 	test.That(t, *out, test.ShouldResemble, testMaintenanceConfig)
 }
+
 func TestMaintenanceConfigToProtoEmptyName(t *testing.T) {
 	testMaintenanceConfig := MaintenanceConfig{
 		SensorName:            "",
