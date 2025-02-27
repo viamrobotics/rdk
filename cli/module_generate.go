@@ -153,12 +153,6 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 			warningf(cCtx.App.ErrWriter, err.Error())
 			nonFatalError = true
 		}
-
-		s.Title("Generating cloud build requirements...")
-		if err = generateCloudBuild(cCtx, *newModule, globalArgs); err != nil {
-			warningf(cCtx.App.ErrWriter, err.Error())
-			nonFatalError = true
-		}
 	}
 
 	if globalArgs.Debug {
@@ -741,19 +735,6 @@ func getLatestSDKTag(c *cli.Context, language string, globalArgs globalArgs) (st
 	version := latest.(map[string]interface{})["tag_name"].(string)
 	debugf(c.App.Writer, globalArgs.Debug, "\tLatest release for %s: %s", repo, version)
 	return version, nil
-}
-
-func generateCloudBuild(c *cli.Context, module modulegen.ModuleInputs, globalArgs globalArgs) error {
-	debugf(c.App.Writer, globalArgs.Debug, "Setting cloud build functionality to %s", module.EnableCloudBuild)
-	if module.Language == golang {
-		if module.EnableCloudBuild {
-			err := os.Remove(filepath.Join(module.ModuleName, "run.sh"))
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
 
 func createModuleAndManifest(cCtx *cli.Context, c *viamClient, module modulegen.ModuleInputs, globalArgs globalArgs) error {
