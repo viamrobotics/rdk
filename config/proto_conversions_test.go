@@ -1072,6 +1072,21 @@ func TestMaintenanceConfigToProtoEmptyName(t *testing.T) {
 	test.That(t, *out, test.ShouldResemble, testMaintenanceConfig)
 }
 
+func TestMaintenanceConfigToProtoMalformedName(t *testing.T) {
+	testMaintenanceConfig := MaintenanceConfig{
+		SensorName:            "abc",
+		MaintenanceAllowedKey: "honk",
+	}
+
+	proto, err := MaintenanceConfigToProto(&testMaintenanceConfig)
+	test.That(t, err, test.ShouldBeNil)
+	out, err := MaintenanceConfigFromProto(proto)
+	test.That(t, err, test.ShouldBeNil)
+
+	testMaintenanceConfig.SensorName = resource.NewName(resource.API{}, testMaintenanceConfig.SensorName).String()
+	test.That(t, *out, test.ShouldResemble, testMaintenanceConfig)
+}
+
 func TestMaintenanceConfigToProtoRemoteSuccess(t *testing.T) {
 	testMaintenanceConfig := MaintenanceConfig{
 		SensorName:            "rdk:component:sensor/go:store",

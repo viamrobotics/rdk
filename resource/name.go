@@ -132,9 +132,6 @@ func (n Name) Validate() error {
 
 // String returns the fully qualified name for the resource.
 func (n Name) String() string {
-	if n == (Name{}) {
-		return ""
-	}
 	name := n.API.String()
 	if n.Remote != "" {
 		name = fmt.Sprintf("%s/%s:%s", name, n.Remote, n.Name)

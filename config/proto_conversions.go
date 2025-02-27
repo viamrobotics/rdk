@@ -650,23 +650,19 @@ func NetworkConfigToProto(network *NetworkConfig) (*pb.NetworkConfig, error) {
 	return &proto, nil
 }
 
-// MaintenanceConfigToProto converts MaintenanceConfig to the proto equivalent.
+// MaintenanceConfigToProto converts MaintenanceConfig to the proto equivalent. This function will swallow
+// any resource name conversion errors and put the full SensorName in the Name field of the ResourceName proto object.
 func MaintenanceConfigToProto(maintenanceConfig *MaintenanceConfig) (*pb.MaintenanceConfig, error) {
-	// convert from string to resource name
-	var (
-		name resource.Name
-		err  error
-	)
-	if maintenanceConfig.SensorName != "" {
-		name, err = resource.NewFromString(maintenanceConfig.SensorName)
-		if err != nil {
-			return nil, err
-		}
+	proto := pb.MaintenanceConfig{
+		MaintenanceAllowedKey: maintenanceConfig.MaintenanceAllowedKey,
 	}
 
-	proto := pb.MaintenanceConfig{
-		SensorName:            protoRdkUtils.ResourceNameToProto(name),
-		MaintenanceAllowedKey: maintenanceConfig.MaintenanceAllowedKey,
+	if maintenanceConfig.SensorName != "" {
+		name, err := resource.NewFromString(maintenanceConfig.SensorName)
+		if err != nil {
+			name = resource.NewName(resource.API{}, maintenanceConfig.SensorName)
+		}
+		proto.SensorName = protoRdkUtils.ResourceNameToProto(name)
 	}
 
 	return &proto, nil
@@ -691,8 +687,10 @@ func NetworkConfigFromProto(proto *pb.NetworkConfig) (*NetworkConfig, error) {
 // MaintenanceConfigFromProto creates a MaintenanceConfig from the proto equivalent.
 func MaintenanceConfigFromProto(proto *pb.MaintenanceConfig) (*MaintenanceConfig, error) {
 	maintenanceConfig := MaintenanceConfig{
-		SensorName:            protoRdkUtils.ResourceNameFromProto(proto.GetSensorName()).String(),
 		MaintenanceAllowedKey: proto.GetMaintenanceAllowedKey(),
+	}
+	if proto.GetSensorName() != nil {
+		maintenanceConfig.SensorName = protoRdkUtils.ResourceNameFromProto(proto.GetSensorName()).String()
 	}
 	return &maintenanceConfig, nil
 }
