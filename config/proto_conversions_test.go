@@ -1075,7 +1075,7 @@ func TestMaintenanceConfigToProtoEmptyName(t *testing.T) {
 
 func TestMaintenanceConfigToProtoMalformedName(t *testing.T) {
 	testMaintenanceConfig := MaintenanceConfig{
-		SensorName:            "abc",
+		SensorName:            "car:go",
 		MaintenanceAllowedKey: "honk",
 	}
 
@@ -1100,14 +1100,4 @@ func TestMaintenanceConfigToProtoRemoteSuccess(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, *out, test.ShouldResemble, testMaintenanceConfig)
-}
-
-func TestMaintenanceConfigToProtoFailure(t *testing.T) {
-	testMaintenanceConfig := MaintenanceConfig{
-		SensorName:            "car:go",
-		MaintenanceAllowedKey: "slow",
-	}
-
-	_, err := MaintenanceConfigToProto(&testMaintenanceConfig)
-	test.That(t, err.Error(), test.ShouldEqual, "string \"car:go\" is not a fully qualified resource name")
 }
