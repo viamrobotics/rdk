@@ -123,8 +123,9 @@ func (conf Config) MarshalJSON() ([]byte, error) {
 // ConvertedAttributes.
 //
 // If the config struct uses embedded structs, the returned config from NativeConfig
-// may be unexpected and missing data. In these cases. please access Attributes directly
-// or write a custom AttributeMapConverter for the model.
+// may be unexpected and missing data since the attributes may have failed conversion
+// through the default AttributeMapConverter. In these cases. please access Attributes
+// directly from the config or write a custom AttributeMapConverter for the model.
 func NativeConfig[T any](conf Config) (T, error) {
 	val, err := utils.AssertType[T](conf.ConvertedAttributes)
 	if err != nil {
