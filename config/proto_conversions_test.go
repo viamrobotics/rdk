@@ -1058,6 +1058,19 @@ func TestMaintenanceConfigToProtoSuccess(t *testing.T) {
 
 	test.That(t, *out, test.ShouldResemble, testMaintenanceConfig)
 }
+func TestMaintenanceConfigToProtoEmptyName(t *testing.T) {
+	testMaintenanceConfig := MaintenanceConfig{
+		SensorName:            "",
+		MaintenanceAllowedKey: "honk",
+	}
+
+	proto, err := MaintenanceConfigToProto(&testMaintenanceConfig)
+	test.That(t, err, test.ShouldBeNil)
+	out, err := MaintenanceConfigFromProto(proto)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, *out, test.ShouldResemble, testMaintenanceConfig)
+}
 
 func TestMaintenanceConfigToProtoRemoteSuccess(t *testing.T) {
 	testMaintenanceConfig := MaintenanceConfig{
