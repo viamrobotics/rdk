@@ -1306,6 +1306,30 @@ func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest
 	return errors.Join(err, readerSenderErr, recvWriterErr)
 }
 
+// ListTunnels lists all available tunnels configured on the robot.
+func (rc *RobotClient) ListTunnels(ctx context.Context) ([]config.TrafficTunnelEndpoint, error) {
+	var ttes []config.TrafficTunnelEndpoint
+
+	resp, err := rc.client.ListTunnels(ctx, &pb.ListTunnelsRequest{})
+	if err != nil {
+		return ttes, err
+	}
+
+	for _, protoTTE := range resp.Tunnels {
+		if protoTTE == nil {
+			continue
+		}
+
+		tte := config.TrafficTunnelEndpoint{
+			Port:              int(protoTTE.Port),
+			ConnectionTimeout: protoTTE.ConnectionTimeout.AsDuration(),
+		}
+		ttes = append(ttes, tte)
+	}
+
+	return ttes, nil
+}
+
 // SetPeerConnection is only to be called internally from modules.
 func (rc *RobotClient) SetPeerConnection(pc *webrtc.PeerConnection) {
 	rc.mu.Lock()
@@ -1365,9 +1389,4 @@ func streamClientInterceptor() googlegrpc.StreamClientInterceptor {
 		ctx = metadata.AppendToOutgoingContext(ctx, "viam_client", stringMd)
 		return streamer(ctx, desc, cc, method, opts...)
 	}
-}
-
-// ListTunnels is a no-op (returns nil) for robot clients.
-func (rc *RobotClient) ListTunnels() []config.TrafficTunnelEndpoint {
-	return nil
 }

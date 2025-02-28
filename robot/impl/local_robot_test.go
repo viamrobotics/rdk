@@ -4640,6 +4640,7 @@ func TestListTunnels(t *testing.T) {
 
 	r := setupLocalRobot(t, ctx, cfg, logger)
 
-	ttes := r.ListTunnels()
+	ttes, err := r.ListTunnels(ctx)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ttes, test.ShouldResemble, trafficTunnelEndpoints)
 }

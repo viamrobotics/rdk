@@ -51,6 +51,7 @@ type Robot struct {
 	CloudMetadataFunc       func(ctx context.Context) (cloud.Metadata, error)
 	MachineStatusFunc       func(ctx context.Context) (robot.MachineStatus, error)
 	ShutdownFunc            func(ctx context.Context) error
+	ListTunnelsFunc         func(ctx context.Context) ([]config.TrafficTunnelEndpoint, error)
 
 	ops        *operation.Manager
 	SessMgr    session.Manager
@@ -314,6 +315,16 @@ func (r *Robot) Shutdown(ctx context.Context) error {
 		return r.LocalRobot.Shutdown(ctx)
 	}
 	return r.ShutdownFunc(ctx)
+}
+
+// ListTunnels calls the injected ListTunnels or the real one.
+func (r *Robot) ListTunnels(ctx context.Context) ([]config.TrafficTunnelEndpoint, error) {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+	if r.ListTunnelsFunc == nil {
+		return r.LocalRobot.ListTunnels(ctx)
+	}
+	return r.ListTunnelsFunc(ctx)
 }
 
 type noopSessionManager struct{}

@@ -2286,3 +2286,49 @@ func TestVersion(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, md, test.ShouldResemble, version)
 }
+
+func TestListTunnels(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	gServer := grpc.NewServer()
+
+	expectedTTEs := []config.TrafficTunnelEndpoint{
+		{
+			Port:              9090,
+			ConnectionTimeout: 20 * time.Second,
+		},
+		{
+			Port:              27017,
+			ConnectionTimeout: 40 * time.Millisecond,
+		},
+		{
+			Port: 23654,
+		},
+	}
+	injectRobot := &inject.Robot{
+		ResourceNamesFunc:   func() []resource.Name { return nil },
+		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+		MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
+			return robot.MachineStatus{State: robot.StateRunning}, nil
+		},
+		ListTunnelsFunc: func(ctx context.Context) ([]config.TrafficTunnelEndpoint, error) {
+			return expectedTTEs, nil
+		},
+	}
+
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	client, err := New(context.Background(), listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	ttes, err := client.ListTunnels(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ttes, test.ShouldResemble, expectedTTEs)
+}

@@ -2037,8 +2037,8 @@ func (rr *dummyRobot) Version(ctx context.Context) (robot.VersionResponse, error
 }
 
 // ListTunnels returns information on available traffic tunnels.
-func (rr *dummyRobot) ListTunnels() []config.TrafficTunnelEndpoint {
-	return nil
+func (rr *dummyRobot) ListTunnels(_ context.Context) ([]config.TrafficTunnelEndpoint, error) {
+	return nil, nil
 }
 
 // managerForDummyRobot integrates all parts from a given robot except for its remotes.
