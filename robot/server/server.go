@@ -135,6 +135,25 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 	return errors.Join(err, readerSenderErr, recvWriterErr)
 }
 
+// ListTunnels lists all available tunnels on the server.
+func (s *Server) ListTunnels(ctx context.Context, req *pb.ListTunnelsRequest) (*pb.ListTunnelsResponse, error) {
+	res := &pb.ListTunnelsResponse{}
+
+	ttes, err := s.robot.ListTunnels(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, tte := range ttes {
+		res.Tunnels = append(res.Tunnels, &pb.Tunnel{
+			Port:              uint32(tte.Port),
+			ConnectionTimeout: durationpb.New(tte.ConnectionTimeout),
+		})
+	}
+
+	return res, nil
+}
+
 // GetOperations lists all running operations.
 func (s *Server) GetOperations(ctx context.Context, req *pb.GetOperationsRequest) (*pb.GetOperationsResponse, error) {
 	me := operation.Get(ctx)
