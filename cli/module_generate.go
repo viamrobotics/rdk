@@ -832,11 +832,7 @@ func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInpu
 			Path:  "bin/module.tar.gz",
 			Arch:  []string{"linux/amd64", "linux/arm64"},
 		}
-		if module.EnableCloudBuild {
-			manifest.Entrypoint = fmt.Sprintf("bin/%s", module.ModuleName)
-		} else {
-			manifest.Entrypoint = "./run.sh"
-		}
+		manifest.Entrypoint = fmt.Sprintf("bin/%s", module.ModuleName)
 	}
 
 	if err := writeManifest(filepath.Join(module.ModuleName, defaultManifestFilename), manifest); err != nil {
