@@ -74,6 +74,7 @@ func NewManager(
 		restartCtxCancel:        restartCtxCancel,
 		packagesDir:             options.PackagesDir,
 		ftdc:                    options.FTDC,
+		modPeerConnTracker:      options.ModPeerConnTracker,
 	}
 	ret.nextPort.Store(tcpPortRange)
 	return ret
@@ -193,6 +194,10 @@ type Manager struct {
 	ftdc                    *ftdc.FTDC
 	// nextPort manages ports when ViamTCPSockets() = true.
 	nextPort atomic.Int32
+
+	// modPeerConnTracker must be updated as modules create/destroy any underlying WebRTC
+	// PeerConnections.
+	modPeerConnTracker *rdkgrpc.ModPeerConnTracker
 }
 
 // Close terminates module connections and processes.
@@ -403,6 +408,9 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	if err := mod.dial(); err != nil {
 		return errors.WithMessage(err, "error while dialing module "+mod.cfg.Name)
 	}
+	if pc := mod.sharedConn.PeerConnNoBlocking(); mgr.modPeerConnTracker != nil && pc != nil {
+		mgr.modPeerConnTracker.Add(mod.cfg.Name, pc)
+	}
 
 	if err := mod.checkReady(ctx, mgr.parentAddr); err != nil {
 		return errors.WithMessage(err, "error while waiting for module to be ready "+mod.cfg.Name)
@@ -513,6 +521,10 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 		return errors.WithMessage(err, "error while stopping module "+mod.cfg.Name)
 	}
 
+	if mgr.modPeerConnTracker != nil {
+		mgr.logger.Infow("DBG. Removing PC for module.", "mod", mod.cfg.Name)
+		mgr.modPeerConnTracker.Remove(mod.cfg.Name)
+	}
 	if err := mod.sharedConn.Close(); err != nil {
 		mod.logger.Warnw("Error closing connection to module", "error", err)
 	}
@@ -1030,6 +1042,9 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 		mgr.logger.CErrorw(ctx, "Error while dialing restarted module",
 			"module", mod.cfg.Name, "error", err)
 		return orphanedResourceNames
+	}
+	if pc := mod.sharedConn.PeerConn(); mgr.modPeerConnTracker != nil && pc != nil {
+		mgr.modPeerConnTracker.Add(mod.cfg.Name, pc)
 	}
 
 	if err := mod.checkReady(ctx, mgr.parentAddr); err != nil {

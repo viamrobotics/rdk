@@ -143,7 +143,7 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 	defer span.End()
 	// Get the peer connection to the caller.
 	pc, ok := rpc.ContextPeerConnection(ctx)
-	server.logger.Infow("Adding video stream", "name", req.Name, "peerConn", pc)
+	server.logger.Infow("Adding video stream", "name", req.Name, "peerConn", fmt.Sprintf("%p", pc))
 	defer server.logger.Warnf("AddStream END %s", req.Name)
 
 	if !ok {

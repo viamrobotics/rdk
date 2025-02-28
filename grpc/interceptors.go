@@ -2,8 +2,11 @@ package grpc
 
 import (
 	"context"
+	"sync"
 	"time"
 
+	"github.com/viamrobotics/webrtc/v3"
+	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
@@ -83,9 +86,32 @@ func (mc *ModInterceptors) UnaryClientInterceptor(
 	return invoker(ctx, method, req, reply, cc, opts...)
 }
 
-// ModNameUnaryServerInterceptor checks the incoming RPC metadata for a module name and attaches any
+type ModPeerConnTracker struct {
+	mu                sync.Mutex
+	modNameToPeerConn map[string]*webrtc.PeerConnection
+}
+
+func NewModPeerConnTracker() *ModPeerConnTracker {
+	return &ModPeerConnTracker{
+		modNameToPeerConn: make(map[string]*webrtc.PeerConnection),
+	}
+}
+
+func (tracker *ModPeerConnTracker) Add(modname string, peerConn *webrtc.PeerConnection) {
+	tracker.mu.Lock()
+	tracker.modNameToPeerConn[modname] = peerConn
+	tracker.mu.Unlock()
+}
+
+func (tracker *ModPeerConnTracker) Remove(modname string) {
+	tracker.mu.Lock()
+	delete(tracker.modNameToPeerConn, modname)
+	tracker.mu.Unlock()
+}
+
+// ModInfoUnaryServerInterceptor checks the incoming RPC metadata for a module name and attaches any
 // information to a context that can be retrieved with `GetModuleName`.
-func ModNameUnaryServerInterceptor(
+func (tracker *ModPeerConnTracker) ModInfoUnaryServerInterceptor(
 	ctx context.Context,
 	req interface{},
 	info *grpc.UnaryServerInfo,
@@ -98,7 +124,18 @@ func ModNameUnaryServerInterceptor(
 
 	values := meta.Get(modNameMetadataKey)
 	if len(values) == 1 {
+		// We have a module name. Attach it for anyone interested.
+		modName := values[0]
 		ctx = context.WithValue(ctx, modNameKeyID, values[0])
+
+		tracker.mu.Lock()
+		pc, exists := tracker.modNameToPeerConn[modName]
+		tracker.mu.Unlock()
+
+		if exists {
+			// We also have that module mapped to a PeerConnection. Attach that as well.
+			ctx = rpc.ContextWithPeerConnection(ctx, pc)
+		}
 	}
 
 	return handler(ctx, req)

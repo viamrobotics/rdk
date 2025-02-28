@@ -25,7 +25,7 @@ import (
 // a resource may register with a SharedConn which supports WebRTC.
 type OnTrackCB func(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver)
 
-//nolint
+// nolint
 // The following describes the SharedConn lifetime for viam-server's modmanager communicating with
 // modules it has spawned.
 //
@@ -192,9 +192,19 @@ func (sc *SharedConn) PeerConn() *webrtc.PeerConnection {
 	select {
 	case <-readyCh:
 	case <-failCh:
+		ret = nil
 	}
 
 	return ret
+}
+
+// PeerConnNoBlocking returns a WebRTC PeerConnection object. There's no guarantee the connection is
+// working, or ever will be.
+func (sc *SharedConn) PeerConnNoBlocking() *webrtc.PeerConnection {
+	// Grab a snapshot of the SharedConn state. Release locks before blocking on channel reads.
+	sc.peerConnMu.Lock()
+	defer sc.peerConnMu.Unlock()
+	return sc.peerConn
 }
 
 // ResetConn acts as a constructor for `SharedConn` inside the viam-server (not modules). ResetConn
