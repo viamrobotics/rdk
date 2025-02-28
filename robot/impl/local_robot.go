@@ -515,6 +515,7 @@ func newWithResources(
 		cloudID,
 		logger,
 		cfg.PackagePath,
+		r.webSvc.ModPeerConnTracker(),
 	)
 
 	if !rOpts.disableCompleteConfigWorker {
