@@ -61,10 +61,16 @@ func new{{.ModulePascal}}{{.ModelPascal}}(ctx context.Context, deps resource.Dep
 		return nil, err
 	}
 
+	return New{{.ModulePascal}}{{.ModelPascal}}(ctx, deps, rawConf.ResourceName(), conf, logger)
+}
+
+// New{{.ModelPascal}} for local testing
+func New{{.ModelPascal}}(ctx context.Context, deps resource.Dependencies, name resource.Name, conf *Config, logger logging.Logger) ({{if eq .ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .ResourceType "component"}}{{.ResourceSubtype}}.{{.ResourceSubtypePascal}}{{else}}{{.ResourceSubtype}}.Service{{end}}{{end}}, error) {
+
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	s := &{{.ModuleCamel}}{{.ModelPascal}}{
-		name:       rawConf.ResourceName(),
+		name:       name,
 		logger:     logger,
 		cfg:        conf,
 		cancelCtx:  cancelCtx,
