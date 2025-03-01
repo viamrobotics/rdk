@@ -35,7 +35,7 @@ endif
 
 module: test module.tar.gz
 
-all: test bin/viamkasa module 
+all: test module.tar.gz
 
 setup:
 	go mod tidy
