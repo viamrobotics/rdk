@@ -20,16 +20,15 @@ func realMain() error {
 	logger := logging.NewLogger("cli")
 
 	deps := resource.Dependencies{}
-	// can load these from a remote moachine if you need
+	// can load these from a remote machine if you need
 
 	cfg := {{.ModuleLowercase}}.Config{}
-	
+
 	thing, err := {{.ModuleLowercase}}.New{{.ModelPascal}}(ctx, deps, {{.ResourceSubtype}}.Named("foo"), &cfg, logger)
 	if err != nil {
 		return err
 	}
 	defer thing.Close(ctx)
 
-	
 	return nil
 }
