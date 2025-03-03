@@ -198,15 +198,6 @@ func (sc *SharedConn) PeerConn() *webrtc.PeerConnection {
 	return ret
 }
 
-// PeerConnNoBlocking returns a WebRTC PeerConnection object. There's no guarantee the connection is
-// working, or ever will be.
-func (sc *SharedConn) PeerConnNoBlocking() *webrtc.PeerConnection {
-	// Grab a snapshot of the SharedConn state. Release locks before blocking on channel reads.
-	sc.peerConnMu.Lock()
-	defer sc.peerConnMu.Unlock()
-	return sc.peerConn
-}
-
 // ResetConn acts as a constructor for `SharedConn` inside the viam-server (not modules). ResetConn
 // replaces the underlying connection objects in addition to some other initialization.
 //

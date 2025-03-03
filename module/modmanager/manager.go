@@ -405,15 +405,19 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 		return errors.WithMessage(err, "error while starting module "+mod.cfg.Name)
 	}
 
+	// Does a gRPC dial. Sets up a SharedConn with a PeerConnection that is not yet connected.
 	if err := mod.dial(); err != nil {
 		return errors.WithMessage(err, "error while dialing module "+mod.cfg.Name)
 	}
-	if pc := mod.sharedConn.PeerConnNoBlocking(); mgr.modPeerConnTracker != nil && pc != nil {
-		mgr.modPeerConnTracker.Add(mod.cfg.Name, pc)
-	}
 
+	// Sends a ReadyRequest and waits on a ReadyResponse. The PeerConnection will async connect
+	// after this, so long as the module supports it.
 	if err := mod.checkReady(ctx, mgr.parentAddr); err != nil {
 		return errors.WithMessage(err, "error while waiting for module to be ready "+mod.cfg.Name)
+	}
+
+	if pc := mod.sharedConn.PeerConn(); mgr.modPeerConnTracker != nil && pc != nil {
+		mgr.modPeerConnTracker.Add(mod.cfg.Name, pc)
 	}
 
 	mod.registerResources(mgr)
@@ -1043,14 +1047,15 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 			"module", mod.cfg.Name, "error", err)
 		return orphanedResourceNames
 	}
-	if pc := mod.sharedConn.PeerConn(); mgr.modPeerConnTracker != nil && pc != nil {
-		mgr.modPeerConnTracker.Add(mod.cfg.Name, pc)
-	}
 
 	if err := mod.checkReady(ctx, mgr.parentAddr); err != nil {
 		mgr.logger.CErrorw(ctx, "Error while waiting for restarted module to be ready",
 			"module", mod.cfg.Name, "error", err)
 		return orphanedResourceNames
+	}
+
+	if pc := mod.sharedConn.PeerConn(); mgr.modPeerConnTracker != nil && pc != nil {
+		mgr.modPeerConnTracker.Add(mod.cfg.Name, pc)
 	}
 
 	mod.registerResources(mgr)
