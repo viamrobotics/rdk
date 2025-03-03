@@ -63,6 +63,8 @@ jobs:
     - name: Check out code
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
       uses: actions/checkout@v3
+      with:
+        fetch-depth: 0 # needed for dev-version.sh to work
 
     - name: Check out PR branch code
       if: github.event_name == 'pull_request_target'
