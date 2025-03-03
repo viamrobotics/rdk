@@ -813,7 +813,6 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 // calling Close() on main's camera client blocks forever if there is a live SubscribeRTP subscription with a remote
 // due to the fact that the TrackRemote.ReadRTP method blocking forever.
 func TestWhyMustTimeoutOnReadRTP(t *testing.T) {
-	t.Skip("Depends on RSDK-7903")
 	logger := logging.NewTestLogger(t).Sublogger(t.Name())
 
 	remoteCfg2 := &config.Config{
@@ -953,7 +952,6 @@ Loop:
 //  5. when the new instance of r2 comes back online main gets new rtp packets from it's track with
 //     r1.
 func TestGrandRemoteRebooting(t *testing.T) {
-	t.Skip("Depends on RSDK-7903")
 	logger := logging.NewTestLogger(t).Sublogger(t.Name())
 
 	remoteCfg2 := &config.Config{

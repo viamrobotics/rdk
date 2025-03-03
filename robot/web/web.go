@@ -361,6 +361,9 @@ func (svc *webService) Close(ctx context.Context) error {
 	if svc.modServer != nil {
 		err = svc.modServer.Stop()
 	}
+	if svc.streamServer != nil {
+		utils.UncheckedError(svc.streamServer.Close())
+	}
 	svc.modWorkers.Wait()
 	return err
 }
