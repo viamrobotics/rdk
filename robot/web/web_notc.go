@@ -47,5 +47,10 @@ func (svc *webService) initStreamServer(ctx context.Context) error {
 	return nil
 }
 
+// stub implementation when gostream is not available.
+func (svc *webService) initStreamServerForModule(ctx context.Context) error {
+	return nil
+}
+
 // stub for missing gostream
 type options struct{}

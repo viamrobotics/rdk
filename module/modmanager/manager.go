@@ -526,7 +526,6 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 	}
 
 	if mgr.modPeerConnTracker != nil {
-		mgr.logger.Infow("DBG. Removing PC for module.", "mod", mod.cfg.Name)
 		mgr.modPeerConnTracker.Remove(mod.cfg.Name)
 	}
 	if err := mod.sharedConn.Close(); err != nil {
