@@ -20,20 +20,8 @@ on:
         required: true
 
 jobs:
-  build_timestamp:
-    name: Set Build Timestamp 
-    runs-on: ubuntu-latest
-    outputs:
-      date: ${{ steps.build_time.outputs.date }}
-    steps:
-    - name: Build Time
-      id: build_time
-      if: inputs.release_type == 'latest'
-      run: echo "date=`date +%Y%m%d%H%M%S`" >> $GITHUB_OUTPUT
-
   static:
     name: Antique Build
-    needs: build_timestamp
     strategy:
       fail-fast: false
       matrix:
@@ -111,7 +99,7 @@ jobs:
     - name: Build (Latest)
       if: inputs.release_type == 'latest'
       run: |
-        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="latest" BUILD_CHANNEL="${{needs.build_timestamp.outputs.date}}" ${{ matrix.target }}'
+        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="latest" BUILD_CHANNEL="$(etc/dev-version.sh)" ${{ matrix.target }}'
 
     - name: Build (Tagged)
       if: inputs.release_type == 'stable' || inputs.release_type == 'rc'
@@ -220,8 +208,14 @@ jobs:
       uses: google-github-actions/setup-gcloud@v1
 
     - name: Publish Static Binary
+      if: inputs.release_type != 'latest'
       run: |
         gsutil mv "gs://packages.viam.com/apps/viam-server/testing/static/${{ needs.static_test.outputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-server/"
+
+    - name: Publish Static Binary (Latest)
+      if: inputs.release_type == 'latest'
+      run: |
+        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/static/${{ needs.static_test.outputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-server/prerelease/"
 
     - name: Publish Subsystem Metadata
       run: |
