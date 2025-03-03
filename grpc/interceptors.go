@@ -86,23 +86,29 @@ func (mc *ModInterceptors) UnaryClientInterceptor(
 	return invoker(ctx, method, req, reply, cc, opts...)
 }
 
+// ModPeerConnTracker is an object (owned by the web service) that manages Module <-> PeerConnection
+// mappings. And provides interceptors for attaching module name and PeerConnection objects onto
+// context's for unary calls.
 type ModPeerConnTracker struct {
 	mu                sync.Mutex
 	modNameToPeerConn map[string]*webrtc.PeerConnection
 }
 
+// NewModPeerConnTracker creates a new ModPeerConnTracker.
 func NewModPeerConnTracker() *ModPeerConnTracker {
 	return &ModPeerConnTracker{
 		modNameToPeerConn: make(map[string]*webrtc.PeerConnection),
 	}
 }
 
+// Add informs the ModPeerConnTracker of a new module name <-> PeerConnection mapping.
 func (tracker *ModPeerConnTracker) Add(modname string, peerConn *webrtc.PeerConnection) {
 	tracker.mu.Lock()
 	tracker.modNameToPeerConn[modname] = peerConn
 	tracker.mu.Unlock()
 }
 
+// Remove removes a mapping from the tracker.
 func (tracker *ModPeerConnTracker) Remove(modname string) {
 	tracker.mu.Lock()
 	delete(tracker.modNameToPeerConn, modname)
