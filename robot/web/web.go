@@ -81,6 +81,8 @@ type Service interface {
 	Stats() any
 
 	RequestCounter() *RequestCounter
+
+	ModPeerConnTracker() *grpc.ModPeerConnTracker
 }
 
 type webService struct {
@@ -104,7 +106,8 @@ type webService struct {
 	webWorkers   sync.WaitGroup
 	modWorkers   sync.WaitGroup
 
-	requestCounter RequestCounter
+	requestCounter     RequestCounter
+	modPeerConnTracker *grpc.ModPeerConnTracker
 }
 
 var internalWebServiceName = resource.NewName(
@@ -223,7 +226,7 @@ func (svc *webService) StartModule(ctx context.Context) error {
 
 	// Attach the module name (as defined by the robot config) to the handler context. Can be
 	// accessed via `grpc.GetModuleName`.
-	unaryInterceptors = append(unaryInterceptors, grpc.ModNameUnaryServerInterceptor)
+	unaryInterceptors = append(unaryInterceptors, svc.modPeerConnTracker.ModInfoUnaryServerInterceptor)
 	unaryInterceptors = append(unaryInterceptors, svc.requestCounter.UnaryInterceptor)
 
 	opManager := svc.r.OperationManager()
@@ -241,6 +244,11 @@ func (svc *webService) StartModule(ctx context.Context) error {
 	if err := svc.modServer.RegisterServiceServer(ctx, &pb.RobotService_ServiceDesc, grpcserver.New(svc.r)); err != nil {
 		return err
 	}
+
+	if err := svc.initStreamServerForModule(ctx); err != nil {
+		return err
+	}
+
 	if err := svc.initAPIResourceCollections(ctx, true); err != nil {
 		return err
 	}
@@ -352,6 +360,9 @@ func (svc *webService) Close(ctx context.Context) error {
 	var err error
 	if svc.modServer != nil {
 		err = svc.modServer.Stop()
+	}
+	if svc.streamServer != nil {
+		utils.UncheckedError(svc.streamServer.Close())
 	}
 	svc.modWorkers.Wait()
 	return err
@@ -563,6 +574,11 @@ func (rc *RequestCounter) Stats() any {
 // RequestCounter returns the request counter object.
 func (svc *webService) RequestCounter() *RequestCounter {
 	return &svc.requestCounter
+}
+
+// ModPeerConnTracker returns the ModPeerConnTracker object.
+func (svc *webService) ModPeerConnTracker() *grpc.ModPeerConnTracker {
+	return svc.modPeerConnTracker
 }
 
 // Initialize RPC Server options.

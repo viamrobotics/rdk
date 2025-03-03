@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/ftdc"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module/modmanager"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
@@ -122,6 +123,7 @@ func (manager *resourceManager) startModuleManager(
 	robotCloudID string,
 	logger logging.Logger,
 	packagesDir string,
+	modPeerConnTracker *grpc.ModPeerConnTracker,
 ) {
 	mmOpts := modmanageroptions.Options{
 		UntrustedEnv:            untrustedEnv,
@@ -130,6 +132,7 @@ func (manager *resourceManager) startModuleManager(
 		RobotCloudID:            robotCloudID,
 		PackagesDir:             packagesDir,
 		FTDC:                    manager.opts.ftdc,
+		ModPeerConnTracker:      modPeerConnTracker,
 	}
 	modmanager := modmanager.NewManager(ctx, parentAddr, logger, mmOpts)
 	manager.modManagerLock.Lock()

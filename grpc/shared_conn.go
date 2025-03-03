@@ -192,6 +192,7 @@ func (sc *SharedConn) PeerConn() *webrtc.PeerConnection {
 	select {
 	case <-readyCh:
 	case <-failCh:
+		ret = nil
 	}
 
 	return ret
