@@ -2,14 +2,13 @@
 
 # Exit with a blank if tree is dirty
 if [ -n "$(git status -s)" ]; then
-    echo "SMURF1"
     exit 0
 fi
 
 # See if we have a direct tag
 DIRECT_TAG=$(git tag --points-at | sort -Vr | head -n1)
 if [ -n "$DIRECT_TAG" ]; then
-    echo "SMURF2${DIRECT_TAG}"
+    echo ${DIRECT_TAG}
     exit 0
 fi
 
@@ -18,9 +17,9 @@ if [ -z "$GITHUB_REF_NAME" ]; then
 fi
 
 # If we're not on main, we have no (automated) version to create
-# if [ "$GITHUB_REF_NAME" != "main" ]; then
-#     exit 0
-# fi
+if [ "$GITHUB_REF_NAME" != "devreleases" ]; then
+    exit 0
+fi
 
 # If we don't have a direct tag, use the most recent non-RC tag
 DESC=$(git describe --tags --match="v*" --exclude="*-rc*" --long | sed 's/^v//')
