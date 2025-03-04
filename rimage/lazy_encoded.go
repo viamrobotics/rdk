@@ -149,8 +149,12 @@ func (lei *LazyEncodedImage) ColorModel() color.Model {
 // Returns an empty rectangle if decoding failed.
 func (lei *LazyEncodedImage) Bounds() image.Rectangle {
 	lei.decodeConfig()
-	if lei.decodeConfigErr != nil || lei.bounds == nil {
+	if lei.decodeConfigErr != nil {
 		logging.Global().Errorf("Failed to decode (image bounds): %v", lei.decodeConfigErr)
+		return image.Rectangle{}
+	}
+	if lei.bounds == nil {
+		logging.Global().Error("Bounds were nil after decoding configuration.")
 		return image.Rectangle{}
 	}
 	return *lei.bounds
@@ -162,8 +166,12 @@ func (lei *LazyEncodedImage) Bounds() image.Rectangle {
 // Returns transparent black if decoding failed.
 func (lei *LazyEncodedImage) At(x, y int) color.Color {
 	lei.decode()
-	if lei.decodeErr != nil || lei.decodedImage == nil {
+	if lei.decodeErr != nil {
 		logging.Global().Errorf("Failed to decode image (At): %v", lei.decodeErr)
+		return color.RGBA{}
+	}
+	if lei.decodedImage == nil {
+		logging.Global().Error("Decoded image was nil after decoding.")
 		return color.RGBA{}
 	}
 	return lei.decodedImage.At(x, y)
