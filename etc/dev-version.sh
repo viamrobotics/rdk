@@ -2,13 +2,14 @@
 
 # Exit with a blank if tree is dirty
 if [ -n "$(git status -s)" ]; then
+    echo "SMURF1"
     exit 0
 fi
 
 # See if we have a direct tag
 DIRECT_TAG=$(git tag --points-at | sort -Vr | head -n1)
 if [ -n "$DIRECT_TAG" ]; then
-    echo ${DIRECT_TAG}
+    echo "SMURF2${DIRECT_TAG}"
     exit 0
 fi
 
