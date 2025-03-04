@@ -172,7 +172,7 @@ jobs:
       run: |
         channel="${{ github.ref_name }}"
         # we call our main branch releases "latest"
-        if [ "$channel" = "devreleases" ]; then
+        if [ "$channel" = "main" ]; then
           channel="latest"
         fi
 
@@ -212,17 +212,17 @@ jobs:
     - name: Publish Static Binary
       if: inputs.release_type != 'latest'
       run: |
-        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/static/${{ needs.static_test.outputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/temp/apps/viam-server/"
+        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/static/${{ needs.static_test.outputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-server/"
 
     - name: Publish Static Binary (Latest)
       if: inputs.release_type == 'latest'
       run: |
-        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/static/${{ needs.static_test.outputs.date }}/${{ github.sha }}/viam-server-v*" "gs://packages.viam.com/temp/apps/viam-server/prerelease/"
-        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/static/${{ needs.static_test.outputs.date }}/${{ github.sha }}/viam-server-latest*" "gs://packages.viam.com/temp/apps/viam-server/"
+        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/static/${{ needs.static_test.outputs.date }}/${{ github.sha }}/viam-server-v*" "gs://packages.viam.com/apps/viam-server/prerelease/"
+        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/static/${{ needs.static_test.outputs.date }}/${{ github.sha }}/viam-server-latest*" "gs://packages.viam.com/apps/viam-server/"
 
     - name: Publish Subsystem Metadata
       run: |
-        gsutil mv "gs://packages.viam.com/apps/viam-subsystems/testing/viam-server/${{ needs.static_test.outputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/temp/apps/viam-subsystems/"
+        gsutil mv "gs://packages.viam.com/apps/viam-subsystems/testing/viam-server/${{ needs.static_test.outputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-subsystems/"
 
     - name: Output Summary
       run: |
