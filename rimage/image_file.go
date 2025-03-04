@@ -288,9 +288,9 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 			return lazy.imgBytes, nil
 		}
 		// LazyImage holds bytes different from requested mime type: decode and re-encode
-		lazy.decode()
-		if lazy.decodeErr != nil {
-			return nil, errors.Errorf("could not decode LazyEncodedImage: %v", lazy.decodeErr)
+		err := lazy.DecodeImage()
+		if err != nil {
+			return nil, errors.Errorf("could not decode LazyEncodedImage: %v", err)
 		}
 		return EncodeImage(ctx, lazy.decodedImage, actualOutMIME)
 	}

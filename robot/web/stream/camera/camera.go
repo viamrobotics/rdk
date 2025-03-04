@@ -10,6 +10,7 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
 )
 
@@ -37,9 +38,16 @@ func VideoSourceFromCamera(ctx context.Context, cam camera.Camera) gostream.Vide
 	})
 
 	img, err := camera.DecodeImageFromCamera(ctx, "", nil, cam)
-	if err == nil {
-		return gostream.NewVideoSource(reader, prop.Video{Width: img.Bounds().Dx(), Height: img.Bounds().Dy()})
+	if lazyImg, ok := img.(*rimage.LazyEncodedImage); ok {
+		if err := lazyImg.DecodeConfig(); err != nil {
+			return gostream.NewVideoSource(reader, prop.Video{})
+		}
 	}
-	// Okay to return empty prop because processInputFrames will tick and set them
-	return gostream.NewVideoSource(reader, prop.Video{})
+
+	if err != nil {
+		// Okay to return empty prop because processInputFrames will tick and set them
+		return gostream.NewVideoSource(reader, prop.Video{})
+	}
+
+	return gostream.NewVideoSource(reader, prop.Video{Width: img.Bounds().Dx(), Height: img.Bounds().Dy()})
 }

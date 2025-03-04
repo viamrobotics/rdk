@@ -24,7 +24,7 @@ func TestLazyEncodedImage(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	imgLazy := NewLazyEncodedImage(pngBuf.Bytes(), utils.MimeTypePNG)
-
+	test.That(t, imgLazy.(*LazyEncodedImage).DecodeAll(), test.ShouldBeNil)
 	test.That(t, imgLazy.(*LazyEncodedImage).MIMEType(), test.ShouldEqual, utils.MimeTypePNG)
 	test.That(t, NewColorFromColor(imgLazy.At(0, 0)), test.ShouldEqual, Black)
 	test.That(t, NewColorFromColor(imgLazy.At(3, 3)), test.ShouldEqual, Red)
@@ -39,28 +39,27 @@ func TestLazyEncodedImage(t *testing.T) {
 	imgLazy = NewLazyEncodedImage([]byte{1, 2, 3}, utils.MimeTypePNG)
 
 	test.That(t, imgLazy.(*LazyEncodedImage).MIMEType(), test.ShouldEqual, utils.MimeTypePNG)
-	// Test that methods return safe defaults
-	test.That(t, imgLazy.Bounds(), test.ShouldResemble, image.Rectangle{})
-	test.That(t, imgLazy.ColorModel(), test.ShouldNotBeNil)
-	test.That(t, imgLazy.At(0, 0), test.ShouldNotBeNil)
-	test.That(t, imgLazy.(*LazyEncodedImage).GetErrors(), test.ShouldNotBeNil)
+	test.That(t, imgLazy.(*LazyEncodedImage).DecodeAll(), test.ShouldNotBeNil)
+	test.That(t, func() { _ = imgLazy.Bounds() }, test.ShouldPanic)
+	test.That(t, func() { _ = imgLazy.ColorModel() }, test.ShouldPanic)
+	test.That(t, func() { NewColorFromColor(imgLazy.At(0, 0)) }, test.ShouldPanic)
 
 	imgLazy = NewLazyEncodedImage([]byte{1, 2, 3}, "weeeee")
 
 	test.That(t, imgLazy.(*LazyEncodedImage).MIMEType(), test.ShouldEqual, "weeeee")
-	test.That(t, imgLazy.Bounds(), test.ShouldResemble, image.Rectangle{})
-	test.That(t, imgLazy.ColorModel(), test.ShouldNotBeNil)
-	test.That(t, imgLazy.At(0, 0), test.ShouldNotBeNil)
-	test.That(t, imgLazy.(*LazyEncodedImage).GetErrors(), test.ShouldNotBeNil)
+	test.That(t, imgLazy.(*LazyEncodedImage).DecodeAll(), test.ShouldNotBeNil)
+	test.That(t, func() { _ = imgLazy.Bounds() }, test.ShouldPanic)
+	test.That(t, func() { _ = imgLazy.ColorModel() }, test.ShouldPanic)
+	test.That(t, func() { NewColorFromColor(imgLazy.At(0, 0)) }, test.ShouldPanic)
 
 	// png without a mime type
 	imgLazy = NewLazyEncodedImage(pngBuf.Bytes(), "")
 	test.That(t, imgLazy.(*LazyEncodedImage).MIMEType(), test.ShouldEqual, utils.MimeTypePNG)
+	test.That(t, imgLazy.(*LazyEncodedImage).DecodeAll(), test.ShouldBeNil)
 	test.That(t, NewColorFromColor(imgLazy.At(0, 0)), test.ShouldEqual, Black)
 	test.That(t, NewColorFromColor(imgLazy.At(3, 3)), test.ShouldEqual, Red)
 	test.That(t, imgLazy.Bounds(), test.ShouldResemble, img.Bounds())
 	test.That(t, imgLazy.ColorModel(), test.ShouldResemble, img.ColorModel())
-	test.That(t, imgLazy.(*LazyEncodedImage).GetErrors(), test.ShouldBeNil)
 
 	img2, err = png.Decode(bytes.NewBuffer(imgLazy.(*LazyEncodedImage).RawData()))
 	test.That(t, err, test.ShouldBeNil)
@@ -69,9 +68,9 @@ func TestLazyEncodedImage(t *testing.T) {
 	// jpeg without a mime type
 	imgLazy = NewLazyEncodedImage(jpegBuf.Bytes(), "")
 	test.That(t, imgLazy.(*LazyEncodedImage).MIMEType(), test.ShouldEqual, utils.MimeTypeJPEG)
+	test.That(t, imgLazy.(*LazyEncodedImage).DecodeAll(), test.ShouldBeNil)
 	test.That(t, imgLazy.Bounds(), test.ShouldResemble, jpegImg.Bounds())
 	test.That(t, imgLazy.ColorModel(), test.ShouldResemble, jpegImg.ColorModel())
-	test.That(t, imgLazy.(*LazyEncodedImage).GetErrors(), test.ShouldBeNil)
 
 	img2, err = jpeg.Decode(bytes.NewBuffer(imgLazy.(*LazyEncodedImage).RawData()))
 	test.That(t, err, test.ShouldBeNil)

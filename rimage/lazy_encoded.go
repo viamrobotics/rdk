@@ -20,9 +20,9 @@ type LazyEncodedImage struct {
 	imgBytes []byte
 	mimeType string
 
-	decodeOnce   sync.Once
-	decodeErr    interface{}
-	decodedImage image.Image
+	decodeOnce     sync.Once
+	decodeImageErr interface{}
+	decodedImage   image.Image
 
 	decodeConfigOnce sync.Once
 	decodeConfigErr  interface{}
@@ -34,6 +34,8 @@ type LazyEncodedImage struct {
 // from it. This is helpful for zero copy scenarios. If a width or height of the image is unknown,
 // pass 0 or -1; when done a decode will happen on Bounds. In the future this can probably go
 // away with reading all metadata from the header of the image bytes.
+// NOTE: It is recommended to call one of the Decode* methods and check for errors before using
+// image.Image methods (Bounds, ColorModel, or At) to avoid panics.
 func NewLazyEncodedImage(imgBytes []byte, mimeType string) image.Image {
 	if mimeType == "" {
 		logging.Global().Warn("NewLazyEncodedImage called without a mime_type. " +
@@ -51,26 +53,40 @@ func NewLazyEncodedImage(imgBytes []byte, mimeType string) image.Image {
 	}
 }
 
-// decode performs the actual decoding of the image data.
-// If there's an error, it stores it.
-func (lei *LazyEncodedImage) decode() {
+// Helper method for checking lei errors.
+func (lei *LazyEncodedImage) checkError(err interface{}) error {
+	if err != nil {
+		switch e := err.(type) {
+		case error:
+			return e
+		default:
+			return fmt.Errorf("%v", err)
+		}
+	}
+	return nil
+}
+
+// DecodeImage decodes the image. Returns nil if no errors occurred.
+// This method is idempotent.
+func (lei *LazyEncodedImage) DecodeImage() error {
 	lei.decodeOnce.Do(func() {
 		defer func() {
 			if err := recover(); err != nil {
-				lei.decodeErr = err
+				lei.decodeImageErr = err
 			}
 		}()
-		lei.decodedImage, lei.decodeErr = DecodeImage(
+		lei.decodedImage, lei.decodeImageErr = DecodeImage(
 			context.Background(),
 			lei.imgBytes,
 			lei.mimeType,
 		)
 	})
+	return lei.checkError(lei.decodeImageErr)
 }
 
-// decodeConfig decodes just the image configuration.
-// If there's an error, it stores it.
-func (lei *LazyEncodedImage) decodeConfig() {
+// DecodeConfig decodes the image configuration. Returns nil if no errors occurred.
+// This method is idempotent.
+func (lei *LazyEncodedImage) DecodeConfig() error {
 	lei.decodeConfigOnce.Do(func() {
 		defer func() {
 			if err := recover(); err != nil {
@@ -85,6 +101,18 @@ func (lei *LazyEncodedImage) decodeConfig() {
 			lei.colorModel = header.ColorModel
 		}
 	})
+	return lei.checkError(lei.decodeConfigErr)
+}
+
+// DecodeAll decodes the image and its configuration. Returns nil if no errors occurred.
+// This method is idempotent.
+func (lei *LazyEncodedImage) DecodeAll() error {
+	configErr := lei.DecodeConfig()
+	decodeErr := lei.DecodeImage()
+	if configErr != nil || decodeErr != nil {
+		return multierr.Combine(configErr, decodeErr)
+	}
+	return nil
 }
 
 // MIMEType returns the encoded Image's MIME type.
@@ -98,67 +126,36 @@ func (lei *LazyEncodedImage) RawData() []byte {
 	return lei.imgBytes
 }
 
-// GetErrors returns any errors that occurred during decoding the image or its configuration.
-// Returns nil if no errors occurred.
-func (lei *LazyEncodedImage) GetErrors() error {
-	// Helper function for checking lei errors
-	checkError := func(err interface{}, errMsg string) error {
-		if err != nil {
-			switch e := err.(type) {
-			case error:
-				return e
-			default:
-				return fmt.Errorf("%s: %v", errMsg, err)
-			}
-		}
-		return nil
-	}
-
-	lei.decodeConfig()
-	configErr := checkError(lei.decodeConfigErr, "decode lazy encoded image config error")
-
-	lei.decode()
-	decodeErr := checkError(lei.decodeErr, "decode lazy encoded image error")
-	
-	if configErr != nil || decodeErr != nil {
-		return multierr.Combine(configErr, decodeErr)
-	}
-	return nil
-}
-
-// DecodedImage returns the decoded image or nil if decoding failed.
+// DecodedImage returns the decoded image.
+//
+// It is recommended to call DecodeImage and check for errors before using this method.
 func (lei *LazyEncodedImage) DecodedImage() image.Image {
-	lei.decode()
-	if lei.decodeErr != nil {
-		logging.Global().Errorf("Failed to decode image (DecodedImage): %v", lei.decodeErr)
-		return nil
+	err := lei.DecodeImage()
+	if err != nil {
+		panic(err)
 	}
 	return lei.decodedImage
 }
 
 // ColorModel returns the Image's color model.
-// Returns a default color model if decoding failed.
+//
+// It is recommended to call DecodeConfig and check for errors before using this method.
 func (lei *LazyEncodedImage) ColorModel() color.Model {
-	lei.decodeConfig()
-	if lei.decodeConfigErr != nil {
-		logging.Global().Errorf("Failed to decode (color model): %v", lei.decodeConfigErr)
-		return color.RGBAModel
+	err := lei.DecodeConfig()
+	if err != nil {
+		panic(err)
 	}
 	return lei.colorModel
 }
 
 // Bounds returns the domain for which At can return non-zero color.
 // The bounds do not necessarily contain the point (0, 0).
-// Returns an empty rectangle if decoding failed.
+//
+// It is recommended to call DecodeConfig and check for errors before using this method.
 func (lei *LazyEncodedImage) Bounds() image.Rectangle {
-	lei.decodeConfig()
-	if lei.decodeConfigErr != nil {
-		logging.Global().Errorf("Failed to decode (image bounds): %v", lei.decodeConfigErr)
-		return image.Rectangle{}
-	}
-	if lei.bounds == nil {
-		logging.Global().Error("Bounds were nil after decoding configuration.")
-		return image.Rectangle{}
+	err := lei.DecodeConfig()
+	if err != nil {
+		panic(err)
 	}
 	return *lei.bounds
 }
@@ -166,16 +163,12 @@ func (lei *LazyEncodedImage) Bounds() image.Rectangle {
 // At returns the color of the pixel at (x, y).
 // At(Bounds().Min.X, Bounds().Min.Y) returns the upper-left pixel of the grid.
 // At(Bounds().Max.X-1, Bounds().Max.Y-1) returns the lower-right one.
-// Returns transparent black if decoding failed.
+//
+// It is recommended to call DecodeImage and check for errors before using this method.
 func (lei *LazyEncodedImage) At(x, y int) color.Color {
-	lei.decode()
-	if lei.decodeErr != nil {
-		logging.Global().Errorf("Failed to decode image (At): %v", lei.decodeErr)
-		return color.RGBA{}
-	}
-	if lei.decodedImage == nil {
-		logging.Global().Error("Decoded image was nil after decoding.")
-		return color.RGBA{}
+	err := lei.DecodeImage()
+	if err != nil {
+		panic(err)
 	}
 	return lei.decodedImage.At(x, y)
 }
