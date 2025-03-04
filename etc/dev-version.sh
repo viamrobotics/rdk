@@ -1,13 +1,22 @@
 #!/bin/bash
 
-# Get the most recent tag
-LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null)
+# Exit with a blank if tree is dirty
+if [ -n "$(git status -s)" ]; then
+    exit 0
+fi
 
-# Count commits since last tag
-COMMITS_SINCE_TAG=$(git rev-list "${LAST_TAG}..HEAD" --count 2>/dev/null)
+# See if we have a direct tag
+DIRECT_TAG=$(git tag --points-at | sort -Vr | head -n1)
+if [ -n "$DIRECT_TAG" ]; then
+    echo ${DIRECT_TAG}
+    exit 0
+fi
 
-# Remove 'v' prefix from tag
-BASE_VERSION=${LAST_TAG#v}
+# If we don't have a direct tag, use the most recent non-RC tag
+DESC=$(git describe --tags --match="v*" --exclude="*-rc*" --long | sed 's/^v//')
+
+BASE_VERSION=$(echo "$DESC" | cut -d'-' -f1)
+COMMITS_SINCE_TAG=$(echo "$DESC" | cut -d'-' -f2)
 
 # Calculate next version by incrementing patch number
 NEXT_VERSION=$(echo "$BASE_VERSION" | awk -F. '{$3+=1}1' OFS=.)

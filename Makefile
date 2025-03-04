@@ -7,7 +7,7 @@ BUILD_CHANNEL ?= local
 PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):`pwd`/node_modules/.bin:${PATH}"
 
 GIT_REVISION = $(shell git rev-parse HEAD | tr -d '\n')
-TAG_VERSION?=$(shell etc/dev-version.sh | sed 's/^v//')
+TAG_VERSION?=$(shell etc/dev-version.sh')
 DATE_COMPILED?=$(shell date +'%Y-%m-%d')
 COMMON_LDFLAGS = -s -w -X 'go.viam.com/rdk/config.Version=${TAG_VERSION}' -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}' -X 'go.viam.com/rdk/config.DateCompiled=${DATE_COMPILED}'
 LDFLAGS = -ldflags "-extld=$(shell pwd)/etc/ld_wrapper.sh $(COMMON_LDFLAGS)"
