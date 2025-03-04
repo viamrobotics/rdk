@@ -217,7 +217,8 @@ jobs:
     - name: Publish Static Binary (Latest)
       if: inputs.release_type == 'latest'
       run: |
-        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/static/${{ needs.static_test.outputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/temp/apps/viam-server/prerelease/"
+        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/static/${{ needs.static_test.outputs.date }}/${{ github.sha }}/viam-server-v*" "gs://packages.viam.com/temp/apps/viam-server/prerelease/"
+        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/static/${{ needs.static_test.outputs.date }}/${{ github.sha }}/viam-server-latest*" "gs://packages.viam.com/temp/apps/viam-server/"
 
     - name: Publish Subsystem Metadata
       run: |
