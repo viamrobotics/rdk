@@ -115,12 +115,15 @@ func (lei *LazyEncodedImage) GetErrors() error {
 	}
 
 	lei.decodeConfig()
-	err := checkError(lei.decodeConfigErr, "decode lazy encoded image config error")
+	configErr := checkError(lei.decodeConfigErr, "decode lazy encoded image config error")
 
 	lei.decode()
-	err = multierr.Combine(err, checkError(lei.decodeErr, "decode lazy encoded image error"))
-
-	return fmt.Errorf("lazy encoded image error(s): %w", err)
+	decodeErr := checkError(lei.decodeErr, "decode lazy encoded image error")
+	
+	if configErr != nil || decodeErr != nil {
+		return multierr.Combine(configErr, decodeErr)
+	}
+	return nil
 }
 
 // DecodedImage returns the decoded image or nil if decoding failed.
