@@ -113,6 +113,9 @@ func storeConfigToCache(cfg *Config) error {
 	return os.WriteFile(path, md, 0o640)
 }
 
+// TODO(RSDK-9727) - `LastUpdateCheck` and `LatestVersion` are no longer used anywhere.
+// Confirm that it's safe to remove these and then get rid of them.
+
 // Config is the schema for saved CLI credentials.
 type Config struct {
 	BaseURL         string     `json:"base_url"`
