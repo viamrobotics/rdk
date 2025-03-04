@@ -23,7 +23,8 @@ func TestVideoSourceFromCamera(t *testing.T) {
 			return imgBytes, camera.ImageMetadata{MimeType: utils.MimeTypePNG}, nil
 		},
 	}
-	vs := camerautils.VideoSourceFromCamera(context.Background(), cam)
+	vs, err := camerautils.VideoSourceFromCamera(context.Background(), cam)
+	test.That(t, err, test.ShouldBeNil)
 
 	stream, err := vs.Stream(context.Background())
 	test.That(t, err, test.ShouldBeNil)
