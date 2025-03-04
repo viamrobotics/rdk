@@ -62,13 +62,13 @@ jobs:
 
     - name: Check out code
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0 # needed for dev-version.sh to work
 
     - name: Check out PR branch code
       if: github.event_name == 'pull_request_target'
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         ref: ${{ github.event.pull_request.head.sha }}
 
@@ -78,7 +78,7 @@ jobs:
         sudo -Hu testbot bash -lc 'make clean-all'
 
     - name: Authorize GCP Upload
-      uses: google-github-actions/auth@v1.1.1
+      uses: google-github-actions/auth@v2
       with:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
@@ -89,7 +89,7 @@ jobs:
 
     - name: Upload Files (PR)
       if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
-      uses: google-github-actions/upload-cloud-storage@v0.10.4
+      uses: google-github-actions/upload-cloud-storage@v2
       with:
         headers: "cache-control: no-cache"
         path: 'etc/packaging/static/deploy/'
@@ -114,7 +114,7 @@ jobs:
 
     - name: Upload Files (Testing)
       if: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && !inputs.no-upload }}
-      uses: google-github-actions/upload-cloud-storage@v0.10.4
+      uses: google-github-actions/upload-cloud-storage@v2
       with:
         headers: "cache-control: no-cache"
         path: 'etc/packaging/static/deploy/'
@@ -125,7 +125,7 @@ jobs:
 
     - name: Upload Manifest (Testing)
       if: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && !inputs.no-upload }}
-      uses: google-github-actions/upload-cloud-storage@v0.10.4
+      uses: google-github-actions/upload-cloud-storage@v2
       with:
         headers: "cache-control: no-cache"
         path: 'etc/packaging/static/manifest/'
@@ -202,12 +202,12 @@ jobs:
 
     steps:
     - name: Authorize GCP
-      uses: google-github-actions/auth@v1.1.1
+      uses: google-github-actions/auth@v2
       with:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
     - name: Set up Cloud SDK
-      uses: google-github-actions/setup-gcloud@v1
+      uses: google-github-actions/setup-gcloud@v2
 
     - name: Publish Static Binary
       if: inputs.release_type != 'latest'
