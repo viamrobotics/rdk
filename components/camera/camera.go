@@ -161,13 +161,22 @@ func DecodeImageFromCamera(ctx context.Context, mimeType string, extra map[strin
 	if err != nil {
 		return nil, fmt.Errorf("could not get image bytes from camera: %w", err)
 	}
+
 	if len(resBytes) == 0 {
 		return nil, errors.New("received empty bytes from camera")
 	}
+
 	img, err := rimage.DecodeImage(ctx, resBytes, utils.WithLazyMIMEType(resMetadata.MimeType))
 	if err != nil {
 		return nil, fmt.Errorf("could not decode into image.Image: %w", err)
 	}
+
+	if lazyImg, ok := img.(*rimage.LazyEncodedImage); ok {
+		if err := lazyImg.GetErrors(); err != nil {
+			return nil, err
+		}
+	}
+
 	return img, nil
 }
 
