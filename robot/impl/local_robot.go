@@ -1040,39 +1040,6 @@ func RobotFromResources(
 	return newWithResources(ctx, &config.Config{}, resources, nil, logger, opts...)
 }
 
-// DiscoverComponents takes a list of discovery queries and returns corresponding
-// component configurations.
-func (r *localRobot) DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error) {
-	// dedupe queries
-	deduped := make(map[string]resource.DiscoveryQuery, len(qs))
-	for _, q := range qs {
-		key := q.API.String() + ":" + q.Model.String()
-		deduped[key] = q
-	}
-
-	discoveries := make([]resource.Discovery, 0, len(deduped))
-	for _, q := range deduped {
-		if internalDiscovery, isInternal := r.discoverRobotInternals(q); isInternal {
-			discoveries = append(discoveries, resource.Discovery{Query: q, Results: internalDiscovery})
-			continue
-		}
-		reg, ok := resource.LookupRegistration(q.API, q.Model)
-		if !ok || reg.Discover == nil {
-			r.logger.CWarnw(ctx, "no discovery function registered", "api", q.API, "model", q.Model)
-			continue
-		}
-
-		if reg.Discover != nil {
-			discovered, err := reg.Discover(ctx, r.logger.Sublogger("discovery"), q.Extra)
-			if err != nil {
-				return nil, &resource.DiscoverError{Query: q, Cause: err}
-			}
-			discoveries = append(discoveries, resource.Discovery{Query: q, Results: discovered})
-		}
-	}
-	return discoveries, nil
-}
-
 // moduleManagerDiscoveryResult is returned from a DiscoveryQuery to rdk-internal:builtin:module-manager.
 type moduleManagerDiscoveryResult struct {
 	ResourceHandles map[string]modulepb.HandlerMap `json:"resource_handles"`
