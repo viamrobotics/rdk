@@ -110,8 +110,10 @@ func init() {
 	)
 } // end of init
 
-// readImageFromFile extracts the RGB, Z16, or raw depth data from an image file.
-func readImageFromFile(path string) (image.Image, error) {
+// ReadImageFromFile extracts the RGB, Z16, or raw depth data from an image file.
+// ReadImageFromFile reads an image directly from a file without conversion to the custom Image type.
+// This is more efficient when you only need a standard image.Image interface.
+func ReadImageFromFile(path string) (image.Image, error) {
 	switch {
 	case strings.HasSuffix(path, ".dat.gz"), strings.HasSuffix(path, ".dat"):
 		return ParseRawDepthMap(path)
@@ -133,7 +135,7 @@ func readImageFromFile(path string) (image.Image, error) {
 
 // NewImageFromFile returns an image read in from the given file.
 func NewImageFromFile(fn string) (*Image, error) {
-	img, err := readImageFromFile(fn)
+	img, err := ReadImageFromFile(fn)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +144,7 @@ func NewImageFromFile(fn string) (*Image, error) {
 
 // NewDepthMapFromFile extract the depth map from a Z16 image file or a .dat image file.
 func NewDepthMapFromFile(ctx context.Context, fn string) (*DepthMap, error) {
-	img, err := readImageFromFile(fn)
+	img, err := ReadImageFromFile(fn)
 	if err != nil {
 		return nil, err
 	}

@@ -81,7 +81,7 @@ func doCannyTest(t *testing.T, root string) {
 
 func TestCloneImage(t *testing.T) {
 	t.Parallel()
-	img, err := readImageFromFile(artifact.MustPath("rimage/canny1.png"))
+	img, err := ReadImageFromFile(artifact.MustPath("rimage/canny1.png"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// Image path
@@ -108,7 +108,7 @@ func TestCloneImage(t *testing.T) {
 }
 
 func BenchmarkConvertImage(b *testing.B) {
-	img, err := readImageFromFile(artifact.MustPath("rimage/canny1.png"))
+	img, err := ReadImageFromFile(artifact.MustPath("rimage/canny1.png"))
 	test.That(b, err, test.ShouldBeNil)
 
 	b.ResetTimer()
@@ -119,7 +119,7 @@ func BenchmarkConvertImage(b *testing.B) {
 }
 
 func TestConvertYCbCr(t *testing.T) {
-	orig, err := readImageFromFile(artifact.MustPath("rimage/canny1.png"))
+	orig, err := ReadImageFromFile(artifact.MustPath("rimage/canny1.png"))
 	test.That(t, err, test.ShouldBeNil)
 
 	var yuvImg image.YCbCr
@@ -136,7 +136,7 @@ func TestConvertYCbCr(t *testing.T) {
 }
 
 func BenchmarkConvertImageYCbCr(b *testing.B) {
-	orig, err := readImageFromFile(artifact.MustPath("rimage/canny1.png"))
+	orig, err := ReadImageFromFile(artifact.MustPath("rimage/canny1.png"))
 	test.That(b, err, test.ShouldBeNil)
 
 	var yuvImg image.YCbCr
@@ -191,12 +191,12 @@ func TestColorInterpolation(t *testing.T) {
 }
 
 func TestCanny(t *testing.T) {
-	imgOriginal, err := readImageFromFile(artifact.MustPath("rimage/canny_test_1.jpg"))
+	imgOriginal, err := ReadImageFromFile(artifact.MustPath("rimage/canny_test_1.jpg"))
 	test.That(t, err, test.ShouldBeNil)
 	img := ConvertImage(imgOriginal)
 	test.That(t, err, test.ShouldBeNil)
 
-	gtOriginal, err := readImageFromFile(artifact.MustPath("rimage/test_canny.png"))
+	gtOriginal, err := ReadImageFromFile(artifact.MustPath("rimage/test_canny.png"))
 	gt := ConvertImage(gtOriginal)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -209,14 +209,14 @@ func TestCanny(t *testing.T) {
 
 func TestCannyBlocks(t *testing.T) {
 	// load test image and GT
-	imgOriginal, err := readImageFromFile(artifact.MustPath("rimage/edge_test_image.png"))
+	imgOriginal, err := ReadImageFromFile(artifact.MustPath("rimage/edge_test_image.png"))
 	test.That(t, err, test.ShouldBeNil)
 	img := ConvertImage(imgOriginal)
 	test.That(t, err, test.ShouldBeNil)
-	gtGradient, err := readImageFromFile(artifact.MustPath("rimage/edge_test_gradient.png"))
+	gtGradient, err := ReadImageFromFile(artifact.MustPath("rimage/edge_test_gradient.png"))
 	gtGrad := ConvertImage(gtGradient)
 	test.That(t, err, test.ShouldBeNil)
-	gtNonMaxSup, err := readImageFromFile(artifact.MustPath("rimage/edge_test_nms.png"))
+	gtNonMaxSup, err := ReadImageFromFile(artifact.MustPath("rimage/edge_test_nms.png"))
 	gtNms := ConvertImage(gtNonMaxSup)
 	test.That(t, err, test.ShouldBeNil)
 	// Compute forward gradient

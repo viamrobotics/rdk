@@ -97,7 +97,7 @@ func (fs *fileSource) Read(ctx context.Context) (image.Image, func(), error) {
 		return img, func() {}, err
 	}
 
-	img, err := rimage.NewImageFromFile(fs.ColorFN)
+	img, err := rimage.ReadImageFromFile(fs.ColorFN)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -108,15 +108,16 @@ func (fs *fileSource) Read(ctx context.Context) (image.Image, func(), error) {
 	oddWidth := img.Bounds().Dx()%2 != 0
 	oddHeight := img.Bounds().Dy()%2 != 0
 	if oddWidth || oddHeight {
-		newWidth := img.Bounds().Dx()
-		newHeight := img.Bounds().Dy()
+		rImg := rimage.ConvertImage(img)
+		newWidth := rImg.Width()
+		newHeight := rImg.Height()
 		if oddWidth {
 			newWidth--
 		}
 		if oddHeight {
 			newHeight--
 		}
-		img = img.SubImage(image.Rect(0, 0, newWidth, newHeight))
+		img = rImg.SubImage(image.Rect(0, 0, newWidth, newHeight))
 	}
 	return img, func() {}, err
 }
@@ -128,7 +129,7 @@ func (fs *fileSource) Images(ctx context.Context) ([]camera.NamedImage, resource
 	}
 	imgs := []camera.NamedImage{}
 	if fs.ColorFN != "" {
-		img, err := rimage.NewImageFromFile(fs.ColorFN)
+		img, err := rimage.ReadImageFromFile(fs.ColorFN)
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
