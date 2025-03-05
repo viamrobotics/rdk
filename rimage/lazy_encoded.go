@@ -3,14 +3,13 @@ package rimage
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
 	"net/http"
 	"strings"
 	"sync"
-
-	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/logging"
 )
@@ -110,7 +109,7 @@ func (lei *LazyEncodedImage) DecodeAll() error {
 	configErr := lei.DecodeConfig()
 	decodeErr := lei.DecodeImage()
 	if configErr != nil || decodeErr != nil {
-		return multierr.Combine(configErr, decodeErr)
+		return errors.Join(configErr, decodeErr)
 	}
 	return nil
 }

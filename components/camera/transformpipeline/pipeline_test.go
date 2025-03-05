@@ -203,3 +203,16 @@ func TestTransformPipelineValidateFail(t *testing.T) {
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "source")
 	test.That(t, deps, test.ShouldBeNil)
 }
+
+func TestVideoSourceFromCameraError(t *testing.T) {
+	malformedCam := &inject.Camera{
+		ImageFunc: func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
+			return []byte("not a valid image"), camera.ImageMetadata{MimeType: utils.MimeTypePNG}, nil
+		},
+	}
+
+	vs, err := videoSourceFromCamera(context.Background(), malformedCam)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "failed to create video source from camera")
+	test.That(t, vs, test.ShouldBeNil)
+}

@@ -36,3 +36,17 @@ func TestVideoSourceFromCamera(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, diffVal, test.ShouldEqual, 0)
 }
+
+func TestVideoSourceFromCameraFailure(t *testing.T) {
+	malformedCam := &inject.Camera{
+		ImageFunc: func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
+			return []byte("not a valid image"), camera.ImageMetadata{MimeType: utils.MimeTypePNG}, nil
+		},
+	}
+
+	vs, err := camerautils.VideoSourceFromCamera(context.Background(), malformedCam)
+	test.That(t, err, test.ShouldNotBeNil)
+	expectedErrPrefix := "failed to decode lazy encoded image: "
+	test.That(t, err.Error(), test.ShouldStartWith, expectedErrPrefix)
+	test.That(t, vs, test.ShouldBeNil)
+}
