@@ -15,7 +15,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	packagespb "go.viam.com/api/app/packages/v1"
-	modulepb "go.viam.com/api/module/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
@@ -1038,31 +1037,6 @@ func RobotFromResources(
 	opts ...Option,
 ) (robot.LocalRobot, error) {
 	return newWithResources(ctx, &config.Config{}, resources, nil, logger, opts...)
-}
-
-// moduleManagerDiscoveryResult is returned from a DiscoveryQuery to rdk-internal:builtin:module-manager.
-type moduleManagerDiscoveryResult struct {
-	ResourceHandles map[string]modulepb.HandlerMap `json:"resource_handles"`
-}
-
-// discoverRobotInternals is used to discover parts of the robot that are not in the resource graph
-// It accepts a query and should return the Discovery Results object along with an ok value.
-func (r *localRobot) discoverRobotInternals(query resource.DiscoveryQuery) (interface{}, bool) {
-	switch {
-	// these strings are hardcoded because their existence would be misleading anywhere outside of this function
-	case query.API.String() == "rdk-internal:service:module-manager" &&
-		query.Model.String() == "rdk-internal:builtin:module-manager":
-
-		handles := map[string]modulepb.HandlerMap{}
-		for moduleName, handleMap := range r.manager.moduleManager.Handles() {
-			handles[moduleName] = *handleMap.ToProto()
-		}
-		return moduleManagerDiscoveryResult{
-			ResourceHandles: handles,
-		}, true
-	default:
-		return nil, false
-	}
 }
 
 func (r *localRobot) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModelDiscovery, error) {

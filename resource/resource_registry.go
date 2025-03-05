@@ -290,7 +290,6 @@ func makeGenericResourceRegistration[ResourceT Resource, ConfigT ConfigValidator
 	reg := Registration[Resource, ConfigValidator]{
 		// NOTE: any fields added to Registration must be copied/adapted here.
 		WeakDependencies: typed.WeakDependencies,
-		Discover:         typed.Discover,
 		isDefault:        typed.isDefault,
 		api:              typed.api,
 		configType:       typed.configType,
