@@ -81,10 +81,6 @@ const (
 //	// Shut down the robot.
 //	err := machine.Shutdown(context.Background())
 type Robot interface {
-	// DiscoverComponents returns discovered potential component configurations.
-	// Only implemented for webcam cameras in builtin components.
-	DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error)
-
 	// GetModelsFromModules returns a list of models supported by the configured modules,
 	// and specifies whether the models are from a local or registry module.
 	GetModelsFromModules(ctx context.Context) ([]resource.ModuleModelDiscovery, error)

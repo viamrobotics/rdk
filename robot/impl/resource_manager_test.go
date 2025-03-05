@@ -1875,17 +1875,6 @@ func (rr *dummyRobot) Reconfigure(ctx context.Context, deps resource.Dependencie
 	return errors.New("unsupported")
 }
 
-// DiscoverComponents takes a list of discovery queries and returns corresponding
-// component configurations.
-func (rr *dummyRobot) DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error) {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	if rr.offline {
-		return nil, errors.New("offline")
-	}
-	return rr.robot.DiscoverComponents(ctx, qs)
-}
-
 func (rr *dummyRobot) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModelDiscovery, error) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
