@@ -885,7 +885,7 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 		"planning relative motion for frame %s\nGoal: %v\nstartPose %v\n, worldstate: %v\n",
 		opt.ptgFrameName,
 		referenceframe.PoseInFrameToProtobuf(goalPif),
-		spatialmath.PoseToProtobuf(startPose),
+		startPose,
 		request.WorldState.String(),
 	)
 

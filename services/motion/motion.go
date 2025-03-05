@@ -103,11 +103,11 @@ type MoveOnMapReq struct {
 
 func (r MoveOnMapReq) String() string {
 	return fmt.Sprintf(
-		"motion.MoveOnMapReq{ComponentName: %s, SlamName: %s, Destination: %+v, "+
+		"motion.MoveOnMapReq{ComponentName: %s, SlamName: %s, Destination: %v, "+
 			"MotionCfg: %#v, Obstacles: %s, Extra: %s}",
 		r.ComponentName,
 		r.SlamName,
-		spatialmath.PoseToProtobuf(r.Destination),
+		r.Destination,
 		r.MotionCfg,
 		r.Obstacles,
 		r.Extra)
@@ -315,12 +315,12 @@ type PlanWithStatus struct {
 //	  logger.Fatal(err)
 //	}
 //
-//	myArmMotionPose, err := motionService.GetPose(context.Background(), my_gripper, referenceframe.World, nil, nil)
+//	myGripperPose, err := motionService.GetPose(context.Background(), gripperName, referenceframe.World, nil, nil)
 //	if err != nil {
 //	  logger.Fatal(err)
 //	}
-//	logger.Info("Position of myArm from the motion service:", myArmMotionPose.Pose().Point())
-//	logger.Info("Orientation of myArm from the motion service:", myArmMotionPose.Pose().Orientation())
+//	logger.Info("Position of my_gripper from the motion service:", myGripperPose.Pose().Point())
+//	logger.Info("Orientation of my_gripper from the motion service:", myGripperPose.Pose().Orientation())
 //
 // For more information, see the [GetPose method docs].
 //

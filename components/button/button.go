@@ -35,7 +35,6 @@ type Button interface {
 	resource.Resource
 
 	// Push pushes the button.
-	// This will block until done or a new operation cancels this one.
 	Push(ctx context.Context, extra map[string]interface{}) error
 }
 

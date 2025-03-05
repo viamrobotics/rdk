@@ -3,4 +3,5 @@
 /cli/app.go @viamrobotics/sdk-netcode
 /cli/CONTRIBUTING.md @viamrobotics/sdk-netcode
 /cli/STYLEGUIDE.md @viamrobotics/sdk-netcode
+/cli/internal/ @viamrobotics/sdk-netcode
 

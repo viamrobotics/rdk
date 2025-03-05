@@ -42,6 +42,10 @@ const (
 	logTSKey = "log_ts"
 )
 
+// Default timeout to use when dialing to a tunnel port when one is not specified in
+// `traffic_tunnel_endpoints` through `connection_timeout`.
+var defaultTunnelConnectionTimeout = 10 * time.Second
+
 // Server implements the contract from robot.proto that ultimately satisfies
 // a robot.Robot as a gRPC server.
 type Server struct {
@@ -67,11 +71,31 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 		return fmt.Errorf("failed to receive first message from stream: %w", err)
 	}
 
-	dest := strconv.Itoa(int(req.DestinationPort))
-	s.robot.Logger().CDebugw(srv.Context(), "dialing to destination port", "port", dest)
+	dialTimeout := defaultTunnelConnectionTimeout
 
-	dialTimeout := 10 * time.Second
-	conn, err := net.DialTimeout("tcp", net.JoinHostPort("localhost", dest), dialTimeout)
+	// TODO(RSDK-5763): Start rejecting requests to unavailable ports once `app` has been
+	// updated to propagate `traffic_tunnel_endpoints` configs.
+	/*
+	   var destAllowed bool
+	  // Ensure destination port is available; otherwise error.
+	   for _, tte := range s.robot.ListTunnels() {
+	   if int(req.DestinationPort) == tte.Port {
+	   destAllowed = true
+	   if tte.ConnectionTimeout != 0 {
+	   dialTimeout = tte.ConnectionTimeout
+	  }
+	   break
+	  }
+	  }
+	   if !destAllowed {
+	  return fmt.Errorf("tunnel not available at port %d", req.DestinationPort)
+	  }
+	*/
+
+	dest := strconv.Itoa(int(req.DestinationPort))
+
+	s.robot.Logger().CInfow(srv.Context(), "dialing to destination port", "port", dest, "timeout", dialTimeout)
+	conn, err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", dest), dialTimeout)
 	if err != nil {
 		return fmt.Errorf("failed to dial to destination port %v: %w", dest, err)
 	}
@@ -109,6 +133,25 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 	wg.Wait()
 	s.robot.Logger().CInfow(srv.Context(), "tunnel to client closed", "port", dest)
 	return errors.Join(err, readerSenderErr, recvWriterErr)
+}
+
+// ListTunnels lists all available tunnels on the server.
+func (s *Server) ListTunnels(ctx context.Context, req *pb.ListTunnelsRequest) (*pb.ListTunnelsResponse, error) {
+	res := &pb.ListTunnelsResponse{}
+
+	ttes, err := s.robot.ListTunnels(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, tte := range ttes {
+		res.Tunnels = append(res.Tunnels, &pb.Tunnel{
+			Port:              uint32(tte.Port),
+			ConnectionTimeout: durationpb.New(tte.ConnectionTimeout),
+		})
+	}
+
+	return res, nil
 }
 
 // GetOperations lists all running operations.

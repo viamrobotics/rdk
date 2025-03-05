@@ -288,8 +288,6 @@ func (s *Sync) runCloudConnManager(
 	}
 	// we wait until the connecivity manager is cancelled
 	<-ctx.Done()
-	// at which point we close the connetion
-	goutils.UncheckedError(s.cloudConn.conn.Close())
 }
 
 func newCloudConn(

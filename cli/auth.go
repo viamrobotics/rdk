@@ -196,7 +196,7 @@ type loginWithAPIKeyArgs struct {
 
 // LoginWithAPIKeyAction is the corresponding Action for `login api-key`.
 func LoginWithAPIKeyAction(cCtx *cli.Context, args loginWithAPIKeyArgs) error {
-	c, err := newViamClient(cCtx)
+	c, err := newViamClientInner(cCtx, false)
 	if err != nil {
 		return err
 	}
@@ -209,6 +209,9 @@ func (c viamClient) loginWithAPIKeyAction(cCtx *cli.Context, args loginWithAPIKe
 		KeyCrypto: args.Key,
 	}
 	c.conf.Auth = &key
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
 	if err := storeConfigToCache(c.conf); err != nil {
 		return err
 	}
@@ -230,10 +233,6 @@ func PrintAccessTokenAction(cCtx *cli.Context, args emptyArgs) error {
 }
 
 func (c *viamClient) printAccessTokenAction(cCtx *cli.Context) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
-
 	if token, ok := c.conf.Auth.(*token); ok {
 		printf(cCtx.App.Writer, token.AccessToken)
 	} else {
@@ -313,9 +312,6 @@ func OrganizationsAPIKeyCreateAction(cCtx *cli.Context, args organizationsAPIKey
 }
 
 func (c *viamClient) organizationsAPIKeyCreateAction(cCtx *cli.Context, args organizationsAPIKeyCreateArgs) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
 	orgID := args.OrgID
 	keyName := args.Name
 	if keyName == "" {
@@ -334,10 +330,6 @@ func (c *viamClient) organizationsAPIKeyCreateAction(cCtx *cli.Context, args org
 }
 
 func (c *viamClient) createOrganizationAPIKey(orgID, keyName string) (*apppb.CreateKeyResponse, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
-
 	req := &apppb.CreateKeyRequest{
 		Authorizations: []*apppb.Authorization{
 			{
@@ -373,10 +365,6 @@ func LocationAPIKeyCreateAction(cCtx *cli.Context, args locationAPIKeyCreateArgs
 }
 
 func (c *viamClient) locationAPIKeyCreateAction(cCtx *cli.Context, args locationAPIKeyCreateArgs) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
-
 	locationID := args.LocationID
 	orgID := args.OrgID
 	keyName := args.Name
@@ -438,10 +426,6 @@ func RobotAPIKeyCreateAction(cCtx *cli.Context, args robotAPIKeyCreateArgs) erro
 }
 
 func (c *viamClient) robotAPIKeyCreateAction(cCtx *cli.Context, args robotAPIKeyCreateArgs) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
-
 	robotID := args.MachineID
 	keyName := args.Name
 	orgID := args.OrgID
@@ -597,9 +581,6 @@ func (c *viamClient) prepareDial(
 	orgStr, locStr, robotStr, partStr string,
 	debug bool,
 ) (context.Context, string, []rpc.DialOption, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, "", nil, err
-	}
 	if err := c.selectOrganization(orgStr); err != nil {
 		return nil, "", nil, err
 	}
@@ -628,7 +609,9 @@ func (c *viamClient) prepareDialInner(
 	if err != nil {
 		return nil, "", nil, err
 	}
-	rpcOpts = append(rpcOpts, rpc.WithExternalAuth(c.baseURL.Host, partFqdn))
+	if _, ok := c.conf.Auth.(*token); ok {
+		rpcOpts = append(rpcOpts, rpc.WithExternalAuth(c.baseURL.Host, partFqdn))
+	}
 
 	if debug {
 		rpcOpts = append(rpcOpts, rpc.WithDialDebug())
@@ -715,9 +698,9 @@ func (a *authFlow) loginAsUser(c *cli.Context) (*token, error) {
 
 	err = a.directUser(deviceCode)
 	if err != nil {
-		warningf(c.App.ErrWriter, "unable to open the browser to complete the login flow due to %w. "+
+		warningf(c.App.ErrWriter, "unable to open the browser to complete the login flow due to %q. "+
 			"Please go to the provided URL to log in; you can use the --%s flag to skip this warning in the future",
-			err, loginFlagDisableBrowser)
+			err.Error(), loginFlagDisableBrowser)
 	}
 
 	token, err := a.waitForUser(ctx, deviceCode, discovery)

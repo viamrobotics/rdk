@@ -126,8 +126,8 @@ type FTDC struct {
 // `ftdcDirectory`.
 func New(ftdcDirectory string, logger logging.Logger) *FTDC {
 	ret := newFTDC(logger)
-	ret.maxFileSizeBytes = 1_000_000
-	ret.maxNumFiles = 10
+	ret.maxFileSizeBytes = 10_000_000
+	ret.maxNumFiles = 20
 	ret.ftdcDir = ftdcDirectory
 	return ret
 }
@@ -213,9 +213,6 @@ func (ftdc *FTDC) Start() {
 
 func (ftdc *FTDC) statsReader(ctx context.Context) {
 	datum := ftdc.constructDatum()
-
-	// `Debugw` does not seem to serialize any of the `datum` value.
-	ftdc.logger.Debugf("Metrics collected. Datum: %+v", datum)
 
 	select {
 	case ftdc.datumCh <- datum:

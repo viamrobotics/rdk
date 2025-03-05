@@ -341,6 +341,7 @@ func newWithResources(
 	ctx context.Context,
 	cfg *config.Config,
 	resources map[resource.Name]resource.Resource,
+	conn rpc.ClientConn,
 	logger logging.Logger,
 	opts ...Option,
 ) (robot.LocalRobot, error) {
@@ -404,7 +405,7 @@ func newWithResources(
 		triggerConfig:              make(chan struct{}, 1),
 		configTicker:               nil,
 		revealSensitiveConfigDiffs: rOpts.revealSensitiveConfigDiffs,
-		cloudConnSvc:               icloud.NewCloudConnectionService(cfg.Cloud, logger),
+		cloudConnSvc:               icloud.NewCloudConnectionService(cfg.Cloud, conn, logger),
 		shutdownCallback:           rOpts.shutdownCallback,
 		localModuleVersions:        make(map[string]semver.Version),
 		ftdc:                       ftdcWorker,
@@ -514,6 +515,7 @@ func newWithResources(
 		cloudID,
 		logger,
 		cfg.PackagePath,
+		r.webSvc.ModPeerConnTracker(),
 	)
 
 	if !rOpts.disableCompleteConfigWorker {
@@ -548,10 +550,11 @@ func newWithResources(
 func New(
 	ctx context.Context,
 	cfg *config.Config,
+	conn rpc.ClientConn,
 	logger logging.Logger,
 	opts ...Option,
 ) (robot.LocalRobot, error) {
-	return newWithResources(ctx, cfg, nil, logger, opts...)
+	return newWithResources(ctx, cfg, nil, conn, logger, opts...)
 }
 
 // removeOrphanedResources is called by the module manager to remove resources
@@ -996,22 +999,34 @@ func (r *localRobot) TransformPointCloud(
 }
 
 // RobotFromConfigPath is a helper to read and process a config given its path and then create a robot based on it.
-func RobotFromConfigPath(ctx context.Context, cfgPath string, logger logging.Logger, opts ...Option) (robot.LocalRobot, error) {
+func RobotFromConfigPath(
+	ctx context.Context,
+	cfgPath string,
+	conn rpc.ClientConn,
+	logger logging.Logger,
+	opts ...Option,
+) (robot.LocalRobot, error) {
 	cfg, err := config.Read(ctx, cfgPath, logger, nil)
 	if err != nil {
 		logger.CError(ctx, "cannot read config")
 		return nil, err
 	}
-	return RobotFromConfig(ctx, cfg, logger, opts...)
+	return RobotFromConfig(ctx, cfg, conn, logger, opts...)
 }
 
 // RobotFromConfig is a helper to process a config and then create a robot based on it.
-func RobotFromConfig(ctx context.Context, cfg *config.Config, logger logging.Logger, opts ...Option) (robot.LocalRobot, error) {
+func RobotFromConfig(
+	ctx context.Context,
+	cfg *config.Config,
+	conn rpc.ClientConn,
+	logger logging.Logger,
+	opts ...Option,
+) (robot.LocalRobot, error) {
 	processedCfg, err := config.ProcessConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
-	return New(ctx, processedCfg, logger, opts...)
+	return New(ctx, processedCfg, conn, logger, opts...)
 }
 
 // RobotFromResources creates a new robot consisting of the given resources. Using RobotFromConfig is preferred
@@ -1022,7 +1037,7 @@ func RobotFromResources(
 	logger logging.Logger,
 	opts ...Option,
 ) (robot.LocalRobot, error) {
-	return newWithResources(ctx, &config.Config{}, resources, logger, opts...)
+	return newWithResources(ctx, &config.Config{}, resources, nil, logger, opts...)
 }
 
 // DiscoverComponents takes a list of discovery queries and returns corresponding
@@ -1572,4 +1587,13 @@ func (r *localRobot) RestartAllowed() bool {
 		return true
 	}
 	return false
+}
+
+// ListTunnels returns information on available traffic tunnels.
+func (r *localRobot) ListTunnels(_ context.Context) ([]config.TrafficTunnelEndpoint, error) {
+	cfg := r.Config()
+	if cfg != nil {
+		return cfg.Network.NetworkConfigData.TrafficTunnelEndpoints, nil
+	}
+	return nil, nil
 }

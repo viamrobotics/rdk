@@ -32,9 +32,11 @@ func TestGenerateModuleAction(t *testing.T) {
 		GeneratedOn:      time.Now().UTC(),
 
 		ModulePascal:          "MyModule",
+		ModuleLowercase:       "mymodule",
 		API:                   "rdk:component:arm",
 		ResourceSubtypePascal: "Arm",
 		ModelPascal:           "MyModel",
+		ModelSnake:            "my-model",
 		ModelTriple:           "my-org:my-module:my-model",
 		ModelReadmeLink:       "model-readme-link",
 
@@ -134,11 +136,11 @@ func TestGenerateModuleAction(t *testing.T) {
 		err = generateStubs(cCtx, testModule, globalArgs)
 		test.That(t, err, test.ShouldBeNil)
 	})
+
 	t.Run("test generate go stubs", func(t *testing.T) {
 		testModule.Language = "go"
 		testModule.SDKVersion = "0.44.0"
 		setupDirectories(cCtx, testModule.ModuleName, globalArgs)
-		_ = os.Mkdir(filepath.Join(modulePath, "models"), 0o755)
 
 		err := generateGolangStubs(testModule)
 		test.That(t, err, test.ShouldBeNil)

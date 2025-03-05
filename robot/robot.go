@@ -33,13 +33,10 @@ const (
 // A Robot encompasses all functionality of some robot comprised
 // of parts, local and remote.
 //
-// DiscoverComponents example:
+// GetModelsFromModules example:
 //
-//	// Define a new discovery query.
-//	q := resource.NewDiscoveryQuery(camera.API, resource.Model{Name: "webcam", Family: resource.DefaultModelFamily})
-//
-//	// Define a list of discovery queries and get potential component configurations with these queries.
-//	out, err := machine.DiscoverComponents(context.Background(), []resource.DiscoveryQuery{q})
+//	//Get a list of models found in configured modules.
+//	models, err := machine.GetModelsFromModules(ctx)
 //
 // ResourceNames example:
 //
@@ -158,6 +155,9 @@ type Robot interface {
 
 	// Version returns version information about the robot.
 	Version(ctx context.Context) (VersionResponse, error)
+
+	// ListTunnels returns information on available traffic tunnels.
+	ListTunnels(ctx context.Context) ([]config.TrafficTunnelEndpoint, error)
 }
 
 // A LocalRobot is a Robot that can have its parts modified.

@@ -7,7 +7,7 @@ BUILD_CHANNEL ?= local
 PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):`pwd`/node_modules/.bin:${PATH}"
 
 GIT_REVISION = $(shell git rev-parse HEAD | tr -d '\n')
-TAG_VERSION?=$(shell git tag --points-at | sort -Vr | head -n1)
+TAG_VERSION?=$(shell ./etc/dev-version.sh | sed 's/^v//')
 DATE_COMPILED?=$(shell date +'%Y-%m-%d')
 COMMON_LDFLAGS = -s -w -X 'go.viam.com/rdk/config.Version=${TAG_VERSION}' -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}' -X 'go.viam.com/rdk/config.DateCompiled=${DATE_COMPILED}'
 LDFLAGS = -ldflags "-extld=$(shell pwd)/etc/ld_wrapper.sh $(COMMON_LDFLAGS)"
@@ -22,9 +22,13 @@ build: build-go
 build-go:
 	go build ./...
 
+.PHONY: rm-cli
+rm-cli:
+	rm -f ./bin/$(GOOS)-$(GOARCH)/viam-cli
+
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
-bin/$(GOOS)-$(GOARCH)/viam-cli:
+bin/$(GOOS)-$(GOARCH)/viam-cli: rm-cli
 	go build $(LDFLAGS) -tags osusergo,netgo -o $@ ./cli/viam
 
 .PHONY: cli

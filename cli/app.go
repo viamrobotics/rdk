@@ -239,7 +239,7 @@ var dataTagByFilterFlags = append([]cli.Flag{
 	&cli.StringSliceFlag{
 		Name: dataFlagFilterTags,
 		Usage: "tags filter. " +
-			"accepts tagged for all tagged data, untagged for all untagged data, or a list of tags for all data matching any of the tags",
+			"accepts 'tagged' for all tagged data, 'untagged' for all untagged data, or a list of tags for all data matching any of the tags",
 	},
 },
 	commonFilterFlags...)
@@ -907,10 +907,12 @@ var app = &cli.App{
 					// use custom usage text to show default organization flag usage even if it isn't required
 					UsageText: "viam locations list [--organization=<organization>]",
 					Flags: []cli.Flag{
-						&cli.StringFlag{
-							Name:        generalFlagOrganization,
-							Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-							DefaultText: "first organization alphabetically",
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:        generalFlagOrganization,
+								Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+								DefaultText: "first organization alphabetically",
+							},
 						},
 					},
 					Action: createCommandWithT[listLocationsArgs](ListLocationsAction),
@@ -1053,7 +1055,7 @@ var app = &cli.App{
 								},
 								&cli.StringSliceFlag{
 									Name:  generalFlagTags,
-									Usage: "tags filter. accepts tagged for all tagged data, untagged for all untagged data, or a list of tags",
+									Usage: "tags filter. accepts 'tagged' for all tagged data, 'untagged' for all untagged data, or a list of tags",
 								},
 							}, commonFilterFlags...),
 							Action: createCommandWithT[dataExportBinaryArgs](DataExportBinaryAction),
@@ -1414,6 +1416,7 @@ var app = &cli.App{
 					UsageText:       createUsageText("dataset data", nil, false, true),
 					HideHelpCommand: true,
 					Subcommands: []*cli.Command{
+						//nolint:dupl
 						{
 							Name:            "add",
 							Usage:           "adds binary data either by IDs or filter to dataset",
@@ -1452,7 +1455,7 @@ var app = &cli.App{
 								},
 								{
 									Name:      "filter",
-									Usage:     "adds binary data from the specified filter to dataset",
+									Usage:     "adds binary data associated with a filter to a dataset",
 									UsageText: createUsageText("dataset data add filter", []string{datasetFlagDatasetID}, true, false),
 									Flags: append([]cli.Flag{
 										&cli.StringFlag{
@@ -1463,7 +1466,8 @@ var app = &cli.App{
 										&cli.StringSliceFlag{
 											Name: generalFlagTags,
 											Usage: "tags filter. " +
-												"accepts tagged for all tagged data, untagged for all untagged data, or a list of tags for all data matching any of the tags",
+												"accepts 'tagged' for all tagged data, 'untagged' for all untagged data, " +
+												"or a list of tags for all data matching any of the tags",
 										},
 									},
 										commonFilterFlags...),
@@ -1471,35 +1475,64 @@ var app = &cli.App{
 								},
 							},
 						},
+						//nolint:dupl
 						{
-							Name:  "remove",
-							Usage: "removes binary data with file IDs in a single org and location from dataset",
-							UsageText: createUsageText(
-								"dataset data remove", []string{datasetFlagDatasetID, generalFlagOrgID, dataFlagLocationID, dataFlagFileIDs}, false, false,
-							),
-							Flags: []cli.Flag{
-								&cli.StringFlag{
-									Name:     datasetFlagDatasetID,
-									Usage:    "dataset ID from which data will be removed",
-									Required: true,
+							Name:            "remove",
+							Usage:           "removes binary data either by IDs or filter from dataset",
+							UsageText:       createUsageText("dataset data remove", nil, false, true),
+							HideHelpCommand: true,
+							Subcommands: []*cli.Command{
+								{
+									Name:  "ids",
+									Usage: "removes binary data with file IDs in a single org and location from a dataset",
+									UsageText: createUsageText(
+										"dataset data remove ids", []string{datasetFlagDatasetID, generalFlagOrgID, dataFlagLocationID, dataFlagFileIDs}, false, false,
+									),
+									Flags: []cli.Flag{
+										&cli.StringFlag{
+											Name:     datasetFlagDatasetID,
+											Usage:    "dataset ID from which data will be removed",
+											Required: true,
+										},
+										&cli.StringFlag{
+											Name:     generalFlagOrgID,
+											Usage:    "org ID to which data belongs",
+											Required: true,
+										},
+										&cli.StringFlag{
+											Name:     dataFlagLocationID,
+											Usage:    "location ID to which data belongs",
+											Required: true,
+										},
+										&cli.StringSliceFlag{
+											Name:     dataFlagFileIDs,
+											Usage:    "file IDs of data belonging to specified org and location",
+											Required: true,
+										},
+									},
+									Action: createCommandWithT[dataRemoveFromDatasetArgs](DataRemoveFromDataset),
 								},
-								&cli.StringFlag{
-									Name:     generalFlagOrgID,
-									Usage:    "org ID to which data belongs",
-									Required: true,
-								},
-								&cli.StringFlag{
-									Name:     dataFlagLocationID,
-									Usage:    "location ID to which data belongs",
-									Required: true,
-								},
-								&cli.StringSliceFlag{
-									Name:     dataFlagFileIDs,
-									Usage:    "file IDs of data belonging to specified org and location",
-									Required: true,
+								{
+									Name:      "filter",
+									Usage:     "removes binary data associated with a filter from a dataset",
+									UsageText: createUsageText("dataset data remove filter", []string{datasetFlagDatasetID}, true, false),
+									Flags: append([]cli.Flag{
+										&cli.StringFlag{
+											Name:     datasetFlagDatasetID,
+											Usage:    "dataset ID from which data will be removed",
+											Required: true,
+										},
+										&cli.StringSliceFlag{
+											Name: generalFlagTags,
+											Usage: "tags filter. " +
+												"accepts 'tagged' for all tagged data, 'untagged' for all untagged data, " +
+												"or a list of tags for all data matching any of the tags",
+										},
+									},
+										commonFilterFlags...),
+									Action: createCommandWithT[dataRemoveFromDatasetByFilterArgs](DataRemoveFromDatasetByFilter),
 								},
 							},
-							Action: createCommandWithT[dataRemoveFromDatasetArgs](DataRemoveFromDataset),
 						},
 					},
 				},
@@ -1752,15 +1785,19 @@ var app = &cli.App{
 					Usage:     "list machines in an organization and location",
 					UsageText: createUsageText("machines list", nil, true, false),
 					Flags: []cli.Flag{
-						&cli.StringFlag{
-							Name:        generalFlagOrganization,
-							Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-							DefaultText: "first organization alphabetically",
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:        generalFlagOrganization,
+								Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+								DefaultText: "first organization alphabetically",
+							},
 						},
-						&cli.StringFlag{
-							Name:        generalFlagLocation,
-							Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
-							DefaultText: "first location alphabetically",
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:        generalFlagLocation,
+								Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
+								DefaultText: "first location alphabetically",
+							},
 						},
 					},
 					Action: createCommandWithT[listRobotsActionArgs](ListRobotsAction),
@@ -1811,15 +1848,19 @@ var app = &cli.App{
 								Required: true,
 							},
 						},
-						&cli.StringFlag{
-							Name:        generalFlagOrganization,
-							Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-							DefaultText: "first organization alphabetically",
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:        generalFlagOrganization,
+								Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+								DefaultText: "first organization alphabetically",
+							},
 						},
-						&cli.StringFlag{
-							Name:        generalFlagLocation,
-							Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
-							DefaultText: "first location alphabetically",
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:        generalFlagLocation,
+								Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
+								DefaultText: "first location alphabetically",
+							},
 						},
 					},
 					Action: createCommandWithT[robotsStatusArgs](RobotsStatusAction),
@@ -1837,15 +1878,19 @@ var app = &cli.App{
 								Required: true,
 							},
 						},
-						&cli.StringFlag{
-							Name:        generalFlagOrganization,
-							Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-							DefaultText: "first organization alphabetically",
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:        generalFlagOrganization,
+								Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+								DefaultText: "first organization alphabetically",
+							},
 						},
-						&cli.StringFlag{
-							Name:        generalFlagLocation,
-							Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
-							DefaultText: "first location alphabetically",
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:        generalFlagLocation,
+								Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
+								DefaultText: "first location alphabetically",
+							},
 						},
 						&cli.StringFlag{
 							Name:  logsFlagOutputFile,
@@ -1897,15 +1942,19 @@ var app = &cli.App{
 										Required: true,
 									},
 								},
-								&cli.StringFlag{
-									Name:        generalFlagOrganization,
-									Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-									DefaultText: "first organization alphabetically",
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:        generalFlagOrganization,
+										Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+										DefaultText: "first organization alphabetically",
+									},
 								},
-								&cli.StringFlag{
-									Name:        generalFlagLocation,
-									Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
-									DefaultText: "first location alphabetically",
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:        generalFlagLocation,
+										Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
+										DefaultText: "first location alphabetically",
+									},
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
@@ -1929,15 +1978,19 @@ var app = &cli.App{
 										Required: true,
 									},
 								},
-								&cli.StringFlag{
-									Name:        generalFlagOrganization,
-									Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-									DefaultText: "first organization alphabetically",
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:        generalFlagOrganization,
+										Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+										DefaultText: "first organization alphabetically",
+									},
 								},
-								&cli.StringFlag{
-									Name:        generalFlagLocation,
-									Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
-									DefaultText: "first location alphabetically",
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:        generalFlagLocation,
+										Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
+										DefaultText: "first location alphabetically",
+									},
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
@@ -1974,15 +2027,19 @@ var app = &cli.App{
 										Required: true,
 									},
 								},
-								&cli.StringFlag{
-									Name:        generalFlagOrganization,
-									Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-									DefaultText: "first organization alphabetically",
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:        generalFlagOrganization,
+										Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+										DefaultText: "first organization alphabetically",
+									},
 								},
-								&cli.StringFlag{
-									Name:        generalFlagLocation,
-									Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
-									DefaultText: "first location alphabetically",
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:        generalFlagLocation,
+										Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
+										DefaultText: "first location alphabetically",
+									},
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
@@ -2048,18 +2105,24 @@ Organization and location are required flags if the machine/part name are not un
 `,
 							UsageText: createUsageText("machines part shell", []string{generalFlagPart}, false, false),
 							Flags: []cli.Flag{
-								&cli.StringFlag{
-									Name:     generalFlagPart,
-									Aliases:  []string{generalFlagPartID, generalFlagPartName},
-									Required: true,
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:     generalFlagPart,
+										Aliases:  []string{generalFlagPartID, generalFlagPartName},
+										Required: true,
+									},
 								},
-								&cli.StringFlag{
-									Name:    generalFlagOrganization,
-									Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:    generalFlagOrganization,
+										Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+									},
 								},
-								&cli.StringFlag{
-									Name:    generalFlagLocation,
-									Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:    generalFlagLocation,
+										Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
+									},
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
@@ -2069,6 +2132,29 @@ Organization and location are required flags if the machine/part name are not un
 								},
 							},
 							Action: createCommandWithT[robotsPartShellArgs](RobotsPartShellAction),
+						},
+						{
+							Name:      "list",
+							Usage:     "list parts on a machine",
+							UsageText: createUsageText("machines part list", []string{generalFlagMachine}, true, false),
+							Flags: []cli.Flag{
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:     generalFlagMachine,
+										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
+										Required: true,
+									},
+								},
+								&cli.StringFlag{
+									Name:    generalFlagOrganization,
+									Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+								},
+								&cli.StringFlag{
+									Name:    generalFlagLocation,
+									Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
+								},
+							},
+							Action: createCommandWithT[machinesPartListArgs](MachinesPartListAction),
 						},
 						{
 							Name:  "cp",
@@ -2112,13 +2198,17 @@ Copy multiple files from the machine to a local destination with recursion and k
 										Required: true,
 									},
 								},
-								&cli.StringFlag{
-									Name:    generalFlagOrganization,
-									Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:    generalFlagOrganization,
+										Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+									},
 								},
-								&cli.StringFlag{
-									Name:    generalFlagLocation,
-									Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:    generalFlagLocation,
+										Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
+									},
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
@@ -2376,7 +2466,7 @@ viam module upload --version "0.1.0" --platform "linux/amd64" --upload "packaged
 							Name: generalFlagTags,
 							Usage: `extra fields for constraining the platforms to which this binary
                              is deployed. Examples: distro:debian, distro:ubuntu, os_version:22.04,
-                             os_codename:jammy. For a machine to use an upload, all tags must be
+                             codename:jammy. For a machine to use an upload, all tags must be
                              satisified as well as the --platform field.`,
 						},
 						&cli.BoolFlag{

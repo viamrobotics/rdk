@@ -58,7 +58,7 @@ func TestValidationFailureDuringReconfiguration(t *testing.T) {
 		},
 	}
 
-	robot, err := robotimpl.New(ctx, cfg, logger)
+	robot, err := robotimpl.New(ctx, cfg, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer robot.Close(ctx)
 
@@ -132,7 +132,7 @@ func TestVersionBumpWithNewImplicitDeps(t *testing.T) {
 		},
 	}
 
-	robot, err := robotimpl.New(ctx, cfg, logger)
+	robot, err := robotimpl.New(ctx, cfg, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer robot.Close(ctx)
 

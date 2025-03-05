@@ -361,7 +361,13 @@ func TestDataClient(t *testing.T) {
 				RawData: expectedRawDataPb,
 			}, nil
 		}
-		response, err := client.TabularDataByMQL(context.Background(), organizationID, mqlQueries)
+		response, err := client.TabularDataByMQL(context.Background(), organizationID, mqlQueries, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, response, test.ShouldResemble, rawData)
+		response, err = client.TabularDataByMQL(context.Background(), organizationID, mqlQueries, &TabularDataByMQLOptions{UseRecentData: false})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, response, test.ShouldResemble, rawData)
+		response, err = client.TabularDataByMQL(context.Background(), organizationID, mqlQueries, &TabularDataByMQLOptions{UseRecentData: true})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, response, test.ShouldResemble, rawData)
 	})
@@ -562,20 +568,6 @@ func TestDataClient(t *testing.T) {
 		resp, err := client.RemoveTagsFromBinaryDataByFilter(context.Background(), tags, &filter)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldEqual, count)
-	})
-
-	t.Run("TagsByFilter", func(t *testing.T) {
-		grpcClient.TagsByFilterFunc = func(ctx context.Context, in *pb.TagsByFilterRequest,
-			opts ...grpc.CallOption,
-		) (*pb.TagsByFilterResponse, error) {
-			test.That(t, in.Filter, test.ShouldResemble, pbFilter)
-			return &pb.TagsByFilterResponse{
-				Tags: tags,
-			}, nil
-		}
-		resp, err := client.TagsByFilter(context.Background(), &filter)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp, test.ShouldResemble, tags)
 	})
 
 	t.Run("AddBoundingBoxToImageByID", func(t *testing.T) {
