@@ -152,24 +152,13 @@ func createDetectionFilter(minConf float64, labelMap map[string]float64) objectd
 	return nil
 }
 
-// GetIndex returns the index of an int in an array of ints
-// Will return -1 if it's not there.
-func GetIndex(s []int, num int) int {
-	for i, v := range s {
-		if v == num {
-			return i
-		}
-	}
-	return -1
-}
-
 func convertBoundingBoxesToDetections(boundingBoxes []data.BoundingBox, origW, origH int) []objectdetection.Detection {
 	var detections []objectdetection.Detection
 	for _, bbox := range boundingBoxes {
-		xmin := bbox.XMinNormalized * float64(origW)
-		ymin := bbox.YMinNormalized * float64(origH)
-		xmax := bbox.XMaxNormalized * float64(origW)
-		ymax := bbox.YMaxNormalized * float64(origH)
+		xmin := bbox.XMinNormalized * float64(origW-1)
+		ymin := bbox.YMinNormalized * float64(origH-1)
+		xmax := bbox.XMaxNormalized * float64(origW-1)
+		ymax := bbox.YMaxNormalized * float64(origH-1)
 		rect := image.Rect(int(xmin), int(ymin), int(xmax), int(ymax))
 		detections = append(detections, objectdetection.NewDetection(rect, *bbox.Confidence, bbox.Label))
 	}
