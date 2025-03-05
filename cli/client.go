@@ -1493,7 +1493,8 @@ func CheckUpdateAction(c *cli.Context, args emptyArgs) error {
 		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse build version")
 	}
 
-	// we know both the local version and the latest version so we can make a determination from that alone on whether or not to alert users to update
+	// we know both the local version and the latest version so we can make a determination
+	// from that alone on whether or not to alert users to update
 	if localVersion != nil && latestVersion != nil {
 		// the local version is out of date, so we know to warn
 		if localVersion.LessThan(latestVersion) {
