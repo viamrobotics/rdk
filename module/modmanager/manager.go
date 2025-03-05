@@ -1326,7 +1326,6 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager) {
 		case api.API.IsComponent():
 			for _, model := range models {
 				m.logger.Infow("Registering component API and model from module", "module", m.cfg.Name, "API", api.API, "model", model)
-
 				resource.RegisterComponent(api.API, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 					Constructor: func(
 						ctx context.Context,
