@@ -39,18 +39,24 @@ func TestLazyEncodedImage(t *testing.T) {
 	imgLazy = NewLazyEncodedImage([]byte{1, 2, 3}, utils.MimeTypePNG)
 
 	test.That(t, imgLazy.(*LazyEncodedImage).MIMEType(), test.ShouldEqual, utils.MimeTypePNG)
-	test.That(t, imgLazy.(*LazyEncodedImage).DecodeAll(), test.ShouldNotBeNil)
-	test.That(t, func() { _ = imgLazy.Bounds() }, test.ShouldPanic)
-	test.That(t, func() { _ = imgLazy.ColorModel() }, test.ShouldPanic)
-	test.That(t, func() { NewColorFromColor(imgLazy.At(0, 0)) }, test.ShouldPanic)
+	err = imgLazy.(*LazyEncodedImage).DecodeAll()
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "unknown format")
+	test.That(t, func() { imgLazy.Bounds() }, test.ShouldPanic)
+	test.That(t, func() { imgLazy.ColorModel() }, test.ShouldPanicWith, image.ErrFormat)
+	test.That(t, func() { NewColorFromColor(imgLazy.At(0, 0)) }, test.ShouldPanicWith, image.ErrFormat)
+	test.That(t, func() { NewColorFromColor(imgLazy.At(4, 4)) }, test.ShouldPanicWith, image.ErrFormat)
 
 	imgLazy = NewLazyEncodedImage([]byte{1, 2, 3}, "weeeee")
 
 	test.That(t, imgLazy.(*LazyEncodedImage).MIMEType(), test.ShouldEqual, "weeeee")
-	test.That(t, imgLazy.(*LazyEncodedImage).DecodeAll(), test.ShouldNotBeNil)
-	test.That(t, func() { _ = imgLazy.Bounds() }, test.ShouldPanic)
-	test.That(t, func() { _ = imgLazy.ColorModel() }, test.ShouldPanic)
-	test.That(t, func() { NewColorFromColor(imgLazy.At(0, 0)) }, test.ShouldPanic)
+	err = imgLazy.(*LazyEncodedImage).DecodeAll()
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "unknown format")
+	test.That(t, func() { imgLazy.Bounds() }, test.ShouldPanic)
+	test.That(t, func() { imgLazy.ColorModel() }, test.ShouldPanicWith, image.ErrFormat)
+	test.That(t, func() { NewColorFromColor(imgLazy.At(0, 0)) }, test.ShouldPanicWith, image.ErrFormat)
+	test.That(t, func() { NewColorFromColor(imgLazy.At(4, 4)) }, test.ShouldPanicWith, image.ErrFormat)
 
 	// png without a mime type
 	imgLazy = NewLazyEncodedImage(pngBuf.Bytes(), "")
