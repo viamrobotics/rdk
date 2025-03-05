@@ -82,3 +82,105 @@ func TestLazyEncodedImage(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, img2, test.ShouldResemble, jpegImg)
 }
+
+func TestLazyEncodedImageSafeUnsafe(t *testing.T) {
+	img := image.NewNRGBA(image.Rect(0, 0, 4, 8))
+	img.Set(3, 3, Red)
+
+	var pngBuf bytes.Buffer
+	test.That(t, png.Encode(&pngBuf, img), test.ShouldBeNil)
+
+	badImgLazy := NewLazyEncodedImage([]byte{1, 2, 3}, utils.MimeTypePNG)
+	goodImgLazy := NewLazyEncodedImage(pngBuf.Bytes(), utils.MimeTypePNG)
+
+	t.Run("BoundsSafe", func(t *testing.T) {
+		t.Run("with bad image", func(t *testing.T) {
+			bounds, err := badImgLazy.(*LazyEncodedImage).BoundsSafe()
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, "unknown format")
+			test.That(t, bounds, test.ShouldResemble, image.Rectangle{})
+		})
+
+		t.Run("with good image", func(t *testing.T) {
+			bounds, err := goodImgLazy.(*LazyEncodedImage).BoundsSafe()
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, bounds, test.ShouldResemble, img.Bounds())
+		})
+	})
+
+	t.Run("ColorModelSafe", func(t *testing.T) {
+		t.Run("with bad image", func(t *testing.T) {
+			colorModel, err := badImgLazy.(*LazyEncodedImage).ColorModelSafe()
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, "unknown format")
+			test.That(t, colorModel, test.ShouldBeNil)
+		})
+
+		t.Run("with good image", func(t *testing.T) {
+			colorModel, err := goodImgLazy.(*LazyEncodedImage).ColorModelSafe()
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, colorModel, test.ShouldNotBeNil)
+		})
+	})
+
+	t.Run("AtSafe", func(t *testing.T) {
+		t.Run("with bad image", func(t *testing.T) {
+			pixelColor, err := badImgLazy.(*LazyEncodedImage).AtSafe(0, 0)
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, "unknown format")
+			test.That(t, pixelColor, test.ShouldBeNil)
+		})
+
+		t.Run("with good image", func(t *testing.T) {
+			pixelColor, err := goodImgLazy.(*LazyEncodedImage).AtSafe(0, 0)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, pixelColor, test.ShouldNotBeNil)
+		})
+	})
+
+	t.Run("DecodedImage", func(t *testing.T) {
+		t.Run("with bad image", func(t *testing.T) {
+			decodedImg, err := badImgLazy.(*LazyEncodedImage).DecodedImage()
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, "unknown format")
+			test.That(t, decodedImg, test.ShouldBeNil)
+		})
+
+		t.Run("with good image", func(t *testing.T) {
+			decodedImg, err := goodImgLazy.(*LazyEncodedImage).DecodedImage()
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, decodedImg, test.ShouldNotBeNil)
+		})
+	})
+
+	t.Run("Bounds", func(t *testing.T) {
+		t.Run("with bad image", func(t *testing.T) {
+			test.That(t, func() { badImgLazy.Bounds() }, test.ShouldPanic)
+		})
+		t.Run("with good image", func(t *testing.T) {
+			test.That(t, func() { goodImgLazy.Bounds() }, test.ShouldNotPanic)
+			test.That(t, goodImgLazy.Bounds(), test.ShouldResemble, img.Bounds())
+		})
+	})
+
+	t.Run("ColorModel", func(t *testing.T) {
+		t.Run("with bad image", func(t *testing.T) {
+			test.That(t, func() { badImgLazy.ColorModel() }, test.ShouldPanicWith, image.ErrFormat)
+		})
+		t.Run("with good image", func(t *testing.T) {
+			test.That(t, func() { goodImgLazy.ColorModel() }, test.ShouldNotPanic)
+			test.That(t, goodImgLazy.ColorModel(), test.ShouldNotBeNil)
+		})
+	})
+
+	t.Run("At", func(t *testing.T) {
+		t.Run("with bad image", func(t *testing.T) {
+			test.That(t, func() { badImgLazy.At(0, 0) }, test.ShouldPanicWith, image.ErrFormat)
+			test.That(t, func() { badImgLazy.At(4, 4) }, test.ShouldPanicWith, image.ErrFormat)
+		})
+		t.Run("with good image", func(t *testing.T) {
+			test.That(t, func() { goodImgLazy.At(0, 0) }, test.ShouldNotPanic)
+			test.That(t, NewColorFromColor(goodImgLazy.At(3, 3)), test.ShouldEqual, Red)
+		})
+	})
+}
