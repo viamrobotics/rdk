@@ -1039,7 +1039,7 @@ func RobotFromResources(
 	return newWithResources(ctx, &config.Config{}, resources, nil, logger, opts...)
 }
 
-func (r *localRobot) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModelDiscovery, error) {
+func (r *localRobot) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModel, error) {
 	return r.manager.moduleManager.AllModels(), nil
 }
 

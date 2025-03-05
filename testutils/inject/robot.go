@@ -27,7 +27,7 @@ import (
 type Robot struct {
 	robot.LocalRobot
 	Mu                       sync.RWMutex // Ugly, has to be manually locked if a test means to swap funcs on an in-use robot.
-	GetModelsFromModulesFunc func(ctx context.Context) ([]resource.ModuleModelDiscovery, error)
+	GetModelsFromModulesFunc func(ctx context.Context) ([]resource.ModuleModel, error)
 	RemoteByNameFunc         func(name string) (robot.Robot, bool)
 	ResourceByNameFunc       func(name resource.Name) (resource.Resource, error)
 	RemoteNamesFunc          func() []string
@@ -220,7 +220,7 @@ func (r *Robot) StopAll(ctx context.Context, extra map[resource.Name]map[string]
 }
 
 // GetModelsFromModules calls the injected GetModelsFromModules or the real one.
-func (r *Robot) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModelDiscovery, error) {
+func (r *Robot) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModel, error) {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 	if r.GetModelsFromModulesFunc == nil {

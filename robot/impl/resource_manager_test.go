@@ -1875,7 +1875,7 @@ func (rr *dummyRobot) Reconfigure(ctx context.Context, deps resource.Dependencie
 	return errors.New("unsupported")
 }
 
-func (rr *dummyRobot) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModelDiscovery, error) {
+func (rr *dummyRobot) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModel, error) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	if rr.offline {

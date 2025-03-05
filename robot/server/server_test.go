@@ -406,7 +406,7 @@ func TestServer(t *testing.T) {
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return []resource.Name{} }
 		server := server.New(injectRobot)
 
-		expectedModels := []resource.ModuleModelDiscovery{
+		expectedModels := []resource.ModuleModel{
 			{
 				ModuleName:      "simple-module",
 				API:             resource.NewAPI("rdk", "component", "generic"),
@@ -420,7 +420,7 @@ func TestServer(t *testing.T) {
 				FromLocalModule: true,
 			},
 		}
-		injectRobot.GetModelsFromModulesFunc = func(context.Context) ([]resource.ModuleModelDiscovery, error) {
+		injectRobot.GetModelsFromModulesFunc = func(context.Context) ([]resource.ModuleModel, error) {
 			return expectedModels, nil
 		}
 		expectedProto := []*pb.ModuleModel{expectedModels[0].ToProto(), expectedModels[1].ToProto()}

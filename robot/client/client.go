@@ -874,13 +874,13 @@ func (rc *RobotClient) Logger() logging.Logger {
 }
 
 // GetModelsFromModules  returns the available models from the configured modules on a given machine.
-func (rc *RobotClient) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModelDiscovery, error) {
+func (rc *RobotClient) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModel, error) {
 	resp, err := rc.client.GetModelsFromModules(ctx, &pb.GetModelsFromModulesRequest{})
 	if err != nil {
 		return nil, err
 	}
 	protoModels := resp.GetModels()
-	models := []resource.ModuleModelDiscovery{}
+	models := []resource.ModuleModel{}
 	for _, protoModel := range protoModels {
 		modelTriplet, err := resource.NewModelFromString(protoModel.Model)
 		if err != nil {
@@ -890,7 +890,7 @@ func (rc *RobotClient) GetModelsFromModules(ctx context.Context) ([]resource.Mod
 		if err != nil {
 			return nil, err
 		}
-		model := resource.ModuleModelDiscovery{
+		model := resource.ModuleModel{
 			ModuleName: protoModel.ModuleName, Model: modelTriplet, API: api,
 			FromLocalModule: protoModel.FromLocalModule,
 		}

@@ -83,7 +83,7 @@ const (
 type Robot interface {
 	// GetModelsFromModules returns a list of models supported by the configured modules,
 	// and specifies whether the models are from a local or registry module.
-	GetModelsFromModules(ctx context.Context) ([]resource.ModuleModelDiscovery, error)
+	GetModelsFromModules(ctx context.Context) ([]resource.ModuleModel, error)
 
 	// RemoteByName returns a remote robot by name.
 	RemoteByName(name string) (Robot, bool)

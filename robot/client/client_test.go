@@ -1319,7 +1319,7 @@ func TestClientGetModelsFromModules(t *testing.T) {
 	injectRobot.MachineStatusFunc = func(_ context.Context) (robot.MachineStatus, error) {
 		return robot.MachineStatus{State: robot.StateRunning}, nil
 	}
-	expectedModels := []resource.ModuleModelDiscovery{
+	expectedModels := []resource.ModuleModel{
 		{
 			ModuleName:      "simple-module",
 			API:             resource.NewAPI("rdk", "component", "generic"),
@@ -1333,7 +1333,7 @@ func TestClientGetModelsFromModules(t *testing.T) {
 			FromLocalModule: true,
 		},
 	}
-	injectRobot.GetModelsFromModulesFunc = func(context.Context) ([]resource.ModuleModelDiscovery, error) {
+	injectRobot.GetModelsFromModulesFunc = func(context.Context) ([]resource.ModuleModel, error) {
 		return expectedModels, nil
 	}
 
