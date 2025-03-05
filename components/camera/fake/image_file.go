@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"image/png"
+	"image/jpeg"
 	"time"
 
 	"go.viam.com/rdk/components/camera"
@@ -271,7 +271,7 @@ func (ss *StaticSource) Close(ctx context.Context) error {
 
 // getPreloadedImage returns one of the preloaded images based on the name.
 func getPreloadedImage(name string) (*rimage.Image, error) {
-	var imageBase64 string
+	var imageBase64 []byte
 	switch name {
 	case "pizza":
 		imageBase64 = pizzaBase64
@@ -283,18 +283,10 @@ func getPreloadedImage(name string) (*rimage.Image, error) {
 		return nil, fmt.Errorf("unknown preloaded image: %s", name)
 	}
 
-	// Decode base64 to binary
-	imageData, err := base64.StdEncoding.DecodeString(imageBase64)
+	d := base64.NewDecoder(base64.StdEncoding, bytes.NewReader(imageBase64))
+	img, err := jpeg.Decode(d)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode base64 image data: %w", err)
+		return nil, fmt.Errorf("failed to decode image: %w", err)
 	}
-
-	// Decode PNG to image
-	img, err := png.Decode(bytes.NewReader(imageData))
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode PNG image: %w", err)
-	}
-
-	// Convert to rimage.Image
 	return rimage.ConvertImage(img), nil
 }
