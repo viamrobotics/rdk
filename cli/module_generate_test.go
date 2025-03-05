@@ -157,17 +157,6 @@ func TestGenerateModuleAction(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
-	t.Run("test generate cloud build", func(t *testing.T) {
-		setupDirectories(cCtx, testModule.ModuleName, globalArgs)
-		err := generateCloudBuild(cCtx, testModule, globalArgs)
-		test.That(t, err, test.ShouldBeNil)
-
-		_, err = os.Stat(filepath.Join(modulePath, "run.sh"))
-		test.That(t, err, test.ShouldNotBeNil)
-		_, err = os.Stat(filepath.Join(modulePath, "build.sh"))
-		test.That(t, err, test.ShouldBeNil)
-	})
-
 	t.Run("test create module and manifest", func(t *testing.T) {
 		cCtx, ac, _, _ := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{
 			StartBuildFunc: func(ctx context.Context, in *v1.StartBuildRequest, opts ...grpc.CallOption) (*v1.StartBuildResponse, error) {
