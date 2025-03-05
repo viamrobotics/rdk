@@ -115,14 +115,14 @@ func TestColorOddResolution(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestPredefinedImages(t *testing.T) {
+func TestPreloadedImages(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
-	predefinedImages := []string{"pizza", "dog", "crowd"}
+	preloadedImages := []string{"pizza", "dog", "crowd"}
 
-	for _, imgName := range predefinedImages {
+	for _, imgName := range preloadedImages {
 		t.Run(imgName, func(t *testing.T) {
-			cfg := &fileSourceConfig{PredefinedImage: imgName}
+			cfg := &fileSourceConfig{PreloadedImage: imgName}
 			cam, err := newCamera(ctx, resource.Name{API: camera.API}, cfg, logger)
 			test.That(t, err, test.ShouldBeNil)
 
@@ -137,7 +137,7 @@ func TestPredefinedImages(t *testing.T) {
 			namedImages, metadata, err := cam.Images(ctx)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(namedImages), test.ShouldEqual, 1)
-			test.That(t, namedImages[0].SourceName, test.ShouldEqual, "predefined")
+			test.That(t, namedImages[0].SourceName, test.ShouldEqual, "preloaded")
 			test.That(t, metadata.CapturedAt.IsZero(), test.ShouldBeFalse)
 
 			jpegBytes, mime, err := cam.Image(ctx, utils.MimeTypeJPEG, nil)
@@ -150,11 +150,10 @@ func TestPredefinedImages(t *testing.T) {
 		})
 	}
 
-	// Test both predefined image and color file path
 	colorImgPath := artifact.MustPath("vision/objectdetection/detection_test.jpg")
 	cfg := &fileSourceConfig{
-		PredefinedImage: "pizza",
-		Color:           colorImgPath,
+		PreloadedImage: "pizza",
+		Color:          colorImgPath,
 	}
 	cam, err := newCamera(ctx, resource.Name{API: camera.API}, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -163,16 +162,14 @@ func TestPredefinedImages(t *testing.T) {
 	namedImages, _, err := cam.Images(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(namedImages), test.ShouldEqual, 2)
-	test.That(t, namedImages[0].SourceName, test.ShouldEqual, "predefined")
+	test.That(t, namedImages[0].SourceName, test.ShouldEqual, "preloaded")
 	test.That(t, namedImages[1].SourceName, test.ShouldEqual, "color")
 
 	cameraImg, err := camera.DecodeImageFromCamera(ctx, utils.MimeTypeRawRGBA, nil, cam)
 	test.That(t, err, test.ShouldBeNil)
-	predefinedImg, err := getPredefinedImage("pizza")
+	preloadedImg, err := getPreloadedImage("pizza")
 	test.That(t, err, test.ShouldBeNil)
-	// Convert predefinedImg to standard image.Image for comparison
-	var stdPredefinedImg image.Image = predefinedImg
-	diff, _, err := rimage.CompareImages(cameraImg, stdPredefinedImg)
+	diff, _, err := rimage.CompareImages(cameraImg, preloadedImg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, diff, test.ShouldEqual, 0)
 

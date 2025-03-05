@@ -40,15 +40,15 @@ func init() {
 
 func newCamera(ctx context.Context, name resource.Name, newConf *fileSourceConfig, logger logging.Logger) (camera.Camera, error) {
 	videoSrc := &fileSource{
-		ColorFN:         newConf.Color,
-		DepthFN:         newConf.Depth,
-		PointCloudFN:    newConf.PointCloud,
-		Intrinsics:      newConf.CameraParameters,
-		PredefinedImage: newConf.PredefinedImage,
+		ColorFN:        newConf.Color,
+		DepthFN:        newConf.Depth,
+		PointCloudFN:   newConf.PointCloud,
+		Intrinsics:     newConf.CameraParameters,
+		PreloadedImage: newConf.PreloadedImage,
 	}
 
 	imgType := camera.ColorStream
-	if newConf.Color == "" && newConf.PredefinedImage == "" {
+	if newConf.Color == "" && newConf.PreloadedImage == "" {
 		imgType = camera.DepthStream
 	}
 	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(newConf.CameraParameters, newConf.DistortionParameters)
@@ -66,11 +66,11 @@ func newCamera(ctx context.Context, name resource.Name, newConf *fileSourceConfi
 
 // fileSource stores the paths to a color and depth image and a pointcloud.
 type fileSource struct {
-	ColorFN         string
-	DepthFN         string
-	PointCloudFN    string
-	Intrinsics      *transform.PinholeCameraIntrinsics
-	PredefinedImage string
+	ColorFN        string
+	DepthFN        string
+	PointCloudFN   string
+	Intrinsics     *transform.PinholeCameraIntrinsics
+	PreloadedImage string
 }
 
 // fileSourceConfig is the attribute struct for fileSource.
@@ -80,7 +80,7 @@ type fileSourceConfig struct {
 	Color                string                             `json:"color_image_file_path,omitempty"`
 	Depth                string                             `json:"depth_image_file_path,omitempty"`
 	PointCloud           string                             `json:"pointcloud_file_path,omitempty"`
-	PredefinedImage      string                             `json:"predefined_image,omitempty"` // can be "pizza", "dog", or "crowd"
+	PreloadedImage       string                             `json:"preloaded_image,omitempty"` // can be "pizza", "dog", or "crowd"
 }
 
 // Validate ensures all parts of the config are valid.
@@ -93,12 +93,12 @@ func (c fileSourceConfig) Validate(path string) ([]string, error) {
 		}
 	}
 
-	if c.PredefinedImage != "" {
-		switch c.PredefinedImage {
+	if c.PreloadedImage != "" {
+		switch c.PreloadedImage {
 		case "pizza", "dog", "crowd":
 			// valid options
 		default:
-			return nil, fmt.Errorf("predefined_image must be one of: pizza, dog, crowd. Got: %s", c.PredefinedImage)
+			return nil, fmt.Errorf("preloaded_image must be one of: pizza, dog, crowd. Got: %s", c.PreloadedImage)
 		}
 	}
 
@@ -107,10 +107,10 @@ func (c fileSourceConfig) Validate(path string) ([]string, error) {
 
 // Read returns just the RGB image if it is present, or the depth map if the RGB image is not present.
 func (fs *fileSource) Read(ctx context.Context) (image.Image, func(), error) {
-	if fs.ColorFN == "" && fs.DepthFN == "" && fs.PredefinedImage == "" {
+	if fs.ColorFN == "" && fs.DepthFN == "" && fs.PreloadedImage == "" {
 		return nil, nil, errors.New("no image file to read, so not implemented")
 	}
-	if fs.ColorFN == "" && fs.PredefinedImage == "" { // only depth info
+	if fs.ColorFN == "" && fs.PreloadedImage == "" { // only depth info
 		img, err := rimage.NewDepthMapFromFile(context.Background(), fs.DepthFN)
 		if err != nil {
 			return nil, nil, err
@@ -121,9 +121,9 @@ func (fs *fileSource) Read(ctx context.Context) (image.Image, func(), error) {
 	var img *rimage.Image
 	var err error
 
-	// Get image from predefined image set or file
-	if fs.PredefinedImage != "" {
-		img, err = getPredefinedImage(fs.PredefinedImage)
+	// Get image from preloaded image or file
+	if fs.PreloadedImage != "" {
+		img, err = getPreloadedImage(fs.PreloadedImage)
 	} else {
 		img, err = rimage.NewImageFromFile(fs.ColorFN)
 	}
@@ -153,17 +153,17 @@ func (fs *fileSource) Read(ctx context.Context) (image.Image, func(), error) {
 
 // Images returns the saved color and depth image if they are present.
 func (fs *fileSource) Images(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
-	if fs.ColorFN == "" && fs.DepthFN == "" && fs.PredefinedImage == "" {
+	if fs.ColorFN == "" && fs.DepthFN == "" && fs.PreloadedImage == "" {
 		return nil, resource.ResponseMetadata{}, errors.New("no image files to read, so not implemented")
 	}
 	imgs := []camera.NamedImage{}
 
-	if fs.PredefinedImage != "" {
-		img, err := getPredefinedImage(fs.PredefinedImage)
+	if fs.PreloadedImage != "" {
+		img, err := getPreloadedImage(fs.PreloadedImage)
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
-		imgs = append(imgs, camera.NamedImage{img, "predefined"})
+		imgs = append(imgs, camera.NamedImage{img, "preloaded"})
 	}
 
 	if fs.ColorFN != "" {
@@ -269,8 +269,8 @@ func (ss *StaticSource) Close(ctx context.Context) error {
 	return nil
 }
 
-// getPredefinedImage returns one of the predefined images based on the name.
-func getPredefinedImage(name string) (*rimage.Image, error) {
+// getPreloadedImage returns one of the preloaded images based on the name.
+func getPreloadedImage(name string) (*rimage.Image, error) {
 	var imageBase64 string
 	switch name {
 	case "pizza":
@@ -280,7 +280,7 @@ func getPredefinedImage(name string) (*rimage.Image, error) {
 	case "crowd":
 		imageBase64 = crowdBase64
 	default:
-		return nil, fmt.Errorf("unknown predefined image: %s", name)
+		return nil, fmt.Errorf("unknown preloaded image: %s", name)
 	}
 
 	// Decode base64 to binary
