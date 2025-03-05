@@ -52,8 +52,9 @@ func NewLazyEncodedImage(imgBytes []byte, mimeType string) image.Image {
 	}
 }
 
-// Helper method for checking lei errors.
-func (lei *LazyEncodedImage) checkError(err interface{}) error {
+// Helper method for checking generic typed errors such as the one in lei structs.
+// TODO(hexbabe): why?
+func checkError(err interface{}) error {
 	if err != nil {
 		switch e := err.(type) {
 		case error:
@@ -80,7 +81,7 @@ func (lei *LazyEncodedImage) DecodeImage() error {
 			lei.mimeType,
 		)
 	})
-	return lei.checkError(lei.decodeImageErr)
+	return checkError(lei.decodeImageErr)
 }
 
 // DecodeConfig decodes the image configuration. Returns nil if no errors occurred.
@@ -100,7 +101,7 @@ func (lei *LazyEncodedImage) DecodeConfig() error {
 			lei.colorModel = header.ColorModel
 		}
 	})
-	return lei.checkError(lei.decodeConfigErr)
+	return checkError(lei.decodeConfigErr)
 }
 
 // DecodeAll decodes the image and its configuration. Returns nil if no errors occurred.
