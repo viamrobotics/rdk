@@ -2037,8 +2037,8 @@ func (rr *dummyRobot) Version(ctx context.Context) (robot.VersionResponse, error
 }
 
 // ListTunnels returns information on available traffic tunnels.
-func (rr *dummyRobot) ListTunnels() []config.TrafficTunnelEndpoint {
-	return nil
+func (rr *dummyRobot) ListTunnels(_ context.Context) ([]config.TrafficTunnelEndpoint, error) {
+	return nil, nil
 }
 
 // managerForDummyRobot integrates all parts from a given robot except for its remotes.
@@ -2053,7 +2053,7 @@ func managerForDummyRobot(t *testing.T, robot robot.Robot) *resourceManager {
 
 	// start a dummy module manager so calls to moduleManager.Provides() do not
 	// panic.
-	manager.startModuleManager(context.Background(), "", nil, false, "", "", robot.Logger(), t.TempDir())
+	manager.startModuleManager(context.Background(), "", nil, false, "", "", robot.Logger(), t.TempDir(), grpc.NewModPeerConnTracker())
 
 	for _, name := range robot.ResourceNames() {
 		res, err := robot.ResourceByName(name)

@@ -515,6 +515,7 @@ func newWithResources(
 		cloudID,
 		logger,
 		cfg.PackagePath,
+		r.webSvc.ModPeerConnTracker(),
 	)
 
 	if !rOpts.disableCompleteConfigWorker {
@@ -1589,10 +1590,10 @@ func (r *localRobot) RestartAllowed() bool {
 }
 
 // ListTunnels returns information on available traffic tunnels.
-func (r *localRobot) ListTunnels() []config.TrafficTunnelEndpoint {
+func (r *localRobot) ListTunnels(_ context.Context) ([]config.TrafficTunnelEndpoint, error) {
 	cfg := r.Config()
 	if cfg != nil {
-		return cfg.Network.NetworkConfigData.TrafficTunnelEndpoints
+		return cfg.Network.NetworkConfigData.TrafficTunnelEndpoints, nil
 	}
-	return nil
+	return nil, nil
 }

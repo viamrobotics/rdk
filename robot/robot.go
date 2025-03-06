@@ -157,7 +157,7 @@ type Robot interface {
 	Version(ctx context.Context) (VersionResponse, error)
 
 	// ListTunnels returns information on available traffic tunnels.
-	ListTunnels() []config.TrafficTunnelEndpoint
+	ListTunnels(ctx context.Context) ([]config.TrafficTunnelEndpoint, error)
 }
 
 // A LocalRobot is a Robot that can have its parts modified.

@@ -33,10 +33,6 @@ type Config struct {
 	If your model does not need a config, replace *Config in the init
 	function with resource.NoNativeConfig
 	*/
-
-	/* Uncomment this if your model does not need to be validated
-	    and has no implicit dependecies. */
-	// resource.TriviallyValidateConfig
 }
 
 // Validate ensures all parts of the config are valid and important fields exist.
@@ -49,6 +45,8 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 type {{.ModelType}} struct {
+	resource.AlwaysRebuild
+    
 	name   resource.Name
 
 	logger logging.Logger
@@ -56,15 +54,6 @@ type {{.ModelType}} struct {
 
 	cancelCtx  context.Context
 	cancelFunc func()
-
-
-	/* Uncomment this if your model does not need to reconfigure. */
-	// resource.TriviallyReconfigurable
-
-	// Uncomment this if the model does not have any goroutines that
-	// need to be shut down while closing.
-	// resource.TriviallyCloseable
-
 }
 
 func new{{.Module.ModulePascal}}{{.Module.ModelPascal}}(ctx context.Context, deps resource.Dependencies, rawConf resource.Config, logger logging.Logger) ({{if eq .Module.ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .Module.ResourceType "component"}}{{.Module.ResourceSubtype}}.{{.Module.ResourceSubtypePascal}}{{else}}{{.Module.ResourceSubtype}}.Service{{end}}{{end}}, error) {
@@ -73,10 +62,16 @@ func new{{.Module.ModulePascal}}{{.Module.ModelPascal}}(ctx context.Context, dep
 		return nil, err
 	}
 
+    return New{{.Module.ModelPascal}}(ctx, deps, rawConf.ResourceName(), conf, logger)
+
+}
+
+func New{{.Module.ModelPascal}}(ctx context.Context, deps resource.Dependencies, name resource.Name, conf *Config, logger logging.Logger) ({{if eq .Module.ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .Module.ResourceType "component"}}{{.Module.ResourceSubtype}}.{{.Module.ResourceSubtypePascal}}{{else}}{{.Module.ResourceSubtype}}.Service{{end}}{{end}}, error) {
+
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	s := &{{.ModelType}}{
-		name:       rawConf.ResourceName(),
+		name:       name,
 		logger:     logger,
 		cfg:        conf,
 		cancelCtx:  cancelCtx,
@@ -87,11 +82,6 @@ func new{{.Module.ModulePascal}}{{.Module.ModelPascal}}(ctx context.Context, dep
 
 func (s *{{.ModelType}}) Name() resource.Name {
 	return s.name
-}
-
-func (s *{{.ModelType}}) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	// Put reconfigure code here
-	return errUnimplemented
 }
 
 {{.Functions}}
