@@ -182,7 +182,11 @@ func WriteImageToFile(path string, img image.Image) (err error) {
 // ConvertImage converts a go image into our Image type.
 func ConvertImage(img image.Image) *Image {
 	if lazyImg, ok := img.(*LazyEncodedImage); ok {
-		img = lazyImg.DecodedImage()
+		decodedImg, err := lazyImg.DecodedImage()
+		if err != nil {
+			panic(err) // TODO(hexbabe): not ideal
+		}
+		img = decodedImg
 	}
 	ii, ok := img.(*Image)
 	if ok {
@@ -241,7 +245,11 @@ func SaveImage(pic image.Image, loc string) error {
 		}
 	}()
 	if lazyImg, ok := pic.(*LazyEncodedImage); ok {
-		pic = lazyImg.DecodedImage()
+		decodedPic, err := lazyImg.DecodedImage()
+		if err != nil {
+			return err
+		}
+		pic = decodedPic
 	}
 	if err = jpeg.Encode(f, pic, &jpeg.Options{Quality: 75}); err != nil {
 		return errors.Wrapf(err, "the 'image' will not encode")
@@ -290,9 +298,9 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 			return lazy.imgBytes, nil
 		}
 		// LazyImage holds bytes different from requested mime type: decode and re-encode
-		lazy.decode()
-		if lazy.decodeErr != nil {
-			return nil, errors.Errorf("could not decode LazyEncodedImage: %v", lazy.decodeErr)
+		err := lazy.DecodeImage()
+		if err != nil {
+			return nil, errors.Errorf("could not decode LazyEncodedImage: %v", err)
 		}
 		return EncodeImage(ctx, lazy.decodedImage, actualOutMIME)
 	}
