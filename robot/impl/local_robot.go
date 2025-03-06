@@ -1094,6 +1094,13 @@ func (r *localRobot) applyLocalModuleVersions(cfg *config.Config) {
 }
 
 func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, forceSync bool) {
+	defer func() {
+		// Always update the `initializing` value at the end of this function. Resources may
+		// be equal or `reconfigure` may otherwise return early, but we still want to move
+		// from a state of initializing to running as dictated by the config value.
+		r.initializing.Store(newConfig.Initial)
+	}()
+
 	if !r.reconfigureAllowed(ctx, newConfig, true) {
 		return
 	}
@@ -1231,9 +1238,6 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	}
 
 	if diff.ResourcesEqual {
-		// Even if resources are "equal," still update the value of `r.initializing`. We may
-		// be moving from a minimal config to an empty, fully processed config.
-		r.initializing.Store(newConfig.Initial)
 		return
 	}
 
