@@ -121,9 +121,6 @@ type Registration[ResourceT Resource, ConfigT any] struct {
 	// NOTE: This is currently an experimental feature and subject to change.
 	WeakDependencies []Matcher
 
-	// Discover looks around for information about this specific model.
-	Discover DiscoveryFunc
-
 	// configType can be used to dynamically inspect the resource config type.
 	configType reflect.Type
 
@@ -293,7 +290,6 @@ func makeGenericResourceRegistration[ResourceT Resource, ConfigT ConfigValidator
 	reg := Registration[Resource, ConfigValidator]{
 		// NOTE: any fields added to Registration must be copied/adapted here.
 		WeakDependencies: typed.WeakDependencies,
-		Discover:         typed.Discover,
 		isDefault:        typed.isDefault,
 		api:              typed.api,
 		configType:       typed.configType,

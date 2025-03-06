@@ -873,76 +873,14 @@ func (rc *RobotClient) Logger() logging.Logger {
 	return rc.logger
 }
 
-// DiscoverComponents is DEPRECATED!!! Please use the Discovery Service instead.
-// DiscoverComponents takes a list of discovery queries and returns corresponding
-// component configurations.
-//
-//	// Define a new discovery query.
-//	q := resource.NewDiscoveryQuery(acme.API, resource.Model{Name: "some model"})
-//
-//	// Define a list of discovery queries.
-//	qs := []resource.DiscoverQuery{q}
-//
-//	// Get component configurations with these queries.
-//	component_configs, err := machine.DiscoverComponents(ctx.Background(), qs)
-//
-//nolint:deprecated,staticcheck
-func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error) {
-	rc.logger.Warn(
-		"DiscoverComponents is deprecated and will be removed on March 10th 2025. Please use the Discovery Service instead.")
-	pbQueries := make([]*pb.DiscoveryQuery, 0, len(qs))
-	for _, q := range qs {
-		extra, err := structpb.NewStruct(q.Extra)
-		if err != nil {
-			return nil, err
-		}
-		pbQueries = append(
-			pbQueries,
-			&pb.DiscoveryQuery{
-				Subtype: q.API.String(),
-				Model:   q.Model.String(),
-				Extra:   extra,
-			},
-		)
-	}
-
-	resp, err := rc.client.DiscoverComponents(ctx, &pb.DiscoverComponentsRequest{Queries: pbQueries})
-	if err != nil {
-		return nil, err
-	}
-
-	discoveries := make([]resource.Discovery, 0, len(resp.Discovery))
-	for _, disc := range resp.Discovery {
-		m, err := resource.NewModelFromString(disc.Query.Model)
-		if err != nil {
-			return nil, err
-		}
-		s, err := resource.NewAPIFromString(disc.Query.Subtype)
-		if err != nil {
-			return nil, err
-		}
-		q := resource.DiscoveryQuery{
-			API:   s,
-			Model: m,
-			Extra: disc.Query.Extra.AsMap(),
-		}
-		discoveries = append(
-			discoveries, resource.Discovery{
-				Query:   q,
-				Results: disc.Results.AsMap(),
-			})
-	}
-	return discoveries, nil
-}
-
 // GetModelsFromModules  returns the available models from the configured modules on a given machine.
-func (rc *RobotClient) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModelDiscovery, error) {
+func (rc *RobotClient) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModel, error) {
 	resp, err := rc.client.GetModelsFromModules(ctx, &pb.GetModelsFromModulesRequest{})
 	if err != nil {
 		return nil, err
 	}
 	protoModels := resp.GetModels()
-	models := []resource.ModuleModelDiscovery{}
+	models := []resource.ModuleModel{}
 	for _, protoModel := range protoModels {
 		modelTriplet, err := resource.NewModelFromString(protoModel.Model)
 		if err != nil {
@@ -952,7 +890,7 @@ func (rc *RobotClient) GetModelsFromModules(ctx context.Context) ([]resource.Mod
 		if err != nil {
 			return nil, err
 		}
-		model := resource.ModuleModelDiscovery{
+		model := resource.ModuleModel{
 			ModuleName: protoModel.ModuleName, Model: modelTriplet, API: api,
 			FromLocalModule: protoModel.FromLocalModule,
 		}
@@ -1306,6 +1244,30 @@ func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest
 	return errors.Join(err, readerSenderErr, recvWriterErr)
 }
 
+// ListTunnels lists all available tunnels configured on the robot.
+func (rc *RobotClient) ListTunnels(ctx context.Context) ([]config.TrafficTunnelEndpoint, error) {
+	var ttes []config.TrafficTunnelEndpoint
+
+	resp, err := rc.client.ListTunnels(ctx, &pb.ListTunnelsRequest{})
+	if err != nil {
+		return ttes, err
+	}
+
+	for _, protoTTE := range resp.Tunnels {
+		if protoTTE == nil {
+			continue
+		}
+
+		tte := config.TrafficTunnelEndpoint{
+			Port:              int(protoTTE.Port),
+			ConnectionTimeout: protoTTE.ConnectionTimeout.AsDuration(),
+		}
+		ttes = append(ttes, tte)
+	}
+
+	return ttes, nil
+}
+
 // SetPeerConnection is only to be called internally from modules.
 func (rc *RobotClient) SetPeerConnection(pc *webrtc.PeerConnection) {
 	rc.mu.Lock()
@@ -1365,9 +1327,4 @@ func streamClientInterceptor() googlegrpc.StreamClientInterceptor {
 		ctx = metadata.AppendToOutgoingContext(ctx, "viam_client", stringMd)
 		return streamer(ctx, desc, cc, method, opts...)
 	}
-}
-
-// ListTunnels is a no-op (returns nil) for robot clients.
-func (rc *RobotClient) ListTunnels() []config.TrafficTunnelEndpoint {
-	return nil
 }

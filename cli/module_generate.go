@@ -744,7 +744,7 @@ func getLatestSDKTag(c *cli.Context, language string, globalArgs globalArgs) (st
 }
 
 func generateCloudBuild(c *cli.Context, module modulegen.ModuleInputs, globalArgs globalArgs) error {
-	debugf(c.App.Writer, globalArgs.Debug, "Setting cloud build functionality to %s", module.EnableCloudBuild)
+	debugf(c.App.Writer, globalArgs.Debug, "Setting cloud build functionality to %v", module.EnableCloudBuild)
 	switch module.Language {
 	case python:
 		if module.EnableCloudBuild {
