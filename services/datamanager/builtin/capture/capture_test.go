@@ -1,11 +1,15 @@
 package capture
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/services/datamanager"
 )
 
@@ -13,7 +17,14 @@ func TestTargetDir(t *testing.T) {
 	test.That(t, targetDir("/some/path", datamanager.DataCaptureConfig{
 		Name:   arm.Named("arm1"),
 		Method: "JointPositions",
-	}), test.ShouldResemble, "/some/path/rdk_component_arm/arm1/JointPositions")
+	}, logging.Global()), test.ShouldResemble, "/some/path/rdk_component_arm/arm1/JointPositions")
+
+	homeDir, err := os.UserHomeDir()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, targetDir("~/.viam/capture", datamanager.DataCaptureConfig{
+		Name:   camera.Named("camera1"),
+		Method: "ReadImage",
+	}, logging.Global()), test.ShouldResemble, filepath.Join(homeDir, ".viam/capture/rdk_component_camera/camera1/ReadImage"))
 }
 
 func TestDefaultIfZeroVal(t *testing.T) {

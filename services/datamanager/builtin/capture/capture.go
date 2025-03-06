@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/benbjohnson/clock"
@@ -318,7 +319,7 @@ func (c *Capture) initializeOrUpdateCollector(
 		}
 	}
 
-	targetDir := targetDir(config.CaptureDir, collectorConfig)
+	targetDir := targetDir(config.CaptureDir, collectorConfig, c.logger)
 	// Create a collector for this resource and method.
 	if err := os.MkdirAll(targetDir, 0o700); err != nil {
 		return nil, errors.Wrapf(err, "failed to create target directory %s with 700 file permissions", targetDir)
@@ -376,10 +377,20 @@ func collectorConfigDescription(
 	)
 }
 
-func targetDir(captureDir string, collectorConfig datamanager.DataCaptureConfig) string {
-	return data.CaptureFilePathWithReplacedReservedChars(
+func targetDir(captureDir string, collectorConfig datamanager.DataCaptureConfig, logger logging.Logger) string {
+	replacedReserveCharPath := data.CaptureFilePathWithReplacedReservedChars(
 		filepath.Join(captureDir, collectorConfig.Name.API.String(),
 			collectorConfig.Name.ShortName(), collectorConfig.Method))
+	if strings.HasPrefix(replacedReserveCharPath, "~") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			logger.Warn("failed to get user home directory")
+			return replacedReserveCharPath
+		}
+		return filepath.Join(home, replacedReserveCharPath[1:])
+
+	}
+	return replacedReserveCharPath
 }
 
 // closeCollectors closes collectors.
