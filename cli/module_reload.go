@@ -165,34 +165,43 @@ func mutateModuleConfig(c *cli.Context, modules []ModuleMap, manifest moduleMani
 	if err != nil {
 		return nil, false, err
 	}
-	if foundMod == nil {
-		debugf(c.App.Writer, args.Debug, "module not found, inserting")
-		dirty = true
-		newMod := ModuleMap(map[string]any{
-			"name":            localName,
-			"executable_path": absEntrypoint,
-			"type":            string(rdkConfig.ModuleTypeLocal),
-		})
-		modules = append(modules, newMod)
-	} else {
-		if same, err := samePath(getMapString(foundMod, "executable_path"), absEntrypoint); err != nil {
-			debugf(c.App.Writer, args.Debug, "ExePath is right, doing nothing")
+
+	if foundMod != nil && getMapString(foundMod, "type") == string(rdkConfig.ModuleTypeRegistry) {
+		samePath, err := samePath(getMapString(foundMod, "reload_path"), absEntrypoint)
+		if err != nil {
 			return nil, dirty, err
-		} else if !same {
-			dirty = true
-			debugf(c.App.Writer, args.Debug, "replacing entrypoint")
-			if getMapString(foundMod, "type") == string(rdkConfig.ModuleTypeRegistry) {
-				// warning: there's a chance of inserting a dupe name here in odd cases
-				warningf(c.App.Writer, "You're replacing a registry module. We're converting it to a local module. "+
-					"To revert this change, use your machine's history page on app.viam.com.")
-				foundMod["type"] = string(rdkConfig.ModuleTypeLocal)
-				foundMod["name"] = localName
-				delete(foundMod, "module_id")
-				// TODO(APP-5844): stop clearing this once backend no longer rejects; we will use it for revert
-				delete(foundMod, "version")
-			}
-			foundMod["executable_path"] = absEntrypoint
 		}
+		reloadFlag := foundMod["reload_enabled"]
+		if samePath && reloadFlag == true {
+			debugf(c.App.Writer, args.Debug, "ReloadPath is up to date and ReloadEnabled, doing nothing")
+			return nil, dirty, err
+		}
+		dirty = true
+		debugf(c.App.Writer, args.Debug, "updating ReloadPath and ReloadEnabled")
+		foundMod["reload_path"] = absEntrypoint
+		foundMod["reload_enabled"] = true
+	} else {
+		dirty = true
+		if foundMod == nil {
+			debugf(c.App.Writer, args.Debug, "module not found, inserting")
+		} else {
+			debugf(c.App.Writer, args.Debug, "found local module, inserting registry module")
+		}
+		newMod := createNewModuleMap(localName, absEntrypoint)
+		modules = append(modules, newMod)
 	}
 	return modules, dirty, nil
+}
+
+func createNewModuleMap(localName, entryPoint string) ModuleMap {
+	// TODO: add version fetching
+	modVersion := "1.0.0"
+	newMod := ModuleMap(map[string]any{
+		"type":           string(rdkConfig.ModuleTypeRegistry),
+		"name":           localName,
+		"reload_path":    entryPoint,
+		"reload_enabled": true,
+		"version":        modVersion,
+	})
+	return newMod
 }
