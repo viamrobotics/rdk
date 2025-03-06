@@ -1231,6 +1231,9 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	}
 
 	if diff.ResourcesEqual {
+		// Even if resources are "equal," still update the value of `r.initializing`. We may
+		// be moving from a minimal config to an empty, fully processed config.
+		r.initializing.Store(newConfig.Initial)
 		return
 	}
 
