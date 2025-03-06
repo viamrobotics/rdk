@@ -1,6 +1,4 @@
 import asyncio
-import os
-import sys
 from viam.module.module import Module
 try:
     from models.{{ .ModelSnake }} import {{ .ModelPascal }}
