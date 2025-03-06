@@ -3,10 +3,10 @@ import os
 import sys
 from viam.module.module import Module
 try:
-    from models.hello_sensor import HelloSensor
+    from models.{{ .ModelSnake }} import {{ .ModelPascal }}
 except ModuleNotFoundError:
     # when running as local module with run.sh
-    from .models.hello_sensor import HelloSensor
+    from .models.{{ .ModelSnake }} import {{ .ModelPascal }}
 
 
 if __name__ == '__main__':
