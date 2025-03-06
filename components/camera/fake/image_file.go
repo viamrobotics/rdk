@@ -118,14 +118,13 @@ func (fs *fileSource) Read(ctx context.Context) (image.Image, func(), error) {
 		return img, func() {}, err
 	}
 
-	var img *rimage.Image
+	var img image.Image
 	var err error
-
 	// Get image from preloaded image or file
 	if fs.PreloadedImage != "" {
 		img, err = getPreloadedImage(fs.PreloadedImage)
 	} else {
-		img, err = rimage.NewImageFromFile(fs.ColorFN)
+		img, err = rimage.ReadImageFromFile(fs.ColorFN)
 	}
 
 	if err != nil {
@@ -138,15 +137,16 @@ func (fs *fileSource) Read(ctx context.Context) (image.Image, func(), error) {
 	oddWidth := img.Bounds().Dx()%2 != 0
 	oddHeight := img.Bounds().Dy()%2 != 0
 	if oddWidth || oddHeight {
-		newWidth := img.Bounds().Dx()
-		newHeight := img.Bounds().Dy()
+		rImg := rimage.ConvertImage(img)
+		newWidth := rImg.Width()
+		newHeight := rImg.Height()
 		if oddWidth {
 			newWidth--
 		}
 		if oddHeight {
 			newHeight--
 		}
-		img = img.SubImage(image.Rect(0, 0, newWidth, newHeight))
+		img = rImg.SubImage(image.Rect(0, 0, newWidth, newHeight))
 	}
 	return img, func() {}, err
 }
@@ -167,7 +167,7 @@ func (fs *fileSource) Images(ctx context.Context) ([]camera.NamedImage, resource
 	}
 
 	if fs.ColorFN != "" {
-		img, err := rimage.NewImageFromFile(fs.ColorFN)
+		img, err := rimage.ReadImageFromFile(fs.ColorFN)
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
