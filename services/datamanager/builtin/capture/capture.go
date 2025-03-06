@@ -388,7 +388,6 @@ func targetDir(captureDir string, collectorConfig datamanager.DataCaptureConfig,
 			return replacedReserveCharPath
 		}
 		return filepath.Join(home, replacedReserveCharPath[1:])
-
 	}
 	return replacedReserveCharPath
 }
