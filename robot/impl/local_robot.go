@@ -1296,9 +1296,6 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	} else {
 		r.logger.CInfow(ctx, "Robot (re)configured")
 	}
-
-	// Set initializing value based on `newConfig.Initial`.
-	r.initializing.Store(newConfig.Initial)
 }
 
 // checkMaxInstance checks to see if the local robot has reached the maximum number of a specific resource type that are local.
