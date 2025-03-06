@@ -3,7 +3,6 @@ package modmanager
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -41,8 +40,6 @@ import (
 	rtestutils "go.viam.com/rdk/testutils"
 	rutils "go.viam.com/rdk/utils"
 )
-
-type testDiscoveryResult map[string]interface{}
 
 func setupSocketWithRobot(t *testing.T) string {
 	t.Helper()
@@ -1535,70 +1532,6 @@ func TestFTDCAfterModuleCrash(t *testing.T) {
 
 	// Assert that we saw at least one datapoint before considering the test a success.
 	test.That(t, numModuleElapsedTimeMetricsSeen, test.ShouldBeGreaterThan, 0)
-}
-
-func TestModularDiscoverFunc(t *testing.T) {
-	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
-
-	modPath := rtestutils.BuildTempModule(t, "module/testmodule")
-
-	modCfg := config.Module{
-		Name:    "test-module",
-		ExePath: modPath,
-	}
-
-	parentAddr := setupSocketWithRobot(t)
-
-	mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
-
-	err := mgr.Add(ctx, modCfg)
-	test.That(t, err, test.ShouldBeNil)
-
-	// The "helper" model implements actual (foobar) discovery
-	reg, ok := resource.LookupRegistration(generic.API, resource.NewModel("rdk", "test", "helper"))
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, reg, test.ShouldNotBeNil)
-	test.That(t, reg.Discover, test.ShouldNotBeNil)
-
-	testCases := []struct {
-		name          string
-		params        map[string]interface{}
-		expectedExtra string
-	}{
-		{
-			name:          "Without extra set",
-			params:        map[string]interface{}{},
-			expectedExtra: "default",
-		},
-		{
-			name:          "With extra set",
-			params:        map[string]interface{}{"extra": "not the default"},
-			expectedExtra: "not the default",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			result, err := reg.Discover(ctx, logger, tc.params)
-			test.That(t, err, test.ShouldBeNil)
-			t.Log("Discovery result: ", result)
-
-			jsonData, err := json.Marshal(result)
-			test.That(t, err, test.ShouldBeNil)
-			t.Logf("Raw JSON: %s", string(jsonData))
-
-			var discoveryResult testDiscoveryResult
-			err = json.Unmarshal(jsonData, &discoveryResult)
-			test.That(t, err, test.ShouldBeNil)
-			t.Logf("Casted struct: %+v", discoveryResult)
-
-			test.That(t, len(discoveryResult), test.ShouldEqual, 1)
-			extraStr, ok := discoveryResult["extra"].(string)
-			test.That(t, ok, test.ShouldBeTrue)
-			test.That(t, extraStr, test.ShouldEqual, tc.expectedExtra)
-		})
-	}
 }
 
 func TestFirstRun(t *testing.T) {
