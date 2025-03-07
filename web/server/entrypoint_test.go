@@ -320,3 +320,49 @@ func TestMachineState(t *testing.T) {
 	cancel()
 	wg.Wait()
 }
+
+func TestMachineStateNoResources(t *testing.T) {
+	// Regression test for RSDK-10166. Ensure that starting a robot with no resources will
+	// still allow moving from initializing -> running state.
+
+	logger := logging.NewTestLogger(t)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	machineAddress := "localhost:23654"
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		tempConfigFile, err := os.CreateTemp(t.TempDir(), "temp_config.json")
+		test.That(t, err, test.ShouldBeNil)
+		cfg := &config.Config{
+			Network: config.NetworkConfig{
+				NetworkConfigData: config.NetworkConfigData{
+					BindAddress: machineAddress,
+				},
+			},
+		}
+		cfgBytes, err := json.Marshal(&cfg)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, os.WriteFile(tempConfigFile.Name(), cfgBytes, 0o755), test.ShouldBeNil)
+
+		args := []string{"viam-server", "-config", tempConfigFile.Name()}
+		test.That(t, server.RunServer(ctx, args, logger), test.ShouldBeNil)
+	}()
+
+	rc := robottestutils.NewRobotClient(t, logger, machineAddress, time.Second)
+
+	// Assert that, from client's perspective, robot is in a running state since
+	// `NewRobotClient` will only return at that point. We do not want to be stuck in
+	// `robot.StateInitializing` forever despite having no resources in our config.
+	machineStatus, err := rc.MachineStatus(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, machineStatus, test.ShouldNotBeNil)
+	test.That(t, machineStatus.State, test.ShouldEqual, robot.StateRunning)
+
+	// Cancel context and wait for server goroutine to stop running.
+	cancel()
+	wg.Wait()
+}

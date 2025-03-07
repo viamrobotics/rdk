@@ -1094,6 +1094,13 @@ func (r *localRobot) applyLocalModuleVersions(cfg *config.Config) {
 }
 
 func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, forceSync bool) {
+	defer func() {
+		// Always update the `initializing` value at the end of this function. Resources may
+		// be equal or `reconfigure` may otherwise return early, but we still want to move
+		// from a state of initializing to running as dictated by the config value.
+		r.initializing.Store(newConfig.Initial)
+	}()
+
 	if !r.reconfigureAllowed(ctx, newConfig, true) {
 		return
 	}
@@ -1289,9 +1296,6 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	} else {
 		r.logger.CInfow(ctx, "Robot (re)configured")
 	}
-
-	// Set initializing value based on `newConfig.Initial`.
-	r.initializing.Store(newConfig.Initial)
 }
 
 // checkMaxInstance checks to see if the local robot has reached the maximum number of a specific resource type that are local.
