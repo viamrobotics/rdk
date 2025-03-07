@@ -79,6 +79,20 @@ func addOrUpdateProfile(c *cli.Context, args addOrUpdateProfileArgs, isAdd bool)
 		addOrUpdate = "added"
 	} else {
 		addOrUpdate = "updated"
+
+		conf, err := configFromCacheInner(getCLIProfilePath(profile.Name))
+		if err != nil {
+			return err
+		}
+
+		conf.Auth = &profile.APIKey
+		conf.profile = profile.Name
+
+		// if we're updating, make sure we actually store the updated config
+		err = storeConfigToCache(conf)
+		if err != nil {
+			return err
+		}
 	}
 
 	printf(c.App.Writer, "Successfully %s profile %s", addOrUpdate, args.ProfileName)
