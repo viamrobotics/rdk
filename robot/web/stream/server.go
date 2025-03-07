@@ -289,7 +289,7 @@ func (server *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStre
 	ctx, span := trace.StartSpan(ctx, "stream::server::RemoveStream")
 	defer span.End()
 	pc, ok := rpc.ContextPeerConnection(ctx)
-	server.logger.Infow("Removing video stream", "name", req.Name, "peerConn", pc)
+	server.logger.Infow("Removing video stream", "name", req.Name, "peerConn", fmt.Sprintf("%p", pc))
 	if !ok {
 		return nil, errors.New("can only remove a stream over a WebRTC based connection")
 	}
