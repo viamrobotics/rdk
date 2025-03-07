@@ -177,9 +177,14 @@ func mutateModuleConfig(c *cli.Context, modules []ModuleMap, manifest moduleMani
 			return nil, dirty, err
 		}
 		dirty = true
-		debugf(c.App.Writer, args.Debug, "updating ReloadPath and ReloadEnabled")
-		foundMod["reload_path"] = absEntrypoint
-		foundMod["reload_enabled"] = true
+		if samePath {
+			debugf(c.App.Writer, args.Debug, "ReloadPath is up to date, setting ReloadEnabled true")
+			foundMod["reload_enabled"] = true
+		} else {
+			debugf(c.App.Writer, args.Debug, "updating ReloadPath and ReloadEnabled")
+			foundMod["reload_path"] = absEntrypoint
+			foundMod["reload_enabled"] = true
+		}
 	} else {
 		dirty = true
 		if foundMod == nil {
