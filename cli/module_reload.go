@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -85,7 +86,7 @@ func writeBackConfig(part *apppb.RobotPart, configAsMap map[string]any) error {
 }
 
 // configureModule is the configuration step of module reloading. Returns (needsRestart, error). Mutates part.RobotConfig.
-func configureModule(c *cli.Context, vc *viamClient, manifest *moduleManifest, part *apppb.RobotPart) (bool, error) {
+func configureModule(c *cli.Context, vc *viamClient, manifest *moduleManifest, part *apppb.RobotPart, local bool) (bool, error) {
 	if manifest == nil {
 		return false, fmt.Errorf("reconfiguration requires valid manifest json passed to --%s", moduleFlagPath)
 	}
@@ -101,7 +102,7 @@ func configureModule(c *cli.Context, vc *viamClient, manifest *moduleManifest, p
 		return false, err
 	}
 
-	modules, dirty, err := mutateModuleConfig(c, vc, modules, *manifest)
+	modules, dirty, err := mutateModuleConfig(c, vc, modules, *manifest, local)
 	if err != nil {
 		return false, err
 	}
@@ -138,7 +139,13 @@ func localizeModuleID(moduleID string) string {
 }
 
 // mutateModuleConfig edits the modules list to hot-reload with the given manifest.
-func mutateModuleConfig(c *cli.Context, vc *viamClient, modules []ModuleMap, manifest moduleManifest) ([]ModuleMap, bool, error) {
+func mutateModuleConfig(
+	c *cli.Context,
+	vc *viamClient,
+	modules []ModuleMap,
+	manifest moduleManifest,
+	local bool,
+) ([]ModuleMap, bool, error) {
 	var dirty bool
 	localName := localizeModuleID(manifest.ModuleID)
 	var foundMod ModuleMap
@@ -151,7 +158,16 @@ func mutateModuleConfig(c *cli.Context, vc *viamClient, modules []ModuleMap, man
 
 	var absEntrypoint string
 	var err error
-	absEntrypoint = reloadingDestination(c, &manifest)
+	if local {
+		// This flag means that viam server is running on the same machine running the CLI
+		// Does not indicate module type (registry vs local)
+		absEntrypoint, err = filepath.Abs(manifest.Entrypoint)
+		if err != nil {
+			return nil, dirty, err
+		}
+	} else {
+		absEntrypoint = reloadingDestination(c, &manifest)
+	}
 
 	args, err := getGlobalArgs(c)
 	if err != nil {

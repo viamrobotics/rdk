@@ -568,7 +568,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 				return err
 			}
 		}
-		needsRestart, err = configureModule(c, vc, manifest, part.Part)
+		needsRestart, err = configureModule(c, vc, manifest, part.Part, args.Local)
 		if err != nil {
 			return err
 		}
