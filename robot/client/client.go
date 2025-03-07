@@ -314,10 +314,12 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 
 	for {
 		if err := rc.Connect(ctx); err != nil {
-			numAttempts -= 1
+			numAttempts--
 			if numAttempts == 0 {
 				return nil, err
 			}
+		} else {
+			break
 		}
 	}
 
