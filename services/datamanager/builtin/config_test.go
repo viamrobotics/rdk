@@ -2,6 +2,8 @@ package builtin
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"runtime"
 	"testing"
 
@@ -87,26 +89,33 @@ func TestConfig(t *testing.T) {
 	t.Run("getCaptureDir", func(t *testing.T) {
 		t.Run("returns the default capture directory by default", func(t *testing.T) {
 			c := &Config{}
-			test.That(t, c.getCaptureDir(), test.ShouldResemble, viamCaptureDotDir)
+			test.That(t, c.getCaptureDir(logger), test.ShouldResemble, viamCaptureDotDir)
+		})
+
+		t.Run("returns home directory if starts with ~", func(t *testing.T) {
+			c := &Config{CaptureDir: "~/some/path"}
+			homeDir, err := os.UserHomeDir()
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, c.getCaptureDir(logger), test.ShouldResemble, filepath.Join(homeDir, "some/path"))
 		})
 
 		t.Run("returns CaptureDir if set", func(t *testing.T) {
 			c := &Config{CaptureDir: "/tmp/some/path"}
-			test.That(t, c.getCaptureDir(), test.ShouldResemble, "/tmp/some/path")
+			test.That(t, c.getCaptureDir(logger), test.ShouldResemble, "/tmp/some/path")
 		})
 	})
 
 	t.Run("captureConfig())", func(t *testing.T) {
 		t.Run("returns a capture config with defaults when called on an empty config", func(t *testing.T) {
 			c := &Config{}
-			test.That(t, c.captureConfig(), test.ShouldResemble, capture.Config{
+			test.That(t, c.captureConfig(logger), test.ShouldResemble, capture.Config{
 				CaptureDir:                  viamCaptureDotDir,
 				MaximumCaptureFileSizeBytes: defaultMaxCaptureSize,
 			})
 		})
 
 		t.Run("returns a capture config with overridden defaults when called on a full config", func(t *testing.T) {
-			test.That(t, fullConfig.captureConfig(), test.ShouldResemble, capture.Config{
+			test.That(t, fullConfig.captureConfig(logger), test.ShouldResemble, capture.Config{
 				CaptureDisabled:             true,
 				CaptureDir:                  "/tmp/some/path",
 				MaximumCaptureFileSizeBytes: 5,
