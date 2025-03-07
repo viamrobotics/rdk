@@ -206,14 +206,14 @@ func createNewModuleMap(c *cli.Context, vc *viamClient, localName, entryPoint st
 		return nil, err
 	}
 	versions := module.Module.Versions
-	modVersion := versions[len(versions)-1]
+	latestVersion := versions[len(versions)-1].Version
 
 	newMod := ModuleMap(map[string]any{
 		"type":           string(rdkConfig.ModuleTypeRegistry),
 		"name":           localName,
 		"reload_path":    entryPoint,
 		"reload_enabled": true,
-		"version":        modVersion,
+		"version":        latestVersion,
 	})
 	return newMod, nil
 }

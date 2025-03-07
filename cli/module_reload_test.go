@@ -119,8 +119,16 @@ func TestResolvePartId(t *testing.T) {
 }
 
 func TestMutateModuleConfig(t *testing.T) {
-	c := newTestContext(t, map[string]any{"local": true})
-	var vc *viamClient
+	latestVersion := "2.0.1"
+	moduleVersions := []*apppb.VersionHistory{{Version: "1.0.0"}, {Version: "1.1.0"}, {Version: "2.0.0"}, {Version: latestVersion}}
+	c, vc, _, _ := setup(&inject.AppServiceClient{
+		GetModuleFunc: func(ctx context.Context, req *apppb.GetModuleRequest, opts ...grpc.CallOption) (*apppb.GetModuleResponse, error) {
+			return &apppb.GetModuleResponse{Module: &apppb.Module{Versions: moduleVersions}}, nil
+		},
+	}, nil, &inject.BuildServiceClient{},
+		map[string]any{},
+		"token",
+	)
 	manifest := moduleManifest{
 		ModuleID:     "viam-labs:test-module",
 		JSONManifest: rdkConfig.JSONManifest{Entrypoint: "/bin/mod"},
@@ -183,29 +191,24 @@ func TestMutateModuleConfig(t *testing.T) {
 		test.That(t, modules[0]["reload_enabled"], test.ShouldBeTrue)
 	})
 
-	// t.Run("insert_when_missing", func(t *testing.T) {
-	// 	modules := []ModuleMap{}
-	// 	modules, _, _ = mutateModuleConfig(c, vc, modules, manifest)
-	// 	test.That(t, modules[0]["reload_path"], test.ShouldEqual, expectedReloadPath)
-	// 	test.That(t, modules[0]["reload_enabled"], test.ShouldBeTrue)
-	// })
+	t.Run("insert_when_missing", func(t *testing.T) {
+		modules := []ModuleMap{}
+		modules, _, _ = mutateModuleConfig(c, vc, modules, manifest)
+		test.That(t, modules[0]["reload_path"], test.ShouldEqual, expectedReloadPath)
+		test.That(t, modules[0]["reload_enabled"], test.ShouldBeTrue)
+		test.That(t, modules[0]["version"], test.ShouldEqual, latestVersion)
+	})
 
-	// t.Run("insert_when_local_module_found", func(t *testing.T) {
-	// 	// ReloadPath and ReloadEnabled are both missing from the module map in registry module
-	// 	modules := []ModuleMap{{
-	// 		"type":      string(rdkConfig.ModuleTypeLocal),
-	// 		"module_id": manifest.ModuleID,
-	// 	}}
-	// 	updatedModules, _, _ := mutateModuleConfig(c, vc, modules, manifest)
-	// 	test.That(t, len(updatedModules), test.ShouldEqual, 2)
-	// 	test.That(t, updatedModules[1]["reload_path"], test.ShouldEqual, expectedReloadPath)
-	// 	test.That(t, updatedModules[1]["reload_enabled"], test.ShouldBeTrue)
-	// })
-
-	// c = newTestContext(t, map[string]any{})
-	// t.Run("remote_insert", func(t *testing.T) {
-	// 	modules, _, _ := mutateModuleConfig(c, vc, []ModuleMap{}, manifest)
-	// 	test.That(t, modules[0]["reload_path"], test.ShouldEqual, expectedReloadPath)
-	// 	test.That(t, modules[0]["reload_enabled"], test.ShouldBeTrue)
-	// })
+	t.Run("insert_when_local_module_found", func(t *testing.T) {
+		// ReloadPath and ReloadEnabled are both missing from the module map in registry module
+		modules := []ModuleMap{{
+			"type":      string(rdkConfig.ModuleTypeLocal),
+			"module_id": manifest.ModuleID,
+		}}
+		updatedModules, _, _ := mutateModuleConfig(c, vc, modules, manifest)
+		test.That(t, len(updatedModules), test.ShouldEqual, 2)
+		test.That(t, updatedModules[1]["reload_path"], test.ShouldEqual, expectedReloadPath)
+		test.That(t, updatedModules[1]["reload_enabled"], test.ShouldBeTrue)
+		test.That(t, updatedModules[1]["version"], test.ShouldEqual, latestVersion)
+	})
 }
