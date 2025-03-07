@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -86,7 +85,7 @@ func writeBackConfig(part *apppb.RobotPart, configAsMap map[string]any) error {
 }
 
 // configureModule is the configuration step of module reloading. Returns (needsRestart, error). Mutates part.RobotConfig.
-func configureModule(c *cli.Context, vc *viamClient, manifest *moduleManifest, part *apppb.RobotPart, local bool) (bool, error) {
+func configureModule(c *cli.Context, vc *viamClient, manifest *moduleManifest, part *apppb.RobotPart) (bool, error) {
 	if manifest == nil {
 		return false, fmt.Errorf("reconfiguration requires valid manifest json passed to --%s", moduleFlagPath)
 	}
@@ -102,7 +101,7 @@ func configureModule(c *cli.Context, vc *viamClient, manifest *moduleManifest, p
 		return false, err
 	}
 
-	modules, dirty, err := mutateModuleConfig(c, modules, *manifest, local)
+	modules, dirty, err := mutateModuleConfig(c, vc, modules, *manifest)
 	if err != nil {
 		return false, err
 	}
@@ -139,7 +138,7 @@ func localizeModuleID(moduleID string) string {
 }
 
 // mutateModuleConfig edits the modules list to hot-reload with the given manifest.
-func mutateModuleConfig(c *cli.Context, modules []ModuleMap, manifest moduleManifest, local bool) ([]ModuleMap, bool, error) {
+func mutateModuleConfig(c *cli.Context, vc *viamClient, modules []ModuleMap, manifest moduleManifest) ([]ModuleMap, bool, error) {
 	var dirty bool
 	localName := localizeModuleID(manifest.ModuleID)
 	var foundMod ModuleMap
@@ -152,14 +151,7 @@ func mutateModuleConfig(c *cli.Context, modules []ModuleMap, manifest moduleMani
 
 	var absEntrypoint string
 	var err error
-	if local {
-		absEntrypoint, err = filepath.Abs(manifest.Entrypoint)
-		if err != nil {
-			return nil, dirty, err
-		}
-	} else {
-		absEntrypoint = reloadingDestination(c, &manifest)
-	}
+	absEntrypoint = reloadingDestination(c, &manifest)
 
 	args, err := getGlobalArgs(c)
 	if err != nil {
@@ -192,15 +184,30 @@ func mutateModuleConfig(c *cli.Context, modules []ModuleMap, manifest moduleMani
 		} else {
 			debugf(c.App.Writer, args.Debug, "found local module, inserting registry module")
 		}
-		newMod := createNewModuleMap(localName, absEntrypoint)
+		newMod, err := createNewModuleMap(c, vc, localName, absEntrypoint)
+		if err != nil {
+			return nil, false, err
+		}
 		modules = append(modules, newMod)
 	}
 	return modules, dirty, nil
 }
 
-func createNewModuleMap(localName, entryPoint string) ModuleMap {
-	// TODO: add version fetching
-	modVersion := "1.0.0"
+func createNewModuleMap(c *cli.Context, vc *viamClient, localName, entryPoint string) (ModuleMap, error) {
+	moduleID := moduleID{
+		prefix: vc.selectedOrg.Id,
+		name:   localName,
+	}
+	request := apppb.GetModuleRequest{
+		ModuleId: moduleID.String(),
+	}
+	module, err := vc.client.GetModule(c.Context, &request)
+	if err != nil {
+		return nil, err
+	}
+	versions := module.Module.Versions
+	modVersion := versions[len(versions)-1]
+
 	newMod := ModuleMap(map[string]any{
 		"type":           string(rdkConfig.ModuleTypeRegistry),
 		"name":           localName,
@@ -208,5 +215,5 @@ func createNewModuleMap(localName, entryPoint string) ModuleMap {
 		"reload_enabled": true,
 		"version":        modVersion,
 	})
-	return newMod
+	return newMod, nil
 }
