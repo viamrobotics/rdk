@@ -320,6 +320,7 @@ func TestMachineState(t *testing.T) {
 	cancel()
 	wg.Wait()
 }
+
 func TestMachineStateNoResources(t *testing.T) {
 	// Regression test for RSDK-10166. Ensure that starting a robot with no resources will
 	// still allow moving from initializing -> running state.
