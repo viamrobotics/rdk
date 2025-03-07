@@ -46,7 +46,7 @@ func TestFullReloadFlow(t *testing.T) {
 		) (*apppb.GetRobotPartResponse, error) {
 			return &apppb.GetRobotPartResponse{Part: &apppb.RobotPart{
 				RobotConfig: confStruct,
-				Fqdn:        "restart-module-robot.local",
+				Fqdn:        "restart-module-robot",
 			}, ConfigJson: ``}, nil
 		},
 		UpdateRobotPartFunc: func(ctx context.Context, req *apppb.UpdateRobotPartRequest,
