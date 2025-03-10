@@ -82,7 +82,6 @@ func WithRefreshEvery(refreshEvery time.Duration) RobotClientOption {
 // WithInitialDialAttempts sets the number of times to attempt to connect to a robot when
 // initially dialing. Defaults to 3 attempts. If set to zero or a negative value, will
 // attempt to connect forever.
-
 func WithInitialDialAttempts(attempts int) RobotClientOption {
 	return newFuncRobotClientOption(func(o *robotClientOpts) {
 		o.initialConnectionAttempts = &attempts
