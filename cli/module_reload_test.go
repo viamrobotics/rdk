@@ -62,6 +62,9 @@ func TestFullReloadFlow(t *testing.T) {
 				{ApiKey: &apppb.APIKey{}},
 			}}, nil
 		},
+		GetModuleFunc: func(ctx context.Context, req *apppb.GetModuleRequest, opts ...grpc.CallOption) (*apppb.GetModuleResponse, error) {
+			return &apppb.GetModuleResponse{Module: &apppb.Module{Versions: []*apppb.VersionHistory{{Version: "1.0.0"}}}}, nil
+		},
 	}, nil, &inject.BuildServiceClient{},
 		map[string]any{
 			moduleFlagPath: manifestPath, generalFlagPartID: "part-123",
