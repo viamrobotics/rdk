@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -364,5 +365,123 @@ func TestMachineStateNoResources(t *testing.T) {
 
 	// Cancel context and wait for server goroutine to stop running.
 	cancel()
+	wg.Wait()
+}
+
+func TestTunnelE2E(t *testing.T) {
+	// `TestTunnelE2E` attempts to send "Hello, World!" across a tunnel. The tunnel is:
+	//
+	// test-process <-> source-listener(localhost:23656) <-> machine(localhost:23655) <-> dest-listener(localhost:23654)
+
+	tunnelMsg := "Hello, World!"
+	destPort := 23654
+	destListenerAddr := net.JoinHostPort("localhost", strconv.Itoa(destPort))
+	machineAddr := net.JoinHostPort("localhost", "23655")
+	sourceListenerAddr := net.JoinHostPort("localhost", "23656")
+
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+	runServerCtx, runServerCtxCancel := context.WithCancel(ctx)
+	var wg sync.WaitGroup
+
+	// Start "destination" listener.
+	destListener, err := net.Listen("tcp", destListenerAddr)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, destListener.Close(), test.ShouldBeNil)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		logger.Infof("Listening on %s for tunnel message", destListenerAddr)
+		conn, err := destListener.Accept()
+		test.That(t, err, test.ShouldBeNil)
+		defer func() {
+			test.That(t, conn.Close(), test.ShouldBeNil)
+		}()
+
+		bytes := make([]byte, 1024)
+		n, err := conn.Read(bytes)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, n, test.ShouldEqual, len(tunnelMsg))
+		test.That(t, string(bytes), test.ShouldContainSubstring, tunnelMsg)
+		logger.Info("Received expected tunnel message at", destListenerAddr)
+
+		// Write the same message back.
+		n, err = conn.Write([]byte(tunnelMsg))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, n, test.ShouldEqual, len(tunnelMsg))
+
+		// Cancel `runServerCtx` once message has made it all the way across and has been
+		// echoed back. This should stop the `RunServer` goroutine below.
+		runServerCtxCancel()
+	}()
+
+	// Start a machine at `machineAddr` (`RunServer` in a goroutine.)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		// Create a temporary config file.
+		tempConfigFile, err := os.CreateTemp(t.TempDir(), "temp_config.json")
+		test.That(t, err, test.ShouldBeNil)
+		cfg := &config.Config{
+			Network: config.NetworkConfig{
+				NetworkConfigData: config.NetworkConfigData{
+					TrafficTunnelEndpoints: []config.TrafficTunnelEndpoint{
+						{
+							Port: destPort, // allow tunneling to destination port
+						},
+					},
+					BindAddress: machineAddr,
+				},
+			},
+		}
+		cfgBytes, err := json.Marshal(&cfg)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, os.WriteFile(tempConfigFile.Name(), cfgBytes, 0o755), test.ShouldBeNil)
+
+		args := []string{"viam-server", "-config", tempConfigFile.Name()}
+		test.That(t, server.RunServer(runServerCtx, args, logger), test.ShouldBeNil)
+	}()
+
+	// Start "source" listener (a `RobotClient` running `Tunnel`.)
+	rc := robottestutils.NewRobotClient(t, logger, machineAddr, time.Second)
+	sourceListener, err := net.Listen("tcp", sourceListenerAddr)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, sourceListener.Close(), test.ShouldBeNil)
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		logger.Infof("Connections opened at %s will be tunneled", sourceListenerAddr)
+		conn, err := sourceListener.Accept()
+		test.That(t, err, test.ShouldBeNil)
+
+		err = rc.Tunnel(ctx, conn /* will be eventually closed by `Tunnel` */, destPort)
+		test.That(t, err, test.ShouldBeNil)
+	}()
+
+	// Write `tunnelMsg` to "source" listener over TCP from this test process.
+	conn, err := net.Dial("tcp", sourceListenerAddr)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	}()
+	n, err := conn.Write([]byte(tunnelMsg))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, n, test.ShouldEqual, len(tunnelMsg))
+
+	// Expect `tunnelMsg` to be written back.
+	bytes := make([]byte, 1024)
+	n, err = conn.Read(bytes)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, n, test.ShouldEqual, len(tunnelMsg))
+	test.That(t, string(bytes), test.ShouldContainSubstring, tunnelMsg)
+
 	wg.Wait()
 }
