@@ -2,8 +2,6 @@ module go.viam.com/rdk
 
 go 1.23.0
 
-toolchain go1.23.1
-
 require (
 	github.com/AlekSi/gocov-xml v1.0.0
 	github.com/Masterminds/semver/v3 v3.3.0
