@@ -17,7 +17,7 @@ func filterError(ctx context.Context, err error, closeChan <-chan struct{}, logg
 	// if connection is expected to be closed, filter out "use of closed network connection" errors
 	select {
 	case <-closeChan:
-		if errors.Is(err, net.ErrClosed) {
+		if errors.Is(err, net.ErrClosed) || errors.Is(err, io.ErrClosedPipe) {
 			logger.CDebugw(ctx, "expected error received", "err", err)
 			return nil
 		}
