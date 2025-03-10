@@ -62,9 +62,6 @@ func TestFullReloadFlow(t *testing.T) {
 				{ApiKey: &apppb.APIKey{}},
 			}}, nil
 		},
-		GetModuleFunc: func(ctx context.Context, req *apppb.GetModuleRequest, opts ...grpc.CallOption) (*apppb.GetModuleResponse, error) {
-			return &apppb.GetModuleResponse{Module: &apppb.Module{Versions: []*apppb.VersionHistory{{Version: "1.0.0"}}}}, nil
-		},
 	}, nil, &inject.BuildServiceClient{},
 		map[string]any{
 			moduleFlagPath: manifestPath, generalFlagPartID: "part-123",
@@ -122,21 +119,13 @@ func TestResolvePartId(t *testing.T) {
 }
 
 func TestMutateModuleConfig(t *testing.T) {
-	latestVersion := "2.0.1"
-	moduleVersions := []*apppb.VersionHistory{{Version: "1.0.0"}, {Version: "1.1.0"}, {Version: "2.0.0"}, {Version: latestVersion}}
-	c, vc, _, _ := setup(&inject.AppServiceClient{
-		GetModuleFunc: func(ctx context.Context, req *apppb.GetModuleRequest, opts ...grpc.CallOption) (*apppb.GetModuleResponse, error) {
-			return &apppb.GetModuleResponse{Module: &apppb.Module{Versions: moduleVersions}}, nil
-		},
-	}, nil, &inject.BuildServiceClient{},
-		map[string]any{"local": true},
-		"token",
-	)
+	c := newTestContext(t, map[string]any{"local": true})
 	manifest := moduleManifest{
 		ModuleID:     "viam-labs:test-module",
 		JSONManifest: rdkConfig.JSONManifest{Entrypoint: "/bin/mod"},
 		Build:        &manifestBuildInfo{Path: "module.tar.gz"},
 	}
+	expectedVersion := "latest-with-prerelease"
 	remoteReloadPath := ".viam/packages-local/viam-labs_test-module_from_reload-module.tar.gz"
 
 	t.Run("correct_reload_path_and_enabled", func(t *testing.T) {
@@ -147,7 +136,7 @@ func TestMutateModuleConfig(t *testing.T) {
 			"reload_path":    manifest.Entrypoint,
 			"reload_enabled": true,
 		}}
-		_, dirty, err := mutateModuleConfig(c, vc, modules, manifest, true)
+		_, dirty, err := mutateModuleConfig(c, modules, manifest, true)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, dirty, test.ShouldBeFalse)
 	})
@@ -160,7 +149,7 @@ func TestMutateModuleConfig(t *testing.T) {
 			"reload_path":    manifest.Entrypoint,
 			"reload_enabled": false,
 		}}
-		_, dirty, err := mutateModuleConfig(c, vc, modules, manifest, true)
+		_, dirty, err := mutateModuleConfig(c, modules, manifest, true)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, dirty, test.ShouldBeTrue)
 		test.That(t, modules[0]["reload_enabled"], test.ShouldBeTrue)
@@ -174,7 +163,7 @@ func TestMutateModuleConfig(t *testing.T) {
 			"reload_path":    "incorrect/path",
 			"reload_enabled": false,
 		}}
-		_, dirty, err := mutateModuleConfig(c, vc, modules, manifest, true)
+		_, dirty, err := mutateModuleConfig(c, modules, manifest, true)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, dirty, test.ShouldBeTrue)
 		test.That(t, modules[0]["reload_path"], test.ShouldEqual, manifest.Entrypoint)
@@ -187,7 +176,7 @@ func TestMutateModuleConfig(t *testing.T) {
 			"type":      string(rdkConfig.ModuleTypeRegistry),
 			"module_id": manifest.ModuleID,
 		}}
-		_, dirty, err := mutateModuleConfig(c, vc, modules, manifest, true)
+		_, dirty, err := mutateModuleConfig(c, modules, manifest, true)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, dirty, test.ShouldBeTrue)
 		test.That(t, modules[0]["reload_path"], test.ShouldEqual, manifest.Entrypoint)
@@ -196,10 +185,10 @@ func TestMutateModuleConfig(t *testing.T) {
 
 	t.Run("insert_when_missing", func(t *testing.T) {
 		modules := []ModuleMap{}
-		modules, _, _ = mutateModuleConfig(c, vc, modules, manifest, true)
+		modules, _, _ = mutateModuleConfig(c, modules, manifest, true)
 		test.That(t, modules[0]["reload_path"], test.ShouldEqual, manifest.Entrypoint)
 		test.That(t, modules[0]["reload_enabled"], test.ShouldBeTrue)
-		test.That(t, modules[0]["version"], test.ShouldEqual, latestVersion)
+		test.That(t, modules[0]["version"], test.ShouldEqual, expectedVersion)
 	})
 
 	t.Run("insert_when_local_module_found", func(t *testing.T) {
@@ -208,18 +197,18 @@ func TestMutateModuleConfig(t *testing.T) {
 			"type":      string(rdkConfig.ModuleTypeLocal),
 			"module_id": manifest.ModuleID,
 		}}
-		updatedModules, _, _ := mutateModuleConfig(c, vc, modules, manifest, true)
+		updatedModules, _, _ := mutateModuleConfig(c, modules, manifest, true)
 		test.That(t, len(updatedModules), test.ShouldEqual, 2)
 		test.That(t, updatedModules[1]["reload_path"], test.ShouldEqual, manifest.Entrypoint)
 		test.That(t, updatedModules[1]["reload_enabled"], test.ShouldBeTrue)
-		test.That(t, updatedModules[1]["version"], test.ShouldEqual, latestVersion)
+		test.That(t, updatedModules[1]["version"], test.ShouldEqual, expectedVersion)
 	})
 
 	c = newTestContext(t, map[string]any{})
 	t.Run("remote_insert", func(t *testing.T) {
-		modules, _, _ := mutateModuleConfig(c, vc, []ModuleMap{}, manifest, false)
+		modules, _, _ := mutateModuleConfig(c, []ModuleMap{}, manifest, false)
 		test.That(t, modules[0]["reload_path"], test.ShouldEqual, remoteReloadPath)
 		test.That(t, modules[0]["reload_enabled"], test.ShouldBeTrue)
-		test.That(t, modules[0]["version"], test.ShouldEqual, latestVersion)
+		test.That(t, modules[0]["version"], test.ShouldEqual, expectedVersion)
 	})
 }

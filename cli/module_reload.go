@@ -102,7 +102,7 @@ func configureModule(c *cli.Context, vc *viamClient, manifest *moduleManifest, p
 		return false, err
 	}
 
-	modules, dirty, err := mutateModuleConfig(c, vc, modules, *manifest, local)
+	modules, dirty, err := mutateModuleConfig(c, modules, *manifest, local)
 	if err != nil {
 		return false, err
 	}
@@ -141,16 +141,14 @@ func localizeModuleID(moduleID string) string {
 // mutateModuleConfig edits the modules list to hot-reload with the given manifest.
 func mutateModuleConfig(
 	c *cli.Context,
-	vc *viamClient,
 	modules []ModuleMap,
 	manifest moduleManifest,
 	local bool,
 ) ([]ModuleMap, bool, error) {
 	var dirty bool
-	localName := localizeModuleID(manifest.ModuleID)
 	var foundMod ModuleMap
 	for _, mod := range modules {
-		if (mod["module_id"] == manifest.ModuleID) || (mod["name"] == localName) {
+		if mod["module_id"] == manifest.ModuleID {
 			foundMod = mod
 			break
 		}
@@ -200,32 +198,20 @@ func mutateModuleConfig(
 		} else {
 			debugf(c.App.Writer, args.Debug, "found local module, inserting registry module")
 		}
-		newMod, err := createNewModuleMap(c, vc, manifest.ModuleID, localName, absEntrypoint)
-		if err != nil {
-			return nil, false, err
-		}
+		newMod := createNewModuleMap(manifest.ModuleID, absEntrypoint)
 		modules = append(modules, newMod)
 	}
 	return modules, dirty, nil
 }
 
-func createNewModuleMap(c *cli.Context, vc *viamClient, moduleID, localName, entryPoint string) (ModuleMap, error) {
-	request := apppb.GetModuleRequest{
-		ModuleId: moduleID,
-	}
-	module, err := vc.client.GetModule(c.Context, &request)
-	if err != nil {
-		return nil, err
-	}
-	versions := module.Module.Versions
-	latestVersion := versions[len(versions)-1].Version
-
+func createNewModuleMap(moduleID, entryPoint string) ModuleMap {
+	localName := localizeModuleID(moduleID)
 	newMod := ModuleMap(map[string]any{
 		"type":           string(rdkConfig.ModuleTypeRegistry),
 		"name":           localName,
 		"reload_path":    entryPoint,
 		"reload_enabled": true,
-		"version":        latestVersion,
+		"version":        "latest-with-prerelease",
 	})
-	return newMod, nil
+	return newMod
 }
