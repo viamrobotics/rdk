@@ -34,7 +34,7 @@ type robotClientOpts struct {
 	disableSessions bool
 
 	// initialConnectionAttempts indicates the number of times to try dialing when making
-	// initial connection to a machine. Defaults to three. If set to a zero or a negative
+	// initial connection to a machine. Defaults to three. If set to zero or a negative
 	// value, will attempt to connect forever.
 	initialConnectionAttempts *int
 
@@ -80,7 +80,7 @@ func WithRefreshEvery(refreshEvery time.Duration) RobotClientOption {
 }
 
 // WithInitialDialAttempts sets the number of times to attempt to connect to a robot when
-// initially dialing. Defaults to 3 attempts. If set to a zero or a negative value, will
+// initially dialing. Defaults to 3 attempts. If set to zero or a negative value, will
 // attempt to connect forever.
 
 func WithInitialDialAttempts(attempts int) RobotClientOption {
