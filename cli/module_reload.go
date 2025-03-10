@@ -200,7 +200,7 @@ func mutateModuleConfig(
 		} else {
 			debugf(c.App.Writer, args.Debug, "found local module, inserting registry module")
 		}
-		newMod, err := createNewModuleMap(c, vc, localName, absEntrypoint)
+		newMod, err := createNewModuleMap(c, vc, manifest.ModuleID, localName, absEntrypoint)
 		if err != nil {
 			return nil, false, err
 		}
@@ -209,13 +209,9 @@ func mutateModuleConfig(
 	return modules, dirty, nil
 }
 
-func createNewModuleMap(c *cli.Context, vc *viamClient, localName, entryPoint string) (ModuleMap, error) {
-	moduleID := moduleID{
-		prefix: vc.selectedOrg.Id,
-		name:   localName,
-	}
+func createNewModuleMap(c *cli.Context, vc *viamClient, moduleID, localName, entryPoint string) (ModuleMap, error) {
 	request := apppb.GetModuleRequest{
-		ModuleId: moduleID.String(),
+		ModuleId: moduleID,
 	}
 	module, err := vc.client.GetModule(c.Context, &request)
 	if err != nil {
