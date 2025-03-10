@@ -50,3 +50,25 @@ func TestVideoSourceFromCameraFailure(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldStartWith, expectedErrPrefix)
 	test.That(t, vs, test.ShouldBeNil)
 }
+
+func TestVideoSourceFromCameraWithNonsenseMimeType(t *testing.T) {
+	sourceImg := image.NewRGBA(image.Rect(0, 0, 3, 3))
+
+	camWithNonsenseMimeType := &inject.Camera{
+		ImageFunc: func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
+			imgBytes, err := rimage.EncodeImage(ctx, sourceImg, utils.MimeTypePNG)
+			test.That(t, err, test.ShouldBeNil)
+			return imgBytes, camera.ImageMetadata{MimeType: "rand"}, nil
+		},
+	}
+
+	// Should log a warning though due to the nonsense MIME type
+	vs, err := camerautils.VideoSourceFromCamera(context.Background(), camWithNonsenseMimeType)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, vs, test.ShouldNotBeNil)
+
+	stream, _ := vs.Stream(context.Background())
+	img, _, err := stream.Next(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, img, test.ShouldNotBeNil)
+}
