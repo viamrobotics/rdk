@@ -2,7 +2,10 @@ package builtin
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"runtime"
+	"strings"
 
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/internal/cloud"
@@ -72,22 +75,30 @@ func (c *Config) Validate(path string) ([]string, error) {
 	return []string{cloud.InternalServiceName.String()}, nil
 }
 
-func (c *Config) getCaptureDir() string {
+func (c *Config) getCaptureDir(logger logging.Logger) string {
 	captureDir := viamCaptureDotDir
 	if c.CaptureDir != "" {
 		captureDir = c.CaptureDir
+		if strings.HasPrefix(captureDir, "~") {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				logger.Warn("failed to get user home directory")
+				return captureDir
+			}
+			return filepath.Join(home, captureDir[1:])
+		}
 	}
 	return captureDir
 }
 
-func (c *Config) captureConfig() capture.Config {
+func (c *Config) captureConfig(logger logging.Logger) capture.Config {
 	maximumCaptureFileSizeBytes := defaultMaxCaptureSize
 	if c.MaximumCaptureFileSizeBytes != 0 {
 		maximumCaptureFileSizeBytes = c.MaximumCaptureFileSizeBytes
 	}
 	return capture.Config{
 		CaptureDisabled:             c.CaptureDisabled,
-		CaptureDir:                  c.getCaptureDir(),
+		CaptureDir:                  c.getCaptureDir(logger),
 		Tags:                        c.Tags,
 		MaximumCaptureFileSizeBytes: maximumCaptureFileSizeBytes,
 		MongoConfig:                 c.MongoCaptureConfig,
@@ -123,7 +134,7 @@ func (c *Config) syncConfig(syncSensor sensor.Sensor, syncSensorEnabled bool, lo
 	return datasync.Config{
 		AdditionalSyncPaths:        c.AdditionalSyncPaths,
 		Tags:                       c.Tags,
-		CaptureDir:                 c.getCaptureDir(),
+		CaptureDir:                 c.getCaptureDir(logger),
 		CaptureDisabled:            c.CaptureDisabled,
 		DeleteEveryNthWhenDiskFull: c.DeleteEveryNthWhenDiskFull,
 		FileLastModifiedMillis:     c.FileLastModifiedMillis,
