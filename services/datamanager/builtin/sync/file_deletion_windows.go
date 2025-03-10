@@ -33,7 +33,7 @@ func maybeDeleteExcessFiles(
 	case deletedFileCount > 0:
 		logger.Infof("%d files have been deleted to avoid the disk filling up, execution time: %s", deletedFileCount, duration.String())
 	default:
-		logger.Infof("no files deleted, execution time: %s", duration)
+		logger.Debugf("no files deleted, execution time: %s", duration)
 	}
 }
 
