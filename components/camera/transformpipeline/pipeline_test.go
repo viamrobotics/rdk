@@ -34,7 +34,8 @@ func TestTransformPipelineColor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	source := gostream.NewVideoSource(&fake.StaticSource{ColorImg: img}, prop.Video{})
 	src, err := camera.WrapVideoSourceWithProjector(context.Background(), source, nil, camera.ColorStream)
-	vs := videoSourceFromCamera(context.Background(), src)
+	test.That(t, err, test.ShouldBeNil)
+	vs, err := videoSourceFromCamera(context.Background(), src)
 	test.That(t, err, test.ShouldBeNil)
 	inImg, err := camera.DecodeImageFromCamera(context.Background(), "", nil, src)
 	test.That(t, err, test.ShouldBeNil)
@@ -87,7 +88,8 @@ func TestTransformPipelineDepth(t *testing.T) {
 	test.That(t, inImg.Bounds().Dx(), test.ShouldEqual, 128)
 	test.That(t, inImg.Bounds().Dy(), test.ShouldEqual, 72)
 
-	vs := videoSourceFromCamera(context.Background(), src)
+	vs, err := videoSourceFromCamera(context.Background(), src)
+	test.That(t, err, test.ShouldBeNil)
 	depth, err := newTransformPipeline(context.Background(), vs, nil, transformConf, r, logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -200,4 +202,17 @@ func TestTransformPipelineValidateFail(t *testing.T) {
 	deps, err := transformConf.Validate(path)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "source")
 	test.That(t, deps, test.ShouldBeNil)
+}
+
+func TestVideoSourceFromCameraError(t *testing.T) {
+	malformedCam := &inject.Camera{
+		ImageFunc: func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
+			return []byte("not a valid image"), camera.ImageMetadata{MimeType: utils.MimeTypePNG}, nil
+		},
+	}
+
+	vs, err := videoSourceFromCamera(context.Background(), malformedCam)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "failed to create video source from camera")
+	test.That(t, vs, test.ShouldBeNil)
 }
