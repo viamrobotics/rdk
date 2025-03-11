@@ -414,7 +414,7 @@ var (
 			Permissions:  []string{permission},
 		},
 	}
-	metadata = registryItemMLTrainingMetadata{
+	mlTrainingMetadata = registryItemMLTrainingMetadata{
 		MlTrainingMetadata: &MLTrainingMetadata{
 			Versions: []*MLTrainingVersion{
 				{
@@ -440,7 +440,7 @@ var (
 		TotalExternalRobotUsage:        totalExternalRobotUsage,
 		TotalOrganizationUsage:         totalOrganizationUsage,
 		TotalExternalOrganizationUsage: totalExternalOrganizationUsage,
-		Metadata:                       &metadata,
+		Metadata:                       &mlTrainingMetadata,
 		CreatedAt:                      &createdOn,
 		UpdatedAt:                      &lastUpdated,
 	}
@@ -526,6 +526,15 @@ var (
 		Platform:     platform,
 		PlatformTags: tags,
 	}
+	userDefinedMetadata = struct {
+		A int
+		B bool
+		C string
+		D []string
+		E struct{ MyField bool }
+		F interface{}
+	}{42, true, "x", []string{"y", "z"}, struct{ MyField bool }{true}, nil}
+	pbUserDefinedMetadata, _ = protoutils.StructToStructPb(userDefinedMetadata)
 )
 
 func sharedSecretStateToProto(state SharedSecretState) pb.SharedSecret_State {
@@ -884,6 +893,32 @@ func TestAppClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
+	t.Run("GetOrganizationMetadata", func(t *testing.T) {
+		grpcClient.GetOrganizationMetadataFunc = func(
+			ctx context.Context, in *pb.GetOrganizationMetadataRequest, opts ...grpc.CallOption,
+		) (*pb.GetOrganizationMetadataResponse, error) {
+			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
+			return &pb.GetOrganizationMetadataResponse{
+				Data: pbUserDefinedMetadata,
+			}, nil
+		}
+		resp, err := client.GetOrganizationMetadata(context.Background(), organizationID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldResemble, pbUserDefinedMetadata.AsMap())
+	})
+
+	t.Run("UpdateOrganizationMetadata", func(t *testing.T) {
+		grpcClient.UpdateOrganizationMetadataFunc = func(
+			ctx context.Context, in *pb.UpdateOrganizationMetadataRequest, opts ...grpc.CallOption,
+		) (*pb.UpdateOrganizationMetadataResponse, error) {
+			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
+			test.That(t, in.Data, test.ShouldResemble, pbUserDefinedMetadata)
+			return &pb.UpdateOrganizationMetadataResponse{}, nil
+		}
+		err := client.UpdateOrganizationMetadata(context.Background(), organizationID, userDefinedMetadata)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
 	t.Run("ListOrganizationMembers", func(t *testing.T) {
 		expectedMembers := []*OrganizationMember{&member}
 		expectedInvites := []*OrganizationInvite{&invite}
@@ -1192,6 +1227,32 @@ func TestAppClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
+	t.Run("GetLocationMetadata", func(t *testing.T) {
+		grpcClient.GetLocationMetadataFunc = func(
+			ctx context.Context, in *pb.GetLocationMetadataRequest, opts ...grpc.CallOption,
+		) (*pb.GetLocationMetadataResponse, error) {
+			test.That(t, in.LocationId, test.ShouldEqual, locationID)
+			return &pb.GetLocationMetadataResponse{
+				Data: pbUserDefinedMetadata,
+			}, nil
+		}
+		resp, err := client.GetLocationMetadata(context.Background(), locationID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldResemble, pbUserDefinedMetadata.AsMap())
+	})
+
+	t.Run("UpdateLocationMetadata", func(t *testing.T) {
+		grpcClient.UpdateLocationMetadataFunc = func(
+			ctx context.Context, in *pb.UpdateLocationMetadataRequest, opts ...grpc.CallOption,
+		) (*pb.UpdateLocationMetadataResponse, error) {
+			test.That(t, in.LocationId, test.ShouldEqual, locationID)
+			test.That(t, in.Data, test.ShouldResemble, pbUserDefinedMetadata)
+			return &pb.UpdateLocationMetadataResponse{}, nil
+		}
+		err := client.UpdateLocationMetadata(context.Background(), locationID, userDefinedMetadata)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
 	t.Run("GetRobot", func(t *testing.T) {
 		grpcClient.GetRobotFunc = func(
 			ctx context.Context, in *pb.GetRobotRequest, opts ...grpc.CallOption,
@@ -1257,6 +1318,32 @@ func TestAppClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, json, test.ShouldEqual, configJSON)
 		test.That(t, part, test.ShouldResemble, &robotPart)
+	})
+
+	t.Run("GetRobotMetadata", func(t *testing.T) {
+		grpcClient.GetRobotMetadataFunc = func(
+			ctx context.Context, in *pb.GetRobotMetadataRequest, opts ...grpc.CallOption,
+		) (*pb.GetRobotMetadataResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, robotID)
+			return &pb.GetRobotMetadataResponse{
+				Data: pbUserDefinedMetadata,
+			}, nil
+		}
+		resp, err := client.GetRobotMetadata(context.Background(), robotID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldResemble, pbUserDefinedMetadata.AsMap())
+	})
+
+	t.Run("UpdateRobotMetadata", func(t *testing.T) {
+		grpcClient.UpdateRobotMetadataFunc = func(
+			ctx context.Context, in *pb.UpdateRobotMetadataRequest, opts ...grpc.CallOption,
+		) (*pb.UpdateRobotMetadataResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, robotID)
+			test.That(t, in.Data, test.ShouldResemble, pbUserDefinedMetadata)
+			return &pb.UpdateRobotMetadataResponse{}, nil
+		}
+		err := client.UpdateRobotMetadata(context.Background(), robotID, userDefinedMetadata)
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("GetRobotPartLogs", func(t *testing.T) {
@@ -1369,6 +1456,32 @@ func TestAppClient(t *testing.T) {
 			return &pb.DeleteRobotPartResponse{}, nil
 		}
 		err := client.DeleteRobotPart(context.Background(), partID)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("GetRobotPartMetadata", func(t *testing.T) {
+		grpcClient.GetRobotPartMetadataFunc = func(
+			ctx context.Context, in *pb.GetRobotPartMetadataRequest, opts ...grpc.CallOption,
+		) (*pb.GetRobotPartMetadataResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, robotID)
+			return &pb.GetRobotPartMetadataResponse{
+				Data: pbUserDefinedMetadata,
+			}, nil
+		}
+		resp, err := client.GetRobotPartMetadata(context.Background(), robotID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldResemble, pbUserDefinedMetadata.AsMap())
+	})
+
+	t.Run("UpdateRobotPartMetadata", func(t *testing.T) {
+		grpcClient.UpdateRobotPartMetadataFunc = func(
+			ctx context.Context, in *pb.UpdateRobotPartMetadataRequest, opts ...grpc.CallOption,
+		) (*pb.UpdateRobotPartMetadataResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, robotID)
+			test.That(t, in.Data, test.ShouldResemble, pbUserDefinedMetadata)
+			return &pb.UpdateRobotPartMetadataResponse{}, nil
+		}
+		err := client.UpdateRobotPartMetadata(context.Background(), robotID, userDefinedMetadata)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
