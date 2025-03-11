@@ -7,6 +7,7 @@ import (
 	"image"
 	"image/jpeg"
 	"image/png"
+	"sync"
 	"testing"
 	"time"
 
@@ -477,4 +478,26 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
 	})
+}
+
+func TestGetImageRace(t *testing.T) {
+	cameraServer, injectCamera, _, _, err := newServer()
+	test.That(t, err, test.ShouldBeNil)
+
+	injectCamera.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) { return camera.Properties{}, nil }
+	injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
+		return []byte{1, 2}, camera.ImageMetadata{}, nil
+	}
+	var wg sync.WaitGroup
+
+	getImg := func() {
+		defer wg.Done()
+		_, err = cameraServer.GetImage(context.Background(), &pb.GetImageRequest{Name: testCameraName})
+		test.That(t, err, test.ShouldBeNil)
+	}
+	for range 2 {
+		wg.Add(1)
+		go getImg()
+	}
+	wg.Wait()
 }
