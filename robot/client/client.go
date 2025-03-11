@@ -303,8 +303,24 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		rc.dialOptions = append(rc.dialOptions, rpc.WithUnaryClientInterceptor(inter.UnaryClientInterceptor))
 	}
 
-	if err := rc.Connect(ctx); err != nil {
-		return nil, err
+	numAttempts := 3
+	if rOpts.initialConnectionAttempts != nil {
+		numAttempts = *rOpts.initialConnectionAttempts
+	}
+
+	if numAttempts == 0 {
+		numAttempts = -1
+	}
+
+	for {
+		if err := rc.Connect(ctx); err != nil {
+			numAttempts--
+			if numAttempts == 0 {
+				return nil, err
+			}
+		} else {
+			break
+		}
 	}
 
 	// If running in a testing environment, wait for machine to report a state of
