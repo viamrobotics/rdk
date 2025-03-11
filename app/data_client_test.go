@@ -182,6 +182,7 @@ func captureMetadataToProto(metadata CaptureMetadata) *pb.CaptureMetadata {
 func binaryMetadataToProto(binaryMetadata *BinaryMetadata) *pb.BinaryMetadata {
 	return &pb.BinaryMetadata{
 		Id:              binaryMetadata.ID,
+		BinaryDataId:    binaryMetadata.BinaryDataID,
 		CaptureMetadata: captureMetadataToProto(binaryMetadata.CaptureMetadata),
 		TimeRequested:   timestamppb.New(binaryMetadata.TimeRequested),
 		TimeReceived:    timestamppb.New(binaryMetadata.TimeReceived),
