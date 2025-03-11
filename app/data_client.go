@@ -573,10 +573,10 @@ func (d *DataClient) BinaryDataByFilter(
 }
 
 // BinaryDataByIDs queries binary data and metadata based on given IDs.
-func (d *DataClient) BinaryDataByIDs(ctx context.Context, binaryDataIds []string) ([]*BinaryData, error) {
+func (d *DataClient) BinaryDataByIDs(ctx context.Context, binaryDataIDs []string) ([]*BinaryData, error) {
 	resp, err := d.dataClient.BinaryDataByIDs(ctx, &pb.BinaryDataByIDsRequest{
 		IncludeBinary: true,
-		BinaryDataIds: binaryDataIds,
+		BinaryDataIds: binaryDataIDs,
 	})
 	if err != nil {
 		return nil, err
@@ -620,9 +620,9 @@ func (d *DataClient) DeleteBinaryDataByFilter(ctx context.Context, filter *Filte
 
 // DeleteBinaryDataByIDs deletes binary data based on given IDs.
 // It returns the number of binary datapoints deleted.
-func (d *DataClient) DeleteBinaryDataByIDs(ctx context.Context, binaryDataIds []string) (int, error) {
+func (d *DataClient) DeleteBinaryDataByIDs(ctx context.Context, binaryDataIDs []string) (int, error) {
 	resp, err := d.dataClient.DeleteBinaryDataByIDs(ctx, &pb.DeleteBinaryDataByIDsRequest{
-		BinaryDataIds: binaryDataIds,
+		BinaryDataIds: binaryDataIDs,
 	})
 	if err != nil {
 		return 0, err
@@ -631,9 +631,9 @@ func (d *DataClient) DeleteBinaryDataByIDs(ctx context.Context, binaryDataIds []
 }
 
 // AddTagsToBinaryDataByIDs adds string tags, unless the tags are already present, to binary data based on given IDs.
-func (d *DataClient) AddTagsToBinaryDataByIDs(ctx context.Context, tags []string, binaryDataIds []string) error {
+func (d *DataClient) AddTagsToBinaryDataByIDs(ctx context.Context, tags, binaryDataIDs []string) error {
 	_, err := d.dataClient.AddTagsToBinaryDataByIDs(ctx, &pb.AddTagsToBinaryDataByIDsRequest{
-		BinaryDataIds: binaryDataIds,
+		BinaryDataIds: binaryDataIDs,
 		Tags:          tags,
 	})
 	return err
@@ -652,10 +652,10 @@ func (d *DataClient) AddTagsToBinaryDataByFilter(ctx context.Context, tags []str
 // RemoveTagsFromBinaryDataByIDs removes string tags from binary data based on given IDs.
 // It returns the number of binary files which had tags removed.
 func (d *DataClient) RemoveTagsFromBinaryDataByIDs(ctx context.Context,
-	tags []string, binaryDataIds []string,
+	tags, binaryDataIDs []string,
 ) (int, error) {
 	resp, err := d.dataClient.RemoveTagsFromBinaryDataByIDs(ctx, &pb.RemoveTagsFromBinaryDataByIDsRequest{
-		BinaryDataIds: binaryDataIds,
+		BinaryDataIds: binaryDataIDs,
 		Tags:          tags,
 	})
 	if err != nil {
@@ -685,7 +685,7 @@ func (d *DataClient) RemoveTagsFromBinaryDataByFilter(ctx context.Context,
 // All normalized coordinates (xMin, yMin, xMax, yMax) must be float values in the range [0, 1].
 func (d *DataClient) AddBoundingBoxToImageByID(
 	ctx context.Context,
-	binaryDataId string,
+	binaryDataID string,
 	label string,
 	xMinNormalized float64,
 	yMinNormalized float64,
@@ -693,7 +693,7 @@ func (d *DataClient) AddBoundingBoxToImageByID(
 	yMaxNormalized float64,
 ) (string, error) {
 	resp, err := d.dataClient.AddBoundingBoxToImageByID(ctx, &pb.AddBoundingBoxToImageByIDRequest{
-		BinaryDataId:   binaryDataId,
+		BinaryDataId:   binaryDataID,
 		Label:          label,
 		XMinNormalized: xMinNormalized,
 		YMinNormalized: yMinNormalized,
@@ -710,10 +710,10 @@ func (d *DataClient) AddBoundingBoxToImageByID(
 func (d *DataClient) RemoveBoundingBoxFromImageByID(
 	ctx context.Context,
 	bboxID string,
-	binaryDataId string,
+	binaryDataID string,
 ) error {
 	_, err := d.dataClient.RemoveBoundingBoxFromImageByID(ctx, &pb.RemoveBoundingBoxFromImageByIDRequest{
-		BinaryDataId: binaryDataId,
+		BinaryDataId: binaryDataID,
 		BboxId:       bboxID,
 	})
 	return err
@@ -732,7 +732,7 @@ func (d *DataClient) BoundingBoxLabelsByFilter(ctx context.Context, filter *Filt
 }
 
 // UpdateBoundingBox updates the bounding box for a given bbox ID for the file represented by the binary ID.
-func (d *DataClient) UpdateBoundingBox(ctx context.Context, binaryDataId string, bboxID string, opts *UpdateBoundingBoxOptions) error {
+func (d *DataClient) UpdateBoundingBox(ctx context.Context, binaryDataID, bboxID string, opts *UpdateBoundingBoxOptions) error {
 	var label *string
 	var xMinNormalized, yMinNormalized, xMaxNormalized, yMaxNormalized *float64
 	if opts != nil {
@@ -744,7 +744,7 @@ func (d *DataClient) UpdateBoundingBox(ctx context.Context, binaryDataId string,
 	}
 
 	_, err := d.dataClient.UpdateBoundingBox(ctx, &pb.UpdateBoundingBoxRequest{
-		BinaryDataId:   binaryDataId,
+		BinaryDataId:   binaryDataID,
 		BboxId:         bboxID,
 		Label:          label,
 		XMinNormalized: xMinNormalized,
@@ -788,11 +788,11 @@ func (d *DataClient) ConfigureDatabaseUser(
 // AddBinaryDataToDatasetByIDs adds the binary data with the given binary IDs to the dataset.
 func (d *DataClient) AddBinaryDataToDatasetByIDs(
 	ctx context.Context,
-	binaryDataIds []string,
+	binaryDataIDs []string,
 	datasetID string,
 ) error {
 	_, err := d.dataClient.AddBinaryDataToDatasetByIDs(ctx, &pb.AddBinaryDataToDatasetByIDsRequest{
-		BinaryDataIds: binaryDataIds,
+		BinaryDataIds: binaryDataIDs,
 		DatasetId:     datasetID,
 	})
 	return err
@@ -801,11 +801,11 @@ func (d *DataClient) AddBinaryDataToDatasetByIDs(
 // RemoveBinaryDataFromDatasetByIDs removes the binary data with the given binary IDs from the dataset.
 func (d *DataClient) RemoveBinaryDataFromDatasetByIDs(
 	ctx context.Context,
-	binaryDataIds []string,
+	binaryDataIDs []string,
 	datasetID string,
 ) error {
 	_, err := d.dataClient.RemoveBinaryDataFromDatasetByIDs(ctx, &pb.RemoveBinaryDataFromDatasetByIDsRequest{
-		BinaryDataIds: binaryDataIds,
+		BinaryDataIds: binaryDataIDs,
 		DatasetId:     datasetID,
 	})
 	return err
@@ -921,7 +921,9 @@ func (d *DataClient) TabularDataCaptureUpload(
 
 // dataCaptureUpload uploads the metadata and contents for either tabular or binary data,
 // and returns the file ID associated with the uploaded data and metadata.
-func (d *DataClient) dataCaptureUpload(ctx context.Context, metadata UploadMetadata, sensorContents []SensorData, isBinaryUpload bool) (string, error) {
+func (d *DataClient) dataCaptureUpload(ctx context.Context, metadata UploadMetadata, sensorContents []SensorData,
+	isBinaryUpload bool,
+) (string, error) {
 	sensorContentsPb, err := sensorContentsToProto(sensorContents)
 	if err != nil {
 		return "", err
