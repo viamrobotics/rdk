@@ -208,6 +208,7 @@ func createNewModuleMap(moduleID, entryPoint string) ModuleMap {
 	localName := localizeModuleID(moduleID)
 	newMod := ModuleMap(map[string]any{
 		"type":           string(rdkConfig.ModuleTypeRegistry),
+		"module_id":      moduleID,
 		"name":           localName,
 		"reload_path":    entryPoint,
 		"reload_enabled": true,

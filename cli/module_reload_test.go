@@ -125,6 +125,7 @@ func TestMutateModuleConfig(t *testing.T) {
 		JSONManifest: rdkConfig.JSONManifest{Entrypoint: "/bin/mod"},
 		Build:        &manifestBuildInfo{Path: "module.tar.gz"},
 	}
+	expectedName := "viam-labs_test-module_from_reload"
 	expectedVersion := "latest-with-prerelease"
 	remoteReloadPath := ".viam/packages-local/viam-labs_test-module_from_reload-module.tar.gz"
 
@@ -186,6 +187,8 @@ func TestMutateModuleConfig(t *testing.T) {
 	t.Run("insert_when_missing", func(t *testing.T) {
 		modules := []ModuleMap{}
 		modules, _, _ = mutateModuleConfig(c, modules, manifest, true)
+		test.That(t, modules[0]["module_id"], test.ShouldEqual, manifest.ModuleID)
+		test.That(t, modules[0]["name"], test.ShouldEqual, expectedName)
 		test.That(t, modules[0]["reload_path"], test.ShouldEqual, manifest.Entrypoint)
 		test.That(t, modules[0]["reload_enabled"], test.ShouldBeTrue)
 		test.That(t, modules[0]["version"], test.ShouldEqual, expectedVersion)
@@ -207,6 +210,8 @@ func TestMutateModuleConfig(t *testing.T) {
 	c = newTestContext(t, map[string]any{})
 	t.Run("remote_insert", func(t *testing.T) {
 		modules, _, _ := mutateModuleConfig(c, []ModuleMap{}, manifest, false)
+		test.That(t, modules[0]["module_id"], test.ShouldEqual, manifest.ModuleID)
+		test.That(t, modules[0]["name"], test.ShouldEqual, expectedName)
 		test.That(t, modules[0]["reload_path"], test.ShouldEqual, remoteReloadPath)
 		test.That(t, modules[0]["reload_enabled"], test.ShouldBeTrue)
 		test.That(t, modules[0]["version"], test.ShouldEqual, expectedVersion)
