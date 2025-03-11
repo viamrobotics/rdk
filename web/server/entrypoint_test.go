@@ -434,6 +434,10 @@ func TestTunnelE2E(t *testing.T) {
 						{
 							Port: destPort, // allow tunneling to destination port
 						},
+						{
+							Port:              65535,           // allow tunneling to 65535
+							ConnectionTimeout: time.Nanosecond, // specify an impossibly small timeout
+						},
 					},
 					BindAddress: machineAddr,
 				},
@@ -447,8 +451,33 @@ func TestTunnelE2E(t *testing.T) {
 		test.That(t, server.RunServer(runServerCtx, args, logger), test.ShouldBeNil)
 	}()
 
-	// Start "source" listener (a `RobotClient` running `Tunnel`.)
+	// Open a robot client to `machineAddr`.
 	rc := robottestutils.NewRobotClient(t, logger, machineAddr, time.Second)
+
+	// Test error paths for `Tunnel` with random `net.Conn`s.
+	//
+	// We will not be actually writing anything to/reading anything from the `net.Conn`, as
+	// we only want to ensure that instantiation of the tunnel fails as expected.
+	{
+		googleConn, err := net.Dial("tcp", "google.com:443")
+		test.That(t, err, test.ShouldBeNil)
+
+		// Assert that opening a tunnel to a disallowed port errors.
+		err = rc.Tunnel(ctx, googleConn /* will be eventually closed by `Tunnel` */, 404)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "tunnel not available at port")
+
+		googleConn, err = net.Dial("tcp", "google.com:443")
+		test.That(t, err, test.ShouldBeNil)
+
+		// Assert that opening a tunnel to a port with a low `connection_timeout` results in a
+		// timeout.
+		err = rc.Tunnel(ctx, googleConn /* will be eventually closed by `Tunnel` */, 65535)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "DeadlineExceeded")
+	}
+
+	// Start "source" listener (a `RobotClient` running `Tunnel`.)
 	sourceListener, err := net.Listen("tcp", sourceListenerAddr)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
