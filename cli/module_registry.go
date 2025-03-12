@@ -399,7 +399,6 @@ type updateModelsArgs struct {
 	Binary string
 }
 
-// TODO(bashar-515): [APP-7833] [q] do we want an analogous `UpdateAppsAction` function?
 // UpdateModelsAction figures out the models that a module supports and updates it's metadata file.
 func UpdateModelsAction(c *cli.Context, args updateModelsArgs) error {
 	logger := logging.NewLogger("x")
