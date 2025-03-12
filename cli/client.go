@@ -1367,9 +1367,7 @@ func RobotsPartTunnelAction(c *cli.Context, args robotsPartTunnelArgs) error {
 	return client.robotPartTunnel(c, args)
 }
 
-// TunnelTraffic tunnels traffic by listening on `local` for reading and writing through
-// `robotClient` to `dest`.
-func TunnelTraffic(ctx *cli.Context, robotClient *client.RobotClient, local, dest int) error {
+func tunnelTraffic(ctx *cli.Context, robotClient *client.RobotClient, local, dest int) error {
 	li, err := net.Listen("tcp", net.JoinHostPort("localhost", strconv.Itoa(local)))
 	if err != nil {
 		return fmt.Errorf("failed to create listener %w", err)
@@ -1431,7 +1429,7 @@ func (c *viamClient) robotPartTunnel(cCtx *cli.Context, args robotsPartTunnelArg
 	if err != nil {
 		return err
 	}
-	return TunnelTraffic(cCtx, robotClient, args.LocalPort, args.DestinationPort)
+	return tunnelTraffic(cCtx, robotClient, args.LocalPort, args.DestinationPort)
 }
 
 // checkUpdateResponse holds the values used to hold release information.

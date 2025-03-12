@@ -1414,7 +1414,7 @@ func TestTunnelE2ECLI(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		TunnelTraffic(cCtx, rc, sourcePort, destPort)
+		tunnelTraffic(cCtx, rc, sourcePort, destPort)
 	}()
 
 	// Write `tunnelMsg` to CLI tunneler over TCP from this test process.
