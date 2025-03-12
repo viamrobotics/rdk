@@ -3,7 +3,6 @@ package rimage
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"image"
 	"image/color"
@@ -107,10 +106,11 @@ func (lei *LazyEncodedImage) DecodeConfig() error {
 // DecodeAll decodes the image and its configuration. Returns nil if no errors occurred.
 // This method is idempotent.
 func (lei *LazyEncodedImage) DecodeAll() error {
-	configErr := lei.DecodeConfig()
-	decodeErr := lei.DecodeImage()
-	if configErr != nil || decodeErr != nil {
-		return errors.Join(configErr, decodeErr)
+	if err := lei.DecodeConfig(); err != nil {
+		return err
+	}
+	if err := lei.DecodeImage(); err != nil {
+		return err
 	}
 	return nil
 }

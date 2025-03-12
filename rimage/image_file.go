@@ -177,23 +177,24 @@ func WriteImageToFile(path string, img image.Image) (err error) {
 	}
 }
 
-// ConvertImage converts a go image into our Image type.
-func ConvertImage(img image.Image) *Image {
+// ConvertImageSafe converts a go image into our Image type with error handling.
+// This is a safer alternative to ConvertImage as it returns errors instead of panicking.
+func ConvertImageSafe(img image.Image) (*Image, error) {
 	if lazyImg, ok := img.(*LazyEncodedImage); ok {
 		decodedImg, err := lazyImg.DecodedImage()
 		if err != nil {
-			panic(err) // TODO(hexbabe): not ideal
+			return nil, err
 		}
 		img = decodedImg
 	}
 	ii, ok := img.(*Image)
 	if ok {
-		return ii
+		return ii, nil
 	}
 
 	iwd, ok := img.(*imageWithDepth)
 	if ok {
-		return iwd.Color
+		return iwd.Color, nil
 	}
 
 	b := img.Bounds()
@@ -213,7 +214,18 @@ func ConvertImage(img image.Image) *Image {
 			}
 		}
 	}
-	return ii
+	return ii, nil
+}
+
+// ConvertImage converts a go image into our Image type.
+// This function panics if there's an error during conversion.
+// For a safer alternative that returns errors, use ConvertImageSafe.
+func ConvertImage(img image.Image) *Image {
+	result, err := ConvertImageSafe(img)
+	if err != nil {
+		panic(err)
+	}
+	return result
 }
 
 // CloneImage creates a copy of the input image.
