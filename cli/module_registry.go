@@ -74,6 +74,12 @@ type moduleID struct {
 	name   string
 }
 
+type AppComponent struct {
+	Name       string `json:"name"`
+	Type       string `json:"type"`
+	Entrypoint string `json:"entrypoint"`
+}
+
 // manifestBuildInfo is the "build" section of meta.json.
 type manifestBuildInfo struct {
 	Build      string   `json:"build"`
@@ -99,6 +105,7 @@ type moduleManifest struct {
 	URL         string            `json:"url"`
 	Description string            `json:"description"`
 	Models      []ModuleComponent `json:"models"`
+	Apps        []AppComponent    `json:"applications"`
 	// JsonManifest provides fields shared with RDK proper.
 	modconfig.JSONManifest
 	Build *manifestBuildInfo `json:"build,omitempty"`
@@ -432,6 +439,10 @@ func (c *viamClient) updateModule(moduleID moduleID, manifest moduleManifest) (*
 	for _, moduleComponent := range manifest.Models {
 		models = append(models, moduleComponentToProto(moduleComponent))
 	}
+	var apps []*apppb.App
+	for _, appComponent := range manifest.Apps {
+		apps = append(apps, appComponentToProto(appComponent))
+	}
 	visibility, err := visibilityToProto(manifest.Visibility)
 	if err != nil {
 		return nil, err
@@ -442,6 +453,7 @@ func (c *viamClient) updateModule(moduleID moduleID, manifest moduleManifest) (*
 		Url:         manifest.URL,
 		Description: manifest.Description,
 		Models:      models,
+		Apps:        apps,
 		Entrypoint:  manifest.Entrypoint,
 	}
 	if manifest.FirstRun != "" {
@@ -637,6 +649,16 @@ func moduleComponentToProto(moduleComponent ModuleComponent) *apppb.Model {
 	}
 
 	return model
+}
+
+func appComponentToProto(appComponent AppComponent) *apppb.App {
+	app := &apppb.App{
+		Name:       appComponent.Name,
+		Type:       appComponent.Type,
+		Entrypoint: appComponent.Entrypoint,
+	}
+
+	return app
 }
 
 func parseModuleID(id string) (moduleID, error) {
