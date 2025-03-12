@@ -447,7 +447,11 @@ func (server *Server) resizeVideoSource(ctx context.Context, name string, width,
 	if !ok {
 		return fmt.Errorf("stream state not found with name %q", name)
 	}
-	resizer := gostream.NewResizeVideoSource(camerautils.VideoSourceFromCamera(ctx, cam), width, height)
+	vs, err := camerautils.VideoSourceFromCamera(ctx, cam)
+	if err != nil {
+		return fmt.Errorf("failed to create video source from camera: %w", err)
+	}
+	resizer := gostream.NewResizeVideoSource(vs, width, height)
 	server.logger.Debugf(
 		"resizing video source to width %d and height %d",
 		width, height,
@@ -475,7 +479,11 @@ func (server *Server) resetVideoSource(ctx context.Context, name string) error {
 		return fmt.Errorf("stream state not found with name %q", name)
 	}
 	server.logger.Debug("resetting video source")
-	existing.Swap(camerautils.VideoSourceFromCamera(ctx, cam))
+	vs, err := camerautils.VideoSourceFromCamera(ctx, cam)
+	if err != nil {
+		return fmt.Errorf("failed to create video source from camera: %w", err)
+	}
+	existing.Swap(vs)
 	err = streamState.Reset()
 	if err != nil {
 		return fmt.Errorf("failed to reset stream %q: %w", name, err)
@@ -663,8 +671,12 @@ func (server *Server) refreshVideoSources(ctx context.Context) {
 		if err != nil {
 			continue
 		}
+		src, err := camerautils.VideoSourceFromCamera(ctx, cam)
+		if err != nil {
+			server.logger.Errorf("error creating video source from camera: %v", err)
+			continue
+		}
 		existing, ok := server.videoSources[cam.Name().SDPTrackName()]
-		src := camerautils.VideoSourceFromCamera(ctx, cam)
 		if ok {
 			// Check stream state for the camera to see if it is in resized mode.
 			// If it is in resized mode, we want to apply the resize transformation to the
