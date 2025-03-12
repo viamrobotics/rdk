@@ -671,12 +671,12 @@ func (server *Server) refreshVideoSources(ctx context.Context) {
 		if err != nil {
 			continue
 		}
-		existing, ok := server.videoSources[cam.Name().SDPTrackName()]
 		src, err := camerautils.VideoSourceFromCamera(ctx, cam)
 		if err != nil {
 			server.logger.Errorf("error creating video source from camera: %v", err)
 			continue
 		}
+		existing, ok := server.videoSources[cam.Name().SDPTrackName()]
 		if ok {
 			// Check stream state for the camera to see if it is in resized mode.
 			// If it is in resized mode, we want to apply the resize transformation to the
