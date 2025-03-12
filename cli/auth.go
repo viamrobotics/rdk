@@ -493,11 +493,11 @@ func (c *viamClient) ensureLoggedInInner() error {
 		// expired.
 		newToken, err := c.authFlow.refreshToken(c.c.Context, authToken)
 		if err != nil {
-			globalArgs, err := getGlobalArgs(c.c)
-			if err != nil {
-				return err
+			debugFlag := false
+			if globalArgs, err := getGlobalArgs(c.c); err == nil {
+				debugFlag = globalArgs.Debug
 			}
-			debugf(c.c.App.Writer, globalArgs.Debug, "Token refresh error: %v", err)
+			debugf(c.c.App.Writer, debugFlag, "Token refresh error: %v", err)
 			utils.UncheckedError(c.logout()) // clear cache if failed to refresh
 			return errors.New("error while refreshing token, logging out. Please log in again")
 		}
