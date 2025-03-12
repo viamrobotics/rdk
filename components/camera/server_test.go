@@ -492,8 +492,8 @@ func TestGetImageRace(t *testing.T) {
 
 	getImg := func() {
 		defer wg.Done()
-		_, err = cameraServer.GetImage(context.Background(), &pb.GetImageRequest{Name: testCameraName})
-		test.That(t, err, test.ShouldBeNil)
+		_, retErr := cameraServer.GetImage(context.Background(), &pb.GetImageRequest{Name: testCameraName})
+		test.That(t, retErr, test.ShouldBeNil)
 	}
 	for range 2 {
 		wg.Add(1)
