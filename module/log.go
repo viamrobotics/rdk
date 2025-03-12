@@ -60,6 +60,12 @@ type moduleLogger struct {
 // will send log events back to the module's parent (the RDK) via gRPC when
 // possible and to STDOUT when not possible.
 func NewLoggerFromArgs(moduleName string) logging.Logger {
+	// If no `moduleName` was specified, grab it from the environment (will still be empty
+	// string if not specified in environment.)
+	if moduleName == "" {
+		moduleName, _ = os.LookupEnv("VIAM_MODULE_NAME")
+	}
+
 	modAppender := newModuleAppender()
 	baseLogger := logging.NewBlankLogger(moduleName)
 	baseLogger.AddAppender(modAppender)
