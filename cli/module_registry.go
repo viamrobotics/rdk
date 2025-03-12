@@ -74,6 +74,7 @@ type moduleID struct {
 	name   string
 }
 
+// AppComponent represents metadata used to distinguish and describe an app.
 type AppComponent struct {
 	Name       string `json:"name"`
 	Type       string `json:"type"`
