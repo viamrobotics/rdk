@@ -2,6 +2,7 @@ package transformpipeline
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/pion/mediadevices/pkg/prop"
@@ -213,6 +214,6 @@ func TestVideoSourceFromCameraError(t *testing.T) {
 
 	vs, err := videoSourceFromCamera(context.Background(), malformedCam)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "failed to create video source from camera")
+	test.That(t, errors.Is(err, ErrVideoSourceCreation), test.ShouldBeTrue)
 	test.That(t, vs, test.ShouldBeNil)
 }

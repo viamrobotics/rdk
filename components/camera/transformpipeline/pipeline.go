@@ -25,6 +25,9 @@ import (
 
 var model = resource.DefaultModelFamily.WithModel("transform")
 
+// ErrVideoSourceCreation is returned when creating a video source from a camera fails.
+var ErrVideoSourceCreation = errors.New("failed to create video source from camera")
+
 func init() {
 	resource.RegisterComponent(
 		camera.API,
@@ -112,7 +115,7 @@ func videoSourceFromCamera(ctx context.Context, cam camera.Camera) (camera.Video
 	}
 	vs, err := camerautils.VideoSourceFromCamera(ctx, cam)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create video source from camera: %w", err)
+		return nil, fmt.Errorf("%w: %w", ErrVideoSourceCreation, err)
 	}
 	return &videoSource{
 		Camera: cam,
@@ -151,7 +154,7 @@ func newTransformPipeline(
 	pipeline := make([]camera.VideoSource, 0, len(cfg.Pipeline))
 	lastSource, err := videoSourceFromCamera(ctx, source)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create video source from camera: %w", err)
+		return nil, err
 	}
 	for _, tr := range cfg.Pipeline {
 		src, newStreamType, err := buildTransform(ctx, r, lastSource, streamType, tr)
@@ -160,7 +163,7 @@ func newTransformPipeline(
 		}
 		streamSrc, err := videoSourceFromCamera(ctx, src)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create video source from camera: %w", err)
+			return nil, err
 		}
 		pipeline = append(pipeline, streamSrc)
 		lastSource = streamSrc
