@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -58,6 +59,16 @@ type (
 		logFields []zapcore.Field
 	}
 )
+
+// Set of logger name suffixes to never deduplicate logs with.
+var neverDedupLoggerNameSuffixes = map[string]struct{}{
+	// Managed processes (modules) log their STDOUT and STDERR to loggers that are suffixed
+	// with "StdOut" and "StdErr". Deduplicating logs from these loggers is not a good idea,
+	// as output like stack traces are treated as "duplicative" and deduplicated to the
+	// point of not being readable. See RSDK-10186.
+	"StdOut": {},
+	"StdErr": {},
+}
 
 // Set of field keys to ignore when calculating identicality. Two logs with only a
 // difference in one of these fields should still be considered identical.
@@ -256,8 +267,21 @@ func (imp *impl) shouldLog(logLevel Level) bool {
 	return logLevel >= imp.level.Get()
 }
 
+// Logs should be deduplicated if their logger name is not suffixed by an excluded suffix
+// and the registry has log deduplication enabled.
+func (imp *impl) shouldDeduplicateLogs(loggerName string) bool {
+	var hasNeverDedupLoggerNameSuffix bool
+	for neverDedupLoggerNameSuffix := range neverDedupLoggerNameSuffixes {
+		if strings.HasSuffix(loggerName, neverDedupLoggerNameSuffix) {
+			hasNeverDedupLoggerNameSuffix = true
+			break
+		}
+	}
+	return imp.registry.DeduplicateLogs.Load() && !hasNeverDedupLoggerNameSuffix
+}
+
 func (imp *impl) Write(entry *LogEntry) {
-	if imp.registry.DeduplicateLogs.Load() {
+	if imp.shouldDeduplicateLogs(entry.LoggerName) {
 		hashkeyedEntry := entry.HashKey()
 
 		// If we have entered a new recentMessage window, output noisy logs from
