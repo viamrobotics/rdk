@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -364,5 +365,152 @@ func TestMachineStateNoResources(t *testing.T) {
 
 	// Cancel context and wait for server goroutine to stop running.
 	cancel()
+	wg.Wait()
+}
+
+func TestTunnelE2E(t *testing.T) {
+	// `TestTunnelE2E` attempts to send "Hello, World!" across a tunnel. The tunnel is:
+	//
+	// test-process <-> source-listener(localhost:23656) <-> machine(localhost:23655) <-> dest-listener(localhost:23654)
+
+	tunnelMsg := "Hello, World!"
+	destPort := 23654
+	destListenerAddr := net.JoinHostPort("localhost", strconv.Itoa(destPort))
+	machineAddr := net.JoinHostPort("localhost", "23655")
+	sourceListenerAddr := net.JoinHostPort("localhost", "23656")
+
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+	runServerCtx, runServerCtxCancel := context.WithCancel(ctx)
+	var wg sync.WaitGroup
+
+	// Start "destination" listener.
+	destListener, err := net.Listen("tcp", destListenerAddr)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, destListener.Close(), test.ShouldBeNil)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		logger.Infof("Listening on %s for tunnel message", destListenerAddr)
+		conn, err := destListener.Accept()
+		test.That(t, err, test.ShouldBeNil)
+		defer func() {
+			test.That(t, conn.Close(), test.ShouldBeNil)
+		}()
+
+		bytes := make([]byte, 1024)
+		n, err := conn.Read(bytes)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, n, test.ShouldEqual, len(tunnelMsg))
+		test.That(t, string(bytes), test.ShouldContainSubstring, tunnelMsg)
+		logger.Info("Received expected tunnel message at", destListenerAddr)
+
+		// Write the same message back.
+		n, err = conn.Write([]byte(tunnelMsg))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, n, test.ShouldEqual, len(tunnelMsg))
+
+		// Cancel `runServerCtx` once message has made it all the way across and has been
+		// echoed back. This should stop the `RunServer` goroutine below.
+		runServerCtxCancel()
+	}()
+
+	// Start a machine at `machineAddr` (`RunServer` in a goroutine.)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		// Create a temporary config file.
+		tempConfigFile, err := os.CreateTemp(t.TempDir(), "temp_config.json")
+		test.That(t, err, test.ShouldBeNil)
+		cfg := &config.Config{
+			Network: config.NetworkConfig{
+				NetworkConfigData: config.NetworkConfigData{
+					TrafficTunnelEndpoints: []config.TrafficTunnelEndpoint{
+						{
+							Port: destPort, // allow tunneling to destination port
+						},
+						{
+							Port:              65535,           // allow tunneling to 65535
+							ConnectionTimeout: time.Nanosecond, // specify an impossibly small timeout
+						},
+					},
+					BindAddress: machineAddr,
+				},
+			},
+		}
+		cfgBytes, err := json.Marshal(&cfg)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, os.WriteFile(tempConfigFile.Name(), cfgBytes, 0o755), test.ShouldBeNil)
+
+		args := []string{"viam-server", "-config", tempConfigFile.Name()}
+		test.That(t, server.RunServer(runServerCtx, args, logger), test.ShouldBeNil)
+	}()
+
+	// Open a robot client to `machineAddr`.
+	rc := robottestutils.NewRobotClient(t, logger, machineAddr, time.Second)
+
+	// Test error paths for `Tunnel` with random `net.Conn`s.
+	//
+	// We will not be actually writing anything to/reading anything from the `net.Conn`, as
+	// we only want to ensure that instantiation of the tunnel fails as expected.
+	{
+		googleConn, err := net.Dial("tcp", "google.com:443")
+		test.That(t, err, test.ShouldBeNil)
+
+		// Assert that opening a tunnel to a disallowed port errors.
+		err = rc.Tunnel(ctx, googleConn /* will be eventually closed by `Tunnel` */, 404)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "tunnel not available at port")
+
+		googleConn, err = net.Dial("tcp", "google.com:443")
+		test.That(t, err, test.ShouldBeNil)
+
+		// Assert that opening a tunnel to a port with a low `connection_timeout` results in a
+		// timeout.
+		err = rc.Tunnel(ctx, googleConn /* will be eventually closed by `Tunnel` */, 65535)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "DeadlineExceeded")
+	}
+
+	// Start "source" listener (a `RobotClient` running `Tunnel`.)
+	sourceListener, err := net.Listen("tcp", sourceListenerAddr)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, sourceListener.Close(), test.ShouldBeNil)
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		logger.Infof("Connections opened at %s will be tunneled", sourceListenerAddr)
+		conn, err := sourceListener.Accept()
+		test.That(t, err, test.ShouldBeNil)
+
+		err = rc.Tunnel(ctx, conn /* will be eventually closed by `Tunnel` */, destPort)
+		test.That(t, err, test.ShouldBeNil)
+	}()
+
+	// Write `tunnelMsg` to "source" listener over TCP from this test process.
+	conn, err := net.Dial("tcp", sourceListenerAddr)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	}()
+	n, err := conn.Write([]byte(tunnelMsg))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, n, test.ShouldEqual, len(tunnelMsg))
+
+	// Expect `tunnelMsg` to be written back.
+	bytes := make([]byte, 1024)
+	n, err = conn.Read(bytes)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, n, test.ShouldEqual, len(tunnelMsg))
+	test.That(t, string(bytes), test.ShouldContainSubstring, tunnelMsg)
+
 	wg.Wait()
 }
