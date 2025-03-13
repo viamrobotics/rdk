@@ -8,7 +8,10 @@ import (
 )
 
 func makeTestMesh(o Orientation, pt r3.Vector, triangles []*Triangle) *Mesh {
-	return NewMesh(NewPose(pt, o), triangles, "")
+	return &Mesh{
+		pose:      NewPose(pt, o),
+		triangles: triangles,
+	}
 }
 
 func makeSimpleTriangleMesh() *Mesh {
@@ -29,21 +32,6 @@ func makeSimpleTriangleMesh() *Mesh {
 		r3.Vector{X: 0, Y: 1, Z: 10},
 	)
 	return makeTestMesh(NewZeroOrientation(), r3.Vector{}, []*Triangle{tri1, tri2, tri3})
-}
-
-func TestNewMesh(t *testing.T) {
-	tri := NewTriangle(
-		r3.Vector{X: 0, Y: 0, Z: 0},
-		r3.Vector{X: 1, Y: 0, Z: 0},
-		r3.Vector{X: 0, Y: 1, Z: 0},
-	)
-	pose := NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, NewZeroOrientation())
-
-	mesh := NewMesh(pose, []*Triangle{tri}, "test_mesh")
-
-	test.That(t, mesh.Label(), test.ShouldEqual, "test_mesh")
-	test.That(t, PoseAlmostEqual(mesh.Pose(), pose), test.ShouldBeTrue)
-	test.That(t, len(mesh.Triangles()), test.ShouldEqual, 1)
 }
 
 func TestMeshTransform(t *testing.T) {

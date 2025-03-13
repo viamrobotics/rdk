@@ -1,10 +1,12 @@
 package spatialmath
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math"
 
+	"github.com/chenzhekl/goply"
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 )
@@ -18,15 +20,54 @@ type Mesh struct {
 	pose      Pose
 	triangles []*Triangle
 	label     string
+
+	// information used for encoding to protobuf
+	fileType meshType
+	rawBytes []byte
 }
 
-// NewMesh creates a mesh from the given triangles and pose.
-func NewMesh(pose Pose, triangles []*Triangle, label string) *Mesh {
+// The set of supported mesh file types.
+type meshType string
+
+const plyType = meshType("ply")
+
+func newMeshFromProto(pose Pose, m *commonpb.Mesh, label string) (*Mesh, error) {
+	switch m.FileType {
+	case string(plyType):
+		return NewMeshFromPLY(pose, m.Mesh, label)
+	default:
+		return nil, fmt.Errorf("unsupported Mesh type: %s", m.FileType)
+	}
+}
+
+func NewMeshFromPLY(pose Pose, data []byte, label string) (*Mesh, error) {
+	ply := goply.New(bytes.NewReader(data))
+	vertices := ply.Elements("vertex")
+	faces := ply.Elements("face")
+	triangles := []*Triangle{}
+	for _, face := range faces {
+		pts := []r3.Vector{}
+		idxIface := face["vertex_indices"]
+		for _, i := range idxIface.([]interface{}) {
+			pts = append(pts, r3.Vector{
+				X: 1000 * vertices[int(i.(uint32))]["x"].(float64),
+				Y: 1000 * vertices[int(i.(uint32))]["y"].(float64),
+				Z: 1000 * vertices[int(i.(uint32))]["z"].(float64),
+			})
+		}
+		if len(pts) != 3 {
+			return nil, errors.New("triangle did not have three points")
+		}
+		tri := NewTriangle(pts[0], pts[1], pts[2])
+		triangles = append(triangles, tri)
+	}
 	return &Mesh{
 		pose:      pose,
 		triangles: triangles,
 		label:     label,
-	}
+		fileType:  plyType,
+		rawBytes:  data,
+	}, nil
 }
 
 // Pose returns the pose of the mesh.
@@ -306,10 +347,17 @@ func (m *Mesh) ToPoints(density float64) []r3.Vector {
 }
 
 // ToProtobuf converts a Mesh to its protobuf representation.
-// Note: Since there's no direct mesh representation in the common proto,
-// we'll convert it to a collection of triangles as points.
 func (m *Mesh) ToProtobuf() *commonpb.Geometry {
-	return nil
+	return &commonpb.Geometry{
+		Center: PoseToProtobuf(m.pose),
+		GeometryType: &commonpb.Geometry_Mesh{
+			Mesh: &commonpb.Mesh{
+				FileType: string(m.fileType),
+				Mesh:     m.rawBytes,
+			},
+		},
+		Label: m.label,
+	}
 }
 
 // MarshalJSON implements the json.Marshaler interface.
