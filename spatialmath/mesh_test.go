@@ -1,9 +1,12 @@
 package spatialmath
 
 import (
+	"io"
+	"os"
 	"testing"
 
 	"github.com/golang/geo/r3"
+	"go.viam.com/rdk/utils"
 	"go.viam.com/test"
 )
 
@@ -32,6 +35,25 @@ func makeSimpleTriangleMesh() *Mesh {
 		r3.Vector{X: 0, Y: 1, Z: 10},
 	)
 	return makeTestMesh(NewZeroOrientation(), r3.Vector{}, []*Triangle{tri1, tri2, tri3})
+}
+
+func TestMeshProtoConversion(t *testing.T) {
+	file, err := os.Open(utils.ResolveFile("spatialmath/data/simple.ply"))
+	test.That(t, err, test.ShouldBeNil)
+	defer file.Close()
+	bytes, err := io.ReadAll(file)
+	test.That(t, err, test.ShouldBeNil)
+	m, err := NewMeshFromPLY(NewPose(r3.Vector{10, 10, 10}, &OrientationVectorDegrees{OZ: 1, Theta: 90}), bytes, "myMesh")
+	test.That(t, err, test.ShouldBeNil)
+	m2, err := NewGeometryFromProto(m.ToProtobuf())
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, PoseAlmostEqual(m.Pose(), m2.Pose()), test.ShouldBeTrue)
+	test.That(t, m.Label(), test.ShouldResemble, m2.Label())
+	test.That(t, len(m.Triangles()), test.ShouldEqual, 2)
+	test.That(t, len(m2.(*Mesh).Triangles()), test.ShouldEqual, 2)
+	test.That(t, m.Triangles()[0], test.ShouldResemble, m2.(*Mesh).Triangles()[0])
+	test.That(t, m.Triangles()[1], test.ShouldResemble, m2.(*Mesh).Triangles()[1])
 }
 
 func TestMeshTransform(t *testing.T) {

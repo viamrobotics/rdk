@@ -8,6 +8,7 @@ import (
 
 	"github.com/chenzhekl/goply"
 	"github.com/golang/geo/r3"
+	"github.com/spf13/cast"
 	commonpb "go.viam.com/api/common/v1"
 )
 
@@ -48,12 +49,20 @@ func NewMeshFromPLY(pose Pose, data []byte, label string) (*Mesh, error) {
 	for _, face := range faces {
 		pts := []r3.Vector{}
 		idxIface := face["vertex_indices"]
-		for _, i := range idxIface.([]interface{}) {
-			pts = append(pts, r3.Vector{
-				X: 1000 * vertices[int(i.(uint32))]["x"].(float64),
-				Y: 1000 * vertices[int(i.(uint32))]["y"].(float64),
-				Z: 1000 * vertices[int(i.(uint32))]["z"].(float64),
-			})
+		for _, i := range idxIface.([]any) {
+			x, err := cast.ToFloat64E(vertices[cast.ToInt(i)]["x"])
+			if err != nil {
+				return nil, err
+			}
+			y, err := cast.ToFloat64E(vertices[cast.ToInt(i)]["y"])
+			if err != nil {
+				return nil, err
+			}
+			z, err := cast.ToFloat64E(vertices[cast.ToInt(i)]["z"])
+			if err != nil {
+				return nil, err
+			}
+			pts = append(pts, r3.Vector{X: x * 1000, Y: y * 1000, Z: z * 1000})
 		}
 		if len(pts) != 3 {
 			return nil, errors.New("triangle did not have three points")
