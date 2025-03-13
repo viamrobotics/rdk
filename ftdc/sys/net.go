@@ -68,7 +68,7 @@ func (netStatser *netStatser) Stats() any {
 		ret.UDP.RxQueueLength = netUDPSummary.RxQueueLength
 		ret.UDP.UsedSockets = netUDPSummary.UsedSockets
 		if netUDPSummary.Drops != nil {
-			ret.UDP.Drops = *(netUDPSummary.Drops)
+			ret.UDP.Drops = *netUDPSummary.Drops
 		}
 	}
 
