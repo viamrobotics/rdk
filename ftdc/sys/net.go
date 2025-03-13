@@ -57,17 +57,19 @@ func (netStatser *netStatser) Stats() any {
 		}
 	}
 
-	if netTCPSummary, err := netStatser.fs.NetTCPSummary(); err == nil && netTCPSummary != nil {
+	if netTCPSummary, err := netStatser.fs.NetTCPSummary(); err == nil {
 		ret.TCP.TxQueueLength = netTCPSummary.TxQueueLength
 		ret.TCP.RxQueueLength = netTCPSummary.RxQueueLength
 		ret.TCP.UsedSockets = netTCPSummary.UsedSockets
 	}
 
-	if netUDPSummary, err := netStatser.fs.NetUDPSummary(); err == nil && netUDPSummary != nil {
+	if netUDPSummary, err := netStatser.fs.NetUDPSummary(); err == nil {
 		ret.UDP.TxQueueLength = netUDPSummary.TxQueueLength
 		ret.UDP.RxQueueLength = netUDPSummary.RxQueueLength
 		ret.UDP.UsedSockets = netUDPSummary.UsedSockets
-		ret.UDP.Drops = *netUDPSummary.Drops
+		if netUDPSummary.Drops != nil {
+			ret.UDP.Drops = *(netUDPSummary.Drops)
+		}
 	}
 
 	return ret
