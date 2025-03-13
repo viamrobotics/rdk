@@ -6,7 +6,7 @@ if [ -n "$(git status -s)" ]; then
 fi
 
 # See if we have a direct tag
-DIRECT_TAG=$(git tag --points-at | sort -Vr | head -n1)
+DIRECT_TAG=$(git tag --points-at | tr - \~ | sort -Vr | tr \~ - | head -n1)
 if [ -n "$DIRECT_TAG" ]; then
     echo ${DIRECT_TAG}
     exit 0
