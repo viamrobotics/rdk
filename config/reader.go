@@ -599,8 +599,8 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 	// adding them here ensures that if the parsed API key changes, the module will be restarted with the updated environment.
 	env := additionalModuleEnvVars(cfg.Cloud, cfg.Auth)
 	if len(env) > 0 {
-		for _, m := range cfg.Modules {
-			m.MergeEnvVars(env)
+		for idx := 0; idx < len(cfg.Modules); idx++ {
+			cfg.Modules[idx].MergeEnvVars(env)
 		}
 	}
 
