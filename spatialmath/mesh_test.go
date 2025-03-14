@@ -10,10 +10,7 @@ import (
 )
 
 func makeTestMesh(o Orientation, pt r3.Vector, triangles []*Triangle) *Mesh {
-	return &Mesh{
-		pose:      NewPose(pt, o),
-		triangles: triangles,
-	}
+	return NewMesh(NewPose(pt, o), triangles, "")
 }
 
 func makeSimpleTriangleMesh() *Mesh {
