@@ -2,7 +2,6 @@ package spatialmath
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/chenzhekl/goply"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	"github.com/spf13/cast"
 	commonpb "go.viam.com/api/common/v1"
 )
@@ -61,7 +61,14 @@ func NewMeshFromPLYFile(path string) (*Mesh, error) {
 	return newMeshFromBytes(NewZeroPose(), bytes, path)
 }
 
-func newMeshFromBytes(pose Pose, data []byte, label string) (*Mesh, error) {
+func newMeshFromBytes(pose Pose, data []byte, label string) (mesh *Mesh, err error) {
+	// the library we are using for PLY parsing is fragile, so
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.Wrap(errors.Errorf("%v", r), "error reading mesh")
+		}
+	}()
+
 	ply := goply.New(bytes.NewReader(data))
 	vertices := ply.Elements("vertex")
 	faces := ply.Elements("face")
