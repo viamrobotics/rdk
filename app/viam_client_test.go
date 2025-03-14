@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/viamrobotics/webrtc/v3"
@@ -17,6 +18,7 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/logging"
+	rutils "go.viam.com/rdk/utils"
 )
 
 var (
@@ -82,6 +84,36 @@ func TestCreateViamClientWithOptions(t *testing.T) {
 				},
 			}
 			client, err := CreateViamClientWithOptions(context.Background(), opts, logger)
+			if (err != nil) != tt.expectErr {
+				t.Errorf("Expected error: %v, got: %v", tt.expectErr, err)
+			}
+			if !tt.expectErr {
+				if client == nil {
+					t.Error("Expected a valid client, got nil")
+				} else {
+					client.Close()
+				}
+			}
+		})
+	}
+}
+
+func TestCreateViamClientFromEnvVarsTests(t *testing.T) {
+	apiKeyTests := []struct {
+		name      string
+		apiKey    string
+		apiKeyID  string
+		expectErr bool
+	}{
+		{"Valid API Key", testAPIKey, testAPIKeyID, false},
+		{"Empty API Key", "", testAPIKeyID, true},
+		{"Empty API Key ID", testAPIKey, "", true},
+	}
+	for _, tt := range apiKeyTests {
+		t.Run(tt.name, func(t *testing.T) {
+			os.Setenv(rutils.APIKeyEnvVar, tt.apiKey)
+			os.Setenv(rutils.APIKeyIDEnvVar, tt.apiKeyID)
+			client, err := CreateViamClientFromEnvVars(context.Background(), &Options{}, logger)
 			if (err != nil) != tt.expectErr {
 				t.Errorf("Expected error: %v, got: %v", tt.expectErr, err)
 			}
