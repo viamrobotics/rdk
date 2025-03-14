@@ -52,7 +52,7 @@ func NewMeshFromPLYFile(path string) (*Mesh, error) {
 	if err != nil {
 		return nil, err
 	}
-	// nolint:errcheck
+	//nolint:errcheck
 	defer file.Close()
 	bytes, err := io.ReadAll(file)
 	if err != nil {
