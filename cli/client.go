@@ -869,6 +869,10 @@ func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArg
 		return err
 	}
 
+	if args.Start == "" {
+		args.Start = time.Now().Add(-12 * time.Hour).UTC().Format(time.RFC3339)
+	}
+
 	startTime, err := parseTimeString(args.Start)
 	if err != nil {
 		return errors.Wrap(err, "invalid start time format")
