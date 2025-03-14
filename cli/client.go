@@ -1379,7 +1379,11 @@ func tunnelTraffic(ctx *cli.Context, robotClient *client.RobotClient, local, des
 			}
 		}
 		if !allowed {
-			return errors.Errorf("tunneling to destination port %v not allowed", dest)
+			return errors.Errorf(
+				"tunneling to destination port %v not allowed. "+
+					"Please ensure the traffic_tunnel_endpoints configuration is set correctly on the machine.",
+				dest,
+			)
 		}
 	}
 
