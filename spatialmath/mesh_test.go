@@ -1,13 +1,12 @@
 package spatialmath
 
 import (
-	"io"
-	"os"
 	"testing"
 
 	"github.com/golang/geo/r3"
-	"go.viam.com/rdk/utils"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/utils"
 )
 
 func makeTestMesh(o Orientation, pt r3.Vector, triangles []*Triangle) *Mesh {
@@ -37,13 +36,23 @@ func makeSimpleTriangleMesh() *Mesh {
 	return makeTestMesh(NewZeroOrientation(), r3.Vector{}, []*Triangle{tri1, tri2, tri3})
 }
 
+func TestNewMesh(t *testing.T) {
+	tri := NewTriangle(
+		r3.Vector{X: 0, Y: 0, Z: 0},
+		r3.Vector{X: 1, Y: 0, Z: 0},
+		r3.Vector{X: 0, Y: 1, Z: 0},
+	)
+	pose := NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, NewZeroOrientation())
+
+	mesh := NewMesh(pose, []*Triangle{tri}, "test_mesh")
+
+	test.That(t, mesh.Label(), test.ShouldEqual, "test_mesh")
+	test.That(t, PoseAlmostEqual(mesh.Pose(), pose), test.ShouldBeTrue)
+	test.That(t, len(mesh.Triangles()), test.ShouldEqual, 1)
+}
+
 func TestMeshProtoConversion(t *testing.T) {
-	file, err := os.Open(utils.ResolveFile("spatialmath/data/simple.ply"))
-	test.That(t, err, test.ShouldBeNil)
-	defer file.Close()
-	bytes, err := io.ReadAll(file)
-	test.That(t, err, test.ShouldBeNil)
-	m, err := NewMeshFromPLY(NewPose(r3.Vector{10, 10, 10}, &OrientationVectorDegrees{OZ: 1, Theta: 90}), bytes, "myMesh")
+	m, err := NewMeshFromPLYFile(utils.ResolveFile("spatialmath/data/simple.ply"))
 	test.That(t, err, test.ShouldBeNil)
 	m2, err := NewGeometryFromProto(m.ToProtobuf())
 	test.That(t, err, test.ShouldBeNil)

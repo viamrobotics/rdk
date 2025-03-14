@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"math"
+	"os"
 
 	"github.com/chenzhekl/goply"
 	"github.com/golang/geo/r3"
@@ -15,6 +17,11 @@ import (
 // This file incorporates work covered by the Brax project -- https://github.com/google/brax/blob/main/LICENSE.
 // Copyright 2021 The Brax Authors, which is licensed under the Apache License Version 2.0 (the "License").
 // You may obtain a copy of the license at http://www.apache.org/licenses/LICENSE-2.0.
+
+// The set of supported mesh file types.
+type meshType string
+
+const plyType = meshType("ply")
 
 // Mesh is a set of triangles at some pose. Triangle points are in the frame of the mesh.
 type Mesh struct {
@@ -27,21 +34,34 @@ type Mesh struct {
 	rawBytes []byte
 }
 
-// The set of supported mesh file types.
-type meshType string
-
-const plyType = meshType("ply")
-
-func newMeshFromProto(pose Pose, m *commonpb.Mesh, label string) (*Mesh, error) {
-	switch m.FileType {
-	case string(plyType):
-		return NewMeshFromPLY(pose, m.Mesh, label)
-	default:
-		return nil, fmt.Errorf("unsupported Mesh type: %s", m.FileType)
+// NewMesh creates a mesh from the given triangles and pose.
+// A Mesh created this way should not be attempted to be converted to protobuf
+// as there are not conversion functions to support it currently.
+func NewMesh(pose Pose, triangles []*Triangle, label string) *Mesh {
+	return &Mesh{
+		pose:      pose,
+		triangles: triangles,
+		label:     label,
 	}
 }
 
-func NewMeshFromPLY(pose Pose, data []byte, label string) (*Mesh, error) {
+// NewMeshFromPLYFile is a helper function to create a Mesh geometry from a PLY file.
+func NewMeshFromPLYFile(path string) (*Mesh, error) {
+	//nolint:gosec
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	// nolint:errcheck
+	defer file.Close()
+	bytes, err := io.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+	return newMeshFromBytes(NewZeroPose(), bytes, path)
+}
+
+func newMeshFromBytes(pose Pose, data []byte, label string) (*Mesh, error) {
 	ply := goply.New(bytes.NewReader(data))
 	vertices := ply.Elements("vertex")
 	faces := ply.Elements("face")
@@ -77,6 +97,30 @@ func NewMeshFromPLY(pose Pose, data []byte, label string) (*Mesh, error) {
 		fileType:  plyType,
 		rawBytes:  data,
 	}, nil
+}
+
+func newMeshFromProto(pose Pose, m *commonpb.Mesh, label string) (*Mesh, error) {
+	switch m.FileType {
+	case string(plyType):
+		return newMeshFromBytes(pose, m.Mesh, label)
+	default:
+		return nil, fmt.Errorf("unsupported Mesh type: %s", m.FileType)
+	}
+}
+
+// ToProtobuf converts a Mesh to its protobuf representation.
+// Note that if the mesh's rawBytes and fileType fields are unset this will result in a malformed message.
+func (m *Mesh) ToProtobuf() *commonpb.Geometry {
+	return &commonpb.Geometry{
+		Center: PoseToProtobuf(m.pose),
+		GeometryType: &commonpb.Geometry_Mesh{
+			Mesh: &commonpb.Mesh{
+				FileType: string(m.fileType),
+				Mesh:     m.rawBytes,
+			},
+		},
+		Label: m.label,
+	}
 }
 
 // Pose returns the pose of the mesh.
@@ -353,20 +397,6 @@ func (m *Mesh) ToPoints(density float64) []r3.Vector {
 		points = append(points, pt)
 	}
 	return points
-}
-
-// ToProtobuf converts a Mesh to its protobuf representation.
-func (m *Mesh) ToProtobuf() *commonpb.Geometry {
-	return &commonpb.Geometry{
-		Center: PoseToProtobuf(m.pose),
-		GeometryType: &commonpb.Geometry_Mesh{
-			Mesh: &commonpb.Mesh{
-				FileType: string(m.fileType),
-				Mesh:     m.rawBytes,
-			},
-		},
-		Label: m.label,
-	}
 }
 
 // MarshalJSON implements the json.Marshaler interface.
