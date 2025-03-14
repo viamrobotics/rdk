@@ -72,7 +72,7 @@ func CreateViamClientWithAPIKey(
 
 // CreateViamClientFromEnvVars creates a ViamClient from env vars set by the module manager.
 // It is intended to be used from within modular resources, and will likely fail if called
-// in another context
+// in another context.
 func CreateViamClientFromEnvVars(ctx context.Context, options *Options, logger logging.Logger) (*ViamClient, error) {
 	if options == nil {
 		options = &Options{}
