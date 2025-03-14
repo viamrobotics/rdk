@@ -682,6 +682,30 @@ func (c *AppClient) DeleteOrganization(ctx context.Context, orgID string) error 
 	return err
 }
 
+// GetOrganizationMetadata gets the user-defined metadata for an organization.
+func (c *AppClient) GetOrganizationMetadata(ctx context.Context, organizationID string) (map[string]interface{}, error) {
+	resp, err := c.client.GetOrganizationMetadata(ctx, &pb.GetOrganizationMetadataRequest{
+		OrganizationId: organizationID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Data.AsMap(), nil
+}
+
+// UpdateOrganizationMetadata updates the user-defined metadata for an organization.
+func (c *AppClient) UpdateOrganizationMetadata(ctx context.Context, organizationID string, data interface{}) error {
+	d, err := protoutils.StructToStructPb(data)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.UpdateOrganizationMetadata(ctx, &pb.UpdateOrganizationMetadataRequest{
+		OrganizationId: organizationID,
+		Data:           d,
+	})
+	return err
+}
+
 // ListOrganizationMembers lists all members of an organization and all invited members to the organization.
 func (c *AppClient) ListOrganizationMembers(ctx context.Context, orgID string) ([]*OrganizationMember, []*OrganizationInvite, error) {
 	resp, err := c.client.ListOrganizationMembers(ctx, &pb.ListOrganizationMembersRequest{
@@ -987,6 +1011,30 @@ func (c *AppClient) DeleteLocationSecret(ctx context.Context, locationID, secret
 	return err
 }
 
+// GetLocationMetadata gets the user-defined metadata for a location.
+func (c *AppClient) GetLocationMetadata(ctx context.Context, locationID string) (map[string]interface{}, error) {
+	resp, err := c.client.GetLocationMetadata(ctx, &pb.GetLocationMetadataRequest{
+		LocationId: locationID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Data.AsMap(), nil
+}
+
+// UpdateLocationMetadata updates the user-defined metadata for a location.
+func (c *AppClient) UpdateLocationMetadata(ctx context.Context, locationID string, data interface{}) error {
+	d, err := protoutils.StructToStructPb(data)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.UpdateLocationMetadata(ctx, &pb.UpdateLocationMetadataRequest{
+		LocationId: locationID,
+		Data:       d,
+	})
+	return err
+}
+
 // GetRobot gets a specific robot by ID.
 func (c *AppClient) GetRobot(ctx context.Context, id string) (*Robot, error) {
 	resp, err := c.client.GetRobot(ctx, &pb.GetRobotRequest{
@@ -996,6 +1044,30 @@ func (c *AppClient) GetRobot(ctx context.Context, id string) (*Robot, error) {
 		return nil, err
 	}
 	return robotFromProto(resp.Robot), nil
+}
+
+// GetRobotMetadata gets the user-defined metadata for a robot.
+func (c *AppClient) GetRobotMetadata(ctx context.Context, robotID string) (map[string]interface{}, error) {
+	resp, err := c.client.GetRobotMetadata(ctx, &pb.GetRobotMetadataRequest{
+		Id: robotID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Data.AsMap(), nil
+}
+
+// UpdateRobotMetadata updates the user-defined metadata for a robot.
+func (c *AppClient) UpdateRobotMetadata(ctx context.Context, robotID string, data interface{}) error {
+	d, err := protoutils.StructToStructPb(data)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.UpdateRobotMetadata(ctx, &pb.UpdateRobotMetadataRequest{
+		Id:   robotID,
+		Data: d,
+	})
+	return err
 }
 
 // GetRoverRentalRobots gets rover rental robots within an organization.
@@ -1164,6 +1236,30 @@ func (c *AppClient) NewRobotPart(ctx context.Context, robotID, partName string) 
 func (c *AppClient) DeleteRobotPart(ctx context.Context, partID string) error {
 	_, err := c.client.DeleteRobotPart(ctx, &pb.DeleteRobotPartRequest{
 		PartId: partID,
+	})
+	return err
+}
+
+// GetRobotPartMetadata gets the user-defined metadata for a robot part.
+func (c *AppClient) GetRobotPartMetadata(ctx context.Context, robotID string) (map[string]interface{}, error) {
+	resp, err := c.client.GetRobotMetadata(ctx, &pb.GetRobotMetadataRequest{
+		Id: robotID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Data.AsMap(), nil
+}
+
+// UpdateRobotPartMetadata updates the user-defined metadata for a robot part.
+func (c *AppClient) UpdateRobotPartMetadata(ctx context.Context, robotID string, data interface{}) error {
+	d, err := protoutils.StructToStructPb(data)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.UpdateRobotPartMetadata(ctx, &pb.UpdateRobotPartMetadataRequest{
+		Id:   robotID,
+		Data: d,
 	})
 	return err
 }

@@ -284,14 +284,3 @@ func getBoxOrderFromMetadata(md mlmodel.MLMetadata) ([]int, error) {
 	}
 	return nil, errors.New("could not grab bbox order")
 }
-
-// getIndex returns the index of an int in an array of ints
-// Will return -1 if it's not there.
-func getIndex(s []int, num int) int {
-	for i, v := range s {
-		if v == num {
-			return i
-		}
-	}
-	return -1
-}

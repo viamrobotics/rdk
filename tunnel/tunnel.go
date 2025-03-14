@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 
 	"go.viam.com/rdk/logging"
 )
@@ -31,6 +32,14 @@ func filterError(ctx context.Context, err error, closeChan <-chan struct{}, logg
 		logger.CDebugw(ctx, "expected EOF received")
 		return nil
 	}
+
+	// Depending on when the tunnel is closed, the server may not have a chance to send
+	// trailers.
+	if err != nil && strings.Contains(err.Error(),
+		"server closed the stream without sending trailers") {
+		return nil
+	}
+
 	return err
 }
 

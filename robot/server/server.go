@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -73,24 +72,25 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 
 	dialTimeout := defaultTunnelConnectionTimeout
 
-	// TODO(RSDK-5763): Start rejecting requests to unavailable ports once `app` has been
-	// updated to propagate `traffic_tunnel_endpoints` configs.
-	/*
-	   var destAllowed bool
-	  // Ensure destination port is available; otherwise error.
-	   for _, tte := range s.robot.ListTunnels() {
-	   if int(req.DestinationPort) == tte.Port {
-	   destAllowed = true
-	   if tte.ConnectionTimeout != 0 {
-	   dialTimeout = tte.ConnectionTimeout
-	  }
-	   break
-	  }
-	  }
-	   if !destAllowed {
-	  return fmt.Errorf("tunnel not available at port %d", req.DestinationPort)
-	  }
-	*/
+	// Ensure destination port is available; otherwise error.
+	var destAllowed bool
+	ttes, err := s.robot.ListTunnels(srv.Context())
+	if err != nil {
+		return err
+	}
+	for _, tte := range ttes {
+		if int(req.DestinationPort) == tte.Port {
+			destAllowed = true
+			if tte.ConnectionTimeout != 0 {
+				// Honor specified timeout if one exists (0 is use-default.)
+				dialTimeout = tte.ConnectionTimeout
+			}
+			break
+		}
+	}
+	if !destAllowed {
+		return fmt.Errorf("tunnel not available at port %d", req.DestinationPort)
+	}
 
 	dest := strconv.Itoa(int(req.DestinationPort))
 
@@ -260,70 +260,6 @@ func (s *Server) ResourceRPCSubtypes(ctx context.Context, _ *pb.ResourceRPCSubty
 		})
 	}
 	return &pb.ResourceRPCSubtypesResponse{ResourceRpcSubtypes: protoTypes}, nil
-}
-
-// DiscoverComponents is DEPRECATED!!! Please use the Discovery Service instead.
-// DiscoverComponents takes a list of discovery queries and returns corresponding
-// component configurations.
-//
-//nolint:deprecated,staticcheck
-func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverComponentsRequest) (*pb.DiscoverComponentsResponse, error) {
-	s.robot.Logger().CWarn(ctx,
-		"DiscoverComponents is deprecated and will be removed on March 10th 2025. Please use the Discovery Service instead.")
-	// nonTriplet indicates older syntax for type and model E.g. "camera" instead of "rdk:component:camera"
-	// TODO(PRODUCT-344): remove triplet checking here after complete
-	var nonTriplet bool
-	queries := make([]resource.DiscoveryQuery, 0, len(req.Queries))
-	for _, q := range req.Queries {
-		m, err := resource.NewModelFromString(q.Model)
-		if err != nil {
-			return nil, err
-		}
-		if !strings.ContainsRune(q.Subtype, ':') {
-			nonTriplet = true
-			q.Subtype = "rdk:component:" + q.Subtype
-		}
-		s, err := resource.NewAPIFromString(q.Subtype)
-		if err != nil {
-			return nil, err
-		}
-		queries = append(queries, resource.DiscoveryQuery{API: s, Model: m, Extra: q.Extra.AsMap()})
-	}
-
-	discoveries, err := s.robot.DiscoverComponents(ctx, queries)
-	if err != nil {
-		return nil, err
-	}
-
-	pbDiscoveries := make([]*pb.Discovery, 0, len(discoveries))
-	for _, discovery := range discoveries {
-		pbResults, err := vprotoutils.StructToStructPb(discovery.Results)
-		if err != nil {
-			return nil, fmt.Errorf("unable to construct a structpb.Struct from discovery for %q: %w", discovery.Query, err)
-		}
-		extra, err := structpb.NewStruct(discovery.Query.Extra)
-		if err != nil {
-			return nil, err
-		}
-		pbQuery := &pb.DiscoveryQuery{
-			Subtype: discovery.Query.API.String(),
-			Model:   discovery.Query.Model.String(),
-			Extra:   extra,
-		}
-		if nonTriplet {
-			pbQuery.Subtype = discovery.Query.API.SubtypeName
-			pbQuery.Model = discovery.Query.Model.Name
-		}
-		pbDiscoveries = append(
-			pbDiscoveries,
-			&pb.Discovery{
-				Query:   pbQuery,
-				Results: pbResults,
-			},
-		)
-	}
-
-	return &pb.DiscoverComponentsResponse{Discovery: pbDiscoveries}, nil
 }
 
 // GetModelsFromModules returns all models from the currently managed modules.

@@ -312,9 +312,9 @@ func WriteRawDepthMapTo(img image.Image, out io.Writer) (int64, error) {
 // the Viam custom depth type writes 8 bytes of "magic number", 8 bytes of width, 8 bytes of height, and 2 bytes per pixel.
 func WriteViamDepthMapTo(img image.Image, out io.Writer) (int64, error) {
 	if lazy, ok := img.(*LazyEncodedImage); ok {
-		lazy.decode()
-		if lazy.decodeErr != nil {
-			return 0, errors.Errorf("could not decode LazyEncodedImage to a depth image: %v", lazy.decodeErr)
+		err := lazy.DecodeImage()
+		if err != nil {
+			return 0, errors.Errorf("could not decode LazyEncodedImage to a depth image: %v", err)
 		}
 		img = lazy.decodedImage
 	}
