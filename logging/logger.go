@@ -16,6 +16,7 @@ type Logger interface {
 	SetLevel(level Level)
 	GetLevel() Level
 	Sublogger(subname string) Logger
+	NeverDeduplicate()
 	AddAppender(appender Appender)
 	AsZap() *zap.SugaredLogger
 	// Unconditionally logs a LogEntry object. Specifically any configured log level is ignored.
@@ -122,6 +123,10 @@ func (logger *zLogger) AsZap() *zap.SugaredLogger {
 
 func (logger zLogger) Sublogger(name string) Logger {
 	return &zLogger{logger.AsZap().Named(name)}
+}
+
+func (logger zLogger) NeverDeduplicate() {
+	// Not supported
 }
 
 func (logger zLogger) CDebug(ctx context.Context, args ...interface{}) {
