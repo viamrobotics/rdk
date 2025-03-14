@@ -1417,6 +1417,12 @@ func TestTunnelE2ECLI(t *testing.T) {
 	// Start CLI tunneler.
 	//nolint:dogsled
 	cCtx, _, _, _ := setup(nil, nil, nil, nil, "token")
+
+	// error early if tunnel not listed
+	err = tunnelTraffic(cCtx, rc, sourcePort, 1)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not allowed")
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()

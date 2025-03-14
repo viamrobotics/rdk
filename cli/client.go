@@ -1368,6 +1368,21 @@ func RobotsPartTunnelAction(c *cli.Context, args robotsPartTunnelArgs) error {
 }
 
 func tunnelTraffic(ctx *cli.Context, robotClient *client.RobotClient, local, dest int) error {
+	// don't block tunnel attempt if ListTunnels fails in any way - it may be unimplemented.
+	// TODO: early return if ListTunnels fails.
+	if tunnels, err := robotClient.ListTunnels(ctx.Context); err == nil {
+		allowed := false
+		for _, t := range tunnels {
+			if t.Port == dest {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			return errors.Errorf("tunneling to destination port %v not allowed.", dest)
+		}
+	}
+
 	li, err := net.Listen("tcp", net.JoinHostPort("localhost", strconv.Itoa(local)))
 	if err != nil {
 		return fmt.Errorf("failed to create listener %w", err)
