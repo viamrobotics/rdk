@@ -100,11 +100,11 @@ func newMeshFromBytes(pose Pose, data []byte, label string) (*Mesh, error) {
 }
 
 func newMeshFromProto(pose Pose, m *commonpb.Mesh, label string) (*Mesh, error) {
-	switch m.FileType {
+	switch m.ContentType {
 	case string(plyType):
 		return newMeshFromBytes(pose, m.Mesh, label)
 	default:
-		return nil, fmt.Errorf("unsupported Mesh type: %s", m.FileType)
+		return nil, fmt.Errorf("unsupported Mesh type: %s", m.ContentType)
 	}
 }
 
@@ -115,8 +115,8 @@ func (m *Mesh) ToProtobuf() *commonpb.Geometry {
 		Center: PoseToProtobuf(m.pose),
 		GeometryType: &commonpb.Geometry_Mesh{
 			Mesh: &commonpb.Mesh{
-				FileType: string(m.fileType),
-				Mesh:     m.rawBytes,
+				ContentType: string(m.fileType),
+				Mesh:        m.rawBytes,
 			},
 		},
 		Label: m.label,
