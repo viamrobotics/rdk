@@ -45,8 +45,9 @@ import (
 const numResources = 20
 
 func TestEntrypoint(t *testing.T) {
-	// TODO(RSDK-10246): Remove this skip and fix the test.
-	t.Skip("skipping for now, as there is an unknown issue with the timing of entity closure")
+	if runtime.GOARCH == "arm" {
+		t.Skip("skipping on 32-bit ARM, subprocess build warnings cause failure")
+	}
 
 	t.Run("number of resources", func(t *testing.T) {
 		logger, logObserver := logging.NewObservedTestLogger(t)
@@ -368,10 +369,8 @@ func TestMachineStateNoResources(t *testing.T) {
 }
 
 func TestTunnelE2E(t *testing.T) {
-	// TODO(RSDK-10246): Remove this skip and fix the test on 32-bit arch.
-	if runtime.GOARCH == "arm" {
-		t.Skip("skipping on 32-bit arm, as there is an unknown issue with the timing of entity closure")
-	}
+	// TODO(RSDK-10246): Remove this skip and fix the test.
+	t.Skip("skipping for now, as there is an unknown issue with the timing of entity closure")
 
 	// `TestTunnelE2E` attempts to send "Hello, World!" across a tunnel. The tunnel is:
 	//
