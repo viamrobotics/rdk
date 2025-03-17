@@ -625,6 +625,7 @@ func TestStopAll(t *testing.T) {
 
 	conn, err := rgrpc.Dial(ctx, addr, logger)
 	test.That(t, err, test.ShouldBeNil)
+	defer utils.UncheckedErrorFunc(conn.Close)
 	arm1, err := arm.NewClientFromConn(ctx, conn, "somerem", arm.Named("arm1"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
