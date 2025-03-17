@@ -172,7 +172,6 @@ func TestClient(t *testing.T) {
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
-	test.That(t, conn.Close(), test.ShouldBeNil)
 	conn, err = viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 	failingMotorClient, err := motor.NewClientFromConn(context.Background(), conn, "", motor.Named(failMotorName), logger)
