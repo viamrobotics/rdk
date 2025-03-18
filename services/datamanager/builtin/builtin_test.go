@@ -118,7 +118,7 @@ func TestNew(t *testing.T) {
 		t.Run("returns successfully if config uses the default capture dir", func(t *testing.T) {
 			mockDeps := mockDeps(nil, nil)
 			c := &Config{}
-			test.That(t, c.getCaptureDir(), test.ShouldResemble, viamCaptureDotDir)
+			test.That(t, c.getCaptureDir(logger), test.ShouldResemble, viamCaptureDotDir)
 			b, err := New(
 				ctx,
 				mockDeps,
@@ -200,7 +200,7 @@ func TestReconfigure(t *testing.T) {
 		t.Run("returns successfully if config uses the default capture dir", func(t *testing.T) {
 			mockDeps := mockDeps(nil, nil)
 			c := &Config{}
-			test.That(t, c.getCaptureDir(), test.ShouldResemble, viamCaptureDotDir)
+			test.That(t, c.getCaptureDir(logger), test.ShouldResemble, viamCaptureDotDir)
 			err := b.Reconfigure(ctx, mockDeps, resource.Config{ConvertedAttributes: c})
 			test.That(t, err, test.ShouldBeNil)
 		})
