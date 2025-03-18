@@ -18,8 +18,8 @@ func filterError(ctx context.Context, err error, closeChan <-chan struct{}, logg
 	// resulted from previous connection closure.
 	select {
 	case <-closeChan:
-		if errors.Is(err, net.ErrClosed) || errors.Is(err, io.ErrClosedPipe) ||
-			errors.Is(err, context.Canceled) {
+		if errors.Is(err, net.ErrClosed) || errors.Is(err, io.ErrClosedPipe) || errors.Is(err, context.Canceled) ||
+			(err != nil && strings.Contains(err.Error(), "missing HTTP content-type")) {
 			logger.CDebugw(ctx, "expected error received", "err", err)
 			return nil
 		}
