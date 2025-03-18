@@ -369,8 +369,7 @@ func TestMachineStateNoResources(t *testing.T) {
 }
 
 func TestTunnelE2E(t *testing.T) {
-	// TODO(RSDK-10246): Remove this skip and fix the test.
-	t.Skip("skipping for now, as there is an unknown issue with the timing of entity closure")
+	logger := logging.NewTestLogger(t)
 
 	// `TestTunnelE2E` attempts to send "Hello, World!" across a tunnel. The tunnel is:
 	//
@@ -382,27 +381,35 @@ func TestTunnelE2E(t *testing.T) {
 	machineAddr := net.JoinHostPort("localhost", "23655")
 	sourceListenerAddr := net.JoinHostPort("localhost", "23656")
 
-	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	runServerCtx, runServerCtxCancel := context.WithCancel(ctx)
 	var wg sync.WaitGroup
+
+	logger.Info("BLINKY: Starting main test program")
 
 	// Start "destination" listener.
 	destListener, err := net.Listen("tcp", destListenerAddr)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
+		logger.Info("BLINKY: Closing destination listener")
 		test.That(t, destListener.Close(), test.ShouldBeNil)
+		logger.Info("BLINKY: Done closing destination listener")
 	}()
+	logger.Info("BLINKY: Now listening at destination listener")
 
 	wg.Add(1)
 	go func() {
+		logger.Info("BLINKY: Starting destination listener goroutine")
+
 		defer wg.Done()
 
 		logger.Infof("Listening on %s for tunnel message", destListenerAddr)
 		conn, err := destListener.Accept()
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
+			logger.Info("BLINKY: Closing destination conn")
 			test.That(t, conn.Close(), test.ShouldBeNil)
+			logger.Info("BLINKY: Done closing destination conn")
 		}()
 
 		bytes := make([]byte, 1024)
@@ -420,11 +427,15 @@ func TestTunnelE2E(t *testing.T) {
 		// Cancel `runServerCtx` once message has made it all the way across and has been
 		// echoed back. This should stop the `RunServer` goroutine below.
 		runServerCtxCancel()
+
+		logger.Info("BLINKY: Ending destination listener goroutine")
 	}()
 
 	// Start a machine at `machineAddr` (`RunServer` in a goroutine.)
 	wg.Add(1)
 	go func() {
+		logger.Info("BLINKY: Starting machine goroutine")
+
 		defer wg.Done()
 
 		// Create a temporary config file.
@@ -452,6 +463,8 @@ func TestTunnelE2E(t *testing.T) {
 
 		args := []string{"viam-server", "-config", tempConfigFile.Name()}
 		test.That(t, server.RunServer(runServerCtx, args, logger), test.ShouldBeNil)
+
+		logger.Info("BLINKY: Ending machine goroutine")
 	}()
 
 	// Open a robot client to `machineAddr`.
@@ -484,10 +497,14 @@ func TestTunnelE2E(t *testing.T) {
 	sourceListener, err := net.Listen("tcp", sourceListenerAddr)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
+		logger.Info("BLINKY: Closing source listener")
 		test.That(t, sourceListener.Close(), test.ShouldBeNil)
+		logger.Info("BLINKY: Done closing source listener")
 	}()
 	wg.Add(1)
 	go func() {
+		logger.Info("BLINKY: Starting source listener goroutine")
+
 		defer wg.Done()
 
 		logger.Infof("Connections opened at %s will be tunneled", sourceListenerAddr)
@@ -496,6 +513,8 @@ func TestTunnelE2E(t *testing.T) {
 
 		err = rc.Tunnel(ctx, conn /* will be eventually closed by `Tunnel` */, destPort)
 		test.That(t, err, test.ShouldBeNil)
+
+		logger.Info("BLINKY: Ending source listener goroutine")
 	}()
 
 	// Write `tunnelMsg` to "source" listener over TCP from this test process.
@@ -516,4 +535,6 @@ func TestTunnelE2E(t *testing.T) {
 	test.That(t, string(bytes), test.ShouldContainSubstring, tunnelMsg)
 
 	wg.Wait()
+
+	logger.Info("BLINKY: Ending main test program")
 }
