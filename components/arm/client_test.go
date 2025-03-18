@@ -144,6 +144,7 @@ func TestClient(t *testing.T) {
 	t.Run("arm client 1", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
+
 		arm1Client, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(testArmName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
