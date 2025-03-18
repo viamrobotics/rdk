@@ -1210,10 +1210,10 @@ func (m *module) startProcess(
 	// Create STDOUT and STDERR loggers for the module and turn off log deduplication for
 	// both. Module output through these loggers may contain data like stack traces, which
 	// are repetitive but are not actually "noisy."
-
-	//stderrLogger := m.logger.Sublogger("StdErr")
-	//stdoutLogger.NeverDeduplicate()
-	//stderrLogger.NeverDeduplicate()
+	stdoutLogger := m.logger.Sublogger("StdOut")
+	stderrLogger := m.logger.Sublogger("StdErr")
+	stdoutLogger.NeverDeduplicate()
+	stderrLogger.NeverDeduplicate()
 
 	pconf := pexec.ProcessConfig{
 		ID:               m.cfg.Name,
@@ -1223,8 +1223,8 @@ func (m *module) startProcess(
 		Environment:      moduleEnvironment,
 		Log:              true,
 		OnUnexpectedExit: oue,
-		// StdOutLogger:     stdoutLogger,
-		// StdErrLogger:     stderrLogger,
+		StdOutLogger:     stdoutLogger,
+		StdErrLogger:     stderrLogger,
 	}
 	// Start module process with supplied log level or "debug" if none is
 	// supplied and module manager has a DebugLevel logger.
