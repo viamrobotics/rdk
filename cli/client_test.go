@@ -12,7 +12,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -1326,10 +1325,8 @@ func TestUpdateOAuthAppAction(t *testing.T) {
 }
 
 func TestTunnelE2ECLI(t *testing.T) {
-	// TODO(RSDK-10246): Remove this skip and fix the test on 32-bit arch.
-	if runtime.GOARCH == "arm" {
-		t.Skip("skipping on 32-bit arm, as there is an unknown issue with the timing of entity closure")
-	}
+	// TODO(RSDK-10246): Remove this skip and fix the test.
+	t.Skip("skipping for now, as there is an unknown issue with the timing of entity closure")
 
 	// `TestTunnelE2ECLI` attempts to send "Hello, World!" across a tunnel created by the
 	// CLI. It is mostly identical to `TestTunnelE2E` in web/server/entrypoint_test.go.

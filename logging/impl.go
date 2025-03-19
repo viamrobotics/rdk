@@ -26,8 +26,9 @@ var (
 
 type (
 	impl struct {
-		name  string
-		level AtomicLevel
+		name             string
+		level            AtomicLevel
+		neverDeduplicate bool
 
 		appenders []Appender
 		registry  *Registry
@@ -136,6 +137,7 @@ func (imp *impl) Sublogger(subname string) Logger {
 	sublogger := &impl{
 		newName,
 		NewAtomicLevelAt(imp.level.Get()),
+		false, // allow log deduplication by default
 		imp.appenders,
 		imp.registry,
 		imp.testHelper,
@@ -151,6 +153,10 @@ func (imp *impl) Sublogger(subname string) Logger {
 	//
 	// `getOrRegister` will also set the appropriate log level based on the config.
 	return imp.registry.getOrRegister(newName, sublogger)
+}
+
+func (imp *impl) NeverDeduplicate() {
+	imp.neverDeduplicate = true
 }
 
 func (imp *impl) Named(name string) *zap.SugaredLogger {
@@ -257,7 +263,7 @@ func (imp *impl) shouldLog(logLevel Level) bool {
 }
 
 func (imp *impl) Write(entry *LogEntry) {
-	if imp.registry.DeduplicateLogs.Load() {
+	if imp.registry.DeduplicateLogs.Load() && !imp.neverDeduplicate {
 		hashkeyedEntry := entry.HashKey()
 
 		// If we have entered a new recentMessage window, output noisy logs from

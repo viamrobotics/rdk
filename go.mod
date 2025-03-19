@@ -15,6 +15,7 @@ require (
 	github.com/bufbuild/buf v1.30.0
 	github.com/charmbracelet/huh v0.6.0
 	github.com/charmbracelet/huh/spinner v0.0.0-20240917123815-c9b2c9cdb7b6
+	github.com/chenzhekl/goply v0.0.0-20190930133256-258c2381defd
 	github.com/creack/pty v1.1.19-0.20220421211855-0d412c9fbeb1
 	github.com/disintegration/imaging v1.6.2
 	github.com/docker/go-units v0.5.0
@@ -64,6 +65,7 @@ require (
 	github.com/rhysd/actionlint v1.6.24
 	github.com/rs/cors v1.11.1
 	github.com/sergi/go-diff v1.3.1
+	github.com/spf13/cast v1.5.0
 	github.com/u2takey/ffmpeg-go v0.4.1
 	github.com/urfave/cli/v2 v2.10.3
 	github.com/viamrobotics/evdev v0.1.3
@@ -75,9 +77,9 @@ require (
 	go.uber.org/atomic v1.11.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
-	go.viam.com/api v0.1.401
+	go.viam.com/api v0.1.408
 	go.viam.com/test v1.2.4
-	go.viam.com/utils v0.1.133
+	go.viam.com/utils v0.1.136
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.19.0
 	golang.org/x/mobile v0.0.0-20240112133503-c713f31d574b
@@ -90,7 +92,7 @@ require (
 	gonum.org/v1/gonum v0.12.0
 	gonum.org/v1/plot v0.12.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20250106144421-5f5ef82da422
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250303144028-a0af3efb3deb
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250313205543-e70fdf4c4cb4
 	google.golang.org/grpc v1.71.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.2.0
 	google.golang.org/protobuf v1.36.5
@@ -358,7 +360,6 @@ require (
 	github.com/sonatard/noctx v0.0.2 // indirect
 	github.com/sourcegraph/go-diff v0.7.0 // indirect
 	github.com/spf13/afero v1.11.0 // indirect
-	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/cobra v1.8.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
