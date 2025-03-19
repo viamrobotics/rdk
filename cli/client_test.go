@@ -1325,9 +1325,6 @@ func TestUpdateOAuthAppAction(t *testing.T) {
 }
 
 func TestTunnelE2ECLI(t *testing.T) {
-	// TODO(RSDK-10246): Remove this skip and fix the test.
-	t.Skip("skipping for now, as there is an unknown issue with the timing of entity closure")
-
 	// `TestTunnelE2ECLI` attempts to send "Hello, World!" across a tunnel created by the
 	// CLI. It is mostly identical to `TestTunnelE2E` in web/server/entrypoint_test.go.
 	// The tunnel is:
@@ -1375,10 +1372,6 @@ func TestTunnelE2ECLI(t *testing.T) {
 		n, err = conn.Write([]byte(tunnelMsg))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, n, test.ShouldEqual, len(tunnelMsg))
-
-		// Cancel `runServerCtx` once message has made it all the way across and has been
-		// echoed back. This should stop the `RunServer` goroutine below.
-		runServerCtxCancel()
 	}()
 
 	// Start a machine at `machineAddr` (`RunServer` in a goroutine.)
@@ -1436,6 +1429,10 @@ func TestTunnelE2ECLI(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, n, test.ShouldEqual, len(tunnelMsg))
 	test.That(t, string(bytes), test.ShouldContainSubstring, tunnelMsg)
+
+	// Cancel `runServerCtx` once message has made it all the way across and has been
+	// echoed back. This should stop the `RunServer` goroutine.
+	runServerCtxCancel()
 
 	wg.Wait()
 }
