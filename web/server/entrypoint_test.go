@@ -424,10 +424,6 @@ func TestTunnelE2E(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, n, test.ShouldEqual, len(tunnelMsg))
 
-		// Cancel `runServerCtx` once message has made it all the way across and has been
-		// echoed back. This should stop the `RunServer` goroutine below.
-		runServerCtxCancel()
-
 		logger.Info("BLINKY: Ending destination listener goroutine")
 	}()
 
@@ -533,6 +529,10 @@ func TestTunnelE2E(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, n, test.ShouldEqual, len(tunnelMsg))
 	test.That(t, string(bytes), test.ShouldContainSubstring, tunnelMsg)
+
+	// Cancel `runServerCtx` once message has made it all the way across and has been
+	// echoed back. This should stop the `RunServer` goroutine.
+	runServerCtxCancel()
 
 	wg.Wait()
 
