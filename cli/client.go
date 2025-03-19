@@ -63,6 +63,9 @@ const (
 	maxNumLogs = 10000
 	// logoMaxSize is the maximum size of a logo in bytes.
 	logoMaxSize = 1024 * 200 // 200 KB
+	// defaultLogStartTime is set to the last 24 hours
+	// because logs older than 24 hours are stored in the online archive.
+	defaultLogStartTime = -24 * time.Hour
 	// yellow is the format string used to output warnings in yellow color.
 	yellow = "\033[1;33m%s\033[0m"
 )
@@ -867,6 +870,10 @@ func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArg
 	maxLogsToFetch, err := getNumLogs(c.c, args.Count)
 	if err != nil {
 		return err
+	}
+
+	if args.Start == "" {
+		args.Start = time.Now().Add(defaultLogStartTime).UTC().Format(time.RFC3339)
 	}
 
 	startTime, err := parseTimeString(args.Start)
