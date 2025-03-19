@@ -872,7 +872,7 @@ func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArg
 		return err
 	}
 
-	if args.Start == "" {
+	if args.Start == "" && args.End == "" {
 		args.Start = time.Now().Add(defaultLogStartTime).UTC().Format(time.RFC3339)
 	}
 
