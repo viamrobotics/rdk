@@ -18,7 +18,8 @@ import (
 // manifestations of a closed connection. `filterError` debug-logs and swallows those
 // non-anomalous errors.
 func filterError(ctx context.Context, err error, closeChan <-chan struct{},
-	logger logging.Logger) (filteredErr error) {
+	logger logging.Logger,
+) (filteredErr error) {
 	var anomalous bool
 	defer func() {
 		filteredErr = err

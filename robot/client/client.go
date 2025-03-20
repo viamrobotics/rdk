@@ -1253,7 +1253,7 @@ func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest
 	// Close the channel first so that network errors can be filtered
 	// and prevented in the ReaderSenderLoop.
 	close(connClosed)
-	err = conn.Close()
+	utils.UncheckedError(conn.Close())
 
 	wg.Wait()
 	rc.Logger().CInfow(ctx, "tunnel to server closed", "port", dest)
