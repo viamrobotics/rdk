@@ -149,7 +149,7 @@ func init() {
 //
 // CaptureAllFromCamera example:
 //
-//      // import ( "go.viam.com/rdk/vision/viscapture" )
+//      // import ( "go.viam.com/rdk/vision/viscapture" ) 
 //	// The data to capture and return from the camera
 //	captOpts := viscapture.CaptureOptions{
 //		ReturnImage: true,
