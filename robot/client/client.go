@@ -1257,7 +1257,7 @@ func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest
 
 	wg.Wait()
 	rc.Logger().CInfow(ctx, "tunnel to server closed", "port", dest)
-	return errors.Join(err, readerSenderErr, recvWriterErr)
+	return errors.Join(readerSenderErr, recvWriterErr)
 }
 
 // ListTunnels lists all available tunnels configured on the robot.
