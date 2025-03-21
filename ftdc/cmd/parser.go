@@ -206,8 +206,8 @@ func (gpw *gnuplotWriter) shouldIncludePoint(this, next *ftdc.FlatDatum) *ftdc.F
 
 	gpw.shouldIncludePointStorage.nextTimeIdx++
 	// Dan: For simplicity we always return the "earlier" time. In a healthy system where we are
-	// choosing datapoints, the "time interval" to graph will be much larger the the one second ftdc
-	// data capture rate (e.g: graph every 15 seconds). Choosing either value there is "safe".
+	// choosing datapoints, the "time interval" to graph will be much larger than the one second
+	// ftdc data capture rate (e.g: graph every 15 seconds). Choosing either value there is "safe".
 	//
 	// But in an "unhealthy" system, we may have a scenario for example where we want* to graph
 	// timestamps 10 and 20. But the three data points to choose from are 0, 15 and 30. It's not
