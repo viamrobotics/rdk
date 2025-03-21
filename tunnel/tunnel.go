@@ -26,8 +26,6 @@ func filterError(ctx context.Context, err error, closeChan <-chan struct{},
 		if !anomalous {
 			logger.CDebugw(ctx, "ignoring non-anomalous error", "error", filteredErr)
 			filteredErr = nil
-		} else {
-			logger.CWarn(ctx, "encountered anomalous error!", "error", filteredErr)
 		}
 	}()
 
