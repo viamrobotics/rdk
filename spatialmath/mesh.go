@@ -147,6 +147,8 @@ func (m *Mesh) Transform(pose Pose) Geometry {
 		pose:      Compose(pose, m.pose),
 		triangles: m.triangles,
 		label:     m.label,
+		fileType:  plyType,
+		rawBytes:  m.rawBytes,
 	}
 }
 
