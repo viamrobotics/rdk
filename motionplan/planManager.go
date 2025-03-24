@@ -519,7 +519,17 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		return nil, err
 	}
 
-	allowedCollisions, err := collisionSpecifications(constraints.GetCollisionSpecification(), frameSystemGeometries, worldState)
+	frameNames := map[string]bool{}
+	for _, fName := range pm.fs.FrameNames() {
+		frameNames[fName] = true
+	}
+
+	allowedCollisions, err := collisionSpecifications(
+		constraints.GetCollisionSpecification(),
+		frameSystemGeometries,
+		frameNames,
+		worldState.ObstacleNames(),
+	)
 	if err != nil {
 		return nil, err
 	}

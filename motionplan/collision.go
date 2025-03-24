@@ -54,12 +54,8 @@ func collisionListsAlmostEqual(cs1, cs2 []Collision) bool {
 func collisionSpecifications(
 	pbConstraint []CollisionSpecification,
 	frameSystemGeometries map[string]*referenceframe.GeometriesInFrame,
-	worldState *referenceframe.WorldState,
+	frameNames, validGeoms map[string]bool,
 ) (allowedCollisions []*Collision, err error) {
-	// List of all names which may be specified for collision ignoring.
-	// Can seed this map with worldState names which will never have duplicates
-	validGeoms := worldState.ObstacleNames()
-
 	// Get names of all geometries in frame system
 	for frameName, geomsInFrame := range frameSystemGeometries {
 		if _, ok := validGeoms[frameName]; ok {
@@ -84,17 +80,22 @@ func collisionSpecifications(
 	// sub-pieces, e.g. myUR5arm:upper_arm_link, myUR5arm:base_link, etc. Individual sub-pieces may also be so addressed.
 	var allowNameToSubGeoms func(cName string) ([]string, error) // Pre-define to allow recursive call
 	allowNameToSubGeoms = func(cName string) ([]string, error) {
+		subNames := []string{}
+
 		// Check if an entire component is specified
-		if geomsInFrame, ok := frameSystemGeometries[cName]; ok {
-			subNames := []string{}
-			for _, subGeom := range geomsInFrame.Geometries() {
-				subNames = append(subNames, subGeom.Label())
-			}
+		if _, ok := frameNames[cName]; ok {
 			// If this is an entire component, it likely has an origin frame. Collect any origin geometries as well if so.
-			// These will be the geometries that a user specified for this component in their RDK config.
+			// These will be the geometries that a user specified for this component in their RDK config, or via `Transforms()`
 			originGeoms, err := allowNameToSubGeoms(cName + "_origin")
 			if err == nil && len(originGeoms) > 0 {
 				subNames = append(subNames, originGeoms...)
+			}
+		}
+
+		// Check if key specified has more than one geometry associated with it. If so, gather the names of all sub-geometries.
+		if geomsInFrame, ok := frameSystemGeometries[cName]; ok {
+			for _, subGeom := range geomsInFrame.Geometries() {
+				subNames = append(subNames, subGeom.Label())
 			}
 			return subNames, nil
 		}
