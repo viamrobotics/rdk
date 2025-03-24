@@ -17,13 +17,14 @@ import (
 )
 
 const (
-	trainFlagJobID        = "job-id"
-	trainFlagJobStatus    = "job-status"
-	trainFlagModelOrgID   = "model-org-id"
-	trainFlagModelName    = "model-name"
-	trainFlagModelVersion = "model-version"
-	trainFlagModelType    = "model-type"
-	trainFlagModelLabels  = "model-labels"
+	trainFlagJobID          = "job-id"
+	trainFlagJobStatus      = "job-status"
+	trainFlagModelOrgID     = "model-org-id"
+	trainFlagModelName      = "model-name"
+	trainFlagModelVersion   = "model-version"
+	trainFlagModelType      = "model-type"
+	trainFlagModelFramework = "model-framework"
+	trainFlagModelLabels    = "model-labels"
 
 	trainingStatusPrefix = "TRAINING_STATUS_"
 )
@@ -103,12 +104,13 @@ func MLSubmitCustomTrainingJobWithUpload(c *cli.Context, args mlSubmitCustomTrai
 }
 
 type mlSubmitTrainingJobArgs struct {
-	DatasetID    string
-	ModelOrgID   string
-	ModelName    string
-	ModelType    string
-	ModelLabels  []string
-	ModelVersion string
+	DatasetID      string
+	ModelOrgID     string
+	ModelName      string
+	ModelType      string
+	ModelFramework string
+	ModelLabels    []string
+	ModelVersion   string
 }
 
 // MLSubmitTrainingJob is the corresponding action for 'train submit'.
@@ -119,7 +121,7 @@ func MLSubmitTrainingJob(c *cli.Context, args mlSubmitTrainingJobArgs) error {
 	}
 	trainingJobID, err := client.mlSubmitTrainingJob(
 		args.DatasetID, args.ModelOrgID, args.ModelName, args.ModelVersion, args.ModelType,
-		args.ModelLabels)
+		args.ModelFramework, args.ModelLabels)
 	if err != nil {
 		return err
 	}
@@ -128,7 +130,7 @@ func MLSubmitTrainingJob(c *cli.Context, args mlSubmitTrainingJobArgs) error {
 }
 
 // mlSubmitTrainingJob trains on data with the specified filter.
-func (c *viamClient) mlSubmitTrainingJob(datasetID, orgID, modelName, modelVersion, modelType string,
+func (c *viamClient) mlSubmitTrainingJob(datasetID, orgID, modelName, modelVersion, modelType, modelFramework string,
 	labels []string,
 ) (string, error) {
 	if modelVersion == "" {
@@ -139,12 +141,18 @@ func (c *viamClient) mlSubmitTrainingJob(datasetID, orgID, modelName, modelVersi
 		return "", errors.Errorf("%s must be a valid ModelType, got %s. See `viam train submit --help` for supported options",
 			trainFlagModelType, modelType)
 	}
+	modelFrameworkEnum, ok := mltrainingpb.ModelFramework_value["MODEL_FRAMEWORK_"+strings.ToUpper(modelFramework)]
+	if !ok || modelFrameworkEnum == int32(mltrainingpb.ModelFramework_MODEL_FRAMEWORK_UNSPECIFIED) {
+		return "", errors.Errorf("%s must be a valid ModelFramework, got %s. See `viam train submit --help` for supported options",
+			trainFlagModelFramework, modelFramework)
+	}
 
 	resp, err := c.mlTrainingClient.SubmitTrainingJob(context.Background(),
 		&mltrainingpb.SubmitTrainingJobRequest{
 			DatasetId:      datasetID,
 			OrganizationId: orgID, ModelName: modelName, ModelVersion: modelVersion,
-			ModelType: mltrainingpb.ModelType(modelTypeEnum), Tags: labels,
+			ModelType: mltrainingpb.ModelType(modelTypeEnum), ModelFramework: mltrainingpb.ModelFramework(modelFrameworkEnum),
+			Tags: labels,
 		})
 	if err != nil {
 		return "", errors.Wrapf(err, "received error from server")

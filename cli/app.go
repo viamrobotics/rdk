@@ -1580,6 +1580,14 @@ var app = &cli.App{
 									),
 									Required: true,
 								},
+								&cli.StringFlag{
+									Name: trainFlagModelFramework,
+									Usage: formatAcceptedValues(
+										"framework of model to train",
+										"tflite", "tensorflow",
+									),
+									Required: true,
+								},
 								&cli.StringSliceFlag{
 									Name:     trainFlagModelLabels,
 									Usage:    "labels to train on. these will either be classification or object detection labels",
