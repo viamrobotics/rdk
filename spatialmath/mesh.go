@@ -38,6 +38,7 @@ type Mesh struct {
 // A Mesh created this way should not be attempted to be converted to protobuf
 // as there are not conversion functions to support it currently.
 func NewMesh(pose Pose, triangles []*Triangle, label string) *Mesh {
+	// TODO(RSDK-10314): Fix proto for meshes created from triangles.
 	return &Mesh{
 		pose:      pose,
 		triangles: triangles,
