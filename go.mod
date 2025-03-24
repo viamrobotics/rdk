@@ -434,5 +434,3 @@ require (
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/exp v0.0.0-20240904232852-e7e105dedf7e
 )
-
-replace go.viam.com/api => github.com/viamrobotics/api v0.1.396-0.20250225154631-8b21f320a261 // add-tf-viam-training
