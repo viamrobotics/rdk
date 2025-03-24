@@ -196,7 +196,7 @@ type loginWithAPIKeyArgs struct {
 
 // LoginWithAPIKeyAction is the corresponding Action for `login api-key`.
 func LoginWithAPIKeyAction(cCtx *cli.Context, args loginWithAPIKeyArgs) error {
-	c, err := newViamClient(cCtx)
+	c, err := newViamClientInner(cCtx, false)
 	if err != nil {
 		return err
 	}
@@ -209,6 +209,9 @@ func (c viamClient) loginWithAPIKeyAction(cCtx *cli.Context, args loginWithAPIKe
 		KeyCrypto: args.Key,
 	}
 	c.conf.Auth = &key
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
 	if err := storeConfigToCache(c.conf); err != nil {
 		return err
 	}
@@ -490,11 +493,11 @@ func (c *viamClient) ensureLoggedInInner() error {
 		// expired.
 		newToken, err := c.authFlow.refreshToken(c.c.Context, authToken)
 		if err != nil {
-			globalArgs, err := getGlobalArgs(c.c)
-			if err != nil {
-				return err
+			debugFlag := false
+			if globalArgs, err := getGlobalArgs(c.c); err == nil {
+				debugFlag = globalArgs.Debug
 			}
-			debugf(c.c.App.Writer, globalArgs.Debug, "Token refresh error: %v", err)
+			debugf(c.c.App.Writer, debugFlag, "Token refresh error: %v", err)
 			utils.UncheckedError(c.logout()) // clear cache if failed to refresh
 			return errors.New("error while refreshing token, logging out. Please log in again")
 		}

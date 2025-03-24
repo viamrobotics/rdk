@@ -153,12 +153,6 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 			warningf(cCtx.App.ErrWriter, err.Error())
 			nonFatalError = true
 		}
-
-		s.Title("Generating cloud build requirements...")
-		if err = generateCloudBuild(cCtx, *newModule, globalArgs); err != nil {
-			warningf(cCtx.App.ErrWriter, err.Error())
-			nonFatalError = true
-		}
 	}
 
 	if globalArgs.Debug {
@@ -601,7 +595,7 @@ func generateGolangStubs(module modulegen.ModuleInputs) error {
 	if err != nil {
 		return errors.Wrap(err, "cannot generate go stubs -- generator script encountered an error")
 	}
-	modulePath := filepath.Join(module.ModuleName, "models", "module.go")
+	modulePath := filepath.Join(module.ModuleName, "module.go")
 	//nolint:gosec
 	moduleFile, err := os.Create(modulePath)
 	if err != nil {
@@ -743,32 +737,6 @@ func getLatestSDKTag(c *cli.Context, language string, globalArgs globalArgs) (st
 	return version, nil
 }
 
-func generateCloudBuild(c *cli.Context, module modulegen.ModuleInputs, globalArgs globalArgs) error {
-	debugf(c.App.Writer, globalArgs.Debug, "Setting cloud build functionality to %s", module.EnableCloudBuild)
-	switch module.Language {
-	case python:
-		if module.EnableCloudBuild {
-			err := os.Remove(filepath.Join(module.ModuleName, "run.sh"))
-			if err != nil {
-				return err
-			}
-		} else {
-			err := os.Remove(filepath.Join(module.ModuleName, "build.sh"))
-			if err != nil {
-				return err
-			}
-		}
-	case golang:
-		if module.EnableCloudBuild {
-			err := os.Remove(filepath.Join(module.ModuleName, "run.sh"))
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 func createModuleAndManifest(cCtx *cli.Context, c *viamClient, module modulegen.ModuleInputs, globalArgs globalArgs) error {
 	var moduleID moduleID
 	if module.RegisterOnApp {
@@ -846,29 +814,25 @@ func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInpu
 	}
 	switch module.Language {
 	case python:
+		manifest.Build = &manifestBuildInfo{
+			Setup: "./setup.sh",
+			Build: "./build.sh",
+			Path:  "dist/archive.tar.gz",
+			Arch:  []string{"linux/amd64", "linux/arm64"},
+		}
 		if module.EnableCloudBuild {
-			manifest.Build = &manifestBuildInfo{
-				Setup: "./setup.sh",
-				Build: "./build.sh",
-				Path:  "dist/archive.tar.gz",
-				Arch:  []string{"linux/amd64", "linux/arm64"},
-			}
 			manifest.Entrypoint = "dist/main"
 		} else {
 			manifest.Entrypoint = "./run.sh"
 		}
 	case golang:
-		if module.EnableCloudBuild {
-			manifest.Build = &manifestBuildInfo{
-				Setup: "make setup",
-				Build: "make module.tar.gz",
-				Path:  "bin/module.tar.gz",
-				Arch:  []string{"linux/amd64", "linux/arm64"},
-			}
-			manifest.Entrypoint = fmt.Sprintf("bin/%s", module.ModuleName)
-		} else {
-			manifest.Entrypoint = "./run.sh"
+		manifest.Build = &manifestBuildInfo{
+			Setup: "make setup",
+			Build: "make module.tar.gz",
+			Path:  "bin/module.tar.gz",
+			Arch:  []string{"linux/amd64", "linux/arm64"},
 		}
+		manifest.Entrypoint = fmt.Sprintf("bin/%s", module.ModuleName)
 	}
 
 	if err := writeManifest(filepath.Join(module.ModuleName, defaultManifestFilename), manifest); err != nil {

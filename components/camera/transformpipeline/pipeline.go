@@ -25,6 +25,9 @@ import (
 
 var model = resource.DefaultModelFamily.WithModel("transform")
 
+// ErrVideoSourceCreation is returned when creating a video source from a camera fails.
+var ErrVideoSourceCreation = errors.New("failed to create video source from camera")
+
 func init() {
 	resource.RegisterComponent(
 		camera.API,
@@ -49,7 +52,10 @@ func init() {
 				if err != nil {
 					return nil, fmt.Errorf("no source camera for transform pipeline (%s): %w", sourceName, err)
 				}
-				vs := videoSourceFromCamera(ctx, source)
+				vs, err := videoSourceFromCamera(ctx, source)
+				if err != nil {
+					return nil, fmt.Errorf("failed to create video source from camera: %w", err)
+				}
 				src, err := newTransformPipeline(ctx, vs, conf.ResourceName().AsNamed(), newConf, actualR, logger)
 				if err != nil {
 					return nil, err
@@ -103,14 +109,18 @@ func (sc *videoSource) Stream(ctx context.Context, errHandlers ...gostream.Error
 // and still implement a camera resource.
 // We prefer this methodology over passing Image bytes because each transform desires a image.Image over
 // a raw byte slice. To use Image would be to wastefully encode and decode the frame multiple times.
-func videoSourceFromCamera(ctx context.Context, cam camera.Camera) camera.VideoSource {
+func videoSourceFromCamera(ctx context.Context, cam camera.Camera) (camera.VideoSource, error) {
 	if streamCam, ok := cam.(camera.VideoSource); ok {
-		return streamCam
+		return streamCam, nil
+	}
+	vs, err := camerautils.VideoSourceFromCamera(ctx, cam)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrVideoSourceCreation, err)
 	}
 	return &videoSource{
 		Camera: cam,
-		vs:     camerautils.VideoSourceFromCamera(ctx, cam),
-	}
+		vs:     vs,
+	}, nil
 }
 
 func newTransformPipeline(
@@ -142,13 +152,19 @@ func newTransformPipeline(
 	}
 	// loop through the pipeline and create the image flow
 	pipeline := make([]camera.VideoSource, 0, len(cfg.Pipeline))
-	lastSource := videoSourceFromCamera(ctx, source)
+	lastSource, err := videoSourceFromCamera(ctx, source)
+	if err != nil {
+		return nil, err
+	}
 	for _, tr := range cfg.Pipeline {
 		src, newStreamType, err := buildTransform(ctx, r, lastSource, streamType, tr)
 		if err != nil {
 			return nil, err
 		}
-		streamSrc := videoSourceFromCamera(ctx, src)
+		streamSrc, err := videoSourceFromCamera(ctx, src)
+		if err != nil {
+			return nil, err
+		}
 		pipeline = append(pipeline, streamSrc)
 		lastSource = streamSrc
 		streamType = newStreamType

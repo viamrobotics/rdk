@@ -625,6 +625,7 @@ func TestStopAll(t *testing.T) {
 
 	conn, err := rgrpc.Dial(ctx, addr, logger)
 	test.That(t, err, test.ShouldBeNil)
+	defer utils.UncheckedErrorFunc(conn.Close)
 	arm1, err := arm.NewClientFromConn(ctx, conn, "somerem", arm.Named("arm1"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -4611,4 +4612,36 @@ func TestModuleNamePassing(t *testing.T) {
 	_, err = res.DoCommand(ctx, map[string]interface{}{"command": "do_readings_on_dep"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, <-moduleNameCh, test.ShouldEqual, moduleName)
+}
+
+func TestListTunnels(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	trafficTunnelEndpoints := []config.TrafficTunnelEndpoint{
+		{
+			Port:              9090,
+			ConnectionTimeout: 20 * time.Second,
+		},
+		{
+			Port:              27017,
+			ConnectionTimeout: 40 * time.Millisecond,
+		},
+		{
+			Port: 23654,
+		},
+	}
+	cfg := &config.Config{
+		Network: config.NetworkConfig{
+			NetworkConfigData: config.NetworkConfigData{
+				TrafficTunnelEndpoints: trafficTunnelEndpoints,
+			},
+		},
+	}
+
+	r := setupLocalRobot(t, ctx, cfg, logger)
+
+	ttes, err := r.ListTunnels(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ttes, test.ShouldResemble, trafficTunnelEndpoints)
 }

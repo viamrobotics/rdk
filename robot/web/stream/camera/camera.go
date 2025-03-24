@@ -3,6 +3,7 @@ package camera
 
 import (
 	"context"
+	"fmt"
 	"image"
 
 	"github.com/pion/mediadevices/pkg/prop"
@@ -10,6 +11,7 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
 )
 
@@ -27,7 +29,7 @@ func Camera(robot robot.Robot, stream gostream.Stream) (camera.Camera, error) {
 
 // VideoSourceFromCamera converts a camera resource into a gostream VideoSource.
 // This is useful for streaming video from a camera resource.
-func VideoSourceFromCamera(ctx context.Context, cam camera.Camera) gostream.VideoSource {
+func VideoSourceFromCamera(ctx context.Context, cam camera.Camera) (gostream.VideoSource, error) {
 	reader := gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
 		img, err := camera.DecodeImageFromCamera(ctx, "", nil, cam)
 		if err != nil {
@@ -37,9 +39,15 @@ func VideoSourceFromCamera(ctx context.Context, cam camera.Camera) gostream.Vide
 	})
 
 	img, err := camera.DecodeImageFromCamera(ctx, "", nil, cam)
-	if err == nil {
-		return gostream.NewVideoSource(reader, prop.Video{Width: img.Bounds().Dx(), Height: img.Bounds().Dy()})
+	if err != nil {
+		// Okay to return empty prop because processInputFrames will tick and set them
+		return gostream.NewVideoSource(reader, prop.Video{}), nil //nolint:nilerr
 	}
-	// Okay to return empty prop because processInputFrames will tick and set them
-	return gostream.NewVideoSource(reader, prop.Video{})
+	if lazyImg, ok := img.(*rimage.LazyEncodedImage); ok {
+		if err := lazyImg.DecodeConfig(); err != nil {
+			return nil, fmt.Errorf("failed to decode lazy encoded image: %w", err)
+		}
+	}
+
+	return gostream.NewVideoSource(reader, prop.Video{Width: img.Bounds().Dx(), Height: img.Bounds().Dy()}), nil
 }

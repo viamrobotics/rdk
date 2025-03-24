@@ -1296,6 +1296,47 @@ func TestConfigJSONMarshalRoundtrip(t *testing.T) {
 				PackagePath: "path/to/home/depot",
 			},
 		},
+		{
+			name: "traffic tunnel endpoints",
+			c: config.Config{
+				Network: config.NetworkConfig{
+					NetworkConfigData: config.NetworkConfigData{
+						TrafficTunnelEndpoints: []config.TrafficTunnelEndpoint{
+							{
+								Port:              9090,
+								ConnectionTimeout: 20 * time.Second,
+							},
+							{
+								Port:              27017,
+								ConnectionTimeout: 40 * time.Millisecond,
+							},
+							{
+								Port: 23654,
+							},
+						},
+					},
+				},
+			},
+			expected: config.Config{
+				Network: config.NetworkConfig{
+					NetworkConfigData: config.NetworkConfigData{
+						TrafficTunnelEndpoints: []config.TrafficTunnelEndpoint{
+							{
+								Port:              9090,
+								ConnectionTimeout: 20 * time.Second,
+							},
+							{
+								Port:              27017,
+								ConnectionTimeout: 40 * time.Millisecond,
+							},
+							{
+								Port: 23654,
+							},
+						},
+					},
+				},
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			c := tc.c

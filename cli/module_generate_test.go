@@ -32,6 +32,7 @@ func TestGenerateModuleAction(t *testing.T) {
 		GeneratedOn:      time.Now().UTC(),
 
 		ModulePascal:          "MyModule",
+		ModuleLowercase:       "mymodule",
 		API:                   "rdk:component:arm",
 		ResourceSubtypePascal: "Arm",
 		ModelPascal:           "MyModel",
@@ -140,7 +141,6 @@ func TestGenerateModuleAction(t *testing.T) {
 		testModule.Language = "go"
 		testModule.SDKVersion = "0.44.0"
 		setupDirectories(cCtx, testModule.ModuleName, globalArgs)
-		_ = os.Mkdir(filepath.Join(modulePath, "models"), 0o755)
 
 		err := generateGolangStubs(testModule)
 		test.That(t, err, test.ShouldBeNil)
@@ -154,17 +154,6 @@ func TestGenerateModuleAction(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		err = generatePythonStubs(testModule)
-		test.That(t, err, test.ShouldBeNil)
-	})
-
-	t.Run("test generate cloud build", func(t *testing.T) {
-		setupDirectories(cCtx, testModule.ModuleName, globalArgs)
-		err := generateCloudBuild(cCtx, testModule, globalArgs)
-		test.That(t, err, test.ShouldBeNil)
-
-		_, err = os.Stat(filepath.Join(modulePath, "run.sh"))
-		test.That(t, err, test.ShouldNotBeNil)
-		_, err = os.Stat(filepath.Join(modulePath, "build.sh"))
 		test.That(t, err, test.ShouldBeNil)
 	})
 

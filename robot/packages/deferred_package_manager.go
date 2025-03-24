@@ -31,6 +31,7 @@ type deferredPackageManager struct {
 	cloudManager        ManagerSyncer
 	cloudManagerArgs    cloudManagerConstructorArgs
 	cloudManagerLock    sync.Mutex
+	bgWorkers           sync.WaitGroup
 
 	lastSyncedManager     ManagerSyncer
 	lastSyncedManagerLock sync.Mutex
@@ -133,8 +134,12 @@ func (m *deferredPackageManager) getManagerForSync(ctx context.Context, packages
 
 	// otherwise, spawn a goroutine to establish the connection and use a noopManager in the meantime
 	// hold the cloudManagerLock until this finishes
+	m.bgWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
-		defer m.cloudManagerLock.Unlock()
+		defer func() {
+			m.bgWorkers.Done()
+			m.cloudManagerLock.Unlock()
+		}()
 		mgr, err := m.createCloudManager(ctx)
 		if err != nil {
 			m.logger.Warnf("failed to create cloud package manager %v", err)

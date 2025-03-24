@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/viamrobotics/webrtc/v3"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
@@ -68,9 +67,6 @@ type Options struct {
 	// baked information when managed to make local UI simpler
 	BakedAuthEntity string
 	BakedAuthCreds  rpc.Credentials
-
-	WebRTCOnPeerAdded   func(pc *webrtc.PeerConnection)
-	WebRTCOnPeerRemoved func(pc *webrtc.PeerConnection)
 
 	DisableMulticastDNS bool
 }

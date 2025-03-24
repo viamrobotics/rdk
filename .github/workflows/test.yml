@@ -58,6 +58,12 @@ jobs:
       - name: Chown
         run: chown -R testbot:testbot .
 
+      - name: Run CLI linter tests
+        run: |
+          cd cli/internal/cli_lint
+          go build .
+          ./cli_lint ../../
+
       - name: Verify no uncommitted changes from "make build-go lint-go generate-go"
         run: |
           sudo -Hu testbot bash -lc 'git init && git add . && make build-go lint-go generate-go'

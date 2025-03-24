@@ -5,6 +5,8 @@ import (
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/utils"
 )
 
 func makeTestMesh(o Orientation, pt r3.Vector, triangles []*Triangle) *Mesh {
@@ -44,6 +46,20 @@ func TestNewMesh(t *testing.T) {
 	test.That(t, mesh.Label(), test.ShouldEqual, "test_mesh")
 	test.That(t, PoseAlmostEqual(mesh.Pose(), pose), test.ShouldBeTrue)
 	test.That(t, len(mesh.Triangles()), test.ShouldEqual, 1)
+}
+
+func TestMeshProtoConversion(t *testing.T) {
+	m, err := NewMeshFromPLYFile(utils.ResolveFile("spatialmath/data/simple.ply"))
+	test.That(t, err, test.ShouldBeNil)
+	m2, err := NewGeometryFromProto(m.ToProtobuf())
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, PoseAlmostEqual(m.Pose(), m2.Pose()), test.ShouldBeTrue)
+	test.That(t, m.Label(), test.ShouldResemble, m2.Label())
+	test.That(t, len(m.Triangles()), test.ShouldEqual, 2)
+	test.That(t, len(m2.(*Mesh).Triangles()), test.ShouldEqual, 2)
+	test.That(t, m.Triangles()[0], test.ShouldResemble, m2.(*Mesh).Triangles()[0])
+	test.That(t, m.Triangles()[1], test.ShouldResemble, m2.(*Mesh).Triangles()[1])
 }
 
 func TestMeshTransform(t *testing.T) {

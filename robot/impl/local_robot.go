@@ -15,7 +15,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	packagespb "go.viam.com/api/app/packages/v1"
-	modulepb "go.viam.com/api/module/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
@@ -515,6 +514,7 @@ func newWithResources(
 		cloudID,
 		logger,
 		cfg.PackagePath,
+		r.webSvc.ModPeerConnTracker(),
 	)
 
 	if !rOpts.disableCompleteConfigWorker {
@@ -1039,65 +1039,7 @@ func RobotFromResources(
 	return newWithResources(ctx, &config.Config{}, resources, nil, logger, opts...)
 }
 
-// DiscoverComponents takes a list of discovery queries and returns corresponding
-// component configurations.
-func (r *localRobot) DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error) {
-	// dedupe queries
-	deduped := make(map[string]resource.DiscoveryQuery, len(qs))
-	for _, q := range qs {
-		key := q.API.String() + ":" + q.Model.String()
-		deduped[key] = q
-	}
-
-	discoveries := make([]resource.Discovery, 0, len(deduped))
-	for _, q := range deduped {
-		if internalDiscovery, isInternal := r.discoverRobotInternals(q); isInternal {
-			discoveries = append(discoveries, resource.Discovery{Query: q, Results: internalDiscovery})
-			continue
-		}
-		reg, ok := resource.LookupRegistration(q.API, q.Model)
-		if !ok || reg.Discover == nil {
-			r.logger.CWarnw(ctx, "no discovery function registered", "api", q.API, "model", q.Model)
-			continue
-		}
-
-		if reg.Discover != nil {
-			discovered, err := reg.Discover(ctx, r.logger.Sublogger("discovery"), q.Extra)
-			if err != nil {
-				return nil, &resource.DiscoverError{Query: q, Cause: err}
-			}
-			discoveries = append(discoveries, resource.Discovery{Query: q, Results: discovered})
-		}
-	}
-	return discoveries, nil
-}
-
-// moduleManagerDiscoveryResult is returned from a DiscoveryQuery to rdk-internal:builtin:module-manager.
-type moduleManagerDiscoveryResult struct {
-	ResourceHandles map[string]modulepb.HandlerMap `json:"resource_handles"`
-}
-
-// discoverRobotInternals is used to discover parts of the robot that are not in the resource graph
-// It accepts a query and should return the Discovery Results object along with an ok value.
-func (r *localRobot) discoverRobotInternals(query resource.DiscoveryQuery) (interface{}, bool) {
-	switch {
-	// these strings are hardcoded because their existence would be misleading anywhere outside of this function
-	case query.API.String() == "rdk-internal:service:module-manager" &&
-		query.Model.String() == "rdk-internal:builtin:module-manager":
-
-		handles := map[string]modulepb.HandlerMap{}
-		for moduleName, handleMap := range r.manager.moduleManager.Handles() {
-			handles[moduleName] = *handleMap.ToProto()
-		}
-		return moduleManagerDiscoveryResult{
-			ResourceHandles: handles,
-		}, true
-	default:
-		return nil, false
-	}
-}
-
-func (r *localRobot) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModelDiscovery, error) {
+func (r *localRobot) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModel, error) {
 	return r.manager.moduleManager.AllModels(), nil
 }
 
@@ -1152,6 +1094,13 @@ func (r *localRobot) applyLocalModuleVersions(cfg *config.Config) {
 }
 
 func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, forceSync bool) {
+	defer func() {
+		// Always update the `initializing` value at the end of this function. Resources may
+		// be equal or `reconfigure` may otherwise return early, but we still want to move
+		// from a state of initializing to running as dictated by the config value.
+		r.initializing.Store(newConfig.Initial)
+	}()
+
 	if !r.reconfigureAllowed(ctx, newConfig, true) {
 		return
 	}
@@ -1347,9 +1296,6 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	} else {
 		r.logger.CInfow(ctx, "Robot (re)configured")
 	}
-
-	// Set initializing value based on `newConfig.Initial`.
-	r.initializing.Store(newConfig.Initial)
 }
 
 // checkMaxInstance checks to see if the local robot has reached the maximum number of a specific resource type that are local.
@@ -1586,4 +1532,13 @@ func (r *localRobot) RestartAllowed() bool {
 		return true
 	}
 	return false
+}
+
+// ListTunnels returns information on available traffic tunnels.
+func (r *localRobot) ListTunnels(_ context.Context) ([]config.TrafficTunnelEndpoint, error) {
+	cfg := r.Config()
+	if cfg != nil {
+		return cfg.Network.NetworkConfigData.TrafficTunnelEndpoints, nil
+	}
+	return nil, nil
 }

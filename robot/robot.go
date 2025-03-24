@@ -33,13 +33,10 @@ const (
 // A Robot encompasses all functionality of some robot comprised
 // of parts, local and remote.
 //
-// DiscoverComponents example:
+// GetModelsFromModules example:
 //
-//	// Define a new discovery query.
-//	q := resource.NewDiscoveryQuery(camera.API, resource.Model{Name: "webcam", Family: resource.DefaultModelFamily})
-//
-//	// Define a list of discovery queries and get potential component configurations with these queries.
-//	out, err := machine.DiscoverComponents(context.Background(), []resource.DiscoveryQuery{q})
+//	//Get a list of models found in configured modules.
+//	models, err := machine.GetModelsFromModules(ctx)
 //
 // ResourceNames example:
 //
@@ -84,13 +81,9 @@ const (
 //	// Shut down the robot.
 //	err := machine.Shutdown(context.Background())
 type Robot interface {
-	// DiscoverComponents returns discovered potential component configurations.
-	// Only implemented for webcam cameras in builtin components.
-	DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error)
-
 	// GetModelsFromModules returns a list of models supported by the configured modules,
 	// and specifies whether the models are from a local or registry module.
-	GetModelsFromModules(ctx context.Context) ([]resource.ModuleModelDiscovery, error)
+	GetModelsFromModules(ctx context.Context) ([]resource.ModuleModel, error)
 
 	// RemoteByName returns a remote robot by name.
 	RemoteByName(name string) (Robot, bool)
@@ -158,6 +151,9 @@ type Robot interface {
 
 	// Version returns version information about the robot.
 	Version(ctx context.Context) (VersionResponse, error)
+
+	// ListTunnels returns information on available traffic tunnels.
+	ListTunnels(ctx context.Context) ([]config.TrafficTunnelEndpoint, error)
 }
 
 // A LocalRobot is a Robot that can have its parts modified.

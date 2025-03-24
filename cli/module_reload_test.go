@@ -125,50 +125,95 @@ func TestMutateModuleConfig(t *testing.T) {
 		JSONManifest: rdkConfig.JSONManifest{Entrypoint: "/bin/mod"},
 		Build:        &manifestBuildInfo{Path: "module.tar.gz"},
 	}
+	expectedName := "viam-labs_test-module_from_reload"
+	expectedVersion := "latest-with-prerelease"
+	remoteReloadPath := ".viam/packages-local/viam-labs_test-module_from_reload-module.tar.gz"
 
-	t.Run("correct_exepath", func(t *testing.T) {
-		// correct ExePath (do nothing)
-		modules := []ModuleMap{{"module_id": manifest.ModuleID, "executable_path": manifest.Entrypoint}}
+	t.Run("correct_reload_path_and_enabled", func(t *testing.T) {
+		// correct ReloadPath and ReloadEnabled (do nothing) in registry module
+		modules := []ModuleMap{{
+			"type":           string(rdkConfig.ModuleTypeRegistry),
+			"module_id":      manifest.ModuleID,
+			"reload_path":    manifest.Entrypoint,
+			"reload_enabled": true,
+		}}
 		_, dirty, err := mutateModuleConfig(c, modules, manifest, true)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, dirty, test.ShouldBeFalse)
 	})
 
-	t.Run("wrong_exepath", func(t *testing.T) {
-		// wrong ExePath
-		modules := []ModuleMap{{"module_id": manifest.ModuleID, "executable_path": "WRONG"}}
+	t.Run("correct_reload_path_and_disabled", func(t *testing.T) {
+		// correct ReloadPath, but ReloadEnabled is false in registry module
+		modules := []ModuleMap{{
+			"type":           string(rdkConfig.ModuleTypeRegistry),
+			"module_id":      manifest.ModuleID,
+			"reload_path":    manifest.Entrypoint,
+			"reload_enabled": false,
+		}}
 		_, dirty, err := mutateModuleConfig(c, modules, manifest, true)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, dirty, test.ShouldBeTrue)
-		test.That(t, modules[0]["executable_path"], test.ShouldEqual, manifest.Entrypoint)
+		test.That(t, modules[0]["reload_enabled"], test.ShouldBeTrue)
 	})
 
-	t.Run("wrong_exepath_local", func(t *testing.T) {
-		// wrong ExePath with localName
-		modules := []ModuleMap{{"name": localizeModuleID(manifest.ModuleID)}}
-		mutateModuleConfig(c, modules, manifest, true)
-		test.That(t, modules[0]["executable_path"], test.ShouldEqual, manifest.Entrypoint)
+	t.Run("incorrect_reload_path_and_disabled", func(t *testing.T) {
+		// incorrect ReloadPath and ReloadEnabled is false in registry module
+		modules := []ModuleMap{{
+			"type":           string(rdkConfig.ModuleTypeRegistry),
+			"module_id":      manifest.ModuleID,
+			"reload_path":    "incorrect/path",
+			"reload_enabled": false,
+		}}
+		_, dirty, err := mutateModuleConfig(c, modules, manifest, true)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, dirty, test.ShouldBeTrue)
+		test.That(t, modules[0]["reload_path"], test.ShouldEqual, manifest.Entrypoint)
+		test.That(t, modules[0]["reload_enabled"], test.ShouldBeTrue)
 	})
 
-	t.Run("insert", func(t *testing.T) {
-		// insert case
+	t.Run("reload_fields_missing", func(t *testing.T) {
+		// ReloadPath and ReloadEnabled are both missing from the module map in registry module
+		modules := []ModuleMap{{
+			"type":      string(rdkConfig.ModuleTypeRegistry),
+			"module_id": manifest.ModuleID,
+		}}
+		_, dirty, err := mutateModuleConfig(c, modules, manifest, true)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, dirty, test.ShouldBeTrue)
+		test.That(t, modules[0]["reload_path"], test.ShouldEqual, manifest.Entrypoint)
+		test.That(t, modules[0]["reload_enabled"], test.ShouldBeTrue)
+	})
+
+	t.Run("insert_when_missing", func(t *testing.T) {
 		modules := []ModuleMap{}
 		modules, _, _ = mutateModuleConfig(c, modules, manifest, true)
-		test.That(t, modules[0]["executable_path"], test.ShouldEqual, manifest.Entrypoint)
+		test.That(t, modules[0]["module_id"], test.ShouldEqual, manifest.ModuleID)
+		test.That(t, modules[0]["name"], test.ShouldEqual, expectedName)
+		test.That(t, modules[0]["reload_path"], test.ShouldEqual, manifest.Entrypoint)
+		test.That(t, modules[0]["reload_enabled"], test.ShouldBeTrue)
+		test.That(t, modules[0]["version"], test.ShouldEqual, expectedVersion)
 	})
 
-	t.Run("registry_to_local", func(t *testing.T) {
-		// registry to local
-		// todo(RSDK-6712): this goes away once we reconcile registry + local modules
-		modules := []ModuleMap{{"module_id": manifest.ModuleID, "executable_path": "WRONG", "type": string(rdkConfig.ModuleTypeRegistry)}}
-		mutateModuleConfig(c, modules, manifest, true)
-		test.That(t, modules[0]["name"], test.ShouldEqual, localizeModuleID(manifest.ModuleID))
+	t.Run("insert_when_local_module_found", func(t *testing.T) {
+		// ReloadPath and ReloadEnabled are both missing from the module map in registry module
+		modules := []ModuleMap{{
+			"type":      string(rdkConfig.ModuleTypeLocal),
+			"module_id": manifest.ModuleID,
+		}}
+		updatedModules, _, _ := mutateModuleConfig(c, modules, manifest, true)
+		test.That(t, len(updatedModules), test.ShouldEqual, 2)
+		test.That(t, updatedModules[1]["reload_path"], test.ShouldEqual, manifest.Entrypoint)
+		test.That(t, updatedModules[1]["reload_enabled"], test.ShouldBeTrue)
+		test.That(t, updatedModules[1]["version"], test.ShouldEqual, expectedVersion)
 	})
 
 	c = newTestContext(t, map[string]any{})
 	t.Run("remote_insert", func(t *testing.T) {
 		modules, _, _ := mutateModuleConfig(c, []ModuleMap{}, manifest, false)
-		test.That(t, modules[0]["executable_path"], test.ShouldEqual,
-			".viam/packages-local/viam-labs_test-module_from_reload-module.tar.gz")
+		test.That(t, modules[0]["module_id"], test.ShouldEqual, manifest.ModuleID)
+		test.That(t, modules[0]["name"], test.ShouldEqual, expectedName)
+		test.That(t, modules[0]["reload_path"], test.ShouldEqual, remoteReloadPath)
+		test.That(t, modules[0]["reload_enabled"], test.ShouldBeTrue)
+		test.That(t, modules[0]["version"], test.ShouldEqual, expectedVersion)
 	})
 }

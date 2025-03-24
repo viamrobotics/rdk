@@ -196,7 +196,7 @@ func (ftdc *FTDC) Remove(name string) {
 func (ftdc *FTDC) Start() {
 	if runtime.GOOS == "windows" {
 		// note: this logs a panic on RDK start on windows.
-		ftdc.logger.Warn("FTDC not implemented on windows, not starting")
+		ftdc.logger.Debug("FTDC not implemented on windows, not starting")
 		return
 	}
 	ftdc.readStatsWorker = utils.NewStoppableWorkerWithTicker(time.Second, ftdc.statsReader)

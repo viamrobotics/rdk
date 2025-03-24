@@ -27,8 +27,7 @@ import (
 type Robot struct {
 	robot.LocalRobot
 	Mu                       sync.RWMutex // Ugly, has to be manually locked if a test means to swap funcs on an in-use robot.
-	DiscoverComponentsFunc   func(ctx context.Context, keys []resource.DiscoveryQuery) ([]resource.Discovery, error)
-	GetModelsFromModulesFunc func(ctx context.Context) ([]resource.ModuleModelDiscovery, error)
+	GetModelsFromModulesFunc func(ctx context.Context) ([]resource.ModuleModel, error)
 	RemoteByNameFunc         func(name string) (robot.Robot, bool)
 	ResourceByNameFunc       func(name resource.Name) (resource.Resource, error)
 	RemoteNamesFunc          func() []string
@@ -51,6 +50,7 @@ type Robot struct {
 	CloudMetadataFunc       func(ctx context.Context) (cloud.Metadata, error)
 	MachineStatusFunc       func(ctx context.Context) (robot.MachineStatus, error)
 	ShutdownFunc            func(ctx context.Context) error
+	ListTunnelsFunc         func(ctx context.Context) ([]config.TrafficTunnelEndpoint, error)
 
 	ops        *operation.Manager
 	SessMgr    session.Manager
@@ -219,18 +219,8 @@ func (r *Robot) StopAll(ctx context.Context, extra map[resource.Name]map[string]
 	return r.StopAllFunc(ctx, extra)
 }
 
-// DiscoverComponents calls the injected DiscoverComponents or the real one.
-func (r *Robot) DiscoverComponents(ctx context.Context, keys []resource.DiscoveryQuery) ([]resource.Discovery, error) {
-	r.Mu.RLock()
-	defer r.Mu.RUnlock()
-	if r.DiscoverComponentsFunc == nil {
-		return r.LocalRobot.DiscoverComponents(ctx, keys)
-	}
-	return r.DiscoverComponentsFunc(ctx, keys)
-}
-
 // GetModelsFromModules calls the injected GetModelsFromModules or the real one.
-func (r *Robot) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModelDiscovery, error) {
+func (r *Robot) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModel, error) {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 	if r.GetModelsFromModulesFunc == nil {
@@ -314,6 +304,16 @@ func (r *Robot) Shutdown(ctx context.Context) error {
 		return r.LocalRobot.Shutdown(ctx)
 	}
 	return r.ShutdownFunc(ctx)
+}
+
+// ListTunnels calls the injected ListTunnels or the real one.
+func (r *Robot) ListTunnels(ctx context.Context) ([]config.TrafficTunnelEndpoint, error) {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+	if r.ListTunnelsFunc == nil {
+		return r.LocalRobot.ListTunnels(ctx)
+	}
+	return r.ListTunnelsFunc(ctx)
 }
 
 type noopSessionManager struct{}

@@ -27,7 +27,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/ftdc"
@@ -74,6 +73,7 @@ func NewManager(
 		restartCtxCancel:        restartCtxCancel,
 		packagesDir:             options.PackagesDir,
 		ftdc:                    options.FTDC,
+		modPeerConnTracker:      options.ModPeerConnTracker,
 	}
 	ret.nextPort.Store(tcpPortRange)
 	return ret
@@ -87,7 +87,6 @@ type module struct {
 	sharedConn rdkgrpc.SharedConn
 	client     pb.ModuleServiceClient
 	// robotClient supplements the ModuleServiceClient client to serve select robot level methods from the module server
-	// such as the DiscoverComponents API
 	robotClient robotpb.RobotServiceClient
 	addr        string
 	resources   map[resource.Name]*addedResource
@@ -193,6 +192,10 @@ type Manager struct {
 	ftdc                    *ftdc.FTDC
 	// nextPort manages ports when ViamTCPSockets() = true.
 	nextPort atomic.Int32
+
+	// modPeerConnTracker must be updated as modules create/destroy any underlying WebRTC
+	// PeerConnections.
+	modPeerConnTracker *rdkgrpc.ModPeerConnTracker
 }
 
 // Close terminates module connections and processes.
@@ -400,12 +403,19 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 		return errors.WithMessage(err, "error while starting module "+mod.cfg.Name)
 	}
 
+	// Does a gRPC dial. Sets up a SharedConn with a PeerConnection that is not yet connected.
 	if err := mod.dial(); err != nil {
 		return errors.WithMessage(err, "error while dialing module "+mod.cfg.Name)
 	}
 
+	// Sends a ReadyRequest and waits on a ReadyResponse. The PeerConnection will async connect
+	// after this, so long as the module supports it.
 	if err := mod.checkReady(ctx, mgr.parentAddr); err != nil {
 		return errors.WithMessage(err, "error while waiting for module to be ready "+mod.cfg.Name)
+	}
+
+	if pc := mod.sharedConn.PeerConn(); mgr.modPeerConnTracker != nil && pc != nil {
+		mgr.modPeerConnTracker.Add(mod.cfg.Name, pc)
 	}
 
 	mod.registerResources(mgr)
@@ -513,6 +523,9 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 		return errors.WithMessage(err, "error while stopping module "+mod.cfg.Name)
 	}
 
+	if mgr.modPeerConnTracker != nil {
+		mgr.modPeerConnTracker.Remove(mod.cfg.Name)
+	}
 	if err := mod.sharedConn.Close(); err != nil {
 		mod.logger.Warnw("Error closing connection to module", "error", err)
 	}
@@ -612,11 +625,11 @@ func (mgr *Manager) Configs() []config.Module {
 	return configs
 }
 
-// AllModels returns a slice of resource.ModuleModelDiscovery representing the available models
+// AllModels returns a slice of resource.ModuleModel representing the available models
 // from the currently managed modules.
-func (mgr *Manager) AllModels() []resource.ModuleModelDiscovery {
+func (mgr *Manager) AllModels() []resource.ModuleModel {
 	moduleTypes := map[string]config.ModuleType{}
-	models := []resource.ModuleModelDiscovery{}
+	models := []resource.ModuleModel{}
 	for _, moduleConfig := range mgr.Configs() {
 		moduleName := moduleConfig.Name
 		moduleTypes[moduleName] = moduleConfig.Type
@@ -624,7 +637,7 @@ func (mgr *Manager) AllModels() []resource.ModuleModelDiscovery {
 	for moduleName, handleMap := range mgr.Handles() {
 		for api, handle := range handleMap {
 			for _, model := range handle {
-				modelModel := resource.ModuleModelDiscovery{
+				modelModel := resource.ModuleModel{
 					ModuleName: moduleName, Model: model, API: api.API,
 					FromLocalModule: moduleTypes[moduleName] == config.ModuleTypeLocal,
 				}
@@ -1038,6 +1051,10 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 		return orphanedResourceNames
 	}
 
+	if pc := mod.sharedConn.PeerConn(); mgr.modPeerConnTracker != nil && pc != nil {
+		mgr.modPeerConnTracker.Add(mod.cfg.Name, pc)
+	}
+
 	mod.registerResources(mgr)
 
 	success = true
@@ -1190,6 +1207,14 @@ func (m *module) startProcess(
 		m.logger.CInfow(ctx, "Starting module in working directory", "module", m.cfg.Name, "dir", moduleWorkingDirectory)
 	}
 
+	// Create STDOUT and STDERR loggers for the module and turn off log deduplication for
+	// both. Module output through these loggers may contain data like stack traces, which
+	// are repetitive but are not actually "noisy."
+	stdoutLogger := m.logger.Sublogger("StdOut")
+	stderrLogger := m.logger.Sublogger("StdErr")
+	stdoutLogger.NeverDeduplicate()
+	stderrLogger.NeverDeduplicate()
+
 	pconf := pexec.ProcessConfig{
 		ID:               m.cfg.Name,
 		Name:             absoluteExePath,
@@ -1198,6 +1223,8 @@ func (m *module) startProcess(
 		Environment:      moduleEnvironment,
 		Log:              true,
 		OnUnexpectedExit: oue,
+		StdOutLogger:     stdoutLogger,
+		StdErrLogger:     stderrLogger,
 	}
 	// Start module process with supplied log level or "debug" if none is
 	// supplied and module manager has a DebugLevel logger.
@@ -1309,10 +1336,6 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager) {
 		case api.API.IsComponent():
 			for _, model := range models {
 				m.logger.Infow("Registering component API and model from module", "module", m.cfg.Name, "API", api.API, "model", model)
-				// We must copy because the Discover closure func relies on api and model, but they are iterators and mutate.
-				// Copying prevents mutation.
-				modelCopy := model
-				apiCopy := api
 				resource.RegisterComponent(api.API, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 					Constructor: func(
 						ctx context.Context,
@@ -1321,34 +1344,6 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager) {
 						logger logging.Logger,
 					) (resource.Resource, error) {
 						return mgr.AddResource(ctx, conf, DepsToNames(deps))
-					},
-					Discover: func(ctx context.Context, logger logging.Logger, extra map[string]interface{}) (interface{}, error) {
-						extraStructPb, err := structpb.NewStruct(extra)
-						if err != nil {
-							return nil, err
-						}
-
-						//nolint:deprecated,staticcheck
-						req := &robotpb.DiscoverComponentsRequest{
-							Queries: []*robotpb.DiscoveryQuery{
-								{Subtype: apiCopy.API.String(), Model: modelCopy.String(), Extra: extraStructPb},
-							},
-						}
-
-						//nolint:deprecated,staticcheck
-						res, err := m.robotClient.DiscoverComponents(ctx, req)
-						if err != nil {
-							m.logger.Errorf("error in modular DiscoverComponents: %s", err)
-							return nil, err
-						}
-						switch len(res.Discovery) {
-						case 0:
-							return nil, errors.New("modular DiscoverComponents response did not contain any discoveries")
-						case 1:
-							return res.Discovery[0].Results.AsMap(), nil
-						default:
-							return nil, errors.New("modular DiscoverComponents response contains more than one discovery")
-						}
 					},
 				})
 			}

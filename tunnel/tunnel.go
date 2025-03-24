@@ -8,29 +8,52 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 
 	"go.viam.com/rdk/logging"
 )
 
 func filterError(ctx context.Context, err error, closeChan <-chan struct{}, logger logging.Logger) error {
-	// if connection is expected to be closed, filter out "use of closed network connection" errors
+	// If the connection is expected to be closed, filter out any errors that may have
+	// resulted from previous connection closure.
 	select {
 	case <-closeChan:
-		if errors.Is(err, net.ErrClosed) {
-			logger.CDebugw(ctx, "expected error received", "err", err)
+		if errors.Is(err, net.ErrClosed) || errors.Is(err, io.ErrClosedPipe) {
+			logger.CDebugw(ctx, "expected error due to connection closure received", "err", err)
 			return nil
 		}
 	default:
 	}
 
-	// EOF indicates that the connection passed in is not going to receive any more data
-	// and is not expecting any more data to be written to it.
-	//
-	// This is expected and does not indicate an error, so filter it out.
-	if errors.Is(err, io.EOF) {
-		logger.CDebugw(ctx, "expected EOF received")
+	// context.Canceled indicates that the context on the bidi stream was canceled midway
+	// through sending or receiving.
+	if errors.Is(err, context.Canceled) {
+		logger.CDebug(ctx, "ignoring context cancelation")
 		return nil
 	}
+
+	// EOF indicates that the connection passed in is not going to receive any more data
+	// and is not expecting any more data to be written to it.
+	if errors.Is(err, io.EOF) {
+		logger.CDebug(ctx, "ignoring EOF error")
+		return nil
+	}
+
+	// Depending on when the tunnel is closed, the server may not have a chance to complete
+	// sending the HTTP2 header (gRPC is implemented over HTTP2.)
+	if err != nil && strings.Contains(err.Error(), "missing HTTP content-type") {
+		logger.CDebug(ctx, "ignoring error about malformed header")
+		return nil
+	}
+
+	// Depending on when the tunnel is closed, the server may not have a chance to send
+	// trailers.
+	if err != nil && strings.Contains(err.Error(),
+		"server closed the stream without sending trailers") {
+		logger.CDebug(ctx, "ignoring error about failure to receive trailers")
+		return nil
+	}
+
 	return err
 }
 

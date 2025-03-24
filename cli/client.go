@@ -63,6 +63,9 @@ const (
 	maxNumLogs = 10000
 	// logoMaxSize is the maximum size of a logo in bytes.
 	logoMaxSize = 1024 * 200 // 200 KB
+	// defaultLogStartTime is set to the last 24 hours
+	// because logs older than 24 hours are stored in the online archive.
+	defaultLogStartTime = -24 * time.Hour
 	// yellow is the format string used to output warnings in yellow color.
 	yellow = "\033[1;33m%s\033[0m"
 )
@@ -869,6 +872,10 @@ func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArg
 		return err
 	}
 
+	if args.Start == "" {
+		args.Start = time.Now().Add(defaultLogStartTime).UTC().Format(time.RFC3339)
+	}
+
 	startTime, err := parseTimeString(args.Start)
 	if err != nil {
 		return errors.Wrap(err, "invalid start time format")
@@ -1475,6 +1482,35 @@ func CheckUpdateAction(c *cli.Context, args emptyArgs) error {
 		return nil
 	}
 
+	appVersion := rconfig.Version
+	latestRelease, err := getLatestReleaseVersion()
+	if err != nil {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to get latest release information: %w", err)
+	}
+
+	latestVersion, err := semver.NewVersion(latestRelease)
+
+	// failure to parse `latestRelease` is expected for local builds; we don't want overly
+	// noisy warnings here so only alert in these cases if debug flag is on
+	if err != nil && globalArgs.Debug {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse latest release version")
+	}
+	localVersion, err := semver.NewVersion(appVersion)
+	if err != nil && globalArgs.Debug {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse build version")
+	}
+
+	// we know both the local version and the latest version so we can make a determination
+	// from that alone on whether or not to alert users to update
+	if localVersion != nil && latestVersion != nil {
+		// the local version is out of date, so we know to warn
+		if localVersion.LessThan(latestVersion) {
+			warningf(c.App.ErrWriter, "CLI Update Check: Your CLI (%s) is out of date. Consider updating to version %s. "+
+				"See https://docs.viam.com/cli/#install", localVersion.Original(), latestVersion.Original())
+		}
+		return nil
+	}
+
 	dateCompiledRaw := rconfig.DateCompiled
 
 	// `go build` will not set the compilation flags needed for this check
@@ -1488,73 +1524,14 @@ func CheckUpdateAction(c *cli.Context, args emptyArgs) error {
 		return nil
 	}
 
-	// install is less than six weeks old
-	if time.Since(dateCompiled) < time.Hour*24*7*6 {
-		return nil
-	}
-
-	conf, err := ConfigFromCache(c)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			utils.UncheckedError(err)
-			return nil
+	// the local build is more than a week old, so we should warn
+	if time.Since(dateCompiled) > time.Hour*24*7 {
+		var updateInstructions string
+		if latestVersion != nil {
+			updateInstructions = fmt.Sprintf(" to version: %s", latestVersion.Original())
 		}
-		conf = &Config{}
-	}
-
-	var lastCheck time.Time
-	if conf.LastUpdateCheck == "" {
-		conf.LastUpdateCheck = time.Now().Format("2006-01-02")
-	} else {
-		lastCheck, err = time.Parse("2006-01-02", conf.LastUpdateCheck)
-		if err != nil {
-			warningf(c.App.ErrWriter, "CLI Update Check: failed to parse date of last check: %w", err)
-			return nil
-		}
-	}
-
-	// The latest version info is cached to limit api calls to once every three days
-	if time.Since(lastCheck) < time.Hour*24*3 && conf.LatestVersion != "" {
-		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is more than 6 weeks old. "+
-			"Consider updating to version: %s", conf.LatestVersion)
-		return nil
-	}
-
-	latestRelease, err := getLatestReleaseVersion()
-	if err != nil {
-		warningf(c.App.ErrWriter, "CLI Update Check: failed to get latest release information: %w", err)
-		return nil
-	}
-
-	latestVersion, err := semver.NewVersion(latestRelease)
-	if err != nil {
-		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse latest version: %w", err)
-		return nil
-	}
-
-	conf.LatestVersion = latestVersion.String()
-
-	err = storeConfigToCache(conf)
-	if err != nil {
-		utils.UncheckedError(err)
-	}
-
-	appVersion := rconfig.Version
-	if appVersion == "" {
-		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is more than 6 weeks old. "+
-			"Consider updating to version: %s", latestVersion.Original())
-		return nil
-	}
-
-	localVersion, err := semver.NewVersion(appVersion)
-	if err != nil {
-		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse compiled version: %w", err)
-		return nil
-	}
-
-	if localVersion.LessThan(latestVersion) {
-		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is out of date. Consider updating to version %s. "+
-			"See https://docs.viam.com/cli/#install", latestVersion.Original())
+		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is more than a week old. "+
+			"New CLI releases happen weekly; consider updating%s. See https://docs.viam.com/cli/#install", updateInstructions)
 	}
 
 	return nil
