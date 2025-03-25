@@ -116,6 +116,12 @@ func newMeshFromProto(pose Pose, m *commonpb.Mesh, label string) (*Mesh, error) 
 	}
 }
 
+// String returns a human readable string that represents the box.
+func (m *Mesh) String() string {
+	return fmt.Sprintf("Type: Mesh | Position: X:%.1f, Y:%.1f, Z:%.1f | Triangle count: %d",
+		m.pose.Point().X, m.pose.Point().Y, m.pose.Point().Z, len(m.triangles))
+}
+
 // ToProtobuf converts a Mesh to its protobuf representation.
 // Note that if the mesh's rawBytes and fileType fields are unset this will result in a malformed message.
 func (m *Mesh) ToProtobuf() *commonpb.Geometry {

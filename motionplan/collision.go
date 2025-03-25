@@ -97,11 +97,13 @@ func collisionSpecifications(
 			for _, subGeom := range geomsInFrame.Geometries() {
 				subNames = append(subNames, subGeom.Label())
 			}
-			return subNames, nil
 		}
 		// Check if it's a single sub-component
 		if validGeoms[cName] {
-			return []string{cName}, nil
+			subNames = append(subNames, cName)
+		}
+		if len(subNames) > 0 {
+			return subNames, nil
 		}
 
 		// generate the list of available names to return in error message
