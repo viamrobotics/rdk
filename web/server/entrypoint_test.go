@@ -373,7 +373,6 @@ func TestTunnelE2E(t *testing.T) {
 	//
 	// test-process <-> source-listener(localhost:23656) <-> machine(localhost:23655) <-> dest-listener(localhost:23654)
 
-	t.Skip("temporarily disable tunneling tests")
 	tunnelMsg := "Hello, World!"
 	destPort := 23654
 	destListenerAddr := net.JoinHostPort("localhost", strconv.Itoa(destPort))
