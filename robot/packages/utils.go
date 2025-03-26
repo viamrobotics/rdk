@@ -22,6 +22,10 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
+const (
+	windowsOS = "windows" // constant for Windows OS identifier
+)
+
 // installCallback is the function signature that gets passed to installPackage.
 type installCallback func(ctx context.Context, url, dstPath string) (checksum, contentType string, err error)
 
@@ -87,7 +91,7 @@ func installPackage(
 	}
 
 	renameDest := p.LocalDataDirectory(packagesDir)
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windowsOS {
 		if _, err := os.Stat(renameDest); err == nil {
 			logger.Debug("package rename destination exists, deleting")
 			if err := os.RemoveAll(renameDest); err != nil {
@@ -246,8 +250,11 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 
 // commonCleanup is a helper for the various ManagerSyncer.Cleanup functions.
 func commonCleanup(logger logging.Logger, expectedPackageEntries map[string]bool, packagesDataDir string) error {
+	logger.Infof("Starting cleanup with %d expected package entries", len(expectedPackageEntries))
+
 	topLevelFiles, err := os.ReadDir(packagesDataDir)
 	if err != nil {
+		logger.Errorf("Failed to read packages data directory: %v", err)
 		return err
 	}
 
@@ -257,45 +264,160 @@ func commonCleanup(logger logging.Logger, expectedPackageEntries map[string]bool
 	for _, packageTypeDir := range topLevelFiles {
 		packageTypeDirName, err := rutils.SafeJoinDir(packagesDataDir, packageTypeDir.Name())
 		if err != nil {
+			logger.Debugf("Failed to join directory name %s: %v", packageTypeDir.Name(), err)
 			allErrors = errors.Join(allErrors, err)
 			continue
 		}
 
-		// Delete any non-directory files in the packages/data dir except for those with suffixes:
-		//
-		// `.status.json` - these files contain download status infomration.
-		// `.first_run_succeeded` - these mark successful setup phase runs.
-		if packageTypeDir.Type()&os.ModeDir != os.ModeDir && !strings.HasSuffix(packageTypeDirName, statusFileExt) {
-			allErrors = errors.Join(allErrors, os.Remove(packageTypeDirName))
+		// Handle regular files (non-directories)
+		if packageTypeDir.Type()&os.ModeDir != os.ModeDir {
+			// Skip status files and first run success files
+			if strings.HasSuffix(packageTypeDirName, statusFileExt) ||
+				strings.HasSuffix(packageTypeDirName, config.FirstRunSuccessSuffix) {
+				continue
+			}
+
+			// Remove non-directory files
+			if err := os.Remove(packageTypeDirName); err != nil {
+				logger.Debugf("Failed to remove file %s: %v", packageTypeDirName, err)
+				allErrors = errors.Join(allErrors, err)
+			}
 			continue
 		}
-		// read all of the packages in the directory and delete those that aren't in expectedPackageEntries
+
+		// This is a package type directory (e.g., "module")
+		if runtime.GOOS == windowsOS {
+			if err := cleanupPackageTypeDirectoryWindows(logger, packageTypeDirName, expectedPackageEntries); err != nil {
+				allErrors = errors.Join(allErrors, err)
+			}
+		} else {
+			if err := cleanupPackageTypeDirectoryGeneric(logger, packageTypeDirName, expectedPackageEntries); err != nil {
+				allErrors = errors.Join(allErrors, err)
+			}
+		}
+
+		// After cleanup, check if package type directory is empty and can be removed
 		packageDirs, err := os.ReadDir(packageTypeDirName)
 		if err != nil {
+			logger.Debugf("Failed to read package type directory %s: %v", packageTypeDirName, err)
 			allErrors = errors.Join(allErrors, err)
 			continue
 		}
-		for _, entry := range packageDirs {
-			entryPath, err := rutils.SafeJoinDir(packageTypeDirName, entry.Name())
+
+		if len(packageDirs) == 0 {
+			logger.Debugf("Removing empty package type directory: %s", packageTypeDirName)
+			if err := os.RemoveAll(packageTypeDirName); err != nil {
+				logger.Errorf("Failed to remove empty package type directory: %v", err)
+				allErrors = errors.Join(allErrors, err)
+			}
+		}
+	}
+
+	return allErrors
+}
+
+// cleanupPackageTypeDirectoryGeneric handles cleanup for non-Windows platforms.
+func cleanupPackageTypeDirectoryGeneric(logger logging.Logger, typeDir string, expectedPackageEntries map[string]bool) error {
+	var allErrors error
+
+	// Read all entries in the package type directory
+	entries, err := os.ReadDir(typeDir)
+	if err != nil {
+		logger.Errorf("Failed to read package type directory: %v", err)
+		return err
+	}
+
+	// Process each entry
+	for _, entry := range entries {
+		entryPath, err := rutils.SafeJoinDir(typeDir, entry.Name())
+		if err != nil {
+			logger.Errorf("Failed to join entry path: %v", err)
+			allErrors = errors.Join(allErrors, err)
+			continue
+		}
+
+		// Check if we should delete this entry
+		if deletePackageEntry(expectedPackageEntries, entryPath) {
+			logger.Infof("Removing old package: %s", entryPath)
+			if err := os.RemoveAll(entryPath); err != nil {
+				logger.Errorf("Failed to remove entry: %v", err)
+				allErrors = errors.Join(allErrors, err)
+			}
+		}
+	}
+
+	return allErrors
+}
+
+// cleanupPackageTypeDirectoryWindows handles cleanup for Windows, using a hierarchical approach
+// to clean up old versions while properly handling directories that might contain locked files.
+func cleanupPackageTypeDirectoryWindows(logger logging.Logger, typeDir string, expectedPackageEntries map[string]bool) error {
+	var allErrors error
+
+	expectedPackageEntries[typeDir] = true
+
+	// List the ID directories in this type directory
+	idDirs, err := os.ReadDir(typeDir)
+	if err != nil {
+		logger.Errorf("Failed to read package type directory: %v", err)
+		return err
+	}
+
+	// Process each ID directory
+	for _, idEntry := range idDirs {
+		// Skip files
+		if !idEntry.IsDir() {
+			logger.Debugf("Skipping non-directory entry: %s", idEntry.Name())
+			continue
+		}
+
+		idPath := filepath.Join(typeDir, idEntry.Name())
+
+		// List version directories in this ID directory
+		versionDirs, err := os.ReadDir(idPath)
+		if err != nil {
+			logger.Errorf("Failed to read package ID directory: %v", err)
+			allErrors = errors.Join(allErrors, err)
+			continue
+		}
+
+		// Scan version directories and remove those not in expected map
+		keepIDDir := false
+		for _, versionEntry := range versionDirs {
+			versionPath := filepath.Join(idPath, versionEntry.Name())
+			if !deletePackageEntry(expectedPackageEntries, versionPath) {
+				// This is a current version, keep it and its parent
+				logger.Debugf("Keeping current version: %s", versionPath)
+				keepIDDir = true
+			} else {
+				// This is an old version, remove it
+				logger.Infof("Removing old package version: %s", versionPath)
+				if err := os.RemoveAll(versionPath); err != nil {
+					logger.Errorf("Failed to remove old version directory: %v", err)
+					allErrors = errors.Join(allErrors, err)
+				}
+			}
+		}
+
+		// If this ID directory has no current versions, try to remove it
+		if !keepIDDir {
+			// Check if the directory is now empty after removing old versions
+			remainingEntries, err := os.ReadDir(idPath)
 			if err != nil {
+				logger.Errorf("Failed to re-read ID directory: %v", err)
 				allErrors = errors.Join(allErrors, err)
 				continue
 			}
-			if deletePackageEntry(expectedPackageEntries, entryPath) {
-				logger.Debugf("Removing old package file(s) %s", entryPath)
-				allErrors = errors.Join(allErrors, os.RemoveAll(entryPath))
+
+			if len(remainingEntries) == 0 {
+				if err := os.Remove(idPath); err != nil {
+					logger.Errorf("Failed to remove empty ID directory: %v", err)
+					allErrors = errors.Join(allErrors, err)
+				}
 			}
 		}
-		// re-read the directory, if there is nothing left in it, delete the directory
-		packageDirs, err = os.ReadDir(packageTypeDirName)
-		if err != nil {
-			allErrors = errors.Join(allErrors, err)
-			continue
-		}
-		if len(packageDirs) == 0 {
-			allErrors = errors.Join(allErrors, os.RemoveAll(packageTypeDirName))
-		}
 	}
+
 	return allErrors
 }
 
@@ -306,10 +428,12 @@ func deletePackageEntry(expectedPackageEntries map[string]bool, entryPath string
 	if _, ok := expectedPackageEntries[entryPath]; ok {
 		return false
 	}
+
 	// check if directory corresponds to a module version download status file - if so DO NOT delete it.
 	if _, ok := expectedPackageEntries[strings.TrimSuffix(entryPath, statusFileExt)]; ok {
 		return false
 	}
+
 	// check if directory corresponds to a first run success marker file - if so DO NOT delete it.
 	if _, ok := expectedPackageEntries[strings.TrimSuffix(entryPath, config.FirstRunSuccessSuffix)]; ok {
 		return false
@@ -391,7 +515,7 @@ func readStatusFile(pkg config.PackageConfig, packagesDir string) (packageSyncFi
 
 func writeStatusFile(pkg config.PackageConfig, statusFile packageSyncFile, packagesDir string) error {
 	syncFileName := getSyncFileName(pkg.LocalDataDirectory(packagesDir))
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windowsOS {
 		if err := os.MkdirAll(pkg.LocalDataDirectory(packagesDir), os.ModeDir); err != nil {
 			return err
 		}

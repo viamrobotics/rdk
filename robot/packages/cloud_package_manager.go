@@ -123,6 +123,11 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 	m.logger.Debug("Evaluating package sync...")
 
+	// Log the current state of managed packages before changes
+	if len(m.managedPackages) > 0 {
+		m.logger.Debugf("Currently managing %d packages", len(m.managedPackages))
+	}
+
 	newManagedPackages := make(map[PackageName]*config.PackageConfig, len(packages))
 
 	// Process the packages that are new or changed
@@ -135,7 +140,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 	}
 
 	if len(changedPackages) > 0 {
-		m.logger.Info("Package changes have been detected, starting sync")
+		m.logger.Infof("Package changes detected, syncing %d packages", len(changedPackages))
 	}
 
 	start := time.Now()
@@ -155,6 +160,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		if err != nil {
 			m.logger.Warnw("failed to get package type", "package", p.Name, "error", err)
 		}
+
 		resp, err := m.client.GetPackage(ctx, &pb.GetPackageRequest{
 			Id:         p.Package,
 			Version:    p.Version,
@@ -211,6 +217,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 	// swap for new managed packags.
 	m.managedPackages = newManagedPackages
+	m.logger.Debugf("Now managing %d packages", len(m.managedPackages))
 
 	return outErr
 }
@@ -239,30 +246,29 @@ func (m *cloudManager) validateAndGetChangedPackages(
 
 // Cleanup removes all unknown packages from the working directory.
 func (m *cloudManager) Cleanup(ctx context.Context) error {
-	if runtime.GOOS == "windows" { //nolint:goconst
-		return nil
-	}
 	// Only allow one rdk process to operate on the manager at once. This is generally safe to keep locked for an extended period of time
 	// since the config reconfiguration process is handled by a single thread.
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.logger.Debug("Starting package cleanup...")
-
-	var allErrors error
-
 	expectedPackageDirectories := map[string]bool{}
+	m.logger.Debugf("Starting cleanup with %d managed packages", len(m.managedPackages))
+
 	for _, pkg := range m.managedPackages {
 		expectedPackageDirectories[pkg.LocalDataDirectory(m.packagesDir)] = true
 	}
 
-	allErrors = commonCleanup(m.logger, expectedPackageDirectories, m.packagesDataDir)
-	if allErrors != nil {
-		return allErrors
+	if err := commonCleanup(m.logger, expectedPackageDirectories, m.packagesDataDir); err != nil {
+		return err
 	}
 
-	allErrors = multierr.Append(allErrors, m.mlModelSymlinkCleanup())
-	return allErrors
+	// Skip mlModelSymlinkCleanup on Window as this was added for backwards compatibility
+	if runtime.GOOS == "windows" {
+		m.logger.Debug("Skipping mlModelSymlinkCleanup on Windows")
+		return nil
+	}
+
+	return m.mlModelSymlinkCleanup()
 }
 
 // symlink packages/package-name to packages/data/ml_model/orgid-package-name-ver for backwards compatibility
