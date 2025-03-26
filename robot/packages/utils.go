@@ -247,8 +247,10 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 // commonCleanup is a helper for the various ManagerSyncer.Cleanup functions.
 func commonCleanup(logger logging.Logger, expectedPackageEntries map[string]bool, packagesDataDir string) error {
 	logger.Infof("Starting cleanup with %d expected package entries", len(expectedPackageEntries))
+	logger.Debugf("expectedPackageEntries: %v", expectedPackageEntries)
 
 	topLevelFiles, err := os.ReadDir(packagesDataDir)
+	logger.Debugf("topLevelFiles: %v", topLevelFiles)
 	if err != nil {
 		logger.Errorf("Failed to read packages data directory: %v", err)
 		return err
@@ -258,6 +260,7 @@ func commonCleanup(logger logging.Logger, expectedPackageEntries map[string]bool
 
 	// A packageTypeDir is a directory that contains all of the packages for the specified type. ex: data/ml_model
 	for _, packageTypeDir := range topLevelFiles {
+		logger.Debugf("packageTypeDir: %v", packageTypeDir)
 		packageTypeDirName, err := rutils.SafeJoinDir(packagesDataDir, packageTypeDir.Name())
 		if err != nil {
 			logger.Debugf("Failed to join directory name %s: %v", packageTypeDir.Name(), err)
@@ -265,11 +268,13 @@ func commonCleanup(logger logging.Logger, expectedPackageEntries map[string]bool
 			continue
 		}
 
+		logger.Debugf("packageTypeDirName: %s", packageTypeDirName)
 		// Delete any non-directory files in the packages/data dir except for those with suffixes:
 		//
 		// `.status.json` - these files contain download status infomration.
 		// `.first_run_succeeded` - these mark successful setup phase runs.
 		if packageTypeDir.Type()&os.ModeDir != os.ModeDir && !strings.HasSuffix(packageTypeDirName, statusFileExt) {
+			logger.Debugf("Removing file %s", packageTypeDirName)
 			if err := os.Remove(packageTypeDirName); err != nil {
 				logger.Debugf("Failed to remove file %s: %v", packageTypeDirName, err)
 				allErrors = errors.Join(allErrors, err)
@@ -292,7 +297,7 @@ func commonCleanup(logger logging.Logger, expectedPackageEntries map[string]bool
 				allErrors = errors.Join(allErrors, err)
 				continue
 			}
-
+			logger.Debugf("entryPath: %s", entryPath)
 			// Check if we should delete this entry
 			if deletePackageEntry(expectedPackageEntries, entryPath) {
 				logger.Debugf("Removing old package file(s) %s", entryPath)
