@@ -269,9 +269,11 @@ func commonCleanup(logger logging.Logger, expectedPackageEntries map[string]bool
 			continue
 		}
 
-		// Handle regular files (non-directories)
 		if packageTypeDir.Type()&os.ModeDir != os.ModeDir {
-			// Skip status files and first run success files
+			// Delete any non-directory files in the packages/data dir except for those with suffixes:
+			//
+			// `.status.json` - these files contain download status information.
+			// `.first_run_succeeded` - these mark successful setup phase runs.
 			if strings.HasSuffix(packageTypeDirName, statusFileExt) ||
 				strings.HasSuffix(packageTypeDirName, config.FirstRunSuccessSuffix) {
 				continue
@@ -450,6 +452,8 @@ const (
 	syncStatusDownloading syncStatus = "downloading"
 	syncStatusDone        syncStatus = "done"
 
+	// Not encouraged: If you need to change the status file extension,
+	// make sure that viam-server is backwards compatible with the old status file extension.
 	statusFileExt = ".status.json"
 )
 

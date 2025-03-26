@@ -254,6 +254,9 @@ func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 // which contains various package/module state tracking information.
 // Writing to `.status.json` introduces the risk of corrupting it, which
 // could break or uncoordinate package sync.
+//
+// Not encouraged: If you need to change the first run success suffix,
+// make sure that viam-server is backwards compatible with the old suffix.
 const FirstRunSuccessSuffix = ".first_run_succeeded"
 
 // FirstRun executes a module-specific setup script.
