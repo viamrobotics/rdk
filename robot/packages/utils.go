@@ -246,8 +246,11 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 
 // commonCleanup is a helper for the various ManagerSyncer.Cleanup functions.
 func commonCleanup(logger logging.Logger, expectedPackageEntries map[string]bool, packagesDataDir string) error {
+	logger.Infof("Starting cleanup with %d expected package entries", len(expectedPackageEntries))
+
 	topLevelFiles, err := os.ReadDir(packagesDataDir)
 	if err != nil {
+		logger.Errorf("Failed to read packages data directory: %v", err)
 		return err
 	}
 
@@ -257,6 +260,7 @@ func commonCleanup(logger logging.Logger, expectedPackageEntries map[string]bool
 	for _, packageTypeDir := range topLevelFiles {
 		packageTypeDirName, err := rutils.SafeJoinDir(packagesDataDir, packageTypeDir.Name())
 		if err != nil {
+			logger.Debugf("Failed to join directory name %s: %v", packageTypeDir.Name(), err)
 			allErrors = errors.Join(allErrors, err)
 			continue
 		}
@@ -266,36 +270,51 @@ func commonCleanup(logger logging.Logger, expectedPackageEntries map[string]bool
 		// `.status.json` - these files contain download status infomration.
 		// `.first_run_succeeded` - these mark successful setup phase runs.
 		if packageTypeDir.Type()&os.ModeDir != os.ModeDir && !strings.HasSuffix(packageTypeDirName, statusFileExt) {
-			allErrors = errors.Join(allErrors, os.Remove(packageTypeDirName))
+			if err := os.Remove(packageTypeDirName); err != nil {
+				logger.Debugf("Failed to remove file %s: %v", packageTypeDirName, err)
+				allErrors = errors.Join(allErrors, err)
+			}
 			continue
 		}
+
 		// read all of the packages in the directory and delete those that aren't in expectedPackageEntries
 		packageDirs, err := os.ReadDir(packageTypeDirName)
 		if err != nil {
+			logger.Debugf("Failed to read package type directory %s: %v", packageTypeDirName, err)
 			allErrors = errors.Join(allErrors, err)
 			continue
 		}
+
 		for _, entry := range packageDirs {
 			entryPath, err := rutils.SafeJoinDir(packageTypeDirName, entry.Name())
 			if err != nil {
+				logger.Debugf("Failed to join entry path %s: %v", entry.Name(), err)
 				allErrors = errors.Join(allErrors, err)
 				continue
 			}
+
+			// Check if we should delete this entry
 			if deletePackageEntry(expectedPackageEntries, entryPath) {
 				logger.Debugf("Removing old package file(s) %s", entryPath)
 				allErrors = errors.Join(allErrors, os.RemoveAll(entryPath))
 			}
 		}
+
 		// re-read the directory, if there is nothing left in it, delete the directory
 		packageDirs, err = os.ReadDir(packageTypeDirName)
 		if err != nil {
+			logger.Errorf("Failed to re-read package type directory %s: %v", packageTypeDirName, err)
 			allErrors = errors.Join(allErrors, err)
 			continue
 		}
 		if len(packageDirs) == 0 {
-			allErrors = errors.Join(allErrors, os.RemoveAll(packageTypeDirName))
+			if err := os.RemoveAll(packageTypeDirName); err != nil {
+				logger.Debugf("Failed to remove empty package type directory %s: %v", packageTypeDirName, err)
+				allErrors = errors.Join(allErrors, err)
+			}
 		}
 	}
+
 	return allErrors
 }
 
@@ -306,10 +325,12 @@ func deletePackageEntry(expectedPackageEntries map[string]bool, entryPath string
 	if _, ok := expectedPackageEntries[entryPath]; ok {
 		return false
 	}
+
 	// check if directory corresponds to a module version download status file - if so DO NOT delete it.
 	if _, ok := expectedPackageEntries[strings.TrimSuffix(entryPath, statusFileExt)]; ok {
 		return false
 	}
+
 	// check if directory corresponds to a first run success marker file - if so DO NOT delete it.
 	if _, ok := expectedPackageEntries[strings.TrimSuffix(entryPath, config.FirstRunSuccessSuffix)]; ok {
 		return false

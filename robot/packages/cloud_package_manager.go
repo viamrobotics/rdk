@@ -123,6 +123,11 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 	m.logger.Debug("Evaluating package sync...")
 
+	// Log the current state of managed packages before changes
+	if len(m.managedPackages) > 0 {
+		m.logger.Debugf("Currently managing %d packages", len(m.managedPackages))
+	}
+
 	newManagedPackages := make(map[PackageName]*config.PackageConfig, len(packages))
 
 	// Process the packages that are new or changed
@@ -135,7 +140,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 	}
 
 	if len(changedPackages) > 0 {
-		m.logger.Info("Package changes have been detected, starting sync")
+		m.logger.Infof("Package changes detected, syncing %d packages", len(changedPackages))
 	}
 
 	start := time.Now()
@@ -155,6 +160,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		if err != nil {
 			m.logger.Warnw("failed to get package type", "package", p.Name, "error", err)
 		}
+
 		resp, err := m.client.GetPackage(ctx, &pb.GetPackageRequest{
 			Id:         p.Package,
 			Version:    p.Version,
@@ -211,6 +217,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 	// swap for new managed packags.
 	m.managedPackages = newManagedPackages
+	m.logger.Debugf("Now managing %d packages", len(m.managedPackages))
 
 	return outErr
 }
@@ -239,30 +246,119 @@ func (m *cloudManager) validateAndGetChangedPackages(
 
 // Cleanup removes all unknown packages from the working directory.
 func (m *cloudManager) Cleanup(ctx context.Context) error {
-	if runtime.GOOS == "windows" { //nolint:goconst
-		return nil
-	}
 	// Only allow one rdk process to operate on the manager at once. This is generally safe to keep locked for an extended period of time
 	// since the config reconfiguration process is handled by a single thread.
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.logger.Debug("Starting package cleanup...")
-
-	var allErrors error
-
 	expectedPackageDirectories := map[string]bool{}
+	m.logger.Debugf("Starting cleanup with %d managed packages", len(m.managedPackages))
+
+	// Add all managed package directories to expected map
 	for _, pkg := range m.managedPackages {
 		expectedPackageDirectories[pkg.LocalDataDirectory(m.packagesDir)] = true
 	}
 
-	allErrors = commonCleanup(m.logger, expectedPackageDirectories, m.packagesDataDir)
-	if allErrors != nil {
-		return allErrors
+	// On Windows, we need to protect the module directory structure but still clean up old package versions
+	if runtime.GOOS == "windows" {
+		// First, add the package type directories to prevent their deletion
+		typeDirectories := map[string]bool{}
+		for _, pkg := range m.managedPackages {
+			pkgDir := pkg.LocalDataDirectory(m.packagesDir)
+
+			// Add the package ID directory (parent of version-specific directory)
+			parentDir := filepath.Dir(pkgDir)
+			if parentDir != m.packagesDataDir && parentDir != "" {
+				// Store the ID directories so we can scan them for old versions
+				typeDirectories[filepath.Dir(parentDir)] = true
+			}
+		}
+
+		// Now handle each package type directory
+		for typeDir := range typeDirectories {
+			expectedPackageDirectories[typeDir] = true
+
+			// List the ID directories in this type directory
+			idDirs, err := os.ReadDir(typeDir)
+			if err != nil {
+				m.logger.Errorf("Failed to read package type directory: %v", err)
+				continue
+			}
+
+			// Process each ID directory
+			for _, idEntry := range idDirs {
+				m.logger.Debugf("Processing ID directory: %s", idEntry.Name())
+				// Skip status files
+				if !idEntry.IsDir() {
+					continue
+				}
+
+				idPath := filepath.Join(typeDir, idEntry.Name())
+
+				// List version directories in this ID directory
+				versionDirs, err := os.ReadDir(idPath)
+				if err != nil {
+					m.logger.Errorf("Failed to read package ID directory: %v", err)
+					continue
+				}
+
+				// Scan version directories and remove those not in expected map
+				keepIdDir := false
+				for _, versionEntry := range versionDirs {
+					if !versionEntry.IsDir() {
+						continue
+					}
+
+					versionPath := filepath.Join(idPath, versionEntry.Name())
+
+					if expectedPackageDirectories[versionPath] {
+						// This is a current version, keep it and its parent
+						keepIdDir = true
+					} else {
+						// This is an old version, remove it
+						m.logger.Infof("Removing old package version: %s", versionPath)
+						if err := os.RemoveAll(versionPath); err != nil {
+							m.logger.Errorf("Failed to remove old version directory: %v", err)
+						}
+					}
+				}
+
+				// If this ID directory has no current versions, remove it
+				if !keepIdDir {
+					// Check if the directory is now empty after removing old versions
+					remainingEntries, err := os.ReadDir(idPath)
+					if err != nil {
+						m.logger.Errorf("Failed to re-read ID directory: %v", err)
+						continue
+					}
+
+					if len(remainingEntries) == 0 {
+						m.logger.Debugf("Removing empty ID directory: %s", idPath)
+						if err := os.Remove(idPath); err != nil {
+							m.logger.Errorf("Failed to remove empty ID directory: %v", err)
+						}
+					}
+				} else {
+					// Keep this ID directory since it has current versions
+					expectedPackageDirectories[idPath] = true
+				}
+			}
+		}
 	}
 
-	allErrors = multierr.Append(allErrors, m.mlModelSymlinkCleanup())
-	return allErrors
+	// Run the common cleanup for directories not explicitly protected above
+	err := commonCleanup(m.logger, expectedPackageDirectories, m.packagesDataDir)
+	if err != nil {
+		return err
+	}
+
+	// Skip mlModelSymlinkCleanup on Window as this was added for backwards compatibility
+	if runtime.GOOS == "windows" {
+		m.logger.Debug("Windows: Skipping mlModelSymlinkCleanup")
+		return nil
+	}
+
+	return m.mlModelSymlinkCleanup()
 }
 
 // symlink packages/package-name to packages/data/ml_model/orgid-package-name-ver for backwards compatibility
