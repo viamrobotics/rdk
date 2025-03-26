@@ -247,10 +247,8 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 // commonCleanup is a helper for the various ManagerSyncer.Cleanup functions.
 func commonCleanup(logger logging.Logger, expectedPackageEntries map[string]bool, packagesDataDir string) error {
 	logger.Infof("Starting cleanup with %d expected package entries", len(expectedPackageEntries))
-	logger.Debugf("expectedPackageEntries: %v", expectedPackageEntries)
 
 	topLevelFiles, err := os.ReadDir(packagesDataDir)
-	logger.Debugf("topLevelFiles: %v", topLevelFiles)
 	if err != nil {
 		logger.Errorf("Failed to read packages data directory: %v", err)
 		return err
@@ -260,14 +258,12 @@ func commonCleanup(logger logging.Logger, expectedPackageEntries map[string]bool
 
 	// A packageTypeDir is a directory that contains all of the packages for the specified type. ex: data/ml_model
 	for _, packageTypeDir := range topLevelFiles {
-		logger.Debugf("packageTypeDir: %v", packageTypeDir)
 		packageTypeDirName, err := rutils.SafeJoinDir(packagesDataDir, packageTypeDir.Name())
 		if err != nil {
 			logger.Debugf("Failed to join directory name %s: %v", packageTypeDir.Name(), err)
 			allErrors = errors.Join(allErrors, err)
 			continue
 		}
-		logger.Debugf("packageTypeDirName: %s", packageTypeDirName)
 		// Handle regular files (non-directories)
 		if packageTypeDir.Type()&os.ModeDir != os.ModeDir {
 			// Skip status files
@@ -364,7 +360,6 @@ func cleanupPackageTypeDirectoryWindows(logger logging.Logger, typeDir string, e
 
 	// Process each ID directory
 	for _, idEntry := range idDirs {
-		logger.Debugf("idEntry: %v", idEntry)
 		// Skip files
 		if !idEntry.IsDir() {
 			logger.Debugf("Skipping non-directory entry: %s", idEntry.Name())
@@ -375,7 +370,6 @@ func cleanupPackageTypeDirectoryWindows(logger logging.Logger, typeDir string, e
 
 		// List version directories in this ID directory
 		versionDirs, err := os.ReadDir(idPath)
-		logger.Debugf("versionDirs: %v", versionDirs)
 		if err != nil {
 			logger.Errorf("Failed to read package ID directory: %v", err)
 			allErrors = errors.Join(allErrors, err)
@@ -386,7 +380,6 @@ func cleanupPackageTypeDirectoryWindows(logger logging.Logger, typeDir string, e
 		keepIdDir := false
 		for _, versionEntry := range versionDirs {
 			versionPath := filepath.Join(idPath, versionEntry.Name())
-			logger.Debugf("versionPath: %s", versionPath)
 			if !deletePackageEntry(expectedPackageEntries, versionPath) {
 				// This is a current version, keep it and its parent
 				logger.Debugf("Keeping current version: %s", versionPath)
@@ -417,9 +410,6 @@ func cleanupPackageTypeDirectoryWindows(logger logging.Logger, typeDir string, e
 					allErrors = errors.Join(allErrors, err)
 				}
 			}
-		} else {
-			// Keep this ID directory since it has current versions
-			expectedPackageEntries[idPath] = true
 		}
 	}
 
