@@ -267,14 +267,15 @@ func commonCleanup(logger logging.Logger, expectedPackageEntries map[string]bool
 			allErrors = errors.Join(allErrors, err)
 			continue
 		}
-
 		logger.Debugf("packageTypeDirName: %s", packageTypeDirName)
-		// Delete any non-directory files in the packages/data dir except for those with suffixes:
-		//
-		// `.status.json` - these files contain download status infomration.
-		// `.first_run_succeeded` - these mark successful setup phase runs.
-		if packageTypeDir.Type()&os.ModeDir != os.ModeDir && !strings.HasSuffix(packageTypeDirName, statusFileExt) {
-			logger.Debugf("Removing file %s", packageTypeDirName)
+		// Handle regular files (non-directories)
+		if packageTypeDir.Type()&os.ModeDir != os.ModeDir {
+			// Skip status files
+			if strings.HasSuffix(packageTypeDirName, statusFileExt) {
+				continue
+			}
+
+			// Remove non-directory files
 			if err := os.Remove(packageTypeDirName); err != nil {
 				logger.Debugf("Failed to remove file %s: %v", packageTypeDirName, err)
 				allErrors = errors.Join(allErrors, err)
@@ -282,7 +283,18 @@ func commonCleanup(logger logging.Logger, expectedPackageEntries map[string]bool
 			continue
 		}
 
-		// read all of the packages in the directory and delete those that aren't in expectedPackageEntries
+		// This is a package type directory (e.g., "module")
+		if runtime.GOOS == "windows" {
+			if err := cleanupPackageTypeDirectoryWindows(logger, packageTypeDirName, expectedPackageEntries); err != nil {
+				allErrors = errors.Join(allErrors, err)
+			}
+		} else {
+			if err := cleanupPackageTypeDirectoryGeneric(logger, packageTypeDirName, expectedPackageEntries); err != nil {
+				allErrors = errors.Join(allErrors, err)
+			}
+		}
+
+		// After cleanup, check if package type directory is empty and can be removed
 		packageDirs, err := os.ReadDir(packageTypeDirName)
 		if err != nil {
 			logger.Debugf("Failed to read package type directory %s: %v", packageTypeDirName, err)
@@ -290,33 +302,124 @@ func commonCleanup(logger logging.Logger, expectedPackageEntries map[string]bool
 			continue
 		}
 
-		for _, entry := range packageDirs {
-			entryPath, err := rutils.SafeJoinDir(packageTypeDirName, entry.Name())
-			if err != nil {
-				logger.Debugf("Failed to join entry path %s: %v", entry.Name(), err)
+		if len(packageDirs) == 0 {
+			logger.Debugf("Removing empty package type directory: %s", packageTypeDirName)
+			if err := os.RemoveAll(packageTypeDirName); err != nil {
+				logger.Errorf("Failed to remove empty package type directory: %v", err)
 				allErrors = errors.Join(allErrors, err)
-				continue
-			}
-			logger.Debugf("entryPath: %s", entryPath)
-			// Check if we should delete this entry
-			if deletePackageEntry(expectedPackageEntries, entryPath) {
-				logger.Debugf("Removing old package file(s) %s", entryPath)
-				allErrors = errors.Join(allErrors, os.RemoveAll(entryPath))
 			}
 		}
+	}
 
-		// re-read the directory, if there is nothing left in it, delete the directory
-		packageDirs, err = os.ReadDir(packageTypeDirName)
+	return allErrors
+}
+
+// cleanupPackageTypeDirectoryGeneric handles cleanup for non-Windows platforms
+func cleanupPackageTypeDirectoryGeneric(logger logging.Logger, typeDir string, expectedPackageEntries map[string]bool) error {
+	var allErrors error
+
+	// Read all entries in the package type directory
+	entries, err := os.ReadDir(typeDir)
+	if err != nil {
+		logger.Errorf("Failed to read package type directory: %v", err)
+		return err
+	}
+
+	// Process each entry
+	for _, entry := range entries {
+		entryPath, err := rutils.SafeJoinDir(typeDir, entry.Name())
 		if err != nil {
-			logger.Errorf("Failed to re-read package type directory %s: %v", packageTypeDirName, err)
+			logger.Errorf("Failed to join entry path: %v", err)
 			allErrors = errors.Join(allErrors, err)
 			continue
 		}
-		if len(packageDirs) == 0 {
-			if err := os.RemoveAll(packageTypeDirName); err != nil {
-				logger.Debugf("Failed to remove empty package type directory %s: %v", packageTypeDirName, err)
+
+		// Check if we should delete this entry
+		if deletePackageEntry(expectedPackageEntries, entryPath) {
+			logger.Infof("Removing old package: %s", entryPath)
+			if err := os.RemoveAll(entryPath); err != nil {
+				logger.Errorf("Failed to remove entry: %v", err)
 				allErrors = errors.Join(allErrors, err)
 			}
+		}
+	}
+
+	return allErrors
+}
+
+// cleanupPackageTypeDirectoryWindows handles cleanup for Windows, using a hierarchical approach
+// to clean up old versions while preserving directories that might contain locked files
+func cleanupPackageTypeDirectoryWindows(logger logging.Logger, typeDir string, expectedPackageEntries map[string]bool) error {
+	var allErrors error
+
+	// Add the type directory itself to expected entries to prevent its deletion
+	expectedPackageEntries[typeDir] = true
+
+	// List the ID directories in this type directory
+	idDirs, err := os.ReadDir(typeDir)
+	if err != nil {
+		logger.Errorf("Failed to read package type directory: %v", err)
+		return err
+	}
+
+	// Process each ID directory
+	for _, idEntry := range idDirs {
+		logger.Debugf("idEntry: %v", idEntry)
+		// Skip files
+		if !idEntry.IsDir() {
+			logger.Debugf("Skipping non-directory entry: %s", idEntry.Name())
+			continue
+		}
+
+		idPath := filepath.Join(typeDir, idEntry.Name())
+
+		// List version directories in this ID directory
+		versionDirs, err := os.ReadDir(idPath)
+		logger.Debugf("versionDirs: %v", versionDirs)
+		if err != nil {
+			logger.Errorf("Failed to read package ID directory: %v", err)
+			allErrors = errors.Join(allErrors, err)
+			continue
+		}
+
+		// Scan version directories and remove those not in expected map
+		keepIdDir := false
+		for _, versionEntry := range versionDirs {
+			versionPath := filepath.Join(idPath, versionEntry.Name())
+			logger.Debugf("versionPath: %s", versionPath)
+			if !deletePackageEntry(expectedPackageEntries, versionPath) {
+				// This is a current version, keep it and its parent
+				logger.Debugf("Keeping current version: %s", versionPath)
+				keepIdDir = true
+			} else {
+				// This is an old version, remove it
+				logger.Infof("Removing old package version: %s", versionPath)
+				if err := os.RemoveAll(versionPath); err != nil {
+					logger.Errorf("Failed to remove old version directory: %v", err)
+					allErrors = errors.Join(allErrors, err)
+				}
+			}
+		}
+
+		// If this ID directory has no current versions, try to remove it
+		if !keepIdDir {
+			// Check if the directory is now empty after removing old versions
+			remainingEntries, err := os.ReadDir(idPath)
+			if err != nil {
+				logger.Errorf("Failed to re-read ID directory: %v", err)
+				allErrors = errors.Join(allErrors, err)
+				continue
+			}
+
+			if len(remainingEntries) == 0 {
+				if err := os.Remove(idPath); err != nil {
+					logger.Errorf("Failed to remove empty ID directory: %v", err)
+					allErrors = errors.Join(allErrors, err)
+				}
+			}
+		} else {
+			// Keep this ID directory since it has current versions
+			expectedPackageEntries[idPath] = true
 		}
 	}
 
