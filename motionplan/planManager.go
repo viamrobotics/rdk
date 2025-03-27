@@ -181,6 +181,7 @@ func (pm *planManager) planAtomicWaypoints(
 		if err != nil {
 			return nil, err
 		}
+		pm.logger.Infof("newseed: %v", newseed)
 		seed = newseed
 		resultPromises = append(resultPromises, future)
 	}

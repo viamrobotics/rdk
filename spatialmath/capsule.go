@@ -269,7 +269,13 @@ func capsuleVsMeshDistance(c *capsule, other *Mesh) float64 {
 	lowDist := math.Inf(1)
 	for _, t := range other.triangles {
 		// Measure distance to each mesh triangle
-		dist := capsuleVsTriangleDistance(c, t)
+		// Make sure the triangle is transformed by the pose of the mesh to ensure that it is properly positioned
+		properlyPositionedTriangle := NewTriangle(
+			Compose(other.pose, NewPoseFromPoint(t.p0)).Point(),
+			Compose(other.pose, NewPoseFromPoint(t.p1)).Point(),
+			Compose(other.pose, NewPoseFromPoint(t.p2)).Point(),
+		)
+		dist := capsuleVsTriangleDistance(c, properlyPositionedTriangle)
 		if dist < lowDist {
 			lowDist = dist
 		}
