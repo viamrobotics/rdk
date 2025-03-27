@@ -255,9 +255,6 @@ func (b *box) toMesh() *Mesh {
 		m.triangles = triangles
 		b.mesh = m
 	}
-	if b.mesh.pose != NewZeroPose() {
-		b.mesh.pose = NewZeroPose()
-	}
 	return b.mesh
 }
 
