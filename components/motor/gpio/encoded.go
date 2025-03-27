@@ -153,9 +153,9 @@ func (m *EncodedMotor) makeAdjustments(ctx context.Context, goalRPM, goalPos, di
 
 		currentTicks, _, err := m.encoder.Position(ctx, encoder.PositionTypeTicks, nil)
 		if err != nil {
-			m.logger.CInfo(ctx, "error getting encoder position, sleeping then continuing: %w", err)
+			m.logger.CInfof(ctx, "error getting encoder position, sleeping then continuing: %v", err)
 			if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
-				m.logger.CInfo(ctx, "error sleeping, giving up %w", ctx.Err())
+				m.logger.CInfof(ctx, "error sleeping, giving up %v", ctx.Err())
 				return err
 			}
 			continue

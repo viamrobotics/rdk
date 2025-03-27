@@ -4,12 +4,15 @@ package app
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/url"
+	"os"
 	"strings"
 
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/utils"
 )
 
 // ViamClient is a gRPC client for method calls to Viam app.
@@ -65,6 +68,24 @@ func CreateViamClientWithAPIKey(
 		Payload: apiKey,
 	}
 	return CreateViamClientWithOptions(ctx, options, logger)
+}
+
+// CreateViamClientFromEnvVars creates a ViamClient using credentials set in the environment
+// as `VIAM_API_KEY` and `VIAM_API_KEY_ID`. These will typically be set by the module manager
+// and this API is primarily intended for use within modular resources, though can be used
+// in another context so long as the user manually sets the appropriate env vars.
+func CreateViamClientFromEnvVars(ctx context.Context, options *Options, logger logging.Logger) (*ViamClient, error) {
+	if options == nil {
+		options = &Options{}
+	}
+
+	apiKey := os.Getenv(utils.APIKeyEnvVar)
+	apiKeyID := os.Getenv(utils.APIKeyIDEnvVar)
+	if apiKey == "" || apiKeyID == "" {
+		return nil, fmt.Errorf("api key (%s) and/or api key ID (%s) were set improperly, cannot be empty", apiKey, apiKeyID)
+	}
+
+	return CreateViamClientWithAPIKey(ctx, *options, apiKey, apiKeyID, logger)
 }
 
 // AppClient initializes and returns an AppClient instance used to make app method calls.

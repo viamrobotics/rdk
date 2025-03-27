@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	datapb "go.viam.com/api/app/data/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -192,6 +193,9 @@ func createMockCloudDependencies(ctx context.Context, t *testing.T, logger loggi
 
 	conn, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	t.Cleanup(func() {
+		utils.UncheckedErrorFunc(conn.Close)
+	})
 
 	mockCloudConnectionService := &cloudinject.CloudConnectionService{
 		Named: cloud.InternalServiceName.AsNamed(),

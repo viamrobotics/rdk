@@ -1580,6 +1580,14 @@ var app = &cli.App{
 									),
 									Required: true,
 								},
+								&cli.StringFlag{
+									Name: trainFlagModelFramework,
+									Usage: formatAcceptedValues(
+										"framework of model to train",
+										"tflite", "tensorflow",
+									),
+									Required: true,
+								},
 								&cli.StringSliceFlag{
 									Name:     trainFlagModelLabels,
 									Usage:    "labels to train on. these will either be classification or object detection labels",
@@ -1909,8 +1917,9 @@ var app = &cli.App{
 							Usage: "filter logs by levels (e.g., info, warn, error)",
 						},
 						&cli.StringFlag{
-							Name:  generalFlagStart,
-							Usage: "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter (e.g., 2025-01-15T14:00:00Z)",
+							Name:        generalFlagStart,
+							Usage:       "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter (e.g., 2025-01-15T14:00:00Z)",
+							DefaultText: "1 day ago",
 						},
 						&cli.StringFlag{
 							Name:  generalFlagEnd,
@@ -2888,7 +2897,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 		{
 			Name:  "infer",
 			Usage: "run cloud hosted inference on an image",
-			UsageText: createUsageText("inference infer", []string{
+			UsageText: createUsageText("infer", []string{
 				generalFlagOrgID, inferenceFlagFileOrgID, inferenceFlagFileID,
 				inferenceFlagFileLocationID, inferenceFlagModelOrgID, inferenceFlagModelName, inferenceFlagModelVersion,
 			}, true, false),

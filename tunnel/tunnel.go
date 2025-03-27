@@ -8,30 +8,70 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 
 	"go.viam.com/rdk/logging"
 )
 
-func filterError(ctx context.Context, err error, closeChan <-chan struct{}, logger logging.Logger) error {
-	// if connection is expected to be closed, filter out "use of closed network connection" errors
+// Both the reader-sender and receiver-writer loops can end with errors from `Send` or
+// `Recv` on the bidi stream that are not indicative of actual failure and are just
+// manifestations of a closed connection. `filterError` debug-logs and swallows those
+// non-anomalous errors.
+func filterError(ctx context.Context, err error, closeChan <-chan struct{},
+	logger logging.Logger,
+) (filteredErr error) {
+	var anomalous bool
+	defer func() {
+		filteredErr = err
+		if !anomalous {
+			logger.CDebugw(ctx, "ignoring non-anomalous error", "error", filteredErr)
+			filteredErr = nil
+		}
+	}()
+
+	// If the connection is expected to be closed, filter out "use of closed network
+	// connection" that may have resulted from previous connection closure.
 	select {
 	case <-closeChan:
 		if errors.Is(err, net.ErrClosed) {
-			logger.CDebugw(ctx, "expected error received", "err", err)
-			return nil
+			return
 		}
 	default:
 	}
 
+	// context.Canceled indicates that the context on the bidi stream was canceled midway
+	// through sending or receiving.
+	if errors.Is(err, context.Canceled) {
+		return
+	}
+
+	// "read/write on closed pipe" can occur on either side if the connection is closed or
+	// currently closing.
+	if errors.Is(err, io.ErrClosedPipe) {
+		return
+	}
+
 	// EOF indicates that the connection passed in is not going to receive any more data
 	// and is not expecting any more data to be written to it.
-	//
-	// This is expected and does not indicate an error, so filter it out.
 	if errors.Is(err, io.EOF) {
-		logger.CDebugw(ctx, "expected EOF received")
-		return nil
+		return
 	}
-	return err
+
+	// Depending on when the tunnel is closed, the server may not have a chance to complete
+	// sending the HTTP2 header (gRPC is implemented over HTTP2.)
+	if err != nil && strings.Contains(err.Error(), "missing HTTP content-type") {
+		return
+	}
+
+	// Depending on when the tunnel is closed, the server may not have a chance to send
+	// trailers.
+	if err != nil && strings.Contains(err.Error(),
+		"server closed the stream without sending trailers") {
+		return
+	}
+
+	anomalous = true
+	return
 }
 
 // ReaderSenderLoop implements a loop that reads bytes from the reader passed in and sends those bytes

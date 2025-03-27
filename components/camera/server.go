@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"sync"
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -22,9 +23,11 @@ import (
 // serviceServer implements the CameraService from camera.proto.
 type serviceServer struct {
 	pb.UnimplementedCameraServiceServer
-	coll     resource.APIResourceCollection[Camera]
-	imgTypes map[string]ImageType
-	logger   logging.Logger
+	coll resource.APIResourceCollection[Camera]
+
+	imgTypesMu sync.RWMutex
+	imgTypes   map[string]ImageType
+	logger     logging.Logger
 }
 
 // NewRPCServiceServer constructs an camera gRPC service server.
@@ -54,16 +57,22 @@ func (s *serviceServer) GetImage(
 
 	// Determine the mimeType we should try to use based on camera properties
 	if req.MimeType == "" {
-		if _, ok := s.imgTypes[req.Name]; !ok {
+		s.imgTypesMu.RLock()
+		imgType, ok := s.imgTypes[req.Name]
+		s.imgTypesMu.RUnlock()
+		if !ok {
 			props, err := cam.Properties(ctx)
 			if err != nil {
 				s.logger.CWarnf(ctx, "camera properties not found for %s, assuming color images: %v", req.Name, err)
-				s.imgTypes[req.Name] = ColorStream
+				imgType = ColorStream
 			} else {
-				s.imgTypes[req.Name] = props.ImageType
+				imgType = props.ImageType
 			}
+			s.imgTypesMu.Lock()
+			s.imgTypes[req.Name] = imgType
+			s.imgTypesMu.Unlock()
 		}
-		switch s.imgTypes[req.Name] {
+		switch imgType {
 		case ColorStream, UnspecifiedStream:
 			req.MimeType = utils.MimeTypeJPEG
 		case DepthStream:

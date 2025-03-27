@@ -463,7 +463,7 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 		// If we succeed with a webrtc connection, flip the `serverIsWebrtcEnabled` to force all future
 		// connections to use webrtc.
 		if !rc.serverIsWebrtcEnabled {
-			rc.logger.Info("A WebRTC connection was made to the robot. ",
+			rc.logger.Info("A WebRTC connection was made to the robot.",
 				"Reconnects will disallow direct gRPC connections.")
 			rc.serverIsWebrtcEnabled = true
 		}
@@ -1215,7 +1215,7 @@ func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest
 			// Close the channel first so that network errors can be filtered
 			// and prevented in the RecvWriterLoop.
 			close(rsDone)
-			readerSenderErr = errors.Join(readerSenderErr, client.CloseSend())
+			utils.UncheckedError(client.CloseSend())
 
 			// Schedule a task to cancel the context if we do not exit out of the recvWriterLoop within 5 seconds.
 			// This will close the client, meaning client.Recv() in the RecvWriterLoop will exit and return an error.
@@ -1253,11 +1253,11 @@ func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest
 	// Close the channel first so that network errors can be filtered
 	// and prevented in the ReaderSenderLoop.
 	close(connClosed)
-	err = conn.Close()
+	utils.UncheckedError(conn.Close())
 
 	wg.Wait()
 	rc.Logger().CInfow(ctx, "tunnel to server closed", "port", dest)
-	return errors.Join(err, readerSenderErr, recvWriterErr)
+	return errors.Join(readerSenderErr, recvWriterErr)
 }
 
 // ListTunnels lists all available tunnels configured on the robot.

@@ -1509,7 +1509,7 @@ func TestFTDCAfterModuleCrash(t *testing.T) {
 
 	datums, err := ftdc.Parse(ftdcData)
 	test.That(t, err, test.ShouldBeNil)
-	logger.Info("Num ftdc datums: ", len(datums))
+	logger.Info("Num ftdc datums:", len(datums))
 
 	// Keep count of the number of `ElapsedTimeSecs` readings we encounter. It is a testing bug if
 	// we don't see any process FTDC metrics for the module.

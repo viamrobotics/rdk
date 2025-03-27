@@ -52,6 +52,15 @@ type gnuplotWriter struct {
 	// options is a set of user-input graphOptions. Such as when they ask for a specific time slice
 	// of data.
 	options graphOptions
+
+	// timesToInclude is a slice of unix timestamps. The "nearest" datapoint to each value will be
+	// added. If timesToInclude is nil, all data points are to be added.
+	timesToInclude []int64
+	// shouldIncludePointStorage are "local" variables used for successive calls to
+	// `shouldIncludePoint`.
+	shouldIncludePointStorage struct {
+		nextTimeIdx int
+	}
 }
 
 type kvPair[K, V any] struct {
@@ -95,6 +104,12 @@ type graphOptions struct {
 	// in units of seconds since the epoch. These are to represent "events" that are of interest to a
 	// user (where the user would like to find correlations in other metrics.)
 	vertLinesAtSeconds []int64
+
+	// maxPoints is how many data points will actually be graphed for each plot. Too many data
+	// points can be distracting. The algorithm is to divide the min/max time in `maxPoints`
+	// "equally distanced" timestamps. A user needing more fine-grained information is expected to
+	// zoom in.
+	maxPoints int
 }
 
 func defaultGraphOptions() graphOptions {
@@ -103,6 +118,7 @@ func defaultGraphOptions() graphOptions {
 		maxTimeSeconds:     math.MaxInt64,
 		hideAllZeroes:      true,
 		vertLinesAtSeconds: make([]int64, 0),
+		maxPoints:          1000,
 	}
 }
 
@@ -138,17 +154,68 @@ func writef(toWrite io.Writer, formatStr string, args ...any) {
 	write(toWrite, fmt.Sprintf(formatStr, args...))
 }
 
-func newGnuPlotWriter(graphOptions graphOptions) *gnuplotWriter {
+func newGnuPlotWriter(graphOptions graphOptions, numDatapoints int, minTime, maxTime int64) *gnuplotWriter {
 	tempdir, err := os.MkdirTemp("", "ftdc_parser")
 	if err != nil {
 		panic(err)
 	}
 
-	return &gnuplotWriter{
-		metricFiles: make(map[string]*graphInfo),
-		tempdir:     tempdir,
-		options:     graphOptions,
+	var timesToInclude []int64
+	if numDatapoints > graphOptions.maxPoints {
+		// If there are more datapoints than we wish to graph, calculate the approximate evenly
+		// spaced timestamps to use.
+		timesToInclude = make([]int64, graphOptions.maxPoints)
+		timeSlice := (maxTime - minTime) / int64(graphOptions.maxPoints)
+
+		timeToInclude := minTime
+		for idx := 0; idx < graphOptions.maxPoints; idx++ {
+			timesToInclude[idx] = timeToInclude
+			timeToInclude += timeSlice
+		}
 	}
+
+	return &gnuplotWriter{
+		metricFiles:    make(map[string]*graphInfo),
+		tempdir:        tempdir,
+		options:        graphOptions,
+		timesToInclude: timesToInclude,
+	}
+}
+
+// shouldIncludePoint returns one of the input `FlatDatum`s or nil. If a `FlatDatum` is returned,
+// the caller is expected to add it to the output graph. If nil is returned, neither are to be
+// added.
+//
+// This method expects that every datapoint in a dataset (other than the first and last) will be
+// passed in twice. First as a "next" and immediately followed as a "this".
+func (gpw *gnuplotWriter) shouldIncludePoint(this, next *ftdc.FlatDatum) *ftdc.FlatDatum {
+	if gpw.timesToInclude == nil {
+		return this
+	}
+
+	if gpw.shouldIncludePointStorage.nextTimeIdx >= len(gpw.timesToInclude) {
+		return nil
+	}
+
+	nextTimeToInclude := gpw.timesToInclude[gpw.shouldIncludePointStorage.nextTimeIdx]
+	// If `this` and `next` straddle the `nextTimeToInclude`, we'll return a point to graph.
+	returnAPoint := this.Time <= nextTimeToInclude && next.Time >= nextTimeToInclude
+	if !returnAPoint {
+		return nil
+	}
+
+	gpw.shouldIncludePointStorage.nextTimeIdx++
+	// Dan: For simplicity we always return the "earlier" time. In a healthy system where we are
+	// choosing datapoints, the "time interval" to graph will be much larger than the one second
+	// ftdc data capture rate (e.g: graph every 15 seconds). Choosing either value there is "safe".
+	//
+	// But in an "unhealthy" system, we may have a scenario for example where we want* to graph
+	// timestamps 10 and 20. But the three data points to choose from are 0, 15 and 30. It's not
+	// ideal to choose "15" twice (because it's the closest value). To avoid complicating the
+	// algorithm (by remembering the last value we selected, or looking ahead at more values), we
+	// can just choose to return the earlier value. Giving us 0 and 15 in this example, which is a
+	// reasonable decision to make.
+	return this
 }
 
 func (gpw *gnuplotWriter) getGraphInfo(metricName string) *graphInfo {
@@ -561,9 +628,16 @@ func main() {
 	for {
 		if render {
 			deferredValues := make([]map[string]*ratioReading, 0)
-			gpw := newGnuPlotWriter(graphOptions)
-			for _, flatDatum := range data {
-				deferredValues = append(deferredValues, gpw.addFlatDatum(flatDatum))
+			gpw := newGnuPlotWriter(graphOptions, len(data), data[0].Time, data[len(data)-1].Time)
+			for idx := 0; idx < len(data)-1; idx++ {
+				thisDatum, nextDatum := data[idx], data[idx+1]
+				if pt := gpw.shouldIncludePoint(&thisDatum, &nextDatum); pt != nil {
+					deferredValues = append(deferredValues, gpw.addFlatDatum(*pt))
+				}
+			}
+			if gpw.timesToInclude == nil {
+				// If we're including all of the data points, don't forget the last one.
+				deferredValues = append(deferredValues, gpw.addFlatDatum(data[len(data)-1]))
 			}
 
 			gpw.writeDeferredValues(deferredValues, logger)

@@ -50,7 +50,7 @@ func NewFileAppender(filename string) (Appender, io.Closer) {
 	// Dan: If we're restarting, explicitly call `Rotate` to write to a different file. This is a
 	// convention I think is nice, but by no means a correctness requirement.
 	if err := logger.Rotate(); err != nil {
-		Global().Fatal("Error creating log file: ", err)
+		Global().Fatal("Error creating log file:", err)
 	}
 
 	// We only have `NewFileAppender` return an io.Closer, rather than `NewWriterAppender` because

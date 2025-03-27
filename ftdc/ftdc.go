@@ -196,7 +196,7 @@ func (ftdc *FTDC) Remove(name string) {
 func (ftdc *FTDC) Start() {
 	if runtime.GOOS == "windows" {
 		// note: this logs a panic on RDK start on windows.
-		ftdc.logger.Warn("FTDC not implemented on windows, not starting")
+		ftdc.logger.Debug("FTDC not implemented on windows, not starting")
 		return
 	}
 	ftdc.readStatsWorker = utils.NewStoppableWorkerWithTicker(time.Second, ftdc.statsReader)
@@ -242,7 +242,7 @@ func (ftdc *FTDC) statsWriter() {
 			// `Statser` from "registry". But bubbles it up to signal that no `Datum` was written.
 			// The errors that do get handled here are expected to simply be FS/disk failure errors.
 
-			ftdc.logger.Error("Error writing ftdc data. Shutting down FTDC.", "err", err)
+			ftdc.logger.Errorw("Error writing ftdc data. Shutting down FTDC.", "err", err)
 			// To shut down, we just exit. Closing the `ftdc.outputWorkerDone`. The `statsReader`
 			// goroutine will eventually observe that channel was closed and also exit.
 			return
