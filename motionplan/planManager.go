@@ -144,7 +144,7 @@ func (pm *planManager) planAtomicWaypoints(
 			return nil, ctx.Err()
 		default:
 		}
-		pm.logger.Info("planning step ", i, "of ", len(waypoints), ":", wp.goalState)
+		pm.logger.Info("planning step", i, "of", len(waypoints), ":", wp.goalState)
 		for k, v := range wp.goalState.Poses() {
 			pm.logger.Info(k, v)
 		}
