@@ -317,7 +317,21 @@ func (imp *impl) Write(entry *LogEntry) {
 func (imp *impl) format(logLevel Level, traceKey string, args ...interface{}) *LogEntry {
 	logEntry := imp.NewLogEntry()
 	logEntry.Level = logLevel.AsZap()
-	logEntry.Message = fmt.Sprint(args...)
+	// Use `Sprintln` to put spaces between `args`. E.g:
+	// - Sprint("Foo:", 5, "Bar:", 6) -> "Foo:5Bar:6"
+	// - Sprintln("Foo:," 5, "Bar:", 6) -> "Foo: 5 Bar: 6"
+	msg := fmt.Sprintln(args...)
+	// Sprintln also puts a newline at the end of the string. Appenders writing out log lines
+	// will add their own if necessary. So we remove the trailing newline from `Sprintln`.
+	//
+	// On linux this is correct. Classicly, standard libraries for windows will end lines with a
+	// carriage return + line feed: `\r\n`. Two bytes instead of one. I don't think modern
+	// windows requires the carriage return any more. Looking at the Go implementation
+	// (`pp.doPrintln`), it seems to agree. It only adds a `\n` regardless of the OS.
+	//
+	// Lastly, `Sprintln` is guaranteed to add a trailing newline to its result. The returned string
+	// will always have `length >= 1`.
+	logEntry.Message = msg[0 : len(msg)-1]
 
 	if traceKey != emptyTraceKey {
 		logEntry.Fields = append(logEntry.Fields, zap.String("traceKey", traceKey))
