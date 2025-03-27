@@ -259,7 +259,6 @@ func capsuleVsBoxDistance(c *capsule, other *box) float64 {
 	// if we are not in collision, convert box to mesh and determine triangle-capsule separation distance
 	if dist > defaultCollisionBufferMM {
 		boxAsMesh := other.toMesh()
-		boxAsMesh.pose = NewZeroPose()
 		return capsuleVsMeshDistance(c, boxAsMesh)
 	}
 	return dist

@@ -246,7 +246,7 @@ func (b *box) vertices() []r3.Vector {
 // toMesh returns a 12-triangle mesh representation of the box, 2 right triangles for each face.
 func (b *box) toMesh() *Mesh {
 	if b.mesh == nil {
-		m := &Mesh{pose: b.pose}
+		m := &Mesh{}
 		triangles := make([]*Triangle, 0, 12)
 		verts := b.vertices()
 		for _, tri := range boxTriangles {
@@ -255,6 +255,7 @@ func (b *box) toMesh() *Mesh {
 		m.triangles = triangles
 		b.mesh = m
 	}
+	b.mesh.pose = NewZeroPose()
 	return b.mesh
 }
 
