@@ -85,7 +85,7 @@ func timeoutHelper(defaultTimeout time.Duration, timeoutEnvVar string, logger lo
 	if timeoutVal := os.Getenv(timeoutEnvVar); timeoutVal != "" {
 		timeout, err := time.ParseDuration(timeoutVal)
 		if err != nil {
-			logger.Warn("Failed to parse %s env var, falling back to default %v timeout",
+			logger.Warnf("Failed to parse %s env var, falling back to default %v timeout",
 				timeoutEnvVar, defaultTimeout)
 			return defaultTimeout
 		}

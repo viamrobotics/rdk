@@ -1020,7 +1020,7 @@ func TestGrandRemoteRebooting(t *testing.T) {
 		recvPktsFn()
 		// at some point packets are no longer published
 		lastPkt := pkts[len(pkts)-1]
-		logger.Info("Pushing packets: ", len(pkts), " TS:", lastPkt.Timestamp)
+		logger.Info("Pushing packets:", len(pkts), "TS:", lastPkt.Timestamp)
 		select {
 		case <-testDone:
 		case pktsChan <- pkts:
@@ -1092,7 +1092,7 @@ Loop:
 	test.That(t, err, test.ShouldBeNil)
 	options2.Network.Listener = newListener
 
-	logger.Info("setting up new robot at address %s", newListener.Addr().String())
+	logger.Infof("setting up new robot at address %s", newListener.Addr().String())
 
 	remote2CtxSecond, remoteRobot2Second, remoteWebSvc2Second := setupRealRobotWithOptions(
 		t,
@@ -1113,7 +1113,7 @@ Loop:
 			test.That(t, true, test.ShouldEqual, "main's sub terminated due to close")
 		case pkts := <-pktsChan:
 			lastPkt := pkts[len(pkts)-1]
-			logger.Info("Test finale RTP packet received. TS: %v", lastPkt.Timestamp)
+			logger.Infof("Test finale RTP packet received. TS: %v", lastPkt.Timestamp)
 			// Right now we never go down this path as the test is not able to get remote1 to reconnect to the new remote 2
 			logger.Info("SubscribeRTP got packets")
 			testPassed = true

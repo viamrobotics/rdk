@@ -463,7 +463,7 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 		// If we succeed with a webrtc connection, flip the `serverIsWebrtcEnabled` to force all future
 		// connections to use webrtc.
 		if !rc.serverIsWebrtcEnabled {
-			rc.logger.Info("A WebRTC connection was made to the robot. ",
+			rc.logger.Info("A WebRTC connection was made to the robot.",
 				"Reconnects will disallow direct gRPC connections.")
 			rc.serverIsWebrtcEnabled = true
 		}

@@ -419,7 +419,7 @@ func TestFileDeletion(t *testing.T) {
 	})
 	logger.Info("Orig files:")
 	for _, f := range origFiles {
-		logger.Info("  ", f.Name(), " ModTime: ", f.ModTime())
+		logger.Info("  ", f.Name(), "ModTime:", f.ModTime())
 	}
 
 	// Delete excess FTDC files. Check that we now have exactly the max number of allowed files.
@@ -437,7 +437,7 @@ func TestFileDeletion(t *testing.T) {
 
 	logger.Info("Leftover files:")
 	for _, f := range leftoverFiles {
-		logger.Info("  ", f.Name(), " ModTime: ", f.ModTime())
+		logger.Info("  ", f.Name(), "ModTime:", f.ModTime())
 	}
 
 	// We've sorted both files in descending timestamp order as per their filename. Assert that the
