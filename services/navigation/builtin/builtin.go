@@ -575,7 +575,7 @@ func (svc *builtIn) moveToWaypoint(ctx context.Context, wp navigation.Waypoint, 
 		defer timeoutCancelFn()
 		err := svc.motionService.StopPlan(timeoutCtx, motion.StopPlanReq{ComponentName: req.ComponentName})
 		if err != nil {
-			svc.logger.CError(ctx, "hit error trying to stop plan %s", err)
+			svc.logger.CErrorf(ctx, "hit error trying to stop plan %s", err)
 		}
 
 		if old := svc.activeExecutionWaypoint.Swap(emptyExecutionWaypoint); old != executionWaypoint {

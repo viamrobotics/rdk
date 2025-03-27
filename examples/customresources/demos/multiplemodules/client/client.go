@@ -78,5 +78,5 @@ func main() {
 	if err != nil {
 		logger.Fatal(err)
 	}
-	logger.Info(nums, " sum to ", retAdd)
+	logger.Info(nums, "sum to", retAdd)
 }

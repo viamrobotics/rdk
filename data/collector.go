@@ -299,10 +299,10 @@ func (c *collector) writeCaptureResults() {
 					return
 				}
 			case CaptureTypeUnspecified:
-				c.logger.Error(fmt.Sprintf("collector returned invalid result type: %d", msg.Type))
+				c.logger.Errorf("collector returned invalid result type: %d", msg.Type)
 				return
 			default:
-				c.logger.Error(fmt.Sprintf("collector returned invalid result type: %d", msg.Type))
+				c.logger.Errorf("collector returned invalid result type: %d", msg.Type)
 				return
 			}
 

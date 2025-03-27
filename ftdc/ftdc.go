@@ -242,7 +242,7 @@ func (ftdc *FTDC) statsWriter() {
 			// `Statser` from "registry". But bubbles it up to signal that no `Datum` was written.
 			// The errors that do get handled here are expected to simply be FS/disk failure errors.
 
-			ftdc.logger.Error("Error writing ftdc data. Shutting down FTDC.", "err", err)
+			ftdc.logger.Errorw("Error writing ftdc data. Shutting down FTDC.", "err", err)
 			// To shut down, we just exit. Closing the `ftdc.outputWorkerDone`. The `statsReader`
 			// goroutine will eventually observe that channel was closed and also exit.
 			return
@@ -604,7 +604,7 @@ func (ftdc *FTDC) checkAndDeleteOldFiles() error {
 // deletion testing. Filename generation uses padding such that we can rely on there before 2/4
 // digits for every numeric value.
 //
-//nolint
+// nolint
 // Example filename: countingBytesTest1228324349/viam-server-2024-11-18T20-37-01Z.ftdc
 var filenameTimeRe = regexp.MustCompile(`viam-server-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})Z.ftdc`)
 

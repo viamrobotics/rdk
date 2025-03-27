@@ -85,7 +85,7 @@ func main() {
 	if err != nil {
 		logger.Fatal(err)
 	}
-	logger.Info(nums, " sum to ", retAdd)
+	logger.Info(nums, "sum to", retAdd)
 
 	logger.Info("---- Testing subtractor (summationapi) -----")
 	sub, err := summationapi.FromRobot(robot, "subtractor")
@@ -96,7 +96,7 @@ func main() {
 	if err != nil {
 		logger.Fatal(err)
 	}
-	logger.Info(nums, " subtract to ", retSub)
+	logger.Info(nums, "subtract to", retSub)
 
 	logger.Info("---- Testing denali (navigation) -----")
 	nav, err := navigation.FromRobot(robot, "denali")
