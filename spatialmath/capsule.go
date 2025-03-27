@@ -258,7 +258,8 @@ func capsuleVsBoxDistance(c *capsule, other *box) float64 {
 	// Separating axis theorum provides accurate penetration depth but is not accurate for separation
 	// if we are not in collision, convert box to mesh and determine triangle-capsule separation distance
 	if dist > defaultCollisionBufferMM {
-		return capsuleVsMeshDistance(c, other.toMesh())
+		boxAsMesh := other.toMesh()
+		return capsuleVsMeshDistance(c, boxAsMesh)
 	}
 	return dist
 }
@@ -269,7 +270,9 @@ func capsuleVsMeshDistance(c *capsule, other *Mesh) float64 {
 	lowDist := math.Inf(1)
 	for _, t := range other.triangles {
 		// Measure distance to each mesh triangle
-		dist := capsuleVsTriangleDistance(c, t)
+		// Make sure the triangle is transformed by the pose of the mesh to ensure that it is properly positioned
+		properlyPositionedTriangle := t.Transform(other.Pose())
+		dist := capsuleVsTriangleDistance(c, properlyPositionedTriangle)
 		if dist < lowDist {
 			lowDist = dist
 		}

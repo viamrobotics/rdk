@@ -33,6 +33,15 @@ func (t *Triangle) Normal() r3.Vector {
 	return t.normal
 }
 
+// Transform premultiplies the triangle's points with a transform, allowing the triangle to be moved in space.
+func (t *Triangle) Transform(toPremultiply Pose) *Triangle {
+	return NewTriangle(
+		Compose(toPremultiply, NewPoseFromPoint(t.p0)).Point(),
+		Compose(toPremultiply, NewPoseFromPoint(t.p1)).Point(),
+		Compose(toPremultiply, NewPoseFromPoint(t.p2)).Point(),
+	)
+}
+
 // ClosestTriangleInsidePoint returns the closest point on a triangle IF AND ONLY IF the query point's projection overlaps the triangle.
 // Otherwise it will return the query point.
 // To visualize this- if one draws a tetrahedron using the triangle and the query point, all angles from the triangle to the query point
