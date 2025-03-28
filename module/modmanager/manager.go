@@ -64,7 +64,7 @@ func NewManager(
 	ret := &Manager{
 		logger:                  logger.Sublogger("modmanager"),
 		modules:                 moduleMap{},
-		parentAddr:              cleanWindowsUDS(parentAddr),
+		parentAddr:              cleanWindowsSocketPath(parentAddr),
 		rMap:                    resourceModuleMap{},
 		untrustedEnv:            options.UntrustedEnv,
 		viamHomeDir:             options.ViamHomeDir,
@@ -1068,7 +1068,7 @@ func (m *module) dial() error {
 	var err error
 	addrToDial := m.addr
 	if !rutils.TCPRegex.MatchString(addrToDial) {
-		addrToDial = "unix://" + cleanWindowsUDS(addrToDial)
+		addrToDial = "unix://" + cleanWindowsSocketPath(addrToDial)
 	}
 	conn, err := grpc.Dial( //nolint:staticcheck
 		addrToDial,
@@ -1171,10 +1171,12 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	return conf.FirstRun(ctx, pkgsDir, dataDir, env, mgr.logger)
 }
 
-// clean a unix domain socket path for url.Parse in grpc to not fail on it in windows.
-func cleanWindowsUDS(orig string) string {
+// On windows only, this mutates socket paths so they work well with the GRPC library.
+// If you don't do this, it will confuse grpc-go's url.Parse call and surrounding logic.
+// See https://github.com/grpc/grpc-go/blob/v1.71.0/clientconn.go#L1720-L1727
+func cleanWindowsSocketPath(orig string) string {
 	if runtime.GOOS == "windows" {
-		return strings.ReplaceAll(strings.ReplaceAll(orig, "C:\\", "\\"), "\\", "/")
+		return strings.ReplaceAll(strings.TrimPrefix(orig, "C:"), "\\", "/")
 	}
 	return orig
 }
@@ -1197,7 +1199,7 @@ func (m *module) startProcess(
 			filepath.Dir(parentAddr), fmt.Sprintf("%s-%s", m.cfg.Name, utils.RandomAlphaString(5))); err != nil {
 			return err
 		}
-		m.addr = cleanWindowsUDS(m.addr)
+		m.addr = cleanWindowsSocketPath(m.addr)
 	}
 
 	// We evaluate the Module's ExePath absolutely in the viam-server process so that
