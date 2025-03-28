@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strconv"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -409,7 +410,7 @@ func TestModManagerKill(t *testing.T) {
 	mMgr, ok := mgr.(*Manager)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	_, ok = mMgr.modules.Load(modCfg.Name)
+	mod, ok := mMgr.modules.Load(modCfg.Name)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	mgr.Kill()
@@ -423,11 +424,11 @@ func TestModManagerKill(t *testing.T) {
 	// the manage goroutine actually returns.
 	// We do not care about the error if it is expected.
 	// maybe related to https://github.com/golang/go/issues/18874
-	// pid, err := mod.process.UnixPid()
-	// test.That(t, err, test.ShouldBeNil)
-	// if err := syscall.Kill(pid, syscall.SIGTERM); err != nil {
-	// 	test.That(t, errors.Is(err, os.ErrProcessDone), test.ShouldBeFalse)
-	// }
+	pid, err := mod.process.UnixPid()
+	test.That(t, err, test.ShouldBeNil)
+	if err := syscall.Kill(pid, syscall.SIGTERM); err != nil {
+		test.That(t, errors.Is(err, os.ErrProcessDone), test.ShouldBeFalse)
+	}
 }
 
 func TestModManagerValidation(t *testing.T) {
