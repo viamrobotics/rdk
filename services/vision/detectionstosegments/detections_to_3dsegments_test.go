@@ -23,7 +23,7 @@ import (
 type simpleDetector struct{}
 
 func (s *simpleDetector) Detect(context.Context, image.Image) ([]objectdetection.Detection, error) {
-	det1 := objectdetection.NewDetection(image.Rect(10, 10, 20, 20), 0.5, "yes")
+	det1 := objectdetection.NewDetection(image.Rect(0, 0, 50, 50), image.Rect(10, 10, 20, 20), 0.5, "yes")
 	return []objectdetection.Detection{det1}, nil
 }
 

@@ -160,7 +160,7 @@ func convertBoundingBoxesToDetections(boundingBoxes []data.BoundingBox, origW, o
 		xmax := bbox.XMaxNormalized * float64(origW-1)
 		ymax := bbox.YMaxNormalized * float64(origH-1)
 		rect := image.Rect(int(xmin), int(ymin), int(xmax), int(ymax))
-		detections = append(detections, objectdetection.NewDetection(rect, *bbox.Confidence, bbox.Label))
+		detections = append(detections, objectdetection.NewDetection(image.Rect(0, 0, origW, origH), rect, *bbox.Confidence, bbox.Label))
 	}
 	return detections
 }

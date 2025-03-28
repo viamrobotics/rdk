@@ -52,7 +52,7 @@ func fakeDetector(ctx context.Context, img image.Image) ([]objectdetection.Detec
 		int(float64(bounds.Max.X)*0.75),
 		int(float64(bounds.Max.Y)*0.75),
 	)
-	fakeDet := objectdetection.NewDetection(boundingBox, fakeDetScore, fakeDetLabel)
+	fakeDet := objectdetection.NewDetection(bounds, boundingBox, fakeDetScore, fakeDetLabel)
 	dets := []objectdetection.Detection{fakeDet}
 	return dets, nil
 }

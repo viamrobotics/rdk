@@ -35,6 +35,7 @@ var viamLogoJpegB64 = []byte("/9j/4QD4RXhpZgAATU0AKgAAAAgABwESAAMAAAABAAEAAAEaAA
 
 type fakeDetection struct {
 	boundingBox *image.Rectangle
+	normalizedBox []float64
 	score       float64
 	label       string
 }
@@ -55,6 +56,7 @@ var fakeDetections = []objectdetection.Detection{
 			Min: image.Point{X: 10, Y: 20},
 			Max: image.Point{X: 110, Y: 120},
 		},
+		normalizedBox: []float64{0.01, 0.02, 0.11, 0.12},
 		score: 0.95,
 		label: "cat",
 	},
@@ -66,6 +68,7 @@ var fakeDetections2 = []objectdetection.Detection{
 			Min: image.Point{X: 10, Y: 20},
 			Max: image.Point{X: 110, Y: 120},
 		},
+		normalizedBox: []float64{0.01, 0.02, 0.11, 0.12},
 		score: 0.3,
 		label: "cat",
 	},
@@ -95,6 +98,10 @@ func (fc *fakeClassification) Label() string {
 
 func (fd *fakeDetection) BoundingBox() *image.Rectangle {
 	return fd.boundingBox
+}
+
+func (fd *fakeDetection) NormalizedBoundingBox() []float64 {
+	return fd.normalizedBox
 }
 
 func (fd *fakeDetection) Score() float64 {

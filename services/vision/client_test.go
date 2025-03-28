@@ -31,7 +31,7 @@ func TestClient(t *testing.T) {
 
 	srv := &inject.VisionService{}
 	srv.DetectionsFunc = func(ctx context.Context, img image.Image, extra map[string]interface{}) ([]objectdetection.Detection, error) {
-		det1 := objectdetection.NewDetection(image.Rect(5, 10, 15, 20), 0.5, "yes")
+		det1 := objectdetection.NewDetection(img.Bounds(), image.Rect(5, 10, 15, 20), 0.5, "yes")
 		return []objectdetection.Detection{det1}, nil
 	}
 	srv.DetectionsFromCameraFunc = func(
@@ -39,7 +39,7 @@ func TestClient(t *testing.T) {
 		camName string,
 		extra map[string]interface{},
 	) ([]objectdetection.Detection, error) {
-		det1 := objectdetection.NewDetection(image.Rect(0, 0, 10, 20), 0.8, "camera")
+		det1 := objectdetection.NewDetection(image.Rect(0, 0, 50, 50), image.Rect(0, 0, 10, 20), 0.8, "camera")
 		return []objectdetection.Detection{det1}, nil
 	}
 	srv.GetPropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*vision.Properties, error) {

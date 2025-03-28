@@ -87,7 +87,7 @@ func TestServerGetDetections(t *testing.T) {
 		Extra:    ext,
 	}
 	injectVS.DetectionsFunc = func(ctx context.Context, img image.Image, extra map[string]interface{}) ([]objectdetection.Detection, error) {
-		det1 := objectdetection.NewDetection(image.Rectangle{}, 0.5, "yes")
+		det1 := objectdetection.NewDetection(img.Bounds(), image.Rectangle{}, 0.5, "yes")
 		return []objectdetection.Detection{det1}, nil
 	}
 	test.That(t, err, test.ShouldBeNil)
@@ -147,7 +147,7 @@ func TestServerCaptureAllFromCamera(t *testing.T) {
 		Extra:    ext,
 	}
 	injectVS.DetectionsFunc = func(ctx context.Context, img image.Image, extra map[string]interface{}) ([]objectdetection.Detection, error) {
-		det1 := objectdetection.NewDetection(image.Rectangle{}, 0.5, "yes")
+		det1 := objectdetection.NewDetection(img.Bounds(), image.Rectangle{}, 0.5, "yes")
 		return []objectdetection.Detection{det1}, nil
 	}
 	test.That(t, err, test.ShouldBeNil)
@@ -162,7 +162,7 @@ func TestServerCaptureAllFromCamera(t *testing.T) {
 		opts viscapture.CaptureOptions,
 		extra map[string]interface{},
 	) (viscapture.VisCapture, error) {
-		det1 := objectdetection.NewDetection(image.Rectangle{}, 0.5, "yes")
+		det1 := objectdetection.NewDetection(img.Bounds(), image.Rectangle{}, 0.5, "yes")
 		return viscapture.VisCapture{
 			Detections: []objectdetection.Detection{det1},
 			Extra:      extra,
