@@ -316,6 +316,11 @@ func (vm *vizModel) DetectionsFromCamera(
 ) ([]objectdetection.Detection, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::DetectionsFromCamera::"+vm.Named.Name().String())
 	defer span.End()
+	if cameraName == "" && vm.defaultCamera == "" {
+		return nil, errors.New("no camera name provided and no default camera found")
+	} else if cameraName == "" {
+		cameraName = vm.defaultCamera
+	}
 	if vm.detectorFunc == nil {
 		return nil, errors.Errorf("vision model %q does not implement a Detector", vm.Named.Name())
 	}
@@ -358,6 +363,11 @@ func (vm *vizModel) ClassificationsFromCamera(
 ) (classification.Classifications, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::ClassificationsFromCamera::"+vm.Named.Name().String())
 	defer span.End()
+	if cameraName == "" && vm.defaultCamera == "" {
+		return nil, errors.New("no camera name provided and no default camera found")
+	} else if cameraName == "" {
+		cameraName = vm.defaultCamera
+	}
 	if vm.classifierFunc == nil {
 		return nil, errors.Errorf("vision model %q does not implement a Classifier", vm.Named.Name())
 	}
@@ -387,6 +397,11 @@ func (vm *vizModel) GetObjectPointClouds(
 	}
 	ctx, span := trace.StartSpan(ctx, "service::vision::GetObjectPointClouds::"+vm.Named.Name().String())
 	defer span.End()
+	if cameraName == "" && vm.defaultCamera == "" {
+		return nil, errors.New("no camera name provided and no default camera found")
+	} else if cameraName == "" {
+		cameraName = vm.defaultCamera
+	}
 	cam, err := camera.FromRobot(vm.r, cameraName)
 	if err != nil {
 		return nil, err
@@ -410,6 +425,11 @@ func (vm *vizModel) CaptureAllFromCamera(
 ) (viscapture.VisCapture, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::ClassificationsFromCamera::"+vm.Named.Name().String())
 	defer span.End()
+	if cameraName == "" && vm.defaultCamera == "" {
+		return viscapture.VisCapture{}, errors.New("no camera name provided and no default camera found")
+	} else if cameraName == "" {
+		cameraName = vm.defaultCamera
+	}
 	cam, err := camera.FromRobot(vm.r, cameraName)
 	if err != nil {
 		return viscapture.VisCapture{}, errors.Wrapf(err, "could not find camera named %s", cameraName)
