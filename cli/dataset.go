@@ -19,7 +19,7 @@ const (
 	datasetFlagDatasetID        = "dataset-id"
 	datasetFlagDatasetIDs       = "dataset-ids"
 	dataFlagLocationID          = "location-id"
-	dataFlagFileIDs             = "file-ids"
+	dataFlagBinaryDataIDs       = "binary-data-ids"
 	datasetFlagIncludeJSONLines = "include-jsonl"
 )
 
@@ -213,7 +213,7 @@ func (c *viamClient) downloadDataset(dst, datasetID string, includeJSONLines boo
 	}
 
 	return c.performActionOnBinaryDataFromFilter(
-		func(id *datapb.BinaryID) error {
+		func(id string) error {
 			downloadErr := c.downloadBinary(dst, id, timeout)
 			var datasetErr error
 			if includeJSONLines {
@@ -252,13 +252,13 @@ type BBoxAnnotation struct {
 }
 
 func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient, dst string, file *os.File,
-	id *datapb.BinaryID,
+	id string,
 ) error {
 	var resp *datapb.BinaryDataByIDsResponse
 	var err error
 	for count := 0; count < maxRetryCount; count++ {
 		resp, err = client.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
-			BinaryIds:     []*datapb.BinaryID{id},
+			BinaryDataIds: []string{id},
 			IncludeBinary: false,
 		})
 		if err == nil {
