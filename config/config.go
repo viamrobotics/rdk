@@ -1193,7 +1193,9 @@ func (p *PackageConfig) LocalDataParentDirectory(packagesDir string) string {
 
 // SanitizedName returns the package name for the symlink/filepath of the package on the system.
 func (p *PackageConfig) SanitizedName() string {
-	return fmt.Sprintf("%s-%s", strings.ReplaceAll(p.Package, string(os.PathSeparator), "-"), p.sanitizedVersion())
+	// p.Package is set by the PackageServiceClient as "{org_id}/{package_name}"
+	// see https://github.com/viamrobotics/app/blob/e0d693d80ae6f308e5b3a6bddb69991521127928/packages/packages.go#L1257
+	return fmt.Sprintf("%s-%s", strings.ReplaceAll(p.Package, "/", "-"), p.sanitizedVersion())
 }
 
 // sanitizedVersion returns a cleaned version of the version so it is file-system-safe.
