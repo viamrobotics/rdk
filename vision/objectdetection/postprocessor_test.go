@@ -8,13 +8,14 @@ import (
 )
 
 func TestLabelConfidencePostprocessor(t *testing.T) {
+	fakeImgBound := image.Rect(0,0,1000,1000)
 	d := []Detection{
-		NewDetection(image.Rect(0, 0, 30, 30), 0.5, "A"),
-		NewDetection(image.Rect(0, 0, 30, 30), 0.1, "a"),
-		NewDetection(image.Rect(0, 0, 300, 300), 0.1, "B"),
-		NewDetection(image.Rect(0, 0, 300, 300), 0.6, "b"),
-		NewDetection(image.Rect(150, 150, 310, 310), 1, "C"),
-		NewDetection(image.Rect(50, 50, 200, 200), 0.8773934448, "D"),
+		NewDetection(fakeImgBound, image.Rect(0, 0, 30, 30), 0.5, "A"),
+		NewDetection(fakeImgBound, image.Rect(0, 0, 30, 30), 0.1, "a"),
+		NewDetection(fakeImgBound, image.Rect(0, 0, 300, 300), 0.1, "B"),
+		NewDetection(fakeImgBound, image.Rect(0, 0, 300, 300), 0.6, "b"),
+		NewDetection(fakeImgBound, image.Rect(150, 150, 310, 310), 1, "C"),
+		NewDetection(fakeImgBound, image.Rect(50, 50, 200, 200), 0.8773934448, "D"),
 	}
 
 	postNoFilter := NewLabelConfidenceFilter(nil) // no filtering
@@ -34,11 +35,12 @@ func TestLabelConfidencePostprocessor(t *testing.T) {
 }
 
 func TestPostprocessors(t *testing.T) {
+	fakeImgBound := image.Rect(0,0,1000,1000)
 	d := []Detection{
-		NewDetection(image.Rect(0, 0, 30, 30), 0.5, "A"),
-		NewDetection(image.Rect(0, 0, 300, 300), 0.6, "B"),
-		NewDetection(image.Rect(150, 150, 310, 310), 1, "C"),
-		NewDetection(image.Rect(50, 50, 200, 200), 0.8773934448, "D"),
+		NewDetection(fakeImgBound, image.Rect(0, 0, 30, 30), 0.5, "A"),
+		NewDetection(fakeImgBound, image.Rect(0, 0, 300, 300), 0.6, "B"),
+		NewDetection(fakeImgBound, image.Rect(150, 150, 310, 310), 1, "C"),
+		NewDetection(fakeImgBound, image.Rect(50, 50, 200, 200), 0.8773934448, "D"),
 	}
 	sorter := SortByArea()
 	got := sorter(d)
