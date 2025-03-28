@@ -53,7 +53,7 @@ func TestClient(t *testing.T) {
 		opts viscapture.CaptureOptions,
 		extra map[string]interface{},
 	) (viscapture.VisCapture, error) {
-		det1 := objectdetection.NewDetection(image.Rectangle{}, 0.5, "yes")
+		det1 := objectdetection.NewDetectionWithoutImgBounds(image.Rectangle{}, 0.5, "yes")
 		return viscapture.VisCapture{
 			Detections: []objectdetection.Detection{det1},
 			Extra:      extra,

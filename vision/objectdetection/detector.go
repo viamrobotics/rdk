@@ -48,8 +48,13 @@ func NewDetection(imageBounds, boundingBox image.Rectangle, score float64, label
 	return &detection2D{boundingBox, normBbox, score, label}
 }
 
+// NewDetectionWithoutImgBounds creates a simple 2D detection.
+func NewDetectionWithoutImgBounds(boundingBox image.Rectangle, score float64, label string) Detection {
+	return &detection2D{boundingBox, nil, score, label}
+}
+
 func NewNormalizedBoundingBox(imageBounds, boundingBox image.Rectangle) []float64 {
-	// TODO: Check if boundingBox is within imageBounds?? Or maybe just check that the 
+	// TODO: Check if boundingBox is within imageBounds?? Or maybe just check that the
 	// results are all from 0-1
 	return []float64{
 		float64(boundingBox.Min.X) / float64(imageBounds.Max.X),
@@ -76,7 +81,6 @@ func (d *detection2D) BoundingBox() *image.Rectangle {
 func (d *detection2D) NormalizedBoundingBox() []float64 {
 	return d.normalizedBoundingBox
 }
-
 
 // Score returns a confidence score of the detection between 0.0 and 1.0.
 func (d *detection2D) Score() float64 {
