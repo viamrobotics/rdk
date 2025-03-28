@@ -54,7 +54,6 @@ func (s *Server) Serve(listener net.Listener) error {
 	s.mu.Lock()
 	s.addr = listener.Addr()
 	s.mu.Unlock()
-	println("Server.Serve ADDR", s.addr.String())
 	return s.server.Serve(listener)
 }
 
