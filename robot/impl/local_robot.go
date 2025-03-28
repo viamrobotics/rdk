@@ -505,7 +505,7 @@ func newWithResources(
 		homeDir = rOpts.viamHomeDir
 	}
 	// Once web service is started, start module manager
-	r.manager.startModuleManager(
+	if err := r.manager.startModuleManager(
 		closeCtx,
 		r.webSvc.ModuleAddress(),
 		r.removeOrphanedResources,
@@ -515,7 +515,9 @@ func newWithResources(
 		logger,
 		cfg.PackagePath,
 		r.webSvc.ModPeerConnTracker(),
-	)
+	); err != nil {
+		return nil, err
+	}
 
 	if !rOpts.disableCompleteConfigWorker {
 		r.activeBackgroundWorkers.Add(1)

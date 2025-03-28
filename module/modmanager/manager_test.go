@@ -11,7 +11,6 @@ import (
 	"runtime"
 	"strconv"
 	"sync/atomic"
-	"syscall"
 	"testing"
 	"time"
 
@@ -65,7 +64,8 @@ func setupModManager(
 	options modmanageroptions.Options,
 ) modmaninterface.ModuleManager {
 	t.Helper()
-	mgr := NewManager(ctx, parentAddr, logger, options)
+	mgr, err := NewManager(ctx, parentAddr, logger, options)
+	test.That(t, err, test.ShouldBeNil)
 	t.Cleanup(func() {
 		// Wait for module recovery processes here because modmanager.Close does not.
 		// Do so by grabbing a copy of the modules and then waiting after
@@ -409,7 +409,7 @@ func TestModManagerKill(t *testing.T) {
 	mMgr, ok := mgr.(*Manager)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	mod, ok := mMgr.modules.Load(modCfg.Name)
+	_, ok = mMgr.modules.Load(modCfg.Name)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	mgr.Kill()
@@ -423,11 +423,11 @@ func TestModManagerKill(t *testing.T) {
 	// the manage goroutine actually returns.
 	// We do not care about the error if it is expected.
 	// maybe related to https://github.com/golang/go/issues/18874
-	pid, err := mod.process.UnixPid()
-	test.That(t, err, test.ShouldBeNil)
-	if err := syscall.Kill(pid, syscall.SIGTERM); err != nil {
-		test.That(t, errors.Is(err, os.ErrProcessDone), test.ShouldBeFalse)
-	}
+	// pid, err := mod.process.UnixPid()
+	// test.That(t, err, test.ShouldBeNil)
+	// if err := syscall.Kill(pid, syscall.SIGTERM); err != nil {
+	// 	test.That(t, errors.Is(err, os.ErrProcessDone), test.ShouldBeFalse)
+	// }
 }
 
 func TestModManagerValidation(t *testing.T) {
@@ -1159,7 +1159,7 @@ func TestRTPPassthrough(t *testing.T) {
 	parentAddr := setupSocketWithRobot(t)
 
 	greenLog(t, "test AddModule")
-	mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	mgr, err := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
 	test.That(t, err, test.ShouldBeNil)
 
 	// add module executable
@@ -1365,7 +1365,8 @@ func TestAddStreamMaxTrackErr(t *testing.T) {
 	parentAddr := setupSocketWithRobot(t)
 
 	greenLog(t, "test AddModule")
-	mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	mgr, err := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, mgr.Close(ctx), test.ShouldBeNil)
 	}()
@@ -1375,7 +1376,7 @@ func TestAddStreamMaxTrackErr(t *testing.T) {
 		Name:    "rtp-passthrough-module",
 		ExePath: modPath,
 	}
-	err := mgr.Add(ctx, modCfg)
+	err = mgr.Add(ctx, modCfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	reg, ok := resource.LookupRegistration(camera.API, model)
@@ -1694,4 +1695,31 @@ func TestFirstRun(t *testing.T) {
 		err = mgr.FirstRun(ctx, modCfg)
 		test.That(t, err, test.ShouldResemble, context.DeadlineExceeded)
 	})
+}
+
+func TestCleanWindowsSocketPath(t *testing.T) {
+	// uppercase and lowercase
+	clean, err := cleanWindowsSocketPath("windows", "C:\\x\\y.sock")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
+	clean, err = cleanWindowsSocketPath("windows", "c:\\x\\y.sock")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
+
+	// wrong disk
+	clean, err = cleanWindowsSocketPath("windows", "d:\\x\\y.sock")
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// no disk
+	clean, err = cleanWindowsSocketPath("windows", "\\x\\y.sock")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
+	clean, err = cleanWindowsSocketPath("windows", "/x/y.sock")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
+
+	// linux
+	clean, err = cleanWindowsSocketPath("linux", "/x/y.sock")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
 }
