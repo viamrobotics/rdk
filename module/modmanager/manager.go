@@ -1074,11 +1074,7 @@ func (m *module) dial() error {
 	var err error
 	addrToDial := m.addr
 	if !rutils.TCPRegex.MatchString(addrToDial) {
-		cleanAddr, err := cleanWindowsSocketPath(runtime.GOOS, addrToDial)
-		if err != nil {
-			return err
-		}
-		addrToDial = "unix://" + cleanAddr
+		addrToDial = "unix://" + addrToDial
 	}
 	conn, err := grpc.Dial( //nolint:staticcheck
 		addrToDial,
