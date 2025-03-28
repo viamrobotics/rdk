@@ -139,10 +139,8 @@ func DataTagActionByFilter(c *cli.Context, args dataTagByFilterArgs) error {
 }
 
 type dataTagByIDsArgs struct {
-	Tags       []string
-	OrgID      string
-	LocationID string
-	FileIDs    []string
+	Tags          []string
+	BinaryDataIDs []string
 }
 
 // DataTagActionByIds is the corresponding action for 'data tag'.
@@ -154,12 +152,12 @@ func DataTagActionByIds(c *cli.Context, args dataTagByIDsArgs) error { //nolint:
 
 	switch c.Command.Name {
 	case dataCommandAdd:
-		if err := client.dataAddTagsToBinaryByIDs(args.Tags, args.OrgID, args.LocationID, args.FileIDs); err != nil {
+		if err := client.dataAddTagsToBinaryByIDs(args.Tags, args.BinaryDataIDs); err != nil {
 			return err
 		}
 		return nil
 	case dataCommandRemove:
-		if err := client.dataRemoveTagsFromBinaryByIDs(args.Tags, args.OrgID, args.LocationID, args.FileIDs); err != nil {
+		if err := client.dataRemoveTagsFromBinaryByIDs(args.Tags, args.BinaryDataIDs); err != nil {
 			return err
 		}
 		return nil
@@ -355,7 +353,7 @@ func (c *viamClient) dataExportTabularAction(cCtx *cli.Context, args dataExportT
 // BinaryData downloads binary data matching filter to dst.
 func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownloads, timeout uint) error {
 	return c.performActionOnBinaryDataFromFilter(
-		func(id *datapb.BinaryID) error {
+		func(id string) error {
 			return c.downloadBinary(dst, id, timeout)
 		},
 		filter, parallelDownloads,
@@ -369,10 +367,10 @@ func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownl
 // a filter in batches and then performs actionOnBinaryData on each binary data in parallel.
 // Each time `logEveryN` actions have been performed, the printStatement logs a statement that takes in as
 // input how much binary data has been processed thus far.
-func (c *viamClient) performActionOnBinaryDataFromFilter(actionOnBinaryData func(*datapb.BinaryID) error,
+func (c *viamClient) performActionOnBinaryDataFromFilter(actionOnBinaryData func(string) error,
 	filter *datapb.Filter, parallelActions uint, printStatement func(int32),
 ) error {
-	ids := make(chan *datapb.BinaryID, parallelActions)
+	ids := make(chan string, parallelActions)
 	// Give channel buffer of 1+parallelActions because that is the number of goroutines that may be passing an
 	// error into this channel (1 get ids routine + parallelActions download routines).
 	errs := make(chan error, 1+parallelActions)
@@ -396,7 +394,7 @@ func (c *viamClient) performActionOnBinaryDataFromFilter(actionOnBinaryData func
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		var nextID *datapb.BinaryID
+		var nextBinaryDataId string
 		var done bool
 		var numFilesProcessed atomic.Int32
 		var downloadWG sync.WaitGroup
@@ -409,16 +407,17 @@ func (c *viamClient) performActionOnBinaryDataFromFilter(actionOnBinaryData func
 					break
 				}
 
-				nextID = <-ids
+				binaryDataId, ok := <-ids
 
 				// If nextID is nil, the channel has been closed and there are no more IDs to be read.
-				if nextID == nil {
+				if !ok {
 					done = true
 					break
 				}
+				nextBinaryDataId = binaryDataId
 
 				downloadWG.Add(1)
-				go func(id *datapb.BinaryID) {
+				go func(id string) {
 					defer downloadWG.Done()
 					// Perform the desired action on the binary data
 					err := actionOnBinaryData(id)
@@ -431,7 +430,7 @@ func (c *viamClient) performActionOnBinaryDataFromFilter(actionOnBinaryData func
 					if numFilesProcessed.Load()%logEveryN == 0 {
 						printStatement(numFilesProcessed.Load())
 					}
-				}(nextID)
+				}(nextBinaryDataId)
 			}
 			downloadWG.Wait()
 			if done {
@@ -454,7 +453,7 @@ func (c *viamClient) performActionOnBinaryDataFromFilter(actionOnBinaryData func
 
 // getMatchingBinaryIDs queries client for all BinaryData matching filter, and passes each of their ids into ids.
 func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, filter *datapb.Filter,
-	ids chan *datapb.BinaryID, limit uint,
+	ids chan string, limit uint,
 ) error {
 	var last string
 	defer close(ids)
@@ -482,37 +481,32 @@ func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, 
 		last = resp.GetLast()
 
 		for _, bd := range resp.GetData() {
-			md := bd.GetMetadata()
-			ids <- &datapb.BinaryID{
-				FileId:         md.GetId(),
-				OrganizationId: md.GetCaptureMetadata().GetOrganizationId(),
-				LocationId:     md.GetCaptureMetadata().GetLocationId(),
-			}
+			ids <- bd.GetMetadata().GetBinaryDataId()
 		}
 	}
 }
 
-func (c *viamClient) downloadBinary(dst string, id *datapb.BinaryID, timeout uint) error {
+func (c *viamClient) downloadBinary(dst string, id string, timeout uint) error {
 	args, err := getGlobalArgs(c.c)
 	if err != nil {
 		return err
 	}
-	debugf(c.c.App.Writer, args.Debug, "Attempting to download binary file %s", id.FileId)
+	debugf(c.c.App.Writer, args.Debug, "Attempting to download binary file %s", id)
 
 	var resp *datapb.BinaryDataByIDsResponse
 	largeFile := false
 	// To begin, we assume the file is small and downloadable, so we try getting the binary directly
 	for count := 0; count < maxRetryCount; count++ {
 		resp, err = c.dataClient.BinaryDataByIDs(c.c.Context, &datapb.BinaryDataByIDsRequest{
-			BinaryIds:     []*datapb.BinaryID{id},
+			BinaryDataIds: []string{id},
 			IncludeBinary: !largeFile,
 		})
 		// If the file is too large, we break and try a different pathway for downloading
 		if err == nil || status.Code(err) == codes.ResourceExhausted {
-			debugf(c.c.App.Writer, args.Debug, "Small file download file %s: attempt %d/%d succeeded", id.FileId, count+1, maxRetryCount)
+			debugf(c.c.App.Writer, args.Debug, "Small file download file %s: attempt %d/%d succeeded", id, count+1, maxRetryCount)
 			break
 		}
-		debugf(c.c.App.Writer, args.Debug, "Small file download for file %s: attempt %d/%d failed", id.FileId, count+1, maxRetryCount)
+		debugf(c.c.App.Writer, args.Debug, "Small file download for file %s: attempt %d/%d failed", id, count+1, maxRetryCount)
 	}
 	// For large files, we get the metadata but not the binary itself
 	// Resource exhausted is returned when the message we're receiving exceeds the GRPC maximum limit
@@ -520,14 +514,14 @@ func (c *viamClient) downloadBinary(dst string, id *datapb.BinaryID, timeout uin
 		largeFile = true
 		for count := 0; count < maxRetryCount; count++ {
 			resp, err = c.dataClient.BinaryDataByIDs(c.c.Context, &datapb.BinaryDataByIDsRequest{
-				BinaryIds:     []*datapb.BinaryID{id},
+				BinaryDataIds: []string{id},
 				IncludeBinary: !largeFile,
 			})
 			if err == nil {
-				debugf(c.c.App.Writer, args.Debug, "Metadata fetch for file %s: attempt %d/%d succeeded", id.FileId, count+1, maxRetryCount)
+				debugf(c.c.App.Writer, args.Debug, "Metadata fetch for file %s: attempt %d/%d succeeded", id, count+1, maxRetryCount)
 				break
 			}
-			debugf(c.c.App.Writer, args.Debug, "Metadata fetch for file %s: attempt %d/%d failed", id.FileId, count+1, maxRetryCount)
+			debugf(c.c.App.Writer, args.Debug, "Metadata fetch for file %s: attempt %d/%d failed", id, count+1, maxRetryCount)
 		}
 	}
 	if err != nil {
@@ -564,7 +558,7 @@ func (c *viamClient) downloadBinary(dst string, id *datapb.BinaryID, timeout uin
 
 	var r io.ReadCloser
 	if largeFile {
-		debugf(c.c.App.Writer, args.Debug, "Attempting file %s as a large file download", id.FileId)
+		debugf(c.c.App.Writer, args.Debug, "Attempting file %s as a large file download", id)
 		// Make request to the URI for large files since we exceed the message limit for gRPC
 		req, err := http.NewRequestWithContext(c.c.Context, http.MethodGet, datum.GetMetadata().GetUri(), nil)
 		if err != nil {
@@ -591,18 +585,18 @@ func (c *viamClient) downloadBinary(dst string, id *datapb.BinaryID, timeout uin
 
 			if err == nil && res.StatusCode == http.StatusOK {
 				debugf(c.c.App.Writer, args.Debug,
-					"Large file download for file %s: attempt %d/%d succeeded", id.FileId, count+1, maxRetryCount)
+					"Large file download for file %s: attempt %d/%d succeeded", id, count+1, maxRetryCount)
 				break
 			}
-			debugf(c.c.App.Writer, args.Debug, "Large file download for file %s: attempt %d/%d failed", id.FileId, count+1, maxRetryCount)
+			debugf(c.c.App.Writer, args.Debug, "Large file download for file %s: attempt %d/%d failed", id, count+1, maxRetryCount)
 		}
 
 		if err != nil {
-			debugf(c.c.App.Writer, args.Debug, "Failed downloading large file %s: %s", id.FileId, err)
+			debugf(c.c.App.Writer, args.Debug, "Failed downloading large file %s: %s", id, err)
 			return errors.Wrapf(err, serverErrorMessage)
 		}
 		if res.StatusCode != http.StatusOK {
-			debugf(c.c.App.Writer, args.Debug, "Failed downloading large file %s: Server returned %d response", id.FileId, res.StatusCode)
+			debugf(c.c.App.Writer, args.Debug, "Failed downloading large file %s: Server returned %d response", id, res.StatusCode)
 			return errors.New(serverErrorMessage)
 		}
 		defer func() {
@@ -623,7 +617,7 @@ func (c *viamClient) downloadBinary(dst string, id *datapb.BinaryID, timeout uin
 	if ext == gzFileExt {
 		r, err = gzip.NewReader(r)
 		if err != nil {
-			debugf(c.c.App.Writer, args.Debug, "Failed unzipping file %s: %s", id.FileId, err)
+			debugf(c.c.App.Writer, args.Debug, "Failed unzipping file %s: %s", id, err)
 			return err
 		}
 	} else if filepath.Ext(dataPath) != ext {
@@ -639,16 +633,16 @@ func (c *viamClient) downloadBinary(dst string, id *datapb.BinaryID, timeout uin
 	//nolint:gosec
 	dataFile, err := os.Create(dataPath)
 	if err != nil {
-		debugf(c.c.App.Writer, args.Debug, "Failed creating file %s: %s", id.FileId, err)
+		debugf(c.c.App.Writer, args.Debug, "Failed creating file %s: %s", id, err)
 		return errors.Wrapf(err, fmt.Sprintf("could not create file for datum %s", datum.GetMetadata().GetId())) //nolint:govet
 	}
 	//nolint:gosec
 	if _, err := io.Copy(dataFile, r); err != nil {
-		debugf(c.c.App.Writer, args.Debug, "Failed writing data to file %s: %s", id.FileId, err)
+		debugf(c.c.App.Writer, args.Debug, "Failed writing data to file %s: %s", id, err)
 		return err
 	}
 	if err := r.Close(); err != nil {
-		debugf(c.c.App.Writer, args.Debug, "Failed closing file %s: %s", id.FileId, err)
+		debugf(c.c.App.Writer, args.Debug, "Failed closing file %s: %s", id, err)
 		return err
 	}
 	return nil
@@ -865,17 +859,9 @@ func (c *viamClient) dataRemoveTagsFromBinaryByFilter(filter *datapb.Filter, tag
 	return nil
 }
 
-func (c *viamClient) dataAddTagsToBinaryByIDs(tags []string, orgID, locationID string, fileIDs []string) error {
-	binaryData := make([]*datapb.BinaryID, 0, len(fileIDs))
-	for _, fileID := range fileIDs {
-		binaryData = append(binaryData, &datapb.BinaryID{
-			OrganizationId: orgID,
-			LocationId:     locationID,
-			FileId:         fileID,
-		})
-	}
+func (c *viamClient) dataAddTagsToBinaryByIDs(tags []string, binaryDataIDs []string) error {
 	_, err := c.dataClient.AddTagsToBinaryDataByIDs(context.Background(),
-		&datapb.AddTagsToBinaryDataByIDsRequest{Tags: tags, BinaryIds: binaryData})
+		&datapb.AddTagsToBinaryDataByIDsRequest{Tags: tags, BinaryDataIds: binaryDataIDs})
 	if err != nil {
 		return errors.Wrapf(err, serverErrorMessage)
 	}
@@ -885,17 +871,9 @@ func (c *viamClient) dataAddTagsToBinaryByIDs(tags []string, orgID, locationID s
 
 // dataRemoveTagsFromData removes tags from data, with the specified org ID, location ID,
 // and file IDs.
-func (c *viamClient) dataRemoveTagsFromBinaryByIDs(tags []string, orgID, locationID string, fileIDs []string) error {
-	binaryData := make([]*datapb.BinaryID, 0, len(fileIDs))
-	for _, fileID := range fileIDs {
-		binaryData = append(binaryData, &datapb.BinaryID{
-			OrganizationId: orgID,
-			LocationId:     locationID,
-			FileId:         fileID,
-		})
-	}
+func (c *viamClient) dataRemoveTagsFromBinaryByIDs(tags []string, binaryDataIDs []string) error {
 	_, err := c.dataClient.RemoveTagsFromBinaryDataByIDs(context.Background(),
-		&datapb.RemoveTagsFromBinaryDataByIDsRequest{Tags: tags, BinaryIds: binaryData})
+		&datapb.RemoveTagsFromBinaryDataByIDsRequest{Tags: tags, BinaryDataIds: binaryDataIDs})
 	if err != nil {
 		return errors.Wrapf(err, serverErrorMessage)
 	}
@@ -915,10 +893,8 @@ func (c *viamClient) deleteTabularData(orgID string, deleteOlderThanDays int) er
 }
 
 type dataAddToDatasetByIDsArgs struct {
-	DatasetID  string
-	OrgID      string
-	LocationID string
-	FileIDs    []string
+	DatasetID     string
+	BinaryDataIDs []string
 }
 
 // DataAddToDatasetByIDs is the corresponding action for 'dataset data add ids'.
@@ -927,25 +903,16 @@ func DataAddToDatasetByIDs(c *cli.Context, args dataAddToDatasetByIDsArgs) error
 	if err != nil {
 		return err
 	}
-	if err := client.dataAddToDatasetByIDs(args.DatasetID, args.OrgID,
-		args.LocationID, args.FileIDs); err != nil {
+	if err := client.dataAddToDatasetByIDs(args.DatasetID, args.BinaryDataIDs); err != nil {
 		return err
 	}
 	return nil
 }
 
-// dataAddToDatasetByIDs adds data, with the specified org ID, location ID, and file IDs to the dataset corresponding to the dataset ID.
-func (c *viamClient) dataAddToDatasetByIDs(datasetID, orgID, locationID string, fileIDs []string) error {
-	binaryData := make([]*datapb.BinaryID, 0, len(fileIDs))
-	for _, fileID := range fileIDs {
-		binaryData = append(binaryData, &datapb.BinaryID{
-			OrganizationId: orgID,
-			LocationId:     locationID,
-			FileId:         fileID,
-		})
-	}
+// dataAddToDatasetByIDs adds data, with the specified dataset ID and binary data IDs to the dataset corresponding to the dataset ID.
+func (c *viamClient) dataAddToDatasetByIDs(datasetID string, binaryDataIDs []string) error {
 	_, err := c.dataClient.AddBinaryDataToDatasetByIDs(context.Background(),
-		&datapb.AddBinaryDataToDatasetByIDsRequest{DatasetId: datasetID, BinaryIds: binaryData})
+		&datapb.AddBinaryDataToDatasetByIDsRequest{DatasetId: datasetID, BinaryDataIds: binaryDataIDs})
 	if err != nil {
 		return errors.Wrapf(err, serverErrorMessage)
 	}
@@ -978,9 +945,9 @@ func (c *viamClient) dataAddToDatasetByFilter(filter *datapb.Filter, datasetID s
 	parallelActions := uint(100)
 
 	return c.performActionOnBinaryDataFromFilter(
-		func(id *datapb.BinaryID) error {
+		func(id string) error {
 			_, err := c.dataClient.AddBinaryDataToDatasetByIDs(c.c.Context,
-				&datapb.AddBinaryDataToDatasetByIDsRequest{DatasetId: datasetID, BinaryIds: []*datapb.BinaryID{id}})
+				&datapb.AddBinaryDataToDatasetByIDsRequest{DatasetId: datasetID, BinaryDataIds: []string{id}})
 			return err
 		},
 		filter, parallelActions,
@@ -990,10 +957,8 @@ func (c *viamClient) dataAddToDatasetByFilter(filter *datapb.Filter, datasetID s
 }
 
 type dataRemoveFromDatasetArgs struct {
-	DatasetID  string
-	OrgID      string
-	LocationID string
-	FileIDs    []string
+	DatasetID     string
+	BinaryDataIDs []string
 }
 
 // DataRemoveFromDataset is the corresponding action for 'dataset data remove ids'.
@@ -1002,26 +967,16 @@ func DataRemoveFromDataset(c *cli.Context, args dataRemoveFromDatasetArgs) error
 	if err != nil {
 		return err
 	}
-	if err := client.dataRemoveFromDataset(args.DatasetID, args.OrgID,
-		args.LocationID, args.FileIDs); err != nil {
+	if err := client.dataRemoveFromDataset(args.DatasetID, args.BinaryDataIDs); err != nil {
 		return err
 	}
 	return nil
 }
 
-// dataRemoveFromDataset removes data, with the specified org ID, location ID,
-// and file IDs from the dataset corresponding to the dataset ID.
-func (c *viamClient) dataRemoveFromDataset(datasetID, orgID, locationID string, fileIDs []string) error {
-	binaryData := make([]*datapb.BinaryID, 0, len(fileIDs))
-	for _, fileID := range fileIDs {
-		binaryData = append(binaryData, &datapb.BinaryID{
-			OrganizationId: orgID,
-			LocationId:     locationID,
-			FileId:         fileID,
-		})
-	}
+// dataRemoveFromDataset removes data, with the specified dataset ID and binary data IDs from the dataset corresponding to the dataset ID.
+func (c *viamClient) dataRemoveFromDataset(datasetID string, binaryDataIDs []string) error {
 	_, err := c.dataClient.RemoveBinaryDataFromDatasetByIDs(context.Background(),
-		&datapb.RemoveBinaryDataFromDatasetByIDsRequest{DatasetId: datasetID, BinaryIds: binaryData})
+		&datapb.RemoveBinaryDataFromDatasetByIDsRequest{DatasetId: datasetID, BinaryDataIds: binaryDataIDs})
 	if err != nil {
 		return errors.Wrapf(err, serverErrorMessage)
 	}
@@ -1061,9 +1016,9 @@ func (c *viamClient) dataRemoveFromDatasetByFilter(filter *datapb.Filter, datase
 	parallelActions := uint(100)
 
 	return c.performActionOnBinaryDataFromFilter(
-		func(id *datapb.BinaryID) error {
+		func(id string) error {
 			_, err := c.dataClient.RemoveBinaryDataFromDatasetByIDs(c.c.Context,
-				&datapb.RemoveBinaryDataFromDatasetByIDsRequest{DatasetId: datasetID, BinaryIds: []*datapb.BinaryID{id}})
+				&datapb.RemoveBinaryDataFromDatasetByIDsRequest{DatasetId: datasetID, BinaryDataIds: []string{id}})
 			return err
 		},
 		filter, parallelActions,
