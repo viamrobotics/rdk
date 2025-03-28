@@ -62,11 +62,11 @@ var (
 func NewManager(
 	ctx context.Context, parentAddr string, logger logging.Logger, options modmanageroptions.Options,
 ) (modmaninterface.ModuleManager, error) {
-	restartCtx, restartCtxCancel := context.WithCancel(ctx)
 	parentAddr, err := cleanWindowsSocketPath(runtime.GOOS, parentAddr)
 	if err != nil {
 		return nil, err
 	}
+	restartCtx, restartCtxCancel := context.WithCancel(ctx)
 	ret := &Manager{
 		logger:                  logger.Sublogger("modmanager"),
 		modules:                 moduleMap{},

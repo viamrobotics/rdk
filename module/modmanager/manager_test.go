@@ -1707,7 +1707,7 @@ func TestCleanWindowsSocketPath(t *testing.T) {
 	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
 
 	// wrong disk
-	clean, err = cleanWindowsSocketPath("windows", "d:\\x\\y.sock")
+	_, err = cleanWindowsSocketPath("windows", "d:\\x\\y.sock")
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// no disk
