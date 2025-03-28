@@ -65,5 +65,5 @@ func register3DSegmenterFromDetector(
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot create 3D segmenter from detector")
 	}
-	return vision.NewService(name, r, nil, nil, detector, segmenter)
+	return vision.NewService(name, r, nil, nil, detector, segmenter, conf.DefaultCamera)
 }

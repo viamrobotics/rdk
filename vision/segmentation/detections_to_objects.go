@@ -24,6 +24,7 @@ type DetectionSegmenterConfig struct {
 	ConfidenceThresh float64 `json:"confidence_threshold_pct"`
 	MeanK            int     `json:"mean_k"`
 	Sigma            float64 `json:"sigma"`
+	DefaultCamera    string  `json:"default_camera"`
 }
 
 // ConvertAttributes changes the AttributeMap input into a DetectionSegmenterConfig.

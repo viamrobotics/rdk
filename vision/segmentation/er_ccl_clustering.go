@@ -37,6 +37,7 @@ type ErCCLConfig struct {
 	AngleTolerance       float64   `json:"ground_angle_tolerance_degs"`
 	ClusteringRadius     int       `json:"clustering_radius"`
 	ClusteringStrictness float64   `json:"clustering_strictness"`
+	DefaultCamera        string    `json:"default_camera"`
 }
 
 type node struct {

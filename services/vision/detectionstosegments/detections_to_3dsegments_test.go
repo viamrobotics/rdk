@@ -31,7 +31,7 @@ func Test3DSegmentsFromDetector(t *testing.T) {
 	r := &inject.Robot{}
 	m := &simpleDetector{}
 	name := vision.Named("testDetector")
-	svc, err := vision.NewService(name, r, nil, nil, m.Detect, nil)
+	svc, err := vision.NewService(name, r, nil, nil, m.Detect, nil, "")
 	test.That(t, err, test.ShouldBeNil)
 	cam := &inject.Camera{}
 	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {

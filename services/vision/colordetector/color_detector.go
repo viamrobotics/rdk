@@ -52,5 +52,5 @@ func registerColorDetector(
 	if err != nil {
 		return nil, errors.Wrapf(err, "error registering color detector %q", name)
 	}
-	return vision.NewService(name, r, nil, nil, detector, nil)
+	return vision.NewService(name, r, nil, nil, detector, nil, conf.DefaultCamera)
 }

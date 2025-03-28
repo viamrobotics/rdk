@@ -53,5 +53,5 @@ func registerOPSegmenter(
 		return nil, errors.Wrap(err, "obstacles pointcloud segmenter config error")
 	}
 	segmenter := segmentation.Segmenter(conf.ErCCLAlgorithm)
-	return vision.NewService(name, r, nil, nil, nil, segmenter)
+	return vision.NewService(name, r, nil, nil, nil, segmenter, conf.DefaultCamera)
 }

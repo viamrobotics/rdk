@@ -16,6 +16,7 @@ import (
 const (
 	testVisionServiceName  = "vision1"
 	testVisionServiceName2 = "vision2"
+	testCameraName         = "camera1"
 )
 
 func TestFromRobot(t *testing.T) {
@@ -47,7 +48,7 @@ func (s *simpleDetector) Detect(context.Context, image.Image) ([]objectdetection
 func TestNewService(t *testing.T) {
 	var r inject.Robot
 	var m simpleDetector
-	svc, err := vision.NewService(vision.Named("testService"), &r, nil, nil, m.Detect, nil)
+	svc, err := vision.NewService(vision.Named("testService"), &r, nil, nil, m.Detect, nil, "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc, test.ShouldNotBeNil)
 	result, err := svc.Detections(context.Background(), nil, nil)
@@ -55,3 +56,5 @@ func TestNewService(t *testing.T) {
 	test.That(t, len(result), test.ShouldEqual, 1)
 	test.That(t, result[0].Score(), test.ShouldEqual, 0.5)
 }
+
+// TODO: Add tests for *FromCamera methods with/without defaultCamera/camera name

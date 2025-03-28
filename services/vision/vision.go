@@ -245,6 +245,7 @@ type vizModel struct {
 	classifierFunc  classification.Classifier
 	detectorFunc    objectdetection.Detector
 	segmenter3DFunc segmentation.Segmenter
+	defaultCamera   string
 }
 
 // Properties returns various information regarding the current vision service,
@@ -263,6 +264,7 @@ func NewService(
 	cf classification.Classifier,
 	df objectdetection.Detector,
 	s3f segmentation.Segmenter,
+	defaultCamera string,
 ) (Service, error) {
 	if cf == nil && df == nil && s3f == nil {
 		return nil, errors.Errorf(
@@ -288,6 +290,7 @@ func NewService(
 		classifierFunc:  cf,
 		detectorFunc:    df,
 		segmenter3DFunc: s3f,
+		defaultCamera:   defaultCamera,
 	}, nil
 }
 

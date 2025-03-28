@@ -55,6 +55,7 @@ type ObsDepthConfig struct {
 	ClusteringRadius     int     `json:"clustering_radius"`
 	ClusteringStrictness float64 `json:"clustering_strictness"`
 	AngleTolerance       float64 `json:"ground_angle_tolerance_degs"`
+	DefaultCamera        string  `json:"default_camera"`
 }
 
 // obsDepth is the underlying struct actually used by the service.
@@ -94,7 +95,7 @@ func registerObstaclesDepth(
 	}
 
 	segmenter := myObsDep.buildObsDepth(logger) // does the thing
-	return svision.NewService(name, r, nil, nil, nil, segmenter)
+	return svision.NewService(name, r, nil, nil, nil, segmenter, conf.DefaultCamera)
 }
 
 // BuildObsDepth will check for intrinsics and determine how to build based on that.
