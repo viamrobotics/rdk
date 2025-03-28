@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"slices"
 	"strings"
 	"time"
 
@@ -122,8 +121,9 @@ func ViamTCPSockets() bool {
 	// note: unix sockets have been supported on windows for a while, but go-grpc does not support them.
 	// 2017 support announcement: https://devblogs.microsoft.com/commandline/af_unix-comes-to-windows/
 	// go grpc client bug on win: https://github.com/dotnet/aspnetcore/issues/47043
-	return runtime.GOOS == "windows" ||
-		slices.Contains(EnvTrueValues, os.Getenv("VIAM_TCP_SOCKETS"))
+	return false
+	// return runtime.GOOS == "windows" ||
+	// 	slices.Contains(EnvTrueValues, os.Getenv("VIAM_TCP_SOCKETS"))
 }
 
 // LogViamEnvVariables logs the list of viam environment variables in [os.Environ] along with the env passed in.

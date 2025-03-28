@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -63,7 +64,7 @@ func NewManager(
 	ret := &Manager{
 		logger:                  logger.Sublogger("modmanager"),
 		modules:                 moduleMap{},
-		parentAddr:              parentAddr,
+		parentAddr:              cleanWindowsUDS(parentAddr),
 		rMap:                    resourceModuleMap{},
 		untrustedEnv:            options.UntrustedEnv,
 		viamHomeDir:             options.ViamHomeDir,
@@ -402,21 +403,25 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	if err := mgr.startModuleProcess(mod); err != nil {
 		return errors.WithMessage(err, "error while starting module "+mod.cfg.Name)
 	}
+	println("okay startModuleProcess")
 
 	// Does a gRPC dial. Sets up a SharedConn with a PeerConnection that is not yet connected.
 	if err := mod.dial(); err != nil {
 		return errors.WithMessage(err, "error while dialing module "+mod.cfg.Name)
 	}
+	println("okay mod.dial")
 
 	// Sends a ReadyRequest and waits on a ReadyResponse. The PeerConnection will async connect
 	// after this, so long as the module supports it.
 	if err := mod.checkReady(ctx, mgr.parentAddr); err != nil {
 		return errors.WithMessage(err, "error while waiting for module to be ready "+mod.cfg.Name)
 	}
+	println("okay checkReady")
 
 	if pc := mod.sharedConn.PeerConn(); mgr.modPeerConnTracker != nil && pc != nil {
 		mgr.modPeerConnTracker.Add(mod.cfg.Name, pc)
 	}
+	println("okay PeerConn")
 
 	mod.registerResources(mgr)
 	mgr.modules.Store(mod.cfg.Name, mod)
@@ -1067,8 +1072,10 @@ func (m *module) dial() error {
 	var err error
 	addrToDial := m.addr
 	if !rutils.TCPRegex.MatchString(addrToDial) {
-		addrToDial = "unix://" + m.addr
+		addrToDial = "unix://" + cleanWindowsUDS(addrToDial)
+		// addrToDial = "unix://" + m.addr
 	}
+	println("module.dial is DIALING THIS", addrToDial)
 	conn, err := grpc.Dial( //nolint:staticcheck
 		addrToDial,
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(rpc.MaxMessageSize)),
@@ -1123,6 +1130,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 
 	for {
 		// 5000 is an arbitrarily high number of attempts (context timeout should hit long before)
+		println("calling client.Ready I guess")
 		resp, err := m.client.Ready(ctxTimeout, req, grpc_retry.WithMax(5000))
 		if err != nil {
 			return err
@@ -1170,6 +1178,14 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	return conf.FirstRun(ctx, pkgsDir, dataDir, env, mgr.logger)
 }
 
+// clean a unix domain socket path for url.Parse in grpc to not fail on it in windows.
+func cleanWindowsUDS(orig string) string {
+	if runtime.GOOS == "windows" {
+		return strings.ReplaceAll(strings.ReplaceAll(orig, "C:\\", "\\"), "\\", "/")
+	}
+	return orig
+}
+
 func (m *module) startProcess(
 	ctx context.Context,
 	parentAddr string,
@@ -1177,18 +1193,22 @@ func (m *module) startProcess(
 	viamHomeDir string,
 	packagesDir string,
 ) error {
+	println("** STARTPROCESS TOP")
 	var err error
 
 	if rutils.ViamTCPSockets() {
 		m.addr = "127.0.0.1:" + strconv.Itoa(m.port)
 	} else {
+		println("PARENT ADDR", parentAddr)
 		// append a random alpha string to the module name while creating a socket address to avoid conflicts
 		// with old versions of the module.
 		if m.addr, err = modlib.CreateSocketAddress(
 			filepath.Dir(parentAddr), fmt.Sprintf("%s-%s", m.cfg.Name, utils.RandomAlphaString(5))); err != nil {
 			return err
 		}
+		m.addr = cleanWindowsUDS(m.addr)
 	}
+	m.logger.Infof("m.addr %s", m.addr)
 
 	// We evaluate the Module's ExePath absolutely in the viam-server process so that
 	// setting the CWD does not cause issues with relative process names
@@ -1215,6 +1235,7 @@ func (m *module) startProcess(
 	stdoutLogger.NeverDeduplicate()
 	stderrLogger.NeverDeduplicate()
 
+	println("PROCESS CONFIG HAS m.addr", m.addr)
 	pconf := pexec.ProcessConfig{
 		ID:               m.cfg.Name,
 		Name:             absoluteExePath,
