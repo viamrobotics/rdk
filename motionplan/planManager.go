@@ -75,6 +75,7 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context, request *PlanReque
 	if err != nil {
 		return nil, err
 	}
+	pm.planOpts = opt
 	if opt.useTPspace {
 		return pm.planRelativeWaypoint(ctx, request, seedPlan, opt)
 	}
@@ -135,6 +136,7 @@ func (pm *planManager) planAtomicWaypoints(
 	resultPromises := []*resultPromise{}
 
 	var seed referenceframe.FrameSystemInputs
+	returnPartial := false
 
 	// try to solve each goal, one at a time
 	for i, wp := range waypoints {
@@ -143,6 +145,9 @@ func (pm *planManager) planAtomicWaypoints(
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		default:
+		}
+		if wp.mp.opt().ReturnPartialPlan && i > 0 {
+			returnPartial = true
 		}
 		pm.logger.Info("planning step", i, "of", len(waypoints), ":", wp.goalState)
 		for k, v := range wp.goalState.Poses() {
@@ -179,6 +184,10 @@ func (pm *planManager) planAtomicWaypoints(
 		// Plan the single waypoint, and accumulate objects which will be used to constrauct the plan after all planning has finished
 		newseed, future, err := pm.planSingleAtomicWaypoint(ctx, wp, maps)
 		if err != nil {
+			// Error getting the next seed. If we can, return the partial path if requested.
+			if returnPartial {
+				break
+			}
 			return nil, err
 		}
 		seed = newseed
@@ -188,8 +197,12 @@ func (pm *planManager) planAtomicWaypoints(
 	// All goals have been submitted for solving. Reconstruct in order
 	resultSlices := []node{}
 	for i, future := range resultPromises {
+		
 		steps, err := future.result()
 		if err != nil {
+			if pm.opt().ReturnPartialPlan && i > 0 {
+				break
+			}
 			return nil, err
 		}
 		pm.logger.Debugf("completed planning for subwaypoint %d", i)
@@ -438,6 +451,14 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	if err != nil {
 		return nil, err
 	}
+
+	if partial, ok := planningOpts["return_partial_plan"]; ok {
+		//~ fmt.Println("partial", partial)
+		if use, ok := partial.(bool); ok && use {
+			opt.ReturnPartialPlan = true
+		}
+	}
+	//~ fmt.Println("opt.ReturnPartialPlan", opt.ReturnPartialPlan)
 
 	collisionBufferMM := defaultCollisionBufferMM
 	collisionBufferMMRaw, ok := planningOpts["collision_buffer_mm"]
