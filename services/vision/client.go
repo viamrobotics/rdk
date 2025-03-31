@@ -113,13 +113,14 @@ func protoToDets(protoDets []*pb.Detection) ([]objdet.Detection, error) {
 			return nil, fmt.Errorf("invalid detection %+v", d)
 		}
 		box := image.Rect(int(*d.XMin), int(*d.YMin), int(*d.XMax), int(*d.YMax))
-		var det objdet.Detection 
+		var det objdet.Detection
 		if d.XMinNormalized != nil && d.XMaxNormalized != nil && d.YMinNormalized != nil && d.YMaxNormalized != nil {
 			ibx := int(float64(*d.XMax) / *d.XMaxNormalized)
 			iby := int(float64(*d.YMax) / *d.YMaxNormalized)
-			det = objdet.NewDetection(image.Rect(0,0,ibx,iby), box, d.Confidence, d.ClassName)
+			det = objdet.NewDetection(image.Rect(0, 0, ibx, iby), box, d.Confidence, d.ClassName)
+		} else {
+			det = objdet.NewDetectionWithoutImgBounds(box, d.Confidence, d.ClassName)
 		}
-		det = objdet.NewDetectionWithoutImgBounds(box, d.Confidence, d.ClassName)
 		detections = append(detections, det)
 	}
 	return detections, nil
