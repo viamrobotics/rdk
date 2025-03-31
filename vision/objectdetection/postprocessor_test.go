@@ -8,7 +8,7 @@ import (
 )
 
 func TestLabelConfidencePostprocessor(t *testing.T) {
-	fakeImgBound := image.Rect(0,0,1000,1000)
+	fakeImgBound := image.Rect(0, 0, 1000, 1000)
 	d := []Detection{
 		NewDetection(fakeImgBound, image.Rect(0, 0, 30, 30), 0.5, "A"),
 		NewDetection(fakeImgBound, image.Rect(0, 0, 30, 30), 0.1, "a"),
@@ -35,7 +35,7 @@ func TestLabelConfidencePostprocessor(t *testing.T) {
 }
 
 func TestPostprocessors(t *testing.T) {
-	fakeImgBound := image.Rect(0,0,1000,1000)
+	fakeImgBound := image.Rect(0, 0, 1000, 1000)
 	d := []Detection{
 		NewDetection(fakeImgBound, image.Rect(0, 0, 30, 30), 0.5, "A"),
 		NewDetection(fakeImgBound, image.Rect(0, 0, 300, 300), 0.6, "B"),

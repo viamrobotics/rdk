@@ -98,7 +98,6 @@ func TestServerGetDetections(t *testing.T) {
 	test.That(t, resp.GetDetections()[0].GetXMax(), test.ShouldEqual, 10)
 	test.That(t, resp.GetDetections()[0].GetXMaxNormalized(), test.ShouldBeGreaterThan, 0.03)
 	test.That(t, resp.GetDetections()[0].GetXMaxNormalized(), test.ShouldBeLessThan, 0.04)
-
 }
 
 func TestServerGetProperties(t *testing.T) {

@@ -53,6 +53,7 @@ func NewDetectionWithoutImgBounds(boundingBox image.Rectangle, score float64, la
 	return &detection2D{boundingBox, nil, score, label}
 }
 
+// NewNormalizedBoundingBox creates a normalized bounding box from the image bounds and the bounding box.
 func NewNormalizedBoundingBox(imageBounds, boundingBox image.Rectangle) []float64 {
 	// TODO: Check if boundingBox is within imageBounds?? Or maybe just check that the
 	// results are all from 0-1

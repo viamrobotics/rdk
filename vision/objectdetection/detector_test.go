@@ -9,7 +9,6 @@ import (
 
 // TestLoadModel validates that the model loads successfully.
 func TestNewDetector(t *testing.T) {
-
 	det := NewDetection(image.Rect(0, 0, 100, 100), image.Rect(0, 0, 30, 30), 0.5, "A")
 	test.That(t, det, test.ShouldNotBeNil)
 	test.That(t, det.Label(), test.ShouldEqual, "A")
@@ -23,5 +22,4 @@ func TestNewDetector(t *testing.T) {
 	test.That(t, det2.Label(), test.ShouldEqual, "B")
 	test.That(t, det2.Score(), test.ShouldEqual, 0.6)
 	test.That(t, *det2.BoundingBox(), test.ShouldResemble, image.Rect(0, 0, 30, 30))
-
 }
