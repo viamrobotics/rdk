@@ -1919,7 +1919,7 @@ var app = &cli.App{
 						&cli.StringFlag{
 							Name:        generalFlagStart,
 							Usage:       "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter (e.g., 2025-01-15T14:00:00Z)",
-							DefaultText: "1 day ago",
+							DefaultText: "12 hours ago",
 						},
 						&cli.StringFlag{
 							Name:  generalFlagEnd,
