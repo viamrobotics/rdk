@@ -1060,6 +1060,9 @@ func dialRobotClient(
 		rOpts = append(rOpts, client.WithReconnectEvery(config.ReconnectInterval))
 	}
 
+	// only dial once per reconfiguration cycle, any failures will be retried on a ticker anyway
+	rOpts = append(rOpts, client.WithInitialDialAttempts(1))
+
 	robotClient, err := client.New(
 		ctx,
 		config.Address,
