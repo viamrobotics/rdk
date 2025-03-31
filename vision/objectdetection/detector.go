@@ -56,7 +56,7 @@ func NewDetectionWithoutImgBounds(boundingBox image.Rectangle, score float64, la
 // NewNormalizedBoundingBox creates a normalized bounding box from the image bounds and the bounding box.
 func NewNormalizedBoundingBox(imageBounds, boundingBox image.Rectangle) []float64 {
 	if imageBounds.Max.X == 0 || imageBounds.Max.Y == 0 {
-		return []float64{}
+		return nil
 	}
 	return []float64{
 		float64(boundingBox.Min.X) / float64(imageBounds.Max.X),
