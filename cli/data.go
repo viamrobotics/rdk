@@ -486,7 +486,7 @@ func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, 
 	}
 }
 
-func (c *viamClient) downloadBinary(dst string, id string, timeout uint) error {
+func (c *viamClient) downloadBinary(dst, id string, timeout uint) error {
 	args, err := getGlobalArgs(c.c)
 	if err != nil {
 		return err
@@ -859,7 +859,7 @@ func (c *viamClient) dataRemoveTagsFromBinaryByFilter(filter *datapb.Filter, tag
 	return nil
 }
 
-func (c *viamClient) dataAddTagsToBinaryByIDs(tags []string, binaryDataIDs []string) error {
+func (c *viamClient) dataAddTagsToBinaryByIDs(tags, binaryDataIDs []string) error {
 	_, err := c.dataClient.AddTagsToBinaryDataByIDs(context.Background(),
 		&datapb.AddTagsToBinaryDataByIDsRequest{Tags: tags, BinaryDataIds: binaryDataIDs})
 	if err != nil {
@@ -871,7 +871,7 @@ func (c *viamClient) dataAddTagsToBinaryByIDs(tags []string, binaryDataIDs []str
 
 // dataRemoveTagsFromData removes tags from data, with the specified org ID, location ID,
 // and file IDs.
-func (c *viamClient) dataRemoveTagsFromBinaryByIDs(tags []string, binaryDataIDs []string) error {
+func (c *viamClient) dataRemoveTagsFromBinaryByIDs(tags, binaryDataIDs []string) error {
 	_, err := c.dataClient.RemoveTagsFromBinaryDataByIDs(context.Background(),
 		&datapb.RemoveTagsFromBinaryDataByIDsRequest{Tags: tags, BinaryDataIds: binaryDataIDs})
 	if err != nil {
