@@ -70,5 +70,5 @@ func registerFake(
 	name resource.Name,
 	r robot.Robot,
 ) (vision.Service, error) {
-	return vision.NewService(name, r, nil, fakeClassifier, fakeDetector, nil)
+	return vision.NewService(name, r, nil, fakeClassifier, fakeDetector, nil, "")
 }
