@@ -368,6 +368,9 @@ func TestDataClient(t *testing.T) {
 		response, err = client.TabularDataByMQL(context.Background(), organizationID, mqlQueries, &TabularDataByMQLOptions{UseRecentData: true})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, response, test.ShouldResemble, rawData)
+		response, err = client.TabularDataByMQL(context.Background(), organizationID, mqlQueries, &TabularDataByMQLOptions{UseDataPipeline: "test-pipeline"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, response, test.ShouldResemble, rawData)
 	})
 
 	t.Run("GetLatestTabularData", func(t *testing.T) {

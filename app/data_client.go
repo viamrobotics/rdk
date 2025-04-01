@@ -279,7 +279,8 @@ type DataByFilterOptions struct {
 
 // TabularDataByMQLOptions contains optional parameters for TabularDataByMQL.
 type TabularDataByMQLOptions struct {
-	UseRecentData bool
+	UseRecentData   bool
+	UseDataPipeline string
 }
 
 // BinaryDataCaptureUploadOptions represents optional parameters for the BinaryDataCaptureUpload method.
@@ -456,14 +457,17 @@ func (d *DataClient) TabularDataByMQL(
 	}
 
 	useRecentData := false
+	useDataPipeline := ""
 	if opts != nil {
 		useRecentData = opts.UseRecentData
+		useDataPipeline = opts.UseDataPipeline
 	}
 
 	resp, err := d.dataClient.TabularDataByMQL(ctx, &pb.TabularDataByMQLRequest{
-		OrganizationId: organizationID,
-		MqlBinary:      mqlBinary,
-		UseRecentData:  &useRecentData,
+		OrganizationId:  organizationID,
+		MqlBinary:       mqlBinary,
+		UseRecentData:   &useRecentData,
+		UseDataPipeline: &useDataPipeline,
 	})
 	if err != nil {
 		return nil, err
