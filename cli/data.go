@@ -394,7 +394,7 @@ func (c *viamClient) performActionOnBinaryDataFromFilter(actionOnBinaryData func
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		var nextBinaryDataId string
+		var nextBinaryDataID string
 		var done bool
 		var numFilesProcessed atomic.Int32
 		var downloadWG sync.WaitGroup
@@ -407,14 +407,14 @@ func (c *viamClient) performActionOnBinaryDataFromFilter(actionOnBinaryData func
 					break
 				}
 
-				binaryDataId, ok := <-ids
+				binaryDataID, ok := <-ids
 
 				// If nextID is nil, the channel has been closed and there are no more IDs to be read.
 				if !ok {
 					done = true
 					break
 				}
-				nextBinaryDataId = binaryDataId
+				nextBinaryDataID = binaryDataID
 
 				downloadWG.Add(1)
 				go func(id string) {
@@ -430,7 +430,7 @@ func (c *viamClient) performActionOnBinaryDataFromFilter(actionOnBinaryData func
 					if numFilesProcessed.Load()%logEveryN == 0 {
 						printStatement(numFilesProcessed.Load())
 					}
-				}(nextBinaryDataId)
+				}(nextBinaryDataID)
 			}
 			downloadWG.Wait()
 			if done {
