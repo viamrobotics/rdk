@@ -76,6 +76,16 @@ func Test3DSegmentsFromDetector(t *testing.T) {
 	seg, err := register3DSegmenterFromDetector(context.Background(), name3, params, r)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, seg.Name(), test.ShouldResemble, name3)
+	// successful registration, valid default camera
+	params.DefaultCamera = "fakeCamera"
+	seg, err = register3DSegmenterFromDetector(context.Background(), name3, params, r)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, seg.Name(), test.ShouldResemble, name3)
+	// bad registration, invalid default camera
+	params.DefaultCamera = "not-camera"
+	_, err = register3DSegmenterFromDetector(context.Background(), name3, params, r)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "could not find camera \"not-camera\"")
 
 	// fails on not finding camera
 	_, err = seg.GetObjectPointClouds(context.Background(), "no_camera", map[string]interface{}{})

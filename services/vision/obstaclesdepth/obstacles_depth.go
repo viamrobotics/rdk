@@ -55,7 +55,7 @@ type ObsDepthConfig struct {
 	ClusteringRadius     int     `json:"clustering_radius"`
 	ClusteringStrictness float64 `json:"clustering_strictness"`
 	AngleTolerance       float64 `json:"ground_angle_tolerance_degs"`
-	DefaultCamera        string  `json:"default_camera"`
+	DefaultCamera        string  `json:"camera_name"`
 }
 
 // obsDepth is the underlying struct actually used by the service.
@@ -92,6 +92,12 @@ func registerObstaclesDepth(
 	}
 	myObsDep := &obsDepth{
 		clusteringConf: cfg,
+	}
+	if conf.DefaultCamera != "" {
+		_, err = camera.FromRobot(r, conf.DefaultCamera)
+		if err != nil {
+			return nil, errors.Errorf("could not find camera %q", conf.DefaultCamera)
+		}
 	}
 
 	segmenter := myObsDep.buildObsDepth(logger) // does the thing

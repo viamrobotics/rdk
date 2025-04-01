@@ -31,7 +31,7 @@ const DefaultNumQueries = 10
 // for the obstacle distance detection service.
 type DistanceDetectorConfig struct {
 	NumQueries    int    `json:"num_queries"`
-	DefaultCamera string `json:"default_camera"`
+	DefaultCamera string `json:"camera_name"`
 }
 
 func init() {
@@ -113,6 +113,12 @@ func registerObstacleDistanceDetector(
 		toReturn[0] = &vision.Object{PointCloud: pcToReturn, Geometry: pt}
 
 		return toReturn, nil
+	}
+	if conf.DefaultCamera != "" {
+		_, err := camera.FromRobot(r, conf.DefaultCamera)
+		if err != nil {
+			return nil, errors.Errorf("could not find camera %q", conf.DefaultCamera)
+		}
 	}
 	return svision.NewService(name, r, nil, nil, nil, segmenter, conf.DefaultCamera)
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -64,6 +65,12 @@ func register3DSegmenterFromDetector(
 	segmenter, err := segmentation.DetectionSegmenter(objectdetection.Detector(detector), conf.MeanK, conf.Sigma, confThresh)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot create 3D segmenter from detector")
+	}
+	if conf.DefaultCamera != "" {
+		_, err = camera.FromRobot(r, conf.DefaultCamera)
+		if err != nil {
+			return nil, errors.Errorf("could not find camera %q", conf.DefaultCamera)
+		}
 	}
 	return vision.NewService(name, r, nil, nil, detector, segmenter, conf.DefaultCamera)
 }
