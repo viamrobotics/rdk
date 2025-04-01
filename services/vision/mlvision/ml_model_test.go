@@ -551,6 +551,15 @@ func TestRegistrationWithDefaultCamera(t *testing.T) {
 	_, err = registerMLModelVisionService(ctx, modelName, &modelCfg, r, logging.NewLogger("benchmark"))
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "could not find camera \"not-camera\"")
+
+	// Test that *FromCamera errors when camera is not found
+	modelCfg.DefaultCamera = ""
+	service, err = registerMLModelVisionService(ctx, modelName, &modelCfg, r, logging.NewLogger("benchmark"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, service, test.ShouldNotBeNil)
+	_, err = service.DetectionsFromCamera(ctx, "", nil)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no camera name provided and no default camera found")
 }
 
 func classifyTwoImages(picPanda, picLion *rimage.Image,
