@@ -58,6 +58,7 @@ type atomicWaypoint struct {
 	mp         motionPlanner
 	startState *PlanState // A list of starting states, any of which would be valid to start from
 	goalState  *PlanState // A list of goal states, any of which would be valid to arrive at
+	origGoal bool // If partial plans are requested, only return up to the last explicit waypoint solved not automatically generated ones
 }
 
 // planMultiWaypoint plans a motion through multiple waypoints, using identical constraints for each
@@ -136,18 +137,19 @@ func (pm *planManager) planAtomicWaypoints(
 	resultPromises := []*resultPromise{}
 
 	var seed referenceframe.FrameSystemInputs
-	returnPartial := false
+	var returnPartial bool
 
 	// try to solve each goal, one at a time
 	for i, wp := range waypoints {
 		// Check if ctx is done between each waypoint
 		select {
 		case <-ctx.Done():
+			if wp.mp.opt().ReturnPartialPlan {
+				returnPartial = true
+				break
+			}
 			return nil, ctx.Err()
 		default:
-		}
-		if wp.mp.opt().ReturnPartialPlan && i > 0 {
-			returnPartial = true
 		}
 		pm.logger.Info("planning step", i, "of", len(waypoints), ":", wp.goalState)
 		for k, v := range wp.goalState.Poses() {
@@ -158,6 +160,10 @@ func (pm *planManager) planAtomicWaypoints(
 		if seedPlan != nil {
 			maps, err = pm.planToRRTGoalMap(seedPlan, wp)
 			if err != nil {
+				if wp.mp.opt().ReturnPartialPlan {
+					returnPartial = true
+					break
+				}
 				return nil, err
 			}
 		}
@@ -172,6 +178,10 @@ func (pm *planManager) planAtomicWaypoints(
 			}
 			planSeed := initRRTSolutions(ctx, wp)
 			if planSeed.err != nil {
+				if wp.mp.opt().ReturnPartialPlan {
+					returnPartial = true
+					break
+				}
 				return nil, planSeed.err
 			}
 			if planSeed.steps != nil {
@@ -185,7 +195,8 @@ func (pm *planManager) planAtomicWaypoints(
 		newseed, future, err := pm.planSingleAtomicWaypoint(ctx, wp, maps)
 		if err != nil {
 			// Error getting the next seed. If we can, return the partial path if requested.
-			if returnPartial {
+			if wp.mp.opt().ReturnPartialPlan {
+				returnPartial = true
 				break
 			}
 			return nil, err
@@ -196,11 +207,16 @@ func (pm *planManager) planAtomicWaypoints(
 
 	// All goals have been submitted for solving. Reconstruct in order
 	resultSlices := []node{}
+	partialSlices := []node{}
+	
+	// Keep track of which user-requested waypoints were solved for
+	lastOrig := 0
+	
 	for i, future := range resultPromises {
-		
 		steps, err := future.result()
 		if err != nil {
-			if pm.opt().ReturnPartialPlan && i > 0 {
+			if pm.opt().ReturnPartialPlan && lastOrig > 0 {
+				returnPartial = true
 				break
 			}
 			return nil, err
@@ -208,10 +224,21 @@ func (pm *planManager) planAtomicWaypoints(
 		pm.logger.Debugf("completed planning for subwaypoint %d", i)
 		if i > 0 {
 			// Prevent doubled steps. The first step of each plan is the last step of the prior plan.
-			resultSlices = append(resultSlices, steps[1:]...)
+			partialSlices = append(partialSlices, steps[1:]...)
 		} else {
-			resultSlices = append(resultSlices, steps...)
+			partialSlices = append(partialSlices, steps...)
 		}
+		if waypoints[i].origGoal {
+			lastOrig = i
+			resultSlices = append(resultSlices, partialSlices...)
+			partialSlices = []node{}
+		}
+	}
+	if !waypoints[len(waypoints)-1].mp.opt().ReturnPartialPlan && len(partialSlices) > 0 {
+		resultSlices = append(resultSlices, partialSlices...)
+	}
+	if returnPartial {
+		pm.logger.Infof("returning partial plan up to waypoint %d", lastOrig)
 	}
 
 	// // TODO: Once TPspace also supports multiple waypoints, this needs to be updated. For now it can be false.
@@ -825,7 +852,7 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 		if err != nil {
 			return nil, err
 		}
-		waypoints = append(waypoints, atomicWaypoint{mp: pathPlanner, startState: from, goalState: to})
+		waypoints = append(waypoints, atomicWaypoint{mp: pathPlanner, startState: from, goalState: to, origGoal: true})
 
 		from = to
 	}
