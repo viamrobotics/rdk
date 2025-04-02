@@ -54,6 +54,7 @@ func NewDetectionWithoutImgBounds(boundingBox image.Rectangle, score float64, la
 }
 
 // NewNormalizedBoundingBox creates a normalized bounding box from the image bounds and the bounding box.
+// [xmin, ymin, xmax, ymax].
 func NewNormalizedBoundingBox(imageBounds, boundingBox image.Rectangle) []float64 {
 	if imageBounds.Max.X == 0 || imageBounds.Max.Y == 0 {
 		return nil
@@ -69,7 +70,7 @@ func NewNormalizedBoundingBox(imageBounds, boundingBox image.Rectangle) []float6
 // detection2D is a simple struct for storing 2D detections.
 type detection2D struct {
 	boundingBox           image.Rectangle
-	normalizedBoundingBox []float64
+	normalizedBoundingBox []float64 // [xmin, ymin, xmax, ymax]
 	score                 float64
 	label                 string
 }
