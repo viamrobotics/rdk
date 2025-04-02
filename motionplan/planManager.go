@@ -58,7 +58,7 @@ type atomicWaypoint struct {
 	mp         motionPlanner
 	startState *PlanState // A list of starting states, any of which would be valid to start from
 	goalState  *PlanState // A list of goal states, any of which would be valid to arrive at
-	origGoal bool // If partial plans are requested, only return up to the last explicit waypoint solved not automatically generated ones
+	origGoal   bool       // If partial plans are requested, only return up to the last explicit waypoint solved not automatically generated ones
 }
 
 // planMultiWaypoint plans a motion through multiple waypoints, using identical constraints for each
@@ -208,10 +208,10 @@ func (pm *planManager) planAtomicWaypoints(
 	// All goals have been submitted for solving. Reconstruct in order
 	resultSlices := []node{}
 	partialSlices := []node{}
-	
+
 	// Keep track of which user-requested waypoints were solved for
 	lastOrig := 0
-	
+
 	for i, future := range resultPromises {
 		steps, err := future.result()
 		if err != nil {
@@ -480,12 +480,12 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	}
 
 	if partial, ok := planningOpts["return_partial_plan"]; ok {
-		//~ fmt.Println("partial", partial)
+		// ~ fmt.Println("partial", partial)
 		if use, ok := partial.(bool); ok && use {
 			opt.ReturnPartialPlan = true
 		}
 	}
-	//~ fmt.Println("opt.ReturnPartialPlan", opt.ReturnPartialPlan)
+	// ~ fmt.Println("opt.ReturnPartialPlan", opt.ReturnPartialPlan)
 
 	collisionBufferMM := defaultCollisionBufferMM
 	collisionBufferMMRaw, ok := planningOpts["collision_buffer_mm"]
