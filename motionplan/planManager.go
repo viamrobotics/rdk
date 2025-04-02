@@ -480,12 +480,10 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	}
 
 	if partial, ok := planningOpts["return_partial_plan"]; ok {
-		// ~ fmt.Println("partial", partial)
 		if use, ok := partial.(bool); ok && use {
 			opt.ReturnPartialPlan = true
 		}
 	}
-	// ~ fmt.Println("opt.ReturnPartialPlan", opt.ReturnPartialPlan)
 
 	collisionBufferMM := defaultCollisionBufferMM
 	collisionBufferMMRaw, ok := planningOpts["collision_buffer_mm"]
