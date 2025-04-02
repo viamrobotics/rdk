@@ -30,7 +30,7 @@ const (
 func TestFromRobot(t *testing.T) {
 	svc1 := &inject.VisionService{}
 	svc1.DetectionsFunc = func(ctx context.Context, img image.Image, extra map[string]interface{}) ([]objectdetection.Detection, error) {
-		det1 := objectdetection.NewDetection(image.Rectangle{}, 0.5, "yes")
+		det1 := objectdetection.NewDetection(image.Rect(0, 0, 50, 50), image.Rect(0, 0, 10, 20), 0.5, "yes")
 		return []objectdetection.Detection{det1}, nil
 	}
 	var r inject.Robot
@@ -52,8 +52,8 @@ type (
 	simpleSegmenter  struct{}
 )
 
-func (s *simpleDetector) Detect(context.Context, image.Image) ([]objectdetection.Detection, error) {
-	det1 := objectdetection.NewDetection(image.Rectangle{}, 0.5, "yes")
+func (s *simpleDetector) Detect(ctx context.Context, img image.Image) ([]objectdetection.Detection, error) {
+	det1 := objectdetection.NewDetection(image.Rect(0, 0, 50, 50), image.Rect(0, 0, 10, 20), 0.5, "yes")
 	return []objectdetection.Detection{det1}, nil
 }
 
