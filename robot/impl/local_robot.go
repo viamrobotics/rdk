@@ -1229,11 +1229,12 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		}
 	}
 
+	existingConfig := r.Config()
 	r.mostRecentCfg.Store(*newConfig)
 
 	// Now that we have the new config and all references are resolved, diff it
 	// with the current generated config to see what has changed
-	diff, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
+	diff, err := config.DiffConfigs(*existingConfig, *newConfig, r.revealSensitiveConfigDiffs)
 	if err != nil {
 		r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
 		return
