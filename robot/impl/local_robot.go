@@ -1229,6 +1229,8 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		}
 	}
 
+	r.mostRecentCfg.Store(*newConfig)
+
 	// Now that we have the new config and all references are resolved, diff it
 	// with the current generated config to see what has changed
 	diff, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
@@ -1251,9 +1253,6 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	if r.revealSensitiveConfigDiffs {
 		r.logger.CDebugf(ctx, "(re)configuring with %+v", diff)
 	}
-
-	// Set mostRecentConfig if resources were not equal.
-	r.mostRecentCfg.Store(*newConfig)
 
 	// First we mark diff.Removed resources and their children for removal.
 	processesToClose, resourcesToCloseBeforeComplete, _ := r.manager.markRemoved(ctx, diff.Removed, r.logger)
