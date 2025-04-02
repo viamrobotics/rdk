@@ -811,6 +811,7 @@ func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInpu
 		Models: []ModuleComponent{
 			{API: module.API, Model: module.ModelTriple, MarkdownLink: &module.ModelReadmeLink, Description: &modelDescription},
 		},
+		MarkdownLink: &module.ModuleReadmeLink,
 	}
 	switch module.Language {
 	case python:

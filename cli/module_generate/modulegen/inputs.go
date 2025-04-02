@@ -24,6 +24,7 @@ type ModuleInputs struct {
 	RegisterOnApp    bool      `json:"-"`
 	GeneratorVersion string    `json:"generator_version"`
 	GeneratedOn      time.Time `json:"generated_on"`
+	ModuleReadmeLink string    `json:"module_readme_link"`
 
 	ModulePascal          string `json:"-"`
 	ModuleCamel           string `json:"-"`
