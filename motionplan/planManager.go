@@ -58,7 +58,7 @@ type atomicWaypoint struct {
 	mp         motionPlanner
 	startState *PlanState // A list of starting states, any of which would be valid to start from
 	goalState  *PlanState // A list of goal states, any of which would be valid to arrive at
-	origGoal   bool       // If partial plans are requested, only return up to the last explicit waypoint solved not automatically generated ones
+	origGoal   bool       // If partial plans are requested, return up to the last explicit waypoint solved
 }
 
 // planMultiWaypoint plans a motion through multiple waypoints, using identical constraints for each
