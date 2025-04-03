@@ -403,10 +403,11 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 				if err == nil {
 					resp[DoPlan+"_partialwp"] = waypointNum
 				} else {
-					ms.logger.CDebugf(ctx, "error parsing log string: %s", logMsg)
+					ms.logger.CWarnf(ctx, "error parsing log string: %s", logMsg)
+					ms.logger.CWarn(ctx, err)
 				}
 			} else {
-				ms.logger.CDebugf(ctx, "Unexpected number of partial logs: %d", len(partialLogs))
+				ms.logger.CWarnf(ctx, "Unexpected number of partial logs: %d", len(partialLogs))
 			}
 		}
 
