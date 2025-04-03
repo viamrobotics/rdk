@@ -395,6 +395,7 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 		allLogs := observedLogs.All()
 		for _, log := range allLogs {
 			ms.logger.CWarnf(ctx, "observed this log: %s", log)
+			ms.logger.CWarnf(ctx, "observed this log message: %s", log.Message)
 		}
 		
 		if len(partialLogs) > 0 {
