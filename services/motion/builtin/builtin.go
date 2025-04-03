@@ -392,6 +392,11 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 		}
 		partialLogString := "returning partial plan up to waypoint"
 		partialLogs := observedLogs.FilterMessageSnippet(partialLogString).All()
+		allLogs := observedLogs.All()
+		for _, log := range allLogs {
+			ms.logger.CWarnf(ctx, "observed this log: %s", log)
+		}
+		
 		if len(partialLogs) > 0 {
 			// Extract the waypoint number from the partial log
 			if len(partialLogs) == 1 {
