@@ -409,6 +409,8 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 			} else {
 				ms.logger.CWarnf(ctx, "Unexpected number of partial logs: %d", len(partialLogs))
 			}
+		} else {
+			ms.logger.CInfo(ctx, "no partial log messages found")
 		}
 
 		resp[DoPlan] = plan.Trajectory()
