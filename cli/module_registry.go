@@ -100,13 +100,14 @@ var defaultBuildInfo = manifestBuildInfo{
 // moduleManifest is used to create & parse manifest.json.
 // Detailed user-facing docs for this are in module.schema.json.
 type moduleManifest struct {
-	Schema      string            `json:"$schema"`
-	ModuleID    string            `json:"module_id"`
-	Visibility  moduleVisibility  `json:"visibility"`
-	URL         string            `json:"url"`
-	Description string            `json:"description"`
-	Models      []ModuleComponent `json:"models"`
-	Apps        []AppComponent    `json:"applications"`
+	Schema       string            `json:"$schema"`
+	ModuleID     string            `json:"module_id"`
+	Visibility   moduleVisibility  `json:"visibility"`
+	URL          string            `json:"url"`
+	Description  string            `json:"description"`
+	Models       []ModuleComponent `json:"models"`
+	Apps         []AppComponent    `json:"applications"`
+	MarkdownLink *string           `json:"markdown_link,omitempty"`
 	// JsonManifest provides fields shared with RDK proper.
 	modconfig.JSONManifest
 	Build *manifestBuildInfo `json:"build,omitempty"`
@@ -448,14 +449,25 @@ func (c *viamClient) updateModule(moduleID moduleID, manifest moduleManifest) (*
 	if err != nil {
 		return nil, err
 	}
+
+	var markdownDocs *string
+	// If a markdown link is provided, read the content
+	if manifest.MarkdownLink != nil {
+		if content, err := getMarkdownContent(*manifest.MarkdownLink); err == nil {
+			markdownDocs = &content
+		} else {
+			warningf(os.Stderr, "Failed to read markdown content from %s: %v", *manifest.MarkdownLink, err)
+		}
+	}
 	req := apppb.UpdateModuleRequest{
-		ModuleId:    moduleID.String(),
-		Visibility:  visibility,
-		Url:         manifest.URL,
-		Description: manifest.Description,
-		Models:      models,
-		Apps:        apps,
-		Entrypoint:  manifest.Entrypoint,
+		ModuleId:            moduleID.String(),
+		Visibility:          visibility,
+		Url:                 manifest.URL,
+		Description:         manifest.Description,
+		Models:              models,
+		Apps:                apps,
+		Entrypoint:          manifest.Entrypoint,
+		MarkdownDescription: markdownDocs,
 	}
 	if manifest.FirstRun != "" {
 		req.FirstRun = &manifest.FirstRun
