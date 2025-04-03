@@ -107,7 +107,7 @@ type moduleManifest struct {
 	Description  string            `json:"description"`
 	Models       []ModuleComponent `json:"models"`
 	Apps         []AppComponent    `json:"applications"`
-	MarkdownLink *string           `json:"markdown_link"`
+	MarkdownLink *string           `json:"markdown_link,omitempty"`
 	// JsonManifest provides fields shared with RDK proper.
 	modconfig.JSONManifest
 	Build *manifestBuildInfo `json:"build,omitempty"`
@@ -450,11 +450,11 @@ func (c *viamClient) updateModule(moduleID moduleID, manifest moduleManifest) (*
 		return nil, err
 	}
 
-	var markdownDocs string
+	var markdownDocs *string
 	// If a markdown link is provided, read the content
 	if manifest.MarkdownLink != nil {
 		if content, err := getMarkdownContent(*manifest.MarkdownLink); err == nil {
-			markdownDocs = content
+			markdownDocs = &content
 		} else {
 			warningf(os.Stderr, "Failed to read markdown content from %s: %v", *manifest.MarkdownLink, err)
 		}
@@ -467,7 +467,7 @@ func (c *viamClient) updateModule(moduleID moduleID, manifest moduleManifest) (*
 		Models:              models,
 		Apps:                apps,
 		Entrypoint:          manifest.Entrypoint,
-		MarkdownDescription: &markdownDocs,
+		MarkdownDescription: markdownDocs,
 	}
 	if manifest.FirstRun != "" {
 		req.FirstRun = &manifest.FirstRun
