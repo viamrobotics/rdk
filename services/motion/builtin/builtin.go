@@ -119,11 +119,8 @@ func (ms *builtIn) Reconfigure(
 		return err
 	}
 	if config.LogFilePath != "" {
-		logger, err := utils.NewFilePathDebugLogger(config.LogFilePath, "motion")
-		if err != nil {
-			return err
-		}
-		ms.logger = logger
+		fileAppender, _ := logging.NewFileAppender(config.LogFilePath)
+		ms.logger.AddAppender(fileAppender)
 	}
 	movementSensors := make(map[resource.Name]movementsensor.MovementSensor)
 	slamServices := make(map[resource.Name]slam.Service)
