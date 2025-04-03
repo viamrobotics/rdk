@@ -390,7 +390,7 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 		if err != nil {
 			return nil, err
 		}
-		partialLogString := "returning partial plan up to waypoint "
+		partialLogString := "returning partial plan up to waypoint"
 		partialLogs := observedLogs.FilterMessageSnippet(partialLogString).All()
 		if len(partialLogs) > 0 {
 			// Extract the waypoint number from the partial log
@@ -399,7 +399,7 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 				// Find the waypoint number after the partial log string
 				waypointStr := strings.TrimPrefix(logMsg, partialLogString)
 				// Extract just the number
-				waypointNum, err := strconv.Atoi(strings.TrimSpace(strings.Split(waypointStr, " ")[0]))
+				waypointNum, err := strconv.Atoi(strings.Split(strings.TrimSpace(waypointStr), " ")[0]))
 				if err == nil {
 					resp[DoPlan+"_partialwp"] = waypointNum
 				} else {
