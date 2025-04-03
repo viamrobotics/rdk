@@ -390,16 +390,7 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 		if err != nil {
 			return nil, err
 		}
-		
-		ms.logger.CWarnf(ctx, "observed this many logs: %d", observedLogs.Len())
-		ms.logger.CWarnf(ctx, "now this should be one more: %d", observedLogs.Len())
-		
-		allLogs := observedLogs.AllUntimed()
-		for _, log := range allLogs {
-			ms.logger.CWarnf(ctx, "observed this log: %s", log)
-			ms.logger.CWarnf(ctx, "observed this log message: %s", log.Message)
-		}
-		
+
 		partialLogString := "returning partial plan up to waypoint"
 		partialLogs := observedLogs.FilterMessageSnippet(partialLogString).All()
 		if len(partialLogs) > 0 {
@@ -419,8 +410,6 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 			} else {
 				ms.logger.CWarnf(ctx, "Unexpected number of partial logs: %d", len(partialLogs))
 			}
-		} else {
-			ms.logger.CInfo(ctx, "no partial log messages found")
 		}
 
 		resp[DoPlan] = plan.Trajectory()
