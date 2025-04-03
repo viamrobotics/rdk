@@ -351,8 +351,8 @@ func (ms *builtIn) PlanHistory(
 //     input value: a motionplan.Trajectory
 //     output value: a bool
 func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
 	resp := make(map[string]interface{}, 0)
@@ -377,7 +377,7 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 		// Special handling: we want to observe the logs just for the DoCommand
 		oldLogger := ms.logger
 		obsLogger := oldLogger.Sublogger("observed")
-		observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
+		observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.InfoLevel.Enabled))
 		obsLogger.AddAppender(observerCore)
 		ms.logger = obsLogger
 		defer func() { ms.logger = oldLogger }()
@@ -390,14 +390,18 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 		if err != nil {
 			return nil, err
 		}
-		partialLogString := "returning partial plan up to waypoint"
-		partialLogs := observedLogs.FilterMessageSnippet(partialLogString).All()
-		allLogs := observedLogs.All()
+		
+		ms.logger.CWarnf(ctx, "observed this many logs: %d", observedLogs.Len())
+		ms.logger.CWarnf(ctx, "now this should be one more: %d", observedLogs.Len())
+		
+		allLogs := observedLogs.AllUntimed()
 		for _, log := range allLogs {
 			ms.logger.CWarnf(ctx, "observed this log: %s", log)
 			ms.logger.CWarnf(ctx, "observed this log message: %s", log.Message)
 		}
 		
+		partialLogString := "returning partial plan up to waypoint"
+		partialLogs := observedLogs.FilterMessageSnippet(partialLogString).All()
 		if len(partialLogs) > 0 {
 			// Extract the waypoint number from the partial log
 			if len(partialLogs) == 1 {
