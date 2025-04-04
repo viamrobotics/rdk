@@ -846,3 +846,12 @@ retryLoop:
 	}
 	return frame.Bounds().Dx(), frame.Bounds().Dy(), nil
 }
+
+// GetVideoSourceForTest returns the hot swappable video source for the given stream name.
+// This is intended for use in tests only.
+func (server *Server) GetVideoSourceForTest(name string) (gostream.HotSwappableVideoSource, bool) {
+	server.mu.RLock()
+	defer server.mu.RUnlock()
+	source, ok := server.videoSources[name]
+	return source, ok
+}
