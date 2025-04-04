@@ -582,7 +582,8 @@ func TestStreamMediaBehavior(t *testing.T) {
 			},
 		},
 	}}
-	ctx, robot, addr, webSvc, streamServer := setupRealRobot(t, origCfg, logger)
+	// Pass a blank logger to setupRealRobot to prevent race conditions with test logger usage in background goroutines.
+	ctx, robot, addr, webSvc, streamServer := setupRealRobot(t, origCfg, logging.NewBlankLogger(""))
 	if streamServer == nil {
 		t.Fatal("stream server is nil. CGO may be disabled.")
 	}
@@ -715,8 +716,6 @@ func TestStreamMediaBehavior(t *testing.T) {
 		webSvc.Reconfigure(ctx, nil, resource.Config{})
 		logger.Info("Reconfiguration complete.")
 
-		time.Sleep(500 * time.Millisecond)
-
 		// Verify the packets continue flowing after reconfigure
 		timeout = time.After(5 * time.Second)
 		select {
@@ -753,8 +752,6 @@ func TestStreamMediaBehavior(t *testing.T) {
 		test.That(t, mediaProps.Width, test.ShouldEqual, 640)
 		test.That(t, mediaProps.Height, test.ShouldEqual, 360)
 
-		// Wait for state transition
-		time.Sleep(1 * time.Second)
 		// Test 320x240
 		_, err = livestreamClient.SetStreamOptions(ctx, &streampb.SetStreamOptionsRequest{
 			Name: "test-camera",
@@ -847,9 +844,6 @@ func TestStreamMediaBehavior(t *testing.T) {
 
 		// Verify stream is still listed after RemoveStream (peer-specific removal)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			// Add a small delay to allow ListStreams to reflect potential (but unlikely) changes
-			time.Sleep(100 * time.Millisecond)
-
 			listResp, err := livestreamClient.ListStreams(ctx, &streampb.ListStreamsRequest{})
 			test.That(tb, err, test.ShouldBeNil)
 
