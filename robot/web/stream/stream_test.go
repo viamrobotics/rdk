@@ -711,8 +711,6 @@ func TestStreamMediaBehavior(t *testing.T) {
 		logger.Info("Performing robot reconfiguration...")
 		newCfg := origCfg
 		robot.Reconfigure(ctx, newCfg)
-		test.That(t, err, test.ShouldBeNil)
-
 		webSvc.Reconfigure(ctx, nil, resource.Config{})
 		logger.Info("Reconfiguration complete.")
 
