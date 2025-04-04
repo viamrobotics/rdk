@@ -30,6 +30,7 @@ import (
 const (
 	monitorCameraInterval = time.Second
 	retryDelay            = 50 * time.Millisecond
+	backoffCooldown       = 30 * time.Second
 )
 
 const (
@@ -753,7 +754,10 @@ func (server *Server) startStream(streamFunc func(opts *BackoffTuningOptions) er
 	utils.PanicCapturingGo(func() {
 		defer server.activeBackgroundWorkers.Done()
 		close(waitCh)
-		if err := streamFunc(&BackoffTuningOptions{}); err != nil {
+		opts := &BackoffTuningOptions{
+			Cooldown: backoffCooldown,
+		}
+		if err := streamFunc(opts); err != nil {
 			if utils.FilterOutError(err, context.Canceled) != nil {
 				server.logger.Errorw("error streaming", "error", err)
 			}
