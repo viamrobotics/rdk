@@ -30,7 +30,7 @@ type BackoffTuningOptions struct {
 
 // Dan: This fixes the backoff bugs where we'd overflow the sleep to a negative value. But this no
 // longer obeys the input tuning options. I'm considering that deprecated and to be removed.
-var backoffSleeps = []time.Duration{500 * time.Millisecond, time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second}
+var backoffSleeps = []time.Duration{500 * time.Millisecond, time.Second, 2 * time.Second, 5 * time.Second}
 
 // GetSleepTimeFromErrorCount returns a sleep time from an error count.
 func (opts *BackoffTuningOptions) GetSleepTimeFromErrorCount(errorCount int) time.Duration {
