@@ -110,8 +110,10 @@ func init() {
 	)
 } // end of init
 
-// readImageFromFile extracts the RGB, Z16, or raw depth data from an image file.
-func readImageFromFile(path string) (image.Image, error) {
+// ReadImageFromFile extracts the RGB, Z16, or raw depth data from an image file.
+// ReadImageFromFile reads an image directly from a file without conversion to the custom Image type.
+// This is more efficient when you only need a standard image.Image interface.
+func ReadImageFromFile(path string) (image.Image, error) {
 	switch {
 	case strings.HasSuffix(path, ".dat.gz"), strings.HasSuffix(path, ".dat"):
 		return ParseRawDepthMap(path)
@@ -133,7 +135,7 @@ func readImageFromFile(path string) (image.Image, error) {
 
 // NewImageFromFile returns an image read in from the given file.
 func NewImageFromFile(fn string) (*Image, error) {
-	img, err := readImageFromFile(fn)
+	img, err := ReadImageFromFile(fn)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +144,7 @@ func NewImageFromFile(fn string) (*Image, error) {
 
 // NewDepthMapFromFile extract the depth map from a Z16 image file or a .dat image file.
 func NewDepthMapFromFile(ctx context.Context, fn string) (*DepthMap, error) {
-	img, err := readImageFromFile(fn)
+	img, err := ReadImageFromFile(fn)
 	if err != nil {
 		return nil, err
 	}
@@ -177,19 +179,24 @@ func WriteImageToFile(path string, img image.Image) (err error) {
 	}
 }
 
-// ConvertImage converts a go image into our Image type.
-func ConvertImage(img image.Image) *Image {
+// ConvertImageSafe converts a go image into our Image type with error handling.
+// This is a safer alternative to ConvertImage as it returns errors instead of panicking.
+func ConvertImageSafe(img image.Image) (*Image, error) {
 	if lazyImg, ok := img.(*LazyEncodedImage); ok {
-		img = lazyImg.DecodedImage()
+		decodedImg, err := lazyImg.DecodedImage()
+		if err != nil {
+			return nil, err
+		}
+		img = decodedImg
 	}
 	ii, ok := img.(*Image)
 	if ok {
-		return ii
+		return ii, nil
 	}
 
 	iwd, ok := img.(*imageWithDepth)
 	if ok {
-		return iwd.Color
+		return iwd.Color, nil
 	}
 
 	b := img.Bounds()
@@ -209,7 +216,18 @@ func ConvertImage(img image.Image) *Image {
 			}
 		}
 	}
-	return ii
+	return ii, nil
+}
+
+// ConvertImage converts a go image into our Image type.
+// This function panics if there's an error during conversion.
+// For a safer alternative that returns errors, use ConvertImageSafe.
+func ConvertImage(img image.Image) *Image {
+	result, err := ConvertImageSafe(img)
+	if err != nil {
+		panic(err)
+	}
+	return result
 }
 
 // CloneImage creates a copy of the input image.
@@ -239,7 +257,11 @@ func SaveImage(pic image.Image, loc string) error {
 		}
 	}()
 	if lazyImg, ok := pic.(*LazyEncodedImage); ok {
-		pic = lazyImg.DecodedImage()
+		decodedPic, err := lazyImg.DecodedImage()
+		if err != nil {
+			return err
+		}
+		pic = decodedPic
 	}
 	if err = jpeg.Encode(f, pic, &jpeg.Options{Quality: 75}); err != nil {
 		return errors.Wrapf(err, "the 'image' will not encode")
@@ -288,9 +310,9 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 			return lazy.imgBytes, nil
 		}
 		// LazyImage holds bytes different from requested mime type: decode and re-encode
-		lazy.decode()
-		if lazy.decodeErr != nil {
-			return nil, errors.Errorf("could not decode LazyEncodedImage: %v", lazy.decodeErr)
+		err := lazy.DecodeImage()
+		if err != nil {
+			return nil, errors.Errorf("could not decode LazyEncodedImage: %v", err)
 		}
 		return EncodeImage(ctx, lazy.decodedImage, actualOutMIME)
 	}

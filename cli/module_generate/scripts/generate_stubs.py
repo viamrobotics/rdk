@@ -44,6 +44,15 @@ def replace_async_func(
             nodes,
             parent)
     func.body = [
+        ast.Expr(ast.Call(
+            func=ast.Attribute(
+                value=ast.Attribute(
+                    ast.Name(id="self"),
+                    attr="logger"),
+                attr="error",
+            ),
+            args=[ast.Constant(value=f"`{func.name}` is not implemented")],
+            keywords=[])),
         ast.Raise(
             exc=ast.Call(func=ast.Name(id='NotImplementedError',
                                        ctx=ast.Load()),
@@ -171,17 +180,15 @@ def main(
                             imports.append("from typing import Optional")
                             imports.append("from viam.utils import ValueTypes")
                         elif cstmt.name == "get_geometries":
-                            imports.append("from typing import List, Optional")
+                            imports.append("from typing import Any, Dict, List, Optional")
                             imports.append("from viam.proto.common import Geometry")
 
     model_name_pascal = "".join(
         [word.capitalize() for word in slugify(model_name).split("-")]
     )
-    main_file = '''
-import asyncio
+    resource_file = '''
 from typing import ClassVar, Mapping, Sequence
 from typing_extensions import Self
-from viam.module.module import Module
 from viam.proto.app.robot import ComponentConfig
 from viam.proto.common import ResourceName
 from viam.resource.base import ResourceBase
@@ -192,6 +199,8 @@ from viam.{1}s.{2} import *
 
 
 class {3}({4}, EasyResource):
+    # To enable debug-level logging, either run viam-server with the --debug option,
+    # or configure your resource/machine to display debug logs.
     MODEL: ClassVar[Model] = Model(ModelFamily("{5}", "{6}"), "{7}")
 
     @classmethod
@@ -232,11 +241,6 @@ class {3}({4}, EasyResource):
 
 {8}
 {9}
-
-
-if __name__ == '__main__':
-    asyncio.run(Module.run_from_registry())
-
 '''.format(
         "\n".join(list(set(imports))),
         resource_type,
@@ -249,19 +253,20 @@ if __name__ == '__main__':
         '\n\n'.join([subclass for subclass in subclasses]),
         '\n\n'.join([f'{method}' for method in abstract_methods]),
     )
-    f_name = os.path.join(mod_name, "src", "main.py")
+    f_name = os.path.join(mod_name, "src", "models", "resource.py")
     with open(f_name, "w+") as f:
-        f.write(main_file)
+        f.write(resource_file)
         try:
             f.seek(0)
             subprocess.check_call([sys.executable, "-m", "black", f_name, "-q"])
             f.seek(0)
-            main_file = f.read()
+            resource_file = f.read()
         except subprocess.CalledProcessError:
             pass
     os.remove(f_name)
-    sorted_main = isort.code(main_file)
-    return sorted_main
+    sorted_code = isort.code(resource_file)
+
+    return sorted_code
 
 
 if __name__ == "__main__":

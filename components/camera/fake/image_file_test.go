@@ -43,7 +43,7 @@ func TestPCD(t *testing.T) {
 	cam, err = newCamera(ctx, resource.Name{API: camera.API}, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	readInImage, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
+	readInImage, err := rimage.ReadImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
 	test.That(t, err, test.ShouldBeNil)
 
 	imgBytes, _, err := cam.Image(ctx, utils.MimeTypeJPEG, nil)
@@ -67,7 +67,7 @@ func TestColor(t *testing.T) {
 	_, err = cam.NextPointCloud(ctx)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	readInImage, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
+	readInImage, err := rimage.ReadImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
 	test.That(t, err, test.ShouldBeNil)
 
 	imgBytes, _, err := cam.Image(ctx, utils.MimeTypeJPEG, nil)
@@ -110,6 +110,68 @@ func TestColorOddResolution(t *testing.T) {
 	val, _, err := rimage.CompareImages(strmImg, img.SubImage(expectedBounds))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, val, test.ShouldEqual, 0)
+
+	err = cam.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestPreloadedImages(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	preloadedImages := []string{"pizza", "dog", "crowd"}
+
+	for _, imgName := range preloadedImages {
+		t.Run(imgName, func(t *testing.T) {
+			cfg := &fileSourceConfig{PreloadedImage: imgName}
+			cam, err := newCamera(ctx, resource.Name{API: camera.API}, cfg, logger)
+			test.That(t, err, test.ShouldBeNil)
+
+			img, err := camera.DecodeImageFromCamera(ctx, utils.MimeTypeRawRGBA, nil, cam)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, img, test.ShouldNotBeNil)
+
+			bounds := img.Bounds()
+			test.That(t, bounds.Dx() > 0, test.ShouldBeTrue)
+			test.That(t, bounds.Dy() > 0, test.ShouldBeTrue)
+
+			namedImages, metadata, err := cam.Images(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, len(namedImages), test.ShouldEqual, 1)
+			test.That(t, namedImages[0].SourceName, test.ShouldEqual, "preloaded")
+			test.That(t, metadata.CapturedAt.IsZero(), test.ShouldBeFalse)
+
+			jpegBytes, mime, err := cam.Image(ctx, utils.MimeTypeJPEG, nil)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, mime.MimeType, test.ShouldEqual, utils.MimeTypeJPEG)
+			test.That(t, len(jpegBytes) > 0, test.ShouldBeTrue)
+
+			err = cam.Close(ctx)
+			test.That(t, err, test.ShouldBeNil)
+		})
+	}
+
+	colorImgPath := artifact.MustPath("vision/objectdetection/detection_test.jpg")
+	cfg := &fileSourceConfig{
+		PreloadedImage: "pizza",
+		Color:          colorImgPath,
+	}
+	cam, err := newCamera(ctx, resource.Name{API: camera.API}, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Should return both images
+	namedImages, _, err := cam.Images(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(namedImages), test.ShouldEqual, 2)
+	test.That(t, namedImages[0].SourceName, test.ShouldEqual, "preloaded")
+	test.That(t, namedImages[1].SourceName, test.ShouldEqual, "color")
+
+	cameraImg, err := camera.DecodeImageFromCamera(ctx, utils.MimeTypeRawRGBA, nil, cam)
+	test.That(t, err, test.ShouldBeNil)
+	preloadedImg, err := getPreloadedImage("pizza")
+	test.That(t, err, test.ShouldBeNil)
+	diff, _, err := rimage.CompareImages(cameraImg, preloadedImg)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, diff, test.ShouldEqual, 0)
 
 	err = cam.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)

@@ -55,7 +55,7 @@ func (step *arcStep) String() string {
 		step.angVelDegps,
 		step.durationSeconds,
 		step.arcSegment.String(),
-		spatialmath.PoseToProtobuf(step.arcSegment.StartPosition),
+		step.arcSegment.StartPosition,
 	)
 }
 
@@ -371,8 +371,8 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 		" linear diff now ", poseDiff.Point().Norm(),
 		" angle diff ", rdkutils.RadToDeg(poseDiff.Orientation().AxisAngles().Theta),
 	)
-	ptgk.logger.Debug("expected to be at ", spatialmath.PoseToProtobuf(expectedPose))
-	ptgk.logger.Debug("Localizer says at ", spatialmath.PoseToProtobuf(actualPose.Pose()))
+	ptgk.logger.Debug("expected to be at", expectedPose)
+	ptgk.logger.Debug("Localizer says at", actualPose.Pose())
 	if poseDiff.Point().Norm() > allowableDiff || rdkutils.RadToDeg(poseDiff.Orientation().AxisAngles().Theta) > allowableDiff {
 		// Accumulate list of points along the path to try to connect to
 		goals := ptgk.makeCourseCorrectionGoals(
@@ -383,7 +383,7 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 			currentInputs,
 		)
 
-		ptgk.logger.Debug("wanted to attempt ", goalsToAttempt, " goals, got ", len(goals))
+		ptgk.logger.Debug("wanted to attempt", goalsToAttempt, "goals, got", len(goals))
 		// Attempt to solve from `actualPose` to each of those points
 		solution, err := ptgk.getCorrectionSolution(ctx, goals)
 		if err != nil {
@@ -495,7 +495,7 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 func (ptgk *ptgBaseKinematics) getCorrectionSolution(ctx context.Context, goals []courseCorrectionGoal) (courseCorrectionGoal, error) {
 	for _, goal := range goals {
 		solveMetric := ik.NewScaledSquaredNormMetric(goal.Goal, 50)
-		ptgk.logger.Debug("attempting goal ", spatialmath.PoseToProtobuf(goal.Goal))
+		ptgk.logger.Debug("attempting goal", goal.Goal)
 		seed := []referenceframe.Input{{math.Pi / 2}, {ptgk.linVelocityMMPerSecond / 2}, {math.Pi / 2}, {ptgk.linVelocityMMPerSecond / 2}}
 		if goal.Goal.Point().X > 0 {
 			seed[0].Value *= -1
@@ -512,7 +512,7 @@ func (ptgk *ptgBaseKinematics) getCorrectionSolution(ctx context.Context, goals 
 		if err != nil {
 			return courseCorrectionGoal{}, err
 		}
-		ptgk.logger.Debug("solution ", solution)
+		ptgk.logger.Debug("solution", solution)
 		if solution.Score < courseCorrectionMaxScore {
 			goal.Solution = referenceframe.FloatsToInputs(solution.Configuration)
 			return goal, nil

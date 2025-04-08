@@ -87,6 +87,7 @@ func detsToProto(detections []objectdetection.Detection) []*pb.Detection {
 		yMin := int64(box.Min.Y)
 		xMax := int64(box.Max.X)
 		yMax := int64(box.Max.Y)
+
 		d := &pb.Detection{
 			XMin:       &xMin,
 			YMin:       &yMin,
@@ -94,6 +95,13 @@ func detsToProto(detections []objectdetection.Detection) []*pb.Detection {
 			YMax:       &yMax,
 			Confidence: det.Score(),
 			ClassName:  det.Label(),
+		}
+		normbox := det.NormalizedBoundingBox()
+		if len(normbox) == 4 {
+			d.XMinNormalized = &normbox[0]
+			d.YMinNormalized = &normbox[1]
+			d.XMaxNormalized = &normbox[2]
+			d.YMaxNormalized = &normbox[3]
 		}
 		protoDets = append(protoDets, d)
 	}

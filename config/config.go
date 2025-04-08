@@ -732,6 +732,9 @@ type NetworkConfigData struct {
 
 	// Sessions configures session management.
 	Sessions SessionsConfig `json:"sessions"`
+
+	// TrafficTunnelEndpoints are the allowed ports and options for tunneling.
+	TrafficTunnelEndpoints []TrafficTunnelEndpoint `json:"traffic_tunnel_endpoints"`
 }
 
 // MarshalJSON marshals out this config.
@@ -817,6 +820,53 @@ func (sc *SessionsConfig) Validate(path string) error {
 	}
 
 	return nil
+}
+
+// TrafficTunnelEndpoint is an endpoint for tunneling traffic.
+type TrafficTunnelEndpoint struct {
+	// Port is the port which can be tunneled to/from.
+	Port int
+	// ConnectionTimeout is the timeout with which we will attempt to connect to the port.
+	// If set to 0 or not specified, a default connection timeout of 10 seconds will be used.
+	ConnectionTimeout time.Duration
+}
+
+// Note: keep this in sync with TrafficTunnelEndpoint.
+type trafficTunnelEndpointData struct {
+	Port              int    `json:"port"`
+	ConnectionTimeout string `json:"connection_timeout,omitempty"`
+}
+
+// UnmarshalJSON unmarshals JSON data into this traffic tunnel endpoint.
+func (tte *TrafficTunnelEndpoint) UnmarshalJSON(data []byte) error {
+	var temp trafficTunnelEndpointData
+	if err := json.Unmarshal(data, &temp); err != nil {
+		return err
+	}
+
+	tte.Port = temp.Port
+
+	if temp.ConnectionTimeout != "" {
+		dur, err := time.ParseDuration(temp.ConnectionTimeout)
+		if err != nil {
+			return err
+		}
+		tte.ConnectionTimeout = dur
+	}
+
+	return nil
+}
+
+// MarshalJSON marshals out this traffic tunnel endpoint.
+func (tte *TrafficTunnelEndpoint) MarshalJSON() ([]byte, error) {
+	var temp trafficTunnelEndpointData
+
+	temp.Port = tte.Port
+
+	if tte.ConnectionTimeout != 0 {
+		temp.ConnectionTimeout = tte.ConnectionTimeout.String()
+	}
+	return json.Marshal(temp)
 }
 
 // AuthConfig describes authentication and authorization settings for the web server.
@@ -1143,7 +1193,9 @@ func (p *PackageConfig) LocalDataParentDirectory(packagesDir string) string {
 
 // SanitizedName returns the package name for the symlink/filepath of the package on the system.
 func (p *PackageConfig) SanitizedName() string {
-	return fmt.Sprintf("%s-%s", strings.ReplaceAll(p.Package, string(os.PathSeparator), "-"), p.sanitizedVersion())
+	// p.Package is set by the PackageServiceClient as "{org_id}/{package_name}"
+	// see https://github.com/viamrobotics/app/blob/e0d693d80ae6f308e5b3a6bddb69991521127928/packages/packages.go#L1257
+	return fmt.Sprintf("%s-%s", strings.ReplaceAll(p.Package, "/", "-"), p.sanitizedVersion())
 }
 
 // sanitizedVersion returns a cleaned version of the version so it is file-system-safe.

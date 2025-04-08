@@ -17,13 +17,14 @@ import (
 )
 
 const (
-	trainFlagJobID        = "job-id"
-	trainFlagJobStatus    = "job-status"
-	trainFlagModelOrgID   = "model-org-id"
-	trainFlagModelName    = "model-name"
-	trainFlagModelVersion = "model-version"
-	trainFlagModelType    = "model-type"
-	trainFlagModelLabels  = "model-labels"
+	trainFlagJobID          = "job-id"
+	trainFlagJobStatus      = "job-status"
+	trainFlagModelOrgID     = "model-org-id"
+	trainFlagModelName      = "model-name"
+	trainFlagModelVersion   = "model-version"
+	trainFlagModelType      = "model-type"
+	trainFlagModelFramework = "model-framework"
+	trainFlagModelLabels    = "model-labels"
 
 	trainingStatusPrefix = "TRAINING_STATUS_"
 )
@@ -103,12 +104,13 @@ func MLSubmitCustomTrainingJobWithUpload(c *cli.Context, args mlSubmitCustomTrai
 }
 
 type mlSubmitTrainingJobArgs struct {
-	DatasetID    string
-	ModelOrgID   string
-	ModelName    string
-	ModelType    string
-	ModelLabels  []string
-	ModelVersion string
+	DatasetID      string
+	ModelOrgID     string
+	ModelName      string
+	ModelType      string
+	ModelFramework string
+	ModelLabels    []string
+	ModelVersion   string
 }
 
 // MLSubmitTrainingJob is the corresponding action for 'train submit'.
@@ -119,7 +121,7 @@ func MLSubmitTrainingJob(c *cli.Context, args mlSubmitTrainingJobArgs) error {
 	}
 	trainingJobID, err := client.mlSubmitTrainingJob(
 		args.DatasetID, args.ModelOrgID, args.ModelName, args.ModelVersion, args.ModelType,
-		args.ModelLabels)
+		args.ModelFramework, args.ModelLabels)
 	if err != nil {
 		return err
 	}
@@ -128,12 +130,9 @@ func MLSubmitTrainingJob(c *cli.Context, args mlSubmitTrainingJobArgs) error {
 }
 
 // mlSubmitTrainingJob trains on data with the specified filter.
-func (c *viamClient) mlSubmitTrainingJob(datasetID, orgID, modelName, modelVersion, modelType string,
+func (c *viamClient) mlSubmitTrainingJob(datasetID, orgID, modelName, modelVersion, modelType, modelFramework string,
 	labels []string,
 ) (string, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return "", err
-	}
 	if modelVersion == "" {
 		modelVersion = time.Now().Format("2006-01-02T15-04-05")
 	}
@@ -142,12 +141,18 @@ func (c *viamClient) mlSubmitTrainingJob(datasetID, orgID, modelName, modelVersi
 		return "", errors.Errorf("%s must be a valid ModelType, got %s. See `viam train submit --help` for supported options",
 			trainFlagModelType, modelType)
 	}
+	modelFrameworkEnum, ok := mltrainingpb.ModelFramework_value["MODEL_FRAMEWORK_"+strings.ToUpper(modelFramework)]
+	if !ok || modelFrameworkEnum == int32(mltrainingpb.ModelFramework_MODEL_FRAMEWORK_UNSPECIFIED) {
+		return "", errors.Errorf("%s must be a valid ModelFramework, got %s. See `viam train submit --help` for supported options",
+			trainFlagModelFramework, modelFramework)
+	}
 
 	resp, err := c.mlTrainingClient.SubmitTrainingJob(context.Background(),
 		&mltrainingpb.SubmitTrainingJobRequest{
 			DatasetId:      datasetID,
 			OrganizationId: orgID, ModelName: modelName, ModelVersion: modelVersion,
-			ModelType: mltrainingpb.ModelType(modelTypeEnum), Tags: labels,
+			ModelType: mltrainingpb.ModelType(modelTypeEnum), ModelFramework: mltrainingpb.ModelFramework(modelFrameworkEnum),
+			Tags: labels,
 		})
 	if err != nil {
 		return "", errors.Wrapf(err, "received error from server")
@@ -159,9 +164,6 @@ func (c *viamClient) mlSubmitTrainingJob(datasetID, orgID, modelName, modelVersi
 func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, registryItemVersion, orgID, modelName,
 	modelVersion string, args []string,
 ) (string, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return "", err
-	}
 	splitName := strings.Split(registryItemID, ":")
 	if len(splitName) != 2 {
 		return "", errors.Errorf("invalid training script name '%s'."+
@@ -220,9 +222,6 @@ func DataGetTrainingJob(c *cli.Context, args dataGetTrainingJobArgs) error {
 
 // dataGetTrainingJob gets a training job with the given ID.
 func (c *viamClient) dataGetTrainingJob(trainingJobID string) (*mltrainingpb.TrainingJobMetadata, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
 	resp, err := c.mlTrainingClient.GetTrainingJob(context.Background(), &mltrainingpb.GetTrainingJobRequest{Id: trainingJobID})
 	if err != nil {
 		return nil, err
@@ -256,9 +255,6 @@ func MLGetTrainingJobLogs(c *cli.Context, args mlGetTrainingJobLogsArgs) error {
 
 // mlGetTrainingJobLogs gets the training job logs with the given ID.
 func (c *viamClient) mlGetTrainingJobLogs(trainingJobID string) ([]*mltrainingpb.TrainingJobLogEntry, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
 	var allLogs []*mltrainingpb.TrainingJobLogEntry
 	var page string
 
@@ -299,9 +295,6 @@ func DataCancelTrainingJob(c *cli.Context, args dataCancelTrainingJobArgs) error
 
 // dataCancelTrainingJob cancels a training job with the given ID.
 func (c *viamClient) dataCancelTrainingJob(trainingJobID string) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
 	if _, err := c.mlTrainingClient.CancelTrainingJob(
 		context.Background(), &mltrainingpb.CancelTrainingJobRequest{Id: trainingJobID}); err != nil {
 		return err
@@ -332,10 +325,6 @@ func DataListTrainingJobs(c *cli.Context, args dataListTrainingJobsArgs) error {
 
 // dataListTrainingJobs lists training jobs for the given org.
 func (c *viamClient) dataListTrainingJobs(orgID, status string) ([]*mltrainingpb.TrainingJobMetadata, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
-
 	if status == "" {
 		status = "unspecified"
 	}
@@ -465,10 +454,6 @@ func MLTrainingUpdateAction(c *cli.Context, args mlTrainingUpdateArgs) error {
 }
 
 func (c *viamClient) updateTrainingScript(orgID, name, visibility, description, url string) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
-
 	// Get registry item
 	itemID := fmt.Sprintf("%s:%s", orgID, name)
 	resp, err := c.client.GetRegistryItem(c.c.Context, &v1.GetRegistryItemRequest{

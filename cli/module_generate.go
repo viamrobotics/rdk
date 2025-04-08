@@ -70,9 +70,6 @@ func GenerateModuleAction(cCtx *cli.Context, args generateModuleArgs) error {
 }
 
 func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModuleArgs) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
 	var newModule *modulegen.ModuleInputs
 	var err error
 
@@ -153,12 +150,6 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 
 		s.Title(fmt.Sprintf("Generating %s stubs...", newModule.Language))
 		if err = generateStubs(cCtx, *newModule, globalArgs); err != nil {
-			warningf(cCtx.App.ErrWriter, err.Error())
-			nonFatalError = true
-		}
-
-		s.Title("Generating cloud build requirements...")
-		if err = generateCloudBuild(cCtx, *newModule, globalArgs); err != nil {
 			warningf(cCtx.App.ErrWriter, err.Error())
 			nonFatalError = true
 		}
@@ -370,6 +361,7 @@ func populateAdditionalInfo(newModule *modulegen.ModuleInputs) {
 
 	titleCaser := cases.Title(language.Und)
 	replacer := strings.NewReplacer("_", " ", "-", " ")
+	snakeReplacer := strings.NewReplacer("-", "_", " ", "_")
 	spaceReplacer := modulegen.SpaceReplacer
 	newModule.ModulePascal = spaceReplacer.Replace(titleCaser.String(replacer.Replace(newModule.ModuleName)))
 	newModule.ModuleCamel = strings.ToLower(string(newModule.ModulePascal[0])) + newModule.ModulePascal[1:]
@@ -382,7 +374,7 @@ func populateAdditionalInfo(newModule *modulegen.ModuleInputs) {
 	newModule.ResourceTypePascal = spaceReplacer.Replace(titleCaser.String(replacer.Replace(newModule.ResourceType)))
 	newModule.ModelPascal = spaceReplacer.Replace(titleCaser.String(replacer.Replace(newModule.ModelName)))
 	newModule.ModelCamel = strings.ToLower(string(newModule.ModelPascal[0])) + newModule.ModelPascal[1:]
-	newModule.ModelLowercase = strings.ToLower(newModule.ModelPascal)
+	newModule.ModelSnake = snakeReplacer.Replace(newModule.ModelName)
 
 	modelTriple := fmt.Sprintf("%s:%s:%s", newModule.Namespace, newModule.ModuleName, newModule.ModelName)
 	newModule.ModelTriple = modelTriple
@@ -603,7 +595,7 @@ func generateGolangStubs(module modulegen.ModuleInputs) error {
 	if err != nil {
 		return errors.Wrap(err, "cannot generate go stubs -- generator script encountered an error")
 	}
-	modulePath := filepath.Join(module.ModuleName, "models", "module.go")
+	modulePath := filepath.Join(module.ModuleName, "module.go")
 	//nolint:gosec
 	moduleFile, err := os.Create(modulePath)
 	if err != nil {
@@ -689,14 +681,14 @@ func generatePythonStubs(module modulegen.ModuleInputs) error {
 		return errors.Wrap(err, "cannot generate python stubs -- generator script encountered an error")
 	}
 
-	mainPath := filepath.Join(module.ModuleName, "src", "main.py")
+	resourcePath := filepath.Join(module.ModuleName, "src", "models", fmt.Sprintf("%s.py", module.ModelSnake))
 	//nolint:gosec
-	mainFile, err := os.Create(mainPath)
+	resourceFile, err := os.Create(resourcePath)
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to open file")
 	}
-	defer utils.UncheckedErrorFunc(mainFile.Close)
-	_, err = mainFile.Write(out)
+	defer utils.UncheckedErrorFunc(resourceFile.Close)
+	_, err = resourceFile.Write(out)
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to write to file")
 	}
@@ -743,32 +735,6 @@ func getLatestSDKTag(c *cli.Context, language string, globalArgs globalArgs) (st
 	version := latest.(map[string]interface{})["tag_name"].(string)
 	debugf(c.App.Writer, globalArgs.Debug, "\tLatest release for %s: %s", repo, version)
 	return version, nil
-}
-
-func generateCloudBuild(c *cli.Context, module modulegen.ModuleInputs, globalArgs globalArgs) error {
-	debugf(c.App.Writer, globalArgs.Debug, "Setting cloud build functionality to %s", module.EnableCloudBuild)
-	switch module.Language {
-	case python:
-		if module.EnableCloudBuild {
-			err := os.Remove(filepath.Join(module.ModuleName, "run.sh"))
-			if err != nil {
-				return err
-			}
-		} else {
-			err := os.Remove(filepath.Join(module.ModuleName, "build.sh"))
-			if err != nil {
-				return err
-			}
-		}
-	case golang:
-		if module.EnableCloudBuild {
-			err := os.Remove(filepath.Join(module.ModuleName, "run.sh"))
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
 
 func createModuleAndManifest(cCtx *cli.Context, c *viamClient, module modulegen.ModuleInputs, globalArgs globalArgs) error {
@@ -845,32 +811,29 @@ func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInpu
 		Models: []ModuleComponent{
 			{API: module.API, Model: module.ModelTriple, MarkdownLink: &module.ModelReadmeLink, Description: &modelDescription},
 		},
+		MarkdownLink: &module.ModuleReadmeLink,
 	}
 	switch module.Language {
 	case python:
+		manifest.Build = &manifestBuildInfo{
+			Setup: "./setup.sh",
+			Build: "./build.sh",
+			Path:  "dist/archive.tar.gz",
+			Arch:  []string{"linux/amd64", "linux/arm64"},
+		}
 		if module.EnableCloudBuild {
-			manifest.Build = &manifestBuildInfo{
-				Setup: "./setup.sh",
-				Build: "./build.sh",
-				Path:  "dist/archive.tar.gz",
-				Arch:  []string{"linux/amd64", "linux/arm64"},
-			}
 			manifest.Entrypoint = "dist/main"
 		} else {
 			manifest.Entrypoint = "./run.sh"
 		}
 	case golang:
-		if module.EnableCloudBuild {
-			manifest.Build = &manifestBuildInfo{
-				Setup: "make setup",
-				Build: "make module.tar.gz",
-				Path:  "bin/module.tar.gz",
-				Arch:  []string{"linux/amd64", "linux/arm64"},
-			}
-			manifest.Entrypoint = fmt.Sprintf("bin/%s", module.ModuleName)
-		} else {
-			manifest.Entrypoint = "./run.sh"
+		manifest.Build = &manifestBuildInfo{
+			Setup: "make setup",
+			Build: "make module.tar.gz",
+			Path:  "bin/module.tar.gz",
+			Arch:  []string{"linux/amd64", "linux/arm64"},
 		}
+		manifest.Entrypoint = fmt.Sprintf("bin/%s", module.ModuleName)
 	}
 
 	if err := writeManifest(filepath.Join(module.ModuleName, defaultManifestFilename), manifest); err != nil {

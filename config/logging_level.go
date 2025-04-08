@@ -35,7 +35,7 @@ func InitLoggingSettings(logger logging.Logger, cmdLineDebugFlag bool) {
 		logger.SetLevel(logging.INFO)
 	}
 
-	globalLogger.logger.Info("Log level initialized: ", logging.GlobalLogLevel.Level())
+	globalLogger.logger.Info("Log level initialized:", logging.GlobalLogLevel.Level())
 }
 
 // UpdateFileConfigDebug is used to update the debug flag whenever a file-based viam config is
@@ -74,6 +74,6 @@ func refreshLogLevelInLock() {
 	if logging.GlobalLogLevel.Level() == newLevel {
 		return
 	}
-	globalLogger.logger.Info("New log level: ", newLevel)
+	globalLogger.logger.Info("New log level:", newLevel)
 	logging.GlobalLogLevel.SetLevel(newLevel)
 }

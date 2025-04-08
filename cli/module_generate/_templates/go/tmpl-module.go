@@ -1,7 +1,7 @@
-package models
+package {{.ModuleLowercase}}
 
 import (
-    "go.viam.com/rdk/{{ .ResourceType }}s/{{ .ResourceSubtype}}"
+  "go.viam.com/rdk/{{ .ResourceType }}s/{{ .ResourceSubtype}}"
 )
 
 var (
@@ -32,10 +32,6 @@ type Config struct {
 	If your model does not need a config, replace *Config in the init
 	function with resource.NoNativeConfig
 	*/
-
-	/* Uncomment this if your model does not need to be validated
-	    and has no implicit dependecies. */
-	// resource.TriviallyValidateConfig
 }
 
 // Validate ensures all parts of the config are valid and important fields exist.
@@ -48,6 +44,8 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 type {{.ModuleCamel}}{{.ModelPascal}} struct {
+	resource.AlwaysRebuild
+
 	name   resource.Name
 
 	logger logging.Logger
@@ -55,15 +53,6 @@ type {{.ModuleCamel}}{{.ModelPascal}} struct {
 
 	cancelCtx  context.Context
 	cancelFunc func()
-
-
-	/* Uncomment this if your model does not need to reconfigure. */
-	// resource.TriviallyReconfigurable
-
-	// Uncomment this if the model does not have any goroutines that
-	// need to be shut down while closing.
-	// resource.TriviallyCloseable
-
 }
 
 func new{{.ModulePascal}}{{.ModelPascal}}(ctx context.Context, deps resource.Dependencies, rawConf resource.Config, logger logging.Logger) ({{if eq .ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .ResourceType "component"}}{{.ResourceSubtype}}.{{.ResourceSubtypePascal}}{{else}}{{.ResourceSubtype}}.Service{{end}}{{end}}, error) {
@@ -72,10 +61,16 @@ func new{{.ModulePascal}}{{.ModelPascal}}(ctx context.Context, deps resource.Dep
 		return nil, err
 	}
 
+	return New{{.ModulePascal}}{{.ModelPascal}}(ctx, deps, rawConf.ResourceName(), conf, logger)
+}
+
+// New{{.ModelPascal}} for local testing
+func New{{.ModelPascal}}(ctx context.Context, deps resource.Dependencies, name resource.Name, conf *Config, logger logging.Logger) ({{if eq .ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .ResourceType "component"}}{{.ResourceSubtype}}.{{.ResourceSubtypePascal}}{{else}}{{.ResourceSubtype}}.Service{{end}}{{end}}, error) {
+
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	s := &{{.ModuleCamel}}{{.ModelPascal}}{
-		name:       rawConf.ResourceName(),
+		name:       name,
 		logger:     logger,
 		cfg:        conf,
 		cancelCtx:  cancelCtx,
@@ -86,11 +81,6 @@ func new{{.ModulePascal}}{{.ModelPascal}}(ctx context.Context, deps resource.Dep
 
 func (s *{{.ModuleCamel}}{{.ModelPascal}}) Name() resource.Name {
 	return s.name
-}
-
-func (s *{{.ModuleCamel}}{{.ModelPascal}}) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	// Put reconfigure code here
-	return errUnimplemented
 }
 
 func (s *{{.ModuleCamel}}{{.ModelPascal}}) Close(context.Context) error {

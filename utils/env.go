@@ -85,7 +85,7 @@ func timeoutHelper(defaultTimeout time.Duration, timeoutEnvVar string, logger lo
 	if timeoutVal := os.Getenv(timeoutEnvVar); timeoutVal != "" {
 		timeout, err := time.ParseDuration(timeoutVal)
 		if err != nil {
-			logger.Warn("Failed to parse %s env var, falling back to default %v timeout",
+			logger.Warnf("Failed to parse %s env var, falling back to default %v timeout",
 				timeoutEnvVar, defaultTimeout)
 			return defaultTimeout
 		}
@@ -122,8 +122,7 @@ func ViamTCPSockets() bool {
 	// note: unix sockets have been supported on windows for a while, but go-grpc does not support them.
 	// 2017 support announcement: https://devblogs.microsoft.com/commandline/af_unix-comes-to-windows/
 	// go grpc client bug on win: https://github.com/dotnet/aspnetcore/issues/47043
-	return runtime.GOOS == "windows" ||
-		slices.Contains(EnvTrueValues, os.Getenv("VIAM_TCP_SOCKETS"))
+	return slices.Contains(EnvTrueValues, os.Getenv("VIAM_TCP_SOCKETS"))
 }
 
 // LogViamEnvVariables logs the list of viam environment variables in [os.Environ] along with the env passed in.

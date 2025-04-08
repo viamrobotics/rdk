@@ -227,28 +227,6 @@ func TestResourceAPIRegistryWithAssociation(t *testing.T) {
 	test.That(t, assoc.Equals(cfg.AssociatedAttributes[assoc.(*mockAssociatedConfig).capName]), test.ShouldBeTrue)
 }
 
-func TestDiscoveryFunctions(t *testing.T) {
-	df := func(ctx context.Context, logger logging.Logger, extra map[string]interface{}) (interface{}, error) {
-		return []resource.Discovery{}, nil
-	}
-	validAPIQuery := resource.NewDiscoveryQuery(acme.API, resource.Model{Name: "some model"}, nil)
-	_, ok := resource.LookupRegistration(validAPIQuery.API, validAPIQuery.Model)
-	test.That(t, ok, test.ShouldBeFalse)
-
-	rf := func(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (arm.Arm, error) {
-		return &fake.Arm{Named: conf.ResourceName().AsNamed()}, nil
-	}
-
-	resource.Register(validAPIQuery.API, validAPIQuery.Model, resource.Registration[arm.Arm, resource.NoNativeConfig]{
-		Constructor: rf,
-		Discover:    df,
-	})
-
-	reg, ok := resource.LookupRegistration(validAPIQuery.API, validAPIQuery.Model)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, reg.Discover, test.ShouldEqual, df)
-}
-
 func TestTransformAttributeMap(t *testing.T) {
 	type myType struct {
 		A          string            `json:"a"`

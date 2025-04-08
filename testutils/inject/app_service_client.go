@@ -28,6 +28,10 @@ type AppServiceClient struct {
 		opts ...grpc.CallOption) (*apppb.UpdateOrganizationResponse, error)
 	DeleteOrganizationFunc func(ctx context.Context, in *apppb.DeleteOrganizationRequest,
 		opts ...grpc.CallOption) (*apppb.DeleteOrganizationResponse, error)
+	GetOrganizationMetadataFunc func(ctx context.Context, in *apppb.GetOrganizationMetadataRequest,
+		opts ...grpc.CallOption) (*apppb.GetOrganizationMetadataResponse, error)
+	UpdateOrganizationMetadataFunc func(ctx context.Context, in *apppb.UpdateOrganizationMetadataRequest,
+		opts ...grpc.CallOption) (*apppb.UpdateOrganizationMetadataResponse, error)
 	ListOrganizationMembersFunc func(ctx context.Context, in *apppb.ListOrganizationMembersRequest,
 		opts ...grpc.CallOption) (*apppb.ListOrganizationMembersResponse, error)
 	CreateOrganizationInviteFunc func(ctx context.Context, in *apppb.CreateOrganizationInviteRequest,
@@ -90,8 +94,16 @@ type AppServiceClient struct {
 		opts ...grpc.CallOption) (*apppb.CreateLocationSecretResponse, error)
 	DeleteLocationSecretFunc func(ctx context.Context, in *apppb.DeleteLocationSecretRequest,
 		opts ...grpc.CallOption) (*apppb.DeleteLocationSecretResponse, error)
+	GetLocationMetadataFunc func(ctx context.Context, in *apppb.GetLocationMetadataRequest,
+		opts ...grpc.CallOption) (*apppb.GetLocationMetadataResponse, error)
+	UpdateLocationMetadataFunc func(ctx context.Context, in *apppb.UpdateLocationMetadataRequest,
+		opts ...grpc.CallOption) (*apppb.UpdateLocationMetadataResponse, error)
 	GetRobotFunc func(ctx context.Context, in *apppb.GetRobotRequest,
 		opts ...grpc.CallOption) (*apppb.GetRobotResponse, error)
+	GetRobotMetadataFunc func(ctx context.Context, in *apppb.GetRobotMetadataRequest,
+		opts ...grpc.CallOption) (*apppb.GetRobotMetadataResponse, error)
+	UpdateRobotMetadataFunc func(ctx context.Context, in *apppb.UpdateRobotMetadataRequest,
+		opts ...grpc.CallOption) (*apppb.UpdateRobotMetadataResponse, error)
 	GetRoverRentalRobotsFunc func(ctx context.Context, in *apppb.GetRoverRentalRobotsRequest,
 		opts ...grpc.CallOption) (*apppb.GetRoverRentalRobotsResponse, error)
 	GetRobotPartsFunc func(ctx context.Context, in *apppb.GetRobotPartsRequest,
@@ -110,6 +122,10 @@ type AppServiceClient struct {
 		opts ...grpc.CallOption) (*apppb.NewRobotPartResponse, error)
 	DeleteRobotPartFunc func(ctx context.Context, in *apppb.DeleteRobotPartRequest,
 		opts ...grpc.CallOption) (*apppb.DeleteRobotPartResponse, error)
+	GetRobotPartMetadataFunc func(ctx context.Context, in *apppb.GetRobotPartMetadataRequest,
+		opts ...grpc.CallOption) (*apppb.GetRobotPartMetadataResponse, error)
+	UpdateRobotPartMetadataFunc func(ctx context.Context, in *apppb.UpdateRobotPartMetadataRequest,
+		opts ...grpc.CallOption) (*apppb.UpdateRobotPartMetadataResponse, error)
 	GetRobotAPIKeysFunc func(ctx context.Context, in *apppb.GetRobotAPIKeysRequest,
 		opts ...grpc.CallOption) (*apppb.GetRobotAPIKeysResponse, error)
 	MarkPartAsMainFunc func(ctx context.Context, in *apppb.MarkPartAsMainRequest,
@@ -275,6 +291,26 @@ func (asc *AppServiceClient) DeleteOrganization(
 		return asc.AppServiceClient.DeleteOrganization(ctx, in, opts...)
 	}
 	return asc.DeleteOrganizationFunc(ctx, in, opts...)
+}
+
+// GetOrganizationMetadata calls the injected GetOrganizationMetadataFunc or the real version.
+func (asc *AppServiceClient) GetOrganizationMetadata(
+	ctx context.Context, in *apppb.GetOrganizationMetadataRequest, opts ...grpc.CallOption,
+) (*apppb.GetOrganizationMetadataResponse, error) {
+	if asc.GetOrganizationMetadataFunc == nil {
+		return asc.AppServiceClient.GetOrganizationMetadata(ctx, in, opts...)
+	}
+	return asc.GetOrganizationMetadataFunc(ctx, in, opts...)
+}
+
+// UpdateOrganizationMetadata calls the injected UpdateOrganizationMetadataFunc or the real version.
+func (asc *AppServiceClient) UpdateOrganizationMetadata(
+	ctx context.Context, in *apppb.UpdateOrganizationMetadataRequest, opts ...grpc.CallOption,
+) (*apppb.UpdateOrganizationMetadataResponse, error) {
+	if asc.UpdateOrganizationMetadataFunc == nil {
+		return asc.AppServiceClient.UpdateOrganizationMetadata(ctx, in, opts...)
+	}
+	return asc.UpdateOrganizationMetadataFunc(ctx, in, opts...)
 }
 
 // ListOrganizationMembers calls the injected ListOrganizationMembersFunc or the real version.
@@ -587,6 +623,26 @@ func (asc *AppServiceClient) DeleteLocationSecret(
 	return asc.DeleteLocationSecretFunc(ctx, in, opts...)
 }
 
+// GetLocationMetadata calls the injected GetLocationMetadataFunc or the real version.
+func (asc *AppServiceClient) GetLocationMetadata(
+	ctx context.Context, in *apppb.GetLocationMetadataRequest, opts ...grpc.CallOption,
+) (*apppb.GetLocationMetadataResponse, error) {
+	if asc.GetLocationMetadataFunc == nil {
+		return asc.AppServiceClient.GetLocationMetadata(ctx, in, opts...)
+	}
+	return asc.GetLocationMetadataFunc(ctx, in, opts...)
+}
+
+// UpdateLocationMetadata calls the injected UpdateLocationMetadataFunc or the real version.
+func (asc *AppServiceClient) UpdateLocationMetadata(
+	ctx context.Context, in *apppb.UpdateLocationMetadataRequest, opts ...grpc.CallOption,
+) (*apppb.UpdateLocationMetadataResponse, error) {
+	if asc.UpdateLocationMetadataFunc == nil {
+		return asc.AppServiceClient.UpdateLocationMetadata(ctx, in, opts...)
+	}
+	return asc.UpdateLocationMetadataFunc(ctx, in, opts...)
+}
+
 // GetRobot calls the injected GetRobotFunc or the real version.
 func (asc *AppServiceClient) GetRobot(
 	ctx context.Context, in *apppb.GetRobotRequest, opts ...grpc.CallOption,
@@ -595,6 +651,26 @@ func (asc *AppServiceClient) GetRobot(
 		return asc.AppServiceClient.GetRobot(ctx, in, opts...)
 	}
 	return asc.GetRobotFunc(ctx, in, opts...)
+}
+
+// GetRobotMetadata calls the injected GetRobotMetadataFunc or the real version.
+func (asc *AppServiceClient) GetRobotMetadata(
+	ctx context.Context, in *apppb.GetRobotMetadataRequest, opts ...grpc.CallOption,
+) (*apppb.GetRobotMetadataResponse, error) {
+	if asc.GetRobotMetadataFunc == nil {
+		return asc.AppServiceClient.GetRobotMetadata(ctx, in, opts...)
+	}
+	return asc.GetRobotMetadataFunc(ctx, in, opts...)
+}
+
+// UpdateRobotMetadata calls the injected UpdateRobotMetadataFunc or the real version.
+func (asc *AppServiceClient) UpdateRobotMetadata(
+	ctx context.Context, in *apppb.UpdateRobotMetadataRequest, opts ...grpc.CallOption,
+) (*apppb.UpdateRobotMetadataResponse, error) {
+	if asc.UpdateRobotMetadataFunc == nil {
+		return asc.AppServiceClient.UpdateRobotMetadata(ctx, in, opts...)
+	}
+	return asc.UpdateRobotMetadataFunc(ctx, in, opts...)
 }
 
 // GetRoverRentalRobots calls the injected GetRoverRentalRobotsFunc or the real version.
@@ -699,6 +775,26 @@ func (asc *AppServiceClient) DeleteRobotPart(
 		return asc.AppServiceClient.DeleteRobotPart(ctx, in, opts...)
 	}
 	return asc.DeleteRobotPartFunc(ctx, in, opts...)
+}
+
+// GetRobotPartMetadata calls the injected GetRobotPartMetadataFunc or the real version.
+func (asc *AppServiceClient) GetRobotPartMetadata(
+	ctx context.Context, in *apppb.GetRobotPartMetadataRequest, opts ...grpc.CallOption,
+) (*apppb.GetRobotPartMetadataResponse, error) {
+	if asc.GetRobotPartMetadataFunc == nil {
+		return asc.AppServiceClient.GetRobotPartMetadata(ctx, in, opts...)
+	}
+	return asc.GetRobotPartMetadataFunc(ctx, in, opts...)
+}
+
+// UpdateRobotPartMetadata calls the injected UpdateRobotPartMetadataFunc or the real version.
+func (asc *AppServiceClient) UpdateRobotPartMetadata(
+	ctx context.Context, in *apppb.UpdateRobotPartMetadataRequest, opts ...grpc.CallOption,
+) (*apppb.UpdateRobotPartMetadataResponse, error) {
+	if asc.UpdateRobotPartMetadataFunc == nil {
+		return asc.AppServiceClient.UpdateRobotPartMetadata(ctx, in, opts...)
+	}
+	return asc.UpdateRobotPartMetadataFunc(ctx, in, opts...)
 }
 
 // GetRobotAPIKeys calls the injected GetRobotAPIKeysFunc or the real version.

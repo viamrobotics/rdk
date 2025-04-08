@@ -1875,18 +1875,7 @@ func (rr *dummyRobot) Reconfigure(ctx context.Context, deps resource.Dependencie
 	return errors.New("unsupported")
 }
 
-// DiscoverComponents takes a list of discovery queries and returns corresponding
-// component configurations.
-func (rr *dummyRobot) DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error) {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	if rr.offline {
-		return nil, errors.New("offline")
-	}
-	return rr.robot.DiscoverComponents(ctx, qs)
-}
-
-func (rr *dummyRobot) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModelDiscovery, error) {
+func (rr *dummyRobot) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModel, error) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	if rr.offline {
@@ -2036,6 +2025,11 @@ func (rr *dummyRobot) Version(ctx context.Context) (robot.VersionResponse, error
 	return rr.robot.Version(ctx)
 }
 
+// ListTunnels returns information on available traffic tunnels.
+func (rr *dummyRobot) ListTunnels(_ context.Context) ([]config.TrafficTunnelEndpoint, error) {
+	return nil, nil
+}
+
 // managerForDummyRobot integrates all parts from a given robot except for its remotes.
 // It also close itself when the test and all subtests complete.
 func managerForDummyRobot(t *testing.T, robot robot.Robot) *resourceManager {
@@ -2048,7 +2042,7 @@ func managerForDummyRobot(t *testing.T, robot robot.Robot) *resourceManager {
 
 	// start a dummy module manager so calls to moduleManager.Provides() do not
 	// panic.
-	manager.startModuleManager(context.Background(), "", nil, false, "", "", robot.Logger(), t.TempDir())
+	manager.startModuleManager(context.Background(), "", nil, false, "", "", robot.Logger(), t.TempDir(), grpc.NewModPeerConnTracker())
 
 	for _, name := range robot.ResourceNames() {
 		res, err := robot.ResourceByName(name)

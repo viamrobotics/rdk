@@ -627,7 +627,7 @@ func setupRealRobot(
 	t.Helper()
 
 	ctx := context.Background()
-	robot, err := robotimpl.RobotFromConfig(ctx, robotConfig, logger)
+	robot, err := robotimpl.RobotFromConfig(ctx, robotConfig, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	// We initialize with a stream config such that the stream server is capable of creating video stream and
@@ -652,7 +652,7 @@ func setupRealRobotWithOptions(
 	t.Helper()
 
 	ctx := context.Background()
-	robot, err := robotimpl.RobotFromConfig(ctx, robotConfig, logger)
+	robot, err := robotimpl.RobotFromConfig(ctx, robotConfig, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	// We initialize with a stream config such that the stream server is capable of creating video stream and
@@ -813,7 +813,6 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 // calling Close() on main's camera client blocks forever if there is a live SubscribeRTP subscription with a remote
 // due to the fact that the TrackRemote.ReadRTP method blocking forever.
 func TestWhyMustTimeoutOnReadRTP(t *testing.T) {
-	t.Skip("Depends on RSDK-7903")
 	logger := logging.NewTestLogger(t).Sublogger(t.Name())
 
 	remoteCfg2 := &config.Config{
@@ -953,7 +952,6 @@ Loop:
 //  5. when the new instance of r2 comes back online main gets new rtp packets from it's track with
 //     r1.
 func TestGrandRemoteRebooting(t *testing.T) {
-	t.Skip("Depends on RSDK-7903")
 	logger := logging.NewTestLogger(t).Sublogger(t.Name())
 
 	remoteCfg2 := &config.Config{
@@ -1022,7 +1020,7 @@ func TestGrandRemoteRebooting(t *testing.T) {
 		recvPktsFn()
 		// at some point packets are no longer published
 		lastPkt := pkts[len(pkts)-1]
-		logger.Info("Pushing packets: ", len(pkts), " TS:", lastPkt.Timestamp)
+		logger.Info("Pushing packets:", len(pkts), "TS:", lastPkt.Timestamp)
 		select {
 		case <-testDone:
 		case pktsChan <- pkts:
@@ -1094,7 +1092,7 @@ Loop:
 	test.That(t, err, test.ShouldBeNil)
 	options2.Network.Listener = newListener
 
-	logger.Info("setting up new robot at address %s", newListener.Addr().String())
+	logger.Infof("setting up new robot at address %s", newListener.Addr().String())
 
 	remote2CtxSecond, remoteRobot2Second, remoteWebSvc2Second := setupRealRobotWithOptions(
 		t,
@@ -1115,7 +1113,7 @@ Loop:
 			test.That(t, true, test.ShouldEqual, "main's sub terminated due to close")
 		case pkts := <-pktsChan:
 			lastPkt := pkts[len(pkts)-1]
-			logger.Info("Test finale RTP packet received. TS: %v", lastPkt.Timestamp)
+			logger.Infof("Test finale RTP packet received. TS: %v", lastPkt.Timestamp)
 			// Right now we never go down this path as the test is not able to get remote1 to reconnect to the new remote 2
 			logger.Info("SubscribeRTP got packets")
 			testPassed = true

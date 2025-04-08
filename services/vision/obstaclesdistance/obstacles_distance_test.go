@@ -129,3 +129,34 @@ func TestObstacleDist(t *testing.T) {
 	_, err = registerObstacleDistanceDetector(ctx, name, nil, r)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot be nil")
 }
+
+func TestRegistrationWithDefaultCamera(t *testing.T) {
+	ctx := context.Background()
+	cameraName := camera.Named("test")
+	modelName := vision.Named("test_model")
+	modelCfg := DistanceDetectorConfig{
+		NumQueries: 10,
+	}
+
+	r := &inject.Robot{}
+	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
+		if name == cameraName {
+			return inject.NewCamera(cameraName.Name), nil
+		}
+		return nil, resource.NewNotFoundError(name)
+	}
+
+	service, err := registerObstacleDistanceDetector(ctx, modelName, &modelCfg, r)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, service, test.ShouldNotBeNil)
+
+	modelCfg.DefaultCamera = cameraName.Name
+	service, err = registerObstacleDistanceDetector(ctx, modelName, &modelCfg, r)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, service, test.ShouldNotBeNil)
+
+	modelCfg.DefaultCamera = "not-camera"
+	_, err = registerObstacleDistanceDetector(ctx, modelName, &modelCfg, r)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "could not find camera \"not-camera\"")
+}

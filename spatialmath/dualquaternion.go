@@ -1,6 +1,7 @@
 package spatialmath
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/go-gl/mathgl/mgl64"
@@ -9,6 +10,8 @@ import (
 	"gonum.org/v1/gonum/num/dualquat"
 	"gonum.org/v1/gonum/num/quat"
 )
+
+var defaultPrecision = 6
 
 // dualQuaternion defines functions to perform rigid dualQuaternionformations in 3D.
 // If you find yourself importing gonum.org/v1/gonum/num/dualquat in some other package, you should probably be
@@ -182,6 +185,43 @@ func (q *dualQuaternion) Transformation(by dualquat.Number) dualquat.Number {
 			Kmag: q.Real.Real*by.Dual.Kmag + q.Real.Imag*by.Dual.Jmag - q.Real.Jmag*by.Dual.Imag + q.Real.Kmag*by.Dual.Real +
 				q.Dual.Real*by.Real.Kmag + q.Dual.Imag*by.Real.Jmag - q.Dual.Jmag*by.Real.Imag + q.Dual.Kmag*by.Real.Real,
 		},
+	}
+}
+
+// Format implements fmt.Formatter to allow for finer grain control over printing.
+// dualquat.Number also has this implemented so in order to get custom printing we need to also implement this as opposed to simply
+// implementing fmt.Stringer.
+// Some example verbs and how they would display a zero pose are shown below
+//
+//	Verb    | String
+//	%v      | {X:0 Y:0 Z:0 OX:0 OY:0 OZ:1 Theta:0°}
+//	%s      | {X:0 Y:0 Z:0 OX:0 OY:0 OZ:1 Theta:0°}
+//	%.3v    | {X:0.000 Y:0.000 Z:0.000 OX:0.000 OY:0.000 OZ:1.000 Theta:0.000°}
+//	%#v     | r3.Vector{0 0 0} *spatialmath.OrientationVectorDegrees{0 0 0 1}
+//	%g      | ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
+func (q *dualQuaternion) Format(fs fmt.State, verb rune) {
+	prec, ok := fs.Precision()
+	if !ok {
+		prec = defaultPrecision
+	}
+	width, _ := fs.Width()
+	format := fmt.Sprintf("%%%d.%df", width, prec)
+	pt := q.Point()
+	o := q.Orientation().OrientationVectorDegrees()
+	switch verb {
+	case 'v':
+		if fs.Flag('#') {
+			//nolint:errcheck
+			fmt.Fprintf(fs, "%T"+format+" %T"+format, pt, pt, o, *o)
+			return
+		}
+		fallthrough
+	case 's':
+		format = fmt.Sprintf("{X:%s Y:%s Z:%s OX:%s OY:%s OZ:%s Theta:%s°}", format, format, format, format, format, format, format)
+		//nolint:errcheck
+		fmt.Fprintf(fs, format, pt.X, pt.Y, pt.Z, o.OX, o.OY, o.OZ, o.Theta)
+	default:
+		q.Number.Format(fs, verb)
 	}
 }
 

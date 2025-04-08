@@ -588,4 +588,57 @@ func TestLoggingDeduplication(t *testing.T) {
 		`2023-10-30T13:19:45.806Z	ERROR	impl	logging/impl_test.go:132	Message logged 4 times in past 500ms: identical message	{"key":"value"}`)
 	assertLogMatches(t, notStdout,
 		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	foo	{"key":"value"}`)
+
+	// Assert that using different ignored fields does _not_ use separate aggregation.
+	for ignoredLogFieldKey := range ignoredLogFieldKeys {
+		loggerWith.Infow(identicalMsg, ignoredLogFieldKey, "bar")
+		assertLogMatches(t, notStdout,
+			fmt.Sprintf(
+				`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"%s":"bar","key":"value"}`,
+				ignoredLogFieldKey))
+	}
+	loggerWith.Info(identicalMsg) // not output due to being noisy
+	time.Sleep(noisyMessageWindowDuration)
+	loggerWith.Info("foo") // log arbitrary message to force output of aggregated message
+	assertLogMatches(t, notStdout,
+		//nolint:lll
+		fmt.Sprintf(`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	Message logged %d times in past 500ms: identical message	{"key":"value"}`,
+			len(ignoredLogFieldKeys)+1))
+	assertLogMatches(t, notStdout,
+		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	foo	{"key":"value"}`)
+}
+
+func TestNeverDeduplicate(t *testing.T) {
+	// Create a logger object that will write to the `notStdout` buffer. Explicitly
+	// set `DeduplicateLogs` to true on the registry for the logger.
+	registry := newRegistry()
+	registry.DeduplicateLogs.Store(true)
+
+	// Artificially lower noisy message window for testing.
+	originalNoisyMessageWindowDuration := noisyMessageWindowDuration
+	noisyMessageWindowDuration = 500 * time.Millisecond
+	defer func() {
+		noisyMessageWindowDuration = originalNoisyMessageWindowDuration
+	}()
+
+	// Assert that `NeverDeduplicate` method causes loggers to not deduplicate.
+	notStdout := &bytes.Buffer{}
+	logger := &impl{
+		name:                     "impl",
+		level:                    NewAtomicLevelAt(DEBUG),
+		appenders:                []Appender{NewWriterAppender(notStdout)},
+		registry:                 registry,
+		testHelper:               func() {},
+		recentMessageCounts:      make(map[string]int),
+		recentMessageEntries:     make(map[string]LogEntry),
+		recentMessageWindowStart: time.Now(),
+	}
+	logger.NeverDeduplicate()
+
+	// Log 4 identical messages, and assert that all four appear.
+	for range 4 {
+		logger.Info("identical message")
+		assertLogMatches(t, notStdout,
+			`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message`)
+	}
 }

@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -42,6 +41,10 @@ const (
 	logTSKey = "log_ts"
 )
 
+// Default timeout to use when dialing to a tunnel port when one is not specified in
+// `traffic_tunnel_endpoints` through `connection_timeout`.
+var defaultTunnelConnectionTimeout = 10 * time.Second
+
 // Server implements the contract from robot.proto that ultimately satisfies
 // a robot.Robot as a gRPC server.
 type Server struct {
@@ -67,11 +70,32 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 		return fmt.Errorf("failed to receive first message from stream: %w", err)
 	}
 
-	dest := strconv.Itoa(int(req.DestinationPort))
-	s.robot.Logger().CDebugw(srv.Context(), "dialing to destination port", "port", dest)
+	dialTimeout := defaultTunnelConnectionTimeout
 
-	dialTimeout := 10 * time.Second
-	conn, err := net.DialTimeout("tcp", net.JoinHostPort("localhost", dest), dialTimeout)
+	// Ensure destination port is available; otherwise error.
+	var destAllowed bool
+	ttes, err := s.robot.ListTunnels(srv.Context())
+	if err != nil {
+		return err
+	}
+	for _, tte := range ttes {
+		if int(req.DestinationPort) == tte.Port {
+			destAllowed = true
+			if tte.ConnectionTimeout != 0 {
+				// Honor specified timeout if one exists (0 is use-default.)
+				dialTimeout = tte.ConnectionTimeout
+			}
+			break
+		}
+	}
+	if !destAllowed {
+		return fmt.Errorf("tunnel not available at port %d", req.DestinationPort)
+	}
+
+	dest := strconv.Itoa(int(req.DestinationPort))
+
+	s.robot.Logger().CInfow(srv.Context(), "dialing to destination port", "port", dest, "timeout", dialTimeout)
+	conn, err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", dest), dialTimeout)
 	if err != nil {
 		return fmt.Errorf("failed to dial to destination port %v: %w", dest, err)
 	}
@@ -109,6 +133,25 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 	wg.Wait()
 	s.robot.Logger().CInfow(srv.Context(), "tunnel to client closed", "port", dest)
 	return errors.Join(err, readerSenderErr, recvWriterErr)
+}
+
+// ListTunnels lists all available tunnels on the server.
+func (s *Server) ListTunnels(ctx context.Context, req *pb.ListTunnelsRequest) (*pb.ListTunnelsResponse, error) {
+	res := &pb.ListTunnelsResponse{}
+
+	ttes, err := s.robot.ListTunnels(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, tte := range ttes {
+		res.Tunnels = append(res.Tunnels, &pb.Tunnel{
+			Port:              uint32(tte.Port),
+			ConnectionTimeout: durationpb.New(tte.ConnectionTimeout),
+		})
+	}
+
+	return res, nil
 }
 
 // GetOperations lists all running operations.
@@ -217,70 +260,6 @@ func (s *Server) ResourceRPCSubtypes(ctx context.Context, _ *pb.ResourceRPCSubty
 		})
 	}
 	return &pb.ResourceRPCSubtypesResponse{ResourceRpcSubtypes: protoTypes}, nil
-}
-
-// DiscoverComponents is DEPRECATED!!! Please use the Discovery Service instead.
-// DiscoverComponents takes a list of discovery queries and returns corresponding
-// component configurations.
-//
-//nolint:deprecated,staticcheck
-func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverComponentsRequest) (*pb.DiscoverComponentsResponse, error) {
-	s.robot.Logger().CWarn(ctx,
-		"DiscoverComponents is deprecated and will be removed on March 10th 2025. Please use the Discovery Service instead.")
-	// nonTriplet indicates older syntax for type and model E.g. "camera" instead of "rdk:component:camera"
-	// TODO(PRODUCT-344): remove triplet checking here after complete
-	var nonTriplet bool
-	queries := make([]resource.DiscoveryQuery, 0, len(req.Queries))
-	for _, q := range req.Queries {
-		m, err := resource.NewModelFromString(q.Model)
-		if err != nil {
-			return nil, err
-		}
-		if !strings.ContainsRune(q.Subtype, ':') {
-			nonTriplet = true
-			q.Subtype = "rdk:component:" + q.Subtype
-		}
-		s, err := resource.NewAPIFromString(q.Subtype)
-		if err != nil {
-			return nil, err
-		}
-		queries = append(queries, resource.DiscoveryQuery{API: s, Model: m, Extra: q.Extra.AsMap()})
-	}
-
-	discoveries, err := s.robot.DiscoverComponents(ctx, queries)
-	if err != nil {
-		return nil, err
-	}
-
-	pbDiscoveries := make([]*pb.Discovery, 0, len(discoveries))
-	for _, discovery := range discoveries {
-		pbResults, err := vprotoutils.StructToStructPb(discovery.Results)
-		if err != nil {
-			return nil, fmt.Errorf("unable to construct a structpb.Struct from discovery for %q: %w", discovery.Query, err)
-		}
-		extra, err := structpb.NewStruct(discovery.Query.Extra)
-		if err != nil {
-			return nil, err
-		}
-		pbQuery := &pb.DiscoveryQuery{
-			Subtype: discovery.Query.API.String(),
-			Model:   discovery.Query.Model.String(),
-			Extra:   extra,
-		}
-		if nonTriplet {
-			pbQuery.Subtype = discovery.Query.API.SubtypeName
-			pbQuery.Model = discovery.Query.Model.Name
-		}
-		pbDiscoveries = append(
-			pbDiscoveries,
-			&pb.Discovery{
-				Query:   pbQuery,
-				Results: pbResults,
-			},
-		)
-	}
-
-	return &pb.DiscoverComponentsResponse{Discovery: pbDiscoveries}, nil
 }
 
 // GetModelsFromModules returns all models from the currently managed modules.

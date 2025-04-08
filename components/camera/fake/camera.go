@@ -363,7 +363,7 @@ func (c *Camera) startPassthrough() error {
 				if err := bufAndCB.buf.Publish(func() {
 					bufAndCB.cb(pkts)
 				}); err != nil {
-					c.logger.Warn("Publish err: %s", err.Error())
+					c.logger.Warnf("Publish err: %s", err.Error())
 				}
 			}
 			c.mu.RUnlock()

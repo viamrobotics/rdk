@@ -236,7 +236,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	// Run the server with remote logging enabled.
 	err = server.runServer(ctx)
 	if err != nil {
-		logger.Error("Fatal error running server, exiting now: ", err)
+		logger.Error("Fatal error running server, exiting now:", err)
 	}
 
 	return err
@@ -529,7 +529,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	// state of initializing until reconfigured with full config.
 	minimalProcessedConfig.Initial = true
 
-	myRobot, err := robotimpl.New(ctx, &minimalProcessedConfig, s.logger, robotOptions...)
+	myRobot, err := robotimpl.New(ctx, &minimalProcessedConfig, s.conn, s.logger, robotOptions...)
 	if err != nil {
 		cancel()
 		return err

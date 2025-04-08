@@ -179,7 +179,7 @@ func TestSessions(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			ctx := context.Background()
-			r, err := robotimpl.New(ctx, cfg, logger.Sublogger("main"))
+			r, err := robotimpl.New(ctx, cfg, nil, logger.Sublogger("main"))
 			test.That(t, err, test.ShouldBeNil)
 
 			options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
@@ -376,7 +376,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
-	remoteRobot, err := robotimpl.New(ctx, cfg, logger)
+	remoteRobot, err := robotimpl.New(ctx, cfg, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	options, _, remoteAddr := robottestutils.CreateBaseOptionsAndListener(t)
@@ -408,7 +408,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	cfg, err = config.FromReader(context.Background(), "", strings.NewReader(roboConfig), logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	r, err := robotimpl.New(ctx, cfg, logger.Sublogger("main"))
+	r, err := robotimpl.New(ctx, cfg, nil, logger.Sublogger("main"))
 	test.That(t, err, test.ShouldBeNil)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
@@ -482,7 +482,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	dummyRemMotor1.stopCh = stopChs["remMotor1"].Chan
 	dummyRemMotor1.mu.Unlock()
 
-	r, err = robotimpl.New(ctx, cfg, logger)
+	r, err = robotimpl.New(ctx, cfg, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	options, _, addr = robottestutils.CreateBaseOptionsAndListener(t)
@@ -568,7 +568,7 @@ func TestSessionsMixedClients(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
-	r, err := robotimpl.New(ctx, cfg, logger.Sublogger("main"))
+	r, err := robotimpl.New(ctx, cfg, nil, logger.Sublogger("main"))
 	test.That(t, err, test.ShouldBeNil)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
@@ -661,7 +661,7 @@ func TestSessionsMixedOwnersNoAuth(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
-	r, err := robotimpl.New(ctx, cfg, logger.Sublogger("main"))
+	r, err := robotimpl.New(ctx, cfg, nil, logger.Sublogger("main"))
 	test.That(t, err, test.ShouldBeNil)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
@@ -768,7 +768,7 @@ func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
-	r, err := robotimpl.New(ctx, cfg, logger.Sublogger("main"))
+	r, err := robotimpl.New(ctx, cfg, nil, logger.Sublogger("main"))
 	test.That(t, err, test.ShouldBeNil)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)

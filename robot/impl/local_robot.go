@@ -15,7 +15,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	packagespb "go.viam.com/api/app/packages/v1"
-	modulepb "go.viam.com/api/module/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
@@ -341,6 +340,7 @@ func newWithResources(
 	ctx context.Context,
 	cfg *config.Config,
 	resources map[resource.Name]resource.Resource,
+	conn rpc.ClientConn,
 	logger logging.Logger,
 	opts ...Option,
 ) (robot.LocalRobot, error) {
@@ -404,7 +404,7 @@ func newWithResources(
 		triggerConfig:              make(chan struct{}, 1),
 		configTicker:               nil,
 		revealSensitiveConfigDiffs: rOpts.revealSensitiveConfigDiffs,
-		cloudConnSvc:               icloud.NewCloudConnectionService(cfg.Cloud, logger),
+		cloudConnSvc:               icloud.NewCloudConnectionService(cfg.Cloud, conn, logger),
 		shutdownCallback:           rOpts.shutdownCallback,
 		localModuleVersions:        make(map[string]semver.Version),
 		ftdc:                       ftdcWorker,
@@ -505,7 +505,7 @@ func newWithResources(
 		homeDir = rOpts.viamHomeDir
 	}
 	// Once web service is started, start module manager
-	r.manager.startModuleManager(
+	if err := r.manager.startModuleManager(
 		closeCtx,
 		r.webSvc.ModuleAddress(),
 		r.removeOrphanedResources,
@@ -514,7 +514,10 @@ func newWithResources(
 		cloudID,
 		logger,
 		cfg.PackagePath,
-	)
+		r.webSvc.ModPeerConnTracker(),
+	); err != nil {
+		return nil, err
+	}
 
 	if !rOpts.disableCompleteConfigWorker {
 		r.activeBackgroundWorkers.Add(1)
@@ -548,10 +551,11 @@ func newWithResources(
 func New(
 	ctx context.Context,
 	cfg *config.Config,
+	conn rpc.ClientConn,
 	logger logging.Logger,
 	opts ...Option,
 ) (robot.LocalRobot, error) {
-	return newWithResources(ctx, cfg, nil, logger, opts...)
+	return newWithResources(ctx, cfg, nil, conn, logger, opts...)
 }
 
 // removeOrphanedResources is called by the module manager to remove resources
@@ -996,22 +1000,34 @@ func (r *localRobot) TransformPointCloud(
 }
 
 // RobotFromConfigPath is a helper to read and process a config given its path and then create a robot based on it.
-func RobotFromConfigPath(ctx context.Context, cfgPath string, logger logging.Logger, opts ...Option) (robot.LocalRobot, error) {
+func RobotFromConfigPath(
+	ctx context.Context,
+	cfgPath string,
+	conn rpc.ClientConn,
+	logger logging.Logger,
+	opts ...Option,
+) (robot.LocalRobot, error) {
 	cfg, err := config.Read(ctx, cfgPath, logger, nil)
 	if err != nil {
 		logger.CError(ctx, "cannot read config")
 		return nil, err
 	}
-	return RobotFromConfig(ctx, cfg, logger, opts...)
+	return RobotFromConfig(ctx, cfg, conn, logger, opts...)
 }
 
 // RobotFromConfig is a helper to process a config and then create a robot based on it.
-func RobotFromConfig(ctx context.Context, cfg *config.Config, logger logging.Logger, opts ...Option) (robot.LocalRobot, error) {
+func RobotFromConfig(
+	ctx context.Context,
+	cfg *config.Config,
+	conn rpc.ClientConn,
+	logger logging.Logger,
+	opts ...Option,
+) (robot.LocalRobot, error) {
 	processedCfg, err := config.ProcessConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
-	return New(ctx, processedCfg, logger, opts...)
+	return New(ctx, processedCfg, conn, logger, opts...)
 }
 
 // RobotFromResources creates a new robot consisting of the given resources. Using RobotFromConfig is preferred
@@ -1022,68 +1038,10 @@ func RobotFromResources(
 	logger logging.Logger,
 	opts ...Option,
 ) (robot.LocalRobot, error) {
-	return newWithResources(ctx, &config.Config{}, resources, logger, opts...)
+	return newWithResources(ctx, &config.Config{}, resources, nil, logger, opts...)
 }
 
-// DiscoverComponents takes a list of discovery queries and returns corresponding
-// component configurations.
-func (r *localRobot) DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error) {
-	// dedupe queries
-	deduped := make(map[string]resource.DiscoveryQuery, len(qs))
-	for _, q := range qs {
-		key := q.API.String() + ":" + q.Model.String()
-		deduped[key] = q
-	}
-
-	discoveries := make([]resource.Discovery, 0, len(deduped))
-	for _, q := range deduped {
-		if internalDiscovery, isInternal := r.discoverRobotInternals(q); isInternal {
-			discoveries = append(discoveries, resource.Discovery{Query: q, Results: internalDiscovery})
-			continue
-		}
-		reg, ok := resource.LookupRegistration(q.API, q.Model)
-		if !ok || reg.Discover == nil {
-			r.logger.CWarnw(ctx, "no discovery function registered", "api", q.API, "model", q.Model)
-			continue
-		}
-
-		if reg.Discover != nil {
-			discovered, err := reg.Discover(ctx, r.logger.Sublogger("discovery"), q.Extra)
-			if err != nil {
-				return nil, &resource.DiscoverError{Query: q, Cause: err}
-			}
-			discoveries = append(discoveries, resource.Discovery{Query: q, Results: discovered})
-		}
-	}
-	return discoveries, nil
-}
-
-// moduleManagerDiscoveryResult is returned from a DiscoveryQuery to rdk-internal:builtin:module-manager.
-type moduleManagerDiscoveryResult struct {
-	ResourceHandles map[string]modulepb.HandlerMap `json:"resource_handles"`
-}
-
-// discoverRobotInternals is used to discover parts of the robot that are not in the resource graph
-// It accepts a query and should return the Discovery Results object along with an ok value.
-func (r *localRobot) discoverRobotInternals(query resource.DiscoveryQuery) (interface{}, bool) {
-	switch {
-	// these strings are hardcoded because their existence would be misleading anywhere outside of this function
-	case query.API.String() == "rdk-internal:service:module-manager" &&
-		query.Model.String() == "rdk-internal:builtin:module-manager":
-
-		handles := map[string]modulepb.HandlerMap{}
-		for moduleName, handleMap := range r.manager.moduleManager.Handles() {
-			handles[moduleName] = *handleMap.ToProto()
-		}
-		return moduleManagerDiscoveryResult{
-			ResourceHandles: handles,
-		}, true
-	default:
-		return nil, false
-	}
-}
-
-func (r *localRobot) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModelDiscovery, error) {
+func (r *localRobot) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModel, error) {
 	return r.manager.moduleManager.AllModels(), nil
 }
 
@@ -1101,6 +1059,9 @@ func dialRobotClient(
 	if config.ReconnectInterval != 0 {
 		rOpts = append(rOpts, client.WithReconnectEvery(config.ReconnectInterval))
 	}
+
+	// only dial once per reconfiguration cycle, any failures will be retried on a ticker anyway
+	rOpts = append(rOpts, client.WithInitialDialAttempts(1))
 
 	robotClient, err := client.New(
 		ctx,
@@ -1138,6 +1099,13 @@ func (r *localRobot) applyLocalModuleVersions(cfg *config.Config) {
 }
 
 func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, forceSync bool) {
+	defer func() {
+		// Always update the `initializing` value at the end of this function. Resources may
+		// be equal or `reconfigure` may otherwise return early, but we still want to move
+		// from a state of initializing to running as dictated by the config value.
+		r.initializing.Store(newConfig.Initial)
+	}()
+
 	if !r.reconfigureAllowed(ctx, newConfig, true) {
 		return
 	}
@@ -1261,9 +1229,12 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		}
 	}
 
+	existingConfig := r.Config()
+	r.mostRecentCfg.Store(*newConfig)
+
 	// Now that we have the new config and all references are resolved, diff it
 	// with the current generated config to see what has changed
-	diff, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
+	diff, err := config.DiffConfigs(*existingConfig, *newConfig, r.revealSensitiveConfigDiffs)
 	if err != nil {
 		r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
 		return
@@ -1283,9 +1254,6 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	if r.revealSensitiveConfigDiffs {
 		r.logger.CDebugf(ctx, "(re)configuring with %+v", diff)
 	}
-
-	// Set mostRecentConfig if resources were not equal.
-	r.mostRecentCfg.Store(*newConfig)
 
 	// First we mark diff.Removed resources and their children for removal.
 	processesToClose, resourcesToCloseBeforeComplete, _ := r.manager.markRemoved(ctx, diff.Removed, r.logger)
@@ -1333,9 +1301,6 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	} else {
 		r.logger.CInfow(ctx, "Robot (re)configured")
 	}
-
-	// Set initializing value based on `newConfig.Initial`.
-	r.initializing.Store(newConfig.Initial)
 }
 
 // checkMaxInstance checks to see if the local robot has reached the maximum number of a specific resource type that are local.
@@ -1572,4 +1537,13 @@ func (r *localRobot) RestartAllowed() bool {
 		return true
 	}
 	return false
+}
+
+// ListTunnels returns information on available traffic tunnels.
+func (r *localRobot) ListTunnels(_ context.Context) ([]config.TrafficTunnelEndpoint, error) {
+	cfg := r.Config()
+	if cfg != nil {
+		return cfg.Network.NetworkConfigData.TrafficTunnelEndpoints, nil
+	}
+	return nil, nil
 }

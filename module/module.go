@@ -8,7 +8,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -25,7 +24,6 @@ import (
 	robotpb "go.viam.com/api/robot/v1"
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils"
-	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
 	"google.golang.org/grpc"
@@ -249,7 +247,6 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 		return nil, err
 	}
 	// We register the RobotService API to supplement the ModuleService in order to serve select robot level methods from the module server
-	// such as the DiscoverComponents API
 	if err := m.server.RegisterServiceServer(ctx, &robotpb.RobotService_ServiceDesc, m); err != nil {
 		return nil, err
 	}
@@ -561,66 +558,6 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 	return &pb.AddResourceResponse{}, nil
 }
 
-// DiscoverComponents is DEPRECATED!!! Please use the Discovery Service instead.
-// DiscoverComponents takes a list of discovery queries and returns corresponding
-// component configurations.
-//
-//nolint:deprecated,staticcheck
-func (m *Module) DiscoverComponents(
-	ctx context.Context,
-	req *robotpb.DiscoverComponentsRequest,
-) (*robotpb.DiscoverComponentsResponse, error) {
-	var discoveries []*robotpb.Discovery
-
-	for _, q := range req.Queries {
-		// Handle triplet edge case i.e. if the subtype doesn't contain ':', add the "rdk:component:" prefix
-		if !strings.ContainsRune(q.Subtype, ':') {
-			q.Subtype = "rdk:component:" + q.Subtype
-		}
-
-		api, err := resource.NewAPIFromString(q.Subtype)
-		if err != nil {
-			return nil, fmt.Errorf("invalid subtype: %s: %w", q.Subtype, err)
-		}
-		model, err := resource.NewModelFromString(q.Model)
-		if err != nil {
-			return nil, fmt.Errorf("invalid model: %s: %w", q.Model, err)
-		}
-
-		resInfo, ok := resource.LookupRegistration(api, model)
-		if !ok {
-			return nil, fmt.Errorf("no registration found for API %s and model %s", api, model)
-		}
-
-		if resInfo.Discover == nil {
-			return nil, fmt.Errorf("discovery not supported for API %s and model %s", api, model)
-		}
-
-		results, err := resInfo.Discover(ctx, m.logger, q.Extra.AsMap())
-		if err != nil {
-			return nil, fmt.Errorf("error discovering components for API %s and model %s: %w", api, model, err)
-		}
-		if results == nil {
-			return nil, fmt.Errorf("error discovering components for API %s and model %s: results was nil", api, model)
-		}
-
-		pbResults, err := vprotoutils.StructToStructPb(results)
-		if err != nil {
-			return nil, fmt.Errorf("unable to convert discovery results to pb struct for query %v: %w", q, err)
-		}
-
-		pbDiscovery := &robotpb.Discovery{
-			Query:   q,
-			Results: pbResults,
-		}
-		discoveries = append(discoveries, pbDiscovery)
-	}
-
-	return &robotpb.DiscoverComponentsResponse{
-		Discovery: discoveries,
-	}, nil
-}
-
 // ReconfigureResource receives the component/service configuration from the parent.
 func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureResourceRequest) (*pb.ReconfigureResourceResponse, error) {
 	var res resource.Resource
@@ -671,12 +608,12 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 		}
 	}
 
-	reconfErr := res.Reconfigure(ctx, deps, *conf)
-	if reconfErr == nil {
+	err = res.Reconfigure(ctx, deps, *conf)
+	if err == nil {
 		return &pb.ReconfigureResourceResponse{}, nil
 	}
 
-	if !resource.IsMustRebuildError(reconfErr) {
+	if !resource.IsMustRebuildError(err) {
 		return nil, err
 	}
 
@@ -868,7 +805,7 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 	vcss, ok := m.streamSourceByName[name]
 	if !ok {
 		err := errors.New("unknown stream for resource")
-		m.logger.CWarnw(ctx, err.Error(), "name", name, "streamSourceByName", fmt.Sprintf("%#v", m.streamSourceByName))
+		m.logger.CWarnw(ctx, err.Error(), "name", name.String(), "streamSourceByName", fmt.Sprintf("%#v", m.streamSourceByName))
 		return nil, err
 	}
 
@@ -897,7 +834,7 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 		return nil, errors.Wrap(err, "error setting up stream subscription")
 	}
 
-	m.logger.CDebugw(ctx, "AddStream calling AddTrack", "name", name, "subID", sub.ID.String())
+	m.logger.CDebugw(ctx, "AddStream calling AddTrack", "name", name.String(), "subID", sub.ID.String())
 	sender, err := m.pc.AddTrack(tlsRTP)
 	if err != nil {
 		err = errors.Wrap(err, "error adding track")
@@ -908,7 +845,7 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 	}
 
 	removeTrackOnSubTerminate := func() {
-		defer m.logger.Debugw("RemoveTrack called on ", "name", name, "subID", sub.ID.String())
+		defer m.logger.Debugw("RemoveTrack called on ", "name", name.String(), "subID", sub.ID.String())
 		// wait until either the module is shutting down, or the subscription terminates
 		var msg string
 		select {
@@ -920,10 +857,10 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 		// remove the track from the peer connection so that viam-server clients know that the stream has terminated
 		m.mu.Lock()
 		defer m.mu.Unlock()
-		m.logger.Debugw(msg, "name", name, "subID", sub.ID.String())
+		m.logger.Debugw(msg, "name", name.String(), "subID", sub.ID.String())
 		delete(m.activeResourceStreams, name)
 		if err := m.pc.RemoveTrack(sender); err != nil {
-			m.logger.Warnf("RemoveTrack returned error", "name", name, "subID", sub.ID.String(), "err", err)
+			m.logger.Warnf("RemoveTrack returned error", "name", name.String(), "subID", sub.ID.String(), "err", err)
 		}
 	}
 	m.activeBackgroundWorkers.Add(1)
@@ -957,7 +894,7 @@ func (m *Module) RemoveStream(ctx context.Context, req *streampb.RemoveStreamReq
 	}
 
 	if err := vcss.Unsubscribe(ctx, prs.subID); err != nil {
-		m.logger.CWarnw(ctx, "RemoveStream > Unsubscribe", "name", name, "subID", prs.subID.String(), "err", err)
+		m.logger.CWarnw(ctx, "RemoveStream > Unsubscribe", "name", name.String(), "subID", prs.subID.String(), "err", err)
 		return nil, err
 	}
 

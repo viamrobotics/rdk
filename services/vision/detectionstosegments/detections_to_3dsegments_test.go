@@ -23,7 +23,7 @@ import (
 type simpleDetector struct{}
 
 func (s *simpleDetector) Detect(context.Context, image.Image) ([]objectdetection.Detection, error) {
-	det1 := objectdetection.NewDetection(image.Rect(10, 10, 20, 20), 0.5, "yes")
+	det1 := objectdetection.NewDetection(image.Rect(0, 0, 50, 50), image.Rect(10, 10, 20, 20), 0.5, "yes")
 	return []objectdetection.Detection{det1}, nil
 }
 
@@ -31,7 +31,7 @@ func Test3DSegmentsFromDetector(t *testing.T) {
 	r := &inject.Robot{}
 	m := &simpleDetector{}
 	name := vision.Named("testDetector")
-	svc, err := vision.NewService(name, r, nil, nil, m.Detect, nil)
+	svc, err := vision.NewService(name, r, nil, nil, m.Detect, nil, "")
 	test.That(t, err, test.ShouldBeNil)
 	cam := &inject.Camera{}
 	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
@@ -76,6 +76,16 @@ func Test3DSegmentsFromDetector(t *testing.T) {
 	seg, err := register3DSegmenterFromDetector(context.Background(), name3, params, r)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, seg.Name(), test.ShouldResemble, name3)
+	// successful registration, valid default camera
+	params.DefaultCamera = "fakeCamera"
+	seg, err = register3DSegmenterFromDetector(context.Background(), name3, params, r)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, seg.Name(), test.ShouldResemble, name3)
+	// bad registration, invalid default camera
+	params.DefaultCamera = "not-camera"
+	_, err = register3DSegmenterFromDetector(context.Background(), name3, params, r)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "could not find camera \"not-camera\"")
 
 	// fails on not finding camera
 	_, err = seg.GetObjectPointClouds(context.Background(), "no_camera", map[string]interface{}{})

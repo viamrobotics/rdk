@@ -84,9 +84,6 @@ func convertPackageTypeToProto(packageType string) (*packagespb.PackageType, err
 }
 
 func (c *viamClient) packageExportAction(orgID, name, version, packageType, destination string) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
 	if orgID == "" || name == "" {
 		if orgID != "" || name != "" {
 			return fmt.Errorf("if either of %s or %s is missing, both must be missing", generalFlagOrgID, generalFlagName)
@@ -227,10 +224,6 @@ func (c *viamClient) uploadPackage(
 	orgID, name, version, packageType, tarballPath string,
 	metadataStruct *structpb.Struct,
 ) (*packagespb.CreatePackageResponse, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
-
 	//nolint:gosec
 	file, err := os.Open(tarballPath)
 	if err != nil {

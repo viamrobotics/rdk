@@ -191,7 +191,7 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 		return err
 	}
 
-	captureConfig := c.captureConfig()
+	captureConfig := c.captureConfig(b.logger)
 	collectorConfigsByResource, err := lookupCollectorConfigsByResource(deps, conf, captureConfig.CaptureDir, b.logger)
 	if err != nil {
 		// If this error occurs it's a resource graph error

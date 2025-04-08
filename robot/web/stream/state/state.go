@@ -311,7 +311,7 @@ func (state *StreamState) tick() {
 
 		err := state.streamH264Passthrough()
 		if err != nil {
-			state.logger.Warn("rtp_passthrough not possible, falling back to GoStream", "err", err)
+			state.logger.Warnw("rtp_passthrough not possible, falling back to GoStream", "err", err)
 			// if passthrough failed, fall back to gostream based approach
 			state.Stream.Start()
 			state.streamSource = streamSourceGoStream

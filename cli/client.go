@@ -63,6 +63,13 @@ const (
 	maxNumLogs = 10000
 	// logoMaxSize is the maximum size of a logo in bytes.
 	logoMaxSize = 1024 * 200 // 200 KB
+	// defaultLogStartTime is set to the last 12 hours,
+	// logs older than 24 hours are stored in the online archive.
+	//
+	// 12 hours is a temporary decrease from the matching 24 hour window to
+	// avoid an edge case where network latency always triggers an online
+	// archive query and causes a "resource usage limit exceeded" error.
+	defaultLogStartTime = -12 * time.Hour
 	// yellow is the format string used to output warnings in yellow color.
 	yellow = "\033[1;33m%s\033[0m"
 )
@@ -146,10 +153,6 @@ func OrganizationsSupportEmailSetAction(cCtx *cli.Context, args organizationsSup
 }
 
 func (c *viamClient) organizationsSupportEmailSetAction(cCtx *cli.Context, orgID, supportEmail string) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
-
 	_, err := c.client.OrganizationSetSupportEmail(c.c.Context, &apppb.OrganizationSetSupportEmailRequest{
 		OrgId: orgID,
 		Email: supportEmail,
@@ -181,10 +184,6 @@ func OrganizationsSupportEmailGetAction(cCtx *cli.Context, args organizationsSup
 }
 
 func (c *viamClient) organizationsSupportEmailGetAction(cCtx *cli.Context, orgID string) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
-
 	resp, err := c.client.OrganizationGetSupportEmail(c.c.Context, &apppb.OrganizationGetSupportEmailRequest{
 		OrgId: orgID,
 	})
@@ -242,10 +241,6 @@ func (c *viamClient) disableAuthServiceAction(cCtx *cli.Context, orgID string) e
 		return errors.New("cannot disable auth service without an organization ID")
 	}
 
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
-
 	if _, err := c.client.DisableAuthService(cCtx.Context, &apppb.DisableAuthServiceRequest{OrgId: orgID}); err != nil {
 		return err
 	}
@@ -274,10 +269,6 @@ func EnableAuthServiceAction(cCtx *cli.Context, args enableAuthServiceArgs) erro
 }
 
 func (c *viamClient) enableAuthServiceAction(cCtx *cli.Context, orgID string) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
-
 	_, err := c.client.EnableAuthService(cCtx.Context, &apppb.EnableAuthServiceRequest{OrgId: orgID})
 	if err != nil {
 		return err
@@ -312,9 +303,6 @@ func UpdateBillingServiceAction(cCtx *cli.Context, args updateBillingServiceArgs
 }
 
 func (c *viamClient) updateBillingServiceAction(cCtx *cli.Context, orgID, addressAsString string) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
 	address, err := parseBillingAddress(addressAsString)
 	if err != nil {
 		return err
@@ -355,10 +343,6 @@ func GetBillingConfigAction(cCtx *cli.Context, args getBillingConfigArgs) error 
 }
 
 func (c *viamClient) getBillingConfig(cCtx *cli.Context, orgID string) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
-
 	resp, err := c.client.GetBillingServiceConfig(cCtx.Context, &apppb.GetBillingServiceConfigRequest{
 		OrgId: orgID,
 	})
@@ -411,10 +395,6 @@ func OrganizationEnableBillingServiceAction(cCtx *cli.Context, args organization
 }
 
 func (c *viamClient) organizationEnableBillingServiceAction(cCtx *cli.Context, orgID, addressAsString string) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
-
 	address, err := parseBillingAddress(addressAsString)
 	if err != nil {
 		return err
@@ -449,10 +429,6 @@ func OrganizationDisableBillingServiceAction(cCtx *cli.Context, args organizatio
 }
 
 func (c *viamClient) organizationDisableBillingServiceAction(cCtx *cli.Context, orgID string) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
-
 	if _, err := c.client.DisableBillingService(cCtx.Context, &apppb.DisableBillingServiceRequest{
 		OrgId: orgID,
 	}); err != nil {
@@ -488,10 +464,6 @@ func OrganizationLogoSetAction(cCtx *cli.Context, args organizationsLogoSetArgs)
 }
 
 func (c *viamClient) organizationLogoSetAction(cCtx *cli.Context, orgID, logoFilePath string) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
-
 	logoFile, err := os.Open(filepath.Clean(logoFilePath))
 	if err != nil {
 		return errors.WithMessagef(err, "could not open logo file: %s", logoFilePath)
@@ -544,10 +516,6 @@ func OrganizationsLogoGetAction(cCtx *cli.Context, args organizationsLogoGetArgs
 }
 
 func (c *viamClient) organizationsLogoGetAction(cCtx *cli.Context, orgID string) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
-
 	resp, err := c.client.OrganizationGetLogo(cCtx.Context, &apppb.OrganizationGetLogoRequest{
 		OrgId: orgID,
 	})
@@ -584,10 +552,6 @@ func ListOAuthAppsAction(cCtx *cli.Context, args listOAuthAppsArgs) error {
 }
 
 func (c *viamClient) listOAuthAppsAction(cCtx *cli.Context, orgID string) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
-
 	resp, err := c.client.ListOAuthApps(cCtx.Context, &apppb.ListOAuthAppsRequest{
 		OrgId: orgID,
 	})
@@ -648,6 +612,56 @@ func ListLocationsAction(c *cli.Context, args listLocationsArgs) error {
 		return nil
 	}
 	return listLocations(orgStr)
+}
+
+func printMachinePartStatus(c *cli.Context, parts []*apppb.RobotPart) {
+	for i, part := range parts {
+		name := part.Name
+		if part.MainPart {
+			name += " (main)"
+		}
+		printf(
+			c.App.Writer,
+			"\tID: %s\n\tName: %s\n\tLast Access: %s (%s ago)",
+			part.Id,
+			name,
+			part.LastAccess.AsTime().Format(time.UnixDate),
+			time.Since(part.LastAccess.AsTime()),
+		)
+		if i != len(parts)-1 {
+			printf(c.App.Writer, "")
+		}
+	}
+}
+
+type machinesPartListArgs struct {
+	Organization string
+	Location     string
+	Machine      string
+}
+
+// MachinesPartListAction is the corresponding Action for 'machines part list'.
+func MachinesPartListAction(c *cli.Context, args machinesPartListArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	if err = client.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	parts, err := client.robotParts(args.Organization, args.Location, args.Machine)
+	if err != nil {
+		return errors.Wrap(err, "could not get machine parts")
+	}
+
+	if len(parts) != 0 {
+		printf(c.App.Writer, "Parts:")
+	}
+	printMachinePartStatus(c, parts)
+
+	return nil
 }
 
 type listRobotsActionArgs struct {
@@ -742,23 +756,8 @@ func RobotsStatusAction(c *cli.Context, args robotsStatusArgs) error {
 	if len(parts) != 0 {
 		printf(c.App.Writer, "Parts:")
 	}
-	for i, part := range parts {
-		name := part.Name
-		if part.MainPart {
-			name += " (main)"
-		}
-		printf(
-			c.App.Writer,
-			"\tID: %s\n\tName: %s\n\tLast Access: %s (%s ago)",
-			part.Id,
-			name,
-			part.LastAccess.AsTime().Format(time.UnixDate),
-			time.Since(part.LastAccess.AsTime()),
-		)
-		if i != len(parts)-1 {
-			printf(c.App.Writer, "")
-		}
-	}
+
+	printMachinePartStatus(c, parts)
 
 	return nil
 }
@@ -875,6 +874,10 @@ func (c *viamClient) streamLogsForPart(part *apppb.RobotPart, args robotsLogsArg
 	maxLogsToFetch, err := getNumLogs(c.c, args.Count)
 	if err != nil {
 		return err
+	}
+
+	if args.Start == "" {
+		args.Start = time.Now().Add(defaultLogStartTime).UTC().Format(time.RFC3339)
 	}
 
 	startTime, err := parseTimeString(args.Start)
@@ -1021,18 +1024,7 @@ func RobotsPartStatusAction(c *cli.Context, args robotsPartStatusArgs) error {
 		printf(c.App.Writer, "%s -> %s -> %s", orgName, locName, robot.Name)
 	}
 
-	name := part.Name
-	if part.MainPart {
-		name += " (main)"
-	}
-	printf(
-		c.App.Writer,
-		"ID: %s\nName: %s\nLast Access: %s (%s ago)",
-		part.Id,
-		name,
-		part.LastAccess.AsTime().Format(time.UnixDate),
-		time.Since(part.LastAccess.AsTime()),
-	)
+	printMachinePartStatus(c, []*apppb.RobotPart{part})
 
 	return nil
 }
@@ -1387,6 +1379,25 @@ func RobotsPartTunnelAction(c *cli.Context, args robotsPartTunnelArgs) error {
 }
 
 func tunnelTraffic(ctx *cli.Context, robotClient *client.RobotClient, local, dest int) error {
+	// don't block tunnel attempt if ListTunnels fails in any way - it may be unimplemented.
+	// TODO: early return if ListTunnels fails.
+	if tunnels, err := robotClient.ListTunnels(ctx.Context); err == nil {
+		allowed := false
+		for _, t := range tunnels {
+			if t.Port == dest {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			return errors.Errorf(
+				"tunneling to destination port %v not allowed. "+
+					"Please ensure the traffic_tunnel_endpoints configuration is set correctly on the machine.",
+				dest,
+			)
+		}
+	}
+
 	li, err := net.Listen("tcp", net.JoinHostPort("localhost", strconv.Itoa(local)))
 	if err != nil {
 		return fmt.Errorf("failed to create listener %w", err)
@@ -1424,10 +1435,6 @@ func tunnelTraffic(ctx *cli.Context, robotClient *client.RobotClient, local, des
 }
 
 func (c *viamClient) robotPartTunnel(cCtx *cli.Context, args robotsPartTunnelArgs) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
-
 	orgStr := args.Organization
 	locStr := args.Location
 	robotStr := args.Machine
@@ -1498,6 +1505,35 @@ func CheckUpdateAction(c *cli.Context, args emptyArgs) error {
 		return nil
 	}
 
+	appVersion := rconfig.Version
+	latestRelease, err := getLatestReleaseVersion()
+	if err != nil {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to get latest release information: %w", err)
+	}
+
+	latestVersion, err := semver.NewVersion(latestRelease)
+
+	// failure to parse `latestRelease` is expected for local builds; we don't want overly
+	// noisy warnings here so only alert in these cases if debug flag is on
+	if err != nil && globalArgs.Debug {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse latest release version")
+	}
+	localVersion, err := semver.NewVersion(appVersion)
+	if err != nil && globalArgs.Debug {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse build version")
+	}
+
+	// we know both the local version and the latest version so we can make a determination
+	// from that alone on whether or not to alert users to update
+	if localVersion != nil && latestVersion != nil {
+		// the local version is out of date, so we know to warn
+		if localVersion.LessThan(latestVersion) {
+			warningf(c.App.ErrWriter, "CLI Update Check: Your CLI (%s) is out of date. Consider updating to version %s. "+
+				"See https://docs.viam.com/cli/#install", localVersion.Original(), latestVersion.Original())
+		}
+		return nil
+	}
+
 	dateCompiledRaw := rconfig.DateCompiled
 
 	// `go build` will not set the compilation flags needed for this check
@@ -1511,73 +1547,14 @@ func CheckUpdateAction(c *cli.Context, args emptyArgs) error {
 		return nil
 	}
 
-	// install is less than six weeks old
-	if time.Since(dateCompiled) < time.Hour*24*7*6 {
-		return nil
-	}
-
-	conf, err := ConfigFromCache(c)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			utils.UncheckedError(err)
-			return nil
+	// the local build is more than a week old, so we should warn
+	if time.Since(dateCompiled) > time.Hour*24*7 {
+		var updateInstructions string
+		if latestVersion != nil {
+			updateInstructions = fmt.Sprintf(" to version: %s", latestVersion.Original())
 		}
-		conf = &Config{}
-	}
-
-	var lastCheck time.Time
-	if conf.LastUpdateCheck == "" {
-		conf.LastUpdateCheck = time.Now().Format("2006-01-02")
-	} else {
-		lastCheck, err = time.Parse("2006-01-02", conf.LastUpdateCheck)
-		if err != nil {
-			warningf(c.App.ErrWriter, "CLI Update Check: failed to parse date of last check: %w", err)
-			return nil
-		}
-	}
-
-	// The latest version info is cached to limit api calls to once every three days
-	if time.Since(lastCheck) < time.Hour*24*3 && conf.LatestVersion != "" {
-		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is more than 6 weeks old. "+
-			"Consider updating to version: %s", conf.LatestVersion)
-		return nil
-	}
-
-	latestRelease, err := getLatestReleaseVersion()
-	if err != nil {
-		warningf(c.App.ErrWriter, "CLI Update Check: failed to get latest release information: %w", err)
-		return nil
-	}
-
-	latestVersion, err := semver.NewVersion(latestRelease)
-	if err != nil {
-		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse latest version: %w", err)
-		return nil
-	}
-
-	conf.LatestVersion = latestVersion.String()
-
-	err = storeConfigToCache(conf)
-	if err != nil {
-		utils.UncheckedError(err)
-	}
-
-	appVersion := rconfig.Version
-	if appVersion == "" {
-		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is more than 6 weeks old. "+
-			"Consider updating to version: %s", latestVersion.Original())
-		return nil
-	}
-
-	localVersion, err := semver.NewVersion(appVersion)
-	if err != nil {
-		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse compiled version: %w", err)
-		return nil
-	}
-
-	if localVersion.LessThan(latestVersion) {
-		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is out of date. Consider updating to version %s. "+
-			"See https://docs.viam.com/cli/#install", latestVersion.Original())
+		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is more than a week old. "+
+			"New CLI releases happen weekly; consider updating%s. See https://docs.viam.com/cli/#install", updateInstructions)
 	}
 
 	return nil
@@ -1737,7 +1714,14 @@ func newViamClientInner(c *cli.Context, disableBrowserOpen bool) (*viamClient, e
 // Creates a new viam client, defaulting to _not_ passing the `disableBrowerOpen` arg (which
 // users don't even have an option of setting for any CLI method currently except `Login`).
 func newViamClient(c *cli.Context) (*viamClient, error) {
-	return newViamClientInner(c, false)
+	client, err := newViamClientInner(c, false)
+	if err != nil {
+		return nil, err
+	}
+	if err := client.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+	return client, nil
 }
 
 func (c *viamClient) loadOrganizations() error {
@@ -1750,9 +1734,6 @@ func (c *viamClient) loadOrganizations() error {
 }
 
 func (c *viamClient) selectOrganization(orgStr string) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
 	if orgStr != "" && (c.selectedOrg.Id == orgStr || c.selectedOrg.Name == orgStr) {
 		return nil
 	}
@@ -1798,9 +1779,6 @@ func (c *viamClient) selectOrganization(orgStr string) error {
 // org UUID, then this matchs on organization ID, otherwise this will match
 // on organization name.
 func (c *viamClient) getOrg(orgStr string) (*apppb.Organization, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
 	resp, err := c.client.ListOrganizations(c.c.Context, &apppb.ListOrganizationsRequest{})
 	if err != nil {
 		return nil, err
@@ -1825,10 +1803,6 @@ func (c *viamClient) getOrg(orgStr string) (*apppb.Organization, error) {
 // getUserOrgByPublicNamespace searches the logged in users orgs to see
 // if any have a matching public namespace.
 func (c *viamClient) getUserOrgByPublicNamespace(publicNamespace string) (*apppb.Organization, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
-
 	if err := c.loadOrganizations(); err != nil {
 		return nil, err
 	}
@@ -1841,9 +1815,6 @@ func (c *viamClient) getUserOrgByPublicNamespace(publicNamespace string) (*apppb
 }
 
 func (c *viamClient) listOrganizations() ([]*apppb.Organization, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
 	if err := c.loadOrganizations(); err != nil {
 		return nil, err
 	}
@@ -1897,9 +1868,6 @@ func (c *viamClient) selectLocation(locStr string) error {
 }
 
 func (c *viamClient) listLocations(orgID string) ([]*apppb.Location, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
 	if err := c.selectOrganization(orgID); err != nil {
 		return nil, err
 	}
@@ -1910,9 +1878,6 @@ func (c *viamClient) listLocations(orgID string) ([]*apppb.Location, error) {
 }
 
 func (c *viamClient) listRobots(orgStr, locStr string) ([]*apppb.Robot, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
 	if err := c.selectOrganization(orgStr); err != nil {
 		return nil, err
 	}
@@ -1929,10 +1894,6 @@ func (c *viamClient) listRobots(orgStr, locStr string) ([]*apppb.Robot, error) {
 }
 
 func (c *viamClient) robot(orgStr, locStr, robotStr string) (*apppb.Robot, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
-
 	robots, err := c.listRobots(orgStr, locStr)
 	if err != nil {
 		return nil, err
@@ -1971,9 +1932,6 @@ func (c *viamClient) robotPart(orgStr, locStr, robotStr, partStr string) (*apppb
 }
 
 func (c *viamClient) robotPartInner(orgStr, locStr, robotStr, partStr string) (*apppb.RobotPart, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
 	parts, err := c.robotParts(orgStr, locStr, robotStr)
 	if err != nil {
 		return nil, err
@@ -2009,16 +1967,10 @@ func (c *viamClient) robotPartInner(orgStr, locStr, robotStr, partStr string) (*
 // note: overlaps with viamClient.robotPart, which wraps GetRobotParts.
 // Use this variant if you don't know the robot ID.
 func (c *viamClient) getRobotPart(partID string) (*apppb.GetRobotPartResponse, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
 	return c.client.GetRobotPart(c.c.Context, &apppb.GetRobotPartRequest{Id: partID})
 }
 
 func (c *viamClient) updateRobotPart(part *apppb.RobotPart, confMap map[string]any) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
 	confStruct, err := structpb.NewStruct(confMap)
 	if err != nil {
 		return errors.Wrap(err, "in NewStruct")
@@ -2076,9 +2028,6 @@ func (c *viamClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, err
 }
 
 func (c *viamClient) robotParts(orgStr, locStr, robotStr string) ([]*apppb.RobotPart, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
 	robot, err := c.robot(orgStr, locStr, robotStr)
 	if err != nil {
 		return nil, err
@@ -2606,10 +2555,6 @@ func ReadOAuthAppAction(c *cli.Context, args readOAuthAppArgs) error {
 }
 
 func (c *viamClient) readOAuthAppAction(cCtx *cli.Context, orgID, clientID string) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
-
 	req := &apppb.ReadOAuthAppRequest{OrgId: orgID, ClientId: clientID}
 	resp, err := c.client.ReadOAuthApp(c.c.Context, req)
 	if err != nil {
@@ -2685,10 +2630,6 @@ func DeleteOAuthAppAction(c *cli.Context, args deleteOAuthAppArgs) error {
 }
 
 func (c *viamClient) deleteOAuthAppAction(cCtx *cli.Context, orgID, clientID string) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
-
 	req := &apppb.DeleteOAuthAppRequest{
 		OrgId:    orgID,
 		ClientId: clientID,
@@ -2833,10 +2774,6 @@ func CreateOAuthAppAction(c *cli.Context, args createOAuthAppArgs) error {
 }
 
 func (c *viamClient) createOAuthAppAction(cCtx *cli.Context, args createOAuthAppArgs) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
-
 	config, err := generateOAuthConfig(args.ClientAuthentication, args.Pkce, args.UrlValidation,
 		args.LogoutURI, args.OriginURIs, args.RedirectURIs, args.EnabledGrants)
 	if err != nil {
@@ -2883,10 +2820,6 @@ func UpdateOAuthAppAction(c *cli.Context, args updateOAuthAppArgs) error {
 }
 
 func (c *viamClient) updateOAuthAppAction(cCtx *cli.Context, args updateOAuthAppArgs) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
-
 	req, err := createUpdateOAuthAppRequest(args)
 	if err != nil {
 		return err

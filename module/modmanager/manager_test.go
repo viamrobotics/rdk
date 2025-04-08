@@ -3,7 +3,6 @@ package modmanager
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -42,8 +41,6 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-type testDiscoveryResult map[string]interface{}
-
 func setupSocketWithRobot(t *testing.T) string {
 	t.Helper()
 
@@ -68,7 +65,8 @@ func setupModManager(
 	options modmanageroptions.Options,
 ) modmaninterface.ModuleManager {
 	t.Helper()
-	mgr := NewManager(ctx, parentAddr, logger, options)
+	mgr, err := NewManager(ctx, parentAddr, logger, options)
+	test.That(t, err, test.ShouldBeNil)
 	t.Cleanup(func() {
 		// Wait for module recovery processes here because modmanager.Close does not.
 		// Do so by grabbing a copy of the modules and then waiting after
@@ -1162,7 +1160,7 @@ func TestRTPPassthrough(t *testing.T) {
 	parentAddr := setupSocketWithRobot(t)
 
 	greenLog(t, "test AddModule")
-	mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	mgr, err := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
 	test.That(t, err, test.ShouldBeNil)
 
 	// add module executable
@@ -1368,7 +1366,8 @@ func TestAddStreamMaxTrackErr(t *testing.T) {
 	parentAddr := setupSocketWithRobot(t)
 
 	greenLog(t, "test AddModule")
-	mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	mgr, err := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, mgr.Close(ctx), test.ShouldBeNil)
 	}()
@@ -1378,7 +1377,7 @@ func TestAddStreamMaxTrackErr(t *testing.T) {
 		Name:    "rtp-passthrough-module",
 		ExePath: modPath,
 	}
-	err := mgr.Add(ctx, modCfg)
+	err = mgr.Add(ctx, modCfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	reg, ok := resource.LookupRegistration(camera.API, model)
@@ -1512,7 +1511,7 @@ func TestFTDCAfterModuleCrash(t *testing.T) {
 
 	datums, err := ftdc.Parse(ftdcData)
 	test.That(t, err, test.ShouldBeNil)
-	logger.Info("Num ftdc datums: ", len(datums))
+	logger.Info("Num ftdc datums:", len(datums))
 
 	// Keep count of the number of `ElapsedTimeSecs` readings we encounter. It is a testing bug if
 	// we don't see any process FTDC metrics for the module.
@@ -1535,70 +1534,6 @@ func TestFTDCAfterModuleCrash(t *testing.T) {
 
 	// Assert that we saw at least one datapoint before considering the test a success.
 	test.That(t, numModuleElapsedTimeMetricsSeen, test.ShouldBeGreaterThan, 0)
-}
-
-func TestModularDiscoverFunc(t *testing.T) {
-	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
-
-	modPath := rtestutils.BuildTempModule(t, "module/testmodule")
-
-	modCfg := config.Module{
-		Name:    "test-module",
-		ExePath: modPath,
-	}
-
-	parentAddr := setupSocketWithRobot(t)
-
-	mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
-
-	err := mgr.Add(ctx, modCfg)
-	test.That(t, err, test.ShouldBeNil)
-
-	// The "helper" model implements actual (foobar) discovery
-	reg, ok := resource.LookupRegistration(generic.API, resource.NewModel("rdk", "test", "helper"))
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, reg, test.ShouldNotBeNil)
-	test.That(t, reg.Discover, test.ShouldNotBeNil)
-
-	testCases := []struct {
-		name          string
-		params        map[string]interface{}
-		expectedExtra string
-	}{
-		{
-			name:          "Without extra set",
-			params:        map[string]interface{}{},
-			expectedExtra: "default",
-		},
-		{
-			name:          "With extra set",
-			params:        map[string]interface{}{"extra": "not the default"},
-			expectedExtra: "not the default",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			result, err := reg.Discover(ctx, logger, tc.params)
-			test.That(t, err, test.ShouldBeNil)
-			t.Log("Discovery result: ", result)
-
-			jsonData, err := json.Marshal(result)
-			test.That(t, err, test.ShouldBeNil)
-			t.Logf("Raw JSON: %s", string(jsonData))
-
-			var discoveryResult testDiscoveryResult
-			err = json.Unmarshal(jsonData, &discoveryResult)
-			test.That(t, err, test.ShouldBeNil)
-			t.Logf("Casted struct: %+v", discoveryResult)
-
-			test.That(t, len(discoveryResult), test.ShouldEqual, 1)
-			extraStr, ok := discoveryResult["extra"].(string)
-			test.That(t, ok, test.ShouldBeTrue)
-			test.That(t, extraStr, test.ShouldEqual, tc.expectedExtra)
-		})
-	}
 }
 
 func TestFirstRun(t *testing.T) {
@@ -1761,4 +1696,31 @@ func TestFirstRun(t *testing.T) {
 		err = mgr.FirstRun(ctx, modCfg)
 		test.That(t, err, test.ShouldResemble, context.DeadlineExceeded)
 	})
+}
+
+func TestCleanWindowsSocketPath(t *testing.T) {
+	// uppercase and lowercase
+	clean, err := cleanWindowsSocketPath("windows", "C:\\x\\y.sock")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
+	clean, err = cleanWindowsSocketPath("windows", "c:\\x\\y.sock")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
+
+	// wrong disk
+	_, err = cleanWindowsSocketPath("windows", "d:\\x\\y.sock")
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// no disk
+	clean, err = cleanWindowsSocketPath("windows", "\\x\\y.sock")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
+	clean, err = cleanWindowsSocketPath("windows", "/x/y.sock")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
+
+	// linux
+	clean, err = cleanWindowsSocketPath("linux", "/x/y.sock")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
 }

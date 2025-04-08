@@ -30,6 +30,7 @@ import (
 const (
 	monitorCameraInterval = time.Second
 	retryDelay            = 50 * time.Millisecond
+	backoffCooldown       = 30 * time.Second
 )
 
 const (
@@ -143,7 +144,7 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 	defer span.End()
 	// Get the peer connection to the caller.
 	pc, ok := rpc.ContextPeerConnection(ctx)
-	server.logger.Infow("Adding video stream", "name", req.Name, "peerConn", pc)
+	server.logger.Infow("Adding video stream", "name", req.Name, "peerConn", fmt.Sprintf("%p", pc))
 	defer server.logger.Warnf("AddStream END %s", req.Name)
 
 	if !ok {
@@ -289,7 +290,7 @@ func (server *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStre
 	ctx, span := trace.StartSpan(ctx, "stream::server::RemoveStream")
 	defer span.End()
 	pc, ok := rpc.ContextPeerConnection(ctx)
-	server.logger.Infow("Removing video stream", "name", req.Name, "peerConn", pc)
+	server.logger.Infow("Removing video stream", "name", req.Name, "peerConn", fmt.Sprintf("%p", pc))
 	if !ok {
 		return nil, errors.New("can only remove a stream over a WebRTC based connection")
 	}
@@ -447,7 +448,11 @@ func (server *Server) resizeVideoSource(ctx context.Context, name string, width,
 	if !ok {
 		return fmt.Errorf("stream state not found with name %q", name)
 	}
-	resizer := gostream.NewResizeVideoSource(camerautils.VideoSourceFromCamera(ctx, cam), width, height)
+	vs, err := camerautils.VideoSourceFromCamera(ctx, cam)
+	if err != nil {
+		return fmt.Errorf("failed to create video source from camera: %w", err)
+	}
+	resizer := gostream.NewResizeVideoSource(vs, width, height)
 	server.logger.Debugf(
 		"resizing video source to width %d and height %d",
 		width, height,
@@ -475,7 +480,11 @@ func (server *Server) resetVideoSource(ctx context.Context, name string) error {
 		return fmt.Errorf("stream state not found with name %q", name)
 	}
 	server.logger.Debug("resetting video source")
-	existing.Swap(camerautils.VideoSourceFromCamera(ctx, cam))
+	vs, err := camerautils.VideoSourceFromCamera(ctx, cam)
+	if err != nil {
+		return fmt.Errorf("failed to create video source from camera: %w", err)
+	}
+	existing.Swap(vs)
 	err = streamState.Reset()
 	if err != nil {
 		return fmt.Errorf("failed to reset stream %q: %w", name, err)
@@ -507,11 +516,18 @@ func (server *Server) AddNewStreams(ctx context.Context) error {
 			server.logger.Warn("video streaming not supported on Windows yet")
 			break
 		}
+		// Attempt to look up the framerate for the camera. If the framerate is not available, we'll
+		// end up with a framerate of 0. This is fine as gostream will default to 30fps in this case.
+		framerate, err := server.getFramerateFromCamera(name)
+		if err != nil {
+			server.logger.Debugf("error getting framerate from camera %q: %v", name, err)
+		}
 		// We walk the updated set of `videoSources` and ensure all of the sources are "created" and
 		// "started".
 		config := gostream.StreamConfig{
 			Name:                name,
 			VideoEncoderFactory: server.streamConfig.VideoEncoderFactory,
+			TargetFrameRate:     framerate,
 		}
 		// Call `createStream`. `createStream` is responsible for first checking if the stream
 		// already exists. If it does, it skips creating a new stream and we continue to the next source.
@@ -656,8 +672,12 @@ func (server *Server) refreshVideoSources(ctx context.Context) {
 		if err != nil {
 			continue
 		}
+		src, err := camerautils.VideoSourceFromCamera(ctx, cam)
+		if err != nil {
+			server.logger.Errorf("error creating video source from camera: %v", err)
+			continue
+		}
 		existing, ok := server.videoSources[cam.Name().SDPTrackName()]
-		src := camerautils.VideoSourceFromCamera(ctx, cam)
 		if ok {
 			// Check stream state for the camera to see if it is in resized mode.
 			// If it is in resized mode, we want to apply the resize transformation to the
@@ -734,7 +754,10 @@ func (server *Server) startStream(streamFunc func(opts *BackoffTuningOptions) er
 	utils.PanicCapturingGo(func() {
 		defer server.activeBackgroundWorkers.Done()
 		close(waitCh)
-		if err := streamFunc(&BackoffTuningOptions{}); err != nil {
+		opts := &BackoffTuningOptions{
+			Cooldown: backoffCooldown,
+		}
+		if err := streamFunc(opts); err != nil {
 			if utils.FilterOutError(err, context.Canceled) != nil {
 				server.logger.Errorw("error streaming", "error", err)
 			}
@@ -756,6 +779,18 @@ func (server *Server) startAudioStream(ctx context.Context, source gostream.Audi
 		streamAudioCtx, _ := utils.MergeContext(server.closedCtx, ctx)
 		return streamAudioSource(streamAudioCtx, source, stream, opts, server.logger)
 	})
+}
+
+func (server *Server) getFramerateFromCamera(name string) (int, error) {
+	cam, err := camera.FromRobot(server.robot, name)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get camera from robot: %w", err)
+	}
+	props, err := cam.Properties(context.Background())
+	if err != nil {
+		return 0, fmt.Errorf("failed to get camera properties: %w", err)
+	}
+	return int(props.FrameRate), nil
 }
 
 // GenerateResolutions takes the original width and height of an image and returns

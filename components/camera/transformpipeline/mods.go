@@ -262,7 +262,7 @@ func (cs *cropSource) Read(ctx context.Context) (image.Image, func(), error) {
 	switch cs.imgType {
 	case camera.ColorStream, camera.UnspecifiedStream:
 		if cs.showCropBox {
-			newDet := objectdetection.NewDetection(cs.cropWindow, 1.0, "crop")
+			newDet := objectdetection.NewDetection(cs.imgBounds, cs.cropWindow, 1.0, "crop")
 			dets := []objectdetection.Detection{newDet}
 			newImg, err := objectdetection.Overlay(orig, dets)
 			if err != nil {

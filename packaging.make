@@ -6,6 +6,8 @@ DPKG_ARCH ?= $(shell dpkg --print-architecture)
 APPIMAGE_ARCH ?= $(shell dpkg --print-architecture)
 endif
 
+PRERELEASE_PATH := $(if $(findstring -dev,$(BUILD_CHANNEL)),"prerelease/","")
+
 appimage-arch:
 	# build appimage for a target architecture using existing aix + viam-server binaries
 	cd etc/packaging/appimages && BUILD_CHANNEL=${BUILD_CHANNEL} UNAME_M=$(UNAME_M) DPKG_ARCH=$(DPKG_ARCH) appimage-builder --recipe viam-server.yml
@@ -50,7 +52,7 @@ static-release: server-static-compressed
 	mkdir -p etc/packaging/static/manifest/
 	go run etc/subsystem_manifest/main.go \
 		--binary-path etc/packaging/static/deploy/viam-server-${BUILD_CHANNEL}-${UNAME_M} \
-		--upload-path "packages.viam.com/apps/viam-server/viam-server-${BUILD_CHANNEL}-${UNAME_M}" \
+		--upload-path "packages.viam.com/apps/viam-server/${PRERELEASE_PATH}viam-server-${BUILD_CHANNEL}-${UNAME_M}" \
 		--version ${BUILD_CHANNEL} \
 		--arch ${UNAME_M} \
 		--output-path etc/packaging/static/manifest/viam-server-${BUILD_CHANNEL}-${UNAME_M}.json
@@ -75,7 +77,7 @@ static-release-win:
 	mkdir -p etc/packaging/static/manifest/
 	go run ./etc/subsystem_manifest \
 		--binary-path etc/packaging/static/deploy/viam-server-${BUILD_CHANNEL}-windows-${UNAME_M} \
-		--upload-path packages.viam.com/apps/viam-server/viam-server-${BUILD_CHANNEL}-windows-${UNAME_M} \
+		--upload-path packages.viam.com/apps/viam-server/${PRERELEASE_PATH}viam-server-${BUILD_CHANNEL}-windows-${UNAME_M} \
 		--version ${BUILD_CHANNEL} \
 		--arch ${UNAME_M} \
 		--resources-json win-resources.json \

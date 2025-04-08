@@ -74,6 +74,13 @@ type moduleID struct {
 	name   string
 }
 
+// AppComponent represents metadata used to distinguish and describe an app.
+type AppComponent struct {
+	Name       string `json:"name"`
+	Type       string `json:"type"`
+	Entrypoint string `json:"entrypoint"`
+}
+
 // manifestBuildInfo is the "build" section of meta.json.
 type manifestBuildInfo struct {
 	Build      string   `json:"build"`
@@ -93,12 +100,14 @@ var defaultBuildInfo = manifestBuildInfo{
 // moduleManifest is used to create & parse manifest.json.
 // Detailed user-facing docs for this are in module.schema.json.
 type moduleManifest struct {
-	Schema      string            `json:"$schema"`
-	ModuleID    string            `json:"module_id"`
-	Visibility  moduleVisibility  `json:"visibility"`
-	URL         string            `json:"url"`
-	Description string            `json:"description"`
-	Models      []ModuleComponent `json:"models"`
+	Schema       string            `json:"$schema"`
+	ModuleID     string            `json:"module_id"`
+	Visibility   moduleVisibility  `json:"visibility"`
+	URL          string            `json:"url"`
+	Description  string            `json:"description"`
+	Models       []ModuleComponent `json:"models"`
+	Apps         []AppComponent    `json:"applications"`
+	MarkdownLink *string           `json:"markdown_link,omitempty"`
 	// JsonManifest provides fields shared with RDK proper.
 	modconfig.JSONManifest
 	Build *manifestBuildInfo `json:"build,omitempty"`
@@ -413,9 +422,6 @@ func UpdateModelsAction(c *cli.Context, args updateModelsArgs) error {
 }
 
 func (c *viamClient) createModule(moduleName, organizationID string) (*apppb.CreateModuleResponse, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
 	req := apppb.CreateModuleRequest{
 		Name:           moduleName,
 		OrganizationId: organizationID,
@@ -424,9 +430,6 @@ func (c *viamClient) createModule(moduleName, organizationID string) (*apppb.Cre
 }
 
 func (c *viamClient) getModule(moduleID moduleID) (*apppb.GetModuleResponse, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
 	req := apppb.GetModuleRequest{
 		ModuleId: moduleID.String(),
 	}
@@ -434,24 +437,37 @@ func (c *viamClient) getModule(moduleID moduleID) (*apppb.GetModuleResponse, err
 }
 
 func (c *viamClient) updateModule(moduleID moduleID, manifest moduleManifest) (*apppb.UpdateModuleResponse, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
 	var models []*apppb.Model
 	for _, moduleComponent := range manifest.Models {
 		models = append(models, moduleComponentToProto(moduleComponent))
+	}
+	var apps []*apppb.App
+	for _, appComponent := range manifest.Apps {
+		apps = append(apps, appComponentToProto(appComponent))
 	}
 	visibility, err := visibilityToProto(manifest.Visibility)
 	if err != nil {
 		return nil, err
 	}
+
+	var markdownDocs *string
+	// If a markdown link is provided, read the content
+	if manifest.MarkdownLink != nil {
+		if content, err := getMarkdownContent(*manifest.MarkdownLink); err == nil {
+			markdownDocs = &content
+		} else {
+			warningf(os.Stderr, "Failed to read markdown content from %s: %v", *manifest.MarkdownLink, err)
+		}
+	}
 	req := apppb.UpdateModuleRequest{
-		ModuleId:    moduleID.String(),
-		Visibility:  visibility,
-		Url:         manifest.URL,
-		Description: manifest.Description,
-		Models:      models,
-		Entrypoint:  manifest.Entrypoint,
+		ModuleId:            moduleID.String(),
+		Visibility:          visibility,
+		Url:                 manifest.URL,
+		Description:         manifest.Description,
+		Models:              models,
+		Apps:                apps,
+		Entrypoint:          manifest.Entrypoint,
+		MarkdownDescription: markdownDocs,
 	}
 	if manifest.FirstRun != "" {
 		req.FirstRun = &manifest.FirstRun
@@ -466,10 +482,6 @@ func (c *viamClient) uploadModuleFile(
 	constraints []string,
 	tarballPath string,
 ) (*apppb.UploadModuleFileResponse, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
-
 	//nolint:gosec
 	file, err := os.Open(tarballPath)
 	if err != nil {
@@ -650,6 +662,16 @@ func moduleComponentToProto(moduleComponent ModuleComponent) *apppb.Model {
 	}
 
 	return model
+}
+
+func appComponentToProto(appComponent AppComponent) *apppb.App {
+	app := &apppb.App{
+		Name:       appComponent.Name,
+		Type:       appComponent.Type,
+		Entrypoint: appComponent.Entrypoint,
+	}
+
+	return app
 }
 
 func parseModuleID(id string) (moduleID, error) {
@@ -852,7 +874,10 @@ func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 		ExePath: path,
 	}
 
-	mgr := modmanager.NewManager(context.Background(), parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	mgr, err := modmanager.NewManager(context.Background(), parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	if err != nil {
+		return nil, err
+	}
 	defer vutils.UncheckedErrorFunc(func() error { return mgr.Close(context.Background()) })
 
 	err = mgr.Add(context.TODO(), cfg)
@@ -995,9 +1020,6 @@ func DownloadModuleAction(c *cli.Context, flags downloadModuleFlags) error {
 	}
 	client, err := newViamClient(c)
 	if err != nil {
-		return err
-	}
-	if err := client.ensureLoggedIn(); err != nil {
 		return err
 	}
 	req := &apppb.GetModuleRequest{ModuleId: moduleID}

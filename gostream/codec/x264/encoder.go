@@ -3,6 +3,7 @@ package x264
 
 import (
 	"context"
+	"errors"
 	"image"
 
 	"github.com/pion/mediadevices/pkg/codec"
@@ -19,12 +20,15 @@ type encoder struct {
 	logger logging.Logger
 }
 
-// Gives suitable results. Probably want to make this configurable this in the future.
-const bitrate = 3_200_000
-
 // NewEncoder returns an x264 encoder that can encode images of the given width and height. It will
 // also ensure that it produces key frames at the given interval.
 func NewEncoder(width, height, keyFrameInterval int, logger logging.Logger) (ourcodec.VideoEncoder, error) {
+	// Check to make sure dimensions are even.
+	if width%2 != 0 || height%2 != 0 {
+		return nil, errors.New("x264 encoder does not support odd dimensions. " +
+			"Please provide frames with even dimensions for width and height")
+	}
+
 	enc := &encoder{logger: logger}
 
 	var builder codec.VideoEncoderBuilder
@@ -33,8 +37,8 @@ func NewEncoder(width, height, keyFrameInterval int, logger logging.Logger) (our
 		return nil, err
 	}
 	builder = &params
-	params.BitRate = bitrate
 	params.KeyFrameInterval = keyFrameInterval
+	params.BitRate = calcBitrateFromResolution(width, height, float32(params.KeyFrameInterval))
 
 	codec, err := builder.BuildVideoEncoder(enc, prop.Media{
 		Video: prop.Video{

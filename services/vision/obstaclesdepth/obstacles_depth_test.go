@@ -175,6 +175,26 @@ func TestObstacleDepth(t *testing.T) {
 		test.That(t, capt.Classifications, test.ShouldBeNil)
 		test.That(t, capt.Detections, test.ShouldBeNil)
 	})
+
+	t.Run("registration with default camera", func(t *testing.T) {
+		// no default camera
+		withIntrinsicsCfg.DefaultCamera = ""
+		srv2, err := registerObstaclesDepth(ctx, name, &withIntrinsicsCfg, r, testLogger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, srv2, test.ShouldNotBeNil)
+
+		// default camera with valid name
+		withIntrinsicsCfg.DefaultCamera = "testCam"
+		srv2, err = registerObstaclesDepth(ctx, name, &withIntrinsicsCfg, r, testLogger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, srv2, test.ShouldNotBeNil)
+
+		// default camera with invalid name
+		withIntrinsicsCfg.DefaultCamera = "not-camera"
+		_, err = registerObstaclesDepth(ctx, name, &withIntrinsicsCfg, r, testLogger)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "could not find camera \"not-camera\"")
+	})
 }
 
 func BenchmarkObstacleDepthIntrinsics(b *testing.B) {

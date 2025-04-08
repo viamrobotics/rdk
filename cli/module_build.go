@@ -102,9 +102,6 @@ func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context, args moduleBuildS
 		Token:         &token,
 		Workdir:       &workdir,
 	}
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
 	res, err := c.buildClient.StartBuild(c.c.Context, &req)
 	if err != nil {
 		return err
@@ -352,9 +349,6 @@ func ModuleBuildLinkRepoAction(c *cli.Context, args moduleBuildLinkRepoArgs) err
 	if err != nil {
 		return err
 	}
-	if err := client.ensureLoggedIn(); err != nil {
-		return err
-	}
 	res, err := client.buildClient.LinkRepo(c.Context, &req)
 	if err != nil {
 		return err
@@ -364,10 +358,6 @@ func ModuleBuildLinkRepoAction(c *cli.Context, args moduleBuildLinkRepoArgs) err
 }
 
 func (c *viamClient) printModuleBuildLogs(buildID, platform string) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
-
 	logsReq := &buildpb.GetLogsRequest{
 		BuildId:  buildID,
 		Platform: platform,
@@ -400,9 +390,6 @@ func (c *viamClient) printModuleBuildLogs(buildID, platform string) error {
 }
 
 func (c *viamClient) listModuleBuildJobs(moduleIDFilter string, count *int32, buildIDFilter *string) (*buildpb.ListJobsResponse, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
 	req := buildpb.ListJobsRequest{
 		ModuleId:      moduleIDFilter,
 		MaxJobsLength: count,
@@ -519,6 +506,7 @@ func ReloadModuleAction(c *cli.Context, args reloadModuleArgs) error {
 
 // reloadModuleAction is the testable inner reload logic.
 func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, logger logging.Logger) error {
+	// TODO(RSDK-9727) it'd be nice for this to be a method on a viam client rather than taking one as an arg
 	partID, err := resolvePartID(c.Context, args.PartID, "/etc/viam.json")
 	if err != nil {
 		return err
@@ -675,8 +663,7 @@ func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.Resta
 	} else if len(modID) > 0 {
 		request.ModuleID = modID
 	} else if manifest != nil {
-		// TODO(APP-4019): remove localize call
-		request.ModuleName = localizeModuleID(manifest.ModuleID)
+		request.ModuleID = manifest.ModuleID
 	} else {
 		return nil, fmt.Errorf("if there is no meta.json, provide one of --%s or --%s", generalFlagName, moduleFlagID)
 	}
@@ -691,11 +678,9 @@ func restartModule(
 	manifest *moduleManifest,
 	logger logging.Logger,
 ) error {
+	// TODO(RSDK-9727) it'd be nice for this to be a method on a viam client rather than taking one as an arg
 	restartReq, err := resolveTargetModule(c, manifest)
 	if err != nil {
-		return err
-	}
-	if err := vc.ensureLoggedIn(); err != nil {
 		return err
 	}
 	apiRes, err := vc.client.GetRobotAPIKeys(c.Context, &apppb.GetRobotAPIKeysRequest{RobotId: part.Robot})
