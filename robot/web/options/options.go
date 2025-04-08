@@ -69,6 +69,9 @@ type Options struct {
 	BakedAuthCreds  rpc.Credentials
 
 	DisableMulticastDNS bool
+
+	// If true, starts an insecure http server without TLS certificates even if one exists
+	NoTLS bool
 }
 
 // New returns a default set of options which will have the

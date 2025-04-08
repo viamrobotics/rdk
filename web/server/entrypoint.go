@@ -53,6 +53,7 @@ type Arguments struct {
 	DumpResourcesPath          string `flag:"dump-resources,usage=dump all resource registrations as json to the provided file path"`
 	EnableFTDC                 bool   `flag:"ftdc,default=true,usage=enable fulltime data capture for diagnostics"`
 	OutputLogFile              string `flag:"log-file,usage=write logs to a file with log rotation"`
+	NoTLS                      bool   `flag:"no-tls,usage=starts an insecure http server without TLS certificates even if one exists"`
 }
 
 type robotServer struct {
@@ -272,6 +273,7 @@ func (s *robotServer) createWebOptions(cfg *config.Config) (weboptions.Options, 
 	options.Debug = s.args.Debug || cfg.Debug
 	options.PreferWebRTC = s.args.WebRTC
 	options.DisableMulticastDNS = s.args.DisableMulticastDNS
+	options.NoTLS = s.args.NoTLS
 	if cfg.Cloud != nil && s.args.AllowInsecureCreds {
 		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
 	}
