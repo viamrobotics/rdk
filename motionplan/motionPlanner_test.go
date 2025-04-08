@@ -126,10 +126,10 @@ func constrainedXArmMotion() (*planConfig, error) {
 
 		return oFunc(currPose.(*frame.PoseInFrame).Pose().Orientation())
 	}
-	orientConstraint := func(cInput *ik.State) bool {
+	orientConstraint := func(cInput *ik.State) error {
 		err := resolveStatesToPositions(cInput)
 		if err != nil {
-			return false
+			return err
 		}
 
 		return oFunc(cInput.Position.Orientation()) == 0

@@ -75,20 +75,20 @@ func resolveStatesToPositions(state *ik.State) error {
 }
 
 // SegmentFSConstraint tests whether a transition from a starting robot configuration to an ending robot configuration is valid.
-// If the returned bool is true, the constraint is satisfied and the segment is valid.
-type SegmentFSConstraint func(*ik.SegmentFS) bool
+// If the returned error is nil, the constraint is satisfied and the segment is valid.
+type SegmentFSConstraint func(*ik.SegmentFS) error
 
 // SegmentConstraint tests whether a transition from a starting robot configuration to an ending robot configuration is valid.
-// If the returned bool is true, the constraint is satisfied and the segment is valid.
-type SegmentConstraint func(*ik.Segment) bool
+// If the returned error is nil, the constraint is satisfied and the segment is valid.
+type SegmentConstraint func(*ik.Segment) error
 
 // StateFSConstraint tests whether a given robot configuration is valid
-// If the returned bool is true, the constraint is satisfied and the state is valid.
-type StateFSConstraint func(*ik.StateFS) bool
+// If the returned error is nil, the constraint is satisfied and the state is valid.
+type StateFSConstraint func(*ik.StateFS) error
 
 // StateConstraint tests whether a given robot configuration is valid
-// If the returned bool is true, the constraint is satisfied and the state is valid.
-type StateConstraint func(*ik.State) bool
+// If the returned error is nil, the constraint is satisfied and the state is valid.
+type StateConstraint func(*ik.State) error
 
 func createAllCollisionConstraints(
 	movingRobotGeometries, staticRobotGeometries, worldGeometries, boundingRegions []spatial.Geometry,
@@ -213,7 +213,7 @@ func NewCollisionConstraint(
 	}
 
 	// create constraint from reference collision graph
-	constraint := func(state *ik.State) bool {
+	constraint := func(state *ik.State) error {
 		var internalGeoms []spatial.Geometry
 		switch {
 		case state.Configuration != nil:
@@ -267,7 +267,7 @@ func NewCollisionConstraintFS(
 	}
 
 	// create constraint from reference collision graph
-	constraint := func(state *ik.StateFS) bool {
+	constraint := func(state *ik.StateFS) error {
 		// Use FrameSystemGeometries to get all geometries in the frame system
 		internalGeometries, err := referenceframe.FrameSystemGeometries(state.FS, state.Configuration)
 		if err != nil {
@@ -309,7 +309,7 @@ func NewAbsoluteLinearInterpolatingConstraint(from, to spatial.Pose, linTol, ori
 	lineConstraint, lineMetric := NewLineConstraint(from.Point(), to.Point(), linTol)
 	interpMetric := ik.CombineMetrics(orientMetric, lineMetric)
 
-	f := func(state *ik.State) bool {
+	f := func(state *ik.State) error {
 		return orientConstraint(state) && lineConstraint(state)
 	}
 	return f, interpMetric
@@ -345,7 +345,7 @@ func NewSlerpOrientationConstraint(start, goal spatial.Pose, tolerance float64) 
 		return (sDist + gDist) - origDist
 	}
 
-	validFunc := func(state *ik.State) bool {
+	validFunc := func(state *ik.State) error {
 		err := resolveStatesToPositions(state)
 		if err != nil {
 			return false
@@ -383,7 +383,7 @@ func NewPlaneConstraint(pNorm, pt r3.Vector, writingAngle, epsilon float64) (Sta
 		return pDist*pDist + oDist*oDist
 	}
 
-	validFunc := func(state *ik.State) bool {
+	validFunc := func(state *ik.State) error {
 		err := resolveStatesToPositions(state)
 		if err != nil {
 			return false
@@ -403,7 +403,7 @@ func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (StateConstraint, 
 		return math.Max(spatial.DistToLineSegment(pt1, pt2, state.Position.Point())-tolerance, 0)
 	}
 
-	validFunc := func(state *ik.State) bool {
+	validFunc := func(state *ik.State) error {
 		err := resolveStatesToPositions(state)
 		if err != nil {
 			return false
@@ -414,37 +414,16 @@ func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (StateConstraint, 
 	return validFunc, gradFunc
 }
 
-// NewOctreeCollisionConstraint takes an octree and will return a constraint that checks whether any geometries
-// intersect with points in the octree. Threshold sets the confidence level required for a point to be considered, and buffer is the
-// distance to a point that is considered a collision in mm.
-func NewOctreeCollisionConstraint(octree *pointcloud.BasicOctree, threshold int, buffer, collisionBufferMM float64) StateConstraint {
-	constraint := func(state *ik.State) bool {
-		geometries, err := state.Frame.Geometries(state.Configuration)
-		if err != nil && geometries == nil {
-			return false
-		}
-
-		for _, geom := range geometries.Geometries() {
-			collides, err := octree.CollidesWithGeometry(geom, threshold, buffer, collisionBufferMM)
-			if err != nil || collides {
-				return false
-			}
-		}
-		return true
-	}
-	return constraint
-}
-
 // NewBoundingRegionConstraint will determine if the given list of robot geometries are in collision with the
 // given list of bounding regions.
 func NewBoundingRegionConstraint(robotGeoms, boundingRegions []spatial.Geometry, collisionBufferMM float64) StateConstraint {
-	return func(state *ik.State) bool {
+	return func(state *ik.State) error {
 		var internalGeoms []spatial.Geometry
 		switch {
 		case state.Configuration != nil:
 			internal, err := state.Frame.Geometries(state.Configuration)
 			if err != nil {
-				return false
+				return err
 			}
 			internalGeoms = internal.Geometries()
 		case state.Position != nil:
@@ -453,7 +432,7 @@ func NewBoundingRegionConstraint(robotGeoms, boundingRegions []spatial.Geometry,
 			// transform them to the Position
 			internal, err := state.Frame.Geometries(make([]referenceframe.Input, len(state.Frame.DoF())))
 			if err != nil {
-				return false
+				return err
 			}
 			movedGeoms := internal.Geometries()
 			for _, geom := range movedGeoms {
@@ -464,7 +443,7 @@ func NewBoundingRegionConstraint(robotGeoms, boundingRegions []spatial.Geometry,
 		}
 		cg, err := newCollisionGraph(internalGeoms, boundingRegions, nil, true, collisionBufferMM)
 		if err != nil {
-			return false
+			return err
 		}
 		return len(cg.collisions(collisionBufferMM)) != 0
 	}
@@ -713,24 +692,23 @@ type fsPathConstraint struct {
 	fs            referenceframe.FrameSystem
 }
 
-func (fpc *fsPathConstraint) constraint(state *ik.StateFS) bool {
+func (fpc *fsPathConstraint) constraint(state *ik.StateFS) error {
 	for frame, goal := range fpc.goalMap {
 		if constraint, ok := fpc.constraintMap[frame]; ok {
 			currPose, err := fpc.fs.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), goal.Parent())
 			if err != nil {
-				return false
+				return err
 			}
-			pass := constraint(&ik.State{
+			if err := constraint(&ik.State{
 				Configuration: state.Configuration[frame],
 				Position:      currPose.(*referenceframe.PoseInFrame).Pose(),
 				Frame:         fpc.fs.Frame(frame),
-			})
-			if !pass {
-				return false
+			}); err != nil {
+				return err
 			}
 		}
 	}
-	return true
+	return nil
 }
 
 func (fpc *fsPathConstraint) metric(state *ik.StateFS) float64 {
