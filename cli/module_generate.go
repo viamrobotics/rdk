@@ -379,6 +379,7 @@ func populateAdditionalInfo(newModule *modulegen.ModuleInputs) {
 	modelTriple := fmt.Sprintf("%s:%s:%s", newModule.Namespace, newModule.ModuleName, newModule.ModelName)
 	newModule.ModelTriple = modelTriple
 	newModule.ModelReadmeLink = "README.md#" + generateAnchor(fmt.Sprintf("Model %s", modelTriple))
+	newModule.ModuleReadmeLink = "README.md"
 }
 
 // Creates a new directory with moduleName.
