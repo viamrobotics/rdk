@@ -361,9 +361,10 @@ func TestBasicOctreeCollision(t *testing.T) {
 	t.Run("no collision with box overlapping low-probability octree points", func(t *testing.T) {
 		// add a new point to the tree and make sure nothing else can interact with it
 		threshold := 1e-8
-		lowProbPt := r3.Vector{-10000, -10000, -10000}
+		lowProbPt := r3.Vector{-1000, -1000, -1000}
 		data := NewValueData(0)
-		basicOct.Set(lowProbPt, data)
+		err := basicOct.Set(lowProbPt, data)
+		test.That(t, err, test.ShouldBeNil)
 
 		// create a colliding obstacle overlapping an octree point that has sub-threshold probability
 		lowprob, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(lowProbPt), r3.Vector{threshold, threshold, threshold}, "")
