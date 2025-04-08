@@ -277,9 +277,19 @@ type DataByFilterOptions struct {
 	IncludeInternalData bool
 }
 
+type TabularDataSource int32
+
+const (
+	TabularDataSourceUnspecified TabularDataSource = iota
+	TabularDataSourceStandard
+	TabularDataSourceHotStorage
+	TabularDataSourcePipelineSink
+)
+
 // TabularDataByMQLOptions contains optional parameters for TabularDataByMQL.
 type TabularDataByMQLOptions struct {
-	UseRecentData bool
+	DataSource TabularDataSource
+	PipelineID string
 }
 
 // BinaryDataCaptureUploadOptions represents optional parameters for the BinaryDataCaptureUpload method.
@@ -455,16 +465,22 @@ func (d *DataClient) TabularDataByMQL(
 		mqlBinary = append(mqlBinary, binary)
 	}
 
-	useRecentData := false
-	if opts != nil {
-		useRecentData = opts.UseRecentData
-	}
-
-	resp, err := d.dataClient.TabularDataByMQL(ctx, &pb.TabularDataByMQLRequest{
+	req := &pb.TabularDataByMQLRequest{
 		OrganizationId: organizationID,
 		MqlBinary:      mqlBinary,
-		UseRecentData:  &useRecentData,
-	})
+	}
+	if opts != nil {
+		req.DataSource = &pb.TabularDataSource{
+			Type:       pb.TabularDataSourceType(opts.DataSource),
+			PipelineId: &opts.PipelineID,
+		}
+	} else {
+		req.DataSource = &pb.TabularDataSource{
+			Type: pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD,
+		}
+	}
+
+	resp, err := d.dataClient.TabularDataByMQL(ctx, req)
 	if err != nil {
 		return nil, err
 	}
