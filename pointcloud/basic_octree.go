@@ -17,11 +17,10 @@ const (
 	leafNodeFilled
 	// This value allows for high level of granularity in the octree while still allowing for fast access times
 	// even on a pi.
-	maxRecursionDepth = 250  // This gives us enough resolution to model the observable universe in planck lengths.
-	floatEpsilon      = 1e-6 // This is also effectively half of the minimum side length.
-	nodeRegionOverlap = floatEpsilon / 2
-	// TODO (RSDK-3767): pass these in a different way.
-	confidenceThreshold = 50 // value between 0-100, threshold sets the confidence level required for a point to be considered a collision
+	maxRecursionDepth          = 250  // This gives us enough resolution to model the observable universe in planck lengths.
+	floatEpsilon               = 1e-6 // This is also effectively half of the minimum side length.
+	nodeRegionOverlap          = floatEpsilon / 2
+	defaultConfidenceThreshold = 50
 )
 
 // NodeType represents the possible types of nodes in an octree.
@@ -38,6 +37,9 @@ type BasicOctree struct {
 	size       int
 	meta       MetaData
 	label      string
+
+	// value between 0-100 that sets a threshold which is the confidence level required for a point to be considered a collision
+	confidenceThreshold int
 }
 
 // basicOctreeNode is a struct comprised of the type of node, children nodes (should they exist) and the pointcloud's
@@ -49,21 +51,24 @@ type basicOctreeNode struct {
 	maxVal   int
 }
 
-// NewBasicOctree creates a new basic octree with specified center, side and metadata.
-func NewBasicOctree(center r3.Vector, sideLength float64) (*BasicOctree, error) {
+// NewBasicOctree creates a new basic octree with specified center, side and confidenceThreshold.
+// if the confidenceThreshold is out of the allowable limits the default will be used.
+func NewBasicOctree(center r3.Vector, sideLength float64, confidenceThreshold int) (*BasicOctree, error) {
 	if sideLength <= 0 {
 		return nil, errors.Errorf("invalid side length (%.2f) for octree", sideLength)
 	}
-
-	octree := &BasicOctree{
-		node:       newLeafNodeEmpty(),
-		center:     center,
-		sideLength: sideLength,
-		size:       0,
-		meta:       NewMetaData(),
+	if confidenceThreshold < 0 || confidenceThreshold > 100 {
+		confidenceThreshold = defaultConfidenceThreshold
 	}
 
-	return octree, nil
+	return &BasicOctree{
+		node:                newLeafNodeEmpty(),
+		center:              center,
+		sideLength:          sideLength,
+		size:                0,
+		meta:                NewMetaData(),
+		confidenceThreshold: confidenceThreshold,
+	}, nil
 }
 
 // Size returns the number of points stored in the octree's metadata.
@@ -173,7 +178,7 @@ func (octree *BasicOctree) Transform(pose spatialmath.Pose) spatialmath.Geometry
 	newCenter := spatialmath.Compose(pose, spatialmath.NewPoseFromPoint(octree.center))
 
 	// New sidelength is the diagonal of octree to guarantee fit
-	newOctree, err := NewBasicOctree(newCenter.Point(), octree.sideLength*math.Sqrt(3))
+	newOctree, err := NewBasicOctree(newCenter.Point(), octree.sideLength*math.Sqrt(3), octree.confidenceThreshold)
 	if err != nil {
 		return nil
 	}
@@ -200,7 +205,7 @@ func (octree *BasicOctree) ToProtobuf() *commonpb.Geometry {
 // CollidesWith checks if the given octree collides with the given geometry and returns true if it does.
 // A point is in collision if its stored probability is >= confidenceThreshold and if it is at most collisionBufferMM distance away.
 func (octree *BasicOctree) CollidesWith(geom spatialmath.Geometry, collisionBufferMM float64) (bool, error) {
-	if octree.MaxVal() < confidenceThreshold {
+	if octree.MaxVal() < octree.confidenceThreshold {
 		return false, nil
 	}
 	switch octree.node.nodeType {

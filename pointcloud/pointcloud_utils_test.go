@@ -73,7 +73,7 @@ func TestPrune(t *testing.T) {
 
 func TestToOctree(t *testing.T) {
 	pc := newBigPC()
-	tree, err := ToBasicOctree(pc)
+	tree, err := ToBasicOctree(pc, 0)
 	test.That(t, err, test.ShouldBeNil)
 	pc.Iterate(0, 0, func(p r3.Vector, d Data) bool {
 		treeData, b := tree.At(p.X, p.Y, p.Z)
@@ -84,7 +84,7 @@ func TestToOctree(t *testing.T) {
 
 	basicTree, err := createPopulatedOctree(1)
 	test.That(t, err, test.ShouldBeNil)
-	tree, err = ToBasicOctree(basicTree)
+	tree, err = ToBasicOctree(basicTree, 0)
 	test.That(t, err, test.ShouldBeNil)
 	basicTree.Iterate(0, 0, func(p r3.Vector, d Data) bool {
 		treeData, b := tree.At(p.X, p.Y, p.Z)

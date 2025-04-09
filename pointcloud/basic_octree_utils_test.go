@@ -307,7 +307,7 @@ func TestBasicOctreeCollision(t *testing.T) {
 	center := getCenterFromPcMetaData(startPC.MetaData())
 	maxSideLength := getMaxSideLengthFromPcMetaData(startPC.MetaData())
 
-	basicOct, err := NewBasicOctree(center, maxSideLength)
+	basicOct, err := NewBasicOctree(center, maxSideLength, defaultConfidenceThreshold)
 	test.That(t, err, test.ShouldBeNil)
 
 	startPC.Iterate(0, 0, func(p r3.Vector, d Data) bool {
