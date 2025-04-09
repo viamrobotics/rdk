@@ -117,6 +117,11 @@ const (
 	dataFlagFilterTags                     = "filter-tags"
 	dataFlagTimeout                        = "timeout"
 
+	datapipelineFlagName     = "name"
+	datapipelineFlagSchedule = "schedule"
+	datapipelineFlagMQL      = "mql"
+	datapipelineFlagMQLFile  = "mql-file"
+
 	packageFlagFramework = "model-framework"
 
 	oauthAppFlagClientID             = "client-id"
@@ -1530,9 +1535,13 @@ var app = &cli.App{
 				},
 				{
 					Name:  "create",
-					Usage: "create a new datapipeline",
+					Usage: "create a new data pipeline",
 					UsageText: createUsageText("datapipelines create",
-						[]string{generalFlagOrgID, datapipelineFlagName, datapipelineFlagSchedule, datapipelineFlagMQL}, false, false),
+						[]string{generalFlagOrgID, datapipelineFlagName, datapipelineFlagSchedule}, false, false,
+						fmt.Sprintf("[--%s=<%s> | --%s=<%s>]",
+							datapipelineFlagMQL, datapipelineFlagMQL,
+							datapipelineFlagMQLFile, datapipelineFlagMQLFile),
+					),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:  generalFlagOrgID,
@@ -1550,7 +1559,10 @@ var app = &cli.App{
 							Name:  datapipelineFlagMQL,
 							Usage: "MQL query for the new data pipeline",
 						},
-						// TODO: mql argument (path to file)
+						&cli.StringFlag{
+							Name:  datapipelineFlagMQLFile,
+							Usage: "path to JSON file containing MQL query for the new data pipeline",
+						},
 					},
 					Action: createCommandWithT[datapipelineCreateArgs](DatapipelineCreateAction),
 				},

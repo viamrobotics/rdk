@@ -4,16 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 
 	"github.com/urfave/cli/v2"
 	"go.mongodb.org/mongo-driver/bson"
 	datapipelinespb "go.viam.com/api/app/datapipelines/v1"
-)
-
-const (
-	datapipelineFlagName     = "name"
-	datapipelineFlagSchedule = "schedule"
-	datapipelineFlagMQL      = "mql"
 )
 
 type datapipelineListArgs struct {
@@ -50,6 +45,7 @@ type datapipelineCreateArgs struct {
 	Name     string
 	Schedule string
 	MQL      string
+	MqlFile  string
 }
 
 func DatapipelineCreateAction(c *cli.Context, args datapipelineCreateArgs) error {
@@ -76,8 +72,22 @@ func DatapipelineCreateAction(c *cli.Context, args datapipelineCreateArgs) error
 	// TODO: validate cron expression
 
 	mql := args.MQL
+	mqlFile := args.MqlFile
+
+	if mqlFile != "" {
+		if mql != "" {
+			return errors.New("data pipeline MQL and MQL file cannot both be provided")
+		}
+
+		content, err := os.ReadFile(mqlFile)
+		if err != nil {
+			return fmt.Errorf("error reading MQL file: %w", err)
+		}
+		mql = string(content)
+	}
+
 	if mql == "" {
-		return errors.New("data pipeline MQL is required")
+		return errors.New("missing data pipeline MQL")
 	}
 
 	// Parse the MQL stages directly into BSON
@@ -96,8 +106,6 @@ func DatapipelineCreateAction(c *cli.Context, args datapipelineCreateArgs) error
 		mqlBinary = append(mqlBinary, bytes)
 	}
 
-	// TODO: support MQL file path
-
 	resp, err := client.datapipelinesClient.CreateDataPipeline(context.Background(), &datapipelinespb.CreateDataPipelineRequest{
 		OrganizationId: orgID,
 		Name:           name,
@@ -105,7 +113,7 @@ func DatapipelineCreateAction(c *cli.Context, args datapipelineCreateArgs) error
 		MqlBinary:      mqlBinary,
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("error creating data pipeline: %w", err)
 	}
 
 	printf(c.App.Writer, "%s (ID: %s) created", name, resp.GetId())
