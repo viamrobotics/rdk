@@ -1509,6 +1509,28 @@ var app = &cli.App{
 			},
 		},
 		{
+			Name:            "datapipelines",
+			Usage:           "manage and track data pipelines",
+			UsageText:       createUsageText("datapipelines", nil, false, true),
+			HideHelpCommand: true,
+			Subcommands: []*cli.Command{
+				{
+					Name:  "list",
+					Usage: "list data pipelines for an org ID",
+					UsageText: createUsageText("datapipelines list",
+						[]string{generalFlagOrgID}, true, false),
+					Description: "In order to list data pipelines, an org ID is required",
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:  generalFlagOrgID,
+							Usage: fmt.Sprintf("organization ID for which data pipelines will be listed"),
+						},
+					},
+					Action: createCommandWithT[datapipelineListArgs](DatapipelineListAction),
+				},
+			},
+		},
+		{
 			Name:            "train",
 			Usage:           "train on data",
 			UsageText:       createUsageText("train", nil, false, true),
