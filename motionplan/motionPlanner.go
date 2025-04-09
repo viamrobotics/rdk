@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
-	"sort"
+	"slices"
 	"sync"
 	"time"
 
@@ -529,8 +529,7 @@ IK:
 	for k := range solutions {
 		keys = append(keys, k)
 	}
-	// TODO: switch this to slices.Sort when golang 1.21 is supported by RDK
-	sort.Float64s(keys)
+	slices.Sort(keys)
 
 	orderedSolutions := make([]node, 0)
 	for _, key := range keys {

@@ -257,7 +257,7 @@ func NewCollisionConstraint(
 		cs := cg.collisions(collisionBufferMM)
 		if len(cs) != 0 {
 			// we could choose to amalgamate all the collisions into one error but its probably saner not to and choose just the first
-			return fmt.Errorf(obstacleConstraintDescription+" violation between %s and %s geometries", cs[0].name1, cs[0].name2)
+			return fmt.Errorf("violation between %s and %s geometries", cs[0].name1, cs[0].name2)
 		}
 		return nil
 	}
@@ -308,7 +308,7 @@ func NewCollisionConstraintFS(
 		cs := cg.collisions(collisionBufferMM)
 		if len(cs) != 0 {
 			// we could choose to amalgamate all the collisions into one error but its probably saner not to and choose just the first
-			return fmt.Errorf(obstacleConstraintDescription+" violation between %s and %s geometries", cs[0].name1, cs[0].name2)
+			return fmt.Errorf("violation between %s and %s geometries", cs[0].name1, cs[0].name2)
 		}
 		return nil
 	}
@@ -478,7 +478,7 @@ func NewBoundingRegionConstraint(robotGeoms, boundingRegions []spatial.Geometry,
 		cs := cg.collisions(collisionBufferMM)
 		if len(cs) != 0 {
 			// we could choose to amalgamate all the collisions into one error but its probably saner not to and choose just the first
-			return fmt.Errorf(boundingRegionConstraintDescription+" violation between %s and %s geometries", cs[0].name1, cs[0].name2)
+			return fmt.Errorf("violation between %s and %s geometries", cs[0].name1, cs[0].name2)
 		}
 		return nil
 	}

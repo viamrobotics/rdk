@@ -2,6 +2,7 @@ package motionplan
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"math/rand"
 	"testing"
@@ -525,6 +526,7 @@ func TestArmObstacleSolve(t *testing.T) {
 		WorldState:  worldState,
 	})
 	test.That(t, err, test.ShouldNotBeNil)
+	fmt.Println(err.Error())
 	test.That(t, err.Error(), test.ShouldContainSubstring, errIKConstraint)
 }
 
