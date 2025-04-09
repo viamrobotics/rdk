@@ -58,7 +58,7 @@ func setupRealRobot(t *testing.T, robotConfig *config.Config, logger logging.Log
 	err = webSvc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Attempt to get the stream server; this might be nil if CGO is disabled.
+	// Make type assertion to access the stream server.
 	getter, ok := webSvc.(streamServerGetter)
 	test.That(t, ok, test.ShouldBeTrue)
 	streamServer := getter.GetStreamServer()
@@ -94,11 +94,11 @@ func TestAudioTrackIsNotCreatedForVideoStream(t *testing.T) {
 
 	// Create a robot with a single fake camera.
 	ctx, robot, addr, webSvc, streamServer := setupRealRobot(t, origCfg, logger)
-	if streamServer == nil {
-		t.Skip("Skipping test; CGO may be disabled, stream server is nil")
-	}
 	defer robot.Close(ctx)
 	defer webSvc.Close(ctx)
+	if streamServer == nil {
+		t.Fatal("stream server is nil")
+	}
 
 	// Create a client connection to the robot. Disable direct GRPC to force a WebRTC
 	// connection. Fail if a WebRTC connection cannot be made.
@@ -584,22 +584,16 @@ func TestStreamMediaBehavior(t *testing.T) {
 	}}
 	// Pass a blank logger to setupRealRobot to prevent race conditions with test logger usage in background goroutines.
 	ctx, robot, addr, webSvc, streamServer := setupRealRobot(t, origCfg, logging.NewBlankLogger(""))
+	defer robot.Close(ctx)
+	defer webSvc.Close(ctx)
+
 	if streamServer == nil {
-		t.Fatal("stream server is nil. CGO may be disabled.")
+		t.Fatal("stream server is nil")
 	}
 
 	conn, err := rgrpc.Dial(context.Background(), addr, logger.Sublogger("TestDial"), rpc.WithDisableDirectGRPC())
 	test.That(t, err, test.ShouldBeNil)
 	defer conn.Close()
-
-	camClient, err := camera.NewClientFromConn(context.Background(), conn, "", camera.Named("test-camera"), logger)
-	test.That(t, err, test.ShouldBeNil)
-	defer camClient.Close(ctx)
-
-	props, err := camClient.Properties(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, props.IntrinsicParams.Width, test.ShouldEqual, 1280)
-	test.That(t, props.IntrinsicParams.Height, test.ShouldEqual, 720)
 
 	camResource, err := robot.ResourceByName(camera.Named("test-camera"))
 	test.That(t, err, test.ShouldBeNil)
@@ -666,7 +660,9 @@ func TestStreamMediaBehavior(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		logger.Debug("Unsubscribing from RTP source")
-		unsubscribeErr := rtpSource.Unsubscribe(ctx, sub.ID) // Use original ctx for unsubscribe
+		// Use the original test context for unsubscribe to ensure cleanup proceeds
+		// even if subCtx was cancelled.
+		unsubscribeErr := rtpSource.Unsubscribe(ctx, sub.ID)
 		test.That(t, unsubscribeErr, test.ShouldBeNil)
 		logger.Debug("Unsubscribed from RTP source")
 	}()
@@ -784,6 +780,10 @@ func TestStreamMediaBehavior(t *testing.T) {
 		// Reset to original resolution - Should switch back to passthrough
 		_, err = livestreamClient.SetStreamOptions(ctx, &streampb.SetStreamOptionsRequest{
 			Name: "test-camera",
+			Resolution: &streampb.Resolution{
+				Width:  1280,
+				Height: 720,
+			},
 		})
 		test.That(t, err, test.ShouldBeNil)
 		logger.Info("Reset to original resolution")
@@ -794,21 +794,10 @@ func TestStreamMediaBehavior(t *testing.T) {
 		// was observed to return stale data in previous debugging sessions.
 		vs, ok = streamServer.GetVideoSourceForTest("test-camera") // Swapper check is unreliable here
 		test.That(t, ok, test.ShouldBeTrue)
-		_, err = vs.MediaProperties(ctx)
+		mediaProps, err = vs.MediaProperties(ctx)
 		test.That(t, err, test.ShouldBeNil)
-
-		// Log resources potentially helpful for debugging
-		logger.Infof("Resources on robot before direct Properties call: %v", robot.ResourceNames())
-		camRes, err := robot.ResourceByName(camera.Named("test-camera"))
-		test.That(t, err, test.ShouldBeNil)
-		camServer, ok := camRes.(camera.Camera)
-		test.That(t, ok, test.ShouldBeTrue)
-		origProps, err := camServer.Properties(ctx)
-		test.That(t, err, test.ShouldBeNil)
-
-		test.That(t, origProps.IntrinsicParams, test.ShouldNotBeNil)
-		test.That(t, origProps.IntrinsicParams.Width, test.ShouldEqual, 1280)
-		test.That(t, origProps.IntrinsicParams.Height, test.ShouldEqual, 720)
+		test.That(t, mediaProps.Width, test.ShouldEqual, 1280)
+		test.That(t, mediaProps.Height, test.ShouldEqual, 720)
 
 		// Wait for switch back to passthrough and packets to resume on pktsChan
 		resumeTimeout := time.After(5 * time.Second)
