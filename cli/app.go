@@ -1528,6 +1528,32 @@ var app = &cli.App{
 					},
 					Action: createCommandWithT[datapipelineListArgs](DatapipelineListAction),
 				},
+				{
+					Name:  "create",
+					Usage: "create a new datapipeline",
+					UsageText: createUsageText("datapipelines create",
+						[]string{generalFlagOrgID, datapipelineFlagName, datapipelineFlagSchedule, datapipelineFlagMQL}, false, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:  generalFlagOrgID,
+							Usage: "organization ID for which data pipeline will be created",
+						},
+						&cli.StringFlag{
+							Name:  datapipelineFlagName,
+							Usage: "name of the new data pipeline",
+						},
+						&cli.StringFlag{
+							Name:  datapipelineFlagSchedule,
+							Usage: "schedule of the new data pipeline (cron expression)",
+						},
+						&cli.StringFlag{
+							Name:  datapipelineFlagMQL,
+							Usage: "MQL query for the new data pipeline",
+						},
+						// TODO: mql argument (path to file)
+					},
+					Action: createCommandWithT[datapipelineCreateArgs](DatapipelineCreateAction),
+				},
 			},
 		},
 		{
