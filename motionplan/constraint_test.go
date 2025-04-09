@@ -182,7 +182,7 @@ func TestLineFollow(t *testing.T) {
 	// Check that a deviating configuration will fail
 	stateCheck.Configuration = map[string][]frame.Input{m.Name(): m.InputFromProtobuf(mpFail)}
 	err = opt.CheckStateFSConstraints(stateCheck)
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldStartWith, "whiteboard")
 }
 
@@ -254,8 +254,10 @@ func TestCollisionConstraints(t *testing.T) {
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
 			err := handler.CheckStateConstraints(&ik.State{Configuration: c.input, Frame: model})
-			test.That(t, err, test.ShouldEqual, c.expected)
-			test.That(t, err.Error(), test.ShouldStartWith, c.failName)
+			test.That(t, err == nil, test.ShouldEqual, c.expected)
+			if err != nil {
+				test.That(t, err.Error(), test.ShouldStartWith, c.failName)
+			}
 		})
 	}
 }

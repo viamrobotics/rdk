@@ -4,6 +4,7 @@ package motionplan
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/pkg/errors"
 	"go.viam.com/rdk/motionplan/ik"
@@ -22,52 +23,44 @@ type ConstraintHandler struct {
 }
 
 // CheckStateConstraints will check a given input against all state constraints.
-// Return values are:
-// -- a bool representing whether all constraints passed
-// -- if failing, a string naming the failed constraint.
 func (c *ConstraintHandler) CheckStateConstraints(state *ik.State) error {
 	for name, cFunc := range c.stateConstraints {
 		if err := cFunc(state); err != nil {
-			return errors.Wrap(err, name)
+			// for better logging, parse out the name of the constraint which is guaranteed to be before the underscore
+			return errors.Wrap(err, strings.SplitN(name, "_", 2)[0])
 		}
 	}
 	return nil
 }
 
 // CheckStateFSConstraints will check a given input against all FS state constraints.
-// Return values are:
-// -- a bool representing whether all constraints passed
-// -- if failing, a string naming the failed constraint.
 func (c *ConstraintHandler) CheckStateFSConstraints(state *ik.StateFS) error {
 	for name, cFunc := range c.stateFSConstraints {
 		if err := cFunc(state); err != nil {
-			return errors.Wrap(err, name)
+			// for better logging, parse out the name of the constraint which is guaranteed to be before the underscore
+			return errors.Wrap(err, strings.SplitN(name, "_", 2)[0])
 		}
 	}
 	return nil
 }
 
 // CheckSegmentConstraints will check a given input against all segment constraints.
-// Return values are:
-// -- a bool representing whether all constraints passed
-// -- if failing, a string naming the failed constraint.
 func (c *ConstraintHandler) CheckSegmentConstraints(segment *ik.Segment) error {
 	for name, cFunc := range c.segmentConstraints {
 		if err := cFunc(segment); err != nil {
-			return errors.Wrap(err, name)
+			// for better logging, parse out the name of the constraint which is guaranteed to be before the underscore
+			return errors.Wrap(err, strings.SplitN(name, "_", 2)[0])
 		}
 	}
 	return nil
 }
 
 // CheckSegmentFSConstraints will check a given input against all FS segment constraints.
-// Return values are:
-// -- a bool representing whether all constraints passed
-// -- if failing, a string naming the failed constraint.
 func (c *ConstraintHandler) CheckSegmentFSConstraints(segment *ik.SegmentFS) error {
 	for name, cFunc := range c.segmentFSConstraints {
 		if err := cFunc(segment); err != nil {
-			return errors.Wrap(err, name)
+			// for better logging, parse out the name of the constraint which is guaranteed to be before the underscore
+			return errors.Wrap(err, strings.SplitN(name, "_", 2)[0])
 		}
 	}
 	return nil

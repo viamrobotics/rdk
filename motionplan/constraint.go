@@ -16,11 +16,13 @@ import (
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
+// short descriptions of constraints used in error messages.
 const (
-	// short descriptions of constraints used as keys in the constraintHandler and in error messages.
-	linearConstraintDescription         = "linear constraint"
-	orientationConstraintDescription    = "orientation constraint"
-	planarConstraintDescription         = "planar constraint"
+	linearConstraintDescription      = "linear constraint"
+	orientationConstraintDescription = "orientation constraint"
+	planarConstraintDescription      = "planar constraint"
+
+	// various collision constraints that have different names in order to be unique keys in maps of constraints that are created
 	boundingRegionConstraintDescription = "bounding region constraint"
 	obstacleConstraintDescription       = "obstacle constraint"
 	selfCollisionConstraintDescription  = "self-collision constraint"
@@ -252,7 +254,12 @@ func NewCollisionConstraint(
 		if err != nil {
 			return err
 		}
-		return len(cg.collisions(collisionBufferMM)) == 0
+		cs := cg.collisions(collisionBufferMM)
+		if len(cs) != 0 {
+			// we could choose to amalgamate all the collisions into one error but its probably saner not to and choose just the first
+			return fmt.Errorf(obstacleConstraintDescription+" violation between %s and %s geometries", cs[0].name1, cs[0].name2)
+		}
+		return nil
 	}
 	return constraint, nil
 }
@@ -298,7 +305,12 @@ func NewCollisionConstraintFS(
 		if err != nil {
 			return err
 		}
-		return len(cg.collisions(collisionBufferMM)) == 0
+		cs := cg.collisions(collisionBufferMM)
+		if len(cs) != 0 {
+			// we could choose to amalgamate all the collisions into one error but its probably saner not to and choose just the first
+			return fmt.Errorf(obstacleConstraintDescription+" violation between %s and %s geometries", cs[0].name1, cs[0].name2)
+		}
+		return nil
 	}
 	return constraint, nil
 }
@@ -463,7 +475,12 @@ func NewBoundingRegionConstraint(robotGeoms, boundingRegions []spatial.Geometry,
 		if err != nil {
 			return err
 		}
-		return len(cg.collisions(collisionBufferMM)) != 0
+		cs := cg.collisions(collisionBufferMM)
+		if len(cs) != 0 {
+			// we could choose to amalgamate all the collisions into one error but its probably saner not to and choose just the first
+			return fmt.Errorf(boundingRegionConstraintDescription+" violation between %s and %s geometries", cs[0].name1, cs[0].name2)
+		}
+		return nil
 	}
 }
 
