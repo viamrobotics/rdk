@@ -451,13 +451,16 @@ func (c *viamClient) updateModule(moduleID moduleID, manifest moduleManifest) (*
 	}
 
 	var markdownDocs *string
-	// If a markdown link is provided, read the content
+	// Try to read markdown content from the specified link or default README
+	markdownPath := defaultReadmeFilename
 	if manifest.MarkdownLink != nil {
-		if content, err := getMarkdownContent(*manifest.MarkdownLink); err == nil {
-			markdownDocs = &content
-		} else {
-			warningf(os.Stderr, "Failed to read markdown content from %s: %v", *manifest.MarkdownLink, err)
-		}
+		markdownPath = *manifest.MarkdownLink
+	}
+
+	if content, err := getMarkdownContent(markdownPath); err == nil {
+		markdownDocs = &content
+	} else {
+		warningf(os.Stderr, "Failed to read markdown content from %s: %v", markdownPath, err)
 	}
 	req := apppb.UpdateModuleRequest{
 		ModuleId:            moduleID.String(),
