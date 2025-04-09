@@ -5,6 +5,7 @@ package motionplan
 import (
 	"fmt"
 
+	"github.com/pkg/errors"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 )
@@ -25,9 +26,9 @@ type ConstraintHandler struct {
 // -- a bool representing whether all constraints passed
 // -- if failing, a string naming the failed constraint.
 func (c *ConstraintHandler) CheckStateConstraints(state *ik.State) error {
-	for _, cFunc := range c.stateConstraints {
+	for name, cFunc := range c.stateConstraints {
 		if err := cFunc(state); err != nil {
-			return err
+			return errors.Wrap(err, name)
 		}
 	}
 	return nil
@@ -38,9 +39,9 @@ func (c *ConstraintHandler) CheckStateConstraints(state *ik.State) error {
 // -- a bool representing whether all constraints passed
 // -- if failing, a string naming the failed constraint.
 func (c *ConstraintHandler) CheckStateFSConstraints(state *ik.StateFS) error {
-	for _, cFunc := range c.stateFSConstraints {
+	for name, cFunc := range c.stateFSConstraints {
 		if err := cFunc(state); err != nil {
-			return err
+			return errors.Wrap(err, name)
 		}
 	}
 	return nil
@@ -51,9 +52,9 @@ func (c *ConstraintHandler) CheckStateFSConstraints(state *ik.StateFS) error {
 // -- a bool representing whether all constraints passed
 // -- if failing, a string naming the failed constraint.
 func (c *ConstraintHandler) CheckSegmentConstraints(segment *ik.Segment) error {
-	for _, cFunc := range c.segmentConstraints {
+	for name, cFunc := range c.segmentConstraints {
 		if err := cFunc(segment); err != nil {
-			return err
+			return errors.Wrap(err, name)
 		}
 	}
 	return nil
@@ -64,9 +65,9 @@ func (c *ConstraintHandler) CheckSegmentConstraints(segment *ik.Segment) error {
 // -- a bool representing whether all constraints passed
 // -- if failing, a string naming the failed constraint.
 func (c *ConstraintHandler) CheckSegmentFSConstraints(segment *ik.SegmentFS) error {
-	for _, cFunc := range c.segmentFSConstraints {
+	for name, cFunc := range c.segmentFSConstraints {
 		if err := cFunc(segment); err != nil {
-			return err
+			return errors.Wrap(err, name)
 		}
 	}
 	return nil

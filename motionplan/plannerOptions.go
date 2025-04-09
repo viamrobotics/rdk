@@ -54,14 +54,8 @@ const (
 	// random seed.
 	defaultRandomSeed = 0
 
-	// descriptions of constraints.
-	defaultLinearConstraintDesc         = "Constraint to follow linear path"
-	defaultPseudolinearConstraintDesc   = "Constraint to follow pseudolinear path, with tolerance scaled to path length"
-	defaultOrientationConstraintDesc    = "Constraint to maintain orientation within bounds"
-	defaultBoundingRegionConstraintDesc = "Constraint to maintain position within bounds"
-	defaultObstacleConstraintDesc       = "Collision between the robot and an obstacle"
-	defaultSelfCollisionConstraintDesc  = "Collision between two robot components that are moving"
-	defaultRobotCollisionConstraintDesc = "Collision between a robot component that is moving and one that is stationary"
+	// constraints passed over the wire do not get names and we want to call them something
+	defaultConstraintName = "unnamed constraint"
 
 	// When breaking down a path into smaller waypoints, add a waypoint every this many mm of movement.
 	defaultStepSizeMM = 10
@@ -288,7 +282,7 @@ func (p *plannerOptions) addLinearConstraints(
 	if err != nil {
 		return err
 	}
-	p.AddStateFSConstraint(defaultLinearConstraintDesc, constraint)
+	p.AddStateFSConstraint(defaultConstraintName, constraint)
 
 	p.pathMetric = ik.CombineFSMetrics(p.pathMetric, pathDist)
 	return nil
@@ -314,7 +308,7 @@ func (p *plannerOptions) addPseudolinearConstraints(
 	if err != nil {
 		return err
 	}
-	p.AddStateFSConstraint(defaultPseudolinearConstraintDesc, constraint)
+	p.AddStateFSConstraint(defaultConstraintName, constraint)
 
 	p.pathMetric = ik.CombineFSMetrics(p.pathMetric, pathDist)
 	return nil
@@ -334,7 +328,7 @@ func (p *plannerOptions) addOrientationConstraints(
 	if err != nil {
 		return err
 	}
-	p.AddStateFSConstraint(defaultOrientationConstraintDesc, constraint)
+	p.AddStateFSConstraint(defaultConstraintName, constraint)
 	p.pathMetric = ik.CombineFSMetrics(p.pathMetric, pathDist)
 	return nil
 }

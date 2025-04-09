@@ -16,6 +16,17 @@ import (
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
+const (
+	// short descriptions of constraints used as keys in the constraintHandler and in error messages.
+	linearConstraintDescription         = "linear constraint"
+	orientationConstraintDescription    = "orientation constraint"
+	planarConstraintDescription         = "planar constraint"
+	boundingRegionConstraintDescription = "bounding region constraint"
+	obstacleConstraintDescription       = "obstacle constraint"
+	selfCollisionConstraintDescription  = "self-collision constraint"
+	robotCollisionConstraintDescription = "robot constraint" // collision between a moving robot component and one that is stationary
+)
+
 // Given a constraint input with only frames and input positions, calculates the corresponding poses as needed.
 func resolveSegmentsToPositions(segment *ik.Segment) error {
 	if segment.StartPosition == nil {
@@ -132,14 +143,14 @@ func createAllCollisionConstraints(
 			return nil, nil, err
 		}
 		// TODO: TPspace currently still uses the non-FS constraint, this should be removed once TPspace is fully migrated to frame systems
-		constraintMap[defaultObstacleConstraintDesc] = obstacleConstraint
-		constraintFSMap[defaultObstacleConstraintDesc] = obstacleConstraintFS
+		constraintMap[obstacleConstraintDescription] = obstacleConstraint
+		constraintFSMap[obstacleConstraintDescription] = obstacleConstraintFS
 	}
 
 	if len(boundingRegions) > 0 {
 		// create constraint to keep moving geometries within the defined bounding regions
 		interactionSpaceConstraint := NewBoundingRegionConstraint(movingRobotGeometries, boundingRegions, collisionBufferMM)
-		constraintMap[defaultBoundingRegionConstraintDesc] = interactionSpaceConstraint
+		constraintMap[boundingRegionConstraintDescription] = interactionSpaceConstraint
 	}
 
 	if len(staticRobotGeometries) > 0 {
@@ -162,8 +173,8 @@ func createAllCollisionConstraints(
 		if err != nil {
 			return nil, nil, err
 		}
-		constraintMap[defaultRobotCollisionConstraintDesc] = robotConstraint
-		constraintFSMap[defaultRobotCollisionConstraintDesc] = robotConstraintFS
+		constraintMap[robotCollisionConstraintDescription] = robotConstraint
+		constraintFSMap[robotCollisionConstraintDescription] = robotConstraintFS
 	}
 
 	// create constraint to keep moving geometries from hitting themselves
@@ -172,12 +183,12 @@ func createAllCollisionConstraints(
 		if err != nil {
 			return nil, nil, err
 		}
-		constraintMap[defaultSelfCollisionConstraintDesc] = selfCollisionConstraint
+		constraintMap[selfCollisionConstraintDescription] = selfCollisionConstraint
 		selfCollisionConstraintFS, err := NewCollisionConstraintFS(movingRobotGeometries, nil, allowedCollisions, false, collisionBufferMM)
 		if err != nil {
 			return nil, nil, err
 		}
-		constraintFSMap[defaultSelfCollisionConstraintDesc] = selfCollisionConstraintFS
+		constraintFSMap[selfCollisionConstraintDescription] = selfCollisionConstraintFS
 	}
 	return constraintFSMap, constraintMap, nil
 }
@@ -219,28 +230,27 @@ func NewCollisionConstraint(
 		case state.Configuration != nil:
 			internal, err := state.Frame.Geometries(state.Configuration)
 			if err != nil {
-				return false
+				return err
 			}
 			internalGeoms = internal.Geometries()
 		case state.Position != nil:
-			// TODO(RSDK-5391): remove this case
 			// If we didn't pass a Configuration, but we do have a Position, then get the geometries at the zero state and
 			// transform them to the Position
 			internal, err := state.Frame.Geometries(make([]referenceframe.Input, len(state.Frame.DoF())))
 			if err != nil {
-				return false
+				return err
 			}
 			movedGeoms := internal.Geometries()
 			for _, geom := range movedGeoms {
 				internalGeoms = append(internalGeoms, geom.Transform(state.Position))
 			}
 		default:
-			return false
+			return errors.New("need either a Position or Configuration to be set for a ik.State")
 		}
 
 		cg, err := newCollisionGraph(internalGeoms, static, zeroCG, reportDistances, collisionBufferMM)
 		if err != nil {
-			return false
+			return err
 		}
 		return len(cg.collisions(collisionBufferMM)) == 0
 	}
@@ -271,7 +281,7 @@ func NewCollisionConstraintFS(
 		// Use FrameSystemGeometries to get all geometries in the frame system
 		internalGeometries, err := referenceframe.FrameSystemGeometries(state.FS, state.Configuration)
 		if err != nil {
-			return false
+			return err
 		}
 
 		// We only want to compare *moving* geometries, so we filter what we get from the framesystem against what we were passed.
@@ -286,7 +296,7 @@ func NewCollisionConstraintFS(
 
 		cg, err := newCollisionGraph(internalGeoms, static, zeroCG, reportDistances, collisionBufferMM)
 		if err != nil {
-			return false
+			return err
 		}
 		return len(cg.collisions(collisionBufferMM)) == 0
 	}
@@ -310,7 +320,7 @@ func NewAbsoluteLinearInterpolatingConstraint(from, to spatial.Pose, linTol, ori
 	interpMetric := ik.CombineMetrics(orientMetric, lineMetric)
 
 	f := func(state *ik.State) error {
-		return orientConstraint(state) && lineConstraint(state)
+		return errors.Join(orientConstraint(state), lineConstraint(state))
 	}
 	return f, interpMetric
 }
@@ -348,9 +358,12 @@ func NewSlerpOrientationConstraint(start, goal spatial.Pose, tolerance float64) 
 	validFunc := func(state *ik.State) error {
 		err := resolveStatesToPositions(state)
 		if err != nil {
-			return false
+			return err
 		}
-		return gradFunc(state) < tolerance
+		if gradFunc(state) < tolerance {
+			return nil
+		}
+		return errors.New(orientationConstraintDescription + " violated")
 	}
 
 	return validFunc, gradFunc
@@ -386,9 +399,12 @@ func NewPlaneConstraint(pNorm, pt r3.Vector, writingAngle, epsilon float64) (Sta
 	validFunc := func(state *ik.State) error {
 		err := resolveStatesToPositions(state)
 		if err != nil {
-			return false
+			return err
 		}
-		return gradFunc(state) < epsilon*epsilon
+		if gradFunc(state) < epsilon*epsilon {
+			return nil
+		}
+		return errors.New(planarConstraintDescription + " violated")
 	}
 
 	return validFunc, gradFunc
@@ -406,9 +422,12 @@ func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (StateConstraint, 
 	validFunc := func(state *ik.State) error {
 		err := resolveStatesToPositions(state)
 		if err != nil {
-			return false
+			return err
 		}
-		return gradFunc(state) == 0
+		if gradFunc(state) == 0 {
+			return nil
+		}
+		return errors.New(linearConstraintDescription + " violated")
 	}
 
 	return validFunc, gradFunc
@@ -427,7 +446,6 @@ func NewBoundingRegionConstraint(robotGeoms, boundingRegions []spatial.Geometry,
 			}
 			internalGeoms = internal.Geometries()
 		case state.Position != nil:
-			// TODO(RSDK-5391): remove this case
 			// If we didn't pass a Configuration, but we do have a Position, then get the geometries at the zero state and
 			// transform them to the Position
 			internal, err := state.Frame.Geometries(make([]referenceframe.Input, len(state.Frame.DoF())))

@@ -132,7 +132,10 @@ func constrainedXArmMotion() (*planConfig, error) {
 			return err
 		}
 
-		return oFunc(cInput.Position.Orientation()) == 0
+		if oFunc(cInput.Position.Orientation()) == 0 {
+			return nil
+		}
+		return errors.New("violation")
 	}
 
 	opt.goalMetricConstructor = orientMetric
