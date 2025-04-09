@@ -52,15 +52,10 @@ type basicOctreeNode struct {
 }
 
 // NewBasicOctree creates a new basic octree with specified center, side and confidenceThreshold.
-// if the confidenceThreshold is out of the allowable limits the default will be used.
 func NewBasicOctree(center r3.Vector, sideLength float64, confidenceThreshold int) (*BasicOctree, error) {
 	if sideLength <= 0 {
 		return nil, errors.Errorf("invalid side length (%.2f) for octree", sideLength)
 	}
-	if confidenceThreshold < 0 || confidenceThreshold > 100 {
-		confidenceThreshold = defaultConfidenceThreshold
-	}
-
 	return &BasicOctree{
 		node:                newLeafNodeEmpty(),
 		center:              center,
