@@ -117,6 +117,7 @@ const (
 	dataFlagFilterTags                     = "filter-tags"
 	dataFlagTimeout                        = "timeout"
 
+	datapipelineFlagID       = "id"
 	datapipelineFlagName     = "name"
 	datapipelineFlagSchedule = "schedule"
 	datapipelineFlagMQL      = "mql"
@@ -1565,6 +1566,39 @@ var app = &cli.App{
 						},
 					},
 					Action: createCommandWithT[datapipelineCreateArgs](DatapipelineCreateAction),
+				},
+				{
+					Name:  "update",
+					Usage: "update a data pipeline",
+					UsageText: createUsageText("datapipelines update",
+						[]string{datapipelineFlagID, datapipelineFlagName, datapipelineFlagSchedule}, false, false,
+						fmt.Sprintf("[--%s=<%s> | --%s=<%s>]",
+							datapipelineFlagMQL, datapipelineFlagMQL,
+							datapipelineFlagMQLFile, datapipelineFlagMQLFile),
+					),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:  datapipelineFlagID,
+							Usage: "ID of the data pipeline to update",
+						},
+						&cli.StringFlag{
+							Name:  datapipelineFlagName,
+							Usage: "name of the data pipeline to update",
+						},
+						&cli.StringFlag{
+							Name:  datapipelineFlagSchedule,
+							Usage: "schedule of the data pipeline to update (cron expression)",
+						},
+						&cli.StringFlag{
+							Name:  datapipelineFlagMQL,
+							Usage: "MQL query for the data pipeline to update",
+						},
+						&cli.StringFlag{
+							Name:  datapipelineFlagMQLFile,
+							Usage: "path to JSON file containing MQL query for the data pipeline to update",
+						},
+					},
+					Action: createCommandWithT[datapipelineUpdateArgs](DatapipelineUpdateAction),
 				},
 			},
 		},

@@ -120,3 +120,85 @@ func DatapipelineCreateAction(c *cli.Context, args datapipelineCreateArgs) error
 
 	return nil
 }
+
+type datapipelineUpdateArgs struct {
+	ID       string
+	Name     string
+	Schedule string
+	MQL      string
+	MqlFile  string
+}
+
+func DatapipelineUpdateAction(c *cli.Context, args datapipelineUpdateArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	id := args.ID
+	if id == "" {
+		return errors.New("data pipeline ID is required")
+	}
+
+	// TODO: maybe load existing pipeline and update fields?
+
+	name := args.Name
+	if name == "" {
+		return errors.New("data pipeline name is required")
+	}
+
+	schedule := args.Schedule
+	if schedule == "" {
+		return errors.New("data pipeline schedule is required")
+	}
+
+	// TODO: validate cron expression
+
+	mql := args.MQL
+	mqlFile := args.MqlFile
+
+	if mqlFile != "" {
+		if mql != "" {
+			return errors.New("data pipeline MQL and MQL file cannot both be provided")
+		}
+
+		content, err := os.ReadFile(mqlFile)
+		if err != nil {
+			return fmt.Errorf("error reading MQL file: %w", err)
+		}
+		mql = string(content)
+	}
+
+	if mql == "" {
+		return errors.New("missing data pipeline MQL")
+	}
+
+	// Parse the MQL stages directly into BSON
+	// TODO: look into more leniant JSON parser
+	var mqlArray []bson.M
+	if err := bson.UnmarshalExtJSON([]byte(mql), false, &mqlArray); err != nil {
+		return fmt.Errorf("invalid MQL: %w", err)
+	}
+
+	var mqlBinary [][]byte
+	for _, stage := range mqlArray {
+		bytes, err := bson.Marshal(stage)
+		if err != nil {
+			return fmt.Errorf("error converting MQL stage to BSON: %w", err)
+		}
+		mqlBinary = append(mqlBinary, bytes)
+	}
+
+	_, err = client.datapipelinesClient.UpdateDataPipeline(context.Background(), &datapipelinespb.UpdateDataPipelineRequest{
+		Id:        id,
+		Name:      name,
+		Schedule:  schedule,
+		MqlBinary: mqlBinary,
+	})
+	if err != nil {
+		return fmt.Errorf("error updating data pipeline: %w", err)
+	}
+
+	printf(c.App.Writer, "%s (id: %s) updated", name, id)
+	return nil
+}
