@@ -461,6 +461,7 @@ func (c *viamClient) updateModule(moduleID moduleID, manifest moduleManifest) (*
 		markdownDocs = &content
 	} else {
 		warningf(os.Stderr, "Failed to read markdown content from %s: %v", markdownPath, err)
+		warningf(os.Stderr, "Please document your module with a README.md. You can configure meta.json to read documentation from a file path with the 'markdown_link' field.")
 	}
 	req := apppb.UpdateModuleRequest{
 		ModuleId:            moduleID.String(),
