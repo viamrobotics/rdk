@@ -215,7 +215,7 @@ var dataTagByIDsFlags = []cli.Flag{
 	},
 	&cli.StringSliceFlag{
 		Name:     dataFlagBinaryDataIDs,
-		Usage:    "comma separated binary data IDs of data belonging to specified org and location",
+		Usage:    "comma separated binary data IDs",
 		Required: true,
 	},
 }
@@ -1243,13 +1243,13 @@ var app = &cli.App{
 					Subcommands: []*cli.Command{
 						{
 							Name:            "ids",
-							Usage:           "adds or removes tags from binary data by file ids for a given org and location",
+							Usage:           "adds or removes tags from binary data by binary data ids for a given org and location",
 							UsageText:       createUsageText("data tag ids", nil, true, false),
 							HideHelpCommand: true,
 							Subcommands: []*cli.Command{
 								{
 									Name:  "add",
-									Usage: "adds tags to binary data by file ids for a given org and location",
+									Usage: "adds tags to binary data by binary data ids for a given org and location",
 									UsageText: createUsageText(
 										"data tag ids add", []string{generalFlagTags, dataFlagBinaryDataIDs}, false, false,
 									),
@@ -1258,7 +1258,7 @@ var app = &cli.App{
 								},
 								{
 									Name:  "remove",
-									Usage: "removes tags from binary data by file ids for a given org and location",
+									Usage: "removes tags from binary data by binary data ids for a given org and location",
 									UsageText: createUsageText(
 										"data tag ids remove", []string{generalFlagTags, dataFlagBinaryDataIDs}, false, false,
 									),
@@ -1415,7 +1415,7 @@ var app = &cli.App{
 							Subcommands: []*cli.Command{
 								{
 									Name:  "ids",
-									Usage: "adds binary data with file IDs in a single org and location to dataset",
+									Usage: "adds binary data with binary data ids in a single org and location to dataset",
 									UsageText: createUsageText(
 										"dataset data add ids", []string{datasetFlagDatasetID, dataFlagBinaryDataIDs}, false, false,
 									),
@@ -1464,7 +1464,7 @@ var app = &cli.App{
 							Subcommands: []*cli.Command{
 								{
 									Name:  "ids",
-									Usage: "removes binary data with file IDs in a single org and location from a dataset",
+									Usage: "removes binary data with binary data ids in a single org and location from a dataset",
 									UsageText: createUsageText(
 										"dataset data remove ids", []string{datasetFlagDatasetID, dataFlagBinaryDataIDs}, false, false,
 									),
