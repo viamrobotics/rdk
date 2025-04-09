@@ -13,7 +13,7 @@ import (
 
 const (
 	// Number of planner iterations before giving up.
-	defaultPlanIter = 3000
+	defaultPlanIter = 1500
 
 	// The maximum percent of a joints range of motion to allow per step.
 	defaultFrameStep = 0.01
