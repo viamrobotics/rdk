@@ -49,39 +49,9 @@ func DatapipelineCreateAction(c *cli.Context, args datapipelineCreateArgs) error
 		return err
 	}
 
-	mql := args.MQL
-	mqlFile := args.MqlFile
-
-	if mqlFile != "" {
-		if mql != "" {
-			return errors.New("data pipeline MQL and MQL file cannot both be provided")
-		}
-
-		content, err := os.ReadFile(mqlFile)
-		if err != nil {
-			return fmt.Errorf("error reading MQL file: %w", err)
-		}
-		mql = string(content)
-	}
-
-	if mql == "" {
-		return errors.New("missing data pipeline MQL")
-	}
-
-	// Parse the MQL stages directly into BSON
-	// TODO: look into more leniant JSON parser
-	var mqlArray []bson.M
-	if err := bson.UnmarshalExtJSON([]byte(mql), false, &mqlArray); err != nil {
-		return fmt.Errorf("invalid MQL: %w", err)
-	}
-
-	var mqlBinary [][]byte
-	for _, stage := range mqlArray {
-		bytes, err := bson.Marshal(stage)
-		if err != nil {
-			return fmt.Errorf("error converting MQL stage to BSON: %w", err)
-		}
-		mqlBinary = append(mqlBinary, bytes)
+	mqlBinary, err := parseMQL(args.MQL, args.MqlFile)
+	if err != nil {
+		return err
 	}
 
 	resp, err := client.datapipelinesClient.CreateDataPipeline(context.Background(), &datapipelinespb.CreateDataPipelineRequest{
@@ -131,37 +101,13 @@ func DatapipelineUpdateAction(c *cli.Context, args datapipelineUpdateArgs) error
 		schedule = current.GetSchedule()
 	}
 
-	mql := args.MQL
-	mqlFile := args.MqlFile
-
-	if mqlFile != "" {
-		if mql != "" {
-			return errors.New("data pipeline MQL and MQL file cannot both be provided")
-		}
-
-		content, err := os.ReadFile(mqlFile)
-		if err != nil {
-			return fmt.Errorf("error reading MQL file: %w", err)
-		}
-		mql = string(content)
-	}
-
 	mqlBinary := current.GetMqlBinary()
-	if mql != "" {
-		// Parse the MQL stages directly into BSON
-		// TODO: look into more leniant JSON parser
-		var mqlArray []bson.M
-		if err := bson.UnmarshalExtJSON([]byte(mql), false, &mqlArray); err != nil {
-			return fmt.Errorf("invalid MQL: %w", err)
+	if args.MQL != "" || args.MqlFile != "" {
+		newMqlBinary, err := parseMQL(args.MQL, args.MqlFile)
+		if err != nil {
+			return err
 		}
-
-		for _, stage := range mqlArray {
-			bytes, err := bson.Marshal(stage)
-			if err != nil {
-				return fmt.Errorf("error converting MQL stage to BSON: %w", err)
-			}
-			mqlBinary = append(mqlBinary, bytes)
-		}
+		mqlBinary = newMqlBinary
 	}
 
 	_, err = client.datapipelinesClient.UpdateDataPipeline(context.Background(), &datapipelinespb.UpdateDataPipelineRequest{
@@ -176,6 +122,42 @@ func DatapipelineUpdateAction(c *cli.Context, args datapipelineUpdateArgs) error
 
 	printf(c.App.Writer, "%s (id: %s) updated.", name, args.ID)
 	return nil
+}
+
+func parseMQL(mql, mqlFile string) ([][]byte, error) {
+	if mqlFile != "" {
+		if mql != "" {
+			return nil, errors.New("data pipeline MQL and MQL file cannot both be provided")
+		}
+
+		content, err := os.ReadFile(mqlFile)
+		if err != nil {
+			return nil, fmt.Errorf("error reading MQL file: %w", err)
+		}
+		mql = string(content)
+	}
+
+	if mql == "" {
+		return nil, errors.New("missing data pipeline MQL")
+	}
+
+	// Parse the MQL stages directly into BSON
+	// TODO: look into more leniant JSON parser
+	var mqlArray []bson.M
+	if err := bson.UnmarshalExtJSON([]byte(mql), false, &mqlArray); err != nil {
+		return nil, fmt.Errorf("invalid MQL: %w", err)
+	}
+
+	var mqlBinary [][]byte
+	for _, stage := range mqlArray {
+		bytes, err := bson.Marshal(stage)
+		if err != nil {
+			return nil, fmt.Errorf("error converting MQL stage to BSON: %w", err)
+		}
+		mqlBinary = append(mqlBinary, bytes)
+	}
+
+	return mqlBinary, nil
 }
 
 type datapipelineDeleteArgs struct {
