@@ -113,16 +113,22 @@ func DatapipelineUpdateAction(c *cli.Context, args datapipelineUpdateArgs) error
 		return err
 	}
 
-	// TODO: maybe load existing pipeline and update fields?
+	resp, err := client.datapipelinesClient.GetDataPipeline(context.Background(), &datapipelinespb.GetDataPipelineRequest{
+		Id: args.ID,
+	})
+	if err != nil {
+		return fmt.Errorf("error getting data pipeline: %w", err)
+	}
+	current := resp.GetDataPipeline()
 
 	name := args.Name
 	if name == "" {
-		return errors.New("data pipeline name is required")
+		name = current.GetName()
 	}
 
 	schedule := args.Schedule
 	if schedule == "" {
-		return errors.New("data pipeline schedule is required")
+		schedule = current.GetSchedule()
 	}
 
 	mql := args.MQL
@@ -140,24 +146,22 @@ func DatapipelineUpdateAction(c *cli.Context, args datapipelineUpdateArgs) error
 		mql = string(content)
 	}
 
-	if mql == "" {
-		return errors.New("missing data pipeline MQL")
-	}
-
-	// Parse the MQL stages directly into BSON
-	// TODO: look into more leniant JSON parser
-	var mqlArray []bson.M
-	if err := bson.UnmarshalExtJSON([]byte(mql), false, &mqlArray); err != nil {
-		return fmt.Errorf("invalid MQL: %w", err)
-	}
-
-	var mqlBinary [][]byte
-	for _, stage := range mqlArray {
-		bytes, err := bson.Marshal(stage)
-		if err != nil {
-			return fmt.Errorf("error converting MQL stage to BSON: %w", err)
+	mqlBinary := current.GetMqlBinary()
+	if mql != "" {
+		// Parse the MQL stages directly into BSON
+		// TODO: look into more leniant JSON parser
+		var mqlArray []bson.M
+		if err := bson.UnmarshalExtJSON([]byte(mql), false, &mqlArray); err != nil {
+			return fmt.Errorf("invalid MQL: %w", err)
 		}
-		mqlBinary = append(mqlBinary, bytes)
+
+		for _, stage := range mqlArray {
+			bytes, err := bson.Marshal(stage)
+			if err != nil {
+				return fmt.Errorf("error converting MQL stage to BSON: %w", err)
+			}
+			mqlBinary = append(mqlBinary, bytes)
+		}
 	}
 
 	_, err = client.datapipelinesClient.UpdateDataPipeline(context.Background(), &datapipelinespb.UpdateDataPipelineRequest{
