@@ -94,7 +94,7 @@ func DatapipelineCreateAction(c *cli.Context, args datapipelineCreateArgs) error
 		return fmt.Errorf("error creating data pipeline: %w", err)
 	}
 
-	printf(c.App.Writer, "%s (ID: %s) created", args.Name, resp.GetId())
+	printf(c.App.Writer, "%s (ID: %s) created.", args.Name, resp.GetId())
 
 	return nil
 }
@@ -174,7 +174,7 @@ func DatapipelineUpdateAction(c *cli.Context, args datapipelineUpdateArgs) error
 		return fmt.Errorf("error updating data pipeline: %w", err)
 	}
 
-	printf(c.App.Writer, "%s (id: %s) updated", name, args.ID)
+	printf(c.App.Writer, "%s (id: %s) updated.", name, args.ID)
 	return nil
 }
 
@@ -195,6 +195,6 @@ func DatapipelineDeleteAction(c *cli.Context, args datapipelineDeleteArgs) error
 		return fmt.Errorf("error deleting data pipeline: %w", err)
 	}
 
-	printf(c.App.Writer, "data pipeline (id: %s) deleted", args.ID)
+	printf(c.App.Writer, "data pipeline (id: %s) deleted.", args.ID)
 	return nil
 }
