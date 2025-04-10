@@ -171,7 +171,7 @@ func DatapipelineDescribeAction(c *cli.Context, args datapipelineDescribeArgs) e
 
 	printf(c.App.Writer, "ID: %s", pipeline.GetId())
 	printf(c.App.Writer, "Name: %s", pipeline.GetName())
-	printf(c.App.Writer, "Time window: %s", pipeline.GetSchedule())
+	printf(c.App.Writer, "Schedule: %s", pipeline.GetSchedule())
 	printf(c.App.Writer, "MQL query: %s", mql)
 	// TODO: pending implementation of PipelineRuns API
 	// printf(c.App.Writer, "Last execution: %s", pipeline.GetLastExecution())
