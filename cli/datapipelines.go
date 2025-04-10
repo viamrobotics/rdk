@@ -163,13 +163,15 @@ func DatapipelineDescribeAction(c *cli.Context, args datapipelineDescribeArgs) e
 	}
 	pipeline := resp.GetDataPipeline()
 
+	mql, err := mqlJSON(pipeline.GetMqlBinary())
+	if err != nil {
+		warningf(c.App.Writer, "error parsing MQL query: %s", err)
+		mql = "(error parsing MQL query)"
+	}
+
 	printf(c.App.Writer, "ID: %s", pipeline.GetId())
 	printf(c.App.Writer, "Name: %s", pipeline.GetName())
 	printf(c.App.Writer, "Time window: %s", pipeline.GetSchedule())
-	mql, err := mqlJSON(pipeline.GetMqlBinary())
-	if err != nil {
-		return fmt.Errorf("error getting MQL query: %w", err)
-	}
 	printf(c.App.Writer, "MQL query: %s", mql)
 	// TODO: pending implementation of PipelineRuns API
 	// printf(c.App.Writer, "Last execution: %s", pipeline.GetLastExecution())
