@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -103,11 +104,10 @@ func DatapipelineUpdateAction(c *cli.Context, args datapipelineUpdateArgs) error
 
 	mqlBinary := current.GetMqlBinary()
 	if args.MQL != "" || args.MqlFile != "" {
-		newMqlBinary, err := parseMQL(args.MQL, args.MqlFile)
+		mqlBinary, err = parseMQL(args.MQL, args.MqlFile)
 		if err != nil {
 			return err
 		}
-		mqlBinary = newMqlBinary
 	}
 
 	_, err = client.datapipelinesClient.UpdateDataPipeline(context.Background(), &datapipelinespb.UpdateDataPipelineRequest{
@@ -121,6 +121,59 @@ func DatapipelineUpdateAction(c *cli.Context, args datapipelineUpdateArgs) error
 	}
 
 	printf(c.App.Writer, "%s (id: %s) updated.", name, args.ID)
+	return nil
+}
+
+type datapipelineDeleteArgs struct {
+	ID string
+}
+
+func DatapipelineDeleteAction(c *cli.Context, args datapipelineDeleteArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	_, err = client.datapipelinesClient.DeleteDataPipeline(context.Background(), &datapipelinespb.DeleteDataPipelineRequest{
+		Id: args.ID,
+	})
+	if err != nil {
+		return fmt.Errorf("error deleting data pipeline: %w", err)
+	}
+
+	printf(c.App.Writer, "data pipeline (id: %s) deleted.", args.ID)
+	return nil
+}
+
+type datapipelineDescribeArgs struct {
+	ID string
+}
+
+func DatapipelineDescribeAction(c *cli.Context, args datapipelineDescribeArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	resp, err := client.datapipelinesClient.GetDataPipeline(context.Background(), &datapipelinespb.GetDataPipelineRequest{
+		Id: args.ID,
+	})
+	if err != nil {
+		return fmt.Errorf("error getting data pipeline: %w", err)
+	}
+	pipeline := resp.GetDataPipeline()
+
+	printf(c.App.Writer, "ID: %s", pipeline.GetId())
+	printf(c.App.Writer, "Name: %s", pipeline.GetName())
+	printf(c.App.Writer, "Time window: %s", pipeline.GetSchedule())
+	mql, err := mqlJSON(pipeline.GetMqlBinary())
+	if err != nil {
+		return fmt.Errorf("error getting MQL query: %w", err)
+	}
+	printf(c.App.Writer, "MQL query: %s", mql)
+	// TODO: pending implementation of PipelineRuns API
+	// printf(c.App.Writer, "Last execution: %s", pipeline.GetLastExecution())
+
 	return nil
 }
 
@@ -160,23 +213,20 @@ func parseMQL(mql, mqlFile string) ([][]byte, error) {
 	return mqlBinary, nil
 }
 
-type datapipelineDeleteArgs struct {
-	ID string
-}
-
-func DatapipelineDeleteAction(c *cli.Context, args datapipelineDeleteArgs) error {
-	client, err := newViamClient(c)
-	if err != nil {
-		return err
+func mqlJSON(mql [][]byte) (string, error) {
+	var stages []bson.M
+	for _, bsonBytes := range mql {
+		var stage bson.M
+		if err := bson.Unmarshal(bsonBytes, &stage); err != nil {
+			return "", fmt.Errorf("error unmarshaling BSON stage: %w", err)
+		}
+		stages = append(stages, stage)
 	}
 
-	_, err = client.datapipelinesClient.DeleteDataPipeline(context.Background(), &datapipelinespb.DeleteDataPipelineRequest{
-		Id: args.ID,
-	})
+	jsonBytes, err := json.MarshalIndent(stages, "", "  ")
 	if err != nil {
-		return fmt.Errorf("error deleting data pipeline: %w", err)
+		return "", fmt.Errorf("error marshaling stages to JSON: %w", err)
 	}
 
-	printf(c.App.Writer, "data pipeline (id: %s) deleted.", args.ID)
-	return nil
+	return string(jsonBytes), nil
 }
