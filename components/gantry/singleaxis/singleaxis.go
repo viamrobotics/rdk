@@ -91,10 +91,11 @@ type singleAxis struct {
 	motor motor.Motor
 	mu    sync.Mutex
 
-	limitSwitchPins []string
+	limitSwitchPins []board.DigitalInterrupt
 	limitHigh       bool
 	positionLimits  []float64
 	positionRange   float64
+	initialStates   []bool
 
 	lengthMm        float64
 	mmPerRevolution float64
@@ -107,6 +108,12 @@ type singleAxis struct {
 	logger                  logging.Logger
 	opMgr                   *operation.SingleOperationManager
 	activeBackgroundWorkers sync.WaitGroup
+
+	ticksChan   chan board.Tick
+	ticksCancel func()
+
+	state0 bool
+	state1 bool
 }
 
 // newSingleAxis creates a new single axis gantry.
@@ -201,11 +208,23 @@ func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies
 		if (len(g.limitSwitchPins) != len(newConf.LimitSwitchPins)) || (g.limitHigh != *newConf.LimitPinEnabled) {
 			g.limitHigh = *newConf.LimitPinEnabled
 			needsToReHome = true
-			g.limitSwitchPins = newConf.LimitSwitchPins
+			g.limitSwitchPins = []board.DigitalInterrupt{}
+			for _, pin := range newConf.LimitSwitchPins {
+				di, err := g.board.DigitalInterruptByName(pin)
+				if err != nil {
+					return err
+				}
+
+				g.limitSwitchPins = append(g.limitSwitchPins, di)
+			}
 		} else {
 			for i, pin := range newConf.LimitSwitchPins {
-				if pin != g.limitSwitchPins[i] {
-					g.limitSwitchPins[i] = pin
+				di, err := g.board.DigitalInterruptByName(pin)
+				if err != nil {
+					return err
+				}
+				if di.Name() != g.limitSwitchPins[i].Name() {
+					g.limitSwitchPins[i] = di
 					needsToReHome = true
 				}
 			}
@@ -220,10 +239,18 @@ func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies
 		g.positionRange = 0
 		g.positionLimits = []float64{0, 0}
 	}
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	g.cancelFunc = cancelFunc
-	g.checkHit(ctx)
 
+	g.ticksChan = make(chan board.Tick)
+	ticksCtx, ticksCancelFunc := context.WithCancel(context.Background())
+	g.ticksCancel = ticksCancelFunc
+	err = g.board.StreamTicks(ticksCtx, g.limitSwitchPins, g.ticksChan, nil)
+	if err != nil {
+		return err
+	}
+
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+	g.cancelFunc = cancelFunc
+	g.checkHit(cancelCtx)
 	return nil
 }
 
@@ -232,6 +259,7 @@ func (g *singleAxis) Home(ctx context.Context, extra map[string]interface{}) (bo
 	if g.cancelFunc != nil {
 		g.cancelFunc()
 		g.activeBackgroundWorkers.Wait()
+
 	}
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -245,7 +273,73 @@ func (g *singleAxis) Home(ctx context.Context, extra map[string]interface{}) (bo
 	return true, nil
 }
 
-func (g *singleAxis) checkHit(ctx context.Context) {
+func (g *singleAxis) checkForHit(ctx context.Context, ticksChan chan board.Tick) (int, bool, error) {
+	select {
+	case <-ctx.Done():
+		g.logger.Infof("here crx canceled first")
+		return 0, false, ctx.Err()
+	default:
+	}
+	var hit bool
+	var pinHit int
+	fmt.Println("waiting for tick")
+	select {
+	case <-ctx.Done():
+		g.logger.Infof("here crx canceled")
+		return 0, false, ctx.Err()
+	case tick := <-ticksChan:
+		fmt.Println("got tick")
+		fmt.Println(tick.Name)
+		for i, pin := range g.limitSwitchPins {
+			if tick.Name == pin.Name() {
+				pinHit = i
+				if i == 0 {
+					g.state0 = !g.state0
+					hit = g.state0
+				} else if i == 1 {
+					g.state1 = !g.state1
+					hit = g.state1
+				}
+				break
+			}
+		}
+	}
+	return pinHit, hit, nil
+}
+
+func (g *singleAxis) updateCurrentLimitState(ctx context.Context, pin int) error {
+	gpioPin, err := g.board.GPIOPinByName(g.limitSwitchPins[pin].Name())
+	if err != nil {
+		return err
+	}
+	state, err := gpioPin.Get(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	if pin == 0 {
+		g.state0 = state
+		if !g.limitHigh {
+			g.state0 = !g.state0
+		}
+	} else {
+		g.state1 = state
+		if !g.limitHigh {
+			g.state1 = !g.state1
+		}
+	}
+	// pin1, err := g.board.GPIOPinByName(g.limitSwitchPins[1].Name())
+	// if err != nil {
+	// 	return err
+	// }
+	// state1, err := pin1.Get(ctx, nil)
+	// if err != nil {
+	// 	return err
+	// }
+	return nil
+}
+
+func (g *singleAxis) checkHit(ctx context.Context) error {
 	g.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer utils.UncheckedErrorFunc(func() error {
@@ -254,69 +348,84 @@ func (g *singleAxis) checkHit(ctx context.Context) {
 			return g.motor.Stop(ctx, nil)
 		})
 		defer g.activeBackgroundWorkers.Done()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
 
-			for i := 0; i < len(g.limitSwitchPins); i++ {
-				hit, err := g.limitHit(ctx, i)
-				if err != nil {
+		g.logger.Infof("starting check hit")
+		if g.ticksChan != nil {
+			g.logger.Infof("canceling and closing the channel")
+			g.logger.Infof("canceled the context")
+		}
+		g.logger.Infof("making a new one")
+
+		for i, _ := range g.limitSwitchPins {
+			err := g.updateCurrentLimitState(ctx, i)
+			if err != nil {
+				return
+			}
+		}
+		for {
+			pinHit, hit, err := g.checkForHit(ctx, g.ticksChan)
+			if err != nil {
+				return
+			}
+			if hit {
+				g.logger.Infof("hit in checkHit")
+				child, cancel := context.WithTimeout(ctx, 10*time.Millisecond)
+				g.mu.Lock()
+				if err := g.motor.Stop(ctx, nil); err != nil {
 					g.logger.CError(ctx, err)
 				}
-
-				if hit {
-					child, cancel := context.WithTimeout(ctx, 10*time.Millisecond)
-					g.mu.Lock()
-					if err := g.motor.Stop(ctx, nil); err != nil {
-						g.logger.CError(ctx, err)
-					}
-					g.mu.Unlock()
-					<-child.Done()
-					cancel()
-					g.mu.Lock()
-					if err := g.moveAway(ctx, i); err != nil {
-						g.logger.CError(ctx, err)
-					}
-					g.mu.Unlock()
+				g.mu.Unlock()
+				<-child.Done()
+				cancel()
+				g.mu.Lock()
+				dir := 1.0
+				if pinHit != 0 {
+					dir = -1.0
+				}
+				if err := g.motor.SetRPM(ctx, dir*g.rpm, nil); err != nil {
+					return
+				}
+				g.mu.Unlock()
+			} else {
+				if err := g.motor.Stop(ctx, nil); err != nil {
+					g.logger.CError(ctx, err)
 				}
 			}
 		}
 	})
+	return nil
 }
 
-// Once a limit switch is hit in any move call (from the motor or the gantry component),
-// this function stops the motor, and reverses the direction of movement until the limit
-// switch is no longer activated.
-func (g *singleAxis) moveAway(ctx context.Context, pin int) error {
-	dir := 1.0
-	if pin != 0 {
-		dir = -1.0
-	}
-	if err := g.motor.SetRPM(ctx, dir*g.rpm, nil); err != nil {
-		return err
-	}
-	defer utils.UncheckedErrorFunc(func() error {
-		return g.motor.Stop(ctx, nil)
-	})
-	for {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		hit, err := g.limitHit(ctx, pin)
-		if err != nil {
-			return err
-		}
-		if !hit {
-			if err := g.motor.Stop(ctx, nil); err != nil {
-				return err
-			}
-			return nil
-		}
-	}
-}
+// // Once a limit switch is hit in any move call (from the motor or the gantry component),
+// // this function stops the motor, and reverses the direction of movement until the limit
+// // switch is no longer activated.
+// func (g *singleAxis) moveAway(ctx context.Context, pin int) error {
+// 	dir := 1.0
+// 	if pin != 0 {
+// 		dir = -1.0
+// 	}
+// 	if err := g.motor.SetRPM(ctx, dir*g.rpm, nil); err != nil {
+// 		return err
+// 	}
+// 	defer utils.UncheckedErrorFunc(func() error {
+// 		return g.motor.Stop(ctx, nil)
+// 	})
+// 	for {
+// 		if ctx.Err() != nil {
+// 			return ctx.Err()
+// 		}
+// 		hit, err := g.limitHit(ctx, pin)
+// 		if err != nil {
+// 			return err
+// 		}
+// 		if !hit {
+// 			if err := g.motor.Stop(ctx, nil); err != nil {
+// 				return err
+// 			}
+// 			return nil
+// 		}
+// 	}
+// }
 
 // doHome is a helper function that runs the actual homing sequence.
 func (g *singleAxis) doHome(ctx context.Context) (bool, error) {
@@ -347,6 +456,7 @@ func (g *singleAxis) doHome(ctx context.Context) (bool, error) {
 
 func (g *singleAxis) homeLimSwitch(ctx context.Context) error {
 	var positionA, positionB float64
+	fmt.Println("in test limit ")
 	positionA, err := g.testLimit(ctx, 0)
 	if err != nil {
 		return err
@@ -359,13 +469,14 @@ func (g *singleAxis) homeLimSwitch(ctx context.Context) error {
 			return err
 		}
 	} else {
-		// Only one limit switch, calculate positionB
+		// Only one limit switch, calculate positionBs
 		revPerLength := g.lengthMm / g.mmPerRevolution
 		positionB = positionA + revPerLength
 	}
 
 	g.positionLimits = []float64{positionA, positionB}
 	g.positionRange = positionB - positionA
+
 	if g.positionRange == 0 {
 		g.logger.CError(ctx, "positionRange is 0 or not a valid number")
 	} else {
@@ -374,6 +485,7 @@ func (g *singleAxis) homeLimSwitch(ctx context.Context) error {
 
 	// Go to start position at the middle of the axis.
 	x := g.gantryToMotorPosition(0.5 * g.lengthMm)
+	g.logger.Infof("position to go to %f", x)
 	if err := g.motor.GoTo(ctx, g.rpm, x, nil); err != nil {
 		return err
 	}
@@ -413,6 +525,8 @@ func (g *singleAxis) testLimit(ctx context.Context, pin int) (float64, error) {
 	defer utils.UncheckedErrorFunc(func() error {
 		return g.motor.Stop(ctx, nil)
 	})
+
+	fmt.Println("doing first testLimit")
 	wrongPin := 1
 	d := -1.0
 	if pin != 0 {
@@ -420,35 +534,37 @@ func (g *singleAxis) testLimit(ctx context.Context, pin int) (float64, error) {
 		wrongPin = 0
 	}
 
-	err := g.motor.SetRPM(ctx, d*g.rpm, nil)
+	err := g.updateCurrentLimitState(ctx, pin)
 	if err != nil {
 		return 0, err
 	}
+	if pin == 0 && g.state0 || pin == 1 && g.state1 {
+		err = g.motor.SetRPM(ctx, -d*g.rpm, nil)
+		if err != nil {
+			return 0, err
+		}
+	} else {
+		err = g.motor.SetRPM(ctx, d*g.rpm, nil)
+		if err != nil {
+			return 0, err
+		}
+	}
 
 	// short sleep to allow pin number to switch correctly
-	time.Sleep(100 * time.Millisecond)
-
+	// time.Sleep(100 * time.Millisecond)
 	start := time.Now()
 	for {
-		hit, err := g.limitHit(ctx, pin)
+		pinHit, hit, err := g.checkForHit(ctx, g.ticksChan)
 		if err != nil {
 			return 0, err
 		}
 		if hit {
-			err = g.motor.Stop(ctx, nil)
+			fmt.Println("here- hit the limit switch")
+			err = g.motor.SetRPM(ctx, -d*g.rpm, nil)
 			if err != nil {
 				return 0, err
 			}
-			break
-		}
-
-		if len(g.limitSwitchPins) > 1 {
-			// check if the wrong limit switch was hit
-			wrongHit, err := g.limitHit(ctx, wrongPin)
-			if err != nil {
-				return 0, err
-			}
-			if wrongHit {
+			if pinHit != pin {
 				err = g.motor.Stop(ctx, nil)
 				if err != nil {
 					return 0, err
@@ -458,29 +574,30 @@ func (g *singleAxis) testLimit(ctx context.Context, pin int) (float64, error) {
 					pin,
 					wrongPin)
 			}
+		} else {
+			err = g.motor.Stop(ctx, nil)
+			if err != nil {
+				return 0, err
+			}
+			break
 		}
+	}
+	elapsed := time.Since(start)
+	// if the parameters checked are non-zero, calculate a timeout with a safety factor of
+	// 5 to complete the gantry's homing sequence to find the limit switches
+	if g.mmPerRevolution != 0 && g.rpm != 0 && g.lengthMm != 0 {
+		homingTimeout = time.Duration((1 / (g.rpm / 60e9 * g.mmPerRevolution / g.lengthMm) * 5))
+	}
+	if elapsed > (homingTimeout) {
+		return 0, errors.Errorf("gantry timed out testing limit, timeout = %v", homingTimeout)
+	}
 
-		elapsed := time.Since(start)
-		// if the parameters checked are non-zero, calculate a timeout with a safety factor of
-		// 5 to complete the gantry's homing sequence to find the limit switches
-		if g.mmPerRevolution != 0 && g.rpm != 0 && g.lengthMm != 0 {
-			homingTimeout = time.Duration((1 / (g.rpm / 60e9 * g.mmPerRevolution / g.lengthMm) * 5))
-		}
-		if elapsed > (homingTimeout) {
-			return 0, errors.Errorf("gantry timed out testing limit, timeout = %v", homingTimeout)
-		}
-
-		if !utils.SelectContextOrWait(ctx, time.Millisecond*10) {
-			return 0, ctx.Err()
-		}
+	if !utils.SelectContextOrWait(ctx, time.Millisecond*10) {
+		return 0, ctx.Err()
 	}
 	// Short pause after stopping to increase the precision of the position of each limit switch
 	position, err := g.motor.Position(ctx, nil)
 	if err != nil {
-		return position, err
-	}
-	time.Sleep(250 * time.Millisecond)
-	if err := g.moveAway(ctx, pin); err != nil {
 		return position, err
 	}
 	return position, nil
@@ -488,15 +605,15 @@ func (g *singleAxis) testLimit(ctx context.Context, pin int) (float64, error) {
 
 // this function may need to be run in the background upon initialisation of the ganty,
 // also may need to use a digital intterupt pin instead of a gpio pin.
-func (g *singleAxis) limitHit(ctx context.Context, limitPin int) (bool, error) {
-	pin, err := g.board.GPIOPinByName(g.limitSwitchPins[limitPin])
-	if err != nil {
-		return false, err
-	}
-	high, err := pin.Get(ctx, nil)
+// func (g *singleAxis) limitHit(ctx context.Context, limitPin int) (bool, error) {
+// 	pin, err := g.board.GPIOPinByName(g.limitSwitchPins[limitPin].Name())
+// 	if err != nil {
+// 		return false, err
+// 	}
+// 	high, err := pin.Get(ctx, nil)
 
-	return high == g.limitHigh, err
-}
+// 	return high == g.limitHigh, err
+// }
 
 // Position returns the position in millimeters.
 func (g *singleAxis) Position(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
