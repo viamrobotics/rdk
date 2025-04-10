@@ -177,3 +177,24 @@ func DatapipelineUpdateAction(c *cli.Context, args datapipelineUpdateArgs) error
 	printf(c.App.Writer, "%s (id: %s) updated", name, args.ID)
 	return nil
 }
+
+type datapipelineDeleteArgs struct {
+	ID string
+}
+
+func DatapipelineDeleteAction(c *cli.Context, args datapipelineDeleteArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	_, err = client.datapipelinesClient.DeleteDataPipeline(context.Background(), &datapipelinespb.DeleteDataPipelineRequest{
+		Id: args.ID,
+	})
+	if err != nil {
+		return fmt.Errorf("error deleting data pipeline: %w", err)
+	}
+
+	printf(c.App.Writer, "data pipeline (id: %s) deleted", args.ID)
+	return nil
+}

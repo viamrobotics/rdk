@@ -1605,6 +1605,19 @@ var app = &cli.App{
 					},
 					Action: createCommandWithT[datapipelineUpdateArgs](DatapipelineUpdateAction),
 				},
+				{
+					Name:      "delete",
+					Usage:     "delete a data pipeline",
+					UsageText: createUsageText("datapipelines delete", []string{datapipelineFlagID}, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     datapipelineFlagID,
+							Usage:    "ID of the data pipeline to delete",
+							Required: true,
+						},
+					},
+					Action: createCommandWithT[datapipelineDeleteArgs](DatapipelineDeleteAction),
+				},
 			},
 		},
 		{
