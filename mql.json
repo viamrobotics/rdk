@@ -1,0 +1,1 @@
+[{"$match": { "component_name": "dragino" }}, {"$group": { "_id": "$part_id", "count": { "$sum": 1 }, "avgTemp": { "$avg": "$data.readings.TempC_SHT" }, "avgHum": { "$avg": "$data.readings.Hum_SHT" }}}]
