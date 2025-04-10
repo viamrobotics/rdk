@@ -59,7 +59,6 @@ import (
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/packages"
 	weboptions "go.viam.com/rdk/robot/web/options"
-	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/shell"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/session"
@@ -461,13 +460,6 @@ func TestManagerAdd(t *testing.T) {
 	resource1, err := manager.ResourceByName(rName)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resource1, test.ShouldEqual, injectBoard)
-
-	injectMotionService := &inject.MotionService{}
-	objectMResName := motion.Named("motion1")
-	manager.resources.AddNode(objectMResName, resource.NewConfiguredGraphNode(resource.Config{}, injectMotionService, unknownModel))
-	motionService, err := manager.ResourceByName(objectMResName)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, motionService, test.ShouldEqual, injectMotionService)
 
 	injectVisionService := &inject.VisionService{}
 	injectVisionService.GetObjectPointCloudsFunc = func(

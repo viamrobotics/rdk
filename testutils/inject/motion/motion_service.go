@@ -1,3 +1,4 @@
+// Package inject separates the injected motion service from the rest of the injected packages to isolate an NLopt dependency.
 package inject
 
 import (
