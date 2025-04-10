@@ -97,3 +97,9 @@ func expectedBSONBytes(t *testing.T) [][]byte {
 	}
 	return expectedBSONBytes
 }
+
+func TestMQLJSON(t *testing.T) {
+	json, err := mqlJSON(expectedBSONBytes(t))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, json, test.ShouldEqualJSON, mqlString)
+}
