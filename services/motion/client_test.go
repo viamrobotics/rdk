@@ -27,7 +27,7 @@ import (
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
-	inject "go.viam.com/rdk/testutils/inject/motion"
+	injectmotion "go.viam.com/rdk/testutils/inject/motion"
 )
 
 var (
@@ -43,7 +43,7 @@ func TestClient(t *testing.T) {
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	injectMS := inject.NewMotionService("test")
+	injectMS := injectmotion.NewMotionService("test")
 	resources := map[resource.Name]motion.Service{
 		testMotionServiceName: injectMS,
 	}
