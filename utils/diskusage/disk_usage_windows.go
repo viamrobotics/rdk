@@ -5,29 +5,29 @@ import (
 	"unsafe"
 )
 
-type WindowsDiskUsage struct {
+// Statfs returns file system statistics.
+func Statfs(volumePath string) (DiskUsage, error) {
+	diskUsage := newWindowsDiskUsage(volumePath)
+	return DiskUsage{
+		AvailableBytes: diskUsage.available(),
+		SizeBytes:      diskUsage.size(),
+	}, nil
+}
+
+type windowsDiskUsage struct {
 	freeBytes  int64
 	totalBytes int64
 	availBytes int64
 }
 
-// Statfs returns file system statistics.
-func Statfs(volumePath string) (DiskUsage, error) {
-	diskUsage := NewWindowsDiskUsage(volumePath)
-	return DiskUsage{
-		AvailableBytes: diskUsage.Available(),
-		SizeBytes:      diskUsage.Size(),
-	}, nil
-}
-
-// NewWindowsDiskUsage returns an object holding the disk usage of volumePath
+// newWindowsDiskUsage returns an object holding the disk usage of volumePath
 // or nil in case of error (invalid path, etc)
-func NewWindowsDiskUsage(volumePath string) *WindowsDiskUsage {
+func newWindowsDiskUsage(volumePath string) *windowsDiskUsage {
 
 	h := syscall.MustLoadDLL("kernel32.dll")
 	c := h.MustFindProc("GetDiskFreeSpaceExW")
 
-	du := &WindowsDiskUsage{}
+	du := &windowsDiskUsage{}
 
 	utf16Ptr, err := syscall.UTF16PtrFromString(volumePath)
 	if err != nil {
@@ -43,12 +43,12 @@ func NewWindowsDiskUsage(volumePath string) *WindowsDiskUsage {
 	return du
 }
 
-// Available returns total available bytes on file system to an unprivileged user
-func (du *WindowsDiskUsage) Available() uint64 {
+// available returns total available bytes on file system to an unprivileged user
+func (du *windowsDiskUsage) available() uint64 {
 	return uint64(du.availBytes)
 }
 
-// Size returns total size of the file system
-func (du *WindowsDiskUsage) Size() uint64 {
+// size returns total size of the file system
+func (du *windowsDiskUsage) size() uint64 {
 	return uint64(du.totalBytes)
 }
