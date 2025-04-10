@@ -1528,8 +1528,9 @@ var app = &cli.App{
 					Description: "In order to list data pipelines, an org ID is required",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:  generalFlagOrgID,
-							Usage: fmt.Sprintf("organization ID for which data pipelines will be listed"),
+							Name:     generalFlagOrgID,
+							Usage:    "organization ID for which data pipelines will be listed",
+							Required: true,
 						},
 					},
 					Action: createCommandWithT[datapipelineListArgs](DatapipelineListAction),
@@ -1545,16 +1546,19 @@ var app = &cli.App{
 					),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:  generalFlagOrgID,
-							Usage: "organization ID for which data pipeline will be created",
+							Name:     generalFlagOrgID,
+							Usage:    "organization ID for which data pipeline will be created",
+							Required: true,
 						},
 						&cli.StringFlag{
-							Name:  datapipelineFlagName,
-							Usage: "name of the new data pipeline",
+							Name:     datapipelineFlagName,
+							Usage:    "name of the new data pipeline",
+							Required: true,
 						},
 						&cli.StringFlag{
-							Name:  datapipelineFlagSchedule,
-							Usage: "schedule of the new data pipeline (cron expression)",
+							Name:     datapipelineFlagSchedule,
+							Usage:    "schedule of the new data pipeline (cron expression)",
+							Required: true,
 						},
 						&cli.StringFlag{
 							Name:  datapipelineFlagMQL,
@@ -1578,8 +1582,9 @@ var app = &cli.App{
 					),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:  datapipelineFlagID,
-							Usage: "ID of the data pipeline to update",
+							Name:     datapipelineFlagID,
+							Usage:    "ID of the data pipeline to update",
+							Required: true,
 						},
 						&cli.StringFlag{
 							Name:  datapipelineFlagName,

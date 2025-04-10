@@ -21,13 +21,8 @@ func DatapipelineListAction(c *cli.Context, args datapipelineListArgs) error {
 		return err
 	}
 
-	orgID := args.OrgID
-	if orgID == "" {
-		return errors.New("organization ID is required")
-	}
-
 	resp, err := client.datapipelinesClient.ListDataPipelines(context.Background(), &datapipelinespb.ListDataPipelinesRequest{
-		OrganizationId: orgID,
+		OrganizationId: args.OrgID,
 	})
 	if err != nil {
 		return err
@@ -53,23 +48,6 @@ func DatapipelineCreateAction(c *cli.Context, args datapipelineCreateArgs) error
 	if err != nil {
 		return err
 	}
-
-	orgID := args.OrgID
-	if orgID == "" {
-		return errors.New("organization ID is required")
-	}
-
-	name := args.Name
-	if name == "" {
-		return errors.New("data pipeline name is required")
-	}
-
-	schedule := args.Schedule
-	if schedule == "" {
-		return errors.New("data pipeline schedule is required")
-	}
-
-	// TODO: validate cron expression
 
 	mql := args.MQL
 	mqlFile := args.MqlFile
@@ -107,16 +85,16 @@ func DatapipelineCreateAction(c *cli.Context, args datapipelineCreateArgs) error
 	}
 
 	resp, err := client.datapipelinesClient.CreateDataPipeline(context.Background(), &datapipelinespb.CreateDataPipelineRequest{
-		OrganizationId: orgID,
-		Name:           name,
-		Schedule:       schedule,
+		OrganizationId: args.OrgID,
+		Name:           args.Name,
+		Schedule:       args.Schedule,
 		MqlBinary:      mqlBinary,
 	})
 	if err != nil {
 		return fmt.Errorf("error creating data pipeline: %w", err)
 	}
 
-	printf(c.App.Writer, "%s (ID: %s) created", name, resp.GetId())
+	printf(c.App.Writer, "%s (ID: %s) created", args.Name, resp.GetId())
 
 	return nil
 }
@@ -135,11 +113,6 @@ func DatapipelineUpdateAction(c *cli.Context, args datapipelineUpdateArgs) error
 		return err
 	}
 
-	id := args.ID
-	if id == "" {
-		return errors.New("data pipeline ID is required")
-	}
-
 	// TODO: maybe load existing pipeline and update fields?
 
 	name := args.Name
@@ -151,8 +124,6 @@ func DatapipelineUpdateAction(c *cli.Context, args datapipelineUpdateArgs) error
 	if schedule == "" {
 		return errors.New("data pipeline schedule is required")
 	}
-
-	// TODO: validate cron expression
 
 	mql := args.MQL
 	mqlFile := args.MqlFile
@@ -190,7 +161,7 @@ func DatapipelineUpdateAction(c *cli.Context, args datapipelineUpdateArgs) error
 	}
 
 	_, err = client.datapipelinesClient.UpdateDataPipeline(context.Background(), &datapipelinespb.UpdateDataPipelineRequest{
-		Id:        id,
+		Id:        args.ID,
 		Name:      name,
 		Schedule:  schedule,
 		MqlBinary: mqlBinary,
@@ -199,6 +170,6 @@ func DatapipelineUpdateAction(c *cli.Context, args datapipelineUpdateArgs) error
 		return fmt.Errorf("error updating data pipeline: %w", err)
 	}
 
-	printf(c.App.Writer, "%s (id: %s) updated", name, id)
+	printf(c.App.Writer, "%s (id: %s) updated", name, args.ID)
 	return nil
 }
