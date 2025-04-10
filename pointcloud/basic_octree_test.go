@@ -17,7 +17,7 @@ import (
 
 // Helper function for generating a new empty octree.
 func createNewOctree(center r3.Vector, side float64) (*BasicOctree, error) {
-	basicOct, err := NewBasicOctree(center, side)
+	basicOct, err := NewBasicOctree(center, side, defaultConfidenceThreshold)
 	if err != nil {
 		return nil, err
 	}
@@ -570,7 +570,7 @@ func TestBasicOctreePointcloudIngestion(t *testing.T) {
 	center := getCenterFromPcMetaData(startPC.MetaData())
 	maxSideLength := getMaxSideLengthFromPcMetaData(startPC.MetaData())
 
-	basicOct, err := NewBasicOctree(center, maxSideLength)
+	basicOct, err := NewBasicOctree(center, maxSideLength, defaultConfidenceThreshold)
 	test.That(t, err, test.ShouldBeNil)
 
 	startPC.Iterate(0, 0, func(p r3.Vector, d Data) bool {

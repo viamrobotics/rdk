@@ -558,7 +558,6 @@ func readPCDHelper(inRaw io.Reader, pctype PCType) (PointCloud, error) {
 	case KDTreeType:
 		pc = NewKDTreeWithPrealloc(int(header.points))
 	case BasicOctreeType:
-
 		// Extract data from bufio.Reader to make a copy for metadata acquisition
 		buf, err := io.ReadAll(in)
 		if err != nil {
@@ -571,7 +570,7 @@ func readPCDHelper(inRaw io.Reader, pctype PCType) (PointCloud, error) {
 			return nil, err
 		}
 
-		pc, err = NewBasicOctree(getCenterFromPcMetaData(meta), getMaxSideLengthFromPcMetaData(meta))
+		pc, err = NewBasicOctree(getCenterFromPcMetaData(meta), getMaxSideLengthFromPcMetaData(meta), defaultConfidenceThreshold)
 		if err != nil {
 			return nil, err
 		}

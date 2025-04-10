@@ -414,27 +414,6 @@ func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (StateConstraint, 
 	return validFunc, gradFunc
 }
 
-// NewOctreeCollisionConstraint takes an octree and will return a constraint that checks whether any geometries
-// intersect with points in the octree. Threshold sets the confidence level required for a point to be considered, and buffer is the
-// distance to a point that is considered a collision in mm.
-func NewOctreeCollisionConstraint(octree *pointcloud.BasicOctree, threshold int, buffer, collisionBufferMM float64) StateConstraint {
-	constraint := func(state *ik.State) bool {
-		geometries, err := state.Frame.Geometries(state.Configuration)
-		if err != nil && geometries == nil {
-			return false
-		}
-
-		for _, geom := range geometries.Geometries() {
-			collides, err := octree.CollidesWithGeometry(geom, threshold, buffer, collisionBufferMM)
-			if err != nil || collides {
-				return false
-			}
-		}
-		return true
-	}
-	return constraint
-}
-
 // NewBoundingRegionConstraint will determine if the given list of robot geometries are in collision with the
 // given list of bounding regions.
 func NewBoundingRegionConstraint(robotGeoms, boundingRegions []spatial.Geometry, collisionBufferMM float64) StateConstraint {
