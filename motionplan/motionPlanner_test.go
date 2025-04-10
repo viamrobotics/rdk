@@ -2,6 +2,7 @@ package motionplan
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"math/rand"
 	"testing"
@@ -126,13 +127,16 @@ func constrainedXArmMotion() (*planConfig, error) {
 
 		return oFunc(currPose.(*frame.PoseInFrame).Pose().Orientation())
 	}
-	orientConstraint := func(cInput *ik.State) bool {
+	orientConstraint := func(cInput *ik.State) error {
 		err := resolveStatesToPositions(cInput)
 		if err != nil {
-			return false
+			return err
 		}
 
-		return oFunc(cInput.Position.Orientation()) == 0
+		if oFunc(cInput.Position.Orientation()) == 0 {
+			return nil
+		}
+		return errors.New("violation")
 	}
 
 	opt.goalMetricConstructor = orientMetric
@@ -522,6 +526,7 @@ func TestArmObstacleSolve(t *testing.T) {
 		WorldState:  worldState,
 	})
 	test.That(t, err, test.ShouldNotBeNil)
+	fmt.Println(err.Error())
 	test.That(t, err.Error(), test.ShouldContainSubstring, errIKConstraint)
 }
 

@@ -594,8 +594,8 @@ func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, arcStart
 		trajState := &ik.State{Position: spatialmath.Compose(arcStartPose, trajPt.Pose), Frame: mp.tpFrame}
 
 		// In addition to checking every `Resolution`, we also check both endpoints.
-		ok, _ := mp.planOpts.CheckStateConstraints(trajState)
-		if !ok {
+		err := mp.planOpts.CheckStateConstraints(trajState)
+		if err != nil {
 			okDist := trajPt.Dist * defaultCollisionWalkbackPct
 			if okDist > defaultMinTrajectoryLength {
 				// Check that okDist is larger than the minimum distance to move to add a partial trajectory.

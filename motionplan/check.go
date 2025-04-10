@@ -270,9 +270,10 @@ func checkSegmentsFS(sfPlanner *planManager, segments []*ik.SegmentFS, lookAhead
 			if lastValid != nil {
 				checkConf = lastValid.EndConfiguration
 			}
-			ok, reason := sfPlanner.planOpts.CheckStateFSConstraints(&ik.StateFS{Configuration: checkConf, FS: sfPlanner.fs})
-			if !ok {
-				reason = " reason: " + reason
+			var reason string
+			err := sfPlanner.planOpts.CheckStateFSConstraints(&ik.StateFS{Configuration: checkConf, FS: sfPlanner.fs})
+			if err != nil {
+				reason = " reason: " + err.Error()
 			} else {
 				reason = ""
 			}
@@ -354,7 +355,7 @@ func checkSegments(sfPlanner *planManager, segments []*ik.Segment, lookAheadDist
 			}
 
 			// Checks for collision along the interpolated route and returns a the first interpolated pose where a collision is detected.
-			if isValid, err := sfPlanner.planOpts.CheckStateConstraints(interpolatedState); !isValid {
+			if err := sfPlanner.planOpts.CheckStateConstraints(interpolatedState); err != nil {
 				return fmt.Errorf("found constraint violation or collision in segment between %v and %v at %v: %s",
 					segment.StartPosition.Point(),
 					segment.EndPosition.Point(),
