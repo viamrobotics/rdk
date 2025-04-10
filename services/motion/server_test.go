@@ -28,7 +28,7 @@ import (
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
-	"go.viam.com/rdk/testutils/inject"
+	inject "go.viam.com/rdk/testutils/inject/motion"
 )
 
 func newServer(resources map[resource.Name]motion.Service) (pb.MotionServiceServer, error) {
@@ -53,7 +53,7 @@ func TestServerMove(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:motion/motion1\" not found"))
 
 	// error
-	injectMS := &inject.MotionService{}
+	injectMS := inject.NewMotionService("test")
 	resources = map[resource.Name]motion.Service{
 		testMotionServiceName: injectMS,
 	}
@@ -76,7 +76,7 @@ func TestServerMove(t *testing.T) {
 	test.That(t, resp.GetSuccess(), test.ShouldBeTrue)
 
 	// Multiple Servies names Valid
-	injectMS = &inject.MotionService{}
+	injectMS = inject.NewMotionService("test")
 	resources = map[resource.Name]motion.Service{
 		testMotionServiceName:  injectMS,
 		testMotionServiceName2: injectMS,
@@ -97,7 +97,7 @@ func TestServerMove(t *testing.T) {
 }
 
 func TestServerMoveOnGlobe(t *testing.T) {
-	injectMS := &inject.MotionService{}
+	injectMS := inject.NewMotionService("test")
 	resources := map[resource.Name]motion.Service{
 		testMotionServiceName: injectMS,
 	}
@@ -279,7 +279,7 @@ func TestServerMoveOnGlobe(t *testing.T) {
 }
 
 func TestServerMoveOnMap(t *testing.T) {
-	injectMS := &inject.MotionService{}
+	injectMS := inject.NewMotionService("test")
 	resources := map[resource.Name]motion.Service{
 		testMotionServiceName: injectMS,
 	}
@@ -450,7 +450,7 @@ func TestServerMoveOnMap(t *testing.T) {
 }
 
 func TestServerStopPlan(t *testing.T) {
-	injectMS := &inject.MotionService{}
+	injectMS := inject.NewMotionService("test")
 	resources := map[resource.Name]motion.Service{
 		testMotionServiceName: injectMS,
 	}
@@ -515,7 +515,7 @@ func TestServerStopPlan(t *testing.T) {
 }
 
 func TestServerListPlanStatuses(t *testing.T) {
-	injectMS := &inject.MotionService{}
+	injectMS := inject.NewMotionService("test")
 	resources := map[resource.Name]motion.Service{
 		testMotionServiceName: injectMS,
 	}
@@ -621,7 +621,7 @@ func TestServerListPlanStatuses(t *testing.T) {
 }
 
 func TestServerGetPlan(t *testing.T) {
-	injectMS := &inject.MotionService{}
+	injectMS := inject.NewMotionService("test")
 	resources := map[resource.Name]motion.Service{
 		testMotionServiceName: injectMS,
 	}
