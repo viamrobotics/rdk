@@ -8,7 +8,7 @@ import (
 )
 
 // emptyProb is assigned to nodes who have no value specified.
-const emptyProb = math.MinInt
+const emptyProb = 0
 
 // Creates a new LeafNodeEmpty.
 func newLeafNodeEmpty() basicOctreeNode {
