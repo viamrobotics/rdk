@@ -217,3 +217,11 @@
     :why: 
     :versions: []
     :when: 2023-01-30 21:31:27.476042000 Z
+- - :license
+  - github.com/yosuke-furukawa/json5
+  - Simplified BSD
+  - :who: sagie
+    :why:
+    :license_links: https://github.com/yosuke-furukawa/json5/blob/cf7bb3f354ffe5d5ad4c9b714895eab7e0498b5f/LICENSE.md
+    :versions: []
+    :when: 2025-04-11 20:04:09.564107000 Z
