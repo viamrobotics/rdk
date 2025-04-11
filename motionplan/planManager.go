@@ -142,6 +142,7 @@ func (pm *planManager) planAtomicWaypoints(
 
 	var seed referenceframe.FrameSystemInputs
 	var returnPartial bool
+	var done bool
 
 	// try to solve each goal, one at a time
 	for i, wp := range waypoints {
@@ -150,10 +151,15 @@ func (pm *planManager) planAtomicWaypoints(
 		case <-ctx.Done():
 			if wp.mp.opt().ReturnPartialPlan {
 				returnPartial = true
-				break
+				done = true
+				break // breaks out of select, then the `done` conditional below breaks the loop
 			}
 			return nil, ctx.Err()
 		default:
+		}
+		if done {
+			// breaks in the `select` above wil not break out of the loop, so we need to exit the select then break the loop if appropriate
+			break
 		}
 		pm.logger.Info("planning step", i, "of", len(waypoints), ":", wp.goalState)
 		for k, v := range wp.goalState.Poses() {
