@@ -18,6 +18,7 @@ type datapipelineListArgs struct {
 	OrgID string
 }
 
+// DatapipelineListAction lists all data pipelines for an organization.
 func DatapipelineListAction(c *cli.Context, args datapipelineListArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
@@ -46,6 +47,7 @@ type datapipelineCreateArgs struct {
 	MqlFile  string
 }
 
+// DatapipelineCreateAction creates a new data pipeline.
 func DatapipelineCreateAction(c *cli.Context, args datapipelineCreateArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
@@ -80,6 +82,7 @@ type datapipelineUpdateArgs struct {
 	MqlFile  string
 }
 
+// DatapipelineUpdateAction updates an existing data pipeline.
 func DatapipelineUpdateAction(c *cli.Context, args datapipelineUpdateArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
@@ -130,6 +133,7 @@ type datapipelineDeleteArgs struct {
 	ID string
 }
 
+// DatapipelineDeleteAction deletes a data pipeline.
 func DatapipelineDeleteAction(c *cli.Context, args datapipelineDeleteArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
@@ -151,6 +155,7 @@ type datapipelineDescribeArgs struct {
 	ID string
 }
 
+// DatapipelineDescribeAction describes a data pipeline and its status.
 func DatapipelineDescribeAction(c *cli.Context, args datapipelineDescribeArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
@@ -209,6 +214,7 @@ type datapipelineEnableArgs struct {
 	ID string
 }
 
+// DatapipelineEnableAction enables a data pipeline.
 func DatapipelineEnableAction(c *cli.Context, args datapipelineEnableArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
@@ -230,6 +236,7 @@ type datapipelineDisableArgs struct {
 	ID string
 }
 
+// DatapipelineDisableAction disables a data pipeline.
 func DatapipelineDisableAction(c *cli.Context, args datapipelineDisableArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {

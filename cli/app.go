@@ -1536,6 +1536,19 @@ var app = &cli.App{
 					Action: createCommandWithT[datapipelineListArgs](DatapipelineListAction),
 				},
 				{
+					Name:      "describe",
+					Usage:     "describe a data pipeline and its status",
+					UsageText: createUsageText("datapipelines describe", []string{datapipelineFlagID}, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     datapipelineFlagID,
+							Usage:    "ID of the data pipeline to describe",
+							Required: true,
+						},
+					},
+					Action: createCommandWithT[datapipelineDescribeArgs](DatapipelineDescribeAction),
+				},
+				{
 					Name:  "create",
 					Usage: "create a new data pipeline",
 					UsageText: createUsageText("datapipelines create",
@@ -1617,19 +1630,6 @@ var app = &cli.App{
 						},
 					},
 					Action: createCommandWithT[datapipelineDeleteArgs](DatapipelineDeleteAction),
-				},
-				{
-					Name:      "describe",
-					Usage:     "describe a data pipeline and its status",
-					UsageText: createUsageText("datapipelines describe", []string{datapipelineFlagID}, true, false),
-					Flags: []cli.Flag{
-						&cli.StringFlag{
-							Name:     datapipelineFlagID,
-							Usage:    "ID of the data pipeline to describe",
-							Required: true,
-						},
-					},
-					Action: createCommandWithT[datapipelineDescribeArgs](DatapipelineDescribeAction),
 				},
 				{
 					Name:      "enable",
