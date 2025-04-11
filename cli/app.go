@@ -117,6 +117,12 @@ const (
 	dataFlagFilterTags                     = "filter-tags"
 	dataFlagTimeout                        = "timeout"
 
+	datapipelineFlagID       = "id"
+	datapipelineFlagName     = "name"
+	datapipelineFlagSchedule = "schedule"
+	datapipelineFlagMQL      = "mql"
+	datapipelineFlagMQLFile  = "mql-file"
+
 	packageFlagFramework = "model-framework"
 
 	oauthAppFlagClientID             = "client-id"
@@ -1505,6 +1511,151 @@ var app = &cli.App{
 							},
 						},
 					},
+				},
+			},
+		},
+		{
+			Name:            "datapipelines",
+			Usage:           "manage and track data pipelines",
+			UsageText:       createUsageText("datapipelines", nil, false, true),
+			HideHelpCommand: true,
+			Subcommands: []*cli.Command{
+				{
+					Name:  "list",
+					Usage: "list data pipelines for an org ID",
+					UsageText: createUsageText("datapipelines list",
+						[]string{generalFlagOrgID}, true, false),
+					Description: "In order to list data pipelines, an org ID is required",
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     generalFlagOrgID,
+							Usage:    "organization ID for which data pipelines will be listed",
+							Required: true,
+						},
+					},
+					Action: createCommandWithT[datapipelineListArgs](DatapipelineListAction),
+				},
+				{
+					Name:      "describe",
+					Usage:     "describe a data pipeline and its status",
+					UsageText: createUsageText("datapipelines describe", []string{datapipelineFlagID}, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     datapipelineFlagID,
+							Usage:    "ID of the data pipeline to describe",
+							Required: true,
+						},
+					},
+					Action: createCommandWithT[datapipelineDescribeArgs](DatapipelineDescribeAction),
+				},
+				{
+					Name:  "create",
+					Usage: "create a new data pipeline",
+					UsageText: createUsageText("datapipelines create",
+						[]string{generalFlagOrgID, datapipelineFlagName, datapipelineFlagSchedule}, false, false,
+						fmt.Sprintf("[--%s=<%s> | --%s=<%s>]",
+							datapipelineFlagMQL, datapipelineFlagMQL,
+							datapipelineFlagMQLFile, datapipelineFlagMQLFile),
+					),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     generalFlagOrgID,
+							Usage:    "organization ID for which data pipeline will be created",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     datapipelineFlagName,
+							Usage:    "name of the new data pipeline",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     datapipelineFlagSchedule,
+							Usage:    "schedule of the new data pipeline (cron expression)",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:  datapipelineFlagMQL,
+							Usage: "MQL query for the new data pipeline",
+						},
+						&cli.StringFlag{
+							Name:  datapipelineFlagMQLFile,
+							Usage: "path to JSON file containing MQL query for the new data pipeline",
+						},
+					},
+					Action: createCommandWithT[datapipelineCreateArgs](DatapipelineCreateAction),
+				},
+				{
+					Name:  "update",
+					Usage: "update a data pipeline",
+					UsageText: createUsageText("datapipelines update",
+						[]string{datapipelineFlagID, datapipelineFlagName, datapipelineFlagSchedule}, false, false,
+						fmt.Sprintf("[--%s=<%s> | --%s=<%s>]",
+							datapipelineFlagMQL, datapipelineFlagMQL,
+							datapipelineFlagMQLFile, datapipelineFlagMQLFile),
+					),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     datapipelineFlagID,
+							Usage:    "ID of the data pipeline to update",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:  datapipelineFlagName,
+							Usage: "name of the data pipeline to update",
+						},
+						&cli.StringFlag{
+							Name:  datapipelineFlagSchedule,
+							Usage: "schedule of the data pipeline to update (cron expression)",
+						},
+						&cli.StringFlag{
+							Name:  datapipelineFlagMQL,
+							Usage: "MQL query for the data pipeline to update",
+						},
+						&cli.StringFlag{
+							Name:  datapipelineFlagMQLFile,
+							Usage: "path to JSON file containing MQL query for the data pipeline to update",
+						},
+					},
+					Action: createCommandWithT[datapipelineUpdateArgs](DatapipelineUpdateAction),
+				},
+				{
+					Name:      "delete",
+					Usage:     "delete a data pipeline",
+					UsageText: createUsageText("datapipelines delete", []string{datapipelineFlagID}, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     datapipelineFlagID,
+							Usage:    "ID of the data pipeline to delete",
+							Required: true,
+						},
+					},
+					Action: createCommandWithT[datapipelineDeleteArgs](DatapipelineDeleteAction),
+				},
+				{
+					Name:      "enable",
+					Usage:     "enable a data pipeline",
+					UsageText: createUsageText("datapipelines enable", []string{datapipelineFlagID}, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     datapipelineFlagID,
+							Usage:    "ID of the data pipeline to enable",
+							Required: true,
+						},
+					},
+					Action: createCommandWithT[datapipelineEnableArgs](DatapipelineEnableAction),
+				},
+				{
+					Name:      "disable",
+					Usage:     "disable a data pipeline",
+					UsageText: createUsageText("datapipelines disable", []string{datapipelineFlagID}, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     datapipelineFlagID,
+							Usage:    "ID of the data pipeline to disable",
+							Required: true,
+						},
+					},
+					Action: createCommandWithT[datapipelineDisableArgs](DatapipelineDisableAction),
 				},
 			},
 		},
