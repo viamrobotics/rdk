@@ -260,6 +260,7 @@ func parseMQL(mql, mqlFile string) ([][]byte, error) {
 			return nil, errors.New("data pipeline MQL and MQL file cannot both be provided")
 		}
 
+		//nolint:gosec // mqlFile is a user-provided path for reading MQL query files
 		content, err := os.ReadFile(mqlFile)
 		if err != nil {
 			return nil, fmt.Errorf("error reading MQL file: %w", err)
