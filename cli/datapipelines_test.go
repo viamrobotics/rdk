@@ -21,7 +21,12 @@ var (
 	]`
 	mqlBSON = []bson.M{
 		{"$match": bson.M{"component_name": "dragino"}},
-		{"$group": bson.M{"_id": "$part_id", "count": bson.M{"$sum": 1}, "avgTemp": bson.M{"$avg": "$data.readings.TempC_SHT"}, "avgHum": bson.M{"$avg": "$data.readings.Hum_SHT"}}},
+		{"$group": bson.M{
+			"_id":     "$part_id",
+			"count":   bson.M{"$sum": 1},
+			"avgTemp": bson.M{"$avg": "$data.readings.TempC_SHT"},
+			"avgHum":  bson.M{"$avg": "$data.readings.Hum_SHT"},
+		}},
 	}
 )
 
