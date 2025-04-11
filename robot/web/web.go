@@ -110,6 +110,12 @@ type webService struct {
 	modPeerConnTracker *grpc.ModPeerConnTracker
 }
 
+// GetStreamServer returns the internal stream server instance. Used for testing.
+func (svc *webService) GetStreamServer() *webstream.Server {
+	// This might return nil if CGO is disabled or init failed, handle appropriately in tests.
+	return svc.streamServer
+}
+
 var internalWebServiceName = resource.NewName(
 	resource.APINamespaceRDKInternal.WithServiceType("web"),
 	"builtin",
