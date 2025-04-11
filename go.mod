@@ -433,6 +433,7 @@ require (
 	github.com/erikstmartin/go-testdb v0.0.0-20160219214506-8d10e4a1bae5 // indirect
 	github.com/kylelemons/go-gypsy v1.0.0 // indirect
 	github.com/pkg/errors v0.9.1
+	github.com/yosuke-furukawa/json5 v0.1.1
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/exp v0.0.0-20240904232852-e7e105dedf7e
 )

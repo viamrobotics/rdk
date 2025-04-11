@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/urfave/cli/v2"
+	"github.com/yosuke-furukawa/json5/encoding/json5"
 	"go.mongodb.org/mongo-driver/bson"
 	datapipelinespb "go.viam.com/api/app/datapipelines/v1"
 )
@@ -221,10 +222,9 @@ func parseMQL(mql, mqlFile string) ([][]byte, error) {
 		return nil, errors.New("missing data pipeline MQL")
 	}
 
-	// Parse the MQL stages directly into BSON
-	// TODO: look into more leniant JSON parser
+	// Parse the MQL stages JSON (using JSON5 for unquoted keys + comments).
 	var mqlArray []bson.M
-	if err := bson.UnmarshalExtJSON([]byte(mql), false, &mqlArray); err != nil {
+	if err := json5.Unmarshal([]byte(mql), &mqlArray); err != nil {
 		return nil, fmt.Errorf("invalid MQL: %w", err)
 	}
 
