@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"os"
 	"testing"
 
@@ -9,32 +10,39 @@ import (
 )
 
 var (
-	mqlString = `[{"$match": {"component_name": "dragino"}}, {"$group": {"_id": "$part_id", "count": {"$sum": 1}}}]`
-	mqlBSON   = []bson.M{
+	mqlString = `[
+		{"$match": { "component_name": "dragino" }},
+		{"$group": {
+			"_id": "$part_id",
+			"count": { "$sum": 1 },
+			"avgTemp": { "$avg": "$data.readings.TempC_SHT" },
+			"avgHum": { "$avg": "$data.readings.Hum_SHT" }
+		}}
+	]`
+	mqlBSON = []bson.M{
 		{"$match": bson.M{"component_name": "dragino"}},
-		{"$group": bson.M{"_id": "$part_id", "count": bson.M{"$sum": 1}}},
+		{"$group": bson.M{"_id": "$part_id", "count": bson.M{"$sum": 1}, "avgTemp": bson.M{"$avg": "$data.readings.TempC_SHT"}, "avgHum": bson.M{"$avg": "$data.readings.Hum_SHT"}}},
 	}
 )
 
 func TestParseMQL(t *testing.T) {
-	expectedBytes := expectedBSONBytes(t)
 	testCases := map[string]struct {
 		mqlString     string
 		mqlFile       string
 		expectedError bool
-		expectedBytes [][]byte
+		expectedBSON  []bson.M
 	}{
 		"valid MQL string": {
 			mqlString:     mqlString,
 			mqlFile:       "",
 			expectedError: false,
-			expectedBytes: expectedBytes,
+			expectedBSON:  mqlBSON,
 		},
 		"valid MQL file": {
 			mqlString:     "",
 			mqlFile:       createTempMQLFile(t),
 			expectedError: false,
-			expectedBytes: expectedBytes,
+			expectedBSON:  mqlBSON,
 		},
 		"empty string and file": {
 			mqlString:     "",
@@ -47,7 +55,7 @@ func TestParseMQL(t *testing.T) {
 			expectedError: true,
 		},
 		"invalid MQL JSON string": {
-			mqlString:     `[{"$match": {"component_name": "dragino"}}`, // missing closing bracket
+			mqlString:     `[{"$match": {"component_name": "dragino"`, // missing closing brackets
 			mqlFile:       "",
 			expectedError: true,
 		},
@@ -65,9 +73,28 @@ func TestParseMQL(t *testing.T) {
 				return
 			}
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, mqlBytes, test.ShouldResemble, tc.expectedBytes)
+
+			for i, bsonBytes := range mqlBytes {
+				var bsonM bson.M
+				err = bson.Unmarshal(bsonBytes, &bsonM)
+				test.That(t, err, test.ShouldBeNil)
+				testBSONResemble(t, bsonM, tc.expectedBSON[i])
+			}
 		})
 	}
+}
+
+// testBSONResemble compares two bson.M objects and asserts that they are equal.
+func testBSONResemble(t *testing.T, actual, expected bson.M) {
+	t.Helper()
+
+	actualJSON, err := json.Marshal(actual)
+	test.That(t, err, test.ShouldBeNil)
+
+	expectedJSON, err := json.Marshal(expected)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, string(actualJSON), test.ShouldEqualJSON, string(expectedJSON))
 }
 
 func createTempMQLFile(t *testing.T) string {
@@ -84,9 +111,7 @@ func createTempMQLFile(t *testing.T) string {
 	return f.Name()
 }
 
-func expectedBSONBytes(t *testing.T) [][]byte {
-	t.Helper()
-
+func TestMQLJSON(t *testing.T) {
 	expectedBSONBytes := make([][]byte, len(mqlBSON))
 	var err error
 	for i, bsonDoc := range mqlBSON {
@@ -95,11 +120,7 @@ func expectedBSONBytes(t *testing.T) [][]byte {
 			break
 		}
 	}
-	return expectedBSONBytes
-}
-
-func TestMQLJSON(t *testing.T) {
-	json, err := mqlJSON(expectedBSONBytes(t))
+	json, err := mqlJSON(expectedBSONBytes)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, json, test.ShouldEqualJSON, mqlString)
 }
