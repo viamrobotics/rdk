@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/urfave/cli/v2"
 	"go.mongodb.org/mongo-driver/bson"
@@ -163,6 +164,15 @@ func DatapipelineDescribeAction(c *cli.Context, args datapipelineDescribeArgs) e
 	}
 	pipeline := resp.GetDataPipeline()
 
+	runsResp, err := client.datapipelinesClient.ListPipelineRuns(context.Background(), &datapipelinespb.ListPipelineRunsRequest{
+		Id:       args.ID,
+		PageSize: 1,
+	})
+	if err != nil {
+		return fmt.Errorf("error listing pipeline runs: %w", err)
+	}
+	runs := runsResp.Runs
+
 	mql, err := mqlJSON(pipeline.GetMqlBinary())
 	if err != nil {
 		warningf(c.App.Writer, "error parsing MQL query: %s", err)
@@ -171,10 +181,25 @@ func DatapipelineDescribeAction(c *cli.Context, args datapipelineDescribeArgs) e
 
 	printf(c.App.Writer, "ID: %s", pipeline.GetId())
 	printf(c.App.Writer, "Name: %s", pipeline.GetName())
+	printf(c.App.Writer, "Enabled: %t", pipeline.GetEnabled())
 	printf(c.App.Writer, "Schedule: %s", pipeline.GetSchedule())
 	printf(c.App.Writer, "MQL query: %s", mql)
-	// TODO: pending implementation of PipelineRuns API
-	// printf(c.App.Writer, "Last execution: %s", pipeline.GetLastExecution())
+
+	var pipelineRunStatusMap = map[datapipelinespb.PipelineRunStatus]string{
+		datapipelinespb.PipelineRunStatus_PIPELINE_RUN_STATUS_UNSPECIFIED: "Unknown",
+		datapipelinespb.PipelineRunStatus_PIPELINE_RUN_STATUS_SCHEDULED:   "Scheduled",
+		datapipelinespb.PipelineRunStatus_PIPELINE_RUN_STATUS_STARTED:     "Running",
+		datapipelinespb.PipelineRunStatus_PIPELINE_RUN_STATUS_COMPLETED:   "Success",
+		datapipelinespb.PipelineRunStatus_PIPELINE_RUN_STATUS_FAILED:      "Failed",
+	}
+
+	if len(runs) > 0 {
+		printf(c.App.Writer, "Last run: %s, %s.",
+			runs[0].GetStartTime().AsTime().Format(time.RFC3339),
+			pipelineRunStatusMap[runs[0].GetStatus()])
+	} else {
+		printf(c.App.Writer, "Has not run yet.")
+	}
 
 	return nil
 }
