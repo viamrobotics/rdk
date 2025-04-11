@@ -205,6 +205,48 @@ func DatapipelineDescribeAction(c *cli.Context, args datapipelineDescribeArgs) e
 	return nil
 }
 
+type datapipelineEnableArgs struct {
+	ID string
+}
+
+func DatapipelineEnableAction(c *cli.Context, args datapipelineEnableArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	_, err = client.datapipelinesClient.EnableDataPipeline(context.Background(), &datapipelinespb.EnableDataPipelineRequest{
+		Id: args.ID,
+	})
+	if err != nil {
+		return fmt.Errorf("error enabling data pipeline: %w", err)
+	}
+
+	printf(c.App.Writer, "data pipeline (id: %s) enabled.", args.ID)
+	return nil
+}
+
+type datapipelineDisableArgs struct {
+	ID string
+}
+
+func DatapipelineDisableAction(c *cli.Context, args datapipelineDisableArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	_, err = client.datapipelinesClient.DisableDataPipeline(context.Background(), &datapipelinespb.DisableDataPipelineRequest{
+		Id: args.ID,
+	})
+	if err != nil {
+		return fmt.Errorf("error disabling data pipeline: %w", err)
+	}
+
+	printf(c.App.Writer, "data pipeline (id: %s) disabled.", args.ID)
+	return nil
+}
+
 func parseMQL(mql, mqlFile string) ([][]byte, error) {
 	if mqlFile != "" {
 		if mql != "" {

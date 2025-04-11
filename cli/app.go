@@ -1631,6 +1631,32 @@ var app = &cli.App{
 					},
 					Action: createCommandWithT[datapipelineDescribeArgs](DatapipelineDescribeAction),
 				},
+				{
+					Name:      "enable",
+					Usage:     "enable a data pipeline",
+					UsageText: createUsageText("datapipelines enable", []string{datapipelineFlagID}, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     datapipelineFlagID,
+							Usage:    "ID of the data pipeline to enable",
+							Required: true,
+						},
+					},
+					Action: createCommandWithT[datapipelineEnableArgs](DatapipelineEnableAction),
+				},
+				{
+					Name:      "disable",
+					Usage:     "disable a data pipeline",
+					UsageText: createUsageText("datapipelines disable", []string{datapipelineFlagID}, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     datapipelineFlagID,
+							Usage:    "ID of the data pipeline to disable",
+							Required: true,
+						},
+					},
+					Action: createCommandWithT[datapipelineDisableArgs](DatapipelineDisableAction),
+				},
 			},
 		},
 		{
