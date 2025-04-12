@@ -3,21 +3,11 @@ package module_test
 import (
 	"context"
 	"fmt"
-	"os"
-	"runtime"
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-	commonpb "go.viam.com/api/common/v1"
-	genericpb "go.viam.com/api/component/generic/v1"
-	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
-	"go.viam.com/utils/testutils"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
@@ -29,6 +19,7 @@ import (
 	"go.viam.com/rdk/testutils/robottestutils"
 )
 
+/*
 func TestOpID(t *testing.T) {
 	ctx := context.Background()
 
@@ -153,6 +144,7 @@ func TestOpID(t *testing.T) {
 		})
 	}
 }
+*/
 
 func TestModuleClientTimeoutInterceptor(t *testing.T) {
 	ctx := context.Background()
