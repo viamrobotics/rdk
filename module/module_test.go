@@ -9,19 +9,32 @@ import (
 	"strings"
 	"testing"
 
+	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	v1 "go.viam.com/api/app/v1"
 	pb "go.viam.com/api/module/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
+	"go.viam.com/utils/protoutils"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
+	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/components/motor/fake"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
+	"go.viam.com/rdk/examples/customresources/apis/summationapi"
+	"go.viam.com/rdk/examples/customresources/models/mygizmo"
+	"go.viam.com/rdk/examples/customresources/models/mysum"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
+	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/shell"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
-/*
 func TestAddModelFromRegistry(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
@@ -105,10 +118,11 @@ func TestAddModelFromRegistry(t *testing.T) {
 		})
 	}
 }
-*/
 
 /*
 func TestModuleFunctions(t *testing.T) {
+	// skip no_cgo because windows tests, run as no_cgo, fails on subprocess builds here.
+	rtestutils.SkipNoCgo(t)
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
@@ -374,7 +388,6 @@ func (c *MockConfig) Validate(path string) ([]string, error) {
 	return c.Motors, nil
 }
 
-/*
 // TestAttributeConversion tests that modular resource configs have attributes converted with a registered converter,
 // and that validation then works on those converted attributes.
 func TestAttributeConversion(t *testing.T) {
@@ -741,7 +754,6 @@ func TestAttributeConversion(t *testing.T) {
 		test.That(t, convSvcCfg.CaptureMethods[0].Method, test.ShouldEqual, "Something")
 	})
 }
-*/
 
 // setupLocalModule sets up a module without a parent connection.
 func setupLocalModule(t *testing.T, ctx context.Context, logger logging.Logger) *module.Module {
