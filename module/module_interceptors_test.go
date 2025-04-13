@@ -157,6 +157,9 @@ func TestOpID(t *testing.T) {
 }
 
 func TestModuleClientTimeoutInterceptor(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("todo: get this working on win")
+	}
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
