@@ -8,8 +8,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -386,7 +388,6 @@ func TestModManagerFunctions(t *testing.T) {
 	}
 }
 
-/*
 func TestModManagerKill(t *testing.T) {
 	// this test will not pass on windows as it relies on the UnixPid of the managed process
 	if runtime.GOOS == "windows" {
@@ -429,7 +430,6 @@ func TestModManagerKill(t *testing.T) {
 		test.That(t, errors.Is(err, os.ErrProcessDone), test.ShouldBeFalse)
 	}
 }
-*/
 
 func TestModManagerValidation(t *testing.T) {
 	ctx := context.Background()
