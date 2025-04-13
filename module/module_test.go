@@ -15,14 +15,19 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
+	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
+	"go.viam.com/rdk/examples/customresources/models/mybase"
+	"go.viam.com/rdk/examples/customresources/models/mydiscovery"
 	"go.viam.com/rdk/examples/customresources/models/mygizmo"
 	"go.viam.com/rdk/examples/customresources/models/mysum"
 	"go.viam.com/rdk/logging"
@@ -30,7 +35,9 @@ import (
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/datamanager"
+	"go.viam.com/rdk/services/discovery"
 	"go.viam.com/rdk/services/shell"
+	rtestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -119,7 +126,6 @@ func TestAddModelFromRegistry(t *testing.T) {
 	}
 }
 
-/*
 func TestModuleFunctions(t *testing.T) {
 	// skip no_cgo because windows tests, run as no_cgo, fails on subprocess builds here.
 	rtestutils.SkipNoCgo(t)
@@ -375,7 +381,6 @@ func TestModuleFunctions(t *testing.T) {
 	err = myRobot.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 }
-*/
 
 type MockConfig struct {
 	Motors []string `json:"motors"`
