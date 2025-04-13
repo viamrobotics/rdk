@@ -38,7 +38,6 @@ import (
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/discovery"
 	"go.viam.com/rdk/services/shell"
-	rtestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -128,8 +127,9 @@ func TestAddModelFromRegistry(t *testing.T) {
 }
 
 func TestModuleFunctions(t *testing.T) {
-	// skip no_cgo because windows tests, run as no_cgo, fails on subprocess builds here.
-	rtestutils.SkipNoCgo(t)
+	if runtime.GOOS == "windows" {
+		t.Skip("todo: get this working on win")
+	}
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 

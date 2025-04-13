@@ -9,6 +9,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	commonpb "go.viam.com/api/common/v1"
+	genericpb "go.viam.com/api/component/generic/v1"
+	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/testutils"
@@ -16,9 +19,6 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	commonpb "go.viam.com/api/common/v1"
-	genericpb "go.viam.com/api/component/generic/v1"
-	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	rdkgrpc "go.viam.com/rdk/grpc"
@@ -35,8 +35,10 @@ func TestOpID(t *testing.T) {
 	if runtime.GOARCH == "arm" {
 		t.Skip("skipping on 32-bit ARM -- subprocess build warnings cause failure")
 	}
-	// skip no_cgo because windows tests, run as no_cgo, fails on subprocess builds here.
-	rtestutils.SkipNoCgo(t)
+	if runtime.GOOS == "windows" {
+		t.Skip("todo: get this working on win")
+	}
+
 	logger, logObserver := logging.NewObservedTestLogger(t)
 
 	var port int
