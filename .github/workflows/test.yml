@@ -101,6 +101,10 @@ jobs:
       with:
         go-version-file: go.mod
     - name: test
+      env:
+        # otherwise this gives a 'signal arrived during external code execution' error
+        # in runtime.cgocall for github.com/pion/mediadevices/pkg/driver/camera._Cfunc_listCamera
+        CGO_ENABLED: "0"
       # note: we are beginning with a subset of tests that are known to pass on windows
       run: go test -tags no_cgo ./module
 
