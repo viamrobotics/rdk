@@ -105,10 +105,9 @@ jobs:
         # otherwise this gives a 'signal arrived during external code execution' error
         # in runtime.cgocall for github.com/pion/mediadevices/pkg/driver/camera._Cfunc_listCamera
         CGO_ENABLED: "0"
-
+      run:
         # note: this is a subset of tests that are known to pass on windows
-        TEST_TARGET: ./module
-      run: make test-go
+        go run gotest.tools/gotestsum --format standard-verbose ./module
 
     - name: Upload test.json
       if: always()
