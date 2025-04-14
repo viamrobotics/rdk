@@ -95,7 +95,7 @@ func StatisticalOutlierFilter(meanK int, stdDevThresh float64) (func(PointCloud)
 
 // ToBasicOctree takes a pointcloud object and converts it into a basic octree.
 func ToBasicOctree(cloud PointCloud, confidenceThreshold int) (*BasicOctree, error) {
-	if basicOctree, ok := cloud.(*BasicOctree); ok {
+	if basicOctree, ok := cloud.(*BasicOctree); ok && (basicOctree.confidenceThreshold == confidenceThreshold) {
 		return basicOctree, nil
 	}
 
