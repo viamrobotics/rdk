@@ -678,7 +678,7 @@ func TestCachedMaxProbability(t *testing.T) {
 			children: nil,
 			nodeType: leafNodeFilled,
 			point:    &PointAndData{P: r3.Vector{1, 2, 3}, D: d},
-			maxVal:   emptyProb,
+			maxVal:   defaultConfidenceThreshold,
 		}
 		test.That(t, node, test.ShouldResemble, filledNode)
 	})

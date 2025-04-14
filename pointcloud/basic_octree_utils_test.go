@@ -174,7 +174,7 @@ func validateBasicOctree(t *testing.T, bOct *BasicOctree, center r3.Vector, side
 	validateMetadata(t, bOct)
 
 	var size int
-	maxVal := emptyProb
+	maxVal := math.MinInt
 	switch bOct.node.nodeType {
 	case internalNode:
 		test.That(t, len(bOct.node.children), test.ShouldEqual, 8)
