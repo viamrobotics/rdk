@@ -54,7 +54,7 @@ const (
 	// random seed.
 	defaultRandomSeed = 0
 
-	// constraints passed over the wire do not get names and we want to call them something
+	// constraints passed over the wire do not get names and we want to call them something.
 	defaultConstraintName = "unnamed constraint"
 
 	// When breaking down a path into smaller waypoints, add a waypoint every this many mm of movement.

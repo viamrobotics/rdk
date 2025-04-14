@@ -22,7 +22,7 @@ const (
 	orientationConstraintDescription = "orientation constraint"
 	planarConstraintDescription      = "planar constraint"
 
-	// various collision constraints that have different names in order to be unique keys in maps of constraints that are created
+	// various collision constraints that have different names in order to be unique keys in maps of constraints that are created.
 	boundingRegionConstraintDescription = "bounding region constraint"
 	obstacleConstraintDescription       = "obstacle constraint"
 	selfCollisionConstraintDescription  = "self-collision constraint"

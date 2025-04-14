@@ -356,11 +356,11 @@ func checkSegments(sfPlanner *planManager, segments []*ik.Segment, lookAheadDist
 
 			// Checks for collision along the interpolated route and returns a the first interpolated pose where a collision is detected.
 			if err := sfPlanner.planOpts.CheckStateConstraints(interpolatedState); err != nil {
-				return fmt.Errorf("found constraint violation or collision in segment between %v and %v at %v: %s",
+				return errors.Wrapf(err,
+					"found constraint violation or collision in segment between %v and %v at %v",
 					segment.StartPosition.Point(),
 					segment.EndPosition.Point(),
 					poseInPath.Point(),
-					err,
 				)
 			}
 		}

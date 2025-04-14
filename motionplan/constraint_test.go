@@ -319,6 +319,7 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		rfloats := frame.GenerateRandomConfiguration(model, rseed)
 		err = handler.CheckStateConstraints(&ik.State{Configuration: frame.FloatsToInputs(rfloats), Frame: model})
+		test.That(b, err, test.ShouldBeNil)
 	}
 }
 
