@@ -90,6 +90,17 @@ jobs:
           path: json.log
           retention-days: 30
 
+  test_win:
+    name: windows
+    runs-on: windows-2019
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
+    - name: test
+      # note: we are beginning with a subset of tests that are known to pass on windows
+      run: go test -tags no_cgo ./module
+
   test32:
     name: Go 32-bit Unit Tests
     runs-on: ubuntu-large-arm
@@ -139,7 +150,7 @@ jobs:
 
   test_passing:
     name: All Tests Passing
-    needs: [test_go, test32, motion_tests]
+    needs: [test_go, test32, motion_tests, test_win]
     runs-on: [ubuntu-latest]
     if: always()
     steps:
@@ -147,6 +158,7 @@ jobs:
         run: |
           echo Go Unit Tests: ${{ needs.test_go.result }}
           echo Go 32-bit Tests: ${{ needs.test32.result }}
+          echo Windows Tests: ${{ needs.test_win.result }}
           echo Motion Tests: ${{ needs.motion_tests.result }}
           [ "${{ needs.test_go.result }}" == "success" ] && \
           [ "${{ needs.test32.result }}" == "success" ] && \
