@@ -379,6 +379,7 @@ func populateAdditionalInfo(newModule *modulegen.ModuleInputs) {
 	modelTriple := fmt.Sprintf("%s:%s:%s", newModule.Namespace, newModule.ModuleName, newModule.ModelName)
 	newModule.ModelTriple = modelTriple
 	newModule.ModelReadmeLink = "README.md#" + generateAnchor(fmt.Sprintf("Model %s", modelTriple))
+	newModule.ModuleReadmeLink = defaultReadmeFilename
 }
 
 // Creates a new directory with moduleName.
@@ -811,6 +812,7 @@ func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInpu
 		Models: []ModuleComponent{
 			{API: module.API, Model: module.ModelTriple, MarkdownLink: &module.ModelReadmeLink, Description: &modelDescription},
 		},
+		MarkdownLink: &module.ModuleReadmeLink,
 	}
 	switch module.Language {
 	case python:

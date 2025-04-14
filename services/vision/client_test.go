@@ -31,7 +31,7 @@ func TestClient(t *testing.T) {
 
 	srv := &inject.VisionService{}
 	srv.DetectionsFunc = func(ctx context.Context, img image.Image, extra map[string]interface{}) ([]objectdetection.Detection, error) {
-		det1 := objectdetection.NewDetection(image.Rect(5, 10, 15, 20), 0.5, "yes")
+		det1 := objectdetection.NewDetection(img.Bounds(), image.Rect(5, 10, 15, 20), 0.5, "yes")
 		return []objectdetection.Detection{det1}, nil
 	}
 	srv.DetectionsFromCameraFunc = func(
@@ -39,7 +39,7 @@ func TestClient(t *testing.T) {
 		camName string,
 		extra map[string]interface{},
 	) ([]objectdetection.Detection, error) {
-		det1 := objectdetection.NewDetection(image.Rect(0, 0, 10, 20), 0.8, "camera")
+		det1 := objectdetection.NewDetection(image.Rect(0, 0, 50, 50), image.Rect(0, 0, 10, 20), 0.8, "camera")
 		return []objectdetection.Detection{det1}, nil
 	}
 	srv.GetPropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*vision.Properties, error) {
@@ -53,7 +53,7 @@ func TestClient(t *testing.T) {
 		opts viscapture.CaptureOptions,
 		extra map[string]interface{},
 	) (viscapture.VisCapture, error) {
-		det1 := objectdetection.NewDetection(image.Rectangle{}, 0.5, "yes")
+		det1 := objectdetection.NewDetection(image.Rect(0, 0, 50, 50), image.Rect(0, 0, 10, 20), 0.5, "yes")
 		return viscapture.VisCapture{
 			Detections: []objectdetection.Detection{det1},
 			Extra:      extra,
@@ -86,7 +86,7 @@ func TestClient(t *testing.T) {
 		client, err := vision.NewClientFromConn(context.Background(), conn, "", vision.Named(testVisionServiceName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		dets, err := client.Detections(context.Background(), image.NewRGBA(image.Rect(0, 0, 10, 20)), nil)
+		dets, err := client.Detections(context.Background(), image.NewRGBA(image.Rect(0, 0, 100, 200)), nil)
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, dets, test.ShouldNotBeNil)
@@ -95,7 +95,7 @@ func TestClient(t *testing.T) {
 		box := dets[0].BoundingBox()
 		test.That(t, box.Min, test.ShouldResemble, image.Point{5, 10})
 		test.That(t, box.Max, test.ShouldResemble, image.Point{15, 20})
-
+		test.That(t, dets[0].NormalizedBoundingBox(), test.ShouldResemble, []float64{0.05, 0.05, 0.15, 0.1})
 		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
@@ -113,7 +113,7 @@ func TestClient(t *testing.T) {
 		box := dets[0].BoundingBox()
 		test.That(t, box.Min, test.ShouldResemble, image.Point{0, 0})
 		test.That(t, box.Max, test.ShouldResemble, image.Point{10, 20})
-
+		test.That(t, dets[0].NormalizedBoundingBox(), test.ShouldResemble, []float64{0.0, 0.0, 0.2, 0.4})
 		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
@@ -154,6 +154,7 @@ func TestClient(t *testing.T) {
 		test.That(t, capt.Detections, test.ShouldHaveLength, 1)
 		test.That(t, capt.Detections[0].Label(), test.ShouldEqual, "yes")
 		test.That(t, capt.Detections[0].Score(), test.ShouldEqual, 0.5)
+		test.That(t, capt.Detections[0].NormalizedBoundingBox(), test.ShouldResemble, []float64{0.0, 0.0, 0.2, 0.4})
 		test.That(t, capt.Extra, test.ShouldResemble, extra)
 		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 

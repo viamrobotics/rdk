@@ -213,19 +213,9 @@ var dataTagByIDsFlags = []cli.Flag{
 		Usage:    "comma separated tags to add/remove to the data",
 		Required: true,
 	},
-	&cli.StringFlag{
-		Name:     generalFlagOrgID,
-		Usage:    "org ID to which data belongs",
-		Required: true,
-	},
-	&cli.StringFlag{
-		Name:     dataFlagLocationID,
-		Usage:    "location ID to which data belongs",
-		Required: true,
-	},
 	&cli.StringSliceFlag{
-		Name:     dataFlagFileIDs,
-		Usage:    "comma separated file IDs of data belonging to specified org and location",
+		Name:     dataFlagBinaryDataIDs,
+		Usage:    "comma separated binary data IDs",
 		Required: true,
 	},
 }
@@ -1253,24 +1243,24 @@ var app = &cli.App{
 					Subcommands: []*cli.Command{
 						{
 							Name:            "ids",
-							Usage:           "adds or removes tags from binary data by file ids for a given org and location",
+							Usage:           "adds or removes tags from binary data by binary data ids for a given org and location",
 							UsageText:       createUsageText("data tag ids", nil, true, false),
 							HideHelpCommand: true,
 							Subcommands: []*cli.Command{
 								{
 									Name:  "add",
-									Usage: "adds tags to binary data by file ids for a given org and location",
+									Usage: "adds tags to binary data by binary data ids for a given org and location",
 									UsageText: createUsageText(
-										"data tag ids add", []string{generalFlagTags, generalFlagOrgID, dataFlagLocationID, dataFlagFileIDs}, false, false,
+										"data tag ids add", []string{generalFlagTags, dataFlagBinaryDataIDs}, false, false,
 									),
 									Flags:  dataTagByIDsFlags,
 									Action: createCommandWithT[dataTagByIDsArgs](DataTagActionByIds),
 								},
 								{
 									Name:  "remove",
-									Usage: "removes tags from binary data by file ids for a given org and location",
+									Usage: "removes tags from binary data by binary data ids for a given org and location",
 									UsageText: createUsageText(
-										"data tag ids remove", []string{generalFlagTags, generalFlagOrgID, dataFlagLocationID, dataFlagFileIDs}, false, false,
+										"data tag ids remove", []string{generalFlagTags, dataFlagBinaryDataIDs}, false, false,
 									),
 									Flags:  dataTagByIDsFlags,
 									Action: createCommandWithT[dataTagByIDsArgs](DataTagActionByIds),
@@ -1425,9 +1415,9 @@ var app = &cli.App{
 							Subcommands: []*cli.Command{
 								{
 									Name:  "ids",
-									Usage: "adds binary data with file IDs in a single org and location to dataset",
+									Usage: "adds binary data with binary data ids in a single org and location to dataset",
 									UsageText: createUsageText(
-										"dataset data add ids", []string{datasetFlagDatasetID, generalFlagOrgID, dataFlagLocationID, dataFlagFileIDs}, false, false,
+										"dataset data add ids", []string{datasetFlagDatasetID, dataFlagBinaryDataIDs}, false, false,
 									),
 									Flags: []cli.Flag{
 										&cli.StringFlag{
@@ -1435,19 +1425,9 @@ var app = &cli.App{
 											Usage:    "dataset ID to which data will be added",
 											Required: true,
 										},
-										&cli.StringFlag{
-											Name:     generalFlagOrgID,
-											Usage:    "org ID to which data belongs",
-											Required: true,
-										},
-										&cli.StringFlag{
-											Name:     dataFlagLocationID,
-											Usage:    "location ID to which data belongs",
-											Required: true,
-										},
 										&cli.StringSliceFlag{
-											Name:     dataFlagFileIDs,
-											Usage:    "file IDs of data belonging to specified org and location",
+											Name:     dataFlagBinaryDataIDs,
+											Usage:    "binary data IDs of data belonging to specified org and location",
 											Required: true,
 										},
 									},
@@ -1484,9 +1464,9 @@ var app = &cli.App{
 							Subcommands: []*cli.Command{
 								{
 									Name:  "ids",
-									Usage: "removes binary data with file IDs in a single org and location from a dataset",
+									Usage: "removes binary data with binary data ids in a single org and location from a dataset",
 									UsageText: createUsageText(
-										"dataset data remove ids", []string{datasetFlagDatasetID, generalFlagOrgID, dataFlagLocationID, dataFlagFileIDs}, false, false,
+										"dataset data remove ids", []string{datasetFlagDatasetID, dataFlagBinaryDataIDs}, false, false,
 									),
 									Flags: []cli.Flag{
 										&cli.StringFlag{
@@ -1494,19 +1474,9 @@ var app = &cli.App{
 											Usage:    "dataset ID from which data will be removed",
 											Required: true,
 										},
-										&cli.StringFlag{
-											Name:     generalFlagOrgID,
-											Usage:    "org ID to which data belongs",
-											Required: true,
-										},
-										&cli.StringFlag{
-											Name:     dataFlagLocationID,
-											Usage:    "location ID to which data belongs",
-											Required: true,
-										},
 										&cli.StringSliceFlag{
-											Name:     dataFlagFileIDs,
-											Usage:    "file IDs of data belonging to specified org and location",
+											Name:     dataFlagBinaryDataIDs,
+											Usage:    "binary data IDs of data belonging to specified org and location",
 											Required: true,
 										},
 									},
@@ -1919,7 +1889,7 @@ var app = &cli.App{
 						&cli.StringFlag{
 							Name:        generalFlagStart,
 							Usage:       "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter (e.g., 2025-01-15T14:00:00Z)",
-							DefaultText: "1 day ago",
+							DefaultText: "12 hours ago",
 						},
 						&cli.StringFlag{
 							Name:  generalFlagEnd,
@@ -2898,8 +2868,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 			Name:  "infer",
 			Usage: "run cloud hosted inference on an image",
 			UsageText: createUsageText("infer", []string{
-				generalFlagOrgID, inferenceFlagFileOrgID, inferenceFlagFileID,
-				inferenceFlagFileLocationID, inferenceFlagModelOrgID, inferenceFlagModelName, inferenceFlagModelVersion,
+				generalFlagOrgID, inferenceFlagBinaryDataID, inferenceFlagModelOrgID, inferenceFlagModelName, inferenceFlagModelVersion,
 			}, true, false),
 			Flags: []cli.Flag{
 				&cli.StringFlag{
@@ -2908,18 +2877,8 @@ This won't work unless you have an existing installation of our GitHub app on yo
 					Required: true,
 				},
 				&cli.StringFlag{
-					Name:     inferenceFlagFileOrgID,
-					Usage:    "organization ID that owns the file to run inference on",
-					Required: true,
-				},
-				&cli.StringFlag{
-					Name:     inferenceFlagFileID,
-					Usage:    "file ID of the file to run inference on",
-					Required: true,
-				},
-				&cli.StringFlag{
-					Name:     inferenceFlagFileLocationID,
-					Usage:    "location ID of the file to run inference on",
+					Name:     inferenceFlagBinaryDataID,
+					Usage:    "binary data ID of the image to run inference on",
 					Required: true,
 				},
 				&cli.StringFlag{

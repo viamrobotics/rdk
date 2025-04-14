@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -67,6 +68,7 @@ type MLModelConfig struct {
 	DefaultConfidence  float64            `json:"default_minimum_confidence"`
 	LabelConfidenceMap map[string]float64 `json:"label_confidences"`
 	LabelPath          string             `json:"label_path"`
+	DefaultCamera      string             `json:"camera_name"`
 }
 
 // Validate will add the ModelName as an implicit dependency to the robot.
@@ -211,8 +213,15 @@ func registerMLModelVisionService(
 		}
 	}
 
+	if params.DefaultCamera != "" {
+		_, err = camera.FromRobot(r, params.DefaultCamera)
+		if err != nil {
+			return nil, errors.Errorf("could not find camera %q", params.DefaultCamera)
+		}
+	}
+
 	// Don't return a close function, because you don't want to close the underlying ML service
-	return vision.NewService(name, r, nil, classifierFunc, detectorFunc, segmenter3DFunc)
+	return vision.NewService(name, r, nil, classifierFunc, detectorFunc, segmenter3DFunc, params.DefaultCamera)
 }
 
 func getLabelsFromFile(labelPath string) []string {
