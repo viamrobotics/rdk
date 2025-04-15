@@ -478,7 +478,7 @@ func NewBoundingRegionConstraint(robotGeoms, boundingRegions []spatial.Geometry,
 		}
 		cs := cg.collisions(collisionBufferMM)
 		if len(cs) == 0 {
-			return fmt.Errorf("violation of bounding region constraint")
+			return errors.New("violation of bounding region constraint")
 		}
 		return nil
 	}
