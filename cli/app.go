@@ -53,6 +53,7 @@ const (
 	generalFlagPart              = "part"
 	generalFlagPartName          = "part-name"
 	generalFlagPartID            = "part-id"
+	generalFlagID                = "id"
 	generalFlagName              = "name"
 	generalFlagMethod            = "method"
 	generalFlagDestination       = "destination"
@@ -74,7 +75,6 @@ const (
 	moduleFlagLocal           = "local"
 	moduleFlagHomeDir         = "home"
 	moduleCreateLocalOnly     = "local-only"
-	moduleFlagID              = "id"
 	moduleFlagIsPublic        = "public"
 	moduleFlagResourceType    = "resource-type"
 	moduleFlagModelName       = "model-name"
@@ -117,8 +117,6 @@ const (
 	dataFlagFilterTags                     = "filter-tags"
 	dataFlagTimeout                        = "timeout"
 
-	datapipelineFlagID       = "id"
-	datapipelineFlagName     = "name"
 	datapipelineFlagSchedule = "schedule"
 	datapipelineFlagMQL      = "mql"
 	datapipelineFlagMQLFile  = "mql-file"
@@ -1522,10 +1520,9 @@ var app = &cli.App{
 			Subcommands: []*cli.Command{
 				{
 					Name:  "list",
-					Usage: "list data pipelines for an org ID",
+					Usage: "list data pipelines for an organization ID",
 					UsageText: createUsageText("datapipelines list",
 						[]string{generalFlagOrgID}, true, false),
-					Description: "In order to list data pipelines, an org ID is required",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     generalFlagOrgID,
@@ -1538,10 +1535,10 @@ var app = &cli.App{
 				{
 					Name:      "describe",
 					Usage:     "describe a data pipeline and its status",
-					UsageText: createUsageText("datapipelines describe", []string{datapipelineFlagID}, true, false),
+					UsageText: createUsageText("datapipelines describe", []string{generalFlagID}, true, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:     datapipelineFlagID,
+							Name:     generalFlagID,
 							Usage:    "ID of the data pipeline to describe",
 							Required: true,
 						},
@@ -1552,7 +1549,7 @@ var app = &cli.App{
 					Name:  "create",
 					Usage: "create a new data pipeline",
 					UsageText: createUsageText("datapipelines create",
-						[]string{generalFlagOrgID, datapipelineFlagName, datapipelineFlagSchedule}, false, false,
+						[]string{generalFlagOrgID, generalFlagName, datapipelineFlagSchedule}, false, false,
 						fmt.Sprintf("[--%s=<%s> | --%s=<%s>]",
 							datapipelineFlagMQL, datapipelineFlagMQL,
 							datapipelineFlagMQLFile, datapipelineFlagMQLFile),
@@ -1564,7 +1561,7 @@ var app = &cli.App{
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name:     datapipelineFlagName,
+							Name:     generalFlagName,
 							Usage:    "name of the new data pipeline",
 							Required: true,
 						},
@@ -1588,19 +1585,19 @@ var app = &cli.App{
 					Name:  "update",
 					Usage: "update a data pipeline",
 					UsageText: createUsageText("datapipelines update",
-						[]string{datapipelineFlagID, datapipelineFlagName, datapipelineFlagSchedule}, false, false,
+						[]string{generalFlagID, generalFlagName, datapipelineFlagSchedule}, false, false,
 						fmt.Sprintf("[--%s=<%s> | --%s=<%s>]",
 							datapipelineFlagMQL, datapipelineFlagMQL,
 							datapipelineFlagMQLFile, datapipelineFlagMQLFile),
 					),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:     datapipelineFlagID,
+							Name:     generalFlagID,
 							Usage:    "ID of the data pipeline to update",
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name:  datapipelineFlagName,
+							Name:  generalFlagName,
 							Usage: "name of the data pipeline to update",
 						},
 						&cli.StringFlag{
@@ -1621,10 +1618,10 @@ var app = &cli.App{
 				{
 					Name:      "delete",
 					Usage:     "delete a data pipeline",
-					UsageText: createUsageText("datapipelines delete", []string{datapipelineFlagID}, true, false),
+					UsageText: createUsageText("datapipelines delete", []string{generalFlagID}, true, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:     datapipelineFlagID,
+							Name:     generalFlagID,
 							Usage:    "ID of the data pipeline to delete",
 							Required: true,
 						},
@@ -1634,10 +1631,10 @@ var app = &cli.App{
 				{
 					Name:      "enable",
 					Usage:     "enable a data pipeline",
-					UsageText: createUsageText("datapipelines enable", []string{datapipelineFlagID}, true, false),
+					UsageText: createUsageText("datapipelines enable", []string{generalFlagID}, true, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:     datapipelineFlagID,
+							Name:     generalFlagID,
 							Usage:    "ID of the data pipeline to enable",
 							Required: true,
 						},
@@ -1647,10 +1644,10 @@ var app = &cli.App{
 				{
 					Name:      "disable",
 					Usage:     "disable a data pipeline",
-					UsageText: createUsageText("datapipelines disable", []string{datapipelineFlagID}, true, false),
+					UsageText: createUsageText("datapipelines disable", []string{generalFlagID}, true, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:     datapipelineFlagID,
+							Name:     generalFlagID,
 							Usage:    "ID of the data pipeline to disable",
 							Required: true,
 						},
@@ -2701,7 +2698,7 @@ Example:
 									DefaultText: "all",
 								},
 								&cli.StringFlag{
-									Name:  moduleFlagID,
+									Name:  generalFlagID,
 									Usage: "restrict output to just return builds that match this id",
 								},
 							},
@@ -2711,10 +2708,10 @@ Example:
 							Name:      "logs",
 							Aliases:   []string{"log"},
 							Usage:     "get the logs from one of your cloud builds",
-							UsageText: createUsageText("module build logs", []string{moduleFlagID}, true, false),
+							UsageText: createUsageText("module build logs", []string{generalFlagID}, true, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     moduleFlagID,
+									Name:     generalFlagID,
 									Usage:    "build that you want to get the logs for",
 									Required: true,
 								},
@@ -2796,7 +2793,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage: "name of module to restart. pass at most one of --name, --id",
 						},
 						&cli.StringFlag{
-							Name:  moduleFlagID,
+							Name:  generalFlagID,
 							Usage: "ID of module to restart, for example viam:wifi-sensor. pass at most one of --name, --id",
 						},
 						&cli.BoolFlag{
@@ -2830,7 +2827,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Value: ".",
 						},
 						&cli.StringFlag{
-							Name:        moduleFlagID,
+							Name:        generalFlagID,
 							Usage:       "module ID as org-id:name or namespace:name",
 							DefaultText: "will try to read from meta.json",
 						},
