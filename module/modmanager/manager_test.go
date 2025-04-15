@@ -96,7 +96,7 @@ func setupModManager(
 func TestModManagerFunctions(t *testing.T) {
 	// Precompile module copies to avoid timeout issues when building takes too long.
 	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
-	modPath2 := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
+	modPath2 := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
 
 	for _, mode := range []string{"tcp", "unix"} {
 		t.Run(mode, func(t *testing.T) {
@@ -207,20 +207,35 @@ func TestModManagerFunctions(t *testing.T) {
 			t.Log("test AllModels")
 			modCfg2 := config.Module{
 				Name:    "simple-module2",
-				ExePath: modPath,
+				ExePath: modPath2,
 				Type:    config.ModuleTypeLocal,
 			}
 			err = mgr.Add(ctx, modCfg2)
 			test.That(t, err, test.ShouldBeNil)
 			models := mgr.AllModels()
+
+			type expectedModel struct {
+				model resource.Model
+				api   resource.API
+			}
+
+			expectedMod2Models := []expectedModel{
+				{resource.NewModel("acme", "demo", "mycounter"), resource.NewAPI("rdk", "component", "generic")},
+				{resource.NewModel("acme", "demo", "mygizmo"), resource.NewAPI("acme", "component", "gizmo")},
+				{resource.NewModel("acme", "demo", "mysum"), resource.NewAPI("acme", "service", "summation")},
+				{resource.NewModel("acme", "demo", "mynavigation"), resource.NewAPI("rdk", "service", "navigation")},
+				{resource.NewModel("acme", "demo", "mybase"), resource.NewAPI("rdk", "component", "base")},
+			}
+
 			for _, model := range models {
-				test.That(t, model.Model, test.ShouldResemble, resource.NewModel("acme", "demo", "mycounter"))
-				test.That(t, model.API, test.ShouldResemble, resource.NewAPI("rdk", "component", "generic"))
 				switch model.ModuleName {
 				case "simple-module":
 					test.That(t, model.FromLocalModule, test.ShouldEqual, false)
+					test.That(t, model.Model, test.ShouldResemble, resource.NewModel("acme", "demo", "mycounter"))
+					test.That(t, model.API, test.ShouldResemble, resource.NewAPI("rdk", "component", "generic"))
 				case "simple-module2":
 					test.That(t, model.FromLocalModule, test.ShouldEqual, true)
+					test.That(t, expectedModel{model.Model, model.API}, test.ShouldBeIn, expectedMod2Models)
 				default:
 					t.Fail()
 					t.Logf("test AllModels failure: unrecoginzed moduleName %v", model.ModuleName)
@@ -300,6 +315,19 @@ func TestModManagerFunctions(t *testing.T) {
 			ret, err = counter.DoCommand(ctx, map[string]interface{}{"command": "add", "value": 24})
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, ret["total"], test.ShouldEqual, 24)
+
+			// Reconfigure module with duplicate ExePath.
+			err = mgr.Add(ctx, modCfg2)
+			test.That(t, err, test.ShouldBeNil)
+
+			modCfg.ExePath = modPath2
+			_, err = mgr.Reconfigure(ctx, modCfg)
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring,
+				"An existing module simple-module2 already exists with the same executable path as module simple-module")
+
+			_, err = mgr.Remove(modCfg2.Name)
+			test.That(t, err, test.ShouldBeNil)
 
 			// Change underlying binary path of module to be a different copy of the same module
 			modCfg.ExePath = modPath2
@@ -495,6 +523,15 @@ func TestModManagerValidation(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldResemble,
 		"rpc error: code = DeadlineExceeded desc = context deadline exceeded")
+
+	modCfg = config.Module{
+		Name:    "second-module",
+		ExePath: modPath,
+	}
+	err = mgr.Add(ctx, modCfg)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldResemble,
+		"An existing module complex-module already exists with the same executable path as module second-module")
 }
 
 func TestModuleReloading(t *testing.T) {
