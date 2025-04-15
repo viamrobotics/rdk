@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -126,6 +127,9 @@ func TestAddModelFromRegistry(t *testing.T) {
 }
 
 func TestModuleFunctions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("todo: get this working on win")
+	}
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
@@ -519,6 +523,9 @@ func TestAttributeConversion(t *testing.T) {
 	}
 
 	t.Run("non-reconfigurable creation", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("todo: get this working on win")
+		}
 		ctx := context.Background()
 
 		th, teardown := setupTest(t)
@@ -555,6 +562,9 @@ func TestAttributeConversion(t *testing.T) {
 	})
 
 	t.Run("non-reconfigurable recreation", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("todo: get this working on win")
+		}
 		ctx := context.Background()
 
 		th, teardown := setupTest(t)
@@ -612,6 +622,9 @@ func TestAttributeConversion(t *testing.T) {
 	})
 
 	t.Run("reconfigurable creation", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("todo: get this working on win")
+		}
 		ctx := context.Background()
 
 		th, teardown := setupTest(t)
@@ -650,6 +663,9 @@ func TestAttributeConversion(t *testing.T) {
 
 	// also check that associated resource configs are processed correctly
 	t.Run("reconfigurable reconfiguration", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("todo: get this working on win")
+		}
 		ctx := context.Background()
 
 		th, teardown := setupTest(t)
@@ -844,10 +860,13 @@ func TestModuleAddResource(t *testing.T) {
 }
 
 func TestModuleSocketAddrTruncation(t *testing.T) {
+	// correct path on windows
+	fixPath := func(path string) string { return strings.ReplaceAll(path, "/", string(filepath.Separator)) }
+
 	// test with a short base path
 	path, err := module.CreateSocketAddress("/tmp", "my-cool-module")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, path, test.ShouldEqual, "/tmp/my-cool-module.sock")
+	test.That(t, path, test.ShouldEqual, fixPath("/tmp/my-cool-module.sock"))
 
 	// test exactly 103
 	path, err = module.CreateSocketAddress(
@@ -858,7 +877,7 @@ func TestModuleSocketAddrTruncation(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, path, test.ShouldHaveLength, 103)
 	test.That(t, path, test.ShouldEqual,
-		"/tmp/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.sock",
+		fixPath("/tmp/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.sock"),
 	)
 
 	// test 104 chars

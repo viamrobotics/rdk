@@ -3,6 +3,7 @@ package motionplan
 import (
 	"errors"
 	"fmt"
+	"slices"
 )
 
 var (
@@ -34,9 +35,19 @@ func NewAlgAndConstraintMismatchErr(planAlg string) error {
 }
 
 func newIKConstraintErr(failures map[string]int, constraintFailCnt int) error {
-	ikConstraintFailures := errIKConstraint
-	for failName, count := range failures {
-		ikConstraintFailures += fmt.Sprintf("{ %s: %.2f%% }, ", failName, 100*float64(count)/float64(constraintFailCnt))
+	// sort the map keys by the integer they map to
+	keys := make([]string, 0, len(failures))
+	for k := range failures {
+		keys = append(keys, k)
 	}
-	return errors.New(ikConstraintFailures)
+	slices.SortFunc(keys, func(a, b string) int {
+		return failures[b] - failures[a] // descending order
+	})
+
+	// build the error message
+	errMsg := errIKConstraint
+	for _, k := range keys {
+		errMsg += fmt.Sprintf("{ %s: %.2f%% }, ", k, 100*float64(failures[k])/float64(constraintFailCnt))
+	}
+	return errors.New(errMsg)
 }
