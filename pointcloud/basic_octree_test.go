@@ -98,6 +98,10 @@ func TestBasicOctreeNew(t *testing.T) {
 func TestBasicOctreeSet(t *testing.T) {
 	center := r3.Vector{X: 0, Y: 0, Z: 0}
 	side := 2.0
+	d1 := 99
+	d2 := 100
+	d3 := 75
+	d4 := 10
 
 	t.Run("Set point into empty leaf node into basic octree", func(t *testing.T) {
 		basicOct, err := createNewOctree(center, side)
@@ -119,17 +123,15 @@ func TestBasicOctreeSet(t *testing.T) {
 		basicOct, err := createNewOctree(center, side)
 		test.That(t, err, test.ShouldBeNil)
 
-		d1 := 1
 		err = basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(d1))
 		test.That(t, err, test.ShouldBeNil)
 		mp := basicOct.MaxVal()
 		test.That(t, mp, test.ShouldEqual, d1)
 
-		d2 := 2
 		err = basicOct.Set(r3.Vector{X: -.5, Y: 0, Z: 0}, NewValueData(d2))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, basicOct.node.nodeType, test.ShouldResemble, internalNode)
-		test.That(t, basicOct.Size(), test.ShouldEqual, 2)
+		test.That(t, basicOct.Size(), test.ShouldEqual, side)
 		mp = basicOct.node.children[0].MaxVal()
 		test.That(t, mp, test.ShouldEqual, int(math.Max(float64(d1), float64(d2))))
 		mp = basicOct.MaxVal()
@@ -142,19 +144,16 @@ func TestBasicOctreeSet(t *testing.T) {
 		basicOct, err := createNewOctree(center, side)
 		test.That(t, err, test.ShouldBeNil)
 
-		d3 := 3
 		err = basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(d3))
 		test.That(t, err, test.ShouldBeNil)
 		mp := basicOct.MaxVal()
 		test.That(t, mp, test.ShouldEqual, d3)
 
-		d2 := 2
 		err = basicOct.Set(r3.Vector{X: -.5, Y: 0, Z: 0}, NewValueData(d2))
 		test.That(t, err, test.ShouldBeNil)
 		mp = basicOct.node.children[0].MaxVal()
 		test.That(t, mp, test.ShouldEqual, int(math.Max(float64(d2), float64(d3))))
 
-		d4 := 4
 		err = basicOct.Set(r3.Vector{X: -.4, Y: 0, Z: 0}, NewValueData(d4))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, basicOct.node.nodeType, test.ShouldResemble, internalNode)
@@ -180,13 +179,11 @@ func TestBasicOctreeSet(t *testing.T) {
 		basicOct, err := createNewOctree(center, side)
 		test.That(t, err, test.ShouldBeNil)
 
-		d1 := 1
 		err = basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(d1))
 		test.That(t, err, test.ShouldBeNil)
 		mp := basicOct.MaxVal()
 		test.That(t, mp, test.ShouldEqual, d1)
 
-		d2 := 2
 		err = basicOct.Set(r3.Vector{X: -.5, Y: 0, Z: 0}, NewValueData(d2))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, basicOct.size, test.ShouldEqual, 2)
@@ -200,14 +197,12 @@ func TestBasicOctreeSet(t *testing.T) {
 		basicOct, err := createNewOctree(center, side)
 		test.That(t, err, test.ShouldBeNil)
 
-		d1 := 1
 		err = basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(d1))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, basicOct.node.point.D.Value(), test.ShouldEqual, d1)
 		mp := basicOct.MaxVal()
 		test.That(t, mp, test.ShouldEqual, d1)
 
-		d2 := 2
 		err = basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(d2))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, basicOct.node.point.D.Value(), test.ShouldEqual, d2)
@@ -243,7 +238,6 @@ func TestBasicOctreeSet(t *testing.T) {
 
 		basicOct = createLopsidedOctree(basicOct, 0, maxRecursionDepth-1)
 
-		d1 := 1
 		err = basicOct.Set(r3.Vector{X: -1, Y: -1, Z: -1}, NewValueData(d1))
 		test.That(t, err, test.ShouldBeNil)
 		mp := basicOct.MaxVal()
@@ -296,9 +290,9 @@ func TestBasicOctreeAt(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		pointsAndData := []PointAndData{
-			{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: NewValueData(1)},
-			{P: r3.Vector{X: -.5, Y: 0, Z: 0}, D: NewValueData(2)},
-			{P: r3.Vector{X: -0.4, Y: 0, Z: 0}, D: NewValueData(3)},
+			{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: NewValueData(51)},
+			{P: r3.Vector{X: -.5, Y: 0, Z: 0}, D: NewValueData(52)},
+			{P: r3.Vector{X: -0.4, Y: 0, Z: 0}, D: NewValueData(53)},
 		}
 
 		err = addPoints(basicOct, pointsAndData)

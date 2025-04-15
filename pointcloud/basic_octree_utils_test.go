@@ -166,8 +166,6 @@ func TestCheckPointPlacement(t *testing.T) {
 
 // Helper function that recursively checks a basic octree's structure and metadata.
 func validateBasicOctree(t *testing.T, bOct *BasicOctree, center r3.Vector, sideLength float64) (int, int) {
-	t.Helper()
-
 	test.That(t, sideLength, test.ShouldEqual, bOct.sideLength)
 	test.That(t, center, test.ShouldResemble, bOct.center)
 
