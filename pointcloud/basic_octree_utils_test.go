@@ -232,6 +232,7 @@ func validateBasicOctree(t *testing.T, bOct *BasicOctree, center r3.Vector, side
 		test.That(t, bOct.node.point, test.ShouldBeNil)
 		test.That(t, bOct.size, test.ShouldEqual, 0)
 		size = bOct.size
+		maxVal = defaultConfidenceThreshold
 	}
 	return size, maxVal
 }
@@ -282,11 +283,12 @@ func createLopsidedOctree(oct *BasicOctree, i, max int) *BasicOctree {
 
 				// Create a new basic octree child
 				child := &BasicOctree{
-					center:     newCenter,
-					sideLength: newSideLength,
-					size:       0,
-					node:       newLeafNodeEmpty(),
-					meta:       NewMetaData(),
+					center:              newCenter,
+					sideLength:          newSideLength,
+					size:                0,
+					node:                newLeafNodeEmpty(),
+					meta:                NewMetaData(),
+					confidenceThreshold: oct.confidenceThreshold,
 				}
 				children = append(children, child)
 			}

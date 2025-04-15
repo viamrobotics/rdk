@@ -82,7 +82,7 @@ func TestToOctree(t *testing.T) {
 		return true
 	})
 
-	basicTree, err := createPopulatedOctree(1)
+	basicTree, err := createExampleOctree()
 	test.That(t, err, test.ShouldBeNil)
 	tree, err = ToBasicOctree(basicTree, 0)
 	test.That(t, err, test.ShouldBeNil)

@@ -77,11 +77,12 @@ func (octree *BasicOctree) splitIntoOctants() error {
 
 					// Create a new basic octree child
 					child := &BasicOctree{
-						center:     newCenter,
-						sideLength: newSideLength,
-						size:       0,
-						node:       newLeafNodeEmpty(),
-						meta:       NewMetaData(),
+						center:              newCenter,
+						sideLength:          newSideLength,
+						size:                0,
+						node:                newLeafNodeEmpty(),
+						meta:                NewMetaData(),
+						confidenceThreshold: octree.confidenceThreshold,
 					}
 					children = append(children, child)
 				}
