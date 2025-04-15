@@ -45,7 +45,7 @@ func TestParseMQL(t *testing.T) {
 		},
 		"valid MQL file": {
 			mqlString:     "",
-			mqlFile:       createTempMQLFile(t),
+			mqlFile:       createTempMQLFile(t, mqlString),
 			expectedError: false,
 			expectedBSON:  mqlBSON,
 		},
@@ -56,12 +56,22 @@ func TestParseMQL(t *testing.T) {
 		},
 		"both string and file provided": {
 			mqlString:     mqlString,
-			mqlFile:       createTempMQLFile(t),
+			mqlFile:       createTempMQLFile(t, mqlString),
 			expectedError: true,
 		},
 		"invalid MQL JSON string": {
 			mqlString:     `[{"$match": {"component_name": "dragino"`, // missing closing brackets
 			mqlFile:       "",
+			expectedError: true,
+		},
+		"invalid MQL JSON file": {
+			mqlString:     "",
+			mqlFile:       createTempMQLFile(t, `[{"$match": {"component_name": "dragino"`), // missing closing brackets
+			expectedError: true,
+		},
+		"invalid MQL file path": {
+			mqlString:     "",
+			mqlFile:       "invalid/path/to/mql.json",
 			expectedError: true,
 		},
 	}
@@ -102,13 +112,13 @@ func testBSONResemble(t *testing.T, actual, expected bson.M) {
 	test.That(t, string(actualJSON), test.ShouldEqualJSON, string(expectedJSON))
 }
 
-func createTempMQLFile(t *testing.T) string {
+func createTempMQLFile(t *testing.T, mql string) string {
 	t.Helper()
 
 	f, err := os.CreateTemp("", "mql.json")
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = f.WriteString(mqlString)
+	_, err = f.WriteString(mql)
 	test.That(t, err, test.ShouldBeNil)
 	err = f.Close()
 	test.That(t, err, test.ShouldBeNil)
