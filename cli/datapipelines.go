@@ -14,6 +14,15 @@ import (
 	datapipelinespb "go.viam.com/api/app/datapipelines/v1"
 )
 
+// pipelineRunStatusMap maps pipeline run statuses to human-readable strings.
+var pipelineRunStatusMap = map[datapipelinespb.PipelineRunStatus]string{
+	datapipelinespb.PipelineRunStatus_PIPELINE_RUN_STATUS_UNSPECIFIED: "Unknown",
+	datapipelinespb.PipelineRunStatus_PIPELINE_RUN_STATUS_SCHEDULED:   "Scheduled",
+	datapipelinespb.PipelineRunStatus_PIPELINE_RUN_STATUS_STARTED:     "Running",
+	datapipelinespb.PipelineRunStatus_PIPELINE_RUN_STATUS_COMPLETED:   "Success",
+	datapipelinespb.PipelineRunStatus_PIPELINE_RUN_STATUS_FAILED:      "Failed",
+}
+
 type datapipelineListArgs struct {
 	OrgID string
 }
@@ -191,18 +200,18 @@ func DatapipelineDescribeAction(c *cli.Context, args datapipelineDescribeArgs) e
 	printf(c.App.Writer, "Schedule: %s", pipeline.GetSchedule())
 	printf(c.App.Writer, "MQL query: %s", mql)
 
-	var pipelineRunStatusMap = map[datapipelinespb.PipelineRunStatus]string{
-		datapipelinespb.PipelineRunStatus_PIPELINE_RUN_STATUS_UNSPECIFIED: "Unknown",
-		datapipelinespb.PipelineRunStatus_PIPELINE_RUN_STATUS_SCHEDULED:   "Scheduled",
-		datapipelinespb.PipelineRunStatus_PIPELINE_RUN_STATUS_STARTED:     "Running",
-		datapipelinespb.PipelineRunStatus_PIPELINE_RUN_STATUS_COMPLETED:   "Success",
-		datapipelinespb.PipelineRunStatus_PIPELINE_RUN_STATUS_FAILED:      "Failed",
-	}
-
 	if len(runs) > 0 {
-		printf(c.App.Writer, "Last run: %s, %s.",
-			runs[0].GetStartTime().AsTime().Format(time.RFC3339),
-			pipelineRunStatusMap[runs[0].GetStatus()])
+		r := runs[0]
+
+		printf(c.App.Writer, "Last run:")
+		printf(c.App.Writer, "  Status: %s", pipelineRunStatusMap[r.GetStatus()])
+		printf(c.App.Writer, "  Started: %s", r.GetStartTime().AsTime().Format(time.RFC3339))
+		printf(c.App.Writer, "  Data range: [%s, %s]",
+			r.GetDataStartTime().AsTime().Format(time.RFC3339),
+			r.GetDataEndTime().AsTime().Format(time.RFC3339))
+		if r.GetEndTime() != nil {
+			printf(c.App.Writer, "  Ended: %s", r.GetEndTime().AsTime().Format(time.RFC3339))
+		}
 	} else {
 		printf(c.App.Writer, "Has not run yet.")
 	}
