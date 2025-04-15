@@ -284,7 +284,7 @@ func parseMQL(mql, mqlFile string) ([][]byte, error) {
 	// Parse the MQL stages JSON (using JSON5 for unquoted keys + comments).
 	var mqlArray []bson.M
 	if err := json5.Unmarshal([]byte(mql), &mqlArray); err != nil {
-		return nil, fmt.Errorf("invalid MQL: %w", err)
+		return nil, fmt.Errorf("unable to parse MQL argument: %w", err)
 	}
 
 	var mqlBinary [][]byte
