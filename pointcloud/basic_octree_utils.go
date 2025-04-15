@@ -7,16 +7,13 @@ import (
 	"github.com/pkg/errors"
 )
 
-// emptyProb is assigned to nodes who have no value specified.
-const emptyProb = math.MinInt
-
 // Creates a new LeafNodeEmpty.
 func newLeafNodeEmpty() basicOctreeNode {
 	octNode := basicOctreeNode{
 		children: nil,
 		nodeType: leafNodeEmpty,
 		point:    nil,
-		maxVal:   emptyProb,
+		maxVal:   defaultConfidenceThreshold,
 	}
 	return octNode
 }
@@ -27,7 +24,7 @@ func newInternalNode(tree []*BasicOctree) basicOctreeNode {
 		children: tree,
 		nodeType: internalNode,
 		point:    nil,
-		maxVal:   emptyProb,
+		maxVal:   defaultConfidenceThreshold,
 	}
 	return octNode
 }
@@ -52,7 +49,8 @@ func getRawVal(d Data) int {
 	} else if d.HasValue() {
 		return d.Value()
 	}
-	return emptyProb
+	// in the absence of value information, set to defaultConfidenceThreshold to ensure it is considered for collision
+	return defaultConfidenceThreshold
 }
 
 // Splits a basic octree into multiple octants and will place any stored point in appropriate child
@@ -79,11 +77,12 @@ func (octree *BasicOctree) splitIntoOctants() error {
 
 					// Create a new basic octree child
 					child := &BasicOctree{
-						center:     newCenter,
-						sideLength: newSideLength,
-						size:       0,
-						node:       newLeafNodeEmpty(),
-						meta:       NewMetaData(),
+						center:              newCenter,
+						sideLength:          newSideLength,
+						size:                0,
+						node:                newLeafNodeEmpty(),
+						meta:                NewMetaData(),
+						confidenceThreshold: octree.confidenceThreshold,
 					}
 					children = append(children, child)
 				}
