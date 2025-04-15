@@ -42,7 +42,11 @@ func DatapipelineListAction(c *cli.Context, args datapipelineListArgs) error {
 	}
 
 	for _, pipeline := range resp.GetDataPipelines() {
-		printf(c.App.Writer, "\t%s (ID: %s)", pipeline.Name, pipeline.Id)
+		enabled := "Enabled"
+		if !pipeline.Enabled {
+			enabled = "Disabled"
+		}
+		printf(c.App.Writer, "\t%s (ID: %s) [%s]", pipeline.Name, pipeline.Id, enabled)
 	}
 
 	return nil
