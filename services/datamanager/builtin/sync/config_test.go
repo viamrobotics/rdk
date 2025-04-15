@@ -32,6 +32,8 @@ func TestConfig(t *testing.T) {
 					CaptureDir:                 "c",
 					CaptureDisabled:            true,
 					DeleteEveryNthWhenDiskFull: 5,
+					DiskUsageDeletionThreshold: 0.90,
+					CaptureDirToFSThreshold:    0.5,
 					FileLastModifiedMillis:     100,
 					MaximumNumSyncThreads:      100,
 					ScheduledSyncDisabled:      true,
@@ -46,6 +48,8 @@ func TestConfig(t *testing.T) {
 					CaptureDir:                 "c",
 					CaptureDisabled:            true,
 					DeleteEveryNthWhenDiskFull: 5,
+					DiskUsageDeletionThreshold: 0.90,
+					CaptureDirToFSThreshold:    0.5,
 					FileLastModifiedMillis:     100,
 					MaximumNumSyncThreads:      100,
 					ScheduledSyncDisabled:      true,
@@ -94,6 +98,26 @@ func TestConfig(t *testing.T) {
 				},
 				b: Config{
 					DeleteEveryNthWhenDiskFull: 4,
+				},
+				equal: false,
+			},
+			{
+				name: "different DiskUsageThreshold are not equal",
+				a: Config{
+					DiskUsageDeletionThreshold: 0.90,
+				},
+				b: Config{
+					DiskUsageDeletionThreshold: 0.80,
+				},
+				equal: false,
+			},
+			{
+				name: "different CaptureDirThreshold are not equal",
+				a: Config{
+					CaptureDirToFSThreshold: 0.5,
+				},
+				b: Config{
+					CaptureDirToFSThreshold: 0.6,
 				},
 				equal: false,
 			},

@@ -58,6 +58,14 @@ type Config struct {
 	// disk if the robot is unable to sync data for a long period
 	// of time. Defaults to 5.
 	DeleteEveryNthWhenDiskFull int
+	// DiskUsageDeletionThreshold defines the threshold at which file deletion might occur.
+	// If disk usage is at or above this threshold, AND the capture directory makes up at least CaptureDirToFSThreshold of the disk usage,
+	// then file deletion will occur based on the DeleteEveryNthWhenDiskFull parameter. If disk usage is at or above the disk usage threshold,
+	// but the capture directory is below the capture directory threshold, then file deletion will not occur but a warning will be logged periodically.
+	// Defaults to 0.90.
+	DiskUsageDeletionThreshold float64
+	// Defaults to 0.50
+	CaptureDirToFSThreshold float64
 	// FileLastModifiedMillis defines the number of milliseconds that
 	// we should wait for an arbitrary file (aka a file that doesn't end in
 	// either the .prog nor the .capture file extension) before we consider
@@ -99,6 +107,8 @@ func (c Config) Equal(o Config) bool {
 		c.CaptureDir == o.CaptureDir &&
 		c.CaptureDisabled == o.CaptureDisabled &&
 		c.DeleteEveryNthWhenDiskFull == o.DeleteEveryNthWhenDiskFull &&
+		c.DiskUsageDeletionThreshold == o.DiskUsageDeletionThreshold &&
+		c.CaptureDirToFSThreshold == o.CaptureDirToFSThreshold &&
 		c.FileLastModifiedMillis == o.FileLastModifiedMillis &&
 		c.MaximumNumSyncThreads == o.MaximumNumSyncThreads &&
 		c.ScheduledSyncDisabled == o.ScheduledSyncDisabled &&

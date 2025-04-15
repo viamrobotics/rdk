@@ -5,7 +5,6 @@ import (
 	"context"
 	"io/fs"
 	"maps"
-	"math"
 	"os"
 	"path/filepath"
 	"slices"
@@ -262,16 +261,9 @@ func TestFileDeletion(t *testing.T) {
 	tempDir := t.TempDir()
 	ctx := context.Background()
 
-	fsThresholdToTriggerDeletion := datasync.FSThresholdToTriggerDeletion
-	captureDirToFSUsageRatio := datasync.CaptureDirToFSUsageRatio
 	t.Cleanup(func() {
 		clk = prevClock
-		datasync.FSThresholdToTriggerDeletion = fsThresholdToTriggerDeletion
-		datasync.CaptureDirToFSUsageRatio = captureDirToFSUsageRatio
 	})
-
-	datasync.FSThresholdToTriggerDeletion = math.SmallestNonzeroFloat64
-	datasync.CaptureDirToFSUsageRatio = math.SmallestNonzeroFloat64
 
 	r := setupRobot(nil, map[resource.Name]resource.Resource{
 		arm.Named("arm1"): &inject.Arm{

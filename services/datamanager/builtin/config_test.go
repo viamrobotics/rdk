@@ -71,6 +71,16 @@ func TestConfig(t *testing.T) {
 				config: Config{DeleteEveryNthWhenDiskFull: -1},
 				err:    errors.New("delete_every_nth_when_disk_full can't be negative"),
 			},
+			{
+				name:   "returns an error if DiskUsageThresholdPercent is negative",
+				config: Config{DiskUsageDeletionThreshold: -1},
+				err:    errors.New("disk_usage_threshold_percent can't be negative"),
+			},
+			{
+				name:   "returns an error if CaptureDirThresholdPercent is negative",
+				config: Config{CaptureDirDeletionThreshold: -1},
+				err:    errors.New("capture_dir_threshold_percent can't be negative"),
+			},
 		}
 
 		for _, tc := range tcs {

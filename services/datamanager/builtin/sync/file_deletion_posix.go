@@ -18,6 +18,8 @@ func maybeDeleteExcessFiles(
 	fileTracker *fileTracker,
 	captureDir string,
 	deleteEveryNth int,
+	diskUsageThreshold float64,
+	captureDirToFSThreshold float64,
 	clock clock.Clock,
 	logger logging.Logger,
 ) {
@@ -40,6 +42,8 @@ func maybeDeleteExcessFiles(
 		usage,
 		captureDir,
 		deleteEveryNth,
+		diskUsageThreshold,
+		captureDirToFSThreshold,
 		logger)
 
 	duration := clock.Since(start)
@@ -58,12 +62,14 @@ func shouldDeleteBasedOnDiskUsage(
 	ctx context.Context,
 	usage diskusage.DiskUsage,
 	captureDirPath string,
+	diskUsageThreshold float64,
+	captureDirToFSThreshold float64,
 	logger logging.Logger,
 ) (bool, error) {
 	usedSpace := 1.0 - usage.AvailablePercent()
-	if usedSpace < FSThresholdToTriggerDeletion {
+	if usedSpace < diskUsageThreshold {
 		logger.Debugf("disk not full enough. Threshold: %s, Used space: %s, %s",
-			fmt.Sprintf("%.2f", FSThresholdToTriggerDeletion*100)+"%",
+			fmt.Sprintf("%.2f", diskUsageThreshold*100)+"%",
 			fmt.Sprintf("%.2f", usedSpace*100)+"%",
 			usage)
 		return false, nil
@@ -73,11 +79,11 @@ func shouldDeleteBasedOnDiskUsage(
 		ctx,
 		captureDirPath,
 		float64(usage.SizeBytes),
-		CaptureDirToFSUsageRatio,
+		captureDirToFSThreshold,
 	)
 	if err != nil && !shouldDelete {
 		logger.Warnf("Disk nearing capacity but data capture directory is below %f of that size, file deletion will not run",
-			CaptureDirToFSUsageRatio)
+			captureDirToFSThreshold)
 	}
 	return shouldDelete, err
 }

@@ -16,13 +16,6 @@ import (
 	"go.viam.com/rdk/utils/diskusage"
 )
 
-var (
-	// FSThresholdToTriggerDeletion temporarily public for tests.
-	FSThresholdToTriggerDeletion = .90
-	// CaptureDirToFSUsageRatio temporarily public for tests.
-	CaptureDirToFSUsageRatio = .5
-)
-
 var errAtSizeThreshold = errors.New("capture directory has reached or exceeded disk usage threshold for deletion")
 
 func deleteExcessFilesOnSchedule(
@@ -30,6 +23,8 @@ func deleteExcessFilesOnSchedule(
 	fileTracker *fileTracker,
 	captureDir string,
 	deleteEveryNth int,
+	diskUsageThreshold float64,
+	captureDirThreshold float64,
 	clock clock.Clock,
 	logger logging.Logger,
 ) {
@@ -48,7 +43,7 @@ func deleteExcessFilesOnSchedule(
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			maybeDeleteExcessFiles(ctx, fileTracker, captureDir, deleteEveryNth, clock, logger)
+			maybeDeleteExcessFiles(ctx, fileTracker, captureDir, deleteEveryNth, diskUsageThreshold, captureDirThreshold, clock, logger)
 		}
 	}
 }
@@ -59,12 +54,16 @@ func deleteExcessFiles(
 	usage diskusage.DiskUsage,
 	captureDir string,
 	deleteEveryNth int,
+	diskUsageThreshold float64,
+	captureDirToFSThreshold float64,
 	logger logging.Logger,
 ) (int, error) {
 	shouldDelete, err := shouldDeleteBasedOnDiskUsage(
 		ctx,
 		usage,
 		captureDir,
+		diskUsageThreshold,
+		captureDirToFSThreshold,
 		logger)
 	if err != nil {
 		return 0, errors.Wrap(err, "error checking file system stats")
@@ -74,7 +73,7 @@ func deleteExcessFiles(
 		return 0, nil
 	}
 
-	logger.Warnf("current disk usage of the data capture directory exceeds threshold (%f)", CaptureDirToFSUsageRatio)
+	logger.Warnf("current disk usage of the data capture directory exceeds threshold (%f)", captureDirToFSThreshold)
 	return deleteFiles(ctx, fileTracker, deleteEveryNth, captureDir, logger)
 }
 

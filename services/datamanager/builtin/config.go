@@ -24,6 +24,12 @@ const (
 	// which is evaluated if the file deletion threshold has been reached. If `captureFileIndex % N == 0`
 	// return true then the file will be deleted to free up space.
 	defaultDeleteEveryNth = 5
+	// defaultDiskUsageThresholdPercent and defaultCaptureDirThresholdPercent are the thresholds at which file deletion might occur.
+	// If disk usage is at or above this threshold, AND the capture directory makes up at least CaptureDirThresholdPercent of the disk usage,
+	// then file deletion will occur. If disk usage is at or above the disk usage threshold, but the capture directory is
+	// below the capture directory threshold, then file deletion will not occur but a warning will be logged periodically.
+	defaultDiskUsageThresholdPercent  = 0.90
+	defaultCaptureDirThresholdPercent = 0.5
 	// defaultSyncIntervalMins is the sync interval that will be set if the config's sync_interval_mins is zero (including when it is unset).
 	defaultSyncIntervalMins = 0.1
 	// syncIntervalMinsEpsilon is the value below which SyncIntervalMins is considered zero.
@@ -42,10 +48,13 @@ type Config struct {
 	CaptureDir string   `json:"capture_dir"`
 	Tags       []string `json:"tags"`
 	// Capture
-	CaptureDisabled             bool                 `json:"capture_disabled"`
-	DeleteEveryNthWhenDiskFull  int                  `json:"delete_every_nth_when_disk_full"`
-	MaximumCaptureFileSizeBytes int64                `json:"maximum_capture_file_size_bytes"`
-	MongoCaptureConfig          *capture.MongoConfig `json:"mongo_capture_config"`
+	CaptureDisabled    bool                 `json:"capture_disabled"`
+	MongoCaptureConfig *capture.MongoConfig `json:"mongo_capture_config"`
+	// File Deletion Parameters
+	DeleteEveryNthWhenDiskFull  int     `json:"delete_every_nth_when_disk_full"`
+	MaximumCaptureFileSizeBytes int64   `json:"maximum_capture_file_size_bytes"`
+	DiskUsageDeletionThreshold  float64 `json:"disk_usage_deletion_threshold"`
+	CaptureDirDeletionThreshold float64 `json:"capture_dir_deletion_threshold"`
 	// Sync
 	AdditionalSyncPaths    []string `json:"additional_sync_paths"`
 	FileLastModifiedMillis int      `json:"file_last_modified_millis"`
@@ -71,6 +80,12 @@ func (c *Config) Validate(path string) ([]string, error) {
 	}
 	if c.DeleteEveryNthWhenDiskFull < 0 {
 		return nil, errors.New("delete_every_nth_when_disk_full can't be negative")
+	}
+	if c.DiskUsageDeletionThreshold < 0 {
+		return nil, errors.New("disk_usage_deletion_threshold can't be negative")
+	}
+	if c.CaptureDirDeletionThreshold < 0 {
+		return nil, errors.New("capture_dir_deletion_threshold can't be negative")
 	}
 	return []string{cloud.InternalServiceName.String()}, nil
 }
@@ -118,6 +133,18 @@ func (c *Config) syncConfig(syncSensor sensor.Sensor, syncSensorEnabled bool, lo
 	}
 	c.DeleteEveryNthWhenDiskFull = deleteEveryNthValue
 
+	diskUsageThresholdPercent := defaultDiskUsageThresholdPercent
+	if c.DiskUsageDeletionThreshold != 0 {
+		diskUsageThresholdPercent = c.DiskUsageDeletionThreshold
+	}
+	c.DiskUsageDeletionThreshold = diskUsageThresholdPercent
+
+	captureDirThresholdPercent := defaultCaptureDirThresholdPercent
+	if c.CaptureDirDeletionThreshold != 0 {
+		captureDirThresholdPercent = c.CaptureDirDeletionThreshold
+	}
+	c.CaptureDirDeletionThreshold = captureDirThresholdPercent
+
 	fileLastModifiedMillis := c.FileLastModifiedMillis
 	if fileLastModifiedMillis <= 0 {
 		fileLastModifiedMillis = defaultFileLastModifiedMillis
@@ -137,6 +164,8 @@ func (c *Config) syncConfig(syncSensor sensor.Sensor, syncSensorEnabled bool, lo
 		CaptureDir:                 c.getCaptureDir(logger),
 		CaptureDisabled:            c.CaptureDisabled,
 		DeleteEveryNthWhenDiskFull: c.DeleteEveryNthWhenDiskFull,
+		DiskUsageDeletionThreshold: c.DiskUsageDeletionThreshold,
+		CaptureDirToFSThreshold:    c.CaptureDirDeletionThreshold,
 		FileLastModifiedMillis:     c.FileLastModifiedMillis,
 		MaximumNumSyncThreads:      c.MaximumNumSyncThreads,
 		ScheduledSyncDisabled:      c.ScheduledSyncDisabled,
