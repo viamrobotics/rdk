@@ -53,7 +53,7 @@ type datapipelineCreateArgs struct {
 	Name     string
 	Schedule string
 	MQL      string
-	MqlFile  string
+	MqlPath  string
 }
 
 // DatapipelineCreateAction creates a new data pipeline.
@@ -63,7 +63,7 @@ func DatapipelineCreateAction(c *cli.Context, args datapipelineCreateArgs) error
 		return err
 	}
 
-	mqlBinary, err := parseMQL(args.MQL, args.MqlFile)
+	mqlBinary, err := parseMQL(args.MQL, args.MqlPath)
 	if err != nil {
 		return err
 	}
