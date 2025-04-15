@@ -119,7 +119,7 @@ const (
 
 	datapipelineFlagSchedule = "schedule"
 	datapipelineFlagMQL      = "mql"
-	datapipelineFlagMQLFile  = "mql-file"
+	datapipelineFlagMQLFile  = "mql-path"
 
 	packageFlagFramework = "model-framework"
 
