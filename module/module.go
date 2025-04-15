@@ -608,12 +608,12 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 		}
 	}
 
-	reconfErr := res.Reconfigure(ctx, deps, *conf)
-	if reconfErr == nil {
+	err = res.Reconfigure(ctx, deps, *conf)
+	if err == nil {
 		return &pb.ReconfigureResourceResponse{}, nil
 	}
 
-	if !resource.IsMustRebuildError(reconfErr) {
+	if !resource.IsMustRebuildError(err) {
 		return nil, err
 	}
 

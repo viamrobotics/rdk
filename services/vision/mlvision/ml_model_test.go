@@ -8,7 +8,9 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/vision/classification"
@@ -515,6 +517,49 @@ func TestMultipleClassifiersOneModel(t *testing.T) {
 	}()
 
 	wg.Wait()
+}
+
+func TestRegistrationWithDefaultCamera(t *testing.T) {
+	ctx := context.Background()
+	out := mockEffDetModel("myMLModel", "")
+	modelName := out.Name()
+	cameraName := camera.Named("test")
+	modelCfg := MLModelConfig{ModelName: modelName.Name}
+
+	r := &inject.Robot{}
+	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
+		switch name {
+		case modelName:
+			return out, nil
+		case cameraName:
+			return inject.NewCamera(cameraName.Name), nil
+		default:
+			return nil, resource.NewNotFoundError(name)
+		}
+	}
+
+	service, err := registerMLModelVisionService(ctx, modelName, &modelCfg, r, logging.NewLogger("benchmark"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, service, test.ShouldNotBeNil)
+
+	modelCfg.DefaultCamera = cameraName.Name
+	service, err = registerMLModelVisionService(ctx, modelName, &modelCfg, r, logging.NewLogger("benchmark"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, service, test.ShouldNotBeNil)
+
+	modelCfg.DefaultCamera = "not-camera"
+	_, err = registerMLModelVisionService(ctx, modelName, &modelCfg, r, logging.NewLogger("benchmark"))
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "could not find camera \"not-camera\"")
+
+	// Test that *FromCamera errors when camera is not found
+	modelCfg.DefaultCamera = ""
+	service, err = registerMLModelVisionService(ctx, modelName, &modelCfg, r, logging.NewLogger("benchmark"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, service, test.ShouldNotBeNil)
+	_, err = service.DetectionsFromCamera(ctx, "", nil)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no camera name provided and no default camera found")
 }
 
 func classifyTwoImages(picPanda, picLion *rimage.Image,

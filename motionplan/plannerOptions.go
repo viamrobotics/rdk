@@ -54,14 +54,8 @@ const (
 	// random seed.
 	defaultRandomSeed = 0
 
-	// descriptions of constraints.
-	defaultLinearConstraintDesc         = "Constraint to follow linear path"
-	defaultPseudolinearConstraintDesc   = "Constraint to follow pseudolinear path, with tolerance scaled to path length"
-	defaultOrientationConstraintDesc    = "Constraint to maintain orientation within bounds"
-	defaultBoundingRegionConstraintDesc = "Constraint to maintain position within bounds"
-	defaultObstacleConstraintDesc       = "Collision between the robot and an obstacle"
-	defaultSelfCollisionConstraintDesc  = "Collision between two robot components that are moving"
-	defaultRobotCollisionConstraintDesc = "Collision between a robot component that is moving and one that is stationary"
+	// constraints passed over the wire do not get names and we want to call them something.
+	defaultConstraintName = "unnamed constraint"
 
 	// When breaking down a path into smaller waypoints, add a waypoint every this many mm of movement.
 	defaultStepSizeMM = 10
@@ -171,6 +165,10 @@ type plannerOptions struct {
 
 	// Number of seeds to pre-generate for bidirectional position-only solving.
 	PositionSeeds int `json:"position_seeds"`
+
+	// If at least one intermediate waypoint is solved for, but the plan fails before reaching the ultimate goal,
+	// this will if true return the valid plan up to the last solved waypoint.
+	ReturnPartialPlan bool `json:"return_partial_plan"`
 
 	// poseDistanceFunc is the function that the planner will use to measure the degree of "closeness" between two poses
 	poseDistanceFunc ik.SegmentMetric
@@ -288,7 +286,7 @@ func (p *plannerOptions) addLinearConstraints(
 	if err != nil {
 		return err
 	}
-	p.AddStateFSConstraint(defaultLinearConstraintDesc, constraint)
+	p.AddStateFSConstraint(defaultConstraintName, constraint)
 
 	p.pathMetric = ik.CombineFSMetrics(p.pathMetric, pathDist)
 	return nil
@@ -314,7 +312,7 @@ func (p *plannerOptions) addPseudolinearConstraints(
 	if err != nil {
 		return err
 	}
-	p.AddStateFSConstraint(defaultPseudolinearConstraintDesc, constraint)
+	p.AddStateFSConstraint(defaultConstraintName, constraint)
 
 	p.pathMetric = ik.CombineFSMetrics(p.pathMetric, pathDist)
 	return nil
@@ -334,7 +332,7 @@ func (p *plannerOptions) addOrientationConstraints(
 	if err != nil {
 		return err
 	}
-	p.AddStateFSConstraint(defaultOrientationConstraintDesc, constraint)
+	p.AddStateFSConstraint(defaultConstraintName, constraint)
 	p.pathMetric = ik.CombineFSMetrics(p.pathMetric, pathDist)
 	return nil
 }

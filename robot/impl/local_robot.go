@@ -505,7 +505,7 @@ func newWithResources(
 		homeDir = rOpts.viamHomeDir
 	}
 	// Once web service is started, start module manager
-	r.manager.startModuleManager(
+	if err := r.manager.startModuleManager(
 		closeCtx,
 		r.webSvc.ModuleAddress(),
 		r.removeOrphanedResources,
@@ -515,7 +515,9 @@ func newWithResources(
 		logger,
 		cfg.PackagePath,
 		r.webSvc.ModPeerConnTracker(),
-	)
+	); err != nil {
+		return nil, err
+	}
 
 	if !rOpts.disableCompleteConfigWorker {
 		r.activeBackgroundWorkers.Add(1)
@@ -1058,6 +1060,9 @@ func dialRobotClient(
 		rOpts = append(rOpts, client.WithReconnectEvery(config.ReconnectInterval))
 	}
 
+	// only dial once per reconfiguration cycle, any failures will be retried on a ticker anyway
+	rOpts = append(rOpts, client.WithInitialDialAttempts(1))
+
 	robotClient, err := client.New(
 		ctx,
 		config.Address,
@@ -1224,9 +1229,12 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		}
 	}
 
+	existingConfig := r.Config()
+	r.mostRecentCfg.Store(*newConfig)
+
 	// Now that we have the new config and all references are resolved, diff it
 	// with the current generated config to see what has changed
-	diff, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
+	diff, err := config.DiffConfigs(*existingConfig, *newConfig, r.revealSensitiveConfigDiffs)
 	if err != nil {
 		r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
 		return
@@ -1246,9 +1254,6 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	if r.revealSensitiveConfigDiffs {
 		r.logger.CDebugf(ctx, "(re)configuring with %+v", diff)
 	}
-
-	// Set mostRecentConfig if resources were not equal.
-	r.mostRecentCfg.Store(*newConfig)
 
 	// First we mark diff.Removed resources and their children for removal.
 	processesToClose, resourcesToCloseBeforeComplete, _ := r.manager.markRemoved(ctx, diff.Removed, r.logger)

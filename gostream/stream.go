@@ -22,6 +22,10 @@ import (
 	utils2 "go.viam.com/rdk/utils"
 )
 
+const (
+	defaultTargetFrameRate = 20
+)
+
 // A Stream is sink that accepts any image frames for the purpose
 // of displaying in a WebRTC video track.
 type Stream interface {
@@ -66,7 +70,7 @@ func NewStream(config StreamConfig, logger logging.Logger) (Stream, error) {
 		return nil, errors.New("at least one audio or video encoder factory must be set")
 	}
 	if config.TargetFrameRate == 0 {
-		config.TargetFrameRate = codec.DefaultKeyFrameInterval
+		config.TargetFrameRate = defaultTargetFrameRate
 	}
 
 	name := config.Name

@@ -18,6 +18,7 @@ type ColorDetectorConfig struct {
 	ValueCutoff       float64 `json:"value_cutoff_pct,omitempty"`
 	DetectColorString string  `json:"detect_color"` // hex string "#RRGGBB"
 	Label             string  `json:"label,omitempty"`
+	DefaultCamera     string  `json:"camera_name"`
 }
 
 // NewColorDetector is a detector that identifies objects based on color.

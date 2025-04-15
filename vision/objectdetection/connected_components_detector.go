@@ -20,7 +20,7 @@ func (ccd *connectedComponentDetector) Inference(ctx context.Context, img image.
 	detections := []Detection{}
 	_, rectangles := ConnectedComponents(img, ccd.valid)
 	for _, rectangle := range rectangles {
-		detections = append(detections, NewDetection(rectangle, 1, ccd.label))
+		detections = append(detections, NewDetection(img.Bounds(), rectangle, 1, ccd.label))
 	}
 	return detections, nil
 }

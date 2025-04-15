@@ -388,7 +388,11 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 		return errors.Errorf("expected *net.TCPAddr but got %T", listener.Addr())
 	}
 
-	options.Secure = options.Network.TLSConfig != nil || options.Network.TLSCertFile != ""
+	if options.NoTLS {
+		options.Secure = false
+	} else {
+		options.Secure = options.Network.TLSConfig != nil || options.Network.TLSCertFile != ""
+	}
 	if options.SignalingAddress == "" && !options.Secure {
 		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithInsecure())
 	}
