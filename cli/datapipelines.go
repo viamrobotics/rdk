@@ -175,7 +175,7 @@ func DatapipelineDescribeAction(c *cli.Context, args datapipelineDescribeArgs) e
 		PageSize: 1,
 	})
 	if err != nil {
-		return fmt.Errorf("error listing pipeline runs: %w", err)
+		return fmt.Errorf("error getting list of pipeline runs: %w", err)
 	}
 	runs := runsResp.Runs
 
