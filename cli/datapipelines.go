@@ -264,11 +264,11 @@ func DatapipelineDisableAction(c *cli.Context, args datapipelineDisableArgs) err
 }
 
 func parseMQL(mql, mqlFile string) ([][]byte, error) {
-	if mqlFile != "" {
-		if mql != "" {
-			return nil, errors.New("data pipeline MQL and MQL file cannot both be provided")
-		}
+	if mqlFile != "" && mql != "" {
+		return nil, errors.New("data pipeline MQL and MQL file cannot both be provided")
+	}
 
+	if mqlFile != "" {
 		//nolint:gosec // mqlFile is a user-provided path for reading MQL query files
 		content, err := os.ReadFile(mqlFile)
 		if err != nil {
