@@ -166,6 +166,10 @@ type plannerOptions struct {
 	// Number of seeds to pre-generate for bidirectional position-only solving.
 	PositionSeeds int `json:"position_seeds"`
 
+	// If at least one intermediate waypoint is solved for, but the plan fails before reaching the ultimate goal,
+	// this will if true return the valid plan up to the last solved waypoint.
+	ReturnPartialPlan bool `json:"return_partial_plan"`
+
 	// poseDistanceFunc is the function that the planner will use to measure the degree of "closeness" between two poses
 	poseDistanceFunc ik.SegmentMetric
 

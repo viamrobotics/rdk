@@ -101,6 +101,9 @@ func readFromCache(id string) (*Config, error) {
 
 	if err := json.NewDecoder(r).Decode(unprocessedConfig); err != nil {
 		// clear the cache if we cannot parse the file.
+		if runtime.GOOS == "windows" {
+			utils.UncheckedErrorFunc(r.Close)
+		}
 		clearCache(id)
 		return nil, errors.Wrap(err, "cannot parse the cached config as json")
 	}

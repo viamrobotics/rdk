@@ -100,13 +100,14 @@ var defaultBuildInfo = manifestBuildInfo{
 // moduleManifest is used to create & parse manifest.json.
 // Detailed user-facing docs for this are in module.schema.json.
 type moduleManifest struct {
-	Schema      string            `json:"$schema"`
-	ModuleID    string            `json:"module_id"`
-	Visibility  moduleVisibility  `json:"visibility"`
-	URL         string            `json:"url"`
-	Description string            `json:"description"`
-	Models      []ModuleComponent `json:"models"`
-	Apps        []AppComponent    `json:"applications"`
+	Schema       string            `json:"$schema"`
+	ModuleID     string            `json:"module_id"`
+	Visibility   moduleVisibility  `json:"visibility"`
+	URL          string            `json:"url"`
+	Description  string            `json:"description"`
+	Models       []ModuleComponent `json:"models"`
+	Apps         []AppComponent    `json:"applications"`
+	MarkdownLink *string           `json:"markdown_link,omitempty"`
 	// JsonManifest provides fields shared with RDK proper.
 	modconfig.JSONManifest
 	Build *manifestBuildInfo `json:"build,omitempty"`
@@ -448,14 +449,30 @@ func (c *viamClient) updateModule(moduleID moduleID, manifest moduleManifest) (*
 	if err != nil {
 		return nil, err
 	}
+
+	var markdownDocs *string
+	// Try to read markdown content from the specified link or default README
+	markdownPath := defaultReadmeFilename
+	if manifest.MarkdownLink != nil {
+		markdownPath = *manifest.MarkdownLink
+	}
+
+	if content, err := getMarkdownContent(markdownPath); err == nil {
+		markdownDocs = &content
+	} else {
+		warningf(os.Stderr, "Failed to read markdown content from %s: %v", markdownPath, err)
+		warningf(os.Stderr, "Please document your module with a README.md. You can configure meta.json to read "+
+			"documentation from a file path with the 'markdown_link' field.")
+	}
 	req := apppb.UpdateModuleRequest{
-		ModuleId:    moduleID.String(),
-		Visibility:  visibility,
-		Url:         manifest.URL,
-		Description: manifest.Description,
-		Models:      models,
-		Apps:        apps,
-		Entrypoint:  manifest.Entrypoint,
+		ModuleId:            moduleID.String(),
+		Visibility:          visibility,
+		Url:                 manifest.URL,
+		Description:         manifest.Description,
+		Models:              models,
+		Apps:                apps,
+		Entrypoint:          manifest.Entrypoint,
+		MarkdownDescription: markdownDocs,
 	}
 	if manifest.FirstRun != "" {
 		req.FirstRun = &manifest.FirstRun
@@ -862,7 +879,10 @@ func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 		ExePath: path,
 	}
 
-	mgr := modmanager.NewManager(context.Background(), parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	mgr, err := modmanager.NewManager(context.Background(), parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	if err != nil {
+		return nil, err
+	}
 	defer vutils.UncheckedErrorFunc(func() error { return mgr.Close(context.Background()) })
 
 	err = mgr.Add(context.TODO(), cfg)

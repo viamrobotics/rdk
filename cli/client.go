@@ -63,9 +63,13 @@ const (
 	maxNumLogs = 10000
 	// logoMaxSize is the maximum size of a logo in bytes.
 	logoMaxSize = 1024 * 200 // 200 KB
-	// defaultLogStartTime is set to the last 24 hours
-	// because logs older than 24 hours are stored in the online archive.
-	defaultLogStartTime = -24 * time.Hour
+	// defaultLogStartTime is set to the last 12 hours,
+	// logs older than 24 hours are stored in the online archive.
+	//
+	// 12 hours is a temporary decrease from the matching 24 hour window to
+	// avoid an edge case where network latency always triggers an online
+	// archive query and causes a "resource usage limit exceeded" error.
+	defaultLogStartTime = -12 * time.Hour
 	// yellow is the format string used to output warnings in yellow color.
 	yellow = "\033[1;33m%s\033[0m"
 )
