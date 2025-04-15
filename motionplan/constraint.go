@@ -236,6 +236,7 @@ func NewCollisionConstraint(
 			}
 			internalGeoms = internal.Geometries()
 		case state.Position != nil:
+			// TODO(RSDK-5391): remove this case
 			// If we didn't pass a Configuration, but we do have a Position, then get the geometries at the zero state and
 			// transform them to the Position
 			internal, err := state.Frame.Geometries(make([]referenceframe.Input, len(state.Frame.DoF())))
@@ -476,9 +477,8 @@ func NewBoundingRegionConstraint(robotGeoms, boundingRegions []spatial.Geometry,
 			return err
 		}
 		cs := cg.collisions(collisionBufferMM)
-		if len(cs) != 0 {
-			// we could choose to amalgamate all the collisions into one error but its probably saner not to and choose just the first
-			return fmt.Errorf("violation between %s and %s geometries", cs[0].name1, cs[0].name2)
+		if len(cs) == 0 {
+			return fmt.Errorf("violation of bounding region constraint")
 		}
 		return nil
 	}
