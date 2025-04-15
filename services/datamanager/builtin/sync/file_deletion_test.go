@@ -126,7 +126,8 @@ func TestFileDeletionUsageCheck(t *testing.T) {
 			logger := logging.NewTestLogger(t)
 			usage, err := diskusage.Statfs(tempCaptureDir)
 			test.That(t, err, test.ShouldBeNil)
-			willDelete, err := shouldDeleteBasedOnDiskUsage(context.Background(), usage, tempCaptureDir, tc.triggerThreshold, tc.captureUsageRatio, logger)
+			willDelete, err := shouldDeleteBasedOnDiskUsage(context.Background(), usage, tempCaptureDir,
+				tc.triggerThreshold, tc.captureUsageRatio, logger)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, willDelete, test.ShouldEqual, tc.deletionExpected)
 		})

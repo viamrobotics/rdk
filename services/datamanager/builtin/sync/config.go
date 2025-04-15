@@ -61,7 +61,8 @@ type Config struct {
 	// DiskUsageDeletionThreshold defines the threshold at which file deletion might occur.
 	// If disk usage is at or above this threshold, AND the capture directory makes up at least CaptureDirToFSThreshold of the disk usage,
 	// then file deletion will occur based on the DeleteEveryNthWhenDiskFull parameter. If disk usage is at or above the disk usage threshold,
-	// but the capture directory is below the capture directory threshold, then file deletion will not occur but a warning will be logged periodically.
+	// but the capture directory is below the capture directory threshold, then file deletion will not occur but a
+	// warning will be logged periodically.
 	// Defaults to 0.90.
 	DiskUsageDeletionThreshold float64
 	// Defaults to 0.50
