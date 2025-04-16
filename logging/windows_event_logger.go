@@ -15,8 +15,9 @@ func RegisterEventLogger(rootLogger Logger) {
 	log, err := eventlog.Open("viam-server")
 	if err != nil {
 		rootLogger.Errorw("Unable to open windows event log", "err", err)
+	} else {
+		rootLogger.AddAppender(&eventLogger{log})
 	}
-	rootLogger.AddAppender(&eventLogger{log})
 }
 
 type eventLogger struct {
