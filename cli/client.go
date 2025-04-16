@@ -2488,19 +2488,26 @@ func (c *viamClient) copyFilesToMachineInner(
 	}
 
 	// Create a progress tracking function
-	var copiedBytes int64
-	progressFunc := func(bytes int64) {
-		copiedBytes = bytes
-		uploadPercent := int(math.Ceil(100 * float64(copiedBytes) / float64(totalSize)))
+	var currentFile string
+	progressFunc := func(bytes int64, file string, fileSize int64) {
+		if file != currentFile {
+			if currentFile != "" {
+				//nolint:errcheck // progress display is non-critical
+				_, _ = os.Stdout.WriteString("\n")
+			}
+			currentFile = file
+			//nolint:errcheck // progress display is non-critical
+			_, _ = os.Stdout.WriteString(fmt.Sprintf("Copying %s...\n", file))
+		}
+		uploadPercent := int(math.Ceil(100 * float64(bytes) / float64(fileSize)))
 		//nolint:errcheck // progress display is non-critical
-		_, _ = os.Stdout.WriteString(fmt.Sprintf("\rCopying... %d%% (%d/%d bytes)", uploadPercent, copiedBytes, totalSize))
+		_, _ = os.Stdout.WriteString(fmt.Sprintf("\rProgress: %d%% (%d/%d bytes)", uploadPercent, bytes, fileSize))
 	}
 
 	// Wrap the copy factory to track progress
 	progressFactory := &progressTrackingFactory{
 		factory:    shell.NewCopyFileToMachineFactory(destination, preserve, shellSvc),
 		onProgress: progressFunc,
-		totalSize:  totalSize,
 	}
 
 	// Create a new read copier with the progress tracking factory
@@ -2516,15 +2523,13 @@ func (c *viamClient) copyFilesToMachineInner(
 
 	// ReadAll the files into the copier.
 	err = readCopier.ReadAll(c.c.Context)
-	printf(os.Stdout, "\n") // Add newline after progress is complete
 	return err
 }
 
 // progressTrackingFactory wraps a copy factory to track progress.
 type progressTrackingFactory struct {
 	factory    shell.FileCopyFactory
-	onProgress func(int64)
-	totalSize  int64
+	onProgress func(int64, string, int64)
 }
 
 func (ptf *progressTrackingFactory) MakeFileCopier(ctx context.Context, sourceType shell.CopyFilesSourceType) (shell.FileCopier, error) {
@@ -2535,23 +2540,29 @@ func (ptf *progressTrackingFactory) MakeFileCopier(ctx context.Context, sourceTy
 	return &progressTrackingCopier{
 		copier:     copier,
 		onProgress: ptf.onProgress,
-		totalSize:  ptf.totalSize,
 	}, nil
 }
 
 // progressTrackingCopier wraps a file copier to track progress.
 type progressTrackingCopier struct {
 	copier     shell.FileCopier
-	onProgress func(int64)
-	totalSize  int64
+	onProgress func(int64, string, int64)
 }
 
 func (ptc *progressTrackingCopier) Copy(ctx context.Context, file shell.File) error {
+	// Get file size
+	info, err := file.Data.Stat()
+	if err != nil {
+		return err
+	}
+	fileSize := info.Size()
+
 	// Create a progress tracking reader
 	progressReader := &progressReader{
 		reader:     file.Data,
 		onProgress: ptc.onProgress,
-		totalSize:  ptc.totalSize,
+		fileName:   file.RelativeName,
+		fileSize:   fileSize,
 	}
 
 	// Create a new file with the progress tracking reader
@@ -2570,16 +2581,17 @@ func (ptc *progressTrackingCopier) Close(ctx context.Context) error {
 // progressReader wraps a reader to track progress.
 type progressReader struct {
 	reader     fs.File
-	onProgress func(int64)
-	totalSize  int64
+	onProgress func(int64, string, int64)
 	copied     int64
+	fileName   string
+	fileSize   int64
 }
 
 func (pr *progressReader) Read(p []byte) (int, error) {
 	n, err := pr.reader.Read(p)
 	if n > 0 {
 		pr.copied += int64(n)
-		pr.onProgress(pr.copied)
+		pr.onProgress(pr.copied, pr.fileName, pr.fileSize)
 	}
 	return n, err
 }
