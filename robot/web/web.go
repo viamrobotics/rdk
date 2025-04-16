@@ -389,6 +389,7 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 	}
 
 	if options.NoTLS {
+		svc.logger.Warn("disabling TLS for web server")
 		options.Secure = false
 	} else {
 		options.Secure = options.Network.TLSConfig != nil || options.Network.TLSCertFile != ""

@@ -730,6 +730,9 @@ type NetworkConfigData struct {
 	// This is mutually exclusive with TLSCertFile and TLSKeyFile.
 	TLSConfig *tls.Config `json:"-"`
 
+	// NoTLS disables the use of TLS on the hosted HTTP server.
+	NoTLS bool `json:"no_tls,omitempty"`
+
 	// Sessions configures session management.
 	Sessions SessionsConfig `json:"sessions"`
 
