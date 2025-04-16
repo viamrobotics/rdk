@@ -2492,7 +2492,8 @@ func (c *viamClient) copyFilesToMachineInner(
 	progressFunc := func(bytes int64) {
 		copiedBytes = bytes
 		uploadPercent := int(math.Ceil(100 * float64(copiedBytes) / float64(totalSize)))
-		fmt.Fprintf(os.Stdout, "\rCopying... %d%% (%d/%d bytes)", uploadPercent, copiedBytes, totalSize)
+		//nolint:errcheck // progress display is non-critical
+		_, _ = os.Stdout.WriteString(fmt.Sprintf("\rCopying... %d%% (%d/%d bytes)", uploadPercent, copiedBytes, totalSize))
 	}
 
 	// Wrap the copy factory to track progress
@@ -2515,11 +2516,11 @@ func (c *viamClient) copyFilesToMachineInner(
 
 	// ReadAll the files into the copier.
 	err = readCopier.ReadAll(c.c.Context)
-	fmt.Fprintf(os.Stdout, "\n") // Add newline after progress is complete
+	printf(os.Stdout, "\n") // Add newline after progress is complete
 	return err
 }
 
-// progressTrackingFactory wraps a copy factory to track progress
+// progressTrackingFactory wraps a copy factory to track progress.
 type progressTrackingFactory struct {
 	factory    shell.FileCopyFactory
 	onProgress func(int64)
@@ -2538,12 +2539,11 @@ func (ptf *progressTrackingFactory) MakeFileCopier(ctx context.Context, sourceTy
 	}, nil
 }
 
-// progressTrackingCopier wraps a file copier to track progress
+// progressTrackingCopier wraps a file copier to track progress.
 type progressTrackingCopier struct {
 	copier     shell.FileCopier
 	onProgress func(int64)
 	totalSize  int64
-	copied     int64
 }
 
 func (ptc *progressTrackingCopier) Copy(ctx context.Context, file shell.File) error {
@@ -2567,7 +2567,7 @@ func (ptc *progressTrackingCopier) Close(ctx context.Context) error {
 	return ptc.copier.Close(ctx)
 }
 
-// progressReader wraps a reader to track progress
+// progressReader wraps a reader to track progress.
 type progressReader struct {
 	reader     fs.File
 	onProgress func(int64)
