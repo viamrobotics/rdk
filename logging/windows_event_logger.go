@@ -50,13 +50,15 @@ func getMessage(entry zapcore.Entry, fields []zapcore.Field) string {
 }
 
 func (el *eventLogger) Write(entry zapcore.Entry, fields []zapcore.Field) error {
+	// note: null characters cause golang to panic while trying to convert this to a windows string.
+	msg := strings.ReplaceAll(getMessage(entry, fields), "\x00", "NUL")
 	switch entry.Level {
 	case zapcore.DebugLevel, zapcore.InfoLevel:
-		el.log.Info(0, getMessage(entry, fields))
+		el.log.Info(0, msg)
 	case zapcore.WarnLevel:
-		el.log.Warning(0, getMessage(entry, fields))
+		el.log.Warning(0, msg)
 	default: // includes zapcore.ErrorLevel and "more threatening" levels
-		el.log.Error(0, getMessage(entry, fields))
+		el.log.Error(0, msg)
 	}
 	return nil
 }
