@@ -62,7 +62,7 @@ type atomicWaypoint struct {
 	// If partial plans are requested, we return up to the last explicit waypoint solved.
 	// We want to distinguish between actual user-requested waypoints and automatically-generated intermediate waypoints, and only
 	// consider the former when returning partial plans.
-	origGoal bool
+	origWP int
 }
 
 // planMultiWaypoint plans a motion through multiple waypoints, using identical constraints for each
@@ -142,6 +142,7 @@ func (pm *planManager) planAtomicWaypoints(
 
 	var seed referenceframe.FrameSystemInputs
 	var returnPartial bool
+	var done bool
 
 	// try to solve each goal, one at a time
 	for i, wp := range waypoints {
@@ -150,10 +151,15 @@ func (pm *planManager) planAtomicWaypoints(
 		case <-ctx.Done():
 			if wp.mp.opt().ReturnPartialPlan {
 				returnPartial = true
-				break
+				done = true
+				break // breaks out of select, then the `done` conditional below breaks the loop
 			}
 			return nil, ctx.Err()
 		default:
+		}
+		if done {
+			// breaks in the `select` above wil not break out of the loop, so we need to exit the select then break the loop if appropriate
+			break
 		}
 		pm.logger.Info("planning step", i, "of", len(waypoints), ":", wp.goalState)
 		for k, v := range wp.goalState.Poses() {
@@ -232,8 +238,8 @@ func (pm *planManager) planAtomicWaypoints(
 		} else {
 			partialSlices = append(partialSlices, steps...)
 		}
-		if waypoints[i].origGoal {
-			lastOrig = i
+		if waypoints[i].origWP >= 0 {
+			lastOrig = waypoints[i].origWP
 			resultSlices = append(resultSlices, partialSlices...)
 			partialSlices = []node{}
 		}
@@ -793,7 +799,7 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 		if err != nil {
 			return nil, err
 		}
-		return []atomicWaypoint{{mp: pathPlanner, startState: request.StartState, goalState: wpGoals, origGoal: true}}, nil
+		return []atomicWaypoint{{mp: pathPlanner, startState: request.StartState, goalState: wpGoals, origWP: wpi}}, nil
 	}
 
 	stepSize, ok := request.Options["path_step_size"].(float64)
@@ -854,11 +860,11 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 		if err != nil {
 			return nil, err
 		}
-		waypoints = append(waypoints, atomicWaypoint{mp: pathPlanner, startState: from, goalState: to})
+		waypoints = append(waypoints, atomicWaypoint{mp: pathPlanner, startState: from, goalState: to, origWP: -1})
 
 		from = to
 	}
-	waypoints[len(waypoints)-1].origGoal = true
+	waypoints[len(waypoints)-1].origWP = wpi
 
 	return waypoints, nil
 }

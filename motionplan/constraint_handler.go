@@ -4,6 +4,9 @@ package motionplan
 
 import (
 	"fmt"
+	"strings"
+
+	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
@@ -21,59 +24,47 @@ type ConstraintHandler struct {
 }
 
 // CheckStateConstraints will check a given input against all state constraints.
-// Return values are:
-// -- a bool representing whether all constraints passed
-// -- if failing, a string naming the failed constraint.
-func (c *ConstraintHandler) CheckStateConstraints(state *ik.State) (bool, string) {
+func (c *ConstraintHandler) CheckStateConstraints(state *ik.State) error {
 	for name, cFunc := range c.stateConstraints {
-		pass := cFunc(state)
-		if !pass {
-			return false, name
+		if err := cFunc(state); err != nil {
+			// for better logging, parse out the name of the constraint which is guaranteed to be before the underscore
+			return errors.Wrap(err, strings.SplitN(name, "_", 2)[0])
 		}
 	}
-	return true, ""
+	return nil
 }
 
 // CheckStateFSConstraints will check a given input against all FS state constraints.
-// Return values are:
-// -- a bool representing whether all constraints passed
-// -- if failing, a string naming the failed constraint.
-func (c *ConstraintHandler) CheckStateFSConstraints(state *ik.StateFS) (bool, string) {
+func (c *ConstraintHandler) CheckStateFSConstraints(state *ik.StateFS) error {
 	for name, cFunc := range c.stateFSConstraints {
-		pass := cFunc(state)
-		if !pass {
-			return false, name
+		if err := cFunc(state); err != nil {
+			// for better logging, parse out the name of the constraint which is guaranteed to be before the underscore
+			return errors.Wrap(err, strings.SplitN(name, "_", 2)[0])
 		}
 	}
-	return true, ""
+	return nil
 }
 
 // CheckSegmentConstraints will check a given input against all segment constraints.
-// Return values are:
-// -- a bool representing whether all constraints passed
-// -- if failing, a string naming the failed constraint.
-func (c *ConstraintHandler) CheckSegmentConstraints(segment *ik.Segment) (bool, string) {
+func (c *ConstraintHandler) CheckSegmentConstraints(segment *ik.Segment) error {
 	for name, cFunc := range c.segmentConstraints {
-		pass := cFunc(segment)
-		if !pass {
-			return false, name
+		if err := cFunc(segment); err != nil {
+			// for better logging, parse out the name of the constraint which is guaranteed to be before the underscore
+			return errors.Wrap(err, strings.SplitN(name, "_", 2)[0])
 		}
 	}
-	return true, ""
+	return nil
 }
 
 // CheckSegmentFSConstraints will check a given input against all FS segment constraints.
-// Return values are:
-// -- a bool representing whether all constraints passed
-// -- if failing, a string naming the failed constraint.
-func (c *ConstraintHandler) CheckSegmentFSConstraints(segment *ik.SegmentFS) (bool, string) {
+func (c *ConstraintHandler) CheckSegmentFSConstraints(segment *ik.SegmentFS) error {
 	for name, cFunc := range c.segmentFSConstraints {
-		pass := cFunc(segment)
-		if !pass {
-			return false, name
+		if err := cFunc(segment); err != nil {
+			// for better logging, parse out the name of the constraint which is guaranteed to be before the underscore
+			return errors.Wrap(err, strings.SplitN(name, "_", 2)[0])
 		}
 	}
-	return true, ""
+	return nil
 }
 
 // CheckStateConstraintsAcrossSegment will interpolate the given input from the StartInput to the EndInput, and ensure that all intermediate
@@ -91,8 +82,7 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *ik.Segment, r
 		if resolveStatesToPositions(interpC) != nil {
 			return false, nil
 		}
-		pass, _ := c.CheckStateConstraints(interpC)
-		if !pass {
+		if c.CheckStateConstraints(interpC) != nil {
 			if i == 0 {
 				// fail on start pos
 				return false, nil
@@ -200,16 +190,14 @@ func (c *ConstraintHandler) CheckSegmentAndStateValidity(segment *ik.Segment, re
 	valid, subSegment := c.CheckStateConstraintsAcrossSegment(segment, resolution)
 	if !valid {
 		if subSegment != nil {
-			subSegmentValid, _ := c.CheckSegmentConstraints(subSegment)
-			if subSegmentValid {
+			if c.CheckSegmentConstraints(subSegment) == nil {
 				return false, subSegment
 			}
 		}
 		return false, nil
 	}
 	// all states are valid
-	valid, _ = c.CheckSegmentConstraints(segment)
-	return valid, nil
+	return c.CheckSegmentConstraints(segment) == nil, nil
 }
 
 // AddStateConstraint will add or overwrite a constraint function with a given name. A constraint function should return true
@@ -321,8 +309,7 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossSegmentFS(ci *ik.SegmentF
 	var lastGood referenceframe.FrameSystemInputs
 	for i, interpConfig := range interpolatedConfigurations {
 		interpC := &ik.StateFS{FS: ci.FS, Configuration: interpConfig}
-		pass, _ := c.CheckStateFSConstraints(interpC)
-		if !pass {
+		if c.CheckStateFSConstraints(interpC) != nil {
 			if i == 0 {
 				// fail on start pos
 				return false, nil
@@ -342,14 +329,12 @@ func (c *ConstraintHandler) CheckSegmentAndStateValidityFS(segment *ik.SegmentFS
 	valid, subSegment := c.CheckStateConstraintsAcrossSegmentFS(segment, resolution)
 	if !valid {
 		if subSegment != nil {
-			subSegmentValid, _ := c.CheckSegmentFSConstraints(subSegment)
-			if subSegmentValid {
+			if c.CheckSegmentFSConstraints(subSegment) == nil {
 				return false, subSegment
 			}
 		}
 		return false, nil
 	}
 	// all states are valid
-	valid, _ = c.CheckSegmentFSConstraints(segment)
-	return valid, nil
+	return c.CheckSegmentFSConstraints(segment) == nil, nil
 }
