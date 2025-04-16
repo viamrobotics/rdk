@@ -273,7 +273,7 @@ func (s *robotServer) createWebOptions(cfg *config.Config) (weboptions.Options, 
 	options.Debug = s.args.Debug || cfg.Debug
 	options.PreferWebRTC = s.args.WebRTC
 	options.DisableMulticastDNS = s.args.DisableMulticastDNS
-	options.NoTLS = s.args.NoTLS
+	options.NoTLS = s.args.NoTLS || cfg.Network.NoTLS
 	if cfg.Cloud != nil && s.args.AllowInsecureCreds {
 		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
 	}
