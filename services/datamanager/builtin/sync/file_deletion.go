@@ -141,7 +141,7 @@ func shouldDeleteBasedOnDiskUsage(
 		float64(usage.SizeBytes),
 		CaptureDirToFSUsageRatio,
 	)
-	if err != nil && !shouldDelete {
+	if !shouldDelete {
 		logger.Warnf("Disk nearing capacity but data capture directory is below %f of that size, file deletion will not run",
 			CaptureDirToFSUsageRatio)
 	}
