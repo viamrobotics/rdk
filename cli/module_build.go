@@ -193,7 +193,13 @@ func (c *viamClient) moduleBuildListAction(cCtx *cli.Context, args moduleBuildLi
 		count := int32(args.Count)
 		numberOfJobsToReturn = &count
 	}
-	jobs, err := c.listModuleBuildJobs(moduleIDFilter, numberOfJobsToReturn, &buildIDFilter)
+
+	var buildID *string
+	if buildIDFilter != "" {
+		buildID = &buildIDFilter
+	}
+
+	jobs, err := c.listModuleBuildJobs(moduleIDFilter, numberOfJobsToReturn, buildID)
 	if err != nil {
 		return err
 	}

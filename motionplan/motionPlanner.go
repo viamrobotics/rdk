@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
-	"sort"
+	"slices"
 	"sync"
 	"time"
 
@@ -145,7 +145,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 							robotGeoms = append(robotGeoms, geom.Transform(startPose.Pose()))
 						}
 						robotGeomBoundingRegionCheck := NewBoundingRegionConstraint(robotGeoms, req.BoundingRegions, buffer)
-						if !robotGeomBoundingRegionCheck(&ik.State{}) {
+						if robotGeomBoundingRegionCheck(&ik.State{}) != nil {
 							return fmt.Errorf("frame named %s is not within the provided bounding regions", fName)
 						}
 					}
@@ -153,7 +153,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 					// check that the destination is within or in collision with the bounding regions
 					destinationAsGeom := []spatialmath.Geometry{spatialmath.NewPoint(pif.Pose().Point(), "")}
 					destinationBoundingRegionCheck := NewBoundingRegionConstraint(destinationAsGeom, req.BoundingRegions, buffer)
-					if !destinationBoundingRegionCheck(&ik.State{}) {
+					if destinationBoundingRegionCheck(&ik.State{}) != nil {
 						return errors.New("destination was not within the provided bounding regions")
 					}
 				}
@@ -275,11 +275,10 @@ func newPlanner(fs referenceframe.FrameSystem, seed *rand.Rand, logger logging.L
 }
 
 func (mp *planner) checkInputs(inputs referenceframe.FrameSystemInputs) bool {
-	ok, _ := mp.planOpts.CheckStateFSConstraints(&ik.StateFS{
+	return mp.planOpts.CheckStateFSConstraints(&ik.StateFS{
 		Configuration: inputs,
 		FS:            mp.fs,
-	})
-	return ok
+	}) == nil
 }
 
 func (mp *planner) checkPath(seedInputs, target referenceframe.FrameSystemInputs) bool {
@@ -448,19 +447,18 @@ IK:
 				step = alteredStep
 			}
 			// Ensure the end state is a valid one
-			statePass, failName := mp.planOpts.CheckStateFSConstraints(&ik.StateFS{
+			err = mp.planOpts.CheckStateFSConstraints(&ik.StateFS{
 				Configuration: step,
 				FS:            mp.fs,
 			})
-			if statePass {
+			if err == nil {
 				stepArc := &ik.SegmentFS{
 					StartConfiguration: seed,
 					EndConfiguration:   step,
 					FS:                 mp.fs,
 				}
-				arcPass, failName := mp.planOpts.CheckSegmentFSConstraints(stepArc)
-
-				if arcPass {
+				err := mp.planOpts.CheckSegmentFSConstraints(stepArc)
+				if err == nil {
 					score := mp.planOpts.configurationDistanceFunc(stepArc)
 					if score < mp.planOpts.MinScore && mp.planOpts.MinScore > 0 {
 						solutions = map[float64]referenceframe.FrameSystemInputs{}
@@ -487,11 +485,11 @@ IK:
 					}
 				} else {
 					constraintFailCnt++
-					failures[failName]++
+					failures[err.Error()]++
 				}
 			} else {
 				constraintFailCnt++
-				failures[failName]++
+				failures[err.Error()]++
 			}
 			// Skip the return check below until we have nothing left to read from solutionGen
 			continue IK
@@ -531,8 +529,7 @@ IK:
 	for k := range solutions {
 		keys = append(keys, k)
 	}
-	// TODO: switch this to slices.Sort when golang 1.21 is supported by RDK
-	sort.Float64s(keys)
+	slices.Sort(keys)
 
 	orderedSolutions := make([]node, 0)
 	for _, key := range keys {
