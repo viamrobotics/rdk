@@ -49,8 +49,8 @@ type Config struct {
 	// which in english reads:
 	//
 	// If datacapture is enabled then every 30 seconds
-	// if the disk is full (which is defined as the disk
-	// is 90% full and 50% is contributed by the CaptureDir)
+	// if the disk is full (file system usage is at or above DiskUsageDeletionThreshold
+	// and CaptureDirToFSThreshold of the disk usage is contributed by the CaptureDir)
 	// delete every Nth file in the CaptureDir & child
 	// directories.
 	//

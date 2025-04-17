@@ -24,12 +24,12 @@ const (
 	// which is evaluated if the file deletion threshold has been reached. If `captureFileIndex % N == 0`
 	// return true then the file will be deleted to free up space.
 	defaultDeleteEveryNth = 5
-	// defaultDiskUsageThresholdPercent and defaultCaptureDirThresholdPercent are the thresholds at which file deletion might occur.
+	// defaultDiskUsageThreshold and defaultCaptureDirThresholdPercent are the thresholds at which file deletion might occur.
 	// If disk usage is at or above this threshold, AND the capture directory makes up at least CaptureDirThresholdPercent of the disk usage,
 	// then file deletion will occur. If disk usage is at or above the disk usage threshold, but the capture directory is
 	// below the capture directory threshold, then file deletion will not occur but a warning will be logged periodically.
-	defaultDiskUsageThresholdPercent  = 0.90
-	defaultCaptureDirThresholdPercent = 0.5
+	defaultDiskUsageThreshold  = 0.9
+	defaultCaptureDirThreshold = 0.5
 	// defaultSyncIntervalMins is the sync interval that will be set if the config's sync_interval_mins is zero (including when it is unset).
 	defaultSyncIntervalMins = 0.1
 	// syncIntervalMinsEpsilon is the value below which SyncIntervalMins is considered zero.
@@ -133,17 +133,17 @@ func (c *Config) syncConfig(syncSensor sensor.Sensor, syncSensorEnabled bool, lo
 	}
 	c.DeleteEveryNthWhenDiskFull = deleteEveryNthValue
 
-	diskUsageThresholdPercent := defaultDiskUsageThresholdPercent
+	diskUsageThreshold := defaultDiskUsageThreshold
 	if c.DiskUsageDeletionThreshold != 0 {
-		diskUsageThresholdPercent = c.DiskUsageDeletionThreshold
+		diskUsageThreshold = c.DiskUsageDeletionThreshold
 	}
-	c.DiskUsageDeletionThreshold = diskUsageThresholdPercent
+	c.DiskUsageDeletionThreshold = diskUsageThreshold
 
-	captureDirThresholdPercent := defaultCaptureDirThresholdPercent
+	captureDirThreshold := defaultCaptureDirThreshold
 	if c.CaptureDirDeletionThreshold != 0 {
-		captureDirThresholdPercent = c.CaptureDirDeletionThreshold
+		captureDirThreshold = c.CaptureDirDeletionThreshold
 	}
-	c.CaptureDirDeletionThreshold = captureDirThresholdPercent
+	c.CaptureDirDeletionThreshold = captureDirThreshold
 
 	fileLastModifiedMillis := c.FileLastModifiedMillis
 	if fileLastModifiedMillis <= 0 {
