@@ -28,6 +28,8 @@ var fullConfig = &Config{
 	SelectiveSyncerName:         "some name",
 	SyncIntervalMins:            0.5,
 	Tags:                        []string{"a", "b", "c"},
+	DiskUsageDeletionThreshold:  0.1,
+	CaptureDirDeletionThreshold: 0.1,
 }
 
 func TestConfig(t *testing.T) {
@@ -72,14 +74,14 @@ func TestConfig(t *testing.T) {
 				err:    errors.New("delete_every_nth_when_disk_full can't be negative"),
 			},
 			{
-				name:   "returns an error if DiskUsageThresholdPercent is negative",
+				name:   "returns an error if DiskUsageThreshold is negative",
 				config: Config{DiskUsageDeletionThreshold: -1},
-				err:    errors.New("disk_usage_threshold_percent can't be negative"),
+				err:    errors.New("disk_usage_deletion_threshold can't be negative"),
 			},
 			{
-				name:   "returns an error if CaptureDirThresholdPercent is negative",
+				name:   "returns an error if CaptureDirDeletionThreshold is negative",
 				config: Config{CaptureDirDeletionThreshold: -1},
-				err:    errors.New("capture_dir_threshold_percent can't be negative"),
+				err:    errors.New("capture_dir_deletion_threshold can't be negative"),
 			},
 		}
 
@@ -143,6 +145,8 @@ func TestConfig(t *testing.T) {
 				FileLastModifiedMillis:     10000,
 				MaximumNumSyncThreads:      runtime.NumCPU() / 2,
 				SyncIntervalMins:           0.1,
+				DiskUsageDeletionThreshold: 0.9,
+				CaptureDirToFSThreshold:    0.5,
 			})
 		})
 
@@ -154,6 +158,8 @@ func TestConfig(t *testing.T) {
 				FileLastModifiedMillis:     10000,
 				MaximumNumSyncThreads:      runtime.NumCPU() / 2,
 				SyncIntervalMins:           0.1,
+				DiskUsageDeletionThreshold: 0.9,
+				CaptureDirToFSThreshold:    0.5,
 			})
 		})
 		t.Run("returns a sync config with overridden defaults when called on a full config", func(t *testing.T) {
@@ -163,6 +169,8 @@ func TestConfig(t *testing.T) {
 				CaptureDir:                 "/tmp/some/path",
 				CaptureDisabled:            true,
 				DeleteEveryNthWhenDiskFull: 2,
+				DiskUsageDeletionThreshold: 0.1,
+				CaptureDirToFSThreshold:    0.1,
 				FileLastModifiedMillis:     50000,
 				MaximumNumSyncThreads:      10,
 				ScheduledSyncDisabled:      true,

@@ -5,6 +5,7 @@ import (
 	"context"
 	"io/fs"
 	"maps"
+	"math"
 	"os"
 	"path/filepath"
 	"slices"
@@ -307,6 +308,8 @@ func TestFileDeletion(t *testing.T) {
 	// MaximumCaptureFileSizeBytes is set to 1 so that each reading becomes its own capture file
 	// and we can confidently read the capture file without it's contents being modified by the collector
 	c.MaximumCaptureFileSizeBytes = 1
+	c.DiskUsageDeletionThreshold = math.SmallestNonzeroFloat64
+	c.CaptureDirDeletionThreshold = math.SmallestNonzeroFloat64
 	bSvc, err := New(ctx, deps, config, datasync.NoOpCloudClientConstructor, connToConnectivityStateError, logger)
 	test.That(t, err, test.ShouldBeNil)
 	b := bSvc.(*builtIn)
