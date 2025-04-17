@@ -92,7 +92,7 @@ type datapipelineUpdateArgs struct {
 	Name     string
 	Schedule string
 	MQL      string
-	MqlFile  string
+	MqlPath  string
 }
 
 // DatapipelineUpdateAction updates an existing data pipeline.
@@ -121,8 +121,8 @@ func DatapipelineUpdateAction(c *cli.Context, args datapipelineUpdateArgs) error
 	}
 
 	mqlBinary := current.GetMqlBinary()
-	if args.MQL != "" || args.MqlFile != "" {
-		mqlBinary, err = parseMQL(args.MQL, args.MqlFile)
+	if args.MQL != "" || args.MqlPath != "" {
+		mqlBinary, err = parseMQL(args.MQL, args.MqlPath)
 		if err != nil {
 			return err
 		}
