@@ -14,10 +14,10 @@ var (
 		{"$match": { "component_name": "dragino" }},
 		{"$group": {
 			"_id": "$part_id",
-			"count": { "$sum": 1 },
+			"count": { "$sum": 1 }, // a comment just for fun
 			"avgTemp": { "$avg": "$data.readings.TempC_SHT" },
 			"avgHum": { "$avg": "$data.readings.Hum_SHT" }
-		}}
+		}},
 	]`
 	mqlBSON = []bson.M{
 		{"$match": bson.M{"component_name": "dragino"}},
@@ -127,15 +127,21 @@ func createTempMQLFile(t *testing.T, mql string) string {
 }
 
 func TestMQLJSON(t *testing.T) {
-	expectedBSONBytes := make([][]byte, len(mqlBSON))
+	// expectedJSON is a vanilla JSON representation of the MQL string.
+	expectedJSON := `[{"$match":{"component_name":"dragino"}},
+		{"$group":{"_id":"$part_id","count":{"$sum":1},
+			"avgTemp":{"$avg":"$data.readings.TempC_SHT"},
+			"avgHum":{"$avg":"$data.readings.Hum_SHT"}}}]`
+
+	bsonBytes := make([][]byte, len(mqlBSON))
 	var err error
 	for i, bsonDoc := range mqlBSON {
-		expectedBSONBytes[i], err = bson.Marshal(bsonDoc)
+		bsonBytes[i], err = bson.Marshal(bsonDoc)
 		if err != nil {
 			break
 		}
 	}
-	json, err := mqlJSON(expectedBSONBytes)
+	json, err := mqlJSON(bsonBytes)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, json, test.ShouldEqualJSON, mqlString)
+	test.That(t, json, test.ShouldEqualJSON, expectedJSON)
 }
