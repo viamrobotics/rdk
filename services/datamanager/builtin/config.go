@@ -24,8 +24,8 @@ const (
 	// which is evaluated if the file deletion threshold has been reached. If `captureFileIndex % N == 0`
 	// return true then the file will be deleted to free up space.
 	defaultDeleteEveryNth = 5
-	// defaultDiskUsageThreshold and defaultCaptureDirThresholdPercent are the thresholds at which file deletion might occur.
-	// If disk usage is at or above this threshold, AND the capture directory makes up at least CaptureDirThresholdPercent of the disk usage,
+	// defaultDiskUsageThreshold and defaultCaptureDirThreshold are the thresholds at which file deletion might occur.
+	// If disk usage is at or above this threshold, AND the capture directory makes up at least CaptureDirThreshold (%) of the disk usage,
 	// then file deletion will occur. If disk usage is at or above the disk usage threshold, but the capture directory is
 	// below the capture directory threshold, then file deletion will not occur but a warning will be logged periodically.
 	defaultDiskUsageThreshold  = 0.9
