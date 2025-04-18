@@ -159,19 +159,19 @@ func (c *Config) syncConfig(syncSensor sensor.Sensor, syncSensorEnabled bool, lo
 	}
 
 	return datasync.Config{
-		AdditionalSyncPaths:        c.AdditionalSyncPaths,
-		Tags:                       c.Tags,
-		CaptureDir:                 c.getCaptureDir(logger),
-		CaptureDisabled:            c.CaptureDisabled,
-		DeleteEveryNthWhenDiskFull: c.DeleteEveryNthWhenDiskFull,
-		DiskUsageDeletionThreshold: c.DiskUsageDeletionThreshold,
-		CaptureDirToFSThreshold:    c.CaptureDirDeletionThreshold,
-		FileLastModifiedMillis:     c.FileLastModifiedMillis,
-		MaximumNumSyncThreads:      c.MaximumNumSyncThreads,
-		ScheduledSyncDisabled:      c.ScheduledSyncDisabled,
-		SelectiveSyncerName:        c.SelectiveSyncerName,
-		SyncIntervalMins:           syncIntervalMins,
-		SelectiveSyncSensor:        syncSensor,
-		SelectiveSyncSensorEnabled: syncSensorEnabled,
+		AdditionalSyncPaths:         c.AdditionalSyncPaths,
+		Tags:                        c.Tags,
+		CaptureDir:                  c.getCaptureDir(logger),
+		CaptureDisabled:             c.CaptureDisabled,
+		DeleteEveryNthWhenDiskFull:  c.DeleteEveryNthWhenDiskFull,
+		DiskUsageDeletionThreshold:  c.DiskUsageDeletionThreshold,
+		CaptureDirDeletionThreshold: c.CaptureDirDeletionThreshold,
+		FileLastModifiedMillis:      c.FileLastModifiedMillis,
+		MaximumNumSyncThreads:       c.MaximumNumSyncThreads,
+		ScheduledSyncDisabled:       c.ScheduledSyncDisabled,
+		SelectiveSyncerName:         c.SelectiveSyncerName,
+		SyncIntervalMins:            syncIntervalMins,
+		SelectiveSyncSensor:         syncSensor,
+		SelectiveSyncSensorEnabled:  syncSensorEnabled,
 	}
 }

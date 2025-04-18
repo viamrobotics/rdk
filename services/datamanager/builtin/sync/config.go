@@ -66,7 +66,7 @@ type Config struct {
 	// Defaults to 0.90.
 	DiskUsageDeletionThreshold float64
 	// Defaults to 0.50
-	CaptureDirToFSThreshold float64
+	CaptureDirDeletionThreshold float64
 	// FileLastModifiedMillis defines the number of milliseconds that
 	// we should wait for an arbitrary file (aka a file that doesn't end in
 	// either the .prog nor the .capture file extension) before we consider
@@ -109,7 +109,7 @@ func (c Config) Equal(o Config) bool {
 		c.CaptureDisabled == o.CaptureDisabled &&
 		c.DeleteEveryNthWhenDiskFull == o.DeleteEveryNthWhenDiskFull &&
 		c.DiskUsageDeletionThreshold == o.DiskUsageDeletionThreshold &&
-		c.CaptureDirToFSThreshold == o.CaptureDirToFSThreshold &&
+		c.CaptureDirDeletionThreshold == o.CaptureDirDeletionThreshold &&
 		c.FileLastModifiedMillis == o.FileLastModifiedMillis &&
 		c.MaximumNumSyncThreads == o.MaximumNumSyncThreads &&
 		c.ScheduledSyncDisabled == o.ScheduledSyncDisabled &&

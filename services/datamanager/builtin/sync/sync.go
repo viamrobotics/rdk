@@ -181,7 +181,7 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 				config.CaptureDir,
 				config.DeleteEveryNthWhenDiskFull,
 				config.DiskUsageDeletionThreshold,
-				config.CaptureDirToFSThreshold,
+				config.CaptureDirDeletionThreshold,
 				s.clock,
 				s.logger,
 			)
