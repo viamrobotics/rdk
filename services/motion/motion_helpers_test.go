@@ -18,11 +18,12 @@ import (
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	injectmotion "go.viam.com/rdk/testutils/inject/motion"
 )
 
 func TestPollHistoryUntilSuccessOrError(t *testing.T) {
 	ctx := context.Background()
-	ms := inject.NewMotionService("my motion")
+	ms := injectmotion.NewMotionService("my motion")
 	t.Run("returns error if context is cancelled", func(t *testing.T) {
 		cancelledCtx, cancelFn := context.WithCancel(context.Background())
 		cancelFn()

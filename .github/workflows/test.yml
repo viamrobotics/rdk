@@ -90,6 +90,34 @@ jobs:
           path: json.log
           retention-days: 30
 
+  test_win:
+    name: windows
+    runs-on: windows-2019
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
+    - uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+    - name: test
+      env:
+        # otherwise this gives a 'signal arrived during external code execution' error
+        # in runtime.cgocall for github.com/pion/mediadevices/pkg/driver/camera._Cfunc_listCamera
+        CGO_ENABLED: "0"
+        GOFLAGS: "-tags=no_cgo"
+      run:
+        # note: this is a subset of tests that are known to pass on windows
+        go run gotest.tools/gotestsum --format standard-verbose --jsonfile json.log ./module ./logging/...
+
+    - name: Upload test.json
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-windows-amd64.json
+        path: json.log
+        retention-days: 30
+
   test32:
     name: Go 32-bit Unit Tests
     runs-on: ubuntu-large-arm
@@ -139,7 +167,7 @@ jobs:
 
   test_passing:
     name: All Tests Passing
-    needs: [test_go, test32, motion_tests]
+    needs: [test_go, test32, motion_tests, test_win]
     runs-on: [ubuntu-latest]
     if: always()
     steps:
@@ -147,6 +175,7 @@ jobs:
         run: |
           echo Go Unit Tests: ${{ needs.test_go.result }}
           echo Go 32-bit Tests: ${{ needs.test32.result }}
+          echo Windows Tests: ${{ needs.test_win.result }}
           echo Motion Tests: ${{ needs.motion_tests.result }}
           [ "${{ needs.test_go.result }}" == "success" ] && \
           [ "${{ needs.test32.result }}" == "success" ] && \

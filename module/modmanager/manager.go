@@ -343,6 +343,11 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, moduleLogger lo
 		return nil
 	}
 
+	exists, existingName := mgr.execPathAlreadyExists(&conf)
+	if exists {
+		return errors.Errorf("An existing module %s already exists with the same executable path as module %s", existingName, conf.Name)
+	}
+
 	var moduleDataDir string
 	// only set the module data directory if the parent dir is present (which it might not be during tests)
 	if mgr.moduleDataParentDir != "" {
@@ -440,6 +445,11 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 	mod, exists := mgr.modules.Load(conf.Name)
 	if !exists {
 		return nil, errors.Errorf("cannot reconfigure module %s as it does not exist", conf.Name)
+	}
+
+	exists, existingName := mgr.execPathAlreadyExists(&conf)
+	if exists {
+		return nil, errors.Errorf("An existing module %s already exists with the same executable path as module %s", existingName, conf.Name)
 	}
 
 	handledResources := mod.resources
@@ -850,6 +860,20 @@ func (mgr *Manager) getModule(conf resource.Config) (foundMod *module, exists bo
 	})
 
 	return
+}
+
+func (mgr *Manager) execPathAlreadyExists(conf *config.Module) (bool, string) {
+	var exists bool
+	var existingName string
+	mgr.modules.Range(func(_ string, m *module) bool {
+		if m.cfg.Name != conf.Name && m.cfg.ExePath == conf.ExePath {
+			exists = true
+			existingName = m.cfg.Name
+			return false
+		}
+		return true
+	})
+	return exists, existingName
 }
 
 // CleanModuleDataDirectory removes unexpected folders and files from the robot's module data directory.

@@ -1332,6 +1332,7 @@ func binaryMetadataFromProto(proto *pb.BinaryMetadata) (*BinaryMetadata, error) 
 		return nil, err
 	}
 	return &BinaryMetadata{
+		//nolint:deprecated,staticcheck
 		ID:              proto.Id,
 		BinaryDataID:    proto.BinaryDataId,
 		CaptureMetadata: *captureMetadata,

@@ -643,6 +643,7 @@ func NetworkConfigToProto(network *NetworkConfig) (*pb.NetworkConfig, error) {
 		BindAddress:            network.BindAddress,
 		TlsCertFile:            network.TLSCertFile,
 		TlsKeyFile:             network.TLSKeyFile,
+		NoTls:                  network.NoTLS,
 		Sessions:               sessionsConfigToProto(network.Sessions),
 		TrafficTunnelEndpoints: trafficTunnelEndpointsToProto(network.TrafficTunnelEndpoints),
 	}
@@ -676,6 +677,7 @@ func NetworkConfigFromProto(proto *pb.NetworkConfig) (*NetworkConfig, error) {
 			BindAddress:            proto.GetBindAddress(),
 			TLSCertFile:            proto.GetTlsCertFile(),
 			TLSKeyFile:             proto.GetTlsKeyFile(),
+			NoTLS:                  proto.GetNoTls(),
 			Sessions:               sessionsConfigFromProto(proto.GetSessions()),
 			TrafficTunnelEndpoints: trafficTunnelEndpointsFromProto(proto.TrafficTunnelEndpoints),
 		},

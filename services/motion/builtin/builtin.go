@@ -4,6 +4,8 @@ package builtin
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -11,6 +13,9 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 	pb "go.viam.com/api/service/motion/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -343,8 +348,8 @@ func (ms *builtIn) PlanHistory(
 //     input value: a motionplan.Trajectory
 //     output value: a bool
 func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
 	resp := make(map[string]interface{}, 0)
@@ -366,6 +371,14 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 			}
 			moveReqProto.Extra = v
 		}
+		// Special handling: we want to observe the logs just for the DoCommand
+		oldLogger := ms.logger
+		obsLogger := oldLogger.Sublogger("observed")
+		observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.InfoLevel.Enabled))
+		obsLogger.AddAppender(observerCore)
+		ms.logger = obsLogger
+		defer func() { ms.logger = oldLogger }()
+
 		moveReq, err := motion.MoveReqFromProto(&moveReqProto)
 		if err != nil {
 			return nil, err
@@ -374,6 +387,28 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 		if err != nil {
 			return nil, err
 		}
+
+		partialLogString := "returning partial plan up to waypoint"
+		partialLogs := observedLogs.FilterMessageSnippet(partialLogString).All()
+		if len(partialLogs) > 0 {
+			// Extract the waypoint number from the partial log
+			if len(partialLogs) == 1 {
+				logMsg := partialLogs[0].Message
+				// Find the waypoint number after the partial log string
+				waypointStr := strings.TrimPrefix(logMsg, partialLogString)
+				// Extract just the number
+				waypointNum, err := strconv.Atoi(strings.Split(strings.TrimSpace(waypointStr), " ")[0])
+				if err == nil {
+					resp[DoPlan+"_partialwp"] = waypointNum
+				} else {
+					ms.logger.CWarnf(ctx, "error parsing log string: %s", logMsg)
+					ms.logger.CWarn(ctx, err)
+				}
+			} else {
+				ms.logger.CWarnf(ctx, "Unexpected number of partial logs: %d", len(partialLogs))
+			}
+		}
+
 		resp[DoPlan] = plan.Trajectory()
 	}
 	if req, ok := cmd[DoExecute]; ok {

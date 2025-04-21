@@ -123,19 +123,11 @@ func TestFileDeletionUsageCheck(t *testing.T) {
 			tempCaptureDir := t.TempDir()
 			// write testing files
 			writeFiles(t, tempCaptureDir, []string{"1.capture", "2.capture"})
-			// overwrite thresholds
-			fsThresholdToTriggerDeletion := FSThresholdToTriggerDeletion
-			captureDirToFSUsageRatio := CaptureDirToFSUsageRatio
-			FSThresholdToTriggerDeletion = tc.triggerThreshold
-			CaptureDirToFSUsageRatio = tc.captureUsageRatio
-			t.Cleanup(func() {
-				FSThresholdToTriggerDeletion = fsThresholdToTriggerDeletion
-				CaptureDirToFSUsageRatio = captureDirToFSUsageRatio
-			})
 			logger := logging.NewTestLogger(t)
 			usage, err := diskusage.Statfs(tempCaptureDir)
 			test.That(t, err, test.ShouldBeNil)
-			willDelete, err := shouldDeleteBasedOnDiskUsage(context.Background(), usage, tempCaptureDir, logger)
+			willDelete, err := shouldDeleteBasedOnDiskUsage(context.Background(), usage, tempCaptureDir,
+				tc.triggerThreshold, tc.captureUsageRatio, logger)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, willDelete, test.ShouldEqual, tc.deletionExpected)
 		})

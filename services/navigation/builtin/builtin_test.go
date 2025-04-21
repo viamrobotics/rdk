@@ -37,12 +37,13 @@ import (
 	_ "go.viam.com/rdk/services/vision/colordetector"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	injectmotion "go.viam.com/rdk/testutils/inject/motion"
 	viz "go.viam.com/rdk/vision"
 )
 
 type startWaypointState struct {
 	ns             navigation.Service
-	injectMS       *inject.MotionService
+	injectMS       *injectmotion.MotionService
 	base           base.Base
 	movementSensor *inject.MovementSensor
 	closeFunc      func()
@@ -230,7 +231,7 @@ func TestNew(t *testing.T) {
 		}
 		deps := resource.Dependencies{
 			resource.NewName(base.API, "base"):                      inject.NewBase("new_base"),
-			resource.NewName(motion.API, "builtin"):                 inject.NewMotionService("new_motion"),
+			resource.NewName(motion.API, "builtin"):                 injectmotion.NewMotionService("new_motion"),
 			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
 		}
 
@@ -252,7 +253,7 @@ func TestNew(t *testing.T) {
 		}
 		deps := resource.Dependencies{
 			resource.NewName(base.API, "base"):                      inject.NewBase("new_base"),
-			resource.NewName(motion.API, "builtin"):                 inject.NewMotionService("new_motion"),
+			resource.NewName(motion.API, "builtin"):                 injectmotion.NewMotionService("new_motion"),
 			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
 		}
 
@@ -285,7 +286,7 @@ func TestNew(t *testing.T) {
 		deps := resource.Dependencies{
 			resource.NewName(base.API, "base"):      &inject.Base{},
 			resource.NewName(camera.API, "camera"):  inject.NewCamera("camera"),
-			resource.NewName(motion.API, "builtin"): inject.NewMotionService("motion"),
+			resource.NewName(motion.API, "builtin"): injectmotion.NewMotionService("motion"),
 			resource.NewName(vision.API, "vision"):  inject.NewVisionService("vision"),
 		}
 
@@ -319,7 +320,7 @@ func TestNew(t *testing.T) {
 		deps := resource.Dependencies{
 			resource.NewName(base.API, "base"):      &inject.Base{},
 			resource.NewName(camera.API, "camera"):  inject.NewCamera("camera"),
-			resource.NewName(motion.API, "builtin"): inject.NewMotionService("motion"),
+			resource.NewName(motion.API, "builtin"): injectmotion.NewMotionService("motion"),
 			resource.NewName(vision.API, "vision"):  inject.NewVisionService("vision"),
 		}
 
@@ -361,7 +362,7 @@ func TestNew(t *testing.T) {
 		}
 		deps := resource.Dependencies{
 			resource.NewName(base.API, "base"):      &inject.Base{},
-			resource.NewName(motion.API, "builtin"): inject.NewMotionService("motion"),
+			resource.NewName(motion.API, "builtin"): injectmotion.NewMotionService("motion"),
 		}
 
 		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
@@ -381,7 +382,7 @@ func TestNew(t *testing.T) {
 		}
 		deps := resource.Dependencies{
 			resource.NewName(base.API, "base"):                      &inject.Base{},
-			resource.NewName(motion.API, "builtin"):                 inject.NewMotionService("motion"),
+			resource.NewName(motion.API, "builtin"):                 injectmotion.NewMotionService("motion"),
 			resource.NewName(camera.API, "camera"):                  inject.NewCamera("camera"),
 			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
 		}
@@ -403,7 +404,7 @@ func TestNew(t *testing.T) {
 		}
 		deps := resource.Dependencies{
 			resource.NewName(base.API, "base"):                      &inject.Base{},
-			resource.NewName(motion.API, "builtin"):                 inject.NewMotionService("motion"),
+			resource.NewName(motion.API, "builtin"):                 injectmotion.NewMotionService("motion"),
 			resource.NewName(vision.API, "vision"):                  inject.NewVisionService("vision"),
 			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
 		}
@@ -425,7 +426,7 @@ func TestNew(t *testing.T) {
 		}
 		deps := resource.Dependencies{
 			resource.NewName(base.API, "base"):                      &inject.Base{},
-			resource.NewName(motion.API, "builtin"):                 inject.NewMotionService("motion"),
+			resource.NewName(motion.API, "builtin"):                 injectmotion.NewMotionService("motion"),
 			resource.NewName(vision.API, "vision"):                  inject.NewVisionService("vision"),
 			resource.NewName(camera.API, "camera"):                  inject.NewCamera("camera"),
 			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
@@ -633,7 +634,7 @@ func setupStartWaypoint(ctx context.Context, t *testing.T, logger logging.Logger
 			},
 		},
 	}
-	injectMS := inject.NewMotionService("test_motion")
+	injectMS := injectmotion.NewMotionService("test_motion")
 	deps := resource.Dependencies{
 		injectMS.Name():             injectMS,
 		fakeBase.Name():             fakeBase,
@@ -684,7 +685,7 @@ func setupStartWaypointExplore(ctx context.Context, t *testing.T, logger logging
 			},
 		},
 	}
-	injectMS := inject.NewMotionService("test_motion")
+	injectMS := injectmotion.NewMotionService("test_motion")
 	deps := resource.Dependencies{
 		injectMS.Name():             injectMS,
 		fakeBase.Name():             fakeBase,
@@ -1722,7 +1723,7 @@ func TestGetObstacles(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	injectMS := inject.NewMotionService("test_motion")
+	injectMS := injectmotion.NewMotionService("test_motion")
 	injectedVis := inject.NewVisionService("test_vision")
 	injectMovementSensor := inject.NewMovementSensor("test_movement")
 	injectedCam := inject.NewCamera("test_camera")

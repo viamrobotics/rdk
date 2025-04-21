@@ -174,18 +174,16 @@ func TestLineFollow(t *testing.T) {
 	test.That(t, lastGood, test.ShouldNotBeNil)
 	// lastGood.StartConfiguration and EndConfiguration should pass constraints
 	stateCheck := &ik.StateFS{Configuration: lastGood.StartConfiguration, FS: fs}
-	pass, _ := opt.CheckStateFSConstraints(stateCheck)
-	test.That(t, pass, test.ShouldBeTrue)
+	test.That(t, opt.CheckStateFSConstraints(stateCheck), test.ShouldBeNil)
 
 	stateCheck.Configuration = lastGood.EndConfiguration
-	pass, _ = opt.CheckStateFSConstraints(stateCheck)
-	test.That(t, pass, test.ShouldBeTrue)
+	test.That(t, opt.CheckStateFSConstraints(stateCheck), test.ShouldBeNil)
 
 	// Check that a deviating configuration will fail
 	stateCheck.Configuration = map[string][]frame.Input{m.Name(): m.InputFromProtobuf(mpFail)}
-	pass, failName := opt.CheckStateFSConstraints(stateCheck)
-	test.That(t, pass, test.ShouldBeFalse)
-	test.That(t, failName, test.ShouldStartWith, "whiteboard")
+	err = opt.CheckStateFSConstraints(stateCheck)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldStartWith, "whiteboard")
 }
 
 func TestCollisionConstraints(t *testing.T) {
@@ -197,8 +195,8 @@ func TestCollisionConstraints(t *testing.T) {
 	}{
 		{zeroPos, true, ""},
 		{frame.FloatsToInputs([]float64{math.Pi / 2, 0, 0, 0, 0, 0}), true, ""},
-		{frame.FloatsToInputs([]float64{math.Pi, 0, 0, 0, 0, 0}), false, defaultObstacleConstraintDesc},
-		{frame.FloatsToInputs([]float64{math.Pi / 2, 0, 0, 0, 2, 0}), false, defaultSelfCollisionConstraintDesc},
+		{frame.FloatsToInputs([]float64{math.Pi, 0, 0, 0, 0, 0}), false, obstacleConstraintDescription},
+		{frame.FloatsToInputs([]float64{math.Pi / 2, 0, 0, 0, 2, 0}), false, selfCollisionConstraintDescription},
 	}
 
 	// define external obstacles
@@ -255,14 +253,14 @@ func TestCollisionConstraints(t *testing.T) {
 	// loop through cases and check constraint handler processes them correctly
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
-			response, failName := handler.CheckStateConstraints(&ik.State{Configuration: c.input, Frame: model})
-			test.That(t, response, test.ShouldEqual, c.expected)
-			test.That(t, failName, test.ShouldStartWith, c.failName)
+			err := handler.CheckStateConstraints(&ik.State{Configuration: c.input, Frame: model})
+			test.That(t, err == nil, test.ShouldEqual, c.expected)
+			if err != nil {
+				test.That(t, err.Error(), test.ShouldStartWith, c.failName)
+			}
 		})
 	}
 }
-
-var bt bool
 
 func BenchmarkCollisionConstraints(b *testing.B) {
 	// define external obstacles
@@ -316,15 +314,13 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 		handler.AddStateConstraint(name, constraint)
 	}
 	rseed := rand.New(rand.NewSource(1))
-	var b1 bool
-	var n int
 
 	// loop through cases and check constraint handler processes them correctly
-	for n = 0; n < b.N; n++ {
+	for n := 0; n < b.N; n++ {
 		rfloats := frame.GenerateRandomConfiguration(model, rseed)
-		b1, _ = handler.CheckStateConstraints(&ik.State{Configuration: frame.FloatsToInputs(rfloats), Frame: model})
+		err = handler.CheckStateConstraints(&ik.State{Configuration: frame.FloatsToInputs(rfloats), Frame: model})
+		test.That(b, err, test.ShouldBeNil)
 	}
-	bt = b1
 }
 
 func TestConstraintConstructors(t *testing.T) {
