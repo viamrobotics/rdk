@@ -94,7 +94,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 	// if we have start poses, check we have valid frames
 	for fName, pif := range req.StartState.poses {
 		if req.FrameSystem.Frame(fName) == nil {
-			return referenceframe.NewFrameMissingError(fName)
+			return referenceframe.NewFrameMissingError(fName + " (validatePlanRequest start state)")
 		}
 		if req.FrameSystem.Frame(pif.Parent()) == nil {
 			return referenceframe.NewParentFrameMissingError(fName, pif.Parent())
@@ -123,7 +123,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 				if len(goalState.poses) > 0 && len(req.StartState.poses) > 0 {
 					goalFrame := req.FrameSystem.Frame(fName)
 					if goalFrame == nil {
-						return referenceframe.NewFrameMissingError(fName)
+						return referenceframe.NewFrameMissingError(fName + " (validatePlanRequest BoundingRegions)")
 					}
 					buffer, ok := req.Options["collision_buffer_mm"].(float64)
 					if !ok {
