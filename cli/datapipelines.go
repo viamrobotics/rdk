@@ -15,12 +15,12 @@ import (
 )
 
 // pipelineRunStatusMap maps pipeline run statuses to human-readable strings.
-var pipelineRunStatusMap = map[datapipelinespb.PipelineRunStatus]string{
-	datapipelinespb.PipelineRunStatus_PIPELINE_RUN_STATUS_UNSPECIFIED: "Unknown",
-	datapipelinespb.PipelineRunStatus_PIPELINE_RUN_STATUS_SCHEDULED:   "Scheduled",
-	datapipelinespb.PipelineRunStatus_PIPELINE_RUN_STATUS_STARTED:     "Running",
-	datapipelinespb.PipelineRunStatus_PIPELINE_RUN_STATUS_COMPLETED:   "Success",
-	datapipelinespb.PipelineRunStatus_PIPELINE_RUN_STATUS_FAILED:      "Failed",
+var pipelineRunStatusMap = map[datapipelinespb.DataPipelineRunStatus]string{
+	datapipelinespb.DataPipelineRunStatus_DATA_PIPELINE_RUN_STATUS_UNSPECIFIED: "Unknown",
+	datapipelinespb.DataPipelineRunStatus_DATA_PIPELINE_RUN_STATUS_SCHEDULED:   "Scheduled",
+	datapipelinespb.DataPipelineRunStatus_DATA_PIPELINE_RUN_STATUS_STARTED:     "Running",
+	datapipelinespb.DataPipelineRunStatus_DATA_PIPELINE_RUN_STATUS_COMPLETED:   "Success",
+	datapipelinespb.DataPipelineRunStatus_DATA_PIPELINE_RUN_STATUS_FAILED:      "Failed",
 }
 
 type datapipelineListArgs struct {
@@ -183,7 +183,7 @@ func DatapipelineDescribeAction(c *cli.Context, args datapipelineDescribeArgs) e
 	}
 	pipeline := resp.GetDataPipeline()
 
-	runsResp, err := client.datapipelinesClient.ListPipelineRuns(context.Background(), &datapipelinespb.ListPipelineRunsRequest{
+	runsResp, err := client.datapipelinesClient.ListDataPipelineRuns(context.Background(), &datapipelinespb.ListDataPipelineRunsRequest{
 		Id:       args.ID,
 		PageSize: 1,
 	})
