@@ -9,6 +9,7 @@ import (
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
@@ -84,7 +85,7 @@ func (ds *detectorSource) Read(ctx context.Context) (image.Image, func(), error)
 		return nil, nil, fmt.Errorf("source_detector cant find vision service: %w", err)
 	}
 	// get image from source camera
-	img, release, err := camera.ReadImage(ctx, ds.src)
+	img, release, err := gostream.ReadImage(ctx, ds.src)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not get next source image: %w", err)
 	}

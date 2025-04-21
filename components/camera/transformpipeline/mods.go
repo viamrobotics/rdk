@@ -12,6 +12,7 @@ import (
 	"golang.org/x/image/draw"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -65,7 +66,7 @@ func newRotateTransform(ctx context.Context, source camera.VideoSource, stream c
 func (rs *rotateSource) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::rotate::Read")
 	defer span.End()
-	orig, release, err := camera.ReadImage(ctx, rs.src)
+	orig, release, err := gostream.ReadImage(ctx, rs.src)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -129,7 +130,7 @@ func newResizeTransform(
 func (rs *resizeSource) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::resize::Read")
 	defer span.End()
-	orig, release, err := camera.ReadImage(ctx, rs.src)
+	orig, release, err := gostream.ReadImage(ctx, rs.src)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -245,7 +246,7 @@ func (cs *cropSource) relToAbsCrop(img image.Image) image.Rectangle {
 func (cs *cropSource) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::crop::Read")
 	defer span.End()
-	orig, release, err := camera.ReadImage(ctx, cs.src)
+	orig, release, err := gostream.ReadImage(ctx, cs.src)
 	if err != nil {
 		return nil, nil, err
 	}

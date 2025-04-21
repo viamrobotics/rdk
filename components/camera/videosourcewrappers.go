@@ -217,7 +217,7 @@ func (vs *videoSource) Image(ctx context.Context, mimeType string, extra map[str
 	if sourceCam, ok := vs.actualSource.(Camera); ok {
 		return sourceCam.Image(ctx, mimeType, extra)
 	}
-	img, release, err := ReadImage(ctx, vs.videoSource)
+	img, release, err := gostream.ReadImage(ctx, vs.videoSource)
 	if err != nil {
 		return nil, ImageMetadata{}, err
 	}
@@ -241,7 +241,7 @@ func (vs *videoSource) Images(ctx context.Context) ([]NamedImage, resource.Respo
 	if c, ok := vs.actualSource.(ImagesSource); ok {
 		return c.Images(ctx)
 	}
-	img, release, err := ReadImage(ctx, vs.videoSource)
+	img, release, err := gostream.ReadImage(ctx, vs.videoSource)
 	if err != nil {
 		return nil, resource.ResponseMetadata{}, errors.Wrap(err, "videoSource: call to get Images failed")
 	}
@@ -264,7 +264,7 @@ func (vs *videoSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 	if vs.system == nil || vs.system.PinholeCameraIntrinsics == nil {
 		return nil, transform.NewNoIntrinsicsError("cannot do a projection to a point cloud")
 	}
-	img, release, err := ReadImage(ctx, vs.videoSource)
+	img, release, err := gostream.ReadImage(ctx, vs.videoSource)
 	defer release()
 	if err != nil {
 		return nil, err

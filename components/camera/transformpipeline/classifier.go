@@ -9,6 +9,7 @@ import (
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
@@ -91,7 +92,7 @@ func (cs *classifierSource) Read(ctx context.Context) (image.Image, func(), erro
 		return nil, nil, errors.Wrap(err, "source_classifier can't find vision service")
 	}
 	// get image from source camera
-	img, release, err := camera.ReadImage(ctx, cs.src)
+	img, release, err := gostream.ReadImage(ctx, cs.src)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not get next source image")
 	}

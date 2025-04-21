@@ -46,7 +46,7 @@ func TestTransformPipelineColor(t *testing.T) {
 	color, err := newTransformPipeline(context.Background(), vs, nil, transformConf, r, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	outImg, _, err := camera.ReadImage(context.Background(), color)
+	outImg, _, err := gostream.ReadImage(context.Background(), color)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, outImg.Bounds().Dx(), test.ShouldEqual, 10)
 	test.That(t, outImg.Bounds().Dy(), test.ShouldEqual, 20)
@@ -94,7 +94,7 @@ func TestTransformPipelineDepth(t *testing.T) {
 	depth, err := newTransformPipeline(context.Background(), vs, nil, transformConf, r, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	outImg, _, err := camera.ReadImage(context.Background(), depth)
+	outImg, _, err := gostream.ReadImage(context.Background(), depth)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, outImg.Bounds().Dx(), test.ShouldEqual, 40)
 	test.That(t, outImg.Bounds().Dy(), test.ShouldEqual, 30)
@@ -153,7 +153,7 @@ func TestPipeIntoPipe(t *testing.T) {
 
 	pipe1, err := newTransformPipeline(context.Background(), source, nil, transform1, r, logger)
 	test.That(t, err, test.ShouldBeNil)
-	outImg, _, err := camera.ReadImage(context.Background(), pipe1)
+	outImg, _, err := gostream.ReadImage(context.Background(), pipe1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, outImg.Bounds().Dx(), test.ShouldEqual, 128)
 	test.That(t, outImg.Bounds().Dy(), test.ShouldEqual, 72)
@@ -164,7 +164,7 @@ func TestPipeIntoPipe(t *testing.T) {
 	// transform pipeline into pipeline
 	pipe2, err := newTransformPipeline(context.Background(), pipe1, nil, transform2, r, logger)
 	test.That(t, err, test.ShouldBeNil)
-	outImg, _, err = camera.ReadImage(context.Background(), pipe2)
+	outImg, _, err = gostream.ReadImage(context.Background(), pipe2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, outImg.Bounds().Dx(), test.ShouldEqual, 10)
 	test.That(t, outImg.Bounds().Dy(), test.ShouldEqual, 20)

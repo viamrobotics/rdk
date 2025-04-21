@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -100,7 +101,7 @@ func TestClassifierSource(t *testing.T) {
 
 	streamClassifier, ok := classifier.(camera.VideoSource)
 	test.That(t, ok, test.ShouldBeTrue)
-	resImg, _, err := camera.ReadImage(ctx, streamClassifier)
+	resImg, _, err := gostream.ReadImage(ctx, streamClassifier)
 	test.That(t, err, test.ShouldBeNil)
 	ovImg := rimage.ConvertImage(resImg)
 

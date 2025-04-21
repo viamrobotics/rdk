@@ -150,11 +150,6 @@ type VideoSource interface {
 	Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error)
 }
 
-// ReadImage reads an image from the given source that is immediately available.
-func ReadImage(ctx context.Context, src gostream.VideoSource) (image.Image, func(), error) {
-	return gostream.ReadImage(ctx, src)
-}
-
 // DecodeImageFromCamera retrieves image bytes from a camera resource and serializes it as an image.Image.
 func DecodeImageFromCamera(ctx context.Context, mimeType string, extra map[string]interface{}, cam Camera) (image.Image, error) {
 	resBytes, resMetadata, err := cam.Image(ctx, mimeType, extra)
