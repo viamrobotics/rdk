@@ -1322,7 +1322,7 @@ func (d *DataClient) CreateDataPipeline(ctx context.Context, organizationID, nam
 	return resp.Id, nil
 }
 
-func (d *DataClient) UpdateDataPipeline(ctx context.Context, id string, name string, query []map[string]interface{}, schedule string) error {
+func (d *DataClient) UpdateDataPipeline(ctx context.Context, id, name string, query []map[string]interface{}, schedule string) error {
 	mqlBinary, err := queryBSONToBinary(query)
 	if err != nil {
 		return err
