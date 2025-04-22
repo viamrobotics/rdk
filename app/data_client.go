@@ -467,13 +467,9 @@ func (d *DataClient) TabularDataBySQL(ctx context.Context, organizationID, sqlQu
 func (d *DataClient) TabularDataByMQL(
 	ctx context.Context, organizationID string, query []map[string]interface{}, opts *TabularDataByMQLOptions,
 ) ([]map[string]interface{}, error) {
-	mqlBinary := [][]byte{}
-	for _, q := range query {
-		binary, err := bson.Marshal(q)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal BSON query: %w", err)
-		}
-		mqlBinary = append(mqlBinary, binary)
+	mqlBinary, err := queryBSONToBinary(query)
+	if err != nil {
+		return nil, err
 	}
 
 	if opts == nil {
@@ -1279,6 +1275,70 @@ func (d *DataClient) ListDataPipelines(ctx context.Context, organizationID strin
 	return dataPipelines, nil
 }
 
+func (d *DataClient) GetDataPipeline(ctx context.Context, id string) (*DataPipeline, error) {
+	resp, err := d.datapipelinesClient.GetDataPipeline(ctx, &datapipelinesPb.GetDataPipelineRequest{
+		Id: id,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return dataPipelineFromProto(resp.DataPipeline), nil
+}
+
+func (d *DataClient) CreateDataPipeline(ctx context.Context, organizationID, name string, query []map[string]interface{}, schedule string) (string, error) {
+	mqlBinary, err := queryBSONToBinary(query)
+	if err != nil {
+		return "", err
+	}
+
+	resp, err := d.datapipelinesClient.CreateDataPipeline(ctx, &datapipelinesPb.CreateDataPipelineRequest{
+		OrganizationId: organizationID,
+		Name:           name,
+		MqlBinary:      mqlBinary,
+		Schedule:       schedule,
+	})
+	if err != nil {
+		return "", err
+	}
+	return resp.Id, nil
+}
+
+func (d *DataClient) UpdateDataPipeline(ctx context.Context, id string, name string, query []map[string]interface{}, schedule string) error {
+	mqlBinary, err := queryBSONToBinary(query)
+	if err != nil {
+		return err
+	}
+
+	_, err = d.datapipelinesClient.UpdateDataPipeline(ctx, &datapipelinesPb.UpdateDataPipelineRequest{
+		Id:        id,
+		Name:      name,
+		MqlBinary: mqlBinary,
+		Schedule:  schedule,
+	})
+	return err
+}
+
+func (d *DataClient) DeleteDataPipeline(ctx context.Context, id string) error {
+	_, err := d.datapipelinesClient.DeleteDataPipeline(ctx, &datapipelinesPb.DeleteDataPipelineRequest{
+		Id: id,
+	})
+	return err
+}
+
+func (d *DataClient) EnableDataPipeline(ctx context.Context, id string) error {
+	_, err := d.datapipelinesClient.EnableDataPipeline(ctx, &datapipelinesPb.EnableDataPipelineRequest{
+		Id: id,
+	})
+	return err
+}
+
+func (d *DataClient) DisableDataPipeline(ctx context.Context, id string) error {
+	_, err := d.datapipelinesClient.DisableDataPipeline(ctx, &datapipelinesPb.DisableDataPipelineRequest{
+		Id: id,
+	})
+	return err
+}
+
 func boundingBoxFromProto(proto *pb.BoundingBox) *BoundingBox {
 	if proto == nil {
 		return nil
@@ -1648,4 +1708,16 @@ func dataPipelineFromProto(proto *datapipelinesPb.DataPipeline) *DataPipeline {
 		CreatedOn:      proto.CreatedOn.AsTime(),
 		UpdatedAt:      proto.UpdatedAt.AsTime(),
 	}
+}
+
+func queryBSONToBinary(query []map[string]interface{}) ([][]byte, error) {
+	mqlBinary := [][]byte{}
+	for _, q := range query {
+		binary, err := bson.Marshal(q)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal BSON query: %w", err)
+		}
+		mqlBinary = append(mqlBinary, binary)
+	}
+	return mqlBinary, nil
 }
