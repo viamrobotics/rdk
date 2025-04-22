@@ -383,7 +383,6 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println("GOT MOVE REQ, PLANNING")
 		plan, err := ms.plan(ctx, moveReq)
 		if err != nil {
 			return nil, err
@@ -597,7 +596,6 @@ func waypointsFromRequest(
 		} else {
 			return nil, nil, errors.New("extras start_state could not be interpreted as map[string]interface{}")
 		}
-		fmt.Println("START STATE", startState, startState.Configuration())
 		if startState.Configuration() == nil {
 			startState = motionplan.NewPlanState(startState.Poses(), fsInputs)
 		}
