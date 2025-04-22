@@ -77,7 +77,7 @@ require (
 	go.uber.org/atomic v1.11.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
-	go.viam.com/api v0.1.430
+	go.viam.com/api v0.1.432
 	go.viam.com/test v1.2.4
 	go.viam.com/utils v0.1.141
 	goji.io v2.0.2+incompatible
@@ -433,6 +433,7 @@ require (
 	github.com/erikstmartin/go-testdb v0.0.0-20160219214506-8d10e4a1bae5 // indirect
 	github.com/kylelemons/go-gypsy v1.0.0 // indirect
 	github.com/pkg/errors v0.9.1
+	github.com/yosuke-furukawa/json5 v0.1.1
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/exp v0.0.0-20240904232852-e7e105dedf7e
 )
