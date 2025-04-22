@@ -277,9 +277,26 @@ type DataByFilterOptions struct {
 	IncludeInternalData bool
 }
 
+type TabularDataSourceType int32
+
+// TabularDataSourceType constants define the possible TabularDataSourceType options.
+const (
+	TabularDataSourceTypeUnspecified TabularDataSourceType = iota
+	TabularDataSourceTypeStandard
+	TabularDataSourceTypeHotStorage
+	TabularDataSourceTypePipelineSink
+)
+
 // TabularDataByMQLOptions contains optional parameters for TabularDataByMQL.
 type TabularDataByMQLOptions struct {
+	// UseRecentData turns on reading from hot storage.
+	// Deprecated - use TabularDataSourceTypeHotStorage instead.
 	UseRecentData bool
+	// TabularDataSourceType specifies the source of the tabular data.
+	TabularDataSourceType TabularDataSourceType
+	// PipelineID is the ID of the pipeline to query. Required if TabularDataSourceType
+	// is TabularDataSourceTypePipelineSink.
+	PipelineID string
 }
 
 // BinaryDataCaptureUploadOptions represents optional parameters for the BinaryDataCaptureUpload method.
@@ -455,15 +472,22 @@ func (d *DataClient) TabularDataByMQL(
 		mqlBinary = append(mqlBinary, binary)
 	}
 
-	useRecentData := false
-	if opts != nil {
-		useRecentData = opts.UseRecentData
+	if opts == nil {
+		opts = &TabularDataByMQLOptions{}
+	}
+
+	// Legacy support for UseRecentData, which is now deprecated.
+	if opts.UseRecentData && opts.TabularDataSourceType == TabularDataSourceTypeUnspecified {
+		opts.TabularDataSourceType = TabularDataSourceTypeHotStorage
 	}
 
 	resp, err := d.dataClient.TabularDataByMQL(ctx, &pb.TabularDataByMQLRequest{
 		OrganizationId: organizationID,
 		MqlBinary:      mqlBinary,
-		UseRecentData:  &useRecentData,
+		DataSource: &pb.TabularDataSource{
+			Type:       dataSourceTypeToProto(opts.TabularDataSourceType),
+			PipelineId: &opts.PipelineID,
+		},
 	})
 	if err != nil {
 		return nil, err
@@ -1568,4 +1592,17 @@ func formatFileExtension(fileExt string) string {
 		return fileExt
 	}
 	return "." + fileExt
+}
+
+func dataSourceTypeToProto(dataSourceType TabularDataSourceType) pb.TabularDataSourceType {
+	switch dataSourceType {
+	case TabularDataSourceTypeStandard:
+		return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD
+	case TabularDataSourceTypeHotStorage:
+		return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_HOT_STORAGE
+	case TabularDataSourceTypePipelineSink:
+		return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_PIPELINE_SINK
+	default:
+		return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_UNSPECIFIED
+	}
 }

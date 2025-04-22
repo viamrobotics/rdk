@@ -362,10 +362,14 @@ func TestDataClient(t *testing.T) {
 		response, err := client.TabularDataByMQL(context.Background(), organizationID, mqlQueries, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, response, test.ShouldResemble, rawData)
-		response, err = client.TabularDataByMQL(context.Background(), organizationID, mqlQueries, &TabularDataByMQLOptions{UseRecentData: false})
+		response, err = client.TabularDataByMQL(context.Background(), organizationID, mqlQueries, &TabularDataByMQLOptions{
+			TabularDataSourceType: TabularDataSourceTypeStandard,
+		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, response, test.ShouldResemble, rawData)
-		response, err = client.TabularDataByMQL(context.Background(), organizationID, mqlQueries, &TabularDataByMQLOptions{UseRecentData: true})
+		response, err = client.TabularDataByMQL(context.Background(), organizationID, mqlQueries, &TabularDataByMQLOptions{
+			TabularDataSourceType: TabularDataSourceTypeHotStorage,
+		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, response, test.ShouldResemble, rawData)
 	})
