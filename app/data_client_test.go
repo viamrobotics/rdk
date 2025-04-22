@@ -1099,7 +1099,22 @@ func TestDataPipelineClient(t *testing.T) {
 		test.That(t, resp, test.ShouldResemble, &dataPipeline)
 	})
 
-	t.Run("CreateDataPipeline", func(t *testing.T) {})
+	t.Run("CreateDataPipeline", func(t *testing.T) {
+		matchQuery := bson.M{"$match": bson.M{"organization_id": "e76d1b3b-0468-4efd-bb7f-fb1d2b352fcb"}}
+		limitQuery := bson.M{"$limit": 1}
+		query := []map[string]interface{}{matchQuery, limitQuery}
+
+		grpcClient.CreateDataPipelineFunc = func(
+			ctx context.Context, in *datapipelinesPb.CreateDataPipelineRequest, opts ...grpc.CallOption,
+		) (*datapipelinesPb.CreateDataPipelineResponse, error) {
+			return &datapipelinesPb.CreateDataPipelineResponse{
+				Id: "new-data-pipeline-id",
+			}, nil
+		}
+		resp, err := client.CreateDataPipeline(context.Background(), organizationID, name, query, "0 9 * * *")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldEqual, "new-data-pipeline-id")
+	})
 
 	t.Run("UpdateDataPipeline", func(t *testing.T) {})
 
