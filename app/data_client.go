@@ -376,6 +376,58 @@ type DataClient struct {
 	datapipelinesClient datapipelinesPb.DataPipelinesServiceClient
 }
 
+// DataPipeline contains the configuration information of a data pipeline.
+type DataPipeline struct {
+	ID             string
+	OrganizationID string
+	Name           string
+	MqlBinary      [][]byte
+	Schedule       string
+	Enabled        bool
+	CreatedOn      time.Time
+	UpdatedAt      time.Time
+}
+
+// DataPipelineRunStatus is the status of a data pipeline run.
+type DataPipelineRunStatus int32
+
+const (
+	// DataPipelineRunStatusUnspecified indicates that the data pipeline run is undefined, this should never happen.
+	DataPipelineRunStatusUnspecified DataPipelineRunStatus = iota
+	// DataPipelineRunStatusScheduled indicates that the data pipeline run has not yet started.
+	DataPipelineRunStatusScheduled
+	// DataPipelineRunStatusStarted indicates that the data pipeline run is currently running.
+	DataPipelineRunStatusStarted
+	// DataPipelineRunStatusCompleted indicates that the data pipeline run has completed successfully.
+	DataPipelineRunStatusCompleted
+	// DataPipelineRunStatusFailed indicates that the data pipeline run has failed.
+	DataPipelineRunStatusFailed
+)
+
+// DataPipelineRun contains the information of an individual data pipeline execution.
+type DataPipelineRun struct {
+	ID string
+	// StartTime is the time the data pipeline run started.
+	StartTime time.Time
+	// EndTime is the time the data pipeline run completed or failed.
+	EndTime time.Time
+	// DataStartTime describes the start time of the data that was read by the data pipeline run.
+	DataStartTime time.Time
+	// DataEndTime describes the end time of the data that was read by the data pipeline run.
+	DataEndTime time.Time
+	// Status is the run's current status.
+	Status DataPipelineRunStatus
+}
+
+// ListDataPipelineRunsPage is a results page of data pipeline runs, used for pagination.
+type ListDataPipelineRunsPage struct {
+	client        *DataClient
+	pipelineID    string
+	pageSize      uint32
+	Runs          []*DataPipelineRun
+	nextPageToken string
+}
+
 func newDataClient(conn rpc.ClientConn) *DataClient {
 	dataClient := pb.NewDataServiceClient(conn)
 	syncClient := syncPb.NewDataSyncServiceClient(conn)
@@ -1257,49 +1309,6 @@ func (d *DataClient) ListDatasetsByIDs(ctx context.Context, ids []string) ([]*Da
 	return datasets, nil
 }
 
-// DataPipeline contains the configuration information of a data pipeline.
-type DataPipeline struct {
-	ID             string
-	OrganizationID string
-	Name           string
-	MqlBinary      [][]byte
-	Schedule       string
-	Enabled        bool
-	CreatedOn      time.Time
-	UpdatedAt      time.Time
-}
-
-// DataPipelineRunStatus is the status of a data pipeline run.
-type DataPipelineRunStatus int32
-
-const (
-	// DataPipelineRunStatusUnspecified indicates that the data pipeline run is undefined, this should never happen.
-	DataPipelineRunStatusUnspecified DataPipelineRunStatus = iota
-	// DataPipelineRunStatusScheduled indicates that the data pipeline run has not yet started.
-	DataPipelineRunStatusScheduled
-	// DataPipelineRunStatusStarted indicates that the data pipeline run is currently running.
-	DataPipelineRunStatusStarted
-	// DataPipelineRunStatusCompleted indicates that the data pipeline run has completed successfully.
-	DataPipelineRunStatusCompleted
-	// DataPipelineRunStatusFailed indicates that the data pipeline run has failed.
-	DataPipelineRunStatusFailed
-)
-
-// DataPipelineRun contains the information of an individual data pipeline execution.
-type DataPipelineRun struct {
-	ID string
-	// StartTime is the time the data pipeline run started.
-	StartTime time.Time
-	// EndTime is the time the data pipeline run completed or failed.
-	EndTime time.Time
-	// DataStartTime describes the start time of the data that was read by the data pipeline run.
-	DataStartTime time.Time
-	// DataEndTime describes the end time of the data that was read by the data pipeline run.
-	DataEndTime time.Time
-	// Status is the run's current status.
-	Status DataPipelineRunStatus
-}
-
 // ListDataPipelines lists all of the data pipelines for an organization.
 func (d *DataClient) ListDataPipelines(ctx context.Context, organizationID string) ([]*DataPipeline, error) {
 	resp, err := d.datapipelinesClient.ListDataPipelines(ctx, &datapipelinesPb.ListDataPipelinesRequest{
@@ -1418,15 +1427,6 @@ func (d *DataClient) listDataPipelineRuns(
 		Runs:          dataPipelineRuns,
 		nextPageToken: resp.NextPageToken,
 	}, nil
-}
-
-// ListDataPipelineRunsPage is a results page of data pipeline runs, used for pagination.
-type ListDataPipelineRunsPage struct {
-	client        *DataClient
-	pipelineID    string
-	pageSize      uint32
-	Runs          []*DataPipelineRun
-	nextPageToken string
 }
 
 // NextPage retrieves the next page of data pipeline runs.
