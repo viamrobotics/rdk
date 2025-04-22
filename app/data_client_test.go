@@ -1103,11 +1103,35 @@ func TestDataPipelineClient(t *testing.T) {
 
 	t.Run("UpdateDataPipeline", func(t *testing.T) {})
 
-	t.Run("DeleteDataPipeline", func(t *testing.T) {})
+	t.Run("DeleteDataPipeline", func(t *testing.T) {
+		grpcClient.DeleteDataPipelineFunc = func(
+			ctx context.Context, in *datapipelinesPb.DeleteDataPipelineRequest, opts ...grpc.CallOption,
+		) (*datapipelinesPb.DeleteDataPipelineResponse, error) {
+			return &datapipelinesPb.DeleteDataPipelineResponse{}, nil
+		}
+		err := client.DeleteDataPipeline(context.Background(), dataPipelineID)
+		test.That(t, err, test.ShouldBeNil)
+	})
 
-	t.Run("EnableDataPipeline", func(t *testing.T) {})
+	t.Run("EnableDataPipeline", func(t *testing.T) {
+		grpcClient.EnableDataPipelineFunc = func(
+			ctx context.Context, in *datapipelinesPb.EnableDataPipelineRequest, opts ...grpc.CallOption,
+		) (*datapipelinesPb.EnableDataPipelineResponse, error) {
+			return &datapipelinesPb.EnableDataPipelineResponse{}, nil
+		}
+		err := client.EnableDataPipeline(context.Background(), dataPipelineID)
+		test.That(t, err, test.ShouldBeNil)
+	})
 
-	t.Run("DisableDataPipeline", func(t *testing.T) {})
+	t.Run("DisableDataPipeline", func(t *testing.T) {
+		grpcClient.DisableDataPipelineFunc = func(
+			ctx context.Context, in *datapipelinesPb.DisableDataPipelineRequest, opts ...grpc.CallOption,
+		) (*datapipelinesPb.DisableDataPipelineResponse, error) {
+			return &datapipelinesPb.DisableDataPipelineResponse{}, nil
+		}
+		err := client.DisableDataPipeline(context.Background(), dataPipelineID)
+		test.That(t, err, test.ShouldBeNil)
+	})
 
 	t.Run("ListDataPipelineRuns", func(t *testing.T) {})
 }
