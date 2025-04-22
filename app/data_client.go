@@ -1431,6 +1431,15 @@ func (d *DataClient) listDataPipelineRuns(
 
 // NextPage retrieves the next page of data pipeline runs.
 func (p *ListDataPipelineRunsPage) NextPage(ctx context.Context) (*ListDataPipelineRunsPage, error) {
+	if p.nextPageToken == "" { // empty token means no more runs to list.
+		return &ListDataPipelineRunsPage{
+			client:     p.client,
+			pipelineID: p.pipelineID,
+			pageSize:   p.pageSize,
+			Runs:       []*DataPipelineRun{},
+		}, nil
+	}
+
 	return p.client.listDataPipelineRuns(ctx, p.pipelineID, p.pageSize, p.nextPageToken)
 }
 
