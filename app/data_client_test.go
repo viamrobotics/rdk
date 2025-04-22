@@ -1074,13 +1074,17 @@ func TestDataPipelineClient(t *testing.T) {
 	client := DataClient{datapipelinesClient: grpcClient}
 
 	matchQuery := bson.M{"$match": bson.M{"organization_id": "e76d1b3b-0468-4efd-bb7f-fb1d2b352fcb"}}
+	matchBytes, _ := bson.Marshal(matchQuery)
 	limitQuery := bson.M{"$limit": 1}
-	query := []map[string]interface{}{matchQuery, limitQuery}
+	limitBytes, _ := bson.Marshal(limitQuery)
+	mqlQueries := []map[string]interface{}{matchQuery, limitQuery}
+	mqlBinary := [][]byte{matchBytes, limitBytes}
 
 	t.Run("ListDataPipelines", func(t *testing.T) {
 		grpcClient.ListDataPipelinesFunc = func(
 			ctx context.Context, in *datapipelinesPb.ListDataPipelinesRequest, opts ...grpc.CallOption,
 		) (*datapipelinesPb.ListDataPipelinesResponse, error) {
+			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
 			return &datapipelinesPb.ListDataPipelinesResponse{
 				DataPipelines: pbDataPipelines,
 			}, nil
@@ -1094,6 +1098,7 @@ func TestDataPipelineClient(t *testing.T) {
 		grpcClient.GetDataPipelineFunc = func(
 			ctx context.Context, in *datapipelinesPb.GetDataPipelineRequest, opts ...grpc.CallOption,
 		) (*datapipelinesPb.GetDataPipelineResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, dataPipelineID)
 			return &datapipelinesPb.GetDataPipelineResponse{
 				DataPipeline: pbDataPipeline,
 			}, nil
@@ -1107,11 +1112,15 @@ func TestDataPipelineClient(t *testing.T) {
 		grpcClient.CreateDataPipelineFunc = func(
 			ctx context.Context, in *datapipelinesPb.CreateDataPipelineRequest, opts ...grpc.CallOption,
 		) (*datapipelinesPb.CreateDataPipelineResponse, error) {
+			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
+			test.That(t, in.Name, test.ShouldEqual, name)
+			test.That(t, in.MqlBinary, test.ShouldResemble, mqlBinary)
+			test.That(t, in.Schedule, test.ShouldEqual, "0 9 * * *")
 			return &datapipelinesPb.CreateDataPipelineResponse{
 				Id: "new-data-pipeline-id",
 			}, nil
 		}
-		resp, err := client.CreateDataPipeline(context.Background(), organizationID, name, query, "0 9 * * *")
+		resp, err := client.CreateDataPipeline(context.Background(), organizationID, name, mqlQueries, "0 9 * * *")
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldEqual, "new-data-pipeline-id")
 	})
@@ -1120,9 +1129,13 @@ func TestDataPipelineClient(t *testing.T) {
 		grpcClient.UpdateDataPipelineFunc = func(
 			ctx context.Context, in *datapipelinesPb.UpdateDataPipelineRequest, opts ...grpc.CallOption,
 		) (*datapipelinesPb.UpdateDataPipelineResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, dataPipelineID)
+			test.That(t, in.Name, test.ShouldEqual, name)
+			test.That(t, in.MqlBinary, test.ShouldResemble, mqlBinary)
+			test.That(t, in.Schedule, test.ShouldEqual, "0 7 * * *")
 			return &datapipelinesPb.UpdateDataPipelineResponse{}, nil
 		}
-		err := client.UpdateDataPipeline(context.Background(), dataPipelineID, name, query, "0 9 * * *")
+		err := client.UpdateDataPipeline(context.Background(), dataPipelineID, name, mqlQueries, "0 7 * * *")
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -1130,6 +1143,7 @@ func TestDataPipelineClient(t *testing.T) {
 		grpcClient.DeleteDataPipelineFunc = func(
 			ctx context.Context, in *datapipelinesPb.DeleteDataPipelineRequest, opts ...grpc.CallOption,
 		) (*datapipelinesPb.DeleteDataPipelineResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, dataPipelineID)
 			return &datapipelinesPb.DeleteDataPipelineResponse{}, nil
 		}
 		err := client.DeleteDataPipeline(context.Background(), dataPipelineID)
@@ -1140,6 +1154,7 @@ func TestDataPipelineClient(t *testing.T) {
 		grpcClient.EnableDataPipelineFunc = func(
 			ctx context.Context, in *datapipelinesPb.EnableDataPipelineRequest, opts ...grpc.CallOption,
 		) (*datapipelinesPb.EnableDataPipelineResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, dataPipelineID)
 			return &datapipelinesPb.EnableDataPipelineResponse{}, nil
 		}
 		err := client.EnableDataPipeline(context.Background(), dataPipelineID)
@@ -1150,6 +1165,7 @@ func TestDataPipelineClient(t *testing.T) {
 		grpcClient.DisableDataPipelineFunc = func(
 			ctx context.Context, in *datapipelinesPb.DisableDataPipelineRequest, opts ...grpc.CallOption,
 		) (*datapipelinesPb.DisableDataPipelineResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, dataPipelineID)
 			return &datapipelinesPb.DisableDataPipelineResponse{}, nil
 		}
 		err := client.DisableDataPipeline(context.Background(), dataPipelineID)
