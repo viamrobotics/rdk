@@ -9,6 +9,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	pb "go.viam.com/api/app/data/v1"
+	datapipelinesPb "go.viam.com/api/app/datapipelines/v1"
 	setPb "go.viam.com/api/app/dataset/v1"
 	syncPb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
@@ -149,6 +150,30 @@ var (
 			},
 		},
 	}
+
+	dataPipelineID = "data_pipeline_id"
+	dataPipeline   = DataPipeline{
+		ID:             dataPipelineID,
+		Name:           name,
+		OrganizationID: organizationID,
+		Schedule:       "0 0 * * *",
+		MqlBinary:      [][]byte{[]byte("mql_binary")},
+		Enabled:        true,
+		CreatedOn:      time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+		UpdatedAt:      time.Date(2023, 1, 1, 12, 30, 0, 0, time.UTC),
+	}
+	pbDataPipeline = &datapipelinesPb.DataPipeline{
+		Id:             dataPipelineID,
+		Name:           name,
+		OrganizationId: organizationID,
+		Schedule:       "0 0 * * *",
+		MqlBinary:      [][]byte{[]byte("mql_binary")},
+		Enabled:        true,
+		CreatedOn:      timestamppb.New(time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)),
+		UpdatedAt:      timestamppb.New(time.Date(2023, 1, 1, 12, 30, 0, 0, time.UTC)),
+	}
+	pbDataPipelines = []*datapipelinesPb.DataPipeline{pbDataPipeline}
+	dataPipelines   = []*DataPipeline{&dataPipeline}
 )
 
 func binaryDataToProto(binaryData BinaryData) *pb.BinaryData {
@@ -213,6 +238,10 @@ func createDataSyncGrpcClient() *inject.DataSyncServiceClient {
 
 func createDatasetGrpcClient() *inject.DatasetServiceClient {
 	return &inject.DatasetServiceClient{}
+}
+
+func createDataPipelineGrpcClient() *inject.DataPipelinesServiceClient {
+	return &inject.DataPipelinesServiceClient{}
 }
 
 func TestDataClient(t *testing.T) {
@@ -1038,4 +1067,47 @@ func TestDatasetClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, &resp, test.ShouldResemble, &datasets)
 	})
+}
+
+func TestDataPipelineClient(t *testing.T) {
+	grpcClient := createDataPipelineGrpcClient()
+	client := DataClient{datapipelinesClient: grpcClient}
+
+	t.Run("ListDataPipelines", func(t *testing.T) {
+		grpcClient.ListDataPipelinesFunc = func(
+			ctx context.Context, in *datapipelinesPb.ListDataPipelinesRequest, opts ...grpc.CallOption,
+		) (*datapipelinesPb.ListDataPipelinesResponse, error) {
+			return &datapipelinesPb.ListDataPipelinesResponse{
+				DataPipelines: pbDataPipelines,
+			}, nil
+		}
+		resp, err := client.ListDataPipelines(context.Background(), organizationID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, &resp, test.ShouldResemble, &dataPipelines)
+	})
+
+	t.Run("GetDataPipeline", func(t *testing.T) {
+		grpcClient.GetDataPipelineFunc = func(
+			ctx context.Context, in *datapipelinesPb.GetDataPipelineRequest, opts ...grpc.CallOption,
+		) (*datapipelinesPb.GetDataPipelineResponse, error) {
+			return &datapipelinesPb.GetDataPipelineResponse{
+				DataPipeline: pbDataPipeline,
+			}, nil
+		}
+		resp, err := client.GetDataPipeline(context.Background(), dataPipelineID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldResemble, &dataPipeline)
+	})
+
+	t.Run("CreateDataPipeline", func(t *testing.T) {})
+
+	t.Run("UpdateDataPipeline", func(t *testing.T) {})
+
+	t.Run("DeleteDataPipeline", func(t *testing.T) {})
+
+	t.Run("EnableDataPipeline", func(t *testing.T) {})
+
+	t.Run("DisableDataPipeline", func(t *testing.T) {})
+
+	t.Run("ListDataPipelineRuns", func(t *testing.T) {})
 }
