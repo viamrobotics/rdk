@@ -23,7 +23,6 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
-	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 	googlegrpc "google.golang.org/grpc"
@@ -826,13 +825,6 @@ func (rc *RobotClient) updateRemoteNameMap() {
 // RemoteNames returns the names of all known remotes.
 func (rc *RobotClient) RemoteNames() []string {
 	return nil
-}
-
-// ProcessManager returns a useless process manager for the sake of
-// satisfying the robot.Robot interface. Maybe it should not be part
-// of the interface!
-func (rc *RobotClient) ProcessManager() pexec.ProcessManager {
-	return pexec.NoopProcessManager
 }
 
 // OperationManager returns nil.

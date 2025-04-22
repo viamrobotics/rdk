@@ -44,14 +44,11 @@ func init() {
 var (
 	resourceCloseTimeout    = 30 * time.Second
 	errShellServiceDisabled = errors.New("shell service disabled in an untrusted environment")
-	errProcessesDisabled    = errors.New("processes disabled in an untrusted environment")
 )
 
 // resourceManager manages the actual parts that make up a robot.
 type resourceManager struct {
-	resources      *resource.Graph
-	processManager pexec.ProcessManager
-	processConfigs map[string]pexec.ProcessConfig
+	resources *resource.Graph
 	// modManagerLock controls access to the moduleManager and prevents a data race.
 	// This may happen if Kill() or Close() is called concurrently with startModuleManager.
 	modManagerLock sync.Mutex
@@ -86,22 +83,10 @@ func newResourceManager(
 	}
 
 	return &resourceManager{
-		resources:      resourceGraph,
-		processManager: newProcessManager(opts, logger),
-		processConfigs: make(map[string]pexec.ProcessConfig),
-		opts:           opts,
-		logger:         resLogger,
+		resources: resourceGraph,
+		opts:      opts,
+		logger:    resLogger,
 	}
-}
-
-func newProcessManager(
-	opts resourceManagerOptions,
-	logger logging.Logger,
-) pexec.ProcessManager {
-	if opts.untrustedEnv {
-		return pexec.NoopProcessManager
-	}
-	return pexec.NewProcessManager(logger)
 }
 
 func fromRemoteNameToRemoteNodeName(name string) resource.Name {
@@ -583,9 +568,6 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 	manager.resources.MarkForRemoval(manager.resources.Clone())
 
 	var allErrs error
-	if err := manager.processManager.Stop(); err != nil {
-		allErrs = multierr.Combine(allErrs, fmt.Errorf("error stopping process manager: %w", err))
-	}
 
 	// our caller will close web
 	excludeWebFromClose := map[resource.Name]struct{}{
@@ -1213,56 +1195,11 @@ func (manager *resourceManager) updateResources(
 		allErrs = multierr.Combine(allErrs, markErr)
 	}
 
-	// processes are not added into the resource tree as they belong to a process manager
-	for _, p := range conf.Added.Processes {
-		if manager.opts.untrustedEnv {
-			allErrs = multierr.Combine(allErrs, errProcessesDisabled)
-			break
-		}
-
-		// this is done in config validation but partial start rules require us to check again
-		if err := p.Validate(""); err != nil {
-			manager.logger.CErrorw(ctx, "process config validation error; skipping", "process", p.Name, "error", err)
-			continue
-		}
-
-		_, err := manager.processManager.AddProcessFromConfig(ctx, p)
-		if err != nil {
-			manager.logger.CErrorw(ctx, "error while adding process; skipping", "process", p.ID, "error", err)
-			continue
-		}
-		manager.processConfigs[p.ID] = p
+	if len(conf.Added.Processes) > 0 || len(conf.Modified.Processes) > 0 {
+		manager.logger.CErrorw(ctx, "Processes have been deprecated and are no longer supported in this version of the RDK. "+
+			"The processes config of this machine part has been ignored.")
 	}
-	for _, p := range conf.Modified.Processes {
-		if manager.opts.untrustedEnv {
-			allErrs = multierr.Combine(allErrs, errProcessesDisabled)
-			break
-		}
 
-		if oldProc, ok := manager.processManager.RemoveProcessByID(p.ID); ok {
-			if err := oldProc.Stop(); err != nil {
-				manager.logger.CErrorw(ctx, "couldn't stop process", "process", p.ID, "error", err)
-			}
-		} else {
-			manager.logger.CErrorw(ctx, "couldn't find modified process", "process", p.ID)
-		}
-
-		// Remove processConfig from map in case re-addition fails.
-		delete(manager.processConfigs, p.ID)
-
-		// this is done in config validation but partial start rules require us to check again
-		if err := p.Validate(""); err != nil {
-			manager.logger.CErrorw(ctx, "process config validation error; skipping", "process", p.Name, "error", err)
-			continue
-		}
-
-		_, err := manager.processManager.AddProcessFromConfig(ctx, p)
-		if err != nil {
-			manager.logger.CErrorw(ctx, "error while changing process; skipping", "process", p.ID, "error", err)
-			continue
-		}
-		manager.processConfigs[p.ID] = p
-	}
 	return allErrs
 }
 
@@ -1309,25 +1246,7 @@ type PartsMergeResult struct {
 func (manager *resourceManager) markRemoved(
 	ctx context.Context,
 	conf *config.Config,
-	logger logging.Logger,
-) (pexec.ProcessManager, []resource.Resource, map[resource.Name]struct{}) {
-	processesToClose := newProcessManager(manager.opts, logger)
-	for _, conf := range conf.Processes {
-		if manager.opts.untrustedEnv {
-			continue
-		}
-
-		proc, ok := manager.processManager.RemoveProcessByID(conf.ID)
-		if !ok {
-			manager.logger.CErrorw(ctx, "couldn't remove process", "process", conf.ID)
-			continue
-		}
-		delete(manager.processConfigs, conf.ID)
-		if _, err := processesToClose.AddProcess(ctx, proc, false); err != nil {
-			manager.logger.CErrorw(ctx, "couldn't add process", "process", conf.ID, "error", err)
-		}
-	}
-
+) ([]resource.Resource, map[resource.Name]struct{}) {
 	var resourcesToMark []resource.Name
 	for _, conf := range conf.Modules {
 		orphanedResourceNames, err := manager.moduleManager.Remove(conf.Name)
@@ -1353,7 +1272,7 @@ func (manager *resourceManager) markRemoved(
 		}
 	}
 	resourcesToCloseBeforeComplete := manager.markResourcesRemoved(resourcesToMark, addNames)
-	return processesToClose, resourcesToCloseBeforeComplete, markedResourceNames
+	return resourcesToCloseBeforeComplete, markedResourceNames
 }
 
 // markResourcesRemoved marks all passed in resources (assumed to be resource
@@ -1429,9 +1348,6 @@ func (manager *resourceManager) createConfig() *config.Config {
 	}
 
 	conf.Modules = append(conf.Modules, manager.moduleManager.Configs()...)
-	for _, processConf := range manager.processConfigs {
-		conf.Processes = append(conf.Processes, processConf)
-	}
 
 	return conf
 }

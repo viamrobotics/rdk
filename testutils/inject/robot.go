@@ -133,16 +133,6 @@ func (r *Robot) ResourceRPCAPIs() []resource.RPCAPI {
 	return r.ResourceRPCAPIsFunc()
 }
 
-// ProcessManager calls the injected ProcessManager or the real version.
-func (r *Robot) ProcessManager() pexec.ProcessManager {
-	r.Mu.RLock()
-	defer r.Mu.RUnlock()
-	if r.ProcessManagerFunc == nil {
-		return r.LocalRobot.ProcessManager()
-	}
-	return r.ProcessManagerFunc()
-}
-
 // OperationManager calls the injected OperationManager or the real version.
 func (r *Robot) OperationManager() *operation.Manager {
 	r.Mu.RLock()
