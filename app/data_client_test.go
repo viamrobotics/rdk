@@ -172,8 +172,28 @@ var (
 		CreatedOn:      timestamppb.New(time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)),
 		UpdatedAt:      timestamppb.New(time.Date(2023, 1, 1, 12, 30, 0, 0, time.UTC)),
 	}
-	pbDataPipelines = []*datapipelinesPb.DataPipeline{pbDataPipeline}
-	dataPipelines   = []*DataPipeline{&dataPipeline}
+	pbDataPipelines    = []*datapipelinesPb.DataPipeline{pbDataPipeline}
+	dataPipelines      = []*DataPipeline{&dataPipeline}
+	pbDataPipelineRuns = []*datapipelinesPb.DataPipelineRun{
+		{
+			Id:            "run1",
+			Status:        datapipelinesPb.DataPipelineRunStatus_DATA_PIPELINE_RUN_STATUS_STARTED,
+			StartTime:     timestamppb.New(time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)),
+			EndTime:       timestamppb.New(time.Date(2023, 1, 1, 12, 5, 0, 0, time.UTC)),
+			DataStartTime: timestamppb.New(time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC)),
+			DataEndTime:   timestamppb.New(time.Date(2023, 1, 1, 12, 30, 0, 0, time.UTC)),
+		},
+	}
+	dataPipelineRuns = []*DataPipelineRun{
+		{
+			ID:            "run1",
+			Status:        DataPipelineRunStatusStarted,
+			StartTime:     time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+			EndTime:       time.Date(2023, 1, 1, 12, 5, 0, 0, time.UTC),
+			DataStartTime: time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC),
+			DataEndTime:   time.Date(2023, 1, 1, 12, 30, 0, 0, time.UTC),
+		},
+	}
 )
 
 func binaryDataToProto(binaryData BinaryData) *pb.BinaryData {
@@ -1172,5 +1192,35 @@ func TestDataPipelineClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
-	t.Run("ListDataPipelineRuns", func(t *testing.T) {})
+	t.Run("ListDataPipelineRuns", func(t *testing.T) {
+		grpcClient.ListDataPipelineRunsFunc = func(
+			ctx context.Context, in *datapipelinesPb.ListDataPipelineRunsRequest, opts ...grpc.CallOption,
+		) (*datapipelinesPb.ListDataPipelineRunsResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, dataPipelineID)
+			test.That(t, in.PageSize, test.ShouldEqual, limit)
+			return &datapipelinesPb.ListDataPipelineRunsResponse{
+				Runs:          pbDataPipelineRuns,
+				NextPageToken: "next1",
+			}, nil
+		}
+
+		resp, err := client.ListDataPipelineRuns(context.Background(), dataPipelineID, uint32(limit))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, &resp.Runs, test.ShouldResemble, &dataPipelineRuns)
+
+		grpcClient.ListDataPipelineRunsFunc = func(
+			ctx context.Context, in *datapipelinesPb.ListDataPipelineRunsRequest, opts ...grpc.CallOption,
+		) (*datapipelinesPb.ListDataPipelineRunsResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, dataPipelineID)
+			test.That(t, in.PageSize, test.ShouldEqual, limit)
+			test.That(t, in.PageToken, test.ShouldEqual, "next1")
+			return &datapipelinesPb.ListDataPipelineRunsResponse{
+				Runs:          pbDataPipelineRuns,
+				NextPageToken: "next2",
+			}, nil
+		}
+		resp, err = resp.NextPage(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, &resp.Runs, test.ShouldResemble, &dataPipelineRuns)
+	})
 }
