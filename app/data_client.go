@@ -1400,17 +1400,17 @@ func (d *DataClient) DisableDataPipeline(ctx context.Context, id string) error {
 }
 
 // ListDataPipelineRuns lists all of the data pipeline runs for a data pipeline.
-func (d *DataClient) ListDataPipelineRuns(ctx context.Context, id string, pageSize *uint32) (*ListDataPipelineRunsPage, error) {
-	return d.listDataPipelineRuns(ctx, id, pageSize, nil)
+func (d *DataClient) ListDataPipelineRuns(ctx context.Context, id string, pageSize uint32) (*ListDataPipelineRunsPage, error) {
+	return d.listDataPipelineRuns(ctx, id, pageSize, "")
 }
 
 func (d *DataClient) listDataPipelineRuns(
-	ctx context.Context, id string, pageSize *uint32, pageToken *string,
+	ctx context.Context, id string, pageSize uint32, pageToken string,
 ) (*ListDataPipelineRunsPage, error) {
 	resp, err := d.datapipelinesClient.ListDataPipelineRuns(ctx, &datapipelinesPb.ListDataPipelineRunsRequest{
 		Id:        id,
-		PageSize:  *pageSize,
-		PageToken: *pageToken,
+		PageSize:  pageSize,
+		PageToken: pageToken,
 	})
 	if err != nil {
 		return nil, err
@@ -1423,7 +1423,7 @@ func (d *DataClient) listDataPipelineRuns(
 	return &ListDataPipelineRunsPage{
 		client:        d,
 		pipelineID:    id,
-		pageSize:      *pageSize,
+		pageSize:      pageSize,
 		Runs:          dataPipelineRuns,
 		nextPageToken: resp.NextPageToken,
 	}, nil
@@ -1431,7 +1431,7 @@ func (d *DataClient) listDataPipelineRuns(
 
 // NextPage retrieves the next page of data pipeline runs.
 func (p *ListDataPipelineRunsPage) NextPage(ctx context.Context) (*ListDataPipelineRunsPage, error) {
-	return p.client.listDataPipelineRuns(ctx, p.pipelineID, &p.pageSize, &p.nextPageToken)
+	return p.client.listDataPipelineRuns(ctx, p.pipelineID, p.pageSize, p.nextPageToken)
 }
 
 func boundingBoxFromProto(proto *pb.BoundingBox) *BoundingBox {
