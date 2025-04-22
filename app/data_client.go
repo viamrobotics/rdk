@@ -1273,6 +1273,7 @@ type DataPipeline struct {
 type DataPipelineRunStatus int32
 
 const (
+	// DataPipelineRunStatusUnspecified indicates that the data pipeline run is undefined, this should never happen.
 	DataPipelineRunStatusUnspecified DataPipelineRunStatus = iota
 	// DataPipelineRunStatusScheduled indicates that the data pipeline run has not yet started.
 	DataPipelineRunStatusScheduled
@@ -1315,6 +1316,7 @@ func (d *DataClient) ListDataPipelines(ctx context.Context, organizationID strin
 	return dataPipelines, nil
 }
 
+// GetDataPipeline gets a data pipeline configuration by its ID.
 func (d *DataClient) GetDataPipeline(ctx context.Context, id string) (*DataPipeline, error) {
 	resp, err := d.datapipelinesClient.GetDataPipeline(ctx, &datapipelinesPb.GetDataPipelineRequest{
 		Id: id,
@@ -1327,7 +1329,8 @@ func (d *DataClient) GetDataPipeline(ctx context.Context, id string) (*DataPipel
 
 // CreateDataPipeline creates a new data pipeline using the given query and schedule.
 func (d *DataClient) CreateDataPipeline(
-	ctx context.Context, organizationID, name string, query []map[string]interface{}, schedule string) (string, error) {
+	ctx context.Context, organizationID, name string, query []map[string]interface{}, schedule string,
+) (string, error) {
 	mqlBinary, err := queryBSONToBinary(query)
 	if err != nil {
 		return "", err
@@ -1345,8 +1348,10 @@ func (d *DataClient) CreateDataPipeline(
 	return resp.Id, nil
 }
 
+// UpdateDataPipeline updates a data pipeline configuration by its ID.
 func (d *DataClient) UpdateDataPipeline(
-	ctx context.Context, id, name string, query []map[string]interface{}, schedule string) error {
+	ctx context.Context, id, name string, query []map[string]interface{}, schedule string,
+) error {
 	mqlBinary, err := queryBSONToBinary(query)
 	if err != nil {
 		return err
@@ -1391,7 +1396,8 @@ func (d *DataClient) ListDataPipelineRuns(ctx context.Context, id string, pageSi
 }
 
 func (d *DataClient) listDataPipelineRuns(
-	ctx context.Context, id string, pageSize *uint32, pageToken *string) (*ListDataPipelineRunsPage, error) {
+	ctx context.Context, id string, pageSize *uint32, pageToken *string,
+) (*ListDataPipelineRunsPage, error) {
 	resp, err := d.datapipelinesClient.ListDataPipelineRuns(ctx, &datapipelinesPb.ListDataPipelineRunsRequest{
 		Id:        id,
 		PageSize:  *pageSize,
@@ -1775,6 +1781,8 @@ func formatFileExtension(fileExt string) string {
 
 func dataSourceTypeToProto(dataSourceType TabularDataSourceType) pb.TabularDataSourceType {
 	switch dataSourceType {
+	case TabularDataSourceTypeUnspecified:
+		return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_UNSPECIFIED
 	case TabularDataSourceTypeStandard:
 		return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD
 	case TabularDataSourceTypeHotStorage:
