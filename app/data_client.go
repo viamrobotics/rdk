@@ -13,6 +13,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	pb "go.viam.com/api/app/data/v1"
+	datapipelinesPb "go.viam.com/api/app/datapipelines/v1"
 	setPb "go.viam.com/api/app/dataset/v1"
 	syncPb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/utils/rpc"
@@ -361,19 +362,22 @@ type Dataset struct {
 
 // DataClient implements the DataServiceClient interface.
 type DataClient struct {
-	dataClient     pb.DataServiceClient
-	dataSyncClient syncPb.DataSyncServiceClient
-	datasetClient  setPb.DatasetServiceClient
+	dataClient          pb.DataServiceClient
+	dataSyncClient      syncPb.DataSyncServiceClient
+	datasetClient       setPb.DatasetServiceClient
+	datapipelinesClient datapipelinesPb.DataPipelinesServiceClient
 }
 
 func newDataClient(conn rpc.ClientConn) *DataClient {
 	dataClient := pb.NewDataServiceClient(conn)
 	syncClient := syncPb.NewDataSyncServiceClient(conn)
 	setClient := setPb.NewDatasetServiceClient(conn)
+	datapipelinesClient := datapipelinesPb.NewDataPipelinesServiceClient(conn)
 	return &DataClient{
-		dataClient:     dataClient,
-		dataSyncClient: syncClient,
-		datasetClient:  setClient,
+		dataClient:          dataClient,
+		dataSyncClient:      syncClient,
+		datasetClient:       setClient,
+		datapipelinesClient: datapipelinesClient,
 	}
 }
 
@@ -1249,6 +1253,32 @@ func (d *DataClient) ListDatasetsByIDs(ctx context.Context, ids []string) ([]*Da
 	return datasets, nil
 }
 
+type DataPipeline struct {
+	ID             string
+	OrganizationID string
+	Name           string
+	MqlBinary      [][]byte
+	Schedule       string
+	Enabled        bool
+	CreatedOn      time.Time
+	UpdatedAt      time.Time
+}
+
+func (d *DataClient) ListDataPipelines(ctx context.Context, organizationID string) ([]*DataPipeline, error) {
+	resp, err := d.datapipelinesClient.ListDataPipelines(ctx, &datapipelinesPb.ListDataPipelinesRequest{
+		OrganizationId: organizationID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	dataPipelines := make([]*DataPipeline, len(resp.DataPipelines))
+	for i, pipeline := range resp.DataPipelines {
+		dataPipelines[i] = dataPipelineFromProto(pipeline)
+	}
+	return dataPipelines, nil
+}
+
 func boundingBoxFromProto(proto *pb.BoundingBox) *BoundingBox {
 	if proto == nil {
 		return nil
@@ -1604,5 +1634,18 @@ func dataSourceTypeToProto(dataSourceType TabularDataSourceType) pb.TabularDataS
 		return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_PIPELINE_SINK
 	default:
 		return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_UNSPECIFIED
+	}
+}
+
+func dataPipelineFromProto(proto *datapipelinesPb.DataPipeline) *DataPipeline {
+	return &DataPipeline{
+		ID:             proto.Id,
+		OrganizationID: proto.OrganizationId,
+		Name:           proto.Name,
+		MqlBinary:      proto.MqlBinary,
+		Schedule:       proto.Schedule,
+		Enabled:        proto.Enabled,
+		CreatedOn:      proto.CreatedOn.AsTime(),
+		UpdatedAt:      proto.UpdatedAt.AsTime(),
 	}
 }
