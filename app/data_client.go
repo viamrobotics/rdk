@@ -278,13 +278,21 @@ type DataByFilterOptions struct {
 	IncludeInternalData bool
 }
 
+// TabularDataSourceType specifies the data source type for TabularDataByMQL queries.
 type TabularDataSourceType int32
 
 // TabularDataSourceType constants define the possible TabularDataSourceType options.
 const (
 	TabularDataSourceTypeUnspecified TabularDataSourceType = iota
+	// TabularDataSourceTypeStandard indicates reading from standard storage. This is the default
+	// option and available for all data synced to Viam.
 	TabularDataSourceTypeStandard
+	// TabularDataSourceTypeHotStorage indicates reading from hot storage. This is a premium feature
+	// requiring opting in specific data sources.
+	// See docs at https://docs.viam.com/data-ai/capture-data/advanced/advanced-data-capture-sync/#capture-to-the-hot-data-store
 	TabularDataSourceTypeHotStorage
+	// TabularDataSourceTypePipelineSink indicates reading the output of a data pipeline.
+	// When using this, a pipeline ID needs to be specified.
 	TabularDataSourceTypePipelineSink
 )
 
@@ -1249,6 +1257,7 @@ func (d *DataClient) ListDatasetsByIDs(ctx context.Context, ids []string) ([]*Da
 	return datasets, nil
 }
 
+// DataPipeline contains the configuration information of a data pipeline.
 type DataPipeline struct {
 	ID             string
 	OrganizationID string
@@ -1260,25 +1269,37 @@ type DataPipeline struct {
 	UpdatedAt      time.Time
 }
 
+// DataPipelineRunStatus is the status of a data pipeline run.
 type DataPipelineRunStatus int32
 
 const (
 	DataPipelineRunStatusUnspecified DataPipelineRunStatus = iota
+	// DataPipelineRunStatusScheduled indicates that the data pipeline run has not yet started.
 	DataPipelineRunStatusScheduled
+	// DataPipelineRunStatusStarted indicates that the data pipeline run is currently running.
 	DataPipelineRunStatusStarted
+	// DataPipelineRunStatusCompleted indicates that the data pipeline run has completed successfully.
 	DataPipelineRunStatusCompleted
+	// DataPipelineRunStatusFailed indicates that the data pipeline run has failed.
 	DataPipelineRunStatusFailed
 )
 
+// DataPipelineRun contains the information of an individual data pipeline execution.
 type DataPipelineRun struct {
-	ID            string
-	StartTime     time.Time
-	EndTime       time.Time
+	ID string
+	// StartTime is the time the data pipeline run started.
+	StartTime time.Time
+	// EndTime is the time the data pipeline run completed or failed.
+	EndTime time.Time
+	// DataStartTime describes the start time of the data that was read by the data pipeline run.
 	DataStartTime time.Time
-	DataEndTime   time.Time
-	Status        DataPipelineRunStatus
+	// DataEndTime describes the end time of the data that was read by the data pipeline run.
+	DataEndTime time.Time
+	// Status is the run's current status.
+	Status DataPipelineRunStatus
 }
 
+// ListDataPipelines lists all of the data pipelines for an organization.
 func (d *DataClient) ListDataPipelines(ctx context.Context, organizationID string) ([]*DataPipeline, error) {
 	resp, err := d.datapipelinesClient.ListDataPipelines(ctx, &datapipelinesPb.ListDataPipelinesRequest{
 		OrganizationId: organizationID,
@@ -1304,7 +1325,9 @@ func (d *DataClient) GetDataPipeline(ctx context.Context, id string) (*DataPipel
 	return dataPipelineFromProto(resp.DataPipeline), nil
 }
 
-func (d *DataClient) CreateDataPipeline(ctx context.Context, organizationID, name string, query []map[string]interface{}, schedule string) (string, error) {
+// CreateDataPipeline creates a new data pipeline using the given query and schedule.
+func (d *DataClient) CreateDataPipeline(
+	ctx context.Context, organizationID, name string, query []map[string]interface{}, schedule string) (string, error) {
 	mqlBinary, err := queryBSONToBinary(query)
 	if err != nil {
 		return "", err
@@ -1322,7 +1345,8 @@ func (d *DataClient) CreateDataPipeline(ctx context.Context, organizationID, nam
 	return resp.Id, nil
 }
 
-func (d *DataClient) UpdateDataPipeline(ctx context.Context, id, name string, query []map[string]interface{}, schedule string) error {
+func (d *DataClient) UpdateDataPipeline(
+	ctx context.Context, id, name string, query []map[string]interface{}, schedule string) error {
 	mqlBinary, err := queryBSONToBinary(query)
 	if err != nil {
 		return err
@@ -1337,6 +1361,7 @@ func (d *DataClient) UpdateDataPipeline(ctx context.Context, id, name string, qu
 	return err
 }
 
+// DeleteDataPipeline deletes a data pipeline by its ID.
 func (d *DataClient) DeleteDataPipeline(ctx context.Context, id string) error {
 	_, err := d.datapipelinesClient.DeleteDataPipeline(ctx, &datapipelinesPb.DeleteDataPipelineRequest{
 		Id: id,
@@ -1344,6 +1369,7 @@ func (d *DataClient) DeleteDataPipeline(ctx context.Context, id string) error {
 	return err
 }
 
+// EnableDataPipeline enables a data pipeline by its ID.
 func (d *DataClient) EnableDataPipeline(ctx context.Context, id string) error {
 	_, err := d.datapipelinesClient.EnableDataPipeline(ctx, &datapipelinesPb.EnableDataPipelineRequest{
 		Id: id,
@@ -1351,6 +1377,7 @@ func (d *DataClient) EnableDataPipeline(ctx context.Context, id string) error {
 	return err
 }
 
+// DisableDataPipeline disables a data pipeline by its ID.
 func (d *DataClient) DisableDataPipeline(ctx context.Context, id string) error {
 	_, err := d.datapipelinesClient.DisableDataPipeline(ctx, &datapipelinesPb.DisableDataPipelineRequest{
 		Id: id,
@@ -1358,11 +1385,13 @@ func (d *DataClient) DisableDataPipeline(ctx context.Context, id string) error {
 	return err
 }
 
+// ListDataPipelineRuns lists all of the data pipeline runs for a data pipeline.
 func (d *DataClient) ListDataPipelineRuns(ctx context.Context, id string, pageSize *uint32) (*ListDataPipelineRunsPage, error) {
 	return d.listDataPipelineRuns(ctx, id, pageSize, nil)
 }
 
-func (d *DataClient) listDataPipelineRuns(ctx context.Context, id string, pageSize *uint32, pageToken *string) (*ListDataPipelineRunsPage, error) {
+func (d *DataClient) listDataPipelineRuns(
+	ctx context.Context, id string, pageSize *uint32, pageToken *string) (*ListDataPipelineRunsPage, error) {
 	resp, err := d.datapipelinesClient.ListDataPipelineRuns(ctx, &datapipelinesPb.ListDataPipelineRunsRequest{
 		Id:        id,
 		PageSize:  *pageSize,
@@ -1385,6 +1414,7 @@ func (d *DataClient) listDataPipelineRuns(ctx context.Context, id string, pageSi
 	}, nil
 }
 
+// ListDataPipelineRunsPage is a results page of data pipeline runs, used for pagination.
 type ListDataPipelineRunsPage struct {
 	client        *DataClient
 	pipelineID    string
@@ -1393,6 +1423,7 @@ type ListDataPipelineRunsPage struct {
 	nextPageToken string
 }
 
+// NextPage retrieves the next page of data pipeline runs.
 func (p *ListDataPipelineRunsPage) NextPage(ctx context.Context) (*ListDataPipelineRunsPage, error) {
 	return p.client.listDataPipelineRuns(ctx, p.pipelineID, &p.pageSize, &p.nextPageToken)
 }
