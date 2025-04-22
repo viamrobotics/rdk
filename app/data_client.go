@@ -1260,6 +1260,25 @@ type DataPipeline struct {
 	UpdatedAt      time.Time
 }
 
+type DataPipelineRunStatus int32
+
+const (
+	DataPipelineRunStatusUnspecified DataPipelineRunStatus = iota
+	DataPipelineRunStatusScheduled
+	DataPipelineRunStatusStarted
+	DataPipelineRunStatusCompleted
+	DataPipelineRunStatusFailed
+)
+
+type DataPipelineRun struct {
+	ID            string
+	StartTime     time.Time
+	EndTime       time.Time
+	DataStartTime time.Time
+	DataEndTime   time.Time
+	Status        DataPipelineRunStatus
+}
+
 func (d *DataClient) ListDataPipelines(ctx context.Context, organizationID string) ([]*DataPipeline, error) {
 	resp, err := d.datapipelinesClient.ListDataPipelines(ctx, &datapipelinesPb.ListDataPipelinesRequest{
 		OrganizationId: organizationID,
@@ -1337,6 +1356,45 @@ func (d *DataClient) DisableDataPipeline(ctx context.Context, id string) error {
 		Id: id,
 	})
 	return err
+}
+
+func (d *DataClient) ListDataPipelineRuns(ctx context.Context, id string, pageSize *uint32) (*ListDataPipelineRunsPage, error) {
+	return d.listDataPipelineRuns(ctx, id, pageSize, nil)
+}
+
+func (d *DataClient) listDataPipelineRuns(ctx context.Context, id string, pageSize *uint32, pageToken *string) (*ListDataPipelineRunsPage, error) {
+	resp, err := d.datapipelinesClient.ListDataPipelineRuns(ctx, &datapipelinesPb.ListDataPipelineRunsRequest{
+		Id:        id,
+		PageSize:  *pageSize,
+		PageToken: *pageToken,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	dataPipelineRuns := make([]*DataPipelineRun, len(resp.Runs))
+	for i, run := range resp.Runs {
+		dataPipelineRuns[i] = dataPipelineRunFromProto(run)
+	}
+	return &ListDataPipelineRunsPage{
+		client:        d,
+		pipelineID:    id,
+		pageSize:      *pageSize,
+		Runs:          dataPipelineRuns,
+		nextPageToken: resp.NextPageToken,
+	}, nil
+}
+
+type ListDataPipelineRunsPage struct {
+	client        *DataClient
+	pipelineID    string
+	pageSize      uint32
+	Runs          []*DataPipelineRun
+	nextPageToken string
+}
+
+func (p *ListDataPipelineRunsPage) NextPage(ctx context.Context) (*ListDataPipelineRunsPage, error) {
+	return p.client.listDataPipelineRuns(ctx, p.pipelineID, &p.pageSize, &p.nextPageToken)
 }
 
 func boundingBoxFromProto(proto *pb.BoundingBox) *BoundingBox {
@@ -1720,4 +1778,32 @@ func queryBSONToBinary(query []map[string]interface{}) ([][]byte, error) {
 		mqlBinary = append(mqlBinary, binary)
 	}
 	return mqlBinary, nil
+}
+
+func dataPipelineRunFromProto(proto *datapipelinesPb.DataPipelineRun) *DataPipelineRun {
+	return &DataPipelineRun{
+		ID:            proto.Id,
+		StartTime:     proto.StartTime.AsTime(),
+		EndTime:       proto.EndTime.AsTime(),
+		DataStartTime: proto.DataStartTime.AsTime(),
+		DataEndTime:   proto.DataEndTime.AsTime(),
+		Status:        dataPipelineRunStatusFromProto(proto.Status),
+	}
+}
+
+func dataPipelineRunStatusFromProto(proto datapipelinesPb.DataPipelineRunStatus) DataPipelineRunStatus {
+	switch proto {
+	case datapipelinesPb.DataPipelineRunStatus_DATA_PIPELINE_RUN_STATUS_UNSPECIFIED:
+		return DataPipelineRunStatusUnspecified
+	case datapipelinesPb.DataPipelineRunStatus_DATA_PIPELINE_RUN_STATUS_SCHEDULED:
+		return DataPipelineRunStatusScheduled
+	case datapipelinesPb.DataPipelineRunStatus_DATA_PIPELINE_RUN_STATUS_STARTED:
+		return DataPipelineRunStatusStarted
+	case datapipelinesPb.DataPipelineRunStatus_DATA_PIPELINE_RUN_STATUS_COMPLETED:
+		return DataPipelineRunStatusCompleted
+	case datapipelinesPb.DataPipelineRunStatus_DATA_PIPELINE_RUN_STATUS_FAILED:
+		return DataPipelineRunStatusFailed
+	default:
+		return DataPipelineRunStatusUnspecified
+	}
 }
