@@ -1073,6 +1073,10 @@ func TestDataPipelineClient(t *testing.T) {
 	grpcClient := createDataPipelineGrpcClient()
 	client := DataClient{datapipelinesClient: grpcClient}
 
+	matchQuery := bson.M{"$match": bson.M{"organization_id": "e76d1b3b-0468-4efd-bb7f-fb1d2b352fcb"}}
+	limitQuery := bson.M{"$limit": 1}
+	query := []map[string]interface{}{matchQuery, limitQuery}
+
 	t.Run("ListDataPipelines", func(t *testing.T) {
 		grpcClient.ListDataPipelinesFunc = func(
 			ctx context.Context, in *datapipelinesPb.ListDataPipelinesRequest, opts ...grpc.CallOption,
@@ -1100,10 +1104,6 @@ func TestDataPipelineClient(t *testing.T) {
 	})
 
 	t.Run("CreateDataPipeline", func(t *testing.T) {
-		matchQuery := bson.M{"$match": bson.M{"organization_id": "e76d1b3b-0468-4efd-bb7f-fb1d2b352fcb"}}
-		limitQuery := bson.M{"$limit": 1}
-		query := []map[string]interface{}{matchQuery, limitQuery}
-
 		grpcClient.CreateDataPipelineFunc = func(
 			ctx context.Context, in *datapipelinesPb.CreateDataPipelineRequest, opts ...grpc.CallOption,
 		) (*datapipelinesPb.CreateDataPipelineResponse, error) {
@@ -1116,7 +1116,15 @@ func TestDataPipelineClient(t *testing.T) {
 		test.That(t, resp, test.ShouldEqual, "new-data-pipeline-id")
 	})
 
-	t.Run("UpdateDataPipeline", func(t *testing.T) {})
+	t.Run("UpdateDataPipeline", func(t *testing.T) {
+		grpcClient.UpdateDataPipelineFunc = func(
+			ctx context.Context, in *datapipelinesPb.UpdateDataPipelineRequest, opts ...grpc.CallOption,
+		) (*datapipelinesPb.UpdateDataPipelineResponse, error) {
+			return &datapipelinesPb.UpdateDataPipelineResponse{}, nil
+		}
+		err := client.UpdateDataPipeline(context.Background(), dataPipelineID, name, query, "0 9 * * *")
+		test.That(t, err, test.ShouldBeNil)
+	})
 
 	t.Run("DeleteDataPipeline", func(t *testing.T) {
 		grpcClient.DeleteDataPipelineFunc = func(
