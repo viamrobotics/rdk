@@ -76,13 +76,16 @@ var (
 	stunServerURLsToTestUDP = []string{
 		"global.stun.twilio.com:3478",
 		"turn.viam.com:443",
+		"turn.viam.com:3478",
 		"stun.l.google.com:3478",
 		"stun.l.google.com:19302",
 		"stun.sipgate.net:3478",
 		"stun.sipgate.net:3479",
 	}
 	stunServerURLsToTestTCP = []string{
-		"turn.viam.com:443", // only STUN server that acceps TCP STUN traffic
+		// Viam's coturn is the only STUN server that accepts TCP STUN traffic.
+		"turn.viam.com:443",
+		"turn.viam.com:3478",
 	}
 )
 
@@ -99,9 +102,7 @@ func testUDP(ctx context.Context, logger logging.Logger) error {
 	// context expires (machine is likely shutting down,) _or_ tests finish, close the
 	// underlying `net.PacketConn` asynchronously to stop ongoing network checks.
 	testUDPDone := make(chan struct{})
-	defer func() {
-		testUDPDone <- struct{}{}
-	}()
+	defer close(testUDPDone)
 	go func() {
 		select {
 		case <-ctx.Done():
@@ -207,7 +208,8 @@ func testTCP(ctx context.Context, logger logging.Logger) error {
 	// which to dial over tcp.
 	dialer := &net.Dialer{
 		LocalAddr: &net.TCPAddr{
-			IP: net.ParseIP("0.0.0.0"),
+			IP:   net.ParseIP("0.0.0.0"),
+			Port: 23654, /* arbitrary but consistent across dials */
 		},
 	}
 
@@ -224,8 +226,24 @@ func testTCP(ctx context.Context, logger logging.Logger) error {
 		return err
 	}
 
+	var conn net.Conn
+	defer func() {
+		if conn != nil {
+			conn.Close() //nolint:gosec,errcheck
+		}
+	}()
 	var stunResponses []*STUNResponse
 	for _, stunServerURLToTest := range stunServerURLsToTestTCP {
+		if conn != nil {
+			// Close any connection from previous iteration of for loop, as we will reuse the
+			// same port. We must sleep for a moment after the `Close` call to avoid a "bind:
+			// address already in use," as there is, presumably a small delay until the
+			// underlying sock is closed.
+			conn.Close() //nolint:gosec,errcheck
+			conn = nil
+			time.Sleep(100 * time.Millisecond)
+		}
+
 		if ctx.Err() != nil {
 			logger.Info("Machine shutdown detected; stopping TCP network tests")
 			return nil
@@ -235,26 +253,11 @@ func testTCP(ctx context.Context, logger logging.Logger) error {
 
 		// Unlike with UDP, TCP needs a new `conn` for every STUN server test (all
 		// derived from the same dialer that uses the same local address.)
-		conn, err := dialer.DialContext(ctx, "tcp", stunServerURLToTest)
+		conn, err = dialer.DialContext(ctx, "tcp", stunServerURLToTest)
 		if err != nil {
-			logger.Error("Error dialing STUN server via tcp")
+			logger.Errorw("Error dialing STUN server via tcp", "error", err)
 			continue
 		}
-
-		// `net.Conn`s do not function with contexts (only deadlines.) If passed-in context
-		// expires (machine is likely shutting down,) _or_ tests finish, close the underlying
-		// `net.Conn` asynchronously to stop ongoing network checks.
-		testTCPDone := make(chan struct{})
-		defer func() {
-			testTCPDone <- struct{}{}
-		}()
-		go func() {
-			select {
-			case <-ctx.Done():
-			case <-testTCPDone:
-			}
-			conn.Close() //nolint:gosec,errcheck
-		}()
 
 		// Set a deadline for this interaction of 5 seconds in the future.
 		if err := conn.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
