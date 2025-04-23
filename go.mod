@@ -61,6 +61,7 @@ require (
 	github.com/pion/logging v0.2.2
 	github.com/pion/mediadevices v0.6.4
 	github.com/pion/rtp v1.8.7
+	github.com/pion/stun v0.6.1
 	github.com/prometheus/procfs v0.15.1
 	github.com/rhysd/actionlint v1.6.24
 	github.com/rs/cors v1.11.1
@@ -327,7 +328,6 @@ require (
 	github.com/pion/sctp v1.8.33 // indirect
 	github.com/pion/sdp/v3 v3.0.9 // indirect
 	github.com/pion/srtp/v2 v2.0.20 // indirect
-	github.com/pion/stun v0.6.1 // indirect
 	github.com/pion/transport/v2 v2.2.10 // indirect
 	github.com/pion/turn/v2 v2.1.6 // indirect
 	github.com/pion/webrtc/v3 v3.2.36 // indirect
