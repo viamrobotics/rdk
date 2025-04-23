@@ -1,6 +1,8 @@
 package server
 
 import (
+	"fmt"
+	"strconv"
 	"time"
 
 	"go.viam.com/rdk/logging"
@@ -33,7 +35,7 @@ func NewSTUNResponse(stunServerURL string) *STUNResponse {
 }
 
 // Logs success, failures, and observations from a set of STUN responses.
-func logSTUNResults(logger logging.Logger, stunResponses []*STUNResponse) {
+func logSTUNResults(logger logging.Logger, stunResponses []*STUNResponse, network string) {
 	// Use lastBindResponseAddr to track whether the received address from STUN servers is
 	// "unstable." Any changes in port, in particular, between different STUN server's
 	// bind responses indicates that we may be behind an endpoint-dependent-mapping NAT
@@ -42,15 +44,19 @@ func logSTUNResults(logger logging.Logger, stunResponses []*STUNResponse) {
 	var unstableBindResponseAddr bool
 
 	var successfulStunResponses int
-	for _, sr := range stunResponses {
+	var stunLogKeysAndValues []any
+	for i, sr := range stunResponses {
 		if sr.BindResponseAddr == "unknown" {
 			logger.Warnw("STUN test fail", "stun_url", sr.STUNServerURL, "stun_address", sr.STUNServerAddr)
 			continue
 		}
 
 		successfulStunResponses++
-		logger.Infow("STUN test success", "stun_url", sr.STUNServerURL, "received_address", sr.BindResponseAddr,
-			"rtt_ms", sr.TimeToBindResponse.Milliseconds(), "resolved_stun_address", sr.STUNServerAddr)
+		si := strconv.Itoa(i)
+		newKeysAndValues := []any{"stun_url" + si, sr.STUNServerURL, "received_address" + si, sr.BindResponseAddr,
+			"rtt_ms" + si, sr.TimeToBindResponse.Milliseconds(), "resolved_stun_address" + si, sr.STUNServerAddr}
+		stunLogKeysAndValues = append(stunLogKeysAndValues, newKeysAndValues...)
+
 		if expectedBindResponseAddr == "" {
 			// Take first bind response address as "expected," all others should match when
 			// behind an endpoint-independent-mapping NAT device.
@@ -59,7 +65,8 @@ func logSTUNResults(logger logging.Logger, stunResponses []*STUNResponse) {
 			unstableBindResponseAddr = true
 		}
 	}
-	logger.Infof("%d/%d STUN tests succeeded", successfulStunResponses, len(stunResponses))
+	msg := fmt.Sprintf("%d/%d %v STUN tests succeeded", successfulStunResponses, len(stunResponses), network)
+	logger.Infow(msg, stunLogKeysAndValues...)
 
 	if unstableBindResponseAddr {
 		logger.Warn("STUN tests indicate this machine is behind a 'hard' NAT device; STUN may not work as expected")

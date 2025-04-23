@@ -66,15 +66,15 @@ func testGeneral(ctx context.Context) bool {
 
 var (
 	stunServerURLsToTestUDP = []string{
+		"global.stun.twilio.com:3478",
+		"turn.viam.com:443",
 		"stun.l.google.com:3478",
 		"stun.l.google.com:19302",
 		"stun.sipgate.net:3478",
 		"stun.sipgate.net:3479",
-		"global.stun.twilio.com:3478",
-		"turn.viam.com:443",
 	}
 	stunServerURLsToTestTCP = []string{
-		"turn.viam.com:443",
+		"turn.viam.com:443", // only STUN server that acceps TCP STUN traffic
 	}
 )
 
@@ -189,7 +189,7 @@ func testUDP(ctx context.Context, logger logging.Logger) error {
 		}
 	}
 
-	logSTUNResults(logger, stunResponses)
+	logSTUNResults(logger, stunResponses, "UDP")
 	return nil
 }
 
@@ -315,6 +315,6 @@ func testTCP(ctx context.Context, logger logging.Logger) error {
 		}
 	}
 
-	logSTUNResults(logger, stunResponses)
+	logSTUNResults(logger, stunResponses, "TCP")
 	return nil
 }
