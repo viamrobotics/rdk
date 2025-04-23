@@ -206,7 +206,6 @@ func testTCP(ctx context.Context, logger logging.Logger) error {
 	// Create a dialer with a consistent port (randomly chosen) from
 	// which to dial over tcp.
 	dialer := &net.Dialer{
-		Timeout: 5 * time.Second,
 		LocalAddr: &net.TCPAddr{
 			IP: net.ParseIP("0.0.0.0"),
 		},
@@ -236,7 +235,7 @@ func testTCP(ctx context.Context, logger logging.Logger) error {
 
 		// Unlike with UDP, TCP needs a new `conn` for every STUN server test (all
 		// derived from the same dialer that uses the same local address.)
-		conn, err := dialer.Dial("tcp", stunServerURLToTest)
+		conn, err := dialer.DialContext(ctx, "tcp", stunServerURLToTest)
 		if err != nil {
 			logger.Error("Error dialing STUN server via tcp")
 			continue
