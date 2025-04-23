@@ -40,7 +40,7 @@ func runNetworkChecks(ctx context.Context) {
 	}
 }
 
-// Tests general network connectivity (to app.viam.com.) Stolen from datamanager's
+// Tests general network connectivity (to app.viam.com). Stolen from datamanager's
 // sync/connectivity.go code. Returns false is offline and true if online.
 func testGeneral(ctx context.Context) bool {
 	timeout := 5 * time.Second
@@ -56,7 +56,7 @@ func testGeneral(ctx context.Context) bool {
 		// Use DialDirectGRPC to make a connection to app.viam.com instead of a
 		// basic net.Dial in order to ensure that the connection can be made
 		// behind wifi or the BLE-SOCKS bridge (DialDirectGRPC can dial through
-		// the BLE-SOCKS bridge.)
+		// the BLE-SOCKS bridge).
 		ctx, cancel := context.WithTimeout(ctx, timeout)
 		conn, err := rpc.DialDirectGRPC(ctx, "app.viam.com:443", nil)
 		cancel()
@@ -98,8 +98,8 @@ func testUDP(ctx context.Context, logger logging.Logger) error {
 		return err
 	}
 
-	// `net.PacketConn`s do not function with contexts (only deadlines.) If passed-in
-	// context expires (machine is likely shutting down,) _or_ tests finish, close the
+	// `net.PacketConn`s do not function with contexts (only deadlines). If passed-in
+	// context expires (machine is likely shutting down), _or_ tests finish, close the
 	// underlying `net.PacketConn` asynchronously to stop ongoing network checks.
 	testUDPDone := make(chan struct{})
 	defer close(testUDPDone)
@@ -252,7 +252,7 @@ func testTCP(ctx context.Context, logger logging.Logger) error {
 		logger := logger.WithFields("stun_server_url", stunServerURLToTest)
 
 		// Unlike with UDP, TCP needs a new `conn` for every STUN server test (all
-		// derived from the same dialer that uses the same local address.)
+		// derived from the same dialer that uses the same local address).
 		conn, err = dialer.DialContext(ctx, "tcp", stunServerURLToTest)
 		if err != nil {
 			logger.Errorw("Error dialing STUN server via tcp", "error", err)

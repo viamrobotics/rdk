@@ -39,7 +39,7 @@ func logSTUNResults(logger logging.Logger, stunResponses []*STUNResponse, networ
 	// Use lastBindResponseAddr to track whether the received address from STUN servers is
 	// "unstable." Any changes in port, in particular, between different STUN server's
 	// bind responses indicates that we may be behind an endpoint-dependent-mapping NAT
-	// device ("hard" NAT.)
+	// device ("hard" NAT).
 	var expectedBindResponseAddr string
 	var unstableBindResponseAddr bool
 
