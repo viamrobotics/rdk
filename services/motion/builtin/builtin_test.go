@@ -1398,6 +1398,50 @@ func TestMultiWaypointPlanning(t *testing.T) {
 		test.That(t, spatialmath.PoseAlmostEqualEps(plannedPose, finalPose.Pose(), 1e-3), test.ShouldBeTrue)
 	})
 
+	t.Run("plan with pose start state", func(t *testing.T) {
+		// Define waypoints as poses relative to world frame
+		start := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -180, Z: 30}))
+		waypoint := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -190, Z: 30}))
+		finalPose := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -200, Z: 30}))
+
+		startState := motionplan.NewPlanState(referenceframe.FrameSystemPoses{"pieceGripper": start}, nil)
+		wpState := motionplan.NewPlanState(referenceframe.FrameSystemPoses{"pieceGripper": waypoint}, nil)
+
+		moveReq := motion.MoveReq{
+			ComponentName: gripper.Named("pieceGripper"),
+			Destination:   finalPose,
+			Extra: map[string]interface{}{
+				"start_state": startState.Serialize(),
+				"waypoints":   []interface{}{wpState.Serialize()},
+				"smooth_iter": 5,
+			},
+		}
+
+		plan := getPlanFromMove(t, moveReq)
+		test.That(t, len(plan), test.ShouldBeGreaterThan, 0)
+
+		frameSys, err := ms.(*builtIn).fsService.FrameSystem(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Verify start configuration matches start pose
+		firstConfig := plan[0]
+		firstPoseInWorld, err := frameSys.Transform(firstConfig,
+			referenceframe.NewPoseInFrame("pieceGripper", spatialmath.NewZeroPose()),
+			"world")
+		test.That(t, err, test.ShouldBeNil)
+		plannedPose := firstPoseInWorld.(*referenceframe.PoseInFrame).Pose()
+		test.That(t, spatialmath.PoseAlmostEqualEps(plannedPose, start.Pose(), 1e-3), test.ShouldBeTrue)
+
+		// Verify final pose
+		finalConfig := plan[len(plan)-1]
+		finalPoseInWorld, err := frameSys.Transform(finalConfig,
+			referenceframe.NewPoseInFrame("pieceGripper", spatialmath.NewZeroPose()),
+			"world")
+		test.That(t, err, test.ShouldBeNil)
+		plannedPose = finalPoseInWorld.(*referenceframe.PoseInFrame).Pose()
+		test.That(t, spatialmath.PoseAlmostEqualEps(plannedPose, finalPose.Pose(), 1e-3), test.ShouldBeTrue)
+	})
+
 	t.Run("plan through mixed pose and configuration waypoints", func(t *testing.T) {
 		// Define specific arm configuration for first waypoint
 		armConfig := []float64{0.2, 0.3, 0.4, 0.5, 0.6, 0.7}
