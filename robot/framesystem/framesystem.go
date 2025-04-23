@@ -332,7 +332,9 @@ func PrefixRemoteParts(parts []*referenceframe.FrameSystemPart, remoteName, remo
 		}
 		// rename each non-world part with prefix
 		part.FrameConfig.SetName(remoteName + ":" + part.FrameConfig.Name())
-		if part.FrameConfig.Parent() != remoteParent {
+		if part.FrameConfig.Parent()[0] == '$' {
+			part.FrameConfig.SetParent(part.FrameConfig.Parent()[1:])
+		} else if part.FrameConfig.Parent() != remoteParent {
 			part.FrameConfig.SetParent(remoteName + ":" + part.FrameConfig.Parent())
 		}
 	}

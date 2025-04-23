@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/robot/framesystem"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/spatialmath"
@@ -272,4 +273,24 @@ func TestNewFrameSystemFromBadConfig(t *testing.T) {
 		test.That(t, err, test.ShouldBeError, referenceframe.ErrEmptyStringFrameName)
 		test.That(t, fs, test.ShouldBeNil)
 	})
+}
+
+func TestPrefixRemoteParts(t *testing.T) {
+	parts := []*referenceframe.FrameSystemPart{
+		{FrameConfig: referenceframe.NewLinkInFrame("world", spatialmath.NewZeroPose(), "arm1", nil)},
+		{FrameConfig: referenceframe.NewLinkInFrame("arm1", spatialmath.NewZeroPose(), "arm2", nil)},
+		{FrameConfig: referenceframe.NewLinkInFrame("$arm0", spatialmath.NewZeroPose(), "cam", nil)},
+	}
+
+	framesystem.PrefixRemoteParts(parts, "campi", "campi_world")
+
+	test.That(t, parts[0].FrameConfig.Name(), test.ShouldEqual, "campi:arm1")
+	test.That(t, parts[0].FrameConfig.Parent(), test.ShouldEqual, "campi_world")
+
+	test.That(t, parts[1].FrameConfig.Name(), test.ShouldEqual, "campi:arm2")
+	test.That(t, parts[1].FrameConfig.Parent(), test.ShouldEqual, "campi:arm1")
+
+	test.That(t, parts[2].FrameConfig.Name(), test.ShouldEqual, "campi:cam")
+	test.That(t, parts[2].FrameConfig.Parent(), test.ShouldEqual, "arm0")
+
 }
