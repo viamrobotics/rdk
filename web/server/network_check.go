@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"net"
 	"runtime"
+	"testing"
 	"time"
 
 	"github.com/pion/stun"
@@ -16,7 +17,11 @@ import (
 // Characterizes the network through a series of general, UDP-based, and TCP-based network
 // checks. Can and should be run asynchronously with server startup to avoid blocking.
 func runNetworkChecks(ctx context.Context) {
-	logger := logging.NewLogger("network-testing")
+	logger := logging.NewLogger("network-checks")
+	if testing.Testing() {
+		logger.Debug("Skipping network checks in a testing environment")
+		return
+	}
 
 	online := testGeneral(ctx)
 	if !online {

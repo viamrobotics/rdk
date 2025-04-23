@@ -53,8 +53,10 @@ func logSTUNResults(logger logging.Logger, stunResponses []*STUNResponse, networ
 
 		successfulStunResponses++
 		si := strconv.Itoa(i)
-		newKeysAndValues := []any{"stun_url" + si, sr.STUNServerURL, "received_address" + si, sr.BindResponseAddr,
-			"rtt_ms" + si, sr.TimeToBindResponse.Milliseconds(), "resolved_stun_address" + si, sr.STUNServerAddr}
+		newKeysAndValues := []any{
+			"stun_url" + si, sr.STUNServerURL, "received_address" + si, sr.BindResponseAddr,
+			"rtt_ms" + si, sr.TimeToBindResponse.Milliseconds(), "resolved_stun_address" + si, sr.STUNServerAddr,
+		}
 		stunLogKeysAndValues = append(stunLogKeysAndValues, newKeysAndValues...)
 
 		if expectedBindResponseAddr == "" {
