@@ -36,6 +36,18 @@ func Named(name string) resource.Name {
 }
 
 // A Button represents a physical button.
+// For more information, see the [Push component docs].
+//
+// Push example:
+//
+//	myButton, err := switch.FromRobot(machine, "my_button")
+//
+//	err := myButton.Push(context.Background(), nil)
+//
+// For more information, see the [Push method docs].
+//
+// [Button component docs]: https://docs.viam.com/dev/reference/apis/components/button/
+// [Push method docs]: https://docs.viam.com/dev/reference/apis/components/button/#push
 type Button interface {
 	resource.Resource
 
