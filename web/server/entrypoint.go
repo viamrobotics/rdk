@@ -120,9 +120,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		runNetworkChecks(ctx)
 		return nil
 	}
-	go func() {
-		runNetworkChecks(ctx)
-	}()
+	go runNetworkChecks(ctx)
 
 	ctx, err = rutils.WithTrustedEnvironment(ctx, !argsParsed.UntrustedEnv)
 	if err != nil {

@@ -23,6 +23,8 @@ func runNetworkChecks(ctx context.Context) {
 		return
 	}
 
+	logger.Info("Starting network checks")
+
 	online := testGeneral(ctx)
 	if !online {
 		logger.Warn("Machine appears to be offline (cannot make connection to app.viam.com); skipping further network checks")
