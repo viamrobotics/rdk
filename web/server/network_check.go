@@ -26,6 +26,7 @@ func runNetworkChecks(ctx context.Context) {
 	online := testGeneral(ctx)
 	if !online {
 		logger.Warn("Machine appears to be offline (cannot make connection to app.viam.com); skipping further network checks")
+		return
 	}
 
 	if err := testUDP(ctx, logger.Sublogger("udp")); err != nil {
@@ -270,7 +271,7 @@ func testTCP(ctx context.Context, logger logging.Logger) error {
 		}
 		stunResponse.STUNServerAddr = tcpAddr.String()
 
-		// Write bind request on connection to UDP addr.
+		// Write bind request on connection to TCP addr.
 		bindStart := time.Now()
 		n, err := conn.Write(bindRequestRaw)
 		if err != nil {
