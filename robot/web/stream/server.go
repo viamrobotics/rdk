@@ -247,6 +247,7 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 	}
 
 	guard := rutils.NewGuard(func() {
+		delete(nameToPeerState, req.Name)
 		for _, sender := range ps.senders {
 			utils.UncheckedError(pc.RemoveTrack(sender))
 		}
