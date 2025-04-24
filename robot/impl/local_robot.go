@@ -903,14 +903,6 @@ func (r *localRobot) getLocalFrameSystemParts() ([]*referenceframe.FrameSystemPa
 		if err != nil {
 			return nil, err
 		}
-		r.logger.Warnf("%s: %#v", model.Name(), model)
-		geometries, err := model.Geometries(make([]referenceframe.Input, len(model.DoF())))
-		if err != nil {
-			return nil, err
-		}
-		for _, g := range geometries.Geometries() {
-			logging.Global().Warnf("geometry %s: %v", g.Label(), g)
-		}
 		parts = append(parts, &referenceframe.FrameSystemPart{FrameConfig: lif, ModelFrame: model})
 	}
 	return parts, nil

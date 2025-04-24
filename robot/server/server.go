@@ -285,7 +285,6 @@ func (s *Server) FrameSystemConfig(ctx context.Context, req *pb.FrameSystemConfi
 	for i, part := range fsCfg.Parts {
 		c, err := part.ToProtobuf()
 		if err != nil {
-			s.robot.Logger().Error(err)
 			if errors.Is(err, referenceframe.ErrNoModelInformation) {
 				configs[i] = nil
 				continue
