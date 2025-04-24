@@ -683,6 +683,7 @@ func (manager *resourceManager) completeConfig(
 		// we use an errgroup here instead of a normal waitgroup to conveniently bubble
 		// up errors in resource processing goroutinues that warrant an early exit.
 		var levelErrG errgroup.Group
+		levelErrG.SetLimit(10)
 		for _, resName := range resourceNames {
 			select {
 			case <-ctx.Done():
