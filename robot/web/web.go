@@ -350,6 +350,12 @@ func (svc *webService) stopWeb() {
 	}
 	svc.isRunning = false
 	svc.webWorkers.Wait()
+	// RSDK-10570: Destroy the stream server such that we recreate it on a `runWeb` call. Recreating
+	// the stream server is important for passing in a fresh `svc.cancelCtx` that's in an alive
+	// state. The stream server checks that context, for example, when handling the AddStream API
+	// call.
+	svc.streamServer.Close()
+	svc.streamServer = nil
 }
 
 // Close closes a webService via calls to its Cancel func.
