@@ -903,6 +903,7 @@ func (r *localRobot) getLocalFrameSystemParts() ([]*referenceframe.FrameSystemPa
 		if err != nil {
 			return nil, err
 		}
+
 		parts = append(parts, &referenceframe.FrameSystemPart{FrameConfig: lif, ModelFrame: model})
 	}
 	return parts, nil
