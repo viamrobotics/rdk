@@ -24,6 +24,7 @@ type client struct {
 	name   string
 	client pb.GripperServiceClient
 	logger logging.Logger
+	model  referenceframe.Model
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -34,13 +35,25 @@ func NewClientFromConn(
 	name resource.Name,
 	logger logging.Logger,
 ) (Gripper, error) {
-	c := pb.NewGripperServiceClient(conn)
-	return &client{
+	c := &client{
 		Named:  name.PrependRemote(remoteName).AsNamed(),
 		name:   name.ShortName(),
-		client: c,
+		client: pb.NewGripperServiceClient(conn),
 		logger: logger,
-	}, nil
+	}
+	// get geometries if they are provided by the resource, but don't fail to build resource if there are none
+	geometries, err := c.Geometries(ctx, nil)
+	if err != nil {
+		logger.CWarnw(ctx, "error getting gripper geometries, instantiating with a simple model", "err", err)
+		c.model = referenceframe.NewSimpleModel(c.name)
+	} else {
+		m, err := makeModel(c.name, geometries)
+		if err != nil {
+			return nil, err
+		}
+		c.model = m
+	}
+	return c, nil
 }
 
 func (c *client) Open(ctx context.Context, extra map[string]interface{}) error {
@@ -83,8 +96,7 @@ func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
 }
 
 func (c *client) ModelFrame() referenceframe.Model {
-	// TODO(erh): this feels wrong
-	return nil
+	return c.model
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
@@ -112,4 +124,16 @@ func (c *client) Geometries(ctx context.Context, extra map[string]interface{}) (
 		return nil, err
 	}
 	return spatialmath.NewGeometriesFromProto(resp.GetGeometries())
+}
+
+func makeModel(name string, geometries []spatialmath.Geometry) (referenceframe.Model, error) {
+	model := referenceframe.NewSimpleModel(name)
+	for _, g := range geometries {
+		f, err := referenceframe.NewStaticFrameWithGeometry(g.Label(), spatialmath.NewZeroPose(), g)
+		if err != nil {
+			return nil, err
+		}
+		model.OrdTransforms = append(model.OrdTransforms, f)
+	}
+	return model, nil
 }

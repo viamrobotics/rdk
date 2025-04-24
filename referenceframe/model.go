@@ -29,7 +29,7 @@ type ModelFramer interface {
 	ModelFrame() Model
 }
 
-// SimpleModel TODO.
+// SimpleModel is a model that serially concatenates a list of Frames.
 type SimpleModel struct {
 	*baseFrame
 	// OrdTransforms is the list of transforms ordered from end effector to base
