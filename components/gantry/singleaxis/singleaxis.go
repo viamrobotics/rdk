@@ -610,7 +610,7 @@ func (g *singleAxis) ModelFrame() referenceframe.Model {
 		errs = multierr.Combine(errs, err)
 		m.OrdTransforms = append(m.OrdTransforms, f)
 
-		f, err = referenceframe.NewTranslationalFrame(g.Name().ShortName(), g.frame, referenceframe.Limit{Min: 0, Max: g.lengthMm})
+		f2, err := referenceframe.NewTranslationalFrame(g.Name().ShortName(), g.frame, referenceframe.Limit{Min: 0, Max: g.lengthMm})
 		errs = multierr.Combine(errs, err)
 
 		if errs != nil {
@@ -618,7 +618,7 @@ func (g *singleAxis) ModelFrame() referenceframe.Model {
 			return nil
 		}
 
-		m.OrdTransforms = append(m.OrdTransforms, f)
+		m.OrdTransforms = append(m.OrdTransforms, f2)
 		g.model = m
 	}
 	return g.model

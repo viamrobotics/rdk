@@ -47,8 +47,8 @@ type DHParamConfig struct {
 	Geometry *spatial.GeometryConfig `json:"geometry,omitempty"`
 }
 
-// NewLinkConfig constructs a config from a Frame.
-func NewLinkConfig(frame staticFrame) (*LinkConfig, error) {
+// NewLinkConfig constructs a config from a staticFrame.
+func NewLinkConfig(frame *staticFrame) (*LinkConfig, error) {
 	var geom *spatial.GeometryConfig
 	orient, err := spatial.NewOrientationConfig(frame.transform.Orientation())
 	if err != nil {

@@ -161,7 +161,7 @@ func TestSerializationStatic(t *testing.T) {
 	f2if, err := f2Cfg.ParseConfig()
 	test.That(t, err, test.ShouldBeNil)
 
-	f2, err := f2if.ToStaticFrame("")
+	f2, err := f2if.toStaticFrame("")
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, f2.Name(), test.ShouldResemble, f.Name())
@@ -245,7 +245,7 @@ func TestFrame(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	sFrameif, err := frame.ParseConfig()
 	test.That(t, err, test.ShouldBeNil)
-	sFrame, err := sFrameif.ToStaticFrame("")
+	sFrame, err := sFrameif.toStaticFrame("")
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, sFrame, test.ShouldResemble, expFrame)
@@ -259,7 +259,7 @@ func TestFrame(t *testing.T) {
 
 	sFrame2if, err := frame2.ParseConfig()
 	test.That(t, err, test.ShouldBeNil)
-	sFrame2, err := sFrame2if.ToStaticFrame("")
+	sFrame2, err := sFrame2if.toStaticFrame("")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sFrame2, test.ShouldResemble, expFrame)
@@ -273,7 +273,7 @@ func TestFrame(t *testing.T) {
 	bc.SetLabel("test")
 	sFrameif, err = frame.ParseConfig()
 	test.That(t, err, test.ShouldBeNil)
-	sFrame, err = sFrameif.ToStaticFrame("test")
+	sFrame, err = sFrameif.toStaticFrame("test")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, err, test.ShouldBeNil)
 	expStaticFrame, err := NewStaticFrameWithGeometry("test", expPose, bc)

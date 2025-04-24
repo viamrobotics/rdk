@@ -246,7 +246,7 @@ func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*static
 			if err != nil {
 				return nil, err
 			}
-			poses = append(poses, fixedFrame.(*staticFrame))
+			poses = append(poses, fixedFrame)
 		}
 		composedTransformation = spatialmath.Compose(composedTransformation, pose)
 	}

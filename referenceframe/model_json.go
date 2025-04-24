@@ -79,7 +79,7 @@ func (cfg *ModelConfig) ParseConfig(modelName string) (Model, error) {
 				return nil, err
 			}
 			parentMap[link.ID] = link.Parent
-			transforms[link.ID], err = lif.ToStaticFrame(link.ID)
+			transforms[link.ID], err = lif.toStaticFrame(link.ID)
 			if err != nil {
 				return nil, err
 			}

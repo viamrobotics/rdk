@@ -127,13 +127,23 @@ func (c *client) Geometries(ctx context.Context, extra map[string]interface{}) (
 }
 
 func makeModel(name string, geometries []spatialmath.Geometry) (referenceframe.Model, error) {
-	model := referenceframe.NewSimpleModel(name)
+	cfg := &referenceframe.ModelConfig{
+		Name:  name,
+		Links: []referenceframe.LinkConfig{},
+	}
+	parent := referenceframe.World
 	for _, g := range geometries {
 		f, err := referenceframe.NewStaticFrameWithGeometry(g.Label(), spatialmath.NewZeroPose(), g)
 		if err != nil {
 			return nil, err
 		}
-		model.OrdTransforms = append(model.OrdTransforms, f)
+		lf, err := referenceframe.NewLinkConfig(f)
+		if err != nil {
+			return nil, err
+		}
+		lf.Parent = parent
+		parent = g.Label()
+		cfg.Links = append(cfg.Links, *lf)
 	}
-	return model, nil
+	return cfg.ParseConfig(name)
 }

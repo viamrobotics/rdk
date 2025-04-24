@@ -629,8 +629,8 @@ func createFramesFromPart(part *FrameSystemPart) (Frame, Frame, error) {
 	if part == nil || part.FrameConfig == nil {
 		return nil, nil, errors.New("config for FrameSystemPart is nil")
 	}
+
 	var modelFrame Frame
-	var err error
 	// use identity frame if no model frame defined
 	if part.ModelFrame == nil {
 		modelFrame = NewZeroStaticFrame(part.FrameConfig.Name())
@@ -645,14 +645,11 @@ func createFramesFromPart(part *FrameSystemPart) (Frame, Frame, error) {
 	// If it is empty, the new frame will have the same origin as the parent.
 	staticOriginName := part.FrameConfig.Name() + "_origin"
 	// By default, this
-	originFrame, err := part.FrameConfig.ToStaticFrame(staticOriginName)
+	staticOriginFrame, err := part.FrameConfig.toStaticFrame(staticOriginName)
 	if err != nil {
 		return nil, nil, err
 	}
-	staticOriginFrame, ok := originFrame.(*staticFrame)
-	if !ok {
-		return nil, nil, errors.New("failed to cast originFrame to a static frame")
-	}
+
 	// If the user has specified a geometry, and the model is a zero DOF frame (e.g. a gripper), we want to overwrite the geometry
 	// with the user-supplied one without changing the model transform
 	if len(modelFrame.DoF()) == 0 {
