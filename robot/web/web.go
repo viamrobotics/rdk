@@ -354,8 +354,10 @@ func (svc *webService) stopWeb() {
 	// the stream server is important for passing in a fresh `svc.cancelCtx` that's in an alive
 	// state. The stream server checks that context, for example, when handling the AddStream API
 	// call.
-	svc.streamServer.Close()
-	svc.streamServer = nil
+	if svc.streamServer != nil {
+		utils.UncheckedError(svc.streamServer.Close())
+		svc.streamServer = nil
+	}
 }
 
 // Close closes a webService via calls to its Cancel func.
