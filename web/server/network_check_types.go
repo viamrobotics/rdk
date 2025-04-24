@@ -25,7 +25,7 @@ type STUNResponse struct {
 	ErrorString *string
 }
 
-// Logs success, failures, and observations from a set of STUN responses.
+// Logs STUN responses and whether the machine appears to be behind a "hard" NAT device.
 func logSTUNResults(
 	logger logging.Logger,
 	stunResponses []*STUNResponse,
@@ -47,7 +47,7 @@ func logSTUNResults(
 
 		if sr.BindResponseAddr != nil {
 			if expectedBindResponseAddr == "" {
-				// Take first bind response address as "expected," all others should match when
+				// Take first bind response address as "expected"; all others should match when
 				// behind an endpoint-independent-mapping NAT device.
 				expectedBindResponseAddr = *sr.BindResponseAddr
 			} else if expectedBindResponseAddr != *sr.BindResponseAddr {
@@ -62,11 +62,19 @@ func logSTUNResults(
 		len(stunResponses),
 		network,
 	)
-	logger.Infow(
-		msg,
-		fmt.Sprintf("%v_source_address", network), sourceAddress,
-		fmt.Sprintf("%v_tests", network), stunResponses,
-	)
+	if successfulStunResponses < len(stunResponses) {
+		logger.Warnw(
+			msg,
+			fmt.Sprintf("%v_source_address", network), sourceAddress,
+			fmt.Sprintf("%v_tests", network), stunResponses,
+		)
+	} else {
+		logger.Infow(
+			msg,
+			fmt.Sprintf("%v_source_address", network), sourceAddress,
+			fmt.Sprintf("%v_tests", network), stunResponses,
+		)
+	}
 
 	if unstableBindResponseAddr {
 		logger.Warnf(

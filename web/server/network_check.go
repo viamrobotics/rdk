@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,8 +14,8 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
-// Characterizes the network through a series of general, UDP-based, and TCP-based network
-// checks. Can and should be run asynchronously with server startup to avoid blocking.
+// Characterizes the network through a series of UDP and TCP STUN network checks. Can and
+// should be run asynchronously with server startup to avoid blocking.
 func runNetworkChecks(ctx context.Context) {
 	logger := logging.NewLogger("network-checks")
 	if testing.Testing() {
@@ -25,12 +26,12 @@ func runNetworkChecks(ctx context.Context) {
 	logger.Info("Starting network checks")
 
 	if err := testUDP(ctx, logger.Sublogger("udp")); err != nil {
-		logger.Errorw("Error running general network tests", "error", err)
+		logger.Errorw("Error running udp network tests", "error", err)
 	}
 
-	//if err := testTCP(ctx, logger.Sublogger("tcp")); err != nil {
-	//logger.Errorw("Error running general network tests", "error", err)
-	//}
+	if err := testTCP(ctx, logger.Sublogger("tcp")); err != nil {
+		logger.Errorw("Error running tcp network tests", "error", err)
+	}
 }
 
 // All reads, both UDP and TCP, get 5 seconds before being considered a timeout.
@@ -47,9 +48,6 @@ var (
 		"stun.l.google.com:19302",
 		"stun.sipgate.net:3478",
 		"stun.sipgate.net:3479",
-		// TODO(benji): Remove these testing error cases.
-		//"stun.does.not.exist:3479",
-		//"stun.sipgate.net:6500",
 	}
 	stunServerURLsToTestTCP = []string{
 		// Viam's coturn is the only STUN server that accepts TCP STUN traffic.
@@ -60,19 +58,15 @@ var (
 
 // Sends the provided bindRequest to the provided STUN server with the provided packet
 // connection and expects the provided transaction ID.
-//
-// Unexpected errors are returned from this function (failure to set a read deadline on
-// the packet conn). Meaningful errors from STUN interactions are stored in the returned
-// `STUNResponse.ErrorString` field.
 func sendUDPBindRequest(
 	bindRequest []byte,
 	stunServerURLToTest string,
 	conn net.PacketConn,
 	transactionID [12]byte,
-) (stunResponse *STUNResponse, retErr error) {
+) (stunResponse *STUNResponse) {
 	stunResponse = &STUNResponse{STUNServerURL: stunServerURLToTest}
 
-	udpAddr, err := net.ResolveUDPAddr("udp4", stunServerURLToTest)
+	udpAddr, err := net.ResolveUDPAddr("udp", stunServerURLToTest)
 	if err != nil {
 		// TODO(RSDK-XXXXX): Attempt raw IPs of STUN server URLs in the event that DNS
 		// resolution does not work.
@@ -87,29 +81,41 @@ func sendUDPBindRequest(
 	bindStart := time.Now()
 	n, err := conn.WriteTo(bindRequest, udpAddr)
 	if err != nil {
-		errorString := fmt.Sprintf("error writing to STUN connection: %v", err.Error())
+		errorString := fmt.Sprintf("error writing to packet conn: %v", err.Error())
 		stunResponse.ErrorString = &errorString
 		return
 	}
 	if n != len(bindRequest) {
-		errorString := fmt.Sprintf("did not finish writing to STUN connection")
+		errorString := fmt.Sprintf(
+			"did not finish writing to packet conn (%d/%d bytes)",
+			n,
+			len(bindRequest),
+		)
 		stunResponse.ErrorString = &errorString
 		return
 	}
 
 	// Set a read deadline for reading on the conn in this test and remove that deadline at
 	// the end of this test.
-	if retErr = conn.SetReadDeadline(time.Now().Add(readTimeout)); retErr != nil {
+	if err = conn.SetReadDeadline(time.Now().Add(readTimeout)); err != nil {
+		errorString := fmt.Sprintf("error setting read deadline on packet conn: %v", err.Error())
+		stunResponse.ErrorString = &errorString
 		return
 	}
 	defer func() {
-		retErr = conn.SetReadDeadline(time.Time{})
+		if err := conn.SetReadDeadline(time.Time{}); err != nil {
+			errorString := fmt.Sprintf("error (un)setting read deadline on packet conn: %v", err.Error())
+			if stunResponse.ErrorString != nil { // already set
+				errorString = *stunResponse.ErrorString + " and " + errorString
+			}
+			stunResponse.ErrorString = &errorString
+		}
 	}()
 
 	// Receive response from connection.
 	rawResponse := make([]byte, 2000 /* arbitrarily large */)
 	if _, _, err = conn.ReadFrom(rawResponse); err != nil {
-		errorString := fmt.Sprintf("error reading from STUN connection: %v", err.Error())
+		errorString := fmt.Sprintf("error reading from packet conn: %v", err.Error())
 		stunResponse.ErrorString = &errorString
 		return
 	}
@@ -133,7 +139,7 @@ func sendUDPBindRequest(
 
 		// Check for transaction ID mismatch.
 		if transactionID != response.TransactionID {
-			errorString := fmt.Sprintf("Transaction ID mismatch (expected %s, got %s)",
+			errorString := fmt.Sprintf("transaction ID mismatch (expected %s, got %s)",
 				hex.EncodeToString(transactionID[:]),
 				hex.EncodeToString(response.TransactionID[:]),
 			)
@@ -148,7 +154,6 @@ func sendUDPBindRequest(
 	case stun.ClassErrorResponse, stun.ClassIndication, stun.ClassRequest:
 		errorString := fmt.Sprintf("unexpected STUN response received: %s", c)
 		stunResponse.ErrorString = &errorString
-		return
 	}
 
 	return
@@ -159,8 +164,9 @@ func testUDP(ctx context.Context, logger logging.Logger) error {
 	// Listen on arbitrary UDP port.
 	conn, err := net.ListenPacket("udp", "0.0.0.0:0")
 	if err != nil {
-		logger.Warn("Failed to listen over UDP on a port; UDP traffic may be blocked")
-		return err
+		logger.Warnw("Failed to listen over UDP on a port; UDP traffic may be blocked",
+			"error", err)
+		return nil
 	}
 	sourceAddress := conn.LocalAddr().String()
 
@@ -197,22 +203,120 @@ func testUDP(ctx context.Context, logger logging.Logger) error {
 			return nil
 		}
 
-		stunResponse, err := sendUDPBindRequest(
+		stunResponse := sendUDPBindRequest(
 			bindRequestRaw,
 			stunServerURLToTest,
 			conn,
 			bindRequest.TransactionID,
 		)
-		if err != nil {
-			logger.Warnf("error running UDP network test against %v: %v", stunServerURLToTest,
-				err.Error())
-			continue
-		}
 		stunResponses = append(stunResponses, stunResponse)
 	}
 
 	logSTUNResults(logger, stunResponses, sourceAddress, "udp")
 	return nil
+}
+
+func sendTCPBindRequest(
+	bindRequest []byte,
+	stunServerURLToTest string,
+	conn net.Conn,
+	transactionID [12]byte,
+) (stunResponse *STUNResponse) {
+	stunResponse = &STUNResponse{STUNServerURL: stunServerURLToTest}
+
+	tcpAddr, err := net.ResolveTCPAddr("tcp", stunServerURLToTest)
+	if err != nil {
+		// TODO(RSDK-XXXXX): Attempt raw IPs of STUN server URLs in the event that DNS
+		// resolution does not work.
+		errorString := fmt.Sprintf("error resolving address: %v", err.Error())
+		stunResponse.ErrorString = &errorString
+		return
+	}
+	stunServerAddr := tcpAddr.String()
+	stunResponse.STUNServerAddr = &stunServerAddr
+
+	// Write bind request on connection.
+	bindStart := time.Now()
+	n, err := conn.Write(bindRequest)
+	if err != nil {
+		errorString := fmt.Sprintf("error writing to connection: %v", err.Error())
+		stunResponse.ErrorString = &errorString
+		return
+	}
+	if n != len(bindRequest) {
+		errorString := fmt.Sprintf(
+			"did not finish writing to connection (%d/%d bytes)",
+			n,
+			len(bindRequest),
+		)
+		stunResponse.ErrorString = &errorString
+		return
+	}
+
+	// Set a read deadline for reading on the conn in this test and remove that deadline at
+	// the end of this test.
+	if err = conn.SetReadDeadline(time.Now().Add(readTimeout)); err != nil {
+		errorString := fmt.Sprintf("error setting read deadline on connection: %v", err.Error())
+		stunResponse.ErrorString = &errorString
+		return
+	}
+	defer func() {
+		// This might be unnecessary since the next test will use a new `net.Conn`.
+		if err := conn.SetReadDeadline(time.Time{}); err != nil {
+			errorString := fmt.Sprintf("error (un)setting read deadline on connection: %v", err.Error())
+			if stunResponse.ErrorString != nil { // already set
+				errorString = *stunResponse.ErrorString + " and " + errorString
+			}
+			stunResponse.ErrorString = &errorString
+		}
+	}()
+
+	// Receive response from connection.
+	rawResponse := make([]byte, 2000 /* arbitrarily large */)
+	if _, err = conn.Read(rawResponse); err != nil {
+		errorString := fmt.Sprintf("error reading from connection: %v", err.Error())
+		stunResponse.ErrorString = &errorString
+		return
+	}
+
+	response := &stun.Message{}
+	if err := stun.Decode(rawResponse, response); err != nil {
+		errorString := fmt.Sprintf("error decoding STUN message: %v", err.Error())
+		stunResponse.ErrorString = &errorString
+		return
+	}
+
+	switch c := response.Type.Class; c {
+	case stun.ClassSuccessResponse:
+		var bindResponseAddr stun.XORMappedAddress
+		if err := bindResponseAddr.GetFrom(response); err != nil {
+			errorString := fmt.Sprintf("error extracting mapped address from STUN response: %v",
+				err.Error())
+			stunResponse.ErrorString = &errorString
+			return
+		}
+
+		// Check for transaction ID mismatch.
+		if transactionID != response.TransactionID {
+			errorString := fmt.Sprintf("transaction ID mismatch (expected %s, got %s)",
+				hex.EncodeToString(transactionID[:]),
+				hex.EncodeToString(response.TransactionID[:]),
+			)
+			stunResponse.ErrorString = &errorString
+			return
+		}
+
+		bindResponseAddrString := bindResponseAddr.String()
+		bindTimeMS := time.Since(bindStart).Milliseconds()
+		stunResponse.BindResponseAddr = &bindResponseAddrString
+		stunResponse.TimeToBindResponseMS = &bindTimeMS
+	case stun.ClassErrorResponse, stun.ClassIndication, stun.ClassRequest:
+		errorString := fmt.Sprintf("unexpected STUN response received: %s", c)
+		stunResponse.ErrorString = &errorString
+		return
+	}
+
+	return
 }
 
 // Tests NAT over TCP against STUN servers.
@@ -225,6 +329,26 @@ func testTCP(ctx context.Context, logger logging.Logger) error {
 			Port: 23654, /* arbitrary but consistent across dials */
 		},
 	}
+
+	// Each TCP test will create their own TCP connection through this `net.Conn` variable.
+	// `net.Conn`s do not function with contexts (only deadlines). If passed-in context
+	// expires (machine is likely shutting down), _or_ tests finish, close the underlying
+	// `net.Conn` asynchronously to stop ongoing network checks.
+	var conn net.Conn
+	var connMu sync.Mutex
+	testTCPDone := make(chan struct{})
+	defer close(testTCPDone)
+	go func() {
+		select {
+		case <-ctx.Done():
+		case <-testTCPDone:
+		}
+		connMu.Lock()
+		if conn != nil {
+			conn.Close() //nolint:gosec,errcheck
+		}
+		connMu.Unlock()
+	}()
 
 	// Build a STUN binding request to be used against all STUN servers.
 	bindRequest, err := stun.Build([]stun.Setter{
@@ -239,114 +363,54 @@ func testTCP(ctx context.Context, logger logging.Logger) error {
 		return err
 	}
 
-	var conn net.Conn
-	defer func() {
-		if conn != nil {
-			conn.Close() //nolint:gosec,errcheck
-		}
-	}()
 	var stunResponses []*STUNResponse
 	var sourceAddress string
-	for i, stunServerURLToTest := range stunServerURLsToTestTCP {
-		if conn != nil {
-			// Close any connection from previous iteration of for loop, as we will reuse the
-			// same port. We must sleep for a moment after the `Close` call to avoid a "bind:
-			// address already in use," as there is, presumably a small delay until the
-			// underlying sock is closed.
-			conn.Close() //nolint:gosec,errcheck
-			conn = nil
-			time.Sleep(100 * time.Millisecond)
-		}
-
+	for _, stunServerURLToTest := range stunServerURLsToTestTCP {
 		if ctx.Err() != nil {
 			logger.Info("Machine shutdown detected; stopping TCP network tests")
 			return nil
 		}
 
-		logger := logger.WithFields("stun_server_url", stunServerURLToTest)
+		connMu.Lock()
+		dialCtx, cancel := context.WithTimeout(ctx, readTimeout)
+		conn, err = dialer.DialContext(dialCtx, "tcp", stunServerURLToTest)
+		connMu.Unlock()
+		cancel()
 
-		// Unlike with UDP, TCP needs a new `conn` for every STUN server test (all
-		// derived from the same dialer that uses the same local address).
-		conn, err = dialer.DialContext(ctx, "tcp", stunServerURLToTest)
-		if err != nil {
-			logger.Errorw("Error dialing STUN server via tcp", "error", err)
-			continue
-		}
-
-		if i == 0 {
-			// Honor first TCP connection's local addr for now.
+		if sourceAddress == "" {
+			// All conns should have the same source address given the dialer's setup. Use the
+			// local address of the first one created.
 			sourceAddress = conn.LocalAddr().String()
 		}
 
-		// Set a deadline for this interaction of 5 seconds in the future.
-		if err := conn.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
-			logger.Error("Error setting read deadline on TCP connection")
+		if err != nil {
+			// Error to TCP dial to the STUN server should be reported in test results.
+			errorString := fmt.Sprintf("error dialing: %v", err.Error())
+			stunResponses = append(stunResponses, &STUNResponse{
+				STUNServerURL: stunServerURLToTest,
+				ErrorString:   &errorString,
+			})
 			continue
 		}
 
-		stunResponse := &STUNResponse{}
+		stunResponse := sendTCPBindRequest(
+			bindRequestRaw,
+			stunServerURLToTest,
+			conn,
+			bindRequest.TransactionID,
+		)
 		stunResponses = append(stunResponses, stunResponse)
 
-		tcpAddr, err := net.ResolveTCPAddr("tcp", stunServerURLToTest)
-		if err != nil {
-			logger.Errorw("Error resolving URL to a TCP address", "error", err)
-			continue
-		}
-		stunServerAddr := tcpAddr.String()
-		stunResponse.STUNServerAddr = &stunServerAddr
+		connMu.Lock()
+		conn.Close() //nolint:gosec,errcheck
+		connMu.Unlock()
 
-		// Write bind request on connection to TCP addr.
-		bindStart := time.Now()
-		n, err := conn.Write(bindRequestRaw)
-		if err != nil {
-			logger.Errorw("Error writing to conn", "error", err)
-			continue
-		}
-		if n != len(bindRequestRaw) {
-			logger.Errorf("Only wrote %d/%d of bind request", n, len(bindRequestRaw))
-			continue
-		}
-
-		// Receive response from connection.
-		rawResponse := make([]byte, 2000 /* arbitrarily large */)
-		_, err = conn.Read(rawResponse)
-		if err != nil {
-			logger.Errorw("Error reading from conn", "error", err)
-			continue
-		}
-
-		response := &stun.Message{}
-		if err := stun.Decode(rawResponse, response); err != nil {
-			logger.Errorw("Error decoding STUN message", "error", err)
-			continue
-		}
-
-		switch c := response.Type.Class; c {
-		case stun.ClassSuccessResponse:
-			var bindResponseAddr stun.XORMappedAddress
-			if err := bindResponseAddr.GetFrom(response); err != nil {
-				logger.Errorw("Error extracting address from STUN message", "error", err)
-				continue
-			}
-
-			// Check for transaction ID mismatch.
-			if bindRequest.TransactionID != response.TransactionID {
-				logger.Errorf("Transaction ID mismatch (expected %s, got %s)",
-					hex.EncodeToString(bindRequest.TransactionID[:]),
-					hex.EncodeToString(response.TransactionID[:]),
-				)
-				continue
-			}
-
-			bindResponseAddrString := bindResponseAddr.String()
-			bindTimeMS := time.Since(bindStart).Milliseconds()
-			stunResponse.BindResponseAddr = &bindResponseAddrString
-			stunResponse.TimeToBindResponseMS = &bindTimeMS
-		case stun.ClassErrorResponse, stun.ClassIndication, stun.ClassRequest:
-			logger.Errorw("Unexpected STUN response received", "response_type", c)
-		}
+		// NOTE(benjirewis): Sleep for 100ms after `Close`ing to ensure port has been freed
+		// for use on next `DialContext`. Why does `Close` not block until the port is freed?
+		// I do not know; something about not using SO_REUSEADDR or SO_LINGER socket options.
+		time.Sleep(100 * time.Millisecond)
 	}
 
-	logSTUNResults(logger, stunResponses, sourceAddress, "TCP")
+	logSTUNResults(logger, stunResponses, sourceAddress, "tcp")
 	return nil
 }
