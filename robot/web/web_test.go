@@ -1178,6 +1178,74 @@ func TestRawClientOperation(t *testing.T) {
 	test.That(t, svc.Close(ctx), test.ShouldBeNil)
 }
 
+func TestUnaryRequestCounter(t *testing.T) {
+	echoAPI := resource.NewAPI("rdk", "component", "echo")
+	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceCollection[resource.Resource]) interface{} { return &echoServer{} },
+		RPCServiceHandler:           echopb.RegisterTestEchoServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &echopb.TestEchoService_ServiceDesc,
+	})
+	defer resource.DeregisterAPI(echoAPI)
+
+	logger := logging.NewTestLogger(t)
+	ctx, iRobot := setupRobotCtx(t)
+
+	svc := web.New(iRobot, logger)
+
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err := svc.Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	iRobot.(*inject.Robot).MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
+		return robot.MachineStatus{}, nil
+	}
+
+	conn, err := rgrpc.Dial(context.Background(), addr, logger, rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{Disable: true}))
+	test.That(t, err, test.ShouldBeNil)
+
+	var hdr metadata.MD
+
+	// test un-targeted (no name field) counts
+	client := robotpb.NewRobotServiceClient(conn)
+
+	_, ok := svc.RequestCounter().Stats().(map[string]int64)["RobotService/GetMachineStatus"]
+	test.That(t, ok, test.ShouldBeFalse)
+
+	_, _ = client.GetMachineStatus(ctx, &robotpb.GetMachineStatusRequest{}, grpc.Header(&hdr))
+	count := svc.RequestCounter().Stats().(map[string]int64)["RobotService/GetMachineStatus"]
+	test.That(t, count, test.ShouldEqual, 1)
+
+	_, _ = client.GetMachineStatus(ctx, &robotpb.GetMachineStatusRequest{}, grpc.Header(&hdr))
+	count = svc.RequestCounter().Stats().(map[string]int64)["RobotService/GetMachineStatus"]
+	test.That(t, count, test.ShouldEqual, 2)
+
+	// test targeted (with name field) counts
+	conn, err = rgrpc.Dial(context.Background(), addr, logger)
+	test.That(t, err, test.ShouldBeNil)
+	echoclient := echopb.NewTestEchoServiceClient(conn)
+
+	hdr = metadata.MD{}
+	trailers := metadata.MD{} // won't do anything but helps test goutils
+
+	_, ok = svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/Echo"]
+	test.That(t, ok, test.ShouldBeFalse)
+
+	_, _ = echoclient.Echo(ctx, &echopb.EchoRequest{Name: "test1"}, grpc.Header(&hdr), grpc.Trailer(&trailers))
+	count = svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/Echo"]
+	test.That(t, count, test.ShouldEqual, 1)
+
+	_, _ = echoclient.Echo(ctx, &echopb.EchoRequest{Name: "test1"}, grpc.Header(&hdr), grpc.Trailer(&trailers))
+	count = svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/Echo"]
+	test.That(t, count, test.ShouldEqual, 2)
+
+	_, _ = echoclient.Echo(ctx, &echopb.EchoRequest{Name: "test2"}, grpc.Header(&hdr), grpc.Trailer(&trailers))
+	count = svc.RequestCounter().Stats().(map[string]int64)["test2.TestEchoService/Echo"]
+	test.That(t, count, test.ShouldEqual, 1)
+
+	test.That(t, conn.Close(), test.ShouldBeNil)
+	test.That(t, svc.Close(ctx), test.ShouldBeNil)
+}
+
 func TestInboundMethodTimeout(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx, iRobot := setupRobotCtx(t)
