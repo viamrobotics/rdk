@@ -547,7 +547,7 @@ func (rc *RequestCounter) UnaryInterceptor(
 	case strings.HasPrefix(info.FullMethod, "/viam.service."):
 		fallthrough
 	case strings.HasPrefix(info.FullMethod, "/viam.robot."):
-		apiMethod = info.FullMethod[strings.LastIndexByte(info.FullMethod, byte('/'))+1:]
+		apiMethod = info.FullMethod[strings.LastIndexByte(info.FullMethod, byte('.'))+1:]
 	default:
 	}
 
