@@ -374,14 +374,13 @@ func testTCP(ctx context.Context, logger logging.Logger) error {
 		connMu.Lock()
 		dialCtx, cancel := context.WithTimeout(ctx, readTimeout)
 		conn, err = dialer.DialContext(dialCtx, "tcp", stunServerURLToTest)
-		connMu.Unlock()
 		cancel()
-
 		if sourceAddress == "" {
 			// All conns should have the same source address given the dialer's setup. Use the
 			// local address of the first one created.
 			sourceAddress = conn.LocalAddr().String()
 		}
+		connMu.Unlock()
 
 		if err != nil {
 			// Error to TCP dial to the STUN server should be reported in test results.
