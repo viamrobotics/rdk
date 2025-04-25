@@ -548,3 +548,73 @@ func TestSetStreamOptions(t *testing.T) {
 		test.That(t, removeRes, test.ShouldNotBeNil)
 	})
 }
+
+func TestStreamServerSurvivesWebRestart(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	fakeModel := resource.DefaultModelFamily.WithModel("fake")
+	cfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "test",
+				API:   camera.API,
+				Model: fakeModel,
+				ConvertedAttributes: &fake.Config{
+					Width:  100,
+					Height: 50,
+				},
+			},
+		},
+	}
+	ctx, robot, addr, webSvc := setupRealRobot(t, cfg, logger)
+	defer robot.Close(ctx)
+	defer webSvc.Close(ctx)
+
+	// Create a client connection to the robot. Disable direct GRPC to force a WebRTC
+	// connection. Fail if a WebRTC connection cannot be made.
+	conn, err := rgrpc.Dial(context.Background(), addr, logger.Sublogger("TestDial"), rpc.WithDisableDirectGRPC())
+	//nolint
+	defer conn.Close()
+	test.That(t, err, test.ShouldBeNil)
+
+	// Create a stream client. Listing the streams should give back a single stream named `origCamera`;
+	// after our component name.
+	livestreamClient := streampb.NewStreamServiceClient(conn)
+	listResp, err := livestreamClient.ListStreams(ctx, &streampb.ListStreamsRequest{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, listResp.Names, test.ShouldResemble, []string{"test"})
+
+	// Assert that adding and removing a stream works.
+	_, err = livestreamClient.AddStream(ctx, &streampb.AddStreamRequest{
+		Name: "test",
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = livestreamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{
+		Name: "test",
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	// In the real world, the web service can restart because the robot configurations `Network`
+	// settings changed. We instead cut to the chase and restart by hand.
+	webSvc.Stop()
+	// We have to create a new listener as the old one was closed.
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err = webSvc.Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	// The web service was restarted, disconnecting all of the clients. Reconnect to the robot.
+	conn, err = rgrpc.Dial(context.Background(), addr, logger.Sublogger("TestDial"), rpc.WithDisableDirectGRPC())
+	//nolint
+	defer conn.Close()
+	test.That(t, err, test.ShouldBeNil)
+
+	// Recreate the stream API client.
+	livestreamClient = streampb.NewStreamServiceClient(conn)
+	// Assert that adding a stream will works.
+	_, err = livestreamClient.AddStream(ctx, &streampb.AddStreamRequest{
+		Name: "test",
+	})
+	test.That(t, err, test.ShouldBeNil)
+}
