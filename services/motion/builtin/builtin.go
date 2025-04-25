@@ -348,7 +348,8 @@ func (ms *builtIn) PlanHistory(
 //     input value: a motionplan.Trajectory
 //     output value: a bool
 func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
 	resp := make(map[string]interface{}, 0)
 	if req, ok := cmd[DoPlan]; ok {
 		s, err := utils.AssertType[string](req)
