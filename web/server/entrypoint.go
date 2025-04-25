@@ -54,6 +54,7 @@ type Arguments struct {
 	EnableFTDC                 bool   `flag:"ftdc,default=true,usage=enable fulltime data capture for diagnostics"`
 	OutputLogFile              string `flag:"log-file,usage=write logs to a file with log rotation"`
 	NoTLS                      bool   `flag:"no-tls,usage=starts an insecure http server without TLS certificates even if one exists"`
+	NetworkCheckOnly           bool   `flag:"network-check,usage=only runs normal network checks, logs results, and exits"`
 }
 
 type robotServer struct {
@@ -112,6 +113,14 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	if err := utils.ParseFlags(args, &argsParsed); err != nil {
 		return err
 	}
+
+	// Run network checks synchronously and immediately exit if `--network-check` flag was
+	// used. Otherwise run network checks asynchronously.
+	if argsParsed.NetworkCheckOnly {
+		runNetworkChecks(ctx)
+		return nil
+	}
+	go runNetworkChecks(ctx)
 
 	ctx, err = rutils.WithTrustedEnvironment(ctx, !argsParsed.UntrustedEnv)
 	if err != nil {
