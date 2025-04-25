@@ -387,7 +387,9 @@ func testTCP(ctx context.Context, logger logging.Logger) error {
 			continue
 		}
 
-		if sourceAddress == "" {
+		// Overly defensive checks on `conn`'s nilness given the apparent success of
+		// `DialContext` at this point in the code.
+		if sourceAddress == "" && conn != nil && conn.LocalAddr() != nil {
 			// All conns should have the same source address given the dialer's setup. Use the
 			// local address of the first one created.
 			sourceAddress = conn.LocalAddr().String()
