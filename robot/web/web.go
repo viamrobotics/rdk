@@ -543,6 +543,10 @@ func (rc *RequestCounter) UnaryInterceptor(
 	var apiMethod string
 	switch {
 	case strings.HasPrefix(info.FullMethod, "/viam.component."):
+		fallthrough
+	case strings.HasPrefix(info.FullMethod, "/viam.service."):
+		fallthrough
+	case strings.HasPrefix(info.FullMethod, "/viam.robot."):
 		apiMethod = info.FullMethod[strings.LastIndexByte(info.FullMethod, byte('/'))+1:]
 	default:
 	}
