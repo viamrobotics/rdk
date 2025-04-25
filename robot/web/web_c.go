@@ -55,7 +55,7 @@ func (svc *webService) closeStreamServer() {
 		svc.logger.Errorw("error closing stream server", "error", err)
 	}
 
-	// RSDK-10570: Destroy the stream server such that we recreate it on a `runWeb` call. Recreating
+	// RSDK-10570: Nil out the stream server such that we recreate it on a `runWeb` call. Recreating
 	// the stream server is important for passing in a fresh `svc.cancelCtx` that's in an alive
 	// state. The stream server checks that context, for example, when handling the AddStream API
 	// call.

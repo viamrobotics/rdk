@@ -612,7 +612,7 @@ func TestStreamServerSurvivesWebRestart(t *testing.T) {
 
 	// Recreate the stream API client.
 	livestreamClient = streampb.NewStreamServiceClient(conn)
-	// Assert that adding a stream will works.
+	// Assert that adding a stream works.
 	_, err = livestreamClient.AddStream(ctx, &streampb.AddStreamRequest{
 		Name: "test",
 	})
