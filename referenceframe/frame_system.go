@@ -643,7 +643,7 @@ func createFramesFromPart(part *FrameSystemPart) (Frame, Frame, error) {
 	}
 	// staticOriginFrame defines a change in origin from the parent part.
 	// If it is empty, the new frame will have the same origin as the parent.
-	staticOriginFrame, err := part.FrameConfig.toStaticFrame(part.FrameConfig.Name() + "_origin")
+	staticOriginFrame, err := part.FrameConfig.ToStaticFrame(part.FrameConfig.Name() + "_origin")
 	if err != nil {
 		return nil, nil, err
 	}
