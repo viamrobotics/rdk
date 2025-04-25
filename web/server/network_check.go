@@ -375,14 +375,9 @@ func testTCP(ctx context.Context, logger logging.Logger) error {
 		dialCtx, cancel := context.WithTimeout(ctx, readTimeout)
 		conn, err = dialer.DialContext(dialCtx, "tcp", stunServerURLToTest)
 		cancel()
-		if sourceAddress == "" {
-			// All conns should have the same source address given the dialer's setup. Use the
-			// local address of the first one created.
-			sourceAddress = conn.LocalAddr().String()
-		}
-		connMu.Unlock()
-
 		if err != nil {
+			connMu.Unlock()
+
 			// Error to TCP dial to the STUN server should be reported in test results.
 			errorString := fmt.Sprintf("error dialing: %v", err.Error())
 			stunResponses = append(stunResponses, &STUNResponse{
@@ -391,6 +386,15 @@ func testTCP(ctx context.Context, logger logging.Logger) error {
 			})
 			continue
 		}
+
+		// Overly defensive checks on `conn`'s nilness given the apparent success of
+		// `DialContext` at this point in the code.
+		if sourceAddress == "" && conn != nil && conn.LocalAddr() != nil {
+			// All conns should have the same source address given the dialer's setup. Use the
+			// local address of the first one created.
+			sourceAddress = conn.LocalAddr().String()
+		}
+		connMu.Unlock()
 
 		stunResponse := sendTCPBindRequest(
 			bindRequestRaw,
