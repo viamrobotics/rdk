@@ -1,6 +1,8 @@
 package referenceframe
 
 import (
+	"fmt"
+
 	"github.com/golang/geo/r3"
 
 	spatial "go.viam.com/rdk/spatialmath"
@@ -47,22 +49,42 @@ type DHParamConfig struct {
 	Geometry *spatial.GeometryConfig `json:"geometry,omitempty"`
 }
 
-// NewLinkConfig constructs a config from a staticFrame.
-func NewLinkConfig(frame *staticFrame) (*LinkConfig, error) {
-	var geom *spatial.GeometryConfig
-	orient, err := spatial.NewOrientationConfig(frame.transform.Orientation())
+// NewLinkConfig constructs a config from a Frame.
+// NOTE: this currently only works with Frames of len(DoF)==0 and will error otherwise
+// NOTE: this will not work if more than one Geometry is returned by the Geometries function.
+func NewLinkConfig(frame Frame) (*LinkConfig, error) {
+	if len(frame.DoF()) > 0 {
+		return nil, fmt.Errorf("cannot create link config for Frame with %d DoF", len(frame.DoF()))
+	}
+
+	pose, err := frame.Transform([]Input{})
 	if err != nil {
 		return nil, err
 	}
-	if frame.geometry != nil {
-		geom, err = spatial.NewGeometryConfig(frame.geometry)
+	orient, err := spatial.NewOrientationConfig(pose.Orientation())
+	if err != nil {
+		return nil, err
+	}
+
+	var geom *spatial.GeometryConfig
+	gif, err := frame.Geometries([]Input{})
+	if err != nil {
+		return nil, err
+	}
+	geometries := gif.Geometries()
+	if len(geometries) > 0 {
+		if len(geometries) > 1 {
+			return nil, fmt.Errorf("cannot create link config for Frame with %d geometries", len(geometries))
+		}
+		geom, err = spatial.NewGeometryConfig(geometries[0])
 		if err != nil {
 			return nil, err
 		}
 	}
+
 	return &LinkConfig{
-		ID:          frame.name,
-		Translation: frame.transform.Point(),
+		ID:          frame.Name(),
+		Translation: pose.Point(),
 		Orientation: orient,
 		Geometry:    geom,
 	}, nil

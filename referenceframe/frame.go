@@ -218,9 +218,7 @@ func NewNamedFrame(frame Frame, name string) Frame {
 
 // NewStaticFrame creates a frame given a pose relative to its parent. The pose is fixed for all time.
 // Pose is not allowed to be nil.
-//
-//nolint:revive
-func NewStaticFrame(name string, pose spatial.Pose) (*staticFrame, error) {
+func NewStaticFrame(name string, pose spatial.Pose) (Frame, error) {
 	if pose == nil {
 		return nil, errors.New("pose is not allowed to be nil")
 	}
@@ -234,9 +232,7 @@ func NewZeroStaticFrame(name string) Frame {
 
 // NewStaticFrameWithGeometry creates a frame given a pose relative to its parent.  The pose is fixed for all time.
 // It also has an associated geometry representing the space that it occupies in 3D space.  Pose is not allowed to be nil.
-//
-//nolint:revive
-func NewStaticFrameWithGeometry(name string, pose spatial.Pose, geometry spatial.Geometry) (*staticFrame, error) {
+func NewStaticFrameWithGeometry(name string, pose spatial.Pose, geometry spatial.Geometry) (Frame, error) {
 	if pose == nil {
 		return nil, errors.New("pose is not allowed to be nil")
 	}

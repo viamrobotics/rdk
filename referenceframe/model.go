@@ -204,8 +204,7 @@ func (m *SimpleModel) ModelPieceFrames(inputs []Input) (map[string]Frame, error)
 	return frameMap, nil
 }
 
-// TODO(rb) better comment
-// takes a model and a list of joint angles in radians and computes the dual quaternion representing the
+// inputsToFrames takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of each of the links up to and including the end effector. This is useful for when conversions
 // between quaternions and OV are not needed.
 func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*staticFrame, error) {
@@ -246,7 +245,7 @@ func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*static
 			if err != nil {
 				return nil, err
 			}
-			poses = append(poses, fixedFrame)
+			poses = append(poses, fixedFrame.(*staticFrame))
 		}
 		composedTransformation = spatialmath.Compose(composedTransformation, pose)
 	}

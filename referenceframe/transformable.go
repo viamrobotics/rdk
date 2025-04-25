@@ -99,7 +99,7 @@ func (lF *LinkInFrame) Geometry() spatialmath.Geometry {
 }
 
 // toStaticFrame converts a LinkInFrame into a staticFrame with a new name.
-func (lF *LinkInFrame) toStaticFrame(name string) (*staticFrame, error) {
+func (lF *LinkInFrame) toStaticFrame(name string) (Frame, error) {
 	if name == "" {
 		name = lF.name
 	}

@@ -643,9 +643,7 @@ func createFramesFromPart(part *FrameSystemPart) (Frame, Frame, error) {
 	}
 	// staticOriginFrame defines a change in origin from the parent part.
 	// If it is empty, the new frame will have the same origin as the parent.
-	staticOriginName := part.FrameConfig.Name() + "_origin"
-	// By default, this
-	staticOriginFrame, err := part.FrameConfig.toStaticFrame(staticOriginName)
+	staticOriginFrame, err := part.FrameConfig.toStaticFrame(part.FrameConfig.Name() + "_origin")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -673,7 +671,7 @@ func createFramesFromPart(part *FrameSystemPart) (Frame, Frame, error) {
 
 	// Since the geometry of a frame system part is intended to be located at the origin of the model frame, we place it post-transform
 	// in the "_origin" static frame
-	return modelFrame, &tailGeometryStaticFrame{staticOriginFrame}, nil
+	return modelFrame, &tailGeometryStaticFrame{staticOriginFrame.(*staticFrame)}, nil
 }
 
 // Names returns the names of input parts.
