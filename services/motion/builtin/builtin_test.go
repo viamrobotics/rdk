@@ -1304,10 +1304,11 @@ func TestDoCommand(t *testing.T) {
 	})
 
 	t.Run("DoExectute", func(t *testing.T) {
+		logger := logging.NewTestLogger(t)
 		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		defer teardown()
 
-		plan, err := ms.(*builtIn).plan(ctx, moveReq)
+		plan, err := ms.(*builtIn).plan(ctx, moveReq, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		// format the command to sent DoCommand
