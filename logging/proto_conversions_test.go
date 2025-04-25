@@ -24,8 +24,9 @@ func TestFieldConversion(t *testing.T) {
 	testStruct := &s{"foo", true}
 
 	testCases := []struct {
-		field       zap.Field
-		expectedVal any
+		field         zap.Field
+		expectedVal   any
+		expectedField zap.Field
 	}{
 		{
 			field: zap.Field{
@@ -107,6 +108,12 @@ func TestFieldConversion(t *testing.T) {
 			},
 			// Error types retain only their message. Stacks are contained in log.Stack.
 			expectedVal: "error message",
+			expectedField: zap.Field{
+				Key:       "error",
+				Type:      zapcore.StringType,
+				String:    "error message",
+				Interface: map[string]any{},
+			},
 		},
 		{
 			field: zap.Field{
@@ -117,6 +124,11 @@ func TestFieldConversion(t *testing.T) {
 			},
 			// Ensure that UTC is used instead of the Local location from original time.
 			expectedVal: testTime.In(time.UTC),
+			expectedField: zap.Field{
+				Key:     "time",
+				Type:    zapcore.TimeType,
+				Integer: testTime.UnixNano(),
+			},
 		},
 		{
 			field: zap.Field{
@@ -127,6 +139,32 @@ func TestFieldConversion(t *testing.T) {
 			// Types of structs cannot actually be preserved; we convert to
 			// map[string]interface{}.
 			expectedVal: map[string]interface{}{"Field1": "foo", "Field2": true},
+			expectedField: zap.Field{
+				Key:  "struct",
+				Type: zapcore.ReflectType,
+				Interface: map[string]any{
+					"Field1": "foo",
+					"Field2": true,
+				},
+			},
+		},
+		{
+			field:       zap.Strings("array", []string{"a", "b", "c"}),
+			expectedVal: []any{"a", "b", "c"},
+			expectedField: zap.Field{
+				Key:       "array",
+				Type:      zapcore.ReflectType,
+				Interface: []any{"a", "b", "c"},
+			},
+		},
+		{
+			field:       zap.Binary("binary", []byte{244, 244, 244}),
+			expectedVal: []any{float64(244), float64(244), float64(244)},
+			expectedField: zap.Field{
+				Key:       "binary",
+				Type:      zapcore.ReflectType,
+				Interface: []any{float64(244), float64(244), float64(244)},
+			},
 		},
 	}
 	for _, tc := range testCases {
@@ -141,6 +179,18 @@ func TestFieldConversion(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, key, test.ShouldEqual, tc.field.Key)
 			test.That(t, val, test.ShouldResemble, tc.expectedVal)
+
+			zapField, err := FieldFromProto(field)
+			test.That(t, err, test.ShouldBeNil)
+			if tc.expectedField.Type != zapcore.UnknownType {
+				test.That(t, zapField, test.ShouldResemble, tc.expectedField)
+			} else {
+				test.That(t, zapField, test.ShouldResemble, tc.field)
+			}
+			// ZapcoreFieldsToJSON will fail if we did not properly sanitize a field
+			jsonField, err := ZapcoreFieldsToJSON([]zapcore.Field{zapField})
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, jsonField, test.ShouldNotBeEmpty)
 		})
 	}
 }
