@@ -683,6 +683,9 @@ func (manager *resourceManager) completeConfig(
 		// we use an errgroup here instead of a normal waitgroup to conveniently bubble
 		// up errors in resource processing goroutinues that warrant an early exit.
 		var levelErrG errgroup.Group
+		// Add resources in batches instead of all at once. We've observed this to be more
+		// reliable when there are a large number of resources to add (e.g. hundreds).
+		levelErrG.SetLimit(10)
 		for _, resName := range resourceNames {
 			select {
 			case <-ctx.Done():

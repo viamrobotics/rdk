@@ -28,14 +28,13 @@ type Gripper struct {
 	resource.Named
 	resource.TriviallyCloseable
 	geometries []spatialmath.Geometry
+	model      referenceframe.Model
 	mu         sync.Mutex
 	logger     logging.Logger
 }
 
 // NewGripper instantiates a new gripper of the fake model type.
-func NewGripper(
-	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
-) (gripper.Gripper, error) {
+func NewGripper(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (gripper.Gripper, error) {
 	g := &Gripper{
 		Named:      conf.ResourceName().AsNamed(),
 		geometries: []spatialmath.Geometry{},
@@ -59,12 +58,17 @@ func (g *Gripper) Reconfigure(_ context.Context, _ resource.Dependencies, conf r
 		}
 		g.geometries = []spatialmath.Geometry{geometry}
 	}
+	model, err := gripper.MakeModel(g.Name().ShortName(), g.geometries)
+	if err != nil {
+		return err
+	}
+	g.model = model
 	return nil
 }
 
 // ModelFrame returns the dynamic frame of the model.
 func (g *Gripper) ModelFrame() referenceframe.Model {
-	return nil
+	return g.model
 }
 
 // Open does nothing.

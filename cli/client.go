@@ -31,6 +31,7 @@ import (
 	"go.uber.org/zap"
 	buildpb "go.viam.com/api/app/build/v1"
 	datapb "go.viam.com/api/app/data/v1"
+	datapipelinespb "go.viam.com/api/app/datapipelines/v1"
 	datasetpb "go.viam.com/api/app/dataset/v1"
 	mlinferencepb "go.viam.com/api/app/mlinference/v1"
 	mltrainingpb "go.viam.com/api/app/mltraining/v1"
@@ -79,17 +80,18 @@ var errNoShellService = errors.New("shell service is not enabled on this machine
 // viamClient wraps a cli.Context and provides all the CLI command functionality
 // needed to talk to the app and data services but not directly to robot parts.
 type viamClient struct {
-	c                 *cli.Context
-	conf              *Config
-	client            apppb.AppServiceClient
-	dataClient        datapb.DataServiceClient
-	packageClient     packagepb.PackageServiceClient
-	datasetClient     datasetpb.DatasetServiceClient
-	mlTrainingClient  mltrainingpb.MLTrainingServiceClient
-	mlInferenceClient mlinferencepb.MLInferenceServiceClient
-	buildClient       buildpb.BuildServiceClient
-	baseURL           *url.URL
-	authFlow          *authFlow
+	c                   *cli.Context
+	conf                *Config
+	client              apppb.AppServiceClient
+	dataClient          datapb.DataServiceClient
+	packageClient       packagepb.PackageServiceClient
+	datasetClient       datasetpb.DatasetServiceClient
+	datapipelinesClient datapipelinespb.DataPipelinesServiceClient
+	mlTrainingClient    mltrainingpb.MLTrainingServiceClient
+	mlInferenceClient   mlinferencepb.MLInferenceServiceClient
+	buildClient         buildpb.BuildServiceClient
+	baseURL             *url.URL
+	authFlow            *authFlow
 
 	selectedOrg *apppb.Organization
 	selectedLoc *apppb.Location

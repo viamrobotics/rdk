@@ -8,6 +8,7 @@ import (
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/utils/diskusage"
 )
 
 // diskSummaryLogger logs a summary of the capture directory and additional
@@ -78,4 +79,8 @@ func (poller *diskSummaryLogger) reconfigure(dirs []string, interval time.Durati
 
 func (poller *diskSummaryLogger) close() {
 	poller.worker.Stop()
+}
+
+func (poller *diskSummaryLogger) logDiskUsage(dir string) {
+	poller.logger.Debug(diskusage.Statfs(dir))
 }

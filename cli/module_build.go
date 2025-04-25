@@ -193,7 +193,13 @@ func (c *viamClient) moduleBuildListAction(cCtx *cli.Context, args moduleBuildLi
 		count := int32(args.Count)
 		numberOfJobsToReturn = &count
 	}
-	jobs, err := c.listModuleBuildJobs(moduleIDFilter, numberOfJobsToReturn, &buildIDFilter)
+
+	var buildID *string
+	if buildIDFilter != "" {
+		buildID = &buildIDFilter
+	}
+
+	jobs, err := c.listModuleBuildJobs(moduleIDFilter, numberOfJobsToReturn, buildID)
 	if err != nil {
 		return err
 	}
@@ -654,7 +660,7 @@ func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.Resta
 	modID := args.ID
 	// todo: use MutuallyExclusiveFlags for this when urfave/cli 3.x is stable
 	if (len(modName) > 0) && (len(modID) > 0) {
-		return nil, fmt.Errorf("provide at most one of --%s and --%s", generalFlagName, moduleFlagID)
+		return nil, fmt.Errorf("provide at most one of --%s and --%s", generalFlagName, generalFlagID)
 	}
 	request := &robot.RestartModuleRequest{}
 	//nolint:gocritic
@@ -665,7 +671,7 @@ func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.Resta
 	} else if manifest != nil {
 		request.ModuleID = manifest.ModuleID
 	} else {
-		return nil, fmt.Errorf("if there is no meta.json, provide one of --%s or --%s", generalFlagName, moduleFlagID)
+		return nil, fmt.Errorf("if there is no meta.json, provide one of --%s or --%s", generalFlagName, generalFlagID)
 	}
 	return request, nil
 }

@@ -634,6 +634,7 @@ func (c *viamClient) downloadBinary(dst, id string, timeout uint) error {
 	dataFile, err := os.Create(dataPath)
 	if err != nil {
 		debugf(c.c.App.Writer, args.Debug, "Failed creating file %s: %s", id, err)
+		//nolint:deprecated,staticcheck
 		return errors.Wrapf(err, fmt.Sprintf("could not create file for datum %s", datum.GetMetadata().GetId())) //nolint:govet
 	}
 	//nolint:gosec
@@ -655,6 +656,7 @@ func filenameForDownload(meta *datapb.BinaryMetadata) string {
 
 	// If there is no file name, this is a data capture file.
 	if fileName == "" {
+		//nolint:deprecated,staticcheck
 		fileName = timeRequested + "_" + meta.GetId() + meta.GetFileExt()
 	} else if filepath.Dir(fileName) == "." {
 		// If the file name does not contain a directory, prepend if with a requested time so that it is sorted.

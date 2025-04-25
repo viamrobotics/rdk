@@ -396,8 +396,12 @@ func (p PlanState) Serialize() map[string]interface{} {
 	for fName, conf := range p.configuration {
 		confMap[fName] = referenceframe.InputsToFloats(conf)
 	}
-	m["poses"] = poseMap
-	m["configuration"] = confMap
+	if p.poses != nil {
+		m["poses"] = poseMap
+	}
+	if p.configuration != nil {
+		m["configuration"] = confMap
+	}
 	return m
 }
 
@@ -425,6 +429,8 @@ func DeserializePlanState(iface map[string]interface{}) (*PlanState, error) {
 		} else {
 			return nil, errors.New("could not decode contents of poses")
 		}
+	} else {
+		ps.poses = nil
 	}
 	if confIface, ok := iface["configuration"]; ok {
 		if confMap, ok := confIface.(map[string]interface{}); ok {
@@ -446,6 +452,8 @@ func DeserializePlanState(iface map[string]interface{}) (*PlanState, error) {
 		} else {
 			return nil, errors.New("could not decode contents of configuration")
 		}
+	} else {
+		ps.configuration = nil
 	}
 	return ps, nil
 }
