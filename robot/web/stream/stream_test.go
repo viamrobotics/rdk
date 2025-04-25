@@ -551,8 +551,6 @@ func TestSetStreamOptions(t *testing.T) {
 
 func TestStreamServerSurvivesWebRestart(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	ctx := context.Background()
-
 	fakeModel := resource.DefaultModelFamily.WithModel("fake")
 	cfg := &config.Config{
 		Components: []resource.Config{
