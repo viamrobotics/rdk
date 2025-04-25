@@ -47,7 +47,7 @@ func NewClientFromConn(
 		logger.CWarnw(ctx, "error getting gripper geometries, instantiating with a simple model", "err", err)
 		c.model = referenceframe.NewSimpleModel(c.name)
 	} else {
-		m, err := makeModel(c.name, geometries)
+		m, err := MakeModel(c.name, geometries)
 		if err != nil {
 			return nil, err
 		}
@@ -124,26 +124,4 @@ func (c *client) Geometries(ctx context.Context, extra map[string]interface{}) (
 		return nil, err
 	}
 	return spatialmath.NewGeometriesFromProto(resp.GetGeometries())
-}
-
-func makeModel(name string, geometries []spatialmath.Geometry) (referenceframe.Model, error) {
-	cfg := &referenceframe.ModelConfig{
-		Name:  name,
-		Links: []referenceframe.LinkConfig{},
-	}
-	parent := referenceframe.World
-	for _, g := range geometries {
-		f, err := referenceframe.NewStaticFrameWithGeometry(g.Label(), spatialmath.NewZeroPose(), g)
-		if err != nil {
-			return nil, err
-		}
-		lf, err := referenceframe.NewLinkConfig(f)
-		if err != nil {
-			return nil, err
-		}
-		lf.Parent = parent
-		parent = g.Label()
-		cfg.Links = append(cfg.Links, *lf)
-	}
-	return cfg.ParseConfig(name)
 }
