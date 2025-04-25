@@ -73,6 +73,7 @@ func NewLinkConfig(frame Frame) (*LinkConfig, error) {
 	}
 	geometries := gif.Geometries()
 	if len(geometries) > 0 {
+		// TODO: when we support having multiple geometries on a pb.Frame in the API this will need to go away
 		if len(geometries) > 1 {
 			return nil, fmt.Errorf("cannot create link config for Frame with %d geometries", len(geometries))
 		}
