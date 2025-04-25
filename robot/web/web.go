@@ -553,15 +553,18 @@ func (rc *RequestCounter) UnaryInterceptor(
 
 	// Storing in FTDC: `web.motor-name.IsMoving: <count>`.
 	if apiMethod != "" {
+		var key string
 		if namer, ok := req.(Namer); ok {
-			key := fmt.Sprintf("%v.%v", namer.GetName(), apiMethod)
-			if apiCounts, ok := rc.counts.Load(key); ok {
-				apiCounts.(*atomic.Int64).Add(1)
-			} else {
-				newCounter := new(atomic.Int64)
-				newCounter.Add(1)
-				rc.counts.Store(key, newCounter)
-			}
+			key = fmt.Sprintf("%v.%v", namer.GetName(), apiMethod)
+		} else {
+			key = apiMethod
+		}
+		if apiCounts, ok := rc.counts.Load(key); ok {
+			apiCounts.(*atomic.Int64).Add(1)
+		} else {
+			newCounter := new(atomic.Int64)
+			newCounter.Add(1)
+			rc.counts.Store(key, newCounter)
 		}
 	}
 
