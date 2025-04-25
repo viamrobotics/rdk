@@ -233,6 +233,8 @@ func (svc *webService) StartModule(ctx context.Context) error {
 	unaryInterceptors = append(unaryInterceptors,
 		opManager.UnaryServerInterceptor, logging.UnaryServerInterceptor)
 	streamInterceptors = append(streamInterceptors, opManager.StreamServerInterceptor)
+	streamInterceptors = append(streamInterceptors, svc.requestCounter.StreamInterceptor)
+
 	// TODO(PRODUCT-343): Add session manager interceptors
 
 	opts := []googlegrpc.ServerOption{
@@ -564,6 +566,55 @@ func (rc *RequestCounter) UnaryInterceptor(
 	return handler(ctx, req)
 }
 
+type wrappedStreamWithRC struct {
+	googlegrpc.ServerStream
+	apiMethod string
+	rc        *RequestCounter
+}
+
+func (w *wrappedStreamWithRC) RecvMsg(m any) error {
+	// Unmarshalls into m (to populate fields).
+	err := w.ServerStream.RecvMsg(m)
+
+	if err == nil && w.apiMethod != "" {
+		var key string
+		if namer, ok := m.(Namer); ok {
+			key = fmt.Sprintf("%v.%v", namer.GetName(), w.apiMethod)
+		} else {
+			key = w.apiMethod
+		}
+		if apiCounts, ok := w.rc.counts.Load(key); ok {
+			apiCounts.(*atomic.Int64).Add(1)
+		} else {
+			newCounter := new(atomic.Int64)
+			newCounter.Add(1)
+			w.rc.counts.Store(key, newCounter)
+		}
+	}
+
+	return err
+}
+
+func (rc *RequestCounter) StreamInterceptor(
+	srv any,
+	ss googlegrpc.ServerStream,
+	info *googlegrpc.StreamServerInfo,
+	handler googlegrpc.StreamHandler,
+) error {
+	var apiMethod string
+	switch {
+	case strings.HasPrefix(info.FullMethod, "/viam.component."):
+		fallthrough
+	case strings.HasPrefix(info.FullMethod, "/viam.service."):
+		fallthrough
+	case strings.HasPrefix(info.FullMethod, "/viam.robot."):
+		apiMethod = info.FullMethod[strings.LastIndexByte(info.FullMethod, byte('.'))+1:]
+	default:
+	}
+
+	return handler(srv, &wrappedStreamWithRC{ss, apiMethod, rc})
+}
+
 // Stats satisfies the ftdc.Statser interface and will return a copy of the counters.
 func (rc *RequestCounter) Stats() any {
 	ret := make(map[string]int64)
@@ -657,6 +708,7 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 		streamInterceptors = append(streamInterceptors, sessManagerInts.StreamServerInterceptor)
 	}
 	streamInterceptors = append(streamInterceptors, opManager.StreamServerInterceptor)
+	streamInterceptors = append(streamInterceptors, svc.requestCounter.StreamInterceptor)
 
 	rpcOpts = append(
 		rpcOpts,

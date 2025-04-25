@@ -1178,6 +1178,54 @@ func TestRawClientOperation(t *testing.T) {
 	test.That(t, svc.Close(ctx), test.ShouldBeNil)
 }
 
+func TestStreamingRequestCounter(t *testing.T) {
+	echoAPI := resource.NewAPI("rdk", "component", "echo")
+	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceCollection[resource.Resource]) interface{} { return &echoServer{} },
+		RPCServiceHandler:           echopb.RegisterTestEchoServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &echopb.TestEchoService_ServiceDesc,
+	})
+	defer resource.DeregisterAPI(echoAPI)
+
+	logger := logging.NewTestLogger(t)
+	ctx, iRobot := setupRobotCtx(t)
+
+	svc := web.New(iRobot, logger)
+
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err := svc.Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	iRobot.(*inject.Robot).MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
+		return robot.MachineStatus{}, nil
+	}
+
+	conn, err := rgrpc.Dial(context.Background(), addr, logger, rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{Disable: true}))
+	test.That(t, err, test.ShouldBeNil)
+	echoclient := echopb.NewTestEchoServiceClient(conn)
+
+	var hdr metadata.MD
+	var trailers metadata.MD // won't do anything but helps test goutils
+
+	// test counting streaming service with name
+	_, ok := svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/EchoMultiple"]
+	test.That(t, ok, test.ShouldBeFalse)
+	s, _ := echoclient.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "test1", Message: ""}, grpc.Header(&hdr), grpc.Trailer(&trailers))
+	_, err = s.Recv()
+	test.That(t, err, test.ShouldBeNil)
+	count := svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/EchoMultiple"]
+	test.That(t, count, test.ShouldEqual, 1)
+
+	s, _ = echoclient.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "test1", Message: ""}, grpc.Header(&hdr), grpc.Trailer(&trailers))
+	_, err = s.Recv()
+	test.That(t, err, test.ShouldBeNil)
+	count = svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/EchoMultiple"]
+	test.That(t, count, test.ShouldEqual, 2)
+
+	test.That(t, conn.Close(), test.ShouldBeNil)
+	test.That(t, svc.Close(ctx), test.ShouldBeNil)
+}
+
 func TestInboundMethodTimeout(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx, iRobot := setupRobotCtx(t)
