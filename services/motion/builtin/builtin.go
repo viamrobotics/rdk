@@ -187,7 +187,7 @@ func (ms *builtIn) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 	defer ms.mu.RUnlock()
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
-	plan, err := ms.plan(ctx, req)
+	plan, err := ms.plan(ctx, req, ms.logger)
 	if err != nil {
 		return false, err
 	}
@@ -348,10 +348,8 @@ func (ms *builtIn) PlanHistory(
 //     input value: a motionplan.Trajectory
 //     output value: a bool
 func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	ms.mu.Lock()
-	defer ms.mu.Unlock()
-	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
-
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
 	resp := make(map[string]interface{}, 0)
 	if req, ok := cmd[DoPlan]; ok {
 		s, err := utils.AssertType[string](req)
@@ -372,18 +370,15 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 			moveReqProto.Extra = v
 		}
 		// Special handling: we want to observe the logs just for the DoCommand
-		oldLogger := ms.logger
-		obsLogger := oldLogger.Sublogger("observed")
+		obsLogger := ms.logger.Sublogger("observed")
 		observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.InfoLevel.Enabled))
 		obsLogger.AddAppender(observerCore)
-		ms.logger = obsLogger
-		defer func() { ms.logger = oldLogger }()
 
 		moveReq, err := motion.MoveReqFromProto(&moveReqProto)
 		if err != nil {
 			return nil, err
 		}
-		plan, err := ms.plan(ctx, moveReq)
+		plan, err := ms.plan(ctx, moveReq, obsLogger)
 		if err != nil {
 			return nil, err
 		}
@@ -401,11 +396,11 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 				if err == nil {
 					resp[DoPlan+"_partialwp"] = waypointNum
 				} else {
-					ms.logger.CWarnf(ctx, "error parsing log string: %s", logMsg)
-					ms.logger.CWarn(ctx, err)
+					obsLogger.CWarnf(ctx, "error parsing log string: %s", logMsg)
+					obsLogger.CWarn(ctx, err)
 				}
 			} else {
-				ms.logger.CWarnf(ctx, "Unexpected number of partial logs: %d", len(partialLogs))
+				obsLogger.CWarnf(ctx, "Unexpected number of partial logs: %d", len(partialLogs))
 			}
 		}
 
@@ -424,7 +419,7 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 	return resp, nil
 }
 
-func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq) (motionplan.Plan, error) {
+func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.Logger) (motionplan.Plan, error) {
 	frameSys, err := ms.fsService.FrameSystem(ctx, req.WorldState.Transforms())
 	if err != nil {
 		return nil, err
@@ -435,7 +430,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq) (motionplan.Pla
 	if err != nil {
 		return nil, err
 	}
-	ms.logger.CDebugf(ctx, "frame system inputs: %v", fsInputs)
+	logger.CDebugf(ctx, "frame system inputs: %v", fsInputs)
 
 	movingFrame := frameSys.Frame(req.ComponentName.ShortName())
 	if movingFrame == nil {
@@ -482,7 +477,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq) (motionplan.Pla
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
 	return motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
-		Logger:      ms.logger,
+		Logger:      logger,
 		Goals:       worldWaypoints,
 		StartState:  startState,
 		FrameSystem: frameSys,
