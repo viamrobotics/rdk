@@ -562,16 +562,17 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 			if err != nil {
 				return err
 			}
+			dest := reloadingDestination(c, manifest)
 			err = vc.copyFilesToFqdn(
 				part.Part.Fqdn, args.Debug, false, false, []string{manifest.Build.Path},
-				reloadingDestination(c, manifest), logging.NewLogger("reload"))
+				dest, logging.NewLogger("reload"))
 			if err != nil {
 				if s, ok := status.FromError(err); ok && s.Code() == codes.PermissionDenied {
 					warningf(c.App.ErrWriter, "RDK couldn't write to the default file copy destination. "+
 						"If you're running as non-root, try adding --home $HOME or --home /user/username to your CLI command. "+
 						"Alternatively, run the RDK as root.")
 				}
-				return err
+				return fmt.Errorf("failed copying to part (%v): %w", dest, err)
 			}
 		}
 		needsRestart, err = configureModule(c, vc, manifest, part.Part, args.Local)

@@ -56,7 +56,7 @@ func (f *localFileCopyFactory) MakeFileCopier(ctx context.Context, sourceType Co
 			return nil, fmt.Errorf("%q does not exist or is not a directory", f.destination)
 		}
 		if err := os.MkdirAll(filepath.Dir(f.destination), 0o750); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("MkdirAll all failed (%s): %w", f.destination, err)
 		}
 	case CopyFilesSourceTypeSingleFile, CopyFilesSourceTypeSingleDirectory:
 		// for single files (a machine:~/some/dir_or_file):
