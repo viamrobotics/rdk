@@ -405,7 +405,7 @@ func (mp *planner) getSolutions(ctx context.Context, seed referenceframe.FrameSy
 	var activeSolvers sync.WaitGroup
 	defer activeSolvers.Wait()
 	activeSolvers.Add(1)
-	defer func(){
+	defer func() {
 		// In the case that we have an error, we need to explicitly drain the channel before we return
 		for len(solutionGen) > 0 {
 			<-solutionGen
