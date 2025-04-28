@@ -1,0 +1,39 @@
+syntax = "proto3";
+option go_package = "go.viam.com/utils/proto/rpc/examples/echoresource/v1";
+
+package proto.rpc.examples.echoresource.v1;
+
+message EchoResourceRequest {
+  string name = 1;
+  string message = 2;
+}
+
+message EchoResourceResponse {
+  string message = 1;
+}
+
+message EchoResourceMultipleRequest {
+  string name = 1;
+  string message = 2;
+}
+
+message EchoResourceMultipleResponse {
+  string message = 1;
+}
+
+message EchoResourceBiDiRequest {
+  string name = 1;
+  string message = 2;
+}
+
+message EchoResourceBiDiResponse {
+  string message = 1;
+}
+
+service EchoResourceService {
+  rpc EchoResource(EchoResourceRequest) returns (EchoResourceResponse) {}
+
+  rpc EchoResourceMultiple(EchoResourceMultipleRequest) returns (stream EchoResourceMultipleResponse) {}
+
+  rpc EchoResourceBiDi(stream EchoResourceBiDiRequest) returns (stream EchoResourceBiDiResponse) {}
+}
