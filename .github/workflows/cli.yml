@@ -19,6 +19,8 @@ on:
 jobs:
   viam-cli:
     runs-on: ubuntu-latest
+    env:
+      CGO_ENABLED: "0"
     steps:
     - name: Check out code
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
