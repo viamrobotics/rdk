@@ -1247,15 +1247,11 @@ func MachinesPartCopyFilesAction(c *cli.Context, args machinesPartCopyFilesArgs)
 		return err
 	}
 
-	// Create logger based on presence of debugFlag.
-	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
 	globalArgs, err := getGlobalArgs(c)
 	if err != nil {
 		return err
 	}
-	if globalArgs.Debug {
-		logger = logging.NewDebugLogger("cli")
-	}
+	logger := globalArgs.createLogger()
 
 	return client.machinesPartCopyFilesAction(c, args, logger)
 }

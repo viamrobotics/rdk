@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/urfave/cli/v2"
+
+	"go.viam.com/rdk/logging"
 )
 
 // CLI flags.
@@ -145,6 +147,34 @@ const (
 	organizationFlagLogoPath     = "logo-path"
 )
 
+var commonPartFlags = []cli.Flag{
+	&AliasStringFlag{
+		cli.StringFlag{
+			Name:     generalFlagPart,
+			Aliases:  []string{generalFlagPartID, generalFlagPartName},
+			Required: true,
+		},
+	},
+	&AliasStringFlag{
+		cli.StringFlag{
+			Name:    generalFlagOrganization,
+			Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+		},
+	},
+	&AliasStringFlag{
+		cli.StringFlag{
+			Name:    generalFlagLocation,
+			Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
+		},
+	},
+	&AliasStringFlag{
+		cli.StringFlag{
+			Name:    generalFlagMachine,
+			Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
+		},
+	},
+}
+
 // matches all uppercase characters that follow lowercase chars and aren't at the [0] index of a string.
 // This is useful for converting camel case into kabob case when getting values out of a CLI Context
 // based on a flag name, and putting them into a struct with a camel cased field name.
@@ -247,6 +277,16 @@ type globalArgs struct {
 	Quiet           bool
 	Profile         string
 	DisableProfiles bool
+}
+
+func (ga *globalArgs) createLogger() logging.Logger {
+	logger := logging.NewLogger("cli")
+	if ga.Debug {
+		logger.SetLevel(logging.DEBUG)
+	} else {
+		logger.SetLevel(logging.WARN)
+	}
+	return logger
 }
 
 func getValFromContext(name string, ctx *cli.Context) any {
@@ -2231,34 +2271,8 @@ In order to use the shell command, the machine must have a valid shell type serv
 Organization and location are required flags if the machine/part name are not unique across your account.
 `,
 							UsageText: createUsageText("machines part shell", []string{generalFlagPart}, false, false),
-							Flags: []cli.Flag{
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:     generalFlagPart,
-										Aliases:  []string{generalFlagPartID, generalFlagPartName},
-										Required: true,
-									},
-								},
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:    generalFlagOrganization,
-										Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-									},
-								},
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:    generalFlagLocation,
-										Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
-									},
-								},
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:    generalFlagMachine,
-										Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
-									},
-								},
-							},
-							Action: createCommandWithT[robotsPartShellArgs](RobotsPartShellAction),
+							Flags:     commonPartFlags,
+							Action:    createCommandWithT[robotsPartShellArgs](RobotsPartShellAction),
 						},
 						{
 							Name:      "list",
@@ -2317,32 +2331,7 @@ Copy multiple files from the machine to a local destination with recursion and k
 								[]string{generalFlagPart},
 								true, false,
 								"<source i.e. [machine:]files>... <target i.e. [machine:]files>"),
-							Flags: []cli.Flag{
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:     generalFlagPart,
-										Aliases:  []string{generalFlagPartID, generalFlagPartName},
-										Required: true,
-									},
-								},
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:    generalFlagOrganization,
-										Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-									},
-								},
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:    generalFlagLocation,
-										Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
-									},
-								},
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:    generalFlagMachine,
-										Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
-									},
-								},
+							Flags: append(commonPartFlags, []cli.Flag{
 								&cli.BoolFlag{
 									Name:    cpFlagRecursive,
 									Aliases: []string{"r"},
@@ -2354,7 +2343,7 @@ Copy multiple files from the machine to a local destination with recursion and k
 									// Note(erd): maybe support access time in the future if needed
 									Usage: "preserve modification times and file mode bits from the source files",
 								},
-							},
+							}...),
 							Action: createCommandWithT[machinesPartCopyFilesArgs](MachinesPartCopyFilesAction),
 						},
 						{
@@ -2363,32 +2352,7 @@ Copy multiple files from the machine to a local destination with recursion and k
 							UsageText: createUsageText("machines part tunnel", []string{
 								generalFlagPart, tunnelFlagLocalPort, tunnelFlagDestinationPort,
 							}, true, false),
-							Flags: []cli.Flag{
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:     generalFlagPart,
-										Aliases:  []string{generalFlagPartID, generalFlagPartName},
-										Required: true,
-									},
-								},
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:    generalFlagOrganization,
-										Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-									},
-								},
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:    generalFlagLocation,
-										Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
-									},
-								},
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:    generalFlagMachine,
-										Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
-									},
-								},
+							Flags: append(commonPartFlags, []cli.Flag{
 								&cli.IntFlag{
 									Name:     tunnelFlagLocalPort,
 									Required: true,
@@ -2397,8 +2361,23 @@ Copy multiple files from the machine to a local destination with recursion and k
 									Name:     tunnelFlagDestinationPort,
 									Required: true,
 								},
-							},
+							}...),
 							Action: createCommandWithT[robotsPartTunnelArgs](RobotsPartTunnelAction),
+						},
+						{
+							Name: "motion",
+							Subcommands: []*cli.Command{
+								{
+									Name: "get-pose",
+									Flags: append(commonPartFlags, []cli.Flag{
+										&cli.StringFlag{
+											Name:     "component",
+											Required: true,
+										},
+									}...),
+									Action: createCommandWithT[motionGetPoseArgs](motionGetPoseAction),
+								},
+							},
 						},
 					},
 				},
