@@ -29,7 +29,9 @@ rm-cli:
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
 bin/$(GOOS)-$(GOARCH)/viam-cli: rm-cli
-	go build $(LDFLAGS) -tags osusergo,netgo -o $@ ./cli/viam
+	# no_cgo necessary here because of motionplan -> nlopt dependency.
+	# can be removed if you can run CGO_ENABLED=0 go build ./cli/viam on your local machine.
+	go build $(LDFLAGS) -tags osusergo,netgo,no_cgo -o $@ ./cli/viam
 
 .PHONY: cli
 cli: bin/$(GOOS)-$(GOARCH)/viam-cli
