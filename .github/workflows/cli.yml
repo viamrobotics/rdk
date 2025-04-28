@@ -36,7 +36,6 @@ jobs:
     - name: build
       env:
         CI_RELEASE: ${{ inputs.release_type }}
-        CGO_ENABLED: "0"
       run: |
         GOOS=linux GOARCH=amd64 make cli-ci
         GOOS=linux GOARCH=arm64 make cli-ci
@@ -47,7 +46,6 @@ jobs:
     - name: tagged alias
       env:
          CI_RELEASE: ${{ github.ref_name }}
-         CGO_ENABLED: "0"
       if: inputs.release_type == 'stable'
       run: |
         GOOS=linux GOARCH=amd64 make cli-ci
