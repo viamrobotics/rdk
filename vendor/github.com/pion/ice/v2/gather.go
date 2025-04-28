@@ -324,6 +324,8 @@ func (a *Agent) gatherCandidatesSrflxMapped(ctx context.Context, networkTypes []
 	for _, networkType := range networkTypes {
 		if networkType.IsTCP() {
 			continue
+		} else {
+			continue
 		}
 
 		network := networkType.String()
@@ -383,6 +385,8 @@ func (a *Agent) gatherCandidatesSrflxUDPMux(ctx context.Context, urls []*stun.UR
 
 	for _, networkType := range networkTypes {
 		if networkType.IsTCP() {
+			continue
+		} else {
 			continue
 		}
 
@@ -451,6 +455,8 @@ func (a *Agent) gatherCandidatesSrflx(ctx context.Context, urls []*stun.URI, net
 
 	for _, networkType := range networkTypes {
 		if networkType.IsTCP() {
+			continue
+		} else {
 			continue
 		}
 
