@@ -570,6 +570,8 @@ type wrappedStreamWithRC struct {
 	googlegrpc.ServerStream
 	apiMethod string
 	rc        *RequestCounter
+	// marks once the first message has been received
+	seenFirst atomic.Bool
 }
 
 // RecvMsg increments the reference counter upon receiving the first message from the client.
@@ -578,7 +580,7 @@ func (w *wrappedStreamWithRC) RecvMsg(m any) error {
 	// Unmarshalls into m (to populate fields).
 	err := w.ServerStream.RecvMsg(m)
 
-	if err == nil && w.apiMethod != "" {
+	if w.seenFirst.CompareAndSwap(false, true) && err == nil {
 		var key string
 		if namer, ok := m.(Namer); ok {
 			key = fmt.Sprintf("%v.%v", namer.GetName(), w.apiMethod)
