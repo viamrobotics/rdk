@@ -603,7 +603,7 @@ func (w *wrappedStreamWithRC) RecvMsg(m any) error {
 // It is called once per stream and will run on:
 // Client streaming: rpc Method (stream a) returns (b)
 // Server streaming: rpc Method (a) returns (stream b)
-// Bidirectional streaming: rpc Method (stream a) returns (stream b)
+// Bidirectional streaming: rpc Method (stream a) returns (stream b).
 func (rc *RequestCounter) StreamInterceptor(
 	srv any,
 	ss googlegrpc.ServerStream,
