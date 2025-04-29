@@ -549,7 +549,7 @@ func (rc *RequestCounter) UnaryInterceptor(
 	default:
 	}
 
-	// Storing in FTDC: `web.motor-name.IsMoving: <count>`.
+	// Storing in FTDC: `web.motor-name.MotorService/IsMoving: <count>`.
 	if apiMethod != "" {
 		var key string
 		if namer, ok := req.(Namer); ok {
