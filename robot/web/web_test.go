@@ -21,6 +21,7 @@ import (
 	echopb "go.viam.com/api/component/testecho/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	streampb "go.viam.com/api/stream/v1"
+	genericservice "go.viam.com/rdk/services/generic"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -1234,6 +1235,14 @@ func TestUnaryRequestCounter(t *testing.T) {
 
 	_, _ = echoclient.Echo(ctx, &echopb.EchoRequest{Name: "test2"})
 	count = svc.RequestCounter().Stats().(map[string]int64)["test2.TestEchoService/Echo"]
+	test.That(t, count, test.ShouldEqual, 1)
+
+	// test service with a name field
+	genericclient, err := genericservice.NewClientFromConn(ctx, conn, "", genericservice.Named("generictest"), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	genericclient.DoCommand(ctx, nil)
+	count = svc.RequestCounter().Stats().(map[string]int64)["generictest.GenericService/DoCommand"]
 	test.That(t, count, test.ShouldEqual, 1)
 
 	test.That(t, conn.Close(), test.ShouldBeNil)
