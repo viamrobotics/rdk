@@ -28,13 +28,21 @@ var goTmpl string
 // typePrefixes lists possible prefixes before function parameter and return types.
 var typePrefixes = []string{"*", "[]*", "[]", "chan "}
 
-// getClientCode grabs client.go code of component type.
-func getClientCode(module modulegen.ModuleInputs) (string, error) {
+var CreateGetClientCodeRequest = func(module modulegen.ModuleInputs) (*http.Request, error) {
 	url := fmt.Sprintf("https://raw.githubusercontent.com/viamrobotics/rdk/refs/tags/v%s/%ss/%s/client.go",
 		module.SDKVersion, module.ResourceType, module.ResourceSubtype)
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
-		return "", errors.Wrapf(err, "cannot get client code")
+		return nil, errors.Wrapf(err, "cannot get client code")
+	}
+	return req, nil
+}
+
+// getClientCode grabs client.go code of component type.
+func getClientCode(module modulegen.ModuleInputs) (string, error) {
+	req, err := CreateGetClientCodeRequest(module)
+	if err != nil {
+		return "", err
 	}
 
 	//nolint:bodyclose
@@ -44,12 +52,12 @@ func getClientCode(module modulegen.ModuleInputs) (string, error) {
 	}
 	defer utils.UncheckedErrorFunc(resp.Body.Close)
 	if resp.StatusCode != http.StatusOK {
-		return "", errors.Errorf("unexpected http GET status: %s getting %s", resp.Status, url)
+		return "", errors.Errorf("unexpected http GET status: %s getting %s", resp.Status, req.URL.String())
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return url, errors.Wrapf(err, "error reading response body")
+		return req.URL.String(), errors.Wrapf(err, "error reading response body")
 	}
 	clientCode := string(body)
 	return clientCode, nil
