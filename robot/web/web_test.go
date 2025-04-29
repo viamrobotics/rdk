@@ -1203,19 +1203,17 @@ func TestUnaryRequestCounter(t *testing.T) {
 	conn, err := rgrpc.Dial(context.Background(), addr, logger, rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{Disable: true}))
 	test.That(t, err, test.ShouldBeNil)
 
-	var hdr metadata.MD
-
 	// test un-targeted (no name field) counts
 	client := robotpb.NewRobotServiceClient(conn)
 
 	_, ok := svc.RequestCounter().Stats().(map[string]int64)["RobotService/GetMachineStatus"]
 	test.That(t, ok, test.ShouldBeFalse)
 
-	_, _ = client.GetMachineStatus(ctx, &robotpb.GetMachineStatusRequest{}, grpc.Header(&hdr))
+	_, _ = client.GetMachineStatus(ctx, &robotpb.GetMachineStatusRequest{})
 	count := svc.RequestCounter().Stats().(map[string]int64)["RobotService/GetMachineStatus"]
 	test.That(t, count, test.ShouldEqual, 1)
 
-	_, _ = client.GetMachineStatus(ctx, &robotpb.GetMachineStatusRequest{}, grpc.Header(&hdr))
+	_, _ = client.GetMachineStatus(ctx, &robotpb.GetMachineStatusRequest{})
 	count = svc.RequestCounter().Stats().(map[string]int64)["RobotService/GetMachineStatus"]
 	test.That(t, count, test.ShouldEqual, 2)
 
@@ -1226,21 +1224,18 @@ func TestUnaryRequestCounter(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	echoclient := echopb.NewTestEchoServiceClient(conn)
 
-	hdr = metadata.MD{}
-	trailers := metadata.MD{} // won't do anything but helps test goutils
-
 	_, ok = svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/Echo"]
 	test.That(t, ok, test.ShouldBeFalse)
 
-	_, _ = echoclient.Echo(ctx, &echopb.EchoRequest{Name: "test1"}, grpc.Header(&hdr), grpc.Trailer(&trailers))
+	_, _ = echoclient.Echo(ctx, &echopb.EchoRequest{Name: "test1"})
 	count = svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/Echo"]
 	test.That(t, count, test.ShouldEqual, 1)
 
-	_, _ = echoclient.Echo(ctx, &echopb.EchoRequest{Name: "test1"}, grpc.Header(&hdr), grpc.Trailer(&trailers))
+	_, _ = echoclient.Echo(ctx, &echopb.EchoRequest{Name: "test1"})
 	count = svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/Echo"]
 	test.That(t, count, test.ShouldEqual, 2)
 
-	_, _ = echoclient.Echo(ctx, &echopb.EchoRequest{Name: "test2"}, grpc.Header(&hdr), grpc.Trailer(&trailers))
+	_, _ = echoclient.Echo(ctx, &echopb.EchoRequest{Name: "test2"})
 	count = svc.RequestCounter().Stats().(map[string]int64)["test2.TestEchoService/Echo"]
 	test.That(t, count, test.ShouldEqual, 1)
 
