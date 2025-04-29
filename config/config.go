@@ -167,7 +167,7 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 	}
 
 	for idx := 0; idx < len(c.Remotes); idx++ {
-		if _, err := c.Remotes[idx].Validate(fmt.Sprintf("%s.%d", "remotes", idx)); err != nil {
+		if _, _, err := c.Remotes[idx].Validate(fmt.Sprintf("%s.%d", "remotes", idx)); err != nil {
 			if c.DisablePartialStart {
 				return err
 			}
@@ -496,13 +496,13 @@ type RemoteAuth struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (conf *Remote) Validate(path string) ([]string, error) {
+func (conf *Remote) Validate(path string) ([]string, []string, error) {
 	if conf.alreadyValidated {
-		return nil, conf.cachedErr
+		return nil, nil, conf.cachedErr
 	}
 	conf.cachedErr = conf.validate(path)
 	conf.alreadyValidated = true
-	return nil, conf.cachedErr
+	return nil, nil, conf.cachedErr
 }
 
 // adjustPartialNames assumes this config comes from a place where the associated

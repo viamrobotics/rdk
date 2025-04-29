@@ -17,7 +17,7 @@ import (
 var model = resource.NewModel("acme", "demo", "foo")
 
 func main() {
-	resource.RegisterComponent(generic.API, model, resource.Registration[resource.Resource, FooConfig]{
+	resource.RegisterComponent(generic.API, model, resource.Registration[resource.Resource, *FooConfig]{
 		Constructor: newFoo,
 	})
 
@@ -76,7 +76,8 @@ func newFoo(ctx context.Context,
 }
 
 func (f *foo) Reconfigure(ctx context.Context, deps resource.Dependencies,
-	conf resource.Config) error {
+	conf resource.Config,
+) error {
 	fooConfig, err := resource.NativeConfig[*FooConfig](conf)
 	if err != nil {
 		return err

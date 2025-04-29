@@ -58,12 +58,12 @@ type someTypeWithWeakAndStrongDepsConfig struct {
 	weakDeps []resource.Name
 }
 
-func (s *someTypeWithWeakAndStrongDepsConfig) Validate(_ string) ([]string, error) {
+func (s *someTypeWithWeakAndStrongDepsConfig) Validate(path string) ([]string, []string, error) {
 	depNames := make([]string, 0, len(s.deps))
 	for _, dep := range s.deps {
 		depNames = append(depNames, dep.String())
 	}
-	return depNames, nil
+	return depNames, nil, nil
 }
 
 func TestUpdateWeakDependents(t *testing.T) {

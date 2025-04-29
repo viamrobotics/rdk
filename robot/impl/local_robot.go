@@ -1202,7 +1202,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 					continue
 				}
 				svcCfg.ConvertedAttributes = converted
-				deps, err := converted.Validate("")
+				deps, _, err := converted.Validate("")
 				if err != nil {
 					allErrs = multierr.Combine(allErrs, errors.Wrapf(err, "error getting default service dependencies for %s", svcCfg.API))
 					continue

@@ -844,7 +844,7 @@ func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr
 				)
 			}
 			// this is done in config validation but partial start rules require us to check again
-			if _, err := remConf.Validate(""); err != nil {
+			if _, _, err := remConf.Validate(""); err != nil {
 				gNode.LogAndSetLastError(
 					fmt.Errorf("remote config validation error: %w", err), "remote", remConf.Name)
 				continue

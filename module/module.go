@@ -660,7 +660,7 @@ func (m *Module) ValidateConfig(ctx context.Context,
 	}
 
 	if c.ConvertedAttributes != nil {
-		implicitDeps, err := c.ConvertedAttributes.Validate(c.Name)
+		implicitDeps, _, err := c.ConvertedAttributes.Validate(c.Name)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error validating resource")
 		}

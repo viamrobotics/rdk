@@ -350,7 +350,7 @@ func TestWheeledBaseConstructor(t *testing.T) {
 
 	// empty config
 	cfg := &Config{}
-	_, err := cfg.Validate("path")
+	_, _, err := cfg.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// invalid config
@@ -360,7 +360,7 @@ func TestWheeledBaseConstructor(t *testing.T) {
 		Left:                 []string{"fl-m", "bl-m"},
 		Right:                []string{"fr-m"},
 	}
-	_, err = cfg.Validate("path")
+	_, _, err = cfg.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// valid config
@@ -440,32 +440,32 @@ func TestWheeledBaseReconfigure(t *testing.T) {
 
 func TestValidate(t *testing.T) {
 	cfg := &Config{}
-	deps, err := cfg.Validate("path")
+	deps, _, err := cfg.Validate("path")
 	test.That(t, deps, test.ShouldBeNil)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "width_mm")
 
 	cfg.WidthMM = 100
-	deps, err = cfg.Validate("path")
+	deps, _, err = cfg.Validate("path")
 	test.That(t, deps, test.ShouldBeNil)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "wheel_circumference_mm")
 
 	cfg.WheelCircumferenceMM = 1000
-	deps, err = cfg.Validate("path")
+	deps, _, err = cfg.Validate("path")
 	test.That(t, deps, test.ShouldBeNil)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "left")
 
 	cfg.Left = []string{"fl-m", "bl-m"}
-	deps, err = cfg.Validate("path")
+	deps, _, err = cfg.Validate("path")
 	test.That(t, deps, test.ShouldBeNil)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "right")
 
 	cfg.Right = []string{"fr-m"}
-	deps, err = cfg.Validate("path")
+	deps, _, err = cfg.Validate("path")
 	test.That(t, deps, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "left and right need to have the same number of motors, not 2 vs 1")
 
 	cfg.Right = append(cfg.Right, "br-m")
-	deps, err = cfg.Validate("path")
+	deps, _, err = cfg.Validate("path")
 	test.That(t, deps, test.ShouldResemble, []string{"fl-m", "bl-m", "fr-m", "br-m"})
 	test.That(t, err, test.ShouldBeNil)
 }

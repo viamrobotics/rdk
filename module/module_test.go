@@ -387,11 +387,11 @@ type MockConfig struct {
 	Motors []string `json:"motors"`
 }
 
-func (c *MockConfig) Validate(path string) ([]string, error) {
+func (c *MockConfig) Validate(path string) ([]string, []string, error) {
 	if len(c.Motors) < 1 {
-		return nil, errors.New("required attributes 'motors' not specified or empty")
+		return nil, nil, errors.New("required attributes 'motors' not specified or empty")
 	}
-	return c.Motors, nil
+	return c.Motors, nil, nil
 }
 
 // TestAttributeConversion tests that modular resource configs have attributes converted with a registered converter,

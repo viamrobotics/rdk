@@ -691,7 +691,7 @@ func TestDiffSanitize(t *testing.T) {
 
 func modifiedConfigDiffValidate(c *config.ModifiedConfigDiff) error {
 	for idx := 0; idx < len(c.Remotes); idx++ {
-		if _, err := c.Remotes[idx].Validate(fmt.Sprintf("%s.%d", "remotes", idx)); err != nil {
+		if _, _, err := c.Remotes[idx].Validate(fmt.Sprintf("%s.%d", "remotes", idx)); err != nil {
 			return err
 		}
 	}

@@ -50,14 +50,14 @@ type servoConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *servoConfig) Validate(path string) ([]string, error) {
+func (config *servoConfig) Validate(path string) ([]string, []string, error) {
 	var deps []string
 	if config.Board == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "board")
 	}
 	deps = append(deps, config.Board)
 	if config.Pin == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "pin")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "pin")
 	}
 
 	if config.StartPos != nil {
@@ -70,21 +70,21 @@ func (config *servoConfig) Validate(path string) ([]string, error) {
 			maxDeg = *config.MaxDeg
 		}
 		if *config.StartPos < minDeg || *config.StartPos > maxDeg {
-			return nil, resource.NewConfigValidationError(path,
+			return nil, nil, resource.NewConfigValidationError(path,
 				errors.Errorf("starting_position_deg should be between minimum (%.1f) and maximum (%.1f) positions", minDeg, maxDeg))
 		}
 	}
 
 	if config.MinDeg != nil && *config.MinDeg < 0 {
-		return nil, resource.NewConfigValidationError(path, errors.New("min_angle_deg cannot be lower than 0"))
+		return nil, nil, resource.NewConfigValidationError(path, errors.New("min_angle_deg cannot be lower than 0"))
 	}
 	if config.MinWidthUs != nil && *config.MinWidthUs < minWidthUs {
-		return nil, resource.NewConfigValidationError(path, errors.Errorf("min_width_us cannot be lower than %d", minWidthUs))
+		return nil, nil, resource.NewConfigValidationError(path, errors.Errorf("min_width_us cannot be lower than %d", minWidthUs))
 	}
 	if config.MaxWidthUs != nil && *config.MaxWidthUs > maxWidthUs {
-		return nil, resource.NewConfigValidationError(path, errors.Errorf("max_width_us cannot be higher than %d", maxWidthUs))
+		return nil, nil, resource.NewConfigValidationError(path, errors.Errorf("max_width_us cannot be higher than %d", maxWidthUs))
 	}
-	return deps, nil
+	return deps, nil, nil
 }
 
 var model = resource.DefaultModelFamily.WithModel("gpio")

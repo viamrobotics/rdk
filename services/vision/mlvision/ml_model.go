@@ -72,32 +72,32 @@ type MLModelConfig struct {
 }
 
 // Validate will add the ModelName as an implicit dependency to the robot.
-func (conf *MLModelConfig) Validate(path string) ([]string, error) {
+func (conf *MLModelConfig) Validate(path string) ([]string, []string, error) {
 	if conf.ModelName == "" {
-		return nil, errors.New("mlmodel_name cannot be empty")
+		return nil, nil, errors.New("mlmodel_name cannot be empty")
 	}
 	if conf.LabelPath != "" {
 		_, err := os.Stat(conf.LabelPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read file %s: %w", conf.LabelPath, err)
+			return nil, nil, fmt.Errorf("failed to read file %s: %w", conf.LabelPath, err)
 		}
 	}
 	if len(conf.MeanValue) != 0 {
 		if len(conf.MeanValue) < 3 {
-			return nil, errors.New("input_image_mean_value attribute must have at least 3 values, one for each color channel")
+			return nil, nil, errors.New("input_image_mean_value attribute must have at least 3 values, one for each color channel")
 		}
 	}
 	if len(conf.StdDev) != 0 {
 		if len(conf.StdDev) < 3 {
-			return nil, errors.New("input_image_std_dev attribute must have at least 3 values, one for each color channel")
+			return nil, nil, errors.New("input_image_std_dev attribute must have at least 3 values, one for each color channel")
 		}
 	}
 	for _, v := range conf.StdDev {
 		if v == 0.0 {
-			return nil, errors.New("input_image_std_dev is not allowed to have 0 values, will cause division by 0")
+			return nil, nil, errors.New("input_image_std_dev is not allowed to have 0 values, will cause division by 0")
 		}
 	}
-	return []string{conf.ModelName}, nil
+	return []string{conf.ModelName}, nil, nil
 }
 
 func registerMLModelVisionService(

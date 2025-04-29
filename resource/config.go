@@ -319,7 +319,7 @@ func (conf *Config) validate(path, defaultAPIType string) ([]string, error) {
 		return nil, err
 	}
 	if conf.ConvertedAttributes != nil {
-		validatedDeps, err := conf.ConvertedAttributes.Validate(path)
+		validatedDeps, _, err := conf.ConvertedAttributes.Validate(path)
 		if err != nil {
 			return nil, err
 		}
@@ -328,10 +328,10 @@ func (conf *Config) validate(path, defaultAPIType string) ([]string, error) {
 	return deps, nil
 }
 
-// A ConfigValidator validates a configuration and also
-// returns dependencies that were implicitly discovered.
+// A ConfigValidator validates a configuration and also returns both required and optional
+// dependencies that were implicitly discovered.
 type ConfigValidator interface {
-	Validate(path string) ([]string, error)
+	Validate(path string) (requiredDependencies, optionalDependencies []string, err error)
 }
 
 // TransformAttributeMap uses an attribute map to transform attributes to the prescribed format.

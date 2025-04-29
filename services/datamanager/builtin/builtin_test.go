@@ -845,7 +845,7 @@ func resourceConfigAndDeps(t *testing.T, cfg *config.Config, r *inject.Robot) (r
 	test.That(t, config, test.ShouldNotBeNil)
 	builtinConfig, ok := config.ConvertedAttributes.(*Config)
 	test.That(t, ok, test.ShouldBeTrue)
-	ds, err := builtinConfig.Validate("")
+	ds, _, err := builtinConfig.Validate("")
 	test.That(t, err, test.ShouldBeNil)
 	for _, d := range ds {
 		resName, err := resource.NewFromString(d)

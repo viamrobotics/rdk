@@ -54,8 +54,8 @@ func init() {
 }
 
 // Validate for esp32 will always return an unsupported error.
-func (conf *Config) Validate(path string) ([]string, error) {
-	return []string{}, errUnsupported
+func (conf *Config) Validate(path string) ([]string, []string, error) {
+	return []string{}, nil, errUnsupported
 }
 
 func newEsp32Board(

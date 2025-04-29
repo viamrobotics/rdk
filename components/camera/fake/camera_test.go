@@ -24,13 +24,13 @@ func TestFakeCameraParams(t *testing.T) {
 		Width:  321,
 		Height: 0,
 	}
-	_, err := cfg.Validate("path")
+	_, _, err := cfg.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 	cfg = &Config{
 		Width:  0,
 		Height: 321,
 	}
-	_, err = cfg.Validate("path")
+	_, _, err = cfg.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 }
 
