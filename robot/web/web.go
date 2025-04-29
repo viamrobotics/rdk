@@ -572,6 +572,8 @@ type wrappedStreamWithRC struct {
 	rc        *RequestCounter
 }
 
+// RecvMsg increments the reference counter upon receiving the first message from the client.
+// It is called on every message the client streams to the server (potentially many times per stream).
 func (w *wrappedStreamWithRC) RecvMsg(m any) error {
 	// Unmarshalls into m (to populate fields).
 	err := w.ServerStream.RecvMsg(m)
@@ -595,6 +597,11 @@ func (w *wrappedStreamWithRC) RecvMsg(m any) error {
 	return err
 }
 
+// StreamInterceptor extracts the service and method names before invoking the handler to complete the RPC.
+// It is called once per stream and will run on:
+// Client streaming: rpc Method (stream a) returns (b)
+// Server streaming: rpc Method (a) returns (stream b)
+// Bidirectional streaming: rpc Method (stream a) returns (stream b)
 func (rc *RequestCounter) StreamInterceptor(
 	srv any,
 	ss googlegrpc.ServerStream,
