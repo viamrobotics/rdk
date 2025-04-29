@@ -536,8 +536,8 @@ func (rc *RequestCounter) UnaryInterceptor(
 	ctx context.Context, req any, info *googlegrpc.UnaryServerInfo, handler googlegrpc.UnaryHandler,
 ) (resp any, err error) {
 	// Handle `info.FullMethod` values such as:
-	// - `/viam.component.motor.v1.MotorService/IsMoving`
-	// - `/viam.robot.v1.RobotService/SendSessionHeartbeat`
+	// - `/viam.component.motor.v1.MotorService/IsMoving` -> MotorService/IsMoving
+	// - `/viam.robot.v1.RobotService/SendSessionHeartbeat` -> RobotService/SendSessionHeartbeat
 	var apiMethod string
 	switch {
 	case strings.HasPrefix(info.FullMethod, "/viam.component."):
