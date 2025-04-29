@@ -538,8 +538,6 @@ func (rc *RequestCounter) UnaryInterceptor(
 	// Handle `info.FullMethod` values such as:
 	// - `/viam.component.motor.v1.MotorService/IsMoving`
 	// - `/viam.robot.v1.RobotService/SendSessionHeartbeat`
-	//
-	// Only count component APIs, for now.
 	var apiMethod string
 	switch {
 	case strings.HasPrefix(info.FullMethod, "/viam.component."):
