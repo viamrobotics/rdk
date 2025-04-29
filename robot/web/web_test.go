@@ -1206,19 +1206,16 @@ func TestStreamingRequestCounter(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	echoclient := echopb.NewTestEchoServiceClient(conn)
 
-	var hdr metadata.MD
-	var trailers metadata.MD // won't do anything but helps test goutils
-
 	// test counting streaming service with name
 	_, ok := svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/EchoMultiple"]
 	test.That(t, ok, test.ShouldBeFalse)
-	s, _ := echoclient.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "test1", Message: ""}, grpc.Header(&hdr), grpc.Trailer(&trailers))
+	s, _ := echoclient.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "test1", Message: ""})
 	_, err = s.Recv()
 	test.That(t, err, test.ShouldBeNil)
 	count := svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/EchoMultiple"]
 	test.That(t, count, test.ShouldEqual, 1)
 
-	s, _ = echoclient.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "test1", Message: ""}, grpc.Header(&hdr), grpc.Trailer(&trailers))
+	s, _ = echoclient.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "test1", Message: ""})
 	_, err = s.Recv()
 	test.That(t, err, test.ShouldBeNil)
 	count = svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/EchoMultiple"]
