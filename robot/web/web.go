@@ -619,7 +619,11 @@ func (rc *RequestCounter) StreamInterceptor(
 	default:
 	}
 
-	return handler(srv, &wrappedStreamWithRC{ss, apiMethod, rc})
+	// Only count named apiMethods
+	if apiMethod != "" {
+		return handler(srv, &wrappedStreamWithRC{ss, apiMethod, rc, atomic.Bool{}})
+	}
+	return handler(srv, ss)
 }
 
 // Stats satisfies the ftdc.Statser interface and will return a copy of the counters.
