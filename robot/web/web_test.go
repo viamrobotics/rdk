@@ -1217,10 +1217,7 @@ func TestUnaryRequestCounter(t *testing.T) {
 	count = svc.RequestCounter().Stats().(map[string]int64)["RobotService/GetMachineStatus"]
 	test.That(t, count, test.ShouldEqual, 2)
 
-	test.That(t, conn.Close(), test.ShouldBeNil)
-
 	// test targeted (with name field) counts
-	conn, err = rgrpc.Dial(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
 	echoclient := echopb.NewTestEchoServiceClient(conn)
 
