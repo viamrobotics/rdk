@@ -6,7 +6,9 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"testing"
@@ -1222,6 +1224,27 @@ func TestStreamingRequestCounter(t *testing.T) {
 	count = svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/EchoMultiple"]
 	test.That(t, count, test.ShouldEqual, 2)
 
+	// test named bidirectional stream (client sends multiple messages, but RC only increments once)
+	client, _ := echoclient.EchoBiDi(ctx)
+
+	_ = client.Send(&echopb.EchoBiDiRequest{Name: "qwerty", Message: "asdfg"})
+	ch, _ := client.Recv()
+	test.That(t, ch.GetMessage(), test.ShouldEqual, "a")
+	count = svc.RequestCounter().Stats().(map[string]int64)["qwerty.TestEchoService/EchoBiDi"]
+	test.That(t, count, test.ShouldEqual, 1)
+
+	_ = client.Send(&echopb.EchoBiDiRequest{Name: "qwerty", Message: "zxcvb"})
+	_ = client.CloseSend()
+	count = svc.RequestCounter().Stats().(map[string]int64)["qwerty.TestEchoService/EchoBiDi"]
+	test.That(t, count, test.ShouldEqual, 1)
+
+	for range 9 {
+		ch, _ := client.Recv()
+		test.That(t, len(ch.GetMessage()), test.ShouldEqual, 1)
+	}
+	count = svc.RequestCounter().Stats().(map[string]int64)["qwerty.TestEchoService/EchoBiDi"]
+	test.That(t, count, test.ShouldEqual, 1)
+
 	test.That(t, conn.Close(), test.ShouldBeNil)
 	test.That(t, svc.Close(ctx), test.ShouldBeNil)
 }
@@ -1380,6 +1403,24 @@ func (srv *echoServer) EchoMultiple(
 
 func (srv *echoServer) Echo(context.Context, *echopb.EchoRequest) (*echopb.EchoResponse, error) {
 	return &echopb.EchoResponse{}, nil
+}
+
+// EchoBiDi responds to incoming Message(s) by echoing back one character at a time.
+func (srv *echoServer) EchoBiDi(stream echopb.TestEchoService_EchoBiDiServer) error {
+	for {
+		in, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		for _, ch := range in.GetMessage() {
+			if err := stream.Send(&echopb.EchoBiDiResponse{Message: fmt.Sprintf("%c", ch)}); err != nil {
+				return err
+			}
+		}
+	}
 }
 
 // signJWKBasedExternalAccessToken returns an access jwt access token typically returned by an OIDC provider.
