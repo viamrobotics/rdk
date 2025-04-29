@@ -75,7 +75,7 @@ func (rc *RobotClient) heartbeatLoop() {
 					utils.FilterOutError(err, context.DeadlineExceeded) == nil) {
 					// this could be a session expiration but we will handle that via a retry
 					// in the interceptors below
-					rc.logger.Errorw("error sending heartbeat", "error", err)
+					rc.logger.Warnw("error sending heartbeat", "error", err)
 					return
 				}
 				return
