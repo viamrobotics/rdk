@@ -1210,30 +1210,34 @@ func TestUnaryRequestCounter(t *testing.T) {
 	_, ok := svc.RequestCounter().Stats().(map[string]int64)["RobotService/GetMachineStatus"]
 	test.That(t, ok, test.ShouldBeFalse)
 
-	_, _ = client.GetMachineStatus(ctx, &robotpb.GetMachineStatusRequest{})
+	_, err = client.GetMachineStatus(ctx, &robotpb.GetMachineStatusRequest{})
+	test.That(t, err, test.ShouldBeNil)
 	count := svc.RequestCounter().Stats().(map[string]int64)["RobotService/GetMachineStatus"]
 	test.That(t, count, test.ShouldEqual, 1)
 
-	_, _ = client.GetMachineStatus(ctx, &robotpb.GetMachineStatusRequest{})
+	_, err = client.GetMachineStatus(ctx, &robotpb.GetMachineStatusRequest{})
+	test.That(t, err, test.ShouldBeNil)
 	count = svc.RequestCounter().Stats().(map[string]int64)["RobotService/GetMachineStatus"]
 	test.That(t, count, test.ShouldEqual, 2)
 
 	// test targeted (with name field) counts
-	test.That(t, err, test.ShouldBeNil)
 	echoclient := echopb.NewTestEchoServiceClient(conn)
 
 	_, ok = svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/Echo"]
 	test.That(t, ok, test.ShouldBeFalse)
 
-	_, _ = echoclient.Echo(ctx, &echopb.EchoRequest{Name: "test1"})
+	_, err = echoclient.Echo(ctx, &echopb.EchoRequest{Name: "test1"})
+	test.That(t, err, test.ShouldBeNil)
 	count = svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/Echo"]
 	test.That(t, count, test.ShouldEqual, 1)
 
-	_, _ = echoclient.Echo(ctx, &echopb.EchoRequest{Name: "test1"})
+	_, err = echoclient.Echo(ctx, &echopb.EchoRequest{Name: "test1"})
+	test.That(t, err, test.ShouldBeNil)
 	count = svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/Echo"]
 	test.That(t, count, test.ShouldEqual, 2)
 
-	_, _ = echoclient.Echo(ctx, &echopb.EchoRequest{Name: "test2"})
+	_, err = echoclient.Echo(ctx, &echopb.EchoRequest{Name: "test2"})
+	test.That(t, err, test.ShouldBeNil)
 	count = svc.RequestCounter().Stats().(map[string]int64)["test2.TestEchoService/Echo"]
 	test.That(t, count, test.ShouldEqual, 1)
 
@@ -1241,7 +1245,11 @@ func TestUnaryRequestCounter(t *testing.T) {
 	genericclient, err := genericservice.NewClientFromConn(ctx, conn, "", genericservice.Named("generictest"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	genericclient.DoCommand(ctx, nil)
+	_, err = genericclient.DoCommand(ctx, nil)
+	// errors here because we haven't created defined generictest, but RC still counts the request.
+	test.That(t, err.Error(), test.ShouldEqual,
+		"rpc error: code = Unknown desc = resource \"rdk:service:generic/generictest\" not found")
+
 	count = svc.RequestCounter().Stats().(map[string]int64)["generictest.GenericService/DoCommand"]
 	test.That(t, count, test.ShouldEqual, 1)
 
