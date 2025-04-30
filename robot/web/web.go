@@ -227,13 +227,14 @@ func (svc *webService) StartModule(ctx context.Context) error {
 	// Attach the module name (as defined by the robot config) to the handler context. Can be
 	// accessed via `grpc.GetModuleName`.
 	unaryInterceptors = append(unaryInterceptors, svc.modPeerConnTracker.ModInfoUnaryServerInterceptor)
+
 	unaryInterceptors = append(unaryInterceptors, svc.requestCounter.UnaryInterceptor)
+	streamInterceptors = append(streamInterceptors, svc.requestCounter.StreamInterceptor)
 
 	opManager := svc.r.OperationManager()
 	unaryInterceptors = append(unaryInterceptors,
 		opManager.UnaryServerInterceptor, logging.UnaryServerInterceptor)
 	streamInterceptors = append(streamInterceptors, opManager.StreamServerInterceptor)
-	streamInterceptors = append(streamInterceptors, svc.requestCounter.StreamInterceptor)
 
 	// TODO(PRODUCT-343): Add session manager interceptors
 
@@ -680,9 +681,14 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 		rpcOpts = append(rpcOpts, rpc.WithDisableMulticastDNS())
 	}
 
-	var unaryInterceptors []googlegrpc.UnaryServerInterceptor
+	var (
+		unaryInterceptors  []googlegrpc.UnaryServerInterceptor
+		streamInterceptors []googlegrpc.StreamServerInterceptor
+	)
 	unaryInterceptors = append(unaryInterceptors, grpc.EnsureTimeoutUnaryServerInterceptor)
+
 	unaryInterceptors = append(unaryInterceptors, svc.requestCounter.UnaryInterceptor)
+	streamInterceptors = append(streamInterceptors, svc.requestCounter.StreamInterceptor)
 
 	if options.Debug {
 		rpcOpts = append(rpcOpts, rpc.WithDebug())
@@ -709,8 +715,6 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 	}
 	rpcOpts = append(rpcOpts, authOpts...)
 
-	var streamInterceptors []googlegrpc.StreamServerInterceptor
-
 	opManager := svc.r.OperationManager()
 	sessManagerInts := svc.r.SessionManager().ServerInterceptors()
 	if sessManagerInts.UnaryServerInterceptor != nil {
@@ -723,7 +727,6 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 		streamInterceptors = append(streamInterceptors, sessManagerInts.StreamServerInterceptor)
 	}
 	streamInterceptors = append(streamInterceptors, opManager.StreamServerInterceptor)
-	streamInterceptors = append(streamInterceptors, svc.requestCounter.StreamInterceptor)
 
 	rpcOpts = append(
 		rpcOpts,
