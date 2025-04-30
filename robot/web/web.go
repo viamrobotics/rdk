@@ -534,8 +534,8 @@ type RequestCounter struct {
 	counts sync.Map
 }
 
-// IncrementCounter atomically increments the counter for a given key, creating it first if needed.
-func (rc *RequestCounter) IncrementCounter(key string) {
+// incrementCounter atomically increments the counter for a given key, creating it first if needed.
+func (rc *RequestCounter) incrementCounter(key string) {
 	if apiCounts, ok := rc.counts.Load(key); ok {
 		apiCounts.(*atomic.Int64).Add(1)
 	} else {
@@ -594,7 +594,7 @@ func (rc *RequestCounter) UnaryInterceptor(
 	// Storing in FTDC: `web.motor-name.MotorService/IsMoving: <count>`.
 	if apiMethod != "" {
 		key := buildRCKey(&req, apiMethod)
-		rc.IncrementCounter(key)
+		rc.incrementCounter(key)
 	}
 
 	return handler(ctx, req)
@@ -616,7 +616,7 @@ func (w *wrappedStreamWithRC) RecvMsg(m any) error {
 
 	if w.seenFirst.CompareAndSwap(false, true) && err == nil {
 		key := buildRCKey(&m, w.apiMethod)
-		w.rc.IncrementCounter(key)
+		w.rc.incrementCounter(key)
 	}
 
 	return err
