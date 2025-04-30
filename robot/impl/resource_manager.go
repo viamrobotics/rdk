@@ -1196,7 +1196,7 @@ func (manager *resourceManager) updateResources(
 	}
 
 	if len(conf.Added.Processes) > 0 || len(conf.Modified.Processes) > 0 {
-		manager.logger.CErrorw(ctx, "Processes have been deprecated and are no longer supported in this version of the RDK. "+
+		manager.logger.CErrorw(ctx, "Processes have been deprecated and are no longer supported in viam-server versions v0.74.0+. "+
 			"The processes config of this machine part has been ignored.")
 	}
 
