@@ -533,24 +533,50 @@ type RequestCounter struct {
 	counts sync.Map
 }
 
+// IncrementCounter atomically increments the counter for a given key, creating it first if needed.
+func (rc *RequestCounter) IncrementCounter(key string) {
+	if apiCounts, ok := rc.counts.Load(key); ok {
+		apiCounts.(*atomic.Int64).Add(1)
+	} else {
+		newCounter := new(atomic.Int64)
+		newCounter.Add(1)
+		rc.counts.Store(key, newCounter)
+	}
+}
+
+// Stats satisfies the ftdc.Statser interface and will return a copy of the counters.
+func (rc *RequestCounter) Stats() any {
+	ret := make(map[string]int64)
+	rc.counts.Range(func(key, value any) bool {
+		ret[key.(string)] = value.(*atomic.Int64).Load()
+		return true
+	})
+
+	return ret
+}
+
+func extractAPIMethod(fullMethod string) string {
+	// Extract Service and Method name from `fullMethod` values such as:
+	// - `/viam.component.motor.v1.MotorService/IsMoving` -> MotorService/IsMoving
+	// - `/viam.robot.v1.RobotService/SendSessionHeartbeat` -> RobotService/SendSessionHeartbeat
+	switch {
+	case strings.HasPrefix(fullMethod, "/viam.component."):
+		fallthrough
+	case strings.HasPrefix(fullMethod, "/viam.service."):
+		fallthrough
+	case strings.HasPrefix(fullMethod, "/viam.robot."):
+		return fullMethod[strings.LastIndexByte(fullMethod, byte('.'))+1:]
+	default:
+		return ""
+	}
+}
+
 // UnaryInterceptor returns an incoming server interceptor that will pull method information and
 // optionally resource information to bump the request counters.
 func (rc *RequestCounter) UnaryInterceptor(
 	ctx context.Context, req any, info *googlegrpc.UnaryServerInfo, handler googlegrpc.UnaryHandler,
 ) (resp any, err error) {
-	// Handle `info.FullMethod` values such as:
-	// - `/viam.component.motor.v1.MotorService/IsMoving` -> MotorService/IsMoving
-	// - `/viam.robot.v1.RobotService/SendSessionHeartbeat` -> RobotService/SendSessionHeartbeat
-	var apiMethod string
-	switch {
-	case strings.HasPrefix(info.FullMethod, "/viam.component."):
-		fallthrough
-	case strings.HasPrefix(info.FullMethod, "/viam.service."):
-		fallthrough
-	case strings.HasPrefix(info.FullMethod, "/viam.robot."):
-		apiMethod = info.FullMethod[strings.LastIndexByte(info.FullMethod, byte('.'))+1:]
-	default:
-	}
+	apiMethod := extractAPIMethod(info.FullMethod)
 
 	// Storing in FTDC: `web.motor-name.MotorService/IsMoving: <count>`.
 	if apiMethod != "" {
@@ -560,13 +586,7 @@ func (rc *RequestCounter) UnaryInterceptor(
 		} else {
 			key = apiMethod
 		}
-		if apiCounts, ok := rc.counts.Load(key); ok {
-			apiCounts.(*atomic.Int64).Add(1)
-		} else {
-			newCounter := new(atomic.Int64)
-			newCounter.Add(1)
-			rc.counts.Store(key, newCounter)
-		}
+		rc.IncrementCounter(key)
 	}
 
 	return handler(ctx, req)
@@ -593,13 +613,7 @@ func (w *wrappedStreamWithRC) RecvMsg(m any) error {
 		} else {
 			key = w.apiMethod
 		}
-		if apiCounts, ok := w.rc.counts.Load(key); ok {
-			apiCounts.(*atomic.Int64).Add(1)
-		} else {
-			newCounter := new(atomic.Int64)
-			newCounter.Add(1)
-			w.rc.counts.Store(key, newCounter)
-		}
+		w.rc.IncrementCounter(key)
 	}
 
 	return err
@@ -616,33 +630,13 @@ func (rc *RequestCounter) StreamInterceptor(
 	info *googlegrpc.StreamServerInfo,
 	handler googlegrpc.StreamHandler,
 ) error {
-	var apiMethod string
-	switch {
-	case strings.HasPrefix(info.FullMethod, "/viam.component."):
-		fallthrough
-	case strings.HasPrefix(info.FullMethod, "/viam.service."):
-		fallthrough
-	case strings.HasPrefix(info.FullMethod, "/viam.robot."):
-		apiMethod = info.FullMethod[strings.LastIndexByte(info.FullMethod, byte('.'))+1:]
-	default:
-	}
+	apiMethod := extractAPIMethod(info.FullMethod)
 
 	// Only count named apiMethods
 	if apiMethod != "" {
 		return handler(srv, &wrappedStreamWithRC{ss, apiMethod, rc, atomic.Bool{}})
 	}
 	return handler(srv, ss)
-}
-
-// Stats satisfies the ftdc.Statser interface and will return a copy of the counters.
-func (rc *RequestCounter) Stats() any {
-	ret := make(map[string]int64)
-	rc.counts.Range(func(key, value any) bool {
-		ret[key.(string)] = value.(*atomic.Int64).Load()
-		return true
-	})
-
-	return ret
 }
 
 // RequestCounter returns the request counter object.
