@@ -135,13 +135,6 @@ func TestJointPositions(t *testing.T) {
 	test.That(t, sampleInputs, test.ShouldResemble, inputs)
 }
 
-const (
-	testArmName    = "arm1"
-	testArmName2   = "arm2"
-	failArmName    = "arm3"
-	missingArmName = "arm4"
-)
-
 func TestXArm6Locations(t *testing.T) {
 	// check the exact values/locations of arm geometries at a couple different poses
 	logger := logging.NewTestLogger(t)
