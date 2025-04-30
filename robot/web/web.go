@@ -571,6 +571,18 @@ func extractAPIMethod(fullMethod string) string {
 	}
 }
 
+// buildRCKey builds the key to be used in the RequestCounter's counts map.
+// If the msg satisfies web.Namer, the key will be in the format "name.method",
+// Otherwise, the key will be just "method".
+func buildRCKey(clientMsg *any, apiMethod string) string {
+	if clientMsg != nil {
+		if namer, ok := (*clientMsg).(Namer); ok {
+			return fmt.Sprintf("%v.%v", namer.GetName(), apiMethod)
+		}
+	}
+	return apiMethod
+}
+
 // UnaryInterceptor returns an incoming server interceptor that will pull method information and
 // optionally resource information to bump the request counters.
 func (rc *RequestCounter) UnaryInterceptor(
@@ -580,12 +592,7 @@ func (rc *RequestCounter) UnaryInterceptor(
 
 	// Storing in FTDC: `web.motor-name.MotorService/IsMoving: <count>`.
 	if apiMethod != "" {
-		var key string
-		if namer, ok := req.(Namer); ok {
-			key = fmt.Sprintf("%v.%v", namer.GetName(), apiMethod)
-		} else {
-			key = apiMethod
-		}
+		key := buildRCKey(&req, apiMethod)
 		rc.IncrementCounter(key)
 	}
 
@@ -607,12 +614,7 @@ func (w *wrappedStreamWithRC) RecvMsg(m any) error {
 	err := w.ServerStream.RecvMsg(m)
 
 	if w.seenFirst.CompareAndSwap(false, true) && err == nil {
-		var key string
-		if namer, ok := m.(Namer); ok {
-			key = fmt.Sprintf("%v.%v", namer.GetName(), w.apiMethod)
-		} else {
-			key = w.apiMethod
-		}
+		key := buildRCKey(&m, w.apiMethod)
 		w.rc.IncrementCounter(key)
 	}
 
