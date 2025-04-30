@@ -151,7 +151,7 @@ jobs:
       with:
         python-version: '3.11'
     - name: deps
-      run: pip install appimage-builder git+https://github.com/AppImageCrafters/appimage-builder.git@bf6123ee43715e52d2a73639f9acb1251e8af640
+      run: pip install git+https://github.com/AppImageCrafters/appimage-builder.git@bf6123ee43715e52d2a73639f9acb1251e8af640
     - name: build
       env:
         RELEASE_TYPE: ${{ inputs.release_type }}
