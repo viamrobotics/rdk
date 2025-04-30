@@ -2790,7 +2790,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						&cli.StringFlag{
 							Name:  moduleFlagHomeDir,
 							Usage: "remote user's home directory. only necessary if you're targeting a remote machine where $HOME is not /root",
-							Value: "/root",
+							Value: "~",
 						},
 					},
 					Action: createCommandWithT[reloadModuleArgs](ReloadModuleAction),
