@@ -556,7 +556,7 @@ func (rc *RequestCounter) Stats() any {
 	return ret
 }
 
-func extractAPIMethod(fullMethod string) string {
+func extractViamAPI(fullMethod string) string {
 	// Extract Service and Method name from `fullMethod` values such as:
 	// - `/viam.component.motor.v1.MotorService/IsMoving` -> MotorService/IsMoving
 	// - `/viam.robot.v1.RobotService/SendSessionHeartbeat` -> RobotService/SendSessionHeartbeat
@@ -589,7 +589,7 @@ func buildRCKey(clientMsg *any, apiMethod string) string {
 func (rc *RequestCounter) UnaryInterceptor(
 	ctx context.Context, req any, info *googlegrpc.UnaryServerInfo, handler googlegrpc.UnaryHandler,
 ) (resp any, err error) {
-	apiMethod := extractAPIMethod(info.FullMethod)
+	apiMethod := extractViamAPI(info.FullMethod)
 
 	// Storing in FTDC: `web.motor-name.MotorService/IsMoving: <count>`.
 	if apiMethod != "" {
@@ -633,7 +633,7 @@ func (rc *RequestCounter) StreamInterceptor(
 	info *googlegrpc.StreamServerInfo,
 	handler googlegrpc.StreamHandler,
 ) error {
-	apiMethod := extractAPIMethod(info.FullMethod)
+	apiMethod := extractViamAPI(info.FullMethod)
 
 	// Only count Viam apiMethods
 	if apiMethod != "" {
