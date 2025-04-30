@@ -284,6 +284,8 @@ func newPeerConnectionForServer(
 		return nil, nil, err
 	}
 
+	fmt.Printf("Server webrtc config: %#v\n", config)
+
 	peerConn, err := webAPI.NewPeerConnection(config)
 	if err != nil {
 		return nil, nil, err
