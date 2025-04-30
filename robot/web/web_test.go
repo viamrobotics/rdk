@@ -1309,6 +1309,7 @@ func TestStreamingRequestCounter(t *testing.T) {
 	err = client.Send(&echopb.EchoBiDiRequest{Name: "qwerty", Message: "asdfg"})
 	test.That(t, err, test.ShouldBeNil)
 	ch, err := client.Recv()
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ch.GetMessage(), test.ShouldEqual, "a")
 	count = svc.RequestCounter().Stats().(map[string]int64)["qwerty.TestEchoService/EchoBiDi"]
 	test.That(t, count, test.ShouldEqual, 1)
