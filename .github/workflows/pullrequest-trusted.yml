@@ -80,3 +80,8 @@ jobs:
 
   license_finder:
     uses: viamrobotics/rdk/.github/workflows/license_finder.yml@main
+
+  cli:
+    uses: viamrobotics/rdk/.github/workflows/cli.yml@main
+    with:
+      release_type: pr
