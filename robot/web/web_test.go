@@ -1288,34 +1288,41 @@ func TestStreamingRequestCounter(t *testing.T) {
 	// test counting streaming service with name
 	_, ok := svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/EchoMultiple"]
 	test.That(t, ok, test.ShouldBeFalse)
-	s, _ := echoclient.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "test1", Message: ""})
+	s, err := echoclient.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "test1", Message: ""})
+	test.That(t, err, test.ShouldBeNil)
 	_, err = s.Recv()
 	test.That(t, err, test.ShouldBeNil)
 	count := svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/EchoMultiple"]
 	test.That(t, count, test.ShouldEqual, 1)
 
-	s, _ = echoclient.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "test1", Message: ""})
+	s, err = echoclient.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "test1", Message: ""})
+	test.That(t, err, test.ShouldBeNil)
 	_, err = s.Recv()
 	test.That(t, err, test.ShouldBeNil)
 	count = svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/EchoMultiple"]
 	test.That(t, count, test.ShouldEqual, 2)
 
 	// test named bidirectional stream (client sends multiple messages, but RC only increments once)
-	client, _ := echoclient.EchoBiDi(ctx)
+	client, err := echoclient.EchoBiDi(ctx)
+	test.That(t, err, test.ShouldBeNil)
 
-	_ = client.Send(&echopb.EchoBiDiRequest{Name: "qwerty", Message: "asdfg"})
-	ch, _ := client.Recv()
+	err = client.Send(&echopb.EchoBiDiRequest{Name: "qwerty", Message: "asdfg"})
+	test.That(t, err, test.ShouldBeNil)
+	ch, err := client.Recv()
 	test.That(t, ch.GetMessage(), test.ShouldEqual, "a")
 	count = svc.RequestCounter().Stats().(map[string]int64)["qwerty.TestEchoService/EchoBiDi"]
 	test.That(t, count, test.ShouldEqual, 1)
 
-	_ = client.Send(&echopb.EchoBiDiRequest{Name: "qwerty", Message: "zxcvb"})
-	_ = client.CloseSend()
+	err = client.Send(&echopb.EchoBiDiRequest{Name: "qwerty", Message: "zxcvb"})
+	test.That(t, err, test.ShouldBeNil)
+	err = client.CloseSend()
+	test.That(t, err, test.ShouldBeNil)
 	count = svc.RequestCounter().Stats().(map[string]int64)["qwerty.TestEchoService/EchoBiDi"]
 	test.That(t, count, test.ShouldEqual, 1)
 
 	for range 9 {
-		ch, _ := client.Recv()
+		ch, err := client.Recv()
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(ch.GetMessage()), test.ShouldEqual, 1)
 	}
 	count = svc.RequestCounter().Stats().(map[string]int64)["qwerty.TestEchoService/EchoBiDi"]
