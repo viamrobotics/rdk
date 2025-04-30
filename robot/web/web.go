@@ -391,6 +391,7 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 	}
 
 	if options.NoTLS {
+		svc.logger.Warn("disabling TLS for web server")
 		options.Secure = false
 	} else {
 		options.Secure = options.Network.TLSConfig != nil || options.Network.TLSCertFile != ""
@@ -538,28 +539,33 @@ func (rc *RequestCounter) UnaryInterceptor(
 	ctx context.Context, req any, info *googlegrpc.UnaryServerInfo, handler googlegrpc.UnaryHandler,
 ) (resp any, err error) {
 	// Handle `info.FullMethod` values such as:
-	// - `/viam.component.motor.v1.MotorService/IsMoving`
-	// - `/viam.robot.v1.RobotService/SendSessionHeartbeat`
-	//
-	// Only count component APIs, for now.
+	// - `/viam.component.motor.v1.MotorService/IsMoving` -> MotorService/IsMoving
+	// - `/viam.robot.v1.RobotService/SendSessionHeartbeat` -> RobotService/SendSessionHeartbeat
 	var apiMethod string
 	switch {
 	case strings.HasPrefix(info.FullMethod, "/viam.component."):
-		apiMethod = info.FullMethod[strings.LastIndexByte(info.FullMethod, byte('/'))+1:]
+		fallthrough
+	case strings.HasPrefix(info.FullMethod, "/viam.service."):
+		fallthrough
+	case strings.HasPrefix(info.FullMethod, "/viam.robot."):
+		apiMethod = info.FullMethod[strings.LastIndexByte(info.FullMethod, byte('.'))+1:]
 	default:
 	}
 
-	// Storing in FTDC: `web.motor-name.IsMoving: <count>`.
+	// Storing in FTDC: `web.motor-name.MotorService/IsMoving: <count>`.
 	if apiMethod != "" {
+		var key string
 		if namer, ok := req.(Namer); ok {
-			key := fmt.Sprintf("%v.%v", namer.GetName(), apiMethod)
-			if apiCounts, ok := rc.counts.Load(key); ok {
-				apiCounts.(*atomic.Int64).Add(1)
-			} else {
-				newCounter := new(atomic.Int64)
-				newCounter.Add(1)
-				rc.counts.Store(key, newCounter)
-			}
+			key = fmt.Sprintf("%v.%v", namer.GetName(), apiMethod)
+		} else {
+			key = apiMethod
+		}
+		if apiCounts, ok := rc.counts.Load(key); ok {
+			apiCounts.(*atomic.Int64).Add(1)
+		} else {
+			newCounter := new(atomic.Int64)
+			newCounter.Add(1)
+			rc.counts.Store(key, newCounter)
 		}
 	}
 

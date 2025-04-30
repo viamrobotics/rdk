@@ -108,7 +108,7 @@ jobs:
         GOFLAGS: "-tags=no_cgo"
       run:
         # note: this is a subset of tests that are known to pass on windows
-        go run gotest.tools/gotestsum --format standard-verbose --jsonfile json.log ./module
+        go run gotest.tools/gotestsum --format standard-verbose --jsonfile json.log ./module ./logging/...
 
     - name: Upload test.json
       if: always()
@@ -158,7 +158,7 @@ jobs:
         with:
           cache-dependency-path: cli/test-requirements.txt
       - run: |
-          go run ./cli/viam/ module create --local-only --name schematest --public-namespace ns
+          go run -tags no_cgo ./cli/viam/ module create --local-only --name schematest --public-namespace ns
           cat meta.json | jq '.models = [{"api": "x:y:z", "model": "x:y:z"}]' > meta2.json
           python -m venv .venv
           source .venv/bin/activate

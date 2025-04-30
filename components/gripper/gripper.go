@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/spatialmath"
 )
 
 func init() {
@@ -88,4 +89,30 @@ func FromDependencies(deps resource.Dependencies, name string) (Gripper, error) 
 // NamesFromRobot is a helper for getting all gripper names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
+}
+
+// MakeModel is a helper function that creates a zero DoF Model for a gripper from a list of its geometries.
+func MakeModel(name string, geometries []spatialmath.Geometry) (referenceframe.Model, error) {
+	if len(geometries) == 0 {
+		return referenceframe.NewSimpleModel(name), nil
+	}
+	cfg := &referenceframe.ModelConfig{
+		Name:  name,
+		Links: []referenceframe.LinkConfig{},
+	}
+	parent := referenceframe.World
+	for _, g := range geometries {
+		f, err := referenceframe.NewStaticFrameWithGeometry(g.Label(), spatialmath.NewZeroPose(), g)
+		if err != nil {
+			return nil, err
+		}
+		lf, err := referenceframe.NewLinkConfig(f)
+		if err != nil {
+			return nil, err
+		}
+		lf.Parent = parent
+		parent = g.Label()
+		cfg.Links = append(cfg.Links, *lf)
+	}
+	return cfg.ParseConfig(name)
 }

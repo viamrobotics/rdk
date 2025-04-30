@@ -1,4 +1,4 @@
-//go:build !windows && !no_cgo
+//go:build !no_cgo
 
 package ik
 

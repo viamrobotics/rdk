@@ -1,5 +1,3 @@
-//go:build !no_cgo
-
 package motionplan
 
 import (
@@ -251,7 +249,7 @@ func (pm *planManager) planAtomicWaypoints(
 		pm.logger.Infof("returning partial plan up to waypoint %d", lastOrig)
 	}
 
-	// // TODO: Once TPspace also supports multiple waypoints, this needs to be updated. For now it can be false.
+	// TODO: Once TPspace also supports multiple waypoints, this needs to be updated. For now it can be false.
 	return newRRTPlan(resultSlices, pm.fs, false, nil)
 }
 

@@ -47,6 +47,7 @@ import (
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
+	genericservice "go.viam.com/rdk/services/generic"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/testutils/robottestutils"
@@ -1177,6 +1178,84 @@ func TestRawClientOperation(t *testing.T) {
 	checkOpID(md, true) // EchoMultiple is NOT filtered, so should have an opID
 	test.That(t, conn.Close(), test.ShouldBeNil)
 
+	test.That(t, svc.Close(ctx), test.ShouldBeNil)
+}
+
+func TestUnaryRequestCounter(t *testing.T) {
+	echoAPI := resource.NewAPI("rdk", "component", "echo")
+	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceCollection[resource.Resource]) interface{} { return &echoServer{} },
+		RPCServiceHandler:           echopb.RegisterTestEchoServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &echopb.TestEchoService_ServiceDesc,
+	})
+	defer resource.DeregisterAPI(echoAPI)
+
+	logger := logging.NewTestLogger(t)
+	ctx, iRobot := setupRobotCtx(t)
+
+	svc := web.New(iRobot, logger)
+
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err := svc.Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	iRobot.(*inject.Robot).MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
+		return robot.MachineStatus{}, nil
+	}
+
+	conn, err := rgrpc.Dial(context.Background(), addr, logger, rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{Disable: true}))
+	test.That(t, err, test.ShouldBeNil)
+
+	// test un-targeted (no name field) counts
+	client := robotpb.NewRobotServiceClient(conn)
+
+	_, ok := svc.RequestCounter().Stats().(map[string]int64)["RobotService/GetMachineStatus"]
+	test.That(t, ok, test.ShouldBeFalse)
+
+	_, err = client.GetMachineStatus(ctx, &robotpb.GetMachineStatusRequest{})
+	test.That(t, err, test.ShouldBeNil)
+	count := svc.RequestCounter().Stats().(map[string]int64)["RobotService/GetMachineStatus"]
+	test.That(t, count, test.ShouldEqual, 1)
+
+	_, err = client.GetMachineStatus(ctx, &robotpb.GetMachineStatusRequest{})
+	test.That(t, err, test.ShouldBeNil)
+	count = svc.RequestCounter().Stats().(map[string]int64)["RobotService/GetMachineStatus"]
+	test.That(t, count, test.ShouldEqual, 2)
+
+	// test targeted (with name field) counts
+	echoclient := echopb.NewTestEchoServiceClient(conn)
+
+	_, ok = svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/Echo"]
+	test.That(t, ok, test.ShouldBeFalse)
+
+	_, err = echoclient.Echo(ctx, &echopb.EchoRequest{Name: "test1"})
+	test.That(t, err, test.ShouldBeNil)
+	count = svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/Echo"]
+	test.That(t, count, test.ShouldEqual, 1)
+
+	_, err = echoclient.Echo(ctx, &echopb.EchoRequest{Name: "test1"})
+	test.That(t, err, test.ShouldBeNil)
+	count = svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/Echo"]
+	test.That(t, count, test.ShouldEqual, 2)
+
+	_, err = echoclient.Echo(ctx, &echopb.EchoRequest{Name: "test2"})
+	test.That(t, err, test.ShouldBeNil)
+	count = svc.RequestCounter().Stats().(map[string]int64)["test2.TestEchoService/Echo"]
+	test.That(t, count, test.ShouldEqual, 1)
+
+	// test service with a name field
+	genericclient, err := genericservice.NewClientFromConn(ctx, conn, "", genericservice.Named("generictest"), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = genericclient.DoCommand(ctx, nil)
+	// errors here because we haven't created defined generictest, but RC still counts the request.
+	test.That(t, err.Error(), test.ShouldEqual,
+		"rpc error: code = Unknown desc = resource \"rdk:service:generic/generictest\" not found")
+
+	count = svc.RequestCounter().Stats().(map[string]int64)["generictest.GenericService/DoCommand"]
+	test.That(t, count, test.ShouldEqual, 1)
+
+	test.That(t, conn.Close(), test.ShouldBeNil)
 	test.That(t, svc.Close(ctx), test.ShouldBeNil)
 }
 

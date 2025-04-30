@@ -2,6 +2,7 @@ package utils
 
 import (
 	"os"
+	"os/user"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -46,4 +47,20 @@ func SafeJoinDir(parent, subdir string) (string, error) {
 		return res, errors.Errorf("unsafe path join: '%s' with '%s'", parent, subdir)
 	}
 	return res, nil
+}
+
+// ExpandHomeDir expands "~/x/y" to use homedir.
+func ExpandHomeDir(path string) (string, error) {
+	// note: do not simplify this logic unless you are testing cross platform.
+	// Windows supports both kinds of slash, we don't want to only test for "\\" on win.
+	if path == "~" ||
+		strings.HasPrefix(path, "~/") ||
+		(runtime.GOOS == "windows" && strings.HasPrefix(path, "~\\")) {
+		usr, err := user.Current()
+		if err != nil {
+			return "", errors.Wrap(err, "expanding home dir")
+		}
+		return filepath.Join(usr.HomeDir, path[min(2, len(path)):]), nil
+	}
+	return path, nil
 }

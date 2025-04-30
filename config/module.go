@@ -101,7 +101,11 @@ func (m *Module) validate(path string) error {
 	// Only check if the path exists during validation for local modules because the packagemanager may not have downloaded
 	// the package yet.
 	if m.Type == ModuleTypeLocal {
-		_, err := os.Stat(m.ExePath)
+		exePath, err := utils.ExpandHomeDir(m.ExePath)
+		if err != nil {
+			return err
+		}
+		_, err = os.Stat(exePath)
 		if err != nil {
 			return fmt.Errorf("module %s executable path error: %w", path, err)
 		}
@@ -197,8 +201,12 @@ func parseJSONFile[T any](path string) (*T, error) {
 // 3. otherwise use the exe path from config, or fail if this is a local tarball.
 // Note: the working directory must be the unpacked tarball directory or local exec directory.
 func (m Module) EvaluateExePath(packagesDir string) (string, error) {
-	if !filepath.IsAbs(m.ExePath) {
-		return "", fmt.Errorf("expected ExePath to be absolute path, got %s", m.ExePath)
+	path, err := utils.ExpandHomeDir(m.ExePath)
+	if err != nil {
+		return "", err
+	}
+	if !filepath.IsAbs(path) {
+		return "", fmt.Errorf("expected ExePath to be absolute path, got %s", path)
 	}
 	exeDir, err := m.exeDir(packagesDir)
 	if err != nil {
@@ -229,14 +237,14 @@ func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 	if m.NeedsSyntheticPackage() {
 		// this is case 2, side-by-side
 		// TODO(RSDK-7848): remove this case once java sdk supports internal meta.json.
-		metaPath, err := utils.SafeJoinDir(filepath.Dir(m.ExePath), "meta.json")
+		metaPath, err := utils.SafeJoinDir(filepath.Dir(path), "meta.json")
 		if err != nil {
 			return "", err
 		}
 		meta, err := parseJSONFile[JSONManifest](metaPath)
 		if err != nil {
 			// note: this error deprecates the side-by-side case because the side-by-side case is deprecated.
-			return "", fmt.Errorf("couldn't find meta.json inside tarball %s (or next to it): %w", m.ExePath, err)
+			return "", fmt.Errorf("couldn't find meta.json inside tarball %s (or next to it): %w", path, err)
 		}
 		entrypoint, err := utils.SafeJoinDir(exeDir, meta.Entrypoint)
 		if err != nil {
@@ -244,7 +252,7 @@ func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 		}
 		return filepath.Abs(entrypoint)
 	}
-	return m.ExePath, nil
+	return path, nil
 }
 
 // FirstRunSuccessSuffix is the suffix of the file whose existence

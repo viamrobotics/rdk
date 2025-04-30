@@ -177,66 +177,29 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 		return nil, errors.Errorf("stream is neither a camera nor audioinput. streamName: %v", streamStateToAdd.Stream)
 	}
 
+	var nameToPeerState map[string]*peerState
 	// return error if the caller's peer connection is already being sent stream data
-	if _, ok := server.activePeerStreams[pc][req.Name]; ok {
-		err := errors.New("stream already active")
-		server.logger.Error(err.Error())
-		return nil, err
-	}
-	nameToPeerState, ok := server.activePeerStreams[pc]
-	// if there is no active video data being sent, set up a callback to remove the peer connection from
-	// the active streams & stop the stream from doing h264 encode if this is the last peer connection
-	// subcribed to the camera's video feed
-	// the callback fires when the peer connection state changes & runs the cleanup routine when the
-	// peer connection is in a terminal state.
-	if !ok {
+	if pcStreams, pcHasStreams := server.activePeerStreams[pc]; pcHasStreams {
+		nameToPeerState = pcStreams
+		if _, isStreaming := pcStreams[req.Name]; isStreaming {
+			err := errors.New("stream already active")
+			server.logger.Error(err.Error())
+			return nil, err
+		}
+	} else {
+		// if there is no active video data being sent, set up a callback to remove the peer
+		// connection from the active streams & stop the stream from doing h264 encode if this is
+		// the last peer connection subcribed to the camera's video feed the callback fires when the
+		// peer connection state changes & runs the cleanup routine when the peer connection is in a
+		// terminal state.
 		nameToPeerState = map[string]*peerState{}
-		pc.OnConnectionStateChange(func(peerConnectionState webrtc.PeerConnectionState) {
-			server.logger.Infof("%s pc.OnConnectionStateChange state: %s", req.Name, peerConnectionState)
-			switch peerConnectionState {
-			case webrtc.PeerConnectionStateDisconnected,
-				webrtc.PeerConnectionStateFailed,
-				webrtc.PeerConnectionStateClosed:
-
-				server.mu.Lock()
-				defer server.mu.Unlock()
-
-				if server.isAlive {
-					// Dan: This conditional closing on `isAlive` is a hack to avoid a data
-					// race. Shutting down a robot causes the PeerConnection to be closed
-					// concurrently with this `stream.Server`. Thus, `stream.Server.Close` waiting
-					// on the `activeBackgroundWorkers` WaitGroup can race with adding a new
-					// "worker". Given `Close` is expected to `Stop` remaining streams, we can elide
-					// spinning off the below goroutine.
-					//
-					// Given this is an existing race, I'm choosing to add to the tech debt rather
-					// than architect how shutdown should holistically work. Revert this change and
-					// run `TestAudioTrackIsNotCreatedForVideoStream` to reproduce the race.
-					server.activeBackgroundWorkers.Add(1)
-					utils.PanicCapturingGo(func() {
-						defer server.activeBackgroundWorkers.Done()
-						server.mu.Lock()
-						defer server.mu.Unlock()
-						defer delete(server.activePeerStreams, pc)
-						var errs error
-						for _, ps := range server.activePeerStreams[pc] {
-							errs = multierr.Combine(errs, ps.streamState.Decrement())
-						}
-						// We don't want to log this if the streamState was closed (as it only happens if viam-server is terminating)
-						if errs != nil && !errors.Is(errs, state.ErrClosed) {
-							server.logger.Errorw("error(s) stopping the streamState", "errs", errs)
-						}
-					})
-				}
-			case webrtc.PeerConnectionStateConnected,
-				webrtc.PeerConnectionStateConnecting,
-				webrtc.PeerConnectionStateNew:
-				fallthrough
-			default:
-				return
-			}
-		})
 		server.activePeerStreams[pc] = nameToPeerState
+		pc.OnConnectionStateChange(func(peerConnectionState webrtc.PeerConnectionState) {
+			// In addition to shutting down existing streams, `removeStreamsOnPCDisconnect` will
+			// remove the `pc` key from `activePeerStreams`. Returning us to the same state before
+			// the peer connection requested a video.
+			removeStreamsOnPCDisconnect(server, pc, peerConnectionState)
+		})
 	}
 
 	ps, ok := nameToPeerState[req.Name]
@@ -247,6 +210,7 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 	}
 
 	guard := rutils.NewGuard(func() {
+		delete(nameToPeerState, req.Name)
 		for _, sender := range ps.senders {
 			utils.UncheckedError(pc.RemoveTrack(sender))
 		}
@@ -849,4 +813,51 @@ retryLoop:
 		return 0, 0, fmt.Errorf("failed to get frame after 5 attempts: %w", err)
 	}
 	return frame.Bounds().Dx(), frame.Bounds().Dy(), nil
+}
+
+func removeStreamsOnPCDisconnect(server *Server, pc *webrtc.PeerConnection, peerConnectionState webrtc.PeerConnectionState) {
+	switch peerConnectionState {
+	case webrtc.PeerConnectionStateDisconnected,
+		webrtc.PeerConnectionStateFailed,
+		webrtc.PeerConnectionStateClosed:
+		server.logger.Infow("Removing streams due to PeerConnection disconnect",
+			"state", peerConnectionState)
+
+		server.mu.Lock()
+		defer server.mu.Unlock()
+
+		if server.isAlive {
+			// Dan: This conditional closing on `isAlive` is a hack to avoid a data race. Shutting
+			// down a robot causes the PeerConnection to be closed concurrently with this
+			// `stream.Server`. Thus, `stream.Server.Close` waiting on the `activeBackgroundWorkers`
+			// WaitGroup can race with adding a new "worker". Given `Close` is expected to `Stop`
+			// remaining streams, we can elide spinning off the below goroutine.
+			//
+			// Given this is an existing race, I'm choosing to add to the tech debt rather than
+			// architect how shutdown should holistically work. Revert this change and run
+			// `TestAudioTrackIsNotCreatedForVideoStream` to reproduce the race.
+			server.activeBackgroundWorkers.Add(1)
+			utils.PanicCapturingGo(func() {
+				defer server.activeBackgroundWorkers.Done()
+				server.mu.Lock()
+				defer server.mu.Unlock()
+				defer delete(server.activePeerStreams, pc)
+				var errs error
+				for _, ps := range server.activePeerStreams[pc] {
+					errs = multierr.Combine(errs, ps.streamState.Decrement())
+				}
+				// We don't want to log this if the streamState was closed (as it only happens if
+				// viam-server is terminating)
+				if errs != nil && !errors.Is(errs, state.ErrClosed) {
+					server.logger.Errorw("error(s) stopping the streamState", "errs", errs)
+				}
+			})
+		}
+	case webrtc.PeerConnectionStateConnected,
+		webrtc.PeerConnectionStateConnecting,
+		webrtc.PeerConnectionStateNew:
+		fallthrough
+	default:
+		return
+	}
 }
