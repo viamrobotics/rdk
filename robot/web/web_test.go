@@ -1277,10 +1277,6 @@ func TestStreamingRequestCounter(t *testing.T) {
 	err := svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	iRobot.(*inject.Robot).MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
-		return robot.MachineStatus{}, nil
-	}
-
 	conn, err := rgrpc.Dial(context.Background(), addr, logger, rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{Disable: true}))
 	test.That(t, err, test.ShouldBeNil)
 	echoclient := echopb.NewTestEchoServiceClient(conn)
