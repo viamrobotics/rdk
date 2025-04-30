@@ -634,7 +634,7 @@ func (rc *RequestCounter) StreamInterceptor(
 ) error {
 	apiMethod := extractAPIMethod(info.FullMethod)
 
-	// Only count named apiMethods
+	// Only count Viam apiMethods
 	if apiMethod != "" {
 		return handler(srv, &wrappedStreamWithRC{ss, apiMethod, rc, atomic.Bool{}})
 	}
