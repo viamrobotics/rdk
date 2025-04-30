@@ -134,7 +134,7 @@ jobs:
   # this job bundles the 32-bit appimage
   # note: this is a separate job because 1) appimage-builder doesn't work on 32-bit, 2) setup-python doesn't work on arm64
   appimage-32bit:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: appimage-static-32bit
     steps:
     - uses: actions/checkout@v4
