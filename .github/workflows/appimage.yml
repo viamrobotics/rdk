@@ -18,7 +18,6 @@ on:
 
 jobs:
   appimage:
-    if: false
     name: AppImage Build
     strategy:
       fail-fast: false
