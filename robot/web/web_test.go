@@ -1317,6 +1317,8 @@ func TestStreamingRequestCounter(t *testing.T) {
 	count = svc.RequestCounter().Stats().(map[string]int64)["qwerty.TestEchoService/EchoBiDi"]
 	test.That(t, count, test.ShouldEqual, 1)
 
+	// EchoBiDi echoes back all received msgs one character at a time.
+	// 10 in total for this test & the first one is checked separately above.
 	for range 9 {
 		ch, err := client.Recv()
 		test.That(t, err, test.ShouldBeNil)
