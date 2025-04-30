@@ -48,11 +48,17 @@ func extendWebRTCConfig(original *webrtc.Configuration, optional *webrtcpb.WebRT
 		return configCopy
 	}
 	if len(optional.GetAdditionalIceServers()) > 0 {
-		iceServers := make([]webrtc.ICEServer, len(original.ICEServers)+len(optional.GetAdditionalIceServers()))
+		iceServers := make([]webrtc.ICEServer, len(original.ICEServers))
 		copy(iceServers, original.ICEServers)
+
 		for _, server := range optional.GetAdditionalIceServers() {
 			urls := server.GetUrls()
+			isViam := false
 			for _, url := range server.GetUrls() {
+				if strings.Contains(url, "turn.viam.com") {
+					isViam = true
+				}
+
 				if strings.HasSuffix(url, "udp") {
 					newURL := url[:len(url)-len("udp")] + "tcp"
 					urls = append(urls, newURL)
@@ -60,11 +66,13 @@ func extendWebRTCConfig(original *webrtc.Configuration, optional *webrtcpb.WebRT
 				}
 			}
 
-			iceServers = append(iceServers, webrtc.ICEServer{
-				URLs:       urls,
-				Username:   server.GetUsername(),
-				Credential: server.GetCredential(),
-			})
+			if !isViam {
+				iceServers = append(iceServers, webrtc.ICEServer{
+					URLs:       urls,
+					Username:   server.GetUsername(),
+					Credential: server.GetCredential(),
+				})
+			}
 		}
 		configCopy.ICEServers = iceServers
 	}
