@@ -10,9 +10,11 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/referenceframe/urdf"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -34,8 +36,35 @@ var InternalServiceName = resource.NewName(API, "builtin")
 // This allows us to figure out where they currently are, and then move them.
 // Input units are always in meters or radians.
 type InputEnabled interface {
+	Kinematics(ctx context.Context) (referenceframe.Frame, error)
 	CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 	GoToInputs(context.Context, ...[]referenceframe.Input) error
+}
+
+func ParseKinematicsResponse(name string, resp *commonpb.GetKinematicsResponse) (referenceframe.Frame, error) {
+	if resp == nil {
+		return nil, errors.New("*commonpb.GetKinematicsResponse can't be nil")
+	}
+	format := resp.GetFormat()
+	data := resp.GetKinematicsData()
+
+	switch format {
+	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA:
+		return referenceframe.UnmarshalModelJSON(data, name)
+	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF:
+		modelconf, err := urdf.UnmarshalModelXML(data, name)
+		if err != nil {
+			return nil, err
+		}
+		return modelconf.ParseConfig(name)
+	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED:
+		fallthrough
+	default:
+		if formatName, ok := commonpb.KinematicsFileFormat_name[int32(format)]; ok {
+			return nil, fmt.Errorf("unable to parse file of type %s", formatName)
+		}
+		return nil, fmt.Errorf("unable to parse unknown file type %d", format)
+	}
 }
 
 // A Service that returns the frame system for a robot.

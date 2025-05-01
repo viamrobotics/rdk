@@ -29,6 +29,7 @@ const (
 )
 
 type ptgBaseKinematics struct {
+	planningFrameName string
 	base.Base
 	motion.Localizer
 	logger                           logging.Logger
@@ -150,6 +151,7 @@ func wrapWithPTGKinematics(
 	}
 
 	return &ptgBaseKinematics{
+		planningFrameName:              planningFrame.Name(),
 		Base:                           b,
 		Localizer:                      localizer,
 		logger:                         logger,
@@ -167,8 +169,8 @@ func wrapWithPTGKinematics(
 	}, nil
 }
 
-func (ptgk *ptgBaseKinematics) Kinematics() referenceframe.Frame {
-	return ptgk.planningFrame
+func (ptgk *ptgBaseKinematics) Kinematics(context.Context) (referenceframe.Frame, error) {
+	return ptgk.planningFrame, nil
 }
 
 func (ptgk *ptgBaseKinematics) LocalizationFrame() referenceframe.Frame {
@@ -199,14 +201,14 @@ func (ptgk *ptgBaseKinematics) ExecutionState(ctx context.Context) (motionplan.E
 	ptgk.inputLock.RLock()
 	currentIdx := ptgk.currentState.currentIdx
 	currentInputs := ptgk.currentState.currentInputs
+
 	currentExecutingSteps := ptgk.currentState.currentExecutingSteps
 	currentPlan := ptgk.stepsToPlan(currentExecutingSteps, actualPIF.Parent())
 	ptgk.inputLock.RUnlock()
-
 	return motionplan.NewExecutionState(
 		currentPlan,
 		currentIdx,
-		referenceframe.FrameSystemInputs{ptgk.Kinematics().Name(): currentInputs},
+		referenceframe.FrameSystemInputs{ptgk.planningFrame.Name(): currentInputs},
 		map[string]*referenceframe.PoseInFrame{ptgk.LocalizationFrame().Name(): actualPIF},
 	)
 }

@@ -229,6 +229,10 @@ func (g *multiAxis) IsMoving(ctx context.Context) (bool, error) {
 	return g.opMgr.OpRunning(), nil
 }
 
+func (g *multiAxis) Kinematics(ctx context.Context) (referenceframe.Frame, error) {
+	return nil, errors.New("multiAxis gantry.Kinematics is unimplemented")
+}
+
 // CurrentInputs returns the current inputs of the Gantry frame.
 func (g *multiAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	if len(g.subAxes) == 0 {

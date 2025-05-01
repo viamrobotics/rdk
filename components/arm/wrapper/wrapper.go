@@ -182,6 +182,10 @@ func (wrapper *Arm) IsMoving(ctx context.Context) (bool, error) {
 	return wrapper.opMgr.OpRunning(), nil
 }
 
+func (wrapper *Arm) Kinematics(ctx context.Context) (referenceframe.Frame, error) {
+	return wrapper.actual.Kinematics(ctx)
+}
+
 // CurrentInputs returns the current inputs of the arm.
 func (wrapper *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	return wrapper.actual.JointPositions(ctx, nil)

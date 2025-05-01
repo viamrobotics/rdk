@@ -624,6 +624,10 @@ func (g *singleAxis) ModelFrame() referenceframe.Model {
 	return g.model
 }
 
+func (g *singleAxis) Kinematics(ctx context.Context) (referenceframe.Frame, error) {
+	return nil, errors.New("singleAxis gantry.Kinematics is unimplemented")
+}
+
 // CurrentInputs returns the current inputs of the Gantry frame.
 func (g *singleAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	g.mu.Lock()

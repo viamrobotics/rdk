@@ -3,6 +3,7 @@ package fake
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/golang/geo/r3"
@@ -100,6 +101,10 @@ func (g *Gantry) ModelFrame() referenceframe.Model {
 	}
 	m.OrdTransforms = append(m.OrdTransforms, f)
 	return m
+}
+
+func (g *Gantry) Kinematics(ctx context.Context) (referenceframe.Frame, error) {
+	return nil, errors.New("fake gantry.Kinematics is unimplemented")
 }
 
 // CurrentInputs returns positions in the Gantry frame model..

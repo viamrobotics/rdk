@@ -111,8 +111,8 @@ type differentialDriveKinematics struct {
 	mutex                            sync.RWMutex
 }
 
-func (ddk *differentialDriveKinematics) Kinematics() referenceframe.Frame {
-	return ddk.planningFrame
+func (ddk *differentialDriveKinematics) Kinematics(context.Context) (referenceframe.Frame, error) {
+	return ddk.planningFrame, nil
 }
 
 func (ddk *differentialDriveKinematics) LocalizationFrame() referenceframe.Frame {
