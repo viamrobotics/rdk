@@ -4,6 +4,7 @@ package universalrobots
 import (
 	"bufio"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
@@ -507,6 +508,10 @@ func (ua *urArm) moveToJointPositionRadians(ctx context.Context, radians []float
 			return ctx.Err()
 		}
 	}
+}
+
+func (ua *urArm) Kinematics(ctx context.Context) (referenceframe.Frame, error) {
+	return nil, errors.New("urArm arm.Kinematics is unimplemented")
 }
 
 // CurrentInputs returns the current Inputs of the UR arm.

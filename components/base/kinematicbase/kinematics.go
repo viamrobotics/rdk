@@ -23,7 +23,6 @@ type KinematicBase interface {
 	motion.Localizer
 	framesystem.InputEnabled
 
-	Kinematics() referenceframe.Frame
 	LocalizationFrame() referenceframe.Frame
 
 	// ExecutionState returns the state of execution of the base, returning the plan (with any edits) that it is executing, the point

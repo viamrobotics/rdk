@@ -903,7 +903,9 @@ func TestGetTransientDetectionsMath(t *testing.T) {
 	getTransientDetectionMock := func(currentPose, obstaclePose spatialmath.Pose) []spatialmath.Geometry {
 		inputMap, _, err := mr.fsService.CurrentInputs(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		kbInputs := make([]referenceframe.Input, len(mr.kinematicBase.Kinematics().DoF()))
+		k, err := mr.kinematicBase.Kinematics(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		kbInputs := make([]referenceframe.Input, len(k.DoF()))
 		kbInputs = append(kbInputs, referenceframe.PoseToInputs(currentPose)...)
 		inputMap[mr.kinematicBase.Name().ShortName()] = kbInputs
 
@@ -1074,8 +1076,10 @@ func TestCheckPlan(t *testing.T) {
 
 	wrapperFrame := mr.localizingFS.Frame(mr.kinematicBase.Name().Name)
 
+	k, err := mr.kinematicBase.Kinematics(ctx)
+	test.That(t, err, test.ShouldBeNil)
 	currentInputs := referenceframe.FrameSystemInputs{
-		mr.kinematicBase.Kinematics().Name(): {
+		k.Name(): {
 			{Value: 0}, // ptg index
 			{Value: 0}, // trajectory alpha within ptg
 			{Value: 0}, // start distance along trajectory index
@@ -1103,7 +1107,7 @@ func TestCheckPlan(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	augmentedBaseExecutionState, err := mr.augmentBaseExecutionState(baseExecutionState)
+	augmentedBaseExecutionState, err := mr.augmentBaseExecutionState(ctx, baseExecutionState)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("base case - validate plan without obstacles", func(t *testing.T) {
@@ -1185,7 +1189,7 @@ func TestCheckPlan(t *testing.T) {
 	})
 
 	currentInputs = referenceframe.FrameSystemInputs{
-		mr.kinematicBase.Kinematics().Name(): {
+		k.Name(): {
 			{Value: 0}, // ptg index
 			{Value: 0}, // trajectory alpha within ptg
 			{Value: 0}, // start distance along trajectory index
@@ -1211,7 +1215,7 @@ func TestCheckPlan(t *testing.T) {
 
 	newExecutionState, err := motionplan.NewExecutionState(plan, 2, currentInputs, currentPoses)
 	test.That(t, err, test.ShouldBeNil)
-	updatedExecutionState, err := mr.augmentBaseExecutionState(newExecutionState)
+	updatedExecutionState, err := mr.augmentBaseExecutionState(ctx, newExecutionState)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("checking from partial-plan, ensure success with obstacles - integration test", func(t *testing.T) {

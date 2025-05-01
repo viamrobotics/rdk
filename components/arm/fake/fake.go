@@ -218,6 +218,10 @@ func (a *Arm) IsMoving(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
+func (a *Arm) Kinematics(ctx context.Context) (referenceframe.Frame, error) {
+	return nil, errors.New("fake arm.Kinematics is unimplemented")
+}
+
 // CurrentInputs returns the current inputs of the fake arm.
 func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	a.mu.RLock()

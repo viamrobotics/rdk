@@ -13,6 +13,7 @@ import (
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -54,6 +55,24 @@ func NewClientFromConn(
 		c.model = m
 	}
 	return c, nil
+}
+
+func (c *client) Kinematics(ctx context.Context) (referenceframe.Frame, error) {
+	resp, err := c.client.GetKinematics(ctx, &commonpb.GetKinematicsRequest{Name: c.name})
+	if err != nil {
+		return nil, err
+	}
+	return framesystem.ParseKinematicsResponse(c.name, resp)
+}
+
+func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	c.logger.Warn("gripper.CurrentInputs is unimplemented!")
+	return []referenceframe.Input{}, nil
+}
+
+func (c *client) GoToInputs(context.Context, ...[]referenceframe.Input) error {
+	c.logger.Warn("gripper.GoToInputs is unimplemented!")
+	return nil
 }
 
 func (c *client) Open(ctx context.Context, extra map[string]interface{}) error {

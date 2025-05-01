@@ -3,6 +3,7 @@ package gantry
 
 import (
 	"context"
+	"errors"
 
 	pb "go.viam.com/api/component/gantry/v1"
 	"go.viam.com/utils/protoutils"
@@ -128,6 +129,10 @@ func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 		return nil, err
 	}
 	return referenceframe.FloatsToInputs(res), nil
+}
+
+func (c *client) Kinematics(ctx context.Context) (referenceframe.Frame, error) {
+	return nil, errors.New("unimplemented")
 }
 
 func (c *client) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
