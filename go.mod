@@ -35,7 +35,7 @@ require (
 	github.com/goccy/go-graphviz v0.1.3
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
-	github.com/golang/geo v0.0.0-20210211234256-740aa86cb551
+	github.com/golang/geo v0.0.0-20230421003525-6adc56603217
 	github.com/golang/protobuf v1.5.4
 	github.com/golangci/golangci-lint v1.61.0
 	github.com/google/go-cmp v0.6.0
@@ -383,6 +383,7 @@ require (
 	github.com/ultraware/whitespace v0.1.1 // indirect
 	github.com/uudashr/gocognit v1.1.3 // indirect
 	github.com/vbatts/tar-split v0.11.5 // indirect
+	github.com/viam-labs/motion-tools v0.0.0-20250430155708-69138788d4ca // indirect
 	github.com/viamrobotics/zeroconf v1.0.12 // indirect
 	github.com/wlynxg/anet v0.0.3 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect

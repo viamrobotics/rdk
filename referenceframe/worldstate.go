@@ -8,6 +8,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/pointcloud"
 )
 
 const unnamedWorldStateGeometryPrefix = "unnamedWorldStateGeometry_"
@@ -137,6 +138,14 @@ func (ws *WorldState) ObstacleNames() map[string]bool {
 	return copiedMap
 }
 
+// Obstacles returns the obstacles that have been added to the WorldState.
+func (ws *WorldState) Obstacles() []*GeometriesInFrame {
+	if ws == nil {
+		return []*GeometriesInFrame{}
+	}
+	return ws.obstacles
+}
+
 // Transforms returns the transforms that have been added to the WorldState.
 func (ws *WorldState) Transforms() []*LinkInFrame {
 	if ws == nil {
@@ -161,4 +170,42 @@ func (ws *WorldState) ObstaclesInWorldFrame(fs FrameSystem, inputs FrameSystemIn
 		allGeometries = append(allGeometries, tf.(*GeometriesInFrame).Geometries()...)
 	}
 	return NewGeometriesInFrame(World, allGeometries), nil
+}
+
+// MeshesToOctrees converts any meshes to an octree of 
+func (ws *WorldState) MeshesToOctrees() (*WorldState, error) {
+	if ws == nil {
+		return nil, nil
+	}
+	newWs := &WorldState{
+		obstacleNames: ws.obstacleNames,
+		obstacles:     make([]*GeometriesInFrame, 0, len(ws.obstacles)),
+		transforms:    ws.transforms,
+	}
+	for _, gf := range ws.obstacles {
+		geometries := gf.Geometries()
+		pcdGeometries := make([]spatialmath.Geometry, 0, len(geometries))
+
+		// iterate over geometries and make sure that each one that is added to the WorldState has a unique name
+		for _, geometry := range geometries {
+			if mesh, ok := geometry.(*spatialmath.Mesh); ok {
+				meshPts := mesh.ToPoints(0)
+				pc := pointcloud.New()
+				for _, pt := range meshPts {
+					pc.Set(pt, pointcloud.NewBasicData())
+				}
+				targetOctree, err := pointcloud.ToBasicOctree(pc, 0)
+				if err != nil {
+					return nil, err
+				}
+				geometry = targetOctree
+				geometry.SetLabel(mesh.Label())
+			}
+			pcdGeometries = append(pcdGeometries, geometry)
+		}
+		newWs.obstacles = append(newWs.obstacles, NewGeometriesInFrame(gf.frame, pcdGeometries))
+	}
+	fmt.Println("old", ws.obstacles)
+	fmt.Println("new", newWs.obstacles)
+	return newWs, nil
 }

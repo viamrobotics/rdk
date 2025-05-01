@@ -6,6 +6,7 @@ import (
 	"io"
 	"math"
 	"os"
+	"strconv"
 
 	"github.com/chenzhekl/goply"
 	"github.com/golang/geo/r3"
@@ -398,13 +399,16 @@ func (m *Mesh) ToPoints(density float64) []r3.Vector {
 	pointMap := make(map[string]r3.Vector)
 
 	// Add all triangle vertices, formatting as a string for map deduplication
-	for _, tri := range m.triangles {
+	for i, tri := range m.triangles {
+		centroid := r3.Vector{}
 		for _, pt := range tri.Points() {
 			// Transform point to world space
 			worldPt := Compose(m.pose, NewPoseFromPoint(pt)).Point()
+			centroid = centroid.Add(worldPt)
 			key := fmt.Sprintf("%.10f,%.10f,%.10f", worldPt.X, worldPt.Y, worldPt.Z)
 			pointMap[key] = worldPt
 		}
+		pointMap[strconv.Itoa(i)] = centroid.Mul(1./3.)
 	}
 
 	// Convert map back to slice

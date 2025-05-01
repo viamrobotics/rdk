@@ -102,6 +102,14 @@ func (req *PlanRequest) validatePlanRequest() error {
 	if len(req.Goals) == 0 {
 		return errors.New("PlanRequest must have at least one goal")
 	}
+	
+	if useOc, ok := req.Options["meshes_as_octrees"].(bool); useOc && ok {
+		newWs, err := req.WorldState.MeshesToOctrees()
+		if err != nil {
+			return err
+		}
+		req.WorldState = newWs
+	}
 
 	// Validate the goals. Each goal with a pose must not alos have a configuration specified. The parent frame of the pose must exist.
 	for i, goalState := range req.Goals {
