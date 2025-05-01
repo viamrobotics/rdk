@@ -404,6 +404,9 @@ func TestDataClient(t *testing.T) {
 		) (*pb.TabularDataByMQLResponse, error) {
 			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
 			test.That(t, in.MqlBinary, test.ShouldResemble, mqlBinary)
+			if in.DataSource != nil {
+				test.That(t, in.DataSource.Type, test.ShouldNotEqual, pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_UNSPECIFIED)
+			}
 			return &pb.TabularDataByMQLResponse{
 				RawData: expectedRawDataPb,
 			}, nil
