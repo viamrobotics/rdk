@@ -129,7 +129,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	// which defaults to DEBUG. We pessimistically set the level to INFO to ensure parity. Though I
 	// expect `InitLoggingSettings` will always put the logger into the right state without any
 	// observable side-effects.
-	logger.SetLevel(logging.INFO)
+	logger.SetLevel(logging.DEBUG)
 	if argsParsed.OutputLogFile != "" {
 		logWriter, closer := logging.NewFileAppender(argsParsed.OutputLogFile)
 		defer func() {

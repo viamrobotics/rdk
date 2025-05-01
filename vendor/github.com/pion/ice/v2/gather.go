@@ -304,8 +304,8 @@ func (a *Agent) gatherCandidatesLocalUDPMux(ctx context.Context) error { //nolin
 			continue
 		}
 
-		a.log.Infof("DBG. Adding (local) host candidate (localUDPMux). UDPAddr: %v CandidateIP: %v",
-			udpAddr.String(), candidateIP)
+		a.log.Infof("DBG. Adding (local) host candidate (localUDPMux). Conn: %p UDPAddr: %v CandidateIP: %v",
+			conn, udpAddr.String(), candidateIP)
 		if err := a.addCandidate(ctx, c, conn); err != nil {
 			if closeErr := c.close(); closeErr != nil {
 				a.log.Warnf("Failed to close candidate: %v", closeErr)
@@ -371,8 +371,8 @@ func (a *Agent) gatherCandidatesSrflxMapped(ctx context.Context, networkTypes []
 				return
 			}
 
-			a.log.Infof("DBG. Adding (local) srflx candidate (gatherCandidatesSrflxMapped). Network: %v LocalAddr: %v MappedIP: %v",
-				network, lAddr, mappedIP)
+			a.log.Infof("DBG. Adding (local) srflx candidate (gatherCandidatesSrflxMapped). Conn: %p Network: %v LocalAddr: %v MappedIP: %v",
+				conn, network, lAddr, mappedIP)
 			if err := a.addCandidate(ctx, c, conn); err != nil {
 				if closeErr := c.close(); closeErr != nil {
 					a.log.Warnf("Failed to close candidate: %v", closeErr)
@@ -439,8 +439,8 @@ func (a *Agent) gatherCandidatesSrflxUDPMux(ctx context.Context, urls []*stun.UR
 						return
 					}
 
-					a.log.Infof("DBG. Adding (local) srflx candidate (gatherCandidatesSrflxUDPMux). Network: %v Address: %v:%d LocalAddr: %v",
-						network, ip.String(), port, localAddr.String())
+					a.log.Infof("DBG. Adding (local) srflx candidate (gatherCandidatesSrflxUDPMux). Conn: %p Network: %v Address: %v:%d LocalAddr: %v",
+						conn, network, ip.String(), port, localAddr.String())
 					if err := a.addCandidate(ctx, c, conn); err != nil {
 						if closeErr := c.close(); closeErr != nil {
 							a.log.Warnf("Failed to close candidate: %v", closeErr)
@@ -511,8 +511,8 @@ func (a *Agent) gatherCandidatesSrflx(ctx context.Context, urls []*stun.URI, net
 					RelPort:   lAddr.Port,
 				}
 
-				a.log.Infof("DBG. Adding (local) srflx candidate (gatherCandidatesSrflx). Network: %v Address: %v:%d LocalAddr: %v",
-					network, ip.String(), port, lAddr.String())
+				a.log.Infof("DBG. Adding (local) srflx candidate (gatherCandidatesSrflx). Conn: %p Network: %v Address: %v:%d LocalAddr: %v",
+					conn, network, ip.String(), port, lAddr.String())
 				c, err := NewCandidateServerReflexive(&srflxConfig)
 				if err != nil {
 					closeConnAndLog(conn, a.log, "failed to create server reflexive candidate: %s %s %d: %v", network, ip, port, err)
@@ -720,8 +720,8 @@ func (a *Agent) gatherCandidatesRelay(ctx context.Context, urls []*stun.URI) { /
 			}
 
 			// candidate.conn is an abstraction over locConn
-			a.log.Infof("DBG. Adding (local) relay candidate (gatherCandidatesRelay). Network: %v Relay Address: %v LocalAddr: %v RelayProtocol? %v",
-				network, rAddr.String(), locConn.LocalAddr().String(), relayProtocol)
+			a.log.Infof("DBG. Adding (local) relay candidate (gatherCandidatesRelay). Conn: %p Network: %v Relay Address: %v LocalAddr: %v RelayProtocol? %v",
+				relayConn, network, rAddr.String(), locConn.LocalAddr().String(), relayProtocol)
 			if err := a.addCandidate(ctx, candidate, relayConn); err != nil {
 				relayConnClose()
 
