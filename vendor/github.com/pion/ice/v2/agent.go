@@ -1149,7 +1149,7 @@ func (a *Agent) handleInbound(m *stun.Message, local Candidate, remote net.Addr)
 			}
 			remoteCandidate = prflxCandidate
 
-			a.log.Debugf("Adding a new peer-reflexive candidate. LocalAddr: %v RemoteNetwork: %v RemoteAddr: %v ",
+			a.log.Debugf("Adding a new peer-reflexive candidate. LocalAddr: %v RemoteNetwork: %v StunMsgFrom: %v ",
 				local.String(), remote.Network(), remote.String())
 			a.addRemoteCandidate(remoteCandidate)
 		}
