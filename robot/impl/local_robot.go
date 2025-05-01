@@ -591,6 +591,12 @@ func (r *localRobot) getDependencies(
 		}
 		allDeps[weakDepName] = weakDepRes
 	}
+	for optionalDepName, optionalDepRes := range r.getOptionalDependencies(nodeConf) {
+		if _, ok := allDeps[optionalDepName]; ok {
+			continue
+		}
+		allDeps[optionalDepName] = optionalDepRes
+	}
 
 	return allDeps, nil
 }
@@ -601,6 +607,51 @@ func (r *localRobot) getWeakDependencyMatchers(api resource.API, model resource.
 		return nil
 	}
 	return reg.WeakDependencies
+}
+
+func (r *localRobot) getOptionalDependencies(conf resource.Config) resource.Dependencies {
+	optDeps := make(resource.Dependencies)
+
+	for _, optionalDepNameString := range conf.ImplicitOptionalDependsOn {
+		matchingResourceNames := r.manager.resources.FindNodesByShortName(optionalDepNameString)
+		switch len(matchingResourceNames) {
+		case 0:
+			r.logger.Infow(
+				"Optional dependency for resource does not exist; not passing to constructor or reconfigure yet",
+				"dependency", optionalDepNameString,
+				"resource", conf.ResourceName().String(),
+			)
+			continue
+		case 1:
+			if matchingResourceNames[0].String() == conf.ResourceName().String() {
+				r.logger.Errorw("Resource cannot optionally depend on itself", "resource", conf.ResourceName().String())
+				continue
+			}
+		default:
+			r.logger.Errorw(
+				"Cannot resolve optional dependency for resource due to multiple matching names",
+				"resource", conf.ResourceName().String(),
+				"conflicts", resource.NamesToStrings(matchingResourceNames),
+			)
+			continue
+		}
+
+		resolvedOptionalDepName := matchingResourceNames[0]
+
+		optionalDep, err := r.ResourceByName(resolvedOptionalDepName)
+		if err != nil {
+			r.logger.Infow(
+				"Optional dependency for resource is not available; not passing to constructor or reconfigure yet",
+				"dependency", resolvedOptionalDepName.String(),
+				"resource", conf.ResourceName().String(),
+				"error", err,
+			)
+		}
+
+		optDeps[resolvedOptionalDepName] = optionalDep
+	}
+
+	return optDeps
 }
 
 func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API, model resource.Model) resource.Dependencies {
@@ -784,7 +835,10 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		if err != nil {
 			return
 		}
-		if len(r.getWeakDependencyMatchers(conf.API, conf.Model)) == 0 {
+
+		// Return early if resource has no weak or optional dependencies.
+		if len(r.getWeakDependencyMatchers(conf.API, conf.Model)) == 0 &&
+			len(conf.ImplicitOptionalDependsOn) == 0 {
 			return
 		}
 		r.Logger().CDebugw(ctx, "handling weak update for resource", "resource", resName)
@@ -1202,12 +1256,13 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 					continue
 				}
 				svcCfg.ConvertedAttributes = converted
-				deps, _, err := converted.Validate("")
+				requiredDeps, optionalDeps, err := converted.Validate("")
 				if err != nil {
 					allErrs = multierr.Combine(allErrs, errors.Wrapf(err, "error getting default service dependencies for %s", svcCfg.API))
 					continue
 				}
-				svcCfg.ImplicitDependsOn = deps
+				svcCfg.ImplicitDependsOn = requiredDeps
+				svcCfg.ImplicitOptionalDependsOn = optionalDeps
 			}
 			// Update existing service configs, and the final config will be the default service, if not overridden
 			if i < len(existingConfIdxs) {

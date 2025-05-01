@@ -142,7 +142,7 @@ func TestValidate(t *testing.T) {
 	conf := setUpCfg(
 		emptySensors, emptySensors /*pos*/, emptySensors, /*compass*/
 		emptySensors /*linvel*/, emptySensors /*angvel*/, emptySensors /*linacc*/)
-	implicits, err := conf.Validate("somepath", movementsensor.API.Type.Name)
+	implicits, _, err := conf.Validate("somepath", movementsensor.API.Type.Name)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, implicits, test.ShouldBeNil)
 
@@ -150,14 +150,14 @@ func TestValidate(t *testing.T) {
 	conf = setUpCfg(
 		oriSensors, emptySensors /*pos*/, emptySensors, /*compass*/
 		linvelSensors, emptySensors /*angvel*/, emptySensors /*linacc*/)
-	implicits, err = conf.Validate("somepath", movementsensor.API.Type.Name)
+	implicits, _, err = conf.Validate("somepath", movementsensor.API.Type.Name)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, implicits, test.ShouldResemble, append(oriSensors, linvelSensors...))
 
 	conf = setUpCfg(
 		/*ori*/ emptySensors, emptySensors /*pos*/, emptySensors, /*comapss*/
 		linvelSensors /*linval*/, angvelSensors /*angvel*/, emptySensors /*linacc*/)
-	implicits, err = conf.Validate("somepath", movementsensor.API.Type.Name)
+	implicits, _, err = conf.Validate("somepath", movementsensor.API.Type.Name)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, implicits, test.ShouldResemble, append(linvelSensors, angvelSensors...))
 }

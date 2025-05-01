@@ -71,7 +71,7 @@ func TestWheelBaseMath(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 	testCfg := newTestCfg()
-	deps, err := testCfg.Validate("path", resource.APITypeComponentName)
+	deps, _, err := testCfg.Validate("path", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps := fakeMotorDependencies(t, deps)
 
@@ -365,7 +365,7 @@ func TestWheeledBaseConstructor(t *testing.T) {
 
 	// valid config
 	testCfg := newTestCfg()
-	deps, err := testCfg.Validate("path", resource.APITypeComponentName)
+	deps, _, err := testCfg.Validate("path", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps := fakeMotorDependencies(t, deps)
 
@@ -384,7 +384,7 @@ func TestWheeledBaseReconfigure(t *testing.T) {
 
 	// valid config
 	testCfg := newTestCfg()
-	deps, err := testCfg.Validate("path", resource.APITypeComponentName)
+	deps, _, err := testCfg.Validate("path", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps := fakeMotorDependencies(t, deps)
 
@@ -404,7 +404,7 @@ func TestWheeledBaseReconfigure(t *testing.T) {
 		Left:                 []string{"fr-m", "br-m"},
 		Right:                []string{"fl-m", "bl-m"},
 	}
-	deps, err = newTestConf.Validate("path", resource.APITypeComponentName)
+	deps, _, err = newTestConf.Validate("path", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps = fakeMotorDependencies(t, deps)
 	test.That(t, wb.Reconfigure(ctx, motorDeps, newTestConf), test.ShouldBeNil)
@@ -418,7 +418,7 @@ func TestWheeledBaseReconfigure(t *testing.T) {
 		Right:                []string{"fr-m", "br-m"},
 	}
 
-	deps, err = newerTestCfg.Validate("path", resource.APITypeComponentName)
+	deps, _, err = newerTestCfg.Validate("path", resource.APITypeComponentName)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "left and right need to have the same number of motors")
 	test.That(t, deps, test.ShouldBeNil)
 
@@ -432,7 +432,7 @@ func TestWheeledBaseReconfigure(t *testing.T) {
 		Right:                []string{"fr-m", "br-m", "mr-m"},
 	}
 
-	deps, err = newestTestCfg.Validate("path", resource.APITypeComponentName)
+	deps, _, err = newestTestCfg.Validate("path", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps = fakeMotorDependencies(t, deps)
 	test.That(t, wb.Reconfigure(ctx, motorDeps, newestTestCfg), test.ShouldBeNil)

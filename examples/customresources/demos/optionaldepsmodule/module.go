@@ -91,7 +91,7 @@ func (f *foo) Reconfigure(ctx context.Context, deps resource.Dependencies,
 
 	f.optionalMotor, err = motor.FromDependencies(deps, fooConfig.OptionalMotor)
 	if err != nil {
-		f.logger.Info("could not get optional motor %s from dependencies; continuing",
+		f.logger.Infof("could not get optional motor %s from dependencies; continuing",
 			fooConfig.OptionalMotor)
 	}
 

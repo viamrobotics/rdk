@@ -717,7 +717,7 @@ func (manager *resourceManager) completeConfig(
 					manager.logger.CInfow(ctx, fmt.Sprintf("Now %s resource", verb), "resource", resName)
 
 					// this is done in config validation but partial start rules require us to check again
-					if _, err := conf.Validate("", resName.API.Type.Name); err != nil {
+					if _, _, err := conf.Validate("", resName.API.Type.Name); err != nil {
 						gNode.LogAndSetLastError(
 							fmt.Errorf("resource config validation error: %w", err),
 							"resource", conf.ResourceName(),
@@ -725,7 +725,7 @@ func (manager *resourceManager) completeConfig(
 						return
 					}
 					if manager.moduleManager.Provides(conf) {
-						if _, err := manager.moduleManager.ValidateConfig(ctxWithTimeout, conf); err != nil {
+						if _, _, err := manager.moduleManager.ValidateConfig(ctxWithTimeout, conf); err != nil {
 							gNode.LogAndSetLastError(
 								fmt.Errorf("modular resource config validation error: %w", err),
 								"resource", conf.ResourceName(),

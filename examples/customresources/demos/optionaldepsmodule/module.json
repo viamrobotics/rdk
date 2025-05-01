@@ -2,7 +2,7 @@
 	"modules": [
 		{
 			"name": "optional_deps_module",
-			"executable_path": "/change/to/absolute/path"
+			"executable_path": "/Users/benjirewis/Code/rdk/examples/customresources/demos/optionaldepsmodule/optionaldepsmodule"
 		}
 	],
 	"components": [
