@@ -735,6 +735,8 @@ func (a *Agent) addRemotePassiveTCPCandidate(remoteCandidate Candidate) {
 	}
 
 	for i := range localIPs {
+		a.log.Infof("DBG. Adding newActiveTCPConn. Idx: %v Remote: %v:%d Local: %v",
+			i, remoteCandidate.Address(), remoteCandidate.Port(), localIPs[i].String())
 		conn := newActiveTCPConn(
 			a.context(),
 			net.JoinHostPort(localIPs[i].String(), "0"),
@@ -743,6 +745,9 @@ func (a *Agent) addRemotePassiveTCPCandidate(remoteCandidate Candidate) {
 		)
 
 		tcpAddr, ok := conn.LocalAddr().(*net.TCPAddr)
+		a.log.Infof("DBG. newActiveTCPConn finished. Idx: %v Remote: %v:%d Local: %v Conn: %p OK? %v",
+			i, remoteCandidate.Address(), remoteCandidate.Port(), tcpAddr.String(), conn, ok)
+
 		if !ok {
 			closeConnAndLog(conn, a.log, "Failed to create Active ICE-TCP Candidate: %v", errInvalidAddress)
 			continue
@@ -1144,7 +1149,8 @@ func (a *Agent) handleInbound(m *stun.Message, local Candidate, remote net.Addr)
 			}
 			remoteCandidate = prflxCandidate
 
-			a.log.Debugf("Adding a new peer-reflexive candidate: %s ", remote)
+			a.log.Debugf("Adding a new peer-reflexive candidate. LocalAddr: %v RemoteNetwork: %v RemoteAddr: %v ",
+				local.String(), remote.Network(), remote.String())
 			a.addRemoteCandidate(remoteCandidate)
 		}
 
