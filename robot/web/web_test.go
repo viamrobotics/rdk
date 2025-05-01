@@ -6,7 +6,9 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"testing"
@@ -1257,6 +1259,78 @@ func TestUnaryRequestCounter(t *testing.T) {
 	test.That(t, svc.Close(ctx), test.ShouldBeNil)
 }
 
+func TestStreamingRequestCounter(t *testing.T) {
+	echoAPI := resource.NewAPI("rdk", "component", "echo")
+	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceCollection[resource.Resource]) interface{} { return &echoServer{} },
+		RPCServiceHandler:           echopb.RegisterTestEchoServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &echopb.TestEchoService_ServiceDesc,
+	})
+	defer resource.DeregisterAPI(echoAPI)
+
+	logger := logging.NewTestLogger(t)
+	ctx, iRobot := setupRobotCtx(t)
+
+	svc := web.New(iRobot, logger)
+
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err := svc.Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	conn, err := rgrpc.Dial(context.Background(), addr, logger, rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{Disable: true}))
+	test.That(t, err, test.ShouldBeNil)
+	echoclient := echopb.NewTestEchoServiceClient(conn)
+
+	// test counting streaming service with name
+	_, ok := svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/EchoMultiple"]
+	test.That(t, ok, test.ShouldBeFalse)
+	s, err := echoclient.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "test1", Message: ""})
+	test.That(t, err, test.ShouldBeNil)
+	_, err = s.Recv()
+	test.That(t, err, test.ShouldBeNil)
+	count := svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/EchoMultiple"]
+	test.That(t, count, test.ShouldEqual, 1)
+
+	s, err = echoclient.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "test1", Message: ""})
+	test.That(t, err, test.ShouldBeNil)
+	_, err = s.Recv()
+	test.That(t, err, test.ShouldBeNil)
+	count = svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/EchoMultiple"]
+	test.That(t, count, test.ShouldEqual, 2)
+
+	// test named bidirectional stream (client sends multiple messages, but RC only increments once)
+	client, err := echoclient.EchoBiDi(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = client.Send(&echopb.EchoBiDiRequest{Name: "qwerty", Message: "asdfg"})
+	test.That(t, err, test.ShouldBeNil)
+	ch, err := client.Recv()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ch.GetMessage(), test.ShouldEqual, "a")
+	count = svc.RequestCounter().Stats().(map[string]int64)["qwerty.TestEchoService/EchoBiDi"]
+	test.That(t, count, test.ShouldEqual, 1)
+
+	err = client.Send(&echopb.EchoBiDiRequest{Name: "qwerty", Message: "zxcvb"})
+	test.That(t, err, test.ShouldBeNil)
+	err = client.CloseSend()
+	test.That(t, err, test.ShouldBeNil)
+	count = svc.RequestCounter().Stats().(map[string]int64)["qwerty.TestEchoService/EchoBiDi"]
+	test.That(t, count, test.ShouldEqual, 1)
+
+	// EchoBiDi echoes back all received msgs one character at a time.
+	// 10 in total for this test & the first one is checked separately above.
+	for range 9 {
+		ch, err := client.Recv()
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(ch.GetMessage()), test.ShouldEqual, 1)
+	}
+	count = svc.RequestCounter().Stats().(map[string]int64)["qwerty.TestEchoService/EchoBiDi"]
+	test.That(t, count, test.ShouldEqual, 1)
+
+	test.That(t, conn.Close(), test.ShouldBeNil)
+	test.That(t, svc.Close(ctx), test.ShouldBeNil)
+}
+
 func TestInboundMethodTimeout(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx, iRobot := setupRobotCtx(t)
@@ -1411,6 +1485,24 @@ func (srv *echoServer) EchoMultiple(
 
 func (srv *echoServer) Echo(context.Context, *echopb.EchoRequest) (*echopb.EchoResponse, error) {
 	return &echopb.EchoResponse{}, nil
+}
+
+// EchoBiDi responds to incoming Message(s) by echoing back one character at a time.
+func (srv *echoServer) EchoBiDi(stream echopb.TestEchoService_EchoBiDiServer) error {
+	for {
+		in, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		for _, ch := range in.GetMessage() {
+			if err := stream.Send(&echopb.EchoBiDiResponse{Message: fmt.Sprintf("%c", ch)}); err != nil {
+				return err
+			}
+		}
+	}
 }
 
 // signJWKBasedExternalAccessToken returns an access jwt access token typically returned by an OIDC provider.
