@@ -541,13 +541,18 @@ func (d *DataClient) TabularDataByMQL(
 		opts.TabularDataSourceType = TabularDataSourceTypeHotStorage
 	}
 
+	var dataSource *pb.TabularDataSource
+	if opts.TabularDataSourceType != TabularDataSourceTypeUnspecified {
+		dataSource = &pb.TabularDataSource{
+			Type:       dataSourceTypeToProto(opts.TabularDataSourceType),
+			PipelineId: &opts.PipelineID,
+		}
+	}
+
 	resp, err := d.dataClient.TabularDataByMQL(ctx, &pb.TabularDataByMQLRequest{
 		OrganizationId: organizationID,
 		MqlBinary:      mqlBinary,
-		DataSource: &pb.TabularDataSource{
-			Type:       dataSourceTypeToProto(opts.TabularDataSourceType),
-			PipelineId: &opts.PipelineID,
-		},
+		DataSource:     dataSource,
 	})
 	if err != nil {
 		return nil, err
