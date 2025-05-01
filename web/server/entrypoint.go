@@ -139,14 +139,6 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		logger.AddAppender(logging.NewStdoutAppender())
 	}
 
-	// Run network checks synchronously and immediately exit if `--network-check` flag was
-	// used. Otherwise run network checks asynchronously.
-	if argsParsed.NetworkCheckOnly {
-		runNetworkChecks(ctx, logger)
-		return nil
-	}
-	go runNetworkChecks(ctx, logger)
-
 	logging.RegisterEventLogger(logger)
 	logging.ReplaceGlobal(logger)
 	config.InitLoggingSettings(logger, argsParsed.Debug)
@@ -154,6 +146,11 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	if argsParsed.Version {
 		// log startup info here and return if version flag.
 		logStartupInfo(logger)
+		return
+	} else if argsParsed.NetworkCheckOnly {
+		// Run network checks synchronously and immediately exit if `--network-check` flag was
+		// used. Otherwise run network checks asynchronously.
+		runNetworkChecks(ctx, logger)
 		return
 	}
 
@@ -232,9 +229,11 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 
 		registry.AddAppenderToAll(netAppender)
 	}
-	// log startup info after netlogger is initialized so it's captured in cloud machine logs.
+	// log startup info and run network checks after netlogger is initialized so it's captured in cloud machine logs.
 	logStartupInfo(logger)
 	startupInfoLogged = true
+
+	go runNetworkChecks(ctx, logger)
 
 	server := robotServer{
 		logger:   logger,
