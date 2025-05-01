@@ -114,14 +114,6 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		return err
 	}
 
-	// Run network checks synchronously and immediately exit if `--network-check` flag was
-	// used. Otherwise run network checks asynchronously.
-	if argsParsed.NetworkCheckOnly {
-		runNetworkChecks(ctx)
-		return nil
-	}
-	go runNetworkChecks(ctx)
-
 	ctx, err = rutils.WithTrustedEnvironment(ctx, !argsParsed.UntrustedEnv)
 	if err != nil {
 		return err
@@ -146,6 +138,14 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	} else {
 		logger.AddAppender(logging.NewStdoutAppender())
 	}
+
+	// Run network checks synchronously and immediately exit if `--network-check` flag was
+	// used. Otherwise run network checks asynchronously.
+	if argsParsed.NetworkCheckOnly {
+		runNetworkChecks(ctx, logger)
+		return nil
+	}
+	go runNetworkChecks(ctx, logger)
 
 	logging.RegisterEventLogger(logger)
 	logging.ReplaceGlobal(logger)

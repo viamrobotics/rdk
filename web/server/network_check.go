@@ -16,8 +16,8 @@ import (
 
 // Characterizes the network through a series of UDP and TCP STUN network checks. Can and
 // should be run asynchronously with server startup to avoid blocking.
-func runNetworkChecks(ctx context.Context) {
-	logger := logging.NewLogger("network-checks")
+func runNetworkChecks(ctx context.Context, rdkLogger logging.Logger) {
+	logger := rdkLogger.Sublogger("network-checks")
 	if testing.Testing() {
 		logger.Debug("Skipping network checks in a testing environment")
 		return
