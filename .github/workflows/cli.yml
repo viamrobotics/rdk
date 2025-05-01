@@ -4,9 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       release_type:
-        required: true
-        type: string
         default: latest
+        required: true
+        type: choice
+        options: [latest, stable, pr]
   workflow_call:
     inputs:
       release_type:
@@ -55,10 +56,12 @@ jobs:
         GOOS=windows GOARCH=amd64 EXE_SUFFIX=.exe make cli-ci
 
     - name: Authorize GCP Upload
+      if: inputs.release_type != 'pr'
       uses: google-github-actions/auth@v1.1.1
       with:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
     - name: upload
+      if: inputs.release_type != 'pr'
       uses: google-github-actions/upload-cloud-storage@v0.10.4
       with:
         headers: "cache-control: no-cache"

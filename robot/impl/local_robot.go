@@ -16,7 +16,6 @@ import (
 	"go.uber.org/multierr"
 	packagespb "go.viam.com/api/app/packages/v1"
 	goutils "go.viam.com/utils"
-	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -132,11 +131,6 @@ func (r *localRobot) ResourceNames() []resource.Name {
 // ResourceRPCAPIs returns all known resource RPC APIs in use.
 func (r *localRobot) ResourceRPCAPIs() []resource.RPCAPI {
 	return r.manager.ResourceRPCAPIs()
-}
-
-// ProcessManager returns the process manager for the robot.
-func (r *localRobot) ProcessManager() pexec.ProcessManager {
-	return r.manager.processManager
 }
 
 // OperationManager returns the operation manager for the robot.
@@ -447,11 +441,6 @@ func newWithResources(
 	}
 	r.localPackages, err = packages.NewLocalManager(cfg, packageLogger)
 	if err != nil {
-		return nil, err
-	}
-
-	// start process manager early
-	if err := r.manager.processManager.Start(ctx); err != nil {
 		return nil, err
 	}
 
@@ -1256,7 +1245,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	}
 
 	// First we mark diff.Removed resources and their children for removal.
-	processesToClose, resourcesToCloseBeforeComplete, _ := r.manager.markRemoved(ctx, diff.Removed, r.logger)
+	resourcesToCloseBeforeComplete, _ := r.manager.markRemoved(ctx, diff.Removed)
 
 	// Second we attempt to Close resources.
 	alreadyClosed := make(map[resource.Name]struct{}, len(resourcesToCloseBeforeComplete))
@@ -1268,7 +1257,6 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 
 	// Third we update the resource graph and stop any removed processes.
 	allErrs = multierr.Combine(allErrs, r.manager.updateResources(ctx, diff))
-	allErrs = multierr.Combine(allErrs, processesToClose.Stop())
 
 	// Fourth we attempt to complete the config (see function for details) and
 	// update weak dependents.

@@ -169,6 +169,7 @@ func (m *SimpleModel) CachedTransform(inputs []Input) (spatialmath.Pose, error) 
 func (m *SimpleModel) DoF() []Limit {
 	m.lock.RLock()
 	if len(m.limits) > 0 {
+		defer m.lock.RUnlock()
 		return m.limits
 	}
 	m.lock.RUnlock()
