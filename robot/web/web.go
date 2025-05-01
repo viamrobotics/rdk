@@ -227,12 +227,15 @@ func (svc *webService) StartModule(ctx context.Context) error {
 	// Attach the module name (as defined by the robot config) to the handler context. Can be
 	// accessed via `grpc.GetModuleName`.
 	unaryInterceptors = append(unaryInterceptors, svc.modPeerConnTracker.ModInfoUnaryServerInterceptor)
+
 	unaryInterceptors = append(unaryInterceptors, svc.requestCounter.UnaryInterceptor)
+	streamInterceptors = append(streamInterceptors, svc.requestCounter.StreamInterceptor)
 
 	opManager := svc.r.OperationManager()
 	unaryInterceptors = append(unaryInterceptors,
 		opManager.UnaryServerInterceptor, logging.UnaryServerInterceptor)
 	streamInterceptors = append(streamInterceptors, opManager.StreamServerInterceptor)
+
 	// TODO(PRODUCT-343): Add session manager interceptors
 
 	opts := []googlegrpc.ServerOption{
@@ -531,43 +534,15 @@ type RequestCounter struct {
 	counts sync.Map
 }
 
-// UnaryInterceptor returns an incoming server interceptor that will pull method information and
-// optionally resource information to bump the request counters.
-func (rc *RequestCounter) UnaryInterceptor(
-	ctx context.Context, req any, info *googlegrpc.UnaryServerInfo, handler googlegrpc.UnaryHandler,
-) (resp any, err error) {
-	// Handle `info.FullMethod` values such as:
-	// - `/viam.component.motor.v1.MotorService/IsMoving` -> MotorService/IsMoving
-	// - `/viam.robot.v1.RobotService/SendSessionHeartbeat` -> RobotService/SendSessionHeartbeat
-	var apiMethod string
-	switch {
-	case strings.HasPrefix(info.FullMethod, "/viam.component."):
-		fallthrough
-	case strings.HasPrefix(info.FullMethod, "/viam.service."):
-		fallthrough
-	case strings.HasPrefix(info.FullMethod, "/viam.robot."):
-		apiMethod = info.FullMethod[strings.LastIndexByte(info.FullMethod, byte('.'))+1:]
-	default:
+// incrementCounter atomically increments the counter for a given key, creating it first if needed.
+func (rc *RequestCounter) incrementCounter(key string) {
+	if apiCounts, ok := rc.counts.Load(key); ok {
+		apiCounts.(*atomic.Int64).Add(1)
+	} else {
+		newCounter := new(atomic.Int64)
+		newCounter.Add(1)
+		rc.counts.Store(key, newCounter)
 	}
-
-	// Storing in FTDC: `web.motor-name.MotorService/IsMoving: <count>`.
-	if apiMethod != "" {
-		var key string
-		if namer, ok := req.(Namer); ok {
-			key = fmt.Sprintf("%v.%v", namer.GetName(), apiMethod)
-		} else {
-			key = apiMethod
-		}
-		if apiCounts, ok := rc.counts.Load(key); ok {
-			apiCounts.(*atomic.Int64).Add(1)
-		} else {
-			newCounter := new(atomic.Int64)
-			newCounter.Add(1)
-			rc.counts.Store(key, newCounter)
-		}
-	}
-
-	return handler(ctx, req)
 }
 
 // Stats satisfies the ftdc.Statser interface and will return a copy of the counters.
@@ -579,6 +554,92 @@ func (rc *RequestCounter) Stats() any {
 	})
 
 	return ret
+}
+
+func extractViamAPI(fullMethod string) string {
+	// Extract Service and Method name from `fullMethod` values such as:
+	// - `/viam.component.motor.v1.MotorService/IsMoving` -> MotorService/IsMoving
+	// - `/viam.robot.v1.RobotService/SendSessionHeartbeat` -> RobotService/SendSessionHeartbeat
+	switch {
+	case strings.HasPrefix(fullMethod, "/viam.component."):
+		fallthrough
+	case strings.HasPrefix(fullMethod, "/viam.service."):
+		fallthrough
+	case strings.HasPrefix(fullMethod, "/viam.robot."):
+		return fullMethod[strings.LastIndexByte(fullMethod, byte('.'))+1:]
+	default:
+		return ""
+	}
+}
+
+// buildRCKey builds the key to be used in the RequestCounter's counts map.
+// If the msg satisfies web.Namer, the key will be in the format "name.method",
+// Otherwise, the key will be just "method".
+func buildRCKey(clientMsg *any, apiMethod string) string {
+	if clientMsg != nil {
+		if namer, ok := (*clientMsg).(Namer); ok {
+			return fmt.Sprintf("%v.%v", namer.GetName(), apiMethod)
+		}
+	}
+	return apiMethod
+}
+
+// UnaryInterceptor returns an incoming server interceptor that will pull method information and
+// optionally resource information to bump the request counters.
+func (rc *RequestCounter) UnaryInterceptor(
+	ctx context.Context, req any, info *googlegrpc.UnaryServerInfo, handler googlegrpc.UnaryHandler,
+) (resp any, err error) {
+	apiMethod := extractViamAPI(info.FullMethod)
+
+	// Storing in FTDC: `web.motor-name.MotorService/IsMoving: <count>`.
+	if apiMethod != "" {
+		key := buildRCKey(&req, apiMethod)
+		rc.incrementCounter(key)
+	}
+
+	return handler(ctx, req)
+}
+
+type wrappedStreamWithRC struct {
+	googlegrpc.ServerStream
+	apiMethod string
+	rc        *RequestCounter
+	// marks once the first message has been received
+	seenFirst atomic.Bool
+}
+
+// RecvMsg increments the reference counter upon receiving the first message from the client.
+// It is called on every message the client streams to the server (potentially many times per stream).
+func (w *wrappedStreamWithRC) RecvMsg(m any) error {
+	// Unmarshalls into m (to populate fields).
+	err := w.ServerStream.RecvMsg(m)
+
+	if w.seenFirst.CompareAndSwap(false, true) && err == nil {
+		key := buildRCKey(&m, w.apiMethod)
+		w.rc.incrementCounter(key)
+	}
+
+	return err
+}
+
+// StreamInterceptor extracts the service and method names before invoking the handler to complete the RPC.
+// It is called once per stream and will run on:
+// Client streaming: rpc Method (stream a) returns (b)
+// Server streaming: rpc Method (a) returns (stream b)
+// Bidirectional streaming: rpc Method (stream a) returns (stream b).
+func (rc *RequestCounter) StreamInterceptor(
+	srv any,
+	ss googlegrpc.ServerStream,
+	info *googlegrpc.StreamServerInfo,
+	handler googlegrpc.StreamHandler,
+) error {
+	apiMethod := extractViamAPI(info.FullMethod)
+
+	// Only count Viam apiMethods
+	if apiMethod != "" {
+		return handler(srv, &wrappedStreamWithRC{ss, apiMethod, rc, atomic.Bool{}})
+	}
+	return handler(srv, ss)
 }
 
 // RequestCounter returns the request counter object.
@@ -620,9 +681,14 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 		rpcOpts = append(rpcOpts, rpc.WithDisableMulticastDNS())
 	}
 
-	var unaryInterceptors []googlegrpc.UnaryServerInterceptor
+	var (
+		unaryInterceptors  []googlegrpc.UnaryServerInterceptor
+		streamInterceptors []googlegrpc.StreamServerInterceptor
+	)
 	unaryInterceptors = append(unaryInterceptors, grpc.EnsureTimeoutUnaryServerInterceptor)
+
 	unaryInterceptors = append(unaryInterceptors, svc.requestCounter.UnaryInterceptor)
+	streamInterceptors = append(streamInterceptors, svc.requestCounter.StreamInterceptor)
 
 	if options.Debug {
 		rpcOpts = append(rpcOpts, rpc.WithDebug())
@@ -648,8 +714,6 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 		return nil, err
 	}
 	rpcOpts = append(rpcOpts, authOpts...)
-
-	var streamInterceptors []googlegrpc.StreamServerInterceptor
 
 	opManager := svc.r.OperationManager()
 	sessManagerInts := svc.r.SessionManager().ServerInterceptors()
