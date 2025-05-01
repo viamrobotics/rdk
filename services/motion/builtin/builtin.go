@@ -65,6 +65,7 @@ const (
 	defaultLinearMPerSec               = 0.3
 	defaultSlamPlanDeviationM          = 1.
 	defaultGlobePlanDeviationM         = 2.6
+	defaultCollisionBuffer             = 150. // mm
 )
 
 var (
@@ -251,6 +252,9 @@ func newValidatedExtra(extra map[string]interface{}) (validatedExtra, error) {
 
 	if _, ok := extra["smooth_iter"]; !ok {
 		extra["smooth_iter"] = defaultSmoothIter
+	}
+	if _, ok := extra["collision_buffer_mm"]; !ok {
+		extra["collision_buffer_mm"] = defaultCollisionBuffer
 	}
 
 	return validatedExtra{
