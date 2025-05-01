@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/edaniels/golog"
 	"net"
 	"os"
 	"path"
@@ -235,6 +236,9 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	// log startup info after netlogger is initialized so it's captured in cloud machine logs.
 	logStartupInfo(logger)
 	startupInfoLogged = true
+
+	// Have goutils use the logger we've just configured.
+	golog.ReplaceGloabl(logger.AsZap())
 
 	server := robotServer{
 		logger:   logger,
