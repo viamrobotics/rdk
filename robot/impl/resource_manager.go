@@ -635,15 +635,16 @@ func (manager *resourceManager) completeConfig(
 	levels := manager.resources.ReverseTopologicalSortInLevels()
 	timeout := rutils.GetResourceConfigurationTimeout(manager.logger)
 	for _, resourceNames := range levels {
-		// At the start of every reconfiguration level, check if updateWeakDependents should be run
-		// by checking if the logical clock is higher than the `lastWeakDependentsRound` value.
+		// At the start of every reconfiguration level, check if
+		// updateWeakAndOptionalDependents should be run by checking if the logical clock is
+		// higher than the `lastWeakAndOptionalDependentsRound` value.
 		//
-		// This will make sure that weak dependents are updated before they are passed into constructors
-		// or reconfigure methods.
+		// This will make sure that weak and optional dependents are updated before they are
+		// passed into constructors or reconfigure methods.
 		//
-		// Resources that depend on weak dependents should expect that the weak dependents pass into the
-		// constructor or reconfigure method will only have been reconfigured with all resources constructed
-		// before their level.
+		// Resources that depend on weak or optional dependents should expect that the
+		// weak/optional dependents passed into the constructor or reconfigure method will
+		// only have been reconfigured with all resources constructed before their level.
 		for _, resName := range resourceNames {
 			select {
 			case <-ctx.Done():
@@ -658,8 +659,8 @@ func (manager *resourceManager) completeConfig(
 				continue
 			}
 
-			if lr.lastWeakDependentsRound.Load() < manager.resources.CurrLogicalClockValue() {
-				lr.updateWeakDependents(ctx)
+			if lr.lastWeakAndOptionalDependentsRound.Load() < manager.resources.CurrLogicalClockValue() {
+				lr.updateWeakAndOptionalDependents(ctx)
 			}
 		}
 		// we use an errgroup here instead of a normal waitgroup to conveniently bubble

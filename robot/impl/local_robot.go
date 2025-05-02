@@ -71,9 +71,9 @@ type localRobot struct {
 	revealSensitiveConfigDiffs bool
 	shutdownCallback           func()
 
-	// lastWeakDependentsRound stores the value of the resource graph's
+	// lastWeakAndOptionalDependentsRound stores the value of the resource graph's
 	// logical clock when updateWeakDependents was called.
-	lastWeakDependentsRound atomic.Int64
+	lastWeakAndOptionalDependentsRound atomic.Int64
 
 	// configRevision stores the revision of the latest config ingested during
 	// reconfigurations along with a timestamp.
@@ -296,10 +296,10 @@ func (r *localRobot) sendTriggerConfig(caller string) {
 	}
 }
 
-// completeConfigWorker tries to complete the config and update weak dependencies
-// if any resources are not configured. It will also update the resource graph
-// if remotes have changed. It executes every 5 seconds or when manually triggered.
-// Manual triggers are sent when changes in remotes are detected and in testing.
+// completeConfigWorker tries to complete the config and update weak/optional dependencies
+// if any resources are not configured. It will also update the resource graph if remotes
+// have changed. It executes every 5 seconds or when manually triggered. Manual triggers
+// are sent when changes in remotes are detected and in testing.
 func (r *localRobot) completeConfigWorker() {
 	for {
 		if r.closeContext.Err() != nil {
@@ -323,7 +323,7 @@ func (r *localRobot) completeConfigWorker() {
 			r.manager.completeConfig(r.closeContext, r, false)
 		}
 		if anyChanges {
-			r.updateWeakDependents(r.closeContext)
+			r.updateWeakAndOptionalDependents(r.closeContext)
 			r.logger.CDebugw(r.closeContext, "configuration attempt completed with changes", "trigger", trigger)
 		}
 		r.reconfigurationLock.Unlock()
@@ -511,9 +511,9 @@ func newWithResources(
 	if !rOpts.disableCompleteConfigWorker {
 		r.activeBackgroundWorkers.Add(1)
 		r.configTicker = time.NewTicker(5 * time.Second)
-		// This goroutine will try to complete the config and update weak dependencies
-		// if any resources are not configured. It will also update the resource graph
-		// when remotes changes or if manually triggered.
+		// This goroutine will try to complete the config and update weak and optional
+		// dependencies if any resources are not configured. It will also update the resource
+		// graph when remotes changes or if manually triggered.
 		goutils.ManagedGo(func() {
 			r.completeConfigWorker()
 		}, r.activeBackgroundWorkers.Done)
@@ -529,7 +529,7 @@ func newWithResources(
 	}
 
 	if len(resources) != 0 {
-		r.updateWeakDependents(ctx)
+		r.updateWeakAndOptionalDependents(ctx)
 	}
 
 	successful = true
@@ -559,7 +559,7 @@ func (r *localRobot) removeOrphanedResources(ctx context.Context,
 		r.logger.CErrorw(ctx, "error removing and closing marked resources",
 			"error", err)
 	}
-	r.updateWeakDependents(ctx)
+	r.updateWeakAndOptionalDependents(ctx)
 }
 
 // getDependencies derives a collection of dependencies from a robot for a given
@@ -731,11 +731,11 @@ func (r *localRobot) newResource(
 	return res, nil
 }
 
-func (r *localRobot) updateWeakDependents(ctx context.Context) {
-	// Track the current value of the resource graph's logical clock. This will
-	// later be used to determine if updateWeakDependents should be called during
+func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
+	// Track the current value of the resource graph's logical clock. This will later be
+	// used to determine if updateWeakAndOptionalDependents should be called during
 	// completeConfig.
-	r.lastWeakDependentsRound.Store(r.manager.resources.CurrLogicalClockValue())
+	r.lastWeakAndOptionalDependentsRound.Store(r.manager.resources.CurrLogicalClockValue())
 
 	allResources := map[resource.Name]resource.Resource{}
 	internalResources := map[resource.Name]resource.Resource{}
@@ -747,7 +747,12 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		res, err := r.ResourceByName(n)
 		if err != nil {
 			if !resource.IsDependencyNotReadyError(err) && !resource.IsNotAvailableError(err) {
-				r.Logger().CDebugw(ctx, "error finding resource during weak dependent update", "resource", n, "error", err)
+				r.Logger().CDebugw(
+					ctx,
+					"error finding resource during weak/optional dependent update",
+					"resource", n,
+					"error", err,
+				)
 			}
 			continue
 		}
@@ -772,7 +777,11 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		defer timeoutCancel()
 
 		cleanup := utils.SlowStartupLogger(
-			ctx, "Waiting for internal resource to complete reconfiguration during weak dependencies update", "resource", resName.String(), r.logger)
+			ctx,
+			"Waiting for internal resource to complete reconfiguration during weak/optional dependencies update",
+			"resource", resName.String(),
+			r.logger,
+		)
 		defer cleanup()
 
 		r.reconfigureWorkers.Add(1)
@@ -781,24 +790,45 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 				resChan <- struct{}{}
 				r.reconfigureWorkers.Done()
 			}()
-			// NOTE(cheukt): when adding internal services that reconfigure, also add them to the check in `localRobot.resourceHasWeakDependencies`.
+			// NOTE(cheukt): when adding internal services that reconfigure, also add them to
+			// the check in `localRobot.resourceHasWeakDependencies`.
 			switch resName {
 			case web.InternalServiceName:
 				if err := res.Reconfigure(ctxWithTimeout, allResources, resource.Config{}); err != nil {
-					r.Logger().CErrorw(ctx, "failed to reconfigure internal service during weak dependencies update", "service", resName, "error", err)
+					r.Logger().CErrorw(
+						ctx,
+						"failed to reconfigure internal service during weak/optional dependencies update",
+						"service", resName,
+						"error", err,
+					)
 				}
 			case framesystem.InternalServiceName:
 				fsCfg, err := r.FrameSystemConfig(ctxWithTimeout)
 				if err != nil {
-					r.Logger().CErrorw(ctx, "failed to reconfigure internal service during weak dependencies update", "service", resName, "error", err)
+					r.Logger().CErrorw(
+						ctx,
+						"failed to reconfigure internal service during weak/optional dependencies update",
+						"service", resName,
+						"error", err,
+					)
 					break
 				}
-				if err := res.Reconfigure(ctxWithTimeout, components, resource.Config{ConvertedAttributes: fsCfg}); err != nil {
-					r.Logger().CErrorw(ctx, "failed to reconfigure internal service during weak dependencies update", "service", resName, "error", err)
+				err = res.Reconfigure(ctxWithTimeout, components, resource.Config{ConvertedAttributes: fsCfg})
+				if err != nil {
+					r.Logger().CErrorw(
+						ctx,
+						"failed to reconfigure internal service during weak/optional dependencies update",
+						"service", resName,
+						"error", err,
+					)
 				}
 			case packages.InternalServiceName, packages.DeferredServiceName, icloud.InternalServiceName:
 			default:
-				r.logger.CWarnw(ctx, "do not know how to reconfigure internal service during weak dependencies update", "service", resName)
+				r.logger.CWarnw(
+					ctx,
+					"do not know how to reconfigure internal service during weak/optional dependencies update",
+					"service", resName,
+				)
 			}
 		})
 
@@ -806,7 +836,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		case <-resChan:
 		case <-ctxWithTimeout.Done():
 			if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-				r.logger.CWarn(ctx, utils.NewWeakDependenciesUpdateTimeoutError(resName.String()))
+				r.logger.CWarn(ctx, utils.NewWeakOrOptionalDependenciesUpdateTimeoutError(resName.String()))
 			}
 		case <-ctx.Done():
 			return
@@ -825,7 +855,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		processInternalResources(resName, res, resChan)
 	}
 
-	updateResourceWeakDependents := func(ctx context.Context, conf resource.Config) {
+	updateResourceWeakAndOptionalDependents := func(ctx context.Context, conf resource.Config) {
 		resName := conf.ResourceName()
 		resNode, ok := r.manager.resources.Node(resName)
 		if !ok {
@@ -836,19 +866,29 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 			return
 		}
 
-		// Return early if resource has no weak or optional dependencies.
+		// Return early if resource has neither weak nor optional dependencies.
 		if len(r.getWeakDependencyMatchers(conf.API, conf.Model)) == 0 &&
 			len(conf.ImplicitOptionalDependsOn) == 0 {
 			return
 		}
-		r.Logger().CDebugw(ctx, "handling weak update for resource", "resource", resName)
+		r.Logger().CDebugw(ctx, "handling weak/optional update for resource", "resource", resName)
 		deps, err := r.getDependencies(resName, resNode)
 		if err != nil {
-			r.Logger().CErrorw(ctx, "failed to get dependencies during weak dependencies update; skipping", "resource", resName, "error", err)
+			r.Logger().CErrorw(
+				ctx,
+				"failed to get dependencies during weak/optional dependencies update; skipping",
+				"resource", resName,
+				"error", err,
+			)
 			return
 		}
 		if err := res.Reconfigure(ctx, deps, conf); err != nil {
-			r.Logger().CErrorw(ctx, "failed to reconfigure resource during weak dependencies update", "resource", resName, "error", err)
+			r.Logger().CErrorw(
+				ctx,
+				"failed to reconfigure resource during weak/optional dependencies update",
+				"resource", resName,
+				"error", err,
+			)
 		}
 	}
 
@@ -865,7 +905,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 
 		cleanup := utils.SlowStartupLogger(
 			ctx,
-			"Waiting for resource to complete reconfiguration during weak dependencies update",
+			"Waiting for resource to complete reconfiguration during weak/optional dependencies update",
 			"resource",
 			conf.ResourceName().String(),
 			r.logger,
@@ -878,13 +918,13 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 				resChan <- struct{}{}
 				r.reconfigureWorkers.Done()
 			}()
-			updateResourceWeakDependents(ctxWithTimeout, conf)
+			updateResourceWeakAndOptionalDependents(ctxWithTimeout, conf)
 		})
 		select {
 		case <-resChan:
 		case <-ctxWithTimeout.Done():
 			if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-				r.logger.CWarn(ctx, utils.NewWeakDependenciesUpdateTimeoutError(conf.ResourceName().String()))
+				r.logger.CWarn(ctx, utils.NewWeakOrOptionalDependenciesUpdateTimeoutError(conf.ResourceName().String()))
 			}
 		case <-ctx.Done():
 			return
@@ -1314,9 +1354,9 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	allErrs = multierr.Combine(allErrs, r.manager.updateResources(ctx, diff))
 
 	// Fourth we attempt to complete the config (see function for details) and
-	// update weak dependents.
+	// update weak and optional dependents.
 	r.manager.completeConfig(ctx, r, forceSync)
-	r.updateWeakDependents(ctx)
+	r.updateWeakAndOptionalDependents(ctx)
 
 	// Finally we actually remove marked resources and Close any that are
 	// still unclosed.
