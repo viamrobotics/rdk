@@ -173,14 +173,3 @@ func WrapWithKinematics(
 	}
 	return wrapWithPTGKinematics(ctx, b, logger, localizer, options)
 }
-
-type ModelWrappedFrame struct {
-	referenceframe.Frame
-}
-
-func (mwf ModelWrappedFrame) ModelConfig() *referenceframe.ModelConfig {
-	return nil
-}
-func (mwf ModelWrappedFrame) ModelPieceFrames([]referenceframe.Input) (map[string]referenceframe.Frame, error) {
-	return nil, errors.New("ModelPieceFrames unimplemented")
-}

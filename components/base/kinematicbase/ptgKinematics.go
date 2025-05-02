@@ -157,7 +157,7 @@ func wrapWithPTGKinematics(
 		logger:    logger,
 		// NOTE: (Nick S) This is a hack, none of the Model methods are implemented usefully except for
 		// Frame
-		planningModel:                  ModelWrappedFrame{planningFrame},
+		planningModel:                  planningFrame,
 		localizationFrame:              localizationFrame,
 		opts:                           options,
 		ptgs:                           ptgs,
