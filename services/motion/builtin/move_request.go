@@ -336,11 +336,13 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			if err != nil {
 				return state.ExecuteResponse{}, err
 			}
-			_, ok := k.(tpspace.PTGProvider)
-			if ok {
-				updatedBaseExecutionState, err = mr.augmentBaseExecutionState(ctx, baseExecutionState)
-				if err != nil {
-					return state.ExecuteResponse{}, err
+			mwf, okMWF := k.(kinematicbase.ModelWrappedFrame)
+			if okMWF {
+				if _, ok := mwf.Frame.(tpspace.PTGProvider); ok {
+					updatedBaseExecutionState, err = mr.augmentBaseExecutionState(ctx, baseExecutionState)
+					if err != nil {
+						return state.ExecuteResponse{}, err
+					}
 				}
 			}
 
@@ -876,8 +878,12 @@ func (ms *builtIn) createBaseMoveRequest(
 	if err != nil {
 		return nil, err
 	}
+	mwf, ok := executionFrame.(kinematicbase.ModelWrappedFrame)
+	if !ok {
+		return nil, errors.New("expected kinematicbase.Kinematics to return a tpspace.PTGProvider wrapped in a ModelWrappedFrame")
+	}
 	localizationFrame := kb.LocalizationFrame()
-	wf, err := newWrapperFrame(localizationFrame, executionFrame)
+	wf, err := newWrapperFrame(localizationFrame, mwf.Frame)
 	if err != nil {
 		return nil, err
 	}
