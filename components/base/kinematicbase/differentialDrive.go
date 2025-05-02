@@ -91,9 +91,9 @@ func wrapWithDifferentialDriveKinematics(
 		if err != nil {
 			return nil, err
 		}
-		ddk.planningModel = ModelWrappedFrame{pm}
+		ddk.planningModel = pm
 	} else {
-		ddk.planningModel = ModelWrappedFrame{ddk.localizationFrame}
+		// ddk.planningModel = ModelWrappedFrame{ddk.localizationFrame}
 	}
 
 	ddk.noLocalizerCacheInputs = originInputs
