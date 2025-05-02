@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/components/gripper"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
@@ -128,6 +129,15 @@ func TestClient(t *testing.T) {
 		geometries, err := gripper1Client.Geometries(context.Background(), extra)
 		test.That(t, err, test.ShouldBeNil)
 		for i, geometry := range geometries {
+			test.That(t, spatialmath.GeometriesAlmostEqual(expectedGeometries[i], geometry), test.ShouldBeTrue)
+		}
+
+		m, err := gripper1Client.Kinematics(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, m, test.ShouldNotBeNil)
+		gsInFrame, err := m.Geometries(make([]referenceframe.Input, len(m.DoF())))
+		test.That(t, err, test.ShouldBeNil)
+		for i, geometry := range gsInFrame.Geometries() {
 			test.That(t, spatialmath.GeometriesAlmostEqual(expectedGeometries[i], geometry), test.ShouldBeTrue)
 		}
 

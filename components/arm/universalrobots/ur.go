@@ -296,11 +296,6 @@ func urArmConnect(ctx context.Context, conf resource.Config, logger logging.Logg
 	}
 }
 
-// ModelFrame returns all the information necessary for including the arm in a FrameSystem.
-func (ua *urArm) ModelFrame() referenceframe.Model {
-	return ua.model
-}
-
 func (ua *urArm) setRuntimeError(re error) {
 	ua.mu.Lock()
 	ua.runtimeError = re
@@ -510,8 +505,8 @@ func (ua *urArm) moveToJointPositionRadians(ctx context.Context, radians []float
 	}
 }
 
-func (ua *urArm) Kinematics(ctx context.Context) (referenceframe.Frame, error) {
-	return nil, errors.New("urArm arm.Kinematics is unimplemented")
+func (ua *urArm) Kinematics(ctx context.Context) (referenceframe.Model, error) {
+	return ua.model, nil
 }
 
 // CurrentInputs returns the current Inputs of the UR arm.

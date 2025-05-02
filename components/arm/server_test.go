@@ -85,12 +85,12 @@ func TestServer(t *testing.T) {
 		extraOptions = extra
 		return nil
 	}
-	injectArm.ModelFrameFunc = func() referenceframe.Model {
+	injectArm.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
 		model, err := urdf.ParseModelXMLFile(utils.ResolveFile("referenceframe/urdf/testfiles/ur5e.urdf"), "foo")
 		if err != nil {
-			return nil
+			return nil, err
 		}
-		return model
+		return model, nil
 	}
 	injectArm.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		extraOptions = extra
@@ -114,8 +114,8 @@ func TestServer(t *testing.T) {
 		capArmJointPos = jp
 		return errMoveToJointPositionFailed
 	}
-	injectArm2.ModelFrameFunc = func() referenceframe.Model {
-		return nil
+	injectArm2.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return nil, errors.New("KinematicsFunc unimplemented")
 	}
 	injectArm2.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		return errStopUnimplemented

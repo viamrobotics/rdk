@@ -24,11 +24,6 @@ type Model interface {
 	ModelPieceFrames([]Input) (map[string]Frame, error)
 }
 
-// ModelFramer has a method that returns the kinematics information needed to build a dynamic referenceframe.
-type ModelFramer interface {
-	ModelFrame() Model
-}
-
 // SimpleModel is a model that serially concatenates a list of Frames.
 type SimpleModel struct {
 	*baseFrame

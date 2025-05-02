@@ -57,12 +57,12 @@ func NewClientFromConn(
 	return c, nil
 }
 
-func (c *client) Kinematics(ctx context.Context) (referenceframe.Frame, error) {
+func (c *client) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 	resp, err := c.client.GetKinematics(ctx, &commonpb.GetKinematicsRequest{Name: c.name})
 	if err != nil {
 		return nil, err
 	}
-	return framesystem.ParseKinematicsResponse(c.name, resp)
+	return framesystem.KinematicModelFromProtobuf(c.name, resp)
 }
 
 func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {

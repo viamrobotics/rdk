@@ -87,12 +87,13 @@ func wrapWithDifferentialDriveKinematics(
 	}
 
 	if options.PositionOnlyMode {
-		ddk.planningFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits[:2], boundingSphere)
+		pm, err := referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits[:2], boundingSphere)
 		if err != nil {
 			return nil, err
 		}
+		ddk.planningModel = ModelWrappedFrame{pm}
 	} else {
-		ddk.planningFrame = ddk.localizationFrame
+		ddk.planningModel = ModelWrappedFrame{ddk.localizationFrame}
 	}
 
 	ddk.noLocalizerCacheInputs = originInputs
@@ -102,17 +103,18 @@ func wrapWithDifferentialDriveKinematics(
 type differentialDriveKinematics struct {
 	base.Base
 	motion.Localizer
-	logger                           logging.Logger
-	planningFrame, localizationFrame referenceframe.Frame
-	options                          Options
-	noLocalizerCacheInputs           []referenceframe.Input
-	currentTrajectory                [][]referenceframe.Input
-	currentIdx                       int
-	mutex                            sync.RWMutex
+	logger                 logging.Logger
+	planningModel          referenceframe.Model
+	localizationFrame      referenceframe.Frame
+	options                Options
+	noLocalizerCacheInputs []referenceframe.Input
+	currentTrajectory      [][]referenceframe.Input
+	currentIdx             int
+	mutex                  sync.RWMutex
 }
 
-func (ddk *differentialDriveKinematics) Kinematics(context.Context) (referenceframe.Frame, error) {
-	return ddk.planningFrame, nil
+func (ddk *differentialDriveKinematics) Kinematics(context.Context) (referenceframe.Model, error) {
+	return ddk.planningModel, nil
 }
 
 func (ddk *differentialDriveKinematics) LocalizationFrame() referenceframe.Frame {
@@ -211,7 +213,7 @@ func (ddk *differentialDriveKinematics) goToInputs(ctx context.Context, desired 
 			if !commanded {
 				// no command to move to the x, y location was issued, correct the heading and then exit
 				// 2DOF model indicates position-only mode so heading doesn't need to be corrected, exit function
-				if len(ddk.planningFrame.DoF()) == 2 {
+				if len(ddk.planningModel.DoF()) == 2 {
 					movementErr <- err
 					return
 				}

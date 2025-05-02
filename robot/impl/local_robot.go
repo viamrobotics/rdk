@@ -999,7 +999,7 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 // The output of this function is to be sent over GRPC to the client, so the client
 // can build its frame system. requests the remote components from the remote's frame system service.
 func (r *localRobot) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
-	localParts, err := r.getLocalFrameSystemParts()
+	localParts, err := r.getLocalFrameSystemParts(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1013,7 +1013,7 @@ func (r *localRobot) FrameSystemConfig(ctx context.Context) (*framesystem.Config
 
 // getLocalFrameSystemParts collects and returns the physical parts of the robot that may have frame info,
 // excluding remote robots and services, etc from the robot's config.Config.
-func (r *localRobot) getLocalFrameSystemParts() ([]*referenceframe.FrameSystemPart, error) {
+func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
 	cfg := r.Config()
 
 	parts := make([]*referenceframe.FrameSystemPart, 0)
@@ -1119,13 +1119,13 @@ func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*referenc
 
 // extractModelFrameJSON finds the robot part with a given name, checks to see if it implements ModelFrame, and returns the
 // JSON []byte if it does, or nil if it doesn't.
-func (r *localRobot) extractModelFrameJSON(name resource.Name) (referenceframe.Model, error) {
+func (r *localRobot) extractModelFrameJSON(ctx context.Context, name resource.Name) (referenceframe.Model, error) {
 	part, err := r.ResourceByName(name)
 	if err != nil {
 		return nil, err
 	}
-	if framer, ok := part.(referenceframe.ModelFramer); ok {
-		return framer.ModelFrame(), nil
+	if k, ok := part.(framesystem.InputEnabled); ok {
+		return k.Kinematics(ctx)
 	}
 	return nil, referenceframe.ErrNoModelInformation
 }
