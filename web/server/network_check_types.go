@@ -25,6 +25,35 @@ type STUNResponse struct {
 	ErrorString *string
 }
 
+func stringifySTUNResponses(stunResponses []*STUNResponse) string {
+	ret := "["
+
+	for i, sr := range stunResponses {
+		comma := ","
+		if i == 0 {
+			comma = ""
+		}
+
+		ret += fmt.Sprintf("%v{stun_server_url: %v", comma, sr.STUNServerURL)
+		if sr.STUNServerAddr != nil {
+			ret += fmt.Sprintf(", stun_server_addr: %v", *sr.STUNServerAddr)
+		}
+		if sr.BindResponseAddr != nil {
+			ret += fmt.Sprintf(", bind_response_addr: %v", *sr.BindResponseAddr)
+		}
+		if sr.TimeToBindResponseMS != nil {
+			ret += fmt.Sprintf(", time_to_bind_response_ms: %d", *sr.TimeToBindResponseMS)
+		}
+		if sr.ErrorString != nil {
+			ret += fmt.Sprintf(", error_string: %v", *sr.ErrorString)
+		}
+
+		ret += "}"
+	}
+
+	return ret + "]"
+}
+
 // Logs STUN responses and whether the machine appears to be behind a "hard" NAT device.
 func logSTUNResults(
 	logger logging.Logger,
@@ -66,13 +95,13 @@ func logSTUNResults(
 		logger.Warnw(
 			msg,
 			fmt.Sprintf("%v_source_address", network), sourceAddress,
-			fmt.Sprintf("%v_tests", network), stunResponses,
+			fmt.Sprintf("%v_tests", network), stringifySTUNResponses(stunResponses),
 		)
 	} else {
 		logger.Infow(
 			msg,
 			fmt.Sprintf("%v_source_address", network), sourceAddress,
-			fmt.Sprintf("%v_tests", network), stunResponses,
+			fmt.Sprintf("%v_tests", network), stringifySTUNResponses(stunResponses),
 		)
 	}
 
