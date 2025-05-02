@@ -36,12 +36,12 @@ var InternalServiceName = resource.NewName(API, "builtin")
 // This allows us to figure out where they currently are, and then move them.
 // Input units are always in meters or radians.
 type InputEnabled interface {
-	Kinematics(ctx context.Context) (referenceframe.Frame, error)
+	Kinematics(ctx context.Context) (referenceframe.Model, error)
 	CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 	GoToInputs(context.Context, ...[]referenceframe.Input) error
 }
 
-func ParseKinematicsResponse(name string, resp *commonpb.GetKinematicsResponse) (referenceframe.Frame, error) {
+func KinematicModelFromProtobuf(name string, resp *commonpb.GetKinematicsResponse) (referenceframe.Model, error) {
 	if resp == nil {
 		return nil, errors.New("*commonpb.GetKinematicsResponse can't be nil")
 	}
@@ -65,6 +65,28 @@ func ParseKinematicsResponse(name string, resp *commonpb.GetKinematicsResponse) 
 		}
 		return nil, fmt.Errorf("unable to parse unknown file type %d", format)
 	}
+}
+
+func KinematicModelToProtobuf(model referenceframe.Model) *commonpb.GetKinematicsResponse {
+	unspecified := commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED
+	if model == nil {
+		return &commonpb.GetKinematicsResponse{Format: unspecified}
+	}
+
+	cfg := model.ModelConfig()
+	if cfg == nil || cfg.OriginalFile == nil {
+		return &commonpb.GetKinematicsResponse{Format: unspecified}
+	}
+	resp := &commonpb.GetKinematicsResponse{KinematicsData: cfg.OriginalFile.Bytes}
+	switch cfg.OriginalFile.Extension {
+	case "json":
+		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA
+	case urdf.Extension:
+		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF
+	default:
+		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF
+	}
+	return resp
 }
 
 // A Service that returns the frame system for a robot.

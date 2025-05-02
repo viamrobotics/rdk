@@ -3,7 +3,6 @@ package fake
 
 import (
 	"context"
-	"errors"
 	"sync"
 
 	"go.viam.com/rdk/components/gripper"
@@ -67,8 +66,10 @@ func (g *Gripper) Reconfigure(_ context.Context, _ resource.Dependencies, conf r
 	return nil
 }
 
-func (g *Gripper) Kinematics(ctx context.Context) (referenceframe.Frame, error) {
-	return nil, errors.New("fake gripper.Kinematics is unimplemented")
+func (g *Gripper) Kinematics(ctx context.Context) (referenceframe.Model, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.model, nil
 }
 
 func (g *Gripper) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {

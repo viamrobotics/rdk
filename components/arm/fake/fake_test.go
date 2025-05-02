@@ -126,9 +126,11 @@ func TestJointPositions(t *testing.T) {
 	for i := range samplePositions {
 		test.That(t, positions[i], test.ShouldResemble, samplePositions[i])
 	}
+	m, err := arm.Kinematics(ctx)
+	test.That(t, err, test.ShouldBeNil)
 
 	// Round trip test for GoToInputs -> CurrentInputs
-	sampleInputs := make([]referenceframe.Input, len(arm.ModelFrame().DoF()))
+	sampleInputs := make([]referenceframe.Input, len(m.DoF()))
 	test.That(t, arm.GoToInputs(ctx, sampleInputs), test.ShouldBeNil)
 	inputs, err := arm.CurrentInputs(ctx)
 	test.That(t, err, test.ShouldBeNil)
@@ -147,6 +149,8 @@ func TestXArm6Locations(t *testing.T) {
 	}
 
 	notReal, err := NewArm(context.Background(), nil, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	m, err := notReal.Kinematics(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("home location check", func(t *testing.T) {
@@ -178,7 +182,7 @@ func TestXArm6Locations(t *testing.T) {
 		}
 
 		in := make([]referenceframe.Input, 6)
-		geoms, err := notReal.ModelFrame().Geometries(in)
+		geoms, err := m.Geometries(in)
 		test.That(t, err, test.ShouldBeNil)
 		geomMap := geoms.Geometries()
 		b := locationCheckTestHelper(geomMap, checkMap)
@@ -214,7 +218,7 @@ func TestXArm6Locations(t *testing.T) {
 		}
 
 		in := []referenceframe.Input{{Value: 0}, {Value: -0.1}, {Value: -0.1}, {Value: -0.1}, {Value: -0.1}, {Value: -0.1}}
-		geoms, err := notReal.ModelFrame().Geometries(in)
+		geoms, err := m.Geometries(in)
 		test.That(t, err, test.ShouldBeNil)
 		geomMap := geoms.Geometries()
 		b := locationCheckTestHelper(geomMap, checkMap)
@@ -250,7 +254,7 @@ func TestXArm6Locations(t *testing.T) {
 		}
 
 		in := []referenceframe.Input{{Value: 0}, {Value: -0.2}, {Value: -0.2}, {Value: -0.2}, {Value: -0.2}, {Value: -0.2}}
-		geoms, err := notReal.ModelFrame().Geometries(in)
+		geoms, err := m.Geometries(in)
 		test.That(t, err, test.ShouldBeNil)
 		geomMap := geoms.Geometries()
 		b := locationCheckTestHelper(geomMap, checkMap)

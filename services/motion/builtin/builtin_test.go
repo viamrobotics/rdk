@@ -542,9 +542,8 @@ func TestStoppableMoveFunctions(t *testing.T) {
 		injectArm.GoToInputsFunc = func(ctx context.Context, goal ...[]referenceframe.Input) error {
 			return failToReachGoalError
 		}
-		injectArm.ModelFrameFunc = func() referenceframe.Model {
-			model, _ := ur.MakeModelFrame("ur5e")
-			return model
+		injectArm.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+			return ur.MakeModelFrame("ur5e")
 		}
 		injectArm.MoveToPositionFunc = func(ctx context.Context, to spatialmath.Pose, extra map[string]interface{}) error {
 			return failToReachGoalError
@@ -557,12 +556,13 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			armName,
 			nil,
 		)
-
+		m, err := injectArm.KinematicsFunc(ctx)
+		test.That(t, err, test.ShouldBeNil)
 		// Create a motion service
 		fsParts := []*referenceframe.FrameSystemPart{
 			{
 				FrameConfig: armLink,
-				ModelFrame:  injectArm.ModelFrameFunc(),
+				ModelFrame:  m,
 			},
 		}
 		deps := resource.Dependencies{

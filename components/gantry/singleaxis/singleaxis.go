@@ -598,34 +598,28 @@ func (g *singleAxis) IsMoving(ctx context.Context) (bool, error) {
 	return g.opMgr.OpRunning(), nil
 }
 
-// ModelFrame returns the frame model of the Gantry.
-func (g *singleAxis) ModelFrame() referenceframe.Model {
+func (g *singleAxis) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	if g.model == nil {
-		var errs error
 		m := referenceframe.NewSimpleModel("")
 
 		f, err := referenceframe.NewStaticFrame(g.Name().ShortName(), spatial.NewZeroPose())
-		errs = multierr.Combine(errs, err)
+		if err != nil {
+			return nil, err
+		}
 		m.OrdTransforms = append(m.OrdTransforms, f)
 
 		f, err = referenceframe.NewTranslationalFrame(g.Name().ShortName(), g.frame, referenceframe.Limit{Min: 0, Max: g.lengthMm})
-		errs = multierr.Combine(errs, err)
 
-		if errs != nil {
-			g.logger.Error(errs)
-			return nil
+		if err != nil {
+			return nil, err
 		}
 
 		m.OrdTransforms = append(m.OrdTransforms, f)
 		g.model = m
 	}
-	return g.model
-}
-
-func (g *singleAxis) Kinematics(ctx context.Context) (referenceframe.Frame, error) {
-	return nil, errors.New("singleAxis gantry.Kinematics is unimplemented")
+	return g.model, nil
 }
 
 // CurrentInputs returns the current inputs of the Gantry frame.

@@ -95,13 +95,6 @@ func (wrapper *Arm) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	return nil
 }
 
-// ModelFrame returns the dynamic frame of the model.
-func (wrapper *Arm) ModelFrame() referenceframe.Model {
-	wrapper.mu.RLock()
-	defer wrapper.mu.RUnlock()
-	return wrapper.model
-}
-
 // EndPosition returns the set position.
 func (wrapper *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 	wrapper.mu.RLock()
@@ -182,8 +175,10 @@ func (wrapper *Arm) IsMoving(ctx context.Context) (bool, error) {
 	return wrapper.opMgr.OpRunning(), nil
 }
 
-func (wrapper *Arm) Kinematics(ctx context.Context) (referenceframe.Frame, error) {
-	return wrapper.actual.Kinematics(ctx)
+func (wrapper *Arm) Kinematics(ctx context.Context) (referenceframe.Model, error) {
+	wrapper.mu.RLock()
+	defer wrapper.mu.RUnlock()
+	return wrapper.model, nil
 }
 
 // CurrentInputs returns the current inputs of the arm.
