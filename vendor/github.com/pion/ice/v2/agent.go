@@ -1024,7 +1024,7 @@ func (a *Agent) sendBindingSuccess(m *stun.Message, local, remote Candidate) {
 		return
 	}
 
-	if out, err := stun.Build(m, stun.TransactionID, stun.BindingSuccess,
+	if out, err := stun.Build(m, stun.BindingSuccess,
 		&stun.XORMappedAddress{
 			IP:   ip,
 			Port: port,
