@@ -96,6 +96,7 @@ func TestFromReaderEmptyModuleEnvironment(t *testing.T) {
 					rutils.PrimaryOrgIDEnvVar:  "",
 					rutils.LocationIDEnvVar:    "",
 					rutils.MachineIDEnvVar:     "",
+					rutils.MachineFQDNEnvVar:   "",
 				},
 			},
 		},

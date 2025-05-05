@@ -684,7 +684,7 @@ func TestManagerNewComponent(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "board3")
 }
 
-func managerForTest(ctx context.Context, t *testing.T, l logging.Logger) *resourceManager {
+func managerForTest(t *testing.T, l logging.Logger) *resourceManager {
 	t.Helper()
 	injectRobot := setupInjectRobot(l)
 	manager := managerForDummyRobot(t, injectRobot)
@@ -701,10 +701,6 @@ func managerForTest(ctx context.Context, t *testing.T, l logging.Logger) *resour
 		nil,
 		config.Remote{Name: "remote2"},
 	)
-	_, err := manager.processManager.AddProcess(ctx, &fakeProcess{id: "1"}, false)
-	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.processManager.AddProcess(ctx, &fakeProcess{id: "2"}, false)
-	test.That(t, err, test.ShouldBeNil)
 	return manager
 }
 
@@ -712,24 +708,22 @@ func TestManagerMarkRemoved(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	manager := managerForTest(ctx, t, logger)
+	manager := managerForTest(t, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
 	checkEmpty := func(
-		procMan pexec.ProcessManager,
 		resourcesToCloseBeforeComplete []resource.Resource,
 		names map[resource.Name]struct{},
 	) {
 		t.Helper()
 		test.That(t, names, test.ShouldBeEmpty)
 		test.That(t, resourcesToCloseBeforeComplete, test.ShouldBeEmpty)
-		test.That(t, procMan.ProcessIDs(), test.ShouldBeEmpty)
 	}
 
-	processesToRemove, resourcesToCloseBeforeComplete, markedResourceNames := manager.markRemoved(ctx, &config.Config{}, logger)
-	checkEmpty(processesToRemove, resourcesToCloseBeforeComplete, markedResourceNames)
+	resourcesToCloseBeforeComplete, markedResourceNames := manager.markRemoved(ctx, &config.Config{})
+	checkEmpty(resourcesToCloseBeforeComplete, markedResourceNames)
 
-	processesToRemove, resourcesToCloseBeforeComplete, markedResourceNames = manager.markRemoved(ctx, &config.Config{
+	resourcesToCloseBeforeComplete, markedResourceNames = manager.markRemoved(ctx, &config.Config{
 		Remotes: []config.Remote{
 			{
 				Name: "what",
@@ -775,26 +769,26 @@ func TestManagerMarkRemoved(t *testing.T) {
 				Name: "echo",
 			},
 		},
-	}, logger)
-	checkEmpty(processesToRemove, resourcesToCloseBeforeComplete, markedResourceNames)
+	})
+	checkEmpty(resourcesToCloseBeforeComplete, markedResourceNames)
 
-	processesToRemove, resourcesToCloseBeforeComplete, markedResourceNames = manager.markRemoved(ctx, &config.Config{
+	resourcesToCloseBeforeComplete, markedResourceNames = manager.markRemoved(ctx, &config.Config{
 		Components: []resource.Config{
 			{
 				Name: "what1",
 			},
 		},
-	}, logger)
-	checkEmpty(processesToRemove, resourcesToCloseBeforeComplete, markedResourceNames)
+	})
+	checkEmpty(resourcesToCloseBeforeComplete, markedResourceNames)
 
 	test.That(t, manager.Close(ctx), test.ShouldBeNil)
 	cancel()
 
 	ctx, cancel = context.WithCancel(context.Background())
-	manager = managerForTest(ctx, t, logger)
+	manager = managerForTest(t, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
-	processesToRemove, _, markedResourceNames = manager.markRemoved(ctx, &config.Config{
+	_, markedResourceNames = manager.markRemoved(ctx, &config.Config{
 		Components: []resource.Config{
 			{
 				Name: "arm2",
@@ -840,7 +834,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 				Name: "echo", // does not matter
 			},
 		},
-	}, logger)
+	})
 
 	armNames := []resource.Name{arm.Named("arm2")}
 	baseNames := []resource.Name{base.Named("base2")}
@@ -866,16 +860,15 @@ func TestManagerMarkRemoved(t *testing.T) {
 			servoNames,
 		)...),
 	)
-	rdktestutils.VerifySameElements(t, processesToRemove.ProcessIDs(), []string{"2"})
 
 	test.That(t, manager.Close(ctx), test.ShouldBeNil)
 	cancel()
 
 	ctx, cancel = context.WithCancel(context.Background())
-	manager = managerForTest(ctx, t, logger)
+	manager = managerForTest(t, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
-	processesToRemove, _, markedResourceNames = manager.markRemoved(ctx, &config.Config{
+	_, markedResourceNames = manager.markRemoved(ctx, &config.Config{
 		Remotes: []config.Remote{
 			{
 				Name: "remote2",
@@ -925,7 +918,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 				Name: "echo", // does not matter
 			},
 		},
-	}, logger)
+	})
 
 	armNames = []resource.Name{arm.Named("arm2"), arm.Named("remote2:arm1"), arm.Named("remote2:arm2")}
 	baseNames = []resource.Name{
@@ -980,16 +973,15 @@ func TestManagerMarkRemoved(t *testing.T) {
 			[]resource.Name{fromRemoteNameToRemoteNodeName("remote2")},
 		)...),
 	)
-	rdktestutils.VerifySameElements(t, processesToRemove.ProcessIDs(), []string{"2"})
 
 	test.That(t, manager.Close(ctx), test.ShouldBeNil)
 	cancel()
 
 	ctx, cancel = context.WithCancel(context.Background())
-	manager = managerForTest(ctx, t, logger)
+	manager = managerForTest(t, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
-	processesToRemove, _, markedResourceNames = manager.markRemoved(ctx, &config.Config{
+	_, markedResourceNames = manager.markRemoved(ctx, &config.Config{
 		Remotes: []config.Remote{
 			{
 				Name: "remote1",
@@ -1125,7 +1117,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 				Name: "echo", // does not matter
 			},
 		},
-	}, logger)
+	})
 
 	armNames = []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
 	armNames = append(armNames, rdktestutils.AddRemotes(armNames, "remote1", "remote2")...)
@@ -1163,7 +1155,6 @@ func TestManagerMarkRemoved(t *testing.T) {
 			},
 		)...),
 	)
-	rdktestutils.VerifySameElements(t, processesToRemove.ProcessIDs(), []string{"1", "2"})
 	test.That(t, manager.Close(ctx), test.ShouldBeNil)
 	cancel()
 }
@@ -1254,25 +1245,6 @@ func TestConfigUntrustedEnv(t *testing.T) {
 	manager := newResourceManager(resourceManagerOptions{
 		untrustedEnv: true,
 	}, logger)
-	test.That(t, manager.processManager, test.ShouldEqual, pexec.NoopProcessManager)
-
-	t.Run("disable processes", func(t *testing.T) {
-		err := manager.updateResources(ctx, &config.Diff{
-			Added: &config.Config{
-				Processes: []pexec.ProcessConfig{{ID: "id1", Name: "echo"}},
-			},
-			Modified: &config.ModifiedConfigDiff{
-				Processes: []pexec.ProcessConfig{{ID: "id2", Name: "echo"}},
-			},
-		})
-		test.That(t, errors.Is(err, errProcessesDisabled), test.ShouldBeTrue)
-
-		processesToClose, _, _ := manager.markRemoved(ctx, &config.Config{
-			Processes: []pexec.ProcessConfig{{ID: "id1", Name: "echo"}},
-		}, logger)
-		test.That(t, processesToClose.ProcessIDs(), test.ShouldBeEmpty)
-	})
-
 	t.Run("disable shell service", func(t *testing.T) {
 		err := manager.updateResources(ctx, &config.Diff{
 			Added: &config.Config{
@@ -1290,40 +1262,15 @@ func TestConfigUntrustedEnv(t *testing.T) {
 		})
 		test.That(t, errors.Is(err, errShellServiceDisabled), test.ShouldBeTrue)
 
-		_, resourcesToCloseBeforeComplete, markedResourceNames := manager.markRemoved(ctx, &config.Config{
+		resourcesToCloseBeforeComplete, markedResourceNames := manager.markRemoved(ctx, &config.Config{
 			Services: []resource.Config{{
 				Name: "shell-service",
 				API:  shell.API,
 			}},
-		}, logger)
+		})
 		test.That(t, resourcesToCloseBeforeComplete, test.ShouldBeEmpty)
 		test.That(t, markedResourceNames, test.ShouldBeEmpty)
 	})
-}
-
-type fakeProcess struct {
-	id string
-}
-
-func (fp *fakeProcess) ID() string {
-	return fp.id
-}
-
-func (fp *fakeProcess) Start(ctx context.Context) error {
-	return nil
-}
-
-func (fp *fakeProcess) Stop() error {
-	return nil
-}
-func (fp *fakeProcess) KillGroup() {}
-
-func (fp *fakeProcess) Status() error {
-	return nil
-}
-
-func (fp *fakeProcess) UnixPid() (int, error) {
-	return 0, errors.New("unimplemented")
 }
 
 func TestManagerResourceRPCAPIs(t *testing.T) {
