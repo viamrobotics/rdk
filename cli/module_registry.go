@@ -569,8 +569,9 @@ func validateModuleFile(client *viamClient, c *cli.Context, moduleID moduleID, t
 		}
 		path := header.Name
 
-		// if path == entrypoint, we have found the right file. On Windows, allow for an optional
-		// ".exe" at the end.
+		// If path equals entrypoint, we have found the right file. On Windows, allow for an
+		// optional ".exe" at the end, because Windows can automatically resolve the entrypoint
+		// "foo" to the executable "foo.exe" when needed.
 		if filepath.Clean(path) == filepath.Clean(entrypoint) ||
 			(strings.HasPrefix(strings.ToLower(platform), "windows") &&
 				filepath.Clean(path) == filepath.Clean(entrypoint)+".exe") {
