@@ -59,11 +59,11 @@ func extendWebRTCConfig(original *webrtc.Configuration, optional *webrtcpb.WebRT
 					isViam = true
 				}
 
-				if strings.HasSuffix(url, "udp") {
-					newURL := url[:len(url)-len("udp")] + "tcp"
-					urls = append(urls, newURL)
-					continue
-				}
+				// if strings.HasSuffix(url, "udp") {
+				//  	newURL := url[:len(url)-len("udp")] + "tcp"
+				//  	urls = append(urls, newURL)
+				//  	continue
+				// }
 			}
 
 			if !isViam {
