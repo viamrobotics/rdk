@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -232,6 +233,9 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	// log startup info and run network checks after netlogger is initialized so it's captured in cloud machine logs.
 	logStartupInfo(logger)
 	startupInfoLogged = true
+
+	// Have goutils use the logger we've just configured.
+	golog.ReplaceGloabl(logger.AsZap())
 
 	go runNetworkChecks(ctx, logger)
 
