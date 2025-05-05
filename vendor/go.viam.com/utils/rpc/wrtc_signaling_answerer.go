@@ -336,6 +336,7 @@ func (aa *answerAttempt) connect(ctx context.Context) (err error) {
 		aa.server.counters.PeerConnectionErrors.Add(1)
 		return err
 	}
+
 	webrtcConfig = extendWebRTCConfig(&webrtcConfig, configResp.GetConfig())
 	iceUrls := make([]string, 0)
 	for _, ice := range webrtcConfig.ICEServers {

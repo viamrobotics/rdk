@@ -411,6 +411,7 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 	}
 
 	ioLogger := svc.logger.Sublogger("networking")
+	ioLogger.SetLevel(logging.DEBUG)
 	svc.rpcServer, err = rpc.NewServer(ioLogger, rpcOpts...)
 	if err != nil {
 		return err

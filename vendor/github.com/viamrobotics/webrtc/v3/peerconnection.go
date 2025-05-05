@@ -1761,7 +1761,7 @@ func (pc *PeerConnection) AddICECandidate(candidate ICECandidateInit) error {
 
 	var iceCandidate *ICECandidate
 	if candidateValue != "" {
-		candidate, err := ice.UnmarshalCandidate(candidateValue)
+		candidate, err := ice.UnmarshalCandidate(candidateValue, pc.log)
 		if err != nil {
 			if errors.Is(err, ice.ErrUnknownCandidateTyp) || errors.Is(err, ice.ErrDetermineNetworkType) {
 				pc.log.Warnf("Discarding remote candidate: %s", err)
