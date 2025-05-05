@@ -7,6 +7,7 @@ package ice
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"math"
@@ -392,7 +393,7 @@ func (a *Agent) startConnectivityChecks(isControlling bool, remoteUfrag, remoteP
 		return err
 	}
 
-	a.log.Debugf("Started agent: isControlling? %t, remoteUfrag: %q, remotePwd: %q", isControlling, remoteUfrag, remotePwd)
+	a.log.Infof("Started agent: isControlling? %t, remoteUfrag: %q, remotePwd: %q", isControlling, remoteUfrag, remotePwd)
 
 	return a.run(a.context(), func(ctx context.Context, agent *Agent) {
 		agent.isControlling = isControlling
@@ -515,13 +516,13 @@ func (a *Agent) setSelectedPair(p *CandidatePair) {
 	if p == nil {
 		var nilPair *CandidatePair
 		a.selectedPair.Store(nilPair)
-		a.log.Tracef("Unset selected candidate pair")
+		a.log.Infof("Unset selected candidate pair")
 		return
 	}
 
 	p.nominated = true
 	a.selectedPair.Store(p)
-	a.log.Tracef("Set selected candidate pair: %s", p)
+	a.log.Infof("Set selected candidate pair: %s", p)
 
 	a.updateConnectionState(ConnectionStateConnected)
 
@@ -533,7 +534,7 @@ func (a *Agent) setSelectedPair(p *CandidatePair) {
 }
 
 func (a *Agent) pingAllCandidates() {
-	a.log.Trace("Pinging all candidates")
+	a.log.Info("Pinging all candidates")
 
 	if len(a.checklist) == 0 {
 		a.log.Warn("Failed to ping without candidate pairs. Connection is not possible yet.")
@@ -547,7 +548,7 @@ func (a *Agent) pingAllCandidates() {
 		}
 
 		if p.bindingRequestCount > a.maxBindingRequests {
-			a.log.Tracef("Maximum requests reached for pair %s, marking it as failed", p)
+			a.log.Infof("Maximum requests reached for pair %s, marking it as failed", p)
 			p.state = CandidatePairStateFailed
 		} else {
 			a.selector.PingCandidate(p.Local, p.Remote)
@@ -813,7 +814,7 @@ func (a *Agent) addCandidate(ctx context.Context, c Candidate, candidateConn net
 		set := a.localCandidates[c.NetworkType()]
 		for _, candidate := range set {
 			if candidate.Equal(c) {
-				a.log.Debugf("Ignore duplicate candidate: %s", c)
+				a.log.Infof("Ignore duplicate candidate: %s", c)
 				if err := c.close(); err != nil {
 					a.log.Warnf("Failed to close duplicate candidate: %v", err)
 				}
@@ -1001,7 +1002,7 @@ func (a *Agent) findRemoteCandidate(networkType NetworkType, addr net.Addr) Cand
 }
 
 func (a *Agent) sendBindingRequest(m *stun.Message, local, remote Candidate) {
-	a.log.Tracef("Ping STUN from %s to %s", local, remote)
+	a.log.Infof("Ping STUN from %s to %s", local, remote)
 
 	a.invalidatePendingBindingRequests(time.Now())
 	a.pendingBindingRequests = append(a.pendingBindingRequests, bindingRequest{
@@ -1023,7 +1024,7 @@ func (a *Agent) sendBindingSuccess(m *stun.Message, local, remote Candidate) {
 		return
 	}
 
-	if out, err := stun.Build(m, stun.BindingSuccess,
+	if out, err := stun.Build(m, stun.TransactionID, stun.BindingSuccess,
 		&stun.XORMappedAddress{
 			IP:   ip,
 			Port: port,
@@ -1054,7 +1055,7 @@ func (a *Agent) invalidatePendingBindingRequests(filterTime time.Time) {
 
 	a.pendingBindingRequests = temp
 	if bindRequestsRemoved := initialSize - len(a.pendingBindingRequests); bindRequestsRemoved > 0 {
-		a.log.Tracef("Discarded %d binding requests because they expired", bindRequestsRemoved)
+		a.log.Infof("Discarded %d binding requests because they expired", bindRequestsRemoved)
 	}
 }
 
@@ -1079,25 +1080,26 @@ func (a *Agent) handleInbound(m *stun.Message, local Candidate, remote net.Addr)
 		return
 	}
 
+	txnIdStr := base64.StdEncoding.EncodeToString(m.TransactionID[:])
+
 	if m.Type.Method != stun.MethodBinding ||
 		!(m.Type.Class == stun.ClassSuccessResponse ||
 			m.Type.Class == stun.ClassRequest ||
 			m.Type.Class == stun.ClassIndication) {
-		a.log.Tracef("Unhandled STUN from %s to %s class(%s) method(%s)", remote, local, m.Type.Class, m.Type.Method)
+		a.log.Infof("Unhandled STUN. TxnId: %s from %s to %s class(%s) method(%s)", txnIdStr, remote, local, m.Type.Class, m.Type.Method)
 		return
 	}
 
 	if a.isControlling {
 		if m.Contains(stun.AttrICEControlling) {
-			a.log.Debug("Inbound STUN message: isControlling && a.isControlling == true")
+			a.log.Infof("Inbound STUN message: isControlling && a.isControlling == true TxnID: %v", txnIdStr)
 			return
 		} else if m.Contains(stun.AttrUseCandidate) {
-			a.log.Debug("Inbound STUN message: useCandidate && a.isControlling == true")
-			return
+			a.log.Infof("Inbound STUN message: useCandidate && a.isControlling == true TxnID: %v", txnIdStr)
 		}
 	} else {
 		if m.Contains(stun.AttrICEControlled) {
-			a.log.Debug("Inbound STUN message: isControlled && a.isControlling == false")
+			a.log.Infof("Inbound STUN message: isControlled && a.isControlling == false TxnID: %v", txnIdStr)
 			return
 		}
 	}
@@ -1105,31 +1107,31 @@ func (a *Agent) handleInbound(m *stun.Message, local Candidate, remote net.Addr)
 	remoteCandidate := a.findRemoteCandidate(local.NetworkType(), remote)
 	if m.Type.Class == stun.ClassSuccessResponse {
 		if err = stun.MessageIntegrity([]byte(a.remotePwd)).Check(m); err != nil {
-			a.log.Warnf("Discard message from (%s), %v", remote, err)
+			a.log.Warnf("Discard message from (%s), %v TxnID: %v", remote, err, txnIdStr)
 			return
 		}
 
 		if remoteCandidate == nil {
-			a.log.Warnf("Discard success message from (%s), no such remote", remote)
+			a.log.Warnf("Discard success message from (%s), no such remote TxnID: %v", remote, txnIdStr)
 			return
 		}
 
 		a.selector.HandleSuccessResponse(m, local, remoteCandidate, remote)
 	} else if m.Type.Class == stun.ClassRequest {
-		a.log.Tracef("Inbound STUN (Request) from %s to %s, useCandidate: %v", remote, local, m.Contains(stun.AttrUseCandidate))
+		a.log.Infof("Inbound STUN (Request) from %s to %s, useCandidate: %v TxnID: %v", remote, local, m.Contains(stun.AttrUseCandidate), txnIdStr)
 
 		if err = stunx.AssertUsername(m, a.localUfrag+":"+a.remoteUfrag); err != nil {
-			a.log.Warnf("Discard message from (%s), %v", remote, err)
+			a.log.Warnf("Discard message from (%s), %v TxnID: %v", remote, err, txnIdStr)
 			return
 		} else if err = stun.MessageIntegrity([]byte(a.localPwd)).Check(m); err != nil {
-			a.log.Warnf("Discard message from (%s), %v", remote, err)
+			a.log.Warnf("Discard message from (%s), %v TxnID: %v", remote, err, txnIdStr)
 			return
 		}
 
 		if remoteCandidate == nil {
 			ip, port, networkType, ok := parseAddr(remote)
 			if !ok {
-				a.log.Errorf("Failed to create parse remote net.Addr when creating remote prflx candidate")
+				a.log.Errorf("Failed to create parse remote net.Addr when creating remote prflx candidate. TxnID: %v", txnIdStr)
 				return
 			}
 
@@ -1144,13 +1146,13 @@ func (a *Agent) handleInbound(m *stun.Message, local Candidate, remote net.Addr)
 
 			prflxCandidate, err := NewCandidatePeerReflexive(&prflxCandidateConfig)
 			if err != nil {
-				a.log.Errorf("Failed to create new remote prflx candidate (%s)", err)
+				a.log.Errorf("DBG. Failed to create new remote prflx candidate (%s) TxnID: %v", err, txnIdStr)
 				return
 			}
 			remoteCandidate = prflxCandidate
 
-			a.log.Debugf("Adding a new peer-reflexive candidate. LocalAddr: %v RemoteNetwork: %v StunMsgFrom: %v ",
-				local.String(), remote.Network(), remote.String())
+			a.log.Infof("DBG. Adding a new peer-reflexive candidate. LocalAddr: %v RemoteNetwork: %v StunMsgFrom: %v TxnID: %v",
+				local.String(), remote.Network(), remote.String(), txnIdStr)
 			a.addRemoteCandidate(remoteCandidate)
 		}
 
@@ -1185,12 +1187,12 @@ func (a *Agent) GetSelectedCandidatePair() (*CandidatePair, error) {
 		return nil, nil //nolint:nilnil
 	}
 
-	local, err := selectedPair.Local.copy()
+	local, err := selectedPair.Local.copy(a.log)
 	if err != nil {
 		return nil, err
 	}
 
-	remote, err := selectedPair.Remote.copy()
+	remote, err := selectedPair.Remote.copy(a.log)
 	if err != nil {
 		return nil, err
 	}

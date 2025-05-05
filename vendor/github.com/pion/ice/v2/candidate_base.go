@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/pion/logging"
 	"github.com/pion/stun"
 )
 
@@ -443,8 +444,8 @@ func (c *candidateBase) context() context.Context {
 	return c
 }
 
-func (c *candidateBase) copy() (Candidate, error) {
-	return UnmarshalCandidate(c.Marshal())
+func (c *candidateBase) copy(log logging.LeveledLogger) (Candidate, error) {
+	return UnmarshalCandidate(c.Marshal(), log)
 }
 
 func removeZoneIDFromAddress(addr string) string {
@@ -485,7 +486,7 @@ func (c *candidateBase) Marshal() string {
 }
 
 // UnmarshalCandidate creates a Candidate from its string representation
-func UnmarshalCandidate(raw string) (Candidate, error) {
+func UnmarshalCandidate(raw string, log logging.LeveledLogger) (Candidate, error) {
 	split := strings.Fields(raw)
 	// Foundation not specified: not RFC 8445 compliant but seen in the wild
 	if len(raw) != 0 && raw[0] == ' ' {
@@ -562,6 +563,8 @@ func UnmarshalCandidate(raw string) (Candidate, error) {
 	case "srflx":
 		return NewCandidateServerReflexive(&CandidateServerReflexiveConfig{"", protocol, address, port, component, priority, foundation, relatedAddress, relatedPort})
 	case "prflx":
+		log.Infof("DBG. Adding a new peer-reflexive candidate from Unmarshal. Address: %v:%d Network: %v",
+			address, port, protocol)
 		return NewCandidatePeerReflexive(&CandidatePeerReflexiveConfig{"", protocol, address, port, component, priority, foundation, relatedAddress, relatedPort})
 	case "relay":
 		return NewCandidateRelay(&CandidateRelayConfig{"", protocol, address, port, component, priority, foundation, relatedAddress, relatedPort, "", nil})

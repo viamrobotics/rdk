@@ -7,6 +7,8 @@ import (
 	"context"
 	"net"
 	"time"
+
+	"github.com/pion/logging"
 )
 
 const (
@@ -65,7 +67,7 @@ type Candidate interface {
 	context() context.Context
 
 	close() error
-	copy() (Candidate, error)
+	copy(log logging.LeveledLogger) (Candidate, error)
 	seen(outbound bool)
 	start(a *Agent, conn net.PacketConn, initializedCh <-chan struct{})
 	writeTo(raw []byte, dst Candidate) (int, error)

@@ -4,6 +4,7 @@
 package ice
 
 import (
+	"encoding/base64"
 	"net"
 	"time"
 
@@ -92,6 +93,15 @@ func (s *controllingSelector) nominatePair(pair *CandidatePair) {
 }
 
 func (s *controllingSelector) HandleBindingRequest(m *stun.Message, local, remote Candidate) {
+	xorMapped := stun.XORMappedAddress{}
+	err := xorMapped.GetFrom(m)
+	xorMappedStr := "(none)"
+	if err == nil {
+		xorMappedStr = xorMapped.String()
+	}
+
+	s.log.Infof("DBG. ControllINGHandleBindingRequest. Local: %q Remote: %q TxnID: %v Mapped: %v",
+		local.String(), remote.String(), base64.StdEncoding.EncodeToString(m.TransactionID[:]), xorMappedStr)
 	s.agent.sendBindingSuccess(m, local, remote)
 
 	p := s.agent.findPair(local, remote)
@@ -265,7 +275,7 @@ func (s *controlledSelector) HandleBindingRequest(m *stun.Message, local, remote
 			if selectedPair == nil || (selectedPair != p && selectedPair.priority() <= p.priority()) {
 				s.agent.setSelectedPair(p)
 			} else if selectedPair != p {
-				s.log.Tracef("Ignore nominate new pair %s, already nominated pair %s", p, selectedPair)
+				s.log.Tracef("Ignore nominate new pair %s, already nominated pair %s TxnID: %v", p, selectedPair, base64.StdEncoding.EncodeToString(m.TransactionID[:]))
 			}
 		} else {
 			// If the received Binding request triggered a new check to be
@@ -280,6 +290,15 @@ func (s *controlledSelector) HandleBindingRequest(m *stun.Message, local, remote
 		}
 	}
 
+	xorMapped := stun.XORMappedAddress{}
+	err := xorMapped.GetFrom(m)
+	xorMappedStr := "(none)"
+	if err == nil {
+		xorMappedStr = xorMapped.String()
+	}
+
+	s.log.Infof("DBG. ControllEDHandleBindingRequest. Local: %q Remote: %q TxnID: %v Mapped: %v",
+		local.String(), remote.String(), base64.StdEncoding.EncodeToString(m.TransactionID[:]), xorMappedStr)
 	s.agent.sendBindingSuccess(m, local, remote)
 	s.PingCandidate(local, remote)
 
