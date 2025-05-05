@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/edaniels/golog"
 	"net"
 	"os"
 	"path"
@@ -17,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
