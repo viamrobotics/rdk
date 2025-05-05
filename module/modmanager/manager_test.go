@@ -134,7 +134,6 @@ func TestModManagerFunctions(t *testing.T) {
 				},
 				dataDir: "module-data-dir",
 				logger:  logger,
-				port:    tcpPortRange,
 			}
 
 			err = mod.startProcess(ctx, parentAddr, nil, viamHomeTemp, filepath.Join(viamHomeTemp, "packages"))

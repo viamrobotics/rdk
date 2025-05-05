@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"net"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -44,9 +45,6 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-// tcpPortRange is the beginning of the port range. Only used when ViamTCPSockets() = true.
-const tcpPortRange = 13500
-
 var (
 	validateConfigTimeout       = 5 * time.Second
 	errMessageExitStatus143     = "exit status 143"
@@ -82,7 +80,6 @@ func NewManager(
 		ftdc:                    options.FTDC,
 		modPeerConnTracker:      options.ModPeerConnTracker,
 	}
-	ret.nextPort.Store(tcpPortRange)
 	return ret, nil
 }
 
@@ -115,8 +112,6 @@ type module struct {
 	inRecoveryLock sync.Mutex
 	logger         logging.Logger
 	ftdc           *ftdc.FTDC
-	// port stores the listen port of this module when ViamTCPSockets() = true.
-	port int
 }
 
 type addedResource struct {
@@ -197,8 +192,6 @@ type Manager struct {
 	restartCtx              context.Context
 	restartCtxCancel        context.CancelFunc
 	ftdc                    *ftdc.FTDC
-	// nextPort manages ports when ViamTCPSockets() = true.
-	nextPort atomic.Int32
 
 	// modPeerConnTracker must be updated as modules create/destroy any underlying WebRTC
 	// PeerConnections.
@@ -365,7 +358,6 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, moduleLogger lo
 		resources: map[resource.Name]*addedResource{},
 		logger:    moduleLogger,
 		ftdc:      mgr.ftdc,
-		port:      int(mgr.nextPort.Add(1)),
 	}
 
 	if err := mgr.startModule(ctx, mod); err != nil {
@@ -1229,7 +1221,15 @@ func (m *module) startProcess(
 	var err error
 
 	if rutils.ViamTCPSockets() {
-		m.addr = "127.0.0.1:" + strconv.Itoa(m.port)
+		listener, err := net.Listen("tcp4", "127.0.0.1:0")
+		if err != nil {
+			return err
+		}
+		port := listener.Addr().(*net.TCPAddr).Port
+		m.addr = "127.0.0.1:" + strconv.Itoa(port)
+		if err := listener.Close(); err != nil {
+			return err
+		}
 	} else {
 		// append a random alpha string to the module name while creating a socket address to avoid conflicts
 		// with old versions of the module.
