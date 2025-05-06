@@ -1763,12 +1763,14 @@ func TestCleanWindowsSocketPath(t *testing.T) {
 }
 
 func TestGetAutomaticPort(t *testing.T) {
-	addr, err := getAutomaticPort()
-	test.That(t, err, test.ShouldBeNil)
+	for range 1000 {
+		addr, err := getAutomaticPort()
+		test.That(t, err, test.ShouldBeNil)
 
-	// use the provided port in a new listener; we do this to protect against
-	// any code changes that introduce a TIME_WAIT.
-	lis, err := net.Listen("tcp4", addr)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, lis.Close(), test.ShouldBeNil)
+		// use the provided port in a new listener; we do this to protect against
+		// any code changes that introduce a TIME_WAIT.
+		lis, err := net.Listen("tcp4", addr)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, lis.Close(), test.ShouldBeNil)
+	}
 }
