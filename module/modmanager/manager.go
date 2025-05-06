@@ -1236,7 +1236,7 @@ func (m *module) startProcess(
 	if rutils.ViamTCPSockets() {
 		if addr, err := getAutomaticPort(); err != nil {
 			return err
-		} else {
+		} else { //nolint:revive
 			m.addr = addr
 		}
 	} else {
