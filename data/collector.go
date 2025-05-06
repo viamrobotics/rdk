@@ -361,7 +361,12 @@ func (c *collector) logCaptureErrs() {
 		}
 		// Only log a specific error message if we haven't logged it in the past 2 seconds.
 		if lastLogged, ok := c.lastLoggedErrors[err.Error()]; (ok && int(now-lastLogged) > identicalErrorLogFrequencyHz) || !ok {
-			c.logger.Error((err))
+			var failedToReadError *FailedToReadError
+			if errors.As(err, &failedToReadError) {
+				c.logger.Warn(err)
+			} else {
+				c.logger.Error((err))
+			}
 			c.lastLoggedErrors[err.Error()] = now
 		}
 	}
@@ -373,7 +378,26 @@ func InvalidInterfaceErr(api resource.API) error {
 	return errors.Errorf("passed interface does not conform to expected resource type %s", api)
 }
 
-// FailedToReadErr is the error describing when a Capturer was unable to get the reading of a method.
-func FailedToReadErr(component, method string, err error) error {
-	return errors.Errorf("failed to get reading of method %s of component %s: %v", method, component, err)
+// NewFailedToReadError constructs a new FailedToReadError.
+func NewFailedToReadError(component, method string, err error) error {
+	return &FailedToReadError{
+		Component: component,
+		Method:    method,
+		Err:       err,
+	}
+}
+
+// FailedToReadError is the error describing when a Capturer was unable to get the reading of a method.
+type FailedToReadError struct {
+	Component string
+	Method    string
+	Err       error
+}
+
+func (e *FailedToReadError) Error() string {
+	return fmt.Sprintf("failed to get reading of method %s of component %s: %v", e.Method, e.Component, e.Err)
+}
+
+func (e *FailedToReadError) Unwrap() error {
+	return e.Err
 }
