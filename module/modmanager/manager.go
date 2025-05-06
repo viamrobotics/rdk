@@ -11,7 +11,6 @@ import (
 	"regexp"
 	"runtime"
 	"slices"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1211,6 +1210,20 @@ func cleanWindowsSocketPath(goos, orig string) (string, error) {
 	return orig, nil
 }
 
+// Return an address string with an auto-assigned port.
+// This gets closed and then passed down to the module child process.
+func getAutomaticPort() (string, error) {
+	listener, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		return "", err
+	}
+	addr := listener.Addr().String()
+	if err := listener.Close(); err != nil {
+		return "", err
+	}
+	return addr, nil
+}
+
 func (m *module) startProcess(
 	ctx context.Context,
 	parentAddr string,
@@ -1221,14 +1234,10 @@ func (m *module) startProcess(
 	var err error
 
 	if rutils.ViamTCPSockets() {
-		listener, err := net.Listen("tcp4", "127.0.0.1:0")
-		if err != nil {
+		if addr, err := getAutomaticPort(); err != nil {
 			return err
-		}
-		port := listener.Addr().(*net.TCPAddr).Port
-		m.addr = "127.0.0.1:" + strconv.Itoa(port)
-		if err := listener.Close(); err != nil {
-			return err
+		} else {
+			m.addr = addr
 		}
 	} else {
 		// append a random alpha string to the module name while creating a socket address to avoid conflicts
