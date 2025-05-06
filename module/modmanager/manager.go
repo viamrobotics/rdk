@@ -931,6 +931,14 @@ var oueRestartInterval = 5 * time.Second
 // for the passed-in module to include in the pexec.ProcessConfig.
 func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) bool {
 	return func(exitCode int) bool {
+		// There is a circular dependency that causes a deadlock if a module dies
+		// while being reconfigured. Break it here by giving up on the restart if we
+		// cannot lock the mananger.
+		if locked := mgr.mu.TryLock(); !locked {
+			return false
+		}
+		defer mgr.mu.Unlock()
+
 		mod.inRecoveryLock.Lock()
 		defer mod.inRecoveryLock.Unlock()
 		if mod.inStartup.Load() {
@@ -976,10 +984,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 		// Finally, handle orphaned resources.
 		var orphanedResourceNames []resource.Name
 		for name, res := range mod.resources {
-			// The `addResource` method might still be executing for this resource with a
-			// read lock, so we execute it here with a write lock to make sure it doesn't
-			// run concurrently.
-			if _, err := mgr.addResourceWithWriteLock(mgr.restartCtx, res.conf, res.deps); err != nil {
+			if _, err := mgr.addResource(mgr.restartCtx, res.conf, res.deps); err != nil {
 				mod.logger.Warnw("Error while re-adding resource to module",
 					"resource", name, "module", mod.cfg.Name, "error", err)
 				mgr.rMap.Delete(name)
@@ -1003,9 +1008,6 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 // attemptRestart will attempt to restart the module up to three times and
 // return the names of now orphaned resources.
 func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.Name {
-	mgr.mu.Lock()
-	defer mgr.mu.Unlock()
-
 	// deregister crashed module's resources, and let later checkReady reset m.handles
 	// before reregistering.
 	mod.deregisterResources()
@@ -1360,6 +1362,10 @@ func (m *module) stopProcess() error {
 	// Also ignore if error is that the process no longer exists.
 	if err := m.process.Stop(); err != nil {
 		if strings.Contains(err.Error(), errMessageExitStatus143) || strings.Contains(err.Error(), "no such process") {
+			return nil
+		}
+		// Even though we got an error the process is dead; task failed successfully.
+		if statusErr := m.process.Status(); errors.Is(statusErr, os.ErrProcessDone) {
 			return nil
 		}
 		return err
