@@ -241,8 +241,8 @@ func (a *Agent) gatherCandidatesLocal(ctx context.Context, networkTypes []Networ
 					}
 				}
 
-				a.log.Infof("DBG. Adding (local) host candidate (gatherLocalCandidates). Network: %v Address: %v:%d LocalAddr: %v TCPType: %v",
-					network, address, connAndPort.port, connAndPort.conn.LocalAddr().String(), tcpType)
+				a.log.Infof("DBG. Adding (local) host candidate (gatherLocalCandidates). Network: %v Address: %v:%d Conn: %p LocalAddr: %v TCPType: %q",
+					network, address, connAndPort.port, connAndPort.conn, connAndPort.conn.LocalAddr().String(), tcpType)
 				if err := a.addCandidate(ctx, c, connAndPort.conn); err != nil {
 					if closeErr := c.close(); closeErr != nil {
 						a.log.Warnf("Failed to close candidate: %v", closeErr)

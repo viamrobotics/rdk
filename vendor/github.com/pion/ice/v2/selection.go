@@ -145,7 +145,8 @@ func (s *controllingSelector) HandleSuccessResponse(m *stun.Message, local, remo
 		return
 	}
 
-	s.log.Tracef("Inbound STUN (SuccessResponse) from %s to %s", remote, local)
+	s.log.Tracef("Inbound STUN (SuccessResponse) from %s to %s (%v) 0x%x", remote, local,
+		base64.StdEncoding.EncodeToString(m.TransactionID[:]), m.TransactionID)
 	p := s.agent.findPair(local, remote)
 
 	if p == nil {
@@ -275,7 +276,8 @@ func (s *controlledSelector) HandleBindingRequest(m *stun.Message, local, remote
 			if selectedPair == nil || (selectedPair != p && selectedPair.priority() <= p.priority()) {
 				s.agent.setSelectedPair(p)
 			} else if selectedPair != p {
-				s.log.Tracef("Ignore nominate new pair %s, already nominated pair %s TxnID: %v", p, selectedPair, base64.StdEncoding.EncodeToString(m.TransactionID[:]))
+				s.log.Tracef("Ignore nominate new pair %s, already nominated pair %s TxnID: %v", p, selectedPair,
+					base64.StdEncoding.EncodeToString(m.TransactionID[:]))
 			}
 		} else {
 			// If the received Binding request triggered a new check to be
