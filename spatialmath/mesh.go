@@ -408,7 +408,7 @@ func (m *Mesh) ToPoints(density float64) []r3.Vector {
 			key := fmt.Sprintf("%.10f,%.10f,%.10f", worldPt.X, worldPt.Y, worldPt.Z)
 			pointMap[key] = worldPt
 		}
-		pointMap[strconv.Itoa(i)] = centroid.Mul(1./3.)
+		pointMap[strconv.Itoa(i)] = centroid.Mul(1. / 3.)
 	}
 
 	// Convert map back to slice
@@ -422,4 +422,167 @@ func (m *Mesh) ToPoints(density float64) []r3.Vector {
 // MarshalJSON implements the json.Marshaler interface.
 func (m *Mesh) MarshalJSON() ([]byte, error) {
 	return nil, errors.New("MarshalJSON not yet implemented for Mesh")
+}
+
+// boxTriangleIntersectionArea calculates the area of intersection between a box and a triangle.
+// Returns 0 if there's no intersection, the full triangle area if fully enclosed,
+// or the actual intersection area otherwise.
+func boxTriangleIntersectionArea(b *box, t *Triangle) float64 {
+	// Quick check if they don't intersect at all
+	collides, _ := b.CollidesWith(NewMesh(NewZeroPose(), []*Triangle{t}, ""), defaultCollisionBufferMM)
+	if !collides {
+		return 0
+	}
+
+	// Check if triangle is fully enclosed by the box
+	enclosed := true
+	for _, pt := range t.Points() {
+		if !pointVsBoxCollision(pt, b, defaultCollisionBufferMM) {
+			enclosed = false
+			break
+		}
+	}
+	if enclosed {
+		return TriangleArea(t)
+	}
+
+	// Clip triangle against each of the six box planes
+	vertices := t.Points()
+
+	// Get box in world space
+	boxPose := b.Pose()
+	boxCenter := boxPose.Point()
+	boxRM := boxPose.Orientation().RotationMatrix()
+
+	// For each of the six box faces, clip the polygon
+	for faceIdx := 0; faceIdx < 6; faceIdx++ {
+		// Determine face normal and position
+		axis := faceIdx / 2                // 0 for X, 1 for Y, 2 for Z
+		sign := float64(1 - 2*(faceIdx%2)) // +1 for even indices, -1 for odd indices
+
+		// Get face normal in world coordinates
+		normal := boxRM.Row(axis).Mul(sign)
+
+		// Get face point in world coordinates
+		facePoint := boxCenter.Add(boxRM.Row(axis).Mul(sign * b.halfSize[axis]))
+
+		// Clip polygon against this plane
+		vertices = clipPolygonAgainstPlane(vertices, facePoint, normal)
+
+		// If no vertices left, intersection area is 0
+		if len(vertices) < 3 {
+			return 0
+		}
+	}
+
+	// Calculate area of the resulting polygon by triangulating it
+	return calculatePolygonAreaWithTriangulation(vertices, t.Normal())
+}
+
+// clipPolygonAgainstPlane clips a convex polygon against a plane
+// Returns the vertices of the clipped polygon
+func clipPolygonAgainstPlane(vertices []r3.Vector, planePoint r3.Vector, planeNormal r3.Vector) []r3.Vector {
+	if len(vertices) < 3 {
+		return vertices
+	}
+
+	result := make([]r3.Vector, 0, len(vertices)*2)
+
+	// For each edge in the polygon
+	for i := 0; i < len(vertices); i++ {
+		j := (i + 1) % len(vertices)
+
+		// Get signed distances from vertices to plane
+		di := planeNormal.Dot(vertices[i].Sub(planePoint))
+		dj := planeNormal.Dot(vertices[j].Sub(planePoint))
+
+		// If current vertex is inside (negative dot product)
+		if di <= floatEpsilon {
+			result = append(result, vertices[i])
+		}
+
+		// If edge crosses the plane (vertices on opposite sides)
+		if (di * dj) < 0 {
+			// Calculate intersection point
+			t := di / (di - dj)
+			intersection := vertices[i].Add(vertices[j].Sub(vertices[i]).Mul(t))
+			result = append(result, intersection)
+		}
+	}
+
+	return result
+}
+
+// calculatePolygonAreaWithTriangulation calculates the area of a polygon by triangulating it
+// All vertices must be coplanar with the given normal
+func calculatePolygonAreaWithTriangulation(vertices []r3.Vector, normal r3.Vector) float64 {
+	if len(vertices) < 3 {
+		fmt.Println("bad polygon", vertices)
+		return 0
+	}
+
+	// For a 3-vertex polygon, just calculate triangle area directly
+	if len(vertices) == 3 {
+		return TriangleArea(NewTriangle(vertices[0], vertices[1], vertices[2]))
+	}
+
+	// For polygons with more vertices, triangulate using fan triangulation
+	// This works for convex polygons, which is what we have after clipping
+	totalArea := 0.0
+	for i := 1; i < len(vertices)-1; i++ {
+		tri := NewTriangle(vertices[0], vertices[i], vertices[i+1])
+		totalArea += TriangleArea(tri)
+	}
+
+	return totalArea
+}
+
+// MeshGeometryIntersectionArea calculates the summed area of all triangles in a mesh
+// that intersect with a box geometry.
+// Returns the total intersection area and a boolean indicating if the calculation was performed.
+// The boolean will be false if neither geometry is a box or a mesh, or if both are the same type.
+func MeshGeometryIntersectionArea(g1, g2 Geometry) float64 {
+	// Check for box-mesh or mesh-box pairs
+	var thebox *box
+	var mesh *Mesh
+
+	// Case 1: g1 is box, g2 is mesh
+	if b, ok := g1.(*box); ok {
+		if m, ok := g2.(*Mesh); ok {
+			thebox = b
+			mesh = m
+		}
+	}
+
+	// Case 2: g1 is mesh, g2 is box
+	if mesh == nil {
+		if m, ok := g1.(*Mesh); ok {
+			if b, ok := g2.(*box); ok {
+				thebox = b
+				mesh = m
+			}
+		}
+	}
+
+	// If we didn't find a valid box-mesh pair
+	if thebox == nil || mesh == nil {
+		return -1
+	}
+
+	// Sum the intersection area for each triangle
+	totalArea := 0.0
+	for _, tri := range mesh.triangles {
+		// Transform triangle to world space
+		worldTri := NewTriangle(
+			Compose(mesh.pose, NewPoseFromPoint(tri.p0)).Point(),
+			Compose(mesh.pose, NewPoseFromPoint(tri.p1)).Point(),
+			Compose(mesh.pose, NewPoseFromPoint(tri.p2)).Point(),
+		)
+
+		// Calculate and add the intersection area
+		area := boxTriangleIntersectionArea(thebox, worldTri)
+		totalArea += area
+	}
+
+	return totalArea
 }
