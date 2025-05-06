@@ -338,7 +338,7 @@ func (aa *answerAttempt) connect(ctx context.Context) (err error) {
 		return err
 	}
 
-	// webrtcConfig = extendWebRTCConfig(&webrtcConfig, configResp.GetConfig())
+	webrtcConfig = extendWebRTCConfig(&webrtcConfig, configResp.GetConfig())
 	iceUrls := make([]string, 0)
 	for _, ice := range webrtcConfig.ICEServers {
 		iceUrls = append(iceUrls, ice.URLs...)
