@@ -826,7 +826,7 @@ func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr
 	for _, resName := range manager.resources.FindNodesByAPI(client.RemoteAPI) {
 		gNode, ok := manager.resources.Node(resName)
 		if !ok || !gNode.NeedsReconfigure() {
-			return
+			continue
 		}
 		processRemote := func() {
 			var verb string
