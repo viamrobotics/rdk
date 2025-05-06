@@ -374,7 +374,7 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 			moveReqProto.Extra = v
 		}
 		// Special handling: we want to observe the logs just for the DoCommand
-		obsLogger := ms.logger.Sublogger("observed")
+		obsLogger := ms.logger.Sublogger("observed-" + uuid.New().String())
 		observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.InfoLevel.Enabled))
 		obsLogger.AddAppender(observerCore)
 
