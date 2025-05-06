@@ -2368,6 +2368,11 @@ Copy multiple files from the machine to a local destination with recursion and k
 							Name: "motion",
 							Subcommands: []*cli.Command{
 								{
+									Name:   "print",
+									Flags:  commonPartFlags,
+									Action: createCommandWithT[motionPrintArgs](motionPrintAction),
+								},
+								{
 									Name: "get-pose",
 									Flags: append(commonPartFlags, []cli.Flag{
 										&cli.StringFlag{
@@ -2376,6 +2381,19 @@ Copy multiple files from the machine to a local destination with recursion and k
 										},
 									}...),
 									Action: createCommandWithT[motionGetPoseArgs](motionGetPoseAction),
+								},
+								{
+									Name: "set-pose",
+									Flags: append(commonPartFlags, []cli.Flag{
+										&cli.StringFlag{
+											Name:     "component",
+											Required: true,
+										},
+										&cli.Float64SliceFlag{Name: "x"},
+										&cli.Float64SliceFlag{Name: "y"},
+										&cli.Float64SliceFlag{Name: "z"},
+									}...),
+									Action: createCommandWithT[motionSetPoseArgs](motionSetPoseAction),
 								},
 							},
 						},
