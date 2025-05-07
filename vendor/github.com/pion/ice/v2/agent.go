@@ -1081,6 +1081,7 @@ func (a *Agent) handleInbound(m *stun.Message, local Candidate, remote net.Addr)
 	}
 
 	txnIdStr := base64.StdEncoding.EncodeToString(m.TransactionID[:])
+	a.log.Infof("MyHandleInbound. Local: %q Remote: %q Msg: %v", local.String(), remote.String(), m.String())
 
 	if m.Type.Method != stun.MethodBinding ||
 		!(m.Type.Class == stun.ClassSuccessResponse ||
@@ -1105,6 +1106,7 @@ func (a *Agent) handleInbound(m *stun.Message, local Candidate, remote net.Addr)
 	}
 
 	remoteCandidate := a.findRemoteCandidate(local.NetworkType(), remote)
+	a.log.Infof("InboundMessage. Found remote candidate? %v", remoteCandidate)
 	if m.Type.Class == stun.ClassSuccessResponse {
 		if err = stun.MessageIntegrity([]byte(a.remotePwd)).Check(m); err != nil {
 			a.log.Warnf("Discard message from (%s), %v TxnID: %v", remote, err, txnIdStr)
@@ -1116,6 +1118,7 @@ func (a *Agent) handleInbound(m *stun.Message, local Candidate, remote net.Addr)
 			return
 		}
 
+		a.log.Infof("HandleInbound ClassSuccessResponse. TxnID:", txnIdStr)
 		a.selector.HandleSuccessResponse(m, local, remoteCandidate, remote)
 	} else if m.Type.Class == stun.ClassRequest {
 		a.log.Infof("Inbound STUN (Request) from %s to %s, useCandidate: %v TxnID: %v", remote, local, m.Contains(stun.AttrUseCandidate), txnIdStr)

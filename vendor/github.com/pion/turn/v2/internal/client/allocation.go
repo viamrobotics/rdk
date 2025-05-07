@@ -53,7 +53,7 @@ func (a *allocation) setNonceFromMsg(msg *stun.Message) {
 	var nonce stun.Nonce
 	if err := nonce.GetFrom(msg); err == nil {
 		a.setNonce(nonce)
-		a.log.Debug("Refresh allocation: 438, got new nonce.")
+		a.log.Info("Refresh allocation: 438, got new nonce.")
 	} else {
 		a.log.Warn("Refresh allocation: 438 but no nonce.")
 	}
@@ -74,18 +74,18 @@ func (a *allocation) refreshAllocation(lifetime time.Duration, dontWait bool) er
 		return fmt.Errorf("%w: %s", errFailedToBuildRefreshRequest, err.Error())
 	}
 
-	a.log.Debugf("Send refresh request (dontWait=%v)", dontWait)
+	a.log.Infof("Send refresh request (dontWait=%v)", dontWait)
 	trRes, err := a.client.PerformTransaction(msg, a.serverAddr, dontWait)
 	if err != nil {
 		return fmt.Errorf("%w: %s", errFailedToRefreshAllocation, err.Error())
 	}
 
 	if dontWait {
-		a.log.Debug("Refresh request sent")
+		a.log.Info("Refresh request sent")
 		return nil
 	}
 
-	a.log.Debug("Refresh request sent, and waiting response")
+	a.log.Info("Refresh request sent, and waiting response")
 
 	res := trRes.Msg
 	if res.Type.Class == stun.ClassErrorResponse {
@@ -107,14 +107,14 @@ func (a *allocation) refreshAllocation(lifetime time.Duration, dontWait bool) er
 	}
 
 	a.setLifetime(updatedLifetime.Duration)
-	a.log.Debugf("Updated lifetime: %d seconds", int(a.lifetime().Seconds()))
+	a.log.Infof("Updated lifetime: %d seconds", int(a.lifetime().Seconds()))
 	return nil
 }
 
 func (a *allocation) refreshPermissions() error {
 	addrs := a.permMap.addrs()
 	if len(addrs) == 0 {
-		a.log.Debug("No permission to refresh")
+		a.log.Info("No permission to refresh")
 		return nil
 	}
 	if err := a.CreatePermissions(addrs...); err != nil {
@@ -124,12 +124,12 @@ func (a *allocation) refreshPermissions() error {
 		a.log.Errorf("Fail to refresh permissions: %s", err)
 		return err
 	}
-	a.log.Debug("Refresh permissions successful")
+	a.log.Info("Refresh permissions successful")
 	return nil
 }
 
 func (a *allocation) onRefreshTimers(id int) {
-	a.log.Debugf("Refresh timer %d expired", id)
+	a.log.Infof("Refresh timer %d expired", id)
 	switch id {
 	case timerIDRefreshAlloc:
 		var err error
@@ -170,7 +170,7 @@ func (a *allocation) setNonce(nonce stun.Nonce) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	a.log.Debugf("Set new nonce with %d bytes", len(nonce))
+	a.log.Infof("Set new nonce with %d bytes", len(nonce))
 	a._nonce = nonce
 }
 

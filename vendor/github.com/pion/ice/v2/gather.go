@@ -690,6 +690,8 @@ func (a *Agent) gatherCandidatesRelay(ctx context.Context, urls []*stun.URI) { /
 				return
 			}
 
+			// LocalAddr here is the address of where this machine sends packets to. Not the port
+			// this machine is listening on.
 			rAddr := relayConn.LocalAddr().(*net.UDPAddr) //nolint:forcetypeassert
 			relayConfig := CandidateRelayConfig{
 				Network:       network,

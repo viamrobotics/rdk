@@ -63,7 +63,7 @@ func NewUDPConn(config *AllocationConfig) *UDPConn {
 		},
 	}
 
-	c.log.Debugf("Initial lifetime: %d seconds", int(c.lifetime().Seconds()))
+	c.log.Infof("Initial lifetime: %d seconds", int(c.lifetime().Seconds()))
 
 	c.refreshAllocTimer = NewPeriodicTimer(
 		timerIDRefreshAlloc,
@@ -78,10 +78,10 @@ func NewUDPConn(config *AllocationConfig) *UDPConn {
 	)
 
 	if c.refreshAllocTimer.Start() {
-		c.log.Debugf("Started refresh allocation timer")
+		c.log.Infof("Started refresh allocation timer")
 	}
 	if c.refreshPermsTimer.Start() {
-		c.log.Debugf("Started refresh permission timer")
+		c.log.Infof("Started refresh permission timer")
 	}
 
 	return c
@@ -435,7 +435,7 @@ func (c *UDPConn) bind(b *binding) error {
 		return fmt.Errorf("unexpected response type %s", res.Type) //nolint:goerr113
 	}
 
-	c.log.Debugf("Channel binding successful: %s %d", b.addr, b.number)
+	c.log.Infof("Channel binding successful: %s %d", b.addr, b.number)
 
 	// Success.
 	return nil

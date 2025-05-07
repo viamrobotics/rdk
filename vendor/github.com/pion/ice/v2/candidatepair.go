@@ -99,6 +99,6 @@ func (a *Agent) sendSTUN(msg *stun.Message, local, remote Candidate) {
 		local.String(), remote.String(), msg.String())
 	_, err := local.writeTo(msg.Raw, remote)
 	if err != nil {
-		a.log.Tracef("Failed to send STUN message: %s", err)
+		a.log.Infof("Failed to send STUN message: %s", err)
 	}
 }
