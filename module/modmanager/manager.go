@@ -104,15 +104,6 @@ type module struct {
 	// pendingRemoval allows delaying module close until after resources within it are closed
 	pendingRemoval bool
 
-	// inStartup stores whether or not the manager of the OnUnexpectedExit function
-	// is trying to start up this module; inRecoveryLock guards the execution of an
-	// OnUnexpectedExit function for this module.
-	//
-	// NOTE(benjirewis): Using just an atomic boolean is not sufficient, as OUE
-	// functions for the same module cannot overlap and should not continue after
-	// another OUE has finished.
-	inStartup      atomic.Bool
-	inRecoveryLock sync.Mutex
 	logger         logging.Logger
 	ftdc           *ftdc.FTDC
 	// port stores the listen port of this module when ViamTCPSockets() = true.
@@ -385,13 +376,6 @@ func (mgr *Manager) startModuleProcess(mod *module) error {
 }
 
 func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
-	// add calls startProcess, which can also be called by the OUE handler in the attemptRestart
-	// call. Both of these involve owning a lock, so in unhappy cases of malformed modules
-	// this can lead to a deadlock. To prevent this, we set inStartup here to indicate to
-	// the OUE handler that it shouldn't act while add is still processing.
-	mod.inStartup.Store(true)
-	defer mod.inStartup.Store(false)
-
 	var success bool
 	defer func() {
 		if !success {
@@ -938,15 +922,6 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 			return false
 		}
 		defer mgr.mu.Unlock()
-
-		mod.inRecoveryLock.Lock()
-		defer mod.inRecoveryLock.Unlock()
-		if mod.inStartup.Load() {
-			return false
-		}
-
-		mod.inStartup.Store(true)
-		defer mod.inStartup.Store(false)
 
 		// Log error immediately, as this is unexpected behavior.
 		mod.logger.Errorw(
