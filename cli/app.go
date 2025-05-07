@@ -2368,10 +2368,16 @@ Copy multiple files from the machine to a local destination with recursion and k
 							Name: "motion",
 							Subcommands: []*cli.Command{
 								{
-									Name:   "print",
+									Name:   "print-config",
 									Flags:  commonPartFlags,
-									Action: createCommandWithT[motionPrintArgs](motionPrintAction),
+									Action: createCommandWithT[motionPrintArgs](motionPrintConfigAction),
 								},
+								{
+									Name:   "print-status",
+									Flags:  commonPartFlags,
+									Action: createCommandWithT[motionPrintArgs](motionPrintStatusAction),
+								},
+
 								{
 									Name: "get-pose",
 									Flags: append(commonPartFlags, []cli.Flag{

@@ -12,6 +12,15 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+func prettyString(p spatialmath.Pose) string {
+	o := p.Orientation().OrientationVectorDegrees()
+	f := ""
+	for _, v := range []string{"X", "Y", "Z", "OX", "OY", "OZ", "Theta"} {
+		f += v + ": %7.2f "
+	}
+	return fmt.Sprintf(f, p.Point().X, p.Point().Y, p.Point().Z, o.OX, o.OY, o.OZ, o.Theta)
+}
+
 type motionPrintArgs struct {
 	Organization string
 	Location     string
@@ -19,7 +28,7 @@ type motionPrintArgs struct {
 	Part         string
 }
 
-func motionPrintAction(c *cli.Context, args motionPrintArgs) error {
+func motionPrintConfigAction(c *cli.Context, args motionPrintArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -51,6 +60,62 @@ func motionPrintAction(c *cli.Context, args motionPrintArgs) error {
 	}
 
 	printf(c.App.Writer, "%v", frameSystem)
+
+	return nil
+}
+
+func motionPrintStatusAction(c *cli.Context, args motionPrintArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	globalArgs, err := getGlobalArgs(c)
+	if err != nil {
+		return err
+	}
+
+	ctx, fqdn, rpcOpts, err := client.prepareDial(args.Organization, args.Location, args.Machine, args.Part, globalArgs.Debug)
+	if err != nil {
+		return err
+	}
+
+	logger := globalArgs.createLogger()
+
+	robotClient, err := client.connectToRobot(ctx, fqdn, rpcOpts, globalArgs.Debug, logger)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		utils.UncheckedError(robotClient.Close(ctx))
+	}()
+
+	frameSystem, err := robotClient.FrameSystemConfig(ctx)
+	if err != nil {
+		return err
+	}
+
+	myMotion, err := motion.FromRobot(robotClient, "builtin")
+	if err != nil || myMotion == nil {
+		return fmt.Errorf("no motion: %w", err)
+	}
+
+	for _, p := range frameSystem.Parts {
+		n := p.FrameConfig.Name()
+
+		theComponent, err := robot.ResourceByName(robotClient, n)
+		if err != nil {
+			logger.Debugf("no component for %v", n)
+			continue
+		}
+
+		pif, err := myMotion.GetPose(ctx, theComponent.Name(), "world", nil, nil)
+		if err != nil {
+			return err
+		}
+
+		printf(c.App.Writer, "%20s : %v", theComponent.Name().ShortName(), prettyString(pif.Pose()))
+	}
 
 	return nil
 }
@@ -100,12 +165,12 @@ func motionGetPoseAction(c *cli.Context, args motionGetPoseArgs) error {
 		return fmt.Errorf("no motion: %w", err)
 	}
 
-	pose, err := myMotion.GetPose(ctx, theComponent.Name(), "world", nil, nil)
+	pif, err := myMotion.GetPose(ctx, theComponent.Name(), "world", nil, nil)
 	if err != nil {
 		return err
 	}
 
-	printf(c.App.Writer, "%v", pose)
+	printf(c.App.Writer, "%v", prettyString(pif.Pose()))
 
 	return nil
 }

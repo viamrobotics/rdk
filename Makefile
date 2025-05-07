@@ -22,13 +22,11 @@ build: build-go
 build-go:
 	go build ./...
 
-.PHONY: rm-cli
-rm-cli:
-	rm -f ./bin/$(GOOS)-$(GOARCH)/viam-cli
+GO_FILES=$(shell find . -name "*.go")
 
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
-bin/$(GOOS)-$(GOARCH)/viam-cli: rm-cli
+bin/$(GOOS)-$(GOARCH)/viam-cli: $(GO_FILES) Makefile go.mod go.sum
 	# no_cgo necessary here because of motionplan -> nlopt dependency.
 	# can be removed if you can run CGO_ENABLED=0 go build ./cli/viam on your local machine.
 	go build $(LDFLAGS) -tags osusergo,netgo,no_cgo -o $@ ./cli/viam
