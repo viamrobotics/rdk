@@ -224,6 +224,9 @@ func sendTCPBindRequest(
 ) (stunResponse *STUNResponse) {
 	stunResponse = &STUNResponse{STUNServerURL: stunServerURLToTest}
 
+	tcpSourceAddress := conn.LocalAddr().String()
+	stunResponse.TCPSourceAddress = &tcpSourceAddress
+
 	tcpAddr, err := net.ResolveTCPAddr("tcp", stunServerURLToTest)
 	if err != nil {
 		// TODO(RSDK-XXXXX): Attempt raw IPs of STUN server URLs in the event that DNS
@@ -321,15 +324,6 @@ func sendTCPBindRequest(
 
 // Tests NAT over TCP against STUN servers.
 func testTCP(ctx context.Context, logger logging.Logger) error {
-	// Create a dialer with a consistent port (randomly chosen) from
-	// which to dial over tcp.
-	dialer := &net.Dialer{
-		LocalAddr: &net.TCPAddr{
-			IP:   net.ParseIP("0.0.0.0"),
-			Port: 23654, /* arbitrary but consistent across dials */
-		},
-	}
-
 	// Each TCP test will create their own TCP connection through this `net.Conn` variable.
 	// `net.Conn`s do not function with contexts (only deadlines). If passed-in context
 	// expires (machine is likely shutting down), _or_ tests finish, close the underlying
@@ -364,7 +358,6 @@ func testTCP(ctx context.Context, logger logging.Logger) error {
 	}
 
 	var stunResponses []*STUNResponse
-	var sourceAddress string
 	for _, stunServerURLToTest := range stunServerURLsToTestTCP {
 		if ctx.Err() != nil {
 			logger.Info("Machine shutdown detected; stopping TCP network tests")
@@ -373,6 +366,7 @@ func testTCP(ctx context.Context, logger logging.Logger) error {
 
 		connMu.Lock()
 		dialCtx, cancel := context.WithTimeout(ctx, readTimeout)
+		dialer := &net.Dialer{} // use an empty dialer to get access to the `DialContext` method
 		conn, err = dialer.DialContext(dialCtx, "tcp", stunServerURLToTest)
 		cancel()
 		if err != nil {
@@ -385,14 +379,6 @@ func testTCP(ctx context.Context, logger logging.Logger) error {
 				ErrorString:   &errorString,
 			})
 			continue
-		}
-
-		// Overly defensive checks on `conn`'s nilness given the apparent success of
-		// `DialContext` at this point in the code.
-		if sourceAddress == "" && conn != nil && conn.LocalAddr() != nil {
-			// All conns should have the same source address given the dialer's setup. Use the
-			// local address of the first one created.
-			sourceAddress = conn.LocalAddr().String()
 		}
 		connMu.Unlock()
 
@@ -407,13 +393,8 @@ func testTCP(ctx context.Context, logger logging.Logger) error {
 		connMu.Lock()
 		conn.Close() //nolint:gosec,errcheck
 		connMu.Unlock()
-
-		// NOTE(benjirewis): Sleep for 100ms after `Close`ing to ensure port has been freed
-		// for use on next `DialContext`. Why does `Close` not block until the port is freed?
-		// I do not know; something about not using SO_REUSEADDR or SO_LINGER socket options.
-		time.Sleep(100 * time.Millisecond)
 	}
 
-	logSTUNResults(logger, stunResponses, sourceAddress, "tcp")
+	logSTUNResults(logger, stunResponses, "" /* no udpSourceAddress */, "tcp")
 	return nil
 }
