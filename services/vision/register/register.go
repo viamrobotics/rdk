@@ -6,4 +6,5 @@ import (
 	_ "go.viam.com/rdk/services/vision"
 	_ "go.viam.com/rdk/services/vision/fake"
 	_ "go.viam.com/rdk/services/vision/mlvision"
+	_ "go.viam.com/rdk/services/vision/colordetector"
 )
