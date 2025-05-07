@@ -733,7 +733,8 @@ func TestModelFrame(t *testing.T) {
 		},
 	}
 	fakegantry, _ := newSingleAxis(ctx, deps, fakecfg, logger)
-	m := fakegantry.ModelFrame()
+	m, err := fakegantry.Kinematics(ctx)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m, test.ShouldNotBeNil)
 }
 

@@ -313,10 +313,6 @@ func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
 	return err
 }
 
-func (c *client) ModelFrame() referenceframe.Model {
-	return c.model
-}
-
 func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	return c.JointPositions(ctx, nil)
 }

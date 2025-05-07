@@ -2,6 +2,7 @@ package arm_test
 
 import (
 	"context"
+	"errors"
 	"net"
 	"testing"
 
@@ -81,8 +82,8 @@ func TestClient(t *testing.T) {
 		extraOptions = extra
 		return errStopUnimplemented
 	}
-	injectArm.ModelFrameFunc = func() referenceframe.Model {
-		return nil
+	injectArm.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return nil, errors.New("KinematicsFunc unimplemented")
 	}
 	injectArm.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
 		return expectedGeometries, nil
@@ -108,8 +109,8 @@ func TestClient(t *testing.T) {
 	injectArm2.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		return nil
 	}
-	injectArm2.ModelFrameFunc = func() referenceframe.Model {
-		return nil
+	injectArm2.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return nil, errors.New("KinematicsFunc unimplemented")
 	}
 
 	armSvc, err := resource.NewAPIResourceCollection(arm.API, map[resource.Name]arm.Arm{

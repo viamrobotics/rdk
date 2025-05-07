@@ -29,16 +29,18 @@ const (
 )
 
 type ptgBaseKinematics struct {
+	planningFrameName string
 	base.Base
 	motion.Localizer
-	logger                           logging.Logger
-	planningFrame, localizationFrame referenceframe.Frame
-	ptgs                             []tpspace.PTGSolver
-	opts                             Options
-	courseCorrectionIdx              int
-	linVelocityMMPerSecond           float64
-	angVelocityDegsPerSecond         float64
-	nonzeroBaseTurningRadiusMeters   float64
+	logger                         logging.Logger
+	planningModel                  referenceframe.Model
+	localizationFrame              referenceframe.Frame
+	ptgs                           []tpspace.PTGSolver
+	opts                           Options
+	courseCorrectionIdx            int
+	linVelocityMMPerSecond         float64
+	angVelocityDegsPerSecond       float64
+	nonzeroBaseTurningRadiusMeters float64
 
 	// All changeable state of the base is here
 	inputLock    sync.RWMutex
@@ -150,10 +152,12 @@ func wrapWithPTGKinematics(
 	}
 
 	return &ptgBaseKinematics{
-		Base:                           b,
-		Localizer:                      localizer,
-		logger:                         logger,
-		planningFrame:                  planningFrame,
+		Base:      b,
+		Localizer: localizer,
+		logger:    logger,
+		// NOTE: (Nick S) This is a hack, none of the Model methods are implemented usefully except for
+		// Frame
+		planningModel:                  planningFrame,
 		localizationFrame:              localizationFrame,
 		opts:                           options,
 		ptgs:                           ptgs,
@@ -167,8 +171,8 @@ func wrapWithPTGKinematics(
 	}, nil
 }
 
-func (ptgk *ptgBaseKinematics) Kinematics() referenceframe.Frame {
-	return ptgk.planningFrame
+func (ptgk *ptgBaseKinematics) Kinematics(context.Context) (referenceframe.Model, error) {
+	return ptgk.planningModel, nil
 }
 
 func (ptgk *ptgBaseKinematics) LocalizationFrame() referenceframe.Frame {
@@ -199,14 +203,14 @@ func (ptgk *ptgBaseKinematics) ExecutionState(ctx context.Context) (motionplan.E
 	ptgk.inputLock.RLock()
 	currentIdx := ptgk.currentState.currentIdx
 	currentInputs := ptgk.currentState.currentInputs
+
 	currentExecutingSteps := ptgk.currentState.currentExecutingSteps
 	currentPlan := ptgk.stepsToPlan(currentExecutingSteps, actualPIF.Parent())
 	ptgk.inputLock.RUnlock()
-
 	return motionplan.NewExecutionState(
 		currentPlan,
 		currentIdx,
-		referenceframe.FrameSystemInputs{ptgk.Kinematics().Name(): currentInputs},
+		referenceframe.FrameSystemInputs{ptgk.planningModel.Name(): currentInputs},
 		map[string]*referenceframe.PoseInFrame{ptgk.LocalizationFrame().Name(): actualPIF},
 	)
 }

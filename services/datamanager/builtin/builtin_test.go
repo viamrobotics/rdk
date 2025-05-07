@@ -280,8 +280,8 @@ func TestFileDeletion(t *testing.T) {
 			) ([]referenceframe.Input, error) {
 				return referenceframe.FloatsToInputs([]float64{1.0, 2.0, 3.0, 4.0}), nil
 			},
-			ModelFrameFunc: func() referenceframe.Model {
-				return nil
+			KinematicsFunc: func(ctx context.Context) (referenceframe.Model, error) {
+				return nil, errors.New("KinematicsFunc unimplemented")
 			},
 		},
 		gantry.Named("gantry1"): &inject.Gantry{

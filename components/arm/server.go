@@ -11,8 +11,8 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/referenceframe/urdf"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -63,7 +63,12 @@ func (s *serviceServer) GetJointPositions(ctx context.Context, req *pb.GetJointP
 	if err != nil {
 		return nil, err
 	}
-	jp, err := referenceframe.JointPositionsFromInputs(arm.ModelFrame(), pos)
+	m, err := arm.Kinematics(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	jp, err := referenceframe.JointPositionsFromInputs(m, pos)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +99,11 @@ func (s *serviceServer) MoveToJointPositions(
 	if err != nil {
 		return nil, err
 	}
-	inputs, err := referenceframe.InputsFromJointPositions(arm.ModelFrame(), req.Positions)
+	m, err := arm.Kinematics(ctx)
+	if err != nil {
+		return nil, err
+	}
+	inputs, err := referenceframe.InputsFromJointPositions(m, req.Positions)
 	if err != nil {
 		return nil, err
 	}
@@ -111,9 +120,13 @@ func (s *serviceServer) MoveThroughJointPositions(
 	if err != nil {
 		return nil, err
 	}
+	m, err := arm.Kinematics(ctx)
+	if err != nil {
+		return nil, err
+	}
 	allInputs := make([][]referenceframe.Input, 0, len(req.Positions))
 	for _, position := range req.Positions {
-		inputs, err := referenceframe.InputsFromJointPositions(arm.ModelFrame(), position)
+		inputs, err := referenceframe.InputsFromJointPositions(m, position)
 		if err != nil {
 			return nil, err
 		}
@@ -189,24 +202,11 @@ func (s *serviceServer) GetKinematics(ctx context.Context, req *commonpb.GetKine
 	if err != nil {
 		return nil, err
 	}
-	model := arm.ModelFrame()
-	if model == nil {
-		return &commonpb.GetKinematicsResponse{Format: commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED}, nil
+	model, err := arm.Kinematics(ctx)
+	if err != nil {
+		return nil, err
 	}
-	cfg := model.ModelConfig()
-	if cfg == nil || cfg.OriginalFile == nil {
-		return &commonpb.GetKinematicsResponse{Format: commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED}, nil
-	}
-	resp := &commonpb.GetKinematicsResponse{KinematicsData: cfg.OriginalFile.Bytes}
-	switch cfg.OriginalFile.Extension {
-	case "json":
-		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA
-	case urdf.Extension:
-		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF
-	default:
-		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF
-	}
-	return resp, nil
+	return framesystem.KinematicModelToProtobuf(model), nil
 }
 
 // DoCommand receives arbitrary commands.

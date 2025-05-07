@@ -18,6 +18,7 @@ type method int64
 const (
 	endPosition method = iota
 	jointPositions
+	kinematics
 )
 
 func (m method) String() string {
@@ -26,6 +27,8 @@ func (m method) String() string {
 		return "EndPosition"
 	case jointPositions:
 		return "JointPositions"
+	case kinematics:
+		return "Kinematics"
 	}
 	return "Unknown"
 }
@@ -87,7 +90,17 @@ func newJointPositionsCollector(resource interface{}, params data.CollectorParam
 			}
 			return res, data.NewFailedToReadError(params.ComponentName, jointPositions.String(), err)
 		}
-		jp, err := referenceframe.JointPositionsFromInputs(arm.ModelFrame(), v)
+		k, err := arm.Kinematics(ctx)
+		if err != nil {
+			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
+			// is used in the datamanager to exclude readings from being captured and stored.
+			if errors.Is(err, data.ErrNoCaptureToStore) {
+				return res, err
+			}
+			return res, data.FailedToReadErr(params.ComponentName, kinematics.String(), err)
+		}
+
+		jp, err := referenceframe.JointPositionsFromInputs(k, v)
 		if err != nil {
 			return res, data.NewFailedToReadError(params.ComponentName, jointPositions.String(), err)
 		}

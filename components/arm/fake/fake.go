@@ -132,13 +132,6 @@ func (a *Arm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf 
 	return nil
 }
 
-// ModelFrame returns the dynamic frame of the model.
-func (a *Arm) ModelFrame() referenceframe.Model {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
-	return a.model
-}
-
 // EndPosition returns the set position.
 func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 	joints, err := a.CurrentInputs(ctx)
@@ -216,6 +209,12 @@ func (a *Arm) Stop(ctx context.Context, extra map[string]interface{}) error {
 // IsMoving is always false for a fake arm.
 func (a *Arm) IsMoving(ctx context.Context) (bool, error) {
 	return false, nil
+}
+
+func (a *Arm) Kinematics(ctx context.Context) (referenceframe.Model, error) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.model, nil
 }
 
 // CurrentInputs returns the current inputs of the fake arm.

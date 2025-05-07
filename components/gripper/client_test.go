@@ -132,7 +132,8 @@ func TestClient(t *testing.T) {
 			test.That(t, spatialmath.GeometriesAlmostEqual(expectedGeometries[i], geometry), test.ShouldBeTrue)
 		}
 
-		m := gripper1Client.ModelFrame()
+		m, err := gripper1Client.Kinematics(context.Background())
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, m, test.ShouldNotBeNil)
 		gsInFrame, err := m.Geometries(make([]referenceframe.Input, len(m.DoF())))
 		test.That(t, err, test.ShouldBeNil)

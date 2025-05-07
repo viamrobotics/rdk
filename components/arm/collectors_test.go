@@ -2,6 +2,7 @@ package arm_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -101,8 +102,8 @@ func newArm() arm.Arm {
 	a.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
 		return referenceframe.FloatsToInputs(referenceframe.JointPositionsToRadians(floatList)), nil
 	}
-	a.ModelFrameFunc = func() referenceframe.Model {
-		return nil
+	a.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return nil, errors.New("KinematicsFunc unimplemented")
 	}
 	return a
 }

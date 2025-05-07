@@ -13,6 +13,7 @@ import (
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -23,7 +24,6 @@ type client struct {
 	resource.TriviallyCloseable
 	name   string
 	client pb.ArmServiceClient
-	model  referenceframe.Model
 	logger logging.Logger
 }
 
@@ -36,24 +36,12 @@ func NewClientFromConn(
 	logger logging.Logger,
 ) (Arm, error) {
 	pbClient := pb.NewArmServiceClient(conn)
-	c := &client{
+	return &client{
 		Named:  name.PrependRemote(remoteName).AsNamed(),
 		name:   name.ShortName(),
 		client: pbClient,
 		logger: logger,
-	}
-	clientFrame, err := c.updateKinematics(ctx, nil)
-	if err != nil {
-		logger.CWarnw(
-			ctx,
-			"error getting model for arm; making the assumption that joints are revolute and that their positions are specified in degrees",
-			"err",
-			err,
-		)
-	} else {
-		c.model = clientFrame
-	}
-	return c, nil
+	}, nil
 }
 
 func (c *client) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
@@ -92,7 +80,12 @@ func (c *client) MoveToJointPositions(ctx context.Context, positions []reference
 	if err != nil {
 		return err
 	}
-	jp, err := referenceframe.JointPositionsFromInputs(c.model, positions)
+	m, err := c.Kinematics(ctx)
+	if err != nil {
+		return err
+	}
+
+	jp, err := referenceframe.JointPositionsFromInputs(m, positions)
 	if err != nil {
 		return err
 	}
@@ -118,8 +111,12 @@ func (c *client) MoveThroughJointPositions(
 		c.logger.Warnf("%s MoveThroughJointPositions: position argument is nil", c.name)
 	}
 	allJPs := make([]*pb.JointPositions, 0, len(positions))
+	m, err := c.Kinematics(ctx)
+	if err != nil {
+		return err
+	}
 	for _, position := range positions {
-		jp, err := referenceframe.JointPositionsFromInputs(c.model, position)
+		jp, err := referenceframe.JointPositionsFromInputs(m, position)
 		if err != nil {
 			return err
 		}
@@ -149,7 +146,11 @@ func (c *client) JointPositions(ctx context.Context, extra map[string]interface{
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.InputsFromJointPositions(c.model, resp.Positions)
+	m, err := c.Kinematics(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return referenceframe.InputsFromJointPositions(m, resp.Positions)
 }
 
 func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
@@ -164,8 +165,12 @@ func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
 	return err
 }
 
-func (c *client) ModelFrame() referenceframe.Model {
-	return c.model
+func (c *client) Kinematics(ctx context.Context) (referenceframe.Model, error) {
+	resp, err := c.client.GetKinematics(ctx, &commonpb.GetKinematicsRequest{Name: c.name})
+	if err != nil {
+		return nil, err
+	}
+	return framesystem.KinematicModelFromProtobuf(c.name, resp)
 }
 
 func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {

@@ -66,9 +66,20 @@ func (g *Gripper) Reconfigure(_ context.Context, _ resource.Dependencies, conf r
 	return nil
 }
 
-// ModelFrame returns the dynamic frame of the model.
-func (g *Gripper) ModelFrame() referenceframe.Model {
-	return g.model
+func (g *Gripper) Kinematics(ctx context.Context) (referenceframe.Model, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.model, nil
+}
+
+func (g *Gripper) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	g.logger.Warn("gripper.CurrentInputs is unimplemented!")
+	return []referenceframe.Input{}, nil
+}
+
+func (g *Gripper) GoToInputs(context.Context, ...[]referenceframe.Input) error {
+	g.logger.Warn("gripper.GoToInputs is unimplemented!")
+	return nil
 }
 
 // Open does nothing.
