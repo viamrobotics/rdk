@@ -118,8 +118,9 @@ type motionSetPoseArgs struct {
 
 	Component string
 
-	X, Y, Z []float64
+	X, Y, Z, Ox, Oy, Oz, Theta []float64
 }
+
 func motionSetPoseAction(c *cli.Context, args motionSetPoseArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
@@ -164,6 +165,7 @@ func motionSetPoseAction(c *cli.Context, args motionSetPoseArgs) error {
 	printf(c.App.Writer, "start pose %v", pose)
 
 	pt := pose.Pose().Point()
+	o := pose.Pose().Orientation().OrientationVectorDegrees()
 
 	if len(args.X) > 0 {
 		pt.X = args.X[0]
@@ -175,7 +177,20 @@ func motionSetPoseAction(c *cli.Context, args motionSetPoseArgs) error {
 		pt.Z = args.Z[0]
 	}
 
-	pose = referenceframe.NewPoseInFrame(pose.Parent(), spatialmath.NewPose(pt, pose.Pose().Orientation()))
+	if len(args.Ox) > 0 {
+		o.OX = args.Ox[0]
+	}
+	if len(args.Oy) > 0 {
+		o.OY = args.Oy[0]
+	}
+	if len(args.Oz) > 0 {
+		o.OZ = args.Oz[0]
+	}
+	if len(args.Theta) > 0 {
+		o.Theta = args.Theta[0]
+	}
+
+	pose = referenceframe.NewPoseInFrame(pose.Parent(), spatialmath.NewPose(pt, o))
 
 	printf(c.App.Writer, "going to pose %v", pose)
 
