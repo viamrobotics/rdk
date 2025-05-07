@@ -72,7 +72,7 @@ type localRobot struct {
 	shutdownCallback           func()
 
 	// lastWeakAndOptionalDependentsRound stores the value of the resource graph's
-	// logical clock when updateWeakDependents was called.
+	// logical clock when updateWeakAndOptionalDependents was called.
 	lastWeakAndOptionalDependentsRound atomic.Int64
 
 	// configRevision stores the revision of the latest config ingested during
@@ -882,7 +882,20 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 			)
 			return
 		}
-		if err := res.Reconfigure(ctx, deps, conf); err != nil {
+
+		// Use the module manager to reconfigure the resource if it's a modular resource. This
+		// would be a modular resource that has optional dependencies.
+		isModular := r.manager.moduleManager.Provides(conf)
+		if isModular {
+			var depStrings []string
+			for dep := range deps {
+				depStrings = append(depStrings, dep.String())
+			}
+			err = r.manager.moduleManager.ReconfigureResource(ctx, conf, depStrings)
+		} else {
+			err = res.Reconfigure(ctx, deps, conf)
+		}
+		if err != nil {
 			r.Logger().CErrorw(
 				ctx,
 				"failed to reconfigure resource during weak/optional dependencies update",
