@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -38,7 +39,7 @@ func runNetworkChecks(ctx context.Context, rdkLogger logging.Logger) {
 const readTimeout = 5 * time.Second
 
 var (
-	// TODO(RSDK-XXXXX): Attempt raw IPs of STUN server URLs in the event that DNS
+	// TODO(RSDK-10657): Attempt raw IPs of STUN server URLs in the event that DNS
 	// resolution does not work.
 	stunServerURLsToTestUDP = []string{
 		"global.stun.twilio.com:3478",
@@ -57,22 +58,44 @@ var (
 )
 
 // Sends the provided bindRequest to the provided STUN server with the provided packet
-// connection and expects the provided transaction ID.
+// connection and expects the provided transaction ID. Uses cached resolved IPs if
+// possible.
 func sendUDPBindRequest(
 	bindRequest []byte,
 	stunServerURLToTest string,
 	conn net.PacketConn,
 	transactionID [12]byte,
+	cachedResolvedIPs map[string]net.IP,
 ) (stunResponse *STUNResponse) {
 	stunResponse = &STUNResponse{STUNServerURL: stunServerURLToTest}
 
-	udpAddr, err := net.ResolveUDPAddr("udp", stunServerURLToTest)
+	// Create UDP addr for bind request (or get it from cache).
+	stunServerHost, stunServerPortString, err := net.SplitHostPort(stunServerURLToTest)
 	if err != nil {
-		// TODO(RSDK-XXXXX): Attempt raw IPs of STUN server URLs in the event that DNS
-		// resolution does not work.
-		errorString := fmt.Sprintf("error resolving address: %v", err.Error())
+		errorString := fmt.Sprintf("error splitting STUN server URL: %v", err.Error())
 		stunResponse.ErrorString = &errorString
 		return
+	}
+	udpAddr := &net.UDPAddr{}
+	udpAddr.Port, err = strconv.Atoi(stunServerPortString)
+	if err != nil {
+		errorString := fmt.Sprintf("error parsing STUN server port: %v", err.Error())
+		stunResponse.ErrorString = &errorString
+		return
+	}
+	var exists bool
+	udpAddr.IP, exists = cachedResolvedIPs[stunServerHost]
+	if !exists {
+		ipAddr, err := net.ResolveIPAddr("ip", stunServerHost)
+		if err != nil {
+			// TODO(RSDK-10657): Attempt raw IPs of STUN server URLs in the event that DNS
+			// resolution does not work.
+			errorString := fmt.Sprintf("error resolving address: %v", err.Error())
+			stunResponse.ErrorString = &errorString
+			return
+		}
+		udpAddr.IP = ipAddr.IP
+		cachedResolvedIPs[stunServerHost] = ipAddr.IP
 	}
 	stunServerAddr := udpAddr.String()
 	stunResponse.STUNServerAddr = &stunServerAddr
@@ -197,6 +220,7 @@ func testUDP(ctx context.Context, logger logging.Logger) error {
 	}
 
 	var stunResponses []*STUNResponse
+	cachedResolvedIPs := make(map[string]net.IP)
 	for _, stunServerURLToTest := range stunServerURLsToTestUDP {
 		if ctx.Err() != nil {
 			logger.Info("Machine shutdown detected; stopping UDP network tests")
@@ -208,6 +232,7 @@ func testUDP(ctx context.Context, logger logging.Logger) error {
 			stunServerURLToTest,
 			conn,
 			bindRequest.TransactionID,
+			cachedResolvedIPs,
 		)
 		stunResponses = append(stunResponses, stunResponse)
 	}
@@ -229,7 +254,7 @@ func sendTCPBindRequest(
 
 	tcpAddr, err := net.ResolveTCPAddr("tcp", stunServerURLToTest)
 	if err != nil {
-		// TODO(RSDK-XXXXX): Attempt raw IPs of STUN server URLs in the event that DNS
+		// TODO(RSDK-10657): Attempt raw IPs of STUN server URLs in the event that DNS
 		// resolution does not work.
 		errorString := fmt.Sprintf("error resolving address: %v", err.Error())
 		stunResponse.ErrorString = &errorString
