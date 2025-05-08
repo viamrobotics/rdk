@@ -14,6 +14,8 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/testutils"
+	rutils "go.viam.com/rdk/utils"
 )
 
 // Contains a required and optional motor that the component will necessarily and
@@ -93,7 +95,7 @@ func (oc *optionalChild) Reconfigure(ctx context.Context, deps resource.Dependen
 	return nil
 }
 
-func TestOptionalDependencies(t *testing.T) {
+func TestNonModularOptionalDependencies(t *testing.T) {
 	logger, logs := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
 
@@ -310,8 +312,7 @@ func TestOptionalDependencies(t *testing.T) {
 	lr.Reconfigure(ctx, &cfg)
 
 	{ // Assertions
-		// Assert that the optional child component built successfully (optional dependency on 'm1'
-		// did not cause a failure to build).
+		// Assert that the optional child component built successfully.
 		ocRes, err := lr.ResourceByName(ocName)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -342,5 +343,279 @@ func TestOptionalDependencies(t *testing.T) {
 		// set.
 		test.That(t, oc.requiredMotor, test.ShouldNotBeNil)
 		test.That(t, oc.optionalMotor, test.ShouldNotBeNil)
+	}
+}
+
+func TestModularOptionalDependencies(t *testing.T) {
+	// A copy of TestNonModularOptionalDependencies with a modular component instead of a
+	// resource defined in this file.
+
+	logger, logs := logging.NewObservedTestLogger(t)
+	ctx := context.Background()
+
+	lr := setupLocalRobot(t, ctx, &config.Config{}, logger)
+
+	optionalDepsModulePath := testutils.BuildTempModule(t, "examples/customresources/demos/optionaldepsmodule")
+
+	// Manually define models, as importing them can cause double registration.
+	fooModel := resource.NewModel("acme", "demo", "foo")
+	fooName := generic.Named("f")
+
+	// Reconfigure the robot to have a foo component, its required motor, and no optional
+	// motor.
+	cfg := config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "optional-deps",
+				ExePath: optionalDepsModulePath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  fooName.Name,
+				API:   generic.API,
+				Model: fooModel,
+				Attributes: rutils.AttributeMap{
+					"required_motor": "m",
+					"optional_motor": "m1",
+				},
+			},
+			{
+				Name:                "m",
+				API:                 motor.API,
+				Model:               fake.Model,
+				ConvertedAttributes: &fake.Config{},
+			},
+		},
+	}
+	// Ensure here and for all configs below before `Reconfigure`ing to make sure optional
+	// dependencies are calculated (`ImplicitOptionalDependsOn` is filled in).
+	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
+	lr.Reconfigure(ctx, &cfg)
+
+	{ // Assertions
+		// Assert that the foo component built successfully (optional dependency on
+		// non-existent 'm1' did not cause a failure to build).
+		fooRes, err := lr.ResourceByName(fooName)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Assert that the foo component logged its inability to get 'm1' from dependencies
+		// _twice_. The first is from construction (invokes `Reconfigure`) of the resource,
+		// and the second is from reconfiguring of the resource due to an unconditional call
+		// to `updateWeakAndOptionalDependents` directly after `completeConfig`.
+		msgNum := logs.FilterMessageSnippet("could not get optional motor").Len()
+		test.That(t, msgNum, test.ShouldEqual, 2)
+
+		// Assert that 'm' is accessible through the foo component and not moving.
+		doCommandResp, err := fooRes.DoCommand(ctx, map[string]any{"command": "required_motor_state"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"required_motor_state": "moving: false"})
+
+		// Assert that 'm1' is not accessible through the foo component.
+		doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "optional_motor_state"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"optional_motor_state": "unset"})
+	}
+
+	// Reconfigure the robot to have the optionally-depended-upon motor 'm1'.
+	cfg = config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "optional-deps",
+				ExePath: optionalDepsModulePath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  fooName.Name,
+				API:   generic.API,
+				Model: fooModel,
+				Attributes: rutils.AttributeMap{
+					"required_motor": "m",
+					"optional_motor": "m1",
+				},
+			},
+			{
+				Name:                "m",
+				API:                 motor.API,
+				Model:               fake.Model,
+				ConvertedAttributes: &fake.Config{},
+			},
+			{
+				Name:                "m1",
+				API:                 motor.API,
+				Model:               fake.Model,
+				ConvertedAttributes: &fake.Config{},
+			},
+		},
+	}
+	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
+	lr.Reconfigure(ctx, &cfg)
+
+	{ // Assertions
+		// Assert that the foo component is still accessible (did not fail to reconfigure).
+		fooRes, err := lr.ResourceByName(fooName)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Assert that there were no more logs (still 2) about failures to "get optional
+		// motor."
+		msgNum := logs.FilterMessageSnippet("could not get optional motor").Len()
+		test.That(t, msgNum, test.ShouldEqual, 2)
+
+		// Assert that 'm' is still accessible through the foo component and not moving.
+		doCommandResp, err := fooRes.DoCommand(ctx, map[string]any{"command": "required_motor_state"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"required_motor_state": "moving: false"})
+
+		// Assert that 'm1' is now accessible through the foo component and not moving.
+		doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "optional_motor_state"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"optional_motor_state": "moving: false"})
+	}
+
+	// Reconfigure the robot to remove 'm1'.
+	cfg = config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "optional-deps",
+				ExePath: optionalDepsModulePath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  fooName.Name,
+				API:   generic.API,
+				Model: fooModel,
+				Attributes: rutils.AttributeMap{
+					"required_motor": "m",
+					"optional_motor": "m1",
+				},
+			},
+			{
+				Name:                "m",
+				API:                 motor.API,
+				Model:               fake.Model,
+				ConvertedAttributes: &fake.Config{},
+			},
+		},
+	}
+	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
+	lr.Reconfigure(ctx, &cfg)
+
+	{ // Assertions
+		// Assert that the foo component is still accessible (did not fail to reconfigure).
+		fooRes, err := lr.ResourceByName(fooName)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Assert that there was another log (still 3) about a failure to "get optional
+		// motor."
+		msgNum := logs.FilterMessageSnippet("could not get optional motor").Len()
+		test.That(t, msgNum, test.ShouldEqual, 3)
+
+		// Assert that 'm' is still accessible through the foo component and not moving.
+		doCommandResp, err := fooRes.DoCommand(ctx, map[string]any{"command": "required_motor_state"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"required_motor_state": "moving: false"})
+
+		// Assert that 'm1' is no longer accessible through the foo component.
+		doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "optional_motor_state"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"optional_motor_state": "unset"})
+	}
+
+	// Reconfigure the robot to remove 'm' (required dependency).
+	cfg = config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "optional-deps",
+				ExePath: optionalDepsModulePath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  fooName.Name,
+				API:   generic.API,
+				Model: fooModel,
+				Attributes: rutils.AttributeMap{
+					"required_motor": "m",
+					"optional_motor": "m1",
+				},
+			},
+		},
+	}
+	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
+	lr.Reconfigure(ctx, &cfg)
+
+	{ // Assertions
+		// Assert that the foo component is no longer accessible (did not fail to reconfigure).
+		_, err := lr.ResourceByName(fooName)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
+	}
+
+	// Reconfigure the robot to add 'm' _and_ 'm1' back.
+	cfg = config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "optional-deps",
+				ExePath: optionalDepsModulePath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  fooName.Name,
+				API:   generic.API,
+				Model: fooModel,
+				Attributes: rutils.AttributeMap{
+					"required_motor": "m",
+					"optional_motor": "m1",
+				},
+			},
+			{
+				Name:                "m",
+				API:                 motor.API,
+				Model:               fake.Model,
+				ConvertedAttributes: &fake.Config{},
+			},
+			{
+				Name:                "m1",
+				API:                 motor.API,
+				Model:               fake.Model,
+				ConvertedAttributes: &fake.Config{},
+			},
+		},
+	}
+	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
+	lr.Reconfigure(ctx, &cfg)
+
+	{ // Assertions
+		// Assert that the foo component built successfully.
+		fooRes, err := lr.ResourceByName(fooName)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Assert that there are either 3 (no new) _or_ 4 logs about an inability to "get
+		// optional motor."
+		//
+		// The foo component child _might_ get 'm1' as a dependency as part of its initial
+		// construction, in which case no log will be emitted, or it _might_ get 'm1' as a
+		// dependency as part of the reconfigure triggered by the unconditional call to
+		// `updateWeakAndOptionalDependents`, in which case one log will emitted due to the
+		// initial destruction lacking the 'm1' dependency.
+		//
+		// Optional dependencies are _not_ represented as edges in the resource graph and have
+		// no influence on build order. 3 logs would mean the order was m -> m1 -> f or m1 ->
+		// m -> f. 4 logs would mean the order was m -> f -> m1.
+		msgNum := logs.FilterMessageSnippet("could not get optional motor").Len()
+		test.That(t, msgNum, test.ShouldBeIn, []int{3, 4})
+
+		// Assert that 'm' is accessible through the foo component and not moving.
+		doCommandResp, err := fooRes.DoCommand(ctx, map[string]any{"command": "required_motor_state"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"required_motor_state": "moving: false"})
+
+		// Assert that 'm1' is accessible through the foo component and not moving.
+		doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "optional_motor_state"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"optional_motor_state": "moving: false"})
 	}
 }

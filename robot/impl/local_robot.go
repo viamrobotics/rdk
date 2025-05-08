@@ -646,6 +646,7 @@ func (r *localRobot) getOptionalDependencies(conf resource.Config) resource.Depe
 				"resource", conf.ResourceName().String(),
 				"error", err,
 			)
+			continue
 		}
 
 		optDeps[resolvedOptionalDepName] = optionalDep

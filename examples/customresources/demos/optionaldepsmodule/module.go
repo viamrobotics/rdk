@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"go.viam.com/rdk/components/generic"
@@ -96,4 +97,42 @@ func (f *foo) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	return nil
+}
+
+// DoCommand is the only method of this component; shows how one might leverage the
+// required and optional motor dependencies.
+func (f *foo) DoCommand(ctx context.Context, req map[string]any) (map[string]any, error) {
+	cmd, ok := req["command"]
+	if !ok {
+		return nil, errors.New("missing 'command' string")
+	}
+
+	// "required_motor_state" will check the state of the required motor.
+	if cmd == "required_motor_state" {
+		if f.requiredMotor == nil {
+			return map[string]any{"required_motor_state": "unset"}, nil
+		}
+
+		requiredMotorIsMoving, err := f.requiredMotor.IsMoving(ctx)
+		if err != nil {
+			return map[string]any{"required_motor_state": "unreachable"}, nil //nolint:nilerr
+		}
+		return map[string]any{"required_motor_state": fmt.Sprintf("moving: %v", requiredMotorIsMoving)}, nil
+	}
+
+	// "optional_motor_state" will check the state of the optional motor.
+	if cmd == "optional_motor_state" {
+		if f.optionalMotor == nil {
+			return map[string]any{"optional_motor_state": "unset"}, nil
+		}
+
+		optionalMotorIsMoving, err := f.optionalMotor.IsMoving(ctx)
+		if err != nil {
+			return map[string]any{"optional_motor_state": "unreachable"}, nil //nolint:nilerr
+		}
+		return map[string]any{"optional_motor_state": fmt.Sprintf("moving: %v", optionalMotorIsMoving)}, nil
+	}
+
+	// The command must've been something else (unrecognized).
+	return nil, fmt.Errorf("unknown command string %s", cmd)
 }
