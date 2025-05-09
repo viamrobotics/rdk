@@ -717,14 +717,14 @@ func (c *viamClient) listLocationRobots(ctx *cli.Context, orgStr, locStr string)
 		if err != nil {
 			return err
 		}
-		mainPartId := "<unknown>"
+		mainPartID := "<unknown>"
 		for _, part := range parts.Parts {
 			if part.MainPart {
-				mainPartId = part.Id
+				mainPartID = part.Id
 				break
 			}
 		}
-		printf(ctx.App.Writer, "%s (id: %s) (main part id: %s)", robot.Name, robot.Id, mainPartId)
+		printf(ctx.App.Writer, "%s (id: %s) (main part id: %s)", robot.Name, robot.Id, mainPartID)
 	}
 	return nil
 
