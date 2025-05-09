@@ -18,6 +18,7 @@ import (
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/module/v1"
 	"go.viam.com/utils"
+	"go.viam.com/utils/pexec"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -878,20 +879,24 @@ var oueRestartInterval = 5 * time.Second
 
 // newOnUnexpectedExitHandler returns the appropriate OnUnexpectedExit function
 // for the passed-in module to include in the pexec.ProcessConfig.
-func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) bool {
-	return func(exitCode int) bool {
-		// There is a circular dependency that causes a deadlock if a module dies
-		// while being reconfigured. Break it here by giving up on the restart if we
-		// cannot lock the mananger.
-		if locked := mgr.mu.TryLock(); !locked {
-			return false
-		}
-		defer mgr.mu.Unlock()
-
+func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) pexec.UnexpectedExitHandler {
+	return func(exitCode int) (continueAttemptingRestart bool) {
 		// Log error immediately, as this is unexpected behavior.
 		mod.logger.Errorw(
 			"Module has unexpectedly exited.", "module", mod.cfg.Name, "exit_code", exitCode,
 		)
+
+		// Take the lock to avoid racing with calls like Reconfigure that may make
+		// their own changes to the module's process.
+		mgr.mu.Lock()
+		defer mgr.mu.Unlock()
+
+		// Something else already started a new process while we were waiting on the
+		// lock, so no restart is needed.
+		if err := mod.process.Status(); err == nil {
+			mod.logger.Warnw("Module process already running, abandoning restart attempt")
+			return
+		}
 
 		if err := mod.sharedConn.Close(); err != nil {
 			mod.logger.Warnw("Error closing connection to crashed module. Continuing restart attempt",
@@ -915,7 +920,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 					"resources", resource.NamesToStrings(orphanedResourceNames),
 				)
 			}
-			return false
+			return
 		}
 		mod.logger.Infow("Module successfully restarted, re-adding resources", "module", mod.cfg.Name)
 
@@ -941,7 +946,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 		}
 
 		mod.logger.Infow("Module resources successfully re-added after module restart", "module", mod.cfg.Name)
-		return false
+		return
 	}
 }
 
