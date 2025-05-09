@@ -729,7 +729,6 @@ func (c *viamClient) listLocationRobots(ctx *cli.Context, orgStr, locStr string)
 		printf(ctx.App.Writer, "%s (id: %s) (main part id: %s)", robot.Name, robot.Id, mainPartID)
 	}
 	return nil
-
 }
 
 // ListRobotsAction is the corresponding Action for 'machines list'.
