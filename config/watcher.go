@@ -142,11 +142,22 @@ func newFSWatcher(ctx context.Context, configPath string, logger logging.Logger,
 			case <-cancelCtx.Done():
 				return
 			case event := <-fsWatcher.Events:
-				if event.Op&fsnotify.Write == fsnotify.Write {
+				// Monitor WRITE and REMOVE events.
+				// Editors that save in place WRITE over the monitored file.
+				// Editors that save atomically write to a temp file and swap. Events on original file are: RENAME->CHMOD->REMOVE
+				if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Remove == fsnotify.Remove {
 					debounced(func() {
 						logger.Info("On-disk config file changed. Reloading the config file.")
 						//nolint:gosec
 						rd, err := os.ReadFile(configPath)
+						defer func() {
+							// Re-add to watcher. Will be a new inode if it was saved atomically.
+							// Adding the same path twice (WRITE case) is a no-op (no error).
+							// Old watches are auto removed from fsWatcher when file is deleted or renamed (REMOVE case).
+							if err := fsWatcher.Add(configPath); err != nil {
+								return
+							}
+						}()
 						if err != nil {
 							logger.Errorw("error reading config file after write", "error", err)
 							return
