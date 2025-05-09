@@ -693,7 +693,9 @@ func (c *viamClient) listAllRobotsInOrg(ctx *cli.Context, orgStr string) error {
 		// when printing all robots in an org, we always want to include org and location
 		// info to differentiate _where_ a particular robot is
 		printOrgAndLocNames(ctx, c.selectedOrg.Name, loc.Name)
-		c.listLocationRobots(ctx, c.selectedOrg.Name, loc.Name)
+		if err = c.listLocationRobots(ctx, c.selectedOrg.Name, loc.Name); err != nil {
+			return err
+		}
 		printf(ctx.App.Writer, "")
 	}
 
