@@ -517,12 +517,6 @@ func (mgr *Manager) AddResource(ctx context.Context, conf resource.Config, deps 
 	return mgr.addResource(ctx, conf, deps)
 }
 
-func (mgr *Manager) addResourceWithWriteLock(ctx context.Context, conf resource.Config, deps []string) (resource.Resource, error) {
-	mgr.mu.Lock()
-	defer mgr.mu.Unlock()
-	return mgr.addResource(ctx, conf, deps)
-}
-
 func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps []string) (resource.Resource, error) {
 	mod, ok := mgr.getModule(conf)
 	if !ok {

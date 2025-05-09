@@ -17,6 +17,12 @@ import (
 	"go.uber.org/zap/zapcore"
 	pb "go.viam.com/api/module/v1"
 	robotpb "go.viam.com/api/robot/v1"
+	"go.viam.com/utils"
+	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/ftdc"
 	"go.viam.com/rdk/ftdc/sys"
@@ -28,11 +34,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/packages"
 	rutils "go.viam.com/rdk/utils"
-	"go.viam.com/utils"
-	"go.viam.com/utils/pexec"
-	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 type module struct {
