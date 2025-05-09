@@ -22,6 +22,7 @@ const (
 	fakeClassScore = 0.85
 	fakeDetLabel   = "a_detection"
 	fakeDetScore   = 0.92
+	fakeCameraName = "fake_camera"
 )
 
 func init() {
@@ -70,5 +71,5 @@ func registerFake(
 	name resource.Name,
 	r robot.Robot,
 ) (vision.Service, error) {
-	return vision.NewService(name, r, nil, fakeClassifier, fakeDetector, nil, "")
+	return vision.NewService(name, r, nil, fakeClassifier, fakeDetector, nil, fakeCameraName)
 }

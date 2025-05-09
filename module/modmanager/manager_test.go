@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -134,7 +135,6 @@ func TestModManagerFunctions(t *testing.T) {
 				},
 				dataDir: "module-data-dir",
 				logger:  logger,
-				port:    tcpPortRange,
 			}
 
 			err = mod.startProcess(ctx, parentAddr, nil, viamHomeTemp, filepath.Join(viamHomeTemp, "packages"))
@@ -1760,4 +1760,17 @@ func TestCleanWindowsSocketPath(t *testing.T) {
 	clean, err = cleanWindowsSocketPath("linux", "/x/y.sock")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
+}
+
+func TestGetAutomaticPort(t *testing.T) {
+	for range 1000 {
+		addr, err := getAutomaticPort()
+		test.That(t, err, test.ShouldBeNil)
+
+		// use the provided port in a new listener; we do this to protect against
+		// any code changes that introduce a TIME_WAIT.
+		lis, err := net.Listen("tcp4", addr)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, lis.Close(), test.ShouldBeNil)
+	}
 }

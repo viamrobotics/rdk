@@ -21,6 +21,9 @@ import (
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/cloud"
+	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/gantry"
+	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/ftdc"
@@ -881,12 +884,18 @@ func (r *localRobot) getLocalFrameSystemParts() ([]*referenceframe.FrameSystemPa
 		if cfgCopy.ID == "" {
 			cfgCopy.ID = component.Name
 		}
-		model, err := r.extractModelFrameJSON(component.ResourceName())
-		if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
-			// When we have non-nil errors here, it is because the resource is not yet available.
-			// In this case, we will exclude it from the FS.
-			// When it becomes available, it will be included.
-			continue
+
+		var model referenceframe.Model
+		var err error
+		switch component.ResourceName().API.SubtypeName {
+		case arm.SubtypeName, gantry.SubtypeName, gripper.SubtypeName: // catch the case for all the ModelFramers
+			model, err = r.extractModelFrameJSON(component.ResourceName())
+			if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
+				// When we have non-nil errors here, it is because the resource is not yet available.
+				// In this case, we will exclude it from the FS. When it becomes available, it will be included.
+				continue
+			}
+		default:
 		}
 		lif, err := cfgCopy.ParseConfig()
 		if err != nil {

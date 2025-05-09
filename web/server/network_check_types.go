@@ -11,6 +11,11 @@ type STUNResponse struct {
 	// STUNServerURL is the URL of the STUN server.
 	STUNServerURL string
 
+	// TCPSourceAddress is the source address for the bind request if this was a TCP test.
+	// If it was a UDP test, it will be the same UDP source address for all UDP tests, and
+	// that value will be passed to `logSTUNResults`.
+	TCPSourceAddress *string
+
 	// STUNServerAddr is the resolved address of the STUN server.
 	STUNServerAddr *string
 
@@ -35,6 +40,9 @@ func stringifySTUNResponses(stunResponses []*STUNResponse) string {
 		}
 
 		ret += fmt.Sprintf("%v{stun_server_url: %v", comma, sr.STUNServerURL)
+		if sr.TCPSourceAddress != nil {
+			ret += fmt.Sprintf(", tcp_source_address: %v", *sr.TCPSourceAddress)
+		}
 		if sr.STUNServerAddr != nil {
 			ret += fmt.Sprintf(", stun_server_addr: %v", *sr.STUNServerAddr)
 		}
@@ -58,13 +66,14 @@ func stringifySTUNResponses(stunResponses []*STUNResponse) string {
 func logSTUNResults(
 	logger logging.Logger,
 	stunResponses []*STUNResponse,
-	sourceAddress,
+	udpSourceAddress,
 	network string,
 ) {
 	// Use lastBindResponseAddr to track whether the received address from STUN servers is
 	// "unstable." Any changes in port, in particular, between different STUN server's bind
 	// responses indicates that we may be behind an endpoint-dependent-mapping NAT device
-	// ("hard" NAT).
+	// ("hard" NAT). Changes in port are expected for TCP tests, so do not log any warning
+	// for them.
 	var expectedBindResponseAddr string
 	var unstableBindResponseAddr bool
 
@@ -91,24 +100,19 @@ func logSTUNResults(
 		len(stunResponses),
 		network,
 	)
+	keysAndValues := []any{fmt.Sprintf("%v_tests", network), stringifySTUNResponses(stunResponses)}
+	if network == "udp" {
+		keysAndValues = append(keysAndValues, "udp_source_address", udpSourceAddress)
+	}
 	if successfulStunResponses < len(stunResponses) {
-		logger.Warnw(
-			msg,
-			fmt.Sprintf("%v_source_address", network), sourceAddress,
-			fmt.Sprintf("%v_tests", network), stringifySTUNResponses(stunResponses),
-		)
+		logger.Warnw(msg, keysAndValues...)
 	} else {
-		logger.Infow(
-			msg,
-			fmt.Sprintf("%v_source_address", network), sourceAddress,
-			fmt.Sprintf("%v_tests", network), stringifySTUNResponses(stunResponses),
-		)
+		logger.Infow(msg, keysAndValues...)
 	}
 
-	if unstableBindResponseAddr {
-		logger.Warnf(
-			"%v STUN tests indicate this machine is behind a 'hard' NAT device; STUN may not work as expected",
-			network,
+	if unstableBindResponseAddr && network != "tcp" /* do not warn about instability for TCP tests */ {
+		logger.Warn(
+			"udp STUN tests indicate this machine is behind a 'hard' NAT device; STUN may not work as expected",
 		)
 	}
 }

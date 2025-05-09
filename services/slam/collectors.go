@@ -39,7 +39,7 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 		var res data.CaptureResult
 		pose, err := slam.Position(ctx)
 		if err != nil {
-			return res, data.FailedToReadErr(params.ComponentName, position.String(), err)
+			return res, data.NewFailedToReadError(params.ComponentName, position.String(), err)
 		}
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
 		return data.NewTabularCaptureResult(ts, &pb.GetPositionResponse{Pose: spatialmath.PoseToProtobuf(pose)})
@@ -59,12 +59,12 @@ func newPointCloudMapCollector(resource interface{}, params data.CollectorParams
 		// edited maps do not need to be captured because they should not be modified
 		f, err := slam.PointCloudMap(ctx, false)
 		if err != nil {
-			return res, data.FailedToReadErr(params.ComponentName, pointCloudMap.String(), err)
+			return res, data.NewFailedToReadError(params.ComponentName, pointCloudMap.String(), err)
 		}
 
 		pcd, err := HelperConcatenateChunksToFull(f)
 		if err != nil {
-			return res, data.FailedToReadErr(params.ComponentName, pointCloudMap.String(), err)
+			return res, data.NewFailedToReadError(params.ComponentName, pointCloudMap.String(), err)
 		}
 
 		ts := data.Timestamps{

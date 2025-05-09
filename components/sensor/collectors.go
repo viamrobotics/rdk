@@ -41,7 +41,7 @@ func newReadingsCollector(resource interface{}, params data.CollectorParams) (da
 			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return res, err
 			}
-			return res, data.FailedToReadErr(params.ComponentName, readings.String(), err)
+			return res, data.NewFailedToReadError(params.ComponentName, readings.String(), err)
 		}
 
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}

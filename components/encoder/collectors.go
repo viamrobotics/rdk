@@ -42,7 +42,7 @@ func newTicksCountCollector(resource interface{}, params data.CollectorParams) (
 			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return res, err
 			}
-			return res, data.FailedToReadErr(params.ComponentName, ticksCount.String(), err)
+			return res, data.NewFailedToReadError(params.ComponentName, ticksCount.String(), err)
 		}
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
 		return data.NewTabularCaptureResult(ts, pb.GetPositionResponse{
