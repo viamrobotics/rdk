@@ -15,6 +15,8 @@ import (
 
 // CLI flags.
 const (
+	flagAll = "all"
+
 	baseURLFlag         = "base-url"
 	configFlag          = "config"
 	debugFlag           = "debug"
@@ -1964,6 +1966,10 @@ var app = &cli.App{
 								Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
 								DefaultText: "first location alphabetically",
 							},
+						},
+						&cli.BoolFlag{
+							Name:  flagAll,
+							Usage: "list all machines in the organization. overrides location flag",
 						},
 					},
 					Action: createCommandWithT[listRobotsActionArgs](ListRobotsAction),
