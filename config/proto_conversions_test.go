@@ -251,10 +251,10 @@ var (
 )
 
 func init() {
-	if _, err := testComponent.Validate("", resource.APITypeComponentName); err != nil {
+	if _, _, err := testComponent.Validate("", resource.APITypeComponentName); err != nil {
 		panic(err)
 	}
-	if _, err := testService.Validate("", resource.APITypeServiceName); err != nil {
+	if _, _, err := testService.Validate("", resource.APITypeServiceName); err != nil {
 		panic(err)
 	}
 }
@@ -425,7 +425,7 @@ func TestComponentConfigToProto(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			_, err := tc.Conf.Validate("", resource.APITypeComponentName)
+			_, _, err := tc.Conf.Validate("", resource.APITypeComponentName)
 			test.That(t, err, test.ShouldBeNil)
 			proto, err := ComponentConfigToProto(&tc.Conf)
 			test.That(t, err, test.ShouldBeNil)
@@ -435,7 +435,7 @@ func TestComponentConfigToProto(t *testing.T) {
 			test.That(t, proto.Type, test.ShouldEqual, tc.Conf.API.SubtypeName)
 			out, err := ComponentConfigFromProto(proto)
 			test.That(t, err, test.ShouldBeNil)
-			_, err = out.Validate("test", resource.APITypeComponentName)
+			_, _, err = out.Validate("test", resource.APITypeComponentName)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, out, test.ShouldNotBeNil)
 			test.That(t, out, test.ShouldResemble, &tc.Conf)
@@ -696,7 +696,7 @@ func TestServiceConfigToProto(t *testing.T) {
 			test.That(t, out, test.ShouldNotBeNil)
 
 			test.That(t, out.String(), test.ShouldResemble, tc.Conf.String())
-			_, err = out.Validate("test", resource.APITypeServiceName)
+			_, _, err = out.Validate("test", resource.APITypeServiceName)
 			test.That(t, err, test.ShouldBeNil)
 		})
 	}
@@ -728,7 +728,7 @@ func TestServiceConfigWithEmptyModelName(t *testing.T) {
 	test.That(t, out.Model, test.ShouldResemble, fromJSON.Model)
 	test.That(t, out.Model.Validate(), test.ShouldBeNil)
 	test.That(t, out.Model, test.ShouldResemble, resource.DefaultServiceModel)
-	_, err = out.Validate("...", resource.APITypeServiceName)
+	_, _, err = out.Validate("...", resource.APITypeServiceName)
 	test.That(t, err, test.ShouldBeNil)
 }
 

@@ -234,8 +234,8 @@ func (g *Graph) FindNodesByAPI(api API) []Name {
 	return ret
 }
 
-// findNodesByShortName returns all resources matching the given short name.
-func (g *Graph) findNodesByShortName(name string) []Name {
+// FindNodesByShortName returns all resources matching the given short name.
+func (g *Graph) FindNodesByShortName(name string) []Name {
 	hasRemote := strings.Contains(name, ":")
 	var matches []Name
 	for nodeName := range g.nodes {
@@ -592,7 +592,7 @@ func (g *Graph) ResolveDependencies(logger logging.Logger) error {
 
 				// if a name is later added that conflicts, it will not
 				// necessarily be caught unless the resource config changes.
-				nodeNames := g.findNodesByShortName(dep)
+				nodeNames := g.FindNodesByShortName(dep)
 				switch len(nodeNames) {
 				case 0:
 				case 1:

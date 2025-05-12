@@ -91,8 +91,8 @@ type Config struct {
 }
 
 // Validate here adds a dependency on the internal framesystem service.
-func (c *Config) Validate(path string) ([]string, error) {
-	return []string{framesystem.InternalServiceName.String()}, nil
+func (c *Config) Validate(path string) ([]string, []string, error) {
+	return []string{framesystem.InternalServiceName.String()}, nil, nil
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.

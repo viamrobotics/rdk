@@ -38,23 +38,23 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (conf *Config) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, []string, error) {
 	for idx, conf := range conf.AnalogReaders {
 		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	for idx, conf := range conf.DigitalInterrupts {
 		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "digital_interrupts", idx)); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
 	if conf.FailNew {
-		return nil, errors.New("whoops")
+		return nil, nil, errors.New("whoops")
 	}
 
-	return nil, nil
+	return nil, nil, nil
 }
 
 var model = resource.DefaultModelFamily.WithModel("fake")
