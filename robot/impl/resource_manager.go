@@ -828,7 +828,7 @@ func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr
 		if !ok || !gNode.NeedsReconfigure() {
 			continue
 		}
-		processRemote := func() {
+		processAndCompleteConfigForRemote := func() {
 			var verb string
 			if gNode.IsUninitialized() {
 				verb = "configuring"
@@ -870,7 +870,7 @@ func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr
 			}
 		}
 		remoteErrGroup.Go(func() error {
-			processRemote()
+			processAndCompleteConfigForRemote()
 			return nil
 		})
 	}
