@@ -869,7 +869,9 @@ func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr
 				manager.logger.CErrorw(ctx, err.Error(), "resource", resName)
 			}
 		}
+		lr.reconfigureWorkers.Add(1)
 		remoteErrGroup.Go(func() error {
+			defer lr.reconfigureWorkers.Done()
 			processAndCompleteConfigForRemote()
 			return nil
 		})
