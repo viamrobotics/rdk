@@ -563,8 +563,54 @@ func (r *localRobot) removeOrphanedResources(ctx context.Context,
 }
 
 // getDependencies derives a collection of dependencies from a robot for a given
-// component's name. We don't use the resource manager for this information since
-// it is not be constructed at this point.
+// component's name. We don't use the resource manager for this information since it has
+// not been constructed at this point.
+//
+// Dependencies affect both the build order of resources and the access resources have to
+// each other. There are four types of dependencies. Not all dependency types affect build
+// order, but all dependency types affect the access resources have to each other. The
+// following is a list of dependency types and a description of their behaviors:
+//
+// - Explicit required dependencies
+//   - DEPRECATED in documentation and rarely used
+//   - Specified with `depends_on` in resources' JSON configs
+//   - Can be used with both modular and non-modular resources
+//   - Impact build order (an explicit required dependency on a resource ensures that the
+//     dependency will be constructed before the resource)
+//   - Allow access to a `resource.Resource` or gRPC client referencing the dependency in
+//     the resource's constructor and reconfigure methods
+//   - Cause a reconfigure of the resource if the dependency fails to reconfigure (no
+//     longer allowing access to that dependency in the passed-in dependencies)
+//
+// - Implicit required dependencies
+//   - Specified with the first return value from config validation
+//   - Can be used with both modular and non-modular resources
+//   - Impact build order (an implicit required dependency on a resource ensures that the
+//     dependency will be constructed before the resource)
+//   - Allow access to a `resource.Resource` or gRPC client referencing the dependency in
+//     the resource's constructor and reconfigure methods
+//   - Cause a reconfigure of the resource if the dependency fails to reconfigure (no
+//     longer allowing access to that dependency in the passed-in dependencies)
+//
+// - Implicit optional dependencies
+//   - Specified with the second return value from config validation
+//   - Can be used with both modular and non-modular resources
+//   - Allow access to a `resource.Resource` or gRPC client referencing the dependency in
+//     the resource's constructor and reconfigure methods IFF that dependency exists and
+//     has been successfully constructed
+//   - Cause a reconfigure of the resource if the dependency successfully constructs or
+//     fails to reconfigure (no longer allowing access to that dependency in the passed-in
+//     dependencies)
+//
+// - Weak dependencies
+//   - Specified at the time of resource registration by a set of `resource.Matcher`s
+//   - Can only be used with both non-modular resources
+//   - Allow access to a `resource.Resource` or gRPC client referencing the dependency in
+//     the resource's constructor and reconfigure methods IFF that dependency exists and
+//     has been successfully constructed
+//   - Cause a reconfigure of the resource if the dependency successfully constructs or
+//     fails to reconfigure (no longer allowing access to that dependency in the passed-in
+//     dependencies)
 func (r *localRobot) getDependencies(
 	rName resource.Name,
 	gNode *resource.GraphNode,
