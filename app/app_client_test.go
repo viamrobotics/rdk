@@ -1578,7 +1578,7 @@ func TestAppClient(t *testing.T) {
 				Robot: &pbRobot,
 			}, nil
 		}
-		resp, err := client.UpdateRobot(context.Background(), robotID, name, locationID)
+		resp, err := client.UpdateRobot(context.Background(), robotID, &UpdateRobotOptions{Name: &name, Location: &location.ID})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, &robot)
 	})

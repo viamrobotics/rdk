@@ -1345,13 +1345,26 @@ func (c *AppClient) NewRobot(ctx context.Context, name, location string) (string
 	return resp.Id, nil
 }
 
+// UpdateRobotOptions contains optional parameters for UpdateRobot.
+type UpdateRobotOptions struct {
+	Name     *string
+	Location *string
+}
+
 // UpdateRobot updates a robot.
-func (c *AppClient) UpdateRobot(ctx context.Context, id, name, location string) (*Robot, error) {
-	resp, err := c.client.UpdateRobot(ctx, &pb.UpdateRobotRequest{
-		Id:       id,
-		Name:     name,
-		Location: location,
-	})
+func (c *AppClient) UpdateRobot(ctx context.Context, id string, opts *UpdateRobotOptions) (*Robot, error) {
+	req := &pb.UpdateRobotRequest{
+		Id: id,
+	}
+	if opts != nil {
+		if opts.Name != nil {
+			req.Name = *opts.Name
+		}
+		if opts.Location != nil {
+			req.Location = *opts.Location
+		}
+	}
+	resp, err := c.client.UpdateRobot(ctx, req)
 	if err != nil {
 		return nil, err
 	}
