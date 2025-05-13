@@ -315,12 +315,13 @@ func TestMoveCallInputs(t *testing.T) {
 					Destination:   goalPose,
 					SlamName:      slam.Named("test_slam"),
 					MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: 10},
-					Extra:         map[string]interface{}{"collision_buffer_mm": 200.},
+					Extra:         map[string]interface{}{"collision_buffer_mm": 2000.},
 				}
 
 				timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
 				defer timeoutFn()
 				executionID, err := ms.(*builtIn).MoveOnMap(timeoutCtx, req)
+				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, strings.Contains(err.Error(), "starting collision between SLAM map and "), test.ShouldBeTrue)
 				test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 			})
