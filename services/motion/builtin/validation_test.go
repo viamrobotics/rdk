@@ -690,7 +690,7 @@ func TestMoveCallInputs(t *testing.T) {
 			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 		})
 
-		t.Run("collision_buffer_mm validtations", func(t *testing.T) {
+		t.Run("collision_buffer_mm validations", func(t *testing.T) {
 			t.Run("fail when collision_buffer_mm is not a float", func(t *testing.T) {
 				_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
 				defer closeFunc(ctx)
