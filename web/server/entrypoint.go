@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -114,14 +115,6 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		return err
 	}
 
-	// Run network checks synchronously and immediately exit if `--network-check` flag was
-	// used. Otherwise run network checks asynchronously.
-	if argsParsed.NetworkCheckOnly {
-		runNetworkChecks(ctx)
-		return nil
-	}
-	go runNetworkChecks(ctx)
-
 	ctx, err = rutils.WithTrustedEnvironment(ctx, !argsParsed.UntrustedEnv)
 	if err != nil {
 		return err
@@ -154,6 +147,11 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	if argsParsed.Version {
 		// log startup info here and return if version flag.
 		logStartupInfo(logger)
+		return
+	} else if argsParsed.NetworkCheckOnly {
+		// Run network checks synchronously and immediately exit if `--network-check` flag was
+		// used. Otherwise run network checks asynchronously.
+		runNetworkChecks(ctx, logger)
 		return
 	}
 
@@ -232,9 +230,14 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 
 		registry.AddAppenderToAll(netAppender)
 	}
-	// log startup info after netlogger is initialized so it's captured in cloud machine logs.
+	// log startup info and run network checks after netlogger is initialized so it's captured in cloud machine logs.
 	logStartupInfo(logger)
 	startupInfoLogged = true
+
+	// Have goutils use the logger we've just configured.
+	golog.ReplaceGloabl(logger.AsZap())
+
+	go runNetworkChecks(ctx, logger)
 
 	server := robotServer{
 		logger:   logger,

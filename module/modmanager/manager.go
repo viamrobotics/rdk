@@ -5,12 +5,12 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"net"
 	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"slices"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -43,9 +43,6 @@ import (
 	"go.viam.com/rdk/robot/packages"
 	rutils "go.viam.com/rdk/utils"
 )
-
-// tcpPortRange is the beginning of the port range. Only used when ViamTCPSockets() = true.
-const tcpPortRange = 13500
 
 var (
 	validateConfigTimeout       = 5 * time.Second
@@ -82,7 +79,6 @@ func NewManager(
 		ftdc:                    options.FTDC,
 		modPeerConnTracker:      options.ModPeerConnTracker,
 	}
-	ret.nextPort.Store(tcpPortRange)
 	return ret, nil
 }
 
@@ -115,8 +111,6 @@ type module struct {
 	inRecoveryLock sync.Mutex
 	logger         logging.Logger
 	ftdc           *ftdc.FTDC
-	// port stores the listen port of this module when ViamTCPSockets() = true.
-	port int
 }
 
 type addedResource struct {
@@ -197,8 +191,6 @@ type Manager struct {
 	restartCtx              context.Context
 	restartCtxCancel        context.CancelFunc
 	ftdc                    *ftdc.FTDC
-	// nextPort manages ports when ViamTCPSockets() = true.
-	nextPort atomic.Int32
 
 	// modPeerConnTracker must be updated as modules create/destroy any underlying WebRTC
 	// PeerConnections.
@@ -365,7 +357,6 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, moduleLogger lo
 		resources: map[resource.Name]*addedResource{},
 		logger:    moduleLogger,
 		ftdc:      mgr.ftdc,
-		port:      int(mgr.nextPort.Add(1)),
 	}
 
 	if err := mgr.startModule(ctx, mod); err != nil {
@@ -703,18 +694,18 @@ func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) erro
 }
 
 // ValidateConfig determines whether the given config is valid and returns its implicit
-// dependencies.
-func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([]string, error) {
+// required and optional dependencies.
+func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([]string, []string, error) {
 	mod, ok := mgr.getModule(conf)
 	if !ok {
-		return nil,
+		return nil, nil,
 			errors.Errorf("no module registered to serve resource api %s and model %s",
 				conf.API, conf.Model)
 	}
 
 	confProto, err := config.ComponentConfigToProto(&conf)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Override context with new timeout.
@@ -726,12 +717,12 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 	// Swallow "Unimplemented" gRPC errors from modules that lack ValidateConfig
 	// receiving logic.
 	if err != nil && status.Code(err) == codes.Unimplemented {
-		return nil, nil
+		return nil, nil, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return resp.Dependencies, nil
+	return resp.Dependencies, resp.OptionalDependencies, nil
 }
 
 // ResolveImplicitDependenciesInConfig mutates the passed in diff to add modular implicit dependencies to added
@@ -813,14 +804,15 @@ func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, con
 	validateModularResources := func(confs []resource.Config) {
 		for i, c := range confs {
 			if mgr.Provides(c) {
-				implicitDeps, err := mgr.ValidateConfig(ctx, c)
+				implicitRequiredDeps, implicitOptionalDeps, err := mgr.ValidateConfig(ctx, c)
 				if err != nil {
 					mgr.logger.CErrorw(ctx, "Modular config validation error found in resource: "+c.Name, "error", err)
 					continue
 				}
 
-				// Modify resource config to add its implicit dependencies.
-				confs[i].ImplicitDependsOn = implicitDeps
+				// Modify resource config to add its implicit required and optional dependencies.
+				confs[i].ImplicitDependsOn = implicitRequiredDeps
+				confs[i].ImplicitOptionalDependsOn = implicitOptionalDeps
 			}
 		}
 	}
@@ -1219,6 +1211,20 @@ func cleanWindowsSocketPath(goos, orig string) (string, error) {
 	return orig, nil
 }
 
+// Return an address string with an auto-assigned port.
+// This gets closed and then passed down to the module child process.
+func getAutomaticPort() (string, error) {
+	listener, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		return "", err
+	}
+	addr := listener.Addr().String()
+	if err := listener.Close(); err != nil {
+		return "", err
+	}
+	return addr, nil
+}
+
 func (m *module) startProcess(
 	ctx context.Context,
 	parentAddr string,
@@ -1229,7 +1235,11 @@ func (m *module) startProcess(
 	var err error
 
 	if rutils.ViamTCPSockets() {
-		m.addr = "127.0.0.1:" + strconv.Itoa(m.port)
+		if addr, err := getAutomaticPort(); err != nil {
+			return err
+		} else { //nolint:revive
+			m.addr = addr
+		}
 	} else {
 		// append a random alpha string to the module name while creating a socket address to avoid conflicts
 		// with old versions of the module.

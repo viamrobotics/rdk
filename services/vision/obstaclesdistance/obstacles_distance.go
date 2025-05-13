@@ -53,15 +53,15 @@ func init() {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *DistanceDetectorConfig) Validate(path string) ([]string, error) {
+func (config *DistanceDetectorConfig) Validate(path string) ([]string, []string, error) {
 	deps := []string{}
 	if config.NumQueries == 0 {
 		config.NumQueries = DefaultNumQueries
 	}
 	if config.NumQueries < 1 || config.NumQueries > 20 {
-		return nil, errors.New("invalid number of queries, pick a number between 1 and 20")
+		return nil, nil, errors.New("invalid number of queries, pick a number between 1 and 20")
 	}
-	return deps, nil
+	return deps, nil, nil
 }
 
 func registerObstacleDistanceDetector(

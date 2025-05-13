@@ -55,7 +55,7 @@ func newNextPointCloudCollector(resource interface{}, params data.CollectorParam
 			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return res, err
 			}
-			return res, data.FailedToReadErr(params.ComponentName, nextPointCloud.String(), err)
+			return res, data.NewFailedToReadError(params.ComponentName, nextPointCloud.String(), err)
 		}
 		bytes, err := pointcloud.ToBytes(pc)
 		if err != nil {
@@ -108,7 +108,7 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 				return res, err
 			}
 
-			return res, data.FailedToReadErr(params.ComponentName, readImage.String(), err)
+			return res, data.NewFailedToReadError(params.ComponentName, readImage.String(), err)
 		}
 
 		mimeType := data.CameraFormatToMimeType(utils.MimeTypeToFormat[metadata.MimeType])
@@ -140,7 +140,7 @@ func newGetImagesCollector(resource interface{}, params data.CollectorParams) (d
 			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return res, err
 			}
-			return res, data.FailedToReadErr(params.ComponentName, getImages.String(), err)
+			return res, data.NewFailedToReadError(params.ComponentName, getImages.String(), err)
 		}
 
 		var binaries []data.Binary
