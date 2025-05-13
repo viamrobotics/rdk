@@ -119,7 +119,7 @@ func createAllCollisionConstraints(
 		for _, geom := range worldGeometries {
 			if octree, ok := geom.(*pointcloud.BasicOctree); ok {
 				if zeroCG == nil {
-					zeroCG, err = setupZeroCG(movingRobotGeometries, worldGeometries, allowedCollisions, collisionBufferMM)
+					zeroCG, err = setupZeroCG(movingRobotGeometries, worldGeometries, allowedCollisions, false, collisionBufferMM)
 					if err != nil {
 						return nil, nil, err
 					}
@@ -195,12 +195,14 @@ func createAllCollisionConstraints(
 	return constraintFSMap, constraintMap, nil
 }
 
-func setupZeroCG(moving, static []spatial.Geometry,
+func setupZeroCG(
+	moving, static []spatial.Geometry,
 	collisionSpecifications []*Collision,
+	reportDistances bool,
 	collisionBufferMM float64,
 ) (*collisionGraph, error) {
 	// create the reference collisionGraph
-	zeroCG, err := newCollisionGraph(moving, static, nil, true, collisionBufferMM)
+	zeroCG, err := newCollisionGraph(moving, static, nil, reportDistances, collisionBufferMM)
 	if err != nil {
 		return nil, err
 	}
@@ -220,7 +222,7 @@ func NewCollisionConstraint(
 	reportDistances bool,
 	collisionBufferMM float64,
 ) (StateConstraint, error) {
-	zeroCG, err := setupZeroCG(moving, static, collisionSpecifications, collisionBufferMM)
+	zeroCG, err := setupZeroCG(moving, static, collisionSpecifications, true, collisionBufferMM)
 	if err != nil {
 		return nil, err
 	}
@@ -275,7 +277,7 @@ func NewCollisionConstraintFS(
 	reportDistances bool,
 	collisionBufferMM float64,
 ) (StateFSConstraint, error) {
-	zeroCG, err := setupZeroCG(moving, static, collisionSpecifications, collisionBufferMM)
+	zeroCG, err := setupZeroCG(moving, static, collisionSpecifications, true, collisionBufferMM)
 	if err != nil {
 		return nil, err
 	}
