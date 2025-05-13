@@ -37,7 +37,7 @@ class {{ .ModelPascal  }}({{ .ResourceSubtypePascal }}, EasyResource):
                 first element is a list of required dependencies and the
                 second element is a list of optional dependencies
         """
-        return ([], [])
+        return [], []
 
     def reconfigure(self, config: ComponentConfig, dependencies: Mapping[ResourceName, ResourceBase]):
         """This method allows you to dynamically update your service when it receives a new `config` object.
