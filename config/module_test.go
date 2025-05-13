@@ -42,6 +42,31 @@ func TestInternalMeta(t *testing.T) {
 		test.That(t, exePath, test.ShouldEqual, filepath.Join(exeDir, "entry"))
 	})
 
+	t.Run("registry", func(t *testing.T) {
+		pkg := PackageConfig{
+			Package: "viam:whatever",
+			Type:    PackageTypeModule,
+			Version: "0.0.1",
+		}
+		packageDir := pkg.LocalDataDirectory(packagesDir)
+		test.That(t, os.MkdirAll(packageDir, 0o777), test.ShouldBeNil)
+		testWriteJSON(t, filepath.Join(packageDir, "meta.json"), JSONManifest{Entrypoint: "entry"})
+		for _, conf := range []struct{ name, path string }{{"root", "whatever"}, {"nested", "bin/whatever"}} {
+			t.Run(conf.name, func(t *testing.T) {
+				mod := Module{
+					Type:    ModuleTypeRegistry,
+					ExePath: filepath.Join(packageDir, conf.path),
+				}
+				exePath, err := mod.EvaluateExePath(packagesDir)
+				test.That(t, err, test.ShouldBeNil)
+				exeDir, err := mod.exeDir(packagesDir)
+				test.That(t, err, test.ShouldBeNil)
+				// "entry" is from meta.json.
+				test.That(t, exePath, test.ShouldEqual, filepath.Join(exeDir, "entry"))
+			})
+		}
+	})
+
 	t.Run("non-tarball", func(t *testing.T) {
 		mod := Module{
 			Type:    ModuleTypeLocal,

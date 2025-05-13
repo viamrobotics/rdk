@@ -216,9 +216,25 @@ func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 	localNonTarball := m.Type == ModuleTypeLocal && !m.NeedsSyntheticPackage()
 	if !localNonTarball {
 		// this is case 1, meta.json in exe folder.
-		metaPath, err := utils.SafeJoinDir(exeDir, "meta.json")
-		if err != nil {
-			return "", err
+		var metaPath string
+		if m.Type == ModuleTypeRegistry {
+			pkg := PackageConfig{Type: PackageTypeModule}
+			parentDir := pkg.LocalDataParentDirectory(packagesDir) + string(filepath.Separator)
+			if !strings.HasPrefix(m.ExePath, parentDir) {
+				return "", errors.New("exepath for registry module is not under data parent dir")
+			}
+			trimmed := strings.TrimPrefix(m.ExePath, parentDir)
+			moduleDir := strings.Split(trimmed, string(filepath.Separator))[0]
+			fullModuleDir := filepath.Join(parentDir, moduleDir)
+			metaPath, err = utils.SafeJoinDir(fullModuleDir, "meta.json")
+			if err != nil {
+				return "", err
+			}
+		} else {
+			metaPath, err = utils.SafeJoinDir(exeDir, "meta.json")
+			if err != nil {
+				return "", err
+			}
 		}
 		_, err = os.Stat(metaPath)
 		if err == nil {
