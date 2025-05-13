@@ -160,6 +160,7 @@ require (
 	github.com/bufbuild/protoyaml-go v0.1.8 // indirect
 	github.com/butuzov/ireturn v0.3.0 // indirect
 	github.com/butuzov/mirror v1.2.0 // indirect
+	github.com/bytedance/sonic v1.13.1 // indirect
 	github.com/campoy/embedmd v1.0.0 // indirect
 	github.com/catenacyber/perfsprint v0.7.1 // indirect
 	github.com/catppuccin/go v0.2.0 // indirect
@@ -383,7 +384,6 @@ require (
 	github.com/ultraware/whitespace v0.1.1 // indirect
 	github.com/uudashr/gocognit v1.1.3 // indirect
 	github.com/vbatts/tar-split v0.11.5 // indirect
-	github.com/viam-labs/motion-tools v0.0.0-20250430155708-69138788d4ca // indirect
 	github.com/viamrobotics/zeroconf v1.0.12 // indirect
 	github.com/wlynxg/anet v0.0.3 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
