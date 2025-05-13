@@ -377,6 +377,13 @@ func fromReader(
 
 	if conn != nil && cfgFromDisk.Cloud != nil {
 		cfg, err := readFromCloud(ctx, cfgFromDisk, nil, true, true, logger, conn)
+
+		// Special case: DefaultBindAddress is set from Cloud, but user has specified a non-default BindAddress in local config.
+		// Keep the BindAddress from local config, and use Cloud options for everything else.
+		if err == nil && cfg.Network.BindAddressDefaultSet && !cfgFromDisk.Network.BindAddressDefaultSet {
+			cfg.Network.BindAddress = cfgFromDisk.Network.BindAddress
+			cfg.Network.BindAddressDefaultSet = false
+		}
 		return cfg, err
 	}
 

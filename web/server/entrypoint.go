@@ -351,6 +351,14 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 				continue
 			}
 
+			// Special case: the incoming config specifies the default BindAddress, but the current one in use is non-default.
+			// Don't override the non-default BindAddress with the default one.
+			// If this is the only difference, the next step, diff.NetworkEqual will be true.
+			if processedConfig.Network.BindAddressDefaultSet && !currCfg.Network.BindAddressDefaultSet {
+				processedConfig.Network.BindAddress = currCfg.Network.BindAddress
+				processedConfig.Network.BindAddressDefaultSet = false
+			}
+
 			// flag to restart web service if necessary
 			diff, err := config.DiffConfigs(*currCfg, *processedConfig, s.args.RevealSensitiveConfigDiffs)
 			if err != nil {
