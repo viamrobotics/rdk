@@ -2,28 +2,16 @@ package pointcloud
 
 import (
 	"math"
-	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/spatialmath"
 )
-
-// Helper function for generating a new empty octree.
-func createNewOctree(center r3.Vector, side float64) (*BasicOctree, error) {
-	basicOct, err := NewBasicOctree(center, side)
-	if err != nil {
-		return nil, err
-	}
-
-	return basicOct, err
-}
 
 // Helper function that adds a list of points to a given basic octree.
 func addPoints(basicOct *BasicOctree, pointsAndData []PointAndData) error {
@@ -47,41 +35,18 @@ func checkPoints(t *testing.T, basicOct *BasicOctree, pointsAndData []PointAndDa
 }
 
 // Helper function that makes and returns a PointCloud of a given type from an artifact path.
-func makeFullPointCloudFromArtifact(t *testing.T, artifactPath string, pcType PCType) (PointCloud, error) {
+func makeFullPointCloudFromArtifact(t *testing.T, artifactPath, pcType string) (PointCloud, error) {
 	t.Helper()
 
 	path := filepath.Clean(artifact.MustPath(artifactPath))
-	pcdFile, err := os.Open(path)
-	defer utils.UncheckedErrorFunc(pcdFile.Close)
-	if err != nil {
-		return nil, err
-	}
-
-	var PC PointCloud
-	switch pcType {
-	case BasicType:
-		PC, err = ReadPCD(pcdFile)
-	case BasicOctreeType:
-		PC, err = ReadPCDToBasicOctree(pcdFile)
-	}
-
-	return PC, err
+	return NewFromFile(path, pcType)
 }
 
 // Test the creation of new basic octrees.
 func TestBasicOctreeNew(t *testing.T) {
 	center := r3.Vector{X: 0, Y: 0, Z: 0}
-	sideInvalid := 0.0
-	_, err := createNewOctree(center, sideInvalid)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("invalid side length (%.2f) for octree", sideInvalid))
-
-	sideInvalid = -2.0
-	_, err = createNewOctree(center, sideInvalid)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("invalid side length (%.2f) for octree", sideInvalid))
-
 	sideValid := 1.0
-	basicOct, err := createNewOctree(center, sideValid)
-	test.That(t, err, test.ShouldBeNil)
+	basicOct := newBasicOctree(center, sideValid)
 
 	t.Run("New Octree as basic octree", func(t *testing.T) {
 		test.That(t, basicOct.node, test.ShouldResemble, newLeafNodeEmpty())
@@ -100,13 +65,12 @@ func TestBasicOctreeSet(t *testing.T) {
 	side := 2.0
 
 	t.Run("Set point into empty leaf node into basic octree", func(t *testing.T) {
-		basicOct, err := createNewOctree(center, side)
-		test.That(t, err, test.ShouldBeNil)
+		basicOct := newBasicOctree(center, side)
 		test.That(t, basicOct.Size(), test.ShouldEqual, 0)
 
 		point1 := r3.Vector{X: 0.1, Y: 0, Z: 0}
 		data1 := NewValueData(1)
-		err = basicOct.Set(point1, data1)
+		err := basicOct.Set(point1, data1)
 		test.That(t, err, test.ShouldBeNil)
 		node := newLeafNodeFilled(point1, data1)
 		test.That(t, basicOct.node, test.ShouldResemble, node)
@@ -116,11 +80,10 @@ func TestBasicOctreeSet(t *testing.T) {
 	})
 
 	t.Run("Set point into filled leaf node into basic octree", func(t *testing.T) {
-		basicOct, err := createNewOctree(center, side)
-		test.That(t, err, test.ShouldBeNil)
+		basicOct := newBasicOctree(center, side)
 
 		d1 := 1
-		err = basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(d1))
+		err := basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(d1))
 		test.That(t, err, test.ShouldBeNil)
 		mp := basicOct.MaxVal()
 		test.That(t, mp, test.ShouldEqual, d1)
@@ -139,11 +102,10 @@ func TestBasicOctreeSet(t *testing.T) {
 	})
 
 	t.Run("Set point into internal node node into basic octree", func(t *testing.T) {
-		basicOct, err := createNewOctree(center, side)
-		test.That(t, err, test.ShouldBeNil)
+		basicOct := newBasicOctree(center, side)
 
 		d3 := 3
-		err = basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(d3))
+		err := basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(d3))
 		test.That(t, err, test.ShouldBeNil)
 		mp := basicOct.MaxVal()
 		test.That(t, mp, test.ShouldEqual, d3)
@@ -167,21 +129,19 @@ func TestBasicOctreeSet(t *testing.T) {
 	})
 
 	t.Run("Set point that lies outside the basic octree", func(t *testing.T) {
-		basicOct, err := createNewOctree(center, side)
-		test.That(t, err, test.ShouldBeNil)
+		basicOct := newBasicOctree(center, side)
 
-		err = basicOct.Set(r3.Vector{X: 2, Y: 0, Z: 0}, NewValueData(1))
+		err := basicOct.Set(r3.Vector{X: 2, Y: 0, Z: 0}, NewValueData(1))
 		test.That(t, err, test.ShouldBeError, errors.New("error point is outside the bounds of this octree"))
 
 		validateBasicOctree(t, basicOct, center, side)
 	})
 
 	t.Run("Set point at intersection of multiple basic octree nodes", func(t *testing.T) {
-		basicOct, err := createNewOctree(center, side)
-		test.That(t, err, test.ShouldBeNil)
+		basicOct := newBasicOctree(center, side)
 
 		d1 := 1
-		err = basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(d1))
+		err := basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(d1))
 		test.That(t, err, test.ShouldBeNil)
 		mp := basicOct.MaxVal()
 		test.That(t, mp, test.ShouldEqual, d1)
@@ -197,11 +157,10 @@ func TestBasicOctreeSet(t *testing.T) {
 	})
 
 	t.Run("Set same point with new data in basic octree", func(t *testing.T) {
-		basicOct, err := createNewOctree(center, side)
-		test.That(t, err, test.ShouldBeNil)
+		basicOct := newBasicOctree(center, side)
 
 		d1 := 1
-		err = basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(d1))
+		err := basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(d1))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, basicOct.node.point.D.Value(), test.ShouldEqual, d1)
 		mp := basicOct.MaxVal()
@@ -219,32 +178,29 @@ func TestBasicOctreeSet(t *testing.T) {
 	})
 
 	t.Run("Set point into invalid internal node", func(t *testing.T) {
-		basicOct, err := createNewOctree(center, side)
-		test.That(t, err, test.ShouldBeNil)
+		basicOct := newBasicOctree(center, side)
 
 		basicOct.node = newInternalNode([]*BasicOctree{})
-		err = basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(1))
+		err := basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(1))
 		test.That(t, err, test.ShouldBeError, errors.New("error invalid internal node detected, please check your tree"))
 	})
 
 	t.Run("Set point into invalid internal node", func(t *testing.T) {
-		basicOct, err := createNewOctree(center, side)
-		test.That(t, err, test.ShouldBeNil)
+		basicOct := newBasicOctree(center, side)
 
 		basicOct.node = newInternalNode([]*BasicOctree{})
-		err = basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(1))
+		err := basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(1))
 		test.That(t, err, test.ShouldBeError, errors.New("error invalid internal node detected, please check your tree"))
 	})
 
 	t.Run("Set point, hit max recursion depth", func(t *testing.T) {
-		side = 2.
-		basicOct, err := createNewOctree(center, side)
-		test.That(t, err, test.ShouldBeNil)
+		side = 2.0
+		basicOct := newBasicOctree(center, side)
 
 		basicOct = createLopsidedOctree(basicOct, 0, maxRecursionDepth-1)
 
 		d1 := 1
-		err = basicOct.Set(r3.Vector{X: -1, Y: -1, Z: -1}, NewValueData(d1))
+		err := basicOct.Set(r3.Vector{X: -1, Y: -1, Z: -1}, NewValueData(d1))
 		test.That(t, err, test.ShouldBeNil)
 		mp := basicOct.MaxVal()
 		test.That(t, mp, test.ShouldEqual, d1)
@@ -256,12 +212,11 @@ func TestBasicOctreeSet(t *testing.T) {
 
 	t.Run("Set empty data point", func(t *testing.T) {
 		side = 1.
-		basicOct, err := createNewOctree(center, side)
-		test.That(t, err, test.ShouldBeNil)
+		basicOct := newBasicOctree(center, side)
 
 		pointAndData := PointAndData{}
 
-		err = basicOct.Set(pointAndData.P, pointAndData.D)
+		err := basicOct.Set(pointAndData.P, pointAndData.D)
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
@@ -272,14 +227,13 @@ func TestBasicOctreeAt(t *testing.T) {
 	side := 2.0
 
 	t.Run("At check of single node basic octree", func(t *testing.T) {
-		basicOct, err := createNewOctree(center, side)
-		test.That(t, err, test.ShouldBeNil)
+		basicOct := newBasicOctree(center, side)
 
 		pointsAndData := []PointAndData{
 			{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: NewValueData(1)},
 		}
 
-		err = addPoints(basicOct, pointsAndData)
+		err := addPoints(basicOct, pointsAndData)
 		test.That(t, err, test.ShouldBeNil)
 
 		checkPoints(t, basicOct, pointsAndData)
@@ -292,8 +246,7 @@ func TestBasicOctreeAt(t *testing.T) {
 	})
 
 	t.Run("At check of multi level basic octree", func(t *testing.T) {
-		basicOct, err := createNewOctree(center, side)
-		test.That(t, err, test.ShouldBeNil)
+		basicOct := newBasicOctree(center, side)
 
 		pointsAndData := []PointAndData{
 			{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: NewValueData(1)},
@@ -301,7 +254,7 @@ func TestBasicOctreeAt(t *testing.T) {
 			{P: r3.Vector{X: -0.4, Y: 0, Z: 0}, D: NewValueData(3)},
 		}
 
-		err = addPoints(basicOct, pointsAndData)
+		err := addPoints(basicOct, pointsAndData)
 		test.That(t, err, test.ShouldBeNil)
 
 		checkPoints(t, basicOct, pointsAndData)
@@ -314,8 +267,7 @@ func TestBasicOctreeAt(t *testing.T) {
 	})
 
 	t.Run("At check of empty basic octree", func(t *testing.T) {
-		basicOct, err := createNewOctree(center, side)
-		test.That(t, err, test.ShouldBeNil)
+		basicOct := newBasicOctree(center, side)
 
 		d, ok := basicOct.At(0, 0, 0)
 		test.That(t, ok, test.ShouldBeFalse)
@@ -325,8 +277,7 @@ func TestBasicOctreeAt(t *testing.T) {
 	})
 
 	t.Run("At check of point outside octree bounds", func(t *testing.T) {
-		basicOct, err := createNewOctree(center, side)
-		test.That(t, err, test.ShouldBeNil)
+		basicOct := newBasicOctree(center, side)
 
 		d, ok := basicOct.At(3, 0, 0)
 		test.That(t, ok, test.ShouldBeFalse)
@@ -343,8 +294,7 @@ func TestBasicOctreeIterate(t *testing.T) {
 	side := 2.0
 
 	t.Run("Iterate zero batch check of an empty basic octree", func(t *testing.T) {
-		basicOct, err := createNewOctree(center, side)
-		test.That(t, err, test.ShouldBeNil)
+		basicOct := newBasicOctree(center, side)
 
 		total := 0
 		basicOct.Iterate(0, 0, func(p r3.Vector, d Data) bool {
@@ -357,14 +307,13 @@ func TestBasicOctreeIterate(t *testing.T) {
 	})
 
 	t.Run("Iterate zero batch check of a filled basic octree", func(t *testing.T) {
-		basicOct, err := createNewOctree(center, side)
-		test.That(t, err, test.ShouldBeNil)
+		basicOct := newBasicOctree(center, side)
 
 		pointsAndData := []PointAndData{
 			{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: NewValueData(2)},
 		}
 
-		err = addPoints(basicOct, pointsAndData)
+		err := addPoints(basicOct, pointsAndData)
 		test.That(t, err, test.ShouldBeNil)
 
 		// Full iteration - applies function to all points
@@ -389,8 +338,7 @@ func TestBasicOctreeIterate(t *testing.T) {
 	})
 
 	t.Run("Iterate zero batch check of an multi-level basic octree", func(t *testing.T) {
-		basicOct, err := createNewOctree(center, side)
-		test.That(t, err, test.ShouldBeNil)
+		basicOct := newBasicOctree(center, side)
 
 		pointsAndData := []PointAndData{
 			{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: NewValueData(1)},
@@ -398,7 +346,7 @@ func TestBasicOctreeIterate(t *testing.T) {
 			{P: r3.Vector{X: .6, Y: 0, Z: 0}, D: NewValueData(1)},
 		}
 
-		err = addPoints(basicOct, pointsAndData)
+		err := addPoints(basicOct, pointsAndData)
 		test.That(t, err, test.ShouldBeNil)
 
 		// Full iteration - applies function to all points
@@ -426,14 +374,13 @@ func TestBasicOctreeIterate(t *testing.T) {
 	})
 
 	t.Run("Iterate non-zero batch check of an filled basic octree", func(t *testing.T) {
-		basicOct, err := createNewOctree(center, side)
-		test.That(t, err, test.ShouldBeNil)
+		basicOct := newBasicOctree(center, side)
 
 		pointsAndData := []PointAndData{
 			{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: NewValueData(2)},
 		}
 
-		err = addPoints(basicOct, pointsAndData)
+		err := addPoints(basicOct, pointsAndData)
 		test.That(t, err, test.ShouldBeNil)
 
 		total := 0
@@ -455,8 +402,7 @@ func TestBasicOctreeIterate(t *testing.T) {
 	})
 
 	t.Run("Iterate non-zero batch check of an multi-level basic octree", func(t *testing.T) {
-		basicOct, err := createNewOctree(center, side)
-		test.That(t, err, test.ShouldBeNil)
+		basicOct := newBasicOctree(center, side)
 
 		pointsAndData := []PointAndData{
 			{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: NewValueData(1)},
@@ -464,7 +410,7 @@ func TestBasicOctreeIterate(t *testing.T) {
 			{P: r3.Vector{X: .6, Y: 0, Z: 0}, D: NewValueData(3)},
 		}
 
-		err = addPoints(basicOct, pointsAndData)
+		err := addPoints(basicOct, pointsAndData)
 		test.That(t, err, test.ShouldBeNil)
 
 		// Batched process (numBatches = octree size, currentBatch = 0)
@@ -567,11 +513,11 @@ func TestBasicOctreePointcloudIngestion(t *testing.T) {
 	startPC, err := makeFullPointCloudFromArtifact(t, "pointcloud/test_short.pcd", BasicType)
 	test.That(t, err, test.ShouldBeNil)
 
-	center := getCenterFromPcMetaData(startPC.MetaData())
-	maxSideLength := getMaxSideLengthFromPcMetaData(startPC.MetaData())
+	meta := startPC.MetaData()
+	center := meta.Center()
+	maxSideLength := meta.MaxSideLength()
 
-	basicOct, err := NewBasicOctree(center, maxSideLength)
-	test.That(t, err, test.ShouldBeNil)
+	basicOct := newBasicOctree(center, maxSideLength)
 
 	startPC.Iterate(0, 0, func(p r3.Vector, d Data) bool {
 		if err = basicOct.Set(p, d); err != nil {
@@ -636,10 +582,8 @@ func testPCDToBasicOctree(t *testing.T, artifactPath string) {
 func createPopulatedOctree(sign int) (*BasicOctree, error) {
 	center := r3.Vector{X: 0, Y: 0, Z: 0}
 	side := 2.0
-	octree, err := createNewOctree(center, side)
-	if err != nil {
-		return nil, err
-	}
+	octree := newBasicOctree(center, side)
+
 	pointsAndData := []PointAndData{
 		{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: NewValueData(2 * sign)},
 		{P: r3.Vector{X: .5, Y: 0, Z: 0}, D: NewValueData(3 * sign)},
@@ -650,7 +594,7 @@ func createPopulatedOctree(sign int) (*BasicOctree, error) {
 		{P: r3.Vector{X: .755, Y: .755, Z: 0}, D: NewValueData(6 * sign)},
 	}
 
-	err = addPoints(octree, pointsAndData)
+	err := addPoints(octree, pointsAndData)
 	if err != nil {
 		return nil, err
 	}
@@ -702,14 +646,13 @@ func TestBasicOctreeGeometryFunctions(t *testing.T) {
 	center := r3.Vector{X: 0, Y: 0, Z: 0}
 	side := 2.0
 
-	octree, err := createNewOctree(center, side)
-	test.That(t, err, test.ShouldBeNil)
+	octree := newBasicOctree(center, side)
 	pointsAndData := []PointAndData{
 		{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: NewValueData(2)},
 		{P: r3.Vector{X: 1, Y: 0, Z: 0}, D: NewValueData(3)},
 		{P: r3.Vector{X: 1, Y: 1, Z: 1}, D: NewValueData(5)},
 	}
-	err = addPoints(octree, pointsAndData)
+	err := addPoints(octree, pointsAndData)
 	test.That(t, err, test.ShouldBeNil)
 
 	checkExpectedPoints := func(geom spatialmath.Geometry, pts []PointAndData) {
@@ -730,9 +673,8 @@ func TestBasicOctreeGeometryFunctions(t *testing.T) {
 			test.That(t, anyEqual, test.ShouldBeTrue)
 		}
 
-		dupOctree, err := createNewOctree(pts[0].P, side)
-		test.That(t, err, test.ShouldBeNil)
-		err = addPoints(dupOctree, pts)
+		dupOctree := newBasicOctree(pts[0].P, side)
+		err := addPoints(dupOctree, pts)
 		test.That(t, err, test.ShouldBeNil)
 		equal := dupOctree.AlmostEqual(geom)
 		test.That(t, equal, test.ShouldBeTrue)
@@ -803,14 +745,13 @@ func TestBasicOctreeAlmostEqual(t *testing.T) {
 	center := r3.Vector{X: 0, Y: 0, Z: 0}
 	side := 2.0
 
-	octree, err := createNewOctree(center, side)
-	test.That(t, err, test.ShouldBeNil)
+	octree := newBasicOctree(center, side)
 	pointsAndData := []PointAndData{
 		{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: NewValueData(2)},
 		{P: r3.Vector{X: 1, Y: 0, Z: 0}, D: NewValueData(3)},
 		{P: r3.Vector{X: 1, Y: 1, Z: 1}, D: NewValueData(5)},
 	}
-	err = addPoints(octree, pointsAndData)
+	err := addPoints(octree, pointsAndData)
 	test.That(t, err, test.ShouldBeNil)
 
 	equal := octree.AlmostEqual(octree)

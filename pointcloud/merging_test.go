@@ -9,19 +9,18 @@ import (
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/spatialmath"
 )
 
 func makeThreeCloudsWithOffsets(t *testing.T) []CloudAndOffsetFunc {
 	t.Helper()
-	pc1 := NewWithPrealloc(1)
+	pc1 := NewBasicPointCloud(1)
 	err := pc1.Set(NewVector(1, 0, 0), NewColoredData(color.NRGBA{255, 0, 0, 255}))
 	test.That(t, err, test.ShouldBeNil)
-	pc2 := NewWithPrealloc(1)
+	pc2 := NewBasicPointCloud(1)
 	err = pc2.Set(NewVector(0, 1, 0), NewColoredData(color.NRGBA{0, 255, 0, 255}))
 	test.That(t, err, test.ShouldBeNil)
-	pc3 := NewWithPrealloc(1)
+	pc3 := NewBasicPointCloud(1)
 	err = pc3.Set(NewVector(0, 0, 1), NewColoredData(color.NRGBA{0, 0, 255, 255}))
 	test.That(t, err, test.ShouldBeNil)
 	pose1 := spatialmath.NewPoseFromPoint(r3.Vector{100, 0, 0})
@@ -40,10 +39,7 @@ func makeThreeCloudsWithOffsets(t *testing.T) []CloudAndOffsetFunc {
 }
 
 func TestApplyOffset(t *testing.T) {
-	// TODO(RSDK-1200): remove skip when complete
-	t.Skip("remove skip once RSDK-1200 improvement is complete")
-	logger := logging.NewTestLogger(t)
-	pc1 := NewWithPrealloc(3)
+	pc1 := NewBasicPointCloud(3)
 	err := pc1.Set(NewVector(1, 0, 0), NewColoredData(color.NRGBA{255, 0, 0, 255}))
 	test.That(t, err, test.ShouldBeNil)
 	err = pc1.Set(NewVector(1, 1, 0), NewColoredData(color.NRGBA{0, 255, 0, 255}))
@@ -52,7 +48,8 @@ func TestApplyOffset(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	// apply a simple translation
 	transPose := spatialmath.NewPoseFromPoint(r3.Vector{0, 99, 0})
-	transPc, err := ApplyOffset(context.Background(), pc1, transPose, logger)
+	transPc := NewBasicPointCloud(0)
+	err = ApplyOffset(context.Background(), pc1, transPose, transPc)
 	test.That(t, err, test.ShouldBeNil)
 	correctCount := 0
 	transPc.Iterate(0, 0, func(p r3.Vector, d Data) bool { // check if all points transformed as expected
@@ -83,7 +80,8 @@ func TestApplyOffset(t *testing.T) {
 	test.That(t, correctCount, test.ShouldEqual, 3)
 	// apply a translation and rotation
 	transrotPose := spatialmath.NewPose(r3.Vector{0, 99, 0}, &spatialmath.R4AA{math.Pi / 2., 0., 0., 1.})
-	transrotPc, err := ApplyOffset(context.Background(), pc1, transrotPose, logger)
+	transrotPc := NewBasicPointCloud(0)
+	err = ApplyOffset(context.Background(), pc1, transrotPose, transrotPc)
 	test.That(t, err, test.ShouldBeNil)
 	correctCount = 0
 	transrotPc.Iterate(0, 0, func(p r3.Vector, d Data) bool { // check if all points transformed as expected
@@ -115,9 +113,6 @@ func TestApplyOffset(t *testing.T) {
 }
 
 func TestMergePoints1(t *testing.T) {
-	// TODO(RSDK-1200): remove skip when complete
-	t.Skip("remove skip once RSDK-1200 improvement is complete")
-	logger := logging.NewTestLogger(t)
 	clouds := makeClouds(t)
 	cloudsWithOffset := make([]CloudAndOffsetFunc, 0, len(clouds))
 	for _, cloud := range clouds {
@@ -127,18 +122,17 @@ func TestMergePoints1(t *testing.T) {
 		}
 		cloudsWithOffset = append(cloudsWithOffset, cloudFunc)
 	}
-	mergedCloud, err := MergePointClouds(context.Background(), cloudsWithOffset, logger)
+	mergedCloud := NewBasicPointCloud(0)
+	err := MergePointClouds(context.Background(), cloudsWithOffset, mergedCloud)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, mergedCloud, test.ShouldNotBeNil)
 	test.That(t, mergedCloud.Size(), test.ShouldEqual, 9)
 }
 
 func TestMergePoints2(t *testing.T) {
-	// TODO(RSDK-1200): remove skip when complete
-	t.Skip("remove skip once RSDK-1200 improvement is complete")
-	logger := logging.NewTestLogger(t)
 	clouds := makeThreeCloudsWithOffsets(t)
-	pc, err := MergePointClouds(context.Background(), clouds, logger)
+	pc := NewBasicPointCloud(0)
+	err := MergePointClouds(context.Background(), clouds, pc)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pc, test.ShouldNotBeNil)
 	test.That(t, pc.Size(), test.ShouldEqual, 3)
@@ -158,7 +152,8 @@ func TestMergePoints2(t *testing.T) {
 
 func TestMergePointsWithColor(t *testing.T) {
 	clouds := makeClouds(t)
-	mergedCloud, err := MergePointCloudsWithColor(clouds)
+	mergedCloud := NewBasicPointCloud(0)
+	err := MergePointCloudsWithColor(clouds, mergedCloud)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, mergedCloud.Size(), test.ShouldResemble, 9)
 

@@ -230,7 +230,7 @@ func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 	if c.cachePointCloud != nil {
 		return c.cachePointCloud, nil
 	}
-	dm := pointcloud.New()
+	dm := pointcloud.NewBasicEmpty()
 	width := float64(c.Width)
 	height := float64(c.Height)
 

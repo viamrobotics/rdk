@@ -50,22 +50,19 @@ func TestSplitIntoOctants(t *testing.T) {
 	side := 1.0
 
 	t.Run("Splitting empty octree node into octants", func(t *testing.T) {
-		basicOct, err := createNewOctree(center, side)
-		test.That(t, err, test.ShouldBeNil)
-
-		err = basicOct.splitIntoOctants()
+		basicOct := newBasicOctree(center, side)
+		err := basicOct.splitIntoOctants()
 		test.That(t, err, test.ShouldBeError, errors.New("error attempted to split empty leaf node"))
 	})
 
 	t.Run("Splitting filled basic octree node into octants", func(t *testing.T) {
-		basicOct, err := createNewOctree(center, side)
-		test.That(t, err, test.ShouldBeNil)
+		basicOct := newBasicOctree(center, side)
 
 		pointsAndData := []PointAndData{
 			{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: NewValueData(1)},
 		}
 
-		err = addPoints(basicOct, pointsAndData)
+		err := addPoints(basicOct, pointsAndData)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = basicOct.splitIntoOctants()
@@ -99,15 +96,14 @@ func TestSplitIntoOctants(t *testing.T) {
 	})
 
 	t.Run("Splitting internal basic octree node with point into octants", func(t *testing.T) {
-		basicOct, err := createNewOctree(center, side)
-		test.That(t, err, test.ShouldBeNil)
+		basicOct := newBasicOctree(center, side)
 
 		pointsAndData := []PointAndData{
 			{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: NewValueData(1)},
 			{P: r3.Vector{X: .5, Y: 0, Z: 0}, D: NewValueData(2)},
 		}
 
-		err = addPoints(basicOct, pointsAndData)
+		err := addPoints(basicOct, pointsAndData)
 		test.That(t, err, test.ShouldBeNil)
 
 		checkPoints(t, basicOct, pointsAndData)
@@ -121,11 +117,9 @@ func TestSplitIntoOctants(t *testing.T) {
 	})
 
 	t.Run("Splitting invalid basic octree node", func(t *testing.T) {
-		basicOct, err := createNewOctree(center, side)
-		test.That(t, err, test.ShouldBeNil)
-
+		basicOct := newBasicOctree(center, side)
 		basicOct.node = newLeafNodeFilled(r3.Vector{X: 0, Y: 0, Z: 10}, NewValueData(1.0))
-		err = basicOct.splitIntoOctants()
+		err := basicOct.splitIntoOctants()
 		test.That(t, err, test.ShouldBeError, errors.New("error point is outside the bounds of this octree"))
 
 		basicOct.node = newLeafNodeFilled(r3.Vector{X: 0, Y: 0, Z: 10}, NewValueData(1.0))
@@ -139,8 +133,7 @@ func TestCheckPointPlacement(t *testing.T) {
 	center := r3.Vector{X: 0, Y: 0, Z: 0}
 	side := 2.0
 
-	basicOct, err := createNewOctree(center, side)
-	test.That(t, err, test.ShouldBeNil)
+	basicOct := newBasicOctree(center, side)
 
 	test.That(t, basicOct.checkPointPlacement(r3.Vector{X: 0, Y: 0, Z: 0}), test.ShouldBeTrue)
 	test.That(t, basicOct.checkPointPlacement(r3.Vector{X: .25, Y: .25, Z: .25}), test.ShouldBeTrue)
@@ -154,8 +147,7 @@ func TestCheckPointPlacement(t *testing.T) {
 	center = r3.Vector{X: 1000, Y: -1000, Z: 10}
 	side = 24.0
 
-	basicOct, err = createNewOctree(center, side)
-	test.That(t, err, test.ShouldBeNil)
+	basicOct = newBasicOctree(center, side)
 
 	test.That(t, basicOct.checkPointPlacement(r3.Vector{X: 1000, Y: -1000, Z: 5}), test.ShouldBeTrue)
 	test.That(t, basicOct.checkPointPlacement(r3.Vector{X: 1000, Y: -994, Z: .5}), test.ShouldBeTrue)
@@ -308,11 +300,11 @@ func TestBasicOctreeCollision(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	center := getCenterFromPcMetaData(startPC.MetaData())
-	maxSideLength := getMaxSideLengthFromPcMetaData(startPC.MetaData())
+	meta := startPC.MetaData()
+	center := meta.Center()
+	maxSideLength := meta.MaxSideLength()
 
-	basicOct, err := NewBasicOctree(center, maxSideLength)
-	test.That(t, err, test.ShouldBeNil)
+	basicOct := newBasicOctree(center, maxSideLength)
 
 	startPC.Iterate(0, 0, func(p r3.Vector, d Data) bool {
 		// Blue channel is used to determine probability in pcds produced by cartographer

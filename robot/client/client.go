@@ -982,7 +982,12 @@ func (rc *RobotClient) TransformPointCloud(ctx context.Context, srcpc pointcloud
 		return nil, err
 	}
 	transformPose := referenceframe.ProtobufToPoseInFrame(resp.Pose).Pose()
-	return pointcloud.ApplyOffset(ctx, srcpc, transformPose, rc.Logger())
+	output := srcpc.SuitableEmptyClone(transformPose)
+	err = pointcloud.ApplyOffset(ctx, srcpc, transformPose, output)
+	if err != nil {
+		return nil, err
+	}
+	return output, nil
 }
 
 // StopAll cancels all current and outstanding operations for the machine and stops all actuators and movement.

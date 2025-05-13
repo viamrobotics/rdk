@@ -81,7 +81,7 @@ func (p *voxelPlane) PointCloud() (PointCloud, error) {
 	if p.points == nil {
 		return nil, errors.New("no points in plane to turn into point cloud")
 	}
-	pc := New()
+	pc := NewBasicPointCloud(len(p.points))
 	for p, d := range p.points {
 		err := pc.Set(p, d)
 		if err != nil {
@@ -224,7 +224,7 @@ type VoxelSlice []*Voxel
 
 // ToPointCloud uses the points in the slice of voxels to create a point cloud.
 func (d VoxelSlice) ToPointCloud() (PointCloud, error) {
-	cloud := New()
+	cloud := NewBasicPointCloud(0)
 	for _, vox := range d {
 		for p, d := range vox.Points {
 			err := cloud.Set(p, d)
@@ -428,7 +428,7 @@ func (vg VoxelGrid) GetNNearestVoxels(v *Voxel, n uint) []VoxelCoords {
 // values are containing the labels.
 func (vg *VoxelGrid) ConvertToPointCloudWithValue() (PointCloud, error) {
 	// fill output point cloud with labels
-	pc := New()
+	pc := NewBasicPointCloud(0)
 	for _, vox := range vg.Voxels {
 		i := 0
 		for p, d := range vox.Points {

@@ -14,7 +14,6 @@ import (
 	"go.opencensus.io/trace"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -22,19 +21,19 @@ import (
 type CloudAndOffsetFunc func(context context.Context) (PointCloud, spatialmath.Pose, error)
 
 // ApplyOffset takes a point cloud and an offset pose and applies the offset to each of the points in the source point cloud.
-func ApplyOffset(ctx context.Context, srcpc PointCloud, pose spatialmath.Pose, logger logging.Logger) (PointCloud, error) {
+func ApplyOffset(ctx context.Context, srcpc PointCloud, pose spatialmath.Pose, pcTo PointCloud) error {
 	// create the function that return the pointcloud and the transform to the destination frame
 	cloudFunc := func(context context.Context) (PointCloud, spatialmath.Pose, error) {
 		return srcpc, pose, nil
 	}
 	srcFunc := []CloudAndOffsetFunc{cloudFunc}
-	return MergePointClouds(ctx, srcFunc, logger) // MergePointClouds can also be used on one point cloud.
+	return MergePointClouds(ctx, srcFunc, pcTo) // MergePointClouds can also be used on one point cloud.
 }
 
 // MergePointClouds takes a slice of points clouds with optional offsets and adds all their points to one point cloud.
-func MergePointClouds(ctx context.Context, cloudFuncs []CloudAndOffsetFunc, logger logging.Logger) (PointCloud, error) {
+func MergePointClouds(ctx context.Context, cloudFuncs []CloudAndOffsetFunc, pcTo PointCloud) error {
 	if len(cloudFuncs) == 0 {
-		return nil, errors.New("no point clouds to merge")
+		return errors.New("no point clouds to merge")
 	}
 	finalPoints := make(chan []PointAndData, 50)
 	activeReaders := int32(len(cloudFuncs))
@@ -82,7 +81,7 @@ func MergePointClouds(ctx context.Context, cloudFuncs []CloudAndOffsetFunc, logg
 			wg.Wait()
 		})
 	}
-	var pcTo PointCloud
+
 	var err error
 
 	dataLastTime := false // if there was data in the channel in the previous loop, continue reading.
@@ -90,14 +89,6 @@ func MergePointClouds(ctx context.Context, cloudFuncs []CloudAndOffsetFunc, logg
 		select {
 		case ps := <-finalPoints:
 			for _, p := range ps {
-				if pcTo == nil {
-					if p.D == nil {
-						pcTo = NewAppendOnlyOnlyPointsPointCloud(len(cloudFuncs) * 640 * 800)
-					} else {
-						pcTo = NewWithPrealloc(len(cloudFuncs) * 640 * 800)
-					}
-				}
-
 				myErr := pcTo.Set(p.P, p.D)
 				if myErr != nil {
 					err = myErr
@@ -124,31 +115,26 @@ func MergePointClouds(ctx context.Context, cloudFuncs []CloudAndOffsetFunc, logg
 		}
 	}
 
-	if err != nil {
-		return nil, err
-	}
-
-	return pcTo, nil
+	return err
 }
 
 // MergePointCloudsWithColor creates a union of point clouds from the slice of point clouds, giving
 // each element of the slice a unique color.
-func MergePointCloudsWithColor(clusters []PointCloud) (PointCloud, error) {
-	var err error
+func MergePointCloudsWithColor(clusters []PointCloud, colorSegmentation PointCloud) error {
 	palette := colorful.FastWarmPalette(len(clusters))
-	colorSegmentation := New()
 	for i, cluster := range clusters {
+		var err error
 		col, ok := color.NRGBAModel.Convert(palette[i]).(color.NRGBA)
 		if !ok {
-			panic("impossible")
+			return fmt.Errorf("impossible color conversion??")
 		}
 		cluster.Iterate(0, 0, func(v r3.Vector, d Data) bool {
 			err = colorSegmentation.Set(v, NewColoredData(col))
 			return err == nil
 		})
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
-	return colorSegmentation, nil
+	return nil
 }
