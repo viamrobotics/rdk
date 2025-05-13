@@ -18,6 +18,7 @@ import (
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/module/v1"
 	"go.viam.com/utils"
+	"go.viam.com/utils/pexec"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -872,7 +873,7 @@ var oueRestartInterval = 5 * time.Second
 
 // newOnUnexpectedExitHandler returns the appropriate OnUnexpectedExit function
 // for the passed-in module to include in the pexec.ProcessConfig.
-func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) bool {
+func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) pexec.UnexpectedExitHandler {
 	return func(exitCode int) (continueAttemptingRestart bool) {
 		// Log error immediately, as this is unexpected behavior.
 		mod.logger.Errorw(
