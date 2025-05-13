@@ -59,16 +59,20 @@ func UpdateCloudConfigDebug(cloudDebug bool) {
 }
 
 func refreshLogLevelInLock() {
+	// We have two loggers to update here: logging.GlobalLogLevel (zapcore) and globalLogger.logger (logging)
+	// Also see usages of InitLoggingSettings.
 	var newLevel zapcore.Level
 	if globalLogger.cmdLineDebugFlag ||
 		globalLogger.fileConfigDebugFlag ||
 		globalLogger.cloudConfigDebugFlag {
 		// If anything wants debug logs, set the level to `Debug`.
 		newLevel = zap.DebugLevel
+		globalLogger.logger.SetLevel(logging.DEBUG)
 	} else {
 		// If none of the command line, file config or cloud config ask for debug, use the `Info` log
 		// level.
 		newLevel = zap.InfoLevel
+		globalLogger.logger.SetLevel(logging.INFO)
 	}
 
 	if logging.GlobalLogLevel.Level() == newLevel {
