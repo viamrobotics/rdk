@@ -62,7 +62,7 @@ func newCaptureAllFromCameraCollector(resource interface{}, params data.Collecto
 			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return res, err
 			}
-			return res, data.FailedToReadErr(params.ComponentName, captureAllFromCamera.String(), err)
+			return res, data.NewFailedToReadError(params.ComponentName, captureAllFromCamera.String(), err)
 		}
 
 		if visCapture.Image == nil {

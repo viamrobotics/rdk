@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -16,8 +17,8 @@ import (
 
 // Characterizes the network through a series of UDP and TCP STUN network checks. Can and
 // should be run asynchronously with server startup to avoid blocking.
-func runNetworkChecks(ctx context.Context) {
-	logger := logging.NewLogger("network-checks")
+func runNetworkChecks(ctx context.Context, rdkLogger logging.Logger) {
+	logger := rdkLogger.Sublogger("network-checks")
 	if testing.Testing() {
 		logger.Debug("Skipping network checks in a testing environment")
 		return
@@ -38,7 +39,7 @@ func runNetworkChecks(ctx context.Context) {
 const readTimeout = 5 * time.Second
 
 var (
-	// TODO(RSDK-XXXXX): Attempt raw IPs of STUN server URLs in the event that DNS
+	// TODO(RSDK-10657): Attempt raw IPs of STUN server URLs in the event that DNS
 	// resolution does not work.
 	stunServerURLsToTestUDP = []string{
 		"global.stun.twilio.com:3478",
@@ -57,22 +58,44 @@ var (
 )
 
 // Sends the provided bindRequest to the provided STUN server with the provided packet
-// connection and expects the provided transaction ID.
+// connection and expects the provided transaction ID. Uses cached resolved IPs if
+// possible.
 func sendUDPBindRequest(
 	bindRequest []byte,
 	stunServerURLToTest string,
 	conn net.PacketConn,
 	transactionID [12]byte,
+	cachedResolvedIPs map[string]net.IP,
 ) (stunResponse *STUNResponse) {
 	stunResponse = &STUNResponse{STUNServerURL: stunServerURLToTest}
 
-	udpAddr, err := net.ResolveUDPAddr("udp", stunServerURLToTest)
+	// Create UDP addr for bind request (or get it from cache).
+	stunServerHost, stunServerPortString, err := net.SplitHostPort(stunServerURLToTest)
 	if err != nil {
-		// TODO(RSDK-XXXXX): Attempt raw IPs of STUN server URLs in the event that DNS
-		// resolution does not work.
-		errorString := fmt.Sprintf("error resolving address: %v", err.Error())
+		errorString := fmt.Sprintf("error splitting STUN server URL: %v", err.Error())
 		stunResponse.ErrorString = &errorString
 		return
+	}
+	udpAddr := &net.UDPAddr{}
+	udpAddr.Port, err = strconv.Atoi(stunServerPortString)
+	if err != nil {
+		errorString := fmt.Sprintf("error parsing STUN server port: %v", err.Error())
+		stunResponse.ErrorString = &errorString
+		return
+	}
+	var exists bool
+	udpAddr.IP, exists = cachedResolvedIPs[stunServerHost]
+	if !exists {
+		ipAddr, err := net.ResolveIPAddr("ip", stunServerHost)
+		if err != nil {
+			// TODO(RSDK-10657): Attempt raw IPs of STUN server URLs in the event that DNS
+			// resolution does not work.
+			errorString := fmt.Sprintf("error resolving address: %v", err.Error())
+			stunResponse.ErrorString = &errorString
+			return
+		}
+		udpAddr.IP = ipAddr.IP
+		cachedResolvedIPs[stunServerHost] = ipAddr.IP
 	}
 	stunServerAddr := udpAddr.String()
 	stunResponse.STUNServerAddr = &stunServerAddr
@@ -197,6 +220,7 @@ func testUDP(ctx context.Context, logger logging.Logger) error {
 	}
 
 	var stunResponses []*STUNResponse
+	cachedResolvedIPs := make(map[string]net.IP)
 	for _, stunServerURLToTest := range stunServerURLsToTestUDP {
 		if ctx.Err() != nil {
 			logger.Info("Machine shutdown detected; stopping UDP network tests")
@@ -208,6 +232,7 @@ func testUDP(ctx context.Context, logger logging.Logger) error {
 			stunServerURLToTest,
 			conn,
 			bindRequest.TransactionID,
+			cachedResolvedIPs,
 		)
 		stunResponses = append(stunResponses, stunResponse)
 	}
@@ -224,9 +249,12 @@ func sendTCPBindRequest(
 ) (stunResponse *STUNResponse) {
 	stunResponse = &STUNResponse{STUNServerURL: stunServerURLToTest}
 
+	tcpSourceAddress := conn.LocalAddr().String()
+	stunResponse.TCPSourceAddress = &tcpSourceAddress
+
 	tcpAddr, err := net.ResolveTCPAddr("tcp", stunServerURLToTest)
 	if err != nil {
-		// TODO(RSDK-XXXXX): Attempt raw IPs of STUN server URLs in the event that DNS
+		// TODO(RSDK-10657): Attempt raw IPs of STUN server URLs in the event that DNS
 		// resolution does not work.
 		errorString := fmt.Sprintf("error resolving address: %v", err.Error())
 		stunResponse.ErrorString = &errorString
@@ -321,15 +349,6 @@ func sendTCPBindRequest(
 
 // Tests NAT over TCP against STUN servers.
 func testTCP(ctx context.Context, logger logging.Logger) error {
-	// Create a dialer with a consistent port (randomly chosen) from
-	// which to dial over tcp.
-	dialer := &net.Dialer{
-		LocalAddr: &net.TCPAddr{
-			IP:   net.ParseIP("0.0.0.0"),
-			Port: 23654, /* arbitrary but consistent across dials */
-		},
-	}
-
 	// Each TCP test will create their own TCP connection through this `net.Conn` variable.
 	// `net.Conn`s do not function with contexts (only deadlines). If passed-in context
 	// expires (machine is likely shutting down), _or_ tests finish, close the underlying
@@ -364,7 +383,6 @@ func testTCP(ctx context.Context, logger logging.Logger) error {
 	}
 
 	var stunResponses []*STUNResponse
-	var sourceAddress string
 	for _, stunServerURLToTest := range stunServerURLsToTestTCP {
 		if ctx.Err() != nil {
 			logger.Info("Machine shutdown detected; stopping TCP network tests")
@@ -373,6 +391,7 @@ func testTCP(ctx context.Context, logger logging.Logger) error {
 
 		connMu.Lock()
 		dialCtx, cancel := context.WithTimeout(ctx, readTimeout)
+		dialer := &net.Dialer{} // use an empty dialer to get access to the `DialContext` method
 		conn, err = dialer.DialContext(dialCtx, "tcp", stunServerURLToTest)
 		cancel()
 		if err != nil {
@@ -385,14 +404,6 @@ func testTCP(ctx context.Context, logger logging.Logger) error {
 				ErrorString:   &errorString,
 			})
 			continue
-		}
-
-		// Overly defensive checks on `conn`'s nilness given the apparent success of
-		// `DialContext` at this point in the code.
-		if sourceAddress == "" && conn != nil && conn.LocalAddr() != nil {
-			// All conns should have the same source address given the dialer's setup. Use the
-			// local address of the first one created.
-			sourceAddress = conn.LocalAddr().String()
 		}
 		connMu.Unlock()
 
@@ -407,13 +418,8 @@ func testTCP(ctx context.Context, logger logging.Logger) error {
 		connMu.Lock()
 		conn.Close() //nolint:gosec,errcheck
 		connMu.Unlock()
-
-		// NOTE(benjirewis): Sleep for 100ms after `Close`ing to ensure port has been freed
-		// for use on next `DialContext`. Why does `Close` not block until the port is freed?
-		// I do not know; something about not using SO_REUSEADDR or SO_LINGER socket options.
-		time.Sleep(100 * time.Millisecond)
 	}
 
-	logSTUNResults(logger, stunResponses, sourceAddress, "tcp")
+	logSTUNResults(logger, stunResponses, "" /* no udpSourceAddress */, "tcp")
 	return nil
 }

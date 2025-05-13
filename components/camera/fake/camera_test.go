@@ -24,13 +24,13 @@ func TestFakeCameraParams(t *testing.T) {
 		Width:  321,
 		Height: 0,
 	}
-	_, err := cfg.Validate("path")
+	_, _, err := cfg.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 	cfg = &Config{
 		Width:  0,
 		Height: 321,
 	}
-	_, err = cfg.Validate("path")
+	_, _, err = cfg.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 }
 
@@ -44,27 +44,27 @@ func TestCameraValidationAndCreation(t *testing.T) {
 	}
 
 	// error with a ridiculously large pixel value
-	deps, err := cfg.Validate("", camera.API.SubtypeName)
+	deps, _, err := cfg.Validate("", camera.API.SubtypeName)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, deps, test.ShouldBeNil)
 
 	// error with a zero pixel value
 	attrCfg.Width = 0
 	cfg.ConvertedAttributes = attrCfg
-	deps, err = cfg.Validate("", camera.API.SubtypeName)
+	deps, _, err = cfg.Validate("", camera.API.SubtypeName)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, deps, test.ShouldBeNil)
 
 	// error with a negative pixel value
 	attrCfg.Width = -20
 	cfg.ConvertedAttributes = attrCfg
-	deps, err = cfg.Validate("", camera.API.SubtypeName)
+	deps, _, err = cfg.Validate("", camera.API.SubtypeName)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, deps, test.ShouldBeNil)
 
 	attrCfg.Width = 10
 	cfg.ConvertedAttributes = attrCfg
-	deps, err = cfg.Validate("", camera.API.SubtypeName)
+	deps, _, err = cfg.Validate("", camera.API.SubtypeName)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, deps, test.ShouldBeNil)
 
@@ -88,7 +88,7 @@ func TestRTPPassthrough(t *testing.T) {
 		}
 
 		// passes validations
-		_, err := cfg.Validate("", camera.API.SubtypeName)
+		_, _, err := cfg.Validate("", camera.API.SubtypeName)
 		test.That(t, err, test.ShouldBeNil)
 
 		cam, err := NewCamera(context.Background(), nil, cfg, logger)

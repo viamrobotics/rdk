@@ -49,19 +49,19 @@ func TestConfigs(t *testing.T) {
 	t.Run("config validation good", func(t *testing.T) {
 		mc := goodConfig
 
-		deps, err := mc.Validate("")
+		deps, _, err := mc.Validate("")
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, deps, test.ShouldResemble, []string{"brd"})
 
 		// remove optional fields
 		mc.StepperDelay = 0
-		deps, err = mc.Validate("")
+		deps, _, err = mc.Validate("")
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, deps, test.ShouldResemble, []string{"brd"})
 
 		mc.Pins.EnablePinHigh = ""
 		mc.Pins.EnablePinLow = ""
-		deps, err = mc.Validate("")
+		deps, _, err = mc.Validate("")
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, deps, test.ShouldResemble, []string{"brd"})
 	})
@@ -70,13 +70,13 @@ func TestConfigs(t *testing.T) {
 		mc := goodConfig
 		mc.Pins.Direction = ""
 
-		_, err := mc.Validate("")
+		_, _, err := mc.Validate("")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldBeError, resource.NewConfigValidationFieldRequiredError("", "dir"))
 
 		mc = goodConfig
 		mc.Pins.Step = ""
-		_, err = mc.Validate("")
+		_, _, err = mc.Validate("")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldBeError, resource.NewConfigValidationFieldRequiredError("", "step"))
 	})
@@ -85,7 +85,7 @@ func TestConfigs(t *testing.T) {
 		mc := goodConfig
 		mc.TicksPerRotation = 0
 
-		_, err := mc.Validate("")
+		_, _, err := mc.Validate("")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldBeError, resource.NewConfigValidationFieldRequiredError("", "ticks_per_rotation"))
 	})
@@ -94,7 +94,7 @@ func TestConfigs(t *testing.T) {
 		mc := goodConfig
 		mc.BoardName = ""
 
-		_, err := mc.Validate("")
+		_, _, err := mc.Validate("")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldBeError, resource.NewConfigValidationFieldRequiredError("", "board"))
 	})

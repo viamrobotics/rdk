@@ -523,7 +523,7 @@ func (rc *RobotClient) updateResourceClients(ctx context.Context) error {
 	for resourceName, client := range rc.resourceClients {
 		// check if no longer an active resource
 		if !activeResources[resourceName] {
-			rc.logger.Infow("Removing resource from remote client", "resourceName", resourceName)
+			rc.logger.Infow("Removing resource from remote client", "resourceName", resourceName.String())
 			if err := client.Close(ctx); err != nil {
 				rc.Logger().CError(ctx, err)
 				continue

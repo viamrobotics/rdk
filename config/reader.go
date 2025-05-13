@@ -415,6 +415,7 @@ func additionalModuleEnvVars(cloud *Cloud, auth AuthConfig) map[string]string {
 	if cloud != nil {
 		env[rutils.PrimaryOrgIDEnvVar] = cloud.PrimaryOrgID
 		env[rutils.LocationIDEnvVar] = cloud.LocationID
+		env[rutils.MachineFQDNEnvVar] = cloud.FQDN
 		env[rutils.MachineIDEnvVar] = cloud.MachineID
 		env[rutils.MachinePartIDEnvVar] = cloud.ID
 	}

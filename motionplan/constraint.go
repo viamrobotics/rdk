@@ -9,7 +9,7 @@ import (
 	motionpb "go.viam.com/api/service/motion/v1"
 
 	"go.viam.com/rdk/motionplan/ik"
-	//~ "go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 )
@@ -108,29 +108,29 @@ func createAllCollisionConstraints(
 ) (map[string]StateFSConstraint, map[string]StateConstraint, error) {
 	constraintFSMap := map[string]StateFSConstraint{}
 	constraintMap := map[string]StateConstraint{}
-	//~ var err error
+	var err error
 
 	if len(worldGeometries) > 0 {
 		// Check if a moving geometry is in collision with a pointcloud. If so, error.
 		// TODO: This is not the most robust way to deal with this but is better than driving through walls.
-		//~ var zeroCG *collisionGraph
-		//~ for _, geom := range worldGeometries {
-			//~ if octree, ok := geom.(*pointcloud.BasicOctree); ok {
-				//~ if zeroCG == nil {
-					//~ zeroCG, err = setupZeroCG(movingRobotGeometries, worldGeometries, allowedCollisions, collisionBufferMM)
-					//~ if err != nil {
-						//~ return nil, nil, err
-					//~ }
-				//~ }
-				//~ for _, collision := range zeroCG.collisions(collisionBufferMM) {
-					//~ if collision.name1 == octree.Label() {
-						//~ return nil, nil, fmt.Errorf("starting collision between SLAM map and %s, cannot move", collision.name2)
-					//~ } else if collision.name2 == octree.Label() {
-						//~ return nil, nil, fmt.Errorf("starting collision between SLAM map and %s, cannot move", collision.name1)
-					//~ }
-				//~ }
-			//~ }
-		//~ }
+		var zeroCG *collisionGraph
+		for _, geom := range worldGeometries {
+			if octree, ok := geom.(*pointcloud.BasicOctree); ok {
+				if zeroCG == nil {
+					zeroCG, err = setupZeroCG(movingRobotGeometries, worldGeometries, allowedCollisions, false, collisionBufferMM)
+					if err != nil {
+						return nil, nil, err
+					}
+				}
+				for _, collision := range zeroCG.collisions(collisionBufferMM) {
+					if collision.name1 == octree.Label() {
+						return nil, nil, fmt.Errorf("starting collision between SLAM map and %s, cannot move", collision.name2)
+					} else if collision.name2 == octree.Label() {
+						return nil, nil, fmt.Errorf("starting collision between SLAM map and %s, cannot move", collision.name1)
+					}
+				}
+			}
+		}
 
 		// create constraint to keep moving geometries from hitting world state obstacles
 		obstacleConstraint, err := NewCollisionConstraint(movingRobotGeometries, worldGeometries, allowedCollisions, false, collisionBufferMM)
@@ -193,12 +193,14 @@ func createAllCollisionConstraints(
 	return constraintFSMap, constraintMap, nil
 }
 
-func setupZeroCG(moving, static []spatial.Geometry,
+func setupZeroCG(
+	moving, static []spatial.Geometry,
 	collisionSpecifications []*Collision,
+	reportDistances bool,
 	collisionBufferMM float64,
 ) (*collisionGraph, error) {
 	// create the reference collisionGraph
-	zeroCG, err := newCollisionGraph(moving, static, nil, true, collisionBufferMM)
+	zeroCG, err := newCollisionGraph(moving, static, nil, reportDistances, collisionBufferMM)
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +220,7 @@ func NewCollisionConstraint(
 	reportDistances bool,
 	collisionBufferMM float64,
 ) (StateConstraint, error) {
-	zeroCG, err := setupZeroCG(moving, static, collisionSpecifications, collisionBufferMM)
+	zeroCG, err := setupZeroCG(moving, static, collisionSpecifications, true, collisionBufferMM)
 	if err != nil {
 		return nil, err
 	}
@@ -273,7 +275,7 @@ func NewCollisionConstraintFS(
 	reportDistances bool,
 	collisionBufferMM float64,
 ) (StateFSConstraint, error) {
-	zeroCG, err := setupZeroCG(moving, static, collisionSpecifications, collisionBufferMM)
+	zeroCG, err := setupZeroCG(moving, static, collisionSpecifications, true, collisionBufferMM)
 	if err != nil {
 		return nil, err
 	}

@@ -90,34 +90,34 @@ func init() {
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *Config) Validate(path string) ([]string, error) {
+func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	var deps []string
 
 	if cfg.Base == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "base")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "base")
 	}
 	deps = append(deps, cfg.Base)
 
 	if len(cfg.LeftMotors) == 0 {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "left motors")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "left motors")
 	}
 	deps = append(deps, cfg.LeftMotors...)
 
 	if len(cfg.RightMotors) == 0 {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "right motors")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "right motors")
 	}
 	deps = append(deps, cfg.RightMotors...)
 
 	if len(cfg.LeftMotors) != len(cfg.RightMotors) {
-		return nil, errors.New("mismatch number of left and right motors")
+		return nil, nil, errors.New("mismatch number of left and right motors")
 	}
 
 	// Temporary validation check until support for more than one left and right motor each is added.
 	if len(cfg.LeftMotors) > 1 || len(cfg.RightMotors) > 1 {
-		return nil, errors.New("wheeled odometry only supports one left and right motor each")
+		return nil, nil, errors.New("wheeled odometry only supports one left and right motor each")
 	}
 
-	return deps, nil
+	return deps, nil, nil
 }
 
 // Reconfigure automatically reconfigures this movement sensor based on the updated config.

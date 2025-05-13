@@ -45,6 +45,9 @@ const (
 	//nolint:gosec
 	APIKeyIDEnvVar = "VIAM_API_KEY_ID"
 
+	// MachineFQDNEnvVar is the environment variable that contains the fqdn of the machine.
+	MachineFQDNEnvVar = "VIAM_MACHINE_FQDN"
+
 	// MachineIDEnvVar is the environment variable that contains the machine ID of the machine.
 	MachineIDEnvVar = "VIAM_MACHINE_ID"
 

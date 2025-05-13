@@ -154,7 +154,7 @@ func TestConfigValidate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			deps, err := tt.config.Validate("test/path")
+			deps, _, err := tt.config.Validate("test/path")
 			if tt.wantErrText != "" {
 				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, err.Error(), test.ShouldContainSubstring, tt.wantErrText)
