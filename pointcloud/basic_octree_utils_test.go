@@ -174,7 +174,7 @@ func validateBasicOctree(t *testing.T, bOct *BasicOctree, center r3.Vector, side
 	validateMetadata(t, bOct)
 
 	var size int
-	maxVal := emptyProb
+	maxVal := math.MinInt
 	switch bOct.node.nodeType {
 	case internalNode:
 		test.That(t, len(bOct.node.children), test.ShouldEqual, 8)
@@ -234,6 +234,7 @@ func validateBasicOctree(t *testing.T, bOct *BasicOctree, center r3.Vector, side
 		test.That(t, bOct.node.point, test.ShouldBeNil)
 		test.That(t, bOct.size, test.ShouldEqual, 0)
 		size = bOct.size
+		maxVal = defaultConfidenceThreshold
 	}
 	return size, maxVal
 }
@@ -284,11 +285,12 @@ func createLopsidedOctree(oct *BasicOctree, i, max int) *BasicOctree {
 
 				// Create a new basic octree child
 				child := &BasicOctree{
-					center:     newCenter,
-					sideLength: newSideLength,
-					size:       0,
-					node:       newLeafNodeEmpty(),
-					meta:       NewMetaData(),
+					center:              newCenter,
+					sideLength:          newSideLength,
+					size:                0,
+					node:                newLeafNodeEmpty(),
+					meta:                NewMetaData(),
+					confidenceThreshold: oct.confidenceThreshold,
 				}
 				children = append(children, child)
 			}
@@ -301,17 +303,13 @@ func createLopsidedOctree(oct *BasicOctree, i, max int) *BasicOctree {
 
 // Test the functionalities involved with converting a pointcloud into a basic octree.
 func TestBasicOctreeCollision(t *testing.T) {
-	startPC, err := makeFullPointCloudFromArtifact(
-		t,
-		"pointcloud/collision_pointcloud_0.pcd",
-		BasicType,
-	)
+	startPC, err := makeFullPointCloudFromArtifact(t, "pointcloud/collision_pointcloud_0.pcd", BasicType)
 	test.That(t, err, test.ShouldBeNil)
 
 	center := getCenterFromPcMetaData(startPC.MetaData())
 	maxSideLength := getMaxSideLengthFromPcMetaData(startPC.MetaData())
 
-	basicOct, err := NewBasicOctree(center, maxSideLength)
+	basicOct, err := NewBasicOctree(center, maxSideLength, defaultConfidenceThreshold)
 	test.That(t, err, test.ShouldBeNil)
 
 	startPC.Iterate(0, 0, func(p r3.Vector, d Data) bool {
@@ -330,7 +328,7 @@ func TestBasicOctreeCollision(t *testing.T) {
 		// create a non-colliding obstacle far away from any octree point
 		far, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{1, 2, 3}, "far")
 		test.That(t, err, test.ShouldBeNil)
-		collides, err := basicOct.CollidesWithGeometry(far, 80, 1.0, 1e-8)
+		collides, err := basicOct.CollidesWith(far, 1.)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeFalse)
 	})
@@ -339,7 +337,7 @@ func TestBasicOctreeCollision(t *testing.T) {
 		// create a non-colliding obstacle near an octree point
 		near, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{-2443, 0, 3855}), r3.Vector{1, 2, 3}, "near")
 		test.That(t, err, test.ShouldBeNil)
-		collides, err := basicOct.CollidesWithGeometry(near, 80, 1.0, 1e-8)
+		collides, err := basicOct.CollidesWith(near, 1.)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeFalse)
 	})
@@ -348,26 +346,33 @@ func TestBasicOctreeCollision(t *testing.T) {
 		// create a non-colliding obstacle near an octree point
 		near, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{-2443, 0, 3855}), r3.Vector{1, 2, 3}, "near")
 		test.That(t, err, test.ShouldBeNil)
-		collides, err := basicOct.CollidesWithGeometry(near, 80, 10.0, 1e-8)
+		collides, err := basicOct.CollidesWith(near, 10.0)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
-	})
-
-	t.Run("no collision with box overlapping low-probability octree points", func(t *testing.T) {
-		// create a colliding obstacle overlapping an octree point that has sub-threshold probability
-		lowprob, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{-2471, 0, 3790}), r3.Vector{3, 2, 3}, "lowprob")
-		test.That(t, err, test.ShouldBeNil)
-		collides, err := basicOct.CollidesWithGeometry(lowprob, 80, 1.0, 1e-8)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, collides, test.ShouldBeFalse)
 	})
 
 	t.Run("collision with box overlapping octree points", func(t *testing.T) {
 		// create a colliding obstacle overlapping an octree point
 		hit, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{-2443, 0, 3855}), r3.Vector{12, 2, 30}, "hit")
 		test.That(t, err, test.ShouldBeNil)
-		collides, err := basicOct.CollidesWithGeometry(hit, 80, 1.0, 1e-8)
+		collides, err := basicOct.CollidesWith(hit, 1.)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
+	})
+
+	t.Run("no collision with box overlapping low-probability octree points", func(t *testing.T) {
+		// add a new point to the tree and make sure nothing else can interact with it
+		threshold := 1e-8
+		lowProbPt := r3.Vector{-1000, -1000, -1000}
+		data := NewValueData(0)
+		err := basicOct.Set(lowProbPt, data)
+		test.That(t, err, test.ShouldBeNil)
+
+		// create a colliding obstacle overlapping an octree point that has sub-threshold probability
+		lowprob, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(lowProbPt), r3.Vector{threshold, threshold, threshold}, "")
+		test.That(t, err, test.ShouldBeNil)
+		collides, err := basicOct.CollidesWith(lowprob, threshold)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeFalse)
 	})
 }
