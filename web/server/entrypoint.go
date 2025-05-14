@@ -377,6 +377,12 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 				}
 			}
 
+			if currCfg.Network.BindAddress != processedConfig.Network.BindAddress {
+				s.logger.Infof("Config watcher detected bind address change: updating %v -> %v",
+					currCfg.Network.BindAddress,
+					processedConfig.Network.BindAddress)
+			}
+
 			// Update logger registry if log patterns may have changed.
 			//
 			// This functionality is tested in `TestLogPropagation` in `local_robot_test.go`.
