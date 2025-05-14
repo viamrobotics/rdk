@@ -408,12 +408,6 @@ func TestMoveCallInputs(t *testing.T) {
 		// Near antarctica 🐧
 		gpsPoint := geo.NewPoint(-70, 40)
 		dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-4)
-		// create motion config
-		extra := map[string]interface{}{
-			"motion_profile": "position_only",
-			"timeout":        5.,
-			"smooth_iter":    5.,
-		}
 		t.Run("returns error when called with an unknown component", func(t *testing.T) {
 			t.Parallel()
 			_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
@@ -503,7 +497,11 @@ func TestMoveCallInputs(t *testing.T) {
 				MovementSensorName: moveSensorResource,
 				Heading:            90,
 				Destination:        dst,
-				Extra:              extra,
+				Extra: map[string]interface{}{
+					"motion_profile": "position_only",
+					"timeout":        5.,
+					"smooth_iter":    5.,
+				},
 			}
 			executionID, err := ms.MoveOnGlobe(ctx, req)
 			test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:movement_sensor/test-movement-sensor\" not found"))
@@ -519,7 +517,11 @@ func TestMoveCallInputs(t *testing.T) {
 				MovementSensorName: baseResource,
 				Heading:            90,
 				Destination:        dst,
-				Extra:              extra,
+				Extra: map[string]interface{}{
+					"motion_profile": "position_only",
+					"timeout":        5.,
+					"smooth_iter":    5.,
+				},
 			}
 			executionID, err := ms.MoveOnGlobe(ctx, req)
 			test.That(t, err, test.ShouldBeError, errors.New("Resource missing from dependencies. Resource: rdk:component:base/test-base"))
