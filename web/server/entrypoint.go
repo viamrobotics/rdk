@@ -333,8 +333,9 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 ) {
 	// Reconfigure robot to have passed-in config before listening for any config
 	// changes.
+	startTime := time.Now()
 	r.Reconfigure(ctx, currCfg)
-
+	s.logger.CInfow(ctx, "Robot initialized with full config", "elapsed time", time.Since(startTime).String())
 	for {
 		select {
 		case <-ctx.Done():
@@ -543,11 +544,14 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	// state of initializing until reconfigured with full config.
 	minimalProcessedConfig.Initial = true
 
+	startTime := time.Now()
 	myRobot, err := robotimpl.New(ctx, &minimalProcessedConfig, s.conn, s.logger, robotOptions...)
 	if err != nil {
 		cancel()
 		return err
 	}
+	s.logger.CInfow(ctx, "Robot created with minimal config", "elapsed time", time.Since(startTime).String())
+
 	theRobotLock.Lock()
 	theRobot = myRobot
 	theRobotLock.Unlock()
@@ -580,6 +584,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		cancel()
 		<-onWatchDone
 	}()
+	s.logger.CInfo(ctx, "Config watcher started")
 
 	// Create initial web options with `minimalProcessedConfig`.
 	options, err := s.createWebOptions(&minimalProcessedConfig)
