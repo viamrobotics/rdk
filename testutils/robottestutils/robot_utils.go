@@ -95,7 +95,7 @@ func MakeTempConfig(t *testing.T, cfg *config.Config, logger logging.Logger) (st
 	return file.Name(), file.Close()
 }
 
-// ServerProcessOptions are used to modify the behavior of ServerAsSeparateProcess.
+// ServerProcessOption can be used to modify the behavior of ServerAsSeparateProcess.
 type ServerProcessOption func(*pexec.ProcessConfig)
 
 // WithoutRestart disables the automatic restart of the pexec library for the server process.
