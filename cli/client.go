@@ -1238,6 +1238,7 @@ type machinesPartCopyFilesArgs struct {
 	Part         string
 	Recursive    bool
 	Preserve     bool
+	NoProgress   bool
 }
 
 // MachinesPartCopyFilesAction is the corresponding Action for 'machines part cp'.
@@ -1348,6 +1349,7 @@ func (c *viamClient) machinesPartCopyFilesAction(
 			paths,
 			destination,
 			logger,
+			flagArgs.NoProgress,
 		)
 	}
 	if err := doCopy(); err != nil {
@@ -2424,12 +2426,13 @@ func (c *viamClient) copyFilesToMachine(
 	paths []string,
 	destination string,
 	logger logging.Logger,
+	noProgress bool,
 ) error {
 	shellSvc, closeClient, err := c.connectToShellService(orgStr, locStr, robotStr, partStr, debug, logger)
 	if err != nil {
 		return err
 	}
-	return c.copyFilesToMachineInner(shellSvc, closeClient, allowRecursion, preserve, paths, destination)
+	return c.copyFilesToMachineInner(shellSvc, closeClient, allowRecursion, preserve, paths, destination, noProgress)
 }
 
 // copyFilesToFqdn is a copyFilesToMachine variant that makes use of pre-fetched part FQDN.
@@ -2441,12 +2444,13 @@ func (c *viamClient) copyFilesToFqdn(
 	paths []string,
 	destination string,
 	logger logging.Logger,
+	noProgress bool,
 ) error {
 	shellSvc, closeClient, err := c.connectToShellServiceFqdn(fqdn, debug, logger)
 	if err != nil {
 		return err
 	}
-	return c.copyFilesToMachineInner(shellSvc, closeClient, allowRecursion, preserve, paths, destination)
+	return c.copyFilesToMachineInner(shellSvc, closeClient, allowRecursion, preserve, paths, destination, noProgress)
 }
 
 // copyFilesToMachineInner is the common logic for both copyFiles variants.
@@ -2457,10 +2461,30 @@ func (c *viamClient) copyFilesToMachineInner(
 	preserve bool,
 	paths []string,
 	destination string,
+	noProgress bool,
 ) error {
 	defer func() {
 		utils.UncheckedError(closeClient(c.c.Context))
 	}()
+
+	if noProgress {
+		// prepare a factory that understands the file copying service (RPC or not).
+		copyFactory := shell.NewCopyFileToMachineFactory(destination, preserve, shellSvc)
+		// make a reader copier that just does the traversal and copy work for us. Think of
+		// this as a tee reader.
+		readCopier, err := shell.NewLocalFileReadCopier(paths, allowRecursion, false, copyFactory)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := readCopier.Close(c.c.Context); err != nil {
+				utils.UncheckedError(err)
+			}
+		}()
+
+		// ReadAll the files into the copier.
+		return readCopier.ReadAll(c.c.Context)
+	}
 
 	// Calculate total size of all files to be copied
 	var totalSize int64
@@ -2575,6 +2599,8 @@ func (ptc *progressTrackingCopier) Copy(ctx context.Context, file shell.File) er
 }
 
 func (ptc *progressTrackingCopier) Close(ctx context.Context) error {
+	//nolint:errcheck // progress display is non-critical
+	_, _ = os.Stdout.WriteString("\n")
 	return ptc.copier.Close(ctx)
 }
 
