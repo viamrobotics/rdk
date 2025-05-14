@@ -322,7 +322,7 @@ func (svc *frameSystemService) TransformPointCloud(ctx context.Context, srcpc po
 	}
 	// returned the transformed pointcloud where the transform was applied to each point
 	pc := srcpc.SuitableEmptyClone(theTransform.Pose())
-	err = pointcloud.ApplyOffset(ctx, srcpc, theTransform.Pose(), pc)
+	err = pointcloud.ApplyOffset(srcpc, theTransform.Pose(), pc)
 	if err != nil {
 		return nil, err
 	}

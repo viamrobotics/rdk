@@ -12,13 +12,15 @@ import (
 )
 
 // ApplyOffset takes a point cloud and an offset pose and applies the offset to each of the points in the source point cloud.
-func ApplyOffset(ctx context.Context, srcpc PointCloud, offset spatialmath.Pose, pcTo PointCloud) error {
+func ApplyOffset(srcpc PointCloud, offset spatialmath.Pose, pcTo PointCloud) error {
 	var err error
 	savedDualQuat := spatialmath.NewZeroPose()
 	srcpc.Iterate(0,0, func(p r3.Vector, d Data) bool {
-		spatialmath.ResetPoseDQTranslation(savedDualQuat, p)
-		newPose := spatialmath.Compose(offset, savedDualQuat)
-		p = newPose.Point()
+		if offset != nil {
+			spatialmath.ResetPoseDQTranslation(savedDualQuat, p)
+			newPose := spatialmath.Compose(offset, savedDualQuat)
+			p = newPose.Point()
+		}
 		err = pcTo.Set(p, d)
 		return err == nil
 	})
@@ -39,6 +41,23 @@ func MergePointCloudsWithColor(clusters []PointCloud, colorSegmentation PointClo
 			err = colorSegmentation.Set(v, NewColoredData(col))
 			return err == nil
 		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type CloudAndOffsetFunc func(context context.Context) (PointCloud, spatialmath.Pose, error)
+
+func MergePointClouds(ctx context.Context, cloudFuncs []CloudAndOffsetFunc, out PointCloud) error {
+	for _, f := range cloudFuncs {
+		in, offset, err := f(ctx)
+		if err != nil {
+			return err
+		}
+		
+		err = ApplyOffset(in, offset, out)
 		if err != nil {
 			return err
 		}
