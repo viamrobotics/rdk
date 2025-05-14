@@ -187,7 +187,7 @@ func TestTransformPipelineValidatePass(t *testing.T) {
 			{Type: "resize", Attributes: utils.AttributeMap{"height_px": 20, "width_px": 10}},
 		},
 	}
-	deps, err := transformConf.Validate("path")
+	deps, _, err := transformConf.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, deps, test.ShouldResemble, []string{"source"})
 }
@@ -200,7 +200,7 @@ func TestTransformPipelineValidateFail(t *testing.T) {
 		},
 	}
 	path := "path"
-	deps, err := transformConf.Validate(path)
+	deps, _, err := transformConf.Validate(path)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "source")
 	test.That(t, deps, test.ShouldBeNil)
 }

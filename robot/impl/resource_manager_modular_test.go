@@ -112,12 +112,12 @@ func TestModularResources(t *testing.T) {
 
 		// modular
 		cfg := resource.Config{Name: "oneton", API: compAPI, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
-		_, err := cfg.Validate("test", resource.APITypeComponentName)
+		_, _, err := cfg.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		// changed attribute
 		cfg2 := resource.Config{Name: "oneton", API: compAPI, Model: compModel, Attributes: utils.AttributeMap{"arg1": "two"}}
-		_, err = cfg2.Validate("test", resource.APITypeComponentName)
+		_, _, err = cfg2.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		// non-modular
@@ -127,12 +127,12 @@ func TestModularResources(t *testing.T) {
 			Model:               resource.DefaultModelFamily.WithModel("fake"),
 			ConvertedAttributes: &fake.Config{},
 		}
-		_, err = cfg3.Validate("test", resource.APITypeComponentName)
+		_, _, err = cfg3.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		// changed name
 		cfg4 := resource.Config{Name: "oneton2", API: compAPI, Model: compModel, Attributes: utils.AttributeMap{"arg1": "two"}}
-		_, err = cfg4.Validate("test", resource.APITypeComponentName)
+		_, _, err = cfg4.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		// Add a modular component
@@ -191,7 +191,7 @@ func TestModularResources(t *testing.T) {
 			Model:      svcModel,
 			Attributes: utils.AttributeMap{"arg1": "one"},
 		}
-		_, err := cfg.Validate("test", resource.APITypeServiceName)
+		_, _, err := cfg.Validate("test", resource.APITypeServiceName)
 		test.That(t, err, test.ShouldBeNil)
 
 		// changed attribute
@@ -201,7 +201,7 @@ func TestModularResources(t *testing.T) {
 			Model:      svcModel,
 			Attributes: utils.AttributeMap{"arg1": "two"},
 		}
-		_, err = cfg2.Validate("test", resource.APITypeServiceName)
+		_, _, err = cfg2.Validate("test", resource.APITypeServiceName)
 		test.That(t, err, test.ShouldBeNil)
 
 		// non-modular
@@ -212,7 +212,7 @@ func TestModularResources(t *testing.T) {
 			ConvertedAttributes: &motionBuiltin.Config{},
 			DependsOn:           []string{framesystem.InternalServiceName.String()},
 		}
-		_, err = cfg3.Validate("test", resource.APITypeServiceName)
+		_, _, err = cfg3.Validate("test", resource.APITypeServiceName)
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, err, test.ShouldBeNil)
@@ -252,7 +252,7 @@ func TestModularResources(t *testing.T) {
 		r, mod := setupTest(t)
 
 		compCfg := resource.Config{Name: "oneton", API: compAPI, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
-		_, err := compCfg.Validate("test", resource.APITypeComponentName)
+		_, _, err := compCfg.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		svcCfg := resource.Config{
@@ -261,7 +261,7 @@ func TestModularResources(t *testing.T) {
 			Model:      svcModel,
 			Attributes: utils.AttributeMap{"arg1": "one"},
 		}
-		_, err = svcCfg.Validate("test", resource.APITypeComponentName)
+		_, _, err = svcCfg.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		r.Reconfigure(context.Background(), &config.Config{
@@ -295,7 +295,7 @@ func TestModularResources(t *testing.T) {
 
 		// modular we do not want
 		cfg := resource.Config{Name: "oneton2", API: compAPI, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
-		_, err := cfg.Validate("test", resource.APITypeComponentName)
+		_, _, err := cfg.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		// non-modular
@@ -306,12 +306,12 @@ func TestModularResources(t *testing.T) {
 			ConvertedAttributes: &fake.Config{},
 			ImplicitDependsOn:   []string{"oneton"},
 		}
-		_, err = cfg2.Validate("test", resource.APITypeComponentName)
+		_, _, err = cfg2.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		// modular we want
 		cfg3 := resource.Config{Name: "oneton", API: compAPI, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
-		_, err = cfg3.Validate("test", resource.APITypeComponentName)
+		_, _, err = cfg3.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		// what we want is originally available
@@ -350,7 +350,7 @@ func TestModularResources(t *testing.T) {
 		r, _ := setupTest(t)
 
 		cfg := resource.Config{Name: "oneton", API: compAPI, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
-		_, err := cfg.Validate("test", resource.APITypeComponentName)
+		_, _, err := cfg.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		r.Reconfigure(context.Background(), &config.Config{
@@ -360,7 +360,7 @@ func TestModularResources(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		cfg2 := resource.Config{Name: "oneton", API: compAPI, Model: compModel2, Attributes: utils.AttributeMap{"arg1": "one"}}
-		_, err = cfg2.Validate("test", resource.APITypeComponentName)
+		_, _, err = cfg2.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		r.Reconfigure(context.Background(), &config.Config{
@@ -451,10 +451,10 @@ func (m *dummyModMan) Provides(cfg resource.Config) bool {
 	return cfg.Name != "builtin"
 }
 
-func (m *dummyModMan) ValidateConfig(ctx context.Context, cfg resource.Config) ([]string, error) {
+func (m *dummyModMan) ValidateConfig(ctx context.Context, cfg resource.Config) ([]string, []string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return nil, nil
+	return nil, nil, nil
 }
 
 func (m *dummyModMan) ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error {

@@ -30,13 +30,13 @@ func TestValidate(t *testing.T) {
 		MaxWidthUs: ptr(uint(2499)),
 	}
 
-	deps, err := cfg.Validate("test")
+	deps, _, err := cfg.Validate("test")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, deps, test.ShouldContain, "b")
 	test.That(t, len(deps), test.ShouldEqual, 1)
 
 	cfg.MinDeg = ptr(-1.5)
-	_, err = cfg.Validate("test")
+	_, _, err = cfg.Validate("test")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "min_angle_deg cannot be lower than 0")
 	cfg.MinDeg = ptr(1.5)
@@ -44,26 +44,26 @@ func TestValidate(t *testing.T) {
 	cfg.MaxDeg = ptr(90.0)
 
 	cfg.MinWidthUs = ptr(uint(450))
-	_, err = cfg.Validate("test")
+	_, _, err = cfg.Validate("test")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "min_width_us cannot be lower than 500")
 	cfg.MinWidthUs = ptr(uint(501))
 
 	cfg.MaxWidthUs = ptr(uint(2520))
-	_, err = cfg.Validate("test")
+	_, _, err = cfg.Validate("test")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "max_width_us cannot be higher than 2500")
 	cfg.MaxWidthUs = ptr(uint(2499))
 
 	cfg.StartPos = ptr(91.0)
-	_, err = cfg.Validate("test")
+	_, _, err = cfg.Validate("test")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(),
 		test.ShouldContainSubstring,
 		"starting_position_deg should be between minimum (1.5) and maximum (90.0) positions")
 
 	cfg.StartPos = ptr(1.0)
-	_, err = cfg.Validate("test")
+	_, _, err = cfg.Validate("test")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(),
 		test.ShouldContainSubstring,
@@ -72,24 +72,24 @@ func TestValidate(t *testing.T) {
 	cfg.StartPos = ptr(199.0)
 	cfg.MaxDeg = nil
 	cfg.MinDeg = nil
-	_, err = cfg.Validate("test")
+	_, _, err = cfg.Validate("test")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(),
 		test.ShouldContainSubstring,
 		"starting_position_deg should be between minimum (0.0) and maximum (180.0) positions")
 
 	cfg.StartPos = ptr(0.0)
-	_, err = cfg.Validate("test")
+	_, _, err = cfg.Validate("test")
 	test.That(t, err, test.ShouldBeNil)
 
 	cfg.Board = ""
-	_, err = cfg.Validate("test")
+	_, _, err = cfg.Validate("test")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "board")
 	cfg.Board = "b"
 
 	cfg.Pin = ""
-	_, err = cfg.Validate("test")
+	_, _, err = cfg.Validate("test")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "pin")
 }

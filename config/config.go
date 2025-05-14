@@ -167,7 +167,7 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 	}
 
 	for idx := 0; idx < len(c.Remotes); idx++ {
-		if _, err := c.Remotes[idx].Validate(fmt.Sprintf("%s.%d", "remotes", idx)); err != nil {
+		if _, _, err := c.Remotes[idx].Validate(fmt.Sprintf("%s.%d", "remotes", idx)); err != nil {
 			if c.DisablePartialStart {
 				return err
 			}
@@ -182,12 +182,12 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 
 	for idx := 0; idx < len(c.Components); idx++ {
 		component := &c.Components[idx]
-		// dependsOn will only be populated if attributes have been converted, which does not happen in this function.
+		// requiredDeps and optionalDeps will only be populated if attributes have been converted, which does not happen in this function.
 		// Attributes can be converted from an untyped, JSON-like object to a typed Go struct based on whether a converter/the typed struct
 		// was registered during resource model registration. If no converter but a typed struct was registered, the RDK provides a
 		// default converter. For modular resources, since lookup will fail as no converter or a typed struct is registered, implicit
 		// dependencies are gathered during robot reconfiguration itself.
-		dependsOn, err := component.Validate(fmt.Sprintf("%s.%d", "components", idx), resource.APITypeComponentName)
+		requiredDeps, optionalDeps, err := component.Validate(fmt.Sprintf("%s.%d", "components", idx), resource.APITypeComponentName)
 		if err != nil {
 			fullErr := errors.Wrapf(err, "error validating component %s: %s", component.Name, err)
 			if c.DisablePartialStart {
@@ -196,7 +196,8 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 			resLogger := logger.Sublogger(component.ResourceName().String())
 			resLogger.Errorw("component config error; starting robot without component", "name", component.Name, "error", err)
 		} else {
-			component.ImplicitDependsOn = dependsOn
+			component.ImplicitDependsOn = requiredDeps
+			component.ImplicitOptionalDependsOn = optionalDeps
 		}
 		if err := c.validateUniqueResource(logger, seenResources, component.ResourceName().String()); err != nil {
 			return err
@@ -218,12 +219,12 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 
 	for idx := 0; idx < len(c.Services); idx++ {
 		service := &c.Services[idx]
-		// dependsOn will only be populated if attributes have been converted, which does not happen in this function.
+		// requiredDeps and optionalDeps will only be populated if attributes have been converted, which does not happen in this function.
 		// Attributes can be converted from an untyped, JSON-like object to a typed Go struct based on whether a converter/the typed struct
 		// was registered during resource model registration. If no converter but a typed struct was registered, the RDK provides a
 		// default converter. For modular resources, since lookup will fail as no converter or a typed struct is registered, implicit
 		// dependencies are gathered during robot reconfiguration itself.
-		dependsOn, err := service.Validate(fmt.Sprintf("%s.%d", "services", idx), resource.APITypeServiceName)
+		requiredDeps, optionalDeps, err := service.Validate(fmt.Sprintf("%s.%d", "services", idx), resource.APITypeServiceName)
 		if err != nil {
 			if c.DisablePartialStart {
 				return err
@@ -231,7 +232,8 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 			resLogger := logger.Sublogger(service.ResourceName().String())
 			resLogger.Errorw("service config error; starting robot without service", "name", service.Name, "error", err)
 		} else {
-			service.ImplicitDependsOn = dependsOn
+			service.ImplicitDependsOn = requiredDeps
+			service.ImplicitOptionalDependsOn = optionalDeps
 		}
 
 		if err := c.validateUniqueResource(logger, seenResources, service.ResourceName().String()); err != nil {
@@ -496,13 +498,13 @@ type RemoteAuth struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (conf *Remote) Validate(path string) ([]string, error) {
+func (conf *Remote) Validate(path string) ([]string, []string, error) {
 	if conf.alreadyValidated {
-		return nil, conf.cachedErr
+		return nil, nil, conf.cachedErr
 	}
 	conf.cachedErr = conf.validate(path)
 	conf.alreadyValidated = true
-	return nil, conf.cachedErr
+	return nil, nil, conf.cachedErr
 }
 
 // adjustPartialNames assumes this config comes from a place where the associated

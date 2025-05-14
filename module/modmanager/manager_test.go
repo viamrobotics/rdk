@@ -116,7 +116,7 @@ func TestModManagerFunctions(t *testing.T) {
 				API:   generic.API,
 				Model: myCounterModel,
 			}
-			_, err := cfgCounter1.Validate("test", resource.APITypeComponentName)
+			_, _, err := cfgCounter1.Validate("test", resource.APITypeComponentName)
 			test.That(t, err, test.ShouldBeNil)
 
 			parentAddr := setupSocketWithRobot(t)
@@ -276,7 +276,7 @@ func TestModManagerFunctions(t *testing.T) {
 			// as the mycounter model does not have a configuration object with Validate.
 			// Assert that ValidateConfig does not fail in this case (allows unimplemented
 			// validation).
-			deps, err := mgr.ValidateConfig(ctx, cfgCounter1)
+			deps, _, err := mgr.ValidateConfig(ctx, cfgCounter1)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, deps, test.ShouldBeNil)
 
@@ -476,7 +476,7 @@ func TestModManagerValidation(t *testing.T) {
 			"motorR": "motor2",
 		},
 	}
-	_, err := cfgMyBase1.Validate("test", resource.APITypeComponentName)
+	_, _, err := cfgMyBase1.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 	// cfgMyBase2 is missing required attributes "motorL" and "motorR" and should
 	// cause module Validation error.
@@ -485,7 +485,7 @@ func TestModManagerValidation(t *testing.T) {
 		API:   base.API,
 		Model: myBaseModel,
 	}
-	_, err = cfgMyBase2.Validate("test", resource.APITypeComponentName)
+	_, _, err = cfgMyBase2.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 
 	parentAddr := setupSocketWithRobot(t)
@@ -505,13 +505,13 @@ func TestModManagerValidation(t *testing.T) {
 	test.That(t, reg.Constructor, test.ShouldNotBeNil)
 
 	t.Log("test ValidateConfig")
-	deps, err := mgr.ValidateConfig(ctx, cfgMyBase1)
+	deps, _, err := mgr.ValidateConfig(ctx, cfgMyBase1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, deps, test.ShouldNotBeNil)
 	test.That(t, deps[0], test.ShouldResemble, "motor1")
 	test.That(t, deps[1], test.ShouldResemble, "motor2")
 
-	_, err = mgr.ValidateConfig(ctx, cfgMyBase2)
+	_, _, err = mgr.ValidateConfig(ctx, cfgMyBase2)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldResemble,
 		`rpc error: code = Unknown desc = error validating resource: expected "motorL" attribute for mybase "mybase2"`)
@@ -519,7 +519,7 @@ func TestModManagerValidation(t *testing.T) {
 	// Test that ValidateConfig respects validateConfigTimeout by artificially
 	// lowering it to an impossibly small duration.
 	validateConfigTimeout = 1 * time.Nanosecond
-	_, err = mgr.ValidateConfig(ctx, cfgMyBase1)
+	_, _, err = mgr.ValidateConfig(ctx, cfgMyBase1)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldResemble,
 		"rpc error: code = DeadlineExceeded desc = context deadline exceeded")
@@ -550,7 +550,7 @@ func TestModuleReloading(t *testing.T) {
 		API:   generic.API,
 		Model: myHelperModel,
 	}
-	_, err := cfgMyHelper.Validate("test", resource.APITypeComponentName)
+	_, _, err := cfgMyHelper.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 
 	parentAddr := setupSocketWithRobot(t)
@@ -940,7 +940,7 @@ func TestModuleMisc(t *testing.T) {
 		err = mgr.Add(ctx, modCfg)
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = cfgMyHelper.Validate("test", resource.APITypeComponentName)
+		_, _, err = cfgMyHelper.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		h, err := mgr.AddResource(ctx, cfgMyHelper, nil)
@@ -991,7 +991,7 @@ func TestModuleMisc(t *testing.T) {
 		err := mgr.Add(ctx, modCfg)
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = cfgMyHelper.Validate("test", resource.APITypeComponentName)
+		_, _, err = cfgMyHelper.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		h, err := mgr.AddResource(ctx, cfgMyHelper, nil)
@@ -1019,7 +1019,7 @@ func TestModuleMisc(t *testing.T) {
 		err := mgr.Add(ctx, modCfg)
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = cfgMyHelper.Validate("test", resource.APITypeComponentName)
+		_, _, err = cfgMyHelper.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		h, err := mgr.AddResource(ctx, cfgMyHelper, nil)
@@ -1117,7 +1117,7 @@ func TestTwoModulesRestart(t *testing.T) {
 			API:   generic.API,
 			Model: model,
 		}
-		_, err = resCfg.Validate("test", resource.APITypeComponentName)
+		_, _, err = resCfg.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		res, err := mgr.AddResource(ctx, resCfg, nil)
@@ -1181,7 +1181,7 @@ func TestRTPPassthrough(t *testing.T) {
 		API:   camera.API,
 		Model: resource.NewModel("acme", "camera", "fake"),
 	}
-	_, err := noPassConf.Validate("test", resource.APITypeComponentName)
+	_, _, err := noPassConf.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 
 	passConf := resource.Config{
@@ -1190,7 +1190,7 @@ func TestRTPPassthrough(t *testing.T) {
 		Model:      resource.NewModel("acme", "camera", "fake"),
 		Attributes: map[string]interface{}{"rtp_passthrough": true},
 	}
-	_, err = passConf.Validate("test", resource.APITypeComponentName)
+	_, _, err = passConf.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 
 	// robot config
@@ -1395,7 +1395,7 @@ func TestAddStreamMaxTrackErr(t *testing.T) {
 			Model:      model,
 			Attributes: map[string]interface{}{"rtp_passthrough": true},
 		}
-		_, err := conf.Validate("test", resource.APITypeComponentName)
+		_, _, err := conf.Validate("test", resource.APITypeComponentName)
 		confs = append(confs, conf)
 		test.That(t, err, test.ShouldBeNil)
 	}

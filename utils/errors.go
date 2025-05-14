@@ -27,11 +27,12 @@ func TypeStr[T any]() string {
 	return vT.String()
 }
 
-// NewWeakDependenciesUpdateTimeoutError is used when a resource times out during weak dependencies update.
-func NewWeakDependenciesUpdateTimeoutError(name string) error {
+// NewWeakOrOptionalDependenciesUpdateTimeoutError is used when a resource times out
+// during weak/optional dependencies update.
+func NewWeakOrOptionalDependenciesUpdateTimeoutError(name string) error {
 	timeout := GetResourceConfigurationTimeout(logging.Global())
 	id := fmt.Sprintf("resource %s", name)
-	timeoutMsg := "weak dependencies update"
+	timeoutMsg := "weak/optional dependencies update"
 	return timeoutErrorHelper(id, timeout, timeoutMsg)
 }
 

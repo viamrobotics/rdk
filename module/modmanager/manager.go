@@ -694,18 +694,18 @@ func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) erro
 }
 
 // ValidateConfig determines whether the given config is valid and returns its implicit
-// dependencies.
-func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([]string, error) {
+// required and optional dependencies.
+func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([]string, []string, error) {
 	mod, ok := mgr.getModule(conf)
 	if !ok {
-		return nil,
+		return nil, nil,
 			errors.Errorf("no module registered to serve resource api %s and model %s",
 				conf.API, conf.Model)
 	}
 
 	confProto, err := config.ComponentConfigToProto(&conf)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Override context with new timeout.
@@ -717,12 +717,12 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 	// Swallow "Unimplemented" gRPC errors from modules that lack ValidateConfig
 	// receiving logic.
 	if err != nil && status.Code(err) == codes.Unimplemented {
-		return nil, nil
+		return nil, nil, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return resp.Dependencies, nil
+	return resp.Dependencies, resp.OptionalDependencies, nil
 }
 
 // ResolveImplicitDependenciesInConfig mutates the passed in diff to add modular implicit dependencies to added
@@ -804,14 +804,15 @@ func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, con
 	validateModularResources := func(confs []resource.Config) {
 		for i, c := range confs {
 			if mgr.Provides(c) {
-				implicitDeps, err := mgr.ValidateConfig(ctx, c)
+				implicitRequiredDeps, implicitOptionalDeps, err := mgr.ValidateConfig(ctx, c)
 				if err != nil {
 					mgr.logger.CErrorw(ctx, "Modular config validation error found in resource: "+c.Name, "error", err)
 					continue
 				}
 
-				// Modify resource config to add its implicit dependencies.
-				confs[i].ImplicitDependsOn = implicitDeps
+				// Modify resource config to add its implicit required and optional dependencies.
+				confs[i].ImplicitDependsOn = implicitRequiredDeps
+				confs[i].ImplicitOptionalDependsOn = implicitOptionalDeps
 			}
 		}
 	}

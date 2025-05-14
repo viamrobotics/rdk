@@ -62,8 +62,8 @@ type Config struct {
 }
 
 // Validate ensures all parts of a config is valid.
-func (cfg *Config) Validate(path string) ([]string, error) {
-	return nil, nil
+func (cfg *Config) Validate(path string) ([]string, []string, error) {
+	return nil, nil, nil
 }
 
 // fakeEncoder keeps track of a fake motor position.

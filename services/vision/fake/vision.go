@@ -62,8 +62,8 @@ func fakeDetector(ctx context.Context, img image.Image) ([]objectdetection.Detec
 type Config struct{}
 
 // Validate checks that the config attributes are valid for a fake camera.
-func (conf *Config) Validate(path string) ([]string, error) {
-	return nil, nil
+func (conf *Config) Validate(path string) ([]string, []string, error) {
+	return nil, nil, nil
 }
 
 // registerFake creates a new fake vision service from the config.
