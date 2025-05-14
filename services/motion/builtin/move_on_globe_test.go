@@ -331,7 +331,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 10, Y: 10, Z: 10}, caseName)
 				test.That(t, err, test.ShouldBeNil)
 
-				detection, err := viz.NewObjectWithLabel(pointcloud.New(), caseName+"-detection", box.ToProtobuf())
+				detection, err := viz.NewObjectWithLabel(pointcloud.NewBasicEmpty(), caseName+"-detection", box.ToProtobuf())
 				test.That(t, err, test.ShouldBeNil)
 
 				return []*viz.Object{detection}, nil
@@ -352,7 +352,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 40, Y: 10, Z: 40}, caseName)
 				test.That(t, err, test.ShouldBeNil)
 
-				detection, err := viz.NewObjectWithLabel(pointcloud.New(), caseName+"-detection", box.ToProtobuf())
+				detection, err := viz.NewObjectWithLabel(pointcloud.NewBasicEmpty(), caseName+"-detection", box.ToProtobuf())
 				test.That(t, err, test.ShouldBeNil)
 
 				return []*viz.Object{detection}, nil
@@ -371,7 +371,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 1, Y: 10, Z: 1}, caseName)
 				test.That(t, err, test.ShouldBeNil)
 
-				detection, err := viz.NewObjectWithLabel(pointcloud.New(), caseName+"-detection", box.ToProtobuf())
+				detection, err := viz.NewObjectWithLabel(pointcloud.NewBasicEmpty(), caseName+"-detection", box.ToProtobuf())
 				test.That(t, err, test.ShouldBeNil)
 
 				return []*viz.Object{detection}, nil
