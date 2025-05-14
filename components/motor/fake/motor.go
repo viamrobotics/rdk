@@ -21,7 +21,8 @@ import (
 )
 
 var (
-	model         = resource.DefaultModelFamily.WithModel("fake")
+	// Model is the fake motor's model.
+	Model         = resource.DefaultModelFamily.WithModel("fake")
 	fakeBoardConf = resource.Config{
 		Name: "fakeboard",
 		API:  board.API,
@@ -55,22 +56,22 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *Config) Validate(path string) ([]string, error) {
+func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	var deps []string
 	if cfg.BoardName != "" {
 		deps = append(deps, cfg.BoardName)
 	}
 	if cfg.Encoder != "" {
 		if cfg.TicksPerRotation <= 0 {
-			return nil, resource.NewConfigValidationError(path, errors.New("need nonzero TicksPerRotation for encoded motor"))
+			return nil, nil, resource.NewConfigValidationError(path, errors.New("need nonzero TicksPerRotation for encoded motor"))
 		}
 		deps = append(deps, cfg.Encoder)
 	}
-	return deps, nil
+	return deps, nil, nil
 }
 
 func init() {
-	resource.RegisterComponent(motor.API, model, resource.Registration[motor.Motor, *Config]{
+	resource.RegisterComponent(motor.API, Model, resource.Registration[motor.Motor, *Config]{
 		Constructor: NewMotor,
 	})
 }

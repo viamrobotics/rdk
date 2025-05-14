@@ -315,12 +315,13 @@ func TestMoveCallInputs(t *testing.T) {
 					Destination:   goalPose,
 					SlamName:      slam.Named("test_slam"),
 					MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: 10},
-					Extra:         map[string]interface{}{"collision_buffer_mm": 200.},
+					Extra:         map[string]interface{}{"collision_buffer_mm": 2000.},
 				}
 
 				timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
 				defer timeoutFn()
 				executionID, err := ms.(*builtIn).MoveOnMap(timeoutCtx, req)
+				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, strings.Contains(err.Error(), "starting collision between SLAM map and "), test.ShouldBeTrue)
 				test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 			})
@@ -689,7 +690,7 @@ func TestMoveCallInputs(t *testing.T) {
 			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 		})
 
-		t.Run("collision_buffer_mm validtations", func(t *testing.T) {
+		t.Run("collision_buffer_mm validations", func(t *testing.T) {
 			t.Run("fail when collision_buffer_mm is not a float", func(t *testing.T) {
 				_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
 				defer closeFunc(ctx)

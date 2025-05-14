@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"net"
 	"os"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -53,10 +53,52 @@ type module struct {
 
 	// pendingRemoval allows delaying module close until after resources within it are closed
 	pendingRemoval bool
-	logger         logging.Logger
-	ftdc           *ftdc.FTDC
-	// port stores the listen port of this module when ViamTCPSockets() = true.
-	port int
+
+	logger logging.Logger
+	ftdc   *ftdc.FTDC
+}
+
+// dial will Dial the module and replace the underlying connection (if it exists) in m.conn.
+func (m *module) dial() error {
+	// TODO(PRODUCT-343): session support probably means interceptors here
+	var err error
+	addrToDial := m.addr
+	if !rutils.TCPRegex.MatchString(addrToDial) {
+		addrToDial = "unix://" + addrToDial
+	}
+	conn, err := grpc.Dial( //nolint:staticcheck
+		addrToDial,
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(rpc.MaxMessageSize)),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithChainUnaryInterceptor(
+			rdkgrpc.EnsureTimeoutUnaryClientInterceptor,
+			grpc_retry.UnaryClientInterceptor(),
+			operation.UnaryClientInterceptor,
+		),
+		grpc.WithChainStreamInterceptor(
+			grpc_retry.StreamClientInterceptor(),
+			operation.StreamClientInterceptor,
+		),
+	)
+	if err != nil {
+		return errors.WithMessage(err, "module startup failed")
+	}
+
+	// Take the grpc over unix socket connection and add it to this `module`s `SharedConn`
+	// object. This `m.sharedConn` object is referenced by all resources/components. `Client`
+	// objects communicating with the module. If we're re-dialing after a restart, there may be
+	// existing resource `Client`s objects. Rather than recreating clients with new information, we
+	// choose to "swap out" the underlying connection object for those existing `Client`s.
+	//
+	// Resetting the `SharedConn` will also create a new WebRTC PeerConnection object. `dial`ing to
+	// a module is followed by doing a `ReadyRequest` `ReadyResponse` exchange. If that exchange
+	// contains a working WebRTC offer and answer, the PeerConnection will succeed in connecting. If
+	// there is an error exchanging offers and answers, the PeerConnection object will be nil'ed
+	// out.
+	m.sharedConn.ResetConn(rpc.GrpcOverHTTPClientConn{ClientConn: conn}, m.logger)
+	m.client = pb.NewModuleServiceClient(m.sharedConn.GrpcConn())
+	m.robotClient = robotpb.NewRobotServiceClient(m.sharedConn.GrpcConn())
+	return nil
 }
 
 // checkReady sends a `ReadyRequest` and waits for either a `ReadyResponse`, or a context
@@ -106,157 +148,6 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 	}
 }
 
-func (m *module) cleanupAfterCrash(mgr *Manager) {
-	utils.UncheckedError(m.sharedConn.Close())
-	mgr.rMap.Range(func(r resource.Name, mod *module) bool {
-		if mod == m {
-			mgr.rMap.Delete(r)
-		}
-		return true
-	})
-	mgr.modules.Delete(m.cfg.Name)
-}
-
-func (m *module) getFullEnvironment(viamHomeDir string) map[string]string {
-	return getFullEnvironment(m.cfg, m.dataDir, viamHomeDir)
-}
-
-func (m *module) getFTDCName() string {
-	return fmt.Sprintf("proc.modules.%s", m.process.ID())
-}
-
-func (m *module) registerProcessWithFTDC() {
-	if m.ftdc == nil {
-		return
-	}
-
-	pid, err := m.process.UnixPid()
-	if err != nil {
-		m.logger.Warnw("Module process has no pid. Cannot start ftdc.", "err", err)
-		return
-	}
-
-	statser, err := sys.NewPidSysUsageStatser(pid)
-	if err != nil {
-		m.logger.Warnw("Cannot find /proc files", "err", err)
-		return
-	}
-
-	m.ftdc.Add(m.getFTDCName(), statser)
-}
-
-func (m *module) killProcessGroup() {
-	if m.process == nil {
-		return
-	}
-	m.logger.Infof("Killing module: %s process", m.cfg.Name)
-	m.process.KillGroup()
-}
-
-func (m *module) registerResources(mgr modmaninterface.ModuleManager) {
-	for api, models := range m.handles {
-		if _, ok := resource.LookupGenericAPIRegistration(api.API); !ok {
-			resource.RegisterAPI(
-				api.API,
-				resource.APIRegistration[resource.Resource]{ReflectRPCServiceDesc: api.Desc},
-			)
-		}
-
-		switch {
-		case api.API.IsComponent():
-			for _, model := range models {
-				m.logger.Infow("Registering component API and model from module", "module", m.cfg.Name, "API", api.API, "model", model)
-				resource.RegisterComponent(api.API, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
-					Constructor: func(
-						ctx context.Context,
-						deps resource.Dependencies,
-						conf resource.Config,
-						logger logging.Logger,
-					) (resource.Resource, error) {
-						return mgr.AddResource(ctx, conf, DepsToNames(deps))
-					},
-				})
-			}
-		case api.API.IsService():
-			for _, model := range models {
-				m.logger.Infow("Registering service API and model from module", "module", m.cfg.Name, "API", api.API, "model", model)
-				resource.RegisterService(api.API, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
-					Constructor: func(
-						ctx context.Context,
-						deps resource.Dependencies,
-						conf resource.Config,
-						logger logging.Logger,
-					) (resource.Resource, error) {
-						return mgr.AddResource(ctx, conf, DepsToNames(deps))
-					},
-				})
-			}
-		default:
-			m.logger.Errorw("Invalid module type", "API type", api.API.Type)
-		}
-	}
-}
-
-func (m *module) deregisterResources() {
-	for api, models := range m.handles {
-		for _, model := range models {
-			resource.Deregister(api.API, model)
-		}
-	}
-	m.handles = nil
-}
-
-func (m *module) cleanupAfterStartupFailure() {
-	if err := m.stopProcess(); err != nil {
-		msg := "Error while stopping process of module that failed to start"
-		m.logger.Errorw(msg, "module", m.cfg.Name, "error", err)
-	}
-	utils.UncheckedError(m.sharedConn.Close())
-}
-
-// dial will Dial the module and replace the underlying connection (if it exists) in m.conn.
-func (m *module) dial() error {
-	// TODO(PRODUCT-343): session support probably means interceptors here
-	var err error
-	addrToDial := m.addr
-	if !rutils.TCPRegex.MatchString(addrToDial) {
-		addrToDial = "unix://" + addrToDial
-	}
-	conn, err := grpc.Dial( //nolint:staticcheck
-		addrToDial,
-		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(rpc.MaxMessageSize)),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithChainUnaryInterceptor(
-			rdkgrpc.EnsureTimeoutUnaryClientInterceptor,
-			grpc_retry.UnaryClientInterceptor(),
-			operation.UnaryClientInterceptor,
-		),
-		grpc.WithChainStreamInterceptor(
-			grpc_retry.StreamClientInterceptor(),
-			operation.StreamClientInterceptor,
-		),
-	)
-	if err != nil {
-		return errors.WithMessage(err, "module startup failed")
-	}
-
-	// Take the grpc over unix socket connection and add it to this `module`s `SharedConn`
-	// object. This `m.sharedConn` object is referenced by all resources/components. `Client`
-	// objects communicating with the module. If we're re-dialing after a restart, there may be
-	// existing resource `Client`s objects. Rather than recreating clients with new information, we
-	// choose to "swap out" the underlying connection object for those existing `Client`s.
-	//
-	// Resetting the `SharedConn` will also create a new WebRTC PeerConnection object. `dial`ing to
-	// a module is followed by doing a `ReadyRequest` `ReadyResponse` exchange. If that exchange
-	// contains a working WebRTC offer and answer, the PeerConnection will succeed in connecting. If
-	// there is an error exchanging offers and answers, the PeerConnection object will be nil'ed
-	// out.
-	m.sharedConn.ResetConn(rpc.GrpcOverHTTPClientConn{ClientConn: conn}, m.logger)
-	m.client = pb.NewModuleServiceClient(m.sharedConn.GrpcConn())
-	m.robotClient = robotpb.NewRobotServiceClient(m.sharedConn.GrpcConn())
-	return nil
-}
-
 func (m *module) startProcess(
 	ctx context.Context,
 	parentAddr string,
@@ -267,7 +158,11 @@ func (m *module) startProcess(
 	var err error
 
 	if rutils.ViamTCPSockets() {
-		m.addr = "127.0.0.1:" + strconv.Itoa(m.port)
+		if addr, err := getAutomaticPort(); err != nil {
+			return err
+		} else { //nolint:revive
+			m.addr = addr
+		}
 	} else {
 		// append a random alpha string to the module name while creating a socket address to avoid conflicts
 		// with old versions of the module.
@@ -400,12 +295,130 @@ func (m *module) stopProcess() error {
 		if strings.Contains(err.Error(), errMessageExitStatus143) || strings.Contains(err.Error(), "no such process") {
 			return nil
 		}
-		// Even though we got an error the process is dead; task failed successfully.
-		if statusErr := m.process.Status(); errors.Is(statusErr, os.ErrProcessDone) {
-			return nil
-		}
 		return err
 	}
 
 	return nil
+}
+
+func (m *module) killProcessGroup() {
+	if m.process == nil {
+		return
+	}
+	m.logger.Infof("Killing module: %s process", m.cfg.Name)
+	m.process.KillGroup()
+}
+
+func (m *module) registerResources(mgr modmaninterface.ModuleManager) {
+	for api, models := range m.handles {
+		if _, ok := resource.LookupGenericAPIRegistration(api.API); !ok {
+			resource.RegisterAPI(
+				api.API,
+				resource.APIRegistration[resource.Resource]{ReflectRPCServiceDesc: api.Desc},
+			)
+		}
+
+		switch {
+		case api.API.IsComponent():
+			for _, model := range models {
+				m.logger.Infow("Registering component API and model from module", "module", m.cfg.Name, "API", api.API, "model", model)
+				resource.RegisterComponent(api.API, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+					Constructor: func(
+						ctx context.Context,
+						deps resource.Dependencies,
+						conf resource.Config,
+						logger logging.Logger,
+					) (resource.Resource, error) {
+						return mgr.AddResource(ctx, conf, DepsToNames(deps))
+					},
+				})
+			}
+		case api.API.IsService():
+			for _, model := range models {
+				m.logger.Infow("Registering service API and model from module", "module", m.cfg.Name, "API", api.API, "model", model)
+				resource.RegisterService(api.API, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+					Constructor: func(
+						ctx context.Context,
+						deps resource.Dependencies,
+						conf resource.Config,
+						logger logging.Logger,
+					) (resource.Resource, error) {
+						return mgr.AddResource(ctx, conf, DepsToNames(deps))
+					},
+				})
+			}
+		default:
+			m.logger.Errorw("Invalid module type", "API type", api.API.Type)
+		}
+	}
+}
+
+func (m *module) deregisterResources() {
+	for api, models := range m.handles {
+		for _, model := range models {
+			resource.Deregister(api.API, model)
+		}
+	}
+	m.handles = nil
+}
+
+func (m *module) cleanupAfterStartupFailure() {
+	if err := m.stopProcess(); err != nil {
+		msg := "Error while stopping process of module that failed to start"
+		m.logger.Errorw(msg, "module", m.cfg.Name, "error", err)
+	}
+	utils.UncheckedError(m.sharedConn.Close())
+}
+
+func (m *module) cleanupAfterCrash(mgr *Manager) {
+	utils.UncheckedError(m.sharedConn.Close())
+	mgr.rMap.Range(func(r resource.Name, mod *module) bool {
+		if mod == m {
+			mgr.rMap.Delete(r)
+		}
+		return true
+	})
+	mgr.modules.Delete(m.cfg.Name)
+}
+
+func (m *module) getFullEnvironment(viamHomeDir string) map[string]string {
+	return getFullEnvironment(m.cfg, m.dataDir, viamHomeDir)
+}
+
+func (m *module) getFTDCName() string {
+	return fmt.Sprintf("proc.modules.%s", m.process.ID())
+}
+
+func (m *module) registerProcessWithFTDC() {
+	if m.ftdc == nil {
+		return
+	}
+
+	pid, err := m.process.UnixPid()
+	if err != nil {
+		m.logger.Warnw("Module process has no pid. Cannot start ftdc.", "err", err)
+		return
+	}
+
+	statser, err := sys.NewPidSysUsageStatser(pid)
+	if err != nil {
+		m.logger.Warnw("Cannot find /proc files", "err", err)
+		return
+	}
+
+	m.ftdc.Add(m.getFTDCName(), statser)
+}
+
+// Return an address string with an auto-assigned port.
+// This gets closed and then passed down to the module child process.
+func getAutomaticPort() (string, error) {
+	listener, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		return "", err
+	}
+	addr := listener.Addr().String()
+	if err := listener.Close(); err != nil {
+		return "", err
+	}
+	return addr, nil
 }

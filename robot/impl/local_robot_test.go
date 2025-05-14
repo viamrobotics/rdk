@@ -866,8 +866,8 @@ type someConfig struct {
 	Thing string
 }
 
-func (someConfig) Validate(path string) ([]string, error) {
-	return nil, errors.New("fail")
+func (someConfig) Validate(path string) ([]string, []string, error) {
+	return nil, nil, errors.New("fail")
 }
 
 func TestValidationErrorOnReconfigure(t *testing.T) {
@@ -2890,11 +2890,11 @@ func newMockConfig(name string, val int, fail bool, sleep string) resource.Confi
 
 var errMockValidation = errors.New("whoops")
 
-func (cfg *mockConfig) Validate(path string) ([]string, error) {
+func (cfg *mockConfig) Validate(path string) ([]string, []string, error) {
 	if cfg.Fail {
-		return nil, errMockValidation
+		return nil, nil, errMockValidation
 	}
-	return []string{}, nil
+	return []string{}, nil, nil
 }
 
 func newMock(

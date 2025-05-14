@@ -119,12 +119,12 @@ type executionWaypoint struct {
 var emptyExecutionWaypoint = executionWaypoint{}
 
 // Validate creates the list of implicit dependencies.
-func (conf *Config) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, []string, error) {
 	var deps []string
 
 	// Add base dependencies
 	if conf.BaseName == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "base")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "base")
 	}
 	deps = append(deps, conf.BaseName)
 
@@ -143,15 +143,15 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	// Ensure map_type is valid and a movement sensor is available if MapType is GPS (or default)
 	mapType, err := navigation.StringToMapType(conf.MapType)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if mapType == navigation.GPSMap && conf.MovementSensorName == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "movement_sensor")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "movement_sensor")
 	}
 
 	for _, obstacleDetectorPair := range conf.ObstacleDetectors {
 		if obstacleDetectorPair.VisionServiceName == "" || obstacleDetectorPair.CameraName == "" {
-			return nil, resource.NewConfigValidationError(path, errors.New("an obstacle detector is missing either a camera or vision service"))
+			return nil, nil, resource.NewConfigValidationError(path, errors.New("an obstacle detector is missing either a camera or vision service"))
 		}
 		deps = append(deps, resource.NewName(vision.API, obstacleDetectorPair.VisionServiceName).String())
 		deps = append(deps, resource.NewName(camera.API, obstacleDetectorPair.CameraName).String())
@@ -159,34 +159,34 @@ func (conf *Config) Validate(path string) ([]string, error) {
 
 	// Ensure store is valid
 	if err := conf.Store.Validate(path); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Ensure inputs are non-negative
 	if conf.DegPerSec < 0 {
-		return nil, errNegativeDegPerSec
+		return nil, nil, errNegativeDegPerSec
 	}
 	if conf.MetersPerSec < 0 {
-		return nil, errNegativeMetersPerSec
+		return nil, nil, errNegativeMetersPerSec
 	}
 	if conf.PositionPollingFrequencyHz < 0 {
-		return nil, errNegativePositionPollingFrequencyHz
+		return nil, nil, errNegativePositionPollingFrequencyHz
 	}
 	if conf.ObstaclePollingFrequencyHz < 0 {
-		return nil, errNegativeObstaclePollingFrequencyHz
+		return nil, nil, errNegativeObstaclePollingFrequencyHz
 	}
 	if conf.PlanDeviationM < 0 {
-		return nil, errNegativePlanDeviationM
+		return nil, nil, errNegativePlanDeviationM
 	}
 	if conf.ReplanCostFactor < 0 {
-		return nil, errNegativeReplanCostFactor
+		return nil, nil, errNegativeReplanCostFactor
 	}
 
 	// Ensure obstacles have no translation
 	for _, obs := range conf.Obstacles {
 		for _, geoms := range obs.Geometries {
 			if !geoms.TranslationOffset.ApproxEqual(r3.Vector{}) {
-				return nil, errObstacleGeomWithTranslation
+				return nil, nil, errObstacleGeomWithTranslation
 			}
 		}
 	}
@@ -195,7 +195,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	for _, region := range conf.BoundingRegions {
 		for _, geoms := range region.Geometries {
 			if !geoms.TranslationOffset.ApproxEqual(r3.Vector{}) {
-				return nil, errBoundingRegionsGeomWithTranslation
+				return nil, nil, errBoundingRegionsGeomWithTranslation
 			}
 		}
 	}
@@ -203,7 +203,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	// add framesystem service as dependency to be used by builtin and explore motion service
 	deps = append(deps, framesystem.InternalServiceName.String())
 
-	return deps, nil
+	return deps, nil, nil
 }
 
 // NewBuiltIn returns a new navigation service for the given robot.

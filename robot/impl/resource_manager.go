@@ -635,15 +635,16 @@ func (manager *resourceManager) completeConfig(
 	levels := manager.resources.ReverseTopologicalSortInLevels()
 	timeout := rutils.GetResourceConfigurationTimeout(manager.logger)
 	for _, resourceNames := range levels {
-		// At the start of every reconfiguration level, check if updateWeakDependents should be run
-		// by checking if the logical clock is higher than the `lastWeakDependentsRound` value.
+		// At the start of every reconfiguration level, check if
+		// updateWeakAndOptionalDependents should be run by checking if the logical clock is
+		// higher than the `lastWeakAndOptionalDependentsRound` value.
 		//
-		// This will make sure that weak dependents are updated before they are passed into constructors
-		// or reconfigure methods.
+		// This will make sure that weak and optional dependents are updated before they are
+		// passed into constructors or reconfigure methods.
 		//
-		// Resources that depend on weak dependents should expect that the weak dependents pass into the
-		// constructor or reconfigure method will only have been reconfigured with all resources constructed
-		// before their level.
+		// Resources that depend on weak or optional dependents should expect that the
+		// weak/optional dependents passed into the constructor or reconfigure method will
+		// only have been reconfigured with all resources constructed before their level.
 		for _, resName := range resourceNames {
 			select {
 			case <-ctx.Done():
@@ -658,8 +659,8 @@ func (manager *resourceManager) completeConfig(
 				continue
 			}
 
-			if lr.lastWeakDependentsRound.Load() < manager.resources.CurrLogicalClockValue() {
-				lr.updateWeakDependents(ctx)
+			if lr.lastWeakAndOptionalDependentsRound.Load() < manager.resources.CurrLogicalClockValue() {
+				lr.updateWeakAndOptionalDependents(ctx)
 			}
 		}
 		// we use an errgroup here instead of a normal waitgroup to conveniently bubble
@@ -717,7 +718,7 @@ func (manager *resourceManager) completeConfig(
 					manager.logger.CInfow(ctx, fmt.Sprintf("Now %s resource", verb), "resource", resName)
 
 					// this is done in config validation but partial start rules require us to check again
-					if _, err := conf.Validate("", resName.API.Type.Name); err != nil {
+					if _, _, err := conf.Validate("", resName.API.Type.Name); err != nil {
 						gNode.LogAndSetLastError(
 							fmt.Errorf("resource config validation error: %w", err),
 							"resource", conf.ResourceName(),
@@ -725,7 +726,7 @@ func (manager *resourceManager) completeConfig(
 						return
 					}
 					if manager.moduleManager.Provides(conf) {
-						if _, err := manager.moduleManager.ValidateConfig(ctxWithTimeout, conf); err != nil {
+						if _, _, err := manager.moduleManager.ValidateConfig(ctxWithTimeout, conf); err != nil {
 							gNode.LogAndSetLastError(
 								fmt.Errorf("modular resource config validation error: %w", err),
 								"resource", conf.ResourceName(),
@@ -819,50 +820,65 @@ func (manager *resourceManager) completeConfig(
 }
 
 func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr *localRobot) {
+	// Add remotes in parallel. This is particularly useful in cases where
+	// there are many remotes that are offline or slow to start up.
+	var remoteErrGroup errgroup.Group
+	remoteErrGroup.SetLimit(5)
 	for _, resName := range manager.resources.FindNodesByAPI(client.RemoteAPI) {
 		gNode, ok := manager.resources.Node(resName)
 		if !ok || !gNode.NeedsReconfigure() {
 			continue
 		}
-		var verb string
-		if gNode.IsUninitialized() {
-			verb = "configuring"
-		} else {
-			verb = "reconfiguring"
-		}
-		manager.logger.CInfow(ctx, fmt.Sprintf("Now %s a remote", verb), "resource", resName)
-		switch resName.API {
-		case client.RemoteAPI:
-			remConf, err := resource.NativeConfig[*config.Remote](gNode.Config())
-			if err != nil {
-				manager.logger.CErrorw(ctx, "remote config error", "error", err)
-				continue
-			}
+		processAndCompleteConfigForRemote := func() {
+			var verb string
 			if gNode.IsUninitialized() {
-				gNode.InitializeLogger(
-					manager.logger, fromRemoteNameToRemoteNodeName(remConf.Name).String(),
-				)
+				verb = "configuring"
+			} else {
+				verb = "reconfiguring"
 			}
-			// this is done in config validation but partial start rules require us to check again
-			if _, err := remConf.Validate(""); err != nil {
-				gNode.LogAndSetLastError(
-					fmt.Errorf("remote config validation error: %w", err), "remote", remConf.Name)
-				continue
+			manager.logger.CInfow(ctx, fmt.Sprintf("Now %s a remote", verb), "resource", resName)
+			switch resName.API {
+			case client.RemoteAPI:
+				remConf, err := resource.NativeConfig[*config.Remote](gNode.Config())
+				if err != nil {
+					manager.logger.CErrorw(ctx, "remote config error", "error", err)
+					return
+				}
+				if gNode.IsUninitialized() {
+					gNode.InitializeLogger(
+						manager.logger, fromRemoteNameToRemoteNodeName(remConf.Name).String(),
+					)
+				}
+				// this is done in config validation but partial start rules require us to check again
+				if _, _, err := remConf.Validate(""); err != nil {
+					gNode.LogAndSetLastError(
+						fmt.Errorf("remote config validation error: %w", err), "remote", remConf.Name)
+					return
+				}
+				rr, err := manager.processRemote(ctx, *remConf, gNode)
+				if err != nil {
+					gNode.LogAndSetLastError(
+						fmt.Errorf("error connecting to remote: %w", err), "remote", remConf.Name)
+					return
+				}
+				manager.addRemote(ctx, rr, gNode, *remConf)
+				rr.SetParentNotifier(func() {
+					lr.sendTriggerConfig(remConf.Name)
+				})
+			default:
+				err := errors.New("config is not a remote config")
+				manager.logger.CErrorw(ctx, err.Error(), "resource", resName)
 			}
-			rr, err := manager.processRemote(ctx, *remConf, gNode)
-			if err != nil {
-				gNode.LogAndSetLastError(
-					fmt.Errorf("error connecting to remote: %w", err), "remote", remConf.Name)
-				continue
-			}
-			manager.addRemote(ctx, rr, gNode, *remConf)
-			rr.SetParentNotifier(func() {
-				lr.sendTriggerConfig(remConf.Name)
-			})
-		default:
-			err := errors.New("config is not a remote config")
-			manager.logger.CErrorw(ctx, err.Error(), "resource", resName)
 		}
+		lr.reconfigureWorkers.Add(1)
+		remoteErrGroup.Go(func() error {
+			defer lr.reconfigureWorkers.Done()
+			processAndCompleteConfigForRemote()
+			return nil
+		})
+	}
+	if err := remoteErrGroup.Wait(); err != nil {
+		return
 	}
 }
 

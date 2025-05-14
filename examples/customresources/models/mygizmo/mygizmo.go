@@ -21,13 +21,13 @@ type Config struct {
 
 // Validate ensures that `Arg1` is a non-empty string.
 // Validation error will stop the associated resource from building.
-func (cfg *Config) Validate(path string) ([]string, error) {
+func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	if cfg.Arg1 == "" {
-		return nil, fmt.Errorf(`expected "arg1" attribute for myGizmo %q`, path)
+		return nil, nil, fmt.Errorf(`expected "arg1" attribute for myGizmo %q`, path)
 	}
 
 	// there are no dependencies for this model, so we return an empty list of strings
-	return []string{}, nil
+	return []string{}, nil, nil
 }
 
 func init() {

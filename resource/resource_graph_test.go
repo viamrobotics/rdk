@@ -678,13 +678,13 @@ func TestResourceGraphFindNodeByName(t *testing.T) {
 			test.That(t, gA.AddChild(component.Name, dep), test.ShouldBeNil)
 		}
 	}
-	names := gA.findNodesByShortName("A")
+	names := gA.FindNodesByShortName("A")
 	test.That(t, names, test.ShouldHaveLength, 1)
-	names = gA.findNodesByShortName("B")
+	names = gA.FindNodesByShortName("B")
 	test.That(t, names, test.ShouldHaveLength, 1)
-	names = gA.findNodesByShortName("C")
+	names = gA.FindNodesByShortName("C")
 	test.That(t, names, test.ShouldHaveLength, 1)
-	names = gA.findNodesByShortName("D")
+	names = gA.FindNodesByShortName("D")
 	test.That(t, names, test.ShouldHaveLength, 0)
 }
 

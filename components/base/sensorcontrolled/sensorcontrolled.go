@@ -45,26 +45,26 @@ type Config struct {
 }
 
 // Validate validates all parts of the sensor controlled base config.
-func (cfg *Config) Validate(path string) ([]string, error) {
+func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	deps := []string{}
 	if len(cfg.MovementSensor) == 0 {
-		return nil, resource.NewConfigValidationError(path, errors.New("need at least one movement sensor for base"))
+		return nil, nil, resource.NewConfigValidationError(path, errors.New("need at least one movement sensor for base"))
 	}
 	deps = append(deps, cfg.MovementSensor...)
 
 	if cfg.Base == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "base")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "base")
 	}
 	deps = append(deps, cfg.Base)
 
 	for _, pidConf := range cfg.ControlParameters {
 		if pidConf.Type != typeLinVel && pidConf.Type != typeAngVel {
-			return nil, resource.NewConfigValidationError(path,
+			return nil, nil, resource.NewConfigValidationError(path,
 				errors.New("control_parameters type must be 'linear_velocity' or 'angular_velocity'"))
 		}
 	}
 
-	return deps, nil
+	return deps, nil, nil
 }
 
 type sensorBase struct {

@@ -67,22 +67,22 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (conf *Config) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, []string, error) {
 	var deps []string
 
 	if conf.Pins.A == "" {
-		return nil, errors.New("expected nonempty string for a")
+		return nil, nil, errors.New("expected nonempty string for a")
 	}
 	if conf.Pins.B == "" {
-		return nil, errors.New("expected nonempty string for b")
+		return nil, nil, errors.New("expected nonempty string for b")
 	}
 
 	if len(conf.BoardName) == 0 {
-		return nil, errors.New("expected nonempty board")
+		return nil, nil, errors.New("expected nonempty board")
 	}
 	deps = append(deps, conf.BoardName)
 
-	return deps, nil
+	return deps, nil, nil
 }
 
 // NewIncrementalEncoder creates a new Encoder.

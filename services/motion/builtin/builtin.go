@@ -65,6 +65,7 @@ const (
 	defaultLinearMPerSec               = 0.3
 	defaultSlamPlanDeviationM          = 1.
 	defaultGlobePlanDeviationM         = 2.6
+	defaultCollisionBuffer             = 150. // mm
 )
 
 var (
@@ -91,8 +92,8 @@ type Config struct {
 }
 
 // Validate here adds a dependency on the internal framesystem service.
-func (c *Config) Validate(path string) ([]string, error) {
-	return []string{framesystem.InternalServiceName.String()}, nil
+func (c *Config) Validate(path string) ([]string, []string, error) {
+	return []string{framesystem.InternalServiceName.String()}, nil, nil
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.
@@ -251,6 +252,9 @@ func newValidatedExtra(extra map[string]interface{}) (validatedExtra, error) {
 
 	if _, ok := extra["smooth_iter"]; !ok {
 		extra["smooth_iter"] = defaultSmoothIter
+	}
+	if _, ok := extra["collision_buffer_mm"]; !ok {
+		extra["collision_buffer_mm"] = defaultCollisionBuffer
 	}
 
 	return validatedExtra{
