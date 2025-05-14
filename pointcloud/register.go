@@ -15,7 +15,7 @@ type TypeConfig struct {
 func Register(cfg TypeConfig) {
 	_, ok := pcTypes[cfg.StructureType]
 	if ok {
-		panic(fmt.Errorf("type already registed for [%s]", cfg.StructureType))
+		panic(fmt.Errorf("type already registered for [%s]", cfg.StructureType))
 	}
 	pcTypes[cfg.StructureType] = cfg
 }
@@ -27,7 +27,7 @@ func Find(pcStructureType string) (TypeConfig, error) {
 	
 	cfg, ok := pcTypes[pcStructureType]
 	if !ok {
-		return TypeConfig{}, fmt.Errorf("no point cloud type registerd for [%s]", pcStructureType)
+		return TypeConfig{}, fmt.Errorf("no point cloud type registered for [%s]", pcStructureType)
 	}
 	return cfg, nil
 }

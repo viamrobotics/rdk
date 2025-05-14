@@ -217,7 +217,7 @@ func Limits(ctx context.Context, svc Service, useEditedMap bool) ([]referencefra
 	if err != nil {
 		return nil, err
 	}
-	pc, err := pointcloud.ReadPCD("", bytes.NewReader(data))
+	pc, err := pointcloud.ReadPCD(bytes.NewReader(data), "")
 	if err != nil {
 		return nil, err
 	}

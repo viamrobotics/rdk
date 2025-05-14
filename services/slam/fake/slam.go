@@ -122,7 +122,7 @@ func (slamSvc *SLAM) Limits(ctx context.Context, useEditedMap bool) ([]reference
 		return nil, err
 	}
 
-	pc, err := pointcloud.ReadPCD("", bytes.NewReader(data))
+	pc, err := pointcloud.ReadPCD(bytes.NewReader(data), "")
 	if err != nil {
 		return nil, err
 	}

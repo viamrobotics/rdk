@@ -1,6 +1,7 @@
 package pointcloud
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -46,9 +47,13 @@ func (cloud *roundingPointCloud) At(x, y, z float64) (Data, bool) {
 
 // Set validates that the point can be precisely stored before setting it in the cloud.
 func (cloud *roundingPointCloud) Set(p r3.Vector, d Data) error {
+	fmt.Printf("a: %v\n", p)
 	p = r3.Vector{math.Round(p.X), math.Round(p.Y), math.Round(p.Z)}
+	fmt.Printf("b: %v\n", p)
 	_, pointExists := cloud.At(p.X, p.Y, p.Z)
 	if err := cloud.points.Set(p, d); err != nil {
+		fmt.Printf("bad %v\n", err)
+		
 		return err
 	}
 	if !pointExists {

@@ -46,7 +46,7 @@ func NewFromFile(filename, pcStructureType string) (PointCloud, error) {
 		if err != nil {
 			return nil, err
 		}
-		return readPCD(cfg, f)
+		return readPCD(f, cfg)
 	default:
 		return nil, errors.Errorf("do not know how to read file %q", filename)
 	}
@@ -336,16 +336,16 @@ func parsePCDHeader(in *bufio.Reader) (*pcdHeader, error) {
 	return header, nil
 }
 
-func ReadPCD(pcStructureType string, inRaw io.Reader) (PointCloud, error) {
+func ReadPCD(inRaw io.Reader, pcStructureType string) (PointCloud, error) {
 	cfg, err := Find(pcStructureType)
 	if err != nil {
 		return nil, err
 	}
-	return readPCD(cfg, inRaw)
+	return readPCD(inRaw, cfg)
 }
 
 
-func readPCD(cfg TypeConfig, inRaw io.Reader) (PointCloud, error) {
+func readPCD(inRaw io.Reader, cfg TypeConfig) (PointCloud, error) {
 	pc, err := readPCDHelper(inRaw, cfg)
 	if err != nil {
 		return nil, err

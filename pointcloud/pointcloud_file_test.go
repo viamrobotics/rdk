@@ -190,7 +190,7 @@ func testNoColorASCIIRoundTrip(t *testing.T, cloud PointCloud) {
 	test.That(t, gotPCD, test.ShouldContainSubstring, "0.582000 0.012000 0.000000\n")
 	test.That(t, gotPCD, test.ShouldContainSubstring, "0.007000 0.006000 0.001000\n")
 
-	cloud2, err := readPCD(basicConfig, strings.NewReader(gotPCD))
+	cloud2, err := readPCD(strings.NewReader(gotPCD), basicConfig)
 	test.That(t, err, test.ShouldBeNil)
 	testPCDOutput(t, cloud2)
 }
@@ -208,7 +208,7 @@ func testNoColorBinaryRoundTrip(t *testing.T, cloud PointCloud) {
 	test.That(t, gotPCD, test.ShouldContainSubstring, "FIELDS x y z\n")
 	test.That(t, gotPCD, test.ShouldContainSubstring, "DATA binary\n")
 
-	cloud2, err := readPCD(basicConfig, strings.NewReader(gotPCD))
+	cloud2, err := readPCD(strings.NewReader(gotPCD), basicConfig)
 	test.That(t, err, test.ShouldBeNil)
 	testPCDOutput(t, cloud2)
 	data, dataFlag := cloud2.At(-1, -2, 5)
@@ -238,7 +238,7 @@ func testASCIIRoundTrip(t *testing.T, cloud PointCloud) {
 	test.That(t, gotPCD, test.ShouldContainSubstring, "0.582000 0.012000 0.000000 16711938\n")
 	test.That(t, gotPCD, test.ShouldContainSubstring, "0.007000 0.006000 0.001000 16711938\n")
 
-	cloud2, err := readPCD(basicConfig, strings.NewReader(gotPCD))
+	cloud2, err := readPCD(strings.NewReader(gotPCD), basicConfig)
 	test.That(t, err, test.ShouldBeNil)
 	testPCDOutput(t, cloud2)
 }
@@ -255,7 +255,7 @@ func testBinaryRoundTrip(t *testing.T, cloud PointCloud) {
 	test.That(t, gotPCD, test.ShouldContainSubstring, "POINTS 3\n")
 	test.That(t, gotPCD, test.ShouldContainSubstring, "DATA binary\n")
 
-	cloud2, err := readPCD(basicConfig, strings.NewReader(gotPCD))
+	cloud2, err := readPCD(strings.NewReader(gotPCD), basicConfig)
 	test.That(t, err, test.ShouldBeNil)
 	testPCDOutput(t, cloud2)
 	data, dataFlag := cloud2.At(-1, -2, 5)
@@ -275,7 +275,7 @@ func testLargeBinaryNoError(t *testing.T) {
 	err := ToPCD(largeCloud, &buf, PCDBinary)
 	test.That(t, err, test.ShouldBeNil)
 
-	readPointCloud, err := readPCD(basicConfig, strings.NewReader(buf.String()))
+	readPointCloud, err := readPCD(strings.NewReader(buf.String()), basicConfig)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, readPointCloud.Size(), test.ShouldEqual, largeCloud.Size())
 }
@@ -333,7 +333,7 @@ func createNewPCD(t *testing.T) string {
 func TestPCDKDTree(t *testing.T) {
 	gotPCD := createNewPCD(t)
 
-	cloud2, err := readPCD(kdtreeConfig, strings.NewReader(gotPCD))
+	cloud2, err := readPCD(strings.NewReader(gotPCD), kdtreeConfig)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cloud2.Size(), test.ShouldEqual, 3)
 	gotPt, found := cloud2.At(-1, -2, 5)
@@ -344,7 +344,7 @@ func TestPCDKDTree(t *testing.T) {
 func TestPCDOctree(t *testing.T) {
 	gotPCD := createNewPCD(t)
 
-	basicOct, err := readPCD(BasicOctreeConfig, strings.NewReader(gotPCD))
+	basicOct, err := readPCD(strings.NewReader(gotPCD), BasicOctreeConfig)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, basicOct.Size(), test.ShouldEqual, 3)
 	gotPt, found := basicOct.At(-1, -2, 5)
@@ -394,7 +394,7 @@ func BenchmarkPCDASCIIRead(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := readPCD(basicConfig, strings.NewReader(gotPCD))
+		_, err := readPCD(strings.NewReader(gotPCD), basicConfig)
 		test.That(b, err, test.ShouldBeNil)
 	}
 }
@@ -420,7 +420,7 @@ func BenchmarkPCDBinaryRead(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := readPCD(basicConfig, strings.NewReader(gotPCD))
+		_, err := readPCD(strings.NewReader(gotPCD), basicConfig)
 		test.That(b, err, test.ShouldBeNil)
 	}
 }
