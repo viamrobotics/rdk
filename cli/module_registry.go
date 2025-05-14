@@ -528,6 +528,11 @@ func validateModuleFile(client *viamClient, c *cli.Context, moduleID moduleID, t
 	if err != nil {
 		return err
 	}
+
+	if versionHasOnlyApps(getModuleResp.Module, version) {
+		return nil // no need to validate the module file for a module with only apps associated with
+	}
+
 	entrypoint, err := getEntrypointForVersion(getModuleResp.Module, version)
 	if err != nil {
 		return err
@@ -815,6 +820,16 @@ func writeManifest(manifestPath string, manifest moduleManifest) error {
 	}
 
 	return nil
+}
+
+// versionHasOnlyApps returns true if the provided version has apps associated with it.
+func versionHasOnlyApps(mod *apppb.Module, version string) bool {
+	for _, ver := range mod.Versions {
+		if ver.Version == version {
+			return len(ver.Apps) > 0 && len(ver.Models) == 0
+		}
+	}
+	return len(mod.Apps) > 0 && len(mod.Models) == 0
 }
 
 // getEntrypointForVersion returns the entrypoint associated with the provided version, or the last updated entrypoint if it doesnt exit.
