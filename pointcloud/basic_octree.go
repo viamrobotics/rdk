@@ -350,7 +350,7 @@ func (octree *BasicOctree) FinalizeAfterReading() (PointCloud, error) {
 }
 
 // CreateNewRecentered re-size and center.
-func (cloud *BasicOctree) CreateNewRecentered(offset spatialmath.Pose) PointCloud {
+func (octree *BasicOctree) CreateNewRecentered(offset spatialmath.Pose) PointCloud {
 	center := offset.Point().Add(cloud.center)
 	return newBasicOctree(center, cloud.sideLength, cloud.confidenceThreshold)
 }
