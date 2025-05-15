@@ -37,7 +37,7 @@ func NewFromFile(filename, pcStructureType string) (PointCloud, error) {
 	if err != nil {
 		return nil, err
 	}
-		
+
 	switch filepath.Ext(filename) {
 	case ".las":
 		return newFromLASFile(filename, cfg)
@@ -51,7 +51,6 @@ func NewFromFile(filename, pcStructureType string) (PointCloud, error) {
 		return nil, errors.Errorf("do not know how to read file %q", filename)
 	}
 }
-
 
 func _colorToPCDInt(pt Data) int {
 	if pt == nil || !pt.HasColor() {
@@ -336,6 +335,7 @@ func parsePCDHeader(in *bufio.Reader) (*pcdHeader, error) {
 	return header, nil
 }
 
+// ReadPCD reads pcd.
 func ReadPCD(inRaw io.Reader, pcStructureType string) (PointCloud, error) {
 	cfg, err := Find(pcStructureType)
 	if err != nil {
@@ -343,7 +343,6 @@ func ReadPCD(inRaw io.Reader, pcStructureType string) (PointCloud, error) {
 	}
 	return readPCD(inRaw, cfg)
 }
-
 
 func readPCD(inRaw io.Reader, cfg TypeConfig) (PointCloud, error) {
 	pc, err := readPCDHelper(inRaw, cfg)
@@ -354,7 +353,6 @@ func readPCD(inRaw io.Reader, cfg TypeConfig) (PointCloud, error) {
 }
 
 func readPCDHelper(inRaw io.Reader, cfg TypeConfig) (PointCloud, error) {
-
 	in := bufio.NewReader(inRaw)
 
 	header, err := parsePCDHeader(in)
@@ -363,7 +361,7 @@ func readPCDHelper(inRaw io.Reader, cfg TypeConfig) (PointCloud, error) {
 	}
 
 	pc := cfg.NewWithParams(int(header.points))
-	
+
 	switch header.data {
 	case PCDAscii:
 		return readPCDASCII(in, *header, pc)

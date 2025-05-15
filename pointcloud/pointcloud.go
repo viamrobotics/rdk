@@ -29,6 +29,12 @@ type MetaData struct {
 	totalX, totalY, totalZ float64
 }
 
+// PointAndData is a tiny struct to facilitate returning nearest neighbors in a neat way.
+type PointAndData struct {
+	P r3.Vector
+	D Data
+}
+
 // PointCloud is a general purpose container of points. It does not
 // dictate whether or not the cloud is sparse or dense. The current
 // basic implementation is sparse however.
@@ -127,7 +133,7 @@ func (meta *MetaData) Merge(v r3.Vector, data Data) {
 	meta.totalZ += v.Z
 }
 
-// Center returns the center of the points
+// Center returns the center of the points.
 func (meta *MetaData) Center() r3.Vector {
 	return r3.Vector{
 		X: (meta.MaxX + meta.MinX) / 2,

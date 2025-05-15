@@ -186,18 +186,18 @@ func TestMergePoints2(t *testing.T) {
 func BenchmarkMerge(b *testing.B) {
 	inA := newBigPC()
 	inB := NewBasicEmpty()
-	err := ApplyOffset(inA, spatialmath.NewPoseFromPoint(r3.Vector{1000,1000,1000}), inB)
+	err := ApplyOffset(inA, spatialmath.NewPoseFromPoint(r3.Vector{1000, 1000, 1000}), inB)
 	test.That(b, err, test.ShouldBeNil)
-	
+
 	fs := []CloudAndOffsetFunc{
 		func(_ context.Context) (PointCloud, spatialmath.Pose, error) {
-			return inA, spatialmath.NewPoseFromPoint(r3.Vector{1,1,1}), nil
+			return inA, spatialmath.NewPoseFromPoint(r3.Vector{1, 1, 1}), nil
 		},
 		func(_ context.Context) (PointCloud, spatialmath.Pose, error) {
-			return inB, spatialmath.NewPoseFromPoint(r3.Vector{1,1,1}), nil
+			return inB, spatialmath.NewPoseFromPoint(r3.Vector{1, 1, 1}), nil
 		},
 	}
-	
+
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {

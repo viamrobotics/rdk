@@ -11,11 +11,10 @@ import (
 func init() {
 	Register(TypeConfig{
 		StructureType: "rounding",
-		New: func() PointCloud { return newRoundingPointCloud() },
+		New:           newRoundingPointCloud,
 		NewWithParams: func(size int) PointCloud { return newRoundingPointCloud() },
 	})
 }
-
 
 // RoundingPointCloud is a PointCloud implementation for SLAM that rounds all points to the closest
 // integer before it sets or gets the point. The bare floats measured from LiDARs are not

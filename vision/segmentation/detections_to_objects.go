@@ -68,7 +68,7 @@ func DetectionSegmenter(detector objectdetection.Detector, meanK int, sigma, con
 	if detector == nil {
 		return nil, errors.New("detector cannot be nil")
 	}
-	var filter func(in, out pointcloud.PointCloud) error = nil
+	var filter func(in, out pointcloud.PointCloud) error
 	if meanK > 0 && sigma > 0.0 {
 		filter, err = pointcloud.StatisticalOutlierFilter(meanK, sigma)
 		if err != nil {

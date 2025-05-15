@@ -6,11 +6,13 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+// BasicType the type for a basic pointcloud.
 const BasicType = "basic"
+
 var basicConfig = TypeConfig{
-	StructureType: BasicType, 
-	New: func() PointCloud { return NewBasicPointCloud(0) },
-	NewWithParams: func(size int) PointCloud { return NewBasicPointCloud(size) },
+	StructureType: BasicType,
+	New:           func() PointCloud { return NewBasicPointCloud(0) },
+	NewWithParams: NewBasicPointCloud,
 }
 
 func init() {
@@ -24,10 +26,12 @@ type basicPointCloud struct {
 	meta   MetaData
 }
 
+// NewBasicEmpty creates an empty basic pointcloud.
 func NewBasicEmpty() PointCloud {
 	return NewBasicPointCloud(0)
 }
 
+// NewBasicPointCloud creates a basic cloud with a size.
 func NewBasicPointCloud(size int) PointCloud {
 	return &basicPointCloud{
 		points: &matrixStorage{points: make([]PointAndData, 0, size), indexMap: make(map[r3.Vector]uint, size)},

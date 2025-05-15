@@ -9,22 +9,17 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+// KDTreeType for kd tree.
 const KDTreeType = "kdtree"
+
 var kdtreeConfig = TypeConfig{
-	StructureType: KDTreeType, 
-	New: func() PointCloud { return newKDTreeWithPrealloc(0) },
+	StructureType: KDTreeType,
+	New:           func() PointCloud { return newKDTreeWithPrealloc(0) },
 	NewWithParams: func(size int) PointCloud { return newKDTreeWithPrealloc(size) },
 }
 
 func init() {
 	Register(kdtreeConfig)
-}
-
-
-// PointAndData is a tiny struct to facilitate returning nearest neighbors in a neat way.
-type PointAndData struct {
-	P r3.Vector
-	D Data
 }
 
 // wraps r3.vector to make it compatible with kd trees.
@@ -255,10 +250,12 @@ func (kd *KDTree) Iterate(numBatches, myBatch int, fn func(p r3.Vector, d Data) 
 	})
 }
 
+// FinalizeAfterReading no-op.
 func (kd *KDTree) FinalizeAfterReading() (PointCloud, error) {
 	return kd, nil
 }
 
+// SuitableEmptyClone pre-sized.
 func (kd *KDTree) SuitableEmptyClone(offset spatialmath.Pose) PointCloud {
 	return newKDTreeWithPrealloc(kd.Size())
 }
