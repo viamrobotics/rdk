@@ -88,7 +88,7 @@ func TestRadiusClusteringSegmentation(t *testing.T) {
 
 	// successful, creates two clusters of points
 	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
-		cloud := pc.New()
+		cloud := pc.NewBasicEmpty()
 		// cluster 1
 		err = cloud.Set(pc.NewVector(1, 1, 1), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
 		test.That(t, err, test.ShouldBeNil)

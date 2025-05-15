@@ -12,7 +12,7 @@ import (
 func makeClouds(t *testing.T) []PointCloud {
 	t.Helper()
 	// create cloud 0
-	cloud0 := New()
+	cloud0 := NewBasicPointCloud(0)
 	p00 := NewVector(0, 0, 0)
 	test.That(t, cloud0.Set(p00, nil), test.ShouldBeNil)
 	p01 := NewVector(0, 0, 1)
@@ -22,7 +22,7 @@ func makeClouds(t *testing.T) []PointCloud {
 	p03 := NewVector(0, 1, 1)
 	test.That(t, cloud0.Set(p03, nil), test.ShouldBeNil)
 	// create cloud 1
-	cloud1 := New()
+	cloud1 := NewBasicPointCloud(0)
 	p10 := NewVector(30, 0, 0)
 	test.That(t, cloud1.Set(p10, nil), test.ShouldBeNil)
 	p11 := NewVector(30, 0, 1)

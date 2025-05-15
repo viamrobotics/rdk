@@ -111,7 +111,7 @@ func Test3DSegmentsFromDetector(t *testing.T) {
 		return imgs, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
 	}
 	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
-		cloud := pc.New()
+		cloud := pc.NewBasicEmpty()
 		err = cloud.Set(pc.NewVector(0, 0, 5), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
 		test.That(t, err, test.ShouldBeNil)
 		err = cloud.Set(pc.NewVector(0, 100, 6), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))

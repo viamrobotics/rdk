@@ -9,7 +9,6 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -26,10 +25,9 @@ func TestERCCL(t *testing.T) {
 	defer func() {
 		utils.ParallelFactor = origParallelFactor
 	}()
-	logger := logging.NewTestLogger(t)
 	injectCamera := &inject.Camera{}
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
-		return pointcloud.NewFromFile(artifact.MustPath("pointcloud/intel_d435_pointcloud_424.pcd"), logger)
+		return pointcloud.NewFromFile(artifact.MustPath("pointcloud/intel_d435_pointcloud_424.pcd"), "")
 	}
 
 	objConfig := utils.AttributeMap{
@@ -62,7 +60,8 @@ func TestERCCL(t *testing.T) {
 	for i, pc := range objects {
 		pcs[i] = pc.PointCloud
 	}
-	mergedPc, err := pointcloud.MergePointCloudsWithColor(pcs)
+	mergedPc := pointcloud.NewBasicEmpty()
+	err = pointcloud.MergePointCloudsWithColor(pcs, mergedPc)
 	test.That(t, err, test.ShouldBeNil)
 	tempPCD, err := os.CreateTemp(t.TempDir(), "*.pcd")
 	test.That(t, err, test.ShouldBeNil)

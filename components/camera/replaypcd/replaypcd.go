@@ -275,7 +275,7 @@ func (replay *pcdCamera) getDataFromHTTP(ctx context.Context, dataURL string) (p
 		return nil, err
 	}
 
-	pc, err := pointcloud.ReadPCD(res.Body)
+	pc, err := pointcloud.ReadPCD(res.Body, "")
 	if err != nil {
 		return nil, multierr.Combine(err, res.Body.Close())
 	}
@@ -465,7 +465,7 @@ func decodeResponseData(respData []*datapb.BinaryData) (pointcloud.PointCloud, e
 		return nil, errors.New("no response data; this should never happen")
 	}
 
-	pc, err := pointcloud.ReadPCD(bytes.NewBuffer(respData[0].GetBinary()))
+	pc, err := pointcloud.ReadPCD(bytes.NewBuffer(respData[0].GetBinary()), "")
 	if err != nil {
 		return nil, err
 	}

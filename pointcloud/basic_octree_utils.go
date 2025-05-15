@@ -192,20 +192,6 @@ func (octree *BasicOctree) helperIterate(lowerBound, upperBound, idx int, fn fun
 	return ok
 }
 
-// Helper function for calculating the center of a pointcloud based on its metadata.
-func getCenterFromPcMetaData(meta MetaData) r3.Vector {
-	return r3.Vector{
-		X: (meta.MaxX + meta.MinX) / 2,
-		Y: (meta.MaxY + meta.MinY) / 2,
-		Z: (meta.MaxZ + meta.MinZ) / 2,
-	}
-}
-
-// Helper function for calculating the max side length of a pointcloud based on its metadata.
-func getMaxSideLengthFromPcMetaData(meta MetaData) float64 {
-	return math.Max((meta.MaxX - meta.MinX), math.Max((meta.MaxY-meta.MinY), (meta.MaxZ-meta.MinZ)))
-}
-
 func pointsAlmostEqualEpsilon(v, ov r3.Vector, epsilon float64) bool {
 	return math.Abs(v.X-ov.X) < epsilon && math.Abs(v.Y-ov.Y) < epsilon && math.Abs(v.Z-ov.Z) < epsilon
 }

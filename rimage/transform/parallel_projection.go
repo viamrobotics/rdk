@@ -45,7 +45,7 @@ func (pp *ParallelProjection) RGBDToPointCloud(
 		startX, startY = newBounds.Min.X, newBounds.Min.Y
 		endX, endY = newBounds.Max.X, newBounds.Max.Y
 	}
-	pc := pointcloud.New()
+	pc := pointcloud.NewBasicEmpty()
 	for y := startY; y < endY; y++ {
 		for x := startX; x < endX; x++ {
 			z := dm.GetDepth(x, y)

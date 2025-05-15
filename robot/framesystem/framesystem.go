@@ -321,7 +321,12 @@ func (svc *frameSystemService) TransformPointCloud(ctx context.Context, srcpc po
 		return nil, err
 	}
 	// returned the transformed pointcloud where the transform was applied to each point
-	return pointcloud.ApplyOffset(ctx, srcpc, theTransform.Pose(), svc.logger)
+	pc := srcpc.CreateNewRecentered(theTransform.Pose())
+	err = pointcloud.ApplyOffset(srcpc, theTransform.Pose(), pc)
+	if err != nil {
+		return nil, err
+	}
+	return pc, nil
 }
 
 // PrefixRemoteParts applies prefixes to a list of FrameSystemParts appropriate to the remote they originate from.

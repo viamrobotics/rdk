@@ -11,6 +11,23 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+const octreeMagicSideLength = -17
+
+// BasicOctreeType octree string.
+const BasicOctreeType = "octree"
+
+// BasicOctreeConfig the type.
+var BasicOctreeConfig = TypeConfig{
+	StructureType: BasicOctreeType,
+	NewWithParams: func(size int) PointCloud {
+		return newBasicOctree(r3.Vector{}, octreeMagicSideLength, defaultConfidenceThreshold)
+	},
+}
+
+func init() {
+	Register(BasicOctreeConfig)
+}
+
 const (
 	internalNode = NodeType(iota)
 	leafNodeEmpty
@@ -40,6 +57,8 @@ type BasicOctree struct {
 
 	// value between 0-100 that sets a threshold which is the confidence level required for a point to be considered a collision
 	confidenceThreshold int
+
+	toStore PointCloud // this is temporary when building when sideLength == -1
 }
 
 // basicOctreeNode is a struct comprised of the type of node, children nodes (should they exist) and the pointcloud's
@@ -51,19 +70,21 @@ type basicOctreeNode struct {
 	maxVal   int
 }
 
-// NewBasicOctree creates a new basic octree with specified center, side and confidenceThreshold.
-func NewBasicOctree(center r3.Vector, sideLength float64, confidenceThreshold int) (*BasicOctree, error) {
-	if sideLength <= 0 {
-		return nil, errors.Errorf("invalid side length (%.2f) for octree", sideLength)
+func newBasicOctree(center r3.Vector, sideLength float64, confidenceThreshold int) *BasicOctree {
+	if sideLength <= 0 && sideLength != octreeMagicSideLength {
+		sideLength = 1
 	}
-	return &BasicOctree{
+
+	octree := &BasicOctree{
 		node:                newLeafNodeEmpty(),
 		center:              center,
 		sideLength:          sideLength,
 		size:                0,
 		meta:                NewMetaData(),
 		confidenceThreshold: confidenceThreshold,
-	}, nil
+	}
+
+	return octree
 }
 
 // Size returns the number of points stored in the octree's metadata.
@@ -79,6 +100,12 @@ func (octree *BasicOctree) MaxVal() int {
 // Set recursively iterates through a basic octree, attempting to add a given point and data to the tree after
 // ensuring it falls within the bounds of the given basic octree.
 func (octree *BasicOctree) Set(p r3.Vector, d Data) error {
+	if octree.sideLength == octreeMagicSideLength {
+		if octree.toStore == nil {
+			octree.toStore = NewBasicPointCloud(0)
+		}
+		return octree.toStore.Set(p, d)
+	}
 	_, err := octree.helperSet(p, d, 0)
 	return err
 }
@@ -173,10 +200,8 @@ func (octree *BasicOctree) Transform(pose spatialmath.Pose) spatialmath.Geometry
 	newCenter := spatialmath.Compose(pose, spatialmath.NewPoseFromPoint(octree.center))
 
 	// New sidelength is the diagonal of octree to guarantee fit
-	newOctree, err := NewBasicOctree(newCenter.Point(), octree.sideLength*math.Sqrt(3), octree.confidenceThreshold)
-	if err != nil {
-		return nil
-	}
+	newOctree := newBasicOctree(newCenter.Point(), octree.sideLength*math.Sqrt(3), octree.confidenceThreshold)
+
 	newOctree.label = octree.label
 	newOctree.meta = octree.meta
 
@@ -302,4 +327,30 @@ func (octree *BasicOctree) ToPoints(resolution float64) []r3.Vector {
 // TODO (RSDK-3743): Implement BasicOctree Geometry functions.
 func (octree *BasicOctree) MarshalJSON() ([]byte, error) {
 	return nil, errors.New("not implemented")
+}
+
+// FinalizeAfterReading fix it all.
+func (octree *BasicOctree) FinalizeAfterReading() (PointCloud, error) {
+	if octree.sideLength != octreeMagicSideLength {
+		return octree, nil
+	}
+
+	meta := octree.toStore.MetaData()
+	octree.center = meta.Center()
+	octree.sideLength = meta.MaxSideLength()
+
+	var err error
+	octree.toStore.Iterate(0, 0, func(p r3.Vector, d Data) bool {
+		err = octree.Set(p, d)
+		return err == nil
+	})
+
+	octree.toStore = nil
+	return octree, nil
+}
+
+// CreateNewRecentered re-size and center.
+func (octree *BasicOctree) CreateNewRecentered(offset spatialmath.Pose) PointCloud {
+	center := offset.Point().Add(octree.center)
+	return newBasicOctree(center, octree.sideLength, octree.confidenceThreshold)
 }

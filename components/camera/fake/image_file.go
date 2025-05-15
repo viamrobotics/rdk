@@ -188,7 +188,7 @@ func (fs *fileSource) Images(ctx context.Context) ([]camera.NamedImage, resource
 // or the pointcloud from file if set.
 func (fs *fileSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	if fs.PointCloudFN != "" {
-		return pointcloud.NewFromFile(fs.PointCloudFN, nil)
+		return pointcloud.NewFromFile(fs.PointCloudFN, "")
 	}
 	if fs.Intrinsics == nil {
 		return nil, transform.NewNoIntrinsicsError("camera intrinsics not found in config")

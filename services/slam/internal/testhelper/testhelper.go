@@ -14,9 +14,9 @@ import (
 
 // TestComparePointCloudsFromPCDs is a helper function for checking GetPointCloudMapFull response along with associated pcd validity checks.
 func TestComparePointCloudsFromPCDs(t *testing.T, pcdInput, pcdOutput []byte) {
-	pcInput, err := pointcloud.ReadPCD(bytes.NewReader(pcdInput))
+	pcInput, err := pointcloud.ReadPCD(bytes.NewReader(pcdInput), "")
 	test.That(t, err, test.ShouldBeNil)
-	pcOutput, err := pointcloud.ReadPCD(bytes.NewReader(pcdOutput))
+	pcOutput, err := pointcloud.ReadPCD(bytes.NewReader(pcdOutput), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, pcInput.MetaData(), test.ShouldResemble, pcOutput.MetaData())
