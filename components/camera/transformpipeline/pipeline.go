@@ -74,15 +74,15 @@ type transformConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *transformConfig) Validate(path string) ([]string, error) {
+func (cfg *transformConfig) Validate(path string) ([]string, []string, error) {
 	var deps []string
 	if len(cfg.Source) == 0 {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "source")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "source")
 	}
 
 	if cfg.CameraParameters != nil {
 		if cfg.CameraParameters.Height < 0 || cfg.CameraParameters.Width < 0 {
-			return nil, errors.Errorf(
+			return nil, nil, errors.Errorf(
 				"got illegal negative dimensions for width_px and height_px (%d, %d) fields set in intrinsic_parameters for transform camera",
 				cfg.CameraParameters.Width, cfg.CameraParameters.Height,
 			)
@@ -90,7 +90,7 @@ func (cfg *transformConfig) Validate(path string) ([]string, error) {
 	}
 
 	deps = append(deps, cfg.Source)
-	return deps, nil
+	return deps, nil, nil
 }
 
 type videoSource struct {

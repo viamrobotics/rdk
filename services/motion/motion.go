@@ -236,7 +236,7 @@ type PlanWithStatus struct {
 //	moved, err := motionService.Move(context.Background(), motion.MoveReq{
 //		ComponentName: gripperName,
 //		Destination: destination,
-//		WorldState: WorldState
+//		WorldState: worldState
 //	})
 //
 // For more information, see the [Move method docs].

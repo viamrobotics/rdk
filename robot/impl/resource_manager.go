@@ -44,14 +44,11 @@ func init() {
 var (
 	resourceCloseTimeout    = 30 * time.Second
 	errShellServiceDisabled = errors.New("shell service disabled in an untrusted environment")
-	errProcessesDisabled    = errors.New("processes disabled in an untrusted environment")
 )
 
 // resourceManager manages the actual parts that make up a robot.
 type resourceManager struct {
-	resources      *resource.Graph
-	processManager pexec.ProcessManager
-	processConfigs map[string]pexec.ProcessConfig
+	resources *resource.Graph
 	// modManagerLock controls access to the moduleManager and prevents a data race.
 	// This may happen if Kill() or Close() is called concurrently with startModuleManager.
 	modManagerLock sync.Mutex
@@ -86,22 +83,10 @@ func newResourceManager(
 	}
 
 	return &resourceManager{
-		resources:      resourceGraph,
-		processManager: newProcessManager(opts, logger),
-		processConfigs: make(map[string]pexec.ProcessConfig),
-		opts:           opts,
-		logger:         resLogger,
+		resources: resourceGraph,
+		opts:      opts,
+		logger:    resLogger,
 	}
-}
-
-func newProcessManager(
-	opts resourceManagerOptions,
-	logger logging.Logger,
-) pexec.ProcessManager {
-	if opts.untrustedEnv {
-		return pexec.NoopProcessManager
-	}
-	return pexec.NewProcessManager(logger)
 }
 
 func fromRemoteNameToRemoteNodeName(name string) resource.Name {
@@ -583,9 +568,6 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 	manager.resources.MarkForRemoval(manager.resources.Clone())
 
 	var allErrs error
-	if err := manager.processManager.Stop(); err != nil {
-		allErrs = multierr.Combine(allErrs, fmt.Errorf("error stopping process manager: %w", err))
-	}
 
 	// our caller will close web
 	excludeWebFromClose := map[resource.Name]struct{}{
@@ -653,15 +635,16 @@ func (manager *resourceManager) completeConfig(
 	levels := manager.resources.ReverseTopologicalSortInLevels()
 	timeout := rutils.GetResourceConfigurationTimeout(manager.logger)
 	for _, resourceNames := range levels {
-		// At the start of every reconfiguration level, check if updateWeakDependents should be run
-		// by checking if the logical clock is higher than the `lastWeakDependentsRound` value.
+		// At the start of every reconfiguration level, check if
+		// updateWeakAndOptionalDependents should be run by checking if the logical clock is
+		// higher than the `lastWeakAndOptionalDependentsRound` value.
 		//
-		// This will make sure that weak dependents are updated before they are passed into constructors
-		// or reconfigure methods.
+		// This will make sure that weak and optional dependents are updated before they are
+		// passed into constructors or reconfigure methods.
 		//
-		// Resources that depend on weak dependents should expect that the weak dependents pass into the
-		// constructor or reconfigure method will only have been reconfigured with all resources constructed
-		// before their level.
+		// Resources that depend on weak or optional dependents should expect that the
+		// weak/optional dependents passed into the constructor or reconfigure method will
+		// only have been reconfigured with all resources constructed before their level.
 		for _, resName := range resourceNames {
 			select {
 			case <-ctx.Done():
@@ -676,13 +659,16 @@ func (manager *resourceManager) completeConfig(
 				continue
 			}
 
-			if lr.lastWeakDependentsRound.Load() < manager.resources.CurrLogicalClockValue() {
-				lr.updateWeakDependents(ctx)
+			if lr.lastWeakAndOptionalDependentsRound.Load() < manager.resources.CurrLogicalClockValue() {
+				lr.updateWeakAndOptionalDependents(ctx)
 			}
 		}
 		// we use an errgroup here instead of a normal waitgroup to conveniently bubble
 		// up errors in resource processing goroutinues that warrant an early exit.
 		var levelErrG errgroup.Group
+		// Add resources in batches instead of all at once. We've observed this to be more
+		// reliable when there are a large number of resources to add (e.g. hundreds).
+		levelErrG.SetLimit(10)
 		for _, resName := range resourceNames {
 			select {
 			case <-ctx.Done():
@@ -732,7 +718,7 @@ func (manager *resourceManager) completeConfig(
 					manager.logger.CInfow(ctx, fmt.Sprintf("Now %s resource", verb), "resource", resName)
 
 					// this is done in config validation but partial start rules require us to check again
-					if _, err := conf.Validate("", resName.API.Type.Name); err != nil {
+					if _, _, err := conf.Validate("", resName.API.Type.Name); err != nil {
 						gNode.LogAndSetLastError(
 							fmt.Errorf("resource config validation error: %w", err),
 							"resource", conf.ResourceName(),
@@ -740,7 +726,7 @@ func (manager *resourceManager) completeConfig(
 						return
 					}
 					if manager.moduleManager.Provides(conf) {
-						if _, err := manager.moduleManager.ValidateConfig(ctxWithTimeout, conf); err != nil {
+						if _, _, err := manager.moduleManager.ValidateConfig(ctxWithTimeout, conf); err != nil {
 							gNode.LogAndSetLastError(
 								fmt.Errorf("modular resource config validation error: %w", err),
 								"resource", conf.ResourceName(),
@@ -834,50 +820,65 @@ func (manager *resourceManager) completeConfig(
 }
 
 func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr *localRobot) {
+	// Add remotes in parallel. This is particularly useful in cases where
+	// there are many remotes that are offline or slow to start up.
+	var remoteErrGroup errgroup.Group
+	remoteErrGroup.SetLimit(5)
 	for _, resName := range manager.resources.FindNodesByAPI(client.RemoteAPI) {
 		gNode, ok := manager.resources.Node(resName)
 		if !ok || !gNode.NeedsReconfigure() {
 			continue
 		}
-		var verb string
-		if gNode.IsUninitialized() {
-			verb = "configuring"
-		} else {
-			verb = "reconfiguring"
-		}
-		manager.logger.CInfow(ctx, fmt.Sprintf("Now %s a remote", verb), "resource", resName)
-		switch resName.API {
-		case client.RemoteAPI:
-			remConf, err := resource.NativeConfig[*config.Remote](gNode.Config())
-			if err != nil {
-				manager.logger.CErrorw(ctx, "remote config error", "error", err)
-				continue
-			}
+		processAndCompleteConfigForRemote := func() {
+			var verb string
 			if gNode.IsUninitialized() {
-				gNode.InitializeLogger(
-					manager.logger, fromRemoteNameToRemoteNodeName(remConf.Name).String(),
-				)
+				verb = "configuring"
+			} else {
+				verb = "reconfiguring"
 			}
-			// this is done in config validation but partial start rules require us to check again
-			if _, err := remConf.Validate(""); err != nil {
-				gNode.LogAndSetLastError(
-					fmt.Errorf("remote config validation error: %w", err), "remote", remConf.Name)
-				continue
+			manager.logger.CInfow(ctx, fmt.Sprintf("Now %s a remote", verb), "resource", resName)
+			switch resName.API {
+			case client.RemoteAPI:
+				remConf, err := resource.NativeConfig[*config.Remote](gNode.Config())
+				if err != nil {
+					manager.logger.CErrorw(ctx, "remote config error", "error", err)
+					return
+				}
+				if gNode.IsUninitialized() {
+					gNode.InitializeLogger(
+						manager.logger, fromRemoteNameToRemoteNodeName(remConf.Name).String(),
+					)
+				}
+				// this is done in config validation but partial start rules require us to check again
+				if _, _, err := remConf.Validate(""); err != nil {
+					gNode.LogAndSetLastError(
+						fmt.Errorf("remote config validation error: %w", err), "remote", remConf.Name)
+					return
+				}
+				rr, err := manager.processRemote(ctx, *remConf, gNode)
+				if err != nil {
+					gNode.LogAndSetLastError(
+						fmt.Errorf("error connecting to remote: %w", err), "remote", remConf.Name)
+					return
+				}
+				manager.addRemote(ctx, rr, gNode, *remConf)
+				rr.SetParentNotifier(func() {
+					lr.sendTriggerConfig(remConf.Name)
+				})
+			default:
+				err := errors.New("config is not a remote config")
+				manager.logger.CErrorw(ctx, err.Error(), "resource", resName)
 			}
-			rr, err := manager.processRemote(ctx, *remConf, gNode)
-			if err != nil {
-				gNode.LogAndSetLastError(
-					fmt.Errorf("error connecting to remote: %w", err), "remote", remConf.Name)
-				continue
-			}
-			manager.addRemote(ctx, rr, gNode, *remConf)
-			rr.SetParentNotifier(func() {
-				lr.sendTriggerConfig(remConf.Name)
-			})
-		default:
-			err := errors.New("config is not a remote config")
-			manager.logger.CErrorw(ctx, err.Error(), "resource", resName)
 		}
+		lr.reconfigureWorkers.Add(1)
+		remoteErrGroup.Go(func() error {
+			defer lr.reconfigureWorkers.Done()
+			processAndCompleteConfigForRemote()
+			return nil
+		})
+	}
+	if err := remoteErrGroup.Wait(); err != nil {
+		return
 	}
 }
 
@@ -1213,56 +1214,11 @@ func (manager *resourceManager) updateResources(
 		allErrs = multierr.Combine(allErrs, markErr)
 	}
 
-	// processes are not added into the resource tree as they belong to a process manager
-	for _, p := range conf.Added.Processes {
-		if manager.opts.untrustedEnv {
-			allErrs = multierr.Combine(allErrs, errProcessesDisabled)
-			break
-		}
-
-		// this is done in config validation but partial start rules require us to check again
-		if err := p.Validate(""); err != nil {
-			manager.logger.CErrorw(ctx, "process config validation error; skipping", "process", p.Name, "error", err)
-			continue
-		}
-
-		_, err := manager.processManager.AddProcessFromConfig(ctx, p)
-		if err != nil {
-			manager.logger.CErrorw(ctx, "error while adding process; skipping", "process", p.ID, "error", err)
-			continue
-		}
-		manager.processConfigs[p.ID] = p
+	if len(conf.Added.Processes) > 0 || len(conf.Modified.Processes) > 0 {
+		manager.logger.CErrorw(ctx, "Processes have been deprecated and are no longer supported in viam-server versions v0.74.0+. "+
+			"The processes config of this machine part has been ignored.")
 	}
-	for _, p := range conf.Modified.Processes {
-		if manager.opts.untrustedEnv {
-			allErrs = multierr.Combine(allErrs, errProcessesDisabled)
-			break
-		}
 
-		if oldProc, ok := manager.processManager.RemoveProcessByID(p.ID); ok {
-			if err := oldProc.Stop(); err != nil {
-				manager.logger.CErrorw(ctx, "couldn't stop process", "process", p.ID, "error", err)
-			}
-		} else {
-			manager.logger.CErrorw(ctx, "couldn't find modified process", "process", p.ID)
-		}
-
-		// Remove processConfig from map in case re-addition fails.
-		delete(manager.processConfigs, p.ID)
-
-		// this is done in config validation but partial start rules require us to check again
-		if err := p.Validate(""); err != nil {
-			manager.logger.CErrorw(ctx, "process config validation error; skipping", "process", p.Name, "error", err)
-			continue
-		}
-
-		_, err := manager.processManager.AddProcessFromConfig(ctx, p)
-		if err != nil {
-			manager.logger.CErrorw(ctx, "error while changing process; skipping", "process", p.ID, "error", err)
-			continue
-		}
-		manager.processConfigs[p.ID] = p
-	}
 	return allErrs
 }
 
@@ -1309,25 +1265,7 @@ type PartsMergeResult struct {
 func (manager *resourceManager) markRemoved(
 	ctx context.Context,
 	conf *config.Config,
-	logger logging.Logger,
-) (pexec.ProcessManager, []resource.Resource, map[resource.Name]struct{}) {
-	processesToClose := newProcessManager(manager.opts, logger)
-	for _, conf := range conf.Processes {
-		if manager.opts.untrustedEnv {
-			continue
-		}
-
-		proc, ok := manager.processManager.RemoveProcessByID(conf.ID)
-		if !ok {
-			manager.logger.CErrorw(ctx, "couldn't remove process", "process", conf.ID)
-			continue
-		}
-		delete(manager.processConfigs, conf.ID)
-		if _, err := processesToClose.AddProcess(ctx, proc, false); err != nil {
-			manager.logger.CErrorw(ctx, "couldn't add process", "process", conf.ID, "error", err)
-		}
-	}
-
+) ([]resource.Resource, map[resource.Name]struct{}) {
 	var resourcesToMark []resource.Name
 	for _, conf := range conf.Modules {
 		orphanedResourceNames, err := manager.moduleManager.Remove(conf.Name)
@@ -1353,7 +1291,7 @@ func (manager *resourceManager) markRemoved(
 		}
 	}
 	resourcesToCloseBeforeComplete := manager.markResourcesRemoved(resourcesToMark, addNames)
-	return processesToClose, resourcesToCloseBeforeComplete, markedResourceNames
+	return resourcesToCloseBeforeComplete, markedResourceNames
 }
 
 // markResourcesRemoved marks all passed in resources (assumed to be resource
@@ -1429,9 +1367,6 @@ func (manager *resourceManager) createConfig() *config.Config {
 	}
 
 	conf.Modules = append(conf.Modules, manager.moduleManager.Configs()...)
-	for _, processConf := range manager.processConfigs {
-		conf.Processes = append(conf.Processes, processConf)
-	}
 
 	return conf
 }

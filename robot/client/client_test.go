@@ -367,6 +367,9 @@ func TestStatusClient(t *testing.T) {
 		gripperGrabCalled = true
 		return true, nil
 	}
+	injectGripper.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
+		return nil, nil
+	}
 
 	injectServo := &inject.Servo{}
 	var capServoAngle uint32

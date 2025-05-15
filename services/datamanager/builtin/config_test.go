@@ -28,6 +28,8 @@ var fullConfig = &Config{
 	SelectiveSyncerName:         "some name",
 	SyncIntervalMins:            0.5,
 	Tags:                        []string{"a", "b", "c"},
+	DiskUsageDeletionThreshold:  0.1,
+	CaptureDirDeletionThreshold: 0.1,
 }
 
 func TestConfig(t *testing.T) {
@@ -71,11 +73,21 @@ func TestConfig(t *testing.T) {
 				config: Config{DeleteEveryNthWhenDiskFull: -1},
 				err:    errors.New("delete_every_nth_when_disk_full can't be negative"),
 			},
+			{
+				name:   "returns an error if DiskUsageThreshold is negative",
+				config: Config{DiskUsageDeletionThreshold: -1},
+				err:    errors.New("disk_usage_deletion_threshold can't be negative"),
+			},
+			{
+				name:   "returns an error if CaptureDirDeletionThreshold is negative",
+				config: Config{CaptureDirDeletionThreshold: -1},
+				err:    errors.New("capture_dir_deletion_threshold can't be negative"),
+			},
 		}
 
 		for _, tc := range tcs {
 			t.Run(tc.name, func(t *testing.T) {
-				deps, err := tc.config.Validate("")
+				deps, _, err := tc.config.Validate("")
 				if tc.err == nil {
 					test.That(t, err, test.ShouldBeNil)
 				} else {
@@ -128,39 +140,45 @@ func TestConfig(t *testing.T) {
 		t.Run("returns a sync config with defaults when called on an empty config", func(t *testing.T) {
 			c := &Config{}
 			test.That(t, c.syncConfig(nil, false, logger), test.ShouldResemble, sync.Config{
-				CaptureDir:                 viamCaptureDotDir,
-				DeleteEveryNthWhenDiskFull: 5,
-				FileLastModifiedMillis:     10000,
-				MaximumNumSyncThreads:      runtime.NumCPU() / 2,
-				SyncIntervalMins:           0.1,
+				CaptureDir:                  viamCaptureDotDir,
+				DeleteEveryNthWhenDiskFull:  5,
+				FileLastModifiedMillis:      10000,
+				MaximumNumSyncThreads:       runtime.NumCPU() / 2,
+				SyncIntervalMins:            0.1,
+				DiskUsageDeletionThreshold:  0.9,
+				CaptureDirDeletionThreshold: 0.5,
 			})
 		})
 
 		t.Run("returns a sync config with defaults when called on a config with SyncIntervalMins which is practically 0", func(t *testing.T) {
 			c := &Config{SyncIntervalMins: 0.000000000000000001}
 			test.That(t, c.syncConfig(nil, false, logger), test.ShouldResemble, sync.Config{
-				CaptureDir:                 viamCaptureDotDir,
-				DeleteEveryNthWhenDiskFull: 5,
-				FileLastModifiedMillis:     10000,
-				MaximumNumSyncThreads:      runtime.NumCPU() / 2,
-				SyncIntervalMins:           0.1,
+				CaptureDir:                  viamCaptureDotDir,
+				DeleteEveryNthWhenDiskFull:  5,
+				FileLastModifiedMillis:      10000,
+				MaximumNumSyncThreads:       runtime.NumCPU() / 2,
+				SyncIntervalMins:            0.1,
+				DiskUsageDeletionThreshold:  0.9,
+				CaptureDirDeletionThreshold: 0.5,
 			})
 		})
 		t.Run("returns a sync config with overridden defaults when called on a full config", func(t *testing.T) {
 			s := &inject.Sensor{}
 			test.That(t, fullConfig.syncConfig(s, true, logger), test.ShouldResemble, sync.Config{
-				AdditionalSyncPaths:        []string{"/tmp/a", "/tmp/b"},
-				CaptureDir:                 "/tmp/some/path",
-				CaptureDisabled:            true,
-				DeleteEveryNthWhenDiskFull: 2,
-				FileLastModifiedMillis:     50000,
-				MaximumNumSyncThreads:      10,
-				ScheduledSyncDisabled:      true,
-				SelectiveSyncSensor:        s,
-				SelectiveSyncSensorEnabled: true,
-				SelectiveSyncerName:        "some name",
-				SyncIntervalMins:           0.5,
-				Tags:                       []string{"a", "b", "c"},
+				AdditionalSyncPaths:         []string{"/tmp/a", "/tmp/b"},
+				CaptureDir:                  "/tmp/some/path",
+				CaptureDisabled:             true,
+				DeleteEveryNthWhenDiskFull:  2,
+				DiskUsageDeletionThreshold:  0.1,
+				CaptureDirDeletionThreshold: 0.1,
+				FileLastModifiedMillis:      50000,
+				MaximumNumSyncThreads:       10,
+				ScheduledSyncDisabled:       true,
+				SelectiveSyncSensor:         s,
+				SelectiveSyncSensorEnabled:  true,
+				SelectiveSyncerName:         "some name",
+				SyncIntervalMins:            0.5,
+				Tags:                        []string{"a", "b", "c"},
 			})
 		})
 	})

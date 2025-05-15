@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -54,6 +55,7 @@ type Arguments struct {
 	EnableFTDC                 bool   `flag:"ftdc,default=true,usage=enable fulltime data capture for diagnostics"`
 	OutputLogFile              string `flag:"log-file,usage=write logs to a file with log rotation"`
 	NoTLS                      bool   `flag:"no-tls,usage=starts an insecure http server without TLS certificates even if one exists"`
+	NetworkCheckOnly           bool   `flag:"network-check,usage=only runs normal network checks, logs results, and exits"`
 }
 
 type robotServer struct {
@@ -146,6 +148,11 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		// log startup info here and return if version flag.
 		logStartupInfo(logger)
 		return
+	} else if argsParsed.NetworkCheckOnly {
+		// Run network checks synchronously and immediately exit if `--network-check` flag was
+		// used. Otherwise run network checks asynchronously.
+		runNetworkChecks(ctx, logger)
+		return
 	}
 
 	// log startup info locally if server fails and exits while attempting to start up
@@ -223,9 +230,14 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 
 		registry.AddAppenderToAll(netAppender)
 	}
-	// log startup info after netlogger is initialized so it's captured in cloud machine logs.
+	// log startup info and run network checks after netlogger is initialized so it's captured in cloud machine logs.
 	logStartupInfo(logger)
 	startupInfoLogged = true
+
+	// Have goutils use the logger we've just configured.
+	golog.ReplaceGloabl(logger.AsZap())
+
+	go runNetworkChecks(ctx, logger)
 
 	server := robotServer{
 		logger:   logger,
@@ -273,7 +285,7 @@ func (s *robotServer) createWebOptions(cfg *config.Config) (weboptions.Options, 
 	options.Debug = s.args.Debug || cfg.Debug
 	options.PreferWebRTC = s.args.WebRTC
 	options.DisableMulticastDNS = s.args.DisableMulticastDNS
-	options.NoTLS = s.args.NoTLS
+	options.NoTLS = s.args.NoTLS || cfg.Network.NoTLS
 	if cfg.Cloud != nil && s.args.AllowInsecureCreds {
 		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
 	}

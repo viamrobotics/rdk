@@ -262,16 +262,9 @@ func TestFileDeletion(t *testing.T) {
 	tempDir := t.TempDir()
 	ctx := context.Background()
 
-	fsThresholdToTriggerDeletion := datasync.FSThresholdToTriggerDeletion
-	captureDirToFSUsageRatio := datasync.CaptureDirToFSUsageRatio
 	t.Cleanup(func() {
 		clk = prevClock
-		datasync.FSThresholdToTriggerDeletion = fsThresholdToTriggerDeletion
-		datasync.CaptureDirToFSUsageRatio = captureDirToFSUsageRatio
 	})
-
-	datasync.FSThresholdToTriggerDeletion = math.SmallestNonzeroFloat64
-	datasync.CaptureDirToFSUsageRatio = math.SmallestNonzeroFloat64
 
 	r := setupRobot(nil, map[resource.Name]resource.Resource{
 		arm.Named("arm1"): &inject.Arm{
@@ -315,6 +308,8 @@ func TestFileDeletion(t *testing.T) {
 	// MaximumCaptureFileSizeBytes is set to 1 so that each reading becomes its own capture file
 	// and we can confidently read the capture file without it's contents being modified by the collector
 	c.MaximumCaptureFileSizeBytes = 1
+	c.DiskUsageDeletionThreshold = math.SmallestNonzeroFloat64
+	c.CaptureDirDeletionThreshold = math.SmallestNonzeroFloat64
 	bSvc, err := New(ctx, deps, config, datasync.NoOpCloudClientConstructor, connToConnectivityStateError, logger)
 	test.That(t, err, test.ShouldBeNil)
 	b := bSvc.(*builtIn)
@@ -850,7 +845,7 @@ func resourceConfigAndDeps(t *testing.T, cfg *config.Config, r *inject.Robot) (r
 	test.That(t, config, test.ShouldNotBeNil)
 	builtinConfig, ok := config.ConvertedAttributes.(*Config)
 	test.That(t, ok, test.ShouldBeTrue)
-	ds, err := builtinConfig.Validate("")
+	ds, _, err := builtinConfig.Validate("")
 	test.That(t, err, test.ShouldBeNil)
 	for _, d := range ds {
 		resName, err := resource.NewFromString(d)

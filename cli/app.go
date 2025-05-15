@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/urfave/cli/v2"
+
+	"go.viam.com/rdk/logging"
 )
 
 // CLI flags.
@@ -53,6 +55,7 @@ const (
 	generalFlagPart              = "part"
 	generalFlagPartName          = "part-name"
 	generalFlagPartID            = "part-id"
+	generalFlagID                = "id"
 	generalFlagName              = "name"
 	generalFlagMethod            = "method"
 	generalFlagDestination       = "destination"
@@ -75,7 +78,6 @@ const (
 	moduleFlagNoProgress      = "no-progress"
 	moduleFlagHomeDir         = "home"
 	moduleCreateLocalOnly     = "local-only"
-	moduleFlagID              = "id"
 	moduleFlagIsPublic        = "public"
 	moduleFlagResourceType    = "resource-type"
 	moduleFlagModelName       = "model-name"
@@ -118,6 +120,10 @@ const (
 	dataFlagFilterTags                     = "filter-tags"
 	dataFlagTimeout                        = "timeout"
 
+	datapipelineFlagSchedule = "schedule"
+	datapipelineFlagMQL      = "mql"
+	datapipelineFlagMQLFile  = "mql-path"
+
 	packageFlagFramework = "model-framework"
 
 	oauthAppFlagClientID             = "client-id"
@@ -142,6 +148,34 @@ const (
 	organizationBillingAddress   = "address"
 	organizationFlagLogoPath     = "logo-path"
 )
+
+var commonPartFlags = []cli.Flag{
+	&AliasStringFlag{
+		cli.StringFlag{
+			Name:     generalFlagPart,
+			Aliases:  []string{generalFlagPartID, generalFlagPartName},
+			Required: true,
+		},
+	},
+	&AliasStringFlag{
+		cli.StringFlag{
+			Name:    generalFlagOrganization,
+			Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+		},
+	},
+	&AliasStringFlag{
+		cli.StringFlag{
+			Name:    generalFlagLocation,
+			Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
+		},
+	},
+	&AliasStringFlag{
+		cli.StringFlag{
+			Name:    generalFlagMachine,
+			Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
+		},
+	},
+}
 
 // matches all uppercase characters that follow lowercase chars and aren't at the [0] index of a string.
 // This is useful for converting camel case into kabob case when getting values out of a CLI Context
@@ -245,6 +279,16 @@ type globalArgs struct {
 	Quiet           bool
 	Profile         string
 	DisableProfiles bool
+}
+
+func (ga *globalArgs) createLogger() logging.Logger {
+	logger := logging.NewLogger("cli")
+	if ga.Debug {
+		logger.SetLevel(logging.DEBUG)
+	} else {
+		logger.SetLevel(logging.WARN)
+	}
+	return logger
 }
 
 func getValFromContext(name string, ctx *cli.Context) any {
@@ -1511,6 +1555,150 @@ var app = &cli.App{
 			},
 		},
 		{
+			Name:            "datapipelines",
+			Usage:           "manage and track data pipelines",
+			UsageText:       createUsageText("datapipelines", nil, false, true),
+			HideHelpCommand: true,
+			Subcommands: []*cli.Command{
+				{
+					Name:  "list",
+					Usage: "list data pipelines for an organization ID",
+					UsageText: createUsageText("datapipelines list",
+						[]string{generalFlagOrgID}, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     generalFlagOrgID,
+							Usage:    "organization ID for which data pipelines will be listed",
+							Required: true,
+						},
+					},
+					Action: createCommandWithT[datapipelineListArgs](DatapipelineListAction),
+				},
+				{
+					Name:      "describe",
+					Usage:     "describe a data pipeline and its status",
+					UsageText: createUsageText("datapipelines describe", []string{generalFlagID}, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     generalFlagID,
+							Usage:    "ID of the data pipeline to describe",
+							Required: true,
+						},
+					},
+					Action: createCommandWithT[datapipelineDescribeArgs](DatapipelineDescribeAction),
+				},
+				{
+					Name:  "create",
+					Usage: "create a new data pipeline",
+					UsageText: createUsageText("datapipelines create",
+						[]string{generalFlagOrgID, generalFlagName, datapipelineFlagSchedule}, false, false,
+						fmt.Sprintf("[--%s=<%s> | --%s=<%s>]",
+							datapipelineFlagMQL, datapipelineFlagMQL,
+							datapipelineFlagMQLFile, datapipelineFlagMQLFile),
+					),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     generalFlagOrgID,
+							Usage:    "organization ID for which data pipeline will be created",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     generalFlagName,
+							Usage:    "name of the new data pipeline",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     datapipelineFlagSchedule,
+							Usage:    "schedule of the new data pipeline (cron expression)",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:  datapipelineFlagMQL,
+							Usage: "MQL query for the new data pipeline",
+						},
+						&cli.StringFlag{
+							Name:  datapipelineFlagMQLFile,
+							Usage: "path to JSON file containing MQL query for the new data pipeline",
+						},
+					},
+					Action: createCommandWithT[datapipelineCreateArgs](DatapipelineCreateAction),
+				},
+				{
+					Name:  "update",
+					Usage: "update a data pipeline",
+					UsageText: createUsageText("datapipelines update",
+						[]string{generalFlagID, generalFlagName, datapipelineFlagSchedule}, false, false,
+						fmt.Sprintf("[--%s=<%s> | --%s=<%s>]",
+							datapipelineFlagMQL, datapipelineFlagMQL,
+							datapipelineFlagMQLFile, datapipelineFlagMQLFile),
+					),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     generalFlagID,
+							Usage:    "ID of the data pipeline to update",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:  generalFlagName,
+							Usage: "name of the data pipeline to update",
+						},
+						&cli.StringFlag{
+							Name:  datapipelineFlagSchedule,
+							Usage: "schedule of the data pipeline to update (cron expression)",
+						},
+						&cli.StringFlag{
+							Name:  datapipelineFlagMQL,
+							Usage: "MQL query for the data pipeline to update",
+						},
+						&cli.StringFlag{
+							Name:  datapipelineFlagMQLFile,
+							Usage: "path to JSON file containing MQL query for the data pipeline to update",
+						},
+					},
+					Action: createCommandWithT[datapipelineUpdateArgs](DatapipelineUpdateAction),
+				},
+				{
+					Name:      "delete",
+					Usage:     "delete a data pipeline",
+					UsageText: createUsageText("datapipelines delete", []string{generalFlagID}, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     generalFlagID,
+							Usage:    "ID of the data pipeline to delete",
+							Required: true,
+						},
+					},
+					Action: createCommandWithT[datapipelineDeleteArgs](DatapipelineDeleteAction),
+				},
+				{
+					Name:      "enable",
+					Usage:     "enable a data pipeline",
+					UsageText: createUsageText("datapipelines enable", []string{generalFlagID}, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     generalFlagID,
+							Usage:    "ID of the data pipeline to enable",
+							Required: true,
+						},
+					},
+					Action: createCommandWithT[datapipelineEnableArgs](DatapipelineEnableAction),
+				},
+				{
+					Name:      "disable",
+					Usage:     "disable a data pipeline",
+					UsageText: createUsageText("datapipelines disable", []string{generalFlagID}, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     generalFlagID,
+							Usage:    "ID of the data pipeline to disable",
+							Required: true,
+						},
+					},
+					Action: createCommandWithT[datapipelineDisableArgs](DatapipelineDisableAction),
+				},
+			},
+		},
+		{
 			Name:            "train",
 			Usage:           "train on data",
 			UsageText:       createUsageText("train", nil, false, true),
@@ -2085,34 +2273,8 @@ In order to use the shell command, the machine must have a valid shell type serv
 Organization and location are required flags if the machine/part name are not unique across your account.
 `,
 							UsageText: createUsageText("machines part shell", []string{generalFlagPart}, false, false),
-							Flags: []cli.Flag{
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:     generalFlagPart,
-										Aliases:  []string{generalFlagPartID, generalFlagPartName},
-										Required: true,
-									},
-								},
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:    generalFlagOrganization,
-										Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-									},
-								},
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:    generalFlagLocation,
-										Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
-									},
-								},
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:    generalFlagMachine,
-										Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
-									},
-								},
-							},
-							Action: createCommandWithT[robotsPartShellArgs](RobotsPartShellAction),
+							Flags:     commonPartFlags,
+							Action:    createCommandWithT[robotsPartShellArgs](RobotsPartShellAction),
 						},
 						{
 							Name:      "list",
@@ -2171,32 +2333,7 @@ Copy multiple files from the machine to a local destination with recursion and k
 								[]string{generalFlagPart},
 								true, false,
 								"<source i.e. [machine:]files>... <target i.e. [machine:]files>"),
-							Flags: []cli.Flag{
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:     generalFlagPart,
-										Aliases:  []string{generalFlagPartID, generalFlagPartName},
-										Required: true,
-									},
-								},
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:    generalFlagOrganization,
-										Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-									},
-								},
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:    generalFlagLocation,
-										Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
-									},
-								},
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:    generalFlagMachine,
-										Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
-									},
-								},
+							Flags: append(commonPartFlags, []cli.Flag{
 								&cli.BoolFlag{
 									Name:    cpFlagRecursive,
 									Aliases: []string{"r"},
@@ -2213,7 +2350,7 @@ Copy multiple files from the machine to a local destination with recursion and k
 									Aliases: []string{"n"},
 									Usage:   "hide progress of the file transfer",
 								},
-							},
+							}...),
 							Action: createCommandWithT[machinesPartCopyFilesArgs](MachinesPartCopyFilesAction),
 						},
 						{
@@ -2222,32 +2359,7 @@ Copy multiple files from the machine to a local destination with recursion and k
 							UsageText: createUsageText("machines part tunnel", []string{
 								generalFlagPart, tunnelFlagLocalPort, tunnelFlagDestinationPort,
 							}, true, false),
-							Flags: []cli.Flag{
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:     generalFlagPart,
-										Aliases:  []string{generalFlagPartID, generalFlagPartName},
-										Required: true,
-									},
-								},
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:    generalFlagOrganization,
-										Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-									},
-								},
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:    generalFlagLocation,
-										Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
-									},
-								},
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:    generalFlagMachine,
-										Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
-									},
-								},
+							Flags: append(commonPartFlags, []cli.Flag{
 								&cli.IntFlag{
 									Name:     tunnelFlagLocalPort,
 									Required: true,
@@ -2256,8 +2368,51 @@ Copy multiple files from the machine to a local destination with recursion and k
 									Name:     tunnelFlagDestinationPort,
 									Required: true,
 								},
-							},
+							}...),
 							Action: createCommandWithT[robotsPartTunnelArgs](RobotsPartTunnelAction),
+						},
+						{
+							Name: "motion",
+							Subcommands: []*cli.Command{
+								{
+									Name:   "print-config",
+									Flags:  commonPartFlags,
+									Action: createCommandWithT[motionPrintArgs](motionPrintConfigAction),
+								},
+								{
+									Name:   "print-status",
+									Flags:  commonPartFlags,
+									Action: createCommandWithT[motionPrintArgs](motionPrintStatusAction),
+								},
+
+								{
+									Name: "get-pose",
+									Flags: append(commonPartFlags, []cli.Flag{
+										&cli.StringFlag{
+											Name:     "component",
+											Required: true,
+										},
+									}...),
+									Action: createCommandWithT[motionGetPoseArgs](motionGetPoseAction),
+								},
+								{
+									Name: "set-pose",
+									Flags: append(commonPartFlags, []cli.Flag{
+										&cli.StringFlag{
+											Name:     "component",
+											Required: true,
+										},
+										&cli.Float64SliceFlag{Name: "x"},
+										&cli.Float64SliceFlag{Name: "y"},
+										&cli.Float64SliceFlag{Name: "z"},
+										&cli.Float64SliceFlag{Name: "ox"},
+										&cli.Float64SliceFlag{Name: "oy"},
+										&cli.Float64SliceFlag{Name: "oz"},
+										&cli.Float64SliceFlag{Name: "theta"},
+									}...),
+									Action: createCommandWithT[motionSetPoseArgs](motionSetPoseAction),
+								},
+							},
 						},
 					},
 				},
@@ -2557,7 +2712,7 @@ Example:
 									DefaultText: "all",
 								},
 								&cli.StringFlag{
-									Name:  moduleFlagID,
+									Name:  generalFlagID,
 									Usage: "restrict output to just return builds that match this id",
 								},
 							},
@@ -2567,10 +2722,10 @@ Example:
 							Name:      "logs",
 							Aliases:   []string{"log"},
 							Usage:     "get the logs from one of your cloud builds",
-							UsageText: createUsageText("module build logs", []string{moduleFlagID}, true, false),
+							UsageText: createUsageText("module build logs", []string{generalFlagID}, true, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     moduleFlagID,
+									Name:     generalFlagID,
 									Usage:    "build that you want to get the logs for",
 									Required: true,
 								},
@@ -2652,7 +2807,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage: "name of module to restart. pass at most one of --name, --id",
 						},
 						&cli.StringFlag{
-							Name:  moduleFlagID,
+							Name:  generalFlagID,
 							Usage: "ID of module to restart, for example viam:wifi-sensor. pass at most one of --name, --id",
 						},
 						&cli.BoolFlag{
@@ -2674,7 +2829,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						&cli.StringFlag{
 							Name:  moduleFlagHomeDir,
 							Usage: "remote user's home directory. only necessary if you're targeting a remote machine where $HOME is not /root",
-							Value: "/root",
+							Value: "~",
 						},
 					},
 					Action: createCommandWithT[reloadModuleArgs](ReloadModuleAction),
@@ -2690,7 +2845,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Value: ".",
 						},
 						&cli.StringFlag{
-							Name:        moduleFlagID,
+							Name:        generalFlagID,
 							Usage:       "module ID as org-id:name or namespace:name",
 							DefaultText: "will try to read from meta.json",
 						},

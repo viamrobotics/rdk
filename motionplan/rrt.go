@@ -1,5 +1,3 @@
-//go:build !no_cgo
-
 package motionplan
 
 import (
@@ -153,13 +151,11 @@ type rrtPlan struct {
 }
 
 func newRRTPlan(solution []node, fs referenceframe.FrameSystem, relative bool, offsetPose spatialmath.Pose) (Plan, error) {
-	if len(solution) < 2 {
-		if len(solution) == 1 {
-			// Started at the goal, nothing to do
-			solution = append(solution, solution[0])
-		} else {
-			return nil, errors.New("cannot construct a Plan using fewer than two nodes")
-		}
+	if len(solution) == 0 {
+		return nil, errors.New("cannot create plan, no solution was found")
+	} else if len(solution) == 1 {
+		// started at the goal, nothing to do except make a trivial plan
+		solution = append(solution, solution[0])
 	}
 	traj := nodesToTrajectory(solution)
 	path, err := newPath(solution, fs)

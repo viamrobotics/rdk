@@ -9,6 +9,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	pb "go.viam.com/api/app/data/v1"
+	datapipelinesPb "go.viam.com/api/app/datapipelines/v1"
 	setPb "go.viam.com/api/app/dataset/v1"
 	syncPb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
@@ -149,6 +150,50 @@ var (
 			},
 		},
 	}
+
+	dataPipelineID = "data_pipeline_id"
+	dataPipeline   = DataPipeline{
+		ID:             dataPipelineID,
+		Name:           name,
+		OrganizationID: organizationID,
+		Schedule:       "0 0 * * *",
+		MqlBinary:      [][]byte{[]byte("mql_binary")},
+		Enabled:        true,
+		CreatedOn:      time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+		UpdatedAt:      time.Date(2023, 1, 1, 12, 30, 0, 0, time.UTC),
+	}
+	pbDataPipeline = &datapipelinesPb.DataPipeline{
+		Id:             dataPipelineID,
+		Name:           name,
+		OrganizationId: organizationID,
+		Schedule:       "0 0 * * *",
+		MqlBinary:      [][]byte{[]byte("mql_binary")},
+		Enabled:        true,
+		CreatedOn:      timestamppb.New(time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)),
+		UpdatedAt:      timestamppb.New(time.Date(2023, 1, 1, 12, 30, 0, 0, time.UTC)),
+	}
+	pbDataPipelines    = []*datapipelinesPb.DataPipeline{pbDataPipeline}
+	dataPipelines      = []*DataPipeline{&dataPipeline}
+	pbDataPipelineRuns = []*datapipelinesPb.DataPipelineRun{
+		{
+			Id:            "run1",
+			Status:        datapipelinesPb.DataPipelineRunStatus_DATA_PIPELINE_RUN_STATUS_STARTED,
+			StartTime:     timestamppb.New(time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)),
+			EndTime:       timestamppb.New(time.Date(2023, 1, 1, 12, 5, 0, 0, time.UTC)),
+			DataStartTime: timestamppb.New(time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC)),
+			DataEndTime:   timestamppb.New(time.Date(2023, 1, 1, 12, 30, 0, 0, time.UTC)),
+		},
+	}
+	dataPipelineRuns = []*DataPipelineRun{
+		{
+			ID:            "run1",
+			Status:        DataPipelineRunStatusStarted,
+			StartTime:     time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+			EndTime:       time.Date(2023, 1, 1, 12, 5, 0, 0, time.UTC),
+			DataStartTime: time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC),
+			DataEndTime:   time.Date(2023, 1, 1, 12, 30, 0, 0, time.UTC),
+		},
+	}
 )
 
 func binaryDataToProto(binaryData BinaryData) *pb.BinaryData {
@@ -213,6 +258,10 @@ func createDataSyncGrpcClient() *inject.DataSyncServiceClient {
 
 func createDatasetGrpcClient() *inject.DatasetServiceClient {
 	return &inject.DatasetServiceClient{}
+}
+
+func createDataPipelineGrpcClient() *inject.DataPipelinesServiceClient {
+	return &inject.DataPipelinesServiceClient{}
 }
 
 func TestDataClient(t *testing.T) {
@@ -355,6 +404,9 @@ func TestDataClient(t *testing.T) {
 		) (*pb.TabularDataByMQLResponse, error) {
 			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
 			test.That(t, in.MqlBinary, test.ShouldResemble, mqlBinary)
+			if in.DataSource != nil {
+				test.That(t, in.DataSource.Type, test.ShouldNotEqual, pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_UNSPECIFIED)
+			}
 			return &pb.TabularDataByMQLResponse{
 				RawData: expectedRawDataPb,
 			}, nil
@@ -362,10 +414,14 @@ func TestDataClient(t *testing.T) {
 		response, err := client.TabularDataByMQL(context.Background(), organizationID, mqlQueries, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, response, test.ShouldResemble, rawData)
-		response, err = client.TabularDataByMQL(context.Background(), organizationID, mqlQueries, &TabularDataByMQLOptions{UseRecentData: false})
+		response, err = client.TabularDataByMQL(context.Background(), organizationID, mqlQueries, &TabularDataByMQLOptions{
+			TabularDataSourceType: TabularDataSourceTypeStandard,
+		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, response, test.ShouldResemble, rawData)
-		response, err = client.TabularDataByMQL(context.Background(), organizationID, mqlQueries, &TabularDataByMQLOptions{UseRecentData: true})
+		response, err = client.TabularDataByMQL(context.Background(), organizationID, mqlQueries, &TabularDataByMQLOptions{
+			TabularDataSourceType: TabularDataSourceTypeHotStorage,
+		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, response, test.ShouldResemble, rawData)
 	})
@@ -1033,5 +1089,141 @@ func TestDatasetClient(t *testing.T) {
 		resp, err := client.ListDatasetsByIDs(context.Background(), datasetIDs)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, &resp, test.ShouldResemble, &datasets)
+	})
+}
+
+func TestDataPipelineClient(t *testing.T) {
+	grpcClient := createDataPipelineGrpcClient()
+	client := DataClient{datapipelinesClient: grpcClient}
+
+	matchQuery := bson.M{"$match": bson.M{"organization_id": "e76d1b3b-0468-4efd-bb7f-fb1d2b352fcb"}}
+	matchBytes, _ := bson.Marshal(matchQuery)
+	limitQuery := bson.M{"$limit": 1}
+	limitBytes, _ := bson.Marshal(limitQuery)
+	mqlQueries := []map[string]interface{}{matchQuery, limitQuery}
+	mqlBinary := [][]byte{matchBytes, limitBytes}
+
+	t.Run("ListDataPipelines", func(t *testing.T) {
+		grpcClient.ListDataPipelinesFunc = func(
+			ctx context.Context, in *datapipelinesPb.ListDataPipelinesRequest, opts ...grpc.CallOption,
+		) (*datapipelinesPb.ListDataPipelinesResponse, error) {
+			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
+			return &datapipelinesPb.ListDataPipelinesResponse{
+				DataPipelines: pbDataPipelines,
+			}, nil
+		}
+		resp, err := client.ListDataPipelines(context.Background(), organizationID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, &resp, test.ShouldResemble, &dataPipelines)
+	})
+
+	t.Run("GetDataPipeline", func(t *testing.T) {
+		grpcClient.GetDataPipelineFunc = func(
+			ctx context.Context, in *datapipelinesPb.GetDataPipelineRequest, opts ...grpc.CallOption,
+		) (*datapipelinesPb.GetDataPipelineResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, dataPipelineID)
+			return &datapipelinesPb.GetDataPipelineResponse{
+				DataPipeline: pbDataPipeline,
+			}, nil
+		}
+		resp, err := client.GetDataPipeline(context.Background(), dataPipelineID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldResemble, &dataPipeline)
+	})
+
+	t.Run("CreateDataPipeline", func(t *testing.T) {
+		grpcClient.CreateDataPipelineFunc = func(
+			ctx context.Context, in *datapipelinesPb.CreateDataPipelineRequest, opts ...grpc.CallOption,
+		) (*datapipelinesPb.CreateDataPipelineResponse, error) {
+			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
+			test.That(t, in.Name, test.ShouldEqual, name)
+			test.That(t, in.MqlBinary, test.ShouldResemble, mqlBinary)
+			test.That(t, in.Schedule, test.ShouldEqual, "0 9 * * *")
+			return &datapipelinesPb.CreateDataPipelineResponse{
+				Id: "new-data-pipeline-id",
+			}, nil
+		}
+		resp, err := client.CreateDataPipeline(context.Background(), organizationID, name, mqlQueries, "0 9 * * *")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldEqual, "new-data-pipeline-id")
+	})
+
+	t.Run("UpdateDataPipeline", func(t *testing.T) {
+		grpcClient.UpdateDataPipelineFunc = func(
+			ctx context.Context, in *datapipelinesPb.UpdateDataPipelineRequest, opts ...grpc.CallOption,
+		) (*datapipelinesPb.UpdateDataPipelineResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, dataPipelineID)
+			test.That(t, in.Name, test.ShouldEqual, name)
+			test.That(t, in.MqlBinary, test.ShouldResemble, mqlBinary)
+			test.That(t, in.Schedule, test.ShouldEqual, "0 7 * * *")
+			return &datapipelinesPb.UpdateDataPipelineResponse{}, nil
+		}
+		err := client.UpdateDataPipeline(context.Background(), dataPipelineID, name, mqlQueries, "0 7 * * *")
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("DeleteDataPipeline", func(t *testing.T) {
+		grpcClient.DeleteDataPipelineFunc = func(
+			ctx context.Context, in *datapipelinesPb.DeleteDataPipelineRequest, opts ...grpc.CallOption,
+		) (*datapipelinesPb.DeleteDataPipelineResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, dataPipelineID)
+			return &datapipelinesPb.DeleteDataPipelineResponse{}, nil
+		}
+		err := client.DeleteDataPipeline(context.Background(), dataPipelineID)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("EnableDataPipeline", func(t *testing.T) {
+		grpcClient.EnableDataPipelineFunc = func(
+			ctx context.Context, in *datapipelinesPb.EnableDataPipelineRequest, opts ...grpc.CallOption,
+		) (*datapipelinesPb.EnableDataPipelineResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, dataPipelineID)
+			return &datapipelinesPb.EnableDataPipelineResponse{}, nil
+		}
+		err := client.EnableDataPipeline(context.Background(), dataPipelineID)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("DisableDataPipeline", func(t *testing.T) {
+		grpcClient.DisableDataPipelineFunc = func(
+			ctx context.Context, in *datapipelinesPb.DisableDataPipelineRequest, opts ...grpc.CallOption,
+		) (*datapipelinesPb.DisableDataPipelineResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, dataPipelineID)
+			return &datapipelinesPb.DisableDataPipelineResponse{}, nil
+		}
+		err := client.DisableDataPipeline(context.Background(), dataPipelineID)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("ListDataPipelineRuns", func(t *testing.T) {
+		grpcClient.ListDataPipelineRunsFunc = func(
+			ctx context.Context, in *datapipelinesPb.ListDataPipelineRunsRequest, opts ...grpc.CallOption,
+		) (*datapipelinesPb.ListDataPipelineRunsResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, dataPipelineID)
+			test.That(t, in.PageSize, test.ShouldEqual, limit)
+			return &datapipelinesPb.ListDataPipelineRunsResponse{
+				Runs:          pbDataPipelineRuns,
+				NextPageToken: "next1",
+			}, nil
+		}
+
+		resp, err := client.ListDataPipelineRuns(context.Background(), dataPipelineID, uint32(limit))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, &resp.Runs, test.ShouldResemble, &dataPipelineRuns)
+
+		grpcClient.ListDataPipelineRunsFunc = func(
+			ctx context.Context, in *datapipelinesPb.ListDataPipelineRunsRequest, opts ...grpc.CallOption,
+		) (*datapipelinesPb.ListDataPipelineRunsResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, dataPipelineID)
+			test.That(t, in.PageSize, test.ShouldEqual, limit)
+			test.That(t, in.PageToken, test.ShouldEqual, "next1")
+			return &datapipelinesPb.ListDataPipelineRunsResponse{
+				Runs:          pbDataPipelineRuns,
+				NextPageToken: "next2",
+			}, nil
+		}
+		resp, err = resp.NextPage(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, &resp.Runs, test.ShouldResemble, &dataPipelineRuns)
 	})
 }

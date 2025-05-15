@@ -10,7 +10,6 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/pkg/errors"
-	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/config"
@@ -99,9 +98,6 @@ type Robot interface {
 
 	// ResourceRPCAPIs returns a list of all known resource RPC APIs.
 	ResourceRPCAPIs() []resource.RPCAPI
-
-	// ProcessManager returns the process manager for the robot.
-	ProcessManager() pexec.ProcessManager
 
 	// OperationManager returns the operation manager the robot is using.
 	OperationManager() *operation.Manager
@@ -205,6 +201,18 @@ type RemoteRobot interface {
 type RestartModuleRequest struct {
 	ModuleID   string
 	ModuleName string
+}
+
+// ResourceByName looks up via short name, and will error if none or more than 1 exist.
+func ResourceByName(r Robot, name string) (resource.Resource, error) {
+	all := AllResourcesByName(r, name)
+	if len(all) == 0 {
+		return nil, fmt.Errorf("no resource named [%s]", name)
+	}
+	if len(all) > 1 {
+		return nil, fmt.Errorf("too many resources named [%s] %d", name, len(all))
+	}
+	return all[0], nil
 }
 
 // AllResourcesByName returns an array of all resources that have this short name.

@@ -62,7 +62,7 @@ func newVoltageCollector(resource interface{}, params data.CollectorParams) (dat
 			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return res, err
 			}
-			return res, data.FailedToReadErr(params.ComponentName, voltage.String(), err)
+			return res, data.NewFailedToReadError(params.ComponentName, voltage.String(), err)
 		}
 
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
@@ -94,7 +94,7 @@ func newCurrentCollector(resource interface{}, params data.CollectorParams) (dat
 			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return res, err
 			}
-			return res, data.FailedToReadErr(params.ComponentName, current.String(), err)
+			return res, data.NewFailedToReadError(params.ComponentName, current.String(), err)
 		}
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
 		return data.NewTabularCaptureResult(ts, pb.GetCurrentResponse{
@@ -123,7 +123,7 @@ func newPowerCollector(resource interface{}, params data.CollectorParams) (data.
 			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return res, err
 			}
-			return res, data.FailedToReadErr(params.ComponentName, power.String(), err)
+			return res, data.NewFailedToReadError(params.ComponentName, power.String(), err)
 		}
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
 		return data.NewTabularCaptureResult(ts, pb.GetPowerResponse{
@@ -151,7 +151,7 @@ func newReadingsCollector(resource interface{}, params data.CollectorParams) (da
 			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return res, err
 			}
-			return res, data.FailedToReadErr(params.ComponentName, readings.String(), err)
+			return res, data.NewFailedToReadError(params.ComponentName, readings.String(), err)
 		}
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
 		return data.NewTabularCaptureResultReadings(ts, values)

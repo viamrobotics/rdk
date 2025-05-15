@@ -1,5 +1,3 @@
-//go:build !no_cgo
-
 // Package motionplan is a motion planning library.
 package motionplan
 
@@ -400,11 +398,17 @@ func (mp *planner) getSolutions(ctx context.Context, seed referenceframe.FrameSy
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	solutionGen := make(chan *ik.Solution, mp.planOpts.NumThreads*2)
+	solutionGen := make(chan *ik.Solution, mp.planOpts.NumThreads*20)
 	ikErr := make(chan error, 1)
 	var activeSolvers sync.WaitGroup
 	defer activeSolvers.Wait()
 	activeSolvers.Add(1)
+	defer func() {
+		// In the case that we have an error, we need to explicitly drain the channel before we return
+		for len(solutionGen) > 0 {
+			<-solutionGen
+		}
+	}()
 
 	linearSeed, err := mp.lfs.mapToSlice(seed)
 	if err != nil {

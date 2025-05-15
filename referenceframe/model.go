@@ -29,7 +29,7 @@ type ModelFramer interface {
 	ModelFrame() Model
 }
 
-// SimpleModel TODO.
+// SimpleModel is a model that serially concatenates a list of Frames.
 type SimpleModel struct {
 	*baseFrame
 	// OrdTransforms is the list of transforms ordered from end effector to base
@@ -169,6 +169,7 @@ func (m *SimpleModel) CachedTransform(inputs []Input) (spatialmath.Pose, error) 
 func (m *SimpleModel) DoF() []Limit {
 	m.lock.RLock()
 	if len(m.limits) > 0 {
+		defer m.lock.RUnlock()
 		return m.limits
 	}
 	m.lock.RUnlock()
@@ -204,8 +205,7 @@ func (m *SimpleModel) ModelPieceFrames(inputs []Input) (map[string]Frame, error)
 	return frameMap, nil
 }
 
-// TODO(rb) better comment
-// takes a model and a list of joint angles in radians and computes the dual quaternion representing the
+// inputsToFrames takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of each of the links up to and including the end effector. This is useful for when conversions
 // between quaternions and OV are not needed.
 func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*staticFrame, error) {

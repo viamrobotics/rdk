@@ -168,13 +168,8 @@ func (sfs *simpleFrameSystem) Parent(frame Frame) (Frame, error) {
 
 // frameExists is a helper function to see if a frame with a given name already exists in the system.
 func (sfs *simpleFrameSystem) frameExists(name string) bool {
-	if name == World {
-		return true
-	}
-	if _, ok := sfs.frames[name]; ok {
-		return true
-	}
-	return false
+	_, ok := sfs.frames[name]
+	return ok || name == World
 }
 
 // RemoveFrame will delete the given frame and all descendents from the frame system if it exists.
@@ -629,8 +624,8 @@ func createFramesFromPart(part *FrameSystemPart) (Frame, Frame, error) {
 	if part == nil || part.FrameConfig == nil {
 		return nil, nil, errors.New("config for FrameSystemPart is nil")
 	}
+
 	var modelFrame Frame
-	var err error
 	// use identity frame if no model frame defined
 	if part.ModelFrame == nil {
 		modelFrame = NewZeroStaticFrame(part.FrameConfig.Name())
@@ -643,16 +638,11 @@ func createFramesFromPart(part *FrameSystemPart) (Frame, Frame, error) {
 	}
 	// staticOriginFrame defines a change in origin from the parent part.
 	// If it is empty, the new frame will have the same origin as the parent.
-	staticOriginName := part.FrameConfig.Name() + "_origin"
-	// By default, this
-	originFrame, err := part.FrameConfig.ToStaticFrame(staticOriginName)
+	staticOriginFrame, err := part.FrameConfig.ToStaticFrame(part.FrameConfig.Name() + "_origin")
 	if err != nil {
 		return nil, nil, err
 	}
-	staticOriginFrame, ok := originFrame.(*staticFrame)
-	if !ok {
-		return nil, nil, errors.New("failed to cast originFrame to a static frame")
-	}
+
 	// If the user has specified a geometry, and the model is a zero DOF frame (e.g. a gripper), we want to overwrite the geometry
 	// with the user-supplied one without changing the model transform
 	if len(modelFrame.DoF()) == 0 {
@@ -676,7 +666,7 @@ func createFramesFromPart(part *FrameSystemPart) (Frame, Frame, error) {
 
 	// Since the geometry of a frame system part is intended to be located at the origin of the model frame, we place it post-transform
 	// in the "_origin" static frame
-	return modelFrame, &tailGeometryStaticFrame{staticOriginFrame}, nil
+	return modelFrame, &tailGeometryStaticFrame{staticOriginFrame.(*staticFrame)}, nil
 }
 
 // Names returns the names of input parts.

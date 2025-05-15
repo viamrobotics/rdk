@@ -356,7 +356,7 @@ func UploadModuleAction(c *cli.Context, args uploadModuleArgs) error {
 	if !forceUploadArg {
 		if err := validateModuleFile(client, c, moduleID, tarballPath, versionArg, platformArg); err != nil {
 			return fmt.Errorf(
-				"error validating module: %w. For more details, please visit: https://docs.viam.com/cli/#module ",
+				"error validating module: %w. For more details, please visit: https://docs.viam.com/dev/tools/cli#module ",
 				err)
 		}
 	}
@@ -528,6 +528,11 @@ func validateModuleFile(client *viamClient, c *cli.Context, moduleID moduleID, t
 	if err != nil {
 		return err
 	}
+
+	if versionHasOnlyApps(getModuleResp.Module, version) {
+		return nil // no need to validate the module file for a module with only apps associated with
+	}
+
 	entrypoint, err := getEntrypointForVersion(getModuleResp.Module, version)
 	if err != nil {
 		return err
@@ -569,8 +574,12 @@ func validateModuleFile(client *viamClient, c *cli.Context, moduleID moduleID, t
 		}
 		path := header.Name
 
-		// if path == entrypoint, we have found the right file
-		if filepath.Clean(path) == filepath.Clean(entrypoint) {
+		// If path equals entrypoint, we have found the right file. On Windows, allow for an
+		// optional ".exe" at the end, because Windows can automatically resolve the entrypoint
+		// "foo" to the executable "foo.exe" when needed.
+		if filepath.Clean(path) == filepath.Clean(entrypoint) ||
+			(strings.HasPrefix(strings.ToLower(platform), "windows") &&
+				filepath.Clean(path) == filepath.Clean(entrypoint)+".exe") {
 			info := header.FileInfo()
 			if info.IsDir() {
 				return errors.Errorf(
@@ -811,6 +820,16 @@ func writeManifest(manifestPath string, manifest moduleManifest) error {
 	}
 
 	return nil
+}
+
+// versionHasOnlyApps returns true if the provided version has apps associated with it.
+func versionHasOnlyApps(mod *apppb.Module, version string) bool {
+	for _, ver := range mod.Versions {
+		if ver.Version == version {
+			return len(ver.Apps) > 0 && len(ver.Models) == 0
+		}
+	}
+	return len(mod.Apps) > 0 && len(mod.Models) == 0
 }
 
 // getEntrypointForVersion returns the entrypoint associated with the provided version, or the last updated entrypoint if it doesnt exit.

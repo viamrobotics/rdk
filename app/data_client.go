@@ -13,6 +13,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	pb "go.viam.com/api/app/data/v1"
+	datapipelinesPb "go.viam.com/api/app/datapipelines/v1"
 	setPb "go.viam.com/api/app/dataset/v1"
 	syncPb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/utils/rpc"
@@ -277,9 +278,34 @@ type DataByFilterOptions struct {
 	IncludeInternalData bool
 }
 
+// TabularDataSourceType specifies the data source type for TabularDataByMQL queries.
+type TabularDataSourceType int32
+
+// TabularDataSourceType constants define the possible TabularDataSourceType options.
+const (
+	TabularDataSourceTypeUnspecified TabularDataSourceType = iota
+	// TabularDataSourceTypeStandard indicates reading from standard storage. This is the default
+	// option and available for all data synced to Viam.
+	TabularDataSourceTypeStandard
+	// TabularDataSourceTypeHotStorage indicates reading from hot storage. This is a premium feature
+	// requiring opting in specific data sources.
+	// See docs at https://docs.viam.com/data-ai/capture-data/advanced/advanced-data-capture-sync/#capture-to-the-hot-data-store
+	TabularDataSourceTypeHotStorage
+	// TabularDataSourceTypePipelineSink indicates reading the output of a data pipeline.
+	// When using this, a pipeline ID needs to be specified.
+	TabularDataSourceTypePipelineSink
+)
+
 // TabularDataByMQLOptions contains optional parameters for TabularDataByMQL.
 type TabularDataByMQLOptions struct {
+	// UseRecentData turns on reading from hot storage.
+	// Deprecated - use TabularDataSourceTypeHotStorage instead.
 	UseRecentData bool
+	// TabularDataSourceType specifies the source of the tabular data.
+	TabularDataSourceType TabularDataSourceType
+	// PipelineID is the ID of the pipeline to query. Required if TabularDataSourceType
+	// is TabularDataSourceTypePipelineSink.
+	PipelineID string
 }
 
 // BinaryDataCaptureUploadOptions represents optional parameters for the BinaryDataCaptureUpload method.
@@ -344,19 +370,74 @@ type Dataset struct {
 
 // DataClient implements the DataServiceClient interface.
 type DataClient struct {
-	dataClient     pb.DataServiceClient
-	dataSyncClient syncPb.DataSyncServiceClient
-	datasetClient  setPb.DatasetServiceClient
+	dataClient          pb.DataServiceClient
+	dataSyncClient      syncPb.DataSyncServiceClient
+	datasetClient       setPb.DatasetServiceClient
+	datapipelinesClient datapipelinesPb.DataPipelinesServiceClient
+}
+
+// DataPipeline contains the configuration information of a data pipeline.
+type DataPipeline struct {
+	ID             string
+	OrganizationID string
+	Name           string
+	MqlBinary      [][]byte
+	Schedule       string
+	Enabled        bool
+	CreatedOn      time.Time
+	UpdatedAt      time.Time
+}
+
+// DataPipelineRunStatus is the status of a data pipeline run.
+type DataPipelineRunStatus int32
+
+const (
+	// DataPipelineRunStatusUnspecified indicates that the data pipeline run is undefined, this should never happen.
+	DataPipelineRunStatusUnspecified DataPipelineRunStatus = iota
+	// DataPipelineRunStatusScheduled indicates that the data pipeline run has not yet started.
+	DataPipelineRunStatusScheduled
+	// DataPipelineRunStatusStarted indicates that the data pipeline run is currently running.
+	DataPipelineRunStatusStarted
+	// DataPipelineRunStatusCompleted indicates that the data pipeline run has completed successfully.
+	DataPipelineRunStatusCompleted
+	// DataPipelineRunStatusFailed indicates that the data pipeline run has failed.
+	DataPipelineRunStatusFailed
+)
+
+// DataPipelineRun contains the information of an individual data pipeline execution.
+type DataPipelineRun struct {
+	ID string
+	// StartTime is the time the data pipeline run started.
+	StartTime time.Time
+	// EndTime is the time the data pipeline run completed or failed.
+	EndTime time.Time
+	// DataStartTime describes the start time of the data that was read by the data pipeline run.
+	DataStartTime time.Time
+	// DataEndTime describes the end time of the data that was read by the data pipeline run.
+	DataEndTime time.Time
+	// Status is the run's current status.
+	Status DataPipelineRunStatus
+}
+
+// ListDataPipelineRunsPage is a results page of data pipeline runs, used for pagination.
+type ListDataPipelineRunsPage struct {
+	client        *DataClient
+	pipelineID    string
+	pageSize      uint32
+	Runs          []*DataPipelineRun
+	nextPageToken string
 }
 
 func newDataClient(conn rpc.ClientConn) *DataClient {
 	dataClient := pb.NewDataServiceClient(conn)
 	syncClient := syncPb.NewDataSyncServiceClient(conn)
 	setClient := setPb.NewDatasetServiceClient(conn)
+	datapipelinesClient := datapipelinesPb.NewDataPipelinesServiceClient(conn)
 	return &DataClient{
-		dataClient:     dataClient,
-		dataSyncClient: syncClient,
-		datasetClient:  setClient,
+		dataClient:          dataClient,
+		dataSyncClient:      syncClient,
+		datasetClient:       setClient,
+		datapipelinesClient: datapipelinesClient,
 	}
 }
 
@@ -446,24 +527,32 @@ func (d *DataClient) TabularDataBySQL(ctx context.Context, organizationID, sqlQu
 func (d *DataClient) TabularDataByMQL(
 	ctx context.Context, organizationID string, query []map[string]interface{}, opts *TabularDataByMQLOptions,
 ) ([]map[string]interface{}, error) {
-	mqlBinary := [][]byte{}
-	for _, q := range query {
-		binary, err := bson.Marshal(q)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal BSON query: %w", err)
-		}
-		mqlBinary = append(mqlBinary, binary)
+	mqlBinary, err := queryBSONToBinary(query)
+	if err != nil {
+		return nil, err
 	}
 
-	useRecentData := false
-	if opts != nil {
-		useRecentData = opts.UseRecentData
+	if opts == nil {
+		opts = &TabularDataByMQLOptions{}
+	}
+
+	// Legacy support for UseRecentData, which is now deprecated.
+	if opts.UseRecentData && opts.TabularDataSourceType == TabularDataSourceTypeUnspecified {
+		opts.TabularDataSourceType = TabularDataSourceTypeHotStorage
+	}
+
+	var dataSource *pb.TabularDataSource
+	if opts.TabularDataSourceType != TabularDataSourceTypeUnspecified {
+		dataSource = &pb.TabularDataSource{
+			Type:       dataSourceTypeToProto(opts.TabularDataSourceType),
+			PipelineId: &opts.PipelineID,
+		}
 	}
 
 	resp, err := d.dataClient.TabularDataByMQL(ctx, &pb.TabularDataByMQLRequest{
 		OrganizationId: organizationID,
 		MqlBinary:      mqlBinary,
-		UseRecentData:  &useRecentData,
+		DataSource:     dataSource,
 	})
 	if err != nil {
 		return nil, err
@@ -1225,6 +1314,140 @@ func (d *DataClient) ListDatasetsByIDs(ctx context.Context, ids []string) ([]*Da
 	return datasets, nil
 }
 
+// ListDataPipelines lists all of the data pipelines for an organization.
+func (d *DataClient) ListDataPipelines(ctx context.Context, organizationID string) ([]*DataPipeline, error) {
+	resp, err := d.datapipelinesClient.ListDataPipelines(ctx, &datapipelinesPb.ListDataPipelinesRequest{
+		OrganizationId: organizationID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	dataPipelines := make([]*DataPipeline, len(resp.DataPipelines))
+	for i, pipeline := range resp.DataPipelines {
+		dataPipelines[i] = dataPipelineFromProto(pipeline)
+	}
+	return dataPipelines, nil
+}
+
+// GetDataPipeline gets a data pipeline configuration by its ID.
+func (d *DataClient) GetDataPipeline(ctx context.Context, id string) (*DataPipeline, error) {
+	resp, err := d.datapipelinesClient.GetDataPipeline(ctx, &datapipelinesPb.GetDataPipelineRequest{
+		Id: id,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return dataPipelineFromProto(resp.DataPipeline), nil
+}
+
+// CreateDataPipeline creates a new data pipeline using the given query and schedule.
+func (d *DataClient) CreateDataPipeline(
+	ctx context.Context, organizationID, name string, query []map[string]interface{}, schedule string,
+) (string, error) {
+	mqlBinary, err := queryBSONToBinary(query)
+	if err != nil {
+		return "", err
+	}
+
+	resp, err := d.datapipelinesClient.CreateDataPipeline(ctx, &datapipelinesPb.CreateDataPipelineRequest{
+		OrganizationId: organizationID,
+		Name:           name,
+		MqlBinary:      mqlBinary,
+		Schedule:       schedule,
+	})
+	if err != nil {
+		return "", err
+	}
+	return resp.Id, nil
+}
+
+// UpdateDataPipeline updates a data pipeline configuration by its ID.
+func (d *DataClient) UpdateDataPipeline(
+	ctx context.Context, id, name string, query []map[string]interface{}, schedule string,
+) error {
+	mqlBinary, err := queryBSONToBinary(query)
+	if err != nil {
+		return err
+	}
+
+	_, err = d.datapipelinesClient.UpdateDataPipeline(ctx, &datapipelinesPb.UpdateDataPipelineRequest{
+		Id:        id,
+		Name:      name,
+		MqlBinary: mqlBinary,
+		Schedule:  schedule,
+	})
+	return err
+}
+
+// DeleteDataPipeline deletes a data pipeline by its ID.
+func (d *DataClient) DeleteDataPipeline(ctx context.Context, id string) error {
+	_, err := d.datapipelinesClient.DeleteDataPipeline(ctx, &datapipelinesPb.DeleteDataPipelineRequest{
+		Id: id,
+	})
+	return err
+}
+
+// EnableDataPipeline enables a data pipeline by its ID.
+func (d *DataClient) EnableDataPipeline(ctx context.Context, id string) error {
+	_, err := d.datapipelinesClient.EnableDataPipeline(ctx, &datapipelinesPb.EnableDataPipelineRequest{
+		Id: id,
+	})
+	return err
+}
+
+// DisableDataPipeline disables a data pipeline by its ID.
+func (d *DataClient) DisableDataPipeline(ctx context.Context, id string) error {
+	_, err := d.datapipelinesClient.DisableDataPipeline(ctx, &datapipelinesPb.DisableDataPipelineRequest{
+		Id: id,
+	})
+	return err
+}
+
+// ListDataPipelineRuns lists all of the data pipeline runs for a data pipeline.
+func (d *DataClient) ListDataPipelineRuns(ctx context.Context, id string, pageSize uint32) (*ListDataPipelineRunsPage, error) {
+	return d.listDataPipelineRuns(ctx, id, pageSize, "")
+}
+
+func (d *DataClient) listDataPipelineRuns(
+	ctx context.Context, id string, pageSize uint32, pageToken string,
+) (*ListDataPipelineRunsPage, error) {
+	resp, err := d.datapipelinesClient.ListDataPipelineRuns(ctx, &datapipelinesPb.ListDataPipelineRunsRequest{
+		Id:        id,
+		PageSize:  pageSize,
+		PageToken: pageToken,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	dataPipelineRuns := make([]*DataPipelineRun, len(resp.Runs))
+	for i, run := range resp.Runs {
+		dataPipelineRuns[i] = dataPipelineRunFromProto(run)
+	}
+	return &ListDataPipelineRunsPage{
+		client:        d,
+		pipelineID:    id,
+		pageSize:      pageSize,
+		Runs:          dataPipelineRuns,
+		nextPageToken: resp.NextPageToken,
+	}, nil
+}
+
+// NextPage retrieves the next page of data pipeline runs.
+func (p *ListDataPipelineRunsPage) NextPage(ctx context.Context) (*ListDataPipelineRunsPage, error) {
+	if p.nextPageToken == "" { // empty token means no more runs to list.
+		return &ListDataPipelineRunsPage{
+			client:     p.client,
+			pipelineID: p.pipelineID,
+			pageSize:   p.pageSize,
+			Runs:       []*DataPipelineRun{},
+		}, nil
+	}
+
+	return p.client.listDataPipelineRuns(ctx, p.pipelineID, p.pageSize, p.nextPageToken)
+}
+
 func boundingBoxFromProto(proto *pb.BoundingBox) *BoundingBox {
 	if proto == nil {
 		return nil
@@ -1332,6 +1555,7 @@ func binaryMetadataFromProto(proto *pb.BinaryMetadata) (*BinaryMetadata, error) 
 		return nil, err
 	}
 	return &BinaryMetadata{
+		//nolint:deprecated,staticcheck
 		ID:              proto.Id,
 		BinaryDataID:    proto.BinaryDataId,
 		CaptureMetadata: *captureMetadata,
@@ -1567,4 +1791,72 @@ func formatFileExtension(fileExt string) string {
 		return fileExt
 	}
 	return "." + fileExt
+}
+
+func dataSourceTypeToProto(dataSourceType TabularDataSourceType) pb.TabularDataSourceType {
+	switch dataSourceType {
+	case TabularDataSourceTypeUnspecified:
+		return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_UNSPECIFIED
+	case TabularDataSourceTypeStandard:
+		return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD
+	case TabularDataSourceTypeHotStorage:
+		return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_HOT_STORAGE
+	case TabularDataSourceTypePipelineSink:
+		return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_PIPELINE_SINK
+	default:
+		return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_UNSPECIFIED
+	}
+}
+
+func dataPipelineFromProto(proto *datapipelinesPb.DataPipeline) *DataPipeline {
+	return &DataPipeline{
+		ID:             proto.Id,
+		OrganizationID: proto.OrganizationId,
+		Name:           proto.Name,
+		MqlBinary:      proto.MqlBinary,
+		Schedule:       proto.Schedule,
+		Enabled:        proto.Enabled,
+		CreatedOn:      proto.CreatedOn.AsTime(),
+		UpdatedAt:      proto.UpdatedAt.AsTime(),
+	}
+}
+
+func queryBSONToBinary(query []map[string]interface{}) ([][]byte, error) {
+	mqlBinary := [][]byte{}
+	for _, q := range query {
+		binary, err := bson.Marshal(q)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal BSON query: %w", err)
+		}
+		mqlBinary = append(mqlBinary, binary)
+	}
+	return mqlBinary, nil
+}
+
+func dataPipelineRunFromProto(proto *datapipelinesPb.DataPipelineRun) *DataPipelineRun {
+	return &DataPipelineRun{
+		ID:            proto.Id,
+		StartTime:     proto.StartTime.AsTime(),
+		EndTime:       proto.EndTime.AsTime(),
+		DataStartTime: proto.DataStartTime.AsTime(),
+		DataEndTime:   proto.DataEndTime.AsTime(),
+		Status:        dataPipelineRunStatusFromProto(proto.Status),
+	}
+}
+
+func dataPipelineRunStatusFromProto(proto datapipelinesPb.DataPipelineRunStatus) DataPipelineRunStatus {
+	switch proto {
+	case datapipelinesPb.DataPipelineRunStatus_DATA_PIPELINE_RUN_STATUS_UNSPECIFIED:
+		return DataPipelineRunStatusUnspecified
+	case datapipelinesPb.DataPipelineRunStatus_DATA_PIPELINE_RUN_STATUS_SCHEDULED:
+		return DataPipelineRunStatusScheduled
+	case datapipelinesPb.DataPipelineRunStatus_DATA_PIPELINE_RUN_STATUS_STARTED:
+		return DataPipelineRunStatusStarted
+	case datapipelinesPb.DataPipelineRunStatus_DATA_PIPELINE_RUN_STATUS_COMPLETED:
+		return DataPipelineRunStatusCompleted
+	case datapipelinesPb.DataPipelineRunStatus_DATA_PIPELINE_RUN_STATUS_FAILED:
+		return DataPipelineRunStatusFailed
+	default:
+		return DataPipelineRunStatusUnspecified
+	}
 }

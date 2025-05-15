@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"slices"
 	"strings"
 	"time"
 
@@ -45,6 +44,9 @@ const (
 	// communications to app.viam.com.
 	//nolint:gosec
 	APIKeyIDEnvVar = "VIAM_API_KEY_ID"
+
+	// MachineFQDNEnvVar is the environment variable that contains the fqdn of the machine.
+	MachineFQDNEnvVar = "VIAM_MACHINE_FQDN"
 
 	// MachineIDEnvVar is the environment variable that contains the machine ID of the machine.
 	MachineIDEnvVar = "VIAM_MACHINE_ID"
@@ -99,7 +101,7 @@ func PlatformHomeDir() string {
 	if runtime.GOOS == "android" {
 		return AndroidFilesDir
 	}
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == "windows" { //nolint:goconst
 		homedir, _ := os.UserHomeDir() //nolint:errcheck
 		if homedir != "" {
 			return homedir
@@ -115,14 +117,6 @@ func PlatformMkdirTemp(dir, pattern string) (string, error) {
 		dir = AndroidFilesDir
 	}
 	return os.MkdirTemp(dir, pattern)
-}
-
-// ViamTCPSockets returns true if an env is set or if the platform requires it.
-func ViamTCPSockets() bool {
-	// note: unix sockets have been supported on windows for a while, but go-grpc does not support them.
-	// 2017 support announcement: https://devblogs.microsoft.com/commandline/af_unix-comes-to-windows/
-	// go grpc client bug on win: https://github.com/dotnet/aspnetcore/issues/47043
-	return slices.Contains(EnvTrueValues, os.Getenv("VIAM_TCP_SOCKETS"))
 }
 
 // LogViamEnvVariables logs the list of viam environment variables in [os.Environ] along with the env passed in.

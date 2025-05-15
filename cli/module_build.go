@@ -193,7 +193,13 @@ func (c *viamClient) moduleBuildListAction(cCtx *cli.Context, args moduleBuildLi
 		count := int32(args.Count)
 		numberOfJobsToReturn = &count
 	}
-	jobs, err := c.listModuleBuildJobs(moduleIDFilter, numberOfJobsToReturn, &buildIDFilter)
+
+	var buildID *string
+	if buildIDFilter != "" {
+		buildID = &buildIDFilter
+	}
+
+	jobs, err := c.listModuleBuildJobs(moduleIDFilter, numberOfJobsToReturn, buildID)
 	if err != nil {
 		return err
 	}
@@ -557,16 +563,17 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 			if err != nil {
 				return err
 			}
+			dest := reloadingDestination(c, manifest)
 			err = vc.copyFilesToFqdn(
 				part.Part.Fqdn, globalArgs.Debug, false, false, []string{manifest.Build.Path},
-				reloadingDestination(c, manifest), logging.NewLogger("reload"), args.NoProgress)
+				dest, logging.NewLogger("reload"), args.NoProgress)
 			if err != nil {
 				if s, ok := status.FromError(err); ok && s.Code() == codes.PermissionDenied {
 					warningf(c.App.ErrWriter, "RDK couldn't write to the default file copy destination. "+
 						"If you're running as non-root, try adding --home $HOME or --home /user/username to your CLI command. "+
 						"Alternatively, run the RDK as root.")
 				}
-				return err
+				return fmt.Errorf("failed copying to part (%v): %w", dest, err)
 			}
 		}
 		needsRestart, err = configureModule(c, vc, manifest, part.Part, args.Local)
@@ -655,7 +662,7 @@ func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.Resta
 	modID := args.ID
 	// todo: use MutuallyExclusiveFlags for this when urfave/cli 3.x is stable
 	if (len(modName) > 0) && (len(modID) > 0) {
-		return nil, fmt.Errorf("provide at most one of --%s and --%s", generalFlagName, moduleFlagID)
+		return nil, fmt.Errorf("provide at most one of --%s and --%s", generalFlagName, generalFlagID)
 	}
 	request := &robot.RestartModuleRequest{}
 	//nolint:gocritic
@@ -666,7 +673,7 @@ func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.Resta
 	} else if manifest != nil {
 		request.ModuleID = manifest.ModuleID
 	} else {
-		return nil, fmt.Errorf("if there is no meta.json, provide one of --%s or --%s", generalFlagName, moduleFlagID)
+		return nil, fmt.Errorf("if there is no meta.json, provide one of --%s or --%s", generalFlagName, generalFlagID)
 	}
 	return request, nil
 }

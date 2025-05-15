@@ -74,19 +74,19 @@ type WebcamConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (c WebcamConfig) Validate(path string) ([]string, error) {
+func (c WebcamConfig) Validate(path string) ([]string, []string, error) {
 	if c.Width < 0 || c.Height < 0 {
-		return nil, fmt.Errorf(
+		return nil, nil, fmt.Errorf(
 			"got illegal negative dimensions for width_px and height_px (%d, %d) fields set for webcam camera",
 			c.Height, c.Width)
 	}
 	if c.FrameRate < 0 {
-		return nil, fmt.Errorf(
+		return nil, nil, fmt.Errorf(
 			"got illegal non-positive dimension for frame rate (%.2f) field set for webcam camera",
 			c.FrameRate)
 	}
 
-	return []string{}, nil
+	return []string{}, nil, nil
 }
 
 // makeConstraints is a helper that returns constraints to mediadevices in order to find and make a video source.

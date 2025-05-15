@@ -38,9 +38,9 @@ type Config struct {
 // Returns implicit dependencies based on the config.
 // The path is the JSON path in your robot's config (not the `Config` struct) to the
 // resource being validated; e.g. "components.0".
-func (cfg *Config) Validate(path string) ([]string, error) {
+func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	// Add config validation code here
-	 return nil, nil
+	return nil, nil, nil
 }
 
 type {{.ModuleCamel}}{{.ModelPascal}} struct {
