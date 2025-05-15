@@ -441,13 +441,17 @@ func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
 
 	handledResources := mod.resources
 
-	// If module handles no resources, remove it now. Otherwise mark it
-	// pendingRemoval for eventual removal after last handled resource has been
-	// closed.
+	// Always mark pendingRemoval even if there is no more work to do because the
+	// restart handler checks it to avoid restarting a removed module.
+	mod.pendingRemoval = true
+
+	// If module handles no resources, remove it now.
 	if len(handledResources) == 0 {
 		return nil, mgr.closeModule(mod, false)
 	}
 
+	// Otherwise return the list of resources that need to be closed before the
+	// module can be cleanly removed.
 	var orphanedResourceNames []resource.Name
 	var orphanedResourceNameStrings []string
 	for name := range handledResources {
@@ -456,7 +460,6 @@ func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
 	}
 	mgr.logger.Infow("Resources handled by removed module will be removed",
 		"module", mod.cfg.Name, "resources", orphanedResourceNameStrings)
-	mod.pendingRemoval = true
 	return orphanedResourceNames, nil
 }
 
@@ -878,10 +881,15 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) pexec.UnexpectedExit
 		mgr.mu.Lock()
 		defer mgr.mu.Unlock()
 
+		if mod.pendingRemoval {
+			mod.logger.Infow("Module marked for removal, abandoning restart attempt")
+			return
+		}
+
 		// Something else already started a new process while we were waiting on the
 		// lock, so no restart is needed.
 		if err := mod.process.Status(); err == nil {
-			mod.logger.Warnw("Module process already running, abandoning restart attempt")
+			mod.logger.Infow("Module process already running, abandoning restart attempt")
 			return
 		}
 
