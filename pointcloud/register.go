@@ -9,7 +9,6 @@ var pcTypes = map[string]TypeConfig{}
 // TypeConfig a type of pointcloud.
 type TypeConfig struct {
 	StructureType string
-	New           func() PointCloud
 	NewWithParams func(size int) PointCloud
 }
 

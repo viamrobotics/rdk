@@ -172,6 +172,6 @@ func (dm *dmPointCloudAdapter) FinalizeAfterReading() (pointcloud.PointCloud, er
 	return dm, nil
 }
 
-func (dm *dmPointCloudAdapter) SuitableEmptyClone(_ spatialmath.Pose) pointcloud.PointCloud {
+func (dm *dmPointCloudAdapter) CreateNewRecentered(_ spatialmath.Pose) pointcloud.PointCloud {
 	return pointcloud.NewBasicEmpty()
 }

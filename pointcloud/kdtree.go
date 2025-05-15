@@ -14,7 +14,6 @@ const KDTreeType = "kdtree"
 
 var kdtreeConfig = TypeConfig{
 	StructureType: KDTreeType,
-	New:           func() PointCloud { return newKDTreeWithPrealloc(0) },
 	NewWithParams: func(size int) PointCloud { return newKDTreeWithPrealloc(size) },
 }
 
@@ -255,7 +254,7 @@ func (kd *KDTree) FinalizeAfterReading() (PointCloud, error) {
 	return kd, nil
 }
 
-// SuitableEmptyClone pre-sized.
-func (kd *KDTree) SuitableEmptyClone(offset spatialmath.Pose) PointCloud {
+// CreateNewRecentered pre-sized.
+func (kd *KDTree) CreateNewRecentered(offset spatialmath.Pose) PointCloud {
 	return newKDTreeWithPrealloc(kd.Size())
 }

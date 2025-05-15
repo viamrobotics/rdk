@@ -982,7 +982,7 @@ func (rc *RobotClient) TransformPointCloud(ctx context.Context, srcpc pointcloud
 		return nil, err
 	}
 	transformPose := referenceframe.ProtobufToPoseInFrame(resp.Pose).Pose()
-	output := srcpc.SuitableEmptyClone(transformPose)
+	output := srcpc.CreateNewRecentered(transformPose)
 	err = pointcloud.ApplyOffset(srcpc, transformPose, output)
 	if err != nil {
 		return nil, err

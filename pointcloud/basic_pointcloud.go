@@ -11,7 +11,6 @@ const BasicType = "basic"
 
 var basicConfig = TypeConfig{
 	StructureType: BasicType,
-	New:           func() PointCloud { return NewBasicPointCloud(0) },
 	NewWithParams: NewBasicPointCloud,
 }
 
@@ -71,6 +70,6 @@ func (cloud *basicPointCloud) FinalizeAfterReading() (PointCloud, error) {
 	return cloud, nil
 }
 
-func (cloud *basicPointCloud) SuitableEmptyClone(offset spatialmath.Pose) PointCloud {
+func (cloud *basicPointCloud) CreateNewRecentered(offset spatialmath.Pose) PointCloud {
 	return NewBasicPointCloud(cloud.Size())
 }

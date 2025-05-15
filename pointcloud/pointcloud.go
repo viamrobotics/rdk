@@ -63,7 +63,7 @@ type PointCloud interface {
 	// often this is a noop
 	FinalizeAfterReading() (PointCloud, error)
 
-	SuitableEmptyClone(offset spatialmath.Pose) PointCloud
+	CreateNewRecentered(offset spatialmath.Pose) PointCloud
 }
 
 // NewMetaData creates a new MetaData.

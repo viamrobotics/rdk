@@ -19,9 +19,6 @@ const BasicOctreeType = "octree"
 // BasicOctreeConfig the type.
 var BasicOctreeConfig = TypeConfig{
 	StructureType: BasicOctreeType,
-	New: func() PointCloud {
-		return newBasicOctree(r3.Vector{}, octreeMagicSideLength, defaultConfidenceThreshold)
-	},
 	NewWithParams: func(size int) PointCloud {
 		return newBasicOctree(r3.Vector{}, octreeMagicSideLength, defaultConfidenceThreshold)
 	},
@@ -352,8 +349,8 @@ func (octree *BasicOctree) FinalizeAfterReading() (PointCloud, error) {
 	return octree, nil
 }
 
-// SuitableEmptyClone re-size and center.
-func (octree *BasicOctree) SuitableEmptyClone(offset spatialmath.Pose) PointCloud {
-	center := offset.Point().Add(octree.center)
-	return newBasicOctree(center, octree.sideLength, octree.confidenceThreshold)
+// CreateNewRecentered re-size and center.
+func (cloud *BasicOctree) CreateNewRecentered(offset spatialmath.Pose) PointCloud {
+	center := offset.Point().Add(cloud.center)
+	return newBasicOctree(center, cloud.sideLength, cloud.confidenceThreshold)
 }

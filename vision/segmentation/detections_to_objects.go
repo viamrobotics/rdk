@@ -121,7 +121,7 @@ func DetectionSegmenter(detector objectdetection.Detector, meanK int, sigma, con
 				return nil, err
 			}
 			if filter != nil {
-				out := pc.SuitableEmptyClone(spatialmath.NewZeroPose())
+				out := pc.CreateNewRecentered(spatialmath.NewZeroPose())
 				err = filter(pc, out)
 				if err != nil {
 					return nil, err

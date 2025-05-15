@@ -33,7 +33,7 @@ func newFromLASFile(fn string, cfg TypeConfig) (PointCloud, error) {
 		}
 	}
 
-	pc := cfg.New()
+	pc := cfg.NewWithParams(0)
 
 	for i := 0; i < lf.Header.NumberPoints; i++ {
 		p, err := lf.LasPoint(i)

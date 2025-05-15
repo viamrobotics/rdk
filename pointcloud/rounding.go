@@ -11,7 +11,6 @@ import (
 func init() {
 	Register(TypeConfig{
 		StructureType: "rounding",
-		New:           newRoundingPointCloud,
 		NewWithParams: func(size int) PointCloud { return newRoundingPointCloud() },
 	})
 }
@@ -64,6 +63,6 @@ func (cloud *roundingPointCloud) FinalizeAfterReading() (PointCloud, error) {
 	return cloud, nil
 }
 
-func (cloud *roundingPointCloud) SuitableEmptyClone(offset spatialmath.Pose) PointCloud {
+func (cloud *roundingPointCloud) CreateNewRecentered(offset spatialmath.Pose) PointCloud {
 	return newRoundingPointCloud()
 }

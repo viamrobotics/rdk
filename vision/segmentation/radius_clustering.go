@@ -106,7 +106,7 @@ func (rcc *RadiusClusteringConfig) RadiusClustering(ctx context.Context, src cam
 		if err != nil {
 			return nil, err
 		}
-		out := nonPlane.SuitableEmptyClone(spatialmath.NewZeroPose())
+		out := nonPlane.CreateNewRecentered(spatialmath.NewZeroPose())
 		err = filter(nonPlane, out)
 		if err != nil {
 			return nil, err
