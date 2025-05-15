@@ -335,7 +335,7 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 	// changes.
 	startTime := time.Now()
 	r.Reconfigure(ctx, currCfg)
-	s.logger.CInfow(ctx, "Robot initialized with full config", "time_to_reconfigure", time.Since(startTime).String())
+	s.logger.CInfow(ctx, "Robot reconfigured with full config", "time_to_reconfigure", time.Since(startTime).String())
 	for {
 		select {
 		case <-ctx.Done():
