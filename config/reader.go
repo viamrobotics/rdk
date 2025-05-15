@@ -383,14 +383,14 @@ func fromReader(
 		// Note: DefaultBindAddress "from Cloud" is actually set with a constant in rdk.
 		if err == nil && !cfgFromDisk.Network.BindAddressDefaultSet {
 			if cfg.Network.BindAddressDefaultSet {
-				logger.Infof("Using cloud config, but BindAddress is specified in local config (%v) "+
+				logger.CInfof(ctx, "Using cloud config, but BindAddress is specified in local config (%v) "+
 					"and not cloud config (default = %v). Using local's.",
 					cfgFromDisk.Network.BindAddress,
 					cfg.Network.BindAddress)
 				cfg.Network.BindAddress = cfgFromDisk.Network.BindAddress
 				cfg.Network.BindAddressDefaultSet = false
 			} else {
-				logger.Infof("Using cloud config, and BindAddress specified in both cloud config (%v) "+
+				logger.CInfof(ctx, "Using cloud config, and BindAddress specified in both cloud config (%v) "+
 					"and local config (%v). Using cloud's. Remove BindAddress from cloud config to use local's.",
 					cfg.Network.BindAddress,
 					cfgFromDisk.Network.BindAddress)
