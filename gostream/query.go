@@ -4,19 +4,17 @@ import (
 	"image"
 	"math"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/pion/mediadevices"
 	"github.com/pion/mediadevices/pkg/driver"
 	"github.com/pion/mediadevices/pkg/driver/availability"
-
 	"github.com/pion/mediadevices/pkg/frame"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
 	"github.com/pkg/errors"
-
-	"slices"
 
 	"go.viam.com/rdk/logging"
 )
