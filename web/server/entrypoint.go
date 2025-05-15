@@ -40,7 +40,7 @@ var viamDotDir = filepath.Join(rutils.PlatformHomeDir(), ".viam")
 // Arguments for the command.
 type Arguments struct {
 	AllowInsecureCreds         bool   `flag:"allow-insecure-creds,usage=allow connections to send credentials over plaintext"`
-	ConfigFile                 string `flag:"config,usage=robot config file"`
+	ConfigFile                 string `flag:"config,usage=machine configuration file"`
 	CPUProfile                 string `flag:"cpuprofile,usage=write cpu profile to file"`
 	Debug                      bool   `flag:"debug"`
 	SharedDir                  string `flag:"shareddir,usage=web resource directory"`
