@@ -115,7 +115,7 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 		}()
 		// a max of 32kb will be sent per message (based on io.Copy's default buffer size)
 		sendFunc := func(data []byte) error { return srv.Send(&pb.TunnelResponse{Data: data}) }
-		readerSenderErr = tunnel.ReaderSenderLoop(srv.Context(), conn, sendFunc, connClosed, s.robot.Logger().WithFields("loop", "reader/sender"))
+		readerSenderErr = tunnel.ReaderSenderLoop(srv.Context(), conn, sendFunc, connClosed, s.robot.Logger().WithFields("loop", "reader/sender"), nil /* no stats */)
 	})
 	recvFunc := func() ([]byte, error) {
 		req, err := srv.Recv()
@@ -124,7 +124,7 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 		}
 		return req.Data, nil
 	}
-	recvWriterErr := tunnel.RecvWriterLoop(srv.Context(), recvFunc, conn, rsDone, s.robot.Logger().WithFields("loop", "recv/writer"))
+	recvWriterErr := tunnel.RecvWriterLoop(srv.Context(), recvFunc, conn, rsDone, s.robot.Logger().WithFields("loop", "recv/writer"), nil /* no stats */)
 	// close the connection to unblock the read
 	// close the channel first so that network errors can be filtered
 	// and prevented in the ReaderSenderLoop.

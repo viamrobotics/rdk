@@ -82,6 +82,7 @@ func ReaderSenderLoop(
 	sendFunc func(buf []byte) error,
 	connClosed <-chan struct{},
 	logger logging.Logger,
+	stats *Statistics,
 ) (retErr error) {
 	var err, sendErr error
 	defer func() {
@@ -108,6 +109,17 @@ func ReaderSenderLoop(
 		// based on [io.Reader], callers should always process the n > 0 bytes returned before
 		// considering the error
 		if nr > 0 {
+			// Track packet statistics if we're collecting them
+			var packetID int64
+			if stats != nil {
+				packetID = stats.TrackPacketSent(nr)
+			}
+
+			// Store packet ID in context for possible future use
+			if ctx.Value("lastPacketID") != nil {
+				ctx = context.WithValue(ctx, "lastPacketID", packetID)
+			}
+
 			if sendErr = sendFunc(buf[:nr]); sendErr != nil {
 				return
 			}
@@ -126,8 +138,11 @@ func RecvWriterLoop(
 	w io.Writer,
 	rsDone <-chan struct{},
 	logger logging.Logger,
+	stats *Statistics,
 ) (retErr error) {
 	var err error
+	var packetCounter int64 // Local packet counter for tracking received packets
+
 	defer func() {
 		retErr = filterError(ctx, err, rsDone, logger)
 		if retErr != nil {
@@ -144,6 +159,15 @@ func RecvWriterLoop(
 		if err != nil {
 			return
 		}
+
+		// Track packet statistics if we're collecting them
+		if stats != nil {
+			// We increment the local counter to associate received packets with sent packets
+			// This is a simple approach without modifying the packet format
+			stats.TrackPacketReceived(len(data), packetCounter)
+			packetCounter++
+		}
+
 		// For bidi streaming, Recv should be called on the client/server until it errors.
 		// See [grpc.NewStream] for related docs.
 		//

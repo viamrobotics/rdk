@@ -1196,6 +1196,10 @@ func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest
 		return err
 	}
 	rc.Logger().CInfow(ctx, "creating tunnel to server", "port", dest)
+
+	// Initialize tunnel statistics
+	stats := tunnel.NewStatistics()
+
 	var (
 		wg              sync.WaitGroup
 		readerSenderErr error
@@ -1227,7 +1231,14 @@ func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest
 		}()
 		// a max of 32kb will be sent per message (based on io.Copy's default buffer size)
 		sendFunc := func(data []byte) error { return client.Send(&pb.TunnelRequest{Data: data}) }
-		readerSenderErr = tunnel.ReaderSenderLoop(ctx, conn, sendFunc, connClosed, rc.logger.WithFields("loop", "reader/sender"))
+		readerSenderErr = tunnel.ReaderSenderLoop(
+			ctx,
+			conn,
+			sendFunc,
+			connClosed,
+			rc.logger.WithFields("loop", "reader/sender"),
+			stats,
+		)
 	})
 
 	recvFunc := func() ([]byte, error) {
@@ -1237,7 +1248,14 @@ func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest
 		}
 		return resp.Data, nil
 	}
-	recvWriterErr := tunnel.RecvWriterLoop(ctx, recvFunc, conn, rsDone, rc.logger.WithFields("loop", "recv/writer"))
+	recvWriterErr := tunnel.RecvWriterLoop(
+		ctx,
+		recvFunc,
+		conn,
+		rsDone,
+		rc.logger.WithFields("loop", "recv/writer"),
+		stats,
+	)
 	timerMu.Lock()
 	// cancel the timer if we've successfully returned from the RecvWriterLoop
 	if timer != nil {
@@ -1253,7 +1271,11 @@ func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest
 	utils.UncheckedError(conn.Close())
 
 	wg.Wait()
-	rc.Logger().CInfow(ctx, "tunnel to server closed", "port", dest)
+
+	// Finalize and report statistics
+	stats.Close()
+	rc.Logger().CInfow(ctx, "tunnel to server closed", "port", dest, "stats", stats.Report())
+
 	return errors.Join(readerSenderErr, recvWriterErr)
 }
 
