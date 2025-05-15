@@ -274,7 +274,7 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 		_, span := trace.StartSpan(ctx, "camera::client::NextPointCloud::ReadPCD")
 		defer span.End()
 
-		return pointcloud.ReadPCD(bytes.NewReader(resp.PointCloud))
+		return pointcloud.ReadPCD(bytes.NewReader(resp.PointCloud), "")
 	}()
 }
 

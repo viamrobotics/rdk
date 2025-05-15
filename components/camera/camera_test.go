@@ -163,7 +163,7 @@ type cloudSource struct {
 }
 
 func (cs *cloudSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	p := pointcloud.New()
+	p := pointcloud.NewBasicEmpty()
 	return p, p.Set(pointcloud.NewVector(0, 0, 0), nil)
 }
 

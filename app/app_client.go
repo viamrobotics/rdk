@@ -381,6 +381,7 @@ type registryItemMLTrainingMetadata struct {
 // ModuleMetadata holds the metadata of a module.
 type ModuleMetadata struct {
 	Models     []*Model
+	Apps       []*App
 	Versions   []*ModuleVersion
 	Entrypoint string
 	FirstRun   *string
@@ -392,11 +393,19 @@ type Model struct {
 	Model string
 }
 
+// App holds the information of an viam app.
+type App struct {
+	Name       string
+	Type       string
+	Entrypoint string
+}
+
 // ModuleVersion holds the information of a module version.
 type ModuleVersion struct {
 	Version    string
 	Files      []*Uploads
 	Models     []*Model
+	Apps       []*App
 	Entrypoint string
 	FirstRun   *string
 }
@@ -437,6 +446,7 @@ type Module struct {
 	URL                    string
 	Description            string
 	Models                 []*Model
+	Apps                   []*App
 	TotalRobotUsage        int
 	TotalOrganizationUsage int
 	OrganizationID         string
@@ -458,6 +468,7 @@ type VersionHistory struct {
 	Version    string
 	Files      []*Uploads
 	Models     []*Model
+	Apps       []*App
 	Entrypoint string
 	FirstRun   *string
 }
@@ -1716,12 +1727,17 @@ func (c *AppClient) UpdateModule(
 	url,
 	description string,
 	models []*Model,
+	apps []*App,
 	entrypoint string,
 	opts *UpdateModuleOptions,
 ) (string, error) {
 	var pbModels []*pb.Model
 	for _, model := range models {
 		pbModels = append(pbModels, modelToProto(model))
+	}
+	var pbApps []*pb.App
+	for _, app := range apps {
+		pbApps = append(pbApps, appToProto(app))
 	}
 	var firstRun *string
 	if opts != nil {
@@ -1733,6 +1749,7 @@ func (c *AppClient) UpdateModule(
 		Url:         url,
 		Description: description,
 		Models:      pbModels,
+		Apps:        pbApps,
 		Entrypoint:  entrypoint,
 		FirstRun:    firstRun,
 	})
@@ -2545,12 +2562,17 @@ func moduleMetadataFromProto(md *pb.ModuleMetadata) *ModuleMetadata {
 	for _, version := range md.Models {
 		models = append(models, modelFromProto(version))
 	}
+	var apps []*App
+	for _, app := range md.Apps {
+		apps = append(apps, appFromProto(app))
+	}
 	var versions []*ModuleVersion
 	for _, version := range md.Versions {
 		versions = append(versions, moduleVersionFromProto(version))
 	}
 	return &ModuleMetadata{
 		Models:     models,
+		Apps:       apps,
 		Versions:   versions,
 		Entrypoint: md.Entrypoint,
 		FirstRun:   md.FirstRun,
@@ -2577,6 +2599,28 @@ func modelToProto(model *Model) *pb.Model {
 	}
 }
 
+func appFromProto(app *pb.App) *App {
+	if app == nil {
+		return nil
+	}
+	return &App{
+		Name:       app.Name,
+		Type:       app.Type,
+		Entrypoint: app.Entrypoint,
+	}
+}
+
+func appToProto(app *App) *pb.App {
+	if app == nil {
+		return nil
+	}
+	return &pb.App{
+		Name:       app.Name,
+		Type:       app.Type,
+		Entrypoint: app.Entrypoint,
+	}
+}
+
 func moduleVersionFromProto(version *pb.ModuleVersion) *ModuleVersion {
 	if version == nil {
 		return nil
@@ -2589,10 +2633,15 @@ func moduleVersionFromProto(version *pb.ModuleVersion) *ModuleVersion {
 	for _, model := range version.Models {
 		models = append(models, modelFromProto(model))
 	}
+	var apps []*App
+	for _, app := range version.Apps {
+		apps = append(apps, appFromProto(app))
+	}
 	return &ModuleVersion{
 		Version:    version.Version,
 		Files:      files,
 		Models:     models,
+		Apps:       apps,
 		Entrypoint: version.Entrypoint,
 		FirstRun:   version.FirstRun,
 	}
@@ -2667,6 +2716,10 @@ func moduleFromProto(module *pb.Module) *Module {
 	for _, model := range module.Models {
 		models = append(models, modelFromProto(model))
 	}
+	var apps []*App
+	for _, app := range module.Apps {
+		apps = append(apps, appFromProto(app))
+	}
 	return &Module{
 		ModuleID:               module.ModuleId,
 		Name:                   module.Name,
@@ -2675,6 +2728,7 @@ func moduleFromProto(module *pb.Module) *Module {
 		URL:                    module.Url,
 		Description:            module.Description,
 		Models:                 models,
+		Apps:                   apps,
 		TotalRobotUsage:        int(module.TotalRobotUsage),
 		TotalOrganizationUsage: int(module.TotalOrganizationUsage),
 		OrganizationID:         module.OrganizationId,
@@ -2708,10 +2762,15 @@ func versionHistoryFromProto(history *pb.VersionHistory) *VersionHistory {
 	for _, model := range history.Models {
 		models = append(models, modelFromProto(model))
 	}
+	var apps []*App
+	for _, app := range history.Apps {
+		apps = append(apps, appFromProto(app))
+	}
 	return &VersionHistory{
 		Version:    history.Version,
 		Files:      files,
 		Models:     models,
+		Apps:       apps,
 		Entrypoint: history.Entrypoint,
 		FirstRun:   history.FirstRun,
 	}

@@ -74,7 +74,8 @@ func (h *gripperVoxelSegmentTestHelper) Process(
 	for _, seg := range voxSegments {
 		voxObjectClouds = append(voxObjectClouds, seg.PointCloud)
 	}
-	voxColoredSegments, err := pc.MergePointCloudsWithColor(voxObjectClouds)
+	voxColoredSegments := pc.NewBasicEmpty()
+	err = pc.MergePointCloudsWithColor(voxObjectClouds, voxColoredSegments)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(voxColoredSegments, "gripper-segments-voxels")
 

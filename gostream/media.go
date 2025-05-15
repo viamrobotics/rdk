@@ -7,7 +7,6 @@ import (
 	"sync/atomic"
 
 	"github.com/pion/mediadevices/pkg/driver"
-	"github.com/pion/mediadevices/pkg/driver/camera"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -152,13 +151,18 @@ func PropertiesFromMediaSource[T, U any](src MediaSource[T]) ([]prop.Media, erro
 	return d.Properties(), nil
 }
 
+// labelSeparator is used to separate labels for a driver that
+// is found from multiple locations on a host.
+// from https://github.com/pion/mediadevices/blob/v0.6.4/pkg/driver/camera/camera.go#L16
+const labelSeparator = ";"
+
 // LabelsFromMediaSource returns the labels from the underlying driver in the MediaSource.
 func LabelsFromMediaSource[T, U any](src MediaSource[T]) ([]string, error) {
 	d, err := DriverFromMediaSource[T, U](src)
 	if err != nil {
 		return nil, err
 	}
-	return strings.Split(d.Info().Label, camera.LabelSeparator), nil
+	return strings.Split(d.Info().Label, labelSeparator), nil
 }
 
 // DriverFromMediaSource returns the underlying driver from the MediaSource.

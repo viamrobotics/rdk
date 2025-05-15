@@ -192,7 +192,7 @@ func segmentsToProto(frame string, segs []*vision.Object) ([]*commonpb.PointClou
 	for _, seg := range segs {
 		var buf bytes.Buffer
 		if seg.PointCloud == nil {
-			seg.PointCloud = pointcloud.New()
+			seg.PointCloud = pointcloud.NewBasicEmpty()
 		}
 		err := pointcloud.ToPCD(seg, &buf, pointcloud.PCDBinary)
 		if err != nil {

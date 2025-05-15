@@ -102,7 +102,7 @@ func registerObstacleDistanceDetector(
 		vector := pointcloud.NewVector(median.X, median.Y, median.Z)
 		pt := spatialmath.NewPoint(vector, "obstacle")
 
-		pcToReturn := pointcloud.New()
+		pcToReturn := pointcloud.NewBasicEmpty()
 		basicData := pointcloud.NewBasicData()
 		err = pcToReturn.Set(vector, basicData)
 		if err != nil {
