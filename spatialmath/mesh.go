@@ -13,6 +13,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cast"
 	commonpb "go.viam.com/api/common/v1"
+
+	"go.viam.com/rdk/utils"
 )
 
 // This file incorporates work covered by the Brax project -- https://github.com/google/brax/blob/main/LICENSE.
@@ -243,14 +245,8 @@ func (m *Mesh) boxIntersectsVertex(b *box) bool {
 
 func (m *Mesh) distanceFromSphere(pt r3.Vector, radius float64) float64 {
 	minDist := math.Inf(1)
-
 	for _, tri := range m.triangles {
-		worldTri := NewTriangle(
-			Compose(m.pose, NewPoseFromPoint(tri.p0)).Point(),
-			Compose(m.pose, NewPoseFromPoint(tri.p1)).Point(),
-			Compose(m.pose, NewPoseFromPoint(tri.p2)).Point(),
-		)
-		closestPt := ClosestPointTrianglePoint(worldTri, pt)
+		closestPt := ClosestPointTrianglePoint(tri.Transform(m.pose), pt)
 		dist := closestPt.Sub(pt).Norm() - radius
 		if dist < minDist {
 			minDist = dist
@@ -262,12 +258,7 @@ func (m *Mesh) distanceFromSphere(pt r3.Vector, radius float64) float64 {
 func (m *Mesh) collidesWithSphere(pt r3.Vector, radius, buffer float64) bool {
 	// Transform all triangles to world space once
 	for _, tri := range m.triangles {
-		worldTri := NewTriangle(
-			Compose(m.pose, NewPoseFromPoint(tri.p0)).Point(),
-			Compose(m.pose, NewPoseFromPoint(tri.p1)).Point(),
-			Compose(m.pose, NewPoseFromPoint(tri.p2)).Point(),
-		)
-		closestPt := ClosestPointTrianglePoint(worldTri, pt)
+		closestPt := ClosestPointTrianglePoint(tri.Transform(m.pose), pt)
 		if closestPt.Sub(pt).Norm() <= radius+buffer {
 			return true
 		}
@@ -278,23 +269,14 @@ func (m *Mesh) collidesWithSphere(pt r3.Vector, radius, buffer float64) bool {
 // collidesWithMesh checks if this mesh collides with another mesh
 // TODO: This function is *begging* for GPU acceleration.
 func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) bool {
-	// Transform all triangles to world space once
+	// Transform all triangles to world space
 	worldTris1 := make([]*Triangle, len(m.triangles))
 	for i, tri := range m.triangles {
-		worldTris1[i] = NewTriangle(
-			Compose(m.pose, NewPoseFromPoint(tri.p0)).Point(),
-			Compose(m.pose, NewPoseFromPoint(tri.p1)).Point(),
-			Compose(m.pose, NewPoseFromPoint(tri.p2)).Point(),
-		)
+		worldTris1[i] = tri.Transform(m.pose)
 	}
-
 	worldTris2 := make([]*Triangle, len(other.triangles))
 	for i, tri := range other.triangles {
-		worldTris2[i] = NewTriangle(
-			Compose(other.pose, NewPoseFromPoint(tri.p0)).Point(),
-			Compose(other.pose, NewPoseFromPoint(tri.p1)).Point(),
-			Compose(other.pose, NewPoseFromPoint(tri.p2)).Point(),
-		)
+		worldTris2[i] = tri.Transform(other.pose)
 	}
 
 	// Check if any triangles from either mesh collide.
@@ -331,23 +313,15 @@ func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) bool {
 
 // distanceFromMesh returns the minimum distance between this mesh and another mesh.
 func (m *Mesh) distanceFromMesh(other *Mesh) float64 {
-	// Transform all triangles to world space once
+	// Transform all triangles to world space
 	worldTris1 := make([]*Triangle, len(m.triangles))
 	for i, tri := range m.triangles {
-		worldTris1[i] = NewTriangle(
-			Compose(m.pose, NewPoseFromPoint(tri.p0)).Point(),
-			Compose(m.pose, NewPoseFromPoint(tri.p1)).Point(),
-			Compose(m.pose, NewPoseFromPoint(tri.p2)).Point(),
-		)
+		worldTris1[i] = tri.Transform(m.pose)
 	}
 
 	worldTris2 := make([]*Triangle, len(other.triangles))
 	for i, tri := range other.triangles {
-		worldTris2[i] = NewTriangle(
-			Compose(other.pose, NewPoseFromPoint(tri.p0)).Point(),
-			Compose(other.pose, NewPoseFromPoint(tri.p1)).Point(),
-			Compose(other.pose, NewPoseFromPoint(tri.p2)).Point(),
-		)
+		worldTris2[i] = tri.Transform(other.pose)
 	}
 
 	minDist := math.Inf(1)
@@ -429,6 +403,7 @@ func (m *Mesh) MarshalJSON() ([]byte, error) {
 // or the actual intersection area otherwise.
 func boxTriangleIntersectionArea(b *box, t *Triangle) float64 {
 	// Quick check if they don't intersect at all
+	//nolint:errcheck
 	collides, _ := b.CollidesWith(NewMesh(NewZeroPose(), []*Triangle{t}, ""), defaultCollisionBufferMM)
 	if !collides {
 		return 0
@@ -476,12 +451,13 @@ func boxTriangleIntersectionArea(b *box, t *Triangle) float64 {
 	}
 
 	// Calculate area of the resulting polygon by triangulating it
-	return calculatePolygonAreaWithTriangulation(vertices, t.Normal())
+	// TODO: all passed in vertices should be coplanar with the triangle normal but this is not explicitly checked
+	return calculatePolygonAreaWithTriangulation(vertices)
 }
 
 // clipPolygonAgainstPlane clips a convex polygon against a plane
-// Returns the vertices of the clipped polygon
-func clipPolygonAgainstPlane(vertices []r3.Vector, planePoint r3.Vector, planeNormal r3.Vector) []r3.Vector {
+// Returns the vertices of the clipped polygon.
+func clipPolygonAgainstPlane(vertices []r3.Vector, planePoint, planeNormal r3.Vector) []r3.Vector {
 	if len(vertices) < 3 {
 		return vertices
 	}
@@ -513,76 +489,43 @@ func clipPolygonAgainstPlane(vertices []r3.Vector, planePoint r3.Vector, planeNo
 	return result
 }
 
-// calculatePolygonAreaWithTriangulation calculates the area of a polygon by triangulating it
-// All vertices must be coplanar with the given normal
-func calculatePolygonAreaWithTriangulation(vertices []r3.Vector, normal r3.Vector) float64 {
-	if len(vertices) < 3 {
-		fmt.Println("bad polygon", vertices)
+// calculatePolygonAreaWithTriangulation calculates the area of a polygon by triangulating it. All provided vertices must be coplanar.
+// TODO: nothing is enforcing that the vertices be coplanar.
+func calculatePolygonAreaWithTriangulation(vertices []r3.Vector) float64 {
+	// For a malformed polygon there will be no area.
+	switch length := len(vertices); {
+	case length < 3:
 		return 0
-	}
-
-	// For a 3-vertex polygon, just calculate triangle area directly
-	if len(vertices) == 3 {
+	case length == 3:
+		// For a 3-vertex polygon, just calculate triangle area directly
 		return TriangleArea(NewTriangle(vertices[0], vertices[1], vertices[2]))
+	default:
+		// For polygons with more vertices, triangulate using fan triangulation
+		// This works for convex polygons, which is what we have after clipping
+		totalArea := 0.0
+		for i := 1; i < len(vertices)-1; i++ {
+			totalArea += TriangleArea(NewTriangle(vertices[0], vertices[i], vertices[i+1]))
+		}
+		return totalArea
 	}
-
-	// For polygons with more vertices, triangulate using fan triangulation
-	// This works for convex polygons, which is what we have after clipping
-	totalArea := 0.0
-	for i := 1; i < len(vertices)-1; i++ {
-		tri := NewTriangle(vertices[0], vertices[i], vertices[i+1])
-		totalArea += TriangleArea(tri)
-	}
-
-	return totalArea
 }
 
-// MeshGeometryIntersectionArea calculates the summed area of all triangles in a mesh
-// that intersect with a box geometry.
-// Returns the total intersection area and a boolean indicating if the calculation was performed.
-// The boolean will be false if neither geometry is a box or a mesh, or if both are the same type.
-func MeshGeometryIntersectionArea(g1, g2 Geometry) float64 {
-	// Check for box-mesh or mesh-box pairs
-	var thebox *box
-	var mesh *Mesh
-
-	// Case 1: g1 is box, g2 is mesh
-	if b, ok := g1.(*box); ok {
-		if m, ok := g2.(*Mesh); ok {
-			thebox = b
-			mesh = m
-		}
+// MeshBoxIntersectionArea calculates the summed area of all triangles in a mesh
+// that intersect with a box geometry and returns the total intersection area.
+func MeshBoxIntersectionArea(mesh, theBox Geometry) (float64, error) {
+	m, err := utils.AssertType[*Mesh](mesh)
+	if err != nil {
+		return -1, err
 	}
-
-	// Case 2: g1 is mesh, g2 is box
-	if mesh == nil {
-		if m, ok := g1.(*Mesh); ok {
-			if b, ok := g2.(*box); ok {
-				thebox = b
-				mesh = m
-			}
-		}
-	}
-
-	// If we didn't find a valid box-mesh pair
-	if thebox == nil || mesh == nil {
-		return -1
+	b, err := utils.AssertType[*box](theBox)
+	if err != nil {
+		return -1, err
 	}
 
 	// Sum the intersection area for each triangle
 	totalArea := 0.0
-	for _, tri := range mesh.triangles {
-		// Transform triangle to world space
-		worldTri := NewTriangle(
-			Compose(mesh.pose, NewPoseFromPoint(tri.p0)).Point(),
-			Compose(mesh.pose, NewPoseFromPoint(tri.p1)).Point(),
-			Compose(mesh.pose, NewPoseFromPoint(tri.p2)).Point(),
-		)
-
-		// Calculate and add the intersection area
-		area := boxTriangleIntersectionArea(thebox, worldTri)
-		totalArea += area
+	for _, tri := range m.triangles {
+		totalArea += boxTriangleIntersectionArea(b, tri.Transform(m.pose))
 	}
-
-	return totalArea
+	return totalArea, nil
 }

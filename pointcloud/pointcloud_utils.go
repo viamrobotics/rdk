@@ -104,7 +104,6 @@ func ToBasicOctree(cloud PointCloud, confidenceThreshold int) (*BasicOctree, err
 	basicOctree := newBasicOctree(center, maxSideLength, defaultConfidenceThreshold)
 
 	var err error
-
 	cloud.Iterate(0, 0, func(p r3.Vector, d Data) bool {
 		if err = basicOctree.Set(p, d); err != nil {
 			return false
@@ -128,4 +127,21 @@ func ToBytes(cloud PointCloud) ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// FromMesh returns an octree representation of the Mesh geometry.
+func FromMesh(mesh *spatialmath.Mesh) (*BasicOctree, error) {
+	meshPts := mesh.ToPoints(0)
+	pc := NewBasicPointCloud(len(meshPts))
+	for _, pt := range meshPts {
+		if err := pc.Set(pt, NewBasicData()); err != nil {
+			return nil, err
+		}
+	}
+	octree, err := ToBasicOctree(pc, 0)
+	if err != nil {
+		return nil, err
+	}
+	octree.SetLabel(mesh.Label())
+	return octree, nil
 }
