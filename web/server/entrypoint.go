@@ -335,7 +335,7 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 	// changes.
 	startTime := time.Now()
 	r.Reconfigure(ctx, currCfg)
-	s.logger.CInfow(ctx, "Robot initialized with full config", "elapsed time", time.Since(startTime).String())
+	s.logger.CInfow(ctx, "Robot initialized with full config", "time_to_reconfigure", time.Since(startTime).String())
 	for {
 		select {
 		case <-ctx.Done():
@@ -550,7 +550,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		cancel()
 		return err
 	}
-	s.logger.CInfow(ctx, "Robot created with minimal config", "elapsed time", time.Since(startTime).String())
+	s.logger.CInfow(ctx, "Robot created with minimal config", "time_to_create", time.Since(startTime).String())
 
 	theRobotLock.Lock()
 	theRobot = myRobot
