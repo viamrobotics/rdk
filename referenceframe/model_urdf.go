@@ -12,11 +12,8 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// Extension is the file extension associated with URDF files.
-const Extension string = "urdf"
-
-// ModelConfigURDF represents all supported fields in a Universal Robot Description Format (URDF) file.
-type ModelConfigURDF struct {
+// ModelConfigXML represents all supported fields in a Universal Robot Description Format (URDF) file.
+type ModelConfigXML struct {
 	XMLName xml.Name   `xml:"robot"`
 	Name    string     `xml:"name,attr"`
 	Links   []linkXML  `xml:"link"`
@@ -42,9 +39,9 @@ type jointXML struct {
 	Limit   *limit   `xml:"limit,omitempty"`
 }
 
-// NewModelFromWorldState creates a ModelConfigURDF struct which can be marshalled into xml and will be a
+// NewModelFromWorldState creates a ModelConfigXML struct which can be marshalled into xml and will be a
 // valid .urdf file representing the geometries in the given worldstate.
-func NewModelFromWorldState(ws *WorldState, name string) (*ModelConfigURDF, error) {
+func NewModelFromWorldState(ws *WorldState, name string) (*ModelConfigXML, error) {
 	// the link we initialize this list with represents the world frame
 	links := []linkXML{{Name: World}}
 	joints := make([]jointXML, 0)
@@ -69,7 +66,7 @@ func NewModelFromWorldState(ws *WorldState, name string) (*ModelConfigURDF, erro
 			Child:  frame{g.Label()},
 		})
 	}
-	return &ModelConfigURDF{
+	return &ModelConfigXML{
 		Name:   name,
 		Links:  links,
 		Joints: joints,
@@ -79,9 +76,9 @@ func NewModelFromWorldState(ws *WorldState, name string) (*ModelConfigURDF, erro
 // UnmarshalModelURDF will transfer the given URDF XML data into an equivalent ModelConfig. Direct unmarshaling in the
 // same fashion as ModelJSON is not possible, as URDF data will need to be evaluated to accommodate differences
 // between the two kinematics encoding schemes.
-func UnmarshalModelURDF(xmlData []byte, modelName string) (*ModelConfigJSON, error) {
+func UnmarshalModelXML(xmlData []byte, modelName string) (*ModelConfigJSON, error) {
 	// Unmarshal into a URDF ModelConfig
-	urdf := &ModelConfigURDF{}
+	urdf := &ModelConfigXML{}
 	err := xml.Unmarshal(xmlData, urdf)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to convert URDF data to equivalent URDFConfig struct")
@@ -212,20 +209,20 @@ func UnmarshalModelURDF(xmlData []byte, modelName string) (*ModelConfigJSON, err
 		Joints:       joints,
 		OriginalFile: &ModelFile{
 			Bytes:     xmlData,
-			Extension: Extension,
+			Extension: "urdf",
 		},
 	}, nil
 }
 
-// ParseModelURDFFile will read a given file and parse the contained URDF XML data into an equivalent Model.
-func ParseModelURDFFile(filename, modelName string) (Model, error) {
+// ParseModelXMLFile will read a given file and parse the contained URDF XML data into an equivalent Model.
+func ParseModelXMLFile(filename, modelName string) (Model, error) {
 	//nolint:gosec
 	xmlData, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read URDF file")
 	}
 
-	mc, err := UnmarshalModelURDF(xmlData, modelName)
+	mc, err := UnmarshalModelXML(xmlData, modelName)
 	if err != nil {
 		return nil, err
 	}

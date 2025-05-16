@@ -10,11 +10,9 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
-	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/referenceframe/urdf"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -39,54 +37,6 @@ type InputEnabled interface {
 	Kinematics(ctx context.Context) (referenceframe.Model, error)
 	CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 	GoToInputs(context.Context, ...[]referenceframe.Input) error
-}
-
-func KinematicModelFromProtobuf(name string, resp *commonpb.GetKinematicsResponse) (referenceframe.Model, error) {
-	if resp == nil {
-		return nil, errors.New("*commonpb.GetKinematicsResponse can't be nil")
-	}
-	format := resp.GetFormat()
-	data := resp.GetKinematicsData()
-
-	switch format {
-	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA:
-		return referenceframe.UnmarshalModelJSON(data, name)
-	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF:
-		modelconf, err := urdf.UnmarshalModelXML(data, name)
-		if err != nil {
-			return nil, err
-		}
-		return modelconf.ParseConfig(name)
-	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED:
-		fallthrough
-	default:
-		if formatName, ok := commonpb.KinematicsFileFormat_name[int32(format)]; ok {
-			return nil, fmt.Errorf("unable to parse file of type %s", formatName)
-		}
-		return nil, fmt.Errorf("unable to parse unknown file type %d", format)
-	}
-}
-
-func KinematicModelToProtobuf(model referenceframe.Model) *commonpb.GetKinematicsResponse {
-	unspecified := commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED
-	if model == nil {
-		return &commonpb.GetKinematicsResponse{Format: unspecified}
-	}
-
-	cfg := model.ModelConfig()
-	if cfg == nil || cfg.OriginalFile == nil {
-		return &commonpb.GetKinematicsResponse{Format: unspecified}
-	}
-	resp := &commonpb.GetKinematicsResponse{KinematicsData: cfg.OriginalFile.Bytes}
-	switch cfg.OriginalFile.Extension {
-	case "json":
-		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA
-	case urdf.Extension:
-		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF
-	default:
-		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF
-	}
-	return resp
 }
 
 // A Service that returns the frame system for a robot.
