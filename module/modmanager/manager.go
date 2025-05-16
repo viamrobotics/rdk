@@ -881,7 +881,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) pexec.UnexpectedExit
 		// interleavings:
 		// 1. The `onUnexpectedExitHandler` restarts the module process with the old configuration.
 		//   1a) and the Reconfigure then shuts down + restarts the (freshly launched) module process with one using the updated configuration.
-		// 2. Or, the `Reconfigure` executes and starts the module process[1] with the updated config. The `onUnexpectedExitHandler` will still
+		// 2. Or, the `Reconfigure` executes and starts the module process with the updated config. The `onUnexpectedExitHandler` will still
 		//    run. But will become a no-op.
 		//
 		// For the second scenario, we check our assumptions after acquiring the modmanager mutex.  If the module process is running, there is
