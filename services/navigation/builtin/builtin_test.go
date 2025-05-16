@@ -185,7 +185,7 @@ func TestValidateConfig(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.description, func(t *testing.T) {
-			deps, err := tt.cfg.Validate(path)
+			deps, _, err := tt.cfg.Validate(path)
 			if tt.expectedErr == nil {
 				test.That(t, err, test.ShouldBeNil)
 			} else {
@@ -1694,14 +1694,14 @@ func TestValidateGeometry(t *testing.T) {
 
 	t.Run("fail case", func(t *testing.T) {
 		cfg = createBox(r3.Vector{X: 10, Y: 10, Z: 10})
-		_, err := cfg.Validate("")
+		_, _, err := cfg.Validate("")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, errors.Is(err, errObstacleGeomWithTranslation), test.ShouldBeTrue)
 	})
 
 	t.Run("success case", func(t *testing.T) {
 		cfg = createBox(r3.Vector{})
-		_, err := cfg.Validate("")
+		_, _, err := cfg.Validate("")
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
@@ -1831,7 +1831,7 @@ func TestGetObstacles(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 
-		detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-box", boxGeom.ToProtobuf())
+		detection, err := viz.NewObjectWithLabel(pointcloud.NewBasicEmpty(), "test-box", boxGeom.ToProtobuf())
 		test.That(t, err, test.ShouldBeNil)
 		return []*viz.Object{detection}, nil
 	}

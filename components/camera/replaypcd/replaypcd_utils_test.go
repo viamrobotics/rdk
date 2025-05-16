@@ -286,7 +286,7 @@ func getPointCloudFromArtifact(i int) (pointcloud.PointCloud, error) {
 	}
 	defer utils.UncheckedErrorFunc(pcdFile.Close)
 
-	pcExpected, err := pointcloud.ReadPCD(pcdFile)
+	pcExpected, err := pointcloud.ReadPCD(pcdFile, "")
 	if err != nil {
 		return nil, err
 	}

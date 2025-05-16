@@ -115,7 +115,7 @@ func TestSensorBase(t *testing.T) {
 	testCfg := sConfig()
 	conf, ok := testCfg.ConvertedAttributes.(*Config)
 	test.That(t, ok, test.ShouldBeTrue)
-	deps, err := conf.Validate("path")
+	deps, _, err := conf.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, deps, test.ShouldResemble, []string{"ms", "test_base"})
 	sbDeps := createDependencies(t)

@@ -168,13 +168,8 @@ func (sfs *simpleFrameSystem) Parent(frame Frame) (Frame, error) {
 
 // frameExists is a helper function to see if a frame with a given name already exists in the system.
 func (sfs *simpleFrameSystem) frameExists(name string) bool {
-	if name == World {
-		return true
-	}
-	if _, ok := sfs.frames[name]; ok {
-		return true
-	}
-	return false
+	_, ok := sfs.frames[name]
+	return ok || name == World
 }
 
 // RemoveFrame will delete the given frame and all descendents from the frame system if it exists.

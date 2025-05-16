@@ -51,7 +51,7 @@ func newEndPositionCollector(resource interface{}, params data.CollectorParams) 
 			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return res, err
 			}
-			return res, data.FailedToReadErr(params.ComponentName, endPosition.String(), err)
+			return res, data.NewFailedToReadError(params.ComponentName, endPosition.String(), err)
 		}
 		o := v.Orientation().OrientationVectorDegrees()
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
@@ -88,7 +88,7 @@ func newJointPositionsCollector(resource interface{}, params data.CollectorParam
 			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return res, err
 			}
-			return res, data.FailedToReadErr(params.ComponentName, jointPositions.String(), err)
+			return res, data.NewFailedToReadError(params.ComponentName, jointPositions.String(), err)
 		}
 		k, err := arm.Kinematics(ctx)
 		if err != nil {
@@ -102,7 +102,7 @@ func newJointPositionsCollector(resource interface{}, params data.CollectorParam
 
 		jp, err := referenceframe.JointPositionsFromInputs(k, v)
 		if err != nil {
-			return res, data.FailedToReadErr(params.ComponentName, jointPositions.String(), err)
+			return res, data.NewFailedToReadError(params.ComponentName, jointPositions.String(), err)
 		}
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
 		return data.NewTabularCaptureResult(ts, pb.GetJointPositionsResponse{Positions: jp})

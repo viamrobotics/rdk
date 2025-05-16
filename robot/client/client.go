@@ -523,7 +523,7 @@ func (rc *RobotClient) updateResourceClients(ctx context.Context) error {
 	for resourceName, client := range rc.resourceClients {
 		// check if no longer an active resource
 		if !activeResources[resourceName] {
-			rc.logger.Infow("Removing resource from remote client", "resourceName", resourceName)
+			rc.logger.Infow("Removing resource from remote client", "resourceName", resourceName.String())
 			if err := client.Close(ctx); err != nil {
 				rc.Logger().CError(ctx, err)
 				continue
@@ -982,7 +982,12 @@ func (rc *RobotClient) TransformPointCloud(ctx context.Context, srcpc pointcloud
 		return nil, err
 	}
 	transformPose := referenceframe.ProtobufToPoseInFrame(resp.Pose).Pose()
-	return pointcloud.ApplyOffset(ctx, srcpc, transformPose, rc.Logger())
+	output := srcpc.CreateNewRecentered(transformPose)
+	err = pointcloud.ApplyOffset(srcpc, transformPose, output)
+	if err != nil {
+		return nil, err
+	}
+	return output, nil
 }
 
 // StopAll cancels all current and outstanding operations for the machine and stops all actuators and movement.

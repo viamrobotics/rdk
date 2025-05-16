@@ -82,10 +82,10 @@ type fileSourceConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (c fileSourceConfig) Validate(path string) ([]string, error) {
+func (c fileSourceConfig) Validate(path string) ([]string, []string, error) {
 	if c.CameraParameters != nil {
 		if c.CameraParameters.Width < 0 || c.CameraParameters.Height < 0 {
-			return nil, fmt.Errorf(
+			return nil, nil, fmt.Errorf(
 				"got illegal negative dimensions for width_px and height_px (%d, %d) fields set in intrinsic_parameters for image_file camera",
 				c.CameraParameters.Height, c.CameraParameters.Width)
 		}
@@ -96,11 +96,11 @@ func (c fileSourceConfig) Validate(path string) ([]string, error) {
 		case "pizza", "dog", "crowd":
 			// valid options
 		default:
-			return nil, fmt.Errorf("preloaded_image must be one of: pizza, dog, crowd. Got: %s", c.PreloadedImage)
+			return nil, nil, fmt.Errorf("preloaded_image must be one of: pizza, dog, crowd. Got: %s", c.PreloadedImage)
 		}
 	}
 
-	return []string{}, nil
+	return []string{}, nil, nil
 }
 
 // Read returns just the RGB image if it is present, or the depth map if the RGB image is not present.
@@ -188,7 +188,7 @@ func (fs *fileSource) Images(ctx context.Context) ([]camera.NamedImage, resource
 // or the pointcloud from file if set.
 func (fs *fileSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	if fs.PointCloudFN != "" {
-		return pointcloud.NewFromFile(fs.PointCloudFN, nil)
+		return pointcloud.NewFromFile(fs.PointCloudFN, "")
 	}
 	if fs.Intrinsics == nil {
 		return nil, transform.NewNoIntrinsicsError("camera intrinsics not found in config")

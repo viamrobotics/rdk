@@ -784,12 +784,12 @@ func (ms *builtIn) newMoveOnMapRequest(
 		return nil, err
 	}
 	// store slam point cloud data  in the form of a recursive octree for collision checking
-	octree, err := pointcloud.ReadPCDToBasicOctree(bytes.NewReader(pointCloudData))
+	octree, err := pointcloud.ReadPCD(bytes.NewReader(pointCloudData), pointcloud.BasicOctreeType)
 	if err != nil {
 		return nil, err
 	}
 
-	req.Obstacles = append(req.Obstacles, octree)
+	req.Obstacles = append(req.Obstacles, octree.(spatialmath.Geometry))
 
 	mr, err := ms.createBaseMoveRequest(
 		ctx,

@@ -428,6 +428,7 @@ func TestAdditionalModuleEnvVars(t *testing.T) {
 		expected := map[string]string{
 			utils.MachinePartIDEnvVar: cloud1.ID,
 			utils.MachineIDEnvVar:     cloud1.MachineID,
+			utils.MachineFQDNEnvVar:   cloud1.FQDN,
 			utils.PrimaryOrgIDEnvVar:  cloud1.PrimaryOrgID,
 			utils.LocationIDEnvVar:    cloud1.LocationID,
 		}
@@ -493,6 +494,7 @@ func TestAdditionalModuleEnvVars(t *testing.T) {
 
 	t.Run("full", func(t *testing.T) {
 		expected := map[string]string{
+			utils.MachineFQDNEnvVar:   cloud1.FQDN,
 			utils.MachinePartIDEnvVar: cloud1.ID,
 			utils.MachineIDEnvVar:     cloud1.MachineID,
 			utils.PrimaryOrgIDEnvVar:  cloud1.PrimaryOrgID,

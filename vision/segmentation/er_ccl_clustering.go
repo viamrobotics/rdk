@@ -187,7 +187,7 @@ func ApplyERCCLToPointCloud(ctx context.Context, cloud pc.PointCloud, cfg *ErCCL
 		}
 		_, ok := segments[labelMap[i][j].label]
 		if !ok {
-			segments[labelMap[i][j].label] = pc.New()
+			segments[labelMap[i][j].label] = pc.NewBasicEmpty()
 		}
 		err := segments[labelMap[i][j].label].Set(p, d)
 		if err != nil {

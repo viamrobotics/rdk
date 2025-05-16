@@ -150,7 +150,15 @@ func TestShutdown(t *testing.T) {
 			cfgFilename, err = robottestutils.MakeTempConfig(t, cfg, testLogger)
 			test.That(t, err, test.ShouldBeNil)
 
-			server = robottestutils.ServerAsSeparateProcess(t, cfgFilename, serverLogger)
+			// Start the server w/ ManagedProcess auto-restart disabled, otherwise
+			// we'll be racing the process restart to check that the stop command
+			// actually worked.
+			server = robottestutils.ServerAsSeparateProcess(
+				t,
+				cfgFilename,
+				serverLogger,
+				robottestutils.WithoutRestart(),
+			)
 			err = server.Start(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 

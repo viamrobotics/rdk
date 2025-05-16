@@ -21,6 +21,9 @@ import (
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/cloud"
+	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/gantry"
+	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/ftdc"
@@ -71,9 +74,9 @@ type localRobot struct {
 	revealSensitiveConfigDiffs bool
 	shutdownCallback           func()
 
-	// lastWeakDependentsRound stores the value of the resource graph's
-	// logical clock when updateWeakDependents was called.
-	lastWeakDependentsRound atomic.Int64
+	// lastWeakAndOptionalDependentsRound stores the value of the resource graph's
+	// logical clock when updateWeakAndOptionalDependents was called.
+	lastWeakAndOptionalDependentsRound atomic.Int64
 
 	// configRevision stores the revision of the latest config ingested during
 	// reconfigurations along with a timestamp.
@@ -296,10 +299,10 @@ func (r *localRobot) sendTriggerConfig(caller string) {
 	}
 }
 
-// completeConfigWorker tries to complete the config and update weak dependencies
-// if any resources are not configured. It will also update the resource graph
-// if remotes have changed. It executes every 5 seconds or when manually triggered.
-// Manual triggers are sent when changes in remotes are detected and in testing.
+// completeConfigWorker tries to complete the config and update weak/optional dependencies
+// if any resources are not configured. It will also update the resource graph if remotes
+// have changed. It executes every 5 seconds or when manually triggered. Manual triggers
+// are sent when changes in remotes are detected and in testing.
 func (r *localRobot) completeConfigWorker() {
 	for {
 		if r.closeContext.Err() != nil {
@@ -323,7 +326,7 @@ func (r *localRobot) completeConfigWorker() {
 			r.manager.completeConfig(r.closeContext, r, false)
 		}
 		if anyChanges {
-			r.updateWeakDependents(r.closeContext)
+			r.updateWeakAndOptionalDependents(r.closeContext)
 			r.logger.CDebugw(r.closeContext, "configuration attempt completed with changes", "trigger", trigger)
 		}
 		r.reconfigurationLock.Unlock()
@@ -511,9 +514,9 @@ func newWithResources(
 	if !rOpts.disableCompleteConfigWorker {
 		r.activeBackgroundWorkers.Add(1)
 		r.configTicker = time.NewTicker(5 * time.Second)
-		// This goroutine will try to complete the config and update weak dependencies
-		// if any resources are not configured. It will also update the resource graph
-		// when remotes changes or if manually triggered.
+		// This goroutine will try to complete the config and update weak and optional
+		// dependencies if any resources are not configured. It will also update the resource
+		// graph when remotes changes or if manually triggered.
 		goutils.ManagedGo(func() {
 			r.completeConfigWorker()
 		}, r.activeBackgroundWorkers.Done)
@@ -529,7 +532,7 @@ func newWithResources(
 	}
 
 	if len(resources) != 0 {
-		r.updateWeakDependents(ctx)
+		r.updateWeakAndOptionalDependents(ctx)
 	}
 
 	successful = true
@@ -559,12 +562,58 @@ func (r *localRobot) removeOrphanedResources(ctx context.Context,
 		r.logger.CErrorw(ctx, "error removing and closing marked resources",
 			"error", err)
 	}
-	r.updateWeakDependents(ctx)
+	r.updateWeakAndOptionalDependents(ctx)
 }
 
 // getDependencies derives a collection of dependencies from a robot for a given
-// component's name. We don't use the resource manager for this information since
-// it is not be constructed at this point.
+// component's name. We don't use the resource manager for this information since it has
+// not been constructed at this point.
+//
+// Dependencies affect both the build order of resources and the access resources have to
+// each other. There are four types of dependencies. Not all dependency types affect build
+// order, but all dependency types affect the access resources have to each other. The
+// following is a list of dependency types and a description of their behaviors:
+//
+// - Explicit required dependencies
+//   - DEPRECATED in documentation and rarely used
+//   - Specified with `depends_on` in resources' JSON configs
+//   - Can be used with both modular and non-modular resources
+//   - Impact build order (an explicit required dependency on a resource ensures that the
+//     dependency will be constructed before the resource)
+//   - Allow access to a `resource.Resource` or gRPC client referencing the dependency in
+//     the resource's constructor and reconfigure methods
+//   - Cause a reconfigure of the resource if the dependency fails to reconfigure (no
+//     longer allowing access to that dependency in the passed-in dependencies)
+//
+// - Implicit required dependencies
+//   - Specified with the first return value from config validation
+//   - Can be used with both modular and non-modular resources
+//   - Impact build order (an implicit required dependency on a resource ensures that the
+//     dependency will be constructed before the resource)
+//   - Allow access to a `resource.Resource` or gRPC client referencing the dependency in
+//     the resource's constructor and reconfigure methods
+//   - Cause a reconfigure of the resource if the dependency fails to reconfigure (no
+//     longer allowing access to that dependency in the passed-in dependencies)
+//
+// - Implicit optional dependencies
+//   - Specified with the second return value from config validation
+//   - Can be used with both modular and non-modular resources
+//   - Allow access to a `resource.Resource` or gRPC client referencing the dependency in
+//     the resource's constructor and reconfigure methods IFF that dependency exists and
+//     has been successfully constructed
+//   - Cause a reconfigure of the resource if the dependency successfully constructs or
+//     fails to reconfigure (no longer allowing access to that dependency in the passed-in
+//     dependencies)
+//
+// - Weak dependencies
+//   - Specified at the time of resource registration by a set of `resource.Matcher`s
+//   - Can only be used with both non-modular resources
+//   - Allow access to a `resource.Resource` or gRPC client referencing the dependency in
+//     the resource's constructor and reconfigure methods IFF that dependency exists and
+//     has been successfully constructed
+//   - Cause a reconfigure of the resource if the dependency successfully constructs or
+//     fails to reconfigure (no longer allowing access to that dependency in the passed-in
+//     dependencies)
 func (r *localRobot) getDependencies(
 	rName resource.Name,
 	gNode *resource.GraphNode,
@@ -591,6 +640,12 @@ func (r *localRobot) getDependencies(
 		}
 		allDeps[weakDepName] = weakDepRes
 	}
+	for optionalDepName, optionalDepRes := range r.getOptionalDependencies(nodeConf) {
+		if _, ok := allDeps[optionalDepName]; ok {
+			continue
+		}
+		allDeps[optionalDepName] = optionalDepRes
+	}
 
 	return allDeps, nil
 }
@@ -601,6 +656,52 @@ func (r *localRobot) getWeakDependencyMatchers(api resource.API, model resource.
 		return nil
 	}
 	return reg.WeakDependencies
+}
+
+func (r *localRobot) getOptionalDependencies(conf resource.Config) resource.Dependencies {
+	optDeps := make(resource.Dependencies)
+
+	for _, optionalDepNameString := range conf.ImplicitOptionalDependsOn {
+		matchingResourceNames := r.manager.resources.FindNodesByShortName(optionalDepNameString)
+		switch len(matchingResourceNames) {
+		case 0:
+			r.logger.Infow(
+				"Optional dependency for resource does not exist; not passing to constructor or reconfigure yet",
+				"dependency", optionalDepNameString,
+				"resource", conf.ResourceName().String(),
+			)
+			continue
+		case 1:
+			if matchingResourceNames[0].String() == conf.ResourceName().String() {
+				r.logger.Errorw("Resource cannot optionally depend on itself", "resource", conf.ResourceName().String())
+				continue
+			}
+		default:
+			r.logger.Errorw(
+				"Cannot resolve optional dependency for resource due to multiple matching names",
+				"resource", conf.ResourceName().String(),
+				"conflicts", resource.NamesToStrings(matchingResourceNames),
+			)
+			continue
+		}
+
+		resolvedOptionalDepName := matchingResourceNames[0]
+
+		optionalDep, err := r.ResourceByName(resolvedOptionalDepName)
+		if err != nil {
+			r.logger.Infow(
+				"Optional dependency for resource is not available; not passing to constructor or reconfigure yet",
+				"dependency", resolvedOptionalDepName.String(),
+				"resource", conf.ResourceName().String(),
+				"error", err,
+			)
+			continue
+		}
+
+		optDeps[resolvedOptionalDepName] = optionalDep
+	}
+
+	return optDeps
 }
 
 func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API, model resource.Model) resource.Dependencies {
@@ -680,11 +781,11 @@ func (r *localRobot) newResource(
 	return res, nil
 }
 
-func (r *localRobot) updateWeakDependents(ctx context.Context) {
-	// Track the current value of the resource graph's logical clock. This will
-	// later be used to determine if updateWeakDependents should be called during
+func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
+	// Track the current value of the resource graph's logical clock. This will later be
+	// used to determine if updateWeakAndOptionalDependents should be called during
 	// completeConfig.
-	r.lastWeakDependentsRound.Store(r.manager.resources.CurrLogicalClockValue())
+	r.lastWeakAndOptionalDependentsRound.Store(r.manager.resources.CurrLogicalClockValue())
 
 	allResources := map[resource.Name]resource.Resource{}
 	internalResources := map[resource.Name]resource.Resource{}
@@ -696,7 +797,12 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		res, err := r.ResourceByName(n)
 		if err != nil {
 			if !resource.IsDependencyNotReadyError(err) && !resource.IsNotAvailableError(err) {
-				r.Logger().CDebugw(ctx, "error finding resource during weak dependent update", "resource", n, "error", err)
+				r.Logger().CDebugw(
+					ctx,
+					"error finding resource during weak/optional dependent update",
+					"resource", n,
+					"error", err,
+				)
 			}
 			continue
 		}
@@ -721,7 +827,11 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		defer timeoutCancel()
 
 		cleanup := utils.SlowStartupLogger(
-			ctx, "Waiting for internal resource to complete reconfiguration during weak dependencies update", "resource", resName.String(), r.logger)
+			ctx,
+			"Waiting for internal resource to complete reconfiguration during weak/optional dependencies update",
+			"resource", resName.String(),
+			r.logger,
+		)
 		defer cleanup()
 
 		r.reconfigureWorkers.Add(1)
@@ -730,24 +840,45 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 				resChan <- struct{}{}
 				r.reconfigureWorkers.Done()
 			}()
-			// NOTE(cheukt): when adding internal services that reconfigure, also add them to the check in `localRobot.resourceHasWeakDependencies`.
+			// NOTE(cheukt): when adding internal services that reconfigure, also add them to
+			// the check in `localRobot.resourceHasWeakDependencies`.
 			switch resName {
 			case web.InternalServiceName:
 				if err := res.Reconfigure(ctxWithTimeout, allResources, resource.Config{}); err != nil {
-					r.Logger().CErrorw(ctx, "failed to reconfigure internal service during weak dependencies update", "service", resName, "error", err)
+					r.Logger().CErrorw(
+						ctx,
+						"failed to reconfigure internal service during weak/optional dependencies update",
+						"service", resName,
+						"error", err,
+					)
 				}
 			case framesystem.InternalServiceName:
 				fsCfg, err := r.FrameSystemConfig(ctxWithTimeout)
 				if err != nil {
-					r.Logger().CErrorw(ctx, "failed to reconfigure internal service during weak dependencies update", "service", resName, "error", err)
+					r.Logger().CErrorw(
+						ctx,
+						"failed to reconfigure internal service during weak/optional dependencies update",
+						"service", resName,
+						"error", err,
+					)
 					break
 				}
-				if err := res.Reconfigure(ctxWithTimeout, components, resource.Config{ConvertedAttributes: fsCfg}); err != nil {
-					r.Logger().CErrorw(ctx, "failed to reconfigure internal service during weak dependencies update", "service", resName, "error", err)
+				err = res.Reconfigure(ctxWithTimeout, components, resource.Config{ConvertedAttributes: fsCfg})
+				if err != nil {
+					r.Logger().CErrorw(
+						ctx,
+						"failed to reconfigure internal service during weak/optional dependencies update",
+						"service", resName,
+						"error", err,
+					)
 				}
 			case packages.InternalServiceName, packages.DeferredServiceName, icloud.InternalServiceName:
 			default:
-				r.logger.CWarnw(ctx, "do not know how to reconfigure internal service during weak dependencies update", "service", resName)
+				r.logger.CWarnw(
+					ctx,
+					"do not know how to reconfigure internal service during weak/optional dependencies update",
+					"service", resName,
+				)
 			}
 		})
 
@@ -755,7 +886,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		case <-resChan:
 		case <-ctxWithTimeout.Done():
 			if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-				r.logger.CWarn(ctx, utils.NewWeakDependenciesUpdateTimeoutError(resName.String()))
+				r.logger.CWarn(ctx, utils.NewWeakOrOptionalDependenciesUpdateTimeoutError(resName.String()))
 			}
 		case <-ctx.Done():
 			return
@@ -774,7 +905,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		processInternalResources(resName, res, resChan)
 	}
 
-	updateResourceWeakDependents := func(ctx context.Context, conf resource.Config) {
+	updateResourceWeakAndOptionalDependents := func(ctx context.Context, conf resource.Config) {
 		resName := conf.ResourceName()
 		resNode, ok := r.manager.resources.Node(resName)
 		if !ok {
@@ -784,17 +915,43 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		if err != nil {
 			return
 		}
-		if len(r.getWeakDependencyMatchers(conf.API, conf.Model)) == 0 {
+
+		// Return early if resource has neither weak nor optional dependencies.
+		if len(r.getWeakDependencyMatchers(conf.API, conf.Model)) == 0 &&
+			len(conf.ImplicitOptionalDependsOn) == 0 {
 			return
 		}
-		r.Logger().CDebugw(ctx, "handling weak update for resource", "resource", resName)
+		r.Logger().CDebugw(ctx, "handling weak/optional update for resource", "resource", resName)
 		deps, err := r.getDependencies(resName, resNode)
 		if err != nil {
-			r.Logger().CErrorw(ctx, "failed to get dependencies during weak dependencies update; skipping", "resource", resName, "error", err)
+			r.Logger().CErrorw(
+				ctx,
+				"failed to get dependencies during weak/optional dependencies update; skipping",
+				"resource", resName,
+				"error", err,
+			)
 			return
 		}
-		if err := res.Reconfigure(ctx, deps, conf); err != nil {
-			r.Logger().CErrorw(ctx, "failed to reconfigure resource during weak dependencies update", "resource", resName, "error", err)
+
+		// Use the module manager to reconfigure the resource if it's a modular resource. This
+		// would be a modular resource that has optional dependencies.
+		isModular := r.manager.moduleManager.Provides(conf)
+		if isModular {
+			var depStrings []string
+			for dep := range deps {
+				depStrings = append(depStrings, dep.String())
+			}
+			err = r.manager.moduleManager.ReconfigureResource(ctx, conf, depStrings)
+		} else {
+			err = res.Reconfigure(ctx, deps, conf)
+		}
+		if err != nil {
+			r.Logger().CErrorw(
+				ctx,
+				"failed to reconfigure resource during weak/optional dependencies update",
+				"resource", resName,
+				"error", err,
+			)
 		}
 	}
 
@@ -811,7 +968,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 
 		cleanup := utils.SlowStartupLogger(
 			ctx,
-			"Waiting for resource to complete reconfiguration during weak dependencies update",
+			"Waiting for resource to complete reconfiguration during weak/optional dependencies update",
 			"resource",
 			conf.ResourceName().String(),
 			r.logger,
@@ -824,13 +981,13 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 				resChan <- struct{}{}
 				r.reconfigureWorkers.Done()
 			}()
-			updateResourceWeakDependents(ctxWithTimeout, conf)
+			updateResourceWeakAndOptionalDependents(ctxWithTimeout, conf)
 		})
 		select {
 		case <-resChan:
 		case <-ctxWithTimeout.Done():
 			if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-				r.logger.CWarn(ctx, utils.NewWeakDependenciesUpdateTimeoutError(conf.ResourceName().String()))
+				r.logger.CWarn(ctx, utils.NewWeakOrOptionalDependenciesUpdateTimeoutError(conf.ResourceName().String()))
 			}
 		case <-ctx.Done():
 			return
@@ -881,12 +1038,18 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 		if cfgCopy.ID == "" {
 			cfgCopy.ID = component.Name
 		}
-		model, err := r.extractModelFrameJSON(ctx, component.ResourceName())
-		if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
-			// When we have non-nil errors here, it is because the resource is not yet available.
-			// In this case, we will exclude it from the FS.
-			// When it becomes available, it will be included.
-			continue
+
+		var model referenceframe.Model
+		var err error
+		switch component.ResourceName().API.SubtypeName {
+		case arm.SubtypeName, gantry.SubtypeName, gripper.SubtypeName: // catch the case for all the ModelFramers
+			model, err = r.extractModelFrameJSON(ctx, component.ResourceName())
+			if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
+				// When we have non-nil errors here, it is because the resource is not yet available.
+				// In this case, we will exclude it from the FS. When it becomes available, it will be included.
+				continue
+			}
+		default:
 		}
 		lif, err := cfgCopy.ParseConfig()
 		if err != nil {
@@ -1202,12 +1365,13 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 					continue
 				}
 				svcCfg.ConvertedAttributes = converted
-				deps, err := converted.Validate("")
+				requiredDeps, optionalDeps, err := converted.Validate("")
 				if err != nil {
 					allErrs = multierr.Combine(allErrs, errors.Wrapf(err, "error getting default service dependencies for %s", svcCfg.API))
 					continue
 				}
-				svcCfg.ImplicitDependsOn = deps
+				svcCfg.ImplicitDependsOn = requiredDeps
+				svcCfg.ImplicitOptionalDependsOn = optionalDeps
 			}
 			// Update existing service configs, and the final config will be the default service, if not overridden
 			if i < len(existingConfIdxs) {
@@ -1259,9 +1423,9 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	allErrs = multierr.Combine(allErrs, r.manager.updateResources(ctx, diff))
 
 	// Fourth we attempt to complete the config (see function for details) and
-	// update weak dependents.
+	// update weak and optional dependents.
 	r.manager.completeConfig(ctx, r, forceSync)
-	r.updateWeakDependents(ctx)
+	r.updateWeakAndOptionalDependents(ctx)
 
 	// Finally we actually remove marked resources and Close any that are
 	// still unclosed.

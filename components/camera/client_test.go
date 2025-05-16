@@ -57,7 +57,7 @@ func TestClient(t *testing.T) {
 	imgPng, err := png.Decode(bytes.NewReader(imgBuf.Bytes()))
 	test.That(t, err, test.ShouldBeNil)
 
-	pcA := pointcloud.New()
+	pcA := pointcloud.NewBasicEmpty()
 	err = pcA.Set(pointcloud.NewVector(5, 5, 5), nil)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -516,7 +516,7 @@ func TestClientWithInterceptor(t *testing.T) {
 	// Set up camera that adds timestamps into the gRPC response header.
 	injectCamera := &inject.Camera{}
 
-	pcA := pointcloud.New()
+	pcA := pointcloud.NewBasicEmpty()
 	err = pcA.Set(pointcloud.NewVector(5, 5, 5), nil)
 	test.That(t, err, test.ShouldBeNil)
 

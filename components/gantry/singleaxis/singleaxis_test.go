@@ -80,26 +80,26 @@ var setTrue = true
 
 func TestValidate(t *testing.T) {
 	fakecfg := &Config{}
-	deps, err := fakecfg.Validate("path")
+	deps, _, err := fakecfg.Validate("path")
 	test.That(t, deps, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "motor")
 
 	fakecfg.Motor = motorName
-	deps, err = fakecfg.Validate("path")
+	deps, _, err = fakecfg.Validate("path")
 	test.That(t, deps, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "length_mm")
 
 	fakecfg.LengthMm = 1.0
 	fakecfg.MmPerRevolution = 1.0
 	fakecfg.LimitSwitchPins = []string{"1"}
-	deps, err = fakecfg.Validate("path")
+	deps, _, err = fakecfg.Validate("path")
 	test.That(t, deps, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "board")
 
 	fakecfg.Board = boardName
 	fakecfg.MmPerRevolution = 1
 	fakecfg.LimitPinEnabled = &setTrue
-	deps, err = fakecfg.Validate("path")
+	deps, _, err = fakecfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, deps, test.ShouldResemble, []string{fakecfg.Motor, fakecfg.Board})
 	test.That(t, fakecfg.GantryMmPerSec, test.ShouldEqual, float64(0))

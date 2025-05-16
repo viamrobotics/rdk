@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // ToPointCloud returns a lazy read only pointcloud.
@@ -68,7 +69,7 @@ func newDMPointCloudAdapter(dm *rimage.DepthMap, p transform.Projector) *dmPoint
 	})
 
 	wg.Wait()
-	cache := pointcloud.NewWithPrealloc(size)
+	cache := pointcloud.NewBasicPointCloud(size)
 	return &dmPointCloudAdapter{
 		dm:    newDm,
 		size:  size,
@@ -165,4 +166,12 @@ func (dm *dmPointCloudAdapter) Iterate(numBatches, myBatch int, fn func(pt r3.Ve
 	if dm.size == dm.cache.Size() {
 		dm.cached.Store(true)
 	}
+}
+
+func (dm *dmPointCloudAdapter) FinalizeAfterReading() (pointcloud.PointCloud, error) {
+	return dm, nil
+}
+
+func (dm *dmPointCloudAdapter) CreateNewRecentered(_ spatialmath.Pose) pointcloud.PointCloud {
+	return pointcloud.NewBasicEmpty()
 }

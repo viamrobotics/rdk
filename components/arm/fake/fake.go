@@ -40,7 +40,7 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (conf *Config) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, []string, error) {
 	var err error
 	switch {
 	case conf.ArmModel != "" && conf.ModelFilePath != "":
@@ -50,7 +50,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	case conf.ArmModel == "" && conf.ModelFilePath != "":
 		_, err = modelFromPath(conf.ModelFilePath, "")
 	}
-	return nil, err
+	return nil, nil, err
 }
 
 func init() {

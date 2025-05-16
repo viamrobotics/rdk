@@ -33,7 +33,7 @@ type Config struct {
 }
 
 // Validate validates the merged model's configuration.
-func (cfg *Config) Validate(path string) ([]string, error) {
+func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	var deps []string
 	deps = append(deps, cfg.Position...)
 	deps = append(deps, cfg.Orientation...)
@@ -41,7 +41,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	deps = append(deps, cfg.LinearVelocity...)
 	deps = append(deps, cfg.AngularVelocity...)
 	deps = append(deps, cfg.LinearAcceleration...)
-	return deps, nil
+	return deps, nil, nil
 }
 
 type merged struct {

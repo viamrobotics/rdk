@@ -3737,10 +3737,10 @@ func (m *mockFake) Close(ctx context.Context) error {
 	return nil
 }
 
-func (m *mockFakeConfig) Validate(path string) ([]string, error) {
+func (m *mockFakeConfig) Validate(path string) ([]string, []string, error) {
 	depOut := []string{}
 	depOut = append(depOut, m.InferredDep...)
-	return depOut, nil
+	return depOut, nil, nil
 }
 
 func (m *mockFake) SetChildValue(slot string, value int) {
@@ -3812,8 +3812,8 @@ func (m *mockWithDep) Close(ctx context.Context) error {
 	return nil
 }
 
-func (m *mockWithDepConfig) Validate(path string) ([]string, error) {
+func (m *mockWithDepConfig) Validate(path string) ([]string, []string, error) {
 	depOut := []string{}
 	depOut = append(depOut, m.MockDep)
-	return depOut, nil
+	return depOut, nil, nil
 }

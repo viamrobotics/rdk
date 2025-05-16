@@ -318,7 +318,7 @@ func (s *Server) TransformPose(ctx context.Context, req *pb.TransformPoseRequest
 // rather than having to decode and then encode every point in the PCD. Would be a considerable speed up.
 func (s *Server) TransformPCD(ctx context.Context, req *pb.TransformPCDRequest) (*pb.TransformPCDResponse, error) {
 	// transform PCD bytes to pointcloud
-	pc, err := pointcloud.ReadPCD(bytes.NewReader(req.PointCloudPcd))
+	pc, err := pointcloud.ReadPCD(bytes.NewReader(req.PointCloudPcd), "")
 	if err != nil {
 		return nil, err
 	}

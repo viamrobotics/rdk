@@ -18,7 +18,7 @@ func RandomCubeSide() int {
 
 // GeneratePointsOnPlaneZ0 generates points on the z=0 plane.
 func GeneratePointsOnPlaneZ0(nPoints int, normal r3.Vector, offset float64) PointCloud {
-	pc := New()
+	pc := NewBasicPointCloud(0)
 	for i := 0; i < nPoints; i++ {
 		// Point in the R3 unit cube
 		p := r3.Vector{rand.Float64(), rand.Float64(), 0}
@@ -34,7 +34,7 @@ func GeneratePointsOnPlaneZ0(nPoints int, normal r3.Vector, offset float64) Poin
 
 // GenerateCubeTestData generate 3d points on the R^3 unit cube.
 func GenerateCubeTestData(nPoints int) PointCloud {
-	pc := New()
+	pc := NewBasicPointCloud(0)
 	for i := 0; i < nPoints; i++ {
 		// get cube side number
 		s := RandomCubeSide()

@@ -26,16 +26,16 @@ type Config struct {
 var model = resource.DefaultModelFamily.WithModel("wrapper_arm")
 
 // Validate ensures all parts of the config are valid.
-func (cfg *Config) Validate(path string) ([]string, error) {
+func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	var deps []string
 	if cfg.ArmName == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "arm-name")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "arm-name")
 	}
 	if _, err := modelFromPath(cfg.ModelFilePath, ""); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	deps = append(deps, cfg.ArmName)
-	return deps, nil
+	return deps, nil, nil
 }
 
 func init() {

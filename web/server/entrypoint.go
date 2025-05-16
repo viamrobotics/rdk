@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -114,14 +115,6 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		return err
 	}
 
-	// Run network checks synchronously and immediately exit if `--network-check` flag was
-	// used. Otherwise run network checks asynchronously.
-	if argsParsed.NetworkCheckOnly {
-		runNetworkChecks(ctx)
-		return nil
-	}
-	go runNetworkChecks(ctx)
-
 	ctx, err = rutils.WithTrustedEnvironment(ctx, !argsParsed.UntrustedEnv)
 	if err != nil {
 		return err
@@ -154,6 +147,11 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	if argsParsed.Version {
 		// log startup info here and return if version flag.
 		logStartupInfo(logger)
+		return
+	} else if argsParsed.NetworkCheckOnly {
+		// Run network checks synchronously and immediately exit if `--network-check` flag was
+		// used. Otherwise run network checks asynchronously.
+		runNetworkChecks(ctx, logger)
 		return
 	}
 
@@ -232,9 +230,14 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 
 		registry.AddAppenderToAll(netAppender)
 	}
-	// log startup info after netlogger is initialized so it's captured in cloud machine logs.
+	// log startup info and run network checks after netlogger is initialized so it's captured in cloud machine logs.
 	logStartupInfo(logger)
 	startupInfoLogged = true
+
+	// Have goutils use the logger we've just configured.
+	golog.ReplaceGloabl(logger.AsZap())
+
+	go runNetworkChecks(ctx, logger)
 
 	server := robotServer{
 		logger:   logger,
@@ -330,8 +333,9 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 ) {
 	// Reconfigure robot to have passed-in config before listening for any config
 	// changes.
+	startTime := time.Now()
 	r.Reconfigure(ctx, currCfg)
-
+	s.logger.CInfow(ctx, "Robot reconfigured with full config", "time_to_reconfigure", time.Since(startTime).String())
 	for {
 		select {
 		case <-ctx.Done():
@@ -346,6 +350,14 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 			if err != nil {
 				s.logger.Errorw("reconfiguration aborted: error processing config", "error", err)
 				continue
+			}
+
+			// Special case: the incoming config specifies the default BindAddress, but the current one in use is non-default.
+			// Don't override the non-default BindAddress with the default one.
+			// If this is the only difference, the next step, diff.NetworkEqual will be true.
+			if processedConfig.Network.BindAddressDefaultSet && !currCfg.Network.BindAddressDefaultSet {
+				processedConfig.Network.BindAddress = currCfg.Network.BindAddress
+				processedConfig.Network.BindAddressDefaultSet = false
 			}
 
 			// flag to restart web service if necessary
@@ -364,6 +376,12 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 					s.logger.Errorw("reconfiguration aborted: error creating weboptions", "error", err)
 					continue
 				}
+			}
+
+			if currCfg.Network.BindAddress != processedConfig.Network.BindAddress {
+				s.logger.Infof("Config watcher detected bind address change: updating %v -> %v",
+					currCfg.Network.BindAddress,
+					processedConfig.Network.BindAddress)
 			}
 
 			// Update logger registry if log patterns may have changed.
@@ -540,11 +558,14 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	// state of initializing until reconfigured with full config.
 	minimalProcessedConfig.Initial = true
 
+	startTime := time.Now()
 	myRobot, err := robotimpl.New(ctx, &minimalProcessedConfig, s.conn, s.logger, robotOptions...)
 	if err != nil {
 		cancel()
 		return err
 	}
+	s.logger.CInfow(ctx, "Robot created with minimal config", "time_to_create", time.Since(startTime).String())
+
 	theRobotLock.Lock()
 	theRobot = myRobot
 	theRobotLock.Unlock()
@@ -577,6 +598,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		cancel()
 		<-onWatchDone
 	}()
+	s.logger.CInfo(ctx, "Config watcher started")
 
 	// Create initial web options with `minimalProcessedConfig`.
 	options, err := s.createWebOptions(&minimalProcessedConfig)

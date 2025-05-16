@@ -78,7 +78,7 @@ func TestServer(t *testing.T) {
 		Ppy:    100,
 	}
 	projA = intrinsics
-	pcA := pointcloud.New()
+	pcA := pointcloud.NewBasicEmpty()
 	err = pcA.Set(pointcloud.NewVector(5, 5, 5), nil)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -346,7 +346,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errCameraUnimplemented.Error())
 
-		pcA := pointcloud.New()
+		pcA := pointcloud.NewBasicEmpty()
 		err = pcA.Set(pointcloud.NewVector(5, 5, 5), nil)
 		test.That(t, err, test.ShouldBeNil)
 

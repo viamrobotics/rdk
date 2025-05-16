@@ -95,21 +95,35 @@ func MakeTempConfig(t *testing.T, cfg *config.Config, logger logging.Logger) (st
 	return file.Name(), file.Close()
 }
 
+// ServerProcessOption can be used to modify the behavior of ServerAsSeparateProcess.
+type ServerProcessOption func(*pexec.ProcessConfig)
+
+// WithoutRestart disables the automatic restart of the pexec library for the server process.
+func WithoutRestart() ServerProcessOption {
+	return func(cfg *pexec.ProcessConfig) {
+		cfg.OnUnexpectedExit = func(int) bool { return false }
+	}
+}
+
 // ServerAsSeparateProcess builds the viam server and returns an unstarted ManagedProcess for
 // the built binary.
-func ServerAsSeparateProcess(t *testing.T, cfgFileName string, logger logging.Logger) pexec.ManagedProcess {
+func ServerAsSeparateProcess(t *testing.T, cfgFileName string, logger logging.Logger, opts ...ServerProcessOption) pexec.ManagedProcess {
 	serverPath := rtestutils.BuildTempModule(t, "web/cmd/server/")
 
 	// use a temporary home directory so that it doesn't collide with
 	// the user's/other tests' viam home directory
 	testTempHome := t.TempDir()
-	server := pexec.NewManagedProcess(pexec.ProcessConfig{
+	cfg := pexec.ProcessConfig{
 		Name:        serverPath,
 		Args:        []string{"-config", cfgFileName},
 		CWD:         utils.ResolveFile("./"),
 		Environment: map[string]string{"HOME": testTempHome},
 		Log:         true,
-	}, logger)
+	}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	server := pexec.NewManagedProcess(cfg, logger)
 	return server
 }
 

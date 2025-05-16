@@ -377,6 +377,25 @@ func fromReader(
 
 	if conn != nil && cfgFromDisk.Cloud != nil {
 		cfg, err := readFromCloud(ctx, cfgFromDisk, nil, true, true, logger, conn)
+
+		// Special case: DefaultBindAddress is set from Cloud, but user has specified a non-default BindAddress in local config.
+		// Keep the BindAddress from local config, and use Cloud options for everything else.
+		// Note: DefaultBindAddress "from Cloud" is actually set with a constant in rdk.
+		if err == nil && !cfgFromDisk.Network.BindAddressDefaultSet {
+			if cfg.Network.BindAddressDefaultSet {
+				logger.CInfof(ctx, "Using cloud config, but BindAddress is specified in local config (%v) "+
+					"and not cloud config (default = %v). Using local's.",
+					cfgFromDisk.Network.BindAddress,
+					cfg.Network.BindAddress)
+				cfg.Network.BindAddress = cfgFromDisk.Network.BindAddress
+				cfg.Network.BindAddressDefaultSet = false
+			} else {
+				logger.CInfof(ctx, "Using cloud config, and BindAddress specified in both cloud config (%v) "+
+					"and local config (%v). Using cloud's. Remove BindAddress from cloud config to use local's.",
+					cfg.Network.BindAddress,
+					cfgFromDisk.Network.BindAddress)
+			}
+		}
 		return cfg, err
 	}
 
@@ -415,6 +434,7 @@ func additionalModuleEnvVars(cloud *Cloud, auth AuthConfig) map[string]string {
 	if cloud != nil {
 		env[rutils.PrimaryOrgIDEnvVar] = cloud.PrimaryOrgID
 		env[rutils.LocationIDEnvVar] = cloud.LocationID
+		env[rutils.MachineFQDNEnvVar] = cloud.FQDN
 		env[rutils.MachineIDEnvVar] = cloud.MachineID
 		env[rutils.MachinePartIDEnvVar] = cloud.ID
 	}

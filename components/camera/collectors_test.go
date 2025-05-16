@@ -71,7 +71,6 @@ func convertStringToAnyPB(str string) (*anypb.Any, error) {
 }
 
 func TestCollectors(t *testing.T) {
-	logger := logging.NewTestLogger(t)
 	methodParams, err := convertStringMapToAnyPBMap(map[string]string{"camera_name": "camera-1", "mime_type": "image/jpeg"})
 	test.That(t, err, test.ShouldBeNil)
 	viamLogoJpeg, err := io.ReadAll(base64.NewDecoder(base64.StdEncoding, bytes.NewReader(viamLogoJpegB64)))
@@ -82,7 +81,7 @@ func TestCollectors(t *testing.T) {
 	test.That(t, img.Bounds().Dx(), test.ShouldEqual, 32)
 	test.That(t, img.Bounds().Dy(), test.ShouldEqual, 32)
 
-	pcd, err := pointcloud.NewFromFile(artifact.MustPath("pointcloud/test.las"), logger)
+	pcd, err := pointcloud.NewFromFile(artifact.MustPath("pointcloud/test.las"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	var pcdBuf bytes.Buffer

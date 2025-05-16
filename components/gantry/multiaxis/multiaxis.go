@@ -38,15 +38,15 @@ type multiAxis struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (conf *Config) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, []string, error) {
 	var deps []string
 
 	if len(conf.SubAxes) == 0 {
-		return nil, resource.NewConfigValidationError(path, errors.New("need at least one axis"))
+		return nil, nil, resource.NewConfigValidationError(path, errors.New("need at least one axis"))
 	}
 
 	deps = append(deps, conf.SubAxes...)
-	return deps, nil
+	return deps, nil, nil
 }
 
 func init() {
