@@ -20,7 +20,7 @@ var logger = logging.NewDebugLogger("gizmoserver")
 
 // Arguments for the command.
 type Arguments struct {
-	ConfigFile string `flag:"config,usage=robot config file"`
+	ConfigFile string `flag:"config,usage=machine config file"`
 }
 
 func main() {
