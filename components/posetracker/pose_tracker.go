@@ -44,3 +44,9 @@ type PoseTracker interface {
 func FromRobot(r robot.Robot, name string) (PoseTracker, error) {
 	return robot.ResourceFromRobot[PoseTracker](r, Named(name))
 }
+
+// FromDependencies is a helper for getting the named pose tracker from a collection of
+// dependencies.
+func FromDependencies(deps resource.Dependencies, name string) (PoseTracker, error) {
+	return resource.FromDependencies[PoseTracker](deps, Named(name))
+}
