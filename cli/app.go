@@ -69,6 +69,7 @@ const (
 	generalFlagTags              = "tags"
 	generalFlagStart             = "start"
 	generalFlagEnd               = "end"
+	generalFlagNoProgress        = "no-progress"
 
 	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
@@ -2349,6 +2350,11 @@ Copy multiple files from the machine to a local destination with recursion and k
 									// Note(erd): maybe support access time in the future if needed
 									Usage: "preserve modification times and file mode bits from the source files",
 								},
+								&cli.BoolFlag{
+									Name:    generalFlagNoProgress,
+									Aliases: []string{"n"},
+									Usage:   "hide progress of the file transfer",
+								},
 							}...),
 							Action: createCommandWithT[machinesPartCopyFilesArgs](MachinesPartCopyFilesAction),
 						},
@@ -2820,6 +2826,10 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						&cli.BoolFlag{
 							Name:  moduleFlagLocal,
 							Usage: "if the target machine is localhost, run the entrypoint directly rather than transferring a bundle",
+						},
+						&cli.BoolFlag{
+							Name:  generalFlagNoProgress,
+							Usage: "hide progress of the file transfer",
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagHomeDir,
