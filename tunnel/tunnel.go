@@ -111,17 +111,6 @@ func ReaderSenderLoop(
 		// based on [io.Reader], callers should always process the n > 0 bytes returned before
 		// considering the error
 		if nr > 0 {
-			// Track packet statistics if we're collecting them
-			var packetID int64
-			if stats != nil {
-				packetID = stats.TrackPacketSent(nr)
-			}
-
-			// Store packet ID in context for possible future use
-			if ctx.Value("lastPacketID") != nil {
-				ctx = context.WithValue(ctx, "lastPacketID", packetID)
-			}
-
 			// Compress the data before sending.
 			var compressedBuf bytes.Buffer
 			zw := zlib.NewWriter(&compressedBuf)
@@ -132,6 +121,17 @@ func ReaderSenderLoop(
 			if err := zw.Close(); err != nil {
 				logger.CDebugw(ctx, "error closing compressor", "error", err)
 				continue
+			}
+
+			// Track packet statistics if we're collecting them
+			var packetID int64
+			if stats != nil {
+				packetID = stats.TrackPacketSent(compressedBuf.Len())
+			}
+
+			// Store packet ID in context for possible future use
+			if ctx.Value("lastPacketID") != nil {
+				ctx = context.WithValue(ctx, "lastPacketID", packetID)
 			}
 
 			if sendErr := sendFunc(compressedBuf.Bytes()); sendErr != nil {
