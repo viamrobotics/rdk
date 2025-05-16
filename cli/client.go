@@ -667,8 +667,68 @@ func MachinesPartListAction(c *cli.Context, args machinesPartListArgs) error {
 }
 
 type listRobotsActionArgs struct {
+	All          bool
 	Organization string
 	Location     string
+}
+
+func printOrgAndLocNames(ctx *cli.Context, orgName, locName string) {
+	printf(ctx.App.Writer, "%s -> %s", orgName, locName)
+}
+
+func (c *viamClient) listAllRobotsInOrg(ctx *cli.Context, orgStr string) error {
+	if err := c.selectOrganization(orgStr); err != nil {
+		return err
+	}
+	locations, err := c.listLocations(c.selectedOrg.Id)
+	if err != nil {
+		return err
+	}
+
+	for _, loc := range locations {
+		if loc.RobotCount == 0 {
+			continue
+		}
+		c.selectedLoc = loc
+		// when printing all robots in an org, we always want to include org and location
+		// info to differentiate _where_ a particular robot is
+		printOrgAndLocNames(ctx, c.selectedOrg.Name, loc.Name)
+		if err = c.listLocationRobots(ctx, c.selectedOrg.Name, loc.Name); err != nil {
+			return err
+		}
+		printf(ctx.App.Writer, "")
+	}
+
+	return nil
+}
+
+func (c *viamClient) listLocationRobots(ctx *cli.Context, orgStr, locStr string) error {
+	robots, err := c.listRobots(orgStr, locStr)
+	if err != nil {
+		return errors.Wrap(err, "could not list machines")
+	}
+
+	if orgStr == "" || locStr == "" {
+		printOrgAndLocNames(ctx, c.selectedOrg.Name, c.selectedLoc.Name)
+	}
+
+	for _, robot := range robots {
+		parts, err := c.client.GetRobotParts(c.c.Context, &apppb.GetRobotPartsRequest{
+			RobotId: robot.Id,
+		})
+		if err != nil {
+			return err
+		}
+		mainPartID := "<unknown>"
+		for _, part := range parts.Parts {
+			if part.MainPart {
+				mainPartID = part.Id
+				break
+			}
+		}
+		printf(ctx.App.Writer, "%s (id: %s) (main part id: %s)", robot.Name, robot.Id, mainPartID)
+	}
+	return nil
 }
 
 // ListRobotsAction is the corresponding Action for 'machines list'.
@@ -679,19 +739,10 @@ func ListRobotsAction(c *cli.Context, args listRobotsActionArgs) error {
 	}
 	orgStr := args.Organization
 	locStr := args.Location
-	robots, err := client.listRobots(orgStr, locStr)
-	if err != nil {
-		return errors.Wrap(err, "could not list machines")
+	if args.All {
+		return client.listAllRobotsInOrg(c, orgStr)
 	}
-
-	if orgStr == "" || locStr == "" {
-		printf(c.App.Writer, "%s -> %s", client.selectedOrg.Name, client.selectedLoc.Name)
-	}
-
-	for _, robot := range robots {
-		printf(c.App.Writer, "%s (id: %s)", robot.Name, robot.Id)
-	}
-	return nil
+	return client.listLocationRobots(c, orgStr, locStr)
 }
 
 type robotsStatusArgs struct {
@@ -743,7 +794,7 @@ func RobotsStatusAction(c *cli.Context, args robotsStatusArgs) error {
 		if err != nil {
 			return err
 		}
-		printf(c.App.Writer, "%s -> %s", orgName, locName)
+		printOrgAndLocNames(c, orgName, locName)
 	}
 
 	printf(
