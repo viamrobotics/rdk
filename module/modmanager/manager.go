@@ -876,17 +876,16 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) pexec.UnexpectedExit
 			"Module has unexpectedly exited.", "module", mod.cfg.Name, "exit_code", exitCode,
 		)
 
-		// Note that a module process can be restarted while preserving the same
-		// `module` object. And consider the case where a module is being restarted
-		// due to a configuration change concurrently with the existing module
-		// process crashing. There are two acceptable interleavings:
+		// Note that a module process can be restarted while preserving the same `module` object. And consider the case where a module is being
+		// restarted due to a configuration change concurrently with the existing module process crashing. There are two acceptable
+		// interleavings:
 		// 1. The `onUnexpectedExitHandler` restarts the module process with the old configuration.
 		//   1a) and the Reconfigure then shuts down + restarts the (freshly launched) module process with one using the updated configuration.
-		// 2. Or, the `Reconfigure` executes and starts the module process[1] with the updated config. The `onUnexpectedExitHandler` will still run. But will become a no-op.
+		// 2. Or, the `Reconfigure` executes and starts the module process[1] with the updated config. The `onUnexpectedExitHandler` will still
+		//    run. But will become a no-op.
 		//
-		// For the second scenario, we check our assumptions after acquiring the
-		// modmanager mutex.  If the module process is running, there is nothing
-		// for us to do.
+		// For the second scenario, we check our assumptions after acquiring the modmanager mutex.  If the module process is running, there is
+		// nothing for us to do.
 		mgr.mu.Lock()
 		defer mgr.mu.Unlock()
 
