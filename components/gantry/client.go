@@ -118,16 +118,16 @@ func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
 	return err
 }
 
+func (c *client) Kinematics(ctx context.Context) (referenceframe.Model, error) {
+	return nil, errors.New("unimplemented")
+}
+
 func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	res, err := c.Position(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	return referenceframe.FloatsToInputs(res), nil
-}
-
-func (c *client) Kinematics(ctx context.Context) (referenceframe.Model, error) {
-	return nil, errors.New("unimplemented")
 }
 
 func (c *client) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {

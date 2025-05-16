@@ -29,7 +29,6 @@ const (
 )
 
 type ptgBaseKinematics struct {
-	planningFrameName string
 	base.Base
 	motion.Localizer
 	logger                         logging.Logger
@@ -152,11 +151,9 @@ func wrapWithPTGKinematics(
 	}
 
 	return &ptgBaseKinematics{
-		Base:      b,
-		Localizer: localizer,
-		logger:    logger,
-		// NOTE: (Nick S) This is a hack, none of the Model methods are implemented usefully except for
-		// Frame
+		Base:                           b,
+		Localizer:                      localizer,
+		logger:                         logger,
 		planningModel:                  planningFrame,
 		localizationFrame:              localizationFrame,
 		opts:                           options,

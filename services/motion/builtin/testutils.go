@@ -503,9 +503,6 @@ func CreateMoveOnMapTestEnvironment(
 	test.That(t, err, test.ShouldBeNil)
 	ms.(*builtIn).fsService = fsSvc
 
-	fs, _ := fsSvc.FrameSystem(ctx, nil)
-	_ = fs
-
 	// Wheeled odometry returns a movement sensor that reports its position in GPS coordinates. We want to mock up a SLAM service which
 	// converts that to a pose.
 	localizer := motion.NewSLAMLocalizer(injectSlam)

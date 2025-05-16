@@ -11,6 +11,7 @@ import (
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/utils"
 )
 
 type method int64
@@ -18,7 +19,6 @@ type method int64
 const (
 	endPosition method = iota
 	jointPositions
-	kinematics
 )
 
 func (m method) String() string {
@@ -27,8 +27,6 @@ func (m method) String() string {
 		return "EndPosition"
 	case jointPositions:
 		return "JointPositions"
-	case kinematics:
-		return "Kinematics"
 	}
 	return "Unknown"
 }
@@ -36,7 +34,7 @@ func (m method) String() string {
 // newEndPositionCollector returns a collector to register an end position method. If one is already registered
 // with the same MethodMetadata it will panic.
 func newEndPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
-	arm, err := assertArm(resource)
+	arm, err := utils.AssertType[Arm](resource)
 	if err != nil {
 		return nil, err
 	}
@@ -46,12 +44,7 @@ func newEndPositionCollector(resource interface{}, params data.CollectorParams) 
 		var res data.CaptureResult
 		v, err := arm.EndPosition(ctx, data.FromDMExtraMap)
 		if err != nil {
-			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
-			// is used in the datamanager to exclude readings from being captured and stored.
-			if errors.Is(err, data.ErrNoCaptureToStore) {
-				return res, err
-			}
-			return res, data.NewFailedToReadError(params.ComponentName, endPosition.String(), err)
+			return res, formatErr(err, endPosition, params)
 		}
 		o := v.Orientation().OrientationVectorDegrees()
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
@@ -73,7 +66,7 @@ func newEndPositionCollector(resource interface{}, params data.CollectorParams) 
 // newJointPositionsCollector returns a collector to register a joint positions method. If one is already registered
 // with the same MethodMetadata it will panic.
 func newJointPositionsCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
-	arm, err := assertArm(resource)
+	arm, err := utils.AssertType[Arm](resource)
 	if err != nil {
 		return nil, err
 	}
@@ -83,21 +76,11 @@ func newJointPositionsCollector(resource interface{}, params data.CollectorParam
 		var res data.CaptureResult
 		v, err := arm.JointPositions(ctx, data.FromDMExtraMap)
 		if err != nil {
-			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
-			// is used in the datamanager to exclude readings from being captured and stored.
-			if errors.Is(err, data.ErrNoCaptureToStore) {
-				return res, err
-			}
-			return res, data.NewFailedToReadError(params.ComponentName, jointPositions.String(), err)
+			return res, formatErr(err, jointPositions, params)
 		}
 		k, err := arm.Kinematics(ctx)
 		if err != nil {
-			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
-			// is used in the datamanager to exclude readings from being captured and stored.
-			if errors.Is(err, data.ErrNoCaptureToStore) {
-				return res, err
-			}
-			return res, data.FailedToReadErr(params.ComponentName, kinematics.String(), err)
+			return res, formatErr(err, jointPositions, params)
 		}
 
 		jp, err := referenceframe.JointPositionsFromInputs(k, v)
@@ -110,10 +93,11 @@ func newJointPositionsCollector(resource interface{}, params data.CollectorParam
 	return data.NewCollector(cFunc, params)
 }
 
-func assertArm(resource interface{}) (Arm, error) {
-	arm, ok := resource.(Arm)
-	if !ok {
-		return nil, data.InvalidInterfaceErr(API)
+// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
+// is used in the datamanager to exclude readings from being captured and stored.
+func formatErr(err error, m method, params data.CollectorParams) error {
+	if errors.Is(err, data.ErrNoCaptureToStore) {
+		return err
 	}
-	return arm, nil
+	return data.NewFailedToReadError(params.ComponentName, m.String(), err)
 }
