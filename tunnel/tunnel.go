@@ -3,6 +3,7 @@ package tunnel
 
 import (
 	"bytes"
+	"compress/zlib"
 	"context"
 	"errors"
 	"fmt"
@@ -84,9 +85,9 @@ func ReaderSenderLoop(
 	logger logging.Logger,
 	stats *Statistics,
 ) (retErr error) {
-	var err, sendErr error
+	var err, compressErr error
 	defer func() {
-		retErr = filterError(ctx, errors.Join(err, sendErr), connClosed, logger)
+		retErr = filterError(ctx, errors.Join(err, compressErr), connClosed, logger)
 		if retErr != nil {
 			retErr = fmt.Errorf("reader/sender loop err: %w", retErr)
 		}
@@ -121,7 +122,19 @@ func ReaderSenderLoop(
 				ctx = context.WithValue(ctx, "lastPacketID", packetID)
 			}
 
-			if sendErr = sendFunc(buf[:nr]); sendErr != nil {
+			// Compress the data before sending.
+			var compressedBuf bytes.Buffer
+			zw := zlib.NewWriter(&compressedBuf)
+			if _, err = zw.Write(buf[:nr]); err != nil {
+				logger.CDebugw(ctx, "error compressing data", "error", compressErr)
+				continue
+			}
+			if err := zw.Close(); err != nil {
+				logger.CDebugw(ctx, "error closing compressor", "error", err)
+				continue
+			}
+
+			if sendErr := sendFunc(compressedBuf.Bytes()); sendErr != nil {
 				return
 			}
 		}
@@ -178,10 +191,24 @@ func RecvWriterLoop(
 			continue
 		default:
 		}
-		in := bytes.NewReader(data)
-		_, err = io.Copy(w, in)
+
+		// Decompress the data before writing back to tunnel listener.
+		compressedReader := bytes.NewReader(data)
+		zlibReader, err := zlib.NewReader(compressedReader)
 		if err != nil {
-			logger.CDebugw(ctx, "error while copying bytes", "err", err)
+			logger.CDebugw(ctx, "error creating zlib reader", "err", err)
+			continue
+		}
+
+		_, err = io.Copy(w, zlibReader)
+		if err != nil {
+			logger.CDebugw(ctx, "error while copying decompressed bytes", "err", err)
+			zlibReader.Close()
+			continue
+		}
+
+		if err = zlibReader.Close(); err != nil {
+			logger.CDebugw(ctx, "error closing zlib reader", "err", err)
 			continue
 		}
 	}
