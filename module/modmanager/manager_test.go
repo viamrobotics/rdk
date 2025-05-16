@@ -76,19 +76,14 @@ func setupModManager(
 		mMgr, ok := mgr.(*Manager)
 		test.That(t, ok, test.ShouldBeTrue)
 		modules := []*module{}
-		mMgr.modules.Range(func(_ string, mod *module) bool {
+		for _, mod := range mMgr.modules.Range {
 			modules = append(modules, mod)
-			return true
-		})
+		}
 		test.That(t, mgr.Close(ctx), test.ShouldBeNil)
-		for _, mod := range modules {
-			if mod != nil {
-				func() {
-					// Wait for module recovery processes to complete.
-					mod.inRecoveryLock.Lock()
-					defer mod.inRecoveryLock.Unlock()
-				}()
-			}
+		for _, m := range modules {
+			// managedProcess.Stop waits on the process lock and for all logging to
+			// end before returning.
+			m.process.Stop()
 		}
 	})
 	return mgr
