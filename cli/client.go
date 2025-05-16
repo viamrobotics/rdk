@@ -1490,7 +1490,7 @@ func (c *viamClient) robotPartTunnel(cCtx *cli.Context, args robotsPartTunnelArg
 	partStr := args.Part
 
 	// Create logger based on presence of debugFlag.
-	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
+	logger := logging.NewLogger("cli-robot-client")
 	globalArgs, err := getGlobalArgs(cCtx)
 	if err != nil {
 		return err

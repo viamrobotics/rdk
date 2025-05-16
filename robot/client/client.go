@@ -1274,7 +1274,7 @@ func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest
 
 	// Finalize and report statistics
 	stats.Close()
-	rc.Logger().CInfow(ctx, "tunnel to server closed", "port", dest, "stats", stats.Report())
+	rc.Logger().CInfof(ctx, "tunnel to server closed for port %v; stats were %v", dest, stats.Report())
 
 	return errors.Join(readerSenderErr, recvWriterErr)
 }
