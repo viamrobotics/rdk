@@ -67,6 +67,7 @@ const (
 	generalFlagTags              = "tags"
 	generalFlagStart             = "start"
 	generalFlagEnd               = "end"
+	generalFlagNoProgress        = "no-progress"
 
 	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
@@ -75,7 +76,6 @@ const (
 	moduleFlagForce           = "force"
 	moduleFlagBinary          = "binary"
 	moduleFlagLocal           = "local"
-	moduleFlagNoProgress      = "no-progress"
 	moduleFlagHomeDir         = "home"
 	moduleCreateLocalOnly     = "local-only"
 	moduleFlagIsPublic        = "public"
@@ -137,9 +137,8 @@ const (
 	oauthAppFlagLogoutURI            = "logout-uri"
 	unspecified                      = "unspecified"
 
-	cpFlagRecursive  = "recursive"
-	cpFlagPreserve   = "preserve"
-	cpFlagNoProgress = "no-progress"
+	cpFlagRecursive = "recursive"
+	cpFlagPreserve  = "preserve"
 
 	tunnelFlagLocalPort       = "local-port"
 	tunnelFlagDestinationPort = "destination-port"
@@ -2346,7 +2345,7 @@ Copy multiple files from the machine to a local destination with recursion and k
 									Usage: "preserve modification times and file mode bits from the source files",
 								},
 								&cli.BoolFlag{
-									Name:    cpFlagNoProgress,
+									Name:    generalFlagNoProgress,
 									Aliases: []string{"n"},
 									Usage:   "hide progress of the file transfer",
 								},
@@ -2823,7 +2822,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage: "if the target machine is localhost, run the entrypoint directly rather than transferring a bundle",
 						},
 						&cli.BoolFlag{
-							Name:  moduleFlagNoProgress,
+							Name:  generalFlagNoProgress,
 							Usage: "hide progress of the file transfer",
 						},
 						&cli.StringFlag{
