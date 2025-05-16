@@ -97,7 +97,7 @@ func MakeModel(name string, geometries []spatialmath.Geometry) (referenceframe.M
 	if len(geometries) == 0 {
 		return referenceframe.NewSimpleModel(name), nil
 	}
-	cfg := &referenceframe.ModelConfig{
+	cfg := &referenceframe.ModelConfigJSON{
 		Name:  name,
 		Links: []referenceframe.LinkConfig{},
 	}

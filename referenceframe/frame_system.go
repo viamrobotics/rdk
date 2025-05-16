@@ -150,12 +150,12 @@ func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms 
 	return fs, nil
 }
 
-// World returns the base world referenceframe.
+// World returns the base world
 func (sfs *simpleFrameSystem) World() Frame {
 	return sfs.world
 }
 
-// Parent returns the parent frame of the input referenceframe. nil if input is World.
+// Parent returns the parent frame of the input  nil if input is World.
 func (sfs *simpleFrameSystem) Parent(frame Frame) (Frame, error) {
 	if !sfs.frameExists(frame.Name()) {
 		return nil, NewFrameMissingError(frame.Name())
@@ -185,7 +185,7 @@ func (sfs *simpleFrameSystem) RemoveFrame(frame Frame) {
 	}
 }
 
-// Frame returns the frame given the name of the referenceframe. Returns nil if the frame is not found.
+// Frame returns the frame given the name of the  Returns nil if the frame is not found.
 func (sfs *simpleFrameSystem) Frame(name string) Frame {
 	if !sfs.frameExists(name) {
 		return nil
@@ -450,7 +450,7 @@ func (sfs *simpleFrameSystem) transformFromParent(inputMap FrameSystemInputs, sr
 	return NewPoseInFrame(dst.Name(), spatial.PoseBetween(dstToWorld, srcToWorld)), nil
 }
 
-// compose the quaternions from the input frame to the world referenceframe.
+// compose the quaternions from the input frame to the world
 func (sfs *simpleFrameSystem) composeTransforms(frame Frame, inputMap FrameSystemInputs) (spatial.Pose, error) {
 	q := spatial.NewZeroPose() // empty initial dualquat
 	var errAll error

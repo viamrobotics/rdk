@@ -20,7 +20,7 @@ import (
 // A Model represents a frame that can change its name, and can return itself as a ModelConfig struct.
 type Model interface {
 	Frame
-	ModelConfig() *ModelConfig
+	ModelConfig() *ModelConfigJSON
 	ModelPieceFrames([]Input) (map[string]Frame, error)
 }
 
@@ -29,7 +29,7 @@ type SimpleModel struct {
 	*baseFrame
 	// OrdTransforms is the list of transforms ordered from end effector to base
 	OrdTransforms []Frame
-	modelConfig   *ModelConfig
+	modelConfig   *ModelConfigJSON
 	poseCache     sync.Map
 	lock          sync.RWMutex
 }
@@ -57,7 +57,7 @@ func GenerateRandomConfiguration(m Model, randSeed *rand.Rand) []float64 {
 }
 
 // ModelConfig returns the ModelConfig object used to create this model.
-func (m *SimpleModel) ModelConfig() *ModelConfig {
+func (m *SimpleModel) ModelConfig() *ModelConfigJSON {
 	return m.modelConfig
 }
 

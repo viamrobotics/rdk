@@ -150,7 +150,7 @@ func (pf *ptgGroupFrame) Name() string {
 	return pf.name
 }
 
-func (pf *ptgGroupFrame) ModelConfig() *referenceframe.ModelConfig {
+func (pf *ptgGroupFrame) ModelConfig() *referenceframe.ModelConfigJSON {
 	return nil
 }
 func (pf *ptgGroupFrame) ModelPieceFrames([]referenceframe.Input) (map[string]referenceframe.Frame, error) {
