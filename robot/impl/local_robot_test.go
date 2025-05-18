@@ -2817,11 +2817,11 @@ func assertContents(t *testing.T, path, expectedContents string) {
 
 func TestRestartModule(t *testing.T) {
 	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 
 	t.Run("isRunning=false", func(t *testing.T) {
 		tmp := t.TempDir()
-		badExePath := filepath.Join(tmp, "/nosuchexe")
+		badExePath := filepath.Join(tmp, "nosuchexe")
 		const bash = `#!/usr/bin/env bash
 		echo STARTED > result.txt
 		echo exiting right away
@@ -2830,6 +2830,13 @@ func TestRestartModule(t *testing.T) {
 		mod := &config.Module{Name: "restartSingleModule-test", ExePath: badExePath, Type: config.ModuleTypeLocal}
 		r := setupLocalRobot(t, ctx, &config.Config{Modules: []config.Module{*mod}}, logger)
 		test.That(t, mod.LocalVersion, test.ShouldBeEmpty)
+
+		// Wait for the module startup to fail and the robot setup to complete.
+		testutils.WaitForAssertionWithSleep(t, time.Second, 5, func(tb testing.TB) {
+			tb.Helper()
+			test.That(tb, logs.FilterMessage("Error adding module").Len(), test.ShouldEqual, 1)
+			test.That(tb, logs.FilterMessage("Robot (re)configured").Len(), test.ShouldEqual, 1)
+		})
 
 		// make sure this started + failed
 		outputPath := filepath.Join(tmp, "result.txt")
@@ -2842,6 +2849,10 @@ func TestRestartModule(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, r.(*localRobot).localModuleVersions[mod.Name].String(), test.ShouldResemble, "0.0.1")
 		// make sure it really ran again
+		testutils.WaitForAssertionWithSleep(t, time.Second, 5, func(tb testing.TB) {
+			tb.Helper()
+			test.That(tb, logs.FilterMessage("Error adding module").Len(), test.ShouldEqual, 2)
+		})
 		assertContents(t, outputPath, "STARTED\n")
 	})
 
