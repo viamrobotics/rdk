@@ -201,6 +201,26 @@ func (m *module) startProcess(
 	stdoutLogger.NeverDeduplicate()
 	stderrLogger.NeverDeduplicate()
 
+	// If the module process crashes quickly we could race with the goroutine
+	// trying to restart it. Block any restart attempts until we determine
+	// whether startup is successful.
+	startupSuccess := false
+	blockRestarts := make(chan struct{})
+	defer close(blockRestarts)
+	oueWrapper := func(exitCode int) bool {
+		<-blockRestarts
+		// Startup was considered a failure so don't try to restart the process.
+		if !startupSuccess {
+			return false
+		}
+		if oue == nil {
+			// We were not provided custom restart logic, defer to the automatic
+			// restart logic in pexec.
+			return true
+		}
+		return oue(exitCode)
+	}
+
 	pconf := pexec.ProcessConfig{
 		ID:               m.cfg.Name,
 		Name:             absoluteExePath,
@@ -208,7 +228,7 @@ func (m *module) startProcess(
 		CWD:              moduleWorkingDirectory,
 		Environment:      moduleEnvironment,
 		Log:              true,
-		OnUnexpectedExit: oue,
+		OnUnexpectedExit: oueWrapper,
 		StdOutLogger:     stdoutLogger,
 		StdErrLogger:     stderrLogger,
 	}
@@ -265,6 +285,7 @@ func (m *module) startProcess(
 		}
 		break
 	}
+	startupSuccess = true
 	return nil
 }
 
