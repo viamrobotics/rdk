@@ -4,6 +4,7 @@ package modmanager
 import (
 	"context"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -963,10 +964,13 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 	// before reregistering.
 	mod.deregisterResources()
 
-	var orphanedResourceNames []resource.Name
-	for name := range mod.resources {
-		orphanedResourceNames = append(orphanedResourceNames, name)
-	}
+	// NOTE: a nil return indicates that the restart succeeded so make sure to
+	// return an empty slice instead of a nil slice if a module with no resources
+	// fails to restart.
+	orphanedResourceNames := slices.AppendSeq(
+		make([]resource.Name, len(mod.resources)),
+		maps.Keys(mod.resources),
+	)
 
 	// Attempt to remove module's .sock file if module did not remove it
 	// already.
