@@ -13,10 +13,12 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	goutils "go.viam.com/utils"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
 )
@@ -277,7 +279,7 @@ func (c *Capture) initializeOrUpdateCollector(
 	collection *mongo.Collection,
 ) (*collectorAndConfig, error) {
 	// TODO(DATA-451): validate method params
-	methodParams, err := protoutils.ConvertStringMapToAnyPBMap(collectorConfig.AdditionalParams)
+	methodParams, err := convertMapToAnyMap(collectorConfig.AdditionalParams)
 	if err != nil {
 		return nil, err
 	}
@@ -440,4 +442,40 @@ func defaultIfZeroVal[T comparable](val, defaultVal T) T {
 		return defaultVal
 	}
 	return val
+}
+
+func convertMapToAnyMap(input map[string]interface{}) (map[string]*anypb.Any, error) {
+	output := make(map[string]*anypb.Any)
+
+	for key, val := range input {
+		var msg proto.Message
+
+		switch typed := val.(type) {
+		case map[string]interface{}:
+			// For nested maps, convert to structpb.Struct
+			structVal, err := structpb.NewStruct(typed)
+			if err != nil {
+				return nil, fmt.Errorf("error converting key %q to structpb.Struct: %w", key, err)
+			}
+			msg = structVal
+
+		default:
+			// For primitive types, convert to structpb.Value
+			value, err := structpb.NewValue(val)
+			if err != nil {
+				return nil, fmt.Errorf("error converting key %q to structpb.Value: %w", key, err)
+			}
+			msg = value
+		}
+
+		// Pack the actual message (Value or Struct) into an Any
+		anyVal, err := anypb.New(msg)
+		if err != nil {
+			return nil, fmt.Errorf("error packing key %q into Any: %w", key, err)
+		}
+
+		output[key] = anyVal
+	}
+
+	return output, nil
 }
