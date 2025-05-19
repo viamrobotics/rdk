@@ -1487,6 +1487,13 @@ func TestBadModuleFailsFast(t *testing.T) {
 // process information (e.g: CPU usage) is in sync with the Process IDs (PIDs) that are actually
 // running.
 func TestFTDCAfterModuleCrash(t *testing.T) {
+	// The module restart handler has a 5 second backoff by default. Temporarily
+	// set it to 0 so this test can run faster.
+	originalRestartInterval := oueRestartInterval
+	oueRestartInterval = 0
+	t.Cleanup(func() {
+		oueRestartInterval = originalRestartInterval
+	})
 	logger := logging.NewTestLogger(t)
 	modCfgs := []config.Module{
 		{
