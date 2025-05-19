@@ -37,6 +37,7 @@ func init() {
 // For more information, see the [data management service docs].
 //
 // Sync example:
+//      data, err := datamanager.FromRobot(machine, "my_data_manager")
 //
 //	// Sync data stored on the machine to the cloud.
 //	err := data.Sync(context.Background(), nil)
