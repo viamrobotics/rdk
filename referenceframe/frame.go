@@ -23,7 +23,7 @@ import (
 // OOBErrString is a string that all OOB errors should contain, so that they can be checked for distinct from other Transform errors.
 const OOBErrString = "input out of bounds"
 
-// Limit represents the limits of motion for a
+// Limit represents the limits of motion for a.
 type Limit struct {
 	Min float64
 	Max float64
@@ -62,7 +62,7 @@ func RestrictedRandomFrameInputs(m Frame, rSeed *rand.Rand, restrictionPercent f
 	return pos, nil
 }
 
-// RandomFrameInputs will produce a list of valid, in-bounds inputs for the
+// RandomFrameInputs will produce a list of valid, in-bounds inputs for the.
 func RandomFrameInputs(m Frame, rSeed *rand.Rand) []Input {
 	if rSeed == nil {
 		//nolint:gosec
@@ -124,7 +124,7 @@ type baseFrame struct {
 	limits []Limit
 }
 
-// Name returns the name of the
+// Name returns the name of the.
 func (bf *baseFrame) Name() string {
 	return bf.name
 }
@@ -164,7 +164,7 @@ func (bf *baseFrame) validInputs(inputs []Input) error {
 }
 
 // a static Frame is a simple corrdinate system that encodes a fixed translation and rotation
-// from the current Frame to the parent
+// from the current Frame to the parent.
 type staticFrame struct {
 	*baseFrame
 	transform spatial.Pose
@@ -239,7 +239,7 @@ func NewStaticFrameWithGeometry(name string, pose spatial.Pose, geometry spatial
 	return &staticFrame{&baseFrame{name, []Limit{}}, pose, geometry}, nil
 }
 
-// Transform returns the pose associated with this static
+// Transform returns the pose associated with this static.
 func (sf *staticFrame) Transform(input []Input) (spatial.Pose, error) {
 	if len(input) != 0 {
 		return nil, NewIncorrectDoFError(len(input), 0)
@@ -396,7 +396,7 @@ func NewRotationalFrame(name string, axis spatial.R4AA, limit Limit) (Frame, err
 }
 
 // Transform returns the Pose representing the frame's 6DoF motion in space. Requires a slice
-// of inputs that has length equal to the degrees of freedom of the
+// of inputs that has length equal to the degrees of freedom of the.
 func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	err := rf.validInputs(input)
 	// We allow out-of-bounds calculations, but will return a non-nil error

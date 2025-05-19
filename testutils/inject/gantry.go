@@ -81,7 +81,7 @@ func (g *Gantry) IsMoving(ctx context.Context) (bool, error) {
 	return g.IsMovingFunc(ctx)
 }
 
-// ModelFrame returns a Gantry ModelFrame.
+// Kinematics returns the kinematic model associated with the gantry.
 func (g *Gantry) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 	if g.KinematicsFunc == nil {
 		return g.Gantry.Kinematics(ctx)

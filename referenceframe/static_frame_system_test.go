@@ -175,7 +175,7 @@ world
 // transform the point that is in the world frame is at (5, 7, 0) from frame1 to frame2.
 // frame1 has its origin at (0, 7, 0) in the world  and frame2 has its origin
 // at (5, 1, 0), and orientation 90 degrees around z.
-// frame3 is an intermediate frame at (0, 4, 0) in the world
+// frame3 is an intermediate frame at (0, 4, 0) in the world.
 func TestFrameTransform(t *testing.T) {
 	// build the system
 	fs := NewEmptyFrameSystem("test")
@@ -220,7 +220,7 @@ world
 // transform the object geometry that is in the world frame is at (5, 7, 0) from frame1 to frame2.
 // frame1 has its origin at (0, 7, 0) in the world  and frame2 has its origin
 // at (5, 1, 0), and orientation 90 degrees around z.
-// frame3 is an intermediate frame at (0, 4, 0) in the world
+// frame3 is an intermediate frame at (0, 4, 0) in the world.
 func TestGeomtriesTransform(t *testing.T) {
 	// build the system
 	fs := NewEmptyFrameSystem("test")

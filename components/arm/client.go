@@ -206,19 +206,3 @@ func (c *client) Geometries(ctx context.Context, extra map[string]interface{}) (
 	}
 	return spatialmath.NewGeometriesFromProto(resp.GetGeometries())
 }
-
-func (c *client) updateKinematics(ctx context.Context, extra map[string]interface{}) (referenceframe.Model, error) {
-	ext, err := protoutils.StructToStructPb(extra)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := c.client.GetKinematics(ctx, &commonpb.GetKinematicsRequest{
-		Name:  c.name,
-		Extra: ext,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return referenceframe.KinematicModelFromProtobuf(c.name, resp)
-}

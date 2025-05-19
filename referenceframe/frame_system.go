@@ -150,7 +150,7 @@ func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms 
 	return fs, nil
 }
 
-// World returns the base world
+// World returns the base world.
 func (sfs *simpleFrameSystem) World() Frame {
 	return sfs.world
 }
@@ -450,7 +450,7 @@ func (sfs *simpleFrameSystem) transformFromParent(inputMap FrameSystemInputs, sr
 	return NewPoseInFrame(dst.Name(), spatial.PoseBetween(dstToWorld, srcToWorld)), nil
 }
 
-// compose the quaternions from the input frame to the world
+// compose the quaternions from the input frame to the world.
 func (sfs *simpleFrameSystem) composeTransforms(frame Frame, inputMap FrameSystemInputs) (spatial.Pose, error) {
 	q := spatial.NewZeroPose() // empty initial dualquat
 	var errAll error

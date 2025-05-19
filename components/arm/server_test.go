@@ -13,7 +13,6 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/referenceframe/urdf"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
@@ -86,7 +85,7 @@ func TestServer(t *testing.T) {
 		return nil
 	}
 	injectArm.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
-		model, err := urdf.ParseModelXMLFile(utils.ResolveFile("referenceframe/urdf/testfiles/ur5e.urdf"), "foo")
+		model, err := referenceframe.ParseModelXMLFile(utils.ResolveFile("referenceframe/urdf/testfiles/ur5e.urdf"), "foo")
 		if err != nil {
 			return nil, err
 		}

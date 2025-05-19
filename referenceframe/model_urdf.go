@@ -73,7 +73,7 @@ func NewModelFromWorldState(ws *WorldState, name string) (*ModelConfigXML, error
 	}, nil
 }
 
-// UnmarshalModelURDF will transfer the given URDF XML data into an equivalent ModelConfig. Direct unmarshaling in the
+// UnmarshalModelXML will transfer the given URDF XML data into an equivalent ModelConfig. Direct unmarshaling in the
 // same fashion as ModelJSON is not possible, as URDF data will need to be evaluated to accommodate differences
 // between the two kinematics encoding schemes.
 func UnmarshalModelXML(xmlData []byte, modelName string) (*ModelConfigJSON, error) {

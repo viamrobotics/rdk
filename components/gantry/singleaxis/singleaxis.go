@@ -611,7 +611,6 @@ func (g *singleAxis) Kinematics(ctx context.Context) (referenceframe.Model, erro
 		m.OrdTransforms = append(m.OrdTransforms, f)
 
 		f, err = referenceframe.NewTranslationalFrame(g.Name().ShortName(), g.frame, referenceframe.Limit{Min: 0, Max: g.lengthMm})
-
 		if err != nil {
 			return nil, err
 		}

@@ -172,6 +172,7 @@ func (wrapper *Arm) IsMoving(ctx context.Context) (bool, error) {
 	return wrapper.opMgr.OpRunning(), nil
 }
 
+// Kinematics returns the kinematic wrapper supplied to the wrapper arm.
 func (wrapper *Arm) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 	wrapper.mu.RLock()
 	defer wrapper.mu.RUnlock()

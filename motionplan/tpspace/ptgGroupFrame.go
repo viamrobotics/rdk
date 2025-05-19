@@ -153,6 +153,7 @@ func (pf *ptgGroupFrame) Name() string {
 func (pf *ptgGroupFrame) ModelConfig() *referenceframe.ModelConfigJSON {
 	return nil
 }
+
 func (pf *ptgGroupFrame) ModelPieceFrames([]referenceframe.Input) (map[string]referenceframe.Frame, error) {
 	return nil, errors.New("ModelPieceFrames unimplemented")
 }

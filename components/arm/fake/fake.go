@@ -210,6 +210,7 @@ func (a *Arm) IsMoving(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
+// Kinematics returns the kinematic model supplied for the fake arm.
 func (a *Arm) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()

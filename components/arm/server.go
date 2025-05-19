@@ -12,7 +12,6 @@ import (
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -174,7 +173,7 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 			if err != nil {
 				return nil, err
 			}
-			model, err := parseKinematicsResponse(req.GetName(), kinematicsPbResp)
+			model, err := referenceframe.KinematicModelFromProtobuf(req.GetName(), kinematicsPbResp)
 			if err != nil {
 				return nil, err
 			}
@@ -206,7 +205,7 @@ func (s *serviceServer) GetKinematics(ctx context.Context, req *commonpb.GetKine
 	if err != nil {
 		return nil, err
 	}
-	return framesystem.KinematicModelToProtobuf(model), nil
+	return referenceframe.KinematicModelToProtobuf(model), nil
 }
 
 // DoCommand receives arbitrary commands.

@@ -66,17 +66,20 @@ func (g *Gripper) Reconfigure(_ context.Context, _ resource.Dependencies, conf r
 	return nil
 }
 
+// Kinematics returns the kinematic model associated with the gripper.
 func (g *Gripper) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.model, nil
 }
 
+// CurrentInputs is unimplemented for grippers.
 func (g *Gripper) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	g.logger.Warn("gripper.CurrentInputs is unimplemented!")
 	return []referenceframe.Input{}, nil
 }
 
+// GoToInputs is unimplemented for grippers.
 func (g *Gripper) GoToInputs(context.Context, ...[]referenceframe.Input) error {
 	g.logger.Warn("gripper.GoToInputs is unimplemented!")
 	return nil

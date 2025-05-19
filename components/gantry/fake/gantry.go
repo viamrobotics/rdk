@@ -90,6 +90,7 @@ func (g *Gantry) IsMoving(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
+// Kinematics returns the kinematic model associated with the gantry.
 func (g *Gantry) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 	m := referenceframe.NewSimpleModel("")
 	f, err := referenceframe.NewTranslationalFrame(g.Name().ShortName(), g.frame, referenceframe.Limit{0, g.lengthMeters})

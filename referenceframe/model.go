@@ -26,6 +26,7 @@ type Model interface {
 	ModelPieceFrames([]Input) (map[string]Frame, error)
 }
 
+// KinematicModelFromProtobuf returns a model from a protobuf message representing it.
 func KinematicModelFromProtobuf(name string, resp *commonpb.GetKinematicsResponse) (Model, error) {
 	if resp == nil {
 		return nil, errors.New("*commonpb.GetKinematicsResponse can't be nil")
@@ -52,15 +53,15 @@ func KinematicModelFromProtobuf(name string, resp *commonpb.GetKinematicsRespons
 	}
 }
 
+// KinematicModelToProtobuf converts a model into a protobuf message version of that model.
 func KinematicModelToProtobuf(model Model) *commonpb.GetKinematicsResponse {
-	unspecified := commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED
 	if model == nil {
-		return &commonpb.GetKinematicsResponse{Format: unspecified}
+		return &commonpb.GetKinematicsResponse{Format: commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED}
 	}
 
 	cfg := model.ModelConfig()
 	if cfg == nil || cfg.OriginalFile == nil {
-		return &commonpb.GetKinematicsResponse{Format: unspecified}
+		return &commonpb.GetKinematicsResponse{Format: commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED}
 	}
 	resp := &commonpb.GetKinematicsResponse{KinematicsData: cfg.OriginalFile.Bytes}
 	switch cfg.OriginalFile.Extension {
@@ -69,11 +70,12 @@ func KinematicModelToProtobuf(model Model) *commonpb.GetKinematicsResponse {
 	case "urdf":
 		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF
 	default:
-		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF
+		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED
 	}
 	return resp
 }
 
+// KinematicModelFromFile returns a model frame from a file that defines the kinematics.
 func KinematicModelFromFile(modelPath, name string) (Model, error) {
 	switch {
 	case strings.HasSuffix(modelPath, ".urdf"):

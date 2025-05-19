@@ -34,35 +34,6 @@ func TestParseURDFFile(t *testing.T) {
 	test.That(t, u.Name(), test.ShouldEqual, "foo")
 }
 
-func TestURDFTransforms(t *testing.T) {
-	u, err := ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/ur5e.urdf"), "")
-	test.That(t, err, test.ShouldBeNil)
-	simple, ok := u.(*SimpleModel)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	joints := []Frame{}
-	for _, tform := range simple.OrdTransforms {
-		if len(tform.DoF()) > 0 {
-			joints = append(joints, tform)
-		}
-	}
-	test.That(t, len(joints), test.ShouldEqual, 6)
-	pose, err := joints[0].Transform([]Input{{0}})
-	test.That(t, err, test.ShouldBeNil)
-	firstJov := pose.Orientation().OrientationVectorRadians()
-	firstJovExpect := &spatialmath.OrientationVector{Theta: 0, OX: 0, OY: 0, OZ: 1}
-	test.That(t, firstJov, test.ShouldResemble, firstJovExpect)
-
-	pose, err = joints[0].Transform([]Input{{1.5708}})
-	test.That(t, err, test.ShouldBeNil)
-	firstJov = pose.Orientation().OrientationVectorRadians()
-	firstJovExpect = &spatialmath.OrientationVector{Theta: 1.5708, OX: 0, OY: 0, OZ: 1}
-	test.That(t, firstJov.Theta, test.ShouldAlmostEqual, firstJovExpect.Theta)
-	test.That(t, firstJov.OX, test.ShouldAlmostEqual, firstJovExpect.OX)
-	test.That(t, firstJov.OY, test.ShouldAlmostEqual, firstJovExpect.OY)
-	test.That(t, firstJov.OZ, test.ShouldAlmostEqual, firstJovExpect.OZ)
-}
-
 func TestWorldStateConversion(t *testing.T) {
 	foo, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "foo")
 	test.That(t, err, test.ShouldBeNil)

@@ -125,7 +125,7 @@ func (a *Arm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[st
 	return a.DoFunc(ctx, cmd)
 }
 
-// ModelFrame calls the injected ModelFrame or the real version.
+// Kinematics calls the injected Kinematics or the real version.
 func (a *Arm) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 	if a.KinematicsFunc == nil {
 		if a.Arm != nil {
