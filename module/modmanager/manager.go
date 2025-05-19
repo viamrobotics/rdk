@@ -324,11 +324,11 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, moduleLogger lo
 	return nil
 }
 
-func (mgr *Manager) startModuleProcess(mod *module) error {
+func (mgr *Manager) startModuleProcess(mod *module, oue pexec.UnexpectedExitHandler) error {
 	return mod.startProcess(
 		mgr.restartCtx,
 		mgr.parentAddr,
-		mgr.newOnUnexpectedExitHandler(mod),
+		oue,
 		mgr.viamHomeDir,
 		mgr.packagesDir,
 	)
@@ -354,7 +354,7 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 		ctx, "Waiting for module to complete startup and registration", "module", mod.cfg.Name, mod.logger)
 	defer cleanup()
 
-	if err := mgr.startModuleProcess(mod); err != nil {
+	if err := mgr.startModuleProcess(mod, mgr.newOnUnexpectedExitHandler(mod)); err != nil {
 		return errors.WithMessage(err, "error while starting module "+mod.cfg.Name)
 	}
 
@@ -1004,9 +1004,25 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 		ctx, "Waiting for module to complete restart and re-registration", "module", mod.cfg.Name, mod.logger)
 	defer cleanup()
 
+	// We risk fork-bombing ourselves with goroutines if the module process keeps
+	// crashing too quickly. Wrap the OUE handler so at most a single successful
+	// restart can itself trigger further restart attempts.
+	successfulAttempt := -1
+	blockSubRestarts := make(chan struct{})
+	defer close(blockSubRestarts)
+	makeSubOUE := func(attempt int) pexec.UnexpectedExitHandler {
+		return func(exitCode int) bool {
+			<-blockSubRestarts
+			if !success || attempt != successfulAttempt {
+				return false
+			}
+			return mgr.newOnUnexpectedExitHandler(mod)(exitCode)
+		}
+	}
+
 	// Attempt to restart module process 3 times.
 	for attempt := 1; attempt < 4; attempt++ {
-		if err := mgr.startModuleProcess(mod); err != nil {
+		if err := mgr.startModuleProcess(mod, makeSubOUE(attempt)); err != nil {
 			mgr.logger.Errorw("Error while restarting crashed module", "restart attempt",
 				attempt, "module", mod.cfg.Name, "error", err)
 			if attempt == 3 {
@@ -1014,6 +1030,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 				return orphanedResourceNames
 			}
 		} else {
+			successfulAttempt = attempt
 			break
 		}
 
