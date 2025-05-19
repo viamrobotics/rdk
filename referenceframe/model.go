@@ -74,6 +74,17 @@ func KinematicModelToProtobuf(model Model) *commonpb.GetKinematicsResponse {
 	return resp
 }
 
+func KinematicModelFromFile(modelPath, name string) (Model, error) {
+	switch {
+	case strings.HasSuffix(modelPath, ".urdf"):
+		return ParseModelXMLFile(modelPath, name)
+	case strings.HasSuffix(modelPath, ".json"):
+		return ParseModelJSONFile(modelPath, name)
+	default:
+		return nil, errors.New("only files with .json and .urdf file extensions are supported")
+	}
+}
+
 // SimpleModel is a model that serially concatenates a list of Frames.
 type SimpleModel struct {
 	*baseFrame

@@ -3,15 +3,12 @@ package wrapper
 
 import (
 	"context"
-	"errors"
-	"strings"
 	"sync"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/referenceframe/urdf"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
@@ -31,7 +28,7 @@ func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	if cfg.ArmName == "" {
 		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "arm-name")
 	}
-	if _, err := modelFromPath(cfg.ModelFilePath, ""); err != nil {
+	if _, err := referenceframe.KinematicModelFromFile(cfg.ModelFilePath, ""); err != nil {
 		return nil, nil, err
 	}
 	deps = append(deps, cfg.ArmName)
@@ -77,7 +74,7 @@ func (wrapper *Arm) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	if err != nil {
 		return err
 	}
-	model, err := modelFromPath(newConf.ModelFilePath, conf.Name)
+	model, err := referenceframe.KinematicModelFromFile(newConf.ModelFilePath, conf.Name)
 	if err != nil {
 		return err
 	}
@@ -206,13 +203,3 @@ func (wrapper *Arm) Geometries(ctx context.Context, extra map[string]interface{}
 }
 
 // modelFromPath returns a Model from a given path.
-func modelFromPath(modelPath, name string) (referenceframe.Model, error) {
-	switch {
-	case strings.HasSuffix(modelPath, ".urdf"):
-		return urdf.ParseModelXMLFile(modelPath, name)
-	case strings.HasSuffix(modelPath, ".json"):
-		return referenceframe.ParseModelJSONFile(modelPath, name)
-	default:
-		return nil, errors.New("only files with .json and .urdf file extensions are supported")
-	}
-}

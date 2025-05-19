@@ -13,7 +13,6 @@ import (
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -170,7 +169,7 @@ func (c *client) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 	if err != nil {
 		return nil, err
 	}
-	return framesystem.KinematicModelFromProtobuf(c.name, resp)
+	return referenceframe.KinematicModelFromProtobuf(c.name, resp)
 }
 
 func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
@@ -221,5 +220,5 @@ func (c *client) updateKinematics(ctx context.Context, extra map[string]interfac
 		return nil, err
 	}
 
-	return parseKinematicsResponse(c.name, resp)
+	return referenceframe.KinematicModelFromProtobuf(c.name, resp)
 }
