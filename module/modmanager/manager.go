@@ -888,7 +888,12 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) pexec.UnexpectedExit
 		// For the second scenario, we check our assumptions after acquiring the modmanager mutex.  If the module process is running, there is
 		// nothing for us to do.
 		mgr.mu.Lock()
-		defer mgr.mu.Unlock()
+		locked := true
+		defer func() {
+			if locked {
+				mgr.mu.Unlock()
+			}
+		}()
 
 		if mod.pendingRemoval {
 			mod.logger.Infow("Module marked for removal, abandoning restart attempt")
@@ -915,8 +920,17 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) pexec.UnexpectedExit
 		// and we should remove orphaned resources. Since we handle process
 		// restarting ourselves, return false here so goutils knows not to attempt
 		// a process restart.
-		if orphanedResourceNames := mgr.attemptRestart(mgr.restartCtx, mod); orphanedResourceNames != nil {
+		blockSubRestarts := make(chan struct{})
+		defer close(blockSubRestarts)
+		if orphanedResourceNames := mgr.attemptRestart(mgr.restartCtx, mod, blockSubRestarts); orphanedResourceNames != nil {
 			if mgr.removeOrphanedResources != nil {
+				// removeOrphanedResources might try to lock a parent object and cause
+				// a deadlock (such is the case on localRobot). Drop the lock here to
+				// prevent that. Future restart attempts are blocked on the
+				// blockSubRestarts channel so we don't have to worry about racing with
+				// them.
+				mgr.mu.Unlock()
+				locked = false
 				mgr.removeOrphanedResources(mgr.restartCtx, orphanedResourceNames)
 				mod.logger.Debugw(
 					"Removed resources after failed module restart",
@@ -959,7 +973,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) pexec.UnexpectedExit
 
 // attemptRestart will attempt to restart the module up to three times and
 // return the names of now orphaned resources.
-func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.Name {
+func (mgr *Manager) attemptRestart(ctx context.Context, mod *module, blockSubRestarts chan struct{}) []resource.Name {
 	// deregister crashed module's resources, and let later checkReady reset m.handles
 	// before reregistering.
 	mod.deregisterResources()
@@ -1008,8 +1022,6 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 	// crashing too quickly. Wrap the OUE handler so at most a single successful
 	// restart can itself trigger further restart attempts.
 	successfulAttempt := -1
-	blockSubRestarts := make(chan struct{})
-	defer close(blockSubRestarts)
 	makeSubOUE := func(attempt int) pexec.UnexpectedExitHandler {
 		return func(exitCode int) bool {
 			<-blockSubRestarts
