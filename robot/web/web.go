@@ -30,6 +30,7 @@ import (
 	echoserver "go.viam.com/utils/rpc/examples/echo/server"
 	"goji.io"
 	"goji.io/pat"
+	"golang.org/x/exp/rand"
 	googlegrpc "google.golang.org/grpc"
 
 	"go.viam.com/rdk/config"
@@ -534,6 +535,7 @@ type Namer interface {
 type RequestCounter struct {
 	counts    sync.Map
 	timeSpent sync.Map
+	logger    logging.Logger
 }
 
 // incrementCounter atomically increments the counter for a given key, creating it first if needed.
@@ -614,9 +616,13 @@ func (rc *RequestCounter) UnaryInterceptor(
 		key := buildRCKey(&req, apiMethod)
 		rc.incrementCounter(key)
 
+		rid := rand.Int31()
 		start := time.Now()
+		rc.logger.Infof("Request arrived. ID: %v Method: %v", rid, info.FullMethod)
 		defer func() {
-			rc.incrementTimeSpent(key, time.Since(start).Milliseconds())
+			since := time.Since(start).Milliseconds()
+			rc.logger.Infof("Request exited. ID: %v Method: %v TimeSpent: %vms", rid, info.FullMethod, since)
+			rc.incrementTimeSpent(key, since)
 		}()
 	}
 
