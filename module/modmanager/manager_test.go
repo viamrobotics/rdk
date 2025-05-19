@@ -653,7 +653,7 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		// Run 'kill_module' command through helper resource to cause module to
-		// exit with error. Assert that after three restart errors occur, helper is
+		// exit with error. Assert that after the first restart attempt, helper is
 		// not modularly managed and commands return error.
 		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -678,7 +678,7 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, logs.FilterMessageSnippet("Module successfully restarted").Len(),
 			test.ShouldEqual, 0)
 		test.That(t, logs.FilterMessageSnippet("Error while restarting crashed module").Len(),
-			test.ShouldEqual, 3)
+			test.ShouldBeGreaterThanOrEqualTo, 1)
 
 		// Assert that RemoveOrphanedResources was called once.
 		test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 1)

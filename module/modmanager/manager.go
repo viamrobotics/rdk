@@ -922,7 +922,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) pexec.UnexpectedExit
 		// a process restart.
 		blockSubRestarts := make(chan struct{})
 		defer close(blockSubRestarts)
-		if orphanedResourceNames := mgr.attemptRestart(mgr.restartCtx, mod, blockSubRestarts); orphanedResourceNames != nil {
+		if orphanedResourceNames := mgr.attemptRestart(mgr.restartCtx, mod); orphanedResourceNames != nil {
 			if mgr.removeOrphanedResources != nil {
 				// removeOrphanedResources might try to lock a parent object and cause
 				// a deadlock (such is the case on localRobot). Drop the lock here to
@@ -973,7 +973,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) pexec.UnexpectedExit
 
 // attemptRestart will attempt to restart the module up to three times and
 // return the names of now orphaned resources.
-func (mgr *Manager) attemptRestart(ctx context.Context, mod *module, blockSubRestarts chan struct{}) []resource.Name {
+func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.Name {
 	// deregister crashed module's resources, and let later checkReady reset m.handles
 	// before reregistering.
 	mod.deregisterResources()
@@ -1018,41 +1018,21 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module, blockSubRes
 		ctx, "Waiting for module to complete restart and re-registration", "module", mod.cfg.Name, mod.logger)
 	defer cleanup()
 
-	// We risk fork-bombing ourselves with goroutines if the module process keeps
-	// crashing too quickly. Wrap the OUE handler so at most a single successful
-	// restart can itself trigger further restart attempts.
-	successfulAttempt := -1
-	makeSubOUE := func(attempt int) pexec.UnexpectedExitHandler {
-		return func(exitCode int) bool {
-			<-blockSubRestarts
-			if !success || attempt != successfulAttempt {
-				return false
-			}
-			return mgr.newOnUnexpectedExitHandler(mod)(exitCode)
-		}
-	}
-
-	// Attempt to restart module process 3 times.
-	for attempt := 1; attempt < 4; attempt++ {
-		if err := mgr.startModuleProcess(mod, makeSubOUE(attempt)); err != nil {
-			mgr.logger.Errorw("Error while restarting crashed module", "restart attempt",
-				attempt, "module", mod.cfg.Name, "error", err)
-			if attempt == 3 {
-				// return early upon last attempt failure.
-				return orphanedResourceNames
-			}
-		} else {
-			successfulAttempt = attempt
-			break
-		}
-
-		// Wait with a bit of backoff. Exit early if context has errorred.
-		if !utils.SelectContextOrWait(ctx, time.Duration(attempt)*oueRestartInterval) {
+	restartBackoff := time.NewTimer(oueRestartInterval)
+	oue := func(exitCode int) bool {
+		if !utils.SelectContextOrWaitChan(ctx, restartBackoff.C) {
 			mgr.logger.CInfow(
 				ctx, "Will not continue to attempt restarting crashed module", "module", mod.cfg.Name, "reason", ctx.Err().Error(),
 			)
-			return orphanedResourceNames
+			return false
 		}
+		return mgr.newOnUnexpectedExitHandler(mod)(exitCode)
+	}
+
+	if err := mgr.startModuleProcess(mod, oue); err != nil {
+		mgr.logger.Errorw("Error while restarting crashed module",
+			"module", mod.cfg.Name, "error", err)
+		return orphanedResourceNames
 	}
 	processRestarted = true
 
