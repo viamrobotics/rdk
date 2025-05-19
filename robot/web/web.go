@@ -604,6 +604,10 @@ func buildRCKey(clientMsg *any, apiMethod string) string {
 	return apiMethod
 }
 
+type GetNamer interface {
+	GetName() string
+}
+
 // UnaryInterceptor returns an incoming server interceptor that will pull method information and
 // optionally resource information to bump the request counters.
 func (rc *RequestCounter) UnaryInterceptor(
@@ -618,7 +622,13 @@ func (rc *RequestCounter) UnaryInterceptor(
 
 		rid := rand.Int31()
 		start := time.Now()
-		rc.logger.Infof("Request arrived. ID: %v Method: %v Request: %+v", rid, info.FullMethod, req)
+		name := ""
+		if namer, ok := req.(GetNamer); ok {
+			name = namer.GetName()
+		} else {
+			name = fmt.Sprintf("%T", req)
+		}
+		rc.logger.Infof("Request arrived. ID: %v Method: %v Request: %v", rid, info.FullMethod, name)
 		defer func() {
 			since := time.Since(start).Milliseconds()
 			rc.logger.Infof("Request exited. ID: %v Method: %v TimeSpent: %vms", rid, info.FullMethod, since)
