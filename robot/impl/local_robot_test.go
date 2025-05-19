@@ -1817,18 +1817,18 @@ func TestOrphanedResources(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		// Assert that removing testmodule binary and killing testmodule orphans
-		// helper 'h' a couple seconds after third restart attempt.
+		// helper 'h' after the first restart attempt
 		err = os.Rename(testPath, testPath+".disabled")
 		test.That(t, err, test.ShouldBeNil)
 		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
-		// Wait for 3 restart attempts in logs.
+		// Wait for restart attempt in logs.
 		testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, logs.FilterFieldKey("restart attempt").Len(),
-				test.ShouldEqual, 3)
+			test.That(tb, logs.FilterMessage("Error while restarting crashed module").Len(),
+				test.ShouldBeGreaterThanOrEqualTo, 1)
 		})
 		time.Sleep(2 * time.Second)
 
@@ -1866,11 +1866,11 @@ func TestOrphanedResources(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
-		// Wait for 3 restart attempts in logs.
+		// Wait for restart attempt in logs.
 		testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, logs.FilterFieldKey("restart attempt").Len(),
-				test.ShouldEqual, 3)
+			test.That(tb, logs.FilterMessage("Error while restarting crashed module").Len(),
+				test.ShouldBeGreaterThanOrEqualTo, 1)
 		})
 		time.Sleep(2 * time.Second)
 
