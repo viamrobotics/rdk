@@ -2,6 +2,7 @@ package pointcloud
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"image/color"
@@ -71,6 +72,19 @@ func _pcdIntToColor(c int) color.NRGBA {
 	g := uint8(0xFF & (c >> 8))
 	b := uint8(0xFF & (c >> 0))
 	return color.NRGBA{r, g, b, 255}
+}
+
+// ToBytes takes a pointcloud object and converts it to bytes.
+func ToBytes(cloud PointCloud) ([]byte, error) {
+	if cloud == nil {
+		return nil, errors.New("pointcloud cannot be nil")
+	}
+	var buf bytes.Buffer
+	buf.Grow(200 + (cloud.Size() * 4 * 4)) // 4 numbers per point, each 4 bytes, 200 is header size
+	if err := ToPCD(cloud, &buf, PCDBinary); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 // ToPCD writes out a point cloud to a PCD file of the specified type.

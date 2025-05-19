@@ -115,7 +115,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 			pcdGeometries := make([]spatialmath.Geometry, 0, len(geometries))
 			for _, geometry := range geometries {
 				if mesh, ok := geometry.(*spatialmath.Mesh); ok {
-					octree, err := pointcloud.FromMesh(mesh)
+					octree, err := pointcloud.NewFromMesh(mesh)
 					if err != nil {
 						return err
 					}

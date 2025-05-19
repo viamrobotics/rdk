@@ -368,6 +368,8 @@ func (m *Mesh) Label() string {
 }
 
 // ToPoints returns a vector of points that together represent a point cloud of the Mesh.
+// The points returned are the triangle vertices as well as the centroid of each triangle. 
+// TODO: the density variable doesn't do anything here and arguably we shouldn't be also returning the centroid every time.
 func (m *Mesh) ToPoints(density float64) []r3.Vector {
 	// Use map to deduplicate vertices
 	pointMap := make(map[string]r3.Vector)
@@ -398,15 +400,42 @@ func (m *Mesh) MarshalJSON() ([]byte, error) {
 	return nil, errors.New("MarshalJSON not yet implemented for Mesh")
 }
 
+// MeshBoxIntersectionArea calculates the summed area of all triangles in a mesh
+// that intersect with a box geometry and returns the total intersection area.
+func MeshBoxIntersectionArea(mesh, theBox Geometry) (float64, error) {
+	m, err := utils.AssertType[*Mesh](mesh)
+	if err != nil {
+		return -1, err
+	}
+	b, err := utils.AssertType[*box](theBox)
+	if err != nil {
+		return -1, err
+	}
+
+	// Sum the intersection area for each triangle
+	totalArea := 0.0
+	for _, tri := range m.triangles {
+		a, err := boxTriangleIntersectionArea(b, tri.Transform(m.pose))
+		if err != nil {
+			return -1, err
+		}
+		totalArea += a
+	}
+	return totalArea, nil
+}
+
 // boxTriangleIntersectionArea calculates the area of intersection between a box and a triangle.
 // Returns 0 if there's no intersection, the full triangle area if fully enclosed,
 // or the actual intersection area otherwise.
-func boxTriangleIntersectionArea(b *box, t *Triangle) float64 {
+func boxTriangleIntersectionArea(b *box, t *Triangle) (float64, error) {
 	// Quick check if they don't intersect at all
 	//nolint:errcheck
-	collides, _ := b.CollidesWith(NewMesh(NewZeroPose(), []*Triangle{t}, ""), defaultCollisionBufferMM)
+	collides, err := b.CollidesWith(NewMesh(NewZeroPose(), []*Triangle{t}, ""), defaultCollisionBufferMM)
+	if err != nil {
+		return -1, err
+	}
 	if !collides {
-		return 0
+		return 0, nil
 	}
 
 	// Check if triangle is fully enclosed by the box
@@ -418,7 +447,7 @@ func boxTriangleIntersectionArea(b *box, t *Triangle) float64 {
 		}
 	}
 	if enclosed {
-		return TriangleArea(t)
+		return TriangleArea(t), nil
 	}
 
 	// Clip triangle against each of the six box planes
@@ -446,17 +475,16 @@ func boxTriangleIntersectionArea(b *box, t *Triangle) float64 {
 
 		// If no vertices left, intersection area is 0
 		if len(vertices) < 3 {
-			return 0
+			return 0, nil
 		}
 	}
 
 	// Calculate area of the resulting polygon by triangulating it
 	// TODO: all passed in vertices should be coplanar with the triangle normal but this is not explicitly checked
-	return calculatePolygonAreaWithTriangulation(vertices)
+	return calculatePolygonAreaWithTriangulation(vertices), nil
 }
 
-// clipPolygonAgainstPlane clips a convex polygon against a plane
-// Returns the vertices of the clipped polygon.
+// clipPolygonAgainstPlane clips a convex polygon against a plane and returns the vertices of the clipped polygon.
 func clipPolygonAgainstPlane(vertices []r3.Vector, planePoint, planeNormal r3.Vector) []r3.Vector {
 	if len(vertices) < 3 {
 		return vertices
@@ -508,24 +536,4 @@ func calculatePolygonAreaWithTriangulation(vertices []r3.Vector) float64 {
 		}
 		return totalArea
 	}
-}
-
-// MeshBoxIntersectionArea calculates the summed area of all triangles in a mesh
-// that intersect with a box geometry and returns the total intersection area.
-func MeshBoxIntersectionArea(mesh, theBox Geometry) (float64, error) {
-	m, err := utils.AssertType[*Mesh](mesh)
-	if err != nil {
-		return -1, err
-	}
-	b, err := utils.AssertType[*box](theBox)
-	if err != nil {
-		return -1, err
-	}
-
-	// Sum the intersection area for each triangle
-	totalArea := 0.0
-	for _, tri := range m.triangles {
-		totalArea += boxTriangleIntersectionArea(b, tri.Transform(m.pose))
-	}
-	return totalArea, nil
 }
