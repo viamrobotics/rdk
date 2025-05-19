@@ -53,6 +53,7 @@ func installPackage(
 	}
 
 	dstPath := p.LocalDownloadPath(packagesDir)
+	println("calling installFn with", url)
 	checksum, contentType, err := installFn(ctx, url, dstPath)
 	if err != nil {
 		return err
