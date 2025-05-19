@@ -618,7 +618,7 @@ func (rc *RequestCounter) UnaryInterceptor(
 
 		rid := rand.Int31()
 		start := time.Now()
-		rc.logger.Infof("Request arrived. ID: %v Method: %v", rid, info.FullMethod)
+		rc.logger.Infof("Request arrived. ID: %v Method: %v Request: %+v", rid, info.FullMethod, req)
 		defer func() {
 			since := time.Since(start).Milliseconds()
 			rc.logger.Infof("Request exited. ID: %v Method: %v TimeSpent: %vms", rid, info.FullMethod, since)
