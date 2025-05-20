@@ -2817,13 +2817,15 @@ func assertContents(t *testing.T, path, expectedContents string) {
 
 func TestRestartModule(t *testing.T) {
 	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 
 	t.Run("isRunning=false", func(t *testing.T) {
 		tmp := t.TempDir()
 		badExePath := filepath.Join(tmp, "/nosuchexe")
 		const bash = `#!/usr/bin/env bash
-		echo STARTED > result.txt
+		if ! test -e result.txt; then
+			echo STARTED > result.txt
+		fi
 		echo exiting right away
 		`
 		os.WriteFile(badExePath, []byte(bash), 0o700)
@@ -2832,6 +2834,11 @@ func TestRestartModule(t *testing.T) {
 		test.That(t, mod.LocalVersion, test.ShouldBeEmpty)
 
 		// make sure this started + failed
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			test.That(tb, logs.FilterMessageSnippet("Removed resources after failed module restart").Len(),
+				test.ShouldEqual, 1)
+		})
 		outputPath := filepath.Join(tmp, "result.txt")
 		assertContents(t, outputPath, "STARTED\n")
 		// clear this so the restart attempt writes it again
@@ -2843,6 +2850,20 @@ func TestRestartModule(t *testing.T) {
 		test.That(t, r.(*localRobot).localModuleVersions[mod.Name].String(), test.ShouldResemble, "0.0.1")
 		// make sure it really ran again
 		assertContents(t, outputPath, "STARTED\n")
+
+		err = r.Close(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			// Expect 2 of these: 1 from the initial start crashing and 1 from the
+			// restart request crashing.
+			test.That(
+				tb,
+				logs.FilterMessageSnippet("Will not continue to attempt restarting crashed module").Len(),
+				test.ShouldEqual,
+				2,
+			)
+		})
 	})
 
 	t.Run("isRunning=true", func(t *testing.T) {
