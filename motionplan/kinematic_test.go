@@ -300,7 +300,7 @@ func TestKinematicsJSONvsURDF(t *testing.T) {
 
 	mJSON, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	mURDF, err := frame.ParseModelXMLFile(utils.ResolveFile("referenceframe/urdf/testfiles/ur5e.urdf"), "")
+	mURDF, err := frame.ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/ur5e.urdf"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	seed := rand.New(rand.NewSource(50))

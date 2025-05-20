@@ -85,7 +85,7 @@ func TestServer(t *testing.T) {
 		return nil
 	}
 	injectArm.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
-		model, err := referenceframe.ParseModelXMLFile(utils.ResolveFile("referenceframe/urdf/testfiles/ur5e.urdf"), "foo")
+		model, err := referenceframe.ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/ur5e.urdf"), "foo")
 		if err != nil {
 			return nil, err
 		}
