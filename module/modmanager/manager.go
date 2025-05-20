@@ -924,9 +924,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) pexec.UnexpectedExit
 			if mgr.removeOrphanedResources != nil {
 				// removeOrphanedResources might try to lock a parent object and cause
 				// a deadlock (such is the case on localRobot). Drop the lock here to
-				// prevent that. Future restart attempts are blocked on the
-				// blockSubRestarts channel so we don't have to worry about racing with
-				// them.
+				// prevent that.
 				mgr.mu.Unlock()
 				locked = false
 				mgr.removeOrphanedResources(mgr.restartCtx, orphanedResourceNames)
