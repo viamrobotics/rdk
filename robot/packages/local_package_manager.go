@@ -253,7 +253,11 @@ func (m *localManager) SyncOne(ctx context.Context, mod config.Module) error {
 	}
 	pkgDir := pkg.LocalDataDirectory(m.packagesDir)
 
-	dirty, err := newerOrMissing(mod.ExePath, pkgDir)
+	exePath, err := rUtils.ExpandHomeDir(mod.ExePath)
+	if err != nil {
+		return err
+	}
+	dirty, err := newerOrMissing(exePath, pkgDir)
 	if err != nil {
 		return err
 	}
