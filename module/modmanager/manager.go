@@ -920,8 +920,6 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) pexec.UnexpectedExit
 		// and we should remove orphaned resources. Since we handle process
 		// restarting ourselves, return false here so goutils knows not to attempt
 		// a process restart.
-		blockSubRestarts := make(chan struct{})
-		defer close(blockSubRestarts)
 		if orphanedResourceNames := mgr.attemptRestart(mgr.restartCtx, mod); orphanedResourceNames != nil {
 			if mgr.removeOrphanedResources != nil {
 				// removeOrphanedResources might try to lock a parent object and cause
