@@ -2,7 +2,6 @@ package multiaxis
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"go.viam.com/test"
@@ -39,7 +38,7 @@ func createFakeOneaAxis(length float64, positions []float64) *inject.Gantry {
 		return nil
 	}
 	fakesingleaxis.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
-		return nil, errors.New("KinematicsFunc unimpelmented")
+		return referenceframe.NewSimpleModel(""), nil
 	}
 	return fakesingleaxis
 }
@@ -301,7 +300,7 @@ func TestCurrentInputs(t *testing.T) {
 	test.That(t, inputs, test.ShouldResemble, []referenceframe.Input{{Value: 1}, {Value: 5}})
 }
 
-func TestModelFrame(t *testing.T) {
+func TestKinematics(t *testing.T) {
 	fakemultiaxis := &multiAxis{
 		Named:     gantry.Named("foo").AsNamed(),
 		subAxes:   twoAxes,
