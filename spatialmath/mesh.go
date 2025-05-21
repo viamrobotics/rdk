@@ -413,6 +413,8 @@ func MeshBoxIntersectionArea(mesh, theBox Geometry) (float64, error) {
 	// Sum the intersection area for each triangle
 	totalArea := 0.0
 	for _, tri := range m.triangles {
+		// mesh triangles are defined relative to their origin so to compare triangle/box
+		// we need to transform each triangle by the mesh's pose.
 		a, err := boxTriangleIntersectionArea(b, tri.Transform(m.pose))
 		if err != nil {
 			return -1, err
