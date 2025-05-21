@@ -820,7 +820,7 @@ func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInpu
 			Setup: "./setup.sh",
 			Build: "./build.sh",
 			Path:  "dist/archive.tar.gz",
-			Arch:  []string{"linux/amd64", "linux/arm64"},
+			Arch:  []string{"linux/amd64", "linux/arm64", "darwin/arm64", "windows/amd64"},
 		}
 		if module.EnableCloudBuild {
 			manifest.Entrypoint = "dist/main"
@@ -832,7 +832,7 @@ func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInpu
 			Setup: "make setup",
 			Build: "make module.tar.gz",
 			Path:  "bin/module.tar.gz",
-			Arch:  []string{"linux/amd64", "linux/arm64"},
+			Arch:  []string{"linux/amd64", "linux/arm64", "darwin/arm64", "windows/amd64"},
 		}
 		manifest.Entrypoint = fmt.Sprintf("bin/%s", module.ModuleName)
 	}
