@@ -488,6 +488,7 @@ type reloadModuleArgs struct {
 	RestartOnly bool
 	NoBuild     bool
 	Local       bool
+	NoProgress  bool
 }
 
 // ReloadModuleAction builds a module, configures it on a robot, and starts or restarts it.
@@ -558,14 +559,14 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 				return err
 			}
 			infof(c.App.Writer, "Copying %s to part %s", manifest.Build.Path, part.Part.Id)
-			args, err := getGlobalArgs(c)
+			globalArgs, err := getGlobalArgs(c)
 			if err != nil {
 				return err
 			}
 			dest := reloadingDestination(c, manifest)
 			err = vc.copyFilesToFqdn(
-				part.Part.Fqdn, args.Debug, false, false, []string{manifest.Build.Path},
-				dest, logging.NewLogger("reload"))
+				part.Part.Fqdn, globalArgs.Debug, false, false, []string{manifest.Build.Path},
+				dest, logging.NewLogger("reload"), args.NoProgress)
 			if err != nil {
 				if s, ok := status.FromError(err); ok && s.Code() == codes.PermissionDenied {
 					warningf(c.App.ErrWriter, "RDK couldn't write to the default file copy destination. "+

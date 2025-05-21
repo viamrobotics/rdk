@@ -18,10 +18,8 @@ import (
 
 	"github.com/golang/geo/r3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.uber.org/zap"
 	"go.viam.com/test"
 	"go.viam.com/utils"
-	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/testutils"
 	"google.golang.org/grpc/codes"
@@ -868,8 +866,8 @@ type someConfig struct {
 	Thing string
 }
 
-func (someConfig) Validate(path string) ([]string, error) {
-	return nil, errors.New("fail")
+func (someConfig) Validate(path string) ([]string, []string, error) {
+	return nil, nil, errors.New("fail")
 }
 
 func TestValidationErrorOnReconfigure(t *testing.T) {
@@ -1192,23 +1190,6 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 	test.That(t, yesSvc, test.ShouldNotBeNil)
 }
 
-func TestConfigProcess(t *testing.T) {
-	logger, logs := logging.NewObservedTestLogger(t)
-	r := setupLocalRobot(t, context.Background(), &config.Config{
-		Processes: []pexec.ProcessConfig{
-			{
-				ID:      "1",
-				Name:    "bash",
-				Args:    []string{"-c", "echo heythere"},
-				Log:     true,
-				OneShot: true,
-			},
-		},
-	}, logger)
-	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, logs.FilterField(zap.String("output", "heythere\n")).Len(), test.ShouldEqual, 1)
-}
-
 func TestConfigPackages(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
@@ -1368,15 +1349,6 @@ func TestConfigMethod(t *testing.T) {
 				ConvertedAttributes: &fakemotor.Config{},
 			},
 		},
-		Processes: []pexec.ProcessConfig{
-			{
-				ID:      "1",
-				Name:    "bash",
-				Args:    []string{"-c", "echo heythere"},
-				Log:     true,
-				OneShot: true,
-			},
-		},
 		Services: []resource.Config{
 			{
 				Name:                "fake1",
@@ -1448,10 +1420,6 @@ func TestConfigMethod(t *testing.T) {
 	test.That(t, actualCfg.Remotes[0].Equals(expectedCfg.Remotes[0]), test.ShouldBeTrue)
 	actualCfg.Remotes = nil
 	expectedCfg.Remotes = nil
-	test.That(t, len(actualCfg.Processes), test.ShouldEqual, 1)
-	test.That(t, actualCfg.Processes[0].Equals(expectedCfg.Processes[0]), test.ShouldBeTrue)
-	actualCfg.Processes = nil
-	expectedCfg.Processes = nil
 	test.That(t, len(actualCfg.Modules), test.ShouldEqual, 1)
 	test.That(t, actualCfg.Modules[0].Equals(expectedCfg.Modules[0]), test.ShouldBeTrue)
 	actualCfg.Modules = nil
@@ -2922,11 +2890,11 @@ func newMockConfig(name string, val int, fail bool, sleep string) resource.Confi
 
 var errMockValidation = errors.New("whoops")
 
-func (cfg *mockConfig) Validate(path string) ([]string, error) {
+func (cfg *mockConfig) Validate(path string) ([]string, []string, error) {
 	if cfg.Fail {
-		return nil, errMockValidation
+		return nil, nil, errMockValidation
 	}
-	return []string{}, nil
+	return []string{}, nil, nil
 }
 
 func newMock(

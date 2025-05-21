@@ -15,6 +15,8 @@ import (
 
 // CLI flags.
 const (
+	flagAll = "all"
+
 	baseURLFlag         = "base-url"
 	configFlag          = "config"
 	debugFlag           = "debug"
@@ -67,6 +69,7 @@ const (
 	generalFlagTags              = "tags"
 	generalFlagStart             = "start"
 	generalFlagEnd               = "end"
+	generalFlagNoProgress        = "no-progress"
 
 	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
@@ -1965,6 +1968,10 @@ var app = &cli.App{
 								DefaultText: "first location alphabetically",
 							},
 						},
+						&cli.BoolFlag{
+							Name:  flagAll,
+							Usage: "list all machines in the organization. overrides location flag",
+						},
 					},
 					Action: createCommandWithT[listRobotsActionArgs](ListRobotsAction),
 				},
@@ -2343,6 +2350,11 @@ Copy multiple files from the machine to a local destination with recursion and k
 									// Note(erd): maybe support access time in the future if needed
 									Usage: "preserve modification times and file mode bits from the source files",
 								},
+								&cli.BoolFlag{
+									Name:    generalFlagNoProgress,
+									Aliases: []string{"n"},
+									Usage:   "hide progress of the file transfer",
+								},
 							}...),
 							Action: createCommandWithT[machinesPartCopyFilesArgs](MachinesPartCopyFilesAction),
 						},
@@ -2368,6 +2380,17 @@ Copy multiple files from the machine to a local destination with recursion and k
 							Name: "motion",
 							Subcommands: []*cli.Command{
 								{
+									Name:   "print-config",
+									Flags:  commonPartFlags,
+									Action: createCommandWithT[motionPrintArgs](motionPrintConfigAction),
+								},
+								{
+									Name:   "print-status",
+									Flags:  commonPartFlags,
+									Action: createCommandWithT[motionPrintArgs](motionPrintStatusAction),
+								},
+
+								{
 									Name: "get-pose",
 									Flags: append(commonPartFlags, []cli.Flag{
 										&cli.StringFlag{
@@ -2376,6 +2399,23 @@ Copy multiple files from the machine to a local destination with recursion and k
 										},
 									}...),
 									Action: createCommandWithT[motionGetPoseArgs](motionGetPoseAction),
+								},
+								{
+									Name: "set-pose",
+									Flags: append(commonPartFlags, []cli.Flag{
+										&cli.StringFlag{
+											Name:     "component",
+											Required: true,
+										},
+										&cli.Float64SliceFlag{Name: "x"},
+										&cli.Float64SliceFlag{Name: "y"},
+										&cli.Float64SliceFlag{Name: "z"},
+										&cli.Float64SliceFlag{Name: "ox"},
+										&cli.Float64SliceFlag{Name: "oy"},
+										&cli.Float64SliceFlag{Name: "oz"},
+										&cli.Float64SliceFlag{Name: "theta"},
+									}...),
+									Action: createCommandWithT[motionSetPoseArgs](motionSetPoseAction),
 								},
 							},
 						},
@@ -2787,10 +2827,14 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Name:  moduleFlagLocal,
 							Usage: "if the target machine is localhost, run the entrypoint directly rather than transferring a bundle",
 						},
+						&cli.BoolFlag{
+							Name:  generalFlagNoProgress,
+							Usage: "hide progress of the file transfer",
+						},
 						&cli.StringFlag{
 							Name:  moduleFlagHomeDir,
 							Usage: "remote user's home directory. only necessary if you're targeting a remote machine where $HOME is not /root",
-							Value: "/root",
+							Value: "~",
 						},
 					},
 					Action: createCommandWithT[reloadModuleArgs](ReloadModuleAction),

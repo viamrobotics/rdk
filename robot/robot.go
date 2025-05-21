@@ -10,7 +10,6 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/pkg/errors"
-	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/config"
@@ -99,9 +98,6 @@ type Robot interface {
 
 	// ResourceRPCAPIs returns a list of all known resource RPC APIs.
 	ResourceRPCAPIs() []resource.RPCAPI
-
-	// ProcessManager returns the process manager for the robot.
-	ProcessManager() pexec.ProcessManager
 
 	// OperationManager returns the operation manager the robot is using.
 	OperationManager() *operation.Manager

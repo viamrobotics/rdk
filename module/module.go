@@ -660,11 +660,15 @@ func (m *Module) ValidateConfig(ctx context.Context,
 	}
 
 	if c.ConvertedAttributes != nil {
-		implicitDeps, err := c.ConvertedAttributes.Validate(c.Name)
+		implicitRequiredDeps, implicitOptionalDeps, err := c.ConvertedAttributes.Validate(c.Name)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error validating resource")
 		}
-		return &pb.ValidateConfigResponse{Dependencies: implicitDeps}, nil
+		resp := &pb.ValidateConfigResponse{
+			Dependencies:         implicitRequiredDeps,
+			OptionalDependencies: implicitOptionalDeps,
+		}
+		return resp, nil
 	}
 
 	// Resource configuration object does not implement Validate, but return an

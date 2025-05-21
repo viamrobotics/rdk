@@ -243,8 +243,8 @@ func (t TriviallyCloseable) Close(ctx context.Context) error {
 type TriviallyValidateConfig struct{}
 
 // Validate always succeeds and produces no dependencies.
-func (t TriviallyValidateConfig) Validate(path string) ([]string, error) {
-	return nil, nil
+func (t TriviallyValidateConfig) Validate(path string) ([]string, []string, error) {
+	return nil, nil, nil
 }
 
 var noNativeConfigType = reflect.TypeOf(NoNativeConfig{})

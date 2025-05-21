@@ -385,7 +385,7 @@ func TestObstacleReplanningSlam(t *testing.T) {
 		currentPif, err := kb.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		relativeBox := boxWrld.Transform(spatialmath.PoseBetween(spatialmath.Compose(currentPif.Pose(), cameraPoseInBase), boxWrld.Pose()))
-		detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-case-1-detection", relativeBox.ToProtobuf())
+		detection, err := viz.NewObjectWithLabel(pointcloud.NewBasicEmpty(), "test-case-1-detection", relativeBox.ToProtobuf())
 		test.That(t, err, test.ShouldBeNil)
 
 		return []*viz.Object{detection}, nil
@@ -833,7 +833,7 @@ func TestGetTransientDetectionsSlam(t *testing.T) {
 			"test-box",
 		)
 		test.That(t, err, test.ShouldBeNil)
-		detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-box", boxGeom.ToProtobuf())
+		detection, err := viz.NewObjectWithLabel(pointcloud.NewBasicEmpty(), "test-box", boxGeom.ToProtobuf())
 		test.That(t, err, test.ShouldBeNil)
 		return []*viz.Object{detection}, nil
 	}

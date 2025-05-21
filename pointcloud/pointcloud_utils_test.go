@@ -12,7 +12,7 @@ import (
 func makeClouds(t *testing.T) []PointCloud {
 	t.Helper()
 	// create cloud 0
-	cloud0 := New()
+	cloud0 := NewBasicPointCloud(0)
 	p00 := NewVector(0, 0, 0)
 	test.That(t, cloud0.Set(p00, nil), test.ShouldBeNil)
 	p01 := NewVector(0, 0, 1)
@@ -22,7 +22,7 @@ func makeClouds(t *testing.T) []PointCloud {
 	p03 := NewVector(0, 1, 1)
 	test.That(t, cloud0.Set(p03, nil), test.ShouldBeNil)
 	// create cloud 1
-	cloud1 := New()
+	cloud1 := NewBasicPointCloud(0)
 	p10 := NewVector(30, 0, 0)
 	test.That(t, cloud1.Set(p10, nil), test.ShouldBeNil)
 	p11 := NewVector(30, 0, 1)
@@ -73,7 +73,7 @@ func TestPrune(t *testing.T) {
 
 func TestToOctree(t *testing.T) {
 	pc := newBigPC()
-	tree, err := ToBasicOctree(pc)
+	tree, err := ToBasicOctree(pc, 0)
 	test.That(t, err, test.ShouldBeNil)
 	pc.Iterate(0, 0, func(p r3.Vector, d Data) bool {
 		treeData, b := tree.At(p.X, p.Y, p.Z)
@@ -82,9 +82,9 @@ func TestToOctree(t *testing.T) {
 		return true
 	})
 
-	basicTree, err := createPopulatedOctree(1)
+	basicTree, err := createExampleOctree()
 	test.That(t, err, test.ShouldBeNil)
-	tree, err = ToBasicOctree(basicTree)
+	tree, err = ToBasicOctree(basicTree, 0)
 	test.That(t, err, test.ShouldBeNil)
 	basicTree.Iterate(0, 0, func(p r3.Vector, d Data) bool {
 		treeData, b := tree.At(p.X, p.Y, p.Z)

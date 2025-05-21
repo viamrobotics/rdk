@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/objectdetection"
@@ -67,9 +68,7 @@ func DetectionSegmenter(detector objectdetection.Detector, meanK int, sigma, con
 	if detector == nil {
 		return nil, errors.New("detector cannot be nil")
 	}
-	filter := func(pc pointcloud.PointCloud) (pointcloud.PointCloud, error) {
-		return pc, nil
-	}
+	var filter func(in, out pointcloud.PointCloud) error
 	if meanK > 0 && sigma > 0.0 {
 		filter, err = pointcloud.StatisticalOutlierFilter(meanK, sigma)
 		if err != nil {
@@ -121,9 +120,13 @@ func DetectionSegmenter(detector objectdetection.Detector, meanK int, sigma, con
 			if err != nil {
 				return nil, err
 			}
-			pc, err = filter(pc)
-			if err != nil {
-				return nil, err
+			if filter != nil {
+				out := pc.CreateNewRecentered(spatialmath.NewZeroPose())
+				err = filter(pc, out)
+				if err != nil {
+					return nil, err
+				}
+				pc = out
 			}
 			// if object was filtered away, skip it
 			if pc.Size() == 0 {

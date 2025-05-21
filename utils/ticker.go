@@ -18,8 +18,8 @@ func SlowStartupLogger(ctx context.Context, msg, fieldName, fieldVal string, log
 		for {
 			select {
 			case <-slowTicker.C:
-				elapsed := time.Since(startTime).Seconds()
-				logger.CWarnw(ctx, msg, fieldName, fieldVal, "time elapsed", elapsed)
+				elapsed := time.Since(startTime).String()
+				logger.CWarnw(ctx, msg, fieldName, fieldVal, "time_elapsed", elapsed)
 				if firstTick {
 					slowTicker.Reset(3 * time.Second)
 					firstTick = false

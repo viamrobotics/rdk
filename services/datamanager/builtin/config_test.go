@@ -87,7 +87,7 @@ func TestConfig(t *testing.T) {
 
 		for _, tc := range tcs {
 			t.Run(tc.name, func(t *testing.T) {
-				deps, err := tc.config.Validate("")
+				deps, _, err := tc.config.Validate("")
 				if tc.err == nil {
 					test.That(t, err, test.ShouldBeNil)
 				} else {

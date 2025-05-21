@@ -10,7 +10,7 @@ import (
 )
 
 func TestPointCloudBasic(t *testing.T) {
-	pc := New()
+	pc := NewBasicPointCloud(0)
 
 	p0 := NewVector(0, 0, 0)
 	d0 := NewValueData(5)
@@ -83,7 +83,7 @@ func TestPointCloudBasic(t *testing.T) {
 func TestPointCloudCentroid(t *testing.T) {
 	var point r3.Vector
 	var data Data
-	pc := New()
+	pc := NewBasicPointCloud(0)
 
 	test.That(t, pc.Size(), test.ShouldResemble, 0)
 	test.That(t, CloudCentroid(pc), test.ShouldResemble, r3.Vector{0, 0, 0})
@@ -114,7 +114,7 @@ func TestPointCloudCentroid(t *testing.T) {
 }
 
 func TestPointCloudMatrix(t *testing.T) {
-	pc := New()
+	pc := NewBasicPointCloud(0)
 
 	// Empty Cloud
 	m, h := CloudMatrix(pc)
@@ -129,7 +129,7 @@ func TestPointCloudMatrix(t *testing.T) {
 	test.That(t, m, test.ShouldResemble, mat.NewDense(1, 3, []float64{1, 2, 3}))
 
 	// Points with Value (Multiple Points)
-	pc = New()
+	pc = NewBasicPointCloud(0)
 	p = NewVector(1, 2, 3)
 	d := NewValueData(4)
 	test.That(t, pc.Set(p, d), test.ShouldBeNil)
@@ -145,7 +145,7 @@ func TestPointCloudMatrix(t *testing.T) {
 	test.That(t, m, test.ShouldBeIn, refMatrix, refMatrix2) // This is not a great test format, but it works.
 
 	// Test with Color
-	pc = New()
+	pc = NewBasicPointCloud(0)
 	p = NewVector(1, 2, 3)
 	d = NewColoredData(color.NRGBA{123, 45, 67, 255})
 	test.That(t, pc.Set(p, d), test.ShouldBeNil)
@@ -158,7 +158,7 @@ func TestPointCloudMatrix(t *testing.T) {
 	test.That(t, mc, test.ShouldResemble, mat.NewDense(1, 6, []float64{1, 2, 3, 123, 45, 67}))
 
 	// Test with Color and Value
-	pc = New()
+	pc = NewBasicPointCloud(0)
 	p = NewVector(1, 2, 3)
 	d = NewColoredData(color.NRGBA{123, 45, 67, 255})
 	d.SetValue(5)

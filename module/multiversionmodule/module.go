@@ -36,20 +36,20 @@ type component struct {
 }
 
 // Validate validates the config depending on VERSION.
-func (cfg *config) Validate(_ string) ([]string, error) {
+func (cfg *config) Validate(_ string) ([]string, []string, error) {
 	switch VERSION {
 	case "v2":
 		if cfg.Parameter == "" {
-			return nil, errors.New("version 2 requires a parameter")
+			return nil, nil, errors.New("version 2 requires a parameter")
 		}
 	case "v3":
 		if cfg.Motor == "" {
-			return nil, errors.New("version 3 requires a motor")
+			return nil, nil, errors.New("version 3 requires a motor")
 		}
-		return []string{cfg.Motor}, nil
+		return []string{cfg.Motor}, nil, nil
 	default:
 	}
-	return make([]string, 0), nil
+	return make([]string, 0), make([]string, 0), nil
 }
 
 func main() {

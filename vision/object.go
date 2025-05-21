@@ -46,7 +46,7 @@ func NewObjectWithLabel(cloud pc.PointCloud, label string, geometry *commonpb.Ge
 
 // NewEmptyObject creates a new empty point cloud with metadata.
 func NewEmptyObject() *Object {
-	cloud := pc.New()
+	cloud := pc.NewBasicEmpty()
 	return &Object{PointCloud: cloud}
 }
 

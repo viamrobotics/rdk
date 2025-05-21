@@ -3,10 +3,7 @@ package robotimpl
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
-	"fmt"
 	"os"
-	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -238,7 +235,6 @@ func TestRobotReconfigure(t *testing.T) {
 			mockNames,
 			resource.DefaultServices(),
 		))
-		rdktestutils.VerifySameElements(t, robot.ProcessManager().ProcessIDs(), []string{"1", "2"})
 
 		robot.Reconfigure(ctx, conf1)
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
@@ -249,7 +245,6 @@ func TestRobotReconfigure(t *testing.T) {
 			mockNames,
 			resource.DefaultServices(),
 		))
-		rdktestutils.VerifySameElements(t, robot.ProcessManager().ProcessIDs(), []string{"1", "2"})
 
 		_, err := robot.ResourceByName(mockNamed("base1"))
 		test.That(t, err, test.ShouldBeNil)
@@ -267,11 +262,6 @@ func TestRobotReconfigure(t *testing.T) {
 		mock2, err := robot.ResourceByName(mockNamed("mock2"))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mock2.(*mockFake2).reconfCount, test.ShouldEqual, 0)
-
-		_, ok := robot.ProcessManager().ProcessByID("1")
-		test.That(t, ok, test.ShouldBeTrue)
-		_, ok = robot.ProcessManager().ProcessByID("2")
-		test.That(t, ok, test.ShouldBeTrue)
 	})
 
 	t.Run("reconfiguring unreconfigurable", func(t *testing.T) {
@@ -410,7 +400,6 @@ func TestRobotReconfigure(t *testing.T) {
 			mockNames,
 			resource.DefaultServices(),
 		))
-		rdktestutils.VerifySameElements(t, robot.ProcessManager().ProcessIDs(), []string{"1", "2"})
 
 		arm1, err := robot.ResourceByName(mockNamed("arm1"))
 		test.That(t, err, test.ShouldBeNil)
@@ -453,7 +442,6 @@ func TestRobotReconfigure(t *testing.T) {
 			mockNames,
 			resource.DefaultServices(),
 		))
-		rdktestutils.VerifySameElements(t, robot.ProcessManager().ProcessIDs(), []string{"1", "2"})
 
 		test.That(t, mock1.(*mockFake).reconfCount, test.ShouldEqual, 0)
 
@@ -476,11 +464,6 @@ func TestRobotReconfigure(t *testing.T) {
 		newMock1, err := robot.ResourceByName(mockNamed("mock1"))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, newMock1, test.ShouldEqual, mock1)
-
-		_, ok = robot.ProcessManager().ProcessByID("1")
-		test.That(t, ok, test.ShouldBeTrue)
-		_, ok = robot.ProcessManager().ProcessByID("2")
-		test.That(t, ok, test.ShouldBeTrue)
 
 		testReconfiguringMismatch = false
 	})
@@ -691,7 +674,6 @@ func TestRobotReconfigure(t *testing.T) {
 			resource.DefaultServices(),
 			mockNames,
 		))
-		rdktestutils.VerifySameElements(t, robot.ProcessManager().ProcessIDs(), []string{"1", "2"})
 
 		armNames = []resource.Name{mockNamed("arm1"), mockNamed("arm2")}
 		baseNames = []resource.Name{mockNamed("base1"), mockNamed("base2")}
@@ -706,7 +688,6 @@ func TestRobotReconfigure(t *testing.T) {
 			mockNames,
 			resource.DefaultServices(),
 		))
-		rdktestutils.VerifySameElements(t, robot.ProcessManager().ProcessIDs(), []string{"1", "2"})
 
 		_, err := robot.ResourceByName(mockNamed("arm1"))
 		test.That(t, err, test.ShouldBeNil)
@@ -735,11 +716,6 @@ func TestRobotReconfigure(t *testing.T) {
 		b, err := robot.ResourceByName(mockNamed("board1"))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, b.(*mockFake).GetChildValue("1"), test.ShouldEqual, 1000)
-
-		_, ok := robot.ProcessManager().ProcessByID("1")
-		test.That(t, ok, test.ShouldBeTrue)
-		_, ok = robot.ProcessManager().ProcessByID("2")
-		test.That(t, ok, test.ShouldBeTrue)
 
 		rdktestutils.VerifyTopologicallySortedLevels(
 			t,
@@ -944,7 +920,6 @@ func TestRobotReconfigure(t *testing.T) {
 			motorNames,
 			resource.DefaultServices(),
 		))
-		rdktestutils.VerifySameElements(t, robot.ProcessManager().ProcessIDs(), []string{"1", "2"})
 
 		b, err := robot.ResourceByName(mockNamed("board1"))
 		test.That(t, err, test.ShouldBeNil)
@@ -959,7 +934,6 @@ func TestRobotReconfigure(t *testing.T) {
 			motorNames,
 			resource.DefaultServices(),
 		))
-		rdktestutils.VerifySameElements(t, robot.ProcessManager().ProcessIDs(), []string{"1", "2"})
 
 		_, err = robot.ResourceByName(mockNamed("arm1"))
 		test.That(t, err, test.ShouldBeNil)
@@ -989,11 +963,6 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, b.(*mockFake).GetChildValue("5"), test.ShouldEqual, 0)
 		test.That(t, b.(*mockFake).GetChildValue("1"), test.ShouldEqual, 1000)
-
-		_, ok := robot.ProcessManager().ProcessByID("1")
-		test.That(t, ok, test.ShouldBeTrue)
-		_, ok = robot.ProcessManager().ProcessByID("2")
-		test.That(t, ok, test.ShouldBeTrue)
 
 		rdktestutils.VerifyTopologicallySortedLevels(
 			t,
@@ -1159,7 +1128,6 @@ func TestRobotReconfigure(t *testing.T) {
 			motorNames,
 			resource.DefaultServices(),
 		))
-		rdktestutils.VerifySameElements(t, robot.ProcessManager().ProcessIDs(), []string{"1", "2"})
 
 		arm2, err := robot.ResourceByName(mockNamed("arm2"))
 		test.That(t, err, test.ShouldBeNil)
@@ -1174,7 +1142,6 @@ func TestRobotReconfigure(t *testing.T) {
 			boardNames,
 			resource.DefaultServices(),
 		))
-		rdktestutils.VerifySameElements(t, robot.ProcessManager().ProcessIDs(), []string{"1", "2"})
 
 		_, err = robot.ResourceByName(mockNamed("arm1"))
 		test.That(t, err, test.ShouldNotBeNil)
@@ -1206,10 +1173,6 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = robot.ResourceByName(mockNamed("board2"))
 		test.That(t, err, test.ShouldBeNil)
 
-		_, ok := robot.ProcessManager().ProcessByID("1")
-		test.That(t, ok, test.ShouldBeTrue)
-		_, ok = robot.ProcessManager().ProcessByID("2")
-		test.That(t, ok, test.ShouldBeTrue)
 		sorted := robot.(*localRobot).manager.resources.TopologicalSort()
 		sorted = rdktestutils.SubtractNames(sorted, robot.(*localRobot).manager.internalResourceNames()...)
 		rdktestutils.VerifySameResourceNames(t, sorted, rdktestutils.ConcatResourceNames(
@@ -1445,7 +1408,6 @@ func TestRobotReconfigure(t *testing.T) {
 			motorNames,
 			resource.DefaultServices(),
 		))
-		rdktestutils.VerifySameElements(t, robot.ProcessManager().ProcessIDs(), []string{"1", "2"})
 		b, err := robot.ResourceByName(mockNamed("board1"))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, b.(*mockFake).GetChildValue("1"), test.ShouldEqual, 1000)
@@ -1470,7 +1432,6 @@ func TestRobotReconfigure(t *testing.T) {
 			motorNames,
 			resource.DefaultServices(),
 		))
-		rdktestutils.VerifySameElements(t, robot.ProcessManager().ProcessIDs(), []string{"1", "2"})
 
 		_, err = robot.ResourceByName(mockNamed("arm1"))
 		test.That(t, err, test.ShouldBeNil)
@@ -1506,11 +1467,6 @@ func TestRobotReconfigure(t *testing.T) {
 
 		_, err = robot.ResourceByName(mockNamed("board3"))
 		test.That(t, err, test.ShouldBeNil)
-
-		_, ok := robot.ProcessManager().ProcessByID("1")
-		test.That(t, ok, test.ShouldBeTrue)
-		_, ok = robot.ProcessManager().ProcessByID("2")
-		test.That(t, ok, test.ShouldBeTrue)
 
 		rdktestutils.VerifyTopologicallySortedLevels(
 			t,
@@ -1656,7 +1612,6 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, len(resources), test.ShouldEqual, 1)
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), resource.DefaultServices())
-		test.That(t, robot.ProcessManager().ProcessIDs(), test.ShouldBeEmpty)
 
 		armNames := []resource.Name{mockNamed("arm1"), mockNamed("arm3")}
 		baseNames := []resource.Name{mockNamed("base1"), mockNamed("base2")}
@@ -1674,7 +1629,6 @@ func TestRobotReconfigure(t *testing.T) {
 			motorNames,
 			resource.DefaultServices(),
 		))
-		rdktestutils.VerifySameElements(t, robot.ProcessManager().ProcessIDs(), []string{"1", "2"})
 
 		_, err := robot.ResourceByName(mockNamed("arm1"))
 		test.That(t, err, test.ShouldBeNil)
@@ -1703,11 +1657,6 @@ func TestRobotReconfigure(t *testing.T) {
 
 		_, err = robot.ResourceByName(mockNamed("board3"))
 		test.That(t, err, test.ShouldBeNil)
-
-		_, ok := robot.ProcessManager().ProcessByID("1")
-		test.That(t, ok, test.ShouldBeTrue)
-		_, ok = robot.ProcessManager().ProcessByID("2")
-		test.That(t, ok, test.ShouldBeTrue)
 
 		rdktestutils.VerifyTopologicallySortedLevels(
 			t,
@@ -1882,7 +1831,6 @@ func TestRobotReconfigure(t *testing.T) {
 			boardNames,
 			resource.DefaultServices(),
 		))
-		rdktestutils.VerifySameElements(t, robot.ProcessManager().ProcessIDs(), []string{"1", "2"})
 
 		_, err := robot.ResourceByName(mockNamed("arm1"))
 		test.That(t, err, test.ShouldNotBeNil)
@@ -1914,10 +1862,6 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = robot.ResourceByName(mockNamed("board2"))
 		test.That(t, err, test.ShouldBeNil)
 
-		_, ok := robot.ProcessManager().ProcessByID("1")
-		test.That(t, ok, test.ShouldBeTrue)
-		_, ok = robot.ProcessManager().ProcessByID("2")
-		test.That(t, ok, test.ShouldBeTrue)
 		motorNames := []resource.Name{mockNamed("m1")}
 		mockNames := []resource.Name{
 			mockNamed("mock1"), mockNamed("mock2"),
@@ -1935,7 +1879,6 @@ func TestRobotReconfigure(t *testing.T) {
 			mockNames,
 			encoderNames,
 		))
-		rdktestutils.VerifySameElements(t, robot.ProcessManager().ProcessIDs(), []string{"1", "2"})
 
 		_, err = robot.ResourceByName(mockNamed("arm1"))
 		test.That(t, err, test.ShouldNotBeNil)
@@ -1991,10 +1934,6 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mock6.(*mockFake).reconfCount, test.ShouldEqual, 0)
 
-		_, ok = robot.ProcessManager().ProcessByID("1")
-		test.That(t, ok, test.ShouldBeTrue)
-		_, ok = robot.ProcessManager().ProcessByID("2")
-		test.That(t, ok, test.ShouldBeTrue)
 		sorted := robot.(*localRobot).manager.resources.TopologicalSort()
 		sorted = rdktestutils.SubtractNames(sorted, robot.(*localRobot).manager.internalResourceNames()...)
 		rdktestutils.VerifySameResourceNames(t, sorted, rdktestutils.ConcatResourceNames(
@@ -2238,7 +2177,6 @@ func TestRobotReconfigure(t *testing.T) {
 			motorNames,
 			mockNames,
 		))
-		rdktestutils.VerifySameElements(t, robot.ProcessManager().ProcessIDs(), []string{"1", "2"})
 
 		_, err := robot.ResourceByName(mockNamed("arm1"))
 		test.That(t, err, test.ShouldNotBeNil)
@@ -2290,10 +2228,6 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mock5.(*mockFake).reconfCount, test.ShouldEqual, 0)
 
-		_, ok := robot.ProcessManager().ProcessByID("1")
-		test.That(t, ok, test.ShouldBeTrue)
-		_, ok = robot.ProcessManager().ProcessByID("2")
-		test.That(t, ok, test.ShouldBeTrue)
 		sorted := robot.(*localRobot).manager.resources.TopologicalSort()
 		sorted = rdktestutils.SubtractNames(sorted, robot.(*localRobot).manager.internalResourceNames()...)
 		rdktestutils.VerifySameResourceNames(t, sorted, rdktestutils.ConcatResourceNames(
@@ -2316,7 +2250,6 @@ func TestRobotReconfigure(t *testing.T) {
 			mockNames,
 			encoderNames,
 		))
-		rdktestutils.VerifySameElements(t, robot.ProcessManager().ProcessIDs(), []string{"1", "2"})
 
 		_, err = robot.ResourceByName(mockNamed("arm1"))
 		test.That(t, err, test.ShouldNotBeNil)
@@ -2367,11 +2300,6 @@ func TestRobotReconfigure(t *testing.T) {
 		mock5, err = robot.ResourceByName(mockNamed("mock5"))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mock5.(*mockFake).reconfCount, test.ShouldEqual, 1)
-
-		_, ok = robot.ProcessManager().ProcessByID("1")
-		test.That(t, ok, test.ShouldBeTrue)
-		_, ok = robot.ProcessManager().ProcessByID("2")
-		test.That(t, ok, test.ShouldBeTrue)
 	})
 
 	// test starts with a working config, then reconfigures into a config where dependencies
@@ -2637,7 +2565,6 @@ func TestRobotReconfigure(t *testing.T) {
 			mockNames,
 			encoderNames,
 		))
-		rdktestutils.VerifySameElements(t, robot.ProcessManager().ProcessIDs(), []string{"1", "2"})
 
 		_, err := robot.ResourceByName(mockNamed("board1"))
 		test.That(t, err, test.ShouldBeNil)
@@ -2687,10 +2614,6 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mock6.(*mockFake).reconfCount, test.ShouldEqual, 0)
 
-		_, ok := robot.ProcessManager().ProcessByID("1")
-		test.That(t, ok, test.ShouldBeTrue)
-		_, ok = robot.ProcessManager().ProcessByID("2")
-		test.That(t, ok, test.ShouldBeTrue)
 		sorted := robot.(*localRobot).manager.resources.TopologicalSort()
 		sorted = rdktestutils.SubtractNames(sorted, robot.(*localRobot).manager.internalResourceNames()...)
 		rdktestutils.VerifySameResourceNames(t, sorted, rdktestutils.ConcatResourceNames(
@@ -2716,7 +2639,6 @@ func TestRobotReconfigure(t *testing.T) {
 			mockNames,
 			encoderNames,
 		))
-		rdktestutils.VerifySameElements(t, robot.ProcessManager().ProcessIDs(), []string{"1", "2"})
 
 		_, err = robot.ResourceByName(mockNamed("board1"))
 		test.That(t, err, test.ShouldBeNil)
@@ -2752,10 +2674,6 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = robot.ResourceByName(mockNamed("armFake"))
 		test.That(t, err, test.ShouldNotBeNil)
 
-		_, ok = robot.ProcessManager().ProcessByID("1")
-		test.That(t, ok, test.ShouldBeTrue)
-		_, ok = robot.ProcessManager().ProcessByID("2")
-		test.That(t, ok, test.ShouldBeTrue)
 		sorted = robot.(*localRobot).manager.resources.TopologicalSort()
 		sorted = rdktestutils.SubtractNames(sorted, robot.(*localRobot).manager.internalResourceNames()...)
 		rdktestutils.VerifySameResourceNames(t, sorted, rdktestutils.ConcatResourceNames(
@@ -2910,7 +2828,6 @@ func TestRobotReconfigure(t *testing.T) {
 			mockNames,
 			encoderNames,
 		))
-		rdktestutils.VerifySameElements(t, robot.ProcessManager().ProcessIDs(), []string{"1", "2"})
 
 		_, err = robot.ResourceByName(mockNamed("board1"))
 		test.That(t, err, test.ShouldBeNil)
@@ -2951,11 +2868,6 @@ func TestRobotReconfigure(t *testing.T) {
 		// `armFake` depends on `mock6` and is therefore also in an error state.
 		_, err = robot.ResourceByName(mockNamed("armFake"))
 		test.That(t, err, test.ShouldNotBeNil)
-
-		_, ok = robot.ProcessManager().ProcessByID("1")
-		test.That(t, ok, test.ShouldBeTrue)
-		_, ok = robot.ProcessManager().ProcessByID("2")
-		test.That(t, ok, test.ShouldBeTrue)
 
 		reconfigurableTrue = true
 
@@ -3109,174 +3021,6 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		_, err = robot.ResourceByName(mockNamed("mock1"))
 		test.That(t, err, test.ShouldBeNil)
-	})
-	t.Run("test processes", func(t *testing.T) {
-		resetComponentFailureState()
-		logger := logging.NewTestLogger(t)
-		tempDir := t.TempDir()
-		robot := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
-
-		// create a unexecutable file
-		noExecF, err := os.CreateTemp(tempDir, "noexec*.sh")
-		test.That(t, err, test.ShouldBeNil)
-		err = noExecF.Close()
-		test.That(t, err, test.ShouldBeNil)
-		// create a origin file
-		originF, err := os.CreateTemp(tempDir, "origin*")
-		test.That(t, err, test.ShouldBeNil)
-		token := make([]byte, 128)
-		_, err = rand.Read(token)
-		test.That(t, err, test.ShouldBeNil)
-		_, err = originF.Write(token)
-		test.That(t, err, test.ShouldBeNil)
-		err = originF.Sync()
-		test.That(t, err, test.ShouldBeNil)
-		// create a target file
-		targetF, err := os.CreateTemp(tempDir, "target*")
-		test.That(t, err, test.ShouldBeNil)
-
-		// create a second target file
-		target2F, err := os.CreateTemp(tempDir, "target*")
-		test.That(t, err, test.ShouldBeNil)
-
-		// config1
-		config1 := &config.Config{
-			Processes: []pexec.ProcessConfig{
-				{
-					ID:      "shouldfail", // this process won't be executed
-					Name:    "false",
-					OneShot: true,
-				},
-				{
-					ID:      "noexec", // file exist but exec bit not set
-					Name:    noExecF.Name(),
-					OneShot: true,
-				},
-				{
-					ID:   "shouldsuceed", // this keep succeeding
-					Name: "true",
-				},
-				{
-					ID:      "noexist", // file doesn't exists
-					Name:    fmt.Sprintf("%s/%s", tempDir, "noexistfile"),
-					OneShot: true,
-					Log:     true,
-				},
-				{
-					ID:   "filehandle", // this keep succeeding and will be changed
-					Name: "true",
-				},
-				{
-					ID:   "touch", // touch a file
-					Name: "sh",
-					CWD:  tempDir,
-					Args: []string{
-						"-c",
-						"sleep 0.4;touch afile",
-					},
-					OneShot: true,
-				},
-			},
-		}
-		robot.Reconfigure(context.Background(), config1)
-		_, ok := robot.ProcessManager().ProcessByID("shouldfail")
-		test.That(t, ok, test.ShouldBeFalse)
-		_, ok = robot.ProcessManager().ProcessByID("shouldsuceed")
-		test.That(t, ok, test.ShouldBeTrue)
-		_, ok = robot.ProcessManager().ProcessByID("noexist")
-		test.That(t, ok, test.ShouldBeFalse)
-		_, ok = robot.ProcessManager().ProcessByID("noexec")
-		test.That(t, ok, test.ShouldBeFalse)
-		_, ok = robot.ProcessManager().ProcessByID("filehandle")
-		test.That(t, ok, test.ShouldBeTrue)
-		_, ok = robot.ProcessManager().ProcessByID("touch")
-		test.That(t, ok, test.ShouldBeTrue)
-		testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 50, func(tb testing.TB) {
-			_, err = os.Stat(filepath.Join(tempDir, "afile"))
-			test.That(tb, err, test.ShouldBeNil)
-		})
-		config2 := &config.Config{
-			Processes: []pexec.ProcessConfig{
-				{
-					ID:      "shouldfail", // now it succeeds
-					Name:    "true",
-					OneShot: true,
-				},
-				{
-					ID:      "shouldsuceed", // now it fails
-					Name:    "false",
-					OneShot: true,
-				},
-				{
-					ID:   "filehandle", // this transfer originF to targetF after 2s
-					Name: "sh",
-					Args: []string{
-						"-c",
-						fmt.Sprintf("sleep 2; cat %s >> %s", originF.Name(), targetF.Name()),
-					},
-					OneShot: true,
-				},
-				{
-					ID:   "filehandle2", // this transfer originF to target2F after 0.4s
-					Name: "sh",
-					Args: []string{
-						"-c",
-						fmt.Sprintf("sleep 0.4;cat %s >> %s", originF.Name(), target2F.Name()),
-					},
-				},
-				{
-					ID:   "remove", // remove the file
-					Name: "sh",
-					CWD:  tempDir,
-					Args: []string{
-						"-c",
-						"sleep 0.2;rm afile",
-					},
-					OneShot: true,
-					Log:     true,
-				},
-			},
-		}
-		robot.Reconfigure(context.Background(), config2)
-		_, ok = robot.ProcessManager().ProcessByID("shouldfail")
-		test.That(t, ok, test.ShouldBeTrue)
-		_, ok = robot.ProcessManager().ProcessByID("shouldsuceed")
-		test.That(t, ok, test.ShouldBeFalse)
-		_, ok = robot.ProcessManager().ProcessByID("noexist")
-		test.That(t, ok, test.ShouldBeFalse)
-		_, ok = robot.ProcessManager().ProcessByID("noexec")
-		test.That(t, ok, test.ShouldBeFalse)
-		_, ok = robot.ProcessManager().ProcessByID("filehandle")
-		test.That(t, ok, test.ShouldBeTrue)
-		_, ok = robot.ProcessManager().ProcessByID("touch")
-		test.That(t, ok, test.ShouldBeFalse)
-		_, ok = robot.ProcessManager().ProcessByID("remove")
-		test.That(t, ok, test.ShouldBeTrue)
-		r := make([]byte, 128)
-		n, err := targetF.Read(r)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, n, test.ShouldEqual, 128)
-		time.Sleep(3 * time.Second)
-		_, err = targetF.Seek(0, 0)
-		test.That(t, err, test.ShouldBeNil)
-		n, err = targetF.Read(r)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, n, test.ShouldEqual, 128)
-		test.That(t, r, test.ShouldResemble, token)
-		time.Sleep(3 * time.Second)
-		_, err = targetF.Read(r)
-		test.That(t, err, test.ShouldNotBeNil)
-		err = originF.Close()
-		test.That(t, err, test.ShouldBeNil)
-		err = targetF.Close()
-		test.That(t, err, test.ShouldBeNil)
-		stat, err := target2F.Stat()
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, stat.Size(), test.ShouldBeGreaterThan, 128)
-		err = target2F.Close()
-		test.That(t, err, test.ShouldBeNil)
-		_, err = os.Stat(filepath.Join(tempDir, "afile"))
-		test.That(t, err, test.ShouldNotBeNil)
 	})
 }
 
@@ -3993,10 +3737,10 @@ func (m *mockFake) Close(ctx context.Context) error {
 	return nil
 }
 
-func (m *mockFakeConfig) Validate(path string) ([]string, error) {
+func (m *mockFakeConfig) Validate(path string) ([]string, []string, error) {
 	depOut := []string{}
 	depOut = append(depOut, m.InferredDep...)
-	return depOut, nil
+	return depOut, nil, nil
 }
 
 func (m *mockFake) SetChildValue(slot string, value int) {
@@ -4068,8 +3812,8 @@ func (m *mockWithDep) Close(ctx context.Context) error {
 	return nil
 }
 
-func (m *mockWithDepConfig) Validate(path string) ([]string, error) {
+func (m *mockWithDepConfig) Validate(path string) ([]string, []string, error) {
 	depOut := []string{}
 	depOut = append(depOut, m.MockDep)
-	return depOut, nil
+	return depOut, nil, nil
 }

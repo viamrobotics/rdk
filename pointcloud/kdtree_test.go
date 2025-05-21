@@ -11,7 +11,7 @@ import (
 
 func makePointCloud(t *testing.T) PointCloud {
 	t.Helper()
-	cloud := New()
+	cloud := NewBasicPointCloud(0)
 	p0 := r3.Vector{0, 0, 0}
 	test.That(t, cloud.Set(p0, nil), test.ShouldBeNil)
 	p1 := r3.Vector{1, 1, 1}
@@ -151,7 +151,7 @@ func TestNewEmptyKDtree(t *testing.T) {
 	pt0 := r3.Vector{0, 0, 0}
 	pt1 := r3.Vector{0, 0, 1}
 	// empty tree
-	pc := New()
+	pc := NewBasicPointCloud(0)
 	kdt := ToKDTree(pc)
 	_, _, d, got := kdt.NearestNeighbor(pt0)
 	test.That(t, got, test.ShouldBeFalse)
@@ -185,7 +185,8 @@ func TestStatisticalOutlierFilter(t *testing.T) {
 	cloud := makePointCloud(t)
 	kd := ToKDTree(cloud)
 
-	filtered, err := filter(kd)
+	filtered := NewBasicPointCloud(0)
+	err = filter(kd, filtered)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, CloudContains(filtered, 0, 0, 0), test.ShouldBeTrue)
 	test.That(t, CloudContains(filtered, 1, 1, 1), test.ShouldBeTrue)
@@ -196,7 +197,8 @@ func TestStatisticalOutlierFilter(t *testing.T) {
 	test.That(t, CloudContains(filtered, -3.2, -3.2, -3.2), test.ShouldBeTrue)
 	test.That(t, CloudContains(filtered, 2000, 2000, 2000), test.ShouldBeFalse)
 
-	filtered, err = filter(cloud)
+	filtered = NewBasicPointCloud(0)
+	err = filter(kd, filtered)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, CloudContains(filtered, 0, 0, 0), test.ShouldBeTrue)
 	test.That(t, CloudContains(filtered, 1, 1, 1), test.ShouldBeTrue)
