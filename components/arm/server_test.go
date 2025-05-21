@@ -251,7 +251,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, kinematics.Format, test.ShouldResemble, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF)
 
-		kinematics, err = armServer.GetKinematics(context.Background(), &commonpb.GetKinematicsRequest{Name: failArmName})
+		_, err = armServer.GetKinematics(context.Background(), &commonpb.GetKinematicsRequest{Name: failArmName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldResemble, errKinematicsUnimplemented)
 	})

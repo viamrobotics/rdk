@@ -62,6 +62,8 @@ func (s *serviceServer) GetJointPositions(ctx context.Context, req *pb.GetJointP
 	if err != nil {
 		return nil, err
 	}
+	// safe to ignore error because conversion function below can handle nil values and warning messages are logged from client
+	//nolint:errcheck
 	m, _ := arm.Kinematics(ctx)
 	jp, err := referenceframe.JointPositionsFromInputs(m, pos)
 	if err != nil {
@@ -94,6 +96,8 @@ func (s *serviceServer) MoveToJointPositions(
 	if err != nil {
 		return nil, err
 	}
+	// safe to ignore error because conversion function below can handle nil values and warning messages are logged from client
+	//nolint:errcheck
 	m, _ := arm.Kinematics(ctx)
 	inputs, err := referenceframe.InputsFromJointPositions(m, req.Positions)
 	if err != nil {
@@ -112,6 +116,8 @@ func (s *serviceServer) MoveThroughJointPositions(
 	if err != nil {
 		return nil, err
 	}
+	// safe to ignore error because conversion function below can handle nil values and warning messages are logged from client
+	//nolint:errcheck
 	m, _ := arm.Kinematics(ctx)
 	allInputs := make([][]referenceframe.Input, 0, len(req.Positions))
 	for _, position := range req.Positions {

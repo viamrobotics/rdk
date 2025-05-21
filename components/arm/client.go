@@ -220,7 +220,7 @@ func (c *client) Geometries(ctx context.Context, extra map[string]interface{}) (
 // commercially available arms) and will only come into play if the kinematics for the arm have not been cached successfully yet.
 // The other assumption being made here is that it will be annoying for new users implementing an arm module to not be able to move their
 // arm until the kinematics have been supplied.  This log message will be very noisy as it will be logged whenever kinematics are not found
-// so we are hoping that they will want to do things the correct way and supply kinematics to quiet it.  
+// so we are hoping that they will want to do things the correct way and supply kinematics to quiet it.
 func warnKinematicsUnsafe(ctx context.Context, logger logging.Logger, err error) {
 	logger.CWarnw(
 		ctx,
