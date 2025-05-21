@@ -23,6 +23,7 @@ type client struct {
 	resource.TriviallyCloseable
 	name   string
 	client pb.ArmServiceClient
+	model  referenceframe.Model
 	logger logging.Logger
 }
 
@@ -81,9 +82,8 @@ func (c *client) MoveToJointPositions(ctx context.Context, positions []reference
 	}
 	m, err := c.Kinematics(ctx)
 	if err != nil {
-		return err
+		warnKinematicsUnsafe(ctx, c.logger, err)
 	}
-
 	jp, err := referenceframe.JointPositionsFromInputs(m, positions)
 	if err != nil {
 		return err
@@ -112,7 +112,7 @@ func (c *client) MoveThroughJointPositions(
 	allJPs := make([]*pb.JointPositions, 0, len(positions))
 	m, err := c.Kinematics(ctx)
 	if err != nil {
-		return err
+		warnKinematicsUnsafe(ctx, c.logger, err)
 	}
 	for _, position := range positions {
 		jp, err := referenceframe.JointPositionsFromInputs(m, position)
@@ -147,7 +147,7 @@ func (c *client) JointPositions(ctx context.Context, extra map[string]interface{
 	}
 	m, err := c.Kinematics(ctx)
 	if err != nil {
-		return nil, err
+		warnKinematicsUnsafe(ctx, c.logger, err)
 	}
 	return referenceframe.InputsFromJointPositions(m, resp.Positions)
 }
@@ -165,11 +165,19 @@ func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
 }
 
 func (c *client) Kinematics(ctx context.Context) (referenceframe.Model, error) {
-	resp, err := c.client.GetKinematics(ctx, &commonpb.GetKinematicsRequest{Name: c.name})
-	if err != nil {
-		return nil, err
+	// for performance we cache the model after building it once, and can quickly return if its already been created.
+	if c.model == nil {
+		resp, err := c.client.GetKinematics(ctx, &commonpb.GetKinematicsRequest{Name: c.name})
+		if err != nil {
+			return nil, err
+		}
+		model, err := referenceframe.KinematicModelFromProtobuf(c.name, resp)
+		if err != nil {
+			return nil, err
+		}
+		c.model = model
 	}
-	return referenceframe.KinematicModelFromProtobuf(c.name, resp)
+	return c.model, nil
 }
 
 func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
@@ -205,4 +213,19 @@ func (c *client) Geometries(ctx context.Context, extra map[string]interface{}) (
 		return nil, err
 	}
 	return spatialmath.NewGeometriesFromProto(resp.GetGeometries())
+}
+
+// warnKinematicsUnsafe is a helper function to warn the user that no kinematics have been supplied for the conversion between
+// joints space and Inputs. The assumption we are making here is safe for any arm that has only revolute joints (true for most
+// commercially available arms) and will only come into play if the kinematics for the arm have not been cached successfully yet.
+// The other assumption being made here is that it will be annoying for new users implementing an arm module to not be able to move their
+// arm until the kinematics have been supplied.  This log message will be very noisy as it will be logged whenever kinematics are not found
+// so we are hoping that they will want to do things the correct way and supply kinematics to quiet it.  
+func warnKinematicsUnsafe(ctx context.Context, logger logging.Logger, err error) {
+	logger.CWarnw(
+		ctx,
+		"error getting model for arm; making the assumption that joints are revolute and that their positions are specified in degrees",
+		"err",
+		err,
+	)
 }

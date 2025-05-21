@@ -25,6 +25,7 @@ var (
 	errMoveToPositionFailed      = errors.New("can't move to pose")
 	errMoveToJointPositionFailed = errors.New("can't move to joint positions")
 	errStopUnimplemented         = errors.New("Stop unimplemented")
+	errKinematicsUnimplemented   = errors.New("Kinematics unimplemented")
 	errArmUnimplemented          = errors.New("not found")
 )
 
@@ -55,6 +56,14 @@ func TestServer(t *testing.T) {
 
 	pose1 := spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})
 	positions := []float64{1., 2., 3., 1., 2., 3.}
+	goodKinematics := func(ctx context.Context) (referenceframe.Model, error) {
+		model, err := referenceframe.ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/ur5e.urdf"), "foo")
+		if err != nil {
+			return nil, err
+		}
+		return model, nil
+	}
+
 	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		extraOptions = extra
 		return pose1, nil
@@ -84,13 +93,7 @@ func TestServer(t *testing.T) {
 		extraOptions = extra
 		return nil
 	}
-	injectArm.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
-		model, err := referenceframe.ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/ur5e.urdf"), "foo")
-		if err != nil {
-			return nil, err
-		}
-		return model, nil
-	}
+	injectArm.KinematicsFunc = goodKinematics
 	injectArm.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		extraOptions = extra
 		return nil
@@ -114,7 +117,7 @@ func TestServer(t *testing.T) {
 		return errMoveToJointPositionFailed
 	}
 	injectArm2.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
-		return nil, errors.New("KinematicsFunc unimplemented")
+		return nil, errKinematicsUnimplemented
 	}
 	injectArm2.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		return errStopUnimplemented
@@ -249,8 +252,8 @@ func TestServer(t *testing.T) {
 		test.That(t, kinematics.Format, test.ShouldResemble, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF)
 
 		kinematics, err = armServer.GetKinematics(context.Background(), &commonpb.GetKinematicsRequest{Name: failArmName})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, kinematics.Format, test.ShouldResemble, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldResemble, errKinematicsUnimplemented)
 	})
 
 	t.Run("stop", func(t *testing.T) {

@@ -62,11 +62,7 @@ func (s *serviceServer) GetJointPositions(ctx context.Context, req *pb.GetJointP
 	if err != nil {
 		return nil, err
 	}
-	m, err := arm.Kinematics(ctx)
-	if err != nil {
-		return nil, err
-	}
-
+	m, _ := arm.Kinematics(ctx)
 	jp, err := referenceframe.JointPositionsFromInputs(m, pos)
 	if err != nil {
 		return nil, err
@@ -98,10 +94,7 @@ func (s *serviceServer) MoveToJointPositions(
 	if err != nil {
 		return nil, err
 	}
-	m, err := arm.Kinematics(ctx)
-	if err != nil {
-		return nil, err
-	}
+	m, _ := arm.Kinematics(ctx)
 	inputs, err := referenceframe.InputsFromJointPositions(m, req.Positions)
 	if err != nil {
 		return nil, err
@@ -119,10 +112,7 @@ func (s *serviceServer) MoveThroughJointPositions(
 	if err != nil {
 		return nil, err
 	}
-	m, err := arm.Kinematics(ctx)
-	if err != nil {
-		return nil, err
-	}
+	m, _ := arm.Kinematics(ctx)
 	allInputs := make([][]referenceframe.Input, 0, len(req.Positions))
 	for _, position := range req.Positions {
 		inputs, err := referenceframe.InputsFromJointPositions(m, position)
