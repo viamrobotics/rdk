@@ -2,6 +2,7 @@ package gripper_test
 
 import (
 	"context"
+	"errors"
 	"net"
 	"testing"
 
@@ -59,7 +60,7 @@ func TestClient(t *testing.T) {
 		return expectedGeometries, nil
 	}
 	injectGripper.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
-		return referenceframe.NewSimpleModel(""), nil
+		return nil, errors.New("kinematics unimplmented")
 	}
 
 	injectGripper2 := &inject.Gripper{}
