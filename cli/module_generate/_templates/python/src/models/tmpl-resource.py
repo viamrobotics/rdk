@@ -17,7 +17,7 @@ class {{ .ModelPascal  }}({{ .ResourceSubtypePascal }}, EasyResource):
 
         Args:
             config (ComponentConfig): The configuration for this resource
-            dependencies (Mapping[ResourceName, ResourceBase]): The dependencies (both implicit and explicit)
+            dependencies (Mapping[ResourceName, ResourceBase]): The dependencies (both required and optional)
 
         Returns:
             Self: The resource
@@ -33,7 +33,7 @@ class {{ .ModelPascal  }}({{ .ResourceSubtypePascal }}, EasyResource):
             config (ComponentConfig): The configuration for this resource
 
         Returns:
-            Tuple[Sequence[str], Sequence[str]]: A tuple where the 
+            Tuple[Sequence[str], Sequence[str]]: A tuple where the
                 first element is a list of required dependencies and the
                 second element is a list of optional dependencies
         """
@@ -44,6 +44,6 @@ class {{ .ModelPascal  }}({{ .ResourceSubtypePascal }}, EasyResource):
 
         Args:
             config (ComponentConfig): The new configuration
-            dependencies (Mapping[ResourceName, ResourceBase]): Any dependencies (both implicit and explicit)
+            dependencies (Mapping[ResourceName, ResourceBase]): Any dependencies (both required and optional)
         """
         return super().reconfigure(config, dependencies)
