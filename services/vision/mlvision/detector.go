@@ -109,12 +109,11 @@ func attemptToBuildDetector(mlm mlmodel.Service,
 		if err != nil {
 			return nil, err
 		}
-
 		boundingBoxes, err := ml.FormatDetectionOutputs(outNameMap, outMap, resizeW, resizeH, boxOrder, labels)
 		if err != nil {
 			return nil, err
 		}
-		detections := convertBoundingBoxesToDetections(boundingBoxes, origW, origH)
+		detections := convertBoundingBoxesToDetections(boundingBoxes, resizeW, resizeH)
 		if postprocessor != nil {
 			detections = postprocessor(detections)
 		}
