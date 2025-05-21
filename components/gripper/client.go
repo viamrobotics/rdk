@@ -35,43 +35,12 @@ func NewClientFromConn(
 	name resource.Name,
 	logger logging.Logger,
 ) (Gripper, error) {
-	c := &client{
+	return &client{
 		Named:  name.PrependRemote(remoteName).AsNamed(),
 		name:   name.ShortName(),
 		client: pb.NewGripperServiceClient(conn),
 		logger: logger,
-	}
-	// get geometries if they are provided by the resource, but don't fail to build resource if there are none
-	geometries, err := c.Geometries(ctx, nil)
-	if err != nil {
-		logger.CWarnw(ctx, "error getting gripper geometries, instantiating with a simple model", "err", err)
-		c.model = referenceframe.NewSimpleModel(c.name)
-	} else {
-		m, err := MakeModel(c.name, geometries)
-		if err != nil {
-			return nil, err
-		}
-		c.model = m
-	}
-	return c, nil
-}
-
-func (c *client) Kinematics(ctx context.Context) (referenceframe.Model, error) {
-	resp, err := c.client.GetKinematics(ctx, &commonpb.GetKinematicsRequest{Name: c.name})
-	if err != nil {
-		return nil, err
-	}
-	return referenceframe.KinematicModelFromProtobuf(c.name, resp)
-}
-
-func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	c.logger.Warn("gripper.CurrentInputs is unimplemented!")
-	return []referenceframe.Input{}, nil
-}
-
-func (c *client) GoToInputs(context.Context, ...[]referenceframe.Input) error {
-	c.logger.Warn("gripper.GoToInputs is unimplemented!")
-	return nil
+	}, nil
 }
 
 func (c *client) Open(ctx context.Context, extra map[string]interface{}) error {
@@ -113,10 +82,6 @@ func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
 	return err
 }
 
-func (c *client) ModelFrame() referenceframe.Model {
-	return c.model
-}
-
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }
@@ -142,4 +107,38 @@ func (c *client) Geometries(ctx context.Context, extra map[string]interface{}) (
 		return nil, err
 	}
 	return spatialmath.NewGeometriesFromProto(resp.GetGeometries())
+}
+
+func (c *client) Kinematics(ctx context.Context) (referenceframe.Model, error) {
+	// if a model has been cached just return that
+	if c.model != nil {
+		return c.model, nil
+	}
+	// attempt to get kinematics the correct way
+	resp, err := c.client.GetKinematics(ctx, &commonpb.GetKinematicsRequest{Name: c.name})
+	if err == nil {
+		model, err := referenceframe.KinematicModelFromProtobuf(c.name, resp)
+		if err != nil {
+			return nil, err
+		}
+		c.model = model
+		return c.model, nil
+	}
+	// fall back on the old method of providing a model
+	geometries, err := c.Geometries(ctx, nil)
+	if err == nil {
+		return MakeModel(c.name, geometries)
+	}
+	// if all else fails, we don't want this to error, return a simple model
+	return referenceframe.NewSimpleModel(c.name), nil
+}
+
+func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	c.logger.Warn("gripper.CurrentInputs is unimplemented!")
+	return []referenceframe.Input{}, nil
+}
+
+func (c *client) GoToInputs(context.Context, ...[]referenceframe.Input) error {
+	c.logger.Warn("gripper.GoToInputs is unimplemented!")
+	return nil
 }

@@ -58,6 +58,9 @@ func TestClient(t *testing.T) {
 	injectGripper.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
 		return expectedGeometries, nil
 	}
+	injectGripper.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return referenceframe.NewSimpleModel(""), nil
+	}
 
 	injectGripper2 := &inject.Gripper{}
 	injectGripper2.OpenFunc = func(ctx context.Context, extra map[string]interface{}) error {
