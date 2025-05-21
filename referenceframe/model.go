@@ -318,22 +318,3 @@ func ComputeOOBPosition(frame Frame, inputs []Input) (spatialmath.Pose, error) {
 
 	return pose, nil
 }
-
-// // ComputePosition takes a frame and a slice of Inputs and returns the cartesian position of the frame.
-// func ComputePosition(frame Frame, inputs []Input) (spatialmath.Pose, error) {
-// 	// TODO: delete this function
-// 	logging.Global().Warn("ComputePosition is deprecated and will be removed in a future update. Swap to Transform()")
-
-// 	if inputs == nil {
-// 		return nil, errors.New("cannot compute position for nil joints")
-// 	}
-// 	if frame == nil {
-// 		return nil, errors.New("cannot compute position for nil frame")
-// 	}
-
-// 	pose, err := frame.Transform(inputs)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return pose, err
-// }
