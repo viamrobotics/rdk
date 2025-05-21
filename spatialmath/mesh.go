@@ -76,7 +76,7 @@ func newMeshFromBytes(pose Pose, data []byte, label string) (mesh *Mesh, err err
 	ply := goply.New(bytes.NewReader(data))
 	vertices := ply.Elements("vertex")
 	faces := ply.Elements("face")
-	triangles := []*Triangle{}
+	triangles := make([]*Triangle, 0)
 	for _, face := range faces {
 		pts := []r3.Vector{}
 		idxIface := face["vertex_indices"]
@@ -246,7 +246,7 @@ func (m *Mesh) boxIntersectsVertex(b *box) bool {
 func (m *Mesh) distanceFromSphere(pt r3.Vector, radius float64) float64 {
 	minDist := math.Inf(1)
 	for _, tri := range m.triangles {
-		closestPt := ClosestPointTrianglePoint(tri.Transform(m.pose), pt)
+		closestPt := closestPointTrianglePoint(tri.Transform(m.pose), pt)
 		dist := closestPt.Sub(pt).Norm() - radius
 		if dist < minDist {
 			minDist = dist
@@ -258,7 +258,7 @@ func (m *Mesh) distanceFromSphere(pt r3.Vector, radius float64) float64 {
 func (m *Mesh) collidesWithSphere(pt r3.Vector, radius, buffer float64) bool {
 	// Transform all triangles to world space once
 	for _, tri := range m.triangles {
-		closestPt := ClosestPointTrianglePoint(tri.Transform(m.pose), pt)
+		closestPt := closestPointTrianglePoint(tri.Transform(m.pose), pt)
 		if closestPt.Sub(pt).Norm() <= radius+buffer {
 			return true
 		}
@@ -368,7 +368,7 @@ func (m *Mesh) Label() string {
 }
 
 // ToPoints returns a vector of points that together represent a point cloud of the Mesh.
-// The points returned are the triangle vertices as well as the centroid of each triangle. 
+// The points returned are the triangle vertices as well as the centroid of each triangle.
 // TODO: the density variable doesn't do anything here and arguably we shouldn't be also returning the centroid every time.
 func (m *Mesh) ToPoints(density float64) []r3.Vector {
 	// Use map to deduplicate vertices
@@ -376,15 +376,13 @@ func (m *Mesh) ToPoints(density float64) []r3.Vector {
 
 	// Add all triangle vertices, formatting as a string for map deduplication
 	for i, tri := range m.triangles {
-		centroid := r3.Vector{}
 		for _, pt := range tri.Points() {
 			// Transform point to world space
 			worldPt := Compose(m.pose, NewPoseFromPoint(pt)).Point()
-			centroid = centroid.Add(worldPt)
 			key := fmt.Sprintf("%.10f,%.10f,%.10f", worldPt.X, worldPt.Y, worldPt.Z)
 			pointMap[key] = worldPt
 		}
-		pointMap[strconv.Itoa(i)] = centroid.Mul(1. / 3.)
+		pointMap[strconv.Itoa(i)] = tri.Transform(m.pose).Centroid()
 	}
 
 	// Convert map back to slice
@@ -429,7 +427,6 @@ func MeshBoxIntersectionArea(mesh, theBox Geometry) (float64, error) {
 // or the actual intersection area otherwise.
 func boxTriangleIntersectionArea(b *box, t *Triangle) (float64, error) {
 	// Quick check if they don't intersect at all
-	//nolint:errcheck
 	collides, err := b.CollidesWith(NewMesh(NewZeroPose(), []*Triangle{t}, ""), defaultCollisionBufferMM)
 	if err != nil {
 		return -1, err
@@ -447,7 +444,7 @@ func boxTriangleIntersectionArea(b *box, t *Triangle) (float64, error) {
 		}
 	}
 	if enclosed {
-		return TriangleArea(t), nil
+		return t.Area(), nil
 	}
 
 	// Clip triangle against each of the six box planes
@@ -526,13 +523,13 @@ func calculatePolygonAreaWithTriangulation(vertices []r3.Vector) float64 {
 		return 0
 	case length == 3:
 		// For a 3-vertex polygon, just calculate triangle area directly
-		return TriangleArea(NewTriangle(vertices[0], vertices[1], vertices[2]))
+		return NewTriangle(vertices[0], vertices[1], vertices[2]).Area()
 	default:
 		// For polygons with more vertices, triangulate using fan triangulation
 		// This works for convex polygons, which is what we have after clipping
 		totalArea := 0.0
 		for i := 1; i < len(vertices)-1; i++ {
-			totalArea += TriangleArea(NewTriangle(vertices[0], vertices[i], vertices[i+1]))
+			totalArea += NewTriangle(vertices[0], vertices[i], vertices[i+1]).Area()
 		}
 		return totalArea
 	}

@@ -33,6 +33,22 @@ func (t *Triangle) Normal() r3.Vector {
 	return t.normal
 }
 
+// Area calculates the area of a triangle using the cross product method.
+// Returns the area as a float64.
+func (t *Triangle) Area() float64 {
+	pts := t.Points()
+	// Calculate two edges
+	edge1 := pts[1].Sub(pts[0])
+	edge2 := pts[2].Sub(pts[0])
+	// Area is half the magnitude of the cross product of two edges
+	return edge1.Cross(edge2).Norm() / 2.0
+}
+
+// Centroid calculates the point that represents the centroid of the triangle
+func (t *Triangle) Centroid() r3.Vector {
+	return t.p0.Add(t.p1).Add(t.p2).Mul(1. / 3.)
+}
+
 // Transform premultiplies the triangle's points with a transform, allowing the triangle to be moved in space.
 func (t *Triangle) Transform(toPremultiply Pose) *Triangle {
 	return NewTriangle(
@@ -46,7 +62,7 @@ func (t *Triangle) Transform(toPremultiply Pose) *Triangle {
 // Otherwise it will return the query point.
 // To visualize this- if one draws a tetrahedron using the triangle and the query point, all angles from the triangle to the query point
 // must be <= 90 degrees.
-func ClosestTriangleInsidePoint(t *Triangle, point r3.Vector) (r3.Vector, bool) {
+func closestTriangleInsidePoint(t *Triangle, point r3.Vector) (r3.Vector, bool) {
 	eps := 1e-6
 
 	// Parametrize the triangle s.t. a point inside the triangle is
@@ -69,9 +85,9 @@ func ClosestTriangleInsidePoint(t *Triangle, point r3.Vector) (r3.Vector, bool) 
 }
 
 // ClosestPointTrianglePoint takes a point, and returns the closest point on the triangle to the given point.
-func ClosestPointTrianglePoint(t *Triangle, point r3.Vector) r3.Vector {
+func closestPointTrianglePoint(t *Triangle, point r3.Vector) r3.Vector {
 	pts := t.Points()
-	closestPtInside, inside := ClosestTriangleInsidePoint(t, point)
+	closestPtInside, inside := closestTriangleInsidePoint(t, point)
 	if inside {
 		return closestPtInside
 	}
@@ -92,15 +108,4 @@ func ClosestPointTrianglePoint(t *Triangle, point r3.Vector) r3.Vector {
 		return newPt
 	}
 	return closestPt
-}
-
-// TriangleArea calculates the area of a triangle using the cross product method.
-// Returns the area as a float64.
-func TriangleArea(t *Triangle) float64 {
-	pts := t.Points()
-	// Calculate two edges
-	edge1 := pts[1].Sub(pts[0])
-	edge2 := pts[2].Sub(pts[0])
-	// Area is half the magnitude of the cross product of two edges
-	return edge1.Cross(edge2).Norm() / 2.0
 }

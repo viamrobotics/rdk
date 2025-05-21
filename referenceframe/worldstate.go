@@ -28,7 +28,8 @@ func NewEmptyWorldState() *WorldState {
 	}
 }
 
-// NewWorldState is a constructor for a WorldState object.
+// NewWorldState instantiates a WorldState with geometries which are meant to represent obstacles
+// and transforms which are meant to represent additional links that augment a FrameSystem.
 func NewWorldState(obstacles []*GeometriesInFrame, transforms []*LinkInFrame) (*WorldState, error) {
 	ws := &WorldState{
 		obstacleNames: make(map[string]bool),
