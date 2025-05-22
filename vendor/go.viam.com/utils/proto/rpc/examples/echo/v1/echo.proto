@@ -1,0 +1,45 @@
+syntax = "proto3";
+option go_package = "go.viam.com/utils/proto/rpc/examples/echo/v1";
+
+package proto.rpc.examples.echo.v1;
+
+import "google/api/annotations.proto";
+
+message EchoRequest {
+  string message = 1;
+}
+
+message EchoResponse {
+  string message = 1;
+}
+
+message EchoMultipleRequest {
+  string message = 1;
+}
+
+message EchoMultipleResponse {
+  string message = 1;
+}
+
+message EchoBiDiRequest {
+  string message = 1;
+}
+
+message EchoBiDiResponse {
+  string message = 1;
+}
+
+service EchoService {
+  rpc Echo(EchoRequest) returns (EchoResponse) {
+    option (google.api.http) = {
+  		post: "/rpc/examples/echo/v1/echo"
+  		body: "*"
+  	};
+  }
+
+  rpc EchoMultiple(EchoMultipleRequest) returns (stream EchoMultipleResponse) {
+  }
+
+  rpc EchoBiDi(stream EchoBiDiRequest) returns (stream EchoBiDiResponse) {
+  }
+}

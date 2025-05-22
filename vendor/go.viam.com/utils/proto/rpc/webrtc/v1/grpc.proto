@@ -1,0 +1,89 @@
+syntax = "proto3";
+option go_package = "go.viam.com/utils/proto/rpc/webrtc/v1";
+
+package proto.rpc.webrtc.v1;
+
+import "google/protobuf/duration.proto";
+import "google/rpc/status.proto";
+
+// A PacketMessage is used to packetize large messages (> 64KiB) to be able to safely
+// transmit over WebRTC data channels.
+message PacketMessage {
+	bytes data = 1;
+	bool eom = 2;
+}
+
+// A Stream represents an instance of a gRPC stream between
+// a client and a server.
+message Stream {
+	uint64 id = 1;
+}
+
+// A Request is a frame coming from a client. It is always
+// associated with a stream where the client assigns the stream
+// identifier. Servers will drop frames where the stream identifier
+// has no association (if a non-header frames are sent).
+message Request {
+	Stream stream = 1;
+	oneof type {
+		RequestHeaders headers = 2;
+		RequestMessage message = 3;
+		bool rst_stream = 4;
+	}
+}
+
+// RequestHeaders describe the unary or streaming call to make.
+message RequestHeaders {
+	string method = 1;
+	Metadata metadata = 2;
+	google.protobuf.Duration timeout = 3;
+}
+
+// A RequestMessage contains individual gRPC messages and a potential
+// end-of-stream (EOS) marker.
+message RequestMessage {
+	bool has_message = 1;
+	PacketMessage packet_message = 2;
+	bool eos = 3;
+}
+
+// A Response is a frame coming from a server. It is always
+// associated with a stream where the client assigns the stream
+// identifier. Clients will drop frames where the stream identifier
+// has no association.
+message Response {
+	Stream stream = 1;
+	oneof type {
+		ResponseHeaders headers = 2;
+		ResponseMessage message = 3;
+		ResponseTrailers trailers = 4;
+	}
+}
+
+// ResponseHeaders contain custom metadata that are sent to the client
+// before any message or trailers (unless only trailers are sent).
+message ResponseHeaders {
+	Metadata metadata = 1;
+}
+
+// ResponseMessage contains the data of a response to a call.
+message ResponseMessage {
+	PacketMessage packet_message = 1;
+}
+
+// ResponseTrailers contain the status of a response and any custom metadata.
+message ResponseTrailers {
+	google.rpc.Status status = 1;
+	Metadata metadata = 2;
+}
+
+// Strings are a series of values.
+message Strings {
+	repeated string values = 1;
+}
+
+// Metadata is for custom key values provided by a client or server
+// during a stream.
+message Metadata {
+	map<string, Strings> md = 1;
+}
