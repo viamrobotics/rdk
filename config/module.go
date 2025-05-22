@@ -27,6 +27,8 @@ const (
 	defaultFirstRunTimeout = 1 * time.Hour
 )
 
+var errLocalTarballEntrypoint = errors.New("local tarballs must contain a meta.json with the 'entrypoint' field")
+
 // Module represents an external resource module, with a path to the binary module file.
 type Module struct {
 	// Name is an arbitrary name used to identify the module, and is used to name it's socket as well.
@@ -197,8 +199,7 @@ func parseJSONFile[T any](path string) (*T, error) {
 
 // EvaluateExePath returns absolute ExePath from one of three sources (in order of precedence):
 // 1. if there is a meta.json in the exe dir, use that, except in local non-tarball case.
-// 2. if this is a local tarball and there's a meta.json next to the tarball, use that.
-// 3. otherwise use the exe path from config, or fail if this is a local tarball.
+// 2. otherwise use the exe path from config, or fail if this is a local tarball.
 // Note: the working directory must be the unpacked tarball directory or local exec directory.
 func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 	path, err := utils.ExpandHomeDir(m.ExePath)
@@ -232,6 +233,10 @@ func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 				return "", err
 			}
 			return filepath.Abs(entrypoint)
+		}
+		if m.NeedsSyntheticPackage() {
+			// registry modules can use configured ExePath, but for local tarballs it is wrong, throw an error.
+			return "", errLocalTarballEntrypoint
 		}
 	}
 	return path, nil
