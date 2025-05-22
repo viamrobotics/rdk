@@ -234,24 +234,6 @@ func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 			return filepath.Abs(entrypoint)
 		}
 	}
-	if m.NeedsSyntheticPackage() {
-		// this is case 2, side-by-side
-		// TODO(RSDK-7848): remove this case once java sdk supports internal meta.json.
-		metaPath, err := utils.SafeJoinDir(filepath.Dir(path), "meta.json")
-		if err != nil {
-			return "", err
-		}
-		meta, err := parseJSONFile[JSONManifest](metaPath)
-		if err != nil {
-			// note: this error deprecates the side-by-side case because the side-by-side case is deprecated.
-			return "", fmt.Errorf("couldn't find meta.json inside tarball %s (or next to it): %w", path, err)
-		}
-		entrypoint, err := utils.SafeJoinDir(exeDir, meta.Entrypoint)
-		if err != nil {
-			return "", err
-		}
-		return filepath.Abs(entrypoint)
-	}
 	return path, nil
 }
 
@@ -464,27 +446,6 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 		}
 	}
 
-	var exeDir string
-	var localTarballErr error
-
-	// TODO(RSDK-7848): remove this case once java sdk supports internal meta.json.
-	// case 3: local AND tarball
-	if m.NeedsSyntheticPackage() {
-		exeDir = filepath.Dir(m.ExePath)
-
-		var meta *JSONManifest
-		meta, localTarballErr = findMetaJSONFile(exeDir)
-		if localTarballErr != nil {
-			if !os.IsNotExist(localTarballErr) {
-				return nil, "", fmt.Errorf("local tarball: %w", localTarballErr)
-			}
-		}
-
-		if meta != nil {
-			return meta, exeDir, nil
-		}
-	}
-
 	if online {
 		if !ok {
 			return nil, "", fmt.Errorf("registry module: failed to find meta.json. VIAM_MODULE_ROOT not set: %w", registryTarballErr)
@@ -494,7 +455,7 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 	}
 
 	if !localNonTarball {
-		return nil, "", fmt.Errorf("local tarball: failed to find meta.json: %w", errors.Join(registryTarballErr, localTarballErr))
+		return nil, "", fmt.Errorf("local tarball: failed to find meta.json: %w", registryTarballErr)
 	}
 
 	return nil, "", errors.New("local non-tarball: did not search for meta.json")
