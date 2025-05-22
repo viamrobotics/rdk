@@ -103,11 +103,8 @@ func TestSyntheticModule(t *testing.T) {
 		testWriteJSON(t, filepath.Join(tmp, "meta.json"), &meta)
 
 		// local tarball case
-		syntheticPath, err := modNeedsSynthetic.EvaluateExePath(tmp)
-		test.That(t, err, test.ShouldBeNil)
-		exeDir, err := modNeedsSynthetic.exeDir(tmp)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, syntheticPath, test.ShouldEqual, filepath.Join(exeDir, meta.Entrypoint))
+		_, err := modNeedsSynthetic.EvaluateExePath(tmp)
+		test.That(t, err, test.ShouldEqual, errLocalTarballEntrypoint)
 
 		// vanilla case
 		notTarPath, err := modNotTar.EvaluateExePath(tmp)
