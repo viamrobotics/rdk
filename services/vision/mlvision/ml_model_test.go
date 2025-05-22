@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/testutils/inject"
@@ -238,6 +239,37 @@ func TestNewMLClassifier(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, topNL, test.ShouldNotBeNil)
 	test.That(t, topNL[0].Label(), test.ShouldContainSubstring, "lion")
+}
+
+func TestMLDetectorBboxResized(t *testing.T) {
+	ctx := context.Background()
+	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/person.jpg"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pic, test.ShouldNotBeNil)
+
+	outModel := mockSuperFakeModel("test_me")
+	check, err := outModel.Metadata(ctx)
+	test.That(t, check, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
+	out, err := outModel.Infer(ctx, ml.Tensors{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out, test.ShouldNotBeNil)
+
+	inNameMap := &sync.Map{}
+	outNameMap := &sync.Map{}
+	outNameMap.Store("location", "location")
+	outNameMap.Store("score", "score")
+	outNameMap.Store("category", "category")
+	conf := &MLModelConfig{}
+	gotDetector, err := attemptToBuildDetector(outModel, inNameMap, outNameMap, conf)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gotDetector, test.ShouldNotBeNil)
+
+	gotDetections, err := gotDetector(ctx, pic)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gotDetections, test.ShouldNotBeNil)
+	test.That(t, gotDetections[0].NormalizedBoundingBox(), test.ShouldResemble, []float64{0.2, 0, 0.6, 0.4})
+	test.That(t, gotDetections[0].BoundingBox().Min.X, test.ShouldEqual, 100)
 }
 
 func TestMLDetectorWithNoCategory(t *testing.T) {
