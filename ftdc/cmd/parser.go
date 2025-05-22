@@ -198,6 +198,17 @@ func (gpw *gnuplotWriter) shouldIncludePoint(this, next *ftdc.FlatDatum) *ftdc.F
 	}
 
 	nextTimeToInclude := gpw.timesToInclude[gpw.shouldIncludePointStorage.nextTimeIdx]
+	if this.Time > nextTimeToInclude {
+		// There may be a bubble in FTDC data such that we didn't capture any data for a few
+		// seconds. Return the current value and also bump the `nextTimeIdx` to restore the
+		// invariant that the `nextTimeToInclude` > `this.Time`.
+		for gpw.timesToInclude[gpw.shouldIncludePointStorage.nextTimeIdx] < this.Time {
+			gpw.shouldIncludePointStorage.nextTimeIdx++
+		}
+
+		return this
+	}
+
 	// If `this` and `next` straddle the `nextTimeToInclude`, we'll return a point to graph.
 	returnAPoint := this.Time <= nextTimeToInclude && next.Time >= nextTimeToInclude
 	if !returnAPoint {
@@ -282,8 +293,11 @@ var ratioMetricToFields = map[string]ratioMetric{
 	// here. Also, personally, sometimes I think not* doing PerSec for these can also be
 	// useful. Maybe we should consider including both the raw and rate graphs. Instead of replacing
 	// the raw values with a rate graph.
-	"GetImagePerSec":    {"GetImage", ""},
-	"GetReadingsPerSec": {"GetReadings", ""},
+	"GetImagePerSec":            {"GetImage", ""},
+	"GetReadingsPerSec":         {"GetReadings", ""},
+	"GetImagesPerSec":           {"GetImages", ""},
+	"DoCommandPerSec":           {"DoCommand", ""},
+	"MoveStraightLatencyMillis": {"MoveStraight.timeSpent", "MoveStraight"},
 }
 
 // ratioReading is a reading of two metrics described by `ratioMetric`. This is what will be graphed.
@@ -363,7 +377,11 @@ func pullRatios(
 			// E.g: `rdk.foo_module.User CPU%'.
 			graphName := fmt.Sprint(metricIdentifier, ratioMetricName)
 			if _, exists := outDeferredReadings[graphName]; !exists {
-				outDeferredReadings[graphName] = &ratioReading{GraphName: graphName, Time: readingTS, isRate: false}
+				isRate := false
+				if strings.HasSuffix(ratioMetric.Numerator, ".timeSpent") {
+					isRate = true
+				}
+				outDeferredReadings[graphName] = &ratioReading{GraphName: graphName, Time: readingTS, isRate: isRate}
 			}
 
 			outDeferredReadings[graphName].Denominator = float64(reading.Value)
@@ -436,17 +454,19 @@ func (gpw *gnuplotWriter) writeDeferredValues(deferredValues []map[string]*ratio
 		prevReadings := deferredValues[forCompare]
 		for metricName, currRatioReading := range currReadings {
 			var diff ratioReading
-			if prevratioReading, exists := prevReadings[metricName]; exists {
-				diff = currRatioReading.diff(prevratioReading)
+			if prevRatioReading, exists := prevReadings[metricName]; exists {
+				diff = currRatioReading.diff(prevRatioReading)
 			} else {
-				logger.Infow("Deferred value missing a previous value to diff",
-					"metricName", metricName, "time", currRatioReading.Time)
-				continue
+				// logger.Infow("Deferred value missing a previous value to diff",
+				// 	"metricName", metricName, "time", currRatioReading.Time)
+				// continue
+				diff = currRatioReading.diff(&ratioReading{})
 			}
 
 			value, err := diff.toValue()
 			if err != nil {
-				// The denominator did not change -- divide by zero error.
+				// The denominator did not change -- divide by zero error. E.g: there were no calls
+				// to a given RPC in the last window slice.
 				logger.Warnw("Error computing defered value", "metricName", metricName, "time", currRatioReading.Time, "err", err)
 				continue
 			}
@@ -669,6 +689,10 @@ func main() {
 			nolintPrintln()
 			nolintPrintln("reset range")
 			nolintPrintln("-  Unset any prior range. \"zoom out to full\"")
+			nolintPrintln()
+			nolintPrintln("ev, event <timestamp>")
+			nolintPrintln("-  Add a vertical marker at a timestamp representing an event of interest.")
+			nolintPrintln("-  E.g: ev 2024-09-24T18:15:00")
 			nolintPrintln()
 			nolintPrintln("r, refresh")
 			nolintPrintln("-  Regenerate the plot.png image. Useful when a current viam-server is running.")
