@@ -425,6 +425,8 @@ func TestMergeEnvVars(t *testing.T) {
 // testWriteJSON is a t.Helper that serializes `value` to `path` as json.
 func testWriteJSON(t *testing.T, path string, value any) {
 	t.Helper()
+	err := os.MkdirAll(filepath.Dir(path), 0o700)
+	test.That(t, err, test.ShouldBeNil)
 	file, err := os.Create(path)
 	test.That(t, err, test.ShouldBeNil)
 	defer file.Close()
