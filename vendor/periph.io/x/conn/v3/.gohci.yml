@@ -1,0 +1,633 @@
+# Copyright 2021 The Periph Authors. All rights reserved.
+# Use of this source code is governed under the Apache License, Version 2.0
+# that can be found in the LICENSE file.
+
+# See https://github.com/periph/gohci
+version: 1
+workers:
+# BeagleBone Green Wireles by SeedStudio.
+# https://beagleboard.org/green-wireless
+- name: beaglebone-1860
+  checks:
+  - cmd:
+    - go
+    - test
+    - -cover
+    - -bench=.
+    - -benchtime=1000ms
+    - -benchmem
+    - ./...
+  # Test in advance: host
+  - dir: ..
+    cmd:
+    - git
+    - clone
+    - --depth
+    - 1
+    - https://github.com/periph/host
+  - dir: ../host
+    cmd:
+    - go
+    - mod
+    - edit
+    - -replace=periph.io/x/conn/v3=../conn
+  - dir: ../host
+    cmd:
+    - go
+    - get
+    - -t
+    - ./...
+  - dir: ../host
+    cmd:
+    - go
+    - test
+    - -short
+    - ./...
+  # Test in advance: devices
+  - dir: ..
+    cmd:
+    - git
+    - clone
+    - --depth
+    - 1
+    - https://github.com/periph/devices
+  - dir: ../devices
+    cmd:
+    - go
+    - mod
+    - edit
+    - -replace=periph.io/x/conn/v3=../conn
+  - dir: ../devices
+    cmd:
+    - go
+    - get
+    - -t
+    - ./...
+  - dir: ../devices
+    cmd:
+    - go
+    - test
+    - -short
+    - ./...
+  # Test in advance: cmd
+  - dir: ..
+    cmd:
+    - git
+    - clone
+    - --depth
+    - 1
+    - https://github.com/periph/cmd
+  - dir: ../cmd
+    cmd:
+    - go
+    - mod
+    - edit
+    - -replace=periph.io/x/conn/v3=../conn
+  - dir: ../cmd
+    cmd:
+    - go
+    - get
+    - -t
+    - ./...
+  - dir: ../cmd
+    cmd:
+    - go
+    - test
+    - -short
+    - ./...
+  # Test commands.
+  - dir: ../cmd
+    cmd:
+    - go
+    - install
+    - -v
+    - ./headers-list
+    - ./i2c-list
+    - ./periph-info
+    - ./periph-smoketest
+    - ./spi-list
+  - cmd:
+    - periph-info
+  - cmd:
+    - headers-list
+    - -f
+  - cmd:
+    - i2c-list
+  - cmd:
+    - spi-list
+  - cmd:
+    - periph-smoketest
+    - gpio
+    - -pin1
+    - P8_45
+    - -pin2
+    - P8_46
+
+# ODROID-C1+ by HardKernel
+# https://www.hardkernel.com/shop/odroid-c1/
+- name: odroid-483d
+  checks:
+  - cmd:
+    - go
+    - test
+    - -cover
+    - -bench=.
+    - -benchtime=1000ms
+    - -benchmem
+    - ./...
+  # Test in advance: host
+  - dir: ..
+    cmd:
+    - git
+    - clone
+    - --depth
+    - 1
+    - https://github.com/periph/host
+  - dir: ../host
+    cmd:
+    - go
+    - mod
+    - edit
+    - -replace=periph.io/x/conn/v3=../conn
+  - dir: ../host
+    cmd:
+    - go
+    - get
+    - -t
+    - ./...
+  - dir: ../host
+    cmd:
+    - go
+    - test
+    - -short
+    - ./...
+  # Test in advance: devices
+  - dir: ..
+    cmd:
+    - git
+    - clone
+    - --depth
+    - 1
+    - https://github.com/periph/devices
+  - dir: ../devices
+    cmd:
+    - go
+    - mod
+    - edit
+    - -replace=periph.io/x/conn/v3=../conn
+  - dir: ../devices
+    cmd:
+    - go
+    - get
+    - -t
+    - ./...
+  - dir: ../devices
+    cmd:
+    - go
+    - test
+    - -short
+    - ./...
+  # Test in advance: cmd
+  - dir: ..
+    cmd:
+    - git
+    - clone
+    - --depth
+    - 1
+    - https://github.com/periph/cmd
+  - dir: ../cmd
+    cmd:
+    - go
+    - mod
+    - edit
+    - -replace=periph.io/x/conn/v3=../conn
+  - dir: ../cmd
+    cmd:
+    - go
+    - get
+    - -t
+    - ./...
+  - dir: ../cmd
+    cmd:
+    - go
+    - test
+    - -short
+    - ./...
+  # Test commands.
+  - dir: ../cmd
+    cmd:
+    - go
+    - install
+    - -v
+    - ./gpio-list
+    - ./headers-list
+    - ./i2c-list
+    - ./periph-info
+    - ./periph-smoketest
+    - ./spi-list
+  - cmd:
+    - periph-info
+  - cmd:
+    - gpio-list
+    - -f
+  - cmd:
+    - headers-list
+    - -f
+  - cmd:
+    - i2c-list
+  - cmd:
+    - spi-list
+  - cmd:
+    - periph-smoketest
+    - odroid-c1
+  - cmd:
+    - periph-smoketest
+    - i2c-testboard
+  - cmd:
+    - periph-smoketest
+    - onewire-testboard
+  - cmd:
+    - periph-smoketest
+    - spi-testboard
+  - cmd:
+    - periph-smoketest
+    - sysfs-benchmark
+    - -p
+    - 97
+    - -short
+
+# Raspberry Pi 3
+- name: raspberrypi-2f34
+  checks:
+  - cmd:
+    - go
+    - test
+    - -cover
+    - -bench=.
+    - -benchtime=1000ms
+    - -benchmem
+    - ./...
+  # Test in advance: host
+  - dir: ..
+    cmd:
+    - git
+    - clone
+    - --depth
+    - 1
+    - https://github.com/periph/host
+  - dir: ../host
+    cmd:
+    - go
+    - mod
+    - edit
+    - -replace=periph.io/x/conn/v3=../conn
+  - dir: ../host
+    cmd:
+    - go
+    - get
+    - -t
+    - ./...
+  - dir: ../host
+    cmd:
+    - go
+    - test
+    - -short
+    - ./...
+  # Test in advance: devices
+  - dir: ..
+    cmd:
+    - git
+    - clone
+    - --depth
+    - 1
+    - https://github.com/periph/devices
+  - dir: ../devices
+    cmd:
+    - go
+    - mod
+    - edit
+    - -replace=periph.io/x/conn/v3=../conn
+  - dir: ../devices
+    cmd:
+    - go
+    - get
+    - -t
+    - ./...
+  - dir: ../devices
+    cmd:
+    - go
+    - test
+    - -short
+    - ./...
+  # Test in advance: cmd
+  - dir: ..
+    cmd:
+    - git
+    - clone
+    - --depth
+    - 1
+    - https://github.com/periph/cmd
+  - dir: ../cmd
+    cmd:
+    - go
+    - mod
+    - edit
+    - -replace=periph.io/x/conn/v3=../conn
+  - dir: ../cmd
+    cmd:
+    - go
+    - get
+    - -t
+    - ./...
+  - dir: ../cmd
+    cmd:
+    - go
+    - test
+    - -short
+    - ./...
+  # Test commands.
+  - dir: ../cmd
+    cmd:
+    - go
+    - install
+    - -v
+    - ./gpio-list
+    - ./headers-list
+    - ./i2c-list
+    - ./periph-info
+    - ./periph-smoketest
+    - ./spi-list
+  - cmd:
+    - periph-info
+  - cmd:
+    - gpio-list
+    - -f
+  - cmd:
+    - headers-list
+    - -f
+  - cmd:
+    - i2c-list
+  - cmd:
+    - spi-list
+  - cmd:
+    - periph-smoketest
+    - i2c-testboard
+  - cmd:
+    - periph-smoketest
+    - onewire-testboard
+    - -i2cbus
+    - 1
+  - cmd:
+    - periph-smoketest
+    - spi-testboard
+  - cmd:
+    - periph-smoketest
+    - sysfs-benchmark
+    - -p
+    - 12
+    - -short
+  - cmd:
+    - periph-smoketest
+    - bcm283x-benchmark
+    - -p
+    - 12
+    - -short
+  - cmd:
+    - periph-smoketest
+    - gpio
+    - -pin1
+    - P1_15
+    - -pin2
+    - P1_16
+  - cmd:
+    - periph-smoketest
+    - bcm283x
+    - -quick
+
+# Old MacBook Pro on 10.9.
+- name: mbp
+  checks:
+  - cmd:
+    - go
+    - test
+    - -cover
+    - -bench=.
+    - -benchtime=1000ms
+    - -benchmem
+    - ./...
+  # Test in advance: host
+  - dir: ..
+    cmd:
+    - git
+    - clone
+    - --depth
+    - 1
+    - https://github.com/periph/host
+  - dir: ../host
+    cmd:
+    - go
+    - mod
+    - edit
+    - -replace=periph.io/x/conn/v3=../conn
+  - dir: ../host
+    cmd:
+    - go
+    - get
+    - -t
+    - ./...
+  - dir: ../host
+    cmd:
+    - go
+    - test
+    - -short
+    - ./...
+  # Test in advance: devices
+  - dir: ..
+    cmd:
+    - git
+    - clone
+    - --depth
+    - 1
+    - https://github.com/periph/devices
+  - dir: ../devices
+    cmd:
+    - go
+    - mod
+    - edit
+    - -replace=periph.io/x/conn/v3=../conn
+  - dir: ../devices
+    cmd:
+    - go
+    - get
+    - -t
+    - ./...
+  - dir: ../devices
+    cmd:
+    - go
+    - test
+    - -short
+    - ./...
+  # Test in advance: cmd
+  - dir: ..
+    cmd:
+    - git
+    - clone
+    - --depth
+    - 1
+    - https://github.com/periph/cmd
+  - dir: ../cmd
+    cmd:
+    - go
+    - mod
+    - edit
+    - -replace=periph.io/x/conn/v3=../conn
+  - dir: ../cmd
+    cmd:
+    - go
+    - get
+    - -t
+    - ./...
+  - dir: ../cmd
+    cmd:
+    - go
+    - test
+    - -short
+    - ./...
+  # Test commands.
+  - dir: ../cmd
+    cmd:
+    - go
+    - install
+    - -v
+    - ./gpio-list
+    - ./headers-list
+    - ./i2c-list
+    - ./periph-info
+    - ./periph-smoketest
+    - ./spi-list
+  - cmd:
+    - periph-info
+  - cmd:
+    - gpio-list
+    - -f
+  - cmd:
+    - headers-list
+    - -f
+  - cmd:
+    - i2c-list
+  - cmd:
+    - spi-list
+
+# Laptop on Windows 10.
+- name: win10
+  checks:
+  - cmd:
+    - go
+    - test
+    - -cover
+    - -bench=.
+    - -benchtime=1000ms
+    - -benchmem
+    - ./...
+  # Test in advance: host
+  - dir: ..
+    cmd:
+    - git
+    - clone
+    - --depth
+    - 1
+    - https://github.com/periph/host
+  - dir: ../host
+    cmd:
+    - go
+    - mod
+    - edit
+    - -replace=periph.io/x/conn/v3=../conn
+  - dir: ../host
+    cmd:
+    - go
+    - get
+    - -t
+    - ./...
+  - dir: ../host
+    cmd:
+    - go
+    - test
+    - -short
+    - ./...
+  # Test in advance: devices
+  - dir: ..
+    cmd:
+    - git
+    - clone
+    - --depth
+    - 1
+    - https://github.com/periph/devices
+  - dir: ../devices
+    cmd:
+    - go
+    - mod
+    - edit
+    - -replace=periph.io/x/conn/v3=../conn
+  - dir: ../devices
+    cmd:
+    - go
+    - get
+    - -t
+    - ./...
+  - dir: ../devices
+    cmd:
+    - go
+    - test
+    - -short
+    - ./...
+  # Test in advance: cmd
+  - dir: ..
+    cmd:
+    - git
+    - clone
+    - --depth
+    - 1
+    - https://github.com/periph/cmd
+  - dir: ../cmd
+    cmd:
+    - go
+    - mod
+    - edit
+    - -replace=periph.io/x/conn/v3=../conn
+  - dir: ../cmd
+    cmd:
+    - go
+    - get
+    - -t
+    - ./...
+  - dir: ../cmd
+    cmd:
+    - go
+    - test
+    - -short
+    - ./...
+  # Test commands.
+  - dir: ../cmd
+    cmd:
+    - go
+    - install
+    - -v
+    - ./gpio-list
+    - ./headers-list
+    - ./i2c-list
+    - ./periph-info
+    - ./periph-smoketest
+    - ./spi-list
+  - cmd:
+    - periph-info
+  - cmd:
+    - gpio-list
+    - -f
+  - cmd:
+    - headers-list
+    - -f
+  - cmd:
+    - i2c-list
+  - cmd:
+    - spi-list
