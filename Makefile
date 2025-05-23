@@ -9,7 +9,12 @@ PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):`pwd`/node_modules/.bin:${PATH}"
 GIT_REVISION = $(shell git rev-parse HEAD | tr -d '\n')
 TAG_VERSION?=$(shell ./etc/dev-version.sh | sed 's/^v//')
 DATE_COMPILED?=$(shell date +'%Y-%m-%d')
-COMMON_LDFLAGS = -s -w -X 'go.viam.com/rdk/config.Version=${TAG_VERSION}' -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}' -X 'go.viam.com/rdk/config.DateCompiled=${DATE_COMPILED}'
+COMMON_LDFLAGS = -X 'go.viam.com/rdk/config.Version=${TAG_VERSION}' -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}' -X 'go.viam.com/rdk/config.DateCompiled=${DATE_COMPILED}'
+ifdef BUILD_DEBUG
+	GCFLAGS = -gcflags "-N -l"
+else
+	COMMON_LDFLAGS += -s -w
+endif
 LDFLAGS = -ldflags "-extld=$(shell pwd)/etc/ld_wrapper.sh $(COMMON_LDFLAGS)"
 
 default: build lint server
@@ -29,7 +34,7 @@ GOARCH ?= $(shell go env GOARCH)
 bin/$(GOOS)-$(GOARCH)/viam-cli: $(GO_FILES) Makefile go.mod go.sum
 	# no_cgo necessary here because of motionplan -> nlopt dependency.
 	# can be removed if you can run CGO_ENABLED=0 go build ./cli/viam on your local machine.
-	go build $(LDFLAGS) -tags osusergo,netgo,no_cgo -o $@ ./cli/viam
+	go build $(GCFLAGS) $(LDFLAGS) -tags osusergo,netgo,no_cgo -o $@ ./cli/viam
 
 .PHONY: cli
 cli: bin/$(GOOS)-$(GOARCH)/viam-cli
@@ -75,19 +80,19 @@ test-go-no-race: tool-install
 
 server:
 	rm -f $(BIN_OUTPUT_PATH)/viam-server
-	go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/main.go
+	go build $(GCFLAGS) $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/main.go
 
 server-static:
 	rm -f $(BIN_OUTPUT_PATH)/viam-server
-	VIAM_STATIC_BUILD=1 GOFLAGS=$(GOFLAGS) go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/main.go
+	VIAM_STATIC_BUILD=1 GOFLAGS=$(GOFLAGS) go build $(GCFLAGS) $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/main.go
 
 full-static:
 	mkdir -p bin/static
-	go build -tags no_cgo,osusergo,netgo -ldflags="-extldflags=-static $(COMMON_LDFLAGS)" -o bin/static/viam-server-$(shell go env GOARCH) ./web/cmd/server
+	go build -tags no_cgo,osusergo,netgo $(GCFLAGS) -ldflags="-extldflags=-static $(COMMON_LDFLAGS)" -o bin/static/viam-server-$(shell go env GOARCH) ./web/cmd/server
 
 windows:
 	mkdir -p bin/windows
-	GOOS=windows go build -tags no_cgo -ldflags="-extldflags=-static $(COMMON_LDFLAGS)" -o bin/windows/viam-server-$(shell go env GOARCH).exe ./web/cmd/server
+	GOOS=windows go build -tags no_cgo -$(GCFLAGS) ldflags="-extldflags=-static $(COMMON_LDFLAGS)" -o bin/windows/viam-server-$(shell go env GOARCH).exe ./web/cmd/server
 	cd bin/windows && zip viam.zip viam-server-$(shell go env GOARCH).exe
 
 server-static-compressed: server-static
