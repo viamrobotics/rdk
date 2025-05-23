@@ -44,7 +44,7 @@ func (t *Triangle) Area() float64 {
 	return edge1.Cross(edge2).Norm() / 2.0
 }
 
-// Centroid calculates the point that represents the centroid of the triangle
+// Centroid calculates the point that represents the centroid of the triangle.
 func (t *Triangle) Centroid() r3.Vector {
 	return t.p0.Add(t.p1).Add(t.p2).Mul(1. / 3.)
 }

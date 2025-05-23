@@ -37,5 +37,4 @@ func TestBasicTriangleFunctions(t *testing.T) {
 			test.That(t, tri2.Points()[i], test.ShouldResemble, NewPoint(expectedPts[i], "").Transform(tf).Pose().Point())
 		}
 	})
-
 }
