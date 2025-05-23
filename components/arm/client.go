@@ -3,6 +3,7 @@ package arm
 
 import (
 	"context"
+	"sync"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
@@ -23,8 +24,10 @@ type client struct {
 	resource.TriviallyCloseable
 	name   string
 	client pb.ArmServiceClient
-	model  referenceframe.Model
 	logger logging.Logger
+
+	mu    sync.Mutex
+	model referenceframe.Model
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -165,6 +168,9 @@ func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
 }
 
 func (c *client) Kinematics(ctx context.Context) (referenceframe.Model, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	// for performance we cache the model after building it once, and can quickly return if its already been created.
 	if c.model == nil {
 		resp, err := c.client.GetKinematics(ctx, &commonpb.GetKinematicsRequest{Name: c.name})

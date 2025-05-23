@@ -141,18 +141,22 @@ func (c *client) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 }
 
 func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.model != nil && len(c.model.DoF()) != 0 {
+	model, err := c.Kinematics(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if model != nil && len(model.DoF()) != 0 {
 		return nil, errors.New("CurrentInputs is unimplemented for gripper models with DoF != 0")
 	}
 	return []referenceframe.Input{}, nil
 }
 
-func (c *client) GoToInputs(context.Context, ...[]referenceframe.Input) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.model != nil && len(c.model.DoF()) != 0 {
+func (c *client) GoToInputs(ctx context.Context, inputs ...[]referenceframe.Input) error {
+	model, err := c.Kinematics(ctx)
+	if err != nil {
+		return err
+	}
+	if model != nil && len(model.DoF()) != 0 {
 		return errors.New("GoToInputs is unimplemented for gripper models with DoF != 0")
 	}
 	return nil
